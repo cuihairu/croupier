@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../core/api/api_error.dart';
+import '../../core/function/function_spec.dart';
+import '../../core/function/function_spec_service.dart';
 import '../scope/scope_controller.dart';
 import 'approval_service.dart';
 
@@ -29,8 +31,8 @@ class ApprovalsState {
   final bool loadingMore;
   final String? error;
 
-  /// functionId → 描述符摘要（高危 / 两人复核标签）。
-  final Map<String, FunctionDescInfo> descs;
+  /// functionId → 描述符（高危 / 两人复核标签）。
+  final Map<String, FunctionSpec> descs;
 
   bool get hasMore => items.length < total;
 
@@ -43,7 +45,7 @@ class ApprovalsState {
     bool? loadingMore,
     String? error,
     bool clearError = false,
-    Map<String, FunctionDescInfo>? descs,
+    Map<String, FunctionSpec>? descs,
   }) {
     return ApprovalsState(
       items: items ?? this.items,
@@ -102,17 +104,28 @@ class ApprovalsController extends Notifier<ApprovalsState> {
     await _fetch(reset: true);
   }
 
+  /// 描述符索引（高危 / 两人复核标签数据源）。缺 scope 或请求失败都不阻塞
+  /// 列表——只是没有标签。
   Future<void> loadDescriptors() async {
-    final service = await _serviceAsync();
+    final service = await _specServiceAsync();
     if (service == null) return;
     try {
-      final list = await service.fetchDescriptors();
+      final list = await service.list();
       state = state.copyWith(descs: {for (final d in list) d.id: d});
     } on ApiError {
-      // 标签数据缺失不阻塞列表；无标签展示（当前 descriptors 无 risk 字段）。
+      // 标签数据缺失不阻塞列表。
     } on StateError {
       // 同上。
     }
+  }
+
+  Future<FunctionSpecService?> _specServiceAsync() async {
+    final session = await ref.read(sessionStoreProvider).load();
+    final serverUrl = session?.serverUrl ?? '';
+    if (serverUrl.isEmpty) return null;
+    return FunctionSpecService(
+      client: ref.read(apiClientFactoryProvider)(serverUrl),
+    );
   }
 
   Future<void> _fetch({required bool reset}) async {

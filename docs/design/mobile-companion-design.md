@@ -369,10 +369,36 @@ jobs:
       - run: flutter test
       # 构建烟测（M2-E 追加）：验证 android/ 工程与原生依赖可编译，不产 artifact。
       - run: flutter build apk --debug
+
+  # APK 产物流水线（M4 追加）：手动触发产可下载 release APK。
+  apk:
+    if: github.event_name == 'workflow_dispatch'
+    needs: flutter # 门禁绿才产产物
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.35.1
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release # debug keystore 签名（模板默认）
+      - uses: actions/upload-artifact@v7
+        with:
+          name: croupier-mobile-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+          if-no-files-found: error
 ```
 
 - `flutter analyze` / `dart format` 零容忍，对齐仓库「tsc 0 错」门禁纪律；
 - Android 构建烟测（`flutter build apk --debug`）已随 M2-E 追加入工作流（仅验证 android/ 工程可编译，不产 artifact）；
+- APK 产物流水线（M4 追加）：`workflow_dispatch` 手动触发 → 门禁 job 绿 → `flutter build apk --release` → `upload-artifact`（14 天保留、`if-no-files-found: error`）——产物可下载验收即以 GitHub Actions artifact 为准；签名沿用 debug keystore（仓库暂无正式发布签名配置，`android/app/build.gradle.kts` 模板默认），定位内部分发/侧载，对外发布签名列后续项；
 - 本机工具链（`~/.local/flutter` 3.35.1 + `~/android-sdk`，`ANDROID_HOME` 已配）用于本地真机调试与 APK 侧载产物，CI 不依赖本机。
 
 ## 8. 分批实施计划
@@ -398,7 +424,7 @@ M1 已分五切片全部合入 main（de4dfd3 工程脚手架 + core 层 → da3
 - **设置页**：会话信息（用户/scope/服务器地址）+ 更换地址（清会话回登录 + 新地址预填登录表单）+ ntfy / 生物门禁禁用占位（M3/M2 边界明示）；
 - **质量门禁**：`flutter analyze` 0 告警、`dart format` 零 diff、`flutter test` 72 用例全绿；`ci-mobile.yml` 上线（钉版 3.35.1）。
 
-**M1 验收标准修订（诚实边界）**：原验收「真机完成生物+函数 ID+OTP 全链」未全额达成——批准实际为**单段确认**：① 生物识别（local_auth）按批次表归 M2 引入；② `POST /api/v1/approvals/{id}/approve` 后端只读 URI 不读请求体，step-up TOTP 的 `otp` 无落点（见 §9 边界，待后端立项）。其余验收项（analyze/test 全绿、CI 工作流上线）达成；「真机全链」验收顺延至 step-up 补齐后，M1 以 CI 门禁 + 模拟器测试替代。
+**M1 验收标准修订（诚实边界）**：原验收「真机完成生物+函数 ID+OTP 全链」未全额达成——批准实际为**单段确认**：① 生物识别（local_auth）按批次表归 M2 引入；② `POST /api/v1/approvals/{id}/approve` 后端只读 URI 不读请求体，step-up TOTP 的 `otp` 无落点（见 §9 边界，已立项 #75）。其余验收项（analyze/test 全绿、CI 工作流上线）达成；「真机全链」验收顺延至 step-up 补齐后，M1 以 CI 门禁 + 模拟器测试替代。
 
 ### 8.2 M2 落地事实（2026-09-30）
 
@@ -440,7 +466,7 @@ M2 收口后的独立插单（需求点名）：① 首次启动（未配置过�
 - **M2 实测（2026-09-30）**：审计列表 DTO 不出参 hash/prevHash（审计链哈希仅 chain/verify 端点暴露）——移动端按可选字段预留「有值才显示」语义，后端补出参即自动生效；当前行展开仅 target/traceId/metadata；
 - **服务器配置面（2026-09-30）**：登出/401 清会话但**保留服务器地址**（配置与凭据分层）——登录页预填原地址；设置页改地址须连通探测通过才放行（`GET /api/v1/public/site`，200 且 JSON 对象形态；SPA HTML 兜底不计为可达）；存储块损坏按「从未配置」进向导重新配置；
 - **服务器配置面（2026-09-30）**：探测仅验证「可达且像 Croupier 服务」（公开端点返回 JSON），不验证账号/版本兼容性；登录后的授权校验仍由既有 401 链路兜底；
-- **M1 实测（2026-09-30）**：`POST /api/v1/approvals/{id}/approve` 后端只 `ShouldBindUri` 不读请求体——step-up TOTP 的 `otp` 无落点，高危批准当前降级为单段确认（设计稿 §2.1 三段确认中的 OTP 段待后端补 otp 落点后接线，列后端立项项）；
+- **M1 实测（2026-09-30）**：`POST /api/v1/approvals/{id}/approve` 后端只 `ShouldBindUri` 不读请求体——step-up TOTP 的 `otp` 无落点，高危批准当前降级为单段确认（设计稿 §2.1 三段确认中的 OTP 段待后端补 otp 落点后接线——**已立项 #75**（2026-09-30，含 Web 端同缺口证据与验收清单），落点合入后双端恢复三段确认）；
 - **M1 实测（2026-09-30）**：`GET /api/v1/functions/descriptors` 返回项无 `risk` / `approvalRequired` 字段（Web 端 descMap 同样拿不到）——审批行高危/两人复核标签按向前兼容解析实现，后端字段补上即自动生效；标签缺失不阻塞列表（修正上条设计期假设：标签来源是 descriptors 端点而非 `GET /api/v1/functions` 列表）；
 - 生物识别（local_auth）与 ntfy 推送分别为 M2 / M3 交付；设置页对应开关以禁用占位明示，不冒充可用；
 - 高危判定的描述符映射依赖 `GET /api/v1/functions` 列表数据：函数列表拉取失败时审批行降级为「风险未知」；设计期意图为「标签缺失仍强制走全三段 step-up（宁可多确认）」——M1 实测后该意图受上面 otp 落点边界约束，当前为单段确认（见上方 M1 实测条目）；

@@ -151,4 +151,168 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('暂无审计记录'), findsOneWidget);
   });
+
+  testWidgets('加载更多：第二页累积 + hasMore 收口后按钮消失', (
+    WidgetTester tester,
+  ) async {
+    final queries = <Uri>[];
+    adapter.handler = (options, _) {
+      queries.add(options.uri);
+      final page = options.uri.queryParameters['page'];
+      return jsonResponse(200, {
+        'items': [
+          {
+            'id': 'au-$page-1',
+            'action': 'invoke',
+            'createdAt': '2026-09-30 10:00',
+          },
+        ],
+        'total': 2,
+      });
+    };
+    await pumpAudit(tester);
+
+    expect(find.textContaining('共 2 条'), findsOneWidget);
+    expect(find.byKey(const ValueKey('audit-load-more')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('audit-load-more')));
+    await tester.pumpAndSettle();
+
+    expect(queries, hasLength(2));
+    expect(queries.last.queryParameters['page'], '2');
+    expect(find.byKey(const ValueKey('audit-card-au-2-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('audit-load-more')), findsNothing);
+  });
+
+  testWidgets('卡片展开：target/traceId/metadata 全空显「无附加信息」', (
+    WidgetTester tester,
+  ) async {
+    adapter.handler = (options, _) => jsonResponse(200, {
+      'items': [
+        // metadata 显式空 map：令 `metadata == null || metadata.isEmpty`
+        // 的短路右侧求值（null 场景走短路，行覆盖缺 376）。
+        {'id': 'au-bare', 'action': 'invoke', 'createdAt': '2026-09-30 10:00', 'metadata': <String, Object>{}},
+      ],
+      'total': 1,
+    });
+    await pumpAudit(tester);
+
+    await tester.tap(find.byKey(const ValueKey('audit-card-au-bare')));
+    await tester.pumpAndSettle();
+    expect(find.text('无附加信息'), findsOneWidget);
+  });
+
+  testWidgets('下拉刷新重放第一页', (WidgetTester tester) async {
+    final queries = <Uri>[];
+    adapter.handler = (options, _) {
+      queries.add(options.uri);
+      return jsonResponse(200, {
+        'items': [
+          {'id': 'au-1', 'action': 'invoke', 'createdAt': '2026-09-30 10:00'},
+        ],
+        'total': 1,
+      });
+    };
+    await pumpAudit(tester);
+    expect(queries, hasLength(1));
+
+    await tester.fling(find.byType(ListView), const Offset(0, 400), 1000);
+    await tester.pumpAndSettle();
+
+    expect(queries, hasLength(2));
+    expect(queries.last.queryParameters['page'], '1');
+  });
+
+  testWidgets('自定义 kind chip 再点移除（取消勾选）', (WidgetTester tester) async {
+    final queries = <Uri>[];
+    adapter.handler = (options, _) {
+      queries.add(options.uri);
+      return jsonResponse(200, {'items': [], 'total': 0});
+    };
+    await pumpAudit(tester);
+
+    await tester.tap(find.byKey(const ValueKey('audit-filter-open')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('audit-kind-custom')),
+      'zzz_op',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('audit-kind-add')));
+    await tester.pumpAndSettle();
+
+    final chip = find.byKey(const ValueKey('audit-kind-custom-zzz_op'));
+    await tester.dragUntilVisible(
+      chip,
+      find.byType(ListView).last,
+      const Offset(0, -80),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+    expect(chip, findsNothing, reason: '再点自定义 chip 应整块移除');
+
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey('audit-filter-apply')),
+      find.byType(ListView).last,
+      const Offset(0, -120),
+    );
+    await tester.tap(find.byKey(const ValueKey('audit-filter-apply')));
+    await tester.pumpAndSettle();
+    expect(
+      queries.last.queryParameters['kinds'],
+      isNull,
+      reason: '移除后 kinds 为空，请求不带 kinds 参数',
+    );
+  });
+
+  testWidgets('时间区间：picker 回填 + 提交 RFC3339 归一（end 23:59:59）', (
+    WidgetTester tester,
+  ) async {
+    final queries = <Uri>[];
+    adapter.handler = (options, _) {
+      queries.add(options.uri);
+      return jsonResponse(200, {'items': [], 'total': 0});
+    };
+    await pumpAudit(tester);
+
+    await tester.tap(find.byKey(const ValueKey('audit-filter-open')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('audit-filter-range')));
+    await tester.pumpAndSettle();
+
+    // 初始区间（今天-7 ~ 今天）落在当月；.first 取当月网格（宽屏双月时
+    // 左侧即当月，邻月补位不含 15/20 不产生误匹配）。
+    await tester.tap(find.text('15').first);
+    await tester.pump();
+    await tester.tap(find.text('20').first);
+    await tester.pump();
+    // M3 DateRangePickerDialog 确认按钮为 Save（saveButtonLabel）。
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // chip label 回填日期区间（_rangeDate 渲染）。
+    final month = DateTime.now().month.toString().padLeft(2, '0');
+    expect(
+      find.textContaining('${DateTime.now().year}-$month-15 ~ ${DateTime.now().year}-$month-20'),
+      findsOneWidget,
+    );
+
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey('audit-filter-apply')),
+      find.byType(ListView).last,
+      const Offset(0, -120),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('audit-filter-apply')));
+    await tester.pumpAndSettle();
+
+    final start = queries.last.queryParameters['start'];
+    final end = queries.last.queryParameters['end'];
+    expect(start, startsWith('${DateTime.now().year}-$month-15T00:00:00'));
+    expect(end, startsWith('${DateTime.now().year}-$month-20T23:59:59'));
+    // RFC3339 必须带时区 offset（否则服务端静默忽略）。
+    expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(start!), isTrue);
+    expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(end!), isTrue);
+  });
 }

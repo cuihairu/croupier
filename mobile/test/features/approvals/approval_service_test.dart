@@ -92,26 +92,4 @@ void main() {
     expect(adapter.lastRequest?.path, '/api/v1/approvals/a1/reject');
     expect(adapter.lastBody, contains('"reason":"不当操作"'));
   });
-
-  test('fetchDescriptors 解析 items（risk/approvalRequired 向前兼容）', () async {
-    adapter.handler = (options, _) => jsonResponse(200, {
-      'items': [
-        {
-          'id': 'player.kick',
-          'name': '踢人',
-          'risk': 'high',
-          'approvalRequired': true,
-        },
-        {'id': 'player.info', 'name': '查询'},
-      ],
-    });
-
-    final descs = await service.fetchDescriptors();
-
-    expect(descs, hasLength(2));
-    expect(descs.first.risk, 'high');
-    expect(descs.first.approvalRequired, isTrue);
-    expect(descs.last.risk, '');
-    expect(descs.last.approvalRequired, isFalse);
-  });
 }

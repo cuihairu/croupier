@@ -2445,3 +2445,49 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 4354 绿、5 套件 7 用例失败——Approvals/Extensions Store/Functions History/
 > previewActions/serverPushdown 全 timeout 形态且均他域既有绿套件，
 > 隔离复跑 5 套件 110/110 绿（152s）定责负载型非回归；Profile 套件全量中绿。
+
+## 2026-09-30 Round 47 收尾：推送 + CI 全绿（wt-api，`b4ee6ce`）
+
+> 推送链：fetch → rebase origin/main（零冲突，todo.md 台账合流保双方）→ 双推
+> main（`7c2d230..b4ee6ce`）与 wt-api；Core/Docker/CodeQL/Docs 对该提交全绿。
+> CI - Dashboard run `36689396013` 的 dashboard-quality 前 5 次尝试**全部环境性、
+> 零真实用例失败**（各次日志 178-213 套件 PASS、0 个 ✕/FAIL）：attempt 1 死于
+> job 60min 上限；attempt 2-5 死于 GitHub hosted runner「The runner has received a
+> shutdown signal」（3 个不同 runner 实例、27-32min 处被回收）。同签名故障在本
+> 会话推送前已现（01:46 d466b4b、02:29 ea84dc0 两次同签名挂），非本提交回归；
+> `ci-dashboard.yml` 无 concurrency 组，且 28bcbbd/00cb1d9 两次 push 因 paths
+> 过滤未触发该 workflow，排除 push 自动取消。当日 00:14-01:52 三连绿各 38min
+> 证明 job 本体需 ~35-40min，回收窗口内 4/4 命中即死。13:24 双探针（`2388c30`/
+> `7b5a73b` 的 dashboard-quality 各 26.7/32min 转绿、双存活）确认窗口转移后重跑
+> attempt 6 **全绿**（run conclusion=success，4 job 全 success，dashboard-quality
+> 13:51→14:26 UTC 共 35.5min）。本地佐证：全量 jest 354 套件 4307 用例 exit=0、
+> guard PASSED。已知边界：GitHub hosted runner 长 job 概率性回收属基础设施退化，
+> 若复发须重试至非回收窗口（45min step/60min job 上限内本 job 可完成）。
+
+## 覆盖率巡检批次·Go 侧第四十八轮·api/cicd Create enabled 翼收口（wt-api worktree，2026-09-30）
+
+> 交付：全量 profile 重排（**99.949%**，64112/64145 语句，21 文件 33 语句
+> 余量）——逐行对账第 3-28 轮台账后，**31 语句与既有登记/回避面行号级
+> 精确吻合**（3a3a680 CodeQL 整型收窄修复零新增缺口，layered.go 新分支
+> 由同提交 layered_performance_test 覆盖），唯一无主块为
+> `api/cicd/service.go:219`——Create 的 `if req.Enabled != nil
+{ row.Enabled = *req.Enabled }` 赋值体，其唯一天然用例正是 t.Skip 的
+> 已知缺陷用例（显式 false 被 gorm:"default:true" 驱动层丢弃）。
+> 本批以**显式 true 指针路径**合法收口（true 非零值不涉丢列缺陷）+
+> 键缺省 nil 指针对照臂：新增 `create_enabled_wing_r48_test.go` 1 用例，
+> api/cicd **97.9% → 98.2%**；service.go 余 2 块恰为既有登记
+> （:93 normalizeExtra float64 / :374 Trigger ExternalID）。
+> **坑实证（新档）**：GORM `First(&row)` 复用带主键 struct 会把既有主键
+> 并入查询条件——同用例内第二次按非主键列查询须换新变量，否则恒
+> record not found。
+> 顺带定性（不代改他会话域）：全量 profile 轮 approvals
+> `TestWebSocketHub_Run` 一次失败——`Unregister` 异步 channel 派发与
+> Run loop map 移除间的竞态窗口被满载（load 40-111）放大；单测/单包
+> 复跑双绿、域零改动，判负载性偶发非回归。全量门禁另被系统内存压力
+> 回收一次（机器 48Gi/51Gi 占用、swap 满、load 107——并行会话
+> heavyweight），挂恢复观察哨（avail>20Gi && load5<60）后于窗口内
+> 重跑 **158 包全绿 exit=0**。
+> 回避面维持：otp/otpauth.go（d9fdc05 会话 OTP 域）、
+> api/assignment/gate.go（BUG-035 域）——各 2 语句。
+> 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/...
+> 全绿（fresh，恢复窗口执行）。

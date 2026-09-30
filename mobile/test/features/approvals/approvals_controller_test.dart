@@ -154,6 +154,58 @@ void main() {
     expect(listCalls, 2, reason: 'scope 切换应触发列表 refresh');
   });
 
+  test(
+    'loadDescriptors 解析 {functions} 并建 functionId→risk/approval 索引',
+    () async {
+      adapter.handler = (options, _) => jsonResponse(200, {
+        'functions': [
+          {
+            'id': 'player.kick',
+            'risk': 'danger',
+            'approval': {'required': true, 'policyKey': 'two.person'},
+          },
+          {'id': 'player.info', 'risk': 'safe'},
+        ],
+      });
+      final container = makeContainer();
+
+      await container
+          .read(approvalsControllerProvider.notifier)
+          .loadDescriptors();
+
+      final descs = container.read(approvalsControllerProvider).descs;
+      expect(descs.keys.toSet(), {'player.kick', 'player.info'});
+      expect(descs['player.kick']!.isHighRisk, isTrue);
+      expect(descs['player.kick']!.approvalRequired, isTrue);
+      expect(descs['player.kick']!.approvalPolicyKey, 'two.person');
+      expect(descs['player.info']!.isHighRisk, isFalse);
+    },
+  );
+
+  test('loadDescriptors 失败静默（标签缺失不阻塞列表）', () async {
+    adapter.handler = (options, _) =>
+        jsonResponse(500, {'error': 'internal', 'message': 'boom'});
+    final container = makeContainer();
+
+    await container
+        .read(approvalsControllerProvider.notifier)
+        .loadDescriptors();
+
+    expect(container.read(approvalsControllerProvider).descs, isEmpty);
+    expect(container.read(approvalsControllerProvider).error, isNull);
+  });
+
+  test('loadDescriptors 非法形态静默（StateError 不外泄）', () async {
+    adapter.handler = (options, _) => jsonResponse(200, {'data': <Object>[]});
+    final container = makeContainer();
+
+    await container
+        .read(approvalsControllerProvider.notifier)
+        .loadDescriptors();
+
+    expect(container.read(approvalsControllerProvider).descs, isEmpty);
+  });
+
   test('error 态：服务端 500 → error 透传', () async {
     adapter.handler = (options, _) =>
         jsonResponse(500, {'error': 'internal', 'message': '服务不可用'});
