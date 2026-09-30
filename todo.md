@@ -2052,3 +2052,28 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >    Button 自动插空格（编 辑/删 除，Tag 不插）。
 >    门禁：目标套件 12/12 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 >    口径见交付说明。
+
+## 2026-09-29 Round 41（wt-api）：Ops/Certificates 覆盖收口 100/98.79/100/100——零测试页排行第五 + 分页回弹真缺陷修定
+
+> 覆盖率巡检第五站：`web/src/pages/Ops/Certificates/index.tsx`（460 行 0%）。
+> 11 用例；本轮修定 **一处真缺陷**（回归锁定）：
+>
+> - **分页回弹**：`useEffect(() => load(1, ...), [load, size, status])` 而
+>   load 身份随 page 重建——翻第 2 页 → setPage(2) → effect 复跑
+>   load(1,...)，任何翻页立即被拉回第 1 页（实证：4 连调用
+>   mount(1)→click(2)→bounce(1)→stable(1)）。修法：effect 只响应
+>   [size, status]（首挂载 + 筛选/页大小复位），分页由 Table onChange
+>   直驱。
+>   锁定契约——首拉载荷 {page:1,size:10,status:''}、渲染矩阵（域名
+>   port 缺省回 443、日期三列 formatDateTime、剩余天数三态含数值缺省
+>   双臂、状态四色 + 大写 toLowerCase 防御臂、派生链 pending/expiring/
+>   expired/valid、errorMessage 红「错误」Tag）、状态筛选选值/clear 复位、
+>   分页稳定（mock 回显请求页——响应页硬编码会把 mount 顶到第 2 页、
+>   点击落空，此为 mock 设计坑）、刷新、重新检查/检查全部/移除监听
+>   （confirm 取消/确认/失败三翼）、新增域名（required + 默认值
+>   port 443/alertDays 30 + 已添加 + 失败保持）、load 失败 + 响应缺省
+>   四右臂。
+>   **坑实证（新档）**：分页断言的 list mock 必须回显请求页
+>   （mockImplementation echo），响应 page 硬编码会自我干扰。
+>   门禁：目标套件 11/11 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+>   口径见交付说明。
