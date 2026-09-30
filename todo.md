@@ -2278,3 +2278,60 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 干净、`scripts/dashboard_vnext_guard.sh` PASSED、全量 jest 结果见交付
 > 说明。**偏差注明**：派发的 push 前 fetch --rebase 因 wt-pages 已推送
 > 分支禁 rebase（房规），改 `git merge origin/main` 后快进推送。
+
+## 第十六轮：配置管理页覆盖收口（Operations/Configs 五文件 0% → 4 文件 4×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试目录
+> 排行现席 `Operations/Configs`（index 273 + useConfigsPage 272 + schema 156
+>
+> - diff 102，约 800 行 0%）整目录收口，新增 `__tests__/index.test.tsx`
+>   17 用例，v8 口径：**diff.tsx / index.tsx / schema.tsx 三文件行/分支/函数/
+>   语句 4×100%，useConfigsPage.ts 行/语句/函数 100%、分支 91.17%**（余 6
+>   臂 = 六处 `if (!cur) return` 守卫，经 UI 不可达，登记见下）。
+>   锁定契约——列表与筛选：首拉空载荷 {}、六列渲染矩阵（Format Tag /
+>   gameId-env 空行 filter(Boolean) 右翼 / 8 行编辑按钮）、搜索实时 trim
+>   重拉 + 三下拉（game/env 选项由 rows distinct 派生）+ Enter/查询闭包重拉
+> - 重置回空载荷；全局 scope 联动（setScope 双值同步 + merge 语义下换
+>   游戏保环境）；load 失败 toast + `{}` / undefined 响应双右翼。
+>   编辑弹窗：openItem 兜底链（fmt→r.format→json、content/version/gameId/
+>   env 五 `?.` 翼 + r nullish 五翼）、标题 `${id} (${fmt}) v${version||''}`
+>   （version 0/undefined 均落 'v' 尾）、getConfig 失败 toast、csv 预览
+>   （\r\n 归一 + 空行过滤 + 逗号切列）、编辑器受控 + 弹窗格式切换（langOf
+>   七臂矩阵 + csv 预览卸载）、校验三态（通过 / errors join('\n') 透出 /
+>   无 errors 兜底「校验失败」）。
+>   保存版本：成功链（载荷 gameId/env 回退 toolbar 态 + baseVersion
+>   version||0 + message 无必填拦截——placeholder 标「必填」但 doSave 不
+>   校验，现状锁定 + toast `已保存版本 N` + 弹窗关 + reload + saveMsg 清空
+> - onCancel X 关闭翼）、失败翼弹窗保持、`已保存版本 undefined` 翼。
+>   历史版本与对比：列表行渲染（createdAt formatDateTime/'' 双翼 + `{}`
+>   响应空表右翼）、查看（content/format 回填 + version 不动——baseVersion
+>   语义 + verOpen 关闭 + value/format 空串右翼）、diff（MonacoDiff 桩受
+>   left/right + DiffView 真实算法矩阵：add-batch/add-tail/del-batch/
+>   del-tail/单点替换、del 红 rgb(255,241,240) / add 绿 rgb(246,255,237)、
+>   对侧空 div 占位、left 空双右翼）、回滚（confirm 文案模板内插 + onOk
+>   载荷三 `||` 回退翼双侧 + `rollback to v${ver}` + 成功「已回滚」+ 版本
+>   弹窗关 + reload + getVersion undefined 双右翼 + 失败翼弹窗保持）。
+>   **坑实证（新档，四条）**：① `@umijs/max` mock 工厂若引用工厂外 `const`
+>   变量，schema.tsx 模块顶层 `getIntl()` 在 import 期即触发——此时外层
+>   const 仍在 TDZ（`mock*` 前缀只过 babel hoist 白名单、不解 TDZ），intl
+>   对象必须工厂体内自包含构造；② jsdom textarea 读值把 `\r\n` 归一为
+>   `\n`——「编辑器显示原始 CRLF」的断言须按归一形态写（state 侧仍是
+>   CRLF，保存/校验载荷断言不受影响）；③ 弹窗标题与页内同名按钮碰撞
+>   （「历史版本」标题 vs 编辑弹窗内同名按钮）——关闭断言锚
+>   `.ant-modal-title` textContent 而非全文 queryByText，否则永不消失；
+>   ④ 上一用例 waitFor 超时路径会遗留未消费的 `mockResolvedValueOnce`
+>   队列（clearAllMocks 不清 Once），跨用例毒化函数源——表象是下一用例
+>   版本列表恒空，须修根因（标题碰撞）而非绕断言。
+>   **边界（诚实清单）**：① 六处 `if (!cur) return` 守卫（validate/
+>   doSave/openVersions/viewVersion/diffWithVersion/rollbackTo）经 UI 不可
+>   达——动作按钮仅在 `{cur && ...}` 分支内渲染，不造假用例（分支余量
+>   全部在此）；② validate/openVersions/viewVersion/diffWithVersion/
+>   rollbackTo 外层 async 无 try/catch——接口 reject 产生 unhandled
+>   rejection（组件现状缺陷，同 Store/AgentSync 巡检结论），不造假 reject
+>   场景；③ 编辑弹窗 title 三元 false 翼与 diff 弹窗 `cur?.format` nullish
+>   翼构造性不可达（弹窗仅经 cur 态按钮打开）；④ hasMonaco() 硬编码
+>   false，true 翼不可达——MonacoDiff 桩与 DiffView 恒同时渲染，按此断言。
+>   门禁：目标套件 17/17 绿、`pnpm --dir web run tsc` 0 错、eslint 干净、
+>   prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED、全量 jest
+>   2-worker 限流口径（load ~12 非空载窗口，如实注明）结果见交付说明。
+>   下一批候选（零测试目录排行余量）：按新快照重排。
