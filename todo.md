@@ -2239,3 +2239,21 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > reject 路径按惯例不造假（unhandled rejection 现状语义）。
 > 门禁：目标套件 8/8 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 > 口径见交付说明。
+
+## 2026-09-30 Round 47 收尾：推送 + CI 全绿（wt-api，`b4ee6ce`）
+
+> 推送链：fetch → rebase origin/main（零冲突，todo.md 台账合流保双方）→ 双推
+> main（`7c2d230..b4ee6ce`）与 wt-api；Core/Docker/CodeQL/Docs 对该提交全绿。
+> CI - Dashboard run `36689396013` 的 dashboard-quality 前 5 次尝试**全部环境性、
+> 零真实用例失败**（各次日志 178-213 套件 PASS、0 个 ✕/FAIL）：attempt 1 死于
+> job 60min 上限；attempt 2-5 死于 GitHub hosted runner「The runner has received a
+> shutdown signal」（3 个不同 runner 实例、27-32min 处被回收）。同签名故障在本
+> 会话推送前已现（01:46 d466b4b、02:29 ea84dc0 两次同签名挂），非本提交回归；
+> `ci-dashboard.yml` 无 concurrency 组，且 28bcbbd/00cb1d9 两次 push 因 paths
+> 过滤未触发该 workflow，排除 push 自动取消。当日 00:14-01:52 三连绿各 38min
+> 证明 job 本体需 ~35-40min，回收窗口内 4/4 命中即死。13:24 双探针（`2388c30`/
+> `7b5a73b` 的 dashboard-quality 各 26.7/32min 转绿、双存活）确认窗口转移后重跑
+> attempt 6 **全绿**（run conclusion=success，4 job 全 success，dashboard-quality
+> 13:51→14:26 UTC 共 35.5min）。本地佐证：全量 jest 354 套件 4307 用例 exit=0、
+> guard PASSED。已知边界：GitHub hosted runner 长 job 概率性回收属基础设施退化，
+> 若复发须重试至非回收窗口（45min step/60min job 上限内本 job 可完成）。
