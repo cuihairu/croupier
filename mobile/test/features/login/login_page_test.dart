@@ -23,6 +23,16 @@ void main() {
       ProviderScope(
         overrides: [
           sessionStoreProvider.overrideWithValue(store),
+          // 登录成功后主壳（scope 切换器/审批页）会用 apiClientFactory 发请求，
+          // 同样必须落到 fake adapter（否则真 HttpClient 被 test binding 拦 400）
+          apiClientFactoryProvider.overrideWithValue((baseUrl) {
+            final client = ApiClient.create(
+              baseUrl: baseUrl,
+              sessionStore: store,
+            );
+            client.dio.httpClientAdapter = adapter;
+            return client;
+          }),
           loginServiceFactoryProvider.overrideWithValue((baseUrl) {
             final client = ApiClient.create(
               baseUrl: baseUrl,
@@ -73,21 +83,44 @@ void main() {
   });
 
   testWidgets('双步第二跳：补 TOTP 后成功切已登录壳', (WidgetTester tester) async {
-    var calls = 0;
+    var loginCalls = 0;
     adapter.handler = (options, _) {
-      calls++;
-      if (calls == 1) {
-        return jsonResponse(401, {
-          'error': 'mfa_required',
-          'message': '需要动态验证码',
+      final path = options.uri.path;
+      if (path == '/api/v1/auth/login') {
+        loginCalls++;
+        if (loginCalls == 1) {
+          return jsonResponse(401, {
+            'error': 'mfa_required',
+            'message': '需要动态验证码',
+          });
+        }
+        return jsonResponse(200, {
+          'token': 'jwt-totp',
+          'user': {'username': 'admin'},
+          'lastGameId': 'demo',
+          'lastEnv': 'prod',
         });
       }
-      return jsonResponse(200, {
-        'token': 'jwt-totp',
-        'user': {'username': 'admin'},
-        'lastGameId': 'demo',
-        'lastEnv': 'prod',
-      });
+      // 登录成功后主壳挂载的后续请求：games 返回含 lastGameId 的列表（scope
+      // 预选生效），审批域给合法空数据
+      if (path == '/api/v1/profile/games') {
+        return jsonResponse(200, {
+          'games': [
+            {
+              'gameId': 'demo',
+              'gameName': '演示',
+              'envs': ['prod'],
+            },
+          ],
+        });
+      }
+      if (path == '/api/v1/approvals/') {
+        return jsonResponse(200, {'approvals': <Object>[], 'total': 0});
+      }
+      if (path == '/api/v1/functions/descriptors') {
+        return jsonResponse(200, {'items': <Object>[]});
+      }
+      return jsonResponse(404, {'error': 'not_found', 'message': path});
     };
     await pumpApp(tester);
 
@@ -96,8 +129,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('login-submit')));
     await tester.pumpAndSettle();
 
-    // App 根据会话探测切换到已登录占位壳
-    expect(find.byType(HomeStub), findsOneWidget);
+    // App 根据会话探测切换到主壳；games 预选 lastGameId/lastEnv → 顶栏 demo/prod
+    expect(find.byType(MainShell), findsOneWidget);
     expect(find.text('demo / prod'), findsOneWidget);
     expect((await store.load())?.token, 'jwt-totp');
   });
@@ -116,7 +149,7 @@ void main() {
 
     expect(find.text('无法在移动端完成登录'), findsOneWidget);
     expect(find.textContaining('改密'), findsWidgets);
-    expect(find.byType(HomeStub), findsNothing);
+    expect(find.byType(MainShell), findsNothing);
   });
 
   testWidgets('凭据错误：内联展示服务端 message，停留登录页', (WidgetTester tester) async {
@@ -141,7 +174,7 @@ void main() {
       ),
     );
     await pumpApp(tester);
-    expect(find.byType(HomeStub), findsOneWidget);
+    expect(find.byType(MainShell), findsOneWidget);
 
     await tester.tap(find.byTooltip('退出登录'));
     await tester.pumpAndSettle();

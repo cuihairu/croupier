@@ -27,7 +27,8 @@ class FakeDioAdapter implements HttpClientAdapter {
         ? const <Uint8List>[]
         : await requestStream.toList();
     final raw = chunks.expand((c) => c).toList();
-    lastBody = raw.isEmpty ? null : String.fromCharCodes(raw);
+    // dio 出站 body 是 UTF-8 字节流；按 CharCodes 解读会打碎多字节中文。
+    lastBody = raw.isEmpty ? null : utf8.decode(raw);
     return handler(options, raw);
   }
 

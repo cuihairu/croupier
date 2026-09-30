@@ -1,13 +1,15 @@
-/// App 根装配：冷启动会话探测 → 登录页 / 占位首页
-/// （底部 Tab router 壳在下一片替换 HomeStub）。
+/// App 根装配：冷启动会话探测 → 登录页 / 主壳（底部 Tab）。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/storage/session_store.dart';
+import '../features/approvals/approvals_page.dart';
 import '../features/login/login_page.dart';
+import '../features/monitoring/monitoring_page.dart';
 import '../features/scope/scope_switcher.dart';
+import '../features/settings/settings_page.dart';
 import 'providers.dart';
 
 class CroupierApp extends ConsumerWidget {
@@ -40,21 +42,29 @@ class CroupierApp extends ConsumerWidget {
           ),
         ),
         data: (SessionData? session) =>
-            session == null ? const LoginPage() : HomeStub(session: session),
+            session == null ? const LoginPage() : MainShell(session: session),
       ),
     );
   }
 }
 
-/// 已登录占位首页：验证会话 + scope 链路用（底部 Tab router 壳在下一片替换）。
-class HomeStub extends ConsumerWidget {
-  const HomeStub({required this.session, super.key});
+/// 已登录主壳：底部 Tab（§2.1 审批为默认着陆 Tab；
+/// 监控大盘 M2 起真页面，设备/告警/审计由大盘入口进入）。
+class MainShell extends ConsumerStatefulWidget {
+  const MainShell({required this.session, super.key});
 
   final SessionData session;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final username = session.user['username'];
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final username = widget.session.user['username'];
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -72,12 +82,28 @@ class HomeStub extends ConsumerWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Text(
-          session.hasCompleteScope
-              ? '${session.gameId} / ${session.env}'
-              : '未选择 scope',
-        ),
+      body: IndexedStack(
+        index: _tab,
+        children: const [ApprovalsPage(), MonitoringPage(), SettingsPage()],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.fact_check_outlined),
+            selectedIcon: Icon(Icons.fact_check),
+            label: '审批',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            label: '监控',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            label: '设置',
+          ),
+        ],
+        onDestinationSelected: (index) => setState(() => _tab = index),
       ),
     );
   }

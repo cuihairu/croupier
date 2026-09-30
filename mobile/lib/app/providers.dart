@@ -18,6 +18,10 @@ final sessionFutureProvider = FutureProvider<SessionData?>(
   (ref) => ref.watch(sessionStoreProvider).load(),
 );
 
+/// 更换服务器地址后的预填值（内存级，进程内有效）：设置页写入，
+/// 登录页初始化读取一次作为默认地址。
+final pendingServerUrlProvider = StateProvider<String?>((ref) => null);
+
 typedef ApiClientFactory = ApiClient Function(String baseUrl);
 
 /// 按需装配 API 客户端（serverUrl 登录后来自会话；登录前由用户输入）。
