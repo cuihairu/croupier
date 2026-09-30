@@ -57,7 +57,9 @@ describe('localizedText', () => {
   });
 
   it('值中含空串与非空混合：仅非空字符串参与回退', () => {
-    expect(localizedText({ 'zh-CN': '', 'en-US': 'English', foo: 'bar' }, 'zh-CN', 'FB')).toBe('English');
+    expect(localizedText({ 'zh-CN': '', 'en-US': 'English', foo: 'bar' }, 'zh-CN', 'FB')).toBe(
+      'English',
+    );
     expect(localizedText({ 'zh-CN': '', 'en-US': '', foo: 'bar' }, 'zh-CN', 'FB')).toBe('bar');
   });
 });
