@@ -284,22 +284,27 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('audit-filter-range')));
     await tester.pumpAndSettle();
 
-    // 初始区间（今天-7 ~ 今天）落在当月；.first 取当月网格（宽屏双月时
-    // 左侧即当月，邻月补位不含 15/20 不产生误匹配）。
-    await tester.tap(find.text('15').first);
+    // 选择「今天」与「明天」——均在 end 月（右侧网格），且 ≤ lastDate(now+1)。
+    // 这样在月初/月末/跨月时均稳定可选，避免写死 15/20 导致的脆弱性。
+    final now = DateTime.now();
+    final todayStr = now.day.toString();
+    final tomorrowStr = now.add(const Duration(days: 1)).day.toString();
+    await tester.tap(find.text(todayStr).last);
     await tester.pump();
-    await tester.tap(find.text('20').first);
+    await tester.tap(find.text(tomorrowStr).last);
     await tester.pump();
     // M3 DateRangePickerDialog 确认按钮为 Save（saveButtonLabel）。
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
     // chip label 回填日期区间（_rangeDate 渲染）。
-    final month = DateTime.now().month.toString().padLeft(2, '0');
+    final month = now.month.toString().padLeft(2, '0');
+    final todayFmt = '${now.year}-$month-$todayStr';
+    final tomorrow = now.add(const Duration(days: 1));
+    final tomorrowMonth = tomorrow.month.toString().padLeft(2, '0');
+    final tomorrowFmt = '${tomorrow.year}-$tomorrowMonth-$tomorrowStr';
     expect(
-      find.textContaining(
-        '${DateTime.now().year}-$month-15 ~ ${DateTime.now().year}-$month-20',
-      ),
+      find.textContaining('$todayFmt ~ $tomorrowFmt'),
       findsOneWidget,
     );
 
@@ -314,8 +319,8 @@ void main() {
 
     final start = queries.last.queryParameters['start'];
     final end = queries.last.queryParameters['end'];
-    expect(start, startsWith('${DateTime.now().year}-$month-15T00:00:00'));
-    expect(end, startsWith('${DateTime.now().year}-$month-20T23:59:59'));
+    expect(start, startsWith('$todayFmt' + 'T00:00:00'));
+    expect(end, startsWith('$tomorrowFmt' + 'T23:59:59'));
     // RFC3339 必须带时区 offset（否则服务端静默忽略）。
     expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(start!), isTrue);
     expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(end!), isTrue);
