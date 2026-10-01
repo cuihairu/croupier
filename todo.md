@@ -2788,3 +2788,40 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   门禁以 Assignments 全目录 6 套件 **74/74** 绿 + tsc 0 + eslint 0 +
 >   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
 >   R49-5 复核。
+
+## 第二十二轮：数据备份页覆盖收口（Ops/Backups 0% → 100/95.65/100/100，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行现席
+> `Ops/Backups/index.tsx`（218 行，目录内无任何测试文件）单件收口，新增
+> `__tests__/index.test.tsx` 10 用例，v8 口径 **行/语句/函数 100%、分支
+> 95.65%**（余 2 翼即登记项，见边界）；无页面缺陷（纯补测）。锁定契约——
+> 挂载首拉零参 + 列渲染矩阵（类型/size 原值/时间原值、状态 Tag 三色
+> done→green / failed→red / else(running)→gold、缺 size 行空格）+ 卡片标题 +
+> 工具栏双按钮 + 下载锚 href=getOpsBackupDownloadUrl(id) 透传；刷新重拉；
+> 创建主链（选类型 → 载荷 kind、target 未填键缺省 → toast 已创建 →
+> `setTimeout(load, 500)` 真实计时器重拉 → destroyOnHidden 整体卸载）；
+> required 拦截（不触达服务 + 弹窗保持 + 取消关闭）；target 可选填完整载荷；
+> 创建失败静默 catch（无本地弹错、无成功 toast、不重拉——注释言明全局拦截
+> 器 toast 语义，测试环境 service 已 mock 故断言全静默为现状锁定）；删除
+> 主链（行内删除 → modal.confirm → deleteOpsBackup(id) → 已删除 → 重拉）；
+> 删除失败三翼（Error → e.message / 非 Error → intl「操作失败」/ Error('')
+> → `errMsg ||` 右翼「失败」，均不重拉）。
+> **坑实证（新档，四条）**：① 双字中文 Button 自动插空格（刷 新/删 除/
+> 取 消/确 定），role name 一律宽松正则；② modal.confirm 定位走类名
+> `.ant-modal-confirm-btns .ant-btn-primary`（locale 无关），标题
+> `.ant-modal-title` 与 `.ant-modal-confirm-title` 双渲染须 selector 收窄；
+> ③ Select option 点击配方 sleep≥60ms → mouseDown 落 `.ant-select` 根 →
+> 点可见 dropdown 内 `.ant-select-item-option-content`（Behavior 套件同款）；
+> ④ 成功创建的 `setTimeout(load, 500)` 是真实计时器——用例内必须等第 2 次
+> listOpsBackups 消费掉，否则挂起 timer 在下个用例触发毒化计数断言
+> （jest.clearAllMocks 不清计时器；创建失败/删除各用例无 timer 不受影响）。
+> **边界（诚实清单，不造假用例不删防御分支）**：① `r?.backups || []` 双
+> 右翼（25 行，分支余量全部在此）——listOpsBackups 归一层恒返
+> `{backups: response.backups.map(normalizeOpsBackup)}`（map 恒产数组），
+> resolve undefined/非对象违反返回类型即造假，登记；② load 的 try/finally
+> 无 catch——listOpsBackups reject 成 unhandled rejection（同族页面既有
+> 口径），不造假 reject 场景。
+> 门禁：目标套件 10/10 绿（首轮即绿）、prettier 不变、eslint 0、
+> `pnpm --dir web run tsc` 0 错、`scripts/dashboard_vnext_guard.sh` PASSED；
+> 全量 jest **368 套件 4557 用例全绿**（2 worker 限流，load 25-31 高位窗口，
+> 2085s，exit 0——日志尾 worker force-exit 提示为既有 teardown 提示非失败）。
