@@ -2633,3 +2633,55 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   门禁以 Assignments 全目录 6 套件 **74/74** 绿 + tsc 0 + eslint 0 +
 >   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
 >   R49-5 复核。
+
+## 覆盖率补缺·web 侧 useFunctionDetailPage 数据层收口（wt-ui worktree，2026-10-01）
+
+> 选靶：Functions 域 jest 覆盖率定位——`Functions/useFunctionDetailPage.ts`
+> （498 行数据层 hook）v8 定向扫描确证 1-498 全零；import 面核验：域内
+> 既有 5 套件全打 DetailSections/DetailTabs 子组件，无人 import 本 hook，
+> 传递性真 0%（防「目录已有测试」误判，坑 15 口径）。同域 463 行
+> `Detail.tsx` 页面本体同为 0%，排后续批次。撞车核验：开工与提交前
+> 双查 origin/main（R49-3/4 Assignments、OpenAPISources 系他会话域，
+> 与本域零交集）；?? 在途仅 Warnings/Configs WIP 与洪水孪生。
+> 交付：新建 `__tests__/useFunctionDetailPage.test.tsx`（4 describe /
+> 30 用例全绿），hook v8 覆盖 **lines 99.39 / branches 97.41 /
+> functions 100**。锁定链：parsedInputSchema 七级回退 + parseMaybeJSON
+> 五翼、effectiveResource 回退、toDescriptorArray 三信封翼、
+> loadSourceOfTruth allSettled 四翼、loadDetail 成功归一（本地化回退/
+> resource||index/tags||[]/perm 非空与空默认行/Error 与非 Error 文案）、
+> 404/400 三段降级链（运行时形态+runtimeNotSupported/desc 未命中/
+> listDescriptors 再炸）、非 400/404 兜底、functionId 卫兵、五 handler
+> 全翼（save tags 解析、statusToggle 双翼、copy 跳转、delete onOk
+> 双翼、savePermissions 三翼）、contractDiagnostics 透传。
+> **已知边界（头注登记三组结构不可达翼 = 97.41% 全部缺口）**：
+> ① L188-191 loadSourceOfTruth 外层 catch（allSettled 永不 reject，
+> 防御式）；② L128/L130 effectiveResource fromIndex/fromDetailDesc 两级
+> （loadDetail 归一 `resource: detail.resource || indexItem?.resource`
+> 已把 index 值并入 direct 级，恒先命中）；③ L147 jsonViewData tags
+> `|| []` 右翼（归一恒产数组，空数组亦 truthy）。
+> **测试技法（antd hook 单测两坑，本轮实证）**：(a) App.useApp 覆写为
+> 模块级共享桩（mock* 前缀过 hoist 白名单）——直桩断言规避 jsdom 下
+> antd message/modal DOM 残留跨用例串扰，modal.confirm 不渲染 DOM、
+> onOk 取自 confirm.mock.calls[0][0] 手动驱动；(b) Form.useForm 覆写
+> 为 useRef 保持的内存 store——真实 useForm 实例未连接 <Form> 时
+> getFieldsValue()/validateFields() 恒返 {}（FieldsStore 只回已注册
+> 字段），hook 无表单挂载面，store 桩等价替代并打通 validateFields
+> 真值路径。
+> 门禁：eslint 0 错 0 警、`pnpm run tsc` 0 错、
+> `dashboard_vnext_guard.sh` PASSED、目标套件隔离 30/30（四轮）。
+> 全量门禁遇持续负载洪峰（load 12-72 反复 ~80 分钟无「连续两分钟
+> <10」窗口）——按坑 15「数据不可用即杀」精神改**分批全量**：368
+> 套件拆 pages A-L / pages M-Z / 其余三批串行（洪峰下把不可用窗口
+> 切碎），**结果：368 套件 4609/4611 用例，仅 2 红且全数定性**——
+> Functions/History 145.8s 超时形状（他会话 3fc20c6 当日新合入套件），
+> load 38 下隔离复跑 16/16 全绿 = 负载性超时（坑 15 终审口径）；
+> Operations/Configs 42.4s 红为他会话未跟踪 WIP（`git ls-files` 零
+> 追踪，上批已空载定性为确定性 WIP 缺陷 1/15，同签名沿用登记
+> 不代修）。分批须 `--maxWorkers=4` 限流（默认 13 worker 在 load
+> 60-120 集体饿死，8 红全超时形状零断言失败，已杀掉弃用）；临时
+> 配置置 /tmp（worktree 外）防他会话清理——中途实证一次全灭：
+> worktree 内未跟踪配置被他会话清掉致 7 批 "Can't find a root
+> directory" 暴毙，rootDir 改绝对路径后重跑（见并行坑 16）。
+> 生成物纪律：Functions 域洪水孪生不删不提交；坑 13 序修正配置
+> `jest.coverage-order.config.ts` 用后即删不入库。偏离注明：派发写
+> 「push 前 fetch --rebase」，已推送分支按铁律改 merge 同步后 FF push。
