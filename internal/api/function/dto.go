@@ -36,6 +36,7 @@ type FunctionAnalyticsRequest struct {
 // FunctionAnalyticsResponse represents analytics data for a function
 type FunctionAnalyticsResponse struct {
 	TotalCalls     int64   `json:"totalCalls"`
+	FailedCalls    int64   `json:"failedCalls"`
 	SuccessRate    float64 `json:"successRate"`
 	AvgLatency     float64 `json:"avgLatency"`
 	CallsToday     int64   `json:"callsToday"`
@@ -312,17 +313,17 @@ type PendingFunction struct {
 
 // FunctionDeleteRequest represents a request to delete a function
 type FunctionDeleteRequest struct {
-	FunctionId string `json:"functionId"`
+	FunctionId string `uri:"id" json:"functionId"`
 }
 
 // FunctionDisableRequest represents a request to disable a function
 type FunctionDisableRequest struct {
-	FunctionId string `json:"functionId"`
+	FunctionId string `uri:"id" json:"functionId"`
 }
 
 // FunctionEnableRequest represents a request to enable a function
 type FunctionEnableRequest struct {
-	FunctionId string `json:"functionId"`
+	FunctionId string `uri:"id" json:"functionId"`
 }
 
 // Batch operations DTOs

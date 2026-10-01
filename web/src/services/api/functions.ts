@@ -684,6 +684,7 @@ export async function getFunctionHistory(
 export async function getFunctionAnalytics(functionId: string) {
   return request<{
     totalCalls: number;
+    failedCalls: number;
     successRate: number;
     avgLatency: number;
     callsToday: number;
