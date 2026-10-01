@@ -3205,6 +3205,38 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 如实注明）。测试隔离：双包均为 per-test `:memory:` 独立库，无共享库
 > scope 隔离面；service 用例仍取 "g-r53" 唯一 scope（派发卫生要求）。
 
+## 第二十六轮：旧链接跳转页收口（Proposals 0% → 4×100，全站零测试页归零，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：零测试簇排行最后一名
+> `Proposals/index.tsx`（13 行 /proposals → /functions/pages 旧链接兼容
+> 跳转桩）单件收口，新增 `__tests__/index.test.tsx` 2 用例，v8 口径
+> **4×100%**——**web/src/pages 零测试页面目录自此归零**（全站扫描确认）。
+> 锁定契约——挂载即 history.replace(`/functions/pages${location.search}`)
+> （query 原样转译）+ 渲染 null（container.firstChild 为 null）；
+> location.search 变化 → effect 依赖触发二次 replace（新 query 转译 +
+> 调用计数 2）。本页无登记不可达分支（13 行直线逻辑，effect 依赖双态均
+> 真实构造）。
+> **坑实证（新档）**：jest.mock 工厂随 import 链在模块顶层 const 之前
+> 执行（TDZ）——`Cannot access 'mockReplace' before initialization`；
+> jest.fn 必须定义在工厂内，测试侧经 mock 后模块自身导出取句柄
+> （`history.replace as jest.MockedFunction<...>`），mock 前缀变量救不了
+> 工厂内引用。
+> 门禁：目标套件 2/2 绿；prettier --write 后复验 0；eslint 0；
+> `pnpm --dir web run tsc` 0 错；guard PASSED；**全量 jest 合并门禁**
+> （merge 97bb382 + 47522e7 后，373 套件 4592 用例，2 worker，~31min）：
+> **4589 绿 + 3 失败**——① 上轮记录的 VersionsTab 上游 11 例红已被
+> 上游 97bb382（对齐版本门槛下拉）修复，本轮全量转绿 ✓；② 新增 3 例
+> = AgentSync 1 + PageStudio/ComponentTemplates 1 + CompositeEditor
+> previewActions 1——三者上轮全量皆绿、本轮 load 24-30 段撞入的
+> 漂移红（toast/弹窗时序族），**隔离复跑 6 套件 92/92 绿**定责负载型。
+> 本批 Proposals/Retention/Warehouse 三套件全量语境全绿。
+> **过程实录**：首轮全量带 `--coverage` 在 load 30-40 段起跑，60min 后
+> 双 worker 100% CPU 零产出（v8 覆盖率注入 + 高载 GC thrash 签名），
+> 保底 kill 改纯跑得门禁；同窗口 upstream CI Dashboard run 36831703392
+> 的失败经查 annotation 为 "operation was canceled"（新 push 自动取消
+> 的环境性签名，同记忆档），非用例回归——覆盖率排名快照留待低载窗口
+> 单跑补取。
+
 > **R53 CI 终态（47522e7，dashboard-quality 双挂定案）**：同 head 6 个
 > workflow 中 5 个 success（CI-Core / CodeQL / Docker / Nightly / Release），
 > 仅 CI - Dashboard 的 dashboard-quality attempt 1/2 均挂——两 attempts
