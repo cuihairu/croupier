@@ -2825,3 +2825,112 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > `pnpm --dir web run tsc` 0 错、`scripts/dashboard_vnext_guard.sh` PASSED；
 > 全量 jest **368 套件 4557 用例全绿**（2 worker 限流，load 25-31 高位窗口，
 > 2085s，exit 0——日志尾 worker force-exit 提示为既有 teardown 提示非失败）。
+
+## R49-5：全量 jest 复核收口——产物清理后 360/362 suites 绿（web，2026-10-01）
+
+> **产物判定（只清本树、零 tracked 误删）**：src 下 663+ .jsx/.js 污染源
+> **已不在**（并行会话侧已清，find 0 个 .jsx，余 3 个 .js 均为 `.umi/`
+> umi 生成目录 + tracked service-worker.js）。本树残留 web 根下 16 个
+> 未追踪产物（config/mock/tests/e2e-verify/EXAMPLE_USERS_PAGE 的
+> .js/.jsx+.map），**全部有 tracked .ts/.tsx 源对应**（逐个核对）且不被
+> gitignore——其中 `jest.config.js` 与 tracked `jest.config.ts` 并存正是
+> `pnpm test:coverage` Multiple configurations 冲突源。全部清除，不动其他
+> worktree、不动并行会话 tracked 修改（Cicd/index.test.tsx、url.test.ts
+> 的 M 保持原样），`git status` deleted-tracked = 0 自证无误删。
+> **全量复核**（1 分钟 load 6.99 < 10 空载窗口，`npx jest --ci`
+> 437.5s）：**362 suites / 4467 tests → 360 suites / 4465 tests 绿**——
+> 登记口径「污染期 34/48 suites 失败环境性」的失败面**清零**（清产物
+> 后 jest 加载 .ts 源，源/产物同步性不再抖动；零 import 断裂自证删除
+> 的 16 个产物无测试引用）。
+> **残留 2 失败逐条归因（均并行会话本会话期进行态，均不在 HEAD）**：
+> ① `src/utils/__tests__/url.test.ts`「window/location 皆不可用 → dev
+> 兜底 18780」——该用例是对方**工作区新增**（`git show HEAD:` 0 命中，
+> M 状态系会话开始快照后出现），写法 `{...global.window, location:...}`
+> 替换不生效（jsdom window 不可覆盖），实现读真 `window.location.origin`
+> 落 **testURL 8000**（jest.config.ts:31 `url: 'http://localhost:8000'`
+> 实证，Expected 18780 / Received 8000 完全吻合）；隔离重跑稳定复现
+> （8/9 绿，仅此一例）。② `src/pages/PageStudio/__tests__/indexGuards.test.tsx`
+> ——`??` untracked（`git cat-file -e HEAD:` 无此文件），对方新写的
+> Guards 套件，`handleSyncSelectorsApplied` 重载断言 3 次 ≠ 期望 2 次
+> （含 index.tsx:730 onDiff 堆栈），隔离重跑稳定复现（62.7s）。
+> 二者机制上与产物清理零因果（读 .ts 源、失败为断言值差异而非模块
+> 解析错）；**HEAD 口径全量 = 4465 passed / 0 failed**——2 失败文件
+> 及用例均未入 HEAD，HEAD 测试面全绿成立。不代改对方进行中文件
+> （会撞车），如实登记待对方自收。
+> 门禁：HEAD 口径全量 0 失败 + 产物清理零误删（只删未追踪、逐文件
+> 核对 tracked 源）。本单触碰面仅 web 根下未追踪产物 + 本台账。
+
+## 队列②增量：Dependabot/audit 新增 advisory 收口——axios 12 条+dompurify 1 条（web，2026-09-30）
+
+> **背景对账**：用户队列四单（mobile 服务器配置面、Dependabot 8 条 overrides、
+> secret-scanning 微信 AppID、code-scanning 9 条整型转换）在开工查重时确认
+> **均已被并行会话交付**：①`00cb1d9` 服务器地址配置面（首启动向导+设置页
+> 校验/探测/即时生效）、②`2388c30` Dependabot 8 条收口、③`7b5a73b` 微信
+> AppID 去 hex 治理、④`3a3a680` CodeQL 9 条整型收窄。**security tab 三处
+> open 已 API 复验归零**（dependabot 0 / code-scanning 0 / secret-scanning 0，
+> code-scanning 30 条历史全 fixed）。
+> **本单真增量**：`2388c30` 之后 GHSA 新批出现——`pnpm audit` 16 条（axios
+> 1.19.0 12 条【8 high】、react-router 2 moderate、elliptic 1 low、
+> dompurify 3.4.13 1 low）。收口 16→**3**：
+>
+> - `axios@<0.30.0` 值收界 `'>=0.30.0 <1.0.0'`——原开放值在 re-resolve 时
+>   被 registry 飘到 1.x（@umijs/plugins 声明 0.27.2 触发匹配），三 snapshot
+>   回 0.x 线终点后 `pnpm update axios` 显式重解析 → 全部 1.20.0（12 条清）。
+>   src 零 axios import（HTTP 层走 umi request），1.20 链纯构建期 devDeps。
+> - 新键 `dompurify@<3.4.16: '>=3.4.16'`（afterSanitize hook DOM XSS）+
+>   `pnpm update dompurify` → 三 snapshot 全 3.4.16。
+> - 剩余 3 条均**已登记不修复**（elliptic：6.6.2 补丁未发布，2026-09-30 复核；
+>   react-router×2：修复在 7.18.0 需 rr7，umi 4.x 锁 6.x 无 backport）。
+>   **pnpm 11.11.0 三实证（已入 memory）**：①复合范围键
+>   `pkg@>=a <b: c` 不被应用（单边界才可靠）；②`install`/`install --force`
+>   不重算已锁 snapshot 的 override，须 `pnpm update <pkg>` 显式触发；
+>   ③开放上界值 `'>=X'` 会随 registry 飘线，值必须带上界。
+>   **门禁**：tsc 0、audit 3（全为已登记项）、Assignments+OpenAPISources
+>   11 套件 154/154 绿、SchemaFormRenderer/remote-options 隔离 16/16 绿
+>   （全量 48 suites 失败判环境性——并行会话编译产物滞留加剧，抽样隔离
+>   全绿）、guard PASSED。全量全绿复核留 R49-5（产物清理后）。
+
+### 队列②收尾残留：docs 工作区 dompurify #413（docs，2026-09-30）
+
+> e3c0f 系列（web 侧 16→3）落地后，dependabot 新冒 **#413**（唯一 open）：
+> 同款 dompurify >=3.4.13 <=3.4.15 advisory（afterSanitize hook DOM XSS，
+> patched 3.4.16），manifest 为 **docs/pnpm-lock.yaml**——docs 子工作区
+> 独立 lockfile 同样被扫。处理与 web 同款：`docs/pnpm-workspace.yaml`
+> 增单边界键 `dompurify@<3.4.16: ">=3.4.16"` + `pnpm update dompurify`
+> 重解析落锁（lock 三处 3.4.13→3.4.16）。docs `pnpm audit` 余 4 条均为
+> vitepress 1.6.4 依赖链 vite/vitepress 已登记「保留不修复」项（#50/#151/#152，
+> vitepress 1.x 锁 vite ^5 强制 6.x 构建失败）。lint-staged prettier 将
+> pnpm 11 update 产生的 lockfile 格式噪音重排抵消，提交实质 diff +9/-4；
+> 提交后 `pnpm install` 复验 lock 一致（Already up to date，无新漂移）。
+> **门禁**：`cd docs && pnpm build` 过（110.15s）。commit `965649f`
+> （merge 上游 6 提交后快进推送）。
+> **三 tab 终态归零 API 复验**：dependabot 0 / code-scanning 0 /
+> secret-scanning 0——用户指令「做完回报三个 security tab open 归零」达成。
+
+## 覆盖率巡检批次·Go 侧第五十轮·登记面重审翻案——bug/profile 错误翼收口（wt-api worktree，2026-09-30）
+
+> 交付：全量 profile 重排（99.949%，21 文件 29 语句余量）后，本轮主线
+> **逐条重审第 3-28 轮「不可达」登记**。29 语句全审，3 处初判翻案后被
+> 自证否决（如实留档）：auth/service.go:738 实为 `!ok2` continue（非
+> return——FindEmailsByDomain 的 `LIKE '%@domain'` 保证 Cut 恒得 @，
+> :741 return 本就被既有用例覆盖）；gitlabci.go:75 空串守卫（New() 拒空
+> project，group/repo 非数字分支已被覆盖）；cicd/service.go:93 float64
+> （Create 请求 DTO Extra 为 map[string]string、DB 读回 json.Number
+> 双路径均不产 float64）。判死补强论证：menu:381（check(item)=true ⇒
+> 既有 parent 必 true，环项在首循环先跳）、openapi:710（替换字母表 ⊆
+> Trim cutset，trim 后首字符恒 alnum）、avatar:128（filepath.Clean 恒剥
+> 尾斜杠 → 前置 HasPrefix 守卫先拒）、wechat:134/:137（:121 守卫先行）、
+> handler 系三处（纯 string DTO 绑定恒过）、re-Marshal 系三处（Unmarshal
+> 过的值再 Marshal 恒过）、certificates:202（源内 C 类论证）、rand 系
+> （crypto/rand）、email_verification:78/163（layered 恒 init / CAS 竞态
+> 窗口）、webhook:106（单请求内无法注入读故障）。
+> **翻案收口 3 翼**：① model/bug.go :374/:401——#21 轮「sqlite 无法模拟
+> 连接/列级错误」登记不成立，同文件 LinkBugTicket 缺表技法对 JOIN 同样
+> 有效，newBugErrTestDB（Bug+Ticket 无 link 表）收口；旧 sanity 用例改名
+> NormalShapeSanity、文件头登记同步翻案。② api/profile/permissions.go
+> :179——空白名角色被一循环挡在 roleIDs 外、但 grants 二循环遍历原集，
+> 混入用例收口。bug.go / permissions.go 双双 100%；余量 29→26 语句。
+> 回避面维持：otp/otpauth.go（d9fdc05 OTP 域）、api/assignment/gate.go
+> （BUG-035 域）。
+> 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/... 全绿
+> （fresh，-p 4 从宽于 load 111 洪峰下 158 包 exit=0 零 FAIL）。
