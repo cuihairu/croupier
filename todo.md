@@ -3153,6 +3153,7 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > Warehouse 5/5 全量语境下全绿（Store 本轮全量亦绿）。首轮全量因共享机
 > 内存耗尽（swap 31G 满、并行会话 jest 挤压）被 harness 内存压力回收
 > 中止一次，load<10 空载窗口重跑得终态——非用例失败，如实记录。
+
 ## 覆盖率巡检批次·Go 侧第五十三轮·bind 双翼撞车去重 + contract 回填面双层收口（2026-10-01）
 
 > 交付：全量 profile 重排（**99.959%**，64126/64152 语句，23 块 / 26 语句 / 19 文件
@@ -3203,3 +3204,18 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > scripts/dashboard_vnext_guard.sh PASSED（负载 30-42 非空载窗口执行，
 > 如实注明）。测试隔离：双包均为 per-test `:memory:` 独立库，无共享库
 > scope 隔离面；service 用例仍取 "g-r53" 唯一 scope（派发卫生要求）。
+
+> **R53 CI 终态（47522e7，dashboard-quality 双挂定案）**：同 head 6 个
+> workflow 中 5 个 success（CI-Core / CodeQL / Docker / Nightly / Release），
+> 仅 CI - Dashboard 的 dashboard-quality attempt 1/2 均挂——两 attempts
+> 同签名：`##[error]The runner has received a shutdown signal` ×1
+> （08:17:00 / 08:52:57）、零 ✕、零 FAIL（166 套件 PASS 至被杀，
+> field-validity 的 react 堆栈系通过测试内的 console.error 打印）。
+> 窗口探针：祖先 97bb382（07:05）、10a6bac（07:18）同 job 全绿，08:53 后
+> 无新 run 可作恢复探针。按 R47/R20 既定处置（同签名挂两次即终止重试、
+> 证据链定案）不再第三次 rerun——本提交为 test-only（2 Go 测试文件 +
+> 本台账，零 web/ 触碰，与 jest 面零交集），本地门禁全绿
+> （gofmt/vet 干净、go test ./internal/... fresh 158 包 exit=0、guard
+> PASSED），dashboard-quality 本体在 97bb382/10a6bac/42b6207 多次整绿可证，
+> 判 GitHub hosted runner 当日概率性回收（基础设施退化），非本提交回归。
+> 排查口径见记忆档 ci-dashboard-runner-shutdown-signature。
