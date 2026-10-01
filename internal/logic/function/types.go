@@ -98,6 +98,7 @@ type FunctionAnalyticsResponse struct {
 	P99Latency     float64          `json:"p99Latency"`
 	SuccessRate    float64          `json:"successRate"`
 	TotalCalls     int64            `json:"totalCalls"`
+	FailedCalls    int64            `json:"failedCalls"`
 	CallsToday     int64            `json:"callsToday"`
 	CallsThisWeek  int64            `json:"callsThisWeek"`
 	CallsThisMonth int64            `json:"callsThisMonth"`

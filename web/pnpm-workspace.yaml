@@ -24,13 +24,14 @@ overrides:
   '@octokit/request-error@>=1.0.0 <5.1.1': '>=5.1.1'
   '@octokit/request@>=1.0.0 <8.4.1': '>=8.4.1'
   '@remix-run/router@<=1.23.3': '>=1.23.4'
-  axios@<0.30.0: '>=0.30.0'
+  axios@<0.30.0: '>=0.30.0 <1.0.0' # 2026-09-30 收界：值原为开放 '>=0.30.0'，re-resolve 时被 registry 飘到 1.x（@umijs/plugins 声明 0.27.2 触发），钉回 0.x 线终点
   axios@>=0.8.1 <0.28.0: '>=0.28.0'
   body-parser@<1.20.3: '>=1.20.3'
   cookie@<0.7.0: '>=0.7.0'
   cross-spawn@<6.0.6: '>=6.0.6'
   debug@<2.6.9: '>=2.6.9'
   dompurify@<3.2.4: '>=3.2.4'
+  dompurify@<3.4.16: '>=3.4.16' # 2026-09-30 抬（afterSanitize hook DOM XSS，patched 3.4.16）
   esbuild@<=0.24.2: '>=0.25.0'
   express@<4.19.2: '>=4.19.2'
   express@<4.20.0: '>=4.20.0'

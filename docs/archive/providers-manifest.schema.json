@@ -11,20 +11,20 @@
       "additionalProperties": false,
       "required": ["id", "version"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "version": {"type": "string", "minLength": 1},
-        "lang": {"type": "string"},
-        "sdk": {"type": "string"},
-        "description": {"type": "string"}
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "lang": { "type": "string" },
+        "sdk": { "type": "string" },
+        "description": { "type": "string" }
       }
     },
     "functions": {
       "type": "array",
-      "items": {"$ref": "#/$defs/function"}
+      "items": { "$ref": "#/$defs/function" }
     },
     "entities": {
       "type": "array",
-      "items": {"$ref": "#/$defs/entity"}
+      "items": { "$ref": "#/$defs/entity" }
     }
   },
   "$defs": {
@@ -32,21 +32,21 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "en": {"type": "string"},
-        "zh": {"type": "string"}
+        "en": { "type": "string" },
+        "zh": { "type": "string" }
       }
     },
     "menu": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "section": {"type": "string"},
-        "group": {"type": "string"},
-        "path": {"type": "string"},
-        "order": {"type": "integer"},
-        "icon": {"type": "string"},
-        "badge": {"type": "string"},
-        "hidden": {"type": "boolean"}
+        "section": { "type": "string" },
+        "group": { "type": "string" },
+        "path": { "type": "string" },
+        "order": { "type": "integer" },
+        "icon": { "type": "string" },
+        "badge": { "type": "string" },
+        "hidden": { "type": "boolean" }
       }
     },
     "roleBinding": {
@@ -54,18 +54,24 @@
       "additionalProperties": false,
       "required": ["role", "verbs"],
       "properties": {
-        "role": {"type": "string", "minLength": 1},
-        "verbs": {"type": "array", "items": {"type": "string"}}
+        "role": { "type": "string", "minLength": 1 },
+        "verbs": { "type": "array", "items": { "type": "string" } }
       }
     },
     "permissionSpec": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "verbs": {"type": "array", "items": {"type": "string"}},
-        "scopes": {"type": "array", "items": {"type": "string"}},
-        "defaults": {"type": "array", "items": {"$ref": "#/$defs/roleBinding"}},
-        "i18n_zh": {"type": "object", "additionalProperties": {"type": "string"}}
+        "verbs": { "type": "array", "items": { "type": "string" } },
+        "scopes": { "type": "array", "items": { "type": "string" } },
+        "defaults": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/roleBinding" }
+        },
+        "i18n_zh": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
       }
     },
     "schemaRef": {
@@ -75,7 +81,7 @@
           "additionalProperties": false,
           "required": ["json_schema"],
           "properties": {
-            "json_schema": {"type": "string", "minLength": 1}
+            "json_schema": { "type": "string", "minLength": 1 }
           }
         },
         {
@@ -83,21 +89,21 @@
           "additionalProperties": false,
           "required": ["proto_fqn"],
           "properties": {
-            "proto_fqn": {"type": "string", "minLength": 1}
+            "proto_fqn": { "type": "string", "minLength": 1 }
           }
         }
       ]
     },
     "rateLimit": {
       "oneOf": [
-        {"type": "string", "minLength": 1},
+        { "type": "string", "minLength": 1 },
         {
           "type": "object",
           "additionalProperties": false,
           "required": ["value", "window"],
           "properties": {
-            "value": {"type": "integer", "minimum": 1},
-            "window": {"type": "string", "minLength": 1}
+            "value": { "type": "integer", "minimum": 1 },
+            "window": { "type": "string", "minLength": 1 }
           }
         }
       ]
@@ -106,40 +112,40 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "require": {"type": "array", "items": {"type": "string"}}
+        "require": { "type": "array", "items": { "type": "string" } }
       }
     },
     "semantics": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "idempotent": {"type": "boolean"},
-        "rate_limit": {"$ref": "#/$defs/rateLimit"},
-        "concurrency": {"type": "integer", "minimum": 1}
+        "idempotent": { "type": "boolean" },
+        "rate_limit": { "$ref": "#/$defs/rateLimit" },
+        "concurrency": { "type": "integer", "minimum": 1 }
       }
     },
     "transportProto": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "request_fqn": {"type": "string"},
-        "response_fqn": {"type": "string"}
+        "request_fqn": { "type": "string" },
+        "response_fqn": { "type": "string" }
       }
     },
     "routing": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "hash_key": {"type": "string"},
-        "jsonpath": {"type": "string"}
+        "hash_key": { "type": "string" },
+        "jsonpath": { "type": "string" }
       }
     },
     "ui": {
       "type": "object",
       "properties": {
-        "category": {"type": "string"},
-        "risk": {"type": "string", "enum": ["low", "medium", "high"]},
-        "tags": {"type": "array", "items": {"type": "string"}}
+        "category": { "type": "string" },
+        "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+        "tags": { "type": "array", "items": { "type": "string" } }
       }
     },
     "function": {
@@ -147,27 +153,30 @@
       "additionalProperties": false,
       "required": ["id", "request", "response"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "version": {"type": "string", "minLength": 1},
-        "category": {"type": "string"},
-        "risk": {"type": "string", "enum": ["low", "medium", "high"]},
-        "labels": {"type": "object", "additionalProperties": {"type": "string"}},
-        "display_name": {"$ref": "#/$defs/i18nText"},
-        "summary": {"$ref": "#/$defs/i18nText"},
-        "tags": {"type": "array", "items": {"type": "string"}},
-        "menu": {"$ref": "#/$defs/menu"},
-        "permissions": {"$ref": "#/$defs/permissionSpec"},
-        "request": {"$ref": "#/$defs/schemaRef"},
-        "response": {"$ref": "#/$defs/schemaRef"},
-        "auth": {"$ref": "#/$defs/auth"},
-        "semantics": {"$ref": "#/$defs/semantics"},
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "category": { "type": "string" },
+        "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "display_name": { "$ref": "#/$defs/i18nText" },
+        "summary": { "$ref": "#/$defs/i18nText" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "menu": { "$ref": "#/$defs/menu" },
+        "permissions": { "$ref": "#/$defs/permissionSpec" },
+        "request": { "$ref": "#/$defs/schemaRef" },
+        "response": { "$ref": "#/$defs/schemaRef" },
+        "auth": { "$ref": "#/$defs/auth" },
+        "semantics": { "$ref": "#/$defs/semantics" },
         "transport": {
           "type": "object",
           "additionalProperties": false,
-          "properties": {"proto": {"$ref": "#/$defs/transportProto"}}
+          "properties": { "proto": { "$ref": "#/$defs/transportProto" } }
         },
-        "routing": {"$ref": "#/$defs/routing"},
-        "ui": {"$ref": "#/$defs/ui"}
+        "routing": { "$ref": "#/$defs/routing" },
+        "ui": { "$ref": "#/$defs/ui" }
       }
     },
     "entity": {
@@ -175,13 +184,16 @@
       "additionalProperties": false,
       "required": ["id"],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "title": {"type": "string"},
-        "color": {"type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$"},
-        "schema": {"$ref": "#/$defs/schemaRef"},
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "color": {
+          "type": "string",
+          "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$"
+        },
+        "schema": { "$ref": "#/$defs/schemaRef" },
         "operations": {
           "type": "array",
-          "items": {"$ref": "#/$defs/operation"}
+          "items": { "$ref": "#/$defs/operation" }
         }
       }
     },
@@ -190,26 +202,26 @@
       "additionalProperties": false,
       "required": ["op", "request", "response"],
       "properties": {
-        "op": {"type": "string", "minLength": 1},
+        "op": { "type": "string", "minLength": 1 },
         "target": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "field": {"type": "string"},
-            "jsonpath": {"type": "string"}
+            "field": { "type": "string" },
+            "jsonpath": { "type": "string" }
           }
         },
-        "request": {"$ref": "#/$defs/schemaRef"},
-        "response": {"$ref": "#/$defs/schemaRef"},
-        "auth": {"$ref": "#/$defs/auth"},
-        "semantics": {"$ref": "#/$defs/semantics"},
+        "request": { "$ref": "#/$defs/schemaRef" },
+        "response": { "$ref": "#/$defs/schemaRef" },
+        "auth": { "$ref": "#/$defs/auth" },
+        "semantics": { "$ref": "#/$defs/semantics" },
         "transport": {
           "type": "object",
           "additionalProperties": false,
-          "properties": {"proto": {"$ref": "#/$defs/transportProto"}}
+          "properties": { "proto": { "$ref": "#/$defs/transportProto" } }
         },
-        "routing": {"$ref": "#/$defs/routing"},
-        "ui": {"$ref": "#/$defs/ui"}
+        "routing": { "$ref": "#/$defs/routing" },
+        "ui": { "$ref": "#/$defs/ui" }
       }
     }
   }

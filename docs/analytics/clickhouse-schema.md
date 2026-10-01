@@ -1,6 +1,7 @@
 ---
 title: ClickHouse 表结构与物化聚合
 ---
+
 # 表结构（DDL）
 
 **数据库架构**：按游戏分库，每个游戏独立 ClickHouse 数据库。
@@ -155,6 +156,7 @@ GROUP BY d, server_id;
 **注意**：由于按游戏分库，查询时不需要过滤 `game_id` 和 `env`。
 
 - 最近 7 天 DAU/New
+
 ```sql
 SELECT d, server_id, dau, new_users
 FROM game_demo_prod.daily_users
@@ -163,6 +165,7 @@ ORDER BY d, server_id;
 ```
 
 - 最近 7 天收入（元）
+
 ```sql
 SELECT d, server_id, revenue_cents/100.0 AS revenue, refunds_cents/100.0 AS refunds
 FROM game_demo_prod.daily_revenue
@@ -171,6 +174,7 @@ ORDER BY d, server_id;
 ```
 
 - 峰值在线（聚合状态求值）
+
 ```sql
 SELECT d, server_id, maxMerge(peak_online) AS peak_online
 FROM game_demo_prod.daily_online_peak
@@ -180,6 +184,7 @@ ORDER BY d, server_id;
 ```
 
 - 事件漏斗示例（进入->完成）
+
 ```sql
 WITH
   (SELECT count() FROM game_demo_prod.events
@@ -192,6 +197,7 @@ SELECT starts, completes, completes/starts AS cr;
 ```
 
 - 按 server_id 统计 DAU（MMORPG 多服务器场景）
+
 ```sql
 SELECT server_id, avg(dau) AS avg_dau
 FROM game_demo_prod.daily_users

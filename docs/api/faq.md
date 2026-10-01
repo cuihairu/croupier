@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type FAQListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -23,10 +21,7 @@ type FAQListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FAQListResponse struct {
@@ -48,8 +43,6 @@ type FAQListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FAQCreateRequest struct {
 	Question string `json:"question"`
@@ -61,10 +54,7 @@ type FAQCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FAQDetailResponse struct {
@@ -105,8 +95,6 @@ type FAQ struct {
 
 2. request definition
 
-
-
 ```go
 type FAQUpdateRequest struct {
 	ID string `path:"id"`
@@ -119,10 +107,7 @@ type FAQUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FAQDetailResponse struct {
@@ -163,17 +148,13 @@ type FAQ struct {
 
 2. request definition
 
-
-
 ```go
 type FAQDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 5. "获取FAQ分类"
 
@@ -186,21 +167,15 @@ type FAQDeleteRequest struct {
 
 2. request definition
 
-
-
 ```go
 type FAQCategoriesRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FAQCategoriesResponse struct {
 	Items []FAQCategory `json:"items"`
 }
 ```
-

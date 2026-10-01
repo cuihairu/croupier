@@ -11,17 +11,12 @@
 
 2. request definition
 
-
-
 ```go
 type RegistryRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RegistryResponse struct {
@@ -54,4 +49,3 @@ type OpsServicesResponse struct {
 
 - `/api/v1/registry/services` 是给 Dashboard 使用的兼容快捷路由，当前复用 `ops.Services` 的实现。
 - 若需要完整注册表视图，仍优先使用 `/api/v1/registry`。
-

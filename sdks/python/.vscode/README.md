@@ -27,16 +27,16 @@ pytest tests -v
 
 ## VS Code 调试配置
 
-| 配置名称 | 用途 |
-|---------|------|
-| `Python: 当前文件` | 调试当前打开的 Python 文件 |
-| `Python: 示例 - main.py` | 调试同步客户端示例 |
-| `Python: 示例 - invoker (async)` | 调试异步调用者示例 |
-| `Python: 示例 - invoker (sync)` | 调试同步调用者示例 |
-| `Python: pytest - 当前文件` | 运行当前测试文件 |
-| `Python: pytest - 所有测试` | 运行所有测试 |
-| `Python: pytest - 特定测试` | 运行匹配名称的测试 |
-| `Python: pytest - 覆盖率` | 运行测试并显示覆盖率 |
+| 配置名称                         | 用途                       |
+| -------------------------------- | -------------------------- |
+| `Python: 当前文件`               | 调试当前打开的 Python 文件 |
+| `Python: 示例 - main.py`         | 调试同步客户端示例         |
+| `Python: 示例 - invoker (async)` | 调试异步调用者示例         |
+| `Python: 示例 - invoker (sync)`  | 调试同步调用者示例         |
+| `Python: pytest - 当前文件`      | 运行当前测试文件           |
+| `Python: pytest - 所有测试`      | 运行所有测试               |
+| `Python: pytest - 特定测试`      | 运行匹配名称的测试         |
+| `Python: pytest - 覆盖率`        | 运行测试并显示覆盖率       |
 
 ## 常见问题
 

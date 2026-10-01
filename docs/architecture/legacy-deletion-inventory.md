@@ -36,15 +36,15 @@ tag:
 
 > 删除任务：`H-001`；Depends: `A-001`, `E-001`。整体 E2E 前置：`E-001` SchemaFormRenderer 表单链路浏览器 E2E 通过，web build 通过。
 
-| #       | 清单项                                                    | 类型   | 状态   | 替代任务 | Owner | 删除前置条件（E2E）                     | 删除任务 | 防回流证据                                                |
+| # | 清单项 | 类型 | 状态 | 替代任务 | Owner | 删除前置条件（E2E） | 删除任务 | 防回流证据 |
 | ------- | --------------------------------------------------------- | ------ | ------ | -------- | ----- | --------------------------------------- | -------- | --------------------------------------------------------- | ----------- | ------------------ | ------------------- | --------------- | --------------- | ------------------------ |
-| H-001-1 | `web/package.json` 中 `@formily/*` 依赖                   | 依赖   | 已删除 | `E-001`  | H-001 | SchemaFormRenderer(@rjsf) 表单 E2E 通过 | `H-001`  | vNext guard「Formily runtime dependency absent」          |
-| H-001-2 | `web/package.json` 中 `form-render` 依赖                  | 依赖   | 已删除 | `E-001`  | H-001 | 同上                                    | `H-001`  | vNext guard「legacy Formily/FunctionForm runtime absent」 |
-| H-001-3 | `web/pnpm-lock.yaml` 中 formily/form-render lockfile 条目 | 依赖   | 已删除 | `E-001`  | H-001 | 同上                                    | `H-001`  | lockfile 零命中（A-002 勘察记录）                         |
-| H-001-4 | `web/src/components/formily/`                             | 源文件 | 已删除 | `E-001`  | H-001 | 同上                                    | `H-001`  | vNext guard `assert_file_absent`                          |
-| H-001-5 | `web/src/components/FormilyPageRenderer/`                 | 源文件 | 已删除 | `E-001`  | H-001 | 同上                                    | `H-001`  | vNext guard `assert_file_absent`                          |
-| H-001-6 | `web/src/components/FunctionFormManager/`                 | 源文件 | 已删除 | `E-001`  | H-001 | 同上                                    | `H-001`  | vNext guard `assert_file_absent`                          |
-| H-001-7 | `web/src` 内 Formily/form-render 符号与文案               | 引用   | 已删除 | `E-001`  | H-001 | 同上                                    | `H-001`  | vNext guard rg 扫描 `@formily/                            | form-render | components/formily | FunctionFormManager | generateFormily | validateFormily | BuildFallbackFormSchema` |
+| H-001-1 | `web/package.json` 中 `@formily/*` 依赖 | 依赖 | 已删除 | `E-001` | H-001 | SchemaFormRenderer(@rjsf) 表单 E2E 通过 | `H-001` | vNext guard「Formily runtime dependency absent」 |
+| H-001-2 | `web/package.json` 中 `form-render` 依赖 | 依赖 | 已删除 | `E-001` | H-001 | 同上 | `H-001` | vNext guard「legacy Formily/FunctionForm runtime absent」 |
+| H-001-3 | `web/pnpm-lock.yaml` 中 formily/form-render lockfile 条目 | 依赖 | 已删除 | `E-001` | H-001 | 同上 | `H-001` | lockfile 零命中（A-002 勘察记录） |
+| H-001-4 | `web/src/components/formily/` | 源文件 | 已删除 | `E-001` | H-001 | 同上 | `H-001` | vNext guard `assert_file_absent` |
+| H-001-5 | `web/src/components/FormilyPageRenderer/` | 源文件 | 已删除 | `E-001` | H-001 | 同上 | `H-001` | vNext guard `assert_file_absent` |
+| H-001-6 | `web/src/components/FunctionFormManager/` | 源文件 | 已删除 | `E-001` | H-001 | 同上 | `H-001` | vNext guard `assert_file_absent` |
+| H-001-7 | `web/src` 内 Formily/form-render 符号与文案 | 引用 | 已删除 | `E-001` | H-001 | 同上 | `H-001` | vNext guard rg 扫描 `@formily/                            | form-render | components/formily | FunctionFormManager | generateFormily | validateFormily | BuildFallbackFormSchema` |
 
 ## H-002 旧 Page renderer 与旧运行 registry
 

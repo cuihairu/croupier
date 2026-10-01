@@ -11,18 +11,13 @@
 
 2. request definition
 
-
-
 ```go
 type RateLimitsListRequest struct {
 	Resource string `form:"resource,optional"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RateLimitsListResponse struct {
@@ -41,8 +36,6 @@ type RateLimitsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type RateLimitUpsertRequest struct {
 	Name string `json:"name"`
@@ -54,10 +47,7 @@ type RateLimitUpsertRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RateLimitResponse struct {
@@ -96,18 +86,13 @@ type RateLimit struct {
 
 2. request definition
 
-
-
 ```go
 type RateLimitGetRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RateLimitResponse struct {
@@ -146,17 +131,13 @@ type RateLimit struct {
 
 2. request definition
 
-
-
 ```go
 type RateLimitDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 5. "预览限流规则"
 
@@ -169,18 +150,13 @@ type RateLimitDeleteRequest struct {
 
 2. request definition
 
-
-
 ```go
 type RateLimitPreviewRequest struct {
 	Rules interface{} `json:"rules"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RateLimitPreviewResponse struct {
@@ -188,4 +164,3 @@ type RateLimitPreviewResponse struct {
 	Impact interface{} `json:"impact"`
 }
 ```
-

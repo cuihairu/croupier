@@ -25,6 +25,19 @@
  *    `|| ''` 尾翼同样不可达——item.latestVersion 为空时表单预填空串，提交被
  *    releaseVersion 的 required 规则拦截（validateFields 早于 installExtension），
  *    实测「请选择版本」。
+ * 3. handlePublish 的 `if (!publishItem) return` 守卫与 manifest 解析 catch
+ *    兜底（432-440）经 UI 不可达——提交仅在弹窗开启且 publishItem 已设时可达；
+ *    manifestJson 非法形态在 ReleasePublishModal 的表单 validator 已被拦截
+ *    （CatalogManageModals 套件四翼锁定），通过 validator 的串 JSON.parse 必
+ *    成功，同源双保险，不造假用例。
+ * 4. 登记载荷 `values.name?.trim()` 的非空翼经 UI 不可达——
+ *    CatalogRegisterValues 类型含 name 字段但登记表单没有 name 输入项，
+ *    提交值恒 undefined（后端按 extensionId 派生），不造假用例。
+ * 5. 防御性右翼（运行时不可达，不造假）：latestVersion 兜底链 125 行
+ *    `detailVM.item?.` 左翼（adapter fallbackItem 保证 detailVM.item 恒非空）
+ *    与 `|| ''` 尾翼；表格标签列 542/545 行 `row.tags || []` 右翼（tags 类型
+ *    必填，undefined 仅运行时防御）；request 795 行 `kw ?? ''` 右翼（ProTable
+ *    恒传 keyword 字符串）。
  */
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -662,9 +675,10 @@ describe('扩展商店 权限与跳转', () => {
 
 // ---- OPEN-ISSUES #46 批次 3 写路径 UI 接线：登记 / 上下架 / 发布版本 / 删除 ----
 
-/** 打开某行「更多」菜单并点指定项（前一个菜单可能残留在 DOM，取最后一个可见菜单里的目标项） */
+/** 打开某行「更多」菜单并点指定项（前一个菜单可能残留在 DOM，取最后一个可见菜单里的目标项；
+ * 行锚文本可能行内双命中——如 wiki 行 displayName 列与 ID 列各一份，取首个即可（同属一行） */
 async function openMoreAndClick(rowTitle: string, menuItem: string) {
-  const row = screen.getByText(rowTitle).closest('tr') as HTMLElement;
+  const row = screen.getAllByText(rowTitle)[0].closest('tr') as HTMLElement;
   fireEvent.click(within(row).getByRole('button', { name: 'more-actions' }));
   const item = await waitFor(() => {
     const items = Array.from(
@@ -699,8 +713,27 @@ async function findDeleteConfirm(itemName: string) {
   });
 }
 
+/** mapper 兜底文案（plain Error → code unknown 的固定 message） */
+const GENERIC_MSG = 'Please retry or contact an administrator.';
+
+/**
+ * toast 断言口径：antd message 节点挂 body、3s 自动消失且不可移除（移除容器
+ * 会让后续 toast 渲染进 detached 节点 + 内部 removeChild 抛 NotFoundError，
+ * 首版实证）。改为计数式断言——动前取基线，动后等计数增长；离场动画中的
+ * notice（className 含 leave）不计。
+ */
+function toastCount(text: string) {
+  return Array.from(document.querySelectorAll('.ant-message-notice')).filter(
+    (n) => !n.className.includes('leave') && n.textContent?.includes(text),
+  ).length;
+}
+
+async function expectToastGrew(text: string, before: number) {
+  await waitFor(() => expect(toastCount(text)).toBeGreaterThan(before));
+}
+
 describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => {
-  it('登记：表单提交载荷（extensionId trim + 默认 kind/status）+ 成功提示 + reload', async () => {
+  it('登记：表单提交载荷（extensionId trim + 默认 kind/status + 全可选字段 trim）+ 成功提示 + reload', async () => {
     renderPage();
     await waitFirstLoad();
 
@@ -709,12 +742,33 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
     fireEvent.change(screen.getByPlaceholderText('com.example.myextension'), {
       target: { value: '  com.example.new  ' },
     });
+    // 全可选字段填写（两侧带空白验证 trim）；summary 无 placeholder 按 label 锚
+    fireEvent.change(screen.getByPlaceholderText('My Extension'), {
+      target: { value: '  My Extension  ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('external'), {
+      target: { value: '  external  ' },
+    });
+    fireEvent.change(screen.getByLabelText('简介'), {
+      target: { value: '  A chat extension  ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com/icon.png'), {
+      target: { value: '  https://example.com/icon.png  ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
+      target: { value: '  https://example.com  ' },
+    });
     clickModalOk();
 
     await waitFor(() =>
       expect(mCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           extensionId: 'com.example.new',
+          displayName: 'My Extension',
+          vendor: 'external',
+          summary: 'A chat extension',
+          iconUrl: 'https://example.com/icon.png',
+          homepageUrl: 'https://example.com',
           kind: 'community',
           status: 'active',
         }),
@@ -740,7 +794,7 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
     expect(mList).toHaveBeenCalledTimes(1);
   });
 
-  it('下架：行更多菜单提交 status=delisted 并 reload；上架对称（inactive 行）', async () => {
+  it('下架：行更多菜单提交 status=delisted 并 reload；上架对称（inactive 行）；displayName 空回退 name', async () => {
     renderPage();
     await waitFirstLoad();
 
@@ -752,6 +806,11 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
     await openMoreAndClick('Legacy', '上架');
     await waitFor(() => expect(mUpdate).toHaveBeenCalledWith('legacy', { status: 'active' }));
     expect(await screen.findByText('已上架：Legacy')).toBeInTheDocument();
+
+    // wiki 行 displayName 空 → 成功提示回退 name（371 行 `displayName || name` 空翼）
+    await openMoreAndClick('wiki', '下架');
+    await waitFor(() => expect(mUpdate).toHaveBeenCalledWith('wiki', { status: 'delisted' }));
+    expect(await screen.findByText('已下架：wiki')).toBeInTheDocument();
   });
 
   it('发布版本：manifest 非法被前端拦截不调接口；合法 JSON 解析进载荷', async () => {
@@ -770,9 +829,21 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
     await waitFor(() => expect(screen.getByText('Manifest JSON 格式不正确')).toBeInTheDocument());
     expect(mPublish).not.toHaveBeenCalled();
 
-    // 合法 manifest：解析为对象进载荷
+    // 合法 manifest：解析为对象进载荷（全可选字段填写 + trim 翼）
     fireEvent.change(screen.getByPlaceholderText('{"capabilities": []}'), {
       target: { value: '{"capabilities":["cap.echo"]}' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('0.0.1'), {
+      target: { value: '  0.0.9  ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('packs/com.example-1.2.3.tgz'), {
+      target: { value: '  packs/chatops-1.5.0.tgz  ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('sha256:...'), {
+      target: { value: '  sha256:abc123  ' },
+    });
+    fireEvent.change(screen.getByLabelText('Changelog'), {
+      target: { value: '  first release  ' },
     });
     clickModalOk();
     await waitFor(() =>
@@ -781,6 +852,10 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
         expect.objectContaining({
           version: '1.5.0',
           releaseChannel: 'stable',
+          minCoreVersion: '0.0.9',
+          packageRef: 'packs/chatops-1.5.0.tgz',
+          checksum: 'sha256:abc123',
+          changelog: 'first release',
           manifest: { capabilities: ['cap.echo'] },
         }),
       ),
@@ -801,10 +876,10 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
     await waitFor(() => expect(mDelete).toHaveBeenCalledWith('chatops'));
     expect(await screen.findByText('已删除（含历史版本）')).toBeInTheDocument();
 
-    // 活跃安装阻止：409
+    // 活跃安装阻止：409（wiki 行 displayName 空 → 确认标题 name 回退翼）
     mDelete.mockRejectedValueOnce({ response: { status: 409 } });
-    await openMoreAndClick('Legacy', '删除');
-    const confirm2 = await findDeleteConfirm('Legacy');
+    await openMoreAndClick('wiki', '删除');
+    const confirm2 = await findDeleteConfirm('wiki');
     fireEvent.click(
       confirm2.querySelector('.ant-modal-confirm-btns .ant-btn-dangerous') as HTMLButtonElement,
     );
@@ -841,5 +916,113 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
     });
     expect(await screen.findByText('导入失败：该版本已存在')).toBeInTheDocument();
     expect(mList).toHaveBeenCalledTimes(1);
+  });
+
+  it('通用错误翼：导入/上下架/删除 非 409 → mapper 兜底文案', async () => {
+    mImport.mockRejectedValueOnce(new Error('network down'));
+    mUpdate.mockRejectedValueOnce(new Error('network down'));
+    mDelete.mockRejectedValueOnce(new Error('network down'));
+    renderPage();
+    await waitFirstLoad();
+
+    // 导入：plain Error（无 response.data）→ unknown 兜底
+    let before = toastCount(GENERIC_MSG);
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File([new Uint8Array([0x1f, 0x8b])], 'p.tgz')] },
+    });
+    await waitFor(() => expect(mImport).toHaveBeenCalled());
+    await expectToastGrew(GENERIC_MSG, before);
+
+    // 上下架：catch 走 mapExtensionError（无 409 特判分支）
+    before = toastCount(GENERIC_MSG);
+    await openMoreAndClick('ChatOps', '下架');
+    await waitFor(() => expect(mUpdate).toHaveBeenCalledWith('chatops', { status: 'delisted' }));
+    await expectToastGrew(GENERIC_MSG, before);
+
+    // 删除：确认后的通用失败翼
+    before = toastCount(GENERIC_MSG);
+    await openMoreAndClick('ChatOps', '删除');
+    const confirm = await findDeleteConfirm('ChatOps');
+    fireEvent.click(
+      confirm.querySelector('.ant-modal-confirm-btns .ant-btn-dangerous') as HTMLButtonElement,
+    );
+    await waitFor(() => expect(mDelete).toHaveBeenCalledWith('chatops'));
+    await expectToastGrew(GENERIC_MSG, before);
+  });
+
+  it('登记通用错误翼：兜底文案、弹窗保持', async () => {
+    mCreate.mockRejectedValueOnce(new Error('server down'));
+    renderPage();
+    await waitFirstLoad();
+
+    fireEvent.click(screen.getByRole('button', { name: /登记扩展/ }));
+    fireEvent.change(await screen.findByPlaceholderText('com.example.myextension'), {
+      target: { value: 'com.example.new' },
+    });
+    const before = toastCount(GENERIC_MSG);
+    clickModalOk();
+
+    await expectToastGrew(GENERIC_MSG, before);
+    expect(screen.getByText('登记扩展到目录')).toBeInTheDocument();
+  });
+
+  it('发布 409 与通用错误翼：冲突/兜底文案、弹窗保持', async () => {
+    mPublish
+      .mockRejectedValueOnce({ response: { status: 409 } })
+      .mockRejectedValueOnce(new Error('publish down'));
+    renderPage();
+    await waitFirstLoad();
+
+    await openMoreAndClick('ChatOps', '发布版本');
+    expect(await screen.findByText('发布版本: ChatOps')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('1.2.3'), { target: { value: '1.5.0' } });
+    fireEvent.change(screen.getByPlaceholderText('{"capabilities": []}'), {
+      target: { value: '{"capabilities":["cap.echo"]}' },
+    });
+    const conflict = '发布失败：该版本已存在';
+    let before = toastCount(conflict);
+    clickModalOk();
+
+    // 409：专用冲突文案，弹窗保持
+    await expectToastGrew(conflict, before);
+    expect(screen.getByText('发布版本: ChatOps')).toBeInTheDocument();
+
+    // 表单值保留，再次提交 → 通用兜底翼
+    before = toastCount(GENERIC_MSG);
+    clickModalOk();
+    await waitFor(() => expect(mPublish).toHaveBeenCalledTimes(2));
+    await expectToastGrew(GENERIC_MSG, before);
+    expect(screen.getByText('发布版本: ChatOps')).toBeInTheDocument();
+  });
+
+  it('发布 onClose：关闭后弹窗内容卸载（destroyOnHidden）', async () => {
+    renderPage();
+    await waitFirstLoad();
+
+    await openMoreAndClick('ChatOps', '发布版本');
+    expect(await screen.findByText('发布版本: ChatOps')).toBeInTheDocument();
+    fireEvent.click(document.querySelector('.ant-modal-close') as HTMLButtonElement);
+    await waitFor(() => expect(screen.queryByText('发布版本: ChatOps')).toBeNull());
+  });
+
+  it('登记 onClose：点 X 关闭登记弹窗（destroyOnHidden 卸载）', async () => {
+    renderPage();
+    await waitFirstLoad();
+
+    fireEvent.click(screen.getByRole('button', { name: /登记扩展/ }));
+    expect(await screen.findByText('登记扩展到目录')).toBeInTheDocument();
+    fireEvent.click(document.querySelector('.ant-modal-close') as HTMLButtonElement);
+    await waitFor(() => expect(screen.queryByText('登记扩展到目录')).toBeNull());
+  });
+
+  it('安装弹窗 onCancel：点 X 后弹窗隐藏（无 destroyOnHidden，壳残留 display:none）', async () => {
+    renderPage();
+    await waitFirstLoad();
+    await openInstallAndWait('ChatOps');
+
+    fireEvent.click(document.querySelector('.ant-modal-close') as HTMLButtonElement);
+    // antd6 关闭后壳留在 DOM（display:none），断言须查可见性而非 null
+    await waitFor(() => expect(screen.getByText('安装扩展: ChatOps')).not.toBeVisible());
   });
 });

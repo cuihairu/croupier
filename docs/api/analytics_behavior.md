@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type BehaviorRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -22,10 +20,7 @@ type BehaviorRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BehaviorResponse struct {
@@ -46,8 +41,6 @@ type BehaviorResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BehaviorAdoptionRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -58,10 +51,7 @@ type BehaviorAdoptionRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BehaviorAdoptionResponse struct {
@@ -80,8 +70,6 @@ type BehaviorAdoptionResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BehaviorAdoptionBreakdownRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -92,10 +80,7 @@ type BehaviorAdoptionBreakdownRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BehaviorAdoptionBreakdownResponse struct {
@@ -115,8 +100,6 @@ type BehaviorAdoptionBreakdownResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BehaviorEventsRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -128,10 +111,7 @@ type BehaviorEventsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BehaviorEventsResponse struct {
@@ -151,8 +131,6 @@ type BehaviorEventsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BehaviorFunnelRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -163,10 +141,7 @@ type BehaviorFunnelRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BehaviorFunnelResponse struct {
@@ -185,8 +160,6 @@ type BehaviorFunnelResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BehaviorPathsRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -197,14 +170,10 @@ type BehaviorPathsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BehaviorPathsResponse struct {
 	Paths interface{} `json:"paths"`
 }
 ```
-

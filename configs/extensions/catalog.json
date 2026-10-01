@@ -27,11 +27,7 @@
             "version": "1.0.0",
             "kind": "official",
             "defaultInstall": true,
-            "tags": [
-              "official",
-              "platform",
-              "connector"
-            ],
+            "tags": ["official", "platform", "connector"],
             "capabilities": [
               "platform.call",
               "platform.registry",
@@ -68,14 +64,8 @@
             "version": "1.0.0",
             "kind": "official",
             "defaultInstall": false,
-            "tags": [
-              "official",
-              "notification"
-            ],
-            "capabilities": [
-              "notifications.management",
-              "notifications.send"
-            ],
+            "tags": ["official", "notification"],
+            "capabilities": ["notifications.management", "notifications.send"],
             "permissions": {
               "read": "notification.read",
               "operate": "notification.operate",
@@ -145,14 +135,8 @@
             "version": "1.0.0",
             "kind": "official",
             "defaultInstall": false,
-            "tags": [
-              "official",
-              "alerting"
-            ],
-            "capabilities": [
-              "alerts.management",
-              "alerts.silence"
-            ],
+            "tags": ["official", "alerting"],
+            "capabilities": ["alerts.management", "alerts.silence"],
             "permissions": {
               "read": "alerting.read",
               "operate": "alerting.operate",
@@ -217,14 +201,8 @@
             "version": "1.0.0",
             "kind": "official",
             "defaultInstall": false,
-            "tags": [
-              "official",
-              "approval"
-            ],
-            "capabilities": [
-              "approvals.management",
-              "approvals.decide"
-            ],
+            "tags": ["official", "approval"],
+            "capabilities": ["approvals.management", "approvals.decide"],
             "permissions": {
               "read": "approval.read",
               "operate": "approval.operate",
@@ -289,14 +267,8 @@
             "version": "1.0.0",
             "kind": "official",
             "defaultInstall": false,
-            "tags": [
-              "official",
-              "backup"
-            ],
-            "capabilities": [
-              "backups.management",
-              "backups.create"
-            ],
+            "tags": ["official", "backup"],
+            "capabilities": ["backups.management", "backups.create"],
             "permissions": {
               "read": "backup-advanced.read",
               "operate": "backup-advanced.operate",

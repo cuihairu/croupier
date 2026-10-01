@@ -1,0 +1,30 @@
+# Build artifacts
+docs/.vitepress/dist
+*.log
+*.tsbuildinfo
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# IDE
+.idea
+.vscode/*
+
+# OS
+.DS_Store
+
+# Test results
+test-results
+coverage
+
+# Lock files (handled by package managers)
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# 机器解析的契约 fixture：check-demo-contract-baseline.sh 逐行 grep +
+# check_demo_contract_parity.py 按单行形态正则解析，prettier 折行会破坏守卫
+# （bf76dad 全仓重排实证：COLLECTION/summary/JSON.parse 常量全部折行致 Lint 挂）
+sdks/js/examples/game_demo.ts

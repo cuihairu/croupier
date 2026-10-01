@@ -26,11 +26,11 @@ Third-party OpenAPI / Provider
 
 ## 集成方式
 
-| 方式 | 适用场景 | 执行边界 |
-| --- | --- | --- |
-| OpenAPI Source 上传 + Provider binding | 已有 OpenAPI，业务 handler 已在 Provider 中 | Server 通过受控 binding 调用 Provider |
-| OpenAPI Source + controlled HTTP connector | 平台审核过的外部 HTTP API | allowlist、SecretRef、超时、重试、审计后才可启用 |
-| 专用 Provider | 签名、限流、协议转换复杂 | Provider 封装 HTTP 细节，只暴露 FunctionContract |
+| 方式                                       | 适用场景                                    | 执行边界                                         |
+| ------------------------------------------ | ------------------------------------------- | ------------------------------------------------ |
+| OpenAPI Source 上传 + Provider binding     | 已有 OpenAPI，业务 handler 已在 Provider 中 | Server 通过受控 binding 调用 Provider            |
+| OpenAPI Source + controlled HTTP connector | 平台审核过的外部 HTTP API                   | allowlist、SecretRef、超时、重试、审计后才可启用 |
+| 专用 Provider                              | 签名、限流、协议转换复杂                    | Provider 封装 HTTP 细节，只暴露 FunctionContract |
 
 OpenAPI Source 未绑定执行器时，只是契约/语义/Proposal 目录，不得发布可执行页面。
 
@@ -45,12 +45,12 @@ OpenAPI Source 未绑定执行器时，只是契约/语义/Proposal 目录，不
 
 专用 Provider 适合签名固定、限流复杂或响应需要归一化的平台。它可以注册：
 
-| 函数 | resource | capability |
-| --- | --- | --- |
+| 函数                    | resource           | capability         |
+| ----------------------- | ------------------ | ------------------ |
 | `quicksdk.channel.list` | `quicksdk.channel` | `collection_query` |
-| `quicksdk.role.get` | `quicksdk.role` | `item_query` |
-| `quicksdk.message.push` | `quicksdk.message` | `action` |
-| `quicksdk.report.day` | `quicksdk.report` | `report` |
+| `quicksdk.role.get`     | `quicksdk.role`    | `item_query`       |
+| `quicksdk.message.push` | `quicksdk.message` | `action`           |
+| `quicksdk.report.day`   | `quicksdk.report`  | `report`           |
 
 Provider 不提交页面 schema、组件树、页面编排或菜单。平台按相同流程生成 Proposal；无 CRUD 语义时自动得到安全 OperationPage，而不是空白页面。
 

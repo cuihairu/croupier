@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type LevelsRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -22,10 +20,7 @@ type LevelsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type LevelsResponse struct {
@@ -44,8 +39,6 @@ type LevelsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type LevelsEpisodesRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -55,10 +48,7 @@ type LevelsEpisodesRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type LevelsEpisodesResponse struct {
@@ -77,8 +67,6 @@ type LevelsEpisodesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type LevelsMapsRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -88,10 +76,7 @@ type LevelsMapsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type LevelsMapsResponse struct {
@@ -110,8 +95,6 @@ type LevelsMapsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type RetentionRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -122,14 +105,10 @@ type RetentionRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RetentionResponse struct {
 	Cohorts []RetentionCohort `json:"cohorts"`
 }
 ```
-

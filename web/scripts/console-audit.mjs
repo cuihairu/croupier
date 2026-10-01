@@ -108,11 +108,7 @@ function bucket(msgType, text) {
  * the audit runnable offline instead of requiring `playwright install`.
  */
 function resolveChromium() {
-  const cacheRoot = path.join(
-    process.env.HOME || '/root',
-    '.cache',
-    'ms-playwright',
-  );
+  const cacheRoot = path.join(process.env.HOME || '/root', '.cache', 'ms-playwright');
   let candidates = [];
   try {
     candidates = fs
@@ -124,10 +120,7 @@ function resolveChromium() {
     /* cache root missing -> let Playwright use its own resolution */
   }
   for (const dir of candidates) {
-    for (const rel of [
-      'chrome-linux64/chrome',
-      'chrome-linux/chrome',
-    ]) {
+    for (const rel of ['chrome-linux64/chrome', 'chrome-linux/chrome']) {
       const exe = path.join(cacheRoot, dir, rel);
       if (fs.existsSync(exe)) return { executablePath: exe };
     }
@@ -240,7 +233,11 @@ async function main() {
       .sort((a, b) => b.count - a.count),
     other: allMsgs
       .filter((m) => !/deprecated/i.test(m.text))
-      .map((m) => ({ route: m.route, type: m.msgType, text: m.text.replace(/\s+/g, ' ').slice(0, 240) })),
+      .map((m) => ({
+        route: m.route,
+        type: m.msgType,
+        text: m.text.replace(/\s+/g, ' ').slice(0, 240),
+      })),
   };
 
   const destDir = path.resolve(process.cwd(), 'test-results');

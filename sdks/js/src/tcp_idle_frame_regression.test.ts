@@ -204,9 +204,7 @@ describe("TCPTransport idle-connection frame integrity", () => {
       MSG_PROVIDER_HEARTBEAT_REQUEST,
       Buffer.alloc(0),
     );
-    await agent.waitFrame(
-      (f) => f.msgId === MSG_PROVIDER_HEARTBEAT_REQUEST,
-    );
+    await agent.waitFrame((f) => f.msgId === MSG_PROVIDER_HEARTBEAT_REQUEST);
     agent.destroyClientConnection();
 
     await expect(callPromise).rejects.toThrow(/connection closed/);

@@ -19,11 +19,16 @@ import protobuf from "protobufjs";
 import { BasicClient, type ClientConfig } from "./index";
 
 jest.mock("protobufjs", () => {
-  const actual = jest.requireActual("protobufjs") as typeof import("protobufjs");
+  const actual = jest.requireActual(
+    "protobufjs",
+  ) as typeof import("protobufjs");
   const realParse = actual.parse.bind(actual);
   return {
     ...actual,
-    parse: ((proto: string, options?: { keepCase?: boolean; alternateCommentMode?: boolean }) => {
+    parse: ((
+      proto: string,
+      options?: { keepCase?: boolean; alternateCommentMode?: boolean },
+    ) => {
       const parsed = realParse(proto, options);
       const realLookup = parsed.root.lookupType.bind(parsed.root);
       parsed.root.lookupType = ((name: string) => {
@@ -50,9 +55,9 @@ message FilePushResponse {
   string error = 4;
 }
 `;
-const FilePushResponseMessage = protobuf.parse(responseProto).root.lookupType(
-  "gapfix.test.FilePushResponse",
-);
+const FilePushResponseMessage = protobuf
+  .parse(responseProto)
+  .root.lookupType("gapfix.test.FilePushResponse");
 
 describe("file push unmarshal failure stringification", () => {
   it("stringifies non-Error decode failures in the error response", async () => {
