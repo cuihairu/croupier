@@ -3236,3 +3236,40 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 的失败经查 annotation 为 "operation was canceled"（新 push 自动取消
 > 的环境性签名，同记忆档），非用例回归——覆盖率排名快照留待低载窗口
 > 单跑补取。
+
+## 第二十七轮：零测试模块三件簇收口（menu store / MessagesBell / JsonCodeEditor 0% → 三文件 4×100，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：零测试页面目录归零后（R26）转
+> 组件/store 层零覆盖模块——启发式筛选 + scoped coverage 基线实证
+> （`/tmp/r27-baseline.log`：三目标 0/0/0/0 起点，menuIcon 经 consoleMenu
+> 传递覆盖 100% 故剔除）三件真 0% 模块收口，合计约 197 行：
+> ① `store/modules/menu.ts`（73 行，唯一消费方 app.tsx 无测试）→
+> `store/modules/menu.test.ts` 10 用例；② `components/MessagesBell.tsx`
+> （46 行）→ `components/MessagesBell.test.tsx` 9 用例；③
+> `components/JsonCodeEditor.tsx`（78 行）→ `components/JsonCodeEditor.test.tsx`
+> 3 用例。v8 口径 **三文件行/分支/函数/语句 4×100%**——本批无登记不可达
+> 分支。锁定契约——menu store：初始态 null / refresh 成功落缓存+emit /
+> 缓存命中不发请求 / force 绕缓存 / 并发 inflight 去重（并发期 force 共享
+> 同一 inflight 仅 1 次调用）/ settle 后 inflight 清空 / reject 透传+缓存
+> 保持 null+可重试 / reset 清缓存+emit / 退订后 emit 不触发 / hook 初始
+> loaded=false 与 refresh 恒 force（预置缓存仍重拉）；MessagesBell：无
+> token 门（一次都不发）/ 挂载双拉（prime+loop 首轮=2 次）+ Badge 计数 /
+> resolve {} → count=0 徽标不渲染（showZero 默认 false）/ reject 静默 /
+> 点击 push 消息页 / 5 分钟轮询（fake timers 2→3→4）/ document.hidden
+> 跳过+恢复可见恢复拉取 / 卸载 timer 清除+ alive 守卫（卸载后 resolve 不
+> setState，含二次渲染立即卸载 4 次调用不抛）；JsonCodeEditor：
+> SUBLIME_THEME='croupier-sublime' 常量 / defineSublimeTheme 守卫链
+> （!monaco 早退 → 首次注册完整负载（rules 六 token + colors 背景/光标
+> 键）→ 模块级 themeRegistered 二次 no-op）/ 默认导出装配契约（height
+> 默认 260 与显式透传、language='json'、theme、beforeMount 引用同一函数、
+> options 八键全量 toEqual）。
+> **坑实证（新档，两条）**：① **`--collectCoverageFrom` 不带 `--coverage`
+> 不产出覆盖率表**——jest 只按 pattern 跑套件、表格必须 `--coverage` 同时
+> 在场（首轮 scoped 基线两连踩）；② jest.mock 工厂 TDZ（R26 同款复证）：
+> CodeEditor mock 的 jest.fn 定义在工厂内、测试侧经 mock 后模块导出取句柄
+> `as unknown as jest.Mock`。
+> 门禁：目标套件 21/21 绿（格式化后复验 14.5s 同绿）、prettier --write
+> 后 0、eslint 0、`pnpm --dir web run tsc` 0 错、
+> `scripts/dashboard_vnext_guard.sh` PASSED（仓库根）；**全量 jest 376 套件
+> 4613 用例全绿 exit 0**（2 worker，load 15-30 窗口 1631s，零红集无需
+> 漂移定责；日志尾 worker force-exit 提示为既有 teardown 提示非失败）。
