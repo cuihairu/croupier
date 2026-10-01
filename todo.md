@@ -3018,3 +3018,12 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：触及文件 gofmt/go vet 干净；go test ./internal/... -count=1 -p 4
 > fresh 158 包 exit=0 零 FAIL（load 53-101 洪峰下跑完）；otp/assignment
 > 双包 -race -count=2 绿（assignment 278s，race 放大后环境性慢如实记录）。
+>
+> **R52 追加（17a6831 CI Lint 处置）**：合并带入的 bf76dad（全仓 prettier
+> 重排）把 `sdks/js/examples/game_demo.ts` 的 COLLECTION 定义、summary 兜底
+> 三元与全部 10 个 `JSON.parse` 常量折成多行，demo 契约基线守卫按单行 grep
+> /正则解析随即双挂（「summary 模板漂移」+「COLLECTION helper not found」，
+> d6b0401 起主链即红、非本轮引入）。处置：该文件是六语言契约 fixture
+> （守卫逐行解析的机器输入，同生成物性质），整文件还原至 bf76dad^ 原形态 +
+> 入 .prettierignore 防复发；本地守卫复跑 DEMO-BASELINE OK（六语言 19-22
+> 槽位逐槽 PASS，rc=0）。
