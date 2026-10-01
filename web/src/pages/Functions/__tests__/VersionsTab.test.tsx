@@ -152,11 +152,13 @@ describe('VersionsTab', () => {
     render(<VersionsTab functionId="player.ban" />);
     await screen.findByText('破坏性');
 
+    // 门槛下拉（VersionFloorSelect）恒为 DOM 首个 combobox，
+    // 两版对比 from/to 顺延为 index 1/2
     const selects = screen.getAllByRole('combobox');
-    fireEvent.mouseDown(selects[0]);
+    fireEvent.mouseDown(selects[1]);
     let options = await screen.findAllByText('#1');
     fireEvent.click(options[options.length - 1]);
-    fireEvent.mouseDown(selects[1]);
+    fireEvent.mouseDown(selects[2]);
     options = await screen.findAllByText('#2');
     fireEvent.click(options[options.length - 1]);
     fireEvent.click(screen.getByRole('button', { name: /对比|比 对/ }));
@@ -181,17 +183,26 @@ describe('VersionsTab 版本门槛设置', () => {
     renderTab();
     await waitFor(() => expect(mockGetFloor).toHaveBeenCalledWith('player.ban'));
     expect(await screen.findByText('当前门槛', { exact: false })).toBeInTheDocument();
-    expect(screen.getByDisplayValue('0.3.0')).toBeInTheDocument();
+    // 门槛是下拉而非输入框：选中项渲染为「≥ v{当前值}」
+    expect(screen.getByText('≥ v0.3.0')).toBeInTheDocument();
   });
 
-  it('输入新版本并保存 → PUT 并更新回显', async () => {
+  it('选择新版本并保存 → PUT 并更新回显', async () => {
     renderTab();
     await waitFor(() => expect(mockGetFloor).toHaveBeenCalled());
-    fireEvent.change(screen.getByPlaceholderText('0.3.0'), { target: { value: '0.4.0' } });
+    // 候选来自版本流（rows.version 去重）——选历史版本而非手输
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
+    fireEvent.click(await screen.findByText('≥ v1.2.0'));
     fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
-    await waitFor(() => expect(mockPutFloor).toHaveBeenCalledWith('player.ban', '0.4.0'));
+    await waitFor(() => expect(mockPutFloor).toHaveBeenCalledWith('player.ban', '1.2.0'));
     expect(await screen.findByText('当前门槛', { exact: false })).toBeInTheDocument();
-    expect(screen.getByDisplayValue('0.4.0')).toBeInTheDocument();
+    // 下拉关闭后回显选中项「≥ v1.2.0」（与 option 标签同文本，取多实例）
+    // + 当前门槛 Tag 带新值（Tag 内 FormattedMessage 与拼接文本分节点，按容器断言）
+    expect((await screen.findAllByText('≥ v1.2.0')).length).toBeGreaterThan(0);
+    const floorTag = Array.from(document.querySelectorAll('.ant-tag')).find((t) =>
+      t.textContent?.includes('当前门槛'),
+    );
+    expect(floorTag?.textContent).toContain('1.2.0');
   });
 
   it('清除门槛 → DELETE 并回到未设置', async () => {
