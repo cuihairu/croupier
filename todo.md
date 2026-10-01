@@ -3082,3 +3082,74 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > dashboard-quality 各挂一次＝runner 回收签名（shutdown signal + 零 ✕，
 > 今日第 2/3 次），42b6207 上 dashboard-quality 自身绿，30d5c97 未触发
 > dashboard 域变更不在验证面。
+
+## 第二十四轮：留存分析页覆盖收口（Analytics/Retention 0% → 语句/行/函数 100 + 分支 97.91，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行
+> 现席 `Analytics/Retention/index.tsx`（179 行）单件收口，新增
+> `__tests__/index.test.tsx` 7 用例，v8 口径 **100/97.91/100/100**——唯一
+> 未覆盖位 L137 users 渲染 `v?.toLocaleString() || 0` 的 falsy 与 `?.`
+> 翼（CohortData.users 必填 number，undefined 违反类型契约即造假，登记）。
+> 锁定契约——挂载 fetchAnalyticsRetention({cohort:'signup'})（range 空不
+> 带 start/end）+ 七列矩阵（users 千分位 1234→'1,234'、D 列
+> `v!=null ? (v*100).toFixed(2)+'%' : '-'` 双翼、retention 稀疏越界位落
+> '-'、缺 retention 键五列全 '-'）+ 工具栏四件；cohort Select 切「按首次
+> 活跃」→ effect 自动重拉 {cohort:'first_active'}；RangePicker 设区间 →
+> 自动重拉带 dayjs ISO start/end、清空图标（mouseEnter 显形）→ 回到无
+> start/end；查询按钮 +1 同参拉取；导出 CSV exportToXLSX('retention.csv')
+> 载荷（users 原值 number、缺省 D 列 null 单元格）；响应缺省双翼
+> （resolve undefined → `r || {cohorts:[]}` 右翼、resolve {} →
+> `cohorts || []` 右翼——服务返回无类型声明，204/空体合法形态）；五列
+> sorter 全触达 + D1 升序首行翻转断言。
+> **坑实证（新档，两条）**：① antd 单列排序每次点击整体切换 sortColumn
+> ——五列 sorter 全触达须逐列点击、排序断言列留最后点；且 3 行数据下
+> V8 插入排序不产生 null 作 b 操作数的比较，D1 sorter `b.d1||0` 的 null
+> 翼需第二条 null-d1 行构造 null 对 null 比较（4 行 fixture 解决）；
+> ② pnpm 透传 jest flags 多带一个 `--` 分隔符会把 flags 全吞成路径
+> pattern（套件照跑但覆盖率表消失）——flags 直传不带 `--`。
+> 登记边界：`if (range && range[0/1])` 半开翼（RangePicker onChange 只产
+> 完整对或 null，构造性不可达，Behavior 套件同结论）；users 渲染 falsy
+> 翼（类型必填，见上）；`data?.cohorts` 的 data-null 翼（state 初始即
+> 对象、setData 恒对象，结构不可达）；load 的 try/finally 无 catch
+> （reject 成 unhandled rejection，同族口径不造假）。
+> 门禁：目标套件 7/7 绿；prettier/eslint 0；`pnpm --dir web run tsc`
+> 0 错；`scripts/dashboard_vnext_guard.sh` PASSED（含 origin/main 合并
+> e4a4fef 后复验）。
+
+## 第二十五轮：数据仓库页覆盖收口（Analytics/Warehouse 0% → 4×100，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：零测试簇排行现席
+> `Analytics/Warehouse/index.tsx`（165 行）单件收口，新增
+> `__tests__/index.test.tsx` 5 用例，v8 口径 **4×100%**——本页无登记
+> 不可达分支（数值缺省翼经 0 值、minute 三元经空串、`?.points || []`
+> 经 {} 响应、catch 三翼经 503/500/null 全部真实构造）。
+> 锁定契约——挂载三拉并发（DAU {days:14} / Online {minutes:60} /
+> Revenue {days:14}）→ ready 双 Line + 单 Column；数据映射经图表 mock
+> data-points 序列化断言（DAU flatMap 双序列 type 'DAU'/'新增'、
+> minute.slice(11,16) 截断 + 空串翼、revenueCents 0 翼）；loading 瞬态
+> （pending → 骨架 + 图表不挂载）；503 → disabled Alert info（分析仓库
+> 未启用 + ClickHouse 描述）；非 503 三翼（resp 存在 status=500 /
+> reject null → `?.response` null 翼 / reject Error → resp undefined 翼）
+> 均落 error Alert；重试链接 onClick={load} 重拉闭环回 ready。
+> **坑实证（新档，两条）**：① **useIntl mock 必须返回稳定单例**——本页
+> load 为 useCallback(..., [intl]) 且无 Cluster 页 intlRef 护栏，每渲染
+> 新对象 → effect 每渲重建 → setStatus('loading') 无限循环（Maximum
+> update depth exceeded）；生产 umi useIntl 实例恒定，仅 mock 侧需此
+> 约束；② 同用例多段 render 各自捕获 unmount——后段 render 返回值被
+> 忽略时 unmount() 闭包仍指前段树（no-op），旧树滞留 DOM 造成
+> 「Found multiple elements」。
+> 门禁：目标套件 5/5 绿（4×100%）；prettier/eslint 0；tsc 0 错；
+> guard PASSED（含合并后复验）。
+>
+> **R24+R25 全量 jest 终态（合并门禁）**：372 套件 4590 用例，2 worker，
+> load 5→52 漂移窗口 ~35min：**4577 绿 + 13 失败**，红集三族定责——
+> ① VersionsTab 两套件 11 例：**上游 main 既有红**（29ac689/9c50e3d 把
+> DetailTabs 版本门槛手填 Input 改 VersionFloorSelect 未同步测试；
+> origin/main CI run 36814923990 同 11 例失败实证，与本批测试单件零
+> 交集；上游会话活跃修复中，不代做避免撞车）；②
+> SelectorSyncReportModal 1 例 + MenuMountModal 1 例：负载型漂移红
+> （本 run load 40-52 段撞入；上一轮全量两者皆绿、Store 反转绿——红集
+> 漂移签名；**隔离复跑 24/24 绿**定责负载型）；③ 本批 Retention 7/7 +
+> Warehouse 5/5 全量语境下全绿（Store 本轮全量亦绿）。首轮全量因共享机
+> 内存耗尽（swap 31G 满、并行会话 jest 挤压）被 harness 内存压力回收
+> 中止一次，load<10 空载窗口重跑得终态——非用例失败，如实记录。
