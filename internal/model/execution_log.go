@@ -93,6 +93,46 @@ func (m *ExecutionLogModel) List(ctx context.Context, opts ExecutionLogListOptio
 	return items, total, err
 }
 
+// OperatorOptions 按 #33 提供执行留痕「操作人」过滤下拉的服务端聚合选项：
+// 同过滤维度下的 distinct actor 及其留痕条数。空 actor 不是可过滤选项。
+func (m *ExecutionLogModel) OperatorOptions(ctx context.Context, opts ExecutionLogListOptions) ([]OptionCount, error) {
+	db := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&ExecutionLog{})
+	if opts.GameID != "" {
+		db = db.Where("game_id = ?", opts.GameID)
+	}
+	if opts.Env != "" {
+		db = db.Where("env = ?", opts.Env)
+	}
+	if opts.FunctionID != "" {
+		db = db.Where("function_id = ?", opts.FunctionID)
+	}
+	if opts.Source != "" {
+		db = db.Where("source = ?", opts.Source)
+	}
+	if opts.Status != "" {
+		db = db.Where("status = ?", opts.Status)
+	}
+	if opts.TraceID != "" {
+		db = db.Where("trace_id = ?", opts.TraceID)
+	}
+	if opts.From != nil {
+		db = db.Where("created_at >= ?", *opts.From)
+	}
+	if opts.To != nil {
+		db = db.Where("created_at <= ?", *opts.To)
+	}
+	var rows []OptionCount
+	if err := db.
+		Where("actor <> ''").
+		Select("actor AS name, COUNT(*) AS count").
+		Group("actor").
+		Order("count DESC, name ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // DeleteBefore 删除创建时间早于 cutoff 的记录，返回删除行数（R3 保留期清理）。
 func (m *ExecutionLogModel) DeleteBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error) {
 	return deleteBatch(ctx, m.db, &ExecutionLog{}, cutoff, batch)

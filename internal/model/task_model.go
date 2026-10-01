@@ -11,12 +11,22 @@ import (
 	"gorm.io/gorm"
 )
 
+// OptionCount 服务端聚合选项的通用行形态（#23/#33/#34 族过滤下拉）。
+// Scan 目标：`SELECT <col> AS name, COUNT(*) AS count ... GROUP BY <col>`。
+type OptionCount struct {
+	Name  string
+	Count int64
+}
+
 type ListTasksOptions struct {
 	PaginationOptions
 	FunctionID string
 	Status     string
 	GameID     string
 	Env        string
+	// Actor 按操作者过滤（OPEN-ISSUES #23：/tasks 的 actor 参数此前未接线，
+	// 前端发了参数被静默忽略，页面靠客户端兜底过滤——分页下漏数据）。
+	Actor string
 }
 
 type TaskRunModel struct {
@@ -90,6 +100,9 @@ func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskR
 	if v := strings.TrimSpace(opts.Env); v != "" {
 		query = query.Where("env = ?", v)
 	}
+	if v := strings.TrimSpace(opts.Actor); v != "" {
+		query = query.Where("actor = ?", v)
+	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -98,6 +111,38 @@ func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskR
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+// OperatorOptions 按 #23 提供 /ops/jobs「有权限的操作者」过滤下拉的
+// 服务端聚合选项：同过滤维度（函数/状态/scope）下的 distinct actor 及其
+// 留痕条数。空 actor（系统触发等无操作者留痕）不是可过滤选项，排除。
+func (m *TaskRunModel) OperatorOptions(ctx context.Context, opts ListTasksOptions) ([]OptionCount, error) {
+	opts.Normalize()
+
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&TaskRun{})
+	if v := strings.TrimSpace(opts.FunctionID); v != "" {
+		query = query.Where("function_id = ?", v)
+	}
+	if v := strings.TrimSpace(opts.Status); v != "" {
+		query = query.Where("status = ?", v)
+	}
+	if v := strings.TrimSpace(opts.GameID); v != "" {
+		query = query.Where("game_id = ?", v)
+	}
+	if v := strings.TrimSpace(opts.Env); v != "" {
+		query = query.Where("env = ?", v)
+	}
+
+	var rows []OptionCount
+	if err := query.
+		Where("actor <> ''").
+		Select("actor AS name, COUNT(*) AS count").
+		Group("actor").
+		Order("count DESC, name ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 type TaskEventModel struct {

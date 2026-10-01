@@ -837,3 +837,18 @@ export async function fetchNodeCronJobs(nodeId: string): Promise<NodeCronJob[]> 
   );
   return res.items ?? [];
 }
+
+/** 服务端聚合选项行（#23/#33/#34 族：操作者/函数/Agent 过滤下拉） */
+export type ServerSelectOptionRow = {
+  value: string;
+  label?: string;
+  count?: number;
+};
+
+/** 任务操作者聚合选项（#23：GET /api/v1/tasks/operator-options）。
+ *  供 /ops/jobs 操作者下拉消费，选项为当前 scope 下 distinct actor 全集，
+ *  不随列表过滤塌缩。 */
+export async function listOpsTaskOperatorOptions(): Promise<ServerSelectOptionRow[]> {
+  const res = await request<{ items?: ServerSelectOptionRow[] }>('/api/v1/tasks/operator-options');
+  return res.items ?? [];
+}

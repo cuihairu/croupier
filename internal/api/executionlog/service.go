@@ -155,3 +155,47 @@ func toListItem(item model.ExecutionLog) ExecutionLogItem {
 		CreatedAt:  item.CreatedAt,
 	}
 }
+
+// OperatorOptions 操作人聚合选项（#33）：与 List 非 mine 分支同一权限边界
+// （admin:all / audit:read），当前 scope + 同过滤维度下 distinct actor 及
+// 留痕条数，供执行留痕页操作人下拉消费。
+func (s *Service) OperatorOptions(ctx context.Context, req *ListRequest) (*OperatorOptionsResponse, error) {
+	if s.svcCtx.ExecutionLogModel == nil {
+		return nil, errors.New("execution log model unavailable")
+	}
+	if _, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权查看执行留痕", "admin:all", "audit:read"); err != nil {
+		return nil, err
+	}
+	if req == nil {
+		req = &ListRequest{}
+	}
+	var err error
+	opts := model.ExecutionLogListOptions{
+		FunctionID: strings.TrimSpace(req.FunctionID),
+		Source:     strings.TrimSpace(req.Source),
+		Status:     strings.TrimSpace(req.Status),
+		TraceID:    strings.TrimSpace(req.TraceID),
+	}
+	if opts.From, err = parseTimeParam(req.From); err != nil {
+		return nil, err
+	}
+	if opts.To, err = parseTimeParam(req.To); err != nil {
+		return nil, err
+	}
+	scope := svc.GameScopeFromContext(ctx)
+	opts.GameID = scope.GameID
+	opts.Env = scope.Env
+	rows, err := s.svcCtx.ExecutionLogModel.OperatorOptions(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]OperatorOptionsItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, OperatorOptionsItem{
+			Value: row.Name,
+			Label: row.Name,
+			Count: row.Count,
+		})
+	}
+	return &OperatorOptionsResponse{Items: items}, nil
+}

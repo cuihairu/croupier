@@ -56,6 +56,7 @@ import FunctionWarningsPage from '../index';
 import {
   deleteAllFunctionWarnings,
   deleteFunctionWarning,
+  listFunctionWarningFilterOptions,
   listFunctionWarnings,
   markAllFunctionWarningsRead,
   markFunctionWarningRead,
@@ -68,15 +69,18 @@ configure({ asyncUtilTimeout: 5000 });
 jest.mock('@/services/api/functions', () => ({
   deleteAllFunctionWarnings: jest.fn(),
   deleteFunctionWarning: jest.fn(),
+  listFunctionWarningFilterOptions: jest.fn(),
   listFunctionWarnings: jest.fn(),
   markAllFunctionWarningsRead: jest.fn(),
   markFunctionWarningRead: jest.fn(),
 }));
 
-// scopeKey 可变：rerender 驱动 #34 族联动重拉
+// scopeKey 可变：rerender 驱动 #34 族联动重拉。
+// ServerOptionsSelect 内部调用 useScopeReload，mock 模块必须带上它。
 const mockScope = { scope: { gameId: '', env: '' }, scopeKey: '::' };
 jest.mock('@/hooks/useScopeReload', () => ({
   useScope: () => mockScope,
+  useScopeReload: () => jest.fn(),
 }));
 
 const mockReplace = jest.fn();
@@ -95,6 +99,9 @@ jest.mock('@ant-design/pro-components', () => ({
 }));
 
 const mList = listFunctionWarnings as jest.MockedFunction<typeof listFunctionWarnings>;
+const mFilterOptions = listFunctionWarningFilterOptions as jest.MockedFunction<
+  typeof listFunctionWarningFilterOptions
+>;
 const mMarkAll = markAllFunctionWarningsRead as jest.MockedFunction<
   typeof markAllFunctionWarningsRead
 >;
@@ -154,11 +161,44 @@ function renderPage() {
   );
 }
 
+// #34：函数ID/AgentID 已从 Input 换成 ServerOptionsSelect（antd6 Select）——
+// placeholder 文本与表格单元格撞车（不能 getByText），经 .ant-select-placeholder 定位。
+function selectPlaceholder(text: string): HTMLElement {
+  const hit = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-placeholder')).find(
+    (el) => el.textContent === text,
+  );
+  expect(hit).toBeTruthy();
+  return hit as HTMLElement;
+}
+
+/** 打开指定 placeholder 的过滤下拉并点选展示文本匹配的选项（count 后缀保证与表格文本不撞）。 */
+async function chooseFilterOption(placeholder: string, optionText: string): Promise<void> {
+  fireEvent.mouseDown(selectPlaceholder(placeholder));
+  const dropdownOptions = () =>
+    Array.from(
+      document.querySelectorAll('.ant-select-dropdown .ant-select-item-option'),
+    ) as HTMLElement[];
+  await waitFor(() => {
+    expect(dropdownOptions().some((el) => el.textContent === optionText)).toBe(true);
+  });
+  fireEvent.click(dropdownOptions().find((el) => el.textContent === optionText) as Element);
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockSearch = '';
   mockScope.scopeKey = '::';
   mList.mockResolvedValue({ items: ROWS });
+  mFilterOptions.mockResolvedValue({
+    functions: [
+      { value: 'examples.player.create', count: 1 },
+      { value: 'dup.fn', count: 1 },
+    ],
+    agents: [
+      { value: 'agent-1', count: 1 },
+      { value: 'agent-2', count: 1 },
+    ],
+  });
   mMarkAll.mockResolvedValue(undefined);
   mMarkOne.mockResolvedValue(undefined);
   mDelAll.mockResolvedValue(undefined);
@@ -212,10 +252,13 @@ describe('函数注册告警 挂载与列表', () => {
         limit: 50,
       }),
     );
-    expect((screen.getByPlaceholderText('examples.player.create') as HTMLInputElement).value).toBe(
-      'examples.player.create',
+    // Select 无 input placeholder 属性，预填值经选择器展示文本断言
+    // （选项载入后 ServerOptionsSelect 渲染为「value (count)」形态）
+    const selectTexts = Array.from(document.querySelectorAll('.ant-select')).map(
+      (el) => el.textContent,
     );
-    expect((screen.getByPlaceholderText('agent-1') as HTMLInputElement).value).toBe('agent-1');
+    expect(selectTexts).toContain('examples.player.create (1)');
+    expect(selectTexts).toContain('agent-1 (1)');
     expect((screen.getByPlaceholderText('invalid_version') as HTMLInputElement).value).toBe(
       'invalid_version',
     );
@@ -252,10 +295,8 @@ describe('函数注册告警 查询与 URL 同步', () => {
     renderPage();
     await waitFor(() => expect(mList).toHaveBeenCalledTimes(1));
 
-    fireEvent.change(screen.getByPlaceholderText('examples.player.create'), {
-      target: { value: 'examples.player.create' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('agent-1'), { target: { value: 'agent-9' } });
+    await chooseFilterOption('examples.player.create', 'examples.player.create (1)');
+    await chooseFilterOption('agent-1', 'agent-1 (1)');
     fireEvent.change(screen.getByPlaceholderText('invalid_version'), {
       target: { value: 'duplicate_function' },
     });
@@ -264,13 +305,13 @@ describe('函数注册告警 查询与 URL 同步', () => {
 
     await waitFor(() =>
       expect(mockReplace).toHaveBeenCalledWith(
-        '/functions/warnings?function_id=examples.player.create&agent_id=agent-9&code=duplicate_function&limit=20',
+        '/functions/warnings?function_id=examples.player.create&agent_id=agent-1&code=duplicate_function&limit=20',
       ),
     );
     await waitFor(() =>
       expect(mList).toHaveBeenLastCalledWith({
         functionId: 'examples.player.create',
-        agentId: 'agent-9',
+        agentId: 'agent-1',
         code: 'duplicate_function',
         limit: 20,
       }),
@@ -282,10 +323,18 @@ describe('函数注册告警 查询与 URL 同步', () => {
     renderPage();
     await waitFor(() => expect(mList).toHaveBeenCalledTimes(1));
 
-    // 清空两个预填输入（allowClear Input 的 change 空串）+ limit 清空
-    fireEvent.change(screen.getByPlaceholderText('examples.player.create'), {
-      target: { value: '' },
+    // 清空预填的函数过滤（antd6 清除手柄 span.ant-select-clear，悬停后出现）+ limit 清空
+    const fnSelect = Array.from(document.querySelectorAll('.ant-select')).find(
+      (el) => el.textContent === 'stale.fn',
+    );
+    expect(fnSelect).toBeTruthy();
+    fireEvent.mouseEnter(fnSelect as Element);
+    const clearBtn = await waitFor(() => {
+      const el = (fnSelect as Element).querySelector('.ant-select-clear');
+      expect(el).toBeTruthy();
+      return el as Element;
     });
+    fireEvent.click(clearBtn);
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: /查\s*询/ }));
 

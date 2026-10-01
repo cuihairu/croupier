@@ -39,3 +39,19 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// OperatorOptions handles GET /api/v1/execution-logs/operator-options（#33）：
+// 当前 scope 下操作人 distinct 聚合，供执行留痕页过滤下拉消费。
+func (h *Handler) OperatorOptions(c *gin.Context) {
+	var req ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.OperatorOptions(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

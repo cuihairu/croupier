@@ -724,3 +724,21 @@ export async function getFunctionOpenAPI(functionId: string) {
 export async function deleteAllFunctionWarnings(): Promise<{ deleted: number }> {
   return request<{ deleted: number }>('/api/v1/functions/warnings', { method: 'DELETE' });
 }
+
+/** 注册警告过滤下拉聚合选项行（#34） */
+export type FunctionWarningFilterOption = {
+  value: string;
+  label?: string;
+  count?: number;
+};
+
+export type FunctionWarningFilterOptions = {
+  functions: FunctionWarningFilterOption[];
+  agents: FunctionWarningFilterOption[];
+};
+
+/** 注册警告过滤下拉聚合（#34：GET /api/v1/functions/warnings/filter-options）。
+ *  一次取全函数 ID / Agent 两个维度的 distinct 选项，均带警告条数。 */
+export async function listFunctionWarningFilterOptions(): Promise<FunctionWarningFilterOptions> {
+  return request<FunctionWarningFilterOptions>('/api/v1/functions/warnings/filter-options');
+}

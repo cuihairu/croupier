@@ -6,7 +6,6 @@ import {
   Card,
   Descriptions,
   Drawer,
-  Input,
   Select,
   Space,
   Table,
@@ -16,7 +15,12 @@ import {
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { useScopeReload } from '@/hooks/useScopeReload';
-import { listOpsTasks, type OpsTask, listOpsFunctions } from '@/services/api/ops';
+import {
+  listOpsTasks,
+  type OpsTask,
+  listOpsFunctions,
+  listOpsTaskOperatorOptions,
+} from '@/services/api/ops';
 import {
   cancelTask,
   fetchTaskResult,
@@ -24,6 +28,7 @@ import {
   type TaskEventSubscription,
 } from '@/services/api/functions';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 import type { JSONValue } from '@/types/dashboard';
 import { formatDateTime } from '@/utils/format';
 import { FormattedMessage, useIntl } from '@umijs/max';
@@ -142,16 +147,6 @@ export default function OpsTasksPage() {
     const functionCount = new Set(rows.map((item) => item.functionId).filter(Boolean)).size;
     return { runningCount, succeededCount, failedCount, functionCount };
   }, [rows]);
-
-  const resultRows = useMemo(() => {
-    return rows.filter((item) => {
-      if (status && item.state !== status) return false;
-      if (fid && item.functionId !== fid) return false;
-      const actorValue = actor.trim().toLowerCase();
-      if (actorValue && !(item.actor || '').toLowerCase().includes(actorValue)) return false;
-      return true;
-    });
-  }, [actor, fid, rows, status]);
 
   const hasFilters = Boolean(status || fid || actor.trim());
   const statusText = status ? getTaskStatusMeta(status, intl).text : '';
@@ -437,9 +432,9 @@ export default function OpsTasksPage() {
             resultText={intl.formatMessage(
               {
                 id: 'pages.opsJobs.list.resultCount',
-                defaultMessage: `当前结果 ${resultRows.length} 个任务`,
+                defaultMessage: `当前结果 ${rows.length} 个任务`,
               },
-              { count: resultRows.length },
+              { count: rows.length },
             )}
             controls={
               <>
@@ -495,15 +490,16 @@ export default function OpsTasksPage() {
                   onChange={(v) => setFid(v || '')}
                   options={funcs.map((id) => ({ label: id, value: id }))}
                 />
-                <Input
-                  allowClear
+                {/* #23：操作者选项由服务端聚合（distinct actor 全集），不随列表过滤塌缩 */}
+                <ServerOptionsSelect
                   placeholder={intl.formatMessage({
                     id: 'pages.opsJobs.filter.actorPlaceholder',
                     defaultMessage: '按操作者过滤',
                   })}
-                  value={actor}
-                  onChange={(e) => setActor(e.target.value)}
+                  value={actor || undefined}
+                  onChange={(v) => setActor(v || '')}
                   style={{ width: 180 }}
+                  fetchOptions={() => listOpsTaskOperatorOptions()}
                 />
                 {hasFilters && (
                   <Button
@@ -540,12 +536,12 @@ export default function OpsTasksPage() {
           <Table
             rowKey={(r) => r.id}
             loading={loading}
-            dataSource={resultRows}
+            dataSource={rows}
             columns={columns}
             pagination={{
               current: page,
               pageSize,
-              total: hasFilters ? resultRows.length : total,
+              total,
               showSizeChanger: true,
               pageSizeOptions: [10, 20, 50],
               showTotal: (t) =>

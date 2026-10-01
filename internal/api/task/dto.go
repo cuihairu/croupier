@@ -32,13 +32,28 @@ type ListRequest struct {
 	FunctionID string `form:"functionId"`
 	GameID     string `form:"gameId"`
 	Env        string `form:"env"`
-	Page       int    `form:"page,optional,default=1"`
-	Size       int    `form:"size,optional,default=20"`
+	// Actor 按操作者过滤（#23：此前前端发本参数但服务端 DTO 未声明，
+	// BindQueryCompat 不认识即静默丢弃，页面退化为客户端兜底过滤）。
+	Actor string `form:"actor"`
+	Page  int    `form:"page,optional,default=1"`
+	Size  int    `form:"size,optional,default=20"`
 }
 
 type ListResponse struct {
 	Items []Item `json:"items"`
 	Total int    `json:"total"`
+}
+
+// OperatorOptionsItem GET /api/v1/tasks/operator-options 的选项行：
+// 操作者 + 其留痕条数（value 即 actor 本身）。
+type OperatorOptionsItem struct {
+	Value string `json:"value"`
+	Label string `json:"label,omitempty"`
+	Count int64  `json:"count"`
+}
+
+type OperatorOptionsResponse struct {
+	Items []OperatorOptionsItem `json:"items"`
 }
 
 type DetailRequest struct {

@@ -25,6 +25,8 @@ import {
   type ExecutionLogDetail,
   type ExecutionLogItem,
 } from '@/services/api/executionLogs';
+import { listExecutionLogOperators } from '@/services/api/executionLogs';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import { formatDateTime } from '@/utils/format';
@@ -391,20 +393,21 @@ export default function ExecutionLogsPage() {
             )}
             controls={
               <>
-                <Input
+                {/* #33：操作人选项由服务端聚合（distinct actor 全集 + 留痕条数） */}
+                <ServerOptionsSelect
                   placeholder={intl.formatMessage({
                     id: 'pages.functionsExecutionLogs.filter.actor',
                     defaultMessage: '操作人',
                   })}
-                  value={actor}
-                  onChange={(e) => {
-                    setActor(e.target.value);
+                  value={actor || undefined}
+                  onChange={(v) => {
+                    setActor(v || '');
                     // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
                     // ProTable 内部 debounce + abort 合并，不会出现错序数据
                     backToFirstPage();
                   }}
-                  style={{ width: 140 }}
-                  allowClear
+                  style={{ width: 160 }}
+                  fetchOptions={() => listExecutionLogOperators()}
                 />
                 <Input
                   placeholder={intl.formatMessage({

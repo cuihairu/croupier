@@ -55,6 +55,7 @@ type functionService interface {
 	FunctionPermissions(ctx context.Context, req *FunctionPermissionsRequest) (*FunctionPermissionsResponse, error)
 	FunctionPermissionsUpdate(ctx context.Context, req *FunctionPermissionsUpdateRequest) error
 	FunctionWarnings(ctx context.Context, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error)
+	FunctionWarningFilterOptions(ctx context.Context) (*FunctionWarningFilterOptionsResponse, error)
 	BatchCopyFunctions(ctx context.Context, req *BatchCopyFunctionsRequest) (*BatchCopyFunctionsResponse, error)
 	BatchDeleteFunctions(ctx context.Context, req *BatchDeleteFunctionsRequest) (*BatchDeleteFunctionsResponse, error)
 	BatchUpdateFunctions(ctx context.Context, req *BatchUpdateFunctionsRequest) (*BatchUpdateFunctionsResponse, error)
@@ -512,4 +513,16 @@ func (h *Handler) WarningMarkAllRead(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"marked": h.service.SvcCtx().RegistryStore.MarkAllRegistrationWarningsRead()})
+}
+
+// WarningFilterOptions handles GET /api/v1/functions/warnings/filter-options
+// （#34）：当前 scope 警告全集 distinct 函数 ID / Agent 聚合，供 Warnings
+// 页过滤下拉消费。
+func (h *Handler) WarningFilterOptions(c *gin.Context) {
+	resp, err := h.service.FunctionWarningFilterOptions(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
 }

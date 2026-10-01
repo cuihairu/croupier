@@ -438,6 +438,8 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/batch-copy", functionHandler.BatchCopy)
 	g.POST("/batch-delete", functionHandler.BatchDelete)
 	g.GET("/warnings", functionHandler.Warnings)
+	// #34：警告过滤下拉聚合选项（静态段，与 /warnings/:key 共存）
+	g.GET("/warnings/filter-options", functionHandler.WarningFilterOptions)
 	g.DELETE("/warnings/:key", functionHandler.WarningDelete)
 	g.POST("/warnings/read/:key", functionHandler.WarningMarkRead)
 	g.POST("/warnings/read-all", functionHandler.WarningMarkAllRead)
@@ -486,6 +488,8 @@ func registerTaskRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	taskHandler := task.NewHandler(taskSvc)
 	g.GET("", taskHandler.List)
 	g.GET("/", taskHandler.List)
+	// #23：操作者聚合选项（静态段注册，与 /:id 共存——gin 静态优先匹配）
+	g.GET("/operator-options", taskHandler.OperatorOptions)
 	g.POST("", taskHandler.Start)
 	g.POST("/", taskHandler.Start)
 	g.POST("/cancel", taskHandler.CancelByBody)
@@ -746,6 +750,8 @@ func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerExecutionLogRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	execLogHandler := executionlogapi.NewHandler(executionlogapi.NewService(ctx))
 	g.GET("/", execLogHandler.List)
+	// #33：操作人聚合选项（静态段，与 /:id 共存）
+	g.GET("/operator-options", execLogHandler.OperatorOptions)
 	g.GET("/:id", execLogHandler.Get)
 }
 

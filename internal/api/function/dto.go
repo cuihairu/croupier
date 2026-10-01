@@ -404,3 +404,17 @@ type WarningsRequest = FunctionWarningsRequest
 type WarningsResponse = FunctionWarningsResponse
 type PendingRequest = FunctionsPendingRequest
 type PendingResponse = FunctionsPendingResponse
+
+// WarningFilterOptionItem GET /api/v1/functions/warnings/filter-options 的
+// 选项行（#34）：value 即函数 ID / Agent ID 本身，count 为该维度警告条数。
+type WarningFilterOptionItem struct {
+	Value string `json:"value"`
+	Label string `json:"label,omitempty"`
+	Count int64  `json:"count"`
+}
+
+// FunctionWarningFilterOptionsResponse 注册警告过滤下拉聚合响应（#34）。
+type FunctionWarningFilterOptionsResponse struct {
+	Functions []WarningFilterOptionItem `json:"functions"`
+	Agents    []WarningFilterOptionItem `json:"agents"`
+}
