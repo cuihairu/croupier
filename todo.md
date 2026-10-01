@@ -3153,3 +3153,53 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > Warehouse 5/5 全量语境下全绿（Store 本轮全量亦绿）。首轮全量因共享机
 > 内存耗尽（swap 31G 满、并行会话 jest 挤压）被 harness 内存压力回收
 > 中止一次，load<10 空载窗口重跑得终态——非用例失败，如实记录。
+## 覆盖率巡检批次·Go 侧第五十三轮·bind 双翼撞车去重 + contract 回填面双层收口（2026-10-01）
+
+> 交付：全量 profile 重排（**99.959%**，64126/64152 语句，23 块 / 26 语句 / 19 文件
+> 余量）——与 R52 快照（21 块 / 24 语句）逐块对账，**唯一新入缺口**为
+> `api/function/handler.go` 的 `bindFunctionRequest` 两处容忍翼
+> （27 空 body 守卫 / 31 chunked EOF 容忍），其余 21 块与 R50-R52 登记面
+> 行号级吻合（mfa.go:95、otpauth.go:139 按派发回避；assignment/gate.go
+> 已 100% 退出余量表）。
+> **撞车去重（如实登记）**：裁决后本会话已按既有技法写出该双翼用例
+> （空 body / ContentLength=-1 构造 / 坏 JSON 对照翼，包 100% 实证），
+> 推送前 fetch 发现并行会话 `9c50e3d` 已同轮交付同一缺口——
+> `toggle_empty_body_test.go` 6 用例覆盖完全相同的两块且更完整
+> （含 disable 端到端链路与 body/路径值优先级），另带 FunctionDisable
+> 真缺陷修复与 contract_versions 惰性回填面。按房规（R51「主动收敛重复
+> 投入」）撤下本会话 bind 用例、采纳上游版。
+> **合并后真缺口双层收口**（merge origin/main 后复排 profile：上游新代码
+> 带回 6 块无主缺口，全部由本会话补齐）：
+> ① handler 层——`contract_versions_handler.go` 回填降级两翼（35 回填写
+> 失败仅 slog.Warn 降级、39-41 回填成功后重查失败透传 500），新增
+> `api/function/contract_versions_backfill_wing_test.go` 2 用例：写阻断用
+> BEFORE INSERT TRIGGER + RAISE(ABORT)（svc C 批同款）；「写成功→紧接着
+> 读失败」用 **AFTER INSERT TRIGGER 追加 seq 非数字 TEXT 毒行**——回填
+> INSERT 本身成功，紧随的 List Find 把 TEXT 扫进 int64 报 scan error，
+> 构造 RAISE 族补不了的单请求内读故障形态（sqlite 触发器不 fire on
+> SELECT，毒行是读侧等价物）；包内 setupTestDB 为 per-test `:memory:`
+> 独立库，触发器注入无跨用例毒化面。api/function 达 **100.0%**
+> （上游 bind 用例 + 本翼用例合力；实测单上游用例只到 99.8%）。
+> ② service 层——`contract_history.go` BackfillInitialContractVersion
+> 四翼（202 nil/零值 service 守卫 / 206 版本 List 错误包装 / 216 契约查找
+> 非 NotFound 错误包装 / 220 快照 Marshal 失败包装），新增
+> `internal/service/contract_history_backfill_wing_test.go` 4 用例：
+> 缺表注入双翼（206 直接缺版本表；216 版本表完好为空让 total=0 通过 +
+> 契约表缺表使 First 报错而非 ErrRecordNotFound，精确停在目标分支）；
+> 220 用「库里直写校验层造不出的形态」——db.Create 绕过 UpsertContract
+> 直塞非法 JSON 到 input_schema（dbtype.JSON.Value 原样透传、sqlite 列
+> 不校验），normalizeJSONSchema 对非引号原文透传，json.Marshal 在
+> compact 阶段拒非法 RawMessage——存量坏行错误带函数名透传不炸不吞。
+> **余量对账（前后对比）**：基线 23 块 / 26 语句（99.959%，64126/64152，
+> 总语句池 64152）→ 合并上游后（-2 bind 翼被上游覆盖 / +8 语句新代码、
+> 其中 6 块无主）→ 本会话收口 6 块 / 6 语句 → 终态 **21 块 / 24 语句 /
+> 18 文件**（语句池 64178），全树 **99.963%**（64154/64178）。余 21 块全部
+> 维持 R50-R52 判死/回避登记（email_verification rand 系×2 / auth:738 /
+> cicd×4 / extension:513 / menu:381 / openapi:710 / ops:352 / provider:134 /
+> gitlabci:75 / fn_contract:458 / certificates:202 / avatar:128 / wechat×2 /
+> contract_service:1752 + 回避面 2 块），无新入。
+> 门禁：触及文件 gofmt 干净、go vet ./internal/... 干净、
+> go test ./internal/... -count=1 fresh 全绿（合并 origin/main 后复跑）、
+> scripts/dashboard_vnext_guard.sh PASSED（负载 30-42 非空载窗口执行，
+> 如实注明）。测试隔离：双包均为 per-test `:memory:` 独立库，无共享库
+> scope 隔离面；service 用例仍取 "g-r53" 唯一 scope（派发卫生要求）。
