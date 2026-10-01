@@ -12,12 +12,17 @@ package auth
 // 明确登记为**确定性不可达**（不在此造例，防线保留）：
 //   - providers.go 三处「provider init failed 降级」：上游已在同函数内先行
 //     拦截空凭证返回错误，构造器在唯一调用点不可能再失败；
-//   - email_verification.go「生成验证令牌失败」：crypto/rand.Read 仅在系统
-//     随机源损坏时返回错误，无注入点；
-//   - VerifyEmailToken 的「!ok（并发消费）」：Consume 的条件 UPDATE 返 0 行
-//     只可能发生在两次并发验证同一令牌的窗口，服务层无钩子可确定性构造；
-//   - siteServerURL 的 settings 单例为空翼：包内有 t.Parallel 用例共享该
-//     全局单例，单独 Reset 会与其互扰（诚实记录，不改并发口径）；
+//   - email_verification.go「生成验证令牌失败」：crypto/rand.Read 在 Go≥1.24
+//     合同上不再返回错误（go.mod go 1.26.6），属 dead-by-contract——比原
+//     「无注入点」登记更强的判死，误报风险清零；
+//   - VerifyEmailToken 的「!ok（并发消费）」：R51 翻案收口——sqlite
+//     BEFORE UPDATE TRIGGER + RAISE(IGNORE) 让 Consume 的条件 UPDATE 静默
+//     0 行（RowsAffected=0 → consumed=false），确定性触达（见
+//     email_verification_r51_test.go，原「无钩子」登记被 RAISE(IGNORE) 技法
+//     击破）；
+//   - siteServerURL 的 settings 单例为空翼：R51 收口——ResetForTest 置
+//     layered=nil 后调用即得空串，包内 t.Parallel 用例不读 settings 单例
+//     （零引用），互扰前提不成立（见 email_verification_r51_test.go）；
 //   - service.go 别名查重里的「同域行缺 @ → continue」：FindEmailsByDomain
 //     的 SQL 谓词是 email LIKE '%@'||domain，每条返回行必然含 '@'，
 //     strings.Cut 恒成功；脏数据在 SQL 层就被挡掉（本文件用例会证明它
