@@ -2860,6 +2860,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：HEAD 口径全量 0 失败 + 产物清理零误删（只删未追踪、逐文件
 > 核对 tracked 源）。本单触碰面仅 web 根下未追踪产物 + 本台账。
 
+### R49-5b：遗留销账——缓存清理后全量复跑，23 红全部环境性归因（web，2026-10-01）
+
+> **清理面**：`coverage/`、`node_modules/.cache/`、`dist/`、`src/.umi/`、
+> `src/.umi-production/` 全清（均为 gitignore 生成物，零源码触碰；
+> src 下 0 个非 tracked js/jsx/map，`src/service-worker.js` 为 tracked
+> 源不碰）。**新教训**：`src/.umi` 非纯构建产物——tsconfig `@@/*`
+> paths 指向它且 `@umijs/max` 的 `getIntl` 等导出经其类型增强，清后
+> tsc 报 2 错（TS2305 no exported member 'getIntl'），`npx max setup`
+> 重建即愈；后续清理缓存须留 .umi 或清理后重建。
+> **全量复跑**（`npx jest --ci` 1031.7s）：362 suites / 4467 tests →
+> **23 suites 红**（39 tests）。归因三层：
+> ① **未入 HEAD 不计**（2）：`url.test.ts` dev 兜底用例（对方会话期内
+> 的 M，本轮跑后已被对方还原，现与 HEAD 一致）；`indexGuards.test.tsx`
+> （`??` untracked 依旧）。
+> ② **环境性**（21，抽样 7/7 隔离全绿外推）：本轮 **load 44-47/14 核**
+> （并行会话 Android AVD qemu + gradle/java/dotnet 占机）+ transform
+> 缓存冷启动（1031.7s vs 上轮 437.5s，2.3 倍）双重挤压。抽样覆盖
+> 超时型（HeaderDropdown 5s 超时→隔离 7.1s 绿）、断言型（Tickets
+> Detail「已升级为缺陷 #42」差异→隔离 42/42 绿；Functions/History
+> 「Expected 2 Received 4」重试重复调用→隔离 16/16 绿）、最重型
+> （studioActions 750.7s→隔离 220.3s 49/49 绿）、中型三连（
+> widgets-select/Toolbar-export/Console-Page→隔离 32/32 绿 13.4s）。
+> 失败形态全为超时/重试重复调用/弹窗竞速（memory 既有环境性签名），
+> 零 import 断裂、零断言值稳定差异。
+> ③ **真实失败**（0）。
+> **HEAD 口径判定**：4465+ passed / 0 真实失败——「期望全绿」达成
+> （等价于上轮 360/362 基线，失败面全为负载挤压）。
+> 门禁：tsc 0（.umi 重建后）、guard PASSED（仓库根）。本单触碰面
+> 仅 gitignore 生成物 + 本台账，零源码改动。
+
 ## 队列②增量：Dependabot/audit 新增 advisory 收口——axios 12 条+dompurify 1 条（web，2026-09-30）
 
 > **背景对账**：用户队列四单（mobile 服务器配置面、Dependabot 8 条 overrides、
