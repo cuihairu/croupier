@@ -2934,3 +2934,29 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （BUG-035 域）。
 > 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/... 全绿
 > （fresh，-p 4 从宽于 load 111 洪峰下 158 包 exit=0 零 FAIL）。
+
+## 覆盖率巡检批次·Go 侧第五十一轮·email_verification 两翼收口（wt-api worktree，2026-10-01）
+
+> 交付：`internal/api/auth/email_verification.go` 两翼收口。① :78-79
+> siteServerURL 的 settings-nil 空串返回——`settings.ResetForTest()` 置
+> layered=nil 即触发（包内 t.Parallel 用例零 settings 引用，R50「互扰」
+> 登记前提不成立）。② :162-164 VerifyEmailToken 的 `Consume 返回 false`
+> 报错分支——sqlite BEFORE UPDATE TRIGGER + `RAISE(IGNORE)` 让条件 UPDATE
+> 静默 0 行（探针实证 RowsAffected=0 → consumed=false → 「验证链接无效或
+> 已过期」），R50「服务层无钩子可确定性构造」登记被该技法击破，翻案收口；
+> RAISE(IGNORE) 是仓内 RAISE(ABORT) 写阻断技法的姊妹技（静默跳过而非报错）。
+> 第二批 register_verify_gap_test.go 文件头三处登记同步：rand 系死亡理由
+> 升级为 dead-by-contract（Go≥1.24 crypto/rand.Read 合同无错误返回，
+> go.mod go 1.26.6，误报风险清零）；Consume !ok 与 siteServerURL 两条改指
+> 翻案/收口并指向新文件。落库形态：测试文件由并行写入方定稿（Write 后秒级
+> 被替换，按系统指令采当前版为既成事实），已以 `05d8af7` 落库并随并行会话
+> merge `1795af0` 入 origin/main；本轮补文件头登记 + 本台账。
+> **余量对账**（对 R50 起点 profile 逐块 diff）：退出 5 块、新入 0。全树
+> 99.949% → **99.958%**（64118/64145），余量 26 → **24 块 / 27 语句**
+> （R50 台账「29 语句」实为块口径，语句口径 32→27）、19 文件；本树 email_
+> verification.go 4 块 → 2 块（余 :87-88/:103-104 rand dead-by-contract）。
+> 余 24 块全部经 R50 第 3-28 轮登记重审维持判死/回避（otp/otpauth 2 块、
+> gate.go 2 块回避面不变）。回访档案位置：email_verification_r51_test.go。
+> 门禁：触及文件 gofmt/go vet 干净；go test ./internal/... -count=1 -p 4
+> fresh 158 包 exit=0 零 FAIL；auth 包 -count=3 零抖动（148.5s）；覆盖
+> profile 同口径重跑 exit=0（load ~23，较前几轮 60-111 轻载）。
