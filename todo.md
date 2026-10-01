@@ -3027,3 +3027,13 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （守卫逐行解析的机器输入，同生成物性质），整文件还原至 bf76dad^ 原形态 +
 > 入 .prettierignore 防复发；本地守卫复跑 DEMO-BASELINE OK（六语言 19-22
 > 槽位逐槽 PASS，rc=0）。
+>
+> **R52 追加二（CI-JS-SDK semver 裸键钳版修复）**：42b6207 触发 CI-JS-SDK
+> 挂——取证 `Cannot find module 'semver/functions/gte'`（make-dir@4/jest 链
+> 启动即崩），run 历史显示 2388c30（9-30 Dependabot 8 条收口）起已红、
+> 42b6207 仅复现。根因即 overrides 裸键坑同族：`semver: ">=6.3.1 <7.0.0"`
+> 裸键把 make-dir@4 所需的 semver ^7 也钳进 6.x，而 `functions/gte` 是 v7
+> 专有子路径。处置：改版本线限定 `semver@<7.0.0: '>=6.3.1 <7.0.0'`（对齐
+> web 侧 path-to-regexp/qs 同款写法）+ pnpm 11 重解析锁（6.3.1 与 7.8.5
+> 双线并存，锁 diff 主体为 pnpm11 格式归一非版本漂移）；本地 jest 三跑
+> 29 suites 全绿（首跑 1 例资源性抖动，后两跑未复现）、audit 仍零洞。

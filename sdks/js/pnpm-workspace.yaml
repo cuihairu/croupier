@@ -16,5 +16,8 @@ overrides:
   # 2026-09-04 安全补丁：fast-uri SSRF/host confusion；2026-09-30 补 3.x 线
   # inconsistent host 解析修复（patched 3.1.8）
   fast-uri: ">=3.1.8 <4.0.0"
-  # 2026-09-30 安全补丁：semver 6.x ReDoS（patched 6.3.1；本仓 semver 全 6.x 线）
-  semver: ">=6.3.1 <7.0.0"
+  # 2026-09-30 安全补丁：semver 6.x ReDoS（patched 6.3.1）。裸键 `semver:` 会把
+  # make-dir@4（jest 链）所需的 semver ^7 也钳进 6.x——`semver/functions/gte`
+  # 是 v7 专有子路径，require 直接 Cannot find module（2388c30 引入、CI-JS-SDK
+  # 9-30 起爆）。版本线限定：仅 6.x 线消费者抬 6.3.1，7.x 消费者自然解析。
+  semver@<7.0.0: ">=6.3.1 <7.0.0"
