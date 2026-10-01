@@ -180,7 +180,10 @@ jobs:
         timeout-minutes: 1
         run: mkdir -p data/uploads
       - name: Unit tests
-        timeout-minutes: 10
+        # 2026-10-01 10→20：套件经 50+ 覆盖率轮次增长，CI 实测 10m12s 才跑到
+        # api/task（已执行包全绿）即被步骤超时掐断——结构性超线而非用例失败，
+        # 对齐 dashboard 侧「15 分钟 step 超时」同族处置；作业级 30 分钟不变。
+        timeout-minutes: 20
         env:
           DB_DRIVER: sqlite
           DATABASE_URL: ":memory:"
