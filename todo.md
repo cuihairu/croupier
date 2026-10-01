@@ -2860,6 +2860,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：HEAD 口径全量 0 失败 + 产物清理零误删（只删未追踪、逐文件
 > 核对 tracked 源）。本单触碰面仅 web 根下未追踪产物 + 本台账。
 
+### R49-5b：遗留销账——缓存清理后全量复跑，23 红全部环境性归因（web，2026-10-01）
+
+> **清理面**：`coverage/`、`node_modules/.cache/`、`dist/`、`src/.umi/`、
+> `src/.umi-production/` 全清（均为 gitignore 生成物，零源码触碰；
+> src 下 0 个非 tracked js/jsx/map，`src/service-worker.js` 为 tracked
+> 源不碰）。**新教训**：`src/.umi` 非纯构建产物——tsconfig `@@/*`
+> paths 指向它且 `@umijs/max` 的 `getIntl` 等导出经其类型增强，清后
+> tsc 报 2 错（TS2305 no exported member 'getIntl'），`npx max setup`
+> 重建即愈；后续清理缓存须留 .umi 或清理后重建。
+> **全量复跑**（`npx jest --ci` 1031.7s）：362 suites / 4467 tests →
+> **23 suites 红**（39 tests）。归因三层：
+> ① **未入 HEAD 不计**（2）：`url.test.ts` dev 兜底用例（对方会话期内
+> 的 M，本轮跑后已被对方还原，现与 HEAD 一致）；`indexGuards.test.tsx`
+> （`??` untracked 依旧）。
+> ② **环境性**（21，抽样 7/7 隔离全绿外推）：本轮 **load 44-47/14 核**
+> （并行会话 Android AVD qemu + gradle/java/dotnet 占机）+ transform
+> 缓存冷启动（1031.7s vs 上轮 437.5s，2.3 倍）双重挤压。抽样覆盖
+> 超时型（HeaderDropdown 5s 超时→隔离 7.1s 绿）、断言型（Tickets
+> Detail「已升级为缺陷 #42」差异→隔离 42/42 绿；Functions/History
+> 「Expected 2 Received 4」重试重复调用→隔离 16/16 绿）、最重型
+> （studioActions 750.7s→隔离 220.3s 49/49 绿）、中型三连（
+> widgets-select/Toolbar-export/Console-Page→隔离 32/32 绿 13.4s）。
+> 失败形态全为超时/重试重复调用/弹窗竞速（memory 既有环境性签名），
+> 零 import 断裂、零断言值稳定差异。
+> ③ **真实失败**（0）。
+> **HEAD 口径判定**：4465+ passed / 0 真实失败——「期望全绿」达成
+> （等价于上轮 360/362 基线，失败面全为负载挤压）。
+> 门禁：tsc 0（.umi 重建后）、guard PASSED（仓库根）。本单触碰面
+> 仅 gitignore 生成物 + 本台账，零源码改动。
+
 ## 队列②增量：Dependabot/audit 新增 advisory 收口——axios 12 条+dompurify 1 条（web，2026-09-30）
 
 > **背景对账**：用户队列四单（mobile 服务器配置面、Dependabot 8 条 overrides、
@@ -2995,3 +3025,50 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > toast 计数断言（180s 超长形态，他域既有绿套件、与本批零交集），
 > **隔离复跑 Store 4 套件 60/60 绿**定责负载型非回归（第二十轮同款
 > 记录）。
+
+## 覆盖率巡检批次·Go 侧第五十二轮·回避面解除——otp/assignment 四翼收口 + CI Test 步骤超时修复（wt-api worktree，2026-10-01）
+
+> 交付：R50 维持的两处回避域已静默收口（otp 域 2026-09-26 后、assignment
+> BUG-035 域 2026-09-27 后无后续提交），回避解除、四翼处置：
+> ① api/assignment/gate.go :34-35——svcCtx==nil 守卫（nil 即默认开放，
+> 守卫先于真值读取）；② :38-39——坏 JSON 触发 loadAssignments Unmarshal
+> 错误透传，直接断言闸门「不静默 fail-open」契约（gate_error_r52_test.go），
+> assignment 包 100%。③ security/otp/otpauth.go :89-90——镜像包内
+> coverage_gapfix_test.go 的 randRead 注入先例，串行测试替换
+> recoveryRandRead 缝隙变量（serial/parallel 用例体不交错，-race -count=2
+> 验证无竞态）；④ :139-140——dead-by-contract 登记（got 恒为
+> HashRecoveryCode 输出 = hex.EncodeToString(sha256)，DecodeString 恒成功，
+> Encode→Decode 往返判死，同 re-Marshal 系），otp 包 99.2% 余此一块。
+> **附带修复（CI 基建）**：c120781 上 CI-Core 的 Test 检查失败，取证为
+> 「Unit tests 步骤 10 分钟超时」——日志显示 10m12s 跑到 api/task（已执行
+> 包全绿）即被 ##[error] 掐断，零用例失败；套件经 50+ 覆盖率轮增长已结构性
+> 越线（R50 时代已在悬崖边），与 CLAUDE.md「dashboard 15 分钟 step 超时」
+> 同族。处置：ci.yml Unit tests 步骤 timeout 10→20 分钟（作业级 30 不变）。
+> 同提交上 dashboard-quality 亦挂——签名取证 shutdown signal ×1 + 零 ✕ +
+> canceled，hosted runner 回收（同 ci-dashboard-runner-shutdown-signature
+> 记忆协议），非回归；R52 push 后新 head check-runs 即验证主体，不rerun。
+> **余量对账**：全树 99.958% → **99.963%**（64121/64145），余量 24 →
+> **21 块 / 24 语句 / 18 文件**（gate.go 整文件退出）；余 21 块全部维持
+> R50 判死/回避登记，无新入。
+> 门禁：触及文件 gofmt/go vet 干净；go test ./internal/... -count=1 -p 4
+> fresh 158 包 exit=0 零 FAIL（load 53-101 洪峰下跑完）；otp/assignment
+> 双包 -race -count=2 绿（assignment 278s，race 放大后环境性慢如实记录）。
+>
+> **R52 追加（17a6831 CI Lint 处置）**：合并带入的 bf76dad（全仓 prettier
+> 重排）把 `sdks/js/examples/game_demo.ts` 的 COLLECTION 定义、summary 兜底
+> 三元与全部 10 个 `JSON.parse` 常量折成多行，demo 契约基线守卫按单行 grep
+> /正则解析随即双挂（「summary 模板漂移」+「COLLECTION helper not found」，
+> d6b0401 起主链即红、非本轮引入）。处置：该文件是六语言契约 fixture
+> （守卫逐行解析的机器输入，同生成物性质），整文件还原至 bf76dad^ 原形态 +
+> 入 .prettierignore 防复发；本地守卫复跑 DEMO-BASELINE OK（六语言 19-22
+> 槽位逐槽 PASS，rc=0）。
+>
+> **R52 追加二（CI-JS-SDK semver 裸键钳版修复）**：42b6207 触发 CI-JS-SDK
+> 挂——取证 `Cannot find module 'semver/functions/gte'`（make-dir@4/jest 链
+> 启动即崩），run 历史显示 2388c30（9-30 Dependabot 8 条收口）起已红、
+> 42b6207 仅复现。根因即 overrides 裸键坑同族：`semver: ">=6.3.1 <7.0.0"`
+> 裸键把 make-dir@4 所需的 semver ^7 也钳进 6.x，而 `functions/gte` 是 v7
+> 专有子路径。处置：改版本线限定 `semver@<7.0.0: '>=6.3.1 <7.0.0'`（对齐
+> web 侧 path-to-regexp/qs 同款写法）+ pnpm 11 重解析锁（6.3.1 与 7.8.5
+> 双线并存，锁 diff 主体为 pnpm11 格式归一非版本漂移）；本地 jest 三跑
+> 29 suites 全绿（首跑 1 例资源性抖动，后两跑未复现）、audit 仍零洞。
