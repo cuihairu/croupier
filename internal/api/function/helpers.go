@@ -163,6 +163,7 @@ func functionAnalytics(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 	}
 	return &FunctionAnalyticsResponse{
 		TotalCalls:     stats.TotalCalls,
+		FailedCalls:    stats.FailedCalls,
 		SuccessRate:    stats.SuccessRate,
 		AvgLatency:     stats.AvgLatency,
 		CallsToday:     stats.CallsToday,
