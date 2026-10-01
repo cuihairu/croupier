@@ -287,8 +287,9 @@ void main() {
     // 选择「今天」与「明天」——均在 end 月（右侧网格），且 ≤ lastDate(now+1)。
     // 这样在月初/月末/跨月时均稳定可选，避免写死 15/20 导致的脆弱性。
     final now = DateTime.now();
-    final todayStr = now.day.toString();
-    final tomorrowStr = now.add(const Duration(days: 1)).day.toString();
+    final todayStr = now.day.toString().padLeft(2, '0');
+    final tomorrow = now.add(const Duration(days: 1));
+    final tomorrowStr = tomorrow.day.toString().padLeft(2, '0');
     await tester.tap(find.text(todayStr).last);
     await tester.pump();
     await tester.tap(find.text(tomorrowStr).last);
@@ -297,10 +298,9 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    // chip label 回填日期区间（_rangeDate 渲染）。
+    // chip label 回填日期区间（_rangeDate 渲染，day 会 zero-pad）。
     final month = now.month.toString().padLeft(2, '0');
     final todayFmt = '${now.year}-$month-$todayStr';
-    final tomorrow = now.add(const Duration(days: 1));
     final tomorrowMonth = tomorrow.month.toString().padLeft(2, '0');
     final tomorrowFmt = '${tomorrow.year}-$tomorrowMonth-$tomorrowStr';
     expect(find.textContaining('$todayFmt ~ $tomorrowFmt'), findsOneWidget);
