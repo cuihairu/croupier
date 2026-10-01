@@ -316,8 +316,20 @@ void main() {
 
     final start = queries.last.queryParameters['start'];
     final end = queries.last.queryParameters['end'];
-    expect(start, startsWith('$todayFmt' + 'T00:00:00'));
-    expect(end, startsWith('$tomorrowFmt' + 'T23:59:59'));
+    expect(
+      start,
+      startsWith(
+        '$todayFmt'
+        'T00:00:00',
+      ),
+    );
+    expect(
+      end,
+      startsWith(
+        '$tomorrowFmt'
+        'T23:59:59',
+      ),
+    );
     // RFC3339 必须带时区 offset（否则服务端静默忽略）。
     expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(start!), isTrue);
     expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(end!), isTrue);
