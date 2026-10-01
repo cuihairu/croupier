@@ -448,7 +448,10 @@ export default function FunctionInvokePage() {
                 <Select
                   showSearch
                   loading={loading}
-                  value={selected?.id}
+                  // fid 在 URL 但不在当前作用域列表（如列表加载失败或跨作用域
+                  // 直达链接）时仍显示原 id——不能回退成 placeholder 让函数
+                  // 从界面上「消失」。
+                  value={selected?.id || fid || undefined}
                   placeholder={intl.formatMessage({
                     id: 'pages.functionsInvoke.select.placeholder',
                     defaultMessage: '选择已注册函数',
@@ -456,10 +459,20 @@ export default function FunctionInvokePage() {
                   style={{ width: '100%' }}
                   optionFilterProp="label"
                   onChange={(id) => history.push(`/functions/invoke?fid=${encodeURIComponent(id)}`)}
-                  options={descriptors.map((item) => ({
-                    value: item.id,
-                    label: `${item.id}  ·  ${displayName(item, locale)}`,
-                  }))}
+                  options={
+                    fid && !descriptors.some((item) => item.id === fid)
+                      ? [
+                          { value: fid, label: fid },
+                          ...descriptors.map((item) => ({
+                            value: item.id,
+                            label: `${item.id}  ·  ${displayName(item, locale)}`,
+                          })),
+                        ]
+                      : descriptors.map((item) => ({
+                          value: item.id,
+                          label: `${item.id}  ·  ${displayName(item, locale)}`,
+                        }))
+                  }
                 />
                 <Button
                   type="primary"

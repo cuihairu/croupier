@@ -2,6 +2,8 @@ package function
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
@@ -18,7 +20,19 @@ func bindFunctionRequest(c *gin.Context, req interface{}) error {
 	if c.Request.Method == "GET" {
 		return requestbind.BindQueryCompat(c, req)
 	}
-	return c.ShouldBindJSON(req)
+	// 动作类端点（enable/disable/delete 等）的 body 字段全可选且路径已带
+	// :id：curl 与前端不发 body 是合法调用，空 body（ContentLength 0 或
+	// chunked 流的 EOF）不应按 bad_request(EOF) 拒绝；非法 JSON 仍 400。
+	if c.Request.Body == nil || c.Request.ContentLength == 0 {
+		return nil
+	}
+	if err := c.ShouldBindJSON(req); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // functionService is the minimal service surface consumed by Handler;
