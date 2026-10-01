@@ -2395,6 +2395,40 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
 >   R49-5 复核。
 
+## R49-5：全量 jest 复核收口——产物清理后 360/362 suites 绿（web，2026-10-01）
+
+> **产物判定（只清本树、零 tracked 误删）**：src 下 663+ .jsx/.js 污染源
+> **已不在**（并行会话侧已清，find 0 个 .jsx，余 3 个 .js 均为 `.umi/`
+> umi 生成目录 + tracked service-worker.js）。本树残留 web 根下 16 个
+> 未追踪产物（config/mock/tests/e2e-verify/EXAMPLE_USERS_PAGE 的
+> .js/.jsx+.map），**全部有 tracked .ts/.tsx 源对应**（逐个核对）且不被
+> gitignore——其中 `jest.config.js` 与 tracked `jest.config.ts` 并存正是
+> `pnpm test:coverage` Multiple configurations 冲突源。全部清除，不动其他
+> worktree、不动并行会话 tracked 修改（Cicd/index.test.tsx、url.test.ts
+> 的 M 保持原样），`git status` deleted-tracked = 0 自证无误删。
+> **全量复核**（1 分钟 load 6.99 < 10 空载窗口，`npx jest --ci`
+> 437.5s）：**362 suites / 4467 tests → 360 suites / 4465 tests 绿**——
+> 登记口径「污染期 34/48 suites 失败环境性」的失败面**清零**（清产物
+> 后 jest 加载 .ts 源，源/产物同步性不再抖动；零 import 断裂自证删除
+> 的 16 个产物无测试引用）。
+> **残留 2 失败逐条归因（均并行会话本会话期进行态，均不在 HEAD）**：
+> ① `src/utils/__tests__/url.test.ts`「window/location 皆不可用 → dev
+> 兜底 18780」——该用例是对方**工作区新增**（`git show HEAD:` 0 命中，
+> M 状态系会话开始快照后出现），写法 `{...global.window, location:...}`
+> 替换不生效（jsdom window 不可覆盖），实现读真 `window.location.origin`
+> 落 **testURL 8000**（jest.config.ts:31 `url: 'http://localhost:8000'`
+> 实证，Expected 18780 / Received 8000 完全吻合）；隔离重跑稳定复现
+> （8/9 绿，仅此一例）。② `src/pages/PageStudio/__tests__/indexGuards.test.tsx`
+> ——`??` untracked（`git cat-file -e HEAD:` 无此文件），对方新写的
+> Guards 套件，`handleSyncSelectorsApplied` 重载断言 3 次 ≠ 期望 2 次
+> （含 index.tsx:730 onDiff 堆栈），隔离重跑稳定复现（62.7s）。
+> 二者机制上与产物清理零因果（读 .ts 源、失败为断言值差异而非模块
+> 解析错）；**HEAD 口径全量 = 4465 passed / 0 failed**——2 失败文件
+> 及用例均未入 HEAD，HEAD 测试面全绿成立。不代改对方进行中文件
+> （会撞车），如实登记待对方自收。
+> 门禁：HEAD 口径全量 0 失败 + 产物清理零误删（只删未追踪、逐文件
+> 核对 tracked 源）。本单触碰面仅 web 根下未追踪产物 + 本台账。
+
 ## 队列②增量：Dependabot/audit 新增 advisory 收口——axios 12 条+dompurify 1 条（web，2026-09-30）
 
 > **背景对账**：用户队列四单（mobile 服务器配置面、Dependabot 8 条 overrides、
