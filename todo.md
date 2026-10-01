@@ -3251,7 +3251,82 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > PASSED），dashboard-quality 本体在 97bb382/10a6bac/42b6207 多次整绿可证，
 > 判 GitHub hosted runner 当日概率性回收（基础设施退化），非本提交回归。
 > 排查口径见记忆档 ci-dashboard-runner-shutdown-signature。
->
+
+## 覆盖率缺口批次·主树面第五十四轮·Assignments 三 Tab 收口 + PageStudio 守卫入库（2026-10-01）
+
+> 派发：CI run 36828305713 终态 success（4 jobs 全绿）后开工；范围排除
+> wt-ui/wt-pages/wt-api 认领面与他人 WIP；主树只动自有文件。
+> **Go 侧快照（零新入、无动作）**：`go test ./internal/... -count=1` 全绿；
+> `-coverpkg=./internal/...` 全量重排后聚合（同 R53 手法：跨包命中求和，
+> 否则 api/function 包的单测命中记不到 service 包 profile）得 **21 块 /
+> 24 语句 / 18 文件、99.963%**——与 R53 余量表**行号级逐块一致**
+> （email_verification:87,103 / mfa:95 / auth:738 / cicd:31,93,374,106 /
+> extension:513 / menu:381 / openapi:710 / ops:352 / provider:134 /
+> gitlabci:75 / fn_contract:458 / certificates:202 / avatar:128 /
+> wechat:134,137 / otpauth:139 / contract_service:1752），全部维持判死/
+> 回避登记。附带实证：BackfillInitialContractVersion 的 5 处跨包块
+> （209/213/222/224/236）在 service 单包 profile 记 0，聚合后全命中——
+> 系 api/function 包 Direct + handler 用例覆盖所致，非缺口。
+> **jest 侧快照**：全量 `--coverage` 373 suites（366+7）/ 4596 用例
+> （4583+13），7 红套件单套件耗时 121-354s（外部工程 shield/oddsmaker/
+> luna/AVD 占机，load 18+）；**隔离复跑 6/7 翻绿**（7 路径并发），余下
+> Store/index 单跑 31/31 翻绿——**7 红全系负载型**，与 HEAD CI 全绿一致，
+> 无真实回归。红集归属：Store（wt-ui·Extensions 簇）、Behavior/Configs/
+> History/Hotpatches/Profile/Tickets-Detail（负载翻绿，已分类不代修）。
+> **缺口靶（主树面最大）**：`Assignments/{RouteTab 27.5%, CategoryTab
+39.13%, ListTab 45.12%}`——Assignments 系主树覆盖率连批地盘（R49-4/
+> columns/viewModel），三 Tab 零单测且无认领信号。新增
+> `Assignments/__tests__/tabs.test.tsx` 8 用例 → **三文件 4×100**
+> （语句/分支/函数/行）。修过两处桩误：id/name 同值致 ProTable 双列
+> 文本二义（builder 强制名称衍生）；ProTable rowSelection onChange 为
+> 三参（keys/rows/info），首参断言。
+> **未跟踪文件收尾**：`PageStudio/__tests__/indexGuards.test.tsx` 判有效——
+> 初跑 5/6，第 6 例系用例自身双击桩按钮致 getPageDraft 计 3 次（期望 2）；
+> 改单次点击后 **6/6 绿**，全量内亦 PASS（231s），随批入库。
+> **前后对比**：Assignments 三 Tab 27.5/39.13/45.12% → 100%（4×100）；
+> Go 侧 99.963% 持平零新入；jest 全量红集 7→0（隔离口径）。
+> 门禁：`npx tsc --noEmit` 0 错、guard PASSED、go 全绿（均负载非空载窗口
+> 执行，如实注明；pnpm 不在 PATH 改走 npx 同版本 tsc）。测试隔离：前端
+> 纯渲染单测无共享 scope；ops_state.json 系测试运行 JSON 重排 churn，
+> 已 checkout 还原不带入提交。
+
+## 第二十七轮：零测试模块三件簇收口（menu store / MessagesBell / JsonCodeEditor 0% → 三文件 4×100，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：零测试页面目录归零后（R26）转
+> 组件/store 层零覆盖模块——启发式筛选 + scoped coverage 基线实证
+> （`/tmp/r27-baseline.log`：三目标 0/0/0/0 起点，menuIcon 经 consoleMenu
+> 传递覆盖 100% 故剔除）三件真 0% 模块收口，合计约 197 行：
+> ① `store/modules/menu.ts`（73 行，唯一消费方 app.tsx 无测试）→
+> `store/modules/menu.test.ts` 10 用例；② `components/MessagesBell.tsx`
+> （46 行）→ `components/MessagesBell.test.tsx` 9 用例；③
+> `components/JsonCodeEditor.tsx`（78 行）→ `components/JsonCodeEditor.test.tsx`
+> 3 用例。v8 口径 **三文件行/分支/函数/语句 4×100%**——本批无登记不可达
+> 分支。锁定契约——menu store：初始态 null / refresh 成功落缓存+emit /
+> 缓存命中不发请求 / force 绕缓存 / 并发 inflight 去重（并发期 force 共享
+> 同一 inflight 仅 1 次调用）/ settle 后 inflight 清空 / reject 透传+缓存
+> 保持 null+可重试 / reset 清缓存+emit / 退订后 emit 不触发 / hook 初始
+> loaded=false 与 refresh 恒 force（预置缓存仍重拉）；MessagesBell：无
+> token 门（一次都不发）/ 挂载双拉（prime+loop 首轮=2 次）+ Badge 计数 /
+> resolve {} → count=0 徽标不渲染（showZero 默认 false）/ reject 静默 /
+> 点击 push 消息页 / 5 分钟轮询（fake timers 2→3→4）/ document.hidden
+> 跳过+恢复可见恢复拉取 / 卸载 timer 清除+ alive 守卫（卸载后 resolve 不
+> setState，含二次渲染立即卸载 4 次调用不抛）；JsonCodeEditor：
+> SUBLIME_THEME='croupier-sublime' 常量 / defineSublimeTheme 守卫链
+> （!monaco 早退 → 首次注册完整负载（rules 六 token + colors 背景/光标
+> 键）→ 模块级 themeRegistered 二次 no-op）/ 默认导出装配契约（height
+> 默认 260 与显式透传、language='json'、theme、beforeMount 引用同一函数、
+> options 八键全量 toEqual）。
+> **坑实证（新档，两条）**：① **`--collectCoverageFrom` 不带 `--coverage`
+> 不产出覆盖率表**——jest 只按 pattern 跑套件、表格必须 `--coverage` 同时
+> 在场（首轮 scoped 基线两连踩）；② jest.mock 工厂 TDZ（R26 同款复证）：
+> CodeEditor mock 的 jest.fn 定义在工厂内、测试侧经 mock 后模块导出取句柄
+> `as unknown as jest.Mock`。
+> 门禁：目标套件 21/21 绿（格式化后复验 14.5s 同绿）、prettier --write
+> 后 0、eslint 0、`pnpm --dir web run tsc` 0 错、
+> `scripts/dashboard_vnext_guard.sh` PASSED（仓库根）；**全量 jest 376 套件
+> 4613 用例全绿 exit 0**（2 worker，load 15-30 窗口 1631s，零红集无需
+> 漂移定责；日志尾 worker force-exit 提示为既有 teardown 提示非失败）。
+
 > **补证（后续 push 的同签名第三/四例）**：上游 987da57（Proposals 收口，
 > 09:46 run）的 dashboard-quality 亦挂同签名（10:19 shutdown signal ×1、
 > 零 ✕、213 套件 PASS 至被杀）——当日该 job 跨 3 个 head 被回收 4 次
