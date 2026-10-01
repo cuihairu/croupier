@@ -94,6 +94,17 @@ func NewForbiddenWithCode(code, message string, details map[string]any) *CodeErr
 	}
 }
 
+// NewBadRequestWithCode returns a 400 error exposing a stable snake_case
+// business error code instead of the generic "bad_request".
+func NewBadRequestWithCode(code, message string, details map[string]any) *CodeError {
+	return &CodeError{
+		Code:       http.StatusBadRequest,
+		Message:    message,
+		Details:    details,
+		StableCode: code,
+	}
+}
+
 func NewNotFound(message string) *CodeError {
 	return &CodeError{
 		Code:    http.StatusNotFound,

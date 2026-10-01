@@ -1,6 +1,9 @@
 package approval
 
 import (
+	"errors"
+	"io"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -46,6 +49,10 @@ func (h *Handler) Get(c *gin.Context) {
 func (h *Handler) Approve(c *gin.Context) {
 	var req ApprovalApproveRequest
 	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	if err := bindApproveBody(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	resp, err := h.service.Approve(c.Request.Context(), &req)
 	if err != nil {
@@ -70,4 +77,21 @@ func (h *Handler) Reject(c *gin.Context) {
 		return
 	}
 	response.Success(c, resp)
+}
+
+// bindApproveBody 容忍性读批准请求体：Web 无 otp 时 data 为 undefined 不发
+// body（Content-Length 0），直接 ShouldBindJSON 会以 EOF 报 400——空体放行，
+// otp 留空交由 service 按策略判定；有 body 但解不出 JSON 仍按契约 400。
+func bindApproveBody(c *gin.Context, req *ApprovalApproveRequest) error {
+	if c.Request.Body == nil || c.Request.ContentLength == 0 {
+		return nil
+	}
+	if err := c.ShouldBindJSON(req); err != nil {
+		// chunked 传输无 Content-Length，空体表现为 EOF：同样放行
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

@@ -95,6 +95,10 @@ type Approval struct {
 // ApprovalApproveRequest represents the request to approve an approval
 type ApprovalApproveRequest struct {
 	ID string `uri:"id"`
+	// OTP step-up 动态码：治理风险 high/danger 的审批必填（OPEN-ISSUES #75）。
+	// 契约键 otp lowerCamelCase，与 Web/Mobile 既有发送形态一致；
+	// 中低风险可选，带了则校验（错的拒绝）。
+	OTP string `json:"otp,omitempty"`
 }
 
 // ApprovalApproveResponse represents the response after approving

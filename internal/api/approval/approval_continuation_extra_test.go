@@ -25,6 +25,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
+	"github.com/cuihairu/croupier/internal/security/otp"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -78,6 +79,9 @@ func newApprovalPageEnv(t *testing.T, mutate func(page *spec.PageSpec, contracts
 		ApprovalsStore:         approvals.NewMemStore(),
 		Cache:                  cache.NewNullCache(),
 		CacheHelper:            cache.NewCacheHelper(cache.NewNullCache()),
+		// OPEN-ISSUES #75：Approve 高危档走 step-up TOTP 校验，需要查操作人
+		// 绑定态；不注入则一律按未绑定处理。
+		AdminModel: model.NewAdminModel(db),
 	}
 
 	page := spec.PageSpec{
@@ -461,12 +465,21 @@ func TestApprove_FreshPageSnapshotContinuationFailureRecordsReason(t *testing.T)
 		seedPageFunctionContract(t, db)
 	})
 	s := NewService(env.svcCtx)
+	// OPEN-ISSUES #75：page 治理记录是 danger 档，Approve 现在要求 step-up
+	// TOTP——操作人必须已绑定且请求携带有效验证码，否则在 step-up 门就被拒。
+	secret, err := otp.GenerateSecret()
+	require.NoError(t, err)
+	require.NoError(t, env.db.Create(&model.Admin{
+		Username: "approver-1", PasswordHash: "x", OTPSecret: secret, OTPEnabled: true,
+	}).Error)
+	code, ok := otp.CodeAt(secret, time.Now())
+	require.True(t, ok)
 	ctx := context.WithValue(context.Background(), "username", "approver-1")
-	_, err := env.svcCtx.ApprovalsStore.Create(pageGovernedRecord())
+	_, err = env.svcCtx.ApprovalsStore.Create(pageGovernedRecord())
 	require.NoError(t, err)
 
 	// 快照校验通过，FunctionInvoke 因无 scope 失败 → 返回错误并回写 reason。
-	_, err = s.Approve(ctx, &ApprovalApproveRequest{ID: "ap-page"})
+	_, err = s.Approve(ctx, &ApprovalApproveRequest{ID: "ap-page", OTP: code})
 	require.Error(t, err)
 
 	stored, err := env.svcCtx.ApprovalsStore.Get("ap-page")

@@ -1501,6 +1501,13 @@ func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, function
 	return policy.RiskMedium
 }
 
+// ResolvePolicyRisk exposes resolvePolicyRisk to the approve path
+// (internal/api/approval step-up gate, OPEN-ISSUES #75): 高危审批门槛必须与
+// 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。
+func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
+	return resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
+}
+
 // enforceFunctionPolicy checks if the user's roles are allowed to invoke the function
 // based on the effective policy for that function.
 // Returns the effective policy for auditing purposes.

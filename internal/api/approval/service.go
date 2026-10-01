@@ -217,6 +217,13 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	if err := s.rejectSelfApproval(ctx, operator, existing, "approve"); err != nil {
 		return nil, err
 	}
+	// 高危审批 step-up TOTP（OPEN-ISSUES #75）：先校验后落批准态，校验不过
+	// 时审批保持 pending，不产生任何续跑/通知副作用。Web/Mobile 早已按设计
+	// 发送 otp，服务端此前静默丢弃——此处是三段确认的服务端落点。
+	stepUp, err := s.enforceStepUpOTP(ctx, operator, existing, req.OTP)
+	if err != nil {
+		return nil, err
+	}
 
 	record, err := s.svcCtx.ApprovalsStore.Approve(strings.TrimSpace(req.ID), operator)
 	if err != nil {
@@ -227,7 +234,8 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	// approval.approved/rejected 行，operation-logs 的 kind=approval_* 过滤
 	// 永远为空——审批详情「查看审计（批准/拒绝）」跳过去必然查无此人
 	// （docs/BUGS.md BUG-024）。
-	s.recordApprovalAudit(ctx, audit.EventApprovalApproved, operator, record)
+	s.recordApprovalAudit(ctx, audit.EventApprovalApproved, operator, record,
+		map[string]interface{}{"stepUp": stepUp})
 	continuation, err := s.continueApprovedFunction(ctx, record)
 	if err != nil {
 		record.Reason = "approved but continuation failed: " + err.Error()
@@ -312,7 +320,9 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 // game_id/env 随记录落列），使 operation-logs 的 actor+kind=approval_approve/reject
 // 过滤能查到真实审批动作——审批详情页「查看审计（批准/拒绝）」的数据源。
 // 写失败只吞掉：审计是旁路，不得阻塞审批主流程。
-func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.AuditEventType, operator string, record *approvals.Approval) {
+// recordApprovalAudit 的可变参 extraDetails 供调用点补充业务细节
+// （如 step-up 校验档位），合并进 details 后统一落审计行。
+func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.AuditEventType, operator string, record *approvals.Approval, extraDetails ...map[string]interface{}) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil || record == nil {
 		return
 	}
@@ -323,6 +333,11 @@ func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.Audit
 		"operator":   operator,
 		"gameId":     record.GameID,
 		"env":        record.Env,
+	}
+	for _, extra := range extraDetails {
+		for k, v := range extra {
+			details[k] = v
+		}
 	}
 	if record.Reason != "" {
 		details["reason"] = record.Reason
