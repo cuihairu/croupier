@@ -3373,3 +3373,33 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > dashboard-quality 各挂一次＝runner 回收签名（shutdown signal + 零 ✕，
 > 今日第 2/3 次），42b6207 上 dashboard-quality 自身绿，30d5c97 未触发
 > dashboard 域变更不在验证面。
+
+## 覆盖率缺口批次·System/SiteSettings NotificationTab 分支翼收口（wt-ui worktree，2026-10-01）
+
+> **派发陈述与实测差异（非交互自行判定注明）**：派发称「NotificationTab
+> 约 450 行、桩替换未覆盖」——实测组件现 358 行（7374fb3 SmtpCard 迁位
+> #55 删 SMTP 区块），且测试已由 688a3a1（并行会话代提交，即坑 7 记录的
+> 2026-09-28 批次）合入并进 origin/main，9 用例实测行覆盖已 100%（v8 定向
+> 扫描 + import 面核验双证，本地与 origin/main 同文件零 diff）。按派发
+> 「补组件测试、口径对齐 AuthTab」的实质意图，本轮转为补残余分支翼缺口：
+> v8 扫描 92.85% 分支的 3 翼（L176 非字符串值 / L212+L214 toggle 开翼）。
+>
+> 交付：`__tests__/NotificationTab.test.tsx` +32/-4，两用例封翼——
+> ① 非字符串空值（undefined，load 后未触碰的密钥字段）→ typeof 非字符串
+> 翼不 trim 直落 clearSiteSetting + 成功重拉；② 站内信开关起点 false →
+> setSiteSetting(key, true) + 「已开启」双翼（id toggle.on + defaultMessage
+> 开文案），重拉后回未选中态。头注契约同步（非字符串直提、开/关双翼）。
+> **结果：NotificationTab.tsx 100/100/100/100 四项全满，11/11 用例绿。**
+>
+> 沿用边界（诚实）：secretState 三元链缺 feishuSecret 特例（飞书徽标读
+> webhookSecretSet/Masked，现状断言+翻转条件已登记于头注）。
+>
+> 门禁：eslint 0（目标文件）；`pnpm run tsc` 0 错；`bash
+scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
+> （v8 复扫同跑）；全量 jest 374 套件 4641/4652——红集仅
+> `Functions/VersionsTab` 两套件 11 例，**上游既有非本批引入**：取证
+> e4a4fef 的 dashboard-quality（无洪水 CI）同 11 例同签名失败、本地
+> VersionsTab* 与 origin/main 内容零 diff、import 面与本批零交集，疑上游
+> 29ac689（R49-5 改 DetailTabs）后引入，登记不代修（非本域，归上游）。
+> 本批零新增红。
+> FeatureFlagsTab 与 ObservabilityTab 留后续批次（派发明确不做）。
