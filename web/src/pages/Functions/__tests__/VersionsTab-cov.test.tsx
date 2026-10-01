@@ -91,16 +91,17 @@ describe('VersionsTab 残余分支', () => {
     mockGetFloor.mockRejectedValueOnce(new Error('floor down'));
     renderTab();
     expect(await screen.findByText('未设置')).toBeInTheDocument();
-    const input = screen.getByPlaceholderText('0.3.0') as HTMLInputElement;
-    expect(input.value).toBe('');
+    // 回退空值 → 下拉无选中项（门槛下拉恒为 DOM 首个 .ant-select）
+    const floorSelect = document.querySelector('.ant-select') as HTMLElement;
+    expect(floorSelect.querySelector('.ant-select-selection-item')).toBeNull();
   });
 
   it('保存门槛失败（Error）→ 透出错误文案', async () => {
     mockPutFloor.mockRejectedValueOnce(new Error('floor boom'));
     renderTab();
-    fireEvent.change(await screen.findByPlaceholderText('0.3.0'), {
-      target: { value: '0.4.0' },
-    });
+    // 门槛是下拉：从版本流候选里选一版（当前值 0.3.0 亦在候选内）
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
+    fireEvent.click(await screen.findByText('≥ v1.2.0'));
     fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
     expect(await screen.findByText('floor boom')).toBeInTheDocument();
     // finally 分支：保存中状态复位，按钮恢复可用
@@ -112,9 +113,8 @@ describe('VersionsTab 残余分支', () => {
       mockPutFloor as unknown as { mockRejectedValueOnce: (v: unknown) => void }
     ).mockRejectedValueOnce('plain-floor-error');
     renderTab();
-    fireEvent.change(await screen.findByPlaceholderText('0.3.0'), {
-      target: { value: '0.4.0' },
-    });
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
+    fireEvent.click(await screen.findByText('≥ v1.2.0'));
     fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
     expect(await screen.findByText('plain-floor-error')).toBeInTheDocument();
   });
@@ -125,7 +125,7 @@ describe('VersionsTab 残余分支', () => {
     expect(await screen.findByText('当前门槛', { exact: false })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /清\s*除/ }));
     expect(await screen.findByText('clear boom')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('0.3.0')).toBeInTheDocument();
+    expect(screen.getByText('≥ v0.3.0')).toBeInTheDocument();
   });
 
   it('快照拉取失败 → 抽屉不开、列表不崩', async () => {
@@ -157,11 +157,12 @@ describe('VersionsTab 残余分支', () => {
     renderTab();
     await screen.findByText('两版对比：');
 
+    // 门槛下拉为 DOM 首个 combobox，两版对比 from/to 顺延为 index 1/2
     const selects = screen.getAllByRole('combobox');
-    fireEvent.mouseDown(selects[0]);
+    fireEvent.mouseDown(selects[1]);
     let options = await screen.findAllByText('#1');
     fireEvent.click(options[options.length - 1]);
-    fireEvent.mouseDown(selects[1]);
+    fireEvent.mouseDown(selects[2]);
     options = await screen.findAllByText('#2');
     fireEvent.click(options[options.length - 1]);
     fireEvent.click(screen.getByRole('button', { name: /对比|比 对/ }));
@@ -182,11 +183,12 @@ describe('VersionsTab 残余分支', () => {
     renderTab();
     await screen.findByText('两版对比：');
 
+    // 门槛下拉为 DOM 首个 combobox，两版对比 from/to 顺延为 index 1/2
     const selects = screen.getAllByRole('combobox');
-    fireEvent.mouseDown(selects[0]);
+    fireEvent.mouseDown(selects[1]);
     let options = await screen.findAllByText('#1');
     fireEvent.click(options[options.length - 1]);
-    fireEvent.mouseDown(selects[1]);
+    fireEvent.mouseDown(selects[2]);
     options = await screen.findAllByText('#3');
     fireEvent.click(options[options.length - 1]);
     fireEvent.click(screen.getByRole('button', { name: /对比|比 对/ }));
@@ -213,11 +215,12 @@ describe('VersionsTab 残余分支', () => {
     );
   });
 
-  it('门槛输入全空白 → 保存早退不发请求', async () => {
+  it('门槛未变更 → 保存按钮禁用，点击不发请求', async () => {
     renderTab();
-    const input = await screen.findByPlaceholderText('0.3.0');
-    fireEvent.change(input, { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    // 下拉只产出非空版本串（无手输空白），当前值与已保存值一致时按钮禁用
+    const saveBtn = await screen.findByRole('button', { name: /保\s*存/ });
+    await waitFor(() => expect(saveBtn).toBeDisabled());
+    fireEvent.click(saveBtn);
     expect(mockPutFloor).not.toHaveBeenCalled();
   });
 
@@ -283,11 +286,12 @@ describe('VersionsTab 残余分支', () => {
     renderTab();
     await screen.findByText('两版对比：');
 
+    // 门槛下拉为 DOM 首个 combobox，两版对比 from/to 顺延为 index 1/2
     const selects = screen.getAllByRole('combobox');
-    fireEvent.mouseDown(selects[0]);
+    fireEvent.mouseDown(selects[1]);
     let options = await screen.findAllByText('#1');
     fireEvent.click(options[options.length - 1]);
-    fireEvent.mouseDown(selects[1]);
+    fireEvent.mouseDown(selects[2]);
     options = await screen.findAllByText('#3');
     fireEvent.click(options[options.length - 1]);
     fireEvent.click(screen.getByRole('button', { name: /对比|比 对/ }));
