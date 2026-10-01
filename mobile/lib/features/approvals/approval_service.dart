@@ -101,7 +101,9 @@ class ApprovalService {
     return parsed;
   }
 
-  /// 批准。otp 为 step-up 预留（当前后端不读 body，字段补齐即生效）。
+  /// 批准。高危审批（治理风险 high/danger）后端强制 step-up（OPEN-ISSUES
+  /// #75）：无码返回 403 `otp_required`，错码 400 `otp_invalid`，未绑定
+  /// TOTP 403 `otp_not_enrolled`——调用方按 [ApiError.code] 分支弹码重试。
   Future<void> approve(String id, {String? otp}) async {
     await client.post<Map<String, Object?>>(
       '$listPath$id/approve',

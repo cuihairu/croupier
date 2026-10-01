@@ -69,8 +69,80 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
     }
   }
 
-  Future<void> _approve() async {
-    await _act(() => _service!.approve(widget.approvalId));
+  Future<void> _approve({String? otp}) async {
+    if (_acting) return;
+    setState(() => _acting = true);
+    try {
+      await _doApprove(otp: otp);
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  /// step-up 专属流程（不走通用 _act）：otp_required 需弹窗收集动态码后
+  /// 重试，otp_invalid 重弹纠错，其余错误沿用 snackbar 文案。可重入
+  ///（绕过 _acting 守卫），守卫只在入口 [_approve] 一处。
+  Future<void> _doApprove({String? otp}) async {
+    try {
+      await _service!.approve(widget.approvalId, otp: otp);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('操作成功')));
+      await _reload();
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      if (e.status == 409) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('该审批已被处理：${e.message}')));
+        await _reload();
+      } else if (e.code == 'otp_required' ||
+          (e.code == 'otp_invalid' && otp != null)) {
+        // #75：高危审批必须带动态码；带码验证失败重弹纠错
+        final code = await _promptOtp();
+        if (code == null || code.trim().isEmpty) return;
+        await _doApprove(otp: code.trim());
+      } else {
+        // 含 otp_not_enrolled：后端 message 已本地化（引导回 Web 绑定）
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  Future<String?> _promptOtp() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('高危审批'),
+        content: TextField(
+          key: const ValueKey('otp-input'),
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: const InputDecoration(labelText: '动态验证码（验证器 App 6 位）'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('otp-confirm'),
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              Navigator.of(dialogContext).pop(text);
+            },
+            child: const Text('确认批准'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _reject() async {
