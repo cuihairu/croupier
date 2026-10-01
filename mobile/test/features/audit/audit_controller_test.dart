@@ -151,9 +151,11 @@ void main() {
     final notifier = container.read(auditControllerProvider.notifier);
     final inFlight = notifier.refresh();
     // 轮询等 refresh 进入 loading 态（state 先于 dio 适配器到达而置位）。
-    for (var i = 0;
-        i < 200 && !container.read(auditControllerProvider).loading;
-        i++) {
+    for (
+      var i = 0;
+      i < 200 && !container.read(auditControllerProvider).loading;
+      i++
+    ) {
       await Future<void>.delayed(const Duration(milliseconds: 1));
     }
     expect(container.read(auditControllerProvider).loading, isTrue);
@@ -209,7 +211,7 @@ void main() {
       expect(a, isNot(a.copyWith(end: DateTime(2026, 9, 2))));
       expect(a, isNot(a.copyWith(kinds: {'x'})));
       // 非 AuditFilters 对象恒不等。
-      expect(a == 'x', isFalse);
+      expect(a, isNot(equals('x')));
       // hashCode 全字段参与（含 kinds 无序 hash）。
       expect(
         const AuditFilters(kinds: {'q'}).hashCode,

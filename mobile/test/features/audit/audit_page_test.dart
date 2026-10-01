@@ -152,9 +152,7 @@ void main() {
     expect(find.text('暂无审计记录'), findsOneWidget);
   });
 
-  testWidgets('加载更多：第二页累积 + hasMore 收口后按钮消失', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('加载更多：第二页累积 + hasMore 收口后按钮消失', (WidgetTester tester) async {
     final queries = <Uri>[];
     adapter.handler = (options, _) {
       queries.add(options.uri);
@@ -191,7 +189,12 @@ void main() {
       'items': [
         // metadata 显式空 map：令 `metadata == null || metadata.isEmpty`
         // 的短路右侧求值（null 场景走短路，行覆盖缺 376）。
-        {'id': 'au-bare', 'action': 'invoke', 'createdAt': '2026-09-30 10:00', 'metadata': <String, Object>{}},
+        {
+          'id': 'au-bare',
+          'action': 'invoke',
+          'createdAt': '2026-09-30 10:00',
+          'metadata': <String, Object>{},
+        },
       ],
       'total': 1,
     });
@@ -294,7 +297,9 @@ void main() {
     // chip label 回填日期区间（_rangeDate 渲染）。
     final month = DateTime.now().month.toString().padLeft(2, '0');
     expect(
-      find.textContaining('${DateTime.now().year}-$month-15 ~ ${DateTime.now().year}-$month-20'),
+      find.textContaining(
+        '${DateTime.now().year}-$month-15 ~ ${DateTime.now().year}-$month-20',
+      ),
       findsOneWidget,
     );
 

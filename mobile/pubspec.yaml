@@ -18,6 +18,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  # 测试用内存版 FlutterSecurePlatform mock 直接依赖 platform interface
+  #（depend_on_referenced_packages：测试 import 的包必须显式声明）。
+  flutter_secure_storage_platform_interface: ^1.1.2
 
 flutter:
   uses-material-design: true
