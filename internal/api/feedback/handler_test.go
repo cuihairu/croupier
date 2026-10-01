@@ -92,11 +92,12 @@ func TestHandler_CreateAndList_RoundTrip(t *testing.T) {
 func TestHandler_Create_MissingFields_BadRequest(t *testing.T) {
 	handler := newFeedbackHandler(newFeedbackTestDB(t))
 
+	// 业务校验失败必须 400：历史上 errors.New 落入 500 兜底，把
+	// 客户端输入错误伪装成服务端故障（权限申请无联系方式即触发）。
 	tests := []struct {
 		name string
 		body string
 	}{
-		{"missing contact", `{"content":"c","category":"cat"}`},
 		{"missing content", `{"contact":"c","category":"cat"}`},
 		{"missing category", `{"contact":"c","content":"c"}`},
 		{"empty object", `{}`},
@@ -106,10 +107,25 @@ func TestHandler_Create_MissingFields_BadRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, rec := newFeedbackRequest(http.MethodPost, "/api/v1/feedback", tt.body)
 			handler.Create(ctx)
-			assert.NotEqual(t, http.StatusOK, rec.Code, "expected rejection, got 200 body=%s", rec.Body.String())
+			assert.Equal(t, http.StatusBadRequest, rec.Code, "expected 400, got %d body=%s", rec.Code, rec.Body.String())
 			assertFeedbackErrorShape(t, rec)
 		})
 	}
+}
+
+// 联系方式可选：个人中心权限申请（无 contact 字段）历史上被
+// 「联系方式不能为空」拒绝并伪装成 500。现在缺联系方式应成功落库。
+func TestHandler_Create_ContactOptional_Ok(t *testing.T) {
+	handler := newFeedbackHandler(newFeedbackTestDB(t))
+
+	ctx, rec := newFeedbackRequest(http.MethodPost, "/api/v1/feedback",
+		`{"content":"申请 inventory.write 权限","category":"permission_request"}`)
+	handler.Create(ctx)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var resp FeedbackCreateResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "", resp.Contact)
+	assert.Equal(t, "permission_request", resp.Category)
 }
 
 func TestHandler_Delete_InvalidID_Rejected(t *testing.T) {

@@ -36,7 +36,6 @@ export default {
   'pages.supportFeedback.priority.low': 'Low',
   'pages.supportFeedback.priority.normal': 'Normal',
   'pages.supportFeedback.search.category': 'Category',
-  'pages.supportFeedback.search.gameId': 'Game',
   'pages.supportFeedback.search.keyword': 'Keyword',
   'pages.supportFeedback.search.status': 'Status',
   'pages.supportFeedback.status.closed': 'Closed',
