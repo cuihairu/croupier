@@ -3037,3 +3037,13 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > web 侧 path-to-regexp/qs 同款写法）+ pnpm 11 重解析锁（6.3.1 与 7.8.5
 > 双线并存，锁 diff 主体为 pnpm11 格式归一非版本漂移）；本地 jest 三跑
 > 29 suites 全绿（首跑 1 例资源性抖动，后两跑未复现）、audit 仍零洞。
+>
+> **R52 CI 终态（30d5c97，main head）**：23 check 全绿闭环。链路处置
+> 汇总——c120781 Test 步骤超时（10→20 修复，17a6831 起 Test=success
+> 验证生效）；17a6831 Lint 挂＝demo fixture prettier 折行（42b6207 修复
+> 即绿）；CI-JS-SDK semver（30d5c97 修复，test=success）；30d5c97
+> build-server 一次 15 分钟步骤超时（日志为 go module 下载慢、进度正常，
+> 环境性，rerun --failed 即绿，同 R48 处置）；17a6831/c120781 的
+> dashboard-quality 各挂一次＝runner 回收签名（shutdown signal + 零 ✕，
+> 今日第 2/3 次），42b6207 上 dashboard-quality 自身绿，30d5c97 未触发
+> dashboard 域变更不在验证面。
