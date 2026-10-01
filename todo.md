@@ -3525,3 +3525,41 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > scripts/dashboard_vnext_guard.sh PASSED（负载 30-42 非空载窗口执行，
 > 如实注明）。测试隔离：双包均为 per-test `:memory:` 独立库，无共享库
 > scope 隔离面；service 用例仍取 "g-r53" 唯一 scope（派发卫生要求）。
+
+## 覆盖率缺口批次·System/SiteSettings FeatureFlagsTab 查收 + 测试基建洪水收尾（wt-ui worktree，2026-10-01）
+
+> **派发陈述与实测差异（非交互自行判定注明）**：派发称「FeatureFlagsTab
+> 按 NotificationTab 同口径补齐分支覆盖」——实测该组件（298 行）与测试
+> （284 行 8 用例）已由 e183de1（并行会话代提交，SiteSettings
+> FeatureFlags+Observability 批次）合入并进 origin/main，v8 定向扫描
+> **100/100/100/100 四项全满、无翼可补**（与 NotificationTab 批次同模式，
+> 派发基于旧缺口清单）。按派发「不可达分支如实登记不硬造」，本轮零
+> 测试代码变更。
+>
+> **本批实质交付 = 测试基建收尾**（派发同步项）：
+>
+> - 653 个未跟踪文件全量对照 tracked 树（同 stem .ts/.tsx 自动化比对）：
+>   **100% 为转译孪生**（jest.config.js/mock/*.js/e2e-verify/
+>   playwright.config.js/src 全域 .js/.jsx，tracked 皆有对应源），
+>   **零「该入库」项**；
+> - 清理 653 孪生 + 657 个 .map 孤儿（无 tracked .map，find 非
+>   node_modules 全域）；`web/jest.config.ts` 恢复唯一配置——坑 13 的
+>   「Multiple configurations found」与洪水解析遮蔽双根因就此拔除，
+>   此后全量验证不再依赖 /tmp 序修正配置；
+> - 清理后 tracked 配置直跑 SiteSettings+VersionsTab 14 套件 133/133 绿
+>   （解析健康实证）。
+>
+> 门禁（无代码变更，eslint 无对象如实注明）：`pnpm run tsc` 0 错；
+> `scripts/dashboard_vnext_guard.sh` PASSED；全量 jest **374/374 套件、
+> 4652 tests 全绿**——负载风暴（load 28-67）下按坑 16 七批
+> --maxWorkers=4 限流 + --listTests 查漏零漏跑（b1 PageStudio 82、
+> b2 F/O 53、b3 S/A/E/R 55、b4 D/U/P/C/M/A 39、b5 components 70、
+> b6 services/utils 等 59、b7 根级 tests/+config/plugin/store 16）。
+> 上游链带入复验：97bb382（VersionsTab 修复，14 套件验证含 23/23）、
+> 47522e7（R53 Go 侧 + Analytics 2 新测试 12/12 绿，todo EOF 坑 9
+> 双方保留）。
+>
+> 边界（诚实）：① 洪水孪生系他会话转译产物，共享 worktree 竞态下可能
+> 被重建——本批清理后工作区 clean（无未跟踪），若再现属他会话在途活动
+> 非本批回归；② 本批唯一 git 变更为本 todo 交付段（清理对象全是未跟踪
+> 文件、不产生 diff）。
