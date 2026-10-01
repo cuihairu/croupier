@@ -287,12 +287,14 @@ void main() {
     // 选择「今天」与「明天」——均在 end 月（右侧网格），且 ≤ lastDate(now+1)。
     // 这样在月初/月末/跨月时均稳定可选，避免写死 15/20 导致的脆弱性。
     final now = DateTime.now();
-    final todayStr = now.day.toString().padLeft(2, '0');
+    final todayStrTap = now.day.toString(); // picker 显示不带前导零
     final tomorrow = now.add(const Duration(days: 1));
-    final tomorrowStr = tomorrow.day.toString().padLeft(2, '0');
-    await tester.tap(find.text(todayStr).last);
+    final tomorrowStrTap = tomorrow.day.toString();
+    final todayStr = todayStrTap.padLeft(2, '0'); // _rangeDate 会 zero-pad
+    final tomorrowStr = tomorrowStrTap.padLeft(2, '0');
+    await tester.tap(find.text(todayStrTap).last);
     await tester.pump();
-    await tester.tap(find.text(tomorrowStr).last);
+    await tester.tap(find.text(tomorrowStrTap).last);
     await tester.pump();
     // M3 DateRangePickerDialog 确认按钮为 Save（saveButtonLabel）。
     await tester.tap(find.text('Save'));
