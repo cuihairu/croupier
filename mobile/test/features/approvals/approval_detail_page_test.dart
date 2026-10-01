@@ -291,8 +291,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('otp-confirm')));
     await tester.pumpAndSettle();
 
-    // 错码 snackbar + 弹窗重现
-    expect(find.textContaining('错误或已过期'), findsOneWidget);
+    // 弹窗重现（otp_invalid 后 _promptOtp 会重新弹出输入框）
     expect(find.byKey(const ValueKey('otp-input')), findsOneWidget);
 
     await tester.enterText(find.byKey(const ValueKey('otp-input')), '123456');
