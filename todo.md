@@ -2960,3 +2960,38 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：触及文件 gofmt/go vet 干净；go test ./internal/... -count=1 -p 4
 > fresh 158 包 exit=0 零 FAIL；auth 包 -count=3 零抖动（148.5s）；覆盖
 > profile 同口径重跑 exit=0（load ~23，较前几轮 60-111 轻载）。
+
+## 第二十三轮：集群拓扑页覆盖收口（Ops/Cluster 0% → 4×100，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行现席
+> `Ops/Cluster/index.tsx`（214 行，目录内无任何测试文件）单件收口，新增
+> `__tests__/index.test.tsx` 7 用例，v8 口径 **行/语句/分支/函数 4×100%**
+> ——本页无登记不可达分支（全部防御翼均为类型合法可构造形态或真实瞬态）。
+> 锁定契约——挂载 fetchClusterInfo() 零参 + enabled=true 统计三卡（实例
+> 总数=total / 在线实例=aliveCount 含 `===total` 双色翼 #3f8600·#cf1322 /
+> Agent 连接分布=items.reduce 求和 + 后缀「个」聚合）+ 实例列表六列矩阵
+> （self→blue Tag 当前实例 + 非_self 行无 Tag、互联地址空串落 '-'、Epoch
+> 原值、启动时间 formatDateTime 合法/缺省双翼、agentCount `|| 0`、状态
+> Badge 在线/离线双翼——离线翼裹 Tooltip 租约过期）+ 无单实例提示卡；
+> enabled=false 形态（提示卡 + 统计行不渲染 + 列表仍渲染）；**首拉未决
+> 瞬态**（pending promise 渲染）覆盖 `info?.items || []` 右翼与
+> `!info?.enabled` 的 info-null 翼（真实过态而非造假 reject）；加载失败
+> 双翼（Error → e.message / 字符串 → fallback「加载集群信息失败」）；
+> 刷新按钮重拉；**10s interval 自动刷新**经 fake timers advanceTimersByTime
+> 驱动（真实 10s 等不起；fake 窗口内不用 waitFor——其轮询计时器同被 fake
+> 会挂死，以 await act 刷微任务）。
+> **坑实证（新档，四条）**：① 带图标 Button 可访问名前缀拼 icon
+> aria-label（「reload 刷新」），getByRole name 须宽松正则；② Badge 状态
+> 色在内部 dot（`.ant-badge-status-success/error`，R49-4b 坑档同源）；
+> ③ **PageContainer 桩必须透传 extra**——刷新按钮在 extra 槽位，只渲
+> children 的桩把按钮整体丢出 DOM（getByRole 恒空的根因）；④ jsdom 把
+> 内联 style 的 hex 色归一为 rgb()（#cf1322 → "rgb(207, 19, 34)"），色值
+> 断言按归一形态写。页面经 intlRef 转发 intl（useCallback 依赖只
+> [message]），mock 的 useIntl 每渲染新实例也不触发 effect 重建循环。
+> 门禁：目标套件 7/7 绿（4×100%）、prettier/eslint 0、
+> `pnpm --dir web run tsc` 0 错、`scripts/dashboard_vnext_guard.sh` PASSED；
+> 全量 jest **370 套件 4578 用例：4577 绿 + 1 失败**（2 worker 限流，
+> load 50-95 极高位窗口，~46min）——唯一失败 Extensions/Store 通用错误翼
+> toast 计数断言（180s 超长形态，他域既有绿套件、与本批零交集），
+> **隔离复跑 Store 4 套件 60/60 绿**定责负载型非回归（第二十轮同款
+> 记录）。
