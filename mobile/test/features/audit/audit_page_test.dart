@@ -303,10 +303,7 @@ void main() {
     final tomorrow = now.add(const Duration(days: 1));
     final tomorrowMonth = tomorrow.month.toString().padLeft(2, '0');
     final tomorrowFmt = '${tomorrow.year}-$tomorrowMonth-$tomorrowStr';
-    expect(
-      find.textContaining('$todayFmt ~ $tomorrowFmt'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('$todayFmt ~ $tomorrowFmt'), findsOneWidget);
 
     await tester.dragUntilVisible(
       find.byKey(const ValueKey('audit-filter-apply')),
