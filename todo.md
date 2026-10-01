@@ -3251,3 +3251,12 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > PASSED），dashboard-quality 本体在 97bb382/10a6bac/42b6207 多次整绿可证，
 > 判 GitHub hosted runner 当日概率性回收（基础设施退化），非本提交回归。
 > 排查口径见记忆档 ci-dashboard-runner-shutdown-signature。
+>
+> **补证（后续 push 的同签名第三/四例）**：上游 987da57（Proposals 收口，
+> 09:46 run）的 dashboard-quality 亦挂同签名（10:19 shutdown signal ×1、
+> 零 ✕、213 套件 PASS 至被杀）——当日该 job 跨 3 个 head 被回收 4 次
+> （07:40 / 08:26 / 09:46 / 10:19）全程零真实用例失败；其台账 R26 侧
+> 「新 push 自动取消」归因经 push 时间戳核对排除（987da57 推于 09:37 晚于
+> 我 run 08:53 结束，"operation was canceled" 只是 shutdown 后的次级
+> annotation）。本会话后续推送 6ec4a61（台账 + merge，todo.md-only）按
+> paths 过滤不触发 CI-Dashboard，16 个 check-runs 全绿收口。
