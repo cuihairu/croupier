@@ -3563,3 +3563,62 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > 被重建——本批清理后工作区 clean（无未跟踪），若再现属他会话在途活动
 > 非本批回归；② 本批唯一 git 变更为本 todo 交付段（清理对象全是未跟踪
 > 文件、不产生 diff）。
+
+## 2026-10-01 wt-ui 派发 8：Functions/Detail.tsx 页面本体 0%→收口（18 用例）
+
+> 派发规则：认领清单 #7 #8 #9 #19 #20 已全部闭环提交（#7/#8/#9=8a858e0、
+> #19=f2993c0、#20=a43365f，origin/main 实证），转本 worktree 自身覆盖
+> 率最大缺口补测一项。选靶三轮筛选：行数 top25 → import 面宿主链 →
+> **v8 实测**（坑 15 纪律：零引用≠零覆盖，Cicd 92.16%/compile 100% 双
+> 证伪推定）——`Functions/Detail.tsx` 463 行 **0%（1-463 全未覆盖）**，
+> 真零覆盖最大候选（>Welcome 383 >requestErrorConfig 339；二者排除理由
+> 前批已记）。既有 8 个 Functions 测试全打 DetailSections/DetailTabs/
+> useFunctionDetailPage，无人 import `../Detail`，零撞车。
+
+> **前后对比（v8 定向扫描，同口径 collectCoverageFrom）**：
+>
+> | 指标       | 前          | 后         |
+> | ---------- | ----------- | ---------- |
+> | Statements | 0%          | **100%**   |
+> | Branch     | 0%          | **90.09%** |
+> | Functions  | 0%          | **100%**   |
+> | Lines      | 0%（1-463） | **100%**   |
+>
+> `web/src/pages/Functions/__tests__/Detail.test.tsx` 18 用例锁定：not-found
+> 面板双态（404/缺 id）、标签云全字段+缺省翼、actions 四键 runAction 真链
+> （reload 重入/copy push 新 ID/delete confirm onOk/edit 双态 form.submit→
+> onFinish）、disabledWhen noFunction 三键、URL 同步（search 初值/effect
+> 重置/onChange 双参带 subTab 与删 subTab 翼）、七 tab 内容懒渲染接线、
+> DetailConfigTab 四回调（App message portal + subTab replace + studio
+> push）、handleStatusToggle disable 链、三处 viewCandidates + invoke fid
+> 编码、契约诊断 Alert 三元素+缺省翼。
+>
+> **8 处分支翼结构性不可达（如实登记，v8 实证非硬造）**：L60 `||'json'`
+> （activeSubTab 初始化即兜底恒非空）、L63 `:''`（tab 恒 set→toString 恒
+> 非空）、L114/L152-155 `params.id||''` ×5（缺 id 走 not-found 早退）、
+> L198 Badge `'default'`（**hook normalize 硬编码 enabled:true**，toggle
+> 禁用成功后 loadDetail 重拉亦回 true——真实行为已用例锁定）、L294
+> `||id`（name=localizedText(displayName,'zh-CN',id) 恒非空）。
+>
+> 本轮排障沉淀（antd v6 契约，已注释在测试内）：① 图标
+> `span[role=img][aria-label]` 计入 accessible name（"reload 刷新"），按
+> 钮查询须用包含式正则；② modal.confirm portal 在 `<App>` holder 不继承
+> 内层 ConfigProvider zhCN → OK 按钮默认文案 **"OK"**、okType:'danger'
+> class 是 **ant-btn-dangerous**（无 ant-btn-primary），需 DOM 直查
+> （PageStudio studioActions 同源先例）；③ 页面 Form component={false}
+> 不注册 Form.Item → 编辑保存 onFinish values 全空（tags 兜底 []），
+> 已按现状锁契约；④ PageStatePanel 桩文字须包 span（裸文本节点归属
+> parent，getByText 精确匹配必失败）；⑤ handleCopy 读 `next.functionId`；
+> ⑥ description 区渲染 normalize 后的 **summary 优先**值。
+>
+> 门禁：eslint 新文件 0 错 0 警；`pnpm run tsc` 0 错；
+> `scripts/dashboard_vnext_guard.sh` PASSED（仓库根执行）；全量 jest 378
+> 套件 3 红→隔离复跑定性：Ops/Alerts + Extensions/Store 6 套件 99/99 绿
+> （148s/210s 负载慢，环境性）；`paymentsPage-cov-additions.test.tsx`
+> 11/11 确定性红系**他会话未跟踪在途文件**（非本批认领面，基线 374 外，
+> 不 add 不修改）——本批交付面（基线 374 + Detail 18）零新增红。
+>
+> 边界（诚实）：① enabled:false 展示翼因 hook 硬编码不可测达，仅经
+> handleStatusToggle 锁定「禁用成功+重拉后仍显示已启用」现状；② 「未启用」
+> Badge 翼同因不可达；③ 全量在 load 4.7-5.0 空载窗口直跑（坑 15 双检过），
+> 未走七批限流。
