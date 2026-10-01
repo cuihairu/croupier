@@ -23,6 +23,7 @@ import { useAccess } from '@umijs/max';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
 import ServerOptionsSelect from '@/components/ServerOptionsSelect';
+import { useScope } from '@/hooks/useScopeReload';
 
 type TicketPriority = 'urgent' | 'high' | 'normal' | 'low';
 type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
@@ -101,7 +102,9 @@ export default function SupportTicketsPage() {
   const [editing, setEditing] = useState<SupportTicket | null>(null);
   const access = (useAccess?.() || {}) as SupportAccess;
   const [users, setUsers] = useState<AdminRecord[]>([]);
-  // #21：游戏/环境过滤已移除——列表归属由顶栏 scope（X-Game-ID/X-Env）决定
+  // #21：游戏/环境过滤已移除——列表归属由顶栏 scope（X-Game-ID/X-Env）决定；
+  // scopeKey 订阅全局选择器，切游戏后触发 ProTable 重发请求（同 #38 族）
+  const { scopeKey } = useScope();
   const [optionEpoch, setOptionEpoch] = useState(0);
 
   useEffect(() => {
@@ -398,7 +401,7 @@ export default function SupportTicketsPage() {
           search={false}
           options={false}
           toolBarRender={false}
-          params={{ q, status, priority, category, assignee }}
+          params={{ q, status, priority, category, assignee, scopeKey }}
           request={async ({
             current = 1,
             pageSize = 20,

@@ -23,7 +23,9 @@ export default {
   'pages.supportFaq.pagination.total': '{total} items in total',
   'pages.supportFaq.search.category': 'Category',
   'pages.supportFaq.search.keyword': 'Keyword',
-  'pages.supportFaq.search.visible': 'Visible (true/false)',
+  'pages.supportFaq.search.visible': 'Visibility',
+  'pages.supportFaq.search.visible.false': 'Hidden',
+  'pages.supportFaq.search.visible.true': 'Visible',
   'pages.supportFaq.visible.no': 'No',
   'pages.supportFaq.visible.yes': 'Yes',
 };

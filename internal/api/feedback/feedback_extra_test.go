@@ -164,12 +164,13 @@ func TestService_Create_NilRequest(t *testing.T) {
 	assert.Contains(t, err.Error(), "请求体不能为空")
 }
 
-func TestService_Create_EmptyContact(t *testing.T) {
+func TestService_Create_ContactOptional(t *testing.T) {
 	db := newFeedbackExtraTestDB(t)
 	service := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
-	_, err := service.Create(context.Background(), &FeedbackCreateRequest{Content: "test", Category: "bug"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "联系方式不能为空")
+	// 联系方式可选：权限申请等站内来源不带 contact 也必须能落库。
+	resp, err := service.Create(context.Background(), &FeedbackCreateRequest{Content: "test", Category: "bug"})
+	require.NoError(t, err)
+	assert.Equal(t, "", resp.Contact)
 }
 
 func TestService_Create_EmptyContent(t *testing.T) {

@@ -203,9 +203,16 @@ describe('Support/FAQ 列表页（#22 分类过滤选项服务端化）', () => 
       expect(lastCall.q).toBe('退款');
     });
 
-    fireEvent.change(screen.getByPlaceholderText('是否可见(true/false)'), {
-      target: { value: 'true' },
-    });
+    // 可见性已从自由文本改为下拉（可见/隐藏），防误输任意字符串；
+    // 测试环境 antd Select 不渲染 placeholder 文本，按 combobox 序定位
+    // （渲染序 = 分类/可见，取第 2 个）
+    const comboboxes = screen.getAllByRole('combobox');
+    fireEvent.mouseDown(comboboxes[1]);
+    fireEvent.click(
+      document.querySelectorAll(
+        '.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option',
+      )[0],
+    );
     await waitFor(() => {
       const lastCall = mockListFAQ.mock.calls[mockListFAQ.mock.calls.length - 1][0];
       expect(lastCall.visible).toBe('true');

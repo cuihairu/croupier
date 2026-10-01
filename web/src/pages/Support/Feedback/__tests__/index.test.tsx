@@ -3,7 +3,7 @@
  * 1. 「隐藏已转工单」Checkbox 默认勾选，ProTable request 传 excludeStatus='triaged'；
  * 2. 取消勾选后重查，excludeStatus 不再传（undefined）；
  * 3. 勾选但选择状态筛选时 excludeStatus 让位于 status；
- * 4. 关键词/分类/游戏筛选 + 查询按钮的参数透传；
+ * 4. 关键词/分类筛选 + 查询按钮的参数透传（游戏过滤只认全局选择器，页内无游戏筛选）；
  * 5. 新建/编辑 ModalForm（destroyOnHidden 预填）提交成功与失败路径；
  * 6. 删除二次确认（App.useApp modal.confirm）；
  * 7. 转工单：新转成功 / 已转过幂等提示 / 失败 toast；
@@ -159,7 +159,6 @@ describe('SupportFeedbackPage', () => {
       q: '',
       category: '',
       status: '',
-      gameId: '',
       page: 1,
       size: 20,
       excludeStatus: 'triaged',
@@ -188,7 +187,6 @@ describe('SupportFeedbackPage', () => {
         q: '',
         category: '',
         status: '',
-        gameId: '',
         page: 1,
         size: 20,
         excludeStatus: undefined,
@@ -220,7 +218,6 @@ describe('SupportFeedbackPage', () => {
         q: '',
         category: '',
         status: 'triaged',
-        gameId: '',
         page: 1,
         size: 20,
         excludeStatus: undefined,
@@ -228,21 +225,20 @@ describe('SupportFeedbackPage', () => {
     );
   });
 
-  it('关键词/分类/游戏筛选 + 查询按钮：参数透传', async () => {
+  it('关键词/分类筛选 + 查询按钮：参数透传', async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('p1')).toBeInTheDocument());
 
     fireEvent.change(screen.getByPlaceholderText('关键词'), { target: { value: 'p1' } });
     fireEvent.change(screen.getByPlaceholderText('分类'), { target: { value: 'bug' } });
-    fireEvent.change(screen.getByPlaceholderText('游戏'), { target: { value: 'demo' } });
     fireEvent.click(screen.getByRole('button', { name: /查\s*询/ }));
 
+    // 页内不再提供游戏筛选：游戏归属只认全局游戏选择器（请求头 scope）
     await waitFor(() =>
       expect(mockList).toHaveBeenLastCalledWith({
         q: 'p1',
         category: 'bug',
         status: '',
-        gameId: 'demo',
         page: 1,
         size: 20,
         excludeStatus: 'triaged',
