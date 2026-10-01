@@ -97,9 +97,16 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('该审批已被处理：${e.message}')));
         await _reload();
-      } else if (e.code == 'otp_required' ||
-          (e.code == 'otp_invalid' && otp != null)) {
-        // #75：高危审批必须带动态码；带码验证失败重弹纠错
+      } else if (e.code == 'otp_required') {
+        // #75：高危审批必须带动态码
+        final code = await _promptOtp();
+        if (code == null || code.trim().isEmpty) return;
+        await _doApprove(otp: code.trim());
+      } else if (e.code == 'otp_invalid' && otp != null) {
+        // 带码验证失败：先展示错误提示，再重弹纠错
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
         final code = await _promptOtp();
         if (code == null || code.trim().isEmpty) return;
         await _doApprove(otp: code.trim());
