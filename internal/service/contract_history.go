@@ -3,10 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/function/schemadiff"
 	"github.com/cuihairu/croupier/internal/model"
+	"gorm.io/gorm"
 )
 
 // B2：函数契约版本历史写路径。以 (game_id, env, function_id) 为主维度，
@@ -188,4 +191,47 @@ func canonicalUnmarshal(raw model.JSON) interface{} {
 		return string(raw)
 	}
 	return v
+}
+
+// BackfillInitialContractVersion 为「有契约但无任何版本历史」的存量函数补
+// 一条 created 初始快照。B2 版本历史（迁移 0029）晚于函数注册面引入——
+// 此前注册的存量契约没有 created 记录，变更历史页面显示为空。幂等：已有
+// 任意历史的函数直接跳过；契约不存在（含软删）同样跳过。返回是否补写。
+func (s *ContractService) BackfillInitialContractVersion(ctx context.Context, gameID, env, functionID string) (bool, error) {
+	if s == nil || s.contractVersions == nil || s.contractModel == nil {
+		return false, nil
+	}
+	_, total, err := s.contractVersions.ListByFunctionPaged(ctx, gameID, env, functionID, 1, 0)
+	if err != nil {
+		return false, fmt.Errorf("list contract versions %s: %w", functionID, err)
+	}
+	if total > 0 {
+		return false, nil
+	}
+	contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("find function contract %s: %w", functionID, err)
+	}
+	snapshot, err := json.Marshal(FunctionSpecFromContract(contract))
+	if err != nil {
+		return false, fmt.Errorf("marshal contract snapshot %s: %w", functionID, err)
+	}
+	if err := s.contractVersions.AppendVersion(ctx, &model.FunctionContractVersion{
+		GameID:       contract.GameID,
+		Env:          contract.Env,
+		FunctionID:   contract.FunctionID,
+		Version:      contract.Version,
+		Source:       contract.Source,
+		SourceDigest: contract.SourceDigest,
+		ChangeType:   ContractVersionChangeCreated,
+		Breaking:     false,
+		Actor:        "backfill",
+		Snapshot:     model.JSON(snapshot),
+	}); err != nil {
+		return false, fmt.Errorf("append initial contract version %s: %w", functionID, err)
+	}
+	return true, nil
 }
