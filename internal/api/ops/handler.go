@@ -335,6 +335,10 @@ func (h *Handler) OpsNodeMeta(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	if req.NodeID == "" {
+		req.NodeID = c.Param("nodeId")
+	}
 
 	resp, err := h.service.OpsNodeMeta(c.Request.Context(), &req)
 	if err != nil {

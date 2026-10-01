@@ -945,8 +945,10 @@ func TestOpsNodeMetaHandlerNotFound(t *testing.T) {
 
 	h.OpsNodeMeta(ctx)
 
-	// Returns 500 when node not found
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	// 未命中按契约回 404（2026-10-02 起不再 500：裸 errors.New 已改
+	// errorx.NewNotFound，线上 /nodes/:id/meta 恒 500 事故第二病灶修复）
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Contains(t, rec.Body.String(), "not_found")
 }
 
 // Tests for OpsBackupsList handler with real model

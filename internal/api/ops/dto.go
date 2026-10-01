@@ -384,8 +384,10 @@ type OpsNodeDrainResponse struct {
 	Status string `json:"status"`
 }
 
+// GET 走 BindQueryCompat 只认 form/json tag（不绑 uri tag），handler 侧以
+// c.Param 兜底路径参数（同 OpsNodeDetailRequest）。
 type OpsNodeMetaRequest struct {
-	NodeID string `uri:"nodeId"`
+	NodeID string `form:"nodeId" uri:"nodeId"`
 }
 
 type OpsNodeMetaResponse struct {

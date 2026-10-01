@@ -504,7 +504,9 @@ func opsNodeMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeMe
 		}
 	}
 
-	return nil, errors.New("node not found")
+	// 未命中按契约回 404（此前裸 errors.New 被 response.Error 映射成
+	// 500 internal_error，线上 /nodes/:id/meta 恒 500 的第二病灶）。
+	return nil, errorx.NewNotFound("node not found: " + req.NodeID)
 }
 
 // opsNodeDetail 单设备详情：与 GET /ops/nodes 列表同源同过滤（含 scope 头
