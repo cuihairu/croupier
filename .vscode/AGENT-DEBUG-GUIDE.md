@@ -7,6 +7,7 @@
 ### 1. Agent (多文件示例)
 
 **加载内容**：
+
 - [`openapi.example.yaml` (13 个示例函数)]
 - [所有 Packs (6 个函数)]
 
@@ -31,6 +32,7 @@
 ```
 
 **注册的函数**：
+
 ```
 examples.player.create
 examples.player.get
@@ -48,11 +50,13 @@ packs.player.ban
 ### 2. Agent (加载所有 Packs)
 
 **加载内容**：
+
 - [所有 Packs 的 OpenAPI 文件]
 
 **适用场景**：Pack 功能测试
 
 **环境变量**：
+
 ```json
 {
   "GAME_ID": "dev-game",
@@ -61,6 +65,7 @@ packs.player.ban
 ```
 
 **注册的函数**：
+
 ```
 packs.http.generic_invoke
 packs.prom.query
@@ -75,11 +80,13 @@ packs.alertmanager.list_alerts
 ### 3. Agent (调试模式)
 
 **特点**：
+
 - [Debug 模式（可设置断点）]
 - [详细的日志输出]
 - [开发环境标识]
 
 **配置**：
+
 ```json
 {
   "name": "Agent (调试模式)",
@@ -97,6 +104,7 @@ packs.alertmanager.list_alerts
 ### 4. Agent (微服务架构)
 
 **特点**：
+
 - [配置多个服务（不同端口）]
 - [每个服务独立认证]
 - [模拟微服务架构]
@@ -104,6 +112,7 @@ packs.alertmanager.list_alerts
 **配置文件**：`services/agent/etc/providers.multi-service.example.yaml`
 
 **服务端口**：
+
 - Player Service: `8081`
 - Inventory Service: `8082`
 - Chat Service: `8083`
@@ -111,6 +120,7 @@ packs.alertmanager.list_alerts
 - Alertmanager: `9093`
 
 **环境变量**：
+
 ```json
 {
   "PLAYER_SERVICE_TOKEN": "dev-token-player",
@@ -123,6 +133,7 @@ packs.alertmanager.list_alerts
 ```
 
 **注册的函数**：
+
 ```
 player_service.player.create      → localhost:8081
 player_service.player.get         → localhost:8081
@@ -224,6 +235,7 @@ curl -X POST http://localhost:18888/api/v1/functions/invoke \
 ### 1. 设置断点
 
 在代码中设置断点：
+
 - `services/agent/platform.go` - 平台加载逻辑
 - `internal/platform/openapi/provider.go` - OpenAPI 解析逻辑
 
@@ -257,6 +269,7 @@ curl -X POST http://localhost:18888/api/v1/functions/invoke \
 ### 4. 热重载
 
 修改配置文件后：
+
 1. 在调试控制台点击停止按钮
 2. 重新按 F5 启动
 
@@ -302,13 +315,14 @@ platforms:
     enabled: true
     config:
       openapi_specs: [./etc/openapi.example.yaml]
-      base_url: http://localhost:8081  # 不同端口
+      base_url: http://localhost:8081 # 不同端口
 
   inventory_service:
     enabled: true
     config:
       openapi_specs: [../packs/http/openapi.yaml]
-      base_url: http://localhost:8082  # 不同端口
+      base_url: http://localhost:8082 # 不同端口
+
 
   # ... 更多服务
 ```
@@ -352,6 +366,7 @@ platforms:
 ### 问题 1: Agent 启动失败
 
 **检查**：
+
 - Server 是否运行：`ps aux | grep croupier-server`
 - 端口是否占用：`lsof -i :18888`
 - 配置文件是否存在：`ls services/agent/etc/agent.yaml`
@@ -359,6 +374,7 @@ platforms:
 ### 问题 2: 函数未注册
 
 **检查**：
+
 - providers.yaml 语法：`python3 -c "import yaml; yaml.safe_load(open('services/agent/etc/providers.yaml'))"`
 - OpenAPI 文件路径：`ls services/agent/etc/openapi.example.yaml`
 - Agent 日志：查看是否有 "provider loaded" 日志
@@ -366,6 +382,7 @@ platforms:
 ### 问题 3: 函数调用失败
 
 **检查**：
+
 - 函数 ID 是否正确：检查函数 ID 前缀
 - 后端服务是否运行：`lsof -i :8080`
 - base_url 配置是否正确
@@ -392,6 +409,7 @@ platforms:
 ### 2. 环境变量管理
 
 在 VS Code 设置中配置：
+
 ```json
 {
   "terminal.integrated.env.linux": {

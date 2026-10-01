@@ -14,12 +14,12 @@ make pack             # pack artifacts（protoc-gen-croupier）
 
 产物：
 
-| 目标 | 路径 | go_package |
-| --- | --- | --- |
-| 主仓库 | `pkg/pb/` | `github.com/cuihairu/croupier/pkg/pb/...`（proto 里的原值） |
-| Go SDK | `sdks/go/pkg/pb/` | `github.com/cuihairu/croupier/sdks/go/pkg/pb/...`（脚本改写前缀） |
-| Python SDK | `sdks/python/generated/` | — |
-| C++ SDK | `sdks/cpp/generated/` | — |
+| 目标       | 路径                     | go_package                                                        |
+| ---------- | ------------------------ | ----------------------------------------------------------------- |
+| 主仓库     | `pkg/pb/`                | `github.com/cuihairu/croupier/pkg/pb/...`（proto 里的原值）       |
+| Go SDK     | `sdks/go/pkg/pb/`        | `github.com/cuihairu/croupier/sdks/go/pkg/pb/...`（脚本改写前缀） |
+| Python SDK | `sdks/python/generated/` | —                                                                 |
+| C++ SDK    | `sdks/cpp/generated/`    | —                                                                 |
 
 Go SDK 那份的做法是「复制 proto 树 → 改写副本里的 `option go_package` 前缀 → 对副本跑 protoc」：protoc 的 `M<file>=<path>` flag 只影响跨文件 import，**不会**改写嵌入 descriptor 的 `go_package`，所以必须改 option 本身。脚本在任一 proto 缺少/不匹配该前缀时直接退出。
 

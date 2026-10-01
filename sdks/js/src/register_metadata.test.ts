@@ -34,7 +34,9 @@ message ProviderConnectRequest {
 `;
 
 const root = protobuf.parse(ROUND_TRIP_PROTO).root;
-const ConnectRequest = root.lookupType("croupier.sdk.v1.ProviderConnectRequest");
+const ConnectRequest = root.lookupType(
+  "croupier.sdk.v1.ProviderConnectRequest",
+);
 
 interface DecodedFunction {
   id: string;

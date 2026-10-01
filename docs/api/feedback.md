@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type FeedbackListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -23,10 +21,7 @@ type FeedbackListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FeedbackListResponse struct {
@@ -48,8 +43,6 @@ type FeedbackListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FeedbackCreateRequest struct {
 	PlayerId string `json:"playerId,optional"`
@@ -63,10 +56,7 @@ type FeedbackCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FeedbackDetailResponse struct {
@@ -115,8 +105,6 @@ type Feedback struct {
 
 2. request definition
 
-
-
 ```go
 type FeedbackUpdateRequest struct {
 	ID string `path:"id"`
@@ -126,10 +114,7 @@ type FeedbackUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FeedbackDetailResponse struct {
@@ -178,17 +163,13 @@ type Feedback struct {
 
 2. request definition
 
-
-
 ```go
 type FeedbackDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 5. "获取反馈统计"
 
@@ -201,8 +182,6 @@ type FeedbackDeleteRequest struct {
 
 2. request definition
 
-
-
 ```go
 type FeedbackStatsRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -210,10 +189,7 @@ type FeedbackStatsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FeedbackStatsResponse struct {
@@ -232,4 +208,3 @@ type FeedbackStats struct {
 	ResponseRate float64 `json:"responseRate"`
 }
 ```
-

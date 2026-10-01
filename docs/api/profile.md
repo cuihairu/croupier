@@ -11,17 +11,12 @@
 
 2. request definition
 
-
-
 ```go
 type ProfileGetRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type ProfileGetResponse struct {
@@ -60,8 +55,6 @@ type ProfileInfo struct {
 
 2. request definition
 
-
-
 ```go
 type ProfileUpdateRequest struct {
 	Nickname string `json:"nickname,optional"`
@@ -71,10 +64,7 @@ type ProfileUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type ProfileGetResponse struct {
@@ -113,17 +103,12 @@ type ProfileInfo struct {
 
 2. request definition
 
-
-
 ```go
 type ProfileGamesRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type ProfileGamesResponse struct {
@@ -153,8 +138,6 @@ type ProfileGame struct {
 
 2. request definition
 
-
-
 ```go
 type ProfilePasswordRequest struct {
 	OldPassword string `json:"oldPassword"`
@@ -162,9 +145,7 @@ type ProfilePasswordRequest struct {
 }
 ```
 
-
 3. response definition
-
 
 ### 5. "获取当前用户权限"
 
@@ -177,8 +158,6 @@ type ProfilePasswordRequest struct {
 
 2. request definition
 
-
-
 ```go
 type ProfilePermissionsRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -186,10 +165,7 @@ type ProfilePermissionsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type ProfilePermissionsResponse struct {
@@ -221,4 +197,3 @@ type RolePermissionGrant struct {
   `user:*` 只是「user 资源的全部操作」，不算 `fullAccess`。
 - `rolePermissions` 给出逐角色明细，供前端渲染「角色 → 资源 → 操作」的权限树；
   角色未挂任何权限时也会出现（空数组）。
-

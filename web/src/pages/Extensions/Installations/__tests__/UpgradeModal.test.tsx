@@ -37,13 +37,11 @@ jest.mock('@umijs/max', () => ({
   }),
 }));
 
-import {
-  listExtensionCatalogReleases,
-  upgradeExtension,
-} from '@/services/api/extensions';
+import { listExtensionCatalogReleases, upgradeExtension } from '@/services/api/extensions';
 
-const mReleases =
-  listExtensionCatalogReleases as jest.MockedFunction<typeof listExtensionCatalogReleases>;
+const mReleases = listExtensionCatalogReleases as jest.MockedFunction<
+  typeof listExtensionCatalogReleases
+>;
 const mUpgrade = upgradeExtension as jest.MockedFunction<typeof upgradeExtension>;
 
 const row: ExtensionInstallationItem = {
@@ -97,8 +95,20 @@ beforeEach(() => {
   mReleases.mockResolvedValue({
     total: 2,
     releases: [
-      { version: '1.5.0', releaseChannel: 'stable', minCoreVersion: '0.0.1', publishedAt: 1, changelog: '' },
-      { version: '1.4.0', releaseChannel: 'stable', minCoreVersion: '0.0.1', publishedAt: 1, changelog: '' },
+      {
+        version: '1.5.0',
+        releaseChannel: 'stable',
+        minCoreVersion: '0.0.1',
+        publishedAt: 1,
+        changelog: '',
+      },
+      {
+        version: '1.4.0',
+        releaseChannel: 'stable',
+        minCoreVersion: '0.0.1',
+        publishedAt: 1,
+        changelog: '',
+      },
     ],
   });
   mUpgrade.mockResolvedValue({ status: 'upgrading' } as never);
@@ -107,9 +117,7 @@ beforeEach(() => {
 describe('升级扩展弹窗 版本列表加载', () => {
   it('打开拉取目录 releases；当前版本已在列表 → 不重复前置', async () => {
     renderModal();
-    await waitFor(() =>
-      expect(mReleases).toHaveBeenCalledWith('chatops'),
-    );
+    await waitFor(() => expect(mReleases).toHaveBeenCalledWith('chatops'));
 
     await pickVersion('1.5.0');
     await pickVersion('1.4.0');
@@ -125,7 +133,13 @@ describe('升级扩展弹窗 版本列表加载', () => {
     mReleases.mockResolvedValue({
       total: 1,
       releases: [
-        { version: '2.0.0', releaseChannel: 'stable', minCoreVersion: '0.0.1', publishedAt: 1, changelog: '' },
+        {
+          version: '2.0.0',
+          releaseChannel: 'stable',
+          minCoreVersion: '0.0.1',
+          publishedAt: 1,
+          changelog: '',
+        },
       ],
     });
     renderModal();
@@ -139,7 +153,13 @@ describe('升级扩展弹窗 版本列表加载', () => {
     mReleases.mockResolvedValue({
       total: 1,
       releases: [
-        { version: '2.0.0', releaseChannel: 'stable', minCoreVersion: '0.0.1', publishedAt: 1, changelog: '' },
+        {
+          version: '2.0.0',
+          releaseChannel: 'stable',
+          minCoreVersion: '0.0.1',
+          publishedAt: 1,
+          changelog: '',
+        },
       ],
     });
     renderModal({ row: { ...row, releaseVersion: '' } });
@@ -166,9 +186,7 @@ describe('升级扩展弹窗 提交链', () => {
   it('空版本提交拦截：warning + 不触达 upgradeExtension', async () => {
     renderModal();
     await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
-    await waitFor(() =>
-      expect(document.querySelector('.ant-select')).not.toBeNull(),
-    );
+    await waitFor(() => expect(document.querySelector('.ant-select')).not.toBeNull());
 
     clickOk();
     expect(await screen.findByText('请输入目标版本')).toBeInTheDocument();
@@ -255,9 +273,7 @@ describe('升级扩展弹窗 提交链', () => {
     await pickVersion('1.5.0');
     clickOk();
 
-    expect(
-      await screen.findByText('升级失败，检测到循环依赖：loop-ext'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('升级失败，检测到循环依赖：loop-ext')).toBeInTheDocument();
 
     // details 不带 dependency → unknown 兜底臂
     mUpgrade.mockRejectedValue({

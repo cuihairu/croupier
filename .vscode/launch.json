@@ -7,10 +7,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/server",
-      "args": [
-        "-f",
-        "configs/server.yaml"
-      ],
+      "args": ["-f", "configs/server.yaml"],
       "env": {
         "CROUPIER_DEV_SEED": "1",
         "DB_DRIVER": "sqlite",
@@ -24,10 +21,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/server",
-      "args": [
-        "-f",
-        "configs/server.yaml"
-      ],
+      "args": ["-f", "configs/server.yaml"],
       "env": {
         "DB_DRIVER": "postgres",
         "DATABASE_URL": "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable",
@@ -42,10 +36,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/server",
-      "args": [
-        "-f",
-        "configs/server.yaml"
-      ],
+      "args": ["-f", "configs/server.yaml"],
       "env": {
         "DB_DRIVER": "mysql",
         "DATABASE_URL": "croupier:croupier_dev_password@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local",
@@ -60,10 +51,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/agent",
-      "args": [
-        "-f",
-        "configs/agent.local.yaml"
-      ],
+      "args": ["-f", "configs/agent.local.yaml"],
       "env": {},
       "cwd": "${workspaceFolder}"
     },
@@ -73,10 +61,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/agent",
-      "args": [
-        "-f",
-        "configs/agent.local.yaml"
-      ],
+      "args": ["-f", "configs/agent.local.yaml"],
       "env": {
         "PROVIDER_CONFIG": "configs/providers.yaml"
       },
@@ -89,10 +74,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/agent",
-      "args": [
-        "-f",
-        "configs/agent.local.yaml"
-      ],
+      "args": ["-f", "configs/agent.local.yaml"],
       "env": {
         "GAME_ID": "dev-game",
         "ENV": "dev"
@@ -106,12 +88,7 @@
       "request": "launch",
       "mode": "debug",
       "program": "${workspaceFolder}/cmd/agent",
-      "args": [
-        "-f",
-        "configs/agent.local.yaml",
-        "-log.level",
-        "debug"
-      ],
+      "args": ["-f", "configs/agent.local.yaml", "-log.level", "debug"],
       "env": {
         "CROUPIER_DEV": "1"
       },
@@ -125,10 +102,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/agent",
-      "args": [
-        "-f",
-        "configs/agent.local.yaml"
-      ],
+      "args": ["-f", "configs/agent.local.yaml"],
       "env": {
         "PLAYER_SERVICE_TOKEN": "dev-token-player",
         "INVENTORY_SERVICE_TOKEN": "dev-token-inventory",

@@ -39,13 +39,13 @@ IncludeCategories:
   - Regex: '^".*\.pb\.h"'
     Priority: 2
   # Third-party headers
-  - Regex: '^<(grpc|google|absl|nlohmann)/'
+  - Regex: "^<(grpc|google|absl|nlohmann)/"
     Priority: 3
   # System headers
-  - Regex: '^<.*>'
+  - Regex: "^<.*>"
     Priority: 4
   # Other headers
-  - Regex: '.*'
+  - Regex: ".*"
     Priority: 5
 SortIncludes: true
 

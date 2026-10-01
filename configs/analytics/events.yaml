@@ -1,6 +1,6 @@
 ﻿version: 0.1.0
 naming:
-  event_id: "lower.dot.segments"   # e.g., session.start
+  event_id: "lower.dot.segments" # e.g., session.start
   attribute_case: "snake_case"
 
 enums:
@@ -14,7 +14,7 @@ enums:
   game_mode: [pve, pvp, coop, ranked, casual]
 
 privacy:
-  user_id: "pseudonymous"          # salted hash, no raw PII
+  user_id: "pseudonymous" # salted hash, no raw PII
   device_id: "pseudonymous"
 
 common_attributes:
@@ -43,9 +43,9 @@ common_attributes:
   - key: server
     type: string
   - key: game_type
-    type: string      # refer to configs/analytics/game_types.yaml ids
+    type: string # refer to configs/analytics/game_types.yaml ids
   - key: genre_code
-    type: string      # refer to configs/analytics/taxonomy.yaml codes (e.g., RPG/ARPG/RTS/TD)
+    type: string # refer to configs/analytics/taxonomy.yaml codes (e.g., RPG/ARPG/RTS/TD)
   - key: event_time
     type: datetime
     format: iso8601
@@ -61,7 +61,7 @@ events:
   - id: session.end
     category: session
     required_attributes: [user_id, session_id, event_time]
-    optional_attributes: [duration_ms, cause_of_end]   # normal/crash/disconnect/quit
+    optional_attributes: [duration_ms, cause_of_end] # normal/crash/disconnect/quit
     signal: log
 
   - id: user.register
@@ -79,31 +79,89 @@ events:
   - id: progression.start
     category: progression
     required_attributes: [user_id, session_id, event_time, level_id]
-    optional_attributes: [chapter_id, stage_id, attempt_index, difficulty, wave_index, is_boss_wave]
+    optional_attributes:
+      [
+        chapter_id,
+        stage_id,
+        attempt_index,
+        difficulty,
+        wave_index,
+        is_boss_wave,
+      ]
     signal: log
 
   - id: progression.complete
     category: progression
     required_attributes: [user_id, session_id, event_time, level_id]
-    optional_attributes: [chapter_id, stage_id, duration_ms, stars, retries, wave_index, is_boss_wave, hearts_remaining]
+    optional_attributes:
+      [
+        chapter_id,
+        stage_id,
+        duration_ms,
+        stars,
+        retries,
+        wave_index,
+        is_boss_wave,
+        hearts_remaining,
+      ]
     signal: log
 
   - id: progression.fail
     category: progression
     required_attributes: [user_id, session_id, event_time, level_id]
-    optional_attributes: [chapter_id, stage_id, duration_ms, reason, wave_index, is_boss_wave, hearts_remaining]
+    optional_attributes:
+      [
+        chapter_id,
+        stage_id,
+        duration_ms,
+        reason,
+        wave_index,
+        is_boss_wave,
+        hearts_remaining,
+      ]
     signal: log
 
   - id: match.start
     category: match
     required_attributes: [user_id, session_id, event_time, match_id, game_mode]
-    optional_attributes: [queue_type, team_id, map_id, mmr, queue_time_ms, deck_id, deck_archetype, deck_cards, game_variant, seat_id, stakes]
+    optional_attributes:
+      [
+        queue_type,
+        team_id,
+        map_id,
+        mmr,
+        queue_time_ms,
+        deck_id,
+        deck_archetype,
+        deck_cards,
+        game_variant,
+        seat_id,
+        stakes,
+      ]
     signal: log
 
   - id: match.end
     category: match
-    required_attributes: [user_id, session_id, event_time, match_id, match_result]
-    optional_attributes: [duration_ms, kills, deaths, assists, damage_done, damage_taken, heal_done, surrender, deck_id, deck_archetype, deck_cards, rake, pot, seat_id, stakes]
+    required_attributes:
+      [user_id, session_id, event_time, match_id, match_result]
+    optional_attributes:
+      [
+        duration_ms,
+        kills,
+        deaths,
+        assists,
+        damage_done,
+        damage_taken,
+        heal_done,
+        surrender,
+        deck_id,
+        deck_archetype,
+        deck_cards,
+        rake,
+        pot,
+        seat_id,
+        stakes,
+      ]
     signal: log
 
   - id: round.start
@@ -121,7 +179,8 @@ events:
   - id: combat.stats
     category: combat
     required_attributes: [user_id, event_time]
-    optional_attributes: [weapon_id, map_id, shots, hits, headshots, damage_done]
+    optional_attributes:
+      [weapon_id, map_id, shots, hits, headshots, damage_done]
     signal: log
 
   - id: deck.set_active
@@ -133,13 +192,13 @@ events:
   - id: economy.earn
     category: economy
     required_attributes: [user_id, event_time, currency, amount]
-    optional_attributes: [source, item_id, currency_kind, balance_after]   # source e.g., kill_enemy/wave_bonus/quest/ad_reward/offline
+    optional_attributes: [source, item_id, currency_kind, balance_after] # source e.g., kill_enemy/wave_bonus/quest/ad_reward/offline
     signal: log
 
   - id: economy.spend
     category: economy
     required_attributes: [user_id, event_time, currency, amount]
-    optional_attributes: [sink, item_id, currency_kind, balance_after]     # sink e.g., tower_build/tower_upgrade/ability/unlock/boost/reroll
+    optional_attributes: [sink, item_id, currency_kind, balance_after] # sink e.g., tower_build/tower_upgrade/ability/unlock/boost/reroll
     signal: log
 
   - id: monetization.purchase_attempt
@@ -162,13 +221,15 @@ events:
 
   - id: ad.impression
     category: ad
-    required_attributes: [user_id, event_time, ad_network, placement_id, ad_format]
-    optional_attributes: [ecpm_usd, revenue_usd, placement_type]   # ad_placement enum recommended
+    required_attributes:
+      [user_id, event_time, ad_network, placement_id, ad_format]
+    optional_attributes: [ecpm_usd, revenue_usd, placement_type] # ad_placement enum recommended
     signal: log
 
   - id: ad.click
     category: ad
-    required_attributes: [user_id, event_time, ad_network, placement_id, ad_format]
+    required_attributes:
+      [user_id, event_time, ad_network, placement_id, ad_format]
     optional_attributes: [placement_type]
     signal: log
 
@@ -247,12 +308,14 @@ events:
 
   - id: td.tower.build
     category: td
-    required_attributes: [user_id, event_time, level_id, tower_id, tower_type, pos_x, pos_y, cost]
+    required_attributes:
+      [user_id, event_time, level_id, tower_id, tower_type, pos_x, pos_y, cost]
     optional_attributes: [wave_index]
     signal: log
 
   - id: td.tower.upgrade
     category: td
-    required_attributes: [user_id, event_time, level_id, tower_id, from_level, to_level, cost]
+    required_attributes:
+      [user_id, event_time, level_id, tower_id, from_level, to_level, cost]
     optional_attributes: [wave_index, tower_type]
     signal: log

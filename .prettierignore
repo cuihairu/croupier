@@ -1,0 +1,25 @@
+# Build artifacts
+docs/.vitepress/dist
+*.log
+*.tsbuildinfo
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# IDE
+.idea
+.vscode/*
+
+# OS
+.DS_Store
+
+# Test results
+test-results
+coverage
+
+# Lock files (handled by package managers)
+pnpm-lock.yaml
+yarn.lock
+package-lock.json

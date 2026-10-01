@@ -27,13 +27,13 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 
 ## 核心特点
 
-| 特性 | 说明 |
-| --- | --- |
-| 统一 session 传输 | 双向请求、重连、heartbeat、drain、背压 |
-| 函数注册驱动 | SDK / Agent 上报 function/provider/process 能力 |
-| 契约驱动后台 | OpenAPI / JSON Schema 提供能力契约，平台生成可发布的 ProComponents 页面 |
-| JSON payload | 用户业务数据默认 JSON |
-| protobuf 信封 | 平台控制字段与消息路由统一 protobuf |
+| 特性              | 说明                                                                    |
+| ----------------- | ----------------------------------------------------------------------- |
+| 统一 session 传输 | 双向请求、重连、heartbeat、drain、背压                                  |
+| 函数注册驱动      | SDK / Agent 上报 function/provider/process 能力                         |
+| 契约驱动后台      | OpenAPI / JSON Schema 提供能力契约，平台生成可发布的 ProComponents 页面 |
+| JSON payload      | 用户业务数据默认 JSON                                                   |
+| protobuf 信封     | 平台控制字段与消息路由统一 protobuf                                     |
 
 ## 关键组件
 
@@ -83,12 +83,12 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 
 Croupier 的管理界面在“函数”这一模块下分为三个层次，各自职责不同，不重复：
 
-| 层次 | 定位 | 数据来源 | 典型操作 |
-| --- | --- | --- | --- |
-| **函数目录** | 能力供给层 | FunctionContract / 函数注册目录 | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
-| **Resource Catalog** | 能力语义层 | FunctionContract / CapabilitySemantics | 审核资源、CRUD/任务/报表语义与生成诊断 |
-| **Page Studio** | 页面装配层 | PageProposal / PageDraft | 接受默认页面、语义化编辑、预览、发布、合并、回滚 |
-| **运行控制台** | 执行层 | PublishedPageSpec / ConsoleMenuSpec | 面向最终用户/运营执行业务操作 |
+| 层次                 | 定位       | 数据来源                               | 典型操作                                                               |
+| -------------------- | ---------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| **函数目录**         | 能力供给层 | FunctionContract / 函数注册目录        | 确认函数是否注册成功、Schema 是否正确、有没有可调用实例、单函数 invoke |
+| **Resource Catalog** | 能力语义层 | FunctionContract / CapabilitySemantics | 审核资源、CRUD/任务/报表语义与生成诊断                                 |
+| **Page Studio**      | 页面装配层 | PageProposal / PageDraft               | 接受默认页面、语义化编辑、预览、发布、合并、回滚                       |
+| **运行控制台**       | 执行层     | PublishedPageSpec / ConsoleMenuSpec    | 面向最终用户/运营执行业务操作                                          |
 
 三者串成一条主流程：
 

@@ -2185,6 +2185,157 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：目标套件 5/5 绿（4×100%）、eslint 0、tsc 0 错、guard PASSED、
 > 全量 jest 口径见交付说明。
 
+## 第十四轮派发核验：todo P0 T1–T6 完成状态 + EventsDrawer 补测（wt-pages worktree，2026-09-29）
+
+> **派发**：检查 todo.md 中 P0 任务 T1-T6 完成状态，挑最靠前未完成项补测。
+>
+> **核验结论：T1–T6 六项全部真实完成，无未完成项**。逐项按验收口径核对
+> 代码工件与测试：T1（contract_service.go:1863 注释明示「单区块组合页
+> 合法——仅要求 pageKey 非空」，≥2 拦截与前端文案均不存在）、T2（以
+> `ContractTemplateRegenerator` 装配期注入闭包实现——正是 T2 改动点括号里
+> 预判的「注意包依赖方向，必要时抽公共接口到 service 层」方案，
+> contract_template_regen.go 是唯一收口）、T3（ExecutionState 字段 +
+> 0025 编号迁移三处同步 + `TestExecutionStateExcludedFromContractDigest`
+> digest 排除锁定）、T4（createUnboundContractsForSource 同事务 +
+> unbound_contracts_test.go）、T5（dto.go contractsCreated/templatesUpdated/
+> proposalsCreated + upload_summary_test.go）、T6（rebuildContract 命中
+> unbound 翻转 + 自动绑定审计事件）。**勘误**：台账头部的提交号
+> （65f88486b 等 10 位短 SHA）在本仓库对象库中不存在——系 squash/改写
+> 前的陈旧引用，交付本体为真，SHA 引用按历史记录口径看待。
+>
+> **延伸查重（按最靠前未完成项假设推进）**：#46 批次链 2/3/4 已全部被
+> 并行会话代做入库（批次 2 `b12aecd` displayName join catalog + healthStatus
+> 推导、批次 3 `1b50c90` catalog 写路径 CRUD + seed、批次 4 `4d1fbb3`
+> DomainEntry 渲染用例），todo.md 行 785「下一批：批次 2」表述已过时。
+> 台账剩余最靠前显式未收口项 = Extensions 簇余量顺序
+> 「EventsDrawer → UpgradeModal → AgentSync」（行 889-890）。
+>
+> **交付（2026-09-29）**：`EventsDrawer.tsx`（286 行，0 测试）→ 新增
+> `__tests__/EventsDrawer.test.tsx` 11 用例，v8 口径行/分支/函数/语句
+> **4×100%**。锁定契约：打开主链（抽屉标题 displayName 兜底 extensionId、
+> 概览三 chip 含 total 经 adaptEventListResponse 归一同步、首拉载荷
+> page/pageSize/level/keyword 缺省形态）、六列渲染矩阵（formatUnix 时间、
+> payload 有值 code 文本/空值 '-'、createdAt=0 → '-'）、无安装实例守卫
+> （不发请求 + 默认空态文案）、关键词筛选（trim 入参 + 生效 Alert
+> 「已生效条件」+ chip）、级别下拉（antd6 mouseDown 落 .ant-select 根、
+> option 点可见 content——Installations 套件坑位复用）、双条件「 / 」拼接、
+> 清空筛选（初始 disabled → 复位 chip/Alert/载荷）、筛选空态与默认空态
+> 两套文案、请求失败翼（success:false 静默空表不本地弹错——全局拦截器
+> toast 语义）、切换安装实例重置筛选并以新 id 重拉、onClose 回调。
+> **已知边界**：actionRef.current 的 undefined 翼（filter onChange 里
+> `?.setPageInfo?.()`）经 UI 不可达——筛选栏与 ProTable 同 commit 渲染，
+> 用户可交互时 ref 必已赋值；Select allowClear 清除翼与「清空筛选」按钮
+> 同函数体不重复铺用例。簇余量剩 UpgradeModal（151 行）→ AgentSync
+> （93 行）两项留后续批次。
+> 门禁：目标套件 11/11 绿（格式化后复跑同绿）、`pnpm --dir web run tsc`
+> 0 错、prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED、全量
+> jest 负载守卫（load<10）窗口执行——结果见交付说明。
+
+## 第十五轮派发核验 + Extensions 簇余量真缺口收口（wt-pages worktree，2026-09-30）
+
+> **派发**：核对认领清单 #13 #29 #30（未完成项先做），否则台账最靠前
+> 未收口项——Extensions 簇余量收口最后批次（UpgradeModal / AgentSync）。
+>
+> **核验结论：清单三项已于前轮全部收口；派发目标双双被并行会话代做
+> 入库（dedup，不重做）**——UpgradeModal 7 用例（行/函数/语句 100%、
+> 分支 97.36%）、AgentSync 6 用例（4×100%）分别由台账「事件抽屉 +
+> 升级弹窗覆盖批次」「Agent 同步调试页覆盖批次」两节（2026-09-29）落地，
+> 本轮 merge origin/main（ea84dc0）带进其测试文件核实无冲突。
+>
+> **本轮交付（快照分离后的真缺口）**：覆盖率快照标 4 文件，先按 round-9
+> 口径分离 v8 跨套件合并伪影（CatalogManageModals 经自有套件即 100%），
+> 余两真缺口收口——
+> ① `Store/SchemaFields.tsx`（174 行，64.36%→**100/96.87/100/100**）：
+> 新增 8 用例锁定守卫（无 properties/非对象 → null）、全类型分派矩阵
+> （enum/boolean→Select、number/integer→InputNumber（integer precision=0）、
+> array/object→TextArea placeholder '[]'/'{}'、string→Input）、enum 选项点击
+> 选中（**antd6 新坑实证**：Select 选中值渲染在 `.ant-select-content`，
+> v5 的 `.ant-select-selection-item` 不存在，input value 恒空）、title 缺省
+> 回退 key + raw null 防御、array/object 无 description 兜底文案、required
+> 星标两态、Form initialValues 经 ['config',key] 默认值回显。167 行
+> 默认路 placeholder 三元 '0' 翼登记构造性不可达（number/integer 在 86 行
+> 已被 InputNumber 分派拦截）。
+> ② `Store/index.tsx`（96.82%→**98.94 行/100 函数/93.47 分支**，管理流
+> 批次 5/6 页面接线）：套件扩至 31 用例，新增 6 例 + 4 例强化——通用错误翼
+> 三连（导入/上下架/删除 plain Error → mapper 兜底文案）、登记通用错误翼
+> （弹窗保持）、发布 409 与通用双翼（表单值保留二次提交）、三弹窗关闭翼
+> （发布/登记 onClose destroyOnHidden 卸载 + InstallModal onCancel 壳残留
+> display:none 断言）；强化：登记全可选字段 trim 载荷、发布全字段 trim
+> 载荷、下架/删除 displayName 空回退 name（wiki 行）。余 432-440（manifest
+> 解析兜底，表单 validator 同源双保险）与 317 行 `values.name?.` 非空翼
+> （**类型含 name 字段但登记表单无该项**，提交恒 undefined——疑似类型/表单
+> 漂移，如实登记不代改）登记不可达；125/150/427/542/545/795 为既有口径
+> 防御翼（头注释 5 号登记合并）。
+>
+> **坑实证（新档）**：antd message 的 toast 节点不可移除——首版 clearToasts
+> 删 `.ant-message` 容器后，后续 toast 渲染进 detached 节点（下架翼文案
+> 永不出现）+ antd 内部 removeChild 抛 NotFoundError；改为计数式断言
+> （动前基线 + 动后等增长，离场动画 className 含 leave 的 notice 不计）。
+> v8 函数表按声明行定位：824 是登记弹窗 onClose 而非发布弹窗（勿按
+> 语感对号）。
+>
+> 门禁：Store 四套件 60/60 绿、`pnpm --dir web run tsc` 0 错、prettier
+> 干净、`scripts/dashboard_vnext_guard.sh` PASSED、全量 jest 结果见交付
+> 说明。**偏差注明**：派发的 push 前 fetch --rebase 因 wt-pages 已推送
+> 分支禁 rebase（房规），改 `git merge origin/main` 后快进推送。
+
+## 第十六轮：配置管理页覆盖收口（Operations/Configs 五文件 0% → 4 文件 4×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试目录
+> 排行现席 `Operations/Configs`（index 273 + useConfigsPage 272 + schema 156
+>
+> - diff 102，约 800 行 0%）整目录收口，新增 `__tests__/index.test.tsx`
+>   17 用例，v8 口径：**diff.tsx / index.tsx / schema.tsx 三文件行/分支/函数/
+>   语句 4×100%，useConfigsPage.ts 行/语句/函数 100%、分支 91.17%**（余 6
+>   臂 = 六处 `if (!cur) return` 守卫，经 UI 不可达，登记见下）。
+>   锁定契约——列表与筛选：首拉空载荷 {}、六列渲染矩阵（Format Tag /
+>   gameId-env 空行 filter(Boolean) 右翼 / 8 行编辑按钮）、搜索实时 trim
+>   重拉 + 三下拉（game/env 选项由 rows distinct 派生）+ Enter/查询闭包重拉
+> - 重置回空载荷；全局 scope 联动（setScope 双值同步 + merge 语义下换
+>   游戏保环境）；load 失败 toast + `{}` / undefined 响应双右翼。
+>   编辑弹窗：openItem 兜底链（fmt→r.format→json、content/version/gameId/
+>   env 五 `?.` 翼 + r nullish 五翼）、标题 `${id} (${fmt}) v${version||''}`
+>   （version 0/undefined 均落 'v' 尾）、getConfig 失败 toast、csv 预览
+>   （\r\n 归一 + 空行过滤 + 逗号切列）、编辑器受控 + 弹窗格式切换（langOf
+>   七臂矩阵 + csv 预览卸载）、校验三态（通过 / errors join('\n') 透出 /
+>   无 errors 兜底「校验失败」）。
+>   保存版本：成功链（载荷 gameId/env 回退 toolbar 态 + baseVersion
+>   version||0 + message 无必填拦截——placeholder 标「必填」但 doSave 不
+>   校验，现状锁定 + toast `已保存版本 N` + 弹窗关 + reload + saveMsg 清空
+> - onCancel X 关闭翼）、失败翼弹窗保持、`已保存版本 undefined` 翼。
+>   历史版本与对比：列表行渲染（createdAt formatDateTime/'' 双翼 + `{}`
+>   响应空表右翼）、查看（content/format 回填 + version 不动——baseVersion
+>   语义 + verOpen 关闭 + value/format 空串右翼）、diff（MonacoDiff 桩受
+>   left/right + DiffView 真实算法矩阵：add-batch/add-tail/del-batch/
+>   del-tail/单点替换、del 红 rgb(255,241,240) / add 绿 rgb(246,255,237)、
+>   对侧空 div 占位、left 空双右翼）、回滚（confirm 文案模板内插 + onOk
+>   载荷三 `||` 回退翼双侧 + `rollback to v${ver}` + 成功「已回滚」+ 版本
+>   弹窗关 + reload + getVersion undefined 双右翼 + 失败翼弹窗保持）。
+>   **坑实证（新档，四条）**：① `@umijs/max` mock 工厂若引用工厂外 `const`
+>   变量，schema.tsx 模块顶层 `getIntl()` 在 import 期即触发——此时外层
+>   const 仍在 TDZ（`mock*` 前缀只过 babel hoist 白名单、不解 TDZ），intl
+>   对象必须工厂体内自包含构造；② jsdom textarea 读值把 `\r\n` 归一为
+>   `\n`——「编辑器显示原始 CRLF」的断言须按归一形态写（state 侧仍是
+>   CRLF，保存/校验载荷断言不受影响）；③ 弹窗标题与页内同名按钮碰撞
+>   （「历史版本」标题 vs 编辑弹窗内同名按钮）——关闭断言锚
+>   `.ant-modal-title` textContent 而非全文 queryByText，否则永不消失；
+>   ④ 上一用例 waitFor 超时路径会遗留未消费的 `mockResolvedValueOnce`
+>   队列（clearAllMocks 不清 Once），跨用例毒化函数源——表象是下一用例
+>   版本列表恒空，须修根因（标题碰撞）而非绕断言。
+>   **边界（诚实清单）**：① 六处 `if (!cur) return` 守卫（validate/
+>   doSave/openVersions/viewVersion/diffWithVersion/rollbackTo）经 UI 不可
+>   达——动作按钮仅在 `{cur && ...}` 分支内渲染，不造假用例（分支余量
+>   全部在此）；② validate/openVersions/viewVersion/diffWithVersion/
+>   rollbackTo 外层 async 无 try/catch——接口 reject 产生 unhandled
+>   rejection（组件现状缺陷，同 Store/AgentSync 巡检结论），不造假 reject
+>   场景；③ 编辑弹窗 title 三元 false 翼与 diff 弹窗 `cur?.format` nullish
+>   翼构造性不可达（弹窗仅经 cur 态按钮打开）；④ hasMonaco() 硬编码
+>   false，true 翼不可达——MonacoDiff 桩与 DiffView 恒同时渲染，按此断言。
+>   门禁：目标套件 17/17 绿、`pnpm --dir web run tsc` 0 错、eslint 干净、
+>   prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED、全量 jest
+>   2-worker 限流口径（load ~12 非空载窗口，如实注明）结果见交付说明。
+>   下一批候选（零测试目录排行余量）：按新快照重排。
+
 ## 2026-09-30 Round 46（wt-api）：Ops/AnalyticsFilters 覆盖收口 97.15/89.79/100/97.15——零测试页排行第十
 
 > 覆盖率巡检第十站：`web/src/pages/Ops/AnalyticsFilters/index.tsx`（281 行 0%）。
@@ -2240,6 +2391,61 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：目标套件 8/8 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 > 口径见交付说明。
 
+## 第十七轮：个人中心页覆盖收口（Profile 入口 + 数据层 0% → index 4×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——Profile 簇
+> 六份既有套件全是单组件回归（GamesTab/InfoTab/MfaSettings/NotificationsTab/
+> PermissionTree/SecurityTab），页面入口 index.tsx（452 行）、数据层
+> useProfileData.ts（323 行）与 shared.ts 的页面级接线全程 0 覆盖。新增
+> `Profile/__tests__/index.test.tsx` 23 用例经真实页面渲染锁定三文件契约：
+> **index.tsx 行/分支/函数/语句 4×100%**；useProfileData.ts 行/语句/函数
+> 100%、分支 80%（余翼全部登记，见边界）；shared.ts 行/语句/函数 100%、
+> 分支 83.33%（全目录合并口径：normalizeAvatarSrc 两翼由 InfoTab.regression
+> 姊妹套件覆盖，余 profileText number 翼与 pickAuditMetaValue !meta 守卫
+> 登记）。锁定契约——首拉链（loadProfile → hero 矩阵 + loadExtras 七路
+> allSettled 并行载荷含 login kinds 双查/listPermissions pageSize 500 +
+> stats 四卡派生）、加载双翼（pending 骨架 / reject toast 停留骨架）、
+> 未设置兜底矩阵（displayName 空串 hero Title 回退 username、active
+> undefined 无徽标 / 显式 false 未启用徽标、roles undefined 右翼、四行
+> 未设置）、Tab 编排（URL 深链初始 tab + InfoTab 不挂载、切 tab navigate
+> replace 同步、hero 编辑按钮强制回资料页 + scrollIntoView、pane 缓存
+> 共存）、资料编辑链（保存成功载荷 + toast + 退出 + 重拉、失败 + 必填/
+> 手机号 pattern 双拦截、取消回填 displayName||nickname 右翼）、消息已读链
+> （未读详情打开即标读翻转、已读不触发、单条标读 stopPropagation、
+> markAllRead 按 unread 过滤、徽标/按钮随 unreadCount 消失）、权限派生
+> （同 resource+scope 并集合并、scope Tag 双形态、目录驱动候选 key/id 双
+> 过滤、空目录 → fallback 模板兜底（owned 过滤后仅 functions:manage
+> 存活）标记仍绿、reject → 金色受限 Tag、申请弹窗 reason 必填 +
+> createFeedback 载荷 + destroyOnHidden、fullAccess 徽标、catalog name
+> 空串回退 id）、loginSessionRows（ip/client_ip、ipRegion/region、
+> userAgent/ua 键族、成败从 kind 推断含空串 kind 服务端真实形态兜底、
+> time 空串 key 兜底）、loadExtras 失败矩阵（七路全 reject settled 静默、
+> stats 归零、各 Tab 空态、目录回退；perms {} nullish 右翼、username
+> 空串 login 查询不发）、密码/头像弹窗开合接线（不触达改密服务）。
+> **边界（诚实清单）**：① loadExtras 外层 catch 结构性不可达（allSettled
+> 永不 reject）；② markAllRead unread===0 早退与 markMessageRead 已读
+> 早退经 UI 不可达（按钮条件渲染）；③ 契约死翼族登记（不造假用例）——
+> settled 取值链 nullish 右翼（games/perms/messages/channels 由 service
+> 归一层保证形状、listPermissions/listAudit 契约声明必填字段）、
+> Array.isArray false 翼（getMyPermissions 归一化「缺失会被补」）、
+> detailMessage 更新器 prev 失配翼（openMessage 先置 detail 再标读；行内
+> 标读时 Modal 遮罩挡列表）、loginRecords||[]（useState 恒数组）、
+> item.meta||{}（normalizeAuditEvent 恒对象）、profileText number 翼
+> （调用点类型均 string|undefined）、pickAuditMetaValue !meta 守卫（唯一
+> 调用方先经 (item.meta||{}) 归一）；④ MfaSettings/PasswordModal/
+> AvatarModal 提交/上传本体属各组件自有套件域，本套件只锁开合接线。
+> **坑实证（新档，三条）**：① 详情弹窗标题锚 .ant-modal-title 仍需注意
+> 标题取 item.title 而非 content——错把 content 当标题断言必挂；② 权限
+> 树目录（未拥有灰字）与申请卡候选（strong 标题）同名双命中，断言须
+> cardByTitle 收窄；③ owned 集合 = permissions(resource:action) ∪
+> permissionIds——fallback 六模板经 owned 过滤后存活数按夹具拥有面推算，
+> 六模板 ≠ 六候选。
+> 门禁：目标套件 23/23 绿、tsc 0 错、eslint/prettier 干净、guard PASSED、
+> 全量 jest 357 套件 4361 用例（2 worker 限流，load 50-216 极高位窗口）：
+> 4354 绿、5 套件 7 用例失败——Approvals/Extensions Store/Functions History/
+> previewActions/serverPushdown 全 timeout 形态且均他域既有绿套件，
+> 隔离复跑 5 套件 110/110 绿（152s）定责负载型非回归；Profile 套件全量中绿。
+
 ## 2026-09-30 Round 47 收尾：推送 + CI 全绿（wt-api，`b4ee6ce`）
 
 > 推送链：fetch → rebase origin/main（零冲突，todo.md 台账合流保双方）→ 双推
@@ -2285,7 +2491,133 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > api/assignment/gate.go（BUG-035 域）——各 2 语句。
 > 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/...
 > 全绿（fresh，恢复窗口执行）。
-> **CI 处置（287efcb，test-only 推送后四 run 判形）**：
+
+## 第十八轮：行为分析页覆盖收口（Analytics/Behavior 三文件 0% → 三文件语句/行/函数 3×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——`Analytics/Behavior/`
+> 零测试簇收口：入口 `index.tsx`（383 行）+ `PathControls.tsx`（245 行）+
+> `AdoptionControls.tsx`（251 行）合计 879 行 0%（姊妹件 FunnelPresetBar 已由
+> Round 44 套件覆盖）→ 新增 `__tests__/index.test.tsx` 14 用例。v8 口径：
+> **三文件语句/行/函数 3×100%、分支 87.73%**（index 87.05 / PathControls
+> 89.58 / AdoptionControls 86.66，余翼全部登记见测试头注释诚实清单）。
+> 锁定契约——事件探索（首拉空筛选载荷、三输入+RangePicker ISO 载荷、
+> events.csv 导出 user_id/userId 双回退、{} 右翼空表+header-only 导出）；
+> 漏斗（默认态 {steps:'',sequential:0}、tags 双步+顺序 Switch+同会话
+> Checkbox+步间秒数四键齐载荷、`${v}%` 渲染、gapSec 清空 Number(v||0) 键
+> 消失、{} 右翼清表、funnel.csv String 强转）；复制链接（空态仅 `?`、
+> 全参六键按插入序 URLSearchParams）；深链（steps trim/filter 归一+四态
+> 预填+setTimeout 自动漏斗、负翼四项）；路径分析（默认 {per:'session',
+> steps:5,limit:50}、全参数 include/exclude tags+正则 trim、InputNumber
+> 清空回默认、匹配漏斗指示器是/否/非法正则/无 steps 四态、填充漏斗
+> split('>') 回填+scrollIntoView、复制步骤、paths.csv 空值兜底）；功能
+> 采用率（基数行 {per} 内插、features join+per 切换、range 传播进
+> load/loadDim 载荷、breakdown 分层载荷+dim 表+adoption_breakdown.csv、
+> falsy 行 rowKey 三段右翼、{} 双右翼归零）。
+> **现状锁定（页面 quirk，如实断言不代改）**：① 事件表「用户」列
+> dataIndex='user_id' 而归一化层产出键为 userId——生产环境该列恒空，
+> 导出侧 (r.user_id || r.userId || '') 双翼都有回退（夹具分列验证）；
+> ② 深链自动计算经挂载期闭包捕获 range=null，start/end 不进自动漏斗
+> 载荷——range 预填只对后续手动计算/事件查询生效（负翼用例+双段断言）。
+> **坑实证（新档，两条）**：① antd6 tags 模式 Select 无
+> `.ant-select-selection-search-input` 类（querySelector null →
+> "Unable to fire change"），输入锚改 `selectRoot.querySelector('input')`；
+> ② Enter keyDown 追 tag 连续添加只落首个 token（rc-select tokenization
+> 宏任务竞态），多 tag 追加改走 dropdown 点选配方（mouseDown → change →
+> 点非隐藏下拉内 `.ant-select-item-option-content` 匹配项）。
+> **边界（诚实清单，详见测试头注释）**：try/finally 无 catch 族（同族
+> 页面既有口径，不造假 reject）；rate `v != null` 右翼（归一恒 number）；
+> `(rows||[])`/`(funnel||[])`/`(rowsDim||[])`/`(currentSteps||[])` 右翼
+> （useState 恒数组）；复制链接 `range && range[0/1]` 半开翼（RangePicker
+> 只产完整对或 null）；深链外/内 catch（dayjs 不抛、isValid 门已兜）；
+> `onUsePath &&` 守卫翼；rowKey/导出单元格 `|| ''` 类型防御族。
+> 门禁：目标套件 14/14 绿、`pnpm --dir web run tsc` 0 错、eslint/prettier
+> 干净、guard PASSED；全量 jest 4375 用例 2-worker 限流（load 31-45 高位
+> 窗口，非空载）：4374 绿 + 唯一失败 Extensions/Store 超时形态（139s），
+> 隔离复跑与其同窗核绿（连同 merge 带进的 Ops/Nodes NodeDetailDrawer 上游
+> 新套件一并隔离验证）；push 前 fetch → merge origin/main（todo.md 冲突
+> 保双方）。
+
+## 第十九轮：函数注册告警页覆盖收口（Functions/Warnings 0% → 语句/行/函数 3×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行
+> 现席 `Functions/Warnings/index.tsx`（328 行，簇内无任何测试文件）单件
+> 收口，新增 `__tests__/index.test.tsx` 12 用例，v8 口径
+> **行/语句/函数 100%、分支 95.65%**（余 2 翼登记，见边界）。锁定契约——
+> 挂载链（URL 四参 function_id/agent_id/code/limit 解析预填表单 +
+> loadData 四键缺省、limit=abc 经 `Number(NaN) || 100` 回落 100、
+> reject → effect .catch 兜底空表不白屏）；查询与 URL 同步（syncUrl 只写
+> 真值键——全填 replace 全参 URL、空值键剥除后全空表单落裸 pathname 无
+> `?`、随后 loadData 透传）；刷新仅重拉不动 URL；行内动作（标为已读
+> markOne(key) + 本地翻转不重拉——行锚收窄断言 w1 行按钮消失而 w3 稀疏行
+> 保留、行删除 Popconfirm → deleteOne + 本地过滤不重拉）；批量动作
+> （全部已读 markAll → toast + 以当前表单条件重拉、清空 Popconfirm →
+> deleteAll → toast 已清空 + 重拉）；列渲染矩阵（code orange Tag + 空串
+> '-'、functionId/version/agentId 空串 '-'、count 原值、lastSeen
+> formatDateTime 双翼、稀疏行 '-' 计数 ≥5）；scope 联动 #34 族（scopeKey
+> 变化 → 以当前表单条件重拉，URL 参数不重复消费）。
+> **坑实证（新档，两条）**：① RTL `within()` 返回查询 API 而非 DOM 元素——
+> `within(pop).querySelector` 直接 TypeError，Popconfirm 确认按钮须在
+> HTMLElement 本体上 querySelector；② 行条件渲染按「字段存在性」计数——
+> 稀疏行无 read 字段 → `!record.read` 走真翼同样渲染「标为已读」，按钮
+> 计数须按夹具逐行推算（非只数显式置值的行）。另：PageContainer 桩只渲
+> children，页面 title 不进 DOM——挂载失败翼断言改锚 Alert 的「规则说明」。
+> **边界（诚实清单，不造假用例不删防御分支）**：① 66 行
+> `Array.isArray(res?.items)` 右翼——service 归一层恒返 items 数组，
+> resolve {} 形态违反返回类型即造假，登记；② 307 行 `text ?? ''` 右翼——
+> 列参类型 string，null 形态违反类型契约，空串左翼经 w3 稀疏行覆盖；
+> ③ loadData 与四个动作函数 try/finally 无 catch——接口 reject 成 unhandled
+> rejection（同族页面既有口径），唯一 catch 翼（挂载 effect）以 reject
+> 用例真实触达，其余不造假 reject 场景。
+> 门禁：目标套件 12/12 绿、`pnpm --dir web run tsc` 0 错、eslint/prettier
+> 干净、guard PASSED；全量 jest 负载口径见交付说明。
+
+## 第二十轮：角色管理页覆盖收口 + 附带修定表单脱管缺陷（Permissions/RolesV2，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行现席
+> `Permissions/RolesV2/index.tsx`（312 行，簇内无任何测试文件）单件收口，
+> 新增 `__tests__/index.test.tsx` 12 用例，v8 口径 **行/语句/函数 100%、
+> 分支 94.73%**（余 2 翼即登记边界，见下）。
+>
+> **附带修定一处真缺陷（回归锁定）**：两个 Form.Item（name/description）
+> 原为 `{' '}<Input />{' '}` 三元素数组子节点——antd Form.Item 源码
+> `Array.isArray(mergedChildren) && hasName` 分支只 warning 不做
+> cloneElement 控制注入（同 Round 40 RateLimits 同族）：输入脱管 form
+> store——新建 name 恒 undefined 过不了 required（新增角色不可用）、
+> 编辑键入不落 store（提交恒初始值）、label htmlFor 无 id 可指。
+> 修法：去掉 `{' '}` 恢复单子节点；套件对未修页面实跑取证后修定，
+> 「键入值进载荷」「回填显示」两断言即回归锁。
+>
+> 锁定契约——挂载首拉 {page:1,pageSize:10} + 列头/三按钮/showTotal；
+> 权限列 slice(0,6) + 缺字段行 (arr||[]) 右翼；响应归一（缺 total 回落
+> items 长度 `共 2 条`、{} 空表）；分页 onChange 参数透传；新增（required
+> 拦截 + 载荷 + `已创建 #7` + 重拉 + destroyOnHidden 卸载）；编辑（回填
+> 显示 + 改值载荷 + 失败弹窗保持）；权限弹窗（标题内插 + 8 权限回显 +
+> 追加 tag 载荷 + 失败保持）；删除 Popconfirm 主链；description undefined
+> 直传态（新增失败载荷断言）。
+>
+> **坑实证（新档，四条）**：① 分页 showSizeChanger 的 Select 在主内容区、
+> DOM 序先于 portal 弹窗——`querySelector('.ant-select')` 打到 page-size
+> 选择器（表象 tags 输入无反应、载荷恒 []），Select 锚必须限 `.ant-modal`；
+> ② antd6 Pager 是 `<li title onClick><a rel=nofollow>`，a 无 href 无
+> button/link role——翻页点击落 `.ant-pagination-item-N` 的 li 本体；
+> ③ total=0 时 antd Table 不渲染分页（`共 0 条` 不可见）——空态锚
+> `.ant-empty-description`（与 Empty svg 内 `<title>No data</title>`
+> 同文双命中须 selector 收窄）；④ 弹窗标题与工具栏按钮同文本锚
+> `.ant-modal-title`；同用例多渲一次会多吃一个 mockResolvedValueOnce
+> 队列（unmount 取自首渲）。
+>
+> **边界（诚实清单，不造假用例不删防御分支）**：分支余量 2 处恰为登记
+> 项——submitPerms `if (!editing) return false` 守卫（openPerms 先置
+> editing，构造性不可达）与 `v.permissions || []` 右翼（initialValues
+> 恒设键，undefined 违反表单值契约）；refresh/remove 无 catch 按同族
+> 页面口径不造假 reject；description 直传无分支差异，'' 显式清空态与
+> undefined 走同一行不另铺用例。
+>
+> 门禁：目标套件 12/12 绿（格式化后复跑同绿）、`pnpm --dir web run tsc`
+> 0 错、eslint/prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED；
+> 全量 jest 默认 worker（起跑负载 ~9，跑中升至 28-31 并行会话占机）：
+> 361 套件 4421 用例，4420 绿 + 唯一失败 Extensions/Store 190s 超时形态
+> （既有绿套件，负载回落后隔离复跑 31/31 绿定责负载型非回归）。> **CI 处置（287efcb，test-only 推送后四 run 判形）**：
 > CodeQL ✅、CI-Core ✅（全 Go 测试含本新用例在内）；Docker 首挂
 > （`Build and push Docker image` 15min step 超时，日志唯一 error 为 timeout、
 > 无编译错误；test-only 改动不进 `go build`，同树其余 4 镜像全绿）→ rerun
@@ -2354,7 +2686,69 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：OpenAPISources 5 套件 **80/80** 绿、全量 jest **4399/4400**（唯一
 > 失败 Functions/History 150.5s 超时，隔离重跑 16/16 绿 41.5s——R49-2 同款
 > 负载竞态，本批零源码改动）、tsc 0、eslint 0、guard PASSED（仓库根）。
-> **R49-4（本批）**：web Assignments/columns.tsx 61.7%（121 miss）→
+
+## 第二十一轮：函数权限配置页覆盖收口 + 附带修定编辑弹窗竞态缺陷（Permissions/index，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行现席
+> `Permissions/index.tsx`（222 行，目录内 RolesV2 已于第二十轮收口、本件此前
+> 0% 无任何测试）单件收口，新增 `__tests__/index.test.tsx` 9 用例，v8 口径
+> **行/语句 99.13%（余 27-28 两行即登记项）、函数 100%、分支 92.15%**（余
+> 4 翼逐一登记，见边界）。
+>
+> **附带修定一处真缺陷（回归锁定）**：编辑动作原为「先 setEditing(r) 再
+> await fetchPermissions」——ModalForm 内容在 open 翻真时即以**旧 permDraft**
+> （首次 {}）挂载，而 antd initialValue 挂载后不随 prop 变化重放，连锁三害：
+> ① 编辑态 verbs/scopes tags 恒空显示（placeholder 常驻，用户看不到既有配置）；
+> ② tags onChange 整组覆盖 store 值——追加/删减任一 tag 后 values.verbs 即为
+> 手工小集合，onFinish 的 `values.verbs || permDraft.verbs` 取左值，**提交把
+> 既有 verbs/scopes/i18n 静默丢弃**（保存丢值）；③ form store 跨开合存活
+> （无 destroyOnHidden），二次编辑沿用首开旧值。修定 = 先取权限再与
+> setEditing 同批落 state（React 18 promise 内自动批处理，弹窗以最新 draft
+> 挂载）+ 开窗时 setFormI18nKeys([]) 重置 + modalProps.destroyOnHidden。
+> 套件对未修页面实跑取证（tags 恒空、zh 输入框只随手工键渲染）后修定，
+> 「编辑回显 read/write tags」「追加 exec 后 i18n_zh 仍含 read」两组断言
+> 即回归锁。
+>
+> 锁定契约——首拉无参 + 列渲染矩阵（id/名称/verbs/scopes Tag/编辑链接 ×3）；
+> 行缺 permissions / 空配置两形态（列渲染 `?.verbs || []` 右翼）；加载失败
+> 双翼（reject Error → e.message toast；字符串 → intl id 兜底）；编辑主链
+> （fetchPermissions(fid) + 标题内插 + verbs/scopes tags 回显 + 中文输入
+> 回显且仅配置过的 verb 出输入框）；缺 permissions 行空表单直提
+> （`values.verbs || permDraft.verbs || []` 中+尾翼全链 [] + defaults
+> `(draft || []).slice()` 右翼 + i18n_zh {}）；保存主链（i18n_zh 只收非空
+> 串键——initialValue '' 的 write 不进 payload + success toast + 关闭 +
+> 重拉）；动态中文输入（verbs tags 追加 → onChange setFormI18nKeys → 中文组
+> 即时渲染新 verb 输入框 → 填值进 payload）；保存失败双翼（Error/非 Error
+> → error toast + return false 弹窗保持）；取消关闭 onOpenChange(false)。
+>
+> **坑实证（新档，三条）**：① jest 区分「零参调用」与「传 undefined」——
+> `getFunctionSummary()` 无参调用须 `toHaveBeenCalledWith()` 断言（传
+> undefined 形态反而不匹配）；② 同用例双 render 的 toast 计数——首个
+> render 未卸载、其 toast 文案为 Error message，intl id 文案仅第二渲染
+> 产出（findAllByText 计数按此推算勿翻倍）；③ ModalForm（无 destroyOnHidden）
+> 关闭是 display:none 残留而 destroyOnHidden 后是整体卸载——关闭断言用
+> 「null 或 display:none 二择」兼容式，修定引入 destroyOnHidden 后自动落
+> null 分支。另：本页 intl 全部 id-only（无 defaultMessage），@umijs/max
+> mock 取 `defaultMessage ?? id ?? ''` 使标题/按钮/toast 按 id 确定性可见。
+>
+> **边界（诚实清单，不造假用例不删防御分支）**：① fetchSummary 的
+> `Array.isArray(res)` 右翼（27-28 行）——getFunctionSummary 归一层恒返
+> FunctionSummary[]，resolve 非数组违反返回类型即造假，登记；②
+> `perm || {}` 右翼（113 行）——getAdminFunctionPermissions 恒返
+> `res?.permissions || {}`，nullish 违反返回类型，登记（{} 形态经缺
+> permissions 行真实覆盖）；③ `(verbs || [])` 右翼（154 行）——链结果
+> 恒真值；④ onChange `(vals as string[]) || []` 右翼（186 行）——antd
+> tags 模式恒传数组；⑤ i18n 收集 `typeof val === 'string'` 非 string 翼
+> ——ProFormText 值恒 string|undefined；⑥ 编辑 onClick 无 catch——
+> fetchPermissions reject 成 unhandled rejection 且弹窗不开（修定后先取
+> 数后开窗），同族页面既有口径不造假 reject。修定后 `values.verbs` 为
+> 「左值但 draft 有值」的混合态不可达（弹窗与 draft 同批挂载），onFinish
+> 链三段翼经满配置/裸行双形态真实覆盖。
+>
+> 门禁：目标套件 9/9 绿（格式化后复跑同绿）、`pnpm --dir web run tsc`
+> 0 错、eslint/prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED；
+> 全量 jest 负载口径见交付说明。
+
 > **100%（100/100/100/100 语句/分支/函数/行）**，16 用例——三个 build 纯
 > 函数（buildAssignmentColumns 七类列分派+行操作矩阵、buildCategoryColumns
 > 五列+批量回调、buildRouteColumns 四列+查看回调）经 RTL 真渲染断言 DOM。
@@ -2395,6 +2789,43 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
 >   R49-5 复核。
 
+## 第二十二轮：数据备份页覆盖收口（Ops/Backups 0% → 100/95.65/100/100，2026-10-01）
+
+> **交付（2026-10-01，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行现席
+> `Ops/Backups/index.tsx`（218 行，目录内无任何测试文件）单件收口，新增
+> `__tests__/index.test.tsx` 10 用例，v8 口径 **行/语句/函数 100%、分支
+> 95.65%**（余 2 翼即登记项，见边界）；无页面缺陷（纯补测）。锁定契约——
+> 挂载首拉零参 + 列渲染矩阵（类型/size 原值/时间原值、状态 Tag 三色
+> done→green / failed→red / else(running)→gold、缺 size 行空格）+ 卡片标题 +
+> 工具栏双按钮 + 下载锚 href=getOpsBackupDownloadUrl(id) 透传；刷新重拉；
+> 创建主链（选类型 → 载荷 kind、target 未填键缺省 → toast 已创建 →
+> `setTimeout(load, 500)` 真实计时器重拉 → destroyOnHidden 整体卸载）；
+> required 拦截（不触达服务 + 弹窗保持 + 取消关闭）；target 可选填完整载荷；
+> 创建失败静默 catch（无本地弹错、无成功 toast、不重拉——注释言明全局拦截
+> 器 toast 语义，测试环境 service 已 mock 故断言全静默为现状锁定）；删除
+> 主链（行内删除 → modal.confirm → deleteOpsBackup(id) → 已删除 → 重拉）；
+> 删除失败三翼（Error → e.message / 非 Error → intl「操作失败」/ Error('')
+> → `errMsg ||` 右翼「失败」，均不重拉）。
+> **坑实证（新档，四条）**：① 双字中文 Button 自动插空格（刷 新/删 除/
+> 取 消/确 定），role name 一律宽松正则；② modal.confirm 定位走类名
+> `.ant-modal-confirm-btns .ant-btn-primary`（locale 无关），标题
+> `.ant-modal-title` 与 `.ant-modal-confirm-title` 双渲染须 selector 收窄；
+> ③ Select option 点击配方 sleep≥60ms → mouseDown 落 `.ant-select` 根 →
+> 点可见 dropdown 内 `.ant-select-item-option-content`（Behavior 套件同款）；
+> ④ 成功创建的 `setTimeout(load, 500)` 是真实计时器——用例内必须等第 2 次
+> listOpsBackups 消费掉，否则挂起 timer 在下个用例触发毒化计数断言
+> （jest.clearAllMocks 不清计时器；创建失败/删除各用例无 timer 不受影响）。
+> **边界（诚实清单，不造假用例不删防御分支）**：① `r?.backups || []` 双
+> 右翼（25 行，分支余量全部在此）——listOpsBackups 归一层恒返
+> `{backups: response.backups.map(normalizeOpsBackup)}`（map 恒产数组），
+> resolve undefined/非对象违反返回类型即造假，登记；② load 的 try/finally
+> 无 catch——listOpsBackups reject 成 unhandled rejection（同族页面既有
+> 口径），不造假 reject 场景。
+> 门禁：目标套件 10/10 绿（首轮即绿）、prettier 不变、eslint 0、
+> `pnpm --dir web run tsc` 0 错、`scripts/dashboard_vnext_guard.sh` PASSED；
+> 全量 jest **368 套件 4557 用例全绿**（2 worker 限流，load 25-31 高位窗口，
+> 2085s，exit 0——日志尾 worker force-exit 提示为既有 teardown 提示非失败）。
+
 ## R49-5：全量 jest 复核收口——产物清理后 360/362 suites 绿（web，2026-10-01）
 
 > **产物判定（只清本树、零 tracked 误删）**：src 下 663+ .jsx/.js 污染源
@@ -2428,6 +2859,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （会撞车），如实登记待对方自收。
 > 门禁：HEAD 口径全量 0 失败 + 产物清理零误删（只删未追踪、逐文件
 > 核对 tracked 源）。本单触碰面仅 web 根下未追踪产物 + 本台账。
+
+### R49-5b：遗留销账——缓存清理后全量复跑，23 红全部环境性归因（web，2026-10-01）
+
+> **清理面**：`coverage/`、`node_modules/.cache/`、`dist/`、`src/.umi/`、
+> `src/.umi-production/` 全清（均为 gitignore 生成物，零源码触碰；
+> src 下 0 个非 tracked js/jsx/map，`src/service-worker.js` 为 tracked
+> 源不碰）。**新教训**：`src/.umi` 非纯构建产物——tsconfig `@@/*`
+> paths 指向它且 `@umijs/max` 的 `getIntl` 等导出经其类型增强，清后
+> tsc 报 2 错（TS2305 no exported member 'getIntl'），`npx max setup`
+> 重建即愈；后续清理缓存须留 .umi 或清理后重建。
+> **全量复跑**（`npx jest --ci` 1031.7s）：362 suites / 4467 tests →
+> **23 suites 红**（39 tests）。归因三层：
+> ① **未入 HEAD 不计**（2）：`url.test.ts` dev 兜底用例（对方会话期内
+> 的 M，本轮跑后已被对方还原，现与 HEAD 一致）；`indexGuards.test.tsx`
+> （`??` untracked 依旧）。
+> ② **环境性**（21，抽样 7/7 隔离全绿外推）：本轮 **load 44-47/14 核**
+> （并行会话 Android AVD qemu + gradle/java/dotnet 占机）+ transform
+> 缓存冷启动（1031.7s vs 上轮 437.5s，2.3 倍）双重挤压。抽样覆盖
+> 超时型（HeaderDropdown 5s 超时→隔离 7.1s 绿）、断言型（Tickets
+> Detail「已升级为缺陷 #42」差异→隔离 42/42 绿；Functions/History
+> 「Expected 2 Received 4」重试重复调用→隔离 16/16 绿）、最重型
+> （studioActions 750.7s→隔离 220.3s 49/49 绿）、中型三连（
+> widgets-select/Toolbar-export/Console-Page→隔离 32/32 绿 13.4s）。
+> 失败形态全为超时/重试重复调用/弹窗竞速（memory 既有环境性签名），
+> 零 import 断裂、零断言值稳定差异。
+> ③ **真实失败**（0）。
+> **HEAD 口径判定**：4465+ passed / 0 真实失败——「期望全绿」达成
+> （等价于上轮 360/362 基线，失败面全为负载挤压）。
+> 门禁：tsc 0（.umi 重建后）、guard PASSED（仓库根）。本单触碰面
+> 仅 gitignore 生成物 + 本台账，零源码改动。
 
 ## 队列②增量：Dependabot/audit 新增 advisory 收口——axios 12 条+dompurify 1 条（web，2026-09-30）
 

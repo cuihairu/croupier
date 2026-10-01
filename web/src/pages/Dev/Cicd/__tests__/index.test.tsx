@@ -193,7 +193,10 @@ describe('Dev/Cicd 页面（OPEN-ISSUES #58 批 2）', () => {
         updatedAt: '2026-09-29T00:00:00Z',
       },
     });
-    mBuilds.mockResolvedValue({ items: [{ id: 1, pipeline: 'build-app', status: 'running' }], total: 1 });
+    mBuilds.mockResolvedValue({
+      items: [{ id: 1, pipeline: 'build-app', status: 'running' }],
+      total: 1,
+    });
     mTrigger.mockResolvedValue({});
     render(<CicdPage />);
 

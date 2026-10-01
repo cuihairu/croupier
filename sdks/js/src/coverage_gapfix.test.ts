@@ -16,7 +16,10 @@ interface TransportInternals {
 
 describe("TCPTransport readLoop exception harness", () => {
   it("swallows a top-level readLoop exception without unhandled rejection", async () => {
-    const transport = new TCPTransport({ address: "127.0.0.1:1", timeoutMs: 100 });
+    const transport = new TCPTransport({
+      address: "127.0.0.1:1",
+      timeoutMs: 100,
+    });
     const unhandled: unknown[] = [];
     const onUnhandled = (err: unknown) => unhandled.push(err);
     process.on("unhandledRejection", onUnhandled);

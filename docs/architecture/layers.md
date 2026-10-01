@@ -28,12 +28,12 @@ Croupier 当前采用四层结构，但传输模型已经统一为 session 思�
 
 ## 层间通信
 
-| 边界 | 默认协议 | 默认 TLS | 说明 |
-| --- | --- | --- | --- |
-| Dashboard -> Server | HTTP REST | 视部署决定 | 面向人和前端 |
-| Agent -> Server | TCP session | 开启 | `agent-server subprotocol` |
-| SDK -> Agent | TCP session | 关闭 | `sdk-agent subprotocol` |
-| Game Server -> Agent | TCP session | 关闭 | 本地接入优先 |
+| 边界                 | 默认协议    | 默认 TLS   | 说明                       |
+| -------------------- | ----------- | ---------- | -------------------------- |
+| Dashboard -> Server  | HTTP REST   | 视部署决定 | 面向人和前端               |
+| Agent -> Server      | TCP session | 开启       | `agent-server subprotocol` |
+| SDK -> Agent         | TCP session | 关闭       | `sdk-agent subprotocol`    |
+| Game Server -> Agent | TCP session | 关闭       | 本地接入优先               |
 
 ## 关键变化
 

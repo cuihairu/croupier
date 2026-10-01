@@ -117,7 +117,12 @@ class RecordingPeer {
   }
 
   /** Reply with a response frame split across two TCP writes. */
-  sendSplitResponse(reqId: number, body: Buffer, firstBytes: number, gapMs: number): void {
+  sendSplitResponse(
+    reqId: number,
+    body: Buffer,
+    firstBytes: number,
+    gapMs: number,
+  ): void {
     const raw = frame(encodeMessage(MSG_INVOKE_RESPONSE, reqId, body));
     for (const s of this.sockets) {
       s.write(raw.subarray(0, firstBytes));
@@ -149,7 +154,11 @@ describe("TCPTransport coverage corners", () => {
   });
 
   function makeTransport(config: Record<string, unknown> = {}): TCPTransport {
-    const t = new TCPTransport({ address: peer.address, timeoutMs: 5000, ...config });
+    const t = new TCPTransport({
+      address: peer.address,
+      timeoutMs: 5000,
+      ...config,
+    });
     transports.push(t);
     return t;
   }
@@ -218,7 +227,9 @@ describe("TCPTransport coverage corners", () => {
     const address = await new Promise<string>((resolve) => {
       server.listen(0, "127.0.0.1", () => {
         const addr = server.address();
-        resolve(`127.0.0.1:${addr && typeof addr === "object" ? addr.port : 0}`);
+        resolve(
+          `127.0.0.1:${addr && typeof addr === "object" ? addr.port : 0}`,
+        );
       });
     });
 

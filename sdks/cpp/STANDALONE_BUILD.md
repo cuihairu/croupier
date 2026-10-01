@@ -4,12 +4,12 @@
 
 ## 构建模式对比
 
-| 构建模式 | 是否需要父项目 | 网络需求 | 构建速度 | 推荐场景 |
-|---------|-------------|---------|---------|----------|
-| **📦 预构建模式** | ❌ 否 | ❌ 无 | ⚡ 最快 | **生产构建（推荐）** |
-| **🌐 在线模式** | ❌ 否 | ✅ 需要 | 🐌 中等 | 开发测试 |
-| **🔄 Mock 模式** | ❌ 否 | ❌ 无 | ⚡ 最快 | 快速原型 |
-| **🏠 本地模式** | ✅ 是 | ❌ 无 | 🚀 快 | 父项目开发 |
+| 构建模式          | 是否需要父项目 | 网络需求 | 构建速度 | 推荐场景             |
+| ----------------- | -------------- | -------- | -------- | -------------------- |
+| **📦 预构建模式** | ❌ 否          | ❌ 无    | ⚡ 最快  | **生产构建（推荐）** |
+| **🌐 在线模式**   | ❌ 否          | ✅ 需要  | 🐌 中等  | 开发测试             |
+| **🔄 Mock 模式**  | ❌ 否          | ❌ 无    | ⚡ 最快  | 快速原型             |
+| **🏠 本地模式**   | ✅ 是          | ❌ 无    | 🚀 快    | 父项目开发           |
 
 ## 快速开始（推荐方式）
 
@@ -23,6 +23,7 @@ cd croupier-sdk-cpp
 ### 2. 选择构建模式
 
 #### 预构建模式（推荐生产使用）
+
 ```bash
 # 使用预提交的 protobuf 生成文件
 ./standalone-build.sh configure --with-grpc
@@ -30,6 +31,7 @@ cd croupier-sdk-cpp
 ```
 
 #### 在线模式（自动下载 proto 文件）
+
 ```bash
 # 自动从 GitHub 下载最新 proto 文件并生成代码
 ./standalone-build.sh configure --with-grpc --online
@@ -37,6 +39,7 @@ cd croupier-sdk-cpp
 ```
 
 #### Mock 模式（快速原型开发）
+
 ```bash
 # 使用 gRPC mock 实现，无需 protobuf 文件
 ./standalone-build.sh configure --mock-grpc
@@ -79,6 +82,7 @@ cmake --build build
 ### 问题与解决方案
 
 #### 原始问题：
+
 1. **Protobuf 依赖**：SDK 需要父项目的 `proto/` 目录
 2. **生成文件缺失**：`gen/` 目录被 gitignore
 3. **构建脚本依赖**：CMake 假设父项目结构
@@ -86,6 +90,7 @@ cmake --build build
 #### 我们的解决方案：
 
 #### 1. 智能模式检测
+
 ```cpp
 // CMake 自动检测最优构建模式
 if(预构建文件存在)
@@ -97,11 +102,13 @@ else
 ```
 
 #### 2. 预构建文件策略
+
 - **CI 自动生成**：GitHub Actions 定期生成最新的 protobuf 代码
 - **版本控制提交**：将生成文件提交到 SDK 仓库
 - **智能缓存**：避免重复生成
 
 #### 3. 在线下载机制
+
 ```bash
 # 自动下载策略
 proto_files=(
@@ -120,6 +127,7 @@ base_url="https://raw.githubusercontent.com/cuihairu/croupier/main/proto"
 ### 依赖管理
 
 #### 系统包（Linux/macOS 推荐）
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install libgrpc++-dev libprotobuf-dev nlohmann-json3-dev
@@ -132,6 +140,7 @@ brew install grpc protobuf nlohmann-json
 ```
 
 #### vcpkg（Windows 推荐）
+
 ```bash
 # 设置 vcpkg
 export VCPKG_ROOT=/path/to/vcpkg
@@ -191,34 +200,38 @@ RUN ./standalone-build.sh build --system-libs
 ## 最佳实践建议
 
 ### 1. 生产环境
+
 - [使用**预构建模式**：最稳定，构建速度最快]
 - [启用 **Release 构建**：`--release`]
 - [使用**静态链接**：方便部署]
 
 ### 2. 开发环境
+
 - [使用**在线模式**：获取最新 proto 定义]
 - [启用 **Debug 构建**：`--debug`]
 - [使用**动态链接**：开发调试方便]
 
 ### 3. 原型开发
+
 - [使用 **Mock 模式**：无依赖，启动最快]
 - [专注业务逻辑，后续切换到真实实现]
 
 ## 与其他 SDK 语言对比
 
-| 语言 | 独立构建 | 预构建文件 | 在线模式 | Mock 模式 |
-|------|----------|------------|----------|-----------|
-| **C++** | ✅ 是 | ✅ 支持 | ✅ 支持 | ✅ 支持 |
-| Go | ✅ 是 | ❌ 否 | ✅ 支持 | ✅ 支持 |
-| Java | 🚧 部分 | ❌ 否 | ✅ 支持 | ✅ 支持 |
-| Python | 🚧 部分 | ❌ 否 | ✅ 支持 | ✅ 支持 |
-| JavaScript | 🚧 部分 | ❌ 否 | ✅ 支持 | ✅ 支持 |
+| 语言       | 独立构建 | 预构建文件 | 在线模式 | Mock 模式 |
+| ---------- | -------- | ---------- | -------- | --------- |
+| **C++**    | ✅ 是    | ✅ 支持    | ✅ 支持  | ✅ 支持   |
+| Go         | ✅ 是    | ❌ 否      | ✅ 支持  | ✅ 支持   |
+| Java       | 🚧 部分  | ❌ 否      | ✅ 支持  | ✅ 支持   |
+| Python     | 🚧 部分  | ❌ 否      | ✅ 支持  | ✅ 支持   |
+| JavaScript | 🚧 部分  | ❌ 否      | ✅ 支持  | ✅ 支持   |
 
 ## 故障排除
 
 ### 常见问题
 
 #### Q: 编译时找不到 proto 文件
+
 ```bash
 # 解决方案：使用在线模式重新下载
 ./standalone-build.sh clean
@@ -226,6 +239,7 @@ RUN ./standalone-build.sh build --system-libs
 ```
 
 #### Q: vcpkg 依赖安装失败
+
 ```bash
 # 解决方案：使用系统包
 sudo apt-get install libgrpc++-dev  # Linux
@@ -234,6 +248,7 @@ brew install grpc                   # macOS
 ```
 
 #### Q: 网络连接失败
+
 ```bash
 # 解决方案：使用 Mock 模式进行开发
 ./standalone-build.sh configure --mock-grpc

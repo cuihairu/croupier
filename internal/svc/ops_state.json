@@ -44,10 +44,7 @@
         "target": "game-demo/prod",
         "result": "success",
         "metadata": {
-          "functions": [
-            "prom.reload",
-            "http.post"
-          ]
+          "functions": ["prom.reload", "http.post"]
         },
         "created_at": "2026-03-16T20:20:32.8588683+08:00"
       }

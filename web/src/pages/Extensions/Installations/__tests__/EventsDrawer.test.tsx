@@ -20,10 +20,7 @@
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import EventsDrawer from '../EventsDrawer';
-import type {
-  ExtensionEventItem,
-  ExtensionInstallationItem,
-} from '@/services/api/extensions';
+import type { ExtensionEventItem, ExtensionInstallationItem } from '@/services/api/extensions';
 
 jest.setTimeout(30000);
 configure({ asyncUtilTimeout: 5000 });
@@ -33,11 +30,9 @@ jest.mock('@/services/api/extensions', () => ({
 }));
 
 jest.mock('@umijs/max', () => ({
-  FormattedMessage: ({
-    defaultMessage,
-  }: {
-    defaultMessage?: string;
-  }) => <>{defaultMessage ?? ''}</>,
+  FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => (
+    <>{defaultMessage ?? ''}</>
+  ),
   useIntl: () => ({
     formatMessage: (opts: { defaultMessage?: string }) => opts.defaultMessage ?? '',
   }),
@@ -83,9 +78,7 @@ const ev2: ExtensionEventItem = {
 };
 
 function renderDrawer(props?: Partial<React.ComponentProps<typeof EventsDrawer>>) {
-  return render(
-    <EventsDrawer open installation={installation} onClose={jest.fn()} {...props} />,
-  );
+  return render(<EventsDrawer open installation={installation} onClose={jest.fn()} {...props} />);
 }
 
 /** 关键词输入框 */
@@ -130,9 +123,7 @@ describe('扩展事件抽屉 首拉与渲染矩阵', () => {
     expect(screen.getByText('未设置关键词')).toBeInTheDocument();
 
     // 列矩阵：时间（与组件同进程 toLocaleString 计算，秒级 ×1000 / 毫秒直用）
-    expect(
-      screen.getByText(new Date(1727500000 * 1000).toLocaleString()),
-    ).toBeInTheDocument();
+    expect(screen.getByText(new Date(1727500000 * 1000).toLocaleString())).toBeInTheDocument();
     expect(screen.getByText(new Date(2727500000123).toLocaleString())).toBeInTheDocument();
     expect(screen.getByText('info')).toBeInTheDocument();
     expect(screen.getByText('error')).toBeInTheDocument();
@@ -159,7 +150,9 @@ describe('扩展事件抽屉 首拉与渲染矩阵', () => {
 
   it('无安装实例守卫：不发请求 + 默认空态文案（非筛选态）', async () => {
     renderDrawer({ installation: null });
-    expect(await screen.findByText('暂时没有事件数据，后续有安装动作后会显示在这里。')).toBeInTheDocument();
+    expect(
+      await screen.findByText('暂时没有事件数据，后续有安装动作后会显示在这里。'),
+    ).toBeInTheDocument();
     await new Promise((r) => setTimeout(r, 30));
     expect(mEvents).not.toHaveBeenCalled();
   });
@@ -168,7 +161,9 @@ describe('扩展事件抽屉 首拉与渲染矩阵', () => {
     mEvents.mockRejectedValue(new Error('events down'));
     renderDrawer();
     await waitFor(() => expect(mEvents).toHaveBeenCalled());
-    expect(await screen.findByText('暂时没有事件数据，后续有安装动作后会显示在这里。')).toBeInTheDocument();
+    expect(
+      await screen.findByText('暂时没有事件数据，后续有安装动作后会显示在这里。'),
+    ).toBeInTheDocument();
     expect(screen.getByText('事件 0')).toBeInTheDocument();
   });
 
@@ -187,10 +182,7 @@ describe('扩展事件抽屉 筛选', () => {
 
     fireEvent.change(keywordInput(), { target: { value: '  install  ' } });
     await waitFor(() =>
-      expect(mEvents).toHaveBeenLastCalledWith(
-        7,
-        expect.objectContaining({ keyword: 'install' }),
-      ),
+      expect(mEvents).toHaveBeenLastCalledWith(7, expect.objectContaining({ keyword: 'install' })),
     );
     expect(screen.getByText('当前正在查看筛选后的事件范围')).toBeInTheDocument();
     expect(screen.getByText('已生效条件：关键词 install')).toBeInTheDocument();
@@ -239,9 +231,7 @@ describe('扩展事件抽屉 筛选', () => {
     );
     expect(screen.queryByText('当前正在查看筛选后的事件范围')).not.toBeInTheDocument();
     expect(keywordInput().value).toBe('');
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: '清空筛选' })).toBeDisabled(),
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: '清空筛选' })).toBeDisabled());
   });
 
   it('切换安装实例：筛选重置 + 按新实例 id 重拉', async () => {
