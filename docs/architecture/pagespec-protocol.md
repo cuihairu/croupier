@@ -66,7 +66,7 @@ interface RemoteOptionsSpec {
 }
 ```
 
-渲染器生效语义（`SchemaFormRenderer`，2026-09 收口）：`required` 与 `validationRules[].type="required"` 并入运行时 schema `required`（`required: false` 可撤销 schema 原必填；visibleWhen 隐藏字段仍豁免）；`min`/`max` 按字段类型映射（string→`minLength/maxLength`，number/integer→`minimum/maximum`，array→`minItems/maxItems`），`pattern` 直写 JSON Schema `pattern`；`custom` 无法用 JSON Schema 表达，渲染时显式告警并忽略（不静默丢弃）。`defaultValue` 参与表单初值种入：仅补未提供值的字段，显式 `initialValues` 优先，`null`/空串视为已提供不覆盖。
+渲染器生效语义（`SchemaFormRenderer`，2026-09 收口）：`required` 与 `validationRules[].type="required"` 并入运行时 schema `required`（`required: false` 可撤销 schema 原必填；visibleWhen 隐藏字段仍豁免）；`min`/`max` 按字段类型映射（string→`minLength/maxLength`，number/integer→`minimum/maximum`，array→`minItems/maxItems`），`pattern` 直写 JSON Schema `pattern`；`custom` 无法用 JSON Schema 表达，渲染时显式告警并忽略（不静默丢弃）。required 的字符串字段（schema `required` 与 fields 覆盖两来源一致生效）在派生运行时 schema 时若未显式声明 `minLength` 自动补 `minLength: 1`——AJV `required` 只查键存在、空串合法，不补则「必填」拦不住清空后的提交（BUG-038 关联观察：空串出网到游戏侧才报错）；显式 `minLength`（含 `validationRules` 映射产物）不覆盖，visibleWhen 隐藏豁免字段不注入；错误文案对 `minLength limit=1` 特化为「{title} 不能为空」。`defaultValue` 参与表单初值种入：仅补未提供值的字段，显式 `initialValues` 优先，`null`/空串视为已提供不覆盖。
 
 `widget` 是受控枚举，取值为 antd/ProComponents 组件名（PascalCase）：`Input`、`TextArea`、`InputNumber`、`Password`、`Select`、`MultiSelect`、`Radio`、`Checkbox`、`Switch`、`DatePicker`、`TimePicker`、`DateRange`、`Upload`、`ImageUpload`、`FileUpload`、`RichText`、`Code`、`Cascader`、`TreeSelect`、`Color`、`Slider`、`Rate`、`JSON`、`KeyValue`、`Array`、`Object`。扩展 widget 需要修改 spec 包并同步前端类型，不允许前端私加。
 

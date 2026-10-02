@@ -165,6 +165,88 @@ describe('validationRules → ajv 关键字映射', () => {
   });
 });
 
+// BUG-038 关联观察核实（原「待核实」升级）：AJV required 只查键存在，"" 是
+// 合法值——必填字符串字段输入后再清空（或默认空串）直接出网，游戏侧才报错
+// （demo inventory.grant templateId 15s 超时的前置一跳）。修复：required 且
+// type:string 且未显式声明 minLength 的字段派生时补 minLength:1。
+describe('required 字符串 = 非空（空串穿透修复）', () => {
+  const propsOf = (schema: Record<string, unknown>, key: string) =>
+    ((schema.properties as Record<string, Record<string, unknown>>)[key] ?? {}) as Record<
+      string,
+      unknown
+    >;
+
+  test('派生 schema 给 required 字符串补 minLength:1（schema 来源与 fields 来源一致）', () => {
+    // demo inventory.grant 的真实 schema 形态：required 但无 minLength
+    const fromSchema = specOf({
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: {
+          playerId: { type: 'string' },
+          templateId: { type: 'string' },
+          quantity: { type: 'integer', minimum: 1 },
+        },
+        required: ['playerId', 'templateId'],
+      }),
+    });
+    const derived = deriveRuntimeSchema(fromSchema, {});
+    expect(propsOf(derived.schema, 'templateId').minLength).toBe(1);
+    expect(propsOf(derived.schema, 'playerId').minLength).toBe(1);
+    // 非字符串 required 不受影响
+    expect(propsOf(derived.schema, 'quantity').minLength).toBeUndefined();
+
+    const fromFields = specOf({
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { templateId: { type: 'string' } },
+      }),
+      fields: [{ key: 'templateId', required: true }],
+    });
+    expect(propsOf(deriveRuntimeSchema(fromFields, {}).schema, 'templateId').minLength).toBe(1);
+  });
+
+  test('显式 minLength 不覆盖（3 长度约束保留为 3）', () => {
+    const spec = specOf({
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { code: { type: 'string', minLength: 3 } },
+        required: ['code'],
+      }),
+    });
+    expect(propsOf(deriveRuntimeSchema(spec, {}).schema, 'code').minLength).toBe(3);
+  });
+
+  test('空串提交被拦（输入后清空），onFinish 不触发出网', () => {
+    const onFinish = jest.fn().mockResolvedValue(true);
+    const spec = specOf({
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { templateId: { type: 'string', title: '模板 ID' } },
+        required: ['templateId'],
+      }),
+    });
+    render(
+      <SchemaFormRenderer spec={spec} initialValues={{ templateId: '' }} onFinish={onFinish} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
+    expect(onFinish).not.toHaveBeenCalled();
+    expect(screen.getByText('「模板 ID」不能为空')).toBeTruthy();
+  });
+
+  test('隐藏豁免的 required 字段不注入 minLength（摘出 required 后不在注入集）', () => {
+    const spec = specOf({
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { reason: { type: 'string' } },
+      }),
+      fields: [{ key: 'reason', required: true, visible: false }],
+    });
+    const { schema } = deriveRuntimeSchema(spec, {});
+    expect(schema.required ?? []).not.toContain('reason');
+    expect(propsOf(schema, 'reason').minLength).toBeUndefined();
+  });
+});
+
 describe('applySpecDefaults', () => {
   test('仅补 undefined 槽位，null/空串视为已提供', () => {
     const spec = specOf({

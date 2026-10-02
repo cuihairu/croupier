@@ -1801,16 +1801,42 @@ handler/校验异常回 `InvokeResponse{"error":...}` payload 帧（语义层，
 正确）；transport `_process_inbound` except 兜底回空 body 帧保证
 「失败也要答 Agent」（漏网异常如请求反序列化失败不再让对端挂起）。
 e2e 契约用例同步改写（旧断言「error swallowed, no reply」即病灶本体）。
-待办：核查 Schema 表单对必填字段（`* Template Id`）的前置校验为何放行
-了空值提交（见下）。
 
-关联观察（待核实，未立项）：SchemaFormRenderer 对标了必填星号的
-`templateId` 字段，空值提交未被前端拦截直接出网——若为通用缺陷（必填
-rule 未接），影响面是全部 Schema 表单；也可能是该字段 schema 形态的特例。
+关联观察（原「待核实，未立项」）已核实为通用缺陷并立项为 **BUG-039**
+同批修复，见下节。
 
 回归（修复后应绿）：对 python demo 函数提交非法载荷，同步 invoke 应在
 秒级返回错误响应（而非 15s 超时）；执行留痕耗时不应再出现 15008ms 量级的
 校验类失败。
+
+## BUG-039 Schema 表单必填字符串字段放行空串（required 只查键存在，清空后提交出网）
+
+**现象**：函数执行页对 `inventory.grant` 提交时，`* Template Id` 带必填
+星号，但输入后清空（或初值即空串）仍可直接提交——空串 payload 出网到游戏
+侧才报 `playerId and templateId are required`；叠加 BUG-038 时呈现为 15s
+超时假象。
+
+**根因**：`SchemaFormRenderer` 的校验事实源是 JSON Schema + AJV，而 AJV
+`required` 只断言键存在，`""` 是合法 string 值。demo 描述符的
+`templateId` 形态是 `{"type":"string"}` + `required`、无 `minLength`，
+必填星号（rjsf 按 schema.required 渲染）挡得住「没填」，挡不住「空串」。
+影响面是全部 Schema 表单的必填字符串字段（含 Invoke 页、页面渲染、编辑器
+预览同一渲染器），非该字段特例。
+
+**修复**：`deriveRuntimeSchema` 在 required 终态（visibleWhen 隐藏豁免
+摘除之后）对 required 且 `type:string` 且未显式声明 `minLength` 的字段补
+`minLength: 1`——「必填 = 非空」对齐用户预期（同 antd required 规则语义）。
+显式 `minLength`（含 `validationRules` min 映射产物）不覆盖；非字符串
+required（number/array/object）不动。错误本地化对 `minLength limit=1`
+特化为「{title} 不能为空」（否则报「至少需要 1 个字符」）。派生 schema
+仅存在于内存（ui-generation 约束），wire/PageSpec 无变更、无迁移。
+
+**回归**：field-validity 4 条（派生注入 schema/fields 双来源、显式
+minLength 不覆盖、空串提交被拦 onFinish 不出网、隐藏豁免不注入；前两条
+与提交拦截修复前红）+ index 本地化 1 条（limit=1 特化文案）+ upload 套件
+required 空串契约改写（旧断言「required 保留空串提交」即病灶本体）。
+渲染器语义文档同步 `docs/architecture/pagespec-protocol.md`「渲染器生效
+语义」。
 
 ## 汇总
 
@@ -1854,6 +1880,7 @@ rule 未接），影响面是全部 Schema 表单；也可能是该字段 schema
 | 036 | README 顶部 logo 整块消失（prettier 全仓重排吞独立 HTML 块）                    | 已修          | diff 43df26e 全量比对确认仅丢 logo 块；恢复 + README.md 进 .prettierignore 防再犯（同族第二起，第一起 sdks/js game_demo.ts） |
 | 037 | v0.1.5 发布二进制 --version 恒 0.1.4（VERSION 文件滞后，make build 注入过期值） | 已修          | git show v0.1.5:VERSION 实证 + release/nightly 两工作流 Linux/Mac 改 git describe/nightly 重注入（与 Windows 口径统一）      |
 | 038 | Python SDK 同步 invoke 吞 handler 异常不回响应（调用方 15s 超时假象）           | 已修          | 5 条 pytest（3 条修复前红 + 2 条成功路径对照）+ e2e 契约改写；全量 546 passed                                                |
+| 039 | Schema 表单必填字符串字段放行空串（AJV required 只查键存在）                    | 已修          | field-validity 4 条（2 条修复前红）+ 本地化特化 1 条 + upload 套件 required 空串契约改写                                     |
 
 ### 遗留 / 未修
 

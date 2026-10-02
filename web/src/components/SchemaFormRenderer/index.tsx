@@ -174,6 +174,10 @@ export function localizeFormErrors(
     const template = ERROR_TEMPLATES[error.name ?? ''];
     if (!template) return error;
     let text = isZh ? template.zh : template.en;
+    // minLength:1（必填字符串=非空的派生约束）报「不能为空」而非「至少 1 个字符」
+    if (error.name === 'minLength' && error.params?.limit === 1) {
+      text = isZh ? '「{title}」不能为空' : '"{title}" cannot be empty';
+    }
     text = text
       .replaceAll('{title}', resolveFieldTitle(error, schema))
       .replaceAll('{limit}', String(error.params?.limit ?? ''))
@@ -466,6 +470,20 @@ export function deriveRuntimeSchema(
     }
     if (Array.isArray(schema.required)) {
       schema.required = schema.required.filter((key) => !hiddenFields.has(key));
+    }
+  }
+
+  // 必填字符串 = 非空：AJV required 只查键存在，"" 是合法值直接出网——游戏侧
+  // 才报错（BUG-038 关联观察：demo inventory.grant 的 templateId 空串提交，
+  // 修复前表现为 15s 超时）。required 且 type:string 且未显式声明 minLength
+  // 的字段补 minLength:1；显式声明（含 validationRules 映射产物）不覆盖。
+  if (Array.isArray(schema.required)) {
+    const requiredProps = schema.properties as Record<string, RJSFSchema> | undefined;
+    for (const key of schema.required) {
+      const child = requiredProps?.[key];
+      if (child && child.type === 'string' && child.minLength === undefined) {
+        child.minLength = 1;
+      }
     }
   }
 
