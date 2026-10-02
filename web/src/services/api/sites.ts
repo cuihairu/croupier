@@ -135,7 +135,7 @@ export async function fetchNotificationSettings(): Promise<NotificationSettings>
   });
 }
 
-// ---- 账号安全策略（security.*，默认全关） ----
+// ---- 账号安全策略（security.*，默认全关；唯一例外 approvalStepUpOtp 默认开） ----
 
 // Source: internal/platform/settings/layered.go SecurityPolicySnapshot
 export type SecuritySettings = {
@@ -144,6 +144,7 @@ export type SecuritySettings = {
   passwordRequireUppercase: boolean;
   passwordRequireSpecial: boolean;
   passwordMaxAgeDays: number;
+  approvalStepUpOtp: boolean;
 };
 
 // Admin: effective account security policy.

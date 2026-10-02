@@ -159,6 +159,12 @@ const (
 	KeySecurityPasswordRequireSpecial = "security.passwordRequireSpecial"   // bool：必须含特殊字符
 	KeySecurityPasswordMaxAgeDays     = "security.passwordMaxAgeDays"       // int：0 = 永不过期
 
+	// 审批 step-up TOTP 总开关（OPEN-ISSUES #61）：high/danger 审批是否强制
+	// 二次验证。默认 true（fail-safe，与 #75 落地语义一致）；关闭后高危审批
+	// 降级为中低风险语义（otp 可选、提供了就校验），审计记 disabled 旁路档。
+	// 移动端定位是便利，强制门槛必须可由服务端一键降级。
+	KeySecurityApprovalStepUpOTP = "security.approvalStepUpOtp" // bool
+
 	// 系统维护（OPEN-ISSUES #52）：更新检查源 URL。返回 JSON 版本清单
 	// （识别 version/tagName/tag_name/latestVersion 任意一键，兼容 GitHub
 	// releases/latest 的 tag_name）；空 = 未配置，检查更新仅回版本注记。
@@ -235,7 +241,7 @@ var ValidKeys = map[string]struct{}{
 
 	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
 	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
-	KeySecurityPasswordMaxAgeDays: {},
+	KeySecurityPasswordMaxAgeDays: {}, KeySecurityApprovalStepUpOTP: {},
 
 	KeySystemUpdateCheckURL: {},
 }
@@ -300,10 +306,10 @@ var boolKeys = map[string]struct{}{
 	KeyAuthGenericOAuthEnabled: {},
 	KeyAuthRegisterEnabled:     {},
 	KeySecurityMFARequired:     {}, KeySecurityPasswordRequireUpper: {},
-	KeySecurityPasswordRequireSpecial: {},
-	KeySecSSRFProtection:              {},
-	KeyAuthEmailAliasRestriction:      {},
-	KeyAuthEmailVerificationRequired:  {},
+	KeySecurityPasswordRequireSpecial: {}, KeySecurityApprovalStepUpOTP: {},
+	KeySecSSRFProtection:             {},
+	KeyAuthEmailAliasRestriction:     {},
+	KeyAuthEmailVerificationRequired: {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -969,16 +975,20 @@ func (l *Layered) AuthSnapshot() AuthSnapshot {
 }
 
 // SecurityPolicySnapshot 是账号安全策略的读视图（登录/改密/建号校验链
-// 与设置页共用；全零值 = 关闭，维持内置基线）。
+// 与设置页共用；全零值 = 关闭，维持内置基线；唯一例外 ApprovalStepUpOTP
+// 默认 true——审批 step-up 是 #75 落地的强制门槛，缺省安全姿态不放宽，
+// #61 开关只用于「出问题时一键降级」）。
 type SecurityPolicySnapshot struct {
 	MFARequired              bool `json:"mfaRequired"`
 	PasswordMinLength        int  `json:"passwordMinLength"`
 	PasswordRequireUppercase bool `json:"passwordRequireUppercase"`
 	PasswordRequireSpecial   bool `json:"passwordRequireSpecial"`
 	PasswordMaxAgeDays       int  `json:"passwordMaxAgeDays"`
+	ApprovalStepUpOTP        bool `json:"approvalStepUpOtp"`
 }
 
-// SecurityPolicy resolves the account security policy (defaults off).
+// SecurityPolicy resolves the account security policy (defaults off;
+// ApprovalStepUpOTP defaults on).
 func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
 	return SecurityPolicySnapshot{
 		MFARequired:              l.GetBool(KeySecurityMFARequired, false),
@@ -986,6 +996,7 @@ func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
 		PasswordRequireUppercase: l.GetBool(KeySecurityPasswordRequireUpper, false),
 		PasswordRequireSpecial:   l.GetBool(KeySecurityPasswordRequireSpecial, false),
 		PasswordMaxAgeDays:       l.GetInt(KeySecurityPasswordMaxAgeDays, 0),
+		ApprovalStepUpOTP:        l.GetBool(KeySecurityApprovalStepUpOTP, true),
 	}
 }
 

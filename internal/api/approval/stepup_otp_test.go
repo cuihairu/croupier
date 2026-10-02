@@ -3,6 +3,7 @@ package approval
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/otp"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -307,4 +309,85 @@ func TestHandler_Approve_InvalidJSONBody_BadRequest(t *testing.T) {
 	resp := httptest.NewRecorder()
 	router.ServeHTTP(resp, req)
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
+}
+
+// withStepUpSwitch 初始化 settings 单例并把 security.approvalStepUpOtp 设为
+// 给定值（#61 总开关）；测试结束恢复默认（清键 + Reload），不污染同包其余
+// 用例——settings.Current() 是 sync.Once 单例，本包用例共用一个进程。
+func withStepUpSwitch(t *testing.T, f *stepupOTPFixture, raw string) {
+	t.Helper()
+	settingModel := model.NewPlatformSettingModel(f.svc.svcCtx.DB)
+	settings.InitLayered(context.Background(), &settings.ConfigInput{}, settingModel)
+	l := settings.Current()
+	require.NotNil(t, l)
+	require.NoError(t, settingModel.Set(context.Background(),
+		settings.KeySecurityApprovalStepUpOTP, json.RawMessage(raw), "tester"))
+	l.Reload(context.Background(), settingModel)
+	t.Cleanup(func() {
+		_ = settingModel.Clear(context.Background(), settings.KeySecurityApprovalStepUpOTP)
+		l.Reload(context.Background(), settingModel)
+	})
+}
+
+// #61 总开关关闭：高危审批未带 otp 直接放行，批准审计记 disabled 旁路档
+// （区别于 not_required 的「天然不需要」——事后可审计开关放行了哪些高危操作）。
+// fixture 无在线 agent，续跑以 approved-but-continuation-failed 收场（同包
+// TestStepUp_HighRisk_CorrectOTP_Passes 先例），这里只锁批准态与 stepUp 审计。
+func TestStepUp_SwitchOff_HighRisk_NoOTP_PassesWithDisabledAudit(t *testing.T) {
+	f := newStepUpFixture(t)
+	withStepUpSwitch(t, f, `false`)
+	f.seedPending(t, "ap-sw-1", "fn.high")
+
+	_, _ = f.svc.Approve(approvalCtx("plain"), &ApprovalApproveRequest{ID: "ap-sw-1"})
+	stored, getErr := f.store.Get("ap-sw-1")
+	require.NoError(t, getErr)
+	assert.Equal(t, "approved", stored.State)
+
+	items, total, err := f.auditSvc.List(audit.AuditFilter{
+		EventType: []audit.AuditEventType{audit.EventApprovalApproved},
+	}, audit.AuditPage{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	assert.Equal(t, stepUpResultDisabled, items[0].Details["stepUp"])
+}
+
+// 开关关闭≠校验豁免：带了 otp 仍按中低档语义校验，错的拒绝。
+func TestStepUp_SwitchOff_HighRisk_WrongOTP_Rejected(t *testing.T) {
+	f := newStepUpFixture(t)
+	withStepUpSwitch(t, f, `false`)
+	f.seedPending(t, "ap-sw-2", "fn.high")
+
+	_, err := f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{
+		ID: "ap-sw-2", OTP: "000000",
+	})
+	assert.Equal(t, "otp_invalid", stepUpErrorCode(t, err))
+	f.requireStillPending(t, "ap-sw-2")
+
+	// 对的放行，审计记 totp（开关关闭下主动二次验证仍如实记档）；续跑错误
+	// 同上容忍，批准态为准
+	_, _ = f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{
+		ID: "ap-sw-2", OTP: f.validCode(t, "enrolled"),
+	})
+	stored, getErr := f.store.Get("ap-sw-2")
+	require.NoError(t, getErr)
+	assert.Equal(t, "approved", stored.State)
+
+	items, total, err := f.auditSvc.List(audit.AuditFilter{
+		EventType: []audit.AuditEventType{audit.EventApprovalApproved},
+	}, audit.AuditPage{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	assert.Equal(t, stepUpResultTOTP, items[0].Details["stepUp"])
+}
+
+// 开关显式为 true 与未配置同语义（既有高危用例跑在 settings nil 态已锁
+// fail-safe 默认，这里补显式 true 一例防回归）。
+func TestStepUp_SwitchOn_HighRisk_StillEnforced(t *testing.T) {
+	f := newStepUpFixture(t)
+	withStepUpSwitch(t, f, `true`)
+	f.seedPending(t, "ap-sw-3", "fn.high")
+
+	_, err := f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{ID: "ap-sw-3"})
+	assert.Equal(t, "otp_required", stepUpErrorCode(t, err))
+	f.requireStillPending(t, "ap-sw-3")
 }

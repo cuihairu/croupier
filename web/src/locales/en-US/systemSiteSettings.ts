@@ -244,7 +244,10 @@ export default {
   'pages.systemSiteSettings.security.error.loadFailed': 'Failed to load account security policy',
   'pages.systemSiteSettings.security.error.saveFailed': 'Failed to save',
   'pages.systemSiteSettings.security.intro':
-    'Everything defaults to off: when off, the built-in baseline applies (password 8-128 chars, weak-password block, two character classes, no expiry, optional TOTP).',
+    'Everything defaults to off: when off, the built-in baseline applies (password 8-128 chars, weak-password block, two character classes, no expiry, optional TOTP). The single exception is high-risk approval step-up, which defaults to on.',
+  'pages.systemSiteSettings.security.approvalStepUpOtp': 'High-risk approval step-up (TOTP)',
+  'pages.systemSiteSettings.security.approvalStepUpOtpHelp':
+    'When on, high/danger approvals require a dynamic verification code (unenrolled accounts are rejected); off degrades to optional verification (still validated when provided), and approved audits record the disabled tier (OPEN-ISSUES #61)',
   'pages.systemSiteSettings.security.mfaRequired': 'Require two-factor auth (TOTP)',
   'pages.systemSiteSettings.security.mfaRequiredHelp':
     'When on, every local account must bind TOTP: unbound accounts get a setup prompt at login and other APIs return 403 mfa_required (external IdP accounts are unaffected)',

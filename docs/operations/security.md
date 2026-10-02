@@ -163,6 +163,18 @@ auth:
 - **失效降级**：OIDC 身份源在 Server 启动时不可达只会禁用 OIDC 登录（告警日志），不影响本地与 LDAP 登录；LDAP 拨号发生在认证时，目录故障表现为"认证服务暂时不可用"。
 - **审计**：登录审计记录携带 `provider` 字段，可区分 `local` / `ldap` / `oidc` 来源。
 
+## 高危审批 step-up 二次验证（TOTP）
+
+治理风险 high / danger 的审批（默认策略中强制审批的两档）在批准动作落库前要求 step-up 二次验证（OPEN-ISSUES #75）：
+
+- 已绑定 TOTP 的账号：`POST /api/v1/approvals/:id/approve` 必须携带 `otp`，错码拒绝（`otp_invalid`）。
+- 未绑定账号：直接拒绝（`otp_not_enrolled`），提示回 Web「个人中心-安全设置」绑定——高危批准禁止静默放行。
+- 中低风险：`otp` 可选；提供了就校验，错的拒绝。
+
+**总开关** `security.approvalStepUpOtp`（OPEN-ISSUES #61，设置页「系统设置-站点设置-安全」）：默认开启（fail-safe，settings 未初始化或键未配置时维持强制语义）。关闭后高危审批降级为可选验证（带了仍校验），批准审计 `stepUp` 档位记 `disabled`——事后可审计开关放行了哪些高危操作。移动端定位是便利，强制门槛出问题时由服务端一键降级，不需要回滚版本。
+
+稳定错误码与审计档位的完整契约见 `docs/api/approval.md`；otp 值永不写入审计/日志。
+
 ## 最佳实践
 
 1. 生产环境的 `Agent <-> Server` 默认启用 mTLS

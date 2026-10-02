@@ -234,7 +234,10 @@ export default {
   'pages.systemSiteSettings.security.error.loadFailed': '加载账号安全策略失败',
   'pages.systemSiteSettings.security.error.saveFailed': '保存失败',
   'pages.systemSiteSettings.security.intro':
-    '全部默认关闭：关闭时维持内置基线（密码 8-128 位、弱密码拦截、至少两类字符、不限期、TOTP 自助绑定）。',
+    '全部默认关闭：关闭时维持内置基线（密码 8-128 位、弱密码拦截、至少两类字符、不限期、TOTP 自助绑定）。唯一例外是高危审批二次验证默认开启。',
+  'pages.systemSiteSettings.security.approvalStepUpOtp': '高危审批二次验证 (TOTP)',
+  'pages.systemSiteSettings.security.approvalStepUpOtpHelp':
+    '开启后 high/danger 审批必须输入动态验证码（未绑定账号拒绝批准）；关闭即一键降级为可选验证（带了仍校验），批准审计记 disabled 档（OPEN-ISSUES #61）',
   'pages.systemSiteSettings.security.mfaRequired': '强制二次验证 (TOTP)',
   'pages.systemSiteSettings.security.mfaRequiredHelp':
     '开启后所有本地账号必须绑定 TOTP：未绑定账号登录时收到引导，其余 API 返回 403 mfa_required（外部身份源账号由 IdP 负责，不受影响）',
