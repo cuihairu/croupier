@@ -175,8 +175,13 @@ flowchart LR
     T2 --> DEV[设备列表]
     T2 --> ALR[告警]
     T2 --> AUD[审计查询]
+    T2 --> FN[函数调用]
     DEV --> NDE[设备详情]
+    FN --> FNC[函数目录]
+    FNC --> FNI[调用页/动态表单]
 ```
+
+> M3 第一批（2026-10-02）起「函数调用」作为监控大盘二级入口（`monitor-entry-functions`）；推送（ntfy）归 M3 第二批。
 
 **设置向导**（`features/setup/server_setup_page.dart`，首次启动）与**登录页**（`features/login/login_page.dart`，TOTP 双步）：
 
@@ -450,20 +455,23 @@ mobile/
   lib/
     main.dart
     app/                      # router、theme、locale
-    core/
+      core/
       api/                    # dio_client、interceptors/、api_error.dart
       auth/                   # session_controller、biometric_gate、login_service
       scope/                  # scope_controller、scoped_prefixes.dart
       storage/                # session_store
-      schema_form/            # §2.6 映射实现：schema_form.dart、field builders、json_view.dart
+      function/               # 描述符模型/服务（M3 共享：function_spec）
     features/
       approvals/              # M1：list/ detail/ controllers/ widgets/
       login/                  # M1
+      setup/                  # 服务器地址配置面向导（插单）
       settings/               # M1：服务器地址、ntfy、门禁开关
-      monitoring/             # M2：dashboard/ alerts/ devices/
+      monitoring/             # M2：dashboard
+      devices/                # M2：设备/Agent
+      alerts/                 # M2：告警
       audit/                  # M2
-      invoke/                 # M3：functions/ call/ task/
-      push/                   # M3：ntfy 订阅、深链分发
+      functions/              # M3 第一批：schema_form（§2.6 映射）、invoke、task 跟进
+      push/                   # M3 第二批：ntfy 订阅、深链分发
     l10n/                     # M4（M1 起中文硬编码，键位预留 zh/en 双文件结构）
   test/                       # 单测：schema_form 映射矩阵、拦截器、ApiError 归一、各 controller
   android/ ios/
@@ -612,6 +620,19 @@ M2 收口后的独立插单（需求点名）：① 首次启动（未配置过�
 - **向导页（`features/setup/server_setup_page.dart`）**：输入地址 → `validateServerUrl` 格式校验（空/无法解析/无 host/非 http(s) 均给明确文案）→ `probeServer` 连通探测 `GET /api/v1/public/site`（公开端点；2xx 且响应为 **JSON 对象**才算通，防 200 HTML 的 SPA 兜底页假阳性）→ 保存落盘 → invalidate 切登录页；
 - **设置页改地址**：对话框内联校验/探测错误展示，通过才放行；生效链 = 新地址先落盘 → 清会话（保留地址）→ 内存预填 → invalidate 回登录页；API 客户端为按 serverUrl 现场装配的工厂（无缓存实例），切址即生效；
 - **质量门禁**：analyze 0 告警、format 零 diff、`flutter test` 168 用例全绿（136 → 168，新增校验/探测/存储分层/向导/设置页探测用例 32 个）。
+
+### 8.4 M3 第一批：函数调用（2026-10-02）
+
+M3 拆分两批：本批交付**函数目录 + 描述符驱动动态表单 + 同步/异步 invoke + 任务跟进**（核心链路，`features/functions/`）；ntfy 推送 + 深链归 M3 第二批（服务端发布钩子未落地前不接入，见 §9）。
+
+- **服务层（`function_invoke_service.dart`）**：`POST /api/v1/functions/:id/invoke`（scoped，`{payload, mode?, route?, targetServiceId?, hashKey?}`，gameId/env 由拦截器注入、服务端忽略 body 内 scope 字段）；`GET /api/v1/tasks/:id`（任务详情，终态 success/failed/canceled 判定）；`POST /api/v1/tasks/:id/cancel`；
+- **表单映射（`schema_form_model.dart` 纯逻辑 + `schema_form.dart` 渲染）**：§2.6 映射表全实现——string/enum（≤4 SegmentedButton，>4 DropdownButtonFormField）/number/integer/boolean/标量数组 TagInput/简单 object 递归一层；**复杂结构（嵌套 object、object 数组、无 type）只读**，提交时取原默认值合并；无 properties → 原始 JSON 编辑器兜底（`jsonDecode` 校验）；`required`/minLength/maxLength/minimum/maximum/pattern validator 全覆盖（坏正则降级忽略）；
+- **调用页（`function_invoke_page.dart`）**：审批 banner（approvalRequired）/ 未绑定 banner（executionState=unbound）/ 高级路由折叠区（route/targetServiceId/hashKey）/ 异步开关（execution=task 默认开）；结果三态——同步 `result` 卡片、异步任务卡（进度条 + 取消 + 刷新状态 + 终态 result/error）、approvalRequired「已提交审批」提示；
+- **任务轮询**：invoke 返回 taskId 后立即拉一次详情并启动 **5s Timer 轮询**（`WidgetsBindingObserver` 页面可见时；后台停止 = 零请求契约），终态自动停轮询，单 tick 失败不中断（手动「刷新状态」兜底）；
+- **目录页（`functions_page.dart`）**：descriptors 目录 + 搜索（id/展示名/摘要）+ 高危/需审批/未绑定标签 + scope 切换自动重查；入口挂在监控大盘「函数调用」（`monitor-entry-functions`）；
+- **质量门禁**：analyze 0 告警、format 零 diff、`flutter test` 225 用例全绿（168 → 225，新增 functions 域 4 文件 57 用例；§2.6 映射矩阵每形态一例 + 复杂只读边界锁定）。
+
+**M3 第一批边界（诚实）**：① ntfy 推送/深链未接入（第二批）；② 复杂 object 只读，编辑引导回 Web（§2.6 收敛，有测试锁定）；③ route=targeted/hash 的 targetServiceId/hashKey 为自由文本，不做实例下拉（避免额外端点）；④ 任务事件流（`GET /tasks/:id/events`）未消费，仅轮询详情；⑤ 表单字段值为字符串归一（integer/number 解析失败保原串交由校验拦截），与 web `normalizeConfigBySchema` 同语义但未覆盖 `format:date-time` 等扩展格式。
 
 ## 9. 假设与已知边界汇总
 

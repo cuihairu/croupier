@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../devices/devices_page.dart';
 import '../alerts/alerts_page.dart';
 import '../audit/audit_page.dart';
+import '../functions/functions_page.dart';
 import 'monitoring_controller.dart';
 import 'monitoring_format.dart';
 import 'performance_service.dart';
@@ -179,6 +180,18 @@ class _EntriesCard extends StatelessWidget {
     return Card(
       child: Column(
         children: [
+          ListTile(
+            key: const ValueKey('monitor-entry-functions'),
+            leading: const Icon(Icons.functions),
+            title: const Text('函数调用'),
+            subtitle: const Text('描述符目录 / 动态表单 / 同步异步执行'),
+            enabled: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const FunctionsPage(),
+              ),
+            ),
+          ),
           ListTile(
             key: const ValueKey('monitor-entry-devices'),
             leading: const Icon(Icons.dns_outlined),
