@@ -53,6 +53,7 @@ const config = defineConfig({
           collapsed: false,
           items: [
             { text: "简介", link: "/guide/" },
+            { text: "界面预览", link: "/guide/interface-preview" },
             { text: "快速开始", link: "/guide/quick-start" },
             { text: "安装", link: "/guide/installation" },
           ],

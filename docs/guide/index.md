@@ -32,7 +32,8 @@ actions:
 
 1. [快速开始](./quick-start.md)
 2. [安装指南](./installation.md)
-3. [配置管理](../operations/config-server.md)
-4. [部署指南](../operations/deploy-docker.md)
-5. 核心概念：[系统概述](./concepts/overview.md) → [函数管理](./concepts/function-management.md) → [Page Studio](./concepts/function-registration-ui.md) → [权限控制](./concepts/permissions.md)
-6. 集成指南：[OpenAPI 注册](./integrations/openapi-registration.md)、[第三方平台](./integrations/third-party-platforms.md)
+3. [界面预览](./interface-preview.md)——真实运行栈的主要界面截图
+4. [配置管理](../operations/config-server.md)
+5. [部署指南](../operations/deploy-docker.md)
+6. 核心概念：[系统概述](./concepts/overview.md) → [函数管理](./concepts/function-management.md) → [Page Studio](./concepts/function-registration-ui.md) → [权限控制](./concepts/permissions.md)
+7. 集成指南：[OpenAPI 注册](./integrations/openapi-registration.md)、[第三方平台](./integrations/third-party-platforms.md)
