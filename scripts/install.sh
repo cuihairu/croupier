@@ -12,12 +12,18 @@
 #                                      不可写且无免密 sudo 时自动回退 ~/.local/bin
 #   --with-service                     注册开机自启（Linux: systemd root；
 #                                      macOS: launchd，root 装系统级、否则用户级）
+#   --server <addr>                    Server 上游地址（如 gm.example.com:19090），
+#                                      写入已落盘配置的 server.addr；缺省时若在
+#                                      交互终端会提示输入（回车跳过）
+#   --silent                           静默安装：禁用一切交互提示（管道/CI 必用；
+#                                      非 TTY 下自动等同静默）
 #   --uninstall                        卸载（停止服务 + 删除二进制与配置不动数据）
 #   -h, --help                         帮助
 #
 # 环境变量（piped 场景不便传参时）：
 #   CROUPIER_INSTALL_VERSION / CROUPIER_INSTALL_BIN_DIR
 #   CROUPIER_INSTALL_WITH_SERVICE=1
+#   CROUPIER_INSTALL_SERVER / CROUPIER_INSTALL_SILENT=1
 #
 # 幂等：重复执行即覆盖升级。失败即停，报错带明确原因。
 # 产物来自 GitHub Releases（匿名可下）：croupier-bin-<os>-<arch>.tar.gz，
@@ -35,6 +41,8 @@ LAUNCHD_LABEL="com.github.cuihairu.croupier.agent"  # 与 scripts/install-launch
 VERSION="${CROUPIER_INSTALL_VERSION:-latest}"
 BIN_DIR="${CROUPIER_INSTALL_BIN_DIR:-}"
 WITH_SERVICE="${CROUPIER_INSTALL_WITH_SERVICE:-0}"
+SERVER_ADDR="${CROUPIER_INSTALL_SERVER:-}"
+SILENT="${CROUPIER_INSTALL_SILENT:-0}"
 UNINSTALL=0
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
@@ -43,7 +51,7 @@ warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$*"; }
 die()  { printf "${RED}[ERROR]${NC} %s\n" "$*" >&2; exit 1; }
 
 usage() {
-  sed -n '3,23p' "${BASH_SOURCE[0]}"
+  sed -n '3,26p' "${BASH_SOURCE[0]}"
 }
 
 # ---- 参数解析 ------------------------------------------------------------
@@ -55,6 +63,9 @@ while [ $# -gt 0 ]; do
     --bin-dir)      [ $# -ge 2 ] || die "--bin-dir 需要取值"; BIN_DIR="$2"; shift 2 ;;
     --bin-dir=*)    BIN_DIR="${1#--bin-dir=}"; shift ;;
     --with-service) WITH_SERVICE=1; shift ;;
+    --server)       [ $# -ge 2 ] || die "--server 需要取值"; SERVER_ADDR="$2"; shift 2 ;;
+    --server=*)     SERVER_ADDR="${1#--server=}"; shift ;;
+    --silent)       SILENT=1; shift ;;
     --uninstall)    UNINSTALL=1; shift ;;
     -h|--help)      usage; exit 0 ;;
     *)              die "未知参数: $1（--help 查看用法）" ;;
@@ -105,6 +116,54 @@ resolve_latest_tag() {
     die "需要 curl 或 wget"
   fi
 }
+
+# ---- Server 地址（--server 静默 / TTY 交互提示） ---------------------------
+# 目标：安装完成即可连上，不必二次手改配置；--silent 或非 TTY（curl|bash 管道）
+# 下不交互——管道里 read 会读到脚本自身 stdin，必须防。
+
+SERVER_APPLIED=0
+# 交互前判定来源：此时 SERVER_ADDR 非空 = --server / env 显式提供（交互会
+# 改写同名变量，故须在交互之前记账——显式给的非法地址必须 die，不能默默忽略）
+if [ -n "$SERVER_ADDR" ]; then SERVER_PROVIDED=1; else SERVER_PROVIDED=0; fi
+
+valid_server_addr() { # host / host:port / [v6]:port；拒引号反斜杠防 YAML 注入
+  # 括号类零反斜杠：POSIX 括号类内 \ 不是转义，GNU grep 下 \] 会提前闭括号
+  # 导致永不匹配；] 放最前、- 放最后即字面量，GNU grep / ugrep 语义一致
+  printf '%s' "$1" | grep -Eq '^[][A-Za-z0-9._:-]+$'
+}
+
+apply_server_addr() { # $1=agent.yaml 路径；只改 server 段下的 addr 行
+  [ -n "$SERVER_ADDR" ] || return 0
+  [ -f "$1" ] || return 0
+  local tmp="$1.tmp.$$"
+  if awk -v new="$SERVER_ADDR" '
+      /^server:[ \t]*(#.*)?$/ { in_server = 1; print; next }
+      /^[^ \t]/               { in_server = 0 }
+      in_server && /^[ \t]+addr:/ { sub(/addr:.*/, "addr: \"" new "\""); done = 1 }
+      { print }
+      END { exit done ? 0 : 1 }
+    ' "$1" > "$tmp"; then
+    cat "$tmp" > "$1" && rm -f "$tmp"
+    SERVER_APPLIED=1
+    info "已写入 server.addr = ${SERVER_ADDR}（$1）"
+  else
+    rm -f "$tmp"
+    warn "未在 $1 的 server 段找到 addr 行，请手动设置 server.addr=${SERVER_ADDR}"
+  fi
+}
+
+if [ "$UNINSTALL" -eq 0 ] && [ -z "$SERVER_ADDR" ] && [ "$SILENT" != 1 ] && [ -t 0 ]; then
+  printf 'Server 上游地址（host:port，如 gm.example.com:19090；回车跳过，稍后手配）> '
+  read -r _server_reply || _server_reply=""
+  SERVER_ADDR="${_server_reply:-}"
+fi
+if [ -n "$SERVER_ADDR" ] && ! valid_server_addr "$SERVER_ADDR"; then
+  if [ "$SERVER_PROVIDED" -eq 1 ]; then
+    die "server 地址含非法字符: ${SERVER_ADDR}"
+  fi
+  warn "输入的 server 地址含非法字符，已忽略（可稍后手动编辑 agent.yaml 的 server.addr）"
+  SERVER_ADDR=""
+fi
 
 # ---- 卸载 ----------------------------------------------------------------
 
@@ -252,6 +311,7 @@ if [ "$WITH_SERVICE" -eq 1 ]; then
     else
       info "保留既有配置 /etc/croupier/agent.yaml"
     fi
+    apply_server_addr /etc/croupier/agent.yaml
 
     cat > "$TMP/${SERVICE_NAME}.service" <<'EOF'
 [Unit]
@@ -296,6 +356,7 @@ EOF
         download "${RAW_BASE}/${TAG}/configs/agent.yaml" "$CFG_PATH"
       fi
     fi
+    apply_server_addr "$CFG_PATH"
     mkdir -p "$PLIST_DIR"
     cat > "$TMP/${LAUNCHD_LABEL}.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -329,5 +390,11 @@ EOF
   fi
 fi
 
-info "完成。下一步：编辑配置连上 Server（上游地址见 docs/operations/config-agent.md），
+if [ -n "$SERVER_ADDR" ] && [ "$SERVER_APPLIED" -eq 0 ]; then
+  # 无 service 分支不落配置文件：地址没处写，明说别让用户以为已生效
+  info "完成。本次未落配置文件：Server 地址 ${SERVER_ADDR} 需写入 agent.yaml 的
+  server.addr（配置模板与说明见 docs/operations/config-agent.md），然后: $TARGET --config <agent.yaml>"
+else
+  info "完成。下一步：编辑配置连上 Server（上游地址见 docs/operations/config-agent.md），
   然后: $TARGET --config <agent.yaml>"
+fi

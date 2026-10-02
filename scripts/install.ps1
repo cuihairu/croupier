@@ -13,10 +13,15 @@
         -Version latest|nightly|vX.Y.Z   安装版本，默认 latest
         -BinDir <dir>                    安装目录，默认 %LOCALAPPDATA%\Programs\croupier\bin
         -WithService -ConfigPath <yaml>  注册 Windows 服务（需管理员；ConfigPath 指向 agent.yaml）
+        -ServerAddr <addr>               Server 上游地址（如 gm.example.com:19090），写入
+                                        已有配置的 server.addr；缺省时若在交互终端会提示
+        -Silent                          静默安装：禁用一切交互提示（管道/CI 必用；
+                                        重定向输入下自动等同静默）
         -Uninstall                       卸载（移除服务与二进制，配置保留）
 
     环境变量（irm | iex 场景不便传参时）：
         CROUPIER_INSTALL_VERSION / CROUPIER_INSTALL_BIN_DIR / CROUPIER_INSTALL_WITH_SERVICE=1
+        CROUPIER_INSTALL_SERVER / CROUPIER_INSTALL_SILENT=1
 
 .EXAMPLE
     & ([scriptblock]::Create((irm https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.ps1))) -Version nightly
@@ -27,6 +32,8 @@ param(
     [string]$BinDir = $env:CROUPIER_INSTALL_BIN_DIR,
     [switch]$WithService,
     [string]$ConfigPath = $env:CROUPIER_INSTALL_CONFIG,
+    [string]$ServerAddr = $env:CROUPIER_INSTALL_SERVER,
+    [switch]$Silent = ($env:CROUPIER_INSTALL_SILENT -eq '1'),
     [switch]$Uninstall
 )
 
@@ -60,6 +67,36 @@ function Get-LatestTag {
 function Test-IsAdmin {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+# ---- Server 地址辅助（-ServerAddr 静默 / 交互提示；对齐 scripts/install.sh） ----
+
+function Test-ValidServerAddr {
+    # host / host:port / [v6]:port；拒引号反斜杠防 YAML 注入
+    param([string]$Addr)
+    [bool]($Addr -match '^[A-Za-z0-9._:\[\]-]+$')
+}
+
+function Set-ServerAddrInConfig {
+    # 段感知写入：只改 server 段下的 addr 行，其余段 addr 不动
+    param([string]$Path, [string]$Addr)
+    if (-not $Path -or -not (Test-Path $Path)) { return $false }
+    $resolved = (Resolve-Path $Path).Path
+    $lines = [System.IO.File]::ReadAllLines($resolved)
+    $inServer = $false
+    $done = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -match '^server:[ \t]*(#.*)?$') { $inServer = $true; continue }
+        if ($line -match '^[^ \t]') { $inServer = $false }
+        if ($inServer -and $line -match '^[ \t]+addr:') {
+            $lines[$i] = $line -replace 'addr:.*', ('addr: "{0}"' -f $Addr)
+            $done = $true
+        }
+    }
+    if (-not $done) { return $false }
+    [System.IO.File]::WriteAllLines($resolved, $lines)
+    return $true
 }
 
 # ---- 服务卸载 / 停启辅助 ----
@@ -162,6 +199,30 @@ try {
     }
     Write-Info "二进制位置: $target"
 
+    # ---- Server 地址：-ServerAddr 静默 / 交互提示（输入被重定向时自动不交互） ----
+    $serverAddrWritten = $false
+    $serverProvided = [bool]$ServerAddr
+    if (-not $serverProvided -and -not $Silent) {
+        $canPrompt = $false
+        try { $canPrompt = -not [Console]::IsInputRedirected } catch { $canPrompt = $false }
+        if ($canPrompt) {
+            $reply = Read-Host 'Server 上游地址（host:port，如 gm.example.com:19090；回车跳过，稍后手配）'
+            if ($reply) { $ServerAddr = $reply.Trim() }
+        }
+    }
+    if ($ServerAddr) {
+        if (-not (Test-ValidServerAddr $ServerAddr)) {
+            if ($serverProvided) { Die "server 地址含非法字符: $ServerAddr" }
+            Write-Warn2 "输入的 server 地址含非法字符，已忽略（可稍后手动编辑 agent.yaml 的 server.addr）"
+            $ServerAddr = ''
+        } elseif (Set-ServerAddrInConfig -Path $ConfigPath -Addr $ServerAddr) {
+            Write-Info "已写入 server.addr = $ServerAddr（$ConfigPath）"
+            $serverAddrWritten = $true
+        } else {
+            Write-Warn2 "Server 地址 $ServerAddr 未能写入配置（-ConfigPath 未指定、文件不存在或 server 段缺 addr 行），请手动设置 agent.yaml 的 server.addr"
+        }
+    }
+
     # ---- 可选：注册 Windows 服务 ----
 
     if ($WithService) {
@@ -177,7 +238,11 @@ try {
         Write-Info "服务已注册并启动: Get-Service $ServiceName"
     }
 
-    Write-Info "完成。下一步：编辑 agent.yaml 连上 Server（上游地址见 docs/operations/config-agent.md）"
+    if ($serverAddrWritten) {
+        Write-Info "完成。Server 地址已写入 server.addr；配置其余项见 docs/operations/config-agent.md"
+    } else {
+        Write-Info "完成。下一步：编辑 agent.yaml 连上 Server（上游地址见 docs/operations/config-agent.md）"
+    }
 } finally {
     Remove-Item -Recurse -Force $temp -ErrorAction SilentlyContinue
 }
