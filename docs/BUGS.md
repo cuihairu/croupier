@@ -1796,10 +1796,13 @@ payload。对照条件下（字段齐全）python demo 正常返回（33ms）。
 由框架把错误封装成错误响应帧回送（校验失败即时可达调用方）。python 的
 异步 start_task 路径有 TaskEvent 错误回传，仅同步 invoke 路径受影响。
 
-修复方向（未修）：`_process_inbound` 的 except 分支应尝试回送错误响应帧
-（`protocol.get_response_msg_id(msg_id)` + 错误 payload，形态对齐 Go SDK
-的 `{"error": ...}`），回送失败再降级为日志；同时核查 Schema 表单对必填
-字段（`* Template Id`）的前置校验为何放行了空值提交（见下）。
+修复：两层对齐 Go 语义——`CroupierClient._handle_inbound_invoke` 接住
+handler/校验异常回 `InvokeResponse{"error":...}` payload 帧（语义层，类型
+正确）；transport `_process_inbound` except 兜底回空 body 帧保证
+「失败也要答 Agent」（漏网异常如请求反序列化失败不再让对端挂起）。
+e2e 契约用例同步改写（旧断言「error swallowed, no reply」即病灶本体）。
+待办：核查 Schema 表单对必填字段（`* Template Id`）的前置校验为何放行
+了空值提交（见下）。
 
 关联观察（待核实，未立项）：SchemaFormRenderer 对标了必填星号的
 `templateId` 字段，空值提交未被前端拦截直接出网——若为通用缺陷（必填
@@ -1850,14 +1853,10 @@ rule 未接），影响面是全部 Schema 表单；也可能是该字段 schema
 | 035 | assignments 白名单化石 null 值透出前端（旧版空保存产物，读取侧无兜底）          | 已修          | api/logic 两包各 1 条读回归（修复前 stash 复跑红证）                                                                         |
 | 036 | README 顶部 logo 整块消失（prettier 全仓重排吞独立 HTML 块）                    | 已修          | diff 43df26e 全量比对确认仅丢 logo 块；恢复 + README.md 进 .prettierignore 防再犯（同族第二起，第一起 sdks/js game_demo.ts） |
 | 037 | v0.1.5 发布二进制 --version 恒 0.1.4（VERSION 文件滞后，make build 注入过期值） | 已修          | git show v0.1.5:VERSION 实证 + release/nightly 两工作流 Linux/Mac 改 git describe/nightly 重注入（与 Windows 口径统一）      |
-| 038 | Python SDK 同步 invoke 吞 handler 异常不回响应（调用方 15s 超时假象）           | **未修**      | （待修）修复后：python demo 非法载荷同步 invoke 秒级回错误帧，不再 15008ms 超时                                              |
+| 038 | Python SDK 同步 invoke 吞 handler 异常不回响应（调用方 15s 超时假象）           | 已修          | 5 条 pytest（3 条修复前红 + 2 条成功路径对照）+ e2e 契约改写；全量 546 passed                                                |
 
 ### 遗留 / 未修
 
-- **BUG-038（Python SDK 同步 invoke 吞异常）**：`transport/tcp.py:385-391`
-  except 分支只打日志不回响应帧，同步 invoke 的校验错误呈现为 15s 超时；
-  修复方向与回归口径见上条目。附待核实观察：Schema 表单必填字段空值提交
-  未被前端拦截。
 - **`Input.addonBefore` 的 9 处结构改写**视觉上由 `addonBefore` 内置样式换成
   `Space.Compact`（6 处）或 `Input.prefix`（3 处）。`prefix` 把标签从输入框**外侧**
   移到**内侧**，这两处的标签位置与改写前不同；已通过组件级单测锁定交互与取值，

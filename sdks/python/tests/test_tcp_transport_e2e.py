@@ -241,7 +241,15 @@ class TestInboundRequests:
         transport.connect()
 
         peer.push(protocol.MSG_INVOKE_REQUEST, 9, b"boom")
-        assert peer.wait_response(9, timeout=0.5) is None  # error swallowed, no reply
+        # BUG-038 修复后契约：失败也要答 Agent（对齐 Go inboundWorker）——
+        # handler 异常回兜底空 body 响应帧（错误 payload 由
+        # CroupierClient._handle_inbound_invoke 语义层封装），对端不再
+        # 干等到超时；transport 存活可继续服务后续请求。
+        resp = peer.wait_response(9, timeout=0.5)
+        assert resp is not None
+        resp_msg_id, resp_body = resp
+        assert resp_msg_id == protocol.MSG_INVOKE_RESPONSE
+        assert resp_body == b""
 
         resp_msg_id, _ = transport.call(protocol.MSG_INVOKE_REQUEST, b"ok")
         assert resp_msg_id == protocol.MSG_INVOKE_RESPONSE
