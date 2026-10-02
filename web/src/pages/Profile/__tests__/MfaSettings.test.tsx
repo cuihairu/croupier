@@ -176,6 +176,54 @@ describe('MfaSettings 已启用态', () => {
   });
 });
 
+// 回车提交：三个输入框的 onPressEnter（R55 funcs 收口）
+describe('MfaSettings 回车提交', () => {
+  it('确认码输入框按 Enter 等价点确认', async () => {
+    mockStatus.mockResolvedValue({ enabled: false, local: true });
+    mockSetup.mockResolvedValue({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUrl: OTPAUTH,
+      alreadyEnabled: false,
+    });
+    mockConfirm.mockResolvedValue({ recoveryCodes: ['ABCD2345EF'] });
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.click(await screen.findByTestId('mfa-enable'));
+    const code = await screen.findByTestId('mfa-confirm-code');
+    fireEvent.change(code, { target: { value: '654321' } });
+    fireEvent.keyDown(code, { key: 'Enter' });
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith('654321'));
+  });
+
+  it('关闭表单验证码输入框按 Enter 触发关闭请求', async () => {
+    mockStatus.mockResolvedValue({ enabled: true, local: true });
+    mockDisable.mockResolvedValue(undefined);
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    const code = await screen.findByTestId('mfa-disable-code');
+    fireEvent.change(code, { target: { value: '123456' } });
+    fireEvent.change(screen.getByTestId('mfa-disable-password'), {
+      target: { value: 'admin123' },
+    });
+    fireEvent.keyDown(code, { key: 'Enter' });
+    await waitFor(() => expect(mockDisable).toHaveBeenCalledWith('123456', 'admin123'));
+  });
+
+  it('关闭表单密码输入框按 Enter 触发关闭请求', async () => {
+    mockStatus.mockResolvedValue({ enabled: true, local: true });
+    mockDisable.mockResolvedValue(undefined);
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.change(await screen.findByTestId('mfa-disable-code'), {
+      target: { value: '123456' },
+    });
+    const password = screen.getByTestId('mfa-disable-password');
+    fireEvent.change(password, { target: { value: 'admin123' } });
+    fireEvent.keyDown(password, { key: 'Enter' });
+    await waitFor(() => expect(mockDisable).toHaveBeenCalledWith('123456', 'admin123'));
+  });
+});
+
 describe('MfaSettings 外部 IdP 账号', () => {
   it('只展示说明，不提供任何配置入口', async () => {
     mockStatus.mockResolvedValue({ enabled: false, local: false });
@@ -184,5 +232,151 @@ describe('MfaSettings 外部 IdP 账号', () => {
     expect(await screen.findByTestId('mfa-external')).toBeInTheDocument();
     expect(screen.queryByTestId('mfa-enable')).toBeNull();
     expect(screen.queryByTestId('mfa-qrcode')).toBeNull();
+  });
+});
+
+// R55 覆盖批次：错误流（加载/确认/关闭）、alreadyEnabled、空码 warning、
+// 恢复码下载、取消开启——此前 funcs 61.5% 的缺口全部在这些分支上。
+describe('MfaSettings 错误与分支流', () => {
+  it('状态加载失败走错误提示（extractErrorMessage 优先错误 message）', async () => {
+    mockStatus.mockRejectedValue(new Error('status boom'));
+    renderWithApp();
+    // 失败只提示不崩：组件保持未开启态渲染（不会误入已开启 UI）
+    expect(await screen.findByText('status boom')).toBeInTheDocument();
+    expect(screen.getByTestId('mfa-status')).toHaveTextContent('未开启');
+    expect(screen.getByTestId('mfa-enable')).toBeInTheDocument();
+  });
+
+  it('setup 返回 alreadyEnabled：直接回已启用态并警示，不渲染二维码', async () => {
+    mockStatus.mockResolvedValueOnce({ enabled: false, local: true }).mockResolvedValue({
+      enabled: true,
+      local: true,
+      recoveryCodesRemaining: 10,
+      recoveryCodeTotal: 10,
+    });
+    mockSetup.mockResolvedValue({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUrl: OTPAUTH,
+      alreadyEnabled: true,
+    });
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.click(await screen.findByTestId('mfa-enable'));
+    expect(await screen.findByText('两步验证已处于开启状态')).toBeInTheDocument();
+    expect(screen.queryByTestId('mfa-qrcode')).toBeNull();
+    // refresh 后回到已启用态（status 被再取一次），入口消失
+    await waitFor(() => expect(mockStatus).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId('mfa-enable')).toBeNull();
+  });
+
+  it('setupMfa 失败走错误提示，不渲染二维码', async () => {
+    mockStatus.mockResolvedValue({ enabled: false, local: true });
+    mockSetup.mockRejectedValue(new Error('secret boom'));
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.click(await screen.findByTestId('mfa-enable'));
+    expect(await screen.findByText('secret boom')).toBeInTheDocument();
+    expect(screen.queryByTestId('mfa-qrcode')).toBeNull();
+    expect(screen.getByTestId('mfa-enable')).toBeInTheDocument();
+  });
+
+  it('空验证码点确认：只警告不发请求', async () => {
+    mockStatus.mockResolvedValue({ enabled: false, local: true });
+    mockSetup.mockResolvedValue({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUrl: OTPAUTH,
+      alreadyEnabled: false,
+    });
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.click(await screen.findByTestId('mfa-enable'));
+    await screen.findByTestId('mfa-qrcode');
+    fireEvent.click(screen.getByTestId('mfa-confirm'));
+    expect(await screen.findByText('请输入验证器 App 中的 6 位验证码')).toBeInTheDocument();
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('确认失败走错误提示，不渲染恢复码区', async () => {
+    mockStatus.mockResolvedValue({ enabled: false, local: true });
+    mockSetup.mockResolvedValue({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUrl: OTPAUTH,
+      alreadyEnabled: false,
+    });
+    mockConfirm.mockRejectedValue(new Error('bad token'));
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.click(await screen.findByTestId('mfa-enable'));
+    fireEvent.change(await screen.findByTestId('mfa-confirm-code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByTestId('mfa-confirm'));
+    expect(await screen.findByText('bad token')).toBeInTheDocument();
+    expect(screen.queryByTestId('mfa-recovery-codes')).toBeNull();
+  });
+
+  it('关闭失败走错误提示，表单仍可重试', async () => {
+    mockStatus.mockResolvedValue({ enabled: true, local: true });
+    mockDisable.mockRejectedValue(new Error('disable boom'));
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.change(await screen.findByTestId('mfa-disable-code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.change(screen.getByTestId('mfa-disable-password'), { target: { value: 'admin123' } });
+    fireEvent.click(screen.getByTestId('mfa-disable'));
+    expect(await screen.findByText('disable boom')).toBeInTheDocument();
+    expect(screen.getByTestId('mfa-disable')).toBeInTheDocument();
+  });
+
+  it('恢复码下载触发 createObjectURL/revokeObjectURL', async () => {
+    const created = jest.fn(() => 'blob:recovery');
+    const revoked = jest.fn();
+    const origCreate = URL.createObjectURL;
+    const origRevoke = URL.revokeObjectURL;
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: revoked });
+    try {
+      mockStatus.mockResolvedValueOnce({ enabled: false, local: true }).mockResolvedValue({
+        enabled: true,
+        local: true,
+        recoveryCodesRemaining: 10,
+        recoveryCodeTotal: 10,
+      });
+      mockSetup.mockResolvedValue({
+        secret: 'JBSWY3DPEHPK3PXP',
+        otpauthUrl: OTPAUTH,
+        alreadyEnabled: false,
+      });
+      mockConfirm.mockResolvedValue({ recoveryCodes: ['ABCD2345EF', 'GHIJ6789KL'] });
+      renderWithApp();
+      await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+      fireEvent.click(await screen.findByTestId('mfa-enable'));
+      fireEvent.change(await screen.findByTestId('mfa-confirm-code'), {
+        target: { value: '123456' },
+      });
+      fireEvent.click(await screen.findByTestId('mfa-confirm'));
+      await waitFor(() => expect(mockConfirm).toHaveBeenCalled());
+      fireEvent.click(await screen.findByRole('button', { name: /下载全部恢复码/ }));
+      expect(created).toHaveBeenCalledTimes(1);
+      expect(revoked).toHaveBeenCalledWith('blob:recovery');
+    } finally {
+      Object.assign(URL, { createObjectURL: origCreate, revokeObjectURL: origRevoke });
+    }
+  });
+
+  it('取消开启清空二维码回到初始态', async () => {
+    mockStatus.mockResolvedValue({ enabled: false, local: true });
+    mockSetup.mockResolvedValue({
+      secret: 'JBSWY3DPEHPK3PXP',
+      otpauthUrl: OTPAUTH,
+      alreadyEnabled: false,
+    });
+    renderWithApp();
+    await waitFor(() => expect(mockStatus).toHaveBeenCalled());
+    fireEvent.click(await screen.findByTestId('mfa-enable'));
+    await screen.findByTestId('mfa-qrcode');
+    fireEvent.click(screen.getByRole('button', { name: /^取\s*消$/ }));
+    expect(screen.queryByTestId('mfa-qrcode')).toBeNull();
+    expect(await screen.findByTestId('mfa-enable')).toBeInTheDocument();
   });
 });
