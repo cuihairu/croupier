@@ -1,6 +1,6 @@
 // 覆盖目标：MockServiceContext 的 SetConfig。
 // （原 MockGRPCClient 用例随 gRPC 时代遗留 mock 一并清除，
-// 见 docs/grpc-investigation.md。）
+// 见 docs/archive/grpc-investigation.md。）
 package mocks
 
 import (

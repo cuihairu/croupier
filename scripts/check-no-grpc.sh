@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gRPC 禁入门禁（docs/grpc-investigation.md）。
+# gRPC 禁入门禁（docs/archive/grpc-investigation.md）。
 #
 # 本仓库已废除 gRPC（docs/architecture/transport-no-grpc.md），传输层为自研
 # TCP（长度前缀分帧 + protobuf）。本脚本在 CI 阻断 gRPC 经四条路径再次潜入：
@@ -20,7 +20,7 @@ fail=0
 # 1) go.mod：禁止直接依赖（require 行无 // indirect 标记）
 direct=$(grep -E '^[[:space:]]+(google\.golang\.org/grpc|github\.com/grpc-ecosystem/grpc-gateway/v2)[[:space:]]' go.mod | grep -v '// indirect' || true)
 if [ -n "$direct" ]; then
-  echo "FAIL: go.mod 出现 gRPC 直接依赖（禁止引入 gRPC，见 docs/grpc-investigation.md）:"
+  echo "FAIL: go.mod 出现 gRPC 直接依赖（禁止引入 gRPC，见 docs/archive/grpc-investigation.md）:"
   echo "$direct"
   fail=1
 fi

@@ -1,5 +1,8 @@
 # Web 前端组件重复度分析报告（web/src）
 
+> **已归档（2026-10-02 文档重整）**：本文是 2026-09-27 基线 `a6241f8` 的时点性只读
+> 扫描报告，数据随代码演进而失效；后续重复度治理以此为准入参考，勿当现状引用。
+
 - 扫描对象：`web/src` 下 `*.tsx`（排除 `__tests__/`、`*.test.tsx`、`*.d.ts`、`node_modules`、`.umi`）；附录覆盖 `web/src/services/api` 下 `*.ts`
 - 扫描时基线：`a6241f8`（另有 3 个未提交文件 `docs/OPEN-ISSUES.md`、`web/src/app.tsx`、`web/tests/appAntdRoot.test.ts`，均不在任何相似对中）
 - 扫描时间：2026-09-27；工具：python3（difflib + 自写正则 scanner，零安装、全程只读）

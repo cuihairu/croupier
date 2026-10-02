@@ -1,5 +1,8 @@
 # gRPC 残留调查与禁入门禁
 
+> **已归档（2026-10-02 文档重整）**：调查处置已完成，禁入门禁由 `scripts/check-no-grpc.sh`
+> 长期值守；唯一遗留（indirect 依赖链处置待拍板）转 OPEN-ISSUES #62 跟踪。
+
 状态：**调查处置完成（遗留 mock 已清、门禁已挂），indirect 依赖链处置待拍板**。
 
 铁律：**禁止引入 gRPC**——今后任何代码、依赖、设计不得新增 gRPC。仓库传输层为自研 TCP（长度前缀分帧 + protobuf），废除 gRPC 的决策与历史见 `docs/architecture/transport-no-grpc.md`。
@@ -41,7 +44,7 @@ internal/telemetry → otlpmetrichttp → otel 的 otlp proto 生成物 → grpc
 1. **`internal/mocks/grpc_client.go`（已删）**：gRPC 时代的 `MockGRPCClient`，mock 的接口形状是旧 pb client（Invoke/StartTask/StreamEvents/CancelTask）。全仓 grep 确认除 mocks 包自测外零引用——传输层换自研 TCP 后它 mock 的对象已不存在。随删：`grpc_client_cancel_error_test.go` 及 `mocks_test.go`（4 例）、`mocks_extra_test.go`（7 例）中的 mock 自测用例，共 **-12 用例**（均为「测遗留 mock 本身」，无业务回归价值；`MockFunctionStore`/`MockServiceContext` 及其用例保留）。
 2. **`internal/platform/tlsutil/tlsutil.go`（注释，保留）**：交代「原 grpc/credentials helpers 是 gRPC 时代的死代码，已随废除清除」——历史说明，正是防复发的记忆点。
 3. **`internal/telemetry/provider.go`（保留，待拍板）**：OTLP HTTP exporter 初始化，grpc indirect 依赖的唯一来源。
-4. **能力矩阵 `docs/agent-capability-library-matrix.md`（保留）**：gRPC 出现在「50 行分帧是否该换轮子」的论证里，语境是「任何第三方分帧（gRPC framing 等）都是协议变更，成本全 SDK 重写，收益为负」——否定引入，非建议。
+4. **能力矩阵 `docs/research/agent-capability-library-matrix.md`（保留）**：gRPC 出现在「50 行分帧是否该换轮子」的论证里，语境是「任何第三方分帧（gRPC framing 等）都是协议变更，成本全 SDK 重写，收益为负」——否定引入，非建议。
 5. **`docs/analytics/opentelemetry-integration.md`（保留）**：描述**外部 OTel Collector** 同时支持 OTLP/gRPC（4317）与 HTTP（4318）接收端口；croupier 侧文档与推荐配置只用 HTTP（4318）。
 6. **`proto/buf.yaml`（已清）**：删除 RPC_* 三条 lint except；proto 只定义 message，STANDARD 集合全量启用，`buf lint` 通过。
 

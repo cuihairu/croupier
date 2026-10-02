@@ -1,4 +1,4 @@
-docs/agent-capability-library-matrix.md|gRPC
+docs/OPEN-ISSUES.md|gRPC
 docs/analytics/api-reference.md|gRPC
 docs/analytics/opentelemetry-integration.md|gRPC
 docs/architecture/agent-server-session-transport-redesign.md|REQ/REP
@@ -25,7 +25,6 @@ docs/development/documentation-governance.md|gRPC
 docs/development/documentation-governance.md|rpc_addr
 docs/development/repository-guidelines.md|gRPC
 docs/development/repository-guidelines.md|rpc_addr
-docs/grpc-investigation.md|gRPC
 docs/guide/integrations/third-party-platforms.md|rpc_addr
 docs/guide/quick-start.md|REQ/REP
 docs/guide/quick-start.md|gRPC
@@ -36,6 +35,7 @@ docs/operations/troubleshooting.md|LocalControlService
 docs/operations/troubleshooting.md|REQ/REP
 docs/operations/troubleshooting.md|gRPC
 docs/operations/troubleshooting.md|rpc_addr
+docs/research/agent-capability-library-matrix.md|gRPC
 docs/sdks/cpp/configuration/client-config.md|rpc_addr
 docs/sdks/cpp/guide/architecture.md|gRPC
 docs/sdks/cpp/index.md|LocalControlService

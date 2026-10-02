@@ -253,6 +253,14 @@ const config = defineConfig({
             { text: "数据库监控", link: "/research/db-monitoring-design" },
             { text: "内部工具集成", link: "/research/tool-registry-design" },
             { text: "网站配置中心", link: "/research/site-settings-design" },
+            {
+              text: "Agent 能力成熟库盘点矩阵",
+              link: "/research/agent-capability-library-matrix",
+            },
+            {
+              text: "函数注册 UI 生成链路审核",
+              link: "/research/registration-ui-pipeline-audit-2026-09",
+            },
           ],
         },
       ],
