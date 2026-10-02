@@ -54,11 +54,11 @@
 
 ## 旧数据结构与迁移
 
-| 表或列                              | 状态              | 替代结构                                                                  | 删除前置条件                                              | 对应任务 |
-| ----------------------------------- | ----------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- | -------- |
-| 旧 workspace/object-page 配置表与列 | 待核对生产 schema | `page_specs`、`page_versions`、`published_page_specs`、`page_proposals`   | 完成 `I-001` 至 `I-003`；导出备份并取得生产删除确认       | `H-005`  |
-| 旧 Function UI 历史表与列           | 待核对生产 schema | `page_versions`、`page_proposal_versions`、`capability_semantic_versions` | 完成 Page Studio rollback E2E；导出备份并取得生产删除确认 | `H-005`  |
-| 旧 entity definition 相关表与列     | 待核对生产 schema | `function_contracts`、`resource_capabilities`、`capability_semantics`     | Resource Catalog E2E；导出备份并取得生产删除确认          | `H-005`  |
+| 表或列                              | 状态                            | 替代结构                                                                  | 删除前置条件                                              | 对应任务 |
+| ----------------------------------- | ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- | -------- |
+| 旧 workspace/object-page 配置表与列 | 已核对（2026-10-02 生产零残留） | `page_specs`、`page_versions`、`published_page_specs`、`page_proposals`   | 完成 `I-001` 至 `I-003`；导出备份并取得生产删除确认       | `H-005`  |
+| 旧 Function UI 历史表与列           | 已核对（2026-10-02 生产零残留） | `page_versions`、`page_proposal_versions`、`capability_semantic_versions` | 完成 Page Studio rollback E2E；导出备份并取得生产删除确认 | `H-005`  |
+| 旧 entity definition 相关表与列     | 已核对（2026-10-02 生产零残留） | `function_contracts`、`resource_capabilities`、`capability_semantics`     | Resource Catalog E2E；导出备份并取得生产删除确认          | `H-005`  |
 
 数据库删除必须使用显式的版本化迁移，且只能调用 `db.Migrator().DropColumn` 或
 `db.Migrator().DropTable`。不得通过 AutoMigrate、raw SQL 或部署脚本隐式删除。
