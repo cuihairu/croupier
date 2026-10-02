@@ -1836,7 +1836,9 @@ minLength 不覆盖、空串提交被拦 onFinish 不出网、隐藏豁免不注
 与提交拦截修复前红）+ index 本地化 1 条（limit=1 特化文案）+ upload 套件
 required 空串契约改写（旧断言「required 保留空串提交」即病灶本体）。
 渲染器语义文档同步 `docs/architecture/pagespec-protocol.md`「渲染器生效
-语义」。
+语义」。线上复证（deploy run 36994211146，gitCommit 0ab4878）：dashboard 产物
+含特化文案字面量（「不能为空」×8 / "cannot be empty"×9），新派生逻辑随镜像
+上线；拦截行为本身以前后端契约由 jest 覆盖，未做人工浏览器复验（边界诚实）。
 
 ## 汇总
 
