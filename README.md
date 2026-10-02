@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
+</p>
+
 <h1 align="center">Croupier</h1>
 
 <p align="center">
