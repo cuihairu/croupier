@@ -8,7 +8,9 @@
 docker/
 ├── README.md
 ├── docker-compose.yml
+├── docker-compose.quickstart.yml
 ├── docker-compose.telemetry.yaml
+├── configs/            # 容器挂载配置（server/agent/agent.quickstart/haproxy）
 ├── Dockerfile.server
 ├── Dockerfile.agent
 ├── Dockerfile.web
@@ -36,14 +38,27 @@ docker/
 
 ## 快速开始
 
-### 启动核心服务
+### 最快路径：quickstart（预构建镜像，无需源码构建）
+
+```bash
+cd docker
+docker compose -f docker-compose.quickstart.yml up -d
+```
+
+起最小可用栈（postgres + redis + server + agent + dashboard，ghcr.io 预构建
+镜像匿名可拉），五容器全 healthy 即就绪；Dashboard `:8000`、API `:18780`。
+可选组件（SDK 示例 / 分析管道）用 `--profile sdk-examples` / `--profile analytics`
+拉起；secret、端口、多游戏单库切换与「--profile pull 级联重建全栈」的坑见
+`docker-compose.quickstart.yml` 文件头注释与 [部署指南](../docs/operations/deploy-docker.md)。
+
+### 启动核心服务（源码构建）
 
 ```bash
 cd docker
 docker-compose up -d
 ```
 
-默认会启动：
+默认会启动（从仓库源码构建镜像，首次较慢）：
 
 - PostgreSQL
 - Redis

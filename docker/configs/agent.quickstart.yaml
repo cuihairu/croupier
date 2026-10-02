@@ -1,0 +1,49 @@
+# docker/docker-compose.quickstart.yml 专用 agent 配置：
+# 直连单实例 server（server:19090）。deploy 栈走 haproxy:19090（见 agent.yaml），
+# 两份不要混挂。gameId/env 与 sdk-examples 示例的默认 scope（default/dev）对齐。
+name: croupier-agent
+host: 0.0.0.0
+port: 19091
+
+server:
+  addr: "server:19090"
+  insecure: true
+  serverName: ""
+  insecureSkipVerify: false
+
+agent:
+  # id 留空由运行时自动生成；多 agent 接入时显式命名便于节点页辨识
+  id: "croupier-quickstart-agent"
+  gameId: "default"
+  env: "dev"
+  localAddr: "0.0.0.0:19091"
+  httpAddr: "agent:19091"
+  labels: {}
+
+upstream:
+  heartbeatInterval: 30
+  retryInterval: 5
+  maxRetries: 3
+  timeout: 10000
+
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  insecureSkipVerify: false
+
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
+
+# Ops module configuration
+# Controls system metrics collection and reporting
+ops:
+  enabled: true
+  metricsInterval: 30s
+  metricsEnabled: true

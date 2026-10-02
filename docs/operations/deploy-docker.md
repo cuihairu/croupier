@@ -22,7 +22,61 @@ tag:
 
 ## Docker 部署
 
-### 直接使用 compose
+三份编排按场景分工，别混用：
+
+| 编排                            | 镜像来源    | 适用                                        |
+| ------------------------------- | ----------- | ------------------------------------------- |
+| `docker-compose.quickstart.yml` | ghcr 预构建 | 快速体验/演示：一条命令最小栈，无需本地构建 |
+| `docker-compose.yml`            | 源码构建    | 本地开发：改代码即改容器                    |
+| `docker-compose.deploy.yml`     | ghcr 预构建 | 生产 HA：双实例 server/agent + haproxy      |
+
+### 快速体验（quickstart，开箱即用）
+
+预构建镜像（ghcr.io，匿名可拉）起最小栈：postgres + redis + server + agent + dashboard。
+
+```bash
+cd docker
+docker compose -f docker-compose.quickstart.yml up -d
+# 验证：五容器全 healthy；curl http://localhost:18780/healthz 应见
+# "ok":true 且 registry.agentsHealthy=1（agent 已注册）；Dashboard 在 :8000
+```
+
+常用操作：
+
+```bash
+# 看日志 / 停止
+docker compose -f docker-compose.quickstart.yml logs -f server
+docker compose -f docker-compose.quickstart.yml down
+
+# 升级全栈（pull + 重建）
+docker compose -f docker-compose.quickstart.yml pull
+docker compose -f docker-compose.quickstart.yml up -d
+
+# 清数据（⚠️ 连数据卷一起删：业务库、上传文件全没）
+docker compose -f docker-compose.quickstart.yml down -v
+```
+
+可选组件用 profile 拉起，不混进默认最小栈：
+
+```bash
+# SDK 六语言 + OpenAPI 示例——只想起示例时显式列服务名（见下「隐式全栈更新」坑）
+docker compose -f docker-compose.quickstart.yml --profile sdk-examples \
+  up -d sdk-demo-go sdk-demo-python sdk-demo-java \
+        sdk-demo-js sdk-demo-cpp sdk-demo-csharp
+
+# 分析管道（ClickHouse + ingestion + worker）；置 ANALYTICS_BRIDGE_ENABLED=true
+# 后 server 事件才写入分析流
+ANALYTICS_BRIDGE_ENABLED=true docker compose -f docker-compose.quickstart.yml \
+  --profile analytics up -d
+```
+
+> **隐式全栈更新坑**：`--profile sdk-examples pull && up -d` 会把
+> server/agent/dashboard 的 main 镜像一并拉新并级联 recreate，效果等同一次
+> 升级（新功能 + 数据库迁移直接上线）。只想重建示例容器时，pull/up 都显式
+> 限定服务名；接受级联就顺手验证新迁移已落库。secret/端口/多游戏单库切换
+> 等说明见 `docker/docker-compose.quickstart.yml` 文件头注释。
+
+### 本地开发（源码构建）
 
 ```bash
 docker compose up -d

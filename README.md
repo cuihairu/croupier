@@ -163,6 +163,30 @@ Windows（PowerShell 5.1+，x64）：
 
 默认装最新稳定版；`--version nightly` 装每日构建、`--with-service` 注册开机自启（systemd / launchd / Windows 服务）、`--uninstall` 卸载。完整用法见 [Agent 一键安装](docs/operations/agent-install.md)。
 
+## Docker Compose 部署
+
+预构建镜像一条命令起最小栈（server + agent + dashboard + postgres/redis，无需本地构建）：
+
+```bash
+cd docker
+docker compose -f docker-compose.quickstart.yml up -d
+```
+
+常用操作：
+
+```bash
+docker compose -f docker-compose.quickstart.yml logs -f server   # 看日志
+docker compose -f docker-compose.quickstart.yml down             # 停止
+docker compose -f docker-compose.quickstart.yml pull && \
+docker compose -f docker-compose.quickstart.yml up -d            # 升级
+docker compose -f docker-compose.quickstart.yml down -v          # ⚠️ 清数据（连卷删）
+```
+
+可选组件（SDK 六语言示例 / 分析管道）用 `--profile` 拉起，不混进默认栈；secret、
+端口、多游戏/单库切换与「`--profile` pull 级联重建全栈」的坑见
+[docker-compose.quickstart.yml](docker/docker-compose.quickstart.yml) 文件头注释
+与 [Docker 部署指南](docs/operations/deploy-docker.md)。
+
 ## 快速开始
 
 1. 拉取代码

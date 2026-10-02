@@ -1,0 +1,411 @@
+# =============================================================================
+# Croupier 开箱即用示例栈（quickstart）
+#
+# 与同目录其它编排的关系：
+#   - docker-compose.yml          本地开发栈：从源码构建全部镜像（慢，需完整仓库）
+#   - docker-compose.deploy.yml   HA 部署栈：双实例 server/agent + haproxy + 追踪
+#   - 本文件                      预构建镜像（ghcr.io，匿名可拉）的最小可用栈，
+#                                 无需本地构建，一条命令起 server+agent+dashboard
+#
+# 一条命令启动（在 docker/ 目录下）：
+#   docker compose -f docker-compose.quickstart.yml up -d
+#
+# 启动后：
+#   - Dashboard   http://localhost:8000   （引导管理员账号见首次启动日志/文档）
+#   - Server API  http://localhost:18780  （healthz: /healthz）
+#   - Agent 网关  localhost:19091         （SDK / GameServer 本地接入点）
+#
+# 常用操作：
+#   看日志     docker compose -f docker-compose.quickstart.yml logs -f server
+#   停止       docker compose -f docker-compose.quickstart.yml down
+#   升级全栈   docker compose -f docker-compose.quickstart.yml pull
+#              docker compose -f docker-compose.quickstart.yml up -d
+#   清数据     docker compose -f docker-compose.quickstart.yml down -v   # ⚠️ 连数据卷一起删
+#
+# ⚠️ 已知坑（勿踩）：`docker compose --profile sdk-examples pull && up -d`
+#   是一次「隐式全栈更新」——profile 激活后 pull 会把 server/agent/dashboard
+#   的 main 镜像一并拉新，up -d 随即级联 recreate 全部服务，效果等同一次升级
+#   （新功能 + 数据库迁移直接上线）。两种意图分两条路走：
+#     只想起示例（不碰全栈）：
+#       docker compose -f docker-compose.quickstart.yml --profile sdk-examples \
+#         up -d sdk-demo-go sdk-demo-python sdk-demo-java \
+#               sdk-demo-js sdk-demo-cpp sdk-demo-csharp
+#     明确要升级全栈：
+#       pull && up -d（如上「升级全栈」），随后验证新迁移已落库（server 日志）
+#
+# secret 怎么配：
+#   - 数据库/Redis 密码：本文件 `${VAR:-默认值}`，生产在 docker/.env 覆盖
+#     （POSTGRES_PASSWORD 等），默认值仅适合本机体验
+#   - JWT 密钥：configs/server.yaml 的 auth.jwtSecret，支持 $(ENV_VAR) 占位
+#     （加载时 os.ExpandEnv 展开，真实值走环境变量不落盘）；默认
+#     "localdevsecret-change-me" 仅限本机体验，暴露端口前必须改
+#   - 分析接入签名：ANALYTICS_INGEST_SECRET（analytics profile 时必改）
+#
+# 数据卷持久化在哪（down 不删、down -v 全删）：
+#   - <project>_postgres_data  PostgreSQL 全部业务数据（玩家/审批/审计/…）
+#   - <project>_redis_data     Redis（缓存 / 分析事件流）
+#   - <project>_server_data    server 运行时数据（assignments 状态、上传文件）
+#   project 名默认取 compose 的 name: 字段（croupier-quickstart）
+#
+# 多游戏 / 单库模式怎么切：
+#   - 默认单库：所有表同库、按 game_id 行级隔离（本示例即此形态）
+#   - 库级隔离：configs/server.yaml 的 database 段加 `multiGame: true`，
+#     每个 (game_id, env) 一套物理库（game_<id>_<env>），挂载的
+#     configs/server.yaml 是唯一切换点；详见 docs/architecture 下
+#     game-environment-scope 文档与 CLAUDE.md「Database-per-Game」节
+# =============================================================================
+
+name: croupier-quickstart
+
+services:
+  # PostgreSQL：唯一必配依赖（玩家/函数/审批/审计等全部业务表）。
+  # 默认不发布宿主端口（避免与本机其它实例冲突）；需要 psql 直连时在
+  # .env 设 QUICKSTART_POSTGRES_PORT 后解开 ports 注释。
+  postgres:
+    # public.ecr.aws 镜像源国内拉取更稳；可整体换回 docker.io/library/postgres
+    image: ${POSTGRES_IMAGE:-public.ecr.aws/docker/library/postgres:15-alpine}
+    container_name: croupier-quickstart-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-croupier}
+      POSTGRES_USER: ${POSTGRES_USER:-croupier}
+      # ⚠️ 默认密码仅限本机体验；生产在 docker/.env 覆盖
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-croupier_dev_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    # ports:
+    #   - "${QUICKSTART_POSTGRES_PORT:-127.0.0.1:5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - croupier-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-croupier} -d ${POSTGRES_DB:-croupier}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    # 缓存 + 分析事件流；server.yaml 的 cache.addr 指向 redis:6379（服务名）
+    image: ${REDIS_IMAGE:-public.ecr.aws/docker/library/redis:7-alpine}
+    container_name: croupier-quickstart-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - croupier-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    # 控制面：REST API(18780) + agent/SDK 连接入口(容器内 19090)
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-server:${CROUPIER_SERVER_TAG:-main}
+    container_name: croupier-quickstart-server
+    restart: unless-stopped
+    volumes:
+      # 挂载容器专用配置（postgres DSN / cache redis:6379）：
+      # jwtSecret / multiGame 等都在这份文件里改，改完 up -d 重建即生效
+      - ./configs/server.yaml:/app/configs/server.yaml:ro
+      # assignments 状态与上传文件：落 named volume，重建容器不丢
+      - server_data:/app/data
+    environment:
+      # env 覆盖 yaml 的 database 段（DSN 前缀自动识别 postgres 驱动）
+      DATABASE_URL: ${DATABASE_URL:-postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # 分析归流桥：默认关。启用 analytics profile 时置 true
+      # （见文件尾「可选组件」），事件才会写入 Redis 分析流
+      ANALYTICS_BRIDGE_ENABLED: ${ANALYTICS_BRIDGE_ENABLED:-false}
+    command: ["server", "--config", "/app/configs/server.yaml"]
+    ports:
+      # transport（agent/SDK 连接）：容器内监听 19090，宿主沿用 8443 端口名。
+      # 注意别写成 :8443->8443——容器内没有 8443 监听，是死映射（连接被
+      # docker-proxy 假 accept 后 reset），2026-09 在部署栈修正过
+      - "${SERVER_TRANSPORT_PORT:-8443}:19090"
+      - "${SERVER_HTTP_PORT:-18780}:18780"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'wget -qO- http://127.0.0.1:18780/healthz | grep -q ''"ok":true''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - croupier-network
+
+  agent:
+    # 游戏侧代理：出线连 server:19090，本地网关 19091 给 SDK/GameServer
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-agent:${CROUPIER_AGENT_TAG:-main}
+    container_name: croupier-quickstart-agent
+    restart: unless-stopped
+    volumes:
+      # quickstart 专用上游（server:19090，直连单实例；deploy 栈经 haproxy）
+      - ./configs/agent.quickstart.yaml:/app/configs/agent.yaml:ro
+    command: ["agent", "--config", "/app/configs/agent.yaml"]
+    ports:
+      - "${AGENT_HTTP_PORT:-19091}:19091"
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      # agent 镜像是 distroless+busybox（applet 在 /usr/local/bin），
+      # 探活本地网关 TCP 可达即可
+      test: ["CMD", "/usr/local/bin/busybox", "nc", "-z", "127.0.0.1", "19091"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - croupier-network
+
+  dashboard:
+    # Web 控制台（Umi Max 构建产物 + nginx，/api 反代 server:18780）
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-dashboard:${CROUPIER_DASHBOARD_TAG:-main}
+    container_name: croupier-quickstart-dashboard
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-8000}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - croupier-network
+
+  # =============================================================================
+  # 可选组件（默认不启动，profile 显式拉起——别混进默认最小栈）
+  # =============================================================================
+
+  # ---- SDK 六语言 + OpenAPI 示例（profiles: [sdk-examples]）----
+  # 启动（只起示例，不触发全栈重建——见文件头「已知坑」）：
+  #   docker compose -f docker-compose.quickstart.yml --profile sdk-examples \
+  #     up -d sdk-demo-go sdk-demo-python sdk-demo-java \
+  #           sdk-demo-js sdk-demo-cpp sdk-demo-csharp
+
+  sdk-demo-go:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-go-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-quickstart-sdk-demo-go
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_GO_EXAMPLE_SERVICE_ID:-game-demo-service}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
+    depends_on:
+      agent:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - sdk-examples
+
+  sdk-demo-python:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-python-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-quickstart-sdk-demo-python
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_PYTHON_EXAMPLE_SERVICE_ID:-game-demo-python}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
+    depends_on:
+      agent:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - sdk-examples
+
+  sdk-demo-java:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-java-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-quickstart-sdk-demo-java
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_JAVA_EXAMPLE_SERVICE_ID:-game-demo-java}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
+    depends_on:
+      agent:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - sdk-examples
+
+  sdk-demo-js:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-js-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-quickstart-sdk-demo-js
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_JS_EXAMPLE_SERVICE_ID:-game-demo-js}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
+    depends_on:
+      agent:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - sdk-examples
+
+  sdk-demo-cpp:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-cpp-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-quickstart-sdk-demo-cpp
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_CPP_EXAMPLE_SERVICE_ID:-game-demo-cpp}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
+    depends_on:
+      agent:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - sdk-examples
+
+  sdk-demo-csharp:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-csharp-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-quickstart-sdk-demo-csharp
+    restart: unless-stopped
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_CSHARP_EXAMPLE_SERVICE_ID:-game-demo-csharp}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
+    depends_on:
+      agent:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - sdk-examples
+
+  # examples/openapi-provider 常驻 demo：内嵌 Agent 把自带 players API
+  # 注册进 server，是 dashboard「OpenAPI Sources → 运行时导入」的数据源
+  openapi-provider-demo:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-openapi-provider-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-quickstart-openapi-provider-demo
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    command:
+      [
+        "-server",
+        "server:19090",
+        "-game-id",
+        "${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}",
+        "-env",
+        "${CROUPIER_SDK_EXAMPLE_ENV:-dev}",
+      ]
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - croupier-network
+
+  # ---- 分析管道（profiles: [analytics]）----
+  # 启用（桥开关 + profile 一条命令）：
+  #   ANALYTICS_BRIDGE_ENABLED=true docker compose -f docker-compose.quickstart.yml \
+  #     --profile analytics up -d
+  # server 事件 → Redis 流 → worker 入 ClickHouse；ingestion 是外部
+  # HTTP/JSON 主动上报入口（HMAC 签名，ANALYTICS_INGEST_SECRET 必改）
+
+  clickhouse:
+    image: ${CLICKHOUSE_IMAGE:-public.ecr.aws/docker/library/clickhouse:23-alpine}
+    container_name: croupier-quickstart-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - croupier-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:8123/?query=SELECT%201 || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    profiles:
+      - analytics
+
+  ingestion:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-ingest:${CROUPIER_INGEST_TAG:-main}
+    container_name: croupier-quickstart-ingestion
+    restart: unless-stopped
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYTICS_MQ_TYPE: ${ANALYTICS_MQ_TYPE:-redis}
+      ANALYTICS_INGEST_SECRET: ${ANALYTICS_INGEST_SECRET:-change-me}
+      ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
+      ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
+      ANALYTICS_INGEST_SKEW: ${ANALYTICS_INGEST_SKEW:-300}
+    ports:
+      - "${INGEST_PORT:-18081}:8088"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - analytics
+
+  analytics-worker:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-analytics-worker:${CROUPIER_ANALYTICS_WORKER_TAG:-main}
+    container_name: croupier-quickstart-analytics-worker
+    restart: unless-stopped
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
+      ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
+      CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics}
+      WORKER_GROUP: ${WORKER_GROUP:-analytics-worker}
+    depends_on:
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - analytics
+
+volumes:
+  postgres_data:
+  redis_data:
+  server_data:
+  clickhouse_data:
+
+networks:
+  croupier-network:
+    driver: bridge
