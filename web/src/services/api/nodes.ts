@@ -49,25 +49,6 @@ export async function listNodes(params?: NodesListParams) {
 }
 
 /**
- * 获取节点元数据
- */
-export async function getNodeMeta(id: string) {
-  return request<{ meta: unknown }>(`/api/v1/nodes/${id}/meta`, {
-    method: 'GET',
-  });
-}
-
-/**
- * 更新节点元数据
- */
-export async function updateNodeMeta(id: string, meta: unknown) {
-  return request<{ meta: unknown }>(`/api/v1/nodes/${id}/meta`, {
-    method: 'PUT',
-    data: { meta },
-  });
-}
-
-/**
  * 排空节点
  */
 export async function drainNode(id: string, timeout?: number) {
