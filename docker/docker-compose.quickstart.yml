@@ -144,7 +144,13 @@ services:
       retries: 12
       start_period: 20s
     networks:
-      - croupier-network
+      croupier-network:
+        # dashboard 镜像内置 nginx 按 deploy 栈容器名分流（split_clients
+        # 100% -> croupier-server:18780，见镜像内 /etc/nginx/nginx.conf），
+        # quickstart 的服务名是 server——不加这个别名时 /api 全部 502
+        # （容器自身健康检查只探静态页，探不出代理断）。
+        aliases:
+          - croupier-server
 
   agent:
     # 游戏侧代理：出线连 server:19090，本地网关 19091 给 SDK/GameServer
@@ -182,7 +188,14 @@ services:
       server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1"]
+      # 必须覆盖 /api 代理路径：静态页 / 永远 200 而 /api 可能 502（server
+      # 不可达时）。/api/v1/site/settings 免登录返回 401——401 说明请求已
+      # 穿过 nginx 打到上游 server；只有 502（nginx 生成）才算不健康。
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 && wget -S -qO- http://127.0.0.1/api/v1/site/settings 2>&1 | grep -qE 'HTTP/1\\.1 (200|401|404|405)'",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
