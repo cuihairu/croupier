@@ -63,7 +63,17 @@ jobs:
       - name: Build (Linux/Mac)
         if: runner.os != 'Windows'
         timeout-minutes: 15
-        run: make build
+        run: |
+          make build
+          # make build 注入的是 VERSION 文件值，发布切 tag 时常滞后（v0.1.5 实证：
+          # linux/darwin 二进制 --version 恒 0.1.4，Windows 因 git describe 而正确）——
+          # 发布面 server/agent 统一以 git describe 重注，与 Windows 构建一致
+          VERSION="$(git describe --tags --always --dirty)"
+          BUILD_TIME="$(date -u +"%Y-%m-%d_%H:%M:%S")"
+          GIT_COMMIT="$(git rev-parse --short HEAD)"
+          LDFLAGS="-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT -s -w"
+          GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS -X github.com/cuihairu/croupier/internal/svc.ServerVersion=$VERSION -X github.com/cuihairu/croupier/internal/svc.ServerGitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/internal/svc.ServerBuildTime=$BUILD_TIME" -o bin/croupier-server ./cmd/server
+          GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/agent
       - name: Build (Windows, PowerShell)
         if: runner.os == 'Windows'
         timeout-minutes: 15

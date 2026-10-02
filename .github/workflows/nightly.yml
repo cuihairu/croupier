@@ -13,13 +13,34 @@ permissions:
 
 jobs:
   build-binaries:
-    name: Build Binaries (${{ matrix.os }})
+    name: Build Binaries (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # 前 3 项为原生构建（未设 goos/goarch 时走 make build / 原生 go build）；
+      # 后 3 项为交叉编译补位（scripts/install.sh 的平台覆盖面，CGO_ENABLED=0 纯 Go）
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            label: linux-amd64
+          - os: macos-latest
+            label: darwin-arm64
+          - os: windows-latest
+            label: windows-amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            label: linux-arm64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm
+            goarm: "7"
+            label: linux-armv7
+          - os: ubuntu-latest
+            goos: darwin
+            goarch: amd64
+            label: darwin-amd64
     steps:
       - name: Checkout
         timeout-minutes: 3
@@ -52,7 +73,27 @@ jobs:
       - name: Build (Linux/Mac)
         if: runner.os != 'Windows'
         timeout-minutes: 15
-        run: make build
+        run: |
+          VERSION="nightly-$(date -u +%Y%m%d)"
+          BUILD_TIME=$(date -u +"%Y-%m-%d_%H:%M:%S")
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+          LDFLAGS="-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT -s -w"
+          SRV_LDFLAGS="$LDFLAGS -X github.com/cuihairu/croupier/internal/svc.ServerVersion=$VERSION -X github.com/cuihairu/croupier/internal/svc.ServerGitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/internal/svc.ServerBuildTime=$BUILD_TIME"
+          mkdir -p bin
+          if [ -n "${{ matrix.goos }}" ]; then
+            # 交叉编译补位：与 Makefile 同参（无额外 tags，全驱动编译进二进制），
+            # CGO_ENABLED=0——server/agent 均为纯 Go（glebarez/sqlite、pg 驱动无 cgo）
+            CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
+              GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
+            CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
+              GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/agent
+          else
+            make build
+            # make build 注入的是 VERSION 文件值（发布时点可能滞后，v0.1.5 实证恒 0.1.4）——
+            # nightly 发布面统一以 nightly-YYYYMMDD 重注（与上方交叉编译条目一致）
+            GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
+            GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/agent
+          fi
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
@@ -75,9 +116,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p release
-          GOOS=$(go env GOOS)
-          GOARCH=$(go env GOARCH)
-          TAR="release/croupier-bin-${GOOS}-${GOARCH}.tar.gz"
+          if [ -n "${{ matrix.goos }}" ]; then
+            PKG_OS=${{ matrix.goos }}
+            PKG_ARCH=${{ matrix.goarch }}
+          else
+            PKG_OS=$(go env GOOS)
+            PKG_ARCH=$(go env GOARCH)
+          fi
+          TAR="release/croupier-bin-${PKG_OS}-${PKG_ARCH}.tar.gz"
           tar -czf "${TAR}" -C bin .
 
       - name: Package binaries (Windows)
@@ -95,7 +141,7 @@ jobs:
         timeout-minutes: 3
         uses: actions/upload-artifact@v7
         with:
-          name: binaries-${{ matrix.os }}
+          name: binaries-${{ matrix.label }}
           path: release/*
           retention-days: 7
 
@@ -622,16 +668,18 @@ jobs:
           cat > release-notes.md << 'EOF'
           # Nightly Build
 
-          **Built**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          **Commit**: $(git rev-parse --short HEAD)
+          **Built**: __BUILD_TIME__
+          **Commit**: __COMMIT__
           **Branch**: main
 
           ## Contents
 
           ### Server/Agent Binaries
-          - `croupier-bin-darwin-arm64.tar.gz` - macOS ARM64
-          - `croupier-bin-darwin-amd64.tar.gz` - macOS Intel
           - `croupier-bin-linux-amd64.tar.gz` - Linux x64
+          - `croupier-bin-linux-arm64.tar.gz` - Linux ARM64
+          - `croupier-bin-linux-armv7.tar.gz` - Linux ARMv7
+          - `croupier-bin-darwin-amd64.tar.gz` - macOS Intel
+          - `croupier-bin-darwin-arm64.tar.gz` - macOS ARM64
           - `croupier-bin-windows-amd64.zip` - Windows x64
 
           ### Go SDK (Multi-platform)
@@ -664,6 +712,10 @@ jobs:
 
           ### Server/Agent
           ```bash
+          # 一键安装 agent（Linux/macOS，自动识别架构）
+          curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
+
+          # 或手动解包
           tar -xzf croupier-bin-linux-amd64.tar.gz
           ./croupier-server --help
           ```
@@ -685,6 +737,8 @@ jobs:
           ---
           **Note**: This is an automated nightly build. Use at your own risk.
           EOF
+          # 引号 heredoc 不会展开 $(...)，故以占位符 + sed 回填（原写法是字面量，恒显示 $(date)）
+          sed -i "s/__BUILD_TIME__/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/; s/__COMMIT__/$(git rev-parse --short HEAD)/" release-notes.md
 
       - name: Update nightly tag
         timeout-minutes: 5

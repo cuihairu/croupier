@@ -139,6 +139,30 @@ Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
 | Examples / Tools | `examples/`, `tools/` | 示例和辅助工具                                  |
 | Docs             | `docs/`               | 架构、指南、API 与 SDK 文档                     |
 
+## 一键安装 Agent
+
+在游戏服务器上一条命令安装 croupier-agent（自动识别系统与 CPU 架构，产物匿名直下，重跑即升级）：
+
+Linux（x86_64 / ARM64 / ARMv7）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
+```
+
+macOS（Intel / Apple Silicon）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
+```
+
+Windows（PowerShell 5.1+，x64）：
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.ps1)))
+```
+
+默认装最新稳定版；`--version nightly` 装每日构建、`--with-service` 注册开机自启（systemd / launchd / Windows 服务）、`--uninstall` 卸载。完整用法见 [Agent 一键安装](docs/operations/agent-install.md)。
+
 ## 快速开始
 
 1. 拉取代码

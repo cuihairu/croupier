@@ -12,6 +12,8 @@ tag:
 
 适合无容器约束的裸机/VM 环境。产物来自 [Release](https://github.com/cuihairu/croupier/releases) 或本地构建（`make build` → `bin/croupier-server`、`bin/croupier-agent`）。
 
+> 只需要 agent 时可用[一键安装脚本](./agent-install)（自动识别架构、匿名下载、幂等升级，可选注册服务）；本页为全量手动部署（目录规划、server 配置、生产级 systemd 单元）。
+
 ## 前置依赖
 
 - Linux x86_64，Go 1.26+（仅本地构建需要）

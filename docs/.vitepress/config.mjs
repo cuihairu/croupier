@@ -276,6 +276,10 @@ const config = defineConfig({
               text: "二进制部署（systemd）",
               link: "/operations/deploy-binary",
             },
+            {
+              text: "Agent 一键安装",
+              link: "/operations/agent-install",
+            },
             { text: "Kubernetes 部署", link: "/operations/deploy-kubernetes" },
             { text: "版本升级与回滚", link: "/operations/upgrade-rollback" },
             { text: "负载均衡", link: "/operations/load-balancing" },
