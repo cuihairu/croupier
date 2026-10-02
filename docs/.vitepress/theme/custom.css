@@ -1,29 +1,39 @@
-/* croupier palette — logo.svg 主色 #FF3E49（FDEDEE 是背景、262626 是文字）
- *   #ff3e49  brand（链接、按钮、feature 图标）
- *   #e63541  hover
- *   #cc2f3a  active / 标题强调
- *   #ff8a90  暗色模式提亮
- * 其余沿用 VitePress 默认中性色，避免整站被染色。
+/* croupier「荷官墨粉」主题 — charcoal + blush，对齐 logo #262626 / #FDEDEE
+ *
+ * 亮色（brand ramp 三档）：
+ *   #b8556b  brand-1  链接、图标、行内代码
+ *   #93394d  brand-2  按钮底、强调
+ *   #7a2b3e  brand-3  hover / 标题强调
+ *   rgba(184,85,107,0.13)  brand-soft  feature 图标底
+ * 正文墨黑 #262626；hero 渐变玫瑰三档 #7a2b3e → #b8556b → #e58aa0
+ *
+ * 暗色整体提亮一档：brand-1 #e58aa0 / brand-2 #cf6a82。
  */
 :root {
-  --vp-c-brand-1: #ff3e49;
-  --vp-c-brand-2: #e63541;
-  --vp-c-brand-3: #cc2f3a;
-  --vp-c-brand-soft: rgba(255, 62, 73, 0.13);
+  --vp-c-brand-1: #b8556b;
+  --vp-c-brand-2: #93394d;
+  --vp-c-brand-3: #7a2b3e;
+  --vp-c-brand-soft: rgba(184, 85, 107, 0.13);
 
-  --vp-button-brand-bg: #ff3e49;
-  --vp-button-brand-hover-bg: #e63541;
-  --vp-button-brand-active-bg: #cc2f3a;
+  /* 正文墨黑（logo 文字色），替代默认中性灰 */
+  --vp-c-text-1: #262626;
+  --vp-c-text-2: rgba(38, 38, 38, 0.78);
+  --vp-c-text-3: rgba(38, 38, 38, 0.56);
+
+  /* 按钮 #93394d 系：底 brand-2 → hover brand-3 → active 再压一档 */
+  --vp-button-brand-bg: #93394d;
+  --vp-button-brand-hover-bg: #7a2b3e;
+  --vp-button-brand-active-bg: #662335;
 
   --vp-home-hero-name-color: transparent;
   --vp-home-hero-name-background: linear-gradient(
     115deg,
-    #cc2f3a 8%,
-    #ff3e49 52%,
-    #ff8a90 96%
+    #7a2b3e 8%,
+    #b8556b 52%,
+    #e58aa0 96%
   );
 
-  --vp-custom-outline: #ff3e49;
+  --vp-custom-outline: #b8556b;
 
   .VPFeature .icon {
     border-radius: 10px;
@@ -32,25 +42,32 @@
   }
 }
 
-/* 暗色：亮色系主色压暗会发闷，整体提一档 */
+/* 暗色：亮色系主色压暗会发闷，整体提亮一档 */
 .dark {
-  --vp-c-brand-1: #ff8a90;
-  --vp-c-brand-2: #ff3e49;
-  --vp-c-brand-3: #ff8a90;
-  --vp-c-brand-soft: rgba(255, 138, 144, 0.16);
+  --vp-c-brand-1: #e58aa0;
+  --vp-c-brand-2: #cf6a82;
+  --vp-c-brand-3: #b8556b;
+  --vp-c-brand-soft: rgba(229, 138, 160, 0.16);
 
-  --vp-button-brand-bg: #ff3e49;
-  --vp-button-brand-hover-bg: #ff8a90;
-  --vp-button-brand-active-bg: #e63541;
+  /* 上面 :root 的墨黑文本必须在此翻回白系：本文件在 VitePress vars
+   * 之后加载，:root 的文本值会按源序压过库内 .dark，不补则暗色黑字黑底 */
+  --vp-c-text-1: rgba(255, 255, 255, 0.87);
+  --vp-c-text-2: rgba(235, 235, 245, 0.6);
+  --vp-c-text-3: rgba(235, 235, 245, 0.38);
+
+  /* 暗色按钮：底 brand-2 → hover 提亮 brand-1 → active 落 brand-3 */
+  --vp-button-brand-bg: #cf6a82;
+  --vp-button-brand-hover-bg: #e58aa0;
+  --vp-button-brand-active-bg: #b8556b;
 
   --vp-home-hero-name-background: linear-gradient(
     115deg,
-    #ff8a90 8%,
-    #ff3e49 52%,
-    #cc2f3a 96%
+    #e58aa0 8%,
+    #cf6a82 52%,
+    #b8556b 96%
   );
 
-  --vp-custom-outline: #ff8a90;
+  --vp-custom-outline: #e58aa0;
 }
 
 /* 行内代码沿用品牌色，替掉默认蓝 */

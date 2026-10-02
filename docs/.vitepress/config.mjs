@@ -18,7 +18,7 @@ const config = defineConfig({
         content: "croupier,游戏管理,gm系统,分布式系统,session,agent,sdk",
       },
     ],
-    ["meta", { name: "theme-color", content: "#3eaf7c" }],
+    ["meta", { name: "theme-color", content: "#93394d" }],
   ],
   base: "/croupier/",
 
