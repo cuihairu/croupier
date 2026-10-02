@@ -181,7 +181,7 @@ export default function Profile() {
                     name={profileText(profile?.displayName) || profileText(profile?.nickname)}
                     username={profileText(profile?.username)}
                     style={{
-                      border: '3px solid #1890ff',
+                      border: '3px solid #93394d',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     }}
                   />

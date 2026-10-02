@@ -419,7 +419,7 @@ export default function ComponentLibrary({
                 onInsert={onInsert}
               >
                 <Space size={6}>
-                  <AppstoreOutlined style={{ color: '#1677ff' }} />
+                  <AppstoreOutlined style={{ color: '#93394d' }} />
                   <Text strong style={{ fontSize: 12 }}>
                     {name}
                   </Text>

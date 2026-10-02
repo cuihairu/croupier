@@ -54,7 +54,7 @@ export default function AssignmentsPage() {
           })}
           items={[
             {
-              color: '#1677ff',
+              color: '#93394d',
               text: intl.formatMessage(
                 {
                   id: 'pages.assignments.summary.stat.total',

@@ -524,7 +524,7 @@ const ResourceCatalogPage: React.FC = () => {
           })}
           items={[
             {
-              color: '#1677ff',
+              color: '#93394d',
               text: intl.formatMessage(
                 {
                   id: 'pages.resourceCatalog.page.summary.item.total',

@@ -390,7 +390,7 @@ export default () => {
                   defaultMessage: '运行中',
                 }),
                 value: stats.running,
-                styles: { content: { color: '#1890ff' } },
+                styles: { content: { color: '#93394d' } },
               }}
             />
           </Col>

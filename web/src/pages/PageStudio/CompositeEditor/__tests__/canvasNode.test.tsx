@@ -173,7 +173,7 @@ describe('渲染', () => {
   it('选中态：卡片边框样式区分', () => {
     const { container, unmount } = renderNode({ selected: true });
     const card = container.querySelector('.ant-card') as HTMLElement;
-    expect(card.style.borderColor).toBe('rgb(22, 119, 255)');
+    expect(card.style.borderColor).toBe('rgb(147, 57, 77)');
     unmount();
     const { container: c2 } = renderNode({ selected: false });
     const card2 = c2.querySelector('.ant-card') as HTMLElement;
@@ -391,7 +391,7 @@ describe('container 子节点', () => {
       node: containerNode(),
       selectedChildId: 'k1',
     });
-    const solid = c3.querySelector('[style*="1px solid rgb(22, 119, 255)"]');
+    const solid = c3.querySelector('[style*="1px solid rgb(147, 57, 77)"]');
     expect(solid).not.toBeNull();
   });
 

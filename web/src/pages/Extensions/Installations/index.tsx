@@ -215,7 +215,7 @@ export default function ExtensionsInstallationsPage() {
           })}
           items={[
             {
-              color: '#1677ff',
+              color: '#93394d',
               text: intl.formatMessage(
                 {
                   id: 'pages.extensionsInstallations.overview.itemTotal',

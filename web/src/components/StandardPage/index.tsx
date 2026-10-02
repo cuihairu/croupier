@@ -157,7 +157,7 @@ const PAGE_STATE_THEME: Record<
     background: 'linear-gradient(135deg, rgba(82,196,26,0.12) 0%, rgba(22,119,255,0.03) 100%)',
   },
   info: {
-    accent: '#1677ff',
+    accent: '#93394d',
     badgeStatus: 'processing',
     background: 'linear-gradient(135deg, rgba(22,119,255,0.1) 0%, rgba(114,46,209,0.03) 100%)',
   },

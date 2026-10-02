@@ -283,7 +283,7 @@ export default function InstallationDetailDrawer({
                     ),
                   },
                   {
-                    color: '#1677ff',
+                    color: '#93394d',
                     text: intl.formatMessage(
                       {
                         id: 'pages.extensionsInstallations.detail.overview.version',

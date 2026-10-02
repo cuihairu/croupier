@@ -392,14 +392,14 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
             })}
           </text>
           {/* lines */}
-          {pathOf('all', '#1677ff')}
+          {pathOf('all', '#93394d')}
           {pathOf('new', '#52c41a')}
           {pathOf('ret', '#faad14')}
           {pathOf('pay', '#f5222d')}
           {/* legend */}
           <g>
             <rect x={w - right - 260} y={topm + 6} width={250} height={20} fill="#fff" />
-            <circle cx={w - right - 250} cy={topm + 16} r={3} fill="#1677ff" />
+            <circle cx={w - right - 250} cy={topm + 16} r={3} fill="#93394d" />
             <text x={w - right - 242} y={topm + 20} fontSize={10}>
               {intl.formatMessage({
                 id: 'pages.analyticsLevels.chart.legend.all',

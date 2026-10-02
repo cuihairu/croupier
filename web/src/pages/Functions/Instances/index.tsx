@@ -332,7 +332,7 @@ export default () => {
           })}
           items={[
             {
-              color: '#1677ff',
+              color: '#93394d',
               text: intl.formatMessage(
                 {
                   id: 'pages.functionsInstances.summary.totalInstances',

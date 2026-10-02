@@ -125,7 +125,7 @@ export default function ConsoleIndex() {
                 placeItems: 'center',
                 background: isMenuGroup
                   ? 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)'
-                  : 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
+                  : 'linear-gradient(135deg, #93394d 0%, #e58aa0 100%)',
                 color: '#fff',
               }}
             >

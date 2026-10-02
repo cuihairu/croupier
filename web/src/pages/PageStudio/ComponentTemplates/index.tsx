@@ -559,7 +559,7 @@ export default function ComponentTemplatesPage() {
                       ]}
                     >
                       <Card.Meta
-                        avatar={<AppstoreOutlined style={{ fontSize: 24, color: '#1677ff' }} />}
+                        avatar={<AppstoreOutlined style={{ fontSize: 24, color: '#93394d' }} />}
                         title={
                           <Space size={6}>
                             <Text strong>{nameOf(tpl)}</Text>

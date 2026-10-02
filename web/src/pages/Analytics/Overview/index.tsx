@@ -99,7 +99,7 @@ export default function AnalyticsOverviewPage() {
     const d = pts.map((pt, i) => `${i ? 'L' : 'M'}${sx(pt[0])},${sy(pt[1])}`).join(' ');
     return (
       <svg width={w} height={h} style={{ display: 'block' }}>
-        <path d={d} fill="none" stroke="#1677ff" strokeWidth={2} />
+        <path d={d} fill="none" stroke="#93394d" strokeWidth={2} />
       </svg>
     );
   };

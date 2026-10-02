@@ -75,7 +75,7 @@ export function ModalPlaceholder({
         onEnterModal();
       }}
       style={{
-        border: selected ? '1px solid #1677ff' : '1px dashed #b37feb',
+        border: selected ? '1px solid #93394d' : '1px dashed #b37feb',
         borderRadius: 8,
         padding: 12,
         cursor: 'pointer',
@@ -178,7 +178,7 @@ function RootDropZone({ onShowTemplates }: { onShowTemplates?: () => void }) {
         marginTop: 100,
         textAlign: 'center',
         padding: '40px 0',
-        border: isOver ? '2px dashed #1677ff' : '1px dashed #d9d9d9',
+        border: isOver ? '2px dashed #93394d' : '1px dashed #d9d9d9',
         borderRadius: 8,
         background: isOver ? '#f0f7ff' : 'transparent',
       }}

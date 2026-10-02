@@ -285,7 +285,7 @@ describe('ModalPlaceholder 选中边框 / 拖入高亮 / children 兜底（useDr
   it('selected=true 实线高亮边框；false 回虚线', () => {
     const { rerender } = renderPlaceholder(modalNode, true);
     expect(cardOf('发邮件弹窗').style.borderStyle).toBe('solid');
-    expect(cardOf('发邮件弹窗').style.borderColor).toBe('rgb(22, 119, 255)');
+    expect(cardOf('发邮件弹窗').style.borderColor).toBe('rgb(147, 57, 77)');
     rerender(
       <App>
         <ModalPlaceholder
@@ -381,7 +381,7 @@ describe('RootDropZone 拖入高亮（useDroppable 受控）', () => {
       </App>,
     );
     expect(zoneOf().style.borderWidth).toBe('2px');
-    expect(zoneOf().style.borderColor).toBe('rgb(22, 119, 255)');
+    expect(zoneOf().style.borderColor).toBe('rgb(147, 57, 77)');
     expect(zoneOf().style.background).toBe('rgb(240, 247, 255)');
   });
 });

@@ -46,7 +46,7 @@ export const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
                 <text x={4} y={y + barH - 4} fontSize={12} fill="#555">
                   {String(it.productId || '-')}
                 </text>
-                <rect x={left} y={y} width={Math.max(2, scale(val))} height={barH} fill="#1677ff" />
+                <rect x={left} y={y} width={Math.max(2, scale(val))} height={barH} fill="#93394d" />
                 <text
                   x={left + Math.max(2, scale(val)) + 6}
                   y={y + barH - 4}
@@ -362,7 +362,7 @@ export const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
     const prods = (data || []) as TrendData[];
     if (!prods.length) return null;
     const colors = [
-      '#1677ff',
+      '#93394d',
       '#fa541c',
       '#52c41a',
       '#faad14',

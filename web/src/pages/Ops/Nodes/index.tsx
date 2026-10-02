@@ -210,7 +210,7 @@ export default function OpsNodesPage() {
           })}
           items={[
             {
-              color: '#1677ff',
+              color: '#93394d',
               text: intl.formatMessage(
                 { id: 'pages.opsNodes.summary.total', defaultMessage: `节点 ${summary.total}` },
                 { total: summary.total },

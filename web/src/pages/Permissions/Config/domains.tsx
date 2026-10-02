@@ -90,7 +90,7 @@ export const permissionDomains: PermissionDomain[] = [
       'function:view',
       'function:deploy',
     ],
-    color: '#1890ff',
+    color: '#93394d',
     icon: <SettingOutlined />,
   },
   {

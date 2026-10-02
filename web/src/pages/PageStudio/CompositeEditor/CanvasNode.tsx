@@ -176,7 +176,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
         <Card
           size="small"
           style={{
-            borderColor: selected ? '#1677ff' : undefined,
+            borderColor: selected ? '#93394d' : undefined,
             boxShadow: selected ? '0 0 0 2px rgba(22,119,255,0.15)' : undefined,
             height: '100%',
           }}
@@ -187,7 +187,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                 onClick={(e) => e.stopPropagation()}
                 style={{ cursor: 'grab', touchAction: 'none' }}
               >
-                <DragOutlined style={{ color: selected ? '#1677ff' : '#999' }} />
+                <DragOutlined style={{ color: selected ? '#93394d' : '#999' }} />
               </span>
               {def?.icon}
               <Text strong style={{ fontSize: 13 }}>
@@ -321,7 +321,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                           }}
                           style={{
                             border:
-                              selectedChildId === c.id ? '1px solid #1677ff' : '1px dashed #d9d9d9',
+                              selectedChildId === c.id ? '1px solid #93394d' : '1px dashed #d9d9d9',
                             borderRadius: 6,
                             padding: 6,
                             cursor: 'pointer',
