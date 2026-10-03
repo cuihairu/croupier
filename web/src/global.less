@@ -5,6 +5,13 @@
 @panel-shadow-soft: 0 6px 18px rgba(15, 23, 42, 0.04);
 @text-strong: #0f172a;
 @text-secondary: #475569;
+@brand-1: #b8556b;
+@brand-2: #93394d;
+@brand-3: #7a2b3e;
+@rose-1: #e58aa0;
+@rose-2: #b8556b;
+@rose-3: #7a2b3e;
+@text-meng: #262626;
 
 :root {
   --app-shell-bg: @shell-bg;
@@ -14,6 +21,57 @@
   --app-panel-shadow-soft: @panel-shadow-soft;
   --app-text-strong: @text-strong;
   --app-text-secondary: @text-secondary;
+  --brand-1: @brand-1;
+  --brand-2: @brand-2;
+  --brand-3: @brand-3;
+  --rose-1: @rose-1;
+  --rose-2: @rose-2;
+  --rose-3: @rose-3;
+  --text-meng: @text-meng;
+}
+
+/* Hero 区玫瑰三色渐变背景（仅在 home 页 layout 生效） */
+.hero-grad {
+  background:
+    linear-gradient(135deg, var(--rose-3) 0%, var(--rose-2) 33%, var(--rose-1) 66%, var(--brand-2) 100%);
+}
+
+/* 亮色模式下正文墨黑 */
+html[data-theme='light'] {
+  --text-primary: @text-meng;
+}
+
+/* 按钮品牌色系 */
+.ant-btn-primary {
+  background-color: var(--brand-2);
+  border-color: var(--brand-2);
+  &:hover {
+    background-color: var(--rose-2);
+    border-color: var(--rose-2);
+  }
+  &:focus-visible {
+    background-color: var(--rose-1);
+    border-color: var(--rose-1);
+    box-shadow: 0 0 0 2px var(--rose-1);
+  }
+}
+
+/* 导航栏/菜单品牌点缀 */
+.ant-menu-item-selected,
+.ant-menu-submenu-selected {
+  background-color: rgba(var(--brand-1-rgb), 0.15);
+}
+
+/* 暗色主题适配（整体提亮） */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-1: #e58aa0;
+    --brand-2: #cf6a82;
+    --brand-3: #7a2b3e;
+    --rose-1: #ffb3c6;
+    --rose-2: #e58aa0;
+    --rose-3: #cf6a82;
+  }
 }
 
 html,
