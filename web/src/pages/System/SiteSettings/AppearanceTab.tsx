@@ -29,7 +29,7 @@ export default function AppearanceTab() {
 
   return (
     <Card>
-      <Space direction="vertical" size="middle" style={{ maxWidth: 640, width: '100%' }}>
+      <Space orientation="vertical" size="middle" style={{ maxWidth: 640, width: '100%' }}>
         <Text type="secondary">
           <FormattedMessage
             id="pages.systemSiteSettings.appearance.hint"
