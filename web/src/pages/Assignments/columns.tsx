@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ProColumns } from '@ant-design/pro-components';
-import { Badge, Button, Progress, Space, Tag, Tooltip } from 'antd';
+import { Badge, Button, Progress, Space, Tag, Tooltip, Typography } from 'antd';
 import {
   CheckCircleOutlined,
   DeleteOutlined,
@@ -50,7 +50,25 @@ export const buildAssignmentColumns = ({
         render: (_, record) => (
           <Space>
             <Badge status={record.status === 'active' ? 'success' : 'default'} />
-            <span>{record.id}</span>
+            {/* 目录总开关禁用的函数：置灰 + 「已禁用」标记（悬停见原因说明） */}
+            <Typography.Text type={record.directoryDisabled ? 'secondary' : undefined}>
+              {record.id}
+            </Typography.Text>
+            {record.directoryDisabled && (
+              <Tooltip
+                title={intl.formatMessage({
+                  id: 'pages.assignments.directoryDisabled.tooltip',
+                  defaultMessage: '由函数目录总开关禁用，本页不可勾选；请到函数目录重新启用',
+                })}
+              >
+                <Tag color="default">
+                  {intl.formatMessage({
+                    id: 'pages.assignments.directoryDisabled.tag',
+                    defaultMessage: '已禁用',
+                  })}
+                </Tag>
+              </Tooltip>
+            )}
           </Space>
         ),
       } as ProColumns<AssignmentItem>;
@@ -61,6 +79,14 @@ export const buildAssignmentColumns = ({
         dataIndex: 'name',
         width: col.width,
         ellipsis: true,
+        render: (_, record) => (
+          <Typography.Text
+            type={record.directoryDisabled ? 'secondary' : undefined}
+            delete={record.directoryDisabled}
+          >
+            {record.name}
+          </Typography.Text>
+        ),
       } as ProColumns<AssignmentItem>;
     }
     if (col.key === 'version') {
@@ -144,6 +170,9 @@ export const buildAssignmentColumns = ({
           return record.status !== 'active';
         };
 
+        // 目录总开关禁用的函数：勾选类动作（enable/disable）隐藏，仅保留详情
+        const isSelectable = !record.directoryDisabled;
+
         const runAction = (key: AssignmentPageSchema['rowActions'][number]['key']) => {
           if (key === 'enable') {
             setSelected([...selected, record.id]);
@@ -162,6 +191,7 @@ export const buildAssignmentColumns = ({
           <Space>
             {rowActions
               .filter((action) => (action.permission === 'write' ? canWrite : true))
+              .filter((action) => isSelectable || action.key === 'detail')
               .filter((action) => isVisible(action.visibleWhen))
               .map((action) => (
                 <Tooltip key={`${record.id}-${action.key}`} title={action.tooltip}>

@@ -2,8 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Key } from 'react';
 import { App } from 'antd';
 import { history, useIntl } from '@umijs/max';
-import { listDescriptors, listFunctionInstances, type FunctionDescriptor } from '@/services/api';
+import {
+  listDescriptors,
+  listFunctionInstances,
+  fetchAssignments,
+  type FunctionDescriptor,
+} from '@/services/api';
 import { getFunctionSummary } from '@/services/api/functions-enhanced';
+import { computeAssignmentScopes } from './assignmentScope';
 import type { FunctionSummary } from '@/services/api/functions-enhanced';
 import {
   batchSetFunctionVersionFloor,
@@ -40,6 +46,7 @@ function toSummaryRow(
   item: FunctionSummary,
   descriptor?: FunctionDescriptor,
   floors?: Record<string, string>,
+  scopeIndex?: ReturnType<typeof computeAssignmentScopes>,
 ): SummaryRow {
   return {
     id: item.id,
@@ -53,6 +60,12 @@ function toSummaryRow(
     // 让 descriptor 的 tags 兜底生效。
     tags: item.tags?.length ? item.tags : descriptor?.tags || [],
     minVersion: floors?.[item.id] || undefined,
+    assignmentScope: scopeIndex
+      ? {
+          open: scopeIndex.openByFunction.get(item.id) || 0,
+          total: scopeIndex.total,
+        }
+      : undefined,
   };
 }
 
@@ -69,12 +82,15 @@ async function fetchSummary(): Promise<SummaryRow[]> {
     if (descriptor.id) descMap.set(descriptor.id, descriptor);
   });
 
-  // floors 拉取失败降级为空表（门槛列显示未配置），不阻塞列表主数据。
-  const [res, floors] = await Promise.all([
+  // floors / 开放范围白名单 拉取失败分别降级（门槛列未配置、开放范围列
+  // 显示未知态），不阻塞列表主数据。
+  const [res, floors, assignmentsRes] = await Promise.all([
     getFunctionSummary(),
     listFunctionVersionFloors().catch(() => ({})),
+    fetchAssignments().catch(() => undefined),
   ]);
-  return res.map((item) => toSummaryRow(item, descMap.get(item.id), floors));
+  const scopeIndex = computeAssignmentScopes(assignmentsRes?.assignments);
+  return res.map((item) => toSummaryRow(item, descMap.get(item.id), floors, scopeIndex));
 }
 
 export default function useDirectoryPage() {
@@ -290,6 +306,7 @@ export default function useDirectoryPage() {
         onInvoke: (record) => {
           history.push(buildInvokePath(record.id));
         },
+        onOpenAssignments: () => history.push('/functions/assignments'),
       }),
     [buildInvokePath, changeSingleFloor, handleViewDetail, intl, rows, versionIndex],
   );

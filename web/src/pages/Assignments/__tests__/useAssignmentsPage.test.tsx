@@ -57,6 +57,12 @@ jest.mock('@/hooks/useScopeReload', () => ({
   useScope: () => ({ scope: { gameId: mockGameId } }),
 }));
 
+// 目录总开关状态源（enabled 真值与函数目录页一致）
+jest.mock('@/services/api/functions-enhanced', () => ({
+  getFunctionSummary: (...args: Parameters<typeof getFunctionSummary>) =>
+    getFunctionSummary(...args),
+}));
+
 // 列/视图/页面骨架均已专项测试，hook 侧 mock 为哨兵返回聚焦自身逻辑；
 // 捕获 opts 以驱动 hook 内的 onOpenDetail 闭包（routerHistory.push）。
 jest.mock('../columns', () => ({
@@ -71,8 +77,12 @@ jest.mock('../columns', () => ({
   }),
 }));
 jest.mock('../viewModel', () => ({
-  buildAssignmentOptions: jest.fn((descs: Array<{ id: string }>) =>
-    descs.map((d) => ({ value: d.id, resource: 'player' })),
+  buildAssignmentOptions: jest.fn((descs: Array<{ id: string }>, disabledIds?: Set<string>) =>
+    descs.map((d) => ({
+      value: d.id,
+      resource: 'player',
+      directoryDisabled: disabledIds?.has(d.id) || undefined,
+    })),
   ),
   buildGroupedAssignments: jest.fn(() => [{ grouped: true }]),
   buildAssignmentStats: jest.fn(() => [{ stat: true }]),
@@ -97,6 +107,7 @@ const listDescriptors = jest.fn();
 const fetchAssignments = jest.fn();
 const fetchAssignmentsHistory = jest.fn();
 const setAssignments = jest.fn();
+const getFunctionSummary = jest.fn();
 
 let capturedListOpts: { onOpenDetail?: (id: string) => void } = {};
 let capturedRouteOpts: { onOpenDetail?: (id: string) => void } = {};
@@ -116,6 +127,11 @@ beforeEach(() => {
   capturedListOpts = {};
   capturedRouteOpts = {};
   listDescriptors.mockResolvedValue(DESCRIPTORS);
+  // 默认两个函数目录均启用；禁用标注由专项用例覆盖
+  getFunctionSummary.mockResolvedValue([
+    { id: 'fn.a', enabled: true },
+    { id: 'fn.b', enabled: true },
+  ]);
   fetchAssignments.mockResolvedValue({ assignments: { player: ['fn.a'] } });
   fetchAssignmentsHistory.mockResolvedValue({ items: [], total: 0 });
   setAssignments.mockResolvedValue({ unknown: [] });
@@ -313,6 +329,41 @@ describe('onBatchAssign 与选择回调', () => {
       result.current.pageCtx.onClearAll();
     });
     await waitFor(() => expect(result.current.pageCtx.selected).toEqual([]));
+  });
+
+  it('目录总开关禁用（enabled=false）→ 全选/批量启用排除该函数', async () => {
+    getFunctionSummary.mockResolvedValue([
+      { id: 'fn.a', enabled: true },
+      { id: 'fn.b', enabled: false },
+    ]);
+    const { result } = setup();
+    await waitFor(() => expect(result.current.pageCtx.loading).toBe(false));
+
+    await act(async () => {
+      result.current.pageCtx.onSelectAll();
+    });
+    // fn.b 目录禁用 → 不参与全选
+    await waitFor(() => expect(result.current.pageCtx.selected).toEqual(['fn.a']));
+
+    await act(async () => {
+      result.current.pageCtx.onClearAll();
+    });
+    await act(async () => {
+      result.current.pageCtx.onBatchAssign('player', true);
+    });
+    // 批量启用同样排除 fn.b
+    await waitFor(() => expect(result.current.pageCtx.selected).toEqual(['fn.a']));
+  });
+
+  it('函数摘要拉取失败 → 降级全部可选，不阻塞页面', async () => {
+    getFunctionSummary.mockRejectedValue(new Error('summary down'));
+    const { result } = setup();
+    await waitFor(() => expect(result.current.pageCtx.loading).toBe(false));
+
+    await act(async () => {
+      result.current.pageCtx.onSelectAll();
+    });
+    await waitFor(() => expect(result.current.pageCtx.selected).toEqual(['fn.a', 'fn.b']));
   });
 
   it('onTabChange / onOpenClone / headerActions 透传', async () => {

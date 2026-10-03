@@ -29,6 +29,8 @@ type BuildColumnsOptions = {
   onOpenDetail: (record: SummaryRow) => void;
   onOpenSchema: (id: string) => void;
   onInvoke: (record: SummaryRow) => void;
+  /** 点击「开放范围」摘要直达函数开放范围页 */
+  onOpenAssignments: () => void;
 };
 
 const rowActionIcon = {
@@ -47,6 +49,7 @@ export const buildDirectoryColumns = ({
   onOpenDetail,
   onOpenSchema,
   onInvoke,
+  onOpenAssignments,
 }: BuildColumnsOptions): ProColumns<SummaryRow>[] =>
   columns.map((col) => {
     if (col.key === 'id') {
@@ -166,6 +169,75 @@ export const buildDirectoryColumns = ({
             {(record.tags || []).length > 3 && <Tag>+{(record.tags || []).length - 3}</Tag>}
           </Space>
         ),
+      } as ProColumns<SummaryRow>;
+    }
+    if (col.key === 'assignments') {
+      // 开放范围摘要：open/total 环境白名单计数，点击直达「函数开放范围」页。
+      // total=0 → 该游戏未配置白名单（默认开放）；undefined → 白名单拉取失败。
+      return {
+        title: col.title,
+        dataIndex: 'assignmentScope',
+        width: col.width,
+        render: (_, record) => {
+          const scope = record.assignmentScope;
+          if (!scope) {
+            return (
+              <Tooltip
+                title={intl.formatMessage({
+                  id: 'pages.functionsDirectory.assignments.unknownTooltip',
+                  defaultMessage: '开放范围数据拉取失败，请刷新重试',
+                })}
+              >
+                <Text type="secondary">-</Text>
+              </Tooltip>
+            );
+          }
+          if (scope.total === 0) {
+            return (
+              <Tooltip
+                title={intl.formatMessage({
+                  id: 'pages.functionsDirectory.assignments.tooltip',
+                  defaultMessage:
+                    '该游戏尚未保存过环境白名单：默认开放全部函数。点击进入「函数开放范围」配置。',
+                })}
+              >
+                <Button type="link" size="small" onClick={onOpenAssignments}>
+                  {intl.formatMessage({
+                    id: 'pages.functionsDirectory.assignments.defaultOpen',
+                    defaultMessage: '默认开放',
+                  })}
+                </Button>
+              </Tooltip>
+            );
+          }
+          return (
+            <Tooltip
+              title={intl.formatMessage(
+                {
+                  id: 'pages.functionsDirectory.assignments.tooltipScoped',
+                  defaultMessage:
+                    '已保存白名单的 {total} 个环境中开放 {open} 个。统计口径：未保存白名单的环境默认开放全部函数。点击进入「函数开放范围」调整。',
+                },
+                { open: scope.open, total: scope.total },
+              )}
+            >
+              <Button type="link" size="small" onClick={onOpenAssignments}>
+                {scope.open === 0
+                  ? intl.formatMessage({
+                      id: 'pages.functionsDirectory.assignments.none',
+                      defaultMessage: '未开放',
+                    })
+                  : intl.formatMessage(
+                      {
+                        id: 'pages.functionsDirectory.assignments.openScopes',
+                        defaultMessage: '开放 {open}/{total} 环境',
+                      },
+                      { open: scope.open, total: scope.total },
+                    )}
+              </Button>
+            </Tooltip>
+          );
+        },
       } as ProColumns<SummaryRow>;
     }
     if (col.key === 'enabled') {

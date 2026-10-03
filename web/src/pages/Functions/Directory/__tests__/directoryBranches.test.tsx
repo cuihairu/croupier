@@ -43,6 +43,7 @@ jest.mock('@umijs/max', () => {
 jest.mock('@/services/api', () => ({
   listDescriptors: jest.fn().mockResolvedValue({ functions: [] }),
   listFunctionInstances: jest.fn().mockResolvedValue({ instances: [] }),
+  fetchAssignments: jest.fn().mockResolvedValue({ assignments: {} }),
 }));
 
 jest.mock('@/services/api/functions-enhanced', () => ({

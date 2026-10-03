@@ -341,6 +341,30 @@ export default function DirectoryPage() {
           }
         />
 
+        {/* 互释文案：目录状态=全局总开关，开放范围=按环境白名单，两套独立语义。
+            消除「函数目录状态与开放范围状态为什么不同步」的误解 */}
+        <Alert
+          type="info"
+          showIcon
+          title={intl.formatMessage({
+            id: 'pages.functionsDirectory.alert.scopeRelation.title',
+            defaultMessage: '目录状态 ≠ 开放范围',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.functionsDirectory.alert.scopeRelation.description',
+            defaultMessage:
+              '此处的「启用/禁用」是全局总开关：禁用后所有环境都不可调用该函数。各环境具体开放哪些函数由「函数开放范围」页按白名单单独配置——两者需同时满足（目录已启用 且 在该环境白名单内）才可调用，状态互不同步是设计语义。',
+          })}
+          action={
+            <Button type="primary" onClick={() => history.push('/functions/assignments')}>
+              <FormattedMessage
+                id="pages.functionsDirectory.alert.scopeRelation.action"
+                defaultMessage="前往函数开放范围"
+              />
+            </Button>
+          }
+        />
+
         <StandardListSection
           title={intl.formatMessage({
             id: 'pages.functionsDirectory.list.title',

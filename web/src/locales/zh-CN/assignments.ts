@@ -27,6 +27,12 @@ export default {
   'pages.assignments.gate.description':
     '作用域（游戏/环境）未保存过分配时默认开放所有函数；一旦保存分配列表，该作用域按白名单执行——未分配的函数调用会返回 403「函数未开放执行权限」。清空列表保存即恢复默认开放。',
   'pages.assignments.gate.title': '执行闸门',
+  'pages.assignments.directoryRelation.description':
+    '本页维护的是各环境的调用白名单；函数目录中的「启用/禁用」是全局总开关——目录禁用的函数在所有环境都不可调用，本页会将其标注「已禁用」并禁止勾选。函数可被调用需同时满足：目录已启用 且 在该环境白名单内。',
+  'pages.assignments.directoryRelation.title': '与函数目录总开关的关系',
+  'pages.assignments.directoryDisabled.tag': '已禁用',
+  'pages.assignments.directoryDisabled.tooltip':
+    '由函数目录总开关禁用，本页不可勾选；请到函数目录重新启用',
   'pages.assignments.list.title': '开放范围列表',
   'pages.assignments.page.subTitle': '选择当前游戏环境开放哪些函数，保存后生效',
   'pages.assignments.page.title': '函数开放范围',

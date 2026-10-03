@@ -9,9 +9,14 @@ export type AssignmentOption = {
   resource: string;
   operation?: string;
   displayName: string;
+  /** 函数目录总开关已禁用：不可勾选/不参与全选与批量启用 */
+  directoryDisabled?: boolean;
 };
 
-export const buildAssignmentOptions = (descs: FunctionDescriptor[]): AssignmentOption[] =>
+export const buildAssignmentOptions = (
+  descs: FunctionDescriptor[],
+  directoryDisabledIds?: Set<string>,
+): AssignmentOption[] =>
   (Array.isArray(descs) ? descs : []).map((d) => ({
     label: `${d.id} v${d.version || ''}`,
     value: d.id,
@@ -20,6 +25,7 @@ export const buildAssignmentOptions = (descs: FunctionDescriptor[]): AssignmentO
     operation: d.operation,
     displayName:
       localizedText(d.displayName, 'zh-CN', '') || localizedText(d.summary, 'zh-CN', '') || d.id,
+    directoryDisabled: directoryDisabledIds?.has(d.id) || undefined,
   }));
 
 export const buildGroupedAssignments = (options: AssignmentOption[], selected: string[]) => {
@@ -35,6 +41,7 @@ export const buildGroupedAssignments = (options: AssignmentOption[], selected: s
       resource: opt.resource,
       operation: opt.operation,
       status,
+      directoryDisabled: opt.directoryDisabled || undefined,
     });
   });
 

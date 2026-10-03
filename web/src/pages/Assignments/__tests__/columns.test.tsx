@@ -105,20 +105,45 @@ describe('buildAssignmentColumns 列分派', () => {
     expect(disabled.container.querySelector('.ant-badge-status-default')).not.toBeNull();
   });
 
-  it('name 列：ellipsis 结构无 render；version 列：蓝 Tag + 空值 "-"', () => {
+  it('name 列：ellipsis 结构 + 目录禁用置灰删除线；version 列：蓝 Tag + 空值 "-"', () => {
     const cols = buildList();
     const name = colOf<ListCol>(cols, '名称');
     expect((name as { ellipsis?: boolean }).ellipsis).toBe(true);
-    expect((name as { render?: unknown }).render).toBeUndefined();
+    const nameRender = name.render as Render;
+
+    // 普通行：名称原文，无删除线
+    let { container } = renderCell(nameRender('函数A', ITEM(), 0, 'edit'));
+    expect(within(container).getByText('函数A')).toBeInTheDocument();
+    expect(container.querySelector('del')).toBeNull();
+
+    // 目录总开关禁用：secondary 置灰 + 删除线
+    ({ container } = renderCell(nameRender('函数A', ITEM({ directoryDisabled: true }), 0, 'edit')));
+    expect(within(container).getByText('函数A')).toBeInTheDocument();
+    expect(container.querySelector('.ant-typography-secondary')).not.toBeNull();
+    expect(container.querySelector('del')).not.toBeNull();
 
     const version = colOf<ListCol>(cols, '版本');
     const render = version.render as (t: unknown) => React.ReactNode;
-    const { container } = renderCell(render('1.2.3'));
+    ({ container } = renderCell(render('1.2.3')));
     expect(container.querySelector('.ant-tag-blue')).not.toBeNull();
     expect(within(container).getByText('1.2.3')).toBeInTheDocument();
 
     const empty = renderCell(render(''));
     expect(within(empty.container).getByText('-')).toBeInTheDocument();
+  });
+
+  it('id 列：目录总开关禁用 → 「已禁用」标记 + 原因 Tooltip + ID 置灰', () => {
+    const cols = buildList();
+    const render = colOf<ListCol>(cols, '函数ID').render as Render;
+    const { container } = renderCell(render('v', ITEM({ directoryDisabled: true }), 0, 'edit'));
+    expect(within(container).getByText('已禁用')).toBeInTheDocument();
+    expect(container.querySelector('.ant-typography-secondary')).not.toBeNull();
+    expect(container.textContent).toContain('fn.a');
+    expect(container.querySelector('.ant-tag-default')).not.toBeNull();
+
+    // 普通行无「已禁用」标记
+    const normal = renderCell(render('v', ITEM(), 0, 'edit'));
+    expect(within(normal.container).queryByText('已禁用')).toBeNull();
   });
 
   it('status 列：active/disabled/未知值三臂', () => {
@@ -218,6 +243,24 @@ describe('buildAssignmentColumns 行操作矩阵', () => {
     expect(
       (disabledBox.querySelector('.anticon-delete') as HTMLElement).closest('button'),
     ).toHaveClass('ant-btn-dangerous');
+  });
+
+  it('目录总开关禁用行：勾选类行操作隐藏，仅保留详情', () => {
+    const cols = buildList();
+    const render = colOf<ListCol>(cols, '操作').render as Render;
+    // active 行 + directoryDisabled：正常应见 enable/detail，禁用后只剩 detail
+    const { container } = renderCell(
+      render(null, ITEM({ status: 'active', directoryDisabled: true }), 0, 'edit'),
+    );
+    expect(container.querySelector('.anticon-check-circle')).toBeNull();
+    expect(container.querySelector('.anticon-setting')).not.toBeNull();
+
+    // disabled 行 + directoryDisabled：disable 同样隐藏
+    const disabledBox = renderCell(
+      render(null, ITEM({ status: 'disabled', directoryDisabled: true }), 0, 'edit'),
+    );
+    expect(disabledBox.container.querySelector('.anticon-delete')).toBeNull();
+    expect(disabledBox.container.querySelector('.anticon-setting')).not.toBeNull();
   });
 
   it('runAction 三臂：enable 追加 selected、disable 过滤 selected、detail 回调', () => {

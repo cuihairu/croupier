@@ -27,6 +27,12 @@ export default {
   'pages.assignments.gate.description':
     'With no saved assignment for a scope (game/env), all functions are callable by default. Once an assignment list is saved, the scope becomes an allowlist — invoking an unassigned function returns 403 "function not assigned". Save an empty list to restore default-open.',
   'pages.assignments.gate.title': 'Execution gate',
+  'pages.assignments.directoryRelation.description':
+    'This page maintains the per-environment allowlist. The enable/disable switch in the function directory is a global master switch — a function disabled there is not callable in any environment, and is marked "Disabled" and unselectable on this page. A function is callable only when it is enabled in the directory AND included in the environment allowlist.',
+  'pages.assignments.directoryRelation.title': 'Directory master switch vs this page',
+  'pages.assignments.directoryDisabled.tag': 'Disabled',
+  'pages.assignments.directoryDisabled.tooltip':
+    'Disabled by the function directory master switch; unselectable here. Re-enable it in the function directory',
   'pages.assignments.list.title': 'Availability scope',
   'pages.assignments.page.subTitle':
     'Choose which functions are exposed to the current game environment; changes apply after saving',

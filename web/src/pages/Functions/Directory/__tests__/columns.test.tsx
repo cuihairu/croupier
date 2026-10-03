@@ -19,8 +19,18 @@ jest.mock('@umijs/max', () => ({
 }));
 
 const intl = {
-  formatMessage: ({ defaultMessage }: { id: string; defaultMessage: string }): string =>
-    defaultMessage,
+  formatMessage: (
+    { defaultMessage }: { id: string; defaultMessage: string },
+    values?: Record<string, string | number>,
+  ): string => {
+    let text = defaultMessage;
+    if (values) {
+      for (const [key, val] of Object.entries(values)) {
+        text = text.split(`{${key}}`).join(String(val));
+      }
+    }
+    return text;
+  },
 };
 
 type ColumnKey = DirectoryPageSchema['columns'][number]['key'];
@@ -35,6 +45,7 @@ const ALL_COLUMN_DEFS: DirectoryPageSchema['columns'] = [
   { key: 'operation', title: '操作', width: 120 },
   { key: 'tags', title: '标签', width: 200 },
   { key: 'enabled', title: '状态', width: 80 },
+  { key: 'assignments', title: '开放范围', width: 130 },
   { key: 'actions', title: '操作', width: 200 },
 ];
 
@@ -56,6 +67,7 @@ type Handlers = {
   onOpenDetail: jest.Mock;
   onOpenSchema: jest.Mock;
   onInvoke: jest.Mock;
+  onOpenAssignments: jest.Mock;
   onFloorChange: jest.Mock;
 };
 
@@ -64,6 +76,7 @@ function makeHandlers(): Handlers {
     onOpenDetail: jest.fn(),
     onOpenSchema: jest.fn(),
     onInvoke: jest.fn(),
+    onOpenAssignments: jest.fn(),
     onFloorChange: jest.fn(),
   };
 }
@@ -273,5 +286,38 @@ describe('buildDirectoryColumns 行操作回调', () => {
 
     fireEvent.click(buttons[2]);
     expect(handlers.onInvoke).toHaveBeenCalledWith(fullRow);
+  });
+});
+
+describe('buildDirectoryColumns 开放范围列', () => {
+  const scopedRow = (assignmentScope?: { open: number; total: number }): SummaryRow => ({
+    id: 'player.kick',
+    enabled: true,
+    assignmentScope,
+  });
+
+  it('未知态（白名单拉取失败）→ “-”，无跳转回调', () => {
+    renderTable([scopedRow(undefined)], defs('assignments'));
+    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.queryByText('默认开放')).not.toBeInTheDocument();
+  });
+
+  it('total=0 → 「默认开放」，点击直达开放范围页', () => {
+    const { handlers } = renderTable([scopedRow({ open: 0, total: 0 })], defs('assignments'));
+    const btn = screen.getByText('默认开放');
+    fireEvent.click(btn);
+    expect(handlers.onOpenAssignments).toHaveBeenCalledTimes(1);
+  });
+
+  it('open/total → 「开放 N/M 环境」文案；0 → 「未开放」，均可点击直达', () => {
+    const { handlers } = renderTable([scopedRow({ open: 2, total: 3 })], defs('assignments'));
+    expect(screen.getByText('开放 2/3 环境')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('开放 2/3 环境'));
+    expect(handlers.onOpenAssignments).toHaveBeenCalledTimes(1);
+  });
+
+  it('0/N → 「未开放」文案', () => {
+    renderTable([scopedRow({ open: 0, total: 3 })], defs('assignments'));
+    expect(screen.getByText('未开放')).toBeInTheDocument();
   });
 });

@@ -150,3 +150,27 @@ describe('buildAssignmentStats', () => {
     expect(buildAssignmentStats(options, selected)).toEqual(expected);
   });
 });
+
+describe('directoryDisabled（函数目录总开关禁用标注）', () => {
+  it('buildAssignmentOptions：disabledIds 命中标注，未命中/未传不标注', () => {
+    const options = buildAssignmentOptions(
+      [desc({ id: 'a.ban' }), desc({ id: 'a.kick' })],
+      new Set(['a.ban']),
+    );
+    expect(options[0].directoryDisabled).toBe(true);
+    expect(options[1].directoryDisabled).toBeUndefined();
+
+    // 未传集合（拉取失败降级）→ 全部可勾选
+    const [fallback] = buildAssignmentOptions([desc({ id: 'a.ban' })]);
+    expect(fallback.directoryDisabled).toBeUndefined();
+  });
+
+  it('buildGroupedAssignments：directoryDisabled 透传到行项', () => {
+    const groups = buildGroupedAssignments(
+      [opt({ value: 'a.ban', directoryDisabled: true }), opt({ value: 'a.kick' })],
+      ['a.ban'],
+    );
+    expect(groups[0].items[0]).toMatchObject({ id: 'a.ban', directoryDisabled: true });
+    expect(groups[0].items[1].directoryDisabled).toBeUndefined();
+  });
+});

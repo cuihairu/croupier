@@ -69,6 +69,19 @@ export default {
   'pages.functionsDirectory.rowAction.detail': '查看详情',
   'pages.functionsDirectory.rowAction.schema': '契约 Schema',
   'pages.functionsDirectory.state.disabled': '禁用',
+  'pages.functionsDirectory.column.assignments': '开放范围',
+  'pages.functionsDirectory.assignments.defaultOpen': '默认开放',
+  'pages.functionsDirectory.assignments.none': '未开放',
+  'pages.functionsDirectory.assignments.openScopes': '开放 {open}/{total} 环境',
+  'pages.functionsDirectory.assignments.tooltip':
+    '该游戏尚未保存过环境白名单：默认开放全部函数。点击进入「函数开放范围」配置。',
+  'pages.functionsDirectory.assignments.tooltipScoped':
+    '已保存白名单的 {total} 个环境中开放 {open} 个。统计口径：未保存白名单的环境默认开放全部函数。点击进入「函数开放范围」调整。',
+  'pages.functionsDirectory.assignments.unknownTooltip': '开放范围数据拉取失败，请刷新重试',
+  'pages.functionsDirectory.alert.scopeRelation.title': '目录状态 ≠ 开放范围',
+  'pages.functionsDirectory.alert.scopeRelation.description':
+    '此处的「启用/禁用」是全局总开关：禁用后所有环境都不可调用该函数。各环境具体开放哪些函数由「函数开放范围」页按白名单单独配置——两者需同时满足（目录已启用 且 在该环境白名单内）才可调用，状态互不同步是设计语义。',
+  'pages.functionsDirectory.alert.scopeRelation.action': '前往函数开放范围',
   'pages.functionsDirectory.state.enabled': '启用',
   'pages.functionsDirectory.subTitle':
     '函数目录只管理原子能力契约；页面、菜单和分类在 Page Studio 中确定',

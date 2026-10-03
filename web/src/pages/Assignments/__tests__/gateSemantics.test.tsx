@@ -20,6 +20,11 @@ jest.mock('@/services/api', () => ({
   setAssignments: jest.fn().mockResolvedValue({ ok: true }),
 }));
 
+// 目录总开关状态源（hook 内 .catch 降级，这里直接给空集）
+jest.mock('@/services/api/functions-enhanced', () => ({
+  getFunctionSummary: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock('@umijs/max', () => ({
   FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => (
     <>{defaultMessage ?? ''}</>

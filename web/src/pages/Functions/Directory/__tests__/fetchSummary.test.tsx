@@ -8,7 +8,7 @@ import React from 'react';
 import { App as AntdApp } from 'antd';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import useDirectoryPage from '../useDirectoryPage';
-import { listDescriptors, listFunctionInstances } from '@/services/api';
+import { listDescriptors, listFunctionInstances, fetchAssignments } from '@/services/api';
 import { getFunctionSummary } from '@/services/api/functions-enhanced';
 import { listFunctionVersionFloors } from '@/services/api/functions';
 
@@ -38,6 +38,7 @@ jest.mock('@umijs/max', () => {
 jest.mock('@/services/api', () => ({
   listDescriptors: jest.fn(),
   listFunctionInstances: jest.fn(),
+  fetchAssignments: jest.fn(),
 }));
 
 jest.mock('@/services/api/functions-enhanced', () => ({
@@ -66,6 +67,7 @@ const mockListDescriptors = jest.mocked(listDescriptors);
 const mockGetSummary = jest.mocked(getFunctionSummary);
 const mockListFloors = jest.mocked(listFunctionVersionFloors);
 const mockInstances = jest.mocked(listFunctionInstances);
+const mockFetchAssignments = jest.mocked(fetchAssignments);
 
 const descriptor = {
   id: 'player.list',
@@ -113,16 +115,17 @@ describe('函数目录数据管道', () => {
     mockGetSummary.mockResolvedValue([summaryA] as never);
     mockListFloors.mockResolvedValue({});
     mockListDescriptors.mockResolvedValue({ functions: [descriptor] } as never);
+    mockFetchAssignments.mockResolvedValue({ assignments: {} });
   });
 
-  const renderAndLoad = async () => {
+  const renderAndLoad = async (expectedRows = 1) => {
     render(
       <AntdApp>
         <Harness />
       </AntdApp>,
     );
     await waitFor(() => {
-      expect(JSON.parse(screen.getByTestId('rows').textContent || '[]').length).toBe(1);
+      expect(JSON.parse(screen.getByTestId('rows').textContent || '[]').length).toBe(expectedRows);
     });
     return JSON.parse(screen.getByTestId('rows').textContent || '[]') as Array<
       Record<string, unknown>
@@ -198,6 +201,38 @@ describe('函数目录数据管道', () => {
     mockListFloors.mockRejectedValue(new Error('floors down'));
     const rows = await renderAndLoad();
     expect(rows[0].minVersion).toBeUndefined();
+  });
+
+  it('开放范围：白名单 map 折算 open/total（不在任何白名单 → 0/N）', async () => {
+    mockFetchAssignments.mockResolvedValue({
+      assignments: {
+        'demo|prod': ['player.list'],
+        'demo|dev': ['player.list'],
+      },
+    });
+    mockGetSummary.mockResolvedValue([summaryA, { ...summaryA, id: 'other.fn' }] as never);
+    const rows = await renderAndLoad(2);
+    expect(rows.find((r) => r.id === 'player.list')?.assignmentScope).toEqual({
+      open: 2,
+      total: 2,
+    });
+    // 不在任何白名单：0/2（未开放）
+    expect(rows.find((r) => r.id === 'other.fn')?.assignmentScope).toEqual({
+      open: 0,
+      total: 2,
+    });
+  });
+
+  it('开放范围：从未保存过白名单 → total=0（默认开放）', async () => {
+    mockFetchAssignments.mockResolvedValue({ assignments: {} });
+    const rows = await renderAndLoad();
+    expect(rows[0].assignmentScope).toEqual({ open: 0, total: 0 });
+  });
+
+  it('开放范围：白名单拉取失败 → assignmentScope 缺省（未知态）', async () => {
+    mockFetchAssignments.mockRejectedValue(new Error('assignments down'));
+    const rows = await renderAndLoad();
+    expect(rows[0].assignmentScope).toBeUndefined();
   });
 
   it('summary 主数据失败：message.error 展示错误信息', async () => {

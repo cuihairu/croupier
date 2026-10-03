@@ -142,6 +142,23 @@ describe('ListTab', () => {
     expect(onSelectionChange.mock.calls[0][0]).toEqual(['fn.a']);
   });
 
+  it('目录总开关禁用的函数：勾选框 disabled', async () => {
+    renderList({
+      groupedAssignments: [
+        {
+          resource: 'res.a',
+          items: [item({ id: 'fn.a' }), item({ id: 'fn.b', directoryDisabled: true })],
+          activeCount: 1,
+        },
+      ],
+    });
+    await screen.findByText('fn.a');
+    const checkboxes = screen.getAllByRole('checkbox');
+    // [0]=全选框 [1]=fn.a [2]=fn.b（目录禁用）
+    expect(checkboxes[1]).not.toBeDisabled();
+    expect(checkboxes[2]).toBeDisabled();
+  });
+
   it('空分组：仅留操作条、无卡片', () => {
     const { container } = renderWithApp(
       <ListTab
