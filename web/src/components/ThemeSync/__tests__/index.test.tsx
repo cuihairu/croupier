@@ -9,8 +9,16 @@ import { act, render } from '@testing-library/react';
 import { theme as antdTheme } from 'antd';
 
 const setAntdConfig = jest.fn();
+// 复刻 umi 模板形态：useAntdConfigSetter 每次渲染返回**新引用**的包装函数
+// （AntdProvider 内联创建，未 memo）。默认转发到共享 spy；回归用例把实现
+// 指到「推送即触发上层重渲染」的形态（见无限循环用例）。
+let setterImpl: (...args: unknown[]) => void = (...args: unknown[]) =>
+  void setAntdConfig(...(args as Parameters<typeof setAntdConfig>));
 jest.mock('@umijs/max', () => ({
-  useAntdConfigSetter: () => setAntdConfig,
+  useAntdConfigSetter:
+    () =>
+    (...args: unknown[]) =>
+      setterImpl(...args),
 }));
 
 import { ConfigProvider } from 'antd';
@@ -37,6 +45,8 @@ beforeEach(() => {
   document.documentElement.removeAttribute('data-theme');
   setAntdConfig.mockClear();
   staticConfigSpy.mockClear();
+  setterImpl = (...args: unknown[]) =>
+    void setAntdConfig(...(args as Parameters<typeof setAntdConfig>));
 });
 
 /** 取 setter 最近一次收到的 updater，应用在给定 prev 上看结果 */
@@ -76,5 +86,26 @@ describe('ThemeSync', () => {
     });
     merged = applyLastUpdate({ theme: {} });
     expect(merged.theme.algorithm).toEqual([antdTheme.defaultAlgorithm]);
+  });
+
+  it('setter 引用不稳定且推送触发上层重渲染：不陷入无限循环（线上白屏回归）', () => {
+    // 模拟 AntdProvider 真实形态：每次渲染产生新 setter 引用，推送即引发
+    // 上层 state 更新（重渲染）。旧实现把不稳定 setter 放进 effect 依赖，
+    // 会「推送 → 重渲染 → 新引用 → 再推送」直到 React 抛 Maximum update
+    // depth exceeded、整树卸载（线上全站白屏）。
+    let renderCount = 0;
+    const Harness: React.FC = () => {
+      const [, bump] = React.useReducer((c: number) => c + 1, 0);
+      renderCount += 1;
+      setterImpl = () => {
+        setAntdConfig();
+        bump();
+      };
+      return <ThemeSync />;
+    };
+    const { unmount } = render(<Harness />);
+    expect(renderCount).toBe(2); // 首渲染 + 首次推送引发的一次
+    expect(setAntdConfig).toHaveBeenCalledTimes(1);
+    unmount();
   });
 });
