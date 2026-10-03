@@ -9,6 +9,7 @@ import {
   type SettingSource,
 } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
+import AppearanceTab from './AppearanceTab';
 import AuthTab from './AuthTab';
 import FeatureFlagsTab from './FeatureFlagsTab';
 import LogsTab from './LogsTab';
@@ -415,6 +416,14 @@ export default function SiteSettingsPage() {
               defaultMessage: '系统信息',
             }),
             children: siteTab,
+          },
+          {
+            key: 'appearance',
+            label: intl.formatMessage({
+              id: 'pages.systemSiteSettings.tab.appearance',
+              defaultMessage: '主题',
+            }),
+            children: <AppearanceTab />,
           },
           {
             key: 'features',

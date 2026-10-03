@@ -67,7 +67,13 @@ html[data-theme='dark'] {
 
 /* Hero 区玫瑰三色渐变背景（亮/暗随 CSS 变量自适应） */
 .hero-grad {
-  background: linear-gradient(135deg, var(--rose-3) 0%, var(--rose-2) 33%, var(--rose-1) 66%, var(--brand-2) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--rose-3) 0%,
+    var(--rose-2) 33%,
+    var(--rose-1) 66%,
+    var(--brand-2) 100%
+  );
 }
 
 /* 按钮品牌色系：底 brand-2 → hover brand-1 → focus rose-1 */
@@ -188,7 +194,7 @@ canvas {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(24, 144, 255, 0.08), transparent 28%),
+    radial-gradient(circle at top left, rgba(var(--brand-1-rgb), 0.08), transparent 28%),
     linear-gradient(180deg, #f8fafc 0%, var(--app-shell-bg) 100%);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -259,7 +265,7 @@ ol {
 }
 
 .ant-btn-primary {
-  box-shadow: 0 8px 18px rgba(24, 144, 255, 0.18);
+  box-shadow: 0 8px 18px rgba(var(--brand-1-rgb), 0.18);
 }
 
 .ant-list .ant-list-item {
@@ -283,7 +289,7 @@ form fieldset {
 
 /* Proposal Inbox focus 定位行高亮（?focus=pageKey） */
 .proposal-inbox-focus-row > td {
-  background: rgba(22, 119, 255, 0.08) !important;
+  background: rgba(var(--brand-1-rgb), 0.12) !important;
 }
 
 @media (max-width: 768px) {
@@ -304,5 +310,41 @@ form fieldset {
         }
       }
     }
+  }
+}
+
+/* ============ 暗色壳层适配（html[data-theme='dark']） ============
+ * antd 组件内部由 <ThemeSync> 推送的 darkAlgorithm 换肤；这里只补布局壳
+ * （body 背景/顶栏/侧栏/页头卡片）与少数硬编码浅色边线，保证三档切换后
+ * 全站不漏白。defaultSettings 的 pro-layout token 是静态亮色，故壳层
+ * 以 !important 覆盖其内联背景。 */
+html[data-theme='dark'] {
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(var(--brand-1-rgb), 0.1), transparent 30%),
+      linear-gradient(180deg, #14141e 0%, var(--app-shell-bg) 100%);
+    color: var(--app-text-strong);
+  }
+
+  .ant-pro-layout .ant-layout-header.ant-pro-layout-header {
+    background: rgba(26, 26, 46, 0.92) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .ant-pro-sider,
+  .ant-pro-sider .ant-layout-sider-children {
+    background: #1f1f33 !important;
+  }
+
+  .ant-pro-page-container-warp {
+    border-color: var(--app-panel-border);
+    background: linear-gradient(180deg, rgba(30, 30, 50, 0.96), rgba(26, 26, 46, 0.88));
+    box-shadow: var(--app-panel-shadow-soft);
+  }
+
+  .ant-card .ant-card-head,
+  .ant-drawer .ant-drawer-header,
+  .ant-modal .ant-modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
   }
 }

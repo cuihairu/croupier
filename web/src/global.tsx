@@ -1,6 +1,7 @@
 import { useIntl } from '@umijs/max';
 import { Button } from 'antd';
 import { getMessage, getNotification } from '@/utils/antdApp';
+import { initThemeAttr } from '@/utils/themeMode';
 import defaultSettings from '../config/defaultSettings';
 // Set default server origin for asset URLs if not provided
 if (typeof window !== 'undefined' && !window.CROUPIER_SERVER_ORIGIN) {
@@ -12,11 +13,10 @@ if (typeof window !== 'undefined' && !window.CROUPIER_SERVER_ORIGIN) {
 }
 
 // Early theme initialization to avoid flash
+// 三档偏好（亮/暗/跟随系统）统一在 utils/themeMode；此处只写 data-theme
+// 属性并安装系统色监听，不落盘（见模块头注）
 if (typeof window !== 'undefined') {
-  const storedTheme = localStorage.getItem('croupier-theme') as 'light' | 'dark' | null;
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const initialTheme = storedTheme || (prefersDark ? 'dark' : 'light');
-  document.documentElement.setAttribute('data-theme', initialTheme);
+  initThemeAttr();
 }
 
 // Dev-only: suppress noisy React StrictMode findDOMNode warnings from rc-* deps

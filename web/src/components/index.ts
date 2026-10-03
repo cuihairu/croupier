@@ -33,6 +33,7 @@ import PlayerManageTemplate, {
 /**
  * Theme 组件
  */
+import { ThemeSync } from './ThemeSync';
 import { ThemeToggle } from './ThemeToggle';
 
 export {
@@ -58,5 +59,6 @@ export {
   playerManagePageSpec,
   createPlayerManageDemoExecute,
   // Theme
+  ThemeSync,
   ThemeToggle,
 };

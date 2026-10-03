@@ -231,6 +231,16 @@ export default {
   'pages.systemSiteSettings.tab.notification': '通知设置',
   'pages.systemSiteSettings.tab.observability': '观测集成',
   'pages.systemSiteSettings.tab.site': '系统信息',
+  'pages.systemSiteSettings.tab.appearance': '主题',
+  'pages.systemSiteSettings.appearance.mode': '界面主题',
+  'pages.systemSiteSettings.appearance.light': '亮色',
+  'pages.systemSiteSettings.appearance.dark': '暗色',
+  'pages.systemSiteSettings.appearance.system': '跟随系统',
+  'pages.systemSiteSettings.appearance.hint':
+    '主题偏好保存在本机浏览器，切换即时生效、无需保存；顶栏的明暗快捷按钮与这里共享同一偏好。',
+  'pages.systemSiteSettings.appearance.current': '当前生效：{mode}',
+  'pages.systemSiteSettings.appearance.systemHint':
+    '跟随系统模式下，操作系统切换深浅色时界面实时跟随',
   'pages.systemSiteSettings.security.error.loadFailed': '加载账号安全策略失败',
   'pages.systemSiteSettings.security.error.saveFailed': '保存失败',
   'pages.systemSiteSettings.security.intro':

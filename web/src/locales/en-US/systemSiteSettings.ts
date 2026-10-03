@@ -292,6 +292,16 @@ export default {
   'pages.systemSiteSettings.outbound.error.saveFailed': 'Save failed',
 
   'pages.systemSiteSettings.tab.site': 'System Info',
+  'pages.systemSiteSettings.tab.appearance': 'Theme',
+  'pages.systemSiteSettings.appearance.mode': 'Interface theme',
+  'pages.systemSiteSettings.appearance.light': 'Light',
+  'pages.systemSiteSettings.appearance.dark': 'Dark',
+  'pages.systemSiteSettings.appearance.system': 'Follow system',
+  'pages.systemSiteSettings.appearance.hint':
+    'Theme preference is stored in this browser and applies instantly without saving; the header toggle shares the same preference.',
+  'pages.systemSiteSettings.appearance.current': 'Current: {mode}',
+  'pages.systemSiteSettings.appearance.systemHint':
+    'In follow-system mode the interface switches live when the OS toggles light/dark',
 
   // 运维/系统维护（OPEN-ISSUES #52）
   'pages.systemSiteSettings.maintenance.buildTime': 'Build Time',
