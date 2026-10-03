@@ -1,4 +1,4 @@
-import { Footer, Question, SelectLang, AvatarDropdown, AvatarName } from '@/components';
+import { Footer, Question, SelectLang, AvatarDropdown, AvatarName, ThemeToggle } from '@/components';
 import MessagesBell from '@/components/MessagesBell';
 import AnnouncementPopup from '@/components/AnnouncementPopup';
 import { LinkOutlined } from '@ant-design/icons';
@@ -185,6 +185,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         <>
           <GameSelector key="scope-mobile" variant="mobile" />
           <MessagesBell key="msgs-mobile" />
+          <ThemeToggle key="theme-mobile" />
         </>
       );
     }
@@ -194,6 +195,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         <MessagesBell key="msgs" />
         <Question key="doc" />
         <SelectLang key="SelectLang" />
+        <ThemeToggle key="theme" />
       </>
     );
   };

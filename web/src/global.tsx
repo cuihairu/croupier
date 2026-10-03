@@ -11,6 +11,14 @@ if (typeof window !== 'undefined' && !window.CROUPIER_SERVER_ORIGIN) {
   else window.CROUPIER_SERVER_ORIGIN = window.location.origin;
 }
 
+// Early theme initialization to avoid flash
+if (typeof window !== 'undefined') {
+  const storedTheme = localStorage.getItem('croupier-theme') as 'light' | 'dark' | null;
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initialTheme = storedTheme || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', initialTheme);
+}
+
 // Dev-only: suppress noisy React StrictMode findDOMNode warnings from rc-* deps
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   const origError = console.error?.bind(console);

@@ -1,0 +1,28 @@
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--app-panel-border);
+  border-radius: 8px;
+  background: var(--app-panel-bg);
+  color: var(--app-text-strong);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--brand-1);
+    color: var(--brand-1);
+    background: rgba(var(--brand-1-rgb), 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-1);
+    outline-offset: 2px;
+  }
+
+  svg {
+    font-size: 16px;
+  }
+}
