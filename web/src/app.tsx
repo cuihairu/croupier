@@ -327,6 +327,27 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
  * @name request 配置
  * @doc https://umijs.org/docs/max/request#配置
  */
+/**
+ * 运行时主题配置（plugin-antd 运行时）：
+ * - 开启 darkAlgorithm，让 antd 组件内部 token 跟随 data-theme="dark" 切换
+ * - 实际色值仍以 global.less CSS 变量为准（ConfigProvider 之外已注入）
+ */
+export const theme = {
+  token: {
+    // 亮色默认值（构建期 config.ts 已同步）；运行时可被 CSS 变量覆盖
+    colorPrimary: '#93394d',
+    colorPrimaryHover: '#b8556b',
+    colorPrimaryActive: '#7a2b3e',
+    colorPrimaryTextHover: '#b8556b',
+    colorText: '#262626',
+    colorTextSecondary: 'rgba(38, 38, 38, 0.65)',
+    colorBgLayout: '#f3f5f7',
+    colorBgContainer: 'rgba(255, 255, 255, 0.9)',
+    colorBorder: '#e6eaf0',
+  },
+  algorithm: ['darkAlgorithm'],
+};
+
 export const request = {
   ...errorConfig,
 };
