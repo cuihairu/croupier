@@ -901,6 +901,231 @@ type OpsAlertSilenceDeleteRequest struct {
 // 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
+### 36. "获取系统运行信息"
+
+1. route definition
+
+- Url: /api/v1/ops/system/runtime
+- Method: GET
+- Request: 无
+- Response: `SystemRuntimeResponse`
+
+2. request definition
+
+```go
+// 无请求体
+```
+
+3. response definition
+
+```go
+type SystemRuntimeResponse struct {
+	Version       string `json:"version"`
+	GitCommit     string `json:"gitCommit"`
+	BuildTime     string `json:"buildTime"`
+	StartedAt     string `json:"startedAt"`     // RFC3339；进程启动时间未知时为空
+	UptimeSeconds int64  `json:"uptimeSeconds"`
+}
+```
+
+### 37. "检查更新"
+
+1. route definition
+
+- Url: /api/v1/ops/system/check-update
+- Method: POST
+- Request: 无
+- Response: `SystemCheckUpdateResponse`
+
+2. request definition
+
+```go
+// 无请求体。更新源取 L3 键 system.updateCheckUrl（未配置回落 GitHub releases/latest）；
+// 拉取经出站守卫（sec.*）与调用策略（net.*）。
+```
+
+3. response definition
+
+```go
+type SystemCheckUpdateResponse struct {
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion,omitempty"`
+	HasUpdate      bool   `json:"hasUpdate"`
+	Checked        bool   `json:"checked"`
+	CheckedAt      string `json:"checkedAt"`
+	Note           string `json:"note"`
+}
+```
+
+> 边界：只检查并回写版本注记，不执行升级。
+
+### 38. "获取性能参数快照"
+
+1. route definition
+
+- Url: /api/v1/ops/performance
+- Method: GET
+- Request: 无
+- Response: `PerformanceSnapshotResponse`
+
+2. request definition
+
+```go
+// 无请求体
+```
+
+3. response definition
+
+```go
+type PerformanceSnapshotResponse struct {
+	Settings PerformanceSettingsSnapshot `json:"settings"` // 生效值（L2∧L3 合成）+ 逐键来源
+	Runtime  PerformanceRuntime          `json:"runtime"`  // Go 运行时（goMaxProcs/goroutines/堆/GC/在线时长）
+	Host     PerformanceHost             `json:"host"`     // 宿主机 CPU/内存/磁盘（gopsutil）
+	Overload PerformanceOverload         `json:"overload"` // 阈值超限判定（阈值 0 = 不启用）
+}
+
+type PerformanceSettingsSnapshot struct {
+	MaxCpuPct      int               `json:"maxCpuPct"`
+	MaxMemoryPct   int               `json:"maxMemoryPct"`
+	MaxDiskPct     int               `json:"maxDiskPct"`
+	MaxConcurrent  int               `json:"maxConcurrent"`
+	MaxThreadCount int               `json:"maxThreadCount"`
+	CacheSize      int64             `json:"cacheSize"`
+	Sources        map[string]string `json:"sources"`
+}
+```
+
+### 39. "更新性能参数"
+
+1. route definition
+
+- Url: /api/v1/ops/performance
+- Method: PUT
+- Request: `map[string]jsonNumber`（`perf.*` 键逐键 L3 覆盖）
+- Response: `PerformanceSnapshotResponse`（更新后快照）
+
+2. request definition
+
+```go
+// { "perf.maxCpuPct": 90, "perf.cacheSize": 268435456 }
+// 仅接受 perf.* 白名单键，未知键/非法值 400
+```
+
+3. response definition
+
+```go
+// 同 GET /api/v1/ops/performance
+```
+
+### 40. "获取日志维护快照"
+
+1. route definition
+
+- Url: /api/v1/ops/logs
+- Method: GET
+- Request: 无
+- Response: `LogsSnapshotResponse`
+
+2. request definition
+
+```go
+// 无请求体
+```
+
+3. response definition
+
+```go
+type LogsSnapshotResponse struct {
+	Settings  LogsSettingsView  `json:"settings"`  // log.retentionDays L3 覆盖值 + 来源
+	Effective LogsEffectiveView `json:"effective"` // 实际生效保留期（executionLogDays/taskLogDays）
+	ServerLog ServerLogView     `json:"serverLog"` // 服务器日志轮转参数（配置文件级只读视图）
+	Tables    []LogTableView    `json:"tables"`    // execution_logs/task_runs/task_events 体量
+}
+```
+
+### 41. "更新日志保留参数"
+
+1. route definition
+
+- Url: /api/v1/ops/logs
+- Method: PUT
+- Request: `map[string]jsonNumber`（仅收 `log.retentionDays` 一键，0-36500，0 = 跟随配置文件）
+- Response: `LogsSnapshotResponse`（更新后快照）
+
+2. request definition
+
+```go
+// { "log.retentionDays": 30 }
+// 其他键写入拒绝（cleanupCron/copierDir/copierKeep 为未接线占位键，拒绝以免假开关）
+```
+
+3. response definition
+
+```go
+// 同 GET /api/v1/ops/logs
+```
+
+### 42. "手动清理日志"
+
+1. route definition
+
+- Url: /api/v1/ops/logs/cleanup
+- Method: POST
+- Request: `LogsCleanupRequest`
+- Response: `LogsCleanupResponse`
+
+2. request definition
+
+```go
+type LogsCleanupRequest struct {
+	Scope       string `json:"scope"`       // execution | task | all
+	BeforeHours int    `json:"beforeHours"` // 清理该时刻之前的记录（24/168/720；上限 87600）
+}
+```
+
+3. response definition
+
+```go
+type LogsCleanupResponse struct {
+	Scope                string `json:"scope"`
+	Cutoff               string `json:"cutoff"` // RFC3339
+	ExecutionLogsDeleted int64  `json:"executionLogsDeleted"`
+	TaskRunsDeleted      int64  `json:"taskRunsDeleted"`
+	TaskEventsDeleted    int64  `json:"taskEventsDeleted"`
+}
+```
+
+### 43. "第三方服务健康探针"
+
+1. route definition
+
+- Url: /api/v1/ops/probes/:channel
+- Method: POST
+- Request: 无（channel ∈ dingtalk|wecom|feishu|webhook|update|smtp）
+- Response: `probeView`
+
+2. request definition
+
+```go
+// 无请求体。webhook 四渠道 GET 只读探测对应 notification.* URL；
+// update 探测 system.updateCheckUrl；smtp 走 TCP+EHLO 探活（不发信不认证）。
+// 未配置目标返回 configured=false（200）；非法渠道 404。
+// 探测经出站守卫（sec.*）与调用策略（net.* 超时/重试）。
+```
+
+3. response definition
+
+```go
+type probeView struct {
+	Channel    string `json:"channel"`
+	Configured bool   `json:"configured"`
+	OK         bool   `json:"ok"`
+	Status     int    `json:"status"`
+	LatencyMs  int64  `json:"latencyMs"`
+	Error      string `json:"error,omitempty"`
+}
+```
+
 ## 集群与 LB 监控端点
 
 | 方法 | 路径                                | 说明                                                              |

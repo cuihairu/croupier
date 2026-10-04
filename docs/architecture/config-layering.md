@@ -57,21 +57,24 @@ L3 白名单制（§4 表格标注）。准入标准：**纯运行时行为/展�
 
 ## 4. 全量配置归类表
 
-| 配置                                        | 层                         | 说明                                                                                                               |
-| ------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| database DSN / multiGame                    | **L2 only**                | bootstrap                                                                                                          |
-| server host/port/TLS                        | **L2 only**                | bootstrap                                                                                                          |
-| auth JWT secret                             | **L2 only**                | 安全 + bootstrap                                                                                                   |
-| storage driver/bucket                       | **L2 only**                | bootstrap                                                                                                          |
-| telemetry/collector                         | **L2 only**                | 启动期接线                                                                                                         |
-| featureFlags 五域开关                       | **L2 + L3 覆盖（已落地）** | L2=物理裁剪（路由注册）；L3=运行时软开关（middleware 403），合成 L2∧L3，key 为 `features.*`                        |
-| 观测集成 URL（alertmanager/grafana/jaeger） | **L3 主战场（已落地）**    | key 为 `obs.*`，自 OpsStateStore 内存态迁入，重启不丢；env var 为 L2 兜底                                          |
-| 站点品牌/logo/页脚/登录页                   | **L3 主战场**              | ../research/site-settings-design.md                                                                                |
-| 默认语言                                    | L2 缺省 + L3 覆盖          |                                                                                                                    |
-| 页面发布分级 `pages.publishReview`          | **L2 only**                | dev=auto / 其余 env=required 内置缺省；`publishReviewByEnv` 按 env 覆盖。属流程策略且需在保存链路同步判定，不进 L3 |
-| 告警阈值默认（dbmon 等）                    | L1 内置 + 未来 L3          |                                                                                                                    |
-| SMTP/通知渠道（P2 待迁）                    | 未来 L3                    | 审批/告警通知的配置来源                                                                                            |
-| 游戏业务数值/活动/IAP                       | 不属于平台配置             | 走 ConfigVersion（game-scoped，另有一套）                                                                          |
+| 配置                                        | 层                         | 说明                                                                                                                            |
+| ------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| database DSN / multiGame                    | **L2 only**                | bootstrap                                                                                                                       |
+| server host/port/TLS                        | **L2 only**                | bootstrap                                                                                                                       |
+| auth JWT secret                             | **L2 only**                | 安全 + bootstrap                                                                                                                |
+| storage driver/bucket                       | **L2 only**                | bootstrap                                                                                                                       |
+| telemetry/collector                         | **L2 only**                | 启动期接线                                                                                                                      |
+| featureFlags 五域开关                       | **L2 + L3 覆盖（已落地）** | L2=物理裁剪（路由注册）；L3=运行时软开关（middleware 403），合成 L2∧L3，key 为 `features.*`                                     |
+| 观测集成 URL（alertmanager/grafana/jaeger） | **L3 主战场（已落地）**    | key 为 `obs.*`，自 OpsStateStore 内存态迁入，重启不丢；env var 为 L2 兜底                                                       |
+| 站点品牌/logo/页脚/登录页                   | **L3 主战场**              | ../research/site-settings-design.md                                                                                             |
+| 默认语言                                    | L2 缺省 + L3 覆盖          |                                                                                                                                 |
+| 页面发布分级 `pages.publishReview`          | **L2 only**                | dev=auto / 其余 env=required 内置缺省；`publishReviewByEnv` 按 env 覆盖。属流程策略且需在保存链路同步判定，不进 L3              |
+| 告警阈值默认（dbmon 等）                    | L1 内置 + 未来 L3          |                                                                                                                                 |
+| SMTP/通知渠道                               | **L3（已落地）**           | key 为 `notification.*`（渠道开关/webhook 四渠道 + `smtp*` 加密/AUTH/证书校验，审批/告警/测试邮件的配置来源，发信前读 L3 快照） |
+| 登录方式与注册策略                          | **L3（已落地）**           | key 为 `auth.*`（`auth.local.enabled` 密码登录开关、`auth.register.*` 自助注册、`auth.email.*` 邮箱策略；保存即热重建身份源）   |
+| 运维参数                                    | **L3（已落地）**           | key 为 `perf.*`（#53 性能阈值）、`log.*`（#54 留痕保留期）、`system.updateCheckUrl`（#52 检查更新源）                           |
+| 出站安全与调用策略                          | **L3（已落地）**           | key 为 `sec.*`（#56 端口/IP/域名/SSRF 守卫）+ `net.*`（#57 超时/重试/退避），外呼前每次读 L3 快照                               |
+| 游戏业务数值/活动/IAP                       | 不属于平台配置             | 走 ConfigVersion（game-scoped，另有一套）                                                                                       |
 
 ## 5. 实现要点
 
@@ -88,15 +91,16 @@ DELETE /api/v1/site/:key      → 清 L3 = 「恢复跟随配置文件」
 ```
 
 - 启动时 L2 已由 config 包解析完成；L3 在 NewServiceContext 后异步加载，加载失败 fail-open 到 L2（同 feature flags 哲学）；
-- 变更通知：前端保存后 setInitialState 即可；服务端消费方（如未来 SMTP）注册 OnChange 回调。
+- 变更通知：前端保存后 setInitialState 即可；服务端消费方分两类——OnChange 回调注册（auth.* 保存即热重建身份源）与消费前读快照（notification._/sec._/net._/perf._/log.* 均为每次消费读 L3，天然热生效）。
 
 ## 6. 分阶段
 
-| 阶段             | 内容                                                                                                                             |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **P1（已落地）** | platform_settings 表 + Layered 读取 + 站点品牌/页脚/登录页三类 key + 来源徽标 + 恢复按钮                                         |
-| **P2（已落地）** | features.* 五域运行时软开关（L2∧L3 合成 + middleware 拦截 + 设置中心 UI）；obs.* 观测 URL 迁入 L3（旧 OpsStateStore 值兼容读取） |
-| P3               | SMTP/通知渠道迁入 L3（审批/告警通知配置来源）；按 key 权限细分；变更历史对比视图                                                 |
+| 阶段              | 内容                                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1（已落地）**  | platform_settings 表 + Layered 读取 + 站点品牌/页脚/登录页三类 key + 来源徽标 + 恢复按钮                                                                  |
+| **P2（已落地）**  | features.* 五域运行时软开关（L2∧L3 合成 + middleware 拦截 + 设置中心 UI）；obs.* 观测 URL 迁入 L3（旧 OpsStateStore 值兼容读取）                          |
+| **P2+（已落地）** | notification._/smtp_（通知与 SMTP）、auth._（登录方式/注册/邮箱策略）、perf._/log._/system._（运维家族 #52-54）、sec._/net._（出站安全与调用策略 #56-57） |
+| P3                | 按 key 权限细分；变更历史对比视图                                                                                                                         |
 
 ## 7. Review Checklist
 

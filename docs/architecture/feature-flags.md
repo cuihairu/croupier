@@ -18,7 +18,7 @@ Accepted（P1 已落地：配置驱动，控制面全域覆盖）。
 
 ```yaml
 featureFlags:
-  dev: false # 研发域（缺陷追踪 /dev/bugs、/api/v1/bugs）
+  dev: false # 研发域（/api/v1/bugs /tools /releases /hotpatches /cicd）
   support: false # 客服域（工单/FAQ/反馈 + 对应 API）
   analytics: false # 数据分析域（/analytics/*）
   ops: false # 运维中心域（/ops/*、告警/备份/证书 API）
@@ -27,13 +27,13 @@ featureFlags:
 
 ## 受控域与影响面
 
-| Flag         | 前端菜单                  | 后端路由组                                     |
-| ------------ | ------------------------- | ---------------------------------------------- |
-| `dev`        | 研发（缺陷追踪）          | `/api/v1/bugs`                                 |
-| `support`    | 客服系统（工单/FAQ/反馈） | `/tickets` `/faqs` `/feedback`                 |
-| `analytics`  | 数据分析                  | `/analytics`                                   |
-| `ops`        | 运维中心                  | `/ops` `/alerts` `/backups` `/certificates`    |
-| `extensions` | 系统管理-扩展中心         | `/extensions` `/platforms` `/agents`(扩展兼容) |
+| Flag         | 前端菜单                          | 后端路由组                                         |
+| ------------ | --------------------------------- | -------------------------------------------------- |
+| `dev`        | 研发（缺陷/热更/发布/工具/CI-CD） | `/bugs` `/tools` `/releases` `/hotpatches` `/cicd` |
+| `support`    | 客服系统（工单/FAQ/反馈）         | `/tickets` `/faqs` `/feedback`                     |
+| `analytics`  | 数据分析                          | `/analytics`                                       |
+| `ops`        | 运维中心                          | `/ops` `/alerts` `/backups` `/certificates`        |
+| `extensions` | 系统管理-扩展中心                 | `/extensions` `/platforms` `/agents`(扩展兼容)     |
 
 常驻域（不受开关控制）：认证/权限/账号、游戏环境管理、函数与页面、运行控制台、审计、消息、监控健康——它们是平台运行的基础设施。
 

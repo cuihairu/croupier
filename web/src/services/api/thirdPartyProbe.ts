@@ -20,7 +20,7 @@ export type ThirdPartyProbeView = {
 export async function probeThirdParty(
   channel: ThirdPartyProbeChannel,
 ): Promise<ThirdPartyProbeView> {
-  return request<ThirdPartyProbeView>(`/api/v1/probes/${channel}`, {
+  return request<ThirdPartyProbeView>(`/api/v1/ops/probes/${channel}`, {
     method: 'POST',
     skipErrorHandler: true,
     data: {},

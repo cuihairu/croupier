@@ -21,7 +21,7 @@ var probeChannels = map[string]bool{
 	"smtp":     true,
 }
 
-// ThirdPartyProbe serves POST /api/v1/probes/:channel。
+// ThirdPartyProbe serves POST /api/v1/ops/probes/:channel。
 // 未配置目标返回 configured=false（200，便于前端逐渠道渲染），非法渠道 404。
 func (h *Handler) ThirdPartyProbe(c *gin.Context) {
 	channel := c.Param("channel")

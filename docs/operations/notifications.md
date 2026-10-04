@@ -15,12 +15,12 @@ tag:
 
 ## 渠道与配置键
 
-| 渠道           | 配置键（`PUT /api/v1/site/<key>`）                                                               | 说明                                        |
-| -------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| 站内信         | `notification.inAppEnabled`（默认开）                                                            | 写 `messages` 表 + SSE 实时推送，零外部依赖 |
-| 钉钉机器人     | `notification.dingtalkUrl` / `dingtalkSecret`                                                    | 机器人 Webhook + 加签                       |
-| 自定义 webhook | `notification.webhookUrl` / `webhookSecret`                                                      | POST JSON 事件体，可对接企微/飞书自建应用   |
-| SMTP 邮件      | `notification.emailEnabled` + `smtpHost` / `smtpPort` / `smtpUser` / `smtpPassword` / `smtpFrom` | 密码写后脱敏（只回显「已设置 + 尾 4 位」）  |
+| 渠道           | 配置键（`PUT /api/v1/site/<key>`）                                                                                                                                                                   | 说明                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 站内信         | `notification.inAppEnabled`（默认开）                                                                                                                                                                | 写 `messages` 表 + SSE 实时推送，零外部依赖                                             |
+| 钉钉机器人     | `notification.dingtalkUrl` / `dingtalkSecret`                                                                                                                                                        | 机器人 Webhook + 加签                                                                   |
+| 自定义 webhook | `notification.webhookUrl` / `webhookSecret`                                                                                                                                                          | POST JSON 事件体，可对接企微/飞书自建应用                                               |
+| SMTP 邮件      | `notification.emailEnabled` + `smtpHost` / `smtpPort` / `smtpUser` / `smtpPassword` / `smtpFrom` / `smtpEncryption`（none\|ssl\|starttls）/ `smtpAuthType`（plain\|login）/ `smtpInsecureSkipVerify` | 密码写后脱敏（只回显「已设置 + 尾 4 位」）；加密与认证矩阵见运维 Tab「SMTP 邮件服务」卡 |
 
 配置方式（Dashboard「系统管理 → 网站配置」，或 API 直改）：
 

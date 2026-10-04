@@ -163,6 +163,24 @@ auth:
 - **失效降级**：OIDC 身份源在 Server 启动时不可达只会禁用 OIDC 登录（告警日志），不影响本地与 LDAP 登录；LDAP 拨号发生在认证时，目录故障表现为"认证服务暂时不可用"。
 - **审计**：登录审计记录携带 `provider` 字段，可区分 `local` / `ldap` / `oidc` 来源。
 
+## 登录方式与自助注册（L3 运行时键）
+
+除 yaml 静态声明外，登录方式与注册策略已支持数据库 L3 运行时键（设置中心「账号安全」Tab，保存即热刷新身份源，`auth.*` 键族）：
+
+- **密码登录开关** `auth.local.enabled`（默认开；关闭时存在防锁死守卫——若本地管理员账号无法经其他身份源登录则拒绝关闭）。
+- **OAuth 身份源** `auth.providers.github.*` / `wechat.*` / `generic.*`（自定义 OAuth2 端点）：与 yaml 声明的 LDAP/OIDC 同一 `auth.providers` 模型，L3 覆盖 yaml，热生效。
+- **自助注册** `auth.register.enabled`（默认关，匿名 `POST /api/v1/auth/register` 关闭时 403 `registration_disabled`）+ `auth.register.defaultRoles`（留空不赋角色）。
+- **邮箱策略** `auth.email.domainWhitelist`（空=不限）/ `auth.email.aliasRestriction`（拒绝 + 去点归一查重）/ `auth.email.verificationRequired`（注册后须邮件验证，`GET /api/v1/auth/verify-email` 完成验证）。
+
+## 出站安全与限制（sec.*）
+
+服务端出站 HTTP（通知 webhook 与「检查更新」两处外呼）受出站守卫约束（`sec.*` 键族，设置中心「账号安全 → 出站安全与限制」卡，保存即热生效）：
+
+- `sec.allowPorts`：端口白名单（空=不限）；`sec.domainFilter`：域名后缀白名单（配置后仅清单内域名可出站）；`sec.allowIPs`：单 IP/CIDR 放行清单。
+- `sec.ssrfProtection`：开启后 DNS 解析与真实连接双层拦截私有/回环/链路本地地址（拨号前复核对端 IP，消除解析重绑定）。
+
+边界：守卫仅覆盖用户可配置 URL 的外呼——agent/数据库/SDK 通道与固定 URL 外呼（GitHub OAuth 等）不经守卫；默认全关零行为变更。生效值查询 `GET /api/v1/site/outbound`。
+
 ## 高危审批 step-up 二次验证（TOTP）
 
 治理风险 high / danger 的审批（默认策略中强制审批的两档）在批准动作落库前要求 step-up 二次验证（OPEN-ISSUES #75）：
