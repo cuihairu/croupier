@@ -37,8 +37,9 @@ const visibleChildren = (node: RouteNode): RouteNode[] =>
 describe('#9 系统管理扁平化（无「基础配置」上卷分组）', () => {
   const system = byPath('/system');
 
-  it('可见子项直接挂页：环境/术语/站点/分析过滤', () => {
+  it('可见子项直接挂页：游戏管理/环境/术语/站点/分析过滤', () => {
     expect(visibleChildren(system).map((n) => n.path)).toEqual([
+      '/system/games',
       '/system/environments',
       '/system/terms',
       '/system/site',

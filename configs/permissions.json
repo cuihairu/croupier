@@ -105,6 +105,13 @@
     "module": "game"
   },
   {
+    "code": "games:write",
+    "name": "游戏增删改",
+    "description": "新增、编辑、删除游戏本体（含显示名称与图标）；与环境管理权限分离",
+    "category": "games",
+    "module": "game"
+  },
+  {
     "code": "uploads:write",
     "name": "文件上传",
     "description": "上传文件权限",

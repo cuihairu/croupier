@@ -2,8 +2,7 @@
  * 游戏环境页：入口提示（定位副标题、作用域 Alert、Page Studio 跳转）+
  * 授权视图数据链（仅消费 /profile/games 授权列表、scope.gameId 绑定、
  * 未授权/未选游戏空态）+ 环境 CRUD（删除确认、新增必填与成功/失败、
- * 编辑回显提交）+ 新增游戏入口（canGamesManage 门控、upsertGame、
- * games:changed 广播）。
+ * 编辑回显提交）+ 游戏管理跳转入口（游戏新增/编辑已迁独立页面 /system/games）。
  * ModalForm 用 Form 替身复刻 open/onFinish/initialValues 契约。
  */
 import React from 'react';
@@ -255,7 +254,7 @@ describe('GamesEnvs 授权视图数据链', () => {
   });
 });
 
-describe('GamesEnvs 新增游戏入口', () => {
+describe('GamesEnvs 游戏管理入口（已迁独立页面 /system/games）', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     umiMock.__setAccess({ canGamesManage: true });
@@ -264,60 +263,23 @@ describe('GamesEnvs 新增游戏入口', () => {
     mockListGameEnvs.mockResolvedValue({ envs: [] });
   });
 
-  it('canGamesManage=false：不渲染新增游戏按钮', async () => {
+  it('canGamesManage=true：无新增游戏弹窗，改为跳转游戏管理页', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: '管理游戏' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '新增游戏' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '管理游戏' }));
+    expect(umiMock.history.push).toHaveBeenCalledWith('/system/games');
+  });
+
+  it('canGamesManage=false：不渲染管理游戏按钮', async () => {
     umiMock.__setAccess({ canGamesManage: false });
 
     renderPage();
 
     await waitFor(() => expect(screen.getByRole('button', { name: /新增环境/ })).toBeEnabled());
-    expect(screen.queryByRole('button', { name: '新增游戏' })).not.toBeInTheDocument();
-  });
-
-  it('提交调 upsertGame、广播 games:changed 并重拉授权列表', async () => {
-    mockUpsertGame.mockResolvedValue(undefined);
-    const changedListener = jest.fn();
-    window.addEventListener('games:changed', changedListener);
-
-    renderPage();
-    fireEvent.click(screen.getByRole('button', { name: '新增游戏' }));
-    expect(await screen.findByTestId('modal-form-title')).toHaveTextContent('新增游戏');
-
-    fireEvent.change(screen.getByPlaceholderText('e.g. demo_game'), {
-      target: { value: 'gamma' },
-    });
-    fireEvent.click(screen.getByTestId('modal-form-submit'));
-
-    await waitFor(() =>
-      expect(mockUpsertGame).toHaveBeenCalledWith({
-        name: 'gamma',
-        aliasName: undefined,
-        description: undefined,
-      }),
-    );
-    await waitFor(() => expect(changedListener).toHaveBeenCalled());
-    // 广播后重拉授权列表（新游戏即刻可见）
-    await waitFor(() => expect(mockListMyGames).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText('游戏已创建')).toBeInTheDocument();
-    window.removeEventListener('games:changed', changedListener);
-  });
-
-  it('upsertGame 失败：弹窗保持开启且不广播', async () => {
-    mockUpsertGame.mockRejectedValue(new Error('dup game'));
-    const changedListener = jest.fn();
-    window.addEventListener('games:changed', changedListener);
-
-    renderPage();
-    fireEvent.click(screen.getByRole('button', { name: '新增游戏' }));
-    await screen.findByTestId('modal-form-title');
-    fireEvent.change(screen.getByPlaceholderText('e.g. demo_game'), {
-      target: { value: 'gamma' },
-    });
-    fireEvent.click(screen.getByTestId('modal-form-submit'));
-
-    await waitFor(() => expect(mockUpsertGame).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByTestId('modal-form-title')).toBeInTheDocument());
-    expect(changedListener).not.toHaveBeenCalled();
-    window.removeEventListener('games:changed', changedListener);
+    expect(screen.queryByRole('button', { name: '管理游戏' })).not.toBeInTheDocument();
   });
 });
 

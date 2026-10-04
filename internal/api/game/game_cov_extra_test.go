@@ -236,6 +236,11 @@ func TestGameCov_Delete_WithRouter(t *testing.T) {
 	svcCtx.Router = router.New(router.Config{}, db)
 	id := seedCovGame(t, db, "covrouterdel")
 
+	// 环境未清空 → 拒绝删除（删除门禁）
+	require.Error(t, s.Delete(ctx, &GameDeleteRequest{ID: id}))
+
+	// 清空 Envs 元数据 → 放行，覆盖 Router forget 路径
+	require.NoError(t, db.Model(&model.Game{}).Where("id = ?", id).Update("envs", "[]").Error)
 	require.NoError(t, s.Delete(ctx, &GameDeleteRequest{ID: id}))
 }
 

@@ -157,6 +157,24 @@ export default [
         redirect: '/system/environments',
       },
       {
+        // 游戏本体管理独立页面：新增/编辑是页面而非弹窗；权限 games:write
+        // 与环境管理（games:manage）分离。环境页只管环境。
+        path: '/system/games',
+        name: 'GamesManage',
+        access: 'canGamesRead',
+        component: './GamesManage',
+      },
+      {
+        path: '/system/games/new',
+        component: './GamesManage/Create',
+        hideInMenu: true,
+      },
+      {
+        path: '/system/games/:id/edit',
+        component: './GamesManage/Edit',
+        hideInMenu: true,
+      },
+      {
         path: '/system/environments',
         name: 'GameEnvironments',
         access: 'canGamesRead',

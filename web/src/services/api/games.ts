@@ -99,17 +99,22 @@ export async function listMyGames() {
 }
 
 export async function upsertGame(
-  game: Pick<Game, 'name' | 'aliasName' | 'description'> & { config?: string },
+  game: Pick<Game, 'name' | 'aliasName' | 'description'> & { config?: string; icon?: string },
 ) {
   return request<{ game: Game } | void>('/api/v1/games', {
     method: 'POST',
     data: {
       name: game.name,
       aliasName: game.aliasName,
+      icon: game.icon,
       description: game.description,
       config: game.config,
     },
   });
+}
+
+export async function getGame(id: number | string) {
+  return request<{ game: Game }>(`/api/v1/games/${id}`);
 }
 
 export async function deleteGame(id: number) {
@@ -117,15 +122,15 @@ export async function deleteGame(id: number) {
 }
 
 export async function updateGame(
-  id: number,
-  game: Pick<Game, 'name' | 'aliasName' | 'description'>,
+  id: number | string,
+  game: Pick<Game, 'aliasName'> & { icon?: string },
 ) {
-  return request<void>(`/api/v1/games/${id}`, {
+  return request<{ game: Game }>(`/api/v1/games/${id}`, {
     method: 'PUT',
     data: {
-      name: game.name,
       aliasName: game.aliasName,
-      description: game.description,
+      // icon 显式提交：空串 = 清空（渲染回落默认骰子），后端指针语义
+      icon: game.icon,
     },
   });
 }

@@ -20,6 +20,7 @@ export default {
   'menu.Dev.ExcelConfig': 'Excel Config',
   'menu.Dev.Configs': 'Game Configs',
   'menu.Dev.ConfigExplorer': 'Config Explorer',
+  'menu.SystemConfig.GamesManage': 'Games',
   'menu.SystemConfig.GameEnvironments': 'Game Environments',
   'menu.SystemConfig.SiteSettings': 'Site Settings',
   'menu.SystemConfig.AnalyticsFilters': 'Sampling Control',

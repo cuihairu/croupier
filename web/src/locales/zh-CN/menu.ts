@@ -17,6 +17,7 @@ export default {
 
   'menu.Approvals': '审批中心',
   'menu.SystemConfig': '系统管理',
+  'menu.SystemConfig.GamesManage': '游戏管理',
   'menu.SystemConfig.GameEnvironments': '游戏环境',
   'menu.SystemConfig.SiteSettings': '网站配置',
   'menu.SystemConfig.AnalyticsFilters': '采样控制',

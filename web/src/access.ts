@@ -93,9 +93,11 @@ export default function access(
   return {
     canSystemConfigRead,
     canAdmin: isAdmin,
-    // Game meta management
+    // Game meta management：games:write 管游戏本体增删改，games:manage 管环境，
+    // 两者互不包含；games:read 只读。
     canGamesManage: hasAny('games:manage'),
-    canGamesRead: hasAny('games:read', 'games:manage'),
+    canGamesWrite: hasAny('games:write'),
+    canGamesRead: hasAny('games:read', 'games:manage', 'games:write'),
     canRegistryRead: hasAny('registry:read'),
     canAssignmentsRead: hasAny('assignments:read'),
     canAssignmentsWrite: hasAny('assignments:write'),

@@ -31,7 +31,7 @@ func (s *Service) deriveGameDBName(gameID, env string) string {
 
 // List retrieves a paginated list of games
 func (s *Service) List(ctx context.Context, req *GamesListRequest) (*GamesListResponse, error) {
-	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看游戏列表", "admin:all", "games:read", "games:manage"); err != nil {
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看游戏列表", "admin:all", "games:read", "games:manage", "games:write"); err != nil {
 		return nil, err
 	}
 
@@ -61,7 +61,8 @@ func (s *Service) List(ctx context.Context, req *GamesListRequest) (*GamesListRe
 
 // Create creates a new game
 func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCreateResponse, error) {
-	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权创建游戏", "admin:all", "games:manage"); err != nil {
+	// 游戏本体新增与环境管理分离：games:write 管游戏增删改，games:manage 管环境。
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权创建游戏", "admin:all", "games:write"); err != nil {
 		return nil, err
 	}
 
@@ -77,9 +78,16 @@ func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCrea
 		return nil, errorx.NewConflict("game_id 已存在: " + name)
 	}
 
+	aliasName := strings.TrimSpace(req.AliasName)
+	if aliasName == "" {
+		// 显示名缺省回填游戏标识：alias_name 有唯一索引，多个空串会互相冲突。
+		aliasName = name
+	}
+
 	game := &model.Game{
 		Name:        name,
-		AliasName:   strings.TrimSpace(req.AliasName),
+		AliasName:   aliasName,
+		Icon:        strings.TrimSpace(req.Icon),
 		Description: strings.TrimSpace(req.Description),
 		Config:      strings.TrimSpace(req.Config),
 		Status:      "dev",
@@ -99,7 +107,7 @@ func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCrea
 
 // Detail retrieves details of a specific game
 func (s *Service) Detail(ctx context.Context, req *GameDetailRequest) (*GameDetailResponse, error) {
-	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看游戏详情", "admin:all", "games:read", "games:manage"); err != nil {
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看游戏详情", "admin:all", "games:read", "games:manage", "games:write"); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +130,8 @@ func (s *Service) Detail(ctx context.Context, req *GameDetailRequest) (*GameDeta
 
 // Update updates an existing game
 func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpdateResponse, error) {
-	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权更新游戏", "admin:all", "games:manage"); err != nil {
+	// 游戏本体编辑（显示名/图标等）走 games:write，与环境管理权限分离。
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权更新游戏", "admin:all", "games:write"); err != nil {
 		return nil, err
 	}
 
@@ -148,6 +157,10 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 	}
 	if v := strings.TrimSpace(req.AliasName); v != "" {
 		updates["alias_name"] = v
+	}
+	if req.Icon != nil {
+		// 指针语义：显式提交即生效，空串清空图标（渲染回落默认骰子）。
+		updates["icon"] = strings.TrimSpace(*req.Icon)
 	}
 	if v := strings.TrimSpace(req.Description); v != "" {
 		updates["description"] = v
@@ -185,7 +198,8 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 
 // Delete deletes a game
 func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
-	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权删除游戏", "admin:all", "games:manage"); err != nil {
+	// 游戏删除属 games:write，games:manage（环境管理）不能删游戏。
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权删除游戏", "admin:all", "games:write"); err != nil {
 		return err
 	}
 
@@ -200,6 +214,18 @@ func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
 	game, findErr := s.svcCtx.GameModel.FindOne(ctx, id)
 
 	if findErr == nil && game != nil {
+		// 环境必须清空才允许删游戏：绑定表与 Envs 元数据两处都为 0 才放行。
+		bindings, err := s.svcCtx.GameModel.ListEnvBindings(ctx, game.GameID)
+		if err != nil {
+			return err
+		}
+		if len(bindings) > 0 {
+			return errorx.NewConflict("请先删除该游戏的全部环境，再删除游戏")
+		}
+		if envs, err := game.GetEnvs(); err == nil && len(envs) > 0 {
+			return errorx.NewConflict("请先删除该游戏的全部环境，再删除游戏")
+		}
+
 		if err := s.svcCtx.GameModel.DeleteWithEnvBindings(ctx, id, game.GameID); err != nil {
 			return err
 		}

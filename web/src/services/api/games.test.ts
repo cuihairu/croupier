@@ -1,5 +1,5 @@
 import { request } from '@umijs/max';
-import { deleteGame, listGamesMeta, listMyGames, updateGame, upsertGame } from './games';
+import { deleteGame, getGame, listGamesMeta, listMyGames, updateGame, upsertGame } from './games';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
@@ -110,14 +110,26 @@ describe('games API adapters', () => {
   });
 
   describe('upsertGame', () => {
-    it('POSTs the full game payload including config', async () => {
+    it('POSTs the full game payload including config and icon', async () => {
       mockedRequest.mockResolvedValue({ game: { id: 1 } });
 
-      await upsertGame({ name: 'demo', aliasName: '演示', description: '描述', config: '{"a":1}' });
+      await upsertGame({
+        name: 'demo',
+        aliasName: '演示',
+        description: '描述',
+        config: '{"a":1}',
+        icon: 'https://cdn.example.com/game.png',
+      });
 
       expect(mockedRequest).toHaveBeenCalledWith('/api/v1/games', {
         method: 'POST',
-        data: { name: 'demo', aliasName: '演示', description: '描述', config: '{"a":1}' },
+        data: {
+          name: 'demo',
+          aliasName: '演示',
+          icon: 'https://cdn.example.com/game.png',
+          description: '描述',
+          config: '{"a":1}',
+        },
       });
     });
 
@@ -130,7 +142,13 @@ describe('games API adapters', () => {
 
       expect(mockedRequest).toHaveBeenCalledWith('/api/v1/games', {
         method: 'POST',
-        data: { name: 'demo', aliasName: undefined, description: undefined, config: undefined },
+        data: {
+          name: 'demo',
+          aliasName: undefined,
+          icon: undefined,
+          description: undefined,
+          config: undefined,
+        },
       });
     });
   });
@@ -143,14 +161,23 @@ describe('games API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/games/7', { method: 'DELETE' });
   });
 
-  it('updateGame issues PUT with name/aliasName/description', async () => {
-    mockedRequest.mockResolvedValue(undefined);
+  it('getGame fetches game detail by id', async () => {
+    mockedRequest.mockResolvedValue({ game: { id: 3, name: 'demo', aliasName: '演示' } });
 
-    await updateGame(3, { name: 'n', aliasName: 'a', description: 'd' });
+    await expect(getGame(3)).resolves.toEqual({
+      game: { id: 3, name: 'demo', aliasName: '演示' },
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/games/3');
+  });
+
+  it('updateGame PUTs aliasName and icon (empty string clears icon)', async () => {
+    mockedRequest.mockResolvedValue({ game: { id: 3 } });
+
+    await updateGame(3, { aliasName: '新名', icon: '' });
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/games/3', {
       method: 'PUT',
-      data: { name: 'n', aliasName: 'a', description: 'd' },
+      data: { aliasName: '新名', icon: '' },
     });
   });
 });
