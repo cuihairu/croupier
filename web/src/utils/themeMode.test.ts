@@ -9,11 +9,15 @@
 import {
   getResolvedTheme,
   initThemeAttr,
+  readThemePreset,
   readThemePref,
   resolveTheme,
+  setThemePreset,
   setThemePref,
   subscribeThemePref,
+  DEFAULT_THEME_PRESET,
   THEME_PREF_STORAGE_KEY,
+  THEME_PRESET_STORAGE_KEY,
 } from './themeMode';
 
 // tests/setupTests.jsx 的 localStorage 是无状态 jest.fn 桩；本套件需要
@@ -35,6 +39,7 @@ const html = () => document.documentElement;
 beforeEach(() => {
   window.localStorage.clear();
   html().removeAttribute('data-theme');
+  html().removeAttribute('data-preset');
 });
 
 describe('readThemePref', () => {
@@ -101,5 +106,67 @@ describe('initThemeAttr', () => {
     setThemePref('dark');
     expect(getResolvedTheme()).toBe('dark');
     expect(html().getAttribute('data-theme')).toBe(getResolvedTheme());
+  });
+});
+
+describe('readThemePreset', () => {
+  it('未写入时默认 blue（出厂默认主题，不随彩蛋主题漂移）', () => {
+    expect(readThemePreset()).toBe('blue');
+    expect(readThemePreset()).toBe(DEFAULT_THEME_PRESET);
+  });
+
+  it.each(['blue', 'inkpink'] as const)('合法值 %s 原样读回', (v) => {
+    window.localStorage.setItem(THEME_PRESET_STORAGE_KEY, v);
+    expect(readThemePreset()).toBe(v);
+  });
+
+  it('脏值回退 blue', () => {
+    window.localStorage.setItem(THEME_PRESET_STORAGE_KEY, 'neon');
+    expect(readThemePreset()).toBe('blue');
+  });
+});
+
+describe('setThemePreset', () => {
+  it('持久化 + data-preset 立即生效 + 广播订阅者', () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeThemePref(listener);
+    expect(setThemePreset('inkpink')).toBe('inkpink');
+    expect(window.localStorage.getItem(THEME_PRESET_STORAGE_KEY)).toBe('inkpink');
+    expect(html().getAttribute('data-preset')).toBe('inkpink');
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    setThemePreset('blue');
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(html().getAttribute('data-preset')).toBe('blue');
+  });
+});
+
+describe('双维独立（主题套 × 明暗档）', () => {
+  it('换明暗档不动主题套，换主题套不动明暗档', () => {
+    setThemePreset('inkpink');
+    setThemePref('dark');
+    expect(readThemePreset()).toBe('inkpink');
+    expect(readThemePref()).toBe('dark');
+    expect(html().getAttribute('data-preset')).toBe('inkpink');
+    expect(html().getAttribute('data-theme')).toBe('dark');
+
+    setThemePref('light');
+    expect(readThemePreset()).toBe('inkpink');
+    setThemePreset('blue');
+    expect(readThemePref()).toBe('light');
+  });
+});
+
+describe('initThemeAttr（主题套）', () => {
+  it('按当前主题套写 data-preset 但不落盘', () => {
+    // 无偏好：init 写默认套（blue），不持久化
+    expect(initThemeAttr()).toBe('light');
+    expect(html().getAttribute('data-preset')).toBe('blue');
+    expect(window.localStorage.getItem(THEME_PRESET_STORAGE_KEY)).toBeNull();
+    // 显式偏好：init 读回并落属性
+    setThemePreset('inkpink');
+    expect(initThemeAttr()).toBe('light');
+    expect(html().getAttribute('data-preset')).toBe('inkpink');
   });
 });

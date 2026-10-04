@@ -55,7 +55,7 @@ export default function TemplateQuickStart({
   return (
     <Card size="small">
       <Space size={6} style={{ marginBottom: 8 }}>
-        <ThunderboltOutlined style={{ color: '#93394d' }} />
+        <ThunderboltOutlined style={{ color: 'var(--brand-2)' }} />
         <Title level={5} style={{ margin: 0 }}>
           {intl.formatMessage({
             id: 'pages.pageStudio.editor.quickStart.title',
@@ -116,7 +116,7 @@ export default function TemplateQuickStart({
                 }}
               >
                 <Space size={6}>
-                  <AppstoreOutlined style={{ color: '#93394d' }} />
+                  <AppstoreOutlined style={{ color: 'var(--brand-2)' }} />
                   <Text strong style={{ fontSize: 12 }}>
                     {name}
                   </Text>

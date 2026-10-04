@@ -1,17 +1,35 @@
 /**
- * antd ConfigProvider 主题（按生效主题二选一），色板对齐「荷官墨粉」双套
- * token（docs/.vitepress/theme/custom.css 与 global.less 的 CSS 变量同源）：
- * - 亮色：#93394d 系按钮 + 墨黑正文 #262626；
- * - 暗色：整体提亮一档 #cf6a82 系 + 白系正文。
+ * antd ConfigProvider 主题：主题套（preset）× 生效明暗（resolved）四套。
+ *
+ * - blue（拂晓蓝，出厂默认）：只给 colorPrimary，其余 token 走 antd 6
+ *   默认（#1677ff 种子派生 hover/active，暗色由 darkAlgorithm 提亮）——
+ *   即「荷官墨粉」改造前的原默认观感；
+ * - inkpink（荷官墨粉，可选保留）：双套 token 与 docs/.vitepress/theme/
+ *   custom.css、global.less 的 CSS 变量同源：
+ *   亮色 #93394d 系按钮 + 墨黑正文 #262626；暗色提亮一档 #cf6a82 系。
  *
  * 消费方两处：app.tsx 的 antd 运行时导出（首帧即正确）与 <ThemeSync>
  * （切换时实时推送）。algorithm 恒传满长数组（default/dark 各一）——
  * useAntdConfigSetter 内部按索引合并，回切亮色时才能干净覆盖。
  */
 import { theme as antdTheme, type ThemeConfig } from 'antd';
-import type { ResolvedTheme } from './themeMode';
+import type { ThemePreset, ResolvedTheme } from './themeMode';
 
-export const lightAntdTheme: ThemeConfig = {
+export const blueLightAntdTheme: ThemeConfig = {
+  algorithm: [antdTheme.defaultAlgorithm],
+  token: {
+    colorPrimary: '#1677ff',
+  },
+};
+
+export const blueDarkAntdTheme: ThemeConfig = {
+  algorithm: [antdTheme.darkAlgorithm],
+  token: {
+    colorPrimary: '#1677ff',
+  },
+};
+
+export const inkPinkLightAntdTheme: ThemeConfig = {
   algorithm: [antdTheme.defaultAlgorithm],
   token: {
     colorPrimary: '#93394d',
@@ -26,7 +44,7 @@ export const lightAntdTheme: ThemeConfig = {
   },
 };
 
-export const darkAntdTheme: ThemeConfig = {
+export const inkPinkDarkAntdTheme: ThemeConfig = {
   algorithm: [antdTheme.darkAlgorithm],
   token: {
     colorPrimary: '#cf6a82',
@@ -41,6 +59,13 @@ export const darkAntdTheme: ThemeConfig = {
   },
 };
 
-export function getAntdThemeConfig(resolved: ResolvedTheme): ThemeConfig {
-  return resolved === 'dark' ? darkAntdTheme : lightAntdTheme;
+export function getAntdThemeConfig(preset: ThemePreset, resolved: ResolvedTheme): ThemeConfig {
+  if (preset === 'inkpink')
+    return resolved === 'dark' ? inkPinkDarkAntdTheme : inkPinkLightAntdTheme;
+  return resolved === 'dark' ? blueDarkAntdTheme : blueLightAntdTheme;
+}
+
+/** 主题套主色 hex（SVG 属性/图表序列色/Tag color 等非 CSS 场景用） */
+export function getPresetAccent(preset: ThemePreset): string {
+  return preset === 'inkpink' ? '#93394d' : '#1677ff';
 }

@@ -352,7 +352,7 @@ export default function ExecutionLogsPage() {
           })}
           items={[
             {
-              color: '#93394d',
+              color: 'var(--brand-2)',
               text: intl.formatMessage(
                 {
                   id: 'pages.functionsExecutionLogs.summary.total',

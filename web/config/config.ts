@@ -115,16 +115,10 @@ export default defineConfig({
         // 逐组件覆盖圆角，样式只从这里出。
         borderRadius: 8,
         borderRadiusLG: 12,
-        // 荷官墨粉品牌色（亮色系默认值；暗色由运行时 config + global.less 双轨覆盖）
-        colorPrimary: '#93394d',
-        colorPrimaryHover: '#b8556b',
-        colorPrimaryActive: '#7a2b3e',
-        colorPrimaryTextHover: '#b8556b',
-        colorText: '#262626',
-        colorTextSecondary: 'rgba(38, 38, 38, 0.65)',
-        colorBgLayout: '#f3f5f7',
-        colorBgContainer: 'rgba(255, 255, 255, 0.9)',
-        colorBorder: '#e6eaf0',
+        // 构建期兜底主色：拂晓蓝（默认主题套）。主题套/明暗的完整
+        // token 在运行时由 app.tsx antd 导出 + <ThemeSync> 接管，
+        // 这里不再钉品牌色板。
+        colorPrimary: '#1677ff',
       },
     },
   },

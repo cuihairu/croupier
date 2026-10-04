@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from 'antd';
 import { useIntl } from '@umijs/max';
+import { useThemeAccent } from '@/hooks/useThemePref';
 import { exportToCSV } from '@/utils/export';
 import type { DimData, ProductData, TrendData, TrendPoint } from './types';
 
@@ -8,6 +9,7 @@ import type { DimData, ProductData, TrendData, TrendPoint } from './types';
 
 export const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
   const intl = useIntl();
+  const accent = useThemeAccent();
   try {
     const items = (data || [])
       .slice(0)
@@ -46,7 +48,7 @@ export const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
                 <text x={4} y={y + barH - 4} fontSize={12} fill="#555">
                   {String(it.productId || '-')}
                 </text>
-                <rect x={left} y={y} width={Math.max(2, scale(val))} height={barH} fill="#93394d" />
+                <rect x={left} y={y} width={Math.max(2, scale(val))} height={barH} fill={accent} />
                 <text
                   x={left + Math.max(2, scale(val)) + 6}
                   y={y + barH - 4}
@@ -358,11 +360,12 @@ export const ExportDimCSV: React.FC<{
 // TrendChart: two panels (revenue & success_rate) for multiple products
 export const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
   const intl = useIntl();
+  const accent = useThemeAccent();
   try {
     const prods = (data || []) as TrendData[];
     if (!prods.length) return null;
     const colors = [
-      '#93394d',
+      accent,
       '#fa541c',
       '#52c41a',
       '#faad14',

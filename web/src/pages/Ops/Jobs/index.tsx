@@ -366,7 +366,7 @@ export default function OpsTasksPage() {
           })}
           items={[
             {
-              color: '#93394d',
+              color: 'var(--brand-2)',
               text: intl.formatMessage(
                 { id: 'pages.opsJobs.summary.taskTotal', defaultMessage: `任务 ${total}` },
                 { total },
@@ -653,7 +653,7 @@ export default function OpsTasksPage() {
                   color: getTaskStatusMeta(detail.state, intl).color,
                   text: getTaskStatusMeta(detail.state, intl).text,
                 },
-                { color: '#93394d', text: detail.functionId || '-' },
+                { color: 'var(--brand-2)', text: detail.functionId || '-' },
                 {
                   color: '#722ed1',
                   text:

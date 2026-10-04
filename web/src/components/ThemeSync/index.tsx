@@ -13,22 +13,22 @@
 import React, { useEffect, useRef } from 'react';
 import { ConfigProvider, type ThemeConfig } from 'antd';
 import { useAntdConfigSetter } from '@umijs/max';
-import { useResolvedTheme } from '@/hooks/useThemePref';
+import { usePresetAndResolvedTheme } from '@/hooks/useThemePref';
 import { getAntdThemeConfig } from '@/utils/antdThemeConfig';
 
 export const ThemeSync: React.FC = () => {
-  const resolved = useResolvedTheme();
+  const { preset, resolved } = usePresetAndResolvedTheme();
   const setAntdConfig = useAntdConfigSetter();
   // umi 模板的 setter 每次渲染都是新引用（AntdProvider 内联创建，未 memo）：
   // 直接进 effect 依赖会「推配置 → AntdProvider 重渲染 → setter 换引用 →
   // effect 再推」死循环，React 抛 Maximum update depth 后整树卸载（线上
   // 全站白屏，jest 侧因 mock setter 恒稳而测不出）。latest-ref 持有最新
-  // setter，effect 依赖只剩 resolved。
+  // setter，effect 依赖只剩语义值（主题套 × 明暗）。
   const setterRef = useRef(setAntdConfig);
   setterRef.current = setAntdConfig;
 
   useEffect(() => {
-    const theme: ThemeConfig = getAntdThemeConfig(resolved);
+    const theme: ThemeConfig = getAntdThemeConfig(preset, resolved);
     // token 浅深两层合并：config.ts 里的既有 token（如 borderRadius）不被清掉
     setterRef.current((prev) => ({
       ...prev,
@@ -39,7 +39,7 @@ export const ThemeSync: React.FC = () => {
       },
     }));
     ConfigProvider.config({ theme });
-  }, [resolved]);
+  }, [preset, resolved]);
 
   return null;
 };

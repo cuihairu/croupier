@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Button, Card, Space, Row, Col, Divider } from 'antd';
 import { PageContainer, StatisticCard } from '@ant-design/pro-components';
 import { FormattedMessage, useIntl } from '@umijs/max';
+import { useThemeAccent } from '@/hooks/useThemePref';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsOverview } from '@/services/api/analytics';
 
@@ -28,6 +29,7 @@ interface OverviewData {
 
 export default function AnalyticsOverviewPage() {
   const intl = useIntl();
+  const accent = useThemeAccent();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<OverviewData>({});
 
@@ -99,7 +101,7 @@ export default function AnalyticsOverviewPage() {
     const d = pts.map((pt, i) => `${i ? 'L' : 'M'}${sx(pt[0])},${sy(pt[1])}`).join(' ');
     return (
       <svg width={w} height={h} style={{ display: 'block' }}>
-        <path d={d} fill="none" stroke="#93394d" strokeWidth={2} />
+        <path d={d} fill="none" stroke={accent} strokeWidth={2} />
       </svg>
     );
   };

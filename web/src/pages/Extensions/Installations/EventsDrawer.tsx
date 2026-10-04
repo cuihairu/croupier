@@ -97,7 +97,7 @@ export default function EventsDrawer({
         })}
         items={[
           {
-            color: '#93394d',
+            color: 'var(--brand-2)',
             text: intl.formatMessage(
               {
                 id: 'pages.extensionsInstallations.events.overview.total',

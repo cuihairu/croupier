@@ -323,7 +323,7 @@ const Welcome: React.FC = () => {
               })}
               path="/functions/resource-catalog"
               icon={<SettingOutlined />}
-              tone="linear-gradient(135deg, #7a2b3e 0%, #e58aa0 100%)"
+              tone="linear-gradient(135deg, var(--rose-3) 0%, var(--rose-1) 100%)"
             />
           </Col>
           <Col xs={24} md={8}>

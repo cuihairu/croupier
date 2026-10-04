@@ -15,6 +15,7 @@ import {
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage, useIntl } from '@umijs/max';
+import { useThemeAccent } from '@/hooks/useThemePref';
 import { exportToCSV, exportToXLSX } from '@/utils/export';
 import {
   fetchAnalyticsLevels,
@@ -331,6 +332,7 @@ interface LevelsData {
 
 const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) => {
   const intl = useIntl();
+  const accent = useThemeAccent();
   try {
     const all = data?.perLevel || [];
     const segs = data?.perLevelSegments || {};
@@ -392,14 +394,14 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
             })}
           </text>
           {/* lines */}
-          {pathOf('all', '#93394d')}
+          {pathOf('all', accent)}
           {pathOf('new', '#52c41a')}
           {pathOf('ret', '#faad14')}
           {pathOf('pay', '#f5222d')}
           {/* legend */}
           <g>
             <rect x={w - right - 260} y={topm + 6} width={250} height={20} fill="#fff" />
-            <circle cx={w - right - 250} cy={topm + 16} r={3} fill="#93394d" />
+            <circle cx={w - right - 250} cy={topm + 16} r={3} fill={accent} />
             <text x={w - right - 242} y={topm + 20} fontSize={10}>
               {intl.formatMessage({
                 id: 'pages.analyticsLevels.chart.legend.all',

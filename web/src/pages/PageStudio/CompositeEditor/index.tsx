@@ -1159,7 +1159,7 @@ export default function CompositeEditorPage() {
                                 gridColumn: `span ${spanNum}`,
                                 borderTop:
                                   dragItem && overNodeId === n.id
-                                    ? '3px solid #93394d'
+                                    ? '3px solid var(--brand-2)'
                                     : '3px solid transparent',
                                 transition: 'border-color 0.1s',
                               }}
@@ -1290,7 +1290,7 @@ export default function CompositeEditorPage() {
             <div
               style={{
                 background: '#fff',
-                border: '1px solid #93394d',
+                border: '1px solid var(--brand-2)',
                 borderRadius: 6,
                 padding: '4px 10px',
                 fontSize: 12,

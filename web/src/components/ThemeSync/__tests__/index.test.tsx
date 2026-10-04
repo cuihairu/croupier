@@ -1,8 +1,9 @@
 /**
- * ThemeSync 主题生效器回归：生效主题变化时把对应 algorithm/token 推给
- * useAntdConfigSetter（antd 组件换肤）并同步静态方法配置
- * （ConfigProvider.config —— message/notification/Modal.confirm 不在
- * React 树内）。algorithm 恒传满长数组，来回切换不残留旧算法。
+ * ThemeSync 主题生效器回归：主题套（preset）× 生效明暗（resolved）任一
+ * 变化时，把对应 algorithm/token 推给 useAntdConfigSetter（antd 组件换肤）
+ * 并同步静态方法配置（ConfigProvider.config —— message/notification/
+ * Modal.confirm 不在 React 树内）。algorithm 恒传满长数组，来回切换不
+ * 残留旧算法。
  */
 import React from 'react';
 import { act, render } from '@testing-library/react';
@@ -23,7 +24,7 @@ jest.mock('@umijs/max', () => ({
 
 import { ConfigProvider } from 'antd';
 import { ThemeSync } from '../index';
-import { setThemePref } from '@/utils/themeMode';
+import { setThemePreset, setThemePref } from '@/utils/themeMode';
 
 // setupTests 的 localStorage 是无状态 jest.fn 桩；切换断言依赖真实读写语义
 const storageBacking = new Map<string, string>();
@@ -43,6 +44,7 @@ const staticConfigSpy = jest.spyOn(ConfigProvider, 'config').mockImplementation(
 beforeEach(() => {
   window.localStorage.clear();
   document.documentElement.removeAttribute('data-theme');
+  document.documentElement.removeAttribute('data-preset');
   setAntdConfig.mockClear();
   staticConfigSpy.mockClear();
   setterImpl = (...args: unknown[]) =>
@@ -57,12 +59,12 @@ function applyLastUpdate(prev: Record<string, unknown>) {
 }
 
 describe('ThemeSync', () => {
-  it('亮色生效：推送 defaultAlgorithm + 亮色 token，并同步静态配置', () => {
+  it('默认（blue 亮色）：推送 defaultAlgorithm + 拂晓蓝主色，并同步静态配置', () => {
     render(<ThemeSync />);
     expect(setAntdConfig).toHaveBeenCalledTimes(1);
     const merged = applyLastUpdate({ theme: { token: { borderRadius: 8 } } });
     expect(merged.theme.algorithm).toEqual([antdTheme.defaultAlgorithm]);
-    expect(merged.theme.token.colorPrimary).toBe('#93394d');
+    expect(merged.theme.token.colorPrimary).toBe('#1677ff');
     // 既有 token（config.ts 的 borderRadius）不被清掉
     expect(merged.theme.token.borderRadius).toBe(8);
     expect(staticConfigSpy).toHaveBeenCalledWith(
@@ -72,8 +74,13 @@ describe('ThemeSync', () => {
     );
   });
 
-  it('切到暗色：darkAlgorithm + 提亮色板；再切回亮色不残留 dark', () => {
+  it('墨粉套切到暗色：darkAlgorithm + 提亮色板；再切回亮色不残留 dark', () => {
     render(<ThemeSync />);
+    act(() => {
+      setThemePreset('inkpink');
+    });
+    expect(applyLastUpdate({ theme: {} }).theme.token.colorPrimary).toBe('#93394d');
+
     act(() => {
       setThemePref('dark');
     });
@@ -85,6 +92,21 @@ describe('ThemeSync', () => {
       setThemePref('light');
     });
     merged = applyLastUpdate({ theme: {} });
+    expect(merged.theme.algorithm).toEqual([antdTheme.defaultAlgorithm]);
+  });
+
+  it('同明暗换主题套：blue↔inkpink 主色切换，algorithm 不变', () => {
+    render(<ThemeSync />);
+    act(() => {
+      setThemePreset('inkpink');
+    });
+    expect(applyLastUpdate({ theme: {} }).theme.token.colorPrimary).toBe('#93394d');
+
+    act(() => {
+      setThemePreset('blue');
+    });
+    expect(applyLastUpdate({ theme: {} }).theme.token.colorPrimary).toBe('#1677ff');
+    const merged = applyLastUpdate({ theme: { token: { borderRadius: 8 } } });
     expect(merged.theme.algorithm).toEqual([antdTheme.defaultAlgorithm]);
   });
 

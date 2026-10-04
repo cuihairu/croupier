@@ -75,7 +75,10 @@ export function ModalPlaceholder({
         onEnterModal();
       }}
       style={{
-        border: selected ? '1px solid #93394d' : '1px dashed #b37feb',
+        // 主题强调色走 CSS 变量；用 longhand（jsdom 无法分解含 var() 的 shorthand）
+        borderWidth: 1,
+        borderStyle: selected ? 'solid' : 'dashed',
+        borderColor: selected ? 'var(--brand-2)' : '#b37feb',
         borderRadius: 8,
         padding: 12,
         cursor: 'pointer',
@@ -178,7 +181,9 @@ function RootDropZone({ onShowTemplates }: { onShowTemplates?: () => void }) {
         marginTop: 100,
         textAlign: 'center',
         padding: '40px 0',
-        border: isOver ? '2px dashed #93394d' : '1px dashed #d9d9d9',
+        borderWidth: isOver ? 2 : 1,
+        borderStyle: 'dashed',
+        borderColor: isOver ? 'var(--brand-2)' : '#d9d9d9',
         borderRadius: 8,
         background: isOver ? '#f0f7ff' : 'transparent',
       }}

@@ -36,7 +36,7 @@ import { resetAccessibleMenus } from './store/modules/menu';
 import { AvatarFallback, avatarInitials } from '@/components/UserAvatar';
 import { normalizeAvatarSrc } from '@/pages/Profile/shared';
 import { getAntdThemeConfig } from '@/utils/antdThemeConfig';
-import { initThemeAttr } from '@/utils/themeMode';
+import { initThemeAttr, readThemePreset } from '@/utils/themeMode';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -345,12 +345,13 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
 /**
  * antd 运行时配置（plugin-antd modify 钩子——注意键名是 `antd`；早前导出的
  * `theme` 不在插件键清单里，实际从未生效）：
- * - 启动期按当前生效主题给出 algorithm/token，首帧即正确（暗色用户不闪亮屏）；
+ * - 启动期按当前主题套 × 生效明暗给出 algorithm/token，首帧即正确
+ *   （非默认偏好用户不闪默认屏）；
  * - 之后的切换由 innerProvider 里的 <ThemeSync> 实时推送。
  */
 export const antd = (memo: { theme?: ThemeConfig } & Record<string, unknown>) => ({
   ...memo,
-  theme: { ...memo.theme, ...getAntdThemeConfig(initThemeAttr()) },
+  theme: { ...memo.theme, ...getAntdThemeConfig(readThemePreset(), initThemeAttr()) },
 });
 
 export const request = {

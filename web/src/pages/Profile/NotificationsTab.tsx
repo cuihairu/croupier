@@ -116,7 +116,7 @@ export default function NotificationsTab({
                   borderRadius: 6,
                   padding: '10px 8px',
                   background: unread ? 'rgba(22, 119, 255, 0.06)' : undefined,
-                  borderLeft: unread ? '3px solid #93394d' : '3px solid transparent',
+                  borderLeft: unread ? '3px solid var(--brand-2)' : '3px solid transparent',
                 }}
                 onClick={() => onOpenMessage(item)}
               >

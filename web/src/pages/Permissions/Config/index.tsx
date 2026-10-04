@@ -84,7 +84,7 @@ export default function ConfigPage() {
       dataIndex: 'permissions',
       key: 'permissions',
       render: (permissions: string[]) => (
-        <Badge count={permissions.length} style={{ backgroundColor: '#93394d' }} />
+        <Badge count={permissions.length} style={{ backgroundColor: 'var(--brand-2)' }} />
       ),
     },
     {
@@ -130,7 +130,7 @@ export default function ConfigPage() {
         <Card>
           <div style={{ marginBottom: '16px' }}>
             <Title level={2}>
-              <SettingOutlined style={{ marginRight: '8px', color: '#93394d' }} />
+              <SettingOutlined style={{ marginRight: '8px', color: 'var(--brand-2)' }} />
               <FormattedMessage id="pages.permissionsConfig.title" defaultMessage="权限配置管理" />
             </Title>
             <Text type="secondary">

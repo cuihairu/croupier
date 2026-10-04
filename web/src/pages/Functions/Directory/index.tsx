@@ -272,7 +272,7 @@ export default function DirectoryPage() {
           })}
           items={[
             {
-              color: '#93394d',
+              color: 'var(--brand-2)',
               text: intl.formatMessage(
                 {
                   id: 'pages.functionsDirectory.summary.item.total',

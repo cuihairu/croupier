@@ -41,7 +41,13 @@ function NodeThumb({ node }: { node: PageNode }) {
     return (
       <div
         className="tpl-thumb__btn"
-        style={{ width: 36, height: 12, borderRadius: 6, background: '#93394d', opacity: 0.75 }}
+        style={{
+          width: 36,
+          height: 12,
+          borderRadius: 6,
+          background: 'var(--brand-2)',
+          opacity: 0.75,
+        }}
       />
     );
   }

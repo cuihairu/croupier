@@ -27,7 +27,7 @@ import React, { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createStyles } from 'antd-style';
 
-const useStyles = createStyles(({ token, cssVar }) => {
+const useStyles = createStyles(({ token }) => {
   return {
     action: {
       marginLeft: '8px',
@@ -56,11 +56,10 @@ const useStyles = createStyles(({ token, cssVar }) => {
       flexDirection: 'column',
       height: '100vh',
       overflow: 'auto',
-      background: `linear-gradient(180deg, ${token.colorBgLayout} 0%, ${token.colorBgContainer} 100%)`,
-      // 暗色由 global.less data-theme 切换 CSS 变量覆盖；此处仅供 SSR 首帧不闪
-      '@media (prefers-color-scheme: dark)': {
-        background: `linear-gradient(180deg, #1a1a2e 0%, rgba(30, 30, 50, 0.92) 100%)`,
-      },
+      // 主题套 × 明暗全由 global.less 的 CSS 变量驱动（data-preset/data-theme），
+      // 登录页不钉任何品牌色；变量缺失时回退 antd 默认观感
+      background:
+        'linear-gradient(180deg, var(--app-shell-bg, #f3f5f7) 0%, var(--app-panel-bg, #ffffff) 100%)',
     },
   };
 });
