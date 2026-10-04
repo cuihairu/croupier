@@ -176,11 +176,11 @@ game_rpg_prod
 
 ### 按游戏分库的优势
 
-- [物理隔离，完全独立]
-- [独立的容量规划和扩展]
-- [简化查询（不需要 WHERE game_id = 'xxx' AND env = 'prod'）]
-- [便于游戏迁移和归档]
-- [符合"通用平台 + 独立游戏数据"的理念]
+- 物理隔离，各库独立备份与迁移
+- 独立的容量规划与扩展
+- 查询简化（不需要 WHERE game_id = 'xxx' AND env = 'prod'）
+- 便于单款游戏整体迁出或归档
+- 与「通用平台 + 独立游戏数据」的边界一致
 
 ### 数据库路由
 
@@ -226,7 +226,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 
 ### Dashboard 页面模型
 
-- [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md) — 新手从这里开始：描述驱动的核心创新、从函数注册到页面执行的完整流程、每个关键决策的取舍
+- [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md) — 新手从这里开始：描述驱动的核心思路、从函数注册到页面执行的完整流程、每个关键决策的取舍
 - [Dashboard 术语表](./dashboard-glossary.md) — FunctionContract、CapabilitySemantics、PageProposal、PageSpec 与 freshness/merge 的统一定义，建议首先阅读
 - [Dashboard Resource/Page 模型](./dashboard-page-model.md) — 注册、语义聚合、Proposal、发布快照与执行治理的权威模型
 - [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 FunctionContract 的统一注册契约

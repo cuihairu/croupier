@@ -75,6 +75,17 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 详见 [系统架构总览](docs/architecture/index.md)与[负载均衡选型](docs/operations/load-balancing.md)。
 
+## 底座来源
+
+Croupier 不是 fork，是一层控制面业务系统，底层全部站在开源组件上（版本以 `go.mod` / `web/package.json` 为准）：
+
+- 服务端：Go 1.26，HTTP 用 [Gin](https://github.com/gin-gonic/gin)，ORM 用 [GORM](https://gorm.io)（MySQL / PostgreSQL / SQL Server / glebarez SQLite 四驱动），权限判定用 [Casbin](https://casbin.org)，编号迁移用 goose
+- 传输：Agent↔Server、SDK↔Agent 的 TCP session 基于Go 标准库 `net` + `crypto/tls` 实现（长度前缀分帧、protobuf 信封），未引入 gRPC，取舍见 [transport-no-grpc.md](docs/architecture/transport-no-grpc.md)
+- 可观测：[OpenTelemetry](https://opentelemetry.io) Go SDK + OTLP HTTP exporter 上报
+- 控制台：基于 [Umi Max](https://umijs.org) 与 [Ant Design](https://ant.design) / ProComponents 构建，JSON Schema 表单由 [RJSF](https://rjsf.github.io/react-jsonschema-form/) 驱动，编辑器用 [Monaco](https://microsoft.github.io/monaco-editor/)
+- 协议与工具链：[protobuf](https://protobuf.dev)（protoc 全本地生成）+ [buf](https://buf.build) lint
+- 六语言 SDK（go / js / python / java / csharp / cpp）基于各自语言标准库实现，wire 契约见 [sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
+
 ## Session 模型
 
 Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量的应用层 session：

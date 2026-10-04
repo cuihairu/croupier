@@ -128,10 +128,7 @@ graph TB
 
 ### 权限与安全
 
-- **RBAC/ABAC 混合模型**：基于角色和属性的灵活权限控制
-- **双层政策架构**：YAML 默认策略 + 数据库覆盖策略
-- **四级风险控制**：低、中、高、危险四级，自动触发审批流程
-- **双人审批规则**：高风险操作需要多人审批
+权限判定基于 Casbin 的 RBAC/ABAC 混合模型，角色之外还能按属性放行或拦截。政策分两层：YAML 给默认值，数据库覆盖策略在线调整。操作按低/中/高/危险四级定风险，高危操作自动进审批流程，其中双人审批规则要求多人确认才放行。
 
 ### 作用域模型
 
@@ -141,9 +138,7 @@ graph TB
 
 ### 可观测性
 
-- **完整审计链**：所有操作记录审计日志
-- **哈希防篡改**：审计记录通过哈希链关联，确保数据完整性
-- **敏感字段脱敏**：自动脱敏密码、token 等敏感信息
+所有操作写审计日志，记录之间用哈希链关联，改一条就断链，事后能查出来。密码、token 等敏感字段在日志与响应里自动脱敏。
 
 ### 运维工具
 
@@ -205,12 +200,11 @@ curl http://localhost:18780/api/v1/
 
 ## 技术栈
 
-- **Go**：后端核心实现
-- **TCP Session**：Agent/SDK 内部主链路
-- **Protobuf**：接口定义与信封序列化
-- **SQLite/PostgreSQL**：数据存储
-- **React + Ant Design Pro + ProComponents**：管理界面与生成式页面运行时
-- **VitePress**：文档站点
+- 后端：Go 1.26，HTTP 框架 Gin，ORM 为 GORM（MySQL / PostgreSQL / SQLite / SQL Server）
+- 权限判定：Casbin（RBAC/ABAC）
+- 内部链路：自建 TCP session，长度前缀分帧 + protobuf 信封
+- 控制台：Umi Max + React + Ant Design Pro / ProComponents
+- 文档站点：VitePress
 
 ## 路线图
 
