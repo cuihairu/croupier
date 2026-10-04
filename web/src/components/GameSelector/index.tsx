@@ -3,6 +3,7 @@ import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Drawer, Empty, Select, Spin } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import classNames from 'classnames';
+import GameIcon, { GAME_ICON_SIZE } from '@/components/GameIcon';
 import { listMyGames, type Game, type GameEnvMeta } from '@/services/api';
 import { persistMyScope } from '@/services/api/me';
 import { getScope, markScopeReady, setScope } from '@/stores/scope';
@@ -254,7 +255,8 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       value: game.name,
       label: (
         <div className={styles.gameOption}>
-          <span className={styles.colorDot} style={colorDot(game.color)} />
+          {/* 游戏图标：资料 icon 优先，空/加载失败兜底骰子（GameIcon 内处理） */}
+          <GameIcon icon={game.icon} name={alias} size={GAME_ICON_SIZE.sm} />
           <div className={styles.gameTexts}>
             <span className={styles.gameAlias}>{alias}</span>
             <span className={styles.gameId}>{game.name}</span>
@@ -376,7 +378,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         >
           <span className={styles.mobileTriggerInner}>
             <span className={styles.mobileTriggerMain}>
-              <AppstoreOutlined />
+              <GameIcon icon={activeGame?.icon} name={activeAlias} size={GAME_ICON_SIZE.sm} />
               <span className={styles.mobileTriggerText}>{activeAlias}</span>
             </span>
             <span className={styles.mobileTriggerEnv}>
@@ -403,7 +405,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 defaultMessage="当前游戏"
               />
             </div>
-            <div className={styles.mobileSummaryValue}>{activeAlias}</div>
+            <div className={styles.mobileSummaryValue}>
+              <GameIcon icon={activeGame?.icon} name={activeAlias} size={GAME_ICON_SIZE.md} />
+              <span>{activeAlias}</span>
+            </div>
             <div className={styles.mobileSummaryMeta}>{activeEnvLabel}</div>
           </div>
           {selectorPanel}

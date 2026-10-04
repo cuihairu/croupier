@@ -191,6 +191,39 @@ describe('GameSelector：非受控回落与 scope 写入', () => {
   });
 });
 
+describe('GameSelector：游戏图标（GameIcon）', () => {
+  it('下拉项渲染游戏 icon；无 icon 的游戏兜底骰子图，环境项不受影响', async () => {
+    mockedList.mockResolvedValue({
+      games: [
+        { name: 'g1', aliasName: 'A1', icon: 'https://cdn.example.com/g1.png', envs: ['prod'] },
+        { name: 'g2', aliasName: 'A2', envs: ['prod'] },
+      ],
+    });
+    render(<GameSelector />);
+    await waitFor(() => expect(screen.getAllByRole('combobox').length).toBe(2));
+
+    openSelect(0);
+    const options = await waitFor(() => {
+      const nodes = Array.from(document.querySelectorAll('.ant-select-item-option'));
+      if (nodes.length < 2) throw new Error('游戏选项未渲染');
+      return nodes as HTMLElement[];
+    });
+    // g1 资料 icon；g2 空 icon → 骰子兜底（同款 /dice-fallback.svg）
+    const iconOf = (text: string) =>
+      options.find((o) => o.textContent?.includes(text))?.querySelector('img');
+    expect(iconOf('A1')?.getAttribute('src')).toBe('https://cdn.example.com/g1.png');
+    expect(iconOf('A2')?.getAttribute('src')).toBe('/dice-fallback.svg');
+
+    // 选中态（Select 收起后的 value 区 .ant-select-content）沿用同一 option label，icon 一并带出
+    await clickOption('A1');
+    await waitFor(() => {
+      const selected = document.querySelector('.ant-select-content-has-value img');
+      if (!selected) throw new Error('选中态 icon 未渲染');
+      expect(selected.getAttribute('src')).toBe('https://cdn.example.com/g1.png');
+    });
+  });
+});
+
 describe('GameSelector：受控模式', () => {
   const games: Game[] = [
     { name: 'g1', envMeta: [{ env: 'prod' }, { env: 'dev' }] },
