@@ -266,6 +266,10 @@ const config = defineConfig({
               text: "Control Plane 定位评审",
               link: "/research/control-plane-positioning-2026-10",
             },
+            {
+              text: "身份验证与 OAuth 全量核对（#51）",
+              link: "/research/auth-identity-survey-2026-10",
+            },
           ],
         },
       ],

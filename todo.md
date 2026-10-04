@@ -3792,3 +3792,21 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > ④ 子集不支持表格/图片/代码块/嵌套结构（按字面展示），后续需求驱动再扩。
 > 门禁：MarkdownText+popup 24/24 绿、管理页 17/17 绿、tsc 0 错、guard PASSED、全量 jest 全绿。
 > 下一步：#51 身份验证+OAuth 立项第一块 → #52 系统维护 → #53 性能参数 → #54 日志维护。
+
+## 身份验证与 OAuth 全量核对·#51 核销（需求清单 #51 立项第一块，2026-10-04）
+
+> **核对结论**：#51 全拆批（51a/51b/51c/微信/自定义 OAuth）**零功能缺口，核销**——
+> 51a 密码登录开关+GitHub OAuth（7 键/防锁死守卫/HMAC state/JIT 建号/SSO 按钮/AuthTab 本地卡）
+> 与微信+自定义 OAuth（964e40b，R27 覆盖率 88.2%→99.2%）此前已提交；51b 自助注册已落地
+> （`auth.register.enabled` 默认关 + `auth.register.defaultRoles` 留空不赋角色 + 匿名
+> `POST /api/v1/auth/register` 关闭时 403 registration_disabled + 登录页注册表单 + AuthTab
+> 注册卡）；51c 邮箱策略三键全落地（`auth.email.domainWhitelist` 空=不限 / `aliasRestriction`
+> 拒绝 + 别名去点归一查重 / `verificationRequired` 注册后须验证）+ `GET /api/v1/auth/verify-email`
+> （email_verified 落库、无效/过期/已用统一 400 防探测）+ `/user/verify-email` 页 + 登录页
+> emailNotVerified 引导；AuthTab 提交三键有测试（「注册卡保存」用例）。
+> **产出**：核对归档 `docs/research/auth-identity-survey-2026-10.md`（键族全表/横向安全链/
+> 产品假设定形/边界四条），vitepress 侧边栏登记，OPEN-ISSUES #51 行核销注记。本批无代码改动。
+> **已知边界**：① 白名单/别名限制仅约束注册链不回溯存量账号；② verificationRequired 开启后
+> 无重发验证邮件入口（依赖 #55 SMTP 通知侧深化）；③ GitHubProvider 仅直连 github.com，GHE
+> 企业实例走 genericoauth 自定义端点；④ 注册无审批流（开关即开放，邮件验证为唯一可选门槛）。
+> 下一步：#52 系统维护核对 → #53 性能参数 → #54 日志维护 → #55 SMTP 归运维。
