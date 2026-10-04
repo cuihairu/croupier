@@ -7,8 +7,8 @@
  * （密码即访问令牌口径）/发件人地址。保存即热生效（notify 服务每次发送
  * 前读 L3 快照）。
  *
- * 边界（诚实）：无「发送测试邮件」按钮（#51c 邮箱验证落地时一并补）；
- * 跳过证书校验仅建议自签内网邮服使用，公网邮服开启有中间人风险。
+ * 测试邮件入口已在 #51c 批次补欠（POST /site/notification/test-email）。
+ * 边界（诚实）：跳过证书校验仅建议自签内网邮服使用，公网邮服开启有中间人风险。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {

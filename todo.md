@@ -3861,3 +3861,22 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > > audit_records 哈希链审计永不清理；③ 行数/字节配额未实现（保留天数即配额）；④
 > > 行数统计全表 COUNT 大表 O(n) 读。
 > > 下一步：#55 SMTP 归运维 → #56 安全与限制 → #57 第三方探针。
+
+## 运维/SMTP 邮箱配置全量核对·#55 核销（需求清单 #55，2026-10-04）
+
+> **核对结论**：#55 已落地（2026-10-02）+ 已线上复证（deploy 36937558114，gitCommit
+> 444d7f0，双实例 healthy），2026-10-04 记录与代码一致，**零新缺口，核销**——用户需求
+> 八项对照全落地：加密方式（smtpEncryption ""/none/ssl/starttls + WithTransport 加密矩阵：
+> ssl 隐式 TLS/starttls 强制升级未宣告报错/none 明文）、强制 AUTH LOGIN（smtpAuthType
+> plain|login + 自实现 loginAuth 协议时序）、密码即访问令牌（smtpPassword 脱敏）、用户名/
+> 端口/发件地址、跳过 TLS 证书校验（smtpInsecureSkipVerify + tls.Config 透传）、UI 归位
+> 运维 Tab（SmtpCard，通知 Tab 留迁移提示）。证据在册复验：键族 layered.go 63-72、
+> approvals/notification.go WithTransport(:381)+loginAuth、testemail.go:22 接线、
+> SmtpCard 10 用例 + NotificationTab 改版用例。
+> **核对发现（边界①状态更新）**：原边界「无发送测试邮件按钮」已被 #51c 批次补欠——
+> `POST /api/v1/site/notification/test-email`（testemail.go + handler.go:56 + 2 Go Test +
+> SmtpCard 测试邮件 describe）；SmtpCard.tsx 文件头残留旧边界注释与实现自相矛盾，
+> 本批顺手修正（唯一代码改动，纯注释；SmtpCard 10/10 绿 + tsc 0 错复验）。
+> **边界**：① 跳过证书校验仅建议内网自签邮服（UI 中间人警示）；② 密码即访问令牌口径
+> （SMTP 无独立 token 字段）；③ AUTH LOGIN 凭据明文传输语义（依赖传输层加密保护）。
+> 下一步：#56 安全与限制 → #57 第三方探针。

@@ -282,6 +282,10 @@ const config = defineConfig({
               text: "运维/日志维护全量核对（#54）",
               link: "/research/log-maintenance-survey-2026-10",
             },
+            {
+              text: "运维/SMTP 邮箱配置全量核对（#55）",
+              link: "/research/smtp-ops-survey-2026-10",
+            },
           ],
         },
       ],
