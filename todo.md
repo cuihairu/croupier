@@ -3827,3 +3827,19 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > **边界**：① 不自动执行升级；② updateCheckUrl 未配置时按钮仅回版本注记；③ 运维 Tab
 > 挂 SiteSettings 下，#53-57 运维家族若成组可迁独立页（/ops/system/* 路由组已预留）。
 > 下一步：#53 性能参数核对 → #54 日志维护核对 → #55 SMTP 归运维。
+
+## 运维/性能参数设置全量核对·#53 核销（需求清单 #53，2026-10-04）
+
+> **核对结论**：#53 已落地（2026-10-02）+ 已线上复证（deploy 36937558114，gitCommit
+> 444d7f0，双实例 healthy），2026-10-04 记录与代码一致，**零新缺口，核销**——用户需求
+> 十项对照全落地：内存缓存大小（`perf.cacheSize` 字节存储/MB 编辑）、CPU/内存/磁盘三阈值
+> （`perf.max{Cpu,Memory,Disk}Pct` 0=不过滤 + gopsutil 宿主机采样 + overload 红色注记）、
+> 并发请求（`perf.maxConcurrent`）、线程数量（`perf.maxThreadCount`）、磁盘大小、系统内存
+> 统计（GET /ops/performance 运行时：GOMAXPROCS/Goroutines/堆/总内存/GC）、缓存之类。
+> 证据在册复验：六键 layered.go 83-88、路由 578-579（/ops 组 GET/PUT /performance）、
+> performance.go（L2∧L3 快照+逐键来源+Put 400 拒绝三类+热重载）、PerformanceTab 5 用例。
+> **边界**（原四条+本批追加一条）：① 阈值仅注记不拦截请求（限流中间件另行批次）；②
+> maxThreadCount 不热改 GOMAXPROCS；③ cacheSize 仅存储回显；④ CPU 为采样窗口值、磁盘
+> 采样进程工作目录所在盘；⑤（追加）**Redis 配置未纳入 settings 面板**——cache.type: redis
+> 仅部署 config 层支持，运行时切换缓存后端另行批次评估（用户需求点「Redis 配置」如实登记）。
+> 下一步：#54 日志维护核对 → #55 SMTP 归运维 → #56 安全与限制。
