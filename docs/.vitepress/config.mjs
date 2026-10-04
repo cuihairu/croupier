@@ -262,6 +262,10 @@ const config = defineConfig({
               text: "函数注册 UI 生成链路审核",
               link: "/research/registration-ui-pipeline-audit-2026-09",
             },
+            {
+              text: "Control Plane 定位评审",
+              link: "/research/control-plane-positioning-2026-10",
+            },
           ],
         },
       ],
