@@ -3880,3 +3880,33 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > **边界**：① 跳过证书校验仅建议内网自签邮服（UI 中间人警示）；② 密码即访问令牌口径
 > （SMTP 无独立 token 字段）；③ AUTH LOGIN 凭据明文传输语义（依赖传输层加密保护）。
 > 下一步：#56 安全与限制 → #57 第三方探针。
+
+## 运维/安全与限制全量核对·#56 核销（需求清单 #56，2026-10-04）
+
+> **核对结论**：#56 已落地（2026-10-02，5b52d95）+ 已线上复证（deploy 36937558114，
+> gitCommit 444d7f0，双实例 healthy；本批 merge-base 复证 5b52d95 ∈ 444d7f0，谱系有效），
+> 2026-10-04 记录与代码一致，**零新缺口，核销**——用户需求四项对照全落地：允许的端口
+> （`sec.allowPorts` 白名单空=不限 + 写侧 1-65535 校验读侧容错）、IP 过滤/允许的私有 IP
+> （`sec.allowIPs` 单 IP/CIDR 放行清单，SSRF 开启时内网依赖经此放行）、域名过滤
+> （`sec.domainFilter` 后缀白名单，子域自动放行、evil-example.com 不撞 example.com）、
+> SSRF 保护（`sec.ssrfProtection` 默认 false + 双层拦截：CheckURL 静态校验 DNS 解析逐 IP
+> 拒私有/回环/链路本地/未指定 + HTTPClient 拨号 Dialer.Control 钩子 connect 前复核消除
+> TOCTOU）。**#56 契约专项复验**：http.DefaultClient 收敛（HTTPClient 派生副本
+> `*derived=*base` 禁止原地改写共享 base，secguard.go:170-179——webhook 接线正是以
+> http.DefaultClient 作 base，notification.go:770）；超时/重试/退避钳制矩阵（Retries 负值
+> →0、999→10 :197-205；Backoff ≤0→500ms 缺省 :211-216；TimeoutOrDefault 0/负→调用方
+> 缺省 :185-190——实现属 net.* 三键，需求面归 #57 收口时逐项核销）。证据在册复验：键族
+> layered.go 174-177、守卫 secguard.go 全关直通:126-128、接线两处 notification.go:756-770
+> （webhook POST）+ systeminfo.go:119-125（检查更新，外呼前每次 Resolve=保存即热生效）、
+> 读视图 GET /api/v1/site/outbound（handler.go:55/:71-74 ← OutboundSnapshot
+> layered.go:1003-1021）、写侧三键校验 handler.go:212-248、OutboundSecurityCard +
+> SecurityTab 双卡 19 用例 fresh 全绿。secguard 域覆盖率并行批次（97d6f8c）已收口：
+> fresh 下 secguard/sitesettings/settings/approvals 100%、ops 99.9%（残余 probe.go 属 #57）。
+> 本批纯文档零代码改动；门禁：go build 0 错 + go test ./internal/... 155 包零 FAIL +
+> tsc 0 错 + 全量 jest 393 套件 4838 用例绿 + guard PASSED。归档
+> docs/research/security-limits-survey-2026-10.md（侧边栏已登记）。
+> **边界**（原四条无变化）：① 守卫仅覆盖 webhook 通知与检查更新两处外呼——agent/DB/SDK
+> 通道、固定 URL 外呼（GitHub OAuth 等）不经守卫；② 默认全关零行为变更；③ domainFilter
+> 允许清单语义（配置后仅清单内域名可出站，非黑名单）；④ CheckURL 静态解析与真实连接间
+> 窗口由 Control 钩子 connect 前复核闭合（SSRF 开启时）。
+> 下一步：#57 第三方服务探针（运维家族收官单）。

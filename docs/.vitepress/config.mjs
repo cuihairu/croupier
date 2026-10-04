@@ -286,6 +286,10 @@ const config = defineConfig({
               text: "运维/SMTP 邮箱配置全量核对（#55）",
               link: "/research/smtp-ops-survey-2026-10",
             },
+            {
+              text: "运维/安全与限制全量核对（#56）",
+              link: "/research/security-limits-survey-2026-10",
+            },
           ],
         },
       ],
