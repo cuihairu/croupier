@@ -391,6 +391,10 @@ export default function AnnouncementsPage() {
           <Form.Item
             name="contentMd"
             label={t('pages.announcements.field.content', '正文（Markdown）')}
+            extra={t(
+              'pages.announcements.field.content.syntaxHint',
+              '支持子集：#/##/### 标题、- 列表、1. 有序、**粗体**、*斜体*、`代码`、[链接](https://…)；其余写法按原文展示',
+            )}
             rules={[
               {
                 required: true,

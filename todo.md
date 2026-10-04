@@ -3753,3 +3753,42 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > 我 run 08:53 结束，"operation was canceled" 只是 shutdown 后的次级
 > annotation）。本会话后续推送 6ec4a61（台账 + merge，todo.md-only）按
 > paths 过滤不触发 CI-Dashboard，16 个 check-runs 全绿收口。
+
+## 系统公告核对与 Markdown 渲染补齐（需求清单 #50，2026-10-04）
+
+> **核对结论**：公告系统四层全部就位，无结构性缺口——① 模型/存储：`internal/model/announcement.go`
+> 三表（announcements / announcement_reads uniqueIndex 幂等 / announcement_games #45 游戏多对多）；
+> ② 后端 API：admin CRUD + user active/dismiss（`internal/handler/routes.go` 公告组），
+> `ActiveForUser` 过滤链完整（active → audience role → StartAt/EndAt 窗口 → game 绑定，未绑定=全服可见），
+> dismiss 幂等、Delete 级联清理 reads+games；③ 管理端：Announcements 页全字段
+> （title/contentMd/audience+role 联动/popup/active/时间窗/gameIds 多选）；④ 消费端：
+> AnnouncementPopup 登录后拉 active → shouldPopup 过滤 → 逐条 Modal → dismiss POST +
+> sessionStorage 兜底；X-Game-ID 全局拦截器注入保证 game 过滤链路通；迁移 0019 在位。
+>
+> **唯一真缺口——contentMd 名实不符**：管理端 label「正文（Markdown）」承诺 Markdown，
+> 弹窗消费端只做 pre-wrap 纯文本展示，`**加粗**`/标题语法原样露出。修法决策：引入
+> react-markdown 需把 unified/remark 全 ESM 生态逐包加进 jest transformIgnorePatterns（脆），
+> 改自写受控子集渲染器 `components/MarkdownText`（零依赖、零 HTML 注入面）：块级
+> `#/##/###` 标题（弹窗语境 Title 4/5/加粗段）、`-`/`*` 无序与 `1.` 有序列表（连续行归组、
+> 序号按书写值）、空行分段、段内换行保留；行内 `**粗**`/`*斜*`（先匹配 ** 防吞）、
+> `` `代码` ``、`[文案](http(s)://…)` 链接——协议白名单仅 http/https，其余（javascript:/data:）
+> 整体按纯文本；React 元素直出天然转义，raw HTML 按纯文本展示（无 dangerouslySetInnerHTML）。
+> 接入：弹窗内容区换 MarkdownText（50vh 滚动语义迁容器）；管理页 contentMd 加
+> extra 受控子集语法提示。
+>
+> 测试：MarkdownText 18 用例（parseInline 7 / parseBlocks 6 / 渲染 5，含 XSS 面：script/img
+> 不落 DOM、危险协议不成链、未闭合标记不吞内容）；AnnouncementPopup +1（`**02:00**` 出
+> strong 不露星号、## 出 h5）。**测试坑**：① getByText 元素级匹配——段内 Fragment 文本+strong
+> 混排/相邻行同段落时按整段 textContent 聚合，精确子串匹配失败，断言容器
+> `[data-testid="markdown-text"]` textContent.toContain；② JSX 属性字符串字面量不转义，
+> `source="1. 首\n2. 次"` 的 \n 是字面两字符，必须 `source={'1. 首\n2. 次'}`；③ antd Text
+> link 渲染 span 非 a，closest('a') 断言失败——MarkdownText 链接改原生 `<a>`（target=_blank +
+> rel=noopener noreferrer，色 var(--brand-2)）；④ 公告页词条有 BUG-023 目录守卫
+> （`tests/announcementsLocales.test.ts`）——页面新增 t() 词条必须同批登记
+> `locales/{zh-CN,en-US}/pages.ts`，仅靠 defaultMessage fallback 全量 jest 必红
+> （本批 syntaxHint 首跑 2 用例实证后补齐）。
+> **已知边界**（记录不动）：① 用户侧无公告归档阅读面（产品语义=广播+弹窗确认，routes 注释明确）；
+> ② 弹窗 scope 快照登录时过滤一次，切游戏不重拉 active；③ 管理员无已读统计面；
+> ④ 子集不支持表格/图片/代码块/嵌套结构（按字面展示），后续需求驱动再扩。
+> 门禁：MarkdownText+popup 24/24 绿、管理页 17/17 绿、tsc 0 错、guard PASSED、全量 jest 全绿。
+> 下一步：#51 身份验证+OAuth 立项第一块 → #52 系统维护 → #53 性能参数 → #54 日志维护。
