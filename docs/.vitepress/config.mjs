@@ -270,6 +270,10 @@ const config = defineConfig({
               text: "身份验证与 OAuth 全量核对（#51）",
               link: "/research/auth-identity-survey-2026-10",
             },
+            {
+              text: "运维/系统维护全量核对（#52）",
+              link: "/research/system-maintenance-survey-2026-10",
+            },
           ],
         },
       ],

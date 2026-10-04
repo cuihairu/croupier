@@ -3810,3 +3810,20 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > 无重发验证邮件入口（依赖 #55 SMTP 通知侧深化）；③ GitHubProvider 仅直连 github.com，GHE
 > 企业实例走 genericoauth 自定义端点；④ 注册无审批流（开关即开放，邮件验证为唯一可选门槛）。
 > 下一步：#52 系统维护核对 → #53 性能参数 → #54 日志维护 → #55 SMTP 归运维。
+
+## 运维/系统维护全量核对·#52 核销（需求清单 #52，2026-10-04）
+
+> **核对结论**：#52 已最小落地（2026-10-02）+ 已线上复证（deploy 36937558114，
+> gitCommit 444d7f0，双实例 healthy，迁移 completed），2026-10-04 记录与代码一致，
+> **零新缺口，核销**——用户需求四项对照：版本展示（`GET /ops/system/runtime` version/
+> gitCommit/buildTime ldflags 注入）、运行开始时间（startedAt RFC3339）、在线时长
+> （uptimeSeconds + 前端人性化）、检查更新（`POST /ops/system/check-update` + L3 键
+> `system.updateCheckUrl` GitHub releases/latest 兼容 + 点分比较 + 三态 Alert）全落地；
+> 「自动更新」按最小可行收口=仅检查+版本注记不执行升级（升级编排另行立项，代码注释
+> 明示「只检查不升级」）。docsUrl 登录后入口（#49 划归）在运维 Tab 新窗口打开。
+> 证据在册复验：路由 573-575（/ops/system/{runtime,check-update}）、systeminfo.go
+> 五字段 lowerCamelCase、layered.go:171 键、Go 17 Test（含版本比较表）+ MaintenanceTab
+> 9 用例全在。原交付未进 todo.md，本批补核对段。
+> **边界**：① 不自动执行升级；② updateCheckUrl 未配置时按钮仅回版本注记；③ 运维 Tab
+> 挂 SiteSettings 下，#53-57 运维家族若成组可迁独立页（/ops/system/* 路由组已预留）。
+> 下一步：#53 性能参数核对 → #54 日志维护核对 → #55 SMTP 归运维。
