@@ -3843,3 +3843,21 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > 采样进程工作目录所在盘；⑤（追加）**Redis 配置未纳入 settings 面板**——cache.type: redis
 > 仅部署 config 层支持，运行时切换缓存后端另行批次评估（用户需求点「Redis 配置」如实登记）。
 > 下一步：#54 日志维护核对 → #55 SMTP 归运维 → #56 安全与限制。
+
+## 运维/日志维护全量核对·#54 核销（需求清单 #54，2026-10-04）
+
+> **核对结论**：#54 已落地（2026-10-02）+ 已线上复证（deploy 36937558114，gitCommit
+> 444d7f0，双实例 healthy），2026-10-04 记录与代码一致，**零新缺口，核销**——用户需求
+> 三项对照：①日志配额配置=`log.retentionDays` L3 热生效（0=跟随配置文件缺省 7 天，
+>
+> > 0 统一覆盖 execution/task 两类留痕，RetentionConfig.ResolveDays 每轮清理前读取）；
+> > ②按时间清理（24 小时/7 天/30 天前）=`POST /ops/logs/cleanup` scope×beforeHours
+> > （预设 24/168/720，Retention.PurgeBefore multiGame 逐 game 库 fanout，ExecutionLog
+> > 关闭回退 meta 直清，只删 cutoff 前）；③复制器日志管理=copierDir/copierKeep 占位键
+> > 未接线（诚实登记），服务器日志轮转参数配置文件级只读视图+轮转文件计数。证据在册
+> > 复验：键族 93-96、路由 583-585、retention.go :116/:19/:12、svc 接线 336-341、
+> > logs.go 快照（Rows=-1 降级）、LogsTab 6 用例。
+> > **边界**（原四条无变化）：① cleanupCron/copierDir/copierKeep 占位未接线；②
+> > audit_records 哈希链审计永不清理；③ 行数/字节配额未实现（保留天数即配额）；④
+> > 行数统计全表 COUNT 大表 O(n) 读。
+> > 下一步：#55 SMTP 归运维 → #56 安全与限制 → #57 第三方探针。

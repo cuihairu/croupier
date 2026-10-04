@@ -278,6 +278,10 @@ const config = defineConfig({
               text: "运维/性能参数全量核对（#53）",
               link: "/research/performance-params-survey-2026-10",
             },
+            {
+              text: "运维/日志维护全量核对（#54）",
+              link: "/research/log-maintenance-survey-2026-10",
+            },
           ],
         },
       ],
