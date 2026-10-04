@@ -1,6 +1,6 @@
 # Proto Generation Guide
 
-Croupier 内部 RPC 不使用 gRPC（[传输层决策](../../docs/architecture/transport-no-grpc.md)）：Server ↔ Agent ↔ SDK 走自研 TCP transport（length-prefix framing）+ protobuf 消息。本文档说明 Go SDK 的 protobuf 代码生成流程。
+Croupier 内部 RPC 不使用 gRPC（[传输层决策](../../docs/architecture/transport-no-grpc.md)）：Server ↔ Agent ↔ SDK 走自行开发 TCP transport（length-prefix framing）+ protobuf 消息。本文档说明 Go SDK 的 protobuf 代码生成流程。
 
 ## 生成方式（唯一入口：仓库根 `make proto`）
 

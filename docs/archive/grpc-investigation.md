@@ -5,13 +5,13 @@
 
 状态：**调查处置完成（遗留 mock 已清、门禁已挂），indirect 依赖链处置待拍板**。
 
-铁律：**禁止引入 gRPC**——今后任何代码、依赖、设计不得新增 gRPC。仓库传输层为自研 TCP（长度前缀分帧 + protobuf），废除 gRPC 的决策与历史见 `docs/architecture/transport-no-grpc.md`。
+铁律：**禁止引入 gRPC**——今后任何代码、依赖、设计不得新增 gRPC。仓库传输层为自行开发 TCP（长度前缀分帧 + protobuf），废除 gRPC 的决策与历史见 `docs/architecture/transport-no-grpc.md`。
 
 ## 结论摘要
 
 | 检查面                     | 结论                                                                                                                                             | 处置               |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
-| 运行时通信                 | **零 gRPC**。server/agent/SDK 全部走自研 TCP + protobuf，无任何 gRPC 连接                                                                        | 无需处置           |
+| 运行时通信                 | **零 gRPC**。server/agent/SDK 全部走自行开发 TCP + protobuf，无任何 gRPC 连接                                                                    | 无需处置           |
 | Go 源码 import             | **零直接 import**（internal/pkg/cmd/sdks/examples 全查）                                                                                         | 无需处置           |
 | `internal/mocks` 遗留 mock | gRPC 时代的 `MockGRPCClient` 及 12 个自测用例，无任何业务引用方                                                                                  | **本次已删**       |
 | proto 生成链               | 干净：`gen-proto.sh` 只挂 `protoc-gen-go`，`buf.gen.yaml` 只有 go 插件，proto 无 service/rpc 定义                                                | 无需处置           |
@@ -41,7 +41,7 @@ internal/telemetry → otlpmetrichttp → otel 的 otlp proto 生成物 → grpc
 
 ## 使用点清单（全量核查记录)
 
-1. **`internal/mocks/grpc_client.go`（已删）**：gRPC 时代的 `MockGRPCClient`，mock 的接口形状是旧 pb client（Invoke/StartTask/StreamEvents/CancelTask）。全仓 grep 确认除 mocks 包自测外零引用——传输层换自研 TCP 后它 mock 的对象已不存在。随删：`grpc_client_cancel_error_test.go` 及 `mocks_test.go`（4 例）、`mocks_extra_test.go`（7 例）中的 mock 自测用例，共 **-12 用例**（均为「测遗留 mock 本身」，无业务回归价值；`MockFunctionStore`/`MockServiceContext` 及其用例保留）。
+1. **`internal/mocks/grpc_client.go`（已删）**：gRPC 时代的 `MockGRPCClient`，mock 的接口形状是旧 pb client（Invoke/StartTask/StreamEvents/CancelTask）。全仓 grep 确认除 mocks 包自测外零引用——传输层换自行开发 TCP 后它 mock 的对象已不存在。随删：`grpc_client_cancel_error_test.go` 及 `mocks_test.go`（4 例）、`mocks_extra_test.go`（7 例）中的 mock 自测用例，共 **-12 用例**（均为「测遗留 mock 本身」，无业务回归价值；`MockFunctionStore`/`MockServiceContext` 及其用例保留）。
 2. **`internal/platform/tlsutil/tlsutil.go`（注释，保留）**：交代「原 grpc/credentials helpers 是 gRPC 时代的死代码，已随废除清除」——历史说明，正是防复发的记忆点。
 3. **`internal/telemetry/provider.go`（保留，待拍板）**：OTLP HTTP exporter 初始化，grpc indirect 依赖的唯一来源。
 4. **能力矩阵 `docs/research/agent-capability-library-matrix.md`（保留）**：gRPC 出现在「50 行分帧是否该换轮子」的论证里，语境是「任何第三方分帧（gRPC framing 等）都是协议变更，成本全 SDK 重写，收益为负」——否定引入，非建议。

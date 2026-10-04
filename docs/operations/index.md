@@ -30,7 +30,7 @@ tag:
 | 端口/路径      | 归属    | 用途                                                    |
 | -------------- | ------- | ------------------------------------------------------- |
 | `:18780`       | Server  | HTTP API + Dashboard 后端                               |
-| `:19090`       | Server  | 自研 transport，Agent/SDK 接入入口（经 L4 LB）          |
+| `:19090`       | Server  | 自行开发 transport，Agent/SDK 接入入口（经 L4 LB）      |
 | `:19091`       | Agent   | 本地 TCP，游戏服函数注册                                |
 | `:8404`        | HAProxy | stats 页（Agent 连接分布排查）                          |
 | `GET /healthz` | Server  | 存活探针（根路径与 `/api/v1/monitoring/healthz` 均可）  |

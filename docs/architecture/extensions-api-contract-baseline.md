@@ -140,7 +140,7 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
 2. `GET /api/v1/extensions/agents/:agentId/sync-payload` —— 同一 payload 的
    管理端预览（前端 AgentSync 页使用）。
 
-> **已知边界**：Agent 同步走 HTTP 轮询而非自研 TCP 隧道推送。V1 保留该形态
+> **已知边界**：Agent 同步走 HTTP 轮询而非自行开发 TCP 隧道推送。V1 保留该形态
 > （实现完整、间隔可配），隧道推送列为演进项不承诺批次。
 
 ## 4. 错误码基线

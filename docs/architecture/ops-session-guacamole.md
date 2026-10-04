@@ -56,11 +56,11 @@ croupier agent（目标网络侧，只拨号不监听）
 
 ## 2. 为什么是 Guacamole 网关形态（用户已拍板，记录理由）
 
-- **不自研像素流**：RDP/RFB 是打磨了近三十年的领域，guacd（Apache 顶级项目）把「翻译成浏览器 canvas 指令流」产品化；自研 = 重做编码自适应 + 协议状态机 + 输入语义映射三件事。SSH 是 guacd 服务端终端仿真，前端与桌面会话同构。
+- **不自行开发像素流**：RDP/RFB 是打磨了近三十年的领域，guacd（Apache 顶级项目）把「翻译成浏览器 canvas 指令流」产品化；自行开发 = 重做编码自适应 + 协议状态机 + 输入语义映射三件事。SSH 是 guacd 服务端终端仿真，前端与桌面会话同构。
 - **不部署完整 guacamole-client（Java webapp）**：那套自带用户体系/连接管理 GUI/存储，与 croupier 已有 RBAC、审计、注册表全面重复。只取三件：guacd（无状态翻译器）+ server 内的桥 + 前端渲染库 `guacamole-common-js`。
 - **不依赖 wingman 服务**：wingman/cockpit 是实现参照，移植形态；运行期零依赖，协议与票据口径与它们保持一致（OS-3）。
 
-否决备选（照 wingman §3，防反复）：自研 MJPEG 轮询流、WebRTC（内网部署形态下基建代价不成比例，公网弱网需求出现时另立项）、浏览器直连 VNC（浏览器无 RFB/RDP 支持，且绕过审计）、商业远控（闭源、链路不可审计）。
+否决备选（照 wingman §3，防反复）：自行开发 MJPEG 轮询流、WebRTC（内网部署形态下基建代价不成比例，公网弱网需求出现时另立项）、浏览器直连 VNC（浏览器无 RFB/RDP 支持，且绕过审计）、商业远控（闭源、链路不可审计）。
 
 ## 3. 协议与票据口径（与 wingman 一致的部分，逐条锁定）
 
@@ -193,7 +193,7 @@ agent 侧 `proxytunnel.go` 只拨号、零新增监听（复用既有 outbound �
 
 ## 9. 不做清单（防反复）
 
-- 不部署 Java guacamole-client webapp；不自研像素流；不做 WebRTC 第二通道（公网弱网需求出现时另立项）；
+- 不部署 Java guacamole-client webapp；不自行开发像素流；不做 WebRTC 第二通道（公网弱网需求出现时另立项）；
 - guacd 不暴露公网、浏览器不直连 guacd/endpoint；
 - agent 不做像素采集/编码/协议翻译（纯 TCP 字节转发）；不新增任何 agent 监听端口；
 - 不做 iOS（平台不可能，wingman DG-5 同判）；Android 像素面（droidVNC-NG 桥）列为远期触发式，不在本设计范围；

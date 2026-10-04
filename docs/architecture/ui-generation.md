@@ -217,7 +217,7 @@ JSON Schema + FormPresentationSpec
   -> typed PageBinding input assignments
 ```
 
-这层不得耦合 PageSpec 的页面布局。renderer 私有 `uiSchema` 只能由 FormPresentationSpec 在前端临时派生，不能持久化、不能进入 SDK/OpenAPI、不能成为第二套页面协议。项目内禁止保留 Formily、form-render 或自研 ProForm field factory 作为并行运行时；**同样禁止在渲染路径上手写原生 `<input>` 表单**（如旧版弹窗/预览实现，已于 2026-09 移除，统一走 SchemaFormRenderer）。
+这层不得耦合 PageSpec 的页面布局。renderer 私有 `uiSchema` 只能由 FormPresentationSpec 在前端临时派生，不能持久化、不能进入 SDK/OpenAPI、不能成为第二套页面协议。项目内禁止保留 Formily、form-render 或自行开发 ProForm field factory 作为并行运行时；**同样禁止在渲染路径上手写原生 `<input>` 表单**（如旧版弹窗/预览实现，已于 2026-09 移除，统一走 SchemaFormRenderer）。
 
 ## 真实验收
 

@@ -2,14 +2,14 @@
 
 > 状态：**待拍板**（本文只做盘点与迁移路径设计，未动任何代码）。
 > 方法：以代码实际实现为准逐文件梳理（`internal/agent/`、`internal/app/agent/`、`internal/transport/`、`pkg/protocol/`、`internal/platform/{agentlocal,openapi,ratelimit,tlsutil}`、`internal/devcert`、`cmd/agent/`），候选库逐一核实维护活跃度（star/最近 release/下游采用/打包状态），核实时间 2026-09-23。
-> 结论口径：**换**（有明确更优的成熟库，附迁移路径）、**留**（自研是合理终态，附理由）、**补**（能力缺失且该用成熟库引入）。
-> 「三个月无维护 = 不合格，宁可留自研」规则严格执行；对「完成态小库」的例外讨论见各项说明。
+> 结论口径：**换**（有明确更优的成熟库，附迁移路径）、**留**（自行开发是合理终态，附理由）、**补**（能力缺失且该用成熟库引入）。
+> 「三个月无维护 = 不合格，宁可留自行开发」规则严格执行；对「完成态小库」的例外讨论见各项说明。
 
 ## 为什么做这次盘点（总述）
 
-agent 测试与线上事故暴露的 bug 集中在**自研基础设施的边角**：transport 层 JSON/proto 混层错误（19 函数同步失败事故，942e1bf4e/4a9a67cd6 两次修复）、五处注释自证的历史数据竞争（app.go:47-50、upstream.go:31-32、ops_server.go:42-44/410-414、tcp_local_listener.go:197-201）加一处 RWMutex 误用 fatal、重连退避三套写法行为不一、限流窗口慢机 flaky。这些 bug 的共同形态是：**手写轮子把成熟领域的问题（退避调度、并发停机、限流边界）重新做了一遍，然后在自己的实现里重新踩了业界踩过的坑**。
+agent 测试与线上事故暴露的 bug 集中在**自行开发基础设施的边角**：transport 层 JSON/proto 混层错误（19 函数同步失败事故，942e1bf4e/4a9a67cd6 两次修复）、五处注释自证的历史数据竞争（app.go:47-50、upstream.go:31-32、ops_server.go:42-44/410-414、tcp_local_listener.go:197-201）加一处 RWMutex 误用 fatal、重连退避三套写法行为不一、限流窗口慢机 flaky。这些 bug 的共同形态是：**手写轮子把成熟领域的问题（退避调度、并发停机、限流边界）重新做了一遍，然后在自己的实现里重新踩了业界踩过的坑**。
 
-但盘点同样发现：agent 的**协议层自研（分帧/协议头/MuxConn）不是轮子，是产品契约**——六语言 SDK 都实现了这套 wire 协议（`docs/architecture/sdk-wire-protocol.md`），换掉它等于全 SDK 重写。所以本次盘点的正确产出不是「全面换库」，而是**把「领域问题」交给成熟库（退避/限流/校验），把「产品契约」留在自己手里（协议/会话/调度语义）**，同时清理自研内部的已知瑕疵。
+但盘点同样发现：agent 的**协议层自行开发（分帧/协议头/MuxConn）不是轮子，是产品契约**——六语言 SDK 都实现了这套 wire 协议（`docs/architecture/sdk-wire-protocol.md`），换掉它等于全 SDK 重写。所以本次盘点的正确产出不是「全面换库」，而是**把「领域问题」交给成熟库（退避/限流/校验），把「产品契约」留在自己手里（协议/会话/调度语义）**，同时清理自行开发内部的已知瑕疵。
 
 ## 一、矩阵总表
 
@@ -100,7 +100,7 @@ yamux（hashicorp，libp2p 标配，0.1.2 活跃）和 smux（xtaci，v1.5.x 活
 
 ### 9. crontab/systemd timer 解析 [留]
 
-robfig/cron/v3 按规则**不合格**：v3.0.1（2020）后零 release、50+ open PR 积压、社区已在出 fork。且细看需求：agent 只做**只读枚举展示**（读 /etc/crontab、/etc/cron.d 与 systemd timer 列表报给运维面），不是调度执行——不依赖 parser 的调度正确性，只依赖字段拆分。237 行自研解析器覆盖的恰好是「展示用宽松解析」，引入一个死项目库反而绑定其 CVE 风险。若未来需要「表达式下次触发时间」等调度语义，届时评估活跃 fork 或 systemd 原生 `NextElapse`（经由 D-Bus，LXC 环境可用性另议）。
+robfig/cron/v3 按规则**不合格**：v3.0.1（2020）后零 release、50+ open PR 积压、社区已在出 fork。且细看需求：agent 只做**只读枚举展示**（读 /etc/crontab、/etc/cron.d 与 systemd timer 列表报给运维面），不是调度执行——不依赖 parser 的调度正确性，只依赖字段拆分。237 行自行开发解析器覆盖的恰好是「展示用宽松解析」，引入一个死项目库反而绑定其 CVE 风险。若未来需要「表达式下次触发时间」等调度语义，届时评估活跃 fork 或 systemd 原生 `NextElapse`（经由 D-Bus，LXC 环境可用性另议）。
 
 ### 10. YAML 配置兼容层 [留（只减不增]
 
@@ -110,7 +110,7 @@ koanf v2 活跃（MIT、模块化、轻依赖）、viper 活跃但重。**不建
 
 - **日志**：slog（stdlib）+ lumberjack 已是 Go 生态标准组合，无动作。
 - **TLS/devcert**：出站用 stdlib crypto/tls 是正解；devcert 227 行自签 CA 是开发体验件，mkcert 等是 CLI 工具不可作为库嵌入，无合格替换。
-- **进程管理**：Go 无统治级进程管理库；OpsServer 的真实瑕疵（AutoRestart 在锁内 `time.Sleep`、无进程树终止、输出不可分流）是**自研内可修的 bug**，列入「留+内部瑕疵清单」随常规迭代修，不构成换库理由。
+- **进程管理**：Go 无统治级进程管理库；OpsServer 的真实瑕疵（AutoRestart 在锁内 `time.Sleep`、无进程树终止、输出不可分流）是**自行开发内可修的 bug**，列入「留+内部瑕疵清单」随常规迭代修，不构成换库理由。
 - **HTTP 客户端**：provider 的复杂度在 spec→HTTP 语义映射（1115 行的主体），不在 HTTP 本体——net/http 没有可被 resty/req 改善的部分。唯一该换的是其重试循环的线性退避，随 #1 的 backoff 迁移一并处理。
 
 ### 15. 会话/注册表双抽象并存 [留 + 内部收敛]
