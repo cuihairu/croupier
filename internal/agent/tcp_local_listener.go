@@ -60,14 +60,22 @@ type TCPLocalListener struct {
 }
 
 // NewTCPLocalListener creates a new local TCP listener for SDK connections.
-func NewTCPLocalListener(config *TCPLocalListenerConfig, sessionStore *ProviderSessionStore, logger *slog.Logger) (*TCPLocalListener, error) {
-	if config == nil {
-		addr := os.Getenv("CROUPIER_AGENT_LOCAL_ADDR")
-		if strings.TrimSpace(addr) == "" {
-			addr = "127.0.0.1:19091"
-		}
-		config = &TCPLocalListenerConfig{Address: addr}
+// resolveLocalListenerAddress 决定本地监听地址：显式配置优先；config 为 nil 时
+// 读 CROUPIER_AGENT_LOCAL_ADDR，为空回落 127.0.0.1:19091。独立成函数以便在
+// 不实际绑定端口的前提下测默认值（构造函数会立即 net.Listen）。
+func resolveLocalListenerAddress(config *TCPLocalListenerConfig) *TCPLocalListenerConfig {
+	if config != nil {
+		return config
 	}
+	addr := os.Getenv("CROUPIER_AGENT_LOCAL_ADDR")
+	if strings.TrimSpace(addr) == "" {
+		addr = "127.0.0.1:19091"
+	}
+	return &TCPLocalListenerConfig{Address: addr}
+}
+
+func NewTCPLocalListener(config *TCPLocalListenerConfig, sessionStore *ProviderSessionStore, logger *slog.Logger) (*TCPLocalListener, error) {
+	config = resolveLocalListenerAddress(config)
 	if sessionStore == nil {
 		sessionStore = NewProviderSessionStore()
 	}

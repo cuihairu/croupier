@@ -31,13 +31,16 @@ func TestTCPLocalListener_ServeReturnsContextErrorAfterCancelDuringAcceptTimeout
 	}
 }
 
-// config 为 nil 且环境变量为空时应回落到默认本地地址。
+// config 为 nil 且环境变量为空时应回落到默认本地地址。只验地址解析、不实际
+// 绑定——构造函数会立即 net.Listen，本机跑着部署的 agent（占用 19091）时
+// 绑定必失败，与被测的默认值逻辑无关。
 func TestTCPLocalListener_NilConfigDefaultsAddressWhenEnvEmpty(t *testing.T) {
 	t.Setenv("CROUPIER_AGENT_LOCAL_ADDR", "")
+	assert.Equal(t, "127.0.0.1:19091", resolveLocalListenerAddress(nil).Address)
 
-	listener, err := NewTCPLocalListener(nil, nil, nil)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, listener.Close()) })
+	t.Setenv("CROUPIER_AGENT_LOCAL_ADDR", "127.0.0.1:17777")
+	assert.Equal(t, "127.0.0.1:17777", resolveLocalListenerAddress(nil).Address)
 
-	assert.Equal(t, "127.0.0.1:19091", listener.config.Address)
+	assert.Equal(t, "127.0.0.1:18888",
+		resolveLocalListenerAddress(&TCPLocalListenerConfig{Address: "127.0.0.1:18888"}).Address)
 }
