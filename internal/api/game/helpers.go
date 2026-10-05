@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 
@@ -33,10 +34,24 @@ func (s *Service) resolveGameID(ctx context.Context, raw string) (uint, error) {
 		return id, nil
 	}
 	game, err := s.svcCtx.GameModel.FindByGameIDString(ctx, strings.TrimSpace(raw))
-	if err != nil {
+	if errors.Is(err, model.ErrGameNotFound) {
 		return 0, errorx.NewNotFound("游戏 " + strings.TrimSpace(raw) + " 不存在")
 	}
+	if err != nil {
+		// 真实存储错误按原样上抛，禁止吞成 404。
+		return 0, err
+	}
 	return game.ID, nil
+}
+
+// gameLookupErr 把模型层"游戏不存在"翻译成 404 契约错误。数字主键寻址
+// 不做存在性预检（resolveGameID 对数字直接放行），载入失败时在这里统一
+// 收口；其余错误（数据库故障等）原样上抛，禁止吞成 404。
+func gameLookupErr(rawID string, err error) error {
+	if errors.Is(err, model.ErrGameNotFound) {
+		return errorx.NewNotFound("游戏 " + rawID + " 不存在")
+	}
+	return err
 }
 
 // gameEnvScopes 返回当前操作者在指定游戏上的授权环境集合。admin 角色直过

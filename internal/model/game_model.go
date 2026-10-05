@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// ErrGameNotFound 标识"游戏不存在"。同时包装 gorm.ErrRecordNotFound：
+// 调用方可用 errors.Is 精确识别；漏了翻译的路径也会被响应层的
+// record-not-found 分支兜底成 404，而不是把普通 error 泄成 500。
+// 文案保留 "game not found" 以兼容既有断言。
+var ErrGameNotFound = fmt.Errorf("game not found: %w", gorm.ErrRecordNotFound)
+
 // GameModel 提供游戏数据访问方法
 type GameModel struct {
 	db *gorm.DB
@@ -36,7 +42,7 @@ func (m *GameModel) FindOne(ctx context.Context, id uint) (*Game, error) {
 	var game Game
 	if err := m.db.WithContext(ctx).First(&game, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("game not found")
+			return nil, ErrGameNotFound
 		}
 		return nil, err
 	}
@@ -48,7 +54,7 @@ func (m *GameModel) FindByName(ctx context.Context, name string) (*Game, error) 
 	var game Game
 	if err := m.db.WithContext(ctx).Where("name = ?", name).First(&game).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("game not found")
+			return nil, ErrGameNotFound
 		}
 		return nil, err
 	}
@@ -152,7 +158,7 @@ func (m *GameModel) FindByGameIDString(ctx context.Context, gameID string) (*Gam
 	var game Game
 	if err := m.db.WithContext(ctx).Where("game_id = ?", gameID).First(&game).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("game not found")
+			return nil, ErrGameNotFound
 		}
 		return nil, err
 	}

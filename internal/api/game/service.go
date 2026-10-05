@@ -118,7 +118,7 @@ func (s *Service) Detail(ctx context.Context, req *GameDetailRequest) (*GameDeta
 
 	game, err := s.svcCtx.GetGameCached(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, gameLookupErr(req.ID, err)
 	}
 
 	bindings, _ := s.svcCtx.GameModel.ListEnvBindings(ctx, game.GameID)
@@ -186,7 +186,7 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 
 	game, err := s.svcCtx.GetGameCached(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, gameLookupErr(req.ID, err)
 	}
 
 	updateBindings, _ := s.svcCtx.GameModel.ListEnvBindings(ctx, game.GameID)
@@ -270,7 +270,7 @@ func (s *Service) EnvsList(ctx context.Context, req *GameEnvsListRequest) (*Game
 
 	game, err := s.svcCtx.GetGameCached(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, gameLookupErr(req.ID, err)
 	}
 
 	envItems := s.enrichedEnvs(game)
@@ -300,7 +300,7 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 
 	game, err := s.svcCtx.GameModel.FindOne(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, gameLookupErr(req.ID, err)
 	}
 
 	newEnv, err := ensureEnvName(req.Name)
@@ -364,7 +364,7 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 
 	game, err := s.svcCtx.GameModel.FindOne(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, gameLookupErr(req.ID, err)
 	}
 
 	envs, err := game.GetEnvs()
@@ -445,7 +445,7 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 
 	game, err := s.svcCtx.GameModel.FindOne(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, gameLookupErr(req.ID, err)
 	}
 
 	envs, err := game.GetEnvs()
