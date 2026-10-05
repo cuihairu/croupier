@@ -80,12 +80,14 @@ func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibl
 	}
 	if trimmed := strings.TrimSpace(req.Start); trimmed != "" {
 		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
-			query = query.Where("timestamp >= ?", parsed)
+			// 落库恒为 UTC，sqlite 序列化后逐字节比较；参数带本地偏移会在
+			// 非 UTC 时区的服务器上把时间窗算错，必须归一 UTC（见 store.go GetStats 注）。
+			query = query.Where("timestamp >= ?", parsed.UTC())
 		}
 	}
 	if trimmed := strings.TrimSpace(req.End); trimmed != "" {
 		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
-			query = query.Where("timestamp <= ?", parsed)
+			query = query.Where("timestamp <= ?", parsed.UTC())
 		}
 	}
 	return query

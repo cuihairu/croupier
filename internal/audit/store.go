@@ -428,12 +428,13 @@ func (s *SQLAuditStore) List(filter AuditFilter, page AuditPage) ([]*AuditRecord
 		query = query.Where("outcome = ?", filter.Outcome)
 	}
 
+	// 时间参数归一 UTC：落库恒为 UTC，sqlite 序列化后逐字节比较（见 GetStats 注）。
 	if filter.StartTime != nil {
-		query = query.Where("timestamp >= ?", filter.StartTime)
+		query = query.Where("timestamp >= ?", filter.StartTime.UTC())
 	}
 
 	if filter.EndTime != nil {
-		query = query.Where("timestamp <= ?", filter.EndTime)
+		query = query.Where("timestamp <= ?", filter.EndTime.UTC())
 	}
 
 	if filter.SearchText != "" {
@@ -513,7 +514,7 @@ func (s *SQLAuditStore) Delete(id string) error {
 
 // DeleteBefore deletes records before a timestamp
 func (s *SQLAuditStore) DeleteBefore(timestamp time.Time) (int64, error) {
-	result := s.db.Where("timestamp < ?", timestamp).Delete(&AuditModel{})
+	result := s.db.Where("timestamp < ?", timestamp.UTC()).Delete(&AuditModel{})
 	return result.RowsAffected, result.Error
 }
 
@@ -574,6 +575,11 @@ func (s *SQLAuditStore) GetChainRange(startSeq, endSeq int64) ([]*AuditRecord, e
 
 // GetStats gets audit statistics
 func (s *SQLAuditStore) GetStats(startTime, endTime time.Time) (*AuditStats, error) {
+	// 审计行落库恒为 UTC（NewAuditRecord 用 time.Now().UTC()），sqlite 把
+	// time.Time 序列化成带偏移的字符串逐字节比较，参数必须同样归一到 UTC，
+	// 否则非 UTC 时区的服务器上时间窗统计全错（postgres 走真实时间类型，不受影响）。
+	startTime = startTime.UTC()
+	endTime = endTime.UTC()
 	stats := &AuditStats{
 		ByEventType: make(map[AuditEventType]int),
 		ByCategory:  make(map[AuditCategory]int),
@@ -589,7 +595,7 @@ func (s *SQLAuditStore) GetStats(startTime, endTime time.Time) (*AuditStats, err
 	stats.TotalRecords = total
 
 	// Records today
-	today := time.Now().Truncate(24 * time.Hour)
+	today := time.Now().Truncate(24 * time.Hour).UTC()
 	var todayCount int64
 	s.db.Model(&AuditModel{}).Where("timestamp >= ?", today).Count(&todayCount)
 	stats.RecordsToday = todayCount
@@ -671,11 +677,11 @@ func (s *SQLAuditStore) CountByFilter(filter AuditFilter) (int64, error) {
 	}
 
 	if filter.StartTime != nil {
-		query = query.Where("timestamp >= ?", filter.StartTime)
+		query = query.Where("timestamp >= ?", filter.StartTime.UTC())
 	}
 
 	if filter.EndTime != nil {
-		query = query.Where("timestamp <= ?", filter.EndTime)
+		query = query.Where("timestamp <= ?", filter.EndTime.UTC())
 	}
 
 	var count int64

@@ -210,6 +210,40 @@ func TestBuildAuditQuery_FiltersAliasesAndTimeWindows(t *testing.T) {
 	assert.Equal(t, int64(2), count(&AuditRequest{Start: "not-a-time", End: "also-not-a-time"}))
 }
 
+// 时区回归：audit 落库恒为 UTC（NewAuditRecord 用 time.Now().UTC()），时间窗
+// 参数必须归一 UTC 再绑定——sqlite 把 time.Time 序列化成带偏移的字符串逐字节
+// 比较，带本地偏移的参数在非 UTC 服务器上会把窗口算错（CST 机器实证：
+// Start=-1h 查出 0 行、End=-1h 查出 2 行）。窗口偏移固定 +05:30，与运行机器
+// 时区无关，修复前任何机器上都复现。
+func TestBuildAuditQuery_TimeWindowOffsetIndependent(t *testing.T) {
+	db := newAuditExtraDB(t)
+	seedAuditEntry(t, db, "auth.login", "u1", "g1", "prod", "t1", "success", nil)
+	svc := NewService(&svc.ServiceContext{DB: db})
+	ctx := context.Background()
+
+	count := func(req *AuditRequest) int64 {
+		q := svc.buildAuditQuery(ctx, req, nil, true)
+		var n int64
+		require.NoError(t, q.Count(&n).Error)
+		return n
+	}
+
+	fixed := time.FixedZone("FIXED", 5*60*60+30*60)
+	// 包住落库时刻的非本机偏移窗口 → 命中 1 行。
+	assert.Equal(t, int64(1), count(&AuditRequest{
+		Start: time.Now().In(fixed).Add(-time.Hour).Format(time.RFC3339),
+		End:   time.Now().In(fixed).Add(time.Hour).Format(time.RFC3339),
+	}))
+	// 未来起点 → 0 行。
+	assert.Equal(t, int64(0), count(&AuditRequest{
+		Start: time.Now().In(fixed).Add(time.Hour).Format(time.RFC3339),
+	}))
+	// 过去终点 → 0 行。
+	assert.Equal(t, int64(0), count(&AuditRequest{
+		End: time.Now().In(fixed).Add(-time.Hour).Format(time.RFC3339),
+	}))
+}
+
 // ---- VerifyChain（service 层） ----
 
 func TestVerifyChain_StoreUnavailableVariants(t *testing.T) {
