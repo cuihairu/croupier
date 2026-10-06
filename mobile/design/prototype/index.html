@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>croupier 手机端原型 · 索引</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  .wrap { width: 375px; display: flex; flex-direction: column; gap: 12px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+  .plist { display: flex; flex-direction: column; gap: 10px; }
+  .pcard { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); padding: 13px 15px; text-decoration: none; color: var(--fg); }
+  .pcard .no { font-family: var(--mono); font-size: 12px; color: var(--accent-strong); width: 24px; flex: none; }
+  .pcard .t { font-size: 14.5px; font-weight: 700; }
+  .pcard .s { font-size: 12px; color: var(--fg-3); margin-top: 2px; line-height: 1.5; }
+  .pcard svg { flex: none; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="hero">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="brand-tile" style="width:44px; height:44px; border-radius:12px; font-size:20px;">C</div>
+      <div>
+        <div class="wordmark" style="font-size:18px;">Croupier GM · 手机端原型</div>
+        <div style="font-size:12px; color:var(--fg-3);">移动优先 375 视口 · 静态可视稿 v1</div>
+      </div>
+    </div>
+    <div style="font-size:12.5px; color:var(--fg-2); line-height:1.7;">
+      定位：GM 运营平台的移动侧——「随时接住告警与审批，随手完成低风险操作」。深色单主题（运营暗光环境 + 状态色对比优先）；底部四 Tab + 中央凸起「执行」入口。品牌位为<b style="color:var(--fg);">中性占位</b>（灰色字母 tile），非最终 logo。
+    </div>
+  </div>
+
+  <div class="plist">
+    <a class="pcard" href="login.html"><span class="no">P1</span><div><div class="t">登录</div><div class="s">服务器地址探测优先的登录流 · 自托管第一触点</div></div><div class="spacer"></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+    <a class="pcard" href="dashboard.html"><span class="no">P2</span><div><div class="t">首页看板</div><div class="s">待办 / 告警 / 健康度三问速答 · scope 全页联动</div></div><div class="spacer"></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+    <a class="pcard" href="servers.html"><span class="no">P3</span><div><div class="t">服务器列表与状态</div><div class="s">agent 健康扫视 · 离线卡内联重连</div></div><div class="spacer"></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+    <a class="pcard" href="alerts.html"><span class="no">P4</span><div><div class="t">告警处理</div><div class="s">严重度分流 · 认领锁与处理留痕</div></div><div class="spacer"></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+    <a class="pcard" href="ops.html"><span class="no">P5</span><div><div class="t">远程操作入口</div><div class="s">Schema 驱动表单 · 审批门禁前置展示</div></div><div class="spacer"></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+    <a class="pcard" href="settings.html"><span class="no">P6</span><div><div class="t">我的设置</div><div class="s">作用域 / 连接状态 / 通知偏好 · 状态先于入口</div></div><div class="spacer"></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+  </div>
+
+  <div class="card" style="margin-top:6px;">
+    <div style="font-size:12px; font-weight:700; color:var(--fg-2); margin-bottom:8px;">设计基线（详见 README.md）</div>
+    <div style="font-size:12px; color:var(--fg-2); line-height:1.9;">
+      画布 #08090a · 面板 #0f1011 · 强调 #5e6ad2（中性占位色）<br>
+      状态色：在线 #4cb782 · 警告 #f5a623 · 紧急 #eb5757 · 环境 PROD=红/DEV=蓝/TEST=紫<br>
+      字体 Inter + PingFang SC 回退 · 标识符 JetBrains Mono
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
