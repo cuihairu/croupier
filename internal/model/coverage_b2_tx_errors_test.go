@@ -117,7 +117,9 @@ func TestB2GameModel_TxErrors(t *testing.T) {
 		m := NewGameModel(db)
 		g := &Game{GameID: "b2g", Name: "G"}
 		require.NoError(t, m.Create(ctx, g))
-		b2Trigger(t, db, `CREATE TRIGGER b2_stop_game_del BEFORE UPDATE OF deleted_at ON games BEGIN SELECT RAISE(ABORT, 'blocked'); END`)
+		// 游戏删除已改物理删除（Unscoped DELETE），拦截点随之从软删
+		// UPDATE deleted_at 改为 DELETE 语句本身，事务错误透传意图不变。
+		b2Trigger(t, db, `CREATE TRIGGER b2_stop_game_del BEFORE DELETE ON games BEGIN SELECT RAISE(ABORT, 'blocked'); END`)
 		assert.Error(t, m.DeleteWithEnvBindings(ctx, g.ID, "b2g"))
 	})
 }

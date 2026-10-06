@@ -99,6 +99,9 @@ import (
 //   0038 (Go)   cicd_integrations + cicd_builds 表（CI/CD 可插拔 provider
 //               接入 #58：外部构建系统注册 + 构建记录；game-scoped，单库/
 //               多游戏两 scope 都补齐；0020 execution_logs 同模式）
+//   0039 (Go)   games 软删除残留行清理（0024/0026 同族：games 删除路径改
+//               硬删后，把已软删的存量游戏行物理清除——game_id/alias_name
+//               的物理唯一索引被墓碑行占位，同名重建 500，线上实证）
 
 func init() {
 	registerSvcMigrations()
@@ -147,6 +150,7 @@ func registerSvcMigrations() {
 		announcementGamesTableMigration(),
 		emailVerificationMigration(),
 		cicdTablesMigration(),
+		gameSoftDeleteResidueCleanupMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1197,6 +1201,37 @@ func migrateCicdTables(ctx context.Context, sqlDB *sql.DB) error {
 		if err := migrator.CreateTable(&model.CicdBuild{}); err != nil {
 			return fmt.Errorf("migrate: 0038 create cicd_builds: %w", err)
 		}
+	}
+	return nil
+}
+
+// gameSoftDeleteResidueCleanupMigration 为 0039：games 删除路径改硬删
+// （Unscoped）之后，把 0024/0026 同族的存量软删游戏行物理清除。
+// games.game_id 与 games.alias_name 是含软删行的物理唯一索引，墓碑行占住
+// 索引位会导致同名游戏重建直接 duplicate-key 500（线上实证：删除
+// e2e_walkthrough_tmp 后重建报 idx_games_game_id 冲突）。纯 DELETE，
+// 不动表结构，幂等；缺表/缺列跳过。
+func gameSoftDeleteResidueCleanupMigration() *goose.Migration {
+	return goose.NewGoMigration(39,
+		&goose.GoFunc{RunDB: migrateGameSoftDeleteResidue},
+		nil,
+	)
+}
+
+// migrateGameSoftDeleteResidue 是 0039 的迁移体（抽出便于直测）。
+func migrateGameSoftDeleteResidue(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.Game{}) {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&model.Game{}, "DeletedAt") {
+		return nil
+	}
+	if err := db.Exec("DELETE FROM games WHERE deleted_at IS NOT NULL").Error; err != nil {
+		return fmt.Errorf("migrate: 0039 purge soft-deleted rows from games: %w", err)
 	}
 	return nil
 }
