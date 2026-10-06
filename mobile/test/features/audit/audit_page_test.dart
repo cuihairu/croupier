@@ -106,15 +106,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('audit-kind-add')));
     await tester.pumpAndSettle();
-    // 自定义芯片出现后先取消再选回（覆盖 toggle 双向）。
-    await tester.tap(
-      find.byKey(const ValueKey('audit-kind-custom-custom_kind')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('audit-kind-custom-custom_kind')),
-    );
-    await tester.pumpAndSettle();
+    // 新增的自定义 chip 默认选中、随提交带上（此处不点它：自定义 chip 的
+    // 再点语义是「移除」而非 toggle——移除行为由下方专门用例覆盖）。
 
     // apply 按钮在弹层视口下方，滚到可见再点。
     await tester.dragUntilVisible(
@@ -284,7 +277,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('audit-filter-range')));
     await tester.pumpAndSettle();
 
-    // 选择「今天」与「明天」——均在 end 月（右侧网格），且 ≤ lastDate(now+1)。
+    // 选择「今天」与「明天」——均在 end 月，且 ≤ lastDate(now+1)。
     // 这样在月初/月末/跨月时均稳定可选，避免写死 15/20 导致的脆弱性。
     final now = DateTime.now();
     final todayStrTap = now.day.toString(); // picker 显示不带前导零
@@ -292,9 +285,22 @@ void main() {
     final tomorrowStrTap = tomorrow.day.toString();
     final todayStr = todayStrTap.padLeft(2, '0'); // _rangeDate 会 zero-pad
     final tomorrowStr = tomorrowStrTap.padLeft(2, '0');
-    await tester.tap(find.text(todayStrTap).last);
+
+    // 跨月形态（now.day ≤ 7 时 start=now-7d 归一进上月，对话框开在上月页；
+    // 800×600 测试视口的双月竖排日历里「本月」网格滚出折叠线）：同名日格有
+    // 上月/本月两个，树序在后的 .last 是本月格，但它可能在视口外——直接 tap
+    // 落空（仅 root 命中）、区间从未被设置。先 ensureVisible 滚进视口再点。
+    // 本月网格与开框页相邻，ListView cacheExtent 必已构建，ensureVisible 可达。
+    Future<void> tapDayCell(String dayNo) async {
+      final cell = find.text(dayNo).last; // 树序在后 = 本月网格的同名格
+      await tester.ensureVisible(cell);
+      await tester.pumpAndSettle();
+      await tester.tap(cell);
+    }
+
+    await tapDayCell(todayStrTap);
     await tester.pump();
-    await tester.tap(find.text(tomorrowStrTap).last);
+    await tapDayCell(tomorrowStrTap);
     await tester.pump();
     // M3 DateRangePickerDialog 确认按钮为 Save（saveButtonLabel）。
     await tester.tap(find.text('Save'));
