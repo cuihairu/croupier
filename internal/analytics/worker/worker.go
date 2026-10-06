@@ -427,6 +427,11 @@ func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 	if ts == "" || t.IsZero() {
 		t = time.Now()
 	}
+	// 分桶一律归一 UTC：flush 侧 time.Parse 按 UTC 解析 hll key 里的墙钟串，
+	// 这里若按事件自带 offset（或本地时区 fallback）渲染，非 UTC 部署上双方
+	// 错开一个时区偏移，minute_online 在 CST 服务器上永不满足 t.Before(nowMin)
+	// 而漏flush（993cb65 审计时间窗同族：写入/解析时区必须一致）。
+	t = t.UTC()
 	game := asString(m, "game_id")
 	env := asString(m, "env")
 	uid := asString(m, "user_id")
@@ -463,6 +468,8 @@ func (w *Worker) touchRevenue(ctx context.Context, m map[string]any) {
 	if ts == "" || t.IsZero() {
 		t = time.Now()
 	}
+	// 同 touchAgg：日桶 key 与 flush 侧 time.Parse 必须同一时区基准（UTC）。
+	t = t.UTC()
 	day := t.Format("2006-01-02")
 	game := asString(m, "game_id")
 	env := asString(m, "env")
@@ -489,7 +496,8 @@ func (w *Worker) flush(ctx context.Context) error {
 	if err := w.flushBatches(ctx); err != nil {
 		slog.Warn("flush batches", "err", err)
 	}
-	nowMin := time.Now().Truncate(time.Minute)
+	// key 内墙钟串已归一 UTC（touchAgg/touchRevenue），比较基准同步 UTC。
+	nowMin := time.Now().UTC().Truncate(time.Minute)
 	// flush minute_online for minutes earlier than current minute
 	for k := range w.touchedMinutes {
 		parts := strings.Split(k, ":") // hll:online:game:env:YYYYMMDDHHmm

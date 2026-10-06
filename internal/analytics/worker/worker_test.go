@@ -579,7 +579,8 @@ func TestTouchRevenue_EmptyTimestamp(t *testing.T) {
 		"game_id": "g1", "env": "e1", "status": "success", "amount_cents": float64(50),
 	})
 
-	today := time.Now().Format("2006-01-02")
+	// touchRevenue 分桶归一 UTC（flush 侧解析同为 UTC），期望日期同步 UTC。
+	today := time.Now().UTC().Format("2006-01-02")
 	key := fmt.Sprintf("%s|g1|e1", today)
 	rv, ok := w.revAgg[key]
 	if !ok {
@@ -597,9 +598,12 @@ func TestTouchRevenue_InvalidTimestamp(t *testing.T) {
 		"status": "success", "amount_cents": float64(75),
 	})
 
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().UTC().Format("2006-01-02")
 	key := fmt.Sprintf("%s|g1|e1", today)
-	rv := w.revAgg[key]
+	rv, ok := w.revAgg[key]
+	if !ok {
+		t.Fatal("expected revAgg entry with today's date")
+	}
 	if rv.revenue != 75 {
 		t.Errorf("expected revenue=75, got %d", rv.revenue)
 	}
@@ -1224,7 +1228,8 @@ func TestFlush_RevAgg_SendError(t *testing.T) {
 
 func TestFlush_TouchedMinute_ValidKey(t *testing.T) {
 	w, _ := testWorker(t)
-	pastTime := time.Now().Add(-2 * time.Minute).Truncate(time.Minute)
+	// key 墙钟串与 flush 侧 time.Parse 同为 UTC 基准（worker 写入侧归一 UTC）。
+	pastTime := time.Now().UTC().Add(-2 * time.Minute).Truncate(time.Minute)
 	k := fmt.Sprintf("hll:online:g1:prod:%s", pastTime.Format("200601021504"))
 	w.touchedMinutes[k] = struct{}{}
 	w.rdb.PFAdd(context.Background(), k, "user1")
@@ -1240,7 +1245,7 @@ func TestFlush_TouchedMinute_ValidKey(t *testing.T) {
 
 func TestFlush_TouchedMinute_FutureKey(t *testing.T) {
 	w, _ := testWorker(t)
-	futureTime := time.Now().Add(5 * time.Minute).Truncate(time.Minute)
+	futureTime := time.Now().UTC().Add(5 * time.Minute).Truncate(time.Minute)
 	k := fmt.Sprintf("hll:online:g1:prod:%s", futureTime.Format("200601021504"))
 	w.touchedMinutes[k] = struct{}{}
 
