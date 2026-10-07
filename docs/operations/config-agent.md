@@ -50,9 +50,9 @@ tag:
 
 `tls.enabled / certFile / keyFile / caFile / insecureSkipVerify`——加密 SDK Provider 拨入 Agent 本地网关的连接；TLS 在分帧之下，wire 协议不变。`enabled: true` 时 `certFile` + `keyFile` 必配（缺失启动即报错）；`caFile` 配置后启用双向 TLS（Provider 须出示 CA 签发的客户端证书）。单条连接握手失败仅丢弃该连接（记告警日志），不影响 Accept 循环与其余会话。SDK 侧需支持 TLS 拨号选项（六语言 SDK 逐个跟进，未跟进前保持 `enabled: false`）。
 
-### outboundTLS（Agent [Server 链路 TLS]
+### outboundTLS（Agent → 本地 Provider 出站调用链 TLS）
 
-与 `server.insecure: false` 配套：`enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`。生产推荐内部 CA 签发，见 [TLS 与证书](./tls-certificates)。
+Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号）时的客户端 TLS：`enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`。`enabled: false`（默认）时该链路保持明文（兼容回退）。注意与 `server:` 段分工：**agent → server 上游链路 TLS 由 `server:` 段驱动**（`server.insecure: false` 时启用，证书字段同在 `server` 段），`outboundTLS` 只作用于 Agent 调本地 Provider 这条出站链路。生产推荐内部 CA 签发，见 [TLS 与证书](./tls-certificates)。
 
 ### ops（指标上报）
 
