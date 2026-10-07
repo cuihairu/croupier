@@ -5,7 +5,7 @@
  *   #93394d  brand-2  按钮底、强调
  *   #7a2b3e  brand-3  hover / 标题强调
  *   rgba(184,85,107,0.13)  brand-soft  feature 图标底
- * 正文墨黑 #262626；hero 渐变玫瑰三档 #7a2b3e → #b8556b → #e58aa0
+ * 正文墨黑 #262626；hero 名纯品牌色（2026-10 主题审核批：字体渐变全站禁用）
  *
  * 暗色整体提亮一档：brand-1 #e58aa0 / brand-2 #cf6a82。
  */
@@ -25,13 +25,7 @@
   --vp-button-brand-hover-bg: #7a2b3e;
   --vp-button-brand-active-bg: #662335;
 
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(
-    115deg,
-    #7a2b3e 8%,
-    #b8556b 52%,
-    #e58aa0 96%
-  );
+  /* hero 名纯品牌色：不设 name-color/name-background，回落 --vp-c-brand-1 纯色 */
 
   --vp-custom-outline: #b8556b;
 
@@ -60,13 +54,6 @@
   --vp-button-brand-hover-bg: #e58aa0;
   --vp-button-brand-active-bg: #b8556b;
 
-  --vp-home-hero-name-background: linear-gradient(
-    115deg,
-    #e58aa0 8%,
-    #cf6a82 52%,
-    #b8556b 96%
-  );
-
   --vp-custom-outline: #e58aa0;
 }
 
@@ -74,3 +61,10 @@
 code {
   color: var(--vp-c-brand-1);
 }
+
+/* hero 名用纯品牌色,不用 VitePress 默认渐变名 */
+:root {
+  --vp-home-hero-name-color: var(--vp-c-brand-1);
+  --vp-home-hero-name-background: transparent;
+}
+
