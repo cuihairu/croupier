@@ -331,14 +331,28 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 
 // callLocalProvider calls a local provider using TCP transport only
 func (h *LocalHandler) callLocalProvider(ctx context.Context, addr string, msgID uint32, data []byte) ([]byte, error) {
-	// Only TCP transport is supported for LocalHandler
-	client, err := tcptr.NewClient(&tcptr.Config{
+	h.mu.RLock()
+	tlsCfg := h.tlsCfg
+	h.mu.RUnlock()
+	// Only TCP transport is supported for LocalHandler.
+	// outboundTLS 配置段经 SetTLSConfig 注入；非 nil 时按证书文件拨号 TLS，
+	// 零值回退明文（能力矩阵批次 F 死接线修复：此前 tlsCfg 存入即丢，
+	// 配置显式开启 outboundTLS 也不产生任何效果）。
+	cfg := &tcptr.Config{
 		Address:        addr,
-		Insecure:       true,
+		Insecure:       tlsCfg == nil,
 		ConnectTimeout: 5 * time.Second,
 		RecvTimeout:    30 * time.Second,
 		SendTimeout:    30 * time.Second,
-	})
+	}
+	if tlsCfg != nil {
+		cfg.CertFile = tlsCfg.CertFile
+		cfg.KeyFile = tlsCfg.KeyFile
+		cfg.CAFile = tlsCfg.CAFile
+		cfg.ServerName = tlsCfg.ServerName
+		cfg.InsecureSkipVerify = tlsCfg.InsecureSkipVerify
+	}
+	client, err := tcptr.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}
