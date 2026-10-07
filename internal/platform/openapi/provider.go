@@ -523,6 +523,10 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 		paths = v
 	}
 
+	// 批次 D：inputSchema 推导优先走 kin-openapi 解析层（对拍锁定同形输出）；
+	// kin 解析失败（Swagger 2.0/悬空 $ref 等）回落下方 map 遍历旧推导。
+	kinDerived := kinInputSchemas(spec, openapi)
+
 	for apiPath, pathItem := range paths {
 		pathObj, ok := pathItem.(map[string]interface{})
 		if !ok {
@@ -580,6 +584,10 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			versionOverride, _ := methodObj["x-version"].(string)
 
 			// Create APIMethod
+			inputSchema := extractInputSchema(methodObj, openapi)
+			if kinSchema, ok := kinDerived[methodName]; ok {
+				inputSchema = kinSchema
+			}
 			apiMethod := &APIMethod{
 				Name:         methodName,
 				OperationID:  operationID,
@@ -598,7 +606,7 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				Enabled:      enabled,
 				Permission:   permission,
 				Version:      strings.TrimSpace(versionOverride),
-				InputSchema:  extractInputSchema(methodObj, openapi),
+				InputSchema:  inputSchema,
 				OutputSchema: extractOutputSchema(methodObj, openapi),
 			}
 
