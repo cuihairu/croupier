@@ -17,4 +17,8 @@ export default {
   'component.tagSelect.collapse': '收起',
   'component.tagSelect.all': '全部',
   'component.themeToggle.menu': '主题',
+  'component.gameIconField.upload': '上传图标',
+  'component.gameIconField.uploaded': '图标已上传并回填',
+  'component.gameIconField.badType': '仅支持 png/jpg/webp/svg 格式的图标',
+  'component.gameIconField.oversize': '图标文件超过 2MB 大小上限',
 };

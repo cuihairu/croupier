@@ -1413,6 +1413,9 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 			// 必须免鉴权：<img src> 请求不会携带 Authorization 头，走鉴权必然
 			// 401，头像永远加载不出来。只放行 avatars 子树，其余上传物不对外。
 			string(objstore.AvatarPublicPrefix),
+			// 游戏图标静态目录（registerIconStaticRoute）：同头像逻辑，<img>
+			// 直载免鉴权；内容寻址命名 + CSP 响应头兜 SVG XSS。
+			string(objstore.IconPublicPrefix),
 		},
 	}
 	// Prometheus 抓取器不带 JWT：端点开启时加入免认证白名单。

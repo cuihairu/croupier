@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/api/admin"
@@ -472,6 +474,10 @@ func registerGameRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id", gameHandler.Detail)
 	g.PUT("/:id", gameHandler.Update)
 	g.DELETE("/:id", gameHandler.Delete)
+
+	// 图标上传：静态段注册，与 /:id 共存（gin 静态优先匹配）。挂在 /games 下
+	// 复用鉴权组；权限 games:write 在 service 层校验（同 Create/Update）。
+	g.POST("/icons", gameHandler.UploadIcon)
 
 	// 环境管理
 	g.GET("/:id/envs", gameHandler.EnvsList)
@@ -997,6 +1003,50 @@ func registerUploadStaticRoute(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	r.StaticFS(objstore.AvatarPublicPrefix, gin.Dir(dir, false))
 	slog.Default().Info("已挂载本地头像静态目录",
 		"prefix", objstore.AvatarPublicPrefix, "dir", dir)
+
+	registerIconStaticRoute(r, baseDir)
+}
+
+// registerIconStaticRoute 挂载游戏图标静态目录（file 驱动，键空间
+// icons/**，上传入口 POST /api/v1/games/icons）。
+//
+// 不用 StaticFS：SVG 可内嵌 <script>，直开 URL 即存储型 XSS——手动注册
+// GET/HEAD 并附加响应头（CSP 禁脚本与外链 + nosniff；内联 style 保留，图标
+// 渐变/填充常用）。图标 key 是内容寻址哈希名（上传端点产出），可放心
+// immutable 长缓存。
+func registerIconStaticRoute(r *gin.Engine, baseDir string) {
+	dir, err := objstore.LocalIconDir(baseDir)
+	if err != nil {
+		slog.Default().Warn("本地图标静态目录无效，未挂载 "+objstore.IconPublicPrefix,
+			"baseDir", baseDir, "error", err)
+		return
+	}
+	// 目录可能尚未创建（还没人上传过图标）：仍挂载，文件缺失时 404。
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		slog.Default().Warn("本地图标目录创建失败，未挂载 "+objstore.IconPublicPrefix,
+			"dir", dir, "error", err)
+		return
+	}
+	handler := func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+		// 前置 "/" 使 Clean 以虚拟根为锚，".." 折叠后不会逃出目录；再兜一层
+		// 前缀校验双保险。
+		name := filepath.Clean("/" + c.Param("filepath"))
+		full := filepath.Join(dir, filepath.FromSlash(name))
+		if abs, err := filepath.Abs(full); err != nil ||
+			!strings.HasPrefix(abs, dir+string(filepath.Separator)) {
+			c.String(http.StatusNotFound, "not found")
+			return
+		}
+		c.File(full)
+	}
+	pattern := objstore.IconPublicPrefix + "*filepath"
+	r.GET(pattern, handler)
+	r.HEAD(pattern, handler)
+	slog.Default().Info("已挂载本地游戏图标静态目录",
+		"prefix", objstore.IconPublicPrefix, "dir", dir)
 }
 
 // ============================================================================

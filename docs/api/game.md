@@ -297,3 +297,34 @@ type GameEnvDeleteRequest struct {
 // 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
 // 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
+
+### 10. "上传游戏图标"
+
+1. route definition
+
+- Url: /api/v1/games/icons
+- Method: POST（multipart/form-data，字段名 `file`）
+- Request: multipart 文件
+- Response: `GameIconUploadResponse`
+
+2. request definition
+
+```go
+// internal/api/game/icon_upload.go
+// 大小上限 IconMaxBytes = 2MB；类型按文件头魔数嗅探（png/jpg/webp/svg），
+// 不信任扩展名与 Content-Type。
+```
+
+3. response definition
+
+```go
+type GameIconUploadResponse struct {
+	Key string `json:"key"` // 对象存储裸 key：icons/games/<sha1 前 16 hex>.<ext>
+	URL string `json:"url"` // 可直接回填 game.icon 的访问地址
+}
+```
+
+- 权限：`admin:all` 或 `games:write`。
+- **覆盖策略（内容寻址）**：key 由内容 sha1 派生，同内容重复上传得到同一 key（幂等覆盖），不同内容必不同 key——不存在「A 游戏同名图标覆盖 B 游戏」互踩；旧图标成为孤儿文件（KB 级，不清理）。
+- **仅 file 存储驱动**：图标 URL 必须长期稳定可直载，S3/OSS/COS 的 SignedURL 带过期时间存库即死链；对象存储部署请直接在图标字段填 CDN/外部 URL。
+- **静态暴露**：file 驱动下 `GET /uploads/icons/*`（免认证白名单，`<img>` 直载不带 Authorization 头）；仅暴露 `icons/` 子树，通用存储 API 写入的私有对象不外泄。SVG 可内嵌脚本，静态路由附加 `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'` + `X-Content-Type-Options: nosniff` + immutable 缓存兜底。

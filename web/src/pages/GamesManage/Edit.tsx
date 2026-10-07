@@ -3,7 +3,7 @@ import { App, Button, Card, Form, Input, Spin } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage, history, useParams, useIntl } from '@umijs/max';
 import { getGame, updateGame } from '@/services/api/games';
-import GameIcon, { GAME_ICON_SIZE } from '@/components/GameIcon';
+import GameIconField from '@/components/GameIconField';
 import { notifyGamesChanged } from '@/utils/gamesChanged';
 
 type EditFormValues = {
@@ -21,7 +21,6 @@ export default function GameEditPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const iconPreview = Form.useWatch('icon', form);
 
   useEffect(() => {
     if (!id) return;
@@ -134,21 +133,11 @@ export default function GameEditPage() {
             extra={
               <FormattedMessage
                 id="pages.gamesManage.form.iconExtra"
-                defaultMessage="图片地址；不指定时显示默认骰子图标"
+                defaultMessage="上传文件或填写图片地址；不指定时显示默认骰子图标"
               />
             }
           >
-            <Input
-              placeholder="https://..."
-              allowClear
-              prefix={
-                <GameIcon
-                  icon={iconPreview}
-                  name={iconPreview || 'game'}
-                  size={GAME_ICON_SIZE.sm}
-                />
-              }
-            />
+            <GameIconField />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0 }}>
             <Button

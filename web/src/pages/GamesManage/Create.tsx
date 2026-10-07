@@ -3,7 +3,7 @@ import { App, Button, Card, Form, Input } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { upsertGame } from '@/services/api/games';
-import GameIcon, { GAME_ICON_SIZE } from '@/components/GameIcon';
+import GameIconField from '@/components/GameIconField';
 import { notifyGamesChanged } from '@/utils/gamesChanged';
 
 type CreateFormValues = {
@@ -19,7 +19,6 @@ export default function GameCreatePage() {
   const intl = useIntl();
   const [form] = Form.useForm<CreateFormValues>();
   const [submitting, setSubmitting] = useState(false);
-  const iconPreview = Form.useWatch('icon', form);
 
   const onFinish = async (values: CreateFormValues) => {
     setSubmitting(true);
@@ -98,21 +97,11 @@ export default function GameCreatePage() {
             extra={
               <FormattedMessage
                 id="pages.gamesManage.form.iconExtra"
-                defaultMessage="图片地址；不指定时显示默认骰子图标"
+                defaultMessage="上传文件或填写图片地址；不指定时显示默认骰子图标"
               />
             }
           >
-            <Input
-              placeholder="https://..."
-              allowClear
-              prefix={
-                <GameIcon
-                  icon={iconPreview}
-                  name={iconPreview || 'game'}
-                  size={GAME_ICON_SIZE.sm}
-                />
-              }
-            />
+            <GameIconField />
           </Form.Item>
           <Form.Item
             name="description"

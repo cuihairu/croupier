@@ -1,7 +1,20 @@
 import { request } from '@umijs/max';
-import { deleteGame, getGame, listGamesMeta, listMyGames, updateGame, upsertGame } from './games';
+import {
+  deleteGame,
+  getGame,
+  listGamesMeta,
+  listMyGames,
+  updateGame,
+  uploadGameIcon,
+  upsertGame,
+} from './games';
 
-jest.mock('@umijs/max', () => ({ request: jest.fn() }));
+jest.mock('@umijs/max', () => ({
+  request: jest.fn(),
+  getIntl: () => ({
+    formatMessage: ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
+  }),
+}));
 
 const mockedRequest = request as jest.MockedFunction<typeof request>;
 
@@ -179,5 +192,145 @@ describe('games API adapters', () => {
       method: 'PUT',
       data: { aliasName: '新名', icon: '' },
     });
+  });
+});
+
+// ---- uploadGameIcon：Fake XHR 拦截（同 storage.test.ts 先例）----
+class IconFakeXHR {
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  upload: { onprogress: ((event: ProgressEvent) => void) | null } = { onprogress: null };
+  status = 0;
+  responseText = '';
+  method = '';
+  url = '';
+  headers: Record<string, string> = {};
+  body: FormData | undefined;
+
+  open(method: string, url: string) {
+    this.method = method;
+    this.url = url;
+  }
+
+  setRequestHeader(key: string, value: string) {
+    this.headers[key] = value;
+  }
+
+  send(body?: FormData) {
+    this.body = body;
+  }
+}
+
+let lastIconXHR: IconFakeXHR;
+
+class IconFakeXHRTracked extends IconFakeXHR {
+  constructor() {
+    super();
+    lastIconXHR = this;
+  }
+}
+
+describe('uploadGameIcon', () => {
+  let originalXHR: typeof global.XMLHttpRequest;
+
+  beforeAll(() => {
+    originalXHR = global.XMLHttpRequest;
+    Object.defineProperty(global, 'XMLHttpRequest', { value: IconFakeXHRTracked, writable: true });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(global, 'XMLHttpRequest', { value: originalXHR, writable: true });
+  });
+
+  beforeEach(() => {
+    (localStorage.getItem as unknown as jest.Mock).mockReturnValue('tok-1');
+  });
+
+  it('POSTs multipart file with bearer token and resolves key/url', async () => {
+    const pending = uploadGameIcon(new File(['icon'], 'logo.png'));
+    await Promise.resolve();
+    expect(lastIconXHR.method).toBe('POST');
+    expect(lastIconXHR.url).toBe('/api/v1/games/icons');
+    expect(lastIconXHR.headers.Authorization).toBe('Bearer tok-1');
+    expect(lastIconXHR.body).toBeInstanceOf(FormData);
+    expect(lastIconXHR.body?.get('file')).toBeInstanceOf(File);
+
+    lastIconXHR.status = 200;
+    lastIconXHR.responseText = JSON.stringify({
+      key: 'icons/games/4d5e562f37cd6576.png',
+      url: '/uploads/icons/games/4d5e562f37cd6576.png',
+    });
+    lastIconXHR.onload?.();
+
+    await expect(pending).resolves.toEqual({
+      key: 'icons/games/4d5e562f37cd6576.png',
+      url: '/uploads/icons/games/4d5e562f37cd6576.png',
+    });
+  });
+
+  it('reports upload progress percentages when computable', async () => {
+    const seen: number[] = [];
+    const pending = uploadGameIcon(new File(['icon'], 'logo.png'), (p) => seen.push(p));
+    await Promise.resolve();
+
+    lastIconXHR.upload.onprogress?.({
+      lengthComputable: true,
+      loaded: 25,
+      total: 100,
+    } as ProgressEvent);
+    // 不可计算时不汇报
+    lastIconXHR.upload.onprogress?.({
+      lengthComputable: false,
+      loaded: 50,
+      total: 100,
+    } as ProgressEvent);
+    lastIconXHR.status = 200;
+    lastIconXHR.responseText = JSON.stringify({ key: 'k', url: 'u' });
+    lastIconXHR.onload?.();
+
+    await pending;
+    expect(seen).toEqual([25]);
+  });
+
+  it('rejects with backend message on HTTP error status', async () => {
+    const pending = uploadGameIcon(new File(['icon'], 'logo.png'));
+    await Promise.resolve();
+
+    lastIconXHR.status = 400;
+    lastIconXHR.responseText = JSON.stringify({ error: 'x', message: '仅支持 png/jpg/webp/svg' });
+    lastIconXHR.onload?.();
+
+    await expect(pending).rejects.toThrow('仅支持 png/jpg/webp/svg');
+  });
+
+  it('rejects with fallback message on malformed response body', async () => {
+    const pending = uploadGameIcon(new File(['icon'], 'logo.png'));
+    await Promise.resolve();
+
+    lastIconXHR.status = 200;
+    lastIconXHR.responseText = 'not-json';
+    lastIconXHR.onload?.();
+
+    await expect(pending).rejects.toThrow('上传响应解析失败');
+  });
+
+  it('rejects with fallback message on success body missing url', async () => {
+    const pending = uploadGameIcon(new File(['icon'], 'logo.png'));
+    await Promise.resolve();
+
+    lastIconXHR.status = 200;
+    lastIconXHR.responseText = JSON.stringify({ key: 'k' });
+    lastIconXHR.onload?.();
+
+    await expect(pending).rejects.toThrow('上传响应缺少图标地址');
+  });
+
+  it('rejects on network error', async () => {
+    const pending = uploadGameIcon(new File(['icon'], 'logo.png'));
+    await Promise.resolve();
+
+    lastIconXHR.onerror?.();
+
+    await expect(pending).rejects.toThrow('图标上传失败');
   });
 });
