@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/gin-gonic/gin"
@@ -120,6 +121,9 @@ func TestService_UploadIcon_BadContent(t *testing.T) {
 	_, err := svc.UploadIcon(ctx, strings.NewReader("not an icon at all"), 18, "a.png")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "仅支持")
+	// 拒绝白名单外内容必须是 400（客户端送错文件），曾漂成 500 内部错误。
+	var codeErr *errorx.CodeError
+	require.ErrorAs(t, err, &codeErr, "坏内容须为 errorx CodeError（映射 4xx），不可裸 error 归 internal_error 500")
 }
 
 func TestService_UploadIcon_ContentAddressed(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
-	"errors"
 	"io"
 	"mime/multipart"
 	"strings"
@@ -144,5 +143,6 @@ func sniffIconKind(data []byte) (ext string, contentType string, err error) {
 	if strings.Contains(strings.ToLower(string(head)), "<svg") {
 		return "svg", "image/svg+xml", nil
 	}
-	return "", "", errors.New("仅支持 png/jpg/webp/svg 格式的图标")
+	// 拒绝白名单外内容是客户端送错文件（400），不是服务端故障。
+	return "", "", errorx.NewBadRequest("仅支持 png/jpg/webp/svg 格式的图标")
 }
