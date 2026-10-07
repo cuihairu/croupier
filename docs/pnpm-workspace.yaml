@@ -8,6 +8,11 @@ overrides:
   postcss@<=8.5.17: ">=8.5.18"
   dompurify@<=3.4.11: ">=3.4.12"
   dompurify@<3.4.16: ">=3.4.16" # 2026-09-30 抬（afterSanitize hook DOM XSS，patched 3.4.16）
+  # 2026-10-07 安全补丁：Dependabot #419/#420（GHSA-g2v6-rqmx-r4w6 /
+  # GHSA-68fv-2mgg-jv7q）；vue 与 @vue/server-renderer 同源锁步发布，两键须同步
+  vue: ">=3.5.42 <4.0.0"
+  "@vue/server-renderer": ">=3.5.42 <4.0.0"
+  source-map-js: ">=1.2.2 <2.0.0"
   immutable@>=5.0.0-beta.1 <5.1.8: ">=5.1.8"
   # 保留不修复（2026-08-15 评估）：
   # - vite <=6.4.2（#50/#151/#152）：补丁仅在 6.4.3+，vitepress 1.6.4 依赖 vite ^5，

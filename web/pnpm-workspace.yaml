@@ -111,7 +111,12 @@ overrides:
   piscina@<4.9.3: '>=4.9.3'
   piscina@>=5.0.0 <5.3.2: '>=5.3.2' # 2026-10-02 抬（Dependabot #414 critical：ThreadPool options 原型污染 RCE gadget；umi/mako 构建链引入）
   qs@<6.15.2: '>=6.16.0' # 2026-09-30 抬（同上，统一 6.16.0 下限）
-  shell-quote@<1.8.4: '>=1.8.4'
+  shell-quote@<1.11.0: '>=1.11.0' # 2026-10-07 抬（原 <1.8.4 线被本条覆盖；Dependabot security_update_not_possible：react-dev-utils 精确钳 1.10.0，修复版需 ≥1.11.0）
+  # 2026-10-07 安全批次（Dependabot #423/#424/#425；修复版均已在 npm 发布、母版
+  # range 允许（^1.7.4 / ^2.0.7 / ^1.2.1），锁刷新即闭合 alert；裸键+版本线限定）
+  compression: '>=1.8.2 <2.0.0' # GHSA-vc2v-76pw-4v95 high，patched 1.8.2；umi bundler 链引入
+  proxy-addr: '>=2.0.8 <3.0.0' # GHSA-jqcg-44mw-7w3h critical，patched 2.0.8；express 5.2.1 ^2.0.7 引入
+  source-map-js: '>=1.2.2 <2.0.0' # GHSA-68fv-2mgg-jv7q high，patched 1.2.2；postcss/tailwind 链引入
   ws@<8.21.0: '>=8.21.0'
   # 2026-08-02 安全补丁：修复 Dependabot 报告的可修复漏洞
   dompurify@<=3.4.11: '>=3.4.12'
