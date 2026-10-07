@@ -72,7 +72,9 @@ type Provider struct {
 	methodMap     map[string]*APIMethod // method name -> API definition
 	openapiDoc    json.RawMessage       // Raw OpenAPI document JSON
 	infoVersion   string                // info.version of the first parsed document (may be non-semver)
-	mu            sync.RWMutex
+	// outputValidators 按 method 缓存响应 schema 的编译产物（能力矩阵 #4）。
+	outputValidators sync.Map
+	mu               sync.RWMutex
 }
 
 // Config holds the OpenAPI provider specific configuration.
@@ -194,6 +196,12 @@ type APIMethod struct {
 	// parameters and application/json request body (see extractInputSchema).
 	// Derived from the spec; methods declared only in config stay empty.
 	InputSchema string `yaml:"input_schema" json:"inputSchema"`
+
+	// OutputSchema is the JSON Schema (JSON text) of the operation's success
+	// (2xx) application/json response (see extractOutputSchema); empty when
+	// the spec declares no JSON success response — response validation is
+	// skipped for such methods.
+	OutputSchema string `yaml:"output_schema" json:"outputSchema"`
 }
 
 // ParameterMapping defines how to map a parameter.
@@ -298,6 +306,10 @@ type MethodDetails struct {
 	// InputSchema is the JSON Schema (JSON text) derived from the operation's
 	// parameters and application/json request body (see extractInputSchema).
 	InputSchema string
+
+	// OutputSchema is the JSON Schema (JSON text) of the operation's success
+	// response (see extractOutputSchema); empty when absent from the spec.
+	OutputSchema string
 }
 
 // NewProvider creates a new OpenAPI provider.
@@ -569,24 +581,25 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 
 			// Create APIMethod
 			apiMethod := &APIMethod{
-				Name:        methodName,
-				OperationID: operationID,
-				Summary:     summary,
-				Description: desc,
-				Path:        apiPath,
-				Method:      httpMethod,
-				Tags:        tags,
-				Deprecated:  deprecated,
-				Parameters:  p.extractParameters(methodObj),
-				Resource:    resource,
-				Risk:        risk,
-				Operation:   operation,
-				Capability:  capability,
-				Execution:   execution,
-				Enabled:     enabled,
-				Permission:  permission,
-				Version:     strings.TrimSpace(versionOverride),
-				InputSchema: extractInputSchema(methodObj, openapi),
+				Name:         methodName,
+				OperationID:  operationID,
+				Summary:      summary,
+				Description:  desc,
+				Path:         apiPath,
+				Method:       httpMethod,
+				Tags:         tags,
+				Deprecated:   deprecated,
+				Parameters:   p.extractParameters(methodObj),
+				Resource:     resource,
+				Risk:         risk,
+				Operation:    operation,
+				Capability:   capability,
+				Execution:    execution,
+				Enabled:      enabled,
+				Permission:   permission,
+				Version:      strings.TrimSpace(versionOverride),
+				InputSchema:  extractInputSchema(methodObj, openapi),
+				OutputSchema: extractOutputSchema(methodObj, openapi),
 			}
 
 			p.methodMap[methodName] = apiMethod
@@ -763,22 +776,23 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 	result := make(map[string]*MethodDetails, len(p.methodMap))
 	for name, method := range p.methodMap {
 		result[name] = &MethodDetails{
-			Name:        name,
-			OperationID: method.OperationID,
-			Summary:     method.Summary,
-			Description: method.Description,
-			Tags:        method.Tags,
-			Deprecated:  method.Deprecated,
-			Parameters:  method.Parameters,
-			Resource:    method.Resource,
-			Risk:        method.Risk,
-			Operation:   method.Operation,
-			Capability:  method.Capability,
-			Execution:   method.Execution,
-			Enabled:     method.Enabled,
-			Permission:  method.Permission,
-			Version:     method.Version,
-			InputSchema: method.InputSchema,
+			Name:         name,
+			OperationID:  method.OperationID,
+			Summary:      method.Summary,
+			Description:  method.Description,
+			Tags:         method.Tags,
+			Deprecated:   method.Deprecated,
+			Parameters:   method.Parameters,
+			Resource:     method.Resource,
+			Risk:         method.Risk,
+			Operation:    method.Operation,
+			Capability:   method.Capability,
+			Execution:    method.Execution,
+			Enabled:      method.Enabled,
+			Permission:   method.Permission,
+			Version:      method.Version,
+			InputSchema:  method.InputSchema,
+			OutputSchema: method.OutputSchema,
 		}
 	}
 	return result
@@ -883,7 +897,18 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 	}
 
 	// Transform response if configured
-	return p.transformResponse(body)
+	data, err := p.transformResponse(body)
+	if err != nil {
+		return nil, err
+	}
+	// 校验已变换的返回（能力矩阵 #4，批次 C）：有 response schema 才校验，
+	// 无 schema 原样放行（兼容既有 provider）；数据不符沿错误通道上报。
+	if apiMethod.OutputSchema != "" {
+		if err := p.validateOutput(method, apiMethod.OutputSchema, data); err != nil {
+			return nil, err
+		}
+	}
+	return data, nil
 }
 
 // buildRequest builds an HTTP request from the API method and request data.
