@@ -40,9 +40,16 @@ permissions:
 jobs:
   dashboard-quality:
     runs-on: ubuntu-latest
+    # 分片 3 份跑 unit step（动机见 step 内注释）；fail-fast=false 防止单分片
+    # 失败级联取消兄弟分片（矩阵默认 fail-fast 会制造 cancelled 噪音）。
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # job 预算按 unit step 实际耗时定：覆盖率巡检把套件扩到 331 套件/4041
     # 用例后，jest+coverage 在 ubuntu-latest 上 >27 分钟（2026-09-29 两次
-    # 30 分钟墙钟强杀 / runner shutdown，见 step 内注释）；60 留满慢机余量。
+    # 30 分钟墙钟强杀 / runner shutdown，见 step 内注释）；分片后单份
+    # ~12-15 分钟，60 留满慢机余量。
     timeout-minutes: 60
     defaults:
       run:
@@ -119,8 +126,14 @@ jobs:
         # 2766 用例 ~908s（15 分钟墙钟两次连炸后放宽到 30）；2026-09-29 覆盖
         # 率巡检已扩到 331 套件/4041 用例，ubuntu-latest 上 26.5 分钟仍未跑完
         # 被墙钟/runner shutdown 强杀，30 已再次低于实际耗时——放宽到 45。
+        # 2026-10-03/07 追加观测：放宽到 45 后仍整批红——单步跑到 20~33 分钟
+        # 即被 runner infra 级取消（step conclusion=cancelled + "The operation
+        # was canceled."，job/run 仍为 failure；同日成功 run 实测 33~38 分钟
+        # 跑完，排除固定墙钟）。分片 3 份把单步时长压回 ~12-15 分钟，低于全部
+        # 观测取消点（最短 19:56）；codecov 按 commit 合并三份 lcov，覆盖率
+        # 口径不变。
         timeout-minutes: 45
-        run: pnpm test:coverage
+        run: pnpm exec jest --coverage --testTimeout=20000 --shard=${{ matrix.shard }}/3
 
       # jest rootDir 为 web/，lcov 的 SF 路径不带 web/ 前缀；web 又是
       # submodule，codecov uploader 无法自行推断映射，SF:src/... 落在仓库
