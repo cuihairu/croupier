@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,7 @@ type App struct {
 	extensionMu      sync.RWMutex
 	extensionPuller  *ExtensionSyncPuller
 	outTLS           *tlsutil.ClientTLSConfig
+	localTLS         *tls.Config
 	providerManager  *ProviderManager
 	providerSessions *agent.ProviderSessionStore
 	telemetry        *telemetry.GameTelemetryService
@@ -162,6 +164,7 @@ func (a *App) StartLocalServer() error {
 		// heartbeat and Server reports no live agent for their functions.
 		RecvTimeout: 2 * time.Minute,
 		SendTimeout: 30 * time.Second,
+		TLSConfig:   a.localTLS,
 	}, providerSessions, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
@@ -386,6 +389,16 @@ func (a *App) WithOutboundTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 		return
 	}
 	a.outTLS = cfg
+}
+
+// WithLocalTLSConfig enables TLS on the Agent's local gateway — the listener
+// SDK Providers dial into (configs/agent.yaml `tls:` section). Nil (default)
+// keeps plain TCP.
+func (a *App) WithLocalTLSConfig(cfg *tls.Config) {
+	if a == nil {
+		return
+	}
+	a.localTLS = cfg
 }
 
 // Store exposes the local instance registry.

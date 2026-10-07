@@ -26,6 +26,11 @@ upstream:
   maxRetries: 3
   timeout: 10000
 
+# Local gateway TLS: encrypts the listener SDK Providers dial into
+# (agent.localAddr). Requires certFile+keyFile when enabled (startup error
+# otherwise); caFile turns on mutual TLS (client certificates required).
+# TLS sits below the framing layer, so the SDK wire protocol is unchanged —
+# SDKs dialing this listener must support a TLS dial option.
 tls:
   enabled: false
   certFile: ""

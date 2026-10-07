@@ -254,6 +254,27 @@ func createServerTLSConfig(config *Config) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+// BuildServerTLSConfig builds a server-side *tls.Config from plain file
+// settings with the exact semantics of Server's TLS listen path. Exported for
+// the Agent local gateway (tcp_local_listener) so both TLS surfaces share one
+// implementation: MinVersion 1.2, CAFile enables mTLS
+// (RequireAndVerifyClientCert), insecureSkipVerify downgrades to NoClientCert.
+//
+// Unlike Server's listen path, a certificate is REQUIRED here: callers gate on
+// an explicit "enabled" flag, and a cert-less TLS listener would accept TCP
+// connections only to fail every handshake.
+func BuildServerTLSConfig(certFile, keyFile, caFile string, insecureSkipVerify bool) (*tls.Config, error) {
+	if strings.TrimSpace(certFile) == "" || strings.TrimSpace(keyFile) == "" {
+		return nil, fmt.Errorf("tls enabled but certFile/keyFile missing: provide both to secure the listener")
+	}
+	return createServerTLSConfig(&Config{
+		CertFile:           certFile,
+		KeyFile:            keyFile,
+		CAFile:             caFile,
+		InsecureSkipVerify: insecureSkipVerify,
+	})
+}
+
 // defaultAddress returns the listen address used when Config.Address is
 // empty. Defaults to 127.0.0.1:19090; CROUPIER_TCP_ADDR overrides it so
 // tests (and constrained environments) can pick a free port.

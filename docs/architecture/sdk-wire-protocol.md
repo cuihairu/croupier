@@ -45,7 +45,7 @@
 
 - `sdk-agent subprotocol`
   - 首帧必须是 `ProviderConnectRequest`
-  - 默认不启用 `tls`
+  - 默认不启用 `tls`；Agent 侧可经 `agent.yaml` 的 `tls:` 段启用本地网关 TLS（TLS 在分帧之下，帧格式不变，SDK 拨入需带 TLS 拨号选项）
   - 面向 provider session
 - `agent-server subprotocol`
   - 首帧必须是 `RegisterRequest`

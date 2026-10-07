@@ -48,7 +48,7 @@ tag:
 
 ### tls（本地 `:19091` 监听的入站 TLS）
 
-`tls.enabled / certFile / keyFile / caFile / insecureSkipVerify`——游戏服与 Agent 同网段，通常内网明文即可。
+`tls.enabled / certFile / keyFile / caFile / insecureSkipVerify`——加密 SDK Provider 拨入 Agent 本地网关的连接；TLS 在分帧之下，wire 协议不变。`enabled: true` 时 `certFile` + `keyFile` 必配（缺失启动即报错）；`caFile` 配置后启用双向 TLS（Provider 须出示 CA 签发的客户端证书）。单条连接握手失败仅丢弃该连接（记告警日志），不影响 Accept 循环与其余会话。SDK 侧需支持 TLS 拨号选项（六语言 SDK 逐个跟进，未跟进前保持 `enabled: false`）。
 
 ### outboundTLS（Agent [Server 链路 TLS]
 

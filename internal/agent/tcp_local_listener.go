@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net"
@@ -26,7 +27,18 @@ type TCPLocalListenerConfig struct {
 	// Timeouts.
 	RecvTimeout time.Duration
 	SendTimeout time.Duration
+
+	// TLSConfig, when non-nil, wraps every accepted connection in TLS
+	// (crypto/tls) — above TCP, below the framing layer, so the wire protocol
+	// is unaffected. Handshake failures drop only the offending connection;
+	// the accept loop keeps serving (plaintext probes must not kill the
+	// gateway, hence per-conn wrapping instead of tls.NewListener).
+	TLSConfig *tls.Config
 }
+
+// tlsHandshakeTimeout bounds the server-side TLS handshake of an accepted
+// connection; half-open peers are dropped instead of pinning a goroutine.
+const tlsHandshakeTimeout = 10 * time.Second
 
 // TCPLocalListener accepts SDK Provider TCP sessions on the Agent's local gateway.
 //
@@ -154,6 +166,20 @@ func (l *TCPLocalListener) serveConn(ctx context.Context, conn net.Conn) {
 		_ = conn.Close()
 		l.logger.Info("Provider TCP connection closed", "remote", remoteAddr)
 	}()
+
+	// TLS 在 TCP 之上、分帧之下（能力矩阵批次 E）：握手失败只丢弃当前
+	// 连接并告警，Accept 循环与既有会话不受影响——明文探测/扫描不致命。
+	if tlsCfg := l.config.TLSConfig; tlsCfg != nil {
+		tlsConn := tls.Server(conn, tlsCfg)
+		hsCtx, cancel := context.WithTimeout(ctx, tlsHandshakeTimeout)
+		err := tlsConn.HandshakeContext(hsCtx)
+		cancel()
+		if err != nil {
+			l.logger.Warn("Provider TLS handshake failed", "remote", remoteAddr, "error", err)
+			return
+		}
+		conn = tlsConn
+	}
 
 	muxCfg := &tcptr.Config{
 		RecvTimeout: l.config.RecvTimeout,

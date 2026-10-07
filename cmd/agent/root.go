@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -616,6 +617,22 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		})
 	} else {
 		core.WithOutboundTLSConfig(nil)
+	}
+
+	// 本地网关 TLS（`tls:` 段）：SDK Provider 拨入 agent 本地监听的加密面。
+	// TLS 在 TCP 之上、分帧之下，wire 协议不受影响；证书缺失在启动期报错，
+	// 杜绝「配置了却不生效」的静默降级（能力矩阵批次 E 接线）。
+	if c.TLS.Enabled {
+		localTLS, err := tcp.BuildServerTLSConfig(
+			strings.TrimSpace(c.TLS.CertFile),
+			strings.TrimSpace(c.TLS.KeyFile),
+			strings.TrimSpace(c.TLS.CAFile),
+			c.TLS.InsecureSkipVerify,
+		)
+		if err != nil {
+			return nil, "", fmt.Errorf("agent local gateway tls: %w", err)
+		}
+		core.WithLocalTLSConfig(localTLS)
 	}
 
 	// Configure ops module if enabled
