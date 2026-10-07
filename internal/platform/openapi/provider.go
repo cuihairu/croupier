@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/cuihairu/croupier/internal/platform/provider"
 	"github.com/cuihairu/croupier/internal/platform/ratelimit"
 	"gopkg.in/yaml.v3"
@@ -842,8 +843,11 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 		httpReq.Header.Set(k, v)
 	}
 
-	// Execute request with retry
+	// Execute request with retry。退避与 agent 侧统一走 cenkalti/backoff/v5：
+	// 原线性 (i+1)s 恒定 1s——RetryCount 通常个位数，线性增长的尾次等待对失败
+	// 恢复帮助有限；指数化留待后续单独评估（能力矩阵 #14）。
 	var resp *http.Response
+	retryWait := backoff.NewConstantBackOff(time.Second)
 	for i := 0; i <= p.openapiConfig.RetryCount; i++ {
 		resp, err = p.httpClient.Do(httpReq)
 		if err == nil && resp.StatusCode < 500 {
@@ -853,10 +857,12 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 			_ = resp.Body.Close()
 		}
 		if i < p.openapiConfig.RetryCount {
+			timer := time.NewTimer(retryWait.NextBackOff())
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				return nil, ctx.Err()
-			case <-time.After(time.Duration(i+1) * time.Second):
+			case <-timer.C:
 			}
 		}
 	}

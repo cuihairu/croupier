@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
@@ -312,10 +313,50 @@ func hostFromTarget(target string) string {
 	return strings.Trim(strings.TrimPrefix(target, "["), "]")
 }
 
+// newReconnectBackOff 返回上游重连退避：指数 5s→60s（×1.5）+ 默认随机化抖动
+// （0.5）；手动驱动 NextBackOff() 故永不因累计时长放弃（退出只由 ctx 取消或成功
+// 触发，v5 的放弃语义在 backoff.Retry 层、本循环不经过）。原固定 5s 轮询在 server 重启时会让 N 个 agent 同相位齐拨（无 jitter
+// 防惊群，重连风暴压力来源之一）；抖动把重拨相位打散。独立构造函数便于参数
+// 断言（注入点驱动，不做真实时序等待）。
+func newReconnectBackOff() *backoff.ExponentialBackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 5 * time.Second
+	b.Multiplier = 1.5
+	b.MaxInterval = 60 * time.Second
+	b.Reset()
+	return b
+}
+
+// newSyncBackOff 返回注册同步退避：初始 200ms、上限 2s、×2（对齐原手写翻倍
+// 的量级语义），同样带默认抖动防恢复期批量齐拨。
+func newSyncBackOff() *backoff.ExponentialBackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 200 * time.Millisecond
+	b.MaxInterval = 2 * time.Second
+	b.Reset()
+	return b
+}
+
+// sleepBackoff 等待退避时长 d 或 ctx 取消；返回 false 表示 ctx 已取消应立即
+// 退出（原 time.Sleep 不响应取消，ctx 校验只能等下一轮循环开头）。
+func sleepBackoff(ctx context.Context, d time.Duration) bool {
+	if d <= 0 { // backoff.Stop 或零值：不等待
+		return ctx.Err() == nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
 // reconnectLoop 持续重试连接上游服务器，直到成功或上下文取消
 // needDial 为 true 表示需要先建立连接（内部会自动注册）
 func (c *UpstreamClient) reconnectLoop(ctx context.Context, needDial bool) {
-	const retryInterval = 5 * time.Second
+	b := newReconnectBackOff()
 	var attemptCount int
 
 	for {
@@ -331,7 +372,10 @@ func (c *UpstreamClient) reconnectLoop(ctx context.Context, needDial bool) {
 
 			if err := c.dialServer(ctx); err != nil {
 				slog.Debug("upstream dial attempt failed", "attempt", attemptCount, "error", err)
-				time.Sleep(retryInterval)
+				if !sleepBackoff(ctx, b.NextBackOff()) {
+					slog.Info("upstream reconnect cancelled, exiting retry loop")
+					return
+				}
 				continue
 			}
 
@@ -466,7 +510,7 @@ func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error 
 		attempts = 1
 	}
 	var lastErr error
-	backoff := 200 * time.Millisecond
+	b := newSyncBackOff()
 	for i := 0; i < attempts; i++ {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -482,15 +526,12 @@ func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error 
 			return nil
 		}
 		lastErr = err
-		timer := time.NewTimer(backoff)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
+		// 最后一次失败后不空转尾部等待（原实现在末次失败后也 sleep 一轮才退出）。
+		if i == attempts-1 {
+			break
 		}
-		if backoff < 2*time.Second {
-			backoff *= 2
+		if !sleepBackoff(ctx, b.NextBackOff()) {
+			return ctx.Err()
 		}
 	}
 	return lastErr
