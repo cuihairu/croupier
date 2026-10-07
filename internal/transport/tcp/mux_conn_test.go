@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"testing"
@@ -74,18 +75,25 @@ func TestIsProtocolError(t *testing.T) {
 	}
 }
 
-func TestErrorAs(t *testing.T) {
+// errors.As 替换自写 errorAs（能力矩阵批次 F）：识别面从「直接 *ProtocolError
+// 断言」扩展到整条 %w 解包链——链式包裹识别是新增覆盖，非协议错误与直接
+// 实例的原断言由 TestIsProtocolError 承载。
+func TestIsProtocolError_UnwrapsChain(t *testing.T) {
 	pe := &ProtocolError{Err: fmt.Errorf("test")}
+	wrapped := fmt.Errorf("mux: %w", pe)
+	if !isProtocolError(wrapped) {
+		t.Error("expected true for wrapped ProtocolError")
+	}
+	doubleWrapped := fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", wrapped))
 	var target *ProtocolError
-	if !errorAs(pe, &target) {
-		t.Error("expected true for ProtocolError")
+	if !errors.As(doubleWrapped, &target) {
+		t.Fatal("expected errors.As to unwrap double-wrapped ProtocolError")
 	}
 	if target != pe {
-		t.Error("expected target to match")
+		t.Error("expected unwrapped target to match original")
 	}
-
-	if errorAs(fmt.Errorf("other"), &target) {
-		t.Error("expected false for non-ProtocolError")
+	if isProtocolError(fmt.Errorf("mux: %w", fmt.Errorf("normal"))) {
+		t.Error("false positive for wrapped non-protocol error")
 	}
 }
 

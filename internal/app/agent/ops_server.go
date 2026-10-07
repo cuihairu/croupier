@@ -344,17 +344,32 @@ func (s *OpsServer) monitorProcess(p *managedProcess) {
 	if p.waitDone != nil {
 		close(p.waitDone)
 	}
+
+	// AutoRestart 的重启延迟在锁外等待：持 p.mu 睡眠会把 ListProcesses/
+	// GetProcess 等状态读堵满整个 RestartDelay（能力矩阵批次 F 内部瑕疵）。
+	// 停机信号可中断等待；唤醒后仍以锁内状态判定为准——延迟窗口内发生的
+	// stop 已把状态置 STOPPED，不会复活进程。
+	if p.config.AutoRestart && err != nil {
+		delay := p.config.RestartDelay
+		if delay <= 0 {
+			delay = 5 * time.Second
+		}
+		if p.stopCh != nil {
+			select {
+			case <-p.stopCh:
+				return
+			case <-time.After(delay):
+			}
+		} else {
+			time.Sleep(delay)
+		}
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if p.state != opsv1.ProcessState_PROCESS_STATE_STOPPED {
 		if p.config.AutoRestart && err != nil {
-			// Restart the process
-			delay := p.config.RestartDelay
-			if delay <= 0 {
-				delay = 5 * time.Second
-			}
-			time.Sleep(delay)
 			if s.startProcess(p) == nil {
 				p.restarts++
 				p.lastStart = timestamppb.Now()

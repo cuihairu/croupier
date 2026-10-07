@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -38,19 +39,7 @@ func NewProtocolError(err error) error {
 
 func isProtocolError(err error) bool {
 	var protocolErr *ProtocolError
-	return err != nil && errorAs(err, &protocolErr)
-}
-
-func errorAs(err error, target interface{}) bool {
-	switch t := target.(type) {
-	case **ProtocolError:
-		protocolErr, ok := err.(*ProtocolError)
-		if ok {
-			*t = protocolErr
-			return true
-		}
-	}
-	return false
+	return errors.As(err, &protocolErr)
 }
 
 type muxResponse struct {

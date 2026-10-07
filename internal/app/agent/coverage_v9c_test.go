@@ -58,8 +58,9 @@ func TestOpsServerMonitorProcess_DefaultRestartDelayV9(t *testing.T) {
 	_, err := s.StartProcess(context.Background(), &opsv1.StartProcessRequest{ProcessName: "boom"})
 	require.NoError(t, err)
 
-	// false 立刻以非零码退出；monitor 持锁等待默认 5s 延迟后重启。
-	// 等待延迟窗口过去再读取状态，避免 ListProcesses 与 monitor 锁竞争。
+	// false 立刻以非零码退出；monitor 在锁外等待默认 5s 延迟后重启
+	// （批次 F 已把延迟移出 p.mu，见 monitorProcess 注释与本文件
+	// RestartDelayOutsideLock 回归用例）。
 	time.Sleep(6 * time.Second)
 
 	procs, err := s.ListProcesses(context.Background(), &emptypb.Empty{})
