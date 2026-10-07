@@ -85,19 +85,29 @@ func TestDistributedRateLimiterWithStore(t *testing.T) {
 	}
 }
 
+// 慢机 flaky 修复（能力矩阵 #2 Batch B 验收项）：原用例让真实时钟在两次调用
+// 之间恰好滑过 50ms 窗、配 50ms 超时，余量只有调用间调度间隙 ε，慢机反复假红。
+// 改为时间戳注入——直接回写窗口历史，不赌墙钟。
 func TestSlidingWindowWaitVariants(t *testing.T) {
 	sw := NewSlidingWindowLimiter(1, 50*time.Millisecond)
 	ctx := context.Background()
+
+	// 阻塞放行路径：满窗且 RetryAfter≈49ms，无超时 Wait 真睡后放行
+	// （无上界断言——慢机只会更晚返回，不会早退）。
+	sw.windows["w"] = &windowState{timestamps: []time.Time{time.Now().Add(-1 * time.Millisecond)}}
 	if err := sw.Wait(ctx, "w"); err != nil {
-		t.Fatal(err)
+		t.Fatalf("Wait should unblock after window slides: %v", err)
 	}
-	if err := sw.Wait(ctx, "w"); err != nil {
-		t.Fatalf("second Wait should block until window passes: %v", err)
+
+	// 短超时放行路径：RetryAfter≈10ms << 500ms 超时（50 倍余量，原用例 1 倍）。
+	sw.windows["w"] = &windowState{timestamps: []time.Time{time.Now().Add(-40 * time.Millisecond)}}
+	if err := sw.WaitWithTimeout(ctx, "w", 500*time.Millisecond); err != nil {
+		t.Fatalf("WaitWithTimeout should pass with generous margin: %v", err)
 	}
-	if err := sw.WaitWithTimeout(ctx, "w", 50*time.Millisecond); err != nil {
-		t.Fatal(err)
-	}
-	// 窗口未过 + 超时小于 RetryAfter → ErrRateLimitExceeded
+
+	// 拒绝路径：窗口刚满，5ms 超时 << RetryAfter≈50ms → 必败。两条相邻语句间
+	// 要假红需 ≥45ms 的调度停顿，量级排除。
+	sw.windows["w"] = &windowState{timestamps: []time.Time{time.Now()}}
 	if err := sw.WaitWithTimeout(ctx, "w", 5*time.Millisecond); err == nil {
 		t.Fatal("insufficient timeout should fail when window full")
 	}

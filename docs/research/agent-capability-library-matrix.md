@@ -1,6 +1,7 @@
 # Agent 能力 [成熟库盘点矩阵]
 
 > 状态：**已拍板（2026-10-07）**：16 项「换/留/补」结论全部背书，批次 A–F 按序执行——A（backoff 退避）→ B（x/time/rate 限流）→ C（jsonschema 响应校验）→ D（kin-openapi 对拍，风险门控可单独叫停）→ E（本地网关 TLS，二选一定为**接线**）→ F（内部瑕疵批）。执行以独立 PR/commit 推进，CI 绿后进下一批；进度回写本节。拍板口径见「拍板记录」小节。
+> **进度（2026-10-07）**：A backoff 退避已落地（a9d250e，含对拍/注入点用例）；B 限流桶层已落地（本提交：`tokenbucket.go` 换 x/time/rate，新旧放行序列对拍用例以旧桶测试内副本承载，`TestSlidingWindowWaitVariants` 时间戳注入去 flaky；**行为差异**：`Wait` 在 ctx 截止早于下一令牌时刻时改为立即失败而非干等到截止，openapi provider 的 Call 随之快速返回、不再空烧调用方 ctx）。C 起未开始。
 > 方法：以代码实际实现为准逐文件梳理（`internal/agent/`、`internal/app/agent/`、`internal/transport/`、`pkg/protocol/`、`internal/platform/{agentlocal,openapi,ratelimit,tlsutil}`、`internal/devcert`、`cmd/agent/`），候选库逐一核实维护活跃度（star/最近 release/下游采用/打包状态），核实时间 2026-09-23。
 > 结论口径：**换**（有明确更优的成熟库，附迁移路径）、**留**（自行开发是合理终态，附理由）、**补**（能力缺失且该用成熟库引入）。
 > 「三个月无维护 = 不合格，宁可留自行开发」规则严格执行；对「完成态小库」的例外讨论见各项说明。

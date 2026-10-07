@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -18,7 +19,7 @@ func TestTokenBucket_BasicAcquire(t *testing.T) {
 	}
 }
 
-func TestTokenBucket_WaitBlocksWhenEmpty(t *testing.T) {
+func TestTokenBucket_WaitFailFastWhenDeadlineEarly(t *testing.T) {
 	tb := NewTokenBucket(60, 1)
 
 	// Acquire the only token
@@ -27,25 +28,18 @@ func TestTokenBucket_WaitBlocksWhenEmpty(t *testing.T) {
 		t.Fatalf("Expected to acquire first token, got error: %v", err)
 	}
 
-	// Next Wait should block until token is refilled
-	// Use a short timeout to verify blocking behavior
+	// x/time/rate 语义（与旧 channel 桶的差异点）：ctx 截止早于下一枚令牌时刻
+	// 时 Wait 不空等、快速失败（旧实现干等 10ms 后返回 DeadlineExceeded）。
+	// 断言不碰墙上时延（慢机不安全）：若实现退化为「阻塞到截止」必然以
+	// context.DeadlineExceeded 收场，故以错误类型区分两种语义。
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 
-	start := time.Now()
 	err = tb.Wait(ctx)
-	elapsed := time.Since(start)
-
-	// Should have waited at least close to timeout
-	if elapsed < 8*time.Millisecond {
-		t.Errorf("Expected Wait to block, but it returned quickly in %v", elapsed)
-	}
-
-	// Should return context deadline exceeded error
 	if err == nil {
-		t.Error("Expected timeout error, got nil")
-	} else if err != context.DeadlineExceeded {
-		t.Errorf("Expected context.DeadlineExceeded, got: %v", err)
+		t.Error("Expected fail-fast error, got nil")
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("x/time/rate should fail fast, not block until deadline: %v", err)
 	}
 }
 
