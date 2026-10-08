@@ -3943,7 +3943,32 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > ## cicd 域残余覆盖率收口（2026-10-08 续）
 >
 > > **收口结论**：新增 `service_extra_test.go` 直接单测覆盖 `normalizeExtra` 的 `float64` 分支 → normalizeExtra 100%（原 88.9%）。剩余三分支均为**逻辑/环境层面真不可达**的防御分支，且已有登记测试锁定前提：
+> >
 > > - handler.go:List 77.8% —— `ShouldBindQuery` 错误分支，IntegrationListRequest 全 string 字段，gin form 绑定永不失败（`TestCicdHandler_ListBindBranchRegistered` 登记）。
 > > - service.go:Trigger 96.0% —— `provider 未返回构建标识` 分支，`firstNonEmpty` 纳秒兜底保证 ExternalID 永非空（`TestCicdService_TriggerEmptyExternalIDBranchUnreachable` 登记）。
 > > - webhook.go:IngestWebhook 96.3% —— Upsert 成功后 GetByID 失败分支，sqlite 单连接无并发删除，触发器不支持 SELECT 事件，不可构造（`TestCicdWebhook_GetByIDAfterUpsertBranchUnreachable` 登记）。
-> > **覆盖率现状**：api/cicd 98.6%（三不可达分支合计 ~1.4%），属防御性编码必然残留，不再投入造假用例。全测试绿，门禁通过。下一步：BUGS.md/OPEN-ISSUES 巡检。
+> >   **覆盖率现状**：api/cicd 98.6%（三不可达分支合计 ~1.4%），属防御性编码必然残留，不再投入造假用例。全测试绿，门禁通过。下一步：BUGS.md/OPEN-ISSUES 巡检。
+
+## 覆盖率巡检批次·Go 侧第五十五轮·executionlog OperatorOptions 收口（2026-10-08）
+
+> **巡检背景**：BUGS.md（39 项全「已修」）与 OPEN-ISSUES.md（未闭环 2026-10-07 清零）
+> 两个登记面均无可行动项；cicd 域残余收口已被并行会话先行完成（3bd6b6e，98.2%→98.6%）。
+> 转全仓 Go 覆盖率巡检：`go test ./internal/... -cover` 全景最低实质包为
+> internal/api/executionlog 92.8%（次低 errorx 96.2%、task 97.3%）。
+>
+> **收口结论**：executionlog 92.8% → **100.0%**，唯一低覆盖函数 OperatorOptions
+> （handler 55.6% / service 80.0%）六翼全补（operator_options_test.go 追加 6 用例）：
+>
+> - handler bind err 翼：`?page=abc`（ListRequest.Page 为 int，非纯 string 死分支）→ 400
+> - handler service err 翼：未授 audit:read，权限错经统一错误出口 → 403
+> - service model-nil 翼 / req=nil 翼（同 List 侧先例）
+> - service 时间参数双翼：From/To 非法 → 错误（同 TestServiceListInvalidTimeParams 先例）
+> - service 聚合查询 err 翼：**新知**——model.OperatorOptions 用 `Scan` 聚合，内部走
+>   `Rows()` → **Row processor（gorm:row）**，Before("gorm:query") 注册恒不触发；
+>   且权限检查共用 DB，fail-all 会先炸在 RequireAnyPermission。解法：注册在
+>   `Callback().Row().Before("gorm:row")`（Find/First 不走此 processor 天然无碍）。
+>   gorm v1.31 无 RowQuery 命名（那是旧版），processor 字段就叫 `Row`。
+>
+> 门禁：go build + gofmt + `go test ./internal/... -count=1` 全绿。本批纯测试增量
+> （+86 行单文件），零生产代码改动。
+> 下一步：覆盖率巡检续——errorx 96.2% / task 97.3% 残余，或 62.7% 以下无实质低覆盖域即收官。
