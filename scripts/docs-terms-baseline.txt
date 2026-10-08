@@ -19,6 +19,7 @@ docs/architecture/sdk-wire-protocol.md|rpc_addr
 docs/architecture/terms-and-layering.md|gRPC
 docs/architecture/terms-and-layering.md|rpc_addr
 docs/architecture/transport-no-grpc.md|gRPC
+docs/design/provider-plugin-design.md|gRPC
 docs/development/documentation-governance.md|LocalControlService
 docs/development/documentation-governance.md|REQ/REP
 docs/development/documentation-governance.md|gRPC
@@ -37,6 +38,7 @@ docs/operations/troubleshooting.md|gRPC
 docs/operations/troubleshooting.md|rpc_addr
 docs/research/agent-capability-library-matrix.md|gRPC
 docs/research/control-plane-positioning-2026-10.md|rpc_addr
+docs/research/plugin-architecture-survey.md|gRPC
 docs/sdks/cpp/configuration/client-config.md|rpc_addr
 docs/sdks/cpp/guide/architecture.md|gRPC
 docs/sdks/cpp/index.md|LocalControlService
