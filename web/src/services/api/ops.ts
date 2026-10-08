@@ -241,6 +241,8 @@ export type OpsNode = {
     inodeTotal?: number;
     inodeUsed?: number;
   }>;
+  // Supervisor 监管聚合灯（数据源同 cpu/memory：metrics 上报捎带的托管进程快照）
+  supervisor?: OpsSupervisorSummary;
 };
 export type OpsAlert = {
   severity?: string;
@@ -837,6 +839,90 @@ export async function fetchNodeCronJobs(nodeId: string): Promise<NodeCronJob[]> 
   );
   return res.items ?? [];
 }
+
+// Supervisor 监管视图（Source: croupier/internal/api/ops/dto.go
+// OpsSupervisorSummary / OpsSupervisedProcess / OpsAgentSupervisorResponse）
+
+/** 聚合状态灯：ok=全部 RUNNING 且无超限标记；warn=有非 RUNNING 或超限；error=有 FAILED/BROKEN */
+export type OpsSupervisorSummary = {
+  status: 'ok' | 'warn' | 'error';
+  total: number;
+  running: number;
+};
+
+/** 被监管进程快照（agent 每 metrics 周期采样上报） */
+export type SupervisedProcess = {
+  name: string;
+  pid: number;
+  state: string;
+  uptimeSeconds: number;
+  restartCount: number;
+  rssBytes: number;
+  cpuPercent: number;
+  flags: string[];
+};
+
+type RawOpsAgentSupervisor = {
+  agentId?: string;
+  timestamp?: string;
+  processes?: Array<{
+    name?: string;
+    pid?: number;
+    state?: string;
+    uptimeSeconds?: number;
+    restartCount?: number;
+    rssBytes?: number;
+    cpuPercent?: number;
+    flags?: string[];
+  }>;
+  summary?: { status?: string; total?: number; running?: number };
+};
+
+function normalizeSupervisedProcess(
+  raw: NonNullable<RawOpsAgentSupervisor['processes']>[number],
+): SupervisedProcess {
+  return {
+    name: raw.name || '',
+    pid: raw.pid || 0,
+    state: raw.state || 'unknown',
+    uptimeSeconds: raw.uptimeSeconds || 0,
+    restartCount: raw.restartCount || 0,
+    rssBytes: raw.rssBytes || 0,
+    cpuPercent: raw.cpuPercent || 0,
+    flags: Array.isArray(raw.flags) ? raw.flags : [],
+  };
+}
+
+function normalizeSupervisorSummary(raw: RawOpsAgentSupervisor['summary']): OpsSupervisorSummary {
+  const status = raw?.status;
+  return {
+    status: status === 'error' || status === 'warn' ? status : 'ok',
+    total: raw?.total || 0,
+    running: raw?.running || 0,
+  };
+}
+
+/** 读取 agent 的 supervisor 快照（server 端 MetricsStore 最新一报，零隧道请求）。 */
+export async function fetchAgentSupervisor(agentId: string): Promise<OpsAgentSupervisorResponse> {
+  const raw = await request<RawOpsAgentSupervisor>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/supervisor`,
+    { method: 'GET' },
+  );
+  return {
+    agentId: raw.agentId || agentId,
+    timestamp: raw.timestamp || '',
+    processes: (raw.processes || []).map(normalizeSupervisedProcess),
+    summary: normalizeSupervisorSummary(raw.summary),
+  };
+}
+
+export type OpsAgentSupervisorResponse = {
+  agentId: string;
+  /** server 收到最新 metrics 上报的时间；面板据此判断数据新鲜度 */
+  timestamp: string;
+  processes: SupervisedProcess[];
+  summary: OpsSupervisorSummary;
+};
 
 /** 服务端聚合选项行（#23/#33/#34 族：操作者/函数/Agent 过滤下拉） */
 export type ServerSelectOptionRow = {

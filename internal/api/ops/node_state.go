@@ -192,6 +192,8 @@ func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string, metrics
 	if metricsStore != nil {
 		if entry, ok := metricsStore.GetLatest(sess.AgentID); ok && entry != nil {
 			report := entry.Report
+			summary := summarizeSupervised(report.GetSupervisedProcesses())
+			node.Supervisor = &summary
 			if report.GetCpu() != nil {
 				node.CPU = &CpuMetrics{
 					UsagePercent: report.GetCpu().GetUsagePercent(),

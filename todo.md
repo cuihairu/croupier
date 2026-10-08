@@ -4061,10 +4061,31 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >   （client 需 C++ 编译期嵌入，Go 支持无成熟先例）+ 分级方案（轻=spawn 注入原生开关 [推荐默认] /
 >   中=core_pattern 兜底 / 重=Crashpad 不立项）+ 四项可拍板项
 >
-> **分批**（设计已落盘，实现待拍板项批复后启动）：
+> **分批**（S1 已交付，见下方交付记录；S2/S3 未动）：
 >
-> - S1 只读监控：采样+上报捎带+server 快照 API+面板只读部分
+> - S1 只读监控：采样+上报捎带+server 快照 API+面板只读部分 ✅ 2026-10-09 交付
 > - S2 自动拉起与熔断：退避/熔断状态机+事件日志双通道+下载+操作按钮
 > - S3 崩溃快照：依 crash-capture 调研拍板结论落地（snapshotProfile 配置）
 >
-> 下一步：报用户——快照分级方案与四项可拍板项待批复；S1 未获准不动码。
+> 下一步：报用户——快照分级方案与四项可拍板项待批复；S2 待开工。
+
+### S1 交付记录（2026-10-09）
+
+- proto：`ProcessState` +BACKOFF/BROKEN（6/7）；新 `SupervisedProcessSnapshot`
+  （name/pid/state/uptime/restarts/rss/cpu/flags/last_event_unix）；
+  `MetricsReport` field 9 `supervised_processes`；`ManagedProcess` +uptime/flags
+  （next_restart_at 留 S2）。make proto 全量再生成（protoc 34.1+25.1）。
+- agent：`OpsServer.SampleSupervisedProcesses()`（gopsutil process 句柄缓存做
+  CPUPercent 区间差分、重启换 pid 重建句柄、快照覆盖「配置面 ∪ 实例面」）；
+  `MetricsCollector.WithSupervisor` 折入上报；`ManagedProcessConfig` 新增
+  memThresholdBytes/cpuThresholdPercent（lowerCamelCase）；
+  `monitorProcess` 加实例归属守卫（watched cmd 比对——修复 RestartProcess 后
+  旧 monitor 把 RUNNING 翻 FAILED 的预存瑕疵）。
+- server：`GET /api/v1/ops/agents/:agentId/supervisor`（MetricsStore 最新一报）；
+  agents 列表与 nodes 列表逐项附 supervisor 聚合灯（ok/warn/error）。
+- web：Nodes 页「监管」列（状态灯+running/total，点击开 SupervisorDrawer）；
+  SupervisedProcess/fetchAgentSupervisor 归一；zh/en locale 15 键。
+- 文档：config-agent.md ops.managedProcesses 节+配置示例；设计简档状态更新。
+- 测试：agent 6 用例（真子进程采样/阈值标记/句柄重建/STOPPED 零值/collector 折入/
+  flags 单元）、server 6 用例（映射/聚合/端点/列表注入/handler 参数兜底）、
+  web SupervisorDrawer 5 用例。

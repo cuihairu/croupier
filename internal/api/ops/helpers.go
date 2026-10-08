@@ -111,6 +111,7 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 				}
 				agents = append(agents, info)
 			}
+			attachSupervisorSummaries(svcCtx, agents)
 			return &OpsAgentsListResponse{Agents: agents}, nil
 		}
 		// 归属表读取失败退回本地视图
@@ -139,6 +140,7 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 		})
 	}
 
+	attachSupervisorSummaries(svcCtx, agents)
 	return &OpsAgentsListResponse{
 		Agents: agents,
 	}, nil

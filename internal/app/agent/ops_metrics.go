@@ -19,11 +19,29 @@ import (
 // MetricsCollector collects system metrics.
 type MetricsCollector struct {
 	agentID string
+	// supervisor 供给托管进程快照（OpsServer 实现）；仅在上报启动前的
+	// 装配阶段赋值，Collect 读取不加锁。
+	supervisor SupervisorSampler
+}
+
+// SupervisorSampler supplies snapshots of supervisor-managed processes for
+// inclusion in metrics reports. The agent's OpsServer implements it.
+type SupervisorSampler interface {
+	SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapshot
 }
 
 // NewMetricsCollector creates a new metrics collector.
 func NewMetricsCollector(agentID string) *MetricsCollector {
 	return &MetricsCollector{agentID: agentID}
+}
+
+// WithSupervisor attaches a supervised-process sampler. Call before the
+// reporting loop starts.
+func (c *MetricsCollector) WithSupervisor(s SupervisorSampler) *MetricsCollector {
+	if c != nil {
+		c.supervisor = s
+	}
+	return c
 }
 
 // Collect gathers current system metrics.
@@ -36,6 +54,9 @@ func (c *MetricsCollector) Collect(ctx context.Context) *opsv1.MetricsReport {
 		Disks:     c.collectDisks(),
 		Networks:  c.collectNetworks(),
 		Custom:    make(map[string]float64),
+	}
+	if c.supervisor != nil {
+		report.SupervisedProcesses = c.supervisor.SampleSupervisedProcesses()
 	}
 
 	// Add Go runtime metrics

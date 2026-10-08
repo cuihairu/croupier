@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/process"
+
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -42,7 +44,13 @@ type managedProcess struct {
 	// Wait 的唯一属主是 monitorProcess；stopProcess 杀进程后等它收尸，
 	// 消除并发双 Wait 的 DATA RACE。
 	waitDone chan struct{}
-	mu       sync.RWMutex
+	// supervisor 采样缓存与 gopsutil 句柄（CPUPercent 依赖同一句柄做
+	// 区间差分）。均由 p.mu 保护。
+	proc      *process.Process
+	lastRSS   int64
+	lastCPU   float64
+	lastFlags []string
+	mu        sync.RWMutex
 }
 
 // NewOpsServer creates a new Ops server instance.
@@ -82,6 +90,12 @@ func (s *OpsServer) ListProcesses(ctx context.Context, _ *emptypb.Empty) (*opsv1
 			Pid:          p.pid,
 			RestartCount: p.restarts,
 			LastStart:    p.lastStart,
+			Flags:        p.lastFlags,
+		}
+		if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING && p.lastStart != nil {
+			if up := int64(time.Since(p.lastStart.AsTime()).Seconds()); up > 0 {
+				mp.UptimeSeconds = up
+			}
 		}
 		p.mu.RUnlock()
 		resp.Processes = append(resp.Processes, mp)
@@ -336,13 +350,18 @@ var stopProcessWaitTimeout = 5 * time.Second
 
 // monitorProcess monitors a managed process and restarts if needed
 func (s *OpsServer) monitorProcess(p *managedProcess) {
-	if p.cmd == nil || p.cmd.Process == nil {
+	// 实例归属：本 monitor 只代表它 Wait 的这个 cmd/watchDone。Wait 期间
+	// 外部 RestartProcess/StartProcess 可能换掉 p.cmd 开新实例——旧实例的
+	// 死亡既不能翻当前状态，也不能再触发拉起。
+	watched := p.cmd
+	watchedWaitDone := p.waitDone
+	if watched == nil || watched.Process == nil {
 		return
 	}
 
-	err := p.cmd.Wait()
-	if p.waitDone != nil {
-		close(p.waitDone)
+	err := watched.Wait()
+	if watchedWaitDone != nil {
+		close(watchedWaitDone)
 	}
 
 	// AutoRestart 的重启延迟在锁外等待：持 p.mu 睡眠会把 ListProcesses/
@@ -368,7 +387,7 @@ func (s *OpsServer) monitorProcess(p *managedProcess) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.state != opsv1.ProcessState_PROCESS_STATE_STOPPED {
+	if p.cmd == watched && p.state != opsv1.ProcessState_PROCESS_STATE_STOPPED {
 		if p.config.AutoRestart && err != nil {
 			if s.startProcess(p) == nil {
 				p.restarts++

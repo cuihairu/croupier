@@ -21,6 +21,7 @@ var (
 	opsAgentsListFn       = opsAgentsList
 	opsAgentMetricsFn     = opsAgentMetrics
 	opsAgentProcessesFn   = opsAgentProcesses
+	opsAgentSupervisorFn  = opsAgentSupervisor
 	opsNodesFn            = opsNodes
 	opsNodeCommandsFn     = opsNodeCommands
 	opsHealthGetFn        = opsHealthGet
@@ -53,6 +54,10 @@ func (s *Service) AgentMetricsHistory(ctx context.Context, req *AgentMetricsHist
 
 func (s *Service) OpsAgentProcesses(ctx context.Context, req *OpsAgentProcessesRequest) (*OpsAgentProcessesResponse, error) {
 	return opsAgentProcessesFn(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsAgentSupervisor(ctx context.Context, req *OpsAgentSupervisorRequest) (*OpsAgentSupervisorResponse, error) {
+	return opsAgentSupervisorFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsAgentSystemInfo(ctx context.Context, req *OpsAgentSystemInfoRequest) (*OpsAgentSystemInfoResponse, error) {

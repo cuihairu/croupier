@@ -33,6 +33,9 @@ message MetricsReport {
   
   // Custom metrics (key-value pairs)
   map<string, double> custom = 8;
+
+  // Snapshots of supervisor-managed processes (resource usage and state)
+  repeated SupervisedProcessSnapshot supervised_processes = 9;
 }
 
 message CpuMetrics {
@@ -157,6 +160,8 @@ message ManagedProcess {
   int32 pid = 5;                 // Current PID (0 if not running)
   int32 restart_count = 6;       // Number of restarts
   google.protobuf.Timestamp last_start = 7;  // Last start time
+  int64 uptime_seconds = 8;      // Seconds since last start (0 when not running)
+  repeated string flags = 9;     // Anomaly markers (mem_over_limit / cpu_over_limit)
 }
 
 enum ProcessState {
@@ -166,6 +171,23 @@ enum ProcessState {
   PROCESS_STATE_FAILED = 3;
   PROCESS_STATE_STARTING = 4;
   PROCESS_STATE_STOPPING = 5;
+  PROCESS_STATE_BACKOFF = 6;     // Exited, waiting in restart backoff
+  PROCESS_STATE_BROKEN = 7;      // Restart breaker tripped, manual intervention required
+}
+
+// SupervisedProcessSnapshot is a per-sample view of one supervisor-managed
+// process, carried in MetricsReport so the server can display live state
+// without a dedicated polling RPC.
+message SupervisedProcessSnapshot {
+  string name = 1;               // Managed process name (as configured)
+  int32 pid = 2;                 // Current PID (0 if not running)
+  ProcessState state = 3;        // Current state
+  int64 uptime_seconds = 4;      // Seconds since last start
+  int32 restart_count = 5;       // Number of restarts since agent start
+  int64 rss_bytes = 6;           // Resident set size in bytes (0 when not running)
+  double cpu_percent = 7;        // CPU usage percent over the sampling interval
+  repeated string flags = 8;     // Anomaly markers (mem_over_limit / cpu_over_limit)
+  int64 last_event_unix = 9;     // Unix seconds of the last supervisor event (0 if none)
 }
 
 // ExecuteCommandRequest requests command execution.

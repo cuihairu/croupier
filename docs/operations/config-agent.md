@@ -54,13 +54,41 @@ tag:
 
 Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号）时的客户端 TLS：`enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`。`enabled: false`（默认）时该链路保持明文（兼容回退）。注意与 `server:` 段分工：**agent → server 上游链路 TLS 由 `server:` 段驱动**（`server.insecure: false` 时启用，证书字段同在 `server` 段），`outboundTLS` 只作用于 Agent 调本地 Provider 这条出站链路。生产推荐内部 CA 签发，见 [TLS 与证书](./tls-certificates)。
 
-### ops（指标上报）
+### ops（指标上报与进程监管）
 
-| 键                     | 默认   | 说明                               |
-| ---------------------- | ------ | ---------------------------------- |
-| `ops.enabled`          | `true` | 系统指标采集上报                   |
-| `ops.metrics_interval` | `30s`  | 采集周期                           |
-| `ops.metrics_enabled`  | `true` | 指标开关（关掉采集但保留上报通道） |
+| 键                    | 默认   | 说明                               |
+| --------------------- | ------ | ---------------------------------- |
+| `ops.enabled`         | `true` | 系统指标采集上报                   |
+| `ops.metricsInterval` | `30s`  | 采集周期（也是托管进程的采样周期） |
+| `ops.metricsEnabled`  | `true` | 指标开关（关掉采集但保留上报通道） |
+
+> 注：早期部署存在 `ops.metrics_interval` / `ops.metrics_enabled` snake_case 旧键，仍被兼容解析；新配置一律用上表 lowerCamelCase 键。
+
+### ops.managedProcesses（托管进程监管，supervisor）
+
+每个条目以逻辑名为键，声明一个 agent 托管进程。S1（只读监控）已交付：每 `ops.metricsInterval` 采样一次 RSS/CPU，超阈值在面板打标记（不自动杀进程），快照随 metrics 上报捎带。
+
+| 键                                        | 默认      | 说明                                                          |
+| ----------------------------------------- | --------- | ------------------------------------------------------------- |
+| `command` / `args` / `workingDir` / `env` | —         | 进程启动参数                                                  |
+| `autoRestart`                             | `false`   | 崩溃自动拉起开关（当前为固定延迟重启；S2 交付指数退避与熔断） |
+| `memThresholdBytes`                       | `0`（关） | RSS 达到该值打 `mem_over_limit` 标记                          |
+| `cpuThresholdPercent`                     | `0`（关） | CPU% 达到该值打 `cpu_over_limit` 标记                         |
+
+```yaml
+ops:
+  enabled: true
+  metricsInterval: 30s
+  managedProcesses:
+    demo-app:
+      command: /usr/local/bin/demo-app
+      args: ["--port", "8080"]
+      workingDir: /srv/demo-app
+      memThresholdBytes: 2147483648 # 2GiB
+      cpuThresholdPercent: 90
+```
+
+面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记）。S2 的退避拉起、熔断与事件日志见 [Agent Supervisor 设计简档](../design/agent-supervisor-design.md)。
 
 ## 双 Agent / 多 Agent 部署
 

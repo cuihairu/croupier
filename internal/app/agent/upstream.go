@@ -52,6 +52,9 @@ type UpstreamClient struct {
 	metricsEnabled   bool
 	metricsMu        sync.Mutex
 	metricsOnce      sync.Once
+	// supervisorSampler 由装配阶段经 WithSupervisorSampler 注入，
+	// 传给懒创建的 metricsCollector。
+	supervisorSampler SupervisorSampler
 
 	// Connection callbacks
 	onConnected    func()      // Called when successfully connected to server
@@ -827,6 +830,7 @@ func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 		if c.metricsCollector == nil {
 			c.metricsCollector = NewMetricsCollector(c.agentID)
 		}
+		c.metricsCollector.supervisor = c.supervisorSampler
 	})
 
 	report := c.metricsCollector.Collect(ctx)
@@ -849,6 +853,23 @@ func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
 	if c.metricsCollector == nil {
 		c.metricsCollector = NewMetricsCollector(c.agentID)
 	}
+	c.metricsCollector.supervisor = c.supervisorSampler
+}
+
+// WithSupervisorSampler attaches a supervised-process sampler that is folded
+// into every metrics report. Call during assembly, before the reporting loop
+// starts.
+func (c *UpstreamClient) WithSupervisorSampler(s SupervisorSampler) {
+	if c == nil {
+		return
+	}
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+
+	c.supervisorSampler = s
+	if c.metricsCollector != nil {
+		c.metricsCollector.supervisor = s
+	}
 }
 
 // ReportMetricsOnce collects the current metrics snapshot and pushes it
@@ -863,6 +884,7 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 		if c.metricsCollector == nil {
 			c.metricsCollector = NewMetricsCollector(c.agentID)
 		}
+		c.metricsCollector.supervisor = c.supervisorSampler
 	})
 
 	report := c.metricsCollector.Collect(ctx)

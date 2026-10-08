@@ -18,6 +18,7 @@ type BuildNodeColumnsOptions = {
   onDrain: (agentId: string) => void;
   onRestart: (agentId: string) => void;
   onCron: (record: NodeRow) => void;
+  onSupervisor: (record: NodeRow) => void;
 };
 
 // 主表格列 - 只显示关键信息
@@ -27,6 +28,7 @@ export function buildNodeColumns({
   onDrain,
   onRestart,
   onCron,
+  onSupervisor,
 }: BuildNodeColumnsOptions): ColumnsType<NodeRow> {
   return [
     {
@@ -224,6 +226,44 @@ export function buildNodeColumns({
           );
         }
         return <Tag color={s.color}>{s.text}</Tag>;
+      },
+    },
+    {
+      // Supervisor 监管聚合灯：ok=全部 RUNNING；warn=有非 RUNNING/超限标记；
+      // error=有 FAILED/BROKEN。running/total 为运行数/配置数，点击打开进程详情。
+      title: intl.formatMessage({ id: 'pages.opsNodes.column.supervisor', defaultMessage: '监管' }),
+      dataIndex: 'supervisor',
+      width: 110,
+      render: (_, record) => {
+        const s = record.supervisor;
+        if (!s) return <span style={{ color: '#999' }}>-</span>;
+        const colorMap: Record<string, string> = { ok: 'green', warn: 'gold', error: 'red' };
+        const labelMap: Record<string, string> = {
+          ok: intl.formatMessage({
+            id: 'pages.opsNodes.supervisor.statusOk',
+            defaultMessage: '正常',
+          }),
+          warn: intl.formatMessage({
+            id: 'pages.opsNodes.supervisor.statusWarn',
+            defaultMessage: '注意',
+          }),
+          error: intl.formatMessage({
+            id: 'pages.opsNodes.supervisor.statusError',
+            defaultMessage: '异常',
+          }),
+        };
+        return (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => onSupervisor(record)}
+          >
+            <Tag color={colorMap[s.status] || 'default'}>
+              {labelMap[s.status] || s.status} {s.running}/{s.total}
+            </Tag>
+          </Button>
+        );
       },
     },
     {

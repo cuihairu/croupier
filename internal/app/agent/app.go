@@ -150,6 +150,8 @@ func (a *App) StartLocalServer() error {
 	a.opsServer = NewOpsServer(a.opsConfig, a.agentID, a.version, nil)
 	opsWrapper := &opsServerWrapper{ops: a.opsServer}
 	a.localHandler.SetOpsServer(opsWrapper)
+	// 托管进程快照随 metrics 上报捎带（supervisor S1）
+	a.upstream.WithSupervisorSampler(a.opsServer)
 
 	// Keep each SDK Provider's established TCP session so invocations can be
 	// forwarded over that session instead of dialing a provider-supplied address.

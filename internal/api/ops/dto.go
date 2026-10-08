@@ -18,6 +18,8 @@ type OpsAgentInfo struct {
 	Labels    map[string]string `json:"labels"`
 	// OwnerInstance 集群模式下该 agent 连接的持有实例（本实例直连时为空）。
 	OwnerInstance string `json:"ownerInstance,omitempty"`
+	// Supervisor 监管聚合灯（ok/warn/error + 计数）；agent 无上报时为 nil。
+	Supervisor *OpsSupervisorSummary `json:"supervisor,omitempty"`
 }
 
 type OpsAgentMetaResponse struct {
@@ -72,6 +74,40 @@ type OpsAgentsListRequest struct {
 
 type OpsAgentsListResponse struct {
 	Agents []OpsAgentInfo `json:"agents"`
+}
+
+// Supervisor 监管视图（S1 只读：快照来自 agent metrics 上报捎带的
+// SupervisedProcessSnapshot，server 内存 MetricsStore 最新一报）。
+
+type OpsAgentSupervisorRequest struct {
+	AgentID string `uri:"agentId" form:"agentId"`
+}
+
+type OpsSupervisedProcess struct {
+	Name          string   `json:"name"`
+	Pid           int32    `json:"pid"`
+	State         string   `json:"state"`
+	UptimeSeconds int64    `json:"uptimeSeconds"`
+	RestartCount  int32    `json:"restartCount"`
+	RssBytes      int64    `json:"rssBytes"`
+	CpuPercent    float64  `json:"cpuPercent"`
+	Flags         []string `json:"flags"`
+}
+
+type OpsSupervisorSummary struct {
+	// Status 聚合灯：ok（全部 RUNNING 且无 flags）/ warn（有非 RUNNING 或
+	// 有超限标记）/ error（有 FAILED/BROKEN）。
+	Status  string `json:"status"`
+	Total   int    `json:"total"`
+	Running int    `json:"running"`
+}
+
+type OpsAgentSupervisorResponse struct {
+	AgentID string `json:"agentId"`
+	// Timestamp 是 server 收到最新 metrics 上报的时间（面板据此判断数据新鲜度）。
+	Timestamp string                 `json:"timestamp"`
+	Processes []OpsSupervisedProcess `json:"processes"`
+	Summary   OpsSupervisorSummary   `json:"summary"`
 }
 
 // Alert operations DTOs
@@ -626,6 +662,9 @@ type Node struct {
 	CPU    *CpuMetrics    `json:"cpu,omitempty"`
 	Memory *MemoryMetrics `json:"memory,omitempty"`
 	Disks  []DiskMetrics  `json:"disks,omitempty"`
+	// Supervisor 监管聚合灯（数据源同 CPU/Memory：MetricsStore 最新一报的
+	// SupervisedProcesses）；无上报或 agent 不在本地实例时为 nil。
+	Supervisor *OpsSupervisorSummary `json:"supervisor,omitempty"`
 }
 
 // NodeCommand represents a command that can be executed on a node

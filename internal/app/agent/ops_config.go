@@ -67,6 +67,14 @@ type ManagedProcessConfig struct {
 	// AutoRestart controls whether to automatically restart on crash.
 	// Default: false
 	AutoRestart bool `json:"autoRestart" yaml:"auto_restart"`
+
+	// MemThresholdBytes marks the process with the mem_over_limit flag when
+	// sampled RSS reaches this value. 0 disables the check. Default: 0
+	MemThresholdBytes int64 `json:"memThresholdBytes" yaml:"memThresholdBytes"`
+
+	// CpuThresholdPercent marks the process with the cpu_over_limit flag when
+	// sampled CPU usage reaches this percentage. 0 disables the check. Default: 0
+	CpuThresholdPercent float64 `json:"cpuThresholdPercent" yaml:"cpuThresholdPercent"`
 }
 
 // DefaultOpsConfig returns the default ops configuration.

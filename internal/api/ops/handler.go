@@ -83,6 +83,25 @@ func (h *Handler) OpsAgentProcesses(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+func (h *Handler) OpsAgentSupervisor(c *gin.Context) {
+	var req OpsAgentSupervisorRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
+
+	resp, err := h.service.OpsAgentSupervisor(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) OpsAgentSystemInfo(c *gin.Context) {
 	var req OpsAgentSystemInfoRequest
 	if err := bindOpsRequest(c, &req); err != nil {
@@ -628,6 +647,10 @@ func (h *Handler) AgentSystemInfo(c *gin.Context) {
 
 func (h *Handler) AgentProcessStart(c *gin.Context) {
 	h.OpsAgentProcessStart(c)
+}
+
+func (h *Handler) AgentSupervisor(c *gin.Context) {
+	h.OpsAgentSupervisor(c)
 }
 
 func (h *Handler) AgentProcessStop(c *gin.Context) {

@@ -168,6 +168,10 @@ class StopProcessResponse;
 struct StopProcessResponseDefaultTypeInternal;
 extern StopProcessResponseDefaultTypeInternal _StopProcessResponse_default_instance_;
 extern const ::google::protobuf::internal::ClassDataFull StopProcessResponse_class_data_;
+class SupervisedProcessSnapshot;
+struct SupervisedProcessSnapshotDefaultTypeInternal;
+extern SupervisedProcessSnapshotDefaultTypeInternal _SupervisedProcessSnapshot_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull SupervisedProcessSnapshot_class_data_;
 class SystemInfo;
 struct SystemInfoDefaultTypeInternal;
 extern SystemInfoDefaultTypeInternal _SystemInfo_default_instance_;
@@ -193,6 +197,8 @@ enum ProcessState : int {
   PROCESS_STATE_FAILED = 3,
   PROCESS_STATE_STARTING = 4,
   PROCESS_STATE_STOPPING = 5,
+  PROCESS_STATE_BACKOFF = 6,
+  PROCESS_STATE_BROKEN = 7,
   ProcessState_INT_MIN_SENTINEL_DO_NOT_USE_ =
       ::std::numeric_limits<::int32_t>::min(),
   ProcessState_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -203,11 +209,11 @@ extern const uint32_t ProcessState_internal_data_[];
 inline constexpr ProcessState ProcessState_MIN =
     static_cast<ProcessState>(0);
 inline constexpr ProcessState ProcessState_MAX =
-    static_cast<ProcessState>(5);
+    static_cast<ProcessState>(7);
 [[nodiscard]] inline bool ProcessState_IsValid(int value) {
-  return 0 <= value && value <= 5;
+  return 0 <= value && value <= 7;
 }
-inline constexpr int ProcessState_ARRAYSIZE = 5 + 1;
+inline constexpr int ProcessState_ARRAYSIZE = 7 + 1;
 [[nodiscard]] const ::google::protobuf::EnumDescriptor* PROTOBUF_NONNULL
 ProcessState_descriptor();
 [[nodiscard]] inline auto ProtobufInternalGetEnumDescriptor(ProcessState) {
@@ -222,7 +228,7 @@ template <typename T>
 }
 template <>
 [[nodiscard]] inline const ::std::string& ProcessState_Name(ProcessState value) {
-  return ::google::protobuf::internal::NameOfDenseEnum<ProcessState_descriptor, 0, 5>(
+  return ::google::protobuf::internal::NameOfDenseEnum<ProcessState_descriptor, 0, 7>(
       static_cast<int>(value));
 }
 [[nodiscard]] inline bool ProcessState_Parse(
@@ -234,6 +240,318 @@ template <>
 // ===================================================================
 
 
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.SupervisedProcessSnapshot) */ {
+ public:
+  inline SupervisedProcessSnapshot() : SupervisedProcessSnapshot(nullptr) {}
+  ~SupervisedProcessSnapshot() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(SupervisedProcessSnapshot* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(SupervisedProcessSnapshot));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr SupervisedProcessSnapshot(::google::protobuf::internal::ConstantInitialized);
+
+  inline SupervisedProcessSnapshot(const SupervisedProcessSnapshot& from) : SupervisedProcessSnapshot(nullptr, from) {}
+  inline SupervisedProcessSnapshot(SupervisedProcessSnapshot&& from) noexcept
+      : SupervisedProcessSnapshot(nullptr, ::std::move(from)) {}
+  inline SupervisedProcessSnapshot& operator=(const SupervisedProcessSnapshot& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SupervisedProcessSnapshot& operator=(SupervisedProcessSnapshot&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const SupervisedProcessSnapshot& default_instance() {
+    return *reinterpret_cast<const SupervisedProcessSnapshot*>(
+        &_SupervisedProcessSnapshot_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 17;
+  friend void swap(SupervisedProcessSnapshot& a, SupervisedProcessSnapshot& b) { a.Swap(&b); }
+  inline void Swap(SupervisedProcessSnapshot* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SupervisedProcessSnapshot* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] SupervisedProcessSnapshot* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<SupervisedProcessSnapshot>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SupervisedProcessSnapshot& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const SupervisedProcessSnapshot& from) { SupervisedProcessSnapshot::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(SupervisedProcessSnapshot* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.SupervisedProcessSnapshot"; }
+
+  explicit SupervisedProcessSnapshot(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  SupervisedProcessSnapshot(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const SupervisedProcessSnapshot& from);
+  SupervisedProcessSnapshot(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, SupervisedProcessSnapshot&& from) noexcept
+      : SupervisedProcessSnapshot(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kFlagsFieldNumber = 8,
+    kNameFieldNumber = 1,
+    kPidFieldNumber = 2,
+    kStateFieldNumber = 3,
+    kUptimeSecondsFieldNumber = 4,
+    kRssBytesFieldNumber = 6,
+    kCpuPercentFieldNumber = 7,
+    kLastEventUnixFieldNumber = 9,
+    kRestartCountFieldNumber = 5,
+  };
+  // repeated string flags = 8;
+  [[nodiscard]] int flags_size()
+      const;
+  private:
+  int _internal_flags_size() const;
+
+  public:
+  void clear_flags() ;
+  [[nodiscard]] const ::std::string& flags(int index) const;
+  ::std::string* PROTOBUF_NONNULL mutable_flags(int index);
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_flags(int index, Arg_&& value, Args_... args);
+  ::std::string* PROTOBUF_NONNULL add_flags();
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void add_flags(Arg_&& value, Args_... args);
+  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::std::string>&
+  flags() const;
+  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+  mutable_flags();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::std::string>& _internal_flags() const;
+  ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_flags();
+
+  public:
+  // string name = 1;
+  void clear_name() ;
+  [[nodiscard]] const ::std::string& name() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_name(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_name();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_name();
+  void set_allocated_name(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_name() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_name(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_name();
+
+  public:
+  // int32 pid = 2;
+  void clear_pid() ;
+  [[nodiscard]] ::int32_t pid() const;
+  void set_pid(::int32_t value);
+
+  private:
+  ::int32_t _internal_pid() const;
+  void _internal_set_pid(::int32_t value);
+
+  public:
+  // .croupier.ops.v1.ProcessState state = 3;
+  void clear_state() ;
+  [[nodiscard]] ::croupier::ops::v1::ProcessState state() const;
+  void set_state(::croupier::ops::v1::ProcessState value);
+
+  private:
+  ::croupier::ops::v1::ProcessState _internal_state() const;
+  void _internal_set_state(::croupier::ops::v1::ProcessState value);
+
+  public:
+  // int64 uptime_seconds = 4;
+  void clear_uptime_seconds() ;
+  [[nodiscard]] ::int64_t uptime_seconds() const;
+  void set_uptime_seconds(::int64_t value);
+
+  private:
+  ::int64_t _internal_uptime_seconds() const;
+  void _internal_set_uptime_seconds(::int64_t value);
+
+  public:
+  // int64 rss_bytes = 6;
+  void clear_rss_bytes() ;
+  [[nodiscard]] ::int64_t rss_bytes() const;
+  void set_rss_bytes(::int64_t value);
+
+  private:
+  ::int64_t _internal_rss_bytes() const;
+  void _internal_set_rss_bytes(::int64_t value);
+
+  public:
+  // double cpu_percent = 7;
+  void clear_cpu_percent() ;
+  [[nodiscard]] double cpu_percent() const;
+  void set_cpu_percent(double value);
+
+  private:
+  double _internal_cpu_percent() const;
+  void _internal_set_cpu_percent(double value);
+
+  public:
+  // int64 last_event_unix = 9;
+  void clear_last_event_unix() ;
+  [[nodiscard]] ::int64_t last_event_unix() const;
+  void set_last_event_unix(::int64_t value);
+
+  private:
+  ::int64_t _internal_last_event_unix() const;
+  void _internal_set_last_event_unix(::int64_t value);
+
+  public:
+  // int32 restart_count = 5;
+  void clear_restart_count() ;
+  [[nodiscard]] ::int32_t restart_count() const;
+  void set_restart_count(::int32_t value);
+
+  private:
+  ::int32_t _internal_restart_count() const;
+  void _internal_set_restart_count(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.SupervisedProcessSnapshot)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<4, 9,
+                                   0, 67,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const SupervisedProcessSnapshot& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<::std::string> flags_;
+    ::google::protobuf::internal::ArenaStringPtr name_;
+    ::int32_t pid_;
+    int state_;
+    ::int64_t uptime_seconds_;
+    ::int64_t rss_bytes_;
+    double cpu_percent_;
+    ::int64_t last_event_unix_;
+    ::int32_t restart_count_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull SupervisedProcessSnapshot_class_data_;
 // -------------------------------------------------------------------
 
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED StopProcessResponse final : public ::google::protobuf::Message
@@ -1156,7 +1474,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ServiceInfo final : public ::google
     return *reinterpret_cast<const ServiceInfo*>(
         &_ServiceInfo_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 22;
+  static constexpr int kIndexInFileMessages = 23;
   friend void swap(ServiceInfo& a, ServiceInfo& b) { a.Swap(&b); }
   inline void Swap(ServiceInfo* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -2685,7 +3003,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListServicesRequest final : public 
     return *reinterpret_cast<const ListServicesRequest*>(
         &_ListServicesRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 20;
+  static constexpr int kIndexInFileMessages = 21;
   friend void swap(ListServicesRequest& a, ListServicesRequest& b) { a.Swap(&b); }
   inline void Swap(ListServicesRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -2915,7 +3233,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetServiceStatusResponse final : pu
     return *reinterpret_cast<const GetServiceStatusResponse*>(
         &_GetServiceStatusResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 24;
+  static constexpr int kIndexInFileMessages = 25;
   friend void swap(GetServiceStatusResponse& a, GetServiceStatusResponse& b) { a.Swap(&b); }
   inline void Swap(GetServiceStatusResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -3213,7 +3531,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetServiceStatusRequest final : pub
     return *reinterpret_cast<const GetServiceStatusRequest*>(
         &_GetServiceStatusRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 23;
+  static constexpr int kIndexInFileMessages = 24;
   friend void swap(GetServiceStatusRequest& a, GetServiceStatusRequest& b) { a.Swap(&b); }
   inline void Swap(GetServiceStatusRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -3414,7 +3732,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ExecuteCommandResponse final : publ
     return *reinterpret_cast<const ExecuteCommandResponse*>(
         &_ExecuteCommandResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 19;
+  static constexpr int kIndexInFileMessages = 20;
   friend void swap(ExecuteCommandResponse& a, ExecuteCommandResponse& b) { a.Swap(&b); }
   inline void Swap(ExecuteCommandResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4019,7 +4337,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CronJob final : public ::google::pr
     return *reinterpret_cast<const CronJob*>(
         &_CronJob_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 26;
+  static constexpr int kIndexInFileMessages = 27;
   friend void swap(CronJob& a, CronJob& b) { a.Swap(&b); }
   inline void Swap(CronJob* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5268,14 +5586,41 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ManagedProcess final : public ::goo
 
   // accessors -------------------------------------------------------
   enum : int {
+    kFlagsFieldNumber = 9,
     kNameFieldNumber = 1,
     kCommandFieldNumber = 2,
     kWorkingDirFieldNumber = 3,
     kLastStartFieldNumber = 7,
     kStateFieldNumber = 4,
     kPidFieldNumber = 5,
+    kUptimeSecondsFieldNumber = 8,
     kRestartCountFieldNumber = 6,
   };
+  // repeated string flags = 9;
+  [[nodiscard]] int flags_size()
+      const;
+  private:
+  int _internal_flags_size() const;
+
+  public:
+  void clear_flags() ;
+  [[nodiscard]] const ::std::string& flags(int index) const;
+  ::std::string* PROTOBUF_NONNULL mutable_flags(int index);
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_flags(int index, Arg_&& value, Args_... args);
+  ::std::string* PROTOBUF_NONNULL add_flags();
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void add_flags(Arg_&& value, Args_... args);
+  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::std::string>&
+  flags() const;
+  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+  mutable_flags();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::std::string>& _internal_flags() const;
+  ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_flags();
+
+  public:
   // string name = 1;
   void clear_name() ;
   [[nodiscard]] const ::std::string& name() const;
@@ -5357,6 +5702,16 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ManagedProcess final : public ::goo
   void _internal_set_pid(::int32_t value);
 
   public:
+  // int64 uptime_seconds = 8;
+  void clear_uptime_seconds() ;
+  [[nodiscard]] ::int64_t uptime_seconds() const;
+  void set_uptime_seconds(::int64_t value);
+
+  private:
+  ::int64_t _internal_uptime_seconds() const;
+  void _internal_set_uptime_seconds(::int64_t value);
+
+  public:
   // int32 restart_count = 6;
   void clear_restart_count() ;
   [[nodiscard]] ::int32_t restart_count() const;
@@ -5371,8 +5726,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ManagedProcess final : public ::goo
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<3, 7,
-                                   1, 61,
+  static const ::google::protobuf::internal::TcParseTable<4, 9,
+                                   1, 74,
                                    2>
       _table_;
 
@@ -5395,12 +5750,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ManagedProcess final : public ::goo
         const ManagedProcess& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<::std::string> flags_;
     ::google::protobuf::internal::ArenaStringPtr name_;
     ::google::protobuf::internal::ArenaStringPtr command_;
     ::google::protobuf::internal::ArenaStringPtr working_dir_;
     ::google::protobuf::Timestamp* PROTOBUF_NULLABLE last_start_;
     int state_;
     ::int32_t pid_;
+    ::int64_t uptime_seconds_;
     ::int32_t restart_count_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -5467,7 +5824,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListServicesResponse final : public
     return *reinterpret_cast<const ListServicesResponse*>(
         &_ListServicesResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 21;
+  static constexpr int kIndexInFileMessages = 22;
   friend void swap(ListServicesResponse& a, ListServicesResponse& b) { a.Swap(&b); }
   inline void Swap(ListServicesResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5685,7 +6042,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListCronJobsResponse final : public
     return *reinterpret_cast<const ListCronJobsResponse*>(
         &_ListCronJobsResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 25;
+  static constexpr int kIndexInFileMessages = 26;
   friend void swap(ListCronJobsResponse& a, ListCronJobsResponse& b) { a.Swap(&b); }
   inline void Swap(ListCronJobsResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5903,7 +6260,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ExecuteCommandRequest final : publi
     return *reinterpret_cast<const ExecuteCommandRequest*>(
         &_ExecuteCommandRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 18;
+  static constexpr int kIndexInFileMessages = 19;
   friend void swap(ExecuteCommandRequest& a, ExecuteCommandRequest& b) { a.Swap(&b); }
   inline void Swap(ExecuteCommandRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -6271,6 +6628,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
     kDisksFieldNumber = 5,
     kNetworksFieldNumber = 6,
     kProcessesFieldNumber = 7,
+    kSupervisedProcessesFieldNumber = 9,
     kAgentIdFieldNumber = 1,
     kTimestampFieldNumber = 2,
     kCpuFieldNumber = 3,
@@ -6336,6 +6694,26 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
   [[nodiscard]] const ::croupier::ops::v1::ProcessMetrics& processes(int index) const;
   ::croupier::ops::v1::ProcessMetrics* PROTOBUF_NONNULL add_processes();
   [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProcessMetrics>& processes()
+      const;
+  // repeated .croupier.ops.v1.SupervisedProcessSnapshot supervised_processes = 9;
+  [[nodiscard]] int supervised_processes_size()
+      const;
+  private:
+  int _internal_supervised_processes_size() const;
+
+  public:
+  void clear_supervised_processes() ;
+  [[nodiscard]] ::croupier::ops::v1::SupervisedProcessSnapshot* PROTOBUF_NONNULL mutable_supervised_processes(int index);
+  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>* PROTOBUF_NONNULL
+  mutable_supervised_processes();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>& _internal_supervised_processes() const;
+  ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>* PROTOBUF_NONNULL _internal_mutable_supervised_processes();
+  public:
+  [[nodiscard]] const ::croupier::ops::v1::SupervisedProcessSnapshot& supervised_processes(int index) const;
+  ::croupier::ops::v1::SupervisedProcessSnapshot* PROTOBUF_NONNULL add_supervised_processes();
+  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>& supervised_processes()
       const;
   // string agent_id = 1;
   void clear_agent_id() ;
@@ -6420,8 +6798,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<3, 8,
-                                   7, 60,
+  static const ::google::protobuf::internal::TcParseTable<4, 9,
+                                   8, 60,
                                    2>
       _table_;
 
@@ -6447,6 +6825,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
     ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::DiskMetrics > disks_;
     ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::NetworkMetrics > networks_;
     ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::ProcessMetrics > processes_;
+    ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::SupervisedProcessSnapshot > supervised_processes_;
     ::google::protobuf::internal::ArenaStringPtr agent_id_;
     ::google::protobuf::Timestamp* PROTOBUF_NULLABLE timestamp_;
     ::croupier::ops::v1::CpuMetrics* PROTOBUF_NULLABLE cpu_;
@@ -6689,7 +7068,7 @@ inline void MetricsReport::clear_agent_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.agent_id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000008U);
+                  0x00000010U);
 }
 inline const ::std::string& MetricsReport::agent_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -6699,13 +7078,13 @@ inline const ::std::string& MetricsReport::agent_id() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void MetricsReport::set_agent_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   _impl_.agent_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.MetricsReport.agent_id)
 }
 inline ::std::string* PROTOBUF_NONNULL MetricsReport::mutable_agent_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::std::string* _s = _internal_mutable_agent_id();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.agent_id)
   return _s;
@@ -6725,10 +7104,10 @@ inline ::std::string* PROTOBUF_NONNULL MetricsReport::_internal_mutable_agent_id
 inline ::std::string* PROTOBUF_NULLABLE MetricsReport::release_agent_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.agent_id)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   auto* released = _impl_.agent_id_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.agent_id_.Set("", GetArena());
@@ -6738,9 +7117,9 @@ inline ::std::string* PROTOBUF_NULLABLE MetricsReport::release_agent_id() {
 inline void MetricsReport::set_allocated_agent_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   }
   _impl_.agent_id_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.agent_id_.IsDefault()) {
@@ -6751,7 +7130,7 @@ inline void MetricsReport::set_allocated_agent_id(::std::string* PROTOBUF_NULLAB
 
 // .google.protobuf.Timestamp timestamp = 2;
 inline bool MetricsReport::has_timestamp() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000010U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000020U);
   PROTOBUF_ASSUME(!value || _impl_.timestamp_ != nullptr);
   return value;
 }
@@ -6772,16 +7151,16 @@ inline void MetricsReport::unsafe_arena_set_allocated_timestamp(
   }
   _impl_.timestamp_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.MetricsReport.timestamp)
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE MetricsReport::release_timestamp() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   ::google::protobuf::Timestamp* released = _impl_.timestamp_;
   _impl_.timestamp_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -6801,7 +7180,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE MetricsReport::unsafe_ar
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.timestamp)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   ::google::protobuf::Timestamp* temp = _impl_.timestamp_;
   _impl_.timestamp_ = nullptr;
   return temp;
@@ -6816,7 +7195,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL MetricsReport::_internal_
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL MetricsReport::mutable_timestamp()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   ::google::protobuf::Timestamp* _msg = _internal_mutable_timestamp();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.timestamp)
   return _msg;
@@ -6833,9 +7212,9 @@ inline void MetricsReport::set_allocated_timestamp(::google::protobuf::Timestamp
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   }
 
   _impl_.timestamp_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -6844,7 +7223,7 @@ inline void MetricsReport::set_allocated_timestamp(::google::protobuf::Timestamp
 
 // .croupier.ops.v1.CpuMetrics cpu = 3;
 inline bool MetricsReport::has_cpu() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000020U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000040U);
   PROTOBUF_ASSUME(!value || _impl_.cpu_ != nullptr);
   return value;
 }
@@ -6852,7 +7231,7 @@ inline void MetricsReport::clear_cpu() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.cpu_ != nullptr) _impl_.cpu_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000020U);
+                  0x00000040U);
 }
 inline const ::croupier::ops::v1::CpuMetrics& MetricsReport::_internal_cpu() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -6871,16 +7250,16 @@ inline void MetricsReport::unsafe_arena_set_allocated_cpu(
   }
   _impl_.cpu_ = reinterpret_cast<::croupier::ops::v1::CpuMetrics*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.MetricsReport.cpu)
 }
 inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NULLABLE MetricsReport::release_cpu() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   ::croupier::ops::v1::CpuMetrics* released = _impl_.cpu_;
   _impl_.cpu_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -6900,7 +7279,7 @@ inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NULLABLE MetricsReport::unsafe_
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.cpu)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   ::croupier::ops::v1::CpuMetrics* temp = _impl_.cpu_;
   _impl_.cpu_ = nullptr;
   return temp;
@@ -6915,7 +7294,7 @@ inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NONNULL MetricsReport::_interna
 }
 inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NONNULL MetricsReport::mutable_cpu()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   ::croupier::ops::v1::CpuMetrics* _msg = _internal_mutable_cpu();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.cpu)
   return _msg;
@@ -6932,9 +7311,9 @@ inline void MetricsReport::set_allocated_cpu(::croupier::ops::v1::CpuMetrics* PR
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   }
 
   _impl_.cpu_ = reinterpret_cast<::croupier::ops::v1::CpuMetrics*>(value);
@@ -6943,7 +7322,7 @@ inline void MetricsReport::set_allocated_cpu(::croupier::ops::v1::CpuMetrics* PR
 
 // .croupier.ops.v1.MemoryMetrics memory = 4;
 inline bool MetricsReport::has_memory() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000040U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000080U);
   PROTOBUF_ASSUME(!value || _impl_.memory_ != nullptr);
   return value;
 }
@@ -6951,7 +7330,7 @@ inline void MetricsReport::clear_memory() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.memory_ != nullptr) _impl_.memory_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000040U);
+                  0x00000080U);
 }
 inline const ::croupier::ops::v1::MemoryMetrics& MetricsReport::_internal_memory() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -6970,16 +7349,16 @@ inline void MetricsReport::unsafe_arena_set_allocated_memory(
   }
   _impl_.memory_ = reinterpret_cast<::croupier::ops::v1::MemoryMetrics*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.MetricsReport.memory)
 }
 inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NULLABLE MetricsReport::release_memory() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::croupier::ops::v1::MemoryMetrics* released = _impl_.memory_;
   _impl_.memory_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -6999,7 +7378,7 @@ inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NULLABLE MetricsReport::unsa
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.memory)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::croupier::ops::v1::MemoryMetrics* temp = _impl_.memory_;
   _impl_.memory_ = nullptr;
   return temp;
@@ -7014,7 +7393,7 @@ inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NONNULL MetricsReport::_inte
 }
 inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NONNULL MetricsReport::mutable_memory()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::croupier::ops::v1::MemoryMetrics* _msg = _internal_mutable_memory();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.memory)
   return _msg;
@@ -7031,9 +7410,9 @@ inline void MetricsReport::set_allocated_memory(::croupier::ops::v1::MemoryMetri
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
 
   _impl_.memory_ = reinterpret_cast<::croupier::ops::v1::MemoryMetrics*>(value);
@@ -7219,7 +7598,7 @@ inline void MetricsReport::clear_custom() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.custom_.Clear();
   ClearHasBitForRepeated(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000100U);
 }
 inline const ::google::protobuf::Map<::std::string, double>& MetricsReport::_internal_custom() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -7235,9 +7614,65 @@ inline ::google::protobuf::Map<::std::string, double>* PROTOBUF_NONNULL MetricsR
 }
 inline ::google::protobuf::Map<::std::string, double>* PROTOBUF_NONNULL MetricsReport::mutable_custom()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000100U);
   // @@protoc_insertion_point(field_mutable_map:croupier.ops.v1.MetricsReport.custom)
   return _internal_mutable_custom();
+}
+
+// repeated .croupier.ops.v1.SupervisedProcessSnapshot supervised_processes = 9;
+inline int MetricsReport::_internal_supervised_processes_size() const {
+  return _internal_supervised_processes().size();
+}
+inline int MetricsReport::supervised_processes_size() const {
+  return _internal_supervised_processes_size();
+}
+inline void MetricsReport::clear_supervised_processes() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.supervised_processes_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline ::croupier::ops::v1::SupervisedProcessSnapshot* PROTOBUF_NONNULL MetricsReport::mutable_supervised_processes(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.supervised_processes)
+  return _internal_mutable_supervised_processes()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>* PROTOBUF_NONNULL MetricsReport::mutable_supervised_processes()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_mutable_list:croupier.ops.v1.MetricsReport.supervised_processes)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_supervised_processes();
+}
+inline const ::croupier::ops::v1::SupervisedProcessSnapshot& MetricsReport::supervised_processes(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.MetricsReport.supervised_processes)
+  return _internal_supervised_processes().Get(index);
+}
+inline ::croupier::ops::v1::SupervisedProcessSnapshot* PROTOBUF_NONNULL MetricsReport::add_supervised_processes()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::croupier::ops::v1::SupervisedProcessSnapshot* _add =
+      _internal_mutable_supervised_processes()->InternalAddWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), GetArena());
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_add:croupier.ops.v1.MetricsReport.supervised_processes)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>& MetricsReport::supervised_processes() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:croupier.ops.v1.MetricsReport.supervised_processes)
+  return _internal_supervised_processes();
+}
+inline const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>&
+MetricsReport::_internal_supervised_processes() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.supervised_processes_;
+}
+inline ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisedProcessSnapshot>* PROTOBUF_NONNULL
+MetricsReport::_internal_mutable_supervised_processes() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.supervised_processes_;
 }
 
 // -------------------------------------------------------------------
@@ -9964,7 +10399,7 @@ inline void ManagedProcess::clear_name() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.name_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000001U);
+                  0x00000002U);
 }
 inline const ::std::string& ManagedProcess::name() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -9974,13 +10409,13 @@ inline const ::std::string& ManagedProcess::name() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void ManagedProcess::set_name(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   _impl_.name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.name)
 }
 inline ::std::string* PROTOBUF_NONNULL ManagedProcess::mutable_name()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   ::std::string* _s = _internal_mutable_name();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ManagedProcess.name)
   return _s;
@@ -10000,10 +10435,10 @@ inline ::std::string* PROTOBUF_NONNULL ManagedProcess::_internal_mutable_name() 
 inline ::std::string* PROTOBUF_NULLABLE ManagedProcess::release_name() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.ManagedProcess.name)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   auto* released = _impl_.name_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.name_.Set("", GetArena());
@@ -10013,9 +10448,9 @@ inline ::std::string* PROTOBUF_NULLABLE ManagedProcess::release_name() {
 inline void ManagedProcess::set_allocated_name(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   }
   _impl_.name_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.name_.IsDefault()) {
@@ -10029,7 +10464,7 @@ inline void ManagedProcess::clear_command() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.command_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000002U);
+                  0x00000004U);
 }
 inline const ::std::string& ManagedProcess::command() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -10039,13 +10474,13 @@ inline const ::std::string& ManagedProcess::command() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void ManagedProcess::set_command(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   _impl_.command_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.command)
 }
 inline ::std::string* PROTOBUF_NONNULL ManagedProcess::mutable_command()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   ::std::string* _s = _internal_mutable_command();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ManagedProcess.command)
   return _s;
@@ -10065,10 +10500,10 @@ inline ::std::string* PROTOBUF_NONNULL ManagedProcess::_internal_mutable_command
 inline ::std::string* PROTOBUF_NULLABLE ManagedProcess::release_command() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.ManagedProcess.command)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   auto* released = _impl_.command_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.command_.Set("", GetArena());
@@ -10078,9 +10513,9 @@ inline ::std::string* PROTOBUF_NULLABLE ManagedProcess::release_command() {
 inline void ManagedProcess::set_allocated_command(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   }
   _impl_.command_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.command_.IsDefault()) {
@@ -10094,7 +10529,7 @@ inline void ManagedProcess::clear_working_dir() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.working_dir_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000004U);
+                  0x00000008U);
 }
 inline const ::std::string& ManagedProcess::working_dir() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -10104,13 +10539,13 @@ inline const ::std::string& ManagedProcess::working_dir() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void ManagedProcess::set_working_dir(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   _impl_.working_dir_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.working_dir)
 }
 inline ::std::string* PROTOBUF_NONNULL ManagedProcess::mutable_working_dir()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   ::std::string* _s = _internal_mutable_working_dir();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ManagedProcess.working_dir)
   return _s;
@@ -10130,10 +10565,10 @@ inline ::std::string* PROTOBUF_NONNULL ManagedProcess::_internal_mutable_working
 inline ::std::string* PROTOBUF_NULLABLE ManagedProcess::release_working_dir() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.ManagedProcess.working_dir)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
   auto* released = _impl_.working_dir_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.working_dir_.Set("", GetArena());
@@ -10143,9 +10578,9 @@ inline ::std::string* PROTOBUF_NULLABLE ManagedProcess::release_working_dir() {
 inline void ManagedProcess::set_allocated_working_dir(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
   }
   _impl_.working_dir_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.working_dir_.IsDefault()) {
@@ -10159,7 +10594,7 @@ inline void ManagedProcess::clear_state() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.state_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000010U);
+                  0x00000020U);
 }
 inline ::croupier::ops::v1::ProcessState ManagedProcess::state() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.ManagedProcess.state)
@@ -10167,7 +10602,7 @@ inline ::croupier::ops::v1::ProcessState ManagedProcess::state() const {
 }
 inline void ManagedProcess::set_state(::croupier::ops::v1::ProcessState value) {
   _internal_set_state(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.state)
 }
 inline ::croupier::ops::v1::ProcessState ManagedProcess::_internal_state() const {
@@ -10184,7 +10619,7 @@ inline void ManagedProcess::clear_pid() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.pid_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000020U);
+                  0x00000040U);
 }
 inline ::int32_t ManagedProcess::pid() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.ManagedProcess.pid)
@@ -10192,7 +10627,7 @@ inline ::int32_t ManagedProcess::pid() const {
 }
 inline void ManagedProcess::set_pid(::int32_t value) {
   _internal_set_pid(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.pid)
 }
 inline ::int32_t ManagedProcess::_internal_pid() const {
@@ -10209,7 +10644,7 @@ inline void ManagedProcess::clear_restart_count() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.restart_count_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000040U);
+                  0x00000100U);
 }
 inline ::int32_t ManagedProcess::restart_count() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.ManagedProcess.restart_count)
@@ -10217,7 +10652,7 @@ inline ::int32_t ManagedProcess::restart_count() const {
 }
 inline void ManagedProcess::set_restart_count(::int32_t value) {
   _internal_set_restart_count(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.restart_count)
 }
 inline ::int32_t ManagedProcess::_internal_restart_count() const {
@@ -10231,7 +10666,7 @@ inline void ManagedProcess::_internal_set_restart_count(::int32_t value) {
 
 // .google.protobuf.Timestamp last_start = 7;
 inline bool ManagedProcess::has_last_start() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000008U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000010U);
   PROTOBUF_ASSUME(!value || _impl_.last_start_ != nullptr);
   return value;
 }
@@ -10252,16 +10687,16 @@ inline void ManagedProcess::unsafe_arena_set_allocated_last_start(
   }
   _impl_.last_start_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.ManagedProcess.last_start)
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE ManagedProcess::release_last_start() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::google::protobuf::Timestamp* released = _impl_.last_start_;
   _impl_.last_start_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -10281,7 +10716,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE ManagedProcess::unsafe_a
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.ManagedProcess.last_start)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::google::protobuf::Timestamp* temp = _impl_.last_start_;
   _impl_.last_start_ = nullptr;
   return temp;
@@ -10296,7 +10731,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL ManagedProcess::_internal
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL ManagedProcess::mutable_last_start()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::google::protobuf::Timestamp* _msg = _internal_mutable_last_start();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ManagedProcess.last_start)
   return _msg;
@@ -10313,13 +10748,426 @@ inline void ManagedProcess::set_allocated_last_start(::google::protobuf::Timesta
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   }
 
   _impl_.last_start_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ManagedProcess.last_start)
+}
+
+// int64 uptime_seconds = 8;
+inline void ManagedProcess::clear_uptime_seconds() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.uptime_seconds_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000080U);
+}
+inline ::int64_t ManagedProcess::uptime_seconds() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ManagedProcess.uptime_seconds)
+  return _internal_uptime_seconds();
+}
+inline void ManagedProcess::set_uptime_seconds(::int64_t value) {
+  _internal_set_uptime_seconds(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.uptime_seconds)
+}
+inline ::int64_t ManagedProcess::_internal_uptime_seconds() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.uptime_seconds_;
+}
+inline void ManagedProcess::_internal_set_uptime_seconds(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.uptime_seconds_ = value;
+}
+
+// repeated string flags = 9;
+inline int ManagedProcess::_internal_flags_size() const {
+  return _internal_flags().size();
+}
+inline int ManagedProcess::flags_size() const {
+  return _internal_flags_size();
+}
+inline void ManagedProcess::clear_flags() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.flags_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline ::std::string* PROTOBUF_NONNULL ManagedProcess::add_flags()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::std::string* _s =
+      _internal_mutable_flags()->InternalAddWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), GetArena());
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add_mutable:croupier.ops.v1.ManagedProcess.flags)
+  return _s;
+}
+inline const ::std::string& ManagedProcess::flags(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ManagedProcess.flags)
+  return _internal_flags().Get(index);
+}
+inline ::std::string* PROTOBUF_NONNULL ManagedProcess::mutable_flags(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ManagedProcess.flags)
+  return _internal_mutable_flags()->Mutable(index);
+}
+template <typename Arg_, typename... Args_>
+inline void ManagedProcess::set_flags(int index, Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::AssignToString(*_internal_mutable_flags()->Mutable(index), ::std::forward<Arg_>(value),
+                        args... );
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ManagedProcess.flags)
+}
+template <typename Arg_, typename... Args_>
+inline void ManagedProcess::add_flags(Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::google::protobuf::internal::AddToRepeatedPtrField(
+      ::google::protobuf::MessageLite::internal_visibility(), GetArena(),
+      *_internal_mutable_flags(), ::std::forward<Arg_>(value),
+      args... );
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add:croupier.ops.v1.ManagedProcess.flags)
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>& ManagedProcess::flags()
+    const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:croupier.ops.v1.ManagedProcess.flags)
+  return _internal_flags();
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+ManagedProcess::mutable_flags() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_mutable_list:croupier.ops.v1.ManagedProcess.flags)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_flags();
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>&
+ManagedProcess::_internal_flags() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.flags_;
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+ManagedProcess::_internal_mutable_flags() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.flags_;
+}
+
+// -------------------------------------------------------------------
+
+// SupervisedProcessSnapshot
+
+// string name = 1;
+inline void SupervisedProcessSnapshot::clear_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.name_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& SupervisedProcessSnapshot::name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.name)
+  return _internal_name();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void SupervisedProcessSnapshot::set_name(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.name)
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisedProcessSnapshot::mutable_name()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_name();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisedProcessSnapshot.name)
+  return _s;
+}
+inline const ::std::string& SupervisedProcessSnapshot::_internal_name() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.name_.Get();
+}
+inline void SupervisedProcessSnapshot::_internal_set_name(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.name_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisedProcessSnapshot::_internal_mutable_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.name_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE SupervisedProcessSnapshot::release_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisedProcessSnapshot.name)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.name_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.name_.Set("", GetArena());
+  }
+  return released;
+}
+inline void SupervisedProcessSnapshot::set_allocated_name(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.name_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.name_.IsDefault()) {
+    _impl_.name_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SupervisedProcessSnapshot.name)
+}
+
+// int32 pid = 2;
+inline void SupervisedProcessSnapshot::clear_pid() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.pid_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline ::int32_t SupervisedProcessSnapshot::pid() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.pid)
+  return _internal_pid();
+}
+inline void SupervisedProcessSnapshot::set_pid(::int32_t value) {
+  _internal_set_pid(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.pid)
+}
+inline ::int32_t SupervisedProcessSnapshot::_internal_pid() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.pid_;
+}
+inline void SupervisedProcessSnapshot::_internal_set_pid(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.pid_ = value;
+}
+
+// .croupier.ops.v1.ProcessState state = 3;
+inline void SupervisedProcessSnapshot::clear_state() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.state_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline ::croupier::ops::v1::ProcessState SupervisedProcessSnapshot::state() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.state)
+  return _internal_state();
+}
+inline void SupervisedProcessSnapshot::set_state(::croupier::ops::v1::ProcessState value) {
+  _internal_set_state(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.state)
+}
+inline ::croupier::ops::v1::ProcessState SupervisedProcessSnapshot::_internal_state() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return static_cast<::croupier::ops::v1::ProcessState>(_impl_.state_);
+}
+inline void SupervisedProcessSnapshot::_internal_set_state(::croupier::ops::v1::ProcessState value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.state_ = value;
+}
+
+// int64 uptime_seconds = 4;
+inline void SupervisedProcessSnapshot::clear_uptime_seconds() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.uptime_seconds_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline ::int64_t SupervisedProcessSnapshot::uptime_seconds() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.uptime_seconds)
+  return _internal_uptime_seconds();
+}
+inline void SupervisedProcessSnapshot::set_uptime_seconds(::int64_t value) {
+  _internal_set_uptime_seconds(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.uptime_seconds)
+}
+inline ::int64_t SupervisedProcessSnapshot::_internal_uptime_seconds() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.uptime_seconds_;
+}
+inline void SupervisedProcessSnapshot::_internal_set_uptime_seconds(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.uptime_seconds_ = value;
+}
+
+// int32 restart_count = 5;
+inline void SupervisedProcessSnapshot::clear_restart_count() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.restart_count_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000100U);
+}
+inline ::int32_t SupervisedProcessSnapshot::restart_count() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.restart_count)
+  return _internal_restart_count();
+}
+inline void SupervisedProcessSnapshot::set_restart_count(::int32_t value) {
+  _internal_set_restart_count(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.restart_count)
+}
+inline ::int32_t SupervisedProcessSnapshot::_internal_restart_count() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.restart_count_;
+}
+inline void SupervisedProcessSnapshot::_internal_set_restart_count(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.restart_count_ = value;
+}
+
+// int64 rss_bytes = 6;
+inline void SupervisedProcessSnapshot::clear_rss_bytes() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.rss_bytes_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline ::int64_t SupervisedProcessSnapshot::rss_bytes() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.rss_bytes)
+  return _internal_rss_bytes();
+}
+inline void SupervisedProcessSnapshot::set_rss_bytes(::int64_t value) {
+  _internal_set_rss_bytes(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.rss_bytes)
+}
+inline ::int64_t SupervisedProcessSnapshot::_internal_rss_bytes() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.rss_bytes_;
+}
+inline void SupervisedProcessSnapshot::_internal_set_rss_bytes(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.rss_bytes_ = value;
+}
+
+// double cpu_percent = 7;
+inline void SupervisedProcessSnapshot::clear_cpu_percent() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cpu_percent_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline double SupervisedProcessSnapshot::cpu_percent() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.cpu_percent)
+  return _internal_cpu_percent();
+}
+inline void SupervisedProcessSnapshot::set_cpu_percent(double value) {
+  _internal_set_cpu_percent(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.cpu_percent)
+}
+inline double SupervisedProcessSnapshot::_internal_cpu_percent() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.cpu_percent_;
+}
+inline void SupervisedProcessSnapshot::_internal_set_cpu_percent(double value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cpu_percent_ = value;
+}
+
+// repeated string flags = 8;
+inline int SupervisedProcessSnapshot::_internal_flags_size() const {
+  return _internal_flags().size();
+}
+inline int SupervisedProcessSnapshot::flags_size() const {
+  return _internal_flags_size();
+}
+inline void SupervisedProcessSnapshot::clear_flags() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.flags_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisedProcessSnapshot::add_flags()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::std::string* _s =
+      _internal_mutable_flags()->InternalAddWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), GetArena());
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add_mutable:croupier.ops.v1.SupervisedProcessSnapshot.flags)
+  return _s;
+}
+inline const ::std::string& SupervisedProcessSnapshot::flags(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.flags)
+  return _internal_flags().Get(index);
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisedProcessSnapshot::mutable_flags(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisedProcessSnapshot.flags)
+  return _internal_mutable_flags()->Mutable(index);
+}
+template <typename Arg_, typename... Args_>
+inline void SupervisedProcessSnapshot::set_flags(int index, Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::AssignToString(*_internal_mutable_flags()->Mutable(index), ::std::forward<Arg_>(value),
+                        args... );
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.flags)
+}
+template <typename Arg_, typename... Args_>
+inline void SupervisedProcessSnapshot::add_flags(Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::google::protobuf::internal::AddToRepeatedPtrField(
+      ::google::protobuf::MessageLite::internal_visibility(), GetArena(),
+      *_internal_mutable_flags(), ::std::forward<Arg_>(value),
+      args... );
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add:croupier.ops.v1.SupervisedProcessSnapshot.flags)
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>& SupervisedProcessSnapshot::flags()
+    const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:croupier.ops.v1.SupervisedProcessSnapshot.flags)
+  return _internal_flags();
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+SupervisedProcessSnapshot::mutable_flags() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_mutable_list:croupier.ops.v1.SupervisedProcessSnapshot.flags)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_flags();
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>&
+SupervisedProcessSnapshot::_internal_flags() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.flags_;
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+SupervisedProcessSnapshot::_internal_mutable_flags() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.flags_;
+}
+
+// int64 last_event_unix = 9;
+inline void SupervisedProcessSnapshot::clear_last_event_unix() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.last_event_unix_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000080U);
+}
+inline ::int64_t SupervisedProcessSnapshot::last_event_unix() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.last_event_unix)
+  return _internal_last_event_unix();
+}
+inline void SupervisedProcessSnapshot::set_last_event_unix(::int64_t value) {
+  _internal_set_last_event_unix(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.last_event_unix)
+}
+inline ::int64_t SupervisedProcessSnapshot::_internal_last_event_unix() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.last_event_unix_;
+}
+inline void SupervisedProcessSnapshot::_internal_set_last_event_unix(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.last_event_unix_ = value;
 }
 
 // -------------------------------------------------------------------

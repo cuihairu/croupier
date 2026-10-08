@@ -52,3 +52,12 @@ ops:
   enabled: true
   metricsInterval: 30s
   metricsEnabled: true
+  # 托管进程监管（supervisor）：每个条目以逻辑名为键。采样周期同 metricsInterval，
+  # 超阈值只在面板打标记（mem_over_limit / cpu_over_limit），不自动杀进程。
+  # managedProcesses:
+  #   demo-app:
+  #     command: /usr/local/bin/demo-app
+  #     args: ["--port", "8080"]
+  #     workingDir: /srv/demo-app
+  #     memThresholdBytes: 2147483648   # RSS 超过 2GiB 打 mem_over_limit
+  #     cpuThresholdPercent: 90         # CPU 超过 90% 打 cpu_over_limit

@@ -9,6 +9,7 @@ import { buildNodeColumns } from './columns';
 import { normalizeOpsNode, type NodeRow } from './shared';
 import NodeDetailDrawer from './NodeDetailDrawer';
 import CronJobsDrawer from './CronJobsDrawer';
+import SupervisorDrawer from './SupervisorDrawer';
 
 export default function OpsNodesPage() {
   const { message, modal } = App.useApp();
@@ -23,6 +24,7 @@ export default function OpsNodesPage() {
   const [game, setGame] = useState<string>('');
   const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
   const [cronNode, setCronNode] = useState<NodeRow | null>(null);
+  const [supervisorNode, setSupervisorNode] = useState<NodeRow | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -149,6 +151,7 @@ export default function OpsNodesPage() {
     onDrain: drain,
     onRestart: restart,
     onCron: setCronNode,
+    onSupervisor: setSupervisorNode,
   });
 
   const games = Array.from(new Set(rows.map((r) => r.gameId).filter(Boolean))).map((v) => ({
@@ -403,6 +406,8 @@ export default function OpsNodesPage() {
       />
 
       <CronJobsDrawer node={cronNode} onClose={() => setCronNode(null)} />
+
+      <SupervisorDrawer node={supervisorNode} onClose={() => setSupervisorNode(null)} />
     </PageContainer>
   );
 }
