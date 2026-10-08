@@ -3971,4 +3971,24 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >
 > 门禁：go build + gofmt + `go test ./internal/... -count=1` 全绿。本批纯测试增量
 > （+86 行单文件），零生产代码改动。
-> 下一步：覆盖率巡检续——errorx 96.2% / task 97.3% 残余，或 62.7% 以下无实质低覆盖域即收官。
+> 下一步：覆盖率巡检续——errorx 96.2% / task 97.3% 残余。
+
+## 覆盖率巡检批次·Go 侧第五十六轮·errorx + task OperatorOptions 收口（2026-10-08）
+
+> **收口结论**：第五十五轮「下一步」两残余全清，全仓 Go 侧实质低覆盖域收官：
+>
+> - **errorx 96.2% → 100.0%**：`NewBadRequestWithCode` 全包唯一零覆盖构造器
+>   （生产调用方 approval stepup OTP 的 otp_invalid），补 `TestNewBadRequestWithCode`
+>   （Code/StableCode/Message/Details 四断言，含 StableCode 断言面——既有同族用例
+>   均未覆盖该字段）。
+> - **task 97.3% → 100.0%**：OperatorOptions 同型四翼（handler bind err
+>   `?page=abc`→400 / handler service err→500 / service req=nil / service 聚合
+>   查询 err），聚合查询 err 翼复用第五十五轮新知：Scan 聚合走 Row processor
+>   （gorm:row），注入注册在 `Callback().Row().Before("gorm:row")`。
+>
+> **全景终态**：`go test ./internal/... -cover` 各包 ≥98.1%，其中 100% 为多数；
+> 剩余 <100% 包（cicd 98.6%/game 98.1%/openapi 98.3%/approval 99.4% 等）均为
+> 已登记的防御性不可达分支或注入缝缺失，不再造假用例。Go 侧覆盖率巡检收官。
+>
+> 门禁：go build + gofmt + `go test ./internal/... -count=1` 全绿。本批纯测试增量，
+> 零生产代码改动。

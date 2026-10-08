@@ -387,3 +387,22 @@ func TestNewNotImplemented(t *testing.T) {
 		t.Errorf("Wrong message: got %s, want 'feature not yet implemented'", err.Message)
 	}
 }
+
+// TestNewBadRequestWithCode 测试带稳定业务错误码的 400 构造（生产调用方：
+// approval stepup OTP 的 otp_invalid）。
+func TestNewBadRequestWithCode(t *testing.T) {
+	details := map[string]any{"attemptsLeft": 2}
+	err := NewBadRequestWithCode("otp_invalid", "动态验证码错误或已过期", details)
+	if err.Code != http.StatusBadRequest {
+		t.Errorf("Wrong code: got %d, want %d", err.Code, http.StatusBadRequest)
+	}
+	if err.StableCode != "otp_invalid" {
+		t.Errorf("Wrong stable code: got %q", err.StableCode)
+	}
+	if err.Message != "动态验证码错误或已过期" {
+		t.Errorf("Wrong message: got %q", err.Message)
+	}
+	if err.Details["attemptsLeft"] != 2 {
+		t.Errorf("Wrong details: got %v", err.Details)
+	}
+}
