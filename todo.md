@@ -3909,7 +3909,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > 通道、固定 URL 外呼（GitHub OAuth 等）不经守卫；② 默认全关零行为变更；③ domainFilter
 > 允许清单语义（配置后仅清单内域名可出站，非黑名单）；④ CheckURL 静态解析与真实连接间
 > 窗口由 Control 钩子 connect 前复核闭合（SSRF 开启时）。
-> 下一步：#57 第三方服务探针（运维家族收官单）。
+> 下一步：cicd 域残余 1.8% 收口（四函数：List/normalizeExtra/Trigger/IngestWebhook）→ BUGS.md/OPEN-ISSUES 巡检。
 
 ## 台账对账·#57/#58 状态补记（需求清单 #57/#58，2026-10-08）
 
@@ -3939,3 +3939,11 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >   本批纯文档零代码改动。
 >   下一步：cicd 域残余 1.8% 收口（fresh 实测 98.2%，四函数小尾巴）→ BUGS.md /
 >   OPEN-ISSUES 登记项巡检。
+>
+> ## cicd 域残余覆盖率收口（2026-10-08 续）
+>
+> > **收口结论**：新增 `service_extra_test.go` 直接单测覆盖 `normalizeExtra` 的 `float64` 分支 → normalizeExtra 100%（原 88.9%）。剩余三分支均为**逻辑/环境层面真不可达**的防御分支，且已有登记测试锁定前提：
+> > - handler.go:List 77.8% —— `ShouldBindQuery` 错误分支，IntegrationListRequest 全 string 字段，gin form 绑定永不失败（`TestCicdHandler_ListBindBranchRegistered` 登记）。
+> > - service.go:Trigger 96.0% —— `provider 未返回构建标识` 分支，`firstNonEmpty` 纳秒兜底保证 ExternalID 永非空（`TestCicdService_TriggerEmptyExternalIDBranchUnreachable` 登记）。
+> > - webhook.go:IngestWebhook 96.3% —— Upsert 成功后 GetByID 失败分支，sqlite 单连接无并发删除，触发器不支持 SELECT 事件，不可构造（`TestCicdWebhook_GetByIDAfterUpsertBranchUnreachable` 登记）。
+> > **覆盖率现状**：api/cicd 98.6%（三不可达分支合计 ~1.4%），属防御性编码必然残留，不再投入造假用例。全测试绿，门禁通过。下一步：BUGS.md/OPEN-ISSUES 巡检。

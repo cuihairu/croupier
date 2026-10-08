@@ -504,3 +504,5 @@ func TestCicdService_NormalizeExtraFloat64BranchUnreachable(t *testing.T) {
 	_, isFloat := row.Extra["num"].(float64)
 	assert.False(t, isFloat, "datatypes 读回不得产出 float64（UseNumber 生效中）")
 }
+
+
