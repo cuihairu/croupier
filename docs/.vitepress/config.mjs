@@ -290,6 +290,14 @@ const config = defineConfig({
               text: "运维/安全与限制全量核对（#56）",
               link: "/research/security-limits-survey-2026-10",
             },
+            {
+              text: "商业游戏后台功能调研",
+              link: "/research/commercial-backend-survey",
+            },
+            {
+              text: "插件架构调研（Grafana/VS Code/WordPress/VitePress）",
+              link: "/research/plugin-architecture-survey",
+            },
           ],
         },
       ],
