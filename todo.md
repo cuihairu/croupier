@@ -4021,3 +4021,25 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > 门禁：五套件 20 用例绿 + Profile 邻域无回归 + tsc 0 错误。组件改动仅
 > PasswordModal 一处（defaultMessage 补齐），其余四文件纯新增测试。
 > 下一步：web 侧 <80% 清零，巡检收官；回归 Go/登记面常规巡检。
+
+## Provider 插件设计立项（#66）·批二设计落盘·P0-P3 分批（2026-10-08）
+
+> **背景**：用户令两批——批一调研（commercial-backend-survey / plugin-architecture-survey 两篇已归档推送
+> 892335d）→ 批二设计（docs/design/provider-plugin-design.md，Proposed）。拍板授权令下五项决策已
+> 记录在设计文档「决策摘要」供后审：①不引入动态代码加载（driver 编译期内置×provider 配置实例）；
+> ②统一注册中心=extension runtime bindings，platform/provider.Registry 归档不接线；③Provider 接口
+> 语义保留为 driver 契约蓝本，quicksdk 迁 official.external-platform；④cicd/identity 保留内置不迁移；
+> ⑤版本协商复用 release 体系 min_core_version+依赖图，manifest 不另立版本字段。
+>
+> **分批**（每期独立 PR，验收门按交付完成定义）：
+>
+> - P0 契约定型与归档：drivers/driver.go 骨架 + Registry 处置 + manifest provider 块定稿入统一模式
+>   文档 + 顺手修契约基线渠道闭集漂移（文档 experimental vs 实现 alpha，service.go:153）
+> - P1 external-platform 迁移：openapi→drivers/openapi、quicksdk→extensions/official/externalplatform、
+>   api/platform 寻址切 driver 运行时表（dispatcher 与 HTTP 契约不变）；旧目录删除禁兼容双路径
+> - P2 pack descriptor 解析与 Store 深化：包内 descriptors/schemas 入 release（加列须编号迁移）+
+>   webhook driver 按需
+> - P3 远期不承诺：out-of-process connector、签名分级、cicd/identity 扩展化再评估（第 5 个 cicd
+>   kind / 第 6 个身份源触发）
+>
+> 下一步：等用户后审拍板；P0 未获准不动码。

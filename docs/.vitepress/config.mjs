@@ -298,6 +298,10 @@ const config = defineConfig({
               text: "插件架构调研（Grafana/VS Code/WordPress/VitePress）",
               link: "/research/plugin-architecture-survey",
             },
+            {
+              text: "Provider 插件设计（#66）",
+              link: "/design/provider-plugin-design",
+            },
           ],
         },
       ],
