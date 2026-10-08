@@ -4043,3 +4043,28 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >   kind / 第 6 个身份源触发）
 >
 > 下一步：等用户后审拍板；P0 未获准不动码。
+
+## Agent Supervisor 进程监管立项（#67）·设计简档+崩溃快照调研落盘·S1-S3 分批（2026-10-08）
+
+> **背景**：用户令功能单「agent 加 supervisor 进程监管」+ 两条补充（退避拉起/全程事件日志/OOM 疑似
+> 标记）+ 调研补充（崩溃时内存快照、跨语言通用抓取）。按「先设计简档落 docs 再动码」纪律：
+>
+> - 设计简档：docs/design/agent-supervisor-design.md——现状盘点（ops_server.go managedProcess 雏形/
+>   ProcessState 枚举/MetricsReport.processes 空置/gopsutil v4 已在依赖树）+ 配置增量六键
+>   （autoRestart 默认关/退避 1s 起 60s 封顶/熔断 5 次）+ 状态机（BACKOFF/BROKEN 新态）+ 采样
+>   （gopsutil process per-pid）+ 上报捎带（MetricsReport field 9 SupervisedProcessSnapshot）+
+>   事件双通道（agent 本地轮转文件全量 + server 内存环 500 条面板用 + 下载代理端点）+ 面板
+>   （列表 supervisor 列状态灯 + 详情抽屉）
+> - 崩溃快照调研：docs/research/crash-capture-survey-2026-10.md——语言原生（Go pprof/GOTRACEBACK、
+>   Python faulthandler、Node heapsnapshot/report、JVM jcmd/HeapDumpOnOOM）+ OS 层零集成通吃
+>   （Linux core_pattern 管道/systemd-coredump、Windows WER LocalDumps）+ Crashpad/Breakpad
+>   （client 需 C++ 编译期嵌入，Go 支持无成熟先例）+ 分级方案（轻=spawn 注入原生开关 [推荐默认] /
+>   中=core_pattern 兜底 / 重=Crashpad 不立项）+ 四项可拍板项
+>
+> **分批**（设计已落盘，实现待拍板项批复后启动）：
+>
+> - S1 只读监控：采样+上报捎带+server 快照 API+面板只读部分
+> - S2 自动拉起与熔断：退避/熔断状态机+事件日志双通道+下载+操作按钮
+> - S3 崩溃快照：依 crash-capture 调研拍板结论落地（snapshotProfile 配置）
+>
+> 下一步：报用户——快照分级方案与四项可拍板项待批复；S1 未获准不动码。

@@ -302,6 +302,14 @@ const config = defineConfig({
               text: "Provider 插件设计（#66）",
               link: "/design/provider-plugin-design",
             },
+            {
+              text: "崩溃快照与跨语言抓取调研",
+              link: "/research/crash-capture-survey-2026-10",
+            },
+            {
+              text: "Agent Supervisor 进程监管设计（#67）",
+              link: "/design/agent-supervisor-design",
+            },
           ],
         },
       ],
