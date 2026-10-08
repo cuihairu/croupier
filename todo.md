@@ -3910,3 +3910,32 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > 允许清单语义（配置后仅清单内域名可出站，非黑名单）；④ CheckURL 静态解析与真实连接间
 > 窗口由 Control 钩子 connect 前复核闭合（SSRF 开启时）。
 > 下一步：#57 第三方服务探针（运维家族收官单）。
+
+## 台账对账·#57/#58 状态补记（需求清单 #57/#58，2026-10-08）
+
+> **对账结论**：OPEN-ISSUES 两行均已登记「已提交 + 已闭环（线上复证 2026-10-02，
+> deploy 36937558114，gitCommit 444d7f0，双实例 healthy）」，而本台账无对应收口
+> 节、上节末行仍写「下一步：#57」——两账口径矛盾，本批纯文档对账补记归一；
+> 逐项核销级复核（同 #56 深度）未做，状态以 OPEN-ISSUES 行与提交号为据，不代填
+> 新拍板。
+>
+> - **#57 第三方服务探针（已提交 5b52d95）**：secguard `net.requestTimeoutMs`/
+>   `net.maxRetries`/`net.retryBackoffMs` 三键 + `DoWithRetry`（网络错误/5xx 指数
+>   退避、4xx 不重试、整体超时预算防重试风暴）+ `Probe`/`ProbeSMTP` 探针 +
+>   `POST /api/v1/ops/probes/:channel` 六渠道端点 + 运维 Tab 探针卡；边界六条
+>   （手动触发无周期监控/SMTP 仅探活不验证发信/at-least-once 语义/连接池
+>   maxIdleConnsPerHost 未键控/身份源不在范围/net.* 钳 65s）见 OPEN-ISSUES #57 行。
+> - **#58 CI/CD 集成（已提交 f64a201 批1 + 1a73f8b 批2）**：`internal/cicd`
+>   Provider 抽象 + jenkins/gitlab-ci/github-actions/generic 四实现（init 自注册
+>   类型注册表）+ game-scoped `cicd_integrations`/`cicd_builds` 两表（迁移 0038）+
+>   接入管理 CRUD/测试/触发/构建列表/拉取状态 API + 公开 webhook（X-CICD-Token
+>   constant-time 校验、唯一键幂等回写）+ `/dev/cicd` 页（选类型动态出配置表单 +
+>   打包记录 + 凭据留空保留语义）；边界七条见 OPEN-ISSUES #58 行。
+> - **覆盖率残余对账**：本台账早前口径的两处残余均已被先行收口——api/cicd 域
+>   50.2%→97.9%（be6bab4：handler 十方法 100% + service/webhook 残余五块）；
+>   ops 域 probe.go 属 #57 已随 5b52d95 带测试，2026-10-08 fresh 单包实测
+>   ops 100.0%、api/cicd 98.2%（残余四函数：List 77.8%/normalizeExtra 88.9%/
+>   Trigger 96.0%/IngestWebhook 96.3%）。
+>   本批纯文档零代码改动。
+>   下一步：cicd 域残余 1.8% 收口（fresh 实测 98.2%，四函数小尾巴）→ BUGS.md /
+>   OPEN-ISSUES 登记项巡检。
