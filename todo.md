@@ -3992,3 +3992,32 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >
 > 门禁：go build + gofmt + `go test ./internal/... -count=1` 全绿。本批纯测试增量，
 > 零生产代码改动。
+
+## 覆盖率缺口批次·web 侧第五批·五低覆盖文件收口（2026-10-08）
+
+> **巡检背景**：Go 侧收官后转 web 侧——全量 jest --coverage（396 套件，4861 用例，
+> 5 failed 经隔离复跑 5/5 套件 76/76 全绿确认为负载 flake 非回归），<80% 文件仅五个：
+>
+> - **PasswordModal.tsx 78%→100%**：4 用例（提交成功/失败/confirm 校验器/min 规则）。
+>   组件 formatMessage 补 defaultMessage（与 zh-CN locale 同值，对齐
+>   CronJobsDrawer 等页面写法；测试环境 intl mock 返回 defaultMessage，原
+>   `{id}` 写法缺 key 时无可读兜底——顺带修 i18n 可测性）。
+> - **CronJobsDrawer.tsx 77%→100%**：3 用例（拉取渲染+titleWithAgent+启用/停用
+>   两翼 / 拉取失败空态 / node=null 早退）。
+> - **Functions/Instances/shared.ts 67%→100%**：resolveDescriptorSchema 8 用例
+>   （此前零测试触达）。
+> - **thirdPartyProbe.ts 71%→100%**：probeThirdParty 2 用例（此前零触达，
+>   POST per-channel + skipErrorHandler 契约）。
+> - **logsMaintenance.ts 78%→100%**：三 adapter（save/cleanup 此前零触达）。
+>
+> **坑**：antd Drawer open=false 且从未打开时 portal 内容不挂载（node=null 用例
+> 只能断言 fetch 未调+无内容）；ModalForm（destroyOnHidden）字段挂载在 open 后
+> 异步帧，fill 动作须 findBy* 轮询不可 getBy。
+>
+> **并行冲突记录**：PasswordModal.tsx 两次被并行会话回写覆盖（formatMessage
+> 无 defaultMessage 旧版），第三次重写后收窄窗口立即 add+commit（54eb49c）捕获；
+> lint-staged 的 stash/apply 竞态疑似回写源。
+>
+> 门禁：五套件 20 用例绿 + Profile 邻域无回归 + tsc 0 错误。组件改动仅
+> PasswordModal 一处（defaultMessage 补齐），其余四文件纯新增测试。
+> 下一步：web 侧 <80% 清零，巡检收官；回归 Go/登记面常规巡检。
