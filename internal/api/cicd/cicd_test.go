@@ -367,16 +367,33 @@ func TestCicdHandler_Webhook_BindAndPathErrors(t *testing.T) {
 
 func TestCicdHandler_TriggerFull(t *testing.T) {
 	svcCicd, r := setupHandlerCtx(t)
+	// jenkins provider 会真发 HTTP 出站：起本地 mock server 兜住（同
+	// TestCicdService_TriggerFullChain 的形态——build 201+Location、queue
+	// executable 拉回构建号），经 WithHTTPClient 注入后 Endpoint 指向 mock。
+	mux := http.NewServeMux()
+	mux.HandleFunc("/job/pack/build", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location", "/queue/item/3/")
+		w.WriteHeader(http.StatusCreated)
+	})
+	mux.HandleFunc("/queue/item/3/api/json", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"executable": map[string]any{"number": 12}})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	svcCicd = svcCicd.WithHTTPClient(srv.Client())
+
 	// 先建集成，handler 才有数据可查
-	created, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
+	_, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "jenkins", Name: "trigger-test",
-		Endpoint: "http://ci.internal",
+		Endpoint: srv.URL,
 	})
 	require.NoError(t, err)
 
 	h := cicd.NewHandler(svcCicd)
 	gin.SetMode(gin.TestMode)
-	r.POST("/cicd/integrations/1/trigger", h.Trigger)
+	// 路由须带 :id 参数（同生产 routes.go 与本文件 BindAndPathErrors 先例）：
+	// pathID 读 c.Param("id")，字面量注册恒得「路径 id 无效」400。
+	r.POST("/cicd/integrations/:id/trigger", h.Trigger)
 	w := httptest.NewRecorder()
 	body := `{"pipeline":"pack","version":"1.2.3"}`
 	req := httptest.NewRequest(http.MethodPost, "/cicd/integrations/1/trigger", strings.NewReader(body))
@@ -401,17 +418,21 @@ func TestCicdHandler_TriggerFull(t *testing.T) {
 
 func TestCicdHandler_WebhookFull(t *testing.T) {
 	svcCicd, r := setupHandlerCtx(t)
-	// 先建带 token 的集成，Webhook 才能校验 token
-	created, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
+	// 先建带 token 的集成，Webhook 才能校验 token；generic provider 要求
+	// triggerUrl/statusUrl 至少配置一个（本用例走 webhook 入口不真打外部，
+	// statusUrl 仅为过 Create 校验）。
+	_, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "generic", Name: "hook-full-test",
 		Endpoint: "http://ci.internal",
 		Token:    "full-secret",
+		Extra:    map[string]string{"statusUrl": "http://x/{id}"},
 	})
 	require.NoError(t, err)
 
 	h := cicd.NewHandler(svcCicd)
 	gin.SetMode(gin.TestMode)
-	r.POST("/cicd/webhooks/1", h.Webhook)
+	// 同上：注册 :id 参数路由，c.Param("id") 才有值
+	r.POST("/cicd/webhooks/:id", h.Webhook)
 	w := httptest.NewRecorder()
 	body := `{"externalId":"b-3","status":"passed","version":"3.0.0"}`
 	req := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader(body))
@@ -425,8 +446,9 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &out))
 	assert.Equal(t, model.CicdBuildSuccess, out.Build.Status)
 	assert.NotNil(t, out.Build.FinishedAt)
-	// 令牌错误
+	// 令牌错误（新 engine 须注册同款路由，空引擎只会 404）
 	r2 := gin.New()
+	r2.POST("/cicd/webhooks/:id", h.Webhook)
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader(body))
 	req2.Header.Set("Content-Type", "application/json")
@@ -435,6 +457,7 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w2.Code)
 	// 缺少 externalId → 400
 	r3 := gin.New()
+	r3.POST("/cicd/webhooks/:id", h.Webhook)
 	w3 := httptest.NewRecorder()
 	req3 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader(`{"status":"passed"}`))
 	req3.Header.Set("Content-Type", "application/json")
@@ -448,6 +471,7 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 		Extra:    map[string]string{"statusUrl": "http://x/{id}"},
 	})
 	r4 := gin.New()
+	r4.POST("/cicd/webhooks/:id", h.Webhook)
 	w4 := httptest.NewRecorder()
 	body4 := `{"externalId":"b-4","status":"passed","version":"1.0.0"}`
 	req4 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/"+strconv.FormatUint(uint64(created2.Integration.ID), 10), strings.NewReader(body4))
