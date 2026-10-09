@@ -74,8 +74,8 @@ title: 插件机制正式设计——扩展点全景、外部服务接入规范�
 ### 3.4 告警出口（alert outlet）
 
 - 契约面：`Outlet` 接口位（§5.1）——`Deliver(ctx, AlertEvent) error`，AlertEvent 为 §5.2 统一信封。
-- 注册：编译期工厂 + server 侧配置选择启用（`outlets:` 配置块）；herald 适配器为第一内置实现。
-- 状态：接口位本设计定稿，实现随 M2（herald 简档 §7 原落点不变）。
+- 注册：编译期工厂 + server 侧配置选择启用；herald 适配器为第一内置实现。
+- 状态：**已落地（2026-10-10，M2）**——`internal/platform/outlet`（Outlet + Manager + HeraldOutlet），事件源 hook 走 `MetricsStore.SetOnSupervisorEvent`，配置段 `herald:`（herald 简档 §8 有实现与简档差异清单；扇出多出口仍留位）。
 
 ### 3.5 告警入口（inbound alerts，webhook 形式）
 
@@ -252,14 +252,14 @@ herald 映射（kind→品类、severity→紧急度、event_id→幂等）沿 h
 
 ## 8. 分期计划（拍板后动工）
 
-| 期                             | 内容                                                                                                                         | 验收门                                                                   |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| M1 归位标注（零代码）          | 本设计落档；§3 表各扩展点标注状态锚点；#66 P0 产出归位                                                                       | 文档三层同步 + docs build                                                |
-| M2 Outlet 接口位 + herald 出口 | Outlet 小接口 + herald 适配器（herald 简档 §7 原落点，随 K3 告警通道批次）                                                   | 适配器单测（映射/重试分类）+ 本地 heraldd 冒烟 + `herald.enabled` 缺省关 |
-| M3 告警入口 webhook            | inbound 端点 + Alertmanager/generic 映射 + HMAC/防重放/幂等                                                                  | 单测（签名/重放/映射/幂等）+ 告警页落库回归                              |
-| M4 接入模板落地                | `docs/templates/external-service-integration-template.md` + 首个真实供应商走查修订                                           | 模板过目 + 走查记录                                                      |
-| M5 cockpit 接入批次            | cockpit 简档落档后：L4 provider 配置实例接 cockpit REST（命名对齐 §3.8 ④）；触发后评估 ②provider 兜底 driver（薄封装同款库） | 端到端：面板发起 BMC 拉起 → 审批 → execlog 留痕 → 资产动作完成           |
-| 远期留位                       | 检测器插件化、多出口扇出、webhook 出口模板化（钉钉/飞书）、签名分发                                                          | 各自触发条件见 §3.3/§5.4                                                 |
+| 期                             | 内容                                                                                                                                  | 验收门                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| M1 归位标注（零代码）          | 本设计落档；§3 表各扩展点标注状态锚点；#66 P0 产出归位                                                                                | 文档三层同步 + docs build                                                   |
+| M2 Outlet 接口位 + herald 出口 | Outlet 小接口 + herald 适配器（herald 简档 §7 原落点，随 K3 告警通道批次）——**已交付（2026-10-10）**，实现与简档差异见 herald 简档 §8 | 适配器单测（映射/重试分类）+ 本地 heraldd 冒烟 + `herald.enabled` 缺省关 ✅ |
+| M3 告警入口 webhook            | inbound 端点 + Alertmanager/generic 映射 + HMAC/防重放/幂等                                                                           | 单测（签名/重放/映射/幂等）+ 告警页落库回归                                 |
+| M4 接入模板落地                | `docs/templates/external-service-integration-template.md` + 首个真实供应商走查修订                                                    | 模板过目 + 走查记录                                                         |
+| M5 cockpit 接入批次            | cockpit 简档落档后：L4 provider 配置实例接 cockpit REST（命名对齐 §3.8 ④）；触发后评估 ②provider 兜底 driver（薄封装同款库）          | 端到端：面板发起 BMC 拉起 → 审批 → execlog 留痕 → 资产动作完成              |
+| 远期留位                       | 检测器插件化、多出口扇出、webhook 出口模板化（钉钉/飞书）、签名分发                                                                   | 各自触发条件见 §3.3/§5.4                                                    |
 
 ## 9. 已知边界（诚实清单）
 

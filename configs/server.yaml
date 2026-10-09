@@ -126,3 +126,15 @@ metrics:
 #   publishReviewByEnv:
 #     dev: auto
 #     staging: auto
+
+# herald 告警出口（Outlet 第一内置实现，M2）：告警事件经 herald 投递
+# （courier 式——渠道/收件人由 herald 侧配置，croupier 只投事件；见
+# docs/design/agent-herald-integration.md）。缺省关；关=纯 croupier 告警
+# 页，行为与现状一致。tokenEnv 指向持 trigger token 的环境变量（凭证不
+# 落配置文件）；app/target 留空取默认 croupier / group:gm-ops。
+# herald:
+#   enabled: true
+#   baseUrl: http://herald:8080
+#   app: croupier
+#   tokenEnv: HERALD_TRIGGER_TOKEN
+#   target: group:gm-ops

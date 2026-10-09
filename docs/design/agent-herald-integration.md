@@ -6,7 +6,7 @@ title: herald 对接简档——croupier 告警出口对接通知编排平台（
 
 ## 状态
 
-- 状态: **Proposed（简档待用户过目，未动码）**，六件套之一（[Agent 清单](agents-inventory.md) 顶部有索引）。
+- 状态: **M2 已落地（2026-10-10，Outlet 接口位 + herald 出口适配器，见 §8）**，六件套之一（[Agent 清单](agents-inventory.md) 顶部有索引）。
 - 报警出口令（用户令，2026-10-09）：capture 告警 / healthprobe 故障窗口 / devops 构建失败 → 走 **herald**（用户自研通知编排与投递平台，仓 `~/workspaces/herald`）的 REST API/webhook 投递；**croupier 这边当接入方，courier 式接法**——herald 只提供能力，通道/收件人由 herald 侧配置；接入方式写进本简档。
 - 依据: herald `docs/api/rest.md`、`docs/guide/integration.md`（应用接入/集成者 API，2026-10 时点）。
 
@@ -37,13 +37,13 @@ title: herald 对接简档——croupier 告警出口对接通知编排平台（
 
 croupier 是「事件语义在自己词汇里的整合方」（告警源：kind/severity/target + 自有事件主键），走 herald 的**事件接入适配面**而非裸 dispatch——herald 侧完成 kind→品类、severity→紧急度、target→受众映射，croupier 自有事件主键进 `event_id`（进幂等、投递结果回调回带）：
 
-| croupier 事件源                                                              | kind                                    | severity 映射                                         | event_id                     |
-| ---------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------- | ---------------------------- |
-| capture 规则命中（§4.4 命中详情）                                            | `capture.rule_hit`                      | 告警 severity 直映（critical→critical，warn→warning） | 告警 id                      |
-| devops 规则命中（build_failed/build_timeout/stale_green/consecutive_failed） | `devops.build_*` / `devops.stale_green` | warning（critical 规则可配）                          | 告警 id                      |
-| supervisor 熔断（breaker_tripped）                                           | `supervisor.breaker_tripped`            | critical                                              | supervisor 事件 seq          |
-| healthprobe 故障窗口开始                                                     | `probe.unavailable`                     | warning（Liveness critical）                          | `{target}:{window_start_ts}` |
-| healthprobe 窗口恢复                                                         | `probe.recovered`                       | info                                                  | 同上（state 翻转重发）       |
+| croupier 事件源                                                              | kind                                    | severity 映射                                         | event_id                                                                        |
+| ---------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
+| capture 规则命中（§4.4 命中详情）                                            | `capture.rule_hit`                      | 告警 severity 直映（critical→critical，warn→warning） | 告警 id                                                                         |
+| devops 规则命中（build_failed/build_timeout/stale_green/consecutive_failed） | `devops.build_*` / `devops.stale_green` | warning（critical 规则可配）                          | 告警 id                                                                         |
+| supervisor 熔断（breaker_tripped）                                           | `supervisor.breaker_tripped`            | critical                                              | `{agentId}:{seq}`（seq 是 agent 本地游标重启归零，裸 seq 跨 agent 必撞，见 §8） |
+| healthprobe 故障窗口开始                                                     | `probe.unavailable`                     | warning（Liveness critical）                          | `{target}:{window_start_ts}`                                                    |
+| healthprobe 窗口恢复                                                         | `probe.recovered`                       | info                                                  | 同上（state 翻转重发）                                                          |
 
 要点：
 
@@ -62,13 +62,13 @@ croupier 是「事件语义在自己词汇里的整合方」（告警源：kind/
 ```yaml
 herald:
   enabled: false # 缺省关；关=纯 croupier 告警页，行为与现状一致
-  baseUrl: http://herald:8080
-  app: croupier
-  tokenEnv: HERALD_TRIGGER_TOKEN # 凭证走环境变量引用，不落配置文件
-  categories: # kind 前缀 → 品类映射（闭集）
-    agentAlerts: agent-alerts
-    availability: availability
+  baseUrl: http://herald:8080 # 空则降级告警日志、不注册出口
+  app: croupier # 空取默认 croupier
+  tokenEnv: HERALD_TRIGGER_TOKEN # 凭证走环境变量引用，不落配置文件；环境变量缺失降级不注册
+  target: group:gm-ops # 默认受众 ref，空取默认 group:gm-ops（dispatch face 要求受众非空，见 §8）
 ```
+
+kind→品类映射（`probe.*` 前缀→`availability`，其余闭集→`agent-alerts`）与 severity→紧急度（critical/warning/info→critical/urgent/normal）是代码内闭集，不进配置；需要运行时可调时再加映射配置段。
 
 ## 6. 降级与边界（诚实清单）
 
@@ -80,6 +80,24 @@ herald:
 
 ## 7. 实施落点
 
-- server：告警管线后挂 herald 出口适配器（独立小包，随 K3 告警通道批次交付）；配置契约 §5 进 `configs/server.yaml` 示例。
+- server：告警管线后挂 herald 出口适配器（独立小包，随 K3 告警通道批次交付）；配置契约 §5 进 `configs/server.yaml` 示例。→ **已落地为 `internal/platform/outlet`，见 §8。**
 - 依赖方向：`internal/server` 适配器 → `apps-sdk/go`（跨仓依赖，版本钉死；herald 仓同主人，升级节奏自控）。
 - 测试：适配器单测（事件→请求映射/severity 映射/重试分类）+ herald 侧联调用例（本地起 heraldd 冒烟，CI 不依赖外网）。
+
+## 8. 落地记录（M2，2026-10-10）
+
+实现落点：
+
+- **`internal/platform/outlet`**：`Outlet` 接口位（plugin-mechanism §5.1）+ `Manager`（扇出留位，v1 单出口；传输错误有限重试、`Permanent` 拒绝短路、失败计数）+ `HeraldOutlet`（apps-sdk/go `Dispatch`，`IsTransport` 分类：传输错误可重试、herald 拒绝 `Permanent` 不重试）。
+- **事件源 hook**：`MetricsStore.SetOnSupervisorEvent`（去重后新事件锁外异步回调）→ `internal/svc` 布线 `registerHeraldOutlet`；首个真实事件源 = supervisor `breaker_tripped`（critical）。capture/devops/probe 源随各自批次接入（kind 闭集已在 outlet 包定义）。
+- **配置**：`herald:` 段（§5），缺省关；`configs/server.yaml` 注释示例。
+- **信封**：EventID/DedupKey = `{agentId}:{seq}` / `supervisor.breaker_tripped:{agentId}:{seq}`；Scope.AgentID 携 agent。
+
+与简档基线的差异（诚实清单）：
+
+1. **走 dispatch face 而非事件适配面**：herald `/events` 适配面要求逐事件 target 非空，与「事件不带 target」相抵；实现走 `POST /api/v1/apps/{app}/dispatch`，Audiences = 配置的默认受众 ref（`herald.target`，默认 `group:gm-ops`）。逐事件 target 分流留待 scope 分流批次。
+2. **event_id 携 agentId 前缀**（§3 表内已更新）：简档原文写裸 seq，seq 是 agent 本地游标、重启归零，裸值跨 agent 重启必撞幂等。
+3. **品类映射在代码闭集**：§5 原拟 `categories` 配置表未实装（映射面稳定，配置化留位）。
+4. **herald 侧播种清单**（部署口径，品类注册一次性走 herald 侧配置完成的具体含义）：app `croupier` token（trigger+config）、groups 受众播种、`delivery.category_urgency`（缺省 normal 走 Inbox 面，过不了 IM 强度通道）、`dedup.enabled: true`（缺省关=闸门直通不折叠）。
+
+验收门（plugin-mechanism §8 M2）：适配器单测（映射/重试分类）✅ + 本地 heraldd 冒烟（品类注册→dispatch 受理→同 EventID dedup 折叠，`internal/platform/outlet/heraldd_smoke_test.go`，env 门控 CI 不依赖外网）✅ + `herald.enabled` 缺省关 ✅。

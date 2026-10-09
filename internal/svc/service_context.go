@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,7 @@ import (
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
+	"github.com/cuihairu/croupier/internal/platform/outlet"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
@@ -43,6 +45,7 @@ import (
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/transport"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"log/slog"
@@ -542,6 +545,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		evaluator := alertrule.New(ctx.AlertRuleModel, ctx.AlertModel, nil)
 		ctx.MetricsStore.SetOnReport(evaluator.EvaluateAgent)
 	}
+	// herald 告警出口（Outlet 第一内置实现，plugin-mechanism §5/M2）：
+	// supervisor 熔断等告警事件经出口管理器异步投递 herald（courier 式）。
+	// 缺省关；开启但 baseUrl/token 缺失只降级告警日志，不注册出口。
+	registerHeraldOutlet(ctx)
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}
@@ -580,6 +587,71 @@ func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env str
 		return base
 	}
 	return dbctx.WithDB(base, gameDB)
+}
+
+// registerHeraldOutlet 布线 herald 告警出口（plugin-mechanism §5/M2）：
+// herald.enabled 开启时按配置注册出口，并把 supervisor 熔断事件（闭集内
+// 首个真实事件源；capture/devops/probe 源随对应 agent 简档接入）喂给出
+// 口管理器。enabled 但 baseUrl/token 缺失只降级为告警日志、不注册出口
+// （失败留位：croupier 告警页照常，出口不可用绝不阻塞告警链）。
+func registerHeraldOutlet(ctx *ServiceContext) {
+	cfg := ctx.Config.Herald
+	if !cfg.Enabled || ctx.MetricsStore == nil {
+		return
+	}
+	if strings.TrimSpace(cfg.BaseURL) == "" {
+		slog.WarnContext(context.Background(), "herald outlet enabled but baseUrl missing; outlet not registered")
+		return
+	}
+	tokenEnv := cfg.TokenEnv
+	if tokenEnv == "" {
+		tokenEnv = outlet.HeraldDefaultTokenEnv
+	}
+	token := os.Getenv(tokenEnv)
+	if token == "" {
+		slog.WarnContext(context.Background(), "herald outlet enabled but token env missing; outlet not registered",
+			"tokenEnv", tokenEnv)
+		return
+	}
+	app := cfg.App
+	if app == "" {
+		app = outlet.HeraldDefaultApp
+	}
+	target := cfg.Target
+	if target == "" {
+		target = outlet.HeraldDefaultTarget
+	}
+	manager := outlet.NewManager()
+	manager.Register(outlet.NewHeraldOutlet(cfg.BaseURL, app, token, target))
+	ctx.MetricsStore.SetOnSupervisorEvent(supervisorEventToOutlet(manager))
+	slog.InfoContext(context.Background(), "herald outlet registered", "app", app, "target", target)
+}
+
+// supervisorEventToOutlet 把新监管事件映射为统一信封：v1 闭集只消费
+// breaker_tripped（severity 恒 critical；其余类型出口零改动地忽略）。
+// event_id/dedup_key 携 agentId——seq 是 agent 本地游标、重启归零，跨
+// agent 不加前缀必撞。
+func supervisorEventToOutlet(m *outlet.Manager) func(ctx context.Context, agentID string, ev *opsv1.SupervisorEvent) {
+	return func(_ context.Context, agentID string, ev *opsv1.SupervisorEvent) {
+		if m == nil || ev == nil || ev.GetEvent() != "breaker_tripped" {
+			return
+		}
+		title := "supervisor: breaker tripped for " + ev.GetProcess()
+		body := ev.GetMessage()
+		if body == "" {
+			body = "too many restart failures"
+		}
+		m.Dispatch(outlet.AlertEvent{
+			Kind:             outlet.KindSupervisorBreaker,
+			Severity:         outlet.SeverityCritical,
+			EventID:          agentID + ":" + strconv.FormatInt(ev.GetSeq(), 10),
+			DedupKey:         "supervisor.breaker_tripped:" + agentID + ":" + strconv.FormatInt(ev.GetSeq(), 10),
+			Title:            title,
+			Body:             body,
+			OccurredAtUnixMs: ev.GetTsUnix() * 1000,
+			Scope:            outlet.Scope{AgentID: agentID},
+		})
+	}
 }
 
 func NewTelemetryService(c config.Config, serviceName string, logger *slog.Logger) (*telemetry.GameTelemetryService, error) {

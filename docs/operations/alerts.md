@@ -71,6 +71,8 @@ Agent 上报的系统指标（路径式 key）：
 
 告警触发时按[通知渠道](./notifications)配置分发：站内信（默认开）、钉钉机器人、自定义 webhook、SMTP 邮件。分发失败只记日志不阻塞告警落库。
 
+另有 **herald 外部告警出口**（`herald.enabled` 缺省关）：开启后监管熔断（supervisor breaker_tripped）等事件经 [herald](../design/agent-herald-integration.md) 投递——渠道/收件人全在 herald 侧配置，herald 不可达只记日志与失败计数、不阻塞告警落库。
+
 ## 与外部 Alertmanager 的关系
 
 无集成。若已有 Alertmanager 体系，`GET /api/v1/ops/config` 返回的 `alertmanagerUrl`（环境变量 `CROUPIER_ALERTMANAGER_URL`）仅作为页面跳转链接——指标采集与告警判定都在平台内闭环，运维可自行选择只用其一。

@@ -38,6 +38,10 @@ type Config struct {
 	// only explicit `false` disables a domain. Data-plane components (agent,
 	// analytics worker, ingest) are not governed by these flags.
 	FeatureFlags FeatureFlagsConfig `json:"featureFlags,omitempty" yaml:"featureFlags,omitempty"`
+	// Herald 告警出口（Outlet 第一内置实现，plugin-mechanism 设计 §5/M2）：
+	// 告警经 herald 投递（courier 式，渠道/收件人 herald 侧配置）。
+	// Enabled 缺省 false——关=纯 croupier 告警页，行为与现状一致。
+	Herald HeraldConfig `json:"herald,omitempty" yaml:"herald,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
@@ -52,6 +56,22 @@ const (
 	// PublishReviewRequired 提案 → 人工审核 → 发布（现状链路）。
 	PublishReviewRequired = "required"
 )
+
+// HeraldConfig herald 告警出口接入配置（plugin-mechanism 设计 §5/M2）。
+// courier 式接法：croupier 只投事件，渠道/收件人由 herald 侧配置。
+type HeraldConfig struct {
+	// Enabled 缺省 false：关=纯 croupier 告警页，行为与现状一致。
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// BaseURL herald 服务地址（如 http://herald:8080）。
+	BaseURL string `json:"baseUrl,omitempty" yaml:"baseUrl,omitempty"`
+	// App herald 侧 app 命名空间（herald 配置播种名，默认 croupier）。
+	App string `json:"app,omitempty" yaml:"app,omitempty"`
+	// TokenEnv 持 trigger token 的环境变量名（默认 HERALD_TRIGGER_TOKEN）：
+	// 凭证走环境变量引用，不落配置文件。
+	TokenEnv string `json:"tokenEnv,omitempty" yaml:"tokenEnv,omitempty"`
+	// Target 默认受众 ref（默认 group:gm-ops，herald 侧解析到群组/值班表）。
+	Target string `json:"target,omitempty" yaml:"target,omitempty"`
+}
 
 // PagesConfig 页面发布分级配置。
 type PagesConfig struct {

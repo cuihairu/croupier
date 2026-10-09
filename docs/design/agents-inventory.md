@@ -88,7 +88,7 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 
 ### 5.3 herald（告警投递出口）
 
-capture 告警 / healthprobe 故障窗口 / devops 构建失败经 **herald**（通知编排与投递平台）投递——croupier 当接入方（courier 式接法），**渠道/收件人由 herald 侧配置**，croupier 只报事件不配收件人；告警页仍是真值，herald 不可达不阻塞告警链。接法见 [herald 对接简档](agent-herald-integration.md)。
+capture 告警 / healthprobe 故障窗口 / devops 构建失败经 **herald**（通知编排与投递平台）投递——croupier 当接入方（courier 式接法），**渠道/收件人由 herald 侧配置**，croupier 只报事件不配收件人；告警页仍是真值，herald 不可达不阻塞告警链。接法见 [herald 对接简档](agent-herald-integration.md)。**M2 已落地（2026-10-10）**：`internal/platform/outlet` 出口适配器 + `herald:` 配置段（缺省关），首事件源 supervisor 熔断，实现与简档差异见简档 §8。
 
 ## 6. 路线图占位（只登记不实现，面板不建页）
 

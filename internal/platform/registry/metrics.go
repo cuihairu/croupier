@@ -75,6 +75,10 @@ type MetricsStore struct {
 	// onReport 是上报后回调（告警规则评估等）。异步执行且有 recover
 	// 防护，评估异常不影响存储链路。
 	onReport func(ctx context.Context, agentID string, report *opsv1.MetricsReport)
+	// onSupervisorEvent 是新监管事件入库后回调（herald 告警出口等，仅
+	// 去重后的新事件触发）。异步执行且有 recover 防护，回调异常不影响
+	// 存储链路。
+	onSupervisorEvent func(ctx context.Context, agentID string, ev *opsv1.SupervisorEvent)
 	// supervisor 事件环（agent 经 metrics 上报捎带，server 内存缓存）。
 	// lastSeq/lastTs 用于去重：seq 不新且 ts 不新视为重传丢弃；seq 回退但
 	// ts 更新说明 agent 重启后游标归零，按新事件重新入库。
@@ -87,6 +91,14 @@ type MetricsStore struct {
 func (s *MetricsStore) SetOnReport(fn func(ctx context.Context, agentID string, report *opsv1.MetricsReport)) {
 	s.mu.Lock()
 	s.onReport = fn
+	s.mu.Unlock()
+}
+
+// SetOnSupervisorEvent sets the post-ingest callback fired for each NEW
+// supervisor event (重传去重后；herald 告警出口消费).
+func (s *MetricsStore) SetOnSupervisorEvent(fn func(ctx context.Context, agentID string, ev *opsv1.SupervisorEvent)) {
+	s.mu.Lock()
+	s.onSupervisorEvent = fn
 	s.mu.Unlock()
 }
 
@@ -146,8 +158,9 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 		Received: time.Now(),
 	}
 	s.head = (s.head + 1) % s.config.MaxTotalEntries
-	s.ingestSupervisorEventsLocked(agentID, report.GetSupervisorEvents())
+	newSupEvents := s.ingestSupervisorEventsLocked(agentID, report.GetSupervisorEvents())
 	onReport := s.onReport
+	onSupEvent := s.onSupervisorEvent
 	s.mu.Unlock()
 
 	// Persist to database asynchronously
@@ -163,6 +176,21 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 			defer cancel()
 			onReport(evalCtx, agentID, report)
 		}()
+	}
+
+	// 新监管事件回调（异步逐事件，回调失败不影响存储与上报链路）。
+	for _, ev := range newSupEvents {
+		if onSupEvent == nil {
+			break
+		}
+		go func(ev *opsv1.SupervisorEvent) {
+			defer func() {
+				_ = recover()
+			}()
+			evCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			onSupEvent(evCtx, agentID, ev)
+		}(ev)
 	}
 }
 
@@ -188,10 +216,11 @@ func (s *MetricsStore) persistToDB(agentID string, report *opsv1.MetricsReport) 
 }
 
 // ingestSupervisorEventsLocked merges piggybacked supervisor events into the
-// per-agent ring. Caller must hold s.mu.
-func (s *MetricsStore) ingestSupervisorEventsLocked(agentID string, evs []*opsv1.SupervisorEvent) {
+// per-agent ring and returns the newly ingested events (重传去重后) for the
+// post-ingest callback. Caller must hold s.mu.
+func (s *MetricsStore) ingestSupervisorEventsLocked(agentID string, evs []*opsv1.SupervisorEvent) []*opsv1.SupervisorEvent {
 	if len(evs) == 0 {
-		return
+		return nil
 	}
 	if s.supEvents == nil {
 		s.supEvents = make(map[string][]*opsv1.SupervisorEvent)
@@ -200,6 +229,7 @@ func (s *MetricsStore) ingestSupervisorEventsLocked(agentID string, evs []*opsv1
 	}
 	lastSeq, lastTs := s.supLastSeq[agentID], s.supLastTs[agentID]
 	ring := s.supEvents[agentID]
+	var fresh []*opsv1.SupervisorEvent
 	for _, ev := range evs {
 		if ev == nil {
 			continue
@@ -210,6 +240,7 @@ func (s *MetricsStore) ingestSupervisorEventsLocked(agentID string, evs []*opsv1
 			continue
 		}
 		ring = append(ring, ev)
+		fresh = append(fresh, ev)
 		if len(ring) > supervisorEventRingSize {
 			ring = ring[len(ring)-supervisorEventRingSize:]
 		}
@@ -218,6 +249,7 @@ func (s *MetricsStore) ingestSupervisorEventsLocked(agentID string, evs []*opsv1
 	s.supEvents[agentID] = ring
 	s.supLastSeq[agentID] = lastSeq
 	s.supLastTs[agentID] = lastTs
+	return fresh
 }
 
 // GetSupervisorEvents returns buffered supervisor events for an agent, oldest

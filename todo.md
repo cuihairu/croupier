@@ -4132,3 +4132,16 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - 测试：agent 6 用例（真子进程采样/阈值标记/句柄重建/STOPPED 零值/collector 折入/
   flags 单元）、server 6 用例（映射/聚合/端点/列表注入/handler 参数兜底）、
   web SupervisorDrawer 5 用例。
+
+## 插件机制 M2·Outlet 接口位 + herald 告警出口交付（2026-10-10）
+
+> 依据 [plugin-mechanism.md](docs/design/plugin-mechanism.md) §8 分期与 [agent-herald-integration.md](docs/design/agent-herald-integration.md) 简档（六件套设计补单首批实现）。验收门三项全过。
+
+- **`internal/platform/outlet`（新包）**：`Outlet` 接口位（`Name`+`Deliver(ctx, AlertEvent)`，§5.1 统一信封 kind 闭集：capture.rule_hit / devops.build_failed / supervisor.breaker_tripped / probe.unavailable / probe.recovered / alert.inbound；severity 三档）+ `Manager`（注册扇出留位，v1 单出口；传输错误 3 次有限重试、`Permanent` 拒绝短路、失败计数、outlet panic recover 不伤事件源）+ `HeraldOutlet`（herald apps-sdk/go `Dispatch`，不自研 REST；`IsTransport` 分类：传输错误可重试、herald 拒绝 Permanent 不重试）。
+- **事件源 hook**：`MetricsStore.SetOnSupervisorEvent`（去重后新事件锁外异步回调、nil 安全、agent 重启 seq 回退按 ts 判新）→ `internal/svc.registerHeraldOutlet` 布线：`herald.enabled` 缺省关；baseUrl/tokenEnv 环境变量缺失降级告警日志不注册出口；首个真实事件源 = supervisor `breaker_tripped`（critical），EventID/DedupKey=`{agentId}:{seq}`（裸 seq 重启归零跨 agent 必撞）。
+- **配置**：`herald:` 段（enabled/baseUrl/app/tokenEnv/target，lowerCamelCase），`configs/server.yaml` 注释示例；kind→品类（`probe.*`→availability，其余→agent-alerts）与 severity→紧急度为代码闭集，配置化留位。
+- **heraldd 本地冒烟**（`heraldd_smoke_test.go`，env 门控 CI 不依赖外网）：品类注册 → dispatch 受理 → 同 EventID 重发 dedup 折叠全链绿。冒烟复证 herald 侧播种四件（部署口径）：groups 受众、`delivery.category_urgency`（缺省 normal 走 Inbox 面，过不了 IM 强度通道）、`dedup.enabled`（缺省关=闸门直通）、app token。
+- **简档漂移诚实记录**（herald 简档 §8）：走 dispatch face 而非事件适配面（/events 需逐事件 target，相抵）；默认受众 ref `group:gm-ops`（dispatch face 要求受众非空）；event_id 携 agentId 前缀。
+- **依赖**：`github.com/cuihairu/herald` 伪版本钉 v0.1.2-0.20261009181856-eaef4e8eada2（miniredis 2.39.0 / go-redis v9.20.0 / expr v1.17.8 随之上浮）。
+- **测试**：outlet 11 用例（扇出/重试/Permanent/panic recover/映射闭集/herald httptest 映射与分类）+ registry hook 2 + svc 5（缺省关/降级三态/信封字段）+ config 1，`-race` 全绿（svc 包 593 用例 ~20min，慢机须 `-timeout 25m`，默认 10m 会误杀）；guard PASSED。-race 实测暴露两处测试侧竞态（stub 裸计数器/hook 收集切片），已改 atomic+锁+集合断言（hook 契约不保证跨事件顺序）。
+- **边界**：v1 单出口（Manager 已留扇出位）；投递结果回调（delivery_result HMAC）不接（简档 §6）；仅 breaker_tripped 事件源接线，capture/devops/probe 源随各自批次接（kind 闭集已备）。
