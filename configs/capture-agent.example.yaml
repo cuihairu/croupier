@@ -1,0 +1,43 @@
+# capture-agent 示例配置（复制为 capture-agent.yaml 后按环境修改）。
+# 命名遵循仓内配置契约（lowerCamelCase）；capture.enabled 缺省关。
+
+agent:
+  # 注册用 agent 唯一 id（必填）。
+  id: capture-01
+  # 上游控制面地址（必填，tcp:// 前缀可省）。
+  serverAddr: "127.0.0.1:19090"
+  # 游戏域标签（必填，注册携带，面板按此过滤）。
+  gameId: demo
+  # 逻辑环境标签（prod/stage/dev，可空）。
+  env: prod
+  # supervisable 心跳打点文件（监管方采样 mtime 得 last_heartbeat_unix）。
+  heartbeatFile: data/capture/agent-heartbeat
+
+# 上行控制通道 TLS（enabled=false 时裸连；生产建议启用并配 caFile）。
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
+
+capture:
+  # 总开关，缺省关（开启前确认 MySQL 前置：binlog_format=ROW、
+  # binlog_row_image=FULL、REPLICATION SLAVE 权限、server_id 不冲突）。
+  enabled: false
+  # 位点文件目录（每源一文件：mysql.json，tmp+rename 原子写）。
+  bookmarkDir: data/capture/bookmarks
+  # 位点周期落盘间隔（秒，默认 5）。
+  bookmarkFlushIntervalSec: 5
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    user: repl
+    password: ""
+    # 与源实例及其他 binlog 订阅者不冲突。
+    serverId: 4242
+    # 订阅白名单（"库.表"，必填非空——只订道具相关表，噪声与带宽双控）。
+    tables:
+      game.items: true
+      game.player_wallet: true

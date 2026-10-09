@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **Proposed（简档待用户过目，未动码）**。批准后按 §8 分期实施。
+- 状态: **C1 骨架已实施（2026-10-10）**。agent-core 骨架（K1-K4）+ capture-agent 骨架（注册上线/心跳/监管挂接）+ MySQL 源 + 统一事件流 + 位点持久化已落地（`agents/capture/{source,config,controlconn,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）；C2（闸层+告警上报）待批。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -87,13 +87,13 @@ type ChangeSource interface {
 
 ### 3.3 源成熟度与接入成本（文档标注，选型依据）
 
-| 源         | 机制                       | 库                                            | 成熟度                                                      | 前置条件                                                                              | 已知边界                                                              |
-| ---------- | -------------------------- | --------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| MySQL      | binlog ROW 模式            | github.com/go-mysql（siddontang，canal 同源） | **高**（国内游戏业事实标准，社区大）                        | `binlog_format=ROW`、`binlog_row_image=FULL`、REPLICATION SLAVE 权限、独立 server_id  | 无实质边界；GTID 原生                                                 |
-| PostgreSQL | 逻辑复制（pgoutput）       | github.com/cockroachdb/pglogrepl + jackc/pgx  | **中高**（pglogrepl 是 CockroachDB 维护的逻辑复制协议实现） | `wal_level=logical`、publication、replication slot、`REPLICA IDENTITY FULL`（要前像） | **WAL 不携带会话账号**——血缘闸的 account 字段 PG 侧拿不到原生值，见下 |
-| SQLite     | （无日志流）触发器镜像表   | 自写 trigger→change 表轮询                    | 低                                                          | 每张受监控表加 AFTER 触发器                                                           | 侵入 schema；留扩展位不进默认两源                                     |
-| SQL Server | 内置 CDC / Change Tracking | 官方 sqlserver 驱动                           | 中                                                          | 版本/许可依赖                                                                         | 留扩展位                                                              |
-| MongoDB    | Change Streams             | mongo-driver                                  | 中                                                          | 副本集                                                                                | 留扩展位                                                              |
+| 源         | 机制                       | 库                                            | 成熟度                                                      | 前置条件                                                                              | 已知边界                                                                                                                                            |
+| ---------- | -------------------------- | --------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MySQL      | binlog ROW 模式            | github.com/go-mysql（siddontang，canal 同源） | **高**（国内游戏业事实标准，社区大）                        | `binlog_format=ROW`、`binlog_row_image=FULL`、REPLICATION SLAVE 权限、独立 server_id  | **binlog 事件不携带会话账号**（C1 实证：go-mysql replication 事件无 session account 字段）——account 字段 C1 恒空，血缘闸按 §3.3 边界降级；GTID 原生 |
+| PostgreSQL | 逻辑复制（pgoutput）       | github.com/cockroachdb/pglogrepl + jackc/pgx  | **中高**（pglogrepl 是 CockroachDB 维护的逻辑复制协议实现） | `wal_level=logical`、publication、replication slot、`REPLICA IDENTITY FULL`（要前像） | **WAL 不携带会话账号**——血缘闸的 account 字段 PG 侧拿不到原生值，见下                                                                               |
+| SQLite     | （无日志流）触发器镜像表   | 自写 trigger→change 表轮询                    | 低                                                          | 每张受监控表加 AFTER 触发器                                                           | 侵入 schema；留扩展位不进默认两源                                                                                                                   |
+| SQL Server | 内置 CDC / Change Tracking | 官方 sqlserver 驱动                           | 中                                                          | 版本/许可依赖                                                                         | 留扩展位                                                                                                                                            |
+| MongoDB    | Change Streams             | mongo-driver                                  | 中                                                          | 副本集                                                                                | 留扩展位                                                                                                                                            |
 
 **PG 血缘边界（诚实标注）**：PG 逻辑解码输出不含执行事务的会话角色。可选补齐路径：① pgaudit/`log_statement` 侧信道关联（部署成本+）；② 库上触发器写审计表（侵入）；③ 血缘闸在 PG 源降级为「连接来源不可知，仅对账+CEP 生效」。默认按 ③ 落地并在面板标注降级态，①② 留作后续增强——**不静默假装有账号字段**。
 
@@ -118,7 +118,7 @@ type ChangeSource interface {
 
 - **语义**：区分「应用写入」与「人工 SQL」：非白名单账号对受监控表的写入 = 异常（人工直改库未走审批流）。
 - **配置面（面板）**：账号白名单（按 库/表 粒度），应用账号与运维豁免账号分列。
-- MySQL 侧 `account` 原生可得；PG 侧按 §3.3 边界降级。
+- MySQL 与 PG 两侧 `account` 均不可原生获得（binlog/WAL 事件均不含会话账号，C1 实证）；血缘闸 account 字段 C1 恒空，两侧同按 §3.3 边界降级。
 
 ### 4.4 命中详情（告警载荷）
 
@@ -162,7 +162,7 @@ context: 账号、GTID、时间窗内相邻事件摘要、规则参数快照
 
 ## 9. 已知边界（诚实清单）
 
-- PG 血缘账号不可得（§3.3），默认降级运行并有面板标注。
+- 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。
 - 对账闸要求流水表同库可订阅；跨库流水（分库分表）C3 不承诺，需按游戏方拓扑定制路由。
 - binlog/WAL 保留期短于 capture-agent 停机时长时位点失效，从可得起点重扫（对账闸窗口兜底误报）；监控位点滞后并告警。
 - 闸层评估为尽力而为（agent 侧内存态）：agent 重启丢失滑窗状态，血缘/对账不受影响（纯逐事件）。

@@ -14,15 +14,15 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 
 ## 1. 全景
 
-| 名称               | 层         | 状态               | 一句话                                  | 实现文档                                      |
-| ------------------ | ---------- | ------------------ | --------------------------------------- | --------------------------------------------- |
-| `sidecar-agent`    | 驻留 agent | 已有主体（定名中） | 游戏服务器旁的 GM 基础设施代理          | [agent-core 简档](agent-core-design.md) §1    |
-| `devops-agent`     | 驻留 agent | 新建（简档待批）   | 内网 CI/CD/打包/部署链路状态观测        | [agent-core 简档](agent-core-design.md) §7    |
-| `capture-agent`    | 驻留 agent | 新建（简档待批）   | 防私改数据库：变更捕获与三道闸          | [capture-agent 简档](capture-agent-design.md) |
-| `healthprobe`      | 公共模块   | **已建成**（接线待消费方） | Liveness/Readiness/Heartbeat 三语义探针 | [agent-core 简档](agent-core-design.md) §6    |
-| `execlog`          | 公共模块   | **已建成**（接线待消费方） | 统一执行审计（audit-first）             | [agent-core 简档](agent-core-design.md) §6    |
-| `connector-agent`  | 路线图占位 | 只登记不实现       | 第三方服务接入                          | [agent-core 简档](agent-core-design.md) §8    |
-| `synthetics-agent` | 路线图占位 | 只登记不实现       | 外部合成探测                            | [agent-core 简档](agent-core-design.md) §8    |
+| 名称               | 层         | 状态                                                                | 一句话                                  | 实现文档                                      |
+| ------------------ | ---------- | ------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------- |
+| `sidecar-agent`    | 驻留 agent | 已有主体（定名中）                                                  | 游戏服务器旁的 GM 基础设施代理          | [agent-core 简档](agent-core-design.md) §1    |
+| `devops-agent`     | 驻留 agent | 新建（简档待批）                                                    | 内网 CI/CD/打包/部署链路状态观测        | [agent-core 简档](agent-core-design.md) §7    |
+| `capture-agent`    | 驻留 agent | 部分实施（C1 骨架 2026-10-10：注册/心跳/事件流/位点；闸层 C2 待批） | 防私改数据库：变更捕获与三道闸          | [capture-agent 简档](capture-agent-design.md) |
+| `healthprobe`      | 公共模块   | **已建成**（接线待消费方）                                          | Liveness/Readiness/Heartbeat 三语义探针 | [agent-core 简档](agent-core-design.md) §6    |
+| `execlog`          | 公共模块   | **已建成**（接线待消费方）                                          | 统一执行审计（audit-first）             | [agent-core 简档](agent-core-design.md) §6    |
+| `connector-agent`  | 路线图占位 | 只登记不实现                                                        | 第三方服务接入                          | [agent-core 简档](agent-core-design.md) §8    |
+| `synthetics-agent` | 路线图占位 | 只登记不实现                                                        | 外部合成探测                            | [agent-core 简档](agent-core-design.md) §8    |
 
 ## 2. sidecar-agent（游戏服务器）
 
