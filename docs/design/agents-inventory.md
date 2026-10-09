@@ -6,7 +6,7 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 
 ## 状态
 
-- 状态: **Proposed（定名已由用户拍板，实现未动）**，与 [agent-core 简档](agent-core-design.md)、[capture-agent 简档](capture-agent-design.md) 同批报审。
+- 状态: **部分实施（2026-10-09）**：公共模块 `healthprobe`/`execlog` 已建成（agent-core K1–K4 落地，见 [agent-core 简档](agent-core-design.md) §5.1）；三 agent 本体（devops/capture 立项与装配）仍待批，sidecar-agent = 现有主体已部分切 core。
 - **定名（用户令，2026-10-09）**：三驻留 agent = **`sidecar-agent`** / **`devops-agent`** / **`capture-agent`**；公共模块 = **`healthprobe`**（健康探针）、**`execlog`**（执行审计）；路线图登记 `connector-agent` / `synthetics-agent`（**只登记不实现**）。旧候选（gameserver-agent / cicd-agent / cdc-agent / ci-agent）一律弃用。
 - 本页是**唯一权威定名与职责边界清单**；每个 agent 的实现文档开头有同口径「作用」节；与 [agent-core 能力清单表](agent-core-design.md)（§2）互链。
 - 本页目录：§1 全景 → §2–§4 三驻留 agent（逐个：职责/部署/监控对象/输入输出/边界/探针/审计/scope）→ §5 公共模块（healthprobe/execlog/herald 出口）→ §6 路线图占位 → §7 scope 归属规则 → §8 面板分页（详设另页）。
@@ -19,8 +19,8 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 | `sidecar-agent`    | 驻留 agent | 已有主体（定名中） | 游戏服务器旁的 GM 基础设施代理          | [agent-core 简档](agent-core-design.md) §1    |
 | `devops-agent`     | 驻留 agent | 新建（简档待批）   | 内网 CI/CD/打包/部署链路状态观测        | [agent-core 简档](agent-core-design.md) §7    |
 | `capture-agent`    | 驻留 agent | 新建（简档待批）   | 防私改数据库：变更捕获与三道闸          | [capture-agent 简档](capture-agent-design.md) |
-| `healthprobe`      | 公共模块   | 首批交付物（待批） | Liveness/Readiness/Heartbeat 三语义探针 | [agent-core 简档](agent-core-design.md) §6    |
-| `execlog`          | 公共模块   | 新建（待批）       | 统一执行审计（audit-first）             | [agent-core 简档](agent-core-design.md) §6    |
+| `healthprobe`      | 公共模块   | **已建成**（接线待消费方） | Liveness/Readiness/Heartbeat 三语义探针 | [agent-core 简档](agent-core-design.md) §6    |
+| `execlog`          | 公共模块   | **已建成**（接线待消费方） | 统一执行审计（audit-first）             | [agent-core 简档](agent-core-design.md) §6    |
 | `connector-agent`  | 路线图占位 | 只登记不实现       | 第三方服务接入                          | [agent-core 简档](agent-core-design.md) §8    |
 | `synthetics-agent` | 路线图占位 | 只登记不实现       | 外部合成探测                            | [agent-core 简档](agent-core-design.md) §8    |
 

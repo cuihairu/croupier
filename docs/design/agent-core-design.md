@@ -1,12 +1,12 @@
 ---
-title: agent-core 通用能力层设计简档——能力清单/目录树/抽取批次（立项待批）
+title: agent-core 通用能力层设计简档——能力清单/目录树/抽取批次（已实施）
 ---
 
 # agent-core 通用能力层设计简档
 
 ## 状态
 
-- 状态: **Proposed（简档待用户过目，未动码）**。批谁后按 §5 批次实施。
+- 状态: **已实施（K1–K4 抽取完成，2026-10-09）**。core 十包建成并自带测试，sidecar-agent 六包已接线、四包建成待消费方接线，接线状态与剩余项见 §5.1/§9。
 - 立项口径（用户令，2026-10-09）：agent 越来越多（capture/未来更多），通用能力上收为 `agent-core` Go 公共库；**各 agent = agent-core + 业务插件**；与 [Agent Supervisor 简档](agent-supervisor-design.md) 合并定稿——**core 即 supervisor 的被监管对象，协议一份**；目录 `core/` 归 core、`agents/capture/` 归业务；极简：core 每文件守百行内、能力按需可裁（不用的不编译进来）。
 - 补充令（2026-10-09，内网 agent 拆分）：泛监控类能力从主 agent 拆成独立小 agent，**「一个能力一个小 agent」**；首个样例 = **CI/CD 状态监控 agent**（`agents/devops/`，设计见 §7）——与 capture-agent 同构，用第二个业务 agent 验证 core 可裁剪抽象是否成立。
 - 定稿补充（2026-10-09，用户令④）：①服务探活升为 core 独立公共模块 **`healthprobe`**——内分 Liveness/Readiness/Heartbeat 三语义（对标 k8s probe 术语），游戏进程探活/内网探 CI 端点/capture 探库连通三处**共用同一份实现**；②路线图登记两个未来独立 agent，**命名用行业词**：`connector-agent`（第三方服务接入，对标 Datadog Integrations/n8n）、`synthetics-agent`（外部合成探测，对标 Datadog Synthetics/Pingdom）——**只登记不实现**（§8）；③三 agent 定稿不变：sidecar-agent=游戏服务器 GM 通道、devops-agent=内网 CI/CD/打包/部署、capture-agent=防私改库。
