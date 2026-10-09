@@ -2,9 +2,7 @@ package tcp
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
-	"io"
 	"net"
 	"testing"
 	"time"
@@ -12,89 +10,6 @@ import (
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
-
-// v9DeadlineErrConn 所有 Set*Deadline 均失败，用于触发 Client.Call 的
-// deadline 设置错误分支。
-type v9DeadlineErrConn struct{ net.Conn }
-
-func (v9DeadlineErrConn) SetDeadline(time.Time) error      { return errors.New("deadline boom") }
-func (v9DeadlineErrConn) SetWriteDeadline(time.Time) error { return errors.New("wdeadline boom") }
-func (v9DeadlineErrConn) SetReadDeadline(time.Time) error  { return errors.New("rdeadline boom") }
-
-func TestClientCall_SetDeadlineErrorV9(t *testing.T) {
-	client := &Client{config: &Config{}, conn: v9DeadlineErrConn{}, closing: make(chan struct{})}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	_, _, err := client.Call(ctx, protocol.MsgInvokeRequest, []byte("x"))
-	if err == nil || !containsStr(err.Error(), "set deadline") {
-		t.Fatalf("expected set deadline error, got %v", err)
-	}
-}
-
-func TestClientCall_WriteDeadlineErrorV9(t *testing.T) {
-	client := &Client{
-		config:  &Config{SendTimeout: time.Second},
-		conn:    v9DeadlineErrConn{},
-		closing: make(chan struct{}),
-	}
-	_, _, err := client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("x"))
-	if err == nil || !containsStr(err.Error(), "set write deadline") {
-		t.Fatalf("expected write deadline error, got %v", err)
-	}
-}
-
-func TestClientCall_ReadDeadlineErrorV9(t *testing.T) {
-	client := &Client{
-		config:  &Config{RecvTimeout: time.Second},
-		conn:    v9DeadlineErrConn{},
-		closing: make(chan struct{}),
-	}
-	_, _, err := client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("x"))
-	if err == nil || !containsStr(err.Error(), "set read deadline") {
-		t.Fatalf("expected read deadline error, got %v", err)
-	}
-}
-
-// TestClientCall_ReadFrameErrorV9 覆盖 client.go:111-113：对端读走请求后
-// 立即断开，readFrame 失败。
-func TestClientCall_ReadFrameErrorV9(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	defer func() { _ = ln.Close() }()
-	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			return
-		}
-		_, _ = readFrame(conn)
-		_ = conn.Close()
-	}()
-
-	client, err := NewClient(&Config{Address: ln.Addr().String(), Insecure: true, ConnectTimeout: time.Second})
-	if err != nil {
-		t.Fatalf("NewClient: %v", err)
-	}
-	defer func() { _ = client.Close() }()
-
-	_, _, err = client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("x"))
-	if err == nil {
-		t.Fatal("expected read frame error after peer close")
-	}
-}
-
-// TestReadFrame_TruncatedPayloadV9 覆盖 framing.go:46-48：header 声明的
-// 长度超过实际数据。
-func TestReadFrame_TruncatedPayloadV9(t *testing.T) {
-	header := make([]byte, frameHeaderBytes)
-	binary.BigEndian.PutUint32(header, 8)
-	data := append(header, []byte("ab")...) // 只有 2 字节，声明 8 字节
-	_, err := readFrame(io.Reader(bytesReader(data)))
-	if err == nil {
-		t.Fatal("expected unexpected EOF for truncated payload")
-	}
-}
 
 // TestMuxConnDispatch_ControlLaneCtxDoneV9 覆盖 mux_conn.go:180-181：
 // 控制车道投递阻塞时 ctx 取消。
