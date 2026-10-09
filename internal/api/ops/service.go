@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -22,6 +24,8 @@ var (
 	opsAgentMetricsFn     = opsAgentMetrics
 	opsAgentProcessesFn   = opsAgentProcesses
 	opsAgentSupervisorFn  = opsAgentSupervisor
+	opsAgentSupEvtsFn     = opsAgentSupervisorEvents
+	opsAgentSupLogFn      = opsAgentSupervisorLog
 	opsNodesFn            = opsNodes
 	opsNodeCommandsFn     = opsNodeCommands
 	opsHealthGetFn        = opsHealthGet
@@ -58,6 +62,14 @@ func (s *Service) OpsAgentProcesses(ctx context.Context, req *OpsAgentProcessesR
 
 func (s *Service) OpsAgentSupervisor(ctx context.Context, req *OpsAgentSupervisorRequest) (*OpsAgentSupervisorResponse, error) {
 	return opsAgentSupervisorFn(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsAgentSupervisorEvents(ctx context.Context, req *OpsAgentSupervisorEventsRequest) (*OpsAgentSupervisorEventsResponse, error) {
+	return opsAgentSupEvtsFn(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsAgentSupervisorLog(ctx context.Context, req *OpsAgentSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	return opsAgentSupLogFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsAgentSystemInfo(ctx context.Context, req *OpsAgentSystemInfoRequest) (*OpsAgentSystemInfoResponse, error) {

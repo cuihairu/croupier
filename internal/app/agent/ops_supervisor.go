@@ -45,12 +45,14 @@ func (s *OpsServer) SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapsh
 	now := time.Now()
 	out := make([]*opsv1.SupervisedProcessSnapshot, 0, len(procs))
 	for _, p := range procs {
+		var pendingEvents []*opsv1.SupervisorEvent
 		p.mu.Lock()
 		snap := &opsv1.SupervisedProcessSnapshot{
-			Name:         p.name,
-			Pid:          p.pid,
-			State:        p.state,
-			RestartCount: p.restarts,
+			Name:          p.name,
+			Pid:           p.pid,
+			State:         p.state,
+			RestartCount:  p.restarts,
+			LastEventUnix: p.lastEventUnix,
 		}
 		if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
 			if p.lastStart != nil {
@@ -62,15 +64,58 @@ func (s *OpsServer) SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapsh
 				sampleProcessResources(p, snap)
 			}
 			snap.Flags = supervisorFlags(p.config, snap.RssBytes, snap.CpuPercent)
+			// resource_over_limit 只在标记首次出现（上升沿）时落事件；
+			// 持续超限不刷屏，降回后再超限才重新上报。
+			pendingEvents = risingEdgeFlagEvents(p, snap.Flags, snap.RssBytes)
+		}
+		if p.state == opsv1.ProcessState_PROCESS_STATE_BACKOFF && p.nextRestartAt != nil {
+			snap.NextRestartAtUnix = p.nextRestartAt.Unix()
+		}
+		if p.state == opsv1.ProcessState_PROCESS_STATE_BROKEN {
+			snap.Flags = append(snap.Flags, flagBreakerTripped)
 		}
 		// 缓存最新采样，供 ListProcesses 展示（RPC 路径不再触发 /proc 读取）。
 		p.lastRSS = snap.RssBytes
 		p.lastCPU = snap.CpuPercent
 		p.lastFlags = snap.Flags
+		p.lastSampleUnix = now.Unix()
 		p.mu.Unlock()
 		out = append(out, snap)
+		for _, ev := range pendingEvents {
+			s.emitSupervisorEvent(p, ev)
+		}
 	}
 	return out
+}
+
+// SupervisorEventsSince exposes the event ring for the metrics-report
+// piggyback (SupervisorSampler interface).
+func (s *OpsServer) SupervisorEventsSince(lastSeq int64) []*opsv1.SupervisorEvent {
+	return s.supLog.EventsSince(lastSeq)
+}
+
+// risingEdgeFlagEvents builds resource_over_limit events for flags that
+// appeared since the previous sample. Caller must hold p.mu; events are
+// emitted by the caller after unlocking.
+func risingEdgeFlagEvents(p *managedProcess, flags []string, rss int64) []*opsv1.SupervisorEvent {
+	if len(flags) == 0 {
+		return nil
+	}
+	prev := make(map[string]bool, len(p.lastFlags))
+	for _, f := range p.lastFlags {
+		prev[f] = true
+	}
+	var evs []*opsv1.SupervisorEvent
+	for _, f := range flags {
+		if prev[f] {
+			continue
+		}
+		ev := newSupervisorEvent(p.name, supervisorEventResourceOverLimit)
+		ev.Message = f
+		ev.LastRssBytes = rss
+		evs = append(evs, ev)
+	}
+	return evs
 }
 
 // sampleProcessResources reads RSS and CPU% for a running process. The

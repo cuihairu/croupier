@@ -13,6 +13,9 @@ jest.setTimeout(30000);
 configure({ asyncUtilTimeout: 5000 });
 
 jest.mock('@/services/api/ops', () => ({
+  // requireActual 展开：SupervisorDrawer 关闭态渲染也消费导出常量
+  // （SUPERVISOR_EVENT_TYPES），部分 mock 缺键会让页面渲染直接炸。
+  ...jest.requireActual('@/services/api/ops'),
   listOpsNodes: jest.fn(),
   drainOpsNode: jest.fn(),
   restartOpsNode: jest.fn(),

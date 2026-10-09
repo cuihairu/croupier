@@ -83,6 +83,9 @@ const (
 	// Host cron jobs (Agent 自身应答，读 crontab + /etc/cron.d + systemd timers)
 	MsgListCronJobsRequest  = 0x040115
 	MsgListCronJobsResponse = 0x040116
+	// Supervisor event log download (Agent 自身应答，回源读本地轮转日志)
+	MsgGetSupervisorLogRequest  = 0x040117
+	MsgGetSupervisorLogResponse = 0x040118
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -290,6 +293,10 @@ func MsgIDString(msgID uint32) string {
 		return "ProviderDrainRequest"
 	case MsgProviderDrainResponse:
 		return "ProviderDrainResponse"
+	case MsgGetSupervisorLogRequest:
+		return "GetSupervisorLogRequest"
+	case MsgGetSupervisorLogResponse:
+		return "GetSupervisorLogResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

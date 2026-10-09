@@ -201,3 +201,24 @@ func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 
 	return resp, nil
 }
+
+// GetSupervisorLog pulls the supervisor event log (tail, size-capped) from
+// the agent via the ops tunnel.
+func (w *OpsClientWrapper) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errorx.NewInternalError("marshal supervisor log request failed")
+	}
+
+	_, respData, err := w.caller.Call(ctx, protocol.MsgGetSupervisorLogRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.GetSupervisorLogResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, errorx.NewInternalError("unmarshal supervisor log response failed")
+	}
+
+	return resp, nil
+}

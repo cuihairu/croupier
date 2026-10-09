@@ -547,6 +547,8 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/agents/metrics", opsHandler.AgentMetrics)
 	g.GET("/agents/:agentId/system-info", opsHandler.AgentSystemInfo)
 	g.GET("/agents/:agentId/supervisor", opsHandler.AgentSupervisor)
+	g.GET("/agents/:agentId/supervisor/events", opsHandler.AgentSupervisorEvents)
+	g.GET("/agents/:agentId/supervisor/logs", opsHandler.AgentSupervisorLog)
 	g.GET("/agents/:agentId/processes", opsHandler.AgentProcesses)
 	g.POST("/agents/:agentId/processes/:name/restart", opsHandler.AgentProcessRestart)
 	g.POST("/agents/:agentId/processes/:name/stop", opsHandler.AgentProcessStop)

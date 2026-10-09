@@ -54,6 +54,9 @@ type OpsServerWrapper interface {
 	ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error)
 	GetServiceStatusJSON(ctx context.Context, jsonReq []byte) ([]byte, error)
 	ListCronJobsJSON(ctx context.Context) ([]byte, error)
+
+	// Supervisor event log download (agent-local rotating file, size-capped)
+	GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error)
 }
 
 // LocalHandler contains the business logic for handling agent requests
@@ -224,6 +227,8 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleGetServiceStatus(ctx, data)
 	case protocol.MsgListCronJobsRequest:
 		return h.handleListCronJobs(ctx, data)
+	case protocol.MsgGetSupervisorLogRequest:
+		return h.handleGetSupervisorLog(ctx, data)
 	case protocol.MsgRegisterCapabilitiesReq:
 		return h.handleRegisterCapabilities(ctx, data)
 
@@ -719,6 +724,30 @@ func (h *LocalHandler) handleListCronJobs(ctx context.Context, _ []byte) ([]byte
 		return nil, fmt.Errorf("ops server not configured")
 	}
 	return ops.ListCronJobsJSON(ctx)
+}
+
+// handleGetSupervisorLog handles GetSupervisorLogRequest（回源读 agent 本地轮转日志）。
+func (h *LocalHandler) handleGetSupervisorLog(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.GetSupervisorLogRequest{}
+	if len(data) > 0 {
+		if err := proto.Unmarshal(data, req); err != nil {
+			return nil, fmt.Errorf("unmarshal GetSupervisorLogRequest: %w", err)
+		}
+	}
+
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	resp, err := ops.GetSupervisorLog(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("get supervisor log: %w", err)
+	}
+	return proto.Marshal(resp)
 }
 
 // handleGetServiceStatus handles GetServiceStatusRequest

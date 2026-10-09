@@ -58,6 +58,8 @@ type mockOpsServer struct {
 	statusJSONErr    error
 	cronJobsResp     []byte
 	cronJobsErr      error
+	supLogResp       *opsv1.GetSupervisorLogResponse
+	supLogErr        error
 }
 
 func (m *mockOpsServer) GetSystemInfo(ctx context.Context, req *emptypb.Empty) (*opsv1.SystemInfo, error) {
@@ -98,6 +100,10 @@ func (m *mockOpsServer) GetServiceStatusJSON(ctx context.Context, jsonReq []byte
 
 func (m *mockOpsServer) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
 	return m.cronJobsResp, m.cronJobsErr
+}
+
+func (m *mockOpsServer) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	return m.supLogResp, m.supLogErr
 }
 
 type mockTaskEventReporter struct {

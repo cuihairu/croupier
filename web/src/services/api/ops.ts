@@ -840,8 +840,9 @@ export async function fetchNodeCronJobs(nodeId: string): Promise<NodeCronJob[]> 
   return res.items ?? [];
 }
 
-// Supervisor 监管视图（Source: croupier/internal/api/ops/dto.go
-// OpsSupervisorSummary / OpsSupervisedProcess / OpsAgentSupervisorResponse）
+// Supervisor 监管视图 + 事件流 + 手工动作（Source: croupier/internal/api/ops/dto.go
+// OpsSupervisorSummary / OpsSupervisedProcess / OpsAgentSupervisorResponse /
+// supervisor events；事件为 server 端 ring buffer 快照，非流式）
 
 /** 聚合状态灯：ok=全部 RUNNING 且无超限标记；warn=有非 RUNNING 或超限；error=有 FAILED/BROKEN */
 export type OpsSupervisorSummary = {
@@ -923,6 +924,119 @@ export type OpsAgentSupervisorResponse = {
   processes: SupervisedProcess[];
   summary: OpsSupervisorSummary;
 };
+
+/** supervisor 事件闭集：detect_down | auto_restart | restart_failed |
+ *  breaker_tripped | resource_over_limit | manual_start | manual_stop */
+export const SUPERVISOR_EVENT_TYPES = [
+  'detect_down',
+  'auto_restart',
+  'restart_failed',
+  'breaker_tripped',
+  'resource_over_limit',
+  'manual_start',
+  'manual_stop',
+] as const;
+
+export type SupervisorEventType = (typeof SUPERVISOR_EVENT_TYPES)[number];
+
+/** supervisor 事件（server 端 ring buffer；零值字段可能被 omitempty 省略） */
+export type SupervisorEvent = {
+  seq: number;
+  tsUnix: number;
+  process: string;
+  event: string;
+  oldPid: number;
+  newPid: number;
+  exitCode: number;
+  signal: string;
+  restartCount: number;
+  message: string;
+  lastHeartbeatUnix: number;
+  lastError: string;
+  oomSuspect: boolean;
+  lastRssBytes: number;
+};
+
+export type OpsAgentSupervisorEventsResponse = {
+  agentId: string;
+  events: SupervisorEvent[];
+};
+
+type RawSupervisorEvent = Record<string, JSONValue>;
+
+function asNumber(v: JSONValue | undefined): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function asString(v: JSONValue | undefined): string {
+  return typeof v === 'string' ? v : '';
+}
+
+/** 事件原始形态 → 显式零值（server omitempty 缺字段时兜底 0/''/false） */
+export function normalizeSupervisorEvent(raw: RawSupervisorEvent): SupervisorEvent {
+  return {
+    seq: asNumber(raw.seq),
+    tsUnix: asNumber(raw.tsUnix),
+    process: asString(raw.process),
+    event: asString(raw.event),
+    oldPid: asNumber(raw.oldPid),
+    newPid: asNumber(raw.newPid),
+    exitCode: asNumber(raw.exitCode),
+    signal: asString(raw.signal),
+    restartCount: asNumber(raw.restartCount),
+    message: asString(raw.message),
+    lastHeartbeatUnix: asNumber(raw.lastHeartbeatUnix),
+    lastError: asString(raw.lastError),
+    oomSuspect: raw.oomSuspect === true,
+    lastRssBytes: asNumber(raw.lastRssBytes),
+  };
+}
+
+/** 读取 agent 的 supervisor 事件 ring（seq 降序返回，limit 供服务端截断）。 */
+export async function fetchAgentSupervisorEvents(
+  agentId: string,
+  sinceSeq = 0,
+  limit = 200,
+): Promise<OpsAgentSupervisorEventsResponse> {
+  const raw = await request<{ agentId?: string; events?: RawSupervisorEvent[] }>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/supervisor/events?sinceSeq=${sinceSeq}&limit=${limit}`,
+    { method: 'GET' },
+  );
+  return {
+    agentId: raw.agentId || agentId,
+    events: (raw.events || []).map(normalizeSupervisorEvent),
+  };
+}
+
+/** 手工拉起进程（server → agent 隧道下发 start），返回新 pid（失败/未知为 0）。 */
+export async function startAgentProcess(agentId: string, name: string): Promise<number> {
+  const raw = await request<{ pid?: number }>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/start`,
+    { method: 'POST' },
+  );
+  return typeof raw?.pid === 'number' && Number.isFinite(raw.pid) ? raw.pid : 0;
+}
+
+/** 手工停止进程（server → agent 隧道下发 stop）。 */
+export async function stopAgentProcess(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/stop`,
+    { method: 'POST' },
+  );
+}
+
+/** 手工重启进程（server → agent 隧道下发 restart）。 */
+export async function restartAgentProcess(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/restart`,
+    { method: 'POST' },
+  );
+}
+
+/** supervisor ndjson 日志下载直链（浏览器直接 attachment 下载，不走 blob）。 */
+export function getAgentSupervisorLogUrl(agentId: string) {
+  return buildDownloadUrl(`/api/v1/ops/agents/${encodeURIComponent(agentId)}/supervisor/logs`);
+}
 
 /** 服务端聚合选项行（#23/#33/#34 族：操作者/函数/Agent 过滤下拉） */
 export type ServerSelectOptionRow = {

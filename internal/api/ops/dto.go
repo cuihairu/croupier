@@ -92,6 +92,10 @@ type OpsSupervisedProcess struct {
 	RssBytes      int64    `json:"rssBytes"`
 	CpuPercent    float64  `json:"cpuPercent"`
 	Flags         []string `json:"flags"`
+	// LastEventUnix 最近一次 supervisor 事件时间（0=无）；NextRestartAtUnix
+	// 仅 BACKOFF 态非零（面板渲染退避倒计时）。
+	LastEventUnix     int64 `json:"lastEventUnix"`
+	NextRestartAtUnix int64 `json:"nextRestartAtUnix"`
 }
 
 type OpsSupervisorSummary struct {
@@ -108,6 +112,48 @@ type OpsAgentSupervisorResponse struct {
 	Timestamp string                 `json:"timestamp"`
 	Processes []OpsSupervisedProcess `json:"processes"`
 	Summary   OpsSupervisorSummary   `json:"summary"`
+}
+
+// Supervisor 事件日志（S2：事件由 agent 产生、metrics 上报捎带，server 端
+// MetricsStore 内存环缓存；面板增量拉取游标为 seq）。
+
+type OpsAgentSupervisorEventsRequest struct {
+	AgentID  string `uri:"agentId" form:"agentId"`
+	SinceSeq int64  `form:"sinceSeq"`
+	Limit    int    `form:"limit"`
+}
+
+type OpsSupervisorEvent struct {
+	Seq          int64  `json:"seq"`
+	Ts           string `json:"ts"`
+	Process      string `json:"process"`
+	Event        string `json:"event"`
+	OldPid       int32  `json:"oldPid"`
+	NewPid       int32  `json:"newPid"`
+	ExitCode     int32  `json:"exitCode"`
+	Signal       string `json:"signal"`
+	RestartCount int32  `json:"restartCount"`
+	Message      string `json:"message,omitempty"`
+	// 事件时点上下文（尽力诊断）：lastHeartbeat 最后心跳、lastError 进程
+	// 最后错误输出、oomSuspect OOM 疑似启发式、lastRssBytes 最后 RSS。
+	LastHeartbeat string `json:"lastHeartbeat,omitempty"`
+	LastError     string `json:"lastError,omitempty"`
+	OomSuspect    bool   `json:"oomSuspect"`
+	LastRssBytes  int64  `json:"lastRssBytes"`
+}
+
+type OpsAgentSupervisorEventsResponse struct {
+	AgentID string               `json:"agentId"`
+	Events  []OpsSupervisorEvent `json:"events"`
+	// LatestSeq server 环内最新 seq（0=无事件）；面板以此为增量游标。
+	LatestSeq int64 `json:"latestSeq"`
+}
+
+// OpsAgentSupervisorLogRequest 拉取 agent 本地 supervisor 事件日志文件
+// （tail 截断，二进制直传响应，非 JSON envelope）。
+type OpsAgentSupervisorLogRequest struct {
+	AgentID  string `uri:"agentId" form:"agentId"`
+	MaxBytes int    `form:"maxBytes"`
 }
 
 // Alert operations DTOs

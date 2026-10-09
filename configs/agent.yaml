@@ -54,6 +54,9 @@ ops:
   metricsEnabled: true
   # 托管进程监管（supervisor）：每个条目以逻辑名为键。采样周期同 metricsInterval，
   # 超阈值只在面板打标记（mem_over_limit / cpu_over_limit），不自动杀进程。
+  # 退避自动拉起：退出后按 restartBackoffInitial 起步、逐次倍增、封顶
+  # restartBackoffMax；连续失败 restartBreakerLimit 次熔断为 BROKEN，需人工
+  # Start/Restart 复位。存活超过退避封顶视为启动成功并清零失败计数。
   # managedProcesses:
   #   demo-app:
   #     command: /usr/local/bin/demo-app
@@ -61,3 +64,13 @@ ops:
   #     workingDir: /srv/demo-app
   #     memThresholdBytes: 2147483648   # RSS 超过 2GiB 打 mem_over_limit
   #     cpuThresholdPercent: 90         # CPU 超过 90% 打 cpu_over_limit
+  #     autoRestart: true
+  #     restartBackoffInitial: 1s       # 首次重试退避（缺省 1s）
+  #     restartBackoffMax: 60s          # 退避封顶（缺省 60s）
+  #     restartBreakerLimit: 5          # 连续失败熔断阈值（0=不熔断）
+  # supervisor 事件日志：本地轮转文件全量留存 + metrics 上报捎带 server 内存环。
+  # supervisorLog:
+  #   dir: logs/supervisor   # 缺省 logs/supervisor
+  #   maxSizeMB: 10
+  #   maxBackups: 5
+  #   maxAgeDays: 7

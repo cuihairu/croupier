@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -22,12 +23,17 @@ type MetricsCollector struct {
 	// supervisor 供给托管进程快照（OpsServer 实现）；仅在上报启动前的
 	// 装配阶段赋值，Collect 读取不加锁。
 	supervisor SupervisorSampler
+	// supervisor 事件增量游标与锁：Collect 由上报循环单 goroutine 调用，
+	// 但 ReportMetricsOnce 可能并发触发一次即时上报，游标读写加锁。
+	supEventSeq   int64
+	supEventSeqMu sync.Mutex
 }
 
 // SupervisorSampler supplies snapshots of supervisor-managed processes for
 // inclusion in metrics reports. The agent's OpsServer implements it.
 type SupervisorSampler interface {
 	SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapshot
+	SupervisorEventsSince(lastSeq int64) []*opsv1.SupervisorEvent
 }
 
 // NewMetricsCollector creates a new metrics collector.
@@ -44,6 +50,24 @@ func (c *MetricsCollector) WithSupervisor(s SupervisorSampler) *MetricsCollector
 	return c
 }
 
+func (c *MetricsCollector) lastSupervisorSeq() int64 {
+	if c == nil {
+		return 0
+	}
+	c.supEventSeqMu.Lock()
+	defer c.supEventSeqMu.Unlock()
+	return c.supEventSeq
+}
+
+func (c *MetricsCollector) setLastSupervisorSeq(seq int64) {
+	if c == nil {
+		return
+	}
+	c.supEventSeqMu.Lock()
+	c.supEventSeq = seq
+	c.supEventSeqMu.Unlock()
+}
+
 // Collect gathers current system metrics.
 func (c *MetricsCollector) Collect(ctx context.Context) *opsv1.MetricsReport {
 	report := &opsv1.MetricsReport{
@@ -57,6 +81,12 @@ func (c *MetricsCollector) Collect(ctx context.Context) *opsv1.MetricsReport {
 	}
 	if c.supervisor != nil {
 		report.SupervisedProcesses = c.supervisor.SampleSupervisedProcesses()
+		// 事件捎带增量：只带自上次上报后新产生的事件（seq 游标），server
+		// 端按 seq 去重后入内存环。
+		if evs := c.supervisor.SupervisorEventsSince(c.lastSupervisorSeq()); len(evs) > 0 {
+			report.SupervisorEvents = evs
+			c.setLastSupervisorSeq(evs[len(evs)-1].Seq)
+		}
 	}
 
 	// Add Go runtime metrics

@@ -1,6 +1,8 @@
 package ops
 
 import (
+	"net/http"
+
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
@@ -100,6 +102,59 @@ func (h *Handler) OpsAgentSupervisor(c *gin.Context) {
 		return
 	}
 	response.Success(c, resp)
+}
+
+func (h *Handler) OpsAgentSupervisorEvents(c *gin.Context) {
+	var req OpsAgentSupervisorEventsRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag（#59 同款）。
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
+
+	resp, err := h.service.OpsAgentSupervisorEvents(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// OpsAgentSupervisorLog 代理下载 agent 本地 supervisor 事件日志。文件下载
+// 按 CLAUDE.md API 契约豁免 JSON envelope，直传字节流 + Content-Disposition。
+func (h *Handler) OpsAgentSupervisorLog(c *gin.Context) {
+	var req OpsAgentSupervisorLogRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
+
+	resp, err := h.service.OpsAgentSupervisorLog(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	fileName := resp.GetFileName()
+	if fileName == "" {
+		fileName = "supervisor-events.log"
+	}
+	c.Header("Content-Disposition", `attachment; filename="`+fileName+`"`)
+	c.Header("X-Truncated", boolHeader(resp.GetTruncated()))
+	c.Data(http.StatusOK, "text/plain; charset=utf-8", resp.GetContent())
+}
+
+func boolHeader(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
 }
 
 func (h *Handler) OpsAgentSystemInfo(c *gin.Context) {
@@ -651,6 +706,14 @@ func (h *Handler) AgentProcessStart(c *gin.Context) {
 
 func (h *Handler) AgentSupervisor(c *gin.Context) {
 	h.OpsAgentSupervisor(c)
+}
+
+func (h *Handler) AgentSupervisorEvents(c *gin.Context) {
+	h.OpsAgentSupervisorEvents(c)
+}
+
+func (h *Handler) AgentSupervisorLog(c *gin.Context) {
+	h.OpsAgentSupervisorLog(c)
 }
 
 func (h *Handler) AgentProcessStop(c *gin.Context) {

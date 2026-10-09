@@ -956,6 +956,10 @@ func (w *opsServerWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 	return w.ops.ExecuteCommand(ctx, req)
 }
 
+func (w *opsServerWrapper) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	return w.ops.GetSupervisorLog(ctx, req)
+}
+
 func (w *opsServerWrapper) ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error) {
 	return w.ops.ListServicesJSON(ctx, jsonReq)
 }

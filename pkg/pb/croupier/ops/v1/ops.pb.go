@@ -105,8 +105,10 @@ type MetricsReport struct {
 	Custom map[string]float64 `protobuf:"bytes,8,rep,name=custom,proto3" json:"custom,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
 	// Snapshots of supervisor-managed processes (resource usage and state)
 	SupervisedProcesses []*SupervisedProcessSnapshot `protobuf:"bytes,9,rep,name=supervised_processes,json=supervisedProcesses,proto3" json:"supervised_processes,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Supervisor events that occurred since the previous report (incremental)
+	SupervisorEvents []*SupervisorEvent `protobuf:"bytes,10,rep,name=supervisor_events,json=supervisorEvents,proto3" json:"supervisor_events,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *MetricsReport) Reset() {
@@ -198,6 +200,13 @@ func (x *MetricsReport) GetCustom() map[string]float64 {
 func (x *MetricsReport) GetSupervisedProcesses() []*SupervisedProcessSnapshot {
 	if x != nil {
 		return x.SupervisedProcesses
+	}
+	return nil
+}
+
+func (x *MetricsReport) GetSupervisorEvents() []*SupervisorEvent {
+	if x != nil {
+		return x.SupervisorEvents
 	}
 	return nil
 }
@@ -1233,18 +1242,19 @@ func (x *ListProcessesResponse) GetProcesses() []*ManagedProcess {
 }
 
 type ManagedProcess struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                         // Process name (as configured)
-	Command       string                 `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`                                   // Command to start the process
-	WorkingDir    string                 `protobuf:"bytes,3,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`           // Working directory
-	State         ProcessState           `protobuf:"varint,4,opt,name=state,proto3,enum=croupier.ops.v1.ProcessState" json:"state,omitempty"`    // Current state
-	Pid           int32                  `protobuf:"varint,5,opt,name=pid,proto3" json:"pid,omitempty"`                                          // Current PID (0 if not running)
-	RestartCount  int32                  `protobuf:"varint,6,opt,name=restart_count,json=restartCount,proto3" json:"restart_count,omitempty"`    // Number of restarts
-	LastStart     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_start,json=lastStart,proto3" json:"last_start,omitempty"`              // Last start time
-	UptimeSeconds int64                  `protobuf:"varint,8,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"` // Seconds since last start (0 when not running)
-	Flags         []string               `protobuf:"bytes,9,rep,name=flags,proto3" json:"flags,omitempty"`                                       // Anomaly markers (mem_over_limit / cpu_over_limit)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Name              string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                                          // Process name (as configured)
+	Command           string                 `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`                                                    // Command to start the process
+	WorkingDir        string                 `protobuf:"bytes,3,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`                            // Working directory
+	State             ProcessState           `protobuf:"varint,4,opt,name=state,proto3,enum=croupier.ops.v1.ProcessState" json:"state,omitempty"`                     // Current state
+	Pid               int32                  `protobuf:"varint,5,opt,name=pid,proto3" json:"pid,omitempty"`                                                           // Current PID (0 if not running)
+	RestartCount      int32                  `protobuf:"varint,6,opt,name=restart_count,json=restartCount,proto3" json:"restart_count,omitempty"`                     // Number of restarts
+	LastStart         *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_start,json=lastStart,proto3" json:"last_start,omitempty"`                               // Last start time
+	UptimeSeconds     int64                  `protobuf:"varint,8,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`                  // Seconds since last start (0 when not running)
+	Flags             []string               `protobuf:"bytes,9,rep,name=flags,proto3" json:"flags,omitempty"`                                                        // Anomaly markers (mem_over_limit / cpu_over_limit)
+	NextRestartAtUnix int64                  `protobuf:"varint,10,opt,name=next_restart_at_unix,json=nextRestartAtUnix,proto3" json:"next_restart_at_unix,omitempty"` // Unix seconds of the scheduled auto-restart (0 if none)
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ManagedProcess) Reset() {
@@ -1340,27 +1350,292 @@ func (x *ManagedProcess) GetFlags() []string {
 	return nil
 }
 
-// SupervisedProcessSnapshot is a per-sample view of one supervisor-managed
-// process, carried in MetricsReport so the server can display live state
-// without a dedicated polling RPC.
-type SupervisedProcessSnapshot struct {
+func (x *ManagedProcess) GetNextRestartAtUnix() int64 {
+	if x != nil {
+		return x.NextRestartAtUnix
+	}
+	return 0
+}
+
+// SupervisorEvent records one supervisor lifecycle event (exit, restart, breaker
+// trip, resource over-limit, manual start/stop) for the process event log.
+type SupervisorEvent struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	TsUnix       int64                  `protobuf:"varint,1,opt,name=ts_unix,json=tsUnix,proto3" json:"ts_unix,omitempty"`                   // Event time (Unix seconds)
+	Process      string                 `protobuf:"bytes,2,opt,name=process,proto3" json:"process,omitempty"`                                // Managed process name
+	Event        string                 `protobuf:"bytes,3,opt,name=event,proto3" json:"event,omitempty"`                                    // Closed set: detect_down/auto_restart/restart_failed/breaker_tripped/resource_over_limit/manual_start/manual_stop
+	OldPid       int32                  `protobuf:"varint,4,opt,name=old_pid,json=oldPid,proto3" json:"old_pid,omitempty"`                   // PID before the event (0 if none)
+	NewPid       int32                  `protobuf:"varint,5,opt,name=new_pid,json=newPid,proto3" json:"new_pid,omitempty"`                   // PID after the event (0 if none)
+	ExitCode     int32                  `protobuf:"varint,6,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`             // Exit code of the process that died
+	Signal       string                 `protobuf:"bytes,7,opt,name=signal,proto3" json:"signal,omitempty"`                                  // Signal name if killed by signal ("" otherwise)
+	RestartCount int32                  `protobuf:"varint,8,opt,name=restart_count,json=restartCount,proto3" json:"restart_count,omitempty"` // Restart count at event time
+	Message      string                 `protobuf:"bytes,9,opt,name=message,proto3" json:"message,omitempty"`                                // Human-readable detail (required for breaker_tripped)
+	// Context captured at event time (best-effort diagnostics).
+	LastHeartbeatUnix int64  `protobuf:"varint,10,opt,name=last_heartbeat_unix,json=lastHeartbeatUnix,proto3" json:"last_heartbeat_unix,omitempty"`
+	LastError         string `protobuf:"bytes,11,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	OomSuspect        bool   `protobuf:"varint,12,opt,name=oom_suspect,json=oomSuspect,proto3" json:"oom_suspect,omitempty"` // Heuristic: killed by SIGKILL-like signal with high RSS
+	LastRssBytes      int64  `protobuf:"varint,13,opt,name=last_rss_bytes,json=lastRssBytes,proto3" json:"last_rss_bytes,omitempty"`
+	Seq               int64  `protobuf:"varint,14,opt,name=seq,proto3" json:"seq,omitempty"` // Agent-assigned monotonic sequence (report dedupe / incremental pull)
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SupervisorEvent) Reset() {
+	*x = SupervisorEvent{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupervisorEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupervisorEvent) ProtoMessage() {}
+
+func (x *SupervisorEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupervisorEvent.ProtoReflect.Descriptor instead.
+func (*SupervisorEvent) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SupervisorEvent) GetTsUnix() int64 {
+	if x != nil {
+		return x.TsUnix
+	}
+	return 0
+}
+
+func (x *SupervisorEvent) GetProcess() string {
+	if x != nil {
+		return x.Process
+	}
+	return ""
+}
+
+func (x *SupervisorEvent) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *SupervisorEvent) GetOldPid() int32 {
+	if x != nil {
+		return x.OldPid
+	}
+	return 0
+}
+
+func (x *SupervisorEvent) GetNewPid() int32 {
+	if x != nil {
+		return x.NewPid
+	}
+	return 0
+}
+
+func (x *SupervisorEvent) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *SupervisorEvent) GetSignal() string {
+	if x != nil {
+		return x.Signal
+	}
+	return ""
+}
+
+func (x *SupervisorEvent) GetRestartCount() int32 {
+	if x != nil {
+		return x.RestartCount
+	}
+	return 0
+}
+
+func (x *SupervisorEvent) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *SupervisorEvent) GetLastHeartbeatUnix() int64 {
+	if x != nil {
+		return x.LastHeartbeatUnix
+	}
+	return 0
+}
+
+func (x *SupervisorEvent) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
+func (x *SupervisorEvent) GetOomSuspect() bool {
+	if x != nil {
+		return x.OomSuspect
+	}
+	return false
+}
+
+func (x *SupervisorEvent) GetLastRssBytes() int64 {
+	if x != nil {
+		return x.LastRssBytes
+	}
+	return 0
+}
+
+func (x *SupervisorEvent) GetSeq() int64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+// GetSupervisorLogRequest pulls the supervisor event log file content from an agent.
+type GetSupervisorLogRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                           // Managed process name (as configured)
-	Pid           int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`                                            // Current PID (0 if not running)
-	State         ProcessState           `protobuf:"varint,3,opt,name=state,proto3,enum=croupier.ops.v1.ProcessState" json:"state,omitempty"`      // Current state
-	UptimeSeconds int64                  `protobuf:"varint,4,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`   // Seconds since last start
-	RestartCount  int32                  `protobuf:"varint,5,opt,name=restart_count,json=restartCount,proto3" json:"restart_count,omitempty"`      // Number of restarts since agent start
-	RssBytes      int64                  `protobuf:"varint,6,opt,name=rss_bytes,json=rssBytes,proto3" json:"rss_bytes,omitempty"`                  // Resident set size in bytes (0 when not running)
-	CpuPercent    float64                `protobuf:"fixed64,7,opt,name=cpu_percent,json=cpuPercent,proto3" json:"cpu_percent,omitempty"`           // CPU usage percent over the sampling interval
-	Flags         []string               `protobuf:"bytes,8,rep,name=flags,proto3" json:"flags,omitempty"`                                         // Anomaly markers (mem_over_limit / cpu_over_limit)
-	LastEventUnix int64                  `protobuf:"varint,9,opt,name=last_event_unix,json=lastEventUnix,proto3" json:"last_event_unix,omitempty"` // Unix seconds of the last supervisor event (0 if none)
+	MaxBytes      int32                  `protobuf:"varint,1,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"` // Size cap for the returned content (tail bytes kept)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
+func (x *GetSupervisorLogRequest) Reset() {
+	*x = GetSupervisorLogRequest{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSupervisorLogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSupervisorLogRequest) ProtoMessage() {}
+
+func (x *GetSupervisorLogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSupervisorLogRequest.ProtoReflect.Descriptor instead.
+func (*GetSupervisorLogRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetSupervisorLogRequest) GetMaxBytes() int32 {
+	if x != nil {
+		return x.MaxBytes
+	}
+	return 0
+}
+
+// GetSupervisorLogResponse carries the (possibly truncated) log file content.
+type GetSupervisorLogResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Content       []byte                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`                   // Log content (JSON lines), tail side kept when truncated
+	FileName      string                 `protobuf:"bytes,2,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"` // Source file name (for Content-Disposition)
+	Truncated     bool                   `protobuf:"varint,3,opt,name=truncated,proto3" json:"truncated,omitempty"`              // True when content was cut by max_bytes
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSupervisorLogResponse) Reset() {
+	*x = GetSupervisorLogResponse{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSupervisorLogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSupervisorLogResponse) ProtoMessage() {}
+
+func (x *GetSupervisorLogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSupervisorLogResponse.ProtoReflect.Descriptor instead.
+func (*GetSupervisorLogResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetSupervisorLogResponse) GetContent() []byte {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+func (x *GetSupervisorLogResponse) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+func (x *GetSupervisorLogResponse) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+// SupervisedProcessSnapshot is a per-sample view of one supervisor-managed
+// process, carried in MetricsReport so the server can display live state
+// without a dedicated polling RPC.
+type SupervisedProcessSnapshot struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Name              string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                                          // Managed process name (as configured)
+	Pid               int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`                                                           // Current PID (0 if not running)
+	State             ProcessState           `protobuf:"varint,3,opt,name=state,proto3,enum=croupier.ops.v1.ProcessState" json:"state,omitempty"`                     // Current state
+	UptimeSeconds     int64                  `protobuf:"varint,4,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`                  // Seconds since last start
+	RestartCount      int32                  `protobuf:"varint,5,opt,name=restart_count,json=restartCount,proto3" json:"restart_count,omitempty"`                     // Number of restarts since agent start
+	RssBytes          int64                  `protobuf:"varint,6,opt,name=rss_bytes,json=rssBytes,proto3" json:"rss_bytes,omitempty"`                                 // Resident set size in bytes (0 when not running)
+	CpuPercent        float64                `protobuf:"fixed64,7,opt,name=cpu_percent,json=cpuPercent,proto3" json:"cpu_percent,omitempty"`                          // CPU usage percent over the sampling interval
+	Flags             []string               `protobuf:"bytes,8,rep,name=flags,proto3" json:"flags,omitempty"`                                                        // Anomaly markers (mem_over_limit / cpu_over_limit / breaker_tripped)
+	LastEventUnix     int64                  `protobuf:"varint,9,opt,name=last_event_unix,json=lastEventUnix,proto3" json:"last_event_unix,omitempty"`                // Unix seconds of the last supervisor event (0 if none)
+	NextRestartAtUnix int64                  `protobuf:"varint,10,opt,name=next_restart_at_unix,json=nextRestartAtUnix,proto3" json:"next_restart_at_unix,omitempty"` // Unix seconds of the scheduled auto-restart (BACKOFF only)
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
 func (x *SupervisedProcessSnapshot) Reset() {
 	*x = SupervisedProcessSnapshot{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1372,7 +1647,7 @@ func (x *SupervisedProcessSnapshot) String() string {
 func (*SupervisedProcessSnapshot) ProtoMessage() {}
 
 func (x *SupervisedProcessSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1385,7 +1660,7 @@ func (x *SupervisedProcessSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SupervisedProcessSnapshot.ProtoReflect.Descriptor instead.
 func (*SupervisedProcessSnapshot) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{16}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SupervisedProcessSnapshot) GetName() string {
@@ -1451,6 +1726,13 @@ func (x *SupervisedProcessSnapshot) GetLastEventUnix() int64 {
 	return 0
 }
 
+func (x *SupervisedProcessSnapshot) GetNextRestartAtUnix() int64 {
+	if x != nil {
+		return x.NextRestartAtUnix
+	}
+	return 0
+}
+
 // ExecuteCommandRequest requests command execution.
 // WARNING: This is a high-risk operation.
 type ExecuteCommandRequest struct {
@@ -1466,7 +1748,7 @@ type ExecuteCommandRequest struct {
 
 func (x *ExecuteCommandRequest) Reset() {
 	*x = ExecuteCommandRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1478,7 +1760,7 @@ func (x *ExecuteCommandRequest) String() string {
 func (*ExecuteCommandRequest) ProtoMessage() {}
 
 func (x *ExecuteCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1491,7 +1773,7 @@ func (x *ExecuteCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteCommandRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteCommandRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{17}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ExecuteCommandRequest) GetCommand() string {
@@ -1542,7 +1824,7 @@ type ExecuteCommandResponse struct {
 
 func (x *ExecuteCommandResponse) Reset() {
 	*x = ExecuteCommandResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1554,7 +1836,7 @@ func (x *ExecuteCommandResponse) String() string {
 func (*ExecuteCommandResponse) ProtoMessage() {}
 
 func (x *ExecuteCommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1567,7 +1849,7 @@ func (x *ExecuteCommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteCommandResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteCommandResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{18}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ExecuteCommandResponse) GetSuccess() bool {
@@ -1617,7 +1899,7 @@ type ListServicesRequest struct {
 
 func (x *ListServicesRequest) Reset() {
 	*x = ListServicesRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1629,7 +1911,7 @@ func (x *ListServicesRequest) String() string {
 func (*ListServicesRequest) ProtoMessage() {}
 
 func (x *ListServicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1642,7 +1924,7 @@ func (x *ListServicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServicesRequest.ProtoReflect.Descriptor instead.
 func (*ListServicesRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{19}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListServicesRequest) GetState() string {
@@ -1677,7 +1959,7 @@ type ListServicesResponse struct {
 
 func (x *ListServicesResponse) Reset() {
 	*x = ListServicesResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1689,7 +1971,7 @@ func (x *ListServicesResponse) String() string {
 func (*ListServicesResponse) ProtoMessage() {}
 
 func (x *ListServicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1702,7 +1984,7 @@ func (x *ListServicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServicesResponse.ProtoReflect.Descriptor instead.
 func (*ListServicesResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{20}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListServicesResponse) GetServices() []*ServiceInfo {
@@ -1733,7 +2015,7 @@ type ServiceInfo struct {
 
 func (x *ServiceInfo) Reset() {
 	*x = ServiceInfo{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1745,7 +2027,7 @@ func (x *ServiceInfo) String() string {
 func (*ServiceInfo) ProtoMessage() {}
 
 func (x *ServiceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1758,7 +2040,7 @@ func (x *ServiceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceInfo.ProtoReflect.Descriptor instead.
 func (*ServiceInfo) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{21}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ServiceInfo) GetName() string {
@@ -1806,7 +2088,7 @@ type GetServiceStatusRequest struct {
 
 func (x *GetServiceStatusRequest) Reset() {
 	*x = GetServiceStatusRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1818,7 +2100,7 @@ func (x *GetServiceStatusRequest) String() string {
 func (*GetServiceStatusRequest) ProtoMessage() {}
 
 func (x *GetServiceStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1831,7 +2113,7 @@ func (x *GetServiceStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServiceStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetServiceStatusRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{22}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetServiceStatusRequest) GetName() string {
@@ -1857,7 +2139,7 @@ type GetServiceStatusResponse struct {
 
 func (x *GetServiceStatusResponse) Reset() {
 	*x = GetServiceStatusResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1869,7 +2151,7 @@ func (x *GetServiceStatusResponse) String() string {
 func (*GetServiceStatusResponse) ProtoMessage() {}
 
 func (x *GetServiceStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1882,7 +2164,7 @@ func (x *GetServiceStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServiceStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetServiceStatusResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{23}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetServiceStatusResponse) GetName() string {
@@ -1945,7 +2227,7 @@ type ListCronJobsResponse struct {
 
 func (x *ListCronJobsResponse) Reset() {
 	*x = ListCronJobsResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1957,7 +2239,7 @@ func (x *ListCronJobsResponse) String() string {
 func (*ListCronJobsResponse) ProtoMessage() {}
 
 func (x *ListCronJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1970,7 +2252,7 @@ func (x *ListCronJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCronJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListCronJobsResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{24}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListCronJobsResponse) GetJobs() []*CronJob {
@@ -2001,7 +2283,7 @@ type CronJob struct {
 
 func (x *CronJob) Reset() {
 	*x = CronJob{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2013,7 +2295,7 @@ func (x *CronJob) String() string {
 func (*CronJob) ProtoMessage() {}
 
 func (x *CronJob) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2026,7 +2308,7 @@ func (x *CronJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CronJob.ProtoReflect.Descriptor instead.
 func (*CronJob) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{25}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CronJob) GetSchedule() string {
@@ -2068,7 +2350,7 @@ var File_croupier_ops_v1_ops_proto protoreflect.FileDescriptor
 
 const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\n" +
-	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd9\x04\n" +
+	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa8\x05\n" +
 	"\rMetricsReport\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12-\n" +
@@ -2078,7 +2360,9 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\bnetworks\x18\x06 \x03(\v2\x1f.croupier.ops.v1.NetworkMetricsR\bnetworks\x12=\n" +
 	"\tprocesses\x18\a \x03(\v2\x1f.croupier.ops.v1.ProcessMetricsR\tprocesses\x12B\n" +
 	"\x06custom\x18\b \x03(\v2*.croupier.ops.v1.MetricsReport.CustomEntryR\x06custom\x12]\n" +
-	"\x14supervised_processes\x18\t \x03(\v2*.croupier.ops.v1.SupervisedProcessSnapshotR\x13supervisedProcesses\x1a9\n" +
+	"\x14supervised_processes\x18\t \x03(\v2*.croupier.ops.v1.SupervisedProcessSnapshotR\x13supervisedProcesses\x12M\n" +
+	"\x11supervisor_events\x18\n" +
+	" \x03(\v2 .croupier.ops.v1.SupervisorEventR\x10supervisorEvents\x1a9\n" +
 	"\vCustomEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xaf\x01\n" +
@@ -2179,7 +2463,7 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x10\n" +
 	"\x03pid\x18\x03 \x01(\x05R\x03pid\"V\n" +
 	"\x15ListProcessesResponse\x12=\n" +
-	"\tprocesses\x18\x01 \x03(\v2\x1f.croupier.ops.v1.ManagedProcessR\tprocesses\"\xc3\x02\n" +
+	"\tprocesses\x18\x01 \x03(\v2\x1f.croupier.ops.v1.ManagedProcessR\tprocesses\"\xf4\x02\n" +
 	"\x0eManagedProcess\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12\x1f\n" +
@@ -2191,7 +2475,33 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\n" +
 	"last_start\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tlastStart\x12%\n" +
 	"\x0euptime_seconds\x18\b \x01(\x03R\ruptimeSeconds\x12\x14\n" +
-	"\x05flags\x18\t \x03(\tR\x05flags\"\xbe\x02\n" +
+	"\x05flags\x18\t \x03(\tR\x05flags\x12/\n" +
+	"\x14next_restart_at_unix\x18\n" +
+	" \x01(\x03R\x11nextRestartAtUnix\"\xa8\x03\n" +
+	"\x0fSupervisorEvent\x12\x17\n" +
+	"\ats_unix\x18\x01 \x01(\x03R\x06tsUnix\x12\x18\n" +
+	"\aprocess\x18\x02 \x01(\tR\aprocess\x12\x14\n" +
+	"\x05event\x18\x03 \x01(\tR\x05event\x12\x17\n" +
+	"\aold_pid\x18\x04 \x01(\x05R\x06oldPid\x12\x17\n" +
+	"\anew_pid\x18\x05 \x01(\x05R\x06newPid\x12\x1b\n" +
+	"\texit_code\x18\x06 \x01(\x05R\bexitCode\x12\x16\n" +
+	"\x06signal\x18\a \x01(\tR\x06signal\x12#\n" +
+	"\rrestart_count\x18\b \x01(\x05R\frestartCount\x12\x18\n" +
+	"\amessage\x18\t \x01(\tR\amessage\x12.\n" +
+	"\x13last_heartbeat_unix\x18\n" +
+	" \x01(\x03R\x11lastHeartbeatUnix\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\v \x01(\tR\tlastError\x12\x1f\n" +
+	"\voom_suspect\x18\f \x01(\bR\n" +
+	"oomSuspect\x12$\n" +
+	"\x0elast_rss_bytes\x18\r \x01(\x03R\flastRssBytes\x12\x10\n" +
+	"\x03seq\x18\x0e \x01(\x03R\x03seq\"6\n" +
+	"\x17GetSupervisorLogRequest\x12\x1b\n" +
+	"\tmax_bytes\x18\x01 \x01(\x05R\bmaxBytes\"o\n" +
+	"\x18GetSupervisorLogResponse\x12\x18\n" +
+	"\acontent\x18\x01 \x01(\fR\acontent\x12\x1b\n" +
+	"\tfile_name\x18\x02 \x01(\tR\bfileName\x12\x1c\n" +
+	"\ttruncated\x18\x03 \x01(\bR\ttruncated\"\xef\x02\n" +
 	"\x19SupervisedProcessSnapshot\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\x05R\x03pid\x123\n" +
@@ -2202,7 +2512,9 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\vcpu_percent\x18\a \x01(\x01R\n" +
 	"cpuPercent\x12\x14\n" +
 	"\x05flags\x18\b \x03(\tR\x05flags\x12&\n" +
-	"\x0flast_event_unix\x18\t \x01(\x03R\rlastEventUnix\"\x8a\x02\n" +
+	"\x0flast_event_unix\x18\t \x01(\x03R\rlastEventUnix\x12/\n" +
+	"\x14next_restart_at_unix\x18\n" +
+	" \x01(\x03R\x11nextRestartAtUnix\"\x8a\x02\n" +
 	"\x15ExecuteCommandRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\tR\acommand\x12\x12\n" +
 	"\x04args\x18\x02 \x03(\tR\x04args\x12\x1f\n" +
@@ -2281,7 +2593,7 @@ func file_croupier_ops_v1_ops_proto_rawDescGZIP() []byte {
 }
 
 var file_croupier_ops_v1_ops_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(ProcessState)(0),                 // 0: croupier.ops.v1.ProcessState
 	(*MetricsReport)(nil),             // 1: croupier.ops.v1.MetricsReport
@@ -2300,44 +2612,48 @@ var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(*StartProcessResponse)(nil),      // 14: croupier.ops.v1.StartProcessResponse
 	(*ListProcessesResponse)(nil),     // 15: croupier.ops.v1.ListProcessesResponse
 	(*ManagedProcess)(nil),            // 16: croupier.ops.v1.ManagedProcess
-	(*SupervisedProcessSnapshot)(nil), // 17: croupier.ops.v1.SupervisedProcessSnapshot
-	(*ExecuteCommandRequest)(nil),     // 18: croupier.ops.v1.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil),    // 19: croupier.ops.v1.ExecuteCommandResponse
-	(*ListServicesRequest)(nil),       // 20: croupier.ops.v1.ListServicesRequest
-	(*ListServicesResponse)(nil),      // 21: croupier.ops.v1.ListServicesResponse
-	(*ServiceInfo)(nil),               // 22: croupier.ops.v1.ServiceInfo
-	(*GetServiceStatusRequest)(nil),   // 23: croupier.ops.v1.GetServiceStatusRequest
-	(*GetServiceStatusResponse)(nil),  // 24: croupier.ops.v1.GetServiceStatusResponse
-	(*ListCronJobsResponse)(nil),      // 25: croupier.ops.v1.ListCronJobsResponse
-	(*CronJob)(nil),                   // 26: croupier.ops.v1.CronJob
-	nil,                               // 27: croupier.ops.v1.MetricsReport.CustomEntry
-	nil,                               // 28: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	(*timestamppb.Timestamp)(nil),     // 29: google.protobuf.Timestamp
+	(*SupervisorEvent)(nil),           // 17: croupier.ops.v1.SupervisorEvent
+	(*GetSupervisorLogRequest)(nil),   // 18: croupier.ops.v1.GetSupervisorLogRequest
+	(*GetSupervisorLogResponse)(nil),  // 19: croupier.ops.v1.GetSupervisorLogResponse
+	(*SupervisedProcessSnapshot)(nil), // 20: croupier.ops.v1.SupervisedProcessSnapshot
+	(*ExecuteCommandRequest)(nil),     // 21: croupier.ops.v1.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil),    // 22: croupier.ops.v1.ExecuteCommandResponse
+	(*ListServicesRequest)(nil),       // 23: croupier.ops.v1.ListServicesRequest
+	(*ListServicesResponse)(nil),      // 24: croupier.ops.v1.ListServicesResponse
+	(*ServiceInfo)(nil),               // 25: croupier.ops.v1.ServiceInfo
+	(*GetServiceStatusRequest)(nil),   // 26: croupier.ops.v1.GetServiceStatusRequest
+	(*GetServiceStatusResponse)(nil),  // 27: croupier.ops.v1.GetServiceStatusResponse
+	(*ListCronJobsResponse)(nil),      // 28: croupier.ops.v1.ListCronJobsResponse
+	(*CronJob)(nil),                   // 29: croupier.ops.v1.CronJob
+	nil,                               // 30: croupier.ops.v1.MetricsReport.CustomEntry
+	nil,                               // 31: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	(*timestamppb.Timestamp)(nil),     // 32: google.protobuf.Timestamp
 }
 var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
-	29, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
+	32, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
 	2,  // 1: croupier.ops.v1.MetricsReport.cpu:type_name -> croupier.ops.v1.CpuMetrics
 	3,  // 2: croupier.ops.v1.MetricsReport.memory:type_name -> croupier.ops.v1.MemoryMetrics
 	4,  // 3: croupier.ops.v1.MetricsReport.disks:type_name -> croupier.ops.v1.DiskMetrics
 	5,  // 4: croupier.ops.v1.MetricsReport.networks:type_name -> croupier.ops.v1.NetworkMetrics
 	6,  // 5: croupier.ops.v1.MetricsReport.processes:type_name -> croupier.ops.v1.ProcessMetrics
-	27, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
-	17, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
-	29, // 8: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
-	29, // 9: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
-	8,  // 10: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
-	16, // 11: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
-	0,  // 12: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
-	29, // 13: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
-	0,  // 14: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
-	28, // 15: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	22, // 16: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
-	26, // 17: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	30, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
+	20, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
+	17, // 8: croupier.ops.v1.MetricsReport.supervisor_events:type_name -> croupier.ops.v1.SupervisorEvent
+	32, // 9: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
+	32, // 10: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
+	8,  // 11: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
+	16, // 12: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
+	0,  // 13: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
+	32, // 14: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
+	0,  // 15: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
+	31, // 16: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	25, // 17: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
+	29, // 18: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_croupier_ops_v1_ops_proto_init() }
@@ -2351,7 +2667,7 @@ func file_croupier_ops_v1_ops_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_ops_v1_ops_proto_rawDesc), len(file_croupier_ops_v1_ops_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   28,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

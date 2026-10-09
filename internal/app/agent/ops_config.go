@@ -40,6 +40,27 @@ type OpsConfig struct {
 	// ExecTimeout is the maximum execution time for commands.
 	// Default: 60s, Max: 300s
 	ExecTimeout time.Duration `json:"execTimeout" yaml:"exec_timeout"`
+
+	// SupervisorLog configures the supervisor event log (rotating file). The
+	// event log is the full-truth record; a truncated copy is mirrored to the
+	// server's in-memory ring for the panel.
+	SupervisorLog SupervisorLogConfig `json:"supervisorLog" yaml:"supervisorLog"`
+}
+
+// SupervisorLogConfig configures the rotating supervisor event log file.
+type SupervisorLogConfig struct {
+	// Dir is the directory holding the rotating log file.
+	// Default: <data dir>/supervisor (falls back to os temp dir when empty)
+	Dir string `json:"dir" yaml:"dir"`
+
+	// MaxSizeMB is the max size in MB before rotation. Default: 10
+	MaxSizeMB int `json:"maxSizeMB" yaml:"maxSizeMB"`
+
+	// MaxBackups is the max number of rotated files to keep. Default: 5
+	MaxBackups int `json:"maxBackups" yaml:"maxBackups"`
+
+	// MaxAgeDays is the max age in days of rotated files. Default: 7
+	MaxAgeDays int `json:"maxAgeDays" yaml:"maxAgeDays"`
 }
 
 // ManagedProcessConfig defines how to manage a process.
@@ -67,6 +88,18 @@ type ManagedProcessConfig struct {
 	// AutoRestart controls whether to automatically restart on crash.
 	// Default: false
 	AutoRestart bool `json:"autoRestart" yaml:"auto_restart"`
+
+	// RestartBackoffInitial is the first backoff delay in the exponential
+	// restart sequence (1s → 2s → 4s …). Default: 1s
+	RestartBackoffInitial time.Duration `json:"restartBackoffInitial" yaml:"restartBackoffInitial"`
+
+	// RestartBackoffMax caps the backoff delay. Default: 60s
+	RestartBackoffMax time.Duration `json:"restartBackoffMax" yaml:"restartBackoffMax"`
+
+	// RestartBreakerLimit is the consecutive-failure count that trips the
+	// circuit breaker (state becomes BROKEN, auto-restart stops). 0 disables
+	// the breaker (not recommended). Default: 5
+	RestartBreakerLimit int `json:"restartBreakerLimit" yaml:"restartBreakerLimit"`
 
 	// MemThresholdBytes marks the process with the mem_over_limit flag when
 	// sampled RSS reaches this value. 0 disables the check. Default: 0

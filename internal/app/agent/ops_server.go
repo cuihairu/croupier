@@ -28,6 +28,9 @@ type OpsServer struct {
 
 	// Managed process tracking
 	processes map[string]*managedProcess
+
+	// supLog 是监管事件环+轮转文件（S2 双通道的 agent 侧 truth）。
+	supLog *supervisorEventLog
 }
 
 // managedProcess represents a managed process state
@@ -50,7 +53,15 @@ type managedProcess struct {
 	lastRSS   int64
 	lastCPU   float64
 	lastFlags []string
-	mu        sync.RWMutex
+	// S2 监管状态机字段（p.mu 保护）：consecutiveFails 是连续失败计数
+	// （存活超过退避封顶即清零）；nextRestartAt 是 BACKOFF 态的下次拉起
+	// 时刻；lastEventUnix/lastSampleUnix 供快照的 last_event_unix 与
+	// 事件上下文 last_heartbeat 使用。
+	consecutiveFails int
+	nextRestartAt    *time.Time
+	lastEventUnix    int64
+	lastSampleUnix   int64
+	mu               sync.RWMutex
 }
 
 // NewOpsServer creates a new Ops server instance.
@@ -63,6 +74,7 @@ func NewOpsServer(config *OpsConfig, agentID, version string, _ interface{}) *Op
 		agentID:   agentID,
 		version:   version,
 		processes: make(map[string]*managedProcess),
+		supLog:    newSupervisorEventLog(config.SupervisorLog),
 	}
 }
 
@@ -97,6 +109,9 @@ func (s *OpsServer) ListProcesses(ctx context.Context, _ *emptypb.Empty) (*opsv1
 				mp.UptimeSeconds = up
 			}
 		}
+		if p.state == opsv1.ProcessState_PROCESS_STATE_BACKOFF && p.nextRestartAt != nil {
+			mp.NextRestartAtUnix = p.nextRestartAt.Unix()
+		}
 		p.mu.RUnlock()
 		resp.Processes = append(resp.Processes, mp)
 	}
@@ -126,19 +141,32 @@ func (s *OpsServer) RestartProcess(ctx context.Context, req *opsv1.RestartProces
 	}
 
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	// Stop the process
 	s.stopProcess(p)
 
 	// Start it again
 	if err := s.startProcess(p); err != nil {
+		p.mu.Unlock()
 		return nil, fmt.Errorf("failed to restart process: %w", err)
 	}
 
+	oldPID := p.pid
 	p.restarts++
 	p.lastStart = timestamppb.Now()
 	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
+	p.nextRestartAt = nil
+	// 人工干预成功即复位熔断计数（BROKEN → RUNNING 的修复路径）。
+	p.consecutiveFails = 0
+	newPID := p.pid
+	restarts := p.restarts
+	p.mu.Unlock()
+
+	manual := newSupervisorEvent(p.name, supervisorEventManualStart)
+	manual.OldPid = oldPID
+	manual.NewPid = newPID
+	manual.RestartCount = restarts
+	manual.Message = "manual restart"
+	s.emitSupervisorEvent(p, manual)
 
 	return &opsv1.RestartProcessResponse{
 		Success: true,
@@ -161,10 +189,17 @@ func (s *OpsServer) StopProcess(ctx context.Context, req *opsv1.StopProcessReque
 	}
 
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	s.stopProcess(p)
+	oldPID := p.pid
+	p.pid = 0
 	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
+	p.nextRestartAt = nil
+	p.mu.Unlock()
+
+	ev := newSupervisorEvent(p.name, supervisorEventManualStop)
+	ev.OldPid = oldPID
+	ev.Message = "manual stop"
+	s.emitSupervisorEvent(p, ev)
 
 	return &opsv1.StopProcessResponse{
 		Success: true,
@@ -206,19 +241,32 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 	}
 
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
+		p.mu.Unlock()
 		return nil, fmt.Errorf("process '%s' is already running", req.ProcessName)
 	}
 
 	if err := s.startProcess(p); err != nil {
+		p.mu.Unlock()
 		return nil, fmt.Errorf("failed to start process: %w", err)
 	}
 
 	p.restarts++
 	p.lastStart = timestamppb.Now()
 	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
+	p.nextRestartAt = nil
+	// 手动 start 是 BROKEN 的复位路径：成功即清连续失败计数。
+	p.consecutiveFails = 0
+	newPID := p.pid
+	restarts := p.restarts
+	p.mu.Unlock()
+
+	ev := newSupervisorEvent(p.name, supervisorEventManualStart)
+	ev.NewPid = newPID
+	ev.RestartCount = restarts
+	ev.Message = "manual start"
+	s.emitSupervisorEvent(p, ev)
 
 	return &opsv1.StartProcessResponse{
 		Success: true,
@@ -312,6 +360,11 @@ func (s *OpsServer) startProcess(p *managedProcess) error {
 	p.cmd = cmd
 	p.pid = int32(cmd.Process.Pid)
 	p.waitDone = make(chan struct{})
+	// 每个实例一个新 stopCh：手动 stop/restart 已把旧 stopCh close，
+	// 复用会让新实例的退避等待与归属守卫误判为「主动停止」。
+	p.stopCh = make(chan struct{})
+	// 旧 gopsutil 句柄属于已死实例；pid 恰好复用时句柄校验不可靠，直接弃用。
+	p.proc = nil
 
 	// Start goroutine to monitor process
 	go s.monitorProcess(p)
@@ -348,11 +401,13 @@ func (s *OpsServer) stopProcess(p *managedProcess) {
 // waitDone）。
 var stopProcessWaitTimeout = 5 * time.Second
 
-// monitorProcess monitors a managed process and restarts if needed
+// monitorProcess waits for the watched instance and hands the exit to the
+// supervisor state machine. Wait 的唯一属主仍是本 goroutine。
 func (s *OpsServer) monitorProcess(p *managedProcess) {
 	// 实例归属：本 monitor 只代表它 Wait 的这个 cmd/watchDone。Wait 期间
 	// 外部 RestartProcess/StartProcess 可能换掉 p.cmd 开新实例——旧实例的
-	// 死亡既不能翻当前状态，也不能再触发拉起。
+	// 死亡既不能翻当前状态，也不能再触发拉起（superviseExit 内以 p.cmd
+	// 归属守卫兜底）。
 	watched := p.cmd
 	watchedWaitDone := p.waitDone
 	if watched == nil || watched.Process == nil {
@@ -364,39 +419,163 @@ func (s *OpsServer) monitorProcess(p *managedProcess) {
 		close(watchedWaitDone)
 	}
 
-	// AutoRestart 的重启延迟在锁外等待：持 p.mu 睡眠会把 ListProcesses/
-	// GetProcess 等状态读堵满整个 RestartDelay（能力矩阵批次 F 内部瑕疵）。
-	// 停机信号可中断等待；唤醒后仍以锁内状态判定为准——延迟窗口内发生的
-	// stop 已把状态置 STOPPED，不会复活进程。
-	if p.config.AutoRestart && err != nil {
-		delay := p.config.RestartDelay
-		if delay <= 0 {
-			delay = 5 * time.Second
+	s.superviseExit(p, watched, err)
+}
+
+// autoRestartAllowed reports whether automatic restart may proceed: the
+// per-process switch AND the ops double gate (Enabled+AllowRestart), mirroring
+// the manual start/stop gating. Caller must hold p.mu (reads p.config).
+func (s *OpsServer) autoRestartAllowed(p *managedProcess) bool {
+	return p.config.AutoRestart && s.config.Enabled && s.config.AllowRestart
+}
+
+// superviseExit runs the S2 restart loop after the watched instance exited:
+// detect_down → (breaker | exponential backoff → auto restart) — restart
+// failures loop back into the breaker count. 退避 sleep 在锁外且可被 stopCh
+// 打断；每次状态迁移前都重查实例归属，手动 stop/restart 换掉 p.cmd 后旧
+// monitor 直接退出。
+func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr error) {
+	// 主动停止：stopProcess 已 close stopCh（StopProcess 置 STOPPED；
+	// RestartProcess 随后会换新实例）。此时不再触发 detect_down/拉起。
+	if p.stopCh != nil {
+		select {
+		case <-p.stopCh:
+			return
+		default:
 		}
-		if p.stopCh != nil {
+	}
+
+	exitCode, sigName := exitDetail(waitErr)
+
+	p.mu.Lock()
+	if p.cmd != watched || p.state == opsv1.ProcessState_PROCESS_STATE_STOPPED {
+		p.mu.Unlock()
+		return
+	}
+	oldPID := p.pid
+	lastRSS := p.lastRSS
+	lastSample := p.lastSampleUnix
+	p.mu.Unlock()
+
+	detectDown := newSupervisorEvent(p.name, supervisorEventDetectDown)
+	detectDown.OldPid = oldPID
+	detectDown.ExitCode = exitCode
+	detectDown.Signal = sigName
+	detectDown.OomSuspect = supervisorOomSuspect(sigName, lastRSS)
+	detectDown.LastRssBytes = lastRSS
+	detectDown.LastHeartbeatUnix = lastSample
+	s.emitSupervisorEvent(p, detectDown)
+
+	for {
+		p.mu.Lock()
+		if p.cmd != watched || p.state == opsv1.ProcessState_PROCESS_STATE_STOPPED {
+			p.mu.Unlock()
+			return
+		}
+		if !s.autoRestartAllowed(p) {
+			p.state = opsv1.ProcessState_PROCESS_STATE_FAILED
+			p.nextRestartAt = nil
+			p.mu.Unlock()
+			return
+		}
+		p.consecutiveFails++
+		fails := p.consecutiveFails
+		if breakerTripped(p.config, int32(fails)) {
+			p.state = opsv1.ProcessState_PROCESS_STATE_BROKEN
+			p.nextRestartAt = nil
+			restarts := p.restarts
+			msg := breakerMessage(p.config, int32(fails))
+			p.mu.Unlock()
+			tripped := newSupervisorEvent(p.name, supervisorEventBreakerTripped)
+			tripped.OldPid = oldPID
+			tripped.RestartCount = restarts
+			tripped.Message = msg
+			s.emitSupervisorEvent(p, tripped)
+			return
+		}
+		delay := supervisorBackoffDelay(p.config, fails)
+		nextAt := time.Now().Add(delay)
+		p.state = opsv1.ProcessState_PROCESS_STATE_BACKOFF
+		p.nextRestartAt = &nextAt
+		stopCh := p.stopCh
+		p.mu.Unlock()
+
+		// 退避等待在锁外（持锁睡眠会堵满状态读，见 S1 修复注记），
+		// 停机信号可打断。
+		if stopCh != nil {
 			select {
-			case <-p.stopCh:
+			case <-stopCh:
+				p.mu.Lock()
+				if p.cmd == watched {
+					p.nextRestartAt = nil
+				}
+				p.mu.Unlock()
 				return
 			case <-time.After(delay):
 			}
 		} else {
 			time.Sleep(delay)
 		}
+
+		p.mu.Lock()
+		if p.cmd != watched || p.state == opsv1.ProcessState_PROCESS_STATE_STOPPED {
+			p.mu.Unlock()
+			return
+		}
+		p.nextRestartAt = nil
+		p.state = opsv1.ProcessState_PROCESS_STATE_STARTING
+		spawnErr := s.startProcess(p)
+		if spawnErr == nil {
+			newCmd := p.cmd
+			newPID := p.pid
+			p.restarts++
+			p.lastStart = timestamppb.Now()
+			p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
+			restarts := p.restarts
+			newStopCh := p.stopCh
+			p.mu.Unlock()
+			restarted := newSupervisorEvent(p.name, supervisorEventAutoRestart)
+			restarted.OldPid = oldPID
+			restarted.NewPid = newPID
+			restarted.RestartCount = restarts
+			s.emitSupervisorEvent(p, restarted)
+			// 成功判定：新实例存活超过退避封顶才清连续失败计数，
+			// 防止启动即崩的进程把退避序列刷穿（设计 §3.4）。
+			s.armSuccessTimer(p, newCmd, newStopCh)
+			return
+		}
+		p.state = opsv1.ProcessState_PROCESS_STATE_FAILED
+		p.mu.Unlock()
+		failed := newSupervisorEvent(p.name, supervisorEventRestartFailed)
+		failed.OldPid = oldPID
+		failed.Message = spawnErr.Error()
+		s.emitSupervisorEvent(p, failed)
+		// spawn 失败计入连续失败：循环回到顶部重查熔断/退避。
 	}
+}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.cmd == watched && p.state != opsv1.ProcessState_PROCESS_STATE_STOPPED {
-		if p.config.AutoRestart && err != nil {
-			if s.startProcess(p) == nil {
-				p.restarts++
-				p.lastStart = timestamppb.Now()
+// armSuccessTimer clears the consecutive-failure counter once the restarted
+// instance (watched) has survived longer than the backoff cap while still
+// being the current p.cmd in RUNNING state. Ownership guard同 monitor：期间
+// 发生的手动操作/再次崩溃都会让本定时器失效。
+func (s *OpsServer) armSuccessTimer(p *managedProcess, watched *exec.Cmd, stopCh chan struct{}) {
+	delay := supervisorBackoffDelay(p.config, 2)
+	go func() {
+		if stopCh != nil {
+			select {
+			case <-stopCh:
+				return
+			case <-time.After(delay):
 			}
 		} else {
-			p.state = opsv1.ProcessState_PROCESS_STATE_FAILED
+			time.Sleep(delay)
 		}
-	}
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		if p.cmd == watched && p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
+			p.consecutiveFails = 0
+		}
+	}()
 }
 
 // Start starts all configured managed processes.
@@ -417,7 +596,6 @@ func (s *OpsServer) Start() error {
 			name:   name,
 			config: cfg,
 			state:  opsv1.ProcessState_PROCESS_STATE_STOPPED,
-			stopCh: make(chan struct{}),
 		}
 
 		if err := s.startProcess(p); err != nil {
@@ -425,13 +603,35 @@ func (s *OpsServer) Start() error {
 			continue
 		}
 
+		// monitor goroutine 已随 startProcess 启动：实例字段写入必须过
+		// p.mu（s.mu 管不了 monitor 与 superviseExit 的读路径）。
+		p.mu.Lock()
 		p.restarts = 1
 		p.lastStart = timestamppb.Now()
 		p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
+		p.mu.Unlock()
 		s.processes[name] = p
 	}
 
 	return nil
+}
+
+// GetSupervisorLog returns a tail of the rotating supervisor event log for
+// the download proxy (server pulls via the ops tunnel; size-capped).
+func (s *OpsServer) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	content, fileName, truncated, err := s.supLog.ReadTail(int64(req.GetMaxBytes()))
+	if err != nil {
+		if os.IsNotExist(err) {
+			// 尚未产生事件时文件不存在：返回空内容而非错误，面板可直接下载空日志。
+			return &opsv1.GetSupervisorLogResponse{Content: []byte{}, FileName: fileName}, nil
+		}
+		return nil, err
+	}
+	return &opsv1.GetSupervisorLogResponse{
+		Content:   content,
+		FileName:  fileName,
+		Truncated: truncated,
+	}, nil
 }
 
 // Stop stops all managed processes.

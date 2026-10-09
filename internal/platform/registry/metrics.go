@@ -60,6 +60,10 @@ func DefaultMetricsStoreConfig() MetricsStoreConfig {
 	}
 }
 
+// supervisorEventRingSize 每个 agent 的 supervisor 事件内存环上限（与 agent
+// 侧 supervisorEventLog 环深一致）。
+const supervisorEventRingSize = 500
+
 // MetricsStore stores metrics with memory + database hybrid approach.
 type MetricsStore struct {
 	mu      sync.RWMutex
@@ -71,6 +75,12 @@ type MetricsStore struct {
 	// onReport 是上报后回调（告警规则评估等）。异步执行且有 recover
 	// 防护，评估异常不影响存储链路。
 	onReport func(ctx context.Context, agentID string, report *opsv1.MetricsReport)
+	// supervisor 事件环（agent 经 metrics 上报捎带，server 内存缓存）。
+	// lastSeq/lastTs 用于去重：seq 不新且 ts 不新视为重传丢弃；seq 回退但
+	// ts 更新说明 agent 重启后游标归零，按新事件重新入库。
+	supEvents  map[string][]*opsv1.SupervisorEvent
+	supLastSeq map[string]int64
+	supLastTs  map[string]int64
 }
 
 // SetOnReport sets the post-report callback (e.g. alert rule evaluation).
@@ -136,6 +146,7 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 		Received: time.Now(),
 	}
 	s.head = (s.head + 1) % s.config.MaxTotalEntries
+	s.ingestSupervisorEventsLocked(agentID, report.GetSupervisorEvents())
 	onReport := s.onReport
 	s.mu.Unlock()
 
@@ -174,6 +185,73 @@ func (s *MetricsStore) persistToDB(agentID string, report *opsv1.MetricsReport) 
 	}
 
 	s.db.Create(&entry)
+}
+
+// ingestSupervisorEventsLocked merges piggybacked supervisor events into the
+// per-agent ring. Caller must hold s.mu.
+func (s *MetricsStore) ingestSupervisorEventsLocked(agentID string, evs []*opsv1.SupervisorEvent) {
+	if len(evs) == 0 {
+		return
+	}
+	if s.supEvents == nil {
+		s.supEvents = make(map[string][]*opsv1.SupervisorEvent)
+		s.supLastSeq = make(map[string]int64)
+		s.supLastTs = make(map[string]int64)
+	}
+	lastSeq, lastTs := s.supLastSeq[agentID], s.supLastTs[agentID]
+	ring := s.supEvents[agentID]
+	for _, ev := range evs {
+		if ev == nil {
+			continue
+		}
+		// 重传去重：seq 与 ts 都不比已入库基线新才丢弃；seq 回退但 ts 更新
+		// 说明 agent 重启后游标归零，按新事件重新入库。
+		if ev.Seq <= lastSeq && ev.TsUnix <= lastTs {
+			continue
+		}
+		ring = append(ring, ev)
+		if len(ring) > supervisorEventRingSize {
+			ring = ring[len(ring)-supervisorEventRingSize:]
+		}
+		lastSeq, lastTs = ev.Seq, ev.TsUnix
+	}
+	s.supEvents[agentID] = ring
+	s.supLastSeq[agentID] = lastSeq
+	s.supLastTs[agentID] = lastTs
+}
+
+// GetSupervisorEvents returns buffered supervisor events for an agent, oldest
+// first. sinceSeq > 0 keeps only events with a higher seq (incremental pull);
+// limit > 0 caps the result to the newest events.
+func (s *MetricsStore) GetSupervisorEvents(agentID string, sinceSeq int64, limit int) []*opsv1.SupervisorEvent {
+	if agentID == "" {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var out []*opsv1.SupervisorEvent
+	for _, ev := range s.supEvents[agentID] {
+		if ev == nil || (sinceSeq > 0 && ev.Seq <= sinceSeq) {
+			continue
+		}
+		out = append(out, ev)
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[len(out)-limit:]
+	}
+	return out
+}
+
+// SupervisorLatestSeq returns the newest buffered event seq for an agent
+// (0 when none), so panels can bootstrap their incremental cursor.
+func (s *MetricsStore) SupervisorLatestSeq(agentID string) int64 {
+	if agentID == "" {
+		return 0
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.supLastSeq[agentID]
 }
 
 // GetLatest returns the latest metrics report for an agent.
@@ -509,4 +587,7 @@ func (s *MetricsStore) Clear(agentID string) {
 	}
 
 	delete(s.byAgent, agentID)
+	delete(s.supEvents, agentID)
+	delete(s.supLastSeq, agentID)
+	delete(s.supLastTs, agentID)
 }

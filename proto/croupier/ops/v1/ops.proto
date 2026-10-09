@@ -36,6 +36,9 @@ message MetricsReport {
 
   // Snapshots of supervisor-managed processes (resource usage and state)
   repeated SupervisedProcessSnapshot supervised_processes = 9;
+
+  // Supervisor events that occurred since the previous report (incremental)
+  repeated SupervisorEvent supervisor_events = 10;
 }
 
 message CpuMetrics {
@@ -162,6 +165,39 @@ message ManagedProcess {
   google.protobuf.Timestamp last_start = 7;  // Last start time
   int64 uptime_seconds = 8;      // Seconds since last start (0 when not running)
   repeated string flags = 9;     // Anomaly markers (mem_over_limit / cpu_over_limit)
+  int64 next_restart_at_unix = 10; // Unix seconds of the scheduled auto-restart (0 if none)
+}
+
+// SupervisorEvent records one supervisor lifecycle event (exit, restart, breaker
+// trip, resource over-limit, manual start/stop) for the process event log.
+message SupervisorEvent {
+  int64 ts_unix = 1;             // Event time (Unix seconds)
+  string process = 2;            // Managed process name
+  string event = 3;              // Closed set: detect_down/auto_restart/restart_failed/breaker_tripped/resource_over_limit/manual_start/manual_stop
+  int32 old_pid = 4;             // PID before the event (0 if none)
+  int32 new_pid = 5;             // PID after the event (0 if none)
+  int32 exit_code = 6;           // Exit code of the process that died
+  string signal = 7;             // Signal name if killed by signal ("" otherwise)
+  int32 restart_count = 8;       // Restart count at event time
+  string message = 9;            // Human-readable detail (required for breaker_tripped)
+  // Context captured at event time (best-effort diagnostics).
+  int64 last_heartbeat_unix = 10;
+  string last_error = 11;
+  bool oom_suspect = 12;         // Heuristic: killed by SIGKILL-like signal with high RSS
+  int64 last_rss_bytes = 13;
+  int64 seq = 14;                // Agent-assigned monotonic sequence (report dedupe / incremental pull)
+}
+
+// GetSupervisorLogRequest pulls the supervisor event log file content from an agent.
+message GetSupervisorLogRequest {
+  int32 max_bytes = 1;           // Size cap for the returned content (tail bytes kept)
+}
+
+// GetSupervisorLogResponse carries the (possibly truncated) log file content.
+message GetSupervisorLogResponse {
+  bytes content = 1;             // Log content (JSON lines), tail side kept when truncated
+  string file_name = 2;          // Source file name (for Content-Disposition)
+  bool truncated = 3;            // True when content was cut by max_bytes
 }
 
 enum ProcessState {
@@ -186,8 +222,9 @@ message SupervisedProcessSnapshot {
   int32 restart_count = 5;       // Number of restarts since agent start
   int64 rss_bytes = 6;           // Resident set size in bytes (0 when not running)
   double cpu_percent = 7;        // CPU usage percent over the sampling interval
-  repeated string flags = 8;     // Anomaly markers (mem_over_limit / cpu_over_limit)
+  repeated string flags = 8;     // Anomaly markers (mem_over_limit / cpu_over_limit / breaker_tripped)
   int64 last_event_unix = 9;     // Unix seconds of the last supervisor event (0 if none)
+  int64 next_restart_at_unix = 10; // Unix seconds of the scheduled auto-restart (BACKOFF only)
 }
 
 // ExecuteCommandRequest requests command execution.
