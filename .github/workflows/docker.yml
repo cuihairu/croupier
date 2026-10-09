@@ -62,7 +62,9 @@ jobs:
           file: ./docker/Dockerfile.server
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           # IP 属地数据源（可选）：在仓库 secrets 配置 IP2LOCATION_BIN_URL
           # （从 https://lite.ip2location.com 账号下载页复制的完整链接），
           # 镜像内置 BIN 后审计日志即可展示 IP 属地；未配置则跳过下载。
@@ -151,7 +153,9 @@ jobs:
           file: ./docker/Dockerfile.agent
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           build-args: |
             VERSION=${{ env.APP_VERSION }}
             GIT_COMMIT=${{ env.GIT_COMMIT }}
@@ -232,7 +236,9 @@ jobs:
           file: ./docker/Dockerfile.ingest
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           build-args: |
             VERSION=${{ env.APP_VERSION }}
             GIT_COMMIT=${{ env.GIT_COMMIT }}
@@ -286,7 +292,9 @@ jobs:
           file: ./docker/Dockerfile.analytics-worker
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha,scope=analytics-worker
           cache-to: type=gha,scope=analytics-worker,mode=max
 
@@ -325,7 +333,9 @@ jobs:
           file: ./docker/Dockerfile.openapi-demo
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha,scope=openapi-demo
           cache-to: type=gha,scope=openapi-demo,mode=max
       - name: Make GHCR package public (openapi-provider-demo)
