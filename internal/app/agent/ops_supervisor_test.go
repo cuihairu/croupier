@@ -94,7 +94,7 @@ func TestMetricsCollector_FoldsSupervisedSnapshots(t *testing.T) {
 	_, err := s.StartProcess(context.Background(), &opsv1.StartProcessRequest{ProcessName: "sleeper"})
 	require.NoError(t, err)
 
-	collector := NewMetricsCollector("agent-1").WithSupervisor(s)
+	collector := NewMetricsCollector("agent-1").WithSampler(s)
 	report := collector.Collect(context.Background())
 	require.NotEmpty(t, report.SupervisedProcesses)
 	assert.Equal(t, "sleeper", report.SupervisedProcesses[0].Name)

@@ -147,7 +147,7 @@ func TestUpstreamDialServer_RegisterGarbageResponse(t *testing.T) {
 	client := NewUpstreamClient(f.addr(), "agent-rej2", agentlocal.NewLocalStore(), &UpstreamMetadata{})
 	err := client.dialServer(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to register after connection")
+	assert.Contains(t, err.Error(), "register after connect")
 }
 
 func TestUpstreamUpdateLoop_DebounceBurstAndSyncFailure(t *testing.T) {

@@ -1,60 +1,26 @@
 package agent
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cuihairu/croupier/core/backoff"
 )
 
-// 能力矩阵 #1（Batch A）回归：退避参数在注入点钉死，不做真实时序等待
-// （prefer-injection-over-timing-tests）。
+// 退避旋钮回归（原 newReconnectBackOff/newSyncBackOff 断言随 K2 上收迁移至
+// core/backoff 与 core/register 默认档）：此处只断言 core/backoff 对外构造器
+// 仍产出 sidecar 历史同款参数，防上收后默认档漂移。
 
-func TestNewReconnectBackOff_Params(t *testing.T) {
-	b := newReconnectBackOff()
-	require.Equal(t, 5*time.Second, b.InitialInterval)
-	require.Equal(t, 1.5, b.Multiplier)
-	require.Equal(t, 60*time.Second, b.MaxInterval)
-	require.Equal(t, 0.5, b.RandomizationFactor)
-}
+func TestCoreBackoffMatchesLegacyAgentKnobs(t *testing.T) {
+	d := backoff.Exponential(5*time.Second, 60*time.Second, 1.5)
+	require.Equal(t, 5*time.Second, d.InitialInterval)
+	require.Equal(t, 1.5, d.Multiplier)
+	require.Equal(t, 60*time.Second, d.MaxInterval)
+	require.Equal(t, 0.5, d.RandomizationFactor)
 
-func TestNewSyncBackOff_Params(t *testing.T) {
-	b := newSyncBackOff()
-	require.Equal(t, 200*time.Millisecond, b.InitialInterval)
-	require.Equal(t, 2*time.Second, b.MaxInterval)
-}
-
-// 抖动窗 [d×(1-r), d×(1+r)]，r=0.5：任何取值不越过 [Initial/2, Max×1.5]；
-// Multiplier=1.5 下 40 次抽样必然抵达 MaxInterval（最大取值 ≥ Max/2）。
-func TestNewReconnectBackOff_SequenceGrowsWithinBounds(t *testing.T) {
-	b := newReconnectBackOff()
-	lo := 5 * time.Second / 2
-	hi := 60 * time.Second * 3 / 2
-	maxSeen := time.Duration(0)
-	for i := 0; i < 40; i++ {
-		d := b.NextBackOff()
-		require.GreaterOrEqual(t, d, lo)
-		require.LessOrEqual(t, d, hi)
-		if d > maxSeen {
-			maxSeen = d
-		}
-	}
-	require.GreaterOrEqual(t, maxSeen, 60*time.Second/2)
-}
-
-func TestSleepBackoff_CancelledContextReturnsFalse(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	require.False(t, sleepBackoff(ctx, time.Hour))
-}
-
-func TestSleepBackoff_StopAndZeroNoWait(t *testing.T) {
-	require.True(t, sleepBackoff(context.Background(), backoff.Stop))
-	require.True(t, sleepBackoff(context.Background(), 0))
-}
-
-func TestSleepBackoff_ReturnsTrueAfterWait(t *testing.T) {
-	require.True(t, sleepBackoff(context.Background(), time.Millisecond))
+	s := backoff.Exponential(200*time.Millisecond, 2*time.Second, 0)
+	require.Equal(t, 200*time.Millisecond, s.InitialInterval)
+	require.Equal(t, 2*time.Second, s.MaxInterval)
 }

@@ -10,28 +10,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
+	"github.com/cuihairu/croupier/core/register"
+	"github.com/cuihairu/croupier/core/report"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
-	"google.golang.org/protobuf/proto"
 )
 
 // UpstreamClient manages the connection to the central Croupier Server.
 type UpstreamClient struct {
 	serverAddr string
-	// reportedOwnerInstance 最近一次注册响应中的集群实例 ID（三方对账，
-	// agent 视角自报；心跳携带）。
-	reportedOwnerInstance string
-	agentID               string
-	store                 *agentlocal.LocalStore
-	// client 由重连 goroutine 写、心跳/Stop/发送路径读——clientMu 保护
-	// 该字段的所有读写（曾为 DATA RACE：重连与 Stop 并发）。
-	clientMu sync.Mutex
-	client   controlClient
+	agentID    string
+	store      *agentlocal.LocalStore
+	// reg 承载注册/心跳/重连循环（上收 core/register，K2）；连接快照经
+	// reg.Conn() 取回，扩展发送（任务/指标）经 reporter。
+	reg      *register.Client
+	reporter *report.Reporter
 	updateCh chan struct{}
 	gameID   string
 	env      string
@@ -93,18 +90,7 @@ func (c *UpstreamClient) SendTaskEvent(ctx context.Context, event *sdkv1.TaskEve
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	cl := c.currentClient()
-	if cl == nil {
-		return fmt.Errorf("upstream client is nil")
-	}
-	if !cl.Connected() {
-		return fmt.Errorf("upstream client not connected")
-	}
-	data, err := proto.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("marshal task event: %w", err)
-	}
-	return cl.SendTaskEvent(ctx, data)
+	return c.reporter.SendTaskEvent(ctx, event)
 }
 
 func (c *UpstreamClient) ReportTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
@@ -126,6 +112,20 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		store:         store,
 		transportKind: "tcp",
 	}
+	// 注册/心跳/重连上收 core/register（K2）：传输构造与 payload 组装留在
+	// 业务侧（闭包晚绑定字段，SetTLSConfig/SetLocalHandler/WithMetadata 生效）。
+	client.reg = register.New(register.Config{
+		AgentID:     agentID,
+		Dial:        client.dialUpstream,
+		Payload:     client.buildRegisterPayload,
+		OnConnected: func() { client.fireOnConnected() },
+	})
+	client.reporter = report.New(func() report.Conn {
+		if cc := client.currentClient(); cc != nil {
+			return cc
+		}
+		return nil
+	})
 	if meta != nil {
 		client.gameID = meta.GameID
 		client.env = meta.Env
@@ -200,6 +200,10 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	}
 	if meta.HeartbeatInterval > 0 {
 		c.heartbeatInterval = meta.HeartbeatInterval
+		c.reg.SetHeartbeatInterval(meta.HeartbeatInterval)
+	}
+	if meta.RequestTimeout > 0 {
+		c.reg.SetRequestTimeout(meta.RequestTimeout)
 	}
 }
 
@@ -215,40 +219,25 @@ func (c *UpstreamClient) OnDisconnected(callback func(error)) {
 	c.onDisconnected = callback
 }
 
-// dialServer establishes a connection to the upstream server and registers.
-// It closes any existing connection before establishing a new one.
-// On successful connection, it automatically calls register.
-func (c *UpstreamClient) dialServer(ctx context.Context) error {
-	if old := c.currentClient(); old != nil {
-		_ = old.Close()
-		c.setClient(nil)
-	}
-
-	var client controlClient
-	var err error
-
-	// For TCP transport with a local handler, use MuxConn (bidirectional).
-	// Otherwise fall back to simple TCP client.
+// dialUpstream 建立上游连接（业务侧传输构造：带本地 handler 走 MuxConn
+// 双向通道，否则简单 TCP 客户端），供 core/register Dialer 调用。
+func (c *UpstreamClient) dialUpstream(ctx context.Context) (register.Conn, error) {
 	if c.localHandler != nil {
-		client, err = newMuxControlClient(c.serverAddr, c.localHandler, c.tlsCfg)
-	} else {
-		client, err = newControlClient(c.transportKind, c.serverAddr, c.tlsCfg)
+		return newMuxControlClient(c.serverAddr, c.localHandler, c.tlsCfg)
 	}
+	return newControlClient(c.transportKind, c.serverAddr, c.tlsCfg)
+}
 
-	if err != nil {
-		c.setClient(nil)
-		return fmt.Errorf("failed to connect to upstream server via %s: %w", c.transportKind, err)
+// dialServer 建立连接并注册（转发 core/register，重连/心跳自愈共用）。
+func (c *UpstreamClient) dialServer(ctx context.Context) error {
+	return c.reg.DialAndRegister(ctx)
+}
+
+// fireOnConnected 触发业务侧连接回调（core 每次注册成功后调用）。
+func (c *UpstreamClient) fireOnConnected() {
+	if c != nil && c.onConnected != nil {
+		c.onConnected()
 	}
-	c.setClient(client)
-
-	// 连接成功后立即注册
-	if err := c.syncOnce(ctx); err != nil {
-		_ = client.Close()
-		c.setClient(nil)
-		return fmt.Errorf("failed to register after connection: %w", err)
-	}
-
-	return nil
 }
 
 // notifyUpdate 是 store 变更回调：向 updateCh 发送去抖通知，channel 满
@@ -262,6 +251,9 @@ func (c *UpstreamClient) notifyUpdate() {
 }
 
 // Start begins the upstream synchronization process.
+// 注册/心跳/重连循环上收 core/register：初始连接注册、失败后台重连、
+// 心跳自愈全部由 reg.Start 驱动；本方法只补业务面（函数同步去抖循环与
+// 指标上报循环）。
 func (c *UpstreamClient) Start(ctx context.Context) error {
 	if c.serverAddr == "" {
 		slog.Info("upstream server address not configured, skipping upstream connection")
@@ -270,26 +262,16 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 
 	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsCfg != nil)
 
-	// 初始连接尝试（dialServer 内部会自动注册）
-	if err := c.dialServer(ctx); err != nil {
-		slog.Warn("⚠️  failed to connect to upstream server, will keep retrying in background...", "addr", c.serverAddr, "error", err)
-		// 启动后台重连 goroutine
-		go c.reconnectLoop(ctx, true)
-	} else {
+	c.reg.Start(ctx)
+	if c.reg.Connected() {
 		slog.Info("✅ upstream connected and registered successfully")
-		// Call connection callback if set
-		if c.onConnected != nil {
-			c.onConnected()
-		}
+		c.fireOnConnected() // 保持既有行为：初始成功路径回调两次（注册一次+Start 一次）
 	}
 
 	// Register update callback
 	c.updateCh = make(chan struct{}, 1)
 	c.store.OnUpdate(c.notifyUpdate)
 	go c.updateLoop(ctx, 500*time.Millisecond)
-
-	// Heartbeat loop
-	go c.heartbeatLoop(ctx)
 
 	// Metrics reporting loop (if enabled)
 	c.metricsMu.Lock()
@@ -316,83 +298,11 @@ func hostFromTarget(target string) string {
 	return strings.Trim(strings.TrimPrefix(target, "["), "]")
 }
 
-// newReconnectBackOff 返回上游重连退避：指数 5s→60s（×1.5）+ 默认随机化抖动
-// （0.5）；手动驱动 NextBackOff() 故永不因累计时长放弃（退出只由 ctx 取消或成功
-// 触发，v5 的放弃语义在 backoff.Retry 层、本循环不经过）。原固定 5s 轮询在 server 重启时会让 N 个 agent 同相位齐拨（无 jitter
-// 防惊群，重连风暴压力来源之一）；抖动把重拨相位打散。独立构造函数便于参数
-// 断言（注入点驱动，不做真实时序等待）。
-func newReconnectBackOff() *backoff.ExponentialBackOff {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 5 * time.Second
-	b.Multiplier = 1.5
-	b.MaxInterval = 60 * time.Second
-	b.Reset()
-	return b
-}
-
-// newSyncBackOff 返回注册同步退避：初始 200ms、上限 2s、×2（对齐原手写翻倍
-// 的量级语义），同样带默认抖动防恢复期批量齐拨。
-func newSyncBackOff() *backoff.ExponentialBackOff {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 200 * time.Millisecond
-	b.MaxInterval = 2 * time.Second
-	b.Reset()
-	return b
-}
-
-// sleepBackoff 等待退避时长 d 或 ctx 取消；返回 false 表示 ctx 已取消应立即
-// 退出（原 time.Sleep 不响应取消，ctx 校验只能等下一轮循环开头）。
-func sleepBackoff(ctx context.Context, d time.Duration) bool {
-	if d <= 0 { // backoff.Stop 或零值：不等待
-		return ctx.Err() == nil
-	}
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return false
-	case <-timer.C:
-		return true
-	}
-}
-
-// reconnectLoop 持续重试连接上游服务器，直到成功或上下文取消
-// needDial 为 true 表示需要先建立连接（内部会自动注册）
+// reconnectLoop 后台重连循环（转发 core/register；needDial 参数为历史签名
+// 兼容位，core 语义恒为「先建连再注册」）。
 func (c *UpstreamClient) reconnectLoop(ctx context.Context, needDial bool) {
-	b := newReconnectBackOff()
-	var attemptCount int
-
-	for {
-		if ctx.Err() != nil {
-			slog.Info("upstream reconnect cancelled, exiting retry loop")
-			return
-		}
-
-		// 建立连接（dialServer 内部会自动注册）
-		if needDial {
-			attemptCount++
-			slog.Info("⏳ waiting for upstream server to be ready...", "attempt", attemptCount, "addr", c.serverAddr)
-
-			if err := c.dialServer(ctx); err != nil {
-				slog.Debug("upstream dial attempt failed", "attempt", attemptCount, "error", err)
-				if !sleepBackoff(ctx, b.NextBackOff()) {
-					slog.Info("upstream reconnect cancelled, exiting retry loop")
-					return
-				}
-				continue
-			}
-
-			// dialServer 成功 = 连接并注册成功
-			slog.Info("✅ upstream reconnected and registered successfully", "attempt", attemptCount)
-
-			// Call connection callback if set
-			if c.onConnected != nil {
-				c.onConnected()
-			}
-
-			return
-		}
-	}
+	_ = needDial
+	c.reg.RunReconnectLoop(ctx)
 }
 
 // stopAndResetTimer 安全重置去抖定时器。Go 1.23 起 time.Timer 的 channel
@@ -436,115 +346,21 @@ func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration)
 	}
 }
 
+// heartbeatLoop 心跳自愈循环（转发 core/register：断连主动重连、失败达
+// 阈值重连、恢复后重注册；间隔默认 3s，经 WithMetadata 调整）。
 func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
-	interval := c.heartbeatInterval
-	if interval <= 0 {
-		interval = 3 * time.Second // 默认 3 秒
-	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	// 断线重连：连续心跳失败次数阈值（达到阈值时尝试重新注册）
-	const maxHeartbeatFailures = 2 // 连续失败 2 次就重连（约 6 秒）
-	consecutiveFailures := 0
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			// 检查客户端是否可用。断连时必须主动重连，而不是跳过心跳：
-			// 否则 client 永远停留在未连接状态，没有任何路径会恢复连接。
-			hbClient := c.currentClient()
-			if hbClient == nil || !hbClient.Connected() {
-				slog.Warn("upstream disconnected, attempting re-connect and register...")
-				if dialErr := c.dialServer(ctx); dialErr != nil {
-					slog.Error("re-connect dial failed", "error", dialErr)
-				} else {
-					slog.Info("✅ re-connected and registered successfully")
-					if c.onConnected != nil {
-						c.onConnected()
-					}
-				}
-				continue
-			}
-			// 心跳调用设置超时，避免 server 关闭后一直阻塞
-			hbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			_, err := hbClient.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{
-				AgentId:         c.agentID,
-				OwnerInstanceId: c.ownerInstance(),
-			})
-			cancel()
-			if err != nil {
-				consecutiveFailures++
-				slog.Error("heartbeat failed", "error", err, "consecutive_failures", consecutiveFailures)
-				// 连续失败达到阈值，尝试重新连接（内部会自动注册）
-				if consecutiveFailures >= maxHeartbeatFailures {
-					slog.Warn("❌ heartbeat failed, attempting re-connect and register...", "failures", consecutiveFailures)
-					// 重新建立连接（dialServer 内部会自动注册）
-					if dialErr := c.dialServer(ctx); dialErr != nil {
-						slog.Error("re-connect dial failed", "error", dialErr)
-						// 连接失败，继续尝试心跳
-						continue
-					}
-					// dialServer 成功 = 连接并注册成功
-					slog.Info("✅ re-connected and registered successfully")
-					consecutiveFailures = 0 // 重置计数器
-				}
-			} else {
-				// 心跳成功，重置计数器
-				if consecutiveFailures > 0 {
-					slog.Info("heartbeat recovered, re-registering to ensure session is active...", "previous_failures", consecutiveFailures)
-					// 立即重新注册，确保注册信息是最新的
-					if syncErr := c.syncWithRetry(ctx, 1); syncErr != nil {
-						slog.Warn("re-register after recovery failed", "error", syncErr)
-					} else {
-						slog.Info("✅ re-registered successfully after recovery")
-					}
-					consecutiveFailures = 0
-				}
-			}
-		}
-	}
+	c.reg.RunHeartbeatLoop(ctx)
 }
 
+// syncWithRetry 带退避重试注册（转发 core/register，attempts<=0 按 1 次）。
 func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error {
-	if attempts <= 0 {
-		attempts = 1
-	}
-	var lastErr error
-	b := newSyncBackOff()
-	for i := 0; i < attempts; i++ {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		requestTimeout := c.requestTimeout
-		if requestTimeout <= 0 {
-			requestTimeout = 10 * time.Second
-		}
-		syncCtx, cancel := context.WithTimeout(ctx, requestTimeout)
-		err := c.syncOnce(syncCtx)
-		cancel()
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		// 最后一次失败后不空转尾部等待（原实现在末次失败后也 sleep 一轮才退出）。
-		if i == attempts-1 {
-			break
-		}
-		if !sleepBackoff(ctx, b.NextBackOff()) {
-			return ctx.Err()
-		}
-	}
-	return lastErr
+	return c.reg.SyncAttempts(ctx, attempts)
 }
 
-func (c *UpstreamClient) syncOnce(ctx context.Context) error {
-	if c.currentClient() == nil {
-		return fmt.Errorf("upstream client not connected")
-	}
-
+// buildRegisterPayload 组装 RegisterRequest（业务面：本地函数库快照→
+// FunctionDescriptor→AgentProcess 清单）。连接校验与 Register 调用在
+// core/register（注册前重新取连接快照，覆盖组装期间连接被置空的窗口）。
+func (c *UpstreamClient) buildRegisterPayload(_ context.Context) (*agentv1.RegisterRequest, error) {
 	// Snapshot local store
 	localData := c.store.List()
 	versionSnapshot := c.store.FunctionVersions()
@@ -599,32 +415,12 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		Functions: funcs,
 		Processes: providers,
 	}
+	return req, nil
+}
 
-	regClient := c.currentClient()
-	if regClient == nil {
-		return fmt.Errorf("upstream client not connected")
-	}
-	resp, err := regClient.Register(ctx, req)
-	if err != nil {
-		return err
-	}
-	if v := resp.GetInstanceId(); v != "" {
-		c.setOwnerInstance(v)
-		slog.Info("upstream owner instance reported", "instance_id", v)
-	}
-	// 注册错误黑洞修复：server 侧校验/物化告警（含 registration_materialize_failed）
-	// 必须落到 agent 日志，否则 agent 以为注册成功而函数实际不可用。
-	if ws := resp.GetWarnings(); len(ws) > 0 {
-		slog.Warn("upstream register reported warnings", "agent_id", c.agentID, "warnings", ws)
-	}
-	slog.Info("synced with upstream server", "transport", c.transportKind, "functions", len(funcs))
-
-	// Call connection callback if set
-	if c.onConnected != nil {
-		c.onConnected()
-	}
-
-	return nil
+// syncOnce 单次注册（转发 core/register）。
+func (c *UpstreamClient) syncOnce(ctx context.Context) error {
+	return c.reg.SyncOnce(ctx)
 }
 
 func buildProviders(localData map[string][]agentlocal.Instance, versionSnapshot map[string]map[string]string) []*agentv1.AgentProcess {
@@ -702,11 +498,7 @@ func (c *UpstreamClient) Sync(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	mClient := c.currentClient()
-	if mClient == nil {
-		return fmt.Errorf("upstream client not connected")
-	}
-	return c.syncWithRetry(ctx, 3)
+	return c.reg.Sync(ctx)
 }
 
 // Heartbeat sends a single heartbeat to the control server.
@@ -722,38 +514,46 @@ func (c *UpstreamClient) Heartbeat(ctx context.Context) error {
 	return err
 }
 
+// Stop 关闭当前上游连接（core/register 持有连接状态）。
 func (c *UpstreamClient) Stop() {
-	if cl := c.currentClient(); cl != nil {
-		_ = cl.Close()
+	if c == nil {
+		return
 	}
+	c.reg.Stop()
 }
 
-// currentClient 返回当前上游连接（加锁快照）。
+// currentClient 返回当前上游连接快照（core/register 持有；扩展发送断言回
+// 业务侧完整 controlClient 面）。
 func (c *UpstreamClient) currentClient() controlClient {
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
-	return c.client
+	if c == nil {
+		return nil
+	}
+	if conn := c.reg.Conn(); conn != nil {
+		if cc, ok := conn.(controlClient); ok {
+			return cc
+		}
+	}
+	return nil
 }
 
-// setClient 更新当前上游连接（重连/清理路径）。
+// setClient 注入当前连接（测试/高级装配；正常路径经 core 重连建立）。
 func (c *UpstreamClient) setClient(cl controlClient) {
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
-	c.client = cl
+	if cl == nil {
+		c.reg.SetConn(nil)
+		return
+	}
+	c.reg.SetConn(cl)
 }
 
-// setOwnerInstance 记录最近注册响应中的集群实例 ID（syncOnce 写）。
+// setOwnerInstance 记录最近注册响应中的集群实例 ID（测试/高级装配；正常
+// 路径来自注册响应）。
 func (c *UpstreamClient) setOwnerInstance(v string) {
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
-	c.reportedOwnerInstance = v
+	c.reg.SetOwnerInstance(v)
 }
 
-// ownerInstance 返回最近注册响应中的集群实例 ID（心跳循环读）。
+// ownerInstance 返回最近注册响应中的集群实例 ID（心跳携带，三方对账）。
 func (c *UpstreamClient) ownerInstance() string {
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
-	return c.reportedOwnerInstance
+	return c.reg.OwnerInstance()
 }
 
 func firstNonEmpty(values ...string) string {
@@ -804,22 +604,11 @@ func (c *UpstreamClient) metricsLoop(ctx context.Context) {
 // SendMetricEvent serialises a MetricsReport and pushes it to the server as
 // a one-way MetricEvent. Returns an error if the client is nil, not connected,
 // or the underlying transport rejects the send.
-func (c *UpstreamClient) SendMetricEvent(ctx context.Context, report *opsv1.MetricsReport) error {
+func (c *UpstreamClient) SendMetricEvent(ctx context.Context, metricsReport *opsv1.MetricsReport) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	mClient := c.currentClient()
-	if mClient == nil {
-		return fmt.Errorf("upstream client not connected")
-	}
-	if report == nil {
-		return fmt.Errorf("metrics report is nil")
-	}
-	data, err := proto.Marshal(report)
-	if err != nil {
-		return fmt.Errorf("marshal metrics report: %w", err)
-	}
-	return mClient.SendMetricEvent(ctx, data)
+	return c.reporter.SendMetrics(ctx, metricsReport)
 }
 
 // reportMetrics collects a single snapshot and pushes it upstream. Errors
@@ -830,7 +619,7 @@ func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 		if c.metricsCollector == nil {
 			c.metricsCollector = NewMetricsCollector(c.agentID)
 		}
-		c.metricsCollector.supervisor = c.supervisorSampler
+		c.metricsCollector.WithSampler(c.supervisorSampler)
 	})
 
 	report := c.metricsCollector.Collect(ctx)
@@ -853,7 +642,7 @@ func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
 	if c.metricsCollector == nil {
 		c.metricsCollector = NewMetricsCollector(c.agentID)
 	}
-	c.metricsCollector.supervisor = c.supervisorSampler
+	c.metricsCollector.WithSampler(c.supervisorSampler)
 }
 
 // WithSupervisorSampler attaches a supervised-process sampler that is folded
@@ -868,7 +657,7 @@ func (c *UpstreamClient) WithSupervisorSampler(s SupervisorSampler) {
 
 	c.supervisorSampler = s
 	if c.metricsCollector != nil {
-		c.metricsCollector.supervisor = s
+		c.metricsCollector.WithSampler(s)
 	}
 }
 
@@ -884,7 +673,7 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 		if c.metricsCollector == nil {
 			c.metricsCollector = NewMetricsCollector(c.agentID)
 		}
-		c.metricsCollector.supervisor = c.supervisorSampler
+		c.metricsCollector.WithSampler(c.supervisorSampler)
 	})
 
 	report := c.metricsCollector.Collect(ctx)

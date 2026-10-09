@@ -5,8 +5,6 @@ package agent
 //   - App.Stop 中 telemetry.Shutdown 失败告警（二次 Shutdown 触发 reader 已关闭）
 //   - invokeExternalPlatformFunction proto 模式 Marshal 失败（非法 UTF-8 错误串）
 //   - discoverExternalPlatformFunctions 对碰撞 FunctionID 的去重
-//   - MetricsCollector.collectDisks / collectNetworks 的 gopsutil 错误分支
-//     （HOST_PROC 指向假 /proc，注入缺失文件与不存在挂载点）
 //   - updateLoop 去抖定时器已触发时的排水分支
 //   - heartbeatLoop 恢复后 re-register 失败告警
 //   - syncOnce 组装请求期间客户端被置空（dynamicLabels 钩子翻转 client）
@@ -14,9 +12,6 @@ package agent
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -137,49 +132,6 @@ func TestDiscoverExternalPlatformFunctionsDeduplicatesCollidingIDs_K(t *testing.
 		assert.Equal(t, "alpha.beta", out[0].Provider)
 		assert.Equal(t, "gamma", out[0].Operation)
 	}
-}
-
-// --- ops_metrics.go: gopsutil 错误分支（HOST_PROC 指向假 /proc） ---
-
-func TestMetricsCollectorDisksPartitionsError_K(t *testing.T) {
-	// HOST_PROC 指向空目录：mountinfo/mounts 均缺失 → Partitions 报错提前返回。
-	t.Setenv("HOST_PROC", t.TempDir())
-
-	c := NewMetricsCollector("agent-k-disk-err")
-	assert.Empty(t, c.collectDisks())
-}
-
-func TestMetricsCollectorDisksUsageErrorSkipsMount_K(t *testing.T) {
-	root := t.TempDir()
-	procDir := filepath.Join(root, "proc")
-	pidDir := filepath.Join(procDir, "1")
-	require.NoError(t, os.MkdirAll(pidDir, 0o755))
-
-	// filesystems 文件必须存在（all=false 时缺失会直接报错）。
-	require.NoError(t, os.WriteFile(filepath.Join(procDir, "filesystems"), []byte("ext4\n"), 0o644))
-
-	realMount := t.TempDir()
-	missingMount := filepath.Join(root, "definitely-missing-mount-k")
-	require.NoError(t, os.WriteFile(filepath.Join(pidDir, "mountinfo"), []byte(fmt.Sprintf(
-		"36 35 98:0 / %s rw,relatime - ext4 /dev/root rw\n"+
-			"37 36 99:1 / %s rw,relatime - ext4 /dev/root rw\n",
-		missingMount, realMount,
-	)), 0o644))
-
-	t.Setenv("HOST_PROC", procDir)
-
-	c := NewMetricsCollector("agent-k-disk-usage")
-	disks := c.collectDisks()
-	require.Len(t, disks, 1, "unstatable mountpoint must be skipped, real one kept")
-	assert.Equal(t, realMount, disks[0].MountPoint)
-}
-
-func TestMetricsCollectorNetworksIOCountersError_K(t *testing.T) {
-	// HOST_PROC 指向空目录：net/dev 缺失 → IOCounters 报错提前返回。
-	t.Setenv("HOST_PROC", t.TempDir())
-
-	c := NewMetricsCollector("agent-k-net-err")
-	assert.Empty(t, c.collectNetworks())
 }
 
 // --- upstream.go: 心跳恢复后 re-register 失败 ---
