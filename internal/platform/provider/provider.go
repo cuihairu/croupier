@@ -1,4 +1,16 @@
-// Package provider provides a pluggable interface for third-party platform integrations.
+// Package provider 第三方平台集成的历史抽象（#66 P0 归档态）。
+//
+// 本包的 Registry 已删除（与 extension runtime bindings 构成双注册中心，
+// 裁决见 docs/design/provider-plugin-design.md §5.3）：runtime 真值在
+// extension bindings，driver 层（internal/drivers）是接口的新家。
+//
+// 保留物与去向：
+//   - Provider 接口保留为 **driver 契约蓝本**——Call(ctx, method, []byte)
+//     ([]byte, error) 的 JSON 透传语义正是 drivers.Driver.Call 的原型；
+//     internal/platform/quicksdk、internal/platform/openapi 两个实现随
+//     P1 迁移（mapping §2.3），迁完本包删除。
+//   - ProviderNotFoundError / MethodNotSupportedError / ProviderDisabledError
+//     三个错误类型语义由 drivers 层沿用（drivers.NotFoundError 等）。
 package provider
 
 import (
@@ -7,6 +19,9 @@ import (
 )
 
 // Provider defines the interface that all third-party platform integrations must implement.
+//
+// Deprecated: 契约蓝本（#66 P0）。新代码使用 internal/drivers.Driver；
+// 本接口仅为 P1 迁移前的 quicksdk/openapi 实现保留。
 //
 // A Provider represents a third-party service (like QuickSDK, ThinkingData, etc.)
 // that can be called through the Croupier platform.
