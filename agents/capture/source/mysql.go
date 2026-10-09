@@ -14,13 +14,13 @@ import (
 // binlog_format=ROW、binlog_row_image=FULL（前像）、REPLICATION SLAVE 权限、
 // server_id 与源实例及其他订阅者不冲突。
 type MySQLConfig struct {
-	Host     string
-	Port     uint16
-	User     string
-	Password string
-	ServerID uint32
+	Host     string `yaml:"host" json:"host"`
+	Port     uint16 `yaml:"port" json:"port"`
+	User     string `yaml:"user" json:"user"`
+	Password string `yaml:"password" json:"password"`
+	ServerID uint32 `yaml:"serverId" json:"serverId"`
 	// Tables 订阅白名单（"库.表"，只订道具相关表，噪声与带宽双控）。
-	Tables map[string]bool
+	Tables map[string]bool `yaml:"tables" json:"tables"`
 }
 
 // MySQLSource MySQL binlog 变更源（go-mysql replication，canal 同源库）。
