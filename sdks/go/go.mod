@@ -1,19 +1,16 @@
 module github.com/cuihairu/croupier/sdks/go
 
-go 1.26.6
+go 1.27.2
 
 require (
+	github.com/getkin/kin-openapi v0.144.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	// Testing
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 
 	// Protobuf for message serialization
 	google.golang.org/protobuf v1.36.11
-)
-
-require (
-	github.com/getkin/kin-openapi v0.144.0
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 )
 
 require (
