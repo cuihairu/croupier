@@ -40,7 +40,7 @@ title: agent-core 通用能力层设计简档——能力清单/目录树/抽取
 | 6   | 进程监管·被监管契约            | **协议已有，契约侧新建**     | S1/S2 的 `SupervisorEvent`/`ManagedProcess`（ops.proto）不动；新建「被监管对象」运行时契约（§3）                                                                                                                 | `core/supervisable` |
 | 7   | 指标采集                       | **已有**                     | gopsutil v4 MetricsCollector；抽为可独立上报的采集器（capture 无函数通道也能报指标）                                                                                                                             | `core/metrics`      |
 | 8   | 配置拉取与热更                 | **部分**                     | extension sync puller 先例（internal/app/agent/extension_sync_puller.go）；泛化为「版本号轮询→拉取→热生效」通用件                                                                                                | `core/configsync`   |
-| 9   | 崩溃采集                       | **新建**                     | crash-capture-survey 分级方案已批（轻/中档落地，Crashpad 重档留位不立项）；随 #67 S3 落 core/crash                                                                                                               | `core/crash`        |
+| 9   | 崩溃采集                       | **新建**                     | crash-capture-survey 分级方案已批（轻档公共件已落 core/crash：snapshot 档位注入 + dump 目录管理；supervisor 接线随 #67 S3；Crashpad 否决不立项）                                                                 | `core/crash`        |
 | 10  | 令牌桶限流                     | **已有**                     | x/time/rate（矩阵 B 批）；**不搬**——留 internal/platform/ratelimit 原地，core 系按需直接引包（避免双份）                                                                                                         | （不设包）          |
 | 11  | 任务执行（async/幂等/取消）    | **已有，可裁**               | internal/agent jobs；函数通道系能力，capture 无任务面不 import                                                                                                                                                   | （暂不上收）        |
 | 12  | 本地网关（provider 注册/调用） | **已有，可裁**               | internal/agent tcp_local_listener + local_handler；sidecar-agent 专属，core 不含                                                                                                                                 | （不上收）          |
@@ -72,7 +72,7 @@ core/                        # agent-core（同仓 Go module，包级裁剪）
   healthprobe/               #   Liveness/Readiness/Heartbeat 三语义探针（三 agent 共用，首批交付，§6.1）
   execlog/                   #   统一执行审计（audit-first 放行闸，三 agent 共用，§6.2）
   configsync/                #   版本轮询拉取 + 热生效（泛化自 extension sync puller）
-  crash/                     #   崩溃采集轻/中档（#67 S3 落位；Crashpad 留位）
+  crash/                     #   崩溃采集轻档（snapshot 档位注入 + dump 目录管理；supervisor 接线随 #67 S3；Crashpad 不立项）
 agents/
   capture/                   # capture-agent（业务插件，防私改库，见 capture 简档）
     cmd/capture-agent/       #   main：core 零件装配 + source/gate 接线
@@ -91,15 +91,32 @@ internal/                    # 现有主体不动（sidecar-agent = internal 骨
 
 ## 5. 抽取批次（每批独立 PR，CI 绿进下批）
 
-| 批  | 内容                                                                                                                                                                             | 风险 | 测试策略                                                                   |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------- |
-| K1  | core/ 骨架 + `backoff`/`logx` 薄壳上收（sidecar-agent 原地切 import，行为零变化）+ `healthprobe` 三语义探针与故障窗口时间线（公共模块首批交付物，supervisor 心跳采样先切换复用） | 低   | 现有用例随迁 + 行为对拍；探针语义正反用例；窗口开合/恢复时长断言           |
-| K2  | `register` 上收（注册/心跳/重连）+ `supervisable` 契约 + main 薄入口                                                                                                             | 中   | 注册链既有用例随迁；core 系 dummy agent 集成用例                           |
-| K3  | `report`（含告警通道 wire 新增）+ `metrics` + `execlog` 上收（执行审计双写与 audit-first 闸）；capture 简档 C1 就绪                                                              | 中   | 上行协议正反用例；捎带增量游标复用 S2 用例形态；审计先落盘后放行的顺序用例 |
-| K4  | `configsync` 泛化（extension puller 切换到通用件）+ `crash`（#67 S3 同批落地）                                                                                                   | 中   | 拉取热更用例；崩溃采集按调研分级用例                                       |
+| 批  | 内容                                                                                                                                                                             | 风险 | 测试策略                                                                   | 状态 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------- | ---- |
+| K1  | core/ 骨架 + `backoff`/`logx` 薄壳上收（sidecar-agent 原地切 import，行为零变化）+ `healthprobe` 三语义探针与故障窗口时间线（公共模块首批交付物，supervisor 心跳采样先切换复用） | 低   | 现有用例随迁 + 行为对拍；探针语义正反用例；窗口开合/恢复时长断言           | ✅   |
+| K2  | `register` 上收（注册/心跳/重连）+ `supervisable` 契约 + main 薄入口                                                                                                             | 中   | 注册链既有用例随迁；core 系 dummy agent 集成用例                           | ✅   |
+| K3  | `report`（含告警通道 wire 新增）+ `metrics` + `execlog` 上收（执行审计双写与 audit-first 闸）；capture 简档 C1 就绪                                                              | 中   | 上行协议正反用例；捎带增量游标复用 S2 用例形态；审计先落盘后放行的顺序用例 | ✅   |
+| K4  | `configsync` 泛化（extension puller 切换到通用件）+ `crash`（#67 S3 同批落地）                                                                                                   | 中   | 拉取热更用例；崩溃采集按调研分级用例                                       | ✅   |
 
 - 与 capture 分期编排：capture C1 依赖 K1+K2（+K3 的告警/审计前置），C2 起 K3/K4 并行推进；devops-agent（§7）同样只依赖 K1–K3，与 capture C2 之后任一时段并行立项均可。
 - **回退策略**：每批 sidecar-agent 仍从 internal 路径可编译（上收=内部实现切换 import），任一批叫停不留半成品依赖。
+
+### 5.1 落地进度（2026-10-09，K1–K4 抽取完成）
+
+core 十包全部建成且自带测试（`go test ./core/...` 绿）；sidecar-agent 接线状态分两档：
+
+| 包             | sidecar 接线 | 说明                                                                                     |
+| -------------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `backoff`      | ✅ 已切      | 默认档断言迁 sidecar 防漂移（backoff_regression_test）                                   |
+| `logx`         | ✅ 已切      | `internal/cli/common/logging.go` 收敛为 shim，新代码直用 core/logx                       |
+| `register`     | ✅ 已切      | upstream.go 注册/心跳/重连全走 core；保语义：payload 先组装后取连接快照、断连 not connected 文案、OnConnected 初始双触发 |
+| `report`       | ✅ 已切      | Conn 含 Connected() 短路；**告警通道 wire 未新增**（§9 边界，capture C1 前置）           |
+| `metrics`      | ✅ 已切      | sidecar 留别名 + GetSystemInfo（OpsConfig 属 sidecar 面）；Sampler 注入受管进程快照      |
+| `configsync`   | ✅ 已切      | extension sync puller 委托 core 版本轮询；wire 解码留业务侧                              |
+| `healthprobe`  | 建成未接线   | supervisor 心跳采样切换与探针消费随 capture C1 / 面板批次                                |
+| `supervisable` | 建成未接线   | sidecar main 继续用现有装配；core 系 agent（capture/devops）落地时即用                   |
+| `execlog`      | 建成未接线   | 本地真值闭环（双写/闸/导出）；server 摄取端点与 sidecar 执行面接线属后续批次             |
+| `crash`        | 建成未接线   | 轻档注入映射 + dump 目录管理就绪；ManagedProcesses `snapshotProfile` 接线随 #67 S3       |
 
 ## 6. 公共模块：healthprobe 与 execlog
 
@@ -205,7 +222,12 @@ devops-agent 不 import `core/metrics`（无资源采集需求时的可裁证明
 
 ## 9. 已知边界（诚实清单）
 
-- core/ 与 internal/ 短期并存双路径（K1-K4 过渡期），以批次消灭，不做一次性大迁移（历史教训：19-sync 类协议面事故都出自「一把梭」迁移）。
+- core/ 与 internal/ 短期并存双路径（K1-K4 过渡期），以批次消灭，不做一次性大迁移（历史教训：19-sync 类协议面事故都出自「一把梭」迁移）。K1–K4 抽取已完成（§5.1），双路径余量收敛到四个「建成未接线」包。
+- **report 告警通道 wire 未新增**：core/report 现只承载指标/任务事件（与 sidecar 现状等价）；告警上报消息（capture 简档 §7）与 herald 出口对接未做，是 capture C1 的前置项。
+- **execlog 仅本地真值闭环**：双写中的 server 摄取端点（落审计存储、按 scope 归 game 库）未做，Uploader 为接口位；sidecar 执行面（函数调用/任务执行留审计）接线属后续批次；本地落盘为 lumberjack 无缓冲直写——进程崩溃不丢，断电级 fsync 不保证。
+- **healthprobe 上行未接**：故障窗口时间线本地文件闭环；上报捎带（快照带当前窗口、窗口事件上行）与面板消费属后续批次；herald 投递（probe.unavailable/recovered）未接。
+- **crash 接线与拍板项未清**：ManagedProcesses `snapshotProfile` 字段与下载面板随 #67 S3；中档 core_pattern 的宿主机操作边界（agent 只读提示 vs 直接管，调研 §8.3）待拍板。
+- supervisable 未被 sidecar main 使用（sidecar 有既有装配）；首个消费者是 core 系 agent 的 cmd/main。
 - #11/#12 不进 core 意味着 core 系 agent **没有函数注册调用能力**——这是定位而非缺陷；若未来某业务 agent 需要函数面，届时再评估以插件位接入（与 #66 Provider 插件设计对齐），不预先上收。
 - CI/CD 监控 v1 只轮询不 webhook（内网无公网入站），告警时延下界=轮询间隔；GH API 限速随 token 配额，watch 清单过大时需分片。
 - 「每文件百行内」对 metrics/configsync 这类装配密集包可能破线：破线需在 PR 说明拆分层（装配与逻辑分文件），不当死数字硬拆。
