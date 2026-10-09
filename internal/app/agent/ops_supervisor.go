@@ -48,11 +48,12 @@ func (s *OpsServer) SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapsh
 		var pendingEvents []*opsv1.SupervisorEvent
 		p.mu.Lock()
 		snap := &opsv1.SupervisedProcessSnapshot{
-			Name:          p.name,
-			Pid:           p.pid,
-			State:         p.state,
-			RestartCount:  p.restarts,
-			LastEventUnix: p.lastEventUnix,
+			Name:            p.name,
+			Pid:             p.pid,
+			State:           p.state,
+			RestartCount:    p.restarts,
+			LastEventUnix:   p.lastEventUnix,
+			SnapshotProfile: p.config.SnapshotProfile,
 		}
 		if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
 			if p.lastStart != nil {

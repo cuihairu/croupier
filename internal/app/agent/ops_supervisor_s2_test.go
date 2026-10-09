@@ -20,6 +20,9 @@ func newS2TestServer(t *testing.T, cfg *OpsConfig) *OpsServer {
 	cfg.Enabled = true
 	cfg.AllowRestart = true
 	cfg.SupervisorLog = SupervisorLogConfig{Dir: t.TempDir()}
+	if cfg.SnapshotDir == "" {
+		cfg.SnapshotDir = t.TempDir() // S3 快照目录不落测试工作目录
+	}
 	s := NewOpsServer(cfg, "a", "v", nil)
 	t.Cleanup(func() {
 		for _, p := range s.processes {

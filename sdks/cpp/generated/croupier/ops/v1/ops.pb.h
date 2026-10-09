@@ -400,11 +400,13 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisorEvent final : public ::go
 
   // accessors -------------------------------------------------------
   enum : int {
+    kSnapshotFilesFieldNumber = 16,
     kProcessFieldNumber = 2,
     kEventFieldNumber = 3,
     kSignalFieldNumber = 7,
     kMessageFieldNumber = 9,
     kLastErrorFieldNumber = 11,
+    kSnapshotDirFieldNumber = 15,
     kTsUnixFieldNumber = 1,
     kOldPidFieldNumber = 4,
     kNewPidFieldNumber = 5,
@@ -415,6 +417,31 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisorEvent final : public ::go
     kSeqFieldNumber = 14,
     kOomSuspectFieldNumber = 12,
   };
+  // repeated string snapshot_files = 16;
+  [[nodiscard]] int snapshot_files_size()
+      const;
+  private:
+  int _internal_snapshot_files_size() const;
+
+  public:
+  void clear_snapshot_files() ;
+  [[nodiscard]] const ::std::string& snapshot_files(int index) const;
+  ::std::string* PROTOBUF_NONNULL mutable_snapshot_files(int index);
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_snapshot_files(int index, Arg_&& value, Args_... args);
+  ::std::string* PROTOBUF_NONNULL add_snapshot_files();
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void add_snapshot_files(Arg_&& value, Args_... args);
+  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::std::string>&
+  snapshot_files() const;
+  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+  mutable_snapshot_files();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::std::string>& _internal_snapshot_files() const;
+  ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_snapshot_files();
+
+  public:
   // string process = 2;
   void clear_process() ;
   [[nodiscard]] const ::std::string& process() const;
@@ -488,6 +515,21 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisorEvent final : public ::go
   const ::std::string& _internal_last_error() const;
   PROTOBUF_ALWAYS_INLINE void _internal_set_last_error(const ::std::string& value);
   ::std::string* PROTOBUF_NONNULL _internal_mutable_last_error();
+
+  public:
+  // string snapshot_dir = 15;
+  void clear_snapshot_dir() ;
+  [[nodiscard]] const ::std::string& snapshot_dir() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_snapshot_dir(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_snapshot_dir();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_snapshot_dir();
+  void set_allocated_snapshot_dir(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_snapshot_dir() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_snapshot_dir(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_snapshot_dir();
 
   public:
   // int64 ts_unix = 1;
@@ -584,8 +626,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisorEvent final : public ::go
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 14,
-                                   0, 83,
+  static const ::google::protobuf::internal::TcParseTable<4, 16,
+                                   0, 117,
                                    2>
       _table_;
 
@@ -608,11 +650,13 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisorEvent final : public ::go
         const SupervisorEvent& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<::std::string> snapshot_files_;
     ::google::protobuf::internal::ArenaStringPtr process_;
     ::google::protobuf::internal::ArenaStringPtr event_;
     ::google::protobuf::internal::ArenaStringPtr signal_;
     ::google::protobuf::internal::ArenaStringPtr message_;
     ::google::protobuf::internal::ArenaStringPtr last_error_;
+    ::google::protobuf::internal::ArenaStringPtr snapshot_dir_;
     ::int64_t ts_unix_;
     ::int32_t old_pid_;
     ::int32_t new_pid_;
@@ -779,6 +823,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
   enum : int {
     kFlagsFieldNumber = 8,
     kNameFieldNumber = 1,
+    kSnapshotProfileFieldNumber = 11,
     kPidFieldNumber = 2,
     kStateFieldNumber = 3,
     kUptimeSecondsFieldNumber = 4,
@@ -826,6 +871,21 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
   const ::std::string& _internal_name() const;
   PROTOBUF_ALWAYS_INLINE void _internal_set_name(const ::std::string& value);
   ::std::string* PROTOBUF_NONNULL _internal_mutable_name();
+
+  public:
+  // string snapshot_profile = 11;
+  void clear_snapshot_profile() ;
+  [[nodiscard]] const ::std::string& snapshot_profile() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_snapshot_profile(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_snapshot_profile();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_snapshot_profile();
+  void set_allocated_snapshot_profile(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_snapshot_profile() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_snapshot_profile(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_snapshot_profile();
 
   public:
   // int32 pid = 2;
@@ -912,8 +972,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 10,
-                                   0, 67,
+  static const ::google::protobuf::internal::TcParseTable<4, 11,
+                                   0, 83,
                                    2>
       _table_;
 
@@ -938,6 +998,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
     ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::RepeatedPtrField<::std::string> flags_;
     ::google::protobuf::internal::ArenaStringPtr name_;
+    ::google::protobuf::internal::ArenaStringPtr snapshot_profile_;
     ::int32_t pid_;
     int state_;
     ::int64_t uptime_seconds_;
@@ -11805,7 +11866,7 @@ inline void SupervisorEvent::clear_ts_unix() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.ts_unix_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000020U);
+                  0x00000080U);
 }
 inline ::int64_t SupervisorEvent::ts_unix() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.ts_unix)
@@ -11813,7 +11874,7 @@ inline ::int64_t SupervisorEvent::ts_unix() const {
 }
 inline void SupervisorEvent::set_ts_unix(::int64_t value) {
   _internal_set_ts_unix(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.ts_unix)
 }
 inline ::int64_t SupervisorEvent::_internal_ts_unix() const {
@@ -11830,7 +11891,7 @@ inline void SupervisorEvent::clear_process() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.process_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000001U);
+                  0x00000002U);
 }
 inline const ::std::string& SupervisorEvent::process() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -11840,13 +11901,13 @@ inline const ::std::string& SupervisorEvent::process() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void SupervisorEvent::set_process(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   _impl_.process_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.process)
 }
 inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::mutable_process()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   ::std::string* _s = _internal_mutable_process();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisorEvent.process)
   return _s;
@@ -11866,10 +11927,10 @@ inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::_internal_mutable_proces
 inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_process() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisorEvent.process)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   auto* released = _impl_.process_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.process_.Set("", GetArena());
@@ -11879,9 +11940,9 @@ inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_process() {
 inline void SupervisorEvent::set_allocated_process(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   }
   _impl_.process_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.process_.IsDefault()) {
@@ -11895,7 +11956,7 @@ inline void SupervisorEvent::clear_event() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.event_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000002U);
+                  0x00000004U);
 }
 inline const ::std::string& SupervisorEvent::event() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -11905,13 +11966,13 @@ inline const ::std::string& SupervisorEvent::event() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void SupervisorEvent::set_event(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   _impl_.event_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.event)
 }
 inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::mutable_event()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   ::std::string* _s = _internal_mutable_event();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisorEvent.event)
   return _s;
@@ -11931,10 +11992,10 @@ inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::_internal_mutable_event(
 inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_event() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisorEvent.event)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   auto* released = _impl_.event_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.event_.Set("", GetArena());
@@ -11944,9 +12005,9 @@ inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_event() {
 inline void SupervisorEvent::set_allocated_event(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   }
   _impl_.event_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.event_.IsDefault()) {
@@ -11960,7 +12021,7 @@ inline void SupervisorEvent::clear_old_pid() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.old_pid_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000040U);
+                  0x00000100U);
 }
 inline ::int32_t SupervisorEvent::old_pid() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.old_pid)
@@ -11968,7 +12029,7 @@ inline ::int32_t SupervisorEvent::old_pid() const {
 }
 inline void SupervisorEvent::set_old_pid(::int32_t value) {
   _internal_set_old_pid(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.old_pid)
 }
 inline ::int32_t SupervisorEvent::_internal_old_pid() const {
@@ -11985,7 +12046,7 @@ inline void SupervisorEvent::clear_new_pid() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.new_pid_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000200U);
 }
 inline ::int32_t SupervisorEvent::new_pid() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.new_pid)
@@ -11993,7 +12054,7 @@ inline ::int32_t SupervisorEvent::new_pid() const {
 }
 inline void SupervisorEvent::set_new_pid(::int32_t value) {
   _internal_set_new_pid(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.new_pid)
 }
 inline ::int32_t SupervisorEvent::_internal_new_pid() const {
@@ -12010,7 +12071,7 @@ inline void SupervisorEvent::clear_exit_code() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.exit_code_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000400U);
 }
 inline ::int32_t SupervisorEvent::exit_code() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.exit_code)
@@ -12018,7 +12079,7 @@ inline ::int32_t SupervisorEvent::exit_code() const {
 }
 inline void SupervisorEvent::set_exit_code(::int32_t value) {
   _internal_set_exit_code(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.exit_code)
 }
 inline ::int32_t SupervisorEvent::_internal_exit_code() const {
@@ -12035,7 +12096,7 @@ inline void SupervisorEvent::clear_signal() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.signal_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000004U);
+                  0x00000008U);
 }
 inline const ::std::string& SupervisorEvent::signal() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -12045,13 +12106,13 @@ inline const ::std::string& SupervisorEvent::signal() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void SupervisorEvent::set_signal(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   _impl_.signal_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.signal)
 }
 inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::mutable_signal()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   ::std::string* _s = _internal_mutable_signal();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisorEvent.signal)
   return _s;
@@ -12071,10 +12132,10 @@ inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::_internal_mutable_signal
 inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_signal() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisorEvent.signal)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
   auto* released = _impl_.signal_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.signal_.Set("", GetArena());
@@ -12084,9 +12145,9 @@ inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_signal() {
 inline void SupervisorEvent::set_allocated_signal(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
   }
   _impl_.signal_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.signal_.IsDefault()) {
@@ -12100,7 +12161,7 @@ inline void SupervisorEvent::clear_restart_count() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.restart_count_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00000800U);
 }
 inline ::int32_t SupervisorEvent::restart_count() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.restart_count)
@@ -12108,7 +12169,7 @@ inline ::int32_t SupervisorEvent::restart_count() const {
 }
 inline void SupervisorEvent::set_restart_count(::int32_t value) {
   _internal_set_restart_count(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000800U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.restart_count)
 }
 inline ::int32_t SupervisorEvent::_internal_restart_count() const {
@@ -12125,7 +12186,7 @@ inline void SupervisorEvent::clear_message() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.message_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000008U);
+                  0x00000010U);
 }
 inline const ::std::string& SupervisorEvent::message() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -12135,13 +12196,13 @@ inline const ::std::string& SupervisorEvent::message() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void SupervisorEvent::set_message(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   _impl_.message_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.message)
 }
 inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::mutable_message()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::std::string* _s = _internal_mutable_message();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisorEvent.message)
   return _s;
@@ -12161,10 +12222,10 @@ inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::_internal_mutable_messag
 inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_message() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisorEvent.message)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   auto* released = _impl_.message_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.message_.Set("", GetArena());
@@ -12174,9 +12235,9 @@ inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_message() {
 inline void SupervisorEvent::set_allocated_message(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   }
   _impl_.message_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.message_.IsDefault()) {
@@ -12190,7 +12251,7 @@ inline void SupervisorEvent::clear_last_heartbeat_unix() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.last_heartbeat_unix_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000400U);
+                  0x00001000U);
 }
 inline ::int64_t SupervisorEvent::last_heartbeat_unix() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.last_heartbeat_unix)
@@ -12198,7 +12259,7 @@ inline ::int64_t SupervisorEvent::last_heartbeat_unix() const {
 }
 inline void SupervisorEvent::set_last_heartbeat_unix(::int64_t value) {
   _internal_set_last_heartbeat_unix(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  SetHasBit(_impl_._has_bits_[0], 0x00001000U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.last_heartbeat_unix)
 }
 inline ::int64_t SupervisorEvent::_internal_last_heartbeat_unix() const {
@@ -12215,7 +12276,7 @@ inline void SupervisorEvent::clear_last_error() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.last_error_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000010U);
+                  0x00000020U);
 }
 inline const ::std::string& SupervisorEvent::last_error() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -12225,13 +12286,13 @@ inline const ::std::string& SupervisorEvent::last_error() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void SupervisorEvent::set_last_error(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   _impl_.last_error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.last_error)
 }
 inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::mutable_last_error()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   ::std::string* _s = _internal_mutable_last_error();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisorEvent.last_error)
   return _s;
@@ -12251,10 +12312,10 @@ inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::_internal_mutable_last_e
 inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_last_error() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisorEvent.last_error)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   auto* released = _impl_.last_error_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.last_error_.Set("", GetArena());
@@ -12264,9 +12325,9 @@ inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_last_error() {
 inline void SupervisorEvent::set_allocated_last_error(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   }
   _impl_.last_error_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.last_error_.IsDefault()) {
@@ -12280,7 +12341,7 @@ inline void SupervisorEvent::clear_oom_suspect() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.oom_suspect_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00002000U);
+                  0x00008000U);
 }
 inline bool SupervisorEvent::oom_suspect() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.oom_suspect)
@@ -12288,7 +12349,7 @@ inline bool SupervisorEvent::oom_suspect() const {
 }
 inline void SupervisorEvent::set_oom_suspect(bool value) {
   _internal_set_oom_suspect(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00002000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.oom_suspect)
 }
 inline bool SupervisorEvent::_internal_oom_suspect() const {
@@ -12305,7 +12366,7 @@ inline void SupervisorEvent::clear_last_rss_bytes() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.last_rss_bytes_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000800U);
+                  0x00002000U);
 }
 inline ::int64_t SupervisorEvent::last_rss_bytes() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.last_rss_bytes)
@@ -12313,7 +12374,7 @@ inline ::int64_t SupervisorEvent::last_rss_bytes() const {
 }
 inline void SupervisorEvent::set_last_rss_bytes(::int64_t value) {
   _internal_set_last_rss_bytes(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000800U);
+  SetHasBit(_impl_._has_bits_[0], 0x00002000U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.last_rss_bytes)
 }
 inline ::int64_t SupervisorEvent::_internal_last_rss_bytes() const {
@@ -12330,7 +12391,7 @@ inline void SupervisorEvent::clear_seq() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.seq_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00001000U);
+                  0x00004000U);
 }
 inline ::int64_t SupervisorEvent::seq() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.seq)
@@ -12338,7 +12399,7 @@ inline ::int64_t SupervisorEvent::seq() const {
 }
 inline void SupervisorEvent::set_seq(::int64_t value) {
   _internal_set_seq(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00001000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.seq)
 }
 inline ::int64_t SupervisorEvent::_internal_seq() const {
@@ -12348,6 +12409,143 @@ inline ::int64_t SupervisorEvent::_internal_seq() const {
 inline void SupervisorEvent::_internal_set_seq(::int64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.seq_ = value;
+}
+
+// string snapshot_dir = 15;
+inline void SupervisorEvent::clear_snapshot_dir() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.snapshot_dir_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline const ::std::string& SupervisorEvent::snapshot_dir() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.snapshot_dir)
+  return _internal_snapshot_dir();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void SupervisorEvent::set_snapshot_dir(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  _impl_.snapshot_dir_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.snapshot_dir)
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::mutable_snapshot_dir()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ::std::string* _s = _internal_mutable_snapshot_dir();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisorEvent.snapshot_dir)
+  return _s;
+}
+inline const ::std::string& SupervisorEvent::_internal_snapshot_dir() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.snapshot_dir_.Get();
+}
+inline void SupervisorEvent::_internal_set_snapshot_dir(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.snapshot_dir_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::_internal_mutable_snapshot_dir() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.snapshot_dir_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE SupervisorEvent::release_snapshot_dir() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisorEvent.snapshot_dir)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  auto* released = _impl_.snapshot_dir_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.snapshot_dir_.Set("", GetArena());
+  }
+  return released;
+}
+inline void SupervisorEvent::set_allocated_snapshot_dir(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  }
+  _impl_.snapshot_dir_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.snapshot_dir_.IsDefault()) {
+    _impl_.snapshot_dir_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SupervisorEvent.snapshot_dir)
+}
+
+// repeated string snapshot_files = 16;
+inline int SupervisorEvent::_internal_snapshot_files_size() const {
+  return _internal_snapshot_files().size();
+}
+inline int SupervisorEvent::snapshot_files_size() const {
+  return _internal_snapshot_files_size();
+}
+inline void SupervisorEvent::clear_snapshot_files() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.snapshot_files_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::add_snapshot_files()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::std::string* _s =
+      _internal_mutable_snapshot_files()->InternalAddWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), GetArena());
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add_mutable:croupier.ops.v1.SupervisorEvent.snapshot_files)
+  return _s;
+}
+inline const ::std::string& SupervisorEvent::snapshot_files(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisorEvent.snapshot_files)
+  return _internal_snapshot_files().Get(index);
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisorEvent::mutable_snapshot_files(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisorEvent.snapshot_files)
+  return _internal_mutable_snapshot_files()->Mutable(index);
+}
+template <typename Arg_, typename... Args_>
+inline void SupervisorEvent::set_snapshot_files(int index, Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::AssignToString(*_internal_mutable_snapshot_files()->Mutable(index), ::std::forward<Arg_>(value),
+                        args... );
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisorEvent.snapshot_files)
+}
+template <typename Arg_, typename... Args_>
+inline void SupervisorEvent::add_snapshot_files(Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::google::protobuf::internal::AddToRepeatedPtrField(
+      ::google::protobuf::MessageLite::internal_visibility(), GetArena(),
+      *_internal_mutable_snapshot_files(), ::std::forward<Arg_>(value),
+      args... );
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add:croupier.ops.v1.SupervisorEvent.snapshot_files)
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>& SupervisorEvent::snapshot_files()
+    const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:croupier.ops.v1.SupervisorEvent.snapshot_files)
+  return _internal_snapshot_files();
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+SupervisorEvent::mutable_snapshot_files() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_mutable_list:croupier.ops.v1.SupervisorEvent.snapshot_files)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_snapshot_files();
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>&
+SupervisorEvent::_internal_snapshot_files() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.snapshot_files_;
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+SupervisorEvent::_internal_mutable_snapshot_files() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.snapshot_files_;
 }
 
 // -------------------------------------------------------------------
@@ -12612,7 +12810,7 @@ inline void SupervisedProcessSnapshot::clear_pid() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.pid_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000004U);
+                  0x00000008U);
 }
 inline ::int32_t SupervisedProcessSnapshot::pid() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.pid)
@@ -12620,7 +12818,7 @@ inline ::int32_t SupervisedProcessSnapshot::pid() const {
 }
 inline void SupervisedProcessSnapshot::set_pid(::int32_t value) {
   _internal_set_pid(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.pid)
 }
 inline ::int32_t SupervisedProcessSnapshot::_internal_pid() const {
@@ -12637,7 +12835,7 @@ inline void SupervisedProcessSnapshot::clear_state() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.state_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000008U);
+                  0x00000010U);
 }
 inline ::croupier::ops::v1::ProcessState SupervisedProcessSnapshot::state() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.state)
@@ -12645,7 +12843,7 @@ inline ::croupier::ops::v1::ProcessState SupervisedProcessSnapshot::state() cons
 }
 inline void SupervisedProcessSnapshot::set_state(::croupier::ops::v1::ProcessState value) {
   _internal_set_state(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.state)
 }
 inline ::croupier::ops::v1::ProcessState SupervisedProcessSnapshot::_internal_state() const {
@@ -12662,7 +12860,7 @@ inline void SupervisedProcessSnapshot::clear_uptime_seconds() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.uptime_seconds_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000010U);
+                  0x00000020U);
 }
 inline ::int64_t SupervisedProcessSnapshot::uptime_seconds() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.uptime_seconds)
@@ -12670,7 +12868,7 @@ inline ::int64_t SupervisedProcessSnapshot::uptime_seconds() const {
 }
 inline void SupervisedProcessSnapshot::set_uptime_seconds(::int64_t value) {
   _internal_set_uptime_seconds(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.uptime_seconds)
 }
 inline ::int64_t SupervisedProcessSnapshot::_internal_uptime_seconds() const {
@@ -12687,7 +12885,7 @@ inline void SupervisedProcessSnapshot::clear_restart_count() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.restart_count_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00000400U);
 }
 inline ::int32_t SupervisedProcessSnapshot::restart_count() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.restart_count)
@@ -12695,7 +12893,7 @@ inline ::int32_t SupervisedProcessSnapshot::restart_count() const {
 }
 inline void SupervisedProcessSnapshot::set_restart_count(::int32_t value) {
   _internal_set_restart_count(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.restart_count)
 }
 inline ::int32_t SupervisedProcessSnapshot::_internal_restart_count() const {
@@ -12712,7 +12910,7 @@ inline void SupervisedProcessSnapshot::clear_rss_bytes() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.rss_bytes_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000020U);
+                  0x00000040U);
 }
 inline ::int64_t SupervisedProcessSnapshot::rss_bytes() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.rss_bytes)
@@ -12720,7 +12918,7 @@ inline ::int64_t SupervisedProcessSnapshot::rss_bytes() const {
 }
 inline void SupervisedProcessSnapshot::set_rss_bytes(::int64_t value) {
   _internal_set_rss_bytes(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.rss_bytes)
 }
 inline ::int64_t SupervisedProcessSnapshot::_internal_rss_bytes() const {
@@ -12737,7 +12935,7 @@ inline void SupervisedProcessSnapshot::clear_cpu_percent() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.cpu_percent_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000040U);
+                  0x00000080U);
 }
 inline double SupervisedProcessSnapshot::cpu_percent() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.cpu_percent)
@@ -12745,7 +12943,7 @@ inline double SupervisedProcessSnapshot::cpu_percent() const {
 }
 inline void SupervisedProcessSnapshot::set_cpu_percent(double value) {
   _internal_set_cpu_percent(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.cpu_percent)
 }
 inline double SupervisedProcessSnapshot::_internal_cpu_percent() const {
@@ -12834,7 +13032,7 @@ inline void SupervisedProcessSnapshot::clear_last_event_unix() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.last_event_unix_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000100U);
 }
 inline ::int64_t SupervisedProcessSnapshot::last_event_unix() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.last_event_unix)
@@ -12842,7 +13040,7 @@ inline ::int64_t SupervisedProcessSnapshot::last_event_unix() const {
 }
 inline void SupervisedProcessSnapshot::set_last_event_unix(::int64_t value) {
   _internal_set_last_event_unix(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.last_event_unix)
 }
 inline ::int64_t SupervisedProcessSnapshot::_internal_last_event_unix() const {
@@ -12859,7 +13057,7 @@ inline void SupervisedProcessSnapshot::clear_next_restart_at_unix() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.next_restart_at_unix_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000200U);
 }
 inline ::int64_t SupervisedProcessSnapshot::next_restart_at_unix() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.next_restart_at_unix)
@@ -12867,7 +13065,7 @@ inline ::int64_t SupervisedProcessSnapshot::next_restart_at_unix() const {
 }
 inline void SupervisedProcessSnapshot::set_next_restart_at_unix(::int64_t value) {
   _internal_set_next_restart_at_unix(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.next_restart_at_unix)
 }
 inline ::int64_t SupervisedProcessSnapshot::_internal_next_restart_at_unix() const {
@@ -12877,6 +13075,71 @@ inline ::int64_t SupervisedProcessSnapshot::_internal_next_restart_at_unix() con
 inline void SupervisedProcessSnapshot::_internal_set_next_restart_at_unix(::int64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.next_restart_at_unix_ = value;
+}
+
+// string snapshot_profile = 11;
+inline void SupervisedProcessSnapshot::clear_snapshot_profile() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.snapshot_profile_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& SupervisedProcessSnapshot::snapshot_profile() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.snapshot_profile)
+  return _internal_snapshot_profile();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void SupervisedProcessSnapshot::set_snapshot_profile(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.snapshot_profile_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.snapshot_profile)
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisedProcessSnapshot::mutable_snapshot_profile()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_snapshot_profile();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SupervisedProcessSnapshot.snapshot_profile)
+  return _s;
+}
+inline const ::std::string& SupervisedProcessSnapshot::_internal_snapshot_profile() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.snapshot_profile_.Get();
+}
+inline void SupervisedProcessSnapshot::_internal_set_snapshot_profile(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.snapshot_profile_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL SupervisedProcessSnapshot::_internal_mutable_snapshot_profile() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.snapshot_profile_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE SupervisedProcessSnapshot::release_snapshot_profile() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.SupervisedProcessSnapshot.snapshot_profile)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.snapshot_profile_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.snapshot_profile_.Set("", GetArena());
+  }
+  return released;
+}
+inline void SupervisedProcessSnapshot::set_allocated_snapshot_profile(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.snapshot_profile_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.snapshot_profile_.IsDefault()) {
+    _impl_.snapshot_profile_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SupervisedProcessSnapshot.snapshot_profile)
 }
 
 // -------------------------------------------------------------------

@@ -1363,7 +1363,7 @@ type SupervisorEvent struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	TsUnix       int64                  `protobuf:"varint,1,opt,name=ts_unix,json=tsUnix,proto3" json:"ts_unix,omitempty"`                   // Event time (Unix seconds)
 	Process      string                 `protobuf:"bytes,2,opt,name=process,proto3" json:"process,omitempty"`                                // Managed process name
-	Event        string                 `protobuf:"bytes,3,opt,name=event,proto3" json:"event,omitempty"`                                    // Closed set: detect_down/auto_restart/restart_failed/breaker_tripped/resource_over_limit/manual_start/manual_stop
+	Event        string                 `protobuf:"bytes,3,opt,name=event,proto3" json:"event,omitempty"`                                    // Closed set: detect_down/auto_restart/restart_failed/breaker_tripped/resource_over_limit/manual_start/manual_stop/snapshot_hint
 	OldPid       int32                  `protobuf:"varint,4,opt,name=old_pid,json=oldPid,proto3" json:"old_pid,omitempty"`                   // PID before the event (0 if none)
 	NewPid       int32                  `protobuf:"varint,5,opt,name=new_pid,json=newPid,proto3" json:"new_pid,omitempty"`                   // PID after the event (0 if none)
 	ExitCode     int32                  `protobuf:"varint,6,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`             // Exit code of the process that died
@@ -1376,8 +1376,13 @@ type SupervisorEvent struct {
 	OomSuspect        bool   `protobuf:"varint,12,opt,name=oom_suspect,json=oomSuspect,proto3" json:"oom_suspect,omitempty"` // Heuristic: killed by SIGKILL-like signal with high RSS
 	LastRssBytes      int64  `protobuf:"varint,13,opt,name=last_rss_bytes,json=lastRssBytes,proto3" json:"last_rss_bytes,omitempty"`
 	Seq               int64  `protobuf:"varint,14,opt,name=seq,proto3" json:"seq,omitempty"` // Agent-assigned monotonic sequence (report dedupe / incremental pull)
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Crash snapshot context (S3, best-effort): artifacts found on disk after a
+	// detect_down. snapshot_hint events carry the host-level core_pattern
+	// suggestion in message instead.
+	SnapshotDir   string   `protobuf:"bytes,15,opt,name=snapshot_dir,json=snapshotDir,proto3" json:"snapshot_dir,omitempty"`       // Directory scanned for artifacts ("" when snapshot profile disabled)
+	SnapshotFiles []string `protobuf:"bytes,16,rep,name=snapshot_files,json=snapshotFiles,proto3" json:"snapshot_files,omitempty"` // Artifact file names found after the crash
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SupervisorEvent) Reset() {
@@ -1508,6 +1513,20 @@ func (x *SupervisorEvent) GetSeq() int64 {
 	return 0
 }
 
+func (x *SupervisorEvent) GetSnapshotDir() string {
+	if x != nil {
+		return x.SnapshotDir
+	}
+	return ""
+}
+
+func (x *SupervisorEvent) GetSnapshotFiles() []string {
+	if x != nil {
+		return x.SnapshotFiles
+	}
+	return nil
+}
+
 // GetSupervisorLogRequest pulls the supervisor event log file content from an agent.
 type GetSupervisorLogRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1629,6 +1648,7 @@ type SupervisedProcessSnapshot struct {
 	Flags             []string               `protobuf:"bytes,8,rep,name=flags,proto3" json:"flags,omitempty"`                                                        // Anomaly markers (mem_over_limit / cpu_over_limit / breaker_tripped)
 	LastEventUnix     int64                  `protobuf:"varint,9,opt,name=last_event_unix,json=lastEventUnix,proto3" json:"last_event_unix,omitempty"`                // Unix seconds of the last supervisor event (0 if none)
 	NextRestartAtUnix int64                  `protobuf:"varint,10,opt,name=next_restart_at_unix,json=nextRestartAtUnix,proto3" json:"next_restart_at_unix,omitempty"` // Unix seconds of the scheduled auto-restart (BACKOFF only)
+	SnapshotProfile   string                 `protobuf:"bytes,11,opt,name=snapshot_profile,json=snapshotProfile,proto3" json:"snapshot_profile,omitempty"`            // Crash snapshot profile in effect (none/go/node/python/jvm; "" when unknown)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -1731,6 +1751,13 @@ func (x *SupervisedProcessSnapshot) GetNextRestartAtUnix() int64 {
 		return x.NextRestartAtUnix
 	}
 	return 0
+}
+
+func (x *SupervisedProcessSnapshot) GetSnapshotProfile() string {
+	if x != nil {
+		return x.SnapshotProfile
+	}
+	return ""
 }
 
 // ExecuteCommandRequest requests command execution.
@@ -2477,7 +2504,7 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x0euptime_seconds\x18\b \x01(\x03R\ruptimeSeconds\x12\x14\n" +
 	"\x05flags\x18\t \x03(\tR\x05flags\x12/\n" +
 	"\x14next_restart_at_unix\x18\n" +
-	" \x01(\x03R\x11nextRestartAtUnix\"\xa8\x03\n" +
+	" \x01(\x03R\x11nextRestartAtUnix\"\xf2\x03\n" +
 	"\x0fSupervisorEvent\x12\x17\n" +
 	"\ats_unix\x18\x01 \x01(\x03R\x06tsUnix\x12\x18\n" +
 	"\aprocess\x18\x02 \x01(\tR\aprocess\x12\x14\n" +
@@ -2495,13 +2522,15 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\voom_suspect\x18\f \x01(\bR\n" +
 	"oomSuspect\x12$\n" +
 	"\x0elast_rss_bytes\x18\r \x01(\x03R\flastRssBytes\x12\x10\n" +
-	"\x03seq\x18\x0e \x01(\x03R\x03seq\"6\n" +
+	"\x03seq\x18\x0e \x01(\x03R\x03seq\x12!\n" +
+	"\fsnapshot_dir\x18\x0f \x01(\tR\vsnapshotDir\x12%\n" +
+	"\x0esnapshot_files\x18\x10 \x03(\tR\rsnapshotFiles\"6\n" +
 	"\x17GetSupervisorLogRequest\x12\x1b\n" +
 	"\tmax_bytes\x18\x01 \x01(\x05R\bmaxBytes\"o\n" +
 	"\x18GetSupervisorLogResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\fR\acontent\x12\x1b\n" +
 	"\tfile_name\x18\x02 \x01(\tR\bfileName\x12\x1c\n" +
-	"\ttruncated\x18\x03 \x01(\bR\ttruncated\"\xef\x02\n" +
+	"\ttruncated\x18\x03 \x01(\bR\ttruncated\"\x9a\x03\n" +
 	"\x19SupervisedProcessSnapshot\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\x05R\x03pid\x123\n" +
@@ -2514,7 +2543,8 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x05flags\x18\b \x03(\tR\x05flags\x12&\n" +
 	"\x0flast_event_unix\x18\t \x01(\x03R\rlastEventUnix\x12/\n" +
 	"\x14next_restart_at_unix\x18\n" +
-	" \x01(\x03R\x11nextRestartAtUnix\"\x8a\x02\n" +
+	" \x01(\x03R\x11nextRestartAtUnix\x12)\n" +
+	"\x10snapshot_profile\x18\v \x01(\tR\x0fsnapshotProfile\"\x8a\x02\n" +
 	"\x15ExecuteCommandRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\tR\acommand\x12\x12\n" +
 	"\x04args\x18\x02 \x03(\tR\x04args\x12\x1f\n" +

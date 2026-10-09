@@ -173,7 +173,7 @@ message ManagedProcess {
 message SupervisorEvent {
   int64 ts_unix = 1;             // Event time (Unix seconds)
   string process = 2;            // Managed process name
-  string event = 3;              // Closed set: detect_down/auto_restart/restart_failed/breaker_tripped/resource_over_limit/manual_start/manual_stop
+  string event = 3;              // Closed set: detect_down/auto_restart/restart_failed/breaker_tripped/resource_over_limit/manual_start/manual_stop/snapshot_hint
   int32 old_pid = 4;             // PID before the event (0 if none)
   int32 new_pid = 5;             // PID after the event (0 if none)
   int32 exit_code = 6;           // Exit code of the process that died
@@ -186,6 +186,11 @@ message SupervisorEvent {
   bool oom_suspect = 12;         // Heuristic: killed by SIGKILL-like signal with high RSS
   int64 last_rss_bytes = 13;
   int64 seq = 14;                // Agent-assigned monotonic sequence (report dedupe / incremental pull)
+  // Crash snapshot context (S3, best-effort): artifacts found on disk after a
+  // detect_down. snapshot_hint events carry the host-level core_pattern
+  // suggestion in message instead.
+  string snapshot_dir = 15;      // Directory scanned for artifacts ("" when snapshot profile disabled)
+  repeated string snapshot_files = 16; // Artifact file names found after the crash
 }
 
 // GetSupervisorLogRequest pulls the supervisor event log file content from an agent.
@@ -225,6 +230,7 @@ message SupervisedProcessSnapshot {
   repeated string flags = 8;     // Anomaly markers (mem_over_limit / cpu_over_limit / breaker_tripped)
   int64 last_event_unix = 9;     // Unix seconds of the last supervisor event (0 if none)
   int64 next_restart_at_unix = 10; // Unix seconds of the scheduled auto-restart (BACKOFF only)
+  string snapshot_profile = 11;  // Crash snapshot profile in effect (none/go/node/python/jvm; "" when unknown)
 }
 
 // ExecuteCommandRequest requests command execution.

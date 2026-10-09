@@ -52,6 +52,7 @@ const RUNNING: SupervisedProcess = {
   rssBytes: 2 * 1024 * 1024 * 1024,
   cpuPercent: 12.34,
   flags: ['mem_over_limit'],
+  snapshotProfile: 'jvm',
 };
 
 const STOPPED: SupervisedProcess = {
@@ -63,6 +64,7 @@ const STOPPED: SupervisedProcess = {
   rssBytes: 0,
   cpuPercent: 0,
   flags: [],
+  snapshotProfile: '',
 };
 
 const EVENT_BASE: SupervisorEvent = {
@@ -80,6 +82,8 @@ const EVENT_BASE: SupervisorEvent = {
   lastError: '',
   oomSuspect: false,
   lastRssBytes: 0,
+  snapshotDir: '',
+  snapshotFiles: [],
 };
 
 const EV_DETECT: SupervisorEvent = {
@@ -432,6 +436,54 @@ describe('SupervisorDrawer', () => {
       fireEvent.click(await screen.findByText('事件日志'));
 
       expect(await screen.findByText('暂无监管事件')).toBeInTheDocument();
+    });
+  });
+
+  describe('S3 崩溃快照', () => {
+    it('进程行展示 snapshot:<profile> 标记；none/空档不展示', async () => {
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            RUNNING, // snapshotProfile: jvm
+            { ...RUNNING, name: 'plain', flags: [], snapshotProfile: 'none' },
+            { ...RUNNING, name: 'unknown', flags: [], snapshotProfile: '' },
+          ],
+        }),
+      );
+      renderDrawer();
+
+      expect(await screen.findByText('snapshot:jvm')).toBeInTheDocument();
+      // none/空档不渲染快照标记（plain/unknown 行无 snapshot tag）
+      expect(screen.queryByText('snapshot:none')).not.toBeInTheDocument();
+      expect(screen.queryByText('snapshot:')).not.toBeInTheDocument();
+    });
+
+    it('detect_down 行渲染快照产物清单；snapshot_hint 事件落「快照提示」标签', async () => {
+      mockFetch.mockResolvedValue(resp());
+      renderDrawer();
+      await screen.findByText('gameserver');
+
+      const hint: SupervisorEvent = {
+        ...EVENT_BASE,
+        seq: 8,
+        tsUnix: 1759999700,
+        event: 'snapshot_hint',
+        message: 'core_pattern not pipe mode',
+      };
+      mockFetchEvents.mockResolvedValue(
+        eventsResp({
+          events: [
+            { ...EV_DETECT, snapshotDir: '/snap/game', snapshotFiles: ['dump.hprof'] },
+            hint,
+          ],
+        }),
+      );
+      fireEvent.click(await screen.findByText('事件日志'));
+
+      expect(await screen.findByText('快照提示')).toBeInTheDocument();
+      expect(screen.getByText('core_pattern not pipe mode')).toBeInTheDocument();
+      // detect_down 详情翼带快照目录与产物
+      expect(screen.getByText('snapshot: /snap/game (dump.hprof)')).toBeInTheDocument();
     });
   });
 });

@@ -31,6 +31,9 @@ type OpsServer struct {
 
 	// supLog 是监管事件环+轮转文件（S2 双通道的 agent 侧 truth）。
 	supLog *supervisorEventLog
+
+	// hintOnce 保证 core_pattern 只读提示（S3 中档）只发一次。
+	hintOnce sync.Once
 }
 
 // managedProcess represents a managed process state
@@ -61,7 +64,10 @@ type managedProcess struct {
 	nextRestartAt    *time.Time
 	lastEventUnix    int64
 	lastSampleUnix   int64
-	mu               sync.RWMutex
+	// snapshotDir 是本实例的崩溃快照目录（S3 轻档，startProcess 时建），
+	// 建目录失败为空串（env 档开关仍注入，只是无落盘位置）。
+	snapshotDir string
+	mu          sync.RWMutex
 }
 
 // NewOpsServer creates a new Ops server instance.
@@ -267,11 +273,15 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 	ev.RestartCount = restarts
 	ev.Message = "manual start"
 	s.emitSupervisorEvent(p, ev)
+	// 面板手工首启也可能第一次真正开轻档——提示兜底覆盖此路径。
+	s.emitSnapshotHintOnce()
 
 	return &opsv1.StartProcessResponse{
 		Success: true,
 		Message: fmt.Sprintf("Process '%s' started", req.ProcessName),
-		Pid:     p.pid,
+		// 锁内已捕获 newPID：此处重读 p.pid 会与 monitor 的自动拉起写路径
+		// 竞态（DATA RACE，覆盖批次实测复现）。
+		Pid: newPID,
 	}, nil
 }
 
@@ -346,12 +356,19 @@ func (s *OpsServer) startProcess(p *managedProcess) error {
 		cmd.Dir = p.config.WorkingDir
 	}
 
+	// S3 轻档：先建 per-process 快照目录（0700），再按 snapshotProfile 注入
+	// 语言原生开关。目录失败不阻断启动（env 档仍生效）。
+	p.snapshotDir = ensureProcessSnapshotDir(s.config.SnapshotDirOrDefault(), p.name)
+
 	// Set environment variables
 	env := os.Environ()
 	for k, v := range p.config.Env {
 		env = append(env, k+"="+v)
 	}
 	cmd.Env = env
+	// S3 轻档注入：快照档 env 追加在用户 env 之后（exec 对重复 key 取最后
+	// 值——显式声明的档位优先），node 档走 argv 前置。
+	applySnapshotProfile(cmd, p.config, p.snapshotDir)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command: %w", err)
@@ -435,26 +452,29 @@ func (s *OpsServer) autoRestartAllowed(p *managedProcess) bool {
 // 打断；每次状态迁移前都重查实例归属，手动 stop/restart 换掉 p.cmd 后旧
 // monitor 直接退出。
 func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr error) {
-	// 主动停止：stopProcess 已 close stopCh（StopProcess 置 STOPPED；
-	// RestartProcess 随后会换新实例）。此时不再触发 detect_down/拉起。
+	exitCode, sigName := exitDetail(waitErr)
+
+	// 主动停止判定收进锁内（stopProcess 的 close 与新实例的 stopCh 赋值都
+	// 持 p.mu——锁外读曾与 RestartProcess 换 stopCh 竞态）：stopProcess 已
+	// close stopCh（StopProcess 置 STOPPED；RestartProcess 随后会换新实例）
+	// 时不再触发 detect_down/拉起。
+	p.mu.Lock()
+	stopped := false
 	if p.stopCh != nil {
 		select {
 		case <-p.stopCh:
-			return
+			stopped = true
 		default:
 		}
 	}
-
-	exitCode, sigName := exitDetail(waitErr)
-
-	p.mu.Lock()
-	if p.cmd != watched || p.state == opsv1.ProcessState_PROCESS_STATE_STOPPED {
+	if stopped || p.cmd != watched || p.state == opsv1.ProcessState_PROCESS_STATE_STOPPED {
 		p.mu.Unlock()
 		return
 	}
 	oldPID := p.pid
 	lastRSS := p.lastRSS
 	lastSample := p.lastSampleUnix
+	snapDir := p.snapshotDir
 	p.mu.Unlock()
 
 	detectDown := newSupervisorEvent(p.name, supervisorEventDetectDown)
@@ -464,6 +484,11 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 	detectDown.OomSuspect = supervisorOomSuspect(sigName, lastRSS)
 	detectDown.LastRssBytes = lastRSS
 	detectDown.LastHeartbeatUnix = lastSample
+	// S3：崩溃时刻登记快照产物（best-effort——目录为空/不存在即空列表）。
+	if snapshotProfileEnabled(p.config.SnapshotProfile) {
+		detectDown.SnapshotDir = snapDir
+		detectDown.SnapshotFiles = collectSnapshotArtifacts(snapDir, p.config.WorkingDir, p.config.SnapshotProfile)
+	}
 	s.emitSupervisorEvent(p, detectDown)
 
 	for {
@@ -612,6 +637,10 @@ func (s *OpsServer) Start() error {
 		p.mu.Unlock()
 		s.processes[name] = p
 	}
+
+	// S3 中档只读提示：有进程开轻档且宿主机 core_pattern 非管道模式时发
+	// 一次建议命令（once 保证不刷屏；agent 不写宿主配置）。
+	s.emitSnapshotHintOnce()
 
 	return nil
 }

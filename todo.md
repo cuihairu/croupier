@@ -4084,15 +4084,33 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >   （client 需 C++ 编译期嵌入，Go 支持无成熟先例）+ 分级方案（轻=spawn 注入原生开关 [推荐默认] /
 >   中=core_pattern 兜底 / 重=Crashpad 不立项）+ 四项可拍板项
 >
-> **分批**（S1 已交付，见下方交付记录；S2/S3 未动）：
+> **分批**（S1/S2/S3 均已交付，见下方交付记录）：
 >
 > - S1 只读监控：采样+上报捎带+server 快照 API+面板只读部分 ✅ 2026-10-09 交付
-> - S2 自动拉起与熔断：退避/熔断状态机+事件日志双通道+下载+操作按钮
-> - S3 崩溃快照：依 crash-capture 调研拍板结论落地（snapshotProfile 配置）
+> - S2 自动拉起与熔断：退避/熔断状态机+事件日志双通道+下载+操作按钮 ✅ 2026-10-10 交付（见下方 S2 交付记录）
+> - S3 崩溃快照：依 crash-capture 调研拍板结论落地（snapshotProfile 配置）✅ 2026-10-10 交付
 >
-> 下一步：报用户——快照分级方案与四项可拍板项待批复；S2 待开工。
+> 下一步：无——保留期/配额/下载权限（调研 §8.4）待拍板后另批。
 >
-> **拍板记录（2026-10-10，用户授权代拍）**：crash 接线两项已清——①轻档 `snapshotProfile` 字段同意，随 S3 批次落地；②中档 core_pattern 宿主机操作=**agent 只读提示**（扫描现状+显示建议命令，不直接写宿主配置）。保留期/配额/下载权限（调研 §8.4）仍待拍板。S1/S2 已交付（见下），S3 待批后开工。
+> **拍板记录（2026-10-10，用户授权代拍）**：crash 接线两项已清——①轻档 `snapshotProfile` 字段同意，随 S3 批次落地；②中档 core_pattern 宿主机操作=**agent 只读提示**（扫描现状+显示建议命令，不直接写宿主配置）。保留期/配额/下载权限（调研 §8.4）仍待拍板。S1/S2 已交付（见下），**S3 已随 2026-10-10 开工令交付（见下）**。
+
+### S3 交付记录（2026-10-10）
+
+- proto：`SupervisorEvent` +`snapshot_dir`/`snapshot_files`；`SupervisedProcessSnapshot` +`snapshot_profile`；事件闭集 +`snapshot_hint`（make proto 四路再生成）。
+- agent：`ManagedProcessConfig.SnapshotProfile` 闭集（none/go/node/python/jvm，非法值 `OpsConfig.Validate` 加载即报错）+ `OpsConfig.SnapshotDir`（默认 `logs/snapshots`，0700）；新模块 `ops_supervisor_snapshot.go`——spawn 注入（go/python/jvm env、node argv 前置、档位优先）、core_pattern 只读扫描与 `snapshot_hint` 一次性提示（sync.Once）、崩溃产物登记（快照目录全量 + node 报告 cwd mtime 倒序 ≤5）；`superviseExit` detect_down 携带产物。
+- server：`internal/api/ops` 快照字段透传；顺手修 S2 预存缺陷（事件 DTO 补 `tsUnix`，web 时间列线上恒 "-"）。
+- web：抽屉 `snapshot:<profile>` 标记 + 事件详情翼快照目录/产物 + `snapshot_hint`「快照提示」标签与过滤闭集 + zh/en locale。
+- 竞态修复（-race 实测暴露的两处预存窗口）：`StartProcess` 锁外重读 `p.pid` → 锁内 `newPID`；`superviseExit` 锁外读 `p.stopCh` → 收进 p.mu。
+- 边界：core 落盘位置取决于宿主机 core_pattern；产物下载/保留期/配额未拍板未做（§8.4）；`JAVA_TOOL_OPTIONS` 有 "Picked up" stderr 副作用。
+- 测试：agent S3 用例 10 个 + 全包 -race 绿；api/ops 映射 +2；web Drawer 15 用例；guard PASSED。
+
+### S2 交付记录（2026-10-10）
+
+- 退避自动拉起与熔断（设计 §3.4）：`ProcessState` +`BACKOFF`/`BROKEN` 态启用；`restartBackoffInitial/Max`/`restartBreakerLimit` 配置；指数退避 + 连续失败熔断，成功判定=存活超退避封顶。
+- 事件日志双通道（设计 §3.6）：agent 本地轮转文件全量 + metrics 上报捎带 server 内存环（500 条/agent，seq 增量去重）。
+- server 端点：`GET /api/v1/ops/agents/:agentId/supervisor/events`（事件拉取）、`GET /api/v1/ops/agents/:agentId/supervisor/logs`（日志下载）。
+- web：进程操作列（启动/停止/重启，破坏性操作 Popconfirm 二次确认）+ 事件日志 Tab（类型过滤/疑似 OOM 标记/PID 变化/下载日志）。
+- 测试：退避/熔断状态机注入假进程全链、事件通道 seq 去重、web Drawer 13 用例。详见 [agent-supervisor-design.md](docs/design/agent-supervisor-design.md) 状态行。
 
 ### S1 交付记录（2026-10-09）
 

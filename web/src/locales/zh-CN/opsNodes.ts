@@ -143,6 +143,7 @@ export default {
   'pages.opsNodes.supervisor.event.resourceOverLimit': '资源超限',
   'pages.opsNodes.supervisor.event.manualStart': '手工启动',
   'pages.opsNodes.supervisor.event.manualStop': '手工停止',
+  'pages.opsNodes.supervisor.event.snapshotHint': '快照提示',
   'pages.opsNodes.supervisor.empty':
     '该 agent 未上报托管进程（未配置 ops.managedProcesses 或 ops 未启用）',
   'pages.opsNodes.supervisor.lastReport': '最后上报：{ts}',

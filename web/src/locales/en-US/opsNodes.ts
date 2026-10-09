@@ -145,6 +145,7 @@ export default {
   'pages.opsNodes.supervisor.event.resourceOverLimit': 'Resource over limit',
   'pages.opsNodes.supervisor.event.manualStart': 'Manual start',
   'pages.opsNodes.supervisor.event.manualStop': 'Manual stop',
+  'pages.opsNodes.supervisor.event.snapshotHint': 'Snapshot hint',
   'pages.opsNodes.supervisor.empty':
     'This agent has not reported managed processes (ops.managedProcesses not configured or ops disabled)',
   'pages.opsNodes.supervisor.lastReport': 'Last report: {ts}',

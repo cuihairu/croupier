@@ -68,17 +68,20 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 
 每个条目以逻辑名为键，声明一个 agent 托管进程。S1（只读监控）已交付：每 `ops.metricsInterval` 采样一次 RSS/CPU，超阈值在面板打标记（不自动杀进程），快照随 metrics 上报捎带。
 
-| 键                                        | 默认      | 说明                                                          |
-| ----------------------------------------- | --------- | ------------------------------------------------------------- |
-| `command` / `args` / `workingDir` / `env` | —         | 进程启动参数                                                  |
-| `autoRestart`                             | `false`   | 崩溃自动拉起开关（当前为固定延迟重启；S2 交付指数退避与熔断） |
-| `memThresholdBytes`                       | `0`（关） | RSS 达到该值打 `mem_over_limit` 标记                          |
-| `cpuThresholdPercent`                     | `0`（关） | CPU% 达到该值打 `cpu_over_limit` 标记                         |
+| 键                                        | 默认      | 说明                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `command` / `args` / `workingDir` / `env` | —         | 进程启动参数                                                                                                                                                                                                                                                                                                 |
+| `autoRestart`                             | `false`   | 崩溃自动拉起开关（指数退避 + 熔断，S2 已交付）                                                                                                                                                                                                                                                               |
+| `memThresholdBytes`                       | `0`（关） | RSS 达到该值打 `mem_over_limit` 标记                                                                                                                                                                                                                                                                         |
+| `cpuThresholdPercent`                     | `0`（关） | CPU% 达到该值打 `cpu_over_limit` 标记                                                                                                                                                                                                                                                                        |
+| `snapshotProfile`                         | `none`    | S3 崩溃快照档，闭集 `none/go/node/python/jvm`（显式声明，不做语言自动探测）：`go` 注入 `GOTRACEBACK=crash`；`node` 前置 `--report-on-fatalerror --report-exclude-env`；`python` 注入 `PYTHONFAULTHANDLER=1`；`jvm` 注入 `JAVA_TOOL_OPTIONS`（`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=<快照目录>`） |
 
 ```yaml
 ops:
   enabled: true
   metricsInterval: 30s
+  # S3：崩溃快照产物根目录（每进程一子目录，权限 0700——产物含进程内存）。
+  snapshotDir: logs/snapshots
   managedProcesses:
     demo-app:
       command: /usr/local/bin/demo-app
@@ -86,9 +89,10 @@ ops:
       workingDir: /srv/demo-app
       memThresholdBytes: 2147483648 # 2GiB
       cpuThresholdPercent: 90
+      snapshotProfile: go # 崩溃时全 goroutine 栈转储并尝试 core dump
 ```
 
-面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记）。S2 的退避拉起、熔断与事件日志见 [Agent Supervisor 设计简档](../design/agent-supervisor-design.md)。
+面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记/快照档）。崩溃时 `detect_down` 事件登记快照目录与产物文件名；宿主机 `core_pattern` 非管道模式时 agent 发一次 `snapshot_hint` 只读提示（含建议命令，agent 不写宿主配置）。保留期/配额/产物下载权限见 [Agent Supervisor 设计简档](../design/agent-supervisor-design.md)。
 
 ## 双 Agent / 多 Agent 部署
 

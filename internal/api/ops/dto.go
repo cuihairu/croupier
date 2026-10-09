@@ -93,9 +93,11 @@ type OpsSupervisedProcess struct {
 	CpuPercent    float64  `json:"cpuPercent"`
 	Flags         []string `json:"flags"`
 	// LastEventUnix 最近一次 supervisor 事件时间（0=无）；NextRestartAtUnix
-	// 仅 BACKOFF 态非零（面板渲染退避倒计时）。
-	LastEventUnix     int64 `json:"lastEventUnix"`
-	NextRestartAtUnix int64 `json:"nextRestartAtUnix"`
+	// 仅 BACKOFF 态非零（面板渲染退避倒计时）。SnapshotProfile 是 S3 崩溃
+	// 快照档（none/go/node/python/jvm，空=未知）。
+	LastEventUnix     int64  `json:"lastEventUnix"`
+	NextRestartAtUnix int64  `json:"nextRestartAtUnix"`
+	SnapshotProfile   string `json:"snapshotProfile,omitempty"`
 }
 
 type OpsSupervisorSummary struct {
@@ -124,8 +126,10 @@ type OpsAgentSupervisorEventsRequest struct {
 }
 
 type OpsSupervisorEvent struct {
-	Seq          int64  `json:"seq"`
-	Ts           string `json:"ts"`
+	Seq int64  `json:"seq"`
+	Ts  string `json:"ts"`
+	// TsUnix 事件原始 unix 秒（面板本地化渲染用；ts 是 server 格式化串）。
+	TsUnix       int64  `json:"tsUnix,omitempty"`
 	Process      string `json:"process"`
 	Event        string `json:"event"`
 	OldPid       int32  `json:"oldPid"`
@@ -136,10 +140,13 @@ type OpsSupervisorEvent struct {
 	Message      string `json:"message,omitempty"`
 	// 事件时点上下文（尽力诊断）：lastHeartbeat 最后心跳、lastError 进程
 	// 最后错误输出、oomSuspect OOM 疑似启发式、lastRssBytes 最后 RSS。
-	LastHeartbeat string `json:"lastHeartbeat,omitempty"`
-	LastError     string `json:"lastError,omitempty"`
-	OomSuspect    bool   `json:"oomSuspect"`
-	LastRssBytes  int64  `json:"lastRssBytes"`
+	// S3：detect_down 附带崩溃快照目录与产物文件名（best-effort）。
+	LastHeartbeat string   `json:"lastHeartbeat,omitempty"`
+	LastError     string   `json:"lastError,omitempty"`
+	OomSuspect    bool     `json:"oomSuspect"`
+	LastRssBytes  int64    `json:"lastRssBytes"`
+	SnapshotDir   string   `json:"snapshotDir,omitempty"`
+	SnapshotFiles []string `json:"snapshotFiles,omitempty"`
 }
 
 type OpsAgentSupervisorEventsResponse struct {

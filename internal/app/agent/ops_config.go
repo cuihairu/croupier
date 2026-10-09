@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -45,6 +47,11 @@ type OpsConfig struct {
 	// event log is the full-truth record; a truncated copy is mirrored to the
 	// server's in-memory ring for the panel.
 	SupervisorLog SupervisorLogConfig `json:"supervisorLog" yaml:"supervisorLog"`
+
+	// SnapshotDir is the base directory holding crash snapshot artifacts, one
+	// sub-directory per managed process. Created with 0700 permissions (the
+	// dumps contain process memory). Default: logs/snapshots
+	SnapshotDir string `json:"snapshotDir" yaml:"snapshotDir"`
 }
 
 // SupervisorLogConfig configures the rotating supervisor event log file.
@@ -108,6 +115,29 @@ type ManagedProcessConfig struct {
 	// CpuThresholdPercent marks the process with the cpu_over_limit flag when
 	// sampled CPU usage reaches this percentage. 0 disables the check. Default: 0
 	CpuThresholdPercent float64 `json:"cpuThresholdPercent" yaml:"cpuThresholdPercent"`
+
+	// SnapshotProfile selects the crash snapshot profile injected at spawn
+	// (closed set: none/go/node/python/jvm, explicit declaration — no language
+	// auto-detection). Default: none (no snapshot switches injected).
+	SnapshotProfile string `json:"snapshotProfile" yaml:"snapshotProfile"`
+}
+
+// snapshotProfileClosure is the closed set of snapshot profiles (S3).
+var snapshotProfileClosure = map[string]bool{
+	"none": true, "go": true, "node": true, "python": true, "jvm": true,
+}
+
+// Validate reports whether the snapshot profile is in the closed set. An
+// empty value is accepted (means "none"); any other unknown value is an
+// error — a typo must fail at load, not silently disable snapshots.
+func (c *ManagedProcessConfig) Validate() error {
+	if c.SnapshotProfile == "" {
+		return nil
+	}
+	if !snapshotProfileClosure[c.SnapshotProfile] {
+		return fmt.Errorf("unknown snapshotProfile %q (closed set: none/go/node/python/jvm)", c.SnapshotProfile)
+	}
+	return nil
 }
 
 // DefaultOpsConfig returns the default ops configuration.
@@ -121,6 +151,15 @@ func DefaultOpsConfig() *OpsConfig {
 		ManagedProcesses: make(map[string]ManagedProcessConfig),
 		ExecTimeout:      60 * time.Second,
 	}
+}
+
+// SnapshotDirOrDefault returns the configured snapshot base directory, or
+// "logs/snapshots" when unset (same relative convention as SupervisorLog).
+func (c *OpsConfig) SnapshotDirOrDefault() string {
+	if d := strings.TrimSpace(c.SnapshotDir); d != "" {
+		return d
+	}
+	return "logs/snapshots"
 }
 
 // Validate validates the ops configuration.
@@ -149,6 +188,12 @@ func (c *OpsConfig) Validate() error {
 	}
 	if c.ExecTimeout > 300*time.Second {
 		c.ExecTimeout = 300 * time.Second
+	}
+	for name := range c.ManagedProcesses {
+		cfg := c.ManagedProcesses[name]
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("managedProcesses[%s]: %w", name, err)
+		}
 	}
 	return nil
 }

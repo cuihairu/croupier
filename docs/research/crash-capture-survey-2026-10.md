@@ -6,7 +6,7 @@ title: 崩溃快照与跨语言抓取调研——语言原生机制、OS 级通�
 
 ## 状态
 
-- 状态: 调研归档（2026-10-08，Agent Supervisor #67「先调研后拍板」配套；本文只调研不实现）
+- 状态: 调研归档（2026-10-08，Agent Supervisor #67「先调研后拍板」配套；本文只调研不实现）。**§6 轻档+中档拍板项已随 S3 交付落地（2026-10-10，见 [agent-supervisor-design.md](../design/agent-supervisor-design.md) §9）**
 - 日期: 2026-10-08
 - 范围: 被监管进程崩溃时拿到内存快照的可行路径——①各语言原生机制（Go/Python/Node/JVM）；②OS 级语言无关抓取层（core_pattern/systemd-coredump、Windows WER、Crashpad/Breakpad）；③解析层的语言相关性；④对比与分级方案建议 + 可拍板项
 - 结论速览: **没有单点通吃的应用级工具**；「OS 层抓取层零集成通吃（Linux core_pattern 管道 / Windows WER LocalDumps）+ 语言原生机制做轻量级画像 + 解析层分语言」是证据支撑的组合。Croupier 特有杠杆：被监管进程由 agent spawn（`ManagedProcesses` 配置 command/env），**spawn 时可注入语言原生开关**，轻量级方案的可行性因此显著高于一般场景
@@ -112,8 +112,8 @@ Supervisor 监管的游戏服进程语言不一（Go/C++/Python/Node/JVM 都可�
 ## 八、可拍板项
 
 1. **分级起步档位**：推荐「轻=spawn 注入（默认）+中=core_pattern 兜底（可选）」，否决 Crashpad/Breakpad 立项（C++ 集成成本 vs 当前无 C++ 服诉求；Go 支持无成熟先例）。**已批复「按调研分级方案」执行**（agent-supervisor 设计简档落档时，2026-10-09）。
-2. **轻档的配置形态**：`ManagedProcesses[x].snapshotProfile: none|go|node|python|jvm`（显式声明，不做语言自动探测——误判的代价是开关注入无效或污染进程环境）。**已拍板（2026-10-10 用户授权代拍）：同意，随 #67 S3 批次落地**。
-3. **中档的宿主机前提**：core_pattern 是宿主机全局资源（root sysctl），多游戏服混布时改它影响面超出 agent。**已拍板（2026-10-10 用户授权代拍）：agent 只读提示**——扫描宿主机现状（是否 core_pattern 管道模式）+ 在面板/日志显示建议命令供运维一键复制，agent 不直接写宿主配置（权限/安全边界，教学与生产都低危）。
+2. **轻档的配置形态**：`ManagedProcesses[x].snapshotProfile: none|go|node|python|jvm`（显式声明，不做语言自动探测——误判的代价是开关注入无效或污染进程环境）。**已拍板（2026-10-10 用户授权代拍）：同意，随 #67 S3 批次落地**。**已落地（2026-10-10）**：spawn 注入（go/python/jvm env、node argv 前置、档位优先）+ `snapshotDir`（默认 `logs/snapshots`，0700）+ detect_down 产物登记。
+3. **中档的宿主机前提**：core_pattern 是宿主机全局资源（root sysctl），多游戏服混布时改它影响面超出 agent。**已拍板（2026-10-10 用户授权代拍）：agent 只读提示**——扫描宿主机现状（是否 core_pattern 管道模式）+ 在面板/日志显示建议命令供运维一键复制，agent 不直接写宿主配置（权限/安全边界，教学与生产都低危）。**已落地（2026-10-10）**：`/proc/sys/kernel/core_pattern` 只读扫描，非管道模式且有进程开轻档时发一次 `snapshot_hint` 宿主机级事件（sync.Once 防刷屏）。
 4. **保留期/配额/下载权限**：建议保留 72h、单进程目录配额 2GiB、下载要求 `ops:operate` + 审计；数字可调。**仍待拍板**（未在本次授权范围内）。
 
 ## 九、来源索引

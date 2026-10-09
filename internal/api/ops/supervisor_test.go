@@ -84,6 +84,20 @@ func TestSupervisedProcessFromSnapshot(t *testing.T) {
 	empty := supervisedProcessFromSnapshot(&opsv1.SupervisedProcessSnapshot{Name: "x"})
 	assert.NotNil(t, empty.Flags)
 	assert.Empty(t, empty.Flags)
+
+	// S3：快照档透传
+	snap := supervisedProcessFromSnapshot(&opsv1.SupervisedProcessSnapshot{Name: "g", SnapshotProfile: "jvm"})
+	assert.Equal(t, "jvm", snap.SnapshotProfile)
+}
+
+func TestSupervisorEventFromProtoSnapshot(t *testing.T) {
+	ev := supervisorEventFromProto(&opsv1.SupervisorEvent{
+		Seq: 7, Process: "game", Event: "detect_down", ExitCode: 139, Signal: "SIGSEGV",
+		SnapshotDir: "/snap/game", SnapshotFiles: []string{"dump.hprof", "notes.txt"},
+	})
+	assert.Equal(t, "detect_down", ev.Event)
+	assert.Equal(t, "/snap/game", ev.SnapshotDir)
+	assert.Equal(t, []string{"dump.hprof", "notes.txt"}, ev.SnapshotFiles)
 }
 
 func TestOpsAgentSupervisor_FromMetricsStore(t *testing.T) {

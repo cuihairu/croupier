@@ -57,6 +57,7 @@ const eventColorMap: Record<string, string> = {
   auto_restart: 'blue',
   manual_start: 'geekblue',
   manual_stop: 'geekblue',
+  snapshot_hint: 'purple',
 };
 
 /** 事件类型 → 本地化 descriptor（闭集；未知类型落原始串展示） */
@@ -77,6 +78,10 @@ const eventLabelMap: Record<string, { id: string; defaultMessage: string }> = {
   },
   manual_start: { id: 'pages.opsNodes.supervisor.event.manualStart', defaultMessage: '手工启动' },
   manual_stop: { id: 'pages.opsNodes.supervisor.event.manualStop', defaultMessage: '手工停止' },
+  snapshot_hint: {
+    id: 'pages.opsNodes.supervisor.event.snapshotHint',
+    defaultMessage: '快照提示',
+  },
 };
 
 /** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
@@ -345,6 +350,13 @@ export default function SupervisorDrawer({
                     })}
                   </Tag>
                 ) : null}
+                {record.snapshotDir ? (
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {`snapshot: ${record.snapshotDir}${
+                      record.snapshotFiles.length > 0 ? ` (${record.snapshotFiles.join(', ')})` : ''
+                    }`}
+                  </Typography.Text>
+                ) : null}
               </Space>
             ),
           },
@@ -443,14 +455,22 @@ export default function SupervisorDrawer({
             }),
             dataIndex: 'flags',
             width: 140,
-            render: (flags: string[]) =>
-              flags.length > 0
-                ? flags.map((f) => (
-                    <Tag key={f} color={flagColorMap[f] || 'default'}>
-                      {f}
-                    </Tag>
-                  ))
-                : '-',
+            render: (flags: string[], record) => (
+              <Space size={2} wrap>
+                {flags.map((f) => (
+                  <Tag key={f} color={flagColorMap[f] || 'default'}>
+                    {f}
+                  </Tag>
+                ))}
+                {record.snapshotProfile && record.snapshotProfile !== 'none' ? (
+                  <Tag color="purple">{`snapshot:${record.snapshotProfile}`}</Tag>
+                ) : null}
+                {flags.length === 0 &&
+                (!record.snapshotProfile || record.snapshotProfile === 'none')
+                  ? '-'
+                  : null}
+              </Space>
+            ),
           },
           {
             title: intl.formatMessage({

@@ -81,6 +81,7 @@ func supervisedProcessFromSnapshot(snap *opsv1.SupervisedProcessSnapshot) OpsSup
 		CpuPercent:        snap.CpuPercent,
 		LastEventUnix:     snap.LastEventUnix,
 		NextRestartAtUnix: snap.NextRestartAtUnix,
+		SnapshotProfile:   snap.SnapshotProfile,
 	}
 	if len(snap.Flags) > 0 {
 		out.Flags = make([]string, len(snap.Flags))
@@ -138,8 +139,14 @@ func supervisorEventFromProto(ev *opsv1.SupervisorEvent) OpsSupervisorEvent {
 		LastError:    ev.LastError,
 		OomSuspect:   ev.OomSuspect,
 		LastRssBytes: ev.LastRssBytes,
+		SnapshotDir:  ev.SnapshotDir,
+	}
+	if len(ev.SnapshotFiles) > 0 {
+		out.SnapshotFiles = make([]string, len(ev.SnapshotFiles))
+		copy(out.SnapshotFiles, ev.SnapshotFiles)
 	}
 	if ev.TsUnix > 0 {
+		out.TsUnix = ev.TsUnix
 		out.Ts = utils.FormatTimestamp(time.Unix(ev.TsUnix, 0))
 	}
 	if ev.LastHeartbeatUnix > 0 {

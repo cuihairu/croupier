@@ -861,6 +861,8 @@ export type SupervisedProcess = {
   rssBytes: number;
   cpuPercent: number;
   flags: string[];
+  /** S3 崩溃快照档（none/go/node/python/jvm，空=未知） */
+  snapshotProfile: string;
 };
 
 type RawOpsAgentSupervisor = {
@@ -875,6 +877,7 @@ type RawOpsAgentSupervisor = {
     rssBytes?: number;
     cpuPercent?: number;
     flags?: string[];
+    snapshotProfile?: string;
   }>;
   summary?: { status?: string; total?: number; running?: number };
 };
@@ -891,6 +894,7 @@ function normalizeSupervisedProcess(
     rssBytes: raw.rssBytes || 0,
     cpuPercent: raw.cpuPercent || 0,
     flags: Array.isArray(raw.flags) ? raw.flags : [],
+    snapshotProfile: raw.snapshotProfile || '',
   };
 }
 
@@ -926,7 +930,8 @@ export type OpsAgentSupervisorResponse = {
 };
 
 /** supervisor 事件闭集：detect_down | auto_restart | restart_failed |
- *  breaker_tripped | resource_over_limit | manual_start | manual_stop */
+ *  breaker_tripped | resource_over_limit | manual_start | manual_stop |
+ *  snapshot_hint */
 export const SUPERVISOR_EVENT_TYPES = [
   'detect_down',
   'auto_restart',
@@ -935,6 +940,7 @@ export const SUPERVISOR_EVENT_TYPES = [
   'resource_over_limit',
   'manual_start',
   'manual_stop',
+  'snapshot_hint',
 ] as const;
 
 export type SupervisorEventType = (typeof SUPERVISOR_EVENT_TYPES)[number];
@@ -955,6 +961,9 @@ export type SupervisorEvent = {
   lastError: string;
   oomSuspect: boolean;
   lastRssBytes: number;
+  /** S3：detect_down 附带崩溃快照目录与产物文件名（best-effort） */
+  snapshotDir: string;
+  snapshotFiles: string[];
 };
 
 export type OpsAgentSupervisorEventsResponse = {
@@ -989,6 +998,10 @@ export function normalizeSupervisorEvent(raw: RawSupervisorEvent): SupervisorEve
     lastError: asString(raw.lastError),
     oomSuspect: raw.oomSuspect === true,
     lastRssBytes: asNumber(raw.lastRssBytes),
+    snapshotDir: asString(raw.snapshotDir),
+    snapshotFiles: Array.isArray(raw.snapshotFiles)
+      ? raw.snapshotFiles.filter((f): f is string => typeof f === 'string')
+      : [],
   };
 }
 
