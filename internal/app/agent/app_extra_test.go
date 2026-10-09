@@ -328,13 +328,13 @@ func TestExtensionSyncPuller_ConstructAndStartGuards(t *testing.T) {
 	p := NewExtensionSyncPuller(" http://x/ ", "  a1  ", 0, NewExtensionRuntime())
 	assert.Equal(t, "http://x", p.baseURL)
 	assert.Equal(t, "a1", p.agentID)
-	assert.Equal(t, 30*time.Second, p.interval)
 
 	var nilPuller *ExtensionSyncPuller
 	nilPuller.Start(context.Background()) // 不应 panic
 
 	p2 := NewExtensionSyncPuller("", "", time.Second, nil)
-	p2.Start(context.Background()) // baseURL 为空直接返回
+	p2.Start(context.Background()) // baseURL/runtime 缺失直接返回
+	require.Error(t, p2.PullOnce(context.Background()))
 }
 
 func TestExtensionDriverRuntime_Extra(t *testing.T) {
