@@ -67,7 +67,7 @@ canonical 路由形态如下（与 `internal/handler/routes.go registerExtension
 
 detail 额外返回：`releases[]`、`manifest`（快照）、`capabilities[]`。
 releases 关键字段（`ExtensionReleaseItem`）：`version` / `releaseChannel`
-（`stable|beta|experimental`）/ `minCoreVersion` / `publishedAt` / `changelog`。
+（`stable|beta|alpha`）/ `minCoreVersion` / `publishedAt` / `changelog`。
 
 > 写路径（admin CRUD + pack 导入）已随 §7 批次 3/6 落地；catalog/release
 > 读端点形态不变。

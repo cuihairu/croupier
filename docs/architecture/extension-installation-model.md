@@ -59,7 +59,7 @@
 | 列                                                            | 说明                                                          |
 | ------------------------------------------------------------- | ------------------------------------------------------------- |
 | `extension_id` + `version`                                    | 联合索引（版本存在性校验依赖）                                |
-| `release_channel`                                             | `stable` / `beta` / `experimental`                            |
+| `release_channel`                                             | `stable` / `beta` / `alpha`                                   |
 | `manifest_json`                                               | 完整 manifest 快照（pages/capabilities/config schema 的来源） |
 | `package_ref` / `checksum` / `min_core_version` / `changelog` | 发布物                                                        |
 | `published_at_unix`                                           | 发布时间                                                      |

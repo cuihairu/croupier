@@ -4046,6 +4046,27 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >
 > **拍板记录（2026-10-10，用户授权代拍，效果后审）**：①P0 准予动工——契约先行=无风险结构件（drivers/driver.go 骨架 + Registry 处置 + manifest provider 块定稿入统一模式文档）；②P2 pack descriptor 顺延；③P3 维持远期不承诺。P1 未在本次授权范围（随批后审）。
 
+### P0 交付记录（2026-10-10）
+
+- `internal/drivers`：Driver 接口（Kind/Call/Close，JSON 透传）+ Factory 注册表
+  （cicd 模式：init 自注册、重复注册 panic fail-fast、Kinds 升序）+ Config
+  （Endpoint/Token/Extra/HTTP/Now，HTTP 生产路径必须传 secguard 守卫客户端）+
+  契约错误三件（NotFound/MethodNotSupported/Disabled，语义沿用自
+  provider 包）；P0 空转，openapi driver 实现随 P1 迁入。12 用例。
+- `internal/platform/provider` 归档处置：Registry + 两个测试文件删除（零生产
+  消费者，grep 复证）；Provider 接口保留并标注 Deprecated「driver 契约蓝本，
+  P1 迁完删除」；三个错误类型随实现保留至 P1。quicksdk/openapi 编译零改动。
+- manifest provider 块契约：`internal/core/extension/manifest/provider.go`——
+  字段闭集 type/operations/permissions（ParseProviderBlock 锁定，未知键报错）、
+  type 闭集 openapi|webhook（webhook P2 预留）缺省 openapi、operations 非空
+  去重、permissions 键⊆read/operate/admin；守卫测试
+  TestManifestProviderBlockFieldSet 锁字段集（13 用例）。
+- 文档：统一模式文档新增 §8「Provider 块」（字段契约+同构约束+守卫指引）；
+  契约基线 §3.1 与 installation-model 的渠道闭集漂移修正（experimental→alpha，
+  以实现 service.go:153 为准）。
+- 门禁：go build 全绿；go test ./internal/... 158 包全绿；dashboard_vnext_guard
+  PASSED；docs pnpm build 通过。
+
 ## Agent Supervisor 进程监管立项（#67）·设计简档+崩溃快照调研落盘·S1-S3 分批（2026-10-08）
 
 > **背景**：用户令功能单「agent 加 supervisor 进程监管」+ 两条补充（退避拉起/全程事件日志/OOM 疑似
