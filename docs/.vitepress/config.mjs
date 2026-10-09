@@ -307,8 +307,28 @@ const config = defineConfig({
               link: "/research/crash-capture-survey-2026-10",
             },
             {
+              text: "Agent 清单（定名/边界/scope）",
+              link: "/design/agents-inventory",
+            },
+            {
               text: "Agent Supervisor 进程监管设计（#67）",
               link: "/design/agent-supervisor-design",
+            },
+            {
+              text: "agent-core 通用能力层设计",
+              link: "/design/agent-core-design",
+            },
+            {
+              text: "capture-agent（CDC 反作弊）设计",
+              link: "/design/capture-agent-design",
+            },
+            {
+              text: "Agent 面板设计（每 agent 一页）",
+              link: "/design/agent-dashboard-design",
+            },
+            {
+              text: "herald 对接（告警投递出口）",
+              link: "/design/agent-herald-integration",
             },
           ],
         },

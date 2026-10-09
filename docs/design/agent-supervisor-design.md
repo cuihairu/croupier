@@ -6,10 +6,11 @@ title: Agent Supervisor 进程监管设计简档——字段/接口/分期（#67
 
 ## 状态
 
-- 状态: Partial（2026-10-09 S1 已交付；S2/S3 未动）。S1 落地对应 §3.3 采样、§3.5 上报捎带、§4 面板只读部分、§5 快照端点；`BACKOFF/BROKEN` 枚举已入 wire 但 S2 前不会被置位（见 §8 分期）。原 Proposed 简档（2026-10-08，OPEN-ISSUES #67 立项）全文保留如下，与实现漂移处以实现为准
+- 状态: Partial（2026-10-09 S1/S2 已交付；S3 未动）。S1 落地对应 §3.3 采样、§3.5 上报捎带、§4 面板只读部分、§5 快照端点；S2 落地对应 §3.4 退避自动拉起与熔断（`BACKOFF/BROKEN` 态启用、`restartBackoffInitial/Max`/`restartBreakerLimit` 配置、成功判定=存活超退避封顶）、§3.6 事件日志双通道（agent 本地轮转文件全量 + metrics 上报捎带 server 内存环 500 条/agent、seq 增量去重）、面板操作列（start/stop/restart）与事件日志 Tab、事件拉取与日志下载端点（`GET /api/v1/ops/agents/:agentId/supervisor/events`、`GET /api/v1/ops/agents/:agentId/supervisor/logs`）。原 Proposed 简档（2026-10-08，OPEN-ISSUES #67 立项）全文保留如下，与实现漂移处以实现为准
 - S1 实现增量（简档未预见的两点）：快照覆盖「配置面 ∪ 实例面」（配置了但从未启动的进程以 STOPPED 出现在监管视图，ListProcesses 维持实例面口径不变）；`monitorProcess` 加实例归属守卫（修复 RestartProcess 后旧 monitor 把 RUNNING 翻成 FAILED 的预存瑕疵，S1 面板首次把 state 暴露给用户故必须修）
 - 范围: agent 对托管进程的监管五要素——存活/时长/重启次数、资源采样与超限标记、崩溃自动拉起与熔断、面板列与进程详情、上报捎带；崩溃时内存快照的采集方案见 [崩溃快照与跨语言抓取调研](../research/crash-capture-survey-2026-10.md)（独立调研，分级方案与四项可拍板项已获用户批复「按调研分级方案」执行，S3 落地轻/中档）
 - 关联: 现状代码 `internal/app/agent/ops_server.go`（managedProcess 雏形）· `internal/app/agent/ops_config.go` · `proto/croupier/ops/v1/ops.proto` · `internal/api/ops/`（server 代理）
+- 关联更新（2026-10-09）：被监管对象一侧的运行时契约（信号纪律/退出码语义/心跳打点）已并入 [agent-core 简档](agent-core-design.md) §3「被监管对象契约」——监管协议仍以本简档 + ops.proto 为唯一来源，core 系 agent 出厂即合格被监管对象；agent 定名见 [Agent 清单](agents-inventory.md)（sidecar-agent / devops-agent / capture-agent，监管面（supervisor）归 sidecar-agent）
 
 ## 1. 现状盘点（代码事实）
 
