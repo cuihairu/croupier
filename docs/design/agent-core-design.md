@@ -105,18 +105,18 @@ internal/                    # 现有主体不动（sidecar-agent = internal 骨
 
 core 十包全部建成且自带测试（`go test ./core/...` 绿）；sidecar-agent 接线状态分两档：
 
-| 包             | sidecar 接线 | 说明                                                                                     |
-| -------------- | ------------ | ---------------------------------------------------------------------------------------- |
-| `backoff`      | ✅ 已切      | 默认档断言迁 sidecar 防漂移（backoff_regression_test）                                   |
-| `logx`         | ✅ 已切      | `internal/cli/common/logging.go` 收敛为 shim，新代码直用 core/logx                       |
+| 包             | sidecar 接线 | 说明                                                                                                                     |
+| -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `backoff`      | ✅ 已切      | 默认档断言迁 sidecar 防漂移（backoff_regression_test）                                                                   |
+| `logx`         | ✅ 已切      | `internal/cli/common/logging.go` 收敛为 shim，新代码直用 core/logx                                                       |
 | `register`     | ✅ 已切      | upstream.go 注册/心跳/重连全走 core；保语义：payload 先组装后取连接快照、断连 not connected 文案、OnConnected 初始双触发 |
-| `report`       | ✅ 已切      | Conn 含 Connected() 短路；**告警通道 wire 未新增**（§9 边界，capture C1 前置）           |
-| `metrics`      | ✅ 已切      | sidecar 留别名 + GetSystemInfo（OpsConfig 属 sidecar 面）；Sampler 注入受管进程快照      |
-| `configsync`   | ✅ 已切      | extension sync puller 委托 core 版本轮询；wire 解码留业务侧                              |
-| `healthprobe`  | 建成未接线   | supervisor 心跳采样切换与探针消费随 capture C1 / 面板批次                                |
-| `supervisable` | 建成未接线   | sidecar main 继续用现有装配；core 系 agent（capture/devops）落地时即用                   |
-| `execlog`      | 建成未接线   | 本地真值闭环（双写/闸/导出）；server 摄取端点与 sidecar 执行面接线属后续批次             |
-| `crash`        | 建成未接线   | 轻档注入映射 + dump 目录管理就绪；ManagedProcesses `snapshotProfile` 接线随 #67 S3       |
+| `report`       | ✅ 已切      | Conn 含 Connected() 短路；**告警通道 wire 未新增**（§9 边界，capture C1 前置）                                           |
+| `metrics`      | ✅ 已切      | sidecar 留别名 + GetSystemInfo（OpsConfig 属 sidecar 面）；Sampler 注入受管进程快照                                      |
+| `configsync`   | ✅ 已切      | extension sync puller 委托 core 版本轮询；wire 解码留业务侧                                                              |
+| `healthprobe`  | 建成未接线   | supervisor 心跳采样切换与探针消费随 capture C1 / 面板批次                                                                |
+| `supervisable` | 建成未接线   | sidecar main 继续用现有装配；core 系 agent（capture/devops）落地时即用                                                   |
+| `execlog`      | 建成未接线   | 本地真值闭环（双写/闸/导出）；server 摄取端点与 sidecar 执行面接线属后续批次                                             |
+| `crash`        | 建成未接线   | 轻档注入映射 + dump 目录管理就绪；ManagedProcesses `snapshotProfile` 接线随 #67 S3                                       |
 
 ## 6. 公共模块：healthprobe 与 execlog
 
@@ -226,7 +226,7 @@ devops-agent 不 import `core/metrics`（无资源采集需求时的可裁证明
 - **report 告警通道 wire 未新增**：core/report 现只承载指标/任务事件（与 sidecar 现状等价）；告警上报消息（capture 简档 §7）与 herald 出口对接未做，是 capture C1 的前置项。
 - **execlog 仅本地真值闭环**：双写中的 server 摄取端点（落审计存储、按 scope 归 game 库）未做，Uploader 为接口位；sidecar 执行面（函数调用/任务执行留审计）接线属后续批次；本地落盘为 lumberjack 无缓冲直写——进程崩溃不丢，断电级 fsync 不保证。
 - **healthprobe 上行未接**：故障窗口时间线本地文件闭环；上报捎带（快照带当前窗口、窗口事件上行）与面板消费属后续批次；herald 投递（probe.unavailable/recovered）未接。
-- **crash 接线与拍板项未清**：ManagedProcesses `snapshotProfile` 字段与下载面板随 #67 S3；中档 core_pattern 的宿主机操作边界（agent 只读提示 vs 直接管，调研 §8.3）待拍板。
+- **crash 接线拍板已清、代码随 #67 S3**：ManagedProcesses `snapshotProfile` 字段已拍板随 S3 落地（2026-10-10）；中档 core_pattern 宿主机操作边界已拍板=agent 只读提示（扫描现状+显示建议命令，不直接写宿主配置，调研 §8.3）；保留期/配额/下载权限（调研 §8.4）仍待拍板。
 - supervisable 未被 sidecar main 使用（sidecar 有既有装配）；首个消费者是 core 系 agent 的 cmd/main。
 - #11/#12 不进 core 意味着 core 系 agent **没有函数注册调用能力**——这是定位而非缺陷；若未来某业务 agent 需要函数面，届时再评估以插件位接入（与 #66 Provider 插件设计对齐），不预先上收。
 - CI/CD 监控 v1 只轮询不 webhook（内网无公网入站），告警时延下界=轮询间隔；GH API 限速随 token 配额，watch 清单过大时需分片。

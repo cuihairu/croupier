@@ -7,6 +7,7 @@ title: Provider 插件设计——外部平台接入的契约、加载与权限�
 ## 状态
 
 - 状态: Proposed（2026-10-08，OPEN-ISSUES #66 立项；批一两份调研已归档，本文为批二设计产出，实现代码按 §9 分期另行立项）
+- **拍板记录（2026-10-10，用户授权代拍，效果后审）**：P0 准予动工（契约先行=无风险结构件：drivers/driver.go 骨架 + Registry 处置 + manifest provider 块定稿）；P2 pack descriptor 顺延；P3 维持远期不承诺。
 - 决策摘要（拍板授权令下按推荐方案定，供后审）:
   1. **不引入动态代码加载**——driver 编译期内置（init 自注册），provider 是「配置实例」而非可执行包；Grafana 式子进程/gRPC 与 Go plugin `.so` 均不采用（§2、§6）
   2. **统一注册中心 = extension runtime bindings**——`internal/platform/provider.Registry` 归档不接线，避免双注册中心（§5.3）
@@ -173,6 +174,7 @@ installation.enable
 
 - 范围：`internal/drivers/driver.go` 落 Driver 接口 + 注册表（先空转，driver 实现随 P1 迁入）；`internal/platform/provider` 按裁决处置（Registry/删除、接口注释为蓝本）；manifest provider 块字段定稿并入统一模式文档；顺手修契约基线 §3.1 渠道闭集漂移（文档写 `stable|beta|experimental`、实现是 `stable/beta/alpha`——`service.go:153`，以实现为准改文档）。
 - 验收：守卫测试锁 manifest provider 块字段集（对齐 official seed 守卫先例）；全量门禁绿。
+- 状态：**已获准开工**（2026-10-10 用户授权代拍：P0 准予动工，契约先行=无风险结构件）。
 
 ### P1 external-platform 迁移（mapping 第一优先落地）
 

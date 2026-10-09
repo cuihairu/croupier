@@ -111,10 +111,10 @@ Supervisor 监管的游戏服进程语言不一（Go/C++/Python/Node/JVM 都可�
 
 ## 八、可拍板项
 
-1. **分级起步档位**：推荐「轻=spawn 注入（默认）+中=core_pattern 兜底（可选）」，否决 Crashpad/Breakpad 立项（C++ 集成成本 vs 当前无 C++ 服诉求；Go 支持无成熟先例）。
-2. **轻档的配置形态**：`ManagedProcesses[x].snapshotProfile: none|go|node|python|jvm`（显式声明，不做语言自动探测——误判的代价是开关注入无效或污染进程环境）。
-3. **中档的宿主机前提**：core_pattern 是宿主机全局资源（root sysctl），多游戏服混布时改它影响面超出 agent——需要「agent 只读宿主机现状+提示，写动作走运维」还是「agent 直接管」？建议前者。
-4. **保留期/配额/下载权限**：建议保留 72h、单进程目录配额 2GiB、下载要求 `ops:operate` + 审计；数字可调。
+1. **分级起步档位**：推荐「轻=spawn 注入（默认）+中=core_pattern 兜底（可选）」，否决 Crashpad/Breakpad 立项（C++ 集成成本 vs 当前无 C++ 服诉求；Go 支持无成熟先例）。**已批复「按调研分级方案」执行**（agent-supervisor 设计简档落档时，2026-10-09）。
+2. **轻档的配置形态**：`ManagedProcesses[x].snapshotProfile: none|go|node|python|jvm`（显式声明，不做语言自动探测——误判的代价是开关注入无效或污染进程环境）。**已拍板（2026-10-10 用户授权代拍）：同意，随 #67 S3 批次落地**。
+3. **中档的宿主机前提**：core_pattern 是宿主机全局资源（root sysctl），多游戏服混布时改它影响面超出 agent。**已拍板（2026-10-10 用户授权代拍）：agent 只读提示**——扫描宿主机现状（是否 core_pattern 管道模式）+ 在面板/日志显示建议命令供运维一键复制，agent 不直接写宿主配置（权限/安全边界，教学与生产都低危）。
+4. **保留期/配额/下载权限**：建议保留 72h、单进程目录配额 2GiB、下载要求 `ops:operate` + 审计；数字可调。**仍待拍板**（未在本次授权范围内）。
 
 ## 九、来源索引
 

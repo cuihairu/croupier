@@ -4043,6 +4043,8 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >   kind / 第 6 个身份源触发）
 >
 > 下一步：等用户后审拍板；P0 未获准不动码。
+>
+> **拍板记录（2026-10-10，用户授权代拍，效果后审）**：①P0 准予动工——契约先行=无风险结构件（drivers/driver.go 骨架 + Registry 处置 + manifest provider 块定稿入统一模式文档）；②P2 pack descriptor 顺延；③P3 维持远期不承诺。P1 未在本次授权范围（随批后审）。
 
 ## Agent Supervisor 进程监管立项（#67）·设计简档+崩溃快照调研落盘·S1-S3 分批（2026-10-08）
 
@@ -4068,6 +4070,8 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 > - S3 崩溃快照：依 crash-capture 调研拍板结论落地（snapshotProfile 配置）
 >
 > 下一步：报用户——快照分级方案与四项可拍板项待批复；S2 待开工。
+>
+> **拍板记录（2026-10-10，用户授权代拍）**：crash 接线两项已清——①轻档 `snapshotProfile` 字段同意，随 S3 批次落地；②中档 core_pattern 宿主机操作=**agent 只读提示**（扫描现状+显示建议命令，不直接写宿主配置）。保留期/配额/下载权限（调研 §8.4）仍待拍板。S1/S2 已交付（见下），S3 待批后开工。
 
 ### S1 交付记录（2026-10-09）
 
