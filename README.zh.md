@@ -8,7 +8,7 @@
   <img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/>
   <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/>
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
-  <img src="https://img.shields.io/badge/go-1.26.6+-green.svg" alt="Go Version"/>
+  <img src="https://img.shields.io/badge/go-1.27.2+-green.svg" alt="Go Version"/>
 </p>
 
 [English](README.md) | [中文](README.zh.md)
