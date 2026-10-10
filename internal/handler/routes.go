@@ -166,6 +166,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerAlertRoutes(opsSoft.Group("/alerts"), serverCtx)
 			registerIncidentCategoryRoutes(opsSoft.Group("/incident-categories"), serverCtx)
 			registerIncidentRoutes(opsSoft.Group("/incidents"), serverCtx)
+			registerIncidentReportRoutes(opsSoft.Group("/incident-reports"), serverCtx)
 			registerBackupRoutes(opsSoft.Group("/backups"), serverCtx)
 			registerCertificateRoutes(opsSoft.Group("/certificates"), serverCtx)
 		}
@@ -731,6 +732,16 @@ func registerIncidentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id", incidentHandler.GetIncident)
 	g.PUT("/:id", incidentHandler.UpdateIncident)
 	g.POST("/:id/status", incidentHandler.TransitionIncident)
+}
+
+// registerIncidentReportRoutes 挂报表聚合 API（汇总/趋势/排行榜/责任人报告）。
+func registerIncidentReportRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	incidentSvc := incident.NewService(ctx)
+	incidentHandler := incident.NewHandler(incidentSvc)
+	g.GET("/summary", incidentHandler.GetSummary)
+	g.GET("/trend", incidentHandler.GetTrend)
+	g.GET("/leaderboard", incidentHandler.GetLeaderboard)
+	g.GET("/responsibility", incidentHandler.GetResponsibility)
 }
 
 // ============================================================================
