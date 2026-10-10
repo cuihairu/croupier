@@ -102,6 +102,10 @@ import (
 //   0039 (Go)   games 软删除残留行清理（0024/0026 同族：games 删除路径改
 //               硬删后，把已软删的存量游戏行物理清除——game_id/alias_name
 //               的物理唯一索引被墓碑行占位，同名重建 500，线上实证）
+//   0040 (Go)   incident_categories + incidents 表 + bugs.category_id/
+//               subcategory 列 + 播种默认七行类别（事故报表体系批 1，
+//               docs/design/incident-reports.md；建表 0019/0038 模式、
+//               加列 0025 模式、播种按 slug 幂等缺行才插）
 
 func init() {
 	registerSvcMigrations()
@@ -151,6 +155,7 @@ func registerSvcMigrations() {
 		emailVerificationMigration(),
 		cicdTablesMigration(),
 		gameSoftDeleteResidueCleanupMigration(),
+		incidentTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1232,6 +1237,52 @@ func migrateGameSoftDeleteResidue(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := db.Exec("DELETE FROM games WHERE deleted_at IS NOT NULL").Error; err != nil {
 		return fmt.Errorf("migrate: 0039 purge soft-deleted rows from games: %w", err)
+	}
+	return nil
+}
+
+// incidentTablesMigration 为 0040：事故报表体系批 1（docs/design/
+// incident-reports.md）——incident_categories + incidents 建表（HasTable
+// 检查后 CreateTable，0019/0038 新表模式，无存量约束名漂移）+ bugs 加
+// category_id/subcategory 两列（HasColumn+AddColumn，0025 加列模式）+
+// 播种默认七行类别（未分类兜底 + 六类职能域，按 slug 幂等缺行才插，
+// 已有行不回改）。
+func incidentTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(40,
+		&goose.GoFunc{RunDB: migrateIncidentTables},
+		nil,
+	)
+}
+
+// migrateIncidentTables 是 0040 的迁移体（抽出便于直测）。
+func migrateIncidentTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.IncidentCategory{}) {
+		if err := m.CreateTable(&model.IncidentCategory{}); err != nil {
+			return fmt.Errorf("migrate: 0040 create incident_categories: %w", err)
+		}
+	}
+	if !m.HasTable(&model.Incident{}) {
+		if err := m.CreateTable(&model.Incident{}); err != nil {
+			return fmt.Errorf("migrate: 0040 create incidents: %w", err)
+		}
+	}
+	// bugs 缺表的库（multiGame fanout 重放到 game 库）整段跳过：不建空壳
+	if m.HasTable(&model.Bug{}) {
+		for _, col := range []string{"CategoryID", "Subcategory"} {
+			if !m.HasColumn(&model.Bug{}, col) {
+				if err := m.AddColumn(&model.Bug{}, col); err != nil {
+					return fmt.Errorf("migrate: 0040 add bugs.%s: %w", col, err)
+				}
+			}
+		}
+	}
+	if err := model.SeedIncidentCategories(ctx, db); err != nil {
+		return fmt.Errorf("migrate: 0040 seed incident categories: %w", err)
 	}
 	return nil
 }

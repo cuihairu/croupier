@@ -58,6 +58,11 @@ type Bug struct {
 
 	CreatedBy string     `gorm:"size:64"`
 	DueAt     *time.Time `gorm:"index"`
+
+	// Incident-report category (incident-reports 批 1): 职能域类别 + 子类。
+	// 0040 加列（HasColumn+AddColumn）；存量行 category_id=0 → 报表层归入未分类。
+	CategoryID  uint   `gorm:"index"`
+	Subcategory string `gorm:"size:64"`
 }
 
 func (Bug) TableName() string { return "bugs" }

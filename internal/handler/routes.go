@@ -34,6 +34,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/functioncall"
 	"github.com/cuihairu/croupier/internal/api/game"
 	"github.com/cuihairu/croupier/internal/api/hotpatch"
+	"github.com/cuihairu/croupier/internal/api/incident"
 	"github.com/cuihairu/croupier/internal/api/menu"
 	"github.com/cuihairu/croupier/internal/api/message"
 	"github.com/cuihairu/croupier/internal/api/meta"
@@ -163,6 +164,8 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			opsSoft := protected.Group("/", softFlags.guard(configpkg.FlagOps))
 			registerDBMonRoutes(opsSoft.Group("/dbmon"), serverCtx)
 			registerAlertRoutes(opsSoft.Group("/alerts"), serverCtx)
+			registerIncidentCategoryRoutes(opsSoft.Group("/incident-categories"), serverCtx)
+			registerIncidentRoutes(opsSoft.Group("/incidents"), serverCtx)
 			registerBackupRoutes(opsSoft.Group("/backups"), serverCtx)
 			registerCertificateRoutes(opsSoft.Group("/certificates"), serverCtx)
 		}
@@ -701,6 +704,33 @@ func registerAlertRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/rules", alertHandler.RulesCreate)
 	g.PUT("/rules/:id", alertHandler.RulesUpdate)
 	g.DELETE("/rules/:id", alertHandler.RulesDelete)
+}
+
+// ============================================================================
+// Incident 路由注册（事故报表批 1：类别管理 + 事故登记）
+// ============================================================================
+func registerIncidentCategoryRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	incidentSvc := incident.NewService(ctx)
+	incidentHandler := incident.NewHandler(incidentSvc)
+	g.GET("", incidentHandler.ListCategories)
+	g.GET("/", incidentHandler.ListCategories)
+	g.POST("", incidentHandler.CreateCategory)
+	g.POST("/", incidentHandler.CreateCategory)
+	g.PUT("/:id", incidentHandler.UpdateCategory)
+	g.GET("/:id/usage", incidentHandler.CategoryUsage)
+	g.DELETE("/:id", incidentHandler.DeleteCategory)
+}
+
+func registerIncidentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	incidentSvc := incident.NewService(ctx)
+	incidentHandler := incident.NewHandler(incidentSvc)
+	g.GET("", incidentHandler.ListIncidents)
+	g.GET("/", incidentHandler.ListIncidents)
+	g.POST("", incidentHandler.CreateIncident)
+	g.POST("/", incidentHandler.CreateIncident)
+	g.GET("/:id", incidentHandler.GetIncident)
+	g.PUT("/:id", incidentHandler.UpdateIncident)
+	g.POST("/:id/status", incidentHandler.TransitionIncident)
 }
 
 // ============================================================================

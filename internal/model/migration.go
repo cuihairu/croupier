@@ -150,6 +150,8 @@ func MetaModels() []interface{} {
 		&ExtensionInstallation{},
 		&ExtensionRuntimeBinding{},
 		&ExtensionEvent{},
+		&IncidentCategory{},
+		&Incident{},
 	}
 }
 
