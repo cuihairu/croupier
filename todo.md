@@ -4158,3 +4158,13 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **测试**：12 用例（闭集 404/未配置 403/密钥缺失 403/错签 400+稳定码/缺签/时间戳缺失·超窗·非法/入站拒收审计 nil 安全/generic 映射落库断言/幂等 200+行数=1/坏 payload 400×2/AM 默认映射+确定性幂等/自定义映射/payload status 优先级/UpsertByAlertID 三态/ops 列表排除面回归）。
 - **已知边界（诚实清单）**：①设计原文「capability `alerts.operate` 门控」与无 JWT 公开端点互斥（RBAC RequireAnyPermission 依赖 ctx username）——实际唯一门控即 HMAC 共享密钥，capability 门控不适用本端点；②入站告警落 meta DB，Alert 模型无 game_id/env 列，scope 三元组进 Details 不参与归库（与现有告警域一致，game-scoped 留位）；③防重放=时间窗+eventId 幂等兜底，无 nonce 缓存（严格防重放需自建，v1 不做）；④AM payload 取首条告警（批量 payload 逐条展开留位）。
 - **门禁**：go build 全仓过、alert/model/config/handler 四包 -race 绿、guard PASSED。
+
+## 插件机制 M4·外部服务接入模板落地（2026-10-10）
+
+> 依据 [plugin-mechanism.md](docs/design/plugin-mechanism.md) §4.3/§8（`docs/templates/external-service-integration-template.md` + 首个真实供应商走查修订）。
+
+- **模板**（`docs/templates/external-service-integration-template.md`，附录 A 全文落地）：接入路径判据表（A 扩展安装面 [manifest provider 块→五表 binding] / B 平台接口位 [编译期 L1+配置段]）+ 10 步 checklist（能力清单/协议形态三选一/manifest provider 块 JSON/binding config/secrets 登记/capability 声明/超时重试/拨测 test-connection/面板可见性验收/升级下线）。
+- **走查记录**（首个真实供应商复核）：herald（webhook-out，M2）与 Alertmanager/generic（webhook-in，M3）逐项走查；**走查修订 4 条**（路径判据前置/secrets 现状双轨[secret_refs 存储已落、解析器未建，env 引用是现网唯一跑通形态]/入站幂等键派生规则/出口类供应商侧播种清单）。
+- **边界**：①模板正文 **Draft 待用户过目**（M4 验收门「模板过目」的过目半边留待用户）；②http-rest 分支（步骤 3/4/6 全量演练）待首个 REST 供应商实接回填（#66 P1 待后审授权不在队列）；③webhook driver type/secret_refs 运行时解析器/nonce 防重放留位。
+- **同步**：vitepress 侧边栏补 `/templates/` 节 + plugin-mechanism/provider-plugin-design 两设计页入口（此前漏登记）；plugin-mechanism §8 M4 行标 Draft。
+- **门禁**：docs build 过（模板+侧边栏变更验证）；纯文档批无代码面。

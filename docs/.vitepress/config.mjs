@@ -330,6 +330,27 @@ const config = defineConfig({
               text: "herald 对接（告警投递出口）",
               link: "/design/agent-herald-integration",
             },
+            {
+              text: "插件机制设计（扩展点全景）",
+              link: "/design/plugin-mechanism",
+            },
+            {
+              text: "provider 插件设计（driver 层）",
+              link: "/design/provider-plugin-design",
+            },
+          ],
+        },
+      ],
+
+      "/templates/": [
+        {
+          text: "接入模板",
+          collapsed: false,
+          items: [
+            {
+              text: "外部服务接入 checklist（供应商自助）",
+              link: "/templates/external-service-integration-template",
+            },
           ],
         },
       ],
