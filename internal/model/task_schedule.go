@@ -16,16 +16,19 @@ import (
 // 异步任务链路），ScheduleRunLog 记录触发历史（含幂等窗口）。
 type TaskSchedule struct {
 	gorm.Model
-	Name          string `gorm:"size:128;index"`               // 展示名
-	CronExpr      string `gorm:"size:64;not null"`             // 五字段 cron（分 时 日 月 周）
-	GameID        string `gorm:"size:64;not null;index"`       // 作用域
-	Env           string `gorm:"size:64;not null;index"`       // 作用域
-	FunctionID    string `gorm:"size:128;not null;index"`      // 目标函数
-	Payload       JSON   `gorm:"type:json"`                    // 调用参数
-	Metadata      JSON   `gorm:"type:json"`                    // 附带 metadata（如 route）
-	Status        string `gorm:"size:32;index;default:active"` // active | paused | dead_letter
-	Timezone      string `gorm:"size:64"`                      // IANA 时区，空 = UTC
-	MaxFailedRuns int    `gorm:"default:5"`                    // 连续失败上限，达到后进 dead_letter
+	Name       string `gorm:"size:128;index"`               // 展示名
+	CronExpr   string `gorm:"size:64;not null"`             // 五字段 cron（分 时 日 月 周）
+	GameID     string `gorm:"size:64;not null;index"`       // 作用域
+	Env        string `gorm:"size:64;not null;index"`       // 作用域
+	FunctionID string `gorm:"size:128;not null;index"`      // 目标函数
+	Payload    JSON   `gorm:"type:json"`                    // 调用参数
+	Metadata   JSON   `gorm:"type:json"`                    // 附带 metadata（如 route）
+	Status     string `gorm:"size:32;index;default:active"` // active | paused | dead_letter
+	// Kind 触发形态：function=派发既有异步任务链路；incident_report=报告
+	// 生成器在 server-local 直接执行（不走 Dispatcher，无 TaskRun）。
+	Kind          string `gorm:"size:32;index;default:function"` // function | incident_report
+	Timezone      string `gorm:"size:64"`                        // IANA 时区，空 = UTC
+	MaxFailedRuns int    `gorm:"default:5"`                      // 连续失败上限，达到后进 dead_letter
 	// ConsecutiveFailures 连续触发失败计数（成功后清零）。
 	ConsecutiveFailures int `gorm:"default:0"`
 	// LastTriggeredAt 上次到期触发时间（幂等窗口判重 + 下次触发推算基线）。
@@ -40,11 +43,14 @@ type TaskSchedule struct {
 
 func (TaskSchedule) TableName() string { return "task_schedules" }
 
-// Schedule 状态常量。
+// Schedule 状态与形态常量。
 const (
 	ScheduleStatusActive     = "active"
 	ScheduleStatusPaused     = "paused"
 	ScheduleStatusDeadLetter = "dead_letter"
+
+	ScheduleKindFunction       = "function"
+	ScheduleKindIncidentReport = "incident_report"
 )
 
 // TaskScheduleRunLog 是一次到期触发的审计记录（幂等窗口内不重复触发）。

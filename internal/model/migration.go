@@ -152,6 +152,8 @@ func MetaModels() []interface{} {
 		&ExtensionEvent{},
 		&IncidentCategory{},
 		&Incident{},
+		&IncidentReport{},
+		&ExternalToken{},
 	}
 }
 

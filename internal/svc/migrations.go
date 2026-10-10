@@ -106,6 +106,11 @@ import (
 //               subcategory 列 + 播种默认七行类别（事故报表体系批 1，
 //               docs/design/incident-reports.md；建表 0019/0038 模式、
 //               加列 0025 模式、播种按 slug 幂等缺行才插）
+//   0041 (Go)   incident_reports + external_tokens 表 + messages 加五列
+//               （level/source/ref_type/ref_id/scope，level 历史回填 info）
+//               + task_schedules.kind 列（回填 function）（事故报表体系
+//               批 4 §2.4/§2.5：建表 0019/0038 模式、加列 0025 模式；
+//               调度行播种不在迁移内——Manager 支持 kind 路由后才落行）
 
 func init() {
 	registerSvcMigrations()
@@ -156,6 +161,7 @@ func registerSvcMigrations() {
 		cicdTablesMigration(),
 		gameSoftDeleteResidueCleanupMigration(),
 		incidentTablesMigration(),
+		reportDistributionMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1283,6 +1289,70 @@ func migrateIncidentTables(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := model.SeedIncidentCategories(ctx, db); err != nil {
 		return fmt.Errorf("migrate: 0040 seed incident categories: %w", err)
+	}
+	return nil
+}
+
+// reportDistributionMigration 为 0041：事故报表体系批 4（docs/design/
+// incident-reports.md §2.4/§2.5）——incident_reports + external_tokens 建
+// 表（HasTable 检查后 CreateTable，新表无存量约束名漂移）+ messages 加
+// level/source/ref_type/ref_id/scope 五列（HasColumn+AddColumn，0025 模
+// 式；level 历史行回填 info）+ task_schedules 加 kind 列（回填 function，
+// 存量行全是 function 形态）。调度行播种不在迁移内：Manager 支持 kind
+// 路由（批 4c）之前落行会被误派发到占位 function_id 进 dead_letter。
+func reportDistributionMigration() *goose.Migration {
+	return goose.NewGoMigration(41,
+		&goose.GoFunc{RunDB: migrateReportDistribution},
+		nil,
+	)
+}
+
+// migrateReportDistribution 是 0041 的迁移体（抽出便于直测）。
+func migrateReportDistribution(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.IncidentReport{}) {
+		if err := m.CreateTable(&model.IncidentReport{}); err != nil {
+			return fmt.Errorf("migrate: 0041 create incident_reports: %w", err)
+		}
+	}
+	if !m.HasTable(&model.ExternalToken{}) {
+		if err := m.CreateTable(&model.ExternalToken{}); err != nil {
+			return fmt.Errorf("migrate: 0041 create external_tokens: %w", err)
+		}
+	}
+	// 缺表的库（multiGame fanout 重放到 game 库）整段跳过：不建空壳
+	if m.HasTable(&model.Message{}) {
+		for _, col := range []string{"Level", "Source", "RefType", "RefID", "Scope"} {
+			if !m.HasColumn(&model.Message{}, col) {
+				if err := m.AddColumn(&model.Message{}, col); err != nil {
+					return fmt.Errorf("migrate: 0041 add messages.%s: %w", col, err)
+				}
+			}
+		}
+		// level 回填：ADD COLUMN 的 default 只保证新行，存量行跨驱动保险
+		if err := db.WithContext(ctx).Exec(
+			"UPDATE messages SET level = ? WHERE level IS NULL OR level = ''",
+			model.MessageLevelInfo,
+		).Error; err != nil {
+			return fmt.Errorf("migrate: 0041 backfill messages.level: %w", err)
+		}
+	}
+	if m.HasTable(&model.TaskSchedule{}) {
+		if !m.HasColumn(&model.TaskSchedule{}, "Kind") {
+			if err := m.AddColumn(&model.TaskSchedule{}, "Kind"); err != nil {
+				return fmt.Errorf("migrate: 0041 add task_schedules.kind: %w", err)
+			}
+		}
+		if err := db.WithContext(ctx).Exec(
+			"UPDATE task_schedules SET kind = ? WHERE kind IS NULL OR kind = ''",
+			model.ScheduleKindFunction,
+		).Error; err != nil {
+			return fmt.Errorf("migrate: 0041 backfill task_schedules.kind: %w", err)
+		}
 	}
 	return nil
 }
