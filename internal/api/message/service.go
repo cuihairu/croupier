@@ -2,6 +2,7 @@ package message
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/outlet"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -22,6 +24,11 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 }
 
 // List returns the list of messages for the current user.
+// 读侧可见范围（incident-reports §6 + 插件机制 §5.1）：管理员全量；普通
+// 用户可见 = 直收（含定向给本人的 leader 分片）∪ 兜底组无归属广播（scope
+// 无 categories，不落空）∪ 自己可见类别（leader 或 audience）的 scope 通
+// 知。scope 过滤在 Go 侧做（JSON 列无跨方言查询先例），故受众路径整窗拉
+// 取后再分页，total 以过滤后为准。Detail/Read 沿既有归属校验不动。
 func (s *Service) List(ctx context.Context, username string, req *MessagesListRequest) (*MessagesListResponse, error) {
 	if s.svcCtx.MessageModel == nil {
 		return &MessagesListResponse{Items: []MessageItem{}, Total: 0, Page: req.Page, PageSize: req.PageSize}, nil
@@ -34,9 +41,52 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 		To:       strings.TrimSpace(username),
 	}
 
+	isAdmin, visibleSlugs := s.resolveVisibility(ctx, username)
+	if isAdmin {
+		opts.To = "" // 管理员全量
+	} else if username != "" {
+		// 非管理员：整窗拉回（直收 + 兜底组 + 通知源类别消息），Go 过滤后
+		// 再分页——JSON scope 无法跨方言下推 SQL。username 为空沿用既有
+		// 不过滤行为（测试直连场景；生产路由经鉴权中间件必有登录名）。
+		opts.To = ""
+		opts.Recipients = []string{username, outlet.DefaultStationRecipient}
+		opts.IncludeSource = "incident_report"
+		opts.Page = 1
+		opts.PageSize = visibilityFetchCap
+	}
+
 	messages, total, err := s.svcCtx.MessageModel.List(ctx, opts)
 	if err != nil {
 		return nil, err
+	}
+
+	if !isAdmin && username != "" {
+		// scope 受众过滤后重算分页与总数；SQL 已按 id DESC，序保持。
+		// 分页参数用请求原值（opts 已被整窗拉取覆盖）。
+		filtered := make([]model.Message, 0, len(messages))
+		for i := range messages {
+			if messageVisibleTo(&messages[i], username, visibleSlugs) {
+				filtered = append(filtered, messages[i])
+			}
+		}
+		total = int64(len(filtered))
+		page, size := req.Page, req.PageSize
+		if page <= 0 {
+			page = 1
+		}
+		if size <= 0 {
+			size = 20
+		}
+		start := (page - 1) * size
+		if start > len(filtered) {
+			start = len(filtered)
+		}
+		end := start + size
+		if end > len(filtered) {
+			end = len(filtered)
+		}
+		messages = filtered[start:end]
+		opts.Page, opts.PageSize = req.Page, req.PageSize // 响应回显保持请求原值
 	}
 
 	items := make([]map[string]interface{}, 0, len(messages))
@@ -50,6 +100,103 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 		Page:     opts.Page,
 		PageSize: opts.PageSize,
 	}, nil
+}
+
+// visibilityFetchCap 受众路径整窗拉取上限（GM 站内信量级很小；超过上限的
+// 尾部行不可见属已知边界，量级上来再改存储侧过滤）。
+const visibilityFetchCap = 1000
+
+// resolveVisibility 判定当前用户是否管理员与其可见类别 slug 集（leader ∪
+// audience.users ∪ audience.roles∩用户角色）。依赖缺失（无 AdminModel/无
+// DB/无登录态）一律降级为「非管理员 + 空类别集」，行为等同既有按收件人
+// 过滤。
+func (s *Service) resolveVisibility(ctx context.Context, username string) (bool, map[string]bool) {
+	roleNames := map[string]bool{}
+	if s.svcCtx.AdminModel != nil {
+		_, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+		if err == nil {
+			for _, r := range roles {
+				roleNames[r.Name] = true
+			}
+		}
+	}
+	if roleNames["admin"] {
+		return true, nil
+	}
+	slugs := map[string]bool{}
+	if s.svcCtx.DB != nil {
+		cats, err := model.NewIncidentCategoryModel(s.svcCtx.DB).List(ctx, false)
+		if err == nil {
+			for _, cat := range cats {
+				if categoryVisibleToUser(cat, username, roleNames) {
+					slugs[cat.Slug] = true
+				}
+			}
+		}
+	}
+	return false, slugs
+}
+
+// categoryVisibleToUser 类别对用户是否可见：leader 或 audience 命中（users
+// 直配或 roles 与用户角色相交）。
+func categoryVisibleToUser(cat model.IncidentCategory, username string, roleNames map[string]bool) bool {
+	if strings.TrimSpace(cat.Leader) != "" && cat.Leader == username {
+		return true
+	}
+	if len(cat.Audience) == 0 {
+		return false
+	}
+	var aud struct {
+		Roles []string `json:"roles"`
+		Users []string `json:"users"`
+	}
+	if err := json.Unmarshal(cat.Audience, &aud); err != nil {
+		return false
+	}
+	for _, u := range aud.Users {
+		if u == username {
+			return true
+		}
+	}
+	for _, r := range aud.Roles {
+		if roleNames[r] {
+			return true
+		}
+	}
+	return false
+}
+
+// messageVisibleTo 单条消息对非管理员用户是否可见：直收恒可见；scope 无
+// categories 的兜底组广播可见（不落空）；scope 有 categories 的按受众集
+// 相交判定（其他收件人的无 scope 行不可见，点对点消息保持私密）。
+func messageVisibleTo(msg *model.Message, username string, slugs map[string]bool) bool {
+	if msg.To == username {
+		return true
+	}
+	cats := messageScopeCategories(msg)
+	if len(cats) == 0 {
+		return msg.To == outlet.DefaultStationRecipient
+	}
+	for _, c := range cats {
+		if slugs[c] {
+			return true
+		}
+	}
+	return false
+}
+
+// messageScopeCategories 解析消息 scope 的 categories（解析失败视为无）。
+func messageScopeCategories(msg *model.Message) []string {
+	if len(msg.Scope) == 0 {
+		return nil
+	}
+	var sc struct {
+		Categories []string `json:"categories"`
+	}
+	if err := json.Unmarshal(msg.Scope, &sc); err != nil {
+		return nil
+	}
+	return sc.Categories
 }
 
 // Send sends a new message

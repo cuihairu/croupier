@@ -28,6 +28,13 @@ type ListMessagesOptions struct {
 	Type     string
 	Status   dbenum.MessageStatus // -1 = no filter; 0 (unread) IS a valid filter
 	To       string
+	// Recipients 非空时按 recipient IN (...) 过滤（与 To 互斥；读侧受众
+	// 展开用——incident-reports §6 可见范围）。
+	Recipients []string
+	// IncludeSource 非空时与 Recipients 并集：OR source = ?。类别通知的
+	//收件人是 leader 账号或兜底组，受众读侧需按 source 拉回整类通知再
+	//在 Go 按 scope 过滤。
+	IncludeSource string
 }
 
 // NewListMessagesOptions returns options with status unfiltered.
@@ -51,7 +58,14 @@ func (m *MessageModel) List(ctx context.Context, opts ListMessagesOptions) ([]Me
 	if opts.Status >= 0 {
 		query = query.Where("status = ?", opts.Status)
 	}
-	if opts.To != "" {
+	switch {
+	case len(opts.Recipients) > 0:
+		if opts.IncludeSource != "" {
+			query = query.Where("recipient IN ? OR source = ?", opts.Recipients, opts.IncludeSource)
+		} else {
+			query = query.Where("recipient IN ?", opts.Recipients)
+		}
+	case opts.To != "":
 		query = query.Where("recipient = ?", opts.To)
 	}
 
