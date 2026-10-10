@@ -130,7 +130,7 @@ type ExternalToken struct {
 | 入口          | 路径                                | 类别                           | 身份留痕                           |
 | ------------- | ----------------------------------- | ------------------------------ | ---------------------------------- |
 | 面板登记      | `/ops/incidents` 登记表单           | 必选（Enabled 类别枚举选择器） | CreatedBy=JWT 操作者               |
-| 外部 REST API | `POST /api/v1/incidents`（§9）      | 必选（slug 或 id）             | CreatedBy=token 名；执行留痕 audit |
+| 外部 REST API | `POST /api/v1/ext/incidents`（§9）  | 必选（slug 或 id）             | CreatedBy=token 名；执行留痕 audit |
 | 自动源转换    | 告警/构建/探活/熔断页「转事故」按钮 | 必选（预填建议值可改）         | CreatedBy=操作者；Ref* 自动带上    |
 
 ### 4.2 归因字段语义（责任人 = 谁）
@@ -274,12 +274,13 @@ TaskSchedule（task_schedules 表，五字段 cron：
 
 ### 9.1 REST 契约
 
-| 端点                     | 说明                                                                                                                                                                                                                                                           |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/v1/incidents` | 外部登记事故。头 `Authorization: Bearer <token>` + `Idempotency-Key`（或 body.eventId）；字段与事故模型对齐：title/category（slug 或 id，必选）/subcategory/severity/detectedAt/responsible{type,id}/execLogIds/ref/details/source 标记 `external:<tokenName>` |
-| `GET /api/v1/incidents`  | 外部查询（分页 + 类别/状态/时间过滤；**按 token scope 限可见面**：token 未配 scope=全量只读，配了 `{categories:[...]}` 则结果与该 token 的 webhook 事件都限于类别集）                                                                                          |
-| `POST /api/v1/ext/bugs`  | 外部建 bug：**内部复用既有 bug Service**（`internal/api/bug`），独立对外路由做 token 鉴权 + 字段白名单（不暴露内部全部字段）；bug 补 category_id 后契约与事故模型对齐                                                                                          |
+| 端点                         | 说明                                                                                                                                                                                                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/ext/incidents` | 外部登记事故。头 `Authorization: Bearer <token>` + `Idempotency-Key`（或 body.eventId）；字段与事故模型对齐：title/category（slug 或 id，必选）/subcategory/severity/detectedAt/responsible{type,id}/execLogIds/ref/details/source 标记 `external:<tokenName>` |
+| `GET /api/v1/ext/incidents`  | 外部查询（分页 + 类别/状态/时间过滤；**按 token scope 限可见面**：token 未配 scope=全量只读，配了 `{categories:[...]}` 则结果与该 token 的 webhook 事件都限于类别集）                                                                                          |
+| `POST /api/v1/ext/bugs`      | 外部建 bug：**内部复用既有 bug Service**（`internal/api/bug`），独立对外路由做 token 鉴权 + 字段白名单（不暴露内部全部字段）；bug 补 category_id 后契约与事故模型对齐                                                                                          |
 
+- 路径定案（实现落地时修正）：对外端点挂 `/api/v1/ext/*` 命名空间，不用 §9 草案最初的 `/api/v1/incidents`——面板 JWT 路由已占用 `POST/GET /api/v1/incidents`，gin 同路径同方法双注册会启动 panic。
 - 响应契约沿 CLAUDE.md API 响应规范（成功裸 payload / 错误 `{error,message,details}`）；幂等：同 Idempotency-Key 重放返回首建结果（`incident_key` 唯一索引兜底）。
 - curl 可通是验收标准之一（§10 批 5）。
 
@@ -326,6 +327,16 @@ TaskSchedule（task_schedules 表，五字段 cron：
 - 可见范围（4d）：`messages` 读侧按 §6 受众展开——管理员全量；普通用户 = 直收（含定向给本人的 leader 分片）∪ 兜底组无归属广播（scope 无 categories，不落空）∪ 可见类别（leader ∪ audience.users ∪ audience.roles∩用户角色）的 scope 通知；他人点对点消息保持私密。scope 过滤在 Go 侧做（仓内 JSON 列无跨方言下推先例），故受众路径整窗拉回再分页，`total` 以过滤后为准；依赖缺失（无 AdminModel/无 DB/无登录态）一律降级为既有按收件人过滤。停用类别历史保留（受众扫描含停用）。
 - 已知边界：受众路径整窗拉取上限 `visibilityFetchCap = 1000`（GM 站内信量级很小，超上限的尾部行不可见，量级上来再改存储侧过滤）；`UnreadCount`、SSE `Stream`、`Detail`、`Read` 仍按收件人归属校验，不走受众展开；`report_kind` 当前固定 `summary`。
 
+### 批 5 交付说明（2026-10-10）
+
+- REST（§9.1）：`POST/GET /api/v1/ext/incidents` + `POST /api/v1/ext/bugs`（公开端点，路由与 cicd-webhook/alert-inbound 同款「鉴权在 handler」模式；挂 ops 域 L2 开关，与面板事故路由同进退）。外部登记复用 `Service.CreateIncident`（Severity 省略默认 info、Source=external 可覆写、IncidentKey=Idempotency-Key、CreatedBy=`ext:<tokenName>`）；外部 bug 复用 `bug.Service.Create`（ctx 注入 username=`ext:<tokenName>`，CreatedBy 同口径）。
+- 鉴权（§9.2）：external_tokens sha256 哈希存库、明文仅创建响应返回一次；`ResolveToken` 校验（缺失/未知 401、禁用 403）+ `LastUsedAt` 触碰。token 管理端点 `POST/GET /api/v1/ext/tokens` + `PUT/DELETE /ext/tokens/:id` 挂 protected ops 组 + `RequireAdminRole`（roles 上下文含 admin 放行，否则 403）。
+- 限流：`ratelimit.SlidingWindowLimiter` 滑动窗口按 token 名分桶，默认 30 req/min（`externalAPI.rateLimitPerMinute` 可配，<=0 落默认）；限流器内部错误降级放行（不因限流组件故障阻断主链路）。
+- 审计：三个对外端点写 `execution_logs`（Source=`external`，Actor=`ext:<tokenName>`，FunctionID=incident.create/incident.list/bug.create，Request/Response 载荷走 writer 统一脱敏截断）+ incidents.CreatedBy 双留痕。
+- 生命周期 webhook（§9.3）：`DispatchLifecycle` 挂在 `CreateIncident` 成功后（incident.created）、`TransitionIncident` 落 resolved（incident.resolved）、`UpdateIncident` severity 升级（incident.escalated，severityRank info→warning→critical）；kind=incident-lifecycle、event_id=`incident:<id>:<event>` 确定性幂等、Severity 直传行值；异步派发（`go func` + `DispatchExternal` 自带 3 次重试），失败只记日志不阻塞主流程。
+- OpenAPI：`docs/openapi/incidents.yaml`（OpenAPI 3.0.3，仅文档性质，无代码生成管线）。
+- 已知边界：acknowledged 超时自动升级（§9.3 括注场景）v1 未实现，escalated 仅由人工/外部改 severity 触发；webhook 按 token scope 收窄依赖 herald 侧受众配置（croupier 只投事件不配收件人）；`GET /ext/incidents` 的 `total` 为 SQL 过滤后、scope 行级过滤前口径（scope 收窄时 items 可小于 total）；外部来源 bug 的 `source` 经 normalizeSource 归一为 internal（bug 模型无 external 枚举），外部身份只落 CreatedBy；测试环境 sqlite `Enabled` 列 default:true 使零值 false 落库被默认值覆盖（测试用显式回写，线上 disable 走 Update 路径不受影响）。
+
 ## 已知边界（诚实清单）
 
 - v1 无全自动归并：自动源全部走一键转换（§4.3），全自动规则留 P2。
@@ -336,7 +347,7 @@ TaskSchedule（task_schedules 表，五字段 cron：
 - 推送分级阈值（环比×2 / 复发率>20% / 连续两期恶化）为固定口径 v1 不配置化。
 - herald 投递状态/已读不回写（herald 简档 §6 边界）；平台内已读仅站内信闭环；外部出口未配置=仅站内（no-op 默认，零外发）。
 - 同比在上线满一年前恒为 missing：「无去年同期数据」占位，不算假数。
-- 对外 API v1 不做按 token 的数据范围收窄（全量只读）；OpenAPI 仅文档，无 SDK 生成。
+- 对外 API scope 收窄按类别集做（§9.2）；acknowledged 超时自动升级、webhook 收件人配置不在 croupier 侧（见批 5 交付说明）；OpenAPI 仅文档，无 SDK 生成。
 - 周期口径依赖 server 本地时区：多实例跨时区部署会造成周期边界漂移（当前单实例部署模型，scheduler 同款假设）。
 - 存量 bug 无类别（category_id=0）：报表归入「未分类」线，不做回填向导。
 - probe 故障窗口 / supervisor 事件不落库（agent 侧内存环/本地文件）：无列表页可挂「转事故」入口，转换时须把时间线快照进 incident 行（§4.3）；待数据面落地后接入。

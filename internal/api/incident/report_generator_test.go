@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -38,6 +39,21 @@ func (c *captureOutlet) snapshot() []outlet.AlertEvent {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return append([]outlet.AlertEvent{}, c.events...)
+}
+
+// reportEvents 过滤出报表分发事件（排除异步 incident.created 等生命周期信封）。
+func reportEvents(all []outlet.AlertEvent) []outlet.AlertEvent {
+	out := make([]outlet.AlertEvent, 0, len(all))
+	for _, ev := range all {
+		if strings.HasPrefix(ev.EventID, "report:") {
+			out = append(out, ev)
+		}
+	}
+	return out
+}
+
+func reportEventCount(all []outlet.AlertEvent) int {
+	return len(reportEvents(all))
 }
 
 type errDeliveryDown struct{}
@@ -429,7 +445,7 @@ func TestRepushReport_RedispatchesSameEventIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	before := len(h.capture.snapshot())
+	before := reportEventCount(h.capture.snapshot())
 	if before == 0 {
 		t.Fatal("no events on first push")
 	}
@@ -442,7 +458,9 @@ func TestRepushReport_RedispatchesSameEventIDs(t *testing.T) {
 	if string(repushed.Payload) != payloadBefore {
 		t.Fatal("repush must not rewrite payload")
 	}
-	events := h.capture.snapshot()
+	// 只统计 report 类事件：事故创建会异步派发 incident.created（§9.3 生命
+	// 周期 webhook），与本测试关注的报表重推无关，计数须排除。
+	events := reportEvents(h.capture.snapshot())
 	if len(events) != before*2 {
 		t.Fatalf("events after repush = %d, want %d", len(events), before*2)
 	}

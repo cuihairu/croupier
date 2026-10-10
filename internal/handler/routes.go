@@ -167,6 +167,10 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerIncidentCategoryRoutes(opsSoft.Group("/incident-categories"), serverCtx)
 			registerIncidentRoutes(opsSoft.Group("/incidents"), serverCtx)
 			registerIncidentReportRoutes(opsSoft.Group("/incident-reports"), serverCtx)
+			// 对外事故/bug REST（公开端点，Bearer token 校验在 handler）+
+			// 外部令牌管理（JWT + admin 角色）；事故域整体随 ops L2 开关
+			// 物理裁剪，外部 API 与面板路由同进退。
+			registerExternalIncidentRoutes(v1, opsSoft, serverCtx)
 			registerBackupRoutes(opsSoft.Group("/backups"), serverCtx)
 			registerCertificateRoutes(opsSoft.Group("/certificates"), serverCtx)
 		}
@@ -1448,6 +1452,28 @@ func registerAlertInboundRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	alertSvc := alert.NewService(ctx)
 	alertHandler := alert.NewHandler(alertSvc)
 	g.POST("/alerts/inbound/:source", alertHandler.Inbound)
+}
+
+// registerExternalIncidentRoutes 挂对外开放 REST（incident-reports §9）：
+//   - 公开端点（无 JWT）：POST /ext/incidents、GET /ext/incidents、
+//     POST /ext/bugs——鉴权 = external_tokens Bearer token，校验在 handler
+//     （第三方系统无法携带 JWT），限流按令牌名分桶；
+//   - 令牌管理端点（ops 组，JWT + admin 角色）：/ext/tokens CRUD，
+//     明文 token 仅创建时返回一次。
+//
+// 挂 /ext 命名空间避免与面板 JWT 路由 /incidents 冲突。
+func registerExternalIncidentRoutes(v1, opsSoft *gin.RouterGroup, ctx *svc.ServiceContext) {
+	extSvc := incident.NewExternalService(ctx)
+	extHandler := incident.NewExternalHandler(extSvc, ctx.ExecutionLogWriter)
+	v1.POST("/ext/incidents", extHandler.RegisterIncident)
+	v1.GET("/ext/incidents", extHandler.ListIncidents)
+	v1.POST("/ext/bugs", extHandler.CreateBug)
+	tokens := opsSoft.Group("/ext/tokens")
+	tokens.Use(incident.RequireAdminRole())
+	tokens.POST("", extHandler.CreateToken)
+	tokens.GET("", extHandler.ListTokens)
+	tokens.PUT("/:id", extHandler.UpdateToken)
+	tokens.DELETE("/:id", extHandler.DeleteToken)
 }
 
 // ============================================================================

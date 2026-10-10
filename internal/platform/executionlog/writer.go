@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	SourceInvoke = "invoke"
-	SourcePage   = "page"
+	SourceInvoke   = "invoke"
+	SourcePage     = "page"
+	SourceExternal = "external" // 对外 REST API（external_tokens 令牌鉴权面）
 
 	StatusOK   = "ok"
 	StatusFail = "error"

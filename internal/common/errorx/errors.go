@@ -51,6 +51,7 @@ var errorCodeMap = map[int]string{
 	http.StatusInternalServerError: "internal_error",
 	http.StatusNotImplemented:      "not_implemented",
 	http.StatusServiceUnavailable:  "service_unavailable",
+	http.StatusTooManyRequests:     "rate_limited",
 }
 
 // 预定义错误构造函数
@@ -109,6 +110,15 @@ func NewNotFound(message string) *CodeError {
 	return &CodeError{
 		Code:    http.StatusNotFound,
 		Message: message,
+	}
+}
+
+// NewTooManyRequests 限流命中（按 token 分桶的对外 REST 鉴权层）。
+func NewTooManyRequests(message string) *CodeError {
+	return &CodeError{
+		Code:       http.StatusTooManyRequests,
+		Message:    message,
+		StableCode: "rate_limited",
 	}
 }
 

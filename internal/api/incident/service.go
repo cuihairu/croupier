@@ -231,6 +231,7 @@ func (s *Service) CreateIncident(ctx context.Context, req *IncidentCreateRequest
 		return nil, false, err
 	}
 	dto := s.toIncidentDTO(ctx, row)
+	DispatchLifecycle(s.svcCtx, row, LifecycleIncidentCreated)
 	return &dto, true, nil
 }
 
@@ -291,10 +292,12 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 	if req.Subcategory != nil {
 		updates["subcategory"] = strings.TrimSpace(*req.Subcategory)
 	}
+	escalated := false
 	if req.Severity != nil {
 		if _, ok := model.ValidIncidentSeverities[*req.Severity]; !ok {
 			return nil, errorx.NewBadRequest("无效的严重度: " + *req.Severity)
 		}
+		escalated = severityRank(*req.Severity) > severityRank(row.Severity)
 		updates["severity"] = *req.Severity
 	}
 	if req.ResponsibleType != nil {
@@ -339,6 +342,9 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 	if err != nil {
 		return nil, err
 	}
+	if escalated {
+		DispatchLifecycle(s.svcCtx, row, LifecycleIncidentEscalated)
+	}
 	dto := s.toIncidentDTO(ctx, row)
 	return &dto, nil
 }
@@ -374,6 +380,9 @@ func (s *Service) TransitionIncident(ctx context.Context, id uint, req *Incident
 	row, err = m.Get(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if req.Status == model.IncidentStatusResolved {
+		DispatchLifecycle(s.svcCtx, row, LifecycleIncidentResolved)
 	}
 	dto := s.toIncidentDTO(ctx, row)
 	return &dto, nil
@@ -416,6 +425,9 @@ func (s *Service) validateCategoryAndSubcategory(ctx context.Context, categoryID
 // sourceOf 推导事故来源（无显式来源字段时按 createdBy/调用面；批 1 由
 // handler 决定 manual，外部 API 批次覆写 external）。
 func (s *Service) sourceOf(req *IncidentCreateRequest) string {
+	if req.Source != "" {
+		return req.Source
+	}
 	if req.RefType == model.IncidentRefAlert {
 		return model.IncidentSourceAlert
 	}

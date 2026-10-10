@@ -47,6 +47,9 @@ type Config struct {
 	//（环境变量引用密钥，同 herald tokenEnv 口径）；alertmanager 来源的
 	// labels→信封字段映射（配置驱动，不写死供应商字段名）。
 	AlertInbound AlertInboundConfig `json:"alertInbound,omitempty" yaml:"alertInbound,omitempty"`
+	// ExternalAPI 对外 REST API（incident-reports §9）：调用令牌鉴权 + 按
+	// 令牌名限流。rateLimitPerMinute 缺省 30。
+	ExternalAPI ExternalAPIConfig `json:"externalAPI,omitempty" yaml:"externalAPI,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
@@ -94,6 +97,12 @@ type AlertInboundSourceConfig struct {
 	//（配置驱动，不写死供应商字段名；generic 来源直接用 §5.2 信封，
 	// 不需要此映射）。
 	LabelMapping map[string]string `json:"labelMapping,omitempty" yaml:"labelMapping,omitempty"`
+}
+
+// ExternalAPIConfig 对外 REST API 配置（incident-reports §9）。
+type ExternalAPIConfig struct {
+	// RateLimitPerMinute 按令牌名分桶的滑动窗口限流上限；<=0 取默认 30。
+	RateLimitPerMinute int `json:"rateLimitPerMinute,omitempty" yaml:"rateLimitPerMinute,omitempty"`
 }
 
 // PagesConfig 页面发布分级配置。

@@ -49,6 +49,72 @@ type CategoryListResponse struct {
 	Total int64         `json:"total"`
 }
 
+// ---- 对外 REST API（incident-reports §9）----
+
+// ExternalTokenDTO 外部令牌响应体。
+type ExternalTokenDTO struct {
+	ID         uint                   `json:"id"`
+	Name       string                 `json:"name"`
+	Scope      map[string]interface{} `json:"scope,omitempty"`
+	Enabled    bool                   `json:"enabled"`
+	LastUsedAt *time.Time             `json:"lastUsedAt,omitempty"`
+	CreatedBy  string                 `json:"createdBy,omitempty"`
+	CreatedAt  time.Time              `json:"createdAt"`
+	UpdatedAt  time.Time              `json:"updatedAt"`
+	PlainText  string                 `json:"plainText,omitempty"`
+}
+
+// CreateExternalTokenRequest 新建外部令牌。
+type CreateExternalTokenRequest struct {
+	Name    string                 `json:"name"`
+	Scope   map[string]interface{} `json:"scope,omitempty"`
+	Enabled *bool                  `json:"enabled,omitempty"`
+}
+
+// UpdateExternalTokenRequest 更新外部令牌元数据。
+type UpdateExternalTokenRequest struct {
+	Name    *string                 `json:"name,omitempty"`
+	Scope   *map[string]interface{} `json:"scope,omitempty"`
+	Enabled *bool                   `json:"enabled,omitempty"`
+}
+
+// ListTokensResponse 分页列表。
+type ListTokensResponse struct {
+	Items []ExternalTokenDTO `json:"items"`
+	Total int64              `json:"total"`
+}
+
+// CreateIncidentFromExternalRequest 外部登记事故请求体。
+type CreateIncidentFromExternalRequest struct {
+	Title           string                 `json:"title"`
+	CategoryID      uint                   `json:"categoryId"`
+	Subcategory     string                 `json:"subcategory,omitempty"`
+	Severity        string                 `json:"severity,omitempty"`
+	DetectedAt      *time.Time             `json:"detectedAt,omitempty"`
+	ResponsibleType string                 `json:"responsibleType,omitempty"`
+	ResponsibleID   string                 `json:"responsibleId,omitempty"`
+	GameID          string                 `json:"gameId,omitempty"`
+	Env             string                 `json:"env,omitempty"`
+	ExecLogIDs      []int64                `json:"execLogIds,omitempty"`
+	RefType         string                 `json:"refType,omitempty"`
+	RefID           string                 `json:"refId,omitempty"`
+	Details         map[string]interface{} `json:"details,omitempty"`
+	Source          string                 `json:"source,omitempty"`
+}
+
+// QueryExternalIncidentsRequest 外部查询参数。
+type QueryExternalIncidentsRequest struct {
+	CategoryID  *uint      `json:"categoryId,omitempty"`
+	Subcategory *string    `json:"subcategory,omitempty"`
+	Status      *string    `json:"status,omitempty"`
+	Severity    *string    `json:"severity,omitempty"`
+	Source      *string    `json:"source,omitempty"`
+	From        *time.Time `json:"from,omitempty"`
+	To          *time.Time `json:"to,omitempty"`
+	Page        *int       `json:"page,omitempty"`
+	PageSize    *int       `json:"pageSize,omitempty"`
+}
+
 // ---- 事故（incidents）DTO ----
 
 // IncidentDTO 是 incidents 的响应体。
@@ -94,6 +160,8 @@ type IncidentCreateRequest struct {
 	RefID           string                 `json:"refId,omitempty"`
 	Details         map[string]interface{} `json:"details,omitempty"`
 	IncidentKey     string                 `json:"incidentKey,omitempty"`
+	// Source 显式来源（外部 API 批次覆写 external）；空时按 refType 推导。
+	Source string `json:"source,omitempty"`
 }
 
 // IncidentUpdateRequest 更新事故（可改标题/类别/子类/严重度/归因/关联/明细）。

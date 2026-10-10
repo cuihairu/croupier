@@ -1,0 +1,420 @@
+openapi: 3.0.3
+info:
+  title: Croupier Incident External API
+  version: 1.0.0
+  description: |
+    对外开放的事故/bug REST API（incident-reports §9）。第三方系统无法携带
+    管理端 JWT，故公开端点使用 external_tokens Bearer 鉴权 + 按令牌名限流；
+    端点挂在 /ext 命名空间，避免与管理端面板路由（/api/v1/incidents，JWT）冲突。
+    成功响应为裸 payload；错误响应统一为 {error, message, details}。
+servers:
+  - url: /api/v1
+paths:
+  /ext/incidents:
+    post:
+      summary: 外部登记事故
+      description: |
+        以外部令牌身份登记事故。Idempotency-Key 头（或 body.eventId）为幂等键：
+        同键重放返回首建结果（incident_key 唯一索引兜底），响应 200 而非 201。
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncidentCreateExternal"
+      responses:
+        "201":
+          description: 首建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        "200":
+          description: 幂等重放（同 Idempotency-Key）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    get:
+      summary: 外部查询事故（按令牌 scope 限可见面）
+      description: |
+        未配 scope 的令牌返回全量只读；配了 scope.categories 的令牌仅返回
+        这些类别下的事故。
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [open, acknowledged, resolved]
+        - in: query
+          name: severity
+          schema:
+            type: string
+            enum: [info, warning, critical]
+        - in: query
+          name: source
+          schema:
+            type: string
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /ext/bugs:
+    post:
+      summary: 外部登记 bug（复用 bug Service）
+      description: |
+        复用内部 bug 字段白名单（bug.BugCreateRequest）；CreatedBy 记为
+        ext:<tokenName>，normalizeSource 将来源归一为 internal。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BugCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bug"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /ext/tokens:
+    post:
+      summary: 创建外部令牌（管理端，JWT + admin）
+      description: 明文 token 仅此响应返回一次；库内存 sha256 哈希。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExternalTokenCreate"
+      responses:
+        "201":
+          description: Created（含明文 plainText）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalToken"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      summary: 列出外部令牌（管理端，JWT + admin）
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalTokenList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /ext/tokens/{id}:
+    put:
+      summary: 更新令牌元数据（名称/启停/scope）
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExternalTokenUpdate"
+      responses:
+        "204":
+          description: Updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: 吊销外部令牌（管理端，JWT + admin）
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerExtToken:
+      type: http
+      scheme: bearer
+      description: external_tokens 明文 token（创建时一次性返回）
+  security:
+    - bearerExtToken: []
+  responses:
+    BadRequest:
+      description: 请求参数无效
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: 认证失败（缺失/无效/未启用令牌）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: 已认证但权限不足
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: 超出令牌名分桶限流（默认 30 req/min）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: rate_limited
+        message:
+          type: string
+          example: 请求速率受限，请稍后重试
+        details:
+          type: object
+    Incident:
+      type: object
+      properties:
+        id:
+          type: integer
+        incidentKey:
+          type: string
+        title:
+          type: string
+        categoryId:
+          type: integer
+        categorySlug:
+          type: string
+        categoryName:
+          type: string
+        subcategory:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        status:
+          type: string
+          enum: [open, acknowledged, resolved]
+        source:
+          type: string
+        responsibleType:
+          type: string
+        responsibleId:
+          type: string
+        detectedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        gameId:
+          type: string
+        env:
+          type: string
+        execLogIds:
+          type: array
+          items:
+            type: integer
+        refType:
+          type: string
+        refId:
+          type: string
+        details:
+          type: object
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    IncidentCreateExternal:
+      type: object
+      required: [title, categoryId]
+      properties:
+        title:
+          type: string
+        categoryId:
+          type: integer
+        subcategory:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        detectedAt:
+          type: string
+          format: date-time
+        responsibleType:
+          type: string
+        responsibleId:
+          type: string
+        gameId:
+          type: string
+        env:
+          type: string
+        execLogIds:
+          type: array
+          items:
+            type: integer
+        refType:
+          type: string
+        refId:
+          type: string
+        details:
+          type: object
+        source:
+          type: string
+          description: 显式来源；空时归一为 external
+    IncidentListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+        total:
+          type: integer
+    ExternalToken:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        scope:
+          type: object
+          description: 可见面配置（null = 全量）
+        enabled:
+          type: boolean
+        lastUsedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        plainText:
+          type: string
+          description: 仅创建响应返回一次
+    ExternalTokenCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        scope:
+          type: object
+        enabled:
+          type: boolean
+    ExternalTokenUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        scope:
+          type: object
+        enabled:
+          type: boolean
+    ExternalTokenList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalToken"
+        total:
+          type: integer
+    Bug:
+      type: object
+      description: 与内部 bug 契约一致
+    BugCreate:
+      type: object
+      description: 与内部 bug.BugCreateRequest 白名单一致
