@@ -652,7 +652,7 @@ function HistorySection() {
         const okCount = st.filter((p) => p.ok).length;
         const failed = st.filter((p) => !p.ok);
         return (
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Typography.Text style={{ fontSize: 12 }}>
               {okCount}/{st.length}
             </Typography.Text>
