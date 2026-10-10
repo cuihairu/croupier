@@ -4145,3 +4145,16 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **依赖**：`github.com/cuihairu/herald` 伪版本钉 v0.1.2-0.20261009181856-eaef4e8eada2（miniredis 2.39.0 / go-redis v9.20.0 / expr v1.17.8 随之上浮）。
 - **测试**：outlet 11 用例（扇出/重试/Permanent/panic recover/映射闭集/herald httptest 映射与分类）+ registry hook 2 + svc 5（缺省关/降级三态/信封字段）+ config 1，`-race` 全绿（svc 包 593 用例 ~20min，慢机须 `-timeout 25m`，默认 10m 会误杀）；guard PASSED。-race 实测暴露两处测试侧竞态（stub 裸计数器/hook 收集切片），已改 atomic+锁+集合断言（hook 契约不保证跨事件顺序）。
 - **边界**：v1 单出口（Manager 已留扇出位）；投递结果回调（delivery_result HMAC）不接（简档 §6）；仅 breaker_tripped 事件源接线，capture/devops/probe 源随各自批次接（kind 闭集已备）。
+
+## 插件机制 M3·告警入口 webhook 交付（2026-10-10）
+
+> 依据 [plugin-mechanism.md](docs/design/plugin-mechanism.md) §5.3/§8（inbound 端点 + Alertmanager/generic 映射 + HMAC/防重放/幂等）。验收门全过。
+
+- **端点**：`POST /api/v1/alerts/inbound/{source}`（`internal/api/alert/inbound.go`）——公开路由挂 `v1`（同 cicd webhook 先例：第三方告警系统无法携带 JWT）；source 闭集 `alertmanager`/`generic`，闭集外 404、未配置 403、密钥环境变量缺失 403（非开放端点）。
+- **安全**：`X-Croupier-Signature`（HMAC-SHA256 over raw body，`sha256=<hex>`，对齐 approvals 出站签名器；hmac.Equal 常量时间比较）+ `X-Croupier-Timestamp`（±5 分钟防重放）；失败 = 400（稳定码 signature_invalid/timestamp_invalid）+ `alert.inbound_rejected` 审计事件（AuditService nil 安全）。
+- **payload 映射**：generic 直接用 §5.2 信封（eventId 必填，severity/title/body/scope/labels → Alert 字段）；Alertmanager 兼容 `{alerts:[{status,labels,annotations,generatorURL}]}`，labels 键→告警字段映射配置驱动（`alertInbound.sources.alertmanager.labelMapping`，未配置走内置默认 severity→level/summary→message/instance→type；annotations.summary/description 兜底 message），eventId 从 labels+status 派生确定性指纹 `am:<sha256 前 16 hex>`（幂等键）。
+- **幂等落库**：`AlertModel.UpsertByAlertID`（find-then-insert，复用 `alerts.alert_id` uniqueIndex——零迁移）：同 eventId 重推 200 created=false 不重复落库；入站告警落 meta DB 与 capture/dbmon 告警同桶，不在 ops 列表排除面（ExcludeSources=contract），落库即告警页可见（severity/service/summary 三列有值）。
+- **配置**：`alertInbound.sources.{alertmanager,generic}` 段（secretEnv + labelMapping，lowerCamelCase），`configs/server.yaml` 注释示例。
+- **测试**：12 用例（闭集 404/未配置 403/密钥缺失 403/错签 400+稳定码/缺签/时间戳缺失·超窗·非法/入站拒收审计 nil 安全/generic 映射落库断言/幂等 200+行数=1/坏 payload 400×2/AM 默认映射+确定性幂等/自定义映射/payload status 优先级/UpsertByAlertID 三态/ops 列表排除面回归）。
+- **已知边界（诚实清单）**：①设计原文「capability `alerts.operate` 门控」与无 JWT 公开端点互斥（RBAC RequireAnyPermission 依赖 ctx username）——实际唯一门控即 HMAC 共享密钥，capability 门控不适用本端点；②入站告警落 meta DB，Alert 模型无 game_id/env 列，scope 三元组进 Details 不参与归库（与现有告警域一致，game-scoped 留位）；③防重放=时间窗+eventId 幂等兜底，无 nonce 缓存（严格防重放需自建，v1 不做）；④AM payload 取首条告警（批量 payload 逐条展开留位）。
+- **门禁**：go build 全仓过、alert/model/config/handler 四包 -race 绿、guard PASSED。

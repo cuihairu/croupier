@@ -108,6 +108,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerOpenAPIReadRoutes(v1, serverCtx)
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
 	registerCicdWebhookRoute(v1, serverCtx)    // 外部 CI 构建状态回写（公开端点，令牌校验在 handler）
+	registerAlertInboundRoute(v1, serverCtx)   // 第三方告警推入（公开端点，HMAC 签名校验在 handler）
 	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
 	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {
 		playerSupport := v1.Group("/", newSoftFeatureGuard(settings.Current()).guard(configpkg.FlagSupport))
@@ -1393,6 +1394,16 @@ func registerCicdWebhookRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	cicdSvc := cicdapi.NewService(ctx)
 	cicdHandler := cicdapi.NewHandler(cicdSvc)
 	g.POST("/cicd/webhooks/:id", cicdHandler.Webhook)
+}
+
+// registerAlertInboundRoute 挂告警入站 webhook 端点（第三方告警系统无法
+// 携带 JWT；鉴权 = 来源级共享密钥的 X-Croupier-Signature HMAC-SHA256 签名
+// + X-Croupier-Timestamp ±5 分钟防重放，校验在 handler——plugin-mechanism
+// 设计 §5.3/M3。无配置的来源一律 404/403，非开放端点）。
+func registerAlertInboundRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	alertSvc := alert.NewService(ctx)
+	alertHandler := alert.NewHandler(alertSvc)
+	g.POST("/alerts/inbound/:source", alertHandler.Inbound)
 }
 
 // ============================================================================

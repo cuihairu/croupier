@@ -81,7 +81,7 @@ title: 插件机制正式设计——扩展点全景、外部服务接入规范�
 
 - 契约面：§5.3 入站 webhook 契约（HMAC + 幂等 + 映射表）。
 - 注册：配置驱动来源映射（v1 闭集 Alertmanager + generic JSON），落现有告警页。
-- 状态：本设计新增，实现随 M3。
+- 状态：**已落地（2026-10-10，M3）**——`internal/api/alert` inbound handler（`POST /api/v1/alerts/inbound/{source}`，公开路由同 cicd webhook 先例；HMAC-SHA256 + ±5 分钟防重放 + eventId 幂等 upsert 落 `alerts` 表）+ `alertInbound:` 配置段（来源闭集 × secretEnv 环境变量引用 × labels 映射配置驱动）。实现与设计差异见 todo.md M3 交付记录。
 
 ### 3.6 面板页面与卡片（dashboard）
 
@@ -256,7 +256,7 @@ herald 映射（kind→品类、severity→紧急度、event_id→幂等）沿 h
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | M1 归位标注（零代码）          | 本设计落档；§3 表各扩展点标注状态锚点；#66 P0 产出归位                                                                                | 文档三层同步 + docs build                                                   |
 | M2 Outlet 接口位 + herald 出口 | Outlet 小接口 + herald 适配器（herald 简档 §7 原落点，随 K3 告警通道批次）——**已交付（2026-10-10）**，实现与简档差异见 herald 简档 §8 | 适配器单测（映射/重试分类）+ 本地 heraldd 冒烟 + `herald.enabled` 缺省关 ✅ |
-| M3 告警入口 webhook            | inbound 端点 + Alertmanager/generic 映射 + HMAC/防重放/幂等                                                                           | 单测（签名/重放/映射/幂等）+ 告警页落库回归                                 |
+| M3 告警入口 webhook            | inbound 端点 + Alertmanager/generic 映射 + HMAC/防重放/幂等——**已交付（2026-10-10）**                                                 | 单测（签名/重放/映射/幂等）+ 告警页落库回归 ✅                              |
 | M4 接入模板落地                | `docs/templates/external-service-integration-template.md` + 首个真实供应商走查修订                                                    | 模板过目 + 走查记录                                                         |
 | M5 cockpit 接入批次            | cockpit 简档落档后：L4 provider 配置实例接 cockpit REST（命名对齐 §3.8 ④）；触发后评估 ②provider 兜底 driver（薄封装同款库）          | 端到端：面板发起 BMC 拉起 → 审批 → execlog 留痕 → 资产动作完成              |
 | 远期留位                       | 检测器插件化、多出口扇出、webhook 出口模板化（钉钉/飞书）、签名分发                                                                   | 各自触发条件见 §3.3/§5.4                                                    |

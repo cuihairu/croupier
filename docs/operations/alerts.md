@@ -75,4 +75,9 @@ Agent 上报的系统指标（路径式 key）：
 
 ## 与外部 Alertmanager 的关系
 
-无集成。若已有 Alertmanager 体系，`GET /api/v1/ops/config` 返回的 `alertmanagerUrl`（环境变量 `CROUPIER_ALERTMANAGER_URL`）仅作为页面跳转链接——指标采集与告警判定都在平台内闭环，运维可自行选择只用其一。
+已有 Alertmanager 体系可选两种接法：
+
+1. **入站 webhook（可落库）**：Alertmanager webhook_configs 指向 `POST /api/v1/alerts/inbound/alertmanager`（HMAC-SHA256 签名 + 时间戳防重放，密钥走 `alertInbound.sources.alertmanager.secretEnv` 环境变量引用），告警落入本页与 capture/dbmon 告警同桶管理；generic 来源（`POST /api/v1/alerts/inbound/generic`）供任意第三方按统一信封推入。
+2. **仅跳转链接（现状）**：`GET /api/v1/ops/config` 返回的 `alertmanagerUrl`（环境变量 `CROUPIER_ALERTMANAGER_URL`）仅作为页面跳转链接。
+
+croupier 不做跨系统告警收敛/降噪引擎；入站为单向接收，不回写确认状态到来源系统。

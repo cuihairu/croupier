@@ -37,6 +37,22 @@ func (m *AlertModel) Create(ctx context.Context, alert *Alert) error {
 	return m.db.WithContext(ctx).Create(alert).Error
 }
 
+// UpsertByAlertID 按 alert_id 唯一键幂等写入（入站 webhook 去重）：
+// 同 alert_id 重推返回已存在行（dedup），不重复落库。返回 (row, created, error)。
+func (m *AlertModel) UpsertByAlertID(ctx context.Context, alert *Alert) (row *Alert, created bool, err error) {
+	existing, err := m.FindByAlertID(ctx, alert.AlertID)
+	if err == nil {
+		return existing, false, nil
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		return nil, false, err
+	}
+	if err := m.Create(ctx, alert); err != nil {
+		return nil, false, err
+	}
+	return alert, true, nil
+}
+
 // FindByAlertID returns alert by external alert id.
 func (m *AlertModel) FindByAlertID(ctx context.Context, alertID string) (*Alert, error) {
 	if strings.TrimSpace(alertID) == "" {

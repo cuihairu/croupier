@@ -42,6 +42,11 @@ type Config struct {
 	// 告警经 herald 投递（courier 式，渠道/收件人 herald 侧配置）。
 	// Enabled 缺省 false——关=纯 croupier 告警页，行为与现状一致。
 	Herald HeraldConfig `json:"herald,omitempty" yaml:"herald,omitempty"`
+	// AlertInbound 告警入站 webhook（plugin-mechanism 设计 §5.3/M3）：
+	// 第三方告警系统推入 croupier 落现有告警存储。每来源一个 secretEnv
+	//（环境变量引用密钥，同 herald tokenEnv 口径）；alertmanager 来源的
+	// labels→信封字段映射（配置驱动，不写死供应商字段名）。
+	AlertInbound AlertInboundConfig `json:"alertInbound,omitempty" yaml:"alertInbound,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
@@ -71,6 +76,24 @@ type HeraldConfig struct {
 	TokenEnv string `json:"tokenEnv,omitempty" yaml:"tokenEnv,omitempty"`
 	// Target 默认受众 ref（默认 group:gm-ops，herald 侧解析到群组/值班表）。
 	Target string `json:"target,omitempty" yaml:"target,omitempty"`
+}
+
+// AlertInboundConfig 告警入站 webhook 配置（plugin-mechanism 设计 §5.3/M3）。
+// 来源闭集起步 alertmanager / generic；每来源独立密钥与映射。
+type AlertInboundConfig struct {
+	// Sources 来源配置表（key=来源名，闭集 alertmanager/generic）。
+	Sources map[string]AlertInboundSourceConfig `json:"sources,omitempty" yaml:"sources,omitempty"`
+}
+
+// AlertInboundSourceConfig 单个入站来源配置。
+type AlertInboundSourceConfig struct {
+	// SecretEnv 持 HMAC 共享密钥的环境变量名（凭证走环境变量引用，
+	// 不落配置文件；空=该来源未启用）。
+	SecretEnv string `json:"secretEnv,omitempty" yaml:"secretEnv,omitempty"`
+	// LabelMapping alertmanager 来源的 labels 键→信封字段名映射
+	//（配置驱动，不写死供应商字段名；generic 来源直接用 §5.2 信封，
+	// 不需要此映射）。
+	LabelMapping map[string]string `json:"labelMapping,omitempty" yaml:"labelMapping,omitempty"`
 }
 
 // PagesConfig 页面发布分级配置。

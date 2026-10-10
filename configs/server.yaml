@@ -138,3 +138,21 @@ metrics:
 #   app: croupier
 #   tokenEnv: HERALD_TRIGGER_TOKEN
 #   target: group:gm-ops
+
+# alertInbound 告警入站 webhook（M3）：第三方告警系统（Alertmanager 或
+# generic）推入 croupier 落现有告警存储/告警页。来源闭集 alertmanager /
+# generic，每来源独立 secretEnv（环境变量引用 HMAC 共享密钥，凭证不落
+# 配置文件）；alertmanager 来源的 labels 键→告警字段映射可配置（配置驱动，
+# 不写死供应商字段名，未配置走内置默认）。校验在 handler：X-Croupier-
+# Signature（HMAC-SHA256 over raw body）+ X-Croupier-Timestamp（±5 分钟
+# 防重放）；来源未配置=403，来源不在闭集=404（非开放端点）。
+# alertInbound:
+#   sources:
+#     alertmanager:
+#       secretEnv: ALERTMANAGER_INBOUND_SECRET
+#       labelMapping:
+#         severity: level
+#         summary: message
+#         instance: type
+#     generic:
+#       secretEnv: GENERIC_INBOUND_SECRET
