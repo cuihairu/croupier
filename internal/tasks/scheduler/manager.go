@@ -18,6 +18,13 @@ type Dispatcher interface {
 	StartTask(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error)
 }
 
+// LocalRunner 是 server-local 执行面（Kind=incident_report 的调度不经
+// Dispatcher/Agent 派发链，报告生成器在进程内直接执行）。由 svc 布线
+// 注入（internal/api/incident 的报告生成器实现）。
+type LocalRunner interface {
+	Run(ctx context.Context, s *model.TaskSchedule) error
+}
+
 // Store 依赖的最小模型接口。
 type ScheduleStore interface {
 	ListDue(ctx context.Context, now time.Time, limit int) ([]model.TaskSchedule, error)
@@ -34,6 +41,7 @@ type ScheduleStore interface {
 type Manager struct {
 	store     ScheduleStore
 	dispatch  Dispatcher
+	local     LocalRunner
 	interval  time.Duration
 	nowFn     func() time.Time
 	mu        sync.Mutex
@@ -52,6 +60,14 @@ func NewManager(store ScheduleStore, dispatch Dispatcher) *Manager {
 		stopCh:    make(chan struct{}),
 		stoppedCh: make(chan struct{}),
 	}
+}
+
+// SetLocalRunner 注入 server-local 执行面（Kind=incident_report 路由）。
+// nil 清除。
+func (m *Manager) SetLocalRunner(r LocalRunner) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.local = r
 }
 
 // SetInterval 覆盖扫描周期（测试用）。
@@ -158,6 +174,16 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 		return
 	}
 
+	// server-local 路由：报告生成器进程内直接执行（不经 Dispatcher，
+	// 无 TaskRun）。Kind 不匹配或未注入 LocalRunner 时落既有派发链。
+	m.mu.Lock()
+	local := m.local
+	m.mu.Unlock()
+	if s.Kind == model.ScheduleKindIncidentReport && local != nil {
+		m.triggerLocal(ctx, local, s, slot, spec, now, failures)
+		return
+	}
+
 	// 派发 TaskRun（scope 经 metadata 传递，与 task.Start 同一约定）。
 	var meta map[string]string
 	if len(s.Metadata) > 0 {
@@ -194,6 +220,30 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 	updates := map[string]interface{}{
 		"last_triggered_at":    now,
 		"last_run_id":          runID,
+		"consecutive_failures": failures,
+	}
+	m.advanceWith(s, spec, now, updates)
+	_ = m.store.UpdateSchedule(ctx, s.ID, updates)
+}
+
+// triggerLocal 执行 server-local 调度（Kind=incident_report）：同步调用
+// LocalRunner——成功清零失败计数、失败 +1；run-log 记 dispatched/failed
+// （无 TaskRunID——不经异步任务链）。
+func (m *Manager) triggerLocal(ctx context.Context, local LocalRunner, s *model.TaskSchedule, slot time.Time, spec *CronSpec, now time.Time, failures int) {
+	err := local.Run(ctx, s)
+	status, msg := "dispatched", ""
+	if err != nil {
+		status, msg = "failed", err.Error()
+		failures++
+		slog.Warn("scheduler: local run failed", "schedule", s.ID, "error", err)
+	} else {
+		failures = 0
+	}
+	_, _ = m.store.CreateRunLog(ctx, &model.TaskScheduleRunLog{
+		ScheduleID: s.ID, Slot: slot, Status: status, Message: msg,
+	})
+	updates := map[string]interface{}{
+		"last_triggered_at":    now,
 		"consecutive_failures": failures,
 	}
 	m.advanceWith(s, spec, now, updates)

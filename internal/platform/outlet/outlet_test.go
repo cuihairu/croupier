@@ -306,3 +306,60 @@ func TestDispatchWithoutOutlets(t *testing.T) {
 		t.Fatalf("Failures() = %d, want 0", m.Failures())
 	}
 }
+
+func TestManagerDispatchExternalSkipsInternal(t *testing.T) {
+	sink := &recordingSink{}
+	internal := &InternalOutlet{sink: sink, defaultRecipient: DefaultStationRecipient}
+	capture := &stubOutlet{name: "capture", fn: func(context.Context, AlertEvent) (DeliveryOutcome, error) {
+		return DeliveryOutcome{Delivered: true, Channel: "capture"}, nil
+	}}
+	m := NewManager()
+	m.Register(internal)
+	m.Register(capture)
+
+	outcome, err := m.DispatchExternal(context.Background(), sampleEvent())
+	if err != nil || !outcome.Delivered || outcome.Channel != "capture" {
+		t.Fatalf("outcome = %+v err = %v, want capture delivered", outcome, err)
+	}
+	// 站内出口被跳过：无落库。
+	if len(sink.notices) != 0 {
+		t.Fatalf("internal outlet must be skipped by DispatchExternal, got %d notices", len(sink.notices))
+	}
+}
+
+func TestManagerDispatchExternalChainExhaustionReturnsLast(t *testing.T) {
+	first := &stubOutlet{name: "a", fn: func(context.Context, AlertEvent) (DeliveryOutcome, error) {
+		return DeliveryOutcome{Delivered: false, Channel: "a"}, errors.New("a down")
+	}}
+	second := &stubOutlet{name: "b", fn: func(context.Context, AlertEvent) (DeliveryOutcome, error) {
+		return DeliveryOutcome{Delivered: false, Channel: "b"}, errors.New("b down")
+	}}
+	m := NewManager()
+	m.Register(first)
+	m.Register(second)
+
+	outcome, err := m.DispatchExternal(context.Background(), sampleEvent())
+	// 链耗尽：返回最后一个外部出口的收尾回执。
+	if err == nil || outcome.Channel != "b" {
+		t.Fatalf("outcome = %+v err = %v, want last outlet b with error", outcome, err)
+	}
+}
+
+func TestManagerDispatchExternalSlidesOnRetryable(t *testing.T) {
+	failing := &stubOutlet{name: "a", fn: func(context.Context, AlertEvent) (DeliveryOutcome, error) {
+		return DeliveryOutcome{Delivered: false, Channel: "a"}, errors.New("a down")
+	}}
+	called := false
+	backup := &stubOutlet{name: "b", fn: func(context.Context, AlertEvent) (DeliveryOutcome, error) {
+		called = true
+		return DeliveryOutcome{Delivered: true, Channel: "b"}, nil
+	}}
+	m := NewManager()
+	m.Register(failing)
+	m.Register(backup)
+
+	outcome, err := m.DispatchExternal(context.Background(), sampleEvent())
+	if err != nil || !outcome.Delivered || outcome.Channel != "b" || !called {
+		t.Fatalf("outcome = %+v err = %v called = %v, want slide to b", outcome, err, called)
+	}
+}

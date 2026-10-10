@@ -348,3 +348,49 @@ export async function fetchIncidentResponsibility(period: string, periodKey?: st
     params: periodKey ? { period, key: periodKey } : { period },
   });
 }
+
+// ---- 存量报表（调度生成 + 重推，§6 分发链） ----
+
+export type PushStatusEntry = {
+  slug: string;
+  leader?: string;
+  channel: string;
+  pushedAt: string;
+  eventId: string;
+  ok: boolean;
+  error?: string;
+};
+
+export type StoredReportItem = {
+  id: number;
+  periodType: string;
+  periodStart: string;
+  reportKind: string;
+  generatedAt: string;
+  level: string;
+  total?: number | null;
+  pushStatus: PushStatusEntry[];
+};
+
+export type StoredReportListResponse = {
+  items: StoredReportItem[];
+  total: number;
+};
+
+export async function fetchStoredIncidentReports(
+  period?: string,
+  page?: number,
+  pageSize?: number,
+) {
+  return request<StoredReportListResponse>('/api/v1/incident-reports/stored', {
+    params: {
+      ...(period ? { period } : {}),
+      ...(page ? { page } : {}),
+      ...(pageSize ? { pageSize } : {}),
+    },
+  });
+}
+
+export async function repushIncidentReport(id: number) {
+  return request<StoredReportItem>(`/api/v1/incident-reports/${id}/repush`, { method: 'POST' });
+}

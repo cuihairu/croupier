@@ -48,6 +48,21 @@ const incidentReports = {
   'pages.incidentReports.resp.byCategory': '按类别',
   'pages.incidentReports.resp.recurrences': '复发',
 
+  // 存量报表（调度生成 + 重推，§6 分发链）
+  'pages.incidentReports.history.title': '存量报表',
+  'pages.incidentReports.history.all': '全部档位',
+  'pages.incidentReports.history.period': '期',
+  'pages.incidentReports.history.level': '级别',
+  'pages.incidentReports.history.total': '总量',
+  'pages.incidentReports.history.generatedAt': '生成时间',
+  'pages.incidentReports.history.delivery': '分发回执',
+  'pages.incidentReports.history.actions': '操作',
+  'pages.incidentReports.history.repush': '重推',
+  'pages.incidentReports.history.repushConfirm': '按同 event_id 重发（幂等折叠），不改 payload？',
+  'pages.incidentReports.history.repushSuccess': '已重推',
+  'pages.incidentReports.history.repushFailed': '重推失败',
+  'pages.incidentReports.history.empty': '暂无生成记录',
+
   // 事故登记页
   'pages.incidents.col.title': '标题',
   'pages.incidents.col.category': '类别',

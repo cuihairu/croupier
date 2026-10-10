@@ -64,6 +64,33 @@ func (h *Handler) GetResponsibility(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// RepushReport handles POST /incident-reports/:id/repush（§6 手动重推：
+// 按存库 payload 同 event_id 重发，不改 payload；回执覆盖 PushStatus）。
+func (h *Handler) RepushReport(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.RepushReport(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// ListStoredReports handles GET /incident-reports/stored?period=week&page=1&pageSize=20。
+func (h *Handler) ListStoredReports(c *gin.Context) {
+	resp, err := h.service.ListStoredReports(c.Request.Context(), c.Query("period"),
+		int(parseUintQuery(c, "page")), int(parseUintQuery(c, "pageSize")))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // parsePeriodQuery 档位 query 解析（缺省 week）。
 func parsePeriodQuery(c *gin.Context) string {
 	if v := c.Query("period"); v != "" {

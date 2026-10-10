@@ -8,14 +8,18 @@
  * mock 口径：incident 报表服务全 mock；@umijs/max 走 defaultMessage 词典。
  */
 import React from 'react';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { App } from 'antd';
+import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import IncidentReportsPage from '../index';
 import {
   fetchIncidentReportLeaderboard,
   fetchIncidentReportSummary,
   fetchIncidentReportTrend,
   fetchIncidentResponsibility,
+  fetchStoredIncidentReports,
+  repushIncidentReport,
   type ReportSummary,
+  type StoredReportItem,
 } from '@/services/api/incident';
 
 configure({ asyncUtilTimeout: 5000 });
@@ -51,6 +55,8 @@ jest.mock('@/services/api/incident', () => ({
   fetchIncidentReportTrend: jest.fn(),
   fetchIncidentReportLeaderboard: jest.fn(),
   fetchIncidentResponsibility: jest.fn(),
+  fetchStoredIncidentReports: jest.fn(),
+  repushIncidentReport: jest.fn(),
 }));
 
 const mSummary = fetchIncidentReportSummary as jest.MockedFunction<
@@ -63,6 +69,10 @@ const mBoard = fetchIncidentReportLeaderboard as jest.MockedFunction<
 const mResp = fetchIncidentResponsibility as jest.MockedFunction<
   typeof fetchIncidentResponsibility
 >;
+const mStored = fetchStoredIncidentReports as jest.MockedFunction<
+  typeof fetchStoredIncidentReports
+>;
+const mRepush = repushIncidentReport as jest.MockedFunction<typeof repushIncidentReport>;
 
 const SUMMARY: ReportSummary = {
   period: 'week',
@@ -153,6 +163,8 @@ beforeEach(() => {
       },
     ],
   });
+  mStored.mockResolvedValue({ items: [], total: 0 });
+  mRepush.mockResolvedValue({ ...HISTORY_ROW, id: 0 });
 });
 
 describe('IncidentReports 页', () => {
@@ -203,5 +215,104 @@ describe('IncidentReports 页', () => {
     await waitFor(() => expect(mTrend).toHaveBeenCalledWith({ bucket: 'month' }));
     expect(mResp.mock.calls.length).toBe(callsBefore);
     expect(screen.queryByText('周期责任人报告')).toBeNull();
+  });
+});
+
+// ---- 存量报表（§6 调度生成 + 手动重推） ----
+
+const HISTORY_ROW: StoredReportItem = {
+  id: 42,
+  periodType: 'week',
+  periodStart: '2026-W40',
+  reportKind: 'summary',
+  generatedAt: '2026-10-05T09:00:00Z',
+  level: 'warn',
+  total: 12,
+  pushStatus: [
+    {
+      slug: '',
+      channel: 'internal',
+      pushedAt: '2026-10-05T09:00:01Z',
+      eventId: 'report:week:2026-W40:all',
+      ok: true,
+    },
+    {
+      slug: 'client',
+      leader: 'zhu',
+      channel: 'capture',
+      pushedAt: '2026-10-05T09:00:01Z',
+      eventId: 'report:week:2026-W40:client',
+      ok: false,
+      error: 'dial tcp: connection refused',
+    },
+  ],
+};
+
+/** 存量报表 Card（标题唯一，可作容器锚点） */
+const historyCard = () => screen.getByText('存量报表').closest('.ant-card') as HTMLElement;
+
+/** Popconfirm 弹层容器（antd v6 tooltip + CJK 空格按钮「确 定」；关闭后弹层
+ * 节点仍驻留 DOM 仅加 hidden 类，故不断言标题消失，以副作用为准）。 */
+const clickPopconfirmOk = async (title: string) => {
+  await screen.findByText(title);
+  const root = Array.from(document.querySelectorAll('.ant-popover')).find((node) =>
+    node.textContent?.includes(title),
+  );
+  if (!root) throw new Error(`popconfirm ${title} not mounted`);
+  fireEvent.click(within(root as HTMLElement).getByRole('button', { name: /确\s?定/ }));
+};
+
+describe('IncidentReports 存量报表', () => {
+  it('空列表：占位文案 + 缺省分页参数', async () => {
+    render(<IncidentReportsPage />);
+    expect(mStored).toHaveBeenCalledWith(undefined, 1, 10);
+    await screen.findByText('暂无生成记录');
+  });
+
+  it('生成记录：期/级别/总量/分发回执摘要（含失败原因）', async () => {
+    mStored.mockResolvedValue({ items: [HISTORY_ROW], total: 1 });
+    render(<IncidentReportsPage />);
+    const card = await screen.findByText('存量报表').then(() => historyCard());
+    await within(card).findByText('2026-W40');
+    expect(within(card).getByText('周')).toBeInTheDocument();
+    expect(within(card).getByText('warn')).toBeInTheDocument();
+    expect(within(card).getByText('12')).toBeInTheDocument();
+    // 回执摘要：1/2 送达 + 失败分片带渠道与错误
+    expect(within(card).getByText('1/2')).toBeInTheDocument();
+    expect(within(card).getByText(/dial tcp: connection refused/)).toBeInTheDocument();
+    // 重推入口（antd v6 两个汉字按钮自动插空格：name 为「重 推」）
+    expect(within(card).getByRole('button', { name: /重\s?推/ })).toBeInTheDocument();
+  });
+
+  it('重推：Popconfirm 确认后按 id 调 API 并刷新列表', async () => {
+    mStored.mockResolvedValue({ items: [HISTORY_ROW], total: 1 });
+    render(
+      <App>
+        <IncidentReportsPage />
+      </App>,
+    );
+    await screen.findByText('2026-W40');
+    fireEvent.click(within(historyCard()).getByRole('button', { name: /重\s?推/ }));
+    await clickPopconfirmOk('按同 event_id 重发（幂等折叠），不改 payload？');
+    await waitFor(() => expect(mRepush).toHaveBeenCalledWith(42));
+    await waitFor(() => expect(mStored.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('档位过滤：切换 Select 后按 period 重查', async () => {
+    render(<IncidentReportsPage />);
+    await screen.findByText('存量报表');
+    // antd v6 Select 无 .ant-select-selector，combobox 即 input 本体
+    const selector = within(historyCard()).getByRole('combobox');
+    fireEvent.mouseDown(selector);
+    await waitFor(() =>
+      expect(
+        document.querySelectorAll('.ant-select-dropdown .ant-select-item-option').length,
+      ).toBeGreaterThan(0),
+    );
+    const week = Array.from(
+      document.querySelectorAll('.ant-select-dropdown .ant-select-item-option'),
+    ).find((el) => el.textContent === '周');
+    fireEvent.click(week as Element);
+    await waitFor(() => expect(mStored).toHaveBeenLastCalledWith('week', 1, 10));
   });
 });

@@ -47,6 +47,22 @@ const incidentReports = {
   'pages.incidentReports.resp.byCategory': 'By category',
   'pages.incidentReports.resp.recurrences': 'Recurrences',
 
+  // Stored reports (scheduled generation + repush, §6 distribution)
+  'pages.incidentReports.history.title': 'Report history',
+  'pages.incidentReports.history.all': 'All periods',
+  'pages.incidentReports.history.period': 'Period',
+  'pages.incidentReports.history.level': 'Level',
+  'pages.incidentReports.history.total': 'Total',
+  'pages.incidentReports.history.generatedAt': 'Generated at',
+  'pages.incidentReports.history.delivery': 'Delivery',
+  'pages.incidentReports.history.actions': 'Actions',
+  'pages.incidentReports.history.repush': 'Repush',
+  'pages.incidentReports.history.repushConfirm':
+    'Redispatch with the same event IDs (idempotent fold); payload is unchanged?',
+  'pages.incidentReports.history.repushSuccess': 'Redispatched',
+  'pages.incidentReports.history.repushFailed': 'Repush failed',
+  'pages.incidentReports.history.empty': 'No generated reports yet',
+
   // Incidents page
   'pages.incidents.col.title': 'Title',
   'pages.incidents.col.category': 'Category',

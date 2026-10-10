@@ -226,3 +226,97 @@ type dispatcherFunc func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.
 func (f dispatcherFunc) StartTask(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
 	return f(ctx, req)
 }
+
+// localRunnerStub 记录 server-local 调用（Kind=incident_report 路由测试）。
+type localRunnerStub struct {
+	calls []uint // schedule IDs
+	err   error
+}
+
+func (l *localRunnerStub) Run(_ context.Context, s *model.TaskSchedule) error {
+	l.calls = append(l.calls, s.ID)
+	return l.err
+}
+
+func localSchedule(id uint, now time.Time) model.TaskSchedule {
+	s := dueSchedule(id, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))
+	s.Kind = model.ScheduleKindIncidentReport
+	s.FunctionID = model.FunctionIDIncidentReport
+	return s
+}
+
+func TestManager_LocalRunnerRoutesByKind(t *testing.T) {
+	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	d := &fakeDispatcher{}
+	lr := &localRunnerStub{}
+	m := NewManager(store, d)
+	m.SetLocalRunner(lr)
+
+	m.tick(now)
+
+	// Kind=incident_report：local 执行，不经 Dispatcher 派发链。
+	require.Len(t, lr.calls, 1)
+	assert.Equal(t, uint(1), lr.calls[0])
+	assert.Empty(t, d.calls)
+	// run-log dispatched（无 TaskRunID），失败清零、下次时间推进。
+	logged, _ := store.HasRunLog(context.Background(), 1, Slot(now))
+	assert.True(t, logged)
+	for _, l := range store.runLogs {
+		assert.Equal(t, "dispatched", l.Status)
+		assert.Empty(t, l.TaskRunID)
+	}
+	updates := store.updates[1]
+	require.NotEmpty(t, updates)
+	last := updates[len(updates)-1]
+	assert.Equal(t, 0, last["consecutive_failures"])
+	_, has := last["next_triggered_at"]
+	assert.True(t, has)
+}
+
+func TestManager_LocalRunnerFailureCounts(t *testing.T) {
+	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	lr := &localRunnerStub{err: fmt.Errorf("aggregate failed")}
+	m := NewManager(store, &fakeDispatcher{})
+	m.SetLocalRunner(lr)
+
+	m.tick(now)
+
+	// 失败：run-log failed + 连续失败 +1，不进 dead_letter（上限 5）。
+	for _, l := range store.runLogs {
+		assert.Equal(t, "failed", l.Status)
+		assert.Contains(t, l.Message, "aggregate failed")
+	}
+	last := store.updates[1][len(store.updates[1])-1]
+	assert.Equal(t, 1, last["consecutive_failures"])
+	assert.Equal(t, model.ScheduleStatusActive, store.schedules[0].Status)
+}
+
+func TestManager_LocalKindFallsBackToDispatchWithoutRunner(t *testing.T) {
+	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	d := &fakeDispatcher{}
+	NewManager(store, d).tick(now)
+
+	// 未注入 LocalRunner：落既有派发链（调度定义不丢触发）。
+	require.Len(t, d.calls, 1)
+	assert.Equal(t, model.FunctionIDIncidentReport, d.calls[0])
+}
+
+func TestManager_SetLocalRunnerNilClears(t *testing.T) {
+	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	d := &fakeDispatcher{}
+	m := NewManager(store, d)
+	m.SetLocalRunner(&localRunnerStub{})
+	m.SetLocalRunner(nil)
+
+	m.tick(now)
+	assert.Empty(t, (&localRunnerStub{}).calls)
+	assert.Len(t, d.calls, 1)
+}

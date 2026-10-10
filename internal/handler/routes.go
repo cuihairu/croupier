@@ -734,7 +734,8 @@ func registerIncidentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/status", incidentHandler.TransitionIncident)
 }
 
-// registerIncidentReportRoutes 挂报表聚合 API（汇总/趋势/排行榜/责任人报告）。
+// registerIncidentReportRoutes 挂报表聚合 API（汇总/趋势/排行榜/责任人报告/
+// 存量报表历史/手动重推）。
 func registerIncidentReportRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	incidentSvc := incident.NewService(ctx)
 	incidentHandler := incident.NewHandler(incidentSvc)
@@ -742,6 +743,8 @@ func registerIncidentReportRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/trend", incidentHandler.GetTrend)
 	g.GET("/leaderboard", incidentHandler.GetLeaderboard)
 	g.GET("/responsibility", incidentHandler.GetResponsibility)
+	g.GET("/stored", incidentHandler.ListStoredReports)
+	g.POST("/:id/repush", incidentHandler.RepushReport)
 }
 
 // ============================================================================

@@ -1,5 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Col,
+  Popconfirm,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { Line } from '@ant-design/charts';
 import { PageContainer } from '@ant-design/pro-components';
@@ -12,10 +26,14 @@ import {
   fetchIncidentReportSummary,
   fetchIncidentReportTrend,
   fetchIncidentResponsibility,
+  fetchStoredIncidentReports,
+  repushIncidentReport,
   type CompareDelta,
   type LeaderboardRow,
   type ReportLeaderboard,
   type ResponsibilityReport,
+  type StoredReportItem,
+  type StoredReportListResponse,
 } from '@/services/api/incident';
 
 type PeriodType = 'week' | 'month' | 'quarter' | 'year';
@@ -120,6 +138,7 @@ export default function IncidentReportsPage() {
       {(period === 'week' || period === 'month') && (
         <ResponsibilitySection period={period} periodKey={periodKey} />
       )}
+      <HistorySection />
     </PageContainer>
   );
 }
@@ -536,6 +555,173 @@ function ResponsibilitySection({ period, periodKey }: { period: PeriodType; peri
           },
         ]}
         dataSource={report.responsibles}
+      />
+    </Card>
+  );
+}
+
+// 存量报表（§6 调度生成 + 手动重推）：生成记录列表 + 分发回执摘要 +
+// 重推（按同 event_id 幂等折叠，不改 payload）。
+const HISTORY_PAGE_SIZE = 10;
+
+const LEVEL_COLORS: Record<string, string> = {
+  info: 'default',
+  warn: 'warning',
+  critical: 'error',
+};
+
+function HistorySection() {
+  const { message } = App.useApp();
+  const intl = useIntl();
+  const [period, setPeriod] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+  const [version, setVersion] = useState<number>(0);
+  const [data, setData] = useState<StoredReportListResponse | null>(null);
+  const [error, setError] = useState<string>('');
+  const text = (id: string, defaultMessage: string) => intl.formatMessage({ id, defaultMessage });
+
+  useEffect(() => {
+    let alive = true;
+    fetchStoredIncidentReports(period || undefined, page, HISTORY_PAGE_SIZE)
+      .then((d) => {
+        if (alive) setData(d);
+      })
+      .catch((e: unknown) => {
+        if (alive) {
+          setData(null);
+          setError(String((e as Error)?.message || e));
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [period, page, version]);
+
+  const onRepush = (row: StoredReportItem) => {
+    repushIncidentReport(row.id)
+      .then(() => {
+        message.success(text('pages.incidentReports.history.repushSuccess', '已重推'));
+        setVersion((v) => v + 1);
+      })
+      .catch((e: unknown) => {
+        message.error(
+          `${text('pages.incidentReports.history.repushFailed', '重推失败')}: ${String(
+            (e as Error)?.message || e,
+          )}`,
+        );
+      });
+  };
+
+  const columns: ColumnsType<StoredReportItem> = [
+    {
+      title: text('pages.incidentReports.history.period', '期'),
+      render: (_, r) => (
+        <Space size={8}>
+          <Typography.Text code>{r.periodStart}</Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            <FormattedMessage
+              id={`pages.incidentReports.period.${r.periodType}`}
+              defaultMessage={r.periodType}
+            />
+          </Typography.Text>
+        </Space>
+      ),
+    },
+    {
+      title: text('pages.incidentReports.history.level', '级别'),
+      dataIndex: 'level',
+      width: 90,
+      render: (v: string) => <Tag color={LEVEL_COLORS[v] || 'default'}>{v}</Tag>,
+    },
+    {
+      title: text('pages.incidentReports.history.total', '总量'),
+      dataIndex: 'total',
+      width: 80,
+      render: (v?: number | null) => (v === null || v === undefined ? '-' : v),
+    },
+    {
+      title: text('pages.incidentReports.history.generatedAt', '生成时间'),
+      dataIndex: 'generatedAt',
+      width: 170,
+      render: (v: string) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-'),
+    },
+    {
+      title: text('pages.incidentReports.history.delivery', '分发回执'),
+      render: (_, r) => {
+        const st = r.pushStatus || [];
+        const okCount = st.filter((p) => p.ok).length;
+        const failed = st.filter((p) => !p.ok);
+        return (
+          <Space direction="vertical" size={0}>
+            <Typography.Text style={{ fontSize: 12 }}>
+              {okCount}/{st.length}
+            </Typography.Text>
+            {failed.length > 0 && (
+              <Typography.Text type="danger" style={{ fontSize: 12 }} ellipsis>
+                {failed
+                  .map((f) => `${f.slug || '-'}(${f.channel})${f.error ? `: ${f.error}` : ''}`)
+                  .join('; ')}
+              </Typography.Text>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
+      title: text('pages.incidentReports.history.actions', '操作'),
+      width: 90,
+      render: (_, r) => (
+        <Popconfirm
+          title={text(
+            'pages.incidentReports.history.repushConfirm',
+            '按同 event_id 重发（幂等折叠），不改 payload？',
+          )}
+          onConfirm={() => onRepush(r)}
+        >
+          <Button size="small">{text('pages.incidentReports.history.repush', '重推')}</Button>
+        </Popconfirm>
+      ),
+    },
+  ];
+
+  return (
+    <Card
+      size="small"
+      title={text('pages.incidentReports.history.title', '存量报表')}
+      extra={
+        <Select
+          size="small"
+          style={{ width: 120 }}
+          value={period}
+          onChange={(v) => {
+            setPeriod(v);
+            setPage(1);
+          }}
+          options={[
+            { value: '', label: text('pages.incidentReports.history.all', '全部档位') },
+            { value: 'week', label: text('pages.incidentReports.period.week', '周') },
+            { value: 'month', label: text('pages.incidentReports.period.month', '月') },
+            { value: 'quarter', label: text('pages.incidentReports.period.quarter', '季') },
+            { value: 'year', label: text('pages.incidentReports.period.year', '年') },
+          ]}
+        />
+      }
+    >
+      {error && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={error} />}
+      <Table<StoredReportItem>
+        rowKey="id"
+        size="small"
+        loading={!data && !error}
+        columns={columns}
+        dataSource={data?.items || []}
+        pagination={{
+          current: page,
+          pageSize: HISTORY_PAGE_SIZE,
+          total: data?.total || 0,
+          onChange: (p) => setPage(p),
+          showSizeChanger: false,
+        }}
+        locale={{ emptyText: text('pages.incidentReports.history.empty', '暂无生成记录') }}
       />
     </Card>
   );

@@ -59,11 +59,13 @@ const (
 const DefaultStationRecipient = "group:gm-ops"
 
 // Scope 是可空的 scope 三元组（出口按 scope 分流受众时启用；v1 事件源
-// 至少带 agentId）。
+// 至少带 agentId）。CategorySlug 供报表分片携带类别上下文（站内通知的
+// scope 落 messages.Scope，读时按类别受众过滤——incident-reports §6）。
 type Scope struct {
-	GameID  string
-	Env     string
-	AgentID string
+	GameID       string
+	Env          string
+	AgentID      string
+	CategorySlug string
 }
 
 // AlertEvent 是出口间共享的统一告警事件信封（plugin-mechanism §5.2）。
@@ -166,7 +168,41 @@ func (m *Manager) Dispatch(ev AlertEvent) {
 	snapshot := make([]Outlet, len(m.outlets))
 	copy(snapshot, m.outlets)
 	<-m.mu
-	go m.deliverChain(snapshot, ev)
+	go func() {
+		defer func() { _ = recover() }()
+		m.deliverChain(snapshot, ev)
+	}()
+}
+
+// DispatchExternal 同步只投外部链（incident-reports §6 分发用）：站内
+// 通知由调用方经 MessageSink 直写（报表分片的收件人是 leader 账号，出口
+// 链无法感知类别→leader 映射），此路径跳过站内出口——外部链语义同
+// deliverChain：成功即停，Retryable 失败滑下一个，Permanent 终止。返回
+// 实际收尾出口的回执（报表 PushStatus 落库依据）。
+func (m *Manager) DispatchExternal(ctx context.Context, ev AlertEvent) (DeliveryOutcome, error) {
+	m.mu <- struct{}{}
+	snapshot := make([]Outlet, len(m.outlets))
+	copy(snapshot, m.outlets)
+	<-m.mu
+	defer func() { _ = recover() }()
+	var lastOutcome DeliveryOutcome
+	var lastErr error
+	for _, o := range snapshot {
+		if o.Name() == OutletInternal {
+			continue
+		}
+		outcome, err := m.deliverOne(o, ev)
+		lastOutcome, lastErr = outcome, err
+		if err == nil && outcome.Delivered {
+			return outcome, nil
+		}
+		if err != nil && isPermanent(err) {
+			return outcome, err
+		}
+		// 无错未送达（出口自报未达）或 Retryable 失败：滑下一个。
+	}
+	// 链耗尽：返回最后一个外部出口的收尾回执（PushStatus 落库依据）。
+	return lastOutcome, lastErr
 }
 
 // deliverChain 链式降级（§5.1）：站内出口先投（默认必有、零外发、不受
@@ -340,7 +376,7 @@ func noticeSource(ev AlertEvent) string {
 
 // scopeMap 信封 scope→可见范围 map（非空项才进）。
 func scopeMap(ev AlertEvent) map[string]any {
-	out := make(map[string]any, 3)
+	out := make(map[string]any, 4)
 	if ev.Scope.GameID != "" {
 		out["gameId"] = ev.Scope.GameID
 	}
@@ -349,6 +385,9 @@ func scopeMap(ev AlertEvent) map[string]any {
 	}
 	if ev.Scope.AgentID != "" {
 		out["agentId"] = ev.Scope.AgentID
+	}
+	if ev.Scope.CategorySlug != "" {
+		out["categorySlug"] = ev.Scope.CategorySlug
 	}
 	return out
 }

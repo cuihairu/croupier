@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/api/incident"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/handler"
@@ -191,7 +192,11 @@ func runServer() error {
 		ObsGrafanaExploreURL: os.Getenv("CROUPIER_GRAFANA_EXPLORE_URL"),
 		ObsJaegerURL:         os.Getenv("CROUPIER_JAEGER_URL"),
 	}, svcCtx.PlatformSettingModel)
-	// cron 定时任务调度循环（Dispatcher 就绪后启动）。
+	// 报告生成器注入调度器（Kind=incident_report 的调度 server-local 执行，
+	// docs/design/incident-reports.md §6——internal/api/incident import svc，
+	// 须在 cmd 层反向注入避免环）。
+	svcCtx.SetReportRunner(incident.NewService(svcCtx))
+	// cron 定时任务调度循环（Dispatcher 就绪后启动，含报表调度播种）。
 	svcCtx.StartScheduler()
 	defer svcCtx.StopScheduler()
 	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {

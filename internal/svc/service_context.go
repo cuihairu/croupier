@@ -133,6 +133,14 @@ type ServiceContext struct {
 	LogRetention *executionlog.Retention
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
 	Scheduler *scheduler.Manager
+	// ReportRunner 是 server-local 报表执行面（Kind=incident_report 的调度
+	// 注入 scheduler.LocalRunner）；cmd/server 启动时经 SetReportRunner 注入。
+	ReportRunner scheduler.LocalRunner
+	// OutletManager 是告警出口链管理器（registerOutlets 构造；MetricsStore
+	// 缺失时为 nil）。报表分发经此派发到站内/外部出口。
+	OutletManager *outlet.Manager
+	// StationSink 是站内通知落库面（registerOutlets 构造的 messageSink）。
+	StationSink outlet.MessageSink
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
 	Cluster                  *ClusterRuntime
 	CertificateModel         *model.CertificateModel
@@ -627,6 +635,8 @@ func registerOutlets(ctx *ServiceContext) {
 	if !external {
 		manager.Register(outlet.NewNoopOutlet())
 	}
+	ctx.OutletManager = manager
+	ctx.StationSink = messageSink{db: ctx.DB}
 	ctx.MetricsStore.SetOnSupervisorEvent(supervisorEventToOutlet(manager))
 }
 
