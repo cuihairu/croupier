@@ -638,6 +638,7 @@ func registerOutlets(ctx *ServiceContext) {
 	ctx.OutletManager = manager
 	ctx.StationSink = messageSink{db: ctx.DB}
 	ctx.MetricsStore.SetOnSupervisorEvent(supervisorEventToOutlet(manager))
+	wireServerStatusGate(ctx)
 }
 
 // supervisorEventToOutlet 把新监管事件映射为统一信封：v1 闭集只消费

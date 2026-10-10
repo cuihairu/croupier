@@ -124,6 +124,17 @@ serverStatus:
 - 配置段 `serverStatus:`（enabled/provider/matchBy/cacheTtlSeconds + `providers` 子段，key 为注册表键：baseUrl/tokenEnv/timeoutMs/statusPath/matchKey/fieldMapping）已落 `internal/config`，lowerCamelCase tags；svc 装配（config→Options 映射 + Outlet 挂钩）属 S2。
 - 已知边界：atlas 默认字段名按小驼峰契约（`healthy`/`inMaintenance`/`windowStart`…），未对齐真实 atlas API 前为骨架口径（S3 回填）；非 bool/非 string 的映射值按零值处理。
 
+### 批 S2 交付说明（2026-10-11）
+
+- **gate 接线（机制在 outlet，策略在 svc）**：`outlet.Manager` 新增注入式 gate 钩子 `SetGate(GateFunc)`（`atomic.Pointer` 挂载，nil 卸载=直通；outlet 包零依赖 serverstatus——跨包环风险与平台包互耦都避开）。`Dispatch`（异步，goroutine 内投递前评估一次）与 `DispatchExternal`（同步，外部链遍历前评估一次）都过 gate——「出口链入口」单点裁决，一次评估覆盖整链（站内+外部）。gate 已有的抑制/未知/回源计数即设计 §5 的抑制可见性面（出口侧抑制不计入投递失败）。
+- **gate 生效面**：只对 `Scope.AgentID` 非空（带服务器定位）的事件评估；无定位事件（报表推送 incident-report、生命周期 webhook 等）零调用照投——宁多报不漏报（设计 §1.2）。v1 事件源带 agentId 的现状：supervisor breaker 事件（`supervisorEventToOutlet`）是首个被 gate 的真实流。
+- **抑制语义**：suppress=true → 整链静默（含站内），`Dispatch` 直接返回；`DispatchExternal` 返回 `ErrSuppressedByMaintenance`（报表 PushStatus 落库得到可解释原因，v1 报表事件无 agentId 实际不可达，分支为未来带定位的外部事件预留）。
+- **事件标注**：`AlertEvent.Metadata map[string]string` 信封扩展位（键闭集 `MetaSourceUnknown`/`MetaMaintenanceSuppressed`，写时复制合入不改调用方信封）；出口渲染面 = 站内正文尾注 + herald 正文尾注 ` [source_unknown]`（键名字典序确定性输出）——herald DispatchRequest 无自由 metadata 位、messages 表无 metadata 列，尾注是标注到达值班人的最小面，不动 schema。抑制事件的标注只出现在 gate 日志（事件不出出口链）。
+- **svc 装配**（`internal/svc/serverstatus_gate.go`）：`registerOutlets` 收尾调 `wireServerStatusGate`——enabled=true 且 provider 已注册才挂 gate（`installServerStatusGate` 纯装配可测）；config→`serverstatus.Options` 逐项映射（tokenEnv 环境变量解析、timeoutMs/statusPath/fieldMapping 透传、cacheTtlSeconds→缓存 TTL）；旁路三形态：enabled=false、provider 未注册、OutletManager 未布线（全部直通+零行为变化）。
+- **matchBy 诚实回落**：config `matchBy: host|ip` 时启动告警并回落 `agentId`——v1 事件 scope 只带 agentId、`agent_sessions` 表无主机列（AgentID/GameID/Env/Region/Zone/Labels，无 Addr）可 join，host/ip 定位无从解析；atlas 适配器的 MatchKey=host/ip 能力保留（S1），待事件侧携带 host 或 session 表加主机列后放开。
+- **测试**：outlet 包 gate 集成 8 用例（抑制整链静默+链入口恰一次评估、fail-open 标注到达双通道正文、无定位不过 gate、DispatchExternal 抑制/绕行、未挂 gate 回归、SetGate(nil) 卸载、尾注确定性）；svc 装配 5 用例（Options 逐项映射+tokenEnv 解析、抑制静默、matchBy 回落、未知标注照报、旁路形态）。`recordingSink`/`fakeStatusProvider` 测试替身补互斥/atomic——Dispatch 异步路径在 -race 下直读共享切片/int 即 DATA RACE。
+- 已知边界：herald 外发正文带 ` [source_unknown]` 尾注（非结构化字段，herald 侧如需结构化需 SDK 加 metadata 位）；matchBy=host/ip 为配置陷阱已用启动告警兜底；维护窗内事件仍落 supervisor 事件环/告警页（gate 只静默出口链）。
+
 ## 已知边界（诚实清单）
 
 - atlas API 契约待 atlas 侧对齐：S3 之前 atlas 适配器为可配置映射骨架，未对齐前不宣称实联。

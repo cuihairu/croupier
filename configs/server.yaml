@@ -166,7 +166,7 @@ metrics:
 # serverStatus:
 #   enabled: true
 #   provider: atlas
-#   matchBy: agentId
+#   matchBy: agentId # v1 仅支持 agentId（事件 scope 无主机列可 join）；配 host/ip 会回落 agentId 并启动告警
 #   cacheTtlSeconds: 60
 #   providers:
 #     atlas:

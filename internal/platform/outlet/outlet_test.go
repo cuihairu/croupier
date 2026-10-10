@@ -3,6 +3,7 @@ package outlet
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -159,28 +160,41 @@ func TestManagerInternalDeliveredDespiteExternalFailure(t *testing.T) {
 	m.Dispatch(sampleEvent())
 
 	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && len(sink.notices) == 0 {
+	notices := sink.snapshot()
+	for time.Now().Before(deadline) && len(notices) == 0 {
 		time.Sleep(5 * time.Millisecond)
+		notices = sink.snapshot()
 	}
-	if len(sink.notices) != 1 {
-		t.Fatalf("station notices = %d, want 1 (internal must always deliver)", len(sink.notices))
+	if len(notices) != 1 {
+		t.Fatalf("station notices = %d, want 1 (internal must always deliver)", len(notices))
 	}
-	if sink.notices[0].To != DefaultStationRecipient {
-		t.Fatalf("notice.To = %q, want default recipient", sink.notices[0].To)
+	if notices[0].To != DefaultStationRecipient {
+		t.Fatalf("notice.To = %q, want default recipient", notices[0].To)
 	}
 	if m.Failures() != 1 {
 		t.Fatalf("Failures() = %d, want 1 (external failure still counted)", m.Failures())
 	}
 }
 
-// recordingSink 记录 StationNotice（测试专用）。
+// recordingSink 记录 StationNotice（测试专用）。Dispatch 异步投递，
+// Create 与读取必须互斥（-race 下直读切片即 DATA RACE）。
 type recordingSink struct {
+	mu      sync.Mutex
 	notices []StationNotice
 }
 
 func (r *recordingSink) Create(_ context.Context, n StationNotice) error {
+	r.mu.Lock()
 	r.notices = append(r.notices, n)
+	r.mu.Unlock()
 	return nil
+}
+
+// snapshot 返回已落 notices 的副本（跨 goroutine 读的唯一安全面）。
+func (r *recordingSink) snapshot() []StationNotice {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]StationNotice(nil), r.notices...)
 }
 
 func TestManagerRetriesTransportThenSucceeds(t *testing.T) {

@@ -83,7 +83,9 @@ func (h *HeraldOutlet) Name() string { return "herald" }
 // Deliver maps the envelope onto one dispatch call. 拒绝类错误（herald
 // Error）包 Permanent——重试无意义；Transport 错误原样返回由管理器重试。
 // ev.Target 非空时覆盖默认受众（如 category-leader:<slug>——报表分片
-// 按类别 leader 定向，incident-reports §6）。
+// 按类别 leader 定向，incident-reports §6）。正文尾随 gate 标注
+// （source_unknown 等——herald DispatchRequest 无自由 metadata 位，
+// 尾注是标注到达值班人的最小面）。
 func (h *HeraldOutlet) Deliver(ctx context.Context, ev AlertEvent) (DeliveryOutcome, error) {
 	category := categoryForKind(ev.Kind)
 	audience := h.target
@@ -97,7 +99,7 @@ func (h *HeraldOutlet) Deliver(ctx context.Context, ev AlertEvent) (DeliveryOutc
 		DedupKey:  ev.DedupKey,
 		EventID:   ev.EventID,
 		Title:     ev.Title,
-		Body:      ev.Body,
+		Body:      ev.Body + metadataSuffix(ev.Metadata),
 	})
 	if err != nil {
 		if heraldsdk.IsTransport(err) {

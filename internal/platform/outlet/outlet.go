@@ -9,6 +9,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -68,6 +70,20 @@ type Scope struct {
 	CategorySlug string
 }
 
+// 信封标注键（AlertEvent.Metadata；维护状态 gate 注入，server-status
+// provider 设计 §5）。
+const (
+	// MetaSourceUnknown 状态源不可达/映射不到（fail-open 照报的取证标注）。
+	MetaSourceUnknown = "source_unknown"
+	// MetaMaintenanceSuppressed 事件被维护状态 gate 抑制（整链静默；
+	// 抑制事件不落出口，故此键只出现在日志与 gate 计数里）。
+	MetaMaintenanceSuppressed = "maintenance_suppressed"
+)
+
+// ErrSuppressedByMaintenance 事件被维护状态 gate 抑制（DispatchExternal
+// 的收尾回执；调用方按「未投递+可解释原因」处理）。
+var ErrSuppressedByMaintenance = errors.New("suppressed by maintenance gate")
+
 // AlertEvent 是出口间共享的统一告警事件信封（plugin-mechanism §5.2）。
 type AlertEvent struct {
 	Kind             string // kind 闭集
@@ -76,9 +92,10 @@ type AlertEvent struct {
 	DedupKey         string // 出口侧去重键（同键同态折叠，状态翻转重发）
 	Title            string // 摘要文本（v1 直投，不用模板）
 	Body             string
-	OccurredAtUnixMs int64  // 事件时间
-	Scope            Scope  // 可空三元组
-	Target           string // 受众 ref（如 category-leader:<slug> / user:<id>）；空=出口默认受众
+	OccurredAtUnixMs int64             // 事件时间
+	Scope            Scope             // 可空三元组
+	Target           string            // 受众 ref（如 category-leader:<slug> / user:<id>）；空=出口默认受众
+	Metadata         map[string]string // 信封扩展位（gate 标注；出口自行渲染）
 }
 
 // DeliveryOutcome 出口回执：降级链判定与失败计数的依据（§5.1）。
@@ -119,6 +136,12 @@ func isPermanent(err error) bool {
 	return errors.As(err, &p)
 }
 
+// GateFunc 是维护状态 gate 钩子（server-status provider 设计 §5）：出口
+// 链入口的投递前裁决。suppress=true → 整链静默（含站内，落库不变）；
+// meta 非空 → 合入 AlertEvent.Metadata（source_unknown 等，fail-open 照报
+// 时的取证标注）。outlet 包不依赖 serverstatus——策略由 svc 装配层注入。
+type GateFunc func(ctx context.Context, ev AlertEvent) (suppress bool, meta map[string]string)
+
 // Manager 按注册链投递信封：站内出口（internal）恒投递且不受降级影响；
 // 外部出口按序尝试，Retryable 失败滑下一个，成功即停，Permanent 拒绝
 // 终止链。链尾仍失败的计数+日志由 deliverOne 逐出口负责（§5.4 禁静默
@@ -126,7 +149,8 @@ func isPermanent(err error) bool {
 type Manager struct {
 	mu       chan struct{} // 序列化 outlets 切片变更（Register 与快照读）
 	outlets  []Outlet
-	failures atomic.Int64 // 投递失败累计（面板/日志观测用）
+	failures atomic.Int64             // 投递失败累计（面板/日志观测用）
+	gate     atomic.Pointer[GateFunc] // 维护状态 gate 钩子（未挂=直通）
 	sleep    func(time.Duration)
 }
 
@@ -160,9 +184,42 @@ func (m *Manager) Names() []string {
 // Failures returns the cumulative delivery failure count.
 func (m *Manager) Failures() int64 { return m.failures.Load() }
 
+// SetGate 挂维护状态 gate 钩子（启动期装配一次；nil 卸载=直通）。
+func (m *Manager) SetGate(fn GateFunc) {
+	if fn == nil {
+		m.gate.Store(nil)
+		return
+	}
+	m.gate.Store(&fn)
+}
+
+// applyGate 投递前评估 gate（设计 §1.2）：只对带服务器定位（Scope.AgentID
+// 非空）的事件生效——无法定位服务器的事件不过 gate 照常投递（宁多报不
+// 漏报）。meta 合入事件时写时复制，不改调用方信封。
+func (m *Manager) applyGate(ctx context.Context, ev AlertEvent) (AlertEvent, bool) {
+	p := m.gate.Load()
+	if p == nil || *p == nil || ev.Scope.AgentID == "" {
+		return ev, false
+	}
+	suppress, meta := (*p)(ctx, ev)
+	if len(meta) == 0 {
+		return ev, suppress
+	}
+	out := ev
+	out.Metadata = make(map[string]string, len(ev.Metadata)+len(meta))
+	for k, v := range ev.Metadata {
+		out.Metadata[k] = v
+	}
+	for k, v := range meta {
+		out.Metadata[k] = v
+	}
+	return out, suppress
+}
+
 // Dispatch 异步投递一条信封：整链一个 goroutine（站内恒投递 + 外部链式
 // 降级），panic recover 兜底——出口不可用绝不阻塞告警链，失败只计数与
-// 记日志。
+// 记日志。goroutine 内先过维护状态 gate（抑制=整链静默含站内，落库不变；
+// gate 已有计数+日志留痕）。
 func (m *Manager) Dispatch(ev AlertEvent) {
 	m.mu <- struct{}{}
 	snapshot := make([]Outlet, len(m.outlets))
@@ -170,6 +227,10 @@ func (m *Manager) Dispatch(ev AlertEvent) {
 	<-m.mu
 	go func() {
 		defer func() { _ = recover() }()
+		ev, suppress := m.applyGate(context.Background(), ev)
+		if suppress {
+			return
+		}
 		m.deliverChain(snapshot, ev)
 	}()
 }
@@ -178,13 +239,19 @@ func (m *Manager) Dispatch(ev AlertEvent) {
 // 通知由调用方经 MessageSink 直写（报表分片的收件人是 leader 账号，出口
 // 链无法感知类别→leader 映射），此路径跳过站内出口——外部链语义同
 // deliverChain：成功即停，Retryable 失败滑下一个，Permanent 终止。返回
-// 实际收尾出口的回执（报表 PushStatus 落库依据）。
+// 实际收尾出口的回执（报表 PushStatus 落库依据）。带服务器定位的事件先
+// 过维护状态 gate：抑制返回 ErrSuppressedByMaintenance（v1 报表事件无
+// agentId 不过 gate，本分支为 agent 定位类外部事件预留）。
 func (m *Manager) DispatchExternal(ctx context.Context, ev AlertEvent) (DeliveryOutcome, error) {
 	m.mu <- struct{}{}
 	snapshot := make([]Outlet, len(m.outlets))
 	copy(snapshot, m.outlets)
 	<-m.mu
 	defer func() { _ = recover() }()
+	ev, suppress := m.applyGate(ctx, ev)
+	if suppress {
+		return DeliveryOutcome{}, ErrSuppressedByMaintenance
+	}
 	var lastOutcome DeliveryOutcome
 	var lastErr error
 	for _, o := range snapshot {
@@ -295,13 +362,13 @@ func NewInternalOutlet(sink MessageSink, defaultRecipient string) *InternalOutle
 func (o *InternalOutlet) Name() string { return OutletInternal }
 
 // Deliver maps the envelope onto one station notice. 落库错误按可重试
-// 分类（DB 抖动重试有意义）。
+// 分类（DB 抖动重试有意义）。正文尾随 gate 标注（source_unknown 等）。
 func (o *InternalOutlet) Deliver(ctx context.Context, ev AlertEvent) (DeliveryOutcome, error) {
 	n := StationNotice{
 		To:      stationRecipient(ev.Target, o.defaultRecipient),
 		Type:    noticeTypeForKind(ev.Kind),
 		Title:   ev.Title,
-		Content: ev.Body,
+		Content: ev.Body + metadataSuffix(ev.Metadata),
 		Level:   noticeLevelForSeverity(ev.Severity),
 		Source:  noticeSource(ev),
 		RefType: noticeRefTypeForKind(ev.Kind),
@@ -372,6 +439,21 @@ func noticeSource(ev AlertEvent) string {
 		return "incident_report"
 	}
 	return "system"
+}
+
+// metadataSuffix 把信封标注渲染成正文尾注（魗典序，确定性输出）：
+// fail-open 照报时告知接收方状态源不可达（source_unknown）——标注到达人
+// 的最小面（站内正文尾 + herald 正文尾），不动 messages schema。
+func metadataSuffix(meta map[string]string) string {
+	if len(meta) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(meta))
+	for k := range meta {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return " [" + strings.Join(keys, " ") + "]"
 }
 
 // scopeMap 信封 scope→可见范围 map（非空项才进）。
