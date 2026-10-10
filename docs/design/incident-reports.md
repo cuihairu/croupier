@@ -306,7 +306,7 @@ TaskSchedule（task_schedules 表，五字段 cron：
 | 批 1 | 模型（categories/incidents）+ 0040 迁移 + bugs 加列 + 类别 CRUD API + 事故登记/列表/状态流转 API + Go 测试                                                                               | 0040 | ✅ 2a092ba |
 | 批 2 | 报表聚合 API：summary / trend / leaderboard / responsibility-report（按需重算，含环比同比三列与 missing 语义）+ Go 测试                                                                  | —    | ✅ 11be163 |
 | 批 3 | 面板三页 + 「转事故」按钮接入 + i18n 双语 + jest 用例 + tsc + guard                                                                                                                      | —    | ✅ 见下    |
-| 批 4 | 调度生成（task_schedules cron）+ incident_reports/external_tokens/messages 加列 0041 + 站内通知分发（管理员总聚合/leader 分片/scope 可见性/兜底组）+ 外部出口链 leader 分片 + PushStatus | 0041 | ⏳ 待做    |
+| 批 4 | 调度生成（task_schedules cron）+ incident_reports/external_tokens/messages 加列 0041 + 站内通知分发（管理员总聚合/leader 分片/scope 可见性/兜底组）+ 外部出口链 leader 分片 + PushStatus | 0041 | ✅ 9fd4260 |
 | 批 5 | 对外 REST（token/限流/execlog 外部留痕）+ 生命周期 webhook + `docs/openapi/incidents.yaml` + curl 冒烟                                                                                   | —    | ⏳ 待做    |
 
 ### 批 3 交付说明（2026-10-10）
@@ -315,6 +315,15 @@ TaskSchedule（task_schedules 表，五字段 cron：
 - 转事故接入：告警页操作列（refType=alert，refId=alertname+instance 合成签名，detectedAt=startsAt）+ CI/CD 构建失败行（refType=cicd_build，refId=externalId，responsibleType=change）。共享组件 `web/src/components/ConvertToIncidentModal`。
 - 静态页不走 PageSpec（§8），发布链闭环不强制；tsc 0 错 + 5 个 jest 套件 23 用例 + guard PASSED。
 - 已知边界：probe 故障窗口与 supervisor 事件 server 侧不落库（agent 内存环/本地文件，§4.3 锚点），当前无列表面可挂转换入口——转换入口待数据面落地后接入。
+
+### 批 4 交付说明（2026-10-10，4a 46c041e + 4b 7c698ab + 4c 9fd4260）
+
+- 调度生成：`task_schedules` 播种周/月两行（`0 9 * * 1` / `0 9 1 * *`，Kind=incident_report，按 name 幂等；HasTable 守卫内建在 model 侧，multiGame meta 库无表/裸测试 ctx 均静默跳过）。调度器按 Kind 路由 server-local 执行（不经 agent 派发链；`internal/api/incident` import svc，经 cmd 层 `SetReportRunner` 反向注入避免环；run-log 无 TaskRunID、失败计数照走、next 用当前 cron 推进）。
+- 生成→落库：`incident_reports` 按 (period_type, period_start) upsert；payload 含 summary + 类别分片 + 整体级别。分级固定口径（§6，不配置化）：环比×2 或复发率>20% → warn；critical 未解决或连续两期恶化（读存库两期历史，缺任一期不判）→ critical；分片级别只升不降，整体=分片最高级。
+- 分发：站内 = 生成器经 MessageSink 直写 messages（总聚合落兜底组 `group:gm-ops`，leader 分片按类别 leader 账号定向，scope 带 `{"categories":[slug]}`；同键 upsert 折叠、级别只升不降）；外部 = `DispatchExternal` 同步投外部链（成功即停/Retryable 滑下一个/Permanent 终止，跳过站内出口）。零外部配置时链上只有 noop（Delivered+channel=noop，链终止于静默）。
+- 回执：每分片每渠道一条 PushStatus——leader 有值片两条（internal + 实际收尾出口 channel）；无 leader 片单条 `skipped(no leader)`；零量分片不投；出口未布线记 `skipped(outlets not wired)`。
+- API 与面板：`GET /api/v1/incident-reports/stored`（档位过滤+分页）+ `POST /api/v1/incident-reports/:id/repush`（按同 event_id 幂等重发，不改 payload）；报表页新增「存量报表」区（档位过滤/分页/分发回执摘要/重推按钮），i18n 双语 + jest 7 用例。
+- 已知边界：messages 读侧按 incident_categories.audience 过滤（§6 可见范围）属批 4d；`report_kind` 当前固定 `summary`。
 
 ## 已知边界（诚实清单）
 
