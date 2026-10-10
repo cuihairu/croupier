@@ -477,6 +477,27 @@ export default [
         component: './Ops/Alerts',
       },
       {
+        // 事故登记（docs/design/incident-reports.md §8）
+        path: '/ops/incidents',
+        name: 'Incidents',
+        access: 'canOpsRead',
+        component: './Ops/Incidents',
+      },
+      {
+        // 事故报表（周/月/季/年 + 三列对比 + 趋势/排行榜/责任人报告）
+        path: '/ops/incident-reports',
+        name: 'IncidentReports',
+        access: 'canOpsRead',
+        component: './Ops/IncidentReports',
+      },
+      {
+        // 事故类别设置（职能域六类 + 未分类，leader/子类白名单/可见范围）
+        path: '/ops/incident-categories',
+        name: 'IncidentCategories',
+        access: 'canOpsManage',
+        component: './Ops/IncidentCategories',
+      },
+      {
         path: '/ops/rate-limits',
         name: 'RateLimits',
         access: 'canOpsManage',

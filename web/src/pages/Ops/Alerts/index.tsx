@@ -14,6 +14,7 @@ import {
   type OpsSilence,
 } from '@/services/api/ops';
 import AlertRulesTab from './AlertRulesTab';
+import ConvertToIncidentModal, { type ConvertPrefill } from '@/components/ConvertToIncidentModal';
 
 export default function OpsAlertsPage() {
   const { message, modal } = App.useApp();
@@ -28,6 +29,7 @@ export default function OpsAlertsPage() {
   const [lk, setLk] = useState('');
   const [lv, setLv] = useState('');
   const [detail, setDetail] = useState<OpsAlert | null>(null);
+  const [convert, setConvert] = useState<ConvertPrefill | null>(null);
 
   const toStringRecord = (input?: Record<string, unknown>): Record<string, string> =>
     Object.fromEntries(
@@ -144,9 +146,25 @@ export default function OpsAlertsPage() {
     },
     {
       title: intl.formatMessage({ id: 'pages.opsAlerts.column.actions', defaultMessage: '操作' }),
-      width: 160,
+      width: 230,
       render: (_, r) => (
         <Space>
+          <Button
+            size="small"
+            onClick={() => {
+              const alertname = String(r.labels?.alertname ?? '') || r.service || 'alert';
+              const instance = r.instance ? `:${r.instance}` : '';
+              setConvert({
+                title: r.summary || `${alertname}${instance}`,
+                severity: r.severity || 'warning',
+                detectedAt: r.startsAt,
+                refType: 'alert',
+                refId: `${alertname}${instance}`,
+              });
+            }}
+          >
+            <FormattedMessage id="pages.incidents.action.convert" defaultMessage="转事故" />
+          </Button>
           {!r.silenced && (
             <Button
               size="small"
@@ -760,6 +778,11 @@ export default function OpsAlertsPage() {
           </Space>
         )}
       </Drawer>
+      <ConvertToIncidentModal
+        prefill={convert}
+        onClose={() => setConvert(null)}
+        onConverted={load}
+      />
     </PageContainer>
   );
 }

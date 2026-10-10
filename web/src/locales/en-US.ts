@@ -38,6 +38,7 @@ import menuManagement from './en-US/menuManagement';
 import mergeConflictModal from './en-US/mergeConflictModal';
 import openapiSources from './en-US/openapiSources';
 import operationsConfigs from './en-US/operationsConfigs';
+import incidentReports from './en-US/incidentReports';
 import opsAlerts from './en-US/opsAlerts';
 import opsAnalyticsFilters from './en-US/opsAnalyticsFilters';
 import opsBackups from './en-US/opsBackups';
@@ -130,6 +131,7 @@ export default {
   ...mergeConflictModal,
   ...openapiSources,
   ...operationsConfigs,
+  ...incidentReports,
   ...opsAlerts,
   ...opsAnalyticsFilters,
   ...opsBackups,

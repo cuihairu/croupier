@@ -301,13 +301,20 @@ TaskSchedule（task_schedules 表，五字段 cron：
 
 ## 10. 分批交付计划（每批测试绿 → commit → push）
 
-| 批   | 内容                                                                                                                                                                                     | 迁移 |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| 批 1 | 模型（categories/incidents）+ 0040 迁移 + bugs 加列 + 类别 CRUD API + 事故登记/列表/状态流转 API + Go 测试                                                                               | 0040 |
-| 批 2 | 报表聚合 API：summary / trend / leaderboard / responsibility-report（按需重算，含环比同比三列与 missing 语义）+ Go 测试                                                                  | —    |
-| 批 3 | 面板三页 + 「转事故」按钮接入 + i18n 双语 + jest 用例 + tsc + guard                                                                                                                      | —    |
-| 批 4 | 调度生成（task_schedules cron）+ incident_reports/external_tokens/messages 加列 0041 + 站内通知分发（管理员总聚合/leader 分片/scope 可见性/兜底组）+ 外部出口链 leader 分片 + PushStatus | 0041 |
-| 批 5 | 对外 REST（token/限流/execlog 外部留痕）+ 生命周期 webhook + `docs/openapi/incidents.yaml` + curl 冒烟                                                                                   | —    |
+| 批   | 内容                                                                                                                                                                                     | 迁移 | 状态       |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------- |
+| 批 1 | 模型（categories/incidents）+ 0040 迁移 + bugs 加列 + 类别 CRUD API + 事故登记/列表/状态流转 API + Go 测试                                                                               | 0040 | ✅ 2a092ba |
+| 批 2 | 报表聚合 API：summary / trend / leaderboard / responsibility-report（按需重算，含环比同比三列与 missing 语义）+ Go 测试                                                                  | —    | ✅ 11be163 |
+| 批 3 | 面板三页 + 「转事故」按钮接入 + i18n 双语 + jest 用例 + tsc + guard                                                                                                                      | —    | ✅ 见下    |
+| 批 4 | 调度生成（task_schedules cron）+ incident_reports/external_tokens/messages 加列 0041 + 站内通知分发（管理员总聚合/leader 分片/scope 可见性/兜底组）+ 外部出口链 leader 分片 + PushStatus | 0041 | ⏳ 待做    |
+| 批 5 | 对外 REST（token/限流/execlog 外部留痕）+ 生命周期 webhook + `docs/openapi/incidents.yaml` + curl 冒烟                                                                                   | —    | ⏳ 待做    |
+
+### 批 3 交付说明（2026-10-10）
+
+- 三页：`/ops/incidents`（登记/筛选/详情抽屉/认领/解决/重开）、`/ops/incident-reports`（四档位 + 周期步进 + 汇总/趋势/排行榜/责任人报告）、`/ops/incident-categories`（类别 CRUD + 内建保护 + slug 校验）。
+- 转事故接入：告警页操作列（refType=alert，refId=alertname+instance 合成签名，detectedAt=startsAt）+ CI/CD 构建失败行（refType=cicd_build，refId=externalId，responsibleType=change）。共享组件 `web/src/components/ConvertToIncidentModal`。
+- 静态页不走 PageSpec（§8），发布链闭环不强制；tsc 0 错 + 5 个 jest 套件 23 用例 + guard PASSED。
+- 已知边界：probe 故障窗口与 supervisor 事件 server 侧不落库（agent 内存环/本地文件，§4.3 锚点），当前无列表面可挂转换入口——转换入口待数据面落地后接入。
 
 ## 已知边界（诚实清单）
 
@@ -322,3 +329,5 @@ TaskSchedule（task_schedules 表，五字段 cron：
 - 对外 API v1 不做按 token 的数据范围收窄（全量只读）；OpenAPI 仅文档，无 SDK 生成。
 - 周期口径依赖 server 本地时区：多实例跨时区部署会造成周期边界漂移（当前单实例部署模型，scheduler 同款假设）。
 - 存量 bug 无类别（category_id=0）：报表归入「未分类」线，不做回填向导。
+- probe 故障窗口 / supervisor 事件不落库（agent 侧内存环/本地文件）：无列表页可挂「转事故」入口，转换时须把时间线快照进 incident 行（§4.3）；待数据面落地后接入。
+- 告警无行 ID（alertmanager 代理）：转事故 refId 用 alertname+instance 合成签名，与告警侧去重口径一致。
