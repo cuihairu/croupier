@@ -338,6 +338,14 @@ const config = defineConfig({
               text: "provider 插件设计（driver 层）",
               link: "/design/provider-plugin-design",
             },
+            {
+              text: "事故报表体系（登记/归因/报表/分发）",
+              link: "/design/incident-reports",
+            },
+            {
+              text: "服务器状态对接（维护窗口 Provider）",
+              link: "/design/server-status-provider",
+            },
           ],
         },
       ],

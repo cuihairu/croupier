@@ -9,18 +9,20 @@ title: 插件机制正式设计——扩展点全景、外部服务接入规范�
 - 状态: **Proposed（2026-10-10 设计补单令落档，零代码过目；同日补单令并入 LAN 资产接入——§3.8）**；拍板后按 §8 分期，与六件套同款节奏。
 - 补单令三项合写一份：①插件机制正式设计（§2/§3/§6/§7）②外部服务接入规范（§4 + 附录 A）③herald 对接规范（§5 + 附录 B）；另并入 ④devops-agent LAN 资产接入方式（§3.8，cockpit 首选 + provider 兜底）。
 - 设计输入: [插件架构调研](../research/plugin-architecture-survey.md)（Grafana/VS Code/WordPress/VitePress 六问口径）、[Provider 插件设计](provider-plugin-design.md)（#66，P0 已落地）、[扩展安装模型](../architecture/extension-installation-model.md)（五表 4 态）、[官方扩展统一模式](../architecture/official-extension-unified-pattern.md)、[herald 对接简档](agent-herald-integration.md)、[Agent 清单](agents-inventory.md)。
+- 口径令（2026-10-10，出口 Provider 化 + 通知强化，并入本设计）：①告警出口 Provider 化——`notify(event) -> {delivered, channel, retry}` 契约 + 注册表 + 配置降级顺序（主出口失败滑下一个，网关 fallback 同构）；herald 只是默认外部出口选项，不绑死；②**默认 no-op 第一原则**——所有外部服务 Provider（告警出口/状态源/供应商调用）默认=注册表内真实 no-op 实现（同接口，非 if 散落），零配置=零外发（数据外发默认关闭红线）；herald/atlas 均为选项，配置显式添加启用才生效，可增可删可换，切换=换注册项业务零改动；③告警默认=站内通知（内建默认开，零配置可达、零外发，走既有通知体系未读/已读/持久化）；外部出口=可选 Provider 链，失败降级回站内；④站内通知强化——level(info|warn|critical)/type/source/ref 字段 + 紧急度排序 + 重复触发升级去重（§5.1）。
 - 决策摘要（按推荐方案定稿，供拍板后审）:
-  1. **一套机制不两套**：插件机制 = 既有 extension 五表（catalog/release/installation/binding/events）+ #66 driver 层，本设计只做全景归位与增量契约，**不新建注册中心、不另立 manifest 格式**。
-  2. **四层信任分层**（§2）：编译期内置 → 官方扩展包 → 第三方扩展包 → 外部服务（零代码）。第三方不受信代码**不进进程**——以外部服务形态接入，不引入动态代码加载（沿 #66 裁决①）。
-  3. **无子进程/gRPC 沙箱**：进程内 + RBAC 三层 capability + secguard 出站守卫 + secrets 引用是隔离边界（survey §7.3 威胁模型不成立）。
-  4. **扩展点闭集七类起步**（§3）：外部平台调用 / CDC 数据源 / 检测器规则 / 告警出口 / 告警入口 / 面板页面与卡片 / agent 能力；新扩展点必须过 §7.2「六问」检查清单才能入表。
-  5. **检测器 v1 内置参数化，不开放第三方规则插件**：三道闸/devops 规则是模板+参数，规则引擎插件化留位（§3.3）。
-  6. **告警出口抽象 `Outlet` 接口位**（§5.1）：事件信封（§5.2）与出口解耦；herald 为第一内置出口，generic webhook 为第二出口留位——供应商可插拔，不绑 herald 实现。
-  7. **告警入口 webhook v1 闭集两格式**（§5.3）：Alertmanager 兼容 + generic JSON；HMAC 签名 + 时间戳防重放 + `event_id` 幂等，落现有告警页（静默/认领/升级全复用）。
-  8. **配置热更双轨**（§6.4）：server 侧 installation config PUT + reconcile 重建实例；agent 侧 core/configsync 版本号轮询（extension_sync_puller 先例）。
-  9. **LAN 资产接入 cockpit 优先**（§3.8）：devops-agent 接局域网 PVE/BMC/vSphere 资产，首选把 cockpit 当外部服务适配（L4 配置实例，统一 REST；croupier 只做客户端，不重复封装 bmclib/bpg-proxmox-api/govmomi）；cockpit 未部署/不可达时走 provider 插件位本地薄封装同款库直连（L1 driver，设计同源代码解耦——操作契约单一真值）。
-  10. **破坏性基础设施动作全部走审批+审计**（§3.8）：BMC 拉起/电源、PVE 快照回滚、克隆测试环境等动作步强制二次确认（复用审批流）+ execlog 审计。
-  11. **接口命名对齐 cockpit 设计简档**（§3.8）：操作闭集 `<asset>.<action>`（如 `bmc.power_on` / `pve.snapshot_rollback` / `vsphere.vm_clone`），croupier 侧不另造第二套命名。
+  1. **默认 no-op 第一原则（零配置=零外发）**：所有外部服务 Provider（告警出口/状态源/供应商调用）默认=注册表内**真实 no-op 实现**（同接口，非 if 判断散落业务代码）——零配置即零外发，符合数据外发默认关闭红线；herald/atlas 都是**选项**，配置里显式添加并启用才生效，可增可删可换；切换=换注册项，业务代码零改动；配置页列清「已启用的外部服务」，每项带启用开关。
+  2. **一套机制不两套**：插件机制 = 既有 extension 五表（catalog/release/installation/binding/events）+ #66 driver 层，本设计只做全景归位与增量契约，**不新建注册中心、不另立 manifest 格式**。
+  3. **四层信任分层**（§2）：编译期内置 → 官方扩展包 → 第三方扩展包 → 外部服务（零代码）。第三方不受信代码**不进进程**——以外部服务形态接入，不引入动态代码加载（沿 #66 裁决①）。
+  4. **无子进程/gRPC 沙箱**：进程内 + RBAC 三层 capability + secguard 出站守卫 + secrets 引用是隔离边界（survey §7.3 威胁模型不成立）。
+  5. **扩展点闭集七类起步**（§3）：外部平台调用 / CDC 数据源 / 检测器规则 / 告警出口 / 告警入口 / 面板页面与卡片 / agent 能力；新扩展点必须过 §7.2「六问」检查清单才能入表。
+  6. **检测器 v1 内置参数化，不开放第三方规则插件**：三道闸/devops 规则是模板+参数，规则引擎插件化留位（§3.3）。
+  7. **告警出口 Provider 链**（§5.1）：站内通知=内建默认出口（默认必有、零配置可达、零外发，走既有通知体系未读/已读/持久化）→ 外部出口=可选 Provider 链（notify 契约 + 注册表 + 降级顺序：主出口失败滑下一个；herald 为默认外部选项，generic webhook/邮件同接口接入）；三类 Provider（告警出口/状态源/供应商）**同构同机制**，不搞三套模式。
+  8. **告警入口 webhook v1 闭集两格式**（§5.3）：Alertmanager 兼容 + generic JSON；HMAC 签名 + 时间戳防重放 + `event_id` 幂等，落现有告警页（静默/认领/升级全复用）。
+  9. **配置热更双轨**（§6.4）：server 侧 installation config PUT + reconcile 重建实例；agent 侧 core/configsync 版本号轮询（extension_sync_puller 先例）。
+  10. **LAN 资产接入 cockpit 优先**（§3.8）：devops-agent 接局域网 PVE/BMC/vSphere 资产，首选把 cockpit 当外部服务适配（L4 配置实例，统一 REST；croupier 只做客户端，不重复封装 bmclib/bpg-proxmox-api/govmomi）；cockpit 未部署/不可达时走 provider 插件位本地薄封装同款库直连（L1 driver，设计同源代码解耦——操作契约单一真值）。
+  11. **破坏性基础设施动作全部走审批+审计**（§3.8）：BMC 拉起/电源、PVE 快照回滚、克隆测试环境等动作步强制二次确认（复用审批流）+ execlog 审计。
+  12. **接口命名对齐 cockpit 设计简档**（§3.8）：操作闭集 `<asset>.<action>`（如 `bmc.power_on` / `pve.snapshot_rollback` / `vsphere.vm_clone`），croupier 侧不另造第二套命名。
 
 ## 1. 定位：给「插件」下一个全仓定义
 
@@ -73,9 +75,9 @@ title: 插件机制正式设计——扩展点全景、外部服务接入规范�
 
 ### 3.4 告警出口（alert outlet）
 
-- 契约面：`Outlet` 接口位（§5.1）——`Deliver(ctx, AlertEvent) error`，AlertEvent 为 §5.2 统一信封。
-- 注册：编译期工厂 + server 侧配置选择启用；herald 适配器为第一内置实现。
-- 状态：**已落地（2026-10-10，M2）**——`internal/platform/outlet`（Outlet + Manager + HeraldOutlet），事件源 hook 走 `MetricsStore.SetOnSupervisorEvent`，配置段 `herald:`（herald 简档 §8 有实现与简档差异清单；扇出多出口仍留位）。
+- 契约面：`Outlet` 接口位（§5.1）——`Deliver(ctx, AlertEvent) (DeliveryOutcome, error)`，AlertEvent 为 §5.2 统一信封；回执 `{delivered, channel, retry}` 供降级链判定与失败计数。
+- 注册：编译期工厂注册表 + server 侧配置选择启用与降级顺序；**默认 no-op 第一原则**（决策①）：未配置任何外部出口时链=仅站内（内建默认出口，零外发）；herald 为默认外部选项，generic webhook/邮件同接口接入。
+- 状态：**已落地（2026-10-10，M2）**——`internal/platform/outlet`（Outlet + Manager + HeraldOutlet），事件源 hook 走 `MetricsStore.SetOnSupervisorEvent`，配置段 `herald:`（herald 简档 §8 有实现与简档差异清单）；**Provider 化 + 降级链 + 通知分级为 2026-10-10 口径令增量**（§5.1 修订，实现批次 §8 M6）。
 
 ### 3.5 告警入口（inbound alerts，webhook 形式）
 
@@ -133,23 +135,35 @@ devops-agent 要能操作局域网内的 PVE/BMC/vSphere 资产（部署流水�
 
 ## 5. herald 对接规范（告警出口双向）
 
-### 5.1 出口抽象（供应商可插拔，不绑实现）
+### 5.1 出口抽象（Provider 化：注册表 + 降级链 + 站内默认）
+
+**第一原则：默认 no-op（零配置=零外发）**。所有外部服务 Provider（告警出口/状态源/供应商调用）默认=注册表内**真实 no-op 实现**（同接口，非 if 判断散落业务代码）——零配置即零外发，符合数据外发默认关闭红线。herald/atlas 都是**选项**：配置里显式添加并启用才生效，可增可删可换；切换=换注册项，业务代码零改动。配置页列清「已启用的外部服务」，每项带启用开关。
 
 - **`Outlet` 接口位**（server 侧，小接口）：
 
 ```go
-// Deliver 投递一条告警事件；返回错误即投递失败（异步重试由出口管理器负责）。
+// Deliver 投递一条告警事件；回执供降级链判定与失败计数。
 // 实现必须非阻塞友好（内部队列或快速返回）。
 type Outlet interface {
-    Name() string // 配置选择键（"herald" / "webhook"）
-    Deliver(ctx context.Context, ev AlertEvent) error
+    Name() string // 注册表键（"internal" / "noop" / "herald" / "webhook" / "email"）
+    Deliver(ctx context.Context, ev AlertEvent) (DeliveryOutcome, error)
+}
+
+// DeliveryOutcome 出口回执：降级链与失败计数的判定依据。
+type DeliveryOutcome struct {
+    Delivered bool   // 是否送达（回执语义由实现定义）
+    Channel   string // 实际投递渠道（herald 品类 / webhook URL 标识 / …）
+    Retryable bool   // 失败是否可重试（Permanent 短路分类沿用 M2）
 }
 ```
 
-- 事件源（capture 规则命中 / devops 规则 / supervisor 熔断 / healthprobe 窗口）只产 §5.2 信封，**不感知出口**；出口管理器按配置扇出（v1 单出口，多出口扇出留位）。
-- **herald = 第一内置出口**：对接方式以 [herald 简档](agent-herald-integration.md)为权威（apps 集成者 API / 事件适配面 / trigger token / 品类映射 / courier 式接法），本设计不重复；差异仅在实现落点上把「herald 适配器」泛化为「Outlet 接口的第一实现」。
-- **generic webhook = 第二出口留位**（§4.2 形态 2）：同一信封 POST 出去，供应商侧自建映射；无 herald 的部署用 webhook 出口对接钉钉/飞书/企业微信机器人（M2 之后的按需批）。
-- 供应商可插拔原则落点：**新增出口 = 新增一个 Outlet 实现（L1 内置）+ 配置一行**，事件词汇与告警管线零改动。
+- **出口链（配置驱动降级顺序）**：`outlets: [{type, enabled, config}…]` 有序表；投递按序尝试，主出口失败（Retryable）滑下一个；链尾仍失败=失败计数+日志（§6.6，禁静默丢弃）。**站内出口（`internal`）是链首内建项，默认必有、不可删、零外发**——任何配置下站内通知都可达；外部出口全部失败自然降级回站内（用户口径：告警默认=站内通知）。
+- **注册表（编译期工厂）**：`internal`（站内通知，内建默认，写 messages 表并带 level/type/source/ref 分级，见下）/ `noop`（外部默认：无外部出口配置时的静默实现，**真实注册项**）/ `herald`（默认外部选项，M2 已交付）/ `webhook`（generic，§4.2 形态 2）/ `email`（留位）。**新增出口 = 新增一个 Outlet 实现（L1 内置）+ 注册一行**，事件词汇与告警管线零改动。
+- **站内通知强化（2026-10-10 口径令）**：messages 表加 `level`（`info|warn|critical` 枚举，默认 info，历史回填 info）/ `type`（通知类型：incident/alert/report/system…，复用既有列）/ `source`（哪个 agent/状态源）/ `ref_type`+`ref_id`（关联对象：incident/服务器，可筛选）/ `scope`（**可见范围，必备字段**，见下）；**排序**=紧急度 critical>warn>info、同级内时间倒序（列表/面板默认）；**视觉分级**=角标颜色/图标按级别区分，站内出口产生的通知默认按事件 severity 映射分级（critical/warning/info→critical/warn/info）；**升级机制**=同一事件（dedupKey）重复触发升级级别（info→warn→critical，重复 warn→critical）并去重（更新同行不新建）；报表推送同按此分级（见 [incident-reports](incident-reports.md) §6）。
+- **通知可见范围（scope，2026-10-10 补令）**：**通知不是全员广播**。messages.scope 记录类别上下文（如 `{category: "client"}`）；可见性=read 时经「类别→部门/角色」映射解析（映射存 incident_categories.audience `{roles, users}`，设置页可改）：该类别受众（部门角色+显式账号）+ 该类 leader 可见，**管理员看全量**；报表/排行榜/责任人报告同规则——**总聚合只给管理员，leader 收自己类别分片，不是人人一份**；无归属类别的通知归「运维」或配置的兜底接收组，**不落空**；对外 API/Webhook 同理按 token 的 scope 限可见面（incident-reports §9）。
+- 事件源（capture 规则命中 / devops 规则 / supervisor 熔断 / healthprobe 窗口）只产 §5.2 信封，**不感知出口**；出口管理器按配置链投递（M2 Manager 扇出/重试/Permanent 短路语义保留，扩展为链式降级）。
+- **herald = 默认外部出口选项**：对接方式以 [herald 简档](agent-herald-integration.md)为权威（apps 集成者 API / 事件适配面 / trigger token / 品类映射 / courier 式接法），本设计不重复；差异仅在实现落点上把「herald 适配器」泛化为「Outlet 注册表的一个实现」。
+- **generic webhook = 同接口实现**（§4.2 形态 2）：同一信封 POST 出去，供应商侧自建映射；无 herald 的部署用 webhook 出口对接钉钉/飞书/企业微信机器人。
 
 ### 5.2 统一告警事件信封（出站 wire）
 
@@ -177,7 +191,8 @@ herald 映射（kind→品类、severity→紧急度、event_id→幂等）沿 h
 
 ### 5.4 边界（诚实清单）
 
-- 出口失败不阻塞告警链：异步投递 + 有限重试 + 失败计数（herald 简档 §6 口径，全出口通用）。
+- 出口失败不阻塞告警链：异步投递 + 有限重试 + 链式降级（主出口失败滑下一个，链尾失败计数+日志；站内出口默认必有不受降级影响——herald 简档 §6 口径的 Provider 链版，全出口通用）。
+- 未配置外部出口=仅站内（外部默认 no-op），零外发；配置页须列清「已启用的外部服务」并每项带启用开关（决策①）。
 - 入口签名校验失败 = 400 + 审计事件；不落库（防注水）。
 - 静默/认领语义 croupier 侧处置状态，不传出口停投递（herald 简档 §6 同款边界，全出口通用）。
 - generic webhook 出口的模板化 payload（钉钉/飞书格式适配）留位，v1 只投标准信封。
