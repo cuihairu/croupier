@@ -117,6 +117,13 @@ serverStatus:
 | 批 S2 | gate 接线（Outlet 投递前钩子 + ServerRef 解析 + agent_sessions join）+ 事件标注 + 抑制计数                                 | 出口链集成测试 + 出站失败不阻塞既有语义回归     |
 | 批 S3 | atlas 适配器实联（atlas 仓可得则真实 API 对齐 + env 门控冒烟；不可得则可配映射 + stub 冒烟）+ 设置页「已启用外部服务」呈现 | 拨测绿 + 配置切换换注册项验证                   |
 
+### 批 S1 交付说明（2026-10-10）
+
+- 落点 `internal/platform/serverstatus/`：`provider.go`（Provider 接口 + ServerRef/ServerStatus/ServerSummary 契约 + ErrNoMapping/ErrProviderUnavailable 错误闭集）、`registry.go`（编译期工厂注册表，`Options{BaseURL,Token,Timeout,Atlas}` 构造参数；noop/atlas 内置注册）、`noop.go`（真实 no-op：恒「无维护信息」gate 直通）、`atlas.go`（REST 适配器骨架：`GET {baseURL}{statusPath}?{matchKey}={match}`，可配路径模板 + 响应字段映射（契约字段名→atlas JSON 键，alertInbound labelMapping 同款），数组/单对象响应都吃，Bearer token 头）、`cache.go`（进程内 TTL 缓存，只缓存成功结果，错误不缓存）、`gate.go`（三分支判定内核 + 抑制/未知/回源计数 + 日志留痕）。
+- gate 三分支（S1 验收）：InMaintenance → Suppressed（计数+日志，落库不变）；非维护 → 照投；查询失败/超时/无映射/ref 无定位 → 照投 + SourceUnknown（宁误报不漏报）。provider 未布线或 ref 无法定位服务器 → 直通不过 gate。
+- 配置段 `serverStatus:`（enabled/provider/matchBy/cacheTtlSeconds + `providers` 子段，key 为注册表键：baseUrl/tokenEnv/timeoutMs/statusPath/matchKey/fieldMapping）已落 `internal/config`，lowerCamelCase tags；svc 装配（config→Options 映射 + Outlet 挂钩）属 S2。
+- 已知边界：atlas 默认字段名按小驼峰契约（`healthy`/`inMaintenance`/`windowStart`…），未对齐真实 atlas API 前为骨架口径（S3 回填）；非 bool/非 string 的映射值按零值处理。
+
 ## 已知边界（诚实清单）
 
 - atlas API 契约待 atlas 侧对齐：S3 之前 atlas 适配器为可配置映射骨架，未对齐前不宣称实联。

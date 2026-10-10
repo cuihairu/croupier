@@ -156,3 +156,24 @@ metrics:
 #         instance: type
 #     generic:
 #       secretEnv: GENERIC_INBOUND_SECRET
+
+# serverStatus 服务器维护状态 Provider（server-status-provider 设计）：agent
+# 探活异常的维护窗口 gate——在维护=静默不报（抑制计数留痕，落库不变），不在
+# 维护=照报；状态源不可达=按未知处理照报并标 source_unknown（宁误报不漏报）。
+# 缺省关=gate 整体旁路，行为与现状一致；provider 键闭集 noop/atlas（可扩），
+# tokenEnv 指向持 API token 的环境变量（凭证不落配置文件）；状态源不可达缓存
+# 不生效（错误不缓存），TTL 内维护窗变更最多延迟 cacheTtlSeconds 生效。
+# serverStatus:
+#   enabled: true
+#   provider: atlas
+#   matchBy: agentId
+#   cacheTtlSeconds: 60
+#   providers:
+#     atlas:
+#       baseUrl: http://atlas.internal:8080
+#       tokenEnv: ATLAS_API_TOKEN
+#       timeoutMs: 3000
+#       statusPath: /api/servers
+#       matchKey: agentId
+#       fieldMapping:
+#         inMaintenance: frozen

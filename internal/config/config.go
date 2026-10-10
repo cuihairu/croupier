@@ -50,6 +50,10 @@ type Config struct {
 	// ExternalAPI 对外 REST API（incident-reports §9）：调用令牌鉴权 + 按
 	// 令牌名限流。rateLimitPerMinute 缺省 30。
 	ExternalAPI ExternalAPIConfig `json:"externalAPI,omitempty" yaml:"externalAPI,omitempty"`
+	// ServerStatus 服务器维护状态 Provider（server-status-provider §3.2）：
+	// agent 探活异常的维护窗口 gate。enabled 缺省 false=gate 整体旁路；
+	// provider 缺省 noop（零配置=零行为变化+零外发）。
+	ServerStatus ServerStatusConfig `json:"serverStatus,omitempty" yaml:"serverStatus,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
@@ -103,6 +107,39 @@ type AlertInboundSourceConfig struct {
 type ExternalAPIConfig struct {
 	// RateLimitPerMinute 按令牌名分桶的滑动窗口限流上限；<=0 取默认 30。
 	RateLimitPerMinute int `json:"rateLimitPerMinute,omitempty" yaml:"rateLimitPerMinute,omitempty"`
+}
+
+// ServerStatusConfig 服务器维护状态 Provider 配置（server-status-provider
+// 设计 §3.2）。零配置（缺省）= gate 整体旁路，行为与现状一致。
+type ServerStatusConfig struct {
+	// Enabled 缺省 false：关=gate 整体旁路（全部照报，行为与现状一致）。
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// Provider 状态源注册表键（noop | atlas | …）。空按 noop 处理。
+	Provider string `json:"provider,omitempty" yaml:"provider,omitempty"`
+	// MatchBy 服务器定位匹配键（agentId | host | ip；缺省 agentId）。
+	MatchBy string `json:"matchBy,omitempty" yaml:"matchBy,omitempty"`
+	// CacheTtlSeconds 状态查询缓存 TTL 秒数；<=0 取默认 60。
+	CacheTtlSeconds int `json:"cacheTtlSeconds,omitempty" yaml:"cacheTtlSeconds,omitempty"`
+	// Providers 各状态源实现专属配置（key=注册表键）。
+	Providers map[string]ServerStatusSourceConfig `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// ServerStatusSourceConfig 单个状态源实现的专属配置。
+type ServerStatusSourceConfig struct {
+	// BaseURL 状态源服务地址（atlas 等真实源必填）。
+	BaseURL string `json:"baseUrl,omitempty" yaml:"baseUrl,omitempty"`
+	// TokenEnv 持 API token 的环境变量名（凭证走环境变量引用，不落配置
+	// 文件——herald tokenEnv 同款口径）。
+	TokenEnv string `json:"tokenEnv,omitempty" yaml:"tokenEnv,omitempty"`
+	// TimeoutMs 单次查询超时毫秒；<=0 取实现默认 3000。
+	TimeoutMs int `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty"`
+	// StatusPath 状态查询路径（atlas 专属；默认 /api/servers）。
+	StatusPath string `json:"statusPath,omitempty" yaml:"statusPath,omitempty"`
+	// MatchKey 定位参数名（atlas 专属；默认 agentId）。
+	MatchKey string `json:"matchKey,omitempty" yaml:"matchKey,omitempty"`
+	// FieldMapping 响应字段映射（atlas 专属：契约字段名→atlas JSON 键；
+	// 配置驱动，不写死供应商字段名——alertInbound labelMapping 同款）。
+	FieldMapping map[string]string `json:"fieldMapping,omitempty" yaml:"fieldMapping,omitempty"`
 }
 
 // PagesConfig 页面发布分级配置。
