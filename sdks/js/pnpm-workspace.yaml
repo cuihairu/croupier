@@ -6,7 +6,8 @@ onlyBuiltDependencies:
   - esbuild
 
 overrides:
-  handlebars: ^4.7.9
+  # 2026-10-10 抬至 4.7.10（Dependabot #429/#430/#431 critical/medium，patched 4.7.10）
+  handlebars: ^4.7.10
   # 2026-09-30 安全补丁：brace-expansion ReDoS/DoS 链（2.x 线修复 2.1.7）
   brace-expansion: ^2.1.7
   flatted: ^3.4.2

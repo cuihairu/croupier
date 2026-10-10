@@ -17,6 +17,9 @@ minimumReleaseAgeExclude:
   - react-router@6.30.6
 
 overrides:
+  # 2026-10-10 安全批次（Dependabot #432/#433/#434 critical/medium：handlebars
+  # AST 类型混淆/属性检查绕过/内联嵌入注入，patched 4.7.10；umi 模板链引入）
+  handlebars@<4.7.10: '>=4.7.10 <5.0.0'
   minimatch: '>=5.0.0'
   eslint: '>=9.26.0'
   '@babel/runtime': '>=7.26.10 <8.0.0' # umi 依赖 7.x，8.0.0 移除了 ./helpers/esm/* 导出
