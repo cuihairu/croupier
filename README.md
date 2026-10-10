@@ -1,3 +1,5 @@
+[English](README.md) | [中文](README.zh.md)
+
 <p align="center">
   <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
 </p>
@@ -11,229 +13,226 @@
   <img src="https://img.shields.io/badge/go-1.26.6+-green.svg" alt="Go Version"/>
 </p>
 
-Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
+Croupier is a Server / Agent / SDK platform for game operations and control, designed to serve multiple games and multiple environments within a single game company. The current architecture has converged on a unified session transport:
 
-- `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
-- `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
-- 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
+- `Agent <-> Server`: `TCP session` by default, `TLS` enabled by default
+- `SDK <-> Agent`: `TCP session` by default, `TLS` off by default and enabled on demand
+- Both links share the same session transport foundation and differ only in the first handshake message and business semantics (subprotocols)
 
-## 在线演示
+## Online Demo
 
-地址：https://croupier.cuihairu.site/
+URL: https://croupier.cuihairu.site/
 
-| 账号    | 密码       |
+| Account | Password   |
 | ------- | ---------- |
 | `admin` | `admin123` |
 
-> [演示环境，全部为假数据，会不定期重置。请勿填写任何真实信息。]
+> [Demo environment. All data is fake and may be reset at any time. Do not enter any real information.]
 
 ## Highlights
 
-- 单公司、多游戏、多环境作用域模型：标准业务边界是 `gameId + env`
-- 业务作用域与运行目标分离：`scope` 表达归属，`target` 表达部署与执行位置
-- 统一的函数注册、调度、调用与作业模型
-- 轻量 session 传输：单连接、双向请求、可重连、可背压、可摘流
-- JSON payload + protobuf 信封，兼顾跨语言一致性与接入成本
-- JSON Schema 能力契约 + Ant Design Pro/ProComponents 驱动的生成式控制台 UI
+- Single-company, multi-game, multi-environment scope model: the standard business boundary is `gameId + env`
+- Business scope separated from runtime target: `scope` expresses ownership, `target` expresses where things are deployed and executed
+- A unified model for function registration, scheduling, invocation, and jobs
+- Lightweight session transport: single connection, bidirectional requests, reconnect, backpressure, and drain
+- JSON payloads with protobuf envelopes, balancing cross-language consistency against integration cost
+- JSON Schema capability contracts plus a generated console UI driven by Ant Design Pro / ProComponents
 
-## 支持的数据库
+## Supported Databases
 
-| 数据库     | 驱动                       | 适用场景             |
-| ---------- | -------------------------- | -------------------- |
-| SQLite     | `glebarez/sqlite`          | 开发、测试、小型部署 |
-| MySQL      | `gorm.io/driver/mysql`     | 生产环境（推荐）     |
-| PostgreSQL | `gorm.io/driver/postgres`  | 生产环境             |
-| SQL Server | `gorm.io/driver/sqlserver` | 企业环境             |
+| Database   | Driver                     | Use case                              |
+| ---------- | -------------------------- | ------------------------------------- |
+| SQLite     | `glebarez/sqlite`          | Development, testing, small deployments |
+| MySQL      | `gorm.io/driver/mysql`     | Production (recommended)              |
+| PostgreSQL | `gorm.io/driver/postgres`  | Production                            |
+| SQL Server | `gorm.io/driver/sqlserver` | Enterprise environments               |
 
-各库 DSN 配置示例见[服务端配置说明](docs/operations/config-server.md)。
+For DSN configuration examples for each database, see [Server Configuration](docs/operations/config-server.md).
 
-## SDK 生态
+## SDK Ecosystem
 
-所有官方 SDK 已整合到 monorepo 的 `sdks/` 目录下统一维护。
+All official SDKs are maintained together under the monorepo's `sdks/` directory.
 
-### 官方 SDK
+### Official SDKs
 
-| 语言   | 目录           | Build                                                                                                                                                                    | Coverage                                                                                                                                    | Docs                            |
-| ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Go     | `sdks/go/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=go-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/go/README.md)     |
-| C#     | `sdks/csharp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
-| Java   | `sdks/java/`   | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier)   | [README](sdks/java/README.md)   |
-| C++    | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)    | [README](sdks/cpp/README.md)    |
-| Python | `sdks/python/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
-| JS/TS  | `sdks/js/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/js/README.md)     |
+| Language | Directory      | Build                                                                                                                                                                    | Coverage                                                                                                                                    | Docs                            |
+| -------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Go       | `sdks/go/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=go-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/go/README.md)     |
+| C#       | `sdks/csharp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
+| Java     | `sdks/java/`   | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier)   | [README](sdks/java/README.md)   |
+| C++      | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)    | [README](sdks/cpp/README.md)    |
+| Python   | `sdks/python/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
+| JS/TS    | `sdks/js/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/js/README.md)     |
 
-### Web 控制台（Dashboard）
+### Web Console (Dashboard)
 
-| 模块      | 目录   | Build                                                                                                                                                                  | Coverage                                                                                                                                       |
-| --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard | `web/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=web-dashboard)](https://codecov.io/gh/cuihairu/croupier) |
+| Module    | Directory | Build                                                                                                                                                                  | Coverage                                                                                                                                       |
+| --------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard | `web/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=web-dashboard)](https://codecov.io/gh/cuihairu/croupier) |
 
-## 架构
+## Architecture
 
-三层结构：控制台（Web）→ Server（控制面，可多实例 HA）→ Agent（游戏 VPC 代理）→ Game Server / SDK。
-入口按受众分离：Web 控制台走 L7（HTTP API / SSE），Agent 走内网 L4（TCP 长连接）。
+Three tiers: Console (Web) → Server (control plane, multi-instance HA capable) → Agent (proxy inside the game VPC) → Game Server / SDK.
+Entry points are separated by audience: the web console goes over L7 (HTTP API / SSE), agents over internal L4 (persistent TCP connections).
 
-详见 [系统架构总览](docs/architecture/index.md)与[负载均衡选型](docs/operations/load-balancing.md)。
+See the [System Architecture Overview](docs/architecture/index.md) and [Load Balancing](docs/operations/load-balancing.md) for details.
 
-## 底座来源
+## Open Source Foundation
 
-Croupier 不是 fork，是一层控制面业务系统，底层全部站在开源组件上（版本以 `go.mod` / `web/package.json` 为准）：
+Croupier is not a fork; it is a control-plane business layer built entirely on open-source components (versions as pinned in `go.mod` / `web/package.json`):
 
-- 服务端：Go 1.26，HTTP 用 [Gin](https://github.com/gin-gonic/gin)，ORM 用 [GORM](https://gorm.io)（MySQL / PostgreSQL / SQL Server / glebarez SQLite 四驱动），权限判定用 [Casbin](https://casbin.org)，编号迁移用 goose
-- 传输：Agent↔Server、SDK↔Agent 的 TCP session 基于Go 标准库 `net` + `crypto/tls` 实现（长度前缀分帧、protobuf 信封），未引入 gRPC，取舍见 [transport-no-grpc.md](docs/architecture/transport-no-grpc.md)
-- 可观测：[OpenTelemetry](https://opentelemetry.io) Go SDK + OTLP HTTP exporter 上报
-- 控制台：基于 [Umi Max](https://umijs.org) 与 [Ant Design](https://ant.design) / ProComponents 构建，JSON Schema 表单由 [RJSF](https://rjsf.github.io/react-jsonschema-form/) 驱动，编辑器用 [Monaco](https://microsoft.github.io/monaco-editor/)
-- 协议与工具链：[protobuf](https://protobuf.dev)（protoc 全本地生成）+ [buf](https://buf.build) lint
-- 六语言 SDK（go / js / python / java / csharp / cpp）基于各自语言标准库实现，wire 契约见 [sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
+- Server: Go 1.26, HTTP via [Gin](https://github.com/gin-gonic/gin), ORM via [GORM](https://gorm.io) (four drivers: MySQL / PostgreSQL / SQL Server / glebarez SQLite), authorization via [Casbin](https://casbin.org), versioned migrations via goose
+- Transport: the Agent↔Server and SDK↔Agent TCP sessions are implemented on the Go standard library `net` + `crypto/tls` (length-prefix framing, protobuf envelopes); no gRPC is introduced — see [transport-no-grpc.md](docs/architecture/transport-no-grpc.md) for the trade-off
+- Observability: [OpenTelemetry](https://opentelemetry.io) Go SDK with OTLP HTTP exporter reporting
+- Console: built on [Umi Max](https://umijs.org) and [Ant Design](https://ant.design) / ProComponents; JSON Schema forms powered by [RJSF](https://rjsf.github.io/react-jsonschema-form/), editor provided by [Monaco](https://microsoft.github.io/monaco-editor/)
+- Protocol and toolchain: [protobuf](https://protobuf.dev) (fully local protoc generation) + [buf](https://buf.build) lint
+- Six-language SDKs (go / js / python / java / csharp / cpp) implemented on each language's standard library; wire contract in [sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
 
-## Session 模型
+## Session Model
 
-Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量的应用层 session：
+The core transport abstraction in Croupier today is not a `message-history model`; it is a lightweight application-layer session:
 
-- 一条可靠长连接
-- 首条消息完成身份与能力协商
-- 同一连接上双向发起新请求
-- 多个并发 in-flight 请求复用
+- One reliable long-lived connection
+- The first message negotiates identity and capabilities
+- New requests can be initiated in both directions on the same connection
+- Multiple concurrent in-flight requests are multiplexed
 - heartbeat / reconnect / drain / backpressure
 
-这也是为什么当前文档中会出现两个术语：
+This is why two terms appear in the current documentation:
 
 - `shared session runtime`
-  - 指共享的传输基座：`tcp/tls + framing + mux + reconnect + heartbeat + drain`
+  - Refers to the shared transport foundation: `tcp/tls + framing + mux + reconnect + heartbeat + drain`
 - `subprotocol`
-  - 指运行在该基座上的不同子协议
-  - 例如：
+  - Refers to the different subprotocols running on that foundation
+  - For example:
     - `sdk-agent subprotocol`
     - `agent-server subprotocol`
 
-`subprotocol` 不是“个性化配置”，而是“共享同一套 session 运行时，但握手消息、注册内容和路由语义不同的应用层协议变体”。
+A `subprotocol` is not a per-client customization; it is an application-layer protocol variant that shares the same session runtime but differs in handshake message, registration content, and routing semantics.
 
-## Scope 模型
+## Scope Model
 
-Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
+Croupier does not adopt a SaaS multi-tenant abstraction. The standard business scope is:
 
-- `gameId`：游戏标识。分层形态：REST/SDK 契约键 `gameId`，HTTP 头 `X-Game-ID`，proto 字段与 DB 列 `game_id`
-- `env`：逻辑环境标识，如 `dev`、`staging`、`prod`
+- `gameId`: game identifier. Layered forms: REST/SDK contract key `gameId`, HTTP header `X-Game-ID`, proto field and DB column `game_id`
+- `env`: logical environment identifier, such as `dev`, `staging`, `prod`
 
-这里的 `env` 表达的是生命周期阶段，不直接等于具体数据库、集群或节点。物理部署与运行位置应通过单独的 `target`、`node`、`agent` 等抽象表达，而不是混入 `env`。
+Here `env` expresses a lifecycle stage; it does not directly equal a specific database, cluster, or node. Physical deployment and execution location should be expressed through separate abstractions such as `target`, `node`, and `agent`, not mixed into `env`.
 
-## 文档入口
+## Documentation
 
-- 架构总览：[docs/architecture/index.md](docs/architecture/index.md)
-- 游戏与环境作用域：[docs/architecture/game-environment-scope.md](docs/architecture/game-environment-scope.md)
-- SDK-Agent 设计：[docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
-- Agent-Server 设计：[docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
-- Wire 协议：[docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
-- 统一 SDK 文档：[docs/sdks/index.md](docs/sdks/index.md)
-- SDK 能力矩阵：[docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
-- SDK 代码入口：[sdks/README.md](sdks/README.md)
+- Architecture overview: [docs/architecture/index.md](docs/architecture/index.md)
+- Game and environment scope: [docs/architecture/game-environment-scope.md](docs/architecture/game-environment-scope.md)
+- SDK–Agent design: [docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
+- Agent–Server design: [docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
+- Wire protocol: [docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
+- Unified SDK documentation: [docs/sdks/index.md](docs/sdks/index.md)
+- SDK capability matrix: [docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
+- SDK code entry point: [sdks/README.md](sdks/README.md)
 
-## 发布约定
+## Release Conventions
 
-- Server / Agent 发布标签使用 `v*`，例如 `v0.2.0`
-- SDK 发布标签使用带语言前缀的格式：
+- Server / Agent release tags use `v*`, for example `v0.2.0`
+- SDK release tags use a language-prefixed format:
   - `sdk-js-v0.1.0`
   - `sdk-python-v0.1.0`
   - `sdk-go-v0.1.0`
   - `sdk-java-v0.1.0`
   - `sdk-cpp-v0.1.0`
-- 这样可以避免 monorepo 中一个标签误触发所有发布 workflow
+- This prevents a single tag in the monorepo from accidentally triggering every release workflow
 
-## 仓库导航
+## Repository Map
 
-| 组件             | 位置                  | 说明                                            |
+| Component        | Location              | Description                                     |
 | ---------------- | --------------------- | ----------------------------------------------- |
-| Server / Agent   | `cmd/`, `internal/`   | 控制面、代理、调度、审计、注册与作业            |
-| Proto            | `proto/`              | protobuf 定义与生成入口（单源）                 |
-| SDKs             | `sdks/`               | 多语言 SDK（go, js, python, java, csharp, cpp） |
-| Dashboard        | `web/`                | Web 控制台（React + Ant Design）                |
-| Examples / Tools | `examples/`, `tools/` | 示例和辅助工具                                  |
-| Docs             | `docs/`               | 架构、指南、API 与 SDK 文档                     |
+| Server / Agent   | `cmd/`, `internal/`   | Control plane, proxy, scheduling, audit, registry, and jobs |
+| Proto            | `proto/`              | protobuf definitions and generation entry point (single source) |
+| SDKs             | `sdks/`               | Multi-language SDKs (go, js, python, java, csharp, cpp) |
+| Dashboard        | `web/`                | Web console (React + Ant Design)                |
+| Examples / Tools | `examples/`, `tools/` | Examples and helper tools                       |
+| Docs             | `docs/`               | Architecture, guides, API and SDK documentation |
 
-## 一键安装 Agent
+## One-Command Agent Install
 
-在游戏服务器上一条命令安装 croupier-agent（自动识别系统与 CPU 架构，产物匿名直下，重跑即升级）：
+Install croupier-agent on a game server with a single command (auto-detects OS and CPU architecture, downloads artifacts anonymously, and re-running upgrades in place):
 
-Linux（x86_64 / ARM64 / ARMv7）：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
-```
-
-macOS（Intel / Apple Silicon）：
+Linux (x86_64 / ARM64 / ARMv7):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
 ```
 
-Windows（PowerShell 5.1+，x64）：
+macOS (Intel / Apple Silicon):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
+```
+
+Windows (PowerShell 5.1+, x64):
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.ps1)))
 ```
 
-默认装最新稳定版；`--version nightly` 装每日构建、`--with-service` 注册开机自启（systemd / launchd / Windows 服务）、`--uninstall` 卸载。完整用法见 [Agent 一键安装](docs/operations/agent-install.md)。
+The latest stable release is installed by default; `--version nightly` installs the daily build, `--with-service` registers a boot-time autostart service (systemd / launchd / Windows service), and `--uninstall` removes it. Full usage: [Agent Install](docs/operations/agent-install.md).
 
-## Docker Compose 部署
+## Docker Compose Deployment
 
-预构建镜像一条命令起最小栈（server + agent + dashboard + postgres/redis，无需本地构建）：
+Start a minimal stack (server + agent + dashboard + postgres/redis) from prebuilt images with one command — no local build required:
 
 ```bash
 cd docker
 docker compose -f docker-compose.quickstart.yml up -d
 ```
 
-常用操作：
+Common operations:
 
 ```bash
-docker compose -f docker-compose.quickstart.yml logs -f server   # 看日志
-docker compose -f docker-compose.quickstart.yml down             # 停止
+docker compose -f docker-compose.quickstart.yml logs -f server   # view logs
+docker compose -f docker-compose.quickstart.yml down             # stop
 docker compose -f docker-compose.quickstart.yml pull && \
-docker compose -f docker-compose.quickstart.yml up -d            # 升级
-docker compose -f docker-compose.quickstart.yml down -v          # ⚠️ 清数据（连卷删）
+docker compose -f docker-compose.quickstart.yml up -d            # upgrade
+docker compose -f docker-compose.quickstart.yml down -v          # ⚠️ wipes data (volumes included)
 ```
 
-可选组件（SDK 六语言示例 / 分析管道）用 `--profile` 拉起，不混进默认栈；secret、
-端口、多游戏/单库切换与「`--profile` pull 级联重建全栈」的坑见
-[docker-compose.quickstart.yml](docker/docker-compose.quickstart.yml) 文件头注释
-与 [Docker 部署指南](docs/operations/deploy-docker.md)。
+Optional components (six-language SDK examples / analytics pipeline) are brought up with `--profile` and kept out of the default stack. For secrets, ports, multi-game/single-database switching, and the pitfall of "`--profile` pull cascading into a full-stack rebuild", see the header comments of [docker-compose.quickstart.yml](docker/docker-compose.quickstart.yml) and the [Docker Deployment Guide](docs/operations/deploy-docker.md).
 
-## 快速开始
+## Quick Start
 
-1. 拉取代码
+1. Clone the code
 
 ```bash
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
 ```
 
-2. 安装工具链
+2. Install the toolchain
 
 - Go 1.26.6+
 - Node.js 22+ / pnpm
 - `buf`
 - `protoc`
 
-3. 安装 pre-commit hook（推荐）
+3. Install the pre-commit hook (recommended)
 
 ```bash
 cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
 
-4. 构建
+4. Build
 
 ```bash
 make proto && make build
 ```
 
-5. 启动
+5. Start
 
 ```bash
 ./bin/croupier-server --config configs/server.yaml
 ./bin/croupier-agent --config configs/agent.yaml
 ```
 
-6. 查看 Dashboard
+6. View the Dashboard
 
 ```bash
 cd web
@@ -241,7 +240,7 @@ pnpm install
 pnpm dev
 ```
 
-## 说明
+## Notes
 
-当前仓库中仍有部分历史文档引用 `gRPC`、`历史 REQ/REP`、`LocalControl`、`rpc_addr` 或 SDK 本地监听模型。
-这些内容正在按“统一 TCP session + subprotocol”设计逐步清理，不应再作为新的实现依据。
+Some historical documents in this repository still reference `gRPC`, `legacy REQ/REP`, `LocalControl`, `rpc_addr`, or the SDK local-listener model.
+These are being cleaned up step by step under the "unified TCP session + subprotocol" design and should no longer be used as the basis for new implementations.
