@@ -82,11 +82,18 @@ func (h *HeraldOutlet) Name() string { return "herald" }
 
 // Deliver maps the envelope onto one dispatch call. 拒绝类错误（herald
 // Error）包 Permanent——重试无意义；Transport 错误原样返回由管理器重试。
-func (h *HeraldOutlet) Deliver(ctx context.Context, ev AlertEvent) error {
+// ev.Target 非空时覆盖默认受众（如 category-leader:<slug>——报表分片
+// 按类别 leader 定向，incident-reports §6）。
+func (h *HeraldOutlet) Deliver(ctx context.Context, ev AlertEvent) (DeliveryOutcome, error) {
+	category := categoryForKind(ev.Kind)
+	audience := h.target
+	if ev.Target != "" {
+		audience = ev.Target
+	}
 	_, err := h.client.Dispatch(ctx, heraldsdk.DispatchRequest{
-		Category:  categoryForKind(ev.Kind),
+		Category:  category,
 		Urgency:   urgencyForSeverity(ev.Severity),
-		Audiences: []string{h.target},
+		Audiences: []string{audience},
 		DedupKey:  ev.DedupKey,
 		EventID:   ev.EventID,
 		Title:     ev.Title,
@@ -94,9 +101,9 @@ func (h *HeraldOutlet) Deliver(ctx context.Context, ev AlertEvent) error {
 	})
 	if err != nil {
 		if heraldsdk.IsTransport(err) {
-			return err
+			return DeliveryOutcome{Delivered: false, Channel: category, Retryable: true}, err
 		}
-		return Permanent(err)
+		return DeliveryOutcome{Delivered: false, Channel: category, Retryable: false}, Permanent(err)
 	}
-	return nil
+	return DeliveryOutcome{Delivered: true, Channel: category}, nil
 }

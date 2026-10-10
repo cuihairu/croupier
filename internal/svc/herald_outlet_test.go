@@ -9,45 +9,79 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/outlet"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	gsqlite "github.com/glebarez/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func svcWithHerald(t *testing.T, cfg config.HeraldConfig) (*ServiceContext, *reg.MetricsStore) {
 	t.Helper()
 	store := reg.NewMetricsStoreWithConfig(reg.MetricsStoreConfig{MaxMemoryEntries: 2, MaxTotalEntries: 10})
-	ctx := &ServiceContext{Config: config.Config{Herald: cfg}, MetricsStore: store}
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Message{}); err != nil {
+		t.Fatalf("migrate messages: %v", err)
+	}
+	ctx := &ServiceContext{Config: config.Config{Herald: cfg}, MetricsStore: store, DB: db}
 	return ctx, store
 }
 
-func TestRegisterHeraldOutletDisabledByDefault(t *testing.T) {
+func TestRegisterOutletsDisabledByDefault(t *testing.T) {
 	t.Setenv("HERALD_TRIGGER_TOKEN", "tok")
 	ctx, store := svcWithHerald(t, config.HeraldConfig{Enabled: false, BaseURL: "http://herald:8080"})
-	registerHeraldOutlet(ctx)
+	registerOutlets(ctx)
 
-	// 关=现状不变：无 hook（喂事件不 panic 即可）。
+	// 关=外部无出口：noop 注册，站内出口仍恒在——supervisor 事件经 hook
+	// 落 messages 表（level=critical 映射、source=agent-1）。
 	store.Add("agent-1", &opsv1.MetricsReport{SupervisorEvents: []*opsv1.SupervisorEvent{
 		{Seq: 1, TsUnix: 100, Event: "breaker_tripped"},
 	}})
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		var count int64
+		if err := ctx.DB.Model(&model.Message{}).Count(&count).Error; err != nil {
+			t.Fatalf("count messages: %v", err)
+		}
+		if count > 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	var msg model.Message
+	if err := ctx.DB.Order("id DESC").First(&msg).Error; err != nil {
+		t.Fatalf("read message: %v", err)
+	}
+	if msg.Level != "critical" || msg.Source != "agent-1" || msg.Type != "alert" {
+		t.Fatalf("message = %+v, want level=critical source=agent-1 type=alert", msg)
+	}
+	if msg.Scope == nil || string(msg.Scope) == "null" || string(msg.Scope) == "" {
+		t.Fatalf("scope must carry agentId: %s", msg.Scope)
+	}
 }
 
-func TestRegisterHeraldOutletMissingBaseUrlSkips(t *testing.T) {
+func TestRegisterOutletsMissingBaseUrlSkips(t *testing.T) {
 	t.Setenv("HERALD_TRIGGER_TOKEN", "tok")
 	ctx, store := svcWithHerald(t, config.HeraldConfig{Enabled: true})
-	registerHeraldOutlet(ctx)
+	registerOutlets(ctx)
 
-	// 未注册出口：事件照常入库（无 hook，无 panic）。
+	// baseUrl 缺失：herald 不注册，降级 noop（事件照常入库，无 panic）。
 	store.Add("agent-1", &opsv1.MetricsReport{SupervisorEvents: []*opsv1.SupervisorEvent{
 		{Seq: 1, TsUnix: 100, Event: "breaker_tripped"},
 	}})
 }
 
-func TestRegisterHeraldOutletMissingTokenSkips(t *testing.T) {
-	// HERALD_TRIGGER_TOKEN 不设置：降级告警日志，不注册出口。
+func TestRegisterOutletsMissingTokenSkips(t *testing.T) {
+	// HERALD_TRIGGER_TOKEN 不设置：降级告警日志 + noop 注册。
 	t.Setenv("HERALD_TRIGGER_TOKEN", "")
 	ctx, _ := svcWithHerald(t, config.HeraldConfig{Enabled: true, BaseURL: "http://herald:8080"})
-	registerHeraldOutlet(ctx)
+	registerOutlets(ctx)
 }
 
 func TestSupervisorEventToOutletIgnoresNonBreaker(t *testing.T) {
@@ -120,7 +154,7 @@ type captureOutlet struct {
 
 func (c *captureOutlet) Name() string { return "capture" }
 
-func (c *captureOutlet) Deliver(ctx context.Context, ev outlet.AlertEvent) error {
+func (c *captureOutlet) Deliver(ctx context.Context, ev outlet.AlertEvent) (outlet.DeliveryOutcome, error) {
 	c.out <- ev
-	return nil
+	return outlet.DeliveryOutcome{Delivered: true, Channel: "capture"}, nil
 }

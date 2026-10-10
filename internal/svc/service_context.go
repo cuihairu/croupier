@@ -545,10 +545,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		evaluator := alertrule.New(ctx.AlertRuleModel, ctx.AlertModel, nil)
 		ctx.MetricsStore.SetOnReport(evaluator.EvaluateAgent)
 	}
-	// herald 告警出口（Outlet 第一内置实现，plugin-mechanism §5/M2）：
-	// supervisor 熔断等告警事件经出口管理器异步投递 herald（courier 式）。
-	// 缺省关；开启但 baseUrl/token 缺失只降级告警日志，不注册出口。
-	registerHeraldOutlet(ctx)
+	// 告警出口链（plugin-mechanism §5.1）：站内出口链首恒注册（默认必有、
+	// 零外发）；herald 显式启用且凭证齐全时注册为外部主出口，否则注册
+	// noop（零配置=零外发）。MetricsStore 缺失（裁剪部署）时不接线。
+	registerOutlets(ctx)
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}
@@ -589,42 +589,45 @@ func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env str
 	return dbctx.WithDB(base, gameDB)
 }
 
-// registerHeraldOutlet 布线 herald 告警出口（plugin-mechanism §5/M2）：
-// herald.enabled 开启时按配置注册出口，并把 supervisor 熔断事件（闭集内
-// 首个真实事件源；capture/devops/probe 源随对应 agent 简档接入）喂给出
-// 口管理器。enabled 但 baseUrl/token 缺失只降级为告警日志、不注册出口
-// （失败留位：croupier 告警页照常，出口不可用绝不阻塞告警链）。
-func registerHeraldOutlet(ctx *ServiceContext) {
-	cfg := ctx.Config.Herald
-	if !cfg.Enabled || ctx.MetricsStore == nil {
+// registerOutlets 布线告警出口链（plugin-mechanism §5.1）：站内出口链首恒
+// 注册（默认必有、零外发、不受降级影响）；herald 显式启用且凭证齐全时
+// 注册为外部主出口，否则注册 noop——零配置=零外发红线的真实注册项。
+// MetricsStore 缺失（裁剪部署）时不接线——出口只经 supervisor hook 触达。
+func registerOutlets(ctx *ServiceContext) {
+	if ctx.MetricsStore == nil {
 		return
-	}
-	if strings.TrimSpace(cfg.BaseURL) == "" {
-		slog.WarnContext(context.Background(), "herald outlet enabled but baseUrl missing; outlet not registered")
-		return
-	}
-	tokenEnv := cfg.TokenEnv
-	if tokenEnv == "" {
-		tokenEnv = outlet.HeraldDefaultTokenEnv
-	}
-	token := os.Getenv(tokenEnv)
-	if token == "" {
-		slog.WarnContext(context.Background(), "herald outlet enabled but token env missing; outlet not registered",
-			"tokenEnv", tokenEnv)
-		return
-	}
-	app := cfg.App
-	if app == "" {
-		app = outlet.HeraldDefaultApp
-	}
-	target := cfg.Target
-	if target == "" {
-		target = outlet.HeraldDefaultTarget
 	}
 	manager := outlet.NewManager()
-	manager.Register(outlet.NewHeraldOutlet(cfg.BaseURL, app, token, target))
+	manager.Register(outlet.NewInternalOutlet(messageSink{db: ctx.DB}, outlet.DefaultStationRecipient))
+	cfg := ctx.Config.Herald
+	external := false
+	if cfg.Enabled && strings.TrimSpace(cfg.BaseURL) != "" {
+		tokenEnv := cfg.TokenEnv
+		if tokenEnv == "" {
+			tokenEnv = outlet.HeraldDefaultTokenEnv
+		}
+		token := os.Getenv(tokenEnv)
+		app := cfg.App
+		if app == "" {
+			app = outlet.HeraldDefaultApp
+		}
+		target := cfg.Target
+		if target == "" {
+			target = outlet.HeraldDefaultTarget
+		}
+		if token == "" {
+			slog.WarnContext(context.Background(), "herald outlet enabled but token env missing; falling back to noop",
+				"tokenEnv", tokenEnv)
+		} else {
+			manager.Register(outlet.NewHeraldOutlet(cfg.BaseURL, app, token, target))
+			external = true
+			slog.InfoContext(context.Background(), "herald outlet registered", "app", app, "target", target)
+		}
+	}
+	if !external {
+		manager.Register(outlet.NewNoopOutlet())
+	}
 	ctx.MetricsStore.SetOnSupervisorEvent(supervisorEventToOutlet(manager))
-	slog.InfoContext(context.Background(), "herald outlet registered", "app", app, "target", target)
 }
 
 // supervisorEventToOutlet 把新监管事件映射为统一信封：v1 闭集只消费

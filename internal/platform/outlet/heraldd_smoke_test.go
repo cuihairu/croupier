@@ -42,7 +42,7 @@ func TestHeralddSmoke(t *testing.T) {
 
 	o := NewHeraldOutlet(addr, "croupier", token, "group:gm-ops")
 	ev := sampleEvent()
-	if err := o.Deliver(ctx, ev); err != nil {
+	if _, err := o.Deliver(ctx, ev); err != nil {
 		t.Fatalf("Deliver: %v", err)
 	}
 

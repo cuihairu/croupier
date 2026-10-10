@@ -46,8 +46,12 @@ func TestHeraldOutletDeliverMapsEnvelope(t *testing.T) {
 	o := newHeraldTestOutlet(t, rec)
 
 	ev := sampleEvent()
-	if err := o.Deliver(context.Background(), ev); err != nil {
+	outcome, err := o.Deliver(context.Background(), ev)
+	if err != nil {
 		t.Fatalf("Deliver: %v", err)
+	}
+	if !outcome.Delivered || outcome.Channel != HeraldCategoryAgentAlerts {
+		t.Fatalf("outcome = %+v, want delivered agent-alerts", outcome)
 	}
 	if rec.gotPath != "/api/v1/apps/croupier/dispatch" {
 		t.Fatalf("path = %s", rec.gotPath)
@@ -73,6 +77,22 @@ func TestHeraldOutletDeliverMapsEnvelope(t *testing.T) {
 	}
 	if rec.gotBody["title"] != "breaker tripped" || rec.gotBody["body"] != "too many restart failures" {
 		t.Fatalf("title/body = %v / %v", rec.gotBody["title"], rec.gotBody["body"])
+	}
+}
+
+// ev.Target 覆盖默认受众（报表分片按类别 leader 定向，incident-reports §6）。
+func TestHeraldOutletDeliverHonorsTarget(t *testing.T) {
+	rec := &heraldDispatchRecorder{}
+	o := newHeraldTestOutlet(t, rec)
+
+	ev := sampleEvent()
+	ev.Target = "category-leader:qa"
+	if _, err := o.Deliver(context.Background(), ev); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	aud, ok := rec.gotBody["audiences"].([]any)
+	if !ok || len(aud) != 1 || aud[0] != "category-leader:qa" {
+		t.Fatalf("audiences = %v, want [category-leader:qa]", rec.gotBody["audiences"])
 	}
 }
 
@@ -118,9 +138,12 @@ func TestHeraldOutletClassifiesRefusalAsPermanent(t *testing.T) {
 	}
 	o := newHeraldTestOutlet(t, rec)
 
-	err := o.Deliver(context.Background(), sampleEvent())
+	outcome, err := o.Deliver(context.Background(), sampleEvent())
 	if err == nil {
 		t.Fatal("want error on 422")
+	}
+	if outcome.Delivered || outcome.Retryable {
+		t.Fatalf("outcome = %+v, want undelivered non-retryable", outcome)
 	}
 	if !isPermanent(err) {
 		t.Fatalf("refusal must be Permanent, got %v", err)
@@ -136,9 +159,12 @@ func TestHeraldOutletClassifiesTransportAsRetryable(t *testing.T) {
 	srv.Close()
 	o := NewHeraldOutlet(srv.URL, "croupier", "tok-1", "group:gm-ops")
 
-	err := o.Deliver(context.Background(), sampleEvent())
+	outcome, err := o.Deliver(context.Background(), sampleEvent())
 	if err == nil {
 		t.Fatal("want error on closed server")
+	}
+	if !outcome.Retryable {
+		t.Fatalf("outcome = %+v, want retryable", outcome)
 	}
 	if isPermanent(err) {
 		t.Fatalf("transport error must stay retryable, got %v", err)
