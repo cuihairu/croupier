@@ -316,14 +316,15 @@ TaskSchedule（task_schedules 表，五字段 cron：
 - 静态页不走 PageSpec（§8），发布链闭环不强制；tsc 0 错 + 5 个 jest 套件 23 用例 + guard PASSED。
 - 已知边界：probe 故障窗口与 supervisor 事件 server 侧不落库（agent 内存环/本地文件，§4.3 锚点），当前无列表面可挂转换入口——转换入口待数据面落地后接入。
 
-### 批 4 交付说明（2026-10-10，4a 46c041e + 4b 7c698ab + 4c 9fd4260）
+### 批 4 交付说明（2026-10-10，4a 46c041e + 4b 7c698ab + 4c 9fd4260 + 4d 71895a0）
 
 - 调度生成：`task_schedules` 播种周/月两行（`0 9 * * 1` / `0 9 1 * *`，Kind=incident_report，按 name 幂等；HasTable 守卫内建在 model 侧，multiGame meta 库无表/裸测试 ctx 均静默跳过）。调度器按 Kind 路由 server-local 执行（不经 agent 派发链；`internal/api/incident` import svc，经 cmd 层 `SetReportRunner` 反向注入避免环；run-log 无 TaskRunID、失败计数照走、next 用当前 cron 推进）。
 - 生成→落库：`incident_reports` 按 (period_type, period_start) upsert；payload 含 summary + 类别分片 + 整体级别。分级固定口径（§6，不配置化）：环比×2 或复发率>20% → warn；critical 未解决或连续两期恶化（读存库两期历史，缺任一期不判）→ critical；分片级别只升不降，整体=分片最高级。
 - 分发：站内 = 生成器经 MessageSink 直写 messages（总聚合落兜底组 `group:gm-ops`，leader 分片按类别 leader 账号定向，scope 带 `{"categories":[slug]}`；同键 upsert 折叠、级别只升不降）；外部 = `DispatchExternal` 同步投外部链（成功即停/Retryable 滑下一个/Permanent 终止，跳过站内出口）。零外部配置时链上只有 noop（Delivered+channel=noop，链终止于静默）。
 - 回执：每分片每渠道一条 PushStatus——leader 有值片两条（internal + 实际收尾出口 channel）；无 leader 片单条 `skipped(no leader)`；零量分片不投；出口未布线记 `skipped(outlets not wired)`。
 - API 与面板：`GET /api/v1/incident-reports/stored`（档位过滤+分页）+ `POST /api/v1/incident-reports/:id/repush`（按同 event_id 幂等重发，不改 payload）；报表页新增「存量报表」区（档位过滤/分页/分发回执摘要/重推按钮），i18n 双语 + jest 7 用例。
-- 已知边界：messages 读侧按 incident_categories.audience 过滤（§6 可见范围）属批 4d；`report_kind` 当前固定 `summary`。
+- 可见范围（4d）：`messages` 读侧按 §6 受众展开——管理员全量；普通用户 = 直收（含定向给本人的 leader 分片）∪ 兜底组无归属广播（scope 无 categories，不落空）∪ 可见类别（leader ∪ audience.users ∪ audience.roles∩用户角色）的 scope 通知；他人点对点消息保持私密。scope 过滤在 Go 侧做（仓内 JSON 列无跨方言下推先例），故受众路径整窗拉回再分页，`total` 以过滤后为准；依赖缺失（无 AdminModel/无 DB/无登录态）一律降级为既有按收件人过滤。停用类别历史保留（受众扫描含停用）。
+- 已知边界：受众路径整窗拉取上限 `visibilityFetchCap = 1000`（GM 站内信量级很小，超上限的尾部行不可见，量级上来再改存储侧过滤）；`UnreadCount`、SSE `Stream`、`Detail`、`Read` 仍按收件人归属校验，不走受众展开；`report_kind` 当前固定 `summary`。
 
 ## 已知边界（诚实清单）
 
@@ -331,7 +332,7 @@ TaskSchedule（task_schedules 表，五字段 cron：
 - 复发窗口 7 天固定不配置；同签名判定对人工登记较粗（category+subcategory 粒度）。
 - leader 是字符串不是账号外键：无账号体系校验；多 leader 靠出口侧受众组。
 - 归因快照依赖登记时刻数据：execlog 7 天保留期外的旧执行无法事后挂链（探查锚点见 §4.3）。
-- 通知可见范围按 audience 解析于读时：角色/映射变更即时生效，但已分发的报表分片内容不回改。
+- 通知可见范围按 audience 解析于读时：角色/映射变更即时生效，但已分发的报表分片内容不回改。受众展开路径整窗拉取上限 1000 行（超出的尾部消息不可见）；UnreadCount/SSE Stream/Detail/Read 仍只按收件人归属校验。
 - 推送分级阈值（环比×2 / 复发率>20% / 连续两期恶化）为固定口径 v1 不配置化。
 - herald 投递状态/已读不回写（herald 简档 §6 边界）；平台内已读仅站内信闭环；外部出口未配置=仅站内（no-op 默认，零外发）。
 - 同比在上线满一年前恒为 missing：「无去年同期数据」占位，不算假数。
