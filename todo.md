@@ -4269,10 +4269,10 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 ### 阶段一：契约定义（先行，冻结接口面）
 
-- [ ] **统一 ChangeEvent 模型**：source/operation/before/after/key/transaction/position/schemaVersion/timestamp；能力差异必须表达（before 拿不到=空+能力标志，不伪造）；现有 MySQL 行像（位置数组 JSON）迁到统一模型的兼容决策
-- [ ] **FilterPolicy 统一策略头**：policyId/gameId/env/sourceId/revision/lifecycle + 分类型载体（SourceFilter/EventFilter/Detection/Delivery）；include/exclude 语义与默认拒绝口径；失败四分类（MATCH/NO_MATCH/ERROR/UNSUPPORTED）
-- [ ] **SourceConnector 接口草案定稿**：Open/Discover/Snapshot/Poll/Checkpoint/Close + 能力声明集（beforeImage/afterImage/transactionMetadata/snapshot/resumableCheckpoint/pushdown）；Snapshot 接口直接为位点/回补问题（阶段三决策项）备好扩展点
-- [ ] **发布校验契约**：scope 必填、依赖感知（对账双表须都在采集范围）、能力感知（规则依赖字段源给不出→发布即报不兼容）、include/exclude 冲突检测
+- [x] **统一 ChangeEvent 模型（✅ 2026-10-11）**：`agents/capture/connector/event.go`——ChangeEvent 十字段+Operation/Position/TxInfo 闭集校验（update 双像全空契约拒绝）；MySQL 行像兼容决策=ColumnsMapped=false 键为位置下标
+- [x] **FilterPolicy 统一策略头（✅ 2026-10-11）**：`agents/capture/filter/policy.go`——PolicyHeader（identity/scope/revision/lifecycle 四类闭集）+ NewerThan 推进语义（同版本 no-op、回退拒绝）；`match.go`——TableMatcher include/exclude（排除优先、冲突发布时检测、默认拒绝）+ MissingDependencies 依赖检查 + Result 四分类
+- [x] **SourceConnector 接口草案定稿（✅ 2026-10-11）**：`agents/capture/connector/connector.go`——六方法接口+并发契约注释+ErrUnsupportedSnapshot；`capability.go`——能力六闭集+严格解析（未知键拒绝）+Requires 缺失点名+组合自检（snapshot 无断点续传=非法）
+- [x] **发布校验契约（✅ 2026-10-11）**：PolicyHeader.Validate（game/env 必填+闭集）；TableMatcher 冲突构造即错；Capabilities.Requires 能力缺失点名（服务端化接线归阶段三）
 
 ### 阶段二：Agent 执行层（不重写 gate/）
 

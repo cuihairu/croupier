@@ -6,7 +6,7 @@ title: CDC 过滤策略体系——统一策略契约、分层执行与下发确
 
 ## 状态
 
-- 状态: **设计整理完成（2026-10-11），未实施**。本文是用户令的整理稿：分层过滤模型、四类规则、统一策略契约、下发确认链、位点关系、失败语义与可观测性。实施任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有三闸实现）、[CDC Connector 架构](cdc-connector-architecture.md)（多数据库接入）、[风控面板设计](risk-control-panel-design.md)（面板归属）互链。
+- 状态: **契约已落码（2026-10-11 阶段一交付），执行层未接线**。本文是用户令的整理稿：分层过滤模型、四类规则、统一策略契约、下发确认链、位点关系、失败语义与可观测性。契约面（统一策略头/库表授权匹配默认拒绝/依赖检查/结果四分类）已落地 `agents/capture/filter/`（纯逻辑零依赖，单测锁定）；EventFilter 接入 runner 流水线（阶段二）未做。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有三闸实现）、[CDC Connector 架构](cdc-connector-architecture.md)（多数据库接入）、[风控面板设计](risk-control-panel-design.md)（面板归属）互链。
 - **定调（用户令，2026-10-11）**：CDC Agent 不是过滤规则的最终管理中心——它是部署在数据源旁的采集与传输组件，负责尽早排除不需要的数据；规则的统一管理、版本控制和过滤语义由控制面负责。**统一的是策略定义与管理，不是强制所有事件回服务端过滤。**
 
 ## 0. 作用（先读这节）
@@ -167,7 +167,7 @@ detection:
 
 ## 9. 实施顺序（四阶段）
 
-1. **契约**：四类规则边界、统一事件模型（含能力差异字段）、include/exclude 语义、默认行为、失败分类。
+1. **契约（✅ 2026-10-11 交付）**：四类规则边界（`filter.PolicyKind` 闭集）、统一事件模型（`connector.ChangeEvent` 含能力差异字段）、include/exclude 语义（精确+库级通配，排除优先）、默认拒绝、失败四分类（`filter.Result`）。
 2. **Agent 执行层**：抽 EventFilter（`agents/capture/filter/`）、保留 SourceFilter 与三闸、版本切换、过滤统计、规则错误处理。
 3. **中心策略管理**：策略资产化（统一策略头 + 分类型体）、校验（含能力/依赖感知）、版本化、下发确认、回滚；移除业务规则手工 YAML 依赖。
 4. **面板与验证**：策略管理界面；测试规则更新、断线恢复、位点恢复、新表启用、过滤错误、跨游戏/环境隔离。
@@ -176,7 +176,7 @@ detection:
 
 ## 10. 已知边界（诚实清单）
 
-- 本文为设计整理稿（2026-10-11 用户令），全部「建议/应当」均为待实施项；已实现部分仅 §7 表中「现状锚点」与「现状基线」所述。
+- 阶段一契约面已落码（`agents/capture/filter/`：policy.go 统一策略头+生命周期+revision 推进语义、match.go 库表授权+默认拒绝+依赖检查+结果四分类，单测 7 组）；「建议/应当」其余各项均待实施。落码时的契约决定：include/exclude 冲突只认精确表项同列两侧（库级 exclude 压 include=合法关整库手势，排除确定性取胜）；`MissingDependencies` 对 nil matcher（无授权信息）保守返回全部缺失。
 - 位点-策略联动（§4）当前完全未实现：新增采集表 = 重启 Agent 重扫（binlog 保留期内）或从当前位置生效（丢历史），无按需回补。
 - appliedRevision 上报通道未建：面板发布成功 ≠ agent 已生效，现靠 agent 日志（`capture gates version applied`）人工核对。
 - DeliveryPolicy 所在的订阅/脱敏面未设计详案（复用 alerts + outlet 的现有权限模型，扩展另批）。

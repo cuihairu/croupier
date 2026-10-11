@@ -6,7 +6,7 @@ title: CDC Connector 架构——多数据库数据源接入与能力声明（�
 
 ## 状态
 
-- 状态: **设计整理完成（2026-10-11），未实施**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。实施任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
+- 状态: **契约已落码（2026-10-11 阶段一交付），实现未做**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；连接器实现（MySQL 迁移/PostgreSQL P0）未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
 
 ## 1. 目标与非目标
 
@@ -111,7 +111,7 @@ type ChangeEvent struct {
 
 ## 7. 已知边界
 
-- 本文为设计整理稿（2026-10-11 用户令），接口/能力表为草案，未实施。
-- 现有 MySQL 实现（`agents/capture/source/mysql*`）无 beforeImage 概念——现状行像是位置数组 JSON（简档 §9），切换 ChangeEvent 模型时列名映射需同期落地。
+- 契约面已落码（`agents/capture/connector/`：event.go / capability.go / connector.go，单测 7 组含 fakeConnector 接口满足性）；接口草案与 §3.1 能力表以代码为准（实现期差异回写本文）。落码时的两个契约决定：①冲突检测只认精确表项同列两侧，库级 exclude 覆盖 include 是合法「关整库」手势（filter 包口径）；②零值位点 `Valid()=false`（事件必须带位点），空 checkpoint 由 `String()==""` 表达。
+- 现有 MySQL 实现（`agents/capture/source/mysql*`）无 beforeImage 概念——现状行像是位置数组 JSON（简档 §9）；统一模型的兼容决策已定（ChangeEvent.ColumnsMapped=false 时行像键=十进制位置下标，与三闸「位置下标取值」语义一致），列名映射（information_schema 摄取）落地时切 true，闸层不受影响。
 - MongoDB/国产库等 P1/P2 源无排期，仅留契约扩展点。
 - 选型建议（§4）为待拍板项，用户裁决后本节定稿。
