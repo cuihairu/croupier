@@ -4288,7 +4288,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - [ ] **发布校验服务端化**：阶段一契约的服务端实现（结构+依赖+能力感知 lint）；能力集从 agent 注册上报取（labels 或注册响应扩展，拍板项）
 - [x] **appliedRevision 上报通道（✅ 2026-10-11）**：拍板=复用注册面（零 proto/零 server 改动）——生效后异步重注册，`captureGatesRevision` label 捎带；面板 /ops/capture「生效对账」行 desired vs applied（全生效绿/部分金 tag 点名/无 agent 灰），滞后容忍非强一致；capture-agent 简档 §8.8
 - [x] **位点-策略联动决策（✅ 2026-10-11 拍板，用户令点名的最易遗漏项）**：四条拍板=①位点所有权唯一归事件源（Provider.Bookmark / Connector.Checkpoint），策略热换不移动位点不触发重放；②新表/新规则生效起点=当前位点（增量，发布不隐式补历史）；③需要历史=独立回补流程显式触发（挂 Connector snapshot 能力，永不随发布顺带）；④切换审计先落日志（apply 记 revision+position），server 侧审计随资产化扩展复用 appliedRevision 捎带模式。详见过滤策略简档 §4；回补流程实现归 Connector 批次（依赖 snapshot 能力），切换审计落日志接线随资产化项
-- [ ] **业务规则迁出 YAML**：agents/capture/config 区分本地连接配置与中心下发策略；capture.gates.* 文件配置降级为 fallback（无中心时兜底）
+- [x] **业务规则迁出 YAML（✅ 2026-10-11，fallback 口径显式化）**：行为本就如此（文件规则启动生效、中心版本拉取生效即整体覆盖、空版本静默跳过）——本项把优先链显式化：runner 启动日志 `capture file rules loaded as fallback`（含各闸规则数）+ config.Gates 注释 + 优先链单测（中心覆盖文件+revision 跟随 / 未发布兜底保持）；不改配置键名（兼容存量部署）。capture-agent 简档 §8.11；阶段三就此收口
 - [x] **回滚（✅ 2026-10-11）**：`POST /api/v1/ops/capture/gates/rollback`（version+message）——FindByScope 取历史内容 → 重过当前 lint → publishCaptureGates 落新版本（message 自动 `rollback from version N` 前缀）；版本日志不可变、agent 照常版本轮询无新下行形态；lint 演进拒绝存量坏内容（不静默发坏版）；跨 scope 404；回滚当前版本=显式重新生效。ops 3 例新增；面板侧回滚按钮归阶段四风控策略页（REST 已就绪）
 
 ### 阶段四：风控面板与验证

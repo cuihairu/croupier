@@ -39,6 +39,9 @@ type Agent struct {
 }
 
 // Gates C2 闸层规则集（纯数据；模板是代码，见设计 §4/§5）。
+// Gates 闸层规则集（文件面 = fallback：中心 config_versions 键
+// capture.gates 已发布版本拉取生效后整体覆盖本块；无中心/未发布时兜底，
+// 形状与面板下发 JSON 一致）。
 type Gates struct {
 	// Reconcile 对账闸规则（道具变更 ↔ 业务流水时间窗销账）。
 	Reconcile struct {

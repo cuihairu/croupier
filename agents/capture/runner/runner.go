@@ -150,6 +150,15 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		gs = &gateSet{}
 	}
 	r.gates.Store(gs)
+	// 文件规则=fallback 口径（CDC 平台化批阶段三「业务规则迁出 YAML」）：
+	// 中心（config_versions capture.gates）已发布版本拉取生效后整体覆盖
+	// 本块，无中心/未发布时文件规则兜底。日志显式标注，防误读文件规则为
+	// 常驻真值；center 侧生效走 "capture gates version applied"。
+	log.Info("capture file rules loaded as fallback",
+		"reconcile", len(cfg.Capture.Gates.Reconcile.Rules),
+		"cepOffHours", len(cfg.Capture.Gates.CEP.OffHours),
+		"cepBurst", len(cfg.Capture.Gates.CEP.Burst), "cepProbing", len(cfg.Capture.Gates.CEP.Probing),
+		"lineage", len(cfg.Capture.Gates.Lineage.Rules))
 	return r
 }
 

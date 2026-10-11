@@ -147,7 +147,7 @@ detection:
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `agents/capture/source/` | 保留数据源适配与采集范围过滤；位点所有权归事件源（`Bookmark`/`Checkpoint`），策略变更不移动位点（§4 已拍板）                                     |
 | `agents/capture/gate/`   | 保留三闸执行逻辑；规则集已可替换实例（gateSet 快照）                                                                                             |
-| `agents/capture/config/` | 区分本地连接配置与中心下发策略；业务规则逐步迁出 YAML                                                                                            |
+| `agents/capture/config/` | 本地连接配置与中心下发策略已分层：`capture.gates.*` 文件规则 = fallback（无中心/未发布时兜底，中心版本拉取生效即整体覆盖，启动日志显式标注）     |
 | `agents/capture/runner/` | 装配过滤流水线、原子切换、统计过滤结果、上报生效版本（新增 `agents/capture/filter/` 纯逻辑包：事件级匹配与过滤决策，不依赖 MySQL 驱动/面板 API） |
 | Server Agent 控制链      | 策略下发确认、版本同步、失败状态（appliedRevision 上行）                                                                                         |
 | 面板                     | 策略编辑、预览校验、发布、回滚、Agent 生效状态（归属见[风控面板设计](risk-control-panel-design.md)）                                             |

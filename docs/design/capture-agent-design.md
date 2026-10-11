@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）+ 乐观锁（§8.10，策略资产化 v1）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）+ 乐观锁（§8.10，策略资产化 v1）+ 业务规则迁出 YAML（§8.11，fallback 口径显式化）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -475,6 +475,26 @@ model、零 goose 迁移）——「统一策略头 + 分类型体」的存储�
 基线递增 / 缺省基线向后兼容 / 空链带基线 409 / 冲突不落版本）；web 页
 新增 1 例（冲突消息透传）、service 新增 1 例（baseVersion 形状）；
 tsc 0 错、目标套件 16 例绿。
+
+### 8.11 交付记录：业务规则迁出 YAML（fallback 口径显式化，CDC 平台化批阶段三，2026-10-11）
+
+代码面：行为不变——文件 `capture.gates.*` 本就是「启动生效、中心版本
+拉取生效后整体覆盖」的 fallback（`fetchConfig` 空版本 → nil 静默跳过，
+文件规则兜底）；本交付把这条优先链显式化：runner 启动日志
+`capture file rules loaded as fallback`（含各闸规则数，防误读文件规则
+为常驻真值）+ `config.Gates` 文档注释 + 优先链单测锁定。口径与差异：
+
+1. **不改配置键名**：`capture.gates.*` 键保持原位（兼容存量部署），
+   「区分本地连接与中心下发」以 fallback 语义而非键位搬迁达成。
+2. **优先链有测试**：文件规则（event.ops=delete）启动生效 → 中心版本
+   （event.ops=insert）PullOnce 生效后整体覆盖 + appliedRevision 跟随；
+   未发布（空版本）→ 无动作、文件规则持续兜底、revision 不记录。
+3. **阶段三就此收口**：资产化 v1（§8.10 乐观锁）+ 回滚（§8.9）+
+   appliedRevision（§8.8）+ 位点拍板（过滤简档 §4）+ 本项；余项
+   （按类型分键/头嵌入/能力感知 lint）归阶段四与 Connector 批次。
+
+测试：`runner_precedence_test.go` 2 例新增（中心覆盖文件+revision 跟随 /
+未发布兜底保持）。capture 全包回归绿。
 
 ## 9. 已知边界（诚实清单）
 
