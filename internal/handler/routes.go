@@ -134,6 +134,9 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// RegisterAdmin 路径已带 /site 前缀（PUT/DELETE /site/:key、GET /site/features 等），
 	// 这里必须挂根组；挂 "/site" 会变成 /api/v1/site/site/... 全线 404。
 	siteSettingsHandler.RegisterAdmin(protected.Group("/"))
+	// 文件侧外部服务清单（herald/alertInbound/serverStatus 只读呈现，
+	// server-status-provider 批 S3；与 L3 分层设置无关，纯 L2 快照）。
+	settingsapi.NewExternalServicesHandler(serverCtx.Config).Register(protected.Group("/"))
 	// 登录方式（外部身份源 L3 运行时配置——Harbor 模式：保存即热生效）
 	authSite := protected.Group("/site")
 	authSite.GET("/auth", siteSettingsHandler.GetAuth)

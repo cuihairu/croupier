@@ -324,6 +324,21 @@ export default {
   'pages.systemSiteSettings.maintenance.probe.unhealthy': '异常',
   'pages.systemSiteSettings.maintenance.probe.unconfigured': '未配置',
   'pages.systemSiteSettings.maintenance.probe.error.failed': '探测失败',
+  'pages.systemSiteSettings.maintenance.externalServices.title': '外部服务（配置文件）',
+  'pages.systemSiteSettings.maintenance.externalServices.subtitle':
+    '只读呈现 server.yaml 配置的外部服务启用态；修改需编辑配置文件并重启。',
+  'pages.systemSiteSettings.maintenance.externalServices.state.active': '已启用',
+  'pages.systemSiteSettings.maintenance.externalServices.state.inactive': '配置未生效',
+  'pages.systemSiteSettings.maintenance.externalServices.state.unconfigured': '未配置',
+  'pages.systemSiteSettings.maintenance.externalServices.missing': '缺项',
+  'pages.systemSiteSettings.maintenance.externalServices.secretSet': '已设置',
+  'pages.systemSiteSettings.maintenance.externalServices.secretUnset': '未设置',
+  'pages.systemSiteSettings.maintenance.externalServices.loadFailed': '加载外部服务清单失败',
+  'pages.systemSiteSettings.maintenance.externalServices.service.herald': '告警出口（herald）',
+  'pages.systemSiteSettings.maintenance.externalServices.service.alertInbound':
+    '告警入站（{source}）',
+  'pages.systemSiteSettings.maintenance.externalServices.service.serverStatus':
+    '状态源（{provider}）',
   'pages.systemSiteSettings.tab.maintenance': '运维',
   'pages.systemSiteSettings.tab.performance': '性能',
   'pages.systemSiteSettings.performance.action.refresh': '刷新',

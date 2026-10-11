@@ -135,6 +135,12 @@ serverStatus:
 - **测试**：outlet 包 gate 集成 8 用例（抑制整链静默+链入口恰一次评估、fail-open 标注到达双通道正文、无定位不过 gate、DispatchExternal 抑制/绕行、未挂 gate 回归、SetGate(nil) 卸载、尾注确定性）；svc 装配 5 用例（Options 逐项映射+tokenEnv 解析、抑制静默、matchBy 回落、未知标注照报、旁路形态）。`recordingSink`/`fakeStatusProvider` 测试替身补互斥/atomic——Dispatch 异步路径在 -race 下直读共享切片/int 即 DATA RACE。
 - 已知边界：herald 外发正文带 ` [source_unknown]` 尾注（非结构化字段，herald 侧如需结构化需 SDK 加 metadata 位）；matchBy=host/ip 为配置陷阱已用启动告警兜底；维护窗内事件仍落 supervisor 事件环/告警页（gate 只静默出口链）。
 
+### 批 S3 交付说明（2026-10-11）
+
+- **atlas 实联**：适配器按 atlas 仓真实 API 对齐——register 要求 server_id/region/endpoint.host/port（201 + status=starting，首次有效心跳在老化窗内自动升 online）；discovery 列表对 offline/starting 服务器隐藏（需 register 重新进入）；`InMaintenance` 新增状态透传（config 同名段 `inMaintenance.status`/`windowStart`）。env 门控冒烟 `CROUPIER_ATLAS_SMOKE_BASE_URL`（可选 `CROUPIER_ATLAS_SMOKE_REGISTRY_BASE_URL` 自助 register+heartbeat 装配，幂等）自验证：online/维护两种形态下 ListServers 成员与 adapter InMaintenance 与 discovery status 枚举一致（re-register 保持维护态）。
+- **设置页「已启用外部服务」呈现**：`GET /site/external-services`（admin 组）只读快照 herald / alertInbound（alertmanager/generic 闭集）/ serverStatus 三项 L2 文件侧启用态。三态：active=启用态且必填项全齐（与各服务 svc 装配判定同口径：herald=enabled+baseUrl+token 环境变量值；alertInbound=来源已配置+secretEnv 值；serverStatus=enabled+provider 已注册+非 noop baseUrl）；configured=配置段存在但缺项；未配置。缺项点名契约键/环境变量名（可操作提示，永不回显值）；secretEnv 只报变量名+已设置/未设置。卡片在运维 Tab（`ExternalServicesCard`），纯只读——页面侧配置编辑属「配置整理」单（`docs/design/config-organization.md`，待用户过目），变更需编辑 server.yaml 并重启。
+- 已知边界：atlas 无维护窗历史 API，维护态真相在 atlas 侧；serverStatus 缺 baseUrl 的 fail-open 标注属运行时行为，设置页以缺项提示呈现（「配置未生效」而非误报 active）。
+
 ## 已知边界（诚实清单）
 
 - atlas API 契约待 atlas 侧对齐：S3 之前 atlas 适配器为可配置映射骨架，未对齐前不宣称实联。

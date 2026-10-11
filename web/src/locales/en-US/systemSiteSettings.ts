@@ -338,6 +338,22 @@ export default {
   'pages.systemSiteSettings.maintenance.probe.unhealthy': 'Unhealthy',
   'pages.systemSiteSettings.maintenance.probe.unconfigured': 'Not configured',
   'pages.systemSiteSettings.maintenance.probe.error.failed': 'Probe failed',
+  'pages.systemSiteSettings.maintenance.externalServices.title': 'External Services (Config File)',
+  'pages.systemSiteSettings.maintenance.externalServices.subtitle':
+    'Read-only view of external services enabled in server.yaml; changes require editing the config file and restarting.',
+  'pages.systemSiteSettings.maintenance.externalServices.state.active': 'Active',
+  'pages.systemSiteSettings.maintenance.externalServices.state.inactive': 'Config not effective',
+  'pages.systemSiteSettings.maintenance.externalServices.state.unconfigured': 'Not configured',
+  'pages.systemSiteSettings.maintenance.externalServices.missing': 'Missing',
+  'pages.systemSiteSettings.maintenance.externalServices.secretSet': 'Set',
+  'pages.systemSiteSettings.maintenance.externalServices.secretUnset': 'Not set',
+  'pages.systemSiteSettings.maintenance.externalServices.loadFailed':
+    'Failed to load external services',
+  'pages.systemSiteSettings.maintenance.externalServices.service.herald': 'Alert Outlet (herald)',
+  'pages.systemSiteSettings.maintenance.externalServices.service.alertInbound':
+    'Alert Inbound ({source})',
+  'pages.systemSiteSettings.maintenance.externalServices.service.serverStatus':
+    'Status Source ({provider})',
   'pages.systemSiteSettings.tab.maintenance': 'Maintenance',
   'pages.systemSiteSettings.tab.performance': 'Performance',
   'pages.systemSiteSettings.performance.action.refresh': 'Refresh',
