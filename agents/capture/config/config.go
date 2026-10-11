@@ -44,6 +44,12 @@ type Gates struct {
 	Reconcile struct {
 		Rules []gate.ReconcileRule `yaml:"rules" json:"rules"`
 	} `yaml:"reconcile" json:"reconcile"`
+	// CEP 闸规则三模板（时段白名单 / 数量突变 / 连续试探）。
+	CEP struct {
+		OffHours []gate.OffHoursRule `yaml:"offHours" json:"offHours"`
+		Burst    []gate.BurstRule    `yaml:"burst" json:"burst"`
+		Probing  []gate.ProbeRule    `yaml:"probing" json:"probing"`
+	} `yaml:"cep" json:"cep"`
 }
 
 // Capture CDC 功能块。
@@ -104,6 +110,9 @@ func (c Config) Validate() error {
 	}
 	// 闸规则启动即全量校验（宁可不起进程）——含对账闸表路由唯一性。
 	if err := gate.ValidateReconcileRules(c.Capture.Gates.Reconcile.Rules); err != nil {
+		return fmt.Errorf("capture.gates: %w", err)
+	}
+	if err := gate.ValidateCEPRules(c.Capture.Gates.CEP.OffHours, c.Capture.Gates.CEP.Burst, c.Capture.Gates.CEP.Probing); err != nil {
 		return fmt.Errorf("capture.gates: %w", err)
 	}
 	return nil

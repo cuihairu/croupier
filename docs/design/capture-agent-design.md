@@ -209,6 +209,42 @@ context: 账号、GTID、时间窗内相邻事件摘要、规则参数快照
 多规则隔离、命中排序确定性、校验错误集）+ `runner_gate_test.go` 3 例（接线、
 未配置直通、config 校验拦截）。
 
+### 8.2 C2 交付记录：闸二·CEP（2026-10-11）
+
+代码面：`agents/capture/gate/cep.go` 三模板（`cep.off_hours` / `cep.burst_delta`
+/ `cep.probing`）+ `capture.gates.cep.{offHours,burst,probing}` 文件配置 +
+runner 接线（事件到达即评即命中；位点 tick Sweep 只做清桶卫生）。与对账闸不同，
+**同一表允许挂多实例**（时段 + 突变并存是常态），无角色路由唯一性约束。
+
+三模板实现口径与差异：
+
+1. **off_hours**：`windows` 为每日分钟偏移段（`startMin > endMin` = 跨零点，
+   左闭右开）；`tzOffsetMin` 显式配置（0=UTC，东八区 480）——不引 IANA 时区库，
+   避免 agent 二进制携带 tzdata 依赖。判定取**事件时间**（源真值）：位点失效
+   重扫会对历史时段重复告警（重扫本身即异常路径，可接受）；命中 detail 带本地
+   时钟与 tz 偏移，人读可核。
+2. **burst_delta**：`mode=single` 判单事件 `|delta|`；`mode=window` 判滑动窗口
+   累计 `|delta|`（双向突变都计入）。delta 语义：insert = 后像值（新增全额），
+   delete = 前像值（清空全额），update = 后像 − 前像。**命中即清零再计时**
+   （每窗一条命中，不逐事件刷屏）。累计桶按事件时间裁剪 + `maxEvents` 容量
+   （默认 10000，FIFO 丢最老）。
+3. **probing**：键降级为 **(行键, 表)**——设计原文 (账号, 表)，C1 `account`
+   恒空（§3.3）。同一行反复小额改动即命中；大额变更打断该键序列（大额归
+   burst 管）；命中即重置该键窗口（每键每窗一条）。`maxTracked` 键容量
+   （默认 10000，FIFO 确定性驱逐）。
+4. **数量字段**：`deltaField` 键形态同对账闸（整数串=位置下标）；不可数值化
+   → 跳过并计数 `SkippedNoDelta`（规格配错信号）。float64 精度：整数金额
+   < 2^53 安全，超限币量（>9e15）有精度损失——钱以分存储的游戏不受影响。
+5. **百分比基线**（§4.2 提及）v1 不做：基线需历史分布来源（analytics/面板侧），
+   事件流给不出基线值；绝对阈值先行，基线随面板配置面评估。
+6. **时序边界**：CEP 命中依赖事件按序到达（binlog 保证单流有序）；agent 重启
+   丢桶状态（§9 既有边界，probing/burst 窗口重新起算）。
+
+测试：`agents/capture/gate/cep_test.go` 14 例（时段窗内/窗外/跨零点/时区偏移/
+操作过滤/severity、单笔与累计突变、insert/delete 全额 delta、命中清零、越窗
+裁剪、试探计数与重置、键隔离与大额打断、Sweep 清桶、键容量 FIFO 驱逐、校验
+错误集、同表多实例）+ runner 接线 2 例。
+
 ## 9. 已知边界（诚实清单）
 
 - 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。

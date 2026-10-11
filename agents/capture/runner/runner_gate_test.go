@@ -81,3 +81,42 @@ func TestConfigValidateRejectsBadGateRules(t *testing.T) {
 		t.Fatal("same item/ledger table must fail validation")
 	}
 }
+
+func TestGateCEPWiringAndHit(t *testing.T) {
+	cfg := testConfig(t, true)
+	cfg.Capture.Gates.CEP.Burst = []gate.BurstRule{{
+		Name: "wallet-drain", Table: "game.items", DeltaField: "1",
+		Threshold: 100, Mode: "single",
+	}}
+	r := New(cfg, nil)
+	if r.cep == nil {
+		t.Fatal("cep gate should be built from config rules")
+	}
+	// 大额单笔突变：事件到达即命中
+	big := source.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Op: "update",
+		BeforeJSON: gateRow("junk", 100), AfterJSON: gateRow("junk", 9000),
+		GTID: "g-big", TsUnixMs: time.Now().UnixMilli(),
+	}
+	r.consume(big)
+	if st := r.Stats(); st.GateHits != 1 {
+		t.Fatalf("gate hits = %d, want 1", st.GateHits)
+	}
+	// Sweep 只做清桶卫生，不产命中
+	r.sweepGates(time.Now().UnixMilli() + 60_000)
+	if st := r.Stats(); st.GateHits != 1 {
+		t.Fatalf("gate hits after sweep = %d, want 1", st.GateHits)
+	}
+}
+
+func TestGateCEPNotWiredWithoutRules(t *testing.T) {
+	r := New(testConfig(t, true), nil)
+	if r.cep != nil {
+		t.Fatal("cep gate must stay nil without rules")
+	}
+	r.consume(source.ChangeEvent{Op: "insert"})
+	r.sweepGates(time.Now().UnixMilli())
+	if st := r.Stats(); st.GateHits != 0 || st.Total != 1 {
+		t.Fatalf("stats = %+v", st)
+	}
+}

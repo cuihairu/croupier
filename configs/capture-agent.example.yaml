@@ -42,8 +42,8 @@ capture:
       game.items: true
       game.player_wallet: true
   # 闸层规则（C2 起；空 = 只采不判）。规则模板是代码、规则本体是纯数据
-  # （无 DSL）。启动即全量校验：表须 "库.表" 两段、同表不得跨规则复用、
-  # itemTable ≠ ledgerTable、severity ∈ {warn, critical}。
+  # （无 DSL）。启动即全量校验：表须 "库.表" 两段、对账闸同表不得跨规则
+  # 复用、itemTable ≠ ledgerTable、severity ∈ {warn, critical}。
   gates:
     # 对账闸：道具变更必须能在 windowSec 内对上业务流水，超窗未销 =
     # reconcile.missing_ledger 告警（命中落 agent 日志+计数）。
@@ -59,3 +59,36 @@ capture:
       #   severity: warn      # 缺省 warn；critical 走严重通道
       #   exemptKeys: []      # 关联键值精确豁免（批处理流水等）
       #   maxPending: 10000  # 单规则在窗条目上限，0 → 默认 10000
+    # CEP 闸三模板（同一表可同时挂多实例）：
+    cep:
+      # 非白名单时段：名单外时段的变更即 cep.off_hours 告警。
+      offHours: []
+      # - name: wallet-night
+      #   table: game.player_wallet
+      #   ops: []              # 空 = 全部变更；可列 insert/update/delete
+      #   windows:
+      #     - startMin: 120    # 每日 02:00
+      #       endMin: 240      # 至 04:00（右端开；start > end = 跨零点）
+      #   tzOffsetMin: 480     # 东八区；0 = UTC
+      #   severity: warn
+      # 数量突变：单事件 delta 或滑动窗口累计 |delta| 超阈值 =
+      # cep.burst_delta 告警。
+      burst: []
+      # - name: wallet-drain
+      #   table: game.player_wallet
+      #   deltaField: "2"      # 数量字段下标（键形态同 reconcile）
+      #   threshold: 100000
+      #   mode: single         # single | window
+      #   windowSec: 300       # mode=window 必填
+      #   severity: critical
+      # 连续试探：同 (行键, 表) 窗口内 N 次小额变更（慢刷形态）=
+      # cep.probing 告警。C1 账号不可得，键降级为行键（见简档 §8.2）。
+      probing: []
+      # - name: wallet-scrape
+      #   table: game.player_wallet
+      #   keyField: "0"        # 行键下标
+      #   deltaField: "2"
+      #   smallBelow: 10       # 单次 |delta| < 此值算小变更
+      #   count: 5
+      #   windowSec: 600
+      #   maxTracked: 10000    # 追踪键上限，0 → 默认 10000

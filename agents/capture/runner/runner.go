@@ -55,6 +55,7 @@ type Runner struct {
 	backoffMax     time.Duration
 
 	reconcile *gate.ReconcileGate // nil = 未配对账规则（直通零开销）
+	cep       *gate.CEPGate       // nil = 未配 CEP 规则（直通零开销）
 
 	stats Stats
 }
@@ -82,6 +83,18 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		} else {
 			r.reconcile = g
 			log.Info("reconcile gate enabled", "rules", len(rules))
+		}
+	}
+	cepCfg := cfg.Capture.Gates.CEP
+	if len(cepCfg.OffHours)+len(cepCfg.Burst)+len(cepCfg.Probing) > 0 {
+		g, err := gate.NewCEP(cepCfg.OffHours, cepCfg.Burst, cepCfg.Probing)
+		if err != nil {
+			// config.Validate 已全量校验，此处不可达；防御性降级为直通。
+			log.Warn("cep gate disabled, invalid rules", "error", err)
+		} else {
+			r.cep = g
+			log.Info("cep gate enabled", "offHours", len(cepCfg.OffHours),
+				"burst", len(cepCfg.Burst), "probing", len(cepCfg.Probing))
 		}
 	}
 	return r
@@ -209,12 +222,18 @@ func (r *Runner) consume(ev source.ChangeEvent) {
 	if r.reconcile != nil {
 		r.recordHits(r.reconcile.Evaluate(&ev))
 	}
+	if r.cep != nil {
+		r.recordHits(r.cep.Evaluate(&ev))
+	}
 }
 
-// sweepGates 周期销账（位点 tick 同频；无闸直通）。
+// sweepGates 周期销账/清桶（位点 tick 同频；无闸直通）。
 func (r *Runner) sweepGates(nowMs int64) {
 	if r.reconcile != nil {
 		r.recordHits(r.reconcile.Sweep(nowMs))
+	}
+	if r.cep != nil {
+		r.cep.Sweep(nowMs)
 	}
 }
 

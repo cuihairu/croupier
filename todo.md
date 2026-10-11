@@ -4190,13 +4190,14 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **门禁**：`go build ./...` 绿、`go build ./cmd/sidecar-agent` 绿、`go vet ./cmd/sidecar-agent/...` 绿。
 - **验收口径回执**：目录/引用/CI 全绿 ✅，产物名与部署面按 A 档兑现 ✅，文档定名注更新为「已落地」✅。
 
-### ③ capture-agent 闸层 C2（进行中：闸 1/3 对账已交付，cep/lineage 未开工）
+### ③ capture-agent 闸层 C2（进行中：闸 1/3 对账、闸 2/3 CEP 已交付，lineage 未开工）
 
 - **现状**：C1 骨架已实施（2026-10-10：注册/心跳/事件流/位点，`cmd/capture-agent` + `agents/capture/`）。
 - **拍板**：用户 2026-10-11 令「③ capture-agent C2 开工，闸序 reconcile→cep→lineage，每闸实现+单测+简档差异记录」。
-- **闸 1/3 对账已交付（2026-10-11）**：新包 `agents/capture/gate`（reconcile.go：双向窗口销账，debit 超窗命中 `reconcile.missing_ledger`、credit 超窗静默清；键取值整数串=行像位置下标；豁免键值精确匹配；`maxPending` 逐规则容量驱逐）；`capture.gates.reconcile.rules` 文件配置 + 启动全量校验（同表跨规则复用即拒起）；runner 接线（consume 内联 Evaluate、位点 tick 内 Sweep、命中 → slog warn + `Stats.GateHits`）。单测 gate 13 例 + runner 3 例；`go test -race ./agents/...` 全绿。
+- **闸 1/3 对账已交付（2026-10-11，fb189bb）**：新包 `agents/capture/gate`（reconcile.go：双向窗口销账，debit 超窗命中 `reconcile.missing_ledger`、credit 超窗静默清；键取值整数串=行像位置下标；豁免键值精确匹配；`maxPending` 逐规则容量驱逐）；`capture.gates.reconcile.rules` 文件配置 + 启动全量校验（同表跨规则复用即拒起）；runner 接线（consume 内联 Evaluate、位点 tick 内 Sweep、命中 → slog warn + `Stats.GateHits`）。单测 gate 13 例 + runner 3 例；`go test -race ./agents/...` 全绿。
 - **简档差异记录**：`docs/design/capture-agent-design.md` 新增 §8.1（键形态降级为位置下标、豁免从账号降级为键值、命中仅落日志+计数——告警上报链独立增量等 9 项）。
-- **待做（本批内）**：闸 2/3 CEP（off_hours/burst_delta/probing）→ 闸 3/3 lineage（account 降级态）→ 告警上报链（agent→server wire，outlet kind `capture.rule_hit` 已备）→ 面板配置面。
+- **闸 2/3 CEP 已交付（2026-10-11）**：`gate/cep.go` 三模板——off_hours（每日分钟段白名单，跨零点段，`tzOffsetMin` 显式配置不引 tzdata）、burst_delta（single 单事件 / window 滑动累计 `|delta|`，insert=后像全额、delete=前像全额，命中即清零再计时）、probing（键降级为 (行键,表)，大额打断序列，命中即重置，`maxTracked` FIFO 驱逐）；同表多实例合法；`capture.gates.cep.{offHours,burst,probing}` 配置 + 启动校验。单测 cep 14 例 + runner 2 例；差异记录 §8.2（百分比基线 v1 不做等 6 项）。
+- **待做（本批内）**：闸 3/3 lineage（account 降级态）→ 告警上报链（agent→server wire，outlet kind `capture.rule_hit` 已备）→ 面板配置面。
 
 ### ④ 三 agent 文档口径同步（✅ 本批完成）
 

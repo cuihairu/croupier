@@ -403,9 +403,10 @@ func evictDetail(rule ReconcileRule) string {
 	return fmt.Sprintf("pending cap %d exceeded, evicted oldest unmatched item", rule.cap())
 }
 
-// sortHitOrder 命中确定性排序：事件 ts → 表 → 键 → GTID。
+// sortHitOrder 命中确定性排序：事件 ts → 表 → 键 → GTID；键全等的命中
+// 保持评估序（稳定排序）。
 func sortHitOrder(hits []Hit) {
-	sort.Slice(hits, func(i, j int) bool {
+	sort.SliceStable(hits, func(i, j int) bool {
 		a, b := hits[i], hits[j]
 		if a.Event.TsUnixMs != b.Event.TsUnixMs {
 			return a.Event.TsUnixMs < b.Event.TsUnixMs
