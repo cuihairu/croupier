@@ -111,9 +111,9 @@ curl -fsSL .../scripts/install.sh | bash -s -- --uninstall
 | `croupier-bin-windows-amd64.zip` | `AMD64`                                           |
 
 产物由 nightly 工作流产出（每日 02:00 UTC）；正式版随 `v*` tag 发布。同套
-交叉编译参数本地复现：`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./cmd/agent`。
+交叉编译参数本地复现：`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./cmd/sidecar-agent`。
 
-> **定名注（2026-10-09 用户令）**：`cmd/agent` 即定名 **`sidecar-agent`** 的现实目录/二进制（改名方案含存量 agent 升级兼容待用户确认，见 [Agent 清单](../design/agents-inventory.md) §9；确认前目录不改）。
+> **定名注（2026-10-09 用户令；2026-10-11 方案 A 落地）**：源码目录 `cmd/sidecar-agent`，产物二进制名保持 `croupier-agent`（部署契约零影响）——目录即定名 **`sidecar-agent`**，见 [Agent 清单](../design/agents-inventory.md) §9。
 
 ## 排错
 

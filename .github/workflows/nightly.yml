@@ -86,13 +86,13 @@ jobs:
             CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
               GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
             CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
-              GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/agent
+              GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/sidecar-agent
           else
             make build
             # make build 注入的是 VERSION 文件值（发布时点可能滞后，v0.1.5 实证恒 0.1.4）——
             # nightly 发布面统一以 nightly-YYYYMMDD 重注（与上方交叉编译条目一致）
             GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
-            GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/agent
+            GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/sidecar-agent
           fi
 
       - name: Build (Windows)
@@ -108,7 +108,7 @@ jobs:
           # 小写形式 -X 静默 no-op，二进制恒 dev。
           $LDFLAGS = "-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT -s -w"
           go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./cmd/server
-          go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/agent
+          go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/sidecar-agent
 
       - name: Package binaries (Linux/Mac)
         if: runner.os != 'Windows'

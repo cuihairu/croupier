@@ -57,7 +57,7 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 
 ## cmd/ 覆盖口径与豁免清单（2026-09-22 扩展）
 
-cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`，2026-09-29 第二十六轮后）：`cmd/server` ≈98%、`cmd/agent` ≈99%（`cmd/agent` = 定名 **`sidecar-agent`** 的现实目录，改名方案待批，见 [Agent 清单](../design/agents-inventory.md) §9）、`cmd/analytics-export` 87.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.5%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service 变更命令五体分支矩阵、schema-validator 归档解剖边界、dashboard fixture 装配翼直测等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
+cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`，2026-09-29 第二十六轮后）：`cmd/server` ≈98%、`cmd/sidecar-agent` ≈99%（定名 **`sidecar-agent`**，2026-10-11 方案 A 落地：仅源码目录改名，产物名不变，见 [Agent 清单](../design/agents-inventory.md) §9）、`cmd/analytics-export` 87.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.5%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service 变更命令五体分支矩阵、schema-validator 归档解剖边界、dashboard fixture 装配翼直测等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
 
 ### cmd-1.（进程边界）全部二进制的 `main` / `Execute`
 
@@ -69,7 +69,7 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 ### cmd-2.（系统变更）server/agent 的 service 变更命令主体【2026-09-29 第二十五轮收窄后无豁免块】
 
-**位置（历史）**：`cmd/server/service.go` 与 `cmd/agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
+**位置（历史）**：`cmd/server/service.go` 与 `cmd/sidecar-agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
 
 **原论证（已失效）**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。
 
@@ -110,7 +110,7 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 ### cmd-6.（C 类防御 + 跨平台面）server/agent service.go 的环境恒成功守卫与 windows/darwin 分支
 
-**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go`（`createServerService`/`createService` 的三处守卫与 windows 分支、`defaultServerConfigDir`/`defaultConfigDir` 的 windows/darwin case、cmd/server 尾部 `exePath()` 的 `os.Executable` 失败回落 "unknown"）；`cmd/agent/root.go`（`resolveAgentID` 的 `os.Hostname` 空值兜底）。
+**位置**：`cmd/server/service.go` 与 `cmd/sidecar-agent/service.go`（`createServerService`/`createService` 的三处守卫与 windows 分支、`defaultServerConfigDir`/`defaultConfigDir` 的 windows/darwin case、cmd/server 尾部 `exePath()` 的 `os.Executable` 失败回落 "unknown"）；`cmd/sidecar-agent/root.go`（`resolveAgentID` 的 `os.Hostname` 空值兜底）。
 
 **论证**：
 
@@ -121,7 +121,7 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 **失效条件**：上述系统调用改为可注入（如 hostname/executable 变量化）时按错误注入工具箱补测；CI 引入 windows/darwin runner 时 windows 分支应转为可覆盖面并移除本条。
 
-**2026-09-22 同轮修复记录**（非豁免，随本条入档备查）：`service.Platform()` 在 linux+systemd 返回 `"linux-systemd"`，历史代码 `== "linux"` 精确比较恒 false——systemd unit 的 `network-online` 依赖与 `croupier` 运行用户、status 的 Linux 管理命令提示从未生效（server/agent 两包同病）。已引入 `platformFamily` 归一并补三态/平台分支用例。同轮还删除了 `cmd/agent` AgentConfig 解析中 canonical TLS/OutboundTLS 冗余视图（与内联字段键集完全重叠，分支恒假），并修复 Abs 失败回退链中承接变量被 err 返回清零导致相对配置目录被静默丢弃的缺陷。
+**2026-09-22 同轮修复记录**（非豁免，随本条入档备查）：`service.Platform()` 在 linux+systemd 返回 `"linux-systemd"`，历史代码 `== "linux"` 精确比较恒 false——systemd unit 的 `network-online` 依赖与 `croupier` 运行用户、status 的 Linux 管理命令提示从未生效（server/agent 两包同病）。已引入 `platformFamily` 归一并补三态/平台分支用例。同轮还删除了 `cmd/sidecar-agent` AgentConfig 解析中 canonical TLS/OutboundTLS 冗余视图（与内联字段键集完全重叠，分支恒假），并修复 Abs 失败回退链中承接变量被 err 返回清零导致相对配置目录被静默丢弃的缺陷。
 
 ### cmd/ 残留部分覆盖面（非豁免，如实记录）
 

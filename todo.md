@@ -4181,20 +4181,14 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **验收口径**：用户批简档 → 建 `cmd/devops-agent/` + `agents/devops/`（session/协议 Provider + recorder/会话存档 + allowlist/白名单 + main），骨架深度与 capture C1 同构：注册/心跳/execlog 接线可用、`go build` + 单测绿；协议实现与 guacd 通道另批拆分。
 - **需拍板**：简档批不批（批=开工骨架；不批=说明改哪里）。
 
-### ② sidecar-agent 定名落地·改名方案（先出方案，用户确认后执行，禁直接 rename）
+### ② sidecar-agent 定名落地（✅ 2026-10-11 方案 A 已执行）
 
-- **现状**：定名 `sidecar-agent` 已拍（2026-10-09），现实目录/二进制仍为 `cmd/agent` → `croupier-agent`。
-- **已核实影响面**：
-  - 源码目录：`cmd/agent/`（唯一入口，`internal/agent` + `internal/app/agent` 为实现主体不动）。
-  - 二进制产物：Makefile `make agent` → `$(BINDIR)/croupier-agent`；`docker/Dockerfile.agent` → `/out/croupier-agent` + `ENTRYPOINT /app/croupier-agent`；nightly 资产 `croupier-bin-*`；安装脚本/systemd unit 以 `croupier-agent` 为部署契约。
-  - **注册 wire 无 agent type 字段**（register.proto 只有 agent_id/labels map）——改名不触碰注册协议，面板「type=sidecar」过滤是设计未落地面，无存量数据迁移。
-  - 配置：`configs/agent.yaml` + `agent.local.yaml`；env 前缀 `CROUPIER_AGENT_*`；CLI 二进制名。
-  - 文档：agent-install / deploy-docker / coverage-exemptions / agent-capability-library-matrix（本批已加定名注）。
-- **兼容方案（两档，拍板点）**：
-  - **A（推荐）**：只改源码目录 `cmd/agent` → `cmd/sidecar-agent`，产物名 `croupier-agent` 保持不变——部署契约（二进制名/镜像 ENTRYPOINT/systemd/安装脚本）零影响，存量升级无感；文档与设计名先对应。
-  - **B**：连二进制名一起改 `croupier-sidecar-agent`——需双名过渡（同源双 main 并行发布 ≥1 版本周期）、Dockerfile/Makefile/install 脚本/systemd unit/nightly 资产同步、存量部署升级指引；影响所有现网 agent 升级路径。
-- **验收口径**：用户选 A/B → 执行改名（目录/引用/CI 全绿）→ 产物名与部署面按所选档位兑现 → 文档定名注更新为「已落地」。
-- **需拍板**：选 A 还是 B。
+- **拍板**：用户 2026-10-11 令「② sidecar-agent 改名选 A（只改源码目录 cmd/agent→cmd/sidecar-agent，产物名 croupier-agent 不变，部署契约零影响）」。
+- **已执行（本批）**：`git mv cmd/agent cmd/sidecar-agent`；构建面 5 文件同步新包路径（Makefile `make agent` / `docker/Dockerfile.agent` / `.github/workflows/release.yml` ×2 / `nightly.yml` ×3 / `.vscode/launch.json` ×5），**产物名全部保持 `croupier-agent`**（镜像 ENTRYPOINT / systemd / 安装脚本 / nightly 资产零变化，存量升级无感）。
+- **文档定名注 → 「已落地」**：agents-inventory §1 状态行 + 全景表 + §9 待批点、agent-core-design 角色口径行、agent-install、deploy-docker、agent-capability-library-matrix（3 处 `cmd/agent/root.go` 路径引用）、coverage-exemptions（4 处路径引用）。
+- **零影响面核实**：注册 wire 无 agent type 字段（register.proto 只有 agent_id/labels），改名不触碰注册协议；`internal/agent` + `internal/app/agent` 实现主体不动；`configs/agent.yaml`、env 前缀 `CROUPIER_AGENT_*`、CLI 配置加载全不变。
+- **门禁**：`go build ./...` 绿、`go build ./cmd/sidecar-agent` 绿、`go vet ./cmd/sidecar-agent/...` 绿。
+- **验收口径回执**：目录/引用/CI 全绿 ✅，产物名与部署面按 A 档兑现 ✅，文档定名注更新为「已落地」✅。
 
 ### ③ capture-agent 闸层 C2（待批）
 
@@ -4218,5 +4212,9 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **S3-web 门禁**：`go build ./...` 0 错；`go test ./internal/...` 161 包全绿（含新增 5 用例）；`tsc --noEmit` 0 错；`scripts/dashboard_vnext_guard.sh` PASSED；`docs && pnpm build` 通过；SiteSettings 簇 44 用例绿（新卡 5 用例 + MaintenanceTab 回归）。
 - **已知边界（诚实）**：atlas 无维护窗历史 API，维护态真相在 atlas 侧；serverStatus 缺 baseUrl 的 fail-open 标注属运行时行为，设置页以「配置未生效 + 缺项名」呈现而非误报 active；本批未执行 deploy-self-hosted（线上部署随 CI Core 全绿后走，未上线）。
 - **svc 测试 `:memory:` sqlite 连接池 flake（commit 29e10cb，已修）**：8 处裸 `gorm.Open(gsqlite.Open(":memory:"))` 补 `SetMaxOpenConns(1)`（先例 coverage_group_g/coverage_c_migrations）。根因：`:memory:` 每条连接是独立空库，出口异步投递写与用例断言读并发时连接池开出第二条连接 → `no such table: messages`（TestRegisterOutletsDisabledByDefault 实炸点）；隔离复跑即绿 = 负载触发的并发窗口。
-- **扩展商店 toast 计时 flake（既有，未阻塞，待修）**：`Store/index.test.tsx`「通用错误翼：导入/上下架/删除 非 409 → mapper 兜底文案」在全量负载（1-min load 28~70）下 5/5 红，负载降到 6.9 即 31/31 绿；干净 HEAD（aa23e5e）worktree 同断言同红 → **与在途 diff 无关**。证据链：诊断采样显示 toast 实际已渲染并在 3s 窗口内 count=1（`before=0 now=1`，三步递增至 3），但断言 `waitFor(() => count > before)` 的 5s 预算在事件循环卡顿 >5s 时整窗错过（首版实证「Received: 0 / Expected > 0」）。修复方向（择一，需动该断言口径）：① 把三步断言改为在动作后立即 `await waitFor(() => expect(toastCount(text)).toBeGreaterThan(before))` 并把 jest `asyncUtilTimeout` 提到 15s；② 改用 `jest.useFakeTimers` + `runOnlyPendingTimers` 冻结 toast 3s 生命期；③ 断言面下沉到「错误 mapper 兜底 + handler 调用」双点单测，去掉对 antd message DOM 的依赖。验收：全量负载下该用例 3 连跑绿。
+  - **扩展商店 toast 计时 flake（已修，2026-10-11 用户令方案 ②）**：`Store/index.test.tsx`「通用错误翼：导入/上下架/删除 非 409 → mapper 兜底文案」在全量负载（1-min load 28~70）下 5/5 红，负载降到 6.9 即 31/31 绿；干净 HEAD（aa23e5e）worktree 同断言同红 → 与在途 diff 无关，纯环境族。
+  - **根因链（诊断采样实证）**：toast 实际已渲染（`before=0 now=1`，三步计数递增至 3），但计数式断言 `waitFor(() => count > before)` 的 5s 预算在事件循环卡顿 >5s 时整窗错过 toast 的 3s 生命期（首版实证「Received: 0 / Expected > 0」）。
+  - **修复（方案 ② 已落地）**：该用例内 `jest.useFakeTimers()` 冻结 antd message 的 3s 消失计时，用例体抽为 `runGenericErrorFlow()`、`finally` 恢复 real timers（不污染同文件其他用例）。RTL waitFor 检测到 fake timers 会按 interval 步进推进（`wait-for.js` 的 `advanceTimersByTime`），渲染链不受影响；3s 消失计时被冻结后计数单调，断言不再依赖真实时间窗。方案 ③（断言下沉 mapper+handler 双点）未启用。
+  - **验收达成**：目标用例 3 连跑绿（负载 42~74）；run1 全文件 1 红为另一用例「安装弹窗 成功链」30s 超时（load 74 峰值，环境族，该用例在其余轮次全绿）。
+  - **残余边界（诚实）**：环境族 30s 超时红集随负载漂移，低负载（<10）下全绿；本 flake 修复只覆盖 antd message 生命期这一类计时敏感断言，不改变 ProTable 级慢渲染的负载敏感面。
 - **门禁红集漂移记录**：本轮全量 jest（load 50~70）21 红套件 / 26 红用例，隔离复跑 20/21 恢复绿、`templateUsage` 第二轮绿，唯一稳定红为上述 toast 计时用例；`tests/antd6Deprecations.test.ts` 在本轮**真红**（新卡两处 antd 6 废弃属性 `Space direction` / `Alert message`），已改 `orientation` / `title` 随 92b6cfc 交付。

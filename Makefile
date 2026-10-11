@@ -105,7 +105,7 @@ server-sqlite-ip2loc:
 agent:
 	@echo "[build] agent"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./cmd/agent
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./cmd/sidecar-agent
 
 build: server agent worker ingest tools
 

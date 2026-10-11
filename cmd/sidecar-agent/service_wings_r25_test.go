@@ -1,4 +1,4 @@
-// 覆盖率巡检第二十五轮（wt-api）：cmd/agent service 变更命令主体——
+// 覆盖率巡检第二十五轮（wt-api）：cmd/sidecar-agent service 变更命令主体——
 // install/uninstall/start/stop/restart 五体经 newKardianosService 接缝注入
 // 可控 fake（status/statusErr + 各方法错误 + 调用计数）分支矩阵全数直测，
 // 不碰真实 systemd。cmd-2 豁免随之收窄：变更面只在「未注入接缝」的真实
