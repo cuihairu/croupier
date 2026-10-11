@@ -4297,7 +4297,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - [ ] **风控规则页**：/ops/capture JSON 卡升级为 reconcile/cep/lineage 三段结构化表单 + dry-run 测试接口（组合边界拍板：server lint + agent 语义校验如何串联）
 - [x] **风控策略页（✅ 2026-10-11）**：`/risk/strategies`——版本历史新端点 `GET /api/v1/ops/capture/gates/versions`（未发布回空数组非 404，新→旧）+ 版本表（当前绿 Tag/发布人/时间/message）+ 生效对账行（复用 appliedRevision 通道，`summarizeGatesApply` util 与 /ops/capture 共用）+ 行级回滚（Popconfirm → 既有 rollback 端点，当前版本行 disabled）；版本/节点接口失败退化空表不断主面；服务端 4 例 + 页面 9 例 + util 3 例 + service 2 例。边界：发布成功 ≠ 已生效（agent 自报滞后非强一致），页面明示
 - [ ] **风险事件扩展**：alerts 加 severity=critical 档 + status 流转（待处理→已确认/已忽略/已升级）——**模型加列必须同 PR 配 goose 编号迁移**（migrations.go + MinimumRequiredVersion + migrate_test 三处同步，仓库红线）
-- [ ] **告警中心迁移**：Alerts 页挂入风控分类（数据面不动）
+- [x] **告警中心迁移（✅ 2026-10-11）**：`/risk/alerts` 复用 `./Ops/Alerts` 组件（数据面零改动）；`menu.Ops.Alerts` → `menu.Risk.Alerts` 双语；旧 `/ops/alerts` 留 hideInMenu 重定向兼容书签 + `/ops/maintenance` 改指新路径免二跳；routes.test 断言新挂载与兼容重定向（4 suites 82 tests 绿）
 - [ ] **验证清单**：规则更新热生效、断线恢复 keep last-good、位点恢复、新表启用、过滤错误可观测、跨 game/env 隔离
 - `/ops/capture` 旧入口去留拍板（倾向保留为快速发布入口）
 

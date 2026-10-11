@@ -59,7 +59,6 @@ export default {
   'menu.Ops.Jobs': '任务监控',
   'menu.Ops.Capture': '捕获规则',
   'menu.Ops.Schedules': '定时调度',
-  'menu.Ops.Alerts': '告警中心',
   'menu.Ops.Incidents': '事故登记',
   'menu.Ops.IncidentReports': '事故报表',
   'menu.Ops.IncidentCategories': '事故类别',
@@ -68,6 +67,7 @@ export default {
 
   'menu.Risk': '风控',
   'menu.Risk.RiskStrategies': '风控策略',
+  'menu.Risk.Alerts': '告警中心',
   'menu.Dev.ExcelConfig': '表格配置',
   'menu.Dev.Configs': '业务配置',
   'menu.Dev.ConfigExplorer': '配置浏览',

@@ -480,12 +480,6 @@ export default [
         component: './Ops/Schedules',
       },
       {
-        path: '/ops/alerts',
-        name: 'Alerts',
-        access: 'canOpsRead',
-        component: './Ops/Alerts',
-      },
-      {
         // 事故登记（docs/design/incident-reports.md §8）
         path: '/ops/incidents',
         name: 'Incidents',
@@ -553,6 +547,14 @@ export default [
         name: 'RiskStrategies',
         access: 'canOpsRead',
         component: './Risk/Strategies',
+      },
+      {
+        // 告警中心：自 /ops 迁入风控分类（risk-control-panel-design.md §6 之 5），
+        // 数据面不动；旧路径 /ops/alerts 留隐藏重定向兼容书签
+        path: '/risk/alerts',
+        name: 'Alerts',
+        access: 'canOpsRead',
+        component: './Ops/Alerts',
       },
     ],
   },
@@ -638,7 +640,13 @@ export default [
   },
   {
     path: '/ops/maintenance',
-    redirect: '/ops/alerts',
+    redirect: '/risk/alerts',
+    hideInMenu: true,
+  },
+  {
+    // 告警中心旧路径（迁入风控分类）兼容书签
+    path: '/ops/alerts',
+    redirect: '/risk/alerts',
     hideInMenu: true,
   },
   {

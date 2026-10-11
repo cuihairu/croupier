@@ -63,7 +63,6 @@ export default {
   'menu.Ops.Capture': 'Capture Rules',
   'menu.Ops.Schedules': 'Schedules',
   'menu.Ops.Traces': 'Traces',
-  'menu.Ops.Alerts': 'Alerts',
   'menu.Ops.Incidents': 'Incidents',
   'menu.Ops.IncidentReports': 'Incident Reports',
   'menu.Ops.IncidentCategories': 'Incident Categories',
@@ -72,6 +71,7 @@ export default {
 
   'menu.Risk': 'Risk Control',
   'menu.Risk.RiskStrategies': 'Risk Strategies',
+  'menu.Risk.Alerts': 'Alerts',
   'menu.Ops.Notifications': 'Notifications',
   'menu.Ops.Backups': 'Backups',
   // Ops

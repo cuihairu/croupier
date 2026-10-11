@@ -99,12 +99,18 @@ describe('#8 账号中心合并为单层「个人中心」', () => {
 });
 
 describe('风控一级分类（CDC 平台化批阶段四）', () => {
-  it('「风控」组只挂真实页面：当前仅风控策略页，无占位路由', () => {
+  it('「风控」组只挂真实页面：风控策略页 + 告警中心（自 /ops 迁入），无占位路由', () => {
     const risk = byPath('/risk');
     expect(risk.name).toBe('Risk');
     expect(risk.access).toBe('canOpsRead');
-    expect(visibleChildren(risk).map((n) => n.path)).toEqual(['/risk/strategies']);
+    expect(visibleChildren(risk).map((n) => n.path)).toEqual(['/risk/strategies', '/risk/alerts']);
     expect(byPath('/risk/strategies').component).toBe('./Risk/Strategies');
+    // 告警中心迁入风控分类，页面组件原地复用（数据面不动）
+    expect(byPath('/risk/alerts').component).toBe('./Ops/Alerts');
+    // 旧路径留隐藏重定向兼容书签；/ops/maintenance 一步到位不再二跳
+    expect(byPath('/ops/alerts').redirect).toBe('/risk/alerts');
+    expect(byPath('/ops/alerts').hideInMenu).toBe(true);
+    expect(byPath('/ops/maintenance').redirect).toBe('/risk/alerts');
     // 重定向在组内无名子节点（与 /ops 组同约定）
     expect((risk.routes || []).find((n) => !n.name)?.redirect).toBe('/risk/strategies');
   });
