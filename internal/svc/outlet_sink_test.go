@@ -18,6 +18,7 @@ func TestMessageSinkUpsertFoldsRepushAndUpgradesLevel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
+	pinMemorySQLite(t, db)
 	if err := db.AutoMigrate(&model.Message{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}

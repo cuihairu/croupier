@@ -140,6 +140,7 @@ func newBackfillFixture(t *testing.T, usersJSON string) *ServiceContext {
 
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	pinMemorySQLite(t, db)
 	require.NoError(t, model.AutoMigrate(db))
 
 	ctx := &ServiceContext{
@@ -243,6 +244,7 @@ func TestCachedOTPEnabled_HitExpiryAndStoreFailure(t *testing.T) {
 	// 存储故障：admins 表缺失 → fail-open 放行
 	brokenDB, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	pinMemorySQLite(t, brokenDB)
 	require.NoError(t, model.AutoMigrate(brokenDB))
 	require.NoError(t, brokenDB.Migrator().DropTable(&model.Admin{}))
 	m2 := NewAuthMiddlewareImpl(&ServiceContext{AdminModel: model.NewAdminModel(brokenDB)})

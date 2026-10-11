@@ -25,11 +25,24 @@ func svcWithHerald(t *testing.T, cfg config.HeraldConfig) (*ServiceContext, *reg
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
+	pinMemorySQLite(t, db)
 	if err := db.AutoMigrate(&model.Message{}); err != nil {
 		t.Fatalf("migrate messages: %v", err)
 	}
 	ctx := &ServiceContext{Config: config.Config{Herald: cfg}, MetricsStore: store, DB: db}
 	return ctx, store
+}
+
+// pinMemorySQLite 单连接钉扎：:memory: sqlite 每条连接是独立空库，出口
+// 异步投递写与用例断言读并发时连接池可能开出第二条连接（no such table
+// 假故障）；钉死单连接后迁移与读写全走同一条（coverage 系同款先例）。
+func pinMemorySQLite(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("wrap sqlite pool: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
 }
 
 func TestRegisterOutletsDisabledByDefault(t *testing.T) {
