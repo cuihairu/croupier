@@ -4,8 +4,7 @@ on:
   push:
     tags:
       - "v*"
-  schedule:
-    - cron: "0 2 * * *" # daily at 02:00 UTC (nightly)
+  # 2026-10-11 版本发布红线（用户令）：版本只能用户手动触发，schedule 自动发版已移除。
   workflow_dispatch:
     inputs:
       release_type:
