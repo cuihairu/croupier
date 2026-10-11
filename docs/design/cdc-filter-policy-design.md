@@ -94,7 +94,7 @@ detection:
 下发六步：**编辑 → 校验 → 发布（不可变 revision，记录发布人/时间/前一版本）→ 下发（只发匹配 gameId+env+sourceId 的 Agent）→ 应用（Agent 本地全量验证 + 原子切换）→ 确认（上报实际生效版本）**。
 
 - Agent 缓存已发布策略，正常运行完全离线执行；**不逐事件向 Server 请求过滤判断**。
-- 现状通道锚点：下行拉取 wire 对 `0x04011B/0x04011C` + `core/configsync` 版本轮询（简档 §8.5）就是第 4/5 步的雏形；补齐的是第 3 步（不可变 revision 策略头）与第 6 步（appliedRevision 上报）。
+- 现状通道锚点：下行拉取 wire 对 `0x04011B/0x04011C` + `core/configsync` 版本轮询（简档 §8.5）就是第 4/5 步的雏形；**第 6 步已通（2026-10-11）**：agent 生效后异步重注册，`captureGatesRevision` label 捎带 appliedRevision，`/ops/capture` 「生效对账」行对账 desired vs applied（滞后容忍）；补齐的是第 3 步（不可变 revision 策略头资产化，阶段三余项）。
 - **发布状态必须区分 `desiredRevision`（期望）与 `appliedRevision`（实际生效）**——面板不得在只有 desired 时显示"已生效"。
 - 策略变更两特例：
   1. 改 CEP 阈值：安全边界内原子切换规则实例；是否保留原窗口状态须明确规定（当前实现：整体换 gateSet 快照，窗口状态不保留、重新起算，简档 §8.2 时序边界）。
@@ -179,5 +179,5 @@ detection:
 
 - 阶段一契约面已落码（`agents/capture/filter/`：policy.go 统一策略头+生命周期+revision 推进语义、match.go 库表授权+默认拒绝+依赖检查+结果四分类，单测 7 组）；「建议/应当」其余各项均待实施。落码时的契约决定：include/exclude 冲突只认精确表项同列两侧（库级 exclude 压 include=合法关整库手势，排除确定性取胜）；`MissingDependencies` 对 nil matcher（无授权信息）保守返回全部缺失。
 - 位点-策略联动（§4）当前完全未实现：新增采集表 = 重启 Agent 重扫（binlog 保留期内）或从当前位置生效（丢历史），无按需回补。
-- appliedRevision 上报通道未建：面板发布成功 ≠ agent 已生效，现靠 agent 日志（`capture gates version applied`）人工核对。
+- appliedRevision 上报通道已通（2026-10-11，注册 labels 捎带 + 面板生效对账行）；滞后窗口 = 轮询 30s + 重注册，不作强一致读。策略资产化（统一策略头/不可变 revision 存储）仍是阶段三余项。
 - DeliveryPolicy 所在的订阅/脱敏面未设计详案（复用 alerts + outlet 的现有权限模型，扩展另批）。

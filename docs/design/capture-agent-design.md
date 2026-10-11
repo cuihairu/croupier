@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -397,6 +397,33 @@ SourceConnector/能力声明，阶段一）；runner 接线（`config.Gates` 新
 runner 4 例（接线与计数、未知操作 Error 计数、非法段 keep last-good、
 buildGateSet 闭集拒绝）；ops lint 2 例新增（event 非法形状 422、合法
 放行）。
+
+### 8.8 交付记录：appliedRevision 上报链（CDC 平台化批阶段三首项，2026-10-11）
+
+代码面：runner 新增 `appliedGatesRevision`（atomic.Pointer[string]，拉取器
+`WithOnApply` 回调写入）+ `reg`（register.Client 句柄，Run 装配）；生效后
+异步 `SyncOnce` 重注册，`buildPayload` 以 label `captureGatesRevision` 捎带
+生效版本——server session labels 经既有 register/UpsertAgent 全量覆盖刷新，
+零 server 改动、零 proto 变更；面板 `/ops/capture` 新增「生效对账」行
+（`listOpsNodes` labels 对账 desired vs applied：全生效绿 / 部分生效金
+tag+tooltip 点名 / 无 agent 灰）。口径与差异：
+
+1. **通道选型（复用注册面，不新增 wire 对）**：appliedRevision 是低频
+   低速率状态（每次发布生效一次），注册 labels 面已有承载（captureLineage
+   先例）；心跳 proto 无 labels 且扩展 HeartbeatRequest 面更大——重注册
+   即刷新，语义等价且实现面最小。
+2. **尽力而为不回滚**：重注册失败不回滚已生效规则（规则热替换已完成），
+   下次心跳断连重注册自然补报；面板对账允许滞后（30s 拉取 + 重注册），
+   不作强一致读。
+3. **生效失败不推进**：apply 失败（非法规则 keep last-good）时 onApply
+   不触发，appliedGatesRevision 保持上一生效值——面板不会把未生效版本
+   显示成已生效。
+4. **空语义**：未生效过任何面板版本时不带键（面板侧 = 文件规则；对账行
+   只在 desired>0 时渲染）。
+
+测试：runner_revision_test 3 例（label 跟随拉取推进/生效失败保持上一
+生效值/fetch 失败不记录 + reg 缺失容忍）；web 页 4 例新增（全生效/
+部分生效/对账失败退化/未发布不渲染对账行）。
 
 ## 9. 已知边界（诚实清单）
 

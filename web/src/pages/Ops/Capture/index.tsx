@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Card, Input, Popconfirm, Space, Tag, Typography } from 'antd';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { App, Alert, Button, Card, Input, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { ReloadOutlined, SnippetsOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
@@ -8,6 +8,7 @@ import {
   publishCaptureGates,
   type CaptureGatesState,
 } from '@/services/api/opsCapture';
+import { listOpsNodes, type OpsNode } from '@/services/api/ops';
 import { extractErrorMessage } from '@/utils/errors';
 
 const { TextArea } = Input;
@@ -54,6 +55,7 @@ export default function OpsCapturePage() {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [nodes, setNodes] = useState<OpsNode[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,9 +78,22 @@ export default function OpsCapturePage() {
     }
   }, [message]);
 
+  // 生效对账数据源：节点 labels 由 agent 注册/重注册上报
+  // （captureGatesRevision=最近生效版本；role=capture 标识 capture-agent）。
+  // 对账失败不打断编辑面（节点列表不可得 ≠ 规则不可用）。
+  const loadNodes = useCallback(async () => {
+    try {
+      const resp = await listOpsNodes();
+      setNodes(resp.nodes);
+    } catch {
+      setNodes([]);
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadNodes();
+  }, [load, loadNodes]);
 
   const publish = useCallback(async () => {
     setPublishing(true);
@@ -93,7 +108,7 @@ export default function OpsCapturePage() {
           { version: resp.version },
         ),
       );
-      await load();
+      await Promise.all([load(), loadNodes()]);
     } catch (error) {
       message.error(
         extractErrorMessage(
@@ -107,9 +122,20 @@ export default function OpsCapturePage() {
     } finally {
       setPublishing(false);
     }
-  }, [content, load, message]);
+  }, [content, load, loadNodes, message]);
 
   const unpublished = !state || state.version === 0;
+
+  // desired vs applied（appliedRevision 上报链）：capture agent 自报的
+  // 生效版本与当前 desired 版本对账。自报滞后正常（30s 拉取 + 重注册）。
+  const applySummary = useMemo(() => {
+    const desired = state?.version ?? 0;
+    const captureNodes = nodes.filter((n) => n.labels?.role === 'capture');
+    if (desired === 0) return null;
+    const applied = captureNodes.filter((n) => n.labels?.captureGatesRevision === String(desired));
+    const stale = captureNodes.filter((n) => n.labels?.captureGatesRevision !== String(desired));
+    return { desired, total: captureNodes.length, applied, stale };
+  }, [nodes, state?.version]);
 
   return (
     <PageContainer>
@@ -117,7 +143,14 @@ export default function OpsCapturePage() {
         title={<FormattedMessage id="pages.opsCapture.gates.title" defaultMessage="闸规则下发" />}
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                load();
+                loadNodes();
+              }}
+              loading={loading}
+            >
               <FormattedMessage id="pages.opsCapture.reload" defaultMessage="重载" />
             </Button>
             <Button
@@ -172,13 +205,56 @@ export default function OpsCapturePage() {
               </>
             )}
           </Space>
+          {applySummary && (
+            <div>
+              <Text type="secondary">
+                <FormattedMessage
+                  id="pages.opsCapture.apply.summary"
+                  defaultMessage="生效对账（agent 自报）："
+                />
+              </Text>{' '}
+              {applySummary.total === 0 ? (
+                <Tag>
+                  <FormattedMessage
+                    id="pages.opsCapture.apply.noAgents"
+                    defaultMessage="scope 内无在线 capture-agent"
+                  />
+                </Tag>
+              ) : applySummary.stale.length === 0 ? (
+                <Tag color="green">
+                  <FormattedMessage
+                    id="pages.opsCapture.apply.allApplied"
+                    defaultMessage="{count}/{total} 台已生效"
+                    values={{ count: applySummary.applied.length, total: applySummary.total }}
+                  />
+                </Tag>
+              ) : (
+                <Tooltip
+                  title={applySummary.stale
+                    .map(
+                      (n) =>
+                        `${n.id}: ${n.labels?.captureGatesRevision || intlRef.current.formatMessage({ id: 'pages.opsCapture.apply.unknown', defaultMessage: '未上报' })}`,
+                    )
+                    .join('; ')}
+                >
+                  <Tag color="gold">
+                    <FormattedMessage
+                      id="pages.opsCapture.apply.partial"
+                      defaultMessage="{count}/{total} 台已生效（其余未上报或滞后）"
+                      values={{ count: applySummary.applied.length, total: applySummary.total }}
+                    />
+                  </Tag>
+                </Tooltip>
+              )}
+            </div>
+          )}
           <Alert
             type="info"
             showIcon
             message={intlRef.current.formatMessage({
               id: 'pages.opsCapture.gates.boundary',
               defaultMessage:
-                '服务端只做结构检查；语义校验（表路由/阈值）由 capture-agent 生效时全量执行，非法规则保留旧版。发布成功 ≠ 已生效，生效真值见 agent 日志 capture gates version applied。',
+                '服务端只做结构检查；语义校验（表路由/阈值）由 capture-agent 生效时全量执行，非法规则保留旧版。发布成功 ≠ 已生效，以上「生效对账」为 agent 自报（轮询 30s + 重注册滞后），日志 capture gates version applied 仍是逐次生效的原始真值。',
             })}
           />
           <TextArea

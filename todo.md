@@ -4286,7 +4286,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 - [ ] **策略资产化**：config_versions 单键 capture.gates → 策略记录（统一头+分类型体，不可变 revision+发布人+前一版本）；沿用 namespace=ops 或新增 namespace 拍板
 - [ ] **发布校验服务端化**：阶段一契约的服务端实现（结构+依赖+能力感知 lint）；能力集从 agent 注册上报取（labels 或注册响应扩展，拍板项）
-- [ ] **appliedRevision 上报通道**：agent 上行实际生效版本（复用心跳/注册响应带 labels 或独立 wire 对，拍板项）；面板 desired vs applied 双状态真值
+- [x] **appliedRevision 上报通道（✅ 2026-10-11）**：拍板=复用注册面（零 proto/零 server 改动）——生效后异步重注册，`captureGatesRevision` label 捎带；面板 /ops/capture「生效对账」行 desired vs applied（全生效绿/部分金 tag 点名/无 agent 灰），滞后容忍非强一致；capture-agent 简档 §8.8
 - [ ] **位点-策略联动决策（用户令点名的最易遗漏项，先拍板再实施）**：新增采集表从哪个位点生效、是否回补历史（独立回补流程 vs 策略变更顺带）、策略切换记录生效位点与审计；底线=过滤规则变更不破坏 CDC 可恢复性
 - [ ] **业务规则迁出 YAML**：agents/capture/config 区分本地连接配置与中心下发策略；capture.gates.* 文件配置降级为 fallback（无中心时兜底）
 - [ ] **回滚**：以历史 revision 内容再发一版（不可变日志）；单测+发布链集成用例

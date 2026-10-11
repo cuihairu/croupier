@@ -34,6 +34,10 @@ jest.mock('@/services/api/opsCapture', () => ({
   publishCaptureGates: jest.fn(),
 }));
 
+jest.mock('@/services/api/ops', () => ({
+  listOpsNodes: jest.fn(),
+}));
+
 const mockIntl = {
   formatMessage: (opts: { defaultMessage?: string }, values?: Record<string, string | number>) => {
     let msg = opts.defaultMessage ?? '';
@@ -65,9 +69,11 @@ jest.mock('@umijs/max', () => ({
 }));
 
 import { getCaptureGates, publishCaptureGates } from '@/services/api/opsCapture';
+import { listOpsNodes } from '@/services/api/ops';
 
 const mGet = getCaptureGates as jest.MockedFunction<typeof getCaptureGates>;
 const mPublish = publishCaptureGates as jest.MockedFunction<typeof publishCaptureGates>;
+const mNodes = listOpsNodes as jest.MockedFunction<typeof listOpsNodes>;
 
 const published = {
   key: 'capture.gates',
@@ -82,6 +88,13 @@ beforeEach(() => {
   jest.clearAllMocks();
   mGet.mockResolvedValue({ ...published });
   mPublish.mockResolvedValue({ version: 4 });
+  // 默认两台 capture agent 均已上报生效版本 3（与 published.version 对齐）
+  mNodes.mockResolvedValue({
+    nodes: [
+      { id: 'cap-1', labels: { role: 'capture', captureGatesRevision: '3' } },
+      { id: 'cap-2', labels: { role: 'capture', captureGatesRevision: '3' } },
+    ],
+  } as never);
 });
 
 function renderPage() {
@@ -188,5 +201,42 @@ describe('capture 闸规则页 编辑与发布', () => {
     await waitLoad();
     fireEvent.click(screen.getByRole('button', { name: /重\s*载/ }));
     await waitFor(() => expect(mGet).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('capture 闸规则页 生效对账（appliedRevision）', () => {
+  it('全部生效：绿「{count}/{total} 台已生效」', async () => {
+    renderPage();
+    expect(await screen.findByText('2/2 台已生效')).toBeInTheDocument();
+    const tag = screen.getByText('2/2 台已生效').closest('.ant-tag');
+    expect(tag).toHaveClass('ant-tag-green');
+  });
+
+  it('部分生效：金 tag + tooltip 列出未生效 agent 与其自报版本', async () => {
+    mNodes.mockResolvedValue({
+      nodes: [
+        { id: 'cap-1', labels: { role: 'capture', captureGatesRevision: '3' } },
+        { id: 'cap-2', labels: { role: 'capture', captureGatesRevision: '1' } },
+        { id: 'cap-3', labels: { role: 'capture' } },
+      ],
+    } as never);
+    renderPage();
+    expect(await screen.findByText('1/3 台已生效（其余未上报或滞后）')).toBeInTheDocument();
+    // 非 capture 节点不进对账（下面这台 role 缺失，总数仍为 3）
+  });
+
+  it('节点对账失败：退化为「scope 内无在线 capture-agent」不打断编辑面', async () => {
+    mNodes.mockRejectedValueOnce(new Error('nodes-down'));
+    renderPage();
+    expect(await screen.findByText('scope 内无在线 capture-agent')).toBeInTheDocument();
+    expect(await screen.findByText('版本 3')).toBeInTheDocument();
+  });
+
+  it('未发布（desired=0）：不渲染对账行', async () => {
+    mGet.mockResolvedValue({ key: 'capture.gates', version: 0, content: '' });
+    renderPage();
+    expect(await screen.findByText('未发布（agent 用文件规则）')).toBeInTheDocument();
+    expect(screen.queryByText(/台已生效/)).not.toBeInTheDocument();
+    expect(screen.queryByText('scope 内无在线 capture-agent')).not.toBeInTheDocument();
   });
 });

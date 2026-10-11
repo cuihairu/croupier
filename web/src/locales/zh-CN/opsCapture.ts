@@ -13,8 +13,13 @@ export default {
   'pages.opsCapture.gates.unpublished': '未发布（agent 用文件规则）',
   'pages.opsCapture.gates.version': '版本 {version}',
   'pages.opsCapture.gates.boundary':
-    '服务端只做结构检查；语义校验（表路由/阈值）由 capture-agent 生效时全量执行，非法规则保留旧版。发布成功 ≠ 已生效，生效真值见 agent 日志 capture gates version applied。',
+    '服务端只做结构检查；语义校验（表路由/阈值）由 capture-agent 生效时全量执行，非法规则保留旧版。发布成功 ≠ 已生效，上方「生效对账」为 agent 自报（轮询 30s + 重注册滞后），日志 capture gates version applied 仍是逐次生效的原始真值。',
   'pages.opsCapture.gates.placeholder': 'capture.gates JSON（reconcile / cep / lineage 三段）',
   'pages.opsCapture.gates.help':
     '发布按顶栏 game/env scope 存 game 库（config_versions），capture-agent 经上行通道 30s 版本轮询拉取并整体热替换；断连或校验失败时按旧规则继续运行。',
+  'pages.opsCapture.apply.summary': '生效对账（agent 自报）：',
+  'pages.opsCapture.apply.noAgents': 'scope 内无在线 capture-agent',
+  'pages.opsCapture.apply.allApplied': '{count}/{total} 台已生效',
+  'pages.opsCapture.apply.partial': '{count}/{total} 台已生效（其余未上报或滞后）',
+  'pages.opsCapture.apply.unknown': '未上报',
 };

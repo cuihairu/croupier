@@ -86,6 +86,12 @@ type Runner struct {
 
 	// gates 当前生效闸层快照（启动=文件规则；面板发布即热替换）。
 	gates atomic.Pointer[gateSet]
+	// appliedGatesRevision 最近一次面板规则生效版本（appliedRevision 上报
+	// 面：生效后经重注册捎带给 server session labels，面板 desired vs
+	// applied 对账用；空=文件规则/尚无面板发布生效）。
+	appliedGatesRevision atomic.Pointer[string]
+	// reg 注册客户端句柄（规则热生效后触发重注册刷新 labels；Run 装配）。
+	reg atomic.Pointer[register.Client]
 
 	// conn 最近一次 Dial 成产出的上行连接（hitSender 跟随重连换新）。
 	conn atomic.Pointer[controlconn.Conn]
@@ -229,6 +235,20 @@ func (r *Runner) newGatesPuller() *configsync.Puller[[]byte] {
 		}),
 		configsync.WithOnApply[[]byte](func(version string) {
 			r.log.Info("capture gates version applied", "version", version)
+			// appliedRevision 上报链：记录生效版本 + 触发重注册刷新 server
+			// session labels（captureGatesRevision）。异步尽力而为：失败不
+			// 回滚生效（规则已热替换），下次心跳断连重注册自然补报。
+			v := version
+			r.appliedGatesRevision.Store(&v)
+			if reg := r.reg.Load(); reg != nil {
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					if err := reg.SyncOnce(ctx); err != nil {
+						r.log.Debug("re-register after gates apply failed", "error", err)
+					}
+				}()
+			}
 		}))
 }
 
@@ -266,6 +286,8 @@ func (r *Runner) Run(ctx context.Context) error {
 			r.log.Info("registered upstream", "agent", r.cfg.Agent.ID, "gameId", r.cfg.Agent.GameID, "env", r.cfg.Agent.Env)
 		},
 	})
+	// 句柄交给 runner：规则热生效后触发重注册刷新 labels（appliedRevision）。
+	r.reg.Store(reg)
 	reg.Start(ctx)
 	defer reg.Stop()
 
@@ -513,6 +535,11 @@ func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error)
 	}
 	if gs := r.gates.Load(); gs != nil && gs.lineage != nil {
 		labels["captureLineage"] = "degraded"
+	}
+	// appliedRevision 上报面（面板 desired vs applied 对账真值来源之一；
+	// 空缺省不带键 = 文件规则或尚无面板发布生效）。
+	if v := r.appliedGatesRevision.Load(); v != nil && *v != "" {
+		labels["captureGatesRevision"] = *v
 	}
 	return &agentv1.RegisterRequest{
 		AgentId: r.cfg.Agent.ID,
