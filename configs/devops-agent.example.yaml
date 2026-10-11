@@ -1,0 +1,44 @@
+# devops-agent 示例配置（复制为 devops-agent.yaml 后按环境修改）。
+# 命名遵循仓内配置契约（lowerCamelCase）；devops.enabled 缺省关
+#（会话面关闭，注册上线不受影响，agent-core 简档 §7.4）。
+
+agent:
+  # 注册用 agent 唯一 id（必填）。
+  id: devops-01
+  # 上游控制面地址（必填，tcp:// 前缀可省）。
+  serverAddr: "127.0.0.1:19090"
+  # 游戏域标签（必填，面板按此过滤）。
+  gameId: demo
+  # 逻辑环境标签（prod/stage/dev，可空）。
+  env: prod
+  # supervisable 心跳打点文件（监管方采样 mtime 得 last_heartbeat_unix）。
+  heartbeatFile: data/devops/agent-heartbeat
+
+# 上行控制通道 TLS（enabled=false 时裸连；生产建议启用并配 caFile）。
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
+
+devops:
+  # 会话面总开关，缺省关。开启前确认：白名单已按主机+端口+协议显式圈定、
+  # 审计目录可写（无审计通道不得开连接）。
+  enabled: false
+  # 可接入主机白名单（enabled=true 必填非空；端口/协议须显式列出，
+  # 不做隐式通配；白名单外主机一律拒绝）。configsync 下发另批。
+  allowlist:
+    - host: 10.0.1.20 # 打包机
+      ports: [22]
+      protocols: [ssh]
+    # - host: 10.0.1.21
+    #   ports: [3389, 5900]
+    #   protocols: [rdp, vnc]
+  # 会话存档目录（起止元数据 JSONL；内容流存档格式/保留期另批报批）。
+  sessionDir: data/devops/sessions
+  # 审计文件目录（execlog 本地真值，audit-first 前提）。
+  execlogDir: data/devops/execlog
+  # guacd（Guacamole 协议网关）地址——预留字段，协议通道批启用。
+  guacdAddr: ""

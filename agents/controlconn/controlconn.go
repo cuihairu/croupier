@@ -1,4 +1,4 @@
-// Package controlconn capture-agent 上行控制连接（core/register.Conn 适配
+// Package controlconn core 系 agent 共用上行控制连接（core/register.Conn 适配
 // core/transport/tcp.Client）。语义对齐 internal/app/agent 的 tcpControlClient
 // （Register/Heartbeat 走 agentv1 wire），但依赖面收在 agents/*→core/*→proto
 // 不变量内：不 import internal/。

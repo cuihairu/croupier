@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/config"
-	"github.com/cuihairu/croupier/agents/capture/controlconn"
 	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/controlconn"
 	"github.com/cuihairu/croupier/core/backoff"
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/register"

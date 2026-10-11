@@ -4175,11 +4175,13 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 >
 > 背景纠偏：三 agent 此前在 todo.md **零登记**（无落名条目）→ 巡检不点火，这是「讨论定了却没动」的根因；本批补登四条带验收口径的条目，防再次悬空。
 
-### ① devops-agent 简档定稿 → 批准后建骨架（待批）
+### ① devops-agent 简档定稿 → 骨架已实施（2026-10-11 拍板批简档）
 
-- **现状**：未立项（`cmd/`、`agents/` 均无目录）。简档已按 2026-10-11 运维口径重写：[agent-core 简档](docs/design/agent-core-design.md) §7（内网堡垒机式远程接入代理：SSH/RDP/VNC、cockpit 参考点、audit-first 会话级审计、白名单边界）。
-- **验收口径**：用户批简档 → 建 `cmd/devops-agent/` + `agents/devops/`（session/协议 Provider + recorder/会话存档 + allowlist/白名单 + main），骨架深度与 capture C1 同构：注册/心跳/execlog 接线可用、`go build` + 单测绿；协议实现与 guacd 通道另批拆分。
-- **需拍板**：简档批不批（批=开工骨架；不批=说明改哪里）。
+- **拍板记录**：用户 2026-10-11 追问「agent 拆分完成了吗？根本没有处理完成啊」+ 早前授权「需要拍板的你先决定」→ 判定简档批，开工骨架。
+- **已交付（骨架，与 capture C1 同深度）**：`cmd/devops-agent/main.go`（supervisable.Main 挂监管，exit 2 配置错误契约同 capture）；`agents/devops/config`（YAML 极简配置，`devops.enabled` 缺省关，白名单条目 host+ports+protocols 显式闭集、enabled=true 必填非空）；`agents/devops/session`（Protocol 三协议闭集 ssh/rdp/vnc、SessionTarget Provider 位 + noop 占位、Allowlist 精确匹配、Broker 会话建立链——请求校验→白名单前置→execlog audit-first Admit 放行凭据→Provider Open，顺序不可倒，拒绝也留痕、无审计通道拒绝连接；Recorder 会话起止元数据 JSONL，Close 自动落 ended）；`agents/devops/runner`（注册/心跳 role=devops + 审计真值落盘装配，审计目录打不开=拒服务退出，不降级无审计放行）；`configs/devops-agent.example.yaml`。单测 config 4 + session 6 + runner 3。
+- **共享件上收**：`agents/capture/controlconn` → `agents/controlconn`（core 系 agent 共用上行控制连接，capture/devops 同用；机械移动，wire 契约零变化）。
+- **另批项（诚实边界）**：协议通道 guacd/SSH（noop Provider 占位，Open 一律拒绝）、面板→agent 下行会话接线、白名单 configsync 下发、会话录像存档格式/保留期/回放粒度。
+- **裁剪面验证（§7.7）**：devops 不 import `core/metrics`、不引 capture 的 gate/source 包、无轮询 source——第三样例裁剪成立。
 
 ### ② sidecar-agent 定名落地（✅ 2026-10-11 方案 A 已执行）
 
@@ -4190,7 +4192,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **门禁**：`go build ./...` 绿、`go build ./cmd/sidecar-agent` 绿、`go vet ./cmd/sidecar-agent/...` 绿。
 - **验收口径回执**：目录/引用/CI 全绿 ✅，产物名与部署面按 A 档兑现 ✅，文档定名注更新为「已落地」✅。
 
-### ③ capture-agent 闸层 C2（三闸全交付：reconcile fb189bb / cep db31e20 / lineage 本批；告警上报链与面板配置面未开工）
+### ③ capture-agent 闸层 C2（三闸 + 告警上报链全交付：reconcile fb189bb / cep db31e20 / lineage 4f9584e / 上报链 01646d4；面板配置面推进中）
 
 - **现状**：C1 骨架已实施（2026-10-10：注册/心跳/事件流/位点，`cmd/capture-agent` + `agents/capture/`）。
 - **拍板**：用户 2026-10-11 令「③ capture-agent C2 开工，闸序 reconcile→cep→lineage，每闸实现+单测+简档差异记录」。

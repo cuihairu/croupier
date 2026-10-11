@@ -13,7 +13,7 @@ title: agent-core 通用能力层设计简档——能力清单/目录树/抽取
 - 审计令（2026-10-09，用户令）：每个 agent 的每次执行都留审计记录——core 新增统一 **`execlog`** 公共模块（与 healthprobe 同级），含 audit-first 放行闸、面板执行记录页（§6.2）。
 - 建模令与报警出口（2026-10-09，用户令）：①healthprobe **按 system 角色建模**——不只看当下活死，记录**故障窗口**（开始/恢复/持续时长）历史可查，探活数据带 timeline（§6.1）；②告警出口对接 **herald**（用户自研通知编排与投递平台）——capture 告警/healthprobe 故障窗口/devops 异常（旧口径「构建失败」随 2026-10-11 重定改判，语义待简档定稿）经 herald 投递，croupier 当接入方（courier 式接法，渠道/收件人由 herald 侧配置），接法见 [herald 对接简档](agent-herald-integration.md)。
 - 定名令（2026-10-09，用户拍板）：三 agent 定名 **sidecar-agent / devops-agent / capture-agent**，旧候选（gameserver-agent/cicd-agent/cdc-agent/ci-agent）弃用；权威口径见 [Agent 清单](agents-inventory.md)（目录：全景 → 三 agent 作用 → 公共模块 → 路线图占位 → scope 归属 → 面板分页）。
-- **角色口径重定（用户令，2026-10-11，覆盖 2026-10-09 旧口径）**：`sidecar-agent` = 外网侧、只做业务相关功能（监控游戏进程、注册函数、汇报健康信息含主机与定时任务）；`devops-agent` = **内网堡垒机式远程接入代理**（SSH/RDP/VNC 可操作、更高权限、必须记录；旧「CI/CD 只观测」口径整节废弃，§7 已按新口径重写）；`capture-agent` = CDC（防私改库）。三 agent 现状：capture 部分实施（C1 骨架 2026-10-10，闸层 C2 待批）、devops **未立项**（无目录）、sidecar = 现有主体（源码目录 `cmd/sidecar-agent`，2026-10-11 改名方案 A 落地，产物名 `croupier-agent`）。
+- **角色口径重定（用户令，2026-10-11，覆盖 2026-10-09 旧口径）**：`sidecar-agent` = 外网侧、只做业务相关功能（监控游戏进程、注册函数、汇报健康信息含主机与定时任务）；`devops-agent` = **内网堡垒机式远程接入代理**（SSH/RDP/VNC 可操作、更高权限、必须记录；旧「CI/CD 只观测」口径整节废弃，§7 已按新口径重写）；`capture-agent` = CDC（防私改库）。三 agent 现状：capture C2 已交付（C1 骨架 2026-10-10 + 三闸/告警上报链 2026-10-11）、devops **骨架已实施**（2026-10-11 拍板批简档，§7）、sidecar = 现有主体（源码目录 `cmd/sidecar-agent`，2026-10-11 改名方案 A 落地，产物名 `croupier-agent`）。
 - 底稿: [Agent 能力成熟库盘点矩阵](../research/agent-capability-library-matrix.md)（16 项换/留/补已拍板，A–F 批已全部落地——core 的库选型全部沿用该拍板，不重新选型）
 - 关联: [Agent 清单](agents-inventory.md)（定名/职责边界/scope 归属权威页）· [Agent 面板设计](agent-dashboard-design.md)（每类 agent 一页）· [herald 对接简档](agent-herald-integration.md)（告警投递出口）· [capture-agent 简档](capture-agent-design.md)（业务 agent 之一）· [Provider 插件设计](provider-plugin-design.md)（可插拔原则同源）· [崩溃快照调研](../research/crash-capture-survey-2026-10.md)（core/crash 的分级方案依据）
 
@@ -31,23 +31,23 @@ title: agent-core 通用能力层设计简档——能力清单/目录树/抽取
 
 ## 2. 能力清单表（每项：已有/新建/来源）
 
-| #   | 能力                           | 状态                         | 来源与现状                                                                                                                                                                                                                  | core 包（拟）       |
-| --- | ------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| 1   | 重试退避                       | **已有**                     | cenkalti/backoff/v5（矩阵 A 批 a9d250e 已落地三处）；core 只做统一旋钮薄封装，杜绝再出现「三套写法」                                                                                                                        | `core/backoff`      |
-| 2   | 结构化日志                     | **已有**                     | slog + lumberjack（`internal/cli/common/logging.go`，矩阵 #11「留」）；原样上收                                                                                                                                             | `core/logx`         |
-| 3   | 上报协议（统一上行）           | **部分**                     | MetricsReport/指标捎带已有（ops_metrics.go）；**告警通道新建**（capture 简档 §7，wire 加告警上报消息）                                                                                                                      | `core/report`       |
-| 4   | 注册上线                       | **已有**                     | `internal/agent` upstream 注册链 + game_env 校验；抽取时 local_handler 留 sidecar-agent，注册/重注册上收                                                                                                                    | `core/register`     |
-| 5   | 心跳与存活                     | **已有**                     | upstream.go 心跳 + 重连退避；与 #1 合并收拢                                                                                                                                                                                 | `core/register`     |
-| 6   | 进程监管·被监管契约            | **协议已有，契约侧新建**     | S1/S2 的 `SupervisorEvent`/`ManagedProcess`（ops.proto）不动；新建「被监管对象」运行时契约（§3）                                                                                                                            | `core/supervisable` |
-| 7   | 指标采集                       | **已有**                     | gopsutil v4 MetricsCollector；抽为可独立上报的采集器（capture 无函数通道也能报指标）                                                                                                                                        | `core/metrics`      |
-| 8   | 配置拉取与热更                 | **部分**                     | extension sync puller 先例（internal/app/agent/extension_sync_puller.go）；泛化为「版本号轮询→拉取→热生效」通用件                                                                                                           | `core/configsync`   |
-| 9   | 崩溃采集                       | **新建**                     | crash-capture-survey 分级方案已批（轻档公共件已落 core/crash：snapshot 档位注入 + dump 目录管理；supervisor 接线随 #67 S3；Crashpad 否决不立项）                                                                            | `core/crash`        |
-| 10  | 令牌桶限流                     | **已有**                     | x/time/rate（矩阵 B 批）；**不搬**——留 internal/platform/ratelimit 原地，core 系按需直接引包（避免双份）                                                                                                                    | （不设包）          |
-| 11  | 任务执行（async/幂等/取消）    | **已有，可裁**               | internal/agent jobs；函数通道系能力，capture 无任务面不 import                                                                                                                                                              | （暂不上收）        |
-| 12  | 本地网关（provider 注册/调用） | **已有，可裁**               | internal/agent tcp_local_listener + local_handler；sidecar-agent 专属，core 不含                                                                                                                                            | （不上收）          |
-| 13  | 内网远程接入（业务能力）       | **新建（未立项，简档待批）** | 拆分令首样例（§7，devops-agent，2026-10-11 口径重定为堡垒机代理）：SSH/RDP/VNC 会话接入白名单内网主机，会话级审计；属业务插件不进 core，列此仅为能力面全景                                                                  | `agents/devops/`    |
-| 14  | 服务探活（healthprobe）        | **新建，公共模块首批交付物** | 三语义对标 k8s probe 术语：Liveness（存活）/ Readiness（依赖就绪）/ Heartbeat（周期心跳打点）；sidecar-agent 游戏进程探活、devops-agent 探主机端口/guacd 通道、capture-agent 探库连通**共用同一份实现**，不各写各的（§6.1） | `core/healthprobe`  |
-| 15  | 执行审计（execlog）            | **新建，公共模块**           | 每个 agent 每次执行留审计记录（operator/agent/入参/结果/耗时/scope/任务 id），命令类执行 audit-first 放行；与 healthprobe 同级三 agent 共用（§6.2）                                                                         | `core/execlog`      |
+| #   | 能力                           | 状态                              | 来源与现状                                                                                                                                                                                                                  | core 包（拟）       |
+| --- | ------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| 1   | 重试退避                       | **已有**                          | cenkalti/backoff/v5（矩阵 A 批 a9d250e 已落地三处）；core 只做统一旋钮薄封装，杜绝再出现「三套写法」                                                                                                                        | `core/backoff`      |
+| 2   | 结构化日志                     | **已有**                          | slog + lumberjack（`internal/cli/common/logging.go`，矩阵 #11「留」）；原样上收                                                                                                                                             | `core/logx`         |
+| 3   | 上报协议（统一上行）           | **部分**                          | MetricsReport/指标捎带已有（ops_metrics.go）；**告警通道新建**（capture 简档 §7，wire 加告警上报消息）                                                                                                                      | `core/report`       |
+| 4   | 注册上线                       | **已有**                          | `internal/agent` upstream 注册链 + game_env 校验；抽取时 local_handler 留 sidecar-agent，注册/重注册上收                                                                                                                    | `core/register`     |
+| 5   | 心跳与存活                     | **已有**                          | upstream.go 心跳 + 重连退避；与 #1 合并收拢                                                                                                                                                                                 | `core/register`     |
+| 6   | 进程监管·被监管契约            | **协议已有，契约侧新建**          | S1/S2 的 `SupervisorEvent`/`ManagedProcess`（ops.proto）不动；新建「被监管对象」运行时契约（§3）                                                                                                                            | `core/supervisable` |
+| 7   | 指标采集                       | **已有**                          | gopsutil v4 MetricsCollector；抽为可独立上报的采集器（capture 无函数通道也能报指标）                                                                                                                                        | `core/metrics`      |
+| 8   | 配置拉取与热更                 | **部分**                          | extension sync puller 先例（internal/app/agent/extension_sync_puller.go）；泛化为「版本号轮询→拉取→热生效」通用件                                                                                                           | `core/configsync`   |
+| 9   | 崩溃采集                       | **新建**                          | crash-capture-survey 分级方案已批（轻档公共件已落 core/crash：snapshot 档位注入 + dump 目录管理；supervisor 接线随 #67 S3；Crashpad 否决不立项）                                                                            | `core/crash`        |
+| 10  | 令牌桶限流                     | **已有**                          | x/time/rate（矩阵 B 批）；**不搬**——留 internal/platform/ratelimit 原地，core 系按需直接引包（避免双份）                                                                                                                    | （不设包）          |
+| 11  | 任务执行（async/幂等/取消）    | **已有，可裁**                    | internal/agent jobs；函数通道系能力，capture 无任务面不 import                                                                                                                                                              | （暂不上收）        |
+| 12  | 本地网关（provider 注册/调用） | **已有，可裁**                    | internal/agent tcp_local_listener + local_handler；sidecar-agent 专属，core 不含                                                                                                                                            | （不上收）          |
+| 13  | 内网远程接入（业务能力）       | **新建（骨架已实施 2026-10-11）** | 拆分令首样例（§7，devops-agent，2026-10-11 口径重定为堡垒机代理）：SSH/RDP/VNC 会话接入白名单内网主机，会话级审计；属业务插件不进 core；协议通道（guacd/SSH）与下行会话接线另批                                             | `agents/devops/`    |
+| 14  | 服务探活（healthprobe）        | **新建，公共模块首批交付物**      | 三语义对标 k8s probe 术语：Liveness（存活）/ Readiness（依赖就绪）/ Heartbeat（周期心跳打点）；sidecar-agent 游戏进程探活、devops-agent 探主机端口/guacd 通道、capture-agent 探库连通**共用同一份实现**，不各写各的（§6.1） | `core/healthprobe`  |
+| 15  | 执行审计（execlog）            | **新建，公共模块**                | 每个 agent 每次执行留审计记录（operator/agent/入参/结果/耗时/scope/任务 id），命令类执行 audit-first 放行；与 healthprobe 同级三 agent 共用（§6.2）                                                                         | `core/execlog`      |
 
 > 上收边界：#11/#12 是「函数注册调用」业务面的骨架，不是通用 agent 的公共件——**留在 sidecar-agent 不进 core**，这正是「可裁」的第一次应用（core 系 agent 天然没有这两块攻击面）。
 
@@ -80,7 +80,7 @@ agents/
     source/                  #   mysql.go / postgres.go（ChangeSource Provider）
     gate/                    #   reconcile.go / cep.go / lineage.go
     rule/                    #   规则模板类型 + 求值（纯数据规则）
-  devops/                    # devops-agent（业务插件，堡垒机代理首样例，2026-10-11 口径重定，见 §7；未立项）
+  devops/                    # devops-agent（业务插件，堡垒机代理首样例，2026-10-11 口径重定，见 §7；骨架已实施）
     cmd/devops-agent/        #   main：core 装配（register+logx+report+execlog+configsync，无 metrics/source/rule）
     session/                 #   ssh.go / rdp.go / vnc.go（协议 Provider；guacd 主通道 + agent 本地终端兜底）
     recorder/                #   会话存档与回放（录像/命令流，落 execlog 会话级）
@@ -163,9 +163,9 @@ core 十包全部建成且自带测试（`go test ./core/...` 绿）；sidecar-a
 - **保存期与导出**：配置位（保留天数/导出目录/格式），默认值随实施报批。
 - **面板**：各 agent 页「执行记录」列表 + 筛选（执行人/结果/时间段），详情下钻看入参/结果全文，全按 scope 过滤（[Agent 清单](agents-inventory.md) §8）。
 
-## 7. 内网堡垒机代理 agent（devops-agent 简档，未立项待批）
+## 7. 内网堡垒机代理 agent（devops-agent 简档，骨架已实施）
 
-> **口径重定（用户令，2026-10-11，整节覆盖旧「CI/CD 状态监控」设计）**：devops-agent 不是 CI 状态监控，而是**内网堡垒机式远程接入代理**——运维/开发在 croupier 后台直接进入内网机器操作（典型场景：打包机进程挂了，后台直接进入处理，不再打开本地远程软件）。**更高权限 + 必须记录**是本 agent 的存在前提。三 agent 定稿口径：**sidecar-agent**=游戏服务器旁 GM 通道（外网侧仅业务）、**devops-agent**=内网堡垒机代理、**capture-agent**=防私改库/CDC（权威边界见 [Agent 清单](agents-inventory.md) §2–§4）。**尚未立项**：本节是简档（待批），批准后建 `cmd/devops-agent` 骨架。
+> **口径重定（用户令，2026-10-11，整节覆盖旧「CI/CD 状态监控」设计）**：devops-agent 不是 CI 状态监控，而是**内网堡垒机式远程接入代理**——运维/开发在 croupier 后台直接进入内网机器操作（典型场景：打包机进程挂了，后台直接进入处理，不再打开本地远程软件）。**更高权限 + 必须记录**是本 agent 的存在前提。三 agent 定稿口径：**sidecar-agent**=游戏服务器旁 GM 通道（外网侧仅业务）、**devops-agent**=内网堡垒机代理、**capture-agent**=防私改库/CDC（权威边界见 [Agent 清单](agents-inventory.md) §2–§4）。**骨架已实施（2026-10-11 拍板批简档）**：`cmd/devops-agent` + `agents/devops/`（config/session/runner）——注册/心跳/execlog 审计真值 + 会话建立链 Broker（白名单前置→审计落库→Open，顺序不可倒，无审计通道不得开连接）+ 会话存档元数据 JSONL + 白名单显式端口/协议闭集。**另批项（诚实边界）**：协议通道 guacd/SSH（Provider 为 noop 占位）、面板→agent 下行会话接线、白名单 configsync 下发、会话录像存档格式与回放粒度。
 
 ### 7.1 职责（唯一）
 
