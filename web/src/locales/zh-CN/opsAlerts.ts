@@ -1,5 +1,23 @@
 // pages.opsAlerts.* — Ops/Alerts 告警中心与规则 Tab
 export default {
+  // 风险事件工作流（risk-control-panel-design.md §3.3）
+  'pages.opsAlerts.column.handleStatus': '处理状态',
+  'pages.opsAlerts.filter.handleStatus': '处理状态',
+  'pages.opsAlerts.handle.pending': '待处理',
+  'pages.opsAlerts.handle.acknowledged': '已确认',
+  'pages.opsAlerts.handle.ignored': '已忽略',
+  'pages.opsAlerts.handle.escalated': '已升级',
+  'pages.opsAlerts.handle.menu': '处理',
+  'pages.opsAlerts.handle.acknowledge': '确认',
+  'pages.opsAlerts.handle.ignore': '忽略',
+  'pages.opsAlerts.handle.escalate': '升级',
+  'pages.opsAlerts.handle.modalTitle': '流转告警（{action}）',
+  'pages.opsAlerts.handle.remarkPlaceholder': '备注（可选，随流转落审计）',
+  'pages.opsAlerts.handle.success': '已流转',
+  'pages.opsAlerts.handle.failed': '流转失败',
+  'pages.opsAlerts.handle.confirm': '确定',
+  'pages.opsAlerts.handle.cancel': '取消',
+
   'pages.opsAlerts.action.openAlertmanager': '打开 AM',
   'pages.opsAlerts.action.openGrafana': '打开 Grafana',
   'pages.opsAlerts.action.openRunbook': '打开 Runbook',

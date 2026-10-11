@@ -111,6 +111,10 @@ import (
 //               + task_schedules.kind 列（回填 function）（事故报表体系
 //               批 4 §2.4/§2.5：建表 0019/0038 模式、加列 0025 模式；
 //               调度行播种不在迁移内——Manager 支持 kind 路由后才落行）
+//   0042 (Go)   alerts 工作流状态四列 handle_status/handled_by/
+//               handled_remark/handled_at（风险事件扩展，
+//               risk-control-panel-design.md §3.3；独立于入站 lifecycle
+//               status 列，加列 0033 模式；存量行回填 pending）
 
 func init() {
 	registerSvcMigrations()
@@ -162,6 +166,7 @@ func registerSvcMigrations() {
 		gameSoftDeleteResidueCleanupMigration(),
 		incidentTablesMigration(),
 		reportDistributionMigration(),
+		alertHandlingMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1353,6 +1358,47 @@ func migrateReportDistribution(ctx context.Context, sqlDB *sql.DB) error {
 		).Error; err != nil {
 			return fmt.Errorf("migrate: 0041 backfill task_schedules.kind: %w", err)
 		}
+	}
+	return nil
+}
+
+// alertHandlingMigration 为 0042：alerts 风险事件工作流状态四列
+// （handle_status/handled_by/handled_remark/handled_at，risk-control-panel
+// 设计 §3.3 风险事件扩展）。HandleStatus 独立于既有 status 列——后者被
+// AlertManager 入站 lifecycle（firing/resolved）占用，人工处理状态混列会
+// 互相覆盖。HasColumn+AddColumn 逐列补齐（0033 同模式；不整模型
+// AutoMigrate——0023 教训）；缺表跳过（fanout 不建空壳）；存量行回填
+// handle_status='pending'（与模型 default 对齐，NULL 不参与语义）。
+func alertHandlingMigration() *goose.Migration {
+	return goose.NewGoMigration(42,
+		&goose.GoFunc{RunDB: migrateAlertHandlingColumns},
+		nil,
+	)
+}
+
+// migrateAlertHandlingColumns 是 0042 的迁移体（抽出便于直测）。
+func migrateAlertHandlingColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.Alert{}) {
+		return nil
+	}
+	for _, col := range []string{"HandleStatus", "HandledBy", "HandledRemark", "HandledAt"} {
+		if migrator.HasColumn(&model.Alert{}, col) {
+			continue
+		}
+		if err := migrator.AddColumn(&model.Alert{}, col); err != nil {
+			return fmt.Errorf("migrate: 0042 add alerts.%s: %w", col, err)
+		}
+	}
+	// 存量行回填：待处理是唯一诚实的初始态（幂等，仅 NULL 行）。
+	if err := db.WithContext(ctx).Model(&model.Alert{}).
+		Where("handle_status IS NULL OR handle_status = ''").
+		Update("handle_status", model.AlertHandlePending).Error; err != nil {
+		return fmt.Errorf("migrate: 0042 backfill alerts.handle_status: %w", err)
 	}
 	return nil
 }

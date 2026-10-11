@@ -124,6 +124,11 @@ func (s *Service) OpsSilenceDelete(ctx context.Context, req *OpsAlertSilenceRequ
 	return opsSilenceDelete(ctx, s.svcCtx, req)
 }
 
+// OpsAlertHandle 风险事件工作流流转（确认/忽略/升级 + 备注）。
+func (s *Service) OpsAlertHandle(ctx context.Context, alertID string, req *OpsAlertHandleRequest) (*OpsAlertHandleResponse, error) {
+	return opsAlertHandle(ctx, s.svcCtx, alertID, req)
+}
+
 func (s *Service) OpsSilences(ctx context.Context, req *OpsSilencesRequest) (*OpsSilencesResponse, error) {
 	return opsSilences(ctx, s.svcCtx, req)
 }

@@ -326,6 +326,24 @@ func (h *Handler) OpsAlertSilence(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// OpsAlertHandle handles POST /api/v1/ops/alerts/:id/handle.
+// 路径参数 :id 在 handler 直取 c.Param（BindQueryCompat 只绑 query，
+// uri tag 不可依赖——/nodes/:id/meta 同教训）；body 只装 action/remark。
+func (h *Handler) OpsAlertHandle(c *gin.Context) {
+	var req OpsAlertHandleRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.OpsAlertHandle(c.Request.Context(), c.Param("id"), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) OpsSilenceDelete(c *gin.Context) {
 	var req OpsAlertSilenceRequest
 	if err := bindOpsRequest(c, &req); err != nil {

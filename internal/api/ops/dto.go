@@ -176,6 +176,12 @@ type OpsAlert struct {
 	Silenced    bool                   `json:"silenced,omitempty"`
 	Labels      map[string]interface{} `json:"labels,omitempty"`
 	Annotations map[string]interface{} `json:"annotations,omitempty"`
+	// 工作流状态（风险事件扩展，risk-control-panel-design.md §3.3）：
+	// 独立于 annotations.status（入站 lifecycle firing/resolved）。
+	HandleStatus  string `json:"handleStatus,omitempty"`
+	HandledBy     string `json:"handledBy,omitempty"`
+	HandledRemark string `json:"handledRemark,omitempty"`
+	HandledAt     string `json:"handledAt,omitempty"`
 }
 
 type OpsAlertSilenceDeleteRequest struct {
@@ -192,6 +198,23 @@ type OpsAlertSilenceResponse struct {
 }
 
 type OpsAlertsRequest struct {
+	// HandleStatus 工作流状态过滤（pending/acknowledged/ignored/escalated）。
+	HandleStatus string `form:"handleStatus" json:"handleStatus,omitempty"`
+}
+
+// OpsAlertHandleRequest 风险事件工作流流转（POST /ops/alerts/:id/handle，
+// :id 为告警主键）。Action: acknowledge 已确认 / ignore 已忽略 /
+// escalate 已升级；remark 随流转落审计（处理人取认证上下文，时间取库钟）。
+type OpsAlertHandleRequest struct {
+	Action string `json:"action"`
+	Remark string `json:"remark,omitempty"`
+}
+
+type OpsAlertHandleResponse struct {
+	AlertID      string `json:"alertId"`
+	HandleStatus string `json:"handleStatus"`
+	HandledBy    string `json:"handledBy"`
+	HandledAt    string `json:"handledAt"`
 }
 
 type OpsAlertsResponse struct {

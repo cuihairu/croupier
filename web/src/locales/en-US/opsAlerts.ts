@@ -1,5 +1,23 @@
 // pages.opsAlerts.* — Ops/Alerts 告警中心与规则 Tab
 export default {
+  // Risk event workflow (risk-control-panel-design.md §3.3)
+  'pages.opsAlerts.column.handleStatus': 'Handling',
+  'pages.opsAlerts.filter.handleStatus': 'Handling',
+  'pages.opsAlerts.handle.pending': 'Pending',
+  'pages.opsAlerts.handle.acknowledged': 'Acknowledged',
+  'pages.opsAlerts.handle.ignored': 'Ignored',
+  'pages.opsAlerts.handle.escalated': 'Escalated',
+  'pages.opsAlerts.handle.menu': 'Handle',
+  'pages.opsAlerts.handle.acknowledge': 'Acknowledge',
+  'pages.opsAlerts.handle.ignore': 'Ignore',
+  'pages.opsAlerts.handle.escalate': 'Escalate',
+  'pages.opsAlerts.handle.modalTitle': 'Handle alert ({action})',
+  'pages.opsAlerts.handle.remarkPlaceholder': 'Remark (optional, recorded for audit)',
+  'pages.opsAlerts.handle.success': 'Transitioned',
+  'pages.opsAlerts.handle.failed': 'Transition failed',
+  'pages.opsAlerts.handle.confirm': 'OK',
+  'pages.opsAlerts.handle.cancel': 'Cancel',
+
   'pages.opsAlerts.action.openAlertmanager': 'Open Alertmanager',
   'pages.opsAlerts.action.openGrafana': 'Open Grafana',
   'pages.opsAlerts.action.openRunbook': 'Open Runbook',

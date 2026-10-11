@@ -572,6 +572,8 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/cluster", opsHandler.ClusterInfo)
 	g.GET("/alerts", opsHandler.Alerts)
 	g.POST("/alerts/silence", opsHandler.AlertSilence)
+	// 风险事件工作流流转（确认/忽略/升级 + 备注；handled_by 取认证上下文）
+	g.POST("/alerts/:id/handle", opsHandler.OpsAlertHandle)
 	g.DELETE("/silences/:id", opsHandler.SilenceDelete)
 	g.GET("/silences", opsHandler.Silences)
 

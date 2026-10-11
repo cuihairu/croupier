@@ -255,6 +255,18 @@ export type OpsAlert = {
   silenced?: boolean;
   labels?: Record<string, JSONValue>;
   annotations?: Record<string, JSONValue>;
+  handleStatus?: string;
+  handledBy?: string;
+  handledRemark?: string;
+  handledAt?: string;
+};
+// 工作流状态（风险事件扩展）：独立于 annotations.status（入站 lifecycle）。
+export type AlertHandleAction = 'acknowledge' | 'ignore' | 'escalate';
+export type OpsAlertHandleResult = {
+  alertId: string;
+  handleStatus: string;
+  handledBy: string;
+  handledAt: string;
 };
 export type OpsTask = {
   id: string;
@@ -330,6 +342,10 @@ type RawOpsAlert = {
   silenced?: boolean;
   labels?: Record<string, JSONValue>;
   annotations?: Record<string, JSONValue>;
+  handleStatus?: string;
+  handledBy?: string;
+  handledRemark?: string;
+  handledAt?: string;
 };
 type RawOpsTask = {
   id: string;
@@ -432,6 +448,10 @@ function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
     silenced: raw.silenced,
     labels: raw.labels,
     annotations: raw.annotations,
+    handleStatus: raw.handleStatus,
+    handledBy: raw.handledBy,
+    handledRemark: raw.handledRemark,
+    handledAt: raw.handledAt,
   };
 }
 function normalizeOpsTask(raw: RawOpsTask): OpsTask {
@@ -649,6 +669,15 @@ export async function saveOpsNotifications(data: {
 export async function fetchOpsAlerts() {
   const response = await request<{ alerts?: RawOpsAlert[] }>('/api/v1/ops/alerts');
   return { alerts: (response?.alerts || []).map(normalizeOpsAlert) };
+}
+
+// 风险事件工作流流转（确认/忽略/升级 + 备注）；处理人取认证上下文，
+// handled_at 以服务端库钟为准。
+export async function handleOpsAlert(id: string, action: AlertHandleAction, remark?: string) {
+  return request<OpsAlertHandleResult>(`/api/v1/ops/alerts/${encodeURIComponent(id)}/handle`, {
+    method: 'POST',
+    data: { action, remark },
+  });
 }
 
 export async function silenceOpsAlert(data: {

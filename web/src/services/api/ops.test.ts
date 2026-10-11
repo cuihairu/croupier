@@ -16,6 +16,7 @@ import {
   fetchOpsAlerts,
   fetchOpsConfig,
   fetchOpsMetrics,
+  handleOpsAlert,
   fetchOpsNotifications,
   getAgentMetricsHistory,
   getOpsBackupDownloadUrl,
@@ -809,6 +810,27 @@ describe('ops alert adapters', () => {
   it('falls back to an empty alert list on a missing payload', async () => {
     mockedRequest.mockResolvedValueOnce(undefined);
     await expect(fetchOpsAlerts()).resolves.toEqual({ alerts: [] });
+  });
+
+  it('posts an alert handle transition, encoding the id and defaulting the remark', async () => {
+    mockedRequest.mockResolvedValue({
+      alertId: '12',
+      handleStatus: 'acknowledged',
+      handledBy: 'alice',
+      handledAt: '2026-10-12T08:00:00Z',
+    });
+
+    await handleOpsAlert('12', 'acknowledge', 'checked ledger');
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/alerts/12/handle', {
+      method: 'POST',
+      data: { action: 'acknowledge', remark: 'checked ledger' },
+    });
+
+    await handleOpsAlert('/bad id', 'ignore');
+    expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/ops/alerts/%2Fbad%20id/handle', {
+      method: 'POST',
+      data: { action: 'ignore', remark: undefined },
+    });
   });
 
   it('silences an alert with the wire-case body, defaulting the comment', async () => {

@@ -60,6 +60,7 @@ jest.mock('@/services/api/ops', () => ({
   listSilences: jest.fn(),
   silenceOpsAlert: jest.fn(),
   deleteSilence: jest.fn(),
+  handleOpsAlert: jest.fn(),
 }));
 
 jest.mock('../AlertRulesTab', () => ({
@@ -90,6 +91,7 @@ jest.mock('@umijs/max', () => ({
 import {
   fetchOpsAlerts,
   fetchOpsConfig,
+  handleOpsAlert,
   listSilences,
   silenceOpsAlert,
   deleteSilence,
@@ -100,6 +102,7 @@ const mConfig = fetchOpsConfig as jest.MockedFunction<typeof fetchOpsConfig>;
 const mSilences = listSilences as jest.MockedFunction<typeof listSilences>;
 const mSilenceOps = silenceOpsAlert as jest.MockedFunction<typeof silenceOpsAlert>;
 const mDeleteSilence = deleteSilence as jest.MockedFunction<typeof deleteSilence>;
+const mHandle = handleOpsAlert as jest.MockedFunction<typeof handleOpsAlert>;
 
 // 覆盖翼：critical 红 + number/null label 值（toStringRecord 归一）、runbook 注释
 const alert1: OpsAlert = {
@@ -175,6 +178,12 @@ beforeEach(() => {
   mSilences.mockResolvedValue({ silences });
   mSilenceOps.mockResolvedValue(undefined);
   mDeleteSilence.mockResolvedValue(undefined);
+  mHandle.mockResolvedValue({
+    alertId: '12',
+    handleStatus: 'acknowledged',
+    handledBy: 'alice',
+    handledAt: '2026-10-12T08:00:00Z',
+  });
   jest.spyOn(window, 'open').mockImplementation(() => null);
 });
 
@@ -885,5 +894,138 @@ describe('告警中心 Tabs', () => {
 
     fireEvent.click(screen.getByText('告警规则'));
     expect(await screen.findByTestId('rules-tab-stub')).toBeInTheDocument();
+  });
+});
+
+// 风险事件工作流（独立四列）：labels.id 行有「处理」入口；流转经 Dropdown→Modal
+describe('告警中心 处理流转', () => {
+  // 待处理（无审计三件套）/ 已确认（带 handledBy）/ 已忽略（带 remark）
+  const hPending: OpsAlert = {
+    severity: 'critical',
+    service: 'game-api',
+    instance: 'i-1',
+    summary: 'ledger drift',
+    duration: '5m',
+    silenced: false,
+    labels: { id: '12', alertname: 'LedgerDrift' },
+  };
+  const hAcked: OpsAlert = {
+    severity: 'warning',
+    service: 'agent-gw',
+    instance: 'i-2',
+    summary: 'queue lag',
+    duration: '1m',
+    silenced: true,
+    handleStatus: 'acknowledged',
+    handledBy: 'alice',
+    handledAt: '2026-10-12T08:00:00Z',
+    handledRemark: 'checked',
+    labels: { id: '13' },
+  };
+  const hIgnored: OpsAlert = {
+    severity: 'info',
+    service: 'game-api',
+    instance: 'i-3',
+    summary: 'dup noise',
+    duration: '2m',
+    silenced: false,
+    handleStatus: 'ignored',
+    handledBy: 'bob',
+    handledAt: '2026-10-12T07:00:00Z',
+    handledRemark: 'dup',
+    labels: { id: '14' },
+  };
+
+  /** 挂自定义行集（锚自己的 summary，不共用默认 fixture 的 waitLoad） */
+  async function loadRows(rows: OpsAlert[], anchor: string) {
+    mAlerts.mockResolvedValue({ alerts: rows });
+    renderPage();
+    expect(await screen.findByText(anchor)).toBeInTheDocument();
+    await waitFor(() => expect(mAlerts).toHaveBeenCalledTimes(1));
+  }
+
+  /** 打开「处理」Dropdown（hover 触发，菜单在 portal）并点菜单项；
+   * 可见性按根 .ant-dropdown-hidden 滤（menu item 自身无 hidden 类） */
+  async function pickHandleAction(itemText: string) {
+    fireEvent.mouseEnter(screen.getByRole('button', { name: '处理' }));
+    const item = await waitFor(() => {
+      const roots = Array.from(document.querySelectorAll('.ant-dropdown')).filter(
+        (d) => !d.className.includes('ant-dropdown-hidden'),
+      );
+      const hit = roots
+        .flatMap((r) => Array.from(r.querySelectorAll('.ant-dropdown-menu-item')))
+        .find((el) => el.textContent === itemText) as HTMLElement;
+      expect(hit).not.toBeUndefined();
+      return hit;
+    });
+    fireEvent.click(item);
+  }
+
+  /** 流转 Modal（mock FormattedMessage 不内插 values，标题锚不可用——锚容器） */
+  function handleModal() {
+    return waitFor(() => {
+      const el = document.querySelector('.ant-modal') as HTMLElement;
+      expect(el).not.toBeNull();
+      return el;
+    });
+  }
+
+  // 列内 Tag 文案走 intl.formatMessage（mock 返回 defaultMessage=裸状态串）；
+  // 工具栏选项走 FormattedMessage（mock 返回 defaultMessage=中文）——两套锚不同
+  it('处理状态列渲染：pending 橙/acknowledged 绿/ignored 素 tag', async () => {
+    await loadRows([hPending, hAcked, hIgnored], 'ledger drift');
+
+    expect(screen.getByText('pending').closest('.ant-tag')).toHaveClass('ant-tag-orange');
+    expect(screen.getByText('acknowledged').closest('.ant-tag')).toHaveClass('ant-tag-green');
+    // ignored=default：antd 渲染无色修饰的素 ant-tag
+    const ignored = screen.getByText('ignored').closest('.ant-tag') as HTMLElement;
+    expect(ignored.className).not.toMatch(/ant-tag-(orange|green|volcano|red)/);
+  });
+
+  it('处理流转链：Dropdown 选确认 → Modal 备注提交 → handleOpsAlert + 整表刷新', async () => {
+    await loadRows([hPending], 'ledger drift');
+
+    await pickHandleAction('确认');
+
+    const modal = await handleModal();
+    fireEvent.change(modal.querySelector('textarea') as HTMLElement, {
+      target: { value: 'checked ledger' },
+    });
+    fireEvent.click(within(modal).getByRole('button', { name: /确\s*定/ }));
+
+    await waitFor(() =>
+      expect(mHandle).toHaveBeenCalledWith('12', 'acknowledge', 'checked ledger'),
+    );
+    // 成功 → 弹窗关（antd6 关闭动画后 DOM 以 display:none 驻留，jsdom 无动画 end）
+    // + load() 重拉（审计三件套随行更新）
+    await waitFor(() =>
+      expect(
+        (document.querySelector('.ant-modal') as HTMLElement | null)?.getAttribute('style') ?? '',
+      ).toContain('display: none'),
+    );
+    expect(await screen.findByText('已流转')).toBeInTheDocument();
+    await waitFor(() => expect(mAlerts).toHaveBeenCalledTimes(2));
+  });
+
+  it('流转失败透传：错误 message 上屏、弹窗保持打开', async () => {
+    await loadRows([hPending], 'ledger drift');
+    mHandle.mockRejectedValueOnce(new Error('conflict: already resolved'));
+
+    await pickHandleAction('升级');
+    const modal = await handleModal();
+    fireEvent.click(within(modal).getByRole('button', { name: /确\s*定/ }));
+
+    expect(await screen.findByText('conflict: already resolved')).toBeInTheDocument();
+    expect(document.querySelector('.ant-modal')).not.toBeNull();
+    expect(mAlerts).toHaveBeenCalledTimes(1);
+  });
+
+  it('处理状态过滤器：选已忽略只剩该行', async () => {
+    await loadRows([hPending, hAcked, hIgnored], 'ledger drift');
+
+    await pickCardSelect(2, '已忽略');
+    await waitFor(() => expect(screen.queryByText('ledger drift')).not.toBeInTheDocument());
+    expect(screen.getByText('dup noise')).toBeInTheDocument();
+    expect(screen.queryByText('queue lag')).not.toBeInTheDocument();
   });
 });

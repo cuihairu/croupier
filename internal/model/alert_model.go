@@ -26,6 +26,8 @@ type ListAlertsOptions struct {
 	Level  string
 	Status string
 	Source string
+	// HandleStatus 工作流状态过滤（pending/acknowledged/ignored/escalated）。
+	HandleStatus string
 	// ExcludeSources 排除的告警来源：/ops/alerts 是基础设施告警中心，
 	// 函数域业务告警（source=contract 的 schema 破坏性变更）由函数域
 	// 诊断呈现，不混入运维告警列表。
@@ -78,6 +80,28 @@ func (m *AlertModel) UpdateStatus(ctx context.Context, id uint, status string) e
 		Update("status", status).Error
 }
 
+// HandleTransition 工作流流转审计载荷（handled_at 服务端取库钟，不信任客户端）。
+type HandleTransition struct {
+	HandleStatus  string
+	HandledBy     string
+	HandledRemark string
+}
+
+// UpdateHandling 应用风险事件工作流流转：handle_status + 处理人/备注/
+// 时间一次落库（审计字段同事务，不留半态）。
+func (m *AlertModel) UpdateHandling(ctx context.Context, id uint, t HandleTransition) error {
+	now := NowUTC()
+	return m.db.WithContext(ctx).
+		Model(&Alert{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"handle_status":  t.HandleStatus,
+			"handled_by":     t.HandledBy,
+			"handled_remark": t.HandledRemark,
+			"handled_at":     now,
+		}).Error
+}
+
 // List returns paginated alerts.
 func (m *AlertModel) List(ctx context.Context, opts ListAlertsOptions) ([]Alert, int64, error) {
 	opts.Normalize()
@@ -94,6 +118,9 @@ func (m *AlertModel) List(ctx context.Context, opts ListAlertsOptions) ([]Alert,
 	}
 	if opts.Status != "" {
 		query = query.Where("status = ?", opts.Status)
+	}
+	if opts.HandleStatus != "" {
+		query = query.Where("handle_status = ?", opts.HandleStatus)
 	}
 	if opts.Source != "" {
 		query = query.Where("source = ?", opts.Source)
