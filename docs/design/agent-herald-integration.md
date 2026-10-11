@@ -7,7 +7,8 @@ title: herald 对接简档——croupier 告警出口对接通知编排平台（
 ## 状态
 
 - 状态: **M2 已落地（2026-10-10，Outlet 接口位 + herald 出口适配器，见 §8）**，六件套之一（[Agent 清单](agents-inventory.md) 顶部有索引）。
-- 报警出口令（用户令，2026-10-09）：capture 告警 / healthprobe 故障窗口 / devops 构建失败 → 走 **herald**（用户自研通知编排与投递平台，仓 `~/workspaces/herald`）的 REST API/webhook 投递；**croupier 这边当接入方，courier 式接法**——herald 只提供能力，通道/收件人由 herald 侧配置；接入方式写进本简档。
+- 报警出口令（用户令，2026-10-09）：capture 告警 / healthprobe 故障窗口 / devops 异常 → 走 **herald**（用户自研通知编排与投递平台，仓 `~/workspaces/herald`）的 REST API/webhook 投递；**croupier 这边当接入方，courier 式接法**——herald 只提供能力，通道/收件人由 herald 侧配置；接入方式写进本简档。
+- **devops 口径注（2026-10-11 用户令重定）**：原「devops 构建失败」口径随 devops-agent 重定为内网堡垒机代理而改判（新语义=白名单主机不可达、审计拒绝等会话面异常，待简档定稿）；下方 `devops.build_*` kind 是旧口径实施物，简档批准前代码不动，改名或复用随简档一并拍。
 - 依据: herald `docs/api/rest.md`、`docs/guide/integration.md`（应用接入/集成者 API，2026-10 时点）。
 
 ## 1. 定位（谁管什么）
@@ -28,22 +29,22 @@ title: herald 对接简档——croupier 告警出口对接通知编排平台（
 
 品类（category，触发面分类键，注册时定默认紧急度）：
 
-| 品类           | 默认紧急度 | 承载内容                                           |
-| -------------- | ---------- | -------------------------------------------------- |
-| `agent-alerts` | urgent     | capture 规则命中、devops 构建失败、supervisor 熔断 |
-| `availability` | urgent     | healthprobe 故障窗口开始/恢复                      |
+| 品类           | 默认紧急度 | 承载内容                                                               |
+| -------------- | ---------- | ---------------------------------------------------------------------- |
+| `agent-alerts` | urgent     | capture 规则命中、devops 异常（新口径语义待简档定稿）、supervisor 熔断 |
+| `availability` | urgent     | healthprobe 故障窗口开始/恢复                                          |
 
 ## 3. 触发面：事件适配（`POST /api/v1/apps/croupier/events`）
 
 croupier 是「事件语义在自己词汇里的整合方」（告警源：kind/severity/target + 自有事件主键），走 herald 的**事件接入适配面**而非裸 dispatch——herald 侧完成 kind→品类、severity→紧急度、target→受众映射，croupier 自有事件主键进 `event_id`（进幂等、投递结果回调回带）：
 
-| croupier 事件源                                                              | kind                                    | severity 映射                                         | event_id                                                                        |
-| ---------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
-| capture 规则命中（§4.4 命中详情）                                            | `capture.rule_hit`                      | 告警 severity 直映（critical→critical，warn→warning） | 告警 id                                                                         |
-| devops 规则命中（build_failed/build_timeout/stale_green/consecutive_failed） | `devops.build_*` / `devops.stale_green` | warning（critical 规则可配）                          | 告警 id                                                                         |
-| supervisor 熔断（breaker_tripped）                                           | `supervisor.breaker_tripped`            | critical                                              | `{agentId}:{seq}`（seq 是 agent 本地游标重启归零，裸 seq 跨 agent 必撞，见 §8） |
-| healthprobe 故障窗口开始                                                     | `probe.unavailable`                     | warning（Liveness critical）                          | `{target}:{window_start_ts}`                                                    |
-| healthprobe 窗口恢复                                                         | `probe.recovered`                       | info                                                  | 同上（state 翻转重发）                                                          |
+| croupier 事件源                                                                                                      | kind                                    | severity 映射                                         | event_id                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
+| capture 规则命中（§4.4 命中详情）                                                                                    | `capture.rule_hit`                      | 告警 severity 直映（critical→critical，warn→warning） | 告警 id                                                                         |
+| devops 异常（旧口径=规则命中，`devops.build_*` kind 已实施；新口径=主机不可达/审计拒绝等会话面异常，待简档定稿改判） | `devops.build_*` / `devops.stale_green` | warning（critical 规则可配）                          | 告警 id                                                                         |
+| supervisor 熔断（breaker_tripped）                                                                                   | `supervisor.breaker_tripped`            | critical                                              | `{agentId}:{seq}`（seq 是 agent 本地游标重启归零，裸 seq 跨 agent 必撞，见 §8） |
+| healthprobe 故障窗口开始                                                                                             | `probe.unavailable`                     | warning（Liveness critical）                          | `{target}:{window_start_ts}`                                                    |
+| healthprobe 窗口恢复                                                                                                 | `probe.recovered`                       | info                                                  | 同上（state 翻转重发）                                                          |
 
 要点：
 

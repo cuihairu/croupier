@@ -85,7 +85,7 @@ docker compose up -d
 当前镜像构建入口：
 
 - `docker/Dockerfile.server` -> `./cmd/server`
-- `docker/Dockerfile.agent` -> `./cmd/agent`
+- `docker/Dockerfile.agent` -> `./cmd/agent`（= `sidecar-agent`，定名见 [Agent 清单](../design/agents-inventory.md) §9，现实目录名未变）
 - `docker/Dockerfile.analytics-worker` -> `./cmd/analytics-worker`
 - `docker/Dockerfile.ingest` -> `./cmd/ingest`
 

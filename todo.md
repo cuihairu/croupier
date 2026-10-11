@@ -4168,3 +4168,46 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **边界**：①模板正文 **Draft 待用户过目**（M4 验收门「模板过目」的过目半边留待用户）；②http-rest 分支（步骤 3/4/6 全量演练）待首个 REST 供应商实接回填（#66 P1 待后审授权不在队列）；③webhook driver type/secret_refs 运行时解析器/nonce 防重放留位。
 - **同步**：vitepress 侧边栏补 `/templates/` 节 + plugin-mechanism/provider-plugin-design 两设计页入口（此前漏登记）；plugin-mechanism §8 M4 行标 Draft。
 - **门禁**：docs build 过（模板+侧边栏变更验证）；纯文档批无代码面。
+
+## 三 agent 落差补齐·文档口径重定与缺口登记（2026-10-11）
+
+> 依据 [Agent 清单](docs/design/agents-inventory.md)（唯一权威定名/边界页）+ 用户令 2026-10-11（角色口径重定：sidecar=外网仅业务 / devops=内网堡垒机代理 / capture=CDC）。**本批为纯文档批（零代码）**；下列 ①②③ 为待批执行项，④ 本批完成。
+>
+> 背景纠偏：三 agent 此前在 todo.md **零登记**（无落名条目）→ 巡检不点火，这是「讨论定了却没动」的根因；本批补登四条带验收口径的条目，防再次悬空。
+
+### ① devops-agent 简档定稿 → 批准后建骨架（待批）
+
+- **现状**：未立项（`cmd/`、`agents/` 均无目录）。简档已按 2026-10-11 运维口径重写：[agent-core 简档](docs/design/agent-core-design.md) §7（内网堡垒机式远程接入代理：SSH/RDP/VNC、cockpit 参考点、audit-first 会话级审计、白名单边界）。
+- **验收口径**：用户批简档 → 建 `cmd/devops-agent/` + `agents/devops/`（session/协议 Provider + recorder/会话存档 + allowlist/白名单 + main），骨架深度与 capture C1 同构：注册/心跳/execlog 接线可用、`go build` + 单测绿；协议实现与 guacd 通道另批拆分。
+- **需拍板**：简档批不批（批=开工骨架；不批=说明改哪里）。
+
+### ② sidecar-agent 定名落地·改名方案（先出方案，用户确认后执行，禁直接 rename）
+
+- **现状**：定名 `sidecar-agent` 已拍（2026-10-09），现实目录/二进制仍为 `cmd/agent` → `croupier-agent`。
+- **已核实影响面**：
+  - 源码目录：`cmd/agent/`（唯一入口，`internal/agent` + `internal/app/agent` 为实现主体不动）。
+  - 二进制产物：Makefile `make agent` → `$(BINDIR)/croupier-agent`；`docker/Dockerfile.agent` → `/out/croupier-agent` + `ENTRYPOINT /app/croupier-agent`；nightly 资产 `croupier-bin-*`；安装脚本/systemd unit 以 `croupier-agent` 为部署契约。
+  - **注册 wire 无 agent type 字段**（register.proto 只有 agent_id/labels map）——改名不触碰注册协议，面板「type=sidecar」过滤是设计未落地面，无存量数据迁移。
+  - 配置：`configs/agent.yaml` + `agent.local.yaml`；env 前缀 `CROUPIER_AGENT_*`；CLI 二进制名。
+  - 文档：agent-install / deploy-docker / coverage-exemptions / agent-capability-library-matrix（本批已加定名注）。
+- **兼容方案（两档，拍板点）**：
+  - **A（推荐）**：只改源码目录 `cmd/agent` → `cmd/sidecar-agent`，产物名 `croupier-agent` 保持不变——部署契约（二进制名/镜像 ENTRYPOINT/systemd/安装脚本）零影响，存量升级无感；文档与设计名先对应。
+  - **B**：连二进制名一起改 `croupier-sidecar-agent`——需双名过渡（同源双 main 并行发布 ≥1 版本周期）、Dockerfile/Makefile/install 脚本/systemd unit/nightly 资产同步、存量部署升级指引；影响所有现网 agent 升级路径。
+- **验收口径**：用户选 A/B → 执行改名（目录/引用/CI 全绿）→ 产物名与部署面按所选档位兑现 → 文档定名注更新为「已落地」。
+- **需拍板**：选 A 还是 B。
+
+### ③ capture-agent 闸层 C2（待批）
+
+- **现状**：C1 骨架已实施（2026-10-10：注册/心跳/事件流/位点，`cmd/capture-agent` + `agents/capture/`）；闸层（reconcile/cep/lineage 三道闸）按 [capture-agent 简档](docs/design/capture-agent-design.md) 未开工。
+- **验收口径**：用户拍 C2 开工 → 三道闸逐闸小批交付（每闸：实现+单测+简档差异记录），告警经 herald 出口接线（outlet kind `capture.rule_hit` 闭集已备）。
+- **需拍板**：C2 是否开工、三闸先后序（建议 reconcile → cep → lineage）。
+
+### ④ 三 agent 文档口径同步（✅ 本批完成）
+
+- [Agent 清单](docs/design/agents-inventory.md)：状态行以代码现实统一（capture 部分实施 C2 待批 / devops 未立项 / sidecar 定名待落）；§2 sidecar 补「外网/仅业务」边界+禁止项；§3 devops 整节重写为堡垒机代理；§4 capture 明确 CDC；全景表/探针映射/herald/面板分页/待批点全表同步。
+- [agent-core 简档](docs/design/agent-core-design.md) §7 整节重写（协议面/cockpit 参考表/权限与审计/会话通道/边界/裁剪面），§2 能力表 13/14 行、目录树 devops 块、§6.1 探针表、路线图同构注同步。
+- [Agent 面板设计](docs/design/agent-dashboard-design.md)：devops 页内容改主机白名单/在线会话/回放入口。
+- [herald 对接简档](docs/design/agent-herald-integration.md)：devops 异常语义注记（旧 `devops.build_*` kind 为旧口径实施物，简档批前代码不动）。
+- [capture-agent 简档](docs/design/capture-agent-design.md) 边界行同步。
+- `cmd/agent` 名字对应标注 4 处：agent-install / deploy-docker / agent-capability-library-matrix / coverage-exemptions（定名注+括注现实目录名）。
+- **已知边界（诚实）**：本批零代码；outlet kind 闭集 `devops.build_failed`（已实施代码）与新口径语义漂移，改判随 ① 简档定稿一并拍；cockpit 引用点已对照 `~/workspaces/cockpit` 源码核实（ConnectionPanel 三协议/guacd 兜底/六标签/terminal:write 门禁）。
