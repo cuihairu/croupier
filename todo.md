@@ -4211,3 +4211,12 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - [capture-agent 简档](docs/design/capture-agent-design.md) 边界行同步。
 - `cmd/agent` 名字对应标注 4 处：agent-install / deploy-docker / agent-capability-library-matrix / coverage-exemptions（定名注+括注现实目录名）。
 - **已知边界（诚实）**：本批零代码；outlet kind 闭集 `devops.build_failed`（已实施代码）与新口径语义漂移，改判随 ① 简档定稿一并拍；cockpit 引用点已对照 `~/workspaces/cockpit` 源码核实（ConnectionPanel 三协议/guacd 兜底/六标签/terminal:write 门禁）。
+
+## server-status-provider 批 S3·设置页外部服务清单交付 + 两个测试卫生项（2026-10-11）
+
+- **S3-web 交付（commit 92b6cfc）**：`GET /site/external-services`（admin 组）只读快照三条 L2 文件侧外部服务——herald 告警出口 / alertInbound（alertmanager、generic 闭集）/ serverStatus 维护状态源（provider=noop 与真实源同表呈现）。三态判定与各自 svc 装配口径一致（enabled ∧ 必填项全齐）；缺项点名契约键或环境变量名（可操作提示，永不回显值）；密钥只报「用哪个环境变量 + 已设置/未设置」。呈现落点：运维 Tab `ExternalServicesCard`（只读，页面侧配置编辑属配置整理单 `docs/design/config-organization.md`，待用户过目）。设计交付说明落 `docs/design/server-status-provider.md` 批 S3 小节。
+- **S3-web 门禁**：`go build ./...` 0 错；`go test ./internal/...` 161 包全绿（含新增 5 用例）；`tsc --noEmit` 0 错；`scripts/dashboard_vnext_guard.sh` PASSED；`docs && pnpm build` 通过；SiteSettings 簇 44 用例绿（新卡 5 用例 + MaintenanceTab 回归）。
+- **已知边界（诚实）**：atlas 无维护窗历史 API，维护态真相在 atlas 侧；serverStatus 缺 baseUrl 的 fail-open 标注属运行时行为，设置页以「配置未生效 + 缺项名」呈现而非误报 active；本批未执行 deploy-self-hosted（线上部署随 CI Core 全绿后走，未上线）。
+- **svc 测试 `:memory:` sqlite 连接池 flake（commit 29e10cb，已修）**：8 处裸 `gorm.Open(gsqlite.Open(":memory:"))` 补 `SetMaxOpenConns(1)`（先例 coverage_group_g/coverage_c_migrations）。根因：`:memory:` 每条连接是独立空库，出口异步投递写与用例断言读并发时连接池开出第二条连接 → `no such table: messages`（TestRegisterOutletsDisabledByDefault 实炸点）；隔离复跑即绿 = 负载触发的并发窗口。
+- **扩展商店 toast 计时 flake（既有，未阻塞，待修）**：`Store/index.test.tsx`「通用错误翼：导入/上下架/删除 非 409 → mapper 兜底文案」在全量负载（1-min load 28~70）下 5/5 红，负载降到 6.9 即 31/31 绿；干净 HEAD（aa23e5e）worktree 同断言同红 → **与在途 diff 无关**。证据链：诊断采样显示 toast 实际已渲染并在 3s 窗口内 count=1（`before=0 now=1`，三步递增至 3），但断言 `waitFor(() => count > before)` 的 5s 预算在事件循环卡顿 >5s 时整窗错过（首版实证「Received: 0 / Expected > 0」）。修复方向（择一，需动该断言口径）：① 把三步断言改为在动作后立即 `await waitFor(() => expect(toastCount(text)).toBeGreaterThan(before))` 并把 jest `asyncUtilTimeout` 提到 15s；② 改用 `jest.useFakeTimers` + `runOnlyPendingTimers` 冻结 toast 3s 生命期；③ 断言面下沉到「错误 mapper 兜底 + handler 调用」双点单测，去掉对 antd message DOM 的依赖。验收：全量负载下该用例 3 连跑绿。
+- **门禁红集漂移记录**：本轮全量 jest（load 50~70）21 红套件 / 26 红用例，隔离复跑 20/21 恢复绿、`templateUsage` 第二轮绿，唯一稳定红为上述 toast 计时用例；`tests/antd6Deprecations.test.ts` 在本轮**真红**（新卡两处 antd 6 废弃属性 `Space direction` / `Alert message`），已改 `orientation` / `title` 随 92b6cfc 交付。
