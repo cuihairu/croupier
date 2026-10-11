@@ -11,6 +11,7 @@ import (
 
 	"github.com/cuihairu/croupier/core/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
 )
@@ -78,6 +79,15 @@ func (c *Conn) Register(ctx context.Context, req *agentv1.RegisterRequest) (*age
 func (c *Conn) Heartbeat(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error) {
 	resp := &agentv1.HeartbeatResponse{}
 	if err := c.call(ctx, protocol.MsgHeartbeatRequest, req, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// SendAlertReport 上报 capture 规则命中告警（服务端幂等落 alerts 表）。
+func (c *Conn) SendAlertReport(ctx context.Context, req *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error) {
+	resp := &opsv1.CaptureRuleHitAck{}
+	if err := c.call(ctx, protocol.MsgAlertEventRequest, req, resp); err != nil {
 		return nil, err
 	}
 	return resp, nil

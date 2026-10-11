@@ -2,7 +2,7 @@
 // payload 带 game_id+env 标签）+ 统一事件流消费（source.Provider）+ 位点周期
 // 落盘与退出终刷 + Readiness 探库（core/healthprobe，探 MySQL 连通）。
 // `capture.enabled=false` 时仅注册上线不消费（面板可见、可停启，设计 §2）。
-// C2 起闸层（gate）在消费循环内联评估，命中落日志+计数；告警上报链后续批接线。
+// 闸层（gate）在消费循环内联评估，命中落日志+计数+异步上报（简档 §8.4）。
 package runner
 
 import (
@@ -23,6 +23,7 @@ import (
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/register"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
 // Version 注册携带的 agent 版本（可经 ldflags 覆盖）。
@@ -30,6 +31,14 @@ var Version = "dev"
 
 // errStreamEnded 标记源流结束（pump 致命错误退出），触发重开而非进程退出。
 var errStreamEnded = errors.New("capture source stream ended")
+
+// hitQueueSize 告警上报缓冲队列容量；hitSendTimeout 单次上报超时。
+// 队列满/超时/断连一律丢弃（本地 slog 告警日志是持久记录），上报为
+// best effort，绝不背压消费循环。
+const (
+	hitQueueSize   = 512
+	hitSendTimeout = 5 * time.Second
+)
 
 // Stats 消费统计（原子计数，C1 仅日志暴露；C2 随上报捎带）。
 type Stats struct {
@@ -39,6 +48,7 @@ type Stats struct {
 	Delete          int64
 	Skipped         int64 // 白名单外丢弃
 	GateHits        int64 // 闸规则命中累计（reconcile 起步，C2 批接入）
+	AlertDropped    int64 // 告警上报丢弃累计（队列满/断连/发送失败）
 	LastEventUnixMs int64
 }
 
@@ -58,6 +68,13 @@ type Runner struct {
 	cep       *gate.CEPGate       // nil = 未配 CEP 规则（直通零开销）
 	lineage   *gate.LineageGate   // nil = 未配血缘规则（直通零开销）
 
+	// conn 最近一次 Dial 成产出的上行连接（hitSender 跟随重连换新）。
+	conn atomic.Pointer[controlconn.Conn]
+	// sendAlert 上报 seam（测试注入；生产经 conn.SendAlertReport）。
+	sendAlert func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error)
+	// hitCh 命中→上报异步队列（容量 hitQueueSize，满即丢）。
+	hitCh chan gate.Hit
+
 	stats Stats
 }
 
@@ -72,6 +89,14 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		store:          source.NewStore(cfg.BookmarkPath()),
 		backoffInitial: time.Second,
 		backoffMax:     30 * time.Second,
+		hitCh:          make(chan gate.Hit, hitQueueSize),
+	}
+	r.sendAlert = func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error) {
+		c := r.conn.Load()
+		if c == nil || !c.Connected() {
+			return nil, errors.New("control conn not ready")
+		}
+		return c.SendAlertReport(ctx, rep)
 	}
 	r.newSource = func() source.Provider {
 		return source.NewMySQLSource(*cfg.Capture.MySQL, log)
@@ -120,6 +145,7 @@ func (r *Runner) Stats() Stats {
 		Delete:          atomic.LoadInt64(&r.stats.Delete),
 		Skipped:         atomic.LoadInt64(&r.stats.Skipped),
 		GateHits:        atomic.LoadInt64(&r.stats.GateHits),
+		AlertDropped:    atomic.LoadInt64(&r.stats.AlertDropped),
 		LastEventUnixMs: atomic.LoadInt64(&r.stats.LastEventUnixMs),
 	}
 }
@@ -129,7 +155,12 @@ func (r *Runner) Run(ctx context.Context) error {
 	reg := register.New(register.Config{
 		AgentID: r.cfg.Agent.ID,
 		Dial: func(context.Context) (register.Conn, error) {
-			return controlconn.Dial(r.cfg.Agent.ServerAddr, tlsFromCfg(r.cfg))
+			c, err := controlconn.Dial(r.cfg.Agent.ServerAddr, tlsFromCfg(r.cfg))
+			if err == nil {
+				// hitSender 跟随最新连接（重连后旧连接作废）。
+				r.conn.Store(c)
+			}
+			return c, err
 		},
 		Payload: r.buildPayload,
 		Logger:  r.log,
@@ -147,6 +178,10 @@ func (r *Runner) Run(ctx context.Context) error {
 	}
 
 	r.startReadinessProbe(ctx)
+
+	hitCtx, cancelHits := context.WithCancel(ctx)
+	defer cancelHits()
+	r.startHitSender(hitCtx)
 
 	bo := backoff.Exponential(r.backoffInitial, r.backoffMax, 1.5)
 	for {
@@ -251,13 +286,65 @@ func (r *Runner) sweepGates(nowMs int64) {
 	}
 }
 
-// recordHits 命中出口：日志 + GateHits 计数（告警上报链后续批接线）。
+// recordHits 命中出口：日志 + GateHits 计数 + 非阻塞入上报队列（满即丢）。
 func (r *Runner) recordHits(hits []gate.Hit) {
 	for _, h := range hits {
 		atomic.AddInt64(&r.stats.GateHits, 1)
 		r.log.Warn("capture gate hit", "rule", h.Rule, "severity", h.Severity,
 			"table", h.Table, "key", h.Key, "detail", h.Detail,
 			"gtid", h.Event.GTID, "tsUnixMs", h.Event.TsUnixMs)
+		select {
+		case r.hitCh <- h:
+		default:
+			atomic.AddInt64(&r.stats.AlertDropped, 1)
+		}
+	}
+}
+
+// startHitSender 告警上报循环：从队列取命中异步送上游；ctx 取消退出
+// （Run 生命周期同频，在途发送随 ctx 中止）。
+func (r *Runner) startHitSender(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case h := <-r.hitCh:
+				r.sendHit(ctx, h)
+			}
+		}
+	}()
+}
+
+// sendHit 单条上报（sendAlert seam；失败/重复各自记日志，不重试）。
+func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
+	sendCtx, cancel := context.WithTimeout(ctx, hitSendTimeout)
+	defer cancel()
+	ack, err := r.sendAlert(sendCtx, r.buildHitReport(h))
+	if err != nil {
+		atomic.AddInt64(&r.stats.AlertDropped, 1)
+		r.log.Warn("capture alert send failed", "rule", h.Rule, "error", err)
+		return
+	}
+	if ack.GetDuplicate() {
+		r.log.Debug("capture alert duplicate suppressed", "rule", h.Rule, "key", h.Key)
+	}
+}
+
+// buildHitReport 组装上报体（game/env 身份取注册配置）。
+func (r *Runner) buildHitReport(h gate.Hit) *opsv1.CaptureRuleHitReport {
+	return &opsv1.CaptureRuleHitReport{
+		AgentId:       r.cfg.Agent.ID,
+		GameId:        r.cfg.Agent.GameID,
+		Env:           r.cfg.Agent.Env,
+		Rule:          h.Rule,
+		Severity:      h.Severity,
+		Table:         h.Table,
+		Key:           h.Key,
+		Detail:        h.Detail,
+		Gtid:          h.Event.GTID,
+		EventOp:       string(h.Event.Op),
+		EventTsUnixMs: h.Event.TsUnixMs,
 	}
 }
 

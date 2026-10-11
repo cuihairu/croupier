@@ -4198,7 +4198,8 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **简档差异记录**：`docs/design/capture-agent-design.md` 新增 §8.1（键形态降级为位置下标、豁免从账号降级为键值、命中仅落日志+计数——告警上报链独立增量等 9 项）。
 - **闸 2/3 CEP 已交付（2026-10-11，db31e20）**：`gate/cep.go` 三模板——off_hours（每日分钟段白名单，跨零点段，`tzOffsetMin` 显式配置不引 tzdata）、burst_delta（single 单事件 / window 滑动累计 `|delta|`，insert=后像全额、delete=前像全额，命中即清零再计时）、probing（键降级为 (行键,表)，大额打断序列，命中即重置，`maxTracked` FIFO 驱逐）；同表多实例合法；`capture.gates.cep.{offHours,burst,probing}` 配置 + 启动校验。单测 cep 14 例 + runner 2 例；差异记录 §8.2（百分比基线 v1 不做等 6 项）。
 - **闸 3/3 lineage 已交付（2026-10-11）**：`gate/lineage.go`（`lineage.whitelist_violation`，账号白名单，`allowAccounts` 必填非空）；C1 降级态——空账号事件跳过并计 `Degraded`（不误报不放过），启用日志显式标注 degraded；差异记录 §8.3。单测 5 例。
-- **待做**：告警上报链（agent→server wire，outlet kind `capture.rule_hit` 已备）→ 面板配置面（规则下发 + 降级态标注）。
+- **告警上报链已交付（2026-10-11）**：wire 对 `MsgAlertEventRequest/Response 0x040119/0x04011A` + `opsv1.CaptureRuleHitReport/Ack`（make proto 四树重生成）；server `handleAlertEvent`（`SetAlertModel`/`SetOutletManager` 注入、root.go 装配）——幂等键 `capture.`+sha256-16hex 折叠重放、severity→outlet level 归一（未知按 warning）、`occurredAt` 缺省补 now、game/env 只进 Details scope、nil model 显式错误；agent 侧 `controlconn.SendAlertReport` + runner `startHitSender`（hitCh 512 非阻塞、5s 超时、失败丢弃不重试、连接跟随 Dial 重连、`Stats.AlertDropped`）。单测 server 7 例 + runner 4 例。差异记录 §8.4 + 边界 2 条。
+- **待做**：面板配置面（规则下发 + 降级态标注）。
 
 ### ④ 三 agent 文档口径同步（✅ 本批完成）
 

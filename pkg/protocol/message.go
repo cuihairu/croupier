@@ -86,6 +86,9 @@ const (
 	// Supervisor event log download (Agent 自身应答，回源读本地轮转日志)
 	MsgGetSupervisorLogRequest  = 0x040117
 	MsgGetSupervisorLogResponse = 0x040118
+	// Capture rule-hit alert upload (capture-agent → server；落 alerts 表)
+	MsgAlertEventRequest  = 0x040119
+	MsgAlertEventResponse = 0x04011A
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -297,6 +300,10 @@ func MsgIDString(msgID uint32) string {
 		return "GetSupervisorLogRequest"
 	case MsgGetSupervisorLogResponse:
 		return "GetSupervisorLogResponse"
+	case MsgAlertEventRequest:
+		return "AlertEventRequest"
+	case MsgAlertEventResponse:
+		return "AlertEventResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

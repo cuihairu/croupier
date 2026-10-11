@@ -2373,6 +2373,186 @@ func (x *CronJob) GetEnabled() bool {
 	return false
 }
 
+// CaptureRuleHitReport carries one capture-agent gate hit on the CDC change
+// stream (reconcile / CEP / lineage rules) to the server alert store.
+// Server maps it into the alerts table idempotently (dedup by hit identity).
+type CaptureRuleHitReport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`                         // Reporting capture-agent id
+	GameId        string                 `protobuf:"bytes,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`                            // Game scope label
+	Env           string                 `protobuf:"bytes,3,opt,name=env,proto3" json:"env,omitempty"`                                                // Environment scope label
+	Rule          string                 `protobuf:"bytes,4,opt,name=rule,proto3" json:"rule,omitempty"`                                              // Rule id (reconcile.missing_ledger | cep.burst_delta | cep.off_hours | cep.probing | lineage.whitelist_violation)
+	Severity      string                 `protobuf:"bytes,5,opt,name=severity,proto3" json:"severity,omitempty"`                                      // warn | critical (gate closed set)
+	Table         string                 `protobuf:"bytes,6,opt,name=table,proto3" json:"table,omitempty"`                                            // "db.table" the hit fired on
+	Key           string                 `protobuf:"bytes,7,opt,name=key,proto3" json:"key,omitempty"`                                                // Join/row key (may be empty: missing-key sentinel)
+	Detail        string                 `protobuf:"bytes,8,opt,name=detail,proto3" json:"detail,omitempty"`                                          // Human-readable hit detail
+	Gtid          string                 `protobuf:"bytes,9,opt,name=gtid,proto3" json:"gtid,omitempty"`                                              // Source change event GTID (idempotency material)
+	EventOp       string                 `protobuf:"bytes,10,opt,name=event_op,json=eventOp,proto3" json:"event_op,omitempty"`                        // insert | update | delete
+	EventTsUnixMs int64                  `protobuf:"varint,11,opt,name=event_ts_unix_ms,json=eventTsUnixMs,proto3" json:"event_ts_unix_ms,omitempty"` // Source change event timestamp (ms)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CaptureRuleHitReport) Reset() {
+	*x = CaptureRuleHitReport{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CaptureRuleHitReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CaptureRuleHitReport) ProtoMessage() {}
+
+func (x *CaptureRuleHitReport) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CaptureRuleHitReport.ProtoReflect.Descriptor instead.
+func (*CaptureRuleHitReport) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CaptureRuleHitReport) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetRule() string {
+	if x != nil {
+		return x.Rule
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetSeverity() string {
+	if x != nil {
+		return x.Severity
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetTable() string {
+	if x != nil {
+		return x.Table
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetGtid() string {
+	if x != nil {
+		return x.Gtid
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetEventOp() string {
+	if x != nil {
+		return x.EventOp
+	}
+	return ""
+}
+
+func (x *CaptureRuleHitReport) GetEventTsUnixMs() int64 {
+	if x != nil {
+		return x.EventTsUnixMs
+	}
+	return 0
+}
+
+// CaptureRuleHitAck acknowledges one uploaded hit.
+type CaptureRuleHitAck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Accepted      bool                   `protobuf:"varint,1,opt,name=accepted,proto3" json:"accepted,omitempty"`   // Upserted into the alerts store
+	Duplicate     bool                   `protobuf:"varint,2,opt,name=duplicate,proto3" json:"duplicate,omitempty"` // alert_id already existed (idempotent replay)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CaptureRuleHitAck) Reset() {
+	*x = CaptureRuleHitAck{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CaptureRuleHitAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CaptureRuleHitAck) ProtoMessage() {}
+
+func (x *CaptureRuleHitAck) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CaptureRuleHitAck.ProtoReflect.Descriptor instead.
+func (*CaptureRuleHitAck) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *CaptureRuleHitAck) GetAccepted() bool {
+	if x != nil {
+		return x.Accepted
+	}
+	return false
+}
+
+func (x *CaptureRuleHitAck) GetDuplicate() bool {
+	if x != nil {
+		return x.Duplicate
+	}
+	return false
+}
+
 var File_croupier_ops_v1_ops_proto protoreflect.FileDescriptor
 
 const file_croupier_ops_v1_ops_proto_rawDesc = "" +
@@ -2598,7 +2778,23 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x04user\x18\x03 \x01(\tR\x04user\x12\x1f\n" +
 	"\vsource_file\x18\x04 \x01(\tR\n" +
 	"sourceFile\x12\x18\n" +
-	"\aenabled\x18\x05 \x01(\bR\aenabled*\xea\x01\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\"\xa4\x02\n" +
+	"\x14CaptureRuleHitReport\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x17\n" +
+	"\agame_id\x18\x02 \x01(\tR\x06gameId\x12\x10\n" +
+	"\x03env\x18\x03 \x01(\tR\x03env\x12\x12\n" +
+	"\x04rule\x18\x04 \x01(\tR\x04rule\x12\x1a\n" +
+	"\bseverity\x18\x05 \x01(\tR\bseverity\x12\x14\n" +
+	"\x05table\x18\x06 \x01(\tR\x05table\x12\x10\n" +
+	"\x03key\x18\a \x01(\tR\x03key\x12\x16\n" +
+	"\x06detail\x18\b \x01(\tR\x06detail\x12\x12\n" +
+	"\x04gtid\x18\t \x01(\tR\x04gtid\x12\x19\n" +
+	"\bevent_op\x18\n" +
+	" \x01(\tR\aeventOp\x12'\n" +
+	"\x10event_ts_unix_ms\x18\v \x01(\x03R\reventTsUnixMs\"M\n" +
+	"\x11CaptureRuleHitAck\x12\x1a\n" +
+	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x1c\n" +
+	"\tduplicate\x18\x02 \x01(\bR\tduplicate*\xea\x01\n" +
 	"\fProcessState\x12\x1d\n" +
 	"\x19PROCESS_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15PROCESS_STATE_RUNNING\x10\x01\x12\x19\n" +
@@ -2623,7 +2819,7 @@ func file_croupier_ops_v1_ops_proto_rawDescGZIP() []byte {
 }
 
 var file_croupier_ops_v1_ops_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
+var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(ProcessState)(0),                 // 0: croupier.ops.v1.ProcessState
 	(*MetricsReport)(nil),             // 1: croupier.ops.v1.MetricsReport
@@ -2655,28 +2851,30 @@ var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(*GetServiceStatusResponse)(nil),  // 27: croupier.ops.v1.GetServiceStatusResponse
 	(*ListCronJobsResponse)(nil),      // 28: croupier.ops.v1.ListCronJobsResponse
 	(*CronJob)(nil),                   // 29: croupier.ops.v1.CronJob
-	nil,                               // 30: croupier.ops.v1.MetricsReport.CustomEntry
-	nil,                               // 31: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	(*timestamppb.Timestamp)(nil),     // 32: google.protobuf.Timestamp
+	(*CaptureRuleHitReport)(nil),      // 30: croupier.ops.v1.CaptureRuleHitReport
+	(*CaptureRuleHitAck)(nil),         // 31: croupier.ops.v1.CaptureRuleHitAck
+	nil,                               // 32: croupier.ops.v1.MetricsReport.CustomEntry
+	nil,                               // 33: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	(*timestamppb.Timestamp)(nil),     // 34: google.protobuf.Timestamp
 }
 var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
-	32, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
+	34, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
 	2,  // 1: croupier.ops.v1.MetricsReport.cpu:type_name -> croupier.ops.v1.CpuMetrics
 	3,  // 2: croupier.ops.v1.MetricsReport.memory:type_name -> croupier.ops.v1.MemoryMetrics
 	4,  // 3: croupier.ops.v1.MetricsReport.disks:type_name -> croupier.ops.v1.DiskMetrics
 	5,  // 4: croupier.ops.v1.MetricsReport.networks:type_name -> croupier.ops.v1.NetworkMetrics
 	6,  // 5: croupier.ops.v1.MetricsReport.processes:type_name -> croupier.ops.v1.ProcessMetrics
-	30, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
+	32, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
 	20, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
 	17, // 8: croupier.ops.v1.MetricsReport.supervisor_events:type_name -> croupier.ops.v1.SupervisorEvent
-	32, // 9: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
-	32, // 10: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
+	34, // 9: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
+	34, // 10: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
 	8,  // 11: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
 	16, // 12: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
 	0,  // 13: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
-	32, // 14: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
+	34, // 14: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
 	0,  // 15: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
-	31, // 16: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	33, // 16: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
 	25, // 17: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
 	29, // 18: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
 	19, // [19:19] is the sub-list for method output_type
@@ -2697,7 +2895,7 @@ func file_croupier_ops_v1_ops_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_ops_v1_ops_proto_rawDesc), len(file_croupier_ops_v1_ops_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   31,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +23,7 @@ import (
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/cuihairu/croupier/internal/function/schemadiff"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/outlet"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/registry/sdkversion"
 	"github.com/cuihairu/croupier/internal/tasks"
@@ -113,6 +116,8 @@ type ControlService struct {
 	metricsStore      *reg.MetricsStore
 	systemInfoCache   *reg.SystemInfoCache
 	taskStore         TaskStore
+	alertModel        *model.AlertModel
+	outletManager     *outlet.Manager
 
 	upstream Handler
 
@@ -221,6 +226,22 @@ func (s *ControlService) SetTaskStore(store TaskStore) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.taskStore = store
+}
+
+// SetAlertModel sets the alert model for capture rule-hit persistence
+// (nil = 未配置，告警上行返回错误，同 task store 语义).
+func (s *ControlService) SetAlertModel(m *model.AlertModel) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.alertModel = m
+}
+
+// SetOutletManager sets the alert outlet manager for capture rule-hit
+// dispatch (nil = 出口未配置，只落库不分发).
+func (s *ControlService) SetOutletManager(m *outlet.Manager) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.outletManager = m
 }
 
 // Store returns the registry store.
@@ -348,6 +369,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleTaskEvent(ctx, data)
 	case protocol.MsgMetricEvent:
 		return s.handleMetricEvent(ctx, data)
+	case protocol.MsgAlertEventRequest:
+		return s.handleAlertEvent(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -387,6 +410,109 @@ func (s *ControlService) handleRegisterCapabilities(ctx context.Context, data []
 		return nil, err
 	}
 	return proto.Marshal(resp)
+}
+
+// handleAlertEvent 落库 capture 规则命中告警（幂等：alertID 由
+// agent|rule|gtid|table|key|ts 哈希派生，重推折叠为 duplicate），随后
+// 可选分发出口（Manager nil = 只落库）。severity 经闸层校验只有
+// warn/critical，仍防御性归一：未知值按 warning 处理。
+func (s *ControlService) handleAlertEvent(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.CaptureRuleHitReport{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal CaptureRuleHitReport: %w", err)
+	}
+
+	s.mu.RLock()
+	alertModel := s.alertModel
+	outletManager := s.outletManager
+	s.mu.RUnlock()
+	if alertModel == nil {
+		return nil, fmt.Errorf("alert model not configured")
+	}
+
+	rule := strings.TrimSpace(req.GetRule())
+	table := strings.TrimSpace(req.GetTable())
+	if rule == "" || table == "" {
+		return nil, fmt.Errorf("rule and table are required")
+	}
+	severity := strings.ToLower(strings.TrimSpace(req.GetSeverity()))
+	switch severity {
+	case "critical":
+		severity = outlet.SeverityCritical
+	case "warn", "warning":
+		severity = outlet.SeverityWarning
+	default:
+		severity = outlet.SeverityWarning
+	}
+
+	detail := req.GetDetail()
+	occurredAt := req.GetEventTsUnixMs()
+	if occurredAt <= 0 {
+		occurredAt = time.Now().UnixMilli()
+	}
+	alertID := captureAlertID(req.GetAgentId(), rule, req.GetGtid(), table, req.GetKey(), occurredAt)
+	title := fmt.Sprintf("[%s] %s", rule, table)
+
+	alert := &model.Alert{
+		AlertID: alertID,
+		Type:    outlet.KindCaptureRuleHit,
+		Level:   severity,
+		Message: strings.TrimSpace(title + ": " + detail),
+		Source:  "capture",
+		Status:  "firing",
+		Details: map[string]interface{}{
+			"kind":             outlet.KindCaptureRuleHit,
+			"rule":             rule,
+			"table":            table,
+			"key":              req.GetKey(),
+			"detail":           detail,
+			"gtid":             req.GetGtid(),
+			"eventOp":          req.GetEventOp(),
+			"occurredAtUnixMs": occurredAt,
+			"scope": map[string]interface{}{
+				"gameId":  req.GetGameId(),
+				"env":     req.GetEnv(),
+				"agentId": req.GetAgentId(),
+			},
+		},
+	}
+	_, created, err := alertModel.UpsertByAlertID(ctx, alert)
+	if err != nil {
+		return nil, fmt.Errorf("persist capture alert: %w", err)
+	}
+
+	if outletManager != nil {
+		outletManager.Dispatch(outlet.AlertEvent{
+			Kind:             outlet.KindCaptureRuleHit,
+			Severity:         severity,
+			EventID:          alertID,
+			DedupKey:         alertID,
+			Title:            title,
+			Body:             detail,
+			OccurredAtUnixMs: occurredAt,
+			Scope: outlet.Scope{
+				GameID:  req.GetGameId(),
+				Env:     req.GetEnv(),
+				AgentID: req.GetAgentId(),
+			},
+			Metadata: map[string]string{
+				"rule":  rule,
+				"table": table,
+			},
+		})
+	}
+
+	resp := &opsv1.CaptureRuleHitAck{Accepted: true, Duplicate: !created}
+	return proto.Marshal(resp)
+}
+
+// captureAlertID 派生 ≤64 字符的幂等键（model.Alert.AlertID 是
+// size:64 唯一索引）："capture." + 摘要前 16 hex。
+func captureAlertID(agentID, rule, gtid, table, key string, occurredAt int64) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{
+		agentID, rule, gtid, table, key, strconv.FormatInt(occurredAt, 10),
+	}, "|")))
+	return "capture." + hex.EncodeToString(sum[:])[:16]
 }
 
 func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]byte, error) {

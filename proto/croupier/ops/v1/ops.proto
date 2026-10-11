@@ -307,3 +307,28 @@ message CronJob {
   string source_file = 4;        // File where this job is defined
   bool enabled = 5;              // Whether the job is active
 }
+
+// ========== Capture rule-hit alerts (anti-cheat CDC gates) ==========
+
+// CaptureRuleHitReport carries one capture-agent gate hit on the CDC change
+// stream (reconcile / CEP / lineage rules) to the server alert store.
+// Server maps it into the alerts table idempotently (dedup by hit identity).
+message CaptureRuleHitReport {
+  string agent_id = 1;        // Reporting capture-agent id
+  string game_id = 2;         // Game scope label
+  string env = 3;             // Environment scope label
+  string rule = 4;            // Rule id (reconcile.missing_ledger | cep.burst_delta | cep.off_hours | cep.probing | lineage.whitelist_violation)
+  string severity = 5;        // warn | critical (gate closed set)
+  string table = 6;           // "db.table" the hit fired on
+  string key = 7;             // Join/row key (may be empty: missing-key sentinel)
+  string detail = 8;          // Human-readable hit detail
+  string gtid = 9;            // Source change event GTID (idempotency material)
+  string event_op = 10;       // insert | update | delete
+  int64 event_ts_unix_ms = 11; // Source change event timestamp (ms)
+}
+
+// CaptureRuleHitAck acknowledges one uploaded hit.
+message CaptureRuleHitAck {
+  bool accepted = 1;   // Upserted into the alerts store
+  bool duplicate = 2;  // alert_id already existed (idempotent replay)
+}

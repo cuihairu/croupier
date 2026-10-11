@@ -451,6 +451,9 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 		model.NewTaskEventModel(svcCtx.DB),
 	))
 	controlService.SetMetricsDB(svcCtx.DB)
+	// capture 规则命中告警：落 alerts 表 + 出口分发（Manager 可为 nil）
+	controlService.SetAlertModel(svcCtx.AlertModel)
+	controlService.SetOutletManager(svcCtx.OutletManager)
 	controlService.StartBackgroundTasks()
 
 	// 将 ControlService 的 MetricsStore 同步到 ServiceContext

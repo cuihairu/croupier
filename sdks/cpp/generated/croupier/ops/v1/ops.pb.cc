@@ -806,6 +806,89 @@ struct CpuMetricsDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CpuMetricsDefaultTypeInternal _CpuMetrics_default_instance_;
 
+inline constexpr CaptureRuleHitReport::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        agent_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        game_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        env_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        rule_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        severity_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        table_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        key_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        detail_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        gtid_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        event_op_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        event_ts_unix_ms_{::int64_t{0}} {}
+
+template <typename>
+constexpr CaptureRuleHitReport::CaptureRuleHitReport(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(CaptureRuleHitReport_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct CaptureRuleHitReportDefaultTypeInternal {
+  constexpr CaptureRuleHitReportDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CaptureRuleHitReportDefaultTypeInternal() {}
+  union {
+    CaptureRuleHitReport _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CaptureRuleHitReportDefaultTypeInternal _CaptureRuleHitReport_default_instance_;
+
+inline constexpr CaptureRuleHitAck::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        accepted_{false},
+        duplicate_{false} {}
+
+template <typename>
+constexpr CaptureRuleHitAck::CaptureRuleHitAck(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(CaptureRuleHitAck_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct CaptureRuleHitAckDefaultTypeInternal {
+  constexpr CaptureRuleHitAckDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CaptureRuleHitAckDefaultTypeInternal() {}
+  union {
+    CaptureRuleHitAck _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CaptureRuleHitAckDefaultTypeInternal _CaptureRuleHitAck_default_instance_;
+
 inline constexpr SystemInfo::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
@@ -1589,6 +1672,38 @@ const ::uint32_t
         2,
         3,
         4,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_._has_bits_),
+        14, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.agent_id_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.game_id_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.env_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.rule_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.severity_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.table_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.key_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.detail_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.gtid_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.event_op_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitReport, _impl_.event_ts_unix_ms_),
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitAck, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitAck, _impl_.accepted_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitAck, _impl_.duplicate_),
+        0,
+        1,
 };
 
 static const ::_pbi::MigrationSchema
@@ -1624,6 +1739,8 @@ static const ::_pbi::MigrationSchema
         {366, sizeof(::croupier::ops::v1::GetServiceStatusResponse)},
         {383, sizeof(::croupier::ops::v1::ListCronJobsResponse)},
         {390, sizeof(::croupier::ops::v1::CronJob)},
+        {403, sizeof(::croupier::ops::v1::CaptureRuleHitReport)},
+        {428, sizeof(::croupier::ops::v1::CaptureRuleHitAck)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_MetricsReport_CustomEntry_DoNotUse_default_instance_._instance,
@@ -1657,6 +1774,8 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_GetServiceStatusResponse_default_instance_._instance,
     &::croupier::ops::v1::_ListCronJobsResponse_default_instance_._instance,
     &::croupier::ops::v1::_CronJob_default_instance_._instance,
+    &::croupier::ops::v1::_CaptureRuleHitReport_default_instance_._instance,
+    &::croupier::ops::v1::_CaptureRuleHitAck_default_instance_._instance,
 };
 const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
@@ -1767,15 +1886,22 @@ const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_AT
     "s.v1.CronJob\022\r\n\005total\030\002 \001(\005\"`\n\007CronJob\022\020"
     "\n\010schedule\030\001 \001(\t\022\017\n\007command\030\002 \001(\t\022\014\n\004use"
     "r\030\003 \001(\t\022\023\n\013source_file\030\004 \001(\t\022\017\n\007enabled\030"
-    "\005 \001(\010*\352\001\n\014ProcessState\022\035\n\031PROCESS_STATE_"
-    "UNSPECIFIED\020\000\022\031\n\025PROCESS_STATE_RUNNING\020\001"
-    "\022\031\n\025PROCESS_STATE_STOPPED\020\002\022\030\n\024PROCESS_S"
-    "TATE_FAILED\020\003\022\032\n\026PROCESS_STATE_STARTING\020"
-    "\004\022\032\n\026PROCESS_STATE_STOPPING\020\005\022\031\n\025PROCESS"
-    "_STATE_BACKOFF\020\006\022\030\n\024PROCESS_STATE_BROKEN"
-    "\020\007Bj\n\"io.github.cuihairu.croupier.ops.v1"
-    "P\001Z0github.com/cuihairu/croupier/pkg/pb/"
-    "ops/v1;opsv1\252\002\017Croupier.Ops.V1b\006proto3"
+    "\005 \001(\010\"\314\001\n\024CaptureRuleHitReport\022\020\n\010agent_"
+    "id\030\001 \001(\t\022\017\n\007game_id\030\002 \001(\t\022\013\n\003env\030\003 \001(\t\022\014"
+    "\n\004rule\030\004 \001(\t\022\020\n\010severity\030\005 \001(\t\022\r\n\005table\030"
+    "\006 \001(\t\022\013\n\003key\030\007 \001(\t\022\016\n\006detail\030\010 \001(\t\022\014\n\004gt"
+    "id\030\t \001(\t\022\020\n\010event_op\030\n \001(\t\022\030\n\020event_ts_u"
+    "nix_ms\030\013 \001(\003\"8\n\021CaptureRuleHitAck\022\020\n\010acc"
+    "epted\030\001 \001(\010\022\021\n\tduplicate\030\002 \001(\010*\352\001\n\014Proce"
+    "ssState\022\035\n\031PROCESS_STATE_UNSPECIFIED\020\000\022\031"
+    "\n\025PROCESS_STATE_RUNNING\020\001\022\031\n\025PROCESS_STA"
+    "TE_STOPPED\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032"
+    "\n\026PROCESS_STATE_STARTING\020\004\022\032\n\026PROCESS_ST"
+    "ATE_STOPPING\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020"
+    "\006\022\030\n\024PROCESS_STATE_BROKEN\020\007Bj\n\"io.github"
+    ".cuihairu.croupier.ops.v1P\001Z0github.com/"
+    "cuihairu/croupier/pkg/pb/ops/v1;opsv1\252\002\017"
+    "Croupier.Ops.V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps[1] = {
@@ -1785,13 +1911,13 @@ static ::absl::once_flag descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fops_2fv1_2fops_2eproto = {
     false,
     false,
-    4638,
+    4903,
     descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto,
     "croupier/ops/v1/ops.proto",
     &descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once,
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps,
     1,
-    31,
+    33,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fops_2fv1_2fops_2eproto::offsets,
@@ -14865,6 +14991,974 @@ void CronJob::InternalSwap(CronJob* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
 }
 
 ::google::protobuf::Metadata CronJob::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class CaptureRuleHitReport::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<CaptureRuleHitReport>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_._has_bits_);
+};
+
+CaptureRuleHitReport::CaptureRuleHitReport(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureRuleHitReport_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.CaptureRuleHitReport)
+}
+PROTOBUF_NDEBUG_INLINE CaptureRuleHitReport::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::CaptureRuleHitReport& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        agent_id_(arena, from.agent_id_),
+        game_id_(arena, from.game_id_),
+        env_(arena, from.env_),
+        rule_(arena, from.rule_),
+        severity_(arena, from.severity_),
+        table_(arena, from.table_),
+        key_(arena, from.key_),
+        detail_(arena, from.detail_),
+        gtid_(arena, from.gtid_),
+        event_op_(arena, from.event_op_) {}
+
+CaptureRuleHitReport::CaptureRuleHitReport(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const CaptureRuleHitReport& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureRuleHitReport_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  CaptureRuleHitReport* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  _impl_.event_ts_unix_ms_ = from._impl_.event_ts_unix_ms_;
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.CaptureRuleHitReport)
+}
+PROTOBUF_NDEBUG_INLINE CaptureRuleHitReport::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        agent_id_(arena),
+        game_id_(arena),
+        env_(arena),
+        rule_(arena),
+        severity_(arena),
+        table_(arena),
+        key_(arena),
+        detail_(arena),
+        gtid_(arena),
+        event_op_(arena) {}
+
+inline void CaptureRuleHitReport::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.event_ts_unix_ms_ = {};
+}
+CaptureRuleHitReport::~CaptureRuleHitReport() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.CaptureRuleHitReport)
+  SharedDtor(*this);
+}
+inline void CaptureRuleHitReport::SharedDtor(MessageLite& self) {
+  CaptureRuleHitReport& this_ = static_cast<CaptureRuleHitReport&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.agent_id_.Destroy();
+  this_._impl_.game_id_.Destroy();
+  this_._impl_.env_.Destroy();
+  this_._impl_.rule_.Destroy();
+  this_._impl_.severity_.Destroy();
+  this_._impl_.table_.Destroy();
+  this_._impl_.key_.Destroy();
+  this_._impl_.detail_.Destroy();
+  this_._impl_.gtid_.Destroy();
+  this_._impl_.event_op_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL CaptureRuleHitReport::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) CaptureRuleHitReport(arena);
+}
+constexpr auto CaptureRuleHitReport::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(CaptureRuleHitReport),
+                                            alignof(CaptureRuleHitReport));
+}
+constexpr auto CaptureRuleHitReport::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_CaptureRuleHitReport_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &CaptureRuleHitReport::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<CaptureRuleHitReport>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &CaptureRuleHitReport::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<CaptureRuleHitReport>(), &CaptureRuleHitReport::ByteSizeLong,
+              &CaptureRuleHitReport::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_._cached_size_),
+          false,
+      },
+      &CaptureRuleHitReport::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull CaptureRuleHitReport_class_data_ =
+        CaptureRuleHitReport::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+CaptureRuleHitReport::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&CaptureRuleHitReport_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(CaptureRuleHitReport_class_data_.tc_table);
+  return CaptureRuleHitReport_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 11, 0, 109, 2>
+CaptureRuleHitReport::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_._has_bits_),
+    0, // no _extensions_
+    11, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294965248,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    11,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    CaptureRuleHitReport_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::CaptureRuleHitReport>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string agent_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.agent_id_)}},
+    // string game_id = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.game_id_)}},
+    // string env = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 2, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.env_)}},
+    // string rule = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 3, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.rule_)}},
+    // string severity = 5;
+    {::_pbi::TcParser::FastUS1,
+     {42, 4, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.severity_)}},
+    // string table = 6;
+    {::_pbi::TcParser::FastUS1,
+     {50, 5, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.table_)}},
+    // string key = 7;
+    {::_pbi::TcParser::FastUS1,
+     {58, 6, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.key_)}},
+    // string detail = 8;
+    {::_pbi::TcParser::FastUS1,
+     {66, 7, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.detail_)}},
+    // string gtid = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 8, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.gtid_)}},
+    // string event_op = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 9, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.event_op_)}},
+    // int64 event_ts_unix_ms = 11;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(CaptureRuleHitReport, _impl_.event_ts_unix_ms_), 10>(),
+     {88, 10, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.event_ts_unix_ms_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string agent_id = 1;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.agent_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string game_id = 2;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.game_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string env = 3;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.env_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string rule = 4;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.rule_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string severity = 5;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.severity_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string table = 6;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.table_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string key = 7;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.key_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string detail = 8;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.detail_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string gtid = 9;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.gtid_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string event_op = 10;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.event_op_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int64 event_ts_unix_ms = 11;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitReport, _impl_.event_ts_unix_ms_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+  }},
+  // no aux_entries
+  {{
+    "\44\10\7\3\4\10\5\3\6\4\10\0\0\0\0\0"
+    "croupier.ops.v1.CaptureRuleHitReport"
+    "agent_id"
+    "game_id"
+    "env"
+    "rule"
+    "severity"
+    "table"
+    "key"
+    "detail"
+    "gtid"
+    "event_op"
+  }},
+};
+PROTOBUF_NOINLINE void CaptureRuleHitReport::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.CaptureRuleHitReport)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      _impl_.agent_id_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      _impl_.game_id_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      _impl_.env_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      _impl_.rule_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      _impl_.severity_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+      _impl_.table_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      _impl_.key_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      _impl_.detail_.ClearNonDefaultToEmpty();
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000300U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      _impl_.gtid_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      _impl_.event_op_.ClearNonDefaultToEmpty();
+    }
+  }
+  _impl_.event_ts_unix_ms_ = ::int64_t{0};
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL CaptureRuleHitReport::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const CaptureRuleHitReport& this_ = static_cast<const CaptureRuleHitReport&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL CaptureRuleHitReport::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const CaptureRuleHitReport& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.CaptureRuleHitReport)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string agent_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_agent_id().empty()) {
+      const ::std::string& _s = this_._internal_agent_id();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.agent_id");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  // string game_id = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (!this_._internal_game_id().empty()) {
+      const ::std::string& _s = this_._internal_game_id();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.game_id");
+      target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
+  }
+
+  // string env = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (!this_._internal_env().empty()) {
+      const ::std::string& _s = this_._internal_env();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.env");
+      target = stream->WriteStringMaybeAliased(3, _s, target);
+    }
+  }
+
+  // string rule = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (!this_._internal_rule().empty()) {
+      const ::std::string& _s = this_._internal_rule();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.rule");
+      target = stream->WriteStringMaybeAliased(4, _s, target);
+    }
+  }
+
+  // string severity = 5;
+  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+    if (!this_._internal_severity().empty()) {
+      const ::std::string& _s = this_._internal_severity();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.severity");
+      target = stream->WriteStringMaybeAliased(5, _s, target);
+    }
+  }
+
+  // string table = 6;
+  if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+    if (!this_._internal_table().empty()) {
+      const ::std::string& _s = this_._internal_table();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.table");
+      target = stream->WriteStringMaybeAliased(6, _s, target);
+    }
+  }
+
+  // string key = 7;
+  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    if (!this_._internal_key().empty()) {
+      const ::std::string& _s = this_._internal_key();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.key");
+      target = stream->WriteStringMaybeAliased(7, _s, target);
+    }
+  }
+
+  // string detail = 8;
+  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (!this_._internal_detail().empty()) {
+      const ::std::string& _s = this_._internal_detail();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.detail");
+      target = stream->WriteStringMaybeAliased(8, _s, target);
+    }
+  }
+
+  // string gtid = 9;
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (!this_._internal_gtid().empty()) {
+      const ::std::string& _s = this_._internal_gtid();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.gtid");
+      target = stream->WriteStringMaybeAliased(9, _s, target);
+    }
+  }
+
+  // string event_op = 10;
+  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (!this_._internal_event_op().empty()) {
+      const ::std::string& _s = this_._internal_event_op();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureRuleHitReport.event_op");
+      target = stream->WriteStringMaybeAliased(10, _s, target);
+    }
+  }
+
+  // int64 event_ts_unix_ms = 11;
+  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (this_._internal_event_ts_unix_ms() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<11>(
+              stream, this_._internal_event_ts_unix_ms(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.CaptureRuleHitReport)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t CaptureRuleHitReport::ByteSizeLong(const MessageLite& base) {
+  const CaptureRuleHitReport& this_ = static_cast<const CaptureRuleHitReport&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t CaptureRuleHitReport::ByteSizeLong() const {
+  const CaptureRuleHitReport& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.CaptureRuleHitReport)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
+    // string agent_id = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_agent_id().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_agent_id());
+      }
+    }
+    // string game_id = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!this_._internal_game_id().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_game_id());
+      }
+    }
+    // string env = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!this_._internal_env().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_env());
+      }
+    }
+    // string rule = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (!this_._internal_rule().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_rule());
+      }
+    }
+    // string severity = 5;
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (!this_._internal_severity().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_severity());
+      }
+    }
+    // string table = 6;
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+      if (!this_._internal_table().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_table());
+      }
+    }
+    // string key = 7;
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (!this_._internal_key().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_key());
+      }
+    }
+    // string detail = 8;
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      if (!this_._internal_detail().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_detail());
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
+    // string gtid = 9;
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      if (!this_._internal_gtid().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_gtid());
+      }
+    }
+    // string event_op = 10;
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      if (!this_._internal_event_op().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_event_op());
+      }
+    }
+    // int64 event_ts_unix_ms = 11;
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (this_._internal_event_ts_unix_ms() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_event_ts_unix_ms());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void CaptureRuleHitReport::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<CaptureRuleHitReport*>(&to_msg);
+  auto& from = static_cast<const CaptureRuleHitReport&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.CaptureRuleHitReport)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!from._internal_agent_id().empty()) {
+        _this->_internal_set_agent_id(from._internal_agent_id());
+      } else {
+        if (_this->_impl_.agent_id_.IsDefault()) {
+          _this->_internal_set_agent_id("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!from._internal_game_id().empty()) {
+        _this->_internal_set_game_id(from._internal_game_id());
+      } else {
+        if (_this->_impl_.game_id_.IsDefault()) {
+          _this->_internal_set_game_id("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!from._internal_env().empty()) {
+        _this->_internal_set_env(from._internal_env());
+      } else {
+        if (_this->_impl_.env_.IsDefault()) {
+          _this->_internal_set_env("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (!from._internal_rule().empty()) {
+        _this->_internal_set_rule(from._internal_rule());
+      } else {
+        if (_this->_impl_.rule_.IsDefault()) {
+          _this->_internal_set_rule("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (!from._internal_severity().empty()) {
+        _this->_internal_set_severity(from._internal_severity());
+      } else {
+        if (_this->_impl_.severity_.IsDefault()) {
+          _this->_internal_set_severity("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+      if (!from._internal_table().empty()) {
+        _this->_internal_set_table(from._internal_table());
+      } else {
+        if (_this->_impl_.table_.IsDefault()) {
+          _this->_internal_set_table("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (!from._internal_key().empty()) {
+        _this->_internal_set_key(from._internal_key());
+      } else {
+        if (_this->_impl_.key_.IsDefault()) {
+          _this->_internal_set_key("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      if (!from._internal_detail().empty()) {
+        _this->_internal_set_detail(from._internal_detail());
+      } else {
+        if (_this->_impl_.detail_.IsDefault()) {
+          _this->_internal_set_detail("");
+        }
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000700U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      if (!from._internal_gtid().empty()) {
+        _this->_internal_set_gtid(from._internal_gtid());
+      } else {
+        if (_this->_impl_.gtid_.IsDefault()) {
+          _this->_internal_set_gtid("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      if (!from._internal_event_op().empty()) {
+        _this->_internal_set_event_op(from._internal_event_op());
+      } else {
+        if (_this->_impl_.event_op_.IsDefault()) {
+          _this->_internal_set_event_op("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (from._internal_event_ts_unix_ms() != 0) {
+        _this->_impl_.event_ts_unix_ms_ = from._impl_.event_ts_unix_ms_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void CaptureRuleHitReport::CopyFrom(const CaptureRuleHitReport& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.CaptureRuleHitReport)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void CaptureRuleHitReport::InternalSwap(CaptureRuleHitReport* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.agent_id_, &other->_impl_.agent_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.game_id_, &other->_impl_.game_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.env_, &other->_impl_.env_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.rule_, &other->_impl_.rule_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.severity_, &other->_impl_.severity_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.table_, &other->_impl_.table_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.key_, &other->_impl_.key_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.detail_, &other->_impl_.detail_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.gtid_, &other->_impl_.gtid_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.event_op_, &other->_impl_.event_op_, arena);
+  swap(_impl_.event_ts_unix_ms_, other->_impl_.event_ts_unix_ms_);
+}
+
+::google::protobuf::Metadata CaptureRuleHitReport::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class CaptureRuleHitAck::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<CaptureRuleHitAck>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_._has_bits_);
+};
+
+CaptureRuleHitAck::CaptureRuleHitAck(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureRuleHitAck_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.CaptureRuleHitAck)
+}
+CaptureRuleHitAck::CaptureRuleHitAck(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const CaptureRuleHitAck& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureRuleHitAck_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(from._impl_) {
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+PROTOBUF_NDEBUG_INLINE CaptureRuleHitAck::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0} {}
+
+inline void CaptureRuleHitAck::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, accepted_),
+           0,
+           offsetof(Impl_, duplicate_) -
+               offsetof(Impl_, accepted_) +
+               sizeof(Impl_::duplicate_));
+}
+CaptureRuleHitAck::~CaptureRuleHitAck() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.CaptureRuleHitAck)
+  SharedDtor(*this);
+}
+inline void CaptureRuleHitAck::SharedDtor(MessageLite& self) {
+  CaptureRuleHitAck& this_ = static_cast<CaptureRuleHitAck&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL CaptureRuleHitAck::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) CaptureRuleHitAck(arena);
+}
+constexpr auto CaptureRuleHitAck::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(CaptureRuleHitAck),
+                                            alignof(CaptureRuleHitAck));
+}
+constexpr auto CaptureRuleHitAck::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_CaptureRuleHitAck_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &CaptureRuleHitAck::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<CaptureRuleHitAck>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &CaptureRuleHitAck::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<CaptureRuleHitAck>(), &CaptureRuleHitAck::ByteSizeLong,
+              &CaptureRuleHitAck::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_._cached_size_),
+          false,
+      },
+      &CaptureRuleHitAck::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull CaptureRuleHitAck_class_data_ =
+        CaptureRuleHitAck::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+CaptureRuleHitAck::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&CaptureRuleHitAck_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(CaptureRuleHitAck_class_data_.tc_table);
+  return CaptureRuleHitAck_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 0, 2>
+CaptureRuleHitAck::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    CaptureRuleHitAck_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::CaptureRuleHitAck>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // bool duplicate = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(CaptureRuleHitAck, _impl_.duplicate_), 1>(),
+     {16, 1, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_.duplicate_)}},
+    // bool accepted = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(CaptureRuleHitAck, _impl_.accepted_), 0>(),
+     {8, 0, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_.accepted_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // bool accepted = 1;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_.accepted_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // bool duplicate = 2;
+    {PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_.duplicate_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+  }},
+  // no aux_entries
+  {{
+  }},
+};
+PROTOBUF_NOINLINE void CaptureRuleHitAck::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.CaptureRuleHitAck)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  ::memset(&_impl_.accepted_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.duplicate_) -
+      reinterpret_cast<char*>(&_impl_.accepted_)) + sizeof(_impl_.duplicate_));
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL CaptureRuleHitAck::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const CaptureRuleHitAck& this_ = static_cast<const CaptureRuleHitAck&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL CaptureRuleHitAck::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const CaptureRuleHitAck& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.CaptureRuleHitAck)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // bool accepted = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (this_._internal_accepted() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          1, this_._internal_accepted(), target);
+    }
+  }
+
+  // bool duplicate = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (this_._internal_duplicate() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          2, this_._internal_duplicate(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.CaptureRuleHitAck)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t CaptureRuleHitAck::ByteSizeLong(const MessageLite& base) {
+  const CaptureRuleHitAck& this_ = static_cast<const CaptureRuleHitAck&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t CaptureRuleHitAck::ByteSizeLong() const {
+  const CaptureRuleHitAck& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.CaptureRuleHitAck)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    // bool accepted = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (this_._internal_accepted() != 0) {
+        total_size += 2;
+      }
+    }
+    // bool duplicate = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (this_._internal_duplicate() != 0) {
+        total_size += 2;
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void CaptureRuleHitAck::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<CaptureRuleHitAck*>(&to_msg);
+  auto& from = static_cast<const CaptureRuleHitAck&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.CaptureRuleHitAck)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (from._internal_accepted() != 0) {
+        _this->_impl_.accepted_ = from._impl_.accepted_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (from._internal_duplicate() != 0) {
+        _this->_impl_.duplicate_ = from._impl_.duplicate_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void CaptureRuleHitAck::CopyFrom(const CaptureRuleHitAck& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.CaptureRuleHitAck)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void CaptureRuleHitAck::InternalSwap(CaptureRuleHitAck* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_.duplicate_)
+      + sizeof(CaptureRuleHitAck::_impl_.duplicate_)
+      - PROTOBUF_FIELD_OFFSET(CaptureRuleHitAck, _impl_.accepted_)>(
+          reinterpret_cast<char*>(&_impl_.accepted_),
+          reinterpret_cast<char*>(&other->_impl_.accepted_));
+}
+
+::google::protobuf::Metadata CaptureRuleHitAck::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // @@protoc_insertion_point(namespace_scope)

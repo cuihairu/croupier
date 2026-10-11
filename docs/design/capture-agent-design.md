@@ -265,6 +265,41 @@ runner 接线（事件到达即评即命中；位点 tick Sweep 只做清桶卫�
 测试：`agents/capture/gate/lineage_test.go` 5 例（白名单外命中、白名单内直通、
 空账号降级计数、操作过滤与表路由不误计、校验错误集）。
 
+### 8.4 C2 交付记录：告警上报链（2026-10-11）
+
+代码面：wire 对 `MsgAlertEventRequest/Response = 0x040119/0x04011A`（Ops 族
+下一个空闲对，奇数请求/偶数响应，`IsRequest`/`GetResponseMsgID` 契约满足）；
+proto 消息对 `opsv1.CaptureRuleHitReport`（agent/game/env/rule/severity/table/
+key/detail/gtid/event_op/event_ts_unix_ms）+ `CaptureRuleHitAck`（accepted/
+duplicate）；agent 侧 `controlconn.SendAlertReport` + runner 异步上报循环
+（`startHitSender`：`hitCh` 缓冲 512，非阻塞入队满即丢、单次发送 5s 超时、
+失败丢弃不重试、连接跟随 Dial 重连换新）；server 侧 `ControlService.
+handleAlertEvent`（`SetAlertModel`/`SetOutletManager` 注入，cmd/server/root.go
+装配）。口径与边界：
+
+1. **幂等键**：`AlertID = "capture." + sha256(agent|rule|gtid|table|key|ts)`
+   前 16 hex——对 `model.Alert.AlertID`（`size:64` 唯一索引）安全；重连重放
+   服务端折叠为 `duplicate`（回执体现，不重复落库）。
+2. **Level 归一**：闸层 severity 闭集 `{warn, critical}`，映射
+   `outlet.SeverityWarning/Critical`；未知值防御性按 warning 处理（不乱开
+   new level）。
+3. **game/env 只进 Details**：`Scope` 三元组随事件送 outlet（面板按
+   scope 过滤），但 alerts 表身份不存 game 列（表为全公司单库）——与
+   `alert.inbound` 同形态（scope 在 Details）。
+4. **丢弃不背压**：上报全程 best effort——队列满（`AlertDropped++`）、连接
+   未就绪、超时/失败一律丢弃+warn 日志；本地 slog warn 日志是持久记录
+   （命中可核），上报链不重试、不排队、不阻塞消费循环。
+5. **混版兼容**：旧 server 收到未知 msgID 返回 unknown message type 错误，
+   agent 侧按发送失败丢弃（同上）；新 server + 旧 agent 不受影响（旧 agent
+   不发该消息）。无配置开关——闸关则无命中无噪声，闸开即启用上报。
+6. **server 双存储语义**：`alertModel` nil → 显式错误（同 taskStore）；
+   `outletManager` nil → 只落库不分发（outlet 链未装配时降级）。
+
+测试：server `internal/server/control_handler_alert_test.go` 7 例（落库+
+幂等折叠、severity 映射与归一、校验拒绝、nil model 拒绝、occurredAt 缺省、
+outlet 分发含 scope/dedup、msgID 对契约）；runner `runner_alert_test.go` 4 例
+（上报载荷完整性、发送失败计数、duplicate 回执、队列满丢弃）。
+
 ## 9. 已知边界（诚实清单）
 
 - 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。
@@ -272,4 +307,6 @@ runner 接线（事件到达即评即命中；位点 tick Sweep 只做清桶卫�
 - binlog/WAL 保留期短于 capture-agent 停机时长时位点失效，从可得起点重扫（对账闸窗口兜底误报）；监控位点滞后并告警。
 - 闸层评估为尽力而为（agent 侧内存态）：agent 重启丢失滑窗状态，血缘/对账不受影响（纯逐事件）。
 - 前像依赖 `binlog_row_image=FULL` / `REPLICA IDENTITY FULL`，未满足时 update 前像为空，对账/突变按后像降级。
+- 告警上报 best effort：队列满/断连/超时/发送失败即丢（不重试不排队），alerts 表可能少条；命中真相在 agent `slog warn` 日志（`capture gate hit`），可对账核对，丢弃计数见 `Stats.AlertDropped`。
+- 告警上报对旧 server 静默降级：server 不认识 msgID → 发送失败丢弃，agent 不告警不重试（混版部署期无上报，仅本地日志）。
 - C1 行像为位置数组 JSON（binlog ROW 事件裸形态，无列名映射）——闸层血缘/对账可按位置对齐，但面板摘要可读性受限；列名映射（information_schema 摄取）随 C2。
