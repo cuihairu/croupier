@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
 	"gopkg.in/yaml.v3"
 )
@@ -37,6 +38,14 @@ type Agent struct {
 	HeartbeatFile string `yaml:"heartbeatFile" json:"heartbeatFile"`
 }
 
+// Gates C2 闸层规则集（纯数据；模板是代码，见设计 §4/§5）。
+type Gates struct {
+	// Reconcile 对账闸规则（道具变更 ↔ 业务流水时间窗销账）。
+	Reconcile struct {
+		Rules []gate.ReconcileRule `yaml:"rules" json:"rules"`
+	} `yaml:"reconcile" json:"reconcile"`
+}
+
 // Capture CDC 功能块。
 type Capture struct {
 	// Enabled 总开关，缺省 false（设计 §2：缺省关）。
@@ -47,6 +56,8 @@ type Capture struct {
 	BookmarkFlushIntervalSec int `yaml:"bookmarkFlushIntervalSec" json:"bookmarkFlushIntervalSec"`
 	// MySQL 源连接配置；nil = 未配置（enabled=true 而 mysql 缺失报错）。
 	MySQL *source.MySQLConfig `yaml:"mysql" json:"mysql"`
+	// Gates 闸层规则（空 = 只采不限，C1 口径）。
+	Gates Gates `yaml:"gates" json:"gates"`
 }
 
 // Config capture-agent 全量配置。
@@ -90,6 +101,10 @@ func (c Config) Validate() error {
 		if len(c.Capture.MySQL.Tables) == 0 {
 			return fmt.Errorf("capture.mysql.tables must not be empty (whitelist required)")
 		}
+	}
+	// 闸规则启动即全量校验（宁可不起进程）——含对账闸表路由唯一性。
+	if err := gate.ValidateReconcileRules(c.Capture.Gates.Reconcile.Rules); err != nil {
+		return fmt.Errorf("capture.gates: %w", err)
 	}
 	return nil
 }

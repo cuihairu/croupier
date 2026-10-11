@@ -41,3 +41,21 @@ capture:
     tables:
       game.items: true
       game.player_wallet: true
+  # 闸层规则（C2 起；空 = 只采不判）。规则模板是代码、规则本体是纯数据
+  # （无 DSL）。启动即全量校验：表须 "库.表" 两段、同表不得跨规则复用、
+  # itemTable ≠ ledgerTable、severity ∈ {warn, critical}。
+  gates:
+    # 对账闸：道具变更必须能在 windowSec 内对上业务流水，超窗未销 =
+    # reconcile.missing_ledger 告警（命中落 agent 日志+计数）。
+    reconcile:
+      rules: []
+      # 示例（键形态：整数串 = 行像位置下标，C1 行像为位置数组 JSON）：
+      # - name: item-ledger
+      #   itemTable: game.items
+      #   ledgerTable: game.ledger
+      #   itemKey: "1"        # 道具行像下标（如 player_id 列）
+      #   ledgerKey: "0"      # 流水行像下标（如 player_id 列）
+      #   windowSec: 300      # 0 → 默认 300
+      #   severity: warn      # 缺省 warn；critical 走严重通道
+      #   exemptKeys: []      # 关联键值精确豁免（批处理流水等）
+      #   maxPending: 10000  # 单规则在窗条目上限，0 → 默认 10000

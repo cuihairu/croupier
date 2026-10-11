@@ -1,8 +1,8 @@
-// Package runner capture-agent 装配（C1 口径）：注册上线/心跳（core/register，
+// Package runner capture-agent 装配：注册上线/心跳（core/register，
 // payload 带 game_id+env 标签）+ 统一事件流消费（source.Provider）+ 位点周期
 // 落盘与退出终刷 + Readiness 探库（core/healthprobe，探 MySQL 连通）。
 // `capture.enabled=false` 时仅注册上线不消费（面板可见、可停启，设计 §2）。
-// 上游事件/告警上报与闸规则属 C2，本包只负责流与位点。
+// C2 起闸层（gate）在消费循环内联评估，命中落日志+计数；告警上报链后续批接线。
 package runner
 
 import (
@@ -17,6 +17,7 @@ import (
 
 	"github.com/cuihairu/croupier/agents/capture/config"
 	"github.com/cuihairu/croupier/agents/capture/controlconn"
+	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
 	"github.com/cuihairu/croupier/core/backoff"
 	"github.com/cuihairu/croupier/core/healthprobe"
@@ -37,6 +38,7 @@ type Stats struct {
 	Update          int64
 	Delete          int64
 	Skipped         int64 // 白名单外丢弃
+	GateHits        int64 // 闸规则命中累计（reconcile 起步，C2 批接入）
 	LastEventUnixMs int64
 }
 
@@ -51,6 +53,8 @@ type Runner struct {
 	// backoffInitial/backoffMax 源重开退避（测试注入快档；默认 1s→30s ×1.5）。
 	backoffInitial time.Duration
 	backoffMax     time.Duration
+
+	reconcile *gate.ReconcileGate // nil = 未配对账规则（直通零开销）
 
 	stats Stats
 }
@@ -70,6 +74,16 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 	r.newSource = func() source.Provider {
 		return source.NewMySQLSource(*cfg.Capture.MySQL, log)
 	}
+	if rules := cfg.Capture.Gates.Reconcile.Rules; len(rules) > 0 {
+		g, err := gate.NewReconcile(rules)
+		if err != nil {
+			// config.Validate 已全量校验，此处不可达；防御性降级为直通。
+			log.Warn("reconcile gate disabled, invalid rules", "error", err)
+		} else {
+			r.reconcile = g
+			log.Info("reconcile gate enabled", "rules", len(rules))
+		}
+	}
 	return r
 }
 
@@ -81,6 +95,7 @@ func (r *Runner) Stats() Stats {
 		Update:          atomic.LoadInt64(&r.stats.Update),
 		Delete:          atomic.LoadInt64(&r.stats.Delete),
 		Skipped:         atomic.LoadInt64(&r.stats.Skipped),
+		GateHits:        atomic.LoadInt64(&r.stats.GateHits),
 		LastEventUnixMs: atomic.LoadInt64(&r.stats.LastEventUnixMs),
 	}
 }
@@ -164,6 +179,7 @@ func (r *Runner) runSourceOnce(ctx context.Context) error {
 			}
 			r.consume(ev)
 		case <-tick.C:
+			r.sweepGates(time.Now().UnixMilli())
 			r.flushBookmark(src, false)
 		case <-ctx.Done():
 			_ = src.Close()
@@ -173,7 +189,7 @@ func (r *Runner) runSourceOnce(ctx context.Context) error {
 	}
 }
 
-// consume 白名单过滤（双保险：源侧已过滤）+ 计数。
+// consume 白名单过滤（双保险：源侧已过滤）+ 计数 + 闸层评估（命中落日志）。
 func (r *Runner) consume(ev source.ChangeEvent) {
 	now := time.Now().UnixMilli()
 	atomic.StoreInt64(&r.stats.LastEventUnixMs, now)
@@ -190,6 +206,26 @@ func (r *Runner) consume(ev source.ChangeEvent) {
 	}
 	r.log.Debug("change event", "sourceType", ev.SourceType, "database", ev.Database,
 		"table", ev.Table, "op", ev.Op, "gtid", ev.GTID)
+	if r.reconcile != nil {
+		r.recordHits(r.reconcile.Evaluate(&ev))
+	}
+}
+
+// sweepGates 周期销账（位点 tick 同频；无闸直通）。
+func (r *Runner) sweepGates(nowMs int64) {
+	if r.reconcile != nil {
+		r.recordHits(r.reconcile.Sweep(nowMs))
+	}
+}
+
+// recordHits 命中出口：日志 + GateHits 计数（告警上报链后续批接线）。
+func (r *Runner) recordHits(hits []gate.Hit) {
+	for _, h := range hits {
+		atomic.AddInt64(&r.stats.GateHits, 1)
+		r.log.Warn("capture gate hit", "rule", h.Rule, "severity", h.Severity,
+			"table", h.Table, "key", h.Key, "detail", h.Detail,
+			"gtid", h.Event.GTID, "tsUnixMs", h.Event.TsUnixMs)
+	}
 }
 
 // flushBookmark 周期刷位点；final=true 时无条件落（退出终刷）。

@@ -160,6 +160,55 @@ context: 账号、GTID、时间窗内相邻事件摘要、规则参数快照
 | C3  | 闸一对账（流水订阅 + 窗口销账）+ PG 源（含血缘降级态标注）                                                                   | C2                  |
 | C4  | 扩展位评估（SQLite 触发器镜像/SQL Server/Mongo）+ pgaudit 血缘增强评估                                                       | 按需                |
 
+**分期口径（2026-10-11 拍板）**：上表为原始设计批次；实际推进按用户令闸序
+**reconcile → cep → lineage** 执行（对账从 C3 提到 C2 首位，血缘最后）。批次划分
+不改变各闸的依赖关系，仅改变推进次序与验收次序。
+
+### 8.1 C2 交付记录：闸一·对账（2026-10-11）
+
+代码面：`agents/capture/gate`（规则评估层，与源解耦）+ `agents/capture/config`
+的 `capture.gates.reconcile.rules`（文件配置，纯数据）+ `agents/capture/runner`
+接线（`consume` 内联 `Evaluate`、位点 tick 内 `Sweep`、命中 → `slog warn` +
+`Stats.GateHits`）。规则 ID `reconcile.missing_ledger`，severity 缺省 `warn`。
+
+与原设计的实现差异（诚实清单，逐项记明理由）：
+
+1. **键形态**：§4.1 以字段名表述 JOIN 键（`item.change_reason_id ↔ ledger.trace_id`）；
+   C1 行像是位置数组 JSON、无列名映射（§9 末条），故 `itemKey`/`ledgerKey` 规格为
+   **整数串 = 行像位置下标**（如 `"1"`）。字段名形态保留为前向兼容：在数组行像上
+   取不到值即按「键缺失」处理，列名映射（information_schema 摄取）到位后同一
+   规格字符串可无缝切换为字段名——配置无需改。
+2. **双向销账**：道具侧入 debit 队列；流水侧优先销同键最早 debit，无待销则挂
+   credit（流水先于道具变更到达的时序）；道具侧到达时同样先销同键 credit。
+   credit 超窗**静默清**——流水无对应道具变更不是异常（如退款冲销、GM 回收）。
+3. **键缺失降级**：道具侧取不到键（NULL 关联键、键规格与行像列数不匹配）按
+   never-match 哨兵入窗并超窗告警（命中 Key 为空串即该信号），宁误报不漏报；
+   流水侧取不到键跳过并计入 `SkippedNoKey`（无法定位销账对象，通常是规格配错，
+   供运维排查配置）。
+4. **豁免降级**：§4.1 豁免按账号（离线结算批处理账号）；C1 `account` 恒空（§3.3），
+   故本批豁免为**关联键值精确豁免** `exemptKeys`。账号维度豁免待血缘数据源
+   解决（含 pgaudit/MySQL general log 侧通道）后再恢复，面板配置面同步。
+5. **容量边界**：单规则在窗条目上限 `maxPending`（默认 10000），超限按入窗
+   FIFO 驱逐——debit 驱逐产出命中（`detail` 标注 `cap exceeded`），credit 驱逐
+   静默；内存有界且不阻断采流。
+6. **命中出口**：§7 的命中进告警页为本批之外——本批命中仅落 agent 日志
+   （字段 `rule`/`severity`/`table`/`key`/`detail`/`gtid`/`tsUnixMs`）+
+   `Stats.GateHits` 计数。服务端 outlet kind `capture.rule_hit` 闭集已就绪
+   （`internal/platform/outlet`），告警上报 wire 消息是独立增量（§7 接线）。
+7. **校验面**：规则随 `config.Load` 启动即全量校验（进程不起优于运行期错判）：
+   表须 `库.表` 两段、同表不得跨规则复用（道具/流水角色路由必须无歧义）、
+   `itemTable ≠ ledgerTable`、`severity ∈ {warn, critical}`、`windowSec`/`maxPending ≥ 0`。
+   §6 的面板配置面尚未接线，本批仅文件配置。
+8. **并发契约**：闸内状态无锁，依赖 runner 单 goroutine 消费循环
+   （`Evaluate` 在事件分支、`Sweep` 在位点 tick 分支，同循环串行）。
+9. **时间语义**：入窗时刻 = `max(事件 TsUnixMs, now)`——binlog 回放补扫（位点
+   失效重扫）不会即刻超窗产生批量误报；到期判定 `now - ts >= windowSec`。
+
+测试：`agents/capture/gate/reconcile_test.go` 13 例（双向匹配、超窗命中、窗口
+边界、豁免、键缺失双侧降级、insert/update/delete 行像选取、回放补扫、容量驱逐、
+多规则隔离、命中排序确定性、校验错误集）+ `runner_gate_test.go` 3 例（接线、
+未配置直通、config 校验拦截）。
+
 ## 9. 已知边界（诚实清单）
 
 - 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。
