@@ -919,6 +919,20 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
   });
 
   it('通用错误翼：导入/上下架/删除 非 409 → mapper 兜底文案', async () => {
+    // fake timers 冻结 antd message 的 3s 自动消失：该用例三步共用计数式
+    // toast 断言，负载下事件循环卡顿 >5s 时断言整窗错过 toast（既有
+    // flake，todo.md 登记）。RTL waitFor 检测到 fake timers 会按 interval
+    // 步进推进（wait-for.js advanceTimersByTime），消息渲染链不受影响；
+    // toast 消失计时被冻结后计数单调，断言不再依赖 3s 真实窗口。
+    jest.useFakeTimers();
+    try {
+      await runGenericErrorFlow();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  async function runGenericErrorFlow() {
     mImport.mockRejectedValueOnce(new Error('network down'));
     mUpdate.mockRejectedValueOnce(new Error('network down'));
     mDelete.mockRejectedValueOnce(new Error('network down'));
@@ -949,7 +963,7 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
     );
     await waitFor(() => expect(mDelete).toHaveBeenCalledWith('chatops'));
     await expectToastGrew(GENERIC_MSG, before);
-  });
+  }
 
   it('登记通用错误翼：兜底文案、弹窗保持', async () => {
     mCreate.mockRejectedValueOnce(new Error('server down'));
