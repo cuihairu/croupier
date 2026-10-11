@@ -38,9 +38,13 @@ type CaptureGatesGetResponse struct {
 }
 
 // CaptureGatesPutRequest 发布闸规则新版本（整份内容，非增量补丁）。
+// BaseVersion 乐观锁基线（编辑面加载时看到的最新版本）：发布期间被他人
+// 抢先发布则 409 拒绝，防静默丢更新；0=不启用（回滚接口不适用锁——内容
+// 取自服务端而非过期编辑态）。
 type CaptureGatesPutRequest struct {
-	Content string `json:"content"`
-	Message string `json:"message,omitempty"`
+	Content     string `json:"content"`
+	Message     string `json:"message,omitempty"`
+	BaseVersion int    `json:"baseVersion,omitempty"`
 }
 
 // CaptureGatesPutResponse 发布结果（新版本号）。
@@ -116,18 +120,19 @@ func (s *Service) CaptureGatesGet(ctx context.Context) (*CaptureGatesGetResponse
 	}, nil
 }
 
-// CaptureGatesPut 结构 lint 后发布新版本（namespace=ops，version 递增）。
+// CaptureGatesPut 结构 lint 后发布新版本（namespace=ops，version 递增；
+// baseVersion>0 时乐观锁防并发丢更新）。
 func (s *Service) CaptureGatesPut(ctx context.Context, req *CaptureGatesPutRequest) (*CaptureGatesPutResponse, error) {
 	if req == nil || strings.TrimSpace(req.Content) == "" {
 		return nil, errorx.NewValidationError("capture gates content is required")
 	}
-	return s.publishCaptureGates(ctx, strings.TrimSpace(req.Content), strings.TrimSpace(req.Message))
+	return s.publishCaptureGates(ctx, strings.TrimSpace(req.Content), strings.TrimSpace(req.Message), req.BaseVersion)
 }
 
 // publishCaptureGates lint 后落库递增版本（发布与回滚共用路径）。
 // game/env scope 必须非空：capture-agent 注册即携带 scope（Agent 清单 §7），
 // 空 env 的发布永远拉不到，宁可发布时拒绝。
-func (s *Service) publishCaptureGates(ctx context.Context, content, message string) (*CaptureGatesPutResponse, error) {
+func (s *Service) publishCaptureGates(ctx context.Context, content, message string, baseVersion int) (*CaptureGatesPutResponse, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	if scope.GameID == "" || scope.Env == "" {
 		return nil, errorx.NewValidationError("capture gates require game and env scope")
@@ -136,15 +141,19 @@ func (s *Service) publishCaptureGates(ctx context.Context, content, message stri
 		return nil, errorx.NewValidationError(err.Error())
 	}
 	rec, err := s.svcCtx.ConfigVersionModel.CreateWithMeta(ctx, model.ConfigVersionPayload{
-		Key:       captureGatesConfigKey,
-		Content:   content,
-		Format:    "json",
-		GameID:    scope.GameID,
-		Env:       scope.Env,
-		Namespace: model.ConfigNamespaceOps,
-		Message:   message,
+		Key:         captureGatesConfigKey,
+		Content:     content,
+		Format:      "json",
+		GameID:      scope.GameID,
+		Env:         scope.Env,
+		Namespace:   model.ConfigNamespaceOps,
+		Message:     message,
+		BaseVersion: baseVersion,
 	}, captureGatesAuthor(ctx))
 	if err != nil {
+		if errors.Is(err, model.ErrConfigVersionConflict) {
+			return nil, errorx.NewConflict(err.Error())
+		}
 		return nil, err
 	}
 	return &CaptureGatesPutResponse{Version: rec.Version}, nil
@@ -177,7 +186,9 @@ func (s *Service) CaptureGatesRollback(ctx context.Context, req *CaptureGatesRol
 	if extra := strings.TrimSpace(req.Message); extra != "" {
 		message = fmt.Sprintf("%s: %s", message, extra)
 	}
-	return s.publishCaptureGates(ctx, content, message)
+	// baseVersion=0：回滚目标是显式版本号，内容取自服务端历史而非过期编辑
+	// 态，乐观锁不适用；并发回滚按版本链顺序生效，无需拒绝。
+	return s.publishCaptureGates(ctx, content, message, 0)
 }
 
 // lintCaptureGatesJSON 结构 lint：合法 JSON + 顶层对象 + 已知段形状

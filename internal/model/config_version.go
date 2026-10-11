@@ -28,6 +28,11 @@ type ConfigVersion struct {
 
 func (ConfigVersion) TableName() string { return "config_versions" }
 
+// ErrConfigVersionConflict 乐观锁冲突：BaseVersion 与最新版本不一致，或对
+// 不存在的版本链指定了基线。调用方用 errors.Is 判定并映射 409；错误文本
+// 保持原措辞（既有人工排查口径不变）。
+var ErrConfigVersionConflict = errors.New("config has been updated by another user")
+
 // Config namespaces (closed set; frontend grouping and watch filters depend
 // on it). See docs/research/config-hot-reload-design.md.
 const (
@@ -169,12 +174,12 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 	switch {
 	case err == nil:
 		if payload.BaseVersion > 0 && latest.Version != payload.BaseVersion {
-			return nil, errors.New("config has been updated by another user")
+			return nil, ErrConfigVersionConflict
 		}
 		version = latest.Version + 1
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		if payload.BaseVersion > 0 {
-			return nil, errors.New("config base version mismatch")
+			return nil, fmt.Errorf("config base version mismatch: %w", ErrConfigVersionConflict)
 		}
 		version = 1
 	default:

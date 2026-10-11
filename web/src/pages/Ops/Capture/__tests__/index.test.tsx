@@ -178,6 +178,7 @@ describe('capture 闸规则页 编辑与发布', () => {
       expect(mPublish).toHaveBeenCalledWith({
         content: '{"reconcile":{"rules":[]}}',
         message: undefined,
+        baseVersion: 3,
       }),
     );
     expect(
@@ -194,6 +195,16 @@ describe('capture 闸规则页 编辑与发布', () => {
     fireEvent.click(screen.getByRole('button', { name: /发\s*布/ }));
     await confirmPopover();
     expect(await screen.findByText('lint-failed: rules not array')).toBeInTheDocument();
+  });
+
+  it('发布乐观锁冲突 → 透传服务端冲突消息', async () => {
+    mPublish.mockRejectedValueOnce(new Error('config has been updated by another user'));
+    renderPage();
+    await waitLoad();
+
+    fireEvent.click(screen.getByRole('button', { name: /发\s*布/ }));
+    await confirmPopover();
+    expect(await screen.findByText('config has been updated by another user')).toBeInTheDocument();
   });
 
   it('重载按钮重拉', async () => {

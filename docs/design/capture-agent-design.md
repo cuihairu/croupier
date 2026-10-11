@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）+ 乐观锁（§8.10，策略资产化 v1）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -448,6 +448,33 @@ tag+tooltip 点名 / 无 agent 灰）。口径与差异：
 前缀 + 历史完好 + 回滚当前版本递增；版本非法 422 / 不存在 404 / 跨
 scope 404 / 缺 scope 422；lint 演进拒绝 + 失败不落库）。边界：面板侧
 回滚按钮未做（归风控策略页，阶段四；REST 已就绪）。
+
+### 8.10 交付记录：乐观锁接通（策略资产化 v1，CDC 平台化批阶段三，2026-10-11）
+
+代码面：`CaptureGatesPutRequest` 新增 `baseVersion`（编辑面加载时看到的
+最新版本）→ `publishCaptureGates(..., baseVersion)` →
+`ConfigVersionPayload.BaseVersion` 乐观锁；`model` 抽出哨兵
+`ErrConfigVersionConflict`（错误文本不变，`errors.Is` 判定）→ 服务层
+映射 409；面板 publish 带 `state.version` 作基线。口径与差异：
+
+1. **基线 0 = 不启用锁**（向后兼容既有调用方）；回滚接口不适用锁——目标
+   是显式版本号、内容取自服务端历史而非过期编辑态，并发回滚按版本链
+   顺序生效即可。
+2. **冲突 = 409 + 消息透传**：两人基于同一旧内容发布时后者失败，重载后
+   重新编辑发布（不做自动合并——整份内容语义下合并无意义）。
+3. **前一版本链显式化**：version = baseVersion+1，冲突即断链，版本日志
+   仍不可变追加（回滚记录见 §8.9）。
+
+拍板：策略资产化沿用 `config_versions` + `namespace=ops`（不新增表、不动
+model、零 goose 迁移）——「统一策略头 + 分类型体」的存储侧升级留到按
+类型分键（source/event/detection/delivery 各自独立键）时再做，届时策略
+记录才需要自带策略头独立交付；现在嵌入 header 会让 revision/scope 出现
+第二真值，不做。
+
+测试：ops `TestCaptureGatesPutOptimisticLock` 新增（基线过期 409 / 正确
+基线递增 / 缺省基线向后兼容 / 空链带基线 409 / 冲突不落版本）；web 页
+新增 1 例（冲突消息透传）、service 新增 1 例（baseVersion 形状）；
+tsc 0 错、目标套件 16 例绿。
 
 ## 9. 已知边界（诚实清单）
 

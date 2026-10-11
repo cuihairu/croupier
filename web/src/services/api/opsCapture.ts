@@ -14,9 +14,12 @@ export type CaptureGatesState = {
 
 // Source: croupier/internal/api/ops/capture_gates.go CaptureGatesPutRequest/Response
 // 发布为整份内容（非增量补丁），版本号由服务端递增。
+// baseVersion 乐观锁基线（编辑面加载时看到的最新版本）：发布期间被他人
+// 抢先发布则 409；缺省不启用。
 export type CaptureGatesPublishInput = {
   content: string;
   message?: string;
+  baseVersion?: number;
 };
 
 const BASE = '/api/v1/ops/capture/gates';

@@ -41,4 +41,13 @@ describe('opsCapture service', () => {
       data: { content: '{}', message: undefined },
     });
   });
+
+  it('publishCaptureGates: baseVersion optimistic-lock baseline passes through', async () => {
+    mockedRequest.mockResolvedValueOnce({ version: 5 });
+    await publishCaptureGates({ content: '{}', baseVersion: 4 });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/capture/gates', {
+      method: 'PUT',
+      data: { content: '{}', baseVersion: 4 },
+    });
+  });
 });

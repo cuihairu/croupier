@@ -98,7 +98,12 @@ export default function OpsCapturePage() {
   const publish = useCallback(async () => {
     setPublishing(true);
     try {
-      const resp = await publishCaptureGates({ content });
+      // 乐观锁基线=编辑面加载时看到的版本：被抢先发布则 409（服务端消息
+      // 透传），防两人基于同一旧内容互相覆盖；未发布过（version=0）不带锁。
+      const resp = await publishCaptureGates({
+        content,
+        baseVersion: state?.version || undefined,
+      });
       message.success(
         intlRef.current.formatMessage(
           {
@@ -122,7 +127,7 @@ export default function OpsCapturePage() {
     } finally {
       setPublishing(false);
     }
-  }, [content, load, loadNodes, message]);
+  }, [content, load, loadNodes, message, state?.version]);
 
   const unpublished = !state || state.version === 0;
 

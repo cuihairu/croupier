@@ -94,7 +94,7 @@ detection:
 下发六步：**编辑 → 校验 → 发布（不可变 revision，记录发布人/时间/前一版本）→ 下发（只发匹配 gameId+env+sourceId 的 Agent）→ 应用（Agent 本地全量验证 + 原子切换）→ 确认（上报实际生效版本）**。
 
 - Agent 缓存已发布策略，正常运行完全离线执行；**不逐事件向 Server 请求过滤判断**。
-- 现状通道锚点：下行拉取 wire 对 `0x04011B/0x04011C` + `core/configsync` 版本轮询（简档 §8.5）就是第 4/5 步的雏形；**第 6 步已通（2026-10-11）**：agent 生效后异步重注册，`captureGatesRevision` label 捎带 appliedRevision，`/ops/capture` 「生效对账」行对账 desired vs applied（滞后容忍）；补齐的是第 3 步（不可变 revision 策略头资产化，阶段三余项）。
+- 现状通道锚点：下行拉取 wire 对 `0x04011B/0x04011C` + `core/configsync` 版本轮询（简档 §8.5）就是第 4/5 步的雏形；**第 6 步已通（2026-10-11）**：agent 生效后异步重注册，`captureGatesRevision` label 捎带 appliedRevision，`/ops/capture` 「生效对账」行对账 desired vs applied（滞后容忍）；第 3 步的不可变 revision 链已显式化（乐观锁 baseVersion，冲突 409 断链拒绝，简档 §8.10）——「统一策略头嵌入」归按类型分键时再做。
 - **发布状态必须区分 `desiredRevision`（期望）与 `appliedRevision`（实际生效）**——面板不得在只有 desired 时显示"已生效"。
 - 策略变更两特例：
   1. 改 CEP 阈值：安全边界内原子切换规则实例；是否保留原窗口状态须明确规定（当前实现：整体换 gateSet 快照，窗口状态不保留、重新起算，简档 §8.2 时序边界）。

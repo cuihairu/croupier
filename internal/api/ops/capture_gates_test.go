@@ -235,6 +235,49 @@ func TestCaptureGatesRollbackRejectsContentFailingCurrentLint(t *testing.T) {
 	}
 }
 
+func TestCaptureGatesPutOptimisticLock(t *testing.T) {
+	s, ctx := newCaptureGatesService(t)
+	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent()}); err != nil {
+		t.Fatalf("put v1: %v", err)
+	}
+	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{}`, BaseVersion: 1}); err != nil {
+		t.Fatalf("put v2 with base 1: %v", err)
+	}
+
+	// 基线过期（编辑面还停在 v1）→ 409。
+	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent(), BaseVersion: 1}); err == nil {
+		t.Fatal("stale base version must conflict")
+	} else if code := httpCode(err); code != 409 {
+		t.Fatalf("stale base: code = %d, want 409", code)
+	}
+	// 正确基线 → 递增成功。
+	resp, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{"event":{"ops":["insert"]}}`, BaseVersion: 2})
+	if err != nil {
+		t.Fatalf("put v3 with base 2: %v", err)
+	}
+	if resp.Version != 3 {
+		t.Fatalf("version = %d, want 3", resp.Version)
+	}
+	// 缺省基线（0）=不启用锁，向后兼容既有调用方。
+	if resp, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{}`}); err != nil {
+		t.Fatalf("put without base: %v", err)
+	} else if resp.Version != 4 {
+		t.Fatalf("version = %d, want 4", resp.Version)
+	}
+	// 对不存在的版本链指定基线（首次发布带 baseVersion）→ 409。
+	fresh := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "dev"})
+	if _, err := s.CaptureGatesPut(fresh, &CaptureGatesPutRequest{Content: `{}`, BaseVersion: 1}); err == nil {
+		t.Fatal("base on empty chain must conflict")
+	} else if code := httpCode(err); code != 409 {
+		t.Fatalf("base on empty chain: code = %d, want 409", code)
+	}
+
+	// 冲突不落版本：latest 仍是 v4。
+	if got, err := s.CaptureGatesGet(ctx); err != nil || got.Version != 4 {
+		t.Fatalf("get after conflicts = %+v, %v; want v4", got, err)
+	}
+}
+
 // httpCode 取 errorx 错误的 HTTP 语义码（CodeError.Data 首元）。
 func httpCode(err error) int {
 	var codeErr *errorx.CodeError

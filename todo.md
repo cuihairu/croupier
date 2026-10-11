@@ -4284,7 +4284,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 ### 阶段三：中心策略管理（Server 侧）
 
-- [ ] **策略资产化**：config_versions 单键 capture.gates → 策略记录（统一头+分类型体，不可变 revision+发布人+前一版本）；沿用 namespace=ops 或新增 namespace 拍板
+- [x] **策略资产化 v1（✅ 2026-10-11，乐观锁接通）**：拍板=沿用 config_versions + namespace=ops（不新增表/不动 model/零 goose 迁移）；「统一策略头+分类型体」的存储侧升级留到按类型分键（source/event/detection/delivery 独立键）时再做——现在嵌入 header 会让 revision/scope 出现第二真值。已落：baseVersion 乐观锁（基线过期 409、缺省 0=不启用向后兼容、回滚不带锁——内容取自服务端历史）+ model.ErrConfigVersionConflict 哨兵 + 前一版本链显式化（version=baseVersion+1）+ 面板 publish 带加载版本作基线。余项归阶段四：按类型分键 + 策略记录自带统一头（capture-agent 简档 §8.10）
 - [ ] **发布校验服务端化**：阶段一契约的服务端实现（结构+依赖+能力感知 lint）；能力集从 agent 注册上报取（labels 或注册响应扩展，拍板项）
 - [x] **appliedRevision 上报通道（✅ 2026-10-11）**：拍板=复用注册面（零 proto/零 server 改动）——生效后异步重注册，`captureGatesRevision` label 捎带；面板 /ops/capture「生效对账」行 desired vs applied（全生效绿/部分金 tag 点名/无 agent 灰），滞后容忍非强一致；capture-agent 简档 §8.8
 - [x] **位点-策略联动决策（✅ 2026-10-11 拍板，用户令点名的最易遗漏项）**：四条拍板=①位点所有权唯一归事件源（Provider.Bookmark / Connector.Checkpoint），策略热换不移动位点不触发重放；②新表/新规则生效起点=当前位点（增量，发布不隐式补历史）；③需要历史=独立回补流程显式触发（挂 Connector snapshot 能力，永不随发布顺带）；④切换审计先落日志（apply 记 revision+position），server 侧审计随资产化扩展复用 appliedRevision 捎带模式。详见过滤策略简档 §4；回补流程实现归 Connector 批次（依赖 snapshot 能力），切换审计落日志接线随资产化项
