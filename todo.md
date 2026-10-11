@@ -4192,7 +4192,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **门禁**：`go build ./...` 绿、`go build ./cmd/sidecar-agent` 绿、`go vet ./cmd/sidecar-agent/...` 绿。
 - **验收口径回执**：目录/引用/CI 全绿 ✅，产物名与部署面按 A 档兑现 ✅，文档定名注更新为「已落地」✅。
 
-### ③ capture-agent 闸层 C2（三闸 + 告警上报链 + 规则下行 wire 半边交付：reconcile fb189bb / cep db31e20 / lineage 4f9584e / 上报链 01646d4 / 下行拉取本批；面板编辑面待做）
+### ③ capture-agent 闸层 C2（三闸 + 告警上报链 + 下行链闭环交付：reconcile fb189bb / cep db31e20 / lineage 4f9584e / 上报链 01646d4 / 下行拉取 b9ddc43 / 面板编辑面本批）
 
 - **现状**：C1 骨架已实施（2026-10-10：注册/心跳/事件流/位点，`cmd/capture-agent` + `agents/capture/`）。
 - **拍板**：用户 2026-10-11 令「③ capture-agent C2 开工，闸序 reconcile→cep→lineage，每闸实现+单测+简档差异记录」。
@@ -4202,7 +4202,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **闸 3/3 lineage 已交付（2026-10-11）**：`gate/lineage.go`（`lineage.whitelist_violation`，账号白名单，`allowAccounts` 必填非空）；C1 降级态——空账号事件跳过并计 `Degraded`（不误报不放过），启用日志显式标注 degraded；差异记录 §8.3。单测 5 例。
 - **告警上报链已交付（2026-10-11）**：wire 对 `MsgAlertEventRequest/Response 0x040119/0x04011A` + `opsv1.CaptureRuleHitReport/Ack`（make proto 四树重生成）；server `handleAlertEvent`（`SetAlertModel`/`SetOutletManager` 注入、root.go 装配）——幂等键 `capture.`+sha256-16hex 折叠重放、severity→outlet level 归一（未知按 warning）、`occurredAt` 缺省补 now、game/env 只进 Details scope、nil model 显式错误；agent 侧 `controlconn.SendAlertReport` + runner `startHitSender`（hitCh 512 非阻塞、5s 超时、失败丢弃不重试、连接跟随 Dial 重连、`Stats.AlertDropped`）。单测 server 7 例 + runner 4 例。差异记录 §8.4 + 边界 2 条。
 - **规则下行拉取 wire 半边已交付（2026-10-11）**：wire 对 `MsgCaptureConfigRequest/Response 0x04011B/0x04011C` + `opsv1.CaptureGatesConfigRequest/Response`；server `handleCaptureConfig`——scope 取注册会话（`AgentSession{GameID,Env}`）不取请求、读 `config_versions` 键 `capture.gates`（namespace=ops，零 schema 变更）、gates_json 对 server 不透明、multiGame 经 `GameDBResolver`（结构性满足 `*router.Router`）解析 game 库、无记录/读失败/解析失败统一回空版本；agent 侧 `controlconn.PullCaptureGates` + runner 闸层快照化（`gateSet` atomic.Pointer 整体热换，并发契约不变）+ `core/configsync` 版本轮询（30s）——apply 全量校验 keep last-good、空版本 no-op、连接未就绪 Debug 静默。单测 server 7 例 + runner 3 例；差异记录 §8.5（拒绝 REST 选 wire 的理由等 6 项）。
-- **待做**：面板编辑面（web 卡片读写 config_versions capture.gates + Ops/Nodes capture 降级态标注）。
+- **面板编辑面已交付（2026-10-11）**：REST `GET/PUT /api/v1/ops/capture/gates`（ops 组，scoped+Authority；读=config_versions `capture.gates` 最新版回显，写=CreateWithMeta namespace=ops 乐观锁递增；服务端**仅结构 lint**（reconcile/cep/lineage 三段对象+数组形状），语义校验仍归 agent（validator of last resort），lint 败 422 `errorx.CodeError`；发布必须 game+env scope 齐全）；web `/ops/capture` 页（JSON textarea v1 + 插入模板 + Popconfirm 发布 + 未发布/版本 Tag + 边界 Alert「发布≠生效」）+ `services/api/opsCapture`；Ops/Nodes 新增「捕获」列（注册 labels `captureLineage=degraded` → 金色「血缘降级」徽标，复用既有 labels 无新 API）。单测 ops 4 + 页面 7 + service 3；Nodes 75 例回归绿。边界：appliedRevision 上报通道未建，agent 实际生效靠日志 `capture gates version applied` 人工核对（CDC 平台化批阶段三补）。
 
 ### ④ 三 agent 文档口径同步（✅ 本批完成）
 
@@ -4262,3 +4262,56 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - [ ] **切换实测**：同一 gate 面下 `atlas ↔ http ↔ noop` 各只改配置切换，每种各真打一个测试源，状态判定正确（含源挂掉时的降级表现）
 - [ ] **配置文档**：provider 切换逐字段说明（server-status-provider.md 补）+ 通用 http 源示例（curl 一个状态 JSON → 映射配置 → 切换生效）
 - **验收**：切换与降级实测留证（配置 diff + 实际返回）；测试绿才 push、commit 英文简短、不发版
+
+## CDC 平台化批（2026-10-11 用户令：「这些都需要整理到文档中，还有拆分任务到todo.md中」——三条设计输入整理为三篇设计文档 + 分期任务拆分）
+
+> 设计文档（本批交付，均为整理稿未实施）：[CDC 过滤策略体系](docs/design/cdc-filter-policy-design.md)（四类规则/统一策略契约/下发确认链/位点关系/失败语义）、[CDC Connector 架构](docs/design/cdc-connector-architecture.md)（多数据库优先级/SourceConnector 契约/能力声明/选型）、[风控面板设计](docs/design/risk-control-panel-design.md)（一级分类/四子模块/边界表/明确不做）。现状基线：capture.gates 下行链 + /ops/capture 面板卡（③ 批交付），策略化在此基线演进不推翻。
+
+### 阶段一：契约定义（先行，冻结接口面）
+
+- [ ] **统一 ChangeEvent 模型**：source/operation/before/after/key/transaction/position/schemaVersion/timestamp；能力差异必须表达（before 拿不到=空+能力标志，不伪造）；现有 MySQL 行像（位置数组 JSON）迁到统一模型的兼容决策
+- [ ] **FilterPolicy 统一策略头**：policyId/gameId/env/sourceId/revision/lifecycle + 分类型载体（SourceFilter/EventFilter/Detection/Delivery）；include/exclude 语义与默认拒绝口径；失败四分类（MATCH/NO_MATCH/ERROR/UNSUPPORTED）
+- [ ] **SourceConnector 接口草案定稿**：Open/Discover/Snapshot/Poll/Checkpoint/Close + 能力声明集（beforeImage/afterImage/transactionMetadata/snapshot/resumableCheckpoint/pushdown）；Snapshot 接口直接为位点/回补问题（阶段三决策项）备好扩展点
+- [ ] **发布校验契约**：scope 必填、依赖感知（对账双表须都在采集范围）、能力感知（规则依赖字段源给不出→发布即报不兼容）、include/exclude 冲突检测
+
+### 阶段二：Agent 执行层（不重写 gate/）
+
+- [ ] **抽 `agents/capture/filter/` 纯逻辑包**：事件级匹配与过滤决策（EventFilter 执行面），不依赖 MySQL 驱动/面板 API；先接 EventFilterPolicy（操作类型/元数据筛），SourceFilter 仍在 source/
+- [ ] **策略原子切换泛化**：gateSet 快照模式（runner §8.5）推广到 filter 层；CEP 阈值变更的窗口状态保留与否明确实现（现状整体换、重新起算）
+- [ ] **失败语义落地**：检测失败优先保留事件+计数+可观测信号（现状 SkippedNoDelta 口径推广）；策略 UNSUPPORTED 显式上报
+- [ ] **过滤统计**：events_received/filtered(按原因)/evaluated_total、policy_apply_errors、rule_evaluation_errors 计数入 Stats；汇总口径见过滤策略简档 §8
+- [ ] **单测**：filter 包纯逻辑全量用例 + runner 装配链（应用/回退/统计）+ 失败翼
+
+### 阶段三：中心策略管理（Server 侧）
+
+- [ ] **策略资产化**：config_versions 单键 capture.gates → 策略记录（统一头+分类型体，不可变 revision+发布人+前一版本）；沿用 namespace=ops 或新增 namespace 拍板
+- [ ] **发布校验服务端化**：阶段一契约的服务端实现（结构+依赖+能力感知 lint）；能力集从 agent 注册上报取（labels 或注册响应扩展，拍板项）
+- [ ] **appliedRevision 上报通道**：agent 上行实际生效版本（复用心跳/注册响应带 labels 或独立 wire 对，拍板项）；面板 desired vs applied 双状态真值
+- [ ] **位点-策略联动决策（用户令点名的最易遗漏项，先拍板再实施）**：新增采集表从哪个位点生效、是否回补历史（独立回补流程 vs 策略变更顺带）、策略切换记录生效位点与审计；底线=过滤规则变更不破坏 CDC 可恢复性
+- [ ] **业务规则迁出 YAML**：agents/capture/config 区分本地连接配置与中心下发策略；capture.gates.* 文件配置降级为 fallback（无中心时兜底）
+- [ ] **回滚**：以历史 revision 内容再发一版（不可变日志）；单测+发布链集成用例
+
+### 阶段四：风控面板与验证
+
+- [ ] **一级分类「风控」空架子**：路由/菜单/locales/access 四件套（见 risk-control-panel-design.md §6）
+- [ ] **风控规则页**：/ops/capture JSON 卡升级为 reconcile/cep/lineage 三段结构化表单 + dry-run 测试接口（组合边界拍板：server lint + agent 语义校验如何串联）
+- [ ] **风控策略页**：版本列表（发布人/时间/message）+ desired/applied 双状态 + 回滚按钮（依赖阶段三 appliedRevision 通道）
+- [ ] **风险事件扩展**：alerts 加 severity=critical 档 + status 流转（待处理→已确认/已忽略/已升级）——**模型加列必须同 PR 配 goose 编号迁移**（migrations.go + MinimumRequiredVersion + migrate_test 三处同步，仓库红线）
+- [ ] **告警中心迁移**：Alerts 页挂入风控分类（数据面不动）
+- [ ] **验证清单**：规则更新热生效、断线恢复 keep last-good、位点恢复、新表启用、过滤错误可观测、跨 game/env 隔离
+- `/ops/capture` 旧入口去留拍板（倾向保留为快速发布入口）
+
+### Connector 批次（多数据库，独立推进线）
+
+- [ ] **PostgreSQL P0 闭环**（首个第二数据源，跑通全链才算数）：logical replication Connector（SourceConnector 实现）→ ChangeEvent 统一模型落地 → 过滤策略/三闸/告警链/面板能力标签全链验证；PG 无 beforeImage 的场景按能力声明降级（血缘 Degraded 口径复用）
+- [ ] **MariaDB P0 收尾**：MySQL Connector 兼容性验证（协议差异点清单）+ CI 矩阵
+- [ ] **能力感知发布校验接通**：发布时按源能力拒绝/提示不兼容规则（过滤策略简档 §3 + connector 简档 §3.1）
+- [ ] **P1/P2**：SQL Server/Oracle/MongoDB → TiDB/CockroachDB/国产库；每源=新 Connector+能力声明，runtime 不改；排期待 P0 闭环后按需立项
+- **选型决策项（先拍板再动工）**：轻量单 Go 二进制自研连接器 vs 独立 CDC 进程（Debezium）桥接——connector 简档 §4 建议单二进制起步、契约先行保可逆，用户裁决后定稿
+
+### 横切红线（本批全程有效）
+
+- 密钥不进仓库、不回显（数据源连接串凭据走现有密钥面/未来 VaultProvider 批）
+- 模型加列/加表必须同 PR 配 goose 编号迁移（三处同步）
+- commit 英文简短、无 AI 痕迹；不发正式版本
+- 每阶段交付口径：设计文档同步更新（三层：模型/wire/使用）+「已知边界」诚实清单

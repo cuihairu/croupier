@@ -6,7 +6,7 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 
 ## 状态
 
-- 状态: **以代码现实为准（2026-10-11 核）**：公共模块 `healthprobe`/`execlog` **已建成**（agent-core K1–K4 落地，见 [agent-core 简档](agent-core-design.md) §5.1），上行控制连接 `agents/controlconn`（core 系 agent 共用，2026-10-11 自 capture 包上收共享）；`capture-agent` **C2 已交付**（C1 骨架 2026-10-10：注册/心跳/事件流/位点；闸层三闸 reconcile/cep/lineage + 告警上报链 + 闸规则下行拉取 2026-10-11，`cmd/capture-agent` + `agents/capture/`；面板编辑面待做）；`devops-agent` **骨架已实施**（2026-10-11 拍板批简档：`cmd/devops-agent` + `agents/devops/`——注册/心跳/execlog 审计 + 会话建立链 Broker/白名单/存档元数据，协议通道 guacd/SSH 与下行会话接线另批）；`sidecar-agent` = 现有主体已部分切 core，**源码目录 `cmd/sidecar-agent`（2026-10-11 改名方案 A 落地：目录定名，产物二进制名保持 `croupier-agent`，部署契约零影响）**。
+- 状态: **以代码现实为准（2026-10-11 核）**：公共模块 `healthprobe`/`execlog` **已建成**（agent-core K1–K4 落地，见 [agent-core 简档](agent-core-design.md) §5.1），上行控制连接 `agents/controlconn`（core 系 agent 共用，2026-10-11 自 capture 包上收共享）；`capture-agent` **C2 已交付**（C1 骨架 2026-10-10：注册/心跳/事件流/位点；闸层三闸 reconcile/cep/lineage + 告警上报链 + 闸规则下行拉取 + 面板编辑面 2026-10-11，`cmd/capture-agent` + `agents/capture/`；下行链闭环）；`devops-agent` **骨架已实施**（2026-10-11 拍板批简档：`cmd/devops-agent` + `agents/devops/`——注册/心跳/execlog 审计 + 会话建立链 Broker/白名单/存档元数据，协议通道 guacd/SSH 与下行会话接线另批）；`sidecar-agent` = 现有主体已部分切 core，**源码目录 `cmd/sidecar-agent`（2026-10-11 改名方案 A 落地：目录定名，产物二进制名保持 `croupier-agent`，部署契约零影响）**。
 - **定名（用户令，2026-10-09）**：三驻留 agent = **`sidecar-agent`** / **`devops-agent`** / **`capture-agent`**；公共模块 = **`healthprobe`**（健康探针）、**`execlog`**（执行审计）；路线图登记 `connector-agent` / `synthetics-agent`（**只登记不实现**）。旧候选（gameserver-agent / cicd-agent / cdc-agent / ci-agent）一律弃用。
 - **角色口径重定（用户令，2026-10-11，覆盖 2026-10-09 旧口径）**：`sidecar-agent` = **外网侧、只做业务相关功能**（监控游戏进程、注册函数、汇报健康信息含主机与定时任务）；`devops-agent` = **内网堡垒机式远程接入代理**（可操作、更高权限、必须记录；旧「CI/CD 只观测」口径整节废弃）；`capture-agent` = **CDC**（防私改库）。
 - 本页是**唯一权威定名与职责边界清单**；每个 agent 的实现文档开头有同口径「作用」节；与 [agent-core 能力清单表](agent-core-design.md)（§2）互链。
@@ -19,7 +19,7 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 | ------------------ | ---------- | ----------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------- |
 | `sidecar-agent`    | 驻留 agent | 已有主体（源码目录 `cmd/sidecar-agent`，产物名 `croupier-agent`） | 游戏服务器旁（外网侧）的 GM 基础设施代理               | [agent-core 简档](agent-core-design.md) §1    |
 | `devops-agent`     | 驻留 agent | 骨架已实施（2026-10-11；协议通道/下行接线另批）                   | 内网堡垒机式远程接入代理（SSH/RDP/VNC，可操作+全留痕） | [agent-core 简档](agent-core-design.md) §7    |
-| `capture-agent`    | 驻留 agent | C2 已交付（C1 骨架 + 三闸 + 告警链 + 规则下行，2026-10-11）       | 防私改数据库：CDC 变更捕获与三道闸                     | [capture-agent 简档](capture-agent-design.md) |
+| `capture-agent`    | 驻留 agent | C2 已交付（C1 骨架 + 三闸 + 告警链 + 下行链闭环，2026-10-11）     | 防私改数据库：CDC 变更捕获与三道闸                     | [capture-agent 简档](capture-agent-design.md) |
 | `healthprobe`      | 公共模块   | **已建成**（接线待消费方）                                        | Liveness/Readiness/Heartbeat 三语义探针                | [agent-core 简档](agent-core-design.md) §6    |
 | `execlog`          | 公共模块   | **已建成**（接线待消费方）                                        | 统一执行审计（audit-first）                            | [agent-core 简档](agent-core-design.md) §6    |
 | `connector-agent`  | 路线图占位 | 只登记不实现                                                      | 第三方服务接入                                         | [agent-core 简档](agent-core-design.md) §8    |
@@ -125,7 +125,7 @@ capture 告警 / healthprobe 故障窗口 / devops 异常（白名单主机不�
 
 - sidecar-agent 主体已存在（`internal/agent` + `internal/app/agent`，**源码目录 `cmd/sidecar-agent` 即 sidecar-agent**）；2026-10-11 用户拍板改名方案 A 落地——仅源码目录改名，产物名 `croupier-agent` 保持，部署面（镜像 ENTRYPOINT/systemd/安装脚本/nightly 资产）零影响。
 - devops-agent **骨架已实施（2026-10-11 拍板批简档）**：`cmd/devops-agent` + `agents/devops/`（config/session/runner）——注册/心跳/execlog audit-first + 会话建立链（白名单前置→审计落库→Open，顺序不可倒）+ 会话存档元数据 JSONL。**剩余边界**：协议通道（guacd/SSH 终端，noop Provider 占位）、面板→agent 下行会话接线、白名单 configsync 下发、会话录像存档格式/保留期/回放粒度——均另批报批。
-- capture-agent 闸层 C2 已交付（reconcile/cep/lineage 三闸 + 告警上报链 + 闸规则下行拉取，2026-10-11；面板编辑面待做，见 [capture-agent 简档](capture-agent-design.md) §8）。
+- capture-agent 闸层 C2 已交付（reconcile/cep/lineage 三闸 + 告警上报链 + 规则下行拉取 + 面板编辑面，2026-10-11，下行链闭环；见 [capture-agent 简档](capture-agent-design.md) §8）。后续平台化演进（分层过滤策略/多数据库 Connector/风控一级分类）已立项待实施，见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 旧 outlet kind 闭集含 `devops.build_failed`（按旧口径实施）：devops 事件语义随简档定稿改判（改名或复用），简档批准前代码不动（零代码单）。
 - execlog server 侧保存期默认值与导出格式随实施报批；agent 本地文件保留期有限（轮转），真值以 server 审计存储为准。
 - 无标签注册「不进面板」的展示口径（彻底不可见 vs 列表置灰）随面板实施报批，默认彻底不可见。

@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5，wire 半边；面板编辑面待做）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -340,6 +340,36 @@ PullCaptureGates` + runner 闸层热更（`gateSet` 快照整体 `atomic.Pointer
 回空、scope 隔离、未知 agent/nil model 拒绝、分库覆盖生效、分库解析失败
 回空、msgID 对契约）；runner `runner_config_test.go` 3 例（热换快照、
 非法规则 keep last-good、拉取器版本跳过/空载荷/错误/非法规则/新版本全路径）。
+
+### 8.6 C2 交付记录：面板编辑面（下行链闭环，2026-10-11）
+
+代码面：REST `GET/PUT /api/v1/ops/capture/gates`（ops 组，scoped +
+Authority）读写 `config_versions` 键 `capture.gates`（namespace=ops，
+`CreateWithMeta` 乐观锁递增）；服务端**仅结构 lint**（reconcile/cep/
+lineage 三段对象 + 数组形状，lint 败 422 `errorx.CodeError`）；web
+`/ops/capture` 页（JSON textarea v1 + 插入模板 + Popconfirm 发布 +
+未发布/版本 Tag + 「发布≠生效」边界 Alert）+ `services/api/opsCapture`；
+Ops/Nodes 新增「捕获」列（注册 labels `captureLineage=degraded` →
+金色「血缘降级」徽标，复用 §8.3 既有 labels，无新 API）。口径与差异：
+
+1. **服务端结构 lint / agent 语义校验分层不变**：server 只查形状
+   （对象/数组），不解释规则内容——语义真值仍在 agent apply 全量校验
+   （validator of last resort，§8.5 第 3 条口径延续）；面板发布成功
+   ≠ agent 已生效，真值是 agent 日志 `capture gates version applied`。
+2. **发布必须 game+env scope 齐全**：空 scope 的发布会被任何 agent
+   拉到（FindLatestByScope 要求三元组非空）且无从归属，直接 422 拒绝。
+3. **降级徽标零新 API**：血缘降级态走注册 labels 链路（OpsAgentInfo
+   已暴露），面板列只做展示映射。
+4. **编辑器 v1 是 JSON textarea**：结构化表单（模板 + 参数 + 测试）
+   归 [风控面板设计](risk-control-panel-design.md) 阶段四；本文只交付
+   下行链闭环所需的最小编辑面。
+5. **appliedRevision 未上报**：面板无「待生效」态可见性，随 [CDC
+   过滤策略体系](cdc-filter-policy-design.md) 阶段三补上行通道。
+
+测试：ops `capture_gates_test.go` 4 例（递增版本+元信息、未发布回空、
+scope 隔离、5 种 lint 败 + scope 缺失 + lint 败后不落库）；web 页 7 例
+（已发布/未发布渲染、模板插入、发布链、发布失败、加载失败、重载）+
+service 3 例（URL/method/参数形状）；Nodes 75 例回归绿。
 
 ## 9. 已知边界（诚实清单）
 
