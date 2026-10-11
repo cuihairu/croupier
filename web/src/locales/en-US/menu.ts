@@ -60,6 +60,7 @@ export default {
   'menu.Ops.Nodes': 'Node Maintenance',
   'menu.Ops.Cluster': 'Cluster Topology',
   'menu.Ops.Jobs': 'Jobs',
+  'menu.Ops.Capture': 'Capture Rules',
   'menu.Ops.Schedules': 'Schedules',
   'menu.Ops.Traces': 'Traces',
   'menu.Ops.Alerts': 'Alerts',

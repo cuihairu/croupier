@@ -47,6 +47,7 @@ import opsCluster from './en-US/opsCluster';
 import opsDBMonitor from './en-US/opsDBMonitor';
 import opsJobs from './en-US/opsJobs';
 import opsLBMonitor from './en-US/opsLBMonitor';
+import opsCapture from './en-US/opsCapture';
 import opsNodes from './en-US/opsNodes';
 import opsNotifications from './en-US/opsNotifications';
 import opsRateLimits from './en-US/opsRateLimits';
@@ -140,6 +141,7 @@ export default {
   ...opsDBMonitor,
   ...opsJobs,
   ...opsLBMonitor,
+  ...opsCapture,
   ...opsNodes,
   ...opsNotifications,
   ...opsRateLimits,

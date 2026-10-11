@@ -81,6 +81,28 @@ func TestBuildPayloadCarriesScopeLabels(t *testing.T) {
 	}
 }
 
+func TestBuildPayloadCarriesLineageDegradedLabel(t *testing.T) {
+	r := New(testConfig(t, false), nil)
+	if req, err := r.buildPayload(context.Background()); err != nil {
+		t.Fatalf("buildPayload: %v", err)
+	} else if _, ok := req.Labels["captureLineage"]; ok {
+		t.Fatalf("labels = %v, want no lineage label without lineage gate", req.Labels)
+	}
+
+	// 面板下发血缘规则热生效后，下次注册载荷即带降级标注。
+	lineageJSON := `{"lineage":{"rules":[{"name":"gw","table":"game.items","allowAccounts":["app"]}]}}`
+	if err := r.applyGates(context.Background(), []byte(lineageJSON)); err != nil {
+		t.Fatalf("applyGates: %v", err)
+	}
+	req, err := r.buildPayload(context.Background())
+	if err != nil {
+		t.Fatalf("buildPayload: %v", err)
+	}
+	if req.Labels["captureLineage"] != "degraded" {
+		t.Fatalf("labels = %v, want captureLineage=degraded", req.Labels)
+	}
+}
+
 func TestRunDisabledOnlyRegisters(t *testing.T) {
 	cfg := testConfig(t, false)
 	called := 0

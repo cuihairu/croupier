@@ -73,6 +73,30 @@ export function buildNodeColumns({
       render: (v: string) => v || '-',
     },
     {
+      // capture-agent 降级标注（注册 labels captureLineage=degraded，简档 §8.3）：
+      // 血缘闸启用但源无会话账号——告警链不误报，但归因粒度受限。
+      title: intl.formatMessage({ id: 'pages.opsNodes.column.capture', defaultMessage: '捕获' }),
+      dataIndex: ['labels', 'captureLineage'],
+      width: 100,
+      render: (v: unknown) =>
+        v === 'degraded' ? (
+          <Tag
+            color="gold"
+            title={intl.formatMessage({
+              id: 'pages.opsNodes.capture.degradedTip',
+              defaultMessage: '血缘闸降级：源无会话账号，命中不做账号归因',
+            })}
+          >
+            {intl.formatMessage({
+              id: 'pages.opsNodes.capture.degraded',
+              defaultMessage: '血缘降级',
+            })}
+          </Tag>
+        ) : (
+          <span style={{ color: '#999' }}>-</span>
+        ),
+    },
+    {
       title: intl.formatMessage({
         id: 'pages.opsNodes.column.ownerInstance',
         defaultMessage: '归属实例',

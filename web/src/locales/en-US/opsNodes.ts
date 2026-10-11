@@ -5,6 +5,10 @@ export default {
   'pages.opsNodes.column.ip': 'Source IP',
   'pages.opsNodes.column.reportedIp': 'Reported IP',
   'pages.opsNodes.column.hostname': 'Hostname',
+  'pages.opsNodes.column.capture': 'Capture',
+  'pages.opsNodes.capture.degraded': 'Lineage degraded',
+  'pages.opsNodes.capture.degradedTip':
+    'Lineage gate degraded: source has no session account, hits carry no account attribution',
   'pages.opsNodes.column.buttonCron': 'Cron Jobs',
   'pages.opsNodes.column.buttonDetail': 'Details',
   'pages.opsNodes.column.buttonDrain': 'Drain',

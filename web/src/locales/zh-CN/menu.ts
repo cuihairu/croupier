@@ -57,6 +57,7 @@ export default {
   'menu.Ops.Nodes': '节点维护',
   'menu.Ops.Cluster': '集群拓扑',
   'menu.Ops.Jobs': '任务监控',
+  'menu.Ops.Capture': '捕获规则',
   'menu.Ops.Schedules': '定时调度',
   'menu.Ops.Alerts': '告警中心',
   'menu.Ops.Incidents': '事故登记',

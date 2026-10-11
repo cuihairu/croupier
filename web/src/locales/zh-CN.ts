@@ -42,6 +42,7 @@ import incidentReports from './zh-CN/incidentReports';
 import opsAlerts from './zh-CN/opsAlerts';
 import opsAnalyticsFilters from './zh-CN/opsAnalyticsFilters';
 import opsBackups from './zh-CN/opsBackups';
+import opsCapture from './zh-CN/opsCapture';
 import opsCertificates from './zh-CN/opsCertificates';
 import opsCluster from './zh-CN/opsCluster';
 import opsDBMonitor from './zh-CN/opsDBMonitor';
@@ -135,6 +136,7 @@ export default {
   ...opsAlerts,
   ...opsAnalyticsFilters,
   ...opsBackups,
+  ...opsCapture,
   ...opsCertificates,
   ...opsCluster,
   ...opsDBMonitor,

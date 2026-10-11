@@ -474,19 +474,25 @@ func (r *Runner) startReadinessProbe(ctx context.Context) {
 
 // buildPayload 组装 RegisterRequest（注册面身份：game_id/env 标签 +
 // role=capture；无函数面——core 系 agent 没有函数注册能力是定位而非缺陷）。
+// captureLineage=degraded：血缘闸启用但源无会话账号（简档 §8.3 降级态），
+// 面板据此渲染降级徽标（labels 经 OpsAgentInfo 已暴露）。
 func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error) {
 	host, _ := os.Hostname()
+	labels := map[string]string{
+		"role":     "capture",
+		"hostname": host,
+		"os":       runtime.GOOS,
+		"arch":     runtime.GOARCH,
+	}
+	if gs := r.gates.Load(); gs != nil && gs.lineage != nil {
+		labels["captureLineage"] = "degraded"
+	}
 	return &agentv1.RegisterRequest{
 		AgentId: r.cfg.Agent.ID,
 		Version: Version,
 		GameId:  r.cfg.Agent.GameID,
 		Env:     r.cfg.Agent.Env,
-		Labels: map[string]string{
-			"role":     "capture",
-			"hostname": host,
-			"os":       runtime.GOOS,
-			"arch":     runtime.GOARCH,
-		},
+		Labels:  labels,
 	}, nil
 }
 

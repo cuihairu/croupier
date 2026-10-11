@@ -464,6 +464,15 @@ export default [
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
 
       {
+        // capture-agent 闸规则面板下发（config_versions capture.gates，
+        // capture-agent 经上行通道拉取热生效；简档 §6/§8.5）
+        path: '/ops/capture',
+        name: 'Capture',
+        access: 'canOpsRead',
+        component: './Ops/Capture',
+      },
+
+      {
         // cron 定时调度管理（/api/v1/schedules）
         path: '/ops/schedules',
         name: 'Schedules',

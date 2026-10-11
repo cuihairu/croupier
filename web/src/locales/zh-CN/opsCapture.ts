@@ -1,0 +1,20 @@
+export default {
+  'menu.Ops.Capture': '捕获规则',
+
+  'pages.opsCapture.gates.title': '闸规则下发',
+  'pages.opsCapture.reload': '重载',
+  'pages.opsCapture.template': '插入模板',
+  'pages.opsCapture.publish': '发布',
+  'pages.opsCapture.publish.confirm': '发布为整份新版本并热下发到该 scope 的 capture-agent？',
+  'pages.opsCapture.publish.success': '已发布版本 {version}，capture-agent 将在轮询周期内热生效',
+  'pages.opsCapture.error.loadFailed': '加载闸规则失败',
+  'pages.opsCapture.error.publishFailed': '发布失败',
+  'pages.opsCapture.gates.keyLabel': '配置键',
+  'pages.opsCapture.gates.unpublished': '未发布（agent 用文件规则）',
+  'pages.opsCapture.gates.version': '版本 {version}',
+  'pages.opsCapture.gates.boundary':
+    '服务端只做结构检查；语义校验（表路由/阈值）由 capture-agent 生效时全量执行，非法规则保留旧版。发布成功 ≠ 已生效，生效真值见 agent 日志 capture gates version applied。',
+  'pages.opsCapture.gates.placeholder': 'capture.gates JSON（reconcile / cep / lineage 三段）',
+  'pages.opsCapture.gates.help':
+    '发布按顶栏 game/env scope 存 game 库（config_versions），capture-agent 经上行通道 30s 版本轮询拉取并整体热替换；断连或校验失败时按旧规则继续运行。',
+};
