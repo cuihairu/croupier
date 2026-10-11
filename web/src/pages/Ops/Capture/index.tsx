@@ -9,6 +9,7 @@ import {
   type CaptureGatesState,
 } from '@/services/api/opsCapture';
 import { listOpsNodes, type OpsNode } from '@/services/api/ops';
+import { summarizeGatesApply } from '@/utils/captureGatesApply';
 import { extractErrorMessage } from '@/utils/errors';
 
 const { TextArea } = Input;
@@ -132,15 +133,12 @@ export default function OpsCapturePage() {
   const unpublished = !state || state.version === 0;
 
   // desired vs applied（appliedRevision 上报链）：capture agent 自报的
-  // 生效版本与当前 desired 版本对账。自报滞后正常（30s 拉取 + 重注册）。
-  const applySummary = useMemo(() => {
-    const desired = state?.version ?? 0;
-    const captureNodes = nodes.filter((n) => n.labels?.role === 'capture');
-    if (desired === 0) return null;
-    const applied = captureNodes.filter((n) => n.labels?.captureGatesRevision === String(desired));
-    const stale = captureNodes.filter((n) => n.labels?.captureGatesRevision !== String(desired));
-    return { desired, total: captureNodes.length, applied, stale };
-  }, [nodes, state?.version]);
+  // 生效版本与当前 desired 版本对账。汇总逻辑在 utils/captureGatesApply
+  // （/risk/strategies 风控策略页复用）；自报滞后正常（30s 拉取 + 重注册）。
+  const applySummary = useMemo(
+    () => summarizeGatesApply(nodes, state?.version ?? 0),
+    [nodes, state?.version],
+  );
 
   return (
     <PageContainer>

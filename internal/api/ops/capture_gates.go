@@ -99,6 +99,25 @@ func (h *Handler) CaptureGatesRollback(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// CaptureGatesVersionItem 版本历史条目（不含内容：内容只在 latest GET 回显，
+// 回滚走 POST rollback 由服务端取历史，前端不搬运整份 gates JSON）。
+type CaptureGatesVersionItem struct {
+	Version   int    `json:"version"`
+	Message   string `json:"message,omitempty"`
+	CreatedBy string `json:"createdBy,omitempty"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// CaptureGatesVersionsGet handles GET /api/v1/ops/capture/gates/versions.
+func (h *Handler) CaptureGatesVersionsGet(c *gin.Context) {
+	resp, err := h.service.CaptureGatesVersionsGet(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // CaptureGatesGet 返回当前 scope（顶栏 game/env）已发布的闸规则最新版本。
 func (s *Service) CaptureGatesGet(ctx context.Context) (*CaptureGatesGetResponse, error) {
 	scope := svc.GameScopeFromContext(ctx)
@@ -189,6 +208,29 @@ func (s *Service) CaptureGatesRollback(ctx context.Context, req *CaptureGatesRol
 	// baseVersion=0：回滚目标是显式版本号，内容取自服务端历史而非过期编辑
 	// 态，乐观锁不适用；并发回滚按版本链顺序生效，无需拒绝。
 	return s.publishCaptureGates(ctx, content, message, 0)
+}
+
+// CaptureGatesVersionsGet 返回当前 scope 的版本历史（新→旧）。未发布回空
+// 数组而非 404——空历史是常态而非错误。
+func (s *Service) CaptureGatesVersionsGet(ctx context.Context) ([]CaptureGatesVersionItem, error) {
+	scope := svc.GameScopeFromContext(ctx)
+	if scope.GameID == "" || scope.Env == "" {
+		return nil, errorx.NewValidationError("capture gates require game and env scope")
+	}
+	recs, err := s.svcCtx.ConfigVersionModel.ListByScope(ctx, captureGatesConfigKey, scope.GameID, scope.Env)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]CaptureGatesVersionItem, 0, len(recs))
+	for _, rec := range recs {
+		items = append(items, CaptureGatesVersionItem{
+			Version:   rec.Version,
+			Message:   rec.Message,
+			CreatedBy: rec.CreatedBy,
+			UpdatedAt: rec.UpdatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+	return items, nil
 }
 
 // lintCaptureGatesJSON 结构 lint：合法 JSON + 顶层对象 + 已知段形状

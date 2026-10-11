@@ -537,6 +537,25 @@ export default [
       },
     ],
   },
+  // 风控（CDC 平台化批阶段四；docs/design/risk-control-panel-design.md §6）
+  // 一级分类随首个真实页面落地，不建占位页（routes-resolution 先例）。
+  {
+    path: '/risk',
+    name: 'Risk',
+    icon: 'securityScan',
+    access: 'canOpsRead',
+    routes: [
+      { path: '/risk', redirect: '/risk/strategies' },
+      {
+        // 风控策略页：闸规则版本历史（config_versions capture.gates）+
+        // desired/applied 生效对账 + 回滚（历史版本内容再发一版）
+        path: '/risk/strategies',
+        name: 'RiskStrategies',
+        access: 'canOpsRead',
+        component: './Risk/Strategies',
+      },
+    ],
+  },
   {
     path: '/user',
     layout: false,

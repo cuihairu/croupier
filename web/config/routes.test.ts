@@ -97,3 +97,15 @@ describe('#8 账号中心合并为单层「个人中心」', () => {
     expect(byPath('/account/settings').redirect).toBe('/admin/account/center?tab=security');
   });
 });
+
+describe('风控一级分类（CDC 平台化批阶段四）', () => {
+  it('「风控」组只挂真实页面：当前仅风控策略页，无占位路由', () => {
+    const risk = byPath('/risk');
+    expect(risk.name).toBe('Risk');
+    expect(risk.access).toBe('canOpsRead');
+    expect(visibleChildren(risk).map((n) => n.path)).toEqual(['/risk/strategies']);
+    expect(byPath('/risk/strategies').component).toBe('./Risk/Strategies');
+    // 重定向在组内无名子节点（与 /ops 组同约定）
+    expect((risk.routes || []).find((n) => !n.name)?.redirect).toBe('/risk/strategies');
+  });
+});

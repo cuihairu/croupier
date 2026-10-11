@@ -69,6 +69,9 @@ export default {
   'menu.Ops.IncidentCategories': 'Incident Categories',
   'menu.Ops.RateLimits': 'Rate Limits',
   'menu.Ops.Certificates': 'Certificates',
+
+  'menu.Risk': 'Risk Control',
+  'menu.Risk.RiskStrategies': 'Risk Strategies',
   'menu.Ops.Notifications': 'Notifications',
   'menu.Ops.Backups': 'Backups',
   // Ops

@@ -22,10 +22,38 @@ export type CaptureGatesPublishInput = {
   baseVersion?: number;
 };
 
+// Source: croupier/internal/api/ops/capture_gates.go CaptureGatesVersionItem
+// 版本历史条目（新→旧）；不含内容——内容只在 latest GET 回显，回滚由服务端
+// 取历史内容再发一版。
+export type CaptureGatesVersionItem = {
+  version: number;
+  message?: string;
+  createdBy?: string;
+  updatedAt: string;
+};
+
+// Source: croupier/internal/api/ops/capture_gates.go CaptureGatesRollbackRequest/Response
+export type CaptureGatesRollbackInput = {
+  version: number;
+  message?: string;
+};
+
 const BASE = '/api/v1/ops/capture/gates';
 
 export async function getCaptureGates() {
   return request<CaptureGatesState>(BASE);
+}
+
+export async function listCaptureGatesVersions() {
+  return request<CaptureGatesVersionItem[]>(`${BASE}/versions`);
+}
+
+// 回滚 = 以历史版本内容再发一版（版本日志不可变）。
+export async function rollbackCaptureGates(input: CaptureGatesRollbackInput) {
+  return request<{ version: number }>(`${BASE}/rollback`, {
+    method: 'POST',
+    data: input,
+  });
 }
 
 export async function publishCaptureGates(input: CaptureGatesPublishInput) {

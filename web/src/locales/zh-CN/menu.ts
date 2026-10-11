@@ -65,6 +65,9 @@ export default {
   'menu.Ops.IncidentCategories': '事故类别',
   'menu.Ops.RateLimits': '限速管理',
   'menu.Ops.Traces': '链路追踪',
+
+  'menu.Risk': '风控',
+  'menu.Risk.RiskStrategies': '风控策略',
   'menu.Dev.ExcelConfig': '表格配置',
   'menu.Dev.Configs': '业务配置',
   'menu.Dev.ConfigExplorer': '配置浏览',

@@ -1,5 +1,10 @@
 import { request } from '@umijs/max';
-import { getCaptureGates, publishCaptureGates } from './opsCapture';
+import {
+  getCaptureGates,
+  listCaptureGatesVersions,
+  publishCaptureGates,
+  rollbackCaptureGates,
+} from './opsCapture';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
@@ -48,6 +53,28 @@ describe('opsCapture service', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/capture/gates', {
       method: 'PUT',
       data: { content: '{}', baseVersion: 4 },
+    });
+  });
+
+  it('listCaptureGatesVersions: GET /versions', async () => {
+    mockedRequest.mockResolvedValueOnce([
+      {
+        version: 3,
+        message: 'rollback from version 1',
+        createdBy: 'admin',
+        updatedAt: '2026-10-11 10:00:00',
+      },
+    ]);
+    await expect(listCaptureGatesVersions()).resolves.toHaveLength(1);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/capture/gates/versions');
+  });
+
+  it('rollbackCaptureGates: POST /rollback with version', async () => {
+    mockedRequest.mockResolvedValueOnce({ version: 4 });
+    await expect(rollbackCaptureGates({ version: 1 })).resolves.toEqual({ version: 4 });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/capture/gates/rollback', {
+      method: 'POST',
+      data: { version: 1 },
     });
   });
 });

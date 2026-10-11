@@ -6,7 +6,7 @@ title: 风控面板设计——一级分类、四子模块与规则/执行分离
 
 ## 状态
 
-- 状态: **设计整理完成（2026-10-11），未实施**。本文是用户令的整理稿：风控一级分类导航、四子模块、Filter 与 Detection 归属边界、规则定义与执行分离原则、明确不做清单。实施任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（三闸检测执行面）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（DetectionPolicy 归属）、[CDC Connector 架构](cdc-connector-architecture.md)（能力透明展示）互链。
+- 状态: **设计整理完成（2026-10-11）；实施进行中（CDC 平台化批阶段四）——§6 之 1+3 已落地**：菜单一级分类「风控」随首个真实页面「风控策略」（`/risk/strategies`）落地，空架子页不单独实施。本文是用户令的整理稿：风控一级分类导航、四子模块、Filter 与 Detection 归属边界、规则定义与执行分离原则、明确不做清单。实施任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（三闸检测执行面）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（DetectionPolicy 归属）、[CDC Connector 架构](cdc-connector-architecture.md)（能力透明展示）互链。
 - **定调（用户令）**：轻量起步——先四子模块承载现有三闸告警链与策略下发，不做大平台。
 
 ## 1. 一级分类与四子模块
@@ -80,15 +80,16 @@ title: 风控面板设计——一级分类、四子模块与规则/执行分离
 
 ## 6. 实施顺序（并入 CDC 平台化批阶段四）
 
-1. 菜单一级分类「风控」+ 空架子页（路由/locales/access）。
+1. ~~菜单一级分类「风控」+ 空架子页（路由/locales/access）~~——✅ 已落地（2026-10-11）。**拍板：空架子不单独落增量**，一级菜单随首个真实页面（风控策略页）一起上线，避免占位页（`routes-resolution.test.tsx` 断言真实页面而非占位）。
 2. 风控规则页（三段结构化表单 + 测试 dry-run 接口）。
-3. 风控策略页（版本列表 + desired/applied 状态 + 回滚）——依赖 appliedRevision 上报通道（过滤策略简档阶段三）。
+3. ~~风控策略页（版本列表 + desired/applied 状态 + 回滚）~~——✅ 已落地（2026-10-11，`/risk/strategies`）。版本历史走新增 `GET /api/v1/ops/capture/gates/versions`；回滚走既有 `POST /capture/gates/rollback`；生效对账复用 appliedRevision 捎带通道（`summarizeGatesApply` util 与 `/ops/capture` 共用）。
 4. 风险事件扩展（severity/status 字段与流转 API + 迁移）。
 5. 告警中心迁移（Alerts 挂到风控分类）。
 
 ## 7. 已知边界
 
-- 本文为设计整理稿（2026-10-11 用户令），全部子模块未实施；首版形态以上表为准。
+- 本文为设计整理稿（2026-10-11 用户令）；已实施：§6 之 1+3（风控一级分类 + 风控策略页）；其余子模块（风控规则页、风险事件扩展、告警中心迁移）未实施，首版形态以上表为准。
+- 风控策略页边界：发布成功 ≠ 已生效——「生效对账」为 agent 自报（30s 轮询 + 重注册滞后，非强一致）；版本历史/节点对账接口失败时页面退化空表，不断主面。
 - dry-run 测试接口未设计（server 侧规则校验复用 lint + agent 端语义校验边界如何组合待定）。
 - 风险事件 severity/status 扩展涉及 alerts 模型加列——按仓库迁移红线须同 PR 配 goose 编号迁移（migrations.go + MinimumRequiredVersion + migrate_test 三处同步）。
 - `/ops/capture` 旧入口去留为拍板项，倾向保留为「快速发布」入口。

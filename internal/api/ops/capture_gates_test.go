@@ -278,6 +278,56 @@ func TestCaptureGatesPutOptimisticLock(t *testing.T) {
 	}
 }
 
+func TestCaptureGatesVersionsList(t *testing.T) {
+	s, ctx := newCaptureGatesService(t)
+
+	// 未发布 → 空数组（常态而非 404）。
+	items, err := s.CaptureGatesVersionsGet(ctx)
+	if err != nil {
+		t.Fatalf("versions before publish: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("versions = %+v, want empty", items)
+	}
+
+	// 三条版本（v1 发布 / v2 发布 / v3=回滚 v1）→ 倒序 + 元信息。
+	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent(), Message: "first"}); err != nil {
+		t.Fatalf("put v1: %v", err)
+	}
+	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{}`, Message: "second"}); err != nil {
+		t.Fatalf("put v2: %v", err)
+	}
+	if _, err := s.CaptureGatesRollback(ctx, &CaptureGatesRollbackRequest{Version: 1}); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	items, err = s.CaptureGatesVersionsGet(ctx)
+	if err != nil {
+		t.Fatalf("versions: %v", err)
+	}
+	if len(items) != 3 || items[0].Version != 3 || items[2].Version != 1 {
+		t.Fatalf("versions = %+v, want [3 2 1]", items)
+	}
+	if items[0].Message != "rollback from version 1" {
+		t.Fatalf("v3 message = %q, want rollback origin", items[0].Message)
+	}
+	if items[2].Message != "first" || items[2].CreatedBy != "system" || items[2].UpdatedAt == "" {
+		t.Fatalf("v1 item = %+v, want message/author/time", items[2])
+	}
+
+	// scope 隔离：其他 env 无历史。
+	other := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "dev"})
+	if items, err := s.CaptureGatesVersionsGet(other); err != nil || len(items) != 0 {
+		t.Fatalf("other env versions = %+v, %v; want empty", items, err)
+	}
+	// 缺 env scope → 422。
+	noScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo"})
+	if _, err := s.CaptureGatesVersionsGet(noScope); err == nil {
+		t.Fatal("missing env scope must be rejected")
+	} else if code := httpCode(err); code != 422 {
+		t.Fatalf("missing scope: code = %d, want 422", code)
+	}
+}
+
 // httpCode 取 errorx 错误的 HTTP 语义码（CodeError.Data 首元）。
 func httpCode(err error) int {
 	var codeErr *errorx.CodeError
