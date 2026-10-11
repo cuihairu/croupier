@@ -32,6 +32,7 @@ configure({ asyncUtilTimeout: 5000 });
 jest.mock('@/services/api/opsCapture', () => ({
   getCaptureGates: jest.fn(),
   publishCaptureGates: jest.fn(),
+  validateCaptureGates: jest.fn(),
 }));
 
 jest.mock('@/services/api/ops', () => ({
@@ -68,11 +69,16 @@ jest.mock('@umijs/max', () => ({
   useIntl: () => mockIntl,
 }));
 
-import { getCaptureGates, publishCaptureGates } from '@/services/api/opsCapture';
+import {
+  getCaptureGates,
+  publishCaptureGates,
+  validateCaptureGates,
+} from '@/services/api/opsCapture';
 import { listOpsNodes } from '@/services/api/ops';
 
 const mGet = getCaptureGates as jest.MockedFunction<typeof getCaptureGates>;
 const mPublish = publishCaptureGates as jest.MockedFunction<typeof publishCaptureGates>;
+const mValidate = validateCaptureGates as jest.MockedFunction<typeof validateCaptureGates>;
 const mNodes = listOpsNodes as jest.MockedFunction<typeof listOpsNodes>;
 
 const published = {
@@ -88,6 +94,15 @@ beforeEach(() => {
   jest.clearAllMocks();
   mGet.mockResolvedValue({ ...published });
   mPublish.mockResolvedValue({ version: 4 });
+  mValidate.mockResolvedValue({
+    valid: true,
+    reconcile: 1,
+    cepOffHours: 0,
+    cepBurst: 0,
+    cepProbing: 0,
+    lineage: 1,
+    eventOps: 2,
+  });
   // 默认两台 capture agent 均已上报生效版本 3（与 published.version 对齐）
   mNodes.mockResolvedValue({
     nodes: [
@@ -249,5 +264,44 @@ describe('capture 闸规则页 生效对账（appliedRevision）', () => {
     expect(await screen.findByText('未发布（agent 用文件规则）')).toBeInTheDocument();
     expect(screen.queryByText(/台已生效/)).not.toBeInTheDocument();
     expect(screen.queryByText('scope 内无在线 capture-agent')).not.toBeInTheDocument();
+  });
+});
+
+describe('capture 闸规则页 dry-run 校验（config.ValidateGates 同真值）', () => {
+  it('校验通过：绿提示带各闸规则数预览，请求携带编辑器内容', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: '校验' }));
+
+    await waitFor(() => expect(mValidate).toHaveBeenCalledWith(published.content));
+    expect(
+      await screen.findByText(
+        /校验通过（与 capture-agent 生效同一实现）：对账 1 · 时段 0 · 突变 0 · 试探 0 · 血缘 1 · 事件过滤 2/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('校验失败：红提示就地透传服务端错误（与 agent apply 同句），不弹 toast', async () => {
+    mValidate.mockRejectedValueOnce(
+      new Error('reconcile rule x: itemTable must be "db.table", got "bad"'),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: '校验' }));
+
+    expect(
+      await screen.findByText(/reconcile rule x: itemTable must be "db.table", got "bad"/),
+    ).toBeInTheDocument();
+  });
+
+  it('编辑内容即作废上次校验结论（结论只对当时的 JSON 负责）', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: '校验' }));
+    expect(await screen.findByText(/校验通过/)).toBeInTheDocument();
+
+    // 注意：fireEvent.change 的值必须与 React state 现值不同——同串会被
+    // React value tracker 去重，onChange 根本不触发（假阴性陷阱）。
+    fireEvent.change(screen.getByPlaceholderText(/capture.gates JSON/), {
+      target: { value: '{"reconcile":{"rules":[{"name":"tweak"}]}}' },
+    });
+    await waitFor(() => expect(screen.queryByText(/校验通过/)).not.toBeInTheDocument());
   });
 });

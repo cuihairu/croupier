@@ -1,8 +1,8 @@
 // capture 闸规则面板下发（capture-agent 简档 §6/§8.5）：读写 game 库
 // config_versions 键 capture.gates（namespace=ops）。gates_json 对 server
-// 半透明——本层只做结构 lint（顶层对象 + 三段形状），语义校验（表路由
-// 唯一性/阈值取值等）由 capture-agent 在 apply 时全量执行（validator of
-// last resort，非法即 keep last-good）；发布成功 ≠ agent 已生效，生效
+// 半透明——本层只做结构 lint（顶层对象 + 三段形状），语义校验复用
+// config.ValidateGates（与 agent apply 同一校验真值，validate 端点在
+// 发布前拦下「agent 必拒」的坏版本）；发布成功 ≠ agent 已生效，生效
 // 真值是 agent 侧 "capture gates version applied" 日志与拉取行为。
 // 回滚不写历史：取目标版本内容再发一版，版本日志保持不可变追加。
 package ops
@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/agents/capture/config"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/model"
@@ -52,6 +53,24 @@ type CaptureGatesPutResponse struct {
 	Version int `json:"version"`
 }
 
+// CaptureGatesValidateRequest dry-run 校验（发布预检，不落库）：浅 lint +
+// config.ValidateGates（与 agent apply 同一校验真值）。
+type CaptureGatesValidateRequest struct {
+	Content string `json:"content"`
+}
+
+// CaptureGatesValidateResponse 校验通过时回各闸规则数（编辑面预览口径；
+// 失败走 422，错误文本即 agent apply 会报的同一句）。
+type CaptureGatesValidateResponse struct {
+	Valid       bool `json:"valid"`
+	Reconcile   int  `json:"reconcile"`
+	CepOffHours int  `json:"cepOffHours"`
+	CepBurst    int  `json:"cepBurst"`
+	CepProbing  int  `json:"cepProbing"`
+	Lineage     int  `json:"lineage"`
+	EventOps    int  `json:"eventOps"`
+}
+
 // CaptureGatesRollbackRequest 以历史版本内容再发一版（版本日志不可变，
 // 回滚本身也是一次新发布，不改写历史）。
 type CaptureGatesRollbackRequest struct {
@@ -77,6 +96,23 @@ func (h *Handler) CaptureGatesPut(c *gin.Context) {
 		return
 	}
 	resp, err := h.service.CaptureGatesPut(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// CaptureGatesValidate handles POST /api/v1/ops/capture/gates/validate.
+// 无 scope 依赖（纯内容校验）；失败语义与发布一致（422 + 同一错误文本，
+// 编辑面可把 validate 与 publish 的报错当同一种东西渲染）。
+func (h *Handler) CaptureGatesValidate(c *gin.Context) {
+	var req CaptureGatesValidateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	resp, err := h.service.CaptureGatesValidate(&req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -146,6 +182,40 @@ func (s *Service) CaptureGatesPut(ctx context.Context, req *CaptureGatesPutReque
 		return nil, errorx.NewValidationError("capture gates content is required")
 	}
 	return s.publishCaptureGates(ctx, strings.TrimSpace(req.Content), strings.TrimSpace(req.Message), req.BaseVersion)
+}
+
+// CaptureGatesValidate 发布预检 dry-run：浅 lint（gates_json 形状）+
+// config.ValidateGates（agent apply 同一校验真值，含构造期检查与事件
+// 粗过滤合法性）。不落库、不依赖 scope。没有这一步时，坏语义版本会
+// 「发布成功、全员 agent apply 拒绝滞留 last-good」，运维上表现为全员
+// 待生效的噪声——预检把拦截点提前到发布前。
+func (s *Service) CaptureGatesValidate(req *CaptureGatesValidateRequest) (*CaptureGatesValidateResponse, error) {
+	content := ""
+	if req != nil {
+		content = strings.TrimSpace(req.Content)
+	}
+	if content == "" {
+		return nil, errorx.NewValidationError("capture gates content is required")
+	}
+	if err := lintCaptureGatesJSON(content); err != nil {
+		return nil, errorx.NewValidationError(err.Error())
+	}
+	var g config.Gates
+	if err := json.Unmarshal([]byte(content), &g); err != nil {
+		return nil, errorx.NewValidationError(fmt.Sprintf("parse gates json: %v", err))
+	}
+	if err := config.ValidateGates(g); err != nil {
+		return nil, errorx.NewValidationError(err.Error())
+	}
+	return &CaptureGatesValidateResponse{
+		Valid:       true,
+		Reconcile:   len(g.Reconcile.Rules),
+		CepOffHours: len(g.CEP.OffHours),
+		CepBurst:    len(g.CEP.Burst),
+		CepProbing:  len(g.CEP.Probing),
+		Lineage:     len(g.Lineage.Rules),
+		EventOps:    len(g.Event.Ops),
+	}, nil
 }
 
 // publishCaptureGates lint 后落库递增版本（发布与回滚共用路径）。

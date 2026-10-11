@@ -81,7 +81,7 @@ title: 风控面板设计——一级分类、四子模块与规则/执行分离
 ## 6. 实施顺序（并入 CDC 平台化批阶段四）
 
 1. ~~菜单一级分类「风控」+ 空架子页（路由/locales/access）~~——✅ 已落地（2026-10-11）。**拍板：空架子不单独落增量**，一级菜单随首个真实页面（风控策略页）一起上线，避免占位页（`routes-resolution.test.tsx` 断言真实页面而非占位）。
-2. 风控规则页（三段结构化表单 + 测试 dry-run 接口）。
+2. 风控规则页（三段结构化表单 + 测试 dry-run 接口）——dry-run 接口 v1 已先行落地（2026-10-12，capture-agent 简档 §8.12：`POST /capture/gates/validate`，校验真值与 agent apply 单一化，`/ops/capture` 已挂「校验」按钮）；结构化表单页待实施。
 3. ~~风控策略页（版本列表 + desired/applied 状态 + 回滚）~~——✅ 已落地（2026-10-11，`/risk/strategies`）。版本历史走新增 `GET /api/v1/ops/capture/gates/versions`；回滚走既有 `POST /capture/gates/rollback`；生效对账复用 appliedRevision 捎带通道（`summarizeGatesApply` util 与 `/ops/capture` 共用）。
 4. 风险事件扩展（severity/status 字段与流转 API + 迁移）。
 5. ~~告警中心迁移（Alerts 挂到风控分类）~~——✅ 已落地（2026-10-11）：`/risk/alerts` 复用 `./Ops/Alerts` 组件原地不动（数据面零改动）；旧 `/ops/alerts` 留 `hideInMenu` 重定向兼容书签，`/ops/maintenance` 重定向一步到位直指新路径。
@@ -91,5 +91,6 @@ title: 风控面板设计——一级分类、四子模块与规则/执行分离
 - 本文为设计整理稿（2026-10-11 用户令）；已实施：§6 之 1+3+5（风控一级分类 + 风控策略页 + 告警中心迁移）；其余子模块（风控规则页、风险事件扩展）未实施，首版形态以上表为准。
 - 风控策略页边界：发布成功 ≠ 已生效——「生效对账」为 agent 自报（30s 轮询 + 重注册滞后，非强一致）；版本历史/节点对账接口失败时页面退化空表，不断主面。
 - dry-run 测试接口未设计（server 侧规则校验复用 lint + agent 端语义校验边界如何组合待定）。
+- ~~dry-run 测试接口未设计~~——✅ 已落地 v1（2026-10-12，capture-agent 简档 §8.12）：`POST /capture/gates/validate` = lint + `config.ValidateGates`（与 agent apply 同一校验真值，runner pinning 测试锁镜像）；`/ops/capture`「校验」按钮就地呈现。结构化三段表单页（§6 之 2）仍未实施，落地时复用该端点作「测试」底座。
 - 风险事件 severity/status 扩展涉及 alerts 模型加列——按仓库迁移红线须同 PR 配 goose 编号迁移（migrations.go + MinimumRequiredVersion + migrate_test 三处同步）。
-- `/ops/capture` 旧入口去留为拍板项，倾向保留为「快速发布」入口。
+- `/ops/capture` 旧入口去留为拍板项，倾向保留为「快速发布」入口（dry-run 校验按钮落地后其价值上升：JSON 直编 + 预检 + 发布的最短路径）。

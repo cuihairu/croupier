@@ -38,6 +38,18 @@ export type CaptureGatesRollbackInput = {
   message?: string;
 };
 
+// Source: croupier/internal/api/ops/capture_gates.go CaptureGatesValidateResponse
+// dry-run 校验通过时的各闸规则数预览（失败走 422，错误文本 = agent apply 同句）。
+export type CaptureGatesValidateResult = {
+  valid: boolean;
+  reconcile: number;
+  cepOffHours: number;
+  cepBurst: number;
+  cepProbing: number;
+  lineage: number;
+  eventOps: number;
+};
+
 const BASE = '/api/v1/ops/capture/gates';
 
 export async function getCaptureGates() {
@@ -46,6 +58,15 @@ export async function getCaptureGates() {
 
 export async function listCaptureGatesVersions() {
   return request<CaptureGatesVersionItem[]>(`${BASE}/versions`);
+}
+
+// dry-run 发布预检：lint + config.ValidateGates（与 agent 生效同一校验实现）。
+// 不落库、无 scope 依赖。
+export async function validateCaptureGates(content: string) {
+  return request<CaptureGatesValidateResult>(`${BASE}/validate`, {
+    method: 'POST',
+    data: { content },
+  });
 }
 
 // 回滚 = 以历史版本内容再发一版（版本日志不可变）。

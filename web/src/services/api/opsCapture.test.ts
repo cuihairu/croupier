@@ -4,6 +4,7 @@ import {
   listCaptureGatesVersions,
   publishCaptureGates,
   rollbackCaptureGates,
+  validateCaptureGates,
 } from './opsCapture';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
@@ -67,6 +68,26 @@ describe('opsCapture service', () => {
     ]);
     await expect(listCaptureGatesVersions()).resolves.toHaveLength(1);
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/capture/gates/versions');
+  });
+
+  it('validateCaptureGates: POST /validate dry-run（无 scope 依赖）', async () => {
+    mockedRequest.mockResolvedValueOnce({
+      valid: true,
+      reconcile: 1,
+      cepOffHours: 0,
+      cepBurst: 0,
+      cepProbing: 0,
+      lineage: 1,
+      eventOps: 2,
+    });
+    await expect(validateCaptureGates('{"reconcile":{"rules":[]}}')).resolves.toMatchObject({
+      valid: true,
+      reconcile: 1,
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/capture/gates/validate', {
+      method: 'POST',
+      data: { content: '{"reconcile":{"rules":[]}}' },
+    });
   });
 
   it('rollbackCaptureGates: POST /rollback with version', async () => {

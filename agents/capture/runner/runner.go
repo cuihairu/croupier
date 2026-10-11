@@ -162,16 +162,11 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 	return r
 }
 
-// buildGateSet 由规则集构建闸层快照：先全量校验（对账表路由唯一性等），
-// 再整体构建——任一闸非法即整体失败（热更侧语义：keep last-good，不半换）。
+// buildGateSet 由规则集构建闸层快照：先全量校验（config.ValidateGates，
+// 与中心面板 dry-run 共用同一校验真值），再整体构建——任一闸非法即整体
+// 失败（热更侧语义：keep last-good，不半换）。
 func buildGateSet(g config.Gates) (*gateSet, error) {
-	if err := gate.ValidateReconcileRules(g.Reconcile.Rules); err != nil {
-		return nil, err
-	}
-	if err := gate.ValidateCEPRules(g.CEP.OffHours, g.CEP.Burst, g.CEP.Probing); err != nil {
-		return nil, err
-	}
-	if err := gate.ValidateLineageRules(g.Lineage.Rules); err != nil {
+	if err := config.ValidateGates(g); err != nil {
 		return nil, err
 	}
 	gs := &gateSet{}

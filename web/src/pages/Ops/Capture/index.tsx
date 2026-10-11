@@ -6,7 +6,9 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   getCaptureGates,
   publishCaptureGates,
+  validateCaptureGates,
   type CaptureGatesState,
+  type CaptureGatesValidateResult,
 } from '@/services/api/opsCapture';
 import { listOpsNodes, type OpsNode } from '@/services/api/ops';
 import { summarizeGatesApply } from '@/utils/captureGatesApply';
@@ -56,14 +58,24 @@ export default function OpsCapturePage() {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validation, setValidation] = useState<CaptureGatesValidateResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<OpsNode[]>([]);
+
+  // 编辑内容变化即作废上一次校验结论（结论只对当时的 JSON 负责）。
+  const updateContent = useCallback((next: string) => {
+    setContent(next);
+    setValidation(null);
+    setValidationError(null);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const s = await getCaptureGates();
       setState(s);
-      setContent(s.content || '');
+      updateContent(s.content || '');
     } catch (error) {
       message.error(
         extractErrorMessage(
@@ -77,7 +89,7 @@ export default function OpsCapturePage() {
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [message, updateContent]);
 
   // 生效对账数据源：节点 labels 由 agent 注册/重注册上报
   // （captureGatesRevision=最近生效版本；role=capture 标识 capture-agent）。
@@ -130,6 +142,31 @@ export default function OpsCapturePage() {
     }
   }, [content, load, loadNodes, message, state?.version]);
 
+  // dry-run 预检：服务端 lint + config.ValidateGates（与 agent 生效同一校验
+  // 实现）。失败原因就地展示（错误文本即 agent apply 会报的同一句），不弹
+  // 全局 toast——校验是表单级反馈，留存在编辑面上比一闪而过的 toast 有用。
+  const validate = useCallback(async () => {
+    setValidating(true);
+    try {
+      const resp = await validateCaptureGates(content);
+      setValidation(resp);
+      setValidationError(null);
+    } catch (error) {
+      setValidation(null);
+      setValidationError(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.opsCapture.validate.failed',
+            defaultMessage: '校验失败',
+          }),
+        ),
+      );
+    } finally {
+      setValidating(false);
+    }
+  }, [content]);
+
   const unpublished = !state || state.version === 0;
 
   // desired vs applied（appliedRevision 上报链）：capture agent 自报的
@@ -158,10 +195,13 @@ export default function OpsCapturePage() {
             </Button>
             <Button
               icon={<SnippetsOutlined />}
-              onClick={() => setContent(GATES_TEMPLATE)}
+              onClick={() => updateContent(GATES_TEMPLATE)}
               disabled={publishing}
             >
               <FormattedMessage id="pages.opsCapture.template" defaultMessage="插入模板" />
+            </Button>
+            <Button onClick={validate} loading={validating} disabled={loading || !content.trim()}>
+              <FormattedMessage id="pages.opsCapture.validate" defaultMessage="校验" />
             </Button>
             <Popconfirm
               title={intlRef.current.formatMessage({
@@ -257,12 +297,46 @@ export default function OpsCapturePage() {
             message={intlRef.current.formatMessage({
               id: 'pages.opsCapture.gates.boundary',
               defaultMessage:
-                '服务端只做结构检查；语义校验（表路由/阈值）由 capture-agent 生效时全量执行，非法规则保留旧版。发布成功 ≠ 已生效，以上「生效对账」为 agent 自报（轮询 30s + 重注册滞后），日志 capture gates version applied 仍是逐次生效的原始真值。',
+                '「校验」按钮做与 capture-agent 生效同一实现的语义预检（lint + 表路由唯一性/阈值/事件过滤，config.ValidateGates）；发布时服务端仍只做结构检查，未跑校验直接发布的语义问题由 agent 保留旧版兜底。发布成功 ≠ 已生效，上方「生效对账」为 agent 自报（轮询 30s + 重注册滞后），日志 capture gates version applied 仍是逐次生效的原始真值。',
             })}
           />
+          {validationError ? (
+            <Alert
+              type="error"
+              showIcon
+              message={
+                <>
+                  <FormattedMessage
+                    id="pages.opsCapture.validate.failed"
+                    defaultMessage="校验失败"
+                  />
+                  ：{validationError}
+                </>
+              }
+            />
+          ) : validation ? (
+            <Alert
+              type="success"
+              showIcon
+              message={
+                <FormattedMessage
+                  id="pages.opsCapture.validate.pass"
+                  defaultMessage="校验通过（与 capture-agent 生效同一实现）：对账 {reconcile} · 时段 {cepOffHours} · 突变 {cepBurst} · 试探 {cepProbing} · 血缘 {lineage} · 事件过滤 {eventOps}"
+                  values={{
+                    reconcile: validation.reconcile,
+                    cepOffHours: validation.cepOffHours,
+                    cepBurst: validation.cepBurst,
+                    cepProbing: validation.cepProbing,
+                    lineage: validation.lineage,
+                    eventOps: validation.eventOps,
+                  }}
+                />
+              }
+            />
+          ) : null}
           <TextArea
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => updateContent(e.target.value)}
             rows={18}
             style={{ fontFamily: 'monospace' }}
             placeholder={intlRef.current.formatMessage({

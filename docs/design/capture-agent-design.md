@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）+ 乐观锁（§8.10，策略资产化 v1）+ 业务规则迁出 YAML（§8.11，fallback 口径显式化）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）+ 乐观锁（§8.10，策略资产化 v1）+ 业务规则迁出 YAML（§8.11，fallback 口径显式化）+ dry-run 校验端点（§8.12，发布预检，校验真值与 agent apply 单一化）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -495,6 +495,33 @@ tsc 0 错、目标套件 16 例绿。
 
 测试：`runner_precedence_test.go` 2 例新增（中心覆盖文件+revision 跟随 /
 未发布兜底保持）。capture 全包回归绿。
+
+### 8.12 交付记录：dry-run 校验端点（发布预检，CDC 平台化批阶段四，2026-10-12）
+
+代码面：REST `POST /api/v1/ops/capture/gates/validate`（body `{content}`，
+无 scope 依赖）——浅 lint + **`config.ValidateGates`**（新增共享校验真值：
+静态 Validate* + 构造期 New*（对账表路由唯一性等）+ 事件粗过滤合法性，
+仅校验不构造运行期闸对象）；`runner.buildGateSet` 校验序列重构为调用同
+一函数（行为不变）。通过回 `{valid, reconcile, cepOffHours, cepBurst,
+cepProbing, lineage, eventOps}` 规则数预览；失败 422，错误文本即 agent
+apply 会报的同一句。web `/ops/capture` 加「校验」按钮：结果就地 Alert
+（成功绿带各闸计数 / 失败红透传），编辑内容变化即作废结论。拍板与口径：
+
+1. **校验真值单一化**：dry-run 与 agent apply 共用 `config.ValidateGates`
+   （单一实现，`runner_gateset_pinning_test.go` 以错误文本逐例锁定镜像，
+   任何一侧单改即炸）；server 不解释规则语义的旧口径（§8.6 第 1 条）由
+   「显式 import agents/capture/gate 校验组合」接替——语义真值从 agent
+   apply 时点提前到发布前可选预检。
+2. **发布路径不变**：PUT 仍只做结构 lint（预检是编辑面显式动作，不强制
+   卡发布）；未跑校验直接发布的语义问题仍由 agent keep last-good 兜底。
+3. **不解决的事**：表是否存在/账号是否有效等运行期事实 dry-run 不承诺；
+   校验通过 ≠ agent 已生效（生效对账仍看 appliedRevision）。
+
+测试：`agents/capture/config/gates_validate_test.go` 7 例（全闸合法 /
+静态拦 / 路由重复拦 / cep / lineage / event.ops / 空集合法）+
+`runner_gateset_pinning_test.go` 7 例镜像锁定 + ops `TestCaptureGatesValidate`
+（合法计数 / lint 败 / 深度败 / 路由重复败 / 空内容 422 / dry-run 无落库）+
+web 页 3 例 / service 1 例。全链回归绿。
 
 ## 9. 已知边界（诚实清单）
 

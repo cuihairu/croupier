@@ -344,3 +344,57 @@ func httpCode(err error) int {
 	}
 	return 0
 }
+
+func TestCaptureGatesValidate(t *testing.T) {
+	s, _ := newCaptureGatesService(t)
+
+	// 空内容 → 422。
+	if _, err := s.CaptureGatesValidate(nil); err == nil {
+		t.Fatal("nil request must be rejected")
+	} else if code := httpCode(err); code != 422 {
+		t.Fatalf("nil request: code = %d, want 422", code)
+	}
+
+	// 合法内容 → valid + 各闸规则数预览。
+	resp, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: validGatesContent()})
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if !resp.Valid || resp.Reconcile != 1 || resp.CepOffHours != 0 || resp.Lineage != 0 {
+		t.Fatalf("unexpected summary: %+v", resp)
+	}
+
+	// 浅 lint 失败（非对象）→ 422。
+	if _, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: `[1,2]`}); err == nil {
+		t.Fatal("non-object content must be rejected")
+	} else if code := httpCode(err); code != 422 {
+		t.Fatalf("lint failure: code = %d, want 422", code)
+	}
+
+	// 深度校验失败（lint 放行、agent apply 必拒）→ 422。
+	badTable := `{"reconcile":{"rules":[{"name":"x","itemTable":"bad","ledgerTable":"game.ledger","itemKey":"1","ledgerKey":"0"}]}}`
+	if _, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: badTable}); err == nil {
+		t.Fatal("bad itemTable must be rejected")
+	} else if code := httpCode(err); code != 422 {
+		t.Fatalf("deep failure: code = %d, want 422", code)
+	}
+
+	// 构造期检查失败（静态校验放行、表路由唯一性拦截）→ 422。
+	dup := `{"reconcile":{"rules":[
+		{"name":"a","itemTable":"game.item","ledgerTable":"game.ledger","itemKey":"1","ledgerKey":"0"},
+		{"name":"b","itemTable":"game.item","ledgerTable":"game.ledger2","itemKey":"1","ledgerKey":"0"}]}}`
+	if _, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: dup}); err == nil {
+		t.Fatal("duplicate table routing must be rejected")
+	} else if code := httpCode(err); code != 422 {
+		t.Fatalf("duplicate routing: code = %d, want 422", code)
+	}
+
+	// 校验合法但未落库（版本数不变——dry-run 无副作用）。
+	if _, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: validGatesContent()}); err != nil {
+		t.Fatalf("re-validate: %v", err)
+	}
+	got, err := s.CaptureGatesGet(context.Background())
+	if err == nil && got.Version != 0 {
+		t.Fatalf("validate must not persist, version = %d, want 0", got.Version)
+	}
+}

@@ -632,6 +632,8 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/capture/gates/versions", opsHandler.CaptureGatesVersionsGet)
 	g.PUT("/capture/gates", opsHandler.CaptureGatesPut)
 	g.POST("/capture/gates/rollback", opsHandler.CaptureGatesRollback)
+	// dry-run 发布预检：lint + config.ValidateGates（agent apply 同一校验真值）
+	g.POST("/capture/gates/validate", opsHandler.CaptureGatesValidate)
 }
 
 // ============================================================================
