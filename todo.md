@@ -4251,3 +4251,13 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - [ ] **配置**：配置文件加 `vault.provider` 选择项 + 每个 provider 各自的配置节；**配置文档逐字段**（字段名/类型/默认值/含义/示例），示例不写真实密钥
 - **红线**：密钥不进仓库；解锁口令与明文凭据不落日志、不出现在错误消息
 - **验收（硬口径）**：①真实切换 provider——只改配置把 provider 换成另一实现，**不改任何业务代码**原功能仍可用（实测留证）；②接入点扫描无一处还直读明文配置/env 明文凭据；③测试绿才 push、commit 英文简短、不发版
+
+## server-status-provider 批 S4·默认源与通用 HTTP 源（2026-10-11 用户令：「需要一个服务器状态供应商，默认对接我自己的atlas这个项目的实现，这个支持切换，一个简单的服务器状态也需要实现一个可以切换的建议，比如直接http去获取」）
+
+> 现状（已核）：`internal/platform/serverstatus/` 已有 Provider 接口 + registry 注册表 + `atlas.go` / `noop.go` 两实现，配置 `serverStatus.provider` 可切（现**缺省 noop**）。本批补齐用户要的三点：
+
+- [ ] **默认源 = atlas**：启用时（`serverStatus.enabled=true`）`provider` 缺省由 noop 改为 **atlas**——对接用户自有 atlas 项目，零配置即用；`enabled` 仍缺省 `false`（不主动启用，外发默认关的口径不变）
+- [ ] **通用 HTTP provider（可切换的第二实现，简单示例）**：注册 `http` 源——`GET` 一个 URL 按配置映射 JSON 字段 → ServerStatus（状态/是否维护），超时、失败降级与 atlas 同口径（fail 行为写明）；配置 `providers.http`：`baseUrl` 必填 + 字段映射 + `tokenEnv` 可选；目标=任意能返回状态 JSON 的简单服务都能接
+- [ ] **切换实测**：同一 gate 面下 `atlas ↔ http ↔ noop` 各只改配置切换，每种各真打一个测试源，状态判定正确（含源挂掉时的降级表现）
+- [ ] **配置文档**：provider 切换逐字段说明（server-status-provider.md 补）+ 通用 http 源示例（curl 一个状态 JSON → 映射配置 → 切换生效）
+- **验收**：切换与降级实测留证（配置 diff + 实际返回）；测试绿才 push、commit 英文简短、不发版
