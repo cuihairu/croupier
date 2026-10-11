@@ -626,9 +626,11 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/agent/metrics/history", opsHandler.AgentMetricsHistory)
 
 	// capture 闸规则面板下发（capture-agent 简档 §6/§8.5：config_versions
-	// capture.gates，namespace=ops；agent 经 wire 拉取热生效）
+	// capture.gates，namespace=ops；agent 经 wire 拉取热生效；回滚=历史
+	// 版本内容再发一版，版本日志不可变）
 	g.GET("/capture/gates", opsHandler.CaptureGatesGet)
 	g.PUT("/capture/gates", opsHandler.CaptureGatesPut)
+	g.POST("/capture/gates/rollback", opsHandler.CaptureGatesRollback)
 }
 
 // ============================================================================

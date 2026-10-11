@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -424,6 +424,30 @@ tag+tooltip 点名 / 无 agent 灰）。口径与差异：
 测试：runner_revision_test 3 例（label 跟随拉取推进/生效失败保持上一
 生效值/fetch 失败不记录 + reg 缺失容忍）；web 页 4 例新增（全生效/
 部分生效/对账失败退化/未发布不渲染对账行）。
+
+### 8.9 交付记录：回滚（历史版本重发一版，CDC 平台化批阶段三，2026-10-11）
+
+代码面：REST `POST /api/v1/ops/capture/gates/rollback`（body
+`{version, message?}`）——`FindByScope` 取目标版本内容 → 重新过当前
+结构 lint → `publishCaptureGates` 落新版本（message 自动带
+`rollback from version N` 前缀 + 可选原因）；PUT 与回滚共用发布路径
+（lint + scope 检查 + CreateWithMeta 一处收敛）。口径与差异：
+
+1. **版本日志不可变**：回滚不改写历史、不删版本，目标版本内容复制为
+   新版本号发布——agent 侧照常 30s 版本轮询热生效，不引入第三种下行
+   形态（无「回滚指令」wire 对）。
+2. **历史内容重新过当前 lint**：lint 规则随服务端演进，回退到会被当前
+   规则拒绝的内容显式 422，不静默发布坏版本（存量坏行直插场景单测
+   锁定：失败回滚不落新版本）。
+3. **scope 隔离照旧**：跨 game/env 回滚 = 404（Find 不到即不存在，不
+   泄漏其他 scope 的版本存在性）。
+4. **回滚当前版本合法**：重发同内容 = 显式重新生效（版本继续递增，
+   生效对账行随之走完 生效→重报 链）。
+
+测试：ops `capture_gates_test.go` 3 例新增（历史内容重发 + message
+前缀 + 历史完好 + 回滚当前版本递增；版本非法 422 / 不存在 404 / 跨
+scope 404 / 缺 scope 422；lint 演进拒绝 + 失败不落库）。边界：面板侧
+回滚按钮未做（归风控策略页，阶段四；REST 已就绪）。
 
 ## 9. 已知边界（诚实清单）
 

@@ -4,6 +4,7 @@
 // 唯一性/阈值取值等）由 capture-agent 在 apply 时全量执行（validator of
 // last resort，非法即 keep last-good）；发布成功 ≠ agent 已生效，生效
 // 真值是 agent 侧 "capture gates version applied" 日志与拉取行为。
+// 回滚不写历史：取目标版本内容再发一版，版本日志保持不可变追加。
 package ops
 
 import (
@@ -47,6 +48,13 @@ type CaptureGatesPutResponse struct {
 	Version int `json:"version"`
 }
 
+// CaptureGatesRollbackRequest 以历史版本内容再发一版（版本日志不可变，
+// 回滚本身也是一次新发布，不改写历史）。
+type CaptureGatesRollbackRequest struct {
+	Version int    `json:"version"`
+	Message string `json:"message,omitempty"`
+}
+
 // CaptureGatesGet handles GET /api/v1/ops/capture/gates.
 func (h *Handler) CaptureGatesGet(c *gin.Context) {
 	resp, err := h.service.CaptureGatesGet(c.Request.Context())
@@ -65,6 +73,21 @@ func (h *Handler) CaptureGatesPut(c *gin.Context) {
 		return
 	}
 	resp, err := h.service.CaptureGatesPut(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// CaptureGatesRollback handles POST /api/v1/ops/capture/gates/rollback.
+func (h *Handler) CaptureGatesRollback(c *gin.Context) {
+	var req CaptureGatesRollbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	resp, err := h.service.CaptureGatesRollback(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -94,17 +117,21 @@ func (s *Service) CaptureGatesGet(ctx context.Context) (*CaptureGatesGetResponse
 }
 
 // CaptureGatesPut 结构 lint 后发布新版本（namespace=ops，version 递增）。
-// game/env scope 必须非空：capture-agent 注册即携带 scope（Agent 清单 §7），
-// 空 env 的发布永远拉不到，宁可发布时拒绝。
 func (s *Service) CaptureGatesPut(ctx context.Context, req *CaptureGatesPutRequest) (*CaptureGatesPutResponse, error) {
 	if req == nil || strings.TrimSpace(req.Content) == "" {
 		return nil, errorx.NewValidationError("capture gates content is required")
 	}
+	return s.publishCaptureGates(ctx, strings.TrimSpace(req.Content), strings.TrimSpace(req.Message))
+}
+
+// publishCaptureGates lint 后落库递增版本（发布与回滚共用路径）。
+// game/env scope 必须非空：capture-agent 注册即携带 scope（Agent 清单 §7），
+// 空 env 的发布永远拉不到，宁可发布时拒绝。
+func (s *Service) publishCaptureGates(ctx context.Context, content, message string) (*CaptureGatesPutResponse, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	if scope.GameID == "" || scope.Env == "" {
 		return nil, errorx.NewValidationError("capture gates require game and env scope")
 	}
-	content := strings.TrimSpace(req.Content)
 	if err := lintCaptureGatesJSON(content); err != nil {
 		return nil, errorx.NewValidationError(err.Error())
 	}
@@ -115,12 +142,42 @@ func (s *Service) CaptureGatesPut(ctx context.Context, req *CaptureGatesPutReque
 		GameID:    scope.GameID,
 		Env:       scope.Env,
 		Namespace: model.ConfigNamespaceOps,
-		Message:   strings.TrimSpace(req.Message),
+		Message:   message,
 	}, captureGatesAuthor(ctx))
 	if err != nil {
 		return nil, err
 	}
 	return &CaptureGatesPutResponse{Version: rec.Version}, nil
+}
+
+// CaptureGatesRollback 以历史版本内容再发一版：版本日志不可变，回滚本身也
+// 是一次新发布（新版本号，agent 侧照常版本轮询热生效——不引入第三种下行
+// 形态）。历史内容重新过当前 lint：lint 规则可能随服务端版本演进，回退到
+// 会被当前规则拒绝的内容必须显式失败，而不是静默发布坏版本。
+func (s *Service) CaptureGatesRollback(ctx context.Context, req *CaptureGatesRollbackRequest) (*CaptureGatesPutResponse, error) {
+	if req == nil || req.Version <= 0 {
+		return nil, errorx.NewValidationError("capture gates rollback version is required")
+	}
+	scope := svc.GameScopeFromContext(ctx)
+	if scope.GameID == "" || scope.Env == "" {
+		return nil, errorx.NewValidationError("capture gates require game and env scope")
+	}
+	rec, err := s.svcCtx.ConfigVersionModel.FindByScope(ctx, captureGatesConfigKey, req.Version, scope.GameID, scope.Env)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.NewNotFound(fmt.Sprintf("capture gates version %d not found in scope %s/%s", req.Version, scope.GameID, scope.Env))
+		}
+		return nil, err
+	}
+	content := strings.TrimSpace(rec.Value)
+	if err := lintCaptureGatesJSON(content); err != nil {
+		return nil, errorx.NewValidationError(err.Error())
+	}
+	message := fmt.Sprintf("rollback from version %d", req.Version)
+	if extra := strings.TrimSpace(req.Message); extra != "" {
+		message = fmt.Sprintf("%s: %s", message, extra)
+	}
+	return s.publishCaptureGates(ctx, content, message)
 }
 
 // lintCaptureGatesJSON 结构 lint：合法 JSON + 顶层对象 + 已知段形状
