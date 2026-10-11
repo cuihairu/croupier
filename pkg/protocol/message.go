@@ -89,6 +89,9 @@ const (
 	// Capture rule-hit alert upload (capture-agent → server；落 alerts 表)
 	MsgAlertEventRequest  = 0x040119
 	MsgAlertEventResponse = 0x04011A
+	// Capture gate rules pull (capture-agent 拉 server 发布的 game-scoped 规则)
+	MsgCaptureConfigRequest  = 0x04011B
+	MsgCaptureConfigResponse = 0x04011C
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -304,6 +307,10 @@ func MsgIDString(msgID uint32) string {
 		return "AlertEventRequest"
 	case MsgAlertEventResponse:
 		return "AlertEventResponse"
+	case MsgCaptureConfigRequest:
+		return "CaptureConfigRequest"
+	case MsgCaptureConfigResponse:
+		return "CaptureConfigResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

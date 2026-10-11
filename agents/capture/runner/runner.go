@@ -7,11 +7,13 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/cuihairu/croupier/agents/capture/source"
 	"github.com/cuihairu/croupier/agents/controlconn"
 	"github.com/cuihairu/croupier/core/backoff"
+	"github.com/cuihairu/croupier/core/configsync"
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/register"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -31,6 +34,10 @@ var Version = "dev"
 
 // errStreamEnded 标记源流结束（pump 致命错误退出），触发重开而非进程退出。
 var errStreamEnded = errors.New("capture source stream ended")
+
+// errGatesConnNotReady 配置拉取时上行连接未就绪（常态：注册未完成/重连
+// 窗口），按 Debug 记日志不告警。
+var errGatesConnNotReady = errors.New("control conn not ready")
 
 // hitQueueSize 告警上报缓冲队列容量；hitSendTimeout 单次上报超时。
 // 队列满/超时/断连一律丢弃（本地 slog 告警日志是持久记录），上报为
@@ -52,6 +59,14 @@ type Stats struct {
 	LastEventUnixMs int64
 }
 
+// gateSet 一份自洽的闸层快照（三闸实例或 nil）。热更经 atomic.Pointer
+// 整体换指针：consume/sweep 单 goroutine 读，拉取 goroutine 写，免锁。
+type gateSet struct {
+	reconcile *gate.ReconcileGate // nil = 未配对账规则（直通零开销）
+	cep       *gate.CEPGate       // nil = 未配 CEP 规则（直通零开销）
+	lineage   *gate.LineageGate   // nil = 未配血缘规则（直通零开销）
+}
+
 // Runner 是 supervisable.RunFunc 的载体。
 type Runner struct {
 	cfg   config.Config
@@ -64,14 +79,15 @@ type Runner struct {
 	backoffInitial time.Duration
 	backoffMax     time.Duration
 
-	reconcile *gate.ReconcileGate // nil = 未配对账规则（直通零开销）
-	cep       *gate.CEPGate       // nil = 未配 CEP 规则（直通零开销）
-	lineage   *gate.LineageGate   // nil = 未配血缘规则（直通零开销）
+	// gates 当前生效闸层快照（启动=文件规则；面板发布即热替换）。
+	gates atomic.Pointer[gateSet]
 
 	// conn 最近一次 Dial 成产出的上行连接（hitSender 跟随重连换新）。
 	conn atomic.Pointer[controlconn.Conn]
 	// sendAlert 上报 seam（测试注入；生产经 conn.SendAlertReport）。
 	sendAlert func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error)
+	// fetchConfig 拉取 seam（测试注入；生产经 conn.PullCaptureGates）。
+	fetchConfig func(ctx context.Context) (*configsync.Versioned[[]byte], error)
 	// hitCh 命中→上报异步队列（容量 hitQueueSize，满即丢）。
 	hitCh chan gate.Hit
 
@@ -98,42 +114,110 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		}
 		return c.SendAlertReport(ctx, rep)
 	}
+	r.fetchConfig = func(ctx context.Context) (*configsync.Versioned[[]byte], error) {
+		c := r.conn.Load()
+		if c == nil || !c.Connected() {
+			return nil, errGatesConnNotReady
+		}
+		resp, err := c.PullCaptureGates(ctx, &opsv1.CaptureGatesConfigRequest{AgentId: r.cfg.Agent.ID})
+		if err != nil {
+			return nil, err
+		}
+		// 空版本 = 服务端未发布过规则：返回 nil 载荷，Puller 保持现状。
+		if strings.TrimSpace(resp.GetVersion()) == "" {
+			return nil, nil
+		}
+		return &configsync.Versioned[[]byte]{Version: resp.GetVersion(), Payload: []byte(resp.GetGatesJson())}, nil
+	}
 	r.newSource = func() source.Provider {
 		return source.NewMySQLSource(*cfg.Capture.MySQL, log)
 	}
-	if rules := cfg.Capture.Gates.Reconcile.Rules; len(rules) > 0 {
-		g, err := gate.NewReconcile(rules)
-		if err != nil {
-			// config.Validate 已全量校验，此处不可达；防御性降级为直通。
-			log.Warn("reconcile gate disabled, invalid rules", "error", err)
-		} else {
-			r.reconcile = g
-			log.Info("reconcile gate enabled", "rules", len(rules))
-		}
+	gs, err := buildGateSet(cfg.Capture.Gates)
+	if err != nil {
+		// config.Validate 启动即全量校验，此处不可达；防御性降级为全直通。
+		log.Warn("capture gates disabled, invalid file rules", "error", err)
+		gs = &gateSet{}
 	}
-	cepCfg := cfg.Capture.Gates.CEP
-	if len(cepCfg.OffHours)+len(cepCfg.Burst)+len(cepCfg.Probing) > 0 {
-		g, err := gate.NewCEP(cepCfg.OffHours, cepCfg.Burst, cepCfg.Probing)
-		if err != nil {
-			// config.Validate 已全量校验，此处不可达；防御性降级为直通。
-			log.Warn("cep gate disabled, invalid rules", "error", err)
-		} else {
-			r.cep = g
-			log.Info("cep gate enabled", "offHours", len(cepCfg.OffHours),
-				"burst", len(cepCfg.Burst), "probing", len(cepCfg.Probing))
-		}
-	}
-	if rules := cfg.Capture.Gates.Lineage.Rules; len(rules) > 0 {
-		g, err := gate.NewLineage(rules)
-		if err != nil {
-			// config.Validate 已全量校验，此处不可达；防御性降级为直通。
-			log.Warn("lineage gate disabled, invalid rules", "error", err)
-		} else {
-			r.lineage = g
-			log.Info("lineage gate enabled (degraded: source has no session account)", "rules", len(rules))
-		}
-	}
+	r.gates.Store(gs)
 	return r
+}
+
+// buildGateSet 由规则集构建闸层快照：先全量校验（对账表路由唯一性等），
+// 再整体构建——任一闸非法即整体失败（热更侧语义：keep last-good，不半换）。
+func buildGateSet(g config.Gates) (*gateSet, error) {
+	if err := gate.ValidateReconcileRules(g.Reconcile.Rules); err != nil {
+		return nil, err
+	}
+	if err := gate.ValidateCEPRules(g.CEP.OffHours, g.CEP.Burst, g.CEP.Probing); err != nil {
+		return nil, err
+	}
+	if err := gate.ValidateLineageRules(g.Lineage.Rules); err != nil {
+		return nil, err
+	}
+	gs := &gateSet{}
+	if len(g.Reconcile.Rules) > 0 {
+		reconcile, err := gate.NewReconcile(g.Reconcile.Rules)
+		if err != nil {
+			return nil, fmt.Errorf("reconcile gate: %w", err)
+		}
+		gs.reconcile = reconcile
+	}
+	if len(g.CEP.OffHours)+len(g.CEP.Burst)+len(g.CEP.Probing) > 0 {
+		cep, err := gate.NewCEP(g.CEP.OffHours, g.CEP.Burst, g.CEP.Probing)
+		if err != nil {
+			return nil, fmt.Errorf("cep gate: %w", err)
+		}
+		gs.cep = cep
+	}
+	if len(g.Lineage.Rules) > 0 {
+		lineage, err := gate.NewLineage(g.Lineage.Rules)
+		if err != nil {
+			return nil, fmt.Errorf("lineage gate: %w", err)
+		}
+		gs.lineage = lineage
+	}
+	return gs, nil
+}
+
+// applyGates 面板下发规则热生效：解析→校验→整体换指针（失败保留旧闸）。
+// gates_json 形状与配置文件 capture.gates 块一致（面板编辑面即文件语义）。
+func (r *Runner) applyGates(_ context.Context, raw []byte) error {
+	var g config.Gates
+	if err := json.Unmarshal(raw, &g); err != nil {
+		return fmt.Errorf("parse gates json: %w", err)
+	}
+	gs, err := buildGateSet(g)
+	if err != nil {
+		return err
+	}
+	r.gates.Store(gs)
+	r.log.Info("capture gates hot-swapped",
+		"reconcile", len(g.Reconcile.Rules),
+		"cepOffHours", len(g.CEP.OffHours), "cepBurst", len(g.CEP.Burst), "cepProbing", len(g.CEP.Probing),
+		"lineage", len(g.Lineage.Rules))
+	return nil
+}
+
+// startConfigPull 闸规则下行轮询（core/configsync：版本比对省叶轮）。
+// 拉取失败/规则非法不生效（版本游标不推进，下轮重试），连接未就绪按
+// Debug 静默（注册未完成/重连窗口是常态）。
+func (r *Runner) startConfigPull(ctx context.Context) {
+	r.newGatesPuller().Start(ctx)
+}
+
+// newGatesPuller 装配闸规则拉取器（测试可同步 PullOnce，不启 goroutine）。
+func (r *Runner) newGatesPuller() *configsync.Puller[[]byte] {
+	return configsync.New[[]byte](configsync.DefaultInterval, r.fetchConfig, r.applyGates,
+		configsync.WithOnError[[]byte](func(err error) {
+			if errors.Is(err, errGatesConnNotReady) {
+				r.log.Debug("capture gates pull skipped", "error", err)
+				return
+			}
+			r.log.Warn("capture gates pull failed", "error", err)
+		}),
+		configsync.WithOnApply[[]byte](func(version string) {
+			r.log.Info("capture gates version applied", "version", version)
+		}))
 }
 
 // Stats 返回消费统计快照。
@@ -182,6 +266,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	hitCtx, cancelHits := context.WithCancel(ctx)
 	defer cancelHits()
 	r.startHitSender(hitCtx)
+	r.startConfigPull(ctx)
 
 	bo := backoff.Exponential(r.backoffInitial, r.backoffMax, 1.5)
 	for {
@@ -265,24 +350,32 @@ func (r *Runner) consume(ev source.ChangeEvent) {
 	}
 	r.log.Debug("change event", "sourceType", ev.SourceType, "database", ev.Database,
 		"table", ev.Table, "op", ev.Op, "gtid", ev.GTID)
-	if r.reconcile != nil {
-		r.recordHits(r.reconcile.Evaluate(&ev))
+	gs := r.gates.Load()
+	if gs == nil {
+		return
 	}
-	if r.cep != nil {
-		r.recordHits(r.cep.Evaluate(&ev))
+	if gs.reconcile != nil {
+		r.recordHits(gs.reconcile.Evaluate(&ev))
 	}
-	if r.lineage != nil {
-		r.recordHits(r.lineage.Evaluate(&ev))
+	if gs.cep != nil {
+		r.recordHits(gs.cep.Evaluate(&ev))
+	}
+	if gs.lineage != nil {
+		r.recordHits(gs.lineage.Evaluate(&ev))
 	}
 }
 
 // sweepGates 周期销账/清桶（位点 tick 同频；无闸直通）。
 func (r *Runner) sweepGates(nowMs int64) {
-	if r.reconcile != nil {
-		r.recordHits(r.reconcile.Sweep(nowMs))
+	gs := r.gates.Load()
+	if gs == nil {
+		return
 	}
-	if r.cep != nil {
-		r.cep.Sweep(nowMs)
+	if gs.reconcile != nil {
+		r.recordHits(gs.reconcile.Sweep(nowMs))
+	}
+	if gs.cep != nil {
+		gs.cep.Sweep(nowMs)
 	}
 }
 

@@ -332,3 +332,19 @@ message CaptureRuleHitAck {
   bool accepted = 1;   // Upserted into the alerts store
   bool duplicate = 2;  // alert_id already existed (idempotent replay)
 }
+
+// CaptureGatesConfigRequest pulls the game-scoped capture gate rules the
+// server holds for the calling agent (scope resolved from the registered
+// session; agent-side pull via core/configsync).
+message CaptureGatesConfigRequest {
+  string agent_id = 1; // Calling capture-agent id (must match the session)
+}
+
+// CaptureGatesConfigResponse carries the latest published rules payload.
+// Empty version = nothing published for this scope (agent keeps file rules).
+// gates_json is opaque to the server: the agent validates the full shape
+// before hot-applying (agent is the validator of last resort).
+message CaptureGatesConfigResponse {
+  string version = 1;    // config_versions.Version (as string); "" = none
+  string gates_json = 2; // capture.gates JSON block (reconcile/cep/lineage)
+}

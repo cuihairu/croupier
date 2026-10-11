@@ -4192,7 +4192,7 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **门禁**：`go build ./...` 绿、`go build ./cmd/sidecar-agent` 绿、`go vet ./cmd/sidecar-agent/...` 绿。
 - **验收口径回执**：目录/引用/CI 全绿 ✅，产物名与部署面按 A 档兑现 ✅，文档定名注更新为「已落地」✅。
 
-### ③ capture-agent 闸层 C2（三闸 + 告警上报链全交付：reconcile fb189bb / cep db31e20 / lineage 4f9584e / 上报链 01646d4；面板配置面推进中）
+### ③ capture-agent 闸层 C2（三闸 + 告警上报链 + 规则下行 wire 半边交付：reconcile fb189bb / cep db31e20 / lineage 4f9584e / 上报链 01646d4 / 下行拉取本批；面板编辑面待做）
 
 - **现状**：C1 骨架已实施（2026-10-10：注册/心跳/事件流/位点，`cmd/capture-agent` + `agents/capture/`）。
 - **拍板**：用户 2026-10-11 令「③ capture-agent C2 开工，闸序 reconcile→cep→lineage，每闸实现+单测+简档差异记录」。
@@ -4201,7 +4201,8 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 - **闸 2/3 CEP 已交付（2026-10-11，db31e20）**：`gate/cep.go` 三模板——off_hours（每日分钟段白名单，跨零点段，`tzOffsetMin` 显式配置不引 tzdata）、burst_delta（single 单事件 / window 滑动累计 `|delta|`，insert=后像全额、delete=前像全额，命中即清零再计时）、probing（键降级为 (行键,表)，大额打断序列，命中即重置，`maxTracked` FIFO 驱逐）；同表多实例合法；`capture.gates.cep.{offHours,burst,probing}` 配置 + 启动校验。单测 cep 14 例 + runner 2 例；差异记录 §8.2（百分比基线 v1 不做等 6 项）。
 - **闸 3/3 lineage 已交付（2026-10-11）**：`gate/lineage.go`（`lineage.whitelist_violation`，账号白名单，`allowAccounts` 必填非空）；C1 降级态——空账号事件跳过并计 `Degraded`（不误报不放过），启用日志显式标注 degraded；差异记录 §8.3。单测 5 例。
 - **告警上报链已交付（2026-10-11）**：wire 对 `MsgAlertEventRequest/Response 0x040119/0x04011A` + `opsv1.CaptureRuleHitReport/Ack`（make proto 四树重生成）；server `handleAlertEvent`（`SetAlertModel`/`SetOutletManager` 注入、root.go 装配）——幂等键 `capture.`+sha256-16hex 折叠重放、severity→outlet level 归一（未知按 warning）、`occurredAt` 缺省补 now、game/env 只进 Details scope、nil model 显式错误；agent 侧 `controlconn.SendAlertReport` + runner `startHitSender`（hitCh 512 非阻塞、5s 超时、失败丢弃不重试、连接跟随 Dial 重连、`Stats.AlertDropped`）。单测 server 7 例 + runner 4 例。差异记录 §8.4 + 边界 2 条。
-- **待做**：面板配置面（规则下发 + 降级态标注）。
+- **规则下行拉取 wire 半边已交付（2026-10-11）**：wire 对 `MsgCaptureConfigRequest/Response 0x04011B/0x04011C` + `opsv1.CaptureGatesConfigRequest/Response`；server `handleCaptureConfig`——scope 取注册会话（`AgentSession{GameID,Env}`）不取请求、读 `config_versions` 键 `capture.gates`（namespace=ops，零 schema 变更）、gates_json 对 server 不透明、multiGame 经 `GameDBResolver`（结构性满足 `*router.Router`）解析 game 库、无记录/读失败/解析失败统一回空版本；agent 侧 `controlconn.PullCaptureGates` + runner 闸层快照化（`gateSet` atomic.Pointer 整体热换，并发契约不变）+ `core/configsync` 版本轮询（30s）——apply 全量校验 keep last-good、空版本 no-op、连接未就绪 Debug 静默。单测 server 7 例 + runner 3 例；差异记录 §8.5（拒绝 REST 选 wire 的理由等 6 项）。
+- **待做**：面板编辑面（web 卡片读写 config_versions capture.gates + Ops/Nodes capture 降级态标注）。
 
 ### ④ 三 agent 文档口径同步（✅ 本批完成）
 

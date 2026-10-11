@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C1 骨架已实施（2026-10-10）**。agent-core 骨架（K1-K4）+ capture-agent 骨架（注册上线/心跳/监管挂接）+ MySQL 源 + 统一事件流 + 位点持久化已落地（`agents/capture/{source,config,controlconn,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）；C2（闸层+告警上报）待批。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5，wire 半边；面板编辑面待做）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -299,6 +299,47 @@ handleAlertEvent`（`SetAlertModel`/`SetOutletManager` 注入，cmd/server/root.
 幂等折叠、severity 映射与归一、校验拒绝、nil model 拒绝、occurredAt 缺省、
 outlet 分发含 scope/dedup、msgID 对契约）；runner `runner_alert_test.go` 4 例
 （上报载荷完整性、发送失败计数、duplicate 回执、队列满丢弃）。
+
+### 8.5 C2 交付记录：闸规则下行拉取（面板配置面·wire 半边，2026-10-11）
+
+代码面：wire 对 `MsgCaptureConfigRequest/Response = 0x04011B/0x04011C`
+（Ops 族续对）；proto `opsv1.CaptureGatesConfigRequest`（agent_id）/
+`CaptureGatesConfigResponse`（version/gates_json）；server
+`ControlService.handleCaptureConfig`（`SetConfigVersionModel` +
+`SetGameDBResolver` 注入，root.go 装配）；agent 侧 `controlconn.
+PullCaptureGates` + runner 闸层热更（`gateSet` 快照整体 `atomic.Pointer`
+切换，consume/sweep 单 goroutine 读指针，拉取 goroutine 写，免锁维持
+§8.1 并发契约）+ `core/configsync.Puller` 版本轮询（30s 默认档）。
+口径与差异：
+
+1. **通道选型（拒绝 REST）**：sidecar 的 `GET /api/v1/agents/{id}/extensions`
+   坐在 JWT Authority + `requireReadPermission` 后面，agents 无 JWT——
+   下行走**已注册 TCP 会话上的 wire 拉取**（注册即认证，与告警上行同通道）。
+2. **scope 取会话不取请求**：server 从 `AgentSession{GameID,Env}` 解析
+   agent 归属（`req.agent_id` 只做会话寻址），config_versions 按
+   `FindLatestByScope("capture.gates", gameID, env)` 读取——agent 无法
+   越 scope 拉别人的规则；未注册会话/缺 game 直接错误回绝。
+3. **gates_json 对 server 不透明**：server 只存转发（`config_versions`
+   键 `capture.gates`、namespace=ops，无 schema 变更）；闸层结构由
+   agent 在 apply 时全量校验（validator of last resort）——与配置文件
+   同一校验函数集（`gate.Validate*Rules`），任一闸非法**整体拒绝**
+   （keep last-good，不半换）。
+4. **热更语义**：`buildGateSet` 先校验后构建、整体换指针；apply 失败版本
+   游标不推进（下轮重试）；空 version（服务端未发布）= no-op 保持现状；
+   连接未就绪按 Debug 静默（注册未完成/重连窗口是常态），真实读错误 warn。
+5. **multiGame 分库**：server 侧经 `GameDBResolver`（结构性满足
+   `*router.Router`，control 包不引 internal/db）按 (game,env) 解析 game 库
+   并经 dbctx 注入——规则存在游戏方自己的库里；单库模式不注入即走默认连接。
+   分库解析失败/规则读取失败统一回空 version（= agent 保持现状），拉取
+   是周期轮询，单轮读异常不放大为通道错误。
+6. **闸层快照化（行为不变）**：runner 三闸字段收敛为 `gateSet` 快照，
+   启动仍=文件规则；面板发布即热替换——本批是 §6 下发通道的 agent 侧
+   落地，面板编辑面（web 卡片 + configs API 写 config_versions）随后批。
+
+测试：server `control_handler_config_test.go` 7 例（最新版本透传、未发布
+回空、scope 隔离、未知 agent/nil model 拒绝、分库覆盖生效、分库解析失败
+回空、msgID 对契约）；runner `runner_config_test.go` 3 例（热换快照、
+非法规则 keep last-good、拉取器版本跳过/空载荷/错误/非法规则/新版本全路径）。
 
 ## 9. 已知边界（诚实清单）
 

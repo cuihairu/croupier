@@ -24,7 +24,7 @@ func TestGateWiringEvaluateAndSweep(t *testing.T) {
 		ItemKey: "1", LedgerKey: "0", WindowSec: 60,
 	}}
 	r := New(cfg, nil)
-	if r.reconcile == nil {
+	if r.gates.Load().reconcile == nil {
 		t.Fatal("reconcile gate should be built from config rules")
 	}
 
@@ -47,8 +47,8 @@ func TestGateWiringEvaluateAndSweep(t *testing.T) {
 	if st := r.Stats(); st.GateHits != 0 {
 		t.Fatalf("gate hits after ledger match = %d, want 0", st.GateHits)
 	}
-	if r.reconcile.PendingCount() != 0 {
-		t.Fatalf("pending = %d, want 0", r.reconcile.PendingCount())
+	if r.gates.Load().reconcile.PendingCount() != 0 {
+		t.Fatalf("pending = %d, want 0", r.gates.Load().reconcile.PendingCount())
 	}
 
 	// 未销账道具超窗 → Sweep 产出命中并计数
@@ -61,7 +61,7 @@ func TestGateWiringEvaluateAndSweep(t *testing.T) {
 
 func TestGateNotWiredWithoutRules(t *testing.T) {
 	r := New(testConfig(t, true), nil)
-	if r.reconcile != nil {
+	if r.gates.Load().reconcile != nil {
 		t.Fatal("gate must stay nil without rules")
 	}
 	r.consume(source.ChangeEvent{Op: "insert"})
@@ -89,7 +89,7 @@ func TestGateCEPWiringAndHit(t *testing.T) {
 		Threshold: 100, Mode: "single",
 	}}
 	r := New(cfg, nil)
-	if r.cep == nil {
+	if r.gates.Load().cep == nil {
 		t.Fatal("cep gate should be built from config rules")
 	}
 	// 大额单笔突变：事件到达即命中
@@ -111,7 +111,7 @@ func TestGateCEPWiringAndHit(t *testing.T) {
 
 func TestGateCEPNotWiredWithoutRules(t *testing.T) {
 	r := New(testConfig(t, true), nil)
-	if r.cep != nil {
+	if r.gates.Load().cep != nil {
 		t.Fatal("cep gate must stay nil without rules")
 	}
 	r.consume(source.ChangeEvent{Op: "insert"})

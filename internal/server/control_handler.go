@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -118,6 +119,8 @@ type ControlService struct {
 	taskStore         TaskStore
 	alertModel        *model.AlertModel
 	outletManager     *outlet.Manager
+	configModel       *model.ConfigVersionModel
+	gameDBs           GameDBResolver
 
 	upstream Handler
 
@@ -242,6 +245,28 @@ func (s *ControlService) SetOutletManager(m *outlet.Manager) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.outletManager = m
+}
+
+// GameDBResolver multiGame 分库模式下按 (gameID, env) 解析库并把覆盖
+// 注入 ctx（dbctx）。结构性满足 *router.Router——control 包不引 internal/db。
+type GameDBResolver interface {
+	Resolve(ctx context.Context, gameID, env string) (context.Context, *gorm.DB, error)
+}
+
+// SetConfigVersionModel sets the config-version model for capture gate-rule
+// pull (nil = 未配置，规则下行返回错误).
+func (s *ControlService) SetConfigVersionModel(m *model.ConfigVersionModel) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.configModel = m
+}
+
+// SetGameDBResolver 注入 game 分库解析器（multiGame 模式必配；nil = 单库，
+// FindLatestByScope 走默认连接）.
+func (s *ControlService) SetGameDBResolver(r GameDBResolver) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.gameDBs = r
 }
 
 // Store returns the registry store.
@@ -371,6 +396,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleMetricEvent(ctx, data)
 	case protocol.MsgAlertEventRequest:
 		return s.handleAlertEvent(ctx, data)
+	case protocol.MsgCaptureConfigRequest:
+		return s.handleCaptureConfig(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -513,6 +540,69 @@ func captureAlertID(agentID, rule, gtid, table, key string, occurredAt int64) st
 		agentID, rule, gtid, table, key, strconv.FormatInt(occurredAt, 10),
 	}, "|")))
 	return "capture." + hex.EncodeToString(sum[:])[:16]
+}
+
+// captureConfigKey config_versions 里的闸规则键（namespace=ops；面板与
+// agent 两侧同键）。gates_json 对 server 不透明——闸层结构由 agent 在
+// apply 时全量校验（validator of last resort）。
+const captureConfigKey = "capture.gates"
+
+// handleCaptureConfig 响应 capture-agent 的闸规则下行拉取：从注册会话取
+// scope（game/env），读 config_versions 最新版本回给 agent。无记录/读失败/
+// 分库解析失败统一回空版本（agent 语义 = 保持现状）——拉取是周期轮询，
+// 单轮读异常不应放大为通道错误打断节奏。
+func (s *ControlService) handleCaptureConfig(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.CaptureGatesConfigRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal CaptureGatesConfigRequest: %w", err)
+	}
+
+	s.mu.RLock()
+	configModel := s.configModel
+	gameDBs := s.gameDBs
+	s.mu.RUnlock()
+	if configModel == nil {
+		return nil, fmt.Errorf("config model not configured")
+	}
+
+	agentID := strings.TrimSpace(req.GetAgentId())
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	s.registry.Mu().RLock()
+	sess := s.registry.AgentsUnsafe()[agentID]
+	s.registry.Mu().RUnlock()
+	if sess == nil {
+		return nil, fmt.Errorf("agent session not found: %s", agentID)
+	}
+	gameID, env := strings.TrimSpace(sess.GameID), strings.TrimSpace(sess.Env)
+	if gameID == "" {
+		return nil, fmt.Errorf("agent %s missing game scope", agentID)
+	}
+
+	dbCtx := ctx
+	if gameDBs != nil {
+		resolved, _, err := gameDBs.Resolve(ctx, gameID, env)
+		if err != nil {
+			s.logger.Warn("capture config: resolve game db failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+			return proto.Marshal(&opsv1.CaptureGatesConfigResponse{})
+		}
+		dbCtx = resolved
+	}
+
+	rec, err := configModel.FindLatestByScope(dbCtx, captureConfigKey, gameID, env)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("capture config: read config_versions failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+		}
+		return proto.Marshal(&opsv1.CaptureGatesConfigResponse{})
+	}
+	return proto.Marshal(&opsv1.CaptureGatesConfigResponse{
+		Version:   strconv.Itoa(rec.Version),
+		GatesJson: rec.Value,
+	})
 }
 
 func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]byte, error) {

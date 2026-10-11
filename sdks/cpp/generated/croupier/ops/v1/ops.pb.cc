@@ -889,6 +889,65 @@ struct CaptureRuleHitAckDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CaptureRuleHitAckDefaultTypeInternal _CaptureRuleHitAck_default_instance_;
 
+inline constexpr CaptureGatesConfigResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        version_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        gates_json_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()) {}
+
+template <typename>
+constexpr CaptureGatesConfigResponse::CaptureGatesConfigResponse(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(CaptureGatesConfigResponse_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct CaptureGatesConfigResponseDefaultTypeInternal {
+  constexpr CaptureGatesConfigResponseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CaptureGatesConfigResponseDefaultTypeInternal() {}
+  union {
+    CaptureGatesConfigResponse _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CaptureGatesConfigResponseDefaultTypeInternal _CaptureGatesConfigResponse_default_instance_;
+
+inline constexpr CaptureGatesConfigRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        agent_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()) {}
+
+template <typename>
+constexpr CaptureGatesConfigRequest::CaptureGatesConfigRequest(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(CaptureGatesConfigRequest_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct CaptureGatesConfigRequestDefaultTypeInternal {
+  constexpr CaptureGatesConfigRequestDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CaptureGatesConfigRequestDefaultTypeInternal() {}
+  union {
+    CaptureGatesConfigRequest _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CaptureGatesConfigRequestDefaultTypeInternal _CaptureGatesConfigRequest_default_instance_;
+
 inline constexpr SystemInfo::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
@@ -1704,6 +1763,18 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureRuleHitAck, _impl_.duplicate_),
         0,
         1,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureGatesConfigRequest, _impl_._has_bits_),
+        4, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureGatesConfigRequest, _impl_.agent_id_),
+        0,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureGatesConfigResponse, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureGatesConfigResponse, _impl_.version_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CaptureGatesConfigResponse, _impl_.gates_json_),
+        0,
+        1,
 };
 
 static const ::_pbi::MigrationSchema
@@ -1741,6 +1812,8 @@ static const ::_pbi::MigrationSchema
         {390, sizeof(::croupier::ops::v1::CronJob)},
         {403, sizeof(::croupier::ops::v1::CaptureRuleHitReport)},
         {428, sizeof(::croupier::ops::v1::CaptureRuleHitAck)},
+        {435, sizeof(::croupier::ops::v1::CaptureGatesConfigRequest)},
+        {440, sizeof(::croupier::ops::v1::CaptureGatesConfigResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_MetricsReport_CustomEntry_DoNotUse_default_instance_._instance,
@@ -1776,6 +1849,8 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_CronJob_default_instance_._instance,
     &::croupier::ops::v1::_CaptureRuleHitReport_default_instance_._instance,
     &::croupier::ops::v1::_CaptureRuleHitAck_default_instance_._instance,
+    &::croupier::ops::v1::_CaptureGatesConfigRequest_default_instance_._instance,
+    &::croupier::ops::v1::_CaptureGatesConfigResponse_default_instance_._instance,
 };
 const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
@@ -1892,16 +1967,19 @@ const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_AT
     "\006 \001(\t\022\013\n\003key\030\007 \001(\t\022\016\n\006detail\030\010 \001(\t\022\014\n\004gt"
     "id\030\t \001(\t\022\020\n\010event_op\030\n \001(\t\022\030\n\020event_ts_u"
     "nix_ms\030\013 \001(\003\"8\n\021CaptureRuleHitAck\022\020\n\010acc"
-    "epted\030\001 \001(\010\022\021\n\tduplicate\030\002 \001(\010*\352\001\n\014Proce"
-    "ssState\022\035\n\031PROCESS_STATE_UNSPECIFIED\020\000\022\031"
-    "\n\025PROCESS_STATE_RUNNING\020\001\022\031\n\025PROCESS_STA"
-    "TE_STOPPED\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032"
-    "\n\026PROCESS_STATE_STARTING\020\004\022\032\n\026PROCESS_ST"
-    "ATE_STOPPING\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020"
-    "\006\022\030\n\024PROCESS_STATE_BROKEN\020\007Bj\n\"io.github"
-    ".cuihairu.croupier.ops.v1P\001Z0github.com/"
-    "cuihairu/croupier/pkg/pb/ops/v1;opsv1\252\002\017"
-    "Croupier.Ops.V1b\006proto3"
+    "epted\030\001 \001(\010\022\021\n\tduplicate\030\002 \001(\010\"-\n\031Captur"
+    "eGatesConfigRequest\022\020\n\010agent_id\030\001 \001(\t\"A\n"
+    "\032CaptureGatesConfigResponse\022\017\n\007version\030\001"
+    " \001(\t\022\022\n\ngates_json\030\002 \001(\t*\352\001\n\014ProcessStat"
+    "e\022\035\n\031PROCESS_STATE_UNSPECIFIED\020\000\022\031\n\025PROC"
+    "ESS_STATE_RUNNING\020\001\022\031\n\025PROCESS_STATE_STO"
+    "PPED\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032\n\026PROC"
+    "ESS_STATE_STARTING\020\004\022\032\n\026PROCESS_STATE_ST"
+    "OPPING\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020\006\022\030\n\024P"
+    "ROCESS_STATE_BROKEN\020\007Bj\n\"io.github.cuiha"
+    "iru.croupier.ops.v1P\001Z0github.com/cuihai"
+    "ru/croupier/pkg/pb/ops/v1;opsv1\252\002\017Croupi"
+    "er.Ops.V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps[1] = {
@@ -1911,13 +1989,13 @@ static ::absl::once_flag descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fops_2fv1_2fops_2eproto = {
     false,
     false,
-    4903,
+    5017,
     descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto,
     "croupier/ops/v1/ops.proto",
     &descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once,
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps,
     1,
-    33,
+    35,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fops_2fv1_2fops_2eproto::offsets,
@@ -15959,6 +16037,599 @@ void CaptureRuleHitAck::InternalSwap(CaptureRuleHitAck* PROTOBUF_RESTRICT PROTOB
 }
 
 ::google::protobuf::Metadata CaptureRuleHitAck::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class CaptureGatesConfigRequest::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<CaptureGatesConfigRequest>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(CaptureGatesConfigRequest, _impl_._has_bits_);
+};
+
+CaptureGatesConfigRequest::CaptureGatesConfigRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureGatesConfigRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.CaptureGatesConfigRequest)
+}
+PROTOBUF_NDEBUG_INLINE CaptureGatesConfigRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::CaptureGatesConfigRequest& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        agent_id_(arena, from.agent_id_) {}
+
+CaptureGatesConfigRequest::CaptureGatesConfigRequest(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const CaptureGatesConfigRequest& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureGatesConfigRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  CaptureGatesConfigRequest* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.CaptureGatesConfigRequest)
+}
+PROTOBUF_NDEBUG_INLINE CaptureGatesConfigRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        agent_id_(arena) {}
+
+inline void CaptureGatesConfigRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+CaptureGatesConfigRequest::~CaptureGatesConfigRequest() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.CaptureGatesConfigRequest)
+  SharedDtor(*this);
+}
+inline void CaptureGatesConfigRequest::SharedDtor(MessageLite& self) {
+  CaptureGatesConfigRequest& this_ = static_cast<CaptureGatesConfigRequest&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.agent_id_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL CaptureGatesConfigRequest::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) CaptureGatesConfigRequest(arena);
+}
+constexpr auto CaptureGatesConfigRequest::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(CaptureGatesConfigRequest),
+                                            alignof(CaptureGatesConfigRequest));
+}
+constexpr auto CaptureGatesConfigRequest::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_CaptureGatesConfigRequest_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &CaptureGatesConfigRequest::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<CaptureGatesConfigRequest>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &CaptureGatesConfigRequest::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<CaptureGatesConfigRequest>(), &CaptureGatesConfigRequest::ByteSizeLong,
+              &CaptureGatesConfigRequest::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(CaptureGatesConfigRequest, _impl_._cached_size_),
+          false,
+      },
+      &CaptureGatesConfigRequest::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull CaptureGatesConfigRequest_class_data_ =
+        CaptureGatesConfigRequest::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+CaptureGatesConfigRequest::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&CaptureGatesConfigRequest_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(CaptureGatesConfigRequest_class_data_.tc_table);
+  return CaptureGatesConfigRequest_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<0, 1, 0, 58, 2>
+CaptureGatesConfigRequest::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(CaptureGatesConfigRequest, _impl_._has_bits_),
+    0, // no _extensions_
+    1, 0,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967294,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    1,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    CaptureGatesConfigRequest_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::CaptureGatesConfigRequest>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string agent_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureGatesConfigRequest, _impl_.agent_id_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string agent_id = 1;
+    {PROTOBUF_FIELD_OFFSET(CaptureGatesConfigRequest, _impl_.agent_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\51\10\0\0\0\0\0\0"
+    "croupier.ops.v1.CaptureGatesConfigRequest"
+    "agent_id"
+  }},
+};
+PROTOBUF_NOINLINE void CaptureGatesConfigRequest::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.CaptureGatesConfigRequest)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    _impl_.agent_id_.ClearNonDefaultToEmpty();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL CaptureGatesConfigRequest::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const CaptureGatesConfigRequest& this_ = static_cast<const CaptureGatesConfigRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL CaptureGatesConfigRequest::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const CaptureGatesConfigRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.CaptureGatesConfigRequest)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string agent_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_agent_id().empty()) {
+      const ::std::string& _s = this_._internal_agent_id();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureGatesConfigRequest.agent_id");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.CaptureGatesConfigRequest)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t CaptureGatesConfigRequest::ByteSizeLong(const MessageLite& base) {
+  const CaptureGatesConfigRequest& this_ = static_cast<const CaptureGatesConfigRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t CaptureGatesConfigRequest::ByteSizeLong() const {
+  const CaptureGatesConfigRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.CaptureGatesConfigRequest)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+   {
+    // string agent_id = 1;
+    cached_has_bits = this_._impl_._has_bits_[0];
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_agent_id().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_agent_id());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void CaptureGatesConfigRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<CaptureGatesConfigRequest*>(&to_msg);
+  auto& from = static_cast<const CaptureGatesConfigRequest&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.CaptureGatesConfigRequest)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!from._internal_agent_id().empty()) {
+      _this->_internal_set_agent_id(from._internal_agent_id());
+    } else {
+      if (_this->_impl_.agent_id_.IsDefault()) {
+        _this->_internal_set_agent_id("");
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void CaptureGatesConfigRequest::CopyFrom(const CaptureGatesConfigRequest& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.CaptureGatesConfigRequest)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void CaptureGatesConfigRequest::InternalSwap(CaptureGatesConfigRequest* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.agent_id_, &other->_impl_.agent_id_, arena);
+}
+
+::google::protobuf::Metadata CaptureGatesConfigRequest::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class CaptureGatesConfigResponse::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<CaptureGatesConfigResponse>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(CaptureGatesConfigResponse, _impl_._has_bits_);
+};
+
+CaptureGatesConfigResponse::CaptureGatesConfigResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureGatesConfigResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.CaptureGatesConfigResponse)
+}
+PROTOBUF_NDEBUG_INLINE CaptureGatesConfigResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::CaptureGatesConfigResponse& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        version_(arena, from.version_),
+        gates_json_(arena, from.gates_json_) {}
+
+CaptureGatesConfigResponse::CaptureGatesConfigResponse(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const CaptureGatesConfigResponse& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CaptureGatesConfigResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  CaptureGatesConfigResponse* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.CaptureGatesConfigResponse)
+}
+PROTOBUF_NDEBUG_INLINE CaptureGatesConfigResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        version_(arena),
+        gates_json_(arena) {}
+
+inline void CaptureGatesConfigResponse::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+CaptureGatesConfigResponse::~CaptureGatesConfigResponse() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.CaptureGatesConfigResponse)
+  SharedDtor(*this);
+}
+inline void CaptureGatesConfigResponse::SharedDtor(MessageLite& self) {
+  CaptureGatesConfigResponse& this_ = static_cast<CaptureGatesConfigResponse&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.version_.Destroy();
+  this_._impl_.gates_json_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL CaptureGatesConfigResponse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) CaptureGatesConfigResponse(arena);
+}
+constexpr auto CaptureGatesConfigResponse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(CaptureGatesConfigResponse),
+                                            alignof(CaptureGatesConfigResponse));
+}
+constexpr auto CaptureGatesConfigResponse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_CaptureGatesConfigResponse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &CaptureGatesConfigResponse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<CaptureGatesConfigResponse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &CaptureGatesConfigResponse::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<CaptureGatesConfigResponse>(), &CaptureGatesConfigResponse::ByteSizeLong,
+              &CaptureGatesConfigResponse::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(CaptureGatesConfigResponse, _impl_._cached_size_),
+          false,
+      },
+      &CaptureGatesConfigResponse::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull CaptureGatesConfigResponse_class_data_ =
+        CaptureGatesConfigResponse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+CaptureGatesConfigResponse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&CaptureGatesConfigResponse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(CaptureGatesConfigResponse_class_data_.tc_table);
+  return CaptureGatesConfigResponse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 68, 2>
+CaptureGatesConfigResponse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(CaptureGatesConfigResponse, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    CaptureGatesConfigResponse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::CaptureGatesConfigResponse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string gates_json = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureGatesConfigResponse, _impl_.gates_json_)}},
+    // string version = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(CaptureGatesConfigResponse, _impl_.version_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string version = 1;
+    {PROTOBUF_FIELD_OFFSET(CaptureGatesConfigResponse, _impl_.version_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string gates_json = 2;
+    {PROTOBUF_FIELD_OFFSET(CaptureGatesConfigResponse, _impl_.gates_json_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\52\7\12\0\0\0\0\0"
+    "croupier.ops.v1.CaptureGatesConfigResponse"
+    "version"
+    "gates_json"
+  }},
+};
+PROTOBUF_NOINLINE void CaptureGatesConfigResponse::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.CaptureGatesConfigResponse)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      _impl_.version_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      _impl_.gates_json_.ClearNonDefaultToEmpty();
+    }
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL CaptureGatesConfigResponse::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const CaptureGatesConfigResponse& this_ = static_cast<const CaptureGatesConfigResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL CaptureGatesConfigResponse::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const CaptureGatesConfigResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.CaptureGatesConfigResponse)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string version = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_version().empty()) {
+      const ::std::string& _s = this_._internal_version();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureGatesConfigResponse.version");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  // string gates_json = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (!this_._internal_gates_json().empty()) {
+      const ::std::string& _s = this_._internal_gates_json();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.CaptureGatesConfigResponse.gates_json");
+      target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.CaptureGatesConfigResponse)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t CaptureGatesConfigResponse::ByteSizeLong(const MessageLite& base) {
+  const CaptureGatesConfigResponse& this_ = static_cast<const CaptureGatesConfigResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t CaptureGatesConfigResponse::ByteSizeLong() const {
+  const CaptureGatesConfigResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.CaptureGatesConfigResponse)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    // string version = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_version().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_version());
+      }
+    }
+    // string gates_json = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!this_._internal_gates_json().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_gates_json());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void CaptureGatesConfigResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<CaptureGatesConfigResponse*>(&to_msg);
+  auto& from = static_cast<const CaptureGatesConfigResponse&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.CaptureGatesConfigResponse)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!from._internal_version().empty()) {
+        _this->_internal_set_version(from._internal_version());
+      } else {
+        if (_this->_impl_.version_.IsDefault()) {
+          _this->_internal_set_version("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!from._internal_gates_json().empty()) {
+        _this->_internal_set_gates_json(from._internal_gates_json());
+      } else {
+        if (_this->_impl_.gates_json_.IsDefault()) {
+          _this->_internal_set_gates_json("");
+        }
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void CaptureGatesConfigResponse::CopyFrom(const CaptureGatesConfigResponse& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.CaptureGatesConfigResponse)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void CaptureGatesConfigResponse::InternalSwap(CaptureGatesConfigResponse* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.gates_json_, &other->_impl_.gates_json_, arena);
+}
+
+::google::protobuf::Metadata CaptureGatesConfigResponse::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // @@protoc_insertion_point(namespace_scope)

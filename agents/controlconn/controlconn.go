@@ -93,6 +93,16 @@ func (c *Conn) SendAlertReport(ctx context.Context, req *opsv1.CaptureRuleHitRep
 	return resp, nil
 }
 
+// PullCaptureGates 拉取 capture 闸规则下行配置（服务端读 config_versions
+// 的 capture.gates，version 空串 = 未发布，agent 保持现状）。
+func (c *Conn) PullCaptureGates(ctx context.Context, req *opsv1.CaptureGatesConfigRequest) (*opsv1.CaptureGatesConfigResponse, error) {
+	resp := &opsv1.CaptureGatesConfigResponse{}
+	if err := c.call(ctx, protocol.MsgCaptureConfigRequest, req, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *Conn) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("control conn not initialized")

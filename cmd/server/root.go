@@ -454,6 +454,12 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	// capture 规则命中告警：落 alerts 表 + 出口分发（Manager 可为 nil）
 	controlService.SetAlertModel(svcCtx.AlertModel)
 	controlService.SetOutletManager(svcCtx.OutletManager)
+	// capture 闸规则下行拉取：config_versions capture.gates（分库模式注入
+	// Router 解析 game 库；单库 nil 即走默认连接）
+	controlService.SetConfigVersionModel(svcCtx.ConfigVersionModel)
+	if svcCtx.Router != nil {
+		controlService.SetGameDBResolver(svcCtx.Router)
+	}
 	controlService.StartBackgroundTasks()
 
 	// 将 ControlService 的 MetricsStore 同步到 ServiceContext
