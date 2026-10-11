@@ -68,13 +68,14 @@ detection:
 ### 1.1 SourceFilter（采集范围）
 
 - 库/Schema/表 include/exclude；操作类型；字段采集与脱敏策略；数据源能力允许时下推给连接器/日志订阅机制。
-- 现状锚点：`agents/capture/source` 的 `MySQLConfig.Tables` 是本层初步实现（本地 YAML），须提升为中心管理策略。
+- 现状锚点：`agents/capture/source` 的 `MySQLConfig.Tables` 是本层初步实现（本地 YAML），须提升为中心管理策略。契约面已落码：`filter.TableMatcher`（include/exclude + 默认拒绝 + 排除优先 + 冲突构造即错）+ `MissingDependencies` 依赖检查。
 - **重要限制**：不为省事件量漏掉业务流水表——对账规则依赖 `game.items` + `game.ledger` 时，`ledger` 即使不单独告警也必须采集（规则依赖校验在发布时做，见 §3）。
 
 ### 1.2 EventFilter（事件粗过滤）
 
 - 只做廉价确定性判断：忽略不受监控的操作类型、跳过明确不属于流水线的事件、按事件元数据（来源/环境/类别）筛、判断后续规则必要元数据是否存在。
 - **不能在粗过滤丢弃可能触发异常检测的事件**：某条 UPDATE 没有可解析的数量字段，不能因此丢弃——它仍可能命中非白名单时段规则（现状三闸实现已遵守：delta 取不到是跳过计数 `SkippedNoDelta` 而非吞事件，其它闸照常评估）。
+- **v1 已落码并接线（2026-10-11 阶段二起步）**：`filter.EventFilter` 仅操作类型白名单（`event.ops` 段，缺省空=全放行向后兼容）；runner consume 进闸前过滤，`FilteredNoMatch`/`FilteredError` 计数；未知操作=Error 计数丢弃（形态不可评估，可观测不静默）。表级不进事件过滤（放行语义 vs 授权语义不同，见 §1.1）。
 - 职责边界：不代替权限校验；普通用户配置的宽泛规则不得覆盖安全约束。
 
 ### 1.3 DetectionPolicy（业务异常检测）
@@ -163,12 +164,12 @@ detection:
 | `rule_evaluation_errors_total` | 规则执行错误次数             |
 | `policy_applied_revision`      | 当前实际生效版本             |
 
-用途：判断过滤是否过严、规则是否失效、Agent 是否因配置不兼容漏检。现状锚点：Stats.Total/Insert/Update/Delete/Skipped/GateHits/AlertDropped 是其子集，需补分类过滤计数与 revision 上报。
+用途：判断过滤是否过严、规则是否失效、Agent 是否因配置不兼容漏检。现状锚点：Stats.Total/Insert/Update/Delete/Skipped/GateHits/AlertDropped 之外，`FilteredNoMatch`/`FilteredError`（events_filtered_total 按原因分类的首批）已落码（2026-10-11）；events_evaluated 可由 Total−Filtered 推得；policy_apply_errors 与 revision 上报随阶段三。
 
 ## 9. 实施顺序（四阶段）
 
 1. **契约（✅ 2026-10-11 交付）**：四类规则边界（`filter.PolicyKind` 闭集）、统一事件模型（`connector.ChangeEvent` 含能力差异字段）、include/exclude 语义（精确+库级通配，排除优先）、默认拒绝、失败四分类（`filter.Result`）。
-2. **Agent 执行层**：抽 EventFilter（`agents/capture/filter/`）、保留 SourceFilter 与三闸、版本切换、过滤统计、规则错误处理。
+2. **Agent 执行层（2026-10-11 起步）**：EventFilter v1 已落码接线（操作白名单+计数）；余项：元数据存在性筛、闸层评估错误计数、过滤层单测扩展。
 3. **中心策略管理**：策略资产化（统一策略头 + 分类型体）、校验（含能力/依赖感知）、版本化、下发确认、回滚；移除业务规则手工 YAML 依赖。
 4. **面板与验证**：策略管理界面；测试规则更新、断线恢复、位点恢复、新表启用、过滤错误、跨游戏/环境隔离。
 

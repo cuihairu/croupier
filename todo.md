@@ -4276,10 +4276,10 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 ### 阶段二：Agent 执行层（不重写 gate/）
 
-- [ ] **抽 `agents/capture/filter/` 纯逻辑包**：事件级匹配与过滤决策（EventFilter 执行面），不依赖 MySQL 驱动/面板 API；先接 EventFilterPolicy（操作类型/元数据筛），SourceFilter 仍在 source/
-- [ ] **策略原子切换泛化**：gateSet 快照模式（runner §8.5）推广到 filter 层；CEP 阈值变更的窗口状态保留与否明确实现（现状整体换、重新起算）
-- [ ] **失败语义落地**：检测失败优先保留事件+计数+可观测信号（现状 SkippedNoDelta 口径推广）；策略 UNSUPPORTED 显式上报
-- [ ] **过滤统计**：events_received/filtered(按原因)/evaluated_total、policy_apply_errors、rule_evaluation_errors 计数入 Stats；汇总口径见过滤策略简档 §8
+- [x] **抽 `agents/capture/filter/` 纯逻辑包（✅ 2026-10-11）**：事件级匹配与过滤决策，零驱动/API 依赖；EventFilter v1=操作类型白名单（`event.ops` 段，缺省=全放行向后兼容）已接线 runner consume 进闸前；元数据筛与表级（归 SourceFilter 授权语义，防 exclude-only 被默认拒绝误伤）随后续
+- [x] **策略原子切换泛化（✅ 2026-10-11，event 层）**：event filter 挂 gateSet 快照，整体热换/keep last-good 语义免费覆盖；CEP 窗口状态保留与否仍待拍板实现（现状整体换、重新起算）
+- [ ] **失败语义落地**：检测失败优先保留事件+计数+可观测信号（现状 SkippedNoDelta 口径推广）；策略 UNSUPPORTED 显式上报（部分：未知操作=FilteredError 计数丢弃已落码，闸层评估错误计数随闸层演进）
+- [ ] **过滤统计**：events_received/filtered(按原因)/evaluated_total、policy_apply_errors、rule_evaluation_errors 计数入 Stats；汇总口径见过滤策略简档 §8（部分：FilteredNoMatch/FilteredError 已入 Stats，evaluated 可推得；apply_errors/revision 上报随阶段三）
 - [ ] **单测**：filter 包纯逻辑全量用例 + runner 装配链（应用/回退/统计）+ 失败翼
 
 ### 阶段三：中心策略管理（Server 侧）

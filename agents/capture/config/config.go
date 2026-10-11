@@ -54,6 +54,12 @@ type Gates struct {
 	Lineage struct {
 		Rules []gate.LineageRule `yaml:"rules" json:"rules"`
 	} `yaml:"lineage" json:"lineage"`
+	// Event 事件粗过滤（EventFilterPolicy v1，操作类型白名单；缺省空 =
+	// 全放行，与既有部署行为一致）。库表范围归 SourceFilter（授权语义），
+	// 不在此配置——见 docs/design/cdc-filter-policy-design.md §1.2。
+	Event struct {
+		Ops []string `yaml:"ops" json:"ops"`
+	} `yaml:"event" json:"event"`
 }
 
 // Capture CDC 功能块。

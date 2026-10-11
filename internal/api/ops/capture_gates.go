@@ -123,16 +123,16 @@ func (s *Service) CaptureGatesPut(ctx context.Context, req *CaptureGatesPutReque
 	return &CaptureGatesPutResponse{Version: rec.Version}, nil
 }
 
-// lintCaptureGatesJSON 结构 lint：合法 JSON + 顶层对象 + 已知三段形状
-// （reconcile/lineage 的 rules、cep 的 offHours/burst/probing 必须是数组）。
-// 未知键放行（agent 侧规则集前向扩展不需要改面板）；数组元素内容不查——
-// 那是 agent 的语义校验职责。
+// lintCaptureGatesJSON 结构 lint：合法 JSON + 顶层对象 + 已知段形状
+// （reconcile/lineage 的 rules、cep 的 offHours/burst/probing、event 的 ops
+// 必须是数组）。未知键放行（agent 侧规则集前向扩展不需要改面板）；数组
+// 元素内容不查——那是 agent 的语义校验职责。
 func lintCaptureGatesJSON(content string) error {
 	var top map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(content), &top); err != nil {
 		return fmt.Errorf("gates json is not a valid object: %w", err)
 	}
-	for _, section := range []string{"reconcile", "cep", "lineage"} {
+	for _, section := range []string{"reconcile", "cep", "lineage", "event"} {
 		raw, ok := top[section]
 		if !ok {
 			continue
@@ -141,7 +141,7 @@ func lintCaptureGatesJSON(content string) error {
 		if err := json.Unmarshal(raw, &fields); err != nil {
 			return fmt.Errorf("gates.%s must be an object", section)
 		}
-		for _, list := range []string{"rules", "offHours", "burst", "probing"} {
+		for _, list := range []string{"rules", "offHours", "burst", "probing", "ops"} {
 			arr, ok := fields[list]
 			if !ok {
 				continue

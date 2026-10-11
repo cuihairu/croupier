@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -370,6 +370,33 @@ Ops/Nodes 新增「捕获」列（注册 labels `captureLineage=degraded` →
 scope 隔离、5 种 lint 败 + scope 缺失 + lint 败后不落库）；web 页 7 例
 （已发布/未发布渲染、模板插入、发布链、发布失败、加载失败、重载）+
 service 3 例（URL/method/参数形状）；Nodes 75 例回归绿。
+
+### 8.7 交付记录：事件粗过滤接线（CDC 平台化批阶段二起步，2026-10-11）
+
+代码面：新契约包 `agents/capture/filter`（`policy.go` 统一策略头 +
+`match.go` 库表授权 + `event.go` EventFilter + `connector` 包 ChangeEvent/
+SourceConnector/能力声明，阶段一）；runner 接线（`config.Gates` 新增
+`event.ops` 段 → `gateSet.event` → consume 进闸前粗过滤）；Stats 新增
+`FilteredNoMatch` / `FilteredError`；面板 lint 认识 `event.ops` 数组形状。
+口径与差异：
+
+1. **EventFilter v1 只做操作类型白名单**：库表范围归 SourceFilter（授权
+   语义默认拒绝，见 [CDC 过滤策略体系](cdc-filter-policy-design.md)
+   §1.1/§1.2）——事件过滤是放行语义（空白名单=全放行），两者语义不同
+   不共用匹配器，防「exclude-only 配置被默认拒绝误伤」这类边界。
+2. **缺省段 = 全放行**（向后兼容）：既有 capture.gates JSON 与文件配置
+   无 `event` 段时 gateSet.event=nil，直通零开销，行为零变化。
+3. **失败语义**：未列入白名单的合法操作 = FilteredNoMatch 丢弃；未知
+   操作（形态不可评估）= FilteredError 丢弃——有计数可观测的丢弃，不
+   静默（简档 §5）；闸层评估失败保留事件的红线不变（gate 评估当前无
+   错误路径，错误计数随闸层演进补）。
+4. **原子切换免费获得**：event filter 挂在 gateSet 快照内，§8.5 的整体
+   热换/keep last-good 语义对过滤层同样生效，无新增并发面。
+
+测试：filter 包 3 组（策略头/授权匹配/事件过滤）+ connector 包 7 组；
+runner 4 例（接线与计数、未知操作 Error 计数、非法段 keep last-good、
+buildGateSet 闭集拒绝）；ops lint 2 例新增（event 非法形状 422、合法
+放行）。
 
 ## 9. 已知边界（诚实清单）
 

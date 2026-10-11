@@ -112,6 +112,8 @@ func TestCaptureGatesPutValidation(t *testing.T) {
 		"section not obj": `{"reconcile":[]}`,
 		"rules not array": `{"reconcile":{"rules":{}}}`,
 		"cep not array":   `{"cep":{"burst":"x"}}`,
+		"event not obj":   `{"event":"x"}`,
+		"ops not array":   `{"event":{"ops":"insert"}}`,
 	} {
 		if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: content}); err == nil {
 			t.Fatalf("%s must be rejected", name)
@@ -126,6 +128,10 @@ func TestCaptureGatesPutValidation(t *testing.T) {
 	// 未知键放行（agent 侧前向扩展不需要改面板）。
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{"future":{"x":1}}`}); err != nil {
 		t.Fatalf("unknown section must pass lint: %v", err)
+	}
+	// event 段合法形状放行（操作白名单，阶段二 EventFilterPolicy）。
+	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{"event":{"ops":["insert","delete"]}}`}); err != nil {
+		t.Fatalf("event section must pass lint: %v", err)
 	}
 }
 

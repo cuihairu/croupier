@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/config"
+	"github.com/cuihairu/croupier/agents/capture/filter"
 	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
 	"github.com/cuihairu/croupier/agents/controlconn"
@@ -54,14 +55,18 @@ type Stats struct {
 	Update          int64
 	Delete          int64
 	Skipped         int64 // 白名单外丢弃
+	FilteredNoMatch int64 // 事件粗过滤丢弃：未列入操作白名单（过滤策略简档 §8 events_filtered_total 分类子集）
+	FilteredError   int64 // 事件粗过滤丢弃：操作形态不可评估（非法操作）
 	GateHits        int64 // 闸规则命中累计（reconcile 起步，C2 批接入）
 	AlertDropped    int64 // 告警上报丢弃累计（队列满/断连/发送失败）
 	LastEventUnixMs int64
 }
 
-// gateSet 一份自洽的闸层快照（三闸实例或 nil）。热更经 atomic.Pointer
-// 整体换指针：consume/sweep 单 goroutine 读，拉取 goroutine 写，免锁。
+// gateSet 一份自洽的闸层快照（事件粗过滤 + 三闸实例或 nil）。热更经
+// atomic.Pointer 整体换指针：consume/sweep 单 goroutine 读，拉取 goroutine
+// 写，免锁。
 type gateSet struct {
+	event     *filter.EventFilter // nil = 未配事件粗过滤（全放行，直通零开销）
 	reconcile *gate.ReconcileGate // nil = 未配对账规则（直通零开销）
 	cep       *gate.CEPGate       // nil = 未配 CEP 规则（直通零开销）
 	lineage   *gate.LineageGate   // nil = 未配血缘规则（直通零开销）
@@ -176,6 +181,13 @@ func buildGateSet(g config.Gates) (*gateSet, error) {
 		}
 		gs.lineage = lineage
 	}
+	if len(g.Event.Ops) > 0 {
+		ev, err := filter.NewEventFilter(g.Event.Ops)
+		if err != nil {
+			return nil, fmt.Errorf("event filter: %w", err)
+		}
+		gs.event = ev
+	}
 	return gs, nil
 }
 
@@ -228,6 +240,8 @@ func (r *Runner) Stats() Stats {
 		Update:          atomic.LoadInt64(&r.stats.Update),
 		Delete:          atomic.LoadInt64(&r.stats.Delete),
 		Skipped:         atomic.LoadInt64(&r.stats.Skipped),
+		FilteredNoMatch: atomic.LoadInt64(&r.stats.FilteredNoMatch),
+		FilteredError:   atomic.LoadInt64(&r.stats.FilteredError),
 		GateHits:        atomic.LoadInt64(&r.stats.GateHits),
 		AlertDropped:    atomic.LoadInt64(&r.stats.AlertDropped),
 		LastEventUnixMs: atomic.LoadInt64(&r.stats.LastEventUnixMs),
@@ -353,6 +367,19 @@ func (r *Runner) consume(ev source.ChangeEvent) {
 	gs := r.gates.Load()
 	if gs == nil {
 		return
+	}
+	// 事件粗过滤（EventFilterPolicy v1）：未列入白名单的合法操作在进闸前
+	// 丢弃（FilteredNoMatch），形态不可评估的非法操作计 FilteredError——
+	// 有计数可观测的丢弃，不静默（过滤策略简档 §5/§8）。
+	if gs.event != nil {
+		switch gs.event.Evaluate(string(ev.Op)) {
+		case filter.ResultNoMatch:
+			atomic.AddInt64(&r.stats.FilteredNoMatch, 1)
+			return
+		case filter.ResultError:
+			atomic.AddInt64(&r.stats.FilteredError, 1)
+			return
+		}
 	}
 	if gs.reconcile != nil {
 		r.recordHits(gs.reconcile.Evaluate(&ev))
