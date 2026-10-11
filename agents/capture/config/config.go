@@ -50,6 +50,10 @@ type Gates struct {
 		Burst    []gate.BurstRule    `yaml:"burst" json:"burst"`
 		Probing  []gate.ProbeRule    `yaml:"probing" json:"probing"`
 	} `yaml:"cep" json:"cep"`
+	// Lineage 血缘闸规则（账号白名单；C1 account 恒空 → 降级态）。
+	Lineage struct {
+		Rules []gate.LineageRule `yaml:"rules" json:"rules"`
+	} `yaml:"lineage" json:"lineage"`
 }
 
 // Capture CDC 功能块。
@@ -113,6 +117,9 @@ func (c Config) Validate() error {
 		return fmt.Errorf("capture.gates: %w", err)
 	}
 	if err := gate.ValidateCEPRules(c.Capture.Gates.CEP.OffHours, c.Capture.Gates.CEP.Burst, c.Capture.Gates.CEP.Probing); err != nil {
+		return fmt.Errorf("capture.gates: %w", err)
+	}
+	if err := gate.ValidateLineageRules(c.Capture.Gates.Lineage.Rules); err != nil {
 		return fmt.Errorf("capture.gates: %w", err)
 	}
 	return nil

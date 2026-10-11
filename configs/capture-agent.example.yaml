@@ -92,3 +92,14 @@ capture:
       #   count: 5
       #   windowSec: 600
       #   maxTracked: 10000    # 追踪键上限，0 → 默认 10000
+    # 血缘闸：非白名单账号写受监控表 = lineage.whitelist_violation 告警。
+    # C1 降级态：binlog/WAL 不带会话账号，空账号事件跳过并计数（见简档 §8.3）；
+    # 源侧补上账号后零改动生效。
+    lineage:
+      rules: []
+      # - name: items-accounts
+      #   table: game.items
+      #   ops: []               # 空 = 全部变更
+      #   allowAccounts:        # 应用账号 + 运维豁免账号
+      #     - app_writer
+      #   severity: critical

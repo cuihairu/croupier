@@ -56,6 +56,7 @@ type Runner struct {
 
 	reconcile *gate.ReconcileGate // nil = 未配对账规则（直通零开销）
 	cep       *gate.CEPGate       // nil = 未配 CEP 规则（直通零开销）
+	lineage   *gate.LineageGate   // nil = 未配血缘规则（直通零开销）
 
 	stats Stats
 }
@@ -95,6 +96,16 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 			r.cep = g
 			log.Info("cep gate enabled", "offHours", len(cepCfg.OffHours),
 				"burst", len(cepCfg.Burst), "probing", len(cepCfg.Probing))
+		}
+	}
+	if rules := cfg.Capture.Gates.Lineage.Rules; len(rules) > 0 {
+		g, err := gate.NewLineage(rules)
+		if err != nil {
+			// config.Validate 已全量校验，此处不可达；防御性降级为直通。
+			log.Warn("lineage gate disabled, invalid rules", "error", err)
+		} else {
+			r.lineage = g
+			log.Info("lineage gate enabled (degraded: source has no session account)", "rules", len(rules))
 		}
 	}
 	return r
@@ -224,6 +235,9 @@ func (r *Runner) consume(ev source.ChangeEvent) {
 	}
 	if r.cep != nil {
 		r.recordHits(r.cep.Evaluate(&ev))
+	}
+	if r.lineage != nil {
+		r.recordHits(r.lineage.Evaluate(&ev))
 	}
 }
 

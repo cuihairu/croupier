@@ -245,6 +245,26 @@ runner 接线（事件到达即评即命中；位点 tick Sweep 只做清桶卫�
 裁剪、试探计数与重置、键隔离与大额打断、Sweep 清桶、键容量 FIFO 驱逐、校验
 错误集、同表多实例）+ runner 接线 2 例。
 
+### 8.3 C2 交付记录：闸三·血缘（2026-10-11）
+
+代码面：`agents/capture/gate/lineage.go`（`lineage.whitelist_violation`）+
+`capture.gates.lineage.rules` 文件配置 + runner 接线。实现口径：
+
+1. **账号白名单**：`allowAccounts` 必填非空（至少含应用写入账号——白名单
+   空的血缘规则=全部写入都告警，属配置错误，启动即拦）。
+2. **C1 降级态（主差异）**：binlog/WAL 事件不携带会话账号，`account` 恒空
+   （§3.3）——空账号事件**跳过并计数 `Degraded`**（不误报：无归因主体的
+   告警是纯噪声；不放过：一旦源侧补上账号通道，本闸零改动生效）。闸启用
+   时 runner 启动日志显式标注 `degraded: source has no session account`；
+   面板「降级态」标注随面板配置面批。
+3. **降级不等于关闸**：规则与校验面按有账号形态交付，事件带账号即按白名单
+   判定——general log / audit 插件侧通道（C4 评估项）接入后无需改闸。
+4. 操作过滤与表路由同 CEP（`ops` 空名单 = 全部变更；非订阅表直通且不计
+   degraded——降级计数只反映真实评估量）。
+
+测试：`agents/capture/gate/lineage_test.go` 5 例（白名单外命中、白名单内直通、
+空账号降级计数、操作过滤与表路由不误计、校验错误集）。
+
 ## 9. 已知边界（诚实清单）
 
 - 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。
