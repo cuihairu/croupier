@@ -133,10 +133,14 @@ type ServerStatusSourceConfig struct {
 	TokenEnv string `json:"tokenEnv,omitempty" yaml:"tokenEnv,omitempty"`
 	// TimeoutMs 单次查询超时毫秒；<=0 取实现默认 3000。
 	TimeoutMs int `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty"`
-	// StatusPath 状态查询路径（atlas 专属；默认 /api/servers）。
+	// StatusPath 状态查询路径模板（atlas 专属；默认
+	// /v1/discovery/servers/{id}，{id} 占位符=路径参数替换）。
 	StatusPath string `json:"statusPath,omitempty" yaml:"statusPath,omitempty"`
 	// MatchKey 定位参数名（atlas 专属；默认 agentId）。
 	MatchKey string `json:"matchKey,omitempty" yaml:"matchKey,omitempty"`
+	// InMaintenanceStatus 状态枚举值口径（atlas 专属）：映射到的
+	// inMaintenance 字段不是 bool 时按此字符串判等；默认 "maintenance"。
+	InMaintenanceStatus string `json:"inMaintenanceStatus,omitempty" yaml:"inMaintenanceStatus,omitempty"`
 	// FieldMapping 响应字段映射（atlas 专属：契约字段名→atlas JSON 键；
 	// 配置驱动，不写死供应商字段名——alertInbound labelMapping 同款）。
 	FieldMapping map[string]string `json:"fieldMapping,omitempty" yaml:"fieldMapping,omitempty"`

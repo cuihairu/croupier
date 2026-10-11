@@ -51,9 +51,10 @@ func installServerStatusGate(cfg config.Config, manager *outlet.Manager) {
 		Token:   os.Getenv(source.TokenEnv),
 		Timeout: time.Duration(source.TimeoutMs) * time.Millisecond,
 		Atlas: serverstatus.AtlasOptions{
-			StatusPath: source.StatusPath,
-			MatchKey:   matchKey,
-			Fields:     source.FieldMapping,
+			StatusPath:          source.StatusPath,
+			MatchKey:            matchKey,
+			InMaintenanceStatus: source.InMaintenanceStatus,
+			Fields:              source.FieldMapping,
 		},
 	}
 	gate := serverstatus.NewGate(factory(opts),

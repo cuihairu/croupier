@@ -5,20 +5,24 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestAtlas_MapsArrayResponse(t *testing.T) {
+// 默认口径=atlas 真实 API（2026-10-11 对齐）：GET /v1/discovery/servers/{id}
+// 路径参数定位（discovery 无需鉴权），单对象响应，status 字符串枚举
+// （"maintenance"=在维护），id 字段定位行。
+func TestAtlas_DiscoveryObjectResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("agentId") != "agent-7" {
+		if r.URL.Path != "/v1/discovery/servers/agent-7" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer tok-1" {
 			t.Fatalf("auth header = %q", got)
 		}
-		_, _ = w.Write([]byte(`[{"agentId":"agent-7","host":"h7","healthy":true,"inMaintenance":true,"windowStart":"2026-10-10T00:00:00Z","windowEnd":"2026-10-11T00:00:00Z","windowNote":"发版"}]`))
+		_, _ = w.Write([]byte(`{"id":"agent-7","name":"s7","status":"maintenance","players":3}`))
 	}))
 	defer srv.Close()
 
@@ -27,7 +31,38 @@ func TestAtlas_MapsArrayResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	if !st.InMaintenance || !st.Healthy || st.Source != ProviderAtlas {
+	if !st.InMaintenance || st.Healthy || st.Source != ProviderAtlas {
+		t.Fatalf("status = %+v", st)
+	}
+	if st.Window != nil {
+		t.Fatalf("discovery has no window fields, got %+v", st.Window)
+	}
+}
+
+// query 参数口径兜底（StatusPath 无 {id} 占位符）：数组响应 + bool
+// inMaintenance + window 三字段（供应商侧若给出窗口字段照单全收）。
+func TestAtlas_QueryParamArrayResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/servers" || r.URL.Query().Get("agentId") != "agent-7" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(`[{"id":"agent-7","healthy":true,"inMaintenance":true,"windowStart":"2026-10-11T00:00:00Z","windowEnd":"2026-10-12T00:00:00Z","windowNote":"发版"}]`))
+	}))
+	defer srv.Close()
+
+	p := NewAtlasProvider(Options{
+		BaseURL: srv.URL,
+		Atlas: AtlasOptions{
+			StatusPath: "/api/servers",
+			Fields:     map[string]string{"inMaintenance": "inMaintenance"}, // 布尔键行显式映射（默认走 status 枚举）
+		},
+	})
+	st, err := p.GetServerStatus(context.Background(), ServerRef{AgentID: "agent-7"})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if !st.InMaintenance || !st.Healthy {
 		t.Fatalf("status = %+v", st)
 	}
 	if st.Window == nil || st.Window.Note != "发版" || st.Window.Start.IsZero() || st.Window.End.IsZero() {
@@ -35,9 +70,10 @@ func TestAtlas_MapsArrayResponse(t *testing.T) {
 	}
 }
 
-func TestAtlas_FieldMapping(t *testing.T) {
+// 在维护的另一种口径：映射字段是 bool（非枚举）直取。
+func TestAtlas_FieldMappingBool(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`[{"id":"agent-7","alive":"yes","frozen":1}]`))
+		_, _ = w.Write([]byte(`{"id":"agent-7","frozen":true}`))
 	}))
 	defer srv.Close()
 
@@ -45,25 +81,40 @@ func TestAtlas_FieldMapping(t *testing.T) {
 		BaseURL: srv.URL,
 		Atlas: AtlasOptions{
 			Fields: map[string]string{
-				"agentId":       "id",
 				"inMaintenance": "frozen",
-				"healthy":       "alive",
 			},
 		},
 	})
-	// 映射后的 inMaintenance 键是 bool，非 bool 值按零值处理
 	st, err := p.GetServerStatus(context.Background(), ServerRef{AgentID: "agent-7"})
-	if err != nil {
-		t.Fatalf("query: %v", err)
+	if err != nil || !st.InMaintenance {
+		t.Fatalf("st = %+v err = %v", st, err)
 	}
-	if st.Source != ProviderAtlas {
-		t.Fatalf("source = %q", st.Source)
+}
+
+// 配置只映射部分键：默认映射（agentId→id / inMaintenance→status）保留，
+// 只覆盖写到的键。
+func TestAtlas_PartialFieldMappingMergesDefaults(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":"agent-7","status":"online"}]`))
+	}))
+	defer srv.Close()
+
+	p := NewAtlasProvider(Options{
+		BaseURL: srv.URL,
+		Atlas: AtlasOptions{
+			StatusPath: "/api/servers", // query 参数口径
+			Fields:     map[string]string{"healthy": "players_ok"},
+		},
+	})
+	st, err := p.GetServerStatus(context.Background(), ServerRef{AgentID: "agent-7"})
+	if err != nil || st.InMaintenance {
+		t.Fatalf("st = %+v err = %v（默认 status→maintenance 枚举须仍生效）", st, err)
 	}
 }
 
 func TestAtlas_ObjectResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"agentId":"agent-7","inMaintenance":false}`))
+		_, _ = w.Write([]byte(`{"id":"agent-7","status":"online"}`))
 	}))
 	defer srv.Close()
 	p := NewAtlasProvider(Options{BaseURL: srv.URL})
@@ -73,9 +124,42 @@ func TestAtlas_ObjectResponse(t *testing.T) {
 	}
 }
 
+// draining/suspect/offline 不是维护（维护=运维显式声明，告警噪音只有
+// 维护窗一种）。
+func TestAtlas_NonMaintenanceStatusesPass(t *testing.T) {
+	for _, status := range []string{"online", "draining", "suspect", "offline", "starting"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"id":"a","status":"` + status + `"}`))
+		}))
+		p := NewAtlasProvider(Options{BaseURL: srv.URL})
+		st, err := p.GetServerStatus(context.Background(), ServerRef{AgentID: "a"})
+		if err != nil || st.InMaintenance {
+			srv.Close()
+			t.Fatalf("status %q: st = %+v err = %v, want not in maintenance", status, st, err)
+		}
+		srv.Close()
+	}
+}
+
+// InMaintenanceStatus 可配：换枚举口径不改代码。
+func TestAtlas_InMaintenanceStatusConfigurable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"a","status":"draining"}`))
+	}))
+	defer srv.Close()
+	p := NewAtlasProvider(Options{
+		BaseURL: srv.URL,
+		Atlas:   AtlasOptions{InMaintenanceStatus: "draining"},
+	})
+	st, err := p.GetServerStatus(context.Background(), ServerRef{AgentID: "a"})
+	if err != nil || !st.InMaintenance {
+		t.Fatalf("st = %+v err = %v, want draining counted as maintenance", st, err)
+	}
+}
+
 func TestAtlas_NoMappingFailsOpen(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`[{"agentId":"other"}]`))
+		_, _ = w.Write([]byte(`[{"id":"other"}]`))
 	}))
 	defer srv.Close()
 	p := NewAtlasProvider(Options{BaseURL: srv.URL})
@@ -125,9 +209,14 @@ func TestAtlas_UnavailableFailsOpen(t *testing.T) {
 	}
 }
 
+// ListServers 吃 atlas 真实包装 {"servers":[...]}（status 枚举判定同款）。
 func TestAtlas_ListServers(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"servers":[{"agentId":"a1","host":"h1","healthy":true,"inMaintenance":false},{"agentId":"a2","inMaintenance":true}]}`))
+		if r.URL.Path != "/v1/discovery/servers" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(`{"servers":[{"id":"a1","host":"h1","status":"online"},{"id":"a2","status":"maintenance"}]}`))
 	}))
 	defer srv.Close()
 	p := NewAtlasProvider(Options{BaseURL: srv.URL})
@@ -135,11 +224,12 @@ func TestAtlas_ListServers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
-	if len(rows) != 2 || rows[0].AgentID != "a1" || rows[0].Host != "h1" || !rows[0].Healthy || !rows[1].InMaintenance {
+	if len(rows) != 2 || rows[0].AgentID != "a1" || rows[0].Host != "h1" || rows[0].InMaintenance || !rows[1].InMaintenance {
 		t.Fatalf("rows = %+v", rows)
 	}
 }
 
+// MatchKey=host + query 口径：定位参数名随 MatchKey 走。
 func TestAtlas_MatchKeyVariants(t *testing.T) {
 	var gotKey, gotVal string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +238,14 @@ func TestAtlas_MatchKeyVariants(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"host":"h9","inMaintenance":true}]`))
 	}))
 	defer srv.Close()
-	p := NewAtlasProvider(Options{BaseURL: srv.URL, Atlas: AtlasOptions{MatchKey: "host"}})
+	p := NewAtlasProvider(Options{
+		BaseURL: srv.URL,
+		Atlas: AtlasOptions{
+			StatusPath: "/api/servers",
+			MatchKey:   "host",
+			Fields:     map[string]string{"inMaintenance": "inMaintenance"},
+		},
+	})
 	st, err := p.GetServerStatus(context.Background(), ServerRef{Host: "h9"})
 	if err != nil || !st.InMaintenance {
 		t.Fatalf("st=%+v err=%v", st, err)
@@ -158,14 +255,39 @@ func TestAtlas_MatchKeyVariants(t *testing.T) {
 	}
 }
 
-func TestGate_WithAtlasStub(t *testing.T) {
-	// S1 验收路径全链：atlas httptest stub → gate 三分支
+// {id} 占位符替换对 host 定位同样生效（值经 QueryEscape）。
+func TestAtlas_PathPlaceholderWithHostMatch(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("agentId") == "maintained" {
-			_, _ = w.Write([]byte(`[{"agentId":"maintained","inMaintenance":true}]`))
+		if r.URL.Path != "/v1/discovery/servers/h 9" {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		_, _ = w.Write([]byte(`[{"agentId":"free","inMaintenance":false}]`))
+		_, _ = w.Write([]byte(`{"host":"h 9","status":"maintenance"}`))
+	}))
+	defer srv.Close()
+	p := NewAtlasProvider(Options{
+		BaseURL: srv.URL,
+		Atlas:   AtlasOptions{MatchKey: "host"},
+	})
+	st, err := p.GetServerStatus(context.Background(), ServerRef{Host: "h 9"})
+	if err != nil || !st.InMaintenance {
+		t.Fatalf("st=%+v err=%v", st, err)
+	}
+}
+
+func TestGate_WithAtlasStub(t *testing.T) {
+	// S1 验收路径全链：atlas httptest stub → gate 三分支（真实口径：
+	// 路径参数定位 + status 枚举）。
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/v1/discovery/servers/")
+		switch id {
+		case "maintained":
+			_, _ = w.Write([]byte(`{"id":"maintained","status":"maintenance"}`))
+		case "free":
+			_, _ = w.Write([]byte(`{"id":"free","status":"online"}`))
+		default:
+			_, _ = w.Write([]byte(`{"servers":[]}`))
+		}
 	}))
 	defer srv.Close()
 	g := NewGate(NewAtlasProvider(Options{BaseURL: srv.URL}), NewCache(0), nil)
