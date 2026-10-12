@@ -377,7 +377,9 @@ service 3 例（URL/method/参数形状）；Nodes 75 例回归绿。
 `match.go` 库表授权 + `event.go` EventFilter + `connector` 包 ChangeEvent/
 SourceConnector/能力声明，阶段一）；runner 接线（`config.Gates` 新增
 `event.ops` 段 → `gateSet.event` → consume 进闸前粗过滤）；Stats 新增
-`FilteredNoMatch` / `FilteredError`；面板 lint 认识 `event.ops` 数组形状。
+`FilteredNoMatch` / `FilteredError` / `Evaluated` / `PolicyApplyErrors` /
+`RuleEvalErrors`（过滤策略简档 §8 口径，2026-10-13 阶段二收尾补齐）；面板
+lint 认识 `event.ops` 数组形状。
 口径与差异：
 
 1. **EventFilter v1 只做操作类型白名单**：库表范围归 SourceFilter（授权
@@ -388,8 +390,9 @@ SourceConnector/能力声明，阶段一）；runner 接线（`config.Gates` 新
    无 `event` 段时 gateSet.event=nil，直通零开销，行为零变化。
 3. **失败语义**：未列入白名单的合法操作 = FilteredNoMatch 丢弃；未知
    操作（形态不可评估）= FilteredError 丢弃——有计数可观测的丢弃，不
-   静默（简档 §5）；闸层评估失败保留事件的红线不变（gate 评估当前无
-   错误路径，错误计数随闸层演进补）。
+   静默（简档 §5）；闸层评估失败保留事件的红线不变，检测失败计数已进
+   统一面：`Stats.RuleEvalErrors`（sweep 周期聚合 CEP 门上
+   SkippedNoDelta 增量，热换新门实例基线重置不虚增）。
 4. **原子切换免费获得**：event filter 挂在 gateSet 快照内，§8.5 的整体
    热换/keep last-good 语义对过滤层同样生效，无新增并发面。
 

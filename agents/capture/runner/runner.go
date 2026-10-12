@@ -56,16 +56,19 @@ const (
 
 // Stats 消费统计（原子计数，C1 仅日志暴露；C2 随上报捎带）。
 type Stats struct {
-	Total           int64
-	Insert          int64
-	Update          int64
-	Delete          int64
-	Skipped         int64 // 白名单外丢弃
-	FilteredNoMatch int64 // 事件粗过滤丢弃：未列入操作白名单（过滤策略简档 §8 events_filtered_total 分类子集）
-	FilteredError   int64 // 事件粗过滤丢弃：操作形态不可评估（非法操作）
-	GateHits        int64 // 闸规则命中累计（reconcile 起步，C2 批接入）
-	AlertDropped    int64 // 告警上报丢弃累计（队列满/断连/发送失败）
-	LastEventUnixMs int64
+	Total             int64
+	Insert            int64
+	Update            int64
+	Delete            int64
+	Skipped           int64 // 白名单外丢弃
+	FilteredNoMatch   int64 // 事件粗过滤丢弃：未列入操作白名单（过滤策略简档 §8 events_filtered_total 分类子集）
+	FilteredError     int64 // 事件粗过滤丢弃：操作形态不可评估（非法操作）
+	Evaluated         int64 // 进入闸层评估的事件数（粗过滤之后；§8 events_evaluated_total）
+	PolicyApplyErrors int64 // 策略应用失败次数（面板下发解析/校验失败 keep last-good；§8 policy_apply_errors_total）
+	RuleEvalErrors    int64 // 规则执行错误次数（闸层检测失败保留事件只计数，sweep 聚合；§8 rule_evaluation_errors_total）
+	GateHits          int64 // 闸规则命中累计（reconcile 起步，C2 批接入）
+	AlertDropped      int64 // 告警上报丢弃累计（队列满/断连/发送失败）
+	LastEventUnixMs   int64
 }
 
 // gateSet 一份自洽的闸层快照（事件粗过滤 + 三闸实例或 nil）。热更经
@@ -107,6 +110,10 @@ type Runner struct {
 	fetchConfig func(ctx context.Context) (*configsync.Versioned[[]byte], error)
 	// hitCh 命中→上报异步队列（容量 hitQueueSize，满即丢）。
 	hitCh chan gate.Hit
+
+	// cepSkippedSeen CEP 门上 skippedNoDelta 已聚合基线（sweep 周期采样
+	// 增量进 RuleEvalErrors；热换新门实例计数归零，cur<seen 视为重置基线）。
+	cepSkippedSeen atomic.Int64
 
 	stats Stats
 }
@@ -154,6 +161,7 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		// config.Validate 启动即全量校验，此处不可达；防御性降级为全直通。
 		log.Warn("capture gates disabled, invalid file rules", "error", err)
 		gs = &gateSet{}
+		atomic.AddInt64(&r.stats.PolicyApplyErrors, 1)
 	}
 	r.gates.Store(gs)
 	// 文件规则=fallback 口径（CDC 平台化批阶段三「业务规则迁出 YAML」）：
@@ -209,9 +217,16 @@ func buildGateSet(g config.Gates) (*gateSet, error) {
 
 // applyGates 面板下发规则热生效：解析→校验→整体换指针（失败保留旧闸）。
 // gates_json 形状与配置文件 capture.gates 块一致（面板编辑面即文件语义）。
-func (r *Runner) applyGates(_ context.Context, raw []byte) error {
+// 应用失败计 PolicyApplyErrors（过滤策略简档 §8 policy_apply_errors_total）
+// ——keep last-good 之外「没生效」的可观测信号。
+func (r *Runner) applyGates(_ context.Context, raw []byte) (err error) {
+	defer func() {
+		if err != nil {
+			atomic.AddInt64(&r.stats.PolicyApplyErrors, 1)
+		}
+	}()
 	var g config.Gates
-	if err := json.Unmarshal(raw, &g); err != nil {
+	if err = json.Unmarshal(raw, &g); err != nil {
 		return fmt.Errorf("parse gates json: %w", err)
 	}
 	gs, err := buildGateSet(g)
@@ -265,16 +280,19 @@ func (r *Runner) newGatesPuller() *configsync.Puller[[]byte] {
 // Stats 返回消费统计快照。
 func (r *Runner) Stats() Stats {
 	return Stats{
-		Total:           atomic.LoadInt64(&r.stats.Total),
-		Insert:          atomic.LoadInt64(&r.stats.Insert),
-		Update:          atomic.LoadInt64(&r.stats.Update),
-		Delete:          atomic.LoadInt64(&r.stats.Delete),
-		Skipped:         atomic.LoadInt64(&r.stats.Skipped),
-		FilteredNoMatch: atomic.LoadInt64(&r.stats.FilteredNoMatch),
-		FilteredError:   atomic.LoadInt64(&r.stats.FilteredError),
-		GateHits:        atomic.LoadInt64(&r.stats.GateHits),
-		AlertDropped:    atomic.LoadInt64(&r.stats.AlertDropped),
-		LastEventUnixMs: atomic.LoadInt64(&r.stats.LastEventUnixMs),
+		Total:             atomic.LoadInt64(&r.stats.Total),
+		Insert:            atomic.LoadInt64(&r.stats.Insert),
+		Update:            atomic.LoadInt64(&r.stats.Update),
+		Delete:            atomic.LoadInt64(&r.stats.Delete),
+		Skipped:           atomic.LoadInt64(&r.stats.Skipped),
+		FilteredNoMatch:   atomic.LoadInt64(&r.stats.FilteredNoMatch),
+		FilteredError:     atomic.LoadInt64(&r.stats.FilteredError),
+		Evaluated:         atomic.LoadInt64(&r.stats.Evaluated),
+		PolicyApplyErrors: atomic.LoadInt64(&r.stats.PolicyApplyErrors),
+		RuleEvalErrors:    atomic.LoadInt64(&r.stats.RuleEvalErrors),
+		GateHits:          atomic.LoadInt64(&r.stats.GateHits),
+		AlertDropped:      atomic.LoadInt64(&r.stats.AlertDropped),
+		LastEventUnixMs:   atomic.LoadInt64(&r.stats.LastEventUnixMs),
 	}
 }
 
@@ -413,6 +431,12 @@ func (r *Runner) consume(ev source.ChangeEvent) {
 			return
 		}
 	}
+	if gs.reconcile == nil && gs.cep == nil && gs.lineage == nil {
+		return
+	}
+	// 进入闸层评估（过滤策略简档 §8 events_evaluated_total）：事件粗过滤
+	// 之后、三闸之前；无任何闸实例的直通不计。
+	atomic.AddInt64(&r.stats.Evaluated, 1)
 	if gs.reconcile != nil {
 		r.recordHits(gs.reconcile.Evaluate(&ev))
 	}
@@ -435,6 +459,15 @@ func (r *Runner) sweepGates(nowMs int64) {
 	}
 	if gs.cep != nil {
 		gs.cep.Sweep(nowMs)
+		// 检测失败可观测聚合（§8 rule_evaluation_errors_total）：CEP 门内
+		// delta 不可数值化等检测失败保留事件只计门上计数（SkippedNoDelta
+		// 口径），sweep 周期采样增量进统一统计面。热换新门实例计数归零，
+		// cur < seen 视为基线重置，不产生负增量/虚增。
+		cur := gs.cep.SkippedNoDelta()
+		if last := r.cepSkippedSeen.Load(); cur > last {
+			atomic.AddInt64(&r.stats.RuleEvalErrors, cur-last)
+		}
+		r.cepSkippedSeen.Store(cur)
 	}
 }
 

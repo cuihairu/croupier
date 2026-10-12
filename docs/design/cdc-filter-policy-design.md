@@ -166,7 +166,7 @@ detection:
 | `rule_evaluation_errors_total` | 规则执行错误次数             |
 | `policy_applied_revision`      | 当前实际生效版本             |
 
-用途：判断过滤是否过严、规则是否失效、Agent 是否因配置不兼容漏检。现状锚点：Stats.Total/Insert/Update/Delete/Skipped/GateHits/AlertDropped 之外，`FilteredNoMatch`/`FilteredError`（events_filtered_total 按原因分类的首批）已落码（2026-10-11）；events_evaluated 可由 Total−Filtered 推得；policy_apply_errors 与 revision 上报随阶段三。
+用途：判断过滤是否过严、规则是否失效、Agent 是否因配置不兼容漏检。现状锚点：Stats.Total/Insert/Update/Delete/Skipped/GateHits/AlertDropped 之外，`FilteredNoMatch`/`FilteredError`（events_filtered_total 按原因分类的首批）、`Evaluated`（events_evaluated_total，粗过滤后进闸评估才计）、`PolicyApplyErrors`（policy_apply_errors_total：面板下发解析/校验失败 keep last-good 时计数）、`RuleEvalErrors`（rule_evaluation_errors_total：CEP 检测失败保留事件只计门上计数，sweep 周期聚合，SkippedNoDelta 口径推广）已落码（2026-10-13 阶段二收尾）；汇总上报与 revision 上报随阶段三。
 
 ## 9. 实施顺序（四阶段）
 

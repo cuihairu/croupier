@@ -4278,9 +4278,9 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 - [x] **抽 `agents/capture/filter/` 纯逻辑包（✅ 2026-10-11）**：事件级匹配与过滤决策，零驱动/API 依赖；EventFilter v1=操作类型白名单（`event.ops` 段，缺省=全放行向后兼容）已接线 runner consume 进闸前；元数据筛与表级（归 SourceFilter 授权语义，防 exclude-only 被默认拒绝误伤）随后续
 - [x] **策略原子切换泛化（✅ 2026-10-11，event 层）**：event filter 挂 gateSet 快照，整体热换/keep last-good 语义免费覆盖；CEP 窗口状态保留与否仍待拍板实现（现状整体换、重新起算）
-- [ ] **失败语义落地**：检测失败优先保留事件+计数+可观测信号（现状 SkippedNoDelta 口径推广）；策略 UNSUPPORTED 显式上报（部分：未知操作=FilteredError 计数丢弃已落码，闸层评估错误计数随闸层演进）
-- [ ] **过滤统计**：events_received/filtered(按原因)/evaluated_total、policy_apply_errors、rule_evaluation_errors 计数入 Stats；汇总口径见过滤策略简档 §8（部分：FilteredNoMatch/FilteredError 已入 Stats，evaluated 可推得；apply_errors/revision 上报随阶段三）
-- [ ] **单测**：filter 包纯逻辑全量用例 + runner 装配链（应用/回退/统计）+ 失败翼
+- [x] **失败语义落地**：检测失败优先保留事件+计数+可观测信号（现状 SkippedNoDelta 口径推广）；策略 UNSUPPORTED 显式上报（部分：未知操作=FilteredError 计数丢弃已落码，闸层评估错误计数随闸层演进）（2026-10-13：SkippedNoDelta 口径推广落地——`Stats.RuleEvalErrors` sweep 周期聚合 CEP 门上增量，检测失败保留事件只计数，热换新门实例基线重置不虚增；策略 UNSUPPORTED 显式上报随阶段三策略类型落地接线，当前 filter 无产生源、契约位 ResultUnsupported 已定义）
+- [x] **过滤统计**：events_received/filtered(按原因)/evaluated_total、policy_apply_errors、rule_evaluation_errors 计数入 Stats；汇总口径见过滤策略简档 §8（部分：FilteredNoMatch/FilteredError 已入 Stats，evaluated 可推得；apply_errors/revision 上报随阶段三）（2026-10-13：`Evaluated`（粗过滤后进闸评估才计）/`PolicyApplyErrors`（applyGates 解析/校验失败 keep last-good 计数 + 启动文件规则降级同计）/`RuleEvalErrors` 三计数入 Stats 与 Stats() 快照；汇总上报与 revision 上报仍随阶段三）
+- [x] **单测**：filter 包纯逻辑全量用例 + runner 装配链（应用/回退/统计）+ 失败翼（2026-10-13：新增 `runner_stats_test.go` 三用例——evaluated 进闸才计（无闸直通不计/粗过滤丢弃不计）、apply 失败计数+keep last-good 存活、sweep 聚合 RuleEvalErrors 含热换基线重置；filter 包补 Tables 回显断言与 PolicyState/PolicyKind 闭集枚举用例）
 
 ### 阶段三：中心策略管理（Server 侧）
 

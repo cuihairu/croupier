@@ -1,6 +1,9 @@
 package filter
 
-import "testing"
+import (
+	"sort"
+	"testing"
+)
 
 func mustMatcher(t *testing.T, include, exclude []string) *TableMatcher {
 	t.Helper()
@@ -39,6 +42,16 @@ func TestTableMatcherExactAndWildcard(t *testing.T) {
 	}
 	if m.Tables()[0] == "" {
 		t.Fatal("Tables should echo include keys")
+	}
+}
+
+// Tables 原样回显 include 授权集（发布校验/面板回显面）。
+func TestTableMatcherTablesEchoesInclude(t *testing.T) {
+	m := mustMatcher(t, []string{"game.items", "audit.*"}, nil)
+	got := m.Tables()
+	sort.Strings(got)
+	if len(got) != 2 || got[0] != "audit.*" || got[1] != "game.items" {
+		t.Fatalf("Tables = %v, want [audit.* game.items]", got)
 	}
 }
 

@@ -54,3 +54,22 @@ func TestPolicyHeaderNewerThan(t *testing.T) {
 		t.Fatal("12 should not be newer than 13")
 	}
 }
+
+// 生命周期闭集枚举（retired 只读留档不再下发）与未知态拒绝。
+func TestPolicyStateClosedSet(t *testing.T) {
+	for _, s := range []PolicyState{StateDraft, StatePublished, StateRetired} {
+		if !s.Valid() {
+			t.Fatalf("state %q should be valid", s)
+		}
+	}
+	for _, bad := range []PolicyState{"zombie", "", "PUBLISHED"} {
+		if bad.Valid() {
+			t.Fatalf("state %q should be invalid", bad)
+		}
+	}
+	for _, bad := range []PolicyKind{"", "magic", "SOURCE"} {
+		if bad.Valid() {
+			t.Fatalf("kind %q should be invalid", bad)
+		}
+	}
+}
