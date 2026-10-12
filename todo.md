@@ -4246,10 +4246,10 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 ## 密码箱抽象与可替换提供商（2026-10-11 用户令：persona 新升级已实现密码箱、可作网站密码箱使用；各项目密码箱应抽象接口、支持替换提供商）
 
-- [ ] **VaultProvider 抽象接口**：统一 接口（解锁/读/写/列/删除/审计），加密与解锁会话口径收敛到一处（KDF、主口令、会话超时不散落各实现）
-- [ ] **默认实现 + 可插拔 Provider**：默认**本地加密实现**（自托管零外部依赖，当下即可用）+ Provider 注册/切换机制；预留外部密码箱提供商接入（参照 persona 密码箱的接口形态）
-- [ ] **本仓凭据接入点改造**：本仓接入点（实现前先盘点并列全）：渠道与支付商户密钥、上游服务与数据库凭据等配置中的明文凭据，逐个改走 VaultProvider
-- [ ] **配置**：配置文件加 `vault.provider` 选择项 + 每个 provider 各自的配置节；**配置文档逐字段**（字段名/类型/默认值/含义/示例），示例不写真实密钥
+- [x] **VaultProvider 抽象接口**：统一 接口（解锁/读/写/列/删除/审计），加密与解锁会话口径收敛到一处（KDF、主口令、会话超时不散落各实现）（2026-10-13 `internal/platform/vault` Provider 接口落码：Unlock/Locked/Lock/Read/Write/List/Delete + 错误闭集；会话语义收敛在提供商内部；审计=结构化留痕按提供商内部口径，接口面不散 KDF/主口令/超时）
+- [x] **默认实现 + 可插拔 Provider**：默认**本地加密实现**（自托管零外部依赖，当下即可用）+ Provider 注册/切换机制；预留外部密码箱提供商接入（参照 persona 密码箱的接口形态）（2026-10-13 local=AES-256-GCM+scrypt 加密文件 0600 滑动 TTL 会话；env=只读环境变量源；编译期工厂注册表与 serverstatus/outlet 同构；svc wireVault 装配 ctx.Vault，enabled 缺省 false）
+- [ ] **本仓凭据接入点改造**：本仓接入点（实现前先盘点并列全）：渠道与支付商户密钥、上游服务与数据库凭据等配置中的明文凭据，逐个改走 VaultProvider（盘点已列全 → docs/design/vault-provider.md §6：config 面 Redis/JWT/LDAP/OIDC×3/钉钉/S3/DSN 七组 + settings 面通知渠道 secret + agent 侧 capture 源库口令；验收②全有全无口径待整批交付）
+- [x] **配置**：配置文件加 `vault.provider` 选择项 + 每个 provider 各自的配置节；**配置文档逐字段**（字段名/类型/默认值/含义/示例），示例不写真实密钥（2026-10-13 config `vault:` 段 + providers.local/env 配置节 + configs/server.yaml 注释示例；逐字段表 docs/design/vault-provider.md §5，示例只给环境变量名/文件路径）
 - **红线**：密钥不进仓库；解锁口令与明文凭据不落日志、不出现在错误消息
 - **验收（硬口径）**：①真实切换 provider——只改配置把 provider 换成另一实现，**不改任何业务代码**原功能仍可用（实测留证）；②接入点扫描无一处还直读明文配置/env 明文凭据；③测试绿才 push、commit 英文简短、不发版
 

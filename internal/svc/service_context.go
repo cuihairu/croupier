@@ -36,6 +36,7 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/platform/vault"
 	policymgr "github.com/cuihairu/croupier/internal/policy"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/runtime"
@@ -141,6 +142,9 @@ type ServiceContext struct {
 	OutletManager *outlet.Manager
 	// StationSink 是站内通知落库面（registerOutlets 构造的 messageSink）。
 	StationSink outlet.MessageSink
+	// Vault 是密码箱（vault-provider 设计 §4；wireVault 构造）。凭据统一
+	// 存取面——enabled=false 时 nil，接入点迁移（todo 4251）逐点接入。
+	Vault vault.Provider
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
 	Cluster                  *ClusterRuntime
 	CertificateModel         *model.CertificateModel
@@ -557,6 +561,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 零外发）；herald 显式启用且凭证齐全时注册为外部主出口，否则注册
 	// noop（零配置=零外发）。MetricsStore 缺失（裁剪部署）时不接线。
 	registerOutlets(ctx)
+	// 密码箱（vault-provider §4）：enabled=false 不装配（nil=现状行为）；
+	// 提供商切换=只改 vault.provider 配置键。
+	wireVault(ctx)
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}

@@ -346,6 +346,10 @@ const config = defineConfig({
               text: "服务器状态对接（维护窗口 Provider）",
               link: "/design/server-status-provider",
             },
+            {
+              text: "密码箱 Provider（凭据统一存取）",
+              link: "/design/vault-provider",
+            },
           ],
         },
       ],

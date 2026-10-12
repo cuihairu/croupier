@@ -186,3 +186,19 @@ metrics:
 #       fieldMapping: # 缺省=契约键名直读（healthy/inMaintenance/windowStart/windowEnd/windowNote）
 #         inMaintenance: frozen
 #       inMaintenanceStatus: "true" # 非布尔维护位时按此串判等（atlas 缺省 maintenance）
+
+# vault 密码箱（vault-provider 设计）：渠道/支付商户密钥、上游服务与数据库
+# 凭据等敏感配置的统一存取面。缺省关=不装配，行为与现状一致；提供商切换=
+# 只改 provider 键。红线：密钥不进仓库；主口令与凭据值不落配置文件、不落日志。
+# 主口令经 passphraseEnv 环境变量注入（如 CROUPIER_VAULT_PASSPHRASE）；
+# env 提供商凭据走带前缀环境变量（smtp/password → <prefix>SMTP_PASSWORD）。
+# vault:
+#   enabled: true
+#   provider: local # 留空=local；local（AES-256-GCM+scrypt 加密文件）| env（只读环境变量源）
+#   sessionTtlSeconds: 900 # 解锁会话空闲超时（滑动续期；缺省 900）
+#   providers:
+#     local:
+#       path: data/vault.json # 加密存储文件（0600）；首次解锁自动创建
+#       passphraseEnv: CROUPIER_VAULT_PASSPHRASE # 持主口令的环境变量名
+#     env:
+#       prefix: CROUPIER_VAULT_ENV_ # 凭据路径 → <prefix><大写下划线路径>

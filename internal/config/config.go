@@ -54,6 +54,10 @@ type Config struct {
 	// agent 探活异常的维护窗口 gate。enabled 缺省 false=gate 整体旁路；
 	// provider 缺省 noop（零配置=零行为变化+零外发）。
 	ServerStatus ServerStatusConfig `json:"serverStatus,omitempty" yaml:"serverStatus,omitempty"`
+	// Vault 密码箱（vault-provider 设计 §3）：渠道/支付商户密钥、上游服务
+	// 与数据库凭据等敏感配置的统一存取面。enabled 缺省 false=现状行为
+	//（凭据仍走各接入点的环境变量引用）；提供商切换=只改 provider 键。
+	Vault VaultConfig `json:"vault,omitempty" yaml:"vault,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
@@ -148,6 +152,36 @@ type ServerStatusSourceConfig struct {
 	// FieldMapping 响应字段映射（REST 源通用：契约字段名→状态源 JSON 键；
 	// 配置驱动，不写死供应商字段名——alertInbound labelMapping 同款）。
 	FieldMapping map[string]string `json:"fieldMapping,omitempty" yaml:"fieldMapping,omitempty"`
+}
+
+// VaultConfig 密码箱配置（vault-provider 设计 §3，todo 4249/4252）。
+// 主口令与凭据值本身不落配置文件——口令走环境变量（passphraseEnv），
+// env 提供商凭据走带前缀环境变量。
+type VaultConfig struct {
+	// Enabled 缺省 false：关=密码箱不装配（ctx.Vault 为 nil），各接入点
+	// 行为与现状一致。
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// Provider 提供商注册表键（local | env）。空缺省 local。
+	Provider string `json:"provider,omitempty" yaml:"provider,omitempty"`
+	// SessionTtlSeconds 解锁会话空闲超时秒数（local；滑动续期，<=0 取
+	// 实现默认 900）。
+	SessionTtlSeconds int `json:"sessionTtlSeconds,omitempty" yaml:"sessionTtlSeconds,omitempty"`
+	// Providers 各提供商实现专属配置（key=注册表键，取
+	// Providers[Provider] 装配）。
+	Providers map[string]VaultSourceConfig `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// VaultSourceConfig 单个提供商实现的专属配置。
+type VaultSourceConfig struct {
+	// Path local：加密存储文件路径（缺省 data/vault.json；目录 0700、
+	// 文件 0600）。
+	Path string `json:"path,omitempty" yaml:"path,omitempty"`
+	// PassphraseEnv local：持主口令的环境变量名（缺省
+	// CROUPIER_VAULT_PASSPHRASE；口令不落配置文件、不落日志）。
+	PassphraseEnv string `json:"passphraseEnv,omitempty" yaml:"passphraseEnv,omitempty"`
+	// Prefix env：环境变量名前缀（缺省 CROUPIER_VAULT_ENV_；凭据路径
+	// smtp/password → CROUPIER_VAULT_ENV_SMTP_PASSWORD）。
+	Prefix string `json:"prefix,omitempty" yaml:"prefix,omitempty"`
 }
 
 // PagesConfig 页面发布分级配置。
