@@ -515,8 +515,9 @@ apply 会报的同一句。web `/ops/capture` 加「校验」按钮：结果就�
    任何一侧单改即炸）；server 不解释规则语义的旧口径（§8.6 第 1 条）由
    「显式 import agents/capture/gate 校验组合」接替——语义真值从 agent
    apply 时点提前到发布前可选预检。
-2. **发布路径不变**：PUT 仍只做结构 lint（预检是编辑面显式动作，不强制
-   卡发布）；未跑校验直接发布的语义问题仍由 agent keep last-good 兜底。
+2. **发布路径不变（已被 §8.13 收紧）**：PUT 原只做结构 lint；§8.13 服务
+   端化后发布路径同样执行语义校验与依赖/能力感知 lint（预检仍是编辑面
+   显式动作，语义拦截点从「可选预检」收紧为「发布必检」）。
 3. **不解决的事**：表是否存在/账号是否有效等运行期事实 dry-run 不承诺；
    校验通过 ≠ agent 已生效（生效对账仍看 appliedRevision）。
 
@@ -525,6 +526,40 @@ apply 会报的同一句。web `/ops/capture` 加「校验」按钮：结果就�
 `runner_gateset_pinning_test.go` 7 例镜像锁定 + ops `TestCaptureGatesValidate`
 （合法计数 / lint 败 / 深度败 / 路由重复败 / 空内容 422 / dry-run 无落库）+
 web 页 3 例 / service 1 例。全链回归绿。
+
+### 8.13 交付记录：发布校验服务端化（依赖+能力感知 lint，CDC 平台化批阶段三收口，2026-10-13）
+
+代码面：`publishCaptureGates` 发布路径在结构 lint 之上追加三道校验——
+`config.ValidateGates`（§8.12 语义真值从可选预检收紧为发布必检，回滚共用
+路径同拦）+ `lintCaptureGatesAgainstAgent`（依赖感知：对账双表与 CEP 突变
+表必须都在采集范围内，范围外=发布即拒点名表名；能力感知：对账/CEP 读行
+像取键与数值增量，要求 `afterImage`，`connector.Requires` 点名缺失项）。
+agent 侧 `buildPayload` 新增自报 labels：`captureTables`（采集白名单逗号
+连接、字典序）与 `captureConnectorCapabilities`（能力键逗号连接）——数据
+源 `source.MySQLCapabilities()`（诚实口径：afterImage/GTID/断点续传声明；
+beforeImage 依赖 binlog_row_image 从严不声明；snapshot/pushdown 未实现）。
+拍板与口径：
+
+1. **能力集通道选型（拍板 2026-10-13：labels，不扩展注册响应）**：与
+   captureGatesRevision 同通道——零 proto、零 wire 改动；发布校验对滞后
+   本来就要 fail-soft，注册响应扩展换来的强一致不值得 proto 变更。server
+   侧 `captureAgentFacts` 读同 scope 已连 role=capture 会话：tables 并集、
+   capabilities 交集（最弱连接器决定可发布面）；contributors=0（无连接
+   agent / 未带 labels / 未知能力键）=跳过依赖/能力 lint（不惩罚存量与
+   升级窗口），结构+语义校验仍全量执行。
+2. **能力映射 v1**：对账/CEP 突变 → `afterImage`（行像取键/数值增量）；
+   offHours/probing/血缘/事件过滤暂无能力依赖（血缘表依赖随血缘规则
+   采集面扩展另批）。能力键解析与 `ParseCapabilities` 同款从严：未知键
+   拒绝（不静默丢——静默丢会让扩展能力在上报面消失、发布校验误判兼容）。
+3. **发布必检的兼容影响**：存量「能过结构 lint 但过不了语义校验」的
+   内容从此在发布时 422（原先可发布、agent apply 拒绝滞留 last-good）——
+   收紧是本项目的反面（拦截点提前），无行为回退风险。
+
+测试：ops `capture_gates_agentlint_test.go` 7 例（范围外对账表拒/范围内
+通过/缺 afterImage 拒含 CEP 分支/无事实跳过含缺 labels 与未知能力键/
+burst 范围外拒/并集交集合并/能力 label 严格解析/发布路径语义兜底）+
+runner `runner_labels_test.go` 4 例（labels 内容/多表字典序/capture 关闭
+省略/能力自报组合自检）。
 
 ## 9. 已知边界（诚实清单）
 

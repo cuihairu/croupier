@@ -13,8 +13,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/config"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/model"
@@ -229,6 +231,19 @@ func (s *Service) publishCaptureGates(ctx context.Context, content, message stri
 	if err := lintCaptureGatesJSON(content); err != nil {
 		return nil, errorx.NewValidationError(err.Error())
 	}
+	// 语义校验（validate 端点同真值）+ 依赖/能力感知 lint（服务端化：
+	// 拦截点从 agent apply 提前到发布——坏版本不再「发布成功、全员滞留
+	// last-good」）。agent 事实不可知时后者跳过（滞后容忍）。
+	var g config.Gates
+	if err := json.Unmarshal([]byte(content), &g); err != nil {
+		return nil, errorx.NewValidationError(fmt.Sprintf("parse gates json: %v", err))
+	}
+	if err := config.ValidateGates(g); err != nil {
+		return nil, errorx.NewValidationError(err.Error())
+	}
+	if err := lintCaptureGatesAgainstAgent(g, s.captureAgentFacts(scope)); err != nil {
+		return nil, errorx.NewValidationError(err.Error())
+	}
 	rec, err := s.svcCtx.ConfigVersionModel.CreateWithMeta(ctx, model.ConfigVersionPayload{
 		Key:         captureGatesConfigKey,
 		Content:     content,
@@ -346,4 +361,147 @@ func captureGatesAuthor(ctx context.Context) string {
 		}
 	}
 	return "system"
+}
+
+// 发布校验服务端化（todo 4288，过滤策略简档 §3）：依赖+能力感知 lint。
+// 能力集与采集范围来源拍板（2026-10-13）：**注册 labels 捎带**
+// （captureTables / captureConnectorCapabilities），与 appliedRevision 的
+// captureGatesRevision 同通道——零 proto、零 wire 改动、滞后容忍；注册
+// 响应扩展需要对 proto 增字段，换来的只是强一致，而发布校验对滞后本来
+// 就要 fail-soft，不值得。
+const (
+	labelRole                         = "role"
+	labelRoleCapture                  = "capture"
+	labelCaptureTables                = "captureTables"
+	labelCaptureConnectorCapabilities = "captureConnectorCapabilities"
+)
+
+// captureAgentFacts 同 scope 已连接 capture agent 的采集事实：tables 并集
+// （任一 agent 覆盖即可发布）、capabilities 交集（从严——最弱连接器决定
+// 可发布面）。contributors=具备自报 labels 的已连 agent 数；0=事实不可知，
+// lint 跳过（结构+语义校验仍全量执行）。
+type captureAgentFacts struct {
+	tables       map[string]bool
+	capabilities connector.Capabilities
+	contributors int
+}
+
+// captureAgentFacts 从注册面读 facts（RegistryStore nil=裁剪部署跳过）。
+// 中途升级未带 labels 的 agent 不计入 contributors（不惩罚滞后部署）。
+func (s *Service) captureAgentFacts(scope svc.GameScope) captureAgentFacts {
+	facts := captureAgentFacts{tables: map[string]bool{}}
+	if s.svcCtx == nil || s.svcCtx.RegistryStore == nil {
+		return facts
+	}
+	store := s.svcCtx.RegistryStore
+	store.Mu().RLock()
+	defer store.Mu().RUnlock()
+	now := time.Now()
+	for _, sess := range store.AgentsUnsafe() {
+		if sess == nil || sess.GameID != scope.GameID || sess.Env != scope.Env {
+			continue
+		}
+		if sess.Labels[labelRole] != labelRoleCapture || !sess.ExpireAt.After(now) {
+			continue
+		}
+		tablesLabel := sess.Labels[labelCaptureTables]
+		capsLabel := sess.Labels[labelCaptureConnectorCapabilities]
+		if tablesLabel == "" || capsLabel == "" {
+			continue
+		}
+		caps, err := parseCapabilityLabel(capsLabel)
+		if err != nil {
+			continue // 未知能力键=扩展能力不可解，从严跳过该 agent 的事实
+		}
+		for _, tbl := range strings.Split(tablesLabel, ",") {
+			if tbl = strings.TrimSpace(tbl); tbl != "" {
+				facts.tables[tbl] = true
+			}
+		}
+		if facts.contributors == 0 {
+			facts.capabilities = caps
+		} else {
+			facts.capabilities = intersectCapabilities(facts.capabilities, caps)
+		}
+		facts.contributors++
+	}
+	return facts
+}
+
+// parseCapabilityLabel 解析能力 label（逗号分隔能力键；未知键拒绝——
+// ParseCapabilities 同款从严口径，静默丢键会让发布校验误判兼容）。
+func parseCapabilityLabel(label string) (connector.Capabilities, error) {
+	var caps connector.Capabilities
+	known := map[string]bool{}
+	for _, c := range connector.AllCapabilities() {
+		known[string(c)] = true
+	}
+	for _, key := range strings.Split(label, ",") {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if !known[key] {
+			return connector.Capabilities{}, fmt.Errorf("unknown connector capability %q", key)
+		}
+	}
+	for _, key := range strings.Split(label, ",") {
+		switch strings.TrimSpace(key) {
+		case string(connector.CapBeforeImage):
+			caps.BeforeImage = true
+		case string(connector.CapAfterImage):
+			caps.AfterImage = true
+		case string(connector.CapTransactionMetadata):
+			caps.TransactionMetadata = true
+		case string(connector.CapSnapshot):
+			caps.Snapshot = true
+		case string(connector.CapResumableCheckpoint):
+			caps.ResumableCheckpoint = true
+		case string(connector.CapPushdown):
+			caps.Pushdown = true
+		}
+	}
+	return caps, nil
+}
+
+// intersectCapabilities 能力交集（多 agent 从严合并）。
+func intersectCapabilities(a, b connector.Capabilities) connector.Capabilities {
+	a.BeforeImage = a.BeforeImage && b.BeforeImage
+	a.AfterImage = a.AfterImage && b.AfterImage
+	a.TransactionMetadata = a.TransactionMetadata && b.TransactionMetadata
+	a.Snapshot = a.Snapshot && b.Snapshot
+	a.ResumableCheckpoint = a.ResumableCheckpoint && b.ResumableCheckpoint
+	a.Pushdown = a.Pushdown && b.Pushdown
+	return a
+}
+
+// lintCaptureGatesAgainstAgent 依赖+能力感知 lint（结构+语义校验之上）：
+// ①对账双表与 CEP 突变表必须都在采集范围内——规则依赖的表不在白名单=
+// 静默漏检（过滤策略简档 §1.1「不为省事件量漏掉业务流水表」的反面：范围
+// 之外 publishing 一条永远不触发的规则，运维误以为有防护）；②对账/CEP
+// 读行像取键与数值增量，要求 afterImage 能力（connector.Requires 点名
+// 缺失项）。facts 不可知（contributors==0）=跳过，不拦发布。
+func lintCaptureGatesAgainstAgent(g config.Gates, facts captureAgentFacts) error {
+	if facts.contributors == 0 {
+		return nil
+	}
+	for _, r := range g.Reconcile.Rules {
+		for _, tbl := range []string{r.ItemTable, r.LedgerTable} {
+			if !facts.tables[tbl] {
+				return fmt.Errorf("reconcile rule %s: table %s is outside the agent collection scope (captureTables)", r.Name, tbl)
+			}
+		}
+		if err := facts.capabilities.Requires(connector.CapAfterImage); err != nil {
+			return fmt.Errorf("reconcile rule %s: %v", r.Name, err)
+		}
+	}
+	for _, b := range g.CEP.Burst {
+		if !facts.tables[b.Table] {
+			return fmt.Errorf("cep burst rule %s: table %s is outside the agent collection scope (captureTables)", b.Name, b.Table)
+		}
+		if err := facts.capabilities.Requires(connector.CapAfterImage); err != nil {
+			return fmt.Errorf("cep burst rule %s: %v", b.Name, err)
+		}
+	}
+	return nil
 }

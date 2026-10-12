@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -585,6 +586,22 @@ func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error)
 	// 空缺省不带键 = 文件规则或尚无面板发布生效）。
 	if v := r.appliedGatesRevision.Load(); v != nil && *v != "" {
 		labels["captureGatesRevision"] = *v
+	}
+	// 采集范围与连接器能力自报（发布校验服务端化：依赖/能力感知 lint 的
+	// 数据源，captureGatesRevision 同通道——labels 捎带零 proto；滞后容忍，
+	// server 侧 lint 对事实不可知 fail-soft 跳过）。
+	if r.cfg.Capture.Enabled && r.cfg.Capture.MySQL != nil && len(r.cfg.Capture.MySQL.Tables) > 0 {
+		tables := make([]string, 0, len(r.cfg.Capture.MySQL.Tables))
+		for tbl := range r.cfg.Capture.MySQL.Tables {
+			tables = append(tables, tbl)
+		}
+		sort.Strings(tables)
+		labels["captureTables"] = strings.Join(tables, ",")
+		keys := make([]string, 0, 6)
+		for _, cap := range source.MySQLCapabilities().Enabled() {
+			keys = append(keys, string(cap))
+		}
+		labels["captureConnectorCapabilities"] = strings.Join(keys, ",")
 	}
 	return &agentv1.RegisterRequest{
 		AgentId: r.cfg.Agent.ID,

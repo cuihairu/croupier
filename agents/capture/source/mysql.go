@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
@@ -42,6 +43,21 @@ func NewMySQLSource(cfg MySQLConfig, log *slog.Logger) *MySQLSource {
 	}
 	s := &MySQLSource{cfg: cfg, log: log, probe: defaultGTIDProbe(cfg)}
 	return s
+}
+
+// MySQLCapabilities 本源的能力自报（connector 简档 §3 契约类型的 MySQL
+// log 订阅实现面；注册 labels captureConnectorCapabilities 的数据源，
+// server 发布校验能力感知 lint 消费）。诚实口径：afterImage / transaction
+// metadata（GTID）/ resumableCheckpoint（位点周期落盘）具备；beforeImage
+// 依赖源端 binlog_row_image=FULL、agent 不可靠感知，从严声明 false；
+// snapshot 未实现（历史回补走独立流程，过滤策略简档 §4）；pushdown 无
+// （tables 白名单是 agent 侧代码过滤，非源端下推）。
+func MySQLCapabilities() connector.Capabilities {
+	return connector.Capabilities{
+		AfterImage:          true,
+		TransactionMetadata: true,
+		ResumableCheckpoint: true,
+	}
 }
 
 // Open 建立 binlog 复制流。bookmark 有效则从该 GTID 集合续读（崩溃恢复），

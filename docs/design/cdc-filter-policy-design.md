@@ -103,6 +103,7 @@ detection:
 ## 3. 发布时校验（能力感知 + 依赖感知）
 
 - scope（gameId/env 必填且匹配）、表名/字段合法性、规则依赖（对账双表都在采集范围内）、权限、**数据源支持能力**（Connector 能力声明，见 [CDC Connector 架构](cdc-connector-architecture.md) §3——规则依赖的字段数据源给不出时发布即报不兼容，不让 Agent 静默漏报）。
+- **已落码（2026-10-13 服务端化，capture-agent 简档 §8.13）**：发布路径 = 结构 lint + `config.ValidateGates` 语义真值 + 依赖感知（对账双表/CEP 突变表 ⊆ 采集范围，范围外发布即拒点名表名）+ 能力感知（对账/CEP 要求 `afterImage`）。能力集与采集范围经注册 labels 自报（`captureTables` / `captureConnectorCapabilities`，拍板：labels 通道零 proto；事实不可知跳过 lint 滞后容忍）。
 - include/exclude 冲突在发布时检测，不靠各 Agent 自行解释。
 - **默认拒绝新增采集范围**：未明确授权的库/表不自动加入。
 - 业务安全规则不能被普通事件过滤规则覆盖。
