@@ -6,7 +6,31 @@ title: CDC Connector 架构——多数据库数据源接入与能力声明（�
 
 ## 状态
 
-- 状态: **契约已落码（2026-10-11 阶段一交付），实现未做**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；连接器实现（MySQL 迁移/PostgreSQL P0）未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
+- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层已落码（2026-10-13，4306 第一增量），流式接线与全链验证未做**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 解码层落地 `agents/capture/connector/pg/`（pgoutput 二进制协议 → ChangeEvent，纯逻辑零驱动，手工 fixture 单测锁协议布局；见「8. 交付记录」）。连接器流式接线（pglogrepl 握手/槽管理/keepalive）、MySQL 迁移到契约、runner 多 Connector 装配未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
+
+## 8. 交付记录
+
+### 8.1 PostgreSQL P0 解码层（4306 第一增量，2026-10-13）
+
+`agents/capture/connector/pg/`（纯逻辑零驱动——不建网络连接、不引
+pgx/pglogrepl；复制流握手是下一增量）：
+
+- `lsn.go`：LSN 位点类型（"X/Y" 十六进制 wire 形态 ↔ 十进制 checkpoint
+  形态互逆，connector.Position.Kind="lsn"）。
+- `pgoutput.go`：pgoutput v1 二进制消息解析（Begin/Commit/Relation/Insert/
+  Update/Delete/Truncate；'K' 身份键元组与 'O' 全行旧元组双分支）。
+- `decoder.go`：解码状态机——Relation 缓存（OID→列名/身份键）+ 事务缓冲
+  （Commit 点一次吐出整事务，从 EndLSN 恢复重放语义完整）+ 结构修订号
+  （DDL 加列 bump → SchemaVersion 漂移信号）+ 契约自检（Commit 回填位点/
+  时间后跑全量 Validate，产出不合规=解码器缺陷按错误暴露）。
+- `capabilities.go`：PostgresCapabilities 诚实口径（afterImage/transaction
+  Metadata/resumableCheckpoint=true；beforeImage 依赖源端 REPLICA IDENTITY
+  从严 false；snapshot/pushdown=false）。
+
+数据面决策：数值类型（int2/4/8、float4/8、numeric）文本直通为 JSON 数字，
+bool 译真假（NaN/Infinity 回退字符串不伪造数字），其余一律 JSON 字符串；
+TOAST 未重写列（'u'）行像缺键（非 null）；update 无旧像 Before=nil；
+TRUNCATE 闭集无对应操作——跳过+计数（TruncatedRelations），不伪造 delete。
 
 ## 1. 目标与非目标
 

@@ -4303,9 +4303,9 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 ### Connector 批次（多数据库，独立推进线）
 
-- [ ] **PostgreSQL P0 闭环**（首个第二数据源，跑通全链才算数）：logical replication Connector（SourceConnector 实现）→ ChangeEvent 统一模型落地 → 过滤策略/三闸/告警链/面板能力标签全链验证；PG 无 beforeImage 的场景按能力声明降级（血缘 Degraded 口径复用）
+- [ ] **PostgreSQL P0 闭环**（首个第二数据源，跑通全链才算数）：logical replication Connector（SourceConnector 实现）→ ChangeEvent 统一模型落地 → 过滤策略/三闸/告警链/面板能力标签全链验证；PG 无 beforeImage 的场景按能力声明降级（血缘 Degraded 口径复用）。**增量一已落（✅ 2026-10-13）：pgoutput 解码层 `agents/capture/connector/pg/`**——LSN 位点（"X/Y"↔十进制互逆）、pgoutput v1 二进制解析（B/C/R/I/U/D/T，'K' 身份键与 'O' 全行旧元组双分支）、解码状态机（Relation 缓存+DDL 修订号→SchemaVersion、事务缓冲 Commit 点整段吐出、位点=EndLSN 十进制）、能力声明诚实口径（afterImage/transactionMetadata/resumableCheckpoint=true，beforeImage/snapshot/pushdown=false）；数值直通 JSON 数字/bool 译真假/TOAST 未重写缺键/TRUNCATE 闭集外跳过计数；手工 fixture 单测全绿（含协议截断/漂移/违例用例）。待续：流式接线（pglogrepl 握手+槽管理+keepalive→SourceConnector 组装）、MySQL 迁移契约、runner 多 Connector 装配、活栈全链验证（4301 式清单）
 - [ ] **MariaDB P0 收尾**：MySQL Connector 兼容性验证（协议差异点清单）+ CI 矩阵
-- [ ] **能力感知发布校验接通**：发布时按源能力拒绝/提示不兼容规则（过滤策略简档 §3 + connector 简档 §3.1）
+- [x] **能力感知发布校验接通（✅ 2026-10-13，随 4288 落码）**：发布时按源能力拒绝/提示不兼容规则——`publishCaptureGates` 发布必检 `lintCaptureGatesAgainstAgent`（依赖感知：对账/突变表 ⊆ 采集范围；能力感知：`connector.Requires` 点名缺失项，v1 映射对账/突变→afterImage）+ agent 侧 labels 通道自报（`captureTables` 并集/`captureConnectorCapabilities` 交集，与 captureGatesRevision 同通道零 proto；contributors=0 跳过 lint 容忍升级窗口）。见 capture-agent 简档 §8.13。边界：当前仅 MySQL 单源；Connector 时代的分源分类型策略发布（每源能力矩阵扩展映射）并入 4306/4307 P0 批
 - [ ] **P1/P2**：SQL Server/Oracle/MongoDB → TiDB/CockroachDB/国产库；每源=新 Connector+能力声明，runtime 不改；排期待 P0 闭环后按需立项
 - **选型决策项（先拍板再动工）**：轻量单 Go 二进制自研连接器 vs 独立 CDC 进程（Debezium）桥接——connector 简档 §4 建议单二进制起步、契约先行保可逆，用户裁决后定稿
 
