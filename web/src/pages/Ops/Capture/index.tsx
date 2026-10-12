@@ -1,5 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { App, Alert, Button, Card, Input, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd';
+import {
+  App,
+  Alert,
+  Button,
+  Card,
+  Input,
+  Popconfirm,
+  Segmented,
+  Space,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { ReloadOutlined, SnippetsOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
@@ -13,6 +25,13 @@ import {
 import { listOpsNodes, type OpsNode } from '@/services/api/ops';
 import { summarizeGatesApply } from '@/utils/captureGatesApply';
 import { extractErrorMessage } from '@/utils/errors';
+import { GatesFormEditor } from './GatesFormEditor';
+import {
+  emptyGatesForm,
+  parseGatesForm,
+  serializeGatesForm,
+  type GatesFormState,
+} from './gatesForm';
 
 const { TextArea } = Input;
 const { Text, Paragraph } = Typography;
@@ -62,6 +81,12 @@ export default function OpsCapturePage() {
   const [validation, setValidation] = useState<CaptureGatesValidateResult | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<OpsNode[]>([]);
+  // 编辑面双模式（todo 4297）：form=结构化表单（GatesFormEditor），json=裸
+  // JSON。content 字符串仍是唯一真值——表单只是 JSON 生产者：进表单模式时
+  // 从 content 解析（坏 JSON 拦在模式切换外留在 json 面），表单内每次编辑
+  // 立即序列化回 content；发布/校验链只认 content，零改动。
+  const [mode, setMode] = useState<'form' | 'json'>('json');
+  const [formState, setFormState] = useState<GatesFormState>(emptyGatesForm);
 
   // 编辑内容变化即作废上一次校验结论（结论只对当时的 JSON 负责）。
   const updateContent = useCallback((next: string) => {
@@ -69,6 +94,28 @@ export default function OpsCapturePage() {
     setValidation(null);
     setValidationError(null);
   }, []);
+
+  const enterForm = useCallback(() => {
+    try {
+      setFormState(parseGatesForm(content || '{}'));
+      setMode('form');
+    } catch {
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.opsCapture.form.parseFailed',
+          defaultMessage: 'JSON 解析失败，请先修正内容再切换表单模式',
+        }),
+      );
+    }
+  }, [content, message]);
+
+  const updateForm = useCallback(
+    (next: GatesFormState) => {
+      setFormState(next);
+      updateContent(serializeGatesForm(next));
+    },
+    [updateContent],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,7 +242,12 @@ export default function OpsCapturePage() {
             </Button>
             <Button
               icon={<SnippetsOutlined />}
-              onClick={() => updateContent(GATES_TEMPLATE)}
+              onClick={() => {
+                updateContent(GATES_TEMPLATE);
+                if (mode === 'form') {
+                  setFormState(parseGatesForm(GATES_TEMPLATE));
+                }
+              }}
               disabled={publishing}
             >
               <FormattedMessage id="pages.opsCapture.template" defaultMessage="插入模板" />
@@ -297,7 +349,7 @@ export default function OpsCapturePage() {
             title={intlRef.current.formatMessage({
               id: 'pages.opsCapture.gates.boundary',
               defaultMessage:
-                '「校验」按钮做与 capture-agent 生效同一实现的语义预检（lint + 表路由唯一性/阈值/事件过滤，config.ValidateGates）；发布时服务端仍只做结构检查，未跑校验直接发布的语义问题由 agent 保留旧版兜底。发布成功 ≠ 已生效，上方「生效对账」为 agent 自报（轮询 30s + 重注册滞后），日志 capture gates version applied 仍是逐次生效的原始真值。',
+                '「校验」按钮与发布路径使用同一套服务端校验（结构 lint + 语义 config.ValidateGates + 依赖/能力感知 lint：对账与突变表须在采集范围内、需 afterImage 能力）。发布成功 ≠ 已生效，上方「生效对账」为 agent 自报（轮询 30s + 重注册滞后），日志 capture gates version applied 仍是逐次生效的原始真值。',
             })}
           />
           {validationError ? (
@@ -334,16 +386,50 @@ export default function OpsCapturePage() {
               }
             />
           ) : null}
-          <TextArea
-            value={content}
-            onChange={(e) => updateContent(e.target.value)}
-            rows={18}
-            style={{ fontFamily: 'monospace' }}
-            placeholder={intlRef.current.formatMessage({
-              id: 'pages.opsCapture.gates.placeholder',
-              defaultMessage: 'capture.gates JSON（reconcile / cep / lineage 三段）',
-            })}
-          />
+          <Space wrap size={8}>
+            <Segmented
+              aria-label="pages.opsCapture.mode"
+              value={mode}
+              options={[
+                {
+                  label: intlRef.current.formatMessage({
+                    id: 'pages.opsCapture.mode.form',
+                    defaultMessage: '表单',
+                  }),
+                  value: 'form',
+                },
+                {
+                  label: intlRef.current.formatMessage({
+                    id: 'pages.opsCapture.mode.json',
+                    defaultMessage: 'JSON',
+                  }),
+                  value: 'json',
+                },
+              ]}
+              onChange={(v) => {
+                if (v === 'form') {
+                  enterForm();
+                } else {
+                  setMode('json');
+                }
+              }}
+              disabled={publishing}
+            />
+          </Space>
+          {mode === 'form' ? (
+            <GatesFormEditor value={formState} onChange={updateForm} disabled={publishing} />
+          ) : (
+            <TextArea
+              value={content}
+              onChange={(e) => updateContent(e.target.value)}
+              rows={18}
+              style={{ fontFamily: 'monospace' }}
+              placeholder={intlRef.current.formatMessage({
+                id: 'pages.opsCapture.gates.placeholder',
+                defaultMessage: 'capture.gates JSON（reconcile / cep / lineage 三段）',
+              })}
+            />
+          )}
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
             <FormattedMessage
               id="pages.opsCapture.gates.help"

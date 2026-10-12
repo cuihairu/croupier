@@ -12,7 +12,10 @@
  * - 发布失败 →「发布失败」toast（extractErrorMessage 透传）；
  * - 加载失败 → extractErrorMessage 透传「加载闸规则失败」右臂（透传
  *   Error.message）；
- * - 发布按钮在 content 为空时 disabled；重载按钮重拉。
+ * - 发布按钮在 content 为空时 disabled；重载按钮重拉；
+ * - 结构化表单（todo 4297）：Segmented 切 form/json，表单是 JSON 生产者
+ *   （回填/编辑/增删行都同步回 content，发布与校验链只认 content）；坏
+ *   JSON 拦在模式切换外留 JSON 面；表单模式下插入模板同步表单态。
  *
  * mock 口径：services/api/opsCapture 双函数 jest.mock（service 边界）；
  * @umijs/max 本地 defaultMessage mock（formatMessage 支持 {version} 内插）；
@@ -303,5 +306,120 @@ describe('capture 闸规则页 dry-run 校验（config.ValidateGates 同真值�
       target: { value: '{"reconcile":{"rules":[{"name":"tweak"}]}}' },
     });
     await waitFor(() => expect(screen.queryByText(/校验通过/)).not.toBeInTheDocument());
+  });
+});
+
+describe('capture 闸规则页 结构化表单模式（todo 4297）', () => {
+  const fullGates = JSON.stringify({
+    reconcile: {
+      rules: [
+        {
+          name: 'r1',
+          itemTable: 'game.items',
+          ledgerTable: 'game.ledger',
+          itemKey: 'id',
+          ledgerKey: 'id',
+          windowSec: 300,
+        },
+      ],
+    },
+    cep: { offHours: [], burst: [], probing: [] },
+    lineage: {
+      rules: [{ name: 'l1', table: 'game.items', allowAccounts: ['game-app'] }],
+    },
+    event: { ops: ['insert'] },
+  });
+
+  async function enterFormMode() {
+    fireEvent.click(await screen.findByRole('radio', { name: '表单' }));
+    await screen.findByLabelText('reconcile.add');
+  }
+
+  it('表单回填：content 解析进各段控件，textarea 收起', async () => {
+    mGet.mockResolvedValue({ ...published, content: fullGates });
+    renderPage();
+    await waitLoad();
+    await enterFormMode();
+
+    expect(screen.getByLabelText('reconcile[0].name') as HTMLInputElement).toHaveValue('r1');
+    expect(screen.getByLabelText('reconcile[0].itemTable') as HTMLInputElement).toHaveValue(
+      'game.items',
+    );
+    expect(screen.getByLabelText('lineage[0].table') as HTMLInputElement).toHaveValue('game.items');
+    expect(screen.queryByPlaceholderText(/capture.gates JSON/)).not.toBeInTheDocument();
+  });
+
+  it('表单编辑同步 content：改 name 后校验请求携带序列化结果', async () => {
+    mGet.mockResolvedValue({ ...published, content: fullGates });
+    renderPage();
+    await waitLoad();
+    await enterFormMode();
+
+    fireEvent.change(screen.getByLabelText('reconcile[0].name'), {
+      target: { value: 'renamed' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '校验' }));
+    await waitFor(() =>
+      expect(mValidate).toHaveBeenCalledWith(expect.stringContaining('"name": "renamed"')),
+    );
+  });
+
+  it('增行+发布：cepBurst.add 新规则编辑后发布 payload 为序列化 content', async () => {
+    renderPage();
+    await waitLoad();
+    await enterFormMode();
+
+    fireEvent.click(screen.getByRole('button', { name: 'cepBurst.add' }));
+    fireEvent.change(await screen.findByLabelText('cepBurst[0].name'), {
+      target: { value: 'burst-a' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /发\s*布/ }));
+    await confirmPopover();
+    await waitFor(() =>
+      expect(mPublish).toHaveBeenCalledWith({
+        content: expect.stringContaining('"name": "burst-a"'),
+        baseVersion: 3,
+      }),
+    );
+  });
+
+  it('删行：reconcile[0].remove 后 content 归空数组（只采不限）', async () => {
+    mGet.mockResolvedValue({ ...published, content: fullGates });
+    renderPage();
+    await waitLoad();
+    await enterFormMode();
+
+    fireEvent.click(screen.getByRole('button', { name: 'reconcile[0].remove' }));
+    expect(screen.queryByLabelText('reconcile[0].name')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '校验' }));
+    await waitFor(() =>
+      expect(mValidate).toHaveBeenCalledWith(expect.stringContaining('"rules": []')),
+    );
+  });
+
+  it('坏 JSON 拦切换：留在 JSON 面并提示 parseFailed', async () => {
+    renderPage();
+    await waitLoad();
+    fireEvent.change(screen.getByPlaceholderText(/capture.gates JSON/), {
+      target: { value: '{broken' },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: '表单' }));
+
+    expect(
+      await screen.findByText('JSON 解析失败，请先修正内容再切换表单模式'),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/capture.gates JSON/)).toBeInTheDocument();
+  });
+
+  it('表单模式下插入模板同步表单态', async () => {
+    renderPage();
+    await waitLoad();
+    await enterFormMode();
+
+    fireEvent.click(screen.getByRole('button', { name: /插\s*入\s*模\s*板/ }));
+    const itemTable = (await screen.findByLabelText('reconcile[0].itemTable')) as HTMLInputElement;
+    expect(itemTable.value).toBe('game.items');
+    expect(screen.getByLabelText('lineage[0].allowAccounts')).toBeInTheDocument();
   });
 });

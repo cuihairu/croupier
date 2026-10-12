@@ -561,6 +561,21 @@ burst 范围外拒/并集交集合并/能力 label 严格解析/发布路径语�
 runner `runner_labels_test.go` 4 例（labels 内容/多表字典序/capture 关闭
 省略/能力自报组合自检）。
 
+### 8.14 交付记录：面板编辑面结构化表单（CDC 平台化批阶段四，2026-10-13）
+
+`/ops/capture` 裸 JSON textarea 升级为表单/JSON 双模式（Segmented 切换），
+规则形状与 agent 侧 `config.Gates` 同构。关键口径：**content 字符串仍是
+唯一真值——表单只是 JSON 生产者**。数据层 `gatesForm.ts`（纯函数、无
+React）：`parseGatesForm` 容错（存量内容缺段/类型漂移兜底空值，坏 JSON
+抛错由调用方拦在模式切换外）；`serializeGatesForm` 恒输出全四段
+（空数组=只采不限，与 agent 配置文件语义一致）；`GATE_OPS`/
+`GATE_SEVERITIES` 闭集与 `gate.checkOps`/`filter.NewEventFilter` 同约束。
+表单面 `GatesFormEditor`：对账/时段/突变/试探/血缘/事件过滤六段分区，
+增删行 + offHours 嵌套窗口编辑，控件 aria-label `<段>[<行>].<字段>`
+供单测定位。发布/校验链零改动：表单编辑即时序列化回 content，「校验」
+按钮与「发布」Popconfirm 复用既有 content 通道与 validate 端点（§8.12）；
+JSON 模式保留为权威编辑通道（存量手写内容的逃生门）。
+
 ## 9. 已知边界（诚实清单）
 
 - 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。
