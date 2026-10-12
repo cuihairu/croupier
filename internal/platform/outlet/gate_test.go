@@ -94,7 +94,12 @@ func TestGateUnknownAnnotatesAndDelivers(t *testing.T) {
 	if notices[0].Content != want {
 		t.Fatalf("notice.Content = %q, want %q", notices[0].Content, want)
 	}
+	// 标注信封走同一条异步链：deadline 轮询等外部投递到达。
 	evs := ext.events()
+	for time.Now().Before(deadline) && len(evs) == 0 {
+		time.Sleep(5 * time.Millisecond)
+		evs = ext.events()
+	}
 	if len(evs) != 1 {
 		t.Fatalf("external deliveries = %d, want 1", len(evs))
 	}
@@ -201,7 +206,12 @@ func TestManagerNoGateDeliversPlain(t *testing.T) {
 	if got := notices[0].Content; got != sampleEvent().Body {
 		t.Fatalf("notice.Content = %q, want unannotated body", got)
 	}
+	// 外部链在站内之后异步投递：deadline 轮询等到达，不与 goroutine 赛跑。
 	evs := ext.events()
+	for time.Now().Before(deadline) && len(evs) == 0 {
+		time.Sleep(5 * time.Millisecond)
+		evs = ext.events()
+	}
 	if len(evs) != 1 || len(evs[0].Metadata) != 0 {
 		t.Fatalf("external events = %+v, want one event without metadata", evs)
 	}
