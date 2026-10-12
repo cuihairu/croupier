@@ -398,13 +398,15 @@ jobs:
           atlas migrate validate --dir "file://internal/db/migrate/migrations" --dir-format goose
 
   capture-matrix:
-    name: Capture Source Matrix (MySQL/MariaDB)
-    # todo 4307: capture-agent 活源兼容性冒烟——两个 P0 方言各走完整链
-    # （GTID 探测起点 → binlog 订阅 → 白名单事件 → 位点按方言回读）。
+    name: Capture Source Matrix (MySQL/MariaDB/Postgres)
+    # todo 4307/4306: capture-agent 活源兼容性冒烟——P0 源各走完整链
+    # （MySQL/MariaDB: GTID 探测起点 → binlog 订阅 → 白名单事件 → 位点按
+    # 方言回读；Postgres: 自动建槽 → START_REPLICATION → 三操作事件 →
+    # 检查点续读）。
     # 容器参数即源端生产前置：MySQL 需 gtid-mode=ON（GTID 关闭时探测报
-    # gtid_executed empty）；MariaDB GTID 恒开但 binlog 需显式开。service
-    # 容器传不了 mysqld 启动参数，这里用 setup 步骤 docker run（与本地
-    # 验证同命令）。
+    # gtid_executed empty）；MariaDB GTID 恒开但 binlog 需显式开；Postgres
+    # 需 wal_level=logical。service 容器传不了守护进程启动参数，这里用
+    # setup 步骤 docker run（与本地验证同命令）。
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [test]
@@ -435,22 +437,26 @@ jobs:
             sleep 5
           done
           exit 1
-      - name: Start MySQL 8.4 (GTID on) and MariaDB 11 (binlog on)
+      - name: Start MySQL 8.4 (GTID on), MariaDB 11 (binlog on), Postgres 16 (logical WAL)
         timeout-minutes: 8
         run: |
           docker run -d --name cap-mysql -e MYSQL_ROOT_PASSWORD=root -p 13306:3306 mysql:8.4 \
             --gtid-mode=ON --enforce-gtid-consistency=ON --server-id=1 --binlog-format=ROW
           docker run -d --name cap-mariadb -e MARIADB_ROOT_PASSWORD=root -p 13307:3306 mariadb:11 \
             --log-bin=master-bin --binlog-format=ROW --server-id=1
+          docker run -d --name cap-postgres -e POSTGRES_PASSWORD=postgres -p 13308:5432 postgres:16 \
+            -c wal_level=logical
           for i in $(seq 1 30); do
             if docker exec cap-mysql mysqladmin ping -h127.0.0.1 -proot >/dev/null 2>&1 \
-              && docker exec cap-mariadb mariadb-admin ping -uroot -proot >/dev/null 2>&1; then
+              && docker exec cap-mariadb mariadb-admin ping -uroot -proot >/dev/null 2>&1 \
+              && docker exec cap-postgres pg_isready -U postgres >/dev/null 2>&1; then
               break
             fi
             sleep 2
           done
           docker exec cap-mysql mysqladmin ping -h127.0.0.1 -proot
           docker exec cap-mariadb mariadb-admin ping -uroot -proot
+          docker exec cap-postgres pg_isready -U postgres
       - name: Capture source flavor matrix tests
         timeout-minutes: 10
         env:
@@ -460,3 +466,11 @@ jobs:
           go test -tags=integration -count=1 -timeout 8m \
             -run 'TestCaptureSourceFlavors' \
             ./agents/capture/source/ -v
+      - name: Postgres logical replication connector tests
+        timeout-minutes: 10
+        env:
+          TEST_POSTGRES_CAPTURE_DSN: "postgres://postgres:postgres@127.0.0.1:13308/postgres?sslmode=disable"
+        run: |
+          go test -tags=integration -count=1 -timeout 8m \
+            -run 'TestPostgresConnectorLogicalReplication' \
+            ./agents/capture/connector/pg/ -v

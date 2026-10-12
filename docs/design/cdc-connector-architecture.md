@@ -6,7 +6,7 @@ title: CDC Connector 架构——多数据库数据源接入与能力声明（�
 
 ## 状态
 
-- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层已落码（2026-10-13，4306 第一增量），流式接线与全链验证未做**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 解码层落地 `agents/capture/connector/pg/`（pgoutput 二进制协议 → ChangeEvent，纯逻辑零驱动，手工 fixture 单测锁协议布局；见「8. 交付记录」）。连接器流式接线（pglogrepl 握手/槽管理/keepalive）、MySQL 迁移到契约、runner 多 Connector 装配未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
+- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层与流式接线已落码（2026-10-13，4306 增量一/二），三源活栈冒烟已进 CI**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 实现落地 `agents/capture/connector/pg/`（pgoutput 二进制协议 → ChangeEvent 解码层 + `PostgresConnector` 复制流接线，见「8. 交付记录」）。MySQL 迁移到契约、runner 多 Connector 装配与全链（规则→面板）活栈验证未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
 
 ## 8. 交付记录
 
@@ -31,6 +31,45 @@ pgx/pglogrepl；复制流握手是下一增量）：
 bool 译真假（NaN/Infinity 回退字符串不伪造数字），其余一律 JSON 字符串；
 TOAST 未重写列（'u'）行像缺键（非 null）；update 无旧像 Before=nil；
 TRUNCATE 闭集无对应操作——跳过+计数（TruncatedRelations），不伪造 delete。
+
+### 8.2 PostgreSQL P0 流式接线（4306 第二增量，2026-10-13）
+
+`PostgresConnector` 实现 `SourceConnector`（`connector.go`），PG 复制流 →
+Decoder → 统一 ChangeEvent 的组装层；新增依赖 `jackc/pglogrepl`（与既有
+`jackc/pgx/v5` 同源作者栈，仅复制协议层，不复用其连接池）。
+
+- **双连接形态**（PG 协议约束）：普通连接承载 Open/Discover/槽管理 SQL；
+  `START_REPLICATION` 要求复制启动参数，Poll 时按 Open 解析的 `pgconn.Config`
+  克隆一条复制连接（RuntimeParams `replication=database`）。槽管理走 SQL
+  函数 `pg_create_logical_replication_slot`——复制命令版
+  `CREATE_REPLICATION_SLOT` 在普通连接上报语法错（42601）。
+- **槽与 publication**：slotName/publication 走 Options（必填、`[a-z0-9_]`
+  白名单，因复制协议命令不支持参数绑定）；槽不存在则建持久槽（位点恢复
+  依赖服务端保留 WAL），publication 必须预建——连接器不自动建
+  FOR ALL TABLES，那会把全库变更卷进槽，属源端副作用须运维显式决策。
+- **起点决策**：检查点位点续读优先；空 From 取槽 confirmed_flush_lsn（存量
+  槽）或建槽 consistent point（新槽），契约要求的起点显式记日志。位点
+  语义 at-least-once（边界事务可能重放），与 MySQL 源同口径。
+- **心跳**：ReceiveMessage 挂 10s 截止，超时发 standby 状态上报（服务端
+  wal_sender_timeout 默认 60s，10s 上报留 4 倍裕量）；keepalive 带
+  ReplyRequested 时立即回。关闭路径按正常收敛（不记错误日志），
+  `closed` 用 atomic 供 pump 并发判定。
+- **Snapshot**：能力声明 false，显式返回 `ErrUnsupportedSnapshot`（不静默
+  回空流）。
+
+插件参数是完整 `name 'value'` 对（pgoutput v1：
+`proto_version '1'`, `publication_names '<pub>'`）——pglogrepl 的
+PluginArgs 原样逗号连接进括号，拆成裸键值对会被服务端按语法错拒收。
+
+活栈验证（CI `capture-matrix` job + 本地 docker 同命令）：postgres:16
+`-c wal_level=logical` 起源，integration 测试 `connector_integration_test.go`
+（`TEST_POSTGRES_CAPTURE_DSN` 门控，缺席 skip）走完整链——建表建发布 →
+Discover 断言列/PK/能力同源 → 空位点 Poll 自动建槽 → INSERT（列名映射/
+主键/lsn 位点/时间戳）→ 非键列 UPDATE（Before=nil，REPLICA IDENTITY
+DEFAULT 只在**键列变更**时带 'K' 旧元组，与 beforeImage=false 诚实口径
+一致）→ 键列 UPDATE（'K' 元组全宽，非键列为 null 占位：
+`{"id":1,"v":null}`，活体实测修正了「仅键列」的文档假设）→ Checkpoint
+lsn 可解析 → Close → 从检查点续读收 DELETE 事件（槽保留位点语义）。
 
 ## 1. 目标与非目标
 
