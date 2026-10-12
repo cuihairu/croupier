@@ -8,6 +8,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -22,7 +23,8 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		slog.Info("capture-agent", "version", runner.Version)
+		// 版本输出走 stdout（安装脚本自校验捕 stdout；slog 默认 stderr）
+		fmt.Printf("capture-agent version %s (commit %s, built %s)\n", runner.Version, runner.GitCommit, runner.BuildTime)
 		return
 	}
 

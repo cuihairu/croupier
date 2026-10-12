@@ -107,7 +107,20 @@ agent:
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./cmd/sidecar-agent
 
-build: server agent worker ingest tools
+# devops/capture 的版本号在非 main 包（agents/*/runner.Version），
+# -X 须写完整导入路径；其 main 包无 Version 变量，LDFLAGS 的 main.X 注入
+# 在这两个二进制上是静默 no-op（无害保留，保持与 server target 同一写法）。
+agent-devops:
+	@echo "[build] devops-agent"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/devops/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/devops/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/devops/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/devops-agent ./cmd/devops-agent
+
+agent-capture:
+	@echo "[build] capture-agent"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/capture/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/capture/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/capture/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/capture-agent ./cmd/capture-agent
+
+build: server agent agent-devops agent-capture worker ingest tools
 
 .PHONY: build-ip2loc
 build-ip2loc:

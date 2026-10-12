@@ -2,46 +2,68 @@
 #
 # Croupier Agent 一键安装脚本（Linux / macOS）
 #
-# 远程执行（默认装最新稳定版）：
+# 三类 agent 统一入口（--agent 选型；差别见 docs/operations/agent-comparison.md）：
+#   sidecar  业务旁挂 agent：函数注册/调用、健康与指标上报（默认，历史行为）
+#   devops   内网堡垒机式远程接入 agent（远程会话协议通道接线前只注册上线）
+#   capture  CDC 数据变更捕获 agent（capture.enabled 缺省关，先注册后开闸）
+#
+# 远程执行（默认装 sidecar + 最新稳定版）：
 #   curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
+#   curl -fsSL ... | bash -s -- --agent capture --server gm.example.com:19090 --game-id demo
 #
 # 参数（跟在 `bash -s --` 之后；本地执行直接跟在脚本名后）：
+#   --agent <sidecar|devops|capture>   安装哪类 agent（默认 sidecar）
 #   --version <latest|nightly|vX.Y.Z>  安装版本。latest=最新稳定版（默认）、
 #                                      nightly=每日构建、vX.Y.Z=钉定版本
+#   --local <dir>                      离线产物目录（内网/验证用）：直接取目录下
+#                                      <bin-name> 或 croupier-bin-<os>-<arch>.tar.gz，
+#                                      跳过 GitHub 下载
 #   --bin-dir <dir>                    安装目录，默认 /usr/local/bin；
 #                                      不可写且无免密 sudo 时自动回退 ~/.local/bin
+#   --config-dir <dir>                 配置目录，默认 /etc/croupier（不可写回退 ~/.croupier）
 #   --with-service                     注册开机自启（Linux: systemd root；
 #                                      macOS: launchd，root 装系统级、否则用户级）
 #   --server <addr>                    Server 上游地址（如 gm.example.com:19090），
-#                                      写入已落盘配置的 server.addr；缺省时若在
-#                                      交互终端会提示输入（回车跳过）
+#                                      写入已落盘配置（sidecar: server.addr，
+#                                      devops/capture: agent.serverAddr）
+#   --agent-id <id>                    注册用 agent 唯一 id（默认 <role>-主机短名）
+#   --game-id <id>                     游戏域标签（默认 default；sidecar 启动强校验非空）
+#   --env <name>                       环境标签（默认 dev；sidecar 启动强校验非空）
 #   --silent                           静默安装：禁用一切交互提示（管道/CI 必用；
 #                                      非 TTY 下自动等同静默）
-#   --uninstall                        卸载（停止服务 + 删除二进制与配置不动数据）
+#   --uninstall                        卸载（停止服务 + 删除二进制；配置不动数据保留）
 #   -h, --help                         帮助
 #
 # 环境变量（piped 场景不便传参时）：
-#   CROUPIER_INSTALL_VERSION / CROUPIER_INSTALL_BIN_DIR
+#   CROUPIER_INSTALL_AGENT / CROUPIER_INSTALL_VERSION / CROUPIER_INSTALL_LOCAL_DIR
+#   CROUPIER_INSTALL_BIN_DIR / CROUPIER_INSTALL_CONFIG_DIR
 #   CROUPIER_INSTALL_WITH_SERVICE=1
-#   CROUPIER_INSTALL_SERVER / CROUPIER_INSTALL_SILENT=1
+#   CROUPIER_INSTALL_SERVER / CROUPIER_INSTALL_AGENT_ID
+#   CROUPIER_INSTALL_GAME_ID / CROUPIER_INSTALL_ENV / CROUPIER_INSTALL_SILENT=1
 #
 # 幂等：重复执行即覆盖升级。失败即停，报错带明确原因。
-# 产物来自 GitHub Releases（匿名可下）：croupier-bin-<os>-<arch>.tar.gz，
-# 只安装其中的 croupier-agent（server 另行部署）。
+# 产物来自 GitHub Releases（匿名可下）：croupier-bin-<os>-<arch>.tar.gz
+# （nightly 起含四二进制：croupier-server / croupier-agent / devops-agent /
+# capture-agent），本脚本只安装所选 agent（server 另行部署）。
+# 注意：三个 agent 的配置加载均无 ${ENV} 展开层——含密码的配置文件须
+# root:0600 落盘，或部署侧模板渲染后再交付；密钥绝不入仓库。
 
 set -euo pipefail
 
 REPO="cuihairu/croupier"
 RAW_BASE="https://raw.githubusercontent.com/${REPO}"
 RELEASE_BASE="https://github.com/${REPO}/releases"
-BIN_NAME="croupier-agent"
-SERVICE_NAME="croupier-agent"            # systemd 单元名
-LAUNCHD_LABEL="com.github.cuihairu.croupier.agent"  # 与 scripts/install-launchd.sh 命名同族
 
 VERSION="${CROUPIER_INSTALL_VERSION:-latest}"
+AGENT_KIND="${CROUPIER_INSTALL_AGENT:-sidecar}"
+LOCAL_DIR="${CROUPIER_INSTALL_LOCAL_DIR:-}"
 BIN_DIR="${CROUPIER_INSTALL_BIN_DIR:-}"
+CONFIG_DIR="${CROUPIER_INSTALL_CONFIG_DIR:-}"
 WITH_SERVICE="${CROUPIER_INSTALL_WITH_SERVICE:-0}"
 SERVER_ADDR="${CROUPIER_INSTALL_SERVER:-}"
+AGENT_ID="${CROUPIER_INSTALL_AGENT_ID:-}"
+GAME_ID="${CROUPIER_INSTALL_GAME_ID:-default}"
+ENV_NAME="${CROUPIER_INSTALL_ENV:-dev}"
 SILENT="${CROUPIER_INSTALL_SILENT:-0}"
 UNINSTALL=0
 
@@ -51,26 +73,66 @@ warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$*"; }
 die()  { printf "${RED}[ERROR]${NC} %s\n" "$*" >&2; exit 1; }
 
 usage() {
-  sed -n '3,26p' "${BASH_SOURCE[0]}"
+  sed -n '3,49p' "${BASH_SOURCE[0]}"
 }
 
 # ---- 参数解析 ------------------------------------------------------------
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --agent)        [ $# -ge 2 ] || die "--agent 需要取值"; AGENT_KIND="$2"; shift 2 ;;
+    --agent=*)      AGENT_KIND="${1#--agent=}"; shift ;;
     --version)      [ $# -ge 2 ] || die "--version 需要取值"; VERSION="$2"; shift 2 ;;
     --version=*)    VERSION="${1#--version=}"; shift ;;
+    --local)        [ $# -ge 2 ] || die "--local 需要取值"; LOCAL_DIR="$2"; shift 2 ;;
+    --local=*)      LOCAL_DIR="${1#--local=}"; shift ;;
     --bin-dir)      [ $# -ge 2 ] || die "--bin-dir 需要取值"; BIN_DIR="$2"; shift 2 ;;
     --bin-dir=*)    BIN_DIR="${1#--bin-dir=}"; shift ;;
+    --config-dir)   [ $# -ge 2 ] || die "--config-dir 需要取值"; CONFIG_DIR="$2"; shift 2 ;;
+    --config-dir=*) CONFIG_DIR="${1#--config-dir=}"; shift ;;
     --with-service) WITH_SERVICE=1; shift ;;
     --server)       [ $# -ge 2 ] || die "--server 需要取值"; SERVER_ADDR="$2"; shift 2 ;;
     --server=*)     SERVER_ADDR="${1#--server=}"; shift ;;
+    --agent-id)     [ $# -ge 2 ] || die "--agent-id 需要取值"; AGENT_ID="$2"; shift 2 ;;
+    --agent-id=*)   AGENT_ID="${1#--agent-id=}"; shift ;;
+    --game-id)      [ $# -ge 2 ] || die "--game-id 需要取值"; GAME_ID="$2"; shift 2 ;;
+    --game-id=*)    GAME_ID="${1#--game-id=}"; shift ;;
+    --env)          [ $# -ge 2 ] || die "--env 需要取值"; ENV_NAME="$2"; shift 2 ;;
+    --env=*)        ENV_NAME="${1#--env=}"; shift ;;
     --silent)       SILENT=1; shift ;;
     --uninstall)    UNINSTALL=1; shift ;;
     -h|--help)      usage; exit 0 ;;
     *)              die "未知参数: $1（--help 查看用法）" ;;
   esac
 done
+
+# ---- agent 选型（二进制/服务名/配置名/launchd 标签四件套） -------------------
+
+case "$AGENT_KIND" in
+  sidecar)
+    BIN_NAME="croupier-agent"
+    SERVICE_NAME="croupier-agent"
+    CFG_NAME="agent.yaml"
+    AGENT_DESC="Croupier Sidecar Agent"
+    LAUNCHD_LABEL="com.github.cuihairu.croupier.agent"
+    ;;
+  devops)
+    BIN_NAME="devops-agent"
+    SERVICE_NAME="croupier-devops-agent"
+    CFG_NAME="devops-agent.yaml"
+    AGENT_DESC="Croupier Devops Agent"
+    LAUNCHD_LABEL="com.github.cuihairu.croupier.devops-agent"
+    ;;
+  capture)
+    BIN_NAME="capture-agent"
+    SERVICE_NAME="croupier-capture-agent"
+    CFG_NAME="capture-agent.yaml"
+    AGENT_DESC="Croupier Capture Agent"
+    LAUNCHD_LABEL="com.github.cuihairu.croupier.capture-agent"
+    ;;
+  *)
+    die "未知 agent 类型: $AGENT_KIND（可选 sidecar | devops | capture）" ;;
+esac
 
 # ---- 平台识别 ------------------------------------------------------------
 
@@ -132,23 +194,25 @@ valid_server_addr() { # host / host:port / [v6]:port；拒引号反斜杠防 YAM
   printf '%s' "$1" | grep -Eq '^[][A-Za-z0-9._:-]+$'
 }
 
-apply_server_addr() { # $1=agent.yaml 路径；只改 server 段下的 addr 行
+apply_server_addr() { # $1=配置文件路径；sidecar 改 server.addr、devops/capture 改 agent.serverAddr
   [ -n "$SERVER_ADDR" ] || return 0
   [ -f "$1" ] || return 0
   local tmp="$1.tmp.$$"
   if awk -v new="$SERVER_ADDR" '
-      /^server:[ \t]*(#.*)?$/ { in_server = 1; print; next }
-      /^[^ \t]/               { in_server = 0 }
-      in_server && /^[ \t]+addr:/ { sub(/addr:.*/, "addr: \"" new "\""); done = 1 }
+      /^server:[ \t]*(#.*)?$/  { in_server = 1; in_agent = 0; print; next }
+      /^agent:[ \t]*(#.*)?$/   { in_agent = 1; in_server = 0; print; next }
+      /^[^ \t]/                { in_server = 0; in_agent = 0 }
+      in_server && /^[ \t]+addr:/        { sub(/addr:.*/, "addr: \"" new "\""); done = 1 }
+      in_agent && /^[ \t]+serverAddr:/   { sub(/serverAddr:.*/, "serverAddr: \"" new "\""); done = 1 }
       { print }
       END { exit done ? 0 : 1 }
     ' "$1" > "$tmp"; then
     cat "$tmp" > "$1" && rm -f "$tmp"
     SERVER_APPLIED=1
-    info "已写入 server.addr = ${SERVER_ADDR}（$1）"
+    info "已写入上游地址 = ${SERVER_ADDR}（$1）"
   else
     rm -f "$tmp"
-    warn "未在 $1 的 server 段找到 addr 行，请手动设置 server.addr=${SERVER_ADDR}"
+    warn "未在 $1 找到上游地址行（server.addr / agent.serverAddr），请手动设置"
   fi
 }
 
@@ -161,9 +225,135 @@ if [ -n "$SERVER_ADDR" ] && ! valid_server_addr "$SERVER_ADDR"; then
   if [ "$SERVER_PROVIDED" -eq 1 ]; then
     die "server 地址含非法字符: ${SERVER_ADDR}"
   fi
-  warn "输入的 server 地址含非法字符，已忽略（可稍后手动编辑 agent.yaml 的 server.addr）"
+  warn "输入的 server 地址含非法字符，已忽略（可稍后手动编辑 ${CFG_NAME}）"
   SERVER_ADDR=""
 fi
+
+# ---- agent id 默认值（<role>-主机短名；显式传入优先） ------------------------
+
+if [ -z "$AGENT_ID" ]; then
+  HOST_SHORT="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo host)"
+  case "$AGENT_KIND" in
+    sidecar)  AGENT_ID="sidecar-${HOST_SHORT}" ;;
+    devops)   AGENT_ID="devops-${HOST_SHORT}" ;;
+    capture)  AGENT_ID="capture-${HOST_SHORT}" ;;
+  esac
+fi
+
+# ---- 配置目录与初始配置生成 --------------------------------------------------
+# 三个 agent 均无 ${ENV} 展开层：初始配置不含任何密钥值（密码留空、证书给路径
+# 占位注释）；含密码时须 root:0600。逐字段说明见 docs/operations/agent-config.md。
+
+resolve_config_dir() {
+  if [ -n "$CONFIG_DIR" ]; then
+    printf '%s' "$CONFIG_DIR"; return 0
+  fi
+  if [ "$(id -u)" -eq 0 ] || [ -w /etc/croupier ] || { have sudo && sudo -n true 2>/dev/null; }; then
+    printf '/etc/croupier'
+  else
+    printf '%s/.croupier' "$HOME"
+  fi
+}
+
+write_initial_config() { # $1=目标文件路径；已存在则保留（幂等升级不改配置）
+  local dest="$1"
+  [ -f "$dest" ] && { info "保留既有配置: $dest"; return 0; }
+  mkdir -p "$(dirname "$dest")" 2>/dev/null || true
+  case "$AGENT_KIND" in
+    sidecar)
+      cat > "$dest" <<EOF
+# croupier-agent（sidecar）初始配置 —— scripts/install.sh 生成
+# 逐字段说明: docs/operations/config-agent.md（业务旁挂: 函数注册/调用 + 健康上报）
+server:
+  addr: "${SERVER_ADDR}"        # 上游 Croupier Server 控制面 host:port（空 = 不连上游）
+  transport: tcp
+  insecure: true                # 生产建议 TLS: false + 下方证书三件套
+  # caFile: /etc/croupier/certs/ca.pem
+  # tlsCertFile: /etc/croupier/certs/agent.pem
+  # tlsKeyFile: /etc/croupier/certs/agent-key.pem
+  # serverName: croupier-server.internal
+
+agent:
+  id: "${AGENT_ID}"             # 注册用唯一 id（空 = 自动 <hostname>-<ts>）
+  gameId: "${GAME_ID}"          # 必填: 启动强校验非空
+  env: "${ENV_NAME}"            # 必填: 启动强校验非空
+  localAddr: "0.0.0.0:19091"    # 本地网关: 业务进程 SDK 注册函数的入口
+  labels: {}
+
+upstream:
+  heartbeatInterval: 10         # 秒；核心默认 3s
+
+log:
+  level: info
+  format: console
+
+ops:
+  enabled: true
+  metricsInterval: 30s
+  metricsEnabled: true
+EOF
+      ;;
+    devops)
+      cat > "$dest" <<EOF
+# devops-agent 初始配置 —— scripts/install.sh 生成
+# 逐字段说明: docs/operations/agent-config.md（内网堡垒机式远程接入）
+agent:
+  id: "${AGENT_ID}"             # 注册用唯一 id（必填）
+  serverAddr: "${SERVER_ADDR}"  # 上游控制面 host:port（必填）
+  gameId: "${GAME_ID}"          # 必填
+  env: "${ENV_NAME}"
+  heartbeatFile: /var/lib/croupier/devops/agent-heartbeat
+
+outboundTLS:
+  enabled: false                # 生产建议 true + caFile（校验服务端）+ cert/key（mTLS）
+  # caFile: /etc/croupier/certs/ca.pem
+  # certFile: /etc/croupier/certs/devops.pem
+  # keyFile: /etc/croupier/certs/devops-key.pem
+
+devops:
+  enabled: false                # false = 只注册上线不接远程会话（会话协议通道接线前恒拒绝）
+  sessionDir: /var/lib/croupier/devops/sessions
+  execlogDir: /var/lib/croupier/devops/execlog   # 执行审计留痕（逐会话记录）
+  allowlist: []                 # enabled: true 时必填非空的主机白名单，例如:
+  # - host: 10.0.0.21
+  #   ports: [22]
+  #   protocols: [ssh]
+EOF
+      ;;
+    capture)
+      cat > "$dest" <<EOF
+# capture-agent 初始配置 —— scripts/install.sh 生成
+# 逐字段说明: docs/operations/agent-config.md（CDC 数据变更捕获 + 三闸风控）
+agent:
+  id: "${AGENT_ID}"             # 注册用唯一 id（必填）
+  serverAddr: "${SERVER_ADDR}"  # 上游控制面 host:port（必填）
+  gameId: "${GAME_ID}"          # 必填
+  env: "${ENV_NAME}"
+  heartbeatFile: /var/lib/croupier/capture/agent-heartbeat
+
+outboundTLS:
+  enabled: false                # 生产建议 true + caFile + cert/key
+
+capture:
+  enabled: false                # false = 只注册上线；开启前确认 MySQL 前置:
+                                #   binlog_format=ROW / binlog_row_image=FULL /
+                                #   gtid_mode=ON / 账号有 REPLICATION SLAVE / serverId 不冲突
+  bookmarkDir: /var/lib/croupier/capture/bookmarks
+  bookmarkFlushIntervalSec: 5
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    user: repl
+    password: ""                # 明文字段（无 \${ENV} 展开）: 本文件须 root:0600
+    serverId: 4242              # 与源实例及其他 binlog 订阅者不冲突
+    tables: {}                  # enabled: true 时必填非空白名单（"库.表": true）
+  gates: {}                     # 空 = 只采不判；规则建议走面板 capture.gates 热下发
+EOF
+      ;;
+  esac
+  chmod 0600 "$dest"
+  info "已生成初始配置: $dest（已存在则保留不改）"
+}
 
 # ---- 卸载 ----------------------------------------------------------------
 
@@ -181,7 +371,7 @@ if [ "$UNINSTALL" -eq 1 ]; then
     if rm -f "$1" 2>/dev/null || { have sudo && sudo -n rm -f "$1" 2>/dev/null; }; then
       info "已删除: $1"
     else
-      warn "无权限删除: $1（请重跑: curl -fsSL ${RAW_BASE}/main/scripts/install.sh | sudo bash -s -- --uninstall）"
+      warn "无权限删除: $1（请重跑: curl -fsSL ${RAW_BASE}/main/scripts/install.sh | sudo bash -s -- --agent ${AGENT_KIND} --uninstall）"
       FAILED=1
     fi
   }
@@ -211,33 +401,48 @@ if [ "$UNINSTALL" -eq 1 ]; then
     try_remove "$CAND"
   done
   [ "$FAILED" -eq 0 ] || die "卸载未完成（见上方 WARN），请用 sudo 重跑"
-  info "卸载完成（/etc/croupier/ 配置保留，如需清理请手动删除）"
+  info "卸载完成（配置文件保留，如需清理请手动删除 ${CFG_NAME}）"
   exit 0
 fi
 
-# ---- 解析版本与下载地址 ----------------------------------------------------
-
-if [ "$VERSION" = "latest" ]; then
-  TAG="$(resolve_latest_tag)"
-  [ -n "$TAG" ] || die "无法解析最新稳定版 tag（网络问题或仓库无正式 release），可显式指定 --version nightly 或 --version vX.Y.Z"
-  info "最新稳定版: $TAG"
-else
-  TAG="$VERSION"
-fi
-
-URL="${RELEASE_BASE}/download/${TAG}/croupier-bin-${OS}-${ARCH}.tar.gz"
-info "目标产物: $URL"
+# ---- 解析版本与取产物 ------------------------------------------------------
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-download "$URL" "$TMP/archive.tar.gz"
+if [ -n "$LOCAL_DIR" ]; then
+  # 离线模式：本地目录直取二进制或官方归档（内网部署 / 干净环境验证）
+  [ -d "$LOCAL_DIR" ] || die "本地产物目录不存在: $LOCAL_DIR"
+  AGENT_SRC="$(find "$LOCAL_DIR" -maxdepth 2 -type f -name "$BIN_NAME" | head -1)"
+  if [ -n "$AGENT_SRC" ]; then
+    info "本地产物: $AGENT_SRC"
+  else
+    TARBALL="$(find "$LOCAL_DIR" -maxdepth 2 -type f -name "croupier-bin-${OS}-${ARCH}.tar.gz" | head -1)"
+    [ -n "$TARBALL" ] || die "本地目录未找到 ${BIN_NAME} 或 croupier-bin-${OS}-${ARCH}.tar.gz: $LOCAL_DIR"
+    tar -xzf "$TARBALL" -C "$TMP"
+    AGENT_SRC="$(find "$TMP" -maxdepth 2 -type f -name "$BIN_NAME" | head -1)"
+    [ -n "$AGENT_SRC" ] || die "归档中未找到 ${BIN_NAME}: $TARBALL"
+    info "本地归档: $TARBALL"
+  fi
+else
+  if [ "$VERSION" = "latest" ]; then
+    TAG="$(resolve_latest_tag)"
+    [ -n "$TAG" ] || die "无法解析最新稳定版 tag（网络问题或仓库无正式 release），可显式指定 --version nightly 或 --version vX.Y.Z"
+    info "最新稳定版: $TAG"
+  else
+    TAG="$VERSION"
+  fi
 
-# 归档由 nightly/CI 打包（tar -C bin .），含 server+agent 等；解到临时目录后取 agent
-tar -xzf "$TMP/archive.tar.gz" -C "$TMP"
-AGENT_SRC="$(find "$TMP" -maxdepth 2 -type f -name "$BIN_NAME" | head -1)"
-[ -n "$AGENT_SRC" ] || die "归档中未找到 ${BIN_NAME}，产物内容异常"
-chmod +x "$AGENT_SRC"
+  URL="${RELEASE_BASE}/download/${TAG}/croupier-bin-${OS}-${ARCH}.tar.gz"
+  info "目标产物: $URL"
+
+  download "$URL" "$TMP/archive.tar.gz"
+
+  # 归档由 nightly/CI 打包（tar -C bin .），含 server 与三类 agent；解包后取所选 agent
+  tar -xzf "$TMP/archive.tar.gz" -C "$TMP"
+  AGENT_SRC="$(find "$TMP" -maxdepth 2 -type f -name "$BIN_NAME" | head -1)"
+  [ -n "$AGENT_SRC" ] || die "归档中未找到 ${BIN_NAME}，产物内容异常（nightly 构建含全部四二进制）"
+fi
 
 # ---- 安装 ----------------------------------------------------------------
 
@@ -262,7 +467,9 @@ TARGET="${BIN_DIR%/}/$BIN_NAME"
 
 OLD_VER=""
 if [ -x "$TARGET" ]; then
-  OLD_VER="$("$TARGET" --version 2>/dev/null | head -1 || true)"
+  # 2>&1：sidecar 版本走 stdout（cobra），devops/capture 走 slog 时在 stderr，
+  # 两类都要能捕到（老版本输出面不定，双兜底）
+  OLD_VER="$("$TARGET" -version 2>&1 | head -1 || "$TARGET" --version 2>&1 | head -1 || true)"
 fi
 
 if [ -n "$SUDO" ]; then
@@ -276,10 +483,12 @@ else
 fi
 
 # ---- 校验 ----------------------------------------------------------------
+# sidecar 是 cobra（--version），devops/capture 是 Go flag（-version 亦可 --version）；
+# 捕获带 2>&1——slog 系版本输出在 stderr，只捕 stdout 会误判为空
 
-NEW_VER="$("$TARGET" --version 2>/dev/null | head -1)" ||
-  die "安装后校验失败: $TARGET --version 未正常输出"
-[ -n "$NEW_VER" ] || die "安装后校验失败: $TARGET --version 输出为空"
+NEW_VER="$("$TARGET" -version 2>&1 | head -1 || "$TARGET" --version 2>&1 | head -1)" ||
+  die "安装后校验失败: $TARGET -version 未正常输出"
+[ -n "$NEW_VER" ] || die "安装后校验失败: $TARGET -version 输出为空"
 
 if [ -n "$OLD_VER" ] && [ "$OLD_VER" != "$NEW_VER" ]; then
   info "已升级: $OLD_VER -> $NEW_VER"
@@ -296,67 +505,68 @@ case ":$PATH:" in
     export PATH=\"$BIN_DIR:\$PATH\"" ;;
 esac
 
+# ---- 初始配置（始终生成；已存在则保留） --------------------------------------
+
+CFG_ROOT="$(resolve_config_dir)"
+CFG_PATH="${CFG_ROOT%/}/$CFG_NAME"
+
+if [ -f "$CFG_PATH" ]; then
+  info "保留既有配置: $CFG_PATH"
+  apply_server_addr "$CFG_PATH"
+elif mkdir -p "$(dirname "$CFG_PATH")" 2>/dev/null; then
+  write_initial_config "$CFG_PATH"
+  apply_server_addr "$CFG_PATH"
+elif have sudo && sudo -n mkdir -p "$(dirname "$CFG_PATH")" 2>/dev/null; then
+  TMP_CFG="$(mktemp)"
+  write_initial_config "$TMP_CFG"
+  sudo -n install -m 0600 "$TMP_CFG" "$CFG_PATH"
+  rm -f "$TMP_CFG"
+  info "已生成初始配置: $CFG_PATH"
+  # 已存在路径不会走到这（上方 -f 分支拦住），此处必然是新文件，无需再 apply
+else
+  warn "无法写配置目录 $(dirname "$CFG_PATH")，请手动创建 ${CFG_NAME}（模板见 docs/operations/agent-config.md）"
+fi
+
 # ---- 可选：注册开机自启服务 --------------------------------------------------
 
 if [ "$WITH_SERVICE" -eq 1 ]; then
   if [ "$OS" = linux ]; then
     have systemctl || die "--with-service 需要 systemd（当前系统无 systemctl），请手动配置服务"
     [ "$(id -u)" -eq 0 ] || die "--with-service 需要 root 权限：
-    curl -fsSL ${RAW_BASE}/main/scripts/install.sh | sudo bash -s -- --with-service"
+    curl -fsSL ${RAW_BASE}/main/scripts/install.sh | sudo bash -s -- --agent ${AGENT_KIND} --with-service"
 
-    mkdir -p /etc/croupier
-    if [ ! -f /etc/croupier/agent.yaml ]; then
-      info "拉取配置模板 configs/agent.yaml -> /etc/croupier/agent.yaml（tag $TAG）"
-      download "${RAW_BASE}/${TAG}/configs/agent.yaml" /etc/croupier/agent.yaml
-    else
-      info "保留既有配置 /etc/croupier/agent.yaml"
-    fi
-    apply_server_addr /etc/croupier/agent.yaml
-
-    cat > "$TMP/${SERVICE_NAME}.service" <<'EOF'
+    cat > "$TMP/${SERVICE_NAME}.service" <<EOF
 [Unit]
-Description=Croupier Agent
+Description=${AGENT_DESC}
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=__BIN__ --config /etc/croupier/agent.yaml
+ExecStart=${TARGET} --config ${CFG_PATH}
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
-# 敏感值建议在 YAML 写 $(ENV_VAR) 占位（加载时 os.ExpandEnv 展开），秘钥不落盘；
-# 配置项详见 docs/operations/config-agent.md
+# 注意：三个 agent 的配置加载均无 \${ENV} 展开层——密码直接写配置文件并保持
+# root:0600，或部署侧模板渲染后再交付；逐字段说明见 docs/operations/agent-config.md
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    sed -i.bak "s#__BIN__#${TARGET}#" "$TMP/${SERVICE_NAME}.service" && rm -f "$TMP/${SERVICE_NAME}.service.bak"
     install -m 0644 "$TMP/${SERVICE_NAME}.service" "/etc/systemd/system/${SERVICE_NAME}.service"
     systemctl daemon-reload
     systemctl enable --now "${SERVICE_NAME}"
     info "服务已注册并启动: systemctl status ${SERVICE_NAME}"
+    info "日志: journalctl -u ${SERVICE_NAME} -f"
   else
     # macOS launchd：root 装系统级 LaunchDaemon，普通用户装用户级 LaunchAgent
     if [ "$(id -u)" -eq 0 ]; then
       PLIST_DIR="/Library/LaunchDaemons"
       DOMAIN="system"
-      CFG_DIR="/etc/croupier"
-      mkdir -p "$CFG_DIR"
-      if [ ! -f "$CFG_DIR/agent.yaml" ]; then
-        download "${RAW_BASE}/${TAG}/configs/agent.yaml" "$CFG_DIR/agent.yaml"
-      fi
-      CFG_PATH="$CFG_DIR/agent.yaml"
     else
       PLIST_DIR="$HOME/Library/LaunchAgents"
       DOMAIN="gui/$(id -u)"
-      CFG_PATH="${CROUPIER_AGENT_CONFIG:-$HOME/etc/croupier/agent.yaml}"
-      mkdir -p "$(dirname "$CFG_PATH")"
-      if [ ! -f "$CFG_PATH" ]; then
-        download "${RAW_BASE}/${TAG}/configs/agent.yaml" "$CFG_PATH"
-      fi
     fi
-    apply_server_addr "$CFG_PATH"
     mkdir -p "$PLIST_DIR"
     cat > "$TMP/${LAUNCHD_LABEL}.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -387,14 +597,24 @@ EOF
     launchctl bootstrap "$DOMAIN" "$PLIST_DIR/${LAUNCHD_LABEL}.plist"
     launchctl enable "$DOMAIN/$LAUNCHD_LABEL"
     info "launchd 服务已注册: launchctl print $DOMAIN/$LAUNCHD_LABEL"
+    info "日志: /tmp/${LAUNCHD_LABEL}.log"
   fi
 fi
 
 if [ -n "$SERVER_ADDR" ] && [ "$SERVER_APPLIED" -eq 0 ]; then
-  # 无 service 分支不落配置文件：地址没处写，明说别让用户以为已生效
-  info "完成。本次未落配置文件：Server 地址 ${SERVER_ADDR} 需写入 agent.yaml 的
-  server.addr（配置模板与说明见 docs/operations/config-agent.md），然后: $TARGET --config <agent.yaml>"
-else
-  info "完成。下一步：编辑配置连上 Server（上游地址见 docs/operations/config-agent.md），
-  然后: $TARGET --config <agent.yaml>"
+  warn "本次未把 Server 地址写进配置（${CFG_PATH}），请手动补 ${CFG_NAME} 的上游地址字段"
 fi
+
+DOCS_HINT="docs/operations/agent-comparison.md（选型）/ agent-config.md（配置逐字段）"
+case "$AGENT_KIND" in
+  sidecar)
+    NEXT="业务进程经 SDK 连 agent.localAddr（默认 TCP 19091）注册函数" ;;
+  devops)
+    NEXT="当前仅注册上线（devops.enabled=false）；远程会话协议通道接线后按白名单开启" ;;
+  capture)
+    NEXT="当前只注册上线（capture.enabled=false）；开闸前配置 mysql.tables 白名单与源库权限" ;;
+esac
+info "完成。配置: ${CFG_PATH}
+下一步: ${NEXT}
+文档: ${DOCS_HINT}
+启动: ${TARGET} --config ${CFG_PATH}"

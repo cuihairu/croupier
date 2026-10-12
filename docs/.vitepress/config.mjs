@@ -389,6 +389,8 @@ const config = defineConfig({
           items: [
             { text: "Server 配置全解", link: "/operations/config-server" },
             { text: "Agent 配置全解", link: "/operations/config-agent" },
+            { text: "Agent 配置逐字段（三类）", link: "/operations/agent-config" },
+            { text: "三类 Agent 选型", link: "/operations/agent-comparison" },
             { text: "TLS 与证书", link: "/operations/tls-certificates" },
             {
               text: "配置分层（文件/数据库）",

@@ -4231,17 +4231,17 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 > 拆分本身已落地（`cmd/{devops,sidecar,capture}-agent`，口径同步见上节 ①–④）；本批=拆分之后欠的三件交付物，**配置是重点**：
 
-- [ ] **使用场景说明**（每个 agent 一节：什么时候用它、部署在哪、权限边界、三者分工与组合关系）：
-  - **devops-agent**＝内网堡垒机场景：打包机/CI 挂了要远程进机处置、代理操作 jenkins；支持 SSH/RDP/VNC（参考 cockpit 后台直连），高权限必须**会话级审计留痕**、主机白名单；给运维/开发用，部署在内网
+- [x] **使用场景说明**（每个 agent 一节：什么时候用它、部署在哪、权限边界、三者分工与组合关系）——已落地 `docs/operations/agent-comparison.md`（2026-10-12）：
+  - **devops-agent**＝内网堡垒机场景：打包机/CI 挂了要远程进机处置、代理操作 jenkins；支持 SSH/RDP/VNC（参考 cockpit 后台直连），高权限必须**会话级审计留痕**、主机白名单；给运维/开发用，部署在内网。已知边界如实写明：会话协议通道未接线，`enabled=true` 时会话建立被拒（session.go NoopTarget）
   - **sidecar-agent**＝外网业务场景：旁挂业务进程做监控、注册函数回调、汇报健康信息（主机信息 + 定时任务）；**只有业务相关能力，无远程接入面**；业务方接入用
   - **capture-agent**＝CDC 场景：捕获数据库变更进下游（数仓/告警链），与另两个无交集
-  - 附一张三 agent 对比表（场景/部署位置/权限/入口/「我该用哪个」）
-- [ ] **一键安装脚本**：每个 agent 一条命令可装可跑——`install.sh`（或统一入口 `install.sh --agent=devops|sidecar|capture`）：取产物（构建/下载）、生成初始配置、注册 systemd 服务、启停与日志、升级与卸载；脚本在**干净环境真跑通**才算完成
-- [ ] **配置文档（重点，写最细）**：每个 agent 的配置文件**逐字段**说明——字段名 / 类型 / 默认值 / 含义 / 示例 / 代码读取处（file:line），外加最小可跑示例与生产建议值：
-  - **devops**：堡垒主机白名单、SSH/RDP/VNC 连接方式与凭据来源、审计存储与保留、jenkins 端点凭据、监听绑定范围
-  - **sidecar**：服务端地址与凭据、上报间隔、进程监控规则（哪些进程/怎么算异常）、注册函数配置、定时任务 cron
-  - **capture**：源库连接（最小权限账号）、库表筛选规则、目标端、三闸层配置、断点/失败处理
-  - 红线照旧：密钥不进仓库（示例只给环境变量/文件路径引用，不给真实值）
+  - 附一张三 agent 对比表（场景/部署位置/权限/入口/「我该用哪个」）——已含总览对比表 + 决策树
+- [x] **一键安装脚本**：每个 agent 一条命令可装可跑——`install.sh --agent=sidecar|devops|capture` 统一入口（2026-10-12 落地）：取产物（GitHub 下载或 `--local` 离线）、生成初始配置（含 `--server/--agent-id/--game-id/--env`，已存在则保留）、注册 systemd/launchd、启停与日志、升级幂等与 `--uninstall`；**干净环境真跑通已留证**（隔离 docker 网络：干净 ubuntu 容器三类 agent 各一轮 install→真起→真连 server 注册成功，systemd 容器 `--with-service` unit active+enabled+journalctl 见注册，服务端日志双侧留证；`--uninstall` 复验）
+- [x] **配置文档（重点，写最细）**：`docs/operations/agent-config.md`（2026-10-12 落地）——每个 agent 的配置文件**逐字段**说明——字段名 / 类型 / 默认值 / 含义 / 示例 / 代码读取处（file:line，逐条核准），外加最小可跑示例与生产建议值：
+  - **devops**：堡垒主机白名单（allowlist 校验与默认值）、审计存储与保留（sessionDir/execlogDir + lumberjack 参数）、监听绑定范围（无监听=纯出站）；SSH/RDP/VNC 凭据来源与 jenkins 端点凭据待会话通道批落地后补（当前 DEAD 字段 `guacdAddr` 如实标注）
+  - **sidecar**：服务端地址与凭据（server.* TLS 面）、上报间隔（upstream.heartbeatInterval / ops.metricsInterval）、ops 死字段如实声明（富字段不解析、管控 RPC 恒拒绝）、定时任务为只读可见（ListCronJobs）
+  - **capture**：源库连接（最小权限账号 + binlog 前置）、库表筛选规则（tables 白名单）、三闸层配置（reconcile/cep 三模板/lineage 逐字段 + 默认值 + 命中 ID）、断点/失败处理（位点损坏拒启动、闸热下发失败保留旧版）；lineage C1 降级态如实标注
+  - 红线照旧：密钥不进仓库（示例只给环境变量/文件路径引用，不给真实值）；并如实写明三个 agent 配置加载**均无 ${ENV} 展开层**（install.sh 旧注释的 ExpandEnv 说法是错的，已修正）
 - **验收**：①一键脚本干净机实跑（agent 真起、真连上 server，输出留证）；②配置文档每字段能在代码里找到读取处，无一条凭空写；③场景文档一个新读者能直接选对 agent；测试绿才 push，commit 英文简短，不发版
 
 ## 密码箱抽象与可替换提供商（2026-10-11 用户令：persona 新升级已实现密码箱、可作网站密码箱使用；各项目密码箱应抽象接口、支持替换提供商）

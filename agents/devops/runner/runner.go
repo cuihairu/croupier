@@ -25,6 +25,12 @@ import (
 // Version 注册携带的 agent 版本（可经 ldflags 覆盖）。
 var Version = "dev"
 
+// GitCommit/BuildTime 构建元信息（Makefile agent-devops target 注入，注册携带）。
+var (
+	GitCommit = "unknown"
+	BuildTime = "unknown"
+)
+
 // Runner 是 supervisable.RunFunc 的载体。
 type Runner struct {
 	cfg    config.Config
@@ -104,10 +110,12 @@ func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error)
 		GameId:  r.cfg.Agent.GameID,
 		Env:     r.cfg.Agent.Env,
 		Labels: map[string]string{
-			"role":     "devops",
-			"hostname": host,
-			"os":       runtime.GOOS,
-			"arch":     runtime.GOARCH,
+			"role":      "devops",
+			"hostname":  host,
+			"os":        runtime.GOOS,
+			"arch":      runtime.GOARCH,
+			"gitCommit": GitCommit,
+			"buildTime": BuildTime,
 		},
 	}, nil
 }

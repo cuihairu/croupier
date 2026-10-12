@@ -33,6 +33,12 @@ import (
 // Version 注册携带的 agent 版本（可经 ldflags 覆盖）。
 var Version = "dev"
 
+// GitCommit/BuildTime 构建元信息（Makefile agent-capture target 注入，注册携带）。
+var (
+	GitCommit = "unknown"
+	BuildTime = "unknown"
+)
+
 // errStreamEnded 标记源流结束（pump 致命错误退出），触发重开而非进程退出。
 var errStreamEnded = errors.New("capture source stream ended")
 
@@ -532,10 +538,12 @@ func (r *Runner) startReadinessProbe(ctx context.Context) {
 func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error) {
 	host, _ := os.Hostname()
 	labels := map[string]string{
-		"role":     "capture",
-		"hostname": host,
-		"os":       runtime.GOOS,
-		"arch":     runtime.GOARCH,
+		"role":      "capture",
+		"hostname":  host,
+		"os":        runtime.GOOS,
+		"arch":      runtime.GOARCH,
+		"gitCommit": GitCommit,
+		"buildTime": BuildTime,
 	}
 	if gs := r.gates.Load(); gs != nil && gs.lineage != nil {
 		labels["captureLineage"] = "degraded"
