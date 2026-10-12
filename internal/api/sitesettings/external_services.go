@@ -118,14 +118,14 @@ func (h *ExternalServicesHandler) alertInbound(source string) ExternalService {
 	return e
 }
 
-// serverStatus 维护状态源：provider=noop 无需 baseUrl；真实源（atlas 等）
-// active = enabled && provider 已注册 && baseUrl 非空（与
-// installServerStatusGate 装配判定同口径）。
+// serverStatus 维护状态源：provider 空=缺省 atlas（批 S4，与
+// installServerStatusGate 装配判定同口径）、显式 noop 无需 baseUrl；真实源
+// active = enabled && provider 已注册 && baseUrl 非空。
 func (h *ExternalServicesHandler) serverStatus() ExternalService {
 	cfg := h.cfg.ServerStatus
 	providerKey := strings.TrimSpace(cfg.Provider)
 	if providerKey == "" {
-		providerKey = "noop"
+		providerKey = serverstatus.ProviderAtlas
 	}
 	e := ExternalService{
 		Name:       "serverStatus." + providerKey,
@@ -138,7 +138,9 @@ func (h *ExternalServicesHandler) serverStatus() ExternalService {
 		if serverstatus.Lookup(providerKey) == nil {
 			e.Missing = appendMissing(e.Missing, true, "serverStatus.provider:"+providerKey)
 		}
-		if source, ok := cfg.Providers[providerKey]; ok && providerKey != "noop" && source.BaseURL == "" {
+		// baseUrl 缺失点名（providers 段不存在与存在但空都算缺——装配层
+		// 对非 noop 源缺 baseUrl 同样旁路不挂 gate）。
+		if providerKey != serverstatus.ProviderNoop && strings.TrimSpace(cfg.Providers[providerKey].BaseURL) == "" {
 			e.Missing = appendMissing(e.Missing, true, "serverStatus.providers."+providerKey+".baseUrl")
 		}
 		if source, ok := cfg.Providers[providerKey]; ok && source.TokenEnv != "" {

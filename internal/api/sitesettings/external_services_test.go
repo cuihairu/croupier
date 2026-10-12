@@ -61,7 +61,7 @@ func TestExternalServices_ZeroConfig(t *testing.T) {
 	if am.Configured || am.Active || am.Missing[0] != "alertInbound.sources.alertmanager.secretEnv" {
 		t.Fatalf("alertmanager = %+v", am)
 	}
-	st := findService(t, services, "serverStatus.noop")
+	st := findService(t, services, "serverStatus.atlas")
 	if st.Active || st.Missing[0] != "serverStatus.enabled" {
 		t.Fatalf("serverStatus = %+v", st)
 	}
@@ -150,10 +150,26 @@ func TestExternalServices_ServerStatus(t *testing.T) {
 	}
 
 	// noop：enabled 即 active（无 baseUrl/密钥要求）
-	cfg.ServerStatus.Provider = ""
+	cfg.ServerStatus.Provider = "noop"
 	services, _ = serveExternalServices(t, cfg)
 	st = findService(t, services, "serverStatus.noop")
 	if !st.Active || len(st.Missing) != 0 {
 		t.Fatalf("noop = %+v", st)
+	}
+
+	// provider 空=缺省 atlas（批 S4）：缺 baseUrl 点名，缺项与显式 atlas
+	// 同口径（装配层同样旁路不挂 gate）。
+	cfg.ServerStatus.Provider = ""
+	services, _ = serveExternalServices(t, cfg)
+	st = findService(t, services, "serverStatus.atlas")
+	if st.Active || st.Missing[0] != "serverStatus.providers.atlas.baseUrl" {
+		t.Fatalf("default atlas no-baseURL = %+v", st)
+	}
+	// providers 段整个不存在时同样点名（零配置启用≠active）
+	cfg.ServerStatus.Providers = nil
+	services, _ = serveExternalServices(t, cfg)
+	st = findService(t, services, "serverStatus.atlas")
+	if st.Active || st.Missing[0] != "serverStatus.providers.atlas.baseUrl" {
+		t.Fatalf("default atlas no-providers = %+v", st)
 	}
 }

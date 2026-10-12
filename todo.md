@@ -4257,10 +4257,10 @@ scripts/dashboard_vnext_guard.sh`（仓库根）PASSED；目标套件 11/11 绿
 
 > 现状（已核）：`internal/platform/serverstatus/` 已有 Provider 接口 + registry 注册表 + `atlas.go` / `noop.go` 两实现，配置 `serverStatus.provider` 可切（现**缺省 noop**）。本批补齐用户要的三点：
 
-- [ ] **默认源 = atlas**：启用时（`serverStatus.enabled=true`）`provider` 缺省由 noop 改为 **atlas**——对接用户自有 atlas 项目，零配置即用；`enabled` 仍缺省 `false`（不主动启用，外发默认关的口径不变）
-- [ ] **通用 HTTP provider（可切换的第二实现，简单示例）**：注册 `http` 源——`GET` 一个 URL 按配置映射 JSON 字段 → ServerStatus（状态/是否维护），超时、失败降级与 atlas 同口径（fail 行为写明）；配置 `providers.http`：`baseUrl` 必填 + 字段映射 + `tokenEnv` 可选；目标=任意能返回状态 JSON 的简单服务都能接
-- [ ] **切换实测**：同一 gate 面下 `atlas ↔ http ↔ noop` 各只改配置切换，每种各真打一个测试源，状态判定正确（含源挂掉时的降级表现）
-- [ ] **配置文档**：provider 切换逐字段说明（server-status-provider.md 补）+ 通用 http 源示例（curl 一个状态 JSON → 映射配置 → 切换生效）
+- [x] **默认源 = atlas**：启用时（`serverStatus.enabled=true`）`provider` 缺省由 noop 改为 **atlas**——对接用户自有 atlas 项目，零配置即用；`enabled` 仍缺省 `false`（不主动启用，外发默认关的口径不变）（2026-10-12：留空缺省 atlas 启动 Info 留痕；非 noop 源缺 baseUrl=装配旁路+告警点名缺项，不进 fail-open——fail-open 只针对「源挂了」；设置页外部服务卡片同口径）
+- [x] **通用 HTTP provider（可切换的第二实现，简单示例）**：注册 `http` 源——`GET` 一个 URL 按配置映射 JSON 字段 → ServerStatus（状态/是否维护），超时、失败降级与 atlas 同口径（fail 行为写明）；配置 `providers.http`：`baseUrl` 必填 + 字段映射 + `tokenEnv` 可选；目标=任意能返回状态 JSON 的简单服务都能接（2026-10-12：`http.go` 与 atlas 共用抽出的 REST 引擎 restSource；缺省口径 StatusPath 空=baseUrl 即端点、Fields 空=契约键直读、inMaintenance 串缺省 "true"、单对象无匹配键=URL 即标识整体接受）
+- [x] **切换实测**：同一 gate 面下 `atlas ↔ http ↔ noop` 各只改配置切换，每种各真打一个测试源，状态判定正确（含源挂掉时的降级表现）（2026-10-12：`serverstatus_provider_switch_test.go` 六用例——缺省 atlas 在维护=整链静默恰回源一次 / online=照投零标注 / 切 http 静默+query 定位正确 / http 源挂掉=fail-open 照投标 source_unknown / noop=照投 / 缺省 atlas 缺 baseUrl=旁路照投；`serverstatus` 包内 http 单测 12 用例）
+- [x] **配置文档**：provider 切换逐字段说明（server-status-provider.md 补）+ 通用 http 源示例（curl 一个状态 JSON → 映射配置 → 切换生效）（2026-10-12：设计文档 §3.1/§3.2 更新+新增 §3.3 切换逐字段对照表与 curl→yaml 示例；`configs/server.yaml` 注释示例同步；feature-tiers.md 状态源行落地态刷新）
 - **验收**：切换与降级实测留证（配置 diff + 实际返回）；测试绿才 push、commit 英文简短、不发版
 
 ## CDC 平台化批（2026-10-11 用户令：「这些都需要整理到文档中，还有拆分任务到todo.md中」——三条设计输入整理为三篇设计文档 + 分期任务拆分）

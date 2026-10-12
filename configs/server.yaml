@@ -160,12 +160,14 @@ metrics:
 # serverStatus 服务器维护状态 Provider（server-status-provider 设计）：agent
 # 探活异常的维护窗口 gate——在维护=静默不报（抑制计数留痕，落库不变），不在
 # 维护=照报；状态源不可达=按未知处理照报并标 source_unknown（宁误报不漏报）。
-# 缺省关=gate 整体旁路，行为与现状一致；provider 键闭集 noop/atlas（可扩），
+# 缺省关=gate 整体旁路，行为与现状一致；provider 键闭集 noop/atlas/http，
+# 留空缺省 atlas（此时只需 providers.atlas.baseUrl，缺 baseUrl 同样旁路）；
+# noop=无维护信息 gate 直通；http=任意能返回状态 JSON 的简单服务。
 # tokenEnv 指向持 API token 的环境变量（凭证不落配置文件）；状态源不可达缓存
 # 不生效（错误不缓存），TTL 内维护窗变更最多延迟 cacheTtlSeconds 生效。
 # serverStatus:
 #   enabled: true
-#   provider: atlas
+#   provider: atlas # 留空=atlas；noop | atlas | http
 #   matchBy: agentId # v1 仅支持 agentId（事件 scope 无主机列可 join）；配 host/ip 会回落 agentId 并启动告警
 #   cacheTtlSeconds: 60
 #   providers:
@@ -177,3 +179,10 @@ metrics:
 #       matchKey: agentId
 #       fieldMapping:
 #         inMaintenance: frozen
+#     http: # 通用 HTTP 源：GET baseUrl(+statusPath) 返回状态 JSON 即可接入
+#       baseUrl: http://ops-status.internal:9100/status
+#       timeoutMs: 3000
+#       statusPath: "" # 缺省空=baseUrl 即端点；{id} 占位符=路径参数，否则拼 ?matchKey= 值
+#       fieldMapping: # 缺省=契约键名直读（healthy/inMaintenance/windowStart/windowEnd/windowNote）
+#         inMaintenance: frozen
+#       inMaintenanceStatus: "true" # 非布尔维护位时按此串判等（atlas 缺省 maintenance）

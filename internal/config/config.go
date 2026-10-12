@@ -114,7 +114,9 @@ type ExternalAPIConfig struct {
 type ServerStatusConfig struct {
 	// Enabled 缺省 false：关=gate 整体旁路（全部照报，行为与现状一致）。
 	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
-	// Provider 状态源注册表键（noop | atlas | …）。空按 noop 处理。
+	// Provider 状态源注册表键（noop | atlas | http）。空缺省 atlas（批 S4：
+	// 启用时选源零配置，只需 providers.atlas.baseUrl）；noop=无维护信息
+	// gate 直通。
 	Provider string `json:"provider,omitempty" yaml:"provider,omitempty"`
 	// MatchBy 服务器定位匹配键（agentId | host | ip；缺省 agentId）。
 	MatchBy string `json:"matchBy,omitempty" yaml:"matchBy,omitempty"`
@@ -133,15 +135,17 @@ type ServerStatusSourceConfig struct {
 	TokenEnv string `json:"tokenEnv,omitempty" yaml:"tokenEnv,omitempty"`
 	// TimeoutMs 单次查询超时毫秒；<=0 取实现默认 3000。
 	TimeoutMs int `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty"`
-	// StatusPath 状态查询路径模板（atlas 专属；默认
-	// /v1/discovery/servers/{id}，{id} 占位符=路径参数替换）。
+	// StatusPath 状态查询路径模板（REST 源通用；atlas 默认
+	// /v1/discovery/servers/{id}，http 默认空=baseUrl 即端点；
+	// {id} 占位符=路径参数替换）。
 	StatusPath string `json:"statusPath,omitempty" yaml:"statusPath,omitempty"`
-	// MatchKey 定位参数名（atlas 专属；默认 agentId）。
+	// MatchKey 定位参数名（REST 源通用；默认 agentId）。
 	MatchKey string `json:"matchKey,omitempty" yaml:"matchKey,omitempty"`
-	// InMaintenanceStatus 状态枚举值口径（atlas 专属）：映射到的
-	// inMaintenance 字段不是 bool 时按此字符串判等；默认 "maintenance"。
+	// InMaintenanceStatus 状态枚举值口径（REST 源通用）：映射到的
+	// inMaintenance 字段不是 bool 时按此字符串判等；atlas 默认
+	// "maintenance"，http 默认 "true"。
 	InMaintenanceStatus string `json:"inMaintenanceStatus,omitempty" yaml:"inMaintenanceStatus,omitempty"`
-	// FieldMapping 响应字段映射（atlas 专属：契约字段名→atlas JSON 键；
+	// FieldMapping 响应字段映射（REST 源通用：契约字段名→状态源 JSON 键；
 	// 配置驱动，不写死供应商字段名——alertInbound labelMapping 同款）。
 	FieldMapping map[string]string `json:"fieldMapping,omitempty" yaml:"fieldMapping,omitempty"`
 }

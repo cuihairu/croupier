@@ -9,6 +9,7 @@ import (
 const (
 	ProviderNoop  = "noop"
 	ProviderAtlas = "atlas"
+	ProviderHTTP  = "http"
 )
 
 // Options 状态源构造参数（各实现按需取用；no-op 忽略）。与配置段
@@ -21,7 +22,8 @@ type Options struct {
 	Token string
 	// Timeout 单次查询超时；<=0 取实现默认。
 	Timeout time.Duration
-	// Atlas atlas 适配器专属（路径模板 + 字段映射；其他实现忽略）。
+	// Atlas REST 状态源的通用映射选项（路径模板 + 字段映射；atlas/http
+	// 共用，no-op 忽略——http 源的缺省口径见 NewHTTPProvider）。
 	Atlas AtlasOptions
 }
 
@@ -38,6 +40,7 @@ var (
 func init() {
 	RegisterFactory(ProviderNoop, func(Options) Provider { return NewNoopProvider() })
 	RegisterFactory(ProviderAtlas, func(opts Options) Provider { return NewAtlasProvider(opts) })
+	RegisterFactory(ProviderHTTP, func(opts Options) Provider { return NewHTTPProvider(opts) })
 }
 
 // RegisterFactory 注册状态源工厂（同名覆盖，测试可注入替身）。

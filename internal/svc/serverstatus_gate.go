@@ -33,10 +33,25 @@ func installServerStatusGate(cfg config.Config, manager *outlet.Manager) {
 		return
 	}
 	providerKey := strings.TrimSpace(scfg.Provider)
+	if providerKey == "" {
+		// 批 S4：enabled=true 时 provider 缺省由 noop 改 atlas——选源零配置，
+		// 只需 providers.atlas.baseUrl（缺 baseUrl 的旁路判定在下方）。
+		providerKey = serverstatus.ProviderAtlas
+		slog.InfoContext(context.Background(), "serverStatus.provider empty; defaulting to atlas",
+			"provider", providerKey)
+	}
 	factory := serverstatus.Lookup(providerKey)
 	if factory == nil {
 		slog.WarnContext(context.Background(), "serverStatus enabled but provider not registered; maintenance gate bypassed",
 			"provider", scfg.Provider)
+		return
+	}
+	// 非 noop 源缺 baseUrl=不可用（同 external-services 卡片口径），旁路
+	// 不挂 gate——fail-open 只针对「源挂了」，不针对「从未配置」。
+	source := scfg.Providers[providerKey]
+	if providerKey != serverstatus.ProviderNoop && strings.TrimSpace(source.BaseURL) == "" {
+		slog.WarnContext(context.Background(), "serverStatus enabled but provider source has no baseUrl; maintenance gate bypassed",
+			"provider", providerKey, "missingKey", "serverStatus.providers."+providerKey+".baseUrl")
 		return
 	}
 	matchKey := strings.TrimSpace(scfg.MatchBy)
@@ -45,7 +60,6 @@ func installServerStatusGate(cfg config.Config, manager *outlet.Manager) {
 			"matchBy", scfg.MatchBy)
 		matchKey = "agentId"
 	}
-	source := scfg.Providers[providerKey]
 	opts := serverstatus.Options{
 		BaseURL: source.BaseURL,
 		Token:   os.Getenv(source.TokenEnv),
