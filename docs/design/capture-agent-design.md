@@ -603,6 +603,36 @@ CI 新增 `capture-matrix` job（docker run 起 mysql:8.4 GTID-on +
 mariadb:11 log-bin-on，与本地验证同命令）；unit test step 同步补上
 `./agents/...`（此前 agents 包完全不进 CI 测试面）。
 
+### 8.16 交付记录：Runner 多 Connector 装配与统一消费面（CDC 平台化批阶段四，2026-10-13）
+
+runner 消费面整体切换到 `connector.SourceConnector` /
+`connector.ChangeEvent` 契约（连接器架构文档 §8.4 的 runtime 侧记录，
+此处记 agent 简档视角的差异点）：
+
+- **数据源配置面**：`capture.sourceType`（`"mysql" | "postgres"` 闭集）
+  - `capture.dsnEnv`（连接串环境变量名——凭据红线：明文 DSN 不进配置
+    文件、不落日志，错误消息只提变量名）+ `capture.options`（非密参数，
+    lowerCamelCase，`tables` 必填）。§2 legacy `capture.mysql`（凭据留
+    YAML）仅在兼容解析代码容忍，不再写入任何示例/文档。
+- **装配分派**：canonical postgres → `pg.PostgresConnector`；canonical
+  mysql → `source.MySQLConnector`；legacy → `ProviderConnector` 桥接
+  （Provider→契约通用适配，双形态事件同构）。`runSourceOnce`：
+  位点加载（`kind:value` 契约形态直用；legacy 裸值按源类型回落 kind）→
+  Open → Poll → 流结束/关停 flush-then-close。
+- **三闸消费面**：`Evaluate` 全部改读 `connector.ChangeEvent`
+  （`Operation` 闭集、`Before`/`After` 位置下标键 map、`Position`）；
+  §4 闸层语义零变化——行像键形态与既有「位置下标取值」规格一致。
+- **配套面**：位点文件按源分文件（`<sourceType>.json`）；Readiness
+  探测地址从 DSNEnv 解析非凭据面（unix socket 跳过探测）；注册 labels
+  能力自报按源类型分派（`MySQLCapabilities`/`PostgresCapabilities`）。
+
+验证：config 契约面（canonical/legacy 形态、`Tables()` 排序、
+`SourceConfig` 凭据通道、Validate 闭集/必填、BookmarkPath）、
+`bridgeEvent` 无损映射与守卫、`AddressFromDSN` 双方言、runner
+`loadPosition` legacy 回落、runner 全链 fakeConnector 消费/位点/重开/
+告警/过滤统计用例随包全绿。边界：活栈全链验证（规则→面板）未实施，
+属 4306 收尾增量。
+
 ## 9. 已知边界（诚实清单）
 
 - 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。

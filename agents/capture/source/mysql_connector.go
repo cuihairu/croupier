@@ -3,7 +3,6 @@ package source
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -35,9 +34,9 @@ import (
 // ParseDSN 解析出 host/port/user/password）；Options 仅承载 serverId/
 // flavor/tables 等非密参数。明文密码不进契约、不落日志（红线）。
 type MySQLConnector struct {
-	cfg connector.SourceConfig
-	log *slog.Logger
-	src *MySQLSource
+	cfg    connector.SourceConfig
+	log    *slog.Logger
+	bridge *ProviderConnector // Open 后组装的 Provider→契约桥接（流/位点复用同一份映射）
 }
 
 // NewMySQLConnector 构造 MySQL 契约连接器（不立即连接，Open 时解析配置）。
@@ -85,7 +84,7 @@ func (c *MySQLConnector) Open(_ context.Context, cfg connector.SourceConfig) err
 		return errors.New("mysql connector: options.tables required (whitelist, comma-separated db.table)")
 	}
 	c.cfg = cfg
-	c.src = NewMySQLSource(MySQLConfig{
+	c.bridge = NewProviderConnector(NewMySQLSource(MySQLConfig{
 		Host:     host,
 		Port:     port,
 		User:     dsnCfg.User,
@@ -93,14 +92,14 @@ func (c *MySQLConnector) Open(_ context.Context, cfg connector.SourceConfig) err
 		ServerID: uint32(sid),
 		Flavor:   cfg.Options["flavor"],
 		Tables:   tables,
-	}, c.log)
+	}, c.log), "mysql", c.log)
 	return nil
 }
 
 // Discover information_schema 摄取列元数据与主键（ColumnsMapped 契约的
 // MySQL 数据源；与能力声明同源产出）。
 func (c *MySQLConnector) Discover(ctx context.Context, req connector.DiscoveryRequest) (*connector.DiscoveryResult, error) {
-	if c.src == nil {
+	if c.bridge == nil {
 		return nil, errors.New("mysql connector: not open")
 	}
 	dsn := os.Getenv(c.cfg.DSNEnv)
@@ -188,115 +187,27 @@ func (c *MySQLConnector) Snapshot(_ context.Context, _ connector.SnapshotRequest
 }
 
 // Poll 从 req.From 续读（空位点探测当前起点），事件过契约桥接为统一
-// ChangeEvent；req.Tables 非空时作为运行时白名单二次过滤。
+// ChangeEvent；req.Tables 非空时作为运行时白名单二次过滤。流/桥接复用
+// ProviderConnector（Provider 形态在此边界收口，映射口径单一实现）。
 func (c *MySQLConnector) Poll(ctx context.Context, req connector.PollRequest) (<-chan connector.ChangeEvent, error) {
-	if c.src == nil {
+	if c.bridge == nil {
 		return nil, errors.New("mysql connector: not open")
 	}
-	events, err := c.src.Open(ctx, Bookmark{Position: req.From.Value})
-	if err != nil {
-		return nil, err
-	}
-	out := make(chan connector.ChangeEvent, 64)
-	whitelist := map[string]bool{}
-	for _, t := range req.Tables {
-		whitelist[t] = true
-	}
-	go func() {
-		defer close(out)
-		for {
-			select {
-			case ev, ok := <-events:
-				if !ok {
-					return
-				}
-				if len(whitelist) > 0 && !whitelist[ev.Database+"."+ev.Table] {
-					continue
-				}
-				ce, err := c.toContract(ev)
-				if err != nil {
-					c.log.Error("mysql connector: bridge event", "error", err)
-					return
-				}
-				select {
-				case out <- ce:
-				case <-ctx.Done():
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-	return out, nil
-}
-
-// toContract source.ChangeEvent → connector.ChangeEvent（无损：行像按位置
-// 下标键化——MySQL binlog ROW 裸数组，契约 ColumnsMapped=false 语义）。
-func (c *MySQLConnector) toContract(ev ChangeEvent) (connector.ChangeEvent, error) {
-	op, err := connectorOperation(ev.Op)
-	if err != nil {
-		return connector.ChangeEvent{}, err
-	}
-	return connector.ChangeEvent{
-		SourceID:      c.cfg.SourceID,
-		SourceType:    "mysql",
-		Database:      ev.Database,
-		Table:         ev.Table,
-		Operation:     op,
-		Before:        positionImage(ev.BeforeJSON),
-		After:         positionImage(ev.AfterJSON),
-		ColumnsMapped: false, // binlog ROW 裸下标；列名映射随 Discover 摄取
-		Account:       ev.Account,
-		TsUnixMs:      ev.TsUnixMs,
-		Position:      connector.Position{Kind: "gtid", Value: ev.GTID},
-	}, nil
-}
-
-// connectorOperation source.Op → connector.Operation（闭集互转）。
-func connectorOperation(op Op) (connector.Operation, error) {
-	switch op {
-	case OpInsert:
-		return connector.OpInsert, nil
-	case OpUpdate:
-		return connector.OpUpdate, nil
-	case OpDelete:
-		return connector.OpDelete, nil
-	default:
-		return "", fmt.Errorf("mysql connector: unknown source op %q", op)
-	}
-}
-
-// positionImage 行像 JSON 数组 → 位置下标键 map（{"0","1",…}）。空行像/
-// 非法 JSON 返回 nil（与 source 层的 nil 语义对齐）。
-func positionImage(raw json.RawMessage) map[string]json.RawMessage {
-	if len(raw) == 0 {
-		return nil
-	}
-	var vals []json.RawMessage
-	if err := json.Unmarshal(raw, &vals); err != nil {
-		return nil
-	}
-	m := make(map[string]json.RawMessage, len(vals))
-	for i, v := range vals {
-		m[strconv.Itoa(i)] = v
-	}
-	return m
+	return c.bridge.Poll(ctx, req)
 }
 
 // Checkpoint 当前 GTID 位点快照（runner 周期落盘数据源）。
-func (c *MySQLConnector) Checkpoint(_ context.Context) (connector.Position, error) {
-	if c.src == nil {
+func (c *MySQLConnector) Checkpoint(ctx context.Context) (connector.Position, error) {
+	if c.bridge == nil {
 		return connector.Position{}, errors.New("mysql connector: not open")
 	}
-	bm := c.src.Bookmark()
-	return connector.Position{Kind: "gtid", Value: bm.Position}, nil
+	return c.bridge.Checkpoint(ctx)
 }
 
 // Close 断开复制流（幂等）。
-func (c *MySQLConnector) Close(_ context.Context) error {
-	if c.src == nil {
+func (c *MySQLConnector) Close(ctx context.Context) error {
+	if c.bridge == nil {
 		return nil
 	}
-	return c.src.Close()
+	return c.bridge.Close(ctx)
 }

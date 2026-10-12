@@ -5,17 +5,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 )
 
 // 过滤统计装配链（过滤策略简档 §8 口径）：evaluated=进闸评估才计；
 // policy_apply_errors=应用失败 keep last-good 计数；rule_evaluation_errors=
 // 检测失败保留事件，sweep 周期聚合门上计数（SkippedNoDelta 口径推广）。
 
-func statsEvent(op string) source.ChangeEvent {
-	return source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "items", Op: source.Op(op),
-		AfterJSON: gateRow("junk", "9001"), GTID: "g1", TsUnixMs: time.Now().UnixMilli(),
+func statsEvent(op connector.Operation) connector.ChangeEvent {
+	return connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Operation: op,
+		After: contractRow("junk", "9001"), Position: connector.Position{Kind: "gtid", Value: "g1"},
+		TsUnixMs: time.Now().UnixMilli(),
 	}
 }
 

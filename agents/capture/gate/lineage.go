@@ -3,7 +3,7 @@ package gate
 import (
 	"fmt"
 
-	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 )
 
 // RuleLineageWhitelistViolation 血缘闸规则 ID（设计 §4.4）。
@@ -79,11 +79,11 @@ func NewLineage(rules []LineageRule) (*LineageGate, error) {
 func (g *LineageGate) Degraded() int64 { return g.degraded }
 
 // Evaluate 消费一个变更事件：命中该表白名单规则的违规写入。
-func (g *LineageGate) Evaluate(ev *source.ChangeEvent) []Hit {
+func (g *LineageGate) Evaluate(ev *connector.ChangeEvent) []Hit {
 	table := ev.Database + "." + ev.Table
 	var hits []Hit
 	for i, r := range g.rules {
-		if r.Table != table || !opAllowed(r.Ops, ev.Op) {
+		if r.Table != table || !opAllowed(r.Ops, ev.Operation) {
 			continue
 		}
 		if ev.Account == "" {
@@ -93,7 +93,7 @@ func (g *LineageGate) Evaluate(ev *source.ChangeEvent) []Hit {
 		if g.allow[i][ev.Account] {
 			continue
 		}
-		detail := fmt.Sprintf("account %q writes %s outside allow list", ev.Account, ev.Op)
+		detail := fmt.Sprintf("account %q writes %s outside allow list", ev.Account, ev.Operation)
 		hits = append(hits, hitOf(RuleLineageWhitelistViolation, r.Severity, r.Table, ev.Account, detail, *ev))
 	}
 	sortHitOrder(hits)

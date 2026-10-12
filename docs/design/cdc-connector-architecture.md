@@ -6,7 +6,7 @@ title: CDC Connector 架构——多数据库数据源接入与能力声明（�
 
 ## 状态
 
-- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层与流式接线已落码（2026-10-13，4306 增量一/二），三源活栈冒烟已进 CI**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 实现落地 `agents/capture/connector/pg/`（pgoutput 解码层 + `PostgresConnector` 复制流接线，§8.1/8.2）；MySQL 迁移契约落地 `source.MySQLConnector`（§8.3，行像位置下标 + 凭据 DSNEnv 通道，活体冒烟）。runner 多 Connector 装配、三闸消费面切换到 `connector.ChangeEvent` 与全链（规则→面板）活栈验证未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
+- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层与流式接线已落码（2026-10-13，4306 增量一/二），三源活栈冒烟已进 CI；runner 多 Connector 装配与三闸消费面切换已落码（2026-10-13，4306 增量四）**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 实现落地 `agents/capture/connector/pg/`（pgoutput 解码层 + `PostgresConnector` 复制流接线，§8.1/8.2）；MySQL 迁移契约落地 `source.MySQLConnector`（§8.3，行像位置下标 + 凭据 DSNEnv 通道，活体冒烟）；runner 统一消费面落地（§8.4，`newConnector` 工厂 + ProviderConnector 桥接 + sourceType/dsnEnv 配置面）。全链（规则→面板）活栈验证未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
 
 ## 8. 交付记录
 
@@ -105,6 +105,42 @@ runner 多 Connector 装配与三闸消费面切换的前置件。与 PG 不同�
 （Provider + SourceConnector），三闸消费面统一切换到
 `connector.ChangeEvent` 属下一增量——切换前闸层读的是 source 形态事件，
 与 runner 现状一致。
+
+### 8.4 Runner 多 Connector 装配（4306 第四增量，2026-10-13）
+
+runner 消费面整体切换到 `connector.SourceConnector` /
+`connector.ChangeEvent` 契约（§8.3 边界的收口）：
+
+- **runtime 装配**：`newConnector` 工厂按配置面分派——canonical
+  `sourceType=postgres` → `pg.PostgresConnector`；`sourceType=mysql`/
+  缺省 → `source.MySQLConnector`；legacy `capture.mysql` →
+  `ProviderConnector` 桥接（凭据留 YAML，不进契约，warn 提示迁移）。
+  `runSourceOnce` 全程契约面：`loadPosition` → `Open(SourceConfig)` →
+  `Poll(PollRequest{From, Tables})` → 流结束/关停先 `flushBookmark`
+  （Checkpoint 在 Close 后可能失败）再 Close。
+- **ProviderConnector 桥接**：任意 `source.Provider` →
+  `SourceConnector` 通用适配（MySQL 双形态在此收口）。`bridgeEvent`
+  无损映射：行像数组 → 位置下标键 map（`ColumnsMapped=false`）、
+  `GTID` → `Position{Kind: PositionKindOf(sourceType)}`（mysql=gtid，
+  postgres=lsn）、操作闭集互转（未知操作终止流，不静默映射）、白名单
+  二次过滤。legacy 与 canonical mysql 走同一桥接路径，事件形态一致。
+- **消费面切换**：三闸（gate 包）与 runner 统计/上报面全部改读
+  `connector.ChangeEvent`（`Operation`/`Before`/`After`/`Position`）。
+  契约行像键与闸层既有「位置下标取值」语义一致，切换零语义变化。
+- **数据源配置面**：`capture.sourceType`（闭集校验）+ `capture.dsnEnv`
+  （凭据只走环境变量引用，不进配置文件/不落日志）+ `capture.options`
+  （非密参数，`tables` 必填）；legacy `capture.mysql` 仅兼容代码容忍。
+  位点文件按源分文件（`<bookmarkDir>/<sourceType>.json`，legacy 与
+  canonical mysql 同名迁移不丢续读位点）；`loadPosition` 对 legacy 裸值
+  位点按源类型回落 kind（旧位点文件平滑续读）。
+- **Readiness 探测与能力自报**：`probeTarget` 经
+  `source.AddressFromDSN` / `pg.AddressFromDSN` 从 DSNEnv 解析非凭据
+  地址（unix socket 显式跳过探测，不伪造目标）；注册 labels 的
+  `captureTables`/`captureConnectorCapabilities` 按源类型分派能力声明。
+
+**边界（本增量到此为止，诚实标注）**：活栈全链验证（规则→面板，
+4301 式清单）未实施，属 4306 收尾增量；分源分类型策略发布（每源能力
+矩阵映射）随面板数据源页批落地。
 
 ## 1. 目标与非目标
 

@@ -23,24 +23,35 @@ outboundTLS:
   insecureSkipVerify: false
 
 capture:
-  # 总开关，缺省关（开启前确认 MySQL 前置：binlog_format=ROW、
-  # binlog_row_image=FULL、REPLICATION SLAVE 权限、server_id 不冲突）。
+  # 总开关，缺省关。MySQL 前置：binlog_format=ROW、binlog_row_image=FULL、
+  # REPLICATION SLAVE 权限、server_id 不冲突。Postgres 前置：pgoutput 逻辑
+  # 复制、wal_level=logical、REPLICATION 权限、独立 slot。
   enabled: false
-  # 位点文件目录（每源一文件：mysql.json，tmp+rename 原子写）。
+  # 数据源类型（"mysql" | "postgres"，闭集随 Connector 实现扩展）。
+  sourceType: mysql
+  # 连接串环境变量名（凭据红线：明文 DSN 只从环境变量取值，不进配置文件、
+  # 不落日志；agent 进程需能读到该变量）。
+  dsnEnv: CROUPIER_CAPTURE_MYSQL_DSN
+  # 非密连接参数（lowerCamelCase）。tables 必填非空（逗号分隔 "库.表"
+  # 白名单——只订道具相关表，噪声与带宽双控）。mysql 侧 serverId 必填
+  # （与源实例及其他 binlog 订阅者不冲突）；postgres 侧 slotName/publication。
+  options:
+    serverId: 4242
+    tables: game.items, game.player_wallet
+  # 位点文件目录（每源一文件：<sourceType>.json，tmp+rename 原子写）。
   bookmarkDir: data/capture/bookmarks
   # 位点周期落盘间隔（秒，默认 5）。
   bookmarkFlushIntervalSec: 5
-  mysql:
-    host: 127.0.0.1
-    port: 3306
-    user: repl
-    password: ""
-    # 与源实例及其他 binlog 订阅者不冲突。
-    serverId: 4242
-    # 订阅白名单（"库.表"，必填非空——只订道具相关表，噪声与带宽双控）。
-    tables:
-      game.items: true
-      game.player_wallet: true
+  # legacy 兼容形态（capture.mysql，凭据留 YAML）：仅存量部署容忍，不再
+  # 作为示例标准；新部署一律用上方 sourceType/dsnEnv。
+  # mysql:
+  #   host: 127.0.0.1
+  #   port: 3306
+  #   user: repl
+  #   password: ""
+  #   serverId: 4242
+  #   tables:
+  #     game.items: true
   # 闸层规则（C2 起；空 = 只采不判）。规则模板是代码、规则本体是纯数据
   # （无 DSL）。启动即全量校验：表须 "库.表" 两段、对账闸同表不得跨规则
   # 复用、itemTable ≠ ledgerTable、severity ∈ {warn, critical}。

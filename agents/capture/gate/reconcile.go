@@ -1,5 +1,5 @@
 // Package gate capture-agent 闸层（C2）：统一变更事件流上的规则评估层，
-// 与源解耦——所有闸只认 source.ChangeEvent（设计 §4）。规则模板是代码，
+// 与源解耦——所有闸只认 connector.ChangeEvent（设计 §4）。规则模板是代码，
 // 规则本体是纯数据（设计 §5 择最简：无表达式语言、无 DSL、无脚本注入面）。
 //
 // 并发契约：单 goroutine 消费（runner 事件循环内 Evaluate、位点 tick 内
@@ -14,11 +14,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 )
 
 // 规则 ID 闭集（设计 §4.4）。
@@ -126,12 +125,12 @@ func ValidateReconcileRules(rules []ReconcileRule) error {
 // Hit 规则命中（设计 §4.4 命中详情的进程内形态；告警上报时映射
 // capture.rule_hit 载荷）。
 type Hit struct {
-	Rule     string             // 规则 ID（reconcile.missing_ledger）
-	Severity string             // warn | critical
-	Table    string             // "库.表"
-	Key      string             // 关联键值（"" = 道具侧键缺失哨兵）
-	Detail   string             // 人读细节（窗口/驱逐原因）
-	Event    source.ChangeEvent // 触发事件快照
+	Rule     string                // 规则 ID（reconcile.missing_ledger）
+	Severity string                // warn | critical
+	Table    string                // "库.表"
+	Key      string                // 关联键值（"" = 道具侧键缺失哨兵）
+	Detail   string                // 人读细节（窗口/驱逐原因）
+	Event    connector.ChangeEvent // 触发事件快照
 }
 
 // entryKind 在窗条目角色。
@@ -147,7 +146,7 @@ type entry struct {
 	key     string
 	tsMs    int64 // 入窗时刻 = max(事件 ts, now)：binlog 回放补扫不即刻超窗
 	kind    entryKind
-	ev      source.ChangeEvent
+	ev      connector.ChangeEvent
 }
 
 // pairQueue 同 (规则, 键) 的双向待配对队列（设计 §4.1：窗口内双向匹配销账，
@@ -223,7 +222,7 @@ func (g *ReconcileGate) PendingCount() int {
 
 // Evaluate 消费一个变更事件：先销到期，再按角色入窗/销账。非订阅表零开销
 // 直通。
-func (g *ReconcileGate) Evaluate(ev *source.ChangeEvent) []Hit {
+func (g *ReconcileGate) Evaluate(ev *connector.ChangeEvent) []Hit {
 	table := ev.Database + "." + ev.Table
 	nowMs := g.now()
 	if idx, ok := g.itemIdx[table]; ok {
@@ -279,7 +278,7 @@ func (g *ReconcileGate) sweep(nowMs int64) []Hit {
 // onItem 道具侧：豁免直通；同键已挂窗 credit 先销（流水先到的双向时序，
 // 否则 debit 会在 credit 之上超窗误报）；取不到键按哨兵入窗（永不匹配，
 // 超窗即告警——NULL trace id 本身就是可疑形态）；容量驱逐命中一并返回。
-func (g *ReconcileGate) onItem(idx int, ev *source.ChangeEvent, nowMs int64) []Hit {
+func (g *ReconcileGate) onItem(idx int, ev *connector.ChangeEvent, nowMs int64) []Hit {
 	rule := g.rules[idx]
 	key, keyOK := extractKey(rowImage(ev), rule.ItemKey)
 	if keyOK && g.exempt[idx][key] {
@@ -303,7 +302,7 @@ func (g *ReconcileGate) onItem(idx int, ev *source.ChangeEvent, nowMs int64) []H
 // onLedger 流水侧：优先销最早同键 debit（双向窗口），无待销则挂窗 credit
 // （流水先于道具变更到达的时序）。取不到键跳过并计数（无法定位销账对象，
 // 通常是 itemKey/ledgerKey 规格配错）。
-func (g *ReconcileGate) onLedger(idx int, ev *source.ChangeEvent, nowMs int64) {
+func (g *ReconcileGate) onLedger(idx int, ev *connector.ChangeEvent, nowMs int64) {
 	key, ok := extractKey(rowImage(ev), g.rules[idx].LedgerKey)
 	if !ok {
 		g.skippedNoKey++
@@ -417,37 +416,26 @@ func sortHitOrder(hits []Hit) {
 		if a.Key != b.Key {
 			return a.Key < b.Key
 		}
-		return a.Event.GTID < b.Event.GTID
+		return a.Event.Position.Value < b.Event.Position.Value
 	})
 }
 
 // rowImage 键提取行像：insert/update 取后像，delete 取前像（C1 UPDATE 为
 // 前像+后像成对的双行像）。
-func rowImage(ev *source.ChangeEvent) json.RawMessage {
-	if ev.Op == source.OpDelete {
-		return ev.BeforeJSON
+func rowImage(ev *connector.ChangeEvent) map[string]json.RawMessage {
+	if ev.Operation == connector.OpDelete {
+		return ev.Before
 	}
-	return ev.AfterJSON
+	return ev.After
 }
 
-// extractKey 行像键取值：整数串规格 = 位置索引取值（C1 数组行像）；其余 =
-// 对象属性名（前向兼容列名映射）。取不到返回 ("", false)。
-func extractKey(img json.RawMessage, spec string) (string, bool) {
+// extractKey 行像键取值：行像为契约 map（ColumnsMapped=false 时键为十进制
+// 位置下标 "0","1",…；列名映射后为列名）。取不到返回 ("", false)。
+func extractKey(img map[string]json.RawMessage, spec string) (string, bool) {
 	if len(img) == 0 || spec == "" {
 		return "", false
 	}
-	if idx, err := strconv.Atoi(spec); err == nil {
-		var row []json.RawMessage
-		if json.Unmarshal(img, &row) != nil || idx < 0 || idx >= len(row) {
-			return "", false
-		}
-		return keyValue(row[idx])
-	}
-	var obj map[string]json.RawMessage
-	if json.Unmarshal(img, &obj) != nil {
-		return "", false
-	}
-	raw, ok := obj[spec]
+	raw, ok := img[spec]
 	if !ok {
 		return "", false
 	}

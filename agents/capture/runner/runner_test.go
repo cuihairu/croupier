@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -9,45 +10,49 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/config"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/agents/capture/source"
 )
 
-// fakeProvider 可编程事件源：Open 推 events 后按 closeAfter 控制是否关流。
-type fakeProvider struct {
+// fakeConnector 可编程契约源：Open 推 events 后按 closeAfter 控制是否关流。
+type fakeConnector struct {
 	mu         sync.Mutex
-	events     []source.ChangeEvent
+	events     []connector.ChangeEvent
 	closeAfter int // 推完多少条后关流；0=保持开
-	bookmarked source.Bookmark
 	closed     bool
-	ch         chan source.ChangeEvent
+	ch         chan connector.ChangeEvent
 }
 
-func (f *fakeProvider) Open(_ context.Context, bm source.Bookmark) (<-chan source.ChangeEvent, error) {
-	f.ch = make(chan source.ChangeEvent, len(f.events)+1)
+func (f *fakeConnector) Open(_ context.Context, _ connector.SourceConfig) error {
+	f.ch = make(chan connector.ChangeEvent, len(f.events)+1)
 	for _, ev := range f.events {
 		f.ch <- ev
 	}
-	go func() {
-		if f.closeAfter > 0 {
-			close(f.ch)
-		}
-	}()
-	if bm.Valid() {
-		f.bookmarked = bm
+	if f.closeAfter > 0 {
+		close(f.ch)
 	}
+	return nil
+}
+
+func (f *fakeConnector) Discover(context.Context, connector.DiscoveryRequest) (*connector.DiscoveryResult, error) {
+	return nil, errors.New("discover not implemented")
+}
+
+func (f *fakeConnector) Snapshot(context.Context, connector.SnapshotRequest) (<-chan connector.ChangeEvent, error) {
+	return nil, connector.ErrUnsupportedSnapshot
+}
+
+func (f *fakeConnector) Poll(_ context.Context, _ connector.PollRequest) (<-chan connector.ChangeEvent, error) {
 	return f.ch, nil
 }
 
-func (f *fakeProvider) Bookmark() source.Bookmark {
+func (f *fakeConnector) Checkpoint(context.Context) (connector.Position, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.bookmarked.Position == "" {
-		f.bookmarked = source.Bookmark{Position: "gtid:fake-1", UpdatedAtUnixMs: time.Now().UnixMilli()}
-	}
-	return f.bookmarked
+	return connector.Position{Kind: "gtid", Value: "fake-1"}, nil
 }
 
-func (f *fakeProvider) Close() error {
+func (f *fakeConnector) Close(context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.closed = true
@@ -107,9 +112,9 @@ func TestRunDisabledOnlyRegisters(t *testing.T) {
 	cfg := testConfig(t, false)
 	called := 0
 	r := New(cfg, nil)
-	r.newSource = func() source.Provider {
+	r.newConnector = func() connector.SourceConnector {
 		called++
-		return &fakeProvider{}
+		return &fakeConnector{}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -126,14 +131,14 @@ func TestRunDisabledOnlyRegisters(t *testing.T) {
 
 func TestRunConsumesEventsAndFlushesBookmark(t *testing.T) {
 	cfg := testConfig(t, true)
-	fp := &fakeProvider{events: []source.ChangeEvent{
-		{SourceType: "mysql", Database: "game", Table: "items", Op: "insert"},
-		{SourceType: "mysql", Database: "game", Table: "items", Op: "update"},
-		{SourceType: "mysql", Database: "game", Table: "items", Op: "delete"},
-		{SourceType: "mysql", Database: "game", Table: "items", Op: "ddl"},
+	fp := &fakeConnector{events: []connector.ChangeEvent{
+		{SourceType: "mysql", Database: "game", Table: "items", Operation: connector.OpInsert},
+		{SourceType: "mysql", Database: "game", Table: "items", Operation: connector.OpUpdate},
+		{SourceType: "mysql", Database: "game", Table: "items", Operation: connector.OpDelete},
+		{SourceType: "mysql", Database: "game", Table: "items", Operation: "ddl"},
 	}}
 	r := New(cfg, nil)
-	r.newSource = func() source.Provider { return fp }
+	r.newConnector = func() connector.SourceConnector { return fp }
 	r.backoffInitial = time.Millisecond
 	r.backoffMax = 5 * time.Millisecond
 
@@ -162,20 +167,20 @@ func TestRunConsumesEventsAndFlushesBookmark(t *testing.T) {
 		t.Fatalf("bookmark = %q (raw=%s)", bm.Position, raw)
 	}
 	if !fp.closed {
-		t.Fatal("provider should be closed on shutdown")
+		t.Fatal("connector should be closed on shutdown")
 	}
 }
 
 func TestRunReopensAfterStreamEnd(t *testing.T) {
 	cfg := testConfig(t, true)
 	attempts := 0
-	var lastProvider *fakeProvider
+	var lastConnector *fakeConnector
 	r := New(cfg, nil)
-	r.newSource = func() source.Provider {
+	r.newConnector = func() connector.SourceConnector {
 		attempts++
-		p := &fakeProvider{closeAfter: 1}
-		lastProvider = p
-		return p
+		c := &fakeConnector{closeAfter: 1}
+		lastConnector = c
+		return c
 	}
 	r.backoffInitial = time.Millisecond
 	r.backoffMax = 5 * time.Millisecond
@@ -191,8 +196,8 @@ func TestRunReopensAfterStreamEnd(t *testing.T) {
 	if attempts < 2 {
 		t.Fatalf("attempts = %d, want >=2 after stream end", attempts)
 	}
-	if lastProvider == nil || !lastProvider.closed {
-		t.Fatal("last provider should be closed before reopen")
+	if lastConnector == nil || !lastConnector.closed {
+		t.Fatal("last connector should be closed before reopen")
 	}
 }
 
@@ -206,9 +211,9 @@ func TestRunAbortsOnCorruptBookmark(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	r := New(cfg, nil)
-	r.newSource = func() source.Provider {
+	r.newConnector = func() connector.SourceConnector {
 		t.Fatal("source must not open with corrupt bookmark")
-		return &fakeProvider{}
+		return &fakeConnector{}
 	}
 	if err := r.Run(context.Background()); err == nil {
 		t.Fatal("expected bookmark load failure to abort run")
@@ -217,10 +222,10 @@ func TestRunAbortsOnCorruptBookmark(t *testing.T) {
 
 func TestConsumeCountsAndWhitelistDoubleGuard(t *testing.T) {
 	r := New(testConfig(t, true), nil)
-	r.consume(source.ChangeEvent{Op: "insert"})
-	r.consume(source.ChangeEvent{Op: "update"})
-	r.consume(source.ChangeEvent{Op: "update"})
-	r.consume(source.ChangeEvent{Op: "delete"})
+	r.consume(connector.ChangeEvent{Operation: connector.OpInsert})
+	r.consume(connector.ChangeEvent{Operation: connector.OpUpdate})
+	r.consume(connector.ChangeEvent{Operation: connector.OpUpdate})
+	r.consume(connector.ChangeEvent{Operation: connector.OpDelete})
 	st := r.Stats()
 	if st.Total != 4 || st.Insert != 1 || st.Update != 2 || st.Delete != 1 {
 		t.Fatalf("stats = %+v", st)
@@ -232,10 +237,33 @@ func TestConsumeCountsAndWhitelistDoubleGuard(t *testing.T) {
 
 func TestStatsSnapshotIsCopy(t *testing.T) {
 	r := New(testConfig(t, true), nil)
-	r.consume(source.ChangeEvent{Op: "insert"})
+	r.consume(connector.ChangeEvent{Operation: connector.OpInsert})
 	s1 := r.Stats()
 	s1.Total = 999
 	if r.Stats().Total != 1 {
 		t.Fatal("Stats must return a copy")
+	}
+}
+
+// loadPosition 位点形态兼容：kind:value 契约形态直用；legacy 裸值串（kind
+// 不在闭集）按源类型回落——旧位点文件平滑续读，不强制迁移。
+func TestLoadPositionLegacyBookmarkFallback(t *testing.T) {
+	r := New(testConfig(t, true), nil)
+	pos, err := r.loadPosition()
+	if err != nil || pos.Valid() {
+		t.Fatalf("empty bookmark = %+v, %v", pos, err)
+	}
+	if err := r.store.Save(source.Bookmark{Position: "gtid:0-1-42"}); err != nil {
+		t.Fatalf("save contract form: %v", err)
+	}
+	if pos, err = r.loadPosition(); err != nil || pos.Kind != "gtid" || pos.Value != "0-1-42" {
+		t.Fatalf("contract position = %+v, %v", pos, err)
+	}
+	// legacy 裸 GTID（UUID 含冒号但 kind 不在闭集）：回落 gtid 续读
+	if err := r.store.Save(source.Bookmark{Position: "0-1-42:5-12"}); err != nil {
+		t.Fatalf("save legacy form: %v", err)
+	}
+	if pos, err = r.loadPosition(); err != nil || pos.Kind != "gtid" || pos.Value != "0-1-42:5-12" {
+		t.Fatalf("legacy fallback position = %+v, %v", pos, err)
 	}
 }

@@ -1,6 +1,7 @@
 package source
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -45,13 +46,8 @@ func TestConnectorOperation(t *testing.T) {
 
 // 契约映射：source.ChangeEvent → connector.ChangeEvent 字段对齐（位点
 // kind=gtid、行像位置键化、账号/时间戳保留）。
-func TestMySQLConnectorToContract(t *testing.T) {
-	t.Setenv("CROUPIER_CAPTURE_MYSQL_DSN_TEST", "u:p@tcp(h:3306)/")
-	c := NewMySQLConnector(connector.SourceConfig{SourceID: "mysql-itest", SourceType: "mysql"}, nil)
-	c.cfg = connector.SourceConfig{SourceID: "mysql-itest", SourceType: "mysql"}
-	c.src = &MySQLSource{}
-
-	ce, err := c.toContract(ChangeEvent{
+func TestBridgeEvent(t *testing.T) {
+	ce, err := bridgeEvent("mysql-itest", "mysql", ChangeEvent{
 		SourceType: "mysql",
 		Database:   "game",
 		Table:      "items",
@@ -63,7 +59,7 @@ func TestMySQLConnectorToContract(t *testing.T) {
 		TsUnixMs:   1748736000000,
 	})
 	if err != nil {
-		t.Fatalf("toContract: %v", err)
+		t.Fatalf("bridgeEvent: %v", err)
 	}
 	if ce.SourceID != "mysql-itest" || ce.SourceType != "mysql" || ce.Database != "game" || ce.Table != "items" {
 		t.Fatalf("identity = %+v", ce)
@@ -89,6 +85,91 @@ func TestMySQLConnectorToContract(t *testing.T) {
 	// 契约自检门槛：桥接产出的事件须过 connector.ChangeEvent.Validate。
 	if err := ce.Validate(); err != nil {
 		t.Fatalf("bridged event fails contract validation: %v", err)
+	}
+}
+
+// 身份回落：sourceID 缺省取源类型（契约事件自检要求非空，不静默降为空）。
+func TestBridgeEventSourceIDFallback(t *testing.T) {
+	ce, err := bridgeEvent("", "mysql", ChangeEvent{
+		Database: "game", Table: "items", Op: OpDelete,
+		BeforeJSON: json.RawMessage(`[7]`), GTID: "0-1-9", TsUnixMs: 1748736000000,
+	})
+	if err != nil {
+		t.Fatalf("bridgeEvent: %v", err)
+	}
+	if ce.SourceID != "mysql" || ce.Operation != connector.OpDelete {
+		t.Fatalf("event = %+v", ce)
+	}
+}
+
+// 位点 kind 按源类型（checkpoint 还原真值：mysql=gtid，postgres=lsn）。
+func TestPositionKindOf(t *testing.T) {
+	if got := PositionKindOf("mysql"); got != "gtid" {
+		t.Fatalf("mysql kind = %q", got)
+	}
+	if got := PositionKindOf("postgres"); got != "lsn" {
+		t.Fatalf("postgres kind = %q", got)
+	}
+	if got := PositionKindOf(""); got != "gtid" {
+		t.Fatalf("unknown kind fallback = %q", got)
+	}
+}
+
+// ProviderConnector：Provider 形态源经桥接泵出契约事件（白名单二次过滤 +
+// 未知操作终止流）。
+func TestProviderConnectorPoll(t *testing.T) {
+	fp := &fakePumpSource{events: []ChangeEvent{
+		{Database: "game", Table: "items", Op: OpInsert, AfterJSON: json.RawMessage(`[1,"a"]`), GTID: "g1", TsUnixMs: 1748736000000},
+		{Database: "game", Table: "other", Op: OpInsert, AfterJSON: json.RawMessage(`[2]`), GTID: "g2", TsUnixMs: 1748736000001},
+		{Database: "game", Table: "items", Op: Op("truncate"), GTID: "g3", TsUnixMs: 1748736000002},
+		{Database: "game", Table: "items", Op: OpDelete, BeforeJSON: json.RawMessage(`[3]`), GTID: "g4", TsUnixMs: 1748736000003},
+	}}
+	p := NewProviderConnector(fp, "mysql", nil)
+	ctx := t.Context()
+	events, err := p.Poll(ctx, connector.PollRequest{Tables: []string{"game.items"}})
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+	var got []connector.ChangeEvent
+	for ev := range events {
+		got = append(got, ev)
+	}
+	if len(got) != 1 || got[0].Position.Value != "g1" {
+		t.Fatalf("events = %+v, want only g1 (whitelist drops g2, unknown op aborts before g4)", got)
+	}
+}
+
+// fakePumpSource 最小 Provider（推完即关流）。
+type fakePumpSource struct {
+	events []ChangeEvent
+}
+
+func (f *fakePumpSource) Open(_ context.Context, _ Bookmark) (<-chan ChangeEvent, error) {
+	ch := make(chan ChangeEvent, len(f.events))
+	for _, ev := range f.events {
+		ch <- ev
+	}
+	close(ch)
+	return ch, nil
+}
+
+func (f *fakePumpSource) Bookmark() Bookmark { return Bookmark{} }
+func (f *fakePumpSource) Close() error       { return nil }
+
+// ProviderConnector 守卫：Open 留存配置（SourceID 透传）、无 Provider 拒绝。
+func TestProviderConnectorGuards(t *testing.T) {
+	p := NewProviderConnector(nil, "mysql", nil)
+	if _, err := p.Poll(t.Context(), connector.PollRequest{}); err == nil {
+		t.Fatal("poll without provider accepted")
+	}
+	if _, err := p.Checkpoint(t.Context()); err == nil {
+		t.Fatal("checkpoint without provider accepted")
+	}
+	if err := p.Open(t.Context(), connector.SourceConfig{SourceID: "leg"}); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := p.Close(t.Context()); err != nil {
+		t.Fatalf("close: %v", err)
 	}
 }
 

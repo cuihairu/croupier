@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 )
 
-func lineageEvent(op source.Op, account string) source.ChangeEvent {
-	return source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "items", Op: op,
-		AfterJSON: rowJSON("junk", "k"), GTID: "g-lineage-" + account + string(op),
+func lineageEvent(op connector.Operation, account string) connector.ChangeEvent {
+	return connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Operation: op,
+		After: rowMap("junk", "k"), Position: connector.Position{Kind: "gtid", Value: "g-lineage-" + account + string(op)},
 		Account: account, TsUnixMs: tsOf(0, 12, 0),
 	}
 }
@@ -23,7 +23,7 @@ func TestLineageViolationHits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLineage: %v", err)
 	}
-	ev := lineageEvent(source.OpUpdate, "root")
+	ev := lineageEvent(connector.OpUpdate, "root")
 	hits := g.Evaluate(&ev)
 	if len(hits) != 1 {
 		t.Fatalf("hits = %d, want 1", len(hits))
@@ -41,7 +41,7 @@ func TestLineageAllowedAccountNoHit(t *testing.T) {
 	g, _ := NewLineage([]LineageRule{{
 		Name: "items-accounts", Table: "game.items", AllowAccounts: []string{"app_writer"},
 	}})
-	ev := lineageEvent(source.OpInsert, "app_writer")
+	ev := lineageEvent(connector.OpInsert, "app_writer")
 	if hits := g.Evaluate(&ev); len(hits) != 0 {
 		t.Fatalf("allowed account should not hit: %+v", hits)
 	}
@@ -53,7 +53,7 @@ func TestLineageEmptyAccountDegraded(t *testing.T) {
 	}})
 	// C1 binlog 无会话账号：跳过计数，不误报
 	for i := 0; i < 3; i++ {
-		ev := lineageEvent(source.OpUpdate, "")
+		ev := lineageEvent(connector.OpUpdate, "")
 		if hits := g.Evaluate(&ev); len(hits) != 0 {
 			t.Fatalf("degraded event should not hit: %+v", hits)
 		}
@@ -69,18 +69,18 @@ func TestLineageOpsFilterAndTableRoute(t *testing.T) {
 		AllowAccounts: []string{"app_writer"},
 	}})
 	// insert 不在 ops 名单：直通且不计数
-	ev := lineageEvent(source.OpInsert, "root")
+	ev := lineageEvent(connector.OpInsert, "root")
 	if hits := g.Evaluate(&ev); len(hits) != 0 || g.Degraded() != 0 {
 		t.Fatalf("filtered op should pass silently: hits=%+v degraded=%d", hits, g.Degraded())
 	}
 	// 非订阅表：直通
-	ev2 := lineageEvent(source.OpDelete, "root")
+	ev2 := lineageEvent(connector.OpDelete, "root")
 	ev2.Table = "other"
 	if hits := g.Evaluate(&ev2); len(hits) != 0 {
 		t.Fatalf("other table should not hit: %+v", hits)
 	}
 	// delete 白名单外：命中
-	ev3 := lineageEvent(source.OpDelete, "root")
+	ev3 := lineageEvent(connector.OpDelete, "root")
 	if hits := g.Evaluate(&ev3); len(hits) != 1 {
 		t.Fatalf("delete by root should hit: %+v", hits)
 	}

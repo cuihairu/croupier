@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 )
 
 // CEP 规则 ID 闭集（设计 §4.4）。
@@ -241,7 +241,7 @@ func (g *CEPGate) SkippedNoDelta() int64 { return g.skippedNoDelta }
 func (g *CEPGate) SkippedProbeKey() int64 { return g.skippedProbeKey }
 
 // Evaluate 消费一个变更事件：评估该表命中的三模板实例。非订阅表零开销直通。
-func (g *CEPGate) Evaluate(ev *source.ChangeEvent) []Hit {
+func (g *CEPGate) Evaluate(ev *connector.ChangeEvent) []Hit {
 	table := ev.Database + "." + ev.Table
 	var hits []Hit
 	for _, r := range g.offHours {
@@ -286,8 +286,8 @@ func (g *CEPGate) Sweep(nowMs int64) {
 
 // evalOffHours 时段白名单判定：取事件时间（源真值；回放补扫不改变历史判定时点，
 // 重复告警由位点幂等兜底——重扫本身就是异常路径）。
-func evalOffHours(r *OffHoursRule, ev *source.ChangeEvent) []Hit {
-	if !opAllowed(r.Ops, ev.Op) {
+func evalOffHours(r *OffHoursRule, ev *connector.ChangeEvent) []Hit {
+	if !opAllowed(r.Ops, ev.Operation) {
 		return nil
 	}
 	ts := ev.TsUnixMs
@@ -300,13 +300,13 @@ func evalOffHours(r *OffHoursRule, ev *source.ChangeEvent) []Hit {
 		return nil
 	}
 	wall := time.UnixMilli(ts).UTC().Add(time.Duration(r.TzOffsetMin) * time.Minute).Format("15:04:05")
-	detail := fmt.Sprintf("%s at %s (tz%+dmin) outside allowed windows", ev.Op, wall, r.TzOffsetMin)
+	detail := fmt.Sprintf("%s at %s (tz%+dmin) outside allowed windows", ev.Operation, wall, r.TzOffsetMin)
 	return []Hit{hitOf(RuleOffHours, r.Severity, r.Table, "", detail, *ev)}
 }
 
-func (g *CEPGate) evalBurst(s *burstState, ev *source.ChangeEvent) []Hit {
+func (g *CEPGate) evalBurst(s *burstState, ev *connector.ChangeEvent) []Hit {
 	r := s.rule
-	if !opAllowed(r.Ops, ev.Op) {
+	if !opAllowed(r.Ops, ev.Operation) {
 		return nil
 	}
 	d, ok := deltaOf(ev, r.DeltaField)
@@ -335,9 +335,9 @@ func (g *CEPGate) evalBurst(s *burstState, ev *source.ChangeEvent) []Hit {
 	return nil
 }
 
-func (g *CEPGate) evalProbe(s *probeState, ev *source.ChangeEvent) []Hit {
+func (g *CEPGate) evalProbe(s *probeState, ev *connector.ChangeEvent) []Hit {
 	r := s.rule
-	if !opAllowed(r.Ops, ev.Op) {
+	if !opAllowed(r.Ops, ev.Operation) {
 		return nil
 	}
 	d, ok := deltaOf(ev, r.DeltaField)
@@ -434,7 +434,7 @@ func compactTs(v []int64) []int64 {
 }
 
 // hitOf 组装命中（severity 缺省 warn）。
-func hitOf(ruleID, severity, table, key, detail string, ev source.ChangeEvent) Hit {
+func hitOf(ruleID, severity, table, key, detail string, ev connector.ChangeEvent) Hit {
 	sev := severity
 	if sev == "" {
 		sev = SeverityWarn
@@ -443,7 +443,7 @@ func hitOf(ruleID, severity, table, key, detail string, ev source.ChangeEvent) H
 }
 
 // opAllowed 操作过滤：空名单 = 全部变更。
-func opAllowed(ops []string, op source.Op) bool {
+func opAllowed(ops []string, op connector.Operation) bool {
 	if len(ops) == 0 {
 		return true
 	}
@@ -458,8 +458,8 @@ func opAllowed(ops []string, op source.Op) bool {
 // checkOps 操作闭集校验。
 func checkOps(ops []string) error {
 	for _, o := range ops {
-		switch source.Op(o) {
-		case source.OpInsert, source.OpUpdate, source.OpDelete:
+		switch connector.Operation(o) {
+		case connector.OpInsert, connector.OpUpdate, connector.OpDelete:
 		default:
 			return fmt.Errorf("ops must be insert|update|delete, got %q", o)
 		}
@@ -495,15 +495,15 @@ func inWindows(minOfDay int, windows []OffHoursWindow) bool {
 
 // deltaOf 变更量：insert = 后像值（新增全额），delete = 前像值（清空全额），
 // update = 后像 - 前像。字段不可数值化 → 不 ok（调用方计数跳过）。
-func deltaOf(ev *source.ChangeEvent, spec string) (float64, bool) {
-	if ev.Op == source.OpInsert {
-		return numericValue(ev.AfterJSON, spec)
+func deltaOf(ev *connector.ChangeEvent, spec string) (float64, bool) {
+	if ev.Operation == connector.OpInsert {
+		return numericValue(ev.After, spec)
 	}
-	if ev.Op == source.OpDelete {
-		return numericValue(ev.BeforeJSON, spec)
+	if ev.Operation == connector.OpDelete {
+		return numericValue(ev.Before, spec)
 	}
-	after, aOK := numericValue(ev.AfterJSON, spec)
-	before, bOK := numericValue(ev.BeforeJSON, spec)
+	after, aOK := numericValue(ev.After, spec)
+	before, bOK := numericValue(ev.Before, spec)
 	if !aOK || !bOK {
 		return 0, false
 	}
@@ -512,7 +512,7 @@ func deltaOf(ev *source.ChangeEvent, spec string) (float64, bool) {
 
 // numericValue 数量字段取值（键规格形态同 extractKey，值须可数值化）。
 // float64 精度边界：整数金额 < 2^53 安全（§8 差异记录）。
-func numericValue(img json.RawMessage, spec string) (float64, bool) {
+func numericValue(img map[string]json.RawMessage, spec string) (float64, bool) {
 	key, ok := extractKey(img, spec)
 	if !ok {
 		return 0, false

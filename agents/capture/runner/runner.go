@@ -1,8 +1,9 @@
 // Package runner capture-agent 装配：注册上线/心跳（core/register，
-// payload 带 game_id+env 标签）+ 统一事件流消费（source.Provider）+ 位点周期
-// 落盘与退出终刷 + Readiness 探库（core/healthprobe，探 MySQL 连通）。
-// `capture.enabled=false` 时仅注册上线不消费（面板可见、可停启，设计 §2）。
-// 闸层（gate）在消费循环内联评估，命中落日志+计数+异步上报（简档 §8.4）。
+// payload 带 game_id+env 标签）+ 统一事件流消费（connector.SourceConnector，
+// 多源统一契约面）+ 位点周期落盘与退出终刷 + Readiness 探库（core/healthprobe，
+// 探数据源连通）。`capture.enabled=false` 时仅注册上线不消费（面板可见、可停
+// 启，设计 §2）。闸层（gate）在消费循环内联评估，命中落日志+计数+异步上报
+// （简档 §8.4）。
 package runner
 
 import (
@@ -11,14 +12,17 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"runtime"
-	"sort"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/config"
+	"github.com/cuihairu/croupier/agents/capture/connector"
+	"github.com/cuihairu/croupier/agents/capture/connector/pg"
 	"github.com/cuihairu/croupier/agents/capture/filter"
 	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
@@ -88,7 +92,7 @@ type Runner struct {
 	log   *slog.Logger
 	store *source.Store
 
-	newSource func() source.Provider
+	newConnector func() connector.SourceConnector
 
 	// backoffInitial/backoffMax 源重开退避（测试注入快档；默认 1s→30s ×1.5）。
 	backoffInitial time.Duration
@@ -154,8 +158,21 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		}
 		return &configsync.Versioned[[]byte]{Version: resp.GetVersion(), Payload: []byte(resp.GetGatesJson())}, nil
 	}
-	r.newSource = func() source.Provider {
-		return source.NewMySQLSource(*cfg.Capture.MySQL, log)
+	r.newConnector = func() connector.SourceConnector {
+		if cfg.Capture.MySQL != nil {
+			// legacy capture.mysql：凭据留 YAML，Provider→契约桥接收口
+			// （凭据不进契约、不落日志）。
+			return source.NewProviderConnector(source.NewMySQLSource(*cfg.Capture.MySQL, log), "mysql", log)
+		}
+		switch cfg.Capture.SourceType {
+		case "postgres":
+			return pg.NewPostgresConnector(cfg.Capture.SourceConfig(cfg.Agent.ID), log)
+		default:
+			return source.NewMySQLConnector(cfg.Capture.SourceConfig(cfg.Agent.ID), log)
+		}
+	}
+	if cfg.Capture.Enabled && cfg.Capture.MySQL != nil {
+		log.Warn("legacy capture.mysql config in use, migrate to sourceType/dsnEnv")
 	}
 	gs, err := buildGateSet(cfg.Capture.Gates)
 	if err != nil {
@@ -363,18 +380,21 @@ var errBookmarkLoad = errors.New("bookmark load failed")
 // runSourceOnce 开源→消费→周期刷位点；源流结束返回 errStreamEnded（可重开），
 // ctx 取消返回 nil，位点损坏返回 errBookmarkLoad 包裹错误（不可恢复）。
 func (r *Runner) runSourceOnce(ctx context.Context) error {
-	bm, err := r.store.Load()
+	pos, err := r.loadPosition()
 	if err != nil {
 		return fmt.Errorf("%w: %v", errBookmarkLoad, err)
 	}
-	if bm.Valid() {
-		r.log.Info("resuming from bookmark", "position", bm.Position)
+	if pos.Valid() {
+		r.log.Info("resuming from bookmark", "kind", pos.Kind, "value", pos.Value)
 	}
 
-	src := r.newSource()
-	events, err := src.Open(ctx, bm)
+	cn := r.newConnector()
+	if err := cn.Open(ctx, r.cfg.Capture.SourceConfig(r.cfg.Agent.ID)); err != nil {
+		return fmt.Errorf("open connector: %w", err)
+	}
+	events, err := cn.Poll(ctx, connector.PollRequest{From: pos, Tables: r.cfg.Capture.Tables()})
 	if err != nil {
-		return fmt.Errorf("open source: %w", err)
+		return fmt.Errorf("poll connector: %w", err)
 	}
 
 	tick := time.NewTicker(r.cfg.FlushInterval())
@@ -383,38 +403,60 @@ func (r *Runner) runSourceOnce(ctx context.Context) error {
 		select {
 		case ev, ok := <-events:
 			if !ok {
-				_ = src.Close()
+				// 流结束前收尾刷位点（重开接续不重复、不漏段），再释放连接。
+				r.flushBookmark(context.Background(), cn, false)
+				_ = cn.Close(context.Background())
 				return errStreamEnded
 			}
 			r.consume(ev)
 		case <-tick.C:
 			r.sweepGates(time.Now().UnixMilli())
-			r.flushBookmark(src, false)
+			r.flushBookmark(ctx, cn, false)
 		case <-ctx.Done():
-			_ = src.Close()
-			r.flushBookmark(src, true)
+			r.flushBookmark(context.Background(), cn, true)
+			_ = cn.Close(context.Background())
 			return nil
 		}
 	}
 }
 
-// consume 白名单过滤（双保险：源侧已过滤）+ 计数 + 闸层评估（命中落日志）。
-func (r *Runner) consume(ev source.ChangeEvent) {
+// loadPosition 读回位点（位点文件存 kind:value 形态；legacy 裸值串按源类型
+// 回落 kind——旧位点文件平滑续读，不强制迁移）。位点文件损坏返回错误
+// （runSourceOnce 包装为 errBookmarkLoad：静默降级重扫可能丢事件，交运维）。
+func (r *Runner) loadPosition() (connector.Position, error) {
+	bm, err := r.store.Load()
+	if err != nil {
+		return connector.Position{}, err
+	}
+	if bm.Position == "" {
+		return connector.Position{}, nil
+	}
+	if pos, perr := connector.ParsePosition(bm.Position); perr == nil && pos.Value != "" {
+		return pos, nil
+	}
+	kind := source.PositionKindOf(r.cfg.Capture.SourceType)
+	r.log.Warn("legacy bookmark format, kind inferred from sourceType", "kind", kind)
+	return connector.Position{Kind: kind, Value: bm.Position}, nil
+}
+
+// consume 计数 + 闸层评估（命中落日志）。行像已过源侧白名单过滤（双保险），
+// 契约事件自带位置下标行像（ColumnsMapped=false）——闸层取数面与数据源无关。
+func (r *Runner) consume(ev connector.ChangeEvent) {
 	now := time.Now().UnixMilli()
 	atomic.StoreInt64(&r.stats.LastEventUnixMs, now)
 	atomic.AddInt64(&r.stats.Total, 1)
-	switch ev.Op {
-	case "insert":
+	switch ev.Operation {
+	case connector.OpInsert:
 		atomic.AddInt64(&r.stats.Insert, 1)
-	case "update":
+	case connector.OpUpdate:
 		atomic.AddInt64(&r.stats.Update, 1)
-	case "delete":
+	case connector.OpDelete:
 		atomic.AddInt64(&r.stats.Delete, 1)
 	default:
 		atomic.AddInt64(&r.stats.Skipped, 1)
 	}
 	r.log.Debug("change event", "sourceType", ev.SourceType, "database", ev.Database,
-		"table", ev.Table, "op", ev.Op, "gtid", ev.GTID)
+		"table", ev.Table, "op", ev.Operation, "gtid", ev.Position.Value)
 	gs := r.gates.Load()
 	if gs == nil {
 		return
@@ -423,7 +465,7 @@ func (r *Runner) consume(ev source.ChangeEvent) {
 	// 丢弃（FilteredNoMatch），形态不可评估的非法操作计 FilteredError——
 	// 有计数可观测的丢弃，不静默（过滤策略简档 §5/§8）。
 	if gs.event != nil {
-		switch gs.event.Evaluate(string(ev.Op)) {
+		switch gs.event.Evaluate(string(ev.Operation)) {
 		case filter.ResultNoMatch:
 			atomic.AddInt64(&r.stats.FilteredNoMatch, 1)
 			return
@@ -478,7 +520,7 @@ func (r *Runner) recordHits(hits []gate.Hit) {
 		atomic.AddInt64(&r.stats.GateHits, 1)
 		r.log.Warn("capture gate hit", "rule", h.Rule, "severity", h.Severity,
 			"table", h.Table, "key", h.Key, "detail", h.Detail,
-			"gtid", h.Event.GTID, "tsUnixMs", h.Event.TsUnixMs)
+			"gtid", h.Event.Position.Value, "tsUnixMs", h.Event.TsUnixMs)
 		select {
 		case r.hitCh <- h:
 		default:
@@ -528,33 +570,76 @@ func (r *Runner) buildHitReport(h gate.Hit) *opsv1.CaptureRuleHitReport {
 		Table:         h.Table,
 		Key:           h.Key,
 		Detail:        h.Detail,
-		Gtid:          h.Event.GTID,
-		EventOp:       string(h.Event.Op),
+		Gtid:          h.Event.Position.Value,
+		EventOp:       string(h.Event.Operation),
 		EventTsUnixMs: h.Event.TsUnixMs,
 	}
 }
 
-// flushBookmark 周期刷位点；final=true 时无条件落（退出终刷）。
-func (r *Runner) flushBookmark(src source.Provider, final bool) {
-	bm := src.Bookmark()
-	if !bm.Valid() {
+// flushBookmark 周期刷位点；final=true 时无条件落（退出终刷）。位点取连接器
+// Checkpoint（kind:value 形态落盘——legacy 裸值文件靠 loadPosition 回落兼容）。
+func (r *Runner) flushBookmark(ctx context.Context, cn connector.SourceConnector, final bool) {
+	pos, err := cn.Checkpoint(ctx)
+	if err != nil {
+		r.log.Warn("checkpoint read failed", "final", final, "error", err)
 		return
 	}
+	if !pos.Valid() || pos.Value == "" {
+		return
+	}
+	bm := source.Bookmark{Position: pos.String(), UpdatedAtUnixMs: time.Now().UnixMilli()}
 	if err := r.store.Save(bm); err != nil {
 		r.log.Warn("bookmark save failed", "final", final, "error", err)
 		return
 	}
 	if final {
-		r.log.Info("bookmark flushed on exit", "position", bm.Position)
+		r.log.Info("bookmark flushed on exit", "kind", pos.Kind, "value", pos.Value)
 	}
 }
 
-// startReadinessProbe 探 MySQL 连通（Readiness 语义）：可用性窗口本地
-// 时间线开合，窗口事件打 warn 日志（C2 随告警上报捎带）。
+// sourceTypeName 配置面的数据源类型名（legacy capture.mysql 恒为 mysql）。
+func (r *Runner) sourceTypeName() string {
+	if r.cfg.Capture.MySQL != nil {
+		return "mysql"
+	}
+	return r.cfg.Capture.SourceType
+}
+
+// probeTarget Readiness 探测地址（host:port，非凭据）：legacy 配置直取
+// host/port；canonical 从 DSN 环境变量解析（错误消息只提变量名）。不可解析
+// （unix socket / 环境变量缺失）返回 false——跳过探测并记日志，不伪造一个
+// 探测不到的目标。
+func (r *Runner) probeTarget() (string, bool) {
+	if m := r.cfg.Capture.MySQL; m != nil {
+		return net.JoinHostPort(m.Host, strconv.Itoa(int(m.Port))), true
+	}
+	if r.cfg.Capture.DSNEnv == "" {
+		return "", false
+	}
+	var addr string
+	var err error
+	if r.cfg.Capture.SourceType == "postgres" {
+		addr, err = pg.AddressFromDSN(r.cfg.Capture.DSNEnv)
+	} else {
+		addr, err = source.AddressFromDSN(r.cfg.Capture.DSNEnv)
+	}
+	if err != nil || addr == "" {
+		return "", false
+	}
+	return addr, true
+}
+
+// startReadinessProbe 探数据源连通（Readiness 语义）：可用性窗口本地时间线
+// 开合，窗口事件打 warn 日志（C2 随告警上报捎带）。
 func (r *Runner) startReadinessProbe(ctx context.Context) {
-	addr := fmt.Sprintf("%s:%d", r.cfg.Capture.MySQL.Host, r.cfg.Capture.MySQL.Port)
+	addr, ok := r.probeTarget()
+	if !ok {
+		r.log.Warn("readiness probe skipped, source address not resolvable from config",
+			"sourceType", r.sourceTypeName())
+		return
+	}
 	probe := healthprobe.New(
-		"mysql:"+addr,
+		r.sourceTypeName()+":"+addr,
 		healthprobe.SemanticsReadiness,
 		healthprobe.NewTCPChecker(addr, 2*time.Second),
 		healthprobe.OnWindow(func(ev healthprobe.WindowEvent) {
@@ -589,16 +674,19 @@ func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error)
 	}
 	// 采集范围与连接器能力自报（发布校验服务端化：依赖/能力感知 lint 的
 	// 数据源，captureGatesRevision 同通道——labels 捎带零 proto；滞后容忍，
-	// server 侧 lint 对事实不可知 fail-soft 跳过）。
-	if r.cfg.Capture.Enabled && r.cfg.Capture.MySQL != nil && len(r.cfg.Capture.MySQL.Tables) > 0 {
-		tables := make([]string, 0, len(r.cfg.Capture.MySQL.Tables))
-		for tbl := range r.cfg.Capture.MySQL.Tables {
-			tables = append(tables, tbl)
-		}
-		sort.Strings(tables)
+	// server 侧 lint 对事实不可知 fail-soft 跳过）。能力按源类型声明
+	// （legacy 与 canonical mysql 同为 MySQLCapabilities）。
+	tables := r.cfg.Capture.Tables()
+	if r.cfg.Capture.Enabled && len(tables) > 0 {
 		labels["captureTables"] = strings.Join(tables, ",")
+		var caps connector.Capabilities
+		if r.cfg.Capture.SourceType == "postgres" && r.cfg.Capture.MySQL == nil {
+			caps = pg.PostgresCapabilities()
+		} else {
+			caps = source.MySQLCapabilities()
+		}
 		keys := make([]string, 0, 6)
-		for _, cap := range source.MySQLCapabilities().Enabled() {
+		for _, cap := range caps.Enabled() {
 			keys = append(keys, string(cap))
 		}
 		labels["captureConnectorCapabilities"] = strings.Join(keys, ",")

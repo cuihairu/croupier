@@ -2,10 +2,11 @@ package gate
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 )
 
 // rowJSON 行像构造（C1 现实：位置数组 JSON）。
@@ -17,28 +18,41 @@ func rowJSON(vals ...interface{}) json.RawMessage {
 	return b
 }
 
+// rowMap 契约行像构造（位置下标键 map，ColumnsMapped=false 语义）。
+func rowMap(vals ...interface{}) map[string]json.RawMessage {
+	var arr []json.RawMessage
+	if err := json.Unmarshal(rowJSON(vals...), &arr); err != nil {
+		panic(err) // rowJSON 产物必为数组
+	}
+	m := make(map[string]json.RawMessage, len(arr))
+	for i, v := range arr {
+		m[strconv.Itoa(i)] = v
+	}
+	return m
+}
+
 // itemEvent 道具表事件：行像 [ "junk", key ]，键规格 "1"。
-func itemEvent(op source.Op, key string, tsMs int64) source.ChangeEvent {
-	var before, after json.RawMessage
-	img := rowJSON("junk", key)
-	if op == source.OpDelete {
-		before = img
+func itemEvent(op connector.Operation, key string, tsMs int64) connector.ChangeEvent {
+	img := rowMap("junk", key)
+	ev := connector.ChangeEvent{
+		SourceID: "mysql", SourceType: "mysql", Database: "game", Table: "item", Operation: op,
+		Position: connector.Position{Kind: "gtid", Value: "gtid-item-" + key + "-" + string(op)},
+		TsUnixMs: tsMs,
+	}
+	if op == connector.OpDelete {
+		ev.Before = img
 	} else {
-		after = img
+		ev.After = img
 	}
-	return source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "item", Op: op,
-		BeforeJSON: before, AfterJSON: after,
-		GTID: "gtid-item-" + key + "-" + string(op), TsUnixMs: tsMs,
-	}
+	return ev
 }
 
 // ledgerEvent 流水表事件：行像 [ key, "memo" ]，键规格 "0"。
-func ledgerEvent(key string, tsMs int64) source.ChangeEvent {
-	return source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "ledger", Op: source.OpInsert,
-		AfterJSON: rowJSON(key, "memo"),
-		GTID:      "gtid-ledger-" + key, TsUnixMs: tsMs,
+func ledgerEvent(key string, tsMs int64) connector.ChangeEvent {
+	return connector.ChangeEvent{
+		SourceID: "mysql", SourceType: "mysql", Database: "game", Table: "ledger", Operation: connector.OpInsert,
+		After:    rowMap(key, "memo"),
+		Position: connector.Position{Kind: "gtid", Value: "gtid-ledger-" + key}, TsUnixMs: tsMs,
 	}
 }
 
@@ -62,7 +76,7 @@ func newGate(t *testing.T, rules ...ReconcileRule) (*ReconcileGate, *int64) {
 
 func TestReconcileItemThenLedgerMatches(t *testing.T) {
 	g, _ := newGate(t, testRule())
-	if hits := g.Evaluate(mustPtr(itemEvent(source.OpInsert, "100", 999_000))); len(hits) != 0 {
+	if hits := g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "100", 999_000))); len(hits) != 0 {
 		t.Fatalf("item enqueue should not hit: %+v", hits)
 	}
 	if g.PendingCount() != 1 {
@@ -88,7 +102,7 @@ func TestReconcileLedgerFirstCreditConsumed(t *testing.T) {
 	if g.PendingCount() != 1 {
 		t.Fatalf("pending = %d, want 1", g.PendingCount())
 	}
-	if hits := g.Evaluate(mustPtr(itemEvent(source.OpUpdate, "200", 999_500))); len(hits) != 0 {
+	if hits := g.Evaluate(mustPtr(itemEvent(connector.OpUpdate, "200", 999_500))); len(hits) != 0 {
 		t.Fatalf("item consuming credit should not hit: %+v", hits)
 	}
 	if g.PendingCount() != 0 {
@@ -98,7 +112,7 @@ func TestReconcileLedgerFirstCreditConsumed(t *testing.T) {
 
 func TestReconcileMissingLedgerSweepHit(t *testing.T) {
 	g, now := newGate(t, testRule())
-	g.Evaluate(mustPtr(itemEvent(source.OpInsert, "300", *now)))
+	g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "300", *now)))
 	*now += 61_000
 	hits := g.Sweep(*now)
 	if len(hits) != 1 {
@@ -114,8 +128,8 @@ func TestReconcileMissingLedgerSweepHit(t *testing.T) {
 	if h.Table != "game.item" || h.Key != "300" {
 		t.Errorf("table/key = %q/%q, want game.item/300", h.Table, h.Key)
 	}
-	if h.Event.GTID != "gtid-item-300-insert" {
-		t.Errorf("event snapshot gtid = %q", h.Event.GTID)
+	if h.Event.Position.Value != "gtid-item-300-insert" {
+		t.Errorf("event snapshot position = %q", h.Event.Position.Value)
 	}
 	if g.PendingCount() != 0 {
 		t.Errorf("pending after sweep = %d, want 0", g.PendingCount())
@@ -124,7 +138,7 @@ func TestReconcileMissingLedgerSweepHit(t *testing.T) {
 
 func TestReconcileWithinWindowNoHit(t *testing.T) {
 	g, now := newGate(t, testRule())
-	g.Evaluate(mustPtr(itemEvent(source.OpInsert, "400", *now)))
+	g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "400", *now)))
 	// 恰好 window-1ms：不命中
 	hits := g.Sweep(*now + 59_999)
 	if len(hits) != 0 {
@@ -140,7 +154,7 @@ func TestReconcileExemptKeySkipped(t *testing.T) {
 	rule := testRule()
 	rule.ExemptKeys = []string{"777"}
 	g, now := newGate(t, rule)
-	g.Evaluate(mustPtr(itemEvent(source.OpInsert, "777", *now)))
+	g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "777", *now)))
 	if g.PendingCount() != 0 {
 		t.Fatalf("exempt item should not enqueue, pending = %d", g.PendingCount())
 	}
@@ -153,8 +167,8 @@ func TestReconcileExemptKeySkipped(t *testing.T) {
 func TestReconcileMissingKeySentinelAlert(t *testing.T) {
 	g, now := newGate(t, testRule())
 	// 键规格越界：道具侧取不到键 → 哨兵入窗（宁误报不漏报）
-	ev := itemEvent(source.OpInsert, "500", *now)
-	ev.AfterJSON = rowJSON("only-one-column")
+	ev := itemEvent(connector.OpInsert, "500", *now)
+	ev.After = rowMap("only-one-column")
 	g.Evaluate(mustPtr(ev))
 	if g.PendingCount() != 1 {
 		t.Fatalf("sentinel should enqueue, pending = %d", g.PendingCount())
@@ -178,7 +192,7 @@ func TestReconcileLedgerNoKeySkipped(t *testing.T) {
 	g, _ := newGate(t, testRule())
 	// 流水行像空数组：键规格 "0" 越界 → 跳过并计数（不挂窗）
 	ev := ledgerEvent("600", 999_000)
-	ev.AfterJSON = rowJSON()
+	ev.After = rowMap()
 	g.Evaluate(mustPtr(ev))
 	if g.SkippedNoKey() != 1 {
 		t.Fatalf("SkippedNoKey = %d, want 1", g.SkippedNoKey())
@@ -190,7 +204,7 @@ func TestReconcileLedgerNoKeySkipped(t *testing.T) {
 
 func TestReconcileDeleteUsesBeforeImage(t *testing.T) {
 	g, _ := newGate(t, testRule())
-	g.Evaluate(mustPtr(itemEvent(source.OpDelete, "700", 999_000)))
+	g.Evaluate(mustPtr(itemEvent(connector.OpDelete, "700", 999_000)))
 	if g.PendingCount() != 1 {
 		t.Fatalf("delete should extract from before image, pending = %d", g.PendingCount())
 	}
@@ -203,8 +217,8 @@ func TestReconcileDeleteUsesBeforeImage(t *testing.T) {
 func TestReconcileUpdateUsesAfterImage(t *testing.T) {
 	g, _ := newGate(t, testRule())
 	// update：前像键 800-old，后像键 800；规格取后像 → 与 800 流水匹配
-	ev := itemEvent(source.OpUpdate, "800", 999_000)
-	ev.BeforeJSON = rowJSON("junk", "800-old")
+	ev := itemEvent(connector.OpUpdate, "800", 999_000)
+	ev.Before = rowMap("junk", "800-old")
 	g.Evaluate(mustPtr(ev))
 	g.Evaluate(mustPtr(ledgerEvent("800", 999_500)))
 	if g.PendingCount() != 0 {
@@ -216,7 +230,7 @@ func TestReconcileReplayBackfillNoInstantExpire(t *testing.T) {
 	g, now := newGate(t, testRule())
 	// 事件 ts 远早于窗口（binlog 回放补扫）：入窗时刻取 max(事件ts, now)
 	old := *now - 10_000_000
-	g.Evaluate(mustPtr(itemEvent(source.OpInsert, "900", old)))
+	g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "900", old)))
 	if hits := g.Sweep(*now + 1); len(hits) != 0 {
 		t.Fatalf("backfilled entry must get fresh window: %+v", hits)
 	}
@@ -230,9 +244,9 @@ func TestReconcileCapOverflowEviction(t *testing.T) {
 	rule := testRule()
 	rule.MaxPending = 2
 	g, _ := newGate(t, rule)
-	g.Evaluate(mustPtr(itemEvent(source.OpInsert, "a", 999_000)))
-	g.Evaluate(mustPtr(itemEvent(source.OpInsert, "b", 999_001)))
-	hits := g.Evaluate(mustPtr(itemEvent(source.OpInsert, "c", 999_002)))
+	g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "a", 999_000)))
+	g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "b", 999_001)))
+	hits := g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "c", 999_002)))
 	if len(hits) != 1 {
 		t.Fatalf("cap eviction hits = %d, want 1", len(hits))
 	}
@@ -258,7 +272,7 @@ func TestReconcileCreditEvictedSilently(t *testing.T) {
 	g, _ := newGate(t, rule)
 	// credit 挂满容量（键 y），不同键的 debit 入窗触发驱逐：credit 静默清
 	g.Evaluate(mustPtr(ledgerEvent("y", 999_000)))
-	if hits := g.Evaluate(mustPtr(itemEvent(source.OpInsert, "x", 999_001))); len(hits) != 0 {
+	if hits := g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "x", 999_001))); len(hits) != 0 {
 		t.Fatalf("credit eviction must be silent: %+v", hits)
 	}
 	if g.PendingCount() != 1 {
@@ -273,10 +287,10 @@ func TestReconcileTwoRulesIndependent(t *testing.T) {
 	}
 	g, now := newGate(t, testRule(), ruleB)
 	// 规则 A 道具入窗；规则 B 流水先到（同键值也不跨规则匹配）
-	g.Evaluate(mustPtr(itemEvent(source.OpInsert, "100", *now)))
-	g.Evaluate(mustPtr(source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "mail_log", Op: source.OpInsert,
-		AfterJSON: rowJSON("memo", "100"), GTID: "gtid-b", TsUnixMs: *now,
+	g.Evaluate(mustPtr(itemEvent(connector.OpInsert, "100", *now)))
+	g.Evaluate(mustPtr(connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "mail_log", Operation: connector.OpInsert,
+		After: rowMap("memo", "100"), Position: connector.Position{Kind: "gtid", Value: "gtid-b"}, TsUnixMs: *now,
 	}))
 	if g.PendingCount() != 2 {
 		t.Fatalf("cross-rule match detected, pending = %d, want 2", g.PendingCount())
@@ -295,7 +309,7 @@ func TestReconcileTwoRulesIndependent(t *testing.T) {
 func TestReconcileHitOrderDeterministic(t *testing.T) {
 	g, now := newGate(t, testRule())
 	for _, k := range []string{"b", "a", "c"} {
-		g.Evaluate(mustPtr(itemEvent(source.OpInsert, k, *now)))
+		g.Evaluate(mustPtr(itemEvent(connector.OpInsert, k, *now)))
 	}
 	hits := g.Sweep(*now + 61_000)
 	if len(hits) != 3 {
@@ -355,4 +369,4 @@ func TestReconcileValidation(t *testing.T) {
 }
 
 // mustPtr 供 Evaluate 取址。
-func mustPtr(ev source.ChangeEvent) *source.ChangeEvent { return &ev }
+func mustPtr(ev connector.ChangeEvent) *connector.ChangeEvent { return &ev }

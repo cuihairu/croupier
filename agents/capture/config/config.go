@@ -6,8 +6,11 @@ package config
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
 	"gopkg.in/yaml.v3"
@@ -73,10 +76,59 @@ type Capture struct {
 	BookmarkDir string `yaml:"bookmarkDir" json:"bookmarkDir"`
 	// BookmarkFlushIntervalSec 位点周期落盘间隔（秒，默认 5）。
 	BookmarkFlushIntervalSec int `yaml:"bookmarkFlushIntervalSec" json:"bookmarkFlushIntervalSec"`
-	// MySQL 源连接配置；nil = 未配置（enabled=true 而 mysql 缺失报错）。
+	// SourceType 数据源类型（"mysql" | "postgres"；闭集随 Connector 实现
+	// 扩展）。与 DSNEnv 同用：enabled=true 时两者齐备即走 Connector 契约面。
+	SourceType string `yaml:"sourceType" json:"sourceType"`
+	// DSNEnv 连接串环境变量名（凭据红线：明文 DSN 只从环境变量取值，不进
+	// 配置文件、不落日志）。
+	DSNEnv string `yaml:"dsnEnv" json:"dsnEnv"`
+	// Options 非密连接参数（serverId/flavor/tables/slotName/publication…，
+	// lowerCamelCase）。tables 必填（逗号分隔 "库.表" 白名单）。
+	Options map[string]string `yaml:"options" json:"options"`
+	// MySQL legacy 源连接配置（host/port/user/password）。仅在兼容解析代码
+	// 容忍，不再写入任何示例/文档：凭据留源实现内部，不进契约。
 	MySQL *source.MySQLConfig `yaml:"mysql" json:"mysql"`
 	// Gates 闸层规则（空 = 只采不限，C1 口径）。
 	Gates Gates `yaml:"gates" json:"gates"`
+}
+
+// SourceTypes Connector 数据源类型闭集（校验真值；新增=新 Connector 落地）。
+var SourceTypes = map[string]bool{"mysql": true, "postgres": true}
+
+// Tables 采集白名单 "库.表" 列表（canonical 取 options.tables 逗号分隔；
+// legacy 取 capture.mysql.tables；均排序输出）。enabled=true 时必填非空。
+func (c Capture) Tables() []string {
+	if c.MySQL != nil {
+		out := make([]string, 0, len(c.MySQL.Tables))
+		for t := range c.MySQL.Tables {
+			out = append(out, t)
+		}
+		sort.Strings(out)
+		return out
+	}
+	var out []string
+	for _, t := range strings.Split(c.Options["tables"], ",") {
+		if t = strings.TrimSpace(t); t != "" {
+			out = append(out, t)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// SourceConfig 契约面数据源配置（connector.Open 入参）。canonical 路径携带
+// DSNEnv 与 Options；legacy 路径凭据不经契约（MySQLConfig 直连），仅带身份与
+// 非密参数。
+func (c Capture) SourceConfig(sourceID string) connector.SourceConfig {
+	if c.MySQL != nil {
+		return connector.SourceConfig{SourceID: sourceID, SourceType: "mysql"}
+	}
+	return connector.SourceConfig{
+		SourceID:   sourceID,
+		SourceType: c.SourceType,
+		DSNEnv:     c.DSNEnv,
+		Options:    c.Options,
+	}
 }
 
 // Config capture-agent 全量配置。
@@ -114,11 +166,20 @@ func (c Config) Validate() error {
 		return fmt.Errorf("agent.gameId is required")
 	}
 	if c.Capture.Enabled {
-		if c.Capture.MySQL == nil {
-			return fmt.Errorf("capture.mysql is required when capture.enabled is true")
-		}
-		if len(c.Capture.MySQL.Tables) == 0 {
-			return fmt.Errorf("capture.mysql.tables must not be empty (whitelist required)")
+		switch {
+		case c.Capture.MySQL != nil:
+			// legacy 兼容路径（凭据留 YAML，仅代码容忍；见 SourceType 字段注释）。
+			if len(c.Capture.MySQL.Tables) == 0 {
+				return fmt.Errorf("capture.mysql.tables must not be empty (whitelist required)")
+			}
+		case c.Capture.SourceType == "":
+			return fmt.Errorf("capture.sourceType is required when capture.enabled is true (or legacy capture.mysql)")
+		case !SourceTypes[c.Capture.SourceType]:
+			return fmt.Errorf("capture.sourceType %q unknown (want mysql|postgres)", c.Capture.SourceType)
+		case c.Capture.DSNEnv == "":
+			return fmt.Errorf("capture.dsnEnv is required when capture.enabled is true (credential channel)")
+		case len(c.Capture.Tables()) == 0:
+			return fmt.Errorf("capture.options.tables must not be empty (whitelist required)")
 		}
 	}
 	// 闸规则启动即全量校验（宁可不起进程）——含对账闸表路由唯一性。
@@ -134,13 +195,19 @@ func (c Config) Validate() error {
 	return nil
 }
 
-// BookmarkPath 位点文件路径（<bookmarkDir>/mysql.json，C1 单 MySQL 源）。
+// BookmarkPath 位点文件路径（<bookmarkDir>/<sourceType>.json）。按源类型分
+// 文件：legacy capture.mysql 与 canonical sourceType=mysql 同为 mysql.json
+// （配置面迁移不丢续读位点），postgres 独立文件。
 func (c Config) BookmarkPath() string {
 	dir := c.Capture.BookmarkDir
 	if dir == "" {
 		dir = "data/capture/bookmarks"
 	}
-	return dir + "/mysql.json"
+	t := c.Capture.SourceType
+	if t == "" {
+		t = "mysql" // legacy capture.mysql 路径（含 canonical 空值兜底）
+	}
+	return fmt.Sprintf("%s/%s.json", dir, t)
 }
 
 // FlushInterval 位点落盘间隔（秒→Duration，非法值回落 5s）。

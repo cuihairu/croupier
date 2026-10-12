@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/agents/capture/gate"
-	"github.com/cuihairu/croupier/agents/capture/source"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
@@ -21,9 +21,9 @@ func hitFixture(t *testing.T) *Runner {
 		ItemKey: "1", LedgerKey: "0", WindowSec: 60,
 	}}
 	r := New(cfg, nil)
-	item := source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "items", Op: "insert",
-		AfterJSON: gateRow("junk", "9001"), GTID: "g-hit",
+	item := connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Operation: connector.OpInsert,
+		After: contractRow("junk", "9001"), Position: connector.Position{Kind: "gtid", Value: "g-hit"},
 		TsUnixMs: time.Now().UnixMilli(),
 	}
 	r.consume(item)
@@ -136,7 +136,7 @@ func TestHitSenderQueueFullDrops(t *testing.T) {
 	r := hitFixture(t)
 	// 替换为无缓冲队列且无人消费：recordHits 非阻塞 → 直接丢。
 	r.hitCh = make(chan gate.Hit)
-	r.recordHits([]gate.Hit{{Rule: "r", Table: "t", Event: source.ChangeEvent{TsUnixMs: time.Now().UnixMilli()}}})
+	r.recordHits([]gate.Hit{{Rule: "r", Table: "t", Event: connector.ChangeEvent{TsUnixMs: time.Now().UnixMilli()}}})
 	st := r.Stats()
 	if st.AlertDropped != 1 {
 		t.Fatalf("dropped = %d after queue-full hit, want 1", st.AlertDropped)

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/config"
-	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/agents/capture/connector"
 )
 
 // reconcileRulesFor 带对账规则 + 事件白名单的门面 JSON（验证过滤在进闸前生效）。
@@ -34,9 +34,10 @@ func TestEventFilterWiringFromConfig(t *testing.T) {
 	}
 
 	// update 未列入白名单：进闸前丢弃，对账闸不收窗（FilteredNoMatch 计数）
-	update := source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "items", Op: "update",
-		AfterJSON: gateRow("junk", "9001"), GTID: "g1", TsUnixMs: time.Now().UnixMilli(),
+	update := connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Operation: connector.OpUpdate,
+		After: contractRow("junk", "9001"), Position: connector.Position{Kind: "gtid", Value: "g1"},
+		TsUnixMs: time.Now().UnixMilli(),
 	}
 	r.consume(update)
 	if st := r.Stats(); st.FilteredNoMatch != 1 || st.GateHits != 0 {
@@ -48,7 +49,7 @@ func TestEventFilterWiringFromConfig(t *testing.T) {
 
 	// insert 在白名单内：正常进闸入窗
 	insert := update
-	insert.Op = "insert"
+	insert.Operation = connector.OpInsert
 	r.consume(insert)
 	if st := r.Stats(); st.FilteredNoMatch != 1 {
 		t.Fatalf("listed op should pass filter, FilteredNoMatch = %d", st.FilteredNoMatch)
@@ -64,9 +65,9 @@ func TestEventFilterUnknownOpCountsError(t *testing.T) {
 	if err := r.applyGates(context.Background(), []byte(reconcileRulesFor())); err != nil {
 		t.Fatalf("applyGates: %v", err)
 	}
-	weird := source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "items", Op: "truncate",
-		GTID: "g2", TsUnixMs: time.Now().UnixMilli(),
+	weird := connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Operation: "truncate",
+		Position: connector.Position{Kind: "gtid", Value: "g2"}, TsUnixMs: time.Now().UnixMilli(),
 	}
 	r.consume(weird)
 	st := r.Stats()

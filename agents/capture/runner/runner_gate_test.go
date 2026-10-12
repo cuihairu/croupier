@@ -2,19 +2,29 @@ package runner
 
 import (
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/agents/capture/gate"
-	"github.com/cuihairu/croupier/agents/capture/source"
 )
 
-func gateRow(vals ...interface{}) json.RawMessage {
+// contractRow 契约行像构造（位置下标键 map，ColumnsMapped=false 语义）。
+func contractRow(vals ...interface{}) map[string]json.RawMessage {
 	b, err := json.Marshal(vals)
 	if err != nil {
 		panic(err) // 仅基础类型入参，构造不可失败
 	}
-	return b
+	var arr []json.RawMessage
+	if err := json.Unmarshal(b, &arr); err != nil {
+		panic(err)
+	}
+	m := make(map[string]json.RawMessage, len(arr))
+	for i, v := range arr {
+		m[strconv.Itoa(i)] = v
+	}
+	return m
 }
 
 func TestGateWiringEvaluateAndSweep(t *testing.T) {
@@ -28,10 +38,11 @@ func TestGateWiringEvaluateAndSweep(t *testing.T) {
 		t.Fatal("reconcile gate should be built from config rules")
 	}
 
-	// 道具变更入窗（位置数组行像，键在下标 1）
-	item := source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "items", Op: "insert",
-		AfterJSON: gateRow("junk", "9001"), GTID: "g1", TsUnixMs: time.Now().UnixMilli(),
+	// 道具变更入窗（位置下标键行像，键在 "1"）
+	item := connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Operation: connector.OpInsert,
+		After: contractRow("junk", "9001"), Position: connector.Position{Kind: "gtid", Value: "g1"},
+		TsUnixMs: time.Now().UnixMilli(),
 	}
 	r.consume(item)
 	if st := r.Stats(); st.GateHits != 0 {
@@ -39,9 +50,10 @@ func TestGateWiringEvaluateAndSweep(t *testing.T) {
 	}
 
 	// 同键流水销账 → 不命中
-	ledger := source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "ledger", Op: "insert",
-		AfterJSON: gateRow("9001", "memo"), GTID: "g2", TsUnixMs: time.Now().UnixMilli(),
+	ledger := connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "ledger", Operation: connector.OpInsert,
+		After: contractRow("9001", "memo"), Position: connector.Position{Kind: "gtid", Value: "g2"},
+		TsUnixMs: time.Now().UnixMilli(),
 	}
 	r.consume(ledger)
 	if st := r.Stats(); st.GateHits != 0 {
@@ -64,7 +76,7 @@ func TestGateNotWiredWithoutRules(t *testing.T) {
 	if r.gates.Load().reconcile != nil {
 		t.Fatal("gate must stay nil without rules")
 	}
-	r.consume(source.ChangeEvent{Op: "insert"})
+	r.consume(connector.ChangeEvent{Operation: connector.OpInsert})
 	r.sweepGates(time.Now().UnixMilli())
 	if st := r.Stats(); st.GateHits != 0 || st.Total != 1 {
 		t.Fatalf("stats = %+v", st)
@@ -93,10 +105,10 @@ func TestGateCEPWiringAndHit(t *testing.T) {
 		t.Fatal("cep gate should be built from config rules")
 	}
 	// 大额单笔突变：事件到达即命中
-	big := source.ChangeEvent{
-		SourceType: "mysql", Database: "game", Table: "items", Op: "update",
-		BeforeJSON: gateRow("junk", 100), AfterJSON: gateRow("junk", 9000),
-		GTID: "g-big", TsUnixMs: time.Now().UnixMilli(),
+	big := connector.ChangeEvent{
+		SourceType: "mysql", Database: "game", Table: "items", Operation: connector.OpUpdate,
+		Before: contractRow("junk", 100), After: contractRow("junk", 9000),
+		Position: connector.Position{Kind: "gtid", Value: "g-big"}, TsUnixMs: time.Now().UnixMilli(),
 	}
 	r.consume(big)
 	if st := r.Stats(); st.GateHits != 1 {
@@ -114,7 +126,7 @@ func TestGateCEPNotWiredWithoutRules(t *testing.T) {
 	if r.gates.Load().cep != nil {
 		t.Fatal("cep gate must stay nil without rules")
 	}
-	r.consume(source.ChangeEvent{Op: "insert"})
+	r.consume(connector.ChangeEvent{Operation: connector.OpInsert})
 	r.sweepGates(time.Now().UnixMilli())
 	if st := r.Stats(); st.GateHits != 0 || st.Total != 1 {
 		t.Fatalf("stats = %+v", st)
