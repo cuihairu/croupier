@@ -204,7 +204,9 @@ func (h *Handler) TransitionIncident(c *gin.Context) {
 // ---- 辅助 ----
 
 func parseUintParam(c *gin.Context, name string) (uint, error) {
-	v, err := strconv.ParseUint(c.Param(name), 10, 64)
+	// bitSize=strconv.IntSize：直接按平台 uint 位宽解析（code scanning
+	// #226/#227），64 位输入在 32 位平台超界即报错，uint(v) 恒无截断。
+	v, err := strconv.ParseUint(c.Param(name), 10, strconv.IntSize)
 	if err != nil || v == 0 {
 		return 0, errorx.NewBadRequest("无效的 " + name + " 参数")
 	}
@@ -212,7 +214,7 @@ func parseUintParam(c *gin.Context, name string) (uint, error) {
 }
 
 func parseUintQuery(c *gin.Context, name string) uint {
-	v, err := strconv.ParseUint(c.Query(name), 10, 64)
+	v, err := strconv.ParseUint(c.Query(name), 10, strconv.IntSize)
 	if err != nil {
 		return 0
 	}

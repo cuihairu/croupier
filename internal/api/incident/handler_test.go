@@ -2,6 +2,7 @@ package incident
 
 import (
 	"bytes"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -100,5 +101,61 @@ func TestHandler_ListIncidents_UnixSecondsFrom(t *testing.T) {
 	w = doJSON(t, router, http.MethodGet, "/incidents?from=not-a-time", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("list with bad from = %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ---- parseUintParam/parseUintQuery 平台位宽回绕（code scanning #226/#227）----
+//
+// bitSize=strconv.IntSize 口径：64 位输入在 32 位平台超界即报错/回落，
+// uint(v) 恒无截断——证明「解析即上界」而非「事后检查」。
+
+func TestParseUintParam_RejectsZero(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Params = gin.Params{{Key: "id", Value: "0"}}
+	if _, err := parseUintParam(c, "id"); err == nil {
+		t.Fatal("zero id must be rejected")
+	}
+}
+
+func TestParseUintParam_NonNumeric(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Params = gin.Params{{Key: "id", Value: "abc"}}
+	if _, err := parseUintParam(c, "id"); err == nil {
+		t.Fatal("non-numeric id must be rejected")
+	}
+}
+
+// 构造超出 IntSize 的输入：10×(2^64-1) > 任何平台位宽上限（32/64 位都
+// 恒超界——bitSize 本身是目标类型宽度，超出即 ParseUint 报 range 错）。
+func overflowInput() string {
+	return strconv.FormatUint(math.MaxUint64, 10) + "0"
+}
+
+func TestParseUintParam_OverflowRejected(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Params = gin.Params{{Key: "id", Value: overflowInput()}}
+	if _, err := parseUintParam(c, "id"); err == nil {
+		t.Fatalf("overflow input %s must be rejected", overflowInput())
+	}
+}
+
+func TestParseUintQuery_OverflowFallsBackToZero(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/incidents?page="+overflowInput(), nil)
+	if got := parseUintQuery(c, "page"); got != 0 {
+		t.Fatalf("overflow query = %d, want 0 (no truncation)", got)
+	}
+}
+
+func TestParseUintQuery_ValidPasses(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/incidents?page=3&pageSize=50", nil)
+	if got := parseUintQuery(c, "page"); got != 3 {
+		t.Fatalf("page = %d, want 3", got)
+	}
+	if got := parseUintQuery(c, "pageSize"); got != 50 {
+		t.Fatalf("pageSize = %d, want 50", got)
 	}
 }
