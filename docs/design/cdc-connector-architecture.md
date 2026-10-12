@@ -6,7 +6,7 @@ title: CDC Connector 架构——多数据库数据源接入与能力声明（�
 
 ## 状态
 
-- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层与流式接线已落码（2026-10-13，4306 增量一/二），三源活栈冒烟已进 CI**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 实现落地 `agents/capture/connector/pg/`（pgoutput 二进制协议 → ChangeEvent 解码层 + `PostgresConnector` 复制流接线，见「8. 交付记录」）。MySQL 迁移到契约、runner 多 Connector 装配与全链（规则→面板）活栈验证未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
+- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层与流式接线已落码（2026-10-13，4306 增量一/二），三源活栈冒烟已进 CI**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 实现落地 `agents/capture/connector/pg/`（pgoutput 解码层 + `PostgresConnector` 复制流接线，§8.1/8.2）；MySQL 迁移契约落地 `source.MySQLConnector`（§8.3，行像位置下标 + 凭据 DSNEnv 通道，活体冒烟）。runner 多 Connector 装配、三闸消费面切换到 `connector.ChangeEvent` 与全链（规则→面板）活栈验证未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
 
 ## 8. 交付记录
 
@@ -70,6 +70,41 @@ DEFAULT 只在**键列变更**时带 'K' 旧元组，与 beforeImage=false 诚�
 一致）→ 键列 UPDATE（'K' 元组全宽，非键列为 null 占位：
 `{"id":1,"v":null}`，活体实测修正了「仅键列」的文档假设）→ Checkpoint
 lsn 可解析 → Close → 从检查点续读收 DELETE 事件（槽保留位点语义）。
+
+### 8.3 MySQL 迁移契约（4306 第三增量，2026-10-13）
+
+`source.MySQLConnector`（`agents/capture/source/mysql_connector.go`）把
+既有 `MySQLSource`（Provider 形态）包进统一 `SourceConnector` 契约，是
+runner 多 Connector 装配与三闸消费面切换的前置件。与 PG 不同，MySQL 不
+新建源实现，只做适配——binlog 解析/白名单/位点续读真值仍在
+`MySQLSource`，契约壳只做形状翻译。
+
+- **凭据只走契约通道**：`DSNEnv` 指向环境变量（go-sql-driver DSN 形态，
+  `ParseDSN` 解析 host/port/user/password）；`Options` 只承载
+  `serverId`/`flavor`/`tables` 等非密参数。明文密码不进契约、不落日志，
+  错误消息只提环境变量名。
+- **行像位置下标（关键映射）**：MySQL binlog ROW 事件是裸值数组，契约
+  `ColumnsMapped=false` 的语义正是「行像键为十进制位置下标」——`After`/
+  `Before` 键化 `{"0","1",…}`，**不升列名**。这与契约既定兼容决策
+  （§7）吻合：闸层「位置下标取值」语义不受影响，列名映射随
+  `Discover`（information_schema 摄取，含主键）在契约面单独落地，闸层
+  不感知。
+- **位点/操作/时间戳**：`GTID` → `Position{Kind:"gtid"}`；`Op` 闭集互转
+  （未知操作显式报错，不静默映射）；账号/时间戳原样保留。桥接产出的
+  事件过 `connector.ChangeEvent.Validate` 自检（契约层门槛）。
+- **能力同源**：`Discover` 产出与 `MySQLCapabilities()` 同一声明；
+  `Snapshot` 显式 `ErrUnsupportedSnapshot`（不静默回空流）。
+- **活体冒烟**：`TEST_MYSQL_DSN` 门控（CI capture-matrix 复用 MySQL 腿，
+  `-run 'TestCaptureSourceFlavors|TestMySQLConnectorContract'`）——Open
+  （DSNEnv 通道）→ Discover 断言列/PK/能力 → Poll 空位点收 INSERT
+  （位置下标行像/ColumnsMapped=false/gtid 位点）→ Checkpoint → Close。
+
+**边界（本增量到此为止，诚实标注）**：runner 仍消费 Provider 形态的
+`MySQLSource`，`MySQLConnector` 尚未被 runtime 调用（前置件，非死代码：
+其契约映射口径已被活体冒烟验证）。MySQL 目前是唯一「双形态并存」的源
+（Provider + SourceConnector），三闸消费面统一切换到
+`connector.ChangeEvent` 属下一增量——切换前闸层读的是 source 形态事件，
+与 runner 现状一致。
 
 ## 1. 目标与非目标
 

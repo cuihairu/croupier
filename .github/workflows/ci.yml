@@ -464,7 +464,7 @@ jobs:
           TEST_MARIADB_DSN: "root:root@tcp(127.0.0.1:13307)/"
         run: |
           go test -tags=integration -count=1 -timeout 8m \
-            -run 'TestCaptureSourceFlavors' \
+            -run 'TestCaptureSourceFlavors|TestMySQLConnectorContract' \
             ./agents/capture/source/ -v
       - name: Postgres logical replication connector tests
         timeout-minutes: 10
