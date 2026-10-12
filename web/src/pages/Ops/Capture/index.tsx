@@ -217,7 +217,7 @@ export default function OpsCapturePage() {
           </Space>
         }
       >
-        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+        <Space orientation="vertical" style={{ width: '100%' }} size={12}>
           <Space wrap size={8}>
             <Text type="secondary">
               <FormattedMessage id="pages.opsCapture.gates.keyLabel" defaultMessage="配置键" />
@@ -294,7 +294,7 @@ export default function OpsCapturePage() {
           <Alert
             type="info"
             showIcon
-            message={intlRef.current.formatMessage({
+            title={intlRef.current.formatMessage({
               id: 'pages.opsCapture.gates.boundary',
               defaultMessage:
                 '「校验」按钮做与 capture-agent 生效同一实现的语义预检（lint + 表路由唯一性/阈值/事件过滤，config.ValidateGates）；发布时服务端仍只做结构检查，未跑校验直接发布的语义问题由 agent 保留旧版兜底。发布成功 ≠ 已生效，上方「生效对账」为 agent 自报（轮询 30s + 重注册滞后），日志 capture gates version applied 仍是逐次生效的原始真值。',
@@ -304,7 +304,7 @@ export default function OpsCapturePage() {
             <Alert
               type="error"
               showIcon
-              message={
+              title={
                 <>
                   <FormattedMessage
                     id="pages.opsCapture.validate.failed"
@@ -318,7 +318,7 @@ export default function OpsCapturePage() {
             <Alert
               type="success"
               showIcon
-              message={
+              title={
                 <FormattedMessage
                   id="pages.opsCapture.validate.pass"
                   defaultMessage="校验通过（与 capture-agent 生效同一实现）：对账 {reconcile} · 时段 {cepOffHours} · 突变 {cepBurst} · 试探 {cepProbing} · 血缘 {lineage} · 事件过滤 {eventOps}"

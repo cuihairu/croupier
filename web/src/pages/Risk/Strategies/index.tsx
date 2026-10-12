@@ -182,12 +182,12 @@ export default function RiskStrategiesPage() {
           </Button>
         }
       >
-        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+        <Space orientation="vertical" style={{ width: '100%' }} size={12}>
           {unpublished && (
             <Alert
               type="info"
               showIcon
-              message={intlRef.current.formatMessage({
+              title={intlRef.current.formatMessage({
                 id: 'pages.riskControl.unpublished',
                 defaultMessage: '未发布（agent 用文件规则）',
               })}
@@ -253,7 +253,7 @@ export default function RiskStrategiesPage() {
           <Alert
             type="info"
             showIcon
-            message={intlRef.current.formatMessage({
+            title={intlRef.current.formatMessage({
               id: 'pages.riskControl.boundary',
               defaultMessage:
                 '回滚不改写历史：以所选版本内容复制为新版本发布，agent 照常版本轮询热生效；发布成功 ≠ 已生效，以上「生效对账」为 agent 自报（30s 轮询 + 重注册滞后），逐次生效真值在 agent 日志 capture gates version applied。',
