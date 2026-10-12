@@ -190,8 +190,8 @@ jobs:
           STORAGE_DRIVER: file
           STORAGE_BASE_DIR: data/uploads
         run: |
-          # Only test internal packages (core business logic)
-          go test -count=1 -coverprofile=coverage.out -covermode=atomic ./internal/...
+          # Core business logic (internal) + capture agent (agents)
+          go test -count=1 -coverprofile=coverage.out -covermode=atomic ./internal/... ./agents/...
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3
@@ -396,3 +396,67 @@ jobs:
         timeout-minutes: 3
         run: |
           atlas migrate validate --dir "file://internal/db/migrate/migrations" --dir-format goose
+
+  capture-matrix:
+    name: Capture Source Matrix (MySQL/MariaDB)
+    # todo 4307: capture-agent 活源兼容性冒烟——两个 P0 方言各走完整链
+    # （GTID 探测起点 → binlog 订阅 → 白名单事件 → 位点按方言回读）。
+    # 容器参数即源端生产前置：MySQL 需 gtid-mode=ON（GTID 关闭时探测报
+    # gtid_executed empty）；MariaDB GTID 恒开但 binlog 需显式开。service
+    # 容器传不了 mysqld 启动参数，这里用 setup 步骤 docker run（与本地
+    # 验证同命令）。
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [test]
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v7
+      - timeout-minutes: 5
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+          go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
+      - name: Go mod download
+        timeout-minutes: 5
+        run: |
+          for i in 1 2 3; do
+            go mod download && exit 0
+            echo "go mod download failed (attempt $i/3), retrying in 5s..."
+            sleep 5
+          done
+          exit 1
+      - name: Start MySQL 8.4 (GTID on) and MariaDB 11 (binlog on)
+        timeout-minutes: 8
+        run: |
+          docker run -d --name cap-mysql -e MYSQL_ROOT_PASSWORD=root -p 13306:3306 mysql:8.4 \
+            --gtid-mode=ON --enforce-gtid-consistency=ON --server-id=1 --binlog-format=ROW
+          docker run -d --name cap-mariadb -e MARIADB_ROOT_PASSWORD=root -p 13307:3306 mariadb:11 \
+            --log-bin=master-bin --binlog-format=ROW --server-id=1
+          for i in $(seq 1 30); do
+            if docker exec cap-mysql mysqladmin ping -h127.0.0.1 -proot >/dev/null 2>&1 \
+              && docker exec cap-mariadb mariadb-admin ping -uroot -proot >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec cap-mysql mysqladmin ping -h127.0.0.1 -proot
+          docker exec cap-mariadb mariadb-admin ping -uroot -proot
+      - name: Capture source flavor matrix tests
+        timeout-minutes: 10
+        env:
+          TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:13306)/"
+          TEST_MARIADB_DSN: "root:root@tcp(127.0.0.1:13307)/"
+        run: |
+          go test -tags=integration -count=1 -timeout 8m \
+            -run 'TestCaptureSourceFlavors' \
+            ./agents/capture/source/ -v

@@ -576,6 +576,33 @@ React）：`parseGatesForm` 容错（存量内容缺段/类型漂移兜底空值
 按钮与「发布」Popconfirm 复用既有 content 通道与 validate 端点（§8.12）；
 JSON 模式保留为权威编辑通道（存量手写内容的逃生门）。
 
+### 8.15 交付记录：MySQL/MariaDB 双方言支持（CDC 平台化批阶段四，2026-10-13）
+
+`MySQLConfig` 新增 `flavor` 键（`"mysql"` | `"mariadb"`，缺省 mysql，
+未知值 Open 前置报错不静默兜底）。MySQLSource 全链按方言分叉，差异点清单：
+
+| 面                | MySQL 8.x                                               | MariaDB 11.x                                                       | 代码落点                          |
+| ----------------- | ------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------- |
+| GTID 位点变量     | `@@GLOBAL.gtid_executed`                                | `@@GLOBAL.gtid_current_pos`（无 gtid_executed 变量，查询直接报错） | `mysql_probe.go` 方言分支         |
+| GTID 格式         | UUID:interval 集合（`3E11FA47-…:1-5`）                  | domain-server-seq（`0-1-5`）                                       | go-mysql `ParseGTIDSet(flavor,…)` |
+| GTID 开关         | 需显式 `gtid-mode=ON`（否则探测报 gtid_executed empty） | GTID 恒开                                                          | 源端前置；CI/本地容器参数         |
+| binlog 默认       | 8.x 默认开                                              | 需显式 `--log-bin`                                                 | 源端前置                          |
+| 位点续读/事件解析 | go-mysql `BinlogSyncerConfig.Flavor` + ROW 事件解析     | 同库同协议（MariaDB 兼容 MySQL 复制协议），代码零分叉              | `mysql.go` 单点传 flavor          |
+| JSON 类型         | 原生 binary JSON                                        | LONGTEXT 别名（无 binary JSON）                                    | 行像均落字符串，agent 无感        |
+
+能力面两侧相同（`MySQLCapabilities` 不分方言）：GTID 元数据、后像、
+位点续读都具备；beforeImage 依赖源端 `binlog_row_image=FULL` 从严 false。
+书签按方言写入：mysql 格式书签喂给 mariadb flavor（或反向）在
+`ParseGTIDSet` 即报错，错配早暴露。
+
+验证：`source_flavor_integration_test.go`（integration tag，
+`TEST_MYSQL_DSN` / `TEST_MARIADB_DSN` 环境变量门控，缺席 skip）双 flavor
+各走完整链——建库建表种子行 → 空书签 Open（探测方言起点）→ 追写 marker
+行 → 白名单过滤收到事件 → Bookmark 经方言 `ParseGTIDSet` 回读解析。
+CI 新增 `capture-matrix` job（docker run 起 mysql:8.4 GTID-on +
+mariadb:11 log-bin-on，与本地验证同命令）；unit test step 同步补上
+`./agents/...`（此前 agents 包完全不进 CI 测试面）。
+
 ## 9. 已知边界（诚实清单）
 
 - 血缘账号两侧均不可得（§3.3）：MySQL binlog 与 PG WAL 事件都不携带会话账号，account 字段 C1 恒空，默认降级运行并有面板标注。
