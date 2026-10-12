@@ -515,7 +515,7 @@ func TestScopeContextForBackgroundRegistration(t *testing.T) {
 		}}
 		db, err := openGorm("sqlite", cfg.Database.DataSource)
 		require.NoError(t, err)
-		svcCtx := &ServiceContext{Router: newGameRouter(cfg, db)}
+		svcCtx := &ServiceContext{Router: newGameRouter(cfg, db, nil)}
 
 		out := svcCtx.scopeContextForBackgroundRegistration("demo", "prod")
 		assert.Equal(t, "demo", GameScopeFromContext(out).GameID)
@@ -523,7 +523,7 @@ func TestScopeContextForBackgroundRegistration(t *testing.T) {
 }
 
 func TestNewTelemetryService_Disabled(t *testing.T) {
-	svc, err := NewTelemetryService(config.Config{}, "svc", nil)
+	svc, err := NewTelemetryService(config.Config{}, nil, "svc", nil)
 	require.NoError(t, err)
 	assert.Nil(t, svc)
 }

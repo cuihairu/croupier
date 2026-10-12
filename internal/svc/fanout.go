@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/db/migrate"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/vault"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +42,13 @@ const (
 // are reported as missing — the runtime lazily creates them on first access,
 // so the fan-out tool intentionally does not create them.
 func RunMigrationFanout(ctx context.Context, cfg config.Config, dryRun bool) ([]FanoutReport, error) {
-	driver, metaDSN := resolveDriverAndDSN(cfg)
+	// CLI 面 resolver：从配置 best-effort 构建密码箱（vault:// DSN 支持，
+	// todo 4251）；未启用/构建失败 → nil resolver，引用原样直通。
+	secrets := vault.NewResolver(newVaultProvider(cfg))
+	driver, metaDSN, err := resolveDriverAndDSN(cfg, secrets)
+	if err != nil {
+		return nil, fmt.Errorf("fanout: resolve meta database: %w", err)
+	}
 
 	metaDB, err := OpenGormForRouter(driver, metaDSN)
 	if err != nil {

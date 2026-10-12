@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/platform/vault"
 	gsqlite "github.com/glebarez/sqlite"
 	gmysql "gorm.io/driver/mysql"
 	gpostgres "gorm.io/driver/postgres"
@@ -18,29 +20,39 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func openDatabase(cfg config.Config) (*gorm.DB, error) {
-	driver, dsn := resolveDriverAndDSN(cfg)
+func openDatabase(cfg config.Config, secrets vault.Resolver) (*gorm.DB, error) {
+	driver, dsn, err := resolveDriverAndDSN(cfg, secrets)
+	if err != nil {
+		return nil, err
+	}
 	return openGorm(driver, dsn)
 }
 
 // ResolveDriverAndDSN exposes the effective driver/DSN resolution for CLI tools
 // and other read-only utilities that must honor the same config/env behavior
-// as the server runtime.
+// as the server runtime. 无密码箱（直通 resolver）：vault:// 引用原样返回，
+// 由连接层以明确错误暴露（fail-closed）。
 func ResolveDriverAndDSN(cfg config.Config) (string, string) {
-	return resolveDriverAndDSN(cfg)
+	driver, dsn, _ := resolveDriverAndDSN(cfg, nil)
+	return driver, dsn
 }
 
 // OpenReadOnlyDatabase opens a database connection without auto-creating the
 // physical database or running any migration. It is intended for diagnostics
 // commands that must remain read-only.
 func OpenReadOnlyDatabase(cfg config.Config) (*gorm.DB, error) {
-	driver, dsn := resolveDriverAndDSN(cfg)
+	driver, dsn, err := resolveDriverAndDSN(cfg, nil)
+	if err != nil {
+		return nil, err
+	}
 	return openReadOnlyGorm(driver, dsn)
 }
 
 // resolveDriverAndDSN resolves the effective driver and DSN from config and
-// environment overrides (DB_DRIVER, DATABASE_URL).
-func resolveDriverAndDSN(cfg config.Config) (string, string) {
+// environment overrides (DB_DRIVER, DATABASE_URL). secrets 允许 nil：nil 时
+// vault:// 引用不做展开（直通，CLI 面）。展开先于 auto 驱动判定——展开后
+// 的 scheme 决定驱动。
+func resolveDriverAndDSN(cfg config.Config, secrets vault.Resolver) (string, string, error) {
 	driver := strings.ToLower(strings.TrimSpace(cfg.Database.Driver))
 	dsn := strings.TrimSpace(cfg.Database.DataSource)
 
@@ -51,6 +63,16 @@ func resolveDriverAndDSN(cfg config.Config) (string, string) {
 	}
 	if envDSN := strings.TrimSpace(os.Getenv("DATABASE_URL")); envDSN != "" {
 		dsn = envDSN
+	}
+
+	// 值内 vault:// 引用展开（todo 4251）：解析失败显式报错（fail-closed，
+	// 错误只含引用路径不含明文），不把引用串当真 DSN 发往驱动。
+	if secrets != nil && vault.IsVaultRef(dsn) {
+		resolved, rerr := secrets(context.Background(), dsn)
+		if rerr != nil {
+			return "", "", fmt.Errorf("database dataSource resolve: %w", rerr)
+		}
+		dsn = resolved
 	}
 
 	if driver == "" {
@@ -68,7 +90,7 @@ func resolveDriverAndDSN(cfg config.Config) (string, string) {
 			driver = "sqlite"
 		}
 	}
-	return driver, dsn
+	return driver, dsn, nil
 }
 
 // isMemorySQLiteDSN reports whether the DSN selects a private in-memory

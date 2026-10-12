@@ -297,3 +297,82 @@ func TestRegistryBuildAndUnknown(t *testing.T) {
 		t.Fatalf("override build = %v, %v", p, err)
 	}
 }
+
+// ---- 值内引用解析（todo 4251：vault:// 统一凭据引用形态）----
+
+// stubProvider 最小 Provider 桩：只支持 Read 命中固定表，其余报错。
+type stubProvider struct{ entries map[string]string }
+
+func (s *stubProvider) Name() string                 { return "stub" }
+func (s *stubProvider) Unlock(context.Context) error { return nil }
+func (s *stubProvider) Locked() bool                 { return false }
+func (s *stubProvider) Lock()                        {}
+func (s *stubProvider) Read(_ context.Context, path string) (string, error) {
+	if v, ok := s.entries[path]; ok {
+		return v, nil
+	}
+	return "", ErrNotFound
+}
+func (s *stubProvider) Write(context.Context, string, string) error { return ErrReadOnly }
+func (s *stubProvider) List(context.Context) ([]EntryMeta, error)   { return nil, ErrReadOnly }
+func (s *stubProvider) Delete(context.Context, string) error        { return ErrReadOnly }
+
+func TestIsVaultRef(t *testing.T) {
+	for _, v := range []string{"vault://smtp/password", "vault://x"} {
+		if !IsVaultRef(v) {
+			t.Fatalf("IsVaultRef(%q) = false, want true", v)
+		}
+	}
+	for _, v := range []string{"", "inline-secret", " Vault://x", "mysql://root@host/db"} {
+		if IsVaultRef(v) {
+			t.Fatalf("IsVaultRef(%q) = true, want false", v)
+		}
+	}
+}
+
+// 内联值直通（存量部署零行为变化）：provider 为 nil 也不得改动内联值。
+func TestResolveInlinePassthrough(t *testing.T) {
+	got, err := Resolve(context.Background(), nil, "plain-secret")
+	if err != nil || got != "plain-secret" {
+		t.Fatalf("Resolve(inline) = %q, %v; want passthrough", got, err)
+	}
+	got, err = Resolve(context.Background(), nil, "")
+	if err != nil || got != "" {
+		t.Fatalf("Resolve(empty) = %q, %v; want passthrough", got, err)
+	}
+}
+
+// 引用展开：ref 经 Provider.Read 展开为明文（仅内存传递）。
+func TestResolveRefReadsProvider(t *testing.T) {
+	p := &stubProvider{entries: map[string]string{"smtp/password": "s3cret"}}
+	got, err := Resolve(context.Background(), p, VaultRefPrefix+"smtp/password")
+	if err != nil || got != "s3cret" {
+		t.Fatalf("Resolve(ref) = %q, %v; want s3cret", got, err)
+	}
+	// Resolver 适配层同语义。
+	r := NewResolver(p)
+	got, err = r(context.Background(), VaultRefPrefix+"smtp/password")
+	if err != nil || got != "s3cret" {
+		t.Fatalf("Resolver(ref) = %q, %v; want s3cret", got, err)
+	}
+}
+
+// nil provider + 引用 = fail-closed：显式报错，绝不把引用串当真凭据外发。
+func TestResolveRefNilProviderFailsClosed(t *testing.T) {
+	_, err := Resolve(context.Background(), nil, VaultRefPrefix+"smtp/password")
+	if err == nil {
+		t.Fatal("Resolve(ref, nil provider) must error")
+	}
+	// 红线：错误消息只含引用路径，不含明文（此处无明文可泄，验证消息形态）。
+	if !strings.Contains(err.Error(), "smtp/password") || !strings.Contains(err.Error(), "no vault provider") {
+		t.Fatalf("error message = %q, want path + fail-closed hint", err.Error())
+	}
+}
+
+// 引用无条目 / 会话锁定：透传 Provider 错误闭集，不吞不裹明文。
+func TestResolveRefProviderErrors(t *testing.T) {
+	p := &stubProvider{entries: map[string]string{}}
+	if _, err := Resolve(context.Background(), p, VaultRefPrefix+"nope"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}

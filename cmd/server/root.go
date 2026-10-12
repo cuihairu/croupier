@@ -199,7 +199,7 @@ func runServer() error {
 	// cron 定时任务调度循环（Dispatcher 就绪后启动，含报表调度播种）。
 	svcCtx.StartScheduler()
 	defer svcCtx.StopScheduler()
-	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {
+	if telemetrySvc, err := svc.NewTelemetryService(c, svcCtx.Secrets, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)
 	} else if telemetrySvc != nil {
 		svcCtx.Telemetry = telemetrySvc

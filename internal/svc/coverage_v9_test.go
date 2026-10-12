@@ -435,7 +435,7 @@ func TestRunMigrationFanoutMissingGameDatabaseV9(t *testing.T) {
 	cfg := v9FanoutConfig(t, true, metaPath)
 	seedEnvBinding(t, cfg, "demo", "prod")
 
-	driver, metaDSN := resolveDriverAndDSN(cfg)
+	driver, metaDSN, _ := resolveDriverAndDSN(cfg, nil)
 	gameDSN := DSNForDatabase(driver, metaDSN, gameDBNameFor(cfg, "demo", "prod"))
 	// Occupy the game database path with a directory: sqlite cannot open it.
 	require.NoError(t, os.MkdirAll(gameDSN, 0o755))
@@ -455,7 +455,7 @@ func TestRunMigrationFanoutGameBaselineFailureV9(t *testing.T) {
 	cfg := v9FanoutConfig(t, true, metaPath)
 	seedEnvBinding(t, cfg, "demo", "prod")
 
-	driver, metaDSN := resolveDriverAndDSN(cfg)
+	driver, metaDSN, _ := resolveDriverAndDSN(cfg, nil)
 	gameDSN := DSNForDatabase(driver, metaDSN, gameDBNameFor(cfg, "demo", "prod"))
 	raw, err := gorm.Open(gsqlite.Open(gameDSN), &gorm.Config{})
 	require.NoError(t, err)

@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/platform/vault"
 	"log/slog"
 	"math"
 	"strconv"
@@ -677,7 +678,7 @@ func (l *Layered) NotifySMTP() NotifySMTPConfig {
 		Host:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPHost)),
 		Port:               l.GetInt(KeyNotifySMTPPort, 0),
 		User:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPUser)),
-		Password:           stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPPassword)),
+		Password:           l.secretStr(context.Background(), KeyNotifySMTPPassword),
 		From:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPFrom)),
 		Encryption:         stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPEncryption)),
 		AuthType:           stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPAuthType)),
@@ -702,12 +703,12 @@ type NotifyChannelsResolved struct {
 func (l *Layered) NotifyChannels() NotifyChannelsResolved {
 	return NotifyChannelsResolved{
 		DingtalkURL:    stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkURL)),
-		DingtalkSecret: stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkSecret)),
+		DingtalkSecret: l.secretStr(context.Background(), KeyNotifyDingtalkSecret),
 		WebhookURL:     stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookURL)),
-		WebhookSecret:  stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookSecret)),
+		WebhookSecret:  l.secretStr(context.Background(), KeyNotifyWebhookSecret),
 		WecomURL:       stringOrEmpty(l.GetString(context.Background(), KeyNotifyWecomURL)),
 		FeishuURL:      stringOrEmpty(l.GetString(context.Background(), KeyNotifyFeishuURL)),
-		FeishuSecret:   stringOrEmpty(l.GetString(context.Background(), KeyNotifyFeishuSecret)),
+		FeishuSecret:   l.secretStr(context.Background(), KeyNotifyFeishuSecret),
 		InAppEnabled:   l.GetBool(KeyNotifyInAppEnabled, true),
 		EmailEnabled:   l.GetBool(KeyNotifyEmailEnabled, false),
 	}
@@ -717,6 +718,40 @@ func (l *Layered) NotifyChannels() NotifyChannelsResolved {
 //
 //nolint:revive // 参数名 _ 保持调用点可读
 func stringOrEmpty(v string, _ string, _ bool) string { return v }
+
+// ---- 凭据值内引用展开（todo 4251）----
+//
+// secretKeys 类键的取值支持 vault:// 路径引用（vault-provider 设计 §5）：
+// L1 yaml 与 L3 DB 共用同一条规则。展开函数由 svc 装配期注入（nil = 未接
+// 密码箱，全部值原样直通——存量内联部署零行为变化）。
+
+var secretResolver vault.Resolver
+
+// SetSecretResolver 注入凭据展开函数（server 装配期调用一次；测试用
+// SetSecretResolver(nil) 复位）。Layered 单例尚未初始化时同样安全——
+// 展开函数是包级装配，getter 侧按需取用。
+func SetSecretResolver(r vault.Resolver) { secretResolver = r }
+
+// secretStr 读取 secretKeys 类键并展开值内引用：vault:// 引用经 resolver
+// 展开，内联值直通。解析失败 → 空串 + warn 日志（fail-closed：消费侧按
+// 「未配置」降级，绝不把引用串当真凭据外发）。日志只含键名与引用路径，
+// 不含明文。
+func (l *Layered) secretStr(ctx context.Context, key string) string {
+	v, _, ok := l.GetString(ctx, key)
+	if !ok || v == "" {
+		return ""
+	}
+	if secretResolver == nil || !vault.IsVaultRef(v) {
+		return v
+	}
+	resolved, err := secretResolver(ctx, v)
+	if err != nil {
+		slog.WarnContext(ctx, "settings: secret resolve failed; treat as unset",
+			"key", key, "error", err)
+		return ""
+	}
+	return resolved
+}
 
 // FeatureDomainState 是单个功能域的开关诊断信息。
 type FeatureDomainState struct {
@@ -896,6 +931,7 @@ func ResetForTest() {
 func resetForTest() {
 	layeredOnce = sync.Once{}
 	layered = nil
+	secretResolver = nil
 }
 
 // AuthSnapshot 是登录方式（外部身份源）的读视图（凭据脱敏）。
@@ -1189,6 +1225,8 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 		}
 		return v
 	}
+	// secret 与 str 同源，但值内 vault:// 引用经密码箱展开（todo 4251）。
+	secret := func(key string) string { return l.secretStr(ctx, key) }
 	roles := func(key string) []string {
 		raw := str(key)
 		if raw == "" {
@@ -1213,7 +1251,7 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 			Addr:           str(KeyAuthLdapAddr),
 			BaseDN:         str(KeyAuthLdapBaseDn),
 			BindDN:         str(KeyAuthLdapBindDn),
-			BindPassword:   str(KeyAuthLdapBindPassword),
+			BindPassword:   secret(KeyAuthLdapBindPassword),
 			UserFilter:     str(KeyAuthLdapUserFilter),
 			StartTLS:       l.GetBool(KeyAuthLdapStartTLS, false),
 			UserDNTemplate: str(KeyAuthLdapUserFilter), // 兼容：filter 未配时回退模板语义由 build 侧处理
@@ -1223,14 +1261,14 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 			Enabled:      l.GetBool(KeyAuthOidcEnabled, false),
 			Issuer:       str(KeyAuthOidcIssuer),
 			ClientID:     str(KeyAuthOidcClientId),
-			ClientSecret: str(KeyAuthOidcClientSecret),
+			ClientSecret: secret(KeyAuthOidcClientSecret),
 			RedirectURL:  str(KeyAuthOidcRedirectUrl),
 			DefaultRoles: roles(KeyAuthOidcDefaultRoles),
 		},
 		GitHub: config.GitHubProviderConfig{
 			Enabled:         l.GetBool(KeyAuthGitHubEnabled, false),
 			ClientID:        str(KeyAuthGitHubClientId),
-			ClientSecret:    str(KeyAuthGitHubClientSecret),
+			ClientSecret:    secret(KeyAuthGitHubClientSecret),
 			RedirectURL:     str(KeyAuthGitHubRedirectUrl),
 			DefaultRoles:    roles(KeyAuthGitHubDefaultRoles),
 			LoginSuccessURL: str(KeyAuthGitHubSuccessURL),
@@ -1238,7 +1276,7 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 		WeChat: config.WeChatProviderConfig{
 			Enabled:         l.GetBool(KeyAuthWeChatEnabled, false),
 			AppID:           str(KeyAuthWeChatAppId),
-			AppSecret:       str(KeyAuthWeChatAppSecret),
+			AppSecret:       secret(KeyAuthWeChatAppSecret),
 			RedirectURL:     str(KeyAuthWeChatRedirectUrl),
 			DefaultRoles:    roles(KeyAuthWeChatDefaultRoles),
 			LoginSuccessURL: str(KeyAuthWeChatSuccessURL),
@@ -1246,7 +1284,7 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 		GenericOAuth: config.GenericOAuthProviderConfig{
 			Enabled:       l.GetBool(KeyAuthGenericOAuthEnabled, false),
 			ClientID:      str(KeyAuthGenericOAuthClientId),
-			ClientSecret:  str(KeyAuthGenericOAuthClientSecret),
+			ClientSecret:  secret(KeyAuthGenericOAuthClientSecret),
 			RedirectURL:   str(KeyAuthGenericOAuthRedirectUrl),
 			AuthURL:       str(KeyAuthGenericOAuthAuthUrl),
 			TokenURL:      str(KeyAuthGenericOAuthTokenUrl),

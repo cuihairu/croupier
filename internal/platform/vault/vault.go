@@ -12,6 +12,7 @@ package vault
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -73,4 +74,41 @@ func ValidatePath(path string) error {
 		}
 	}
 	return nil
+}
+
+// VaultRefPrefix 值内引用前缀（todo 4251 凭据接入点改造）：凭据配置值形如
+// "vault://smtp/password" 表示密码箱路径引用，其余值视为内联（存量部署
+// 直通，零行为变化）。前缀机器可扫描——`grep -rn "vault://"` 即全仓凭据
+// 引用面清点；配置面（L1 yaml）与 settings 面（L3 DB）共用同一条规则。
+const VaultRefPrefix = "vault://"
+
+// IsVaultRef 判断配置值是否为密码箱路径引用。
+func IsVaultRef(value string) bool {
+	return strings.HasPrefix(value, VaultRefPrefix)
+}
+
+// Resolve 凭据值统一解析入口：vault:// 引用 → Provider.Read(路径)；
+// 内联值直通。p 为 nil 且值是引用 → 显式报错（fail-closed，不静默把引用
+// 串当真凭据外发）。错误消息只含引用路径，不含任何明文。
+func Resolve(ctx context.Context, p Provider, value string) (string, error) {
+	if !IsVaultRef(value) {
+		return value, nil
+	}
+	path := strings.TrimPrefix(value, VaultRefPrefix)
+	if p == nil {
+		return "", fmt.Errorf("vault reference %q but no vault provider wired (fail closed)", path)
+	}
+	return p.Read(ctx, path)
+}
+
+// Resolver 是凭据值内引用的展开函数（settings/svc 等持引用值的面经此
+// 解耦，不依赖具体 Provider 实现；注入时机由装配层决定）。
+type Resolver func(ctx context.Context, value string) (string, error)
+
+// NewResolver 把 Provider 适配成 Resolver。p 可为 nil：引用一律报错、
+// 内联值直通（密码箱未启用时保持存量内联行为，引用面 fail-closed）。
+func NewResolver(p Provider) Resolver {
+	return func(ctx context.Context, value string) (string, error) {
+		return Resolve(ctx, p, value)
+	}
 }

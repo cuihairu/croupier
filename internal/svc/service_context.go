@@ -145,6 +145,10 @@ type ServiceContext struct {
 	// Vault 是密码箱（vault-provider 设计 §4；wireVault 构造）。凭据统一
 	// 存取面——enabled=false 时 nil，接入点迁移（todo 4251）逐点接入。
 	Vault vault.Provider
+	// Secrets 是凭据值内引用（vault://）展开函数（NewServiceContext 装配，
+	// 恒非 nil）：密码箱启用时引用经 provider 展开，未启用时引用 fail-closed
+	// 报错、内联值直通（存量部署零行为变化）。
+	Secrets vault.Resolver
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
 	Cluster                  *ClusterRuntime
 	CertificateModel         *model.CertificateModel
@@ -186,9 +190,21 @@ type ExtensionServices struct {
 }
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
-	// 初始化数据库连接
-	slog.Default().Info("Connecting to database", "driver", c.Database.Driver, "dataSource", c.Database.DataSource)
-	db, err := openDatabase(c)
+	// 密码箱先行（todo 4251）：DB DSN 与后续装配面凭据可能是 vault:// 引用，
+	// provider/resolver 必须先于 openDatabase 就位；resolver 同时注入
+	// settings 层（L3 凭据键读边界展开）。
+	vaultProvider := newVaultProvider(c)
+	secrets := vault.NewResolver(vaultProvider)
+	settings.SetSecretResolver(secrets)
+
+	// 初始化数据库连接。dataSource 日志不回显内联明文（密码箱红线）：
+	// vault:// 引用原样打印（路径非密），内联形态只打 driver。
+	if vault.IsVaultRef(c.Database.DataSource) {
+		slog.Default().Info("Connecting to database", "driver", c.Database.Driver, "dataSource", c.Database.DataSource)
+	} else {
+		slog.Default().Info("Connecting to database", "driver", c.Database.Driver)
+	}
+	db, err := openDatabase(c, secrets)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to connect to database: %v", err))
 	}
@@ -212,7 +228,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 创建 per-game 数据库路由（当启用 multiGame 时）
 	var dbRouter *router.Router
 	if multiGame {
-		dbRouter = newGameRouter(c, db)
+		dbRouter = newGameRouter(c, db, secrets)
 		slog.Default().Info("Database-per-game router initialized")
 	}
 
@@ -311,7 +327,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	opsStateStore := NewOpsStateStore(resolveBootstrapBaseDir(c))
 
-	objectStore, err := initObjectStore(context.Background(), c.Storage)
+	objectStore, err := initObjectStore(context.Background(), c.Storage, secrets)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize object store: %v", err))
 	}
@@ -381,8 +397,16 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		slog.Default().Info("PolicyManager initialized", "configPath", policyConfigPath)
 	}
 
-	// 初始化缓存
-	cacheStore, err := cache.NewCacheStore(c.Cache)
+	// 初始化缓存。cache 密码支持 vault:// 引用（todo 4251）；解析失败按
+	// 「未配置密码」降级（fail-closed，不把引用串当真凭据发往 redis）。
+	cacheCfg := c.Cache
+	if pw, rerr := secrets(context.Background(), cacheCfg.Password); rerr != nil {
+		slog.Default().Error("Cache password resolve failed; continuing without password", "error", rerr)
+		cacheCfg.Password = ""
+	} else {
+		cacheCfg.Password = pw
+	}
+	cacheStore, err := cache.NewCacheStore(cacheCfg)
 	if err != nil {
 		slog.Default().Error("Failed to initialize cache, using NullCache", "error", err)
 		cacheStore = cache.NewNullCache()
@@ -561,24 +585,28 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 零外发）；herald 显式启用且凭证齐全时注册为外部主出口，否则注册
 	// noop（零配置=零外发）。MetricsStore 缺失（裁剪部署）时不接线。
 	registerOutlets(ctx)
-	// 密码箱（vault-provider §4）：enabled=false 不装配（nil=现状行为）；
-	// 提供商切换=只改 vault.provider 配置键。
-	wireVault(ctx)
+	// 密码箱（vault-provider §4）：已在函数顶部装配（先于 openDatabase，
+	// DSN 引用展开依赖）；此处接入上下文字段。
+	ctx.Vault = vaultProvider
+	ctx.Secrets = secrets
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}
 
-	// 初始化 JWT 密钥（从配置文件读取）。原「非开发态 panic / 开发态兜底
-	// DevSecret」的双分支已收敛为直接 panic：ResolveSecret 报错 ⟺ secret
-	// 为空且 jwtutil.isDevelopmentMode 为 false，而该判定与本包
-	// isDevelopmentConfig 对 mode/CROUPIER_ENV/CROUPIER_MODE 逐条等价，
-	// err != nil 时 isDevelopmentConfig 必为 false——开发态兜底分支恒不可
-	// 达（开发态下 ResolveSecret 自身已返回 DevSecret、err 为 nil）。
-	secret, err := jwtutil.ResolveSecret(ctx.Config)
+	// 初始化 JWT 密钥（从配置文件读取）。值内支持 vault:// 引用（todo 4251）。
+	// 原「非开发态 panic / 开发态兜底 DevSecret」的双分支已收敛为直接 panic：
+	// ResolveSecret 报错 ⟺ secret 为空且 jwtutil.isDevelopmentMode 为 false，
+	// 而该判定与本包 isDevelopmentConfig 对 mode/CROUPIER_ENV/CROUPIER_MODE
+	// 逐条等价，err != nil 时 isDevelopmentConfig 必为 false——开发态兜底
+	// 分支恒不可达（开发态下 ResolveSecret 自身已返回 DevSecret、err 为 nil）。
+	// 引用解析失败走同一 panic 通道（fail-closed：不回落 DevSecret）；展开后
+	// 明文写回 ctx.Config，防下游（routes 装配等）再读到原始引用。
+	secret, err := resolveJWTSecret(ctx.Config, secrets)
 	if err != nil {
-		// JWT secret 未配置且不在开发模式，这是一个严重配置错误
+		// JWT secret 未配置/引用不可解析且不在开发模式，这是一个严重配置错误
 		panic(fmt.Sprintf("JWT secret not configured: %v", err))
 	}
+	ctx.Config.Auth.JWTSecret = secret
 	jwtutil.InitGlobalSecret(secret)
 
 	// 设置认证中间件
@@ -675,7 +703,19 @@ func supervisorEventToOutlet(m *outlet.Manager) func(ctx context.Context, agentI
 	}
 }
 
-func NewTelemetryService(c config.Config, serviceName string, logger *slog.Logger) (*telemetry.GameTelemetryService, error) {
+func NewTelemetryService(c config.Config, secrets vault.Resolver, serviceName string, logger *slog.Logger) (*telemetry.GameTelemetryService, error) {
+	// analytics redis 密码支持 vault:// 引用（todo 4251）；解析失败按
+	// 「未配置」降级（fail-closed，不把引用串当真凭据发往 redis）。secrets
+	// 允许 nil（直通，兼容测试面）。
+	analyticsPassword := c.Telemetry.Analytics.RedisPassword
+	if secrets != nil {
+		if pw, rerr := secrets(context.Background(), analyticsPassword); rerr != nil {
+			slog.Warn("telemetry analytics redis password resolve failed; treat as unset", "error", rerr)
+			analyticsPassword = ""
+		} else {
+			analyticsPassword = pw
+		}
+	}
 	cfg := telemetry.MergeEnv(telemetry.TelemetryConfig{
 		Enabled:        c.Telemetry.Enabled,
 		ServiceName:    firstNonEmpty(c.Telemetry.ServiceName, serviceName),
@@ -691,7 +731,7 @@ func NewTelemetryService(c config.Config, serviceName string, logger *slog.Logge
 		Analytics: telemetry.AnalyticsBridgeConfig{
 			Enabled:        c.Telemetry.Analytics.Enabled,
 			RedisAddr:      c.Telemetry.Analytics.RedisAddr,
-			RedisPassword:  c.Telemetry.Analytics.RedisPassword,
+			RedisPassword:  analyticsPassword,
 			RedisDB:        c.Telemetry.Analytics.RedisDB,
 			TopicPrefix:    c.Telemetry.Analytics.TopicPrefix,
 			RetentionHours: c.Telemetry.Analytics.RetentionHours,
@@ -785,8 +825,13 @@ func autoMigrateMeta(db *gorm.DB) error {
 // newGameRouter builds a database-per-game router wired to the resolved
 // driver/DSN. The router auto-creates and migrates each game database on
 // first use.
-func newGameRouter(c config.Config, metaDB *gorm.DB) *router.Router {
-	driver, dsn := resolveDriverAndDSN(c)
+func newGameRouter(c config.Config, metaDB *gorm.DB, secrets vault.Resolver) *router.Router {
+	driver, dsn, err := resolveDriverAndDSN(c, secrets)
+	if err != nil {
+		// 不可达论证（C 类）：metaDB 已用同一 resolver 展开同一 DSN 成功，
+		// 此处重复解析无新增失败输入；err 为签名契约必须处理，保留 panic。
+		panic(fmt.Sprintf("resolve game router DSN: %v", err))
+	}
 	dsnForDB := func(metaDSN, dbName string) string {
 		return DSNForDatabase(driver, metaDSN, dbName)
 	}
@@ -1362,10 +1407,34 @@ func seedBootstrapExtensionCatalog(ctx *ServiceContext) error {
 // 调用处注释）。
 var validateStoreConfig = objstore.Validate
 
-func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.Store, error) {
+// initObjectStore 构建对象存储。secrets 为可选（variadic）：生产装配传入
+// NewServiceContext 的 resolver（AK/SK 支持 vault:// 引用，todo 4251）；
+// 测试面/未传时为 nil（引用原样直通，存量零行为变化）。
+func initObjectStore(ctx context.Context, cfg config.StorageConfig, secrets ...vault.Resolver) (objstore.Store, error) {
 	driver := strings.TrimSpace(cfg.Driver)
 	if driver == "" {
 		return nil, nil
+	}
+	var resolve vault.Resolver
+	if len(secrets) > 0 {
+		resolve = secrets[0]
+	}
+
+	// AK/SK 支持 vault:// 引用（todo 4251）；解析失败按「未配置」降级
+	// （fail-closed，不把引用串当真凭据发往对象存储端点）。
+	accessKey := strings.TrimSpace(cfg.AccessKey)
+	secretKey := strings.TrimSpace(cfg.SecretKey)
+	if v, rerr := resolveSecretOrPassthrough(ctx, resolve, accessKey); rerr != nil {
+		slog.WarnContext(ctx, "objstore accessKey resolve failed; treat as unset", "error", rerr)
+		accessKey = ""
+	} else {
+		accessKey = strings.TrimSpace(v)
+	}
+	if v, rerr := resolveSecretOrPassthrough(ctx, resolve, secretKey); rerr != nil {
+		slog.WarnContext(ctx, "objstore secretKey resolve failed; treat as unset", "error", rerr)
+		secretKey = ""
+	} else {
+		secretKey = strings.TrimSpace(v)
 	}
 
 	storeCfg := objstore.Config{
@@ -1373,8 +1442,8 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 		Bucket:         strings.TrimSpace(cfg.Bucket),
 		Region:         strings.TrimSpace(cfg.Region),
 		Endpoint:       strings.TrimSpace(cfg.Endpoint),
-		AccessKey:      strings.TrimSpace(cfg.AccessKey),
-		SecretKey:      strings.TrimSpace(cfg.SecretKey),
+		AccessKey:      accessKey,
+		SecretKey:      secretKey,
 		ForcePathStyle: cfg.ForcePathStyle,
 		BaseDir:        toAbs(strings.TrimSpace(cfg.BaseDir)),
 	}

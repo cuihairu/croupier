@@ -34,7 +34,7 @@ func TestNewGameRouter_WithPrefix(t *testing.T) {
 	db, err := openGorm("sqlite", cfg.Database.DataSource)
 	require.NoError(t, err)
 
-	r := newGameRouter(cfg, db)
+	r := newGameRouter(cfg, db, nil)
 	require.NotNil(t, r)
 
 	gameDB, err := r.GameDB(context.Background(), "demo", "prod")
@@ -368,7 +368,7 @@ func TestAutoMigrate_ClosedDB(t *testing.T) {
 
 func TestNewTelemetryService_EnabledNoCollector(t *testing.T) {
 	cfg := config.Config{Telemetry: config.TelemetryConfig{Enabled: true, ServiceName: "svc-test"}}
-	svc, err := NewTelemetryService(cfg, "fallback-name", nil)
+	svc, err := NewTelemetryService(cfg, nil, "fallback-name", nil)
 	if err == nil {
 		require.NotNil(t, svc)
 		assert.NotNil(t, svc)

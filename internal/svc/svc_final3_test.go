@@ -93,7 +93,7 @@ func TestGameDBMiddleware_InjectsGameDatabase(t *testing.T) {
 	metaDSN := filepath.Join(t.TempDir(), "meta.db")
 	svcCtx.Router = newGameRouter(config.Config{
 		Database: config.DatabaseConfig{Driver: "sqlite", DataSource: metaDSN},
-	}, svcCtx.DB)
+	}, svcCtx.DB, nil)
 
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
