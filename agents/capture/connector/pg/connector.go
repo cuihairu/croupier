@@ -234,9 +234,20 @@ func (c *PostgresConnector) Poll(ctx context.Context, req connector.PollRequest)
 	if err != nil {
 		return nil, err
 	}
+	// 启动序列失败即弃连：START_REPLICATION 前的任何错误（起点解析、槽被
+	// 占 55006 等）都必须关掉 repl 并复位缓存——失败连接以 startup walsender
+	// 形态挂在 PG 侧占 max_wal_senders 配额，重开循环逐轮泄漏一个直至耗尽
+	// （55006 级联全员无法重连）。本调用持有 pollMu，可直接改缓存。
+	abort := func(cause error) error {
+		if c.repl == repl {
+			c.repl = nil
+		}
+		_ = repl.Close(context.Background())
+		return cause
+	}
 	startLSN, err := c.resolveStart(ctx, slotName, req.From)
 	if err != nil {
-		return nil, err
+		return nil, abort(err)
 	}
 	c.log.Info("postgres poll: starting replication",
 		"sourceId", c.cfg.SourceID, "slot", slotName, "publication", pub,
@@ -249,7 +260,7 @@ func (c *PostgresConnector) Poll(ctx context.Context, req connector.PollRequest)
 		PluginArgs: []string{"proto_version '1'", "publication_names '" + pub + "'"},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("pg: start replication slot %s: %w", slotName, err)
+		return nil, abort(fmt.Errorf("pg: start replication slot %s: %w", slotName, err))
 	}
 
 	out := make(chan connector.ChangeEvent, 64)
@@ -508,6 +519,13 @@ func (c *PostgresConnector) Close(_ context.Context) error {
 		}
 		c.pumpCancel = nil
 		c.pumpDone = nil
+		// 流已由 pump 包装关闭，这里只复位缓存（不动已关连接）。
+		c.repl = nil
+	} else if c.repl != nil {
+		// pump 从未启动（Poll 在启动序列失败后遗留）的兜底：无人负责关闭，
+		// Close 收尾。持有 pollMu，与 Poll 的弃连路径互斥，无双关竞态。
+		_ = c.repl.Close(context.Background())
+		c.repl = nil
 	}
 	var err error
 	if c.conn != nil {

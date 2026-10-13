@@ -394,6 +394,9 @@ func (r *Runner) runSourceOnce(ctx context.Context) error {
 	}
 	events, err := cn.Poll(ctx, connector.PollRequest{From: pos, Tables: r.cfg.Capture.Tables()})
 	if err != nil {
+		// 启动失败同样要释放连接面（repl 由连接器内弃置，c.conn 在此收尾），
+		// 否则重开循环逐轮泄漏普通后端连接。
+		_ = cn.Close(context.Background())
 		return fmt.Errorf("poll connector: %w", err)
 	}
 
