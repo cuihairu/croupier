@@ -1,0 +1,38 @@
+# capture-agent（CDC）compose 部署配置：订阅本栈 postgres 逻辑复制流。
+# 前置由 docker/postgres-init/01-capture-publication.sql 在首次初始化卷时
+# 预建（capture_demo 表 + croupier_capture publication）；存量卷请按
+# docs/operations/deploy-docker.md「capture agent」小节手工执行同款 SQL。
+# 凭据红线：明文 DSN 只从环境变量取值（dsnEnv 给变量名），不写进本文件。
+
+agent:
+  id: capture-docker-01
+  # 控制面 = 同栈 server 的会话端口（compose 网络内直连）。
+  serverAddr: "server:19090"
+  # 与本栈 sidecar agent 的域标签一致（docker/configs/agent.yaml）。
+  gameId: default
+  env: dev
+  # supervisable 心跳打点文件（healthcheck 采样 mtime 判活）。
+  heartbeatFile: data/capture/agent-heartbeat
+
+# 同栈内网直连，TLS 关闭；生产跨网段建议启用并配 caFile。
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
+
+capture:
+  # compose 部署默认开；关闭走 CAPTURE_AGENT_REPLICAS=0（见 compose 注释）。
+  enabled: true
+  sourceType: postgres
+  dsnEnv: CROUPIER_CAPTURE_PG_DSN
+  # postgres 侧 slotName/publication 必填；publication 需预建（connector
+  # 只建槽不建发布）；tables 白名单必填非空（"库.表" 两段，逗号分隔）。
+  options:
+    slotName: croupier_capture
+    publication: croupier_capture
+    tables: public.capture_demo
+  bookmarkDir: data/capture/bookmarks
+  bookmarkFlushIntervalSec: 5

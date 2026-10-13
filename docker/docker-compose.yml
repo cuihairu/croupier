@@ -8,6 +8,8 @@ services:
     image: ${POSTGRES_IMAGE:-postgres:15-alpine}
     container_name: croupier-postgres
     restart: unless-stopped
+    # capture agent（CDC）逻辑复制前置；wal_level 为动态参数，重启即生效。
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_DB: croupier
       POSTGRES_USER: croupier
@@ -17,6 +19,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # 首次初始化空卷时预建 capture_demo 表 + croupier_capture publication
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     networks:
       - croupier-network
     healthcheck:
@@ -84,7 +88,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.server
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
         # Optional: include sqlite support by setting BUILD_TAGS to "pg sqlite"
         BUILD_TAGS: ${SERVER_BUILD_TAGS:-"pg ip2location"}
@@ -127,7 +131,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.agent
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     volumes:
       - ./configs/agent.yaml:/app/configs/agent.yaml:ro
@@ -142,6 +146,47 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+    networks:
+      - croupier-network
+
+  # capture agent（CDC）：出站连 server:19090 注册上线 + 订阅本栈 postgres
+  # 逻辑复制流（wal_level=logical，见 postgres.command）。默认启用；关闭：
+  # CAPTURE_AGENT_REPLICAS=0 docker compose up -d。
+  # replicas 只允许 0/1——capture_data 是共享位点卷，多副本会互踩位点。
+  capture-agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.capture-agent
+      args:
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
+    image: croupier-capture-agent:local
+    restart: unless-stopped
+    volumes:
+      - ./configs/capture-agent.yaml:/app/configs/capture-agent.yaml:ro
+      - capture_data:/app/data
+    command: ["--config", "/app/configs/capture-agent.yaml"]
+    environment:
+      # 凭据红线：明文 DSN 走环境变量，配置文件只存变量名（capture.dsnEnv）。
+      CROUPIER_CAPTURE_PG_DSN: ${CROUPIER_CAPTURE_PG_DSN:-postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    deploy:
+      replicas: ${CAPTURE_AGENT_REPLICAS:-1}
+    healthcheck:
+      # 无本地监听端口（出站-only）：用心跳文件新鲜度判活
+      test:
+        [
+          "CMD-SHELL",
+          "find /app/data/capture -name agent-heartbeat -mmin -2 -print -quit | grep -q .",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
     networks:
       - croupier-network
 
@@ -179,7 +224,7 @@ services:
       context: ../sdks/go
       dockerfile: examples/Dockerfile
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
         EXAMPLE_DIR: demo
     container_name: croupier-sdk-demo-go
@@ -373,7 +418,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.analytics-worker
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -397,7 +442,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.ingest
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -472,6 +517,8 @@ volumes:
   clickhouse_logs:
     driver: local
   kafka_data:
+    driver: local
+  capture_data:
     driver: local
 
 networks:

@@ -19,6 +19,7 @@ tag:
 - MySQL 或 PostgreSQL
 - Redis
 - 可选：analytics-worker、ingest、ClickHouse
+- 可选：capture-agent（CDC 变更捕获，源码构建栈默认启用，见下文）
 
 ## Docker 部署
 
@@ -86,8 +87,64 @@ docker compose up -d
 
 - `docker/Dockerfile.server` -> `./cmd/server`
 - `docker/Dockerfile.agent` -> `./cmd/sidecar-agent`（定名 `sidecar-agent`，方案 A 已落地：仅源码目录改名，产物名 `croupier-agent` 不变，见 [Agent 清单](../design/agents-inventory.md) §9）
+- `docker/Dockerfile.capture-agent` -> `./cmd/capture-agent`（CDC，见下）
 - `docker/Dockerfile.analytics-worker` -> `./cmd/analytics-worker`
 - `docker/Dockerfile.ingest` -> `./cmd/ingest`
+
+#### capture agent（CDC，源码构建栈默认启用）
+
+出站连 `server:19090` 注册上线 + 订阅 postgres 逻辑复制流（`wal_level=logical` 已由 `postgres.command` 固化），订阅表白名单 `public.capture_demo`（示例表，生产改成道具相关表）。**默认启用**，开关是环境变量 `CAPTURE_AGENT_REPLICAS`（`deploy.replicas`，默认 `1`；`0` = 关闭）。
+
+| 环境变量                     | 默认值                                                                             | 说明                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `CAPTURE_AGENT_REPLICAS`     | `1`                                                                                | capture-agent 副本数。只允许 `0` 或 `1`——`capture_data` 是共享位点卷，多副本会互踩位点。`0` = 关闭服务                       |
+| `CROUPIER_CAPTURE_PG_DSN`    | `postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable` | 源库连接串。**凭据红线**：明文 DSN 只走环境变量，配置文件 `docker/configs/capture-agent.yaml` 只写变量名（`capture.dsnEnv`） |
+| `POSTGRES_IMAGE`             | `postgres:15-alpine`                                                               | 与全栈共用；CDC 需要 pgoutput 解码（PG 10+，逻辑复制）                                                                       |
+| `GO_IMAGE` / `RUNTIME_IMAGE` | `golang:1.27.2` / `gcr.io/distroless/static:nonroot`                               | 与其他服务共用                                                                                                               |
+
+前置（postgres 侧）：
+
+- **`wal_level=logical`**：compose 的 `postgres.command` 已固化；存量栈需给 postgres 加同款 `command` 后重建容器（`command` 变更会触发 recreate）。
+- **publication 必须预建**（connector 只建槽不建发布）：`docker/postgres-init/01-capture-publication.sql` 在**首次初始化空卷**时创建 `public.capture_demo` 表 + `croupier_capture` 发布。存量卷不会重放 initdb 脚本，需手工执行：
+
+```bash
+docker exec croupier-postgres psql -U croupier -d croupier <<'SQL'
+CREATE TABLE IF NOT EXISTS public.capture_demo (id int PRIMARY KEY, note text, updated_at timestamptz NOT NULL DEFAULT now());
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'croupier_capture') THEN
+    CREATE PUBLICATION croupier_capture FOR TABLE public.capture_demo;
+  END IF;
+END $$;
+SQL
+```
+
+- **REPLICATION 权限**：本栈 `POSTGRES_USER=croupier` 是超管，天然具备；生产请用独立复制账号并授 `REPLICATION`。
+
+一键验证（启用态）：
+
+```bash
+docker compose up -d                          # capture-agent 默认起
+docker compose ps capture-agent               # STATUS 应变为 healthy
+docker compose logs --tail=30 capture-agent | grep -iE 'registered upstream|postgres|event'
+# 造一条真实变更 → 日志出现解码事件
+docker exec croupier-postgres psql -U croupier -d croupier \
+  -c "INSERT INTO public.capture_demo VALUES (1, 'compose-verify', now())"
+```
+
+关闭验证：
+
+```bash
+CAPTURE_AGENT_REPLICAS=0 docker compose up -d capture-agent   # 缩到 0 个容器
+docker compose ps capture-agent                                # 无输出
+```
+
+健康检查走**心跳文件新鲜度**而非端口：capture agent 无本地监听端口（出站-only），healthcheck 是 `find /app/data/capture -name agent-heartbeat -mmin -2`（supervisable 心跳打点，`restart: unless-stopped` 兜底）。
+
+已知边界：
+
+- `docker-compose.deploy.yml`（ghcr 预构建，生产 HA 栈）暂不含 capture-agent：CI 只构建 server/agent/ingest/analytics-worker/openapi-demo 镜像，未发布 `croupier-capture-agent` 镜像。要在 HA 栈启用，需先给 `.github/workflows/docker.yml` 加 build job 并补 `x-capture-agent-common` anchor。
+- `docker-compose.quickstart.yml`（最小体验栈）不含 capture-agent，避免给演示路径引入 CDC 前置（wal_level / publication）。
+- capture agent 连不上 server 时**只影响注册与策略拉取，不影响捕获**（runner 的注册循环与捕获循环独立）；反向地，`capture.enabled=false` 时进程仍注册上线并打心跳，只是不落捕获（registration only）。
 
 ### HA 双实例部署（docker-compose.deploy.yml）
 

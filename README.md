@@ -199,6 +199,8 @@ Optional components (six-language SDK examples / analytics pipeline) are started
 [docker-compose.quickstart.yml](docker/docker-compose.quickstart.yml)
 and the [Docker deployment guide](docs/operations/deploy-docker.md).
 
+The source-build stack (`docker/docker-compose.yml`, used for local development) also runs a `capture-agent` service by default for CDC capture: it registers against `server:19090` and subscribes to the local postgres logical replication stream. Disable it with `CAPTURE_AGENT_REPLICAS=0 docker compose up -d capture-agent`; prerequisites (`wal_level=logical`, a pre-created publication) and the verification steps are in the [Docker deployment guide](docs/operations/deploy-docker.md).
+
 ## Quick Start
 
 1. Clone the repository
