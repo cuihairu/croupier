@@ -164,9 +164,17 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
               )
             }
           >
+            {/* 字段标签走 Input.prefix：antd 6 废弃 addonBefore，官方建议的
+                Space.Compact 会逐渲染重建上下文对象，本编辑器批量实例化会把
+                下游 Input 拖进重渲染（ConstantFieldsEditor.tsx 同款取舍，
+                docs/BUGS.md BUG-009）。 */}
             <Input
               aria-label={`reconcile[${i}].name`}
-              addonBefore={<F k="name" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="name" />
+                </span>
+              }
               style={{ width: 200 }}
               value={r.name}
               disabled={disabled}
@@ -176,7 +184,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`reconcile[${i}].itemTable`}
-              addonBefore={<F k="itemTable" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="itemTable" />
+                </span>
+              }
               style={{ width: 240 }}
               placeholder="db.table"
               value={r.itemTable}
@@ -187,7 +199,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`reconcile[${i}].ledgerTable`}
-              addonBefore={<F k="ledgerTable" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="ledgerTable" />
+                </span>
+              }
               style={{ width: 240 }}
               placeholder="db.table"
               value={r.ledgerTable}
@@ -198,7 +214,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`reconcile[${i}].itemKey`}
-              addonBefore={<F k="itemKey" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="itemKey" />
+                </span>
+              }
               style={{ width: 140 }}
               value={r.itemKey}
               disabled={disabled}
@@ -208,7 +228,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`reconcile[${i}].ledgerKey`}
-              addonBefore={<F k="ledgerKey" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="ledgerKey" />
+                </span>
+              }
               style={{ width: 140 }}
               value={r.ledgerKey}
               disabled={disabled}
@@ -218,7 +242,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`reconcile[${i}].windowSec`}
-              addonBefore={<F k="windowSec" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="windowSec" />
+                </span>
+              }
               min={0}
               style={{ width: 150 }}
               value={r.windowSec}
@@ -229,7 +257,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`reconcile[${i}].maxPending`}
-              addonBefore={<F k="maxPending" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="maxPending" />
+                </span>
+              }
               min={0}
               style={{ width: 150 }}
               value={r.maxPending}
@@ -312,7 +344,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
           >
             <Input
               aria-label={`cepOffHours[${i}].name`}
-              addonBefore={<F k="name" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="name" />
+                </span>
+              }
               style={{ width: 200 }}
               value={r.name}
               disabled={disabled}
@@ -322,7 +358,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`cepOffHours[${i}].table`}
-              addonBefore={<F k="table" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="table" />
+                </span>
+              }
               style={{ width: 240 }}
               placeholder="db.table"
               value={r.table}
@@ -343,7 +383,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepOffHours[${i}].tzOffsetMin`}
-              addonBefore={<F k="tzOffsetMin" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="tzOffsetMin" />
+                </span>
+              }
               min={-720}
               max={840}
               style={{ width: 160 }}
@@ -498,7 +542,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
           >
             <Input
               aria-label={`cepBurst[${i}].name`}
-              addonBefore={<F k="name" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="name" />
+                </span>
+              }
               style={{ width: 200 }}
               value={r.name}
               disabled={disabled}
@@ -508,7 +556,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`cepBurst[${i}].table`}
-              addonBefore={<F k="table" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="table" />
+                </span>
+              }
               style={{ width: 240 }}
               placeholder="db.table"
               value={r.table}
@@ -529,7 +581,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`cepBurst[${i}].deltaField`}
-              addonBefore={<F k="deltaField" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="deltaField" />
+                </span>
+              }
               style={{ width: 150 }}
               value={r.deltaField}
               disabled={disabled}
@@ -539,7 +595,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepBurst[${i}].threshold`}
-              addonBefore={<F k="threshold" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="threshold" />
+                </span>
+              }
               style={{ width: 150 }}
               value={r.threshold}
               disabled={disabled}
@@ -566,7 +626,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepBurst[${i}].windowSec`}
-              addonBefore={<F k="windowSec" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="windowSec" />
+                </span>
+              }
               min={0}
               style={{ width: 150 }}
               value={r.windowSec}
@@ -577,7 +641,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepBurst[${i}].maxEvents`}
-              addonBefore={<F k="maxEvents" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="maxEvents" />
+                </span>
+              }
               min={0}
               style={{ width: 150 }}
               value={r.maxEvents}
@@ -657,7 +725,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
           >
             <Input
               aria-label={`cepProbing[${i}].name`}
-              addonBefore={<F k="name" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="name" />
+                </span>
+              }
               style={{ width: 200 }}
               value={r.name}
               disabled={disabled}
@@ -667,7 +739,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`cepProbing[${i}].table`}
-              addonBefore={<F k="table" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="table" />
+                </span>
+              }
               style={{ width: 240 }}
               placeholder="db.table"
               value={r.table}
@@ -688,7 +764,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`cepProbing[${i}].keyField`}
-              addonBefore={<F k="keyField" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="keyField" />
+                </span>
+              }
               style={{ width: 150 }}
               value={r.keyField}
               disabled={disabled}
@@ -698,7 +778,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`cepProbing[${i}].deltaField`}
-              addonBefore={<F k="deltaField" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="deltaField" />
+                </span>
+              }
               style={{ width: 150 }}
               value={r.deltaField}
               disabled={disabled}
@@ -711,7 +795,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepProbing[${i}].smallBelow`}
-              addonBefore={<F k="smallBelow" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="smallBelow" />
+                </span>
+              }
               style={{ width: 150 }}
               value={r.smallBelow}
               disabled={disabled}
@@ -721,7 +809,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepProbing[${i}].count`}
-              addonBefore={<F k="count" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="count" />
+                </span>
+              }
               min={0}
               style={{ width: 130 }}
               value={r.count}
@@ -732,7 +824,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepProbing[${i}].windowSec`}
-              addonBefore={<F k="windowSec" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="windowSec" />
+                </span>
+              }
               min={0}
               style={{ width: 150 }}
               value={r.windowSec}
@@ -743,7 +839,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <InputNumber
               aria-label={`cepProbing[${i}].maxTracked`}
-              addonBefore={<F k="maxTracked" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="maxTracked" />
+                </span>
+              }
               min={0}
               style={{ width: 150 }}
               value={r.maxTracked}
@@ -807,7 +907,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
           >
             <Input
               aria-label={`lineage[${i}].name`}
-              addonBefore={<F k="name" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="name" />
+                </span>
+              }
               style={{ width: 200 }}
               value={r.name}
               disabled={disabled}
@@ -817,7 +921,11 @@ export function GatesFormEditor({ value, onChange, disabled }: EditorProps) {
             />
             <Input
               aria-label={`lineage[${i}].table`}
-              addonBefore={<F k="table" />}
+              prefix={
+                <span style={{ fontSize: 11 }}>
+                  <F k="table" />
+                </span>
+              }
               style={{ width: 240 }}
               placeholder="db.table"
               value={r.table}
