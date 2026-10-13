@@ -10,7 +10,6 @@
 - [ ] Agent 面板三页（agent-dashboard-design 简档）：Proposed 待用户过目批准，零代码；sidecar/devops/capture 每 type 一页+探针卡+职责数据+日志下钻，scope 联动
 - [ ] Provider 插件 P1（#66 批二）：openapi driver 迁移 internal/platform/openapi → internal/drivers/openapi + externalplatform 迁入；按 §9 分期另行立项
 - [ ] 插件机制正式设计落地（plugin-mechanism 简档）：Proposed 待拍板后按 §8 分期；含 LAN 资产接入（cockpit 优先）、配置热更双轨等 12 项决策
-- [ ] `-race` 全量不可绿修复（存量，与 CI/门禁无关，2026-10-14 实测）：pkg/protocol 溢出用例 checkptr fatal、internal/server 测试 atomic 写/裸读、internal/hotreload 插件 ABI 不匹配、cmd/ingest+cmd/server 测试竞态；修完才可带 -race 全量
 
 ## 已完成
 
@@ -37,6 +36,10 @@
 - [x] PostgreSQL P0 闭环：pgoutput 解码层、流式 Connector、runner 多源装配、活栈全链端到端、六阶段集成测试（2026-10-13）
 - [x] 4301 验证清单六项本地活栈跑通：规则热生效、断线恢复、位点恢复、新表启用、过滤错误可观测、跨 game/env 隔离（22ffb40 修复 Poll 启动失败 walsender 泄漏，2026-10-13）
 - [x] capture agent 进 docker compose：Dockerfile.capture-agent + 配置 + postgres-init 发布脚本 + compose 默认启用（CAPTURE_AGENT_REPLICAS 开关，默认 1）+ 文档同步（ef3c44f，2026-10-14）
+
+### 测试与竞态
+
+- [x] `-race` 全量不可绿修复（存量，与 CI/门禁无关，2026-10-14）：pkg/protocol 溢出用例 checkptr fatal（`!race` 标签隔离）、internal/server 测试 atomic 写/裸读、internal/hotreload 插件 ABI 不匹配（构建标签常量对 + 插件同参编译）、cmd/ingest+cmd/server 测试竞态、TCPListener wg.Add/wg.Wait 契约违反（Close 先排空 accept 循环再 Wait，serveStarted/serveExited 两通道定序）；证据 55f63d1 + 555031a，internal/server -race count=50/10 零竞态、cmd/server -race 绿；边界：本机 14 核高负载下 -race 全量仍有 600s 环境性超时（非真竞态，memory 已记录）
 
 ### 质量工程
 
