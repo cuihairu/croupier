@@ -66,6 +66,30 @@ title: 仓库规范
 - Frontend: `cd web && pnpm test` or `pnpm test:coverage`.
 - Add tests when touching RBAC, APIs, routing, analytics processing, or descriptor resolution.
 
+## Selective Testing (Mandatory)
+
+本地开发按改动范围选校验范围，禁止「改一行文档也全量编译测试」。CI 门禁保持全量不变（CI 是守门，本地开发用增量）。工具：`make test-changed`（即 `scripts/test-changed.sh`），默认对比 `@{u}`..工作区（含未提交改动），`make test-changed ARG=--committed` 对比 base..HEAD。
+
+分类规则：
+
+| 改动范围                                                                                         | 校验动作                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/**`、`*.md`、纯注释/空白的 `.go`                                                           | 不编译：仅文档检查（docs 站点构建链接校验 + prettier 只查改动文件）                                                                            |
+| `internal/**`、`cmd/**`、`pkg/**`、`core/**`、`database/**`、`agents/**`、`examples/**` 的 `.go` | `go build` + `go test` 只跑改动包与其传递反向依赖者（用 `go list` 反查，含测试导入边）                                                         |
+| 共享层 `internal/{model,config,common,svc,db}`、`pkg/pb`                                         | 升级全量                                                                                                                                       |
+| `go.mod`、`go.sum`、`Makefile`、`CMakeLists.txt`、`.github/**`、`proto/**`、`buf.*`              | 全量门禁                                                                                                                                       |
+| `web/**`                                                                                         | tsc + 定向 jest（改动测试文件 + 导入改动源文件的测试文件）；`package.json`、jest/umi 配置、`src/services/api/`、`src/types/` 改动升级全量 jest |
+| `docker/**`                                                                                      | `docker compose config` 校验 / Dockerfile 构建（docker CLI 存在时）                                                                            |
+| `configs/**`                                                                                     | `go test ./internal/config/...`                                                                                                                |
+| `scripts/**`、`tools/**`                                                                         | `bash -n`（shellcheck 若可用）                                                                                                                 |
+| 其余（`mobile/`、`packs/`、`descriptors/` 等）                                                   | 仅打印提示不静默丢弃，人工核对                                                                                                                 |
+
+全量门禁 = `gofmt` + `go build ./...` + `go test -short ./...` + web tsc + web jest + docs 构建 + `dashboard_vnext_guard` + `pnpm format:check`。
+
+> Go 测试**不带 `-race`**：与 `make test`（`go test -v -short ./...`）和 CI（`go test ./internal/... ./agents/...`）口径一致，本仓现有门禁均不以 `-race` 执行。已知边界（2026-10-14 实测，均为存量问题、与 CI 无关）：`-race` 全量下 `pkg/protocol` 溢出用例触发 `checkptr` fatal、`internal/server` 等测试代码存在 atomic 写/裸读混用、`internal/hotreload` 插件用例未透传 `-race` 导致 `.so` ABI 不匹配；修好这些前 `-race` 全量不可绿，属独立质量工程项。
+
+什么时候全量：`go.mod`/CI/构建系统改动、共享层改动、发布前收尾门禁。什么时候增量：日常功能、文档、单包修复提交。
+
 ## Commit & Pull Request Guidelines
 
 - PR should include: what changed, why, and how it was verified.

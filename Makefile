@@ -10,7 +10,7 @@ FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 LDFLAGS := -X main.Version=$(FULL_VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT) -s -w
 
 .PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator
-.PHONY: test test-coverage test-coverage-html test-race test-integration test-all
+.PHONY: test test-changed test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
 .PHONY: version version-sync
@@ -288,6 +288,12 @@ proto-docs:
 test:
 	@echo "[test] running unit tests..."
 	go test -v -short ./...
+
+# Scoped validation for changed files only (dev convenience; CI stays full gate).
+# 口径见 docs/development/repository-guidelines.md "Selective Testing"。
+# 传参：make test-changed ARG=--committed / ARG=origin/main
+test-changed:
+	./scripts/test-changed.sh $(ARG)
 
 # Run tests with race detection
 test-race:
