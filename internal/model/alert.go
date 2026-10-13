@@ -27,6 +27,15 @@ type Alert struct {
 	Details       datatypes.JSONMap `gorm:"type:json"`
 	Metadata      datatypes.JSONMap `gorm:"type:json"`
 	CreatedBy     string            `gorm:"size:64"`
+	// GameID/Env 告警归属 scope（空 = 平台级，全局可见）。与 AlertRule 的
+	// GameID/Env 列语义一致：空串表示平台级告警，非空表示 game/env 级告警。
+	// 列表过滤：scope 非空时 (game_id=? AND env=?) OR (game_id='' AND env='')；
+	// scope 为空时不过滤（全局视野，面板告警页）。
+	// 打戳点：alertrule evaluator（rule.GameID/Env）、inbound generic
+	// payload（scope.gameId/env）、control_handler capture 告警（req 字段）。
+	// dbmon/pipeline_monitor 为基础设施告警，不打戳（平台级）。
+	GameID string `gorm:"size:64;index"`
+	Env    string `gorm:"size:64;index"`
 }
 
 // HandleStatus 工作流状态取值（风险事件扩展，risk-control-panel-design.md §3.3）。

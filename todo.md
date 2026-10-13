@@ -4,7 +4,7 @@
 
 ## 未完成
 
-- [ ] 4862 ops 告警列表按 game/env 过滤：Alert 加 game_id/env 列（编号 goose 迁移三处同步）+ Service.List 按 GameScopeFromContext 过滤 + 面板告警页全局视野语义确认
+- [x] 4862 ops 告警列表按 game/env 过滤：Alert 加 game_id/env 列（迁移 0043）+ opsAlerts 按 GameScopeFromContext 过滤（scope 告警 + 平台级告警）+ 打戳三点（evaluator 继承 rule scope / inbound generic payload scope / control_handler capture req scope）+ 面板告警页全局视野确认（/api/v1/alerts 无 scope 不过滤）（4862 迁移 0043 + 三处同步 + 测试，2026-10-13）
 - [ ] 4310 MongoDB Connector：CDC 内置源收口项，排期待用户立项；SQL Server/Oracle/TiDB/CockroachDB/国产库明确不做，更多数据源由使用方按 SourceConnector 契约自行实现
 - [ ] capture 链部署环境验收：4301 六项在部署机复验，补浏览器截图取证
 

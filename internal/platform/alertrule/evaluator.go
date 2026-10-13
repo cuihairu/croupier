@@ -121,6 +121,9 @@ func (e *Evaluator) fire(ctx context.Context, rule *model.AlertRule, agentID str
 			"operator": rule.Operator, "threshold": rule.Threshold, "value": value,
 		},
 		CreatedBy: "alertrule",
+		// 4862：告警归属继承规则 scope（空 = 平台级，全局可见）。
+		GameID: rule.GameID,
+		Env:    rule.Env,
 	}
 	if e.alerts != nil {
 		if err := e.alerts.Create(ctx, alert); err != nil {

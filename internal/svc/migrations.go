@@ -115,6 +115,10 @@ import (
 //               handled_remark/handled_at（风险事件扩展，
 //               risk-control-panel-design.md §3.3；独立于入站 lifecycle
 //               status 列，加列 0033 模式；存量行回填 pending）
+//   0043 (Go)   alerts scope 两列 game_id/env（4862 ops 告警列表按
+//               game/env 过滤；空 = 平台级全局可见，非空 = game/env 级；
+//               加列 0033 模式；存量行不回填——历史告警无 scope 归属，
+//               诚实留空）
 
 func init() {
 	registerSvcMigrations()
@@ -167,6 +171,7 @@ func registerSvcMigrations() {
 		incidentTablesMigration(),
 		reportDistributionMigration(),
 		alertHandlingMigration(),
+		alertScopeMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1400,5 +1405,38 @@ func migrateAlertHandlingColumns(ctx context.Context, sqlDB *sql.DB) error {
 		Update("handle_status", model.AlertHandlePending).Error; err != nil {
 		return fmt.Errorf("migrate: 0042 backfill alerts.handle_status: %w", err)
 	}
+	return nil
+}
+
+// alertScopeMigration 为 0043：alerts scope 两列 game_id/env（4862 ops 告警
+// 列表按 game/env 过滤）。空 = 平台级（全局可见），非空 = game/env 级。
+// HasColumn+AddColumn 逐列补齐（0042 同模式）；缺表跳过；存量行不回填——
+// 历史告警无 scope 归属，诚实留空（平台级）。
+func alertScopeMigration() *goose.Migration {
+	return goose.NewGoMigration(43,
+		&goose.GoFunc{RunDB: migrateAlertScopeColumns},
+		nil,
+	)
+}
+
+// migrateAlertScopeColumns 是 0043 的迁移体（抽出便于直测）。
+func migrateAlertScopeColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.Alert{}) {
+		return nil
+	}
+	for _, col := range []string{"GameID", "Env"} {
+		if migrator.HasColumn(&model.Alert{}, col) {
+			continue
+		}
+		if err := migrator.AddColumn(&model.Alert{}, col); err != nil {
+			return fmt.Errorf("migrate: 0043 add alerts.%s: %w", col, err)
+		}
+	}
+	// 存量行不回填：历史告警无 scope 归属，留空（平台级）。
 	return nil
 }

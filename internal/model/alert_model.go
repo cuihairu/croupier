@@ -32,6 +32,14 @@ type ListAlertsOptions struct {
 	// 函数域业务告警（source=contract 的 schema 破坏性变更）由函数域
 	// 诊断呈现，不混入运维告警列表。
 	ExcludeSources []string
+	// GameID/Env scope 过滤（4862）。非空时：
+	//   (game_id = ? AND env = ?) OR (game_id = '' AND env = '')
+	// 即当前 scope 的告警 + 平台级告警（全局可见）。
+	// 为空时不过滤（全局视野，面板告警页 /api/v1/alerts 无 scope）。
+	// 由 service 层从 GameScopeFromContext 传入，model 层不读 ctx scope
+	//（internal/model 不能 import internal/svc，环）。
+	ScopeGameID string
+	ScopeEnv    string
 }
 
 // Create inserts a new alert.
@@ -127,6 +135,14 @@ func (m *AlertModel) List(ctx context.Context, opts ListAlertsOptions) ([]Alert,
 	}
 	if len(opts.ExcludeSources) > 0 {
 		query = query.Where("source NOT IN ?", opts.ExcludeSources)
+	}
+	// 4862 scope 过滤：game_id/env 同时非空时当前 scope 告警 + 平台级（空 game_id/env）告警；
+	// 任一为空时不过滤（全局视野，面板告警页）。平台级告警的 game_id/env 可能为空串或 NULL。
+	if opts.ScopeGameID != "" && opts.ScopeEnv != "" {
+		query = query.Where(
+			"(game_id = ? AND env = ?) OR ((game_id = '' OR game_id IS NULL) AND (env = '' OR env IS NULL))",
+			opts.ScopeGameID, opts.ScopeEnv,
+		)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

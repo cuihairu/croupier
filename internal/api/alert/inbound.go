@@ -191,6 +191,10 @@ func mapGenericPayload(body []byte, source string) (*model.Alert, error) {
 		Source:  source,
 		Status:  "firing",
 		Details: details,
+		// 4862：generic 载荷自带 scope → 打戳（空 = 平台级）。
+		// alertmanager 载荷无 scope 字段，不打戳。
+		GameID: p.Scope.GameID,
+		Env:    p.Scope.Env,
 	}, nil
 }
 

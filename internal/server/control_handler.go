@@ -502,6 +502,9 @@ func (s *ControlService) handleAlertEvent(ctx context.Context, data []byte) ([]b
 				"agentId": req.GetAgentId(),
 			},
 		},
+		// 4862：capture 告警归属 = 请求 scope（game/env 已在 Details.scope 内）。
+		GameID: req.GetGameId(),
+		Env:    req.GetEnv(),
 	}
 	_, created, err := alertModel.UpsertByAlertID(ctx, alert)
 	if err != nil {

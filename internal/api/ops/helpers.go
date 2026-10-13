@@ -338,9 +338,13 @@ func opsBackupDownload(ctx context.Context, svcCtx *svc.ServiceContext, req *Ops
 
 func opsAlerts(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAlertsRequest) (*OpsAlertsResponse, error) {
 	// 只输出基础设施告警；业务告警（如 schema 破坏性变更）由函数域诊断呈现
+	// 4862：按请求 scope 过滤（当前 scope 告警 + 平台级告警）。
+	scope := svc.GameScopeFromContext(ctx)
 	opts := model.ListAlertsOptions{
 		PaginationOptions: model.NewPagination(1, 1000),
 		ExcludeSources:    []string{alertSourceContract},
+		ScopeGameID:       scope.GameID,
+		ScopeEnv:          scope.Env,
 	}
 	if req != nil {
 		opts.HandleStatus = strings.TrimSpace(req.HandleStatus)

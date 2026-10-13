@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -2716,6 +2717,63 @@ func TestAlertModel_List(t *testing.T) {
 	_, total, err = model.List(ctx, ListAlertsOptions{Status: "resolved"})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
+}
+
+func TestAlertModel_ListScopeFilter(t *testing.T) {
+	// 独立文件库：setupAlertTestDB 用 cache=shared，数据跨用例泄漏。
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "alert_scope_test.db")), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Alert{}, &AlertSilence{}))
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	// 4862：scope 过滤——非空 scope 命中当前 scope 告警 + 平台级（空 game_id/env）告警；
+	// 空 scope 不过滤（全局视野）。
+	alerts := []*Alert{
+		{AlertID: "scope-a-1", Type: "system", Level: "error", Message: "game A", Source: "test", Status: "active", GameID: "game_a", Env: "prod"},
+		{AlertID: "scope-b-1", Type: "system", Level: "error", Message: "game B", Source: "test", Status: "active", GameID: "game_b", Env: "prod"},
+		{AlertID: "scope-p1", Type: "system", Level: "info", Message: "platform", Source: "test", Status: "active"}, // 平台级
+	}
+	for _, a := range alerts {
+		require.NoError(t, model.Create(ctx, a))
+	}
+
+	// 无 scope（空）= 全局视野：命中全部
+	items, total, err := model.List(ctx, ListAlertsOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), total)
+	assert.Len(t, items, 3)
+
+	// scope=game_a/prod：命中 game_a 告警 + 平台级告警，不含 game_b
+	items, total, err = model.List(ctx, ListAlertsOptions{ScopeGameID: "game_a", ScopeEnv: "prod"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), total)
+	for _, a := range items {
+		assert.NotEqual(t, "scope-b-1", a.AlertID, "scope 过滤不应泄漏其他 game 告警")
+	}
+
+	// scope=game_c/stage：仅命中平台级告警
+	items, total, err = model.List(ctx, ListAlertsOptions{ScopeGameID: "game_c", ScopeEnv: "stage"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	assert.Equal(t, "scope-p1", items[0].AlertID)
+
+	// scope 仅 gameID（env 空）：不过滤，全局视野（与 GameScopeFromContext 语义一致，
+	// 实际调用方总是同时设置 game_id/env）
+	items, total, err = model.List(ctx, ListAlertsOptions{ScopeGameID: "game_a"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), total)
+
+	// scope 与 ExcludeSources 正交：排除 source=test 后仅平台级（source=test 的 game_a 被排除）
+	items, total, err = model.List(ctx, ListAlertsOptions{
+		ScopeGameID:    "game_a",
+		ScopeEnv:       "prod",
+		ExcludeSources: []string{"test"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), total)
 }
 
 func TestAlertModel_CreateSilence(t *testing.T) {
