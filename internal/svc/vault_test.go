@@ -141,7 +141,18 @@ func (p *refStubProvider) List(context.Context) ([]vault.EntryMeta, error) {
 func (p *refStubProvider) Delete(context.Context, string) error { return vault.ErrReadOnly }
 
 // DSN 引用展开：展开后的 scheme 驱动 auto 判定（postgres://）。
+//
+// 环境隔离：CI Unit job 全局导出 DATABASE_URL=":memory:"（db_test 同用），
+// resolveDriverAndDSN 的 env 覆盖会压过本测试构造的 struct DSN——三个用例
+// 均须先清空 DB_DRIVER/DATABASE_URL 再测 struct 面。
+func neutralizeDSNEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("DB_DRIVER", "")
+	t.Setenv("DATABASE_URL", "")
+}
+
 func TestResolveDriverAndDSN_VaultRefExpanded(t *testing.T) {
+	neutralizeDSNEnv(t)
 	secrets := vault.NewResolver(&refStubProvider{entries: map[string]string{
 		"db/dsn": "postgres://u:p@dbhost:5432/gamedb",
 	}})
@@ -161,6 +172,7 @@ func TestResolveDriverAndDSN_VaultRefExpanded(t *testing.T) {
 
 // nil resolver（CLI 面）：引用原样直通，不展开不报错。
 func TestResolveDriverAndDSN_VaultRefNilResolverPassthrough(t *testing.T) {
+	neutralizeDSNEnv(t)
 	driver, dsn, err := resolveDriverAndDSN(config.Config{
 		Database: config.DatabaseConfig{DataSource: "vault://db/dsn"},
 	}, nil)
@@ -177,6 +189,7 @@ func TestResolveDriverAndDSN_VaultRefNilResolverPassthrough(t *testing.T) {
 
 // 解析失败 = 显式错误（fail-closed）：不把引用串当真 DSN 发往驱动。
 func TestResolveDriverAndDSN_VaultRefFailureFailsClosed(t *testing.T) {
+	neutralizeDSNEnv(t)
 	secrets := vault.NewResolver(nil)
 	_, _, err := resolveDriverAndDSN(config.Config{
 		Database: config.DatabaseConfig{DataSource: "vault://db/dsn"},
