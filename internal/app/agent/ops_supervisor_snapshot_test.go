@@ -111,13 +111,18 @@ func TestCollectSnapshotArtifacts(t *testing.T) {
 	assert.Equal(t, []string{"heap.hprof", "notes.txt"}, files)
 
 	// node 报告在 WorkingDir 中按 mtime 倒序、有上限。
-	require.NoError(t, os.WriteFile(filepath.Join(work, "report.1.json"), []byte("{}"), 0o600))
-	older := time.Now().Add(-time.Hour)
 	require.NoError(t, os.WriteFile(filepath.Join(work, "report.2.json"), []byte("{}"), 0o600))
+	older := time.Now().Add(-time.Hour)
 	require.NoError(t, os.Chtimes(filepath.Join(work, "report.2.json"), older, older))
+	// extra 报告用显式阶梯 mtime：连续写入可能落在同一毫秒，mtime 排序不确定
+	// 会让 report.1.json 被挤出上限（快照产物断言因此抖动）。
 	for i := 0; i < 7; i++ {
-		require.NoError(t, os.WriteFile(filepath.Join(work, "report.extra."+string(rune('a'+i))+".json"), []byte("{}"), 0o600))
+		p := filepath.Join(work, "report.extra."+string(rune('a'+i))+".json")
+		require.NoError(t, os.WriteFile(p, []byte("{}"), 0o600))
+		m := time.Now().Add(-time.Duration(8-i) * time.Second)
+		require.NoError(t, os.Chtimes(p, m, m))
 	}
+	require.NoError(t, os.WriteFile(filepath.Join(work, "report.1.json"), []byte("{}"), 0o600))
 	nodeFiles := collectSnapshotArtifacts(snap, work, "node")
 	foundReport := 0
 	for _, f := range nodeFiles {
