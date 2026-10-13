@@ -10,6 +10,7 @@
 - [ ] Agent 面板三页（agent-dashboard-design 简档）：Proposed 待用户过目批准，零代码；sidecar/devops/capture 每 type 一页+探针卡+职责数据+日志下钻，scope 联动
 - [ ] Provider 插件 P1（#66 批二）：openapi driver 迁移 internal/platform/openapi → internal/drivers/openapi + externalplatform 迁入；按 §9 分期另行立项
 - [ ] 插件机制正式设计落地（plugin-mechanism 简档）：Proposed 待拍板后按 §8 分期；含 LAN 资产接入（cockpit 优先）、配置热更双轨等 12 项决策
+- [ ] `-race` 全量不可绿修复（存量，与 CI/门禁无关，2026-10-14 实测）：pkg/protocol 溢出用例 checkptr fatal、internal/server 测试 atomic 写/裸读、internal/hotreload 插件 ABI 不匹配、cmd/ingest+cmd/server 测试竞态；修完才可带 -race 全量
 
 ## 已完成
 
@@ -35,6 +36,7 @@
 - [x] MySQL/MariaDB Connector：flavor 双方言、GTID 变量分叉、CI capture-matrix（2026-10-13）
 - [x] PostgreSQL P0 闭环：pgoutput 解码层、流式 Connector、runner 多源装配、活栈全链端到端、六阶段集成测试（2026-10-13）
 - [x] 4301 验证清单六项本地活栈跑通：规则热生效、断线恢复、位点恢复、新表启用、过滤错误可观测、跨 game/env 隔离（22ffb40 修复 Poll 启动失败 walsender 泄漏，2026-10-13）
+- [x] capture agent 进 docker compose：Dockerfile.capture-agent + 配置 + postgres-init 发布脚本 + compose 默认启用（CAPTURE_AGENT_REPLICAS 开关，默认 1）+ 文档同步（ef3c44f，2026-10-14）
 
 ### 质量工程
 
@@ -42,3 +44,6 @@
 - [x] web 覆盖率巡检 40 余轮：全站零测试页归零，全量 jest 360+ suites 绿（2026-09-28 至 10-01）
 - [x] Dependabot/audit advisory 收口：axios 12 条、dompurify（2026-09-30）
 - [x] PageSpec/渲染守卫复验七批（dashboard_vnext_guard，2026-09-30）
+- [x] 增量测试口径：scripts/test-changed.sh + make test-changed（改动分类 + 反向依赖闭包 + 三类验证，84b4f0c，2026-10-14）
+- [x] 快照产物测试抖动修复：report mtime 显式阶梯（25/25 通过，7cba119，2026-10-14）
+- [x] Docker workflow build-server 超时修复：gha 层缓存（含 go mod cache mount）+ timeout 15→25min，新 run 全绿（f64d569，2026-10-14）
