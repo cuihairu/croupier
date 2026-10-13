@@ -18,7 +18,7 @@ permissions:
 jobs:
   build-server:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v7
@@ -55,7 +55,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/croupier-server
       - name: Build and push Docker image
-        timeout-minutes: 15
+        timeout-minutes: 25
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -65,6 +65,11 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          # 持久层缓存（含 go mod 缓存挂载，mode=max 才导出 cache mount）：
+          # 冷启动后 gha 缓存命中，下载与构建层跨 run 复用，不再每次重付
+          # go mod download（历史故障根因）。与 build-ingest 同构。
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
           # IP 属地数据源（可选）：在仓库 secrets 配置 IP2LOCATION_BIN_URL
           # （从 https://lite.ip2location.com 账号下载页复制的完整链接），
           # 镜像内置 BIN 后审计日志即可展示 IP 属地；未配置则跳过下载。
