@@ -83,7 +83,7 @@ func (h *Handler) RepushReport(c *gin.Context) {
 // ListStoredReports handles GET /incident-reports/stored?period=week&page=1&pageSize=20。
 func (h *Handler) ListStoredReports(c *gin.Context) {
 	resp, err := h.service.ListStoredReports(c.Request.Context(), c.Query("period"),
-		int(parseUintQuery(c, "page")), int(parseUintQuery(c, "pageSize")))
+		parseIntQuery(c, "page"), parseIntQuery(c, "pageSize"))
 	if err != nil {
 		response.Error(c, err)
 		return

@@ -159,3 +159,43 @@ func TestParseUintQuery_ValidPasses(t *testing.T) {
 		t.Fatalf("pageSize = %d, want 50", got)
 	}
 }
+
+// ---- parseIntQuery 分页钳制（code scanning #228/#229）----
+//
+// uint→int 直接转换在 64 位平台对 >MaxInt64 的 uint 输入回绕为负——分页
+// 解析后钳 MaxInt32：取值远达不到该界，超界回落 0（走 Normalize 缺省）。
+
+// 2^63：ParseUint(64 位) 成功、uint→int 直接转换会回绕为负的精确形态。
+func wrapInput() string {
+	return strconv.FormatUint(uint64(math.MaxInt64)+1, 10)
+}
+
+func TestParseIntQuery_UintWrapClampsToZero(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/incident-reports/stored?page="+wrapInput(), nil)
+	if got := parseIntQuery(c, "page"); got != 0 {
+		t.Fatalf("page = %d, want 0 clamp (no uint→int wrap)", got)
+	}
+}
+
+func TestParseIntQuery_GarbageFallsBackToZero(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/incident-reports/stored?page=abc", nil)
+	if got := parseIntQuery(c, "page"); got != 0 {
+		t.Fatalf("garbage page = %d, want 0", got)
+	}
+}
+
+func TestParseIntQuery_InRangePasses(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/incident-reports/stored?page=2&pageSize=20", nil)
+	if got := parseIntQuery(c, "page"); got != 2 {
+		t.Fatalf("page = %d, want 2", got)
+	}
+	if got := parseIntQuery(c, "pageSize"); got != 20 {
+		t.Fatalf("pageSize = %d, want 20", got)
+	}
+}

@@ -1,6 +1,7 @@
 package incident
 
 import (
+	"math"
 	"strconv"
 	"time"
 
@@ -219,6 +220,17 @@ func parseUintQuery(c *gin.Context, name string) uint {
 		return 0
 	}
 	return uint(v)
+}
+
+// parseIntQuery 分页 query 解析（0=走 Normalize 缺省）：uint→int 直接转换
+// 在 64 位平台对 >MaxInt64 的输入回绕为负（code scanning #228/#229），解析
+// 后钳 MaxInt32——分页取值远达不到该界，超界回落缺省路径。
+func parseIntQuery(c *gin.Context, name string) int {
+	v, err := strconv.ParseUint(c.Query(name), 10, strconv.IntSize)
+	if err != nil || v > math.MaxInt32 {
+		return 0
+	}
+	return int(v)
 }
 
 // parseTime 支持 RFC3339 与 unix 秒两种形态（RangePicker toISOString 走前者）。
