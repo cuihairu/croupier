@@ -42,10 +42,17 @@ type PostgresConnector struct {
 
 	pcc    *pgconn.Config // Open 时解析的连接配置（复制连接克隆源）
 	conn   *pgconn.PgConn // 普通连接：Discover / 槽管理 SQL
-	repl   *pgconn.PgConn // 复制连接：START_REPLICATION（Poll 懒建）
+	repl   *pgconn.PgConn // 复制连接：START_REPLICATION（Poll 懒建；pump 退出时关闭）
 	closed atomic.Bool    // Close 置位；pump 收敛判定与接口拒绝共用（atomic 免锁）
 
 	pollMu sync.Mutex // Poll 互斥（同一连接只承载一条流）
+
+	// pump 生命周期句柄（Poll 内 pollMu 下赋值，Close 内 pollMu 下消费）：
+	// pumpCancel 解除 pump 阻塞，pumpDone 等 pump 退出后 Close 才能安全收尾
+	// ——pgconn 不允许 Close 与 ReceiveMessage 并发，复制连接由 pump 侧独占
+	// 关闭（close-join 模式，见 Close 注释）。
+	pumpCancel context.CancelFunc
+	pumpDone   chan struct{}
 
 	cpMu sync.Mutex
 	cp   connector.Position // 最近提交位点（pump 写，Checkpoint 读）
@@ -249,7 +256,17 @@ func (c *PostgresConnector) Poll(ctx context.Context, req connector.PollRequest)
 	for _, t := range req.Tables {
 		whitelist[t] = true
 	}
-	go c.pump(ctx, repl, out, whitelist)
+	// pump 包装：复制连接的关闭权归 pump 侧（pgconn.Close 与 ReceiveMessage
+	// 并发会在 pgconn 内部数据上竞态）——pump 退出后本包装统一关 repl，Close
+	// 只取消 + join，不直接动 repl。
+	pumpCtx, cancel := context.WithCancel(ctx)
+	c.pumpCancel = cancel
+	c.pumpDone = make(chan struct{})
+	go func() {
+		defer close(c.pumpDone)
+		defer func() { _ = repl.Close(context.Background()) }()
+		c.pump(pumpCtx, repl, out, whitelist)
+	}()
 	return out, nil
 }
 
@@ -433,23 +450,33 @@ func (c *PostgresConnector) Checkpoint(_ context.Context) (connector.Position, e
 }
 
 // Close 断开连接（幂等；槽为持久槽，不随连接删除——位点恢复依赖）。
+//
+// close-join 模式：置位 closed → 取消 pumpCtx（解除 ReceiveMessage 阻塞）→
+// 等 pump 退出（repl 由 pump 包装 goroutine 关闭）→ 最后关普通连接。不得在
+// 此直接 Close repl：与 pump 在途的 ReceiveMessage 并发关同一 pgconn 是
+// 数据竞态（-race 实证），且 ReceiveMessage 只能靠 ctx 取消或连接对端断开
+// 解除阻塞，前者归 pumpCancel，后者归 pump 自己的 repl.Close。
 func (c *PostgresConnector) Close(_ context.Context) error {
 	c.pollMu.Lock()
 	defer c.pollMu.Unlock()
 	if c.closed.Load() {
 		return nil
 	}
-	// 置位先于断连：pump 见到 conn closed 时 closed 已可见，按正常收敛处理。
 	c.closed.Store(true)
-	var err error
-	if c.repl != nil {
-		err = c.repl.Close(context.Background())
-		c.repl = nil
-	}
-	if c.conn != nil {
-		if cerr := c.conn.Close(context.Background()); err == nil {
-			err = cerr
+	if c.pumpCancel != nil {
+		c.pumpCancel()
+		select {
+		case <-c.pumpDone:
+		case <-time.After(5 * time.Second):
+			// 防御：pump 极端滞留时不无限挂死 Close；repl 留给 pump 退出时关。
+			c.log.Error("pg: close timed out waiting for pump exit")
 		}
+		c.pumpCancel = nil
+		c.pumpDone = nil
+	}
+	var err error
+	if c.conn != nil {
+		err = c.conn.Close(context.Background())
 		c.conn = nil
 	}
 	return err
