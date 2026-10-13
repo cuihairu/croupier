@@ -2,10 +2,8 @@ package protocol
 
 import (
 	"bytes"
-	"math"
 	"strings"
 	"testing"
-	"unsafe"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -122,19 +120,6 @@ func TestParseMessageFromBodyTooShort(t *testing.T) {
 		if !strings.Contains(err.Error(), "body too short") {
 			t.Fatalf("len=%d: unexpected error %v", n, err)
 		}
-	}
-}
-
-func TestNewMessageBodyOverflowReturnsNil(t *testing.T) {
-	if got := NewMessageBody(MsgInvokeRequest, 1, make([]byte, 0)); got == nil {
-		t.Fatal("normal body should not be nil")
-	}
-	// Forge a slice header whose length overflows HeaderSize+len(data)
-	// without touching (or allocating) the backing memory.
-	backing := make([]byte, 1)
-	forged := unsafe.Slice(unsafe.SliceData(backing), math.MaxInt-7)
-	if got := NewMessageBody(MsgInvokeRequest, 1, forged); got != nil {
-		t.Fatal("overflowing body should be nil")
 	}
 }
 

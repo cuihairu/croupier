@@ -72,8 +72,17 @@ type fakeQueue struct {
 
 	pendingEvents   int64
 	pendingPayments int64
-	pendingErr      error
-	pendingCalls    int64
+	// atomic：积压采样循环在独立 goroutine 里并发读取。
+	pendingErr   atomic.Pointer[error]
+	pendingCalls int64
+}
+
+// pendingError 取当前注入的积压查询错误（未注入返回 nil）。
+func (f *fakeQueue) pendingError() error {
+	if p := f.pendingErr.Load(); p != nil {
+		return *p
+	}
+	return nil
 }
 
 func (f *fakeQueue) PublishEvent(evt map[string]any) error {
@@ -96,15 +105,15 @@ func (f *fakeQueue) Close() error { return nil }
 
 func (f *fakeQueue) PendingEvents() (int64, error) {
 	atomic.AddInt64(&f.pendingCalls, 1)
-	if f.pendingErr != nil {
-		return 0, f.pendingErr
+	if err := f.pendingError(); err != nil {
+		return 0, err
 	}
 	return f.pendingEvents, nil
 }
 
 func (f *fakeQueue) PendingPayments() (int64, error) {
-	if f.pendingErr != nil {
-		return 0, f.pendingErr
+	if err := f.pendingError(); err != nil {
+		return 0, err
 	}
 	return f.pendingPayments, nil
 }
@@ -771,16 +780,18 @@ func TestMonitorQueueBacklog(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return atomic.LoadInt64(&s.eventsPending) == 12 && atomic.LoadInt64(&s.paymentsPending) == 34
 	}, 2*time.Second, 5*time.Millisecond)
-	assert.False(t, s.queueLastCheck.IsZero())
 
 	// 查询报错时保留上次读数
-	fq.pendingErr = errors.New("x")
+	err := errors.New("x")
+	fq.pendingErr.Store(&err)
 	before := atomic.LoadInt64(&s.eventsPending)
 	require.Eventually(t, func() bool { return atomic.LoadInt64(&fq.pendingCalls) >= 3 }, 2*time.Second, 5*time.Millisecond)
 	assert.Equal(t, before, atomic.LoadInt64(&s.eventsPending))
 
 	cancel()
 	waitTimeout(t, &wg)
+	// 采样循环已退出，此处读取 queueLastCheck 才与写方有序。
+	assert.False(t, s.queueLastCheck.IsZero())
 }
 
 func TestReportMetrics(t *testing.T) {

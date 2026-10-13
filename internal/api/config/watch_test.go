@@ -1,11 +1,15 @@
 package config
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -28,6 +32,74 @@ func newWatchTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 	return db
+}
+
+// lockedResponseWriter 串行化 SSE handler goroutine 的写与测试 goroutine 的读，
+// 消除 httptest.ResponseRecorder 上 Write 与 Body.String 的 data race。
+// 需实现完整 gin.ResponseWriter：CloseNotify/Hijack/Pusher 由 httptest
+// ResponseRecorder 提升不及，测试用 SSE 路径不会触达，按不支持语义返回。
+type lockedResponseWriter struct {
+	*httptest.ResponseRecorder
+	mu sync.Mutex
+}
+
+func (w *lockedResponseWriter) Write(b []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseRecorder.Write(b)
+}
+
+func (w *lockedResponseWriter) WriteHeader(code int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.ResponseRecorder.WriteHeader(code)
+}
+
+func (w *lockedResponseWriter) CloseNotify() <-chan bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	cn, ok := any(w.ResponseRecorder).(http.CloseNotifier)
+	if !ok {
+		return nil
+	}
+	return cn.CloseNotify()
+}
+
+func (w *lockedResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return nil, nil, errors.New("lockedResponseWriter: hijack not supported")
+}
+
+func (w *lockedResponseWriter) Pusher() http.Pusher {
+	return nil
+}
+
+func (w *lockedResponseWriter) Size() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseRecorder.Body.Len()
+}
+
+// 以下方法在本工具链的 httptest.ResponseRecorder 上不存在（或为私有语义），
+// 按 recorder 实际状态实现，供 gin.ResponseWriter 契约完整。
+func (w *lockedResponseWriter) Status() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseRecorder.Code
+}
+
+func (w *lockedResponseWriter) Written() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseRecorder.Code != 0
+}
+
+// WriteHeaderNow 在 recorder 上无缓冲语义，no-op 即可。
+func (w *lockedResponseWriter) WriteHeaderNow() {}
+
+func (w *lockedResponseWriter) body() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ResponseRecorder.Body.String()
 }
 
 func TestParseNamespaces(t *testing.T) {
@@ -152,6 +224,9 @@ func TestWatchHandler_Loop_PingChangedDone(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	ctx, cancel := context.WithCancel(context.Background())
 	c.Request = httptest.NewRequest(http.MethodGet, "/configs/watch?namespaces=runtime", nil).WithContext(ctx)
+	// SSE 长连接：handler goroutine 写 recorder、测试轮询读 body，需串行化。
+	lw := &lockedResponseWriter{ResponseRecorder: w}
+	c.Writer = lw
 
 	done := make(chan struct{})
 	go func() {
@@ -161,7 +236,7 @@ func TestWatchHandler_Loop_PingChangedDone(t *testing.T) {
 
 	// 等几轮 tick：前几轮无变更 → ping
 	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && !strings.Contains(w.Body.String(), ": ping") {
+	for time.Now().Before(deadline) && !strings.Contains(lw.body(), ": ping") {
 		time.Sleep(5 * time.Millisecond)
 	}
 
@@ -170,11 +245,11 @@ func TestWatchHandler_Loop_PingChangedDone(t *testing.T) {
 		Namespace: "runtime", Key: "k1", Version: 2, Value: "v2", Format: "json",
 	}).Error)
 	deadline = time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && !strings.Contains(w.Body.String(), "event: changed") {
+	for time.Now().Before(deadline) && !strings.Contains(lw.body(), "event: changed") {
 		time.Sleep(5 * time.Millisecond)
 	}
-	assert.Contains(t, w.Body.String(), "event: changed", w.Body.String())
-	assert.Contains(t, w.Body.String(), `"runtime/k1":2`)
+	assert.Contains(t, lw.body(), "event: changed", lw.body())
+	assert.Contains(t, lw.body(), `"runtime/k1":2`)
 
 	cancel()
 	select {

@@ -108,24 +108,33 @@ func runServerBootR24(t *testing.T) {
 		os.Stdout = oldStdout
 		t.Fatal("runServer 未在期限内打出就绪行")
 	}
-	os.Stdout = oldStdout
 	time.Sleep(200 * time.Millisecond) // 同步打印与 signal.Notify 之间的窗口
 
-	for i := 0; i < 20; i++ {
+	// os.Stdout 必须等 runServer 返回后才换回原值：就绪行由 HTTP goroutine
+	// 打印，管道数据不构成 race detector 的 happens-before 边，就绪后立即赋值
+	// 会与该 goroutine 对全局变量的读取竞态。runServer 在 srv.Shutdown 与该
+	// goroutine 同步后才向 done 写值，取到 done 即与之有序；断言输出放到恢复
+	// 之后打印，避免失败信息被管道吞掉。
+	var shutdownErr error
+	exited := false
+	for i := 0; i < 20 && !exited; i++ {
 		require.NoError(t, syscall.Kill(os.Getpid(), syscall.SIGINT))
 		select {
-		case err := <-done:
-			require.NoError(t, err, "SIGINT 后 runServer 须走完优雅停机并返回 nil")
-			// 注意：不能 Close(w)——runServer 的 SetupLoggerWithFile 把
-			// 全局 slog handler 指向该管道 *os.File，关闭后 isTerminal
-			// 对 closed file Stat 得 nil FileInfo 再解引用即 panic
-			//（后续任意 slog.Info 都会炸）。留开 + 排空 goroutine 持续
-			// 消费即可；slog.Default 由矩阵用例统一恢复。
-			return
+		case shutdownErr = <-done:
+			exited = true
 		case <-time.After(3 * time.Second):
 		}
 	}
-	t.Fatal("runServer 未随 SIGINT 退出")
+	os.Stdout = oldStdout
+	if !exited {
+		t.Fatal("runServer 未随 SIGINT 退出")
+	}
+	require.NoError(t, shutdownErr, "SIGINT 后 runServer 须走完优雅停机并返回 nil")
+	// 注意：不能 Close(w)——runServer 的 SetupLoggerWithFile 把
+	// 全局 slog handler 指向该管道 *os.File，关闭后 isTerminal
+	// 对 closed file Stat 得 nil FileInfo 再解引用即 panic
+	//（后续任意 slog.Info 都会炸）。留开 + 排空 goroutine 持续
+	// 消费即可；slog.Default 由矩阵用例统一恢复。
 }
 
 func TestRunServer_FullBootMatrix(t *testing.T) {
