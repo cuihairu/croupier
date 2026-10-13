@@ -16,11 +16,13 @@ tag:
 - `SDK / GameServer / 第三方本地应用 <-> Agent` 使用 Agent 本地 gateway
 - 不再以历史 `gRPC` 或 `历史 REQ/REP` 文档作为新的接入依据
 
+除默认 sidecar agent 外，另有 `devops-agent`（堡垒机代理与进程监管）与 `capture-agent`（CDC 数据捕获）两类 agent，按需独立部署。
+
 ## 环境要求
 
-- Go `1.26.6`
-- Node.js `22+`
-- pnpm `10.22+`
+- Go `1.27.2`
+- Node.js `24+`
+- pnpm `11+`
 - Docker（可选）
 - `buf`
 

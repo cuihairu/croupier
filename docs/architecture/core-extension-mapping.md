@@ -37,7 +37,6 @@ internal/
   drivers/
     openapi/
     webhook/
-    grpc/
     workflow/
     internalui/
   agent/

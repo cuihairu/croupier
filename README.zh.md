@@ -81,7 +81,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 Croupier 不是 fork，是一层控制面业务系统，底层全部站在开源组件上（版本以 `go.mod` / `web/package.json` 为准）：
 
-- 服务端：Go 1.26，HTTP 用 [Gin](https://github.com/gin-gonic/gin)，ORM 用 [GORM](https://gorm.io)（MySQL / PostgreSQL / SQL Server / glebarez SQLite 四驱动），权限判定用 [Casbin](https://casbin.org)，编号迁移用 goose
+- 服务端：Go 1.27，HTTP 用 [Gin](https://github.com/gin-gonic/gin)，ORM 用 [GORM](https://gorm.io)（MySQL / PostgreSQL / SQL Server / glebarez SQLite 四驱动），权限判定用 [Casbin](https://casbin.org)，编号迁移用 goose
 - 传输：Agent↔Server、SDK↔Agent 的 TCP session 基于Go 标准库 `net` + `crypto/tls` 实现（长度前缀分帧、protobuf 信封），未引入 gRPC，取舍见 [transport-no-grpc.md](docs/architecture/transport-no-grpc.md)
 - 可观测：[OpenTelemetry](https://opentelemetry.io) Go SDK + OTLP HTTP exporter 上报
 - 控制台：基于 [Umi Max](https://umijs.org) 与 [Ant Design](https://ant.design) / ProComponents 构建，JSON Schema 表单由 [RJSF](https://rjsf.github.io/react-jsonschema-form/) 驱动，编辑器用 [Monaco](https://microsoft.github.io/monaco-editor/)
@@ -150,6 +150,7 @@ Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
 | SDKs             | `sdks/`               | 多语言 SDK（go, js, python, java, csharp, cpp） |
 | Dashboard        | `web/`                | Web 控制台（React + Ant Design）                |
 | Examples / Tools | `examples/`, `tools/` | 示例和辅助工具                                  |
+| Mobile           | `mobile/`             | Flutter 移动端（Android/iOS）                   |
 | Docs             | `docs/`               | 架构、指南、API 与 SDK 文档                     |
 
 ## 一键安装 Agent
@@ -211,8 +212,8 @@ cd croupier
 
 2. 安装工具链
 
-- Go 1.26.6+
-- Node.js 22+ / pnpm
+- Go 1.27.2+
+- Node.js 24+ / pnpm
 - `buf`
 - `protoc`
 

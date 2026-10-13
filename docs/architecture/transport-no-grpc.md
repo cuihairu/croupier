@@ -63,8 +63,7 @@ Croupier 内部 RPC(Server ↔ Agent ↔ SDK Provider)**不使用 gRPC**,采用�
   收紧业务最大帧而非换传输。
 - **流控粒度为连接级**:TCP 窗口 + 应用层 fail-fast 够用;单连接大量并发长
   任务流的场景才需要 per-stream 流控,当前不存在该形态。
-- **OTel 跨边界传播未接**:trace context 尚未 invoker → server → agent → SDK
-  全链路透传(见 sdk-otel-propagation.md,规划中)——可观测性缺口,非传输缺口。
+- **OTel 跨边界传播已落地（一期）**:trace context 经 invoker → server → agent → SDK 透传(见 sdk-otel-propagation.md)——平台侧 + Go SDK 一期已实现（含 traceparent 测试）。
 
 ### 重新评估传输层的触发条件
 

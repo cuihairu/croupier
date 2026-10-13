@@ -145,7 +145,7 @@ interface FunctionContractVersion {
 
 - **写入判据与 `UpsertContract` 的「内容无变化跳过写」完全一致**（同一 `contractSemanticallyEqual`）：心跳式重注册不产生历史；`RemoveFunctionContract` 落 `removed` 事件。
 - **保留策略（用户已定）**：每函数上限 50 条（`FunctionContractVersionRetention`），超出按最老淘汰。
-- **失败语义**：历史是衍生审计数据（与提案/模板重建同档），写失败降级为告警、不阻断注册；表存在性由启动期 `MinimumRequiredVersion=29` 保证。
+- **失败语义**：历史是衍生审计数据（与提案/模板重建同档），写失败降级为告警、不阻断注册；表存在性由启动期 `MinimumRequiredVersion=42` 保证。
 - **消费面**：函数详情页「变更历史」tab（列表/快照 Drawer/两版对比），REST 见 [函数 API §22-24](../api/function.md)。
 - 历史表不进契约 digest、不参与 stale 判定；契约行仍是唯一权威事实源。
 

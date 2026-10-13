@@ -13,9 +13,12 @@
 
 ```go
 type ApprovalsListRequest struct {
-	Page int `form:"page,optional"` // 页码
-	PageSize int `form:"pageSize,optional"` // 每页数量
+	Page int `form:"page,optional,default=1"` // 页码
+	PageSize int `form:"pageSize,optional,default=20"` // 每页数量
 	Status string `form:"status,optional"` // 状态过滤
+	Actor string `form:"actor,optional"` // 审批人过滤
+	FunctionId string `form:"functionId,optional"` // 函数过滤
+	Mine bool `form:"mine,optional"` // true 时忽略 actor，强制按当前登录用户过滤
 }
 ```
 

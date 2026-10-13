@@ -1,6 +1,6 @@
 # 运维会话（Ops Session）——Guacamole 网关形态设计
 
-- 状态：**设计稿，待用户过目后实施**（分期 todo 见 §8）
+- 状态：**设计稿，未实现**（待用户过目后实施；REST 面 12 端点在源码中尚不存在，分期 todo 见 §8）
 - 日期：2026-10-03
 - 参照实现（用户拍板「照已验证实现移植，不依赖 wingman 服务，协议/票据口径保持一致」）：
   - wingman `docs/remote-gateway-guacamole-design.md`（DG-1~DG-10 全套决策，三协议 e2e 已验证）

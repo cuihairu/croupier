@@ -30,8 +30,6 @@ type UserInfo struct {
 	Username string `json:"username"`
 	Roles []string `json:"roles"`
 	Nickname string `json:"nickname,omitempty"`
-	Email string `json:"email,omitempty"`
-	Phone string `json:"phone,omitempty"`
 }
 ```
 
@@ -135,7 +133,11 @@ type BatchCheckResponse struct {
 {
   "local": true,
   "ldap": true,
-  "oidc": false
+  "oidc": false,
+  "github": false,
+  "wechat": false,
+  "genericoauth": false,
+  "register": true
 }
 ```
 
@@ -152,3 +154,29 @@ type BatchCheckResponse struct {
 - Method: GET
 - Auth: 无
 - Response: `LoginResponse`（与密码登录一致）；配置 `loginSuccessUrl` 时改为 302 携带 `?token=xxx` 跳转前端
+
+### 自助注册与邮箱验证（均匿名）
+
+- `POST /api/v1/auth/register` — 自助注册（`auth.providers.register` 开关默认关闭）
+- `GET /api/v1/auth/verify-email` — 邮箱验证回调（令牌即凭据）
+- `POST /api/v1/auth/resend-verification` — 用户名+邮箱重发验证邮件（service 层防枚举静默）
+
+### OAuth 登录（均匿名，语义同族）
+
+| 提供方        | 发起                             | 回调                                |
+| ------------- | -------------------------------- | ----------------------------------- |
+| OIDC          | `GET /api/v1/auth/oidc/login`    | `GET /api/v1/auth/oidc/callback`    |
+| GitHub        | `GET /api/v1/auth/github/login`  | `GET /api/v1/auth/github/callback`  |
+| 微信扫码      | `GET /api/v1/auth/wechat/login`  | `GET /api/v1/auth/wechat/callback`  |
+| 自定义 OAuth2 | `GET /api/v1/auth/generic/login` | `GET /api/v1/auth/generic/callback` |
+
+### MFA（TOTP；需认证）
+
+服务端强制两步：未确认前登录返回 `403 mfa_required`。
+
+- `GET /api/v1/auth/mfa/status` — MFA 启用状态
+- `POST /api/v1/auth/mfa/setup` — 生成 TOTP secret 与 otpauth URL
+- `POST /api/v1/auth/mfa/confirm` — 首次验证码确认，激活 MFA（返回备用恢复码）
+- `POST /api/v1/auth/mfa/disable` — 关闭 MFA（需验证码）
+
+备用恢复码存 `admin_otp_recovery_codes` 表（迁移 0032）。

@@ -11,7 +11,7 @@ tag:
 
 # Agent 配置全解
 
-对应 `configs/agent.yaml`（模板见仓库；环境变量前缀 `CROUPIER_AGENT_*`，CLI 参数 `--xxx`，优先级 CLI > 环境变量 > YAML）。
+对应 `configs/agent.yaml`（模板见仓库）。本二进制**无环境变量展开层**：配置只从 YAML 读取；运行时环境变量仅有 `CROUPIER_CONFIG_DIR` / `CROUPIER_AGENTLOCAL_*` 等（见 agent-config.md 环境变量表），CLI 参数仅 `--config` 指定配置文件路径。
 
 ## 完整键位
 
@@ -20,31 +20,31 @@ tag:
 | 键                          | 默认    | 说明                                                                       |
 | --------------------------- | ------- | -------------------------------------------------------------------------- |
 | `server.addr`               | 必填    | Server transport 入口。生产指向 L4 LB（HAProxy/NLB/Service），不指具体实例 |
-| `server.insecure`           | `true`  | 明文连接（dev）；生产置 `false` 走 TLS                                     |
+| `server.insecure`           | `false` | 默认 TLS；置 `true` 才裸连（仅 dev 排障）                                  |
 | `server.serverName`         | `""`    | TLS SNI/校验名（与证书 CN 不一致时使用）                                   |
 | `server.insecureSkipVerify` | `false` | 跳过证书校验（仅排障，禁止生产开启）                                       |
 
 ### agent（身份与可达性）
 
-| 键                           | 默认            | 说明                                                                                                |
-| ---------------------------- | --------------- | --------------------------------------------------------------------------------------------------- |
-| `agent.id`                   | `""`            | 留空自动生成；多 Agent 部署建议显式指定（拓扑页可读性）                                             |
-| `agent.gameId` / `agent.env` | `""`            | 作用域绑定；留空由注册的游戏服声明                                                                  |
-| `agent.localAddr`            | `0.0.0.0:19091` | 本地 TCP 监听（游戏服函数注册入口）                                                                 |
-| `agent.httpAddr`             | 必填            | **Server→Agent 回调地址**，必须是 Server 视角可达的地址（容器网络用服务名，裸机用 IP）              |
-| `agent.labels`               | `{}`            | 自定义标签（机房/机型等，节点页过滤用）                                                             |
-| `agent.invokeTimeoutMs`      | `15000`         | Agent→游戏服同步调用默认预算（毫秒）；请求 `metadata["timeoutMs"]` 声明更小值时取更小者，上限 60000 |
+| 键                           | 默认                                  | 说明                                                                                                |
+| ---------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `agent.id`                   | `""`                                  | 留空自动生成；多 Agent 部署建议显式指定（拓扑页可读性）                                             |
+| `agent.gameId` / `agent.env` | 必填                                  | 作用域绑定；留空启动失败（单 agent 单 game+env）                                                    |
+| `agent.localAddr`            | 空→host:port 兜底，再兜底 `0.0.0.0:0` | 本地 TCP 监听（游戏服函数注册入口）                                                                 |
+| `agent.httpAddr`             | 必填                                  | **Server→Agent 回调地址**，必须是 Server 视角可达的地址（容器网络用服务名，裸机用 IP）              |
+| `agent.labels`               | `{}`                                  | 自定义标签（机房/机型等，节点页过滤用）                                                             |
+| `agent.invokeTimeoutMs`      | `15000`                               | Agent→游戏服同步调用默认预算（毫秒）；请求 `metadata["timeoutMs"]` 声明更小值时取更小者，上限 60000 |
 
 > `httpAddr` 是最常见的部署错误：写 `0.0.0.0` 或 `localhost` 会导致 Server 回调失败——job 下发/文件传输走不通。
 
 ### upstream（连接韧性）
 
-| 键                           | 默认    | 说明                                 |
-| ---------------------------- | ------- | ------------------------------------ |
-| `upstream.heartbeatInterval` | `30`    | 心跳秒数；Server 侧按 3 倍间隔判失联 |
-| `upstream.retryInterval`     | `5`     | 断连重连退避基础间隔                 |
-| `upstream.maxRetries`        | `3`     | 单轮重试次数（之后按间隔继续轮询）   |
-| `upstream.timeout`           | `10000` | 请求超时（毫秒）                     |
+| 键                           | 默认            | 说明                                                                           |
+| ---------------------------- | --------------- | ------------------------------------------------------------------------------ |
+| `upstream.heartbeatInterval` | `0`→核心默认 3s | 心跳秒数；Server 侧按 3 倍间隔判失联                                           |
+| `upstream.retryInterval`     | `5`             | **DEAD**：解析后无人读取；重连退避固定 5s→60s×1.5（core/register/register.go） |
+| `upstream.maxRetries`        | `3`             | **DEAD**：解析后无人读取（同上）                                               |
+| `upstream.timeout`           | `10000`         | 请求超时（毫秒）                                                               |
 
 ### tls（本地 `:19091` 监听的入站 TLS）
 
@@ -56,15 +56,17 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 
 ### ops（指标上报与进程监管）
 
-| 键                    | 默认   | 说明                               |
-| --------------------- | ------ | ---------------------------------- |
-| `ops.enabled`         | `true` | 系统指标采集上报                   |
-| `ops.metricsInterval` | `30s`  | 采集周期（也是托管进程的采样周期） |
-| `ops.metricsEnabled`  | `true` | 指标开关（关掉采集但保留上报通道） |
+| 键                    | 默认                                        | 说明                               |
+| --------------------- | ------------------------------------------- | ---------------------------------- |
+| `ops.enabled`         | `false`                                     | 系统指标采集上报（须显式开启）     |
+| `ops.metricsInterval` | `30s`                                       | 采集周期（也是托管进程的采样周期） |
+| `ops.metricsEnabled`  | `false`（YAML 缺省即 false，需显式置 true） | 指标开关（关掉采集但保留上报通道） |
 
 > 注：早期部署存在 `ops.metrics_interval` / `ops.metrics_enabled` snake_case 旧键，仍被兼容解析；新配置一律用上表 lowerCamelCase 键。
 
 ### ops.managedProcesses（托管进程监管，supervisor）
+
+> **sidecar 二进制不解析此块（死配置）**：本节为 agentcore 设计面，sidecar agent 的 OpsConfig 仅 3 键（enabled/metricsInterval/metricsEnabled），managedProcesses 从不解析。
 
 每个条目以逻辑名为键，声明一个 agent 托管进程。S1（只读监控）已交付：每 `ops.metricsInterval` 采样一次 RSS/CPU，超阈值在面板打标记（不自动杀进程），快照随 metrics 上报捎带。
 
@@ -98,16 +100,20 @@ ops:
 
 同一宿主多 Agent（多游戏或多环境）：复制配置差异点只有 `agent.id`、`agent.gameId/env`、`agent.localAddr`、`agent.httpAddr` 四项（`configs/agent2.yaml` 不入库，由运维复制 `configs/agent.yaml` 改上述四项生成——`docker/docker-compose.deploy.yml` 的 `agent2` 服务按该路径挂载）。上游 `server.addr` 共用同一 LB 入口。
 
-## 环境变量示例
+## 环境变量
 
-```bash
-CROUPIER_AGENT_SERVER_ADDR=haproxy.internal:19090 \
-CROUPIER_AGENT_SERVER_INSECURE=false \
-CROUPIER_AGENT_OUTBOUNDTLS_ENABLED=true \
-CROUPIER_AGENT_OUTBOUNDTLS_CAFILE=/etc/croupier/ca.pem \
-CROUPIER_AGENT_AGENT_HTTPADDR=10.0.1.5:19091 \
-croupier-agent --config /etc/croupier/agent.yaml
-```
+本二进制无「env 覆盖 YAML」层——下表为运行时环境变量（不映射配置键）：
+
+| 变量                                                               | 默认              | 说明                                                   |
+| ------------------------------------------------------------------ | ----------------- | ------------------------------------------------------ |
+| `CROUPIER_CONFIG_DIR`                                              | —                 | 配置目录（优先于 `--config` 指向）                     |
+| `CROUPIER_AGENT_LOCAL_ADDR`                                        | 空→host:port 兜底 | 本地 TCP 监听地址（覆盖 `agent.localAddr` 的兜底路径） |
+| `CROUPIER_AGENT_VERSION`                                           | —                 | 版本号覆盖（注册/上报用）                              |
+| `CROUPIER_AGENTLOCAL_PROBE_INTERVAL`                               | 5s                | provider keepalive 探针间隔                            |
+| `CROUPIER_AGENTLOCAL_PRUNE_INTERVAL`                               | 30s               | 会话清理周期                                           |
+| `CROUPIER_AGENTLOCAL_MAX_AGE`                                      | 2m                | 会话最大存活                                           |
+| `CROUPIER_AGENTLOCAL_TASKRESULT_MAX_AGE`                           | 10m               | 任务结果保留时长                                       |
+| `CROUPIER_EXTENSION_SYNC_API` / `CROUPIER_EXTENSION_SYNC_INTERVAL` | 30s               | 扩展同步地址与周期                                     |
 
 ## 验证
 

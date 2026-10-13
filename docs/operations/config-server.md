@@ -14,11 +14,9 @@ Croupier 当前使用 YAML 配置文件驱动运行时行为。本文档只描�
 
 ## 配置优先级
 
-1. YAML 文件
-2. 环境变量
-3. 命令行参数
+YAML 为底，CLI 参数与环境变量按字段覆盖（CLI > env > YAML）。
 
-当前仓库不再维护 `services/*/etc`、`includes`、`profiles` 这套旧布局，统一以 `configs/*.yaml` 为准。
+旧文件布局（`services/*/etc`、`includes`）已移除；`profiles` YAML 键仍解析生效（meta API 暴露当前 profile），统一以 `configs/*.yaml` 为准。
 
 ## Server 配置
 
@@ -52,6 +50,11 @@ log:
 ```
 
 各库 `dataSource`（DSN）示例——`croupier_meta` 为元数据库，按游戏分库时由平台自动建游戏库：
+
+| 键                      | 默认    | 说明                                                                                              |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `database.multiGame`    | `false` | 单库模式（缺省）：所有表同库，`game_id` 列行级隔离；`true` 时每个 `(game_id, env)` 分配独立物理库 |
+| `database.gameDbPrefix` | `game_` | multiGame 模式下物理库名前缀（最终名 `game_<gameID>_<env>`）                                      |
 
 ```yaml
 # SQLite（开发/测试）
@@ -93,8 +96,8 @@ server:
 
 agent:
   id: ""
-  gameId: ""
-  env: ""
+  gameId: "demo" # 必填，留空启动失败
+  env: "prod" # 必填，留空启动失败
   localAddr: "agent:19091"
   httpAddr: "agent:19091"
 
@@ -185,11 +188,23 @@ POST /api/v1/policies/reload
 ### 使用环境变量管理敏感信息
 
 ```bash
-JWT_SECRET=your-jwt-secret
-DATABASE_URL=postgres://...
-STORAGE_AK=your-access-key
-STORAGE_SK=your-secret-key
+DATABASE_URL=postgres://...              # 覆盖 database.dataSource（internal/svc/db.go）
+STORAGE_ACCESS_KEY=your-access-key       # 对象存储 AK（internal/platform/objstore/store.go）
+STORAGE_SECRET_KEY=your-secret-key       # 对象存储 SK（同上）
 ```
+
+JWT 密钥不走环境变量，用配置项 `auth.jwtSecret`（或 `auth.jwtSecretFile`）。
+
+### 密码箱（vault）
+
+| 键                                    | 默认                        | 说明                                                                            |
+| ------------------------------------- | --------------------------- | ------------------------------------------------------------------------------- |
+| `vault.enabled`                       | `false`                     | 关=密码箱不装配（ctx.Vault 为 nil）                                             |
+| `vault.provider`                      | `local`                     | 提供商注册表键：`local` \| `env`                                                |
+| `vault.sessionTtlSeconds`             | 900                         | 解锁会话空闲超时（local；滑动续期）                                             |
+| `vault.providers.local.path`          | `data/vault.json`           | 加密存储文件路径（目录 0700、文件 0600）                                        |
+| `vault.providers.local.passphraseEnv` | `CROUPIER_VAULT_PASSPHRASE` | 持主口令的环境变量名（口令不落配置文件、不落日志）                              |
+| `vault.providers.env.prefix`          | `CROUPIER_VAULT_ENV_`       | 环境变量名前缀（凭据路径 `smtp/password` → `CROUPIER_VAULT_ENV_SMTP_PASSWORD`） |
 
 ### 为本地调试保留副本
 
@@ -203,6 +218,15 @@ cp configs/agent.yaml configs/agent.local.yaml
 ```bash
 ./bin/croupier-server --config configs/server.local.yaml validate
 ```
+
+## 未覆盖配置域
+
+本页覆盖常用键。以下生效配置域未在此页展开，完整键表见 `internal/config/config.go`（Config 结构体 yaml tag 为唯一真相源）：
+
+- `auth.providers`（LDAP / OIDC / GitHub / WeChat / genericOAuth / register）、`auth.loginLockout`
+- `executionLog`、`taskLog`、`approval`、`cluster`、`registry.sdkVersionMinimums`
+- `telemetry`、`sse`、`metrics`、`cache`、`pages`、`openapi`、`featureFlags`
+- `herald`、`alertInbound`、`externalAPI`、`serverStatus`
 
 ## 下一步
 

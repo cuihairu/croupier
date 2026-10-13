@@ -43,14 +43,14 @@
 
 ### L2 Provider 扩展
 
-| 能力                                                                   | Go              | Python                | Java            | JS/TS               | C++                                       | C#                       |
-| ---------------------------------------------------------------------- | --------------- | --------------------- | --------------- | ------------------- | ----------------------------------------- | ------------------------ |
-| Descriptor v2 字段（builder/构造器）                                   | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅                       |
-| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法 | ✅ `set_field_hint()` | ✅ `FieldHints` | ✅ `setFieldHint()` | ✅ `field_hints.h`                        | ✅ `FieldHints`          |
-| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅                       |
-| JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅ `JsonSchemaValidator` |
-| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅                       |
-| 文件下发接收（`enableFileTransfer`，暂存区落盘，hotpatch P1 传输层）   | ✅              | ✅                    | ❌              | ✅                  | ⚠️ 实现暂缓（与并行编辑冲突，stash 保留） | ❌                       |
+| 能力                                                                   | Go              | Python                | Java            | JS/TS               | C++                | C#                       |
+| ---------------------------------------------------------------------- | --------------- | --------------------- | --------------- | ------------------- | ------------------ | ------------------------ |
+| Descriptor v2 字段（builder/构造器）                                   | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法 | ✅ `set_field_hint()` | ✅ `FieldHints` | ✅ `setFieldHint()` | ✅ `field_hints.h` | ✅ `FieldHints`          |
+| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅ `JsonSchemaValidator` |
+| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| 文件下发接收（`enableFileTransfer`，暂存区落盘，hotpatch P1 传输层）   | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
 
 ### L3 Invoker（invoke / startTask / getTaskStatus / streamTask / cancelTask）
 
@@ -71,7 +71,7 @@ C# DI / Unity / Java Spring Boot starter），明细见下文第五章；此层�
 2. **文件下发接收（L2）**：Go/Python/JS 已实现（`MsgProviderFilePushRequest
 0x050109`，protobuf 兼容 wire 手写编解码；校验链：开关/大小/ basename/
    sha256/ 暂存区原子落盘，**不自动应用**——应用由 hotpatch runner 单独
-   编排）；Java/C++/C# 待对齐。
+   编排）；C# 待对齐（Java/C++ 已实现：开关/大小/basename/sha256/暂存区原子落盘）。
 
 ---
 

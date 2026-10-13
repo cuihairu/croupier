@@ -23,9 +23,9 @@ tag:
 
 | 组件     | 最低版本            | 推荐版本    |
 | -------- | ------------------- | ----------- |
-| Go       | 1.26                | 1.26+       |
-| Node.js  | 22                  | 22+         |
-| pnpm     | 10                  | 10.22+      |
+| Go       | 1.27.2              | 1.27.2+     |
+| Node.js  | 24                  | 24+         |
+| pnpm     | 11                  | 11+         |
 | buf      | -                   | latest      |
 | 操作系统 | Linux/macOS/Windows | Linux/macOS |
 
@@ -55,8 +55,8 @@ go version
 
 ```bash
 # 下载并安装
-wget https://go.dev/dl/go1.26.6.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.26.6.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.27.2.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.27.2.linux-amd64.tar.gz
 
 # 配置 PATH
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
@@ -102,9 +102,6 @@ buf --version
 # 克隆主仓库
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
-
-# 初始化子模块
-git submodule update --init --recursive
 ```
 
 ## 生产环境安装
@@ -152,9 +149,8 @@ docker run -d \
 # 克隆仓库
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
-git submodule update --init --recursive
 
-# 构建二进制（server + agent）
+# 构建二进制（server / agent / devops-agent / capture-agent / worker / ingest / tools）
 make build
 
 # 二进制文件位于 bin/ 目录
@@ -178,13 +174,13 @@ go get github.com/cuihairu/croupier/sdks/go@latest
 # 从本仓库源码构建（vcpkg 依赖清单见 sdks/cpp/vcpkg.json）
 cd sdks/cpp
 cmake --preset linux-x64-release-vcpkg
-cmake --build --preset linux-x64-release
+cmake --build --preset linux-x64-debug
 ```
 
 ### Java SDK
 
 ```bash
-# 从本仓库源码构建（产物发布规划中，暂未上 Maven Central）
+# 从本仓库源码构建（发布管线已配置 OSSRH staging，经 release workflow 发布）
 cd sdks/java && ./gradlew publishToMavenLocal
 ```
 
@@ -258,8 +254,8 @@ outboundTLS:
 # Server 健康检查
 curl http://localhost:18780/healthz
 
-# 预期输出
-{"status":"ok"}
+# 预期输出（ok / timestamp / uptimeSeconds / components）
+{"ok":true,"timestamp":"2026-10-13T00:00:00Z","uptimeSeconds":3600,"components":{"database":"ok","registry":"ok","ops":"ok"}}
 ```
 
 ### 功能测试
@@ -279,25 +275,13 @@ make test-integration
 <details>
 <summary>Go 版本不兼容</summary>
 
-确保 Go 版本为 1.26 或更高：
+确保 Go 版本为 1.27.2 或更高：
 
 ```bash
 go version
 ```
 
 如果不满足，请升级 Go 版本。
-
-</details>
-
-<details>
-<summary>子模块为空</summary>
-
-重新初始化子模块：
-
-```bash
-git submodule deinit --all
-git submodule update --init --recursive
-```
 
 </details>
 

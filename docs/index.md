@@ -179,7 +179,7 @@ make build
 # 检查 Server 健康状态
 curl http://localhost:18780/healthz
 
-# 查看 API 文档
+# 查看 API 元信息（版本/能力声明）
 curl http://localhost:18780/api/v1/
 ```
 
@@ -200,7 +200,7 @@ curl http://localhost:18780/api/v1/
 
 ## 技术栈
 
-- 后端：Go 1.26，HTTP 框架 Gin，ORM 为 GORM（MySQL / PostgreSQL / SQLite / SQL Server）
+- 后端：Go 1.27，HTTP 框架 Gin，ORM 为 GORM（MySQL / PostgreSQL / SQLite / SQL Server）
 - 权限判定：Casbin（RBAC/ABAC）
 - 内部链路：自建 TCP session，长度前缀分帧 + protobuf 信封
 - 控制台：Umi Max + React + Ant Design Pro / ProComponents

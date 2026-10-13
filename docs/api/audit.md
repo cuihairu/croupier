@@ -5,7 +5,7 @@
 1. route definition
 
 - Url: /api/v1/audit
-- Method: GET
+- Method: GET / POST
 - Request: `AuditRequest`
 - Response: `AuditResponse`
 
@@ -15,8 +15,17 @@
 type AuditRequest struct {
 	Page int `form:"page,optional"` // 页码
 	PageSize int `form:"pageSize,optional"` // 每页数量
+	Size int `form:"size,optional"` // 每页数量（pageSize 别名）
 	Action string `form:"action,optional"` // 操作类型过滤
 	UserID string `form:"userId,optional"` // 用户ID过滤
+	Actor string `form:"actor,optional"` // 操作者过滤
+	Kind string `form:"kind,optional"` // 事件类型过滤
+	Kinds string `form:"kinds,optional"` // 事件类型过滤（逗号分隔多值）
+	GameID string `form:"gameId,optional"` // 游戏维度过滤
+	Env string `form:"env,optional"` // 环境维度过滤
+	IP string `form:"ip,optional"` // 来源 IP 过滤
+	Start string `form:"start,optional"` // 起始时间
+	End string `form:"end,optional"` // 截止时间
 }
 ```
 

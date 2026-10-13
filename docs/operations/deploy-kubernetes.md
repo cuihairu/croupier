@@ -141,15 +141,31 @@ Ingress 注意：SSE（任务事件流、配置 watch）需要关闭代理缓冲
 
 ## Agent（游戏网络侧）
 
-Agent 与游戏服同网络部署（Deployment 或 DaemonSet 按需），`server.addr` 指向 Service DNS：
+Agent 与游戏服同网络部署（Deployment 或 DaemonSet 按需），配置走 ConfigMap + `--config`（本二进制无 env 展开层，`CROUPIER_AGENT_*` 形式的 env 覆盖不存在）：
 
 ```yaml
-env:
-  - name: CROUPIER_AGENT_SERVER_ADDR
-    value: "croupier-server.namespace.svc:19090"
-  - name: CROUPIER_AGENT_AGENT_HTTPADDR
-    value: "$(POD_IP):19091" # 对 Server 可达的回调地址
+command: ["agent", "--config", "/etc/croupier/agent.yaml"]
+volumeMounts:
+  - name: config
+    mountPath: /etc/croupier
+volumes:
+  - name: config
+    configMap:
+      name: croupier-agent
 ```
+
+ConfigMap 内容（`server.addr` 指向 Service DNS，`agent.httpAddr` 用对 Server 可达的地址）：
+
+```yaml
+server:
+  addr: "croupier-server.namespace.svc:19090"
+agent:
+  gameId: "demo" # 必填
+  env: "prod" # 必填
+  httpAddr: "croupier-agent.namespace.svc:19091"
+```
+
+每 Pod 独立回调地址时（需注入 `POD_IP`），改用 StatefulSet 固定 pod DNS 名或把该地址写入 ConfigMap；本二进制不支持在 YAML 值内展开环境变量。
 
 跨集群/游戏 IDC 场景：Service 换成 LoadBalancer 或经专线/VPN 暴露的入口，其余不变。
 

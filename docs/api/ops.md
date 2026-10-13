@@ -86,7 +86,25 @@ type OpsExecCommandResult struct {
 }
 ```
 
-### 4. "获取 Agent 进程列表"
+### 4. "获取 Agent 进程监管状态"
+
+- Url: /api/v1/ops/agents/:agentId/supervisor
+- Method: GET
+- Response: 托管进程快照（RSS/CPU、autoRestart 状态、标记）
+
+### 4a. "获取 Agent 监管事件流"
+
+- Url: /api/v1/ops/agents/:agentId/supervisor/events
+- Method: GET
+- Response: 监管事件列表（拉起/熔断/退出）
+
+### 4b. "获取 Agent 监管日志"
+
+- Url: /api/v1/ops/agents/:agentId/supervisor/logs
+- Method: GET
+- Response: 监管日志
+
+### 4c. "获取 Agent 进程列表"
 
 1. route definition
 
@@ -1136,3 +1154,54 @@ type probeView struct {
 
 LB 监控依赖 `ops.prometheusUrl`（env `CROUPIER_LB_PROMETHEUS_URL`），
 详见 [负载均衡监控](../operations/load-balancing.md)。
+
+## capture 闸规则端点
+
+capture-agent 闸规则（reconcile / cep / lineage 三闸 + eventOps）的发布、校验、回滚与版本历史。规则存 `config_versions`（键 `capture.gates`），agent 经 wire 拉取热生效。scope 由 `X-Game-ID` / `X-Env` 请求头决定。
+
+| 方法 | 路径                                 | 说明                                                        |
+| ---- | ------------------------------------ | ----------------------------------------------------------- |
+| GET  | `/api/v1/ops/capture/gates`          | 当前 scope 已发布的最新闸规则（version=0 表示未发布过）     |
+| PUT  | `/api/v1/ops/capture/gates`          | 发布闸规则新版本（整份内容 + baseVersion 乐观锁，冲突 409） |
+| POST | `/api/v1/ops/capture/gates/validate` | dry-run 校验（不落库，与 agent apply 同一校验真值）         |
+| POST | `/api/v1/ops/capture/gates/rollback` | 以历史版本内容再发一版（回滚也是一次新发布）                |
+| GET  | `/api/v1/ops/capture/gates/versions` | 版本历史（不含内容；内容只在 latest GET 回显）              |
+
+**GET 响应**
+
+```json
+{
+  "key": "capture.gates",
+  "version": 3,
+  "content": "{\"reconcile\":[{\"table\":\"...\",\"mode\":\"warn\"}]}",
+  "namespace": "ops",
+  "updatedAt": "2026-10-13T10:00:00Z",
+  "createdBy": "admin"
+}
+```
+
+**PUT 请求**（content 为 JSON 字符串非对象；baseVersion 为编辑面加载时的最新版本）
+
+```json
+{
+  "content": "{\"reconcile\":[{\"table\":\"...\",\"mode\":\"warn\"}]}",
+  "message": "收紧 wallet 闸阈值",
+  "baseVersion": 3
+}
+```
+
+**POST validate 响应**（失败走 422，错误文本即 agent apply 会报的同一句）
+
+```json
+{
+  "valid": true,
+  "reconcile": 2,
+  "cepOffHours": 1,
+  "cepBurst": 1,
+  "cepProbing": 0,
+  "lineage": 1,
+  "eventOps": 0
+}
+```
+
+设计依据：[capture-agent-design](../design/capture-agent-design.md) §6/§8.5。
