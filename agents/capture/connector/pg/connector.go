@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -270,6 +271,34 @@ func (c *PostgresConnector) Poll(ctx context.Context, req connector.PollRequest)
 	return out, nil
 }
 
+// publicationPrematureHint 识别「槽位重启点早于发布创建」的流中报错并给处置
+// 提示。pgoutput 的 change 回调按**槽位起点的历史目录快照**解析发布归属：槽
+// 位起点（confirmed_flush/restart_lsn）停在发布创建之前的 WAL 上时，
+// START_REPLICATION 仍能成功（启动校验只读当前目录），但解码到该处变更立即
+// 报 publication "X" does not exist，且每次重连都重读同一旧位点 = 永久重连
+// 死循环。识别面：message 形如 publication "name" does not exist。命中返回
+// 处置提示（推进槽位越过该处 / 重建槽位）。
+func publicationPrematureHint(message string) (string, bool) {
+	const marker = "publication \""
+	if !strings.HasPrefix(message, marker) {
+		return "", false
+	}
+	rest := message[len(marker):]
+	if !strings.HasSuffix(rest, `" does not exist`) {
+		return "", false
+	}
+	name := rest[:len(rest)-len(`" does not exist`)]
+	if name == "" || strings.ContainsAny(name, "\n\r\t\"") {
+		return "", false
+	}
+	return fmt.Sprintf(
+		"slot restart position predates publication %q creation; "+
+			"decode cannot see it in the historic catalog snapshot. "+
+			"Remediate once: SELECT pg_replication_slot_advance('<slot>', pg_current_wal_lsn()) "+
+			"or drop and recreate the slot (position advances past the stale change, then the stream resumes)",
+		name), true
+}
+
 // ensureReplConn 复制连接（幂等）：Open 解析的配置克隆 + replication=database
 // 启动参数（逻辑复制必须挂库；replication=true 是物理复制语义，不适用）。
 func (c *PostgresConnector) ensureReplConn() (*pgconn.PgConn, error) {
@@ -385,7 +414,13 @@ func (c *PostgresConnector) pump(ctx context.Context, repl *pgconn.PgConn, out c
 			return
 		}
 		if errMsg, ok := rawMsg.(*pgproto3.ErrorResponse); ok {
-			c.log.Error("postgres poll: server error response", "severity", errMsg.Severity, "message", errMsg.Message)
+			args := []any{"severity", errMsg.Severity, "message", errMsg.Message}
+			if hint, ok := publicationPrematureHint(errMsg.Message); ok {
+				// 流建立后才到的 ErrorResponse 是 change 回调里的历史快照
+				// 解码失败，与启动校验是两条路；给运维一条可执行的处置提示。
+				args = append(args, "hint", hint)
+			}
+			c.log.Error("postgres poll: server error response", args...)
 			return
 		}
 		msg, ok := rawMsg.(*pgproto3.CopyData)

@@ -132,3 +132,31 @@ func TestPostgresSnapshotErrUnsupported(t *testing.T) {
 		t.Fatal("error message empty")
 	}
 }
+
+// 「槽位早于发布」流中报错的识别与处置提示（E2E 实测踩中的死循环形态：
+// START_REPLICATION 成功但 change 回调的历史快照看不到后建的发布，每次重连
+// 都重读同一旧位点）。
+func TestPublicationPrematureHint(t *testing.T) {
+	hint, ok := publicationPrematureHint(`publication "cap_e2e_pub" does not exist`)
+	if !ok {
+		t.Fatal("premature publication error not recognized")
+	}
+	if !strings.Contains(hint, "cap_e2e_pub") || !strings.Contains(hint, "pg_replication_slot_advance") {
+		t.Fatalf("hint = %q, want publication name and remediation", hint)
+	}
+
+	for _, bad := range []string{
+		"",
+		"publication cap_e2e_pub does not exist", // 无引号：不是本识别面
+		`publication "" does not exist`,          // 空名
+		`publication "a
+b" does not exist`, // 换行注入面
+		"replication slot \"cap_e2e_slot\" is active", // 其他错误不误报
+		`publication "cap_e2e_pub" is already exists`,
+		"unknown failure",
+	} {
+		if _, ok := publicationPrematureHint(bad); ok {
+			t.Fatalf("hint accepted %q, want no match", bad)
+		}
+	}
+}
