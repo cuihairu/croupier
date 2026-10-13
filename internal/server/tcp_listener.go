@@ -58,6 +58,14 @@ type TCPListener struct {
 	closing chan struct{}
 	once    sync.Once
 
+	// serveStarted/serveExited bracket the accept loop: Close drains the
+	// loop before waiting on wg so the WaitGroup contract (the first
+	// positive delta must happen-before Wait) holds structurally.
+	serveStarted   chan struct{}
+	serveExited    chan struct{}
+	serveStartOnce sync.Once
+	serveExitOnce  sync.Once
+
 	logger *slog.Logger
 }
 
@@ -102,6 +110,8 @@ func NewTCPListener(config *TCPListenerConfig, sessionStore *AgentSessionStore, 
 		sessionStore: sessionStore,
 		registry:     registry,
 		closing:      make(chan struct{}),
+		serveStarted: make(chan struct{}),
+		serveExited:  make(chan struct{}),
 		logger:       logger,
 	}, nil
 }
@@ -113,6 +123,9 @@ func (l *TCPListener) SetHandler(h *ControlService) {
 
 // Serve accepts connections until ctx is done or the listener is closed.
 func (l *TCPListener) Serve(ctx context.Context) error {
+	l.serveStartOnce.Do(func() { close(l.serveStarted) })
+	defer l.serveExitOnce.Do(func() { close(l.serveExited) })
+
 	for {
 		if tcpln, ok := l.listener.(*net.TCPListener); ok {
 			_ = tcpln.SetDeadline(time.Now().Add(time.Second))
@@ -231,11 +244,23 @@ func (l *TCPListener) SessionStore() *AgentSessionStore {
 }
 
 // Close stops accepting new connections and waits for active ones to finish.
+//
+// Ordering contract: the accept loop is drained first (its exit implies every
+// wg.Add already happened), and only then does Close wait on the WaitGroup.
+// Waiting concurrently with a first wg.Add (counter at zero) violates the
+// WaitGroup contract and is reported by the race detector via the
+// sync.WaitGroup annotations.
 func (l *TCPListener) Close() error {
 	var closeErr error
 	l.once.Do(func() {
 		close(l.closing)
 		closeErr = l.listener.Close()
+		select {
+		case <-l.serveStarted:
+			<-l.serveExited
+		default:
+			// Serve was never started: no connection goroutines exist.
+		}
 		l.wg.Wait()
 	})
 	return closeErr

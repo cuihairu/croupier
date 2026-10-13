@@ -425,6 +425,42 @@ func TestTCPListener_Integration(t *testing.T) {
 	})
 }
 
+// TestTCPListener_CloseWaitsForServeLoop pins the shutdown ordering that makes
+// the in-flight-connection WaitGroup legal: Close must drain the accept loop
+// (so no further wg.Add can race wg.Wait) before waiting for active
+// connections. With the ordering in place, Close returning guarantees Serve
+// has already returned, so the result channel must be readable immediately.
+func TestTCPListener_CloseWaitsForServeLoop(t *testing.T) {
+	config := &TCPListenerConfig{
+		Address:  ":0",
+		Insecure: true,
+	}
+
+	listener, err := NewTCPListener(config, nil, nil, nil)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- listener.Serve(ctx)
+	}()
+
+	// Give the server time to enter the accept loop.
+	time.Sleep(50 * time.Millisecond)
+
+	require.NoError(t, listener.Close())
+
+	select {
+	case <-errCh:
+		// Close returned only after Serve exited: required for the
+		// WaitGroup happens-before contract.
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close returned before Serve exited")
+	}
+}
+
 // --- Tests for agentSessionHandler ---
 
 func TestAgentSessionHandler_Handle(t *testing.T) {
