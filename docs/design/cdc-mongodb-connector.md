@@ -69,7 +69,7 @@ title: MongoDB Connector 立项简档——内置源收口最后一项（待批�
 
 ## 7. 依赖与门禁
 
-- 新增 `go.mongodb.org/mongo-driver`（v2 线）→ **go.mod/go.sum 变更，按仓库规则跑全套测试门禁**（不止受影响包）。
+- `go.mongodb.org/mongo-driver/v2` **已在依赖图**（go.mod indirect，v2.5.0）→ 落地时仅需 indirect→direct 提升（版本零新解析）；go.mod 仍属依赖清单变更，按仓库规则跑全套测试门禁（不止受影响包）。
 - 契约层单测零外部依赖（事件映射 / 能力声明 / 位点序列化）；活栈测试打 `integration` 标签。
 
 ## 8. 分期
