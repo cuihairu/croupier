@@ -1,10 +1,10 @@
 <p align="center">
-
-> **English** | [中文](README.zh.md)
   <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
 </p>
 
 <h1 align="center">Croupier</h1>
+
+<p align="center"><a href="README.md">English</a> | <a href="README.zh.md">中文</a></p>
 
 <p align="center">
   <img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/>
@@ -12,8 +12,6 @@
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
   <img src="https://img.shields.io/badge/go-1.27.2+-green.svg" alt="Go Version"/>
 </p>
-
-[English](README.md) | [中文](README.zh.md)
 
 Croupier is a Server / Agent / SDK platform for game operations and control, intended by default for multiple games and multiple environments within a single game company. The architecture has converged on a unified session transport:
 
