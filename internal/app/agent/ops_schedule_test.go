@@ -143,7 +143,9 @@ func TestScheduledRestartAndMinuteSlotDedup(t *testing.T) {
 	// boot 计一次 restart。
 	require.Equal(t, int32(1), s.SampleSupervisedProcesses()[0].GetRestartCount())
 
-	now := time.Now()
+	// 钉到分钟初+10s：+30s 必须落在同一分钟槽内（now 落在后半分钟时
+	// +30s 会截断进下一槽，合法地再触发一次，断言 2 变 3）。
+	now := time.Now().Truncate(time.Minute).Add(10 * time.Second)
 	s.scheduleTick(now)
 	assert.Equal(t, int32(2), s.SampleSupervisedProcesses()[0].GetRestartCount(), "matching slot fires once")
 
