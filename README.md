@@ -1,4 +1,6 @@
 <p align="center">
+
+> **English** | [中文](README.zh.md)
   <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
 </p>
 

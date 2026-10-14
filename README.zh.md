@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
+
+> [English](README.md) | **中文**
+>   <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
+
 </p>
 
 <h1 align="center">Croupier</h1>
