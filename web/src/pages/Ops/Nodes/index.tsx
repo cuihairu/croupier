@@ -10,6 +10,7 @@ import { normalizeOpsNode, type NodeRow } from './shared';
 import NodeDetailDrawer from './NodeDetailDrawer';
 import CronJobsDrawer from './CronJobsDrawer';
 import SupervisorDrawer from './SupervisorDrawer';
+import ProbeSummarySection from './ProbeSummarySection';
 
 export default function OpsNodesPage() {
   const { message, modal } = App.useApp();
@@ -395,6 +396,8 @@ export default function OpsNodesPage() {
             }}
           />
         </StandardListSection>
+
+        <ProbeSummarySection />
       </Space>
 
       <NodeDetailDrawer

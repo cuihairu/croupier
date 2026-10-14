@@ -1205,3 +1205,67 @@ capture-agent 闸规则（reconcile / cep / lineage 三闸 + eventOps）的发�
 ```
 
 设计依据：[capture-agent-design](../design/capture-agent-design.md) §6/§8.5。
+
+## probe 端点
+
+agent / server 探针面（R2 装配面 + R3 消费面）的采样策略下发、手动诊断与在线汇总。策略存 `config_versions`（键 `probe.policy`），agent 经 wire（`MsgProbePolicyRequest=0x04011F`）按会话 scope 拉取后热生效；汇总面 scope 由 `X-Game-ID` / `X-Env` 请求头决定。
+
+| 方法 | 路径                            | 说明                                                         |
+| ---- | ------------------------------- | ------------------------------------------------------------ |
+| GET  | `/api/v1/ops/probe/policy`      | 当前 scope 已发布的采样策略（version=0 表示未发布过）        |
+| PUT  | `/api/v1/ops/probe/policy`      | 发布策略新版本（整份内容 + baseVersion 乐观锁，冲突 409）    |
+| POST | `/api/v1/ops/probe/policy/validate` | dry-run 校验（不落库，与 agent apply 同一校验真值）        |
+| POST | `/api/v1/ops/probe/policy/rollback` | 以历史版本内容再发一版（回滚也是一次新发布）               |
+| GET  | `/api/v1/ops/probe/policy/versions` | 版本历史（不含内容）                                      |
+| POST | `/api/v1/ops/probe/diagnose`    | server 本机探针手动诊断（对已配置目标即时探一次）            |
+| GET  | `/api/v1/ops/probe/summary`     | 探针在线汇总（状态矩阵，两视角并存）                         |
+
+**GET probe/policy 响应**
+
+```json
+{
+  "key": "probe.policy",
+  "version": 2,
+  "content": "{\"interval\":\"30s\",\"targets\":[{\"target\":\"redis\",\"interval\":\"10s\"}]}",
+  "namespace": "ops",
+  "updatedAt": "2026-10-14T10:00:00Z",
+  "createdBy": "admin"
+}
+```
+
+**GET probe/summary 响应**
+
+一行 = 目标 × 执行位置；**只呈现事实，不出单一合成分**（探测是两态事实，不是渐变分数）。agent 视角取最近一份 `MetricsReport` 的 `probe_stats` 快照，server 视角（`agentId=server`）取 server 本机探针面当前状态——读侧不探测，不注入新事实。`onlineDataIntegrated=false` 表示 SDK metric 上报入口未接入（在线趋势列呈「未接入在线数据」灰态，不做推导）。
+
+```json
+{
+  "onlineDataIntegrated": false,
+  "rows": [
+    {
+      "agentId": "agent-a",
+      "target": "redis",
+      "semantics": "readiness",
+      "gameId": "demo",
+      "env": "prod",
+      "available": false,
+      "windowOpen": true,
+      "windowDurationMs": 4200,
+      "checked": 10,
+      "failed": 2,
+      "successRate": 0.8,
+      "lastReason": "dial tcp: i/o timeout",
+      "lastReportAt": "2026-10-14T12:00:00Z"
+    }
+  ]
+}
+```
+
+**POST probe/diagnose 请求**（探测面未配置或目标未配置 404，空 target 422）
+
+```json
+{
+  "target": "platform-api"
+}
+```
+
+设计依据：[agent-health-recovery-review](../design/agent-health-recovery-review.md) §4.2/§4.3/§13.2/§13.3。

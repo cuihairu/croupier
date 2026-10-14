@@ -24,6 +24,10 @@ jest.mock('@/services/api/ops', () => ({
 jest.mock('@/services/api/registry', () => ({
   fetchRegistry: jest.fn(),
 }));
+// 探针汇总卡同页装配：mock 掉数据源，页面不因真实请求降级成行内错误条。
+jest.mock('@/services/api/opsProbe', () => ({
+  getOpsProbeSummary: jest.fn(),
+}));
 jest.mock('@umijs/max', () => ({
   FormattedMessage: ({ defaultMessage }: { id: string; defaultMessage?: string }) => (
     <>{defaultMessage ?? ''}</>
@@ -42,6 +46,9 @@ jest.mock('@umijs/max', () => ({
 
 const { listOpsNodes } = jest.requireMock('@/services/api/ops') as {
   listOpsNodes: jest.Mock;
+};
+const { getOpsProbeSummary } = jest.requireMock('@/services/api/opsProbe') as {
+  getOpsProbeSummary: jest.Mock;
 };
 
 // 由用例改写以模拟不同入口 URL
@@ -78,6 +85,26 @@ beforeEach(() => {
   mockLocationSearch = '';
   act(() => {
     listOpsNodes.mockResolvedValue({ nodes: NODES });
+    getOpsProbeSummary.mockResolvedValue({
+      onlineDataIntegrated: false,
+      rows: [
+        {
+          agentId: 'agent-probe-1',
+          target: 'mysql',
+          semantics: 'liveness',
+          gameId: 'demo',
+          env: 'dev',
+          available: false,
+          windowOpen: true,
+          windowDurationMs: 1500,
+          checked: 4,
+          failed: 1,
+          successRate: 0.75,
+          lastReason: 'dial tcp: connection refused',
+          lastReportAt: '2026-10-14T12:00:00Z',
+        },
+      ],
+    });
   });
 });
 
@@ -102,5 +129,13 @@ describe('Ops/Nodes 节点维护页（#27④ 深链）', () => {
     // 深链只是预填，用户仍可手动改关键字恢复全量视图
     fireEvent.change(input, { target: { value: '' } });
     await screen.findByText('agent-7');
+  });
+
+  it('页面内装配探针汇总卡（状态矩阵挂节点维护页）', async () => {
+    renderPage();
+    expect(await screen.findByText('探针汇总')).toBeInTheDocument();
+    expect(await screen.findByText('mysql')).toBeInTheDocument();
+    expect(screen.getByText('dial tcp: connection refused')).toBeInTheDocument();
+    expect(screen.getByText('不可用')).toBeInTheDocument();
   });
 });
