@@ -406,6 +406,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleProbeEvent(ctx, data)
 	case protocol.MsgCaptureConfigRequest:
 		return s.handleCaptureConfig(ctx, data)
+	case protocol.MsgProbePolicyRequest:
+		return s.handleProbePolicyConfig(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -613,6 +615,70 @@ func (s *ControlService) handleCaptureConfig(ctx context.Context, data []byte) (
 	return proto.Marshal(&opsv1.CaptureGatesConfigResponse{
 		Version:   strconv.Itoa(rec.Version),
 		GatesJson: rec.Value,
+	})
+}
+
+// probePolicyConfigKey config_versions 里的探测采样策略键（namespace=ops；
+// 面板与 agent 两侧同键，评审简档 §13.3 C）。策略对 server 不透明面有限：
+// 发布预检与 agent apply 共用 core/healthprobe.ParseProbePolicy 校验。
+const probePolicyConfigKey = "probe.policy"
+
+// handleProbePolicyConfig 响应 agent 的采样策略下行拉取（capture gates 同款
+// 通道语义）：从注册会话取 scope，读 config_versions 最新版本回给 agent。
+// 无记录/读失败/分库解析失败统一回空版本（agent 语义 = 保持现状，降级为
+// 最后已知策略/本地配置间隔）——拉取是周期轮询，单轮读异常不应放大为通道
+// 错误打断节奏。
+func (s *ControlService) handleProbePolicyConfig(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.ProbePolicyConfigRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal ProbePolicyConfigRequest: %w", err)
+	}
+
+	s.mu.RLock()
+	configModel := s.configModel
+	gameDBs := s.gameDBs
+	s.mu.RUnlock()
+	if configModel == nil {
+		return nil, fmt.Errorf("config model not configured")
+	}
+
+	agentID := strings.TrimSpace(req.GetAgentId())
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	s.registry.Mu().RLock()
+	sess := s.registry.AgentsUnsafe()[agentID]
+	s.registry.Mu().RUnlock()
+	if sess == nil {
+		return nil, fmt.Errorf("agent session not found: %s", agentID)
+	}
+	gameID, env := strings.TrimSpace(sess.GameID), strings.TrimSpace(sess.Env)
+	if gameID == "" {
+		return nil, fmt.Errorf("agent %s missing game scope", agentID)
+	}
+
+	dbCtx := ctx
+	if gameDBs != nil {
+		resolved, _, err := gameDBs.Resolve(ctx, gameID, env)
+		if err != nil {
+			s.logger.Warn("probe policy: resolve game db failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+			return proto.Marshal(&opsv1.ProbePolicyConfigResponse{})
+		}
+		dbCtx = resolved
+	}
+
+	rec, err := configModel.FindLatestByScope(dbCtx, probePolicyConfigKey, gameID, env)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("probe policy: read config_versions failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+		}
+		return proto.Marshal(&opsv1.ProbePolicyConfigResponse{})
+	}
+	return proto.Marshal(&opsv1.ProbePolicyConfigResponse{
+		Version:    strconv.Itoa(rec.Version),
+		PolicyJson: rec.Value,
 	})
 }
 

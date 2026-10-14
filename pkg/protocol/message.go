@@ -97,6 +97,10 @@ const (
 	// 事件同通道演进。流事件取偶数号（同 MsgMetricEvent 0x040108 先例），
 	// 0x04011D 留空防奇偶语义混淆。
 	MsgAlertEvent = 0x04011E
+	// Probe sampling policy pull (agent 拉 server 发布的 game/env 级采样策略，
+	// configsync 下拉热更，评审简档 §13.3 C)
+	MsgProbePolicyRequest  = 0x04011F
+	MsgProbePolicyResponse = 0x040120
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -317,6 +321,10 @@ func MsgIDString(msgID uint32) string {
 		return "CaptureConfigRequest"
 	case MsgCaptureConfigResponse:
 		return "CaptureConfigResponse"
+	case MsgProbePolicyRequest:
+		return "ProbePolicyRequest"
+	case MsgProbePolicyResponse:
+		return "ProbePolicyResponse"
 	case MsgAlertEvent:
 		return "AlertEvent"
 	default:

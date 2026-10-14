@@ -448,6 +448,65 @@ struct ProbeStatsDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProbeStatsDefaultTypeInternal _ProbeStats_default_instance_;
+
+inline constexpr ProbePolicyConfigResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        version_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        policy_json_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()) {}
+
+template <typename>
+constexpr ProbePolicyConfigResponse::ProbePolicyConfigResponse(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(ProbePolicyConfigResponse_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct ProbePolicyConfigResponseDefaultTypeInternal {
+  constexpr ProbePolicyConfigResponseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ProbePolicyConfigResponseDefaultTypeInternal() {}
+  union {
+    ProbePolicyConfigResponse _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProbePolicyConfigResponseDefaultTypeInternal _ProbePolicyConfigResponse_default_instance_;
+
+inline constexpr ProbePolicyConfigRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        agent_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()) {}
+
+template <typename>
+constexpr ProbePolicyConfigRequest::ProbePolicyConfigRequest(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(ProbePolicyConfigRequest_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct ProbePolicyConfigRequestDefaultTypeInternal {
+  constexpr ProbePolicyConfigRequestDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ProbePolicyConfigRequestDefaultTypeInternal() {}
+  union {
+    ProbePolicyConfigRequest _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProbePolicyConfigRequestDefaultTypeInternal _ProbePolicyConfigRequest_default_instance_;
 template <typename>
 constexpr ProbeDetail_DetailsEntry_DoNotUse::ProbeDetail_DetailsEntry_DoNotUse(::_pbi::ConstantInitialized)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
@@ -1988,6 +2047,18 @@ const ::uint32_t
         0,
         1,
         0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbePolicyConfigRequest, _impl_._has_bits_),
+        4, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbePolicyConfigRequest, _impl_.agent_id_),
+        0,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbePolicyConfigResponse, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbePolicyConfigResponse, _impl_.version_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbePolicyConfigResponse, _impl_.policy_json_),
+        0,
+        1,
+        0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::AlertEvent, _impl_._has_bits_),
         9, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::AlertEvent, _impl_.kind_),
@@ -2113,11 +2184,13 @@ static const ::_pbi::MigrationSchema
         {430, sizeof(::croupier::ops::v1::CaptureRuleHitAck)},
         {437, sizeof(::croupier::ops::v1::CaptureGatesConfigRequest)},
         {442, sizeof(::croupier::ops::v1::CaptureGatesConfigResponse)},
-        {449, sizeof(::croupier::ops::v1::AlertEvent)},
-        {464, sizeof(::croupier::ops::v1::ProbeWindow)},
-        {481, sizeof(::croupier::ops::v1::ProbeDetail_DetailsEntry_DoNotUse)},
-        {488, sizeof(::croupier::ops::v1::ProbeDetail)},
-        {509, sizeof(::croupier::ops::v1::ProbeStats)},
+        {449, sizeof(::croupier::ops::v1::ProbePolicyConfigRequest)},
+        {454, sizeof(::croupier::ops::v1::ProbePolicyConfigResponse)},
+        {461, sizeof(::croupier::ops::v1::AlertEvent)},
+        {476, sizeof(::croupier::ops::v1::ProbeWindow)},
+        {493, sizeof(::croupier::ops::v1::ProbeDetail_DetailsEntry_DoNotUse)},
+        {500, sizeof(::croupier::ops::v1::ProbeDetail)},
+        {521, sizeof(::croupier::ops::v1::ProbeStats)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_MetricsReport_CustomEntry_DoNotUse_default_instance_._instance,
@@ -2155,6 +2228,8 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_CaptureRuleHitAck_default_instance_._instance,
     &::croupier::ops::v1::_CaptureGatesConfigRequest_default_instance_._instance,
     &::croupier::ops::v1::_CaptureGatesConfigResponse_default_instance_._instance,
+    &::croupier::ops::v1::_ProbePolicyConfigRequest_default_instance_._instance,
+    &::croupier::ops::v1::_ProbePolicyConfigResponse_default_instance_._instance,
     &::croupier::ops::v1::_AlertEvent_default_instance_._instance,
     &::croupier::ops::v1::_ProbeWindow_default_instance_._instance,
     &::croupier::ops::v1::_ProbeDetail_DetailsEntry_DoNotUse_default_instance_._instance,
@@ -2280,38 +2355,41 @@ const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_AT
     "Ack\022\020\n\010accepted\030\001 \001(\010\022\021\n\tduplicate\030\002 \001(\010"
     "\"-\n\031CaptureGatesConfigRequest\022\020\n\010agent_i"
     "d\030\001 \001(\t\"A\n\032CaptureGatesConfigResponse\022\017\n"
-    "\007version\030\001 \001(\t\022\022\n\ngates_json\030\002 \001(\t\"\246\001\n\nA"
-    "lertEvent\022\014\n\004kind\030\001 \001(\t\022\020\n\010agent_id\030\002 \001("
-    "\t\022\017\n\007game_id\030\003 \001(\t\022\013\n\003env\030\004 \001(\t\022,\n\006windo"
-    "w\030\005 \001(\0132\034.croupier.ops.v1.ProbeWindow\022,\n"
-    "\006detail\030\006 \001(\0132\034.croupier.ops.v1.ProbeDet"
-    "ail\"\241\001\n\013ProbeWindow\022\016\n\006target\030\001 \001(\t\022\021\n\ts"
-    "emantics\030\002 \001(\t\022\023\n\013window_kind\030\003 \001(\t\022\030\n\020s"
-    "tart_ts_unix_ms\030\004 \001(\003\022\026\n\016end_ts_unix_ms\030"
-    "\005 \001(\003\022\023\n\013duration_ms\030\006 \001(\003\022\023\n\013last_reaso"
-    "n\030\007 \001(\t\"\223\002\n\013ProbeDetail\022\016\n\006target\030\001 \001(\t\022"
-    "\021\n\tsemantics\030\002 \001(\t\022\n\n\002ok\030\003 \001(\010\022\013\n\003err\030\004 "
-    "\001(\t\022\025\n\rat_ts_unix_ms\030\005 \001(\003\022\022\n\nlatency_ms"
-    "\030\006 \001(\003\022\034\n\024consecutive_failures\030\007 \001(\005\022\023\n\013"
-    "window_open\030\010 \001(\010\022:\n\007details\030\t \003(\0132).cro"
-    "upier.ops.v1.ProbeDetail.DetailsEntry\032.\n"
-    "\014DetailsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001("
-    "\t:\0028\001\"\374\001\n\nProbeStats\022\016\n\006target\030\001 \001(\t\022\021\n\t"
-    "semantics\030\002 \001(\t\022\017\n\007game_id\030\003 \001(\t\022\013\n\003env\030"
-    "\004 \001(\t\022\017\n\007checked\030\005 \001(\003\022\016\n\006failed\030\006 \001(\003\022\024"
-    "\n\014success_rate\030\007 \001(\001\022\027\n\017latency_buckets\030"
-    "\010 \003(\003\022\023\n\013window_open\030\t \001(\010\022\032\n\022window_dur"
-    "ation_ms\030\n \001(\003\022\023\n\013last_reason\030\013 \001(\t\022\027\n\017d"
-    "ropped_details\030\014 \001(\003*\352\001\n\014ProcessState\022\035\n"
-    "\031PROCESS_STATE_UNSPECIFIED\020\000\022\031\n\025PROCESS_"
-    "STATE_RUNNING\020\001\022\031\n\025PROCESS_STATE_STOPPED"
-    "\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032\n\026PROCESS_"
-    "STATE_STARTING\020\004\022\032\n\026PROCESS_STATE_STOPPI"
-    "NG\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020\006\022\030\n\024PROCE"
-    "SS_STATE_BROKEN\020\007Bj\n\"io.github.cuihairu."
-    "croupier.ops.v1P\001Z0github.com/cuihairu/c"
-    "roupier/pkg/pb/ops/v1;opsv1\252\002\017Croupier.O"
-    "ps.V1b\006proto3"
+    "\007version\030\001 \001(\t\022\022\n\ngates_json\030\002 \001(\t\",\n\030Pr"
+    "obePolicyConfigRequest\022\020\n\010agent_id\030\001 \001(\t"
+    "\"A\n\031ProbePolicyConfigResponse\022\017\n\007version"
+    "\030\001 \001(\t\022\023\n\013policy_json\030\002 \001(\t\"\246\001\n\nAlertEve"
+    "nt\022\014\n\004kind\030\001 \001(\t\022\020\n\010agent_id\030\002 \001(\t\022\017\n\007ga"
+    "me_id\030\003 \001(\t\022\013\n\003env\030\004 \001(\t\022,\n\006window\030\005 \001(\013"
+    "2\034.croupier.ops.v1.ProbeWindow\022,\n\006detail"
+    "\030\006 \001(\0132\034.croupier.ops.v1.ProbeDetail\"\241\001\n"
+    "\013ProbeWindow\022\016\n\006target\030\001 \001(\t\022\021\n\tsemantic"
+    "s\030\002 \001(\t\022\023\n\013window_kind\030\003 \001(\t\022\030\n\020start_ts"
+    "_unix_ms\030\004 \001(\003\022\026\n\016end_ts_unix_ms\030\005 \001(\003\022\023"
+    "\n\013duration_ms\030\006 \001(\003\022\023\n\013last_reason\030\007 \001(\t"
+    "\"\223\002\n\013ProbeDetail\022\016\n\006target\030\001 \001(\t\022\021\n\tsema"
+    "ntics\030\002 \001(\t\022\n\n\002ok\030\003 \001(\010\022\013\n\003err\030\004 \001(\t\022\025\n\r"
+    "at_ts_unix_ms\030\005 \001(\003\022\022\n\nlatency_ms\030\006 \001(\003\022"
+    "\034\n\024consecutive_failures\030\007 \001(\005\022\023\n\013window_"
+    "open\030\010 \001(\010\022:\n\007details\030\t \003(\0132).croupier.o"
+    "ps.v1.ProbeDetail.DetailsEntry\032.\n\014Detail"
+    "sEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\374"
+    "\001\n\nProbeStats\022\016\n\006target\030\001 \001(\t\022\021\n\tsemanti"
+    "cs\030\002 \001(\t\022\017\n\007game_id\030\003 \001(\t\022\013\n\003env\030\004 \001(\t\022\017"
+    "\n\007checked\030\005 \001(\003\022\016\n\006failed\030\006 \001(\003\022\024\n\014succe"
+    "ss_rate\030\007 \001(\001\022\027\n\017latency_buckets\030\010 \003(\003\022\023"
+    "\n\013window_open\030\t \001(\010\022\032\n\022window_duration_m"
+    "s\030\n \001(\003\022\023\n\013last_reason\030\013 \001(\t\022\027\n\017dropped_"
+    "details\030\014 \001(\003*\352\001\n\014ProcessState\022\035\n\031PROCES"
+    "S_STATE_UNSPECIFIED\020\000\022\031\n\025PROCESS_STATE_R"
+    "UNNING\020\001\022\031\n\025PROCESS_STATE_STOPPED\020\002\022\030\n\024P"
+    "ROCESS_STATE_FAILED\020\003\022\032\n\026PROCESS_STATE_S"
+    "TARTING\020\004\022\032\n\026PROCESS_STATE_STOPPING\020\005\022\031\n"
+    "\025PROCESS_STATE_BACKOFF\020\006\022\030\n\024PROCESS_STAT"
+    "E_BROKEN\020\007Bj\n\"io.github.cuihairu.croupie"
+    "r.ops.v1P\001Z0github.com/cuihairu/croupier"
+    "/pkg/pb/ops/v1;opsv1\252\002\017Croupier.Ops.V1b\006"
+    "proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps[1] = {
@@ -2321,13 +2399,13 @@ static ::absl::once_flag descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fops_2fv1_2fops_2eproto = {
     false,
     false,
-    5933,
+    6046,
     descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto,
     "croupier/ops/v1/ops.proto",
     &descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once,
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps,
     1,
-    40,
+    42,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fops_2fv1_2fops_2eproto::offsets,
@@ -17019,6 +17097,599 @@ void CaptureGatesConfigResponse::InternalSwap(CaptureGatesConfigResponse* PROTOB
 }
 
 ::google::protobuf::Metadata CaptureGatesConfigResponse::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class ProbePolicyConfigRequest::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<ProbePolicyConfigRequest>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(ProbePolicyConfigRequest, _impl_._has_bits_);
+};
+
+ProbePolicyConfigRequest::ProbePolicyConfigRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, ProbePolicyConfigRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.ProbePolicyConfigRequest)
+}
+PROTOBUF_NDEBUG_INLINE ProbePolicyConfigRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::ProbePolicyConfigRequest& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        agent_id_(arena, from.agent_id_) {}
+
+ProbePolicyConfigRequest::ProbePolicyConfigRequest(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const ProbePolicyConfigRequest& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, ProbePolicyConfigRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  ProbePolicyConfigRequest* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.ProbePolicyConfigRequest)
+}
+PROTOBUF_NDEBUG_INLINE ProbePolicyConfigRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        agent_id_(arena) {}
+
+inline void ProbePolicyConfigRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+ProbePolicyConfigRequest::~ProbePolicyConfigRequest() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.ProbePolicyConfigRequest)
+  SharedDtor(*this);
+}
+inline void ProbePolicyConfigRequest::SharedDtor(MessageLite& self) {
+  ProbePolicyConfigRequest& this_ = static_cast<ProbePolicyConfigRequest&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.agent_id_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL ProbePolicyConfigRequest::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) ProbePolicyConfigRequest(arena);
+}
+constexpr auto ProbePolicyConfigRequest::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(ProbePolicyConfigRequest),
+                                            alignof(ProbePolicyConfigRequest));
+}
+constexpr auto ProbePolicyConfigRequest::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_ProbePolicyConfigRequest_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &ProbePolicyConfigRequest::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<ProbePolicyConfigRequest>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &ProbePolicyConfigRequest::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<ProbePolicyConfigRequest>(), &ProbePolicyConfigRequest::ByteSizeLong,
+              &ProbePolicyConfigRequest::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(ProbePolicyConfigRequest, _impl_._cached_size_),
+          false,
+      },
+      &ProbePolicyConfigRequest::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull ProbePolicyConfigRequest_class_data_ =
+        ProbePolicyConfigRequest::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ProbePolicyConfigRequest::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&ProbePolicyConfigRequest_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(ProbePolicyConfigRequest_class_data_.tc_table);
+  return ProbePolicyConfigRequest_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<0, 1, 0, 57, 2>
+ProbePolicyConfigRequest::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(ProbePolicyConfigRequest, _impl_._has_bits_),
+    0, // no _extensions_
+    1, 0,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967294,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    1,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    ProbePolicyConfigRequest_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::ProbePolicyConfigRequest>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string agent_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(ProbePolicyConfigRequest, _impl_.agent_id_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string agent_id = 1;
+    {PROTOBUF_FIELD_OFFSET(ProbePolicyConfigRequest, _impl_.agent_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\50\10\0\0\0\0\0\0"
+    "croupier.ops.v1.ProbePolicyConfigRequest"
+    "agent_id"
+  }},
+};
+PROTOBUF_NOINLINE void ProbePolicyConfigRequest::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.ProbePolicyConfigRequest)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    _impl_.agent_id_.ClearNonDefaultToEmpty();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL ProbePolicyConfigRequest::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const ProbePolicyConfigRequest& this_ = static_cast<const ProbePolicyConfigRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL ProbePolicyConfigRequest::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const ProbePolicyConfigRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.ProbePolicyConfigRequest)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string agent_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_agent_id().empty()) {
+      const ::std::string& _s = this_._internal_agent_id();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.ProbePolicyConfigRequest.agent_id");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.ProbePolicyConfigRequest)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t ProbePolicyConfigRequest::ByteSizeLong(const MessageLite& base) {
+  const ProbePolicyConfigRequest& this_ = static_cast<const ProbePolicyConfigRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t ProbePolicyConfigRequest::ByteSizeLong() const {
+  const ProbePolicyConfigRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.ProbePolicyConfigRequest)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+   {
+    // string agent_id = 1;
+    cached_has_bits = this_._impl_._has_bits_[0];
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_agent_id().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_agent_id());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void ProbePolicyConfigRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<ProbePolicyConfigRequest*>(&to_msg);
+  auto& from = static_cast<const ProbePolicyConfigRequest&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.ProbePolicyConfigRequest)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!from._internal_agent_id().empty()) {
+      _this->_internal_set_agent_id(from._internal_agent_id());
+    } else {
+      if (_this->_impl_.agent_id_.IsDefault()) {
+        _this->_internal_set_agent_id("");
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void ProbePolicyConfigRequest::CopyFrom(const ProbePolicyConfigRequest& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.ProbePolicyConfigRequest)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void ProbePolicyConfigRequest::InternalSwap(ProbePolicyConfigRequest* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.agent_id_, &other->_impl_.agent_id_, arena);
+}
+
+::google::protobuf::Metadata ProbePolicyConfigRequest::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class ProbePolicyConfigResponse::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<ProbePolicyConfigResponse>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(ProbePolicyConfigResponse, _impl_._has_bits_);
+};
+
+ProbePolicyConfigResponse::ProbePolicyConfigResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, ProbePolicyConfigResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.ProbePolicyConfigResponse)
+}
+PROTOBUF_NDEBUG_INLINE ProbePolicyConfigResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::ProbePolicyConfigResponse& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        version_(arena, from.version_),
+        policy_json_(arena, from.policy_json_) {}
+
+ProbePolicyConfigResponse::ProbePolicyConfigResponse(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const ProbePolicyConfigResponse& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, ProbePolicyConfigResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  ProbePolicyConfigResponse* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.ProbePolicyConfigResponse)
+}
+PROTOBUF_NDEBUG_INLINE ProbePolicyConfigResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        version_(arena),
+        policy_json_(arena) {}
+
+inline void ProbePolicyConfigResponse::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+ProbePolicyConfigResponse::~ProbePolicyConfigResponse() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.ProbePolicyConfigResponse)
+  SharedDtor(*this);
+}
+inline void ProbePolicyConfigResponse::SharedDtor(MessageLite& self) {
+  ProbePolicyConfigResponse& this_ = static_cast<ProbePolicyConfigResponse&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.version_.Destroy();
+  this_._impl_.policy_json_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL ProbePolicyConfigResponse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) ProbePolicyConfigResponse(arena);
+}
+constexpr auto ProbePolicyConfigResponse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(ProbePolicyConfigResponse),
+                                            alignof(ProbePolicyConfigResponse));
+}
+constexpr auto ProbePolicyConfigResponse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_ProbePolicyConfigResponse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &ProbePolicyConfigResponse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<ProbePolicyConfigResponse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &ProbePolicyConfigResponse::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<ProbePolicyConfigResponse>(), &ProbePolicyConfigResponse::ByteSizeLong,
+              &ProbePolicyConfigResponse::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(ProbePolicyConfigResponse, _impl_._cached_size_),
+          false,
+      },
+      &ProbePolicyConfigResponse::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull ProbePolicyConfigResponse_class_data_ =
+        ProbePolicyConfigResponse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ProbePolicyConfigResponse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&ProbePolicyConfigResponse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(ProbePolicyConfigResponse_class_data_.tc_table);
+  return ProbePolicyConfigResponse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 68, 2>
+ProbePolicyConfigResponse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(ProbePolicyConfigResponse, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    ProbePolicyConfigResponse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::ProbePolicyConfigResponse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string policy_json = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(ProbePolicyConfigResponse, _impl_.policy_json_)}},
+    // string version = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(ProbePolicyConfigResponse, _impl_.version_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string version = 1;
+    {PROTOBUF_FIELD_OFFSET(ProbePolicyConfigResponse, _impl_.version_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string policy_json = 2;
+    {PROTOBUF_FIELD_OFFSET(ProbePolicyConfigResponse, _impl_.policy_json_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\51\7\13\0\0\0\0\0"
+    "croupier.ops.v1.ProbePolicyConfigResponse"
+    "version"
+    "policy_json"
+  }},
+};
+PROTOBUF_NOINLINE void ProbePolicyConfigResponse::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.ProbePolicyConfigResponse)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      _impl_.version_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      _impl_.policy_json_.ClearNonDefaultToEmpty();
+    }
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL ProbePolicyConfigResponse::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const ProbePolicyConfigResponse& this_ = static_cast<const ProbePolicyConfigResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL ProbePolicyConfigResponse::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const ProbePolicyConfigResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.ProbePolicyConfigResponse)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string version = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_version().empty()) {
+      const ::std::string& _s = this_._internal_version();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.ProbePolicyConfigResponse.version");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  // string policy_json = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (!this_._internal_policy_json().empty()) {
+      const ::std::string& _s = this_._internal_policy_json();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.ProbePolicyConfigResponse.policy_json");
+      target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.ProbePolicyConfigResponse)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t ProbePolicyConfigResponse::ByteSizeLong(const MessageLite& base) {
+  const ProbePolicyConfigResponse& this_ = static_cast<const ProbePolicyConfigResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t ProbePolicyConfigResponse::ByteSizeLong() const {
+  const ProbePolicyConfigResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.ProbePolicyConfigResponse)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    // string version = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_version().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_version());
+      }
+    }
+    // string policy_json = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!this_._internal_policy_json().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_policy_json());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void ProbePolicyConfigResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<ProbePolicyConfigResponse*>(&to_msg);
+  auto& from = static_cast<const ProbePolicyConfigResponse&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.ProbePolicyConfigResponse)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!from._internal_version().empty()) {
+        _this->_internal_set_version(from._internal_version());
+      } else {
+        if (_this->_impl_.version_.IsDefault()) {
+          _this->_internal_set_version("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!from._internal_policy_json().empty()) {
+        _this->_internal_set_policy_json(from._internal_policy_json());
+      } else {
+        if (_this->_impl_.policy_json_.IsDefault()) {
+          _this->_internal_set_policy_json("");
+        }
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void ProbePolicyConfigResponse::CopyFrom(const ProbePolicyConfigResponse& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.ProbePolicyConfigResponse)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void ProbePolicyConfigResponse::InternalSwap(ProbePolicyConfigResponse* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.version_, &other->_impl_.version_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.policy_json_, &other->_impl_.policy_json_, arena);
+}
+
+::google::protobuf::Metadata ProbePolicyConfigResponse::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // ===================================================================

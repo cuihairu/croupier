@@ -636,6 +636,15 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/capture/gates/rollback", opsHandler.CaptureGatesRollback)
 	// dry-run 发布预检：lint + config.ValidateGates（agent apply 同一校验真值）
 	g.POST("/capture/gates/validate", opsHandler.CaptureGatesValidate)
+
+	// probe 采样策略面板下发（评审简档 §13.3 C：config_versions probe.policy，
+	// namespace=ops；agent 经 wire 拉取 + configsync 热生效；回滚=历史版本
+	// 内容再发一版，版本日志不可变）
+	g.GET("/probe/policy", opsHandler.ProbePolicyGet)
+	g.GET("/probe/policy/versions", opsHandler.ProbePolicyVersionsGet)
+	g.PUT("/probe/policy", opsHandler.ProbePolicyPut)
+	g.POST("/probe/policy/rollback", opsHandler.ProbePolicyRollback)
+	g.POST("/probe/policy/validate", opsHandler.ProbePolicyValidate)
 }
 
 // ============================================================================

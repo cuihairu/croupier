@@ -355,6 +355,22 @@ message CaptureGatesConfigResponse {
   string gates_json = 2; // capture.gates JSON block (reconcile/cep/lineage)
 }
 
+// ProbePolicyConfigRequest pulls the game/env-scoped probe sampling policy
+// the server holds for the calling agent (scope resolved from the registered
+// session; agent-side pull via core/configsync, review §13.3 C).
+message ProbePolicyConfigRequest {
+  string agent_id = 1; // Calling agent id (must match the session)
+}
+
+// ProbePolicyConfigResponse carries the latest published policy payload.
+// Empty version = nothing published for this scope (agent keeps local
+// intervals). policy_json is validated by both sides (admin publish
+// pre-check and agent apply share core/healthprobe.ParseProbePolicy).
+message ProbePolicyConfigResponse {
+  string version = 1;     // config_versions.Version (as string); "" = none
+  string policy_json = 2; // probe.policy JSON block (interval/targets/windows/events)
+}
+
 // ========== Probe uplink (agent probes → server; review §11/§13) ==========
 
 // AlertEvent is the one-way probe/alert event stream upload (new wire

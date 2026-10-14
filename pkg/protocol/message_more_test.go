@@ -168,6 +168,8 @@ func TestMsgIDStringKnownTypes(t *testing.T) {
 		{MsgStreamMetricsRequest, "StreamMetricsRequest"},
 		{MsgMetricEvent, "MetricEvent"},
 		{MsgAlertEvent, "AlertEvent"},
+		{MsgProbePolicyRequest, "ProbePolicyRequest"},
+		{MsgProbePolicyResponse, "ProbePolicyResponse"},
 		{MsgRestartProcessRequest, "RestartProcessRequest"},
 		{MsgRestartProcessResponse, "RestartProcessResponse"},
 		{MsgStopProcessRequest, "StopProcessRequest"},
