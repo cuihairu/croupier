@@ -277,6 +277,83 @@ type ProtocolChecker struct {
 - **R4 dbmon 收敛收尾**（M3）：DBSource 归属列（已拍板动表，编号迁移三处同步）+ 周期探针按归属下发 + dbmon 切 DBChecker **删自有 SQL 电池** + server 手动诊断保留。
 - **不排期**：外部目标自动恢复、恢复动作注册、全局并发恢复上限（§8 边界）；游戏客户端模拟探测单独 P2（§5.4，协议适配骨架设计已出：§5.5——L1=R2 顺路、L2 声明式为默认路径、L3 按游戏逐个接）。
 
+## 13. 上行统计、在线健康度与采样策略（设计单 2026-10-14 三条，仍不写码）
+
+### 13.1 探测结果回流与不对称上报（A）
+
+核心口径：**正常态与异常态的上报量不对称**——正常态聚合省上行，异常态明细保现场；「有问题时更需要回流」= 失败时不能为省流量只报一个 bool。
+
+| 维度       | 正常态（聚合/采样）                                                                                                                                                                          | 异常态（明细）                                                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 上什么     | 每 target 每窗口：检查次数、失败次数、成功率、时延分布（桶边界配置，默认 [50ms,200ms,1s,5s]——覆盖内网毫秒级到拨号超时级的常见量级）、开窗中的窗口持续时长、探测点分布（多 agent 视角各一行） | 逐次失败明细：目标标识、执行位置（agentID）、探测类型、语义、时间戳、失败阶段（phase）、错误原文（截断默认 2KB 防日志炸弹）、最近 N=5 次结果序列 |
+| 什么时候   | 批量窗口（默认 30s，随 agent metrics 周期）                                                                                                                                                  | 即时（不等批量窗口）                                                                                                                             |
+| 走哪条通道 | MetricsReport 批量面（既有）                                                                                                                                                                 | SendAlertEvent 事件面（新，已拍板）                                                                                                              |
+
+**通道结论（A#2，与用户倾向一致）**：统计上报与告警事件**不是同一消息**——统计走批量通道、告警与失败明细走事件通道，两者都带目标标识+执行位置+时间戳，按目标聚合。依据：§11 已决 2 的 QoS 区分（告警要即时可靠、指标是周期批量）；统计=metrics 语义天然同面。
+
+复用点（几乎零新通道）：
+
+- agent 侧 metrics 收集器已有 **Sampler 折叠先例**：supervisor 采样器折进每份 MetricsReport（`internal/app/agent/upstream.go:622,645` `WithSupervisorSampler`）→ 探测统计=新增一个 probe 采样器同型折叠，周期默认 30s（`upstream.go:632` 既有默认，零新默认值）。
+- server 侧已有 MetricsStore 接收/持久化（`internal/platform/registry/metrics.go:139,198`）与**告警规则消费先例**（`internal/platform/alertrule/evaluator.go:42-56` AlertRule 直接评估 MetricsReport）→ 「成功率低于 X」「时延 P95 超阈值」类探测告警零新告警链路。
+- SendAlertEvent 承载两类 kind：`probe.window`（窗口开/合，server 转 Alert 生命周期——R3）与 `probe.detail`（失败明细，诊断面不触发告警）。明细 server 侧进内存 ring（容量 500/agent，同 supervisor 事件环先例 `ops_supervisor_events.go:35-48`），开窗时最近 N 次序列随 Alert details 永久落库；长期留存=agent 本地 FileTimeline 真值（既有双通道语义，零新表）。
+
+上行量控制（A#3，参照 supervisor 事件环先例）：批量窗口内成功样本只计数不逐条；每 target 每窗口明细条数上限默认 10，超出计 `droppedDetails` 进聚合一栏（失败总数永远如实——上限只裁明细不裁事实）；agent 侧 outbox 环形缓冲 + 丢弃计数。
+
+### 13.2 在线数据汇总与在线健康度（B）
+
+**复用 ops 模块与既有 game/env 维度，不另起面板/维度表**（B#1，file:line）：
+
+- ops 模块挂载面：`internal/api/ops/`（alerts.go:32-33 基础设施告警列表先例；metrics_history.go:13 agent 指标历史查询先例）——在线统计页挂本模块。
+- game/env 维度：`internal/model/alert_model.go:30-37`（Alert GameID/Env scope 列，空=平台级）+ 迁移 0043（`internal/svc/migrations.go:1411`）+ `svc.GameScopeFromContext` 过滤——在线汇总按同维度切（game × env），零新维度表。
+
+**在线数据口径（B#2）**：在线人数/在线状态/峰值的来源=**游戏服务器自身**（业务真值——agent 侧探活推不出在线人数）。本仓现状：SDK 面**无** metric 上报入口（`sdks/SDK_FEATURE_MATRIX.md` 零 metric 条目）→ **通道复用、入口新增（最小）**：SDK 增一条 metric 上报 API（游戏→agent 本地连接→折叠进 MetricsReport，同 13.1 采样器路径），游戏侧每周期报当前在线数即可；峰值=server 从指标序列按窗口取 max（默认 24h 展示口径），不需游戏侧计算。CDC capture 可作补充口径（游戏库在线表行数）但标「派生口径，非业务真值」，不作主源。游戏未接 metric 入口时 ops 面显示「未接入在线数据」灰态——复用 §5.5.3 not-integrated 一等状态语义，不造第二套「未接入」。
+
+**在线健康度（B#3，不拍脑袋）**：v1 呈现为**状态矩阵+证据**，不出单一合成分（权重无真实数据支撑，出了就是拍脑袋）：
+
+| 构成     | 取值                                | 口径与阈值来源                                                                                                                                                                               |
+| -------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 探活结果 | available / unavailable（内核两态） | Window 状态（探测是事实不是渐变分数）；不造健康分                                                                                                                                            |
+| 在线趋势 | normal / drop / crash 三档          | 骤降检测=对比滚动基线（同时刻前 N 天同窗口均值，N 默认 7 天——消除日周期）；骤降阈值默认 50%/5min，**走配置可调**（分钟级腰斩是掉线事故典型形态，缓慢流失不告警）；阈值与窗口全配置化零硬编码 |
+| 异常证据 | 最近失败明细 / 骤降区间明细         | 13.1 明细面直接挂卡（A/B 共用）                                                                                                                                                              |
+
+骤降告警直接落**既有 AlertRule evaluator**（在线指标进 MetricsReport 后自动可评估，`alertrule/evaluator.go:42` 同先例）。若未来确需单一展示分，沿 dispatch 打分先例（`agent_health_tracker.go:38-105` 历史成功率指数衰减口径）用真实数据定权重，延后。
+
+**与 A 的关系（B#4）**：**共用同一条上行通道（MetricsReport 批量面），报文种类不同**（探测统计 vs 在线指标）；告警类事件统一走 SendAlertEvent / evaluator。依据：通道按 QoS 分（批量 vs 即时），不按数据域分——两者都是周期批量统计语义。
+
+### 13.3 采样频率策略（C）
+
+**频率是 server 下发的策略，agent 不本地写死**（C#1，与 §5.2 约束 3「配置与执行分离」同一原则，唯一来源）。三种粒度（C#2）：
+
+```yaml
+probe:
+  policy: # server 管理面维护，configsync 下发；agent 本地仅缓存只读副本
+    interval: 30s # ① 基础采样频率（全局默认；未设置即此值）
+    targets: # 按目标覆盖
+      - target: "game-db-primary"
+        interval: 10s
+    windows: # ② 按时间段的频率（叠加覆盖；时区显式，默认服务器配置时区）
+      - start: "19:00"
+        end: "23:00"
+        interval: 10s
+    events: # ③ 特殊时间点（一次性/日历式；RFC3339 带偏移，无时区歧义）
+      - at: "2026-10-20T09:00:00+08:00" # 活动开服前
+        duration: 30m
+        interval: 5s
+```
+
+**默认值（显式，含理由）**（C#4）：基础间隔 **30s**——与 configsync 轮询默认 30s（`configsync.go:14-15`）及 metrics 上报周期默认 30s（`upstream.go:632`）同档，一条连接上三类周期统一量级；配合内核默认 fail=3 → 最坏 90s 开窗（可用性监控常见可接受检测延迟；k8s 默认 10s×3=30s，本仓跨网段探测更重取 30s）。按目标/时段/特殊点未设置=继承基础间隔，无隐藏层级。
+
+**落点与生效（C#3）**：server 管理面=ConfigVersion 资产（`internal/model/config_version.go:13-14`「versioned configuration values for arbitrary keys」——`probe.policy` 一个 key，乐观锁/发布/回滚/appliedRevision 全白得，**零新表**）；下发=configsync Puller（30s 轮询，`configsync.go:57-61`）；**生效=热更**（apply 回调重建 ticker，不重启 agent），生效延迟=下个轮询周期，最坏 30s；断连 configsync 时按最后已知策略跑（降级语义诚实标注）。
+
+**异常态兜底（C#5，叠加关系）**：时段降频只作用于**成功样本**的采集与上报节奏；目标处于开窗（unavailable）状态时异常态覆盖时段策略——(a) 失败明细仍逐次即时上报，不受任何降频影响；(b) 窗口事件即时；(c) 自动提频 interval/2、下限 5s、默认开（可关）——理由：recover=1 意味着下一次成功即闭窗，提频减半恢复检测延迟；下限 5s 防内网打爆。时段降频**不会**导致异常漏报：失败路径无周期约束。
+
+### 13.4 分期归属与命名
+
+- R2 起步批含：基础 interval 消费（默认 30s）+ probe 采样器折叠进 MetricsReport（统计面）+ SendAlertEvent 的 probe.window/probe.detail 两 kind。
+- R3 含：server 统计消费（MetricsStore/evaluator 复用）+ ops 在线汇总页（复用 ops 模块与 game/env 维度）+ `probe.policy` ConfigVersion 管理面与 windows/events 两粒度。
+- SDK metric 入口（B 的游戏侧上报）为跨面独立小批，随第一个真实游戏接入排期；未接入前 ops 面灰态（§5.5.3 语义）。
+- 命名：`interval`（与 configsync/metrics 既有字段同名同义）、`windows`/`events`（通用词）、`probe.window`/`probe.detail`（沿 herald 出口 `probe.unavailable/probe.recovered` 注释先例 `probe.go:31-32`）；「在线健康度」=状态矩阵，不引入「健康分」新概念（dispatch 侧 score 是既有词，如未来引入合成分沿用之）。
+
 ## 已知边界
 
 - 本评审只做审计与方案，未动任何实现码；§2 缺口 5/6/7 明确不做或推迟。
