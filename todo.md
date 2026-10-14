@@ -5,7 +5,7 @@
 ## 未完成
 
 - [x] 4862 ops 告警列表按 game/env 过滤：Alert 加 game_id/env 列（迁移 0043）+ opsAlerts 按 GameScopeFromContext 过滤（scope 告警 + 平台级告警）+ 打戳三点（evaluator 继承 rule scope / inbound generic payload scope / control_handler capture req scope）+ 面板告警页全局视野确认（/api/v1/alerts 无 scope 不过滤）（4862 迁移 0043 + 三处同步 + 测试，2026-10-13）
-- [ ] 4310 MongoDB Connector：CDC 内置源收口项，排期待用户立项；SQL Server/Oracle/TiDB/CockroachDB/国产库明确不做，更多数据源由使用方按 SourceConnector 契约自行实现
+- [ ] 4310 MongoDB Connector：CDC 内置源收口项，排期待用户立项（立项简档已备 docs/design/cdc-mongodb-connector.md，三项拍板：立项排期 / beforeImage v1 保守 false / snapshot 不做）；SQL Server/Oracle/TiDB/CockroachDB/国产库明确不做，更多数据源由使用方按 SourceConnector 契约自行实现
 - [ ] Agent 面板三页（agent-dashboard-design 简档）：Proposed 待用户过目批准，零代码；sidecar/devops/capture 每 type 一页+探针卡+职责数据+日志下钻，scope 联动
 - [ ] Provider 插件 P1（#66 批二）：openapi driver 迁移 internal/platform/openapi → internal/drivers/openapi + externalplatform 迁入；按 §9 分期另行立项
 - [ ] 插件机制正式设计落地（plugin-mechanism 简档）：Proposed 待拍板后按 §8 分期；含 LAN 资产接入（cockpit 优先）、配置热更双轨等 12 项决策
