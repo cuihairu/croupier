@@ -6,7 +6,7 @@ title: Agent 健康监控与恢复——外部方案重合度审计与 server �
 
 ## 状态
 
-- 状态: **评审定稿（未动实现码；R2 起为代码批）**。来源: 用户 2026-10-14 五条——外部设计建议做可嵌入 Health Monitoring & Recovery 模块；本仓早有监控外部第三方服务存活的需求（server 侧实现），要拆到 agent 统一为基础能力；补充问题（第三方监控是否需要新增 agent 部署）；硬约束（探测实现收口 core/healthprobe 一份 + 实现层/实例层分标 + 熔断器归属判定）；三点拍板（归属/通道/动表时机）；外部评审文档核验（docs/review/chatgpt-2026-10-14-probe-architecture.md）。
+- 状态: **评审定稿（未动实现码；R2 起为代码批）**。来源: 用户 2026-10-14 五条——外部设计建议做可嵌入 Health Monitoring & Recovery 模块；本仓早有监控外部第三方服务存活的需求（server 侧实现），要拆到 agent 统一为基础能力；补充问题（第三方监控是否需要新增 agent 部署）；硬约束（探测实现收口 core/healthprobe 一份 + 实现层/实例层分标 + 熔断器归属判定）；三点拍板（归属/通道/动表时机）；外部评审文档核验（docs/review/chatgpt-2026-10-14-probe-architecture.md）；协议适配骨架设计探讨单（§5.5）。
 - 评审基准: `core/healthprobe`（三 agent 共用探针包）+ sidecar supervisor（进程恢复环）+ server 侧 dbmon / serverstatus / dispatch 熔断器。**外部设计的 Checker/RecoveryHandler/Target/ProbeTarget 命名一律不引入**，重合概念按本仓既有命名与语义归位。
 
 ## 1. 重合度审计（外部设计 → 本仓现状，逐条）
@@ -127,6 +127,86 @@ dispatch 熔断器**不属于任何一层**（调用方策略，§7）。
 - **工程量**：框架层小（复用 Checker/Probe/Window 生命周期，一个 R 批量级）；协议层=**每游戏一份适配器**（游戏私有协议无法通用化，成本随游戏数线性）；部署层=玩家代表性网络选点（当初延后根因「客户端分散在各处」）。
 - **排期**：**P2**，按需触发（某游戏提出玩家侧拨测需求时立项；触发即玩家视角）。已登记 todo.md。
 
+### 5.5 协议适配骨架设计（设计探讨单 2026-10-14，接 §5.4）
+
+§5.4 立场与来历不变。本节把「协议探测器」拆成三层并给骨架契约与状态语义。
+
+#### 5.5.1 三层切分与接口契约
+
+- **层 1 探测内核（已有，不动）**：`core/healthprobe` 的 `Checker` 契约（`healthprobe.go:31-34`）、阈值/状态机/窗口/时间线（`probe.go:51-97`）。协议探测**只许实现 Checker 契约**——失败计数、防抖、窗口、上行全部复用内核；骨架不得自持计数器/状态机（「不另起一套」的硬口径）。
+- **层 2 协议适配骨架（新增，共用）**：声明式多步交互运行时，职责=连接生命周期、步骤推进、阶段标记、期望匹配、结果语义、传输层重试。进 `core/healthprobe`（仅 stdlib：net/bytes/regexp/time——与 HTTPChecker/TCPChecker 同级，满足「实现一份」硬约束）；游戏协议知识一律不进此层。
+- **层 3 游戏协议适配器（每游戏一份）**：包格式/握手序列/加密/登录。L2 形态=纯数据（steps 配置，零码）；L3 形态=Go 代码，唯一要求=实现 Checker 契约后直接进内核装配（Probe+阈值+窗口+Timeline+OnWindow）。骨架对 L3 只提供可选辅助（定长/行分帧读取），不新增顶层概念。
+
+接口契约（Go 签名；配置落 `probe.targets[].steps`，类型名沿用仓库 spec/descriptor 既有词——PageSpec、FunctionDescriptor 先例）：
+
+```go
+// 步骤期望：字节级匹配，三形态覆盖静态私有协议握手
+type StepExpect struct {
+    Contains []byte // 响应含该字节段（默认）
+    Prefix   []byte // 响应以此开头
+    Regexp   string // 正则（全缓冲）
+}
+
+// 单步：发什么、等什么、等多久。Name=阶段标记（进 Result.Details）
+type StepSpec struct {
+    Name    string        // 阶段标记：handshake / login / ping ...
+    Send    []byte        // 静态载荷；留空=纯等待（只收不发）
+    Expect  StepExpect    // 留空=任意响应即通过
+    Timeout time.Duration // 单步超时；<=0 用默认 5s
+}
+
+// 骨架本体：实现 healthprobe.Checker——一次 Check=新建连接、走完步骤、关连接
+type ProtocolChecker struct {
+    Address string     // host:port（L2 v1 仅 TCP；HTTP 归 HTTPChecker）
+    Steps   []StepSpec
+    // Dialer/Reader 可选注入（测试用；生产 nil）
+}
+```
+
+骨架内部规则（围绕「内核是唯一失败计数权威」）：
+
+1. 每次 Check 新建连接、不跨 Check 复用会话；无状态，避免「available 由陈旧会话维持」。
+2. 步骤失败即 Check 返回 error，error 串携带阶段标记（`protocol failed at step 2 (login): ...`）——分类落 `Window.LastReason`（`probe.go:26` 既有字段）。
+3. 阶段标记出口=**R2 顺手在 Result 增加 `Details map[string]string`**（与 §6 的 LatencyMS 同批）：`phase=login`、`step=2/5`；`Window.LastReason` 供告警文案。
+4. 传输层重试仅限「建连阶段瞬时错误」（dial reset 且未发出任何字节）单次重试，计数进 Details（`reconnect=1`）；握手半途步骤**不重试**（非幂等，登录半状态）。防抖与失败计数由内核阈值承担。
+5. 期望匹配只做字节级（Contains/Prefix/Regexp）；加密、压缩、挑战-响应表达不了 → 升级 L3 代码适配，骨架不塞加密原语。
+
+#### 5.5.2 四条接入路径（每游戏一份）
+
+| 路径                             | 可行性                                                                                                                                                        | 成本                                                                                                | 适用                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| ① 游戏自带测试/压测 bot          | 中——存在性取决于游戏方，平台无法先行；有退出码/输出即可判活                                                                                                   | 每游戏一份胶水（包成 Checker；子进程判活有 supervisor 先例：`ops_server.go` 的 os/exec+退出码语义） | 有成熟自动化测试资产的游戏             |
+| ② 游戏方客户端 SDK               | 低-中——客户端 SDK 多为 C#/C++/Lua，Go 不可直接链接；只能子进程包装或等其暴露 HTTP/CLI 面                                                                      | 高：跨语言进程管理 + 协议版本随客户端升级同步                                                       | 仅当 SDK 有独立可执行面时才顺          |
+| ③ 声明式探测定义（**默认路径**） | 高——平台可先行（骨架是与游戏无关的平台能力）；HTTP 通用协议=其退化特例（L1 HTTPChecker 已覆盖）；握手固定的私有协议（发握手包等定长回包，网关类常见）表达充分 | 平台一次建骨架；每游戏只写 steps 配置零码                                                           | 握手序列静态或可模板化的协议——默认入口 |
+| ④ 逆向客户端协议（不推荐）       | 可行但协议一改即断、维护差、合规风险（用户 2026-10-14 已列）                                                                                                  | 持续反维护                                                                                          | 最后手段，需书面授权才做               |
+
+**本仓游戏实况（关键事实）**：本仓管理的 demo 全部是「游戏→agent」SDK 注册面（`sdks/go/examples/{basic,comprehensive,demo}` 经 `CROUPIER_AGENT_ADDR=127.0.0.1:19091` 注册函数）与 croupier 控制面示例（`examples/`）；**没有任何一款带玩家侧网络协议的游戏**，`bot/simulator/fake-client` 零命中。结论：现状下 ①②④ 都无对象；③ 作为默认路径先行（L1+L2 覆盖通用协议与静态私有握手），真实游戏接入时按「有无 bot（①）、握手是否固定（③）」逐游戏选路，②④ 不默认。
+
+#### 5.5.3 「协议未接入」一等状态
+
+两条正交轨道——**内核两态窗口不动**，协议接入度是标注层（先例：dbmon firing/resolved 是 Alert 生命周期标注，不是探测状态机）：
+
+| 目标状态                        | 定义                                                      | 是否产生 Check/窗口            | 面板/告警语义                                                                                                                                         |
+| ------------------------------- | --------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| not-integrated 未接入           | 目标无协议探测定义（配置事实）                            | **不产生**——绝不判 unavailable | 探针卡灰态「未接入协议探测」；无 Alert                                                                                                                |
+| reachable-unverified 可达未验证 | L1 端口/HTTP 探到、协议层未接入                           | L1 的 Check 正常进窗口         | 窗口/告警反映「端口/HTTP 可达性」；卡标注「可达≠可用」（§5.4 三层次）；不得报成「服务挂了」                                                           |
+| protocol-failed 协议验证失败    | Check 执行了、握手/登录阶段失败（区别于 dial 阶段连不上） | 进窗口（真故障信号）           | 告警 reason 带阶段标记（LastReason=`protocol failed at step ...`），与「连接不上」分类呈现——连上但协议被拒大概率是服务端逻辑/账号池问题，不是网络挂了 |
+| verified 已验证                 | 协议 Check 曾成功                                         | 进窗口（available）            | 卡上「已验证」+ 最近验证时间（At）                                                                                                                    |
+
+硬规则：**只有执行了的 Check 驱动窗口**；not-integrated / reachable-unverified 一律不得产生 unavailable 判定——否则上线即淹没真告警（本设计要防的事故）。
+
+#### 5.5.4 分阶段与验收口径
+
+- **L1 端口+HTTP（现在可做，=R2 装配面）**：`probe.targets` 配 http/tcp 目标 → 窗口/时间线/SendAlertEvent 上行全链绿；探针卡「可达未验证」标注生效（目标声明了协议期望但无协议探测时显示）。
+- **L2 声明式私有协议（下一批）**：骨架 `ProtocolChecker` 进 core/healthprobe 零外部依赖；测试内 mock listener 演示私有握手（发握手包→期望前缀→发登录→期望成功码），**配置零码接入**；阶段标记进 Result.Details；not-integrated 配置缺失时不产生窗口事件、卡灰态正确；protocol-failed 与 dial 失败在 LastReason 可区分。
+- **L3 深度协议适配（P2，按游戏重要度逐个接）**：适配器=实现 Checker 契约的每游戏包；加密/挑战-响应等声明式表达不了的才上；玩家代表性网络选点方案随立项给（§5.4 排期不变：P2 按需触发，触发即玩家视角）。
+
+#### 5.5.5 命名裁定
+
+- 骨架=`ProtocolChecker`（沿 HTTPChecker/TCPChecker/ProcessChecker/DBChecker 的 {域}Checker 先例）；steps 配置沿用仓库 spec/descriptor 既有词（PageSpec/FunctionDescriptor 先例），不造「剧本/脚本」顶层词。
+- 状态集合=标注层概念，沿用「Window 之外的生命周期标注」先例（dbmon firing/resolved）。
+- 继续不引入 ProbeTarget/RecoveryHandler/Monitor 等外部词。
+
 ## 6. dbmon → healthprobe 收敛方案（硬约束：探测实现只留一份）
 
 原则：探测实现收口 `core/healthprobe` 一份；dbmon 保留的是「注册表 + 诊断 API + 阈值告警」三个非探测职责，不是第二套探测。
@@ -195,7 +275,7 @@ dispatch 熔断器**不属于任何一层**（调用方策略，§7）。
 - **R2 agent 装配面**（M1+M2 agent 侧）：`probe.targets` 配置契约（含每目标视角声明）+ Checker 工厂（http/tcp/process/**db 全进 core**）+ 多 Probe 装配 + `SendAlertEvent` 上行接线 + capture 迁移到统一装配 + `Result` 增 LatencyMS/Details。代码批，全套门禁（含新用例）；验收含「OnWindow 消费者禁止触发进程重启」。
 - **R3 server 消费面**（M2 server 侧 + M4）：窗口→Alert 生命周期（alertID=`probe:<agentID>:<target>`）+ server 侧内核装配（手动诊断/自身依赖）+ 探针卡面板（与 Agent 面板三页合流）。
 - **R4 dbmon 收敛收尾**（M3）：DBSource 归属列（已拍板动表，编号迁移三处同步）+ 周期探针按归属下发 + dbmon 切 DBChecker **删自有 SQL 电池** + server 手动诊断保留。
-- **不排期**：外部目标自动恢复、恢复动作注册、全局并发恢复上限（§8 边界）；游戏客户端模拟探测单独 P2（§5.4）。
+- **不排期**：外部目标自动恢复、恢复动作注册、全局并发恢复上限（§8 边界）；游戏客户端模拟探测单独 P2（§5.4，协议适配骨架设计已出：§5.5——L1=R2 顺路、L2 声明式为默认路径、L3 按游戏逐个接）。
 
 ## 已知边界
 

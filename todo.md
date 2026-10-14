@@ -10,7 +10,7 @@
 - [ ] Provider 插件 P1（#66 批二）：openapi driver 迁移 internal/platform/openapi → internal/drivers/openapi + externalplatform 迁入；按 §9 分期另行立项
 - [ ] 插件机制正式设计落地（plugin-mechanism 简档）：Proposed 待拍板后按 §8 分期；含 LAN 资产接入（cockpit 优先）、配置热更双轨等 12 项决策
 
-- [ ] 游戏客户端模拟探测（玩家侧拨测）：存量延后需求补落档（设计曾存在、用户拍板延后、从未写入文档，2026-10-14 澄清来历；服务端互探已否决「意义就小了」，要做就站玩家客户端视角，不做过渡方案）；本仓无可复用游戏协议栈（sdks/ 是游戏服务器→agent 注册面，e2e-agent-probe 是 croupier wire mock）；工程量=框架层一小批（复用 core/healthprobe Checker/Probe/Window）+ 每游戏一份协议适配器 + 玩家代表性网络选点；P2 按需立项（docs/design/agent-health-recovery-review.md §5.4）
+- [ ] 游戏客户端模拟探测（玩家侧拨测）：存量延后需求补落档（设计曾存在、用户拍板延后、从未写入文档，2026-10-14 澄清来历；服务端互探已否决「意义就小了」，要做就站玩家客户端视角，不做过渡方案）；本仓无可复用游戏协议栈（sdks/ 是游戏服务器→agent 注册面，e2e-agent-probe 是 croupier wire mock）；协议适配骨架设计已并入 docs/design/agent-health-recovery-review.md §5.5（三层=内核/骨架/适配器；四条接入路径默认声明式；「协议未接入」一等状态绝不判不可用；L1 端口+HTTP=R2 顺路 → L2 声明式私有协议零码 → L3 按游戏重要度逐个接）；P2 按需立项（触发即玩家视角，玩家代表性网络选点随立项给）
 
 - [ ] Agent 健康监控与恢复：外部方案评审 + server 侧监控下放 agent（来源：用户 2026-10-14）——评审定稿 docs/design/agent-health-recovery-review.md：重合度审计 + 真缺口七项 + 迁移四步 + 三点已拍板（2026-10-14：probe.targets 每 agent 均可配 devops 主用 / 上行走 report.Conn 扩 SendAlertEvent 新 wire / DBSource 归属列 R4 才动表不停 R2/R3）+ 补充裁决并入（第三方监控零新增 agent 部署、单一权威分工表、实现层/实例层分标、dbmon SQL 探测收敛 core/healthprobe 不留第二套、熔断器=调用方策略留 server dispatch、游戏模拟探测=存量延后需求 P2）；R2 装配面代码批可起步（全套测试绿才 commit）
 

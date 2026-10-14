@@ -41,6 +41,7 @@ docs/operations/troubleshooting.md|rpc_addr
 docs/research/agent-capability-library-matrix.md|gRPC
 docs/research/control-plane-positioning-2026-10.md|rpc_addr
 docs/research/plugin-architecture-survey.md|gRPC
+docs/review/chatgpt-2026-10-14-probe-adapter.md|gRPC
 docs/sdks/cpp/configuration/client-config.md|rpc_addr
 docs/sdks/cpp/guide/architecture.md|gRPC
 docs/sdks/cpp/index.md|LocalControlService
