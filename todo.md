@@ -10,7 +10,7 @@
 - [ ] Provider 插件 P1（#66 批二）：openapi driver 迁移 internal/platform/openapi → internal/drivers/openapi + externalplatform 迁入；按 §9 分期另行立项
 - [ ] 插件机制正式设计落地（plugin-mechanism 简档）：Proposed 待拍板后按 §8 分期；含 LAN 资产接入（cockpit 优先）、配置热更双轨等 12 项决策
 
-- [ ] Agent 健康监控与恢复：外部方案评审 + server 侧监控下放 agent（来源：用户 2026-10-14 两条）——外部设计建议做 Health Monitoring & Recovery 模块；用户补充「本仓早有监控外部第三方服务存活的需求，之前在 server 实现，现在拆到 agent 统一为基础能力」。**关键**：`core/healthprobe` 已实现 Liveness/Readiness/Heartbeat 三语义 + Checker + 窗口 + 平台进程层（三 agent 共用），评审必须先做重合度审计，不许重造。**验收=先出评审结论进 docs/design/**（已有能力对照 file:line / 真实缺口 / server→agent 迁移顺序 / 与熔断器和 dbmon 的归并关系），经用户拍板后才写码
+- [ ] Agent 健康监控与恢复：外部方案评审 + server 侧监控下放 agent（来源：用户 2026-10-14 两条）——评审简档已出 docs/design/agent-health-recovery-review.md：重合度审计（Checker/状态机/防抖/窗口/平台进程层/core 零依赖 全部已有 file:line）+ 真缺口七项（目标注册面/窗口上行/server 消费/DB Checker/icmp·dns/并发上限/动作注册）+ 迁移四步（每步可回退；熔断器归位路由面不下放、外部目标不自动恢复、serverstatus 不动）；待拍板三点：probe.targets 归属 agent type / 上行通道 SendAlertEvent vs MetricsReport 扩展位 / DBSource 归属是否动表；拍板后按 R2-R4 写码
 
 ## 已完成
 
