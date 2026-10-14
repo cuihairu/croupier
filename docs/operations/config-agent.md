@@ -72,6 +72,18 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 
 **管理状态**：运维手动 stop 的进程期望状态落盘 supervisor 日志目录 `desired_state.json`——`autoRestart: true` 只恢复**崩溃**的进程，agent 重启后开机自启不误启运维主动停掉的进程；手动 start/restart 恢复期望运行。文件缺失或损坏时 fail-open（等同无记录，沿用 autoRestart 既有语义）。
 
+### ops.allowExec（远程命令执行，§10.7 边界三件套）
+
+**agentcore 设计面，sidecar 二进制不解析此块（死配置）**——与 managedProcesses 同。`allowExec: true` 开启远程命令执行（`POST /ops/agents/:agentId/exec`），三条前置缺一不可：
+
+1. **双闸**（既有口径）：`ops.enabled: true` + `allowExec: true` 都缺省 false，须显式同开。
+2. **白名单 fail-closed**：`execAllowedCommands` 必须非空——空列表一律拒绝一切命令，**不再等价「放行一切」**（2026-10-15 物化前为 fail-open，已纠正）。`OpsConfig.Validate()` 同步拦配置面。
+3. **审计**：每次尝试（成功 / 业务失败 / 客户端不可用）写 `execution_logs`（`source=agent_exec`），操作人、命令、参数、退出码、耗时入审计载荷；审计面缺失不阻断执行主路径（fail-open）。
+
+> 注意：面板不设通用 Shell 入口——程序操作一律走托管进程的显式动作（start/stop/restart），这是 §10.7「程序操作=明确受授权动作」的既有口径。
+
+**管理状态**：运维手动 stop 的进程期望状态落盘 supervisor 日志目录 `desired_state.json`——`autoRestart: true` 只恢复**崩溃**的进程，agent 重启后开机自启不误启运维主动停掉的进程；手动 start/restart 恢复期望运行。文件缺失或损坏时 fail-open（等同无记录，沿用 autoRestart 既有语义）。
+
 | 键                                        | 默认      | 说明                                                                                                                                                                                                                                                                                                         |
 | ----------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `command` / `args` / `workingDir` / `env` | —         | 进程启动参数                                                                                                                                                                                                                                                                                                 |

@@ -469,6 +469,8 @@ func TestOpsServerExecuteCommand_Variants(t *testing.T) {
 	cfg := DefaultOpsConfig()
 	cfg.Enabled = true
 	cfg.AllowExec = true
+	// 白名单前置（§10.7）：显式声明被测命令（含不存在二进制的用例名）。
+	cfg.ExecAllowedCommands = []string{"definitely-not-a-command-xyz", "pwd", "true"}
 	cfg.ExecTimeout = 10 * time.Second
 	s := NewOpsServer(cfg, "a", "v", nil)
 	ctx := context.Background()

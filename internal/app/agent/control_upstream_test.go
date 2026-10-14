@@ -380,7 +380,9 @@ func TestOpsServerWrapperDelegation(t *testing.T) {
 		Enabled:      true,
 		AllowExec:    true,
 		AllowRestart: true,
-		ExecTimeout:  10 * time.Second,
+		// 白名单前置（§10.7）：空列表不再等价「放行一切」。
+		ExecAllowedCommands: []string{"echo"},
+		ExecTimeout:         10 * time.Second,
 	}, "a", "v", nil)
 	w := &opsServerWrapper{ops: ops}
 	ctx := context.Background()

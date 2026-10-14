@@ -228,6 +228,16 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 更新二进制/配置 ≠ 允许任意远程命令执行；程序操作建模为**明确、受授权的动作**（对齐 §6 「默认全关+双闸」既有口径），不开放通用命令执行入口。独立授权、白名单、审计三件套前置。
 
+**边界已物化**（2026-10-15）：既有 `allowExec` 远程命令面（agent `OpsServer.ExecuteCommand`，server HTTP `POST /ops/agents/:agentId/exec` + 本地 TCP 双入口）三件套核对与收口——
+
+| 前置         | 物化前                                             | 物化后                                                                                                                                                   |
+| ------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 双闸（既有） | `ops.enabled + allowExec` 缺省 false 同开          | 不变（既有口径）                                                                                                                                         |
+| 白名单       | `execAllowedCommands` **空=放行一切**（fail-open） | **fail-closed**：空列表一律拒绝；`OpsConfig.Validate()` 拦配置面，`ExecuteCommand` 运行期兜底程序内直构路径                                              |
+| 审计         | 全链零留痕（logic 层无 execlog 写入）              | 每次尝试（成功 / 业务失败 / 客户端不可用）写 `execution_logs`，`source=agent_exec`，操作人+命令+参数+退出码入审计载荷；审计面缺失 fail-open 不阻断主路径 |
+
+**已定边界**：面板仍不暴露通用 Shell 入口——程序操作一律走托管进程的显式动作（start/stop/restart）；`Validate()` 未在 agent 启动路径接线（配置加载未调用，属存量），故运行期 fail-closed 是实际强制点，配置面校验是契约声明。
+
 ### 10.8 配置模型唯一权威口径（三评审归并，不许三套并存）
 
 - **运行面**：`ManagedProcess`（本简档 §3.1 既有，扩 kind）——管「跑起来、管住它」（schedule/recovery/state）。

@@ -302,18 +302,20 @@ func (s *OpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteComman
 		return nil, fmt.Errorf("ops exec is not enabled")
 	}
 
-	// Check if command is allowed
-	if len(s.config.ExecAllowedCommands) > 0 {
-		allowed := false
-		for _, cmd := range s.config.ExecAllowedCommands {
-			if cmd == req.Command {
-				allowed = true
-				break
-			}
+	// 白名单前置（§10.7 远程 Shell 边界）：命中才放行；空列表一律拒绝
+	// （fail-closed）——Validate 已拦配置面，此处兜底程序内直构路径。
+	allowed := false
+	for _, cmd := range s.config.ExecAllowedCommands {
+		if cmd == req.Command {
+			allowed = true
+			break
 		}
-		if !allowed {
-			return nil, fmt.Errorf("command '%s' is not allowed", req.Command)
+	}
+	if !allowed {
+		if len(s.config.ExecAllowedCommands) == 0 {
+			return nil, fmt.Errorf("exec whitelist is empty: allowExec requires execAllowedCommands")
 		}
+		return nil, fmt.Errorf("command '%s' is not allowed", req.Command)
 	}
 
 	// Create command with timeout

@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	SourceInvoke   = "invoke"
-	SourcePage     = "page"
-	SourceExternal = "external" // 对外 REST API（external_tokens 令牌鉴权面）
+	SourceInvoke    = "invoke"
+	SourcePage      = "page"
+	SourceExternal  = "external"   // 对外 REST API（external_tokens 令牌鉴权面）
+	SourceAgentExec = "agent_exec" // Agent 远程命令执行（ops exec，§10.7 审计前置）
 
 	StatusOK   = "ok"
 	StatusFail = "error"

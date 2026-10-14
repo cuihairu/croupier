@@ -35,8 +35,9 @@ type OpsConfig struct {
 	ManagedProcesses map[string]ManagedProcessConfig `json:"managedProcesses" yaml:"managed_processes"`
 
 	// ExecAllowedCommands limits which commands can be executed.
-	// If empty, all commands are allowed (when AllowExec=true).
-	// If non-empty, only commands in this list are allowed.
+	// Hard prerequisite for AllowExec (agent-supervisor-design §10.7 白名单
+	// 前置): the list must be non-empty when AllowExec=true — an empty list
+	// denies everything (fail-closed), it never means "allow all".
 	ExecAllowedCommands []string `json:"execAllowedCommands" yaml:"exec_allowed_commands"`
 
 	// ExecTimeout is the maximum execution time for commands.
@@ -188,6 +189,9 @@ func (c *OpsConfig) Validate() error {
 	}
 	if c.ExecTimeout > 300*time.Second {
 		c.ExecTimeout = 300 * time.Second
+	}
+	if c.AllowExec && len(c.ExecAllowedCommands) == 0 {
+		return fmt.Errorf("allowExec requires execAllowedCommands (whitelist is a hard prerequisite; empty list never means allow-all)")
 	}
 	for name := range c.ManagedProcesses {
 		cfg := c.ManagedProcesses[name]

@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -208,13 +209,19 @@ func opsAgentSystemInfo(ctx context.Context, svcCtx *svc.ServiceContext, req *Op
 	return nil, errors.New("agent not found")
 }
 
+// opsAgentExecCommand 在 Agent 上执行命令（高风险动作）。§10.7 远程 Shell
+// 边界审计前置：每次尝试（成功 / 业务失败 / 客户端不可用）都写 execution_logs，
+// 命令原文与结果摘要入审计载荷；审计面缺失（无 Writer）不阻断执行主路径。
 func opsAgentExecCommand(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsExecCommandRequest) (*OpsExecCommandResponse, error) {
 	agentSvc := NewAgentService(svcCtx)
+	startedAt := time.Now()
 	result, err := agentSvc.ExecCommand(ctx, req.AgentID, req.Command, req.Args, int(req.Timeout))
 	if err != nil {
+		auditAgentExec(ctx, svcCtx, req, startedAt, nil, err)
 		return nil, err
 	}
 
+	auditAgentExec(ctx, svcCtx, req, startedAt, result, nil)
 	return &OpsExecCommandResponse{
 		Result: OpsExecCommandResult{
 			ExitCode: result.ExitCode,
@@ -222,6 +229,49 @@ func opsAgentExecCommand(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 			Stderr:   result.Stderr,
 		},
 	}, nil
+}
+
+// auditAgentExec 写 exec 审计留痕（fail-open：只投递不阻塞，Writer 缺失跳过）。
+func auditAgentExec(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsExecCommandRequest, startedAt time.Time, result *OpsExecCommandResult, execErr error) {
+	if svcCtx == nil || svcCtx.ExecutionLogWriter == nil {
+		return
+	}
+	actor := "unknown"
+	if name, err := utils.CurrentUsername(ctx); err == nil {
+		actor = name
+	}
+	scope := svc.GameScopeFromContext(ctx)
+
+	status := executionlog.StatusOK
+	var respBody interface{}
+	if execErr != nil {
+		status = executionlog.StatusFail
+		respBody = map[string]string{"error": execErr.Error()}
+	} else if result != nil {
+		respBody = map[string]interface{}{
+			"exitCode": result.ExitCode,
+			"stdout":   result.Stdout,
+			"stderr":   result.Stderr,
+		}
+	}
+
+	svcCtx.ExecutionLogWriter.Log(executionlog.Entry{
+		GameID:     scope.GameID,
+		Env:        scope.Env,
+		Source:     executionlog.SourceAgentExec,
+		FunctionID: req.Command,
+		Actor:      actor,
+		Route:      "/ops/agents/" + req.AgentID + "/exec",
+		Status:     status,
+		DurationMs: time.Since(startedAt).Milliseconds(),
+		Request: map[string]interface{}{
+			"agentId": req.AgentID,
+			"command": req.Command,
+			"args":    req.Args,
+			"timeout": req.Timeout,
+		},
+		Response: respBody,
+	})
 }
 
 func opsAgentProcessStart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessStartRequest) (*OpsProcessStartResponse, error) {
