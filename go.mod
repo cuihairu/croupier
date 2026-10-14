@@ -40,7 +40,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.73
-	github.com/xuri/excelize/v2 v2.11.0
+	github.com/xuri/excelize/v2 v2.11.1-0.20261011032807-402e3bdd9eae
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
 
 	// OpenTelemetry dependencies
@@ -200,7 +200,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	github.com/xuri/efp v0.0.1 // indirect
+	github.com/xuri/efp v0.0.2 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
@@ -236,4 +236,4 @@ exclude github.com/mattn/go-sqlite3 v1.14.33
 // v2.11.0 及以下受影响，上游修复已合入 master（#2331/#2366）但未发版。
 // 精确 pin 到含修复的 commit；上游发布含修复的正式版后，本 replace 与
 // scripts/govulncheck-allowlist.sh 的对应豁免条目同 PR 撤除。
-replace github.com/xuri/excelize/v2 => github.com/xuri/excelize/v2 v2.11.1-0.20260916002613-f0b1c24ee69c
+replace github.com/xuri/excelize/v2 => github.com/xuri/excelize/v2 v2.11.1-0.20261011032807-402e3bdd9eae
