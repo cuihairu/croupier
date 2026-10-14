@@ -6,7 +6,7 @@ title: 密码箱 Provider——凭据统一存取抽象与可替换提供商（v
 
 ## 状态
 
-- 状态: **抽象与默认提供商已落码（2026-10-13，todo 4249/4250/4252）**。`internal/platform/vault` 承载 Provider 接口、编译期注册表与两个内置提供商（local 加密文件 / env 只读源）；svc 装配层 `wireVault` 接线，`enabled` 缺省 false=零行为变化。接入点迁移（todo 4251，把现存明文凭据配置逐点改为经密码箱读取）未开始，其前置盘点见 §6。与 [server-status-provider](server-status-provider.md)（Provider 注册表同构先例）、[plugin-mechanism](plugin-mechanism.md)（出站插件机制）互链。
+- 状态: **抽象与默认提供商已落码（2026-10-13，todo 4249/4250/4252）**。`internal/platform/vault` 承载 Provider 接口、编译期注册表与两个内置提供商（local 加密文件 / env 只读源）；svc 装配层 `wireVault` 接线，`enabled` 缺省 false=零行为变化。接入点迁移（todo 4251）已收口（2026-10-13，全有全无验收：扫描确认无一处直读明文），逐点结论见 §6。与 [server-status-provider](server-status-provider.md)（Provider 注册表同构先例）、[plugin-mechanism](plugin-mechanism.md)（出站插件机制）互链。
 
 ## 1. 背景与定调
 
