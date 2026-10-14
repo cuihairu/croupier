@@ -453,6 +453,8 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	controlService.SetMetricsDB(svcCtx.DB)
 	// capture 规则命中告警：落 alerts 表 + 出口分发（Manager 可为 nil）
 	controlService.SetAlertModel(svcCtx.AlertModel)
+	// 探测窗口→Alert 生命周期（review §12 R3）：probe.window 开/合转 firing/resolved。
+	controlService.SetProbeLifecycleModel(svcCtx.AlertModel)
 	controlService.SetOutletManager(svcCtx.OutletManager)
 	// capture 闸规则下行拉取：config_versions capture.gates（分库模式注入
 	// Router 解析 game 库；单库 nil 即走默认连接）

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -86,6 +87,23 @@ func (m *AlertModel) UpdateStatus(ctx context.Context, id uint, status string) e
 		Model(&Alert{}).
 		Where("id = ?", id).
 		Update("status", status).Error
+}
+
+// UpdateLifecycle 生命周期转换一次落库：status + message + details 同语句
+// 更新（不留半态），按 alert_id 幂等键定位。details 须走 datatypes.JSONMap
+// 才会被 Valuer 序列化（裸 map 直更不被驱动接受）。
+func (m *AlertModel) UpdateLifecycle(ctx context.Context, alertID, status, message string, details map[string]interface{}) error {
+	if strings.TrimSpace(alertID) == "" {
+		return errors.New("alert_id is required")
+	}
+	return m.db.WithContext(ctx).
+		Model(&Alert{}).
+		Where("alert_id = ?", alertID).
+		Updates(map[string]interface{}{
+			"status":  status,
+			"message": message,
+			"details": datatypes.JSONMap(details),
+		}).Error
 }
 
 // HandleTransition 工作流流转审计载荷（handled_at 服务端取库钟，不信任客户端）。

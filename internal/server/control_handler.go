@@ -118,9 +118,11 @@ type ControlService struct {
 	systemInfoCache   *reg.SystemInfoCache
 	taskStore         TaskStore
 	alertModel        *model.AlertModel
-	// probeEvents 探测事件诊断环（§13.1 R2 接收侧：明细留证 + 窗口记日志；
-	// 窗口→Alert 生命周期属 R3，此处不写 Alert 表）。
-	probeEvents   *probeEventSink
+	// probeEvents 探测事件诊断环（§13.1 R2 接收侧：明细留证 + 窗口记日志）。
+	probeEvents *probeEventSink
+	// lifecycle 探测窗口→Alert 生命周期消费者（§12 R3）：probe.window 事件
+	// 开/合转换 firing/resolved。nil = 未装配（仅诊断环留证）。
+	lifecycle     *probeLifecycle
 	outletManager *outlet.Manager
 	configModel   *model.ConfigVersionModel
 	gameDBs       GameDBResolver
@@ -685,8 +687,8 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 }
 
 // handleProbeEvent 接收 agent 探测/告警流事件（MsgAlertEvent 流事件，review
-// §11 已决 2）。R2 边界：校验 agent_id → 诊断环留证 → 按 kind 记日志；
-// **不写 Alert 表**（窗口→Alert 生命周期属 R3）。
+// §11 已决 2）。接收面：校验 agent_id → 诊断环留证 → 窗口事件消费为 Alert
+// 生命周期（§12 R3；未装配 lifecycle 时仅留证+日志）→ 按 kind 记日志。
 //
 // kind 未知或 body 与 kind 不匹配一律拒收：流事件无响应通道可回退，错误只
 // 能体现在日志与丢弃计数上，宁可少收不可错收（错收会污染诊断面）。
@@ -721,6 +723,17 @@ func (s *ControlService) handleProbeEvent(ctx context.Context, data []byte) ([]b
 	s.mu.RUnlock()
 
 	sink.add(agentID, ev)
+
+	// R3：窗口事件消费为 Alert 生命周期（诊断环已留证先行；生命周期失败只
+	// 记 warn 不影响接收——流事件无响应通道，接收成功即完成）。
+	if kind == "probe.window" {
+		s.mu.RLock()
+		lifecycle := s.lifecycle
+		s.mu.RUnlock()
+		if lifecycle != nil {
+			lifecycle.onWindow(ctx, agentID, ev)
+		}
+	}
 
 	if logger != nil {
 		switch kind {
@@ -764,6 +777,17 @@ func (s *ControlService) ProbeEventSink() *probeEventSink {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.probeEvents
+}
+
+// SetProbeLifecycleModel 装配窗口→Alert 生命周期消费者（§12 R3）：sink 取
+// 本服务自有诊断环，alertModel 为 nil 时不装配（仅诊断环留证）。
+func (s *ControlService) SetProbeLifecycleModel(m *model.AlertModel) {
+	if s == nil || m == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lifecycle = newProbeLifecycle(m, s.probeEvents, s.logger)
 }
 
 // handleMetricEvent accepts a pushed MetricsReport snapshot from an agent.

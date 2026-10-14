@@ -276,6 +276,8 @@ type ProtocolChecker struct {
   - **验收「OnWindow 消费者禁止触发进程重启」已生效**：capture 迁移后窗口消费者只打 warn 日志；sidecar ProbeManager 窗口消费者只做上行（硬约束注释落在 `internal/app/agent/probe_manager.go` 文件头，不引用 supervisor/ops 装配）。
   - **已知边界**：(a) server 侧 R2 只做「接得住/留得下/查得到」——`internal/server/probe_events.go` 诊断环（500 条/agent、30min 保留、按窗口记日志），**不写 Alert 表**，窗口→Alert 生命周期属 R3；(b) capture/devops 无 metrics 采样器，统计面（ProbeStatsSampler 折叠进 `MetricsReport.probe_stats`）仅 sidecar 生效，capture 窗口事件暂只落本地日志；(c) devops 的 `probe.targets` 配置段待后续批接入（sidecar 已接线，capture 走数据源派生单目标）。
 - **R3 server 消费面**（M2 server 侧 + M4）：窗口→Alert 生命周期（alertID=`probe:<agentID>:<target>`）+ server 侧内核装配（手动诊断/自身依赖）+ 探针卡面板（与 Agent 面板三页合流）。
+  - **窗口→Alert 生命周期：已交付**（R3 首子批，`internal/server/probe_lifecycle.go` + `AlertModel.UpdateLifecycle`）：probe.window 开/合转 firing/resolved，stable alertID 同行转换（`UpsertByAlertID` 去重不更新语义不适用，走 FindBy+UpdateLifecycle 单语句刷 status+message+details，details 须 `datatypes.JSONMap` 走 Valuer）；recovered 无在案 firing 也落 resolved 行（事实优先，server 重启错过开窗不丢闭窗）；firing 中重放幂等；resolved→firing 复活刷最新窗口；details 随窗口永久落最近 5 次失败明细（诊断环按 `at >= startTs` 过滤防历史窗口串台，明细为诊断环 30min 保留的快照拷贝）；scope 打戳取事件载荷（同 capture 口径，空 = 平台级）。**已定边界**：窗口告警不触发 notify/出口分发（分发面=AlertRule evaluator 规则路径；窗口告警先落 ops 告警中心，需要通道分发时在 transitionFiring 单点加）；agentID 取自载荷不核会话（与 capture 告警同口径）。
+  - **待做**：server 统计消费（probe_stats→MetricsStore 持久化路径需迁移 0044 或内存环 + evaluator `probe.<target>.*` 指标路径）、ops 在线汇总页、`probe.policy` ConfigVersion 管理面与 windows/events 两粒度、server 侧内核装配（手动诊断/自身依赖）。
 - **R4 dbmon 收敛收尾**（M3）：DBSource 归属列（已拍板动表，编号迁移三处同步）+ 周期探针按归属下发 + dbmon 切 DBChecker **删自有 SQL 电池** + server 手动诊断保留。
 - **不排期**：外部目标自动恢复、恢复动作注册、全局并发恢复上限（§8 边界）；游戏客户端模拟探测单独 P2（§5.4，协议适配骨架设计已出：§5.5——L1=R2 顺路、L2 声明式为默认路径、L3 按游戏逐个接）。
 
@@ -297,7 +299,7 @@ type ProtocolChecker struct {
 
 - agent 侧 metrics 收集器已有 **Sampler 折叠先例**：supervisor 采样器折进每份 MetricsReport（`internal/app/agent/upstream.go:622,645` `WithSupervisorSampler`）→ 探测统计=新增一个 probe 采样器同型折叠，周期默认 30s（`upstream.go:632` 既有默认，零新默认值）。
 - server 侧已有 MetricsStore 接收/持久化（`internal/platform/registry/metrics.go:139,198`）与**告警规则消费先例**（`internal/platform/alertrule/evaluator.go:42-56` AlertRule 直接评估 MetricsReport）→ 「成功率低于 X」「时延 P95 超阈值」类探测告警零新告警链路。
-- SendAlertEvent 承载两类 kind：`probe.window`（窗口开/合，server 转 Alert 生命周期——R3）与 `probe.detail`（失败明细，诊断面不触发告警）。明细 server 侧进内存 ring（容量 500/agent，同 supervisor 事件环先例 `ops_supervisor_events.go:35-48`），开窗时最近 N 次序列随 Alert details 永久落库；长期留存=agent 本地 FileTimeline 真值（既有双通道语义，零新表）。
+- SendAlertEvent 承载两类 kind：`probe.window`（窗口开/合，server 转 Alert 生命周期——R3，首子批已交付见 §12）与 `probe.detail`（失败明细，诊断面不触发告警）。明细 server 侧进内存 ring（容量 500/agent，同 supervisor 事件环先例），开窗时最近 N 次序列随 Alert details 永久落库；长期留存=agent 本地 FileTimeline 真值（既有双通道语义，零新表）。
 
 上行量控制（A#3，参照 supervisor 事件环先例）：批量窗口内成功样本只计数不逐条；每 target 每窗口明细条数上限默认 10，超出计 `droppedDetails` 进聚合一栏（失败总数永远如实——上限只裁明细不裁事实）；agent 侧 outbox 环形缓冲 + 丢弃计数。
 
