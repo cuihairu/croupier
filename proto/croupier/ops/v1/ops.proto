@@ -239,6 +239,8 @@ message SupervisedProcessSnapshot {
   string snapshot_profile = 11;  // Crash snapshot profile in effect (none/go/node/python/jvm; "" when unknown)
   string kind = 12;              // Managed object category: program / probe-adapter (§10.1)
   string adapter_id = 13;        // Adapter identity when kind=probe-adapter ("" for program)
+  int64 next_schedule_at_unix = 14;  // Unix seconds of the next scheduled action (0 when unscheduled, §10.6)
+  string next_schedule_action = 15;  // Next scheduled action: start / stop / restart ("" when unscheduled)
 }
 
 // ExecuteCommandRequest requests command execution.

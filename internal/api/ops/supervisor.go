@@ -72,18 +72,20 @@ func summarizeSupervised(procs []*opsv1.SupervisedProcessSnapshot) OpsSupervisor
 // supervisedProcessFromSnapshot 把 wire 快照转为面板 DTO（flags 拷贝，防别名）。
 func supervisedProcessFromSnapshot(snap *opsv1.SupervisedProcessSnapshot) OpsSupervisedProcess {
 	out := OpsSupervisedProcess{
-		Name:              snap.Name,
-		Pid:               snap.Pid,
-		State:             supervisorStateString(snap.State),
-		UptimeSeconds:     snap.UptimeSeconds,
-		RestartCount:      snap.RestartCount,
-		RssBytes:          snap.RssBytes,
-		CpuPercent:        snap.CpuPercent,
-		LastEventUnix:     snap.LastEventUnix,
-		NextRestartAtUnix: snap.NextRestartAtUnix,
-		SnapshotProfile:   snap.SnapshotProfile,
-		Kind:              snap.Kind,
-		AdapterId:         snap.AdapterId,
+		Name:               snap.Name,
+		Pid:                snap.Pid,
+		State:              supervisorStateString(snap.State),
+		UptimeSeconds:      snap.UptimeSeconds,
+		RestartCount:       snap.RestartCount,
+		RssBytes:           snap.RssBytes,
+		CpuPercent:         snap.CpuPercent,
+		LastEventUnix:      snap.LastEventUnix,
+		NextRestartAtUnix:  snap.NextRestartAtUnix,
+		SnapshotProfile:    snap.SnapshotProfile,
+		Kind:               snap.Kind,
+		AdapterId:          snap.AdapterId,
+		NextScheduleAtUnix: snap.NextScheduleAtUnix,
+		NextScheduleAction: snap.NextScheduleAction,
 	}
 	if len(snap.Flags) > 0 {
 		out.Flags = make([]string, len(snap.Flags))

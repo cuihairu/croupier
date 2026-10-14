@@ -36,6 +36,14 @@ type OpsServer struct {
 	// 期望跨 agent 重启保留，开机自启不再误启被主动停掉的进程。
 	desired *desiredStateStore
 
+	// 调度状态（§10.6）：scheds 构造期编译（config 构造后不变，快照与循环
+	// 共读）；schedStop 由 Stop 关闭；schedFired 只属调度循环 goroutine；
+	// schedTick 缺省 30s（测试钩子，直接驱动 scheduleTick 时拉长）。
+	scheds     map[string][]processScheduleEntry
+	schedStop  chan struct{}
+	schedFired map[string]string
+	schedTick  time.Duration
+
 	// hintOnce 保证 core_pattern 只读提示（S3 中档）只发一次。
 	hintOnce sync.Once
 }
@@ -86,6 +94,7 @@ func NewOpsServer(config *OpsConfig, agentID, version string, _ interface{}) *Op
 		processes: make(map[string]*managedProcess),
 		supLog:    newSupervisorEventLog(config.SupervisorLog),
 		desired:   newDesiredStateStore(config.SupervisorLog),
+		scheds:    compileProcessSchedules(config.ManagedProcesses),
 	}
 }
 
@@ -151,18 +160,31 @@ func (s *OpsServer) RestartProcess(ctx context.Context, req *opsv1.RestartProces
 		return nil, fmt.Errorf("process '%s' not found", req.ProcessName)
 	}
 
+	if err := s.doRestartProcess(p, supervisorEventManualStart, "manual restart"); err != nil {
+		return nil, err
+	}
+
+	return &opsv1.RestartProcessResponse{
+		Success: true,
+		Message: fmt.Sprintf("Process '%s' restarted", req.ProcessName),
+	}, nil
+}
+
+// doRestartProcess is the shared restart funnel (manual ops and scheduled
+// actions §10.6): stop → start → state updates → desired-state → event.
+func (s *OpsServer) doRestartProcess(p *managedProcess, event, message string) error {
 	p.mu.Lock()
-	// Stop the process
+	// Stop the process（旧 pid 先于 stop 捕获：startProcess 会立刻写入新 pid）
+	oldPID := p.pid
 	s.stopProcess(p)
 
 	// Start it again
 	if err := s.startProcess(p); err != nil {
 		p.mu.Unlock()
-		return nil, fmt.Errorf("failed to restart process: %w", err)
+		return fmt.Errorf("failed to restart process: %w", err)
 	}
 
-	// 人工重启成功即改回期望运行（此前若处于手动停态，重启是显式运行意图）。
-	oldPID := p.pid
+	// 重启成功即改回期望运行（此前若处于手动停态，重启是显式运行意图）。
 	p.restarts++
 	p.lastStart = timestamppb.Now()
 	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
@@ -174,17 +196,14 @@ func (s *OpsServer) RestartProcess(ctx context.Context, req *opsv1.RestartProces
 	p.mu.Unlock()
 	s.desired.SetRunning(p.name, true)
 
-	manual := newSupervisorEvent(p.name, supervisorEventManualStart)
-	manual.OldPid = oldPID
-	manual.NewPid = newPID
-	manual.RestartCount = restarts
-	manual.Message = "manual restart"
-	s.emitSupervisorEvent(p, manual)
+	ev := newSupervisorEvent(p.name, event)
+	ev.OldPid = oldPID
+	ev.NewPid = newPID
+	ev.RestartCount = restarts
+	ev.Message = message
+	s.emitSupervisorEvent(p, ev)
 
-	return &opsv1.RestartProcessResponse{
-		Success: true,
-		Message: fmt.Sprintf("Process '%s' restarted", req.ProcessName),
-	}, nil
+	return nil
 }
 
 // StopProcess stops a managed process.
@@ -201,6 +220,17 @@ func (s *OpsServer) StopProcess(ctx context.Context, req *opsv1.StopProcessReque
 		return nil, fmt.Errorf("process '%s' not found", req.ProcessName)
 	}
 
+	s.doStopProcess(p, supervisorEventManualStop, "manual stop")
+
+	return &opsv1.StopProcessResponse{
+		Success: true,
+		Message: fmt.Sprintf("Process '%s' stopped", req.ProcessName),
+	}, nil
+}
+
+// doStopProcess is the shared stop funnel (manual ops and scheduled actions
+// §10.6)：与手动停同信号（stopCh close），恢复环据此判定主动停止、不误拉起。
+func (s *OpsServer) doStopProcess(p *managedProcess, event, message string) {
 	p.mu.Lock()
 	s.stopProcess(p)
 	oldPID := p.pid
@@ -208,18 +238,13 @@ func (s *OpsServer) StopProcess(ctx context.Context, req *opsv1.StopProcessReque
 	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
 	p.nextRestartAt = nil
 	p.mu.Unlock()
-	// 手动停止是期望状态变更：跨 agent 重启不再被开机自启误启。
+	// 停止是期望状态变更：跨 agent 重启不再被开机自启误启。
 	s.desired.SetRunning(p.name, false)
 
-	ev := newSupervisorEvent(p.name, supervisorEventManualStop)
+	ev := newSupervisorEvent(p.name, event)
 	ev.OldPid = oldPID
-	ev.Message = "manual stop"
+	ev.Message = message
 	s.emitSupervisorEvent(p, ev)
-
-	return &opsv1.StopProcessResponse{
-		Success: true,
-		Message: fmt.Sprintf("Process '%s' stopped", req.ProcessName),
-	}, nil
 }
 
 // StartProcess starts a managed process.
@@ -255,37 +280,10 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 		s.mu.Unlock()
 	}
 
-	p.mu.Lock()
-
-	if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
-		p.mu.Unlock()
-		return nil, fmt.Errorf("process '%s' is already running", req.ProcessName)
+	newPID, err := s.doStartProcess(p, supervisorEventManualStart, "manual start")
+	if err != nil {
+		return nil, err
 	}
-
-	if err := s.startProcess(p); err != nil {
-		p.mu.Unlock()
-		return nil, fmt.Errorf("failed to start process: %w", err)
-	}
-
-	p.restarts++
-	p.lastStart = timestamppb.Now()
-	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
-	p.nextRestartAt = nil
-	// 手动 start 是 BROKEN 的复位路径：成功即清连续失败计数。
-	p.consecutiveFails = 0
-	newPID := p.pid
-	restarts := p.restarts
-	p.mu.Unlock()
-	// 手动启动是期望状态变更：期望 running 落盘（清掉此前的停意图）。
-	s.desired.SetRunning(p.name, true)
-
-	ev := newSupervisorEvent(p.name, supervisorEventManualStart)
-	ev.NewPid = newPID
-	ev.RestartCount = restarts
-	ev.Message = "manual start"
-	s.emitSupervisorEvent(p, ev)
-	// 面板手工首启也可能第一次真正开轻档——提示兜底覆盖此路径。
-	s.emitSnapshotHintOnce()
 
 	return &opsv1.StartProcessResponse{
 		Success: true,
@@ -294,6 +292,44 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 		// 竞态（DATA RACE，覆盖批次实测复现）。
 		Pid: newPID,
 	}, nil
+}
+
+// doStartProcess is the shared start funnel (manual ops and scheduled actions
+// §10.6)。返回锁内捕获的新 pid（-1 表示未知，调用方自行处理）。
+func (s *OpsServer) doStartProcess(p *managedProcess, event, message string) (int32, error) {
+	p.mu.Lock()
+
+	if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
+		p.mu.Unlock()
+		return -1, fmt.Errorf("process '%s' is already running", p.name)
+	}
+
+	if err := s.startProcess(p); err != nil {
+		p.mu.Unlock()
+		return -1, fmt.Errorf("failed to start process: %w", err)
+	}
+
+	p.restarts++
+	p.lastStart = timestamppb.Now()
+	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
+	p.nextRestartAt = nil
+	// start 是 BROKEN 的复位路径：成功即清连续失败计数。
+	p.consecutiveFails = 0
+	newPID := p.pid
+	restarts := p.restarts
+	p.mu.Unlock()
+	// 启动是期望状态变更：期望 running 落盘（清掉此前的停意图）。
+	s.desired.SetRunning(p.name, true)
+
+	ev := newSupervisorEvent(p.name, event)
+	ev.NewPid = newPID
+	ev.RestartCount = restarts
+	ev.Message = message
+	s.emitSupervisorEvent(p, ev)
+	// 面板手工首启也可能第一次真正开轻档——提示兜底覆盖此路径。
+	s.emitSnapshotHintOnce()
+
+	return newPID, nil
 }
 
 // ExecuteCommand executes a command on the agent.
@@ -660,6 +696,9 @@ func (s *OpsServer) Start() error {
 	// 一次建议命令（once 保证不刷屏；agent 不写宿主配置）。
 	s.emitSnapshotHintOnce()
 
+	// §10.6 调度状态：有 schedule 声明才起分钟槽扫描循环（零配置零漂移）。
+	s.startScheduleLoopLocked()
+
 	return nil
 }
 
@@ -685,6 +724,12 @@ func (s *OpsServer) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervis
 func (s *OpsServer) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// 调度循环先停：Stop 之后的进程收尾不该再被定时动作打断。
+	if s.schedStop != nil {
+		close(s.schedStop)
+		s.schedStop = nil
+	}
 
 	for _, p := range s.processes {
 		p.mu.Lock()

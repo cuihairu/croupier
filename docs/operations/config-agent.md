@@ -72,6 +72,8 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 
 **管理状态**：运维手动 stop 的进程期望状态落盘 supervisor 日志目录 `desired_state.json`——`autoRestart: true` 只恢复**崩溃**的进程，agent 重启后开机自启不误启运维主动停掉的进程；手动 start/restart 恢复期望运行。文件缺失或损坏时 fail-open（等同无记录，沿用 autoRestart 既有语义）。
 
+**调度状态**（§10.6）：`schedule[]` 声明定时 start/stop/restart。定时触发与恢复环是两条执行路径——定时停与手动停同信号（stopCh），恢复环不会把定时停误拉起；触发走显式动作同一漏斗（期望状态与 `schedule_fire` 事件随流，与 `manual_start`/`manual_stop` 事件分型）。快照携带下一次触发时间与动作（`nextScheduleAtUnix`/`nextScheduleAction`，无调度为零值）。边界诚实：schedule 是 agent 本地配置意图，与 `autoRestart`/开机自启同信任根，**不受 `allowRestart` 门禁**（`allowRestart` 门的是远程操作面）——要禁用定时动作请删除 `schedule` 配置。
+
 ### ops.allowExec（远程命令执行，§10.7 边界三件套）
 
 **agentcore 设计面，sidecar 二进制不解析此块（死配置）**——与 managedProcesses 同。`allowExec: true` 开启远程命令执行（`POST /ops/agents/:agentId/exec`），三条前置缺一不可：
@@ -94,6 +96,7 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 | `memThresholdBytes`                       | `0`（关） | RSS 达到该值打 `mem_over_limit` 标记                                                                                                                                                                                                                                                                         |
 | `cpuThresholdPercent`                     | `0`（关） | CPU% 达到该值打 `cpu_over_limit` 标记                                                                                                                                                                                                                                                                        |
 | `snapshotProfile`                         | `none`    | S3 崩溃快照档，闭集 `none/go/node/python/jvm`（显式声明，不做语言自动探测）：`go` 注入 `GOTRACEBACK=crash`；`node` 前置 `--report-on-fatalerror --report-exclude-env`；`python` 注入 `PYTHONFAULTHANDLER=1`；`jvm` 注入 `JAVA_TOOL_OPTIONS`（`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=<快照目录>`） |
+| `schedule[]`                              | 空        | 定时动作列表（§10.6 调度状态）：`action` 闭集 `start/stop/restart` + `cron` 五字段（分 时 日 月 周，与 server 侧任务调度同一解析器）。到点走与面板显式动作同一漏斗（期望状态落盘 + `schedule_fire` 事件随流）；30s 分钟槽扫描去重，无补跑（agent 停机错过的槽位不补触发）                                    |
 
 ```yaml
 ops:
@@ -109,6 +112,11 @@ ops:
       memThresholdBytes: 2147483648 # 2GiB
       cpuThresholdPercent: 90
       snapshotProfile: go # 崩溃时全 goroutine 栈转储并尝试 core dump
+      schedule: # 定时动作（§10.6）：凌晨停、工作日早晨起
+        - action: stop
+          cron: "0 3 * * *"
+        - action: start
+          cron: "30 7 * * 1-5"
 ```
 
 面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记/快照档）。崩溃时 `detect_down` 事件登记快照目录与产物文件名；宿主机 `core_pattern` 非管道模式时 agent 发一次 `snapshot_hint` 只读提示（含建议命令，agent 不写宿主配置）。保留期/配额/产物下载权限见 [Agent Supervisor 设计简档](../design/agent-supervisor-design.md)。

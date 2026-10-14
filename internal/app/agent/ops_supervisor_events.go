@@ -27,6 +27,9 @@ const (
 	supervisorEventResourceOverLimit = "resource_over_limit"
 	supervisorEventManualStart       = "manual_start"
 	supervisorEventManualStop        = "manual_stop"
+	// schedule_fire 是定时动作事件（§10.6 调度状态）：与 manual_* 分型，
+	// 四类状态在事件流里可分辨（message 带 action 与 cron）。
+	supervisorEventScheduleAction = "schedule_fire"
 
 	// flagBreakerTripped 追加在快照 flags 上（BROKEN 态恒带）。
 	flagBreakerTripped = "breaker_tripped"

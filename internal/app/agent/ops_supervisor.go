@@ -60,6 +60,14 @@ func (s *OpsServer) SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapsh
 		if p.config.EffectiveKind() == ManagedKindProbeAdapter {
 			snap.AdapterId = strings.TrimSpace(p.config.AdapterID)
 		}
+		// §10.6 调度状态事前可见：下一次定时触发时间与动作随快照上行。
+		// scheds 构造期编译后只读，无需 p.mu。
+		if entries := s.scheds[p.name]; len(entries) > 0 {
+			if nextAt, nextAction := nextScheduleEntry(entries, now); !nextAt.IsZero() {
+				snap.NextScheduleAtUnix = nextAt.Unix()
+				snap.NextScheduleAction = nextAction
+			}
+		}
 		if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
 			if p.lastStart != nil {
 				if up := int64(now.Sub(p.lastStart.AsTime()).Seconds()); up > 0 {

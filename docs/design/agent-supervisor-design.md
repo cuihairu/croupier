@@ -222,9 +222,11 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 自升级失败=agent 失联，风险面与普通受管程序不同（没有上位监管者拉起它），不能套用 §10.4 流程；单列设计，未起稿。**同样留指纹**：agent 二进制 sha256 随注册/心跳的版本上报面扩字段（wire 追加），失联排查时 server 侧「最后已知版本+指纹」即排查锚点。
 
-### 10.6 定时任务与健康恢复：统一调度模型，执行逻辑不合并（已采纳）
+### 10.6 定时任务与健康恢复：统一调度模型，执行逻辑不合并（已采纳；调度状态已实现 2026-10-15）
 
 调度入口统一（一份 schedule 模型），但**定时触发与恢复环是两条执行路径**——与本仓既有结构事实一致：恢复环仅由进程退出事件驱动（`ops_server.go:426-439`），探测窗口不馈入重启（健康评审 §5.2 约束 2）。
+
+**调度状态已实现**（2026-10-15）：`ManagedProcessConfig.schedule[]`（`action` 闭集 start/stop/restart + `cron` 五字段）——cron 解析与 server 侧任务调度同一 `internal/tasks/scheduler.ParseCron`（一份 schedule 模型），Validate 配置加载即拦非法动作/表达式。到点触发走显式动作**同一漏斗**（`doStart/doStop/doRestart`：desired-state 落盘与 supervisor 事件随流），scheduled stop 与手动停同信号（stopCh close），恢复环不把定时停误判为崩溃拉起（用例 `TestScheduledStopRecordsDesiredStateAndBlocksAutoRestart` 固化）。30s 分钟槽扫描 + (进程,动作,槽) 去重幂等；**无补跑**（agent 停机错过的槽位不补触发，crond 语义）。事件分型 `schedule_fire`（与 manual_* 分型，四类状态在事件流可分辨）；快照追加 `next_schedule_at_unix=14` / `next_schedule_action=15`（调度状态事前可见，无调度零值零漂移）。边界：schedule 是 agent 本地配置意图（与 autoRestart/开机自启同信任根），**不受 allowRestart 门禁**（allowRestart 门的是远程操作面）；实例不存在时 stop 幂等跳过、start/restart 同 StartProcess 路径物化。
 
 ### 10.7 远程 Shell 不默认开放（硬边界）
 

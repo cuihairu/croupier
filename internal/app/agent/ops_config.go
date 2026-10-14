@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/cuihairu/croupier/internal/tasks/scheduler"
 )
 
 // OpsConfig defines configuration for the ops module.
@@ -149,6 +151,25 @@ type ManagedProcessConfig struct {
 	// (closed set: none/go/node/python/jvm, explicit declaration — no language
 	// auto-detection). Default: none (no snapshot switches injected).
 	SnapshotProfile string `json:"snapshotProfile" yaml:"snapshotProfile"`
+
+	// Schedule declares timed start/stop/restart actions (§10.6 调度状态).
+	// Same five-field cron model as the server-side task scheduler
+	// (internal/tasks/scheduler) — one schedule model across the repo. Local
+	// declared intent from the agent's own config: same trust root as
+	// autoRestart, so allowRestart (the remote-operation gate) does not apply.
+	// No catch-up: slots missed while the agent is down never fire (crond
+	// semantics).
+	Schedule []ProcessScheduleAction `json:"schedule" yaml:"schedule"`
+}
+
+// ProcessScheduleAction is a single timed action on a managed process.
+type ProcessScheduleAction struct {
+	// Action is the lifecycle action to fire. Closed set: start/stop/restart.
+	Action string `json:"action" yaml:"action"`
+
+	// Cron is a five-field cron expression (minute hour day month weekday),
+	// parsed by the same parser as the server-side task scheduler.
+	Cron string `json:"cron" yaml:"cron"`
 }
 
 // snapshotProfileClosure is the closed set of snapshot profiles (S3).
@@ -168,6 +189,17 @@ const (
 
 var managedKindClosure = map[string]bool{
 	ManagedKindProgram: true, ManagedKindProbeAdapter: true,
+}
+
+// 定时动作闭集（§10.6 调度状态）。
+const (
+	ScheduleActionStart   = "start"
+	ScheduleActionStop    = "stop"
+	ScheduleActionRestart = "restart"
+)
+
+var scheduleActionClosure = map[string]bool{
+	ScheduleActionStart: true, ScheduleActionStop: true, ScheduleActionRestart: true,
 }
 
 // kind 报告受管对象类别；缺省=program（存量配置零漂移）。
@@ -212,6 +244,14 @@ func (c *ManagedProcessConfig) Validate() error {
 	}
 	if c.kind() == ManagedKindProbeAdapter && strings.TrimSpace(c.AdapterID) == "" {
 		return fmt.Errorf("kind=probe-adapter requires adapterId (probe-surface reference and authorization anchor)")
+	}
+	for i, sc := range c.Schedule {
+		if !scheduleActionClosure[sc.Action] {
+			return fmt.Errorf("schedule[%d]: unknown action %q (closed set: start/stop/restart)", i, sc.Action)
+		}
+		if _, err := scheduler.ParseCron(sc.Cron); err != nil {
+			return fmt.Errorf("schedule[%d]: %w", i, err)
+		}
 	}
 	if c.SnapshotProfile == "" {
 		return nil

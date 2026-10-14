@@ -101,6 +101,10 @@ type OpsSupervisedProcess struct {
 	SnapshotProfile   string `json:"snapshotProfile,omitempty"`
 	Kind              string `json:"kind"`
 	AdapterId         string `json:"adapterId,omitempty"`
+	// NextScheduleAtUnix/NextScheduleAction 是调度状态（§10.6）：下一次
+	// 定时触发时间与动作，无调度条目为零值（事前可见，面板可渲染倒计时）。
+	NextScheduleAtUnix int64  `json:"nextScheduleAtUnix,omitempty"`
+	NextScheduleAction string `json:"nextScheduleAction,omitempty"`
 }
 
 type OpsSupervisorSummary struct {
