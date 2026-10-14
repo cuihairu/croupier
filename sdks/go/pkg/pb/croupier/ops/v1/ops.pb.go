@@ -1661,6 +1661,8 @@ type SupervisedProcessSnapshot struct {
 	LastEventUnix     int64                  `protobuf:"varint,9,opt,name=last_event_unix,json=lastEventUnix,proto3" json:"last_event_unix,omitempty"`                // Unix seconds of the last supervisor event (0 if none)
 	NextRestartAtUnix int64                  `protobuf:"varint,10,opt,name=next_restart_at_unix,json=nextRestartAtUnix,proto3" json:"next_restart_at_unix,omitempty"` // Unix seconds of the scheduled auto-restart (BACKOFF only)
 	SnapshotProfile   string                 `protobuf:"bytes,11,opt,name=snapshot_profile,json=snapshotProfile,proto3" json:"snapshot_profile,omitempty"`            // Crash snapshot profile in effect (none/go/node/python/jvm; "" when unknown)
+	Kind              string                 `protobuf:"bytes,12,opt,name=kind,proto3" json:"kind,omitempty"`                                                         // Managed object category: program / probe-adapter (§10.1)
+	AdapterId         string                 `protobuf:"bytes,13,opt,name=adapter_id,json=adapterId,proto3" json:"adapter_id,omitempty"`                              // Adapter identity when kind=probe-adapter ("" for program)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -1768,6 +1770,20 @@ func (x *SupervisedProcessSnapshot) GetNextRestartAtUnix() int64 {
 func (x *SupervisedProcessSnapshot) GetSnapshotProfile() string {
 	if x != nil {
 		return x.SnapshotProfile
+	}
+	return ""
+}
+
+func (x *SupervisedProcessSnapshot) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *SupervisedProcessSnapshot) GetAdapterId() string {
+	if x != nil {
+		return x.AdapterId
 	}
 	return ""
 }
@@ -3466,7 +3482,7 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x18GetSupervisorLogResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\fR\acontent\x12\x1b\n" +
 	"\tfile_name\x18\x02 \x01(\tR\bfileName\x12\x1c\n" +
-	"\ttruncated\x18\x03 \x01(\bR\ttruncated\"\x9a\x03\n" +
+	"\ttruncated\x18\x03 \x01(\bR\ttruncated\"\xcd\x03\n" +
 	"\x19SupervisedProcessSnapshot\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\x05R\x03pid\x123\n" +
@@ -3480,7 +3496,10 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x0flast_event_unix\x18\t \x01(\x03R\rlastEventUnix\x12/\n" +
 	"\x14next_restart_at_unix\x18\n" +
 	" \x01(\x03R\x11nextRestartAtUnix\x12)\n" +
-	"\x10snapshot_profile\x18\v \x01(\tR\x0fsnapshotProfile\"\x8a\x02\n" +
+	"\x10snapshot_profile\x18\v \x01(\tR\x0fsnapshotProfile\x12\x12\n" +
+	"\x04kind\x18\f \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"adapter_id\x18\r \x01(\tR\tadapterId\"\x8a\x02\n" +
 	"\x15ExecuteCommandRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\tR\acommand\x12\x12\n" +
 	"\x04args\x18\x02 \x03(\tR\x04args\x12\x1f\n" +

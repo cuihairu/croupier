@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/process"
@@ -54,6 +55,10 @@ func (s *OpsServer) SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapsh
 			RestartCount:    p.restarts,
 			LastEventUnix:   p.lastEventUnix,
 			SnapshotProfile: p.config.SnapshotProfile,
+			Kind:            p.config.EffectiveKind(),
+		}
+		if p.config.EffectiveKind() == ManagedKindProbeAdapter {
+			snap.AdapterId = strings.TrimSpace(p.config.AdapterID)
 		}
 		if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
 			if p.lastStart != nil {

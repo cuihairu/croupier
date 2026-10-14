@@ -181,6 +181,8 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 外部评审提出的 `ManagedProgram` 与本仓 `OpsConfig.ManagedProcesses[x]`（§3.1）是同一概念——**沿用既有词 ManagedProcess**。统一模型=一个受管对象同时表示**游戏辅助程序**与**外部探测适配器**（新增 `kind: program | probe-adapter`），两类受管对象不再各建一套生命周期。
 
+**已实现**（2026-10-15）：`ManagedProcessConfig` 增 `kind` 闭集字段（`program` / `probe-adapter`，缺省=program，存量配置零漂移）+ 适配器清单字段（`adapterId` / `adapterVersion` / `adapterProtocol` / `adapterCapabilities`，协议缺省 `croupier-probe-jsonl-v1`）；`Validate()` 拦未知 kind（对齐 snapshotProfile 闭集先例）与 `kind=probe-adapter` 缺身份；`kind` 与 `adapterId` 随 supervisor 快照上行走面板（`SupervisedProcessSnapshot.kind` / `adapter_id`，proto 追加 12/13，wire 兼容）。kind=probe-adapter 走与 program 完全同一套生命周期（开机自启/崩溃恢复/熔断/快照档/期望状态），无特判分支。
+
 ### 10.2 生命周期能力表（已采纳，未实现）
 
 | 能力                     | 归属           | 说明                                                                                   |
@@ -242,5 +244,5 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 - **运行面**：`ManagedProcess`（本简档 §3.1 既有，扩 kind）——管「跑起来、管住它」（schedule/recovery/state）。
 - **探测面**：`probe.targets` + `probe.policy`（健康评审 §4.2/§13.3）——管「探什么、什么频率、谁的视角」。
-- **适配器清单**：probe-adapter 评审的 `ProbeAdapter` manifest **不是第三套独立配置模型**——是 `kind=probe-adapter` 的 ManagedProcess 的附带描述文件（executable/protocol/capabilities），被 `probe.targets` 引用；游戏地址/频率/授权/凭证引用留在探测面配置，**不硬编码进清单**（评审原文约束）。
+- **适配器清单**：probe-adapter 评审的 `ProbeAdapter` manifest **不是第三套独立配置模型**——是 `kind=probe-adapter` 的 ManagedProcess 的附带描述（executable/protocol/capabilities），被 `probe.targets` 引用；游戏地址/频率/授权/凭证引用留在探测面配置，**不硬编码进清单**（评审原文约束）。**落地方式（2026-10-15）**：清单字段内嵌在 `ManagedProcessConfig`（`adapterId`/`adapterVersion`/`adapterProtocol`/`adapterCapabilities`）而非独立文件——`executable` 复用既有 `command`/`args`，避免为同一进程维护两份入口声明；待 `probe.targets` 引用面（依赖 IPC 契约）落地时再评估是否独立成文件。
 - 契约要点（`croupier-probe-jsonl-v1`，已采纳**未核实**——字段规范评审自述待定）：独立进程+版本化 IPC；**进程常驻复用，不得每次探测新建进程**（启动成本会主导探测周期）；外部适配器只探测不控制平台（能力归属表：控制权留 Agent/Server）；先做一个参考适配器+契约测试再谈分发/签名。

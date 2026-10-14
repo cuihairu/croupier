@@ -82,6 +82,8 @@ func supervisedProcessFromSnapshot(snap *opsv1.SupervisedProcessSnapshot) OpsSup
 		LastEventUnix:     snap.LastEventUnix,
 		NextRestartAtUnix: snap.NextRestartAtUnix,
 		SnapshotProfile:   snap.SnapshotProfile,
+		Kind:              snap.Kind,
+		AdapterId:         snap.AdapterId,
 	}
 	if len(snap.Flags) > 0 {
 		out.Flags = make([]string, len(snap.Flags))

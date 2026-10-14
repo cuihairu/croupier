@@ -237,6 +237,8 @@ message SupervisedProcessSnapshot {
   int64 last_event_unix = 9;     // Unix seconds of the last supervisor event (0 if none)
   int64 next_restart_at_unix = 10; // Unix seconds of the scheduled auto-restart (BACKOFF only)
   string snapshot_profile = 11;  // Crash snapshot profile in effect (none/go/node/python/jvm; "" when unknown)
+  string kind = 12;              // Managed object category: program / probe-adapter (§10.1)
+  string adapter_id = 13;        // Adapter identity when kind=probe-adapter ("" for program)
 }
 
 // ExecuteCommandRequest requests command execution.

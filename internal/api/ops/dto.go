@@ -94,10 +94,13 @@ type OpsSupervisedProcess struct {
 	Flags         []string `json:"flags"`
 	// LastEventUnix 最近一次 supervisor 事件时间（0=无）；NextRestartAtUnix
 	// 仅 BACKOFF 态非零（面板渲染退避倒计时）。SnapshotProfile 是 S3 崩溃
-	// 快照档（none/go/node/python/jvm，空=未知）。
+	// 快照档（none/go/node/python/jvm，空=未知）。Kind 是受管对象类别
+	// （program/probe-adapter，§10.1）；AdapterId 在 kind=probe-adapter 时非空。
 	LastEventUnix     int64  `json:"lastEventUnix"`
 	NextRestartAtUnix int64  `json:"nextRestartAtUnix"`
 	SnapshotProfile   string `json:"snapshotProfile,omitempty"`
+	Kind              string `json:"kind"`
+	AdapterId         string `json:"adapterId,omitempty"`
 }
 
 type OpsSupervisorSummary struct {

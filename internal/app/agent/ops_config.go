@@ -72,12 +72,40 @@ type SupervisorLogConfig struct {
 }
 
 // ManagedProcessConfig defines how to manage a process.
+//
+// Kind 区分受管对象类别（agent-supervisor-design §10.1 统一受管对象）：
+// program 是游戏辅助程序，probe-adapter 是外部探测适配器——两类共用同一套
+// 生命周期（启停/监管/快照/调度/更新），不各建一套。适配器清单只声明身份、
+// 入口、协议、能力（§10.8）；游戏地址/频率/授权/凭证留在探测面配置，不进清单。
 type ManagedProcessConfig struct {
 	// Command is the command to start the process.
 	Command string `json:"command" yaml:"command"`
 
 	// Args are the command arguments.
 	Args []string `json:"args" yaml:"args"`
+
+	// Kind is the managed-object category. Empty or "program" means a game
+	// sidecar program (the default, so pre-existing configs are unchanged);
+	// "probe-adapter" declares an external probe adapter that the probe
+	// surface may reference. Closed set — unknown values fail at load.
+	Kind string `json:"kind" yaml:"kind"`
+
+	// AdapterID is the adapter identity (manifest metadata.id, e.g.
+	// "com.example.game-a"). Required when Kind=probe-adapter: it is the
+	// reference anchor for the probe surface and the authorization check.
+	AdapterID string `json:"adapterId" yaml:"adapterId"`
+
+	// AdapterVersion is the declared adapter version (manifest metadata.version).
+	AdapterVersion string `json:"adapterVersion" yaml:"adapterVersion"`
+
+	// AdapterProtocol is the IPC protocol name. Empty falls back to the
+	// canonical croupier-probe-jsonl-v1 contract.
+	AdapterProtocol string `json:"adapterProtocol" yaml:"adapterProtocol"`
+
+	// AdapterCapabilities is the adapter's declared capability set (e.g.
+	// login / handshake). Declaration is not verification: the platform still
+	// checks version, capability claims and authorization scope.
+	AdapterCapabilities []string `json:"adapterCapabilities" yaml:"adapterCapabilities"`
 
 	// WorkingDir is the working directory for the process.
 	WorkingDir string `json:"workingDir" yaml:"working_dir"`
@@ -128,10 +156,63 @@ var snapshotProfileClosure = map[string]bool{
 	"none": true, "go": true, "node": true, "python": true, "jvm": true,
 }
 
-// Validate reports whether the snapshot profile is in the closed set. An
-// empty value is accepted (means "none"); any other unknown value is an
-// error — a typo must fail at load, not silently disable snapshots.
+// 受管对象类别闭集（§10.1）。kind=program 是缺省类别；probe-adapter 是外部
+// 探测适配器（§10.8 清单只声明身份/入口/协议/能力）。
+const (
+	ManagedKindProgram      = "program"
+	ManagedKindProbeAdapter = "probe-adapter"
+	// defaultAdapterProtocol 是外部探测适配器的 IPC 契约名（字段规范由
+	// §10.8 待定项收敛，契约名先行固定）。
+	defaultAdapterProtocol = "croupier-probe-jsonl-v1"
+)
+
+var managedKindClosure = map[string]bool{
+	ManagedKindProgram: true, ManagedKindProbeAdapter: true,
+}
+
+// kind 报告受管对象类别；缺省=program（存量配置零漂移）。
+func (c *ManagedProcessConfig) kind() string {
+	if c == nil {
+		return ManagedKindProgram
+	}
+	switch k := strings.TrimSpace(c.Kind); k {
+	case "", ManagedKindProgram:
+		return ManagedKindProgram
+	case ManagedKindProbeAdapter:
+		return ManagedKindProbeAdapter
+	default:
+		return k
+	}
+}
+
+// EffectiveKind returns the normalized managed-object kind.
+func (c *ManagedProcessConfig) EffectiveKind() string {
+	return c.kind()
+}
+
+// EffectiveAdapterProtocol returns the adapter IPC protocol name, defaulting
+// to the canonical contract name when unset.
+func (c *ManagedProcessConfig) EffectiveAdapterProtocol() string {
+	if c == nil {
+		return defaultAdapterProtocol
+	}
+	if p := strings.TrimSpace(c.AdapterProtocol); p != "" {
+		return p
+	}
+	return defaultAdapterProtocol
+}
+
+// Validate reports whether the managed-object kind and snapshot profile are
+// in their closed sets. Empty values are accepted (means program / none); any
+// other unknown value is an error — a typo must fail at load, not silently
+// misclassify the object or disable snapshots.
 func (c *ManagedProcessConfig) Validate() error {
+	if !managedKindClosure[c.kind()] {
+		return fmt.Errorf("unknown kind %q (closed set: program/probe-adapter)", c.Kind)
+	}
+	if c.kind() == ManagedKindProbeAdapter && strings.TrimSpace(c.AdapterID) == "" {
+		return fmt.Errorf("kind=probe-adapter requires adapterId (probe-surface reference and authorization anchor)")
+	}
 	if c.SnapshotProfile == "" {
 		return nil
 	}
