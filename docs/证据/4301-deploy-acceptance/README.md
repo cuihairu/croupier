@@ -8,7 +8,7 @@
 - 部署栈不含 capture-agent（ef3c44f 已知边界：docker.yml 源码栈有，ghcr 部署栈无镜像），故本次用：
   - 本地构建的两个 capture agent：`cap-deploy-demo`（game=demo）/ `cap-deploy-demo3`（game=demo3），出站-only 经 SSH 隧道 127.0.0.1:29090 → 172.18.0.14:19090 注册到部署 server；
   - 本地 postgres:16 容器（capture-deploy-e2e）作 CDC 源：wal_level=logical，预建 publication `cap_pub_demo` / `cap_pub_demo3`（connector 只建槽不建发布）。
-- 管理员凭据：部署库 admin 口令未知（bcrypt 不可逆），验收前已重置为 `Croupier@Deploy2026`——**请知悉并择机改回**。
+- 管理员凭据：部署库 admin 口令未知（bcrypt 不可逆），验收前已重置（新口令不入库，见验收当次会话记录）——**请知悉并择机改回**。
 
 ## 六项判据与证据
 
