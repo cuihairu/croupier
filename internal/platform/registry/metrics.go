@@ -28,6 +28,10 @@ type AgentMetricsHistory struct {
 	MemoryJSON dbtype.JSON
 
 	DisksJSON dbtype.JSON
+
+	// ProbeJSON 探测统计快照（probe_stats，评审简档 §13.1 统计面；
+	// 迁移 0044 加列）。空 = 该份上报无探测统计（如 capture/devops agent）。
+	ProbeJSON dbtype.JSON
 }
 
 func (AgentMetricsHistory) TableName() string {
@@ -204,12 +208,22 @@ func (s *MetricsStore) persistToDB(agentID string, report *opsv1.MetricsReport) 
 	memoryJSON, _ := json.Marshal(report.GetMemory())
 	disksJSON, _ := json.Marshal(report.GetDisks())
 
+	// 探测统计只有配探针面的 agent 才有；空切片不落列（NULL 而非 "[]"），
+	// 读侧按列非空重建。
+	var probeJSON dbtype.JSON
+	if probes := report.GetProbeStats(); len(probes) > 0 {
+		if raw, err := json.Marshal(probes); err == nil {
+			probeJSON = dbtype.JSON(raw)
+		}
+	}
+
 	entry := AgentMetricsHistory{
 		AgentID:    agentID,
 		Timestamp:  time.Now(),
 		CPUJSON:    cpuJSON,
 		MemoryJSON: memoryJSON,
 		DisksJSON:  disksJSON,
+		ProbeJSON:  probeJSON,
 	}
 
 	s.db.Create(&entry)
@@ -394,6 +408,11 @@ func (s *MetricsStore) getFromDB(agentID string, since time.Time, limit int) []M
 			disks := []*opsv1.DiskMetrics{}
 			_ = json.Unmarshal(record.DisksJSON, &disks)
 			report.Disks = disks
+		}
+		if len(record.ProbeJSON) > 0 {
+			probes := []*opsv1.ProbeStats{}
+			_ = json.Unmarshal(record.ProbeJSON, &probes)
+			report.ProbeStats = probes
 		}
 		result[i] = MetricsEntry{
 			AgentID:  agentID,

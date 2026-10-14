@@ -119,6 +119,9 @@ import (
 //               game/env 过滤；空 = 平台级全局可见，非空 = game/env 级；
 //               加列 0033 模式；存量行不回填——历史告警无 scope 归属，
 //               诚实留空）
+//   0044 (Go)   agent_metrics_history.probe_json 列（探测统计持久化，
+//               agent-health-recovery-review.md §13.1 统计面；加列 0025
+//               模式；存量行不回填——历史窗口无统计快照）
 
 func init() {
 	registerSvcMigrations()
@@ -172,6 +175,7 @@ func registerSvcMigrations() {
 		reportDistributionMigration(),
 		alertHandlingMigration(),
 		alertScopeMigration(),
+		agentMetricsProbeJSONMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1438,5 +1442,33 @@ func migrateAlertScopeColumns(ctx context.Context, sqlDB *sql.DB) error {
 		}
 	}
 	// 存量行不回填：历史告警无 scope 归属，留空（平台级）。
+	return nil
+}
+
+func agentMetricsProbeJSONMigration() *goose.Migration {
+	return goose.NewGoMigration(44,
+		&goose.GoFunc{RunDB: migrateAgentMetricsProbeJSON},
+		nil,
+	)
+}
+
+// migrateAgentMetricsProbeJSON 为 0044：agent_metrics_history 加 probe_json
+// 列（探测统计持久化，评审简档 §13.1）。模型定义在 platform/registry（svc
+// 可 import，无环）。存量行不回填——历史窗口本就无探测统计快照，留空。
+func migrateAgentMetricsProbeJSON(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&reg.AgentMetricsHistory{}) {
+		return nil
+	}
+	if migrator.HasColumn(&reg.AgentMetricsHistory{}, "ProbeJSON") {
+		return nil
+	}
+	if err := migrator.AddColumn(&reg.AgentMetricsHistory{}, "ProbeJSON"); err != nil {
+		return fmt.Errorf("migrate: 0044 add agent_metrics_history.probe_json: %w", err)
+	}
 	return nil
 }
