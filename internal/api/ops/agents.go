@@ -131,6 +131,22 @@ func (s *AgentService) GetMeta(ctx context.Context, agentId string) (*OpsAgentSy
 	return nil, errors.New("agent not found")
 }
 
+// GetSystemInfo fetches live system info from the agent over the ops tunnel
+// (§10.5 fingerprint rides on SystemInfo).
+func (s *AgentService) GetSystemInfo(ctx context.Context, agentId string) (*opsv1.SystemInfo, error) {
+	client := ops.GetAgentOpsClient()
+	wrapper, err := client.GetClient(ctx, agentId)
+	if err != nil {
+		return nil, errors.New("ops client unavailable: " + err.Error())
+	}
+
+	info, err := wrapper.GetSystemInfo(ctx)
+	if err != nil {
+		return nil, errors.New("get system info: " + err.Error())
+	}
+	return info, nil
+}
+
 func (s *AgentService) ExecCommand(ctx context.Context, agentId, command string, args []string, timeout int) (*OpsExecCommandResult, error) {
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)

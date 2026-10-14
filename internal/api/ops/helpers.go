@@ -187,28 +187,70 @@ func opsAgentProcesses(ctx context.Context, svcCtx *svc.ServiceContext, req *Ops
 	}, nil
 }
 
+// opsAgentSystemInfo 读 agent 系统信息，三级数据面：SystemInfoCache（离线
+// agent 的最后已知信息锚点）→ 隧道 live RPC（回填缓存，§10.5 指纹随
+// SystemInfo 上行）→ registry 标签降级视图（隧道不可达时的既有语义）。
 func opsAgentSystemInfo(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentSystemInfoRequest) (*OpsAgentSystemInfoResponse, error) {
-	store := svcCtx.RegistryStore
-	if store == nil {
-		return nil, errors.New("registry store unavailable")
+	if svcCtx == nil {
+		return nil, errorx.NewBadRequest("service context is required")
 	}
 
-	store.Mu().RLock()
-	defer store.Mu().RUnlock()
-
-	for _, sess := range store.AgentsUnsafe() {
-		if sess != nil && sess.AgentID == req.AgentID {
-			return &OpsAgentSystemInfoResponse{
-				SystemInfo: OpsAgentSystemInfo{
-					OS:       sess.Labels["os"],
-					Arch:     sess.Labels["arch"],
-					Hostname: sess.Labels["hostname"],
-				},
-			}, nil
+	// 1. 缓存优先：不打扰 agent，最后已知信息（含指纹）即可答复。
+	if svcCtx.SystemInfoCache != nil {
+		if info, ok := svcCtx.SystemInfoCache.Get(req.AgentID); ok {
+			return &OpsAgentSystemInfoResponse{SystemInfo: systemInfoToDTO(info)}, nil
 		}
 	}
 
-	return nil, errors.New("agent not found")
+	// 2. 隧道 live RPC。
+	info, err := NewAgentService(svcCtx).GetSystemInfo(ctx, req.AgentID)
+	if err == nil {
+		if svcCtx.SystemInfoCache != nil {
+			svcCtx.SystemInfoCache.Set(req.AgentID, info)
+		}
+		return &OpsAgentSystemInfoResponse{SystemInfo: systemInfoToDTO(info)}, nil
+	}
+	tunnelErr := err
+
+	// 3. registry 标签降级视图（离线/隧道不可达时的既有行为）。
+	if store := svcCtx.RegistryStore; store != nil {
+		store.Mu().RLock()
+		defer store.Mu().RUnlock()
+		for _, sess := range store.AgentsUnsafe() {
+			if sess != nil && sess.AgentID == req.AgentID {
+				return &OpsAgentSystemInfoResponse{
+					SystemInfo: OpsAgentSystemInfo{
+						OS:       sess.Labels["os"],
+						Arch:     sess.Labels["arch"],
+						Hostname: sess.Labels["hostname"],
+					},
+				}, nil
+			}
+		}
+		return nil, errors.New("agent not found")
+	}
+
+	return nil, tunnelErr
+}
+
+// systemInfoToDTO 把 pb SystemInfo 映射到 API DTO（指纹字段随行）。
+func systemInfoToDTO(info *opsv1.SystemInfo) OpsAgentSystemInfo {
+	bootTime := ""
+	if info.GetBootTime() != nil {
+		bootTime = info.GetBootTime().AsTime().Format(time.RFC3339)
+	}
+	return OpsAgentSystemInfo{
+		Hostname:          info.GetHostname(),
+		OS:                info.GetOs(),
+		OSVersion:         info.GetOsVersion(),
+		KernelVersion:     info.GetKernelVersion(),
+		Arch:              info.GetArch(),
+		CPUCores:          info.GetCpuCores(),
+		TotalMemory:       info.GetTotalMemory(),
+		BootTime:          bootTime,
+		AgentVersion:      info.GetAgentVersion(),
+		AgentBinarySha256: info.GetAgentBinarySha256(),
+	}
 }
 
 // opsAgentExecCommand 在 Agent 上执行命令（高风险动作）。§10.7 远程 Shell

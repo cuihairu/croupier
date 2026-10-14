@@ -308,7 +308,7 @@ TaskSchedule（task_schedules 表，五字段 cron：
 | 批 2 | 报表聚合 API：summary / trend / leaderboard / responsibility-report（按需重算，含环比同比三列与 missing 语义）+ Go 测试                                                                  | —    | ✅ 11be163 |
 | 批 3 | 面板三页 + 「转事故」按钮接入 + i18n 双语 + jest 用例 + tsc + guard                                                                                                                      | —    | ✅ 见下    |
 | 批 4 | 调度生成（task_schedules cron）+ incident_reports/external_tokens/messages 加列 0041 + 站内通知分发（管理员总聚合/leader 分片/scope 可见性/兜底组）+ 外部出口链 leader 分片 + PushStatus | 0041 | ✅ 9fd4260 |
-| 批 5 | 对外 REST（token/限流/execlog 外部留痕）+ 生命周期 webhook + `docs/openapi/incidents.yaml` + curl 冒烟                                                                                   | —    | ⏳ 待做    |
+| 批 5 | 对外 REST（token/限流/execlog 外部留痕）+ 生命周期 webhook + `docs/openapi/incidents.yaml` + curl 冒烟                                                                                   | —    | ✅ 见下    |
 
 ### 批 3 交付说明（2026-10-10）
 

@@ -235,7 +235,7 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 3. **重启机制（核心难点）**：(a) 外部监管者重拉起（agent exit≠死，systemd/k8s 部署面保证）；(b) fork+exec 子进程接力（Unix 经典自更新：fork 子进程等待替换完成后 exec 新路径，父进程退出——无外部监管者也自洽）；(c) 双进程交替（影子进程复杂度高）。**建议 (b)**：部署面无监管者也能自洽；有监管者时 (b) 的父进程退出自然退化为 exit-restart，两种部署形态同一代码路径。
 4. **失败姿态与回滚**：自升级失败=失联，回滚只能带外（监管者重启/人工登录）。设计约束：旧二进制**rename 备份不删**（§10.4 同款 last-known-good）；新版本起来后**存活过稳定性窗口**（对齐 §10.4 缺省 5s，自升级建议更长）才判定成功；存活期内挂掉=监管者按既有重启策略拉起（备份仍在 → 旧版回来）或人工介入。指纹留痕沿 §10.4 三处落面（事件闭集+execlog 审计 `source=agent_self_upgrade`+上报面）。
 
-**指纹已先落（2026-10-15 交付，不依赖上述拍板）**：agent 二进制内容 sha256 随版本上报面上行——`SystemInfo.agent_binary_sha256`（proto 11，wire 兼容先例 §7），agent 侧进程生命周期缓存一次（运行实例指纹语义，同 §10.4：文件被换值不变，直至重启换实例）；server 侧 live 查询与 SystemInfoCache 两路均映射到 API DTO（`agentBinarySha256`），缓存拷贝改 `proto.Clone` 根治手写字段清单漂移（新字段落地即踩中旧写法丢字段）。诚实边界：缓存是 server 内存态（server 重启即失）——**持久「最后已知指纹」锚点未做**，需 `agent_sessions` 表扩列（编号迁移，随自升级实现一并落）；失联期间锚点只有 execlog 按 (agentID, 时间) 检索 §10.4 更新记录。
+**指纹已先落（2026-10-15 交付，不依赖上述拍板）**：agent 二进制内容 sha256 随版本上报面上行——`SystemInfo.agent_binary_sha256`（proto 11，wire 兼容先例 §7），agent 侧进程生命周期缓存一次（运行实例指纹语义，同 §10.4：文件被换值不变，直至重启换实例）；server 侧 `GET /ops/agents/:agentId/system-info` 三级数据面（SystemInfoCache 最后已知 → 隧道 live RPC 回填 → registry 标签降级视图）全部携带 `agentBinarySha256`，缓存拷贝改 `proto.Clone` 根治手写字段清单漂移（新字段落地即踩中旧写法丢字段）。诚实边界：缓存是 server 内存态（server 重启即失）——**持久「最后已知指纹」锚点未做**，需 `agent_sessions` 表扩列（编号迁移，随自升级实现一并落）；失联期间锚点只有 execlog 按 (agentID, 时间) 检索 §10.4 更新记录。
 
 **已知边界（草稿态）**：Windows 无 fork，(b) 形态需单独方案（子进程 spawn+等待）；多 agent 批量升级顺序（先备后主分批）；升级期间该 agent 全部受管程序的监管空窗（恢复环/探针随 agent 一起停，server 侧 metrics 停更告警应区分「升级中」与「失联」）。
 
