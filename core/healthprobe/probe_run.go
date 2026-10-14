@@ -83,18 +83,28 @@ func (p *Probe) ProbeOnce(ctx context.Context) Result {
 
 // Run 周期探测：启动即探一次，随后按 interval 驱动，ctx 取消退出。
 func (p *Probe) Run(ctx context.Context, interval time.Duration) {
-	if interval <= 0 {
-		interval = 30 * time.Second
+	p.RunDynamic(ctx, func(time.Time) time.Duration { return interval })
+}
+
+// RunDynamic 周期探测（动态间隔）：每轮探测后向 intervalFn 取下一间隔——
+// 采样策略热更（probe.policy configsync 下拉）与异常态提频经此生效，无需
+// 推送通道或 ticker 重建协议（函数读侧自取最新值）。返回 <=0 按
+// DefaultInterval。intervalFn 在探测循环 goroutine 内调用（可在其内读探针
+// 自身 Available()——ProbeOnce 已解锁，无死锁）。
+func (p *Probe) RunDynamic(ctx context.Context, intervalFn func(now time.Time) time.Duration) {
+	if intervalFn == nil {
+		intervalFn = func(time.Time) time.Duration { return DefaultInterval }
 	}
-	p.ProbeOnce(ctx)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
 	for {
+		p.ProbeOnce(ctx)
+		next := intervalFn(time.Now())
+		if next <= 0 {
+			next = DefaultInterval
+		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			p.ProbeOnce(ctx)
+		case <-time.After(next):
 		}
 	}
 }

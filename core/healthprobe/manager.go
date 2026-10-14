@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Manager 多目标探针装配（M1）：per-agent 声明 probe.targets[] → 多 Probe，
@@ -48,12 +49,24 @@ func (m *Manager) Probes() []*Probe {
 // Start 启动全部探针周期探测；ctx 取消即全部停止。每目标一个 goroutine，
 // 各自按 EffectiveInterval 驱动（默认 30s）。阻塞至 ctx 取消。
 func (m *Manager) Start(ctx context.Context) {
+	m.StartDynamic(ctx, nil)
+}
+
+// StartDynamic 动态间隔驱动全部探针：intervalFn 按目标名取下一间隔（采样
+// 策略快照的读侧——热更即换快照，探针下轮自动跟随；异常态提频由调用方在
+// fn 内结合探针自身状态叠加）。fn 为 nil 时等价 Start。
+func (m *Manager) StartDynamic(ctx context.Context, intervalFn func(target string, now time.Time) time.Duration) {
 	var wg sync.WaitGroup
 	for _, it := range m.items {
 		wg.Add(1)
 		go func(it managerItem) {
 			defer wg.Done()
-			it.probe.Run(ctx, it.cfg.EffectiveInterval())
+			it.probe.RunDynamic(ctx, func(now time.Time) time.Duration {
+				if intervalFn == nil {
+					return it.cfg.EffectiveInterval()
+				}
+				return intervalFn(it.cfg.Name, now)
+			})
 		}(it)
 	}
 	wg.Wait()
