@@ -52,6 +52,9 @@ type UpstreamClient struct {
 	// supervisorSampler 由装配阶段经 WithSupervisorSampler 注入，
 	// 传给懒创建的 metricsCollector。
 	supervisorSampler SupervisorSampler
+	// probeSampler 由装配阶段经 WithProbeSampler 注入（探测统计正常态聚合
+	// 面，§13.1）；与 supervisorSampler 分开——无受管进程的 agent 也能报。
+	probeSampler ProbeStatsSampler
 
 	// Connection callbacks
 	onConnected    func()      // Called when successfully connected to server
@@ -611,6 +614,49 @@ func (c *UpstreamClient) SendMetricEvent(ctx context.Context, metricsReport *ops
 	return c.reporter.SendMetrics(ctx, metricsReport)
 }
 
+// SendAlertEvent serialises an AlertEvent and pushes it to the server on the
+// one-way alert lane (review §11 decision 2). Probe window/detail events ride
+// this face; normal-state statistics ride the metrics batch lane instead
+// (asymmetric uplink §13.1).
+func (c *UpstreamClient) SendAlertEvent(ctx context.Context, event *opsv1.AlertEvent) error {
+	if c == nil {
+		return fmt.Errorf("upstream client is nil")
+	}
+	return c.reporter.SendAlertEvent(ctx, event)
+}
+
+// AlertEventSender returns the byte-level send function the probe uplink
+// bridge needs. The connection snapshot is resolved per call so a reconnect
+// is picked up without re-assembly.
+func (c *UpstreamClient) AlertEventSender() func(context.Context, []byte) error {
+	return func(ctx context.Context, body []byte) error {
+		if c == nil {
+			return fmt.Errorf("upstream client is nil")
+		}
+		conn := c.currentClient()
+		if conn == nil {
+			return fmt.Errorf("upstream client not connected")
+		}
+		return conn.SendAlertEvent(ctx, body)
+	}
+}
+
+// WithProbeSampler attaches a probe-stats sampler folded into every metrics
+// report (normal-state aggregate face, review §13.1). Call during assembly,
+// before the reporting loop starts.
+func (c *UpstreamClient) WithProbeSampler(s ProbeStatsSampler) {
+	if c == nil {
+		return
+	}
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+
+	c.probeSampler = s
+	if c.metricsCollector != nil {
+		c.metricsCollector.WithProbeSampler(s)
+	}
+}
+
 // reportMetrics collects a single snapshot and pushes it upstream. Errors
 // are logged but not returned because this runs from the periodic ticker
 // loop where a single failed cycle should not stop reporting.
@@ -620,6 +666,7 @@ func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 			c.metricsCollector = NewMetricsCollector(c.agentID)
 		}
 		c.metricsCollector.WithSampler(c.supervisorSampler)
+		c.metricsCollector.WithProbeSampler(c.probeSampler)
 	})
 
 	report := c.metricsCollector.Collect(ctx)
@@ -643,6 +690,7 @@ func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
 		c.metricsCollector = NewMetricsCollector(c.agentID)
 	}
 	c.metricsCollector.WithSampler(c.supervisorSampler)
+	c.metricsCollector.WithProbeSampler(c.probeSampler)
 }
 
 // WithSupervisorSampler attaches a supervised-process sampler that is folded
@@ -674,6 +722,7 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 			c.metricsCollector = NewMetricsCollector(c.agentID)
 		}
 		c.metricsCollector.WithSampler(c.supervisorSampler)
+		c.metricsCollector.WithProbeSampler(c.probeSampler)
 	})
 
 	report := c.metricsCollector.Collect(ctx)

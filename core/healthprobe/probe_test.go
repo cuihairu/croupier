@@ -118,3 +118,73 @@ func TestProbeRunStopsOnCancel(t *testing.T) {
 		t.Fatal("Run did not stop on ctx cancel")
 	}
 }
+
+type detailingChecker struct {
+	err    error
+	detail map[string]string
+}
+
+func (c *detailingChecker) Check(context.Context) error { return c.err }
+func (c *detailingChecker) Details() map[string]string  { return c.detail }
+
+func TestProbeOnceResultFields(t *testing.T) {
+	// 明细型 Checker：Details 随结果带出；成功/失败两态都带。
+	chk := &detailingChecker{err: errors.New("phase login failed"),
+		detail: map[string]string{"probeType": "protocol", "phase": "login"}}
+	var results []Result
+	p := New("bot", SemanticsReadiness, chk,
+		WithThresholds(1, 1),
+		OnResult(func(r Result) { results = append(results, r) }))
+	ctx := context.Background()
+
+	r := p.ProbeOnce(ctx)
+	assert.False(t, r.OK)
+	assert.Equal(t, "phase login failed", r.Err)
+	assert.Equal(t, map[string]string{"probeType": "protocol", "phase": "login"}, r.Details)
+	assert.GreaterOrEqual(t, r.LatencyMS, int64(0))
+	assert.False(t, r.Available)
+	require.Len(t, results, 1) // 失败明细逐次回调，不等窗口开合
+
+	chk.err = nil
+	r = p.ProbeOnce(ctx)
+	assert.Empty(t, r.Err)
+	assert.True(t, r.OK)
+	assert.True(t, r.Available)
+	assert.Equal(t, 2, len(results))
+}
+
+func TestProbeOnceLatencyMeasured(t *testing.T) {
+	p := New("t", SemanticsLiveness, CheckerFunc(func(context.Context) error {
+		time.Sleep(15 * time.Millisecond)
+		return nil
+	}))
+	r := p.ProbeOnce(context.Background())
+	assert.GreaterOrEqual(t, r.LatencyMS, int64(10))
+}
+
+func TestProbeOnResultWithoutWindow(t *testing.T) {
+	// OnResult 每次探测必回调（含未开窗的失败），窗口事件仍只在达阈值时产生。
+	fail := true
+	var windows []WindowEvent
+	var results []Result
+	p := New("t", SemanticsLiveness, CheckerFunc(func(context.Context) error {
+		if fail {
+			return errors.New("down")
+		}
+		return nil
+	}), WithThresholds(3, 1),
+		OnWindow(func(ev WindowEvent) { windows = append(windows, ev) }),
+		OnResult(func(r Result) { results = append(results, r) }))
+	ctx := context.Background()
+
+	for range 2 { // 两次失败：2 条 result、0 条窗口
+		p.ProbeOnce(ctx)
+	}
+	assert.Empty(t, windows)
+	assert.Len(t, results, 2)
+
+	fail = false
+	p.ProbeOnce(ctx)
+	assert.Empty(t, windows)
+	assert.Len(t, results, 3)
+}

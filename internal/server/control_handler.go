@@ -118,9 +118,12 @@ type ControlService struct {
 	systemInfoCache   *reg.SystemInfoCache
 	taskStore         TaskStore
 	alertModel        *model.AlertModel
-	outletManager     *outlet.Manager
-	configModel       *model.ConfigVersionModel
-	gameDBs           GameDBResolver
+	// probeEvents 探测事件诊断环（§13.1 R2 接收侧：明细留证 + 窗口记日志；
+	// 窗口→Alert 生命周期属 R3，此处不写 Alert 表）。
+	probeEvents   *probeEventSink
+	outletManager *outlet.Manager
+	configModel   *model.ConfigVersionModel
+	gameDBs       GameDBResolver
 
 	upstream Handler
 
@@ -191,6 +194,7 @@ func NewControlService(registry *reg.Store, loader AgentSessionLoader) *ControlS
 		agentSessionLoader: loader,
 		metricsStore:       reg.NewMetricsStore(),
 		systemInfoCache:    reg.NewSystemInfoCache(),
+		probeEvents:        newProbeEventSink(),
 		defaultSessionTTL:  5 * time.Minute,
 		schemaDiffWarn:     true,
 		ctx:                ctx,
@@ -396,6 +400,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleMetricEvent(ctx, data)
 	case protocol.MsgAlertEventRequest:
 		return s.handleAlertEvent(ctx, data)
+	case protocol.MsgAlertEvent:
+		return s.handleProbeEvent(ctx, data)
 	case protocol.MsgCaptureConfigRequest:
 		return s.handleCaptureConfig(ctx, data)
 	default:
@@ -676,6 +682,88 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 		return nil, fmt.Errorf("append task event: %w", err)
 	}
 	return nil, nil
+}
+
+// handleProbeEvent 接收 agent 探测/告警流事件（MsgAlertEvent 流事件，review
+// §11 已决 2）。R2 边界：校验 agent_id → 诊断环留证 → 按 kind 记日志；
+// **不写 Alert 表**（窗口→Alert 生命周期属 R3）。
+//
+// kind 未知或 body 与 kind 不匹配一律拒收：流事件无响应通道可回退，错误只
+// 能体现在日志与丢弃计数上，宁可少收不可错收（错收会污染诊断面）。
+func (s *ControlService) handleProbeEvent(ctx context.Context, data []byte) ([]byte, error) {
+	ev := &opsv1.AlertEvent{}
+	if err := proto.Unmarshal(data, ev); err != nil {
+		return nil, fmt.Errorf("unmarshal AlertEvent: %w", err)
+	}
+
+	agentID := strings.TrimSpace(ev.GetAgentId())
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+
+	kind := strings.TrimSpace(ev.GetKind())
+	switch kind {
+	case "probe.window":
+		if ev.GetWindow() == nil {
+			return nil, fmt.Errorf("probe.window requires window payload")
+		}
+	case "probe.detail":
+		if ev.GetDetail() == nil {
+			return nil, fmt.Errorf("probe.detail requires detail payload")
+		}
+	default:
+		return nil, fmt.Errorf("unsupported alert event kind %q", kind)
+	}
+
+	s.mu.RLock()
+	sink := s.probeEvents
+	logger := s.logger
+	s.mu.RUnlock()
+
+	sink.add(agentID, ev)
+
+	if logger != nil {
+		switch kind {
+		case "probe.window":
+			w := ev.GetWindow()
+			logger.Info("probe window event",
+				"agent_id", agentID,
+				"game_id", ev.GetGameId(),
+				"env", ev.GetEnv(),
+				"target", w.GetTarget(),
+				"semantics", w.GetSemantics(),
+				"window_kind", w.GetWindowKind(),
+				"duration_ms", w.GetDurationMs(),
+				"last_reason", w.GetLastReason(),
+			)
+		case "probe.detail":
+			d := ev.GetDetail()
+			logger.Info("probe failure detail",
+				"agent_id", agentID,
+				"game_id", ev.GetGameId(),
+				"env", ev.GetEnv(),
+				"target", d.GetTarget(),
+				"semantics", d.GetSemantics(),
+				"err", d.GetErr(),
+				"latency_ms", d.GetLatencyMs(),
+				"consecutive_failures", d.GetConsecutiveFailures(),
+				"window_open", d.GetWindowOpen(),
+				"details", d.GetDetails(),
+			)
+		}
+	}
+	return nil, nil
+}
+
+// ProbeEventSink 暴露诊断环只读访问（排查「这段时间服务不可用」用）。nil
+// 接收者安全。
+func (s *ControlService) ProbeEventSink() *probeEventSink {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.probeEvents
 }
 
 // handleMetricEvent accepts a pushed MetricsReport snapshot from an agent.

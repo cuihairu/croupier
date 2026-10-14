@@ -19,6 +19,9 @@ type (
 	// SupervisorSampler 受管进程快照供给接口（core/metrics.Sampler 别名，
 	// OpsServer 实现）。
 	SupervisorSampler = metrics.Sampler
+	// ProbeStatsSampler 探测统计供给接口（core/metrics.ProbeStatsSampler
+	// 别名，ProbeManager 实现）。
+	ProbeStatsSampler = metrics.ProbeStatsSampler
 )
 
 // NewMetricsCollector creates a new metrics collector.

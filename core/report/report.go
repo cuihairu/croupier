@@ -1,7 +1,8 @@
-// Package report 统一上行（agent-core K3）：任务事件与指标报告的序列化 +
-// 单发信封，周期上报循环。core 只收拢「组包→发上行通道」的通用面；连接由
-// 调用方以 Conn getter 注入（重连换连后快照自动跟随）。告警通道（wire 新增
-// 消息）落位时在本包扩展 SendAlert，v1 不预置死接口。
+// Package report 统一上行（agent-core K3）：任务事件、指标报告与告警/探测
+// 事件的序列化 + 单发信封，周期上报循环。core 只收拢「组包→发上行通道」的
+// 通用面；连接由调用方以 Conn getter 注入（重连换连后快照自动跟随）。
+// 探测上报面（§13.1 不对称上报）= ProbeUplink：窗口/失败明细即时单发，
+// 统计计数经 Drain 供采样器折叠进 MetricsReport。
 package report
 
 import (
@@ -20,6 +21,7 @@ type Conn interface {
 	Connected() bool
 	SendTaskEvent(ctx context.Context, body []byte) error
 	SendMetricEvent(ctx context.Context, body []byte) error
+	SendAlertEvent(ctx context.Context, body []byte) error
 }
 
 // ConnGetter 返回当前上行连接（重连换连后自动跟随）；无连接返回 nil。
@@ -75,6 +77,28 @@ func (r *Reporter) SendTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) er
 		return fmt.Errorf("marshal task event: %w", err)
 	}
 	return conn.SendTaskEvent(ctx, data)
+}
+
+// SendAlertEvent 序列化 AlertEvent（探测/告警事件流）并单发。
+func (r *Reporter) SendAlertEvent(ctx context.Context, event *opsv1.AlertEvent) error {
+	if r == nil || r.get == nil {
+		return fmt.Errorf("reporter is nil")
+	}
+	conn := r.get()
+	if conn == nil {
+		return fmt.Errorf("upstream client not connected")
+	}
+	if !conn.Connected() {
+		return fmt.Errorf("upstream client not connected")
+	}
+	if event == nil {
+		return fmt.Errorf("alert event is nil")
+	}
+	data, err := proto.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal alert event: %w", err)
+	}
+	return conn.SendAlertEvent(ctx, data)
 }
 
 // RunLoop 周期上行循环：启动即执行一次 fn，随后按 interval 驱动，ctx 取消

@@ -182,6 +182,8 @@ func (m *recoveryControlClientK) RegisterCapabilities(ctx context.Context, req *
 func (m *recoveryControlClientK) SendTaskEvent(ctx context.Context, body []byte) error   { return nil }
 func (m *recoveryControlClientK) SendMetricEvent(ctx context.Context, body []byte) error { return nil }
 
+func (m *recoveryControlClientK) SendAlertEvent(ctx context.Context, body []byte) error { return nil }
+
 func (m *recoveryControlClientK) counts() (int, int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -272,7 +272,9 @@ type ProtocolChecker struct {
 ## 12. 分期
 
 - **R1 评审定稿：已完成**（含 2026-10-14 补充裁决、硬约束收敛方案、熔断归属、三点拍板、外部评审三层五约束并入）。
-- **R2 agent 装配面**（M1+M2 agent 侧）：`probe.targets` 配置契约（含每目标视角声明）+ Checker 工厂（http/tcp/process/**db 全进 core**）+ 多 Probe 装配 + `SendAlertEvent` 上行接线 + capture 迁移到统一装配 + `Result` 增 LatencyMS/Details。代码批，全套门禁（含新用例）；验收含「OnWindow 消费者禁止触发进程重启」。
+- **R2 agent 装配面：已完成**（代码批，87 条新用例 + 全量门禁绿）：`probe.targets` 配置契约（TargetConfig 小驼峰、每目标视角 semantics 声明，缺省 readiness）+ Checker 工厂（http/tcp/**db 全进 core**，process 不进工厂）+ 多 Probe 装配（Manager 每目标 goroutine）+ `SendAlertEvent` 上行接线（report.Conn → tcp/mux 双实现 → wire `MsgAlertEvent=0x04011E`）+ capture 迁移统一装配 + `Result` 增 Target/LatencyMS/Details。
+  - **验收「OnWindow 消费者禁止触发进程重启」已生效**：capture 迁移后窗口消费者只打 warn 日志；sidecar ProbeManager 窗口消费者只做上行（硬约束注释落在 `internal/app/agent/probe_manager.go` 文件头，不引用 supervisor/ops 装配）。
+  - **已知边界**：(a) server 侧 R2 只做「接得住/留得下/查得到」——`internal/server/probe_events.go` 诊断环（500 条/agent、30min 保留、按窗口记日志），**不写 Alert 表**，窗口→Alert 生命周期属 R3；(b) capture/devops 无 metrics 采样器，统计面（ProbeStatsSampler 折叠进 `MetricsReport.probe_stats`）仅 sidecar 生效，capture 窗口事件暂只落本地日志；(c) devops 的 `probe.targets` 配置段待后续批接入（sidecar 已接线，capture 走数据源派生单目标）。
 - **R3 server 消费面**（M2 server 侧 + M4）：窗口→Alert 生命周期（alertID=`probe:<agentID>:<target>`）+ server 侧内核装配（手动诊断/自身依赖）+ 探针卡面板（与 Agent 面板三页合流）。
 - **R4 dbmon 收敛收尾**（M3）：DBSource 归属列（已拍板动表，编号迁移三处同步）+ 周期探针按归属下发 + dbmon 切 DBChecker **删自有 SQL 电池** + server 手动诊断保留。
 - **不排期**：外部目标自动恢复、恢复动作注册、全局并发恢复上限（§8 边界）；游戏客户端模拟探测单独 P2（§5.4，协议适配骨架设计已出：§5.5——L1=R2 顺路、L2 声明式为默认路径、L3 按游戏逐个接）。
@@ -349,7 +351,7 @@ probe:
 
 ### 13.4 分期归属与命名
 
-- R2 起步批含：基础 interval 消费（默认 30s）+ probe 采样器折叠进 MetricsReport（统计面）+ SendAlertEvent 的 probe.window/probe.detail 两 kind。
+- R2 起步批含：基础 interval 消费（默认 30s）+ probe 采样器折叠进 MetricsReport（统计面）+ SendAlertEvent 的 probe.window/probe.detail 两 kind。（R2 批已交付，见 §12；采样策略三粒度与 server 统计消费属 R3。）
 - R3 含：server 统计消费（MetricsStore/evaluator 复用）+ ops 在线汇总页（复用 ops 模块与 game/env 维度）+ `probe.policy` ConfigVersion 管理面与 windows/events 两粒度。
 - SDK metric 入口（B 的游戏侧上报）为跨面独立小批，随第一个真实游戏接入排期；未接入前 ops 面灰态（§5.5.3 语义）。
 - 命名：`interval`（与 configsync/metrics 既有字段同名同义）、`windows`/`events`（通用词）、`probe.window`/`probe.detail`（沿 herald 出口 `probe.unavailable/probe.recovered` 注释先例 `probe.go:31-32`）；「在线健康度」=状态矩阵，不引入「健康分」新概念（dispatch 侧 score 是既有词，如未来引入合成分沿用之）。

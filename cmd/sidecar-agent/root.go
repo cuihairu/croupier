@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cuihairu/croupier/core/healthprobe"
 	agentcore "github.com/cuihairu/croupier/internal/app/agent"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/devcert"
@@ -87,6 +88,15 @@ type AgentConfig struct {
 	TLS         AgentTLSConfig      `json:"tls" yaml:"tls"`
 	OutboundTLS AgentTLSConfig      `json:"outboundTLS" yaml:"outboundTLS"`
 	Ops         *OpsConfig          `json:"ops,omitempty" yaml:"ops,omitempty"`
+	Probe       *ProbeConfig        `json:"probe,omitempty" yaml:"probe,omitempty"`
+}
+
+// ProbeConfig 探测面配置（声明式探针，R2）。targets[] 只声明探什么；阈值、
+// 语义、间隔与上行口径由 core/healthprobe 给显式默认。键一律小驼峰。
+type ProbeConfig struct {
+	Targets []healthprobe.TargetConfig `json:"targets" yaml:"targets"`
+	// MaxDetailsPerWindow 每故障窗口每目标的失败明细条数上限（<=0 用默认 10）。
+	MaxDetailsPerWindow int `json:"maxDetailsPerWindow,omitempty" yaml:"maxDetailsPerWindow,omitempty"`
 }
 
 // OpsConfig represents the ops module configuration
@@ -647,6 +657,19 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		}
 		core.WithOpsConfig(opsCfg)
 		slog.Info("ops module enabled", "metrics_interval", opsCfg.MetricsInterval)
+	}
+
+	// 声明式探针（probe.targets[]）：配置合法才起装配，非法即启动失败——
+	// 观测面配置错了却静默不探，比直接报错危险。
+	if c.Probe != nil && len(c.Probe.Targets) > 0 {
+		probeCfg := &agentcore.ProbeConfig{
+			Targets:             c.Probe.Targets,
+			MaxDetailsPerWindow: c.Probe.MaxDetailsPerWindow,
+		}
+		if err := core.WithProbeConfig(probeCfg); err != nil {
+			return nil, "", fmt.Errorf("agent probe config: %w", err)
+		}
+		slog.Info("probe targets enabled", "targets", len(c.Probe.Targets))
 	}
 
 	// Start the agent (which now starts TCP local server internally)

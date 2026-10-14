@@ -40,11 +40,20 @@ func TestMsgIDClassification(t *testing.T) {
 	if IsRequest(MsgMetricEvent) || IsResponse(MsgMetricEvent) {
 		t.Fatal("MetricEvent must not be request/response")
 	}
-	if !IsEvent(MsgTaskEvent) || !IsEvent(MsgMetricEvent) {
-		t.Fatal("TaskEvent/MetricEvent should be events")
+	if IsRequest(MsgAlertEvent) || IsResponse(MsgAlertEvent) {
+		t.Fatal("AlertEvent must not be request/response")
+	}
+	if !IsEvent(MsgTaskEvent) || !IsEvent(MsgMetricEvent) || !IsEvent(MsgAlertEvent) {
+		t.Fatal("TaskEvent/MetricEvent/AlertEvent should be events")
 	}
 	if IsEvent(MsgInvokeRequest) || IsEvent(MsgInvokeResponse) {
 		t.Fatal("Invoke frames should not be events")
+	}
+	if !IsRequest(MsgAlertEventRequest) {
+		t.Fatal("capture AlertEventRequest stays a request (distinct from the stream event)")
+	}
+	if !IsResponse(MsgAlertEventResponse) {
+		t.Fatal("capture AlertEventResponse stays a response")
 	}
 }
 
@@ -158,6 +167,7 @@ func TestMsgIDStringKnownTypes(t *testing.T) {
 		{MsgReportMetricsResponse, "ReportMetricsResponse"},
 		{MsgStreamMetricsRequest, "StreamMetricsRequest"},
 		{MsgMetricEvent, "MetricEvent"},
+		{MsgAlertEvent, "AlertEvent"},
 		{MsgRestartProcessRequest, "RestartProcessRequest"},
 		{MsgRestartProcessResponse, "RestartProcessResponse"},
 		{MsgStopProcessRequest, "StopProcessRequest"},

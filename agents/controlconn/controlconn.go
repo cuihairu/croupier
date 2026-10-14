@@ -103,6 +103,11 @@ func (c *Conn) PullCaptureGates(ctx context.Context, req *opsv1.CaptureGatesConf
 	return resp, nil
 }
 
+// 探测事件上行（MsgAlertEvent）本批不接本连接：capture/devops 的探针窗口只
+// 落本地日志（core 系 agent 无 metrics 采样器，统计无处折叠——详见
+// agent-health-recovery 简档 §12 R2 已知边界）。真有上行需求时随该消费面
+// 一并加，勿先铺无调用方的接口。
+
 func (c *Conn) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("control conn not initialized")

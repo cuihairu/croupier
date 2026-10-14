@@ -92,6 +92,11 @@ const (
 	// Capture gate rules pull (capture-agent 拉 server 发布的 game-scoped 规则)
 	MsgCaptureConfigRequest  = 0x04011B
 	MsgCaptureConfigResponse = 0x04011C
+	// Probe/alert event stream upload (agent → server 单向流事件，§11 已决 2)：
+	// v1 承载探测 probe.window/probe.detail 两 kind（简档 §13.1）；后续告警类
+	// 事件同通道演进。流事件取偶数号（同 MsgMetricEvent 0x040108 先例），
+	// 0x04011D 留空防奇偶语义混淆。
+	MsgAlertEvent = 0x04011E
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -122,17 +127,18 @@ func GetMsgID(buf []byte) uint32 {
 
 // IsRequest returns true if the MsgID indicates a request message.
 func IsRequest(msgID uint32) bool {
-	return msgID%2 == 1 && msgID != MsgTaskEvent && msgID != MsgMetricEvent
+	return msgID%2 == 1 && msgID != MsgTaskEvent && msgID != MsgMetricEvent && msgID != MsgAlertEvent
 }
 
 // IsResponse returns true if the MsgID indicates a response message.
 func IsResponse(msgID uint32) bool {
-	return msgID%2 == 0 && msgID != MsgTaskEvent && msgID != MsgMetricEvent // TaskEvent and MetricEvent are stream events, not responses
+	// TaskEvent, MetricEvent and AlertEvent are stream events, not responses
+	return msgID%2 == 0 && msgID != MsgTaskEvent && msgID != MsgMetricEvent && msgID != MsgAlertEvent
 }
 
 // IsEvent returns true if the MsgID is a one-way event frame.
 func IsEvent(msgID uint32) bool {
-	return msgID == MsgTaskEvent || msgID == MsgMetricEvent
+	return msgID == MsgTaskEvent || msgID == MsgMetricEvent || msgID == MsgAlertEvent
 }
 
 // controlRequests is the explicit set of session/transport control requests.
@@ -311,6 +317,8 @@ func MsgIDString(msgID uint32) string {
 		return "CaptureConfigRequest"
 	case MsgCaptureConfigResponse:
 		return "CaptureConfigResponse"
+	case MsgAlertEvent:
+		return "AlertEvent"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

@@ -59,6 +59,10 @@ const (
 	hitSendTimeout = 5 * time.Second
 )
 
+// captureReadinessInterval 数据源连通探测周期（10s）：与既有 capture 探针
+// 同频，不因迁移统一装配而改行为（§12 R2 只改装配路径）。
+const captureReadinessInterval = 10 * time.Second
+
 // Stats 消费统计（原子计数，C1 仅日志暴露；C2 随上报捎带）。
 type Stats struct {
 	Total             int64
@@ -634,6 +638,11 @@ func (r *Runner) probeTarget() (string, bool) {
 
 // startReadinessProbe 探数据源连通（Readiness 语义）：可用性窗口本地时间线
 // 开合，窗口事件打 warn 日志（C2 随告警上报捎带）。
+//
+// 走 core/healthprobe 的声明式装配（TargetConfig → Manager），与 devops/
+// sidecar 的 `probe.targets[]` 同一套装配路径——capture 不再自写 Checker 接
+// 线（§12 R2「capture 迁移到统一装配」）。窗口事件消费者只打日志：不触发任何
+// 恢复动作，观测面与 supervisor 面保持隔离。
 func (r *Runner) startReadinessProbe(ctx context.Context) {
 	addr, ok := r.probeTarget()
 	if !ok {
@@ -641,16 +650,29 @@ func (r *Runner) startReadinessProbe(ctx context.Context) {
 			"sourceType", r.sourceTypeName())
 		return
 	}
-	probe := healthprobe.New(
-		r.sourceTypeName()+":"+addr,
-		healthprobe.SemanticsReadiness,
-		healthprobe.NewTCPChecker(addr, 2*time.Second),
-		healthprobe.OnWindow(func(ev healthprobe.WindowEvent) {
+	target := r.sourceTypeName() + ":" + addr
+	mgr, err := healthprobe.NewManager(
+		[]healthprobe.TargetConfig{{
+			Name:      target,
+			Type:      healthprobe.TargetTypeTCP,
+			Address:   addr,
+			Timeout:   2 * time.Second,
+			Interval:  captureReadinessInterval,
+			Semantics: healthprobe.SemanticsReadiness,
+		}},
+		"", "",
+		func(ev healthprobe.WindowEvent) {
 			r.log.Warn("readiness window", "kind", ev.Kind, "target", ev.Window.Target,
 				"reason", ev.Window.LastReason)
-		}),
+		},
+		nil,
 	)
-	go probe.Run(ctx, 10*time.Second)
+	if err != nil {
+		// 装配失败 = 配置错误，起不来就该在启动期报出来而非静默无探针。
+		r.log.Error("readiness probe setup failed", "target", target, "error", err)
+		return
+	}
+	go mgr.Start(ctx)
 }
 
 // buildPayload 组装 RegisterRequest（注册面身份：game_id/env 标签 +

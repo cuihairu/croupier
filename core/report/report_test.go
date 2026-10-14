@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -20,6 +21,7 @@ type fakeConn struct {
 	metricErr    error
 	taskBodies   [][]byte
 	metricBodies [][]byte
+	alertBodies  [][]byte
 }
 
 func (f *fakeConn) Connected() bool { return f.connected }
@@ -37,6 +39,11 @@ func (f *fakeConn) SendMetricEvent(_ context.Context, body []byte) error {
 		return f.metricErr
 	}
 	f.metricBodies = append(f.metricBodies, body)
+	return nil
+}
+
+func (f *fakeConn) SendAlertEvent(_ context.Context, body []byte) error {
+	f.alertBodies = append(f.alertBodies, body)
 	return nil
 }
 
@@ -66,6 +73,7 @@ func TestSendNilGuards(t *testing.T) {
 	r := New(func() Conn { return conn })
 	assert.Error(t, r.SendMetrics(context.Background(), nil))
 	assert.Error(t, r.SendTaskEvent(context.Background(), nil))
+	assert.Error(t, r.SendAlertEvent(context.Background(), nil))
 
 	conn.metricErr = errors.New("send fail")
 	assert.ErrorIs(t, r.SendMetrics(context.Background(), &opsv1.MetricsReport{}), conn.metricErr)
@@ -73,6 +81,26 @@ func TestSendNilGuards(t *testing.T) {
 	var nilReporter *Reporter
 	assert.Error(t, nilReporter.SendMetrics(context.Background(), &opsv1.MetricsReport{}))
 	assert.Error(t, nilReporter.SendTaskEvent(context.Background(), &sdkv1.TaskEvent{}))
+	assert.Error(t, nilReporter.SendAlertEvent(context.Background(), &opsv1.AlertEvent{}))
+}
+
+func TestSendAlertEventRoundTrip(t *testing.T) {
+	conn := &fakeConn{connected: true}
+	r := New(func() Conn { return conn })
+	require.NoError(t, r.SendAlertEvent(context.Background(), &opsv1.AlertEvent{
+		Kind:    "probe.window",
+		AgentId: "agent-1",
+		Window:  &opsv1.ProbeWindow{Target: "redis:6379"},
+	}))
+	require.Len(t, conn.alertBodies, 1)
+
+	got := &opsv1.AlertEvent{}
+	require.NoError(t, proto.Unmarshal(conn.alertBodies[0], got))
+	assert.Equal(t, "probe.window", got.Kind)
+	assert.Equal(t, "redis:6379", got.Window.Target)
+
+	conn.connected = false
+	assert.Error(t, r.SendAlertEvent(context.Background(), &opsv1.AlertEvent{Kind: "probe.detail"}))
 }
 
 func TestRunLoopPeriodAndCancel(t *testing.T) {

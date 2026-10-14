@@ -64,6 +64,10 @@ namespace ops {
 namespace v1 {
 enum ProcessState : int;
 extern const uint32_t ProcessState_internal_data_[];
+class AlertEvent;
+struct AlertEventDefaultTypeInternal;
+extern AlertEventDefaultTypeInternal _AlertEvent_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull AlertEvent_class_data_;
 class CaptureGatesConfigRequest;
 struct CaptureGatesConfigRequestDefaultTypeInternal;
 extern CaptureGatesConfigRequestDefaultTypeInternal _CaptureGatesConfigRequest_default_instance_;
@@ -160,6 +164,22 @@ class OpsStatus;
 struct OpsStatusDefaultTypeInternal;
 extern OpsStatusDefaultTypeInternal _OpsStatus_default_instance_;
 extern const ::google::protobuf::internal::ClassDataFull OpsStatus_class_data_;
+class ProbeDetail;
+struct ProbeDetailDefaultTypeInternal;
+extern ProbeDetailDefaultTypeInternal _ProbeDetail_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull ProbeDetail_class_data_;
+class ProbeDetail_DetailsEntry_DoNotUse;
+struct ProbeDetail_DetailsEntry_DoNotUseDefaultTypeInternal;
+extern ProbeDetail_DetailsEntry_DoNotUseDefaultTypeInternal _ProbeDetail_DetailsEntry_DoNotUse_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull ProbeDetail_DetailsEntry_DoNotUse_class_data_;
+class ProbeStats;
+struct ProbeStatsDefaultTypeInternal;
+extern ProbeStatsDefaultTypeInternal _ProbeStats_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull ProbeStats_class_data_;
+class ProbeWindow;
+struct ProbeWindowDefaultTypeInternal;
+extern ProbeWindowDefaultTypeInternal _ProbeWindow_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull ProbeWindow_class_data_;
 class ProcessMetrics;
 struct ProcessMetricsDefaultTypeInternal;
 extern ProcessMetricsDefaultTypeInternal _ProcessMetrics_default_instance_;
@@ -2608,6 +2628,696 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED RestartProcessRequest final : publi
 };
 
 extern const ::google::protobuf::internal::ClassDataFull RestartProcessRequest_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeWindow final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.ProbeWindow) */ {
+ public:
+  inline ProbeWindow() : ProbeWindow(nullptr) {}
+  ~ProbeWindow() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ProbeWindow* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ProbeWindow));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr ProbeWindow(::google::protobuf::internal::ConstantInitialized);
+
+  inline ProbeWindow(const ProbeWindow& from) : ProbeWindow(nullptr, from) {}
+  inline ProbeWindow(ProbeWindow&& from) noexcept
+      : ProbeWindow(nullptr, ::std::move(from)) {}
+  inline ProbeWindow& operator=(const ProbeWindow& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ProbeWindow& operator=(ProbeWindow&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const ProbeWindow& default_instance() {
+    return *reinterpret_cast<const ProbeWindow*>(
+        &_ProbeWindow_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 36;
+  friend void swap(ProbeWindow& a, ProbeWindow& b) { a.Swap(&b); }
+  inline void Swap(ProbeWindow* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ProbeWindow* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] ProbeWindow* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<ProbeWindow>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ProbeWindow& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ProbeWindow& from) { ProbeWindow::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ProbeWindow* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.ProbeWindow"; }
+
+  explicit ProbeWindow(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ProbeWindow(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ProbeWindow& from);
+  ProbeWindow(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ProbeWindow&& from) noexcept
+      : ProbeWindow(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kTargetFieldNumber = 1,
+    kSemanticsFieldNumber = 2,
+    kWindowKindFieldNumber = 3,
+    kLastReasonFieldNumber = 7,
+    kStartTsUnixMsFieldNumber = 4,
+    kEndTsUnixMsFieldNumber = 5,
+    kDurationMsFieldNumber = 6,
+  };
+  // string target = 1;
+  void clear_target() ;
+  [[nodiscard]] const ::std::string& target() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_target(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_target();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_target();
+  void set_allocated_target(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_target() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_target(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_target();
+
+  public:
+  // string semantics = 2;
+  void clear_semantics() ;
+  [[nodiscard]] const ::std::string& semantics() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_semantics(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_semantics();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_semantics();
+  void set_allocated_semantics(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_semantics() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_semantics(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_semantics();
+
+  public:
+  // string window_kind = 3;
+  void clear_window_kind() ;
+  [[nodiscard]] const ::std::string& window_kind() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_window_kind(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_window_kind();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_window_kind();
+  void set_allocated_window_kind(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_window_kind() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_window_kind(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_window_kind();
+
+  public:
+  // string last_reason = 7;
+  void clear_last_reason() ;
+  [[nodiscard]] const ::std::string& last_reason() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_last_reason(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_last_reason();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_last_reason();
+  void set_allocated_last_reason(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_last_reason() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_last_reason(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_last_reason();
+
+  public:
+  // int64 start_ts_unix_ms = 4;
+  void clear_start_ts_unix_ms() ;
+  [[nodiscard]] ::int64_t start_ts_unix_ms() const;
+  void set_start_ts_unix_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_start_ts_unix_ms() const;
+  void _internal_set_start_ts_unix_ms(::int64_t value);
+
+  public:
+  // int64 end_ts_unix_ms = 5;
+  void clear_end_ts_unix_ms() ;
+  [[nodiscard]] ::int64_t end_ts_unix_ms() const;
+  void set_end_ts_unix_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_end_ts_unix_ms() const;
+  void _internal_set_end_ts_unix_ms(::int64_t value);
+
+  public:
+  // int64 duration_ms = 6;
+  void clear_duration_ms() ;
+  [[nodiscard]] ::int64_t duration_ms() const;
+  void set_duration_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_duration_ms() const;
+  void _internal_set_duration_ms(::int64_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.ProbeWindow)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<3, 7,
+                                   0, 73,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ProbeWindow& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr target_;
+    ::google::protobuf::internal::ArenaStringPtr semantics_;
+    ::google::protobuf::internal::ArenaStringPtr window_kind_;
+    ::google::protobuf::internal::ArenaStringPtr last_reason_;
+    ::int64_t start_ts_unix_ms_;
+    ::int64_t end_ts_unix_ms_;
+    ::int64_t duration_ms_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull ProbeWindow_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeStats final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.ProbeStats) */ {
+ public:
+  inline ProbeStats() : ProbeStats(nullptr) {}
+  ~ProbeStats() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ProbeStats* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ProbeStats));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr ProbeStats(::google::protobuf::internal::ConstantInitialized);
+
+  inline ProbeStats(const ProbeStats& from) : ProbeStats(nullptr, from) {}
+  inline ProbeStats(ProbeStats&& from) noexcept
+      : ProbeStats(nullptr, ::std::move(from)) {}
+  inline ProbeStats& operator=(const ProbeStats& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ProbeStats& operator=(ProbeStats&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const ProbeStats& default_instance() {
+    return *reinterpret_cast<const ProbeStats*>(
+        &_ProbeStats_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 39;
+  friend void swap(ProbeStats& a, ProbeStats& b) { a.Swap(&b); }
+  inline void Swap(ProbeStats* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ProbeStats* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] ProbeStats* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<ProbeStats>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ProbeStats& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ProbeStats& from) { ProbeStats::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ProbeStats* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.ProbeStats"; }
+
+  explicit ProbeStats(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ProbeStats(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ProbeStats& from);
+  ProbeStats(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ProbeStats&& from) noexcept
+      : ProbeStats(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kLatencyBucketsFieldNumber = 8,
+    kTargetFieldNumber = 1,
+    kSemanticsFieldNumber = 2,
+    kGameIdFieldNumber = 3,
+    kEnvFieldNumber = 4,
+    kLastReasonFieldNumber = 11,
+    kCheckedFieldNumber = 5,
+    kFailedFieldNumber = 6,
+    kSuccessRateFieldNumber = 7,
+    kWindowDurationMsFieldNumber = 10,
+    kDroppedDetailsFieldNumber = 12,
+    kWindowOpenFieldNumber = 9,
+  };
+  // repeated int64 latency_buckets = 8;
+  [[nodiscard]] int latency_buckets_size()
+      const;
+  private:
+  int _internal_latency_buckets_size() const;
+
+  public:
+  void clear_latency_buckets() ;
+  [[nodiscard]] ::int64_t latency_buckets(int index) const;
+  void set_latency_buckets(int index, ::int64_t value);
+  void add_latency_buckets(::int64_t value);
+  [[nodiscard]] const ::google::protobuf::RepeatedField<::int64_t>& latency_buckets() const;
+  ::google::protobuf::RepeatedField<::int64_t>* PROTOBUF_NONNULL mutable_latency_buckets();
+
+  private:
+  const ::google::protobuf::RepeatedField<::int64_t>& _internal_latency_buckets() const;
+  ::google::protobuf::RepeatedField<::int64_t>* PROTOBUF_NONNULL _internal_mutable_latency_buckets();
+
+  public:
+  // string target = 1;
+  void clear_target() ;
+  [[nodiscard]] const ::std::string& target() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_target(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_target();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_target();
+  void set_allocated_target(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_target() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_target(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_target();
+
+  public:
+  // string semantics = 2;
+  void clear_semantics() ;
+  [[nodiscard]] const ::std::string& semantics() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_semantics(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_semantics();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_semantics();
+  void set_allocated_semantics(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_semantics() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_semantics(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_semantics();
+
+  public:
+  // string game_id = 3;
+  void clear_game_id() ;
+  [[nodiscard]] const ::std::string& game_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_game_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_game_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_game_id();
+  void set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_game_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_game_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_game_id();
+
+  public:
+  // string env = 4;
+  void clear_env() ;
+  [[nodiscard]] const ::std::string& env() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_env(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_env();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_env();
+  void set_allocated_env(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_env() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_env(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_env();
+
+  public:
+  // string last_reason = 11;
+  void clear_last_reason() ;
+  [[nodiscard]] const ::std::string& last_reason() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_last_reason(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_last_reason();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_last_reason();
+  void set_allocated_last_reason(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_last_reason() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_last_reason(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_last_reason();
+
+  public:
+  // int64 checked = 5;
+  void clear_checked() ;
+  [[nodiscard]] ::int64_t checked() const;
+  void set_checked(::int64_t value);
+
+  private:
+  ::int64_t _internal_checked() const;
+  void _internal_set_checked(::int64_t value);
+
+  public:
+  // int64 failed = 6;
+  void clear_failed() ;
+  [[nodiscard]] ::int64_t failed() const;
+  void set_failed(::int64_t value);
+
+  private:
+  ::int64_t _internal_failed() const;
+  void _internal_set_failed(::int64_t value);
+
+  public:
+  // double success_rate = 7;
+  void clear_success_rate() ;
+  [[nodiscard]] double success_rate() const;
+  void set_success_rate(double value);
+
+  private:
+  double _internal_success_rate() const;
+  void _internal_set_success_rate(double value);
+
+  public:
+  // int64 window_duration_ms = 10;
+  void clear_window_duration_ms() ;
+  [[nodiscard]] ::int64_t window_duration_ms() const;
+  void set_window_duration_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_window_duration_ms() const;
+  void _internal_set_window_duration_ms(::int64_t value);
+
+  public:
+  // int64 dropped_details = 12;
+  void clear_dropped_details() ;
+  [[nodiscard]] ::int64_t dropped_details() const;
+  void set_dropped_details(::int64_t value);
+
+  private:
+  ::int64_t _internal_dropped_details() const;
+  void _internal_set_dropped_details(::int64_t value);
+
+  public:
+  // bool window_open = 9;
+  void clear_window_open() ;
+  [[nodiscard]] bool window_open() const;
+  void set_window_open(bool value);
+
+  private:
+  bool _internal_window_open() const;
+  void _internal_set_window_open(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.ProbeStats)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<4, 12,
+                                   0, 79,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ProbeStats& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedField<::int64_t> latency_buckets_;
+    ::google::protobuf::internal::CachedSize _latency_buckets_cached_byte_size_;
+    ::google::protobuf::internal::ArenaStringPtr target_;
+    ::google::protobuf::internal::ArenaStringPtr semantics_;
+    ::google::protobuf::internal::ArenaStringPtr game_id_;
+    ::google::protobuf::internal::ArenaStringPtr env_;
+    ::google::protobuf::internal::ArenaStringPtr last_reason_;
+    ::int64_t checked_;
+    ::int64_t failed_;
+    double success_rate_;
+    ::int64_t window_duration_ms_;
+    ::int64_t dropped_details_;
+    bool window_open_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull ProbeStats_class_data_;
+// -------------------------------------------------------------------
+
+class PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDetail_DetailsEntry_DoNotUse final
+    : public ::google::protobuf::internal::MapEntry<::std::string, ::std::string,
+                             ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
+                             ::google::protobuf::internal::WireFormatLite::TYPE_STRING> {
+ public:
+  using SuperType =
+      ::google::protobuf::internal::MapEntry<::std::string, ::std::string,
+                      ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
+                      ::google::protobuf::internal::WireFormatLite::TYPE_STRING>;
+  ProbeDetail_DetailsEntry_DoNotUse();
+  template <typename = void>
+  explicit constexpr ProbeDetail_DetailsEntry_DoNotUse(::google::protobuf::internal::ConstantInitialized);
+  explicit ProbeDetail_DetailsEntry_DoNotUse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr const void* PROTOBUF_NONNULL internal_default_instance() {
+    return &_ProbeDetail_DetailsEntry_DoNotUse_default_instance_;
+  }
+
+
+  static constexpr auto InternalGenerateClassData_();
+
+ private:
+  friend class ::google::protobuf::MessageLite;
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<1, 2,
+                                   0, 57,
+                                   2>
+      _table_;
+
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+};
+extern const ::google::protobuf::internal::ClassDataFull ProbeDetail_DetailsEntry_DoNotUse_class_data_;
 // -------------------------------------------------------------------
 
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED OpsStatus final : public ::google::protobuf::Message
@@ -7337,6 +8047,319 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProcessMetrics final : public ::goo
 extern const ::google::protobuf::internal::ClassDataFull ProcessMetrics_class_data_;
 // -------------------------------------------------------------------
 
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDetail final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.ProbeDetail) */ {
+ public:
+  inline ProbeDetail() : ProbeDetail(nullptr) {}
+  ~ProbeDetail() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ProbeDetail* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ProbeDetail));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr ProbeDetail(::google::protobuf::internal::ConstantInitialized);
+
+  inline ProbeDetail(const ProbeDetail& from) : ProbeDetail(nullptr, from) {}
+  inline ProbeDetail(ProbeDetail&& from) noexcept
+      : ProbeDetail(nullptr, ::std::move(from)) {}
+  inline ProbeDetail& operator=(const ProbeDetail& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ProbeDetail& operator=(ProbeDetail&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const ProbeDetail& default_instance() {
+    return *reinterpret_cast<const ProbeDetail*>(
+        &_ProbeDetail_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 38;
+  friend void swap(ProbeDetail& a, ProbeDetail& b) { a.Swap(&b); }
+  inline void Swap(ProbeDetail* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ProbeDetail* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] ProbeDetail* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<ProbeDetail>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ProbeDetail& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ProbeDetail& from) { ProbeDetail::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ProbeDetail* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.ProbeDetail"; }
+
+  explicit ProbeDetail(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ProbeDetail(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ProbeDetail& from);
+  ProbeDetail(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ProbeDetail&& from) noexcept
+      : ProbeDetail(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kTargetFieldNumber = 1,
+    kSemanticsFieldNumber = 2,
+    kErrFieldNumber = 4,
+    kAtTsUnixMsFieldNumber = 5,
+    kLatencyMsFieldNumber = 6,
+    kOkFieldNumber = 3,
+    kWindowOpenFieldNumber = 8,
+    kConsecutiveFailuresFieldNumber = 7,
+    kDetailsFieldNumber = 9,
+  };
+  // string target = 1;
+  void clear_target() ;
+  [[nodiscard]] const ::std::string& target() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_target(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_target();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_target();
+  void set_allocated_target(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_target() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_target(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_target();
+
+  public:
+  // string semantics = 2;
+  void clear_semantics() ;
+  [[nodiscard]] const ::std::string& semantics() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_semantics(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_semantics();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_semantics();
+  void set_allocated_semantics(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_semantics() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_semantics(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_semantics();
+
+  public:
+  // string err = 4;
+  void clear_err() ;
+  [[nodiscard]] const ::std::string& err() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_err(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_err();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_err();
+  void set_allocated_err(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_err() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_err(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_err();
+
+  public:
+  // int64 at_ts_unix_ms = 5;
+  void clear_at_ts_unix_ms() ;
+  [[nodiscard]] ::int64_t at_ts_unix_ms() const;
+  void set_at_ts_unix_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_at_ts_unix_ms() const;
+  void _internal_set_at_ts_unix_ms(::int64_t value);
+
+  public:
+  // int64 latency_ms = 6;
+  void clear_latency_ms() ;
+  [[nodiscard]] ::int64_t latency_ms() const;
+  void set_latency_ms(::int64_t value);
+
+  private:
+  ::int64_t _internal_latency_ms() const;
+  void _internal_set_latency_ms(::int64_t value);
+
+  public:
+  // bool ok = 3;
+  void clear_ok() ;
+  [[nodiscard]] bool ok() const;
+  void set_ok(bool value);
+
+  private:
+  bool _internal_ok() const;
+  void _internal_set_ok(bool value);
+
+  public:
+  // bool window_open = 8;
+  void clear_window_open() ;
+  [[nodiscard]] bool window_open() const;
+  void set_window_open(bool value);
+
+  private:
+  bool _internal_window_open() const;
+  void _internal_set_window_open(bool value);
+
+  public:
+  // int32 consecutive_failures = 7;
+  void clear_consecutive_failures() ;
+  [[nodiscard]] ::int32_t consecutive_failures() const;
+  void set_consecutive_failures(::int32_t value);
+
+  private:
+  ::int32_t _internal_consecutive_failures() const;
+  void _internal_set_consecutive_failures(::int32_t value);
+
+  public:
+  // map<string, string> details = 9;
+  [[nodiscard]] int details_size()
+      const;
+  private:
+  int _internal_details_size() const;
+
+  public:
+  void clear_details() ;
+  [[nodiscard]] const ::google::protobuf::Map<::std::string, ::std::string>& details() const;
+  [[nodiscard]] ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL mutable_details();
+
+  private:
+  const ::google::protobuf::Map<::std::string, ::std::string>& _internal_details() const;
+  ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL _internal_mutable_details();
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.ProbeDetail)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<3, 9,
+                                   1, 69,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ProbeDetail& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr target_;
+    ::google::protobuf::internal::ArenaStringPtr semantics_;
+    ::google::protobuf::internal::ArenaStringPtr err_;
+    ::int64_t at_ts_unix_ms_;
+    ::int64_t latency_ms_;
+    bool ok_;
+    bool window_open_;
+    ::int32_t consecutive_failures_;
+    ::google::protobuf::internal::MapField<ProbeDetail_DetailsEntry_DoNotUse, ::std::string, ::std::string> details_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull ProbeDetail_class_data_;
+// -------------------------------------------------------------------
+
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ManagedProcess final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:croupier.ops.v1.ManagedProcess) */ {
  public:
@@ -8539,6 +9562,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
     kProcessesFieldNumber = 7,
     kSupervisedProcessesFieldNumber = 9,
     kSupervisorEventsFieldNumber = 10,
+    kProbeStatsFieldNumber = 11,
     kAgentIdFieldNumber = 1,
     kTimestampFieldNumber = 2,
     kCpuFieldNumber = 3,
@@ -8645,6 +9669,26 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
   ::croupier::ops::v1::SupervisorEvent* PROTOBUF_NONNULL add_supervisor_events();
   [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisorEvent>& supervisor_events()
       const;
+  // repeated .croupier.ops.v1.ProbeStats probe_stats = 11;
+  [[nodiscard]] int probe_stats_size()
+      const;
+  private:
+  int _internal_probe_stats_size() const;
+
+  public:
+  void clear_probe_stats() ;
+  [[nodiscard]] ::croupier::ops::v1::ProbeStats* PROTOBUF_NONNULL mutable_probe_stats(int index);
+  [[nodiscard]] ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>* PROTOBUF_NONNULL
+  mutable_probe_stats();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>& _internal_probe_stats() const;
+  ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>* PROTOBUF_NONNULL _internal_mutable_probe_stats();
+  public:
+  [[nodiscard]] const ::croupier::ops::v1::ProbeStats& probe_stats(int index) const;
+  ::croupier::ops::v1::ProbeStats* PROTOBUF_NONNULL add_probe_stats();
+  [[nodiscard]] const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>& probe_stats()
+      const;
   // string agent_id = 1;
   void clear_agent_id() ;
   [[nodiscard]] const ::std::string& agent_id() const;
@@ -8728,8 +9772,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 10,
-                                   9, 60,
+  static const ::google::protobuf::internal::TcParseTable<4, 11,
+                                   10, 60,
                                    2>
       _table_;
 
@@ -8757,6 +9801,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED MetricsReport final : public ::goog
     ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::ProcessMetrics > processes_;
     ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::SupervisedProcessSnapshot > supervised_processes_;
     ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::SupervisorEvent > supervisor_events_;
+    ::google::protobuf::RepeatedPtrField< ::croupier::ops::v1::ProbeStats > probe_stats_;
     ::google::protobuf::internal::ArenaStringPtr agent_id_;
     ::google::protobuf::Timestamp* PROTOBUF_NULLABLE timestamp_;
     ::croupier::ops::v1::CpuMetrics* PROTOBUF_NULLABLE cpu_;
@@ -8975,6 +10020,294 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListProcessesResponse final : publi
 };
 
 extern const ::google::protobuf::internal::ClassDataFull ListProcessesResponse_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AlertEvent final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.AlertEvent) */ {
+ public:
+  inline AlertEvent() : AlertEvent(nullptr) {}
+  ~AlertEvent() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(AlertEvent* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(AlertEvent));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr AlertEvent(::google::protobuf::internal::ConstantInitialized);
+
+  inline AlertEvent(const AlertEvent& from) : AlertEvent(nullptr, from) {}
+  inline AlertEvent(AlertEvent&& from) noexcept
+      : AlertEvent(nullptr, ::std::move(from)) {}
+  inline AlertEvent& operator=(const AlertEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline AlertEvent& operator=(AlertEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const AlertEvent& default_instance() {
+    return *reinterpret_cast<const AlertEvent*>(
+        &_AlertEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 35;
+  friend void swap(AlertEvent& a, AlertEvent& b) { a.Swap(&b); }
+  inline void Swap(AlertEvent* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(AlertEvent* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] AlertEvent* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<AlertEvent>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const AlertEvent& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const AlertEvent& from) { AlertEvent::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(AlertEvent* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.AlertEvent"; }
+
+  explicit AlertEvent(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  AlertEvent(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const AlertEvent& from);
+  AlertEvent(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, AlertEvent&& from) noexcept
+      : AlertEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kKindFieldNumber = 1,
+    kAgentIdFieldNumber = 2,
+    kGameIdFieldNumber = 3,
+    kEnvFieldNumber = 4,
+    kWindowFieldNumber = 5,
+    kDetailFieldNumber = 6,
+  };
+  // string kind = 1;
+  void clear_kind() ;
+  [[nodiscard]] const ::std::string& kind() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_kind(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_kind();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_kind();
+  void set_allocated_kind(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_kind() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_kind(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_kind();
+
+  public:
+  // string agent_id = 2;
+  void clear_agent_id() ;
+  [[nodiscard]] const ::std::string& agent_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_agent_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_agent_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_agent_id();
+  void set_allocated_agent_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_agent_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_agent_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_agent_id();
+
+  public:
+  // string game_id = 3;
+  void clear_game_id() ;
+  [[nodiscard]] const ::std::string& game_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_game_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_game_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_game_id();
+  void set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_game_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_game_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_game_id();
+
+  public:
+  // string env = 4;
+  void clear_env() ;
+  [[nodiscard]] const ::std::string& env() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_env(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_env();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_env();
+  void set_allocated_env(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_env() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_env(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_env();
+
+  public:
+  // .croupier.ops.v1.ProbeWindow window = 5;
+  [[nodiscard]] bool has_window()
+      const;
+  void clear_window() ;
+  [[nodiscard]] const ::croupier::ops::v1::ProbeWindow& window() const;
+  [[nodiscard]] ::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE release_window();
+  ::croupier::ops::v1::ProbeWindow* PROTOBUF_NONNULL mutable_window();
+  void set_allocated_window(::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE value);
+  void unsafe_arena_set_allocated_window(::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE value);
+  ::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE unsafe_arena_release_window();
+
+  private:
+  const ::croupier::ops::v1::ProbeWindow& _internal_window() const;
+  ::croupier::ops::v1::ProbeWindow* PROTOBUF_NONNULL _internal_mutable_window();
+
+  public:
+  // .croupier.ops.v1.ProbeDetail detail = 6;
+  [[nodiscard]] bool has_detail()
+      const;
+  void clear_detail() ;
+  [[nodiscard]] const ::croupier::ops::v1::ProbeDetail& detail() const;
+  [[nodiscard]] ::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE release_detail();
+  ::croupier::ops::v1::ProbeDetail* PROTOBUF_NONNULL mutable_detail();
+  void set_allocated_detail(::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE value);
+  void unsafe_arena_set_allocated_detail(::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE value);
+  ::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE unsafe_arena_release_detail();
+
+  private:
+  const ::croupier::ops::v1::ProbeDetail& _internal_detail() const;
+  ::croupier::ops::v1::ProbeDetail* PROTOBUF_NONNULL _internal_mutable_detail();
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.AlertEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<3, 6,
+                                   2, 57,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const AlertEvent& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr kind_;
+    ::google::protobuf::internal::ArenaStringPtr agent_id_;
+    ::google::protobuf::internal::ArenaStringPtr game_id_;
+    ::google::protobuf::internal::ArenaStringPtr env_;
+    ::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE window_;
+    ::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE detail_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull AlertEvent_class_data_;
 
 // ===================================================================
 
@@ -8999,7 +10332,7 @@ inline void MetricsReport::clear_agent_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.agent_id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000020U);
+                  0x00000040U);
 }
 inline const ::std::string& MetricsReport::agent_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -9009,13 +10342,13 @@ inline const ::std::string& MetricsReport::agent_id() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void MetricsReport::set_agent_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   _impl_.agent_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.ops.v1.MetricsReport.agent_id)
 }
 inline ::std::string* PROTOBUF_NONNULL MetricsReport::mutable_agent_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   ::std::string* _s = _internal_mutable_agent_id();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.agent_id)
   return _s;
@@ -9035,10 +10368,10 @@ inline ::std::string* PROTOBUF_NONNULL MetricsReport::_internal_mutable_agent_id
 inline ::std::string* PROTOBUF_NULLABLE MetricsReport::release_agent_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.agent_id)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   auto* released = _impl_.agent_id_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.agent_id_.Set("", GetArena());
@@ -9048,9 +10381,9 @@ inline ::std::string* PROTOBUF_NULLABLE MetricsReport::release_agent_id() {
 inline void MetricsReport::set_allocated_agent_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   }
   _impl_.agent_id_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.agent_id_.IsDefault()) {
@@ -9061,7 +10394,7 @@ inline void MetricsReport::set_allocated_agent_id(::std::string* PROTOBUF_NULLAB
 
 // .google.protobuf.Timestamp timestamp = 2;
 inline bool MetricsReport::has_timestamp() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000040U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000080U);
   PROTOBUF_ASSUME(!value || _impl_.timestamp_ != nullptr);
   return value;
 }
@@ -9082,16 +10415,16 @@ inline void MetricsReport::unsafe_arena_set_allocated_timestamp(
   }
   _impl_.timestamp_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.MetricsReport.timestamp)
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE MetricsReport::release_timestamp() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::google::protobuf::Timestamp* released = _impl_.timestamp_;
   _impl_.timestamp_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -9111,7 +10444,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE MetricsReport::unsafe_ar
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.timestamp)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::google::protobuf::Timestamp* temp = _impl_.timestamp_;
   _impl_.timestamp_ = nullptr;
   return temp;
@@ -9126,7 +10459,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL MetricsReport::_internal_
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL MetricsReport::mutable_timestamp()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::google::protobuf::Timestamp* _msg = _internal_mutable_timestamp();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.timestamp)
   return _msg;
@@ -9143,9 +10476,9 @@ inline void MetricsReport::set_allocated_timestamp(::google::protobuf::Timestamp
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
 
   _impl_.timestamp_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -9154,7 +10487,7 @@ inline void MetricsReport::set_allocated_timestamp(::google::protobuf::Timestamp
 
 // .croupier.ops.v1.CpuMetrics cpu = 3;
 inline bool MetricsReport::has_cpu() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000080U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000100U);
   PROTOBUF_ASSUME(!value || _impl_.cpu_ != nullptr);
   return value;
 }
@@ -9162,7 +10495,7 @@ inline void MetricsReport::clear_cpu() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.cpu_ != nullptr) _impl_.cpu_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000100U);
 }
 inline const ::croupier::ops::v1::CpuMetrics& MetricsReport::_internal_cpu() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -9181,16 +10514,16 @@ inline void MetricsReport::unsafe_arena_set_allocated_cpu(
   }
   _impl_.cpu_ = reinterpret_cast<::croupier::ops::v1::CpuMetrics*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.MetricsReport.cpu)
 }
 inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NULLABLE MetricsReport::release_cpu() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::croupier::ops::v1::CpuMetrics* released = _impl_.cpu_;
   _impl_.cpu_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -9210,7 +10543,7 @@ inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NULLABLE MetricsReport::unsafe_
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.cpu)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::croupier::ops::v1::CpuMetrics* temp = _impl_.cpu_;
   _impl_.cpu_ = nullptr;
   return temp;
@@ -9225,7 +10558,7 @@ inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NONNULL MetricsReport::_interna
 }
 inline ::croupier::ops::v1::CpuMetrics* PROTOBUF_NONNULL MetricsReport::mutable_cpu()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::croupier::ops::v1::CpuMetrics* _msg = _internal_mutable_cpu();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.cpu)
   return _msg;
@@ -9242,9 +10575,9 @@ inline void MetricsReport::set_allocated_cpu(::croupier::ops::v1::CpuMetrics* PR
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   }
 
   _impl_.cpu_ = reinterpret_cast<::croupier::ops::v1::CpuMetrics*>(value);
@@ -9253,7 +10586,7 @@ inline void MetricsReport::set_allocated_cpu(::croupier::ops::v1::CpuMetrics* PR
 
 // .croupier.ops.v1.MemoryMetrics memory = 4;
 inline bool MetricsReport::has_memory() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000100U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000200U);
   PROTOBUF_ASSUME(!value || _impl_.memory_ != nullptr);
   return value;
 }
@@ -9261,7 +10594,7 @@ inline void MetricsReport::clear_memory() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.memory_ != nullptr) _impl_.memory_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000200U);
 }
 inline const ::croupier::ops::v1::MemoryMetrics& MetricsReport::_internal_memory() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -9280,16 +10613,16 @@ inline void MetricsReport::unsafe_arena_set_allocated_memory(
   }
   _impl_.memory_ = reinterpret_cast<::croupier::ops::v1::MemoryMetrics*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.MetricsReport.memory)
 }
 inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NULLABLE MetricsReport::release_memory() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
   ::croupier::ops::v1::MemoryMetrics* released = _impl_.memory_;
   _impl_.memory_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -9309,7 +10642,7 @@ inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NULLABLE MetricsReport::unsa
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.MetricsReport.memory)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
   ::croupier::ops::v1::MemoryMetrics* temp = _impl_.memory_;
   _impl_.memory_ = nullptr;
   return temp;
@@ -9324,7 +10657,7 @@ inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NONNULL MetricsReport::_inte
 }
 inline ::croupier::ops::v1::MemoryMetrics* PROTOBUF_NONNULL MetricsReport::mutable_memory()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   ::croupier::ops::v1::MemoryMetrics* _msg = _internal_mutable_memory();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.memory)
   return _msg;
@@ -9341,9 +10674,9 @@ inline void MetricsReport::set_allocated_memory(::croupier::ops::v1::MemoryMetri
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
   }
 
   _impl_.memory_ = reinterpret_cast<::croupier::ops::v1::MemoryMetrics*>(value);
@@ -9529,7 +10862,7 @@ inline void MetricsReport::clear_custom() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.custom_.Clear();
   ClearHasBitForRepeated(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00000400U);
 }
 inline const ::google::protobuf::Map<::std::string, double>& MetricsReport::_internal_custom() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -9545,7 +10878,7 @@ inline ::google::protobuf::Map<::std::string, double>* PROTOBUF_NONNULL MetricsR
 }
 inline ::google::protobuf::Map<::std::string, double>* PROTOBUF_NONNULL MetricsReport::mutable_custom()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000400U);
   // @@protoc_insertion_point(field_mutable_map:croupier.ops.v1.MetricsReport.custom)
   return _internal_mutable_custom();
 }
@@ -9660,6 +10993,62 @@ inline ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::SupervisorEvent
 MetricsReport::_internal_mutable_supervisor_events() {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return &_impl_.supervisor_events_;
+}
+
+// repeated .croupier.ops.v1.ProbeStats probe_stats = 11;
+inline int MetricsReport::_internal_probe_stats_size() const {
+  return _internal_probe_stats().size();
+}
+inline int MetricsReport::probe_stats_size() const {
+  return _internal_probe_stats_size();
+}
+inline void MetricsReport::clear_probe_stats() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.probe_stats_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline ::croupier::ops::v1::ProbeStats* PROTOBUF_NONNULL MetricsReport::mutable_probe_stats(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.MetricsReport.probe_stats)
+  return _internal_mutable_probe_stats()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>* PROTOBUF_NONNULL MetricsReport::mutable_probe_stats()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_mutable_list:croupier.ops.v1.MetricsReport.probe_stats)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_probe_stats();
+}
+inline const ::croupier::ops::v1::ProbeStats& MetricsReport::probe_stats(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.MetricsReport.probe_stats)
+  return _internal_probe_stats().Get(index);
+}
+inline ::croupier::ops::v1::ProbeStats* PROTOBUF_NONNULL MetricsReport::add_probe_stats()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::croupier::ops::v1::ProbeStats* _add =
+      _internal_mutable_probe_stats()->InternalAddWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), GetArena());
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_add:croupier.ops.v1.MetricsReport.probe_stats)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>& MetricsReport::probe_stats() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:croupier.ops.v1.MetricsReport.probe_stats)
+  return _internal_probe_stats();
+}
+inline const ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>&
+MetricsReport::_internal_probe_stats() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.probe_stats_;
+}
+inline ::google::protobuf::RepeatedPtrField<::croupier::ops::v1::ProbeStats>* PROTOBUF_NONNULL
+MetricsReport::_internal_mutable_probe_stats() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.probe_stats_;
 }
 
 // -------------------------------------------------------------------
@@ -16994,6 +18383,1695 @@ inline void CaptureGatesConfigResponse::set_allocated_gates_json(::std::string* 
     _impl_.gates_json_.Set("", GetArena());
   }
   // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.CaptureGatesConfigResponse.gates_json)
+}
+
+// -------------------------------------------------------------------
+
+// AlertEvent
+
+// string kind = 1;
+inline void AlertEvent::clear_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.kind_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& AlertEvent::kind() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.AlertEvent.kind)
+  return _internal_kind();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void AlertEvent::set_kind(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.kind_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.AlertEvent.kind)
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::mutable_kind()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_kind();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.AlertEvent.kind)
+  return _s;
+}
+inline const ::std::string& AlertEvent::_internal_kind() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.kind_.Get();
+}
+inline void AlertEvent::_internal_set_kind(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.kind_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::_internal_mutable_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.kind_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE AlertEvent::release_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.AlertEvent.kind)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.kind_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.kind_.Set("", GetArena());
+  }
+  return released;
+}
+inline void AlertEvent::set_allocated_kind(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.kind_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.kind_.IsDefault()) {
+    _impl_.kind_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.AlertEvent.kind)
+}
+
+// string agent_id = 2;
+inline void AlertEvent::clear_agent_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.agent_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& AlertEvent::agent_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.AlertEvent.agent_id)
+  return _internal_agent_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void AlertEvent::set_agent_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.agent_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.AlertEvent.agent_id)
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::mutable_agent_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_agent_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.AlertEvent.agent_id)
+  return _s;
+}
+inline const ::std::string& AlertEvent::_internal_agent_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.agent_id_.Get();
+}
+inline void AlertEvent::_internal_set_agent_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.agent_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::_internal_mutable_agent_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.agent_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE AlertEvent::release_agent_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.AlertEvent.agent_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.agent_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.agent_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void AlertEvent::set_allocated_agent_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.agent_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.agent_id_.IsDefault()) {
+    _impl_.agent_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.AlertEvent.agent_id)
+}
+
+// string game_id = 3;
+inline void AlertEvent::clear_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.game_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& AlertEvent::game_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.AlertEvent.game_id)
+  return _internal_game_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void AlertEvent::set_game_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.game_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.AlertEvent.game_id)
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::mutable_game_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_game_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.AlertEvent.game_id)
+  return _s;
+}
+inline const ::std::string& AlertEvent::_internal_game_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.game_id_.Get();
+}
+inline void AlertEvent::_internal_set_game_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.game_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::_internal_mutable_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.game_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE AlertEvent::release_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.AlertEvent.game_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.game_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.game_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void AlertEvent::set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.game_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.game_id_.IsDefault()) {
+    _impl_.game_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.AlertEvent.game_id)
+}
+
+// string env = 4;
+inline void AlertEvent::clear_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.env_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline const ::std::string& AlertEvent::env() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.AlertEvent.env)
+  return _internal_env();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void AlertEvent::set_env(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  _impl_.env_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.AlertEvent.env)
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::mutable_env()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ::std::string* _s = _internal_mutable_env();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.AlertEvent.env)
+  return _s;
+}
+inline const ::std::string& AlertEvent::_internal_env() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.env_.Get();
+}
+inline void AlertEvent::_internal_set_env(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.env_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL AlertEvent::_internal_mutable_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.env_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE AlertEvent::release_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.AlertEvent.env)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  auto* released = _impl_.env_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.env_.Set("", GetArena());
+  }
+  return released;
+}
+inline void AlertEvent::set_allocated_env(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  }
+  _impl_.env_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.env_.IsDefault()) {
+    _impl_.env_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.AlertEvent.env)
+}
+
+// .croupier.ops.v1.ProbeWindow window = 5;
+inline bool AlertEvent::has_window() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000010U);
+  PROTOBUF_ASSUME(!value || _impl_.window_ != nullptr);
+  return value;
+}
+inline void AlertEvent::clear_window() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.window_ != nullptr) _impl_.window_->Clear();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline const ::croupier::ops::v1::ProbeWindow& AlertEvent::_internal_window() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::croupier::ops::v1::ProbeWindow* p = _impl_.window_;
+  return p != nullptr ? *p : reinterpret_cast<const ::croupier::ops::v1::ProbeWindow&>(::croupier::ops::v1::_ProbeWindow_default_instance_);
+}
+inline const ::croupier::ops::v1::ProbeWindow& AlertEvent::window() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.AlertEvent.window)
+  return _internal_window();
+}
+inline void AlertEvent::unsafe_arena_set_allocated_window(
+    ::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.window_);
+  }
+  _impl_.window_ = reinterpret_cast<::croupier::ops::v1::ProbeWindow*>(value);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.AlertEvent.window)
+}
+inline ::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE AlertEvent::release_window() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ::croupier::ops::v1::ProbeWindow* released = _impl_.window_;
+  _impl_.window_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE AlertEvent::unsafe_arena_release_window() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.AlertEvent.window)
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ::croupier::ops::v1::ProbeWindow* temp = _impl_.window_;
+  _impl_.window_ = nullptr;
+  return temp;
+}
+inline ::croupier::ops::v1::ProbeWindow* PROTOBUF_NONNULL AlertEvent::_internal_mutable_window() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.window_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::croupier::ops::v1::ProbeWindow>(GetArena());
+    _impl_.window_ = reinterpret_cast<::croupier::ops::v1::ProbeWindow*>(p);
+  }
+  return _impl_.window_;
+}
+inline ::croupier::ops::v1::ProbeWindow* PROTOBUF_NONNULL AlertEvent::mutable_window()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ::croupier::ops::v1::ProbeWindow* _msg = _internal_mutable_window();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.AlertEvent.window)
+  return _msg;
+}
+inline void AlertEvent::set_allocated_window(::croupier::ops::v1::ProbeWindow* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.window_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = value->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  }
+
+  _impl_.window_ = reinterpret_cast<::croupier::ops::v1::ProbeWindow*>(value);
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.AlertEvent.window)
+}
+
+// .croupier.ops.v1.ProbeDetail detail = 6;
+inline bool AlertEvent::has_detail() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000020U);
+  PROTOBUF_ASSUME(!value || _impl_.detail_ != nullptr);
+  return value;
+}
+inline void AlertEvent::clear_detail() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.detail_ != nullptr) _impl_.detail_->Clear();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline const ::croupier::ops::v1::ProbeDetail& AlertEvent::_internal_detail() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::croupier::ops::v1::ProbeDetail* p = _impl_.detail_;
+  return p != nullptr ? *p : reinterpret_cast<const ::croupier::ops::v1::ProbeDetail&>(::croupier::ops::v1::_ProbeDetail_default_instance_);
+}
+inline const ::croupier::ops::v1::ProbeDetail& AlertEvent::detail() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.AlertEvent.detail)
+  return _internal_detail();
+}
+inline void AlertEvent::unsafe_arena_set_allocated_detail(
+    ::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.detail_);
+  }
+  _impl_.detail_ = reinterpret_cast<::croupier::ops::v1::ProbeDetail*>(value);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.AlertEvent.detail)
+}
+inline ::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE AlertEvent::release_detail() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ::croupier::ops::v1::ProbeDetail* released = _impl_.detail_;
+  _impl_.detail_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE AlertEvent::unsafe_arena_release_detail() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.AlertEvent.detail)
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ::croupier::ops::v1::ProbeDetail* temp = _impl_.detail_;
+  _impl_.detail_ = nullptr;
+  return temp;
+}
+inline ::croupier::ops::v1::ProbeDetail* PROTOBUF_NONNULL AlertEvent::_internal_mutable_detail() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.detail_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::croupier::ops::v1::ProbeDetail>(GetArena());
+    _impl_.detail_ = reinterpret_cast<::croupier::ops::v1::ProbeDetail*>(p);
+  }
+  return _impl_.detail_;
+}
+inline ::croupier::ops::v1::ProbeDetail* PROTOBUF_NONNULL AlertEvent::mutable_detail()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ::croupier::ops::v1::ProbeDetail* _msg = _internal_mutable_detail();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.AlertEvent.detail)
+  return _msg;
+}
+inline void AlertEvent::set_allocated_detail(::croupier::ops::v1::ProbeDetail* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.detail_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = value->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  }
+
+  _impl_.detail_ = reinterpret_cast<::croupier::ops::v1::ProbeDetail*>(value);
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.AlertEvent.detail)
+}
+
+// -------------------------------------------------------------------
+
+// ProbeWindow
+
+// string target = 1;
+inline void ProbeWindow::clear_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.target_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& ProbeWindow::target() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeWindow.target)
+  return _internal_target();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeWindow::set_target(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.target_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeWindow.target)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::mutable_target()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_target();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeWindow.target)
+  return _s;
+}
+inline const ::std::string& ProbeWindow::_internal_target() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.target_.Get();
+}
+inline void ProbeWindow::_internal_set_target(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.target_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::_internal_mutable_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.target_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeWindow::release_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeWindow.target)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.target_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.target_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeWindow::set_allocated_target(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.target_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.target_.IsDefault()) {
+    _impl_.target_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeWindow.target)
+}
+
+// string semantics = 2;
+inline void ProbeWindow::clear_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.semantics_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& ProbeWindow::semantics() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeWindow.semantics)
+  return _internal_semantics();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeWindow::set_semantics(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.semantics_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeWindow.semantics)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::mutable_semantics()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_semantics();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeWindow.semantics)
+  return _s;
+}
+inline const ::std::string& ProbeWindow::_internal_semantics() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.semantics_.Get();
+}
+inline void ProbeWindow::_internal_set_semantics(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.semantics_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::_internal_mutable_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.semantics_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeWindow::release_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeWindow.semantics)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.semantics_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.semantics_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeWindow::set_allocated_semantics(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.semantics_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.semantics_.IsDefault()) {
+    _impl_.semantics_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeWindow.semantics)
+}
+
+// string window_kind = 3;
+inline void ProbeWindow::clear_window_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_kind_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& ProbeWindow::window_kind() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeWindow.window_kind)
+  return _internal_window_kind();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeWindow::set_window_kind(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.window_kind_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeWindow.window_kind)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::mutable_window_kind()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_window_kind();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeWindow.window_kind)
+  return _s;
+}
+inline const ::std::string& ProbeWindow::_internal_window_kind() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.window_kind_.Get();
+}
+inline void ProbeWindow::_internal_set_window_kind(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_kind_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::_internal_mutable_window_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.window_kind_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeWindow::release_window_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeWindow.window_kind)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.window_kind_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.window_kind_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeWindow::set_allocated_window_kind(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.window_kind_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.window_kind_.IsDefault()) {
+    _impl_.window_kind_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeWindow.window_kind)
+}
+
+// int64 start_ts_unix_ms = 4;
+inline void ProbeWindow::clear_start_ts_unix_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.start_ts_unix_ms_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline ::int64_t ProbeWindow::start_ts_unix_ms() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeWindow.start_ts_unix_ms)
+  return _internal_start_ts_unix_ms();
+}
+inline void ProbeWindow::set_start_ts_unix_ms(::int64_t value) {
+  _internal_set_start_ts_unix_ms(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeWindow.start_ts_unix_ms)
+}
+inline ::int64_t ProbeWindow::_internal_start_ts_unix_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.start_ts_unix_ms_;
+}
+inline void ProbeWindow::_internal_set_start_ts_unix_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.start_ts_unix_ms_ = value;
+}
+
+// int64 end_ts_unix_ms = 5;
+inline void ProbeWindow::clear_end_ts_unix_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.end_ts_unix_ms_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline ::int64_t ProbeWindow::end_ts_unix_ms() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeWindow.end_ts_unix_ms)
+  return _internal_end_ts_unix_ms();
+}
+inline void ProbeWindow::set_end_ts_unix_ms(::int64_t value) {
+  _internal_set_end_ts_unix_ms(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeWindow.end_ts_unix_ms)
+}
+inline ::int64_t ProbeWindow::_internal_end_ts_unix_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.end_ts_unix_ms_;
+}
+inline void ProbeWindow::_internal_set_end_ts_unix_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.end_ts_unix_ms_ = value;
+}
+
+// int64 duration_ms = 6;
+inline void ProbeWindow::clear_duration_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.duration_ms_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline ::int64_t ProbeWindow::duration_ms() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeWindow.duration_ms)
+  return _internal_duration_ms();
+}
+inline void ProbeWindow::set_duration_ms(::int64_t value) {
+  _internal_set_duration_ms(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeWindow.duration_ms)
+}
+inline ::int64_t ProbeWindow::_internal_duration_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.duration_ms_;
+}
+inline void ProbeWindow::_internal_set_duration_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.duration_ms_ = value;
+}
+
+// string last_reason = 7;
+inline void ProbeWindow::clear_last_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.last_reason_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline const ::std::string& ProbeWindow::last_reason() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeWindow.last_reason)
+  return _internal_last_reason();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeWindow::set_last_reason(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  _impl_.last_reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeWindow.last_reason)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::mutable_last_reason()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ::std::string* _s = _internal_mutable_last_reason();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeWindow.last_reason)
+  return _s;
+}
+inline const ::std::string& ProbeWindow::_internal_last_reason() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.last_reason_.Get();
+}
+inline void ProbeWindow::_internal_set_last_reason(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.last_reason_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeWindow::_internal_mutable_last_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.last_reason_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeWindow::release_last_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeWindow.last_reason)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  auto* released = _impl_.last_reason_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.last_reason_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeWindow::set_allocated_last_reason(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  }
+  _impl_.last_reason_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.last_reason_.IsDefault()) {
+    _impl_.last_reason_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeWindow.last_reason)
+}
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// ProbeDetail
+
+// string target = 1;
+inline void ProbeDetail::clear_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.target_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& ProbeDetail::target() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.target)
+  return _internal_target();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeDetail::set_target(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.target_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.target)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeDetail::mutable_target()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_target();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeDetail.target)
+  return _s;
+}
+inline const ::std::string& ProbeDetail::_internal_target() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.target_.Get();
+}
+inline void ProbeDetail::_internal_set_target(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.target_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeDetail::_internal_mutable_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.target_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeDetail::release_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeDetail.target)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.target_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.target_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeDetail::set_allocated_target(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.target_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.target_.IsDefault()) {
+    _impl_.target_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeDetail.target)
+}
+
+// string semantics = 2;
+inline void ProbeDetail::clear_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.semantics_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& ProbeDetail::semantics() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.semantics)
+  return _internal_semantics();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeDetail::set_semantics(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.semantics_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.semantics)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeDetail::mutable_semantics()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_semantics();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeDetail.semantics)
+  return _s;
+}
+inline const ::std::string& ProbeDetail::_internal_semantics() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.semantics_.Get();
+}
+inline void ProbeDetail::_internal_set_semantics(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.semantics_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeDetail::_internal_mutable_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.semantics_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeDetail::release_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeDetail.semantics)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.semantics_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.semantics_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeDetail::set_allocated_semantics(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.semantics_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.semantics_.IsDefault()) {
+    _impl_.semantics_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeDetail.semantics)
+}
+
+// bool ok = 3;
+inline void ProbeDetail::clear_ok() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline bool ProbeDetail::ok() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.ok)
+  return _internal_ok();
+}
+inline void ProbeDetail::set_ok(bool value) {
+  _internal_set_ok(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.ok)
+}
+inline bool ProbeDetail::_internal_ok() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.ok_;
+}
+inline void ProbeDetail::_internal_set_ok(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = value;
+}
+
+// string err = 4;
+inline void ProbeDetail::clear_err() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.err_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& ProbeDetail::err() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.err)
+  return _internal_err();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeDetail::set_err(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.err_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.err)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeDetail::mutable_err()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_err();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeDetail.err)
+  return _s;
+}
+inline const ::std::string& ProbeDetail::_internal_err() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.err_.Get();
+}
+inline void ProbeDetail::_internal_set_err(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.err_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeDetail::_internal_mutable_err() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.err_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeDetail::release_err() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeDetail.err)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.err_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.err_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeDetail::set_allocated_err(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.err_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.err_.IsDefault()) {
+    _impl_.err_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeDetail.err)
+}
+
+// int64 at_ts_unix_ms = 5;
+inline void ProbeDetail::clear_at_ts_unix_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.at_ts_unix_ms_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline ::int64_t ProbeDetail::at_ts_unix_ms() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.at_ts_unix_ms)
+  return _internal_at_ts_unix_ms();
+}
+inline void ProbeDetail::set_at_ts_unix_ms(::int64_t value) {
+  _internal_set_at_ts_unix_ms(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.at_ts_unix_ms)
+}
+inline ::int64_t ProbeDetail::_internal_at_ts_unix_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.at_ts_unix_ms_;
+}
+inline void ProbeDetail::_internal_set_at_ts_unix_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.at_ts_unix_ms_ = value;
+}
+
+// int64 latency_ms = 6;
+inline void ProbeDetail::clear_latency_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.latency_ms_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline ::int64_t ProbeDetail::latency_ms() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.latency_ms)
+  return _internal_latency_ms();
+}
+inline void ProbeDetail::set_latency_ms(::int64_t value) {
+  _internal_set_latency_ms(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.latency_ms)
+}
+inline ::int64_t ProbeDetail::_internal_latency_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.latency_ms_;
+}
+inline void ProbeDetail::_internal_set_latency_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.latency_ms_ = value;
+}
+
+// int32 consecutive_failures = 7;
+inline void ProbeDetail::clear_consecutive_failures() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.consecutive_failures_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000080U);
+}
+inline ::int32_t ProbeDetail::consecutive_failures() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.consecutive_failures)
+  return _internal_consecutive_failures();
+}
+inline void ProbeDetail::set_consecutive_failures(::int32_t value) {
+  _internal_set_consecutive_failures(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.consecutive_failures)
+}
+inline ::int32_t ProbeDetail::_internal_consecutive_failures() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.consecutive_failures_;
+}
+inline void ProbeDetail::_internal_set_consecutive_failures(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.consecutive_failures_ = value;
+}
+
+// bool window_open = 8;
+inline void ProbeDetail::clear_window_open() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_open_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline bool ProbeDetail::window_open() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeDetail.window_open)
+  return _internal_window_open();
+}
+inline void ProbeDetail::set_window_open(bool value) {
+  _internal_set_window_open(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeDetail.window_open)
+}
+inline bool ProbeDetail::_internal_window_open() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.window_open_;
+}
+inline void ProbeDetail::_internal_set_window_open(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_open_ = value;
+}
+
+// map<string, string> details = 9;
+inline int ProbeDetail::_internal_details_size() const {
+  return _internal_details().size();
+}
+inline int ProbeDetail::details_size() const {
+  return _internal_details_size();
+}
+inline void ProbeDetail::clear_details() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.details_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000100U);
+}
+inline const ::google::protobuf::Map<::std::string, ::std::string>& ProbeDetail::_internal_details() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.details_.GetMap();
+}
+inline const ::google::protobuf::Map<::std::string, ::std::string>& ProbeDetail::details() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_map:croupier.ops.v1.ProbeDetail.details)
+  return _internal_details();
+}
+inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL ProbeDetail::_internal_mutable_details() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.details_.MutableMap();
+}
+inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL ProbeDetail::mutable_details()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000100U);
+  // @@protoc_insertion_point(field_mutable_map:croupier.ops.v1.ProbeDetail.details)
+  return _internal_mutable_details();
+}
+
+// -------------------------------------------------------------------
+
+// ProbeStats
+
+// string target = 1;
+inline void ProbeStats::clear_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.target_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& ProbeStats::target() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.target)
+  return _internal_target();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeStats::set_target(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.target_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.target)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::mutable_target()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_target();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeStats.target)
+  return _s;
+}
+inline const ::std::string& ProbeStats::_internal_target() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.target_.Get();
+}
+inline void ProbeStats::_internal_set_target(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.target_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::_internal_mutable_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.target_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeStats::release_target() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeStats.target)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.target_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.target_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeStats::set_allocated_target(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.target_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.target_.IsDefault()) {
+    _impl_.target_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeStats.target)
+}
+
+// string semantics = 2;
+inline void ProbeStats::clear_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.semantics_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& ProbeStats::semantics() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.semantics)
+  return _internal_semantics();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeStats::set_semantics(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.semantics_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.semantics)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::mutable_semantics()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_semantics();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeStats.semantics)
+  return _s;
+}
+inline const ::std::string& ProbeStats::_internal_semantics() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.semantics_.Get();
+}
+inline void ProbeStats::_internal_set_semantics(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.semantics_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::_internal_mutable_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.semantics_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeStats::release_semantics() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeStats.semantics)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.semantics_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.semantics_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeStats::set_allocated_semantics(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.semantics_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.semantics_.IsDefault()) {
+    _impl_.semantics_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeStats.semantics)
+}
+
+// string game_id = 3;
+inline void ProbeStats::clear_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.game_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline const ::std::string& ProbeStats::game_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.game_id)
+  return _internal_game_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeStats::set_game_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  _impl_.game_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.game_id)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::mutable_game_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ::std::string* _s = _internal_mutable_game_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeStats.game_id)
+  return _s;
+}
+inline const ::std::string& ProbeStats::_internal_game_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.game_id_.Get();
+}
+inline void ProbeStats::_internal_set_game_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.game_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::_internal_mutable_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.game_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeStats::release_game_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeStats.game_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  auto* released = _impl_.game_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.game_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeStats::set_allocated_game_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  }
+  _impl_.game_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.game_id_.IsDefault()) {
+    _impl_.game_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeStats.game_id)
+}
+
+// string env = 4;
+inline void ProbeStats::clear_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.env_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline const ::std::string& ProbeStats::env() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.env)
+  return _internal_env();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeStats::set_env(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  _impl_.env_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.env)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::mutable_env()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ::std::string* _s = _internal_mutable_env();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeStats.env)
+  return _s;
+}
+inline const ::std::string& ProbeStats::_internal_env() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.env_.Get();
+}
+inline void ProbeStats::_internal_set_env(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.env_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::_internal_mutable_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.env_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeStats::release_env() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeStats.env)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  auto* released = _impl_.env_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.env_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeStats::set_allocated_env(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  }
+  _impl_.env_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.env_.IsDefault()) {
+    _impl_.env_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeStats.env)
+}
+
+// int64 checked = 5;
+inline void ProbeStats::clear_checked() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.checked_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline ::int64_t ProbeStats::checked() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.checked)
+  return _internal_checked();
+}
+inline void ProbeStats::set_checked(::int64_t value) {
+  _internal_set_checked(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.checked)
+}
+inline ::int64_t ProbeStats::_internal_checked() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.checked_;
+}
+inline void ProbeStats::_internal_set_checked(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.checked_ = value;
+}
+
+// int64 failed = 6;
+inline void ProbeStats::clear_failed() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.failed_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000080U);
+}
+inline ::int64_t ProbeStats::failed() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.failed)
+  return _internal_failed();
+}
+inline void ProbeStats::set_failed(::int64_t value) {
+  _internal_set_failed(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.failed)
+}
+inline ::int64_t ProbeStats::_internal_failed() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.failed_;
+}
+inline void ProbeStats::_internal_set_failed(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.failed_ = value;
+}
+
+// double success_rate = 7;
+inline void ProbeStats::clear_success_rate() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.success_rate_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000100U);
+}
+inline double ProbeStats::success_rate() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.success_rate)
+  return _internal_success_rate();
+}
+inline void ProbeStats::set_success_rate(double value) {
+  _internal_set_success_rate(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.success_rate)
+}
+inline double ProbeStats::_internal_success_rate() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.success_rate_;
+}
+inline void ProbeStats::_internal_set_success_rate(double value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.success_rate_ = value;
+}
+
+// repeated int64 latency_buckets = 8;
+inline int ProbeStats::_internal_latency_buckets_size() const {
+  return _internal_latency_buckets().size();
+}
+inline int ProbeStats::latency_buckets_size() const {
+  return _internal_latency_buckets_size();
+}
+inline void ProbeStats::clear_latency_buckets() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.latency_buckets_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline ::int64_t ProbeStats::latency_buckets(int index) const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.latency_buckets)
+  return _internal_latency_buckets().Get(index);
+}
+inline void ProbeStats::set_latency_buckets(int index, ::int64_t value) {
+  _internal_mutable_latency_buckets()->Set(index, value);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.latency_buckets)
+}
+inline void ProbeStats::add_latency_buckets(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _internal_mutable_latency_buckets()->InternalAddWithArena(
+      internal_visibility(), GetArena(), value);
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add:croupier.ops.v1.ProbeStats.latency_buckets)
+}
+inline const ::google::protobuf::RepeatedField<::int64_t>& ProbeStats::latency_buckets() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:croupier.ops.v1.ProbeStats.latency_buckets)
+  return _internal_latency_buckets();
+}
+inline ::google::protobuf::RepeatedField<::int64_t>* PROTOBUF_NONNULL ProbeStats::mutable_latency_buckets()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_mutable_list:croupier.ops.v1.ProbeStats.latency_buckets)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_latency_buckets();
+}
+inline const ::google::protobuf::RepeatedField<::int64_t>&
+ProbeStats::_internal_latency_buckets() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.latency_buckets_;
+}
+inline ::google::protobuf::RepeatedField<::int64_t>* PROTOBUF_NONNULL
+ProbeStats::_internal_mutable_latency_buckets() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.latency_buckets_;
+}
+
+// bool window_open = 9;
+inline void ProbeStats::clear_window_open() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_open_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000800U);
+}
+inline bool ProbeStats::window_open() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.window_open)
+  return _internal_window_open();
+}
+inline void ProbeStats::set_window_open(bool value) {
+  _internal_set_window_open(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000800U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.window_open)
+}
+inline bool ProbeStats::_internal_window_open() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.window_open_;
+}
+inline void ProbeStats::_internal_set_window_open(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_open_ = value;
+}
+
+// int64 window_duration_ms = 10;
+inline void ProbeStats::clear_window_duration_ms() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_duration_ms_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000200U);
+}
+inline ::int64_t ProbeStats::window_duration_ms() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.window_duration_ms)
+  return _internal_window_duration_ms();
+}
+inline void ProbeStats::set_window_duration_ms(::int64_t value) {
+  _internal_set_window_duration_ms(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.window_duration_ms)
+}
+inline ::int64_t ProbeStats::_internal_window_duration_ms() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.window_duration_ms_;
+}
+inline void ProbeStats::_internal_set_window_duration_ms(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.window_duration_ms_ = value;
+}
+
+// string last_reason = 11;
+inline void ProbeStats::clear_last_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.last_reason_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline const ::std::string& ProbeStats::last_reason() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.last_reason)
+  return _internal_last_reason();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProbeStats::set_last_reason(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  _impl_.last_reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.last_reason)
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::mutable_last_reason()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ::std::string* _s = _internal_mutable_last_reason();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.ProbeStats.last_reason)
+  return _s;
+}
+inline const ::std::string& ProbeStats::_internal_last_reason() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.last_reason_.Get();
+}
+inline void ProbeStats::_internal_set_last_reason(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.last_reason_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProbeStats::_internal_mutable_last_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.last_reason_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProbeStats::release_last_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.ProbeStats.last_reason)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  auto* released = _impl_.last_reason_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.last_reason_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProbeStats::set_allocated_last_reason(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  }
+  _impl_.last_reason_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.last_reason_.IsDefault()) {
+    _impl_.last_reason_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeStats.last_reason)
+}
+
+// int64 dropped_details = 12;
+inline void ProbeStats::clear_dropped_details() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.dropped_details_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000400U);
+}
+inline ::int64_t ProbeStats::dropped_details() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.dropped_details)
+  return _internal_dropped_details();
+}
+inline void ProbeStats::set_dropped_details(::int64_t value) {
+  _internal_set_dropped_details(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.dropped_details)
+}
+inline ::int64_t ProbeStats::_internal_dropped_details() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.dropped_details_;
+}
+inline void ProbeStats::_internal_set_dropped_details(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.dropped_details_ = value;
 }
 
 #ifdef __GNUC__

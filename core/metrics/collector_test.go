@@ -136,9 +136,47 @@ func TestCollectFoldsSamplerSnapshotAndEvents(t *testing.T) {
 	assert.Empty(t, report2.SupervisorEvents)
 }
 
+// fakeProbeSampler Drain 语义：首批给完即空（模拟上报窗口复位）。
+type fakeProbeSampler struct {
+	batches [][]*opsv1.ProbeStats
+	calls   int
+}
+
+func (f *fakeProbeSampler) DrainProbeStats() []*opsv1.ProbeStats {
+	f.calls++
+	if len(f.batches) == 0 {
+		return nil
+	}
+	out := f.batches[0]
+	f.batches = f.batches[1:]
+	return out
+}
+
+func TestCollectFoldsProbeStats(t *testing.T) {
+	ps := &fakeProbeSampler{batches: [][]*opsv1.ProbeStats{
+		{{Target: "redis:6379", Checked: 5, Failed: 1}},
+	}}
+	c := NewCollector("agent-1").WithProbeSampler(ps)
+	report := c.Collect(context.Background())
+	require.Len(t, report.ProbeStats, 1)
+	assert.Equal(t, "redis:6379", report.ProbeStats[0].Target)
+	assert.EqualValues(t, 1, report.ProbeStats[0].Failed)
+
+	// Drain 已复位：下一个上报窗口无数据不空挂元素。
+	report2 := c.Collect(context.Background())
+	assert.Empty(t, report2.ProbeStats)
+	assert.Equal(t, 2, ps.calls)
+}
+
+func TestCollectWithoutProbeSampler(t *testing.T) {
+	c := NewCollector("agent-1")
+	assert.Empty(t, c.Collect(context.Background()).ProbeStats)
+}
+
 func TestNilCollectorSafe(t *testing.T) {
 	var c *Collector
 	assert.Nil(t, c.WithSampler(nil))
+	assert.Nil(t, c.WithProbeSampler(nil))
 	// nil 接收者全部为安全 no-op：读游标 0，写游标不 panic 也不生效。
 	assert.Equal(t, int64(0), c.lastSamplerSeq())
 	c.setLastSamplerSeq(3)

@@ -22,6 +22,7 @@ type controlClient interface {
 	RegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error)
 	SendTaskEvent(ctx context.Context, reqBody []byte) error
 	SendMetricEvent(ctx context.Context, reqBody []byte) error
+	SendAlertEvent(ctx context.Context, reqBody []byte) error
 }
 
 // tcpControlClient wraps a simple TCP request-response client (no multiplexing).
@@ -130,6 +131,16 @@ func (c *tcpControlClient) SendMetricEvent(ctx context.Context, reqBody []byte) 
 	return err
 }
 
+// SendAlertEvent 单发探测/告警流事件（review §11 已决 2：独立 QoS 通道，
+// 不复用指标批量面）。
+func (c *tcpControlClient) SendAlertEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.client == nil {
+		return fmt.Errorf("tcp control client not initialized")
+	}
+	_, _, err := c.client.Call(ctx, protocol.MsgAlertEvent, reqBody)
+	return err
+}
+
 func (c *tcpControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("tcp control client not initialized")
@@ -203,6 +214,14 @@ func (c *muxControlClient) SendMetricEvent(ctx context.Context, reqBody []byte) 
 		return fmt.Errorf("mux control client not initialized")
 	}
 	return c.mux.Send(ctx, protocol.MsgMetricEvent, reqBody)
+}
+
+// SendAlertEvent 单发探测/告警流事件（流事件走 Send 不等响应）。
+func (c *muxControlClient) SendAlertEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.mux == nil {
+		return fmt.Errorf("mux control client not initialized")
+	}
+	return c.mux.Send(ctx, protocol.MsgAlertEvent, reqBody)
 }
 
 func (c *muxControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {

@@ -38,14 +38,27 @@ type WindowEvent struct {
 // WindowListener 窗口事件回调。
 type WindowListener func(WindowEvent)
 
+// ResultListener 单次探测结果回调（含未达阈值不产生窗口事件的每一次探测）。
+type ResultListener func(Result)
+
+// Detailing 可选能力：Checker 附带本次探测的明细（阶段标记等，如协议骨架的
+// phase=login）。ProbeOnce 探测到该接口即把明细写进 Result.Details；未实现该
+// 接口的 Checker 结果 Details 为空。
+type Detailing interface {
+	Details() map[string]string
+}
+
 // Result 单次探测结果。
 type Result struct {
 	OK                  bool
 	Err                 string
 	At                  time.Time
+	Target              string
 	Available           bool
 	ConsecutiveFailures int
 	WindowOpen          bool
+	LatencyMS           int64
+	Details             map[string]string
 }
 
 // Probe 单目标探针：连续失败/恢复阈值驱动的两态机（available ⇄ unavailable）。
@@ -59,6 +72,7 @@ type Probe struct {
 	scopeGame  string
 	scopeEnv   string
 	listener   WindowListener
+	resultFn   ResultListener
 	timeline   TimelineWriter
 	maxHistory int
 
@@ -94,6 +108,12 @@ func WithScope(gameID, env string) Option {
 // OnWindow 注册窗口事件回调（上报/herald 出口）。
 func OnWindow(fn WindowListener) Option {
 	return func(p *Probe) { p.listener = fn }
+}
+
+// OnResult 注册单次探测结果回调：窗口事件之外的每次探测都回调一次（含失败
+// 明细上报——异常态必须逐次回流，不等窗口开合）。
+func OnResult(fn ResultListener) Option {
+	return func(p *Probe) { p.resultFn = fn }
 }
 
 // WithTimeline 挂接本地时间线文件（真值通道）。

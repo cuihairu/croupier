@@ -1,0 +1,185 @@
+package agent
+
+import (
+	"context"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/cuihairu/croupier/core/healthprobe"
+	"github.com/cuihairu/croupier/core/report"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+)
+
+// recordingSend 收集上行 AlertEvent 正文（并发安全）。
+type recordingSend struct {
+	mu  sync.Mutex
+	buf [][]byte
+}
+
+func (r *recordingSend) send(_ context.Context, body []byte) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.buf = append(r.buf, append([]byte(nil), body...))
+	return nil
+}
+
+func (r *recordingSend) events(t *testing.T) []*opsv1.AlertEvent {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*opsv1.AlertEvent, 0, len(r.buf))
+	for _, b := range r.buf {
+		ev := &opsv1.AlertEvent{}
+		require.NoError(t, proto.Unmarshal(b, ev))
+		out = append(out, ev)
+	}
+	return out
+}
+
+// deadTCPTarget 指向闭合端口（RFC 抓取段确定拒绝/超时），保证 tcp Checker 失败。
+const deadTCPTarget = "127.0.0.1:1"
+
+func tcpTargets() []healthprobe.TargetConfig {
+	return []healthprobe.TargetConfig{
+		{Name: "down-a", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
+		{Name: "down-b", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
+	}
+}
+
+func TestProbeManagerRejectsInvalidConfigs(t *testing.T) {
+	cases := map[string][]healthprobe.TargetConfig{
+		"empty": {},
+		"duplicate name": {
+			{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
+			{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
+		},
+		"unknown type":    {{Name: "x", Type: "carrier-pigeon"}},
+		"missing address": {{Name: "x", Type: healthprobe.TargetTypeTCP}},
+	}
+	for name, cfgs := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewProbeManager(cfgs, ProbeManagerOptions{AgentID: "agent-1"})
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestProbeManagerUplinksPerTarget(t *testing.T) {
+	s := &recordingSend{}
+	pm, err := NewProbeManager(tcpTargets(), ProbeManagerOptions{
+		AgentID: "agent-1",
+		GameID:  "demo",
+		Env:     "prod",
+		Send:    s.send,
+	})
+	require.NoError(t, err)
+	require.Len(t, pm.Probes(), 2)
+
+	pm.ProbeManagerOnce(context.Background())
+
+	evs := s.events(t)
+	require.NotEmpty(t, evs)
+
+	windows := map[string]int{}
+	details := map[string]int{}
+	for _, ev := range evs {
+		assert.Equal(t, "agent-1", ev.AgentId)
+		assert.Equal(t, "demo", ev.GameId)
+		assert.Equal(t, "prod", ev.Env)
+		switch ev.Kind {
+		case report.ProbeKindWindow:
+			windows[ev.Window.Target]++
+		case report.ProbeKindDetail:
+			details[ev.Detail.Target]++
+			assert.NotEmpty(t, ev.Detail.Err, "failure detail must carry the reason, never a bare bool")
+		default:
+			t.Fatalf("unexpected kind %q", ev.Kind)
+		}
+	}
+	// 每个目标各自开窗 → 各自一条 probe.window，互不串台。
+	assert.Equal(t, 1, windows["down-a"])
+	assert.Equal(t, 1, windows["down-b"])
+	// 异常明细与窗口事件都即时回流（不对称上行：失败不等批量窗口）。
+	assert.GreaterOrEqual(t, details["down-a"], 1)
+	assert.GreaterOrEqual(t, details["down-b"], 1)
+
+	// 窗口消费者只上行：不产生任何恢复/重启副作用——此处断言开窗数与探针数
+	// 一一对应（多一次即意味着有副作用路径）。
+	assert.Len(t, pm.currentWindow(), 2)
+}
+
+func TestProbeManagerDrainStats(t *testing.T) {
+	s := &recordingSend{}
+	pm, err := NewProbeManager(tcpTargets(), ProbeManagerOptions{
+		AgentID: "agent-1",
+		GameID:  "demo",
+		Send:    s.send,
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, pm.DrainProbeStats(), "no probe yet → no stats row")
+
+	pm.ProbeManagerOnce(context.Background())
+	stats := pm.DrainProbeStats()
+	require.Len(t, stats, 2, "one row per target")
+	byTarget := map[string]*opsv1.ProbeStats{}
+	for _, st := range stats {
+		byTarget[st.Target] = st
+	}
+	require.Contains(t, byTarget, "down-a")
+	assert.EqualValues(t, 1, byTarget["down-a"].Checked)
+	assert.EqualValues(t, 1, byTarget["down-a"].Failed)
+	assert.Equal(t, 0.0, byTarget["down-a"].SuccessRate)
+	assert.True(t, byTarget["down-a"].WindowOpen)
+	assert.NotEmpty(t, byTarget["down-a"].LastReason)
+	assert.Equal(t, "demo", byTarget["down-a"].GameId)
+
+	// Drain 已复位：下一轮无新探测不重复上报。
+	assert.Empty(t, pm.DrainProbeStats())
+}
+
+func TestProbeManagerWithoutSendStillProbes(t *testing.T) {
+	// server 未接入时 agent 照跑（M2 可回退语义）。
+	pm, err := NewProbeManager([]healthprobe.TargetConfig{
+		{Name: "down", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
+	}, ProbeManagerOptions{AgentID: "agent-1"})
+	require.NoError(t, err)
+	pm.ProbeManagerOnce(context.Background())
+	stats := pm.DrainProbeStats()
+	require.Len(t, stats, 1)
+	assert.EqualValues(t, 1, stats[0].Failed)
+}
+
+func TestProbeManagerNilSafe(t *testing.T) {
+	var pm *ProbeManager
+	assert.Nil(t, pm.DrainProbeStats())
+	assert.Nil(t, pm.Probes())
+	pm.Start(context.Background())
+	pm.ProbeManagerOnce(context.Background())
+}
+
+func TestProbeManagerStartRespectsContext(t *testing.T) {
+	pm, err := NewProbeManager([]healthprobe.TargetConfig{
+		{Name: "up", Type: healthprobe.TargetTypeHTTP, URL: "http://127.0.0.1:1/healthz", Interval: 10 * time.Millisecond},
+	}, ProbeManagerOptions{AgentID: "agent-1"})
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		pm.Start(ctx)
+		close(done)
+	}()
+	time.Sleep(30 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("ProbeManager.Start did not stop on context cancel")
+	}
+}

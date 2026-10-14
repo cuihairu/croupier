@@ -38,6 +38,8 @@ func (warningRegisterClientC) SendTaskEvent(context.Context, []byte) error { ret
 
 func (warningRegisterClientC) SendMetricEvent(context.Context, []byte) error { return nil }
 
+func (warningRegisterClientC) SendAlertEvent(context.Context, []byte) error { return nil }
+
 // syncOnce：注册响应带 warnings 时走 Warn 分支并正常完成同步，不视为
 // 注册失败。
 func TestCoverageC_SyncOnce_RegisterWarningsLogged(t *testing.T) {

@@ -2,9 +2,12 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/cuihairu/croupier/core/healthprobe"
 )
 
 func TestAgentConfigUnmarshalUppercaseSections(t *testing.T) {
@@ -104,6 +107,73 @@ func TestBundledDevConfigsUsePlainControlWhenServerHasNoTLS(t *testing.T) {
 	}
 }
 
+// 示例配置里的 probe 段是文档的一部分：整段默认注释掉（不启用探测），但
+// 注释里的内容必须真能解析、真能装配——示例写错等于教用户写错。
+func TestBundledAgentConfigProbeExampleIsValidButDisabled(t *testing.T) {
+	data, err := os.ReadFile("../../configs/agent.yaml")
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+
+	// 1) 默认不带探测：注释块不得被解析成启用状态。
+	var cfg AgentConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal config: %v", err)
+	}
+	if cfg.Probe != nil {
+		t.Fatalf("bundled config must ship with probes disabled, got %+v", cfg.Probe)
+	}
+
+	// 2) 取消注释后必须可解析且装配通过。
+	uncommented := uncommentProbeBlock(string(data))
+	if uncommented == "" {
+		t.Fatal("agent.yaml should document the probe section as a commented example")
+	}
+	var probeCfg struct {
+		Probe *ProbeConfig `yaml:"probe"`
+	}
+	if err := yaml.Unmarshal([]byte(uncommented), &probeCfg); err != nil {
+		t.Fatalf("unmarshal uncommented probe example: %v", err)
+	}
+	if probeCfg.Probe == nil || len(probeCfg.Probe.Targets) == 0 {
+		t.Fatal("uncommented probe example yielded no targets")
+	}
+	if _, err := healthprobe.NewManager(probeCfg.Probe.Targets, "demo", "prod", nil, nil); err != nil {
+		t.Fatalf("documented probe example must assemble: %v", err)
+	}
+}
+
+// uncommentProbeBlock 取出 agent.yaml 中以 "# probe:" 起始的注释块并去注释。
+func uncommentProbeBlock(doc string) string {
+	var out []string
+	started := false
+	for _, line := range strings.Split(doc, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !started {
+			if trimmed == "# probe:" {
+				started = true
+				out = append(out, "probe:")
+			}
+			continue
+		}
+		// 注释块到下一个非注释非空行或下一个顶级注释标题为止。
+		if trimmed == "" || !strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		out = append(out, strings.TrimPrefix(strings.TrimPrefix(trimmed, "#"), " "))
+	}
+	if !started {
+		return ""
+	}
+	// db 目标示例含明文口令占位，不参与装配校验：整条目标截掉。
+	for i, line := range out {
+		if strings.HasPrefix(strings.TrimSpace(line), "- name: game-db") {
+			return strings.Join(out[:i], "\n") + "\n"
+		}
+	}
+	return strings.Join(out, "\n") + "\n"
+}
+
 func TestBundledDockerConfigUsesDedicatedLocalGatewayPort(t *testing.T) {
 	data, err := os.ReadFile("../../docker/configs/agent.yaml")
 	if err != nil {
@@ -153,6 +223,54 @@ ops:
 	}
 	if cfg2.Ops == nil || cfg2.Ops.MetricsInterval != "45s" || cfg2.Ops.MetricsEnabled {
 		t.Fatalf("legacy ops keys not compat-parsed: %+v", cfg2.Ops)
+	}
+}
+
+// 声明式探针配置面（§12 R2）：`probe.targets[]` 小驼峰键直接落到
+// core/healthprobe.TargetConfig（同一套契约，不在 CLI 侧另造结构体）。
+func TestAgentConfigProbeTargetsCanonicalKeys(t *testing.T) {
+	data := []byte(`
+probe:
+  maxDetailsPerWindow: 5
+  targets:
+    - name: redis
+      type: tcp
+      address: 127.0.0.1:6379
+      semantics: readiness
+      interval: 15s
+      failThreshold: 2
+      recoverThreshold: 1
+    - name: gateway
+      type: http
+      url: http://127.0.0.1:8080/healthz
+      timeout: 3s
+`)
+	var cfg AgentConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal probe section: %v", err)
+	}
+	if cfg.Probe == nil {
+		t.Fatal("probe section not parsed")
+	}
+	if cfg.Probe.MaxDetailsPerWindow != 5 {
+		t.Fatalf("maxDetailsPerWindow = %d, want 5", cfg.Probe.MaxDetailsPerWindow)
+	}
+	if len(cfg.Probe.Targets) != 2 {
+		t.Fatalf("targets = %d, want 2", len(cfg.Probe.Targets))
+	}
+	first := cfg.Probe.Targets[0]
+	if first.Name != "redis" || first.Type != "tcp" || first.Address != "127.0.0.1:6379" {
+		t.Fatalf("tcp target not parsed: %+v", first)
+	}
+	if first.Interval.String() != "15s" || first.FailThreshold != 2 || first.RecoverThreshold != 1 {
+		t.Fatalf("thresholds/interval not parsed: %+v", first)
+	}
+	if first.Semantics != healthprobe.SemanticsReadiness {
+		t.Fatalf("semantics = %q", first.Semantics)
+	}
+	second := cfg.Probe.Targets[1]
+	if second.URL != "http://127.0.0.1:8080/healthz" || second.Timeout.String() != "3s" {
+		t.Fatalf("http target not parsed: %+v", second)
 	}
 }
 

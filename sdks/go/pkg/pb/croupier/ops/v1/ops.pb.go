@@ -107,8 +107,13 @@ type MetricsReport struct {
 	SupervisedProcesses []*SupervisedProcessSnapshot `protobuf:"bytes,9,rep,name=supervised_processes,json=supervisedProcesses,proto3" json:"supervised_processes,omitempty"`
 	// Supervisor events that occurred since the previous report (incremental)
 	SupervisorEvents []*SupervisorEvent `protobuf:"bytes,10,rep,name=supervisor_events,json=supervisorEvents,proto3" json:"supervisor_events,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Probe stats folded in since the previous report (probe sampler, same
+	// shape as supervisor sampler folding; review §13.1). Aggregated per
+	// target per reporting window: success samples count only, failure
+	// details ride the AlertEvent channel.
+	ProbeStats    []*ProbeStats `protobuf:"bytes,11,rep,name=probe_stats,json=probeStats,proto3" json:"probe_stats,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MetricsReport) Reset() {
@@ -207,6 +212,13 @@ func (x *MetricsReport) GetSupervisedProcesses() []*SupervisedProcessSnapshot {
 func (x *MetricsReport) GetSupervisorEvents() []*SupervisorEvent {
 	if x != nil {
 		return x.SupervisorEvents
+	}
+	return nil
+}
+
+func (x *MetricsReport) GetProbeStats() []*ProbeStats {
+	if x != nil {
+		return x.ProbeStats
 	}
 	return nil
 }
@@ -2656,11 +2668,440 @@ func (x *CaptureGatesConfigResponse) GetGatesJson() string {
 	return ""
 }
 
+// AlertEvent is the one-way probe/alert event stream upload (new wire
+// message MsgAlertEvent, review §11 decision 2: alert traffic needs its own
+// QoS lane, not the metrics batch slot). v1 carries two probe kinds;
+// future alert families evolve on the same channel.
+//   - kind = probe.window: window open/close (Window below)
+//   - kind = probe.detail: per-failure detail (Detail below, immediate,
+//     not waiting for the batch window — asymmetric uplink §13.1)
+type AlertEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`                      // machine identifier: probe.window | probe.detail
+	AgentId       string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"` // sender id (server validates non-empty; review R2 log sink)
+	GameId        string                 `protobuf:"bytes,3,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`    // Game scope label
+	Env           string                 `protobuf:"bytes,4,opt,name=env,proto3" json:"env,omitempty"`                        // Environment scope label
+	Window        *ProbeWindow           `protobuf:"bytes,5,opt,name=window,proto3" json:"window,omitempty"`                  // set when kind = probe.window
+	Detail        *ProbeDetail           `protobuf:"bytes,6,opt,name=detail,proto3" json:"detail,omitempty"`                  // set when kind = probe.detail
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AlertEvent) Reset() {
+	*x = AlertEvent{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AlertEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AlertEvent) ProtoMessage() {}
+
+func (x *AlertEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AlertEvent.ProtoReflect.Descriptor instead.
+func (*AlertEvent) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *AlertEvent) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetWindow() *ProbeWindow {
+	if x != nil {
+		return x.Window
+	}
+	return nil
+}
+
+func (x *AlertEvent) GetDetail() *ProbeDetail {
+	if x != nil {
+		return x.Detail
+	}
+	return nil
+}
+
+// ProbeWindow mirrors one probe window open/close (unavailable → recovered).
+type ProbeWindow struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Target        string                 `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
+	Semantics     string                 `protobuf:"bytes,2,opt,name=semantics,proto3" json:"semantics,omitempty"`                     // liveness | readiness | heartbeat
+	WindowKind    string                 `protobuf:"bytes,3,opt,name=window_kind,json=windowKind,proto3" json:"window_kind,omitempty"` // unavailable | recovered
+	StartTsUnixMs int64                  `protobuf:"varint,4,opt,name=start_ts_unix_ms,json=startTsUnixMs,proto3" json:"start_ts_unix_ms,omitempty"`
+	EndTsUnixMs   int64                  `protobuf:"varint,5,opt,name=end_ts_unix_ms,json=endTsUnixMs,proto3" json:"end_ts_unix_ms,omitempty"` // 0 = still open
+	DurationMs    int64                  `protobuf:"varint,6,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`        // 0 until recovered
+	LastReason    string                 `protobuf:"bytes,7,opt,name=last_reason,json=lastReason,proto3" json:"last_reason,omitempty"`         // failure reason at threshold (truncated 2KB)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeWindow) Reset() {
+	*x = ProbeWindow{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeWindow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeWindow) ProtoMessage() {}
+
+func (x *ProbeWindow) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeWindow.ProtoReflect.Descriptor instead.
+func (*ProbeWindow) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ProbeWindow) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *ProbeWindow) GetSemantics() string {
+	if x != nil {
+		return x.Semantics
+	}
+	return ""
+}
+
+func (x *ProbeWindow) GetWindowKind() string {
+	if x != nil {
+		return x.WindowKind
+	}
+	return ""
+}
+
+func (x *ProbeWindow) GetStartTsUnixMs() int64 {
+	if x != nil {
+		return x.StartTsUnixMs
+	}
+	return 0
+}
+
+func (x *ProbeWindow) GetEndTsUnixMs() int64 {
+	if x != nil {
+		return x.EndTsUnixMs
+	}
+	return 0
+}
+
+func (x *ProbeWindow) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+func (x *ProbeWindow) GetLastReason() string {
+	if x != nil {
+		return x.LastReason
+	}
+	return ""
+}
+
+// ProbeDetail mirrors one failed probe result (asymmetric uplink: failures
+// report full detail, never a bare bool — review §13.1).
+type ProbeDetail struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Target              string                 `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
+	Semantics           string                 `protobuf:"bytes,2,opt,name=semantics,proto3" json:"semantics,omitempty"`
+	Ok                  bool                   `protobuf:"varint,3,opt,name=ok,proto3" json:"ok,omitempty"`  // always false for detail events
+	Err                 string                 `protobuf:"bytes,4,opt,name=err,proto3" json:"err,omitempty"` // error text (truncated 2KB by sender)
+	AtTsUnixMs          int64                  `protobuf:"varint,5,opt,name=at_ts_unix_ms,json=atTsUnixMs,proto3" json:"at_ts_unix_ms,omitempty"`
+	LatencyMs           int64                  `protobuf:"varint,6,opt,name=latency_ms,json=latencyMs,proto3" json:"latency_ms,omitempty"`
+	ConsecutiveFailures int32                  `protobuf:"varint,7,opt,name=consecutive_failures,json=consecutiveFailures,proto3" json:"consecutive_failures,omitempty"`
+	WindowOpen          bool                   `protobuf:"varint,8,opt,name=window_open,json=windowOpen,proto3" json:"window_open,omitempty"`
+	Details             map[string]string      `protobuf:"bytes,9,rep,name=details,proto3" json:"details,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // probeType/phase/assertion etc (Detailing)
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ProbeDetail) Reset() {
+	*x = ProbeDetail{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeDetail) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeDetail) ProtoMessage() {}
+
+func (x *ProbeDetail) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeDetail.ProtoReflect.Descriptor instead.
+func (*ProbeDetail) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ProbeDetail) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *ProbeDetail) GetSemantics() string {
+	if x != nil {
+		return x.Semantics
+	}
+	return ""
+}
+
+func (x *ProbeDetail) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *ProbeDetail) GetErr() string {
+	if x != nil {
+		return x.Err
+	}
+	return ""
+}
+
+func (x *ProbeDetail) GetAtTsUnixMs() int64 {
+	if x != nil {
+		return x.AtTsUnixMs
+	}
+	return 0
+}
+
+func (x *ProbeDetail) GetLatencyMs() int64 {
+	if x != nil {
+		return x.LatencyMs
+	}
+	return 0
+}
+
+func (x *ProbeDetail) GetConsecutiveFailures() int32 {
+	if x != nil {
+		return x.ConsecutiveFailures
+	}
+	return 0
+}
+
+func (x *ProbeDetail) GetWindowOpen() bool {
+	if x != nil {
+		return x.WindowOpen
+	}
+	return false
+}
+
+func (x *ProbeDetail) GetDetails() map[string]string {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+// ProbeStats aggregates probe results per target per reporting window
+// (normal state = counts only; failure facts are never trimmed — only the
+// detail stream is capped, counted here as dropped_details; review §13.1).
+type ProbeStats struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Target           string                 `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
+	Semantics        string                 `protobuf:"bytes,2,opt,name=semantics,proto3" json:"semantics,omitempty"`
+	GameId           string                 `protobuf:"bytes,3,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	Env              string                 `protobuf:"bytes,4,opt,name=env,proto3" json:"env,omitempty"`
+	Checked          int64                  `protobuf:"varint,5,opt,name=checked,proto3" json:"checked,omitempty"`                                              // checks in this reporting window
+	Failed           int64                  `protobuf:"varint,6,opt,name=failed,proto3" json:"failed,omitempty"`                                                // failures in this window (as-is)
+	SuccessRate      float64                `protobuf:"fixed64,7,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`                  // 1 - failed/checked; 1 when checked=0
+	LatencyBuckets   []int64                `protobuf:"varint,8,rep,packed,name=latency_buckets,json=latencyBuckets,proto3" json:"latency_buckets,omitempty"`   // counts per bucket, boundaries [50ms,200ms,1s,5s], len 5
+	WindowOpen       bool                   `protobuf:"varint,9,opt,name=window_open,json=windowOpen,proto3" json:"window_open,omitempty"`                      // fault window open at drain time
+	WindowDurationMs int64                  `protobuf:"varint,10,opt,name=window_duration_ms,json=windowDurationMs,proto3" json:"window_duration_ms,omitempty"` // open fault window elapsed (0 when closed)
+	LastReason       string                 `protobuf:"bytes,11,opt,name=last_reason,json=lastReason,proto3" json:"last_reason,omitempty"`                      // last failure reason
+	DroppedDetails   int64                  `protobuf:"varint,12,opt,name=dropped_details,json=droppedDetails,proto3" json:"dropped_details,omitempty"`         // details trimmed by the per-window cap
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ProbeStats) Reset() {
+	*x = ProbeStats{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeStats) ProtoMessage() {}
+
+func (x *ProbeStats) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeStats.ProtoReflect.Descriptor instead.
+func (*ProbeStats) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ProbeStats) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *ProbeStats) GetSemantics() string {
+	if x != nil {
+		return x.Semantics
+	}
+	return ""
+}
+
+func (x *ProbeStats) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *ProbeStats) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+func (x *ProbeStats) GetChecked() int64 {
+	if x != nil {
+		return x.Checked
+	}
+	return 0
+}
+
+func (x *ProbeStats) GetFailed() int64 {
+	if x != nil {
+		return x.Failed
+	}
+	return 0
+}
+
+func (x *ProbeStats) GetSuccessRate() float64 {
+	if x != nil {
+		return x.SuccessRate
+	}
+	return 0
+}
+
+func (x *ProbeStats) GetLatencyBuckets() []int64 {
+	if x != nil {
+		return x.LatencyBuckets
+	}
+	return nil
+}
+
+func (x *ProbeStats) GetWindowOpen() bool {
+	if x != nil {
+		return x.WindowOpen
+	}
+	return false
+}
+
+func (x *ProbeStats) GetWindowDurationMs() int64 {
+	if x != nil {
+		return x.WindowDurationMs
+	}
+	return 0
+}
+
+func (x *ProbeStats) GetLastReason() string {
+	if x != nil {
+		return x.LastReason
+	}
+	return ""
+}
+
+func (x *ProbeStats) GetDroppedDetails() int64 {
+	if x != nil {
+		return x.DroppedDetails
+	}
+	return 0
+}
+
 var File_croupier_ops_v1_ops_proto protoreflect.FileDescriptor
 
 const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\n" +
-	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa8\x05\n" +
+	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe6\x05\n" +
 	"\rMetricsReport\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12-\n" +
@@ -2672,7 +3113,9 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x06custom\x18\b \x03(\v2*.croupier.ops.v1.MetricsReport.CustomEntryR\x06custom\x12]\n" +
 	"\x14supervised_processes\x18\t \x03(\v2*.croupier.ops.v1.SupervisedProcessSnapshotR\x13supervisedProcesses\x12M\n" +
 	"\x11supervisor_events\x18\n" +
-	" \x03(\v2 .croupier.ops.v1.SupervisorEventR\x10supervisorEvents\x1a9\n" +
+	" \x03(\v2 .croupier.ops.v1.SupervisorEventR\x10supervisorEvents\x12<\n" +
+	"\vprobe_stats\x18\v \x03(\v2\x1b.croupier.ops.v1.ProbeStatsR\n" +
+	"probeStats\x1a9\n" +
 	"\vCustomEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xaf\x01\n" +
@@ -2903,7 +3346,59 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x1aCaptureGatesConfigResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12\x1d\n" +
 	"\n" +
-	"gates_json\x18\x02 \x01(\tR\tgatesJson*\xea\x01\n" +
+	"gates_json\x18\x02 \x01(\tR\tgatesJson\"\xd2\x01\n" +
+	"\n" +
+	"AlertEvent\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x19\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x17\n" +
+	"\agame_id\x18\x03 \x01(\tR\x06gameId\x12\x10\n" +
+	"\x03env\x18\x04 \x01(\tR\x03env\x124\n" +
+	"\x06window\x18\x05 \x01(\v2\x1c.croupier.ops.v1.ProbeWindowR\x06window\x124\n" +
+	"\x06detail\x18\x06 \x01(\v2\x1c.croupier.ops.v1.ProbeDetailR\x06detail\"\xf4\x01\n" +
+	"\vProbeWindow\x12\x16\n" +
+	"\x06target\x18\x01 \x01(\tR\x06target\x12\x1c\n" +
+	"\tsemantics\x18\x02 \x01(\tR\tsemantics\x12\x1f\n" +
+	"\vwindow_kind\x18\x03 \x01(\tR\n" +
+	"windowKind\x12'\n" +
+	"\x10start_ts_unix_ms\x18\x04 \x01(\x03R\rstartTsUnixMs\x12#\n" +
+	"\x0eend_ts_unix_ms\x18\x05 \x01(\x03R\vendTsUnixMs\x12\x1f\n" +
+	"\vduration_ms\x18\x06 \x01(\x03R\n" +
+	"durationMs\x12\x1f\n" +
+	"\vlast_reason\x18\a \x01(\tR\n" +
+	"lastReason\"\xfc\x02\n" +
+	"\vProbeDetail\x12\x16\n" +
+	"\x06target\x18\x01 \x01(\tR\x06target\x12\x1c\n" +
+	"\tsemantics\x18\x02 \x01(\tR\tsemantics\x12\x0e\n" +
+	"\x02ok\x18\x03 \x01(\bR\x02ok\x12\x10\n" +
+	"\x03err\x18\x04 \x01(\tR\x03err\x12!\n" +
+	"\rat_ts_unix_ms\x18\x05 \x01(\x03R\n" +
+	"atTsUnixMs\x12\x1d\n" +
+	"\n" +
+	"latency_ms\x18\x06 \x01(\x03R\tlatencyMs\x121\n" +
+	"\x14consecutive_failures\x18\a \x01(\x05R\x13consecutiveFailures\x12\x1f\n" +
+	"\vwindow_open\x18\b \x01(\bR\n" +
+	"windowOpen\x12C\n" +
+	"\adetails\x18\t \x03(\v2).croupier.ops.v1.ProbeDetail.DetailsEntryR\adetails\x1a:\n" +
+	"\fDetailsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x84\x03\n" +
+	"\n" +
+	"ProbeStats\x12\x16\n" +
+	"\x06target\x18\x01 \x01(\tR\x06target\x12\x1c\n" +
+	"\tsemantics\x18\x02 \x01(\tR\tsemantics\x12\x17\n" +
+	"\agame_id\x18\x03 \x01(\tR\x06gameId\x12\x10\n" +
+	"\x03env\x18\x04 \x01(\tR\x03env\x12\x18\n" +
+	"\achecked\x18\x05 \x01(\x03R\achecked\x12\x16\n" +
+	"\x06failed\x18\x06 \x01(\x03R\x06failed\x12!\n" +
+	"\fsuccess_rate\x18\a \x01(\x01R\vsuccessRate\x12'\n" +
+	"\x0flatency_buckets\x18\b \x03(\x03R\x0elatencyBuckets\x12\x1f\n" +
+	"\vwindow_open\x18\t \x01(\bR\n" +
+	"windowOpen\x12,\n" +
+	"\x12window_duration_ms\x18\n" +
+	" \x01(\x03R\x10windowDurationMs\x12\x1f\n" +
+	"\vlast_reason\x18\v \x01(\tR\n" +
+	"lastReason\x12'\n" +
+	"\x0fdropped_details\x18\f \x01(\x03R\x0edroppedDetails*\xea\x01\n" +
 	"\fProcessState\x12\x1d\n" +
 	"\x19PROCESS_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15PROCESS_STATE_RUNNING\x10\x01\x12\x19\n" +
@@ -2928,7 +3423,7 @@ func file_croupier_ops_v1_ops_proto_rawDescGZIP() []byte {
 }
 
 var file_croupier_ops_v1_ops_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(ProcessState)(0),                  // 0: croupier.ops.v1.ProcessState
 	(*MetricsReport)(nil),              // 1: croupier.ops.v1.MetricsReport
@@ -2964,35 +3459,44 @@ var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(*CaptureRuleHitAck)(nil),          // 31: croupier.ops.v1.CaptureRuleHitAck
 	(*CaptureGatesConfigRequest)(nil),  // 32: croupier.ops.v1.CaptureGatesConfigRequest
 	(*CaptureGatesConfigResponse)(nil), // 33: croupier.ops.v1.CaptureGatesConfigResponse
-	nil,                                // 34: croupier.ops.v1.MetricsReport.CustomEntry
-	nil,                                // 35: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	(*timestamppb.Timestamp)(nil),      // 36: google.protobuf.Timestamp
+	(*AlertEvent)(nil),                 // 34: croupier.ops.v1.AlertEvent
+	(*ProbeWindow)(nil),                // 35: croupier.ops.v1.ProbeWindow
+	(*ProbeDetail)(nil),                // 36: croupier.ops.v1.ProbeDetail
+	(*ProbeStats)(nil),                 // 37: croupier.ops.v1.ProbeStats
+	nil,                                // 38: croupier.ops.v1.MetricsReport.CustomEntry
+	nil,                                // 39: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	nil,                                // 40: croupier.ops.v1.ProbeDetail.DetailsEntry
+	(*timestamppb.Timestamp)(nil),      // 41: google.protobuf.Timestamp
 }
 var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
-	36, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
+	41, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
 	2,  // 1: croupier.ops.v1.MetricsReport.cpu:type_name -> croupier.ops.v1.CpuMetrics
 	3,  // 2: croupier.ops.v1.MetricsReport.memory:type_name -> croupier.ops.v1.MemoryMetrics
 	4,  // 3: croupier.ops.v1.MetricsReport.disks:type_name -> croupier.ops.v1.DiskMetrics
 	5,  // 4: croupier.ops.v1.MetricsReport.networks:type_name -> croupier.ops.v1.NetworkMetrics
 	6,  // 5: croupier.ops.v1.MetricsReport.processes:type_name -> croupier.ops.v1.ProcessMetrics
-	34, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
+	38, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
 	20, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
 	17, // 8: croupier.ops.v1.MetricsReport.supervisor_events:type_name -> croupier.ops.v1.SupervisorEvent
-	36, // 9: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
-	36, // 10: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
-	8,  // 11: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
-	16, // 12: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
-	0,  // 13: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
-	36, // 14: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
-	0,  // 15: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
-	35, // 16: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	25, // 17: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
-	29, // 18: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	37, // 9: croupier.ops.v1.MetricsReport.probe_stats:type_name -> croupier.ops.v1.ProbeStats
+	41, // 10: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
+	41, // 11: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
+	8,  // 12: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
+	16, // 13: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
+	0,  // 14: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
+	41, // 15: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
+	0,  // 16: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
+	39, // 17: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	25, // 18: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
+	29, // 19: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
+	35, // 20: croupier.ops.v1.AlertEvent.window:type_name -> croupier.ops.v1.ProbeWindow
+	36, // 21: croupier.ops.v1.AlertEvent.detail:type_name -> croupier.ops.v1.ProbeDetail
+	40, // 22: croupier.ops.v1.ProbeDetail.details:type_name -> croupier.ops.v1.ProbeDetail.DetailsEntry
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_croupier_ops_v1_ops_proto_init() }
@@ -3006,7 +3510,7 @@ func file_croupier_ops_v1_ops_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_ops_v1_ops_proto_rawDesc), len(file_croupier_ops_v1_ops_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   35,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

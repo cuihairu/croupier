@@ -9,7 +9,9 @@ import (
 // ProbeOnce 执行一次探测并推进状态机；窗口开/合在此产生（事件回调在解锁后
 // 触发，listener 内再调 Probe 的查询方法不会死锁）。
 func (p *Probe) ProbeOnce(ctx context.Context) Result {
+	start := time.Now()
 	err := p.check.Check(ctx)
+	latency := time.Since(start).Milliseconds()
 	now := time.Now()
 
 	p.mu.Lock()
@@ -45,13 +47,19 @@ func (p *Probe) ProbeOnce(ctx context.Context) Result {
 		}
 	}
 	res := Result{
+		OK:                  err == nil,
 		At:                  now,
+		Target:              p.target,
 		Available:           p.available,
 		WindowOpen:          p.current != nil,
 		ConsecutiveFailures: p.failStreak,
+		LatencyMS:           latency,
 	}
 	if err != nil {
 		res.Err = err.Error()
+	}
+	if d, ok := p.check.(Detailing); ok {
+		res.Details = d.Details()
 	}
 	p.mu.Unlock()
 
@@ -59,6 +67,9 @@ func (p *Probe) ProbeOnce(ctx context.Context) Result {
 		for _, ev := range events {
 			p.listener(ev)
 		}
+	}
+	if p.resultFn != nil {
+		p.resultFn(res)
 	}
 	if p.timeline != nil {
 		for _, ev := range events {

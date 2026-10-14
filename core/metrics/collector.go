@@ -21,12 +21,22 @@ type Sampler interface {
 	SupervisorEventsSince(lastSeq int64) []*opsv1.SupervisorEvent
 }
 
+// ProbeStatsSampler 供给探测统计增量（review §13.1 正常态聚合面）：每上报
+// 窗口按目标 Drain 一次并复位，折进同一份 MetricsReport。与 Sampler 分开
+// 定义——没有受管进程的 agent（如 capture）也要能单独上报探测统计，且
+// supervisor 供给方不该被强加探测职责。
+type ProbeStatsSampler interface {
+	DrainProbeStats() []*opsv1.ProbeStats
+}
+
 // Collector collects system metrics.
 type Collector struct {
 	agentID string
 	// sampler 供给受管进程快照；仅在 Collect 前的装配阶段赋值，Collect 读取
 	// 不加锁（指针赋值原子性由调用方装配时序保证，与 sidecar 上收前一致）。
 	sampler Sampler
+	// probeSampler 供给探测统计（正常态聚合面，§13.1）；装配阶段赋值。
+	probeSampler ProbeStatsSampler
 	// sampler 事件增量游标与锁：Collect 由上报循环单 goroutine 调用，但
 	// 即时上报可能并发触发一次，游标读写加锁。
 	supEventSeq   int64
@@ -43,6 +53,16 @@ func NewCollector(agentID string) *Collector {
 func (c *Collector) WithSampler(s Sampler) *Collector {
 	if c != nil {
 		c.sampler = s
+	}
+	return c
+}
+
+// WithProbeSampler attaches a probe-stats sampler folded into every metrics
+// report (normal-state aggregate face, review §13.1). Call during assembly,
+// before the reporting loop starts.
+func (c *Collector) WithProbeSampler(s ProbeStatsSampler) *Collector {
+	if c != nil {
+		c.probeSampler = s
 	}
 	return c
 }
@@ -81,6 +101,12 @@ func (c *Collector) Collect(ctx context.Context) *opsv1.MetricsReport {
 		if evs := c.sampler.SupervisorEventsSince(c.lastSamplerSeq()); len(evs) > 0 {
 			report.SupervisorEvents = evs
 			c.setLastSamplerSeq(evs[len(evs)-1].Seq)
+		}
+	}
+	if c.probeSampler != nil {
+		// Drain 语义：取走即复位，一个上报窗口一条，不重复捎带。
+		if stats := c.probeSampler.DrainProbeStats(); len(stats) > 0 {
+			report.ProbeStats = stats
 		}
 	}
 

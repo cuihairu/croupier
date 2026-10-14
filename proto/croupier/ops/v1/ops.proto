@@ -39,6 +39,12 @@ message MetricsReport {
 
   // Supervisor events that occurred since the previous report (incremental)
   repeated SupervisorEvent supervisor_events = 10;
+
+  // Probe stats folded in since the previous report (probe sampler, same
+  // shape as supervisor sampler folding; review §13.1). Aggregated per
+  // target per reporting window: success samples count only, failure
+  // details ride the AlertEvent channel.
+  repeated ProbeStats probe_stats = 11;
 }
 
 message CpuMetrics {
@@ -347,4 +353,65 @@ message CaptureGatesConfigRequest {
 message CaptureGatesConfigResponse {
   string version = 1;    // config_versions.Version (as string); "" = none
   string gates_json = 2; // capture.gates JSON block (reconcile/cep/lineage)
+}
+
+// ========== Probe uplink (agent probes → server; review §11/§13) ==========
+
+// AlertEvent is the one-way probe/alert event stream upload (new wire
+// message MsgAlertEvent, review §11 decision 2: alert traffic needs its own
+// QoS lane, not the metrics batch slot). v1 carries two probe kinds;
+// future alert families evolve on the same channel.
+//   - kind = probe.window: window open/close (Window below)
+//   - kind = probe.detail: per-failure detail (Detail below, immediate,
+//     not waiting for the batch window — asymmetric uplink §13.1)
+message AlertEvent {
+  string kind = 1;     // machine identifier: probe.window | probe.detail
+  string agent_id = 2; // sender id (server validates non-empty; review R2 log sink)
+  string game_id = 3;  // Game scope label
+  string env = 4;      // Environment scope label
+  ProbeWindow window = 5; // set when kind = probe.window
+  ProbeDetail detail = 6; // set when kind = probe.detail
+}
+
+// ProbeWindow mirrors one probe window open/close (unavailable → recovered).
+message ProbeWindow {
+  string target = 1;
+  string semantics = 2;      // liveness | readiness | heartbeat
+  string window_kind = 3;    // unavailable | recovered
+  int64 start_ts_unix_ms = 4;
+  int64 end_ts_unix_ms = 5;  // 0 = still open
+  int64 duration_ms = 6;     // 0 until recovered
+  string last_reason = 7;    // failure reason at threshold (truncated 2KB)
+}
+
+// ProbeDetail mirrors one failed probe result (asymmetric uplink: failures
+// report full detail, never a bare bool — review §13.1).
+message ProbeDetail {
+  string target = 1;
+  string semantics = 2;
+  bool ok = 3;                     // always false for detail events
+  string err = 4;                  // error text (truncated 2KB by sender)
+  int64 at_ts_unix_ms = 5;
+  int64 latency_ms = 6;
+  int32 consecutive_failures = 7;
+  bool window_open = 8;
+  map<string, string> details = 9; // probeType/phase/assertion etc (Detailing)
+}
+
+// ProbeStats aggregates probe results per target per reporting window
+// (normal state = counts only; failure facts are never trimmed — only the
+// detail stream is capped, counted here as dropped_details; review §13.1).
+message ProbeStats {
+  string target = 1;
+  string semantics = 2;
+  string game_id = 3;
+  string env = 4;
+  int64 checked = 5;                  // checks in this reporting window
+  int64 failed = 6;                   // failures in this window (as-is)
+  double success_rate = 7;            // 1 - failed/checked; 1 when checked=0
+  repeated int64 latency_buckets = 8; // counts per bucket, boundaries [50ms,200ms,1s,5s], len 5
+  bool window_open = 9;               // fault window open at drain time
+  int64 window_duration_ms = 10;      // open fault window elapsed (0 when closed)
+  string last_reason = 11;            // last failure reason
+  int64 dropped_details = 12;         // details trimmed by the per-window cap
 }

@@ -68,6 +68,8 @@ func (m *mockControlClientV9) SendTaskEvent(ctx context.Context, body []byte) er
 
 func (m *mockControlClientV9) SendMetricEvent(ctx context.Context, body []byte) error { return nil }
 
+func (m *mockControlClientV9) SendAlertEvent(ctx context.Context, body []byte) error { return nil }
+
 // heartbeatFlakyServerV9 让心跳按次数注入失败：前 failFirst 次返回
 // 非 protobuf 的垃圾响应（client 反序列化失败但 TCP 连接保持存活），
 // 之后恢复正常——这样才能覆盖“连续心跳失败→重连”而非“断连→重连”路径。

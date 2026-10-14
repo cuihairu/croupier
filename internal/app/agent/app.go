@@ -59,6 +59,9 @@ type App struct {
 	agentID   string
 	version   string
 
+	// probeManager 声明式探针装配（R2）。为 nil = 未配置探测（默认）。
+	probeManager *ProbeManager
+
 	// serveLocal 是本地 listener Serve 的注入点：生产为 nil（走真实
 	// tcpServer.Serve），测试注入返回非 Canceled 错误的实现以驱动
 	// StartLocalServer 的错误日志分支（listener 在函数内部构造，无法
@@ -250,7 +253,52 @@ func (a *App) Run(ctx context.Context) error {
 
 	a.startMaintenance(ctx)
 	a.startExtensionSync(ctx)
+	a.startProbes(ctx)
 	return a.upstream.Start(ctx)
+}
+
+// WithProbeConfig 配置声明式探针（`probe.targets[]`，R2）。校验失败即返回错误
+// 且不起装配——配置错却在运行期静默少探，等于把观测面悄悄关掉。
+func (a *App) WithProbeConfig(cfg *ProbeConfig) error {
+	if a == nil {
+		return nil
+	}
+	if cfg == nil || len(cfg.Targets) == 0 {
+		return nil
+	}
+	if a.upstream == nil {
+		return errors.New("agent upstream not initialized")
+	}
+	pm, err := NewProbeManager(cfg.Targets, ProbeManagerOptions{
+		AgentID:             a.agentID,
+		GameID:              a.upstream.GameID(),
+		Env:                 a.upstream.Env(),
+		Send:                a.upstream.AlertEventSender(),
+		MaxDetailsPerWindow: cfg.MaxDetailsPerWindow,
+	})
+	if err != nil {
+		return err
+	}
+	a.probeManager = pm
+	// 正常态统计折进 metrics 批量面（§13.1：探测统计与系统指标同面捎带）。
+	a.upstream.WithProbeSampler(pm)
+	return nil
+}
+
+// ProbeManager 返回已装配的探针面（未配置时 nil）。
+func (a *App) ProbeManager() *ProbeManager {
+	if a == nil {
+		return nil
+	}
+	return a.probeManager
+}
+
+// startProbes 启动周期探测（每个目标一个 goroutine，随 ctx 取消退出）。
+func (a *App) startProbes(ctx context.Context) {
+	if a == nil || a.probeManager == nil {
+		return
+	}
+	go a.probeManager.Start(ctx)
 }
 
 func (a *App) startMaintenance(ctx context.Context) {
