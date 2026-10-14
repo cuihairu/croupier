@@ -456,15 +456,28 @@ server:
       - "secret"
 ```
 
-## 探测体系、采样策略与在线健康度（设计定稿 2026-10-14，随 R2-R4 上线）
+## 探测体系、采样策略与在线健康度（设计定稿 2026-10-14，R2/R3 已上线）
 
-> **状态标注**：本节为已定设计（[Agent 健康监控与恢复评审](../design/agent-health-recovery-review.md) 为权威出处），尚未上线。当前现状=server 侧 dbmon 手动诊断探测（`POST /dbmon/probe`）+ agent 周期 metrics 上报。
+> **状态标注**：R2（agent 装配面）与 R3（server 消费面六个子批）已于 2026-10-14 交付（证据见评审简档 §12），下列能力均已在代码中；R4（dbmon 收敛到共用内核）与游戏协议探测适配器（L2 声明式 / L3 按游戏接）尚未落地。**在线趋势列仍为「未接入在线数据」灰态**——SDK metric 上报入口未排期，面板只呈现探活事实。
 
 - **三层探测体系**：共用内核（`core/healthprobe`）/ 协议探测器（http/tcp/process/db + 游戏协议骨架）/ 执行位置按视角——**谁的视角有意义就由谁探**（agent 提供业务网络视角；server 保留自身依赖探测与手动诊断；第三方监控不要求为监控新增 agent 部署）。
 - **采样频率（server 后台可设，未设按显式默认）**：三粒度=基础间隔（默认 **30s**，与 configsync 轮询/metrics 上报周期同档；配内核默认 fail=3 → 最坏 90s 开窗）/ 按时间段（高峰加密、低谷降频）/ 特殊时间点（活动开服前等一次性/日历式）。配置落 ConfigVersion 资产、configsync 下发、热更生效（最坏 30s）；agent 不本地写死频率。
 - **不对称上报**：正常态=聚合/采样（成功率、时延分布、窗口时长、探测点分布，走 metrics 批量面）；异常态=明细即时（失败阶段、错误原文、最近 5 次序列、目标/执行位置/时间戳，走事件面）——**降频不影响失败路径，异常必达**。
 - **游戏服务器在线健康度**：在线数据=游戏侧上报（业务真值），按既有 ops 的 game/env 维度汇总（不另起维度表）；健康度=状态矩阵（探活两态 × 在线趋势三档）+ 异常证据，骤降阈值默认 50%/5min（对比前 7 天同时刻基线，配置可调）。
 - **受管程序更新指纹**：每次更新记录二进制 sha256 指纹（含回滚留痕），按「目标+时间+指纹」查 execlog 反查版本——排查「哪次更新后开始报警」时与告警 timeline 对齐；运维口径见 [版本升级与回滚](./upgrade-rollback.md)。
+
+**运维落点**
+
+| 面 | 位置 | 说明 |
+| -- | ---- | ---- |
+| 声明 | agent 配置 `probe.targets[]` / server 配置 `probe.targets[]` | 只声明探什么；阈值/语义/间隔有显式默认，见 [Agent 配置全解](./config-agent.md) |
+| 下发 | 采样策略 `/api/v1/ops/probe/policy`（运维中心面板同款能力） | ConfigVersion 资产面，发布后 agent 30s 内热生效（版本比对省空轮） |
+| 观测 | 节点维护页「探针汇总」`GET /api/v1/ops/probe/summary` | 状态矩阵（目标 × 执行位置），异常行前置；不出单一合成分 |
+| 告警 | 告警中心（`alertID=probe:<agentId>:<target>`） | 窗口开= firing、闭= resolved；失败明细随窗口落库 |
+| 规则 | 告警规则指标 `probe.<目标>.<successRate/failed/checked/latencyP95Ms>` | 直接走既有 AlertRule evaluator，无需新告警链路 |
+| 诊断 | `POST /api/v1/ops/probe/diagnose` | server 本机目标即时探一次，与周期探测共用同一状态机 |
+
+端点与报文细节见 [API 文档 probe 端点](../api/ops.md#probe-端点)。
 
 ## 相关文档
 
