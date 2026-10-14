@@ -5,6 +5,7 @@ package dbmon
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -105,12 +106,13 @@ func TestProbeMySQL_StatusQueryError(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
-	mock.ExpectQuery("SHOW GLOBAL STATUS").WillReturnError(errors.New("unreachable"))
+	mock.ExpectQuery("SHOW GLOBAL STATUS").WillReturnError(errors.New("permission denied"))
 
 	res := &ProbeResult{}
 	probeMySQL(context.Background(), db, res)
 
-	assert.Contains(t, res.Error, "status query")
+	// 可用性判定归 DBChecker 连通判定；电池查询失败只降级指标。
+	assert.Empty(t, res.Error)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -178,7 +180,8 @@ func TestProbePostgres_StatusQueryError(t *testing.T) {
 	res := &ProbeResult{}
 	probePostgres(context.Background(), db, res)
 
-	assert.Contains(t, res.Error, "status query")
+	// 可用性判定归 DBChecker 连通判定；电池查询失败只降级指标。
+	assert.Empty(t, res.Error)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -199,6 +202,66 @@ func TestProbePostgres_DeadlockAndLockScanFailuresDegrade(t *testing.T) {
 	assert.Empty(t, res.Error)
 	assert.Nil(t, res.DeadlockCount)
 	assert.Empty(t, res.LockWaits)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+// ---- Probe 连通判定（DBChecker 收口，§6 探测实现只留一份） ----
+
+// swapOpenDB 覆盖 openDB 测试缝，注入 sqlmock 连接并返回还原函数。
+func swapOpenDB(t *testing.T, db *sql.DB) func() {
+	t.Helper()
+	orig := openDB
+	openDB = func(_, _ string) (*sql.DB, error) { return db, nil }
+	return func() { openDB = orig }
+}
+
+func TestProbe_CheckerVerdictFailureShortCircuits(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	defer swapOpenDB(t, db)()
+
+	// 连通判定失败（Ping 不通）→ Error=checker 原因串，电池不再执行。
+	mock.ExpectPing().WillReturnError(errors.New("dial tcp: refused"))
+
+	src := &model.DBSource{Model: gorm.Model{ID: 1}, Name: "dead-db",
+		Driver: "mysql", Kind: model.DBSourceKindSelf}
+	res, perr := Probe(context.Background(), src, goodDSN)
+	require.NoError(t, perr)
+	require.NotNil(t, res)
+	assert.False(t, res.OK)
+	assert.Contains(t, res.Error, "db ping")
+	assert.Nil(t, res.Connections, "连不上时电池不执行")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestProbe_CheckerVerdictSuccessRunsBattery(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	defer swapOpenDB(t, db)()
+
+	// 连通判定（Ping + SELECT 1 只读断言）通过 → 跑电池，OK=true。
+	mock.ExpectPing()
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT 1")).
+		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
+	mock.ExpectQuery("SHOW GLOBAL STATUS").WillReturnRows(
+		sqlmock.NewRows([]string{"Variable_name", "Value"}).
+			AddRow("Threads_connected", "3").AddRow("Threads_running", "1"))
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT @@max_connections")).
+		WillReturnRows(sqlmock.NewRows([]string{"@@max_connections"}).AddRow(int64(100)))
+	mock.ExpectQuery("innodb_lock_waits").WillReturnRows(
+		sqlmock.NewRows([]string{"waiter", "blocker", "table_name", "wait_secs", "query"}))
+
+	src := &model.DBSource{Model: gorm.Model{ID: 2}, Name: "ok-db",
+		Driver: "MySQL", Kind: model.DBSourceKindSelf}
+	res, perr := Probe(context.Background(), src, goodDSN)
+	require.NoError(t, perr)
+	assert.True(t, res.OK)
+	assert.Empty(t, res.Error)
+	require.NotNil(t, res.Connections)
+	assert.Equal(t, 3, res.Connections.Current)
+	assert.Equal(t, 100, res.Connections.Max)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

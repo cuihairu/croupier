@@ -179,3 +179,31 @@ func TestDBCheckerDetails(t *testing.T) {
 	c.Query = "SELECT 1"
 	assert.Equal(t, "SELECT 1", c.Details()["assertion"])
 }
+
+// CheckWith 装配侧注入缝：dbmon 诊断端点把连通判定与诊断电池合到同一次
+// 执行（同一连接）——连接已就绪时 Driver/DSN 不参与，不新开第二套连接。
+func TestDBCheckerCheckWithReusesProvidedConn(t *testing.T) {
+	d := &fakeDBDriver{}
+	name := registerFakeDB(t, d)
+	db, err := sql.Open(name, "dsn")
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	// Driver/DSN 留空：连接已提供时不参与（只有自开连接才需要它们）。
+	c := &DBChecker{Timeout: time.Second}
+	require.NoError(t, c.CheckWith(context.Background(), db))
+	assert.Equal(t, int32(1), d.queryHit.Load())
+	require.Len(t, d.queries, 1)
+	assert.Equal(t, "SELECT 1", d.queries[0])
+
+	// Ping 失败同样短路，不执行断言。
+	d2 := &fakeDBDriver{pingErr: errors.New("gone")}
+	name2 := registerFakeDB(t, d2)
+	db2, err := sql.Open(name2, "dsn")
+	require.NoError(t, err)
+	defer func() { _ = db2.Close() }()
+	err = (&DBChecker{Timeout: time.Second}).CheckWith(context.Background(), db2)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "db ping")
+	assert.Equal(t, int32(0), d2.queryHit.Load())
+}

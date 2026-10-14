@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -64,14 +65,18 @@ func TestService_UpdateSource_ReloadErrorGroupE(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// 覆盖目标：probe.Probe 的成功主路径（probe.go res.Error=="" → res.OK=true）。
+// 覆盖目标：probe.Probe 的成功主路径（连通判定过 → 电池跑 → res.OK=true）。
 // driver 名被 driverName 钉死为已注册真 driver（mysql/pgx），无法注册同名
 // 假 driver，故经 openDB 注入缝替换为 sqlmock 构造的 *sql.DB（B 类）。
 func TestProbe_OKViaSQLMockGroupS(t *testing.T) {
-	db, mock, err := sqlmock.New()
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
+	// 连通判定（DBChecker 收口）：Ping + 只读断言 SELECT 1。
+	mock.ExpectPing()
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT 1")).
+		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
 	mock.ExpectQuery("pg_stat_activity").WillReturnRows(
 		sqlmock.NewRows([]string{"cur", "active", "maxc"}).AddRow(int64(8), int64(2), int64(100)))
 	mock.ExpectQuery("pg_stat_database").WillReturnRows(

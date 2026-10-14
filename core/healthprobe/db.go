@@ -32,25 +32,36 @@ func NewDBChecker(dsn, driver string, timeout time.Duration) *DBChecker {
 
 // Check implements Checker.
 func (c *DBChecker) Check(ctx context.Context) error {
+	return c.CheckWith(ctx, nil)
+}
+
+// CheckWith 在给定连接上执行同一套连通判定（Ping + 只读断言）；db 为 nil 时
+// 自开连接（语义同 Check）。装配侧（dbmon 诊断端点）用它把连通判定与诊断
+// 电池合到同一次执行（同一连接）——探测实现只留一份，不新开第二套连接。
+// db 已就绪时 Driver/DSN 不参与（它们只用于自开连接）。
+func (c *DBChecker) CheckWith(ctx context.Context, db *sql.DB) error {
 	timeout := c.Timeout
 	if timeout <= 0 {
 		timeout = DefaultDBTimeout
 	}
-	if strings.TrimSpace(c.Driver) == "" {
-		return fmt.Errorf("db checker: driver required")
-	}
-	if strings.TrimSpace(c.DSN) == "" {
-		return fmt.Errorf("db checker: dsn required")
-	}
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	db, err := sql.Open(c.Driver, c.DSN)
-	if err != nil {
-		return fmt.Errorf("db open: %w", err)
+	if db == nil {
+		if strings.TrimSpace(c.Driver) == "" {
+			return fmt.Errorf("db checker: driver required")
+		}
+		if strings.TrimSpace(c.DSN) == "" {
+			return fmt.Errorf("db checker: dsn required")
+		}
+		var err error
+		db, err = sql.Open(c.Driver, c.DSN)
+		if err != nil {
+			return fmt.Errorf("db open: %w", err)
+		}
+		defer db.Close()
+		db.SetMaxOpenConns(1)
 	}
-	defer db.Close()
-	db.SetMaxOpenConns(1)
 
 	if err := db.PingContext(cctx); err != nil {
 		return fmt.Errorf("db ping: %w", err)
