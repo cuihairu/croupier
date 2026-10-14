@@ -23,13 +23,18 @@ import (
 // 失败语义只记日志，故无错误返回。
 type ProbeEventSend func(ctx context.Context, ev *opsv1.AlertEvent)
 
+// ServerProbeAgentID server 视角常量（真值在 core/report：上行桥组包侧与
+// server 入站回退共用）。
+const ServerProbeAgentID = report.ServerProbeAgentID
+
 // ServerProbeManager server 本机探针面：多目标探针 + 上行桥。空目标集不
 // 装配（nil 返回），与现状行为零差异。
 type ServerProbeManager struct {
-	manager *healthprobe.Manager
-	uplinks map[string]*report.ProbeUplink
-	order   []string
-	logger  *slog.Logger
+	manager     *healthprobe.Manager
+	uplinks     map[string]*report.ProbeUplink
+	order       []string
+	semByTarget map[string]string
+	logger      *slog.Logger
 }
 
 // NewServerProbeManager 装配 server 本机探针面。目标非法（重名/类型未知/
@@ -59,6 +64,7 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 	}
 
 	uplinks := make(map[string]*report.ProbeUplink, len(cfgs))
+	semByTarget := make(map[string]string, len(cfgs))
 	order := make([]string, 0, len(cfgs))
 	for _, tc := range cfgs {
 		name := strings.TrimSpace(tc.Name)
@@ -75,10 +81,11 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 			Semantics:           sem,
 			MaxDetailsPerWindow: maxDetailsPerWindow,
 		}, wrappedSend)
+		semByTarget[name] = string(sem)
 		order = append(order, name)
 	}
 
-	m := &ServerProbeManager{uplinks: uplinks, order: order, logger: logger}
+	m := &ServerProbeManager{uplinks: uplinks, order: order, semByTarget: semByTarget, logger: logger}
 	manager, err := healthprobe.NewManager(cfgs, "", "", m.routeWindow, m.routeResult)
 	if err != nil {
 		return nil, err
@@ -107,6 +114,39 @@ func (m *ServerProbeManager) Targets() []string {
 		return nil
 	}
 	return append([]string(nil), m.order...)
+}
+
+// ServerProbeStatus 单目标当前状态快照（ops 汇总页消费面）。
+type ServerProbeStatus struct {
+	Target     string
+	Semantics  string
+	Available  bool
+	WindowOpen bool
+	DurationMS int64
+	LastReason string
+}
+
+// Statuses 全部 server 目标的当前状态快照（读侧不探测——呈现现状不注入
+// 新事实，与 agent 侧「读 probe_stats 快照」同口径）。
+func (m *ServerProbeManager) Statuses() []ServerProbeStatus {
+	if m == nil || m.manager == nil {
+		return nil
+	}
+	out := make([]ServerProbeStatus, 0, len(m.order))
+	for _, p := range m.manager.Probes() {
+		st := ServerProbeStatus{
+			Target:    p.Target(),
+			Semantics: m.semByTarget[p.Target()],
+			Available: p.Available(),
+		}
+		if w, open := p.CurrentWindow(); open {
+			st.WindowOpen = true
+			st.DurationMS = w.DurationMS
+			st.LastReason = w.LastReason
+		}
+		out = append(out, st)
+	}
+	return out
 }
 
 // Start 启动全部探针（阻塞至 ctx 取消）。间隔走本地配置声明（probe.policy

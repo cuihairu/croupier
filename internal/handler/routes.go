@@ -649,6 +649,11 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// server 手动诊断探针（评审简档 §4.2/§4.3）：对 server 探针面已配置的
 	// 目标即时探一次（与周期探测共用同一探针实例与状态机）
 	g.POST("/probe/diagnose", opsHandler.ProbeDiagnoseHandler)
+
+	// probe 在线汇总（评审简档 §13.2）：状态矩阵 + 证据，不出合成分。
+	// scope 走 X-Game-ID/X-Env 头（与告警列表同口径）。在线趋势列在 SDK
+	// metric 入口接入前为「未接入」一等状态。
+	g.GET("/probe/summary", opsHandler.ProbeSummaryHandler)
 }
 
 // ============================================================================
