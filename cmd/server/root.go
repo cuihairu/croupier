@@ -479,6 +479,9 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	if svcCtx.Router != nil {
 		controlService.SetGameDBResolver(svcCtx.Router)
 	}
+	// db 探针目标下行拉取（R4）：按 db_sources.owner_agent_id 归属派生
+	// （meta 库 db_sources，不随 game 分库）
+	controlService.SetDBSourceModel(svcCtx.DBSourceModel)
 	controlService.StartBackgroundTasks()
 
 	// 将 ControlService 的 MetricsStore 同步到 ServiceContext

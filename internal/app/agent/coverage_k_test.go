@@ -154,6 +154,10 @@ func (m *recoveryControlClientK) PullProbePolicy(context.Context, []byte) ([]byt
 	return nil, errors.New("not used in this test")
 }
 
+func (m *recoveryControlClientK) PullProbeDBTargets(context.Context, []byte) ([]byte, error) {
+	return nil, errors.New("not used in this test")
+}
+
 func (m *recoveryControlClientK) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

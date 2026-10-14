@@ -56,9 +56,13 @@ func TestWithProbeConfigRejectsInvalid(t *testing.T) {
 
 func TestWithProbeConfigNilIsNoop(t *testing.T) {
 	app := newProbeTestApp(t)
+	// 无 probe: 段 = 无探测面（R4 契约不变：nil 配置仍不装配）。
 	require.NoError(t, app.WithProbeConfig(nil))
-	require.NoError(t, app.WithProbeConfig(&ProbeConfig{}))
 	assert.Nil(t, app.ProbeManager())
+	// 有 probe: 段但 targets 为空 = 合法声明（空静态 + 动态可增删，R4 起装配）。
+	require.NoError(t, app.WithProbeConfig(&ProbeConfig{}))
+	assert.NotNil(t, app.ProbeManager())
+	assert.Empty(t, app.ProbeManager().DynamicTargets())
 
 	// 未配置探测时启动路径不 panic。
 	app.startProbes(context.Background())

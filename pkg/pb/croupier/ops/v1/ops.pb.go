@@ -2771,6 +2771,113 @@ func (x *ProbePolicyConfigResponse) GetPolicyJson() string {
 	return ""
 }
 
+// ProbeDBTargetsConfigRequest pulls the db probe targets the server derives
+// for the calling agent (R4: periodic db probes run on the owning agent,
+// derived at pull time from db_sources.owner_agent_id; no config_versions
+// row and no push channel — the pull response IS the source of truth).
+type ProbeDBTargetsConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"` // Calling agent id (must match the session)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeDBTargetsConfigRequest) Reset() {
+	*x = ProbeDBTargetsConfigRequest{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeDBTargetsConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeDBTargetsConfigRequest) ProtoMessage() {}
+
+func (x *ProbeDBTargetsConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeDBTargetsConfigRequest.ProtoReflect.Descriptor instead.
+func (*ProbeDBTargetsConfigRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ProbeDBTargetsConfigRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+// ProbeDBTargetsConfigResponse carries the derived db probe targets.
+//   - version: content hash of targets_json (stable across unchanged sets,
+//     so the agent-side configsync puller skips no-op rounds). Never empty
+//     on success — the empty target set has its own hash.
+//   - targets_json: JSON array of core/healthprobe.TargetConfig (db type:
+//     name/dsn/driver/timeout). Empty version + empty payload = server side
+//     not derivable (degrade: agent keeps current targets).
+type ProbeDBTargetsConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Version       string                 `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	TargetsJson   string                 `protobuf:"bytes,2,opt,name=targets_json,json=targetsJson,proto3" json:"targets_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProbeDBTargetsConfigResponse) Reset() {
+	*x = ProbeDBTargetsConfigResponse{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProbeDBTargetsConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProbeDBTargetsConfigResponse) ProtoMessage() {}
+
+func (x *ProbeDBTargetsConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProbeDBTargetsConfigResponse.ProtoReflect.Descriptor instead.
+func (*ProbeDBTargetsConfigResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ProbeDBTargetsConfigResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *ProbeDBTargetsConfigResponse) GetTargetsJson() string {
+	if x != nil {
+		return x.TargetsJson
+	}
+	return ""
+}
+
 // AlertEvent is the one-way probe/alert event stream upload (new wire
 // message MsgAlertEvent, review §11 decision 2: alert traffic needs its own
 // QoS lane, not the metrics batch slot). v1 carries two probe kinds;
@@ -2792,7 +2899,7 @@ type AlertEvent struct {
 
 func (x *AlertEvent) Reset() {
 	*x = AlertEvent{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2804,7 +2911,7 @@ func (x *AlertEvent) String() string {
 func (*AlertEvent) ProtoMessage() {}
 
 func (x *AlertEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2817,7 +2924,7 @@ func (x *AlertEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertEvent.ProtoReflect.Descriptor instead.
 func (*AlertEvent) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{35}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *AlertEvent) GetKind() string {
@@ -2878,7 +2985,7 @@ type ProbeWindow struct {
 
 func (x *ProbeWindow) Reset() {
 	*x = ProbeWindow{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2890,7 +2997,7 @@ func (x *ProbeWindow) String() string {
 func (*ProbeWindow) ProtoMessage() {}
 
 func (x *ProbeWindow) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2903,7 +3010,7 @@ func (x *ProbeWindow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeWindow.ProtoReflect.Descriptor instead.
 func (*ProbeWindow) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{36}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ProbeWindow) GetTarget() string {
@@ -2974,7 +3081,7 @@ type ProbeDetail struct {
 
 func (x *ProbeDetail) Reset() {
 	*x = ProbeDetail{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2986,7 +3093,7 @@ func (x *ProbeDetail) String() string {
 func (*ProbeDetail) ProtoMessage() {}
 
 func (x *ProbeDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2999,7 +3106,7 @@ func (x *ProbeDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeDetail.ProtoReflect.Descriptor instead.
 func (*ProbeDetail) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{37}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ProbeDetail) GetTarget() string {
@@ -3088,7 +3195,7 @@ type ProbeStats struct {
 
 func (x *ProbeStats) Reset() {
 	*x = ProbeStats{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3100,7 +3207,7 @@ func (x *ProbeStats) String() string {
 func (*ProbeStats) ProtoMessage() {}
 
 func (x *ProbeStats) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3113,7 +3220,7 @@ func (x *ProbeStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeStats.ProtoReflect.Descriptor instead.
 func (*ProbeStats) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{38}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ProbeStats) GetTarget() string {
@@ -3455,7 +3562,12 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x19ProbePolicyConfigResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12\x1f\n" +
 	"\vpolicy_json\x18\x02 \x01(\tR\n" +
-	"policyJson\"\xd2\x01\n" +
+	"policyJson\"8\n" +
+	"\x1bProbeDBTargetsConfigRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"[\n" +
+	"\x1cProbeDBTargetsConfigResponse\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\tR\aversion\x12!\n" +
+	"\ftargets_json\x18\x02 \x01(\tR\vtargetsJson\"\xd2\x01\n" +
 	"\n" +
 	"AlertEvent\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x19\n" +
@@ -3532,77 +3644,79 @@ func file_croupier_ops_v1_ops_proto_rawDescGZIP() []byte {
 }
 
 var file_croupier_ops_v1_ops_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_croupier_ops_v1_ops_proto_goTypes = []any{
-	(ProcessState)(0),                  // 0: croupier.ops.v1.ProcessState
-	(*MetricsReport)(nil),              // 1: croupier.ops.v1.MetricsReport
-	(*CpuMetrics)(nil),                 // 2: croupier.ops.v1.CpuMetrics
-	(*MemoryMetrics)(nil),              // 3: croupier.ops.v1.MemoryMetrics
-	(*DiskMetrics)(nil),                // 4: croupier.ops.v1.DiskMetrics
-	(*NetworkMetrics)(nil),             // 5: croupier.ops.v1.NetworkMetrics
-	(*ProcessMetrics)(nil),             // 6: croupier.ops.v1.ProcessMetrics
-	(*SystemInfo)(nil),                 // 7: croupier.ops.v1.SystemInfo
-	(*OpsStatus)(nil),                  // 8: croupier.ops.v1.OpsStatus
-	(*RestartProcessRequest)(nil),      // 9: croupier.ops.v1.RestartProcessRequest
-	(*RestartProcessResponse)(nil),     // 10: croupier.ops.v1.RestartProcessResponse
-	(*StopProcessRequest)(nil),         // 11: croupier.ops.v1.StopProcessRequest
-	(*StopProcessResponse)(nil),        // 12: croupier.ops.v1.StopProcessResponse
-	(*StartProcessRequest)(nil),        // 13: croupier.ops.v1.StartProcessRequest
-	(*StartProcessResponse)(nil),       // 14: croupier.ops.v1.StartProcessResponse
-	(*ListProcessesResponse)(nil),      // 15: croupier.ops.v1.ListProcessesResponse
-	(*ManagedProcess)(nil),             // 16: croupier.ops.v1.ManagedProcess
-	(*SupervisorEvent)(nil),            // 17: croupier.ops.v1.SupervisorEvent
-	(*GetSupervisorLogRequest)(nil),    // 18: croupier.ops.v1.GetSupervisorLogRequest
-	(*GetSupervisorLogResponse)(nil),   // 19: croupier.ops.v1.GetSupervisorLogResponse
-	(*SupervisedProcessSnapshot)(nil),  // 20: croupier.ops.v1.SupervisedProcessSnapshot
-	(*ExecuteCommandRequest)(nil),      // 21: croupier.ops.v1.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil),     // 22: croupier.ops.v1.ExecuteCommandResponse
-	(*ListServicesRequest)(nil),        // 23: croupier.ops.v1.ListServicesRequest
-	(*ListServicesResponse)(nil),       // 24: croupier.ops.v1.ListServicesResponse
-	(*ServiceInfo)(nil),                // 25: croupier.ops.v1.ServiceInfo
-	(*GetServiceStatusRequest)(nil),    // 26: croupier.ops.v1.GetServiceStatusRequest
-	(*GetServiceStatusResponse)(nil),   // 27: croupier.ops.v1.GetServiceStatusResponse
-	(*ListCronJobsResponse)(nil),       // 28: croupier.ops.v1.ListCronJobsResponse
-	(*CronJob)(nil),                    // 29: croupier.ops.v1.CronJob
-	(*CaptureRuleHitReport)(nil),       // 30: croupier.ops.v1.CaptureRuleHitReport
-	(*CaptureRuleHitAck)(nil),          // 31: croupier.ops.v1.CaptureRuleHitAck
-	(*CaptureGatesConfigRequest)(nil),  // 32: croupier.ops.v1.CaptureGatesConfigRequest
-	(*CaptureGatesConfigResponse)(nil), // 33: croupier.ops.v1.CaptureGatesConfigResponse
-	(*ProbePolicyConfigRequest)(nil),   // 34: croupier.ops.v1.ProbePolicyConfigRequest
-	(*ProbePolicyConfigResponse)(nil),  // 35: croupier.ops.v1.ProbePolicyConfigResponse
-	(*AlertEvent)(nil),                 // 36: croupier.ops.v1.AlertEvent
-	(*ProbeWindow)(nil),                // 37: croupier.ops.v1.ProbeWindow
-	(*ProbeDetail)(nil),                // 38: croupier.ops.v1.ProbeDetail
-	(*ProbeStats)(nil),                 // 39: croupier.ops.v1.ProbeStats
-	nil,                                // 40: croupier.ops.v1.MetricsReport.CustomEntry
-	nil,                                // 41: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	nil,                                // 42: croupier.ops.v1.ProbeDetail.DetailsEntry
-	(*timestamppb.Timestamp)(nil),      // 43: google.protobuf.Timestamp
+	(ProcessState)(0),                    // 0: croupier.ops.v1.ProcessState
+	(*MetricsReport)(nil),                // 1: croupier.ops.v1.MetricsReport
+	(*CpuMetrics)(nil),                   // 2: croupier.ops.v1.CpuMetrics
+	(*MemoryMetrics)(nil),                // 3: croupier.ops.v1.MemoryMetrics
+	(*DiskMetrics)(nil),                  // 4: croupier.ops.v1.DiskMetrics
+	(*NetworkMetrics)(nil),               // 5: croupier.ops.v1.NetworkMetrics
+	(*ProcessMetrics)(nil),               // 6: croupier.ops.v1.ProcessMetrics
+	(*SystemInfo)(nil),                   // 7: croupier.ops.v1.SystemInfo
+	(*OpsStatus)(nil),                    // 8: croupier.ops.v1.OpsStatus
+	(*RestartProcessRequest)(nil),        // 9: croupier.ops.v1.RestartProcessRequest
+	(*RestartProcessResponse)(nil),       // 10: croupier.ops.v1.RestartProcessResponse
+	(*StopProcessRequest)(nil),           // 11: croupier.ops.v1.StopProcessRequest
+	(*StopProcessResponse)(nil),          // 12: croupier.ops.v1.StopProcessResponse
+	(*StartProcessRequest)(nil),          // 13: croupier.ops.v1.StartProcessRequest
+	(*StartProcessResponse)(nil),         // 14: croupier.ops.v1.StartProcessResponse
+	(*ListProcessesResponse)(nil),        // 15: croupier.ops.v1.ListProcessesResponse
+	(*ManagedProcess)(nil),               // 16: croupier.ops.v1.ManagedProcess
+	(*SupervisorEvent)(nil),              // 17: croupier.ops.v1.SupervisorEvent
+	(*GetSupervisorLogRequest)(nil),      // 18: croupier.ops.v1.GetSupervisorLogRequest
+	(*GetSupervisorLogResponse)(nil),     // 19: croupier.ops.v1.GetSupervisorLogResponse
+	(*SupervisedProcessSnapshot)(nil),    // 20: croupier.ops.v1.SupervisedProcessSnapshot
+	(*ExecuteCommandRequest)(nil),        // 21: croupier.ops.v1.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil),       // 22: croupier.ops.v1.ExecuteCommandResponse
+	(*ListServicesRequest)(nil),          // 23: croupier.ops.v1.ListServicesRequest
+	(*ListServicesResponse)(nil),         // 24: croupier.ops.v1.ListServicesResponse
+	(*ServiceInfo)(nil),                  // 25: croupier.ops.v1.ServiceInfo
+	(*GetServiceStatusRequest)(nil),      // 26: croupier.ops.v1.GetServiceStatusRequest
+	(*GetServiceStatusResponse)(nil),     // 27: croupier.ops.v1.GetServiceStatusResponse
+	(*ListCronJobsResponse)(nil),         // 28: croupier.ops.v1.ListCronJobsResponse
+	(*CronJob)(nil),                      // 29: croupier.ops.v1.CronJob
+	(*CaptureRuleHitReport)(nil),         // 30: croupier.ops.v1.CaptureRuleHitReport
+	(*CaptureRuleHitAck)(nil),            // 31: croupier.ops.v1.CaptureRuleHitAck
+	(*CaptureGatesConfigRequest)(nil),    // 32: croupier.ops.v1.CaptureGatesConfigRequest
+	(*CaptureGatesConfigResponse)(nil),   // 33: croupier.ops.v1.CaptureGatesConfigResponse
+	(*ProbePolicyConfigRequest)(nil),     // 34: croupier.ops.v1.ProbePolicyConfigRequest
+	(*ProbePolicyConfigResponse)(nil),    // 35: croupier.ops.v1.ProbePolicyConfigResponse
+	(*ProbeDBTargetsConfigRequest)(nil),  // 36: croupier.ops.v1.ProbeDBTargetsConfigRequest
+	(*ProbeDBTargetsConfigResponse)(nil), // 37: croupier.ops.v1.ProbeDBTargetsConfigResponse
+	(*AlertEvent)(nil),                   // 38: croupier.ops.v1.AlertEvent
+	(*ProbeWindow)(nil),                  // 39: croupier.ops.v1.ProbeWindow
+	(*ProbeDetail)(nil),                  // 40: croupier.ops.v1.ProbeDetail
+	(*ProbeStats)(nil),                   // 41: croupier.ops.v1.ProbeStats
+	nil,                                  // 42: croupier.ops.v1.MetricsReport.CustomEntry
+	nil,                                  // 43: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	nil,                                  // 44: croupier.ops.v1.ProbeDetail.DetailsEntry
+	(*timestamppb.Timestamp)(nil),        // 45: google.protobuf.Timestamp
 }
 var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
-	43, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
+	45, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
 	2,  // 1: croupier.ops.v1.MetricsReport.cpu:type_name -> croupier.ops.v1.CpuMetrics
 	3,  // 2: croupier.ops.v1.MetricsReport.memory:type_name -> croupier.ops.v1.MemoryMetrics
 	4,  // 3: croupier.ops.v1.MetricsReport.disks:type_name -> croupier.ops.v1.DiskMetrics
 	5,  // 4: croupier.ops.v1.MetricsReport.networks:type_name -> croupier.ops.v1.NetworkMetrics
 	6,  // 5: croupier.ops.v1.MetricsReport.processes:type_name -> croupier.ops.v1.ProcessMetrics
-	40, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
+	42, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
 	20, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
 	17, // 8: croupier.ops.v1.MetricsReport.supervisor_events:type_name -> croupier.ops.v1.SupervisorEvent
-	39, // 9: croupier.ops.v1.MetricsReport.probe_stats:type_name -> croupier.ops.v1.ProbeStats
-	43, // 10: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
-	43, // 11: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
+	41, // 9: croupier.ops.v1.MetricsReport.probe_stats:type_name -> croupier.ops.v1.ProbeStats
+	45, // 10: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
+	45, // 11: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
 	8,  // 12: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
 	16, // 13: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
 	0,  // 14: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
-	43, // 15: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
+	45, // 15: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
 	0,  // 16: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
-	41, // 17: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	43, // 17: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
 	25, // 18: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
 	29, // 19: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
-	37, // 20: croupier.ops.v1.AlertEvent.window:type_name -> croupier.ops.v1.ProbeWindow
-	38, // 21: croupier.ops.v1.AlertEvent.detail:type_name -> croupier.ops.v1.ProbeDetail
-	42, // 22: croupier.ops.v1.ProbeDetail.details:type_name -> croupier.ops.v1.ProbeDetail.DetailsEntry
+	39, // 20: croupier.ops.v1.AlertEvent.window:type_name -> croupier.ops.v1.ProbeWindow
+	40, // 21: croupier.ops.v1.AlertEvent.detail:type_name -> croupier.ops.v1.ProbeDetail
+	44, // 22: croupier.ops.v1.ProbeDetail.details:type_name -> croupier.ops.v1.ProbeDetail.DetailsEntry
 	23, // [23:23] is the sub-list for method output_type
 	23, // [23:23] is the sub-list for method input_type
 	23, // [23:23] is the sub-list for extension type_name
@@ -3621,7 +3735,7 @@ func file_croupier_ops_v1_ops_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_ops_v1_ops_proto_rawDesc), len(file_croupier_ops_v1_ops_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   42,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

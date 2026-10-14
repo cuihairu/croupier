@@ -101,6 +101,10 @@ const (
 	// configsync 下拉热更，评审简档 §13.3 C)
 	MsgProbePolicyRequest  = 0x04011F
 	MsgProbePolicyResponse = 0x040120
+	// Probe db targets pull (R4: server 按 db_sources.owner_agent_id 拉取时
+	// 派生 db 探针目标下发归属 agent；configsync 下拉热更，无推送通道)
+	MsgProbeDBTargetsRequest  = 0x040121
+	MsgProbeDBTargetsResponse = 0x040122
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -325,6 +329,10 @@ func MsgIDString(msgID uint32) string {
 		return "ProbePolicyRequest"
 	case MsgProbePolicyResponse:
 		return "ProbePolicyResponse"
+	case MsgProbeDBTargetsRequest:
+		return "ProbeDBTargetsRequest"
+	case MsgProbeDBTargetsResponse:
+		return "ProbeDBTargetsResponse"
 	case MsgAlertEvent:
 		return "AlertEvent"
 	default:

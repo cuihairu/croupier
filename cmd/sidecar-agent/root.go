@@ -659,9 +659,10 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		slog.Info("ops module enabled", "metrics_interval", opsCfg.MetricsInterval)
 	}
 
-	// 声明式探针（probe.targets[]）：配置合法才起装配，非法即启动失败——
-	// 观测面配置错了却静默不探，比直接报错危险。
-	if c.Probe != nil && len(c.Probe.Targets) > 0 {
+	// 探测面参与声明（`probe:` 段存在即参与）：targets 可空——空静态目标集
+	// = 只接 server 按 db_sources.owner_agent_id 派生的 db 目标（R4）。非法
+	// 目标声明即启动失败：观测面配置错了却静默不探，比直接报错危险。
+	if c.Probe != nil {
 		probeCfg := &agentcore.ProbeConfig{
 			Targets:             c.Probe.Targets,
 			MaxDetailsPerWindow: c.Probe.MaxDetailsPerWindow,
@@ -669,7 +670,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		if err := core.WithProbeConfig(probeCfg); err != nil {
 			return nil, "", fmt.Errorf("agent probe config: %w", err)
 		}
-		slog.Info("probe targets enabled", "targets", len(c.Probe.Targets))
+		slog.Info("probe face enabled", "static_targets", len(c.Probe.Targets))
 	}
 
 	// Start the agent (which now starts TCP local server internally)

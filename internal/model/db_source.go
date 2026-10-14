@@ -109,6 +109,17 @@ func (m *DBSourceModel) List(ctx context.Context) ([]DBSource, error) {
 	return items, err
 }
 
+// ListByOwner returns the enabled sources assigned to one agent (R4: 周期
+// 探测按归属下发给该 agent 执行)。按 id 升序稳定排序——派生目标集与内容
+// hash 都依赖稳定顺序。
+func (m *DBSourceModel) ListByOwner(ctx context.Context, ownerAgentID string) ([]DBSource, error) {
+	var items []DBSource
+	err := m.db.WithContext(ctx).
+		Where("owner_agent_id = ? AND enabled = ?", ownerAgentID, true).
+		Order("id ASC").Find(&items).Error
+	return items, err
+}
+
 // FindOne returns a source by id.
 func (m *DBSourceModel) FindOne(ctx context.Context, id uint) (*DBSource, error) {
 	var src DBSource

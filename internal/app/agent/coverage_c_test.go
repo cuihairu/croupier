@@ -24,6 +24,10 @@ func (warningRegisterClientC) PullProbePolicy(context.Context, []byte) ([]byte, 
 	return nil, errors.New("not used in this test")
 }
 
+func (warningRegisterClientC) PullProbeDBTargets(context.Context, []byte) ([]byte, error) {
+	return nil, errors.New("not used in this test")
+}
+
 func (warningRegisterClientC) Register(context.Context, *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
 	return &agentv1.RegisterResponse{
 		SessionId: "sess-cov-c",

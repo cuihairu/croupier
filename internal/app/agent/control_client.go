@@ -25,6 +25,9 @@ type controlClient interface {
 	SendAlertEvent(ctx context.Context, reqBody []byte) error
 	// PullProbePolicy 采样策略下行拉取（request-response；评审简档 §13.3 C）。
 	PullProbePolicy(ctx context.Context, reqBody []byte) ([]byte, error)
+	// PullProbeDBTargets db 探针目标下行拉取（R4：server 按归属派生，
+	// request-response；version = 目标集内容 hash，空集也有 hash）。
+	PullProbeDBTargets(ctx context.Context, reqBody []byte) ([]byte, error)
 }
 
 // tcpControlClient wraps a simple TCP request-response client (no multiplexing).
@@ -153,6 +156,16 @@ func (c *tcpControlClient) PullProbePolicy(ctx context.Context, reqBody []byte) 
 	return respData, err
 }
 
+// PullProbeDBTargets 拉取 server 派生的 db 探针目标（R4：按归属 agent 派生，
+// 拉取即真值；version = 目标集内容 hash，空集也有 hash）。
+func (c *tcpControlClient) PullProbeDBTargets(ctx context.Context, reqBody []byte) ([]byte, error) {
+	if c == nil || c.client == nil {
+		return nil, fmt.Errorf("tcp control client not initialized")
+	}
+	_, respData, err := c.client.Call(ctx, protocol.MsgProbeDBTargetsRequest, reqBody)
+	return respData, err
+}
+
 func (c *tcpControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("tcp control client not initialized")
@@ -242,6 +255,15 @@ func (c *muxControlClient) PullProbePolicy(ctx context.Context, reqBody []byte) 
 		return nil, fmt.Errorf("mux control client not initialized")
 	}
 	_, respData, err := c.mux.Call(ctx, protocol.MsgProbePolicyRequest, reqBody)
+	return respData, err
+}
+
+// PullProbeDBTargets 拉取 server 派生的 db 探针目标（request-response）。
+func (c *muxControlClient) PullProbeDBTargets(ctx context.Context, reqBody []byte) ([]byte, error) {
+	if c == nil || c.mux == nil {
+		return nil, fmt.Errorf("mux control client not initialized")
+	}
+	_, respData, err := c.mux.Call(ctx, protocol.MsgProbeDBTargetsRequest, reqBody)
 	return respData, err
 }
 

@@ -170,6 +170,8 @@ func TestMsgIDStringKnownTypes(t *testing.T) {
 		{MsgAlertEvent, "AlertEvent"},
 		{MsgProbePolicyRequest, "ProbePolicyRequest"},
 		{MsgProbePolicyResponse, "ProbePolicyResponse"},
+		{MsgProbeDBTargetsRequest, "ProbeDBTargetsRequest"},
+		{MsgProbeDBTargetsResponse, "ProbeDBTargetsResponse"},
 		{MsgRestartProcessRequest, "RestartProcessRequest"},
 		{MsgRestartProcessResponse, "RestartProcessResponse"},
 		{MsgStopProcessRequest, "StopProcessRequest"},

@@ -652,6 +652,33 @@ func (c *UpstreamClient) PullProbePolicy(ctx context.Context) (*opsv1.ProbePolic
 	return resp, nil
 }
 
+// PullProbeDBTargets 拉取 server 派生的 db 探针目标（R4：按
+// db_sources.owner_agent_id 归属拉取时派生，拉取即真值；version = 目标集内容
+// hash，空集也有 hash——空集语义是「不再有归属源」）。连接快照按调用时解析，
+// 重连后无需重新装配。
+func (c *UpstreamClient) PullProbeDBTargets(ctx context.Context) (*opsv1.ProbeDBTargetsConfigResponse, error) {
+	if c == nil {
+		return nil, fmt.Errorf("upstream client is nil")
+	}
+	conn := c.currentClient()
+	if conn == nil {
+		return nil, fmt.Errorf("upstream client not connected")
+	}
+	req, err := proto.Marshal(&opsv1.ProbeDBTargetsConfigRequest{AgentId: c.agentID})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ProbeDBTargetsConfigRequest: %w", err)
+	}
+	respData, err := conn.PullProbeDBTargets(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	resp := &opsv1.ProbeDBTargetsConfigResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal ProbeDBTargetsConfigResponse: %w", err)
+	}
+	return resp, nil
+}
+
 // AlertEventSender returns the byte-level send function the probe uplink
 // bridge needs. The connection snapshot is resolved per call so a reconnect
 // is picked up without re-assembly.

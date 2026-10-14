@@ -371,6 +371,26 @@ message ProbePolicyConfigResponse {
   string policy_json = 2; // probe.policy JSON block (interval/targets/windows/events)
 }
 
+// ProbeDBTargetsConfigRequest pulls the db probe targets the server derives
+// for the calling agent (R4: periodic db probes run on the owning agent,
+// derived at pull time from db_sources.owner_agent_id; no config_versions
+// row and no push channel — the pull response IS the source of truth).
+message ProbeDBTargetsConfigRequest {
+  string agent_id = 1; // Calling agent id (must match the session)
+}
+
+// ProbeDBTargetsConfigResponse carries the derived db probe targets.
+//   - version: content hash of targets_json (stable across unchanged sets,
+//     so the agent-side configsync puller skips no-op rounds). Never empty
+//     on success — the empty target set has its own hash.
+//   - targets_json: JSON array of core/healthprobe.TargetConfig (db type:
+//     name/dsn/driver/timeout). Empty version + empty payload = server side
+//     not derivable (degrade: agent keeps current targets).
+message ProbeDBTargetsConfigResponse {
+  string version = 1;
+  string targets_json = 2;
+}
+
 // ========== Probe uplink (agent probes → server; review §11/§13) ==========
 
 // AlertEvent is the one-way probe/alert event stream upload (new wire

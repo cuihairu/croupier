@@ -34,6 +34,8 @@ type mockControlClientV9 struct {
 	instanceID      string
 	registers       []*agentv1.RegisterRequest
 	pullProbePolicy func(context.Context, []byte) ([]byte, error)
+	// pullProbeDBTargets 可编程的 db 目标下行出口（R4；nil 回空响应）。
+	pullProbeDBTargets func(context.Context, []byte) ([]byte, error)
 }
 
 func (m *mockControlClientV9) Connected() bool {
@@ -78,6 +80,14 @@ func (m *mockControlClientV9) PullProbePolicy(ctx context.Context, body []byte) 
 		return m.pullProbePolicy(ctx, body)
 	}
 	return proto.Marshal(&opsv1.ProbePolicyConfigResponse{})
+}
+
+// PullProbeDBTargets 可编程的 db 目标下行出口（默认回空版本+空正文 = 保持现状）。
+func (m *mockControlClientV9) PullProbeDBTargets(ctx context.Context, body []byte) ([]byte, error) {
+	if m.pullProbeDBTargets != nil {
+		return m.pullProbeDBTargets(ctx, body)
+	}
+	return proto.Marshal(&opsv1.ProbeDBTargetsConfigResponse{})
 }
 
 // heartbeatFlakyServerV9 让心跳按次数注入失败：前 failFirst 次返回

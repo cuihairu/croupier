@@ -52,8 +52,9 @@ func tcpTargets() []healthprobe.TargetConfig {
 }
 
 func TestProbeManagerRejectsInvalidConfigs(t *testing.T) {
+	// 「空集」自 R4 起合法（空静态 + 动态可增删的探测面，见
+	// TestNewProbeManagerEmptyStaticSetIsDynamicOnly），不再属拒绝面。
 	cases := map[string][]healthprobe.TargetConfig{
-		"empty": {},
 		"duplicate name": {
 			{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
 			{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
