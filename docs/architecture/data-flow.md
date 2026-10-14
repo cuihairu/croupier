@@ -195,7 +195,31 @@ sequenceDiagram
 
 运营侧的 TaskPage 也走第 1 节的 binding execute：`task_status/task_events/task_result/task_cancel` 各自对应一个 binding，页面模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。
 
-## 6. 核心原则
+## 6. 受管程序与探测数据流（2026-10-14 三份外部评审反哺，随 R2-R4 上线）
+
+探测/受管程序的结论已并入评审定稿 [Agent 健康监控与恢复评审](../design/agent-health-recovery-review.md)（权威出处），本节只登记数据流层面的口径。
+
+### 6.1 探测体系三层与执行位置
+
+- **层 1 共用内核**：`core/healthprobe`（Checker 契约/阈值/两态机/故障窗口/时间线）——一份实现，三 agent 与 server 共同 import。
+- **层 2 协议探测器**：http/tcp/process 已有，db 收敛自 dbmon（R4），游戏协议=声明式骨架（`ProtocolChecker`）+ 每游戏适配器（详见简档 §5.5）。
+- **层 3 执行位置**：按视角决定——**谁的视角有意义就由谁探**（探测点与消费点同位；agent 提供业务网络视角，server 保留自身依赖与手动诊断）。完整分工表唯一权威出处=简档 §4.2。
+
+**实现层 ≠ 实例层**：代码一份（core）≠ 只由一处发起 ≠ 探测相同目标；每目标声明视角，上行事件携带 agentID（执行位置）。
+
+### 6.2 受管程序期望状态协调（Reconciler——**未核实，外部建议**）
+
+来源：agent-lifecycle 外部评审（2026-10-14）建议的调用链 `Server → Desired → Task → Agent → Reconciler → {Scheduler, Supervisor, Updater, Config, Health}`。评审自述「Reconciler 是建议新增组件，不代表当前已实现」；本仓核验判定为**待定倾向采纳，未核实**——须先核对 `internal/app/agent` Supervisor 恢复环（仅进程退出事件驱动，`ops_server.go:426-439`）与 dispatch 路由面的职责边界，再定是新增组件还是既有机制补全。**本节不构成已实现事实。**
+
+四类状态必须分清（评审主张，已采纳未实现）：**运行状态 / 管理状态 / 调度状态 / 更新状态**——混同会导致「更新中」被当成「已停止」之类误判；定义详见 [Agent Supervisor 设计](../design/agent-supervisor-design.md) §10.3。
+
+### 6.3 探测结果上行（不对称口径，已定）
+
+- 正常态：聚合/采样走既有 MetricsReport 批量面（probe 采样器折叠先例 `upstream.go:622,645`）。
+- 异常态：失败明细与窗口事件即时走 SendAlertEvent 事件面（`probe.window`/`probe.detail` 两 kind）；降频策略不影响失败路径。
+- 采样频率（基础/时段/特殊时间点）是 server 下发策略（ConfigVersion + configsync 热更），agent 不本地写死；默认 30s 显式。运维口径见 [监控指南](../operations/monitoring.md)。
+
+## 7. 核心原则
 
 当前数据流遵循以下原则：
 

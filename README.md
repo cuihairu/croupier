@@ -74,6 +74,7 @@ All official SDKs are maintained together in the `sdks/` directory of this monor
 
 Three tiers: Console (Web) → Server (control plane, capable of multi-instance HA) → Agent (proxy inside the game VPC) → Game Server / SDK.
 Entry points are separated by audience: the web console uses L7 (HTTP API / SSE), while agents use internal L4 (long-lived TCP connections).
+The health-probe system is layered the same way for every runtime — one shared kernel (`core/healthprobe`), protocol checkers (HTTP/TCP/process/DB plus a declarative game-protocol skeleton), and execution placed wherever the network perspective matters, extensible via external probe adapters (see [agent-health-recovery-review.md](docs/design/agent-health-recovery-review.md)).
 
 See the [architecture overview](docs/architecture/index.md) and the [load balancing guide](docs/operations/load-balancing.md) for details.
 

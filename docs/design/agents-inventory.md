@@ -88,6 +88,8 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 
 **按 system 角色建模（故障窗口，用户令 2026-10-09）**：探针不只看当下活死——每个受监控系统（target）记录故障窗口（开始/恢复/持续时长），历史可查，探活数据带 timeline；排查时直接回答「什么时间段服务不可用」。模型与留存见 agent-core §6.1，面板展示见 [Agent 面板设计](agent-dashboard-design.md) §2。
 
+**探测体系三层与统一装配（2026-10-14 评审定稿，权威出处 [健康评审](agent-health-recovery-review.md)）**：内核=本包（一份实现）；协议探测器=http/tcp/process/db+游戏协议骨架；执行位置按视角（每 agent 均可配 `probe.targets`，devops 为主使用方——用户 2026-10-14 拍板）。**实现层 ≠ 实例层**：共用 core 代码 ≠ 单点发起。上行不对称口径（正常聚合/异常明细）与采样策略（server 下发、默认 30s）见同简档 §13。当前现状：capture 已探库连通（TCP 层），devops 零探针待 M1。
+
 ### 5.2 execlog（统一执行审计）
 
 **每个 agent 的每次执行都留审计记录**（用户令，2026-10-09）。字段/audit-first 放行闸/保存期导出配置位见 agent-core §6.2。面板侧：各 agent 页「执行记录」列表 + 筛选（执行人/结果/时间段）+ 详情下钻（入参/结果全文），全按 scope 过滤。
@@ -104,6 +106,8 @@ capture 告警 / healthprobe 故障窗口 / devops 异常（白名单主机不�
 | `synthetics-agent` | 外部合成探测（外网拨测线上端点）   | Datadog Synthetics / Pingdom |
 
 立项触发条件与同构形态见 agent-core §8；**面板侧栏不为占位 agent 出页**。
+
+**玩家侧游戏协议拨测与外部探测适配器（2026-10-14 评审反哺）**：两者**不新增 agent 类型**——复用既有 agent 装配面（`probe.targets` + 协议适配骨架，见 [健康评审](agent-health-recovery-review.md) §5.4/§5.5，P2 按需触发）；外部探测适配器=一类特殊受管程序（kind=probe-adapter），生命周期面见 [Agent Supervisor 设计](agent-supervisor-design.md) §10.1/§10.8。路线图仍只登记 agent 类型扩展。
 
 ## 7. scope 归属规则（game_id + env，强制）
 
