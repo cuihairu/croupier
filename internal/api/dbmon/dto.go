@@ -14,8 +14,11 @@ type DBSource struct {
 	DsnMask string `json:"dsnMask,omitempty"`
 	GameId  string `json:"gameId,omitempty"`
 	Env     string `json:"env,omitempty"`
-	Enabled bool   `json:"enabled"`
-	Sort    int    `json:"sort"`
+	// OwnerAgentId 归属 agent（周期探测下放归属 agent 执行；空 = 未归属，
+	// server 诊断端点兜底）。R4 编号迁移 0045。
+	OwnerAgentId string `json:"ownerAgentId,omitempty"`
+	Enabled      bool   `json:"enabled"`
+	Sort         int    `json:"sort"`
 	// 阈值（0=平台默认）
 	LockWaitWarn  int    `json:"lockWaitWarn,omitempty"`
 	ConnWarnRatio int    `json:"connWarnRatio,omitempty"`
@@ -33,6 +36,7 @@ func buildSourceDTO(s *model.DBSource) DBSource {
 		DsnMask:       s.MaskedDSN(),
 		GameId:        s.GameID,
 		Env:           s.Env,
+		OwnerAgentId:  s.OwnerAgentID,
 		Enabled:       s.Enabled,
 		Sort:          s.Sort,
 		LockWaitWarn:  s.LockWaitWarn,
@@ -54,19 +58,23 @@ type SourceUpsertRequest struct {
 	DSN           string `json:"dsn"`
 	GameID        string `json:"gameId"`
 	Env           string `json:"env"`
+	OwnerAgentID  string `json:"ownerAgentId"`
 	Sort          int    `json:"sort"`
 	LockWaitWarn  int    `json:"lockWaitWarn"`
 	ConnWarnRatio int    `json:"connWarnRatio"`
 }
 
 type SourceUpdateRequest struct {
-	ID            string  `uri:"id"`
-	Name          string  `json:"name"`
-	Driver        string  `json:"driver"`
-	Kind          string  `json:"kind"`
-	DSN           *string `json:"dsn"`
-	GameID        *string `json:"gameId"`
-	Env           *string `json:"env"`
+	ID     string  `uri:"id"`
+	Name   string  `json:"name"`
+	Driver string  `json:"driver"`
+	Kind   string  `json:"kind"`
+	DSN    *string `json:"dsn"`
+	GameID *string `json:"gameId"`
+	Env    *string `json:"env"`
+	// OwnerAgentID 指针区分「未提交」与「清空归属」：非 nil 一律以提交值为准
+	// （空串 = 解归属，回落到 server 诊断端点兜底）。
+	OwnerAgentID  *string `json:"ownerAgentId"`
 	Sort          *int    `json:"sort"`
 	Enabled       *bool   `json:"enabled"`
 	LockWaitWarn  *int    `json:"lockWaitWarn"`

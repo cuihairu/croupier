@@ -39,7 +39,8 @@ func (s *Service) CreateSource(ctx context.Context, req *SourceUpsertRequest) (*
 	src := &model.DBSource{
 		Name: req.Name, Driver: strings.ToLower(req.Driver), Kind: strings.ToLower(strings.TrimSpace(req.Kind)),
 		DSN: req.DSN, GameID: strings.TrimSpace(req.GameID), Env: strings.TrimSpace(req.Env),
-		Enabled: true, Sort: req.Sort, CreatedBy: currentUsername(ctx),
+		OwnerAgentID: strings.TrimSpace(req.OwnerAgentID),
+		Enabled:      true, Sort: req.Sort, CreatedBy: currentUsername(ctx),
 	}
 	if src.Kind == "" {
 		src.Kind = model.DBSourceKindSelf
@@ -81,6 +82,10 @@ func (s *Service) UpdateSource(ctx context.Context, req *SourceUpdateRequest) (*
 	}
 	if req.Env != nil {
 		updates["env"] = strings.TrimSpace(*req.Env)
+	}
+	// 归属 agent：指针非 nil 即以提交值为准（空串 = 解归属）。
+	if req.OwnerAgentID != nil {
+		updates["owner_agent_id"] = strings.TrimSpace(*req.OwnerAgentID)
 	}
 	if req.Sort != nil {
 		updates["sort"] = *req.Sort
@@ -229,6 +234,9 @@ func applyUpdates(dst *model.DBSource, updates map[string]interface{}) {
 	}
 	if v, ok := updates["env"].(string); ok {
 		dst.Env = v
+	}
+	if v, ok := updates["owner_agent_id"].(string); ok {
+		dst.OwnerAgentID = v
 	}
 }
 

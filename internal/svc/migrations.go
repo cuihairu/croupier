@@ -122,6 +122,9 @@ import (
 //   0044 (Go)   agent_metrics_history.probe_json 列（探测统计持久化，
 //               agent-health-recovery-review.md §13.1 统计面；加列 0025
 //               模式；存量行不回填——历史窗口无统计快照）
+//   0045 (Go)   db_sources.owner_agent_id 列（DB 源周期探测归属 agent，
+//               agent-health-recovery-review.md §12 R4；加列 0025 模式；
+//               存量行不回填——历史源无归属=未归属，server 诊断端点兜底）
 
 func init() {
 	registerSvcMigrations()
@@ -176,6 +179,7 @@ func registerSvcMigrations() {
 		alertHandlingMigration(),
 		alertScopeMigration(),
 		agentMetricsProbeJSONMigration(),
+		dbSourceOwnerMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1469,6 +1473,36 @@ func migrateAgentMetricsProbeJSON(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := migrator.AddColumn(&reg.AgentMetricsHistory{}, "ProbeJSON"); err != nil {
 		return fmt.Errorf("migrate: 0044 add agent_metrics_history.probe_json: %w", err)
+	}
+	return nil
+}
+
+// dbSourceOwnerMigration 为 0045：db_sources 加 owner_agent_id 列（R4：DB 源
+// 周期探测下放归属 agent，M3 必须能把 DB 源指到具体 agent；空 = 未归属，
+// server 诊断端点兜底）。HasTable 跳过、HasColumn 幂等、存量行不回填
+// （历史源无归属=未归属，诚实留空）。不加索引：表小（注册源数十级）、
+// 归属查询按 ID 主键过滤后行扫，不为它引入存量索引漂移面。
+func dbSourceOwnerMigration() *goose.Migration {
+	return goose.NewGoMigration(45,
+		&goose.GoFunc{RunDB: migrateDBSourceOwnerColumn},
+		nil,
+	)
+}
+
+func migrateDBSourceOwnerColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.DBSource{}) {
+		return nil
+	}
+	if migrator.HasColumn(&model.DBSource{}, "OwnerAgentID") {
+		return nil
+	}
+	if err := migrator.AddColumn(&model.DBSource{}, "OwnerAgentID"); err != nil {
+		return fmt.Errorf("migrate: 0045 add db_sources.owner_agent_id: %w", err)
 	}
 	return nil
 }

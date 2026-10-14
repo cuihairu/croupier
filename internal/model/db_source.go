@@ -17,13 +17,17 @@ type DBSource struct {
 	Driver string `gorm:"size:32"` // mysql | postgres
 	// Deployment kind drives capability display (what the probe can and
 	// cannot see) and the deep-diagnosis external link.
-	Kind      string `gorm:"size:32"` // self | aliyun | huawei
-	DSN       string `gorm:"size:512"`
-	GameID    string `gorm:"size:64;index:idx_db_source_scope,priority:1"`
-	Env       string `gorm:"size:64;index:idx_db_source_scope,priority:2"`
-	Enabled   bool   `gorm:"default:true"`
-	Sort      int    `gorm:"default:0"`
-	CreatedBy string `gorm:"size:64"`
+	Kind   string `gorm:"size:32"` // self | aliyun | huawei
+	DSN    string `gorm:"size:512"`
+	GameID string `gorm:"size:64;index:idx_db_source_scope,priority:1"`
+	Env    string `gorm:"size:64;index:idx_db_source_scope,priority:2"`
+	// OwnerAgentID 归属 agent（R4 编号迁移 0045）：DB 源的周期探测下放给归属
+	// agent 执行（M3 下放必须能把 DB 源指到具体 agent）。空 = 未归属——
+	// server 侧诊断端点兜底现状，不因未归属而停止监控。
+	OwnerAgentID string `gorm:"size:64"`
+	Enabled      bool   `gorm:"default:true"`
+	Sort         int    `gorm:"default:0"`
+	CreatedBy    string `gorm:"size:64"`
 
 	// Thresholds for alert integration (0 = use platform defaults).
 	LockWaitWarn  int `gorm:"default:0"` // lock wait entries above → warning
