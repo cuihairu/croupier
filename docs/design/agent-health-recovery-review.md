@@ -284,7 +284,8 @@ type ProtocolChecker struct {
     - agent 消费 `internal/app/agent/probe_policy.go`（configsync Puller 30s 轮询）+ `probe_manager.go`（`SetPolicy` 热换快照 + `IntervalFor` 每轮现取 + 开窗目标 `unavailable` 提频 C#5：interval/2、下限 5s、绝不放慢、autoBoost 默认开）。
     - **已定边界**：未下发（空版本）保持本地 `probe.targets` 声明间隔、不清空已生效策略；拉取失败/策略解析失败保持 last-good 且版本游标不推进（下轮重试）；策略已下发即以策略为唯一真值（基础未声明=30s 显式默认，不做「本地值兜底」隐藏层）；server 管理面 import `core/healthprobe`（发布预检与 agent apply 同真值，capture gates 先例；core 零内部依赖无环，R4 收敛时再归位）。
   - **probe_stats 持久化：已交付**（R3 四子批，迁移 0044 + `internal/platform/registry/metrics.go`）：`agent_metrics_history.probe_json` 列（同表 cpu/memory/disks JSON 先例，零新表零新查询面）；`persistToDB` 落探测统计快照（无探针面上报留 NULL 不落 "[]"），`getFromDB` 重建 `report.ProbeStats`——DB 历史回读与内存同口径，evaluator/ops 历史查询消费面白得。**已定边界**：存量行不回填（历史窗口无统计快照）；迁移决策=列持久化而非内存环（表、历史查询路径、Prune 生命周期全部既有，内存环要新环+新查询 API 才是新增面）——已代决(巡检 R2)。
-  - **待做**：ops 在线汇总页（§13.2 状态矩阵）、server 侧内核装配（手动诊断/自身依赖）。
+  - **server 侧内核装配（手动诊断/自身依赖）：已交付**（R3 五子批，§4.2/§4.3）：server 配置 `probe:` 段（目标契约与 agent probe.targets 同一份，`internal/config.ServerProbeConfig`）→ `internal/svc/server_probe.go` 装配（core/healthprobe 同一实现，server 由此引入 import，core 零内部依赖无环；组包复用 core/report.ProbeUplink——窗口/明细与 agent 上行完全同构）→ `ControlService.HandleServerProbeEvent` 入站（诊断环 + 窗口→Alert 生命周期同一条链，视角标注=server，alertID=`probe:server:<target>`，与 agent 视角并存不串台）；手动诊断 `POST /api/v1/ops/probe/diagnose`（按名即时探一次，与周期探测共用同一探针实例与状态机；探测面未配置/目标未配置 404 区分）。**已定边界**：server 本机探针无 probe.policy 下发语义（采样策略只作用于 agent 侧采样面，server 间隔走本地配置）；server 探测统计不进 MetricsReport 批量面（server 无 agent 上行链路；ops 汇总页消费 agent 视角，server 视角走告警行）；配置非法启动失败（与 agent 同口径）。
+  - **待做**：ops 在线汇总页（§13.2 状态矩阵）。
 - **R4 dbmon 收敛收尾**（M3）：DBSource 归属列（已拍板动表，编号迁移三处同步）+ 周期探针按归属下发 + dbmon 切 DBChecker **删自有 SQL 电池** + server 手动诊断保留。
 - **不排期**：外部目标自动恢复、恢复动作注册、全局并发恢复上限（§8 边界）；游戏客户端模拟探测单独 P2（§5.4，协议适配骨架设计已出：§5.5——L1=R2 顺路、L2 声明式为默认路径、L3 按游戏逐个接）。
 

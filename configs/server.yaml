@@ -202,3 +202,23 @@ metrics:
 #       passphraseEnv: CROUPIER_VAULT_PASSPHRASE # 持主口令的环境变量名
 #     env:
 #       prefix: CROUPIER_VAULT_ENV_ # 凭据路径 → <prefix><大写下划线路径>
+
+# server 本机探针（agent-health-recovery-review §4.2/§4.3，R3 server 侧内核
+# 装配）：周期探测「只有 server 视角才是运维真值」的目标——server 自身依赖
+#（server 库/内部 API）与只有 server 能访问的第三方平台 API。窗口开/合走与
+# agent 上行同一条 Alert 生命周期（视角=server，alertID=probe:server:<目标>）。
+# 目标契约与 agent probe.targets 同一份；阈值/语义/间隔缺省同 agent
+#（failThreshold=3、recoverThreshold=1、semantics=readiness、interval=30s）。
+# 配置非法（重名/未知类型）时 server 启动失败——观测面配错静默不探比报错危险。
+# 手动诊断：POST /api/v1/ops/probe/diagnose {"target":"billing-api"} 即时探一次。
+# probe:
+#   maxDetailsPerWindow: 10  # 每故障窗口每目标的失败明细条数上限（缺省 10）
+#   targets:
+#     - name: billing-api     # 目标名唯一；手动诊断与告警 alertID 按名引用
+#       type: http
+#       url: http://billing.internal:8080/healthz
+#       timeout: 5s
+#       interval: 30s
+#     - name: meta-db
+#       type: tcp
+#       address: 127.0.0.1:5432

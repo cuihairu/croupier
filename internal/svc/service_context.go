@@ -91,6 +91,10 @@ type ServiceContext struct {
 	SystemInfoCache      *reg.SystemInfoCache
 	AgentSessionResolver dispatch.AgentSessionResolver
 
+	// ServerProbes server 本机探针面（R3 server 侧内核装配）：空段不装配
+	//（nil），手动诊断端点据此如实报「探测面未配置」。
+	ServerProbes *ServerProbeManager
+
 	AdminModel             *model.AdminModel
 	AdminOTPRecoveryModel  *model.AdminOTPRecoveryCodeModel
 	EmailVerificationModel *model.EmailVerificationModel

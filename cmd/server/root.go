@@ -455,6 +455,23 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	controlService.SetAlertModel(svcCtx.AlertModel)
 	// 探测窗口→Alert 生命周期（review §12 R3）：probe.window 开/合转 firing/resolved。
 	controlService.SetProbeLifecycleModel(svcCtx.AlertModel)
+	// server 本机探针（R3 server 侧内核装配，§4.2/§4.3）：探 server 自身
+	// 依赖与只有 server 可达的第三方平台 API；窗口/明细事件与 agent 上行
+	// 同一条生命周期（视角=server）。配置非法即启动失败（与 agent 同口径）。
+	serverProbes, err := svc.NewServerProbeManager(
+		c.Probe.Targets,
+		controlService.HandleServerProbeEvent,
+		c.Probe.MaxDetailsPerWindow,
+		slog.Default(),
+	)
+	if err != nil {
+		slog.Default().Error("server probe config invalid", "error", err)
+		os.Exit(1)
+	}
+	if serverProbes != nil {
+		svcCtx.ServerProbes = serverProbes
+		go serverProbes.Start(ctx)
+	}
 	controlService.SetOutletManager(svcCtx.OutletManager)
 	// capture 闸规则下行拉取：config_versions capture.gates（分库模式注入
 	// Router 解析 game 库；单库 nil 即走默认连接）

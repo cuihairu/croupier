@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"gopkg.in/yaml.v3"
 )
@@ -58,6 +59,11 @@ type Config struct {
 	// 与数据库凭据等敏感配置的统一存取面。enabled 缺省 false=现状行为
 	//（凭据仍走各接入点的环境变量引用）；提供商切换=只改 provider 键。
 	Vault VaultConfig `json:"vault,omitempty" yaml:"vault,omitempty"`
+	// Probe server 本机探针（agent-health-recovery-review §4.2/§4.3，R3
+	// server 侧内核装配）：周期探测只有 server 视角才是运维真值的目标
+	//（server 自身依赖、只有 server 能访问的第三方平台 API），窗口事件走
+	// 与 agent 上行同一条 Alert 生命周期（视角=server）。空段=不装配（现状）。
+	Probe ServerProbeConfig `json:"probe,omitempty" yaml:"probe,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
@@ -169,6 +175,17 @@ type VaultConfig struct {
 	// Providers 各提供商实现专属配置（key=注册表键，取
 	// Providers[Provider] 装配）。
 	Providers map[string]VaultSourceConfig `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// ServerProbeConfig server `probe:` 段（agent-health-recovery-review §4.2/
+// §4.3）：目标契约与 agent probe.targets 同一份（core/healthprobe.TargetConfig，
+// 键一律小驼峰）。只声明「探什么」，阈值/语义/间隔由装配侧给显式默认
+// （failThreshold=3、recoverThreshold=1、semantics=readiness、interval=30s）。
+type ServerProbeConfig struct {
+	// Targets 目标列表；重名/未知类型装配整体报错（启动失败，与 agent 同口径）。
+	Targets []healthprobe.TargetConfig `json:"targets,omitempty" yaml:"targets,omitempty"`
+	// MaxDetailsPerWindow 每故障窗口每目标的失败明细条数上限（<=0 用默认 10）。
+	MaxDetailsPerWindow int `json:"maxDetailsPerWindow,omitempty" yaml:"maxDetailsPerWindow,omitempty"`
 }
 
 // VaultSourceConfig 单个提供商实现的专属配置。

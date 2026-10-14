@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/core/report"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
@@ -843,6 +844,40 @@ func (s *ControlService) ProbeEventSink() *probeEventSink {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.probeEvents
+}
+
+// ServerProbeAgentID server 自发探测的视角标注（§4.3）；真值在 core/report
+// （上行桥组包侧），此别名供包内空载荷回退与测试引用。
+const ServerProbeAgentID = report.ServerProbeAgentID
+
+// HandleServerProbeEvent server 本机探针事件入站（R3 server 侧内核装配，
+// §4.2/§4.3）：与 agent 上行同构——先诊断环留证，窗口事件再走 Alert 生命
+// 周期（agentID 取事件载荷，空回 server）。lifecycle 未装配时仅留证。
+func (s *ControlService) HandleServerProbeEvent(ctx context.Context, ev *opsv1.AlertEvent) {
+	if s == nil || ev == nil {
+		return
+	}
+	agentID := strings.TrimSpace(ev.GetAgentId())
+	if agentID == "" {
+		agentID = ServerProbeAgentID
+	}
+	s.mu.RLock()
+	sink := s.probeEvents
+	lifecycle := s.lifecycle
+	logger := s.logger
+	s.mu.RUnlock()
+
+	sink.add(agentID, ev)
+	if ev.GetKind() == "probe.window" && lifecycle != nil {
+		lifecycle.onWindow(ctx, agentID, ev)
+	}
+	if logger != nil {
+		logger.Info("server probe window event",
+			"agent_id", agentID,
+			"kind", ev.GetKind(),
+			"target", ev.GetWindow().GetTarget(),
+		)
+	}
 }
 
 // SetProbeLifecycleModel 装配窗口→Alert 生命周期消费者（§12 R3）：sink 取

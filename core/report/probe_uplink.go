@@ -16,6 +16,11 @@ const (
 	ProbeKindDetail = "probe.detail"
 )
 
+// ServerProbeAgentID server 自发探测的视角标注（review §4.3：视角随事件
+// 标注；server 是消费方时 server 视角即真值）。alertID 派生
+// probe:server:<target>，与 agent 视角并存。
+const ServerProbeAgentID = "server"
+
 // DefaultMaxDetailsPerWindow 每个故障窗口每 target 的失败明细条数上限（§13.1：
 // 上限只裁明细不裁事实——失败总数永远如实，超出计 dropped_details）。
 const DefaultMaxDetailsPerWindow = 10

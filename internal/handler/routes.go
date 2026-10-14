@@ -645,6 +645,10 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/probe/policy", opsHandler.ProbePolicyPut)
 	g.POST("/probe/policy/rollback", opsHandler.ProbePolicyRollback)
 	g.POST("/probe/policy/validate", opsHandler.ProbePolicyValidate)
+
+	// server 手动诊断探针（评审简档 §4.2/§4.3）：对 server 探针面已配置的
+	// 目标即时探一次（与周期探测共用同一探针实例与状态机）
+	g.POST("/probe/diagnose", opsHandler.ProbeDiagnoseHandler)
 }
 
 // ============================================================================

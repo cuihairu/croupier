@@ -87,6 +87,11 @@ type Probe struct {
 // Option 探针可选参数。
 type Option func(*Probe)
 
+// Target 返回目标名（上行桥组包、手动诊断按名取探针）。
+func (p *Probe) Target() string {
+	return p.target
+}
+
 // WithThresholds 覆盖失败/恢复阈值（默认 fail=3、recover=1，对标 k8s
 // failureThreshold=3 / successThreshold=1）。
 func WithThresholds(fail, recover int) Option {
