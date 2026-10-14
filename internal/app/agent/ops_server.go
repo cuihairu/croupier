@@ -32,6 +32,10 @@ type OpsServer struct {
 	// supLog 是监管事件环+轮转文件（S2 双通道的 agent 侧 truth）。
 	supLog *supervisorEventLog
 
+	// desired 受管进程管理状态（§10.3 管理状态面）：运维手动 start/stop 的
+	// 期望跨 agent 重启保留，开机自启不再误启被主动停掉的进程。
+	desired *desiredStateStore
+
 	// hintOnce 保证 core_pattern 只读提示（S3 中档）只发一次。
 	hintOnce sync.Once
 }
@@ -81,6 +85,7 @@ func NewOpsServer(config *OpsConfig, agentID, version string, _ interface{}) *Op
 		version:   version,
 		processes: make(map[string]*managedProcess),
 		supLog:    newSupervisorEventLog(config.SupervisorLog),
+		desired:   newDesiredStateStore(config.SupervisorLog),
 	}
 }
 
@@ -156,6 +161,7 @@ func (s *OpsServer) RestartProcess(ctx context.Context, req *opsv1.RestartProces
 		return nil, fmt.Errorf("failed to restart process: %w", err)
 	}
 
+	// 人工重启成功即改回期望运行（此前若处于手动停态，重启是显式运行意图）。
 	oldPID := p.pid
 	p.restarts++
 	p.lastStart = timestamppb.Now()
@@ -166,6 +172,7 @@ func (s *OpsServer) RestartProcess(ctx context.Context, req *opsv1.RestartProces
 	newPID := p.pid
 	restarts := p.restarts
 	p.mu.Unlock()
+	s.desired.SetRunning(p.name, true)
 
 	manual := newSupervisorEvent(p.name, supervisorEventManualStart)
 	manual.OldPid = oldPID
@@ -201,6 +208,8 @@ func (s *OpsServer) StopProcess(ctx context.Context, req *opsv1.StopProcessReque
 	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
 	p.nextRestartAt = nil
 	p.mu.Unlock()
+	// 手动停止是期望状态变更：跨 agent 重启不再被开机自启误启。
+	s.desired.SetRunning(p.name, false)
 
 	ev := newSupervisorEvent(p.name, supervisorEventManualStop)
 	ev.OldPid = oldPID
@@ -267,6 +276,8 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 	newPID := p.pid
 	restarts := p.restarts
 	p.mu.Unlock()
+	// 手动启动是期望状态变更：期望 running 落盘（清掉此前的停意图）。
+	s.desired.SetRunning(p.name, true)
 
 	ev := newSupervisorEvent(p.name, supervisorEventManualStart)
 	ev.NewPid = newPID
@@ -614,6 +625,11 @@ func (s *OpsServer) Start() error {
 
 	for name, cfg := range s.config.ManagedProcesses {
 		if !cfg.AutoRestart {
+			continue
+		}
+		// 管理状态门（§10.2 区分主动停止）：期望无记录沿用既有语义
+		// （AutoRestart 即拉起）；运维手动停过的进程跨 agent 重启保持停。
+		if !s.desired.bootShouldStart(name) {
 			continue
 		}
 

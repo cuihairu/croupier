@@ -207,11 +207,11 @@ sequenceDiagram
 
 **实现层 ≠ 实例层**：代码一份（core）≠ 只由一处发起 ≠ 探测相同目标；每目标声明视角，上行事件携带 agentID（执行位置）。
 
-### 6.2 受管程序期望状态协调（Reconciler——**未核实，外部建议**）
+### 6.2 受管程序期望状态协调（Reconciler——核验结论：**既有机制补全，不新增组件**）
 
-来源：agent-lifecycle 外部评审（2026-10-14）建议的调用链 `Server → Desired → Task → Agent → Reconciler → {Scheduler, Supervisor, Updater, Config, Health}`。评审自述「Reconciler 是建议新增组件，不代表当前已实现」；本仓核验判定为**待定倾向采纳，未核实**——须先核对 `internal/app/agent` Supervisor 恢复环（仅进程退出事件驱动，`ops_server.go:426-439`）与 dispatch 路由面的职责边界，再定是新增组件还是既有机制补全。**本节不构成已实现事实。**
+来源：agent-lifecycle 外部评审（2026-10-14）建议的调用链 `Server → Desired → Task → Agent → Reconciler → {Scheduler, Supervisor, Updater, Config, Health}`。评审自述「Reconciler 是建议新增组件，不代表当前已实现」；本仓核验判定（2026-10-15）=**不新增组件**：supervisor 恢复环本就是运行状态面的事件驱动协调器（进程退出事件 → 退避/熔断 → 重新拉起，`ops_server.go` monitorProcess/superviseExit），dispatch 是命令路由面——「Reconciler」在本仓的对应物即这两者加上各能力面自己的期望状态来源，逐能力落地而非建集中组件。
 
-四类状态必须分清（评审主张，已采纳未实现）：**运行状态 / 管理状态 / 调度状态 / 更新状态**——混同会导致「更新中」被当成「已停止」之类误判；定义详见 [Agent Supervisor 设计](../design/agent-supervisor-design.md) §10.3。
+四类状态必须分清（评审主张，已采纳）：**运行状态 / 管理状态 / 调度状态 / 更新状态**——混同会导致「更新中」被当成「已停止」之类误判；定义详见 [Agent Supervisor 设计](../design/agent-supervisor-design.md) §10.3。**管理状态首块已实现**（2026-10-15）：运维手动 start/stop 的期望落盘 supervisor 日志目录 `desired_state.json`，开机自启先查期望（运维主动停过的进程跨 agent 重启不再被误启；缺记录=fail-open 沿既有 AutoRestart 语义零漂移）——运行/管理两类状态已分开记录，调度/更新两类随各自能力面落地。
 
 ### 6.3 探测结果上行（不对称口径，已定）
 
