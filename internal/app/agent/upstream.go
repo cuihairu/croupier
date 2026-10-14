@@ -18,6 +18,7 @@ import (
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // UpstreamClient manages the connection to the central Croupier Server.
@@ -623,6 +624,32 @@ func (c *UpstreamClient) SendAlertEvent(ctx context.Context, event *opsv1.AlertE
 		return fmt.Errorf("upstream client is nil")
 	}
 	return c.reporter.SendAlertEvent(ctx, event)
+}
+
+// PullProbePolicy 拉取采样策略下行配置（server 读 config_versions 的
+// probe.policy）。响应 version 空串 = 未发布，调用方保持现状。连接快照按调用
+// 时解析，重连后无需重新装配。
+func (c *UpstreamClient) PullProbePolicy(ctx context.Context) (*opsv1.ProbePolicyConfigResponse, error) {
+	if c == nil {
+		return nil, fmt.Errorf("upstream client is nil")
+	}
+	conn := c.currentClient()
+	if conn == nil {
+		return nil, fmt.Errorf("upstream client not connected")
+	}
+	req, err := proto.Marshal(&opsv1.ProbePolicyConfigRequest{AgentId: c.agentID})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ProbePolicyConfigRequest: %w", err)
+	}
+	respData, err := conn.PullProbePolicy(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	resp := &opsv1.ProbePolicyConfigResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal ProbePolicyConfigResponse: %w", err)
+	}
+	return resp, nil
 }
 
 // AlertEventSender returns the byte-level send function the probe uplink

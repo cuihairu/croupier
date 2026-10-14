@@ -18,6 +18,7 @@ import (
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
@@ -27,11 +28,12 @@ import (
 
 // mockControlClientV9 是 controlClient 的可编程 fake，用于直接驱动 syncOnce。
 type mockControlClientV9 struct {
-	mu         sync.Mutex
-	connected  bool
-	closed     bool
-	instanceID string
-	registers  []*agentv1.RegisterRequest
+	mu              sync.Mutex
+	connected       bool
+	closed          bool
+	instanceID      string
+	registers       []*agentv1.RegisterRequest
+	pullProbePolicy func(context.Context, []byte) ([]byte, error)
 }
 
 func (m *mockControlClientV9) Connected() bool {
@@ -69,6 +71,14 @@ func (m *mockControlClientV9) SendTaskEvent(ctx context.Context, body []byte) er
 func (m *mockControlClientV9) SendMetricEvent(ctx context.Context, body []byte) error { return nil }
 
 func (m *mockControlClientV9) SendAlertEvent(ctx context.Context, body []byte) error { return nil }
+
+// pullProbePolicy 可编程的策略下行出口（默认回未发布的空响应）。
+func (m *mockControlClientV9) PullProbePolicy(ctx context.Context, body []byte) ([]byte, error) {
+	if m.pullProbePolicy != nil {
+		return m.pullProbePolicy(ctx, body)
+	}
+	return proto.Marshal(&opsv1.ProbePolicyConfigResponse{})
+}
 
 // heartbeatFlakyServerV9 让心跳按次数注入失败：前 failFirst 次返回
 // 非 protobuf 的垃圾响应（client 反序列化失败但 TCP 连接保持存活），

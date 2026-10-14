@@ -278,7 +278,12 @@ type ProtocolChecker struct {
 - **R3 server 消费面**（M2 server 侧 + M4）：窗口→Alert 生命周期（alertID=`probe:<agentID>:<target>`）+ server 侧内核装配（手动诊断/自身依赖）+ 探针卡面板（与 Agent 面板三页合流）。
   - **窗口→Alert 生命周期：已交付**（R3 首子批，`internal/server/probe_lifecycle.go` + `AlertModel.UpdateLifecycle`）：probe.window 开/合转 firing/resolved，stable alertID 同行转换（`UpsertByAlertID` 去重不更新语义不适用，走 FindBy+UpdateLifecycle 单语句刷 status+message+details，details 须 `datatypes.JSONMap` 走 Valuer）；recovered 无在案 firing 也落 resolved 行（事实优先，server 重启错过开窗不丢闭窗）；firing 中重放幂等；resolved→firing 复活刷最新窗口；details 随窗口永久落最近 5 次失败明细（诊断环按 `at >= startTs` 过滤防历史窗口串台，明细为诊断环 30min 保留的快照拷贝）；scope 打戳取事件载荷（同 capture 口径，空 = 平台级）。**已定边界**：窗口告警不触发 notify/出口分发（分发面=AlertRule evaluator 规则路径；窗口告警先落 ops 告警中心，需要通道分发时在 transitionFiring 单点加）；agentID 取自载荷不核会话（与 capture 告警同口径）。
   - **统计消费（evaluator 指标路径）：已交付**（R3 次子批，`internal/platform/alertrule/evaluator.go`）：`probe.<target>.<successRate|failed|checked|latencyP95Ms>` 四字段进 ExtractMetric/ExtractMetricFromName（target 可含 `:`/`.`，LastIndex 切分同 disk 口径）；successRate 为 0-1 比率且 **checked=0 视为指标缺失**（不把「没测」当「全成功」）；latencyP95Ms 为 5 桶直方图桶粒度近似（累计占比首达 95% 的桶边界，全溢出取 5000 下界，口径锚 `core/report.LatencyBucketBoundaries`）；规则校验（`internal/api/alert/rules.go` 调 ExtractMetricFromName）自动生效。
-  - **待做**：server 统计消费（probe_stats→MetricsStore 持久化路径需迁移 0044 或内存环）、ops 在线汇总页、`probe.policy` ConfigVersion 管理面与 windows/events 两粒度、server 侧内核装配（手动诊断/自身依赖）。
+  - **probe.policy 采样策略管理面与下发：已交付**（R3 三子批，kernel + server 管理面 + wire 下行 + agent 热更三段）：
+    - 内核 `core/healthprobe/policy.go`（`ParseProbePolicy` 为唯一校验真值，发布预检与 agent apply 共用）：三粒度 base interval / targets 按目标 / windows 时段（本地时区钟点 `HH:MM`，start 含 end 不含，不跨午夜）/ events 特殊时点（RFC3339 必带显式偏移 + duration）；叠加优先级 event > window > target > base；`RunDynamic`/`StartDynamic` 间隔函数读侧现取（探针每轮探测后向 `intervalFn` 现取，热更下轮即跟随，无需重建探针，不重启 agent）。
+    - server 管理面 `internal/api/ops/probe_policy.go`（五端点 GET/PUT/validate/rollback/versions，ConfigVersion key=`probe.policy`、namespace=ops、乐观锁 409、回滚=历史内容再过当前校验再发一版）+ wire 下行 `internal/server/control_handler.go`（`MsgProbePolicyRequest=0x04011F`/`Response=0x040120`，按 agent 会话 game/env scope 读 `FindLatestByScope`）。
+    - agent 消费 `internal/app/agent/probe_policy.go`（configsync Puller 30s 轮询）+ `probe_manager.go`（`SetPolicy` 热换快照 + `IntervalFor` 每轮现取 + 开窗目标 `unavailable` 提频 C#5：interval/2、下限 5s、绝不放慢、autoBoost 默认开）。
+    - **已定边界**：未下发（空版本）保持本地 `probe.targets` 声明间隔、不清空已生效策略；拉取失败/策略解析失败保持 last-good 且版本游标不推进（下轮重试）；策略已下发即以策略为唯一真值（基础未声明=30s 显式默认，不做「本地值兜底」隐藏层）；server 管理面 import `core/healthprobe`（发布预检与 agent apply 同真值，capture gates 先例；core 零内部依赖无环，R4 收敛时再归位）。
+  - **待做**：server 统计消费（probe_stats→MetricsStore 持久化路径需迁移 0044 或内存环）、ops 在线汇总页、server 侧内核装配（手动诊断/自身依赖）。
 - **R4 dbmon 收敛收尾**（M3）：DBSource 归属列（已拍板动表，编号迁移三处同步）+ 周期探针按归属下发 + dbmon 切 DBChecker **删自有 SQL 电池** + server 手动诊断保留。
 - **不排期**：外部目标自动恢复、恢复动作注册、全局并发恢复上限（§8 边界）；游戏客户端模拟探测单独 P2（§5.4，协议适配骨架设计已出：§5.5——L1=R2 顺路、L2 声明式为默认路径、L3 按游戏逐个接）。
 
@@ -355,7 +360,7 @@ probe:
 ### 13.4 分期归属与命名
 
 - R2 起步批含：基础 interval 消费（默认 30s）+ probe 采样器折叠进 MetricsReport（统计面）+ SendAlertEvent 的 probe.window/probe.detail 两 kind。（R2 批已交付，见 §12；采样策略三粒度与 server 统计消费属 R3。）
-- R3 含：server 统计消费（MetricsStore/evaluator 复用）+ ops 在线汇总页（复用 ops 模块与 game/env 维度）+ `probe.policy` ConfigVersion 管理面与 windows/events 两粒度。
+- R3 含：server 统计消费（MetricsStore/evaluator 复用）+ ops 在线汇总页（复用 ops 模块与 game/env 维度）+ `probe.policy` ConfigVersion 管理面与 windows/events 两粒度。（`probe.policy` 管理面/下发/agent 热更已交付，见 §12。）
 - SDK metric 入口（B 的游戏侧上报）为跨面独立小批，随第一个真实游戏接入排期；未接入前 ops 面灰态（§5.5.3 语义）。
 - 命名：`interval`（与 configsync/metrics 既有字段同名同义）、`windows`/`events`（通用词）、`probe.window`/`probe.detail`（沿 herald 出口 `probe.unavailable/probe.recovered` 注释先例 `probe.go:31-32`）；「在线健康度」=状态矩阵，不引入「健康分」新概念（dispatch 侧 score 是既有词，如未来引入合成分沿用之）。
 

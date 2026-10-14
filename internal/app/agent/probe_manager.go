@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/report"
@@ -50,6 +52,14 @@ type ProbeManager struct {
 	uplinks map[string]*report.ProbeUplink
 	order   []string
 	logger  *slog.Logger
+
+	// policy 采样策略热更快照（probe.policy 下行）；nil = 用本地配置间隔。
+	// 读侧按需取值，热更无需重建探针（采样策略不是探针结构变更）。
+	policy atomic.Pointer[healthprobe.ProbePolicy]
+	// unavailable 每目标当前是否开着故障窗口（窗口开着 = 异常态，用于提频）。
+	unavailable map[string]*atomic.Bool
+	// localInterval 每目标本地配置的基础间隔（策略未覆盖/未下发时回落）。
+	localInterval map[string]time.Duration
 }
 
 // NewProbeManager 从目标声明装配探测面。任一目标非法（含重名）整体报错——
@@ -66,6 +76,8 @@ func NewProbeManager(cfgs []healthprobe.TargetConfig, opts ProbeManagerOptions) 
 	seen := make(map[string]bool, len(cfgs))
 	uplinks := make(map[string]*report.ProbeUplink, len(cfgs))
 	order := make([]string, 0, len(cfgs))
+	unavailable := make(map[string]*atomic.Bool, len(cfgs))
+	localInterval := make(map[string]time.Duration, len(cfgs))
 	for _, tc := range cfgs {
 		name := strings.TrimSpace(tc.Name)
 		if seen[name] {
@@ -85,13 +97,20 @@ func NewProbeManager(cfgs []healthprobe.TargetConfig, opts ProbeManagerOptions) 
 			Semantics:           sem,
 			MaxDetailsPerWindow: opts.MaxDetailsPerWindow,
 		}, opts.Send)
+		unavailable[name] = &atomic.Bool{}
+		localInterval[name] = tc.EffectiveInterval()
 		order = append(order, name)
 	}
 
-	pm := &ProbeManager{uplinks: uplinks, order: order, logger: logger}
+	pm := &ProbeManager{uplinks: uplinks, order: order, logger: logger,
+		unavailable: unavailable, localInterval: localInterval}
 
 	// 单一消费者路由器：core Manager 给的是共享回调，逐目标分流到各自上行桥。
 	routeWindow := func(ev healthprobe.WindowEvent) {
+		if flag, ok := pm.unavailable[ev.Window.Target]; ok {
+			// 窗口开 = 不可用（异常态提频的触发信号，与采样策略解耦）。
+			flag.Store(ev.Kind == healthprobe.EventUnavailable)
+		}
 		up, ok := pm.uplinks[ev.Window.Target]
 		if !ok {
 			return
@@ -114,12 +133,59 @@ func NewProbeManager(cfgs []healthprobe.TargetConfig, opts ProbeManagerOptions) 
 	return pm, nil
 }
 
-// Start 启动全部探针；阻塞至 ctx 取消。
+// Start 启动全部探针；阻塞至 ctx 取消。间隔按每轮向采样策略快照现取——
+// probe.policy 下行热更后下轮即跟随，无需重启探针。
 func (m *ProbeManager) Start(ctx context.Context) {
 	if m == nil || m.manager == nil {
 		return
 	}
-	m.manager.Start(ctx)
+	m.manager.StartDynamic(ctx, m.IntervalFor)
+}
+
+// SetPolicy 热更采样策略快照（probe.policy 下行，评审简档 §13.3 C）。
+// nil = 清除策略，回落本地 probe.targets 声明的间隔。
+func (m *ProbeManager) SetPolicy(p *healthprobe.ProbePolicy) {
+	if m == nil {
+		return
+	}
+	m.policy.Store(p)
+	if m.logger != nil {
+		m.logger.Info("probe sampling policy applied",
+			"targets", len(m.order), "has_policy", p != nil)
+	}
+}
+
+// Policy 返回当前采样策略快照（未下发时 nil）。
+func (m *ProbeManager) Policy() *healthprobe.ProbePolicy {
+	if m == nil {
+		return nil
+	}
+	return m.policy.Load()
+}
+
+// IntervalFor 目标 target 在 now 的生效采样间隔：策略快照已下发即以策略为
+// 唯一真值（§13.3 C「频率是 server 下发的策略，agent 不本地写死」——不做
+// 「本地值兜底」隐藏层，未声明即继承策略基础间隔）；未下发时回落本地
+// probe.targets 声明的间隔。目标开着故障窗口且策略允许时按 C#5 提频
+// （减半、下限 5s、绝不慢于原值）。
+func (m *ProbeManager) IntervalFor(target string, now time.Time) time.Duration {
+	policy := m.Policy()
+	if policy == nil {
+		if m == nil {
+			return healthprobe.DefaultInterval
+		}
+		if d, ok := m.localInterval[target]; ok {
+			return d
+		}
+		return healthprobe.DefaultInterval
+	}
+	unavailable := false
+	if m != nil {
+		if flag, ok := m.unavailable[target]; ok {
+			unavailable = flag.Load()
+		}
+	}
+	return policy.EffectiveIntervalFor(target, now, unavailable)
 }
 
 // DrainProbeStats 供 metrics 采样器折叠（正常态聚合面）。目标顺序稳定，便于

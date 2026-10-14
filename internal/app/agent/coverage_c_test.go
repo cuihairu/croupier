@@ -6,6 +6,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -18,6 +19,10 @@ type warningRegisterClientC struct{}
 func (warningRegisterClientC) Connected() bool { return true }
 
 func (warningRegisterClientC) Close() error { return nil }
+
+func (warningRegisterClientC) PullProbePolicy(context.Context, []byte) ([]byte, error) {
+	return nil, errors.New("not used in this test")
+}
 
 func (warningRegisterClientC) Register(context.Context, *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
 	return &agentv1.RegisterResponse{

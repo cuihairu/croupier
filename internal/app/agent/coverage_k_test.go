@@ -150,6 +150,10 @@ func (m *recoveryControlClientK) Connected() bool {
 	return m.connected
 }
 
+func (m *recoveryControlClientK) PullProbePolicy(context.Context, []byte) ([]byte, error) {
+	return nil, errors.New("not used in this test")
+}
+
 func (m *recoveryControlClientK) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
