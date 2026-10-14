@@ -136,6 +136,9 @@ type ServiceContext struct {
 	// LogRetention 留痕保留期清理器（R3 + #54 手动清理入口）；
 	// ExecutionLog 关闭时为 nil。
 	LogRetention *executionlog.Retention
+	// retentionCancel 取消 LogRetention 的后台 sweep 循环（Close 收尾用）；
+	// ExecutionLog 关闭时为 nil。
+	retentionCancel context.CancelFunc
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
 	Scheduler *scheduler.Manager
 	// ReportRunner 是 server-local 报表执行面（Kind=incident_report 的调度
@@ -352,6 +355,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	var execLogWriter *executionlog.Writer
 	// 留痕保留期清理器（R3/#54）：ExecutionLog 关闭时不启动、保持 nil
 	var logRetention *executionlog.Retention
+	// 留痕后台循环的 ctx 必须可取消：ServiceContext.Close 收停 Writer 与
+	// Retention（此前挂 context.Background() 永不退出，测试 teardown 临时
+	// 目录时在飞 sweep 仍经 router 懒开 sqlite，与 RemoveAll 竞态）。
+	var retentionCancel context.CancelFunc
 	if c.ExecutionLog.IsEnabled() && db != nil {
 		// multiGame：按 entry 的 game+env 路由到对应物理库（否则读写错位）。
 		// 注意 typed-nil：仅 multiGame 启用时才传入 router 接口。
@@ -367,7 +374,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		execLogWriter.Run(context.Background())
 		slog.Default().Info("ExecutionLog writer started")
 
-		// 保留期清理（R3）：默认 7 天，0=永久；audit_records 不参与清理。
+		retentionCtx, cancelRetention := context.WithCancel(context.Background())
+		retentionCancel = cancelRetention
 		// ResolveDays 每轮清理前读 L3 log.retentionDays 覆盖（#54，热生效）。
 		execDays, taskDays := c.ExecutionLog.EffectiveRetentionDays(), c.TaskLog.EffectiveRetentionDays()
 		logRetention = executionlog.NewRetention(db, executionlog.RetentionConfig{
@@ -384,7 +392,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 			Router:     execLogRouter,
 			GameScopes: listGameEnvScopes(db),
 		})
-		logRetention.Run(context.Background())
+		logRetention.Run(retentionCtx)
 		slog.Default().Info("Retention sweep loop started",
 			"executionLogDays", execDays,
 			"taskLogDays", taskDays)
@@ -466,6 +474,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		MessageModel:              messageModel,
 		ExecutionLogWriter:        execLogWriter,
 		LogRetention:              logRetention,
+		retentionCancel:           retentionCancel,
 		ExecutionLogModel:         model.NewExecutionLogModel(db),
 		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,
@@ -617,6 +626,25 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	ctx.Authority = NewAuthMiddleware(ctx)
 
 	return ctx
+}
+
+// Close 收停 NewServiceContext 起动的后台 goroutine：留痕写入器冲刷队列后
+// 退出，保留期清理 cancel 后等待在飞的一轮 sweep 结束。进程内多实例（测试、
+// 备件装配）teardown 临时目录前必须先 Close——后台 sweep 仍经 router 懒开
+// per-game sqlite 时 RemoveAll 会撞文件竞态。幂等，可安全重复调用。
+func (ctx *ServiceContext) Close() {
+	if ctx == nil {
+		return
+	}
+	if ctx.ExecutionLogWriter != nil {
+		ctx.ExecutionLogWriter.Stop()
+	}
+	if ctx.retentionCancel != nil {
+		ctx.retentionCancel()
+	}
+	if ctx.LogRetention != nil {
+		ctx.LogRetention.Wait()
+	}
 }
 
 func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env string) context.Context {
