@@ -695,6 +695,9 @@ type SystemInfo struct {
 	TotalMemory   uint64                 `protobuf:"varint,7,opt,name=total_memory,json=totalMemory,proto3" json:"total_memory,omitempty"`      // Total memory in bytes
 	BootTime      *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=boot_time,json=bootTime,proto3" json:"boot_time,omitempty"`                // System boot time
 	AgentVersion  string                 `protobuf:"bytes,9,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"`    // Croupier agent version
+	// Agent binary content sha256, hex lowercase (§10.5 fingerprint: running
+	// instance identity for triage and self-upgrade; empty = unreadable binary).
+	AgentBinarySha256 string `protobuf:"bytes,11,opt,name=agent_binary_sha256,json=agentBinarySha256,proto3" json:"agent_binary_sha256,omitempty"`
 	// Ops module status
 	OpsStatus     *OpsStatus `protobuf:"bytes,10,opt,name=ops_status,json=opsStatus,proto3" json:"ops_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -790,6 +793,13 @@ func (x *SystemInfo) GetBootTime() *timestamppb.Timestamp {
 func (x *SystemInfo) GetAgentVersion() string {
 	if x != nil {
 		return x.AgentVersion
+	}
+	return ""
+}
+
+func (x *SystemInfo) GetAgentBinarySha256() string {
+	if x != nil {
+		return x.AgentBinarySha256
 	}
 	return ""
 }
@@ -3562,7 +3572,7 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\fmemory_bytes\x18\x05 \x01(\x04R\vmemoryBytes\x12\x18\n" +
 	"\athreads\x18\x06 \x01(\x05R\athreads\x129\n" +
 	"\n" +
-	"start_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\"\xeb\x02\n" +
+	"start_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\"\x9b\x03\n" +
 	"\n" +
 	"SystemInfo\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12\x0e\n" +
@@ -3574,7 +3584,8 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\tcpu_cores\x18\x06 \x01(\x05R\bcpuCores\x12!\n" +
 	"\ftotal_memory\x18\a \x01(\x04R\vtotalMemory\x127\n" +
 	"\tboot_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\bbootTime\x12#\n" +
-	"\ragent_version\x18\t \x01(\tR\fagentVersion\x129\n" +
+	"\ragent_version\x18\t \x01(\tR\fagentVersion\x12.\n" +
+	"\x13agent_binary_sha256\x18\v \x01(\tR\x11agentBinarySha256\x129\n" +
 	"\n" +
 	"ops_status\x18\n" +
 	" \x01(\v2\x1a.croupier.ops.v1.OpsStatusR\topsStatus\"\x96\x01\n" +

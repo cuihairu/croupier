@@ -9005,6 +9005,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SystemInfo final : public ::google:
     kKernelVersionFieldNumber = 4,
     kArchFieldNumber = 5,
     kAgentVersionFieldNumber = 9,
+    kAgentBinarySha256FieldNumber = 11,
     kBootTimeFieldNumber = 8,
     kOpsStatusFieldNumber = 10,
     kTotalMemoryFieldNumber = 7,
@@ -9100,6 +9101,21 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SystemInfo final : public ::google:
   ::std::string* PROTOBUF_NONNULL _internal_mutable_agent_version();
 
   public:
+  // string agent_binary_sha256 = 11;
+  void clear_agent_binary_sha256() ;
+  [[nodiscard]] const ::std::string& agent_binary_sha256() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_agent_binary_sha256(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_agent_binary_sha256();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_agent_binary_sha256();
+  void set_allocated_agent_binary_sha256(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_agent_binary_sha256() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_agent_binary_sha256(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_agent_binary_sha256();
+
+  public:
   // .google.protobuf.Timestamp boot_time = 8;
   [[nodiscard]] bool has_boot_time()
       const;
@@ -9156,8 +9172,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SystemInfo final : public ::google:
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 10,
-                                   2, 94,
+  static const ::google::protobuf::internal::TcParseTable<4, 11,
+                                   2, 113,
                                    2>
       _table_;
 
@@ -9186,6 +9202,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SystemInfo final : public ::google:
     ::google::protobuf::internal::ArenaStringPtr kernel_version_;
     ::google::protobuf::internal::ArenaStringPtr arch_;
     ::google::protobuf::internal::ArenaStringPtr agent_version_;
+    ::google::protobuf::internal::ArenaStringPtr agent_binary_sha256_;
     ::google::protobuf::Timestamp* PROTOBUF_NULLABLE boot_time_;
     ::croupier::ops::v1::OpsStatus* PROTOBUF_NULLABLE ops_status_;
     ::uint64_t total_memory_;
@@ -14050,7 +14067,7 @@ inline void SystemInfo::clear_cpu_cores() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.cpu_cores_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00000400U);
 }
 inline ::int32_t SystemInfo::cpu_cores() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SystemInfo.cpu_cores)
@@ -14058,7 +14075,7 @@ inline ::int32_t SystemInfo::cpu_cores() const {
 }
 inline void SystemInfo::set_cpu_cores(::int32_t value) {
   _internal_set_cpu_cores(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SystemInfo.cpu_cores)
 }
 inline ::int32_t SystemInfo::_internal_cpu_cores() const {
@@ -14075,7 +14092,7 @@ inline void SystemInfo::clear_total_memory() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.total_memory_ = ::uint64_t{0u};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000200U);
 }
 inline ::uint64_t SystemInfo::total_memory() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SystemInfo.total_memory)
@@ -14083,7 +14100,7 @@ inline ::uint64_t SystemInfo::total_memory() const {
 }
 inline void SystemInfo::set_total_memory(::uint64_t value) {
   _internal_set_total_memory(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SystemInfo.total_memory)
 }
 inline ::uint64_t SystemInfo::_internal_total_memory() const {
@@ -14097,7 +14114,7 @@ inline void SystemInfo::_internal_set_total_memory(::uint64_t value) {
 
 // .google.protobuf.Timestamp boot_time = 8;
 inline bool SystemInfo::has_boot_time() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000040U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000080U);
   PROTOBUF_ASSUME(!value || _impl_.boot_time_ != nullptr);
   return value;
 }
@@ -14118,16 +14135,16 @@ inline void SystemInfo::unsafe_arena_set_allocated_boot_time(
   }
   _impl_.boot_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.SystemInfo.boot_time)
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE SystemInfo::release_boot_time() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::google::protobuf::Timestamp* released = _impl_.boot_time_;
   _impl_.boot_time_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -14147,7 +14164,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NULLABLE SystemInfo::unsafe_arena
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.SystemInfo.boot_time)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::google::protobuf::Timestamp* temp = _impl_.boot_time_;
   _impl_.boot_time_ = nullptr;
   return temp;
@@ -14162,7 +14179,7 @@ inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL SystemInfo::_internal_mut
 }
 inline ::google::protobuf::Timestamp* PROTOBUF_NONNULL SystemInfo::mutable_boot_time()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::google::protobuf::Timestamp* _msg = _internal_mutable_boot_time();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SystemInfo.boot_time)
   return _msg;
@@ -14179,9 +14196,9 @@ inline void SystemInfo::set_allocated_boot_time(::google::protobuf::Timestamp* P
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
 
   _impl_.boot_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -14253,9 +14270,74 @@ inline void SystemInfo::set_allocated_agent_version(::std::string* PROTOBUF_NULL
   // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SystemInfo.agent_version)
 }
 
+// string agent_binary_sha256 = 11;
+inline void SystemInfo::clear_agent_binary_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.agent_binary_sha256_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline const ::std::string& SystemInfo::agent_binary_sha256() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SystemInfo.agent_binary_sha256)
+  return _internal_agent_binary_sha256();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void SystemInfo::set_agent_binary_sha256(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  _impl_.agent_binary_sha256_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SystemInfo.agent_binary_sha256)
+}
+inline ::std::string* PROTOBUF_NONNULL SystemInfo::mutable_agent_binary_sha256()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ::std::string* _s = _internal_mutable_agent_binary_sha256();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SystemInfo.agent_binary_sha256)
+  return _s;
+}
+inline const ::std::string& SystemInfo::_internal_agent_binary_sha256() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.agent_binary_sha256_.Get();
+}
+inline void SystemInfo::_internal_set_agent_binary_sha256(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.agent_binary_sha256_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL SystemInfo::_internal_mutable_agent_binary_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.agent_binary_sha256_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE SystemInfo::release_agent_binary_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.SystemInfo.agent_binary_sha256)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  auto* released = _impl_.agent_binary_sha256_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.agent_binary_sha256_.Set("", GetArena());
+  }
+  return released;
+}
+inline void SystemInfo::set_allocated_agent_binary_sha256(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  }
+  _impl_.agent_binary_sha256_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.agent_binary_sha256_.IsDefault()) {
+    _impl_.agent_binary_sha256_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SystemInfo.agent_binary_sha256)
+}
+
 // .croupier.ops.v1.OpsStatus ops_status = 10;
 inline bool SystemInfo::has_ops_status() const {
-  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000080U);
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000100U);
   PROTOBUF_ASSUME(!value || _impl_.ops_status_ != nullptr);
   return value;
 }
@@ -14263,7 +14345,7 @@ inline void SystemInfo::clear_ops_status() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.ops_status_ != nullptr) _impl_.ops_status_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000100U);
 }
 inline const ::croupier::ops::v1::OpsStatus& SystemInfo::_internal_ops_status() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -14282,16 +14364,16 @@ inline void SystemInfo::unsafe_arena_set_allocated_ops_status(
   }
   _impl_.ops_status_ = reinterpret_cast<::croupier::ops::v1::OpsStatus*>(value);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.ops.v1.SystemInfo.ops_status)
 }
 inline ::croupier::ops::v1::OpsStatus* PROTOBUF_NULLABLE SystemInfo::release_ops_status() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::croupier::ops::v1::OpsStatus* released = _impl_.ops_status_;
   _impl_.ops_status_ = nullptr;
   if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
@@ -14311,7 +14393,7 @@ inline ::croupier::ops::v1::OpsStatus* PROTOBUF_NULLABLE SystemInfo::unsafe_aren
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.ops.v1.SystemInfo.ops_status)
 
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::croupier::ops::v1::OpsStatus* temp = _impl_.ops_status_;
   _impl_.ops_status_ = nullptr;
   return temp;
@@ -14326,7 +14408,7 @@ inline ::croupier::ops::v1::OpsStatus* PROTOBUF_NONNULL SystemInfo::_internal_mu
 }
 inline ::croupier::ops::v1::OpsStatus* PROTOBUF_NONNULL SystemInfo::mutable_ops_status()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::croupier::ops::v1::OpsStatus* _msg = _internal_mutable_ops_status();
   // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SystemInfo.ops_status)
   return _msg;
@@ -14343,9 +14425,9 @@ inline void SystemInfo::set_allocated_ops_status(::croupier::ops::v1::OpsStatus*
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   }
 
   _impl_.ops_status_ = reinterpret_cast<::croupier::ops::v1::OpsStatus*>(value);

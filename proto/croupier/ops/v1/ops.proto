@@ -108,7 +108,11 @@ message SystemInfo {
   uint64 total_memory = 7;       // Total memory in bytes
   google.protobuf.Timestamp boot_time = 8;  // System boot time
   string agent_version = 9;      // Croupier agent version
-  
+
+  // Agent binary content sha256, hex lowercase (§10.5 fingerprint: running
+  // instance identity for triage and self-upgrade; empty = unreadable binary).
+  string agent_binary_sha256 = 11;
+
   // Ops module status
   OpsStatus ops_status = 10;
 }

@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"os"
 	"runtime"
+	"sync"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 
@@ -29,12 +31,31 @@ func NewMetricsCollector(agentID string) *metrics.Collector {
 	return metrics.NewCollector(agentID)
 }
 
+var (
+	selfFingerprintOnce sync.Once
+	selfFingerprintVal  string
+)
+
+// SelfBinaryFingerprint 返回 agent 自身二进制内容 sha256（hex 小写）。§10.5
+// 指纹可先落项：随 SystemInfo 上行作失联排查锚点与自升级指纹面 wire 前置。
+// 进程生命周期内缓存一次（运行实例指纹语义，同 §10.4——文件被换值不变，
+// 直至重启换实例）；读不到返回空串，不伪造值。
+func SelfBinaryFingerprint() string {
+	selfFingerprintOnce.Do(func() {
+		if exe, err := os.Executable(); err == nil {
+			selfFingerprintVal = sha256HexFile(exe)
+		}
+	})
+	return selfFingerprintVal
+}
+
 // GetSystemInfo collects detailed system information.
 func GetSystemInfo(agentID, agentVersion string, opsConfig *OpsConfig) *opsv1.SystemInfo {
 	info := &opsv1.SystemInfo{
-		Arch:         runtime.GOARCH,
-		CpuCores:     int32(runtime.NumCPU()),
-		AgentVersion: agentVersion,
+		Arch:              runtime.GOARCH,
+		CpuCores:          int32(runtime.NumCPU()),
+		AgentVersion:      agentVersion,
+		AgentBinarySha256: SelfBinaryFingerprint(),
 	}
 
 	// Ops status

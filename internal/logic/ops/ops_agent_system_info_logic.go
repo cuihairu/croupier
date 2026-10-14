@@ -46,6 +46,8 @@ func (l *OpsAgentSystemInfoLogic) OpsAgentSystemInfo(req *OpsAgentSystemInfoRequ
 				TotalMemory:   info.TotalMemory,
 				BootTime:      formatTimestamp(info.BootTime),
 				AgentVersion:  info.AgentVersion,
+				// §10.5 指纹：agent 二进制内容 sha256 随版本上报面上行。
+				AgentBinarySha256: info.GetAgentBinarySha256(),
 			},
 		}, nil
 	}
@@ -83,6 +85,8 @@ func (l *OpsAgentSystemInfoLogic) OpsAgentSystemInfo(req *OpsAgentSystemInfoRequ
 			TotalMemory:   info.TotalMemory,
 			BootTime:      formatTimestamp(info.BootTime),
 			AgentVersion:  info.AgentVersion,
+			// §10.5 指纹：agent 二进制内容 sha256 随版本上报面上行。
+			AgentBinarySha256: info.GetAgentBinarySha256(),
 		},
 	}, nil
 }

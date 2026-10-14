@@ -231,6 +231,8 @@ func TestOpsAgentSystemInfo_FromAgent(t *testing.T) {
 		TotalMemory:  16 * 1024 * 1024 * 1024,
 		BootTime:     timestamppb.Now(),
 		AgentVersion: "v2.0.0",
+		// §10.5 指纹：随版本上报面扩字段上行。
+		AgentBinarySha256: "1111111111111111111111111111111111111111111111111111111111111111",
 	}
 	data, _ := proto.Marshal(infoResp)
 
@@ -251,12 +253,14 @@ func TestOpsAgentSystemInfo_FromAgent(t *testing.T) {
 	assert.Equal(t, "linux", resp.Data.OS)
 	assert.Equal(t, int32(8), resp.Data.CPUCores)
 	assert.Equal(t, "v2.0.0", resp.Data.AgentVersion)
+	assert.Equal(t, "1111111111111111111111111111111111111111111111111111111111111111", resp.Data.AgentBinarySha256, "binary fingerprint flows to the API DTO")
 
 	// Second call should hit cache
 	resp2, err := logic.OpsAgentSystemInfo(&OpsAgentSystemInfoRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
 	assert.Equal(t, 0, resp2.Code)
 	assert.Equal(t, "test-host", resp2.Data.Hostname)
+	assert.Equal(t, resp.Data.AgentBinarySha256, resp2.Data.AgentBinarySha256, "cached path keeps the fingerprint")
 }
 
 // ---------------------------------------------------------------------------

@@ -59,6 +59,9 @@ type OpsAgentSystemInfo struct {
 	TotalMemory   uint64 `json:"totalMemory"`
 	BootTime      string `json:"bootTime"`
 	AgentVersion  string `json:"agentVersion"`
+	// AgentBinarySha256 是 agent 二进制内容 sha256（§10.5 指纹：失联排查
+	// 锚点；空=agent 未上行或二进制不可读）。
+	AgentBinarySha256 string `json:"agentBinarySha256,omitempty"`
 }
 
 type OpsAgentSystemInfoRequest struct {
