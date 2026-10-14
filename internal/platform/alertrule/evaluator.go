@@ -12,15 +12,22 @@
 //	disk.<mount>.usedPercent  指定挂载点磁盘使用率
 //	disk.<mount>.usedBytes    指定挂载点磁盘已用字节
 //	custom.<key>              Agent 自定义指标
+//	probe.<target>.successRate    探测成功率（0-1，checked=0 视为缺失）
+//	probe.<target>.failed         本上报窗口失败次数
+//	probe.<target>.checked        本上报窗口检查次数
+//	probe.<target>.latencyP95Ms   时延 P95（5 桶直方图近似，桶边界即取值）
 package alertrule
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
+	// 别名规避同包测试 helper（func report）的标识符冲突。
+	corereport "github.com/cuihairu/croupier/core/report"
 	"github.com/cuihairu/croupier/internal/model"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -146,7 +153,8 @@ func (e *Evaluator) fire(ctx context.Context, rule *model.AlertRule, agentID str
 
 // ExtractMetricFromName 校验指标路径形态（不需要 report）。
 // 合法形态：cpu.usagePercent / memory.usagePercent / memory.usedBytes /
-// disk.<mount>.<usedPercent|usedBytes> / custom.<key>
+// disk.<mount>.<usedPercent|usedBytes> / custom.<key> /
+// probe.<target>.<successRate|failed|checked|latencyP95Ms>
 func ExtractMetricFromName(path string) (string, error) {
 	path = strings.TrimSpace(path)
 	switch {
@@ -168,8 +176,20 @@ func ExtractMetricFromName(path string) (string, error) {
 			return "", fmt.Errorf("custom 指标缺少 key")
 		}
 		return path, nil
+	case strings.HasPrefix(path, "probe."):
+		rest := strings.TrimPrefix(path, "probe.")
+		field, target, ok := splitProbePath(rest)
+		if !ok || target == "" {
+			return "", fmt.Errorf("非法探测指标 %q（期望 probe.<目标>.successRate|failed|checked|latencyP95Ms）", path)
+		}
+		// 字段名校验用显式闭集（不能借 probeStatValue：successRate 对
+		// checked=0 返回缺失，与「字段未知」混淆）。
+		if !slices.Contains(probeStatFields, field) {
+			return "", fmt.Errorf("非法探测指标字段 %q（仅支持 successRate/failed/checked/latencyP95Ms）", field)
+		}
+		return path, nil
 	default:
-		return "", fmt.Errorf("非法指标路径 %q（支持 cpu.usagePercent / memory.* / disk.* / custom.*）", path)
+		return "", fmt.Errorf("非法指标路径 %q（支持 cpu.usagePercent / memory.* / disk.* / custom.* / probe.<target>.<field>）", path)
 	}
 }
 
@@ -210,9 +230,93 @@ func ExtractMetric(path string, report *opsv1.MetricsReport) (float64, bool) {
 		key := strings.TrimPrefix(path, "custom.")
 		v, ok := report.GetCustom()[key]
 		return v, ok
+	case strings.HasPrefix(path, "probe."):
+		rest := strings.TrimPrefix(path, "probe.")
+		field, target, found := splitProbePath(rest)
+		if !found {
+			return 0, false
+		}
+		for _, st := range report.GetProbeStats() {
+			if st.GetTarget() != target {
+				continue
+			}
+			return probeStatValue(st, field)
+		}
+		return 0, false
 	default:
 		return 0, false
 	}
+}
+
+// splitProbePath 解析 "<target>.<field>"（target 可含 : 与 .，LastIndex 切分
+// 同 splitDiskPath 口径）。
+func splitProbePath(rest string) (field, target string, ok bool) {
+	idx := strings.LastIndex(rest, ".")
+	if idx <= 0 || idx == len(rest)-1 {
+		return "", "", false
+	}
+	return rest[idx+1:], rest[:idx], true
+}
+
+// probeStatFields 探测指标字段闭集（名称校验与 probeStatValue 取值共用口径，
+// 两处变更需同步）。
+var probeStatFields = []string{"successRate", "failed", "checked", "latencyP95Ms"}
+
+// probeStatValue 提取探测统计字段值。checked=0（本窗口无样本）视为指标缺失
+// （评估跳过）——不把「没测」当「全成功」。st 为 nil 时仅做字段名识别
+// （successRate 例外：nil 与 checked=0 同判缺失，名称校验请用 probeStatFields）。
+func probeStatValue(st *opsv1.ProbeStats, field string) (float64, bool) {
+	switch field {
+	case "successRate":
+		if st == nil || st.GetChecked() == 0 {
+			return 0, false
+		}
+		return st.GetSuccessRate(), true
+	case "failed":
+		if st == nil {
+			return 0, true
+		}
+		return float64(st.GetFailed()), true
+	case "checked":
+		if st == nil {
+			return 0, true
+		}
+		return float64(st.GetChecked()), true
+	case "latencyP95Ms":
+		if st == nil {
+			return 0, true
+		}
+		return latencyP95Ms(st.GetLatencyBuckets())
+	default:
+		return 0, false
+	}
+}
+
+// latencyP95Ms 从 5 桶直方图估 P95（桶粒度近似）：桶为「落入该区间的样本数」
+// （非累计，边界 [50,200,1000,5000]ms + 溢出桶，口径同
+// core/report.LatencyBucketBoundaries）。返回累计占比首次达 95% 的桶边界；
+// 样本全在溢出桶（>5s）返回 5000（下界，>5s 真值无法从桶里还原）。无样本
+// ok=false。
+func latencyP95Ms(buckets []int64) (float64, bool) {
+	var total int64
+	for _, b := range buckets {
+		total += b
+	}
+	if total == 0 {
+		return 0, false
+	}
+	reach := float64(total) * 0.95
+	var cum int64
+	for i, b := range buckets {
+		cum += b
+		if float64(cum) >= reach {
+			if i < len(corereport.LatencyBucketBoundaries) {
+				return float64(corereport.LatencyBucketBoundaries[i]), true
+			}
+			return float64(corereport.LatencyBucketBoundaries[len(corereport.LatencyBucketBoundaries)-1]), true
+		}
+	}
+	return 0, false
 }
 
 // splitDiskPath 解析 "<mount>.<field>"（mount 可含 / 与 -）。
