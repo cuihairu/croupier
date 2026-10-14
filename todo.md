@@ -14,7 +14,7 @@
 - [ ] 探测结果上行统计与在线健康度（设计单 2026-10-14 三条，简档 §13）：不对称上报（正常态聚合走 MetricsReport 采样器折叠、异常态明细即时走 SendAlertEvent probe.detail）+ 在线数据汇总复用 ops 模块 game/env 维度与 AlertRule evaluator（在线健康度=状态矩阵不出合成分）+ 采样频率 server 策略（基础/时段/特殊点三粒度，ConfigVersion 落库 configsync 下发热更，默认 30s 显式，异常态提频兜底）；R2 部分已随 R2 批落码（采样器折叠 + 不对称明细上行）；R3 部分（server 统计消费/在线汇总/采样策略）待 R3 批
 - [ ] 受管程序生命周期统一模型（agent-supervisor-design §10，三份外部评审反哺 2026-10-14）：ManagedProcess 扩 kind（program/probe-adapter/游戏进程本体，三配置模型归并两层一套）+ 四类状态 + 更新五要求与**指纹硬要求**（sha256+execlog 查询口径+回滚留痕，游戏进程更新需维护窗口联动）+ 远程 Shell 硬边界 + Agent 自升级单列；Reconciler 归属未核实（待核 Supervisor/dispatch 边界）；设计已反哺 data-flow/agents-inventory/monitoring/upgrade-rollback/README，随 R2-R4 后排期
 
-- [ ] Agent 健康监控与恢复：外部方案评审 + server 侧监控下放 agent（来源：用户 2026-10-14）——评审定稿 docs/design/agent-health-recovery-review.md：重合度审计 + 真缺口七项 + 迁移四步 + 三点已拍板（2026-10-14：probe.targets 每 agent 均可配 devops 主用 / 上行走 report.Conn 扩 SendAlertEvent 新 wire / DBSource 归属列 R4 才动表不停 R2/R3）+ 补充裁决并入（第三方监控零新增 agent 部署、单一权威分工表、实现层/实例层分标、dbmon SQL 探测收敛 core/healthprobe 不留第二套、熔断器=调用方策略留 server dispatch、游戏模拟探测=存量延后需求 P2）；R2 装配面代码批已交付（commit a38aa32，87 条新用例 + 全量门禁绿，证据见简档 §12）；R3 server 消费面待起步
+- [ ] Agent 健康监控与恢复：外部方案评审 + server 侧监控下放 agent（来源：用户 2026-10-14）——评审定稿 docs/design/agent-health-recovery-review.md：重合度审计 + 真缺口七项 + 迁移四步 + 三点已拍板（2026-10-14：probe.targets 每 agent 均可配 devops 主用 / 上行走 report.Conn 扩 SendAlertEvent 新 wire / DBSource 归属列 R4 才动表不停 R2/R3）+ 补充裁决并入（第三方监控零新增 agent 部署、单一权威分工表、实现层/实例层分标、dbmon SQL 探测收敛 core/healthprobe 不留第二套、熔断器=调用方策略留 server dispatch、游戏模拟探测=存量延后需求 P2）；R2 装配面代码批已交付（commit ebcde49，87 条新用例 + 全量门禁绿，证据见简档 §12）；R3 server 消费面待起步
 
 ## 已完成
 
