@@ -27,6 +27,9 @@ const (
 	SourcePage      = "page"
 	SourceExternal  = "external"   // 对外 REST API（external_tokens 令牌鉴权面）
 	SourceAgentExec = "agent_exec" // Agent 远程命令执行（ops exec，§10.7 审计前置）
+	// SourceProcessUpdate 是受管程序二进制更新审计（§10.4 指纹硬要求：持久
+	// 查询主入口，入参/结果全文含新旧指纹与回滚留痕）。
+	SourceProcessUpdate = "process_update"
 
 	StatusOK   = "ok"
 	StatusFail = "error"

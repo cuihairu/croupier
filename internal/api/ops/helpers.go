@@ -22,6 +22,8 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/pkg/protocol"
+
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
 // recordOpsAudit persists an ops audit event (node drain/restart, maintenance
@@ -269,6 +271,77 @@ func auditAgentExec(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsExe
 			"command": req.Command,
 			"args":    req.Args,
 			"timeout": req.Timeout,
+		},
+		Response: respBody,
+	})
+}
+
+// opsAgentProcessUpdate 在 Agent 上换入受管进程新二进制（§10.4 更新状态）。
+// §10.4 指纹硬要求：每次尝试（成功 / 失败 / 回滚）写 execution_logs（source=
+// process_update），新旧指纹与回滚留痕入审计载荷——持久查询主入口按
+// 「目标 + 时间 + 指纹」检索本表。
+func opsAgentProcessUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessUpdateRequest) (*OpsProcessUpdateResponse, error) {
+	if svcCtx == nil {
+		return nil, errorx.NewBadRequest("service context is required")
+	}
+	agentSvc := NewAgentService(svcCtx)
+	startedAt := time.Now()
+	result, err := agentSvc.UpdateProcess(ctx, req.AgentID, strings.TrimSpace(req.Name), strings.TrimSpace(req.StagedPath), strings.TrimSpace(req.ExpectedSha256))
+	if err != nil {
+		auditAgentUpdate(ctx, svcCtx, req, startedAt, nil, err)
+		return nil, err
+	}
+
+	auditAgentUpdate(ctx, svcCtx, req, startedAt, result, nil)
+	return &OpsProcessUpdateResponse{
+		Success:        result.GetSuccess(),
+		Message:        result.GetMessage(),
+		OldFingerprint: result.GetOldFingerprint(),
+		NewFingerprint: result.GetNewFingerprint(),
+		RolledBack:     result.GetRolledBack(),
+	}, nil
+}
+
+// auditAgentUpdate 写更新审计留痕（fail-open：Writer 缺失跳过，不阻断主路径）。
+func auditAgentUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessUpdateRequest, startedAt time.Time, result *opsv1.UpdateProcessResponse, updateErr error) {
+	if svcCtx == nil || svcCtx.ExecutionLogWriter == nil {
+		return
+	}
+	actor := "unknown"
+	if name, err := utils.CurrentUsername(ctx); err == nil {
+		actor = name
+	}
+	scope := svc.GameScopeFromContext(ctx)
+
+	status := executionlog.StatusOK
+	var respBody interface{}
+	if updateErr != nil {
+		status = executionlog.StatusFail
+		respBody = map[string]string{"error": updateErr.Error()}
+	} else if result != nil {
+		respBody = map[string]interface{}{
+			"success":        result.GetSuccess(),
+			"oldFingerprint": result.GetOldFingerprint(),
+			"newFingerprint": result.GetNewFingerprint(),
+			"rolledBack":     result.GetRolledBack(),
+			"message":        result.GetMessage(),
+		}
+	}
+
+	svcCtx.ExecutionLogWriter.Log(executionlog.Entry{
+		GameID:     scope.GameID,
+		Env:        scope.Env,
+		Source:     executionlog.SourceProcessUpdate,
+		FunctionID: req.Name,
+		Actor:      actor,
+		Route:      "/ops/agents/" + req.AgentID + "/processes/" + req.Name + "/update",
+		Status:     status,
+		DurationMs: time.Since(startedAt).Milliseconds(),
+		Request: map[string]interface{}{
+			"agentId":        req.AgentID,
+			"process":        req.Name,
+			"stagedPath":     req.StagedPath,
+			"expectedSha256": strings.ToLower(strings.TrimSpace(req.ExpectedSha256)),
 		},
 		Response: respBody,
 	})

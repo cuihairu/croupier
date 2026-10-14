@@ -232,6 +232,21 @@ func (h *Handler) OpsAgentProcessRestart(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+func (h *Handler) OpsAgentProcessUpdate(c *gin.Context) {
+	var req OpsProcessUpdateRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.OpsAgentProcessUpdate(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // Backup operations handlers
 
 func (h *Handler) OpsBackupsList(c *gin.Context) {
@@ -740,6 +755,10 @@ func (h *Handler) AgentProcessStop(c *gin.Context) {
 
 func (h *Handler) AgentProcessRestart(c *gin.Context) {
 	h.OpsAgentProcessRestart(c)
+}
+
+func (h *Handler) AgentProcessUpdate(c *gin.Context) {
+	h.OpsAgentProcessUpdate(c)
 }
 
 func (h *Handler) AgentExecCommand(c *gin.Context) {

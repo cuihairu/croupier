@@ -24,6 +24,13 @@ type OpsConfig struct {
 	// Requires Enabled=true. Default: false
 	AllowExec bool `json:"allowExec" yaml:"allow_exec"`
 
+	// AllowUpdate permits managed-process binary updates (§10.4 更新状态).
+	// Independent authorization gate (§10.7 程序操作=明确受授权动作): updates
+	// are a separate action family from restart/exec, gated on their own key.
+	// Content-pinned: every update must carry the expected sha256 (fail-closed).
+	// Requires Enabled=true. Default: false
+	AllowUpdate bool `json:"allowUpdate" yaml:"allowUpdate"`
+
 	// MetricsInterval defines how often to collect and report metrics.
 	// Default: 30s
 	MetricsInterval time.Duration `json:"metricsInterval" yaml:"metrics_interval"`

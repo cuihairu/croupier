@@ -105,6 +105,9 @@ type OpsSupervisedProcess struct {
 	// 定时触发时间与动作，无调度条目为零值（事前可见，面板可渲染倒计时）。
 	NextScheduleAtUnix int64  `json:"nextScheduleAtUnix,omitempty"`
 	NextScheduleAction string `json:"nextScheduleAction,omitempty"`
+	// Fingerprint 是运行实例二进制的 sha256（§10.4 指纹，spawn 时算一次）；
+	// 空=未运行或未计算。告警/探针 timeline 与更新记录按 (target, 时间, 指纹) 对齐。
+	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
 type OpsSupervisorSummary struct {
@@ -603,6 +606,21 @@ type OpsProcessStartRequest struct {
 
 type OpsProcessStartResponse struct {
 	Pid int32 `json:"pid,omitempty"`
+}
+
+type OpsProcessUpdateRequest struct {
+	AgentID        string `uri:"agentId"`
+	Name           string `uri:"name"`
+	StagedPath     string `json:"stagedPath"`
+	ExpectedSha256 string `json:"expectedSha256"`
+}
+
+type OpsProcessUpdateResponse struct {
+	Success        bool   `json:"success"`
+	Message        string `json:"message,omitempty"`
+	OldFingerprint string `json:"oldFingerprint,omitempty"`
+	NewFingerprint string `json:"newFingerprint,omitempty"`
+	RolledBack     bool   `json:"rolledBack"`
 }
 
 // Service operations DTOs

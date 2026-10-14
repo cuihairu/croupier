@@ -105,6 +105,9 @@ const (
 	// 派生 db 探针目标下发归属 agent；configsync 下拉热更，无推送通道)
 	MsgProbeDBTargetsRequest  = 0x040121
 	MsgProbeDBTargetsResponse = 0x040122
+	// Managed process binary update (agent-supervisor-design §10.4 更新状态+指纹)
+	MsgUpdateProcessRequest  = 0x040123
+	MsgUpdateProcessResponse = 0x040124
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -293,6 +296,10 @@ func MsgIDString(msgID uint32) string {
 		return "ExecuteCommandRequest"
 	case MsgExecuteCommandResponse:
 		return "ExecuteCommandResponse"
+	case MsgUpdateProcessRequest:
+		return "UpdateProcessRequest"
+	case MsgUpdateProcessResponse:
+		return "UpdateProcessResponse"
 	case MsgListServicesRequest:
 		return "ListServicesRequest"
 	case MsgListServicesResponse:

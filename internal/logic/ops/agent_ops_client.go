@@ -182,6 +182,27 @@ func (w *OpsClientWrapper) StartProcess(ctx context.Context, req *opsv1.StartPro
 	return resp, nil
 }
 
+// UpdateProcess swaps a managed process binary on the agent (agent-supervisor-
+// design §10.4 更新状态+指纹).
+func (w *OpsClientWrapper) UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errorx.NewInternalError("marshal update request failed")
+	}
+
+	_, respData, err := w.caller.Call(ctx, protocol.MsgUpdateProcessRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.UpdateProcessResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, errorx.NewInternalError("unmarshal update response failed")
+	}
+
+	return resp, nil
+}
+
 // ExecuteCommand executes a command on the agent
 func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	data, err := proto.Marshal(req)

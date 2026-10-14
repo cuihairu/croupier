@@ -107,7 +107,7 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 ### 3.6 事件日志（双通道）
 
-事件类型闭集：`detect_down` / `auto_restart` / `restart_failed` / `breaker_tripped` / `resource_over_limit` / `manual_start` / `manual_stop`。
+事件类型闭集：`detect_down` / `auto_restart` / `restart_failed` / `breaker_tripped` / `resource_over_limit` / `manual_start` / `manual_stop` / `schedule_fire`（§10.6） / `update_applied` / `update_rolled_back`（§10.4）。
 
 | 通道           | 载体与语义                                                                                                                                      |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -205,11 +205,17 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 **管理状态首块已实现**（受管程序生命周期第一块）：运维手动 stop/start 的**期望状态**落盘 supervisor 日志目录 `desired_state.json`（`internal/app/agent/ops_desired_state.go`）——缺记录视为期望 running（对齐既有开机自启语义，行为零漂移）；文件缺失/损坏 fail-open 空映射（宁可不拦误启，不因状态文件坏了拒绝起进程）；原子写（tmp+rename）。开机自启门（`Start()`）：AutoRestart=true 且期望无记录 → 照旧拉起；运维主动停过的进程（期望 stopped）跨 agent 重启保持停——§10.2「区分程序崩溃与主动停止（否则误启）」就此落地。手动 start/restart 落期望 running。写盘失败仅告警不回滚操作（期望是持久性提示，操作本身已成功）。
 
-### 10.4 更新二进制：五要求 + 指纹硬要求（已采纳，未实现）
+### 10.4 更新二进制：五要求 + 指纹硬要求（已采纳；v1 已实现 2026-10-15，边界见下）
 
 五要求：可信来源分发；内容哈希与签名校验；运行中进程与文件占用处理（先停后换或原子目录切换）；数据库/配置兼容性检查；**新版本启动失败回滚**——只做原子替换一个二进制不等于更新安全。
 
 **受管范围（用户 2026-10-14 追问）**：更新能力覆盖**游戏进程本体**（不只辅助程序与探测适配器）——`ManagedProcess` 本就是通用受管进程模型，游戏进程只是又一类 kind。但游戏进程更新有额外前置：玩家在线时换包是事故，必须满足 (a) 维护窗口或在线人数低于阈值（在线数据来自健康评审 §13.2 在线指标），(b) 暂停**调度与新连接导入**（§10.2「暂停要指明对象」——更新期间探针继续跑，否则失败不可见），(c) 指纹留痕+失败回滚。流量导入闸的具体形态依赖游戏侧配合，**未核实，随首个真实游戏接入定**。
+
+**v1 落地面**（`internal/app/agent/ops_update.go`）：HTTP `POST /ops/agents/:agentId/processes/:name/update`（stagedPath + expectedSha256 必填，64 位小写 hex fail-closed）→ wire `MsgUpdateProcessRequest/Response`（0x040123/24）→ agent `UpdateProcess`。流程：哈希钉扎（staged sha256 ≠ 期望即拒绝，不碰运行态）→ 静默核心先停后换（coreStop/coreStart 不发 manual_* 中间事件）→ 旧二进制 rename 备份 `<target>.croupier-bak` → 安装（rename 优先，EXDEV 走同目录临时文件保原子）→ 拉起 → **稳定性窗口**（缺省 5s）：窗口内退出（waitDone 关闭）即回滚旧版并留 `update_rolled_back` 事件；窗口后退出属运行态走既有恢复环。备份**成功后保留**为 last-known-good（同目录滚动覆盖，人工回滚最后手段）。更新动作自己的启动=显式运行意图（desired=true，与手动 restart 一致）。
+
+**指纹记录（硬要求，零新表）**：事件面 `update_applied` / `update_rolled_back`（message 带旧→新指纹）；持久查询主入口=server 侧 execlog 审计（source=`process_update`，每次尝试含客户端不可用都留痕，入参/响应载荷全文含指纹与 rolledBack）；快照 `SupervisedProcessSnapshot.fingerprint`（proto 追加 16）随 metrics 上行——运行实例指纹=spawn 时缓存的二进制内容 sha256（文件换指纹不变，直至重启换实例），面板下钻与告警 timeline 按 (target, 时间) 对齐。
+
+**诚实边界（v1 未做）**：① 签名校验未实现——只做内容哈希（签名随密钥轮换会变，哈希是稳定可查锚点；来源可信性由分发通道保证）；② 数据库/配置兼容性检查未实现——属游戏侧知识，由调用方把关（配置版本经 ConfigVersion 关联）；③ 游戏进程维护窗口 / 在线人数阈值 / 流量导入闸未核实——随首个真实游戏接入定（见下）；④ 首次安装（无旧版可回滚）即失败时**无事件**（事件闭集仅 applied/rolled_back 两型），留痕在 execlog 审计。
 
 **指纹是硬要求（用户 2026-10-14：「每次更新都需要记录指纹，方便查询 log」）**：
 

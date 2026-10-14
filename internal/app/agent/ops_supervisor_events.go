@@ -30,6 +30,10 @@ const (
 	// schedule_fire 是定时动作事件（§10.6 调度状态）：与 manual_* 分型，
 	// 四类状态在事件流里可分辨（message 带 action 与 cron）。
 	supervisorEventScheduleAction = "schedule_fire"
+	// update_applied / update_rolled_back 是更新状态事件（§10.4）：message 带
+	// 旧→新指纹；回滚同样留痕（rolledBackTo=旧指纹）。持久查询主入口=execlog。
+	supervisorEventUpdateApplied    = "update_applied"
+	supervisorEventUpdateRolledBack = "update_rolled_back"
 
 	// flagBreakerTripped 追加在快照 flags 上（BROKEN 态恒带）。
 	flagBreakerTripped = "breaker_tripped"

@@ -156,6 +156,24 @@ message StartProcessResponse {
   int32 pid = 3;                 // Process ID
 }
 
+// UpdateProcessRequest swaps a managed process binary (agent-supervisor-design
+// §10.4 更新状态+指纹). The staged file is delivered out-of-band (file transfer);
+// the update is content-pinned: the agent computes the staged file's sha256 and
+// refuses everything that does not match expected_sha256 (fail-closed).
+message UpdateProcessRequest {
+  string process_name = 1;       // ManagedProcess logical name
+  string staged_path = 2;        // Agent-local path of the staged binary
+  string expected_sha256 = 3;    // Expected binary sha256 (hex, lowercase) — hard prerequisite
+}
+
+message UpdateProcessResponse {
+  bool success = 1;
+  string message = 2;
+  string old_fingerprint = 3;    // sha256 of the binary before update ("" when unknown)
+  string new_fingerprint = 4;    // sha256 of the binary after update
+  bool rolled_back = 5;          // true when the new binary failed to start and the old one was restored
+}
+
 // ListProcessesResponse contains the list of managed processes.
 message ListProcessesResponse {
   repeated ManagedProcess processes = 1;
@@ -241,6 +259,7 @@ message SupervisedProcessSnapshot {
   string adapter_id = 13;        // Adapter identity when kind=probe-adapter ("" for program)
   int64 next_schedule_at_unix = 14;  // Unix seconds of the next scheduled action (0 when unscheduled, §10.6)
   string next_schedule_action = 15;  // Next scheduled action: start / stop / restart ("" when unscheduled)
+  string fingerprint = 16;       // sha256 (hex) of the running binary, computed at spawn (§10.4 指纹)
 }
 
 // ExecuteCommandRequest requests command execution.

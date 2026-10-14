@@ -44,6 +44,10 @@ type OpsServer struct {
 	schedFired map[string]string
 	schedTick  time.Duration
 
+	// updateStabilityWindow 更新稳定性窗口（§10.4）：缺省 5s（零值走缺省常量，
+	// 测试注入短窗口）。
+	updateStabilityWindow time.Duration
+
 	// hintOnce 保证 core_pattern 只读提示（S3 中档）只发一次。
 	hintOnce sync.Once
 }
@@ -79,6 +83,10 @@ type managedProcess struct {
 	// snapshotDir 是本实例的崩溃快照目录（S3 轻档，startProcess 时建），
 	// 建目录失败为空串（env 档开关仍注入，只是无落盘位置）。
 	snapshotDir string
+	// fingerprint 是本实例启动时二进制的 sha256（§10.4 指纹硬要求）。spawn 时
+	// 算一次并缓存：运行中实例仍跑旧 inode，文件被换走后本字段仍反映进程实际
+	// 运行的内容；空串=未运行或内容读不到（未运行实例的快照字段为空）。
+	fingerprint string
 	mu          sync.RWMutex
 }
 
@@ -231,13 +239,7 @@ func (s *OpsServer) StopProcess(ctx context.Context, req *opsv1.StopProcessReque
 // doStopProcess is the shared stop funnel (manual ops and scheduled actions
 // §10.6)：与手动停同信号（stopCh close），恢复环据此判定主动停止、不误拉起。
 func (s *OpsServer) doStopProcess(p *managedProcess, event, message string) {
-	p.mu.Lock()
-	s.stopProcess(p)
-	oldPID := p.pid
-	p.pid = 0
-	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
-	p.nextRestartAt = nil
-	p.mu.Unlock()
+	oldPID := s.coreStopProcess(p)
 	// 停止是期望状态变更：跨 agent 重启不再被开机自启误启。
 	s.desired.SetRunning(p.name, false)
 
@@ -245,6 +247,20 @@ func (s *OpsServer) doStopProcess(p *managedProcess, event, message string) {
 	ev.OldPid = oldPID
 	ev.Message = message
 	s.emitSupervisorEvent(p, ev)
+}
+
+// coreStopProcess is the silent stop core（状态迁移，不写事件、不改期望状态）——
+// stop 漏斗与更新换包（§10.4 更新用独立事件分型，不留中间 manual_stop 噪音）共用。
+// oldPID 在锁内捕获后返回：锁外读 p.pid 会与 monitor 写路径竞态。
+func (s *OpsServer) coreStopProcess(p *managedProcess) int32 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s.stopProcess(p)
+	oldPID := p.pid
+	p.pid = 0
+	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
+	p.nextRestartAt = nil
+	return oldPID
 }
 
 // StartProcess starts a managed process.
@@ -297,27 +313,10 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 // doStartProcess is the shared start funnel (manual ops and scheduled actions
 // §10.6)。返回锁内捕获的新 pid（-1 表示未知，调用方自行处理）。
 func (s *OpsServer) doStartProcess(p *managedProcess, event, message string) (int32, error) {
-	p.mu.Lock()
-
-	if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
-		p.mu.Unlock()
-		return -1, fmt.Errorf("process '%s' is already running", p.name)
+	newPID, restarts, err := s.coreStartProcess(p)
+	if err != nil {
+		return newPID, err
 	}
-
-	if err := s.startProcess(p); err != nil {
-		p.mu.Unlock()
-		return -1, fmt.Errorf("failed to start process: %w", err)
-	}
-
-	p.restarts++
-	p.lastStart = timestamppb.Now()
-	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
-	p.nextRestartAt = nil
-	// start 是 BROKEN 的复位路径：成功即清连续失败计数。
-	p.consecutiveFails = 0
-	newPID := p.pid
-	restarts := p.restarts
-	p.mu.Unlock()
 	// 启动是期望状态变更：期望 running 落盘（清掉此前的停意图）。
 	s.desired.SetRunning(p.name, true)
 
@@ -330,6 +329,34 @@ func (s *OpsServer) doStartProcess(p *managedProcess, event, message string) (in
 	s.emitSnapshotHintOnce()
 
 	return newPID, nil
+}
+
+// coreStartProcess is the silent start core（拉起+状态迁移，不写事件、不改期望
+// 状态）—— start 漏斗与更新换包（§10.4）共用。返回锁内捕获的新 pid 与重启计数。
+func (s *OpsServer) coreStartProcess(p *managedProcess) (int32, int32, error) {
+	p.mu.Lock()
+
+	if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
+		p.mu.Unlock()
+		return -1, 0, fmt.Errorf("process '%s' is already running", p.name)
+	}
+
+	if err := s.startProcess(p); err != nil {
+		p.mu.Unlock()
+		return -1, 0, fmt.Errorf("failed to start process: %w", err)
+	}
+
+	p.restarts++
+	p.lastStart = timestamppb.Now()
+	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
+	p.nextRestartAt = nil
+	// start 是 BROKEN 的复位路径：成功即清连续失败计数。
+	p.consecutiveFails = 0
+	newPID := p.pid
+	restarts := p.restarts
+	p.mu.Unlock()
+
+	return newPID, restarts, nil
 }
 
 // ExecuteCommand executes a command on the agent.
@@ -425,6 +452,10 @@ func (s *OpsServer) startProcess(p *managedProcess) error {
 
 	p.cmd = cmd
 	p.pid = int32(cmd.Process.Pid)
+	// 指纹硬要求（§10.4）：spawn 时对本实例二进制算 sha256 并缓存——快照随行
+	// 上行，告警/探针 timeline 按 (target, 时间, 指纹) 与更新记录对齐。计算失败
+	// 留空串（不阻断启动；指纹缺失本身是可见事实）。
+	p.fingerprint = sha256HexFile(p.config.Command)
 	p.waitDone = make(chan struct{})
 	// 每个实例一个新 stopCh：手动 stop/restart 已把旧 stopCh close，
 	// 复用会让新实例的退避等待与归属守卫误判为「主动停止」。

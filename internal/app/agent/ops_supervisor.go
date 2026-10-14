@@ -56,6 +56,8 @@ func (s *OpsServer) SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapsh
 			LastEventUnix:   p.lastEventUnix,
 			SnapshotProfile: p.config.SnapshotProfile,
 			Kind:            p.config.EffectiveKind(),
+			// §10.4 指纹：spawn 时缓存的运行实例二进制 sha256（空=未运行/未计算）。
+			Fingerprint: p.fingerprint,
 		}
 		if p.config.EffectiveKind() == ManagedKindProbeAdapter {
 			snap.AdapterId = strings.TrimSpace(p.config.AdapterID)

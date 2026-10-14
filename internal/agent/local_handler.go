@@ -47,6 +47,7 @@ type OpsServerWrapper interface {
 	RestartProcess(ctx context.Context, req *opsv1.RestartProcessRequest) (*opsv1.RestartProcessResponse, error)
 	StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error)
 	StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error)
+	UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error)
 	ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error)
 
 	// System services (platform-specific, read-only)
@@ -219,6 +220,8 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleStopProcess(ctx, data)
 	case protocol.MsgStartProcessRequest:
 		return h.handleStartProcess(ctx, data)
+	case protocol.MsgUpdateProcessRequest:
+		return h.handleUpdateProcess(ctx, data)
 	case protocol.MsgExecuteCommandRequest:
 		return h.handleExecuteCommand(ctx, data)
 	case protocol.MsgListServicesRequest:
@@ -672,6 +675,29 @@ func (h *LocalHandler) handleStartProcess(ctx context.Context, data []byte) ([]b
 	resp, err := ops.StartProcess(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("start process: %w", err)
+	}
+
+	return proto.Marshal(resp)
+}
+
+// handleUpdateProcess handles UpdateProcessRequest
+func (h *LocalHandler) handleUpdateProcess(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.UpdateProcessRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal UpdateProcessRequest: %w", err)
+	}
+
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	resp, err := ops.UpdateProcess(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("update process: %w", err)
 	}
 
 	return proto.Marshal(resp)

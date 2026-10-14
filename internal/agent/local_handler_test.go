@@ -86,6 +86,10 @@ func (m *mockOpsServer) StartProcess(ctx context.Context, req *opsv1.StartProces
 	return m.startResp, m.startErr
 }
 
+func (m *mockOpsServer) UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error) {
+	return &opsv1.UpdateProcessResponse{}, nil
+}
+
 func (m *mockOpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	return m.executeResp, m.executeErr
 }

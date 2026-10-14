@@ -121,6 +121,14 @@ ops:
 
 面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记/快照档）。崩溃时 `detect_down` 事件登记快照目录与产物文件名；宿主机 `core_pattern` 非管道模式时 agent 发一次 `snapshot_hint` 只读提示（含建议命令，agent 不写宿主配置）。保留期/配额/产物下载权限见 [Agent Supervisor 设计简档](../design/agent-supervisor-design.md)。
 
+### ops.allowUpdate（受管程序二进制更新，§10.4）
+
+**agentcore 设计面，sidecar 二进制不解析此块（死配置）**——与 managedProcesses 同。`allowUpdate: true` 开启远程换包（`POST /ops/agents/:agentId/processes/:name/update`，入参 `stagedPath` + `expectedSha256`），与 allowExec 同属双闸家族（`ops.enabled` + `allowUpdate` 都缺省 false，须显式同开），独立键控。
+
+**更新状态**（§10.4）：流程=内容哈希钉扎（staged 文件 sha256 ≠ `expectedSha256` 一律拒绝，fail-closed 不碰运行态）→ 先停后换（静默核心，不发 `manual_*` 中间事件）→ 旧二进制备份 `<command>.croupier-bak`（**成功后保留**为 last-known-good，滚动覆盖，供人工回滚）→ 拉起 → 稳定性窗口（缺省 5s）内退出即自动回滚旧版。更新意图落 desired running（与手动 restart 一致）。指纹留痕三处：supervisor 事件 `update_applied` / `update_rolled_back`（message 带旧→新 sha256）、server 侧 execution_logs（`source=process_update`，持久查询主入口，按目标+时间+指纹检索）、进程快照 `fingerprint` 字段随 metrics 上行。
+
+边界诚实（v1）：签名校验未实现（只做内容哈希——哈希是稳定可查锚点，来源可信性由分发通道保证）；数据库/配置兼容性检查未实现（属游戏侧知识，由调用方把关）；游戏进程维护窗口/在线阈值/流量导入闸未核实，随首个真实游戏接入定；首次安装（无旧版）即失败无事件（留痕在 execution_logs）。
+
 ### probe（声明式探针面）
 
 Agent 侧探针配置（R2）。`targets[]` 只声明**探什么**；阈值、语义、采样间隔与上行口径由 `core/healthprobe` 给显式默认。**`probe:` 段存在即参与探测面**（R4）：`targets` 为空是合法声明（空静态 + 动态可增删——server 按 DB 源归属派生的 db 探针目标会下发进来）；整段缺省 = 不装配探针面（零行为差异）。任一本地目标非法（重名/类型未知/缺必填参数）**启动即失败**，不做静默跳过——重名会让上行路由串台。

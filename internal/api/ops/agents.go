@@ -191,6 +191,23 @@ func (s *AgentService) StopProcess(ctx context.Context, agentId, processName str
 	return err
 }
 
+// UpdateProcess swaps a managed process binary on the agent (§10.4 更新状态+指纹).
+func (s *AgentService) UpdateProcess(ctx context.Context, agentId, processName, stagedPath, expectedSha256 string) (*opsv1.UpdateProcessResponse, error) {
+	client := ops.GetAgentOpsClient()
+	wrapper, err := client.GetClient(ctx, agentId)
+	if err != nil {
+		return nil, errors.New("ops client unavailable: " + err.Error())
+	}
+
+	req := &opsv1.UpdateProcessRequest{
+		ProcessName:    processName,
+		StagedPath:     stagedPath,
+		ExpectedSha256: expectedSha256,
+	}
+
+	return wrapper.UpdateProcess(ctx, req)
+}
+
 func (s *AgentService) RestartProcess(ctx context.Context, agentId, processName string) error {
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)

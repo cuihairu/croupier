@@ -1039,6 +1039,10 @@ func (w *opsServerWrapper) StartProcess(ctx context.Context, req *opsv1.StartPro
 	return w.ops.StartProcess(ctx, req)
 }
 
+func (w *opsServerWrapper) UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error) {
+	return w.ops.UpdateProcess(ctx, req)
+}
+
 func (w *opsServerWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	return w.ops.ExecuteCommand(ctx, req)
 }
