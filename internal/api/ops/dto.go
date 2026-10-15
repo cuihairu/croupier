@@ -111,6 +111,9 @@ type OpsSupervisedProcess struct {
 	// Fingerprint 是运行实例二进制的 sha256（§10.4 指纹，spawn 时算一次）；
 	// 空=未运行或未计算。告警/探针 timeline 与更新记录按 (target, 时间, 指纹) 对齐。
 	Fingerprint string `json:"fingerprint,omitempty"`
+	// ScheduleSuspended 是调度暂停态（§10.2 暂停与恢复，暂停对象=调度）：
+	// 维护窗口内 cron 冻结，进程运行态不动；无调度条目恒 false。
+	ScheduleSuspended bool `json:"scheduleSuspended,omitempty"`
 }
 
 type OpsSupervisorSummary struct {
@@ -616,6 +619,18 @@ type OpsProcessUpdateRequest struct {
 	Name           string `uri:"name"`
 	StagedPath     string `json:"stagedPath"`
 	ExpectedSha256 string `json:"expectedSha256"`
+}
+
+type OpsProcessSchedulePauseRequest struct {
+	AgentID string `uri:"agentId"`
+	Name    string `uri:"name"`
+	Suspend bool   `json:"suspend"`
+}
+
+type OpsProcessSchedulePauseResponse struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
+	Suspended bool   `json:"suspended"`
 }
 
 type OpsProcessUpdateResponse struct {

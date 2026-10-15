@@ -65,6 +65,7 @@ func TestOpsHandlersRejectMalformedJSON(t *testing.T) {
 		{name: "OpsAgentProcessStart", fn: h.OpsAgentProcessStart},
 		{name: "OpsAgentProcessStop", fn: h.OpsAgentProcessStop},
 		{name: "OpsAgentProcessRestart", fn: h.OpsAgentProcessRestart},
+		{name: "OpsAgentProcessSchedulePause", fn: h.OpsAgentProcessSchedulePause},
 		{name: "OpsBackupsList", fn: h.OpsBackupsList},
 		{name: "OpsBackupCreate", fn: h.OpsBackupCreate},
 		{name: "OpsBackupDelete", fn: h.OpsBackupDelete},

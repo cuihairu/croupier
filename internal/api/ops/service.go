@@ -92,6 +92,10 @@ func (s *Service) OpsAgentProcessRestart(ctx context.Context, req *OpsProcessAct
 	return opsAgentProcessRestart(ctx, s.svcCtx, req)
 }
 
+func (s *Service) OpsAgentProcessSchedulePause(ctx context.Context, req *OpsProcessSchedulePauseRequest) (*OpsProcessSchedulePauseResponse, error) {
+	return opsAgentProcessSchedulePause(ctx, s.svcCtx, req)
+}
+
 func (s *Service) OpsAgentProcessUpdate(ctx context.Context, req *OpsProcessUpdateRequest) (*OpsProcessUpdateResponse, error) {
 	return opsAgentProcessUpdate(ctx, s.svcCtx, req)
 }

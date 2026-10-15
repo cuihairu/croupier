@@ -69,6 +69,10 @@ func (s *OpsServer) SampleSupervisedProcesses() []*opsv1.SupervisedProcessSnapsh
 				snap.NextScheduleAtUnix = nextAt.Unix()
 				snap.NextScheduleAction = nextAction
 			}
+			// §10.2 调度暂停：窗口内冻结 cron 触发，暂停态随快照上行走面板。
+			if s.isSchedulePaused(p.name) {
+				snap.ScheduleSuspended = true
+			}
 		}
 		if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
 			if p.lastStart != nil {

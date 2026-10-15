@@ -2,6 +2,7 @@ package ops
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
@@ -13,6 +14,14 @@ func bindOpsRequest(c *gin.Context, req interface{}) error {
 		return requestbind.BindQueryCompat(c, req)
 	}
 	return c.ShouldBindJSON(req)
+}
+
+// processActionParams 取进程动作的路径参数（agentId / name）。进程动作面
+// 的入参唯一来源是路径——面板发的是无 body POST，bindOpsRequest 的
+// ShouldBindJSON 对空 body 报 EOF（400），而 `uri` tag 不被 JSON 绑定，
+// 两条路都取不到 agentId/name（#59 同款绑定缺口，POST 侧）。
+func processActionParams(c *gin.Context) (agentId, name string) {
+	return strings.TrimSpace(c.Param("agentId")), strings.TrimSpace(c.Param("name"))
 }
 
 type Handler struct {
@@ -188,13 +197,9 @@ func (h *Handler) OpsAgentExecCommand(c *gin.Context) {
 }
 
 func (h *Handler) OpsAgentProcessStart(c *gin.Context) {
-	var req OpsProcessStartRequest
-	if err := bindOpsRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.OpsAgentProcessStart(c.Request.Context(), &req)
+	agentId, name := processActionParams(c)
+	resp, err := h.service.OpsAgentProcessStart(c.Request.Context(),
+		&OpsProcessStartRequest{AgentID: agentId, Name: name})
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -203,13 +208,9 @@ func (h *Handler) OpsAgentProcessStart(c *gin.Context) {
 }
 
 func (h *Handler) OpsAgentProcessStop(c *gin.Context) {
-	var req OpsProcessActionRequest
-	if err := bindOpsRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.OpsAgentProcessStop(c.Request.Context(), &req)
+	agentId, name := processActionParams(c)
+	resp, err := h.service.OpsAgentProcessStop(c.Request.Context(),
+		&OpsProcessActionRequest{AgentID: agentId, Name: name})
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -218,13 +219,9 @@ func (h *Handler) OpsAgentProcessStop(c *gin.Context) {
 }
 
 func (h *Handler) OpsAgentProcessRestart(c *gin.Context) {
-	var req OpsProcessActionRequest
-	if err := bindOpsRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.OpsAgentProcessRestart(c.Request.Context(), &req)
+	agentId, name := processActionParams(c)
+	resp, err := h.service.OpsAgentProcessRestart(c.Request.Context(),
+		&OpsProcessActionRequest{AgentID: agentId, Name: name})
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -238,6 +235,9 @@ func (h *Handler) OpsAgentProcessUpdate(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	// stagedPath/expectedSha256 走 body，但 agentId/name 只在路径上——JSON
+	// 绑定不认 uri tag，空 body 时 ShouldBindJSON 直接 EOF（#59 同款缺口）。
+	req.AgentID, req.Name = processActionParams(c)
 
 	resp, err := h.service.OpsAgentProcessUpdate(c.Request.Context(), &req)
 	if err != nil {
@@ -245,6 +245,26 @@ func (h *Handler) OpsAgentProcessUpdate(c *gin.Context) {
 		return
 	}
 	response.Success(c, resp)
+}
+
+// opsAgentProcessSchedulePause 暂停/恢复受管进程的 cron 调度触发（§10.2
+// 暂停与恢复，暂停对象=调度）。两个路由复用同处理器，suspend 由路由固定，
+// 不走请求体（语义在路径上，防路径与 body 语义分叉）。
+func (h *Handler) opsAgentProcessSchedulePause(c *gin.Context, suspend bool) {
+	agentId, name := processActionParams(c)
+	req := OpsProcessSchedulePauseRequest{AgentID: agentId, Name: name, Suspend: suspend}
+
+	resp, err := h.service.OpsAgentProcessSchedulePause(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// OpsAgentProcessSchedulePause 是公共暂停入口（路由与代理别名共用）。
+func (h *Handler) OpsAgentProcessSchedulePause(c *gin.Context) {
+	h.opsAgentProcessSchedulePause(c, true)
 }
 
 // Backup operations handlers
@@ -759,6 +779,14 @@ func (h *Handler) AgentProcessRestart(c *gin.Context) {
 
 func (h *Handler) AgentProcessUpdate(c *gin.Context) {
 	h.OpsAgentProcessUpdate(c)
+}
+
+func (h *Handler) AgentProcessSchedulePause(c *gin.Context) {
+	h.opsAgentProcessSchedulePause(c, true)
+}
+
+func (h *Handler) AgentProcessScheduleResume(c *gin.Context) {
+	h.opsAgentProcessSchedulePause(c, false)
 }
 
 func (h *Handler) AgentExecCommand(c *gin.Context) {

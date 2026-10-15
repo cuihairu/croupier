@@ -427,6 +427,23 @@ func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req
 	return &OpsProcessActionResponse{}, nil
 }
 
+func opsAgentProcessSchedulePause(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessSchedulePauseRequest) (*OpsProcessSchedulePauseResponse, error) {
+	if svcCtx == nil {
+		return nil, errorx.NewBadRequest("service context is required")
+	}
+	agentSvc := NewAgentService(svcCtx)
+	processName := strings.TrimSpace(req.Name)
+	resp, err := agentSvc.SetSchedulePause(ctx, req.AgentID, processName, req.Suspend)
+	if err != nil {
+		return nil, err
+	}
+	return &OpsProcessSchedulePauseResponse{
+		Success:   resp.GetSuccess(),
+		Message:   resp.GetMessage(),
+		Suspended: resp.GetSuspended(),
+	}, nil
+}
+
 // Backup operations implementations
 
 func opsBackupsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBackupsListRequest) (*OpsBackupsListResponse, error) {

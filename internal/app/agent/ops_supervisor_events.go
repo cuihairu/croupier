@@ -34,6 +34,10 @@ const (
 	// 旧→新指纹；回滚同样留痕（rolledBackTo=旧指纹）。持久查询主入口=execlog。
 	supervisorEventUpdateApplied    = "update_applied"
 	supervisorEventUpdateRolledBack = "update_rolled_back"
+	// schedule_paused / schedule_resumed 是调度暂停/恢复事件（§10.2 暂停与恢复
+	// 暂停对象=调度）：维护窗口意图留痕，恢复同样留痕（message 带原因）。
+	supervisorEventSchedulePaused  = "schedule_paused"
+	supervisorEventScheduleResumed = "schedule_resumed"
 
 	// flagBreakerTripped 追加在快照 flags 上（BROKEN 态恒带）。
 	flagBreakerTripped = "breaker_tripped"

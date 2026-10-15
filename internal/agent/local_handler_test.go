@@ -90,6 +90,10 @@ func (m *mockOpsServer) UpdateProcess(ctx context.Context, req *opsv1.UpdateProc
 	return &opsv1.UpdateProcessResponse{}, nil
 }
 
+func (m *mockOpsServer) SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error) {
+	return &opsv1.SchedulePauseResponse{}, nil
+}
+
 func (m *mockOpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	return m.executeResp, m.executeErr
 }

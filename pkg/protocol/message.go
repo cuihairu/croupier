@@ -108,6 +108,9 @@ const (
 	// Managed process binary update (agent-supervisor-design §10.4 更新状态+指纹)
 	MsgUpdateProcessRequest  = 0x040123
 	MsgUpdateProcessResponse = 0x040124
+	// Managed process schedule suspension (agent-supervisor-design §10.2 暂停与恢复)
+	MsgSchedulePauseRequest  = 0x040125
+	MsgSchedulePauseResponse = 0x040126
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -300,6 +303,10 @@ func MsgIDString(msgID uint32) string {
 		return "UpdateProcessRequest"
 	case MsgUpdateProcessResponse:
 		return "UpdateProcessResponse"
+	case MsgSchedulePauseRequest:
+		return "SchedulePauseRequest"
+	case MsgSchedulePauseResponse:
+		return "SchedulePauseResponse"
 	case MsgListServicesRequest:
 		return "ListServicesRequest"
 	case MsgListServicesResponse:

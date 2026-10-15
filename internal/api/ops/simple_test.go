@@ -3,6 +3,8 @@ package ops
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -182,6 +184,17 @@ func TestServiceOpsAgentProcessRestart(t *testing.T) {
 	s := NewService(svcCtx)
 
 	_, err := s.OpsAgentProcessRestart(ctx, &OpsProcessActionRequest{})
+	require.Error(t, err)
+}
+
+func TestServiceOpsAgentProcessSchedulePause(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svcCtx := &svc.ServiceContext{}
+	s := NewService(svcCtx)
+
+	_, err := s.OpsAgentProcessSchedulePause(ctx, &OpsProcessSchedulePauseRequest{Suspend: true})
 	require.Error(t, err)
 }
 
@@ -1203,6 +1216,55 @@ func TestOpsAgentProcessRestartHandler(t *testing.T) {
 	assert.GreaterOrEqual(t, rec.Code, http.StatusBadRequest)
 }
 
+func TestOpsAgentProcessSchedulePauseHandler(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	svcCtx := &svc.ServiceContext{}
+	h := NewHandler(NewService(svcCtx))
+	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/agent/process/schedule/pause", "")
+
+	h.OpsAgentProcessSchedulePause(ctx)
+
+	assert.GreaterOrEqual(t, rec.Code, http.StatusBadRequest)
+}
+
+// TestProcessActionHandlersAcceptEmptyBody 钉死进程动作面的绑定形态：面板发的
+// 是无 body POST，bindOpsRequest 的 ShouldBindJSON 对空 body 报 EOF
+// （400 bad_request），三条既有路由在线上一律失效。入参唯一来源是路径
+// （agentId/name），处理器必须走 c.Param 而非 body 绑定。
+func TestProcessActionHandlersAcceptEmptyBody(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	svcCtx := &svc.ServiceContext{}
+	h := NewHandler(NewService(svcCtx))
+
+	engine := gin.New()
+	g := engine.Group("/api/v1/ops/agents/:agentId/processes/:name")
+	g.POST("/start", h.OpsAgentProcessStart)
+	g.POST("/stop", h.OpsAgentProcessStop)
+	g.POST("/restart", h.OpsAgentProcessRestart)
+	g.POST("/schedule/pause", h.OpsAgentProcessSchedulePause)
+	g.POST("/schedule/resume", h.AgentProcessScheduleResume)
+
+	for _, sub := range []string{"/start", "/stop", "/restart", "/schedule/pause", "/schedule/resume"} {
+		target := "/api/v1/ops/agents/agent-1/processes/my-app" + sub
+		req := httptest.NewRequest(http.MethodPost, target, nil)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		engine.ServeHTTP(rec, req)
+
+		body := rec.Body.String()
+		if strings.Contains(body, "EOF") {
+			t.Fatalf("%s: empty-body POST rejected at binding: status=%d body=%s", sub, rec.Code, body)
+		}
+		if !strings.Contains(body, "ops client unavailable") {
+			t.Fatalf("%s: request did not reach agent ops service: status=%d body=%s", sub, rec.Code, body)
+		}
+	}
+}
+
 // Alias handler tests
 
 func TestHandlerAliasMethods(t *testing.T) {
@@ -1231,6 +1293,8 @@ func TestHandlerAliasMethods(t *testing.T) {
 		{name: "AgentProcessStart", fn: h.AgentProcessStart},
 		{name: "AgentProcessStop", fn: h.AgentProcessStop},
 		{name: "AgentProcessRestart", fn: h.AgentProcessRestart},
+		{name: "AgentProcessSchedulePause", fn: h.AgentProcessSchedulePause},
+		{name: "AgentProcessScheduleResume", fn: h.AgentProcessScheduleResume},
 		{name: "AgentExecCommand", fn: h.AgentExecCommand},
 		{name: "Nodes", fn: h.Nodes},
 		{name: "NodeCommands", fn: h.NodeCommands},

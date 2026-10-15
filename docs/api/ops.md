@@ -1210,15 +1210,15 @@ capture-agent 闸规则（reconcile / cep / lineage 三闸 + eventOps）的发�
 
 agent / server 探针面（R2 装配面 + R3 消费面）的采样策略下发、手动诊断与在线汇总。策略存 `config_versions`（键 `probe.policy`），agent 经 wire（`MsgProbePolicyRequest=0x04011F`）按会话 scope 拉取后热生效；汇总面 scope 由 `X-Game-ID` / `X-Env` 请求头决定。
 
-| 方法 | 路径                            | 说明                                                         |
-| ---- | ------------------------------- | ------------------------------------------------------------ |
-| GET  | `/api/v1/ops/probe/policy`      | 当前 scope 已发布的采样策略（version=0 表示未发布过）        |
-| PUT  | `/api/v1/ops/probe/policy`      | 发布策略新版本（整份内容 + baseVersion 乐观锁，冲突 409）    |
-| POST | `/api/v1/ops/probe/policy/validate` | dry-run 校验（不落库，与 agent apply 同一校验真值）        |
-| POST | `/api/v1/ops/probe/policy/rollback` | 以历史版本内容再发一版（回滚也是一次新发布）               |
+| 方法 | 路径                                | 说明                                                      |
+| ---- | ----------------------------------- | --------------------------------------------------------- |
+| GET  | `/api/v1/ops/probe/policy`          | 当前 scope 已发布的采样策略（version=0 表示未发布过）     |
+| PUT  | `/api/v1/ops/probe/policy`          | 发布策略新版本（整份内容 + baseVersion 乐观锁，冲突 409） |
+| POST | `/api/v1/ops/probe/policy/validate` | dry-run 校验（不落库，与 agent apply 同一校验真值）       |
+| POST | `/api/v1/ops/probe/policy/rollback` | 以历史版本内容再发一版（回滚也是一次新发布）              |
 | GET  | `/api/v1/ops/probe/policy/versions` | 版本历史（不含内容）                                      |
-| POST | `/api/v1/ops/probe/diagnose`    | server 本机探针手动诊断（对已配置目标即时探一次）            |
-| GET  | `/api/v1/ops/probe/summary`     | 探针在线汇总（状态矩阵，两视角并存）                         |
+| POST | `/api/v1/ops/probe/diagnose`        | server 本机探针手动诊断（对已配置目标即时探一次）         |
+| GET  | `/api/v1/ops/probe/summary`         | 探针在线汇总（状态矩阵，两视角并存）                      |
 
 **GET probe/policy 响应**
 
@@ -1269,3 +1269,38 @@ agent / server 探针面（R2 装配面 + R3 消费面）的采样策略下发�
 ```
 
 设计依据：[agent-health-recovery-review](../design/agent-health-recovery-review.md) §4.2/§4.3/§13.2/§13.3。
+
+### 44. "暂停 / 恢复 Agent 进程调度"（agent-supervisor-design §10.2 暂停与恢复，暂停对象=调度）
+
+1. route definition
+
+- Url: /api/v1/ops/agents/:agentId/processes/:name/schedule/pause
+- Method: POST
+- Request: `OpsProcessSchedulePauseRequest`（`suspend` 字段由路由固定，请求体不参与取值）
+- Response: `OpsProcessSchedulePauseResponse`
+
+- Url: /api/v1/ops/agents/:agentId/processes/:name/schedule/resume
+- Method: POST
+- Request / Response: 同上（`suspend` 固定为 false）
+
+2. request definition
+
+```go
+type OpsProcessSchedulePauseRequest struct {
+	AgentID string `uri:"agentId"`
+	Name string `uri:"name"`
+	Suspend bool `json:"suspend"`
+}
+```
+
+3. response definition
+
+```go
+type OpsProcessSchedulePauseResponse struct {
+	Success bool `json:"success"`
+	Message string `json:"message,omitempty"`
+	Suspended bool `json:"suspended"`
+}
+```
+
+语义边界：暂停的是**声明的 cron 调度触发**，进程运行态不动（不 stop、不影响恢复环）；恢复后下一匹配分钟槽照常触发，**暂停期间错过的槽位不补跑**（crond 语义，同 §10.6）；无调度条目时暂停为幂等空操作（意图落盘，快照不渲染字段）；暂停意图跨 agent 重启保留（`logs/supervisor/schedule_pause_state.json`，损坏文件 fail-open 空映射）。门禁：与手动 start/stop/restart 同双闸（`ops.enabled` + `allowRestart` 均须显式开启），无独立配置键。事件留痕：`schedule_paused` / `schedule_resumed`（§3.6 事件闭集）；快照上行 `scheduleSuspended`（proto 17）。设计依据：[agent-supervisor-design](../design/agent-supervisor-design.md) §10.2/§10.6。

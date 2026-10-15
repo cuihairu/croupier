@@ -1043,6 +1043,10 @@ func (w *opsServerWrapper) UpdateProcess(ctx context.Context, req *opsv1.UpdateP
 	return w.ops.UpdateProcess(ctx, req)
 }
 
+func (w *opsServerWrapper) SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error) {
+	return w.ops.SetSchedulePause(ctx, req)
+}
+
 func (w *opsServerWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	return w.ops.ExecuteCommand(ctx, req)
 }

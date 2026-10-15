@@ -72,7 +72,7 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 
 **管理状态**：运维手动 stop 的进程期望状态落盘 supervisor 日志目录 `desired_state.json`——`autoRestart: true` 只恢复**崩溃**的进程，agent 重启后开机自启不误启运维主动停掉的进程；手动 start/restart 恢复期望运行。文件缺失或损坏时 fail-open（等同无记录，沿用 autoRestart 既有语义）。
 
-**调度状态**（§10.6）：`schedule[]` 声明定时 start/stop/restart。定时触发与恢复环是两条执行路径——定时停与手动停同信号（stopCh），恢复环不会把定时停误拉起；触发走显式动作同一漏斗（期望状态与 `schedule_fire` 事件随流，与 `manual_start`/`manual_stop` 事件分型）。快照携带下一次触发时间与动作（`nextScheduleAtUnix`/`nextScheduleAction`，无调度为零值）。边界诚实：schedule 是 agent 本地配置意图，与 `autoRestart`/开机自启同信任根，**不受 `allowRestart` 门禁**（`allowRestart` 门的是远程操作面）——要禁用定时动作请删除 `schedule` 配置。
+**调度状态**（§10.6）：`schedule[]` 声明定时 start/stop/restart。定时触发与恢复环是两条执行路径——定时停与手动停同信号（stopCh），恢复环不会把定时停误拉起；触发走显式动作同一漏斗（期望状态与 `schedule_fire` 事件随流，与 `manual_start`/`manual_stop` 事件分型）。快照携带下一次触发时间与动作（`nextScheduleAtUnix`/`nextScheduleAction`，无调度为零值）。边界诚实：schedule 是 agent 本地配置意图，与 `autoRestart`/开机自启同信任根，**不受 `allowRestart` 门禁**（`allowRestart` 门的是远程操作面）——要禁用定时动作请删除 `schedule` 配置。**暂停/恢复调度**（§10.2 暂停与恢复，暂停对象=调度）：`POST /ops/agents/:agentId/processes/:name/schedule/pause`（或 `resume`）冻结/解冻该进程全部 cron 触发，进程运行态不动，暂停期间错过的槽位不补跑（crond 语义）；**它是远程运维动作，走 `allowRestart` 双闸**（与上面「触发本身不受门禁」不矛盾——门禁的是远程开关，不是本地配置意图），无独立配置键；暂停意图落盘 `logs/supervisor/schedule_pause_state.json`（跨 agent 重启保留，损坏 fail-open 空映射），快照上行 `scheduleSuspended`，事件留痕 `schedule_paused`/`schedule_resumed`。
 
 ### ops.allowExec（远程命令执行，§10.7 边界三件套）
 

@@ -107,7 +107,7 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 ### 3.6 事件日志（双通道）
 
-事件类型闭集：`detect_down` / `auto_restart` / `restart_failed` / `breaker_tripped` / `resource_over_limit` / `manual_start` / `manual_stop` / `schedule_fire`（§10.6） / `update_applied` / `update_rolled_back`（§10.4）。
+事件类型闭集：`detect_down` / `auto_restart` / `restart_failed` / `breaker_tripped` / `resource_over_limit` / `manual_start` / `manual_stop` / `schedule_fire`（§10.6） / `schedule_paused` / `schedule_resumed`（§10.2 暂停与恢复） / `update_applied` / `update_rolled_back`（§10.4）。
 
 | 通道           | 载体与语义                                                                                                                                      |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -193,11 +193,13 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 | 更新二进制文件           | 是             | §10.4 五要求                                                                           |
 | 更新配置文件             | 是             | 版本化、校验、原子发布（configsync 先例）                                              |
 | 修改探测频率             | 是             | 属期望配置（与采样策略同源，简档 §13.3）                                               |
-| 暂停与恢复               | 是             | **指明暂停对象：调度 / 程序 / 探测**                                                   |
+| 暂停与恢复               | 是             | **指明暂停对象：调度 / 程序 / 探测**；v1 已交付**调度暂停**（§10.6 下）                |
 | 健康探测                 | 是             | 复用 `core/healthprobe`（本仓既有）                                                    |
 | 异常恢复策略             | 是             | 重启、退避、熔断、人工介入（S2 已有）                                                  |
 | 查看日志、版本、运行状态 | 是             | 统一上报 Server（S1 已有）                                                             |
 | 任意远程 Shell 执行      | **不默认开放** | §10.7 硬边界                                                                           |
+
+**暂停与恢复 v1 已实现（2026-10-15，暂停对象=调度）**：`POST /api/v1/ops/agents/:agentId/processes/:name/schedule/pause`（或 `.../resume`，两条路由同一处理器、`suspend` 由路由固定不走请求体，防路径与 body 语义分叉）→ wire `MsgSchedulePauseRequest/Response`（0x040125/26，追加号）→ agent `SetSchedulePause`。暂停的是**声明的 cron 触发**，进程运行态不动（不 stop、不影响恢复环、不改进程期望状态）。落盘 `logs/supervisor/schedule_pause_state.json`（`map[process]paused`，与期望状态 `desired_state.json` 同目录同原子写模式；**跨 agent 重启保留**——维护窗口意图不因 agent 重启自动解除），文件缺失/损坏 fail-open 空映射（缺记录=未暂停，宁可不拦误触发，不因状态文件坏了拒绝装配）。触发侧：`scheduleTick` 跳过暂停进程（`continue` 在槽去重之前，暂停期间**不写 `schedFired`**——恢复后下一匹配槽照常触发，暂停期间的槽不补跑，crond 语义）。门禁：与手动 start/stop/restart **同双闸**（`ops.enabled` + `allowRestart` 均须显式开启，无独立配置键）——它是远程运维动作；与 §10.6「定时触发本身不受 `allowRestart` 门禁」不矛盾（门禁的是远程开关，不是本地配置意图）。无调度条目的进程暂停为幂等空操作（意图落盘，快照不渲染字段）。快照上行 `SupervisedProcessSnapshot.schedule_suspended`（proto 追加 17），事件分型 `schedule_paused` / `schedule_resumed`（§3.6 闭集追加）。**边界诚实**：暂停**程序**与暂停**探测**两个对象未做——程序暂停语义上≈「手动停 + 记住要恢复」（本仓手动停已有期望状态落盘与恢复环抑制，增量价值弱）；探测暂停同理≈「维护窗口内抑制健康告警」，随告警策略面（§8/§13）一并做更合理，届时若对象语义清晰再单列 v2，不猜实现。
 
 ### 10.3 四类状态（已采纳；管理状态首块已实现，余两类随能力面落地）
 
@@ -243,7 +245,7 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 调度入口统一（一份 schedule 模型），但**定时触发与恢复环是两条执行路径**——与本仓既有结构事实一致：恢复环仅由进程退出事件驱动（`ops_server.go:426-439`），探测窗口不馈入重启（健康评审 §5.2 约束 2）。
 
-**调度状态已实现**（2026-10-15）：`ManagedProcessConfig.schedule[]`（`action` 闭集 start/stop/restart + `cron` 五字段）——cron 解析与 server 侧任务调度同一 `internal/tasks/scheduler.ParseCron`（一份 schedule 模型），Validate 配置加载即拦非法动作/表达式。到点触发走显式动作**同一漏斗**（`doStart/doStop/doRestart`：desired-state 落盘与 supervisor 事件随流），scheduled stop 与手动停同信号（stopCh close），恢复环不把定时停误判为崩溃拉起（用例 `TestScheduledStopRecordsDesiredStateAndBlocksAutoRestart` 固化）。30s 分钟槽扫描 + (进程,动作,槽) 去重幂等；**无补跑**（agent 停机错过的槽位不补触发，crond 语义）。事件分型 `schedule_fire`（与 manual_* 分型，四类状态在事件流可分辨）；快照追加 `next_schedule_at_unix=14` / `next_schedule_action=15`（调度状态事前可见，无调度零值零漂移）。边界：schedule 是 agent 本地配置意图（与 autoRestart/开机自启同信任根），**不受 allowRestart 门禁**（allowRestart 门的是远程操作面）；实例不存在时 stop 幂等跳过、start/restart 同 StartProcess 路径物化。
+**调度状态已实现**（2026-10-15）：`ManagedProcessConfig.schedule[]`（`action` 闭集 start/stop/restart + `cron` 五字段）——cron 解析与 server 侧任务调度同一 `internal/tasks/scheduler.ParseCron`（一份 schedule 模型），Validate 配置加载即拦非法动作/表达式。到点触发走显式动作**同一漏斗**（`doStart/doStop/doRestart`：desired-state 落盘与 supervisor 事件随流），scheduled stop 与手动停同信号（stopCh close），恢复环不把定时停误判为崩溃拉起（用例 `TestScheduledStopRecordsDesiredStateAndBlocksAutoRestart` 固化）。30s 分钟槽扫描 + (进程,动作,槽) 去重幂等；**无补跑**（agent 停机错过的槽位不补触发，crond 语义）。事件分型 `schedule_fire`（与 manual_* 分型，四类状态在事件流可分辨）；快照追加 `next_schedule_at_unix=14` / `next_schedule_action=15`（调度状态事前可见，无调度零值零漂移）。边界：schedule 是 agent 本地配置意图（与 autoRestart/开机自启同信任根），**不受 allowRestart 门禁**（allowRestart 门的是远程操作面）；实例不存在时 stop 幂等跳过、start/restart 同 StartProcess 路径物化。触发侧唯一运行时闸门是**调度暂停**（§10.2 暂停与恢复 v1）：暂停进程在槽去重前被跳过（不写 `schedFired`），恢复后下一匹配槽照常触发、暂停期间不补跑。
 
 ### 10.7 远程 Shell 不默认开放（硬边界）
 

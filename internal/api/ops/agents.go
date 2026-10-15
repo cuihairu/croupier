@@ -238,3 +238,20 @@ func (s *AgentService) RestartProcess(ctx context.Context, agentId, processName 
 	_, err = wrapper.RestartProcess(ctx, req)
 	return err
 }
+
+// SetSchedulePause suspends or resumes a managed process's schedule firing
+// (§10.2 暂停与恢复，暂停对象=调度；进程运行态不动).
+func (s *AgentService) SetSchedulePause(ctx context.Context, agentId, processName string, suspended bool) (*opsv1.SchedulePauseResponse, error) {
+	client := ops.GetAgentOpsClient()
+	wrapper, err := client.GetClient(ctx, agentId)
+	if err != nil {
+		return nil, errors.New("ops client unavailable: " + err.Error())
+	}
+
+	req := &opsv1.SchedulePauseRequest{
+		ProcessName: processName,
+		Suspend:     suspended,
+	}
+
+	return wrapper.SetSchedulePause(ctx, req)
+}

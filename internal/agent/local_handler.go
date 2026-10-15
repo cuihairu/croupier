@@ -48,6 +48,7 @@ type OpsServerWrapper interface {
 	StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error)
 	StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error)
 	UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error)
+	SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error)
 	ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error)
 
 	// System services (platform-specific, read-only)
@@ -222,6 +223,8 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleStartProcess(ctx, data)
 	case protocol.MsgUpdateProcessRequest:
 		return h.handleUpdateProcess(ctx, data)
+	case protocol.MsgSchedulePauseRequest:
+		return h.handleSchedulePause(ctx, data)
 	case protocol.MsgExecuteCommandRequest:
 		return h.handleExecuteCommand(ctx, data)
 	case protocol.MsgListServicesRequest:
@@ -698,6 +701,30 @@ func (h *LocalHandler) handleUpdateProcess(ctx context.Context, data []byte) ([]
 	resp, err := ops.UpdateProcess(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("update process: %w", err)
+	}
+
+	return proto.Marshal(resp)
+}
+
+// handleSchedulePause suspends or resumes a managed process's schedule firing
+// (§10.2 暂停与恢复，暂停对象=调度).
+func (h *LocalHandler) handleSchedulePause(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.SchedulePauseRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal SchedulePauseRequest: %w", err)
+	}
+
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	resp, err := ops.SetSchedulePause(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("schedule pause: %w", err)
 	}
 
 	return proto.Marshal(resp)

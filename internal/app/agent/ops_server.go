@@ -36,6 +36,10 @@ type OpsServer struct {
 	// 期望跨 agent 重启保留，开机自启不再误启被主动停掉的进程。
 	desired *desiredStateStore
 
+	// schedPause 调度暂停状态（§10.2 暂停与恢复，暂停对象=调度）：运维维护
+	// 窗口的 cron 冻结意图，跨 agent 重启保留；scheduleTick 跳过暂停进程。
+	schedPause *schedulePauseStore
+
 	// 调度状态（§10.6）：scheds 构造期编译（config 构造后不变，快照与循环
 	// 共读）；schedStop 由 Stop 关闭；schedFired 只属调度循环 goroutine；
 	// schedTick 缺省 30s（测试钩子，直接驱动 scheduleTick 时拉长）。
@@ -96,13 +100,14 @@ func NewOpsServer(config *OpsConfig, agentID, version string, _ interface{}) *Op
 		config = DefaultOpsConfig()
 	}
 	return &OpsServer{
-		config:    config,
-		agentID:   agentID,
-		version:   version,
-		processes: make(map[string]*managedProcess),
-		supLog:    newSupervisorEventLog(config.SupervisorLog),
-		desired:   newDesiredStateStore(config.SupervisorLog),
-		scheds:    compileProcessSchedules(config.ManagedProcesses),
+		config:     config,
+		agentID:    agentID,
+		version:    version,
+		processes:  make(map[string]*managedProcess),
+		supLog:     newSupervisorEventLog(config.SupervisorLog),
+		desired:    newDesiredStateStore(config.SupervisorLog),
+		scheds:     compileProcessSchedules(config.ManagedProcesses),
+		schedPause: newSchedulePauseStore(config.SupervisorLog),
 	}
 }
 

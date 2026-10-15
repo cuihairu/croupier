@@ -178,6 +178,21 @@ message UpdateProcessResponse {
   bool rolled_back = 5;          // true when the new binary failed to start and the old one was restored
 }
 
+// SchedulePauseRequest suspends or resumes a managed process's declared
+// schedule firing (agent-supervisor-design §10.2 暂停与恢复，暂停对象=调度).
+// Suspension never touches the running process: cron actions simply stop firing
+// until the operator resumes.
+message SchedulePauseRequest {
+  string process_name = 1;   // ManagedProcess logical name
+  bool suspend = 2;          // true=暂停调度, false=恢复调度
+}
+
+message SchedulePauseResponse {
+  bool success = 1;
+  string message = 2;
+  bool suspended = 3;        // Effective pause state after this call
+}
+
 // ListProcessesResponse contains the list of managed processes.
 message ListProcessesResponse {
   repeated ManagedProcess processes = 1;
@@ -264,6 +279,7 @@ message SupervisedProcessSnapshot {
   int64 next_schedule_at_unix = 14;  // Unix seconds of the next scheduled action (0 when unscheduled, §10.6)
   string next_schedule_action = 15;  // Next scheduled action: start / stop / restart ("" when unscheduled)
   string fingerprint = 16;       // sha256 (hex) of the running binary, computed at spawn (§10.4 指纹)
+  bool schedule_suspended = 17;  // Operator-suspended schedule firing (§10.2 暂停与恢复)
 }
 
 // ExecuteCommandRequest requests command execution.

@@ -566,6 +566,8 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/agents/:agentId/processes/:name/stop", opsHandler.AgentProcessStop)
 	g.POST("/agents/:agentId/processes/:name/start", opsHandler.AgentProcessStart)
 	g.POST("/agents/:agentId/processes/:name/update", opsHandler.AgentProcessUpdate)
+	g.POST("/agents/:agentId/processes/:name/schedule/pause", opsHandler.AgentProcessSchedulePause)
+	g.POST("/agents/:agentId/processes/:name/schedule/resume", opsHandler.AgentProcessScheduleResume)
 	g.POST("/agents/:agentId/exec", opsHandler.AgentExecCommand)
 
 	// 核心 Ops

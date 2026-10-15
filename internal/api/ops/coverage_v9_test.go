@@ -627,9 +627,6 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 	// agent 进程命令成功
 	agentH := NewHandler(NewService(&svc.ServiceContext{}))
 	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentExecCommand, http.MethodPost, `{"AgentID":"agent-1","command":"ls","args":[],"timeout":1}`))
-	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentProcessStart, http.MethodPost, `{"AgentID":"agent-1","Name":"p1"}`))
-	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentProcessStop, http.MethodPost, `{"AgentID":"agent-1","Name":"p1"}`))
-	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentProcessRestart, http.MethodPost, `{"AgentID":"agent-1","Name":"p1"}`))
 
 	// node 命令成功
 	nodeH := NewHandler(NewService(nodeCtx))
@@ -642,6 +639,43 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsHealthUpdate, http.MethodPost, `{"checks":[{"id":"hc-1","kind":"tcp","target":"127.0.0.1:80"}]}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsHealthRun, http.MethodPost, `{"id":"hc-1"}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsMaintenanceUpdate, http.MethodPost, `{"windows":[{"gameId":"g","env":"prod"}]}`))
+}
+
+// TestHandlerProcessActionSuccessPathV9 用真实路由驱动进程动作面（路径入参）：
+// 面板发的是无 body POST，agentId/name 只来自路径参数（#59 同款绑定缺口：
+// ShouldBindJSON 对空 body 报 EOF，uri tag 不被 JSON 绑定读取）。证明入参从
+// 路径贯通到 agent ops 隧道调用。
+func TestHandlerProcessActionSuccessPathV9(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	caller := &fakeCaller{respFor: map[uint32]proto.Message{
+		protocol.MsgStartProcessRequest:   &opsv1.StartProcessResponse{Pid: 99},
+		protocol.MsgStopProcessRequest:    &opsv1.StopProcessResponse{},
+		protocol.MsgRestartProcessRequest: &opsv1.RestartProcessResponse{},
+		protocol.MsgSchedulePauseRequest:  &opsv1.SchedulePauseResponse{Success: true, Suspended: true},
+	}}
+	client := agentops.GetAgentOpsClient()
+	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
+	t.Cleanup(func() { client.SetSessionResolver(nil) })
+
+	h := NewHandler(NewService(&svc.ServiceContext{}))
+	router := gin.New()
+	g := router.Group("/api/v1/ops/agents/:agentId/processes/:name")
+	g.POST("/start", h.OpsAgentProcessStart)
+	g.POST("/stop", h.OpsAgentProcessStop)
+	g.POST("/restart", h.OpsAgentProcessRestart)
+	g.POST("/schedule/pause", h.OpsAgentProcessSchedulePause)
+	g.POST("/schedule/resume", h.AgentProcessScheduleResume)
+
+	for _, sub := range []string{"/start", "/stop", "/restart", "/schedule/pause", "/schedule/resume"} {
+		target := "/api/v1/ops/agents/agent-1/processes/p1" + sub
+		req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(""))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code, "%s: %s", sub, rec.Body.String())
+	}
 }
 
 // ---- handler 服务错误路径 ----

@@ -87,6 +87,7 @@ func supervisedProcessFromSnapshot(snap *opsv1.SupervisedProcessSnapshot) OpsSup
 		NextScheduleAtUnix: snap.NextScheduleAtUnix,
 		NextScheduleAction: snap.NextScheduleAction,
 		Fingerprint:        snap.Fingerprint,
+		ScheduleSuspended:  snap.ScheduleSuspended,
 	}
 	if len(snap.Flags) > 0 {
 		out.Flags = make([]string, len(snap.Flags))

@@ -108,6 +108,11 @@ func (s *OpsServer) scheduleTick(now time.Time) {
 	}
 	sort.Strings(names)
 	for _, name := range names {
+		// §10.2 调度暂停：维护窗口内 cron 冻结，进程运行态不动。暂停期间
+		// 不写 schedFired——恢复后下一匹配槽照常触发（无补跑，crond 语义）。
+		if s.isSchedulePaused(name) {
+			continue
+		}
 		for _, entry := range s.scheds[name] {
 			if !entry.spec.Matches(now) {
 				continue

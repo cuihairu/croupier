@@ -180,6 +180,8 @@ func TestMsgIDStringKnownTypes(t *testing.T) {
 		{MsgStartProcessResponse, "StartProcessResponse"},
 		{MsgUpdateProcessRequest, "UpdateProcessRequest"},
 		{MsgUpdateProcessResponse, "UpdateProcessResponse"},
+		{MsgSchedulePauseRequest, "SchedulePauseRequest"},
+		{MsgSchedulePauseResponse, "SchedulePauseResponse"},
 		{MsgExecuteCommandRequest, "ExecuteCommandRequest"},
 		{MsgExecuteCommandResponse, "ExecuteCommandResponse"},
 		{MsgListServicesRequest, "ListServicesRequest"},

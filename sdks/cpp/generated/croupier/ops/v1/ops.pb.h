@@ -208,6 +208,14 @@ class RestartProcessResponse;
 struct RestartProcessResponseDefaultTypeInternal;
 extern RestartProcessResponseDefaultTypeInternal _RestartProcessResponse_default_instance_;
 extern const ::google::protobuf::internal::ClassDataFull RestartProcessResponse_class_data_;
+class SchedulePauseRequest;
+struct SchedulePauseRequestDefaultTypeInternal;
+extern SchedulePauseRequestDefaultTypeInternal _SchedulePauseRequest_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull SchedulePauseRequest_class_data_;
+class SchedulePauseResponse;
+struct SchedulePauseResponseDefaultTypeInternal;
+extern SchedulePauseResponseDefaultTypeInternal _SchedulePauseResponse_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull SchedulePauseResponse_class_data_;
 class ServiceInfo;
 struct ServiceInfoDefaultTypeInternal;
 extern ServiceInfoDefaultTypeInternal _ServiceInfo_default_instance_;
@@ -864,7 +872,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisorEvent final : public ::go
     return *reinterpret_cast<const SupervisorEvent*>(
         &_SupervisorEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 19;
+  static constexpr int kIndexInFileMessages = 21;
   friend void swap(SupervisorEvent& a, SupervisorEvent& b) { a.Swap(&b); }
   inline void Swap(SupervisorEvent* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -1285,7 +1293,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
     return *reinterpret_cast<const SupervisedProcessSnapshot*>(
         &_SupervisedProcessSnapshot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 22;
+  static constexpr int kIndexInFileMessages = 24;
   friend void swap(SupervisedProcessSnapshot& a, SupervisedProcessSnapshot& b) { a.Swap(&b); }
   inline void Swap(SupervisedProcessSnapshot* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -1389,8 +1397,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
     kCpuPercentFieldNumber = 7,
     kLastEventUnixFieldNumber = 9,
     kNextRestartAtUnixFieldNumber = 10,
-    kNextScheduleAtUnixFieldNumber = 14,
     kRestartCountFieldNumber = 5,
+    kScheduleSuspendedFieldNumber = 17,
+    kNextScheduleAtUnixFieldNumber = 14,
   };
   // repeated string flags = 8;
   [[nodiscard]] int flags_size()
@@ -1577,16 +1586,6 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
   void _internal_set_next_restart_at_unix(::int64_t value);
 
   public:
-  // int64 next_schedule_at_unix = 14;
-  void clear_next_schedule_at_unix() ;
-  [[nodiscard]] ::int64_t next_schedule_at_unix() const;
-  void set_next_schedule_at_unix(::int64_t value);
-
-  private:
-  ::int64_t _internal_next_schedule_at_unix() const;
-  void _internal_set_next_schedule_at_unix(::int64_t value);
-
-  public:
   // int32 restart_count = 5;
   void clear_restart_count() ;
   [[nodiscard]] ::int32_t restart_count() const;
@@ -1597,11 +1596,31 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
   void _internal_set_restart_count(::int32_t value);
 
   public:
+  // bool schedule_suspended = 17;
+  void clear_schedule_suspended() ;
+  [[nodiscard]] bool schedule_suspended() const;
+  void set_schedule_suspended(bool value);
+
+  private:
+  bool _internal_schedule_suspended() const;
+  void _internal_set_schedule_suspended(bool value);
+
+  public:
+  // int64 next_schedule_at_unix = 14;
+  void clear_next_schedule_at_unix() ;
+  [[nodiscard]] ::int64_t next_schedule_at_unix() const;
+  void set_next_schedule_at_unix(::int64_t value);
+
+  private:
+  ::int64_t _internal_next_schedule_at_unix() const;
+  void _internal_set_next_schedule_at_unix(::int64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:croupier.ops.v1.SupervisedProcessSnapshot)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 16,
+  static const ::google::protobuf::internal::TcParseTable<5, 17,
                                    0, 136,
                                    2>
       _table_;
@@ -1639,8 +1658,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
     double cpu_percent_;
     ::int64_t last_event_unix_;
     ::int64_t next_restart_at_unix_;
-    ::int64_t next_schedule_at_unix_;
     ::int32_t restart_count_;
+    bool schedule_suspended_;
+    ::int64_t next_schedule_at_unix_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -2570,7 +2590,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ServiceInfo final : public ::google
     return *reinterpret_cast<const ServiceInfo*>(
         &_ServiceInfo_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 28;
+  static constexpr int kIndexInFileMessages = 30;
   friend void swap(ServiceInfo& a, ServiceInfo& b) { a.Swap(&b); }
   inline void Swap(ServiceInfo* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -2776,6 +2796,444 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ServiceInfo final : public ::google
 };
 
 extern const ::google::protobuf::internal::ClassDataFull ServiceInfo_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SchedulePauseResponse final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.SchedulePauseResponse) */ {
+ public:
+  inline SchedulePauseResponse() : SchedulePauseResponse(nullptr) {}
+  ~SchedulePauseResponse() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(SchedulePauseResponse* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(SchedulePauseResponse));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr SchedulePauseResponse(::google::protobuf::internal::ConstantInitialized);
+
+  inline SchedulePauseResponse(const SchedulePauseResponse& from) : SchedulePauseResponse(nullptr, from) {}
+  inline SchedulePauseResponse(SchedulePauseResponse&& from) noexcept
+      : SchedulePauseResponse(nullptr, ::std::move(from)) {}
+  inline SchedulePauseResponse& operator=(const SchedulePauseResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SchedulePauseResponse& operator=(SchedulePauseResponse&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const SchedulePauseResponse& default_instance() {
+    return *reinterpret_cast<const SchedulePauseResponse*>(
+        &_SchedulePauseResponse_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 18;
+  friend void swap(SchedulePauseResponse& a, SchedulePauseResponse& b) { a.Swap(&b); }
+  inline void Swap(SchedulePauseResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SchedulePauseResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] SchedulePauseResponse* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<SchedulePauseResponse>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SchedulePauseResponse& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const SchedulePauseResponse& from) { SchedulePauseResponse::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(SchedulePauseResponse* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.SchedulePauseResponse"; }
+
+  explicit SchedulePauseResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  SchedulePauseResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const SchedulePauseResponse& from);
+  SchedulePauseResponse(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, SchedulePauseResponse&& from) noexcept
+      : SchedulePauseResponse(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kMessageFieldNumber = 2,
+    kSuccessFieldNumber = 1,
+    kSuspendedFieldNumber = 3,
+  };
+  // string message = 2;
+  void clear_message() ;
+  [[nodiscard]] const ::std::string& message() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_message(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_message();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_message();
+  void set_allocated_message(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_message() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_message(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_message();
+
+  public:
+  // bool success = 1;
+  void clear_success() ;
+  [[nodiscard]] bool success() const;
+  void set_success(bool value);
+
+  private:
+  bool _internal_success() const;
+  void _internal_set_success(bool value);
+
+  public:
+  // bool suspended = 3;
+  void clear_suspended() ;
+  [[nodiscard]] bool suspended() const;
+  void set_suspended(bool value);
+
+  private:
+  bool _internal_suspended() const;
+  void _internal_set_suspended(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.SchedulePauseResponse)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<2, 3,
+                                   0, 53,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const SchedulePauseResponse& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr message_;
+    bool success_;
+    bool suspended_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull SchedulePauseResponse_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SchedulePauseRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.SchedulePauseRequest) */ {
+ public:
+  inline SchedulePauseRequest() : SchedulePauseRequest(nullptr) {}
+  ~SchedulePauseRequest() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(SchedulePauseRequest* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(SchedulePauseRequest));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr SchedulePauseRequest(::google::protobuf::internal::ConstantInitialized);
+
+  inline SchedulePauseRequest(const SchedulePauseRequest& from) : SchedulePauseRequest(nullptr, from) {}
+  inline SchedulePauseRequest(SchedulePauseRequest&& from) noexcept
+      : SchedulePauseRequest(nullptr, ::std::move(from)) {}
+  inline SchedulePauseRequest& operator=(const SchedulePauseRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SchedulePauseRequest& operator=(SchedulePauseRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const SchedulePauseRequest& default_instance() {
+    return *reinterpret_cast<const SchedulePauseRequest*>(
+        &_SchedulePauseRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 17;
+  friend void swap(SchedulePauseRequest& a, SchedulePauseRequest& b) { a.Swap(&b); }
+  inline void Swap(SchedulePauseRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SchedulePauseRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] SchedulePauseRequest* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<SchedulePauseRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SchedulePauseRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const SchedulePauseRequest& from) { SchedulePauseRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(SchedulePauseRequest* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.SchedulePauseRequest"; }
+
+  explicit SchedulePauseRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  SchedulePauseRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const SchedulePauseRequest& from);
+  SchedulePauseRequest(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, SchedulePauseRequest&& from) noexcept
+      : SchedulePauseRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kProcessNameFieldNumber = 1,
+    kSuspendFieldNumber = 2,
+  };
+  // string process_name = 1;
+  void clear_process_name() ;
+  [[nodiscard]] const ::std::string& process_name() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_process_name(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_process_name();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_process_name();
+  void set_allocated_process_name(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_process_name() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_process_name(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_process_name();
+
+  public:
+  // bool suspend = 2;
+  void clear_suspend() ;
+  [[nodiscard]] bool suspend() const;
+  void set_suspend(bool value);
+
+  private:
+  bool _internal_suspend() const;
+  void _internal_set_suspend(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.SchedulePauseRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<1, 2,
+                                   0, 57,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const SchedulePauseRequest& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr process_name_;
+    bool suspend_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull SchedulePauseRequest_class_data_;
 // -------------------------------------------------------------------
 
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED RestartProcessResponse final : public ::google::protobuf::Message
@@ -3284,7 +3742,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeWindow final : public ::google
     return *reinterpret_cast<const ProbeWindow*>(
         &_ProbeWindow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 42;
+  static constexpr int kIndexInFileMessages = 44;
   friend void swap(ProbeWindow& a, ProbeWindow& b) { a.Swap(&b); }
   inline void Swap(ProbeWindow* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -3572,7 +4030,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeStats final : public ::google:
     return *reinterpret_cast<const ProbeStats*>(
         &_ProbeStats_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 45;
+  static constexpr int kIndexInFileMessages = 47;
   friend void swap(ProbeStats& a, ProbeStats& b) { a.Swap(&b); }
   inline void Swap(ProbeStats* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -3935,7 +4393,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbePolicyConfigResponse final : p
     return *reinterpret_cast<const ProbePolicyConfigResponse*>(
         &_ProbePolicyConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 38;
+  static constexpr int kIndexInFileMessages = 40;
   friend void swap(ProbePolicyConfigResponse& a, ProbePolicyConfigResponse& b) { a.Swap(&b); }
   inline void Swap(ProbePolicyConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4153,7 +4611,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbePolicyConfigRequest final : pu
     return *reinterpret_cast<const ProbePolicyConfigRequest*>(
         &_ProbePolicyConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 37;
+  static constexpr int kIndexInFileMessages = 39;
   friend void swap(ProbePolicyConfigRequest& a, ProbePolicyConfigRequest& b) { a.Swap(&b); }
   inline void Swap(ProbePolicyConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4393,7 +4851,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDBTargetsConfigResponse final 
     return *reinterpret_cast<const ProbeDBTargetsConfigResponse*>(
         &_ProbeDBTargetsConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 40;
+  static constexpr int kIndexInFileMessages = 42;
   friend void swap(ProbeDBTargetsConfigResponse& a, ProbeDBTargetsConfigResponse& b) { a.Swap(&b); }
   inline void Swap(ProbeDBTargetsConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4611,7 +5069,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDBTargetsConfigRequest final :
     return *reinterpret_cast<const ProbeDBTargetsConfigRequest*>(
         &_ProbeDBTargetsConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 39;
+  static constexpr int kIndexInFileMessages = 41;
   friend void swap(ProbeDBTargetsConfigRequest& a, ProbeDBTargetsConfigRequest& b) { a.Swap(&b); }
   inline void Swap(ProbeDBTargetsConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5627,7 +6085,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListServicesRequest final : public 
     return *reinterpret_cast<const ListServicesRequest*>(
         &_ListServicesRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 26;
+  static constexpr int kIndexInFileMessages = 28;
   friend void swap(ListServicesRequest& a, ListServicesRequest& b) { a.Swap(&b); }
   inline void Swap(ListServicesRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5857,7 +6315,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetSupervisorLogResponse final : pu
     return *reinterpret_cast<const GetSupervisorLogResponse*>(
         &_GetSupervisorLogResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 21;
+  static constexpr int kIndexInFileMessages = 23;
   friend void swap(GetSupervisorLogResponse& a, GetSupervisorLogResponse& b) { a.Swap(&b); }
   inline void Swap(GetSupervisorLogResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -6087,7 +6545,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetSupervisorLogRequest final : pub
     return *reinterpret_cast<const GetSupervisorLogRequest*>(
         &_GetSupervisorLogRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 20;
+  static constexpr int kIndexInFileMessages = 22;
   friend void swap(GetSupervisorLogRequest& a, GetSupervisorLogRequest& b) { a.Swap(&b); }
   inline void Swap(GetSupervisorLogRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -6283,7 +6741,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetServiceStatusResponse final : pu
     return *reinterpret_cast<const GetServiceStatusResponse*>(
         &_GetServiceStatusResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 30;
+  static constexpr int kIndexInFileMessages = 32;
   friend void swap(GetServiceStatusResponse& a, GetServiceStatusResponse& b) { a.Swap(&b); }
   inline void Swap(GetServiceStatusResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -6581,7 +7039,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetServiceStatusRequest final : pub
     return *reinterpret_cast<const GetServiceStatusRequest*>(
         &_GetServiceStatusRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 29;
+  static constexpr int kIndexInFileMessages = 31;
   friend void swap(GetServiceStatusRequest& a, GetServiceStatusRequest& b) { a.Swap(&b); }
   inline void Swap(GetServiceStatusRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -6782,7 +7240,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ExecuteCommandResponse final : publ
     return *reinterpret_cast<const ExecuteCommandResponse*>(
         &_ExecuteCommandResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 25;
+  static constexpr int kIndexInFileMessages = 27;
   friend void swap(ExecuteCommandResponse& a, ExecuteCommandResponse& b) { a.Swap(&b); }
   inline void Swap(ExecuteCommandResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -7387,7 +7845,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CronJob final : public ::google::pr
     return *reinterpret_cast<const CronJob*>(
         &_CronJob_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 32;
+  static constexpr int kIndexInFileMessages = 34;
   friend void swap(CronJob& a, CronJob& b) { a.Swap(&b); }
   inline void Swap(CronJob* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -7916,7 +8374,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureRuleHitReport final : public
     return *reinterpret_cast<const CaptureRuleHitReport*>(
         &_CaptureRuleHitReport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 33;
+  static constexpr int kIndexInFileMessages = 35;
   friend void swap(CaptureRuleHitReport& a, CaptureRuleHitReport& b) { a.Swap(&b); }
   inline void Swap(CaptureRuleHitReport* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -8282,7 +8740,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureRuleHitAck final : public ::
     return *reinterpret_cast<const CaptureRuleHitAck*>(
         &_CaptureRuleHitAck_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 34;
+  static constexpr int kIndexInFileMessages = 36;
   friend void swap(CaptureRuleHitAck& a, CaptureRuleHitAck& b) { a.Swap(&b); }
   inline void Swap(CaptureRuleHitAck* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -8490,7 +8948,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureGatesConfigResponse final : 
     return *reinterpret_cast<const CaptureGatesConfigResponse*>(
         &_CaptureGatesConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 36;
+  static constexpr int kIndexInFileMessages = 38;
   friend void swap(CaptureGatesConfigResponse& a, CaptureGatesConfigResponse& b) { a.Swap(&b); }
   inline void Swap(CaptureGatesConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -8708,7 +9166,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureGatesConfigRequest final : p
     return *reinterpret_cast<const CaptureGatesConfigRequest*>(
         &_CaptureGatesConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 35;
+  static constexpr int kIndexInFileMessages = 37;
   friend void swap(CaptureGatesConfigRequest& a, CaptureGatesConfigRequest& b) { a.Swap(&b); }
   inline void Swap(CaptureGatesConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -9556,7 +10014,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDetail final : public ::google
     return *reinterpret_cast<const ProbeDetail*>(
         &_ProbeDetail_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 44;
+  static constexpr int kIndexInFileMessages = 46;
   friend void swap(ProbeDetail& a, ProbeDetail& b) { a.Swap(&b); }
   inline void Swap(ProbeDetail* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -9869,7 +10327,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ManagedProcess final : public ::goo
     return *reinterpret_cast<const ManagedProcess*>(
         &_ManagedProcess_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 18;
+  static constexpr int kIndexInFileMessages = 20;
   friend void swap(ManagedProcess& a, ManagedProcess& b) { a.Swap(&b); }
   inline void Swap(ManagedProcess* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -10209,7 +10667,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListServicesResponse final : public
     return *reinterpret_cast<const ListServicesResponse*>(
         &_ListServicesResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 27;
+  static constexpr int kIndexInFileMessages = 29;
   friend void swap(ListServicesResponse& a, ListServicesResponse& b) { a.Swap(&b); }
   inline void Swap(ListServicesResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -10427,7 +10885,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListCronJobsResponse final : public
     return *reinterpret_cast<const ListCronJobsResponse*>(
         &_ListCronJobsResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 31;
+  static constexpr int kIndexInFileMessages = 33;
   friend void swap(ListCronJobsResponse& a, ListCronJobsResponse& b) { a.Swap(&b); }
   inline void Swap(ListCronJobsResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -10645,7 +11103,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ExecuteCommandRequest final : publi
     return *reinterpret_cast<const ExecuteCommandRequest*>(
         &_ExecuteCommandRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 24;
+  static constexpr int kIndexInFileMessages = 26;
   friend void swap(ExecuteCommandRequest& a, ExecuteCommandRequest& b) { a.Swap(&b); }
   inline void Swap(ExecuteCommandRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -11325,7 +11783,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListProcessesResponse final : publi
     return *reinterpret_cast<const ListProcessesResponse*>(
         &_ListProcessesResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 17;
+  static constexpr int kIndexInFileMessages = 19;
   friend void swap(ListProcessesResponse& a, ListProcessesResponse& b) { a.Swap(&b); }
   inline void Swap(ListProcessesResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -11531,7 +11989,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AlertEvent final : public ::google:
     return *reinterpret_cast<const AlertEvent*>(
         &_AlertEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 41;
+  static constexpr int kIndexInFileMessages = 43;
   friend void swap(AlertEvent& a, AlertEvent& b) { a.Swap(&b); }
   inline void Swap(AlertEvent* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -15674,6 +16132,219 @@ inline void UpdateProcessResponse::_internal_set_rolled_back(bool value) {
 
 // -------------------------------------------------------------------
 
+// SchedulePauseRequest
+
+// string process_name = 1;
+inline void SchedulePauseRequest::clear_process_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.process_name_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& SchedulePauseRequest::process_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SchedulePauseRequest.process_name)
+  return _internal_process_name();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void SchedulePauseRequest::set_process_name(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.process_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SchedulePauseRequest.process_name)
+}
+inline ::std::string* PROTOBUF_NONNULL SchedulePauseRequest::mutable_process_name()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_process_name();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SchedulePauseRequest.process_name)
+  return _s;
+}
+inline const ::std::string& SchedulePauseRequest::_internal_process_name() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.process_name_.Get();
+}
+inline void SchedulePauseRequest::_internal_set_process_name(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.process_name_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL SchedulePauseRequest::_internal_mutable_process_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.process_name_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE SchedulePauseRequest::release_process_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.SchedulePauseRequest.process_name)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.process_name_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.process_name_.Set("", GetArena());
+  }
+  return released;
+}
+inline void SchedulePauseRequest::set_allocated_process_name(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.process_name_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.process_name_.IsDefault()) {
+    _impl_.process_name_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SchedulePauseRequest.process_name)
+}
+
+// bool suspend = 2;
+inline void SchedulePauseRequest::clear_suspend() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.suspend_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline bool SchedulePauseRequest::suspend() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SchedulePauseRequest.suspend)
+  return _internal_suspend();
+}
+inline void SchedulePauseRequest::set_suspend(bool value) {
+  _internal_set_suspend(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SchedulePauseRequest.suspend)
+}
+inline bool SchedulePauseRequest::_internal_suspend() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.suspend_;
+}
+inline void SchedulePauseRequest::_internal_set_suspend(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.suspend_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// SchedulePauseResponse
+
+// bool success = 1;
+inline void SchedulePauseResponse::clear_success() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.success_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline bool SchedulePauseResponse::success() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SchedulePauseResponse.success)
+  return _internal_success();
+}
+inline void SchedulePauseResponse::set_success(bool value) {
+  _internal_set_success(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SchedulePauseResponse.success)
+}
+inline bool SchedulePauseResponse::_internal_success() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.success_;
+}
+inline void SchedulePauseResponse::_internal_set_success(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.success_ = value;
+}
+
+// string message = 2;
+inline void SchedulePauseResponse::clear_message() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.message_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& SchedulePauseResponse::message() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SchedulePauseResponse.message)
+  return _internal_message();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void SchedulePauseResponse::set_message(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.message_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SchedulePauseResponse.message)
+}
+inline ::std::string* PROTOBUF_NONNULL SchedulePauseResponse::mutable_message()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_message();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.SchedulePauseResponse.message)
+  return _s;
+}
+inline const ::std::string& SchedulePauseResponse::_internal_message() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.message_.Get();
+}
+inline void SchedulePauseResponse::_internal_set_message(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.message_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL SchedulePauseResponse::_internal_mutable_message() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.message_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE SchedulePauseResponse::release_message() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.SchedulePauseResponse.message)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.message_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.message_.Set("", GetArena());
+  }
+  return released;
+}
+inline void SchedulePauseResponse::set_allocated_message(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.message_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.message_.IsDefault()) {
+    _impl_.message_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SchedulePauseResponse.message)
+}
+
+// bool suspended = 3;
+inline void SchedulePauseResponse::clear_suspended() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.suspended_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline bool SchedulePauseResponse::suspended() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SchedulePauseResponse.suspended)
+  return _internal_suspended();
+}
+inline void SchedulePauseResponse::set_suspended(bool value) {
+  _internal_set_suspended(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SchedulePauseResponse.suspended)
+}
+inline bool SchedulePauseResponse::_internal_suspended() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.suspended_;
+}
+inline void SchedulePauseResponse::_internal_set_suspended(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.suspended_ = value;
+}
+
+// -------------------------------------------------------------------
+
 // ListProcessesResponse
 
 // repeated .croupier.ops.v1.ManagedProcess processes = 1;
@@ -17249,7 +17920,7 @@ inline void SupervisedProcessSnapshot::clear_restart_count() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.restart_count_ = 0;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00008000U);
+                  0x00004000U);
 }
 inline ::int32_t SupervisedProcessSnapshot::restart_count() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.restart_count)
@@ -17257,7 +17928,7 @@ inline ::int32_t SupervisedProcessSnapshot::restart_count() const {
 }
 inline void SupervisedProcessSnapshot::set_restart_count(::int32_t value) {
   _internal_set_restart_count(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.restart_count)
 }
 inline ::int32_t SupervisedProcessSnapshot::_internal_restart_count() const {
@@ -17641,7 +18312,7 @@ inline void SupervisedProcessSnapshot::clear_next_schedule_at_unix() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.next_schedule_at_unix_ = ::int64_t{0};
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00004000U);
+                  0x00010000U);
 }
 inline ::int64_t SupervisedProcessSnapshot::next_schedule_at_unix() const {
   // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.next_schedule_at_unix)
@@ -17649,7 +18320,7 @@ inline ::int64_t SupervisedProcessSnapshot::next_schedule_at_unix() const {
 }
 inline void SupervisedProcessSnapshot::set_next_schedule_at_unix(::int64_t value) {
   _internal_set_next_schedule_at_unix(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00010000U);
   // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.next_schedule_at_unix)
 }
 inline ::int64_t SupervisedProcessSnapshot::_internal_next_schedule_at_unix() const {
@@ -17789,6 +18460,31 @@ inline void SupervisedProcessSnapshot::set_allocated_fingerprint(::std::string* 
     _impl_.fingerprint_.Set("", GetArena());
   }
   // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.SupervisedProcessSnapshot.fingerprint)
+}
+
+// bool schedule_suspended = 17;
+inline void SupervisedProcessSnapshot::clear_schedule_suspended() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.schedule_suspended_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00008000U);
+}
+inline bool SupervisedProcessSnapshot::schedule_suspended() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.SupervisedProcessSnapshot.schedule_suspended)
+  return _internal_schedule_suspended();
+}
+inline void SupervisedProcessSnapshot::set_schedule_suspended(bool value) {
+  _internal_set_schedule_suspended(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.SupervisedProcessSnapshot.schedule_suspended)
+}
+inline bool SupervisedProcessSnapshot::_internal_schedule_suspended() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.schedule_suspended_;
+}
+inline void SupervisedProcessSnapshot::_internal_set_schedule_suspended(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.schedule_suspended_ = value;
 }
 
 // -------------------------------------------------------------------

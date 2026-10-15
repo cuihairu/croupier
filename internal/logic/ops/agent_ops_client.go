@@ -203,6 +203,27 @@ func (w *OpsClientWrapper) UpdateProcess(ctx context.Context, req *opsv1.UpdateP
 	return resp, nil
 }
 
+// SetSchedulePause suspends or resumes a managed process's schedule firing on
+// the agent (agent-supervisor-design §10.2 暂停与恢复).
+func (w *OpsClientWrapper) SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errorx.NewInternalError("marshal schedule pause request failed")
+	}
+
+	_, respData, err := w.caller.Call(ctx, protocol.MsgSchedulePauseRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.SchedulePauseResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, errorx.NewInternalError("unmarshal schedule pause response failed")
+	}
+
+	return resp, nil
+}
+
 // ExecuteCommand executes a command on the agent
 func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	data, err := proto.Marshal(req)
