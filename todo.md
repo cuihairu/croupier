@@ -5,7 +5,7 @@
 ## 未完成
 
 - [x] 4862 ops 告警列表按 game/env 过滤：Alert 加 game_id/env 列（迁移 0043）+ opsAlerts 按 GameScopeFromContext 过滤（scope 告警 + 平台级告警）+ 打戳三点（evaluator 继承 rule scope / inbound generic payload scope / control_handler capture req scope）+ 面板告警页全局视野确认（/api/v1/alerts 无 scope 不过滤）（4862 迁移 0043 + 三处同步 + 测试，2026-10-13）
-- [ ] 4310 MongoDB Connector：CDC 内置源收口项，排期待用户立项（立项简档已备 docs/design/cdc-mongodb-connector.md，三项拍板：立项排期 / beforeImage v1 保守 false / snapshot 不做）；SQL Server/Oracle/TiDB/CockroachDB/国产库明确不做，更多数据源由使用方按 SourceConnector 契约自行实现
+- [x] 4310 MongoDB Connector：CDC 内置源收口项（2026-10-16 巡检推进单 PATROL1016 代决立项并单轮收口 M1–M4，决策记录见 docs/design/cdc-mongodb-connector.md——代决三点：立项排期=本轮 / beforeImage v1=false / snapshot 不做；简档口径修正三处：ColumnsMapped=true / 非行级事件流级排除 / Before 恒 nil）：change streams 接入（mongo driver v2，MongoDB 6.0+ / rs / mongos / Atlas，Open 期拓扑校验 standalone 拒绝给 --replSet 提示），sourceType="mongodb" 闭集 + PositionKindOf token 分支 + runner dispatch/能力标签/Readiness 探针三分支；位点 kind=token hex 续传；契约单测 9 组 + 活栈集成（mongo:7 rs 容器：三操作 / token 断流续传不丢 / 白名单外与非行级不进流，本地实测 3.1s 通过）+ CI capture-matrix 接入（mongo:7 --replSet rs0，DSN directConnection）；文档三层同步（简档 / agent-config.md / capture-agent.example.yaml / cdc-connector-architecture.md 收口声明）；内置源自此停止扩张——SQL Server/Oracle/TiDB/CockroachDB/国产库明确不做，更多数据源由使用方按 SourceConnector 契约自行实现
 - [ ] Agent 面板三页（agent-dashboard-design 简档）：Proposed 待用户过目批准，零代码；sidecar/devops/capture 每 type 一页+探针卡+职责数据+日志下钻，scope 联动
 - [ ] Provider 插件 P1（#66 批二）：openapi driver 迁移 internal/platform/openapi → internal/drivers/openapi + externalplatform 迁入；按 §9 分期另行立项
 - [ ] 插件机制正式设计落地（plugin-mechanism 简档）：Proposed 待拍板后按 §8 分期；含 LAN 资产接入（cockpit 优先）、配置热更双轨等 12 项决策

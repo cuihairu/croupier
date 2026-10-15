@@ -234,4 +234,18 @@ capture:
 			t.Fatalf("%s: expected validation error", name)
 		}
 	}
+	// mongodb 受纳（闭集扩展随 Connector 落地）：canonical 配置通过校验。
+	ok := `
+agent: {id: a, serverAddr: s:1, gameId: g}
+capture:
+  enabled: true
+  sourceType: mongodb
+  dsnEnv: TEST_MONGO_DSN
+  options: {tables: game.players}
+`
+	if cfg, err := Load(writeCfg(t, ok)); err != nil {
+		t.Fatalf("mongodb config should load: %v", err)
+	} else if got := cfg.BookmarkPath(); got != "data/capture/bookmarks/mongodb.json" {
+		t.Fatalf("mongodb BookmarkPath = %q", got)
+	}
 }

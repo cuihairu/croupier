@@ -22,6 +22,7 @@ import (
 
 	"github.com/cuihairu/croupier/agents/capture/config"
 	"github.com/cuihairu/croupier/agents/capture/connector"
+	"github.com/cuihairu/croupier/agents/capture/connector/mongo"
 	"github.com/cuihairu/croupier/agents/capture/connector/pg"
 	"github.com/cuihairu/croupier/agents/capture/filter"
 	"github.com/cuihairu/croupier/agents/capture/gate"
@@ -171,6 +172,8 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		switch cfg.Capture.SourceType {
 		case "postgres":
 			return pg.NewPostgresConnector(cfg.Capture.SourceConfig(cfg.Agent.ID), log)
+		case "mongodb":
+			return mongo.NewMongoConnector(cfg.Capture.SourceConfig(cfg.Agent.ID), log)
 		default:
 			return source.NewMySQLConnector(cfg.Capture.SourceConfig(cfg.Agent.ID), log)
 		}
@@ -625,9 +628,12 @@ func (r *Runner) probeTarget() (string, bool) {
 	}
 	var addr string
 	var err error
-	if r.cfg.Capture.SourceType == "postgres" {
+	switch {
+	case r.cfg.Capture.SourceType == "postgres":
 		addr, err = pg.AddressFromDSN(r.cfg.Capture.DSNEnv)
-	} else {
+	case r.cfg.Capture.SourceType == "mongodb" && r.cfg.Capture.MySQL == nil:
+		addr, err = mongo.AddressFromDSN(r.cfg.Capture.DSNEnv)
+	default:
 		addr, err = source.AddressFromDSN(r.cfg.Capture.DSNEnv)
 	}
 	if err != nil || addr == "" {
@@ -705,9 +711,12 @@ func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error)
 	if r.cfg.Capture.Enabled && len(tables) > 0 {
 		labels["captureTables"] = strings.Join(tables, ",")
 		var caps connector.Capabilities
-		if r.cfg.Capture.SourceType == "postgres" && r.cfg.Capture.MySQL == nil {
+		switch {
+		case r.cfg.Capture.SourceType == "mongodb" && r.cfg.Capture.MySQL == nil:
+			caps = mongo.MongoCapabilities()
+		case r.cfg.Capture.SourceType == "postgres" && r.cfg.Capture.MySQL == nil:
 			caps = pg.PostgresCapabilities()
-		} else {
+		default:
 			caps = source.MySQLCapabilities()
 		}
 		keys := make([]string, 0, 6)

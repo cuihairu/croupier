@@ -93,7 +93,7 @@ type Capture struct {
 }
 
 // SourceTypes Connector 数据源类型闭集（校验真值；新增=新 Connector 落地）。
-var SourceTypes = map[string]bool{"mysql": true, "postgres": true}
+var SourceTypes = map[string]bool{"mysql": true, "postgres": true, "mongodb": true}
 
 // Tables 采集白名单 "库.表" 列表（canonical 取 options.tables 逗号分隔；
 // legacy 取 capture.mysql.tables；均排序输出）。enabled=true 时必填非空。
@@ -175,7 +175,7 @@ func (c Config) Validate() error {
 		case c.Capture.SourceType == "":
 			return fmt.Errorf("capture.sourceType is required when capture.enabled is true (or legacy capture.mysql)")
 		case !SourceTypes[c.Capture.SourceType]:
-			return fmt.Errorf("capture.sourceType %q unknown (want mysql|postgres)", c.Capture.SourceType)
+			return fmt.Errorf("capture.sourceType %q unknown (want mysql|postgres|mongodb)", c.Capture.SourceType)
 		case c.Capture.DSNEnv == "":
 			return fmt.Errorf("capture.dsnEnv is required when capture.enabled is true (credential channel)")
 		case len(c.Capture.Tables()) == 0:

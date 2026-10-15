@@ -25,16 +25,20 @@ outboundTLS:
 capture:
   # 总开关，缺省关。MySQL 前置：binlog_format=ROW、binlog_row_image=FULL、
   # REPLICATION SLAVE 权限、server_id 不冲突。Postgres 前置：pgoutput 逻辑
-  # 复制、wal_level=logical、REPLICATION 权限、独立 slot。
+  # 复制、wal_level=logical、REPLICATION 权限、独立 slot。MongoDB 前置：
+  # replica set（change streams 硬前置，standalone 在 Open 期拒绝），
+  # 6.0+，位点文件 mongodb.json（token 位点）。
   enabled: false
-  # 数据源类型（"mysql" | "postgres"，闭集随 Connector 实现扩展）。
+  # 数据源类型（"mysql" | "postgres" | "mongodb"，闭集随 Connector 实现扩展）。
   sourceType: mysql
   # 连接串环境变量名（凭据红线：明文 DSN 只从环境变量取值，不进配置文件、
   # 不落日志；agent 进程需能读到该变量）。
   dsnEnv: CROUPIER_CAPTURE_MYSQL_DSN
-  # 非密连接参数（lowerCamelCase）。tables 必填非空（逗号分隔 "库.表"
-  # 白名单——只订道具相关表，噪声与带宽双控）。mysql 侧 serverId 必填
-  # （与源实例及其他 binlog 订阅者不冲突）；postgres 侧 slotName/publication。
+  # 非密连接参数（lowerCamelCase）。tables 必填非空（逗号分隔 "库.表" /
+  # "库.集合" 白名单——只订道具相关表，噪声与带宽双控）。mysql 侧 serverId
+  # 必填（与源实例及其他 binlog 订阅者不冲突）；postgres 侧
+  # slotName/publication；mongodb 侧 database（可选，限定 Discover/订阅
+  # 单库，缺省全库非系统库）。
   options:
     serverId: 4242
     tables: game.items, game.player_wallet

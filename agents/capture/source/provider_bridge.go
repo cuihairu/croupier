@@ -146,6 +146,8 @@ func PositionKindOf(sourceType string) string {
 	switch sourceType {
 	case "postgres":
 		return "lsn"
+	case "mongodb":
+		return "token"
 	default:
 		return "gtid"
 	}

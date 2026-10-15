@@ -102,13 +102,17 @@ func TestBridgeEventSourceIDFallback(t *testing.T) {
 	}
 }
 
-// 位点 kind 按源类型（checkpoint 还原真值：mysql=gtid，postgres=lsn）。
+// 位点 kind 按源类型（checkpoint 还原真值：mysql=gtid，postgres=lsn，
+// mongodb=token）。
 func TestPositionKindOf(t *testing.T) {
 	if got := PositionKindOf("mysql"); got != "gtid" {
 		t.Fatalf("mysql kind = %q", got)
 	}
 	if got := PositionKindOf("postgres"); got != "lsn" {
 		t.Fatalf("postgres kind = %q", got)
+	}
+	if got := PositionKindOf("mongodb"); got != "token" {
+		t.Fatalf("mongodb kind = %q", got)
 	}
 	if got := PositionKindOf(""); got != "gtid" {
 		t.Fatalf("unknown kind fallback = %q", got)

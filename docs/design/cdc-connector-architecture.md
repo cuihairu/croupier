@@ -247,5 +247,5 @@ type ChangeEvent struct {
 
 - 契约面已落码（`agents/capture/connector/`：event.go / capability.go / connector.go，单测 7 组含 fakeConnector 接口满足性）；接口草案与 §3.1 能力表以代码为准（实现期差异回写本文）。落码时的两个契约决定：①冲突检测只认精确表项同列两侧，库级 exclude 覆盖 include 是合法「关整库」手势（filter 包口径）；②零值位点 `Valid()=false`（事件必须带位点），空 checkpoint 由 `String()==""` 表达。
 - 现有 MySQL 实现（`agents/capture/source/mysql*`）无 beforeImage 概念——现状行像是位置数组 JSON（简档 §9）；统一模型的兼容决策已定（ChangeEvent.ColumnsMapped=false 时行像键=十进制位置下标，与三闸「位置下标取值」语义一致），列名映射（information_schema 摄取）落地时切 true，闸层不受影响。
-- MongoDB/国产库等 P1/P2 源无排期，仅留契约扩展点。
+- MongoDB 已落地（2026-10-16，`connector/mongo`，见 [MongoDB Connector](cdc-mongodb-connector.md)）——内置源自此收口；SQL Server/Oracle/TiDB/CockroachDB/国产库不做，后续新源由使用方按 `SourceConnector` 契约自行实现。
 - 选型建议（§4）为待拍板项，用户裁决后本节定稿。
