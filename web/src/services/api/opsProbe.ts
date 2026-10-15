@@ -30,6 +30,12 @@ export type ProbeSummaryRow = {
   lastReason?: string;
   /** 数据新鲜度锚点（RFC3339）；server 视角 = 快照时点。 */
   lastReportAt?: string;
+  /** checker 类型（http|tcp|db|protocol）；旧版 agent 未上报时缺省。 */
+  probeType?: string;
+  /** 游戏协议适配器名（仅 type=protocol 且走适配器时非空）。 */
+  protocol?: string;
+  /** 最近一次失败的阶段标记（协议 Detailing 出口；无 phase 的 checker 为空）。 */
+  phase?: string;
 };
 
 // Source: croupier/internal/api/ops/probe_summary.go ProbeSummaryResponse

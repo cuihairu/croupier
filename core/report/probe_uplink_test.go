@@ -60,6 +60,13 @@ func testUplink(s *sink, maxDetails int) *ProbeUplink {
 	}, s.send)
 }
 
+// phaseResult 带协议阶段标记的失败结果（Detailing 出口，phase 由协议骨架写入）。
+func phaseResult(err, phase string, latency, streak int64, windowOpen bool) healthprobe.Result {
+	r := failResult(err, latency, streak, windowOpen)
+	r.Details = map[string]string{"probeType": "protocol", "phase": phase}
+	return r
+}
+
 func okResult(latency int64) healthprobe.Result {
 	return healthprobe.Result{OK: true, LatencyMS: latency}
 }
@@ -105,6 +112,43 @@ func TestProbeUplinkDrainResets(t *testing.T) {
 
 	second := u.Drain()
 	assert.EqualValues(t, 0, second.Checked, "Drain must reset counters")
+}
+
+// TestProbeUplinkDrainCarriesTypeProtocolPhase 聚合面透出目标类型、适配器名
+// 与最近失败阶段（§5.5.3 标注面）：消费方不必解析 lastReason 文本即可区分
+// 「协议握手失败」与「网络不可达」。
+func TestProbeUplinkDrainCarriesTypeProtocolPhase(t *testing.T) {
+	u := NewProbeUplink(ProbeUplinkConfig{
+		AgentID:   "agent-1",
+		Target:    "mc-slp",
+		Semantics: healthprobe.SemanticsReadiness,
+		ProbeType: string(healthprobe.TargetTypeProtocol),
+		Protocol:  "minecraft",
+	}, nil)
+
+	// 无 phase 概念的目标（tcp/http/db 或 dial 前失败）清空而不是留旧值。
+	u.OnResult(failResult("dial tcp: i/o timeout", 12, 1, true))
+	st := u.Drain()
+	assert.Equal(t, "protocol", st.ProbeType)
+	assert.Equal(t, "minecraft", st.Protocol)
+	assert.Empty(t, st.Phase)
+
+	// 协议 checker 失败：phase 从 Detailing 出口带出。
+	u.OnResult(phaseResult("protocol failed at step 2 (login): timeout", "login", 30, 2, true))
+	st = u.Drain()
+	assert.Equal(t, "login", st.Phase)
+
+	// phase 与 lastReason 同口径：Drain 复位计数，「最近一次失败」不清除。
+	st = u.Drain()
+	assert.Equal(t, "login", st.Phase)
+	assert.EqualValues(t, 0, st.Checked, "Drain must reset counters")
+	assert.NotEmpty(t, st.LastReason)
+
+	// 后续无 phase 的失败必须清空旧阶段标记（留旧值=把上一个失败的阶段
+	// 记到当前故障上）。
+	u.OnResult(failResult("connection refused", 12, 3, true))
+	st = u.Drain()
+	assert.Empty(t, st.Phase)
 }
 
 func TestProbeUplinkFailureDetailUplink(t *testing.T) {

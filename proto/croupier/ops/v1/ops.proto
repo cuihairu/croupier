@@ -493,4 +493,7 @@ message ProbeStats {
   int64 window_duration_ms = 10;      // open fault window elapsed (0 when closed)
   string last_reason = 11;            // last failure reason
   int64 dropped_details = 12;         // details trimmed by the per-window cap
+  string probe_type = 13;             // checker type: http | tcp | db | protocol
+  string protocol = 14;               // game protocol adapter name (type=protocol only)
+  string phase = 15;                  // last failure phase marker (protocol checkers only)
 }

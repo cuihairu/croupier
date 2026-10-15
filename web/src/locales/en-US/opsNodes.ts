@@ -114,6 +114,7 @@ export default {
   'pages.opsNodes.probe.column.checkedFailed': 'Checked / Failed',
   'pages.opsNodes.probe.column.lastReason': 'Last Failure Reason',
   'pages.opsNodes.probe.column.location': 'Execution Site',
+  'pages.opsNodes.probe.column.probeType': 'Probe Type',
   'pages.opsNodes.probe.column.reportAt': 'Data Time',
   'pages.opsNodes.probe.column.semantics': 'Semantics',
   'pages.opsNodes.probe.column.status': 'Liveness',
@@ -127,6 +128,9 @@ export default {
   'pages.opsNodes.probe.notIntegrated': 'Online trend: online data not integrated',
   'pages.opsNodes.probe.notIntegratedDesc':
     'Online player counts and peaks must be reported by the game server itself through an SDK metric entrypoint. Until then this page shows probe facts only and derives nothing.',
+  'pages.opsNodes.probe.protocolFailed': 'Protocol failed · {phase}',
+  'pages.opsNodes.probe.probeTypeMissing':
+    'Reported by an older agent build that does not carry the probe type',
   'pages.opsNodes.probe.platformScope': 'Platform',
   'pages.opsNodes.probe.refresh': 'Refresh probe summary',
   'pages.opsNodes.probe.resultCount': 'Targets {total} / Unavailable {bad}',
@@ -134,6 +138,7 @@ export default {
     'Rows are filtered by the top-bar game/environment scope (matching rows plus platform-level rows).',
   'pages.opsNodes.probe.title': 'Probe Summary',
   'pages.opsNodes.probe.unavailable': 'Unavailable',
+  'pages.opsNodes.probe.unreachable': 'Unreachable',
   'pages.opsNodes.restart.content': 'Are you sure you want to restart {id}?',
   'pages.opsNodes.restart.success': 'Restart issued',
   'pages.opsNodes.restart.title': 'Restart Node',

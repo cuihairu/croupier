@@ -13,6 +13,8 @@ const { Text } = Typography;
 // 一行 = 目标 × 执行位置，呈现窗口开合（两态事实）+ 窗口聚合计数 + 最近
 // 失败原因 + 数据新鲜度；**不出单一合成分**——权重无真实数据支撑。
 // 在线趋势列在 SDK metric 入口接入前显式灰态（未接入即一等状态）。
+// 协议目标另带类型/适配器/失败阶段标注（§5.5.3 四态）：不可达（dial 失败）
+// 与协议失败（handshake/status 半途失败）在探活列即可区分，无需读原因文本。
 export default function ProbeSummarySection() {
   const intl = useIntl();
   // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
@@ -69,6 +71,40 @@ export default function ProbeSummarySection() {
 
   const unavailableCount = useMemo(() => rows.filter((r) => !r.available).length, [rows]);
 
+  // 探活标签（§5.5.3 协议四态标注面）：协议目标不可用时按失败阶段区分
+  // 不可达（dial 失败，未进协议交互）与协议失败（handshake/status 半途失败）；
+  // 无阶段标记 = 该目标未定义阶段或旧版 agent 未上报，退回内核两态文案。
+  const statusLabel = useCallback((available: boolean, r: ProbeSummaryRow): string => {
+    if (available) {
+      return intlRef.current.formatMessage({
+        id: 'pages.opsNodes.probe.available',
+        defaultMessage: '可用',
+      });
+    }
+    if (r.probeType !== 'protocol') {
+      return intlRef.current.formatMessage({
+        id: 'pages.opsNodes.probe.unavailable',
+        defaultMessage: '不可用',
+      });
+    }
+    if (r.phase === 'dial') {
+      return intlRef.current.formatMessage({
+        id: 'pages.opsNodes.probe.unreachable',
+        defaultMessage: '不可达',
+      });
+    }
+    if (r.phase) {
+      return intlRef.current.formatMessage(
+        { id: 'pages.opsNodes.probe.protocolFailed', defaultMessage: '协议失败·{phase}' },
+        { phase: r.phase },
+      );
+    }
+    return intlRef.current.formatMessage({
+      id: 'pages.opsNodes.probe.unavailable',
+      defaultMessage: '不可用',
+    });
+  }, []);
+
   const columns = [
     {
       title: intl.formatMessage({
@@ -111,24 +147,39 @@ export default function ProbeSummarySection() {
     },
     {
       title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.probeType',
+        defaultMessage: '探测类型',
+      }),
+      dataIndex: 'probeType',
+      width: 120,
+      render: (_: unknown, r: ProbeSummaryRow) =>
+        r.probeType ? (
+          <Tag>
+            {r.probeType}
+            {r.protocol ? `:${r.protocol}` : ''}
+          </Tag>
+        ) : (
+          // 旧版 agent 未上报类型（wire 新增字段）：缺失就显示缺失，不猜类型。
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.opsNodes.probe.probeTypeMissing',
+              defaultMessage: '该行数据由旧版 agent 上报，未携带探测类型',
+            })}
+          >
+            <Text type="secondary">-</Text>
+          </Tooltip>
+        ),
+    },
+    {
+      title: intl.formatMessage({
         id: 'pages.opsNodes.probe.column.status',
         defaultMessage: '探活',
       }),
       dataIndex: 'available',
-      width: 100,
-      render: (available: boolean) =>
-        available ? (
-          <Tag color="green">
-            {intl.formatMessage({ id: 'pages.opsNodes.probe.available', defaultMessage: '可用' })}
-          </Tag>
-        ) : (
-          <Tag color="red">
-            {intl.formatMessage({
-              id: 'pages.opsNodes.probe.unavailable',
-              defaultMessage: '不可用',
-            })}
-          </Tag>
-        ),
+      width: 120,
+      render: (available: boolean, r: ProbeSummaryRow) => (
+        <Tag color={available ? 'green' : 'red'}>{statusLabel(available, r)}</Tag>
+      ),
     },
     {
       title: intl.formatMessage({
@@ -254,7 +305,7 @@ export default function ProbeSummarySection() {
         loading={loading}
         columns={columns}
         tableLayout="fixed"
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1340 }}
         pagination={false}
         locale={{
           emptyText: intl.formatMessage({

@@ -6,6 +6,8 @@ package ops
 //     （30s 批量面新鲜度）+ server 本机探针面当前状态；
 //   - 在线趋势 = 灰态「未接入在线数据」（SDK metric 入口未排期，
 //     §13.4 随第一个真实游戏接入；复用 §5.5.3 not-integrated 一等状态）。
+//   - 协议标注 = 行级 probeType/protocol/phase 透传（§5.5.3 协议四态的
+//     标注面）：protocol 行据此区分 不可达 / 握手失败 / 已验证。
 //
 // scope 维度走 X-Game-ID/X-Env 头（GameScopeFromContext）：带 scope 时显示
 // 同 scope 行 + 平台级行（空 game/env），不带 scope 显示全部——与告警列表
@@ -47,6 +49,14 @@ type ProbeSummaryRow struct {
 	LastReason string `json:"lastReason,omitempty"`
 	// LastReportAt 该行数据的新鲜度锚点（RFC3339；server 本机行=快照时点）。
 	LastReportAt string `json:"lastReportAt,omitempty"`
+	// ProbeType checker 类型（http|tcp|db|protocol）；Protocol 游戏协议
+	// 适配器名（仅 type=protocol 且走适配器）；Phase 最近一次失败的阶段
+	// 标记（协议 Detailing 出口）。三者把 §5.5.3「协议四态」带到面板：
+	// protocol 行可区分 不可达（无 phase）/ 握手失败（phase=login 等）/
+	// 已验证（Available=true），不必解析 lastReason 文本。
+	ProbeType string `json:"probeType,omitempty"`
+	Protocol  string `json:"protocol,omitempty"`
+	Phase     string `json:"phase,omitempty"`
 }
 
 // ProbeSummaryResponse 在线汇总响应。
@@ -90,6 +100,9 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 					SuccessRate:      st.GetSuccessRate(),
 					LastReason:       st.GetLastReason(),
 					LastReportAt:     entry.Received.UTC().Format(time.RFC3339),
+					ProbeType:        st.GetProbeType(),
+					Protocol:         st.GetProtocol(),
+					Phase:            st.GetPhase(),
 				})
 			}
 		}
@@ -112,6 +125,9 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 				WindowDurationMs: st.DurationMS,
 				LastReason:       st.LastReason,
 				LastReportAt:     now,
+				ProbeType:        st.ProbeType,
+				Protocol:         st.Protocol,
+				Phase:            st.Phase,
 			})
 		}
 	}

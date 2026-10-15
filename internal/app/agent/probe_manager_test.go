@@ -156,6 +156,40 @@ func TestProbeManagerWithoutSendStillProbes(t *testing.T) {
 	assert.EqualValues(t, 1, stats[0].Failed)
 }
 
+// TestProbeManagerCarriesTypeProtocolPhase 静态与动态（R4 下行）两条装配路径
+// 都把 probeType/protocol 带进聚合统计（§5.5.3 标注面）；adapter 名只在
+// `protocol:` 子路径非空，声明式 steps 路径留空。
+func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
+	s := &recordingSend{}
+	pm, err := NewProbeManager([]healthprobe.TargetConfig{
+		{Name: "mc", Type: healthprobe.TargetTypeProtocol, Address: deadTCPTarget,
+			Steps:         []healthprobe.StepSpec{{Name: "handshake", Send: []byte("HELO")}},
+			FailThreshold: 1},
+	}, ProbeManagerOptions{AgentID: "agent-1", Send: s.send})
+	require.NoError(t, err)
+	pm.ProbeManagerOnce(context.Background())
+	stats := pm.DrainProbeStats()
+	require.Len(t, stats, 1)
+	assert.Equal(t, "protocol", stats[0].ProbeType)
+	assert.Empty(t, stats[0].Protocol, "声明式 steps 未绑定适配器，不造名")
+	assert.Equal(t, "dial", stats[0].Phase)
+
+	// 动态目标走同一漏斗：适配器路径带上 protocol 名。
+	pm2, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-2"})
+	require.NoError(t, err)
+	require.NoError(t, pm2.ApplyTargets([]healthprobe.TargetConfig{
+		{Name: "gw", Type: healthprobe.TargetTypeProtocol, Address: deadTCPTarget,
+			Protocol: "minecraft", FailThreshold: 1, Interval: time.Minute},
+	}))
+	pm2.ProbeManagerOnce(context.Background())
+	stats = pm2.DrainProbeStats()
+	require.Len(t, stats, 1)
+	assert.Equal(t, "gw", stats[0].Target)
+	assert.Equal(t, "protocol", stats[0].ProbeType)
+	assert.Equal(t, "minecraft", stats[0].Protocol)
+	assert.Equal(t, "dial", stats[0].Phase)
+}
+
 func TestProbeManagerNilSafe(t *testing.T) {
 	var pm *ProbeManager
 	assert.Nil(t, pm.DrainProbeStats())

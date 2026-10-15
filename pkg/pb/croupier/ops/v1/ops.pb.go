@@ -3503,6 +3503,9 @@ type ProbeStats struct {
 	WindowDurationMs int64                  `protobuf:"varint,10,opt,name=window_duration_ms,json=windowDurationMs,proto3" json:"window_duration_ms,omitempty"` // open fault window elapsed (0 when closed)
 	LastReason       string                 `protobuf:"bytes,11,opt,name=last_reason,json=lastReason,proto3" json:"last_reason,omitempty"`                      // last failure reason
 	DroppedDetails   int64                  `protobuf:"varint,12,opt,name=dropped_details,json=droppedDetails,proto3" json:"dropped_details,omitempty"`         // details trimmed by the per-window cap
+	ProbeType        string                 `protobuf:"bytes,13,opt,name=probe_type,json=probeType,proto3" json:"probe_type,omitempty"`                         // checker type: http | tcp | db | protocol
+	Protocol         string                 `protobuf:"bytes,14,opt,name=protocol,proto3" json:"protocol,omitempty"`                                            // game protocol adapter name (type=protocol only)
+	Phase            string                 `protobuf:"bytes,15,opt,name=phase,proto3" json:"phase,omitempty"`                                                  // last failure phase marker (protocol checkers only)
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -3619,6 +3622,27 @@ func (x *ProbeStats) GetDroppedDetails() int64 {
 		return x.DroppedDetails
 	}
 	return 0
+}
+
+func (x *ProbeStats) GetProbeType() string {
+	if x != nil {
+		return x.ProbeType
+	}
+	return ""
+}
+
+func (x *ProbeStats) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *ProbeStats) GetPhase() string {
+	if x != nil {
+		return x.Phase
+	}
+	return ""
 }
 
 var File_croupier_ops_v1_ops_proto protoreflect.FileDescriptor
@@ -3943,7 +3967,7 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\adetails\x18\t \x03(\v2).croupier.ops.v1.ProbeDetail.DetailsEntryR\adetails\x1a:\n" +
 	"\fDetailsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x84\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd5\x03\n" +
 	"\n" +
 	"ProbeStats\x12\x16\n" +
 	"\x06target\x18\x01 \x01(\tR\x06target\x12\x1c\n" +
@@ -3960,7 +3984,11 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	" \x01(\x03R\x10windowDurationMs\x12\x1f\n" +
 	"\vlast_reason\x18\v \x01(\tR\n" +
 	"lastReason\x12'\n" +
-	"\x0fdropped_details\x18\f \x01(\x03R\x0edroppedDetails*\xea\x01\n" +
+	"\x0fdropped_details\x18\f \x01(\x03R\x0edroppedDetails\x12\x1d\n" +
+	"\n" +
+	"probe_type\x18\r \x01(\tR\tprobeType\x12\x1a\n" +
+	"\bprotocol\x18\x0e \x01(\tR\bprotocol\x12\x14\n" +
+	"\x05phase\x18\x0f \x01(\tR\x05phase*\xea\x01\n" +
 	"\fProcessState\x12\x1d\n" +
 	"\x19PROCESS_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15PROCESS_STATE_RUNNING\x10\x01\x12\x19\n" +

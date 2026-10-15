@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/report"
@@ -34,7 +35,16 @@ type ServerProbeManager struct {
 	uplinks     map[string]*report.ProbeUplink
 	order       []string
 	semByTarget map[string]string
-	logger      *slog.Logger
+	// typeByTarget/protocolByTarget 目标类型与游戏协议适配器名（配置期静态
+	// 声明，随 Statuses 带出——消费方不必解析 last_reason 文本即可区分协议
+	// 探测与网络/存储探测，§5.5.3 协议四态的标注面）。
+	typeByTarget     map[string]string
+	protocolByTarget map[string]string
+	// phaseMu 守 phaseByTarget：routeResult 由探针 goroutine 并发回调，与
+	// Statuses 读侧并发；agent 侧同语义在 ProbeUplink.lastPhase。
+	phaseMu       sync.Mutex
+	phaseByTarget map[string]string
+	logger        *slog.Logger
 }
 
 // NewServerProbeManager 装配 server 本机探针面。目标非法（重名/类型未知/
@@ -65,6 +75,8 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 
 	uplinks := make(map[string]*report.ProbeUplink, len(cfgs))
 	semByTarget := make(map[string]string, len(cfgs))
+	typeByTarget := make(map[string]string, len(cfgs))
+	protocolByTarget := make(map[string]string, len(cfgs))
 	order := make([]string, 0, len(cfgs))
 	for _, tc := range cfgs {
 		name := strings.TrimSpace(tc.Name)
@@ -79,13 +91,19 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 			AgentID:             report.ServerProbeAgentID,
 			Target:              name,
 			Semantics:           sem,
+			ProbeType:           string(tc.Type),
+			Protocol:            tc.Protocol,
 			MaxDetailsPerWindow: maxDetailsPerWindow,
 		}, wrappedSend)
 		semByTarget[name] = string(sem)
+		typeByTarget[name] = string(tc.Type)
+		protocolByTarget[name] = tc.Protocol
 		order = append(order, name)
 	}
 
-	m := &ServerProbeManager{uplinks: uplinks, order: order, semByTarget: semByTarget, logger: logger}
+	m := &ServerProbeManager{uplinks: uplinks, order: order, semByTarget: semByTarget,
+		typeByTarget: typeByTarget, protocolByTarget: protocolByTarget,
+		phaseByTarget: map[string]string{}, logger: logger}
 	manager, err := healthprobe.NewManager(cfgs, "", "", m.routeWindow, m.routeResult)
 	if err != nil {
 		return nil, err
@@ -106,6 +124,13 @@ func (m *ServerProbeManager) routeResult(res healthprobe.Result) {
 	if up, ok := m.uplinks[res.Target]; ok {
 		up.OnResult(res)
 	}
+	// 失败阶段标记留存（与 ProbeUplink.lastPhase 同语义）：只在失败时写，
+	// 成功不覆盖——口径是「最近一次失败的阶段」，与 lastReason 一致。
+	if !res.OK {
+		m.phaseMu.Lock()
+		m.phaseByTarget[res.Target] = res.Details["phase"]
+		m.phaseMu.Unlock()
+	}
 }
 
 // Targets 已装配的目标名（顺序同配置声明）。
@@ -124,6 +149,12 @@ type ServerProbeStatus struct {
 	WindowOpen bool
 	DurationMS int64
 	LastReason string
+	// ProbeType/Protocol 目标类型与游戏协议适配器名；Phase 最近一次失败的
+	// 阶段标记（协议 Detailing 出口，无 phase 的 checker 为空）。三者构成
+	// §5.5.3「协议四态」的标注面：不可达 / 握手失败 / 已验证。
+	ProbeType string
+	Protocol  string
+	Phase     string
 }
 
 // Statuses 全部 server 目标的当前状态快照（读侧不探测——呈现现状不注入
@@ -134,10 +165,17 @@ func (m *ServerProbeManager) Statuses() []ServerProbeStatus {
 	}
 	out := make([]ServerProbeStatus, 0, len(m.order))
 	for _, p := range m.manager.Probes() {
+		name := p.Target()
+		m.phaseMu.Lock()
+		phase := m.phaseByTarget[name]
+		m.phaseMu.Unlock()
 		st := ServerProbeStatus{
-			Target:    p.Target(),
-			Semantics: m.semByTarget[p.Target()],
+			Target:    name,
+			Semantics: m.semByTarget[name],
 			Available: p.Available(),
+			ProbeType: m.typeByTarget[name],
+			Protocol:  m.protocolByTarget[name],
+			Phase:     phase,
 		}
 		if w, open := p.CurrentWindow(); open {
 			st.WindowOpen = true

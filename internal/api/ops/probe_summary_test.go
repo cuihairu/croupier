@@ -46,8 +46,13 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	store := registry.NewMetricsStore()
 	store.Add("agent-a", &opsv1.MetricsReport{ProbeStats: []*opsv1.ProbeStats{
 		{Target: "redis", Semantics: "readiness", GameId: "demo", Env: "prod",
+			ProbeType: "tcp", Phase: "dial",
 			Checked: 10, Failed: 2, SuccessRate: 0.8, WindowOpen: true,
 			WindowDurationMs: 4200, LastReason: "dial tcp: i/o timeout"},
+		{Target: "minecraft", Semantics: "readiness", GameId: "demo", Env: "prod",
+			ProbeType: "protocol", Protocol: "minecraft", Phase: "login",
+			Checked: 10, Failed: 3, SuccessRate: 0.7, WindowOpen: true,
+			LastReason: "protocol failed at step 2 (login): timeout waiting for match"},
 		{Target: "mysql", Semantics: "liveness", GameId: "demo", Env: "prod",
 			Checked: 10, Failed: 0, SuccessRate: 1},
 		{Target: "reset", Semantics: "liveness", GameId: "demo", Env: "prod"},
@@ -59,7 +64,7 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	require.NoError(t, err)
 
 	byKey := summaryRows(resp.Rows)
-	require.Len(t, resp.Rows, 3, "nil ProbeStats 条目不得产生行")
+	require.Len(t, resp.Rows, 4, "nil ProbeStats 条目不得产生行")
 	require.Contains(t, byKey, "agent-a|redis")
 	row := byKey["agent-a|redis"]
 	assert.Equal(t, "readiness", row.Semantics)
@@ -73,12 +78,25 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	assert.InDelta(t, 0.8, row.SuccessRate, 1e-9)
 	assert.Equal(t, "dial tcp: i/o timeout", row.LastReason)
 	assert.NotEmpty(t, row.LastReportAt, "数据新鲜度锚点必须回传")
+	// 标注面（§5.5.3）：类型与阶段逐字段透传，面板不必解析 lastReason 文本。
+	assert.Equal(t, "tcp", row.ProbeType)
+	assert.Equal(t, "dial", row.Phase)
 
-	// 窗口关着的行 = 可用，计数照实透传。
+	// 协议目标：protocol 字段只在适配器路径非空，phase 标出失败阶段。
+	mc := byKey["agent-a|minecraft"]
+	assert.Equal(t, "protocol", mc.ProbeType)
+	assert.Equal(t, "minecraft", mc.Protocol)
+	assert.Equal(t, "login", mc.Phase)
+	assert.False(t, mc.Available)
+
+	// 窗口关着的行 = 可用，计数照实透传；无标注面信息时字段留空不造值。
 	ok := byKey["agent-a|mysql"]
 	assert.True(t, ok.Available)
 	assert.False(t, ok.WindowOpen)
 	assert.Zero(t, ok.WindowDurationMs)
+	assert.Empty(t, ok.ProbeType)
+	assert.Empty(t, ok.Protocol)
+	assert.Empty(t, ok.Phase)
 }
 
 func TestProbeSummary_ServerRowsReadCurrentState(t *testing.T) {
@@ -101,6 +119,41 @@ func TestProbeSummary_ServerRowsReadCurrentState(t *testing.T) {
 	assert.True(t, row.Available)
 	assert.False(t, row.WindowOpen)
 	assert.NotEmpty(t, row.LastReportAt)
+}
+
+// TestProbeSummary_ServerRowsCarryProtocolAnnotation server 视角同样带
+// probeType/protocol/phase（§5.5.3 标注面）：协议目标的失败阶段经 routeResult
+// 落进状态快照，面板据此区分 不可达 / 握手失败 / 已验证。
+func TestProbeSummary_ServerRowsCarryProtocolAnnotation(t *testing.T) {
+	mgr, err := svc.NewServerProbeManager([]healthprobe.TargetConfig{
+		{Name: "mc", Type: healthprobe.TargetTypeProtocol, Address: "127.0.0.1:1",
+			Steps:         []healthprobe.StepSpec{{Name: "handshake", Send: []byte("HELO")}},
+			FailThreshold: 1, Interval: time.Minute},
+		{Name: "keepalive", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
+			FailThreshold: 1, Interval: time.Minute},
+	}, nil, 0, nil)
+	require.NoError(t, err)
+
+	// 手动诊断驱动一次真实探测：失败阶段经 routeResult 落进快照。
+	res, ok := mgr.ProbeOnceByName("mc")
+	require.True(t, ok)
+	require.False(t, res.OK)
+
+	s := summaryService(nil, mgr)
+	resp, err := s.ProbeSummary(context.Background(), &ProbeSummaryRequest{})
+	require.NoError(t, err)
+	byKey := summaryRows(resp.Rows)
+
+	mc := byKey[svc.ServerProbeAgentID+"|mc"]
+	assert.Equal(t, "protocol", mc.ProbeType)
+	assert.Equal(t, "dial", mc.Phase, "协议目标 dial 阶段失败 = 未进协议交互")
+	assert.False(t, mc.Available)
+
+	// 非协议目标无 phase 概念：字段留空而不是从协议目标借值。
+	tcp := byKey[svc.ServerProbeAgentID+"|keepalive"]
+	assert.Equal(t, "tcp", tcp.ProbeType)
+	assert.Empty(t, tcp.Protocol)
+	assert.Empty(t, tcp.Phase)
 }
 
 func TestProbeSummary_ScopeFiltering(t *testing.T) {

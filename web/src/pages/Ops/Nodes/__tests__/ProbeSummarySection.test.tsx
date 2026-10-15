@@ -6,6 +6,8 @@
  *  - checked=0 不显示 100%（没测过 ≠ 全成功）
  *  - 在线趋势「未接入」灰态常驻，不静默消失
  *  - 加载失败走行内 Alert，清空旧数据不残留陈旧结论
+ *  - 协议目标按失败阶段区分 不可达 / 协议失败 / 已验证（§5.5.3 标注面）
+ *  - 旧版 agent 未上报类型时不伪造类型值
  */
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -91,6 +93,46 @@ const ROW_NO_SAMPLE = {
   lastReportAt: '2026-10-14T12:00:00Z',
 };
 
+// 协议目标：phase=dial = 未进协议交互（不可达），phase=login = 握手半途失败，
+// 无 phase 且 available = 已验证。
+const ROW_PROTOCOL_FAILED = {
+  agentId: 'agent-b',
+  target: 'mc-login',
+  semantics: 'readiness',
+  gameId: 'demo',
+  env: 'prod',
+  available: false,
+  windowOpen: true,
+  checked: 10,
+  failed: 3,
+  successRate: 0.7,
+  lastReason: 'protocol failed at step 2 (login): timeout waiting for match',
+  probeType: 'protocol',
+  protocol: 'minecraft',
+  phase: 'login',
+  lastReportAt: '2026-10-14T12:00:00Z',
+};
+
+const ROW_PROTOCOL_UNREACHABLE = {
+  ...ROW_PROTOCOL_FAILED,
+  target: 'mc-dial',
+  failed: 10,
+  successRate: 0,
+  phase: 'dial',
+  lastReason: 'dial tcp 10.0.0.6:25565: connect: connection refused',
+};
+
+const ROW_PROTOCOL_OK = {
+  ...ROW_PROTOCOL_FAILED,
+  target: 'mc-ok',
+  available: true,
+  windowOpen: false,
+  failed: 0,
+  successRate: 1,
+  phase: undefined,
+  lastReason: undefined,
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -160,5 +202,35 @@ describe('Ops/Nodes 探针汇总卡', () => {
 
     await waitFor(() => expect(screen.getByText('boom')).toBeInTheDocument());
     expect(screen.queryByText('redis')).not.toBeInTheDocument();
+  });
+
+  it('协议目标按失败阶段区分 不可达 / 协议失败 / 已验证（§5.5.3 标注面）', async () => {
+    getOpsProbeSummary.mockResolvedValue({
+      onlineDataIntegrated: false,
+      rows: [ROW_PROTOCOL_UNREACHABLE, ROW_PROTOCOL_FAILED, ROW_PROTOCOL_OK],
+    });
+    renderSection();
+
+    await screen.findByText('mc-login');
+    // dial 失败 = 未进协议交互 → 不可达；登录半途失败 → 协议失败·阶段名
+    expect(screen.getByText('不可达')).toBeInTheDocument();
+    expect(screen.getByText('协议失败·login')).toBeInTheDocument();
+    expect(screen.getAllByText('可用')).toHaveLength(1);
+    // 标注不取代证据：失败原因原文仍在同行
+    expect(screen.getByText(/protocol failed at step 2 \(login\)/)).toBeInTheDocument();
+  });
+
+  it('协议目标标出适配器名；旧版 agent 未上报类型不伪造', async () => {
+    getOpsProbeSummary.mockResolvedValue({
+      onlineDataIntegrated: false,
+      rows: [ROW_PROTOCOL_OK, ROW_OK],
+    });
+    renderSection();
+
+    await screen.findByText('mc-ok');
+    expect(screen.getByText('mysql')).toBeInTheDocument();
+    // 仅协议行携带类型列文本：未上报类型的行不猜类型（恰好一处）
+    expect(screen.getAllByText('protocol:minecraft')).toHaveLength(1);
+    expect(screen.getAllByText('可用')).toHaveLength(2);
   });
 });

@@ -42,6 +42,11 @@ type ProbeUplinkConfig struct {
 	Env       string
 	Target    string
 	Semantics healthprobe.Semantics
+	// ProbeType checker 类型（http|tcp|db|protocol）：聚合面带出来，让消费方
+	// 不必解析 last_reason 文本就能区分「协议握手失败」与「网络不可达」。
+	ProbeType string
+	// Protocol 游戏协议适配器名（仅 type=protocol 且走适配器时非空）。
+	Protocol string
 	// MaxDetailsPerWindow <= 0 时用 DefaultMaxDetailsPerWindow。
 	MaxDetailsPerWindow int
 }
@@ -64,6 +69,7 @@ type ProbeUplink struct {
 	failed     int64
 	buckets    [len(LatencyBucketBoundaries) + 1]int64
 	lastReason string
+	lastPhase  string
 	openSince  time.Time
 	windowOpen bool
 	details    int
@@ -108,6 +114,9 @@ func (u *ProbeUplink) OnResult(res healthprobe.Result) {
 	}
 	u.failed++
 	u.lastReason = res.Err
+	// phase 只在失败时随 lastReason 一起留存（协议 Detailing 的唯一出口），
+	// 无 phase 的 checker 清空——留旧值会把上一目标的阶段标错。
+	u.lastPhase = res.Details["phase"]
 	if res.WindowOpen {
 		if u.openSince.IsZero() {
 			u.openSince = res.At
@@ -155,6 +164,9 @@ func (u *ProbeUplink) Drain() *opsv1.ProbeStats {
 		WindowDurationMs: windowMS,
 		LastReason:       truncateUTF8(u.lastReason, maxDetailErrBytes),
 		DroppedDetails:   u.dropped,
+		ProbeType:        u.cfg.ProbeType,
+		Protocol:         u.cfg.Protocol,
+		Phase:            u.lastPhase,
 	}
 	u.checked, u.failed, u.dropped = 0, 0, 0
 	u.buckets = [len(LatencyBucketBoundaries) + 1]int64{}

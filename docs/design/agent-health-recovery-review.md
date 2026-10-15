@@ -215,8 +215,9 @@ type ProtocolChecker struct {
 - **契约增量**（相对 §5.5.1 原文，实现期补口）：① `DialTimeout` 字段（取 `target.timeout`，默认 2s 对齐 TCP 目标）；② 配置面十六进制字段 `sendHex`/`containsHex`/`prefixHex`（`[]byte` 的 YAML 缺省编码是 base64，对写握手魔数的运维不友好；工厂归一到字节字段、双写报错）；③ 测试注入只留 `dialer` 单侧（注入的 net.Conn 已覆盖读写，不设 Reader 口）。
 - **L3 首适配器**：`core/healthprobe/games/minecraft`——Minecraft Java 版 Server List Ping，**按公开协议规范自写，零第三方代码/数据文件**（SLP 两包交互不需要 protocol.json 字段级数据；构建期拉取通道留给登录级 L3，见 game-data-sources.md §5）。零账号验证任意 Java 版服务器（online-mode 加密链在 Login 流程，SLP 不涉及）；成功 Details 记 `version`/`serverProtocol`/`players`。
 - **装配**：`internal/app/agent/probe_protocols.go` blank import；`ApplyTargets` 变配检测改 `reflect.DeepEqual`（`TargetConfig` 含 steps 切片后不可比较）。配置示例入 `configs/agent.yaml` 注释段。
-- **验收对照（§5.5.4 L2）**：mock listener 私有握手（发握手包→期望前缀→发登录→期望成功码）✓；阶段标记进 Result.Details ✓；配置非法构造期拒绝（not-integrated 不产生窗口=结构性成立：无目标即无 Probe）✓；protocol-failed 与 dial 失败在 LastReason 可区分（测试双断言）✓。
-- **已知边界（诚实列出）**：①探针卡「未接入/可达未验证」灰态标注未做（dashboard 独立批次）；②SLP 只验 status 层（version 键存在即已验证），Login 级探活待账号（§6 卡点不变）；③握手声明协议版本固定 47=1.8.9（vanilla/Paper status 不校验版本；个别代理可能严格）；④每步读缓冲独立，上一步残余字节不跨步携带（一步多包协议属 L3）。
+- **面板标注面（2026-10-15 补）**：§5.5.3 协议四态此前只在内核与 LastReason 文本层成立，运维面板无法据此区分故障性质。补三字段随聚合面上行——`ProbeStats` 追加 `probe_type`（checker 类型）/`protocol`（游戏适配器名）/`phase`（最近失败阶段，与 `last_reason` 同口径只在失败时写、无 phase 的 checker 清空不留旧值）；静态与动态（R4 下行）两条装配路径与 server 本机探针面同口径透传（server 侧 `phaseByTarget` 由 `routeResult` 写，探针 goroutine 并发回调故加锁）；`GET /api/v1/ops/probe/summary` 行级带出，探针汇总卡新增「探测类型」列（`protocol:minecraft` 形态）并把探活列标签按阶段化：dial 失败=「不可达」（未进协议交互），其余 phase=「协议失败·<阶段名>」，无 phase 退回内核两态文案。失败原因原文仍在同行，标注不取代证据；旧版 agent 未上报类型时列显缺失不猜值。
+- **验收对照（§5.5.4 L2）**：mock listener 私有握手（发握手包→期望前缀→发登录→期望成功码）✓；阶段标记进 Result.Details ✓；配置非法构造期拒绝（not-integrated 不产生窗口=结构性成立：无目标即无 Probe）✓；protocol-failed 与 dial 失败在 LastReason 可区分（测试双断言）✓；面板可区分 不可达 / 协议失败 / 已验证（卡片用例断三态标签）✓。
+- **已知边界（诚实列出）**：①not-integrated（§5.5.3 首态）没有面板灰态——它是「本应接入协议探测但未接入」，判定需要一个「该目标/节点声明需要玩家侧拨测」的声明位，仓内不存在此概念；凭空推断会把「没配」当成「应配」，故不猜。落地需先拍板声明位形态（节点属性 / probe 段意图字段 / 立项单标记），届时灰态卡才有真值来源；②SLP 只验 status 层（version 键存在即已验证），Login 级探活待账号（§6 卡点不变）；③握手声明协议版本固定 47=1.8.9（vanilla/Paper status 不校验版本；个别代理可能严格）；④每步读缓冲独立，上一步残余字节不跨步携带（一步多包协议属 L3）；⑤旧版 agent 上报的聚合行无 `probe_type`，面板该列显缺失（混合版本集群的过渡态，升级后自然消失）。
 
 ## 6. dbmon → healthprobe 收敛方案（硬约束：探测实现只留一份）
 
