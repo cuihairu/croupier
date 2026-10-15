@@ -1131,6 +1131,40 @@ export async function resumeAgentProcessSchedule(agentId: string, name: string):
   );
 }
 
+/** 更新进程二进制（§10.4）：stagedPath 是 agent 主机上已暂存的文件，
+ * expectedSha256 是内容哈希（64 位小写 hex，fail-closed）。服务端先停后换、
+ * 自动启动、失败回滚旧版，返回旧→新指纹（无旧版时 oldFingerprint 为空）。 */
+export async function updateAgentProcess(
+  agentId: string,
+  name: string,
+  stagedPath: string,
+  expectedSha256: string,
+): Promise<{
+  success: boolean;
+  message?: string;
+  oldFingerprint?: string;
+  newFingerprint?: string;
+  rolledBack: boolean;
+}> {
+  const raw = await request<{
+    success?: boolean;
+    message?: string;
+    oldFingerprint?: string;
+    newFingerprint?: string;
+    rolledBack?: boolean;
+  }>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/update`,
+    { method: 'POST', data: { stagedPath, expectedSha256 } },
+  );
+  return {
+    success: raw.success === true,
+    message: raw.message,
+    oldFingerprint: raw.oldFingerprint,
+    newFingerprint: raw.newFingerprint,
+    rolledBack: raw.rolledBack === true,
+  };
+}
+
 /** supervisor ndjson 日志下载直链（浏览器直接 attachment 下载，不走 blob）。 */
 export function getAgentSupervisorLogUrl(agentId: string) {
   return buildDownloadUrl(`/api/v1/ops/agents/${encodeURIComponent(agentId)}/supervisor/logs`);

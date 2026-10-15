@@ -18,6 +18,7 @@ import {
   resumeAgentProcessSchedule,
   startAgentProcess,
   stopAgentProcess,
+  updateAgentProcess,
   type OpsAgentSupervisorEventsResponse,
   type OpsAgentSupervisorResponse,
   type SupervisedProcess,
@@ -34,6 +35,7 @@ jest.mock('@/services/api/ops', () => ({
   restartAgentProcess: jest.fn(),
   pauseAgentProcessSchedule: jest.fn(),
   resumeAgentProcessSchedule: jest.fn(),
+  updateAgentProcess: jest.fn(),
 }));
 const mockFetch = fetchAgentSupervisor as jest.MockedFunction<typeof fetchAgentSupervisor>;
 const mockFetchEvents = fetchAgentSupervisorEvents as jest.MockedFunction<
@@ -48,6 +50,7 @@ const mockPause = pauseAgentProcessSchedule as jest.MockedFunction<
 const mockResume = resumeAgentProcessSchedule as jest.MockedFunction<
   typeof resumeAgentProcessSchedule
 >;
+const mockUpdate = updateAgentProcess as jest.MockedFunction<typeof updateAgentProcess>;
 
 const NODE: NodeRow = {
   agentId: 'agent-1',
@@ -103,6 +106,9 @@ const STOPPED: SupervisedProcess = {
 
 /** 下一触发时间固定为整点槽，便于断言 zh-CN 本地化串 */
 const NEXT_FIRE_UNIX = 1760000400;
+
+/** §10.4 合法内容哈希（64 位小写 hex），与服务端 fail-closed 校验同形 */
+const VALID_SHA256 = 'a'.repeat(64);
 
 const EVENT_BASE: SupervisorEvent = {
   seq: 0,
@@ -277,18 +283,19 @@ describe('SupervisorDrawer', () => {
   });
 
   describe('S2 进程操作列', () => {
-    it('操作列渲染启动/停止/重启/暂停/恢复五按钮；重启 Popconfirm 确认 → restartAgentProcess + 成功提示 + 快照复拉', async () => {
+    it('操作列渲染启动/停止/重启/暂停/恢复/更新六按钮；重启 Popconfirm 确认 → restartAgentProcess + 成功提示 + 快照复拉', async () => {
       mockFetch.mockResolvedValue(resp());
       mockRestart.mockResolvedValue(undefined);
       renderDrawer();
 
       expect(await screen.findByText('gameserver')).toBeInTheDocument();
-      // 操作列五按钮（两行进程 → 各两枚 启动/停止/重启/暂停/恢复）
+      // 操作列六按钮（两行进程 → 各两枚 启动/停止/重启/暂停/恢复/更新）
       expect(screen.getByText('操作')).toBeInTheDocument();
       expect(screen.getAllByText('启动').length).toBe(2);
       expect(screen.getAllByText('停止').length).toBe(2);
       expect(screen.getAllByText('暂停').length).toBe(2);
       expect(screen.getAllByText('恢复').length).toBe(2);
+      expect(screen.getAllByText('更新').length).toBe(2);
 
       // 「重启」同时命中列头（column.restarts），只点按钮那一枚
       const restartBtn = screen
@@ -465,6 +472,128 @@ describe('SupervisorDrawer', () => {
       expect(await screen.findByText('agent offline')).toBeInTheDocument();
       await waitFor(() => expect(mockPause).toHaveBeenCalled());
       expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('§10.4 更新二进制（Modal 收集 stagedPath + sha256）', () => {
+    const STAGED_PATH = '/opt/croupier/agent.new';
+    const SHA_PLACEHOLDER = 'e3b0c44298fc1c149afbf4c8996fb924…';
+
+    /** 打开首行进程的更新 Modal，返回 .ant-modal 节点（portal 在 document 级） */
+    async function openUpdateModal() {
+      fireEvent.click(screen.getAllByText('更新')[0]);
+      const modal = await waitFor(() => {
+        const el = document.querySelector('.ant-modal') as HTMLElement;
+        expect(el).not.toBeNull();
+        return el;
+      });
+      return modal;
+    }
+
+    /** Modal footer OK 按钮：antd 对两字中文自动插空格渲染成「更 新」，须用宽松正则匹配 */
+    function okButton(modal: HTMLElement) {
+      return within(modal).getByRole('button', { name: /更\s*新/ });
+    }
+
+    /** jsdom 无布局引擎，getBoundingClientRect 恒 0×0 → jest-dom toBeVisible 不可用；
+     * antd Modal 开合以 .ant-modal-wrap 的 inline display 判定（关=display:none）。 */
+    function modalOpen(): boolean {
+      const wrap = document.querySelector('.ant-modal-wrap') as HTMLElement | null;
+      return Boolean(wrap) && !(wrap.getAttribute('style') ?? '').includes('display: none');
+    }
+
+    it('Modal 渲染：标题含进程名+两输入框；空表单 OK 禁用', async () => {
+      mockFetch.mockResolvedValue(resp());
+      renderDrawer();
+      expect(await screen.findByText('gameserver')).toBeInTheDocument();
+
+      const modal = await openUpdateModal();
+      expect(within(modal).getByText('更新进程 gameserver 二进制')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(STAGED_PATH)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(SHA_PLACEHOLDER)).toBeInTheDocument();
+      expect(okButton(modal)).toBeDisabled();
+      expect(modalOpen()).toBe(true);
+    });
+
+    it('校验拦截：sha 大写/短串、路径纯空白均禁用；合法输入后解禁', async () => {
+      mockFetch.mockResolvedValue(resp());
+      renderDrawer();
+      expect(await screen.findByText('gameserver')).toBeInTheDocument();
+
+      const modal = await openUpdateModal();
+      const pathInput = screen.getByPlaceholderText(STAGED_PATH);
+      const shaInput = screen.getByPlaceholderText(SHA_PLACEHOLDER);
+
+      fireEvent.change(pathInput, { target: { value: STAGED_PATH } });
+      // 大写 hex（服务端只收小写）
+      fireEvent.change(shaInput, { target: { value: 'A'.repeat(64) } });
+      expect(okButton(modal)).toBeDisabled();
+      // 63 位短串
+      fireEvent.change(shaInput, { target: { value: 'a'.repeat(63) } });
+      expect(okButton(modal)).toBeDisabled();
+      // 合法 sha + 纯空白路径
+      fireEvent.change(shaInput, { target: { value: VALID_SHA256 } });
+      fireEvent.change(pathInput, { target: { value: '   ' } });
+      expect(okButton(modal)).toBeDisabled();
+      // 路径恢复后解禁
+      fireEvent.change(pathInput, { target: { value: STAGED_PATH } });
+      await waitFor(() => expect(okButton(modal)).toBeEnabled());
+    });
+
+    it('成功全链：updateAgentProcess 入参正确 → 成功提示 → 快照复拉 → Modal 关闭', async () => {
+      mockFetch.mockResolvedValue(resp());
+      mockUpdate.mockResolvedValue({
+        success: true,
+        oldFingerprint: 'f'.repeat(64),
+        newFingerprint: VALID_SHA256,
+        rolledBack: false,
+      });
+      renderDrawer();
+      expect(await screen.findByText('gameserver')).toBeInTheDocument();
+
+      const modal = await openUpdateModal();
+      fireEvent.change(screen.getByPlaceholderText(STAGED_PATH), {
+        target: { value: STAGED_PATH },
+      });
+      fireEvent.change(screen.getByPlaceholderText(SHA_PLACEHOLDER), {
+        target: { value: VALID_SHA256 },
+      });
+      await waitFor(() => expect(okButton(modal)).toBeEnabled());
+      fireEvent.click(okButton(modal));
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith('agent-1', 'gameserver', STAGED_PATH, VALID_SHA256),
+      );
+      expect(await screen.findByText('进程 gameserver 二进制已更新')).toBeInTheDocument();
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+      // Modal 关闭（wrap 置 display:none），成功后入参复位。
+      // 复位值不对 DOM 断言：jsdom 下已关闭的 Modal 保留旧子树快照，受控 Input 不回写。
+      expect(modalOpen()).toBe(false);
+    });
+
+    it('失败：Error.message 进 message.error，不复拉快照，Modal 保留便于修正', async () => {
+      mockFetch.mockResolvedValue(resp());
+      mockUpdate.mockRejectedValue(new Error('sha mismatch'));
+      renderDrawer();
+      expect(await screen.findByText('gameserver')).toBeInTheDocument();
+
+      const modal = await openUpdateModal();
+      fireEvent.change(screen.getByPlaceholderText(STAGED_PATH), {
+        target: { value: STAGED_PATH },
+      });
+      fireEvent.change(screen.getByPlaceholderText(SHA_PLACEHOLDER), {
+        target: { value: VALID_SHA256 },
+      });
+      await waitFor(() => expect(okButton(modal)).toBeEnabled());
+      fireEvent.click(okButton(modal));
+
+      expect(await screen.findByText('sha mismatch')).toBeInTheDocument();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      // Modal 仍打开，已填入参保留，便于修正后重提
+      expect(modalOpen()).toBe(true);
+      expect((screen.getByPlaceholderText(STAGED_PATH) as HTMLInputElement).value).toBe(
+        STAGED_PATH,
+      );
     });
   });
 

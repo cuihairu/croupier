@@ -4,6 +4,9 @@ import {
   Badge,
   Button,
   Drawer,
+  Form,
+  Input,
+  Modal,
   Popconfirm,
   Select,
   Space,
@@ -23,6 +26,7 @@ import {
   resumeAgentProcessSchedule,
   startAgentProcess,
   stopAgentProcess,
+  updateAgentProcess,
   type OpsAgentSupervisorEventsResponse,
   type OpsAgentSupervisorResponse,
   type SupervisedProcess,
@@ -177,6 +181,11 @@ export default function SupervisorDrawer({
   const [eventFilter, setEventFilter] = useState('');
   const [actingName, setActingName] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  // §10.4 更新二进制： Modal 打开期间暂存目标进程与两个入参（stagedPath/expectedSha256）
+  const [updateName, setUpdateName] = useState('');
+  const [stagedPath, setStagedPath] = useState('');
+  const [expectedSha256, setExpectedSha256] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     if (!node) return;
@@ -247,6 +256,46 @@ export default function SupervisorDrawer({
     },
     [intl, message],
   );
+
+  // §10.4 更新：成功关 Modal 并复拉快照（指纹列可见 old→new）；失败保留 Modal 便于修正重提
+  const runUpdate = useCallback(async () => {
+    if (!node) return;
+    setUpdating(true);
+    try {
+      const resp = await updateAgentProcess(node.agentId, updateName, stagedPath, expectedSha256);
+      if (!resp.success) {
+        throw new Error(resp.message || 'update failed');
+      }
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.opsNodes.supervisor.action.updateDone',
+            defaultMessage: '进程 {name} 二进制已更新',
+          },
+          { name: updateName },
+        ),
+      );
+      setUpdateName('');
+      setStagedPath('');
+      setExpectedSha256('');
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      message.error(
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.opsNodes.supervisor.action.failed',
+              defaultMessage: '操作失败',
+            }),
+      );
+    } finally {
+      setUpdating(false);
+    }
+  }, [intl, message, node, updateName, stagedPath, expectedSha256]);
+
+  const updateModalOpen = updateName !== '';
+  // 与后端 fail-closed 对齐：stagedPath 非空 + 64 位小写 hex 才允许提交
+  const canSubmitUpdate = stagedPath.trim() !== '' && /^[0-9a-f]{64}$/.test(expectedSha256.trim());
 
   const filterOptions = [
     {
@@ -549,7 +598,7 @@ export default function SupervisorDrawer({
               defaultMessage: '操作',
             }),
             key: 'action',
-            width: 260,
+            width: 320,
             render: (_v: unknown, record) => {
               const busy = actingName === record.name;
               const suspended = record.scheduleSuspended;
@@ -684,6 +733,25 @@ export default function SupervisorDrawer({
                       defaultMessage: '恢复',
                     })}
                   </Button>
+                  {/*
+                    §10.4 更新：先停后换、失败回滚是服务端语义；面板只收集 stagedPath
+                    与内容哈希（64 位小写 hex fail-closed），提交后展示 old→新指纹。
+                  */}
+                  <Button
+                    type="link"
+                    size="small"
+                    disabled={!node || busy}
+                    onClick={() => {
+                      setUpdateName(record.name);
+                      setStagedPath('');
+                      setExpectedSha256('');
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: 'pages.opsNodes.supervisor.action.update',
+                      defaultMessage: '更新',
+                    })}
+                  </Button>
                 </Space>
               );
             },
@@ -741,6 +809,71 @@ export default function SupervisorDrawer({
           },
         ]}
       />
+      {/*
+        §10.4 更新 Modal：stagedPath 是 agent 主机上已暂存的文件路径，expectedSha256
+        是内容哈希；两者缺一则 OK 禁用（与服务端 fail-closed 校验一致）。
+      */}
+      <Modal
+        title={intl.formatMessage(
+          {
+            id: 'pages.opsNodes.supervisor.action.updateTitle',
+            defaultMessage: '更新进程 {name} 二进制',
+          },
+          { name: updateName },
+        )}
+        open={updateModalOpen}
+        onCancel={() => setUpdateName('')}
+        onOk={runUpdate}
+        confirmLoading={updating}
+        okButtonProps={{ disabled: !canSubmitUpdate }}
+        okText={intl.formatMessage({
+          id: 'pages.opsNodes.supervisor.action.update',
+          defaultMessage: '更新',
+        })}
+        cancelText={intl.formatMessage({
+          id: 'pages.opsNodes.supervisor.action.cancel',
+          defaultMessage: '取消',
+        })}
+      >
+        <Form layout="vertical">
+          <Form.Item
+            required
+            label={intl.formatMessage({
+              id: 'pages.opsNodes.supervisor.action.updateStagedPath',
+              defaultMessage: '暂存文件路径',
+            })}
+          >
+            <Input
+              value={stagedPath}
+              onChange={(e) => setStagedPath(e.target.value)}
+              placeholder={intl.formatMessage({
+                id: 'pages.opsNodes.supervisor.action.updateStagedPathPlaceholder',
+                defaultMessage: '/opt/croupier/agent.new',
+              })}
+            />
+          </Form.Item>
+          <Form.Item
+            required
+            label={intl.formatMessage({
+              id: 'pages.opsNodes.supervisor.action.updateSha256',
+              defaultMessage: '文件 SHA-256',
+            })}
+            extra={intl.formatMessage({
+              id: 'pages.opsNodes.supervisor.action.updateSha256Extra',
+              defaultMessage: '64 位小写十六进制；服务端按内容哈希 fail-closed 校验',
+            })}
+          >
+            <Input
+              value={expectedSha256}
+              onChange={(e) => setExpectedSha256(e.target.value)}
+              placeholder={intl.formatMessage({
+                id: 'pages.opsNodes.supervisor.action.updateSha256Placeholder',
+                defaultMessage: 'e3b0c44298fc1c149afbf4c8996fb924…',
+              })}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Drawer>
   );
 }
