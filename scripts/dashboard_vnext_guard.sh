@@ -73,10 +73,23 @@ assert_contains() {
     fi
 }
 
+# rg exits non-zero both for "no match" and for "path does not exist" (os error 2).
+# A negative check over a missing path therefore passes silently — the guard loses
+# its teeth without failing. Every scanned path is asserted to exist first.
+require_scan_paths() {
+    local path
+    for path in "$@"; do
+        if [ ! -e "${path}" ]; then
+            fail "scanned path missing (negative check would be a no-op): ${path}"
+        fi
+    done
+}
+
 assert_not_contains() {
     local pattern="$1"
     local label="$2"
     shift 2
+    require_scan_paths "$@"
     if rg -n "$pattern" "$@" >/tmp/croupier-dashboard-guard-match.txt 2>/dev/null; then
         fail "$label"
         sed -n '1,20p' /tmp/croupier-dashboard-guard-match.txt
@@ -137,13 +150,16 @@ assert_contains "web/src/components/SchemaFormRenderer/index.tsx" "@rjsf/validat
 
 echo ""
 echo "Checking execution and approval boundary..."
-assert_not_contains "FunctionExecutionApproval|GenerateApprovalPageForOperation|isApprovalOperation|execution must be one of sync, task, approval|x-execution must be one of sync, task, approval|sync\\|task\\|approval|sync/task/approval|execution === 'approval'" "approval is not a FunctionContract execution mode" "internal/dashboard" "internal/api/openapi" "internal/platform/openapi" "internal/model" "proto/croupier" "web/src/types/dashboard.ts" "web/src/pages/OpenAPISources" "sdks/go/pkg/croupier" "sdks/java/src/main" "sdks/cpp/include"
+assert_not_contains "FunctionExecutionApproval|GenerateApprovalPageForOperation|isApprovalOperation|execution must be one of sync, task, approval|x-execution must be one of sync, task, approval|sync\\|task\\|approval|sync/task/approval|execution === 'approval'" "approval is not a FunctionContract execution mode" "internal/dashboard" "internal/api/openapi" "internal/drivers/openapi" "internal/model" "proto/croupier" "web/src/types/dashboard.ts" "web/src/pages/OpenAPISources" "sdks/go/pkg/croupier" "sdks/java/src/main" "sdks/cpp/include"
 
 echo ""
 echo "Checking registration-side UI fields stay rejected..."
+require_scan_paths \
+    proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
+    internal/agent internal/app/agent internal/api/openapi internal/drivers/openapi internal/function internal/platform/registry
 if rg -n "category_display|entity_display|operation_display|operation_kind|page_hint|x-labels" \
     proto/croupier sdks/go sdks/js/src sdks/python sdks/java/src sdks/csharp/src sdks/cpp/include sdks/cpp/src \
-    internal/agent internal/app/agent internal/api/openapi internal/platform/openapi internal/function internal/platform/registry \
+    internal/agent internal/app/agent internal/api/openapi internal/drivers/openapi internal/function internal/platform/registry \
     --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
     --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
     --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
