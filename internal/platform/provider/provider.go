@@ -7,8 +7,8 @@
 // 保留物与去向：
 //   - Provider 接口保留为 **driver 契约蓝本**——Call(ctx, method, []byte)
 //     ([]byte, error) 的 JSON 透传语义正是 drivers.Driver.Call 的原型；
-//     internal/platform/quicksdk、internal/drivers/openapi 两个实现随
-//     P1 迁移（mapping §2.3），迁完本包删除。
+//     internal/extensions/official/externalplatform、internal/drivers/openapi
+//     两个实现随 P1 迁移（mapping §2.3），迁完本包删除。
 //   - ProviderNotFoundError / MethodNotSupportedError / ProviderDisabledError
 //     三个错误类型语义由 drivers 层沿用（drivers.NotFoundError 等）。
 package provider

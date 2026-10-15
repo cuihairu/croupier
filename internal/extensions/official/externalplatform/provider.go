@@ -1,3 +1,7 @@
+// Package quicksdk 是官方 external-platform 扩展的 Provider 实现
+// （#66 Provider 插件批二 P1-b 迁入，原 internal/platform/quicksdk）：
+// 目录即官方扩展位（internal/extensions/official/<domain>），包名保留
+// QuickSDK 实现身份；目标树见 docs/design/provider-plugin-design.md §4。
 package quicksdk
 
 import (
