@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -344,7 +345,9 @@ func (m *ProbeManager) ApplyTargets(cfgs []healthprobe.TargetConfig) error {
 	// 装/换：新增与配置变更的目标。
 	for name, tc := range want {
 		if old, ok := m.dynamic[name]; ok {
-			if old == tc {
+			// steps 入列后 TargetConfig 不可比较（含切片），变配检测改
+			// DeepEqual——语义仍只判「配置逐字段一致则不重建探针」。
+			if reflect.DeepEqual(old, tc) {
 				continue // 配置未变，保留原探针（窗口状态不清零）
 			}
 			m.removeDynamicLocked(name)

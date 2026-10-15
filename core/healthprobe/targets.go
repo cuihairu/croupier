@@ -13,9 +13,10 @@ const DefaultInterval = 30 * time.Second
 
 // 目标声明类型闭集。
 const (
-	TargetTypeHTTP = "http"
-	TargetTypeTCP  = "tcp"
-	TargetTypeDB   = "db"
+	TargetTypeHTTP     = "http"
+	TargetTypeTCP      = "tcp"
+	TargetTypeDB       = "db"
+	TargetTypeProtocol = "protocol" // 声明式私有协议（steps）或游戏协议适配器（protocol）
 )
 
 // TargetConfig 探针目标声明（agent 配置 probe.targets[] 元素）：只声明探什么；
@@ -23,7 +24,7 @@ const (
 // 配置键 lowerCamelCase（http/tcp 域内；db 域用 dsn 等本包契约键）。
 type TargetConfig struct {
 	Name             string        `json:"name" yaml:"name"`
-	Type             string        `json:"type" yaml:"type"` // http | tcp | db
+	Type             string        `json:"type" yaml:"type"` // http | tcp | db | protocol
 	URL              string        `json:"url,omitempty" yaml:"url,omitempty"`
 	Address          string        `json:"address,omitempty" yaml:"address,omitempty"`
 	DSN              string        `json:"dsn,omitempty" yaml:"dsn,omitempty"`
@@ -34,6 +35,11 @@ type TargetConfig struct {
 	Interval         time.Duration `json:"interval,omitempty" yaml:"interval,omitempty"`
 	FailThreshold    int           `json:"failThreshold,omitempty" yaml:"failThreshold,omitempty"`
 	RecoverThreshold int           `json:"recoverThreshold,omitempty" yaml:"recoverThreshold,omitempty"`
+
+	// protocol 类型专属：Steps=声明式私有协议握手（§5.5.1 层 2 零码接入）；
+	// Protocol=已注册游戏协议适配器名（层 3，RegisterGameProtocol），二者互斥。
+	Steps    []StepSpec `json:"steps,omitempty" yaml:"steps,omitempty"`
+	Protocol string     `json:"protocol,omitempty" yaml:"protocol,omitempty"`
 }
 
 // EffectiveInterval 返回生效采样频率：显式值优先，否则全局默认 30s。
@@ -73,8 +79,27 @@ func NewChecker(t TargetConfig) (Checker, error) {
 			return nil, fmt.Errorf("target %q: db requires dsn and driver", t.Name)
 		}
 		return &DBChecker{DSN: t.DSN, Driver: t.Driver, Timeout: t.Timeout, Query: t.Query}, nil
+	case TargetTypeProtocol:
+		if strings.TrimSpace(t.Address) == "" {
+			return nil, fmt.Errorf("target %q: protocol requires address", t.Name)
+		}
+		if strings.TrimSpace(t.Protocol) != "" {
+			if len(t.Steps) > 0 {
+				return nil, fmt.Errorf("target %q: protocol and steps are mutually exclusive", t.Name)
+			}
+			maker, ok := lookupGameProtocol(t.Protocol)
+			if !ok {
+				return nil, fmt.Errorf("target %q: unknown game protocol %q (registered: %v)",
+					t.Name, t.Protocol, RegisteredGameProtocols())
+			}
+			return maker(t)
+		}
+		if len(t.Steps) == 0 {
+			return nil, fmt.Errorf("target %q: protocol requires steps or protocol", t.Name)
+		}
+		return NewProtocolChecker(t.Address, t.Steps, t.Timeout)
 	default:
-		return nil, fmt.Errorf("target %q: unknown type %q (want http|tcp|db)", t.Name, t.Type)
+		return nil, fmt.Errorf("target %q: unknown type %q (want http|tcp|db|protocol)", t.Name, t.Type)
 	}
 }
 

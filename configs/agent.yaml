@@ -96,3 +96,16 @@ ops:
 #       driver: mysql           # driver 由 agent 装配侧注册；dsn 不写进示例
 #       dsn: "user:pass@tcp(127.0.0.1:3306)/game"
 #       query: "SELECT 1"       # 只读断言；写 NONE 表示只 Ping 连通
+#     - name: game-gateway-proto  # 声明式私有协议（steps，零码）：发握手包等定长回包
+#       type: protocol
+#       address: 10.0.0.5:7777
+#       steps:
+#         - name: handshake       # 阶段标记（进失败明细/告警 reason）
+#           sendHex: ""           # 静态载荷十六进制；留空=只收不发
+#         - name: login
+#           sendHex: ""
+#           timeout: 3s
+#     - name: mc-lobby            # 游戏协议适配器（零码配置，适配器代码随 agent 二进制）
+#       type: protocol
+#       protocol: minecraft       # 已注册适配器名（Minecraft Java SLP 零账号验证）
+#       address: 10.0.0.6:25565   # 缺端口补 25565

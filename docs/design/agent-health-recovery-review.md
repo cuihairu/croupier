@@ -207,6 +207,17 @@ type ProtocolChecker struct {
 - 状态集合=标注层概念，沿用「Window 之外的生命周期标注」先例（dbmon firing/resolved）。
 - 继续不引入 ProbeTarget/RecoveryHandler/Monitor 等外部词。
 
+#### 5.5.6 交付记录（2026-10-15，L2 骨架 + L3 首适配器）
+
+按用户裁定「先做骨架 + 一个真实游戏的适配器」交付（巡检点火单 2026-10-15 授权连续推进，越过旧边界「P2 按需立项」）：
+
+- **L2 骨架**：`core/healthprobe/protocol.go`——`StepExpect`/`StepSpec`/`ProtocolChecker` + `NewProtocolChecker` 工厂校验；`TargetTypeProtocol` 与 `TargetConfig.Steps`/`Protocol` 字段（steps 声明式与 protocol 适配器互斥）；游戏适配器注册表 `RegisterGameProtocol`/`RegisteredGameProtocols`（db driver blank-import 同款装配）。五条内部规则全落：每次 Check 新建连接；失败 error 串带 `protocol failed at step N (name)`；阶段标记走既有 `Detailing` 出口进 `Result.Details`（`phase`/`step`/`reconnect`）；dial 瞬时错误单次重试（`reconnect=1`）、握手半途不重试；字节级匹配 AND 语义、期望留空=任意响应。
+- **契约增量**（相对 §5.5.1 原文，实现期补口）：① `DialTimeout` 字段（取 `target.timeout`，默认 2s 对齐 TCP 目标）；② 配置面十六进制字段 `sendHex`/`containsHex`/`prefixHex`（`[]byte` 的 YAML 缺省编码是 base64，对写握手魔数的运维不友好；工厂归一到字节字段、双写报错）；③ 测试注入只留 `dialer` 单侧（注入的 net.Conn 已覆盖读写，不设 Reader 口）。
+- **L3 首适配器**：`core/healthprobe/games/minecraft`——Minecraft Java 版 Server List Ping，**按公开协议规范自写，零第三方代码/数据文件**（SLP 两包交互不需要 protocol.json 字段级数据；构建期拉取通道留给登录级 L3，见 game-data-sources.md §5）。零账号验证任意 Java 版服务器（online-mode 加密链在 Login 流程，SLP 不涉及）；成功 Details 记 `version`/`serverProtocol`/`players`。
+- **装配**：`internal/app/agent/probe_protocols.go` blank import；`ApplyTargets` 变配检测改 `reflect.DeepEqual`（`TargetConfig` 含 steps 切片后不可比较）。配置示例入 `configs/agent.yaml` 注释段。
+- **验收对照（§5.5.4 L2）**：mock listener 私有握手（发握手包→期望前缀→发登录→期望成功码）✓；阶段标记进 Result.Details ✓；配置非法构造期拒绝（not-integrated 不产生窗口=结构性成立：无目标即无 Probe）✓；protocol-failed 与 dial 失败在 LastReason 可区分（测试双断言）✓。
+- **已知边界（诚实列出）**：①探针卡「未接入/可达未验证」灰态标注未做（dashboard 独立批次）；②SLP 只验 status 层（version 键存在即已验证），Login 级探活待账号（§6 卡点不变）；③握手声明协议版本固定 47=1.8.9（vanilla/Paper status 不校验版本；个别代理可能严格）；④每步读缓冲独立，上一步残余字节不跨步携带（一步多包协议属 L3）。
+
 ## 6. dbmon → healthprobe 收敛方案（硬约束：探测实现只留一份）
 
 原则：探测实现收口 `core/healthprobe` 一份；dbmon 保留的是「注册表 + 诊断 API + 阈值告警」三个非探测职责，不是第二套探测。

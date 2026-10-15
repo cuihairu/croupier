@@ -62,8 +62,8 @@ Luanti 记为 **UDP 族第二候选**（全开游戏、法律最干净，官方�
 
 **以其为参考自建适配器骨架；minecraft-data 走工具化数据通道。** 两者并行不矛盾：
 
-1. **骨架**（Apache-2.0 自研，§5.5 三层）：声明式 steps DSL + 「协议未接入」一等状态（不伪装成已接入，不写空实现）。
-2. **首适配器**（Minecraft Java offline-mode）：构建期脚本拉取 minecraft-data 指定版本 `protocol.json` → **转换生成**本仓 steps 配置。转换产物是我们的表达（版权干净），原始 json **不入库**；若未来确需入库，须附 MIT 声明并重新评估（默认不走）。
+1. **骨架**（Apache-2.0 自研，§5.5 三层）：声明式 steps DSL + 「协议未接入」一等状态（不伪装成已接入，不写空实现）。**已交付（2026-10-15）**：`core/healthprobe/protocol.go`（L2）+ minecraft 首适配器（L3），交付记录见 agent-health-recovery-review.md §5.5.6。
+2. **首适配器**（Minecraft Java offline-mode）：**实际落地为 SLP（Server List Ping）L3 代码适配器，按公开协议规范自写**——SLP 只有握手+两包交互，不需要 `protocol.json` 字段级数据，构建期拉取通道**留给登录级 L3**（登录握手/Login 流程才需要字段级协议表达，届时按本节原方案走 minecraft-data 工具化通道，原始 json 仍不入库）。零账号验证 offline/online-mode 服务器均可用（SLP 不涉登录加密）；online-mode 的**登录链**验证仍按 §6 待账号。
 3. **自托管验证**：docker 起 vanilla 服务端 offline-mode（EULA 一次接受，仅内网测试），玩家视角拨测零账号闭环。
 4. **L3 商业游戏**（后续）：以开源服务端实现为知识原型（零拷贝），真实协议接入按「游戏方提供知识 or 玩家侧账号实测」双路走，随每游戏立项单独定。
 
