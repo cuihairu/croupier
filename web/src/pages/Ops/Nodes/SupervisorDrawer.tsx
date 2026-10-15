@@ -18,7 +18,9 @@ import {
   fetchAgentSupervisor,
   fetchAgentSupervisorEvents,
   getAgentSupervisorLogUrl,
+  pauseAgentProcessSchedule,
   restartAgentProcess,
+  resumeAgentProcessSchedule,
   startAgentProcess,
   stopAgentProcess,
   type OpsAgentSupervisorEventsResponse,
@@ -58,6 +60,11 @@ const eventColorMap: Record<string, string> = {
   manual_start: 'geekblue',
   manual_stop: 'geekblue',
   snapshot_hint: 'purple',
+  schedule_fire: 'cyan',
+  schedule_paused: 'orange',
+  schedule_resumed: 'green',
+  update_applied: 'geekblue',
+  update_rolled_back: 'red',
 };
 
 /** 事件类型 → 本地化 descriptor（闭集；未知类型落原始串展示） */
@@ -81,6 +88,26 @@ const eventLabelMap: Record<string, { id: string; defaultMessage: string }> = {
   snapshot_hint: {
     id: 'pages.opsNodes.supervisor.event.snapshotHint',
     defaultMessage: '快照提示',
+  },
+  schedule_fire: {
+    id: 'pages.opsNodes.supervisor.event.scheduleFire',
+    defaultMessage: '定时触发',
+  },
+  schedule_paused: {
+    id: 'pages.opsNodes.supervisor.event.schedulePaused',
+    defaultMessage: '调度暂停',
+  },
+  schedule_resumed: {
+    id: 'pages.opsNodes.supervisor.event.scheduleResumed',
+    defaultMessage: '调度恢复',
+  },
+  update_applied: {
+    id: 'pages.opsNodes.supervisor.event.updateApplied',
+    defaultMessage: '更新生效',
+  },
+  update_rolled_back: {
+    id: 'pages.opsNodes.supervisor.event.updateRolledBack',
+    defaultMessage: '更新回滚',
   },
 };
 
@@ -396,6 +423,15 @@ export default function SupervisorDrawer({
             }),
             dataIndex: 'name',
             ellipsis: true,
+            render: (v: string, record) => (
+              <Space size={4}>
+                <span>{v}</span>
+                {/* §10.1 受管对象类别：probe-adapter 以适配器标识区分（program 缺省不标） */}
+                {record.kind === 'probe-adapter' ? (
+                  <Tag color="purple">{`adapter:${record.adapterId || 'unknown'}`}</Tag>
+                ) : null}
+              </Space>
+            ),
           },
           {
             title: intl.formatMessage({
@@ -449,6 +485,36 @@ export default function SupervisorDrawer({
             width: 70,
           },
           {
+            // §10.6 调度状态事前可见：下一次定时触发时间+动作；§10.2 暂停态覆盖展示
+            title: intl.formatMessage({
+              id: 'pages.opsNodes.supervisor.column.schedule',
+              defaultMessage: '调度',
+            }),
+            dataIndex: 'nextScheduleAtUnix',
+            width: 190,
+            render: (_v: number, record) => {
+              if (record.scheduleSuspended) {
+                return (
+                  <Tag color="orange">
+                    {intl.formatMessage({
+                      id: 'pages.opsNodes.supervisor.column.schedulePaused',
+                      defaultMessage: '调度已暂停',
+                    })}
+                  </Tag>
+                );
+              }
+              if (record.nextScheduleAtUnix > 0) {
+                return (
+                  <Space size={2} wrap>
+                    <span>{formatEventTime(record.nextScheduleAtUnix)}</span>
+                    {record.nextScheduleAction ? <Tag>{record.nextScheduleAction}</Tag> : null}
+                  </Space>
+                );
+              }
+              return '-';
+            },
+          },
+          {
             title: intl.formatMessage({
               id: 'pages.opsNodes.supervisor.column.flags',
               defaultMessage: '标记',
@@ -465,8 +531,13 @@ export default function SupervisorDrawer({
                 {record.snapshotProfile && record.snapshotProfile !== 'none' ? (
                   <Tag color="purple">{`snapshot:${record.snapshotProfile}`}</Tag>
                 ) : null}
+                {/* §10.4 指纹：与更新记录/告警 timeline 按 (进程, 时间, 指纹) 对齐 */}
+                {record.fingerprint ? (
+                  <Tag color="blue">{`fp:${record.fingerprint.slice(0, 12)}`}</Tag>
+                ) : null}
                 {flags.length === 0 &&
-                (!record.snapshotProfile || record.snapshotProfile === 'none')
+                (!record.snapshotProfile || record.snapshotProfile === 'none') &&
+                !record.fingerprint
                   ? '-'
                   : null}
               </Space>
@@ -478,9 +549,12 @@ export default function SupervisorDrawer({
               defaultMessage: '操作',
             }),
             key: 'action',
-            width: 160,
+            width: 260,
             render: (_v: unknown, record) => {
               const busy = actingName === record.name;
+              const suspended = record.scheduleSuspended;
+              // 无调度条目（快照未渲染字段）时暂停无对象可冻结，一并禁用避免空转调用
+              const noSchedule = record.nextScheduleAtUnix <= 0 && !suspended;
               return (
                 <Space size={4}>
                   <Button
@@ -555,6 +629,61 @@ export default function SupervisorDrawer({
                       })}
                     </Button>
                   </Popconfirm>
+                  {/*
+                    §10.2 暂停/恢复（暂停对象=调度）：cron 冻结，进程运行态不动。
+                    暂停走 Popconfirm（抑制自动化是中等风险），恢复直点（恢复自动化意图）。
+                  */}
+                  <Popconfirm
+                    title={intl.formatMessage(
+                      {
+                        id: 'pages.opsNodes.supervisor.action.pauseConfirm',
+                        defaultMessage:
+                          '确认暂停进程 {name} 的定时调度吗？（进程继续运行，仅冻结 cron 触发）',
+                      },
+                      { name: record.name },
+                    )}
+                    onConfirm={() =>
+                      runAction(
+                        record.name,
+                        async () => {
+                          await pauseAgentProcessSchedule(node?.agentId ?? '', record.name);
+                        },
+                        'pages.opsNodes.supervisor.action.pauseDone',
+                        '已暂停进程 {name} 调度',
+                      )
+                    }
+                  >
+                    <Button
+                      type="link"
+                      size="small"
+                      disabled={!node || busy || suspended || noSchedule}
+                    >
+                      {intl.formatMessage({
+                        id: 'pages.opsNodes.supervisor.action.pause',
+                        defaultMessage: '暂停',
+                      })}
+                    </Button>
+                  </Popconfirm>
+                  <Button
+                    type="link"
+                    size="small"
+                    disabled={!node || busy || !suspended}
+                    onClick={() =>
+                      runAction(
+                        record.name,
+                        async () => {
+                          await resumeAgentProcessSchedule(node?.agentId ?? '', record.name);
+                        },
+                        'pages.opsNodes.supervisor.action.resumeDone',
+                        '已恢复进程 {name} 调度',
+                      )
+                    }
+                  >
+                    {intl.formatMessage({
+                      id: 'pages.opsNodes.supervisor.action.resume',
+                      defaultMessage: '恢复',
+                    })}
+                  </Button>
                 </Space>
               );
             },

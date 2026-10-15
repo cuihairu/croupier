@@ -892,6 +892,21 @@ export type SupervisedProcess = {
   flags: string[];
   /** S3 崩溃快照档（none/go/node/python/jvm，空=未知） */
   snapshotProfile: string;
+  /** 最近一次 supervisor 事件时间（unix 秒，0=无） */
+  lastEventUnix: number;
+  /** 仅 BACKOFF 态非零：退避倒计时目标（unix 秒） */
+  nextRestartAtUnix: number;
+  /** 受管对象类别（program/probe-adapter，§10.1；空=旧版 agent 未上报） */
+  kind: string;
+  /** kind=probe-adapter 时的适配器标识（§10.1，其余为空） */
+  adapterId: string;
+  /** 调度状态（§10.6）：下一次定时触发时间（unix 秒）与动作，无调度条目为零值 */
+  nextScheduleAtUnix: number;
+  nextScheduleAction: string;
+  /** 运行实例二进制 sha256（§10.4，spawn 时算一次；空=未运行或未计算） */
+  fingerprint: string;
+  /** 调度暂停态（§10.2 暂停对象=调度）：cron 冻结，进程运行态不动 */
+  scheduleSuspended: boolean;
 };
 
 type RawOpsAgentSupervisor = {
@@ -907,6 +922,14 @@ type RawOpsAgentSupervisor = {
     cpuPercent?: number;
     flags?: string[];
     snapshotProfile?: string;
+    lastEventUnix?: number;
+    nextRestartAtUnix?: number;
+    kind?: string;
+    adapterId?: string;
+    nextScheduleAtUnix?: number;
+    nextScheduleAction?: string;
+    fingerprint?: string;
+    scheduleSuspended?: boolean;
   }>;
   summary?: { status?: string; total?: number; running?: number };
 };
@@ -924,6 +947,14 @@ function normalizeSupervisedProcess(
     cpuPercent: raw.cpuPercent || 0,
     flags: Array.isArray(raw.flags) ? raw.flags : [],
     snapshotProfile: raw.snapshotProfile || '',
+    lastEventUnix: raw.lastEventUnix || 0,
+    nextRestartAtUnix: raw.nextRestartAtUnix || 0,
+    kind: raw.kind || '',
+    adapterId: raw.adapterId || '',
+    nextScheduleAtUnix: raw.nextScheduleAtUnix || 0,
+    nextScheduleAction: raw.nextScheduleAction || '',
+    fingerprint: raw.fingerprint || '',
+    scheduleSuspended: raw.scheduleSuspended === true,
   };
 }
 
@@ -970,6 +1001,14 @@ export const SUPERVISOR_EVENT_TYPES = [
   'manual_start',
   'manual_stop',
   'snapshot_hint',
+  // §10.6 调度状态：定时动作与手动操作分型
+  'schedule_fire',
+  // §10.2 暂停与恢复（暂停对象=调度）
+  'schedule_paused',
+  'schedule_resumed',
+  // §10.4 更新状态：message 带指纹
+  'update_applied',
+  'update_rolled_back',
 ] as const;
 
 export type SupervisorEventType = (typeof SUPERVISOR_EVENT_TYPES)[number];
@@ -1071,6 +1110,23 @@ export async function stopAgentProcess(agentId: string, name: string): Promise<v
 export async function restartAgentProcess(agentId: string, name: string): Promise<void> {
   await request<void>(
     `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/restart`,
+    { method: 'POST' },
+  );
+}
+
+/** 暂停进程调度（§10.2 暂停对象=调度）：冻结声明的 cron 触发，进程运行态不动；
+ * 跨 agent 重启保留，恢复后下一匹配槽照常触发（crond 语义，暂停期不补跑）。 */
+export async function pauseAgentProcessSchedule(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/schedule/pause`,
+    { method: 'POST' },
+  );
+}
+
+/** 恢复进程调度（§10.2，与 pause 同处理器、suspend 由路由固定）。 */
+export async function resumeAgentProcessSchedule(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/schedule/resume`,
     { method: 'POST' },
   );
 }

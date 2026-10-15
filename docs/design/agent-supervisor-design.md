@@ -128,6 +128,7 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
   - 事件日志列表：时间倒序、事件类型筛选、`oom_suspect` 等上下文字段展开；
   - 操作：手动 start/stop/restart（走既有代理端点，按 `ops:operate` 权限显隐）+「下载日志」。
 - 轮询沿 Ops 页现状节奏（30s 或页面现有刷新间隔），不引入推送。
+- **§10 增量已接入面板（2026-10-15）**：进程卡补 `kind=probe-adapter` 的 `adapter:<id>` 标（§10.1）、`fp:<指纹前 12 位>` 标（§10.4，供与更新记录按 (进程, 时间) 对齐）；新增**「调度」列**（下一次触发时间 + 动作 Tag，§10.6 事前可见；暂停态覆盖为「调度已暂停」Tag）；操作列补**暂停/恢复调度**（走 `schedule/pause|resume`，暂停走 Popconfirm——冻结 cron 是中等风险；恢复直点——恢复自动化意图；已暂停行禁用暂停、无调度条目禁用暂停，成功后复拉快照）；事件闭集补 `schedule_fire` / `schedule_paused` / `schedule_resumed` / `update_applied` / `update_rolled_back` 五型的本地化标签与 Tag 色（类型筛选下拉同源闭集）。web 侧 `SupervisedProcess` 类型与归一化补齐 server DTO 全字段（`lastEventUnix` / `nextRestartAtUnix` / `kind` / `adapterId` / `nextScheduleAtUnix` / `nextScheduleAction` / `fingerprint` / `scheduleSuspended`），缺省零值，旧版 agent 快照零漂移。
 
 ## 5. server API 增量（经既有 ops 代理链，权限沿用 ops 族）
 

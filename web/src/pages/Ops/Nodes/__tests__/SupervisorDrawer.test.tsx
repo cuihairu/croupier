@@ -13,7 +13,9 @@ import SupervisorDrawer from '../SupervisorDrawer';
 import {
   fetchAgentSupervisor,
   fetchAgentSupervisorEvents,
+  pauseAgentProcessSchedule,
   restartAgentProcess,
+  resumeAgentProcessSchedule,
   startAgentProcess,
   stopAgentProcess,
   type OpsAgentSupervisorEventsResponse,
@@ -30,6 +32,8 @@ jest.mock('@/services/api/ops', () => ({
   startAgentProcess: jest.fn(),
   stopAgentProcess: jest.fn(),
   restartAgentProcess: jest.fn(),
+  pauseAgentProcessSchedule: jest.fn(),
+  resumeAgentProcessSchedule: jest.fn(),
 }));
 const mockFetch = fetchAgentSupervisor as jest.MockedFunction<typeof fetchAgentSupervisor>;
 const mockFetchEvents = fetchAgentSupervisorEvents as jest.MockedFunction<
@@ -38,10 +42,38 @@ const mockFetchEvents = fetchAgentSupervisorEvents as jest.MockedFunction<
 const mockStart = startAgentProcess as jest.MockedFunction<typeof startAgentProcess>;
 const mockStop = stopAgentProcess as jest.MockedFunction<typeof stopAgentProcess>;
 const mockRestart = restartAgentProcess as jest.MockedFunction<typeof restartAgentProcess>;
+const mockPause = pauseAgentProcessSchedule as jest.MockedFunction<
+  typeof pauseAgentProcessSchedule
+>;
+const mockResume = resumeAgentProcessSchedule as jest.MockedFunction<
+  typeof resumeAgentProcessSchedule
+>;
 
 const NODE: NodeRow = {
   agentId: 'agent-1',
 } as unknown as NodeRow;
+
+/** 快照新字段缺省值（无调度、无指纹、program 类别） */
+const PROCESS_DEFAULTS: Pick<
+  SupervisedProcess,
+  | 'lastEventUnix'
+  | 'nextRestartAtUnix'
+  | 'kind'
+  | 'adapterId'
+  | 'nextScheduleAtUnix'
+  | 'nextScheduleAction'
+  | 'fingerprint'
+  | 'scheduleSuspended'
+> = {
+  lastEventUnix: 0,
+  nextRestartAtUnix: 0,
+  kind: 'program',
+  adapterId: '',
+  nextScheduleAtUnix: 0,
+  nextScheduleAction: '',
+  fingerprint: '',
+  scheduleSuspended: false,
+};
 
 const RUNNING: SupervisedProcess = {
   name: 'gameserver',
@@ -53,6 +85,7 @@ const RUNNING: SupervisedProcess = {
   cpuPercent: 12.34,
   flags: ['mem_over_limit'],
   snapshotProfile: 'jvm',
+  ...PROCESS_DEFAULTS,
 };
 
 const STOPPED: SupervisedProcess = {
@@ -65,7 +98,11 @@ const STOPPED: SupervisedProcess = {
   cpuPercent: 0,
   flags: [],
   snapshotProfile: '',
+  ...PROCESS_DEFAULTS,
 };
+
+/** 下一触发时间固定为整点槽，便于断言 zh-CN 本地化串 */
+const NEXT_FIRE_UNIX = 1760000400;
 
 const EVENT_BASE: SupervisorEvent = {
   seq: 0,
@@ -240,16 +277,18 @@ describe('SupervisorDrawer', () => {
   });
 
   describe('S2 进程操作列', () => {
-    it('操作列渲染启动/停止/重启三按钮；重启 Popconfirm 确认 → restartAgentProcess + 成功提示 + 快照复拉', async () => {
+    it('操作列渲染启动/停止/重启/暂停/恢复五按钮；重启 Popconfirm 确认 → restartAgentProcess + 成功提示 + 快照复拉', async () => {
       mockFetch.mockResolvedValue(resp());
       mockRestart.mockResolvedValue(undefined);
       renderDrawer();
 
       expect(await screen.findByText('gameserver')).toBeInTheDocument();
-      // 操作列三按钮（两行进程 → 各两枚 启动/停止/重启）
+      // 操作列五按钮（两行进程 → 各两枚 启动/停止/重启/暂停/恢复）
       expect(screen.getByText('操作')).toBeInTheDocument();
       expect(screen.getAllByText('启动').length).toBe(2);
       expect(screen.getAllByText('停止').length).toBe(2);
+      expect(screen.getAllByText('暂停').length).toBe(2);
+      expect(screen.getAllByText('恢复').length).toBe(2);
 
       // 「重启」同时命中列头（column.restarts），只点按钮那一枚
       const restartBtn = screen
@@ -311,6 +350,234 @@ describe('SupervisorDrawer', () => {
       expect(await screen.findByText('agent offline')).toBeInTheDocument();
       await waitFor(() => expect(mockRestart).toHaveBeenCalled());
       expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('§10.2 暂停与恢复调度（暂停对象=调度）', () => {
+    it('暂停 Popconfirm 确认 → pauseAgentProcessSchedule + 成功提示 + 快照复拉', async () => {
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            { ...RUNNING, nextScheduleAtUnix: NEXT_FIRE_UNIX, nextScheduleAction: 'restart' },
+          ],
+        }),
+      );
+      mockPause.mockResolvedValue(undefined);
+      renderDrawer();
+
+      expect(await screen.findByText('gameserver')).toBeInTheDocument();
+      const pauseBtn = screen
+        .getAllByText('暂停')
+        .map((el) => el.closest('button'))
+        .find(Boolean) as HTMLElement;
+      fireEvent.click(pauseBtn);
+      expect(
+        await screen.findByText(
+          '确认暂停进程 gameserver 的定时调度吗？（进程继续运行，仅冻结 cron 触发）',
+        ),
+      ).toBeInTheDocument();
+      const popover = Array.from(document.querySelectorAll('.ant-popover')).find(
+        (p) => !p.className.includes('ant-popover-hidden'),
+      ) as HTMLElement;
+      fireEvent.click(within(popover).getByRole('button', { name: 'OK' }));
+
+      await waitFor(() => expect(mockPause).toHaveBeenCalledWith('agent-1', 'gameserver'));
+      expect(await screen.findByText('已暂停进程 gameserver 调度')).toBeInTheDocument();
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    });
+
+    it('恢复直点（无确认）→ resumeAgentProcessSchedule + 成功提示 + 快照复拉', async () => {
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            {
+              ...RUNNING,
+              nextScheduleAtUnix: NEXT_FIRE_UNIX,
+              nextScheduleAction: 'restart',
+              scheduleSuspended: true,
+            },
+          ],
+        }),
+      );
+      mockResume.mockResolvedValue(undefined);
+      renderDrawer();
+
+      expect(await screen.findByText('gameserver')).toBeInTheDocument();
+      fireEvent.click(screen.getAllByText('恢复')[0]);
+
+      await waitFor(() => expect(mockResume).toHaveBeenCalledWith('agent-1', 'gameserver'));
+      expect(await screen.findByText('已恢复进程 gameserver 调度')).toBeInTheDocument();
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    });
+
+    it('禁用态：已暂停行暂停禁用/恢复可用；无调度行暂停禁用；恢复仅暂停态可用', async () => {
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            {
+              ...RUNNING,
+              name: 'paused',
+              nextScheduleAtUnix: NEXT_FIRE_UNIX,
+              nextScheduleAction: 'restart',
+              scheduleSuspended: true,
+            },
+            { ...RUNNING, name: 'plain' },
+          ],
+        }),
+      );
+      renderDrawer();
+
+      expect(await screen.findByText('paused')).toBeInTheDocument();
+      const pausedRow = screen.getByText('paused').closest('tr') as HTMLElement;
+      const plainRow = screen.getByText('plain').closest('tr') as HTMLElement;
+      const pausedPause = within(pausedRow).getByText('暂停').closest('button') as HTMLElement;
+      const pausedResume = within(pausedRow).getByText('恢复').closest('button') as HTMLElement;
+      const plainPause = within(plainRow).getByText('暂停').closest('button') as HTMLElement;
+      const plainResume = within(plainRow).getByText('恢复').closest('button') as HTMLElement;
+      expect(pausedPause).toBeDisabled();
+      expect(pausedResume).toBeEnabled();
+      expect(plainPause).toBeDisabled();
+      expect(plainResume).toBeDisabled();
+    });
+
+    it('暂停失败：Error.message 进 message.error，不复拉快照', async () => {
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            { ...RUNNING, nextScheduleAtUnix: NEXT_FIRE_UNIX, nextScheduleAction: 'restart' },
+          ],
+        }),
+      );
+      mockPause.mockRejectedValue(new Error('agent offline'));
+      renderDrawer();
+
+      expect(await screen.findByText('gameserver')).toBeInTheDocument();
+      const pauseBtn = screen
+        .getAllByText('暂停')
+        .map((el) => el.closest('button'))
+        .find(Boolean) as HTMLElement;
+      fireEvent.click(pauseBtn);
+      const popover = Array.from(document.querySelectorAll('.ant-popover')).find(
+        (p) => !p.className.includes('ant-popover-hidden'),
+      ) as HTMLElement;
+      fireEvent.click(within(popover).getByRole('button', { name: 'OK' }));
+
+      expect(await screen.findByText('agent offline')).toBeInTheDocument();
+      await waitFor(() => expect(mockPause).toHaveBeenCalled());
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('§10.1/§10.4/§10.6 快照新字段', () => {
+    it('调度列：无调度显示 -；有调度显示下一触发时间+动作 Tag；暂停态覆盖为「调度已暂停」', async () => {
+      const nextFire = new Date(NEXT_FIRE_UNIX * 1000).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            {
+              ...RUNNING,
+              name: 'scheduled',
+              nextScheduleAtUnix: NEXT_FIRE_UNIX,
+              nextScheduleAction: 'restart',
+            },
+            {
+              ...RUNNING,
+              name: 'paused',
+              nextScheduleAtUnix: NEXT_FIRE_UNIX,
+              nextScheduleAction: 'restart',
+              scheduleSuspended: true,
+            },
+            { ...RUNNING, name: 'plain' },
+          ],
+        }),
+      );
+      renderDrawer();
+
+      expect(await screen.findByText('scheduled')).toBeInTheDocument();
+      const scheduledRow = screen.getByText('scheduled').closest('tr') as HTMLElement;
+      const pausedRow = screen.getByText('paused').closest('tr') as HTMLElement;
+      const plainRow = screen.getByText('plain').closest('tr') as HTMLElement;
+      expect(within(scheduledRow).getByText(nextFire)).toBeInTheDocument();
+      expect(within(scheduledRow).getByText('restart')).toBeInTheDocument();
+      expect(within(pausedRow).getByText('调度已暂停')).toBeInTheDocument();
+      expect(within(plainRow).getByText('-')).toBeInTheDocument();
+    });
+
+    it('kind=probe-adapter 显示 adapter:<id> Tag；program 不显示', async () => {
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            { ...RUNNING, name: 'probe', kind: 'probe-adapter', adapterId: 'dbmon-1' },
+            RUNNING,
+          ],
+        }),
+      );
+      renderDrawer();
+
+      expect(await screen.findByText('probe')).toBeInTheDocument();
+      expect(screen.getByText('adapter:dbmon-1')).toBeInTheDocument();
+      expect(screen.queryByText('adapter:gameserver')).not.toBeInTheDocument();
+    });
+
+    it('fingerprint 显示 fp:<12> 截断 Tag；空指纹不显示且 flags 空时落 -', async () => {
+      mockFetch.mockResolvedValue(
+        resp({
+          processes: [
+            { ...RUNNING, name: 'patched', fingerprint: 'abcdef0123456789abcdef0123456789' },
+            { ...RUNNING, name: 'fresh', flags: [] },
+          ],
+        }),
+      );
+      renderDrawer();
+
+      expect(await screen.findByText('patched')).toBeInTheDocument();
+      expect(screen.getByText('fp:abcdef012345')).toBeInTheDocument();
+      const freshRow = screen.getByText('fresh').closest('tr') as HTMLElement;
+      expect(within(freshRow).getByText('-')).toBeInTheDocument();
+    });
+
+    it('事件闭集新类型渲染：schedule_fire/update_applied 等落本地化标签', async () => {
+      mockFetch.mockResolvedValue(resp());
+      renderDrawer();
+      await screen.findByText('gameserver');
+
+      const fire: SupervisorEvent = {
+        ...EVENT_BASE,
+        seq: 7,
+        tsUnix: 1759999600,
+        process: 'gameserver',
+        event: 'schedule_fire',
+        message: 'cron fired',
+      };
+      const applied: SupervisorEvent = {
+        ...EVENT_BASE,
+        seq: 6,
+        tsUnix: 1759999500,
+        process: 'gameserver',
+        event: 'update_applied',
+        message: 'binary replaced',
+      };
+      const rolledBack: SupervisorEvent = {
+        ...EVENT_BASE,
+        seq: 5,
+        tsUnix: 1759999400,
+        process: 'gameserver',
+        event: 'update_rolled_back',
+        message: 'rolled back to old',
+      };
+      mockFetchEvents.mockResolvedValue(eventsResp({ events: [fire, applied, rolledBack] }));
+      fireEvent.click(await screen.findByText('事件日志'));
+
+      expect(await screen.findByText('定时触发')).toBeInTheDocument();
+      expect(screen.getByText('更新生效')).toBeInTheDocument();
+      expect(screen.getByText('更新回滚')).toBeInTheDocument();
     });
   });
 
