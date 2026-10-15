@@ -8,9 +8,11 @@ import (
 // P0 契约定稿，详见 docs/design/provider-plugin-design.md §3.2）。
 //
 // 三层模型：provider 块描述 extension 对外提供的 provider 能力；安装时从
-// manifest 派生默认 binding（runtime binding 的 spec_json 字段集
-// provider/type/operations/enabled/config 与本块同构——防漂移约束：两侧
-// 字段集变更必须同步）。operations 经 external.<provider>.<method> 进入调用面
+// manifest 派生默认 binding。**本块是声明面，与 binding 实例面非同构**：
+// runtime binding 的 spec_json 字段集为 provider/type/operations/enabled/config；
+// 派生时 permissions 不透传（留在 manifest 上作权限映射，binding 侧无该键），
+// provider/enabled/config 由 installation 侧提供——两侧字段集变更仍须同步评审，
+// 防漂移。operations 经 external.<provider>.<method> 进入调用面
 // （externalfunc.BuildFunctionID 现状）。
 
 // DefaultProviderType 是 provider.type 缺省值（与 ParseProviderBinding 现状一致）。

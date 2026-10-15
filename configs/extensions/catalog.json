@@ -32,7 +32,18 @@
               "platform.call",
               "platform.registry",
               "agent.dispatch"
-            ]
+            ],
+            "provider": {
+              "type": "openapi",
+              "operations": [
+                "day_report",
+                "user_live",
+                "order_list"
+              ],
+              "permissions": {
+                "operate": "external-platform.operate"
+              }
+            }
           }
         }
       ]

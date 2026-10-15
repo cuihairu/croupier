@@ -106,12 +106,13 @@ Schema 规则：
 }
 ```
 
-- **字段闭集**：恰好 `type` / `operations` / `permissions` 三键，任何其他键非法。守卫测试 `internal/core/extension/manifest` 的 `TestManifestProviderBlockFieldSet` 锁死，扩键须先过 binding spec 同构评审。
+- **字段闭集**：恰好 `type` / `operations` / `permissions` 三键，任何其他键非法。守卫测试 `internal/core/extension/manifest` 的 `TestManifestProviderBlockFieldSet` 锁死，扩键须先过声明面 ↔ 实例面同步评审（见下一条）。
 - `type`：driver 类型闭集起步 `openapi | webhook`（`webhook` 为 P2 预留）；缺省 `openapi`（与 `externalfunc.ParseProviderBinding` 现状一致）。
 - `operations`：该 provider 暴露的方法闭集（非空字符串数组，不重复）；调用面 function ID 沿用 `external.<provider>.<method>`（`externalfunc.BuildFunctionID` 现状，key 经 `SanitizeKey` 归一）。
 - `permissions`：可选覆盖，键⊆`read`/`operate`/`admin`；缺省按 §3 三层权限（`<domain>.read/operate/admin`），不声明即继承。
-- **与 binding spec 同构**：本块与 runtime binding 的 `spec_json` 字段集（`provider/type/operations/enabled/config`）同构——安装时从 manifest 派生默认绑定，运营可在 installation 上覆写 `config`。两侧字段集变更必须同步评审，防止漂移。
+- **声明面 ↔ 实例面（非同构）**：本块是**声明面**（闭集 `type/operations/permissions`）；runtime binding 的 `spec_json` 是**实例面**（`provider/type/operations/enabled/config`）。派生绑定时 `permissions` **不透传**（留在 manifest 上作权限映射，binding 侧无该键），`provider/enabled/config` 由 installation 侧提供——安装时从 manifest 派生默认绑定，运营可在 installation 上覆写 `config`。两侧字段集变更必须同步评审，防止漂移。
 - 解析入口：`manifest.ParseProviderBlock`（无 provider 块返回零值，未知键/类型越出闭集/operations 形态错/permissions 层级越界报错）。
 
-> 该契约适用于新增 provider 型扩展；先于本模式的连接器条目
-> （`official.external-platform`）随 P1 批次补声明，不回溯改造其余四业务扩展。
+> 该契约适用于新增 provider 型扩展。先于本模式的连接器条目
+> `official.external-platform` 已于 #66 P1-c-1 补声明并纳入种子守卫；
+> 其余四业务扩展（notification/alerting/approval/backup-advanced）不回溯改造。

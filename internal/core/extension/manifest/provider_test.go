@@ -8,8 +8,9 @@ import (
 )
 
 // TestManifestProviderBlockFieldSet 锁死 provider 块字段闭集（#66 P0 验收）：
-// 恰好 type/operations/permissions 三键；任何扩键必须同步 binding spec 同构
-// 约束（设计 §3.2）后在此放行，防止两侧漂移。
+// 恰好 type/operations/permissions 三键；本块是声明面，与 binding 实例面
+// 非同构（设计 §3.2）——任何扩键须先过声明面 ↔ 实例面同步评审后在此放行，
+// 防止两侧漂移。
 func TestManifestProviderBlockFieldSet(t *testing.T) {
 	got := append([]string(nil), providerBlockFields...)
 	sort.Strings(got)
