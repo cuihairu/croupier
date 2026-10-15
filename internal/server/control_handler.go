@@ -22,6 +22,7 @@ import (
 
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/report"
+	"github.com/cuihairu/croupier/internal/common/labels"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
@@ -1366,14 +1367,27 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 
 // sanitizeAgentLabels 复制 agent 注册时上报的系统标签。限制数量与键值
 // 长度，防止注册路径被塞入任意大的标签集合；空键/空值丢弃，超长值截断。
-func sanitizeAgentLabels(labels map[string]string) map[string]string {
+// 平台契约键（agentBinarySha256）豁免数量上限：map 迭代次序随机，满额
+// break 会按运气静默丢弃指纹锚点的唯一数据源——限额约束的是用户自选
+// 标签量，平台键固定 1 个、不占额度。
+func sanitizeAgentLabels(agentLabels map[string]string) map[string]string {
 	const (
 		maxLabels = 32
 		maxKeyLen = 64
 		maxValLen = 256
 	)
-	out := make(map[string]string, min(len(labels), maxLabels))
-	for k, v := range labels {
+	sysVal := ""
+	if fp := strings.TrimSpace(agentLabels[labels.AgentBinarySHA256]); fp != "" {
+		if len(fp) > maxValLen {
+			fp = fp[:maxValLen]
+		}
+		sysVal = fp
+	}
+	out := make(map[string]string, min(len(agentLabels), maxLabels))
+	for k, v := range agentLabels {
+		if k == labels.AgentBinarySHA256 {
+			continue // 平台键走豁免通道，不占限额也不受随机次序影响
+		}
 		if len(out) >= maxLabels {
 			break
 		}
@@ -1389,6 +1403,9 @@ func sanitizeAgentLabels(labels map[string]string) map[string]string {
 			v = v[:maxValLen]
 		}
 		out[k] = v
+	}
+	if sysVal != "" {
+		out[labels.AgentBinarySHA256] = sysVal
 	}
 	return out
 }
