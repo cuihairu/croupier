@@ -12,6 +12,7 @@ import (
 
 	"github.com/cuihairu/croupier/core/register"
 	"github.com/cuihairu/croupier/core/report"
+	"github.com/cuihairu/croupier/internal/common/labels"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
@@ -827,27 +828,39 @@ func operationToVerbs(operation string) []string {
 	}
 }
 
+// selfFingerprint 是 SelfBinaryFingerprint 的包级接缝（同 sysinfo.go
+// runtimeGOOS 模式）：生产恒为真实实现，测试注入固定值避免哈希真实测试
+// 二进制（路径不定、值不可断言）。
+var selfFingerprint = SelfBinaryFingerprint
+
 func (c *UpstreamClient) composeLabels() map[string]string {
 	if c == nil {
 		return nil
 	}
 	base := cloneLabels(c.labels)
-	if c.dynamicLabels == nil {
-		return base
-	}
-	dynamic := c.dynamicLabels()
-	if len(dynamic) == 0 {
-		return base
-	}
-	if base == nil {
-		base = map[string]string{}
-	}
-	for k, v := range dynamic {
-		key := strings.TrimSpace(k)
-		if key == "" {
-			continue
+	if c.dynamicLabels != nil {
+		dynamic := c.dynamicLabels()
+		if len(dynamic) > 0 {
+			if base == nil {
+				base = map[string]string{}
+			}
+			for k, v := range dynamic {
+				key := strings.TrimSpace(k)
+				if key == "" {
+					continue
+				}
+				base[key] = strings.TrimSpace(v)
+			}
 		}
-		base[key] = strings.TrimSpace(v)
+	}
+	// §10.5 指纹持久锚点：每次注册自报运行二进制指纹（进程生命周期缓存
+	// 一次）。指纹是计算事实而非配置——在配置/动态标签合并之后注入，
+	// 不可被 labels 配置覆盖或伪造；读不到为空（不伪造值，锚点缺位）。
+	if fp := selfFingerprint(); fp != "" {
+		if base == nil {
+			base = map[string]string{}
+		}
+		base[labels.AgentBinarySHA256] = fp
 	}
 	return base
 }

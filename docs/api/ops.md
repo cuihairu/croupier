@@ -248,8 +248,19 @@ type OpsAgentSystemInfo struct {
 	TotalMemory uint64 `json:"totalMemory"`
 	BootTime string `json:"bootTime"`
 	AgentVersion string `json:"agentVersion"`
+	// agent 二进制内容 sha256（hex 小写，§10.5 指纹）。
+	AgentBinarySha256 string `json:"agentBinarySha256,omitempty"`
 }
 ```
+
+4. 数据面分级（agent 失联时的降级顺序，§10.5 指纹锚点）
+
+1. SystemInfoCache 内存缓存（最后已知全量信息，含指纹）；
+1. 隧道 live RPC（agent 在线，回填缓存）；
+1. registry 标签降级视图（os/arch/hostname + 注册标签里的指纹）；
+1. DB 最后已知锚点：agent_sessions 行（会话过期软删后仍可读）提供最后已知 `agentVersion` 与 `agentBinarySha256`——agent 每次注册把运行二进制指纹写进注册标签（`agentBinarySha256`），随标签持久化，跨 server 重启与会话 TTL 存活。
+
+兜底语义不变：四级都无该 agent → 404 `agent not found`。
 
 ### 9. "获取 Agent 指标"
 

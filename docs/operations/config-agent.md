@@ -36,6 +36,8 @@ tag:
 | `agent.invokeTimeoutMs`      | `15000`                               | Agent→游戏服同步调用默认预算（毫秒）；请求 `metadata["timeoutMs"]` 声明更小值时取更小者，上限 60000 |
 
 > `httpAddr` 是最常见的部署错误：写 `0.0.0.0` 或 `localhost` 会导致 Server 回调失败——job 下发/文件传输走不通。
+>
+> 注册标签含 agent 自报系统标签（`os`/`arch`/`hostname`/`ip` 等）与运行二进制指纹 `agentBinarySha256`（agent-supervisor-design §10.5 持久锚点：每次注册自报，随注册标签持久化，agent 失联后 system-info 靠它回答「最后已知指纹」）。指纹在配置/动态标签合并之后注入——`agent.labels` 显式写同键也不会生效（计算事实不可覆盖）。
 
 ### upstream（连接韧性）
 

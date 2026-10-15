@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/labels"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -155,6 +156,11 @@ func TestUpstreamWithMetadata_Timeouts(t *testing.T) {
 }
 
 func TestUpstreamComposeLabels_DynamicVariants(t *testing.T) {
+	// 本用例只钉配置/动态标签的合并语义：把指纹接缝置空（真实指纹恒在
+	// composeLabels 合并后注入，值不可断言，见 TestUpstreamComposeLabels_InjectsBinaryFingerprint）。
+	restore := stubSelfFingerprint("")
+	defer restore()
+
 	client := NewUpstreamClient("127.0.0.1:1", "a", agentlocal.NewLocalStore(), &UpstreamMetadata{
 		Labels: map[string]string{"base": "1"},
 	})
@@ -166,6 +172,45 @@ func TestUpstreamComposeLabels_DynamicVariants(t *testing.T) {
 		return map[string]string{"dyn": "2", "  ": "skipped"}
 	})
 	assert.Equal(t, map[string]string{"base": "1", "dyn": "2"}, client.composeLabels())
+}
+
+// TestUpstreamComposeLabels_InjectsBinaryFingerprint 钉 §10.5 指纹持久锚点
+// 的自报侧：指纹在配置/动态标签合并之后注入（计算事实不可被配置覆盖或
+// 伪造），空指纹不注入（锚点缺位而非伪造空值）。
+func TestUpstreamComposeLabels_InjectsBinaryFingerprint(t *testing.T) {
+	const fp = "deadbeef"
+
+	restore := stubSelfFingerprint(fp)
+	defer restore()
+
+	client := NewUpstreamClient("127.0.0.1:1", "a", agentlocal.NewLocalStore(), &UpstreamMetadata{
+		// 配置面即便显式写了同键也不许覆盖指纹。
+		Labels: map[string]string{"base": "1", labels.AgentBinarySHA256: "spoofed"},
+	})
+	client.SetDynamicLabelsProvider(func() map[string]string {
+		return map[string]string{"dyn": "2", labels.AgentBinarySHA256: "also-spoofed"}
+	})
+
+	got := client.composeLabels()
+	assert.Equal(t, fp, got[labels.AgentBinarySHA256], "指纹须为运行实例自报值")
+	assert.Equal(t, "1", got["base"])
+	assert.Equal(t, "2", got["dyn"])
+
+	// 无静态/动态标签时指纹仍须注入（不能因 base 为空而丢锚点）。
+	bare := NewUpstreamClient("127.0.0.1:1", "b", agentlocal.NewLocalStore(), nil)
+	assert.Equal(t, map[string]string{labels.AgentBinarySHA256: fp}, bare.composeLabels())
+
+	// 读不到指纹（空串）时不注入：锚点缺位，不伪造空值。
+	restoreEmpty := stubSelfFingerprint("")
+	defer restoreEmpty()
+	assert.Nil(t, bare.composeLabels())
+}
+
+// stubSelfFingerprint 临时替换指纹接缝，返回恢复函数。
+func stubSelfFingerprint(value string) func() {
+	prev := selfFingerprint
+	selfFingerprint = func() string { return value }
+	return func() { selfFingerprint = prev }
 }
 
 func TestBuildProviders_InstanceVariants(t *testing.T) {

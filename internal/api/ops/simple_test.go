@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/labels"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -120,7 +121,8 @@ func TestServiceOpsAgentSystemInfo(t *testing.T) {
 		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
-		Labels:    map[string]string{"os": "linux"},
+		Version:   "1.2.3",
+		Labels:    map[string]string{"os": "linux", labels.AgentBinarySHA256: "fp-tier3"},
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
 	})
@@ -128,6 +130,47 @@ func TestServiceOpsAgentSystemInfo(t *testing.T) {
 	resp, err := s.OpsAgentSystemInfo(ctx, &OpsAgentSystemInfoRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
 	assert.Equal(t, "linux", resp.SystemInfo.OS)
+	// §10.5：降级视图的指纹随注册标签在列。
+	assert.Equal(t, "fp-tier3", resp.SystemInfo.AgentBinarySha256)
+	assert.Equal(t, "1.2.3", resp.SystemInfo.AgentVersion)
+}
+
+// TestServiceOpsAgentSystemInfoDBAnchor 钉四级数据面第 4 级：registry 内存
+// 视图没有（会话已过期软删）、DB 里 agent_sessions 行仍在——Unscoped 读出
+// 最后已知版本与指纹，锚点跨 server 重启与会话 TTL 存活。
+func TestServiceOpsAgentSystemInfoDBAnchor(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, registry.MigrateAgentSessions(db))
+
+	sessModel := registry.NewAgentSessionModel(db)
+	past := time.Now().Add(-2 * time.Hour)
+	require.NoError(t, sessModel.Upsert(ctx, &registry.AgentSession{
+		AgentID:  "agent-anchor",
+		Version:  "3.4.5",
+		ExpireAt: past,
+		LastSeen: past,
+		Labels:   map[string]string{labels.AgentBinarySHA256: "fp-db-anchor"},
+	}))
+	n, err := sessModel.DeleteExpired(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n, "会话行须已软删（内存/活跃视图不再可见）")
+
+	store := registry.NewStore()
+	svcCtx := &svc.ServiceContext{RegistryStore: store, DB: db}
+	s := NewService(svcCtx)
+
+	resp, err := s.OpsAgentSystemInfo(ctx, &OpsAgentSystemInfoRequest{AgentID: "agent-anchor"})
+	require.NoError(t, err)
+	assert.Equal(t, "3.4.5", resp.SystemInfo.AgentVersion)
+	assert.Equal(t, "fp-db-anchor", resp.SystemInfo.AgentBinarySha256)
+
+	// DB 里也没有 → 既有 not found 语义不变。
+	_, err = s.OpsAgentSystemInfo(ctx, &OpsAgentSystemInfoRequest{AgentID: "ghost"})
+	assert.Error(t, err)
 }
 
 func TestServiceOpsAgentMetrics(t *testing.T) {

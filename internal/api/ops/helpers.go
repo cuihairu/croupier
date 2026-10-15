@@ -15,6 +15,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/common/labels"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
@@ -187,9 +188,11 @@ func opsAgentProcesses(ctx context.Context, svcCtx *svc.ServiceContext, req *Ops
 	}, nil
 }
 
-// opsAgentSystemInfo 读 agent 系统信息，三级数据面：SystemInfoCache（离线
+// opsAgentSystemInfo 读 agent 系统信息，四级数据面：SystemInfoCache（离线
 // agent 的最后已知信息锚点）→ 隧道 live RPC（回填缓存，§10.5 指纹随
-// SystemInfo 上行）→ registry 标签降级视图（隧道不可达时的既有语义）。
+// SystemInfo 上行）→ registry 标签降级视图（隧道不可达时的既有语义，指纹
+// 随注册标签在列）→ DB 最后已知锚点（会话过期软删后 registry 内存视图也
+// 没有了，agent_sessions 行仍在——指纹随注册标签持久化，跨 server 重启）。
 func opsAgentSystemInfo(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentSystemInfoRequest) (*OpsAgentSystemInfoResponse, error) {
 	if svcCtx == nil {
 		return nil, errorx.NewBadRequest("service context is required")
@@ -212,21 +215,44 @@ func opsAgentSystemInfo(ctx context.Context, svcCtx *svc.ServiceContext, req *Op
 	}
 	tunnelErr := err
 
-	// 3. registry 标签降级视图（离线/隧道不可达时的既有行为）。
+	// 3. registry 标签降级视图（离线/隧道不可达时的既有行为）。指纹随
+	// 注册标签持久化在会话里（§10.5），一并降级可见。
 	if store := svcCtx.RegistryStore; store != nil {
 		store.Mu().RLock()
-		defer store.Mu().RUnlock()
 		for _, sess := range store.AgentsUnsafe() {
 			if sess != nil && sess.AgentID == req.AgentID {
+				info := OpsAgentSystemInfo{
+					OS:       sess.Labels["os"],
+					Arch:     sess.Labels["arch"],
+					Hostname: sess.Labels["hostname"],
+				}
+				if fp := sess.Labels[labels.AgentBinarySHA256]; fp != "" {
+					info.AgentBinarySha256 = fp
+				}
+				if sess.Version != "" {
+					info.AgentVersion = sess.Version
+				}
+				store.Mu().RUnlock()
+				return &OpsAgentSystemInfoResponse{SystemInfo: info}, nil
+			}
+		}
+		store.Mu().RUnlock()
+
+		// 4. DB 最后已知锚点：会话过期软删后内存视图没有该 agent，但
+		// agent_sessions 行仍在（Unscoped 读，锚点比会话 TTL 活得久）。
+		// 查询失败/无记录降级到既有 not found 语义，不放大错误。
+		if svcCtx.DB != nil {
+			if version, fp, ok, dbErr := registry.NewAgentSessionModel(svcCtx.DB).
+				LastKnownIdentity(ctx, req.AgentID); dbErr == nil && ok {
 				return &OpsAgentSystemInfoResponse{
 					SystemInfo: OpsAgentSystemInfo{
-						OS:       sess.Labels["os"],
-						Arch:     sess.Labels["arch"],
-						Hostname: sess.Labels["hostname"],
+						AgentVersion:      version,
+						AgentBinarySha256: fp,
 					},
 				}, nil
 			}
 		}
+
 		return nil, errors.New("agent not found")
 	}
 
