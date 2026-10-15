@@ -127,7 +127,7 @@ platforms:
 **推荐断点位置**：
 
 - `services/agent/platform.go:80` - 平台初始化
-- `internal/platform/openapi/provider.go:345` - OpenAPI 解析
+- `internal/drivers/openapi/provider.go:345` - OpenAPI 解析
 - `internal/app/agent/upstream.go:417` - 函数同步
 
 ---

@@ -181,6 +181,10 @@ installation.enable
 - 范围：`internal/platform/openapi` → `internal/drivers/openapi`；`internal/platform/quicksdk` → `internal/extensions/official/externalplatform`；`internal/api/platform` service 的 provider 寻址切 driver 运行时表（dispatcher 与 HTTP 契约不变）；official seed 补 `official.external-platform` 的 provider 块（该条目先于统一模式、未回溯——本批一并补齐）。
 - 验收：`externalfunc` 既有测试零改动通过（wire 语义不变的证据）；api/platform 回归；迁移后旧目录删除（禁止兼容双路径，对齐「禁止兼容旧键」纪律）。
 - 风险与对策：触碰生产调用链——dispatcher 寻址不变，只换实例来源；用既有 externalfunc/平台域测试对拍，发现行为差异即停。
+- **状态：已代决分期开工（2026-10-16，FW1016D 巡检推进单条款 2 授权代决排期）。原整批 P1 一次性落地需同时新增 `internal/extensions/official/` 树（当前不存在）、触碰 agent 侧 driver runtime 与 api/platform 生产寻址链，单 PR 风险过高，拆三期执行：**
+  - **P1-a 目录形态迁移（已交付）**：`internal/platform/openapi` → `internal/drivers/openapi`（`git mv` 保留历史，零行为变更）。两个生产 import 点同步：`internal/api/openapi/service.go`（别名 `platformopenapi`→`driveropenapi`，2 处调用点）、`internal/app/agent/provider.go`；`.vscode` 调试指南三处断点路径同步；wire 语义不变的证据=既有测试零改动通过（drivers/openapi、api/openapi、api/platform、externalfunc、app/agent、platform/provider 六包全绿，与迁移前基线同用例同结果）。旧目录删除，无双路径兼容。
+  - **P1-b 待做**：`internal/platform/quicksdk` → `internal/extensions/official/externalplatform`（含 `internal/extensions/official/` 树建立与 official 扩展统一模式对齐——该树当前不存在，需先定 extension 根目录约定）。
+  - **P1-c 待做**：`internal/api/platform` service 的 provider 寻址切 driver 运行时表（dispatcher 与 HTTP 契约不变）+ official seed 补 `official.external-platform` provider 块。此期才真正让 `internal/drivers` 注册表从空转转为生产消费方。
 
 ### P2 pack descriptor 解析与 Store 深化
 

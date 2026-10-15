@@ -237,7 +237,7 @@ curl -X POST http://localhost:18888/api/v1/functions/invoke \
 在代码中设置断点：
 
 - `services/agent/platform.go` - 平台加载逻辑
-- `internal/platform/openapi/provider.go` - OpenAPI 解析逻辑
+- `internal/drivers/openapi/provider.go` - OpenAPI 解析逻辑
 
 启动时选择 "Agent (调试模式)" 配置。
 
@@ -355,7 +355,7 @@ platforms:
 
 ### 场景 3: 调试 OpenAPI 解析
 
-1. 在 `internal/platform/openapi/provider.go` 设置断点
+1. 在 `internal/drivers/openapi/provider.go` 设置断点
 2. 按 F5 启动 "Agent (调试模式)"
 3. 在断点处检查 OpenAPI 解析过程
 

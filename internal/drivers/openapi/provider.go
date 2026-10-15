@@ -1,5 +1,10 @@
 // Package openapi provides a generic provider for OpenAPI/Swagger based services.
 // This allows quick integration of any HTTP service that provides OpenAPI documentation.
+//
+// 本包是 #66 Provider 插件批二 P1 迁入的 driver 实现（原 internal/platform/openapi，
+// mapping §2.3「作为驱动复用，不再当业务模块」）；Provider 接口实现由
+// internal/platform/provider 的 driver 契约蓝本收窄而来，driver 注册表见
+// internal/drivers。
 package openapi
 
 import (

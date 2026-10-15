@@ -21,12 +21,12 @@ import (
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	driveropenapi "github.com/cuihairu/croupier/internal/drivers/openapi"
 	funcopenapi "github.com/cuihairu/croupier/internal/function/openapi"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
-	platformopenapi "github.com/cuihairu/croupier/internal/platform/openapi"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -1183,8 +1183,8 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 	}
 
 	// Use new REST classifier for more comprehensive classification
-	classifier := platformopenapi.NewRESTCapabilityClassifier()
-	var classificationResult *platformopenapi.ClassificationResult
+	classifier := driveropenapi.NewRESTCapabilityClassifier()
+	var classificationResult *driveropenapi.ClassificationResult
 	inferredCapability := spec.CapabilityKind("")
 
 	// If capability is not provided, try to infer from REST method/path

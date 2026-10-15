@@ -111,7 +111,7 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 
 ### 调试 OpenAPI 解析
 
-1. 在 `internal/platform/openapi/provider.go` 设置断点
+1. 在 `internal/drivers/openapi/provider.go` 设置断点
 2. 按 F5 → 选择 "Agent (调试模式)"
 3. 触发 OpenAPI 加载
 

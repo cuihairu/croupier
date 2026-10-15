@@ -13,8 +13,8 @@ import (
 
 	agent "github.com/cuihairu/croupier/internal/agent"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
+	"github.com/cuihairu/croupier/internal/drivers/openapi"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	"github.com/cuihairu/croupier/internal/platform/openapi"
 	"github.com/cuihairu/croupier/internal/platform/provider"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"gopkg.in/yaml.v3"
