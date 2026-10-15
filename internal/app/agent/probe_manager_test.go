@@ -174,7 +174,8 @@ func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
 	assert.Empty(t, stats[0].Protocol, "声明式 steps 未绑定适配器，不造名")
 	assert.Equal(t, "dial", stats[0].Phase)
 
-	// 动态目标走同一漏斗：适配器路径带上 protocol 名。
+	// 动态目标走同一漏斗：适配器路径带上 protocol 名；协议期望声明位
+	//（reachable-unverified 触发）静态/动态两条路径同样透传。
 	pm2, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-2"})
 	require.NoError(t, err)
 	require.NoError(t, pm2.ApplyTargets([]healthprobe.TargetConfig{
@@ -188,6 +189,44 @@ func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
 	assert.Equal(t, "protocol", stats[0].ProbeType)
 	assert.Equal(t, "minecraft", stats[0].Protocol)
 	assert.Equal(t, "dial", stats[0].Phase)
+}
+
+// TestProbeManagerCarriesProtocolExpected 静态与动态装配路径都把协议期望
+// 声明位带进聚合统计（§5.5.3 reachable-unverified）：L1 目标声明后面板才
+// 能标「可达≠可用」；未声明不带。
+func TestProbeManagerCarriesProtocolExpected(t *testing.T) {
+	pm, err := NewProbeManager([]healthprobe.TargetConfig{
+		{Name: "gw-tcp", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
+			ProtocolExpected: true, FailThreshold: 1},
+	}, ProbeManagerOptions{AgentID: "agent-1"})
+	require.NoError(t, err)
+	pm.ProbeManagerOnce(context.Background())
+	stats := pm.DrainProbeStats()
+	require.Len(t, stats, 1)
+	assert.True(t, stats[0].ProtocolExpected)
+	assert.Equal(t, "tcp", stats[0].ProbeType, "声明位不改写实际探测类型")
+
+	pm2, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-2"})
+	require.NoError(t, err)
+	require.NoError(t, pm2.ApplyTargets([]healthprobe.TargetConfig{
+		{Name: "gw-http", Type: healthprobe.TargetTypeHTTP, URL: "http://127.0.0.1:1/hz",
+			ProtocolExpected: true, FailThreshold: 1, Interval: time.Minute},
+	}))
+	pm2.ProbeManagerOnce(context.Background())
+	stats = pm2.DrainProbeStats()
+	require.Len(t, stats, 1)
+	assert.True(t, stats[0].ProtocolExpected, "动态（R4 下行）路径同样透传声明位")
+
+	// 未声明的静态目标不带该位（零值 false）。
+	pm3, err := NewProbeManager([]healthprobe.TargetConfig{
+		{Name: "plain", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
+			FailThreshold: 1},
+	}, ProbeManagerOptions{AgentID: "agent-3"})
+	require.NoError(t, err)
+	pm3.ProbeManagerOnce(context.Background())
+	stats = pm3.DrainProbeStats()
+	require.Len(t, stats, 1)
+	assert.False(t, stats[0].ProtocolExpected)
 }
 
 func TestProbeManagerNilSafe(t *testing.T) {

@@ -129,6 +129,8 @@ export default {
   'pages.opsNodes.probe.notIntegratedDesc':
     'Online player counts and peaks must be reported by the game server itself through an SDK metric entrypoint. Until then this page shows probe facts only and derives nothing.',
   'pages.opsNodes.probe.protocolFailed': 'Protocol failed · {phase}',
+  'pages.opsNodes.probe.protocolNotIntegrated': 'Protocol probe not integrated',
+  'pages.opsNodes.probe.reachableOnly': 'Reachable, not verified',
   'pages.opsNodes.probe.probeTypeMissing':
     'Reported by an older agent build that does not carry the probe type',
   'pages.opsNodes.probe.platformScope': 'Platform',
@@ -139,6 +141,7 @@ export default {
   'pages.opsNodes.probe.title': 'Probe Summary',
   'pages.opsNodes.probe.unavailable': 'Unavailable',
   'pages.opsNodes.probe.unreachable': 'Unreachable',
+  'pages.opsNodes.probe.verified': 'Verified',
   'pages.opsNodes.restart.content': 'Are you sure you want to restart {id}?',
   'pages.opsNodes.restart.success': 'Restart issued',
   'pages.opsNodes.restart.title': 'Restart Node',

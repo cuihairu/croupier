@@ -151,6 +151,34 @@ func TestProbeUplinkDrainCarriesTypeProtocolPhase(t *testing.T) {
 	assert.Empty(t, st.Phase)
 }
 
+// TestProbeUplinkDrainCarriesProtocolExpected 聚合面透传协议期望声明位
+// （§5.5.3 reachable-unverified 触发位）：声明了就带上，未声明不带——面板
+// 据此标「可达≠可用 / 未接入协议探测」。纯声明位不参与计数。
+func TestProbeUplinkDrainCarriesProtocolExpected(t *testing.T) {
+	u := NewProbeUplink(ProbeUplinkConfig{
+		AgentID:          "agent-1",
+		Target:           "gw-tcp",
+		Semantics:        healthprobe.SemanticsReadiness,
+		ProbeType:        string(healthprobe.TargetTypeTCP),
+		ProtocolExpected: true,
+	}, nil)
+	u.OnResult(okResult(3))
+
+	st := u.Drain()
+	assert.True(t, st.ProtocolExpected)
+	assert.Equal(t, "tcp", st.ProbeType, "声明位不改写实际探测类型")
+
+	// 未声明的目标不带该位（wire 里是零值 false）。
+	u2 := NewProbeUplink(ProbeUplinkConfig{
+		AgentID:   "agent-1",
+		Target:    "gw-http",
+		Semantics: healthprobe.SemanticsReadiness,
+		ProbeType: string(healthprobe.TargetTypeHTTP),
+	}, nil)
+	u2.OnResult(okResult(3))
+	assert.False(t, u2.Drain().ProtocolExpected)
+}
+
 func TestProbeUplinkFailureDetailUplink(t *testing.T) {
 	s := &sink{}
 	u := testUplink(s, 0)

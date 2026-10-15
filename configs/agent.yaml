@@ -109,3 +109,8 @@ ops:
 #       type: protocol
 #       protocol: minecraft       # 已注册适配器名（Minecraft Java SLP 零账号验证）
 #       address: 10.0.0.6:25565   # 缺端口补 25565
+#     - name: game-gateway-tcp    # 暂只有 L1 探测、协议层未接入的目标
+#       type: tcp
+#       address: 10.0.0.5:7777
+#       protocolExpected: true    # 声明协议期望：面板标「可达≠可用」灰态（纯
+#                                  # 声明位，不影响探测行为与窗口判定）

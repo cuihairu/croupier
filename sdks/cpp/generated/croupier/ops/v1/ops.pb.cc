@@ -579,7 +579,8 @@ inline constexpr ProbeStats::Impl_::Impl_(
         success_rate_{0},
         window_duration_ms_{::int64_t{0}},
         dropped_details_{::int64_t{0}},
-        window_open_{false} {}
+        window_open_{false},
+        protocol_expected_{false} {}
 
 template <typename>
 constexpr ProbeStats::ProbeStats(::_pbi::ConstantInitialized)
@@ -2398,7 +2399,7 @@ const ::uint32_t
         8,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_._has_bits_),
-        18, // hasbit index offset
+        19, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_.target_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_.semantics_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_.game_id_),
@@ -2414,6 +2415,7 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_.probe_type_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_.protocol_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_.phase_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::ProbeStats, _impl_.protocol_expected_),
         1,
         2,
         3,
@@ -2429,6 +2431,7 @@ const ::uint32_t
         6,
         7,
         8,
+        15,
 };
 
 static const ::_pbi::MigrationSchema
@@ -2686,7 +2689,7 @@ const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_AT
     "\030\007 \001(\005\022\023\n\013window_open\030\010 \001(\010\022:\n\007details\030\t"
     " \003(\0132).croupier.ops.v1.ProbeDetail.Detai"
     "lsEntry\032.\n\014DetailsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005"
-    "value\030\002 \001(\t:\0028\001\"\261\002\n\nProbeStats\022\016\n\006target"
+    "value\030\002 \001(\t:\0028\001\"\314\002\n\nProbeStats\022\016\n\006target"
     "\030\001 \001(\t\022\021\n\tsemantics\030\002 \001(\t\022\017\n\007game_id\030\003 \001"
     "(\t\022\013\n\003env\030\004 \001(\t\022\017\n\007checked\030\005 \001(\003\022\016\n\006fail"
     "ed\030\006 \001(\003\022\024\n\014success_rate\030\007 \001(\001\022\027\n\017latenc"
@@ -2694,15 +2697,16 @@ const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_AT
     "window_duration_ms\030\n \001(\003\022\023\n\013last_reason\030"
     "\013 \001(\t\022\027\n\017dropped_details\030\014 \001(\003\022\022\n\nprobe_"
     "type\030\r \001(\t\022\020\n\010protocol\030\016 \001(\t\022\r\n\005phase\030\017 "
-    "\001(\t*\352\001\n\014ProcessState\022\035\n\031PROCESS_STATE_UN"
-    "SPECIFIED\020\000\022\031\n\025PROCESS_STATE_RUNNING\020\001\022\031"
-    "\n\025PROCESS_STATE_STOPPED\020\002\022\030\n\024PROCESS_STA"
-    "TE_FAILED\020\003\022\032\n\026PROCESS_STATE_STARTING\020\004\022"
-    "\032\n\026PROCESS_STATE_STOPPING\020\005\022\031\n\025PROCESS_S"
-    "TATE_BACKOFF\020\006\022\030\n\024PROCESS_STATE_BROKEN\020\007"
-    "Bj\n\"io.github.cuihairu.croupier.ops.v1P\001"
-    "Z0github.com/cuihairu/croupier/pkg/pb/op"
-    "s/v1;opsv1\252\002\017Croupier.Ops.V1b\006proto3"
+    "\001(\t\022\031\n\021protocol_expected\030\020 \001(\010*\352\001\n\014Proce"
+    "ssState\022\035\n\031PROCESS_STATE_UNSPECIFIED\020\000\022\031"
+    "\n\025PROCESS_STATE_RUNNING\020\001\022\031\n\025PROCESS_STA"
+    "TE_STOPPED\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032"
+    "\n\026PROCESS_STATE_STARTING\020\004\022\032\n\026PROCESS_ST"
+    "ATE_STOPPING\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020"
+    "\006\022\030\n\024PROCESS_STATE_BROKEN\020\007Bj\n\"io.github"
+    ".cuihairu.croupier.ops.v1P\001Z0github.com/"
+    "cuihairu/croupier/pkg/pb/ops/v1;opsv1\252\002\017"
+    "Croupier.Ops.V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps[1] = {
@@ -2712,7 +2716,7 @@ static ::absl::once_flag descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fops_2fv1_2fops_2eproto = {
     false,
     false,
-    6756,
+    6783,
     descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto,
     "croupier/ops/v1/ops.proto",
     &descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once,
@@ -22076,9 +22080,9 @@ ProbeStats::ProbeStats(
                offsetof(Impl_, checked_),
            reinterpret_cast<const char*>(&from._impl_) +
                offsetof(Impl_, checked_),
-           offsetof(Impl_, window_open_) -
+           offsetof(Impl_, protocol_expected_) -
                offsetof(Impl_, checked_) +
-               sizeof(Impl_::window_open_));
+               sizeof(Impl_::protocol_expected_));
 
   // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.ProbeStats)
 }
@@ -22110,9 +22114,9 @@ inline void ProbeStats::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, checked_),
            0,
-           offsetof(Impl_, window_open_) -
+           offsetof(Impl_, protocol_expected_) -
                offsetof(Impl_, checked_) +
-               sizeof(Impl_::window_open_));
+               sizeof(Impl_::protocol_expected_));
 }
 ProbeStats::~ProbeStats() {
   // @@protoc_insertion_point(destructor:croupier.ops.v1.ProbeStats)
@@ -22197,16 +22201,16 @@ ProbeStats::GetClassData() const {
   return ProbeStats_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 15, 0, 102, 2>
+const ::_pbi::TcParseTable<4, 16, 0, 110, 2>
 ProbeStats::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_._has_bits_),
     0, // no _extensions_
-    15, 120,  // max_field_number, fast_idx_mask
+    16, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294934528,  // skipmap
+    4294901760,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    15,  // num_field_entries
+    16,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     ProbeStats_class_data_.base(),
@@ -22216,7 +22220,10 @@ ProbeStats::_table_ = {
     ::_pbi::TcParser::GetTable<::croupier::ops::v1::ProbeStats>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
+    // bool protocol_expected = 16;
+    {::_pbi::TcParser::FastV8S2,
+     {384, 15, 0,
+      PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_.protocol_expected_)}},
     // string target = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 1, 0,
@@ -22310,10 +22317,12 @@ ProbeStats::_table_ = {
     {PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_.protocol_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string phase = 15;
     {PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_.phase_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool protocol_expected = 16;
+    {PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_.protocol_expected_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
   }},
   // no aux_entries
   {{
-    "\32\6\11\7\3\0\0\0\0\0\0\13\0\12\10\5"
+    "\32\6\11\7\3\0\0\0\0\0\0\13\0\12\10\5\0\0\0\0\0\0\0\0"
     "croupier.ops.v1.ProbeStats"
     "target"
     "semantics"
@@ -22362,10 +22371,10 @@ PROTOBUF_NOINLINE void ProbeStats::Clear() {
   if (CheckHasBit(cached_has_bits, 0x00000100U)) {
     _impl_.phase_.ClearNonDefaultToEmpty();
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00007e00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000fe00U)) {
     ::memset(&_impl_.checked_, 0, static_cast<::size_t>(
-        reinterpret_cast<char*>(&_impl_.window_open_) -
-        reinterpret_cast<char*>(&_impl_.checked_)) + sizeof(_impl_.window_open_));
+        reinterpret_cast<char*>(&_impl_.protocol_expected_) -
+        reinterpret_cast<char*>(&_impl_.checked_)) + sizeof(_impl_.protocol_expected_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
@@ -22535,6 +22544,15 @@ PROTOBUF_NOINLINE void ProbeStats::Clear() {
     }
   }
 
+  // bool protocol_expected = 16;
+  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+    if (this_._internal_protocol_expected() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          16, this_._internal_protocol_expected(), target);
+    }
+  }
+
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -22618,7 +22636,7 @@ PROTOBUF_NOINLINE void ProbeStats::Clear() {
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00007f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     // string phase = 15;
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!this_._internal_phase().empty()) {
@@ -22664,6 +22682,12 @@ PROTOBUF_NOINLINE void ProbeStats::Clear() {
     if (CheckHasBit(cached_has_bits, 0x00004000U)) {
       if (this_._internal_window_open() != 0) {
         total_size += 2;
+      }
+    }
+    // bool protocol_expected = 16;
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+      if (this_._internal_protocol_expected() != 0) {
+        total_size += 3;
       }
     }
   }
@@ -22753,7 +22777,7 @@ void ProbeStats::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00007f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!from._internal_phase().empty()) {
         _this->_internal_set_phase(from._internal_phase());
@@ -22793,6 +22817,11 @@ void ProbeStats::MergeImpl(::google::protobuf::MessageLite& to_msg,
         _this->_impl_.window_open_ = from._impl_.window_open_;
       }
     }
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+      if (from._internal_protocol_expected() != 0) {
+        _this->_impl_.protocol_expected_ = from._impl_.protocol_expected_;
+      }
+    }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
@@ -22823,8 +22852,8 @@ void ProbeStats::InternalSwap(ProbeStats* PROTOBUF_RESTRICT PROTOBUF_NONNULL oth
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.protocol_, &other->_impl_.protocol_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.phase_, &other->_impl_.phase_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_.window_open_)
-      + sizeof(ProbeStats::_impl_.window_open_)
+      PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_.protocol_expected_)
+      + sizeof(ProbeStats::_impl_.protocol_expected_)
       - PROTOBUF_FIELD_OFFSET(ProbeStats, _impl_.checked_)>(
           reinterpret_cast<char*>(&_impl_.checked_),
           reinterpret_cast<char*>(&other->_impl_.checked_));

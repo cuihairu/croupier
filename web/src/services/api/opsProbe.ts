@@ -36,6 +36,8 @@ export type ProbeSummaryRow = {
   protocol?: string;
   /** 最近一次失败的阶段标记（协议 Detailing 出口；无 phase 的 checker 为空）。 */
   phase?: string;
+  /** 目标声明了协议期望但只落在 http/tcp/db 层（reachable-unverified 触发位）。 */
+  protocolExpected?: boolean;
 };
 
 // Source: croupier/internal/api/ops/probe_summary.go ProbeSummaryResponse

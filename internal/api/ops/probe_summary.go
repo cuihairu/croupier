@@ -57,6 +57,9 @@ type ProbeSummaryRow struct {
 	ProbeType string `json:"probeType,omitempty"`
 	Protocol  string `json:"protocol,omitempty"`
 	Phase     string `json:"phase,omitempty"`
+	// ProtocolExpected 目标声明了协议期望但只落在 http/tcp/db 层
+	// （§5.5.3 reachable-unverified 触发位；面板据此标「可达≠可用」灰态）。
+	ProtocolExpected bool `json:"protocolExpected,omitempty"`
 }
 
 // ProbeSummaryResponse 在线汇总响应。
@@ -103,6 +106,7 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 					ProbeType:        st.GetProbeType(),
 					Protocol:         st.GetProtocol(),
 					Phase:            st.GetPhase(),
+					ProtocolExpected: st.GetProtocolExpected(),
 				})
 			}
 		}
@@ -128,6 +132,7 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 				ProbeType:        st.ProbeType,
 				Protocol:         st.Protocol,
 				Phase:            st.Phase,
+				ProtocolExpected: st.ProtocolExpected,
 			})
 		}
 	}

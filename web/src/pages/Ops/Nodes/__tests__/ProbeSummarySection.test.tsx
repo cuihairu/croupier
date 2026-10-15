@@ -7,6 +7,7 @@
  *  - 在线趋势「未接入」灰态常驻，不静默消失
  *  - 加载失败走行内 Alert，清空旧数据不残留陈旧结论
  *  - 协议目标按失败阶段区分 不可达 / 协议失败 / 已验证（§5.5.3 标注面）
+ *  - 声明协议期望的 L1 目标标 可达≠可用 + 未接入协议探测（reachable-unverified）
  *  - 旧版 agent 未上报类型时不伪造类型值
  */
 import React from 'react';
@@ -133,6 +134,24 @@ const ROW_PROTOCOL_OK = {
   lastReason: undefined,
 };
 
+// reachable-unverified（§5.5.3 状态 2）：目标声明了协议期望（protocolExpected）
+// 但只落在 tcp 层——L1 探到 ≠ 协议可用，卡上灰态标注而不是伪装成已验证。
+const ROW_REACHABLE_UNVERIFIED = {
+  agentId: 'agent-b',
+  target: 'gw-tcp',
+  semantics: 'readiness',
+  gameId: 'demo',
+  env: 'prod',
+  available: true,
+  windowOpen: false,
+  checked: 20,
+  failed: 0,
+  successRate: 1,
+  probeType: 'tcp',
+  protocolExpected: true,
+  lastReportAt: '2026-10-14T12:00:00Z',
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -215,7 +234,9 @@ describe('Ops/Nodes 探针汇总卡', () => {
     // dial 失败 = 未进协议交互 → 不可达；登录半途失败 → 协议失败·阶段名
     expect(screen.getByText('不可达')).toBeInTheDocument();
     expect(screen.getByText('协议失败·login')).toBeInTheDocument();
-    expect(screen.getAllByText('可用')).toHaveLength(1);
+    // 协议目标成功 = 已验证（状态 4），不退回含糊的「可用」
+    expect(screen.getByText('已验证')).toBeInTheDocument();
+    expect(screen.queryByText('可用')).not.toBeInTheDocument();
     // 标注不取代证据：失败原因原文仍在同行
     expect(screen.getByText(/protocol failed at step 2 \(login\)/)).toBeInTheDocument();
   });
@@ -231,6 +252,26 @@ describe('Ops/Nodes 探针汇总卡', () => {
     expect(screen.getByText('mysql')).toBeInTheDocument();
     // 仅协议行携带类型列文本：未上报类型的行不猜类型（恰好一处）
     expect(screen.getAllByText('protocol:minecraft')).toHaveLength(1);
-    expect(screen.getAllByText('可用')).toHaveLength(2);
+    // 协议行标「已验证」，未声明协议期望的 L1 行仍标「可用」（不误标灰态）
+    expect(screen.getByText('已验证')).toBeInTheDocument();
+    expect(screen.getByText('可用')).toBeInTheDocument();
+    expect(screen.queryByText('未接入协议探测')).not.toBeInTheDocument();
+  });
+
+  it('声明协议期望的 L1 目标标 可达≠可用 + 未接入协议探测（reachable-unverified）', async () => {
+    getOpsProbeSummary.mockResolvedValue({
+      onlineDataIntegrated: false,
+      rows: [ROW_REACHABLE_UNVERIFIED, ROW_OK],
+    });
+    renderSection();
+
+    await screen.findByText('gw-tcp');
+    // 只有一处可达未验证 + 一处副灰标签：声明位驱动，不猜类型
+    expect(screen.getByText('可达≠可用')).toBeInTheDocument();
+    expect(screen.getByText('未接入协议探测')).toBeInTheDocument();
+    expect(screen.getByText('可用')).toBeInTheDocument();
+    expect(screen.queryByText('已验证')).not.toBeInTheDocument();
+    // 声明位不污染正常态证据：计数照实、无失败原因
+    expect(screen.getAllByText('20 / 0')).toHaveLength(2);
   });
 });

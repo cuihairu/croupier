@@ -125,6 +125,8 @@ export default {
   'pages.opsNodes.probe.notIntegratedDesc':
     '在线人数/峰值来源是游戏服务器自身上报，需 SDK 提供 metric 上报入口；未接入前本页只呈现探活事实，不做推导。',
   'pages.opsNodes.probe.protocolFailed': '协议失败·{phase}',
+  'pages.opsNodes.probe.protocolNotIntegrated': '未接入协议探测',
+  'pages.opsNodes.probe.reachableOnly': '可达≠可用',
   'pages.opsNodes.probe.probeTypeMissing': '该行数据由旧版 agent 上报，未携带探测类型',
   'pages.opsNodes.probe.platformScope': '平台级',
   'pages.opsNodes.probe.refresh': '刷新探针汇总',
@@ -133,6 +135,7 @@ export default {
   'pages.opsNodes.probe.title': '探针汇总',
   'pages.opsNodes.probe.unavailable': '不可用',
   'pages.opsNodes.probe.unreachable': '不可达',
+  'pages.opsNodes.probe.verified': '已验证',
   'pages.opsNodes.restart.content': '确认重启 {id} ?',
   'pages.opsNodes.restart.success': '已下发重启',
   'pages.opsNodes.restart.title': '重启节点',

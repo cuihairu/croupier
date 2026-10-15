@@ -40,6 +40,12 @@ type TargetConfig struct {
 	// Protocol=已注册游戏协议适配器名（层 3，RegisterGameProtocol），二者互斥。
 	Steps    []StepSpec `json:"steps,omitempty" yaml:"steps,omitempty"`
 	Protocol string     `json:"protocol,omitempty" yaml:"protocol,omitempty"`
+
+	// ProtocolExpected 协议期望声明（§5.5.3 reachable-unverified 的触发位）：
+	// 该目标本应接入协议级探测、当前只落在 http/tcp/db 层——面板据此标注
+	// 「可达≠可用 / 未接入协议探测」灰态。纯声明式意图位、配置事实，
+	// 不参与任何探测行为与窗口判定（只有执行了的 Check 驱动窗口）。
+	ProtocolExpected bool `json:"protocolExpected,omitempty" yaml:"protocolExpected,omitempty"`
 }
 
 // EffectiveInterval 返回生效采样频率：显式值优先，否则全局默认 30s。

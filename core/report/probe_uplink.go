@@ -47,6 +47,9 @@ type ProbeUplinkConfig struct {
 	ProbeType string
 	// Protocol 游戏协议适配器名（仅 type=protocol 且走适配器时非空）。
 	Protocol string
+	// ProtocolExpected 目标协议期望声明（§5.5.3 reachable-unverified）：随
+	// 聚合面透传，消费方据此标「可达≠可用 / 未接入协议探测」。
+	ProtocolExpected bool
 	// MaxDetailsPerWindow <= 0 时用 DefaultMaxDetailsPerWindow。
 	MaxDetailsPerWindow int
 }
@@ -167,6 +170,7 @@ func (u *ProbeUplink) Drain() *opsv1.ProbeStats {
 		ProbeType:        u.cfg.ProbeType,
 		Protocol:         u.cfg.Protocol,
 		Phase:            u.lastPhase,
+		ProtocolExpected: u.cfg.ProtocolExpected,
 	}
 	u.checked, u.failed, u.dropped = 0, 0, 0
 	u.buckets = [len(LatencyBucketBoundaries) + 1]int64{}

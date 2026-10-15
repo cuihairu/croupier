@@ -105,6 +105,7 @@ func NewProbeManager(cfgs []healthprobe.TargetConfig, opts ProbeManagerOptions) 
 			Semantics:           sem,
 			ProbeType:           string(tc.Type),
 			Protocol:            tc.Protocol,
+			ProtocolExpected:    tc.ProtocolExpected,
 			MaxDetailsPerWindow: opts.MaxDetailsPerWindow,
 		}, opts.Send)
 		unavailable[name] = &atomic.Bool{}
@@ -395,6 +396,7 @@ func (m *ProbeManager) addDynamicLocked(tc healthprobe.TargetConfig) error {
 		Semantics:           sem,
 		ProbeType:           string(tc.Type),
 		Protocol:            tc.Protocol,
+		ProtocolExpected:    tc.ProtocolExpected,
 		MaxDetailsPerWindow: m.opts.MaxDetailsPerWindow,
 	}, m.opts.Send)
 	m.unavailable[name] = &atomic.Bool{}

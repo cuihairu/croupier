@@ -115,3 +115,24 @@ func TestServerProbeManager_StartNilSafe(t *testing.T) {
 	var m *ServerProbeManager
 	m.Start(context.Background())
 }
+
+// Statuses 透出配置期静态标注面（类型/适配器名/协议期望声明，§5.5.3）：
+// 读现状不注入新事实，声明位逐目标按配置带出。
+func TestServerProbeManager_StatusesCarryProtocolAnnotations(t *testing.T) {
+	targets := serverProbeTargets()
+	targets[0].ProtocolExpected = true
+	m, err := NewServerProbeManager(targets, nil, 0, nil)
+	require.NoError(t, err)
+
+	byName := map[string]ServerProbeStatus{}
+	for _, st := range m.Statuses() {
+		byName[st.Target] = st
+	}
+	db := byName["server-db"]
+	assert.Equal(t, "tcp", db.ProbeType)
+	assert.True(t, db.ProtocolExpected, "声明位随 Statuses 带出")
+	assert.Empty(t, db.Protocol, "tcp 目标无适配器名")
+
+	api := byName["platform-api"]
+	assert.False(t, api.ProtocolExpected, "未声明的目标不带该位")
+}

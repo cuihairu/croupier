@@ -46,7 +46,7 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	store := registry.NewMetricsStore()
 	store.Add("agent-a", &opsv1.MetricsReport{ProbeStats: []*opsv1.ProbeStats{
 		{Target: "redis", Semantics: "readiness", GameId: "demo", Env: "prod",
-			ProbeType: "tcp", Phase: "dial",
+			ProbeType: "tcp", Phase: "dial", ProtocolExpected: true,
 			Checked: 10, Failed: 2, SuccessRate: 0.8, WindowOpen: true,
 			WindowDurationMs: 4200, LastReason: "dial tcp: i/o timeout"},
 		{Target: "minecraft", Semantics: "readiness", GameId: "demo", Env: "prod",
@@ -81,6 +81,7 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	// 标注面（§5.5.3）：类型与阶段逐字段透传，面板不必解析 lastReason 文本。
 	assert.Equal(t, "tcp", row.ProbeType)
 	assert.Equal(t, "dial", row.Phase)
+	assert.True(t, row.ProtocolExpected, "协议期望声明位逐字段透传")
 
 	// 协议目标：protocol 字段只在适配器路径非空，phase 标出失败阶段。
 	mc := byKey["agent-a|minecraft"]
@@ -97,6 +98,7 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	assert.Empty(t, ok.ProbeType)
 	assert.Empty(t, ok.Protocol)
 	assert.Empty(t, ok.Phase)
+	assert.False(t, ok.ProtocolExpected, "未声明的目标不带该位")
 }
 
 func TestProbeSummary_ServerRowsReadCurrentState(t *testing.T) {
@@ -130,7 +132,7 @@ func TestProbeSummary_ServerRowsCarryProtocolAnnotation(t *testing.T) {
 			Steps:         []healthprobe.StepSpec{{Name: "handshake", Send: []byte("HELO")}},
 			FailThreshold: 1, Interval: time.Minute},
 		{Name: "keepalive", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
-			FailThreshold: 1, Interval: time.Minute},
+			FailThreshold: 1, Interval: time.Minute, ProtocolExpected: true},
 	}, nil, 0, nil)
 	require.NoError(t, err)
 
@@ -154,6 +156,7 @@ func TestProbeSummary_ServerRowsCarryProtocolAnnotation(t *testing.T) {
 	assert.Equal(t, "tcp", tcp.ProbeType)
 	assert.Empty(t, tcp.Protocol)
 	assert.Empty(t, tcp.Phase)
+	assert.True(t, tcp.ProtocolExpected, "tcp 目标也可声明协议期望（reachable-unverified）")
 }
 
 func TestProbeSummary_ScopeFiltering(t *testing.T) {

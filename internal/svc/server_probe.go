@@ -40,6 +40,9 @@ type ServerProbeManager struct {
 	// 探测与网络/存储探测，§5.5.3 协议四态的标注面）。
 	typeByTarget     map[string]string
 	protocolByTarget map[string]string
+	// expectedByTarget 目标协议期望声明（§5.5.3 reachable-unverified 触发位）：
+	// 纯配置事实，随 Statuses 带出让面板标「可达≠可用 / 未接入协议探测」。
+	expectedByTarget map[string]bool
 	// phaseMu 守 phaseByTarget：routeResult 由探针 goroutine 并发回调，与
 	// Statuses 读侧并发；agent 侧同语义在 ProbeUplink.lastPhase。
 	phaseMu       sync.Mutex
@@ -77,6 +80,7 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 	semByTarget := make(map[string]string, len(cfgs))
 	typeByTarget := make(map[string]string, len(cfgs))
 	protocolByTarget := make(map[string]string, len(cfgs))
+	expectedByTarget := make(map[string]bool, len(cfgs))
 	order := make([]string, 0, len(cfgs))
 	for _, tc := range cfgs {
 		name := strings.TrimSpace(tc.Name)
@@ -93,17 +97,20 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 			Semantics:           sem,
 			ProbeType:           string(tc.Type),
 			Protocol:            tc.Protocol,
+			ProtocolExpected:    tc.ProtocolExpected,
 			MaxDetailsPerWindow: maxDetailsPerWindow,
 		}, wrappedSend)
 		semByTarget[name] = string(sem)
 		typeByTarget[name] = string(tc.Type)
 		protocolByTarget[name] = tc.Protocol
+		expectedByTarget[name] = tc.ProtocolExpected
 		order = append(order, name)
 	}
 
 	m := &ServerProbeManager{uplinks: uplinks, order: order, semByTarget: semByTarget,
 		typeByTarget: typeByTarget, protocolByTarget: protocolByTarget,
-		phaseByTarget: map[string]string{}, logger: logger}
+		expectedByTarget: expectedByTarget,
+		phaseByTarget:    map[string]string{}, logger: logger}
 	manager, err := healthprobe.NewManager(cfgs, "", "", m.routeWindow, m.routeResult)
 	if err != nil {
 		return nil, err
@@ -155,6 +162,8 @@ type ServerProbeStatus struct {
 	ProbeType string
 	Protocol  string
 	Phase     string
+	// ProtocolExpected 目标声明了协议期望（reachable-unverified 触发位）。
+	ProtocolExpected bool
 }
 
 // Statuses 全部 server 目标的当前状态快照（读侧不探测——呈现现状不注入
@@ -170,12 +179,13 @@ func (m *ServerProbeManager) Statuses() []ServerProbeStatus {
 		phase := m.phaseByTarget[name]
 		m.phaseMu.Unlock()
 		st := ServerProbeStatus{
-			Target:    name,
-			Semantics: m.semByTarget[name],
-			Available: p.Available(),
-			ProbeType: m.typeByTarget[name],
-			Protocol:  m.protocolByTarget[name],
-			Phase:     phase,
+			Target:           name,
+			Semantics:        m.semByTarget[name],
+			Available:        p.Available(),
+			ProbeType:        m.typeByTarget[name],
+			Protocol:         m.protocolByTarget[name],
+			Phase:            phase,
+			ProtocolExpected: m.expectedByTarget[name],
 		}
 		if w, open := p.CurrentWindow(); open {
 			st.WindowOpen = true

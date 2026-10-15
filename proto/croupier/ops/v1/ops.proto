@@ -496,4 +496,5 @@ message ProbeStats {
   string probe_type = 13;             // checker type: http | tcp | db | protocol
   string protocol = 14;               // game protocol adapter name (type=protocol only)
   string phase = 15;                  // last failure phase marker (protocol checkers only)
+  bool protocol_expected = 16;        // target declares protocol-level probing is expected but not integrated
 }

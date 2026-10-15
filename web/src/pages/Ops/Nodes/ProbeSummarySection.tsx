@@ -71,11 +71,27 @@ export default function ProbeSummarySection() {
 
   const unavailableCount = useMemo(() => rows.filter((r) => !r.available).length, [rows]);
 
-  // 探活标签（§5.5.3 协议四态标注面）：协议目标不可用时按失败阶段区分
-  // 不可达（dial 失败，未进协议交互）与协议失败（handshake/status 半途失败）；
-  // 无阶段标记 = 该目标未定义阶段或旧版 agent 未上报，退回内核两态文案。
+  // 探活标签（§5.5.3 协议四态标注面）：
+  //   可用×protocol  = 已验证（协议 Check 成功过，状态 4）；
+  //   可用×非 protocol×protocolExpected = 可达≠可用（L1 探到、协议层未接入，
+  //     状态 2；副标签「未接入协议探测」灰态）；
+  //   不可用×protocol 按失败阶段区分 不可达（dial，未进协议交互）与
+  //     协议失败（handshake/status 半途失败）；
+  //   无阶段标记 = 该目标未定义阶段或旧版 agent 未上报，退回内核两态文案。
   const statusLabel = useCallback((available: boolean, r: ProbeSummaryRow): string => {
     if (available) {
+      if (r.probeType === 'protocol') {
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.verified',
+          defaultMessage: '已验证',
+        });
+      }
+      if (r.protocolExpected) {
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.reachableOnly',
+          defaultMessage: '可达≠可用',
+        });
+      }
       return intlRef.current.formatMessage({
         id: 'pages.opsNodes.probe.available',
         defaultMessage: '可用',
@@ -103,6 +119,14 @@ export default function ProbeSummarySection() {
       id: 'pages.opsNodes.probe.unavailable',
       defaultMessage: '不可用',
     });
+  }, []);
+
+  // 探活标签色：不可用红；已验证绿；可达≠可用橙（警示不是故障）；其余可用绿。
+  const statusColor = useCallback((available: boolean, r: ProbeSummaryRow): string => {
+    if (!available) return 'red';
+    if (r.probeType === 'protocol') return 'green';
+    if (r.protocolExpected) return 'orange';
+    return 'green';
   }, []);
 
   const columns = [
@@ -177,9 +201,20 @@ export default function ProbeSummarySection() {
       }),
       dataIndex: 'available',
       width: 120,
-      render: (available: boolean, r: ProbeSummaryRow) => (
-        <Tag color={available ? 'green' : 'red'}>{statusLabel(available, r)}</Tag>
-      ),
+      render: (available: boolean, r: ProbeSummaryRow) =>
+        available && r.protocolExpected && r.probeType !== 'protocol' ? (
+          <Space size={4} wrap>
+            <Tag color={statusColor(available, r)}>{statusLabel(available, r)}</Tag>
+            <Tag color="default">
+              {intl.formatMessage({
+                id: 'pages.opsNodes.probe.protocolNotIntegrated',
+                defaultMessage: '未接入协议探测',
+              })}
+            </Tag>
+          </Space>
+        ) : (
+          <Tag color={statusColor(available, r)}>{statusLabel(available, r)}</Tag>
+        ),
     },
     {
       title: intl.formatMessage({

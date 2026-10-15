@@ -4135,6 +4135,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeStats final : public ::google:
     kWindowDurationMsFieldNumber = 10,
     kDroppedDetailsFieldNumber = 12,
     kWindowOpenFieldNumber = 9,
+    kProtocolExpectedFieldNumber = 16,
   };
   // repeated int64 latency_buckets = 8;
   [[nodiscard]] int latency_buckets_size()
@@ -4335,12 +4336,22 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeStats final : public ::google:
   void _internal_set_window_open(bool value);
 
   public:
+  // bool protocol_expected = 16;
+  void clear_protocol_expected() ;
+  [[nodiscard]] bool protocol_expected() const;
+  void set_protocol_expected(bool value);
+
+  private:
+  bool _internal_protocol_expected() const;
+  void _internal_set_protocol_expected(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:croupier.ops.v1.ProbeStats)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 15,
-                                   0, 102,
+  static const ::google::protobuf::internal::TcParseTable<4, 16,
+                                   0, 110,
                                    2>
       _table_;
 
@@ -4379,6 +4390,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeStats final : public ::google:
     ::int64_t window_duration_ms_;
     ::int64_t dropped_details_;
     bool window_open_;
+    bool protocol_expected_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -23671,6 +23683,31 @@ inline void ProbeStats::set_allocated_phase(::std::string* PROTOBUF_NULLABLE val
     _impl_.phase_.Set("", GetArena());
   }
   // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.ProbeStats.phase)
+}
+
+// bool protocol_expected = 16;
+inline void ProbeStats::clear_protocol_expected() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.protocol_expected_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00008000U);
+}
+inline bool ProbeStats::protocol_expected() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.ProbeStats.protocol_expected)
+  return _internal_protocol_expected();
+}
+inline void ProbeStats::set_protocol_expected(bool value) {
+  _internal_set_protocol_expected(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.ProbeStats.protocol_expected)
+}
+inline bool ProbeStats::_internal_protocol_expected() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.protocol_expected_;
+}
+inline void ProbeStats::_internal_set_protocol_expected(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.protocol_expected_ = value;
 }
 
 #ifdef __GNUC__
