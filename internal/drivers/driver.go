@@ -32,6 +32,9 @@ type Config struct {
 	Endpoint string            // base URL（http/https）
 	Token    string            // 凭据（可为空——部分系统匿名可读）
 	Extra    map[string]string // driver 专属键（见各实现文档）
+	// Raw 保留 provider 实例面的完整 JSON 配置。Endpoint/Token 是常用
+	// 键的快捷抽取，Raw 才是防损真值；两者冲突时以 Raw 为准。
+	Raw map[string]any
 	// HTTP 注入测试用客户端；nil 时由消费方构造（生产路径必须传
 	// secguard 守卫后的客户端）。
 	HTTP *http.Client
@@ -54,9 +57,13 @@ type Driver interface {
 // 返回错误（Init 并入构造，对齐 cicd Factory 先例）。
 type Factory func(cfg Config) (Driver, error)
 
+// ContextFactory 由上下文与 Config 构造 driver 实例。需要拉取远程
+// spec/元数据的 driver 必须能携带调用方取消/超时语义。
+type ContextFactory func(ctx context.Context, cfg Config) (Driver, error)
+
 var (
 	registryMu sync.RWMutex
-	registry   = map[string]Factory{}
+	registry   = map[string]ContextFactory{}
 )
 
 // ErrUnknownKind 是 New 查不到注册类型时的错误。
@@ -65,6 +72,16 @@ var ErrUnknownKind = errors.New("unknown driver kind")
 // Register 注册 driver 工厂；重复注册同名类型视为编程错误，panic fail-fast。
 // 各 driver 实现以 init 自注册（消费方 import 本包即完成注册）。
 func Register(kind string, f Factory) {
+	if f == nil {
+		RegisterContext(kind, nil)
+		return
+	}
+	RegisterContext(kind, func(_ context.Context, cfg Config) (Driver, error) {
+		return f(cfg)
+	})
+}
+
+func RegisterContext(kind string, f ContextFactory) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	if kind == "" || f == nil {
@@ -78,13 +95,17 @@ func Register(kind string, f Factory) {
 
 // New 按类型构造 driver 实例。
 func New(kind string, cfg Config) (Driver, error) {
+	return NewWithContext(context.Background(), kind, cfg)
+}
+
+func NewWithContext(ctx context.Context, kind string, cfg Config) (Driver, error) {
 	registryMu.RLock()
 	f, ok := registry[kind]
 	registryMu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrUnknownKind, kind)
 	}
-	return f(cfg)
+	return f(ctx, cfg)
 }
 
 // Kinds 返回已注册类型（升序稳定）。

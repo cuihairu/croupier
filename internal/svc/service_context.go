@@ -428,7 +428,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	extensionManifestSvc := extensionmanifest.NewService()
 	extensionCatalogSvc := extensioncatalog.NewService(extensionRepos.Catalog, extensionRepos.Release)
 	extensionInstallationSvc := extensioninstallation.NewService(extensionRepos.Installation, extensionRepos.Event, extensionRepos.Binding)
-	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Binding, extensionRepos.Event)
+	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Release, extensionRepos.Binding, extensionRepos.Event)
 	extensionSyncSvc := extensionsync.NewService(extensionRepos.Installation, extensionRepos.Binding)
 
 	ctx := &ServiceContext{

@@ -42,6 +42,19 @@ func TestNewUnknownKind(t *testing.T) {
 	}
 }
 
+func TestNewWithContextCreatesRegisteredDriver(t *testing.T) {
+	Register("context-openapi-test", func(Config) (Driver, error) {
+		return &stubDriver{kind: "context-openapi-test"}, nil
+	})
+	driver, err := NewWithContext(context.Background(), "context-openapi-test", Config{})
+	if err != nil {
+		t.Fatalf("NewWithContext: %v", err)
+	}
+	if driver.Kind() != "context-openapi-test" {
+		t.Fatalf("Kind = %q", driver.Kind())
+	}
+}
+
 func TestRegisterDuplicatePanics(t *testing.T) {
 	Register("dup-kind", factoryFor("dup-kind"))
 	defer func() {

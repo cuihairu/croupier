@@ -54,7 +54,7 @@ func setupExtensionEnv(t *testing.T) *extensionTestEnv {
 
 	repos := extensiongorm.NewBundle(db)
 	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
-	runtimeSvc := extensionruntime.NewService(repos.Installation, repos.Binding, repos.Event)
+	runtimeSvc := extensionruntime.NewService(repos.Installation, repos.Release, repos.Binding, repos.Event)
 	syncSvc := extensionsync.NewService(repos.Installation, repos.Binding)
 	catalogSvc := extensioncatalog.NewService(repos.Catalog, repos.Release)
 	manifestSvc := extensionmanifest.NewService()

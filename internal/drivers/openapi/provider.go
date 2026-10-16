@@ -329,6 +329,10 @@ func (p *Provider) Name() string {
 	return "openapi"
 }
 
+func (p *Provider) Kind() string {
+	return "openapi"
+}
+
 // Init initializes the provider with configuration.
 func (p *Provider) Init(ctx context.Context, config provider.ProviderConfig) error {
 	p.config = config
