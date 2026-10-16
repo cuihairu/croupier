@@ -45,6 +45,10 @@ export default {
   'pages.opsNodes.detail.action.restart': '重启节点',
   'pages.opsNodes.detail.action.undrain': '恢复节点',
   'pages.opsNodes.detail.basic.agentId': '节点 ID',
+  'pages.opsNodes.detail.basic.agentBinarySha': 'Agent 二进制指纹',
+  'pages.opsNodes.detail.basic.agentBinaryShaEmpty':
+    '该 agent 未上报二进制指纹（旧版本 agent 或二进制不可读）',
+  'pages.opsNodes.detail.basic.agentVersion': 'Agent 版本',
   'pages.opsNodes.detail.basic.env': '环境',
   'pages.opsNodes.detail.basic.game': '游戏',
   'pages.opsNodes.detail.basic.health': '健康状态',

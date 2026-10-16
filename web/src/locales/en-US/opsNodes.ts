@@ -46,6 +46,10 @@ export default {
   'pages.opsNodes.detail.action.restart': 'Restart Node',
   'pages.opsNodes.detail.action.undrain': 'Restore Node',
   'pages.opsNodes.detail.basic.agentId': 'Node ID',
+  'pages.opsNodes.detail.basic.agentBinarySha': 'Agent Binary Fingerprint',
+  'pages.opsNodes.detail.basic.agentBinaryShaEmpty':
+    'This agent reported no binary fingerprint (older agent build, or binary unreadable)',
+  'pages.opsNodes.detail.basic.agentVersion': 'Agent Version',
   'pages.opsNodes.detail.basic.env': 'Env',
   'pages.opsNodes.detail.basic.game': 'Game',
   'pages.opsNodes.detail.basic.health': 'Health Status',

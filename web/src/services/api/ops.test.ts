@@ -18,6 +18,7 @@ import {
   fetchOpsMetrics,
   handleOpsAlert,
   fetchOpsNotifications,
+  fetchAgentSystemInfo,
   getAgentMetricsHistory,
   getOpsBackupDownloadUrl,
   listAlertRules,
@@ -1068,6 +1069,51 @@ describe('alert rule adapters', () => {
     expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/alerts/rules/1', {
       method: 'DELETE',
     });
+  });
+});
+
+describe('agent system info adapter', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('normalizes the server response with encoded agent id', async () => {
+    mockedRequest.mockResolvedValue({
+      systemInfo: {
+        hostname: 'host-a',
+        os: 'linux',
+        osVersion: '6.8',
+        kernelVersion: '6.8.0',
+        arch: 'amd64',
+        cpuCores: 8,
+        totalMemory: 16 * 1024 ** 3,
+        bootTime: '2026-10-16T00:00:00Z',
+        agentVersion: 'v1.4.2',
+        agentBinarySha256: 'a'.repeat(64),
+      },
+    });
+
+    await expect(fetchAgentSystemInfo('agent/1')).resolves.toEqual({
+      hostname: 'host-a',
+      os: 'linux',
+      osVersion: '6.8',
+      kernelVersion: '6.8.0',
+      arch: 'amd64',
+      cpuCores: 8,
+      totalMemory: 16 * 1024 ** 3,
+      bootTime: '2026-10-16T00:00:00Z',
+      agentVersion: 'v1.4.2',
+      agentBinarySha256: 'a'.repeat(64),
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/agents/agent%2F1/system-info', {
+      method: 'GET',
+    });
+  });
+
+  it('returns null for malformed payloads and request failures', async () => {
+    mockedRequest.mockResolvedValueOnce({});
+    await expect(fetchAgentSystemInfo('agent-1')).resolves.toBeNull();
+
+    mockedRequest.mockRejectedValueOnce(new Error('offline'));
+    await expect(fetchAgentSystemInfo('agent-1')).resolves.toBeNull();
   });
 });
 

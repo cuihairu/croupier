@@ -1131,6 +1131,53 @@ export async function resumeAgentProcessSchedule(agentId: string, name: string):
   );
 }
 
+/** agent 系统信息（§10.5 指纹锚点数据面）：server 侧四级降级链
+ * （SystemInfoCache → 隧道 live RPC → registry 标签 → DB 最后已知锚点），
+ * agent 失联且会话过期后仍能读到最后一次注册自报的指纹。 */
+export type AgentSystemInfo = {
+  hostname: string;
+  os: string;
+  osVersion: string;
+  kernelVersion: string;
+  arch: string;
+  cpuCores: number;
+  totalMemory: number;
+  bootTime: string;
+  agentVersion: string;
+  /** 运行中的 agent 二进制内容 sha256；空=未上报或二进制不可读 */
+  agentBinarySha256: string;
+};
+
+/** 读取 agent 系统信息。返回 null 表示四级数据面都没命中（agent 未知），
+ * 调用方按空态渲染而不是抛错——失联 agent 的排查面本就要能优雅空。 */
+export async function fetchAgentSystemInfo(agentId: string): Promise<AgentSystemInfo | null> {
+  let raw: { systemInfo?: Record<string, unknown> } | null;
+  try {
+    raw = await request<{ systemInfo?: Record<string, unknown> }>(
+      `/api/v1/ops/agents/${encodeURIComponent(agentId)}/system-info`,
+      { method: 'GET' },
+    );
+  } catch {
+    return null;
+  }
+  const info = raw?.systemInfo;
+  if (!info || typeof info !== 'object') return null;
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return {
+    hostname: str(info.hostname),
+    os: str(info.os),
+    osVersion: str(info.osVersion),
+    kernelVersion: str(info.kernelVersion),
+    arch: str(info.arch),
+    cpuCores: num(info.cpuCores),
+    totalMemory: num(info.totalMemory),
+    bootTime: str(info.bootTime),
+    agentVersion: str(info.agentVersion),
+    agentBinarySha256: str(info.agentBinarySha256),
+  };
+}
+
 /** 更新进程二进制（§10.4）：stagedPath 是 agent 主机上已暂存的文件，
  * expectedSha256 是内容哈希（64 位小写 hex，fail-closed）。服务端先停后换、
  * 自动启动、失败回滚旧版，返回旧→新指纹（无旧版时 oldFingerprint 为空）。 */

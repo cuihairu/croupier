@@ -16,6 +16,7 @@ configure({ asyncUtilTimeout: 5000 });
 
 jest.mock('@/services/api/ops', () => ({
   getAgentMetricsHistory: jest.fn(),
+  fetchAgentSystemInfo: jest.fn(),
 }));
 jest.mock('@umijs/max', () => ({
   FormattedMessage: ({ defaultMessage }: { id: string; defaultMessage?: string }) => (
@@ -38,8 +39,9 @@ jest.mock('@ant-design/charts', () => ({
   ),
 }));
 
-const { getAgentMetricsHistory } = jest.requireMock('@/services/api/ops') as {
+const { getAgentMetricsHistory, fetchAgentSystemInfo } = jest.requireMock('@/services/api/ops') as {
   getAgentMetricsHistory: jest.Mock;
+  fetchAgentSystemInfo: jest.Mock;
 };
 
 const HISTORY = [
@@ -96,6 +98,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   act(() => {
     getAgentMetricsHistory.mockResolvedValue(HISTORY);
+    // 默认「四级数据面都没命中」，空态渲染；指纹用例各自覆盖。
+    fetchAgentSystemInfo.mockResolvedValue(null);
   });
 });
 
@@ -158,6 +162,110 @@ describe('基本信息', () => {
     const { container } = renderDrawer(null);
     expect(screen.queryByText('基本信息')).not.toBeInTheDocument();
     expect(container).toBeInTheDocument();
+  });
+});
+
+describe('§10.5 agent 二进制指纹锚点', () => {
+  const FP = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+
+  test('拉到指纹：版本与截断指纹渲染，按 agentId 拉取', async () => {
+    fetchAgentSystemInfo.mockResolvedValue({
+      hostname: 'host-a',
+      os: 'linux',
+      osVersion: '',
+      kernelVersion: '',
+      arch: 'amd64',
+      cpuCores: 8,
+      totalMemory: 0,
+      bootTime: '',
+      agentVersion: 'v1.4.2',
+      agentBinarySha256: FP,
+    });
+
+    renderDrawer(makeNode());
+
+    await waitFor(() => expect(fetchAgentSystemInfo).toHaveBeenCalledWith('agent-42'));
+    await waitFor(() => expect(screen.getByText('v1.4.2')).toBeInTheDocument());
+    // 截断到前 12 位展示，全文走 copyable（失联排查要复制全串比对 execlog）
+    expect(screen.getByText(FP.slice(0, 12))).toBeInTheDocument();
+  });
+
+  test('无指纹：空态兜底「-」，标签与旧版 agent 缺省互不干扰', async () => {
+    fetchAgentSystemInfo.mockResolvedValue({
+      hostname: '',
+      os: '',
+      osVersion: '',
+      kernelVersion: '',
+      arch: '',
+      cpuCores: 0,
+      totalMemory: 0,
+      bootTime: '',
+      agentVersion: '',
+      agentBinarySha256: '',
+    });
+
+    renderDrawer(makeNode({ version: 'sdk-1.0.0' }));
+
+    await waitFor(() => expect(fetchAgentSystemInfo).toHaveBeenCalled());
+    // system-info 无版本时回落节点列表的 version（SDK 版本），不空成 '-'
+    expect(screen.getByText('sdk-1.0.0')).toBeInTheDocument();
+    expect(screen.getByText('Agent 二进制指纹')).toBeInTheDocument();
+  });
+
+  test('接口失败（返回 null）：抽屉其余内容照常渲染不崩', async () => {
+    fetchAgentSystemInfo.mockResolvedValue(null);
+
+    renderDrawer(makeNode());
+
+    await waitFor(() => expect(fetchAgentSystemInfo).toHaveBeenCalled());
+    expect(screen.getByText('agent-42')).toBeInTheDocument();
+    expect(screen.getByText('Agent 二进制指纹')).toBeInTheDocument();
+  });
+
+  test('node 为 null：不发起指纹请求', () => {
+    renderDrawer(null);
+    expect(fetchAgentSystemInfo).not.toHaveBeenCalled();
+  });
+
+  test('agentId 切换：清空旧指纹并按新 agent 拉取', async () => {
+    fetchAgentSystemInfo.mockResolvedValue({
+      hostname: 'host-a',
+      os: 'linux',
+      osVersion: '',
+      kernelVersion: '',
+      arch: 'amd64',
+      cpuCores: 8,
+      totalMemory: 0,
+      bootTime: '',
+      agentVersion: 'v1.4.2',
+      agentBinarySha256: FP,
+    });
+
+    const { rerender } = renderDrawer(makeNode());
+    await waitFor(() => expect(screen.getByText(FP.slice(0, 12))).toBeInTheDocument());
+
+    let resolveSecond: (value: Awaited<ReturnType<typeof fetchAgentSystemInfo>>) => void;
+    fetchAgentSystemInfo.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSecond = resolve;
+      }),
+    );
+    rerender(
+      <NodeDetailDrawer
+        node={makeNode({ agentId: 'agent-7' })}
+        onClose={jest.fn()}
+        onDrain={jest.fn()}
+        onUndrain={jest.fn()}
+        onRestart={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(fetchAgentSystemInfo).toHaveBeenCalledWith('agent-7'));
+    expect(screen.queryByText(FP.slice(0, 12))).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveSecond(null);
+    });
   });
 });
 

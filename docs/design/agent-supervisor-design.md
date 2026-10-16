@@ -128,7 +128,7 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
   - 事件日志列表：时间倒序、事件类型筛选、`oom_suspect` 等上下文字段展开；
   - 操作：手动 start/stop/restart（走既有代理端点，按 `ops:operate` 权限显隐）+「下载日志」。
 - 轮询沿 Ops 页现状节奏（30s 或页面现有刷新间隔），不引入推送。
-- **§10 增量已接入面板（2026-10-15）**：进程卡补 `kind=probe-adapter` 的 `adapter:<id>` 标（§10.1）、`fp:<指纹前 12 位>` 标（§10.4，供与更新记录按 (进程, 时间) 对齐）；新增**「调度」列**（下一次触发时间 + 动作 Tag，§10.6 事前可见；暂停态覆盖为「调度已暂停」Tag）；操作列补**暂停/恢复调度**（走 `schedule/pause|resume`，暂停走 Popconfirm——冻结 cron 是中等风险；恢复直点——恢复自动化意图；已暂停行禁用暂停、无调度条目禁用暂停，成功后复拉快照）；事件闭集补 `schedule_fire` / `schedule_paused` / `schedule_resumed` / `update_applied` / `update_rolled_back` 五型的本地化标签与 Tag 色（类型筛选下拉同源闭集）。web 侧 `SupervisedProcess` 类型与归一化补齐 server DTO 全字段（`lastEventUnix` / `nextRestartAtUnix` / `kind` / `adapterId` / `nextScheduleAtUnix` / `nextScheduleAction` / `fingerprint` / `scheduleSuspended`），缺省零值，旧版 agent 快照零漂移。**§10.4 更新同日补口**：操作列补「更新」按钮 → Modal 收集 `stagedPath` + `expectedSha256`（前端与服务端同口径 fail-closed：路径空白或 sha 非 64 位小写 hex 禁发），成功复拉快照、失败保留 Modal 便于修正重提——见 §10.4「面板接入」。
+- **§10 增量已接入面板（2026-10-15）**：进程卡补 `kind=probe-adapter` 的 `adapter:<id>` 标（§10.1）、`fp:<指纹前 12 位>` 标（§10.4，供与更新记录按 (进程, 时间) 对齐）；新增**「调度」列**（下一次触发时间 + 动作 Tag，§10.6 事前可见；暂停态覆盖为「调度已暂停」Tag）；操作列补**暂停/恢复调度**（走 `schedule/pause|resume`，暂停走 Popconfirm——冻结 cron 是中等风险；恢复直点——恢复自动化意图；已暂停行禁用暂停、无调度条目禁用暂停，成功后复拉快照）；事件闭集补 `schedule_fire` / `schedule_paused` / `schedule_resumed` / `update_applied` / `update_rolled_back` 五型的本地化标签与 Tag 色（类型筛选下拉同源闭集）。web 侧 `SupervisedProcess` 类型与归一化补齐 server DTO 全字段（`lastEventUnix` / `nextRestartAtUnix` / `kind` / `adapterId` / `nextScheduleAtUnix` / `nextScheduleAction` / `fingerprint` / `scheduleSuspended`），缺省零值，旧版 agent 快照零漂移。**§10.4 更新同日补口**：操作列补「更新」按钮 → Modal 收集 `stagedPath` + `expectedSha256`（前端与服务端同口径 fail-closed：路径空白或 sha 非 64 位小写 hex 禁发），成功复拉快照、失败保留 Modal 便于修正重提——见 §10.4「面板接入」。**§10.5 指纹同日补口**：`NodeDetailDrawer` 基本信息区补 Agent 版本 + Agent 二进制指纹两行（截断展示 + copyable 全文，失败空态不抛错）——见 §10.5「面板接入」。
 
 ## 5. server API 增量（经既有 ops 代理链，权限沿用 ops 族）
 
@@ -221,6 +221,8 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 **指纹记录（硬要求，零新表）**：事件面 `update_applied` / `update_rolled_back`（message 带旧→新指纹）；持久查询主入口=server 侧 execlog 审计（source=`process_update`，每次尝试含客户端不可用都留痕，入参/响应载荷全文含指纹与 rolledBack）；快照 `SupervisedProcessSnapshot.fingerprint`（proto 追加 16）随 metrics 上行——运行实例指纹=spawn 时缓存的二进制内容 sha256（文件换指纹不变，直至重启换实例），面板下钻与告警 timeline 按 (target, 时间) 对齐。
 
 **面板接入（2026-10-15 补口，后端路由/DTO 早已交付而 web 侧零接入）**：操作列补「更新」按钮 → Modal 收集 `stagedPath`（agent 主机上已暂存的文件路径）与 `expectedSha256`；前端与服务端同口径 fail-closed——路径空白或 sha 非 64 位小写 hex（大写/短串）一律禁发请求，与「哈希钉扎」的第一道闸对齐。提交成功则复拉快照（指纹列 `fp:<前 12 位>` 反映 new 值，与更新记录按 (进程, 时间, 指纹) 对齐），失败保留 Modal 与已填入参便于修正重提、不复拉快照（失败不应改写视图状态）。
+
+**面板接入（2026-10-15 补口，后端数据面早已交付而 web 侧零接入）**：`NodeDetailDrawer` 基本信息区补两行——**Agent 版本**（system-info `agentVersion` 优先，缺省回落节点列表的 `version`）与 **Agent 二进制指纹**（`agentBinarySha256`，前 12 位等宽字体展示 + `copyable` 携带全文：失联排查要复制全串比对 execlog §10.4 查询口径）。拉取走既有四级降级链（缓存 → 隧道 live RPC → 注册标签 → DB 最后已知锚点），**请求失败按空态渲染而非抛错**——排查面不该因一个读不到的字段整体报错，空值给 Tooltip 说明（旧版 agent 或二进制不可读）。`node` 置空时不发请求、切走 agent 时清空避免串号显示（effect 内 `cancelled` 标志防过期响应回写）。
 
 **诚实边界（v1 未做）**：① 签名校验未实现——只做内容哈希（签名随密钥轮换会变，哈希是稳定可查锚点；来源可信性由分发通道保证）；② 数据库/配置兼容性检查未实现——属游戏侧知识，由调用方把关（配置版本经 ConfigVersion 关联）；③ 游戏进程维护窗口 / 在线人数阈值 / 流量导入闸未核实——随首个真实游戏接入定（见下）；④ 首次安装（无旧版可回滚）即失败时**无事件**（事件闭集仅 applied/rolled_back 两型），留痕在 execlog 审计。
 
