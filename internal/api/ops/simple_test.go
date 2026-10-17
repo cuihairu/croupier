@@ -783,7 +783,6 @@ func TestAgentServiceListFilterByGameID(t *testing.T) {
 func TestAgentServiceGetMeta(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
 	store := registry.NewStore()
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewAgentService(svcCtx)
@@ -798,6 +797,7 @@ func TestAgentServiceGetMeta(t *testing.T) {
 		LastSeen:  time.Now(),
 	})
 
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "prod"})
 	meta, err := s.GetMeta(ctx, "agent-1")
 	require.NoError(t, err)
 	assert.Equal(t, "linux", meta.OS)
@@ -812,6 +812,20 @@ func TestAgentServiceGetMetaNotFound(t *testing.T) {
 
 	_, err := s.GetMeta(ctx, "nonexistent")
 	assert.Error(t, err)
+}
+
+func TestAgentServiceGetMetaRejectsWrongScope(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent-scope", GameID: "game1", Env: "prod",
+	}))
+	s := NewAgentService(&svc.ServiceContext{RegistryStore: store})
+
+	wrongScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "dev"})
+	_, err := s.GetMeta(wrongScope, "agent-scope")
+	require.ErrorContains(t, err, "does not belong")
 }
 
 func TestNewNodeService(t *testing.T) {
@@ -849,19 +863,36 @@ func TestNodeServiceList(t *testing.T) {
 func TestNodeServiceGetCommands(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{RegistryStore: registry.NewStore()}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "node-1", GameID: "game1", Env: "prod",
+	}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewNodeService(svcCtx)
 
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "prod"})
 	commands, err := s.GetCommands(ctx, "node-1")
 	require.NoError(t, err)
 	assert.Len(t, commands, 3)
 }
 
+func TestNodeServiceGetCommandsRejectsWrongScope(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "node-scope", GameID: "game1", Env: "prod",
+	}))
+	s := NewNodeService(&svc.ServiceContext{RegistryStore: store})
+
+	wrongScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "other", Env: "prod"})
+	_, err := s.GetCommands(wrongScope, "node-scope")
+	require.ErrorContains(t, err, "does not belong")
+}
+
 func TestNodeServiceGetMeta(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
 	store := registry.NewStore()
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewNodeService(svcCtx)
@@ -876,6 +907,7 @@ func TestNodeServiceGetMeta(t *testing.T) {
 		LastSeen:  time.Now(),
 	})
 
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "prod"})
 	meta, err := s.GetMeta(ctx, "node-1")
 	require.NoError(t, err)
 	assert.Equal(t, "us-east-1", meta["zone"])

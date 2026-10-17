@@ -157,6 +157,9 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 }
 
 func opsAgentMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentMetaRequest) (*OpsAgentMetaResponse, error) {
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentId); err != nil {
+		return nil, err
+	}
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return nil, errors.New("registry store unavailable")
