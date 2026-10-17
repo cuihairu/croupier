@@ -294,7 +294,7 @@ func TestDBMonService_CreateSource_ModelError(t *testing.T) {
 	require.NoError(t, db.Migrator().DropTable("db_sources"))
 
 	_, err := dbmonSvc.CreateSource(context.Background(), &SourceUpsertRequest{
-		Name: "s", Driver: "mysql", DSN: goodDSN,
+		Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod",
 	})
 	require.Error(t, err)
 }
@@ -302,7 +302,8 @@ func TestDBMonService_CreateSource_ModelError(t *testing.T) {
 func TestDBMonService_UpdateSource_UpdateError(t *testing.T) {
 	dbmonSvc, srcModel, _, db := newDBMonDBFixture(t)
 	ctx := context.Background()
-	src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN, Enabled: true}
+	src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
+		GameID: "demo", Env: "prod", Enabled: true}
 	require.NoError(t, srcModel.Create(ctx, src))
 
 	// 删除更新目标列：FindOne 成功、Validate 通过，但 Updates 报 SQL 错误。
@@ -325,7 +326,8 @@ func TestDBMonService_ProbeAll_ListError(t *testing.T) {
 func TestDBMonService_ProbeAll_SourceWithoutDSNReportsError(t *testing.T) {
 	dbmonSvc, srcModel, _, _ := newDBMonDBFixture(t)
 	ctx := context.Background()
-	src := &model.DBSource{Name: "no-dsn", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN, Enabled: true}
+	src := &model.DBSource{Name: "no-dsn", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
+		GameID: "demo", Env: "prod", Enabled: true}
 	require.NoError(t, srcModel.Create(ctx, src))
 	// 绕过 service 校验把 DSN 清空，模拟历史脏数据。
 	require.NoError(t, srcModel.Update(ctx, src.ID, map[string]interface{}{"dsn": ""}))
@@ -367,14 +369,15 @@ func TestDBMonHandler_CreateSource_ModelError(t *testing.T) {
 	require.NoError(t, db.Migrator().DropTable("db_sources"))
 
 	rec := doDBMonReq(r, http.MethodPost, "/dbmon/sources",
-		fmt.Sprintf(`{"name":"s","driver":"mysql","dsn":%q}`, goodDSN))
+		fmt.Sprintf(`{"name":"s","driver":"mysql","dsn":%q,"gameId":"demo","env":"prod"}`, goodDSN))
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestDBMonHandler_UpdateSource_BadJSONBody(t *testing.T) {
 	r, db := newDBMonEnvWithDB(t)
 	require.NoError(t, model.NewDBSourceModel(db).Create(context.Background(),
-		&model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN, Enabled: true}))
+		&model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
+			GameID: "demo", Env: "prod", Enabled: true}))
 	var id int64
 	require.NoError(t, db.Raw("SELECT id FROM db_sources LIMIT 1").Scan(&id).Error)
 

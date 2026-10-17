@@ -56,6 +56,17 @@ func ValidateDBSource(src *DBSource) error {
 	if src.Name == "" {
 		return errors.New("数据源名称不能为空")
 	}
+	if strings.TrimSpace(src.GameID) == "" {
+		return errors.New("gameId 不能为空")
+	}
+	if strings.TrimSpace(src.Env) == "" {
+		return errors.New("env 不能为空")
+	}
+	if strings.TrimSpace(src.OwnerAgentID) != "" {
+		if strings.TrimSpace(src.OwnerAgentID) != src.OwnerAgentID {
+			return errors.New("ownerAgentId 不能包含首尾空白")
+		}
+	}
 	if src.Driver != "mysql" && src.Driver != "postgres" {
 		return errors.New("驱动仅支持 mysql / postgres")
 	}

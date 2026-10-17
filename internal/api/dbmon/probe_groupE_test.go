@@ -41,7 +41,7 @@ func TestService_UpdateSource_ReloadErrorGroupE(t *testing.T) {
 	ctx := context.Background()
 	src := &model.DBSource{
 		Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf,
-		DSN: goodDSN, Enabled: true,
+		DSN: goodDSN, GameID: "demo", Env: "prod", Enabled: true,
 	}
 	require.NoError(t, srcModel.Create(ctx, src))
 
