@@ -331,6 +331,9 @@ func (s *ControlService) SetLogger(logger *slog.Logger) {
 // TransportHandler exposes the control-plane request handler for TCP transport.
 func (s *ControlService) TransportHandler() transportcore.Handler {
 	return transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+		if identity := AgentIdentityFromContext(ctx); identity != nil {
+			return s.handleRequestAsAgent(ctx, msgID, body, identity)
+		}
 		return s.handleRequest(ctx, msgID, body)
 	})
 }
@@ -427,6 +430,19 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleProbeDBTargets(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
+	}
+}
+
+func (s *ControlService) handleRequestAsAgent(ctx context.Context, msgID uint32, data []byte, identity *AgentIdentity) ([]byte, error) {
+	switch msgID {
+	case protocol.MsgMetricEvent:
+		return s.handleMetricEventAsAgent(ctx, data, identity)
+	case protocol.MsgAlertEventRequest:
+		return s.handleAlertEventAsAgent(ctx, data, identity)
+	case protocol.MsgAlertEvent:
+		return s.handleProbeEventAsAgent(ctx, data, identity)
+	default:
+		return s.handleRequest(ctx, msgID, data)
 	}
 }
 
@@ -561,6 +577,29 @@ func (s *ControlService) handleAlertEvent(ctx context.Context, data []byte) ([]b
 
 	resp := &opsv1.CaptureRuleHitAck{Accepted: true, Duplicate: !created}
 	return proto.Marshal(resp)
+}
+
+func (s *ControlService) normalizeAlertEventRequest(data []byte, identity *AgentIdentity) (*opsv1.CaptureRuleHitReport, error) {
+	req := &opsv1.CaptureRuleHitReport{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal CaptureRuleHitReport: %w", err)
+	}
+	req.AgentId = identity.AgentID
+	req.GameId = identity.GameID
+	req.Env = identity.Env
+	return req, nil
+}
+
+func (s *ControlService) handleAlertEventAsAgent(ctx context.Context, data []byte, identity *AgentIdentity) ([]byte, error) {
+	req, err := s.normalizeAlertEventRequest(data, identity)
+	if err != nil {
+		return nil, err
+	}
+	normalized, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal CaptureRuleHitReport: %w", err)
+	}
+	return s.handleAlertEvent(ctx, normalized)
 }
 
 // captureAlertID 派生 ≤64 字符的幂等键（model.Alert.AlertID 是
@@ -950,6 +989,29 @@ func (s *ControlService) handleProbeEvent(ctx context.Context, data []byte) ([]b
 	return nil, nil
 }
 
+func (s *ControlService) normalizeProbeEvent(data []byte, identity *AgentIdentity) (*opsv1.AlertEvent, error) {
+	ev := &opsv1.AlertEvent{}
+	if err := proto.Unmarshal(data, ev); err != nil {
+		return nil, fmt.Errorf("unmarshal AlertEvent: %w", err)
+	}
+	ev.AgentId = identity.AgentID
+	ev.GameId = identity.GameID
+	ev.Env = identity.Env
+	return ev, nil
+}
+
+func (s *ControlService) handleProbeEventAsAgent(ctx context.Context, data []byte, identity *AgentIdentity) ([]byte, error) {
+	ev, err := s.normalizeProbeEvent(data, identity)
+	if err != nil {
+		return nil, err
+	}
+	normalized, err := proto.Marshal(ev)
+	if err != nil {
+		return nil, fmt.Errorf("marshal AlertEvent: %w", err)
+	}
+	return s.handleProbeEvent(ctx, normalized)
+}
+
 // ProbeEventSink 暴露诊断环只读访问（排查「这段时间服务不可用」用）。nil
 // 接收者安全。
 func (s *ControlService) ProbeEventSink() *probeEventSink {
@@ -1034,6 +1096,27 @@ func (s *ControlService) handleMetricEvent(ctx context.Context, data []byte) ([]
 		)
 	}
 	return nil, nil
+}
+
+func (s *ControlService) normalizeMetricEvent(data []byte, identity *AgentIdentity) (*opsv1.MetricsReport, error) {
+	req := &opsv1.MetricsReport{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal MetricsReport: %w", err)
+	}
+	req.AgentId = identity.AgentID
+	return req, nil
+}
+
+func (s *ControlService) handleMetricEventAsAgent(ctx context.Context, data []byte, identity *AgentIdentity) ([]byte, error) {
+	req, err := s.normalizeMetricEvent(data, identity)
+	if err != nil {
+		return nil, err
+	}
+	normalized, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal MetricsReport: %w", err)
+	}
+	return s.handleMetricEvent(ctx, normalized)
 }
 
 // handleRegisterRequest implements the actual Register logic.

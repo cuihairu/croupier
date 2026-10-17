@@ -69,6 +69,31 @@ type TCPListener struct {
 	logger *slog.Logger
 }
 
+// agentIdentityKey carries the server-verified registration identity through
+// control-plane dispatch so uplink payloads cannot override Agent scope.
+type agentIdentityKey struct{}
+
+// AgentIdentity is the scope bound to a live Agent session.
+type AgentIdentity struct {
+	AgentID string
+	GameID  string
+	Env     string
+}
+
+// AgentIdentityFromContext returns the verified identity attached to an Agent
+// control connection. Nil means the request did not enter through one.
+func AgentIdentityFromContext(ctx context.Context) *AgentIdentity {
+	if ctx == nil {
+		return nil
+	}
+	identity, _ := ctx.Value(agentIdentityKey{}).(*AgentIdentity)
+	return identity
+}
+
+func withAgentIdentity(ctx context.Context, identity *AgentIdentity) context.Context {
+	return context.WithValue(ctx, agentIdentityKey{}, identity)
+}
+
 // defaultControlAddress is the Server-side Agent control-plane listen address
 // used when no configuration is supplied. Kept as a named constant so tests can
 // assert the default without binding the port (see TestNewTCPListener_NilConfigDefaults).
@@ -331,7 +356,12 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 	default:
 		// Delegate to the control service if available
 		if h.listener.handler != nil {
-			return h.listener.handler.TransportHandler().Handle(ctx, msgID, reqID, body)
+			identity := &AgentIdentity{AgentID: h.agentID}
+			if sess, ok := h.listener.sessionStore.Get(h.agentID); ok {
+				identity.GameID = sess.GameID
+				identity.Env = sess.Env
+			}
+			return h.listener.handler.TransportHandler().Handle(withAgentIdentity(ctx, identity), msgID, reqID, body)
 		}
 		return nil, fmt.Errorf("unsupported message type for Agent session: %s", protocol.MsgIDString(msgID))
 	}

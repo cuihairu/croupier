@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -20,9 +21,12 @@ import (
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/getkin/kin-openapi/openapi3"
+	gosqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // --- Helper Functions ---
@@ -1253,6 +1257,68 @@ func TestHandleMetricEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, resp)
 	})
+}
+
+func TestTransportHandlerNormalizesAgentUplinkIdentity(t *testing.T) {
+	store := registry.NewStore()
+	svc := NewControlService(store, nil)
+	svc.SetLogger(slog.Default())
+	db, err := gorm.Open(gosqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Alert{}))
+	svc.SetAlertModel(model.NewAlertModel(db))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	store.UpsertAgent(&registry.AgentSession{AgentID: "bound-agent", GameID: "demo", Env: "prod"})
+
+	tests := []struct {
+		name  string
+		msgID uint32
+		req   proto.Message
+	}{
+		{
+			name:  "metrics",
+			msgID: protocol.MsgMetricEvent,
+			req:   &opsv1.MetricsReport{AgentId: "spoofed-agent"},
+		},
+		{
+			name:  "capture alert",
+			msgID: protocol.MsgAlertEventRequest,
+			req:   &opsv1.CaptureRuleHitReport{AgentId: "spoofed-agent", GameId: "other", Env: "dev", Rule: "rule", Table: "game.items"},
+		},
+		{
+			name:  "probe event",
+			msgID: protocol.MsgAlertEvent,
+			req:   &opsv1.AlertEvent{AgentId: "spoofed-agent", GameId: "other", Env: "dev", Kind: "probe.window", Window: &opsv1.ProbeWindow{Target: "db"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := proto.Marshal(tt.req)
+			require.NoError(t, err)
+			ctx := withAgentIdentity(context.Background(), &AgentIdentity{AgentID: "bound-agent", GameID: "demo", Env: "prod"})
+
+			_, err = svc.TransportHandler().Handle(ctx, tt.msgID, 1, body)
+			require.NoError(t, err)
+
+			switch tt.msgID {
+			case protocol.MsgMetricEvent:
+				entry, ok := svc.metricsStore.GetLatest("bound-agent")
+				require.True(t, ok)
+				assert.Equal(t, "bound-agent", entry.Report.GetAgentId())
+			case protocol.MsgAlertEvent:
+				events := svc.probeEvents.recent("bound-agent", 1)
+				require.Len(t, events, 1)
+				assert.Equal(t, "bound-agent", events[0].GetAgentId())
+				assert.Equal(t, "demo", events[0].GetGameId())
+				assert.Equal(t, "prod", events[0].GetEnv())
+			}
+		})
+	}
 }
 
 // --- Tests for validateAndNormalizeFunctions ---
