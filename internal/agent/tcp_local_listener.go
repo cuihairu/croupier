@@ -34,10 +34,6 @@ type TCPLocalListenerConfig struct {
 	// the accept loop keeps serving (plaintext probes must not kill the
 	// gateway, hence per-conn wrapping instead of tls.NewListener).
 	TLSConfig *tls.Config
-
-	// OpsSessionOnly enables a test-only local ops RPC session marker.
-	// Production wiring must leave it unset.
-	OpsSessionOnly bool
 }
 
 // tlsHandshakeTimeout bounds the server-side TLS handshake of an accepted
@@ -72,8 +68,7 @@ type TCPLocalListener struct {
 	closeMu sync.Mutex // 守护 closed/listener.Close/wg.Wait 的幂等收口（见 Close）
 	closed  bool
 
-	logger         *slog.Logger
-	opsSessionOnly bool
+	logger *slog.Logger
 }
 
 // NewTCPLocalListener creates a new local TCP listener for SDK connections.
@@ -106,12 +101,11 @@ func NewTCPLocalListener(config *TCPLocalListenerConfig, sessionStore *ProviderS
 	}
 
 	return &TCPLocalListener{
-		config:         config,
-		listener:       ln,
-		sessionStore:   sessionStore,
-		closing:        make(chan struct{}),
-		logger:         logger,
-		opsSessionOnly: config.OpsSessionOnly,
+		config:       config,
+		listener:     ln,
+		sessionStore: sessionStore,
+		closing:      make(chan struct{}),
+		logger:       logger,
 	}, nil
 }
 
@@ -268,7 +262,6 @@ type providerSessionHandler struct {
 	registered bool
 	sessionID  string
 	serviceID  string
-	opsBypass  bool
 }
 
 // Handle processes inbound requests on a Provider TCP session.
@@ -284,7 +277,7 @@ func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID
 	// outbound Agent→Provider message on an established session, not as an
 	// inbound client→Agent message before connect. Rejecting it here closes
 	// the gap where an Invoker could bypass the Provider handshake.
-	if !h.registered && !h.opsBypass && msgID != protocol.MsgProviderConnectRequest {
+	if !h.registered && msgID != protocol.MsgProviderConnectRequest {
 		return nil, tcptr.NewProtocolError(fmt.Errorf(
 			"protocol violation: first frame must be %s, got %s",
 			protocol.MsgIDString(protocol.MsgProviderConnectRequest),
@@ -317,11 +310,6 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 	req := &sdkv1.ProviderConnectRequest{}
 	if err := proto.Unmarshal(body, req); err != nil {
 		return nil, fmt.Errorf("unmarshal ProviderConnectRequest: %w", err)
-	}
-
-	if h.listener.opsSessionOnly && req.GetMetadata()["croupier-ops"] == "local-v1" {
-		h.opsBypass = true
-		return proto.Marshal(&sdkv1.ProviderConnectResponse{})
 	}
 
 	if req.ServiceId == "" {

@@ -223,7 +223,6 @@ agent:
   env: development
   localAddr: "127.0.0.1:%s"
   id: lifecycle-agent
-  testControlAddr: local-only
 ops:
   enabled: true
   allowRestart: true

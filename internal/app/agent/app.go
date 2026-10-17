@@ -50,10 +50,9 @@ type App struct {
 	// 调用方派生的 goroutine 内赋值，而 Stop/GetLocalServerAddr 可能在启动
 	// 完成前被调用（SIGTERM 早到、测试快速收尾），无同步的读/写构成数据
 	// 竞争（2026-09-22 -race 实证）。
-	localServerMu       sync.Mutex
-	localServer         transportcore.Server
-	localAddr           string
-	localOpsSessionOnly bool
+	localServerMu sync.Mutex
+	localServer   transportcore.Server
+	localAddr     string
 
 	// Ops module (optional)
 	opsConfig *OpsConfig
@@ -170,10 +169,9 @@ func (a *App) StartLocalServer() error {
 		// must leave enough idle time for that heartbeat and normal scheduling
 		// jitter, otherwise healthy providers are removed before their first
 		// heartbeat and Server reports no live agent for their functions.
-		RecvTimeout:    2 * time.Minute,
-		SendTimeout:    30 * time.Second,
-		TLSConfig:      a.localTLS,
-		OpsSessionOnly: a.localOpsSessionOnly,
+		RecvTimeout: 2 * time.Minute,
+		SendTimeout: 30 * time.Second,
+		TLSConfig:   a.localTLS,
 	}, providerSessions, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
@@ -518,10 +516,6 @@ func (a *App) WithLocalTLSConfig(cfg *tls.Config) {
 		return
 	}
 	a.localTLS = cfg
-}
-
-func (a *App) WithLocalOpsSessionOnly() {
-	a.localOpsSessionOnly = true
 }
 
 // Store exposes the local instance registry.
