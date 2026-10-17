@@ -1,16 +1,20 @@
 ---
-title: 传输层决策 — 不使用 gRPC
+title: 传输层决策 — 游戏 SDK 使用 TCP，外部探测插件可使用本地 gRPC
 ---
 
-# 传输层决策:不使用 gRPC
+# 传输层决策：游戏 SDK 使用 TCP，外部探测插件可使用本地 gRPC
 
 ## 状态
 
-Accepted(已落地,不可逆)。**不要再推荐 gRPC。**
+Accepted。2026-10-17 用户澄清适用范围：原禁令针对游戏 SDK 接入的体积与依赖负担，不是禁止独立外部探测程序使用 gRPC；本节与下列约束取代此前仓库级禁令表述。
 
 ## 决策
 
 Croupier 内部 RPC(Server ↔ Agent ↔ SDK Provider)**不使用 gRPC**,采用自行开发 TCP transport + protobuf 强契约。
+
+独立 `synthetics-agent` 与开发者探测插件之间允许采用 HashiCorp go-plugin 的本地 gRPC IPC；其依赖只属于外部探测宿主与插件，不得进入游戏 SDK 的构建、链接、生成代码或分发产物，也不得由公共包传递给游戏。Agent↔Server 的远程链路继续共用现有 TCP/TLS session。
+
+2026-10-17 用户确定宿主侧 go-plugin 与 OTel 默认集成且支持禁用：运行时各有总开关，编译时分别规划 `no_go_plugin`、`no_otel` 裁剪选项，可组合构建；该默认策略不改变游戏 SDK 的依赖边界，具体装配、裁剪范围与验收列入 todo，尚未实现的开关不得标作已交付。
 
 ## 背景:从 gRPC 的坑里重构出来
 
@@ -22,9 +26,9 @@ Croupier 内部 RPC(Server ↔ Agent ↔ SDK Provider)**不使用 gRPC**,采用�
 - `4d0f1ffe4` fix: complete TCP-only migration (P0/P1/P2 issues)
 - `775398748` Remove croupier-proto references
 
-## 为什么不推荐 gRPC
+## 为什么游戏 SDK 接入不采用 gRPC
 
-1. **体积过重**:gRPC debug 版本约 **1.7GB**,对游戏后端是不可接受的负担。
+1. **体积过重**：用户历史接入场景中的 gRPC debug 版本约 **1.7GB**，引入体积超过游戏自身的依赖不合理；此处是历史场景记录，不是对所有语言、版本或构建方式的通用体积断言。
 2. **依赖难治理**:gRPC 依赖链复杂,曾花**一周**仍未搞定依赖冲突。
 3. **游戏后端不需要**:gRPC 的核心优势(跨语言 IDL、HTTP/2 多路复用、丰富生态)对单公司多游戏后端非必需;自行开发 TCP+proto 已满足强契约,且可控、可调试。
 4. **历史教训**:从 gRPC 重构出来的代价很大,不应重蹈覆辙。
@@ -34,7 +38,7 @@ Croupier 内部 RPC(Server ↔ Agent ↔ SDK Provider)**不使用 gRPC**,采用�
 - 自行开发 TCP transport:length-prefix framing(`internal/transport/tcp`),4 字节 size + payload,单帧上限 32MB。
 - protobuf 消息定义在 `proto/`,生成代码在 `pkg/pb`。
 - 强契约由 proto IDL 保证;传输层轻量、可控、易调试。
-- 如需 gRPC 才有的能力(例如统一 error 协议),在自行开发 RPC 层补齐(定义 `Status`/`RpcError` proto 消息),**而非引入 gRPC**。
+- 游戏 SDK 接入链路如需统一 error 等能力，在自行开发 RPC 层补齐，不引入 gRPC runtime。
 
 ## 为什么「简单 TCP」对 SDK [Agent 足够]
 
@@ -76,7 +80,8 @@ Croupier 内部 RPC(Server ↔ Agent ↔ SDK Provider)**不使用 gRPC**,采用�
 
 ## 约束
 
-- **不要再推荐 gRPC**。新增 RPC 需求一律走自行开发 TCP+proto。
-- `go.mod` 中的 `google.golang.org/grpc` 若为某库间接引入,应标注并定期评估能否移除;**不得新增直接 gRPC 用法**。
-- 检测:`rg "google.golang.org/grpc" internal/` 应零命中业务传输代码(只允许 `go.mod` 间接依赖或 `docs/archive/` 归档代码)。
+- 游戏 SDK 与游戏接入链路禁止直接或传递引入 gRPC runtime；SDK 的协议、生成链、构建与分发继续采用现有 TCP+protobuf。
+- 外部探测宿主及其插件允许使用 go-plugin 本地 gRPC，插件依赖包不得被游戏 SDK 或共用轻量探测内核导入；同一 monorepo/module 出现 gRPC 依赖不等于游戏产物实际引入，验收需检查 SDK 依赖闭包与构建产物。
+- Agent↔Server 继续使用共用 TCP/TLS session，本次澄清不变更远程传输契约。
+- `scripts/check-no-grpc.sh` 当前仍执行旧的全局直接依赖/import/service 禁令，需随插件宿主接入改为检查游戏 SDK 依赖边界及明确的插件宿主路径；该守卫调整已列入 todo，当前尚未修改实现。
 - 评估任何新传输方案时,**体积与依赖复杂度是硬约束**,优先级高于"生态丰富度"。

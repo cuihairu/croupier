@@ -62,6 +62,8 @@ supervisor（监管方，sidecar-agent 的 ops 模块）已定稿于 #67；本�
 
 ## 4. 目录树（拟）
 
+> 2026-10-17 校正：下方是历史拟稿，嵌套 `agents/<role>/cmd` 不再是目标入口；真实入口统一根 `cmd/`，sidecar 历史实现仍在 internal，双向 MuxConn 和 supervisor 尚未完整公共化。当前树、消费矩阵与分批归位以 [Agent 运行时目录边界](../development/agent-runtime-layout.md) 为准，不能把本节目录声明视为已抽取完成。
+
 ```
 core/                        # agent-core（同仓 Go module，包级裁剪）
   backoff/                   #   统一退避旋钮（薄封装，~60 行）
@@ -220,6 +222,8 @@ type SessionTarget interface {   // 协议 Provider（业务插件）
 devops-agent 不 import `core/metrics`（无资源采集需求时的可裁证明）、不引 capture 的 gate/rule 包、无本地网关、无轮询 source——如果这四个「没有」在编译期与上线后都成立，core 的按需裁剪抽象即被第三个样例（内网操作面）确认；反之在 K 批内修 core 边界，成本最低的时刻。
 
 ## 8. 路线图登记（只登记不实现）
+
+> 2026-10-17 更新：用户明确外部游戏探测、多语言插件宿主与第三方服务探活需求，`synthetics-agent` 已从下表历史占位提升为第四类待实现 Agent，最新职责以 [Agent 清单 §6](agents-inventory.md#_6-外部探测-agent-与其余路线图) 为准；[go-plugin 调研](../research/synthetics-agent-go-plugin.md) 记录 IPC 选型与现有约束，本节“不实现”和“协议零新增”不再适用于该需求。
 
 两个未来独立 agent 的**命名已定稿（行业词）**，此处仅登记占位、不立项不写码——出现真实需求时按「一个能力一个小 agent」另开简档报批：
 

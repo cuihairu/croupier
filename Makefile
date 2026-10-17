@@ -10,6 +10,7 @@ FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 LDFLAGS := -X main.Version=$(FULL_VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT) -s -w
 
 .PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator
+.PHONY: agents agent-devops agent-capture
 .PHONY: test test-changed test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
@@ -120,7 +121,9 @@ agent-capture:
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/capture/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/capture/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/capture/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/capture-agent ./cmd/capture-agent
 
-build: server agent agent-devops agent-capture worker ingest tools
+agents: agent agent-devops agent-capture
+
+build: server agents worker ingest tools
 
 .PHONY: build-ip2loc
 build-ip2loc:

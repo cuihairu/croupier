@@ -6,6 +6,7 @@ title: Agent 健康监控与恢复——外部方案重合度审计与 server �
 
 ## 状态
 
+- **2026-10-17 部署范围更新**：用户明确第四类 `synthetics-agent`，托管开发者自实现的多语言常驻探测插件，从外部探测游戏及第三方服务；此前“不新增 agent 类型/部署”的结论保留为历史裁决并由本次需求覆盖，既有 Agent 仍可复用内核，探测位置按实际玩家/服务消费方视角决定，见 [Agent 清单 §6](agents-inventory.md#_6-外部探测-agent-与其余路线图) 与 [go-plugin 调研](../research/synthetics-agent-go-plugin.md)。
 - 状态: **评审定稿（未动实现码；R2 起为代码批）**。来源: 用户 2026-10-14 五条——外部设计建议做可嵌入 Health Monitoring & Recovery 模块；本仓早有监控外部第三方服务存活的需求（server 侧实现），要拆到 agent 统一为基础能力；补充问题（第三方监控是否需要新增 agent 部署）；硬约束（探测实现收口 core/healthprobe 一份 + 实现层/实例层分标 + 熔断器归属判定）；三点拍板（归属/通道/动表时机）；外部评审文档核验（docs/review/chatgpt-2026-10-14-probe-architecture.md）；协议适配骨架设计探讨单（§5.5）。
 - 评审基准: `core/healthprobe`（三 agent 共用探针包）+ sidecar supervisor（进程恢复环）+ server 侧 dbmon / serverstatus / dispatch 熔断器。**外部设计的 Checker/RecoveryHandler/Target/ProbeTarget 命名一律不引入**，重合概念按本仓既有命名与语义归位。
 

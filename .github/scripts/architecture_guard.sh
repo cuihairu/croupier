@@ -8,6 +8,12 @@ fail() {
   exit 1
 }
 
+# Agent common runtime and role implementations must remain usable without
+# importing the Server/sidecar internal application tree.
+if rg -n '"github\.com/cuihairu/croupier/internal/' core agents --glob '*.go' --glob '!**/*_test.go'; then
+  fail "core/ and agents/ production packages must not import internal/"
+fi
+
 if git ls-files --error-unmatch "configs/platforms.yaml" >/dev/null 2>&1; then
   fail "legacy config file configs/platforms.yaml must not exist"
 fi

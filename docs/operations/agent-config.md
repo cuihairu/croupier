@@ -1,5 +1,7 @@
 # Agent 配置逐字段全解（sidecar / devops / capture）
 
+本文只介绍三个已有入口；第四类 synthetics 的职责与待实现边界见 [四类 Agent 指南](agent-comparison.md)，目前无可运行配置或发布包。下列 devops/capture env 可空是代码现状，部署必须显式填写 gameId/env，强制校验收口已列入待办。
+
 三类 agent 各自一个 YAML 配置文件，加载链极简：**读文件 → yaml.Unmarshal →
 校验 → 运行**。本文逐字段列出字段名、类型、默认值、含义与代码读取处
 （`file:line`，与当前主干对齐；每个字段都能在代码里找到读取点，无凭空字段）。

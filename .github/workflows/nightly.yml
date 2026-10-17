@@ -11,6 +11,10 @@ env:
 permissions:
   contents: write
 
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
 jobs:
   build-binaries:
     name: Build Binaries (${{ matrix.label }})
@@ -86,14 +90,20 @@ jobs:
           if [ -n "${{ matrix.goos }}" ]; then
             # 交叉编译补位：与 Makefile 同参（无额外 tags，全驱动编译进二进制），
             # CGO_ENABLED=0——server/agent 均为纯 Go（glebarez/sqlite、pg 驱动无 cgo）
-            CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
-              GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
+            # The CDC parser uses 64-bit int constants: server/capture do not
+            # compile for ARMv7. Keep sidecar/devops available on that target.
+            if [ "${{ matrix.goarch }}" != "arm" ]; then
+              CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
+                GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
+            fi
             CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
               GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/sidecar-agent
             CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
               GOFLAGS=-mod=mod go build -ldflags "$DEV_LDFLAGS" -o bin/devops-agent ./cmd/devops-agent
-            CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
-              GOFLAGS=-mod=mod go build -ldflags "$CAP_LDFLAGS" -o bin/capture-agent ./cmd/capture-agent
+            if [ "${{ matrix.goarch }}" != "arm" ]; then
+              CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
+                GOFLAGS=-mod=mod go build -ldflags "$CAP_LDFLAGS" -o bin/capture-agent ./cmd/capture-agent
+            fi
           else
             make build
             # make build 注入的是 VERSION 文件值（发布时点可能滞后，v0.1.5 实证恒 0.1.4）——
@@ -137,6 +147,7 @@ jobs:
             PKG_OS=$(go env GOOS)
             PKG_ARCH=$(go env GOARCH)
           fi
+          if [ "$PKG_ARCH" = "arm" ]; then PKG_ARCH=armv7; fi
           TAR="release/croupier-bin-${PKG_OS}-${PKG_ARCH}.tar.gz"
           tar -czf "${TAR}" -C bin .
 
@@ -150,6 +161,33 @@ jobs:
           $GOARCH = (go env GOARCH)
           $ZIP = "release/croupier-bin-${GOOS}-${GOARCH}.zip"
           Compress-Archive -Path bin/* -DestinationPath $ZIP -Force
+
+      - name: Setup Python for Agent packaging
+        timeout-minutes: 3
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Verify and package individual Agents
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          python -m unittest discover -s scripts/tests -p 'test_package_agents.py'
+          PKG_OS="${{ matrix.goos }}"
+          PKG_ARCH="${{ matrix.goarch }}"
+          if [ -z "$PKG_OS" ]; then
+            PKG_OS=$(go env GOOS)
+            PKG_ARCH=$(go env GOARCH)
+            SUFFIX=""
+            if [ "$PKG_OS" = "windows" ]; then SUFFIX=".exe"; fi
+            for AGENT in croupier-agent devops-agent capture-agent; do
+              VERSION_OUTPUT=$("./bin/${AGENT}${SUFFIX}" --version)
+              [[ "$VERSION_OUTPUT" == *"nightly-"* ]] || { echo "missing nightly version: $AGENT"; exit 1; }
+            done
+          fi
+          ROLES=(sidecar devops capture)
+          if [ "$PKG_ARCH" = "arm" ]; then ROLES=(sidecar devops); PKG_ARCH=armv7; fi
+          python scripts/package-agents.py --os "$PKG_OS" --arch "$PKG_ARCH" --roles "${ROLES[@]}"
 
       - name: Upload artifact
         timeout-minutes: 3
@@ -271,7 +309,7 @@ jobs:
           mkdir -p ../../release-sdks/js
           pnpm pack --pack-destination ../../release-sdks/js
           cd ../../release-sdks/js
-          tar -czf ../sdk-js.tar.gz *.tgz
+          tar -czf ../sdk-js.tar.gz ./*.tgz
 
       - name: Setup Python
         timeout-minutes: 5
@@ -294,7 +332,7 @@ jobs:
           cp dist/*.whl ../../release-sdks/python/ 2>/dev/null || true
           cp dist/*.tar.gz ../../release-sdks/python/ 2>/dev/null || true
           cd ../../release-sdks/python
-          tar -czf ../sdk-python.tar.gz *
+          tar -czf ../sdk-python.tar.gz ./*
 
       - name: Setup .NET
         timeout-minutes: 5
@@ -320,13 +358,13 @@ jobs:
             echo "No C# SDK packages built" > ../../release-sdks/csharp/README.txt
           fi
           cd ../../release-sdks/csharp
-          tar -czf ../sdk-csharp.tar.gz *
+          tar -czf ../sdk-csharp.tar.gz ./*
 
       - name: Create SDKs bundle
         timeout-minutes: 5
         run: |
           cd release-sdks
-          tar -czf ../release-sdks.tar.gz *
+          tar -czf ../release-sdks.tar.gz ./*
 
       - name: Upload SDKs artifact
         timeout-minutes: 3
@@ -660,6 +698,8 @@ jobs:
           # Copy server/agent binaries
           find artifacts/binaries-* -name "*.tar.gz" -exec cp {} release-assets/ \;
           find artifacts/binaries-* -name "*.zip" -exec cp {} release-assets/ \;
+          find artifacts/binaries-* -name "agents-*.json" -exec cp {} release-assets/ \;
+          find artifacts/binaries-* -name "agents-*.sha256" -exec cp {} release-assets/ \;
 
           # Copy Go SDK
           find artifacts/go-sdk-* -name "sdk-go-*.tar.gz" -exec cp {} release-assets/ \;
@@ -691,10 +731,19 @@ jobs:
           ### Server/Agent Binaries
           - `croupier-bin-linux-amd64.tar.gz` - Linux x64
           - `croupier-bin-linux-arm64.tar.gz` - Linux ARM64
-          - `croupier-bin-linux-armv7.tar.gz` - Linux ARMv7
+          - `croupier-bin-linux-armv7.tar.gz` - Linux ARMv7 (sidecar/devops only; server/capture require 64-bit)
           - `croupier-bin-darwin-amd64.tar.gz` - macOS Intel
           - `croupier-bin-darwin-arm64.tar.gz` - macOS ARM64
           - `croupier-bin-windows-amd64.zip` - Windows x64
+
+          ### Individual Agent Packages
+          Each package contains the binary, its config template, AGENTS.md and INSTALL.md.
+          - `croupier-agent-<os>-<arch>.tar.gz` - sidecar: SDK function gateway and game-side operations
+          - `devops-agent-<os>-<arch>.tar.gz` - devops: remote-access skeleton (SSH/RDP/VNC channels pending)
+          - `capture-agent-<os>-<arch>.tar.gz` - capture: CDC and change-rule alerts (64-bit targets only)
+          - Windows packages use `.zip`; `agents-<os>-<arch>.json` and `.sha256` record contents and checksums.
+          - `synthetics-agent` is planned and has no executable/package yet.
+          - Agent roles and scope requirements: [Agent guide](https://github.com/cuihairu/croupier/blob/main/docs/operations/agent-comparison.md).
 
           ### Go SDK (Multi-platform)
           - `sdk-go-linux-amd64.tar.gz` - Linux x64
@@ -727,7 +776,7 @@ jobs:
           ### Server/Agent
           ```bash
           # 一键安装 agent（Linux/macOS，自动识别架构）
-          curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s --
+          curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s -- --version nightly
 
           # 或手动解包
           tar -xzf croupier-bin-linux-amd64.tar.gz

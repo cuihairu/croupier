@@ -407,6 +407,10 @@ fi
 
 # ---- 解析版本与取产物 ------------------------------------------------------
 
+if [ "$ARCH" = "armv7" ] && [ "$AGENT_KIND" = "capture" ]; then
+  die "capture-agent 的 CDC 解析依赖目前不支持 32 位 ARMv7，请使用 Linux ARM64 或 amd64；ARMv7 产物仅提供 sidecar/devops"
+fi
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 

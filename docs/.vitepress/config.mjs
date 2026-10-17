@@ -323,8 +323,16 @@ const config = defineConfig({
               link: "/design/capture-agent-design",
             },
             {
-              text: "Agent 面板设计（每 agent 一页）",
+              text: "四类 Agent 后台页面与游戏环境归属设计",
               link: "/design/agent-dashboard-design",
+            },
+            {
+              text: "游戏运营默认菜单与建议业务能力",
+              link: "/design/default-game-menus",
+            },
+            {
+              text: "游戏后台业务设计补齐与验收场景",
+              link: "/design/game-operations-design-plan",
             },
             {
               text: "herald 对接（告警投递出口）",
@@ -394,7 +402,7 @@ const config = defineConfig({
             { text: "Server 配置全解", link: "/operations/config-server" },
             { text: "Agent 配置全解", link: "/operations/config-agent" },
             { text: "Agent 配置逐字段（三类）", link: "/operations/agent-config" },
-            { text: "三类 Agent 选型", link: "/operations/agent-comparison" },
+            { text: "四类 Agent 职能与构建产物", link: "/operations/agent-comparison" },
             { text: "TLS 与证书", link: "/operations/tls-certificates" },
             {
               text: "配置分层（文件/数据库）",
@@ -600,6 +608,7 @@ const config = defineConfig({
             { text: "概述", link: "/development/" },
             { text: "仓库指南", link: "/development/repository-guidelines" },
             { text: "仓库布局", link: "/development/repository-layout" },
+            { text: "Agent 公共运行时与目录边界", link: "/development/agent-runtime-layout" },
             { text: "发布约定", link: "/development/release-conventions" },
             {
               text: "业务扩展策略",

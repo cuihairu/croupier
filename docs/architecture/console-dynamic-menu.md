@@ -103,7 +103,7 @@ PageSpec 的 `category.key` 保留为页面侧元数据（页面工作台分组�
 - **空 scope → 全量种入**：永不更新/覆盖已存在的 key；用户删光全部菜单并重启会重新种一次，彻底禁用需删种子文件。
 - **非空 scope → 仅一次「按 menuKey 补缺」backfill**（`platform_settings` 持久标记 `menuSeedBackfill/<gameId>/<env>`，每 scope 只执行一次）：修复 T-M10 上线前已有数据的旧 scope 永远缺骨架的问题（旧行为「scope 非空即整体跳过」）。标记写于首次种子处理后（含空 scope 全量种入），因此用户删除过的默认分类重启后**不会被补回**；标记写失败仅退化为重启后再尝试一次（key 幂等不会重复创建）。
 - 种子是系统行为，不写用户审计（与 AdminManager 默认管理员同语义）。
-- 默认骨架（`configs/default-menus.json`）：玩家管理 / 运营 / 支付订单 / 公告 / 审计五个空组，仅是挂载位置骨架——三要素（菜单+已发布+挂载）不变，空组在控制台渲染为指向 `/console/<menuKey>` 的单链接。
+- 默认骨架（`configs/default-menus.json`，2026-10-17 更新）：玩家工作台 / 邮件与补偿 / 封禁管理 / 订单核查 / 活动配置 / 公告管理 / 操作记录七个分类，仅是挂载位置骨架——三要素（菜单+已发布+挂载）不变，空组在控制台渲染为指向 `/console/<menuKey>` 的单链接；推荐子页、游戏能力要求与已有 scope 的升级边界见 [游戏运营默认菜单](../design/default-game-menus.md)。
 
 ## 边界
 

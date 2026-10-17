@@ -1,7 +1,7 @@
 <p align="center">
 
 > [English](README.md) | **中文**
->   <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
+> <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
 
 </p>
 
@@ -51,6 +51,17 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 | SQL Server | `gorm.io/driver/sqlserver` | 企业环境             |
 
 各库 DSN 配置示例见[服务端配置说明](docs/operations/config-server.md)。
+
+## Agent 职能与下载
+
+| 类型       | 职能                                      | 当前交付                                    |
+| ---------- | ----------------------------------------- | ------------------------------------------- |
+| sidecar    | 游戏函数注册/调用、任务转发与游戏旁挂观测 | `croupier-agent`，监管配置/启动接线仍需收口 |
+| devops     | 内网白名单远程会话与审计                  | `devops-agent` 骨架，真实协议通道待接       |
+| capture    | 数据库 CDC、过滤/规则与告警               | `capture-agent`，位点/告警可靠性仍需加强    |
+| synthetics | 游戏及第三方外部探测、多语言插件宿主      | 待实现，无二进制或安装包                    |
+
+各实例显式配置 `gameId/env`。角色选型、部署与 nightly 独立包见 [Agent 指南](docs/operations/agent-comparison.md)，公共能力和源码归位见 [目录边界](docs/development/agent-runtime-layout.md)。新增独立包需发布工作流成功运行后可下载；ARMv7 只提供 sidecar/devops。
 
 ## SDK 生态
 

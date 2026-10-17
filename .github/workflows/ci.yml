@@ -204,8 +204,8 @@ jobs:
           STORAGE_DRIVER: file
           STORAGE_BASE_DIR: data/uploads
         run: |
-          # Core business logic (internal) + capture agent (agents)
-          go test -count=1 -coverprofile=coverage.out -covermode=atomic ./internal/... ./agents/...
+          # Server/sidecar, shared Agent runtime, and standalone Agent roles.
+          go test -count=1 -coverprofile=coverage.out -covermode=atomic ./internal/... ./core/... ./agents/...
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3
@@ -277,7 +277,7 @@ jobs:
           STORAGE_BASE_DIR="$E2E_DIR/uploads" \
           ./bin/croupier-server --config configs/test-sqlite.yaml >> "$E2E_DIR/server.log" 2>&1 &
           SERVER_PID=$!
-          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
           # Wait for server REST to be ready (deterministic readiness probe).
           ready=0
           for i in $(seq 1 60); do
@@ -464,7 +464,7 @@ jobs:
             -c wal_level=logical
           docker run -d --name cap-mongo -p 13309:27017 mongo:7 \
             mongod --replSet rs0 --bind_ip_all
-          for i in $(seq 1 30); do
+          for _attempt in $(seq 1 30); do
             if docker exec cap-mysql mysqladmin ping -h127.0.0.1 -proot >/dev/null 2>&1 \
               && docker exec cap-mariadb mariadb-admin ping -uroot -proot >/dev/null 2>&1 \
               && docker exec cap-postgres pg_isready -U postgres >/dev/null 2>&1; then
@@ -475,14 +475,14 @@ jobs:
           docker exec cap-mysql mysqladmin ping -h127.0.0.1 -proot
           docker exec cap-mariadb mariadb-admin ping -uroot -proot
           docker exec cap-postgres pg_isready -U postgres
-          for i in $(seq 1 30); do
+          for _attempt in $(seq 1 30); do
             if docker exec cap-mongo mongosh --quiet --eval 'db.hello().ok' >/dev/null 2>&1; then
               break
             fi
             sleep 2
           done
           docker exec cap-mongo mongosh --quiet --eval 'try { rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]}).ok } catch(e) { print(e.codeName) }'
-          for i in $(seq 1 30); do
+          for _attempt in $(seq 1 30); do
             if docker exec cap-mongo mongosh --quiet --eval 'quit(db.hello().isWritablePrimary ? 0 : 1)' >/dev/null 2>&1; then
               break
             fi

@@ -4,18 +4,7 @@ on:
   push:
     tags:
       - "v*"
-  schedule:
-    - cron: "0 2 * * *" # daily at 02:00 UTC (nightly)
   workflow_dispatch:
-    inputs:
-      release_type:
-        description: "Release type"
-        required: true
-        default: "nightly"
-        type: choice
-        options:
-          - nightly
-          - tag
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -25,11 +14,12 @@ permissions:
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'schedule' }}
+  cancel-in-progress: false
 
 jobs:
   build-go:
     name: Build Go Binaries (${{ matrix.os }})
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -74,6 +64,9 @@ jobs:
           LDFLAGS="-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT -s -w"
           GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS -X github.com/cuihairu/croupier/internal/svc.ServerVersion=$VERSION -X github.com/cuihairu/croupier/internal/svc.ServerGitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/internal/svc.ServerBuildTime=$BUILD_TIME" -o bin/croupier-server ./cmd/server
           GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/sidecar-agent
+          for ROLE in devops capture; do
+            GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS -X github.com/cuihairu/croupier/agents/$ROLE/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/$ROLE/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/$ROLE/runner.BuildTime=$BUILD_TIME" -o "bin/$ROLE-agent" "./cmd/$ROLE-agent"
+          done
       - name: Build (Windows, PowerShell)
         if: runner.os == 'Windows'
         timeout-minutes: 15
@@ -88,6 +81,11 @@ jobs:
           $LDFLAGS = "-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT -s -w"
           go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./cmd/server
           go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/sidecar-agent
+          foreach ($ROLE in @("devops", "capture")) {
+            $ROLE_LDFLAGS = "$LDFLAGS -X github.com/cuihairu/croupier/agents/$ROLE/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/$ROLE/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/$ROLE/runner.BuildTime=$BUILD_TIME"
+            go build -ldflags "$ROLE_LDFLAGS" -o "bin/$ROLE-agent.exe" "./cmd/$ROLE-agent"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Package binaries (Linux/Mac, tar.gz with OS/ARCH)
         if: runner.os != 'Windows'
         timeout-minutes: 5
@@ -130,6 +128,17 @@ jobs:
           if (Test-Path README.md) { Copy-Item README.md "$STAGE/README.md" }
           Compress-Archive -Path "$STAGE/*" -DestinationPath $ZIP -Force
           Remove-Item -Recurse -Force $STAGE
+      - name: Setup Python for Agent packaging
+        timeout-minutes: 3
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Package individual Agents
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          python -m unittest discover -s scripts/tests -p 'test_package_agents.py'
+          python scripts/package-agents.py --os "$(go env GOOS)" --arch "$(go env GOARCH)"
       - name: Upload artifact (binaries)
         timeout-minutes: 3
         uses: actions/upload-artifact@v7
@@ -139,6 +148,7 @@ jobs:
           if-no-files-found: error
 
   build-sdk-sources:
+    if: startsWith(github.ref, 'refs/tags/v')
     name: Build SDK source packages
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -187,22 +197,8 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-      - name: Create Nightly Release
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'nightly')
-        timeout-minutes: 10
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: nightly
-          name: Nightly
-          prerelease: true
-          make_latest: false
-          generate_release_notes: false
-          files: |
-            artifacts/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Tag Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v')
         timeout-minutes: 10
         uses: softprops/action-gh-release@v3
         with:

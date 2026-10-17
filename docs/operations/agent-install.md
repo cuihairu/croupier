@@ -80,6 +80,8 @@ curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/inst
 
 ## 版本通道
 
+Nightly 由 `nightly.yml` 唯一更新；独立 Agent 归档、checksum、平台范围和能力成熟度见 [职能与构建产物](agent-comparison.md)。发布链修改合并并运行成功后，才可从 Release 下载新增独立包；原安装器继续从总包选择角色。ARMv7 仅 sidecar/devops，capture 需使用 amd64/arm64，不能把归档缺少 capture 当作已支持平台。
+
 | 参数                       | 含义                                                              |
 | -------------------------- | ----------------------------------------------------------------- |
 | 默认（`--version latest`） | 最新**稳定版**（GitHub `releases/latest`，不含 prerelease）       |

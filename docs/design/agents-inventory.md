@@ -1,29 +1,30 @@
 ---
-title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板分页/scope 归属
+title: Agent 清单——四类 agent 定名/职责边界/公共模块/面板分页/scope 归属
 ---
 
 # Agent 清单（Agent Inventory）
 
 ## 状态
 
+- **最新需求覆盖（2026-10-17）**：用户明确补充第四类外部游戏与第三方服务探测 Agent，沿用 `synthetics-agent` 定名，从路线图占位提升为明确待实现需求；负责拉起并复用开发者实现的多语言探测程序，指定调研 HashiCorp go-plugin，详见 §6 与 [选型调研](../research/synthetics-agent-go-plugin.md)，下列“三驻留”记录为历史已实施范围，当前分类为四类、已存在代码入口仍为前三类。
 - 状态: **以代码现实为准（2026-10-11 核）**：公共模块 `healthprobe`/`execlog` **已建成**（agent-core K1–K4 落地，见 [agent-core 简档](agent-core-design.md) §5.1），上行控制连接 `agents/controlconn`（core 系 agent 共用，2026-10-11 自 capture 包上收共享）；`capture-agent` **C2 已交付**（C1 骨架 2026-10-10：注册/心跳/事件流/位点；闸层三闸 reconcile/cep/lineage + 告警上报链 + 闸规则下行拉取 + 面板编辑面 2026-10-11，`cmd/capture-agent` + `agents/capture/`；下行链闭环）；`devops-agent` **骨架已实施**（2026-10-11 拍板批简档：`cmd/devops-agent` + `agents/devops/`——注册/心跳/execlog 审计 + 会话建立链 Broker/白名单/存档元数据，协议通道 guacd/SSH 与下行会话接线另批）；`sidecar-agent` = 现有主体已部分切 core，**源码目录 `cmd/sidecar-agent`（2026-10-11 改名方案 A 落地：目录定名，产物二进制名保持 `croupier-agent`，部署契约零影响）**。
-- **定名（用户令，2026-10-09）**：三驻留 agent = **`sidecar-agent`** / **`devops-agent`** / **`capture-agent`**；公共模块 = **`healthprobe`**（健康探针）、**`execlog`**（执行审计）；路线图登记 `connector-agent` / `synthetics-agent`（**只登记不实现**）。旧候选（gameserver-agent / cicd-agent / cdc-agent / ci-agent）一律弃用。
+- **当前定名（2026-10-17）**：四类 Agent = **`sidecar-agent`** / **`devops-agent`** / **`capture-agent`** / **`synthetics-agent`**，前三类有代码入口，第四类需求明确待实现；公共模块 = **`healthprobe`**（健康探针）、**`execlog`**（执行审计）；`connector-agent` 仍为路线图占位，旧候选（gameserver-agent / cicd-agent / cdc-agent / ci-agent）弃用。
 - **角色口径重定（用户令，2026-10-11，覆盖 2026-10-09 旧口径）**：`sidecar-agent` = **外网侧、只做业务相关功能**（监控游戏进程、注册函数、汇报健康信息含主机与定时任务）；`devops-agent` = **内网堡垒机式远程接入代理**（可操作、更高权限、必须记录；旧「CI/CD 只观测」口径整节废弃）；`capture-agent` = **CDC**（防私改库）。
 - 本页是**唯一权威定名与职责边界清单**；每个 agent 的实现文档开头有同口径「作用」节；与 [agent-core 能力清单表](agent-core-design.md)（§2）互链。
-- 本页目录：§1 全景 → §2–§4 三驻留 agent（逐个：职责/部署/监控对象/输入输出/边界/探针/审计/scope）→ §5 公共模块（healthprobe/execlog/herald 出口）→ §6 路线图占位 → §7 scope 归属规则 → §8 面板分页（详设另页）。
+- 本页目录：§1 全景 → §2–§4 已有三类 Agent → §5 公共模块 → §6 synthetics 与其余路线图 → §7 scope 归属规则 → §8 四类后台分页（详设另页）。
 - **六件套索引（顺序令，2026-10-09：文档先行，过目前不动码）**：①《Agent 清单》=本页；②能力清单+目录树=[agent-core 简档](agent-core-design.md) §2/§4；③healthprobe+execlog 设计=[agent-core 简档](agent-core-design.md) §6；④dash 页面清单=[Agent 面板设计](agent-dashboard-design.md)；⑤scope 规则=本页 §7（页面侧联动=[Agent 面板设计](agent-dashboard-design.md) §5）；⑥herald 对接=[herald 对接简档](agent-herald-integration.md)。
 
 ## 1. 全景
 
-| 名称               | 层         | 状态                                                              | 一句话                                                 | 实现文档                                      |
-| ------------------ | ---------- | ----------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------- |
-| `sidecar-agent`    | 驻留 agent | 已有主体（源码目录 `cmd/sidecar-agent`，产物名 `croupier-agent`） | 游戏服务器旁（外网侧）的 GM 基础设施代理               | [agent-core 简档](agent-core-design.md) §1    |
-| `devops-agent`     | 驻留 agent | 骨架已实施（2026-10-11；协议通道/下行接线另批）                   | 内网堡垒机式远程接入代理（SSH/RDP/VNC，可操作+全留痕） | [agent-core 简档](agent-core-design.md) §7    |
-| `capture-agent`    | 驻留 agent | C2 已交付（C1 骨架 + 三闸 + 告警链 + 下行链闭环，2026-10-11）     | 防私改数据库：CDC 变更捕获与三道闸                     | [capture-agent 简档](capture-agent-design.md) |
-| `healthprobe`      | 公共模块   | **已建成**（接线待消费方）                                        | Liveness/Readiness/Heartbeat 三语义探针                | [agent-core 简档](agent-core-design.md) §6    |
-| `execlog`          | 公共模块   | **已建成**（接线待消费方）                                        | 统一执行审计（audit-first）                            | [agent-core 简档](agent-core-design.md) §6    |
-| `connector-agent`  | 路线图占位 | 只登记不实现                                                      | 第三方服务接入                                         | [agent-core 简档](agent-core-design.md) §8    |
-| `synthetics-agent` | 路线图占位 | 只登记不实现                                                      | 外部合成探测                                           | [agent-core 简档](agent-core-design.md) §8    |
+| 名称               | 层             | 状态                                                              | 一句话                                                 | 实现文档                                                    |
+| ------------------ | -------------- | ----------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| `sidecar-agent`    | 驻留 agent     | 已有主体（源码目录 `cmd/sidecar-agent`，产物名 `croupier-agent`） | 游戏服务器旁（外网侧）的 GM 基础设施代理               | [agent-core 简档](agent-core-design.md) §1                  |
+| `devops-agent`     | 驻留 agent     | 骨架已实施（2026-10-11；协议通道/下行接线另批）                   | 内网堡垒机式远程接入代理（SSH/RDP/VNC，可操作+全留痕） | [agent-core 简档](agent-core-design.md) §7                  |
+| `capture-agent`    | 驻留 agent     | C2 已交付（C1 骨架 + 三闸 + 告警链 + 下行链闭环，2026-10-11）     | 防私改数据库：CDC 变更捕获与三道闸                     | [capture-agent 简档](capture-agent-design.md)               |
+| `synthetics-agent` | 独立探测 agent | 需求明确，待实现（2026-10-17）                                    | 从游戏外部探测游戏及第三方服务，托管多语言探测插件     | [go-plugin 调研](../research/synthetics-agent-go-plugin.md) |
+| `healthprobe`      | 公共模块       | **已建成**（接线待消费方）                                        | Liveness/Readiness/Heartbeat 三语义探针                | [agent-core 简档](agent-core-design.md) §6                  |
+| `execlog`          | 公共模块       | **已建成**（接线待消费方）                                        | 统一执行审计（audit-first）                            | [agent-core 简档](agent-core-design.md) §6                  |
+| `connector-agent`  | 路线图占位     | 只登记不实现                                                      | 第三方服务接入                                         | [agent-core 简档](agent-core-design.md) §8                  |
 
 ## 2. sidecar-agent（游戏服务器）
 
@@ -98,32 +99,47 @@ title: Agent 清单——三驻留 agent 定名/职责边界/公共模块/面板
 
 capture 告警 / healthprobe 故障窗口 / devops 异常（白名单主机不可达、审计拒绝等）经 **herald**（通知编排与投递平台）投递——croupier 当接入方（courier 式接法），**渠道/收件人由 herald 侧配置**，croupier 只报事件不配收件人；告警页仍是真值，herald 不可达不阻塞告警链。接法见 [herald 对接简档](agent-herald-integration.md)。**M2 已落地（2026-10-10）**：`internal/platform/outlet` 出口适配器 + `herald:` 配置段（缺省关），首事件源 supervisor 熔断，实现与简档差异见简档 §8。
 
-## 6. 路线图占位（只登记不实现，面板不建页）
+## 6. 外部探测 Agent 与其余路线图
 
-| Agent              | 定位                               | 对标（命名来源）             |
-| ------------------ | ---------------------------------- | ---------------------------- |
-| `connector-agent`  | 第三方服务接入（外部系统事件汇入） | Datadog Integrations / n8n   |
-| `synthetics-agent` | 外部合成探测（外网拨测线上端点）   | Datadog Synthetics / Pingdom |
+### 6.1 synthetics-agent（第四类，需求明确，待实现）
 
-立项触发条件与同构形态见 agent-core §8；**面板侧栏不为占位 agent 出页**。
+| 维度       | 职责与边界                                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 部署位置   | 独立于游戏进程，在代表玩家或第三方服务消费方的网络位置运行，可按网段/地域部署多个探测点                                                                                  |
+| 游戏探测   | 从外部进行握手、登录及按游戏定义的业务可用性检查，端口可达与协议/业务验证分别标注                                                                                        |
+| 第三方探活 | 主动检查 HTTP/TCP/数据库及其他服务，复杂协议交给开发者插件；外部系统事件汇入仍属于 connector 路线                                                                        |
+| 目标类别   | 显式字段 `targetCategory=game/third_party` 区分游戏与第三方服务，贯穿配置、调用、结果、告警及页面筛选/统计；与协议、插件能力和 Agent 类型分别建模，两类均归属 gameId/env |
+| 插件宿主   | 拉起并复用任意兼容语言实现的常驻程序，负责握手、版本、超时取消、并发限制、崩溃恢复与关闭，HashiCorp go-plugin 为用户指定调研路线                                         |
+| 输入输出   | 平台下发目标、能力、频率、截止时间与凭证引用；回传状态、阶段、时延、错误、探测点与故障窗口，按 game/env 隔离                                                             |
+| 公共底座   | 复用 TCP/TLS session、注册心跳、配置与 core/healthprobe 内核；本地插件 IPC 单独分层，生命周期只有一个管理者                                                              |
+| 权限边界   | 只探测并上报，不获得游戏进程管理或堡垒机权限；插件崩溃与目标不可用分别记录                                                                                               |
+| 当前状态   | 尚无独立入口与外部插件调用运行时；现有 kind=probe-adapter 元数据和内置协议探测不视为该能力已完成                                                                         |
 
-**玩家侧游戏协议拨测与外部探测适配器（2026-10-14 评审反哺）**：两者**不新增 agent 类型**——复用既有 agent 装配面（`probe.targets` + 协议适配骨架，见 [健康评审](agent-health-recovery-review.md) §5.4/§5.5，P2 按需触发）；外部探测适配器=一类特殊受管程序（kind=probe-adapter），生命周期面见 [Agent Supervisor 设计](agent-supervisor-design.md) §10.1/§10.8。路线图仍只登记 agent 类型扩展。
+2026-10-17 最新需求覆盖此前“不新增 agent 类型”的部署限制；既有 Agent 仍可复用公共探测能力，独立外部探测载体单列为第四类，代码复用不等于部署实例合并；用户进一步澄清无 gRPC 约束针对游戏 SDK 依赖负担，本地 go-plugin gRPC 允许用于独立探测宿主及插件，游戏 SDK 依赖闭包必须保持轻量，更新后的 [传输决策](../architecture/transport-no-grpc.md) 与 [选型调研](../research/synthetics-agent-go-plugin.md) 为当前口径。
+
+### 6.2 connector-agent（仍为路线图占位）
+
+负责第三方系统状态/事件接入汇入，尚未实现；与主动发起请求的第三方服务探活分别建模；占位不建面板页，触发条件见 agent-core §8。
 
 ## 7. scope 归属规则（game_id + env，强制）
 
-1. **注册携带标签**：三类 agent 上线注册必须携带 `game_id`+`env` 标签；**无标签 = 不进面板**（注册事件落 server 日志以便排查，不静默丢弃）。
-2. **顶栏全局 scope**：三类 agent 页复用顶栏全局 game/env scope（与既有 scoped 组同口径），切换即整页数据联动。
-3. **数据全按 scope 过滤**：实例列表、健康探针结果、职责实时数据（sidecar 进程与函数 / devops 流水线 / capture 变更事件与告警）、execlog 执行记录、日志入口——一律按 scope 过滤，**跨环境不串**。
-4. agent 离线/标签变更：实例按最后已知 scope 归属展示并标注数据过期，不跨 scope 兜底。
+权威契约见 [游戏环境作用域 §14.7](../architecture/game-environment-scope.md#_14-7-四类-agent-的显式归属与后台页面-2026-10-17)，页面规则见 [四类后台设计](agent-dashboard-design.md) §5。
+
+1. **显式身份**：四类配置及注册均需非空 `gameId/env`，proto/DB 使用 `game_id/env`；它们是固定身份字段，不能只写用户 labels 或从主机名推导，缺失启动/注册失败。
+2. **单实例单归属**：每 Agent 只绑定一个游戏环境，跨 scope 同机部署多个独立实例及目录；插件、目标、主机、采集源、任务、配置、统计、审计和日志继承同 scope，禁止跨 scope 指派。
+3. **明确标注**：四页标题、实例行、详情与操作确认始终显示 gameId/env，复用全局选择器；切换清理旧请求、缓存、抽屉与待提交操作，迟到响应不能串页。
+4. **服务端隔离**：列表/聚合/详情/控制/下载/回放以及本地/集群/回退路径统一校验 ResolvedScope，遵守 scope 请求只取 context/header 的约定。
+5. **离线历史**：按持久化最后已知 scope 展示并标数据时间与过期，禁止实时控制；缺归属的旧记录不进四页，保留受权诊断日志，不跨 scope 兜底。
 
 ## 8. 面板分页（每类 agent 单独一页）
 
 **详设见 [Agent 面板设计](agent-dashboard-design.md)**（导航/页面构成/下钻/scope 联动/server API），要点：
 
-- **侧栏按 agent 分导航**：sidecar-agent 页 / devops-agent 页 / capture-agent 页（路线图占位不出页）。
-- **每页四块**：实例列表+状态灯（探针结论/心跳时长/故障窗口 timeline）→ 职责实时数据（sidecar：进程与注册函数；devops：主机白名单与在线会话/探活状态；capture：变更事件与命中告警）→ 日志入口 → 「执行记录」（execlog，筛选执行人/结果/时间段；devops 页含会话级记录与回放入口）。
+- **侧栏四页**：游戏代理 `/ops/agents/sidecar`、运维代理 `/ops/agents/devops`、数据采集代理 `/ops/agents/capture`、外部探测代理 `/ops/agents/synthetics`；均为目标路由，随真实数据面交付，不把现有 Nodes/Capture 页当作四页已实现。
+- **公共骨架与职责区**：身份/scope、连接与业务状态、实例列表、详情 Tabs、执行记录及日志；sidecar 展示进程/函数，devops 展示主机/真实会话，capture 展示采集位点/策略/命中告警，synthetics 展示探测点/目标/插件/故障窗口；原始 CDC 明细与 devops 内容回放须先具备真实数据面。
 - **实例详情下钻**沿用现有详情页模式（Ops/Nodes 抽屉先例）。
 - **与本页互链**：各 agent 页头部链接《Agent 清单》对应小节。
+- **实现基线与验收**：当前缺口、公共 DTO/API、各页职责 Tabs、权限、空态/离线态、scope 切换与五批交付见 [后台页面设计](agent-dashboard-design.md)，四页均须完成真实后端链路后验收。
 
 ## 9. 已知边界与待批点
 

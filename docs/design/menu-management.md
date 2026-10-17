@@ -1,5 +1,7 @@
 # 菜单管理系统设计文档
 
+> 当前菜单驱动与 scope 规则以 [控制台动态菜单](../architecture/console-dynamic-menu.md) 为准；2026-10-17 用户确定的七类默认游戏菜单及建议业务页面见 [游戏运营默认菜单](default-game-menus.md)，已更新 `configs/default-menus.json`，本文件保留历史建模背景。
+
 > 状态：提案
 > 作者：崔海涛
 > 日期：2026-09-17
