@@ -1048,6 +1048,21 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		ttl = time.Duration(req.TtlSeconds) * time.Second
 	}
 
+	agentID := strings.TrimSpace(req.GetAgentId())
+	gameID := strings.TrimSpace(req.GetGameId())
+	env := strings.TrimSpace(req.GetEnv())
+	if agentID == "" || gameID == "" || env == "" {
+		return nil, fmt.Errorf("agent_id, game_id and env are required")
+	}
+	if previous := s.registry.PreviousAgentSession(agentID); previous != nil {
+		if previous.GameID != gameID || previous.Env != env {
+			return nil, fmt.Errorf("agent %q is already bound to game_id=%q env=%q", agentID, previous.GameID, previous.Env)
+		}
+	}
+	req.AgentId = agentID
+	req.GameId = gameID
+	req.Env = env
+
 	functions, warnings := validateAndNormalizeFunctions(req.GetFunctions())
 	warningTexts := make([]string, 0, len(warnings))
 	for _, warnMsg := range warnings {

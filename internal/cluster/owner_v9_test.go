@@ -55,6 +55,20 @@ func TestDBOwnerResolverForSelfV9(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestDBOwner_ClaimOwnerRejectsScopeChangeV17(t *testing.T) {
+	db := newDB(t)
+	r := NewDBOwnerResolver(db, time.Minute)
+	ctx := context.Background()
+	require.NoError(t, r.EnsureTable(ctx))
+
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-1", 1))
+	err := r.ClaimOwner(ctx, "ag-1", "game-2", "prod", "inst-2", 2)
+	assert.ErrorContains(t, err, `agent "ag-1" is already bound`)
+	err = r.ClaimOwner(ctx, "ag-1", "game-1", "dev", "inst-2", 2)
+	assert.ErrorContains(t, err, `agent "ag-1" is already bound`)
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-2", 2))
+}
+
 func TestDBOwner_ClaimUpdatePathV9(t *testing.T) {
 	db := newDB(t)
 	r := NewDBOwnerResolver(db, time.Minute)
@@ -62,14 +76,14 @@ func TestDBOwner_ClaimUpdatePathV9(t *testing.T) {
 	require.NoError(t, r.EnsureTable(ctx))
 
 	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g1", "prod", "self", 1))
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g2", "dev", "peer-b", 9))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g1", "prod", "peer-b", 9))
 	rec, err := r.FindOwner(ctx, "ag-1")
 	require.NoError(t, err)
 	require.NotNil(t, rec)
 	assert.Equal(t, "peer-b", rec.InstanceID)
 	assert.EqualValues(t, 9, rec.OwnerEpoch)
-	assert.Equal(t, "g2", rec.GameID)
-	assert.Equal(t, "dev", rec.Env)
+	assert.Equal(t, "g1", rec.GameID)
+	assert.Equal(t, "prod", rec.Env)
 }
 
 func TestDBOwner_ListFindScopeV9(t *testing.T) {

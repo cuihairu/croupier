@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -65,6 +66,9 @@ func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env s
 	err := r.db.WithContext(ctx).Where("agent_id = ?", agentID).First(&existing).Error
 	switch {
 	case err == nil:
+		if existing.GameID != gameID || existing.Env != env {
+			return fmt.Errorf("agent %q is already bound to game_id=%q env=%q", agentID, existing.GameID, existing.Env)
+		}
 		updates := map[string]interface{}{
 			"instance_id":  instanceID,
 			"owner_epoch":  epoch,

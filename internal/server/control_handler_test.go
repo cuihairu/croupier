@@ -354,9 +354,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId:    "agent-1",
-			GameId:     "game-1",
-			TtlSeconds: 600,
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", TtlSeconds: 600,
 		}
 
 		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
@@ -375,9 +374,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Functions: []*agentv1.FunctionDescriptor{
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:      "", // Empty ID
 					Version: "1.0.0",
@@ -400,6 +398,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 			Processes: []*agentv1.AgentProcess{
 				{
 					ServiceId:    "svc-1",
@@ -427,9 +426,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Env:     "dev",
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev",
 			Processes: []*agentv1.AgentProcess{
 				{ServiceId: "svc-dirty", Addr: "a:1", Version: "unknown", FunctionIds: []string{"game.player.get"}},
 				{ServiceId: "svc-misplaced", Addr: "b:2", Version: "provider:openapi-source-x", FunctionIds: []string{"game.player.get"}},
@@ -479,6 +477,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
@@ -493,6 +492,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
@@ -505,9 +505,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Functions: []*agentv1.FunctionDescriptor{
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:           "game.player.get",
 					Version:      "1.0.0",
@@ -544,8 +543,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
+			AgentId: "agent-1", GameId: "game-1",
 			Env:     "prod",
 			Version: "1.0.0",
 			Functions: []*agentv1.FunctionDescriptor{
@@ -602,6 +600,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 			Processes: []*agentv1.AgentProcess{
 				nil,
 				{
@@ -622,6 +621,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 			Processes: []*agentv1.AgentProcess{
 				{
 					ServiceId: "", // Empty service ID
@@ -644,6 +644,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		// Should not fail even if database write fails
@@ -657,9 +658,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc.registry.SetContractService(failingRegisterContractService{err: fmt.Errorf("rebuild failed")})
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Env:     "prod",
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "prod",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:      "player.query",
@@ -679,6 +679,27 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc.registry.Mu().RUnlock()
 		assert.Nil(t, agent)
 	})
+}
+
+func TestControlService_HandleRegisterRequestScopeBinding(t *testing.T) {
+	svc := newTestControlService()
+
+	req := &agentv1.RegisterRequest{AgentId: " agent-1 ", GameId: " game-1 ", Env: " prod "}
+	_, err := svc.handleRegisterRequest(context.Background(), req, "")
+	require.NoError(t, err)
+
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-2", Env: "prod",
+	}, "")
+	assert.ErrorContains(t, err, "already bound")
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-1", Env: "dev",
+	}, "")
+	assert.ErrorContains(t, err, "already bound")
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-1", Env: "prod",
+	}, "")
+	require.NoError(t, err)
 }
 
 // --- Tests for handleHeartbeatRequest ---
@@ -1135,6 +1156,7 @@ func TestControlService_HandleRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -1524,6 +1546,7 @@ func TestControlHandler(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		resp, err := handler.HandleRegister(context.Background(), req)
@@ -1635,6 +1658,7 @@ func TestControlService_TransportHandler(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -1707,6 +1731,7 @@ func TestControlService_HandleRegisterBytes(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -1939,9 +1964,8 @@ func TestCloneStringMap(t *testing.T) {
 func TestControlService_HandleRegisterSchemaDiffWarnings(t *testing.T) {
 	newReq := func(reason string) *agentv1.RegisterRequest {
 		return &agentv1.RegisterRequest{
-			AgentId: "agent-schema-diff",
-			GameId:  "game-1",
-			Env:     "prod",
+			AgentId: "agent-schema-diff", GameId: "game-1",
+			Env: "prod",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:          "game.player.ban",
@@ -1957,9 +1981,8 @@ func TestControlService_HandleRegisterSchemaDiffWarnings(t *testing.T) {
 		}
 	}
 	breakingReq := &agentv1.RegisterRequest{
-		AgentId: "agent-schema-diff",
-		GameId:  "game-1",
-		Env:     "prod",
+		AgentId: "agent-schema-diff", GameId: "game-1",
+		Env: "prod",
 		Functions: []*agentv1.FunctionDescriptor{
 			{
 				Id:          "game.player.ban",
@@ -2166,9 +2189,8 @@ func TestHandleRegisterRequest_UpsertOpenAPIErrorViaSeam(t *testing.T) {
 	}
 
 	req := &agentv1.RegisterRequest{
-		AgentId: "agent-1",
-		GameId:  "game-1",
-		Functions: []*agentv1.FunctionDescriptor{
+		AgentId: "agent-1", GameId: "game-1",
+		Env: "dev", Functions: []*agentv1.FunctionDescriptor{
 			{
 				Id:          "game.player.get",
 				Version:     "1.0.0",

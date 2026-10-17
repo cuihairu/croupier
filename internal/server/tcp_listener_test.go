@@ -485,8 +485,8 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		}
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -715,8 +715,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 		}
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
+			AgentId: "agent-1", GameId: "game-1",
 			Env:     "prod",
 			Version: "1.0.0",
 		}
@@ -793,9 +792,8 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 		}
 
 		req := &agentv1.RegisterRequest{
-			AgentId:    "agent-1",
-			GameId:     "game-1",
-			TtlSeconds: 600,
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", TtlSeconds: 600,
 		}
 		data, _ := proto.Marshal(req)
 
