@@ -11,6 +11,7 @@ import (
 	agentops "github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -32,7 +33,11 @@ func newExecAuditSvcCtx(t *testing.T) (*svc.ServiceContext, *gorm.DB) {
 	writer := executionlog.NewWriter(db, executionlog.Config{})
 	writer.Run(context.Background())
 	t.Cleanup(writer.Stop)
-	return &svc.ServiceContext{ExecutionLogWriter: writer}, db
+	store := registry.NewStore()
+	for _, agentID := range []string{"agent-1", "agent-err"} {
+		require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: agentID, GameID: "demo", Env: "prod"}))
+	}
+	return &svc.ServiceContext{RegistryStore: store, ExecutionLogWriter: writer}, db
 }
 
 func setExecCaller(t *testing.T, agentID string, caller transport.SessionCaller) {
@@ -96,7 +101,9 @@ func TestOpsAgentExecCommandAuditNilWriterNoop(t *testing.T) {
 		protocol.MsgExecuteCommandRequest: execResp(0, "x", ""),
 	}})
 
-	resp, err := opsAgentExecCommand(ctx, &svc.ServiceContext{}, &OpsExecCommandRequest{AgentID: "agent-1", Command: "ls"})
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	resp, err := opsAgentExecCommand(ctx, &svc.ServiceContext{RegistryStore: store}, &OpsExecCommandRequest{AgentID: "agent-1", Command: "ls"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 0, resp.Result.ExitCode)
 }

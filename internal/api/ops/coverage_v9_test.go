@@ -100,7 +100,9 @@ func TestOpsAgentProcessHelpersV9(t *testing.T) {
 	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
 	t.Cleanup(func() { client.SetSessionResolver(nil) })
 
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	ctx := context.Background()
 
 	// ExecCommand 成功 → 响应转换
@@ -625,7 +627,9 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 	}
 
 	// agent 进程命令成功
-	agentH := NewHandler(NewService(&svc.ServiceContext{}))
+	agentStore := registry.NewStore()
+	require.NoError(t, agentStore.UpsertAgent(&registry.AgentSession{AgentID: "agent-1"}))
+	agentH := NewHandler(NewService(&svc.ServiceContext{RegistryStore: agentStore}))
 	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentExecCommand, http.MethodPost, `{"AgentID":"agent-1","command":"ls","args":[],"timeout":1}`))
 
 	// node 命令成功
@@ -658,7 +662,9 @@ func TestHandlerProcessActionSuccessPathV9(t *testing.T) {
 	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
 	t.Cleanup(func() { client.SetSessionResolver(nil) })
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
+	processStore := registry.NewStore()
+	require.NoError(t, processStore.UpsertAgent(&registry.AgentSession{AgentID: "agent-1"}))
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: processStore}))
 	router := gin.New()
 	g := router.Group("/api/v1/ops/agents/:agentId/processes/:name")
 	g.POST("/start", h.OpsAgentProcessStart)

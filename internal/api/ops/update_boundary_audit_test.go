@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,11 @@ func updateResp(success bool, rolledBack bool, oldFP, newFP, msg string) *opsv1.
 
 func TestOpsAgentProcessUpdateAudited(t *testing.T) {
 	svcCtx, db := newExecAuditSvcCtx(t)
+	store := registry.NewStore()
+	for _, agentID := range []string{"agent-1", "agent-err"} {
+		require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: agentID, GameID: "demo", Env: "prod"}))
+	}
+	svcCtx.RegistryStore = store
 	ctx := context.Background()
 	const (
 		oldFP = "1111111111111111111111111111111111111111111111111111111111111111"

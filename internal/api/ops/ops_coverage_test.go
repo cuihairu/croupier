@@ -503,10 +503,10 @@ func TestAgentServiceExecCommand(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewAgentService(svcCtx)
 
-	// This should return an error since GetAgentOpsClient will fail
+	// This should return a scope-gate error before reaching the ops client.
 	_, err := s.ExecCommand(ctx, "agent-1", "ls", []string{"-la"}, 30)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceStartProcess(t *testing.T) {
@@ -518,7 +518,7 @@ func TestAgentServiceStartProcess(t *testing.T) {
 
 	_, err := s.StartProcess(ctx, "agent-1", "test", []string{}, nil, "/tmp")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceStopProcess(t *testing.T) {
@@ -530,7 +530,7 @@ func TestAgentServiceStopProcess(t *testing.T) {
 
 	err := s.StopProcess(ctx, "agent-1", "my-process")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceRestartProcess(t *testing.T) {
@@ -542,7 +542,7 @@ func TestAgentServiceRestartProcess(t *testing.T) {
 
 	err := s.RestartProcess(ctx, "agent-1", "my-process")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceGetMetaNilStore(t *testing.T) {

@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/logic/utils"
@@ -131,9 +132,46 @@ func (s *AgentService) GetMeta(ctx context.Context, agentId string) (*OpsAgentSy
 	return nil, errors.New("agent not found")
 }
 
+func (s *AgentService) requireAgentScope(ctx context.Context, agentId string) error {
+	if s.svcCtx == nil || s.svcCtx.RegistryStore == nil {
+		return errors.New("registry store unavailable")
+	}
+	store := s.svcCtx.RegistryStore
+	scope := svc.GameScopeFromContext(ctx)
+
+	var clusterScope *registry.AgentSession
+	if s.svcCtx.Cluster != nil && s.svcCtx.Cluster.Resolver != nil {
+		if owner, err := s.svcCtx.Cluster.Resolver.FindOwner(ctx, agentId); err == nil && owner != nil {
+			clusterScope = &registry.AgentSession{GameID: owner.GameID, Env: owner.Env}
+		}
+	}
+
+	var session *registry.AgentSession
+	store.Mu().RLock()
+	session = store.PreviousAgentSession(agentId)
+	store.Mu().RUnlock()
+	if session == nil {
+		if clusterScope != nil {
+			session = clusterScope
+		} else {
+			return fmt.Errorf("agent %q not found", agentId)
+		}
+	}
+	if scope.GameID != "" && session.GameID != scope.GameID {
+		return fmt.Errorf("agent %q does not belong to game %q", agentId, scope.GameID)
+	}
+	if scope.Env != "" && session.Env != scope.Env {
+		return fmt.Errorf("agent %q does not belong to env %q", agentId, scope.Env)
+	}
+	return nil
+}
+
 // GetSystemInfo fetches live system info from the agent over the ops tunnel
 // (§10.5 fingerprint rides on SystemInfo).
 func (s *AgentService) GetSystemInfo(ctx context.Context, agentId string) (*opsv1.SystemInfo, error) {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return nil, err
+	}
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -148,6 +186,9 @@ func (s *AgentService) GetSystemInfo(ctx context.Context, agentId string) (*opsv
 }
 
 func (s *AgentService) ExecCommand(ctx context.Context, agentId, command string, args []string, timeout int) (*OpsExecCommandResult, error) {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return nil, err
+	}
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -174,6 +215,9 @@ func (s *AgentService) ExecCommand(ctx context.Context, agentId, command string,
 }
 
 func (s *AgentService) StartProcess(ctx context.Context, agentId, command string, args, env []string, dir string) (int, error) {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return 0, err
+	}
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -193,6 +237,9 @@ func (s *AgentService) StartProcess(ctx context.Context, agentId, command string
 }
 
 func (s *AgentService) StopProcess(ctx context.Context, agentId, processName string) error {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return err
+	}
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -209,6 +256,9 @@ func (s *AgentService) StopProcess(ctx context.Context, agentId, processName str
 
 // UpdateProcess swaps a managed process binary on the agent (§10.4 更新状态+指纹).
 func (s *AgentService) UpdateProcess(ctx context.Context, agentId, processName, stagedPath, expectedSha256 string) (*opsv1.UpdateProcessResponse, error) {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return nil, err
+	}
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -225,6 +275,9 @@ func (s *AgentService) UpdateProcess(ctx context.Context, agentId, processName, 
 }
 
 func (s *AgentService) RestartProcess(ctx context.Context, agentId, processName string) error {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return err
+	}
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -242,6 +295,9 @@ func (s *AgentService) RestartProcess(ctx context.Context, agentId, processName 
 // SetSchedulePause suspends or resumes a managed process's schedule firing
 // (§10.2 暂停与恢复，暂停对象=调度；进程运行态不动).
 func (s *AgentService) SetSchedulePause(ctx context.Context, agentId, processName string, suspended bool) (*opsv1.SchedulePauseResponse, error) {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return nil, err
+	}
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {

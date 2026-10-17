@@ -30,7 +30,11 @@ func sysInfoResp(hostname, fp string) *opsv1.SystemInfo {
 }
 
 func TestOpsAgentSystemInfoLiveAndCached(t *testing.T) {
-	svcCtx := &svc.ServiceContext{SystemInfoCache: registry.NewSystemInfoCache()}
+	store := registry.NewStore()
+	for _, agentID := range []string{"agent-1", "agent-2"} {
+		require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: agentID, GameID: "demo", Env: "prod"}))
+	}
+	svcCtx := &svc.ServiceContext{RegistryStore: store, SystemInfoCache: registry.NewSystemInfoCache()}
 	ctx := context.Background()
 
 	// 冷缓存：隧道 live RPC，指纹随响应到 DTO。
@@ -55,19 +59,22 @@ func TestOpsAgentSystemInfoLiveAndCached(t *testing.T) {
 }
 
 func TestOpsAgentSystemInfoTunnelError(t *testing.T) {
-	svcCtx := &svc.ServiceContext{SystemInfoCache: registry.NewSystemInfoCache()}
+	store := registry.NewStore()
+	svcCtx := &svc.ServiceContext{RegistryStore: store, SystemInfoCache: registry.NewSystemInfoCache()}
 
 	setExecCaller(t, "agent-err", &fakeCaller{errOn: map[uint32]error{
 		protocol.MsgGetSystemInfoRequest: assert.AnError,
 	}})
 	_, err := opsAgentSystemInfo(context.Background(), svcCtx, &OpsAgentSystemInfoRequest{AgentID: "agent-err"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "system info")
+	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestOpsAgentSystemInfoBootTimeFormat(t *testing.T) {
 	// bootTime RFC3339 序列化（DTO 契约）。
-	svcCtx := &svc.ServiceContext{SystemInfoCache: registry.NewSystemInfoCache()}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-3", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store, SystemInfoCache: registry.NewSystemInfoCache()}
 	info := sysInfoResp("h", "")
 	info.BootTime = timestamppb.New(timestamppb.Now().AsTime().Add(-3600))
 	svcCtx.SystemInfoCache.Set("agent-3", info)

@@ -124,7 +124,9 @@ func TestAgentServiceProcessCommandsViaOpsClient(t *testing.T) {
 	client := agentops.GetAgentOpsClient()
 	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
 	t.Cleanup(func() { client.SetSessionResolver(nil) }) // 全局单例：用后复位，不污染其他用例
-	s := NewAgentService(&svc.ServiceContext{})
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1"}))
+	s := NewAgentService(&svc.ServiceContext{RegistryStore: store})
 	ctx := context.Background()
 
 	res, err := s.ExecCommand(ctx, "agent-1", "ls", []string{"-la"}, 5)
@@ -140,15 +142,15 @@ func TestAgentServiceProcessCommandsViaOpsClient(t *testing.T) {
 	require.NoError(t, s.StopProcess(ctx, "agent-1", "game-server"))
 	require.NoError(t, s.RestartProcess(ctx, "agent-1", "game-server"))
 
-	// 无会话的 agent → "ops client unavailable"
+	// 无会话的 agent → scope gate 先拒绝。
 	_, err = s.ExecCommand(ctx, "ghost", "ls", nil, 5)
-	require.ErrorContains(t, err, "ops client unavailable")
+	require.ErrorContains(t, err, "not found")
 	_, err = s.StartProcess(ctx, "ghost", "x", nil, nil, "")
-	require.ErrorContains(t, err, "ops client unavailable")
+	require.ErrorContains(t, err, "not found")
 	err = s.StopProcess(ctx, "ghost", "x")
-	require.ErrorContains(t, err, "ops client unavailable")
+	require.ErrorContains(t, err, "not found")
 	err = s.RestartProcess(ctx, "ghost", "x")
-	require.ErrorContains(t, err, "ops client unavailable")
+	require.ErrorContains(t, err, "not found")
 }
 
 // ---- AgentService.List：集群归属表视图 + 本地回退 + 过滤 ----
@@ -162,7 +164,7 @@ func TestAgentServiceListClusterAndLocalViews(t *testing.T) {
 	}))
 
 	// 无 store → 空列表
-	empty := NewAgentService(&svc.ServiceContext{})
+	empty := NewAgentService(&svc.ServiceContext{RegistryStore: registry.NewStore()})
 	list, err := empty.List(context.Background(), "", "", "")
 	require.NoError(t, err)
 	assert.Empty(t, list)
@@ -216,14 +218,38 @@ func TestAgentServiceListClusterAndLocalViews(t *testing.T) {
 	assert.Equal(t, "agent-local", list[0].AgentID)
 	assert.True(t, list[0].Connected)
 
-	// 非集群：本地视图 + 过滤（env 不匹配）
-	plain := NewAgentService(&svc.ServiceContext{RegistryStore: store})
-	list, err = plain.List(context.Background(), "", "dev", "")
+	list, err = s.List(context.Background(), "other", "dev", "")
 	require.NoError(t, err)
 	assert.Empty(t, list)
-	list, err = plain.List(context.Background(), "demo", "", "")
+
+	// 非集群：本地视图 + 过滤（env 不匹配）
+	plain := NewAgentService(&svc.ServiceContext{RegistryStore: store})
+	list, err = plain.List(context.Background(), "demo", "dev", "")
+	require.NoError(t, err)
+	assert.Empty(t, list)
+	list, err = plain.List(context.Background(), "demo", "prod", "")
 	require.NoError(t, err)
 	require.Len(t, list, 1)
+}
+
+func TestAgentServiceActionsRequireRequestedScope(t *testing.T) {
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent-local", GameID: "demo", Env: "prod",
+	}))
+	s := NewAgentService(&svc.ServiceContext{RegistryStore: store})
+
+	requestScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
+	wrongScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "dev"})
+
+	require.NoError(t, s.requireAgentScope(requestScope, "agent-local"))
+	require.ErrorContains(t, s.requireAgentScope(wrongScope, "agent-local"), "does not belong")
+	require.ErrorContains(t, s.requireAgentScope(context.Background(), "ghost"), "not found")
+
+	clusterCtx := &svc.ServiceContext{RegistryStore: registry.NewStore(), Cluster: &svc.ClusterRuntime{}}
+	clusterService := NewAgentService(clusterCtx)
+	clusterDBCtx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
+	require.ErrorContains(t, clusterService.requireAgentScope(clusterDBCtx, "agent-local"), "not found")
 }
 
 // ---- runtimeNodeListItem：providers/metrics/过期时间分支 ----

@@ -125,6 +125,12 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 		if sess == nil {
 			continue
 		}
+		if strings.TrimSpace(scope.GameID) != "" && sess.GameID != scope.GameID {
+			continue
+		}
+		if strings.TrimSpace(scope.Env) != "" && sess.Env != scope.Env {
+			continue
+		}
 
 		functions := make([]string, 0, len(sess.Functions))
 		for fid := range sess.Functions {

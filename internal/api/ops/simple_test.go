@@ -26,7 +26,9 @@ import (
 func TestNewService(t *testing.T) {
 	t.Parallel()
 
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
 	assert.NotNil(t, s)
@@ -177,7 +179,9 @@ func TestServiceOpsAgentMetrics(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
 	resp, err := s.OpsAgentMetrics(ctx, &OpsAgentMetricsRequest{})
@@ -956,7 +960,9 @@ func TestOpsHealthGetHandler(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	h := NewHandler(NewService(svcCtx))
 	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/health", "")
 
@@ -1280,7 +1286,9 @@ func TestProcessActionHandlersAcceptEmptyBody(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	h := NewHandler(NewService(svcCtx))
 
 	engine := gin.New()
