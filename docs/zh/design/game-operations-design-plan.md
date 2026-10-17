@@ -23,7 +23,7 @@ title: 游戏后台业务设计补齐清单与验收场景
 | 游戏接入与兼容性   | P1         | 最低能力清单、参考实现与验收工具     | §7                                    | 六语言 SDK、OpenAPI、函数/探测插件        |
 | 事故追踪与恢复     | P1         | 跨系统关联及恢复演练方案             | §8                                    | OTel、执行记录、告警、CDC、备份、事故登记 |
 
-上述设计复用当前平台底座，不以“补设计”为理由重建权限、审批、审计、任务调度或游戏经济系统。数据归属细节见 [游戏数据权威归属设计](game-authority-ownership-design.md)，高风险执行语义见 [高风险业务操作执行契约设计](high-risk-operation-contract-design.md)。
+上述设计复用当前平台底座，不以“补设计”为理由重建权限、审批、审计、任务调度或游戏经济系统。数据归属细节见 [游戏数据权威归属设计](game-authority-ownership-design.md)，高风险执行语义见 [高风险业务操作执行契约设计](high-risk-operation-contract-design.md)，批量执行见 [批量运营与补偿设计](batch-operations-compensation-design.md)。
 
 ## 2. 游戏数据权威归属
 
