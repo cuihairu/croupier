@@ -8,6 +8,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/internal/platform/functioncontract"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -45,6 +46,9 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 
 	payload, err := invokePayloadBytes(req)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateInvokeInput(l.ctx, l.svcCtx, functionID, payload); err != nil {
 		return nil, err
 	}
 
@@ -128,6 +132,21 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 		out.Result = rawJSONFromBytes(resp.GetPayload())
 	}
 	return out, nil
+}
+
+func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, payload []byte) error {
+	if svcCtx == nil || svcCtx.FunctionModel == nil {
+		return nil
+	}
+	functionID = strings.TrimSpace(functionID)
+	if functionID == "" {
+		return nil
+	}
+	descriptors, err := svcCtx.FunctionModel.ListDescriptors(ctx, functionID)
+	if err != nil || len(descriptors) == 0 {
+		return nil
+	}
+	return functioncontract.ValidateInput(descriptors[0].Input, payload)
 }
 
 func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permIDs []string, functionID string, gameID string, env string) error {

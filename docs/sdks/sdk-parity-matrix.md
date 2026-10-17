@@ -37,14 +37,14 @@
 
 ## Descriptor v2 / OpenAPI Helper 状态
 
-| SDK    | Descriptor v2 字段 | 本地 OpenAPI helper | 说明                                       |
-| ------ | ------------------ | ------------------- | ------------------------------------------ |
-| Go     | 已接入             | 已实现并可验证      | 当前基准实现                               |
-| JS/TS  | 待验收             | 未实现              | 不得宣称支持本地 OpenAPI 解析              |
-| Python | 待验收             | 未实现              | 不得宣称支持本地 OpenAPI 解析              |
-| Java   | 待验收             | 未实现              | 不得宣称支持本地 OpenAPI 解析              |
-| C#     | 待验收             | 未实现              | 生成 proto 已含字段，手写 API/示例仍需验收 |
-| C++    | 待验收             | 未实现              | 不得宣称支持本地 OpenAPI 解析              |
+| SDK    | Descriptor v2 字段 | 本地 OpenAPI helper | 说明                                  |
+| ------ | ------------------ | ------------------- | ------------------------------------- |
+| Go     | 已接入             | 已实现并可验证      | 当前基准实现                          |
+| JS/TS  | 已接入             | 已实现并可验证      | helper 支持 v2 词表 + continueOnError |
+| Python | 已接入             | 已实现并可验证      | risk 别名已收敛为 canonical 词表      |
+| Java   | 已接入             | 已实现并可验证      | ImportOptions builder 已可用          |
+| C#     | 已接入             | 已实现并可验证      | System.Text.Json 实现，禁 dynamic     |
+| C++    | 已接入             | 已实现并可验证      | nlohmann_json 解析，无新增依赖        |
 
 OpenAPI helper 只能解析函数能力契约字段：`operationId/tags/summary/description/requestBody/responses` 和 `x-resource/x-operation/x-capability/x-execution/x-approval/x-risk/x-enabled/x-permission/x-timeout-ms`。遇到页面 schema、组件树、菜单、路由、页面分类、显示文案、页面 mapping 或布局 DSL 必须报错或产生 diagnostics。
 

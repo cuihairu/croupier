@@ -12,9 +12,8 @@ import (
 	"gorm.io/datatypes"
 )
 
-// validateInvokeInput：dispatch 前按 descriptor inputSchema 的 required
-// 校验 payload——缺参数是客户端错误（400 + details 指明字段），不得透传
-// agent 后以 5xx 路由错误收场。
+// validateInvokeInput：dispatch 前按 descriptor inputSchema 校验 payload；
+// 客户端契约错误必须在路由到 agent 前返回 400。
 
 func upsertInputContract(t *testing.T, f *invokeFixture, functionID string, input datatypes.JSONMap) {
 	t.Helper()
@@ -58,12 +57,39 @@ func TestValidateInvokeInput_ProvidedPasses(t *testing.T) {
 	// 空串/false 是 JSON Schema 合法值（required 只约束存在性）。
 	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{"playerId":""}`)))
-	// 显式 null 视为缺失。
-	require.Error(t, validateInvokeInput(context.Background(), f.svcCtx,
+	// 显式 null 仅在类型不允许 null 时失败；required 只约束属性存在。
+	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{"playerId":null}`)))
 	// 空对象 payload。
 	require.Error(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{}`)))
+}
+
+func TestValidateInvokeInput_TypeAndNestedSchema(t *testing.T) {
+	f := newInvokeFixture(t)
+	upsertInputContract(t, f, "demo.grant", datatypes.JSONMap{
+		"type":     "object",
+		"required": []interface{}{"profile"},
+		"properties": map[string]interface{}{
+			"amount": map[string]interface{}{"type": "integer"},
+			"profile": map[string]interface{}{
+				"type":     "object",
+				"required": []interface{}{"level"},
+				"properties": map[string]interface{}{
+					"level": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	})
+
+	err := validateInvokeInput(context.Background(), f.svcCtx,
+		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{"amount":"1","profile":{"level":2}}`))
+	require.Error(t, err)
+	codeErr, ok := err.(*errorx.CodeError)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusBadRequest, codeErr.Code)
+	assert.Contains(t, codeErr.Details, "payload.amount")
+	assert.Contains(t, codeErr.Details, "payload.profile.level")
 }
 
 func TestValidateInvokeInput_NoContractPassthrough(t *testing.T) {

@@ -1,7 +1,6 @@
 package function
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
+	"github.com/cuihairu/croupier/internal/platform/functioncontract"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/policy"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
@@ -502,10 +502,8 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 }
 
 // validateInvokeInput 在 dispatch 前按函数 descriptor 的 inputSchema 校验
-// payload 必填参数：缺失时返回 400 并在 details 中指明字段（前端表单级
-// 渲染契约）。无 descriptor / 无 inputSchema.required / 查询失败时均不拦
-// 截——输入契约的完整校验（类型/枚举/嵌套）仍由游戏服侧兜底，此处只做
-// 平台可判定的「缺哪个参数」这一层。
+// payload。无 descriptor 或 schema 不可编译时透传；可编译契约则执行完整的
+// JSON Schema 校验，避免 HTTP API 与 logic 入口各自解释同一份契约。
 func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest, payload []byte) error {
 	if svcCtx == nil || svcCtx.FunctionModel == nil {
 		return nil
@@ -518,43 +516,7 @@ func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *F
 	if err != nil || len(descs) == 0 {
 		return nil
 	}
-	input := descs[0].Input // ListDescriptors 按版本倒序，取最新契约
-	if len(input) == 0 {
-		return nil
-	}
-	required, _ := input["required"].([]interface{})
-	if len(required) == 0 {
-		return nil
-	}
-	// payload 非对象（数组/标量/非法 JSON）不在本层拦截，交由下游处理。
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(payload, &body); err != nil {
-		return nil
-	}
-	missing := make([]string, 0, len(required))
-	details := make(map[string]any, len(required))
-	for _, r := range required {
-		name, ok := r.(string)
-		if !ok || name == "" {
-			continue
-		}
-		// 存在且非 null 即满足 JSON Schema required 语义（空串/false 是
-		// 合法值，是否为空由游戏服业务判断）。
-		raw, present := body[name]
-		if present && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-			continue
-		}
-		missing = append(missing, name)
-		details[name] = "required"
-	}
-	if len(missing) == 0 {
-		return nil
-	}
-	sort.Strings(missing)
-	return errorx.NewBadRequestWithDetails(
-		"缺少必填参数: "+strings.Join(missing, ", "),
-		details,
-	)
+	return functioncontract.ValidateInput(descs[0].Input, payload) // ListDescriptors 按版本倒序，取最新契约
 }
 
 // validateInvokeRoute enforces routing semantics at the HTTP API boundary.
