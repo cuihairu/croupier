@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -9,8 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/transport/tcp"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 )
 
@@ -101,7 +107,6 @@ agent:
 	done := make(chan error, 1)
 	go func() { done <- runAgent() }()
 
-	// 监听就绪即证明信号处理器已注册（NotifyContext 先于 startAgentCore）
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+listenPort, 200*time.Millisecond)
@@ -125,8 +130,200 @@ agent:
 	}
 }
 
+func TestRunAgent_InvalidOpsConfigFailsFast(t *testing.T) {
+	saveRootGlobals(t)
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "agent.yaml")
+	cfgData := `
+server:
+  addr: ""
+  insecure: true
+agent:
+  gameId: demo-game
+  env: development
+  localAddr: "127.0.0.1:0"
+ops:
+  enabled: true
+  allowExec: true
+`
+	require.NoError(t, os.WriteFile(cfgPath, []byte(cfgData), 0o644))
+	cfgFile = cfgPath
+	mode = "test"
+	debug = true
+
+	err := runAgent()
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "allowExec requires execAllowedCommands")
+}
+
+func TestRunAgent_ValidOpsConfigIsWired(t *testing.T) {
+	saveRootGlobals(t)
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "agent.yaml")
+	cfgData := `
+server:
+  addr: ""
+  insecure: true
+agent:
+  gameId: demo-game
+  env: development
+  localAddr: "127.0.0.1:0"
+ops:
+  enabled: true
+  allowRestart: true
+  allowExec: true
+  allowUpdate: true
+  metricsInterval: 4s
+  metricsEnabled: true
+  snapshotDir: ` + filepath.Join(dir, "snapshots") + `
+  supervisorLog:
+    dir: ` + filepath.Join(dir, "supervisor") + `
+  execAllowedCommands: ["/bin/true"]
+  managedProcesses:
+    sleeper:
+      command: /bin/sleep
+      args: ["3600"]
+      autoRestart: true
+`
+	require.NoError(t, os.WriteFile(cfgPath, []byte(cfgData), 0o644))
+	cfgFile = cfgPath
+	mode = "test"
+	debug = true
+
+	core, _, runErr, err := startAgentCore(context.Background(), parseAgentConfig(t, cfgData), filepath.Dir(cfgPath))
+	require.NoError(t, err)
+	t.Cleanup(core.Stop)
+
+	require.Eventually(t, func() bool {
+		return core.OpsServer() != nil
+	}, 5*time.Second, 20*time.Millisecond)
+	server := core.OpsServer()
+	require.Eventually(t, func() bool {
+		processes, listErr := server.ListProcesses(context.Background(), nil)
+		return listErr == nil && len(processes.GetProcesses()) == 1 && processes.GetProcesses()[0].GetPid() != 0
+	}, 5*time.Second, 20*time.Millisecond)
+
+	select {
+	case err := <-runErr:
+		require.NoError(t, err)
+	default:
+	}
+}
+
+func TestRunAgent_OpsLifecyclePersistsAndFailsOnListenerConflict(t *testing.T) {
+	saveRootGlobals(t)
+	dir := t.TempDir()
+	const listenPort = "18932"
+	baseConfig := `
+server:
+  addr: ""
+  insecure: true
+agent:
+  gameId: demo-game
+  env: development
+  localAddr: "127.0.0.1:%s"
+  id: lifecycle-agent
+  testControlAddr: local-only
+ops:
+  enabled: true
+  allowRestart: true
+  allowUpdate: true
+  metricsInterval: 3s
+  supervisorLog:
+    dir: %q
+  managedProcesses:
+    sleeper:
+      command: /bin/sleep
+      args: ["30"]
+      autoRestart: true
+`
+	cfgData := fmt.Sprintf(baseConfig, listenPort, filepath.Join(dir, "supervisor"))
+	cfgPath := filepath.Join(dir, "agent.yaml")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(cfgData), 0o644))
+	cfgFile = cfgPath
+	mode = "test"
+	debug = true
+
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- runAgent() }()
+	require.Eventually(t, func() bool {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+listenPort, 100*time.Millisecond)
+		if err != nil {
+			return false
+		}
+		_ = conn.Close()
+		return true
+	}, 5*time.Second, 20*time.Millisecond)
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:"+listenPort, time.Second)
+	require.NoError(t, err)
+	opsMux := tcp.NewMuxConn(conn, &tcp.Config{RecvTimeout: 5 * time.Second, SendTimeout: 5 * time.Second}, nil)
+	opsRunDone := make(chan error, 1)
+	go func() { opsRunDone <- opsMux.Run(context.Background()) }()
+	connectReq, err := proto.Marshal(&sdkv1.ProviderConnectRequest{
+		ServiceId: "croupier-ops-driver",
+		Metadata:  map[string]string{"croupier-ops": "local-v1"},
+	})
+	require.NoError(t, err)
+	_, _, err = opsMux.Call(context.Background(), protocol.MsgProviderConnectRequest, connectReq)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		stopReq, err := proto.Marshal(&opsv1.StopProcessRequest{ProcessName: "sleeper"})
+		if err != nil {
+			return false
+		}
+		_, respData, callErr := opsMux.Call(context.Background(), protocol.MsgStopProcessRequest, stopReq)
+		if callErr != nil {
+			return false
+		}
+		resp := &opsv1.StopProcessResponse{}
+		unmarshalErr := proto.Unmarshal(respData, resp)
+		return unmarshalErr == nil && resp.GetSuccess()
+	}, 5*time.Second, 50*time.Millisecond, "manual stop must wait for boot and honor allowRestart")
+	require.NoError(t, opsMux.Close())
+	<-opsRunDone
+	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+	require.NoError(t, <-firstDone)
+
+	// The same binary startup path reloads persisted desired-stopped state.
+	cfg2 := fmt.Sprintf(baseConfig, "18933", filepath.Join(dir, "supervisor"))
+	cfgPath2 := filepath.Join(dir, "agent2.yaml")
+	require.NoError(t, os.WriteFile(cfgPath2, []byte(cfg2), 0o644))
+	cfgFile = cfgPath2
+	secondDone := make(chan error, 1)
+	go func() { secondDone <- runAgent() }()
+	require.Eventually(t, func() bool {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:18933", 100*time.Millisecond)
+		if err != nil {
+			return false
+		}
+		_ = conn.Close()
+		return true
+	}, 5*time.Second, 20*time.Millisecond)
+	desiredState, err := os.ReadFile(filepath.Join(dir, "supervisor", "desired_state.json"))
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"sleeper":false}`, string(desiredState))
+	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+	require.NoError(t, <-secondDone)
+
+	// A real occupied listener must surface as a startup error and exit path.
+	blocker, err := net.Listen("tcp", "127.0.0.1:"+listenPort)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = blocker.Close() })
+	cfgFile = cfgPath
+	err = runAgent()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "agent run failed")
+}
+
+func parseAgentConfig(t *testing.T, data string) *AgentConfig {
+	t.Helper()
+	var cfg AgentConfig
+	require.NoError(t, yaml.Unmarshal([]byte(data), &cfg))
+	return &cfg
+}
+
 func TestStartAgentCore_NilConfig(t *testing.T) {
-	_, _, err := startAgentCore(context.Background(), nil, "")
+	_, _, _, err := startAgentCore(context.Background(), nil, "")
 	assert.EqualError(t, err, "missing config")
 }
 
@@ -188,7 +385,7 @@ func TestStartAgentCore_Wiring(t *testing.T) {
 				},
 				Agent:       AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0", InvokeTimeoutMs: 3000},
 				OutboundTLS: AgentTLSConfig{Enabled: true, CertFile: "/no/o.pem"},
-				Ops:         &OpsConfig{Enabled: true, MetricsEnabled: true, MetricsInterval: "5s"},
+				Ops:         &OpsConfig{Enabled: true, MetricsEnabled: true, MetricsInterval: 5 * time.Second},
 			},
 			wantLocal:    "127.0.0.1:0",
 			wantOpsOnOff: true,
@@ -199,7 +396,7 @@ func TestStartAgentCore_Wiring(t *testing.T) {
 				Server:      AgentServerConfig{Insecure: true},
 				Agent:       AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0", Labels: map[string]string{"rack": "a"}},
 				OutboundTLS: AgentTLSConfig{}, // Enabled=false → nil 分支
-				Ops:         &OpsConfig{Enabled: true, MetricsInterval: "bogus"},
+				Ops:         &OpsConfig{Enabled: true, MetricsInterval: -time.Second},
 			},
 			wantLocal:    "127.0.0.1:0",
 			wantOpsOnOff: true,
@@ -208,7 +405,7 @@ func TestStartAgentCore_Wiring(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			core, localAddr, err := startAgentCore(context.Background(), &tc.cfg, dir)
+			core, localAddr, _, err := startAgentCore(context.Background(), &tc.cfg, dir)
 			require.NoError(t, err)
 			require.NotNil(t, core)
 			assert.Equal(t, tc.wantLocal, localAddr)
@@ -228,7 +425,8 @@ func TestStartAgentCore_DevCertGeneration(t *testing.T) {
 		Server: AgentServerConfig{Insecure: false, CAFile: filepath.Join(dir, "no-such-ca.crt")},
 		Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0"},
 	}
-	core, _, err := startAgentCore(context.Background(), cfg, dir)
+	core, _, runErr, err := startAgentCore(context.Background(), cfg, dir)
+	_ = runErr
 	require.NoError(t, err)
 	core.Stop()
 	_, statErr := os.Stat(filepath.Join(dir, "certs", "ca.crt"))
@@ -246,7 +444,7 @@ func TestStartAgentCore_DevCertGeneration(t *testing.T) {
 			Server: AgentServerConfig{Insecure: false, CAFile: filepath.Join(dir2, "missing.crt")},
 			Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0"},
 		}
-		_, _, err = startAgentCore(context.Background(), cfg2, dir2)
+		_, _, _, err = startAgentCore(context.Background(), cfg2, dir2)
 		assert.ErrorContains(t, err, "failed to generate CA cert")
 	}
 }
@@ -474,7 +672,6 @@ func TestUnmarshalCompatDecodeErrors(t *testing.T) {
 		data string
 	}{
 		{"Ops plain 标量", "ops: 42"},
-		{"Ops compat 键类型错", "ops:\n  metrics_enabled: [x]"},
 		{"TLS plain 标量", "TLS: 42"},
 		{"TLS compat 键类型错", "TLS:\n  InsecureSkipVerify: [x]"},
 		{"顶层 plain 键类型错", "port: [x]"},

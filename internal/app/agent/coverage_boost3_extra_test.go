@@ -340,7 +340,8 @@ func TestAppStartLocalServer_ServeErrorLoggedViaSeam(t *testing.T) {
 		return errors.New("accept: emfile")
 	}
 	require.NoError(t, app.StartLocalServer())
-	<-served // 错误分支已执行（日志副作用不阻塞退出）
+	<-served
+	require.ErrorContains(t, app.Run(context.Background()), "agent local server failed: accept: emfile")
 
 	// context.Canceled 被排除：注入 Canceled 不产生日志分支，但 serve 调用本身可达。
 	app2 := NewWithConfigDir("", "agent-serve-cancel", t.TempDir())
@@ -352,4 +353,6 @@ func TestAppStartLocalServer_ServeErrorLoggedViaSeam(t *testing.T) {
 	}
 	require.NoError(t, app2.StartLocalServer())
 	<-cancelServed
+	require.NoError(t, app2.Run(context.Background()))
+	app2.Stop()
 }

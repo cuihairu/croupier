@@ -50,9 +50,10 @@ type App struct {
 	// 调用方派生的 goroutine 内赋值，而 Stop/GetLocalServerAddr 可能在启动
 	// 完成前被调用（SIGTERM 早到、测试快速收尾），无同步的读/写构成数据
 	// 竞争（2026-09-22 -race 实证）。
-	localServerMu sync.Mutex
-	localServer   transportcore.Server
-	localAddr     string
+	localServerMu       sync.Mutex
+	localServer         transportcore.Server
+	localAddr           string
+	localOpsSessionOnly bool
 
 	// Ops module (optional)
 	opsConfig *OpsConfig
@@ -68,6 +69,7 @@ type App struct {
 	// StartLocalServer 的错误日志分支（listener 在函数内部构造，无法
 	// 从外部触发其 Accept 故障路径）。
 	serveLocal func(server *agent.TCPLocalListener) error
+	serveErr   chan error
 }
 
 func (a *App) WithTelemetry(service *telemetry.GameTelemetryService) {
@@ -168,9 +170,10 @@ func (a *App) StartLocalServer() error {
 		// must leave enough idle time for that heartbeat and normal scheduling
 		// jitter, otherwise healthy providers are removed before their first
 		// heartbeat and Server reports no live agent for their functions.
-		RecvTimeout: 2 * time.Minute,
-		SendTimeout: 30 * time.Second,
-		TLSConfig:   a.localTLS,
+		RecvTimeout:    2 * time.Minute,
+		SendTimeout:    30 * time.Second,
+		TLSConfig:      a.localTLS,
+		OpsSessionOnly: a.localOpsSessionOnly,
 	}, providerSessions, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
@@ -207,10 +210,18 @@ func (a *App) StartLocalServer() error {
 			return server.Serve(context.Background())
 		}
 	}
+	serveErr := make(chan error, 1)
+	a.serveErr = serveErr
 	go func() {
 		if err := serve(tcpServer); err != nil && !errors.Is(err, context.Canceled) {
-			slog.Error("agent tcp local server stopped", "error", err)
+			a.serveErr <- err
+			return
 		}
+		a.localServerMu.Lock()
+		if a.localServer != nil {
+			a.localServer = nil
+		}
+		a.localServerMu.Unlock()
 	}()
 
 	return nil
@@ -242,12 +253,14 @@ func (a *App) SetLocalAddr(addr string) {
 func (a *App) Run(ctx context.Context) error {
 	// Start local TCP server for SDK connections
 	if err := a.StartLocalServer(); err != nil {
+		a.Stop()
 		return fmt.Errorf("failed to start local server: %w", err)
 	}
 
 	// Load providers before starting upstream
 	if a.providerManager != nil {
 		if err := a.providerManager.Load(ctx); err != nil {
+			a.Stop()
 			return err
 		}
 	}
@@ -257,7 +270,21 @@ func (a *App) Run(ctx context.Context) error {
 	a.startProbes(ctx)
 	a.startProbePolicy(ctx)
 	a.startProbeDBTargets(ctx)
-	return a.upstream.Start(ctx)
+	if err := a.upstream.Start(ctx); err != nil {
+		a.Stop()
+		return err
+	}
+	if err := a.opsServer.Start(); err != nil {
+		a.Stop()
+		return err
+	}
+	select {
+	case err := <-a.serveErr:
+		a.Stop()
+		return fmt.Errorf("agent local server failed: %w", err)
+	default:
+	}
+	return nil
 }
 
 // WithProbeConfig 配置声明式探针（`probe.targets[]`，R2）。校验失败即返回错误
@@ -419,6 +446,9 @@ func (a *App) Stop() {
 			slog.Warn("agent telemetry shutdown failed", "error", err)
 		}
 	}
+	if a.opsServer != nil {
+		a.opsServer.Stop()
+	}
 }
 
 // SetProviderCallTimeout 配置 Agent → Provider 同步调用默认预算（透传
@@ -488,6 +518,10 @@ func (a *App) WithLocalTLSConfig(cfg *tls.Config) {
 		return
 	}
 	a.localTLS = cfg
+}
+
+func (a *App) WithLocalOpsSessionOnly() {
+	a.localOpsSessionOnly = true
 }
 
 // Store exposes the local instance registry.
