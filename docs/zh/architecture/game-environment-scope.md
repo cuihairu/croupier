@@ -486,7 +486,7 @@ SDK/自定义游戏服连接 Agent（ProviderConnect）与 Agent 注册（Regist
 
 四页为 `/ops/agents/sidecar`、`/ops/agents/devops`、`/ops/agents/capture`、`/ops/agents/synthetics` 的目标设计，入口、字段、权限、数据需求与交付批次见 [Agent 后台页面设计](../design/agent-dashboard-design.md)；当前未实现的新入口不得标作已交付。
 
-**当前实现缺口**：devops/capture 配置含 env 但 Validate 未强制必填；ops Agent 列表本地回退路径过滤不完整；DB 探针按 owner 派生的既有“不过滤 scope”特例与本节目标不一致，需在四类统一隔离批次中收口，不能因既有实现扩大本规范允许范围。
+**当前实现缺口**：devops/capture 配置校验、ops Agent 本地列表过滤与 DB 探针 owner 派生的注册 scope 过滤已收口；四类 Agent 的统一后台页面以及目标、进程、主机、配置下发与任务的完整归属矩阵仍待后续批次验证，不得视为整项完成。
 
 ## 15. 迁移与验收顺序
 

@@ -31,9 +31,9 @@ func newDBTargetsTestService(t *testing.T) (*ControlService, *model.DBSourceMode
 	return svc, dbModel
 }
 
-func seedDBSource(t *testing.T, dbModel *model.DBSourceModel, name, driver, dsn, owner string, enabled bool) model.DBSource {
+func seedDBSource(t *testing.T, dbModel *model.DBSourceModel, name, driver, dsn, owner string, enabled bool, gameID, env string) model.DBSource {
 	t.Helper()
-	src := model.DBSource{Name: name, Driver: driver, DSN: dsn, OwnerAgentID: owner, Enabled: true}
+	src := model.DBSource{Name: name, Driver: driver, DSN: dsn, OwnerAgentID: owner, Enabled: true, GameID: gameID, Env: env}
 	require.NoError(t, dbModel.Create(context.Background(), &src))
 	if !enabled {
 		// gorm default:true 标签下零值 bool 建行时会被省略（落列默认 true），
@@ -115,11 +115,11 @@ func TestDeriveProbeDBTargets_HashTracksContent(t *testing.T) {
 func TestHandleProbeDBTargets_DerivesOwnedEnabledSources(t *testing.T) {
 	svc, dbModel := newDBTargetsTestService(t)
 	seedCaptureAgent(t, svc, "sidecar-01", "demo", "prod")
-	seedDBSource(t, dbModel, "orders", "postgres", "postgres://ro:ro@db/orders", "sidecar-01", true)
-	seedDBSource(t, dbModel, "audit", "MySQL", "mysql://ro:ro@db/audit", "sidecar-01", true)
+	seedDBSource(t, dbModel, "orders", "postgres", "postgres://ro:ro@db/orders", "sidecar-01", true, "demo", "prod")
+	seedDBSource(t, dbModel, "audit", "MySQL", "mysql://ro:ro@db/audit", "sidecar-01", true, "demo", "prod")
 	// 非归属 / 禁用源不得进入目标集。
-	seedDBSource(t, dbModel, "other", "postgres", "postgres://ro:ro@db/other", "sidecar-02", true)
-	seedDBSource(t, dbModel, "disabled", "postgres", "postgres://ro:ro@db/disabled", "sidecar-01", false)
+	seedDBSource(t, dbModel, "other", "postgres", "postgres://ro:ro@db/other", "sidecar-02", true, "demo", "prod")
+	seedDBSource(t, dbModel, "disabled", "postgres", "postgres://ro:ro@db/disabled", "sidecar-01", false, "demo", "prod")
 
 	resp, err := mustRunProbeDBTargets(t, svc, "sidecar-01")
 	require.NoError(t, err)
@@ -168,6 +168,20 @@ func TestHandleProbeDBTargets_Errors(t *testing.T) {
 	bare := NewControlService(svc.registry, nil)
 	_, err = mustRunProbeDBTargets(t, bare, "sidecar-01")
 	require.Error(t, err)
+}
+
+func TestHandleProbeDBTargets_OwnerCannotCrossAgentScope(t *testing.T) {
+	svc, dbModel := newDBTargetsTestService(t)
+	seedCaptureAgent(t, svc, "agent-demo-prod", "demo", "prod")
+	seedDBSource(t, dbModel, "cross-game", "postgres", "postgres://ro:ro@db/orders", "agent-demo-prod", true, "other", "prod")
+	seedDBSource(t, dbModel, "cross-env", "postgres", "postgres://ro:ro@db/orders", "agent-demo-prod", true, "demo", "dev")
+	seedDBSource(t, dbModel, "same-scope", "mysql", "mysql://ro:ro@db/audit", "agent-demo-prod", true, "demo", "prod")
+
+	resp, err := mustRunProbeDBTargets(t, svc, "agent-demo-prod")
+	require.NoError(t, err)
+	targets := mustDecodeTargets(t, resp.GetTargetsJson())
+	require.Len(t, targets, 1)
+	assert.Equal(t, "db:same-scope", targets[0].Name)
 }
 
 // mustRunProbeDBTargets 的裸变体：允许空 agent_id 走错误分支。

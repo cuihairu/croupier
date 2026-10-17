@@ -383,8 +383,12 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	}
 	sess.UpdateLastSeen()
 
-	// Store session (carries the live MuxConn for request forwarding).
-	h.listener.sessionStore.Upsert(sess)
+	// Store session (carries the live MuxConn for request forwarding). Fail
+	// closed so a same-ID agent cannot overwrite a live session from another
+	// game environment while the control-plane registry is still validating.
+	if err := h.listener.sessionStore.Upsert(sess); err != nil {
+		return nil, fmt.Errorf("bind agent session: %w", err)
+	}
 	h.agentID = req.AgentId
 	h.sessionID = sess.SessionID
 	h.registered = true

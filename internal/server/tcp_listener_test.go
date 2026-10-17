@@ -328,6 +328,42 @@ func TestAgentSessionStore(t *testing.T) {
 	})
 }
 
+func TestAgentSessionStoreRejectsCrossScopeUpsert(t *testing.T) {
+	store := NewAgentSessionStore()
+	existing := &AgentSession{AgentID: "agent-1", GameID: "game-1", Env: "prod"}
+	replacement := &AgentSession{AgentID: "agent-1", GameID: "game-2", Env: "prod"}
+
+	store.Upsert(existing)
+	err := store.Upsert(replacement)
+
+	require.ErrorContains(t, err, "already bound")
+	got, ok := store.Get("agent-1")
+	require.True(t, ok)
+	assert.Same(t, existing, got)
+}
+
+func TestAgentSessionHandler_HandleRegisterRejectsCrossScope(t *testing.T) {
+	listener, err := NewTCPListener(&TCPListenerConfig{Address: ":0", Insecure: true}, nil, nil, nil)
+	require.NoError(t, err)
+	defer func() { _ = listener.Close() }()
+
+	existing := &AgentSession{AgentID: "agent-1", GameID: "game-1", Env: "prod"}
+	require.NoError(t, listener.sessionStore.Upsert(existing))
+	handler := &agentSessionHandler{listener: listener}
+	body, err := proto.Marshal(&agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-2", Env: "prod",
+	})
+	require.NoError(t, err)
+
+	_, err = handler.handleRegister(context.Background(), body)
+
+	require.ErrorContains(t, err, "bind agent session")
+	got, ok := listener.sessionStore.Get("agent-1")
+	require.True(t, ok)
+	assert.Same(t, existing, got)
+	assert.False(t, handler.registered)
+}
+
 // NOTE: AgentSession method tests (Conn, Close, LastSeen) are in agent_session_test.go.
 
 // --- Tests for listenTCP ---
@@ -917,7 +953,7 @@ func TestAgentSessionHandler_HandleHeartbeat(t *testing.T) {
 			AgentID: "agent-1",
 			GameID:  "game-1",
 		}
-		listener.sessionStore.Upsert(sess)
+		require.NoError(t, listener.sessionStore.Upsert(sess))
 
 		handler := &agentSessionHandler{
 			listener: listener,
@@ -986,7 +1022,7 @@ func TestAgentSessionStore_ResolveSessionCaller(t *testing.T) {
 			AgentID: "agent-1",
 			GameID:  "game-1",
 		}
-		store.Upsert(sess)
+		require.NoError(t, store.Upsert(sess))
 
 		caller, ok := store.ResolveSessionCaller("agent-1")
 		assert.False(t, ok)
@@ -1011,7 +1047,7 @@ func TestSessionResolverAdapter_ResolveAgentConn(t *testing.T) {
 			AgentID: "agent-1",
 			GameID:  "game-1",
 		}
-		store.Upsert(sess)
+		require.NoError(t, store.Upsert(sess))
 
 		caller, ok := adapter.ResolveAgentConn("agent-1")
 		assert.False(t, ok)

@@ -131,6 +131,17 @@ func (m *DBSourceModel) ListByOwner(ctx context.Context, ownerAgentID string) ([
 	return items, err
 }
 
+// ListByOwnerAndScope returns enabled sources assigned to one agent and one
+// explicit game environment. Owner assignment is not by itself an authority
+// to cross an Agent's registration scope.
+func (m *DBSourceModel) ListByOwnerAndScope(ctx context.Context, ownerAgentID, gameID, env string) ([]DBSource, error) {
+	var items []DBSource
+	err := m.db.WithContext(ctx).
+		Where("owner_agent_id = ? AND game_id = ? AND env = ? AND enabled = ?", ownerAgentID, gameID, env, true).
+		Order("id ASC").Find(&items).Error
+	return items, err
+}
+
 // FindOne returns a source by id.
 func (m *DBSourceModel) FindOne(ctx context.Context, id uint) (*DBSource, error) {
 	var src DBSource

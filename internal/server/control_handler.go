@@ -752,12 +752,11 @@ func deriveProbeDBTargets(items []model.DBSource) ([]healthprobe.TargetConfig, s
 }
 
 // handleProbeDBTargets 响应 agent 的 db 探针目标下行拉取（R4：周期 db 探测
-// 下放归属 agent 执行）。按 db_sources.owner_agent_id = 调用方且 enabled
-// 派生目标集回给 agent；读失败回错误（agent 语义 = 保持现有目标，下轮重
-// 试），派生成功一律带非空版本（空集也有 hash）。派生面读 meta 库 db_sources
-// （DB 源是运维面资产，不随 game 分库），且不做 (gameId, env) scope 二次
-// 过滤——owner 指派本身是运维显式意图，按会话 scope 过滤会把显式指派静默
-// 丢掉。DSN 明文只在 control conn 回给归属 agent（与 agent 本地
+// 下放归属 agent 执行）。按 owner_agent_id = 调用方、(game_id, env) 与
+// Agent 注册 scope 一致且 enabled 派生目标集；owner 指派不能替代归属
+// 检查，跨 scope 源不静默下发。读失败回错误（agent 语义 = 保持现有目标，
+// 下轮重试），派生成功一律带非空版本（空集也有 hash）。DSN 明文只在
+// control conn 回给归属 agent（与 agent 本地
 // probe.targets 配置同信任边界），本 handler 不落任何含 DSN 的日志。
 func (s *ControlService) handleProbeDBTargets(ctx context.Context, data []byte) ([]byte, error) {
 	req := &opsv1.ProbeDBTargetsConfigRequest{}
@@ -783,7 +782,7 @@ func (s *ControlService) handleProbeDBTargets(ctx context.Context, data []byte) 
 		return nil, fmt.Errorf("agent session not found: %s", agentID)
 	}
 
-	items, err := dbModel.ListByOwner(ctx, agentID)
+	items, err := dbModel.ListByOwnerAndScope(ctx, agentID, sess.GameID, sess.Env)
 	if err != nil {
 		s.logger.Warn("probe db targets: read db_sources failed", "agent", agentID, "error", err)
 		return nil, fmt.Errorf("read db sources: %w", err)
