@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -52,6 +53,12 @@ func (s *recordingSend) send(_ context.Context, rep *opsv1.CaptureRuleHitReport)
 	return s.ack, nil
 }
 
+func (s *recordingSend) sentCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.sent)
+}
+
 func (s *recordingSend) waitReport(t *testing.T) *opsv1.CaptureRuleHitReport {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
@@ -98,6 +105,7 @@ func TestHitSenderSendsReport(t *testing.T) {
 
 func TestHitSenderFailureCountsDrop(t *testing.T) {
 	r := hitFixture(t)
+	r.hitRetryInterval = time.Millisecond
 	send := &recordingSend{err: errors.New("dial timeout")}
 	r.sendAlert = send.send
 
@@ -113,6 +121,40 @@ func TestHitSenderFailureCountsDrop(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal("AlertDropped not incremented after send failure")
+}
+
+func TestHitSenderRetriesAfterFailure(t *testing.T) {
+	r := hitFixture(t)
+	r.hitRetryInterval = time.Millisecond
+	send := &recordingSend{ack: &opsv1.CaptureRuleHitAck{Accepted: true}}
+	var attempts atomic.Int32
+	r.sendAlert = func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error) {
+		if attempts.Add(1) == 1 {
+			return nil, errors.New("server unavailable")
+		}
+		return send.send(ctx, rep)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r.startHitSender(ctx)
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if send.sentCount() >= 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("failed alert was not retried")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if attempts.Load() != 2 {
+		t.Fatalf("attempts = %d, want 2", attempts.Load())
+	}
+	if st := r.Stats(); st.AlertDropped != 0 {
+		t.Fatalf("dropped = %d, want 0 after successful retry", st.AlertDropped)
+	}
 }
 
 func TestHitSenderDuplicateAckAccepted(t *testing.T) {

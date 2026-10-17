@@ -52,13 +52,17 @@ var errStreamEnded = errors.New("capture source stream ended")
 // 窗口），按 Debug 记日志不告警。
 var errGatesConnNotReady = errors.New("control conn not ready")
 
-// hitQueueSize 告警上报缓冲队列容量；hitSendTimeout 单次上报超时。
-// 队列满/超时/断连一律丢弃（本地 slog 告警日志是持久记录），上报为
-// best effort，绝不背压消费循环。
+// hitQueueSize 告警上报缓冲队列容量；hitSendTimeout 单次上报超时；
+// hitMaxAttempts 单条命中的最大发送次数。入队保持非阻塞，绝不背压消费
+// 循环；已入队命中在发送失败时重试，耗尽才计丢弃。
 const (
 	hitQueueSize   = 512
 	hitSendTimeout = 5 * time.Second
+	hitMaxAttempts = 3
 )
+
+// defaultHitRetryInterval 单次命中上报的固定重试间隔（测试注入快档）。
+const defaultHitRetryInterval = 500 * time.Millisecond
 
 // captureReadinessInterval 数据源连通探测周期（10s）：与既有 capture 探针
 // 同频，不因迁移统一装配而改行为（§12 R2 只改装配路径）。
@@ -120,6 +124,8 @@ type Runner struct {
 	fetchConfig func(ctx context.Context) (*configsync.Versioned[[]byte], error)
 	// hitCh 命中→上报异步队列（容量 hitQueueSize，满即丢）。
 	hitCh chan gate.Hit
+	// hitRetryInterval 发送失败重试间隔；New 后由测试注入快档。
+	hitRetryInterval time.Duration
 
 	// cepSkippedSeen CEP 门上 skippedNoDelta 已聚合基线（sweep 周期采样
 	// 增量进 RuleEvalErrors；热换新门实例计数归零，cur<seen 视为重置基线）。
@@ -134,12 +140,13 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		log = slog.Default()
 	}
 	r := &Runner{
-		cfg:            cfg,
-		log:            log,
-		store:          source.NewStore(cfg.BookmarkPath()),
-		backoffInitial: time.Second,
-		backoffMax:     30 * time.Second,
-		hitCh:          make(chan gate.Hit, hitQueueSize),
+		cfg:              cfg,
+		log:              log,
+		store:            source.NewStore(cfg.BookmarkPath()),
+		backoffInitial:   time.Second,
+		backoffMax:       30 * time.Second,
+		hitCh:            make(chan gate.Hit, hitQueueSize),
+		hitRetryInterval: defaultHitRetryInterval,
 	}
 	r.sendAlert = func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error) {
 		c := r.conn.Load()
@@ -554,19 +561,32 @@ func (r *Runner) startHitSender(ctx context.Context) {
 	}()
 }
 
-// sendHit 单条上报（sendAlert seam；失败/重复各自记日志，不重试）。
+// sendHit 单条上报（sendAlert seam）。发送失败按固定间隔有界重试，重试
+// 耗尽才计丢弃；成功 ACK（含 duplicate）即离开队列。
 func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
-	sendCtx, cancel := context.WithTimeout(ctx, hitSendTimeout)
-	defer cancel()
-	ack, err := r.sendAlert(sendCtx, r.buildHitReport(h))
-	if err != nil {
-		atomic.AddInt64(&r.stats.AlertDropped, 1)
-		r.log.Warn("capture alert send failed", "rule", h.Rule, "error", err)
-		return
+	var lastErr error
+	for attempt := 1; attempt <= hitMaxAttempts; attempt++ {
+		sendCtx, cancel := context.WithTimeout(ctx, hitSendTimeout)
+		ack, err := r.sendAlert(sendCtx, r.buildHitReport(h))
+		cancel()
+		if err == nil {
+			if ack.GetDuplicate() {
+				r.log.Debug("capture alert duplicate suppressed", "rule", h.Rule, "key", h.Key)
+			}
+			return
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			break
+		}
+		if attempt < hitMaxAttempts {
+			if !backoff.Sleep(ctx, r.hitRetryInterval) {
+				break
+			}
+		}
 	}
-	if ack.GetDuplicate() {
-		r.log.Debug("capture alert duplicate suppressed", "rule", h.Rule, "key", h.Key)
-	}
+	atomic.AddInt64(&r.stats.AlertDropped, 1)
+	r.log.Warn("capture alert send failed", "rule", h.Rule, "attempts", hitMaxAttempts, "error", lastErr)
 }
 
 // buildHitReport 组装上报体（game/env 身份取注册配置）。
