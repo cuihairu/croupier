@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -99,38 +100,9 @@ type ProbeConfig struct {
 	MaxDetailsPerWindow int `json:"maxDetailsPerWindow,omitempty" yaml:"maxDetailsPerWindow,omitempty"`
 }
 
-// OpsConfig represents the ops module configuration
-type OpsConfig struct {
-	Enabled         bool   `json:"enabled" yaml:"enabled"`
-	MetricsInterval string `json:"metricsInterval" yaml:"metricsInterval"`
-	MetricsEnabled  bool   `json:"metricsEnabled" yaml:"metricsEnabled"`
-}
-
-// UnmarshalYAML 兼容旧部署的 snake_case 写法（metrics_interval /
-// metrics_enabled）——按配置契约，兼容只存在于解析代码，示例与文档一律
-// 使用 canonical 小驼峰。
-func (c *OpsConfig) UnmarshalYAML(value *yaml.Node) error {
-	type plain OpsConfig
-	var decoded plain
-	if err := value.Decode(&decoded); err != nil {
-		return err
-	}
-	var compat struct {
-		MetricsInterval string `yaml:"metrics_interval,omitempty"`
-		MetricsEnabled  *bool  `yaml:"metrics_enabled,omitempty"`
-	}
-	if err := value.Decode(&compat); err != nil {
-		return err
-	}
-	if decoded.MetricsInterval == "" {
-		decoded.MetricsInterval = compat.MetricsInterval
-	}
-	if !decoded.MetricsEnabled && compat.MetricsEnabled != nil {
-		decoded.MetricsEnabled = *compat.MetricsEnabled
-	}
-	*c = OpsConfig(decoded)
-	return nil
-}
+// OpsConfig is the wire-adjacent shape of agentcore.OpsConfig. It is converted
+// immediately after parsing; runtime validation and defaults stay in one place.
+type OpsConfig = agentcore.OpsConfig
 
 type AgentTLSConfig struct {
 	Enabled            bool   `json:"enabled" yaml:"enabled"`
@@ -526,7 +498,7 @@ func runAgent() error {
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	core, localAddr, err := startAgentCore(runCtx, &c, configDir)
+	core, localAddr, runErr, err := startAgentCore(runCtx, &c, configDir)
 	if err != nil {
 		return err
 	}
@@ -540,13 +512,20 @@ func runAgent() error {
 	fmt.Printf("Starting Croupier Agent (mode: %s, debug: %v)...\n", mode, debug)
 	slog.Info("agent local server started", "listen", localAddr)
 
-	<-runCtx.Done()
-	return nil
+	select {
+	case <-runCtx.Done():
+		return nil
+	case err := <-runErr:
+		if err != nil {
+			return fmt.Errorf("agent run failed: %w", err)
+		}
+		return nil
+	}
 }
 
-func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*agentcore.App, string, error) {
+func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*agentcore.App, string, <-chan error, error) {
 	if c == nil {
-		return nil, "", fmt.Errorf("missing config")
+		return nil, "", nil, fmt.Errorf("missing config")
 	}
 
 	slog.Info("loading agent config", "config_file", cfgFile, "config_dir", configDir)
@@ -599,7 +578,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 			certDir := filepath.Join(filepath.Dir(cfgFile), "certs")
 			fmt.Printf("CA cert not found, auto-generating dev certs in %s...\n", certDir)
 			if _, _, err := devcert.EnsureDevCA(certDir); err != nil {
-				return nil, "", fmt.Errorf("failed to generate CA cert: %w", err)
+				return nil, "", nil, fmt.Errorf("failed to generate CA cert: %w", err)
 			}
 			fmt.Printf("  CA: %s\n", filepath.Join(certDir, "ca.crt"))
 		}
@@ -640,7 +619,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 			c.TLS.InsecureSkipVerify,
 		)
 		if err != nil {
-			return nil, "", fmt.Errorf("agent local gateway tls: %w", err)
+			return nil, "", nil, fmt.Errorf("agent local gateway tls: %w", err)
 		}
 		core.WithLocalTLSConfig(localTLS)
 	}
@@ -648,15 +627,19 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	// Configure ops module if enabled
 	if c.Ops != nil && c.Ops.Enabled {
 		opsCfg := agentcore.DefaultOpsConfig()
+		*opsCfg = *c.Ops
 		opsCfg.Enabled = true
-		opsCfg.MetricsEnabled = c.Ops.MetricsEnabled
-		if c.Ops.MetricsInterval != "" {
-			if d, err := time.ParseDuration(c.Ops.MetricsInterval); err == nil {
-				opsCfg.MetricsInterval = d
-			}
+		if err := opsCfg.Validate(); err != nil {
+			return nil, "", nil, fmt.Errorf("invalid ops config: %w", err)
 		}
 		core.WithOpsConfig(opsCfg)
-		slog.Info("ops module enabled", "metrics_interval", opsCfg.MetricsInterval)
+		slog.Info("ops module enabled",
+			"metrics_interval", opsCfg.MetricsInterval,
+			"managed_processes", len(opsCfg.ManagedProcesses),
+			"allow_restart", opsCfg.AllowRestart,
+			"allow_exec", opsCfg.AllowExec,
+			"allow_update", opsCfg.AllowUpdate,
+		)
 	}
 
 	// 探测面参与声明（`probe:` 段存在即参与）：targets 可空——空静态目标集
@@ -668,19 +651,19 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 			MaxDetailsPerWindow: c.Probe.MaxDetailsPerWindow,
 		}
 		if err := core.WithProbeConfig(probeCfg); err != nil {
-			return nil, "", fmt.Errorf("agent probe config: %w", err)
+			return nil, "", nil, fmt.Errorf("agent probe config: %w", err)
 		}
 		slog.Info("probe face enabled", "static_targets", len(c.Probe.Targets))
 	}
 
-	// Start the agent (which now starts TCP local server internally)
+	runErr := make(chan error, 1)
 	go func() {
-		if err := core.Run(ctx); err != nil && ctx.Err() == nil {
-			slog.Error("agent run failed", "error", err)
+		if err := core.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			runErr <- err
 		}
 	}()
 
-	return core, localAddr, nil
+	return core, localAddr, runErr, nil
 }
 
 func resolveAgentID(configured string) string {

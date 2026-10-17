@@ -492,10 +492,10 @@ capture:
 
 ## 附录：三 agent 快速对照（配置面）
 
-|          | sidecar                                                                                                          | devops                           | capture              |
-| -------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------- | -------------------- |
-| 配置文件 | `agent.yaml`                                                                                                     | `devops-agent.yaml`              | `capture-agent.yaml` |
-| 必填     | `agent.gameId`+`agent.env`                                                                                       | `agent.id`+`serverAddr`+`gameId` | 同 devops            |
-| 兼容旧键 | 有（PascalCase/snake_case）                                                                                      | 无                               | 无                   |
-| 缺省形态 | 连不上上游也起（本地-only）                                                                                      | 只注册不接会话                   | 只注册不消费         |
-| 死字段   | `name`/`agent.transport`/`httpAddr`/`upstream.retryInterval`/`maxRetries`/`log.file`/`tls.serverName`/ops 富字段 | `devops.guacdAddr`               | 无                   |
+|          | sidecar                                                                                               | devops                           | capture              |
+| -------- | ----------------------------------------------------------------------------------------------------- | -------------------------------- | -------------------- |
+| 配置文件 | `agent.yaml`                                                                                          | `devops-agent.yaml`              | `capture-agent.yaml` |
+| 必填     | `agent.gameId`+`agent.env`                                                                            | `agent.id`+`serverAddr`+`gameId` | 同 devops            |
+| 兼容旧键 | 有（PascalCase/snake_case）                                                                           | 无                               | 无                   |
+| 缺省形态 | 连不上上游也起（本地-only）                                                                           | 只注册不接会话                   | 只注册不消费         |
+| 死字段   | `name`/`agent.transport`/`httpAddr`/`upstream.retryInterval`/`maxRetries`/`log.file`/`tls.serverName` | `devops.guacdAddr`               | 无                   |

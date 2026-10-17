@@ -50,6 +50,11 @@ outboundTLS:
 # Controls system metrics collection and reporting
 ops:
   enabled: true
+  # Remote operation gates. Update is independent of restart/exec and both
+  # default to fail-closed.
+  allowRestart: false
+  allowExec: false
+  allowUpdate: false
   metricsInterval: 30s
   metricsEnabled: true
   # 托管进程监管（supervisor）：每个条目以逻辑名为键。采样周期同 metricsInterval，
@@ -74,6 +79,8 @@ ops:
   #   maxSizeMB: 10
   #   maxBackups: 5
   #   maxAgeDays: 7
+  # Crash snapshot base directory (one 0700 subdirectory per process).
+  # snapshotDir: logs/snapshots
 
 # 声明式探针（probe.targets[]）：周期探测本机可达的依赖，开故障窗口并上行
 # （窗口事件 + 失败明细走告警事件面；成功率/时延/窗口时长随 metrics 批量上报）。

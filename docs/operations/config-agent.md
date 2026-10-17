@@ -65,10 +65,13 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 | `ops.metricsEnabled`  | `false`（YAML 缺省即 false，需显式置 true） | 指标开关（关掉采集但保留上报通道） |
 
 > 注：早期部署存在 `ops.metrics_interval` / `ops.metrics_enabled` snake_case 旧键，仍被兼容解析；新配置一律用上表 lowerCamelCase 键。
+> 其余 `ops` 键（`allowRestart` / `allowExec` / `allowUpdate`、`managedProcesses`、
+> `execAllowedCommands`、`supervisorLog`、`snapshotDir`）由 sidecar CLI 直接解析并透传
+> agentcore `Validate()`；非法闭集、cron 与白名单配置在启动期失败退出。
 
 ### ops.managedProcesses（托管进程监管，supervisor）
 
-> **sidecar 二进制不解析此块（死配置）**：本节为 agentcore 设计面，sidecar agent 的 OpsConfig 仅 3 键（enabled/metricsInterval/metricsEnabled），managedProcesses 从不解析。
+> `autoRestart: true` 的进程在 sidecar 正常启动路径开机拉起；运维手动停止的期望状态会跨 sidecar 重启保留。
 
 每个条目以逻辑名为键，声明一个 agent 托管进程。S1（只读监控）已交付：每 `ops.metricsInterval` 采样一次 RSS/CPU，超阈值在面板打标记（不自动杀进程），快照随 metrics 上报捎带。
 
@@ -78,7 +81,7 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 
 ### ops.allowExec（远程命令执行，§10.7 边界三件套）
 
-**agentcore 设计面，sidecar 二进制不解析此块（死配置）**——与 managedProcesses 同。`allowExec: true` 开启远程命令执行（`POST /ops/agents/:agentId/exec`），三条前置缺一不可：
+`allowExec: true` 开启远程命令执行（`POST /ops/agents/:agentId/exec`），三条前置缺一不可：
 
 1. **双闸**（既有口径）：`ops.enabled: true` + `allowExec: true` 都缺省 false，须显式同开。
 2. **白名单 fail-closed**：`execAllowedCommands` 必须非空——空列表一律拒绝一切命令，**不再等价「放行一切」**（2026-10-15 物化前为 fail-open，已纠正）。`OpsConfig.Validate()` 同步拦配置面。
@@ -94,7 +97,7 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 | `kind`                                    | `program` | 受管对象类别（闭集 `program` / `probe-adapter`，缺省 program）。`probe-adapter`=外部探测适配器，走与 program 同一套生命周期（§10.1）                                                                                                                                                                         |
 | `adapterId` / `adapterVersion`            | 空        | 适配器身份与版本（清单 metadata.id / version）。`kind=probe-adapter` 时 `adapterId` **必填**，缺失配置校验失败——它是探测面引用与授权校验的锚点                                                                                                                                                               |
 | `adapterProtocol` / `adapterCapabilities` | —         | 适配器 IPC 协议名（缺省 `croupier-probe-jsonl-v1`）与声明能力集（如 `login` / `handshake`）。**声明≠已验证**：平台仍以实际探测结果判定目标状态；游戏地址/频率/授权/凭证不进此清单（留探测面配置）                                                                                                            |
-| `autoRestart`                             | `false`   | 崩溃自动拉起开关（指数退避 + 熔断，S2 已交付）                                                                                                                                                                                                                                                               |
+| `autoRestart`                             | `false`   | 崩溃自动拉起与 sidecar 启动拉起开关（指数退避 + 熔断，S2 已交付）                                                                                                                                                                                                                                            |
 | `memThresholdBytes`                       | `0`（关） | RSS 达到该值打 `mem_over_limit` 标记                                                                                                                                                                                                                                                                         |
 | `cpuThresholdPercent`                     | `0`（关） | CPU% 达到该值打 `cpu_over_limit` 标记                                                                                                                                                                                                                                                                        |
 | `snapshotProfile`                         | `none`    | S3 崩溃快照档，闭集 `none/go/node/python/jvm`（显式声明，不做语言自动探测）：`go` 注入 `GOTRACEBACK=crash`；`node` 前置 `--report-on-fatalerror --report-exclude-env`；`python` 注入 `PYTHONFAULTHANDLER=1`；`jvm` 注入 `JAVA_TOOL_OPTIONS`（`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=<快照目录>`） |
@@ -125,7 +128,7 @@ ops:
 
 ### ops.allowUpdate（受管程序二进制更新，§10.4）
 
-**agentcore 设计面，sidecar 二进制不解析此块（死配置）**——与 managedProcesses 同。`allowUpdate: true` 开启远程换包（`POST /ops/agents/:agentId/processes/:name/update`，入参 `stagedPath` + `expectedSha256`），与 allowExec 同属双闸家族（`ops.enabled` + `allowUpdate` 都缺省 false，须显式同开），独立键控。
+`allowUpdate: true` 开启远程换包（`POST /ops/agents/:agentId/processes/:name/update`，入参 `stagedPath` + `expectedSha256`），与 allowExec 同属双闸家族（`ops.enabled` + `allowUpdate` 都缺省 false，须显式同开），独立键控。
 
 **更新状态**（§10.4）：流程=内容哈希钉扎（staged 文件 sha256 ≠ `expectedSha256` 一律拒绝，fail-closed 不碰运行态）→ 先停后换（静默核心，不发 `manual_*` 中间事件）→ 旧二进制备份 `<command>.croupier-bak`（**成功后保留**为 last-known-good，滚动覆盖，供人工回滚）→ 拉起 → 稳定性窗口（缺省 5s）内退出即自动回滚旧版。更新意图落 desired running（与手动 restart 一致）。指纹留痕三处：supervisor 事件 `update_applied` / `update_rolled_back`（message 带旧→新 sha256）、server 侧 execution_logs（`source=process_update`，持久查询主入口，按目标+时间+指纹检索）、进程快照 `fingerprint` 字段随 metrics 上行。
 

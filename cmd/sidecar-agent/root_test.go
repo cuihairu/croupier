@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -207,7 +208,7 @@ ops:
 	if err := yaml.Unmarshal(canon, &cfg); err != nil {
 		t.Fatalf("unmarshal canonical: %v", err)
 	}
-	if cfg.Ops == nil || !cfg.Ops.MetricsEnabled || cfg.Ops.MetricsInterval != "30s" {
+	if cfg.Ops == nil || !cfg.Ops.MetricsEnabled || cfg.Ops.MetricsInterval != 30*time.Second {
 		t.Fatalf("canonical ops keys not parsed: %+v", cfg.Ops)
 	}
 
@@ -221,8 +222,50 @@ ops:
 	if err := yaml.Unmarshal(legacy, &cfg2); err != nil {
 		t.Fatalf("unmarshal legacy: %v", err)
 	}
-	if cfg2.Ops == nil || cfg2.Ops.MetricsInterval != "45s" || cfg2.Ops.MetricsEnabled {
+	if cfg2.Ops == nil || cfg2.Ops.MetricsInterval != 45*time.Second || cfg2.Ops.MetricsEnabled {
 		t.Fatalf("legacy ops keys not compat-parsed: %+v", cfg2.Ops)
+	}
+}
+
+func TestAgentConfigOpsFullCanonicalKeys(t *testing.T) {
+	data := []byte(`
+ops:
+  enabled: true
+  allowRestart: true
+  allowExec: true
+  allowUpdate: true
+  metricsInterval: 4s
+  metricsEnabled: true
+  execAllowedCommands: [/bin/true]
+  execTimeout: 30s
+  supervisorLog: {dir: logs/supervisor, maxSizeMB: 10, maxBackups: 5, maxAgeDays: 7}
+  snapshotDir: logs/snapshots
+  managedProcesses:
+    sleeper:
+      command: /bin/sleep
+      args: [3600]
+      autoRestart: true
+      restartBackoffInitial: 1s
+      restartBackoffMax: 60s
+      snapshotProfile: none
+      schedule: [{action: start, cron: "* * * * *"}]
+`)
+	var cfg AgentConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	ops := cfg.Ops
+	if ops == nil || !ops.AllowRestart || !ops.AllowExec || !ops.AllowUpdate || !ops.MetricsEnabled {
+		t.Fatalf("authorization/metrics fields not parsed: %+v", ops)
+	}
+	if len(ops.ExecAllowedCommands) != 1 || ops.ManagedProcesses["sleeper"].Command != "/bin/sleep" {
+		t.Fatalf("whitelist/process fields not parsed: %+v", ops)
+	}
+	if ops.SupervisorLog.Dir != "logs/supervisor" || ops.SnapshotDir != "logs/snapshots" {
+		t.Fatalf("log/snapshot fields not parsed: %+v", ops)
+	}
+	if !ops.ManagedProcesses["sleeper"].AutoRestart || len(ops.ManagedProcesses["sleeper"].Schedule) != 1 {
+		t.Fatalf("managed process lifecycle fields not parsed: %+v", ops.ManagedProcesses)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/tasks/scheduler"
+	"gopkg.in/yaml.v3"
 )
 
 // OpsConfig defines configuration for the ops module.
@@ -17,12 +18,12 @@ type OpsConfig struct {
 
 	// AllowRestart permits process restart/stop/start operations.
 	// Requires Enabled=true. Default: false
-	AllowRestart bool `json:"allowRestart" yaml:"allow_restart"`
+	AllowRestart bool `json:"allowRestart" yaml:"allowRestart"`
 
 	// AllowExec permits arbitrary command execution.
 	// WARNING: This is extremely dangerous. Use with extreme caution.
 	// Requires Enabled=true. Default: false
-	AllowExec bool `json:"allowExec" yaml:"allow_exec"`
+	AllowExec bool `json:"allowExec" yaml:"allowExec"`
 
 	// AllowUpdate permits managed-process binary updates (§10.4 更新状态).
 	// Independent authorization gate (§10.7 程序操作=明确受授权动作): updates
@@ -33,25 +34,25 @@ type OpsConfig struct {
 
 	// MetricsInterval defines how often to collect and report metrics.
 	// Default: 30s
-	MetricsInterval time.Duration `json:"metricsInterval" yaml:"metrics_interval"`
+	MetricsInterval time.Duration `json:"metricsInterval" yaml:"metricsInterval"`
 
 	// MetricsEnabled controls whether metrics collection is active.
 	// Default: true (when Enabled=true)
-	MetricsEnabled bool `json:"metricsEnabled" yaml:"metrics_enabled"`
+	MetricsEnabled bool `json:"metricsEnabled" yaml:"metricsEnabled"`
 
 	// ManagedProcesses defines processes that can be managed (restart/stop/start).
 	// Each entry maps a logical name to a process configuration.
-	ManagedProcesses map[string]ManagedProcessConfig `json:"managedProcesses" yaml:"managed_processes"`
+	ManagedProcesses map[string]ManagedProcessConfig `json:"managedProcesses" yaml:"managedProcesses"`
 
 	// ExecAllowedCommands limits which commands can be executed.
 	// Hard prerequisite for AllowExec (agent-supervisor-design §10.7 白名单
 	// 前置): the list must be non-empty when AllowExec=true — an empty list
 	// denies everything (fail-closed), it never means "allow all".
-	ExecAllowedCommands []string `json:"execAllowedCommands" yaml:"exec_allowed_commands"`
+	ExecAllowedCommands []string `json:"execAllowedCommands" yaml:"execAllowedCommands"`
 
 	// ExecTimeout is the maximum execution time for commands.
 	// Default: 60s, Max: 300s
-	ExecTimeout time.Duration `json:"execTimeout" yaml:"exec_timeout"`
+	ExecTimeout time.Duration `json:"execTimeout" yaml:"execTimeout"`
 
 	// SupervisorLog configures the supervisor event log (rotating file). The
 	// event log is the full-truth record; a truncated copy is mirrored to the
@@ -62,6 +63,31 @@ type OpsConfig struct {
 	// sub-directory per managed process. Created with 0700 permissions (the
 	// dumps contain process memory). Default: logs/snapshots
 	SnapshotDir string `json:"snapshotDir" yaml:"snapshotDir"`
+}
+
+// UnmarshalYAML preserves the old snake_case metric keys while the remaining
+// fields use the canonical lower-camel-case configuration contract.
+func (c *OpsConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain OpsConfig
+	decoded := DefaultOpsConfig()
+	if err := value.Decode((*plain)(decoded)); err != nil {
+		return err
+	}
+	var compat struct {
+		MetricsInterval time.Duration `yaml:"metrics_interval"`
+		MetricsEnabled  *bool         `yaml:"metrics_enabled"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if compat.MetricsInterval != 0 {
+		decoded.MetricsInterval = compat.MetricsInterval
+	}
+	if compat.MetricsEnabled != nil {
+		decoded.MetricsEnabled = *compat.MetricsEnabled
+	}
+	*c = *decoded
+	return nil
 }
 
 // SupervisorLogConfig configures the rotating supervisor event log file.
@@ -117,22 +143,22 @@ type ManagedProcessConfig struct {
 	AdapterCapabilities []string `json:"adapterCapabilities" yaml:"adapterCapabilities"`
 
 	// WorkingDir is the working directory for the process.
-	WorkingDir string `json:"workingDir" yaml:"working_dir"`
+	WorkingDir string `json:"workingDir" yaml:"workingDir"`
 
 	// Env are environment variables for the process.
 	Env map[string]string `json:"env" yaml:"env"`
 
 	// GracefulTimeout is the time to wait for graceful shutdown.
 	// Default: 30s
-	GracefulTimeout time.Duration `json:"gracefulTimeout" yaml:"graceful_timeout"`
+	GracefulTimeout time.Duration `json:"gracefulTimeout" yaml:"gracefulTimeout"`
 
 	// RestartDelay is the delay before restarting after a crash.
 	// Default: 5s
-	RestartDelay time.Duration `json:"restartDelay" yaml:"restart_delay"`
+	RestartDelay time.Duration `json:"restartDelay" yaml:"restartDelay"`
 
 	// AutoRestart controls whether to automatically restart on crash.
 	// Default: false
-	AutoRestart bool `json:"autoRestart" yaml:"auto_restart"`
+	AutoRestart bool `json:"autoRestart" yaml:"autoRestart"`
 
 	// RestartBackoffInitial is the first backoff delay in the exponential
 	// restart sequence (1s → 2s → 4s …). Default: 1s
