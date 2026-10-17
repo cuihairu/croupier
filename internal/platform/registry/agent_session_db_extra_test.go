@@ -116,6 +116,30 @@ func TestAgentSessionModel_LastKnownIdentity(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestAgentSessionModel_LastKnownScope(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewAgentSessionModel(db)
+	ctx := context.Background()
+
+	require.NoError(t, model.Upsert(ctx, &AgentSession{
+		AgentID: "agent-scope", GameID: "demo", Env: "prod",
+		ExpireAt: time.Now().Add(-time.Hour), LastSeen: time.Now().Add(-time.Hour),
+	}))
+	deleted, err := model.DeleteExpired(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, deleted)
+
+	gameID, env, ok, err := model.LastKnownScope(ctx, "agent-scope")
+	require.NoError(t, err)
+	assert.True(t, ok, "offline scope anchor must survive session expiry")
+	assert.Equal(t, "demo", gameID)
+	assert.Equal(t, "prod", env)
+
+	_, _, ok, err = model.LastKnownScope(ctx, "ghost")
+	require.NoError(t, err)
+	assert.False(t, ok)
+}
+
 // TestAgentSessionModel_LastKnownIdentity_NoFingerprintLabel 指纹标签缺位时
 // 版本仍返回、指纹为空（锚点缺位，不伪造值）。
 func TestAgentSessionModel_LastKnownIdentity_NoFingerprintLabel(t *testing.T) {

@@ -83,3 +83,20 @@ func TestOpsAgentSystemInfoBootTimeFormat(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.SystemInfo.BootTime)
 }
+
+func TestOpsAgentSystemInfoRejectsCrossScopeAndUnscopedCache(t *testing.T) {
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-demo", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store, SystemInfoCache: registry.NewSystemInfoCache()}
+	svcCtx.SystemInfoCache.Set("ghost", sysInfoResp("ghost-host", "3333333333333333333333333333333333333333333333333333333333333333"))
+	scoped := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
+
+	_, err := opsAgentSystemInfo(scoped, svcCtx, &OpsAgentSystemInfoRequest{AgentID: "ghost"})
+	require.ErrorContains(t, err, "not found")
+	_, err = opsAgentSystemInfo(scoped, svcCtx, &OpsAgentSystemInfoRequest{AgentID: "agent-demo"})
+	require.NoError(t, err)
+
+	wrongScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "dev"})
+	_, err = opsAgentSystemInfo(wrongScope, svcCtx, &OpsAgentSystemInfoRequest{AgentID: "agent-demo"})
+	require.ErrorContains(t, err, "does not belong")
+}

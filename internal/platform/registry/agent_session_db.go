@@ -199,6 +199,31 @@ func (m *AgentSessionModel) LastKnownIdentity(ctx context.Context, agentID strin
 	return row.Version, sessionLabelValue(row.Labels, labels.AgentBinarySHA256), true, nil
 }
 
+// LastKnownScope returns the durable game environment bound to an Agent ID.
+// Like LastKnownIdentity it intentionally survives session expiry: historical
+// read paths still need scope authorization after an Agent goes offline.
+func (m *AgentSessionModel) LastKnownScope(ctx context.Context, agentID string) (gameID, env string, ok bool, err error) {
+	agentID = strings.TrimSpace(agentID)
+	if m == nil || m.db == nil || agentID == "" {
+		return "", "", false, nil
+	}
+
+	var row AgentSessionDB
+	res := m.db.WithContext(ctx).
+		Unscoped().
+		Where("agent_id = ?", agentID).
+		Order("last_seen DESC").
+		Limit(1).
+		Find(&row)
+	if res.Error != nil {
+		return "", "", false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return "", "", false, nil
+	}
+	return row.GameID, row.Env, true, nil
+}
+
 // sessionLabelValue 从会话标签 JSON 取键值；空串/非法 JSON 视为无该标签
 // （锚点缺位，不报错——标签是 agent 自报的可选面）。
 func sessionLabelValue(labelsJSON, key string) string {

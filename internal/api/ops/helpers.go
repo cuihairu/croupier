@@ -203,6 +203,9 @@ func opsAgentSystemInfo(ctx context.Context, svcCtx *svc.ServiceContext, req *Op
 	if svcCtx == nil {
 		return nil, errorx.NewBadRequest("service context is required")
 	}
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
 
 	// 1. 缓存优先：不打扰 agent，最后已知信息（含指纹）即可答复。
 	if svcCtx.SystemInfoCache != nil {

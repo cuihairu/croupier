@@ -111,6 +111,9 @@ func (s *AgentService) List(ctx context.Context, gameId, env, status string) ([]
 }
 
 func (s *AgentService) GetMeta(ctx context.Context, agentId string) (*OpsAgentSystemInfo, error) {
+	if err := s.requireAgentScope(ctx, agentId); err != nil {
+		return nil, err
+	}
 	store := s.svcCtx.RegistryStore
 	if store == nil {
 		return nil, errors.New("registry store unavailable")
@@ -153,6 +156,12 @@ func (s *AgentService) requireAgentScope(ctx context.Context, agentId string) er
 	if session == nil {
 		if clusterScope != nil {
 			session = clusterScope
+		} else if s.svcCtx.DB != nil {
+			gameID, env, ok, dbErr := registry.NewAgentSessionModel(s.svcCtx.DB).LastKnownScope(ctx, agentId)
+			if dbErr != nil || !ok {
+				return fmt.Errorf("agent %q not found", agentId)
+			}
+			session = &registry.AgentSession{GameID: gameID, Env: env}
 		} else {
 			return fmt.Errorf("agent %q not found", agentId)
 		}
