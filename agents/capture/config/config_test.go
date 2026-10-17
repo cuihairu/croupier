@@ -69,6 +69,7 @@ agent:
   id: capture-01
   serverAddr: 127.0.0.1:19090
   gameId: demo
+  env: prod
 `))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -89,7 +90,7 @@ agent:
 
 func TestLoadFlushIntervalOverride(t *testing.T) {
 	cfg, err := Load(writeCfg(t, `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture:
   bookmarkFlushIntervalSec: 9
 `))
@@ -127,13 +128,13 @@ func TestValidateRequiredFields(t *testing.T) {
 
 func TestValidateEnabledRequiresMySQLAndTables(t *testing.T) {
 	if _, err := Load(writeCfg(t, `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture: {enabled: true}
 `)); err == nil {
 		t.Fatal("expected error: capture.enabled without mysql")
 	}
 	if _, err := Load(writeCfg(t, `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture:
   enabled: true
   mysql: {host: h, port: 3306, user: u, serverId: 1}
@@ -200,14 +201,14 @@ func TestLegacySourceConfigShape(t *testing.T) {
 func TestValidateCanonicalSourceConfig(t *testing.T) {
 	cases := map[string]string{
 		"missing sourceType": `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture:
   enabled: true
   dsnEnv: D
   options: {tables: a.b}
 `,
 		"unknown sourceType": `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture:
   enabled: true
   sourceType: oracle
@@ -215,14 +216,14 @@ capture:
   options: {tables: a.b}
 `,
 		"missing dsnEnv": `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture:
   enabled: true
   sourceType: mysql
   options: {tables: a.b}
 `,
 		"empty tables": `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture:
   enabled: true
   sourceType: postgres
@@ -236,7 +237,7 @@ capture:
 	}
 	// mongodb 受纳（闭集扩展随 Connector 落地）：canonical 配置通过校验。
 	ok := `
-agent: {id: a, serverAddr: s:1, gameId: g}
+agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
 capture:
   enabled: true
   sourceType: mongodb

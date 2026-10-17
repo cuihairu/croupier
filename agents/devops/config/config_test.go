@@ -57,28 +57,36 @@ func TestLoadOverridesDefaults(t *testing.T) {
 }
 
 func TestValidateRequired(t *testing.T) {
-	base := Config{Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g"}}
+	base := Config{Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "prod"}}
 	if err := base.Validate(); err != nil {
 		t.Fatalf("minimal valid: %v", err)
 	}
 
-	noID := Config{Agent: Agent{ServerAddr: "s", GameID: "g"}}
+	noID := Config{Agent: Agent{ServerAddr: "s", GameID: "g", Env: "prod"}}
 	if err := noID.Validate(); err == nil {
 		t.Fatal("missing id accepted")
 	}
-	noAddr := Config{Agent: Agent{ID: "a", GameID: "g"}}
+	noAddr := Config{Agent: Agent{ID: "a", GameID: "g", Env: "prod"}}
 	if err := noAddr.Validate(); err == nil {
 		t.Fatal("missing serverAddr accepted")
 	}
-	noGame := Config{Agent: Agent{ID: "a", ServerAddr: "s"}}
+	noGame := Config{Agent: Agent{ID: "a", ServerAddr: "s", Env: "prod"}}
 	if err := noGame.Validate(); err == nil {
 		t.Fatal("missing gameId accepted")
+	}
+	noEnv := Config{Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g"}}
+	if err := noEnv.Validate(); err == nil {
+		t.Fatal("missing env accepted")
+	}
+	blankEnv := Config{Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "  "}}
+	if err := blankEnv.Validate(); err == nil {
+		t.Fatal("blank env accepted")
 	}
 }
 
 func TestValidateEnabledRequiresAllowlist(t *testing.T) {
 	enabledNoList := Config{
-		Agent:  Agent{ID: "a", ServerAddr: "s", GameID: "g"},
+		Agent:  Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "prod"},
 		Devops: Devops{Enabled: true},
 	}
 	if err := enabledNoList.Validate(); err == nil {
@@ -86,7 +94,7 @@ func TestValidateEnabledRequiresAllowlist(t *testing.T) {
 	}
 
 	badPort := Config{
-		Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g"},
+		Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "prod"},
 		Devops: Devops{Enabled: true, Allowlist: []AllowHost{
 			{Host: "h", Ports: []int{0}, Protocols: []string{"ssh"}},
 		}},
@@ -96,7 +104,7 @@ func TestValidateEnabledRequiresAllowlist(t *testing.T) {
 	}
 
 	noProtocols := Config{
-		Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g"},
+		Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "prod"},
 		Devops: Devops{Enabled: true, Allowlist: []AllowHost{
 			{Host: "h", Ports: []int{22}},
 		}},
@@ -106,7 +114,7 @@ func TestValidateEnabledRequiresAllowlist(t *testing.T) {
 	}
 
 	disabled := Config{
-		Agent:  Agent{ID: "a", ServerAddr: "s", GameID: "g"},
+		Agent:  Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "prod"},
 		Devops: Devops{Enabled: false},
 	}
 	if err := disabled.Validate(); err != nil {

@@ -35,7 +35,7 @@ type Agent struct {
 	ServerAddr string `yaml:"serverAddr" json:"serverAddr"`
 	// GameID 游戏域标签（必填，注册携带，面板按此过滤）。
 	GameID string `yaml:"gameId" json:"gameId"`
-	// Env 逻辑环境标签（prod/stage/dev，可空）。
+	// Env 逻辑环境标签（必填）。
 	Env string `yaml:"env" json:"env"`
 	// HeartbeatFile supervisable 心跳打点文件路径（监管方采样 mtime）。
 	HeartbeatFile string `yaml:"heartbeatFile" json:"heartbeatFile"`
@@ -154,16 +154,19 @@ func Load(path string) (Config, error) {
 	return cfg, nil
 }
 
-// Validate 必填项与取值校验（缺 id/serverAddr/gameId 直接报错，宁可不起进程）。
+// Validate 必填项与取值校验（缺 id/serverAddr/gameId/env 直接报错，宁可不起进程）。
 func (c Config) Validate() error {
-	if c.Agent.ID == "" {
+	if strings.TrimSpace(c.Agent.ID) == "" {
 		return fmt.Errorf("agent.id is required")
 	}
-	if c.Agent.ServerAddr == "" {
+	if strings.TrimSpace(c.Agent.ServerAddr) == "" {
 		return fmt.Errorf("agent.serverAddr is required")
 	}
-	if c.Agent.GameID == "" {
+	if strings.TrimSpace(c.Agent.GameID) == "" {
 		return fmt.Errorf("agent.gameId is required")
+	}
+	if strings.TrimSpace(c.Agent.Env) == "" {
+		return fmt.Errorf("agent.env is required")
 	}
 	if c.Capture.Enabled {
 		switch {
