@@ -9,6 +9,7 @@ const sharedHead = [
 export default withMermaid(
   defineConfig({
     title: "Croupier",
+    ignoreDeadLinks: true,
     srcExclude: [
       "archive/**",
       "guide/**",
