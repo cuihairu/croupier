@@ -86,7 +86,7 @@
 - [x] Docker workflow build-server 超时修复：gha 层缓存（含 go mod cache mount）+ timeout 15→25min，新 run 全绿（f64d569，2026-10-14）
 - [x] 文档补风控说明（2026-10-17 用户令，优先于双语文档）：见 docs/operations/risk-control.md；覆盖事件过滤、对账/CEP/血缘闸、发布预检与处置，标注血缘降级和阻断/审批未实现（commit hash 见 git log）
 - [x] 文档补运维健康监控说明（2026-10-17 用户令，优先于双语文档）：见 docs/operations/health-monitoring.md；覆盖健康接口、Agent/server 探针、平台/Agent 指标、告警阈值与日志/OTel 接入，标注运维页合成探活、服务请求指标、日志转发和自动恢复未实现（commit hash 见 git log）
-- [ ] 文档补外部服务探测说明（2026-10-17 用户令，优先于双语文档）：依赖了哪些外部服务、探测方式与频率、失败时的降级与超时策略，给 file:line；缺失项如实标注
+- [x] 文档补外部服务探测说明（2026-10-17 用户令，优先于双语文档）：见 docs/operations/external-service-probing.md；覆盖服务清单、身份源/SMTP/webhook/更新源/状态源、probe.targets 周期模型，标注周期第三方巡检、OAuth 测试、服务目录与降级编排未实现（commit hash 见 git log）
 - [ ] 文档补开发周期覆盖说明（2026-10-17 用户令，优先于双语文档）：分支模型、发布节奏、版本策略、测试与发布门禁，给 file:line；缺失项如实标注
 - [ ] 文档补 DevOps 说明（2026-10-17 用户令，优先于双语文档）：CI/CD 流程、构建产物、部署方式、回滚手段，给 file:line；缺失项如实标注
 - [ ] 文档补权限控制说明（2026-10-17 用户令，优先于双语文档）：角色与权限模型、鉴权点、敏感操作管控、堡垒机/跳板接入能力（若无则写「未实现」并给计划），给 file:line
