@@ -6,7 +6,7 @@
 
 - [ ] Agent 公共能力抽取与角色目录归位（2026-10-17 用户强调，P1）：按 docs/development/agent-runtime-layout.md 的真实消费矩阵先上收 MuxConn/session、再抽通用监管/插件进程生命周期，sidecar 专有业务逐步归位 agents/sidecar，synthetics 实现后建立 agents/synthetics 与根 cmd 入口，保持 core/agents 不 import internal 的守卫、单一实现与单一进程管理者，以每批调用链/重连/背压/退出/角色测试验收，不把文档树或空包视为迁移完成。
 - [x] 游戏数据权威归属设计补齐（2026-10-17 建议优先级 P0，待设计评审）：按 docs/design/game-operations-design-plan.md §2 列出玩家/角色/资产/封禁/订单/邮件/活动的权威系统、读写入口与副本时效，核实本地 Player/Balance 路径定位并给出收口方案，以游戏执行凭据及离线失败场景验收，设计归档不代表批准重构或新增游戏经济系统。（docs/zh/design/game-authority-ownership-design.md；全量 go test ./... 通过；docs build 因存量缺失截图失败）
-- [ ] 高风险业务操作执行契约设计（2026-10-17 建议优先级 P0，待设计评审）：按 docs/design/game-operations-design-plan.md §3 补齐 operationId、实际参数/目标/预算审批快照、游戏侧持久去重、凭据查询、重试/取消/补偿与结果未知语义，复用现有 PageSpec/审批/任务/审计，以响应丢失不重复发奖、同 ID 改参数拒绝及审批后范围变化拦截验收。
+- [x] 高风险业务操作执行契约设计（2026-10-17 建议优先级 P0，待设计评审）：按 docs/design/game-operations-design-plan.md §3 补齐 operationId、实际参数/目标/预算审批快照、游戏侧持久去重、凭据查询、重试/取消/补偿与结果未知语义，复用现有 PageSpec/审批/任务/审计，以响应丢失不重复发奖、同 ID 改参数拒绝及审批后范围变化拦截验收。（docs/zh/design/high-risk-operation-contract-design.md；全量 go test ./... 因存量菜单断言失败，其余包通过）
 - [ ] 批量运营与补偿设计（2026-10-17 建议优先级 P0，待设计评审）：按 docs/design/game-operations-design-plan.md §4 设计对象快照、预演人数/总额、审批冻结、额度/速率/并发、逐对象凭据、暂停恢复及失败阈值，复用异步任务，以故障恢复不重复执行、名单变更重审批及逐对象结果核对验收。
 - [ ] 玩家身份与业务目标模型设计（2026-10-17 建议优先级 P1，待设计评审）：按 docs/design/game-operations-design-plan.md §5 明确账号/角色/区服/大区/渠道/平台及合服旧 ID 映射，区分 scope 与业务目标，统一函数/审批/工单/审计引用，以同 ID 多区服、一账号多角色与合服后准确寻址验收。
 - [ ] 游戏维护与发布流程设计（2026-10-17 建议优先级 P1，待设计评审）：按 docs/design/game-operations-design-plan.md §6 复用现有版本/配置/supervisor/探测及任务，明确公告、登录排空、保存、备份更新、业务验证和分批开放的职责与前置条件，定义版本/配置/DB 兼容及不可逆变更恢复限制，以探测失败不开放与可执行的失败处置流程验收。
