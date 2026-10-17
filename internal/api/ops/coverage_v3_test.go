@@ -436,19 +436,16 @@ func TestOpsConfigFallbacks(t *testing.T) {
 func TestAgentMetricsHistoryBranches(t *testing.T) {
 	ctx := context.Background()
 
-	// 无 store → 空 entries 带 AgentID
-	resp, err := agentMetricsHistory(ctx, &svc.ServiceContext{}, &AgentMetricsHistoryRequest{AgentID: "a1"})
-	require.NoError(t, err)
-	assert.Equal(t, "a1", resp.AgentID)
-	assert.Empty(t, resp.Entries)
-
 	ms := registry.NewMetricsStore()
 	ms.Add("a1", &opsv1.MetricsReport{
 		Cpu:    &opsv1.CpuMetrics{UsagePercent: 10},
 		Memory: &opsv1.MemoryMetrics{TotalBytes: 1},
 		Disks:  []*opsv1.DiskMetrics{{MountPoint: "/", UsedBytes: 1, TotalBytes: 2}},
 	})
-	svcCtx := &svc.ServiceContext{MetricsStore: ms}
+	registryStore := registry.NewStore()
+	require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{MetricsStore: ms, RegistryStore: registryStore}
+	resp, err := agentMetricsHistory(ctx, svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1"})
 
 	// since/limit 默认
 	resp, err = agentMetricsHistory(ctx, svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1"})

@@ -25,7 +25,10 @@ func TestSupervisorEventsFromMetricsStore(t *testing.T) {
 		{Seq: 1, TsUnix: time.Now().Unix() - 10, Process: "app", Event: "detect_down", ExitCode: 1},
 		{Seq: 2, TsUnix: time.Now().Unix(), Process: "app", Event: "auto_restart", NewPid: 9, RestartCount: 1},
 	}})
-	svcCtx := &svc.ServiceContext{MetricsStore: store}
+	registryStore := registry.NewStore()
+	require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+	require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "ghost", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{MetricsStore: store, RegistryStore: registryStore}
 
 	// 全量。
 	resp, err := opsAgentSupervisorEvents(context.Background(), svcCtx, &OpsAgentSupervisorEventsRequest{AgentID: "a1"})
@@ -95,7 +98,9 @@ func TestOpsAgentSupervisorEventsHandler(t *testing.T) {
 	store.Add("a1", &opsv1.MetricsReport{AgentId: "a1", SupervisorEvents: []*opsv1.SupervisorEvent{
 		{Seq: 1, TsUnix: 100, Event: "detect_down"},
 	}})
-	svcCtx := &svc.ServiceContext{MetricsStore: store}
+	registryStore := registry.NewStore()
+	require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{MetricsStore: store, RegistryStore: registryStore}
 	handler := NewHandler(NewService(svcCtx))
 
 	w := httptest.NewRecorder()

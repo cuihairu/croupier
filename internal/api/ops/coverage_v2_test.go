@@ -113,15 +113,15 @@ func TestAgentMetricsHistory_V2(t *testing.T) {
 
 	t.Run("nil svcCtx", func(t *testing.T) {
 		t.Parallel()
-		resp, err := agentMetricsHistory(context.Background(), nil, &AgentMetricsHistoryRequest{AgentID: "a1"})
-		require.NoError(t, err)
-		assert.Equal(t, "a1", resp.AgentID)
-		assert.Empty(t, resp.Entries)
+		_, err := agentMetricsHistory(context.Background(), nil, &AgentMetricsHistoryRequest{AgentID: "a1"})
+		require.Error(t, err)
 	})
 
 	t.Run("nil MetricsStore", func(t *testing.T) {
 		t.Parallel()
-		svcCtx := &svc.ServiceContext{}
+		registryStore := registry.NewStore()
+		require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+		svcCtx := &svc.ServiceContext{RegistryStore: registryStore}
 		resp, err := agentMetricsHistory(context.Background(), svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1"})
 		require.NoError(t, err)
 		assert.Equal(t, "a1", resp.AgentID)
@@ -130,7 +130,9 @@ func TestAgentMetricsHistory_V2(t *testing.T) {
 
 	t.Run("with MetricsStore empty", func(t *testing.T) {
 		t.Parallel()
-		svcCtx := &svc.ServiceContext{MetricsStore: registry.NewMetricsStore()}
+		registryStore := registry.NewStore()
+		require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+		svcCtx := &svc.ServiceContext{MetricsStore: registry.NewMetricsStore(), RegistryStore: registryStore}
 		resp, err := agentMetricsHistory(context.Background(), svcCtx, &AgentMetricsHistoryRequest{
 			AgentID: "a1",
 			Since:   time.Now().Add(-time.Hour).Format(time.RFC3339),
@@ -143,7 +145,9 @@ func TestAgentMetricsHistory_V2(t *testing.T) {
 
 	t.Run("default since and limit", func(t *testing.T) {
 		t.Parallel()
-		svcCtx := &svc.ServiceContext{MetricsStore: registry.NewMetricsStore()}
+		registryStore := registry.NewStore()
+		require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+		svcCtx := &svc.ServiceContext{MetricsStore: registry.NewMetricsStore(), RegistryStore: registryStore}
 		resp, err := agentMetricsHistory(context.Background(), svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1"})
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
@@ -151,7 +155,9 @@ func TestAgentMetricsHistory_V2(t *testing.T) {
 
 	t.Run("invalid since time", func(t *testing.T) {
 		t.Parallel()
-		svcCtx := &svc.ServiceContext{MetricsStore: registry.NewMetricsStore()}
+		registryStore := registry.NewStore()
+		require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+		svcCtx := &svc.ServiceContext{MetricsStore: registry.NewMetricsStore(), RegistryStore: registryStore}
 		resp, err := agentMetricsHistory(context.Background(), svcCtx, &AgentMetricsHistoryRequest{
 			AgentID: "a1",
 			Since:   "not-a-date",

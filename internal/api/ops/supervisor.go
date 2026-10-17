@@ -122,6 +122,9 @@ func agentSupervisorFromEntry(agentID string, entry *registry.MetricsEntry) *Ops
 }
 
 func opsAgentSupervisor(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentSupervisorRequest) (*OpsAgentSupervisorResponse, error) {
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
 	if svcCtx == nil || svcCtx.MetricsStore == nil {
 		return nil, errors.New("metrics store unavailable")
 	}
@@ -162,6 +165,9 @@ func supervisorEventFromProto(ev *opsv1.SupervisorEvent) OpsSupervisorEvent {
 }
 
 func opsAgentSupervisorEvents(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentSupervisorEventsRequest) (*OpsAgentSupervisorEventsResponse, error) {
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
 	if svcCtx == nil || svcCtx.MetricsStore == nil {
 		return nil, errors.New("metrics store unavailable")
 	}
@@ -183,6 +189,9 @@ func opsAgentSupervisorEvents(ctx context.Context, svcCtx *svc.ServiceContext, r
 // 走文件下载而非 JSON envelope（CLAUDE.md API 契约显式豁免类）。agent 会话
 // 不存在时返回 404 语义错误。
 func opsAgentSupervisorLog(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
 	if svcCtx == nil {
 		return nil, errors.New("service context unavailable")
 	}

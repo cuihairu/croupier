@@ -110,8 +110,11 @@ func TestOpsAgentSupervisor_FromMetricsStore(t *testing.T) {
 		},
 	}
 	store.Add("a1", report)
+	registryStore := registry.NewStore()
+	require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+	require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "ghost", GameID: "demo", Env: "prod"}))
 
-	svcCtx := &svc.ServiceContext{MetricsStore: store}
+	svcCtx := &svc.ServiceContext{MetricsStore: store, RegistryStore: registryStore}
 	resp, err := opsAgentSupervisor(context.Background(), svcCtx, &OpsAgentSupervisorRequest{AgentID: "a1"})
 	require.NoError(t, err)
 	assert.Equal(t, "a1", resp.AgentID)
@@ -163,7 +166,9 @@ func TestOpsAgentSupervisorHandler_ParamFallback(t *testing.T) {
 	store.Add("a1", &opsv1.MetricsReport{AgentId: "a1", SupervisedProcesses: []*opsv1.SupervisedProcessSnapshot{
 		{Name: "gameserver", Pid: 7, State: opsv1.ProcessState_PROCESS_STATE_RUNNING},
 	}})
-	svcCtx := &svc.ServiceContext{MetricsStore: store}
+	registryStore := registry.NewStore()
+	require.NoError(t, registryStore.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{MetricsStore: store, RegistryStore: registryStore}
 	handler := NewHandler(NewService(svcCtx))
 
 	w := httptest.NewRecorder()
