@@ -6,7 +6,7 @@ title: 通用 CDC 核心库与事件回放设计
 
 ## 状态与结论
 
-- 状态：L1/L2 核心、Croupier 可选 journal 接线与通用恢复协调契约已实现；MySQL/Mongo 不再误报完整事务边界，恢复门禁拒绝缺失能力；PostgreSQL 目标 DML 应用器已实现并覆盖真实隔离库事务、幂等、冲突拒绝与回滚；具体源快照/schema history 仍待实施（2026-10-19）。
+- 状态：L1/L2 核心、Croupier 可选 journal 接线与通用恢复协调契约已实现；MySQL/Mongo 不再误报完整事务边界，恢复门禁拒绝缺失能力；PostgreSQL 目标 DML 应用器与持久审计适配已实现，真实隔离库覆盖事务、幂等、冲突拒绝、回滚、dry-run、apply 与重放；具体源快照/schema history 仍待实施（2026-10-19）。
 - 结论：方向成熟、技术上可行。先在本仓建立业务无关的 Go package 边界，等契约有第二个真实消费者且版本策略稳定后，再拆成独立 Go module / 仓库。
 - 目标不是采集所有表。每个数据源必须显式声明感兴趣的库表和操作；核心库负责通用选择、源端可用时下推，并在事件进入下游前再次过滤。
 - “可回放”不等于“任意数据库都能完整 PITR”。只记录筛选后的事件时，只能恢复已采集范围；完整时间点恢复还需要一致性快照、连续位点、事务边界、DDL/schema 历史和目标库应用器。
@@ -58,12 +58,12 @@ Croupier adapter 已提供可选 `capture.journal` 配置：filter include 从�
 
 ## 阶段与验收
 
-| 阶段 | 范围                                                                                                                      | 验收                                                                                                                                    |
-| ---- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| L1   | 独立 CDC 契约与通用 include/exclude 过滤                                                                                  | 无 Croupier import；空 include 默认拒绝；exclude 优先；旧 connector import 兼容；源过滤和 runtime 过滤一致                              |
-| L2   | 可选 append-only journal 与顺序回放 API（已实现）                                                                         | 崩溃残尾处理、校验损坏、幂等 append、范围回放、事务不完整拒绝、sink 失败不推进读取游标；journal 持久化后再 ack source 位点              |
-| L3   | Croupier 接线与运维配置（已实现可选本地接线）                                                                             | game/env 留在 adapter；表白名单/操作/exclude 编译为通用 filter；同一个 source stream 在 ack 前写日志；容量满时 fail closed              |
-| L4   | 通用恢复协调契约（已实现）                                                                                                | 精确 scope、授权、快照覆盖校验、source/target 能力门禁、dry-run、事务原子回滚与幂等契约、持久审计                                       |
-| L5   | 具体数据库快照与目标库 adapter（PostgreSQL 目标 DML adapter 已实现；source snapshot/schema history 与审计产品适配未实现） | 每种 source/target 验证 snapshot/before/transaction/schema 能力；真实隔离库 dry-run、事务应用、失败回滚和审计集成；无能力的来源保持拒绝 |
+| 阶段 | 范围                                                                                                                  | 验收                                                                                                                                    |
+| ---- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| L1   | 独立 CDC 契约与通用 include/exclude 过滤                                                                              | 无 Croupier import；空 include 默认拒绝；exclude 优先；旧 connector import 兼容；源过滤和 runtime 过滤一致                              |
+| L2   | 可选 append-only journal 与顺序回放 API（已实现）                                                                     | 崩溃残尾处理、校验损坏、幂等 append、范围回放、事务不完整拒绝、sink 失败不推进读取游标；journal 持久化后再 ack source 位点              |
+| L3   | Croupier 接线与运维配置（已实现可选本地接线）                                                                         | game/env 留在 adapter；表白名单/操作/exclude 编译为通用 filter；同一个 source stream 在 ack 前写日志；容量满时 fail closed              |
+| L4   | 通用恢复协调契约（已实现）                                                                                            | 精确 scope、授权、快照覆盖校验、source/target 能力门禁、dry-run、事务原子回滚与幂等契约、持久审计                                       |
+| L5   | 具体数据库快照与目标库 adapter（PostgreSQL 目标 DML adapter 与审计适配已实现；source snapshot/schema history 未实现） | 每种 source/target 验证 snapshot/before/transaction/schema 能力；真实隔离库 dry-run、事务应用、失败回滚和审计集成；无能力的来源保持拒绝 |
 
 L1/L2 是可独立复用的库能力；L3 是产品接入；L4 是数据库无关的恢复协调边界；只有 L5 完成后，具体数据库才可被称为“可恢复”。

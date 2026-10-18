@@ -512,7 +512,7 @@ jobs:
           TEST_POSTGRES_RECOVERY_DSN: "postgres://postgres:postgres@127.0.0.1:13308/postgres?sslmode=disable"
         run: |
           go test -tags=integration -count=1 -timeout 8m \
-            -run 'TestPostgresApplierRealTarget' \
+            -run 'TestPostgresApplierRealTarget|TestPostgresRecoveryExecutorDryRunApplyAndRetry' \
             ./pkg/cdc/recovery/postgres/ -v
       - name: MongoDB change streams connector tests
         timeout-minutes: 10
