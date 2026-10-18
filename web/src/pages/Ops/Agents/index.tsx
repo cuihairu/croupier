@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, Space, Table } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage } from '@umijs/max';
 import { listOpsAgentsByType, type AgentType } from '@/services/api/ops';
+import { getScope } from '@/stores/scope';
+import { useScopeReload } from '@/hooks/useScopeReload';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import NodeDetailDrawer from '../Nodes/NodeDetailDrawer';
 import SupervisorDrawer from '../Nodes/SupervisorDrawer';
@@ -50,21 +52,36 @@ export default function OpsAgentsPage({ agentType }: AgentPageProps) {
   const [query, setQuery] = useState('');
   const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
   const [supervisorNode, setSupervisorNode] = useState<NodeRow | null>(null);
+  const requestId = useRef(0);
   const meta = AGENT_META[agentType];
 
   const load = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
     setLoading(true);
     try {
       const response = await listOpsAgentsByType(agentType);
-      setRows((response.nodes || []).map(normalizeOpsNode));
+      if (currentRequestId === requestId.current) {
+        setRows((response.nodes || []).map(normalizeOpsNode));
+      }
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestId.current) {
+        setLoading(false);
+      }
     }
-  }, [agentType]);
+  }, [agentType, getScope]);
+
+  const { scope, scopeKey } = useScopeReload(load);
+  const initialScopeKey = useRef(scopeKey);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (initialScopeKey.current === scopeKey) return;
+    initialScopeKey.current = scopeKey;
+    setRows([]);
+  }, [scopeKey]);
 
   const data = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -89,7 +106,7 @@ export default function OpsAgentsPage({ agentType }: AgentPageProps) {
   return (
     <PageContainer
       title={meta.title}
-      subTitle={`${summary.total ? '当前 scope' : '当前 scope'} · ${agentType}`}
+      subTitle={`当前 scope · gameId=${scope.gameId || '-'} env=${scope.env || '-'} · ${agentType}`}
     >
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview

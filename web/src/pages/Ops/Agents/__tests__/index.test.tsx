@@ -1,7 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import OpsAgentsPage, { AGENT_META } from '../index';
 import { listOpsAgentsByType } from '@/services/api/ops';
+import { setScope } from '@/stores/scope';
 
 jest.mock('@/services/api/ops', () => ({
   listOpsAgentsByType: jest.fn(),
@@ -18,6 +19,11 @@ jest.mock('@umijs/max', () => ({
 const { listOpsAgentsByType } = jest.requireMock('@/services/api/ops') as {
   listOpsAgentsByType: jest.Mock;
 };
+
+beforeEach(() => {
+  listOpsAgentsByType.mockReset();
+  setScope({ gameId: 'demo', env: 'prod' }, { persist: false, emit: false });
+});
 
 jest.mock('../../Nodes/NodeDetailDrawer', () => ({
   __esModule: true,
@@ -80,6 +86,7 @@ it('lists sidecar instances with explicit scope columns and type', async () => {
   });
   render(<OpsAgentsPage agentType="sidecar" />);
   expect(await screen.findByText('sidecar-1')).toBeInTheDocument();
+  expect(screen.getByText(/gameId=demo env=prod/)).toBeInTheDocument();
   expect(screen.getByText('demo')).toBeInTheDocument();
   expect(screen.getByText('prod')).toBeInTheDocument();
   expect(screen.getByText('sidecar')).toBeInTheDocument();
@@ -130,4 +137,45 @@ it('opens detail without supervisor actions for non-sidecar types', async () => 
   fireEvent.click(await screen.findByText('详 情', { selector: 'button > span' }));
   expect(await screen.findByText('detail:capture-1:demo:prod')).toBeInTheDocument();
   expect(screen.queryByText('监 管', { selector: 'button > span' })).not.toBeInTheDocument();
+});
+
+it('ignores a stale response from an earlier scope', async () => {
+  setScope({ gameId: 'game-a', env: 'dev' }, { persist: false, emit: false });
+  let resolveFirst!: (value: unknown) => void;
+  let resolveSecond!: (value: unknown) => void;
+  listOpsAgentsByType.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      }),
+  );
+  listOpsAgentsByType.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveSecond = resolve;
+      }),
+  );
+
+  render(<OpsAgentsPage agentType="sidecar" />);
+  await waitFor(() => expect(listOpsAgentsByType).toHaveBeenCalledTimes(1));
+
+  act(() => {
+    setScope({ gameId: 'game-b', env: 'prod' }, { persist: false, emit: true });
+  });
+  await waitFor(() => expect(listOpsAgentsByType).toHaveBeenCalledTimes(2));
+  expect(screen.getByText(/gameId=game-b env=prod/)).toBeInTheDocument();
+
+  act(() => {
+    resolveFirst({
+      nodes: [{ id: 'sidecar-a', gameId: 'game-a', env: 'dev', labels: { role: 'sidecar' } }],
+    });
+  });
+  await waitFor(() => expect(screen.queryByText('sidecar-a')).not.toBeInTheDocument());
+
+  act(() => {
+    resolveSecond({
+      nodes: [{ id: 'sidecar-b', gameId: 'game-b', env: 'prod', labels: { role: 'sidecar' } }],
+    });
+  });
+  expect(await screen.findByText('sidecar-b')).toBeInTheDocument();
 });
