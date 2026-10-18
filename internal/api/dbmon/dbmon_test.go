@@ -23,6 +23,7 @@ func newDBMonFixture(t *testing.T) (*Service, *model.DBSourceModel, *model.Alert
 	srcModel := model.NewDBSourceModel(db)
 	alertModel := model.NewAlertModel(db)
 	return NewService(&svc.ServiceContext{
+		DB:            db,
 		DBSourceModel: srcModel,
 		AlertModel:    alertModel,
 	}), srcModel, alertModel

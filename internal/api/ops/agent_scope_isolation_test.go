@@ -73,3 +73,36 @@ func TestAgentSupervisorReadsAllowMatchingScope(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "agent-a", events.AgentID)
 }
+
+func TestAgentActionsRequireScope(t *testing.T) {
+	caller := &fakeCaller{respFor: map[uint32]proto.Message{
+		protocol.MsgExecuteCommandRequest: &opsv1.ExecuteCommandResponse{},
+		protocol.MsgStartProcessRequest:   &opsv1.StartProcessResponse{},
+		protocol.MsgStopProcessRequest:    &opsv1.StopProcessResponse{},
+		protocol.MsgRestartProcessRequest: &opsv1.RestartProcessResponse{},
+		protocol.MsgUpdateProcessRequest:  &opsv1.UpdateProcessResponse{},
+		protocol.MsgSchedulePauseRequest:  &opsv1.SchedulePauseResponse{},
+	}}
+	client := agentops.GetAgentOpsClient()
+	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-a": caller}})
+	t.Cleanup(func() { client.SetSessionResolver(nil) })
+
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-a", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "other", Env: "prod"})
+
+	_, err := opsAgentExecCommand(ctx, svcCtx, &OpsExecCommandRequest{AgentID: "agent-a"})
+	require.ErrorContains(t, err, "does not belong")
+	_, err = opsAgentProcessStart(ctx, svcCtx, &OpsProcessStartRequest{AgentID: "agent-a"})
+	require.ErrorContains(t, err, "does not belong")
+	_, err = opsAgentProcessStop(ctx, svcCtx, &OpsProcessActionRequest{AgentID: "agent-a"})
+	require.ErrorContains(t, err, "does not belong")
+	_, err = opsAgentProcessRestart(ctx, svcCtx, &OpsProcessActionRequest{AgentID: "agent-a"})
+	require.ErrorContains(t, err, "does not belong")
+	_, err = opsAgentProcessUpdate(ctx, svcCtx, &OpsProcessUpdateRequest{AgentID: "agent-a"})
+	require.ErrorContains(t, err, "does not belong")
+	_, err = opsAgentProcessSchedulePause(ctx, svcCtx, &OpsProcessSchedulePauseRequest{AgentID: "agent-a"})
+	require.ErrorContains(t, err, "does not belong")
+	assert.Empty(t, caller.calls)
+}
