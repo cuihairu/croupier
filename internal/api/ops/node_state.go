@@ -37,7 +37,11 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 	}
 
 	now := time.Now()
-	statusFilter := normalizeNodeStatusFilter(status)
+	roleFilter := normalizeAgentRoleFilter(normalizeNodeStatusFilter(status))
+	statusFilter := ""
+	if roleFilter == "" {
+		statusFilter = normalizeNodeStatusFilter(status)
+	}
 	items := make([]nodeListItem, 0)
 	registered := make(map[string]bool)
 
@@ -91,6 +95,9 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 				nodeStatus = resolveNodeStatus(sess, drainedNodes[sess.AgentID], now)
 			}
 			if !nodeStatusMatches(statusFilter, nodeStatus) {
+				continue
+			}
+			if !agentRoleMatches(sess.Labels["role"], roleFilter) {
 				continue
 			}
 
@@ -156,6 +163,22 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 		nodes = append(nodes, item.node)
 	}
 	return nodes
+}
+
+func normalizeAgentRoleFilter(statusFilter string) string {
+	switch statusFilter {
+	case "sidecar", "devops", "capture", "synthetics":
+		return statusFilter
+	default:
+		return ""
+	}
+}
+
+func agentRoleMatches(role, roleFilter string) bool {
+	if roleFilter == "" {
+		return true
+	}
+	return strings.TrimSpace(role) == roleFilter
 }
 
 func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string, metricsStore *registry.MetricsStore) nodeListItem {

@@ -46,6 +46,27 @@ func TestListNodes_ExposesAgentVersion(t *testing.T) {
 	assert.Equal(t, "1.4.2", nodes[0].Version)
 }
 
+func TestListNodesFiltersAgentRole(t *testing.T) {
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "capture-a", GameID: "g1", Env: "prod", Addr: "h:3",
+		Labels: map[string]string{"role": "capture"}, Functions: map[string]registry.FunctionMeta{},
+		LastSeen: time.Now(), ExpireAt: time.Now().Add(time.Hour),
+	}))
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "capture-b", GameID: "g1", Env: "prod", Addr: "h:2",
+		Labels: map[string]string{"role": "capture"}, Functions: map[string]registry.FunctionMeta{},
+		LastSeen: time.Now(), ExpireAt: time.Now().Add(time.Hour),
+	}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
+
+	nodes := listNodes(context.Background(), svcCtx, "g1", "prod", "capture")
+	require.Len(t, nodes, 2)
+	for _, node := range nodes {
+		assert.Equal(t, "capture", node.Labels["role"])
+	}
+}
+
 func TestOpsNodeDetail_FoundSameSourceAsList(t *testing.T) {
 	store := registry.NewStore()
 	seedDetailAgent(store, "a1", "g1", "1.4.2")

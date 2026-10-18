@@ -701,6 +701,13 @@ export async function listOpsNodes() {
   return { nodes: (response?.nodes || []).map(normalizeOpsNode) };
 }
 
+export async function listOpsAgentsByType(agentType: AgentType) {
+  const response = await request<{ nodes?: RawOpsNode[] }>(
+    `/api/v1/ops/nodes?status=${encodeURIComponent(agentType)}`,
+  );
+  return { nodes: (response?.nodes || []).map(normalizeOpsNode) };
+}
+
 export async function drainOpsNode(id: string) {
   return request<void>(`/api/v1/ops/nodes/${encodeURIComponent(id)}/drain`, {
     method: 'POST',
@@ -1231,3 +1238,5 @@ export async function listOpsTaskOperatorOptions(): Promise<ServerSelectOptionRo
   const res = await request<{ items?: ServerSelectOptionRow[] }>('/api/v1/tasks/operator-options');
   return res.items ?? [];
 }
+
+export type AgentType = 'sidecar' | 'devops' | 'capture' | 'synthetics';

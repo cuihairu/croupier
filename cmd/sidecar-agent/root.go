@@ -548,6 +548,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 
 	// 收集系统标签
 	labels := collectSystemLabels()
+	labels["role"] = "sidecar"
 	// Merge with config labels
 	for k, v := range c.Agent.Labels {
 		labels[k] = v

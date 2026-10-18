@@ -447,6 +447,30 @@ export default [
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       {
+        path: '/ops/agents/sidecar',
+        name: 'SidecarAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/sidecar',
+      },
+      {
+        path: '/ops/agents/devops',
+        name: 'DevopsAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/devops',
+      },
+      {
+        path: '/ops/agents/capture',
+        name: 'CaptureAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/capture',
+      },
+      {
+        path: '/ops/agents/synthetics',
+        name: 'SyntheticsAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/synthetics',
+      },
+      {
         // LB 监控（管道用开源：haproxy exporter → prometheus → 平台原生渲染；
         // docs/operations/load-balancing.md「LB 监控」）
         path: '/ops/lb',
