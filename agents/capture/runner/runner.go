@@ -126,6 +126,7 @@ type Runner struct {
 	hitCh chan gate.Hit
 	// hitRetryInterval 发送失败重试间隔；New 后由测试注入快档。
 	hitRetryInterval time.Duration
+	hitSpool         *alertSpool
 
 	// cepSkippedSeen CEP 门上 skippedNoDelta 已聚合基线（sweep 周期采样
 	// 增量进 RuleEvalErrors；热换新门实例计数归零，cur<seen 视为重置基线）。
@@ -147,6 +148,7 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		backoffMax:       30 * time.Second,
 		hitCh:            make(chan gate.Hit, hitQueueSize),
 		hitRetryInterval: defaultHitRetryInterval,
+		hitSpool:         newAlertSpool(cfg.AlertSpoolPath()),
 	}
 	r.sendAlert = func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error) {
 		c := r.conn.Load()
@@ -549,6 +551,9 @@ func (r *Runner) recordHits(hits []gate.Hit) {
 // startHitSender 告警上报循环：从队列取命中异步送上游；ctx 取消退出
 // （Run 生命周期同频，在途发送随 ctx 中止）。
 func (r *Runner) startHitSender(ctx context.Context) {
+	if r.hitSpool != nil {
+		go r.drainSpool(ctx)
+	}
 	go func() {
 		for {
 			select {
@@ -561,9 +566,37 @@ func (r *Runner) startHitSender(ctx context.Context) {
 	}()
 }
 
+// drainSpool replays durable pending alerts in order and retries until ACKed
+// or the sender context is cancelled.
+func (r *Runner) drainSpool(ctx context.Context) {
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		h, ok := r.hitSpool.next()
+		if !ok {
+			return
+		}
+		r.sendHit(ctx, h)
+		if ctx.Err() != nil {
+			return
+		}
+		backoff.Sleep(ctx, r.hitRetryInterval)
+	}
+}
+
 // sendHit 单条上报（sendAlert seam）。发送失败按固定间隔有界重试，重试
 // 耗尽才计丢弃；成功 ACK（含 duplicate）即离开队列。
 func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
+	var spoolKey string
+	if r.hitSpool != nil {
+		spoolKey = r.hitSpool.key(h)
+		if err := r.hitSpool.enqueue(h); err != nil {
+			r.log.Warn("capture alert spool write failed", "rule", h.Rule, "error", err)
+			atomic.AddInt64(&r.stats.AlertDropped, 1)
+			return
+		}
+	}
 	var lastErr error
 	for attempt := 1; attempt <= hitMaxAttempts; attempt++ {
 		sendCtx, cancel := context.WithTimeout(ctx, hitSendTimeout)
@@ -572,6 +605,11 @@ func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
 		if err == nil {
 			if ack.GetDuplicate() {
 				r.log.Debug("capture alert duplicate suppressed", "rule", h.Rule, "key", h.Key)
+			}
+			if r.hitSpool != nil {
+				if ackErr := r.hitSpool.ack(spoolKey); ackErr != nil {
+					r.log.Warn("capture alert ack cleanup failed", "rule", h.Rule, "error", ackErr)
+				}
 			}
 			return
 		}

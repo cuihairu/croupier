@@ -124,7 +124,7 @@ func TestHitSenderFailureCountsDrop(t *testing.T) {
 }
 
 func TestHitSenderRetriesAfterFailure(t *testing.T) {
-	r := hitFixture(t)
+	r := hitFixtureWithoutSpool(t)
 	r.hitRetryInterval = time.Millisecond
 	send := &recordingSend{ack: &opsv1.CaptureRuleHitAck{Accepted: true}}
 	var attempts atomic.Int32

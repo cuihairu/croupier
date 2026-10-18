@@ -213,6 +213,15 @@ func (c Config) BookmarkPath() string {
 	return fmt.Sprintf("%s/%s.json", dir, t)
 }
 
+// AlertSpoolPath 未 ACK 告警的持久化文件，与位点同目录但独立原子写。
+func (c Config) AlertSpoolPath() string {
+	dir := c.Capture.BookmarkDir
+	if dir == "" {
+		dir = "data/capture/bookmarks"
+	}
+	return dir + "/alerts.pending.json"
+}
+
 // FlushInterval 位点落盘间隔（秒→Duration，非法值回落 5s）。
 func (c Config) FlushInterval() time.Duration {
 	if c.Capture.BookmarkFlushIntervalSec > 0 {
