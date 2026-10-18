@@ -407,7 +407,7 @@ func TestStartCluster_ReconcileLoop(t *testing.T) {
 
 	// 声明归属行后把 last_seen_at 拨旧，等 reconcile tick 续期回新
 	require.NoError(t, svcCtx.Cluster.Resolver.ClaimOwner(
-		context.Background(), "agent-recon", "demo", "prod", "server-recon", lc.Epoch()))
+		context.Background(), "agent-recon", "demo", "prod", "server-recon", lc.Epoch(), nil))
 	stale := time.Now().Add(-2 * time.Minute)
 	require.NoError(t, svcCtx.DB.Model(&cluster.AgentOwnerRecord{}).
 		Where("agent_id = ?", "agent-recon").

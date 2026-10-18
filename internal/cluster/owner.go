@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -12,13 +13,15 @@ import (
 // AgentOwnerRecord 记录 agent 连接归属（谁持有该 Agent 的 TCP session）。
 // 多实例模式下由持有连接的实例在 Agent 注册/重连时写入，断连时清除。
 type AgentOwnerRecord struct {
-	ID         uint      `gorm:"primaryKey"`
-	AgentID    string    `gorm:"size:128;uniqueIndex;not null"`
-	InstanceID string    `gorm:"size:64;index;not null"`
-	OwnerEpoch uint64    `gorm:"not null;default:1"`
-	GameID     string    `gorm:"size:64"`
-	Env        string    `gorm:"size:64"`
-	LastSeenAt time.Time `gorm:"not null"`
+	ID         uint              `gorm:"primaryKey"`
+	AgentID    string            `gorm:"size:128;uniqueIndex;not null"`
+	InstanceID string            `gorm:"size:64;index;not null"`
+	OwnerEpoch uint64            `gorm:"not null;default:1"`
+	GameID     string            `gorm:"size:64"`
+	Env        string            `gorm:"size:64"`
+	Labels     string            `gorm:"type:text"`
+	LabelsMap  map[string]string `gorm:"-:all"`
+	LastSeenAt time.Time         `gorm:"not null"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -60,7 +63,7 @@ func (r *DBOwnerResolver) EnsureTable(ctx context.Context) error {
 
 // ClaimOwner 声明本实例持有该 Agent（注册/重连时调用）。
 // 幂等：覆盖写。epoch 取 owner 实例当前任期。
-func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env string, instanceID string, epoch uint64) error {
+func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env, instanceID string, epoch uint64, labels map[string]string) error {
 	now := time.Now().UTC()
 	var existing AgentOwnerRecord
 	err := r.db.WithContext(ctx).Where("agent_id = ?", agentID).First(&existing).Error
@@ -74,6 +77,7 @@ func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env s
 			"owner_epoch":  epoch,
 			"gameId":       gameID,
 			"env":          env,
+			"labels":       encodeOwnerLabels(labels),
 			"last_seen_at": now,
 		}
 		return r.db.WithContext(ctx).Model(&AgentOwnerRecord{}).
@@ -85,6 +89,7 @@ func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env s
 			OwnerEpoch: epoch,
 			GameID:     gameID,
 			Env:        env,
+			Labels:     encodeOwnerLabels(labels),
 			LastSeenAt: now,
 		}
 		return r.db.WithContext(ctx).Create(&rec).Error
@@ -188,7 +193,30 @@ func (r *DBOwnerResolver) ListAliveOwners(ctx context.Context) ([]AgentOwnerReco
 	if err != nil {
 		return nil, err
 	}
+	for i := range rows {
+		rows[i].LabelsMap = decodeOwnerLabels(rows[i].Labels)
+	}
 	return rows, nil
+}
+
+func encodeOwnerLabels(labels map[string]string) string {
+	if labels == nil {
+		return "{}"
+	}
+	encoded, err := json.Marshal(labels)
+	if err != nil {
+		return "{}"
+	}
+	return string(encoded)
+}
+
+func decodeOwnerLabels(encoded string) map[string]string {
+	labels := map[string]string{}
+	if encoded == "" {
+		return labels
+	}
+	_ = json.Unmarshal([]byte(encoded), &labels)
+	return labels
 }
 
 // FindOwner 返回归属记录（不受 TTL 过滤——心跳自愈需要回读真实 scope，
@@ -204,6 +232,7 @@ func (r *DBOwnerResolver) FindOwner(ctx context.Context, agentID string) (*Agent
 		}
 		return nil, err
 	}
+	rec.LabelsMap = decodeOwnerLabels(rec.Labels)
 	return &rec, nil
 }
 

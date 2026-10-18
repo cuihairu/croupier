@@ -766,6 +766,7 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 					{AgentID: "agent-remote", InstanceID: "peer", GameID: "g1", Env: "prod", LastSeenAt: now},
 					{AgentID: "agent-drained", InstanceID: "peer", GameID: "g1", Env: "prod", LastSeenAt: now},
 					{AgentID: "agent-only-owner", InstanceID: "peer", GameID: "g1", Env: "prod", LastSeenAt: now.Add(-time.Minute)},
+					{AgentID: "agent-owner-capture", InstanceID: "peer", GameID: "g1", Env: "prod", LabelsMap: map[string]string{"role": "capture"}, LastSeenAt: now},
 					{AgentID: "agent-other-game", InstanceID: "peer", GameID: "gX", Env: "prod", LastSeenAt: now},
 					{AgentID: "agent-other-env", InstanceID: "peer", GameID: "g1", Env: "dev", LastSeenAt: now},
 				}, nil
@@ -791,6 +792,17 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "online", onlyOwner.Status)
 	assert.Equal(t, "peer", onlyOwner.Labels["ownerInstance"])
+
+	// 四类页按 role 过滤：仅归属表可见的远端 Agent 仍保留 type。
+	captureNodes := listNodes(context.Background(), svcCtx, "g1", "prod", "capture")
+	captureByID := map[string]Node{}
+	for _, n := range captureNodes {
+		captureByID[n.Id] = n
+	}
+	require.Contains(t, captureByID, "agent-owner-capture")
+	assert.Equal(t, "capture", captureByID["agent-owner-capture"].Labels["role"])
+	assert.NotContains(t, captureByID, "agent-other-game")
+	assert.NotContains(t, captureByID, "agent-other-env")
 	// 过滤掉其他 game/env
 	assert.NotContains(t, byID, "agent-other-game")
 	assert.NotContains(t, byID, "agent-other-env")

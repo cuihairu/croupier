@@ -111,20 +111,20 @@ func TestOwnerResolver_ClaimResolveRelease(t *testing.T) {
 	ctx := context.Background()
 
 	// 自己持有。
-	require.NoError(t, resolver.ClaimOwner(ctx, "agent-1", "demo", "prod", "self", 1))
+	require.NoError(t, resolver.ClaimOwner(ctx, "agent-1", "demo", "prod", "self", 1, nil))
 	owner, err := resolver.ResolveOwner(ctx, "agent-1")
 	require.NoError(t, err)
 	require.NotNil(t, owner)
 	assert.Equal(t, "self", owner.InstanceID)
 
 	// 对端持有（在 peers 里）。
-	require.NoError(t, resolver.ClaimOwner(ctx, "agent-2", "demo", "prod", "peer-a", 1))
+	require.NoError(t, resolver.ClaimOwner(ctx, "agent-2", "demo", "prod", "peer-a", 1, nil))
 	owner, _ = resolver.ResolveOwner(ctx, "agent-2")
 	require.NotNil(t, owner)
 	assert.Equal(t, "peer-a", owner.InstanceID)
 
 	// 对端持有但不在 last-known peers（实例死亡）→ 无 owner。
-	require.NoError(t, resolver.ClaimOwner(ctx, "agent-3", "demo", "prod", "peer-z", 1))
+	require.NoError(t, resolver.ClaimOwner(ctx, "agent-3", "demo", "prod", "peer-z", 1, nil))
 	owner, _ = resolver.ResolveOwner(ctx, "agent-3")
 	assert.Nil(t, owner)
 
@@ -146,7 +146,7 @@ func TestOwnerResolver_TTLExpiry(t *testing.T) {
 	resolver := NewDBOwnerResolver(db, 2*time.Second)
 	require.NoError(t, resolver.EnsureTable(context.Background()))
 	ctx := context.Background()
-	require.NoError(t, resolver.ClaimOwner(ctx, "agent-1", "g", "e", "self", 1))
+	require.NoError(t, resolver.ClaimOwner(ctx, "agent-1", "g", "e", "self", 1, nil))
 
 	owner, _ := resolver.ResolveOwner(ctx, "agent-1")
 	require.NotNil(t, owner)
@@ -196,7 +196,7 @@ func TestForward_ToOwnerAndResultDecode(t *testing.T) {
 		}, nil
 	}
 	// 注入 owner 记录。
-	require.NoError(t, resolver.ClaimOwner(context.Background(), "agent-9", "demo", "prod", owner.InstanceID, owner.Epoch))
+	require.NoError(t, resolver.ClaimOwner(context.Background(), "agent-9", "demo", "prod", owner.InstanceID, owner.Epoch, nil))
 	// peers 缓存注入 owner（交叉验证需要）。
 	mesh.peersMu.Lock()
 	mesh.peersCache = []PeerInfo{owner, {InstanceID: "self"}}

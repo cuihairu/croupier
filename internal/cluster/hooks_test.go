@@ -18,7 +18,7 @@ func TestOwnerHooks_ClaimTouchRelease(t *testing.T) {
 	hooks := NewOwnerHooks(resolver, "self", 3)
 	ctx := context.Background()
 
-	hooks.OnAgentRegistered(ctx, "agent-1", "demo", "prod")
+	hooks.OnAgentRegistered(ctx, "agent-1", "demo", "prod", nil)
 
 	// Touch 需归属记录属于自己。
 	hooks.OnAgentHeartbeat(ctx, "agent-1")
@@ -31,7 +31,7 @@ func TestOwnerHooks_ClaimTouchRelease(t *testing.T) {
 func TestOwnerHooks_NilSafety(t *testing.T) {
 	var h *OwnerHooks
 	assert.NotPanics(t, func() {
-		h.OnAgentRegistered(context.Background(), "a", "g", "e")
+		h.OnAgentRegistered(context.Background(), "a", "g", "e", nil)
 		h.OnAgentHeartbeat(context.Background(), "a")
 		h.OnAgentDisconnected(context.Background(), "a")
 	})
@@ -43,9 +43,9 @@ func TestCountAgentsByOwner(t *testing.T) {
 	require.NoError(t, resolver.EnsureTable(context.Background()))
 	ctx := context.Background()
 
-	require.NoError(t, resolver.ClaimOwner(ctx, "a1", "g", "e", "self", 1))
-	require.NoError(t, resolver.ClaimOwner(ctx, "a2", "g", "e", "self", 1))
-	require.NoError(t, resolver.ClaimOwner(ctx, "a3", "g", "e", "peer", 1))
+	require.NoError(t, resolver.ClaimOwner(ctx, "a1", "g", "e", "self", 1, nil))
+	require.NoError(t, resolver.ClaimOwner(ctx, "a2", "g", "e", "self", 1, nil))
+	require.NoError(t, resolver.ClaimOwner(ctx, "a3", "g", "e", "peer", 1, nil))
 
 	counts, err := resolver.CountAgentsByOwner(ctx)
 	require.NoError(t, err)

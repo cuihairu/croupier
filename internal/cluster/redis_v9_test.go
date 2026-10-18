@@ -31,9 +31,9 @@ func TestRedisCtorDefaultsAndNilV9(t *testing.T) {
 	assert.Error(t, err)
 
 	var nilOwner *RedisOwnerResolver
-	err = nilOwner.ClaimOwner(ctx, "ag", "g", "e", "i", 1)
+	err = nilOwner.ClaimOwner(ctx, "ag", "g", "e", "i", 1, nil)
 	assert.Error(t, err)
-	assert.Error(t, NewRedisOwnerResolver(nil, time.Minute).ClaimOwner(ctx, "ag", "g", "e", "i", 1))
+	assert.Error(t, NewRedisOwnerResolver(nil, time.Minute).ClaimOwner(ctx, "ag", "g", "e", "i", 1, nil))
 }
 
 func TestRedisMembership_ErrorPathsV9(t *testing.T) {
@@ -68,10 +68,10 @@ func TestRedisOwner_ErrorPathsV9(t *testing.T) {
 	r.SetSelfID("me")
 
 	require.NoError(t, rdb.Set(ctx, ownerKey("bad-ag"), "not-a-hash", 0).Err())
-	assert.Error(t, r.ClaimOwner(ctx, "bad-ag", "g", "e", "me", 1), "HSet 到 string key 应报 WRONGTYPE")
+	assert.Error(t, r.ClaimOwner(ctx, "bad-ag", "g", "e", "me", 1, nil), "HSet 到 string key 应报 WRONGTYPE")
 
 	mr.Close()
-	assert.Error(t, r.ClaimOwner(ctx, "ag", "g", "e", "me", 1))
+	assert.Error(t, r.ClaimOwner(ctx, "ag", "g", "e", "me", 1, nil))
 	assert.Error(t, r.Release(ctx, "ag"))
 	_, err := r.FindOwner(ctx, "ag")
 	assert.Error(t, err)
@@ -90,7 +90,7 @@ func TestRedisOwner_WrongTypeAndStaleDirV9(t *testing.T) {
 	ctx := context.Background()
 	r := NewRedisOwnerResolver(rdb, time.Minute)
 
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g", "e", "i1", 1))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g", "e", "i1", 1, nil))
 	require.NoError(t, rdb.SAdd(ctx, ownerDirKey, "ghost-ag").Err())
 
 	records, err := r.ListAliveOwners(ctx)
@@ -121,13 +121,13 @@ func TestRedisOwner_ResolveOwnerPeersV9(t *testing.T) {
 	rMesh := NewRedisOwnerResolver(rdb, time.Minute)
 	rMesh.SetMesh(mesh)
 
-	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-self", "g", "e", "self-i", 1))
+	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-self", "g", "e", "self-i", 1, nil))
 	owner, err := rMesh.ResolveOwner(ctx, "ag-self")
 	require.NoError(t, err)
 	require.NotNil(t, owner)
 	assert.Equal(t, "self-i", owner.InstanceID)
 
-	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-peer", "g", "e", "peer-a", 5))
+	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-peer", "g", "e", "peer-a", 5, nil))
 	owner, err = rMesh.ResolveOwner(ctx, "ag-peer")
 	require.NoError(t, err)
 	require.NotNil(t, owner)
@@ -135,19 +135,19 @@ func TestRedisOwner_ResolveOwnerPeersV9(t *testing.T) {
 	assert.EqualValues(t, 5, owner.Epoch)
 	assert.Equal(t, "p:1", owner.AdvertiseAddr)
 
-	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-dead", "g", "e", "peer-z", 1))
+	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-dead", "g", "e", "peer-z", 1, nil))
 	owner, err = rMesh.ResolveOwner(ctx, "ag-dead")
 	require.NoError(t, err)
 	assert.Nil(t, owner, "owner 实例不在 last-known peers 应视为无 owner")
 
-	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-stale", "g", "e", "peer-a", 99))
+	require.NoError(t, rMesh.ClaimOwner(ctx, "ag-stale", "g", "e", "peer-a", 99, nil))
 	owner, err = rMesh.ResolveOwner(ctx, "ag-stale")
 	require.NoError(t, err)
 	assert.Nil(t, owner, "peer epoch 低于 owner epoch 应视为僵尸 owner")
 
 	rNoMesh := NewRedisOwnerResolver(rdb, time.Minute)
 	rNoMesh.SetSelfID("me")
-	require.NoError(t, rNoMesh.ClaimOwner(ctx, "ag-other", "g", "e", "other-inst", 3))
+	require.NoError(t, rNoMesh.ClaimOwner(ctx, "ag-other", "g", "e", "other-inst", 3, nil))
 	owner, err = rNoMesh.ResolveOwner(ctx, "ag-other")
 	require.NoError(t, err)
 	require.NotNil(t, owner)
@@ -169,7 +169,7 @@ func TestRedisOwner_SelfInstanceIDV9(t *testing.T) {
 	mesh := NewMeshInterconnect(PeerInfo{InstanceID: "mesh-i", Epoch: 2}, nil, nil)
 	rWithMesh := NewRedisOwnerResolver(rdb, time.Minute)
 	rWithMesh.SetMesh(mesh)
-	require.NoError(t, rWithMesh.ClaimOwner(ctx, "ag-m", "g", "e", "mesh-i", 2))
+	require.NoError(t, rWithMesh.ClaimOwner(ctx, "ag-m", "g", "e", "mesh-i", 2, nil))
 	assert.NoError(t, rWithMesh.Touch(ctx, "ag-m"))
 	assert.NoError(t, rWithMesh.Release(ctx, "ag-m"))
 	rec, err := rWithMesh.FindOwner(ctx, "ag-m")

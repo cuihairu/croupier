@@ -9,7 +9,7 @@ import (
 // 实现负责写共享归属表）。nil 实现表示未启用集群，全部 no-op。
 type SessionHooks interface {
 	// OnAgentRegistered：Agent 注册/重连成功（本实例持有连接）。
-	OnAgentRegistered(ctx context.Context, agentID, gameID, env string)
+	OnAgentRegistered(ctx context.Context, agentID, gameID, env string, labels map[string]string)
 	// OnAgentHeartbeat：心跳续期归属。
 	OnAgentHeartbeat(ctx context.Context, agentID string)
 	// OnAgentDisconnected：连接断开（仅当会话真正被移除时调用）。
@@ -30,11 +30,11 @@ func NewOwnerHooks(resolver OwnerStore, instanceID string, epoch uint64) *OwnerH
 }
 
 // OnAgentRegistered claims ownership.
-func (h *OwnerHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env string) {
+func (h *OwnerHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env string, labels map[string]string) {
 	if h == nil || h.resolver == nil {
 		return
 	}
-	if err := h.resolver.ClaimOwner(ctx, agentID, gameID, env, h.instanceID, h.epoch); err != nil {
+	if err := h.resolver.ClaimOwner(ctx, agentID, gameID, env, h.instanceID, h.epoch, labels); err != nil {
 		// 归属写失败只降级（转发找不到该 agent），不影响注册主流程。
 		slog.Default().Warn("cluster: claim owner failed", "agent", agentID, "error", err)
 	}

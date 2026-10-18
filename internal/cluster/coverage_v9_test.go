@@ -55,7 +55,7 @@ func TestOwnerHooks_WriteFailuresV9(t *testing.T) {
 	hooks := NewOwnerHooks(resolver, "self", 1)
 	ctx := context.Background()
 	assert.NotPanics(t, func() {
-		hooks.OnAgentRegistered(ctx, "agent-1", "g", "e")
+		hooks.OnAgentRegistered(ctx, "agent-1", "g", "e", nil)
 		hooks.OnAgentHeartbeat(ctx, "agent-1")
 		hooks.OnAgentDisconnected(ctx, "agent-1")
 	})

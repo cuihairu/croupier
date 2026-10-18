@@ -445,6 +445,7 @@ func TestSetClusterHooks_Setters(t *testing.T) {
 
 type fakeClusterHook struct{}
 
-func (f *fakeClusterHook) OnAgentRegistered(context.Context, string, string, string) {}
-func (f *fakeClusterHook) OnAgentHeartbeat(context.Context, string)                  {}
-func (f *fakeClusterHook) OnAgentDisconnected(context.Context, string)               {}
+func (f *fakeClusterHook) OnAgentRegistered(context.Context, string, string, string, map[string]string) {
+}
+func (f *fakeClusterHook) OnAgentHeartbeat(context.Context, string)    {}
+func (f *fakeClusterHook) OnAgentDisconnected(context.Context, string) {}

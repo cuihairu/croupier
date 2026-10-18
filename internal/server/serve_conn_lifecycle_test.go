@@ -105,8 +105,9 @@ type lifecycleHook struct {
 	disconnected atomic.Bool
 }
 
-func (h *lifecycleHook) OnAgentRegistered(context.Context, string, string, string) {}
-func (h *lifecycleHook) OnAgentHeartbeat(context.Context, string)                  {}
+func (h *lifecycleHook) OnAgentRegistered(context.Context, string, string, string, map[string]string) {
+}
+func (h *lifecycleHook) OnAgentHeartbeat(context.Context, string) {}
 func (h *lifecycleHook) OnAgentDisconnected(context.Context, string) {
 	h.disconnected.Store(true)
 }

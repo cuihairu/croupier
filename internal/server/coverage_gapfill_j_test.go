@@ -143,7 +143,7 @@ type recordingHooks struct {
 	registered atomic.Bool
 }
 
-func (h *recordingHooks) OnAgentRegistered(context.Context, string, string, string) {
+func (h *recordingHooks) OnAgentRegistered(context.Context, string, string, string, map[string]string) {
 	h.registered.Store(true)
 }
 func (h *recordingHooks) OnAgentHeartbeat(context.Context, string)    {}

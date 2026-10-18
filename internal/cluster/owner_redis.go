@@ -60,7 +60,7 @@ return 0
 `)
 
 // ClaimOwner 声明归属（覆盖写：Agent 重连到新实例时接管）。
-func (r *RedisOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env, instanceID string, epoch uint64) error {
+func (r *RedisOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env, instanceID string, epoch uint64, labels map[string]string) error {
 	if r == nil || r.rdb == nil {
 		return fmt.Errorf("redis owner store not configured")
 	}
@@ -69,6 +69,7 @@ func (r *RedisOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, en
 		"ownerEpoch": strconv.FormatUint(epoch, 10),
 		"gameID":     gameID,
 		"env":        env,
+		"labels":     encodeOwnerLabels(labels),
 		"lastSeenAt": strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	}
 	pipe := r.rdb.Pipeline()
@@ -116,6 +117,7 @@ func (r *RedisOwnerResolver) readOwner(ctx context.Context, agentID string) (*Ag
 		OwnerEpoch: epoch,
 		GameID:     fields["gameID"],
 		Env:        fields["env"],
+		LabelsMap:  decodeOwnerLabels(fields["labels"]),
 		LastSeenAt: time.Unix(lastSeenUnix, 0).UTC(),
 	}, true, nil
 }

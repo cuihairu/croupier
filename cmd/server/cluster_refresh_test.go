@@ -23,7 +23,7 @@ type refreshOwnerFake struct {
 	listErr error
 }
 
-func (f *refreshOwnerFake) ClaimOwner(context.Context, string, string, string, string, uint64) error {
+func (f *refreshOwnerFake) ClaimOwner(context.Context, string, string, string, string, uint64, map[string]string) error {
 	return nil
 }
 func (f *refreshOwnerFake) Touch(context.Context, string) error   { return nil }

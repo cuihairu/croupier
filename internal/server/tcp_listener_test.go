@@ -1103,7 +1103,8 @@ type countingClusterHooks struct {
 	heartbeats int
 }
 
-func (c *countingClusterHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env string) {}
+func (c *countingClusterHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env string, labels map[string]string) {
+}
 func (c *countingClusterHooks) OnAgentHeartbeat(ctx context.Context, agentID string) {
 	c.heartbeats++
 }

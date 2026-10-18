@@ -154,7 +154,7 @@ type ControlService struct {
 
 	// clusterHooks 集群归属钩子（多实例 HA；nil = 未启用，no-op）。
 	clusterHooks interface {
-		OnAgentRegistered(ctx context.Context, agentID, gameID, env string)
+		OnAgentRegistered(ctx context.Context, agentID, gameID, env string, labels map[string]string)
 		OnAgentHeartbeat(ctx context.Context, agentID string)
 		OnAgentDisconnected(ctx context.Context, agentID string)
 	}
@@ -341,7 +341,7 @@ func (s *ControlService) TransportHandler() transportcore.Handler {
 // StartBackgroundTasks starts background maintenance loops (DB loading, metrics pruning, etc.).
 // SetClusterHooks 注入集群归属钩子（幂等，可在装配期任意时刻调用）。
 func (s *ControlService) SetClusterHooks(h interface {
-	OnAgentRegistered(ctx context.Context, agentID, gameID, env string)
+	OnAgentRegistered(ctx context.Context, agentID, gameID, env string, labels map[string]string)
 	OnAgentHeartbeat(ctx context.Context, agentID string)
 	OnAgentDisconnected(ctx context.Context, agentID string)
 }) {
@@ -1346,7 +1346,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	hooks := s.clusterHooks
 	s.mu.RUnlock()
 	if hooks != nil {
-		hooks.OnAgentRegistered(ctx, req.AgentId, req.GameId, req.Env)
+		hooks.OnAgentRegistered(ctx, req.AgentId, req.GameId, req.Env, sess.Labels)
 	}
 
 	// NewStoreWithDB persists the session only after contract/proposal
@@ -1428,7 +1428,7 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 		hooks := s.clusterHooks
 		s.mu.RUnlock()
 		if hooks != nil {
-			hooks.OnAgentRegistered(ctx, req.AgentId, gameID, env)
+			hooks.OnAgentRegistered(ctx, req.AgentId, gameID, env, reseed.Labels)
 		}
 		s.logger.Warn("heartbeat self-healed: session was missing, re-seeded from ownership table",
 			"agent_id", req.AgentId, "game_id", gameID, "env", env)

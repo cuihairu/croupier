@@ -82,7 +82,7 @@ func TestStartCluster_ReconcileTouchFailure(t *testing.T) {
 	// 预建归属行（属本实例）→ 拨陈旧 → 挂触发器拦后续 UPDATE
 	resolver := cluster.NewDBOwnerResolver(svcCtx.DB, 0)
 	require.NoError(t, resolver.EnsureTable(ctx))
-	require.NoError(t, resolver.ClaimOwner(ctx, "agent-touchfail", "demo", "prod", "server-touch", 1))
+	require.NoError(t, resolver.ClaimOwner(ctx, "agent-touchfail", "demo", "prod", "server-touch", 1, nil))
 	stale := now.Add(-2 * time.Minute)
 	require.NoError(t, svcCtx.DB.Exec(
 		"UPDATE cluster_agent_owners SET last_seen_at = ? WHERE agent_id = ?",

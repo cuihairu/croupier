@@ -135,7 +135,7 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 				GameId:   rec.GameID,
 				Env:      rec.Env,
 				Status:   "online",
-				Labels:   map[string]string{"ownerInstance": rec.InstanceID},
+				Labels:   appendOwnerLabels(rec),
 				LastSeen: utils.FormatTimestamp(rec.LastSeenAt),
 			}
 			items = append(items, nodeListItem{
@@ -163,6 +163,14 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 		nodes = append(nodes, item.node)
 	}
 	return nodes
+}
+
+func appendOwnerLabels(rec cluster.AgentOwnerRecord) map[string]string {
+	labels := map[string]string{"ownerInstance": rec.InstanceID}
+	for key, value := range rec.LabelsMap {
+		labels[key] = value
+	}
+	return labels
 }
 
 func normalizeAgentRoleFilter(statusFilter string) string {

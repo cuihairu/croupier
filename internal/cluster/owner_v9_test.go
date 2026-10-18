@@ -32,20 +32,20 @@ func TestDBOwnerResolverForSelfV9(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, r.EnsureTable(ctx))
 
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-x", 4))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-x", 4, nil))
 	require.NoError(t, r.Touch(ctx, "ag-1"))
 	require.NoError(t, r.Release(ctx, "ag-1"))
 	rec, err := r.FindOwner(ctx, "ag-1")
 	require.NoError(t, err)
 	assert.Nil(t, rec, "Release 后记录应删除")
 
-	require.NoError(t, r.ClaimOwner(ctx, "ag-2", "game-2", "dev", "other-inst", 4))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-2", "game-2", "dev", "other-inst", 4, nil))
 	g, e, ok := r.SelfOwnerScope(ctx, "ag-2")
 	assert.False(t, ok)
 	assert.Empty(t, g)
 	assert.Empty(t, e)
 
-	require.NoError(t, r.ClaimOwner(ctx, "ag-3", "game-3", "staging", "inst-x", 4))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-3", "game-3", "staging", "inst-x", 4, nil))
 	g, e, ok = r.SelfOwnerScope(ctx, "ag-3")
 	assert.True(t, ok)
 	assert.Equal(t, "game-3", g)
@@ -61,12 +61,12 @@ func TestDBOwner_ClaimOwnerRejectsScopeChangeV17(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, r.EnsureTable(ctx))
 
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-1", 1))
-	err := r.ClaimOwner(ctx, "ag-1", "game-2", "prod", "inst-2", 2)
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-1", 1, nil))
+	err := r.ClaimOwner(ctx, "ag-1", "game-2", "prod", "inst-2", 2, nil)
 	assert.ErrorContains(t, err, `agent "ag-1" is already bound`)
-	err = r.ClaimOwner(ctx, "ag-1", "game-1", "dev", "inst-2", 2)
+	err = r.ClaimOwner(ctx, "ag-1", "game-1", "dev", "inst-2", 2, nil)
 	assert.ErrorContains(t, err, `agent "ag-1" is already bound`)
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-2", 2))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "game-1", "prod", "inst-2", 2, nil))
 }
 
 func TestDBOwner_ClaimUpdatePathV9(t *testing.T) {
@@ -75,8 +75,9 @@ func TestDBOwner_ClaimUpdatePathV9(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, r.EnsureTable(ctx))
 
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g1", "prod", "self", 1))
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g1", "prod", "peer-b", 9))
+	labels := map[string]string{"role": "capture", "zone": "z1"}
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g1", "prod", "self", 1, labels))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g1", "prod", "peer-b", 9, labels))
 	rec, err := r.FindOwner(ctx, "ag-1")
 	require.NoError(t, err)
 	require.NotNil(t, rec)
@@ -84,6 +85,7 @@ func TestDBOwner_ClaimUpdatePathV9(t *testing.T) {
 	assert.EqualValues(t, 9, rec.OwnerEpoch)
 	assert.Equal(t, "g1", rec.GameID)
 	assert.Equal(t, "prod", rec.Env)
+	assert.Equal(t, labels, rec.LabelsMap)
 }
 
 func TestDBOwner_ListFindScopeV9(t *testing.T) {
@@ -92,9 +94,9 @@ func TestDBOwner_ListFindScopeV9(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, r.EnsureTable(ctx))
 
-	require.NoError(t, r.ClaimOwner(ctx, "ag-2", "g", "e", "me", 1))
-	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g", "e", "other", 1))
-	require.NoError(t, r.ClaimOwner(ctx, "ag-3", "g", "e", "other", 1))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-2", "g", "e", "me", 1, nil))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-1", "g", "e", "other", 1, nil))
+	require.NoError(t, r.ClaimOwner(ctx, "ag-3", "g", "e", "other", 1, nil))
 
 	rows, err := r.ListAliveOwners(ctx)
 	require.NoError(t, err)
@@ -120,7 +122,7 @@ func TestDBOwner_ErrorPathsV9(t *testing.T) {
 	require.NoError(t, r.EnsureTable(ctx))
 	closeDBV9(t, db)
 
-	assert.Error(t, r.ClaimOwner(ctx, "ag", "g", "e", "self", 1))
+	assert.Error(t, r.ClaimOwner(ctx, "ag", "g", "e", "self", 1, nil))
 	_, err := r.ResolveOwner(ctx, "ag")
 	assert.Error(t, err)
 	_, err = r.CountAgentsByOwner(ctx)
