@@ -175,7 +175,7 @@ func TestHitSenderDuplicateAckAccepted(t *testing.T) {
 }
 
 func TestHitSenderQueueFullDrops(t *testing.T) {
-	r := hitFixture(t)
+	r := hitFixtureWithoutSpool(t)
 	// 替换为无缓冲队列且无人消费：recordHits 非阻塞 → 直接丢。
 	r.hitCh = make(chan gate.Hit)
 	r.recordHits([]gate.Hit{{Rule: "r", Table: "t", Event: connector.ChangeEvent{TsUnixMs: time.Now().UnixMilli()}}})
