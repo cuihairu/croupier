@@ -139,6 +139,16 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
+func TestSchemaHistoryCapabilityRoundTrip(t *testing.T) {
+	c, err := ParseCapabilities([]byte(`{"schemaHistory":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Has(CapSchemaHistory) {
+		t.Fatal("schemaHistory capability was not parsed")
+	}
+}
+
 func TestParseCapabilitiesStrict(t *testing.T) {
 	c, err := ParseCapabilities([]byte(`{"afterImage":true,"beforeImage":false}`))
 	if err != nil {

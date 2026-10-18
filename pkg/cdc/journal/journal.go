@@ -22,6 +22,7 @@ var (
 	ErrIDConflict        = errors.New("journal: event ID already exists with different content")
 	ErrIncompleteTx      = errors.New("journal: incomplete transaction in replay range")
 	ErrMissingTxMetadata = errors.New("journal: event has no transaction boundary metadata")
+	ErrCapacityExceeded  = errors.New("journal: configured capacity exceeded")
 	ErrRangeCutsTx       = errors.New("journal: replay range cuts a transaction")
 	ErrInvalidReplayRow  = errors.New("journal: event is not replayable")
 )
@@ -35,21 +36,33 @@ type record struct {
 // Journal is a single-writer append-only event log. A process must not open
 // the same path through multiple Journal instances concurrently.
 type Journal struct {
-	mu     sync.Mutex
-	path   string
-	file   *os.File
-	next   uint64
-	byID   map[string]record
-	closed bool
-	fault  error
+	mu       sync.Mutex
+	path     string
+	file     *os.File
+	next     uint64
+	byID     map[string]record
+	closed   bool
+	fault    error
+	maxBytes int64
+	size     int64
 }
 
 // Open opens or creates a journal. A partial final record is truncated because
 // it can only result from an interrupted append; malformed complete records
 // are reported as corruption and left untouched.
 func Open(path string) (*Journal, error) {
+	return OpenWithLimit(path, 0)
+}
+
+// OpenWithLimit opens a journal with an optional hard file-size limit. A zero
+// limit is unlimited; callers that persist continuously should set a limit and
+// arrange retention or operator intervention before it is reached.
+func OpenWithLimit(path string, maxBytes int64) (*Journal, error) {
 	if path == "" {
 		return nil, errors.New("journal: path is required")
+	}
+	if maxBytes < 0 {
+		return nil, errors.New("journal: maxBytes cannot be negative")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("journal: create directory: %w", err)
@@ -58,7 +71,7 @@ func Open(path string) (*Journal, error) {
 	if err != nil {
 		return nil, fmt.Errorf("journal: open: %w", err)
 	}
-	j := &Journal{path: path, file: f, byID: make(map[string]record)}
+	j := &Journal{path: path, file: f, byID: make(map[string]record), maxBytes: maxBytes}
 	if err := j.recover(); err != nil {
 		_ = f.Close()
 		return nil, err
@@ -66,6 +79,9 @@ func Open(path string) (*Journal, error) {
 	if _, err := f.Seek(0, io.SeekEnd); err != nil {
 		_ = f.Close()
 		return nil, fmt.Errorf("journal: seek end: %w", err)
+	}
+	if st, err := f.Stat(); err == nil {
+		j.size = st.Size()
 	}
 	return j, nil
 }
@@ -144,6 +160,13 @@ func (j *Journal) Append(event cdc.ChangeEvent) (uint64, string, error) {
 		return 0, "", fmt.Errorf("journal: encode: %w", err)
 	}
 	data = append(data, '\n')
+	if j.maxBytes > 0 && j.size+int64(len(data)) > j.maxBytes {
+		return 0, "", ErrCapacityExceeded
+	}
+	if _, err := j.file.Seek(0, io.SeekEnd); err != nil {
+		j.fault = err
+		return 0, "", fmt.Errorf("journal: seek end before append: %w", err)
+	}
 	n, err := j.file.Write(data)
 	if err != nil || n != len(data) {
 		if err == nil {
@@ -157,6 +180,7 @@ func (j *Journal) Append(event cdc.ChangeEvent) (uint64, string, error) {
 		return 0, "", fmt.Errorf("journal: sync: %w", err)
 	}
 	j.next = row.Sequence
+	j.size += int64(len(data))
 	j.byID[id] = row
 	return row.Sequence, id, nil
 }
@@ -240,6 +264,13 @@ func (j *Journal) Read(from, to uint64) ([]Entry, error) {
 		return nil, fmt.Errorf("journal: requested sequence range %d..%d is incomplete", from, to)
 	}
 	return rows, nil
+}
+
+// LastSequence returns the last durable sequence in this journal.
+func (j *Journal) LastSequence() uint64 {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.next
 }
 
 // Entry is one durable journal row.

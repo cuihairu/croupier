@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/cuihairu/croupier/pkg/cdc"
 )
 
 func writeCfg(t *testing.T, body string) string {
@@ -248,5 +250,60 @@ capture:
 		t.Fatalf("mongodb config should load: %v", err)
 	} else if got := cfg.BookmarkPath(); got != "data/capture/bookmarks/mongodb.json" {
 		t.Fatalf("mongodb BookmarkPath = %q", got)
+	}
+}
+
+func TestJournalFilterCompilesGenericScope(t *testing.T) {
+	cfg, err := Load(writeCfg(t, `
+agent: {id: cap-A, serverAddr: s:1, gameId: game-A, env: prod}
+capture:
+  enabled: true
+  sourceType: postgres
+  dsnEnv: SOURCE_DSN
+  options: {tables: "db.items, db.audit"}
+  journal:
+    enabled: true
+    maxBytes: 4096
+    operations: [insert, update]
+    exclude:
+      - {table: audit, operations: [update]}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	selection, err := cfg.Capture.JournalFilter(cfg.Agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selection.Include) != 2 || selection.Include[0].SourceID != "cap-A" ||
+		selection.Include[0].SourceType != "postgres" || selection.Include[0].Database != "db" ||
+		selection.Include[0].Table != "audit" || len(selection.Include[0].Operations) != 2 {
+		t.Fatalf("compiled includes = %+v", selection.Include)
+	}
+	event := cdc.ChangeEvent{SourceID: "cap-A", SourceType: "postgres", Database: "db", Table: "audit", Operation: cdc.OpUpdate}
+	if selection.Match(event) {
+		t.Fatal("exclude should override include")
+	}
+	event.Operation = cdc.OpInsert
+	if !selection.Match(event) {
+		t.Fatal("configured operation should be retained when not excluded")
+	}
+	if got := cfg.Capture.JournalPath(); got != "data/capture/bookmarks/journal-postgres.jsonl" {
+		t.Fatalf("JournalPath = %q", got)
+	}
+}
+
+func TestJournalConfigRequiresCaptureAndBoundedStorage(t *testing.T) {
+	for name, body := range map[string]string{
+		"capture disabled": `agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
+capture: {journal: {enabled: true, maxBytes: 100}}`,
+		"missing maximum": `agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
+capture: {enabled: true, sourceType: mysql, dsnEnv: D, options: {tables: db.t}, journal: {enabled: true}}`,
+		"invalid operation": `agent: {id: a, serverAddr: s:1, gameId: g, env: prod}
+capture: {enabled: true, sourceType: mysql, dsnEnv: D, options: {tables: db.t}, journal: {enabled: true, maxBytes: 100, operations: [truncate]}}`,
+	} {
+		if _, err := Load(writeCfg(t, body)); err == nil {
+			t.Fatalf("%s: expected validation failure", name)
+		}
 	}
 }

@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +11,8 @@ import (
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/agents/capture/source"
+	cdcfilter "github.com/cuihairu/croupier/pkg/cdc/filter"
+	cdjournal "github.com/cuihairu/croupier/pkg/cdc/journal"
 )
 
 func TestRunShutdownKeepsConsumedCheckpoint(t *testing.T) {
@@ -58,6 +62,89 @@ func TestRunShutdownKeepsConsumedCheckpoint(t *testing.T) {
 	}
 	if _, err := os.Stat(r.hitSpool.path); !os.IsNotExist(err) {
 		t.Fatalf("alert spool should be empty, stat err=%v", err)
+	}
+}
+
+func TestConsumeDurableJournalsBeforeCheckpointAck(t *testing.T) {
+	cfg := testConfig(t, true)
+	r := New(cfg, nil)
+	log, err := cdjournal.Open(cfg.Capture.JournalPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+	r.eventJournal = log
+	r.journalFilter = cdcfilter.Filter{Include: []cdcfilter.Selector{{
+		SourceID: cfg.Agent.ID, SourceType: "mysql", Database: "game", Table: "items",
+	}}}
+	cn := &fakeConnector{}
+	event := connector.ChangeEvent{
+		SourceID: cfg.Agent.ID, SourceType: "mysql", Database: "game", Table: "items",
+		Operation: connector.OpInsert, After: map[string]json.RawMessage{"id": json.RawMessage(`1`)},
+		Position: connector.Position{Kind: "gtid", Value: "persisted-first"}, TsUnixMs: time.Now().UnixMilli(),
+	}
+	if err := r.consumeDurable(context.Background(), event, cn); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := log.Read(1, 0)
+	if err != nil || len(entries) != 1 || entries[0].Event.Position.Value != "persisted-first" {
+		t.Fatalf("journal entries=%+v err=%v", entries, err)
+	}
+	if got := mustCheckpoint(t, cn); got.Value != "persisted-first" {
+		t.Fatalf("checkpoint = %+v", got)
+	}
+}
+
+func TestConsumeDurableDoesNotAckWhenJournalIsFull(t *testing.T) {
+	cfg := testConfig(t, true)
+	r := New(cfg, nil)
+	log, err := cdjournal.OpenWithLimit(cfg.Capture.JournalPath(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+	r.eventJournal = log
+	r.journalFilter = cdcfilter.Filter{Include: []cdcfilter.Selector{{}}}
+	cn := &fakeConnector{}
+	event := connector.ChangeEvent{
+		SourceID: cfg.Agent.ID, SourceType: "mysql", Database: "game", Table: "items",
+		Operation: connector.OpInsert, After: map[string]json.RawMessage{"id": json.RawMessage(`1`)},
+		Position: connector.Position{Kind: "gtid", Value: "not-acked"}, TsUnixMs: time.Now().UnixMilli(),
+	}
+	if err := r.consumeDurable(context.Background(), event, cn); err == nil {
+		t.Fatal("expected capacity error")
+	}
+	if got := mustCheckpoint(t, cn); got.Value == "not-acked" {
+		t.Fatal("source checkpoint advanced despite journal capacity failure")
+	}
+}
+
+func TestRunSourceOnceWiresConfiguredJournalSelection(t *testing.T) {
+	cfg := testConfig(t, true)
+	cfg.Capture.Journal.Enabled = true
+	cfg.Capture.Journal.MaxBytes = 4096
+	cfg.Capture.Journal.Operations = []string{"insert"}
+	fake := &fakeConnector{
+		closeAfter: 1,
+		events: []connector.ChangeEvent{{
+			SourceID: cfg.Agent.ID, SourceType: "mysql", Database: "game", Table: "items",
+			Operation: connector.OpInsert, After: map[string]json.RawMessage{"id": json.RawMessage(`1`)},
+			Position: connector.Position{Kind: "gtid", Value: "runner-journal"}, TsUnixMs: time.Now().UnixMilli(),
+		}},
+	}
+	r := New(cfg, nil)
+	r.newConnector = func() connector.SourceConnector { return fake }
+	if err := r.runSourceOnce(context.Background()); !errors.Is(err, errStreamEnded) {
+		t.Fatalf("runSourceOnce error = %v", err)
+	}
+	log, err := cdjournal.Open(cfg.Capture.JournalPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+	entries, err := log.Read(1, 0)
+	if err != nil || len(entries) != 1 || entries[0].Event.Position.Value != "runner-journal" {
+		t.Fatalf("journal entries=%+v err=%v", entries, err)
 	}
 }
 

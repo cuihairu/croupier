@@ -12,6 +12,7 @@ const (
 	CapSnapshot            = cdc.CapSnapshot
 	CapResumableCheckpoint = cdc.CapResumableCheckpoint
 	CapPushdown            = cdc.CapPushdown
+	CapSchemaHistory       = cdc.CapSchemaHistory
 )
 
 type Capabilities = cdc.Capabilities

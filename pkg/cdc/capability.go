@@ -17,6 +17,7 @@ const (
 	CapSnapshot            Capability = "snapshot"            // 表级快照（历史回补前提）
 	CapResumableCheckpoint Capability = "resumableCheckpoint" // 位点持久化 + 断点续传
 	CapPushdown            Capability = "pushdown"            // 条件下推到源端（log 订阅级过滤）
+	CapSchemaHistory       Capability = "schemaHistory"       // 连续 schema/DDL 变更历史
 )
 
 // AllCapabilities 全部能力项（闭集遍历用）。
@@ -28,6 +29,7 @@ func AllCapabilities() []Capability {
 		CapSnapshot,
 		CapResumableCheckpoint,
 		CapPushdown,
+		CapSchemaHistory,
 	}
 }
 
@@ -40,6 +42,7 @@ type Capabilities struct {
 	Snapshot            bool `json:"snapshot"`
 	ResumableCheckpoint bool `json:"resumableCheckpoint"`
 	Pushdown            bool `json:"pushdown"`
+	SchemaHistory       bool `json:"schemaHistory"`
 }
 
 // Has 单项查询。
@@ -57,6 +60,8 @@ func (c Capabilities) Has(cap Capability) bool {
 		return c.ResumableCheckpoint
 	case CapPushdown:
 		return c.Pushdown
+	case CapSchemaHistory:
+		return c.SchemaHistory
 	}
 	return false
 }

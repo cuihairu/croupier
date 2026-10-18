@@ -32,6 +32,8 @@ import (
 	"github.com/cuihairu/croupier/core/configsync"
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/register"
+	cdcfilter "github.com/cuihairu/croupier/pkg/cdc/filter"
+	cdjournal "github.com/cuihairu/croupier/pkg/cdc/journal"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
@@ -128,6 +130,8 @@ type Runner struct {
 	// hitRetryInterval 发送失败重试间隔；New 后由测试注入快档。
 	hitRetryInterval time.Duration
 	hitSpool         *alertSpool
+	eventJournal     *cdjournal.Journal
+	journalFilter    cdcfilter.Filter
 
 	// cepSkippedSeen CEP 门上 skippedNoDelta 已聚合基线（sweep 周期采样
 	// 增量进 RuleEvalErrors；热换新门实例计数归零，cur<seen 视为重置基线）。
@@ -409,6 +413,27 @@ func (r *Runner) runSourceOnce(ctx context.Context) error {
 	if err := cn.Open(ctx, r.cfg.Capture.SourceConfig(r.cfg.Agent.ID)); err != nil {
 		return fmt.Errorf("open connector: %w", err)
 	}
+	if r.cfg.Capture.Journal.Enabled {
+		selection, err := r.cfg.Capture.JournalFilter(r.cfg.Agent.ID)
+		if err != nil {
+			_ = cn.Close(context.Background())
+			return fmt.Errorf("compile journal filter: %w", err)
+		}
+		log, err := cdjournal.OpenWithLimit(r.cfg.Capture.JournalPath(), r.cfg.Capture.Journal.MaxBytes)
+		if err != nil {
+			_ = cn.Close(context.Background())
+			return fmt.Errorf("open event journal: %w", err)
+		}
+		r.eventJournal = log
+		r.journalFilter = selection
+		defer func() {
+			if err := log.Close(); err != nil {
+				r.log.Error("close event journal", "error", err)
+			}
+			r.eventJournal = nil
+			r.journalFilter = cdcfilter.Filter{}
+		}()
+	}
 	events, err := cn.Poll(ctx, connector.PollRequest{From: pos, Tables: r.cfg.Capture.Tables()})
 	if err != nil {
 		// 启动失败同样要释放连接面（repl 由连接器内弃置，c.conn 在此收尾），
@@ -517,11 +542,15 @@ func (r *Runner) consume(ev connector.ChangeEvent) {
 // consumeDurable applies a delivered event and only then advances the
 // connector checkpoint; a failed save cannot make an event invisible.
 func (r *Runner) consumeDurable(ctx context.Context, ev connector.ChangeEvent, cn connector.SourceConnector) error {
-	r.consume(ev)
-	if err := cn.AckCheckpoint(ctx, ev.Position); err != nil {
+	if r.eventJournal != nil {
+		_, err := cdjournal.CaptureEvent(ctx, cn, r.eventJournal, r.journalFilter, ev, func(event connector.ChangeEvent) error {
+			r.consume(event)
+			return nil
+		})
 		return err
 	}
-	return nil
+	r.consume(ev)
+	return cn.AckCheckpoint(ctx, ev.Position)
 }
 
 // sweepGates 周期销账/清桶（位点 tick 同频；无闸直通）。

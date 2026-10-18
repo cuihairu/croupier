@@ -46,6 +46,15 @@ capture:
   bookmarkDir: data/capture/bookmarks
   # 位点周期落盘间隔（秒，默认 5）。
   bookmarkFlushIntervalSec: 5
+  # 可选 CDC 事件日志，默认关闭。启用后只记录 capture 表白名单中感兴趣的
+  # 操作；maxBytes 到达上限时会停止确认源位点并暂停消费，需运维扩容/归档后恢复。
+  journal:
+    enabled: false
+    # path: data/capture/bookmarks/journal-mysql.jsonl
+    maxBytes: 10737418240 # 10 GiB hard limit; required when enabled
+    # operations: [insert, update] # empty means all DML operations
+    # exclude:
+    #   - {database: game, table: audit_noise}
   # legacy 兼容形态（capture.mysql，凭据留 YAML）：仅存量部署容忍，不再
   # 作为示例标准；新部署一律用上方 sourceType/dsnEnv。
   # mysql:

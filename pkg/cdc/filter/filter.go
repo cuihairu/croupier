@@ -3,6 +3,7 @@ package filter
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -25,6 +26,23 @@ type Selector struct {
 type Filter struct {
 	Include []Selector `json:"include,omitempty"`
 	Exclude []Selector `json:"exclude,omitempty"`
+}
+
+// Validate checks selector syntax and the operation closed set.
+func (f Filter) Validate() error {
+	for _, selector := range append(append([]Selector(nil), f.Include...), f.Exclude...) {
+		for name, value := range map[string]string{"sourceId": selector.SourceID, "sourceType": selector.SourceType, "database": selector.Database, "table": selector.Table} {
+			if strings.Count(value, "*") > 1 {
+				return fmt.Errorf("filter: %s supports at most one '*' wildcard", name)
+			}
+		}
+		for _, operation := range selector.Operations {
+			if !operation.Valid() {
+				return fmt.Errorf("filter: invalid operation %q", operation)
+			}
+		}
+	}
+	return nil
 }
 
 // Match reports whether the event passes the filter.

@@ -90,6 +90,40 @@ func TestOpenRejectsCorruptCompleteRecord(t *testing.T) {
 	}
 }
 
+func TestAppendAfterBoundedReadDoesNotOverwriteTail(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.jsonl")
+	j, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		e := event("", 0, false)
+		e.TsUnixMs = int64(i + 1)
+		if _, _, err := j.Append(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if rows, err := j.Read(1, 1); err != nil || len(rows) != 1 {
+		t.Fatalf("bounded read rows=%d err=%v", len(rows), err)
+	}
+	e := event("", 0, false)
+	e.TsUnixMs = 4
+	if _, _, err := j.Append(e); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	j, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer j.Close()
+	if got := j.LastSequence(); got != 4 {
+		t.Fatalf("last sequence = %d, want 4", got)
+	}
+}
+
 func TestReplayGroupsTransactionsAndRejectsCutRanges(t *testing.T) {
 	j, err := Open(filepath.Join(t.TempDir(), "events.jsonl"))
 	if err != nil {
@@ -180,6 +214,25 @@ func TestCaptureDoesNotAcknowledgeWhenAppendFails(t *testing.T) {
 	_, err = Capture(context.Background(), source, j, filter.Filter{Include: []filter.Selector{{}}}, cdc.PollRequest{})
 	if err == nil || len(source.acked) != 0 {
 		t.Fatalf("Capture error=%v acked=%d", err, len(source.acked))
+	}
+}
+
+func TestCaptureEventPersistsBeforeConsumerAndAcknowledgesLast(t *testing.T) {
+	j, err := Open(filepath.Join(t.TempDir(), "events.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer j.Close()
+	source := &fakeSource{}
+	selection := filter.Filter{Include: []filter.Selector{{Database: "db", Table: "items"}}}
+	selected, err := CaptureEvent(context.Background(), source, j, selection, event("", 0, false), func(cdc.ChangeEvent) error {
+		if j.LastSequence() != 1 || len(source.acked) != 0 {
+			t.Fatal("event consumer ran before durable append or after source acknowledgement")
+		}
+		return nil
+	})
+	if err != nil || !selected || len(source.acked) != 1 {
+		t.Fatalf("selected=%v err=%v acked=%d", selected, err, len(source.acked))
 	}
 }
 

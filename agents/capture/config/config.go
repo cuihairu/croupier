@@ -13,6 +13,8 @@ import (
 	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
+	"github.com/cuihairu/croupier/pkg/cdc"
+	cdcfilter "github.com/cuihairu/croupier/pkg/cdc/filter"
 	"gopkg.in/yaml.v3"
 )
 
@@ -90,6 +92,17 @@ type Capture struct {
 	MySQL *source.MySQLConfig `yaml:"mysql" json:"mysql"`
 	// Gates 闸层规则（空 = 只采不限，C1 口径）。
 	Gates Gates `yaml:"gates" json:"gates"`
+	// Journal 按需保存经通用 filter 选择后的事件，默认关闭。
+	Journal Journal `yaml:"journal" json:"journal"`
+}
+
+// Journal 配置。容量达到 MaxBytes 后停止确认新事件，避免无界占用磁盘。
+type Journal struct {
+	Enabled    bool                 `yaml:"enabled" json:"enabled"`
+	Path       string               `yaml:"path" json:"path"`
+	MaxBytes   int64                `yaml:"maxBytes" json:"maxBytes"`
+	Operations []string             `yaml:"operations" json:"operations"`
+	Exclude    []cdcfilter.Selector `yaml:"exclude" json:"exclude"`
 }
 
 // SourceTypes Connector 数据源类型闭集（校验真值；新增=新 Connector 落地）。
@@ -129,6 +142,61 @@ func (c Capture) SourceConfig(sourceID string) connector.SourceConfig {
 		DSNEnv:     c.DSNEnv,
 		Options:    c.Options,
 	}
+}
+
+// JournalFilter compiles the business configuration into generic CDC selectors.
+// The configured source table allowlist remains the maximum scope; optional
+// operation and exclusion selectors can only reduce the persisted event set.
+func (c Capture) JournalFilter(sourceID string) (cdcfilter.Filter, error) {
+	if !c.Journal.Enabled {
+		return cdcfilter.Filter{}, nil
+	}
+	if c.Journal.MaxBytes <= 0 {
+		return cdcfilter.Filter{}, fmt.Errorf("capture.journal.maxBytes must be positive when journal is enabled")
+	}
+	operations := make([]cdc.Operation, 0, len(c.Journal.Operations))
+	for _, raw := range c.Journal.Operations {
+		op := cdc.Operation(strings.TrimSpace(raw))
+		if !op.Valid() {
+			return cdcfilter.Filter{}, fmt.Errorf("capture.journal.operations contains invalid operation %q", raw)
+		}
+		operations = append(operations, op)
+	}
+	filter := cdcfilter.Filter{Exclude: append([]cdcfilter.Selector(nil), c.Journal.Exclude...)}
+	sourceType := c.SourceType
+	if c.MySQL != nil || sourceType == "" {
+		sourceType = "mysql"
+	}
+	for _, qualified := range c.Tables() {
+		database, table, ok := strings.Cut(qualified, ".")
+		if !ok || database == "" || table == "" || strings.Contains(table, ".") {
+			return cdcfilter.Filter{}, fmt.Errorf("capture table %q must be database.table", qualified)
+		}
+		filter.Include = append(filter.Include, cdcfilter.Selector{
+			SourceID: sourceID, SourceType: sourceType, Database: database, Table: table,
+			Operations: append([]cdc.Operation(nil), operations...),
+		})
+	}
+	if err := filter.Validate(); err != nil {
+		return cdcfilter.Filter{}, fmt.Errorf("capture.journal filter: %w", err)
+	}
+	return filter, nil
+}
+
+// JournalPath returns the configured path or a stable path under bookmarkDir.
+func (c Capture) JournalPath() string {
+	if strings.TrimSpace(c.Journal.Path) != "" {
+		return c.Journal.Path
+	}
+	dir := c.BookmarkDir
+	if dir == "" {
+		dir = "data/capture/bookmarks"
+	}
+	typ := c.SourceType
+	if c.MySQL != nil || typ == "" {
+		typ = "mysql"
+	}
+	return fmt.Sprintf("%s/journal-%s.jsonl", dir, typ)
 }
 
 // Config capture-agent 全量配置。
@@ -183,6 +251,14 @@ func (c Config) Validate() error {
 			return fmt.Errorf("capture.dsnEnv is required when capture.enabled is true (credential channel)")
 		case len(c.Capture.Tables()) == 0:
 			return fmt.Errorf("capture.options.tables must not be empty (whitelist required)")
+		}
+	}
+	if c.Capture.Journal.Enabled {
+		if !c.Capture.Enabled {
+			return fmt.Errorf("capture.journal.enabled requires capture.enabled")
+		}
+		if _, err := c.Capture.JournalFilter(c.Agent.ID); err != nil {
+			return err
 		}
 	}
 	// 闸规则启动即全量校验（宁可不起进程）——含对账闸表路由唯一性。
