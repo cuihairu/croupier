@@ -17,8 +17,8 @@ import (
 // 开，beforeImage/snapshot/pushdown 关。
 func TestMongoCapabilities(t *testing.T) {
 	caps := MongoCapabilities()
-	if !caps.AfterImage || !caps.TransactionMetadata || !caps.ResumableCheckpoint {
-		t.Fatalf("capabilities = %+v (want afterImage/txnMetadata/resumable on)", caps)
+	if !caps.AfterImage || caps.TransactionMetadata || !caps.ResumableCheckpoint {
+		t.Fatalf("capabilities = %+v (want afterImage/resumable on, transactionMetadata off)", caps)
 	}
 	if caps.BeforeImage || caps.Snapshot || caps.Pushdown {
 		t.Fatalf("capabilities = %+v (want beforeImage/snapshot/pushdown off)", caps)

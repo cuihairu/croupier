@@ -8,14 +8,15 @@ import "github.com/cuihairu/croupier/agents/capture/connector"
 //   - beforeImage：v1 保守 false——updateLookup 给的是后像不是前像；
 //     前像要 changeStreamPreAndPostImages（另开集合，v1 不要求）。声明
 //     false 后 gate lint 的能力感知守卫会拒绝依赖前像的规则，如实生效。
-//   - transactionMetadata：txnNumber/lsid/clusterTime 原生字段。
+//   - transactionMetadata：关闭。事件可有 txnNumber/lsid，但 Connector 无法
+//     标记事务最终事件；恢复要求完整事务边界，不能将部分元数据报成完整能力。
 //   - snapshot：不做（Snapshot 显式返回 ErrUnsupportedSnapshot）。
 //   - resumableCheckpoint：resume token 稳定可持久化（等价 LSN）。
 //   - pushdown：pipeline $match 是流级白名单变换，不是订阅级过滤。
 func MongoCapabilities() connector.Capabilities {
 	return connector.Capabilities{
 		AfterImage:          true,
-		TransactionMetadata: true,
+		TransactionMetadata: false,
 		ResumableCheckpoint: true,
 	}
 }
