@@ -687,9 +687,19 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 
 func TestControlService_HandleRegisterRequestScopeBinding(t *testing.T) {
 	svc := newTestControlService()
+	var err error
+
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "blank-game", GameId: " ", Env: "prod",
+	}, "")
+	assert.ErrorContains(t, err, "agent_id, game_id and env are required")
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "blank-env", GameId: "game-1", Env: " ",
+	}, "")
+	assert.ErrorContains(t, err, "agent_id, game_id and env are required")
 
 	req := &agentv1.RegisterRequest{AgentId: " agent-1 ", GameId: " game-1 ", Env: " prod "}
-	_, err := svc.handleRegisterRequest(context.Background(), req, "")
+	_, err = svc.handleRegisterRequest(context.Background(), req, "")
 	require.NoError(t, err)
 
 	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
