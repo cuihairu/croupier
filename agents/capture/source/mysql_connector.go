@@ -204,6 +204,14 @@ func (c *MySQLConnector) Checkpoint(ctx context.Context) (connector.Position, er
 	return c.bridge.Checkpoint(ctx)
 }
 
+// AckCheckpoint runner 消费完成后确认 GTID 位点。
+func (c *MySQLConnector) AckCheckpoint(ctx context.Context, position connector.Position) error {
+	if c.bridge == nil {
+		return errors.New("mysql connector: not open")
+	}
+	return c.bridge.AckCheckpoint(ctx, position)
+}
+
 // Close 断开复制流（幂等）。
 func (c *MySQLConnector) Close(ctx context.Context) error {
 	if c.bridge == nil {

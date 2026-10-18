@@ -133,6 +133,21 @@ func TestPostgresSnapshotErrUnsupported(t *testing.T) {
 	}
 }
 
+func TestPostgresAckCheckpoint(t *testing.T) {
+	want := connector.Position{Kind: "lsn", Value: "12345678901"}
+	c := NewPostgresConnector(connector.SourceConfig{SourceID: "pg-ack"}, nil)
+	if err := c.AckCheckpoint(t.Context(), want); err != nil {
+		t.Fatalf("ack checkpoint: %v", err)
+	}
+	got, err := c.Checkpoint(t.Context())
+	if err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
+	if got != want {
+		t.Fatalf("checkpoint = %+v, want %+v", got, want)
+	}
+}
+
 // 「槽位早于发布」流中报错的识别与处置提示（E2E 实测踩中的死循环形态：
 // START_REPLICATION 成功但 change 回调的历史快照看不到后建的发布，每次重连
 // 都重读同一旧位点）。

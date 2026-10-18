@@ -172,6 +172,9 @@ func (f *fakeConnector) Poll(ctx context.Context, req PollRequest) (<-chan Chang
 func (f *fakeConnector) Checkpoint(context.Context) (Position, error) {
 	return Position{Kind: "gtid", Value: "f:1"}, nil
 }
+func (f *fakeConnector) AckCheckpoint(context.Context, Position) error {
+	return nil
+}
 func (f *fakeConnector) Close(context.Context) error { return nil }
 
 var _ SourceConnector = (*fakeConnector)(nil)

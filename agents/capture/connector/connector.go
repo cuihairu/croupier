@@ -85,6 +85,9 @@ type SourceConnector interface {
 	// Checkpoint 当前消费位点（持久化 + 可恢复性；能力
 	// resumableCheckpoint 缺失时返回零位点 + 错误说明）。
 	Checkpoint(ctx context.Context) (Position, error)
+	// AckCheckpoint marks a consumer-delivered position as resumable. It is
+	// only called after the event has been handed to the runtime.
+	AckCheckpoint(ctx context.Context, position Position) error
 	// Close 释放连接与流（幂等；Close 后接口方法返回错误）。
 	Close(ctx context.Context) error
 }

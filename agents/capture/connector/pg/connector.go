@@ -465,9 +465,6 @@ func (c *PostgresConnector) pump(ctx context.Context, repl *pgconn.PgConn, out c
 			if xld.WALStart > clientXLogPos {
 				clientXLogPos = xld.WALStart
 			}
-			if len(events) > 0 {
-				c.storeCheckpoint(dec.Checkpoint())
-			}
 			for i := range events {
 				if len(whitelist) > 0 && !whitelist[events[i].QualifiedTable()] {
 					continue
@@ -493,6 +490,18 @@ func (c *PostgresConnector) Checkpoint(_ context.Context) (connector.Position, e
 	c.cpMu.Lock()
 	defer c.cpMu.Unlock()
 	return c.cp, nil
+}
+
+// AckCheckpoint marks a consumer-delivered commit position as resumable.
+func (c *PostgresConnector) AckCheckpoint(_ context.Context, position connector.Position) error {
+	if c.closed.Load() {
+		return errors.New("pg: connector closed")
+	}
+	if position.Kind != "lsn" || !position.Valid() {
+		return errors.New("pg: invalid lsn checkpoint")
+	}
+	c.storeCheckpoint(position)
+	return nil
 }
 
 // Close 断开连接（幂等；槽为持久槽，不随连接删除——位点恢复依赖）。

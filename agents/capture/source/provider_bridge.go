@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
 )
@@ -22,6 +23,9 @@ type ProviderConnector struct {
 	log        *slog.Logger
 	src        Provider
 	cfg        connector.SourceConfig // Open 时留存（SourceID 透传到契约事件）
+
+	cpMu sync.Mutex
+	cp   connector.Position
 }
 
 // NewProviderConnector 构造 Provider→契约桥接连接器（不建连接；Poll 时才
@@ -95,14 +99,30 @@ func (p *ProviderConnector) Poll(ctx context.Context, req connector.PollRequest)
 	return out, nil
 }
 
-// Checkpoint Provider 位点快照 → 契约位点（kind 按源类型：mysql/mariadb=gtid，
-// postgres=lsn）。
-func (p *ProviderConnector) Checkpoint(_ context.Context) (connector.Position, error) {
+// AckCheckpoint records a consumer-confirmed position. Provider internals may
+// advance earlier while events are buffered; only this value is resumable.
+func (p *ProviderConnector) AckCheckpoint(_ context.Context, position connector.Position) error {
+	if p.src == nil {
+		return fmt.Errorf("source: no provider bridged")
+	}
+	if position.Kind != PositionKindOf(p.sourceType) || !position.Valid() {
+		return fmt.Errorf("source: invalid %s checkpoint", p.sourceType)
+	}
+	p.cpMu.Lock()
+	defer p.cpMu.Unlock()
+	p.cp = position
+	return nil
+}
+
+// Checkpoint 最近消费确认位点（kind 按源类型：mysql/mariadb=gtid，
+// postgres=lsn）。未确认前返回零位点，避免把已读取但未消费的位置持久化。
+func (p *ProviderConnector) Checkpoint(context.Context) (connector.Position, error) {
 	if p.src == nil {
 		return connector.Position{}, fmt.Errorf("source: no provider bridged")
 	}
-	bm := p.src.Bookmark()
-	return connector.Position{Kind: PositionKindOf(p.sourceType), Value: bm.Position}, nil
+	p.cpMu.Lock()
+	defer p.cpMu.Unlock()
+	return p.cp, nil
 }
 
 // Close 断开源流（幂等）。

@@ -224,9 +224,6 @@ func (c *MongoConnector) Poll(ctx context.Context, req connector.PollRequest) (<
 				c.log.Error("mongo: map change event failed", "error", err)
 				continue
 			}
-			// 位点先于发送落 checkpoint：消费端关流后的最终 flush 也要拿到
-			// 最后一枚 token（发送与 ctx 取消竞争时丢的是事件不是位点）。
-			c.setCheckpoint(ev.Position)
 			select {
 			case events <- ev:
 			case <-streamCtx.Done():
@@ -246,6 +243,18 @@ func (c *MongoConnector) Checkpoint(_ context.Context) (connector.Position, erro
 	c.cpMu.Lock()
 	defer c.cpMu.Unlock()
 	return c.cp, nil
+}
+
+// AckCheckpoint marks a consumer-delivered resume token as resumable.
+func (c *MongoConnector) AckCheckpoint(_ context.Context, position connector.Position) error {
+	if c.closed.Load() {
+		return errors.New("mongo: connector closed")
+	}
+	if position.Kind != "token" || !position.Valid() {
+		return errors.New("mongo: invalid token checkpoint")
+	}
+	c.setCheckpoint(position)
+	return nil
 }
 
 // Close 断开连接（幂等）。close-join：置位 closed → cancel 流 ctx（解除

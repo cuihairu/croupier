@@ -69,6 +69,21 @@ func TestMongoOpenMissingEnv(t *testing.T) {
 	}
 }
 
+func TestMongoAckCheckpoint(t *testing.T) {
+	want := connector.Position{Kind: "token", Value: "ack-token"}
+	cn := NewMongoConnector(connector.SourceConfig{SourceType: "mongodb"}, nil)
+	if err := cn.AckCheckpoint(t.Context(), want); err != nil {
+		t.Fatalf("ack checkpoint: %v", err)
+	}
+	got, err := cn.Checkpoint(t.Context())
+	if err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
+	if got != want {
+		t.Fatalf("checkpoint = %+v, want %+v", got, want)
+	}
+}
+
 // 非行级操作（drop/rename/invalidate/未知）映射拒绝——流级 $in 已排除，
 // 这是第二道防线。
 func TestMapChangeEventNonRowRejected(t *testing.T) {

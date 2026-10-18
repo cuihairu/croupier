@@ -427,7 +427,10 @@ func (r *Runner) runSourceOnce(ctx context.Context) error {
 				_ = cn.Close(context.Background())
 				return errStreamEnded
 			}
-			r.consume(ev)
+			if err := r.consumeDurable(context.WithoutCancel(ctx), ev, cn); err != nil {
+				_ = cn.Close(context.Background())
+				return fmt.Errorf("advance checkpoint: %w", err)
+			}
 		case <-tick.C:
 			r.sweepGates(time.Now().UnixMilli())
 			r.flushBookmark(ctx, cn, false)
@@ -508,6 +511,16 @@ func (r *Runner) consume(ev connector.ChangeEvent) {
 	if gs.lineage != nil {
 		r.recordHits(gs.lineage.Evaluate(&ev))
 	}
+}
+
+// consumeDurable applies a delivered event and only then advances the
+// connector checkpoint; a failed save cannot make an event invisible.
+func (r *Runner) consumeDurable(ctx context.Context, ev connector.ChangeEvent, cn connector.SourceConnector) error {
+	r.consume(ev)
+	if err := cn.AckCheckpoint(ctx, ev.Position); err != nil {
+		return err
+	}
+	return nil
 }
 
 // sweepGates 周期销账/清桶（位点 tick 同频；无闸直通）。

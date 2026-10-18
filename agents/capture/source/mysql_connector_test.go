@@ -197,6 +197,47 @@ func TestMySQLConnectorGuards(t *testing.T) {
 	}
 }
 
+func TestProviderConnectorAckCheckpoint(t *testing.T) {
+	want := connector.Position{Kind: "gtid", Value: "ack-1"}
+	p := NewProviderConnector(&fakePumpSource{}, "mysql", nil)
+	if err := p.AckCheckpoint(t.Context(), want); err != nil {
+		t.Fatalf("ack checkpoint: %v", err)
+	}
+	got, err := p.Checkpoint(t.Context())
+	if err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
+	if got != want {
+		t.Fatalf("checkpoint = %+v, want %+v", got, want)
+	}
+}
+
+func TestMySQLConnectorAckCheckpoint(t *testing.T) {
+	want := connector.Position{Kind: "gtid", Value: "ack-2"}
+	const env = "CROUPIER_CAPTURE_MYSQL_DSN_TEST"
+	t.Setenv(env, "probe_user:probe_pass@tcp(cdc-host:3307)/")
+	cfg := connector.SourceConfig{
+		SourceID:   "mysql-ack",
+		SourceType: "mysql",
+		DSNEnv:     env,
+		Options:    map[string]string{"serverId": "424242", "tables": "game.items"},
+	}
+	c := NewMySQLConnector(cfg, nil)
+	if err := c.Open(t.Context(), cfg); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := c.AckCheckpoint(t.Context(), want); err != nil {
+		t.Fatalf("ack checkpoint: %v", err)
+	}
+	got, err := c.Checkpoint(t.Context())
+	if err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
+	if got != want {
+		t.Fatalf("checkpoint = %+v, want %+v", got, want)
+	}
+}
+
 // Open 凭据与参数解析：只走 DSNEnv 通道，serverId/tables 必填。
 func TestMySQLConnectorOpen(t *testing.T) {
 	const env = "CROUPIER_CAPTURE_MYSQL_DSN_TEST"
@@ -262,8 +303,8 @@ func TestMySQLConnectorOpenSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("checkpoint after open: %v", err)
 	}
-	if pos.Kind != "gtid" || pos.Value != "" {
-		t.Fatalf("empty bookmark position = %+v", pos)
+	if pos != (connector.Position{}) {
+		t.Fatalf("unconfirmed checkpoint = %+v, want zero position", pos)
 	}
 	if err := c.Close(t.Context()); err != nil {
 		t.Fatalf("close: %v", err)

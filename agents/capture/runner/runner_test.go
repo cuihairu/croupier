@@ -21,6 +21,7 @@ type fakeConnector struct {
 	closeAfter int // 推完多少条后关流；0=保持开
 	closed     bool
 	ch         chan connector.ChangeEvent
+	checkpoint connector.Position
 }
 
 func (f *fakeConnector) Open(_ context.Context, _ connector.SourceConfig) error {
@@ -49,7 +50,19 @@ func (f *fakeConnector) Poll(_ context.Context, _ connector.PollRequest) (<-chan
 func (f *fakeConnector) Checkpoint(context.Context) (connector.Position, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.checkpoint.Kind != "" {
+		return f.checkpoint, nil
+	}
 	return connector.Position{Kind: "gtid", Value: "fake-1"}, nil
+}
+
+func (f *fakeConnector) AckCheckpoint(_ context.Context, position connector.Position) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if position.Valid() {
+		f.checkpoint = position
+	}
+	return nil
 }
 
 func (f *fakeConnector) Close(context.Context) error {
