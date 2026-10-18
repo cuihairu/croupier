@@ -124,6 +124,25 @@ func TestHandleCaptureConfig_ScopeIsolatedBySession(t *testing.T) {
 	}
 }
 
+func TestHandleAgentConfig_RejectsBlankSessionScope(t *testing.T) {
+	captureSvc, _ := newConfigTestService(t)
+	seedCaptureAgent(t, captureSvc, "capture-blank-env", "demo", " ")
+	if _, err := captureSvc.handleCaptureConfig(context.Background(), mustMarshalGatesReq(t,
+		&opsv1.CaptureGatesConfigRequest{AgentId: "capture-blank-env"})); err == nil {
+		t.Fatal("capture config must reject a blank session env")
+	}
+
+	probeSvc, _ := newConfigTestService(t)
+	seedCaptureAgent(t, probeSvc, "sidecar-blank-game", " ", "prod")
+	data, err := proto.Marshal(&opsv1.ProbePolicyConfigRequest{AgentId: "sidecar-blank-game"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = probeSvc.handleProbePolicyConfig(context.Background(), data); err == nil {
+		t.Fatal("probe policy must reject a blank session game_id")
+	}
+}
+
 func TestHandleCaptureConfig_UnknownAgentAndNilModel(t *testing.T) {
 	svc, _ := newConfigTestService(t)
 	if _, err := svc.handleCaptureConfig(context.Background(), mustMarshalGatesReq(t, &opsv1.CaptureGatesConfigRequest{AgentId: "ghost"})); err == nil {

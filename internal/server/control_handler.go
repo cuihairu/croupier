@@ -645,7 +645,7 @@ func (s *ControlService) handleCaptureConfig(ctx context.Context, data []byte) (
 		return nil, fmt.Errorf("agent session not found: %s", agentID)
 	}
 	gameID, env := strings.TrimSpace(sess.GameID), strings.TrimSpace(sess.Env)
-	if gameID == "" {
+	if gameID == "" || env == "" {
 		return nil, fmt.Errorf("agent %s missing game scope", agentID)
 	}
 
@@ -709,7 +709,7 @@ func (s *ControlService) handleProbePolicyConfig(ctx context.Context, data []byt
 		return nil, fmt.Errorf("agent session not found: %s", agentID)
 	}
 	gameID, env := strings.TrimSpace(sess.GameID), strings.TrimSpace(sess.Env)
-	if gameID == "" {
+	if gameID == "" || env == "" {
 		return nil, fmt.Errorf("agent %s missing game scope", agentID)
 	}
 
