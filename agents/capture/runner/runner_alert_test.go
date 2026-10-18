@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -32,6 +33,7 @@ func hitFixture(t *testing.T) *Runner {
 	if st := r.Stats(); st.GateHits != 1 {
 		t.Fatalf("gate hits = %d, want 1", st.GateHits)
 	}
+	clearHitSpool(t, r)
 	return r
 }
 
@@ -83,6 +85,12 @@ func TestHitSenderSendsReport(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	alert := r.pendingHit()
+	alert.Event.Operation = connector.OpInsert
+	alert.Severity = "warn"
+	if err := r.hitSpool.enqueue(alert); err != nil {
+		t.Fatalf("enqueue alert: %v", err)
+	}
 	r.startHitSender(ctx)
 
 	rep := send.waitReport(t)
@@ -98,14 +106,26 @@ func TestHitSenderSendsReport(t *testing.T) {
 	if rep.Severity != "warn" {
 		t.Fatalf("report severity = %s", rep.Severity)
 	}
+	if _, err := os.Stat(r.hitSpool.path); !os.IsNotExist(err) {
+		t.Fatalf("accepted alert should be acked, stat err=%v", err)
+	}
 	if st := r.Stats(); st.AlertDropped != 0 {
 		t.Fatalf("dropped = %d, want 0", st.AlertDropped)
+	}
+	r.hitSpool.mu.Lock()
+	count := len(r.hitSpool.pending)
+	r.hitSpool.mu.Unlock()
+	if count != 0 {
+		t.Fatalf("spool count = %d, want 0 after accepted ack", count)
 	}
 }
 
 func TestHitSenderFailureCountsDrop(t *testing.T) {
 	r := hitFixture(t)
 	r.hitRetryInterval = time.Millisecond
+	if err := r.hitSpool.enqueue(r.pendingHit()); err != nil {
+		t.Fatalf("enqueue alert: %v", err)
+	}
 	send := &recordingSend{err: errors.New("dial timeout")}
 	r.sendAlert = send.send
 
@@ -123,9 +143,31 @@ func TestHitSenderFailureCountsDrop(t *testing.T) {
 	t.Fatal("AlertDropped not incremented after send failure")
 }
 
-func TestHitSenderRetriesAfterFailure(t *testing.T) {
-	r := hitFixtureWithoutSpool(t)
+func TestHitSenderFailureReturnsError(t *testing.T) {
+	r := hitFixture(t)
 	r.hitRetryInterval = time.Millisecond
+	send := &recordingSend{err: errors.New("dial timeout")}
+	r.sendAlert = send.send
+	hit := r.pendingHit()
+	if err := r.hitSpool.enqueue(hit); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+
+	err := r.sendHit(context.Background(), hit)
+	if err == nil {
+		t.Fatal("sendHit returned nil after exhausted attempts")
+	}
+	if st := r.Stats(); st.AlertDropped != 1 {
+		t.Fatalf("dropped = %d, want 1", st.AlertDropped)
+	}
+}
+
+func TestHitSenderRetriesAfterFailure(t *testing.T) {
+	r := hitFixture(t)
+	r.hitRetryInterval = time.Millisecond
+	if err := r.hitSpool.enqueue(r.pendingHit()); err != nil {
+		t.Fatalf("enqueue alert: %v", err)
+	}
 	send := &recordingSend{ack: &opsv1.CaptureRuleHitAck{Accepted: true}}
 	var attempts atomic.Int32
 	r.sendAlert = func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error) {
@@ -159,6 +201,9 @@ func TestHitSenderRetriesAfterFailure(t *testing.T) {
 
 func TestHitSenderDuplicateAckAccepted(t *testing.T) {
 	r := hitFixture(t)
+	if err := r.hitSpool.enqueue(r.pendingHit()); err != nil {
+		t.Fatalf("enqueue alert: %v", err)
+	}
 	send := &recordingSend{ack: &opsv1.CaptureRuleHitAck{Accepted: true, Duplicate: true}}
 	r.sendAlert = send.send
 
@@ -174,13 +219,36 @@ func TestHitSenderDuplicateAckAccepted(t *testing.T) {
 	}
 }
 
+func TestHitSenderKeepsAlertWithoutAck(t *testing.T) {
+	r := hitFixture(t)
+	r.hitRetryInterval = time.Millisecond
+	send := &recordingSend{ack: &opsv1.CaptureRuleHitAck{}}
+	r.sendAlert = send.send
+	hit := r.pendingHit()
+	hit.Event.TsUnixMs++
+	if err := r.hitSpool.enqueue(hit); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+
+	r.sendHit(context.Background(), hit)
+	if send.sentCount() != hitMaxAttempts {
+		t.Fatalf("send count = %d, want %d", send.sentCount(), hitMaxAttempts)
+	}
+	if r.spoolCount() != 1 {
+		t.Fatalf("spool count = %d, want 1 without accepted ack", r.spoolCount())
+	}
+}
+
 func TestHitSenderQueueFullDrops(t *testing.T) {
 	r := hitFixtureWithoutSpool(t)
 	// 替换为无缓冲队列且无人消费：recordHits 非阻塞 → 直接丢。
 	r.hitCh = make(chan gate.Hit)
+	if r.hitSpool != nil {
+		t.Fatal("test requires no durable fallback")
+	}
 	r.recordHits([]gate.Hit{{Rule: "r", Table: "t", Event: connector.ChangeEvent{TsUnixMs: time.Now().UnixMilli()}}})
 	st := r.Stats()
 	if st.AlertDropped != 1 {
-		t.Fatalf("dropped = %d after queue-full hit, want 1", st.AlertDropped)
+		t.Fatalf("dropped = %d after queue-full hit without spool, want 1", st.AlertDropped)
 	}
 }

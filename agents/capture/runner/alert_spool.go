@@ -2,9 +2,11 @@ package runner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/cuihairu/croupier/agents/capture/gate"
@@ -15,24 +17,57 @@ import (
 type alertSpool struct {
 	path string
 
+	limit int
+
 	mu      sync.Mutex
 	pending map[string]gate.Hit
 	order   []string
+
+	writeFile func(path string, data []byte) error
+}
+
+type alertSpoolFile struct {
+	Entries []alertSpoolEntry `json:"entries"`
+}
+
+type alertSpoolEntry struct {
+	Key string   `json:"key"`
+	Hit gate.Hit `json:"hit"`
 }
 
 func newAlertSpool(path string) *alertSpool {
-	s := &alertSpool{path: path, pending: make(map[string]gate.Hit)}
+	s := &alertSpool{
+		path:      path,
+		limit:     alertSpoolLimit,
+		pending:   make(map[string]gate.Hit),
+		writeFile: writeFileAtomic,
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return s
 	}
-	var loaded map[string]gate.Hit
-	if json.Unmarshal(data, &loaded) == nil && loaded != nil {
-		s.pending = loaded
-		s.order = make([]string, 0, len(loaded))
-		for key := range loaded {
+	var file alertSpoolFile
+	if json.Unmarshal(data, &file) == nil && len(file.Entries) > 0 {
+		for _, entry := range file.Entries {
+			if entry.Key == "" {
+				continue
+			}
+			if _, exists := s.pending[entry.Key]; exists {
+				continue
+			}
+			s.pending[entry.Key] = entry.Hit
+			s.order = append(s.order, entry.Key)
+		}
+		return s
+	}
+	var legacy map[string]gate.Hit
+	if json.Unmarshal(data, &legacy) == nil && len(legacy) > 0 {
+		s.pending = legacy
+		s.order = make([]string, 0, len(legacy))
+		for key := range legacy {
 			s.order = append(s.order, key)
 		}
+		sort.Strings(s.order)
 	}
 	return s
 }
@@ -48,14 +83,24 @@ func (s *alertSpool) enqueue(hit gate.Hit) error {
 	if _, exists := s.pending[key]; exists {
 		return nil
 	}
+	if len(s.pending) >= s.limit {
+		return fmt.Errorf("alert spool full: %d/%d", len(s.pending), s.limit)
+	}
 	s.pending[key] = hit
 	s.order = append(s.order, key)
-	return s.saveLocked()
+	if err := s.saveLocked(); err != nil {
+		delete(s.pending, key)
+		s.order = s.order[:len(s.order)-1]
+		return err
+	}
+	return nil
 }
 
 func (s *alertSpool) ack(key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	oldHit := s.pending[key]
+	oldOrder := append([]string(nil), s.order...)
 	delete(s.pending, key)
 	for index, pendingKey := range s.order {
 		if pendingKey == key {
@@ -63,7 +108,21 @@ func (s *alertSpool) ack(key string) error {
 			break
 		}
 	}
-	return s.saveLocked()
+	if err := s.saveLocked(); err != nil {
+		s.pending[key] = oldHit
+		s.order = oldOrder
+		return err
+	}
+	return nil
+}
+
+func (s *alertSpool) hitForKey(key string) gate.Hit {
+	for _, pendingKey := range s.order {
+		if pendingKey == key {
+			return s.pending[key]
+		}
+	}
+	return gate.Hit{}
 }
 
 func (s *alertSpool) next() (gate.Hit, bool) {
@@ -84,11 +143,20 @@ func (s *alertSpool) saveLocked() error {
 		}
 		return nil
 	}
-	data, err := json.Marshal(s.pending)
+	file := alertSpoolFile{Entries: make([]alertSpoolEntry, 0, len(s.order))}
+	for _, key := range s.order {
+		if hit, exists := s.pending[key]; exists {
+			file.Entries = append(file.Entries, alertSpoolEntry{Key: key, Hit: hit})
+		}
+	}
+	data, err := json.Marshal(file)
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(s.path, data)
+	if s.writeFile == nil {
+		return errors.New("alert spool writer unavailable")
+	}
+	return s.writeFile(s.path, data)
 }
 
 func writeFileAtomic(path string, data []byte) error {
@@ -102,6 +170,11 @@ func writeFileAtomic(path string, data []byte) error {
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmpName)
 		return err

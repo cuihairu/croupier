@@ -286,10 +286,14 @@ handleAlertEvent`（`SetAlertModel`/`SetOutletManager` 注入，cmd/server/root.
 3. **game/env 只进 Details**：`Scope` 三元组随事件送 outlet（面板按
    scope 过滤），但 alerts 表身份不存 game 列（表为全公司单库）——与
    `alert.inbound` 同形态（scope 在 Details）。
-4. **丢弃不背压**：入队保持 best effort——队列满（`AlertDropped++`）立即丢
-   弃；已入队命中在连接未就绪、超时/失败时按 500ms 有界重试，耗尽或停机
-   中断才计 `AlertDropped`。本地 slog warn 日志是持久记录（命中可核），上
-   报链不排队、不阻塞消费循环；跨重启的持久待发送队列尚未实现。
+4. **持久不背压**：命中先原子写入本地 alert spool（幂等键=
+   `agent|rule|gtid|table|key|event_ts`，容量 4096），再尝试进入内存快
+   信道；队列满不丢弃，由 spool 重放循环按序上报。仅磁盘/容量不可持久化
+   或持久化后发送重试耗尽才计 `AlertDropped`。ACK 必须 `err=nil` 且
+   `accepted=true`（duplicate ACK 也须 accepted）；ACK 后删除记录。发送后
+   未收到有效 ACK、停机或重启时记录保留，重启后按序重放，服务端用同一幂
+   等键折叠重复业务告警。checkpoint 只在事件消费确认后推进；告警 spool
+   独立保留，不受 checkpoint 清理影响。
 5. **混版兼容**：旧 server 收到未知 msgID 返回 unknown message type 错误，
    agent 侧按发送失败丢弃（同上）；新 server + 旧 agent 不受影响（旧 agent
    不发该消息）。无配置开关——闸关则无命中无噪声，闸开即启用上报。

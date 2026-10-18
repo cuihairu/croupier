@@ -53,12 +53,13 @@ var errStreamEnded = errors.New("capture source stream ended")
 var errGatesConnNotReady = errors.New("control conn not ready")
 
 // hitQueueSize 告警上报缓冲队列容量；hitSendTimeout 单次上报超时；
-// hitMaxAttempts 单条命中的最大发送次数。入队保持非阻塞，绝不背压消费
-// 循环；已入队命中在发送失败时重试，耗尽才计丢弃。
+// hitMaxAttempts 单条命中的最大发送次数；alertSpoolLimit 持久溢出队列
+// 容量。入队保持非阻塞，绝不背压消费循环；队列满时命中先落 spool。
 const (
-	hitQueueSize   = 512
-	hitSendTimeout = 5 * time.Second
-	hitMaxAttempts = 3
+	hitQueueSize    = 512
+	hitSendTimeout  = 5 * time.Second
+	hitMaxAttempts  = 3
+	alertSpoolLimit = 4096
 )
 
 // defaultHitRetryInterval 单次命中上报的固定重试间隔（测试注入快档）。
@@ -546,19 +547,34 @@ func (r *Runner) sweepGates(nowMs int64) {
 	}
 }
 
-// recordHits 命中出口：日志 + GateHits 计数 + 非阻塞入上报队列（满即丢）。
+// recordHits 命中出口：日志 + GateHits 计数。队列满时把命中写入持久
+// spool，只有持久化也失败才计丢弃。
 func (r *Runner) recordHits(hits []gate.Hit) {
 	for _, h := range hits {
 		atomic.AddInt64(&r.stats.GateHits, 1)
 		r.log.Warn("capture gate hit", "rule", h.Rule, "severity", h.Severity,
 			"table", h.Table, "key", h.Key, "detail", h.Detail,
 			"gtid", h.Event.Position.Value, "tsUnixMs", h.Event.TsUnixMs)
-		select {
-		case r.hitCh <- h:
-		default:
+		if err := r.routeHit(h); err != nil {
+			r.log.Warn("capture alert persistence failed", "rule", h.Rule, "error", err)
 			atomic.AddInt64(&r.stats.AlertDropped, 1)
 		}
 	}
+}
+
+func (r *Runner) routeHit(h gate.Hit) error {
+	if r.hitSpool == nil {
+		select {
+		case r.hitCh <- h:
+			return nil
+		default:
+			return errors.New("capture alert queue full")
+		}
+	}
+	if err := r.hitSpool.enqueue(h); err != nil {
+		return err
+	}
+	return nil
 }
 
 // startHitSender 告警上报循环：从队列取命中异步送上游；ctx 取消退出
@@ -588,9 +604,12 @@ func (r *Runner) drainSpool(ctx context.Context) {
 		}
 		h, ok := r.hitSpool.next()
 		if !ok {
-			return
+			if !backoff.Sleep(ctx, r.hitRetryInterval) {
+				return
+			}
+			continue
 		}
-		r.sendHit(ctx, h)
+		_ = r.sendHit(ctx, h)
 		if ctx.Err() != nil {
 			return
 		}
@@ -598,16 +617,17 @@ func (r *Runner) drainSpool(ctx context.Context) {
 	}
 }
 
-// sendHit 单条上报（sendAlert seam）。发送失败按固定间隔有界重试，重试
-// 耗尽才计丢弃；成功 ACK（含 duplicate）即离开队列。
-func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
+// sendHit 单条上报（sendAlert seam）。发送失败按固定间隔有界重试；每次
+// 重试周期耗尽向调用方报错，持久队列保持队头并触发下一轮，成功 ACK（含
+// duplicate）即离开队列。
+func (r *Runner) sendHit(ctx context.Context, h gate.Hit) error {
 	var spoolKey string
 	if r.hitSpool != nil {
 		spoolKey = r.hitSpool.key(h)
 		if err := r.hitSpool.enqueue(h); err != nil {
 			r.log.Warn("capture alert spool write failed", "rule", h.Rule, "error", err)
 			atomic.AddInt64(&r.stats.AlertDropped, 1)
-			return
+			return err
 		}
 	}
 	var lastErr error
@@ -615,7 +635,7 @@ func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
 		sendCtx, cancel := context.WithTimeout(ctx, hitSendTimeout)
 		ack, err := r.sendAlert(sendCtx, r.buildHitReport(h))
 		cancel()
-		if err == nil {
+		if err == nil && ack.GetAccepted() {
 			if ack.GetDuplicate() {
 				r.log.Debug("capture alert duplicate suppressed", "rule", h.Rule, "key", h.Key)
 			}
@@ -624,7 +644,7 @@ func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
 					r.log.Warn("capture alert ack cleanup failed", "rule", h.Rule, "error", ackErr)
 				}
 			}
-			return
+			return nil
 		}
 		lastErr = err
 		if ctx.Err() != nil {
@@ -638,6 +658,7 @@ func (r *Runner) sendHit(ctx context.Context, h gate.Hit) {
 	}
 	atomic.AddInt64(&r.stats.AlertDropped, 1)
 	r.log.Warn("capture alert send failed", "rule", h.Rule, "attempts", hitMaxAttempts, "error", lastErr)
+	return lastErr
 }
 
 // buildHitReport 组装上报体（game/env 身份取注册配置）。
