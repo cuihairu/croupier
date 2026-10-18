@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	transportcore "github.com/cuihairu/croupier/internal/transport"
+	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
