@@ -94,8 +94,8 @@ func TestService_RunLogs_AfterCreate_Empty(t *testing.T) {
 func TestService_Delete_Unknown_Idempotent(t *testing.T) {
 	r, _ := newTestEnv(t, true)
 	rec := doReq(r, http.MethodDelete, "/api/v1/schedules/99999")
-	// Delete 对不存在 id 幂等（gorm Delete 不报错）
-	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	// 删除前必须先归属校验；未知 id 返回 404，避免跨 scope 资源可探测性。
+	assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 }
 
 func TestService_List_StoreError(t *testing.T) {

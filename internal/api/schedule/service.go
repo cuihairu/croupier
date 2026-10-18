@@ -4,6 +4,7 @@ package schedule
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -172,6 +173,9 @@ func (s *Service) SetStatus(ctx context.Context, id uint, status string) (Schedu
 	if m == nil {
 		return ScheduleItem{}, errorx.NewBadRequest("调度模型未初始化")
 	}
+	if err := s.requireScheduleScope(ctx, id); err != nil {
+		return ScheduleItem{}, err
+	}
 	switch status {
 	case model.ScheduleStatusActive:
 		// 恢复时重算下次触发。
@@ -213,6 +217,9 @@ func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse,
 	m := s.model()
 	if m == nil || s.svcCtx.Dispatcher == nil {
 		return nil, errorx.NewBadRequest("调度未初始化")
+	}
+	if err := s.requireScheduleScope(ctx, id); err != nil {
+		return nil, err
 	}
 	sch, err := m.FindByID(ctx, id)
 	if err != nil {
@@ -260,6 +267,9 @@ func (s *Service) RunLogs(ctx context.Context, id uint, page, pageSize int) (*Ru
 	if m == nil {
 		return nil, errorx.NewBadRequest("调度模型未初始化")
 	}
+	if err := s.requireScheduleScope(ctx, id); err != nil {
+		return nil, err
+	}
 	logs, total, err := m.ListRunLogs(ctx, id, page, pageSize)
 	if err != nil {
 		return nil, err
@@ -283,7 +293,29 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 	if m == nil {
 		return errorx.NewBadRequest("调度模型未初始化")
 	}
+	if err := s.requireScheduleScope(ctx, id); err != nil {
+		return err
+	}
 	return m.Delete(ctx, id)
+}
+
+func (s *Service) requireScheduleScope(ctx context.Context, id uint) error {
+	m := s.model()
+	if m == nil {
+		return errorx.NewBadRequest("调度模型未初始化")
+	}
+	schedule, err := m.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	scope := svc.GameScopeFromContext(ctx)
+	if scope.GameID != "" && scope.GameID != schedule.GameID {
+		return errorx.NewNotFound(fmt.Sprintf("schedule %d not found in game %s", id, scope.GameID))
+	}
+	if scope.Env != "" && scope.Env != schedule.Env {
+		return errorx.NewNotFound(fmt.Sprintf("schedule %d not found in env %s", id, scope.Env))
+	}
+	return nil
 }
 
 // ---------- helpers ----------
