@@ -3,7 +3,6 @@ import { Button, Input, Space, Table } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage } from '@umijs/max';
 import { listOpsAgentsByType, type AgentType } from '@/services/api/ops';
-import { getScope } from '@/stores/scope';
 import { useScopeReload } from '@/hooks/useScopeReload';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import NodeDetailDrawer from '../Nodes/NodeDetailDrawer';
@@ -68,7 +67,7 @@ export default function OpsAgentsPage({ agentType }: AgentPageProps) {
         setLoading(false);
       }
     }
-  }, [agentType, getScope]);
+  }, [agentType]);
 
   const { scope, scopeKey } = useScopeReload(load);
   const initialScopeKey = useRef(scopeKey);
@@ -81,6 +80,9 @@ export default function OpsAgentsPage({ agentType }: AgentPageProps) {
     if (initialScopeKey.current === scopeKey) return;
     initialScopeKey.current = scopeKey;
     setRows([]);
+    setQuery('');
+    setDetailNode(null);
+    setSupervisorNode(null);
   }, [scopeKey]);
 
   const data = useMemo(() => {

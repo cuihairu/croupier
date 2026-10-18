@@ -179,3 +179,26 @@ it('ignores a stale response from an earlier scope', async () => {
   });
   expect(await screen.findByText('sidecar-b')).toBeInTheDocument();
 });
+
+it('closes open drawers when the scope changes', async () => {
+  setScope({ gameId: 'game-a', env: 'dev' }, { persist: false, emit: false });
+  listOpsAgentsByType.mockResolvedValue({
+    nodes: [{ id: 'sidecar-a', gameId: 'game-a', env: 'dev', labels: { role: 'sidecar' } }],
+  });
+
+  render(<OpsAgentsPage agentType="sidecar" />);
+  await screen.findByText('sidecar-a');
+  fireEvent.click(screen.getByText('详 情', { selector: 'button > span' }));
+  expect(await screen.findByText('detail:sidecar-a:game-a:dev')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'close-detail' }));
+  fireEvent.click(screen.getByText('监 管', { selector: 'button > span' }));
+  expect(await screen.findByText('supervisor:sidecar-a:game-a:dev')).toBeInTheDocument();
+
+  act(() => {
+    setScope({ gameId: 'game-b', env: 'prod' }, { persist: false, emit: true });
+  });
+  await waitFor(() =>
+    expect(screen.queryByText('supervisor:sidecar-a:game-a:dev')).not.toBeInTheDocument(),
+  );
+  expect(screen.queryByText('detail:sidecar-a:game-a:dev')).not.toBeInTheDocument();
+});
