@@ -4,6 +4,8 @@ import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage } from '@umijs/max';
 import { listOpsAgentsByType, type AgentType } from '@/services/api/ops';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
+import NodeDetailDrawer from '../Nodes/NodeDetailDrawer';
+import SupervisorDrawer from '../Nodes/SupervisorDrawer';
 import { normalizeOpsNode, type NodeRow } from '../Nodes/shared';
 
 export type AgentPageProps = {
@@ -46,6 +48,8 @@ export default function OpsAgentsPage({ agentType }: AgentPageProps) {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<NodeRow[]>([]);
   const [query, setQuery] = useState('');
+  const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
+  const [supervisorNode, setSupervisorNode] = useState<NodeRow | null>(null);
   const meta = AGENT_META[agentType];
 
   const load = useCallback(async () => {
@@ -121,34 +125,61 @@ export default function OpsAgentsPage({ agentType }: AgentPageProps) {
             dataSource={data}
             loading={loading}
             size="small"
-            scroll={{ x: 900 }}
             tableLayout="fixed"
             pagination={{ pageSize: 10 }}
             locale={{ emptyText: rows.length ? '当前筛选条件下没有匹配实例。' : meta.empty }}
             columns={[
-              { title: 'Agent ID', dataIndex: 'agentId', width: 200, ellipsis: true },
-              { title: 'gameId', dataIndex: 'gameId', width: 120 },
-              { title: 'env', dataIndex: 'env', width: 100 },
+              { title: 'Agent ID', dataIndex: 'agentId', width: 190, ellipsis: true },
+              { title: 'gameId', dataIndex: 'gameId', width: 100 },
+              { title: 'env', dataIndex: 'env', width: 90 },
               {
                 title: '类型',
                 dataIndex: ['labels', 'role'],
-                width: 120,
+                width: 100,
                 render: (value: string) => value || agentType,
               },
               {
                 title: '主机',
                 dataIndex: 'hostname',
-                width: 160,
+                width: 130,
                 ellipsis: true,
                 render: (v) => v || '-',
               },
-              { title: '状态', dataIndex: 'nodeStatus', width: 110 },
-              { title: '版本', dataIndex: 'version', width: 120, render: (v) => v || '-' },
-              { title: '最近上报', dataIndex: 'lastSeen', width: 190, render: (v) => v || '-' },
+              { title: '状态', dataIndex: 'nodeStatus', width: 90 },
+              { title: '版本', dataIndex: 'version', width: 100, render: (v) => v || '-' },
+              { title: '最近上报', dataIndex: 'lastSeen', width: 140, render: (v) => v || '-' },
+              {
+                title: '操作',
+                key: 'actions',
+                width: agentType === 'sidecar' ? 140 : 90,
+                render: (_, row) => (
+                  <Space>
+                    <Button size="small" onClick={() => setDetailNode(row)}>
+                      详情
+                    </Button>
+                    {agentType === 'sidecar' && (
+                      <Button size="small" onClick={() => setSupervisorNode(row)}>
+                        监管
+                      </Button>
+                    )}
+                  </Space>
+                ),
+              },
             ]}
           />
         </StandardListSection>
       </Space>
+
+      <NodeDetailDrawer
+        node={detailNode}
+        onClose={() => setDetailNode(null)}
+        onDrain={() => undefined}
+        onUndrain={() => undefined}
+        onRestart={() => undefined}
+      />
+      {agentType === 'sidecar' && (
+        <SupervisorDrawer node={supervisorNode} onClose={() => setSupervisorNode(null)} />
+      )}
     </PageContainer>
   );
 }

@@ -19,6 +19,44 @@ const { listOpsAgentsByType } = jest.requireMock('@/services/api/ops') as {
   listOpsAgentsByType: jest.Mock;
 };
 
+jest.mock('../../Nodes/NodeDetailDrawer', () => ({
+  __esModule: true,
+  default: ({
+    node,
+    onClose,
+  }: {
+    node: { agentId: string; gameId?: string; env?: string } | null;
+    onClose: () => void;
+  }) =>
+    node ? (
+      <div>
+        <span>{`detail:${node.agentId}:${node.gameId ?? ''}:${node.env ?? ''}`}</span>
+        <button type="button" onClick={onClose}>
+          close-detail
+        </button>
+      </div>
+    ) : null,
+}));
+
+jest.mock('../../Nodes/SupervisorDrawer', () => ({
+  __esModule: true,
+  default: ({
+    node,
+    onClose,
+  }: {
+    node: { agentId: string; gameId?: string; env?: string } | null;
+    onClose: () => void;
+  }) =>
+    node ? (
+      <div>
+        <span>{`supervisor:${node.agentId}:${node.gameId ?? ''}:${node.env ?? ''}`}</span>
+        <button type="button" onClick={onClose}>
+          close-supervisor
+        </button>
+      </div>
+    ) : null,
+}));
+
 it('shows the scope empty state for an agent type with no instances', async () => {
   listOpsAgentsByType.mockResolvedValue({ nodes: [] });
   render(<OpsAgentsPage agentType="synthetics" />);
@@ -60,4 +98,36 @@ it('filters by agent id keyword', async () => {
   fireEvent.change(input, { target: { value: 'sidecar-2' } });
   expect(screen.getByText('sidecar-2')).toBeInTheDocument();
   expect(screen.queryByText('sidecar-1')).not.toBeInTheDocument();
+});
+
+it('opens scoped detail and sidecar supervisor drawers', async () => {
+  listOpsAgentsByType.mockResolvedValue({
+    nodes: [
+      {
+        id: 'sidecar-1',
+        gameId: 'demo',
+        env: 'prod',
+        labels: { role: 'sidecar' },
+      },
+    ],
+  });
+  render(<OpsAgentsPage agentType="sidecar" />);
+  await screen.findByText('sidecar-1');
+  fireEvent.click(await screen.findByText('详 情', { selector: 'button > span' }));
+  expect(await screen.findByText('detail:sidecar-1:demo:prod')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'close-detail' }));
+
+  fireEvent.click(screen.getByText('监 管', { selector: 'button > span' }));
+  expect(await screen.findByText('supervisor:sidecar-1:demo:prod')).toBeInTheDocument();
+});
+
+it('opens detail without supervisor actions for non-sidecar types', async () => {
+  listOpsAgentsByType.mockResolvedValue({
+    nodes: [{ id: 'capture-1', gameId: 'demo', env: 'prod', labels: { role: 'capture' } }],
+  });
+  render(<OpsAgentsPage agentType="capture" />);
+  await screen.findByText('capture-1');
+  fireEvent.click(await screen.findByText('详 情', { selector: 'button > span' }));
+  expect(await screen.findByText('detail:capture-1:demo:prod')).toBeInTheDocument();
+  expect(screen.queryByText('监 管', { selector: 'button > span' })).not.toBeInTheDocument();
 });

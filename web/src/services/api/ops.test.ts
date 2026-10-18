@@ -24,6 +24,7 @@ import {
   listAlertRules,
   listCertificates,
   listOpsBackups,
+  listOpsAgentsByType,
   listOpsFunctions,
   listOpsNodes,
   listOpsTasks,
@@ -983,6 +984,37 @@ describe('ops node adapters', () => {
   it('falls back to an empty node list on a missing payload', async () => {
     mockedRequest.mockResolvedValueOnce(undefined);
     await expect(listOpsNodes()).resolves.toEqual({ nodes: [] });
+  });
+
+  it('requests agents by the closed type filter and preserves scope identity', async () => {
+    mockedRequest.mockResolvedValueOnce({
+      nodes: [{ id: 'sidecar-1', gameId: 'demo', env: 'prod', labels: { role: 'sidecar' } }],
+    });
+
+    await expect(listOpsAgentsByType('sidecar')).resolves.toEqual({
+      nodes: [
+        {
+          id: 'sidecar-1',
+          gameId: 'demo',
+          env: 'prod',
+          version: undefined,
+          status: undefined,
+          labels: { role: 'sidecar' },
+          hostname: undefined,
+          addr: undefined,
+          lastSeen: undefined,
+          sdkLanguage: undefined,
+          sdkVersion: undefined,
+          sdkName: undefined,
+          functions: 0,
+          expiresInSec: 0,
+          cpu: undefined,
+          memory: undefined,
+          disks: undefined,
+        },
+      ],
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/nodes?status=sidecar');
   });
 
   it('drains, undrains and restarts nodes with encoded ids', async () => {
