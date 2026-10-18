@@ -98,10 +98,16 @@ func TestMySQLConnectorContract(t *testing.T) {
 			if err := ev.Validate(); err != nil {
 				t.Fatalf("contract validation: %v", err)
 			}
-			// Checkpoint：GTID 位点快照。
+			// Checkpoint：先确认位点，再读快照（b0e035d 起 Checkpoint 只回已确认位点）。
+			if err := c.AckCheckpoint(ctx, ev.Position); err != nil {
+				t.Fatalf("ack checkpoint: %v", err)
+			}
 			cp, err := c.Checkpoint(ctx)
 			if err != nil || cp.Kind != "gtid" || cp.Value == "" {
 				t.Fatalf("checkpoint = %+v err=%v", cp, err)
+			}
+			if cp.Value != ev.Position.Value {
+				t.Fatalf("checkpoint %q != event position %q", cp.Value, ev.Position.Value)
 			}
 			return
 		case <-deadline:
