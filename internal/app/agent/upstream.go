@@ -12,10 +12,10 @@ import (
 
 	"github.com/cuihairu/croupier/core/register"
 	"github.com/cuihairu/croupier/core/report"
+	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/common/labels"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"

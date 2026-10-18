@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/core/configsync"
+	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/agent"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
@@ -21,7 +22,6 @@ import (
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/types/known/emptypb"

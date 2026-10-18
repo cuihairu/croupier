@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
