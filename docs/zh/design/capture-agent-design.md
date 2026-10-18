@@ -14,7 +14,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
   3. capture-agent 归入**现有 agent 注册链**，进程纳入 supervisor（进程监管）；
   4. **源层可插拔 Provider**：MySQL（binlog）+ PostgreSQL（逻辑复制）默认提供，SQLite/SQL Server/MongoDB 留扩展位；三道闸规则层与源解耦，所有源吐**统一变更事件流**；
   5. **极简**：规则白名单/阈值全部走面板配置不写死；规则 DSL 择最简。
-- 关联: [Agent 清单](agents-inventory.md)（三 agent 定名/职责边界/面板分页/scope 归属）· [agent-core 通用能力层简档](agent-core-design.md)（capture-agent = core + 业务插件的载体）· [Agent Supervisor 简档](agent-supervisor-design.md)（core 即被监管对象，协议一份）· [数据库监控设计](../research/db-monitoring-design.md)（同库部署的姊妹件：那个管指标健康，本件管数据变更合规）· [Provider 插件设计](provider-plugin-design.md)（可插拔原则同源）
+- 关联: [Agent 清单](agents-inventory.md)（三 agent 定名/职责边界/面板分页/scope 归属）· [agent-core 通用能力层简档](agent-core-design.md)（capture-agent = core + 业务插件的载体）· [Agent Supervisor 简档](agent-supervisor-design.md)（core 即被监管对象，协议一份）· [数据库监控设计](../research/db-monitoring-design.md)（同库部署的姊妹件：那个管指标健康，本件管数据变更合规）· [Provider 插件设计](provider-plugin-design.md)（可插拔原则同源）· [通用 CDC 核心库与回放设计](cdc-library-design.md)（通用采集/过滤/回放与 Croupier 业务适配边界）
 
 ## 0. 作用（Agent 清单口径，先读这节）
 

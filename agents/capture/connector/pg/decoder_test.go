@@ -106,6 +106,9 @@ func TestDecoderTransactionAssembly(t *testing.T) {
 		if ev.Tx.ID != "77" || ev.Tx.Seq != int64(i+1) {
 			t.Fatalf("event %d tx = %+v", i, ev.Tx)
 		}
+		if ev.Tx.End != (i == len(events)-1) {
+			t.Fatalf("event %d transaction end = %v", i, ev.Tx.End)
+		}
 		if ev.SchemaVersion != 1 {
 			t.Fatalf("event %d schemaVersion = %d, want 1", i, ev.SchemaVersion)
 		}

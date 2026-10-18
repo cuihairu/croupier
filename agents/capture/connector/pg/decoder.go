@@ -90,6 +90,9 @@ func (d *Decoder) Feed(payload []byte) ([]connector.ChangeEvent, error) {
 		events := d.cur.events
 		d.cur = nil
 		d.curLSN = commit.EndLSN
+		if len(events) > 0 {
+			events[len(events)-1].Tx.End = true
+		}
 		for i := range events {
 			events[i].TsUnixMs = commit.TsUnixMs
 			events[i].Position = connector.Position{Kind: "lsn", Value: commit.EndLSN.Decimal()}
