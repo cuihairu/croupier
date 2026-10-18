@@ -203,7 +203,11 @@ func TestPostgresConnectorLogicalReplication(t *testing.T) {
 		t.Fatalf("key update after = %v, want id=2", ev.After)
 	}
 
-	// Checkpoint：lsn 位点可解析回读。
+	// Checkpoint：先确认位点，再读快照（b0e035d 起 Checkpoint 只回已确认位点），
+	// lsn 位点可解析回读。
+	if err := c.AckCheckpoint(ctx, ev.Position); err != nil {
+		t.Fatalf("ack checkpoint: %v", err)
+	}
 	cp, err := c.Checkpoint(ctx)
 	if err != nil || cp.Kind != "lsn" || cp.Value == "" {
 		t.Fatalf("checkpoint = %+v err=%v", cp, err)

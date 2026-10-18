@@ -156,7 +156,11 @@ func TestMongoConnectorChangeStreams(t *testing.T) {
 		t.Fatalf("update before image should be nil, got %v", ev.Before)
 	}
 
-	// Checkpoint：token 位点 hex 可解码。
+	// Checkpoint：先确认位点，再读快照（b0e035d 起 Checkpoint 只回已确认位点），
+	// token 位点 hex 可解码。
+	if err := c.AckCheckpoint(ctx, ev.Position); err != nil {
+		t.Fatalf("ack checkpoint: %v", err)
+	}
 	cp, err := c.Checkpoint(ctx)
 	if err != nil || cp.Kind != "token" || cp.Value == "" {
 		t.Fatalf("checkpoint = %+v err=%v", cp, err)
