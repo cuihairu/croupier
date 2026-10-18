@@ -184,16 +184,71 @@ func opsAgentMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgent
 }
 
 func opsAgentMetrics(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentMetricsRequest) (*OpsAgentMetricsResponse, error) {
-	// Implementation would query metrics from the agent
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
+	if svcCtx == nil || svcCtx.MetricsStore == nil {
+		return &OpsAgentMetricsResponse{Metrics: []OpsMetricsData{}}, nil
+	}
+	entry, _ := svcCtx.MetricsStore.GetLatest(req.AgentID)
+	if entry == nil || entry.Report == nil {
+		return &OpsAgentMetricsResponse{Metrics: []OpsMetricsData{}}, nil
+	}
+	report := entry.Report
+	data := OpsMetricsData{
+		AgentID:   req.AgentID,
+		Timestamp: utils.FormatTimestamp(entry.Received),
+	}
+	if cpu := report.GetCpu(); cpu != nil {
+		data.CPU = *convertCpuMetrics(cpu)
+	}
+	if memory := report.GetMemory(); memory != nil {
+		data.Memory = *convertMemoryMetrics(memory)
+	}
+	if len(report.GetDisks()) > 0 {
+		data.Disks = convertDiskMetrics(report.GetDisks())
+	}
+	for _, network := range report.GetNetworks() {
+		if network == nil {
+			continue
+		}
+		data.Networks = append(data.Networks, OpsNetworkMetrics{
+			Interface:   network.GetInterface(),
+			BytesSent:   network.GetBytesSent(),
+			BytesRecv:   network.GetBytesRecv(),
+			PacketsSent: network.GetPacketsSent(),
+			PacketsRecv: network.GetPacketsRecv(),
+		})
+	}
 	return &OpsAgentMetricsResponse{
-		Metrics: []OpsMetricsData{},
+		Metrics: []OpsMetricsData{data},
 	}, nil
 }
 
 func opsAgentProcesses(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentProcessesRequest) (*OpsAgentProcessesResponse, error) {
-	// Implementation would query processes from the agent
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
+	if svcCtx == nil || svcCtx.MetricsStore == nil {
+		return &OpsAgentProcessesResponse{Processes: []OpsManagedProcess{}}, nil
+	}
+	entry, _ := svcCtx.MetricsStore.GetLatest(req.AgentID)
+	processes := []OpsManagedProcess{}
+	if entry != nil && entry.Report != nil {
+		for _, snapshot := range entry.Report.GetSupervisedProcesses() {
+			if snapshot == nil {
+				continue
+			}
+			processes = append(processes, OpsManagedProcess{
+				Name:         snapshot.GetName(),
+				State:        supervisorStateString(snapshot.GetState()),
+				Pid:          snapshot.GetPid(),
+				RestartCount: snapshot.GetRestartCount(),
+			})
+		}
+	}
 	return &OpsAgentProcessesResponse{
-		Processes: []OpsManagedProcess{},
+		Processes: processes,
 	}, nil
 }
 

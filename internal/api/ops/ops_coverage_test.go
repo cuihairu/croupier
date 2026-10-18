@@ -1644,7 +1644,7 @@ func TestOpsNodeMetaHandlerGET(t *testing.T) {
 
 // Test for OpsAgentProcessesHandler with GET
 
-func TestOpsAgentProcessesHandlerWithAgentID(t *testing.T) {
+func TestOpsAgentProcessesHandlerUnknownAgentRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1654,12 +1654,12 @@ func TestOpsAgentProcessesHandlerWithAgentID(t *testing.T) {
 
 	h.OpsAgentProcesses(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 // Test for OpsAgentMetricsHandler with GET
 
-func TestOpsAgentMetricsHandlerWithParams(t *testing.T) {
+func TestOpsAgentMetricsHandlerUnknownAgentRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1669,7 +1669,7 @@ func TestOpsAgentMetricsHandlerWithParams(t *testing.T) {
 
 	h.OpsAgentMetrics(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 // Test for OpsAgentsListHandler with GET

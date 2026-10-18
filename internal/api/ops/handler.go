@@ -70,6 +70,9 @@ func (h *Handler) OpsAgentMetrics(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
 
 	resp, err := h.service.OpsAgentMetrics(c.Request.Context(), &req)
 	if err != nil {
@@ -84,6 +87,9 @@ func (h *Handler) OpsAgentProcesses(c *gin.Context) {
 	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
+	}
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
 	}
 
 	resp, err := h.service.OpsAgentProcesses(c.Request.Context(), &req)

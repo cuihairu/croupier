@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -181,24 +182,58 @@ func TestServiceOpsAgentMetrics(t *testing.T) {
 	ctx := context.Background()
 	store := registry.NewStore()
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
-	svcCtx := &svc.ServiceContext{RegistryStore: store}
+	metrics := registry.NewMetricsStore()
+	metrics.Add("agent-1", &opsv1.MetricsReport{
+		Cpu:      &opsv1.CpuMetrics{Cores: 2, UsagePercent: 30.5},
+		Memory:   &opsv1.MemoryMetrics{TotalBytes: 100, UsedBytes: 40, UsagePercent: 40},
+		Disks:    []*opsv1.DiskMetrics{{MountPoint: "/", TotalBytes: 200, UsedBytes: 80, UsagePercent: 40}},
+		Networks: []*opsv1.NetworkMetrics{{Interface: "eth0", BytesSent: 10, BytesRecv: 20, PacketsSent: 2, PacketsRecv: 4}},
+	})
+	svcCtx := &svc.ServiceContext{RegistryStore: store, MetricsStore: metrics}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsAgentMetrics(ctx, &OpsAgentMetricsRequest{})
+	resp, err := s.OpsAgentMetrics(ctx, &OpsAgentMetricsRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Metrics)
+	require.Len(t, resp.Metrics, 1)
+	assert.Equal(t, "agent-1", resp.Metrics[0].AgentID)
+	assert.Equal(t, int32(2), resp.Metrics[0].CPU.Cores)
+	assert.Equal(t, 40.0, resp.Metrics[0].Memory.UsagePercent)
+	assert.Len(t, resp.Metrics[0].Disks, 1)
+	assert.Len(t, resp.Metrics[0].Networks, 1)
+
+	_, err = s.OpsAgentMetrics(svc.WithGameScope(ctx, svc.GameScope{GameID: "other", Env: "prod"}), &OpsAgentMetricsRequest{AgentID: "agent-1"})
+	assert.ErrorContains(t, err, "does not belong")
 }
 
 func TestServiceOpsAgentProcesses(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	metrics := registry.NewMetricsStore()
+	metrics.Add("agent-1", &opsv1.MetricsReport{
+		SupervisedProcesses: []*opsv1.SupervisedProcessSnapshot{{
+			Name:          "game",
+			Pid:           123,
+			State:         opsv1.ProcessState_PROCESS_STATE_RUNNING,
+			UptimeSeconds: 45,
+			RestartCount:  2,
+		}},
+	})
+	svcCtx := &svc.ServiceContext{RegistryStore: store, MetricsStore: metrics}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsAgentProcesses(ctx, &OpsAgentProcessesRequest{})
+	resp, err := s.OpsAgentProcesses(ctx, &OpsAgentProcessesRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Processes)
+	require.Len(t, resp.Processes, 1)
+	assert.Equal(t, "game", resp.Processes[0].Name)
+	assert.Equal(t, int32(123), resp.Processes[0].Pid)
+	assert.Equal(t, "running", resp.Processes[0].State)
+	assert.Equal(t, int32(2), resp.Processes[0].RestartCount)
+
+	_, err = s.OpsAgentProcesses(svc.WithGameScope(ctx, svc.GameScope{GameID: "other", Env: "prod"}), &OpsAgentProcessesRequest{AgentID: "agent-1"})
+	assert.ErrorContains(t, err, "does not belong")
 }
 
 func TestServiceOpsAgentProcessStart(t *testing.T) {
@@ -1231,7 +1266,7 @@ func TestOpsBackupDownloadHandler(t *testing.T) {
 
 // Agent handlers with proper registry setup
 
-func TestOpsAgentProcessesHandler(t *testing.T) {
+func TestOpsAgentProcessesHandlerWithoutAgentIDRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1241,10 +1276,10 @@ func TestOpsAgentProcessesHandler(t *testing.T) {
 
 	h.OpsAgentProcesses(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestOpsAgentMetricsHandler(t *testing.T) {
+func TestOpsAgentMetricsHandlerWithoutAgentIDRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1254,7 +1289,7 @@ func TestOpsAgentMetricsHandler(t *testing.T) {
 
 	h.OpsAgentMetrics(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsAgentProcessStartHandler(t *testing.T) {
