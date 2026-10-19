@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
@@ -36,8 +37,14 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		log = slog.Default()
 	}
 	r := &Runner{cfg: cfg, log: log}
-	if len(cfg.Synthetics.Plugins) > 0 {
-		r.plugins = pluginhost.NewController(cfg.Synthetics.Plugins, log)
+	// Runtime master switch (todo.md:36 第二片): pluginsEnabled: false
+	// runs pure native HTTP probing; no plugin controller is built and
+	// no plugin process is ever started. In the default build the
+	// controller exists whenever plugin support is compiled in and
+	// declared; under the no_go_plugin build tag config validation
+	// rejects declared plugins at startup instead.
+	if cfg.Synthetics.PluginsOn() && len(cfg.Synthetics.Plugins) > 0 {
+		r.plugins = pluginhost.NewController(cfg.Synthetics, log)
 	}
 	return r
 }
@@ -90,10 +97,16 @@ func (r *Runner) execute(ctx context.Context, t config.Target) {
 
 // runProbe routes one target through its declared external plugin, falling
 // back to the native HTTP probe with an explicit plugin cause when the
-// plugin side degrades. Targets without plugin routing keep the native
-// HTTP probe untouched.
+// plugin side degrades or is disabled. Targets without plugin routing
+// keep the native HTTP probe untouched. A nil controller with a
+// plugin-routed target only happens with the runtime switch off (or a
+// command line shim) and is reported as plugin_disabled instead of
+// silently dropping the routing decision.
 func (r *Runner) runProbe(ctx context.Context, t config.Target) (probe.Result, map[string]string) {
-	if t.Plugin != "" && r.plugins != nil {
+	if t.Plugin != "" {
+		if r.plugins == nil {
+			return r.fallbackHTTP(ctx, t, fmt.Sprintf("%s: plugin runtime switch is off", pluginhost.CauseDisabled))
+		}
 		out := r.plugins.Check(ctx, t)
 		if out.Cause == "" {
 			details := map[string]string{"probeType": "plugin", "status": statusString(out.Result.OK), "errorClass": errorClass(out.Result.Error), "pluginName": t.Plugin}
@@ -104,20 +117,28 @@ func (r *Runner) runProbe(ctx context.Context, t config.Target) (probe.Result, m
 				details["pluginDetail"] = out.Detail
 			}
 			return out.Result, details
-		} else {
-			// Explicit fallback semantics: the plugin subprocess could not
-			// answer (unavailable / timed out / call error); the native HTTP
-			// probe keeps the target alive and the cause is recorded for the
-			// operator instead of masking the plugin fault.
-			r.log.Warn("probe plugin degraded; falling back to native HTTP probe", "target", t.Name, "plugin", t.Plugin, "cause", out.Cause)
-			res := probe.Run(ctx, t)
-			msg := "plugin degraded: " + out.Cause
-			details := map[string]string{"probeType": "http", "status": statusString(res.OK), "httpStatus": itoa(res.Status), "errorClass": errorClass(res.Error), "pluginName": t.Plugin, "pluginFallback": "true", "pluginCause": out.Cause, "probeError": msg}
-			return res, details
 		}
+		return r.fallbackHTTP(ctx, t, out.Cause)
 	}
 	res := probe.Run(ctx, t)
 	return res, map[string]string{"probeType": "http", "status": statusString(res.OK), "httpStatus": itoa(res.Status), "errorClass": errorClass(res.Error)}
+}
+
+// fallbackHTTP is the explicit degradation path (todo.md:36): the plugin
+// subprocess could not answer (unavailable / timed out / call error /
+// backpressure / backoff / circuit / disabled); the native HTTP probe
+// keeps the target alive and the cause is recorded for the operator
+// instead of masking the plugin fault.
+func (r *Runner) fallbackHTTP(ctx context.Context, t config.Target, cause string) (probe.Result, map[string]string) {
+	r.log.Warn("probe plugin degraded; falling back to native HTTP probe", "target", t.Name, "plugin", t.Plugin, "cause", cause)
+	res := probe.Run(ctx, t)
+	details := map[string]string{
+		"probeType": "http", "status": statusString(res.OK), "httpStatus": itoa(res.Status),
+		"errorClass": errorClass(res.Error), "pluginName": t.Plugin,
+		"pluginFallback": "true", "pluginCause": cause,
+		"probeError": "plugin degraded: " + cause,
+	}
+	return res, details
 }
 
 func statusString(ok bool) string {

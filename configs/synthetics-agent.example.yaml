@@ -13,3 +13,20 @@ synthetics:
       timeout: 3s
       expectedStatus: 200
       bodyContains: ok
+  # 外部探测插件运行时（todo.md:36，默认集成、可禁用）：插件仅按下方显式
+  # 声明启动，target 的 plugin 字段路由到声明名；全部旋钮可省略，省略即用
+  # 宿主默认值。运行时总开关 pluginsEnabled: false 直接走原生 HTTP 探测、不拉起插件进程。
+  # 以 no_go_plugin build tag 构建的二进制不支持 plugins 声明（启动报错）。
+  # pluginsEnabled: false            # 运行时总开关（缺省 true，默认集成）
+  # pluginMaxConcurrent: 8           # 插件调用并发上限（默认 8）
+  # pluginQueueWindow: 2s            # 有界排队窗口，超时拒绝 plugin_backpressure（默认 2s）
+  # pluginBackoff: 1s                # 崩溃重启退避基数（指数 2^n 封顶，默认 1s）
+  # pluginBackoffMax: 30s            # 退避封顶（默认 30s）
+  # pluginBreakAfter: 5              # 连续失败次数开熔断（默认 5）
+  # pluginOpenWindow: 30s            # 熔断开窗时长，窗口后单次探测半开（默认 30s）
+  # plugins:
+  #   - name: echo
+  #     command: /opt/croupier/bin/echoprobe
+  #     args: []
+  #     timeout: 5s
+  #     enabled: true                 # 按插件启停（缺省 true）

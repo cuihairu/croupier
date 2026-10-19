@@ -88,6 +88,43 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 
 本次只测宿主连接代码的链接体积，未实现 Describe/Check 等业务服务，也未计插件程序、语言运行时、部署包压缩体积、运行内存与调用时延；最终默认版需在完整实现后重新测量。实验使用的正向 `go_plugin` tag 仅用于此次对照，不是用户已确定的产品选项；正式实现采用默认集成、反向 tag 裁剪和运行时可关，不构成所有平台固定增加约 12 MiB 的保证。
 
+## 第二片实施记录（2026-10-20，todo:36 部分完成）
+
+裁剪开关、并发背压与崩溃退避熔断已落地。交付物与登记：
+
+| 交付物                                 | 位置                                                                                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `no_go_plugin` 裁剪：宿主 Behind tag   | `pluginhost/{plugin,probe,controller}.go` `//go:build !no_go_plugin`；`pluginhost/stub.go`（tag 内) |
+| 裁剪 fail-closed 门禁                  | `config/plugingate_trim.go`（默认构建 `config/plugingate_default.go` 为 no-op）                     |
+| 运行时开关（总开关 + 按插件启停）      | `config/config.go`（`pluginsEnabled` 缺省 true，`plugins[].enabled`）、`runner/runner.go`           |
+| 并发背压（有界槽位 + 有界排队 + 拒绝） | `pluginhost/controller.go`（`gate` 信号量 + `pluginQueueWindow`）                                   |
+| 崩溃退避 + 连续失败熔断                | `pluginhost/controller.go`（`failLocked`/`succeed`/`pluginHealth`）                                 |
+| 故障注入旋钮                           | `pluginhost/examples/echoprobe/main.go`（HOLD/CONC/EXIT_AFTER_CHECKS）                              |
+| 示例配置注记                           | `configs/synthetics-agent.example.yaml`                                                             |
+
+语义与默认值（均可经 yaml 覆盖）：
+
+- **总开关** `synthetics.pluginsEnabled`：缺省 true（默认集成口径不变）；false 不创建 controller、不拉起子进程，plugin 路由目标直接原生 HTTP 探测并在事件 details 记录 `plugin_disabled`。停用后的在途收尾策略：`Stop()` 先停止接受新调用，再以 5s 有界窗口等待在途调用按各自 per-check deadline 收尾，随后由单一生命周期管理者 kill 子进程——无传统"无条件杀进程"。
+- **裁剪**：`no_go_plugin` 构建下 `config.Validate` 对 `synthetics.plugins` 声明直接启动报错（fail-closed）；`pluginhost` 仅编译 stub（`Check` 恒降级 `plugin_not_compiled`），API 与真实 controller 等形供 runner 两态编译。实测裁剪产物 `go list -deps` 闭包无 `hashicorp/go-plugin`、无 `google.golang.org/grpc`（默认构建两者均链接）。
+- **背压**：`Check` 先取有界槽（默认 8），排队窗口默认 2s，超窗拒绝 `plugin_backpressure`；调用路径不生成任何 goroutine，排队者是他方调用函数本身，无界 goroutine 不可能出现。排队成功者必须在窗口内拿到释放的槽（有界排队，非必拒）。
+- **退避与熔断**：失败（启动失败/调用错误/超时/崩溃）后下一次重启等待 `backoff * 2^(连续失败-1)`，封顶 `backoffMax`；选指数而非固定步进——一次性崩溃首个重试即窗口最小（默认 1s），彻底损坏的插件几何级拉开避免重启风暴，固定步进会让死插件以恒定节奏永久重启；封顶保证最坏恢复延迟有界。连续失败达 `breakAfter`（默认 5）开熔断：开窗 30s 内调用即刻降级 `plugin_circuit_open`、不触碰子进程；窗口到期允许单次探测路径，成功关断并清零计数，失败按原计数重开。
+- 新降级原因 `plugin_disabled` / `plugin_not_compiled` / `plugin_backpressure` / `plugin_backoff` / `plugin_circuit_open` 与既有四类前缀同构，`runner.errorClass` 无改动即可分类。
+
+测试（`-race` 全绿；裁剪用例如下带 `-tags no_go_plugin` 运行）：
+
+| 用例                                                           | 面             |
+| -------------------------------------------------------------- | -------------- |
+| `TestControllerCrashBackoffAndCircuitBreaker`                  | 退避 + 熔断    |
+| `TestControllerBackpressureSlotsBoundedRejectionAndQueueing`   | 背压拒绝/有界  |
+| `TestControllerBackpressureQueuedCallerGetsFreedSlot`          | 有界排队成功   |
+| `TestRunProbePluginRuntimeSwitchTwoStates`                     | 运行时开关两态 |
+| `TestControllerPerPluginSwitchDegradesWithoutLaunch`           | 按插件启停     |
+| `TestTrimmedRuntimeAlwaysDegrades`（-tags no_go_plugin）       | 裁剪 stub      |
+| `TestTrimBuildRejectsPluginDeclarations`（-tags no_go_plugin） | 裁剪门禁       |
+| `TestSyntheticsPluginKnobsYamlTwoStatesAndValidation`          | 旋钮 yaml/校验 |
+
+本片明确不做（照旧列明）：Python/JS 插件 SDK、ICMP/TCP 探测插件、targetCategory=game/third_party 类别绑定、凭证边界细化、真实游戏协议目标跨语言验收——均为 todo:36 剩余范围。
+
 ## 第一片实施记录（2026-10-20，todo:36 部分完成）
 
 已落地最小可用插件链路：synthetics-agent 插件宿主 + Go 参考插件，经 go-plugin 本地 gRPC 打通 Describe/Check、结果进入既有 AlertEvent/probe_events 链路。交付物与登记：
@@ -113,6 +150,6 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 
 本片语义决定：插件按 `synthetics.plugins[]` 显式声明，目标经 `plugin:` 字段路由；插件不可用/超时/调用错误时返回降级原因（`plugin_not_configured` / `plugin_unavailable` / `plugin_timeout` / `plugin_error`），同一目标自动回退原生 HTTP 探测并在事件 details 记录 `pluginFallback`/`pluginCause`，插件进程常驻复用、故障后由宿主单一管理者重启。测试见 `pluginhost_test.go`（加载成功/缺失降级/超时降级/结果回传）与 `runner_plugin_test.go`（插件结果进事件链/缺失回退）。
 
-本片明确不做（照旧列明）：Python/JS 插件 SDK、ICMP/TCP 探测插件、`no_go_plugin` build tag 裁剪与运行时开关、并发背压与崩溃退避熔断、targetCategory=game/third_party 类别绑定、真实游戏协议目标验收——均为 todo:36 剩余范围。
+本片明确不做（照旧列明）：Python/JS 插件 SDK、ICMP/TCP 探测插件、`no_go_plugin` build tag 裁剪与运行时开关、并发背压与崩溃退避熔断、targetCategory=game/third_party 类别绑定、真实游戏协议目标验收——均为 todo:36 剩余范围（其中裁剪/开关/背压/退避已由上方第二片记录交付）。
 
 关联：[Agent 清单](../design/agents-inventory.md)、[健康评审](/archive/legacy-en/design/agent-health-recovery-review)、根目录 `todo.md`。

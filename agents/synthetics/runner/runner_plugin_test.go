@@ -1,3 +1,5 @@
+//go:build !no_go_plugin
+
 package runner
 
 import (

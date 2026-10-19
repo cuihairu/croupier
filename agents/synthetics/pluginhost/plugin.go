@@ -1,17 +1,8 @@
-// Package pluginhost implements the synthetics-agent side of the external
-// probe plugin runtime (todo.md:36, slice 1). It hosts HashiCorp go-plugin
-// processes speaking the local gRPC mode, and degrades to the plugin's
-// cause when a plugin process cannot be launched, fails a call, or times
-// out — the native HTTP probe remains the fallback of last resort.
-//
-// The gRPC dependency is confined to this package, the generated
-// protocol package, and plugin examples; game SDKs and the Agent↔Server
-// link never import it (docs/archive/legacy-en/architecture/transport-no-grpc.md).
+//go:build !no_go_plugin
+
 package pluginhost
 
-import (
-	"github.com/hashicorp/go-plugin"
-)
+import "github.com/hashicorp/go-plugin"
 
 const (
 	// PluginName is the go-plugin dispense key both sides agree on.

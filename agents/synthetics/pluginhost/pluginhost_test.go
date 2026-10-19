@@ -1,3 +1,5 @@
+//go:build !no_go_plugin
+
 package pluginhost
 
 import (
@@ -35,7 +37,8 @@ func TestMain(m *testing.M) {
 }
 
 func echoController(t *testing.T, command string, timeout time.Duration) *Controller {
-	c := NewController([]config.PluginConfig{{Name: "echo", Command: command, Timeout: timeout}}, nil)
+	s := config.Synthetics{Plugins: []config.PluginConfig{{Name: "echo", Command: command, Timeout: timeout}}}
+	c := NewController(s, nil)
 	t.Cleanup(c.Stop)
 	return c
 }
