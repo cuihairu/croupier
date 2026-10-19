@@ -55,6 +55,7 @@ func testUplink(s *sink, maxDetails int) *ProbeUplink {
 		GameID:              "demo",
 		Env:                 "prod",
 		Target:              "redis:6379",
+		TargetCategory:      healthprobe.TargetCategoryThirdParty,
 		Semantics:           healthprobe.SemanticsReadiness,
 		MaxDetailsPerWindow: maxDetails,
 	}, s.send)
@@ -102,6 +103,7 @@ func TestProbeUplinkSuccessOnlyCounts(t *testing.T) {
 	assert.Equal(t, string(healthprobe.SemanticsReadiness), st.Semantics)
 	assert.Equal(t, "demo", st.GameId)
 	assert.Equal(t, "prod", st.Env)
+	assert.Equal(t, healthprobe.TargetCategoryThirdParty, st.TargetCategory)
 }
 
 func TestProbeUplinkDrainResets(t *testing.T) {
@@ -190,6 +192,7 @@ func TestProbeUplinkFailureDetailUplink(t *testing.T) {
 	assert.Equal(t, ProbeKindDetail, evs[0].Kind)
 	assert.Equal(t, "agent-1", evs[0].AgentId)
 	assert.Equal(t, "demo", evs[0].GameId)
+	assert.Equal(t, healthprobe.TargetCategoryThirdParty, evs[0].TargetCategory)
 	require.NotNil(t, evs[0].Detail)
 	assert.Equal(t, "redis:6379", evs[0].Detail.Target)
 	assert.Equal(t, "connection refused", evs[0].Detail.Err)
@@ -245,6 +248,7 @@ func TestProbeUplinkWindowOpensResetsDetailQuota(t *testing.T) {
 	assert.Equal(t, ProbeKindDetail, evs[0].Kind)
 	assert.Equal(t, ProbeKindWindow, evs[1].Kind)
 	require.NotNil(t, evs[1].Window)
+	assert.Equal(t, healthprobe.TargetCategoryThirdParty, evs[1].TargetCategory)
 	assert.Equal(t, "redis:6379", evs[1].Window.Target)
 	assert.Equal(t, healthprobe.EventUnavailable, evs[1].Window.WindowKind)
 	assert.Equal(t, openedTS, evs[1].Window.StartTsUnixMs)

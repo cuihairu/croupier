@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/internal/model"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	gosqlite "github.com/glebarez/sqlite"
@@ -43,10 +44,11 @@ func newProbeLifecycleTestService(t *testing.T) (*ControlService, *model.AlertMo
 // probeWindowEvent 完整窗口事件（含 window_kind 与时间轴）。
 func probeWindowEvent(target, kind string, startTs, endTs, durationMs int64) *opsv1.AlertEvent {
 	return &opsv1.AlertEvent{
-		Kind:    "probe.window",
-		AgentId: "agent-1",
-		GameId:  "demo",
-		Env:     "prod",
+		Kind:           "probe.window",
+		AgentId:        "agent-1",
+		GameId:         "demo",
+		Env:            "prod",
+		TargetCategory: healthprobe.TargetCategoryThirdParty,
 		Window: &opsv1.ProbeWindow{
 			Target:        target,
 			Semantics:     "readiness",
@@ -75,6 +77,7 @@ func probeDetailEvent(target, err string, atTs int64, open bool) *opsv1.AlertEve
 			ConsecutiveFailures: 1,
 			WindowOpen:          open,
 			Details:             map[string]string{"probeType": "tcp"},
+			TargetCategory:      healthprobe.TargetCategoryThirdParty,
 		},
 	}
 }
@@ -165,6 +168,9 @@ func TestProbeLifecycleFiringThenResolved(t *testing.T) {
 	}
 	if row.Details["startTsUnixMs"] == nil || jsonInt64(t, row.Details["startTsUnixMs"]) != 1000 {
 		t.Fatalf("startTsUnixMs = %v", row.Details["startTsUnixMs"])
+	}
+	if row.Details["targetCategory"] != healthprobe.TargetCategoryThirdParty {
+		t.Fatalf("targetCategory = %v", row.Details["targetCategory"])
 	}
 
 	// 闭窗 → resolved（同一行）。
@@ -302,6 +308,9 @@ func TestProbeLifecycleRecentFailuresWindowScoped(t *testing.T) {
 		}
 		if f["target"] != "redis:6379" {
 			t.Fatalf("other-target failure leaked: %v", f["target"])
+		}
+		if f["targetCategory"] != healthprobe.TargetCategoryThirdParty {
+			t.Fatalf("failure category = %v", f["targetCategory"])
 		}
 	}
 }

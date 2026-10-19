@@ -37,11 +37,13 @@ var LatencyBucketBoundaries = [4]int64{50, 200, int64(time.Second / time.Millise
 
 // ProbeUplinkConfig 单 target 上行桥配置（装配侧按 TargetConfig 逐目标构造）。
 type ProbeUplinkConfig struct {
-	AgentID   string
-	GameID    string
-	Env       string
-	Target    string
-	Semantics healthprobe.Semantics
+	AgentID string
+	GameID  string
+	Env     string
+	Target  string
+	// TargetCategory 目标归属闭集（game|third_party）：随窗口、明细与统计快照。
+	TargetCategory string
+	Semantics      healthprobe.Semantics
 	// ProbeType checker 类型（http|tcp|db|protocol）：聚合面带出来，让消费方
 	// 不必解析 last_reason 文本就能区分「协议握手失败」与「网络不可达」。
 	ProbeType string
@@ -159,6 +161,7 @@ func (u *ProbeUplink) Drain() *opsv1.ProbeStats {
 		Semantics:        string(u.cfg.Semantics),
 		GameId:           u.cfg.GameID,
 		Env:              u.cfg.Env,
+		TargetCategory:   u.cfg.TargetCategory,
 		Checked:          u.checked,
 		Failed:           u.failed,
 		SuccessRate:      successRate,
@@ -210,18 +213,20 @@ func (u *ProbeUplink) marshalWindow(ev healthprobe.WindowEvent) []byte {
 		env = u.cfg.Env
 	}
 	ev2 := &opsv1.AlertEvent{
-		Kind:    ProbeKindWindow,
-		AgentId: u.cfg.AgentID,
-		GameId:  gameID,
-		Env:     env,
+		Kind:           ProbeKindWindow,
+		AgentId:        u.cfg.AgentID,
+		GameId:         gameID,
+		Env:            env,
+		TargetCategory: firstNonEmpty(u.cfg.TargetCategory, w.Category),
 		Window: &opsv1.ProbeWindow{
-			Target:        w.Target,
-			Semantics:     w.Semantics,
-			WindowKind:    ev.Kind,
-			StartTsUnixMs: w.StartTS,
-			EndTsUnixMs:   w.EndTS,
-			DurationMs:    w.DurationMS,
-			LastReason:    truncateUTF8(w.LastReason, maxDetailErrBytes),
+			Target:         w.Target,
+			Semantics:      w.Semantics,
+			WindowKind:     ev.Kind,
+			StartTsUnixMs:  w.StartTS,
+			EndTsUnixMs:    w.EndTS,
+			DurationMs:     w.DurationMS,
+			LastReason:     truncateUTF8(w.LastReason, maxDetailErrBytes),
+			TargetCategory: w.Category,
 		},
 	}
 	data, err := proto.Marshal(ev2)
@@ -234,10 +239,11 @@ func (u *ProbeUplink) marshalWindow(ev healthprobe.WindowEvent) []byte {
 // marshalDetail 组 probe.detail 事件（调用方持锁）。
 func (u *ProbeUplink) marshalDetail(res healthprobe.Result) []byte {
 	ev := &opsv1.AlertEvent{
-		Kind:    ProbeKindDetail,
-		AgentId: u.cfg.AgentID,
-		GameId:  u.cfg.GameID,
-		Env:     u.cfg.Env,
+		Kind:           ProbeKindDetail,
+		AgentId:        u.cfg.AgentID,
+		GameId:         u.cfg.GameID,
+		Env:            u.cfg.Env,
+		TargetCategory: firstNonEmpty(u.cfg.TargetCategory, res.Category),
 		Detail: &opsv1.ProbeDetail{
 			Target:              u.cfg.Target,
 			Semantics:           string(u.cfg.Semantics),
@@ -248,6 +254,7 @@ func (u *ProbeUplink) marshalDetail(res healthprobe.Result) []byte {
 			ConsecutiveFailures: int32(res.ConsecutiveFailures),
 			WindowOpen:          res.WindowOpen,
 			Details:             res.Details,
+			TargetCategory:      res.Category,
 		},
 	}
 	data, err := proto.Marshal(ev)
@@ -267,4 +274,13 @@ func truncateUTF8(s string, max int) string {
 		cut--
 	}
 	return s[:cut]
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }

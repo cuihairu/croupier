@@ -782,6 +782,7 @@ func (r *Runner) startReadinessProbe(ctx context.Context) {
 		[]healthprobe.TargetConfig{{
 			Name:      target,
 			Type:      healthprobe.TargetTypeTCP,
+			Category:  healthprobe.TargetCategoryGame,
 			Address:   addr,
 			Timeout:   2 * time.Second,
 			Interval:  captureReadinessInterval,

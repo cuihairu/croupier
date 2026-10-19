@@ -35,6 +35,8 @@ type ProbeSummaryRow struct {
 	// GameID/Env 目标 scope（空 = 平台级）。
 	GameID string `json:"gameId,omitempty"`
 	Env    string `json:"env,omitempty"`
+	// TargetCategory 目标归属（game|third_party），由配置快照随统计透传。
+	TargetCategory string `json:"targetCategory,omitempty"`
 	// Available 探活结果（内核两态：探测是事实不是渐变分数）。
 	Available bool `json:"available"`
 	// WindowOpen 报告时点故障窗口是否开着。
@@ -95,6 +97,7 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 					Semantics:        st.GetSemantics(),
 					GameID:           st.GetGameId(),
 					Env:              st.GetEnv(),
+					TargetCategory:   st.GetTargetCategory(),
 					Available:        !st.GetWindowOpen(),
 					WindowOpen:       st.GetWindowOpen(),
 					WindowDurationMs: st.GetWindowDurationMs(),
@@ -124,6 +127,7 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 				AgentID:          svc.ServerProbeAgentID,
 				Target:           st.Target,
 				Semantics:        st.Semantics,
+				TargetCategory:   st.Category,
 				Available:        st.Available,
 				WindowOpen:       st.WindowOpen,
 				WindowDurationMs: st.DurationMS,

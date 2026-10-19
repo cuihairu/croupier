@@ -93,6 +93,11 @@ func (c *Conn) SendAlertReport(ctx context.Context, req *opsv1.CaptureRuleHitRep
 	return resp, nil
 }
 
+// SendProbeEvent sends a probe result through the shared Agent session's existing AlertEvent wire.
+func (c *Conn) SendProbeEvent(ctx context.Context, req *opsv1.AlertEvent) error {
+	return c.notify(ctx, protocol.MsgAlertEvent, req)
+}
+
 // PullCaptureGates 拉取 capture 闸规则下行配置（服务端读 config_versions
 // 的 capture.gates，version 空串 = 未发布，agent 保持现状）。
 func (c *Conn) PullCaptureGates(ctx context.Context, req *opsv1.CaptureGatesConfigRequest) (*opsv1.CaptureGatesConfigResponse, error) {
@@ -103,10 +108,16 @@ func (c *Conn) PullCaptureGates(ctx context.Context, req *opsv1.CaptureGatesConf
 	return resp, nil
 }
 
-// 探测事件上行（MsgAlertEvent）本批不接本连接：capture/devops 的探针窗口只
-// 落本地日志（core 系 agent 无 metrics 采样器，统计无处折叠——详见
-// agent-health-recovery 简档 §12 R2 已知边界）。真有上行需求时随该消费面
-// 一并加，勿先铺无调用方的接口。
+func (c *Conn) notify(ctx context.Context, msgID uint32, req proto.Message) error {
+	if c == nil || c.client == nil {
+		return fmt.Errorf("control conn not initialized")
+	}
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+	return c.client.Send(ctx, msgID, data)
+}
 
 func (c *Conn) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {

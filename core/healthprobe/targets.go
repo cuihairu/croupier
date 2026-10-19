@@ -19,12 +19,19 @@ const (
 	TargetTypeProtocol = "protocol" // 声明式私有协议（steps）或游戏协议适配器（protocol）
 )
 
+// 外部探测目标归属闭集：game = 游戏自有系统，third_party = 外部服务/依赖。
+const (
+	TargetCategoryGame       = "game"
+	TargetCategoryThirdParty = "third_party"
+)
+
 // TargetConfig 探针目标声明（agent 配置 probe.targets[] 元素）：只声明探什么；
 // 语义/失败阈值/故障窗口/打点一律复用本包（一个能力一份实现，核心零外部依赖）。
 // 配置键 lowerCamelCase（http/tcp 域内；db 域用 dsn 等本包契约键）。
 type TargetConfig struct {
 	Name             string        `json:"name" yaml:"name"`
-	Type             string        `json:"type" yaml:"type"` // http | tcp | db | protocol
+	Type             string        `json:"type" yaml:"type"`                     // http | tcp | db | protocol
+	Category         string        `json:"targetCategory" yaml:"targetCategory"` // game | third_party
 	URL              string        `json:"url,omitempty" yaml:"url,omitempty"`
 	Address          string        `json:"address,omitempty" yaml:"address,omitempty"`
 	DSN              string        `json:"dsn,omitempty" yaml:"dsn,omitempty"`
@@ -58,6 +65,9 @@ func (t TargetConfig) EffectiveInterval() time.Duration {
 
 // NewChecker 按目标声明构造 Checker（工厂收口在本包——各 agent 不许各写探测装配）。
 func NewChecker(t TargetConfig) (Checker, error) {
+	if t.Category != TargetCategoryGame && t.Category != TargetCategoryThirdParty {
+		return nil, fmt.Errorf("target %q: targetCategory must be game|third_party", t.Name)
+	}
 	switch strings.ToLower(t.Type) {
 	case TargetTypeHTTP:
 		if strings.TrimSpace(t.URL) == "" {
@@ -124,7 +134,7 @@ func ProbeFromTarget(t TargetConfig, scopeGame, scopeEnv string, onWindow Window
 	if sem == "" {
 		sem = SemanticsReadiness
 	}
-	opts := []Option{WithScope(scopeGame, scopeEnv)}
+	opts := []Option{WithScope(scopeGame, scopeEnv), WithCategory(t.Category)}
 	if onWindow != nil {
 		opts = append(opts, OnWindow(onWindow))
 	}

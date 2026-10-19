@@ -152,17 +152,18 @@ func probeWindowMessage(w *opsv1.ProbeWindow, status string) string {
 func (l *probeLifecycle) buildDetails(agentID string, ev *opsv1.AlertEvent) map[string]interface{} {
 	w := ev.GetWindow()
 	details := map[string]interface{}{
-		"kind":          "probe.window",
-		"agentId":       agentID,
-		"gameId":        ev.GetGameId(),
-		"env":           ev.GetEnv(),
-		"target":        w.GetTarget(),
-		"semantics":     w.GetSemantics(),
-		"windowKind":    w.GetWindowKind(),
-		"startTsUnixMs": w.GetStartTsUnixMs(),
-		"endTsUnixMs":   w.GetEndTsUnixMs(),
-		"durationMs":    w.GetDurationMs(),
-		"lastReason":    w.GetLastReason(),
+		"kind":           "probe.window",
+		"agentId":        agentID,
+		"gameId":         ev.GetGameId(),
+		"env":            ev.GetEnv(),
+		"target":         w.GetTarget(),
+		"semantics":      w.GetSemantics(),
+		"targetCategory": ev.GetTargetCategory(),
+		"windowKind":     w.GetWindowKind(),
+		"startTsUnixMs":  w.GetStartTsUnixMs(),
+		"endTsUnixMs":    w.GetEndTsUnixMs(),
+		"durationMs":     w.GetDurationMs(),
+		"lastReason":     w.GetLastReason(),
 	}
 	if l != nil && l.sink != nil {
 		details["recentFailures"] = l.recentFailures(agentID, w.GetTarget(), w.GetStartTsUnixMs())
@@ -193,6 +194,7 @@ func (l *probeLifecycle) recentFailures(agentID, target string, startTs int64) [
 			"latencyMs":           d.GetLatencyMs(),
 			"consecutiveFailures": d.GetConsecutiveFailures(),
 			"windowOpen":          d.GetWindowOpen(),
+			"targetCategory":      d.GetTargetCategory(),
 			"details":             d.GetDetails(),
 		})
 	}

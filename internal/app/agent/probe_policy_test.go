@@ -19,9 +19,9 @@ import (
 // policyTargets 双目标：down-a/down-b（闭合端口，确定失败），各带本地间隔。
 func policyTargets() []healthprobe.TargetConfig {
 	return []healthprobe.TargetConfig{
-		{Name: "down-a", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
+		{Name: "down-a", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
 			FailThreshold: 1, Interval: 20 * time.Second},
-		{Name: "down-b", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
+		{Name: "down-b", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
 			FailThreshold: 1, Interval: 25 * time.Second},
 	}
 }

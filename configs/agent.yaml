@@ -91,19 +91,23 @@ ops:
 #   maxDetailsPerWindow: 10   # 每故障窗口每目标的失败明细条数上限（缺省 10）
 #   targets:
 #     - name: game-gateway      # 目标名唯一：重名会让上行串台，agent 拒收
+#       targetCategory: game
 #       type: http              # http | tcp | db
 #       url: http://127.0.0.1:8080/healthz
 #       timeout: 5s
 #       interval: 30s
 #     - name: redis
+#       targetCategory: game
 #       type: tcp
 #       address: 127.0.0.1:6379
 #     - name: game-db
+#       targetCategory: game
 #       type: db
 #       driver: mysql           # driver 由 agent 装配侧注册；dsn 不写进示例
 #       dsn: "user:pass@tcp(127.0.0.1:3306)/game"
 #       query: "SELECT 1"       # 只读断言；写 NONE 表示只 Ping 连通
 #     - name: game-gateway-proto  # 声明式私有协议（steps，零码）：发握手包等定长回包
+#       targetCategory: game
 #       type: protocol
 #       address: 10.0.0.5:7777
 #       steps:
@@ -113,10 +117,12 @@ ops:
 #           sendHex: ""
 #           timeout: 3s
 #     - name: mc-lobby            # 游戏协议适配器（零码配置，适配器代码随 agent 二进制）
+#       targetCategory: game
 #       type: protocol
 #       protocol: minecraft       # 已注册适配器名（Minecraft Java SLP 零账号验证）
 #       address: 10.0.0.6:25565   # 缺端口补 25565
 #     - name: game-gateway-tcp    # 暂只有 L1 探测、协议层未接入的目标
+#       targetCategory: game
 #       type: tcp
 #       address: 10.0.0.5:7777
 #       protocolExpected: true    # 声明协议期望：面板标「可达≠可用」灰态（纯

@@ -129,6 +129,7 @@ func MetaModels() []interface{} {
 		&GameEnvBinding{},
 		&Descriptor{},
 		&Alert{},
+		&ProbeEvent{},
 		&AlertRule{},
 		&AlertSilence{},
 		&Backup{},

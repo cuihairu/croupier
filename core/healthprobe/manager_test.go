@@ -15,7 +15,7 @@ import (
 // 亚秒级完成。
 func httpTarget(name string) TargetConfig {
 	return TargetConfig{
-		Name: name, Type: TargetTypeHTTP,
+		Name: name, Category: TargetCategoryGame, Type: TargetTypeHTTP,
 		URL: "http://127.0.0.1:1/unreachable", Timeout: 100 * time.Millisecond,
 		FailThreshold: 1, Interval: 20 * time.Millisecond,
 	}
@@ -100,17 +100,19 @@ func TestManagerAddDuplicateRejected(t *testing.T) {
 
 func TestManagerAddInvalidTargetRejected(t *testing.T) {
 	m := NewDynamicManager("", "", nil, nil)
-	err := m.Add(TargetConfig{Name: "bad", Type: TargetTypeTCP})
+	err := m.Add(TargetConfig{
+		Category: TargetCategoryGame, Name: "bad", Type: TargetTypeTCP})
 	require.Error(t, err)
 	assert.Equal(t, 0, len(m.Probes()), "failed add must not leave a half item")
 
-	err = m.Add(TargetConfig{Name: "  ", Type: TargetTypeTCP, Address: "x:1"})
+	err = m.Add(TargetConfig{Name: "  ", Category: TargetCategoryGame, Type: TargetTypeTCP, Address: "x:1"})
 	require.Error(t, err)
 }
 
 func TestManagerAddEmptyNameRejected(t *testing.T) {
 	m := NewDynamicManager("", "", nil, nil)
-	err := m.Add(TargetConfig{Type: TargetTypeHTTP, URL: "http://x"})
+	err := m.Add(TargetConfig{
+		Category: TargetCategoryGame, Type: TargetTypeHTTP, URL: "http://x"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name is required")
 }

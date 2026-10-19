@@ -122,6 +122,7 @@ type ControlService struct {
 	systemInfoCache   *reg.SystemInfoCache
 	taskStore         TaskStore
 	alertModel        *model.AlertModel
+	probeEventModel   *model.ProbeEventModel
 	// probeEvents 探测事件诊断环（§13.1 R2 接收侧：明细留证 + 窗口记日志）。
 	probeEvents *probeEventSink
 	// lifecycle 探测窗口→Alert 生命周期消费者（§12 R3）：probe.window 事件
@@ -249,6 +250,13 @@ func (s *ControlService) SetAlertModel(m *model.AlertModel) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.alertModel = m
+}
+
+// SetProbeEventModel configures durable probe uplink storage.
+func (s *ControlService) SetProbeEventModel(m *model.ProbeEventModel) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.probeEventModel = m
 }
 
 // SetOutletManager sets the alert outlet manager for capture rule-hit
@@ -772,10 +780,11 @@ func deriveProbeDBTargets(items []model.DBSource) ([]healthprobe.TargetConfig, s
 		}
 		seen[base]++
 		targets = append(targets, healthprobe.TargetConfig{
-			Name:   name,
-			Type:   healthprobe.TargetTypeDB,
-			DSN:    src.DSN,
-			Driver: dbProbeDriverName(src.Driver),
+			Name:     name,
+			Category: healthprobe.TargetCategoryGame,
+			Type:     healthprobe.TargetTypeDB,
+			DSN:      src.DSN,
+			Driver:   dbProbeDriverName(src.Driver),
 			// 连通判定硬超时对齐 DBChecker 默认（只读不写）；Query 留空 =
 			// 只读断言 SELECT 1。
 			Timeout: healthprobe.DefaultDBTimeout,
@@ -908,8 +917,8 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 }
 
 // handleProbeEvent 接收 agent 探测/告警流事件（MsgAlertEvent 流事件，review
-// §11 已决 2）。接收面：校验 agent_id → 诊断环留证 → 窗口事件消费为 Alert
-// 生命周期（§12 R3；未装配 lifecycle 时仅留证+日志）→ 按 kind 记日志。
+// §11 已决 2）。接收面：校验 session 身份 → 持久化与诊断环留证 → 窗口事件
+// 消费为 Alert 生命周期（§12 R3；lifecycle 未装配时仍落库留环）→ 按 kind 记日志。
 //
 // kind 未知或 body 与 kind 不匹配一律拒收：流事件无响应通道可回退，错误只
 // 能体现在日志与丢弃计数上，宁可少收不可错收（错收会污染诊断面）。
@@ -940,8 +949,14 @@ func (s *ControlService) handleProbeEvent(ctx context.Context, data []byte) ([]b
 
 	s.mu.RLock()
 	sink := s.probeEvents
+	probeModel := s.probeEventModel
 	logger := s.logger
 	s.mu.RUnlock()
+	if probeModel != nil {
+		if err := probeModel.Create(ctx, agentID, ev.GetGameId(), ev.GetEnv(), ev); err != nil {
+			return nil, fmt.Errorf("persist probe event: %w", err)
+		}
+	}
 
 	sink.add(agentID, ev)
 

@@ -23,7 +23,7 @@ func TestWithProbeConfigAssembles(t *testing.T) {
 	app := newProbeTestApp(t)
 
 	require.NoError(t, app.WithProbeConfig(&ProbeConfig{Targets: []healthprobe.TargetConfig{
-		{Name: "down", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
+		{Name: "down", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
 	}}))
 	pm := app.ProbeManager()
 	require.NotNil(t, pm)
@@ -40,15 +40,15 @@ func TestWithProbeConfigRejectsInvalid(t *testing.T) {
 	app := newProbeTestApp(t)
 
 	err := app.WithProbeConfig(&ProbeConfig{Targets: []healthprobe.TargetConfig{
-		{Name: "no-address", Type: healthprobe.TargetTypeTCP},
+		{Name: "no-address", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP},
 	}})
 	require.Error(t, err)
 	assert.Nil(t, app.ProbeManager(), "invalid config must not leave a half-assembled probe face")
 
 	// 重名目标会让上行路由串台，必须拒收。
 	err = app.WithProbeConfig(&ProbeConfig{Targets: []healthprobe.TargetConfig{
-		{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
-		{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
+		{Name: "dup", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
+		{Name: "dup", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
 	}})
 	require.Error(t, err)
 	assert.Nil(t, app.ProbeManager())
@@ -76,7 +76,7 @@ func TestWithProbeConfigNilIsNoop(t *testing.T) {
 func TestWithProbeConfigWithoutUpstream(t *testing.T) {
 	app := &App{}
 	assert.Error(t, app.WithProbeConfig(&ProbeConfig{Targets: []healthprobe.TargetConfig{
-		{Name: "t", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
+		{Name: "t", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
 	}}))
 }
 
@@ -84,7 +84,7 @@ func TestStartProbesStopsOnCancel(t *testing.T) {
 	app := newProbeTestApp(t)
 	require.NoError(t, app.WithProbeConfig(&ProbeConfig{Targets: []healthprobe.TargetConfig{
 		{
-			Name: "up", Type: healthprobe.TargetTypeHTTP,
+			Name: "up", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeHTTP,
 			URL: "http://127.0.0.1:1/healthz", Interval: 10 * time.Millisecond,
 		},
 	}}))

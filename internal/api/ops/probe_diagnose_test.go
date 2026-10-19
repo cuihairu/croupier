@@ -24,7 +24,7 @@ func newProbeDiagnoseService(mgr *svc.ServerProbeManager) *Service {
 func diagnoseTestManager(t *testing.T) *svc.ServerProbeManager {
 	t.Helper()
 	m, err := svc.NewServerProbeManager([]healthprobe.TargetConfig{
-		{Name: "dead-tcp", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
+		{Name: "dead-tcp", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
 			FailThreshold: 1, Interval: time.Minute},
 	}, nil, 0, nil)
 	require.NoError(t, err)

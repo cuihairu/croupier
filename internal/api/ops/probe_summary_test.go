@@ -45,11 +45,11 @@ func TestProbeSummary_EmptyWhenNoSurfaces(t *testing.T) {
 func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	store := registry.NewMetricsStore()
 	store.Add("agent-a", &opsv1.MetricsReport{ProbeStats: []*opsv1.ProbeStats{
-		{Target: "redis", Semantics: "readiness", GameId: "demo", Env: "prod",
+		{Target: "redis", TargetCategory: "third_party", Semantics: "readiness", GameId: "demo", Env: "prod",
 			ProbeType: "tcp", Phase: "dial", ProtocolExpected: true,
 			Checked: 10, Failed: 2, SuccessRate: 0.8, WindowOpen: true,
 			WindowDurationMs: 4200, LastReason: "dial tcp: i/o timeout"},
-		{Target: "minecraft", Semantics: "readiness", GameId: "demo", Env: "prod",
+		{Target: "minecraft", TargetCategory: "game", Semantics: "readiness", GameId: "demo", Env: "prod",
 			ProbeType: "protocol", Protocol: "minecraft", Phase: "login",
 			Checked: 10, Failed: 3, SuccessRate: 0.7, WindowOpen: true,
 			LastReason: "protocol failed at step 2 (login): timeout waiting for match"},
@@ -82,12 +82,14 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 	assert.Equal(t, "tcp", row.ProbeType)
 	assert.Equal(t, "dial", row.Phase)
 	assert.True(t, row.ProtocolExpected, "协议期望声明位逐字段透传")
+	assert.Equal(t, "third_party", row.TargetCategory)
 
 	// 协议目标：protocol 字段只在适配器路径非空，phase 标出失败阶段。
 	mc := byKey["agent-a|minecraft"]
 	assert.Equal(t, "protocol", mc.ProbeType)
 	assert.Equal(t, "minecraft", mc.Protocol)
 	assert.Equal(t, "login", mc.Phase)
+	assert.Equal(t, "game", mc.TargetCategory)
 	assert.False(t, mc.Available)
 
 	// 窗口关着的行 = 可用，计数照实透传；无标注面信息时字段留空不造值。
@@ -103,7 +105,7 @@ func TestProbeSummary_AgentRowsFromLatestReport(t *testing.T) {
 
 func TestProbeSummary_ServerRowsReadCurrentState(t *testing.T) {
 	mgr, err := svc.NewServerProbeManager([]healthprobe.TargetConfig{
-		{Name: "dead-tcp", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
+		{Name: "dead-tcp", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
 			FailThreshold: 1, Interval: time.Minute},
 	}, nil, 0, nil)
 	require.NoError(t, err)
@@ -128,10 +130,10 @@ func TestProbeSummary_ServerRowsReadCurrentState(t *testing.T) {
 // 落进状态快照，面板据此区分 不可达 / 握手失败 / 已验证。
 func TestProbeSummary_ServerRowsCarryProtocolAnnotation(t *testing.T) {
 	mgr, err := svc.NewServerProbeManager([]healthprobe.TargetConfig{
-		{Name: "mc", Type: healthprobe.TargetTypeProtocol, Address: "127.0.0.1:1",
+		{Name: "mc", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeProtocol, Address: "127.0.0.1:1",
 			Steps:         []healthprobe.StepSpec{{Name: "handshake", Send: []byte("HELO")}},
 			FailThreshold: 1, Interval: time.Minute},
-		{Name: "keepalive", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
+		{Name: "keepalive", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
 			FailThreshold: 1, Interval: time.Minute, ProtocolExpected: true},
 	}, nil, 0, nil)
 	require.NoError(t, err)
@@ -187,7 +189,7 @@ func TestProbeSummary_ScopeFiltering(t *testing.T) {
 
 func TestProbeSummary_ServerRowsArePlatformScopeOnly(t *testing.T) {
 	mgr, err := svc.NewServerProbeManager([]healthprobe.TargetConfig{
-		{Name: "dead-tcp", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
+		{Name: "dead-tcp", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
 			FailThreshold: 1, Interval: time.Minute},
 	}, nil, 0, nil)
 	require.NoError(t, err)

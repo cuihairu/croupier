@@ -450,6 +450,7 @@ message AlertEvent {
   string env = 4;      // Environment scope label
   ProbeWindow window = 5; // set when kind = probe.window
   ProbeDetail detail = 6; // set when kind = probe.detail
+  string target_category = 7; // target ownership: game | third_party
 }
 
 // ProbeWindow mirrors one probe window open/close (unavailable → recovered).
@@ -461,6 +462,7 @@ message ProbeWindow {
   int64 end_ts_unix_ms = 5;  // 0 = still open
   int64 duration_ms = 6;     // 0 until recovered
   string last_reason = 7;    // failure reason at threshold (truncated 2KB)
+  string target_category = 8; // target ownership: game | third_party
 }
 
 // ProbeDetail mirrors one failed probe result (asymmetric uplink: failures
@@ -475,6 +477,7 @@ message ProbeDetail {
   int32 consecutive_failures = 7;
   bool window_open = 8;
   map<string, string> details = 9; // probeType/phase/assertion etc (Detailing)
+  string target_category = 10;     // target ownership: game | third_party
 }
 
 // ProbeStats aggregates probe results per target per reporting window
@@ -497,4 +500,5 @@ message ProbeStats {
   string protocol = 14;               // game protocol adapter name (type=protocol only)
   string phase = 15;                  // last failure phase marker (protocol checkers only)
   bool protocol_expected = 16;        // target declares protocol-level probing is expected but not integrated
+  string target_category = 17;        // target ownership: game | third_party
 }

@@ -123,6 +123,39 @@ func (c *Client) Call(ctx context.Context, msgID uint32, reqBody []byte) (respMs
 	return respMsgID, respBody, nil
 }
 
+// Send writes a one-way event frame without waiting for a response.
+func (c *Client) Send(ctx context.Context, msgID uint32, body []byte) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if !protocol.IsEvent(msgID) {
+		return fmt.Errorf("message %s is not an event", protocol.MsgIDString(msgID))
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	select {
+	case <-c.closing:
+		return fmt.Errorf("client is closing")
+	default:
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := c.conn.SetWriteDeadline(deadline); err != nil {
+			return fmt.Errorf("set write deadline: %w", err)
+		}
+	} else if c.config.SendTimeout > 0 {
+		if err := c.conn.SetWriteDeadline(time.Now().Add(c.config.SendTimeout)); err != nil {
+			return fmt.Errorf("set write deadline: %w", err)
+		}
+	}
+	defer func() { _ = c.conn.SetWriteDeadline(time.Time{}) }()
+	return writeFrame(c.conn, protocol.NewMessageBody(msgID, 0, body))
+}
+
 // Close closes the client connection.
 func (c *Client) Close() error {
 	var closeErr error

@@ -1,6 +1,6 @@
 # Agent 业务实现
 
-四类角色及当前状态：sidecar 游戏函数网关（入口 `cmd/sidecar-agent`，业务暂在 `internal/app/agent` 与 `internal/agent`）；devops 内网会话代理（骨架，真实协议通道未接）；capture 数据库 CDC 与规则告警（已实现）；synthetics 游戏/第三方外部探测与多语言插件宿主（待实现，无源码入口或发布包）。
+四类角色及当前状态：sidecar 游戏函数网关（入口 `cmd/sidecar-agent`，业务暂在 `internal/app/agent` 与 `internal/agent`）；devops 内网会话代理（骨架，真实协议通道未接）；capture 数据库 CDC 与规则告警（已实现）；synthetics 外部 HTTP 探测载体与持久化结果查询面已实现（`cmd/synthetics-agent`、Ops 结果 API 与页面），多语言插件宿主未实现。
 
 - `controlconn/`：devops/capture 共用上行消息适配，不是另一套完整公共 session。
 - `devops/`：配置、运行装配、白名单与会话审计。

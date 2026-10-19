@@ -46,9 +46,16 @@ const deadTCPTarget = "127.0.0.1:1"
 
 func tcpTargets() []healthprobe.TargetConfig {
 	return []healthprobe.TargetConfig{
-		{Name: "down-a", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
-		{Name: "down-b", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
+		{Name: "down-a", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
+		{Name: "down-b", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
 	}
+}
+
+func targetOf(ev *opsv1.AlertEvent) string {
+	if ev.Window != nil {
+		return ev.Window.Target
+	}
+	return ev.Detail.Target
 }
 
 func TestProbeManagerRejectsInvalidConfigs(t *testing.T) {
@@ -56,11 +63,13 @@ func TestProbeManagerRejectsInvalidConfigs(t *testing.T) {
 	// TestNewProbeManagerEmptyStaticSetIsDynamicOnly），不再属拒绝面。
 	cases := map[string][]healthprobe.TargetConfig{
 		"duplicate name": {
-			{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
-			{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
+			{Name: "dup", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
+			{Name: "dup", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget},
 		},
-		"unknown type":    {{Name: "x", Type: "carrier-pigeon"}},
-		"missing address": {{Name: "x", Type: healthprobe.TargetTypeTCP}},
+		"unknown type":     {{Name: "x", Category: healthprobe.TargetCategoryGame, Type: "carrier-pigeon"}},
+		"missing category": {{Name: "x", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget}},
+		"unknown category": {{Name: "x", Category: "external", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget}},
+		"missing address":  {{Name: "x", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP}},
 	}
 	for name, cfgs := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -92,6 +101,12 @@ func TestProbeManagerUplinksPerTarget(t *testing.T) {
 		assert.Equal(t, "agent-1", ev.AgentId)
 		assert.Equal(t, "demo", ev.GameId)
 		assert.Equal(t, "prod", ev.Env)
+		if targetOf(ev) == "down-a" {
+			assert.Equal(t, healthprobe.TargetCategoryGame, ev.TargetCategory)
+		}
+		if targetOf(ev) == "down-b" {
+			assert.Equal(t, healthprobe.TargetCategoryThirdParty, ev.TargetCategory)
+		}
 		switch ev.Kind {
 		case report.ProbeKindWindow:
 			windows[ev.Window.Target]++
@@ -147,7 +162,7 @@ func TestProbeManagerDrainStats(t *testing.T) {
 func TestProbeManagerWithoutSendStillProbes(t *testing.T) {
 	// server 未接入时 agent 照跑（M2 可回退语义）。
 	pm, err := NewProbeManager([]healthprobe.TargetConfig{
-		{Name: "down", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
+		{Name: "down", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget, FailThreshold: 1},
 	}, ProbeManagerOptions{AgentID: "agent-1"})
 	require.NoError(t, err)
 	pm.ProbeManagerOnce(context.Background())
@@ -162,7 +177,7 @@ func TestProbeManagerWithoutSendStillProbes(t *testing.T) {
 func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
 	s := &recordingSend{}
 	pm, err := NewProbeManager([]healthprobe.TargetConfig{
-		{Name: "mc", Type: healthprobe.TargetTypeProtocol, Address: deadTCPTarget,
+		{Name: "mc", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeProtocol, Address: deadTCPTarget,
 			Steps:         []healthprobe.StepSpec{{Name: "handshake", Send: []byte("HELO")}},
 			FailThreshold: 1},
 	}, ProbeManagerOptions{AgentID: "agent-1", Send: s.send})
@@ -171,6 +186,7 @@ func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
 	stats := pm.DrainProbeStats()
 	require.Len(t, stats, 1)
 	assert.Equal(t, "protocol", stats[0].ProbeType)
+	assert.Equal(t, healthprobe.TargetCategoryGame, stats[0].TargetCategory)
 	assert.Empty(t, stats[0].Protocol, "声明式 steps 未绑定适配器，不造名")
 	assert.Equal(t, "dial", stats[0].Phase)
 
@@ -179,7 +195,7 @@ func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
 	pm2, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-2"})
 	require.NoError(t, err)
 	require.NoError(t, pm2.ApplyTargets([]healthprobe.TargetConfig{
-		{Name: "gw", Type: healthprobe.TargetTypeProtocol, Address: deadTCPTarget,
+		{Name: "gw", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeProtocol, Address: deadTCPTarget,
 			Protocol: "minecraft", FailThreshold: 1, Interval: time.Minute},
 	}))
 	pm2.ProbeManagerOnce(context.Background())
@@ -187,6 +203,7 @@ func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
 	require.Len(t, stats, 1)
 	assert.Equal(t, "gw", stats[0].Target)
 	assert.Equal(t, "protocol", stats[0].ProbeType)
+	assert.Equal(t, healthprobe.TargetCategoryGame, stats[0].TargetCategory, "动态下行路径同样透传类别")
 	assert.Equal(t, "minecraft", stats[0].Protocol)
 	assert.Equal(t, "dial", stats[0].Phase)
 }
@@ -196,7 +213,7 @@ func TestProbeManagerCarriesTypeProtocolPhase(t *testing.T) {
 // 能标「可达≠可用」；未声明不带。
 func TestProbeManagerCarriesProtocolExpected(t *testing.T) {
 	pm, err := NewProbeManager([]healthprobe.TargetConfig{
-		{Name: "gw-tcp", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
+		{Name: "gw-tcp", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
 			ProtocolExpected: true, FailThreshold: 1},
 	}, ProbeManagerOptions{AgentID: "agent-1"})
 	require.NoError(t, err)
@@ -209,7 +226,7 @@ func TestProbeManagerCarriesProtocolExpected(t *testing.T) {
 	pm2, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-2"})
 	require.NoError(t, err)
 	require.NoError(t, pm2.ApplyTargets([]healthprobe.TargetConfig{
-		{Name: "gw-http", Type: healthprobe.TargetTypeHTTP, URL: "http://127.0.0.1:1/hz",
+		{Name: "gw-http", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeHTTP, URL: "http://127.0.0.1:1/hz",
 			ProtocolExpected: true, FailThreshold: 1, Interval: time.Minute},
 	}))
 	pm2.ProbeManagerOnce(context.Background())
@@ -219,7 +236,7 @@ func TestProbeManagerCarriesProtocolExpected(t *testing.T) {
 
 	// 未声明的静态目标不带该位（零值 false）。
 	pm3, err := NewProbeManager([]healthprobe.TargetConfig{
-		{Name: "plain", Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
+		{Name: "plain", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: deadTCPTarget,
 			FailThreshold: 1},
 	}, ProbeManagerOptions{AgentID: "agent-3"})
 	require.NoError(t, err)
@@ -239,7 +256,7 @@ func TestProbeManagerNilSafe(t *testing.T) {
 
 func TestProbeManagerStartRespectsContext(t *testing.T) {
 	pm, err := NewProbeManager([]healthprobe.TargetConfig{
-		{Name: "up", Type: healthprobe.TargetTypeHTTP, URL: "http://127.0.0.1:1/healthz", Interval: 10 * time.Millisecond},
+		{Name: "up", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeHTTP, URL: "http://127.0.0.1:1/healthz", Interval: 10 * time.Millisecond},
 	}, ProbeManagerOptions{AgentID: "agent-1"})
 	require.NoError(t, err)
 

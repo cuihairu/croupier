@@ -121,6 +121,12 @@ agent-capture:
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/capture/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/capture/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/capture/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/capture-agent ./cmd/capture-agent
 
+.PHONY: agent-synthetics
+agent-synthetics:
+	@echo "[build] synthetics-agent"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/synthetics/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/synthetics/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/synthetics/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/synthetics-agent ./cmd/synthetics-agent
+
 agents: agent agent-devops agent-capture
 
 build: server agents worker ingest tools

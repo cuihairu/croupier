@@ -1,0 +1,15 @@
+# Explicit destinations only: no external probe target is built into the agent.
+agent:
+  id: demo-prod-synthetics-01
+  serverAddr: 127.0.0.1:19090
+  gameId: demo
+  env: prod
+synthetics:
+  interval: 30s
+  targets:
+    - name: local-health
+      url: http://127.0.0.1:8080/health
+      method: GET
+      timeout: 3s
+      expectedStatus: 200
+      bodyContains: ok

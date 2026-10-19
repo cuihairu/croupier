@@ -31,10 +31,11 @@ const ServerProbeAgentID = report.ServerProbeAgentID
 // ServerProbeManager server 本机探针面：多目标探针 + 上行桥。空目标集不
 // 装配（nil 返回），与现状行为零差异。
 type ServerProbeManager struct {
-	manager     *healthprobe.Manager
-	uplinks     map[string]*report.ProbeUplink
-	order       []string
-	semByTarget map[string]string
+	manager          *healthprobe.Manager
+	uplinks          map[string]*report.ProbeUplink
+	order            []string
+	semByTarget      map[string]string
+	categoryByTarget map[string]string
 	// typeByTarget/protocolByTarget 目标类型与游戏协议适配器名（配置期静态
 	// 声明，随 Statuses 带出——消费方不必解析 last_reason 文本即可区分协议
 	// 探测与网络/存储探测，§5.5.3 协议四态的标注面）。
@@ -78,6 +79,7 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 
 	uplinks := make(map[string]*report.ProbeUplink, len(cfgs))
 	semByTarget := make(map[string]string, len(cfgs))
+	categoryByTarget := make(map[string]string, len(cfgs))
 	typeByTarget := make(map[string]string, len(cfgs))
 	protocolByTarget := make(map[string]string, len(cfgs))
 	expectedByTarget := make(map[string]bool, len(cfgs))
@@ -94,6 +96,7 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 		uplinks[name] = report.NewProbeUplink(report.ProbeUplinkConfig{
 			AgentID:             report.ServerProbeAgentID,
 			Target:              name,
+			TargetCategory:      tc.Category,
 			Semantics:           sem,
 			ProbeType:           string(tc.Type),
 			Protocol:            tc.Protocol,
@@ -101,6 +104,7 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 			MaxDetailsPerWindow: maxDetailsPerWindow,
 		}, wrappedSend)
 		semByTarget[name] = string(sem)
+		categoryByTarget[name] = tc.Category
 		typeByTarget[name] = string(tc.Type)
 		protocolByTarget[name] = tc.Protocol
 		expectedByTarget[name] = tc.ProtocolExpected
@@ -108,7 +112,7 @@ func NewServerProbeManager(cfgs []healthprobe.TargetConfig, send ProbeEventSend,
 	}
 
 	m := &ServerProbeManager{uplinks: uplinks, order: order, semByTarget: semByTarget,
-		typeByTarget: typeByTarget, protocolByTarget: protocolByTarget,
+		categoryByTarget: categoryByTarget, typeByTarget: typeByTarget, protocolByTarget: protocolByTarget,
 		expectedByTarget: expectedByTarget,
 		phaseByTarget:    map[string]string{}, logger: logger}
 	manager, err := healthprobe.NewManager(cfgs, "", "", m.routeWindow, m.routeResult)
@@ -152,6 +156,7 @@ func (m *ServerProbeManager) Targets() []string {
 type ServerProbeStatus struct {
 	Target     string
 	Semantics  string
+	Category   string
 	Available  bool
 	WindowOpen bool
 	DurationMS int64
@@ -181,6 +186,7 @@ func (m *ServerProbeManager) Statuses() []ServerProbeStatus {
 		st := ServerProbeStatus{
 			Target:           name,
 			Semantics:        m.semByTarget[name],
+			Category:         m.categoryByTarget[name],
 			Available:        p.Available(),
 			ProbeType:        m.typeByTarget[name],
 			Protocol:         m.protocolByTarget[name],

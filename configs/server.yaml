@@ -215,10 +215,12 @@ metrics:
 #   maxDetailsPerWindow: 10  # 每故障窗口每目标的失败明细条数上限（缺省 10）
 #   targets:
 #     - name: billing-api     # 目标名唯一；手动诊断与告警 alertID 按名引用
+#   targetCategory: game   # game | third_party，必填
 #       type: http
 #       url: http://billing.internal:8080/healthz
 #       timeout: 5s
 #       interval: 30s
 #     - name: meta-db
+#       targetCategory: game
 #       type: tcp
 #       address: 127.0.0.1:5432

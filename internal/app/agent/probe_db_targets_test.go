@@ -21,7 +21,7 @@ func dbTargets(names ...string) []healthprobe.TargetConfig {
 	out := make([]healthprobe.TargetConfig, 0, len(names))
 	for _, n := range names {
 		out = append(out, healthprobe.TargetConfig{
-			Name: "db:" + n, Type: healthprobe.TargetTypeDB,
+			Name: "db:" + n, Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeDB,
 			Driver: "pgx", DSN: "postgres://ro:ro@127.0.0.1/db",
 			Timeout: healthprobe.DefaultDBTimeout,
 		})
@@ -85,7 +85,7 @@ func TestApplyTargetsRejectsCollisionWithLocalTargets(t *testing.T) {
 	require.Len(t, pm.Probes(), 3)                           // 2 静态 + 1 动态
 
 	// 动态目标名与本地静态 down-a 相同 → 拒绝且不动现有装配。
-	clash := append(dbTargets("orders"), healthprobe.TargetConfig{Name: "down-a", Type: healthprobe.TargetTypeDB, DSN: "x", Driver: "pgx"})
+	clash := append(dbTargets("orders"), healthprobe.TargetConfig{Name: "down-a", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeDB, DSN: "x", Driver: "pgx"})
 	err = pm.ApplyTargets(clash)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "collides")
@@ -118,7 +118,7 @@ func TestProbeDBTargetsPullerAppliesAndSkips(t *testing.T) {
 	pm, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-1"})
 	require.NoError(t, err)
 
-	payload := `[{"name":"db:orders","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db","timeout":5000000000}]`
+	payload := `[{"name":"db:orders","targetCategory":"game","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db","timeout":5000000000}]`
 	v := configsync.Versioned[string]{Version: "hash-a", Payload: payload}
 	fetch := func(context.Context) (*configsync.Versioned[string], error) { return &v, nil }
 
@@ -145,7 +145,7 @@ func TestProbeDBTargetsPullerAppliesAndSkips(t *testing.T) {
 func TestProbeDBTargetsPullerKeepsLastGoodOnError(t *testing.T) {
 	pm, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-1"})
 	require.NoError(t, err)
-	payload := `[{"name":"db:orders","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db"}]`
+	payload := `[{"name":"db:orders","targetCategory":"game","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db"}]`
 	p := NewProbeDBTargetsPuller(pm, func(context.Context) (*configsync.Versioned[string], error) {
 		return &configsync.Versioned[string]{Version: "hash-a", Payload: payload}, nil
 	}, configsync.DefaultInterval, nil)
@@ -174,7 +174,7 @@ func TestProbeDBTargetsPullerKeepsLastGoodOnError(t *testing.T) {
 func TestProbeDBTargetsPullerEmptyVersionAndPayloadKeepsCurrent(t *testing.T) {
 	pm, err := NewProbeManager(nil, ProbeManagerOptions{AgentID: "agent-1"})
 	require.NoError(t, err)
-	payload := `[{"name":"db:orders","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db"}]`
+	payload := `[{"name":"db:orders","targetCategory":"game","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db"}]`
 	p := NewProbeDBTargetsPuller(pm, func(context.Context) (*configsync.Versioned[string], error) {
 		return &configsync.Versioned[string]{Version: "hash-a", Payload: payload}, nil
 	}, configsync.DefaultInterval, nil)
@@ -238,7 +238,7 @@ func TestProbeDBTargetsPullerNilSafe(t *testing.T) {
 func TestUpstreamPullProbeDBTargetsDecodesResponse(t *testing.T) {
 	resp := &opsv1.ProbeDBTargetsConfigResponse{
 		Version:     "hash-1",
-		TargetsJson: `[{"name":"db:orders","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db"}]`,
+		TargetsJson: `[{"name":"db:orders","targetCategory":"game","type":"db","driver":"pgx","dsn":"postgres://ro:ro@127.0.0.1/db"}]`,
 	}
 	raw, err := proto.Marshal(resp)
 	require.NoError(t, err)

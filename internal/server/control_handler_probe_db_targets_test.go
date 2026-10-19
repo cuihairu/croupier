@@ -83,7 +83,9 @@ func TestDeriveProbeDBTargets_SortsByIDAndStableHash(t *testing.T) {
 	require.Len(t, targets, 2)
 	// id 升序：audit(1) 在前。
 	assert.Equal(t, "db:audit", targets[0].Name)
+	assert.Equal(t, healthprobe.TargetCategoryGame, targets[0].Category)
 	assert.Equal(t, "db:orders", targets[1].Name)
+	assert.Equal(t, healthprobe.TargetCategoryGame, targets[1].Category)
 	assert.Equal(t, healthprobe.TargetTypeDB, targets[1].Type)
 	// driver 映射：postgres → pgx（dbmon 同款），mysql 保持小写。
 	assert.Equal(t, "pgx", targets[1].Driver)

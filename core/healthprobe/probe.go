@@ -20,6 +20,7 @@ const (
 type Window struct {
 	Target     string `json:"target"`
 	Semantics  string `json:"semantics"`
+	Category   string `json:"category,omitempty"`
 	StartTS    int64  `json:"start_ts_unix_ms"`
 	EndTS      int64  `json:"end_ts_unix_ms,omitempty"` // 0 = 未恢复
 	DurationMS int64  `json:"duration_ms,omitempty"`
@@ -54,6 +55,7 @@ type Result struct {
 	Err                 string
 	At                  time.Time
 	Target              string
+	Category            string
 	Available           bool
 	ConsecutiveFailures int
 	WindowOpen          bool
@@ -69,6 +71,7 @@ type Probe struct {
 	check      Checker
 	failThr    int
 	okThr      int
+	category   string
 	scopeGame  string
 	scopeEnv   string
 	listener   WindowListener
@@ -108,6 +111,11 @@ func WithThresholds(fail, recover int) Option {
 // WithScope 附加 game_id/env（强制随窗口记录，注册标签同源）。
 func WithScope(gameID, env string) Option {
 	return func(p *Probe) { p.scopeGame, p.scopeEnv = gameID, env }
+}
+
+// WithCategory 附加目标归属类别（game|third_party），随结果与窗口记录快照。
+func WithCategory(category string) Option {
+	return func(p *Probe) { p.category = category }
 }
 
 // OnWindow 注册窗口事件回调（上报/herald 出口）。

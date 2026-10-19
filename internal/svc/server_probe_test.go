@@ -19,9 +19,9 @@ import (
 
 func serverProbeTargets() []healthprobe.TargetConfig {
 	return []healthprobe.TargetConfig{
-		{Name: "server-db", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
+		{Name: "server-db", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
 			FailThreshold: 1, Interval: 20 * time.Second},
-		{Name: "platform-api", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
+		{Name: "platform-api", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1",
 			FailThreshold: 1, Interval: 25 * time.Second},
 	}
 }
@@ -30,6 +30,14 @@ func serverProbeTargets() []healthprobe.TargetConfig {
 type eventRecorder struct {
 	mu     sync.Mutex
 	events []*opsv1.AlertEvent
+}
+
+func TestServerProbeManager_RejectsInvalidTargetCategory(t *testing.T) {
+	m, err := NewServerProbeManager([]healthprobe.TargetConfig{
+		{Name: "bad", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1"},
+	}, nil, 0, nil)
+	assert.Error(t, err)
+	assert.Nil(t, m)
 }
 
 func (r *eventRecorder) send(_ context.Context, ev *opsv1.AlertEvent) {
@@ -60,8 +68,8 @@ func TestServerProbeManager_EmptyTargetsNil(t *testing.T) {
 // 重名目标整体报错（agent 同口径：重名让窗口事件串台）。
 func TestServerProbeManager_DuplicateTargetRejected(t *testing.T) {
 	m, err := NewServerProbeManager([]healthprobe.TargetConfig{
-		{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1"},
-		{Name: "dup", Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1"},
+		{Name: "dup", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1"},
+		{Name: "dup", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1"},
 	}, nil, 0, nil)
 	require.Error(t, err)
 	assert.Nil(t, m)
@@ -97,6 +105,8 @@ func TestServerProbeManager_WindowAndDetailEventsRouted(t *testing.T) {
 	assert.Equal(t, "server-db", win.GetWindow().GetTarget())
 	assert.Equal(t, "unavailable", win.GetWindow().GetWindowKind())
 	assert.Equal(t, "readiness", win.GetWindow().GetSemantics(), "default semantics")
+	assert.Equal(t, healthprobe.TargetCategoryGame, win.GetWindow().GetTargetCategory())
+	assert.Equal(t, healthprobe.TargetCategoryGame, win.GetTargetCategory())
 }
 
 // 未知目标 ok=false；目标清单顺序同配置声明。
@@ -130,6 +140,7 @@ func TestServerProbeManager_StatusesCarryProtocolAnnotations(t *testing.T) {
 	}
 	db := byName["server-db"]
 	assert.Equal(t, "tcp", db.ProbeType)
+	assert.Equal(t, healthprobe.TargetCategoryGame, db.Category)
 	assert.True(t, db.ProtocolExpected, "声明位随 Statuses 带出")
 	assert.Empty(t, db.Protocol, "tcp 目标无适配器名")
 

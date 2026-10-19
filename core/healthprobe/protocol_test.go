@@ -147,7 +147,7 @@ func TestProtocolCheckerStepFailureMarksPhase(t *testing.T) {
 	// 经 Probe：failThreshold=1 直接开窗，LastReason 带阶段标记。
 	var windows []Window
 	tc := TargetConfig{Name: "gw", Type: TargetTypeProtocol, Address: addr,
-		Steps: chk.Steps, FailThreshold: 1}
+		Category: TargetCategoryGame, Steps: chk.Steps, FailThreshold: 1}
 	p, err := ProbeFromTarget(tc, "demo", "prod", func(ev WindowEvent) { windows = append(windows, ev.Window) }, nil)
 	require.NoError(t, err)
 	res := p.ProbeOnce(context.Background())
@@ -170,7 +170,8 @@ func TestProtocolCheckerDialFailureDistinct(t *testing.T) {
 
 	var windows []Window
 	tc := TargetConfig{Name: "dead", Type: TargetTypeProtocol, Address: "127.0.0.1:1",
-		Steps: []StepSpec{{Name: "handshake", Send: []byte("HELO")}}, FailThreshold: 1}
+		Category: TargetCategoryGame,
+		Steps:    []StepSpec{{Name: "handshake", Send: []byte("HELO")}}, FailThreshold: 1}
 	p, err := ProbeFromTarget(tc, "demo", "prod", func(ev WindowEvent) { windows = append(windows, ev.Window) }, nil)
 	require.NoError(t, err)
 	res := p.ProbeOnce(context.Background())
@@ -368,8 +369,9 @@ func TestProtocolCheckerExpectVariants(t *testing.T) {
 // TestNewCheckerProtocolTarget 工厂收口：steps 声明式与 protocol 适配器两条子路径。
 func TestNewCheckerProtocolTarget(t *testing.T) {
 	chk, err := NewChecker(TargetConfig{Name: "gw", Type: TargetTypeProtocol,
-		Address: "127.0.0.1:7777",
-		Steps:   []StepSpec{{Name: "handshake", Send: []byte("HELO"), Expect: StepExpect{Prefix: []byte("WEL")}}}})
+		Category: TargetCategoryGame,
+		Address:  "127.0.0.1:7777",
+		Steps:    []StepSpec{{Name: "handshake", Send: []byte("HELO"), Expect: StepExpect{Prefix: []byte("WEL")}}}})
 	require.NoError(t, err)
 	pc, ok := chk.(*ProtocolChecker)
 	require.True(t, ok)
@@ -377,18 +379,18 @@ func TestNewCheckerProtocolTarget(t *testing.T) {
 	assert.Equal(t, "handshake", pc.Steps[0].Name)
 
 	// 缺地址 / 缺步骤与适配器名。
-	_, err = NewChecker(TargetConfig{Name: "gw", Type: TargetTypeProtocol, Steps: []StepSpec{{Name: "a"}}})
+	_, err = NewChecker(TargetConfig{Name: "gw", Category: TargetCategoryGame, Type: TargetTypeProtocol, Steps: []StepSpec{{Name: "a"}}})
 	assert.ErrorContains(t, err, "requires address")
-	_, err = NewChecker(TargetConfig{Name: "gw", Type: TargetTypeProtocol, Address: "127.0.0.1:1"})
+	_, err = NewChecker(TargetConfig{Name: "gw", Category: TargetCategoryGame, Type: TargetTypeProtocol, Address: "127.0.0.1:1"})
 	assert.ErrorContains(t, err, "requires steps or protocol")
 
 	// steps 与 protocol 互斥。
 	_, err = NewChecker(TargetConfig{Name: "gw", Type: TargetTypeProtocol, Address: "127.0.0.1:1",
-		Protocol: "testgame", Steps: []StepSpec{{Name: "a"}}})
+		Category: TargetCategoryGame, Protocol: "testgame", Steps: []StepSpec{{Name: "a"}}})
 	assert.ErrorContains(t, err, "mutually exclusive")
 
 	// 未注册的适配器名。
-	_, err = NewChecker(TargetConfig{Name: "gw", Type: TargetTypeProtocol, Address: "127.0.0.1:1", Protocol: "no-such-game"})
+	_, err = NewChecker(TargetConfig{Name: "gw", Category: TargetCategoryGame, Type: TargetTypeProtocol, Address: "127.0.0.1:1", Protocol: "no-such-game"})
 	assert.ErrorContains(t, err, "unknown game protocol")
 
 	// 注册（包内测试用假适配器）→ 工厂解析到注册器产物。
@@ -397,7 +399,7 @@ func TestNewCheckerProtocolTarget(t *testing.T) {
 			return CheckerFunc(func(ctx context.Context) error { return errors.New("testgame stub") }), nil
 		})
 	})
-	chk, err = NewChecker(TargetConfig{Name: "gw2", Type: TargetTypeProtocol, Address: "127.0.0.1:1", Protocol: "testgame"})
+	chk, err = NewChecker(TargetConfig{Name: "gw2", Category: TargetCategoryGame, Type: TargetTypeProtocol, Address: "127.0.0.1:1", Protocol: "testgame"})
 	require.NoError(t, err)
 	_, isFunc := chk.(CheckerFunc)
 	assert.True(t, isFunc)

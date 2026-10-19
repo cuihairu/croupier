@@ -151,7 +151,7 @@ func TestProbeRunDynamic(t *testing.T) {
 
 func TestManagerStartDynamic(t *testing.T) {
 	mgr, err := NewManager(
-		[]TargetConfig{{Name: "a", Type: "tcp", Address: "127.0.0.1:1", Interval: time.Second}},
+		[]TargetConfig{{Name: "a", Category: TargetCategoryGame, Type: "tcp", Address: "127.0.0.1:1", Interval: time.Second}},
 		"g", "e", nil, nil,
 	)
 	require.NoError(t, err)

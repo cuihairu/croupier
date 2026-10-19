@@ -26,6 +26,26 @@ export type OpsAgent = {
   ownerInstance?: string;
 };
 
+export type SyntheticsResult = {
+  id: number;
+  agentId: string;
+  gameId: string;
+  env: string;
+  kind: string;
+  target: string;
+  status: string;
+  latencyMs: number;
+  errorClass: string;
+  error: string;
+  createdAt: number;
+};
+
+export async function listSyntheticsResults(gameId: string, env: string, limit = 100) {
+  return request<{ items: SyntheticsResult[] }>(
+    `/api/v1/ops/agents/synthetics/results?gameId=${encodeURIComponent(gameId)}&env=${encodeURIComponent(env)}&limit=${limit}`,
+  );
+}
+
 // Source: croupier/internal/api/ops/dto.go OpsServiceProcess.
 export type AgentProcess = {
   serviceId: string;

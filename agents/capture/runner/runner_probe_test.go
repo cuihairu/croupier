@@ -24,14 +24,16 @@ func TestReadinessProbeUsesDeclarativeAssembly(t *testing.T) {
 		t.Fatalf("target = %q, want mysql:127.0.0.1:1", target)
 	}
 
-	mgr, err := healthprobe.NewManager([]healthprobe.TargetConfig{{
-		Name:      target,
-		Type:      healthprobe.TargetTypeTCP,
-		Address:   addr,
-		Timeout:   2 * time.Second,
-		Interval:  captureReadinessInterval,
-		Semantics: healthprobe.SemanticsReadiness,
-	}}, "", "", nil, nil)
+	mgr, err := healthprobe.NewManager([]healthprobe.TargetConfig{
+		{
+			Name:      target,
+			Category:  healthprobe.TargetCategoryGame,
+			Type:      healthprobe.TargetTypeTCP,
+			Address:   addr,
+			Timeout:   2 * time.Second,
+			Interval:  captureReadinessInterval,
+			Semantics: healthprobe.SemanticsReadiness,
+		}}, "", "", nil, nil)
 	if err != nil {
 		t.Fatalf("declarative assembly must succeed for a valid source address: %v", err)
 	}
@@ -80,11 +82,13 @@ func TestReadinessProbeSkippedWhenAddressUnresolvable(t *testing.T) {
 func TestReadinessProbeDeclarationRejectsInvalidTarget(t *testing.T) {
 	// 声明非法时统一装配必须报错——capture 不再自写 Checker 接线，装配校验
 	// 是唯一的守门点（漏了就会静默无探针）。
-	if _, err := healthprobe.NewManager([]healthprobe.TargetConfig{{
-		Name:    "broken",
-		Type:    healthprobe.TargetTypeTCP,
-		Address: "",
-	}}, "", "", nil, nil); err == nil {
+	if _, err := healthprobe.NewManager([]healthprobe.TargetConfig{
+		{
+			Name:     "broken",
+			Category: healthprobe.TargetCategoryGame,
+			Type:     healthprobe.TargetTypeTCP,
+			Address:  "",
+		}}, "", "", nil, nil); err == nil {
 		t.Fatal("empty address must fail declarative assembly")
 	}
 }

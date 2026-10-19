@@ -7,12 +7,8 @@ import (
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
-// 探测事件诊断面（review §13.1 / §12 R2 server 接收侧）。
-//
-// 诚实边界：R2 只做「接得住 + 留得下 + 查得到」——校验 agent_id、按 agent 存
-// 诊断明细环、按窗口记日志。窗口事件→Alert 生命周期（firing/resolved、alertID
-// 派生、随 Alert details 落最近 N 次序列）属 R3，本文件不写 Alert 表；失败
-// 明细是诊断面，本来就不触发告警。
+// 探测事件诊断面是持久化 probe_events 之外的短期现场缓存。
+// 窗口事件→Alert 生命周期由 probe_lifecycle 处理；失败明细不触发告警。
 
 // probeEventRingSize 每 agent 诊断环容量（§13.1 显式默认：同 supervisor 事件环
 // 先例 registry/metrics.go supervisorEventRingSize=500）。

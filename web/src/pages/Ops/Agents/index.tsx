@@ -40,7 +40,7 @@ export const AGENT_META: Record<AgentType, AgentMeta> = {
   },
   synthetics: {
     title: '外部探测代理',
-    description: '查看 synthetics 实例预留视图。独立运行时未交付，本页不提供目标管理入口。',
+    description: '查看 synthetics 实例与外部探测结果。探测结果页按 game/env 展示最近上报。',
     empty: '当前游戏环境暂无 synthetics Agent。',
   },
 };

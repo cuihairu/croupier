@@ -356,7 +356,7 @@ func TestResolveSLPAddress(t *testing.T) {
 // TestSLPCheckerViaNewChecker 工厂接线：protocol=minecraft 解析到本包 Checker。
 func TestSLPCheckerViaNewChecker(t *testing.T) {
 	chk, err := healthprobe.NewChecker(healthprobe.TargetConfig{
-		Name: "mc", Type: healthprobe.TargetTypeProtocol, Address: "127.0.0.1:25565", Protocol: "minecraft",
+		Name: "mc", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeProtocol, Address: "127.0.0.1:25565", Protocol: "minecraft",
 	})
 	require.NoError(t, err)
 	slp, ok := chk.(*SLPChecker)

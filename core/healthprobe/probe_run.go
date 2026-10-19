@@ -24,6 +24,7 @@ func (p *Probe) ProbeOnce(ctx context.Context) Result {
 			p.current = &Window{
 				Target:     p.target,
 				Semantics:  string(p.sem),
+				Category:   p.category,
 				StartTS:    now.UnixMilli(),
 				LastReason: err.Error(),
 				GameID:     p.scopeGame,
@@ -50,6 +51,7 @@ func (p *Probe) ProbeOnce(ctx context.Context) Result {
 		OK:                  err == nil,
 		At:                  now,
 		Target:              p.target,
+		Category:            p.category,
 		Available:           p.available,
 		WindowOpen:          p.current != nil,
 		ConsecutiveFailures: p.failStreak,
