@@ -675,12 +675,20 @@ func opsAlertHandle(ctx context.Context, svcCtx *svc.ServiceContext, alertIDStr 
 	}
 
 	// 存在性检查：流转不隐式创建，404 而非静默成功。
-	found, err := svcCtx.AlertModel.FindByIDs(ctx, []uint{alertID})
+	foundAlerts, err := svcCtx.AlertModel.FindByIDs(ctx, []uint{alertID})
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := found[alertID]; !ok {
+	storedAlert, ok := foundAlerts[alertID]
+	if !ok {
 		return nil, errorx.NewNotFound(fmt.Sprintf("alert %d not found", alertID))
+	}
+	scope := svc.GameScopeFromContext(ctx)
+	if scope.GameID != "" && storedAlert.GameID != scope.GameID {
+		return nil, fmt.Errorf("alert %d does not belong to game %q", alertID, scope.GameID)
+	}
+	if scope.Env != "" && storedAlert.Env != scope.Env {
+		return nil, fmt.Errorf("alert %d does not belong to env %q", alertID, scope.Env)
 	}
 
 	remark := strings.TrimSpace(req.Remark)

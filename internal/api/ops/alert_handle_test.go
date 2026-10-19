@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -39,6 +40,28 @@ func seedHandleAlert(t *testing.T, db *gorm.DB, alertID string) *model.Alert {
 	}
 	require.NoError(t, db.Create(alert).Error)
 	return alert
+}
+
+func TestOpsAlertHandleRequiresMatchingScope(t *testing.T) {
+	s, db := newAlertHandleService(t)
+	alert := seedHandleAlert(t, db, "h-1")
+	require.NoError(t, db.Model(alert).Updates(map[string]interface{}{"game_id": "demo", "env": "prod"}).Error)
+	ctx := svc.WithGameScope(withUsername(context.Background(), "alice"), svc.GameScope{GameID: "other", Env: "prod"})
+
+	_, err := s.OpsAlertHandle(ctx, "1", &OpsAlertHandleRequest{Action: "acknowledge"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not belong")
+
+	var row model.Alert
+	require.NoError(t, db.First(&row, alert.ID).Error)
+	assert.Equal(t, model.AlertHandlePending, row.HandleStatus)
+	assert.Empty(t, row.HandledBy)
+	assert.Empty(t, row.HandledRemark)
+
+	matching := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
+	resp, err := s.OpsAlertHandle(matching, fmt.Sprintf("%d", alert.ID), &OpsAlertHandleRequest{Action: "acknowledge"})
+	require.NoError(t, err)
+	assert.Equal(t, model.AlertHandleAcknowledged, resp.HandleStatus)
 }
 
 func withUsername(ctx context.Context, name string) context.Context {
