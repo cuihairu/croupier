@@ -10,13 +10,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/resource"
-	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 // TelemetryConfig OpenTelemetry配置
@@ -39,163 +33,84 @@ type TelemetryConfig struct {
 	Analytics AnalyticsBridgeConfig `yaml:"analytics"`
 }
 
+// shutdowner 是 Provider 持有 OTel SDK tracer/meter provider 的最小表面
+// （两者都暴露 Shutdown(context.Context) error）。字段保持接口类型，
+// no_otel 裁剪构建无需引入 SDK 类型即可编译本文件。
+type shutdowner interface {
+	Shutdown(context.Context) error
+}
+
 // Provider OpenTelemetry提供者
 type Provider struct {
-	TracerProvider *trace.TracerProvider
-	MeterProvider  *metric.MeterProvider
+	TracerProvider shutdowner
+	MeterProvider  shutdowner
 	GameMetrics    *GameMetrics
 	GameTracer     *GameTracer
 	Bridge         *AnalyticsBridge
 	config         TelemetryConfig
 }
 
-// 可注入缝隙：OTel SDK 的 resource.New（仅 WithAttributes 时不存在失败
-// 输入）、OTLP HTTP exporter 构造（本包从不组合 WithTLSClientConfig，
-// errInsecureEndpointWithTLS 不可触达）与 NewGameMetrics（全局 noop meter
-// 创建固定合法指标名，不存在失败输入）的错误分支仅能通过测试注入触达。
-var (
-	resourceNew     = resource.New
-	newTraceExpor   = otlptracehttp.New
-	newMetricExpor  = otlpmetrichttp.New
-	providerMetrics = NewGameMetrics
-)
+// 可注入缝隙：NewGameMetrics（全局 noop meter 创建固定合法指标名，不存在
+// 失败输入）的错误分支仅能通过测试注入触达。OTel SDK 侧的注入缝
+// （resource.New / OTLP exporter 构造）随装配移至 provider_sdk_default.go。
+var providerMetrics = NewGameMetrics
 
 // NewProvider 创建OpenTelemetry提供者
 func NewProvider(ctx context.Context, config TelemetryConfig, logger *slog.Logger) (*Provider, error) {
 	normalizeConfig(&config)
 
-	// 创建资源标识
-	res, err := resourceNew(ctx,
-		resource.WithAttributes(
-			semconv.ServiceNameKey.String(config.ServiceName),
-			semconv.ServiceVersionKey.String(config.ServiceVersion),
-			semconv.DeploymentEnvironmentKey.String(config.Environment),
-			GameIDKey.String(config.GameID),
-		),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create resource: %w", err)
-	}
-
 	provider := &Provider{config: config}
 
-	// 初始化Tracing
-	if config.EnableTracing {
-		provider.TracerProvider, err = initTracing(ctx, res, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init tracing: %w", err)
-		}
-		otel.SetTracerProvider(provider.TracerProvider)
+	// 总开关门控（todo.md:31，与 go-plugin 同策略）：Enabled=false 时
+	// tracing/metrics 子开关一律失效——不创建 exporter、不建周期导出任务、
+	// 不注册全局 SDK provider；仅保留轻量 API 面（W3C TraceContext 传播、
+	// noop tracer/meter、Analytics 桥接自守门）。子开关不得越过总开关。
+	if !config.Enabled {
+		return provider.assembleLightweight(logger)
 	}
 
-	// 初始化Metrics
-	if config.EnableMetrics {
-		provider.MeterProvider, err = initMetrics(ctx, res, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init metrics: %w", err)
-		}
-		otel.SetMeterProvider(provider.MeterProvider)
+	// 可禁用构建 fail-closed（no_otel build tag）：二进制不含 OTel
+	// SDK/exporter 装配时，配置启用即显式报错，而非静默降级成无导出运行
+	// （配置说开了、产物做不到，属于操作员必须看到错误）。
+	if otelAssemblyTrimmed {
+		return nil, fmt.Errorf("telemetry enabled but this binary was built without OTel support (no_otel build tag); disable telemetry or rebuild without the tag")
 	}
 
-	// 设置文本映射传播器
+	tracerProvider, meterProvider, err := assembleSDK(ctx, config, logger)
+	if err != nil {
+		return nil, err
+	}
+	provider.TracerProvider = tracerProvider
+	provider.MeterProvider = meterProvider
+
+	return provider.assembleLightweight(logger)
+}
+
+// assembleLightweight 补齐常驻的轻量 API 面：传播器、业务指标（全局 meter，
+// 总关/裁剪构建下为 noop）、Analytics 桥接（自守门）与游戏追踪器。
+func (p *Provider) assembleLightweight(logger *slog.Logger) (*Provider, error) {
+	// 设置文本映射传播器（trace-context 保留范围：裁剪构建/总关时仍在，
+	// 供跨进程 trace 串联）。
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
 
-	// 初始化游戏指标
+	// 初始化游戏指标（全局 meter 在总关/裁剪构建下为 noop 实现）
 	meter := otel.Meter("croupier.game")
-	provider.GameMetrics, err = providerMetrics(meter)
+	gameMetrics, err := providerMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create game metrics: %w", err)
 	}
+	p.GameMetrics = gameMetrics
 
 	// 初始化Analytics桥接器
-	provider.Bridge = NewAnalyticsBridge(config.Analytics, config.GameID, logger)
+	p.Bridge = NewAnalyticsBridge(p.config.Analytics, p.config.GameID, logger)
 
 	// 初始化游戏追踪器
-	tracer := otel.Tracer("croupier.game")
-	provider.GameTracer = NewGameTracer(tracer, provider.GameMetrics, provider.Bridge)
+	p.GameTracer = NewGameTracer(otel.Tracer("croupier.game"), p.GameMetrics, p.Bridge)
 
-	return provider, nil
-}
-
-// initTracing 初始化链路追踪
-func initTracing(ctx context.Context, res *resource.Resource, config TelemetryConfig) (*trace.TracerProvider, error) {
-	// 构建OTLP HTTP导出器选项
-	opts := []otlptracehttp.Option{}
-	if strings.Contains(config.CollectorURL, "://") {
-		opts = append(opts, otlptracehttp.WithEndpointURL(trimOTLPEndpoint(config.CollectorURL, "/v1/traces")))
-	} else {
-		opts = append(opts,
-			otlptracehttp.WithEndpoint(config.CollectorURL),
-			otlptracehttp.WithURLPath("/v1/traces"),
-		)
-	}
-
-	// 根据配置决定是否使用TLS
-	if config.UseTLS {
-		// 生产环境使用HTTPS（默认不带WithInsecure就是HTTPS）
-		// 不需要添加额外选项，因为otlptracehttp默认就是secure的
-	} else {
-		// 开发环境使用HTTP
-		opts = append(opts, otlptracehttp.WithInsecure())
-	}
-
-	traceExporter, err := newTraceExpor(ctx, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	// 创建TracerProvider
-	tp := trace.NewTracerProvider(
-		trace.WithResource(res),
-		trace.WithBatcher(traceExporter,
-			trace.WithBatchTimeout(time.Second*5),
-			trace.WithMaxExportBatchSize(512),
-		),
-		trace.WithSampler(trace.TraceIDRatioBased(config.SamplingRatio)),
-	)
-
-	return tp, nil
-}
-
-// initMetrics 初始化指标收集
-func initMetrics(ctx context.Context, res *resource.Resource, config TelemetryConfig) (*metric.MeterProvider, error) {
-	// 构建OTLP HTTP导出器选项
-	opts := []otlpmetrichttp.Option{}
-	if strings.Contains(config.CollectorURL, "://") {
-		opts = append(opts, otlpmetrichttp.WithEndpointURL(trimOTLPEndpoint(config.CollectorURL, "/v1/metrics")))
-	} else {
-		opts = append(opts,
-			otlpmetrichttp.WithEndpoint(config.CollectorURL),
-			otlpmetrichttp.WithURLPath("/v1/metrics"),
-		)
-	}
-
-	// 根据配置决定是否使用TLS
-	if config.UseTLS {
-		// 生产环境使用HTTPS（默认就是secure的）
-	} else {
-		// 开发环境使用HTTP
-		opts = append(opts, otlpmetrichttp.WithInsecure())
-	}
-
-	metricExporter, err := newMetricExpor(ctx, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	// 创建MeterProvider
-	mp := metric.NewMeterProvider(
-		metric.WithResource(res),
-		metric.WithReader(metric.NewPeriodicReader(
-			metricExporter,
-			metric.WithInterval(time.Second*30), // 30秒推送一次指标
-		)),
-	)
-
-	return mp, nil
+	return p, nil
 }
 
 // Shutdown 优雅关闭
@@ -233,22 +148,25 @@ func (p *Provider) Shutdown(ctx context.Context) error {
 }
 
 // LoadConfigFromEnv 从环境变量加载配置
+// 总开关只认 OTEL_ENABLED / CROUPIER_TELEMETRY_ENABLED；tracing/metrics/
+// analytics 子开关不得重新点亮总开关（todo.md:31）。
 func LoadConfigFromEnv() TelemetryConfig {
 	enabled := envBool("OTEL_ENABLED", false) || envBool("CROUPIER_TELEMETRY_ENABLED", false)
 	tracing := envBool("OTEL_ENABLE_TRACING", false)
 	metrics := envBool("OTEL_ENABLE_METRICS", false)
 	analytics := envBool("ANALYTICS_BRIDGE_ENABLED", false)
-	enabled = enabled || tracing || metrics || analytics
 	return TelemetryConfig{
 		Enabled:        enabled,
 		ServiceName:    getEnvOrDefault("OTEL_SERVICE_NAME", "croupier-server"),
 		ServiceVersion: getEnvOrDefault("OTEL_SERVICE_VERSION", "1.0.0"),
 		Environment:    getEnvOrDefault("OTEL_ENVIRONMENT", "development"),
-		CollectorURL:   getEnvOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
-		GameID:         getEnvOrDefault("GAME_ID", "default"),
-		EnableTracing:  tracing,
-		EnableMetrics:  metrics,
-		SamplingRatio:  parseFloatOrDefault(getEnvOrDefault("OTEL_SAMPLING_RATIO", "1.0")),
+		// 未配置采集端时不填默认远端（todo.md:31）：留空=装配期跳过
+		// exporter/周期导出任务，绝不擅自导出到默认地址。
+		CollectorURL:  os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		GameID:        getEnvOrDefault("GAME_ID", "default"),
+		EnableTracing: tracing,
+		EnableMetrics: metrics,
+		SamplingRatio: parseFloatOrDefault(getEnvOrDefault("OTEL_SAMPLING_RATIO", "1.0")),
 		Analytics: AnalyticsBridgeConfig{
 			Enabled:        analytics,
 			RedisAddr:      getEnvOrDefault("ANALYTICS_REDIS_ADDR", "localhost:6379"),
@@ -290,9 +208,8 @@ func normalizeConfig(config *TelemetryConfig) {
 	if strings.TrimSpace(config.Environment) == "" {
 		config.Environment = "development"
 	}
-	if strings.TrimSpace(config.CollectorURL) == "" {
-		config.CollectorURL = "http://localhost:4318"
-	}
+	// CollectorURL 不再回填默认远端（todo.md:31）：未配置采集端=留空，
+	// 装配期跳过该信号的 exporter/周期导出任务。
 	if strings.TrimSpace(config.GameID) == "" {
 		config.GameID = "default"
 	}

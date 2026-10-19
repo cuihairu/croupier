@@ -6,6 +6,8 @@ import (
 )
 
 // MergeEnv overlays OTEL_* environment variables on top of file config.
+// 总开关只认 OTEL_ENABLED / CROUPIER_TELEMETRY_ENABLED；tracing/metrics/
+// analytics 子开关不得重新点亮总开关（todo.md:31，总关闭=一切关）。
 func MergeEnv(config TelemetryConfig) TelemetryConfig {
 	if v, ok := lookupEnv("OTEL_ENABLED"); ok {
 		config.Enabled = parseBool(v)
@@ -30,24 +32,15 @@ func MergeEnv(config TelemetryConfig) TelemetryConfig {
 	}
 	if v, ok := lookupEnv("OTEL_ENABLE_TRACING"); ok {
 		config.EnableTracing = parseBool(v)
-		if config.EnableTracing {
-			config.Enabled = true
-		}
 	}
 	if v, ok := lookupEnv("OTEL_ENABLE_METRICS"); ok {
 		config.EnableMetrics = parseBool(v)
-		if config.EnableMetrics {
-			config.Enabled = true
-		}
 	}
 	if v, ok := lookupEnv("OTEL_SAMPLING_RATIO"); ok {
 		config.SamplingRatio = parseFloatOrDefault(v)
 	}
 	if v, ok := lookupEnv("ANALYTICS_BRIDGE_ENABLED"); ok {
 		config.Analytics.Enabled = parseBool(v)
-		if config.Analytics.Enabled {
-			config.Enabled = true
-		}
 	}
 	if v, ok := lookupEnv("ANALYTICS_REDIS_ADDR"); ok {
 		config.Analytics.RedisAddr = v

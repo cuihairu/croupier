@@ -202,9 +202,11 @@ func TestSetMetricFieldUnknownFieldPanicsV9(t *testing.T) {
 }
 
 func TestProviderInitMetricsHostPortFormV9(t *testing.T) {
+	requireFullAssembly(t)
 	cfg := TelemetryConfig{
 		ServiceName:   "svc",
 		CollectorURL:  newOTLPStub(t), // host:port form without scheme
+		Enabled:       true,
 		EnableTracing: false,
 		EnableMetrics: true,
 	}
@@ -231,9 +233,11 @@ func TestProviderShutdownBridgeErrorV9(t *testing.T) {
 }
 
 func TestProviderShutdownBridgeAndTracerErrorsV9(t *testing.T) {
+	requireFullAssembly(t)
 	cfg := TelemetryConfig{
 		ServiceName:   "svc",
 		CollectorURL:  "http://127.0.0.1:14318",
+		Enabled:       true,
 		EnableTracing: true,
 		EnableMetrics: true,
 	}

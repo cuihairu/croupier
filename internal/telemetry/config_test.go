@@ -113,8 +113,9 @@ func TestMergeEnv_EnablesTracing(t *testing.T) {
 	config := TelemetryConfig{Enabled: false}
 	result := MergeEnv(config)
 
-	if !result.Enabled {
-		t.Error("Expected Enabled to be true when tracing is enabled")
+	// todo.md:31：总开关关闭时 tracing 子开关不得重新点亮总开关。
+	if result.Enabled {
+		t.Error("Expected Enabled to stay false when only the tracing sub-switch is on")
 	}
 	if !result.EnableTracing {
 		t.Error("Expected EnableTracing to be true")
@@ -128,8 +129,9 @@ func TestMergeEnv_EnablesMetrics(t *testing.T) {
 	config := TelemetryConfig{Enabled: false}
 	result := MergeEnv(config)
 
-	if !result.Enabled {
-		t.Error("Expected Enabled to be true when metrics is enabled")
+	// todo.md:31：总开关关闭时 metrics 子开关不得重新点亮总开关。
+	if result.Enabled {
+		t.Error("Expected Enabled to stay false when only the metrics sub-switch is on")
 	}
 	if !result.EnableMetrics {
 		t.Error("Expected EnableMetrics to be true")
@@ -157,8 +159,9 @@ func TestMergeEnv_Analytics(t *testing.T) {
 	config := TelemetryConfig{Enabled: false}
 	result := MergeEnv(config)
 
-	if !result.Enabled {
-		t.Error("Expected Enabled to be true when analytics is enabled")
+	// todo.md:31：总开关关闭时 analytics 子开关不得重新点亮总开关。
+	if result.Enabled {
+		t.Error("Expected Enabled to stay false when only the analytics sub-switch is on")
 	}
 	if !result.Analytics.Enabled {
 		t.Error("Expected Analytics.Enabled to be true")

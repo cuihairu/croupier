@@ -40,6 +40,19 @@ outboundTLS:
   serverName: ""
   insecureSkipVerify: false
 
+# OTel 遥测面（与 server 同一结构/语义，OTEL_* 环境变量同口径覆盖）。
+# enabled 是总开关：false（含缺省）时 tracing/metrics 子开关一律无效，
+# 不创建 exporter/周期导出任务；collector_url 未配置时不向默认远端导出。
+# 以 `no_otel` build tag 构建的二进制在 enabled=true 时启动即报错。
+# telemetry:
+#   enabled: false
+#   serviceName: croupier-agent    # 缺省 croupier-agent
+#   collectorUrl: ""               # OTLP/HTTP，如 http://collector:4318
+#   enableTracing: true
+#   enableMetrics: true
+#   samplingRatio: 1.0
+#   useTls: false
+
 # Ops module configuration
 # Controls system metrics collection and reporting
 ops:

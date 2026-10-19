@@ -76,7 +76,8 @@ func TestMergeEnv_AnalyticsEnables(t *testing.T) {
 	defer func() { _ = os.Unsetenv("ANALYTICS_BRIDGE_ENABLED") }()
 
 	config := MergeEnv(TelemetryConfig{})
-	assert.True(t, config.Enabled)
+	// todo.md:31：analytics 子开关不得重新点亮总开关。
+	assert.False(t, config.Enabled)
 	assert.True(t, config.Analytics.Enabled)
 }
 
@@ -165,7 +166,8 @@ func TestNormalizeConfigV2(t *testing.T) {
 	assert.Equal(t, "croupier-server", config.ServiceName)
 	assert.Equal(t, "1.0.0", config.ServiceVersion)
 	assert.Equal(t, "development", config.Environment)
-	assert.Equal(t, "http://localhost:4318", config.CollectorURL)
+	// todo.md:31：未配置采集端不回填默认远端，留空=装配期跳过导出。
+	assert.Equal(t, "", config.CollectorURL)
 	assert.Equal(t, "default", config.GameID)
 	assert.Equal(t, 1.0, config.SamplingRatio)
 

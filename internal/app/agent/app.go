@@ -80,6 +80,15 @@ func (a *App) WithTelemetry(service *telemetry.GameTelemetryService) {
 	a.telemetry = service
 }
 
+// TelemetryService returns the wired telemetry service (nil when the OTel
+// master switch is off and nothing was wired, todo.md:31).
+func (a *App) TelemetryService() *telemetry.GameTelemetryService {
+	if a == nil {
+		return nil
+	}
+	return a.telemetry
+}
+
 func New(serverAddr, agentID string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{

@@ -33,7 +33,7 @@ export default function SyntheticsAgentsPage() {
         gameId={scope.gameId || '-'} env={scope.env || '-'}
       </p>
       {!scope.gameId || !scope.env ? (
-        <Alert type="info" showIcon message="请先选择游戏与环境。" />
+        <Alert type="info" showIcon title="请先选择游戏与环境。" />
       ) : null}
       <Table<SyntheticsResult>
         rowKey="id"

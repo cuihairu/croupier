@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -90,6 +91,11 @@ type AgentConfig struct {
 	OutboundTLS AgentTLSConfig      `json:"outboundTLS" yaml:"outboundTLS"`
 	Ops         *OpsConfig          `json:"ops,omitempty" yaml:"ops,omitempty"`
 	Probe       *ProbeConfig        `json:"probe,omitempty" yaml:"probe,omitempty"`
+	// Telemetry 是 OTel 遥测面（todo.md:31，与 server 同一结构同一语义）：
+	// enabled 总开关 + enable_tracing/enable_metrics 子开关 + collector_url；
+	// OTEL_* 环境变量经 telemetry.MergeEnv 同口径覆盖。缺省（未配置）=关闭，
+	// 不创建 provider/周期导出任务。
+	Telemetry telemetry.TelemetryConfig `json:"telemetry" yaml:"telemetry"`
 }
 
 // ProbeConfig 探测面配置（声明式探针，R2）。targets[] 只声明探什么；阈值、
@@ -558,6 +564,26 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
 	core.SetLocalAddr(localAddr)
 	core.SetUpstreamTransportKind(strings.TrimSpace(c.Server.Transport))
+
+	// OTel 遥测面接线（todo.md:31）：与 server 同一 TelemetryConfig/总开关
+	// 语义。关闭=不建服务（App 生命周期内零 exporter/零周期导出任务）；
+	// 开启则挂到 App.WithTelemetry，App.Stop 统一 5s 有界 Shutdown。
+	// no_otel 裁剪构建下配置启用 → NewGameTelemetryService fail-closed 报错，
+	// 启动即失败而非静默无导出。
+	telCfg := buildAgentTelemetryConfig(c)
+	if telCfg.Enabled {
+		telSvc, telErr := telemetry.NewGameTelemetryService(telCfg, slog.Default())
+		if telErr != nil {
+			return nil, "", nil, fmt.Errorf("agent telemetry: %w", telErr)
+		}
+		core.WithTelemetry(telSvc)
+		slog.Info("agent telemetry enabled",
+			"tracing", telCfg.EnableTracing,
+			"metrics", telCfg.EnableMetrics,
+			"collector_configured", strings.TrimSpace(telCfg.CollectorURL) != "",
+		)
+	}
+
 	// Agent → Provider 同步调用预算（默认 15s，可经 agent.invokeTimeoutMs 配置）
 	core.SetProviderCallTimeout(time.Duration(c.Agent.InvokeTimeoutMs) * time.Millisecond)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
@@ -665,6 +691,17 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	}()
 
 	return core, localAddr, runErr, nil
+}
+
+// buildAgentTelemetryConfig 解析 sidecar 遥测配置（todo.md:31）：service
+// name 缺省为 croupier-agent，随后走与 server 同一套 OTEL_* 环境覆盖与
+// normalize（总开关只认 enabled 字段/OTEL_ENABLED/CROUPIER_TELEMETRY_ENABLED）。
+func buildAgentTelemetryConfig(c *AgentConfig) telemetry.TelemetryConfig {
+	cfg := c.Telemetry
+	if strings.TrimSpace(cfg.ServiceName) == "" {
+		cfg.ServiceName = "croupier-agent"
+	}
+	return telemetry.MergeEnv(cfg)
 }
 
 func resolveAgentID(configured string) string {
