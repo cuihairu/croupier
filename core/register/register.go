@@ -7,8 +7,10 @@ package register
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	corebackoff "github.com/cuihairu/croupier/core/backoff"
@@ -59,4 +61,15 @@ type Client struct {
 	mu            sync.Mutex
 	conn          Conn
 	ownerInstance string // 最近注册响应中的集群实例 ID（心跳携带，三方对账）
+
+	startMu         sync.Mutex
+	lifecycleCtx    context.Context
+	lifecycleCancel context.CancelFunc
+	lifecycleWG     sync.WaitGroup
+	stopOnce        sync.Once
+	dialInflight    atomic.Bool
 }
+
+var ErrClientStopped = errors.New("register client stopped")
+
+var ErrDialInProgress = errors.New("dial in progress")

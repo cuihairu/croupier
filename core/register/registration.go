@@ -12,11 +12,15 @@ import (
 
 // New 构造客户端（不建连接；Start 驱动）。
 func New(cfg Config) *Client {
-	log := cfg.Logger
-	if log == nil {
-		log = slog.Default()
+	client := &Client{cfg: cfg}
+	client.startMu.Lock()
+	client.lifecycleCtx, client.lifecycleCancel = context.WithCancel(context.Background())
+	client.startMu.Unlock()
+	client.log = cfg.Logger
+	if client.log == nil {
+		client.log = slog.Default()
 	}
-	return &Client{cfg: cfg, log: log}
+	return client
 }
 
 // registerOnce 组装 payload 并注册；成功记录 ownerInstance、透出 server 侧
@@ -149,9 +153,20 @@ func (c *Client) Stop() {
 	if c == nil {
 		return
 	}
-	if conn := c.current(); conn != nil {
-		_ = conn.Close()
+	c.startMu.Lock()
+	hasLifecycle := c.lifecycleCancel != nil
+	c.startMu.Unlock()
+	if !hasLifecycle {
+		return
 	}
+	c.stopOnce.Do(func() {
+		c.lifecycleCancel()
+		if conn := c.current(); conn != nil {
+			_ = conn.Close()
+		}
+		c.lifecycleWG.Wait()
+		c.setConn(nil)
+	})
 }
 
 func (c *Client) requestTimeout() time.Duration {

@@ -24,6 +24,7 @@ type fakeConn struct {
 	failNextHB       int
 	warnings         []string
 	instanceID       string
+	registerRelease  chan struct{}
 	closed           atomic.Bool
 }
 
@@ -40,12 +41,23 @@ func (f *fakeConn) Close() error {
 	return nil
 }
 
-func (f *fakeConn) Register(_ context.Context, _ *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
+func (f *fakeConn) Register(ctx context.Context, _ *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.registerCalls++
+	fail := false
 	if f.failNextRegister > 0 {
 		f.failNextRegister--
+		fail = true
+	}
+	f.mu.Unlock()
+	if f.registerRelease != nil {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-f.registerRelease:
+		}
+	}
+	if fail {
 		return nil, errors.New("register rejected")
 	}
 	return &agentv1.RegisterResponse{InstanceId: f.instanceID, Warnings: f.warnings}, nil
@@ -67,14 +79,14 @@ type dialerScript struct {
 	mu       sync.Mutex
 	conns    []*fakeConn
 	errs     []error
-	dialCnt  int
+	dialCnt  atomic.Int64
 	payloadN atomic.Int64
 }
 
 func (s *dialerScript) dial(context.Context) (Conn, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.dialCnt++
+	s.dialCnt.Add(1)
 	if len(s.errs) > 0 {
 		err := s.errs[0]
 		s.errs = s.errs[1:]
@@ -87,6 +99,8 @@ func (s *dialerScript) dial(context.Context) (Conn, error) {
 	s.conns = s.conns[1:]
 	return c, nil
 }
+
+func (s *dialerScript) count() int64 { return s.dialCnt.Load() }
 
 func (s *dialerScript) payload(context.Context) (*agentv1.RegisterRequest, error) {
 	s.payloadN.Add(1)
@@ -123,13 +137,13 @@ func TestStartRegistersAndReportsOwner(t *testing.T) {
 	conn.warnings = []string{"registration_materialize_failed"}
 	s := &dialerScript{conns: []*fakeConn{conn}}
 
-	var connected int
-	c := New(fastCfg(s, func() { connected++ }))
+	var connected atomic.Int64
+	c := New(fastCfg(s, func() { connected.Add(1) }))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c.Start(ctx)
 
-	waitFor(t, time.Second, func() bool { return connected > 0 })
+	waitFor(t, time.Second, func() bool { return connected.Load() > 0 })
 	assert.Equal(t, "inst-1", c.OwnerInstance())
 	assert.True(t, c.Connected())
 	assert.Equal(t, int64(1), s.payloadN.Load())
@@ -153,7 +167,55 @@ func TestStartInitialFailureReconnectsInBackground(t *testing.T) {
 	c.Start(ctx)
 
 	waitFor(t, 2*time.Second, func() bool { return c.Connected() })
-	assert.Equal(t, 2, s.dialCnt) // 首拨失败 + 重连成功
+	assert.Equal(t, int64(2), s.count()) // 首拨失败 + 重连成功
+}
+
+func TestConcurrentDialSkipsWhileInFlight(t *testing.T) {
+	release := make(chan struct{})
+	inflight := newFakeConn()
+	inflight.registerRelease = release
+	s := &dialerScript{conns: []*fakeConn{inflight}}
+	c := New(fastCfg(s, nil))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c.Start(ctx)
+
+	waitFor(t, time.Second, func() bool { return s.count() == 1 })
+
+	err := c.DialAndRegister(ctx)
+	require.ErrorIs(t, err, ErrDialInProgress)
+	assert.Equal(t, int64(1), s.count())
+
+	close(release)
+	waitFor(t, time.Second, func() bool { return c.Conn() == Conn(inflight) })
+}
+
+func TestStopCancelsInFlightRegister(t *testing.T) {
+	release := make(chan struct{})
+	inflight := newFakeConn()
+	inflight.registerRelease = release
+	s := &dialerScript{conns: []*fakeConn{inflight}}
+	c := New(fastCfg(s, nil))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c.Start(ctx)
+
+	waitFor(t, time.Second, func() bool { return s.count() == 1 })
+
+	done := make(chan struct{})
+	go func() {
+		c.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Stop did not wait for canceled register")
+	}
+
+	assert.ErrorIs(t, c.DialAndRegister(context.Background()), ErrClientStopped)
+	assert.Equal(t, int64(1), s.count())
+	assert.Nil(t, c.Conn())
 }
 
 func TestHeartbeatFailureThresholdTriggersReconnect(t *testing.T) {
@@ -170,7 +232,7 @@ func TestHeartbeatFailureThresholdTriggersReconnect(t *testing.T) {
 	// 心跳失败达阈值 → 重连换新连接（新连接不再失败）。
 	waitFor(t, 2*time.Second, func() bool { return c.Conn() == Conn(good) })
 	assert.True(t, bad.closed.Load())
-	assert.Equal(t, 2, s.dialCnt)
+	assert.Equal(t, int64(2), s.count())
 }
 
 func TestHeartbeatRecoveryReregisters(t *testing.T) {

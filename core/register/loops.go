@@ -3,6 +3,7 @@ package register
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	corebackoff "github.com/cuihairu/croupier/core/backoff"
@@ -12,17 +13,50 @@ import (
 // Start 尝试初始连接+注册；失败转后台重连循环；随后启动心跳自愈循环，
 // 直到 ctx 取消。serverAddr 未配置的场景由调用方短路（不打日志不建循环）。
 func (c *Client) Start(ctx context.Context) {
-	if err := c.DialAndRegister(ctx); err != nil {
-		c.log.Warn("failed to connect to upstream server, will keep retrying in background...", "error", err)
-		go c.RunReconnectLoop(ctx)
-	} else {
-		c.log.Info("upstream connected and registered successfully")
+	if c == nil || c.isStopped() {
+		return
 	}
-	go c.RunHeartbeatLoop(ctx)
+	c.lifecycleWG.Add(1)
+	go func() {
+		defer c.lifecycleWG.Done()
+		startCtx, cancel := context.WithCancel(ctx)
+		stopOnLifecycleStop := context.AfterFunc(c.lifecycleContext(), cancel)
+		defer stopOnLifecycleStop()
+		defer cancel()
+
+		loopWG := sync.WaitGroup{}
+		if err := c.DialAndRegister(startCtx); err != nil {
+			c.log.Warn("failed to connect to upstream server, will keep retrying in background...", "error", err)
+			loopWG.Add(1)
+			go func() {
+				defer loopWG.Done()
+				c.RunReconnectLoop(startCtx)
+			}()
+		} else {
+			c.log.Info("upstream connected and registered successfully")
+		}
+		loopWG.Add(1)
+		go func() {
+			defer loopWG.Done()
+			c.RunHeartbeatLoop(startCtx)
+		}()
+		loopWG.Wait()
+	}()
 }
 
 // DialAndRegister 建立连接并立即注册；失败时关闭半开连接并清理（重连/心跳自愈共用）。
 func (c *Client) DialAndRegister(ctx context.Context) error {
+	if c == nil {
+		return errors.New("register client is nil")
+	}
+	if c.isStopped() {
+		return ErrClientStopped
+	}
+	if !c.dialInflight.CompareAndSwap(false, true) {
+		return ErrDialInProgress
+	}
+	defer c.dialInflight.Store(false)
+
 	if old := c.current(); old != nil {
 		_ = old.Close()
 		c.setConn(nil)
@@ -39,6 +73,21 @@ func (c *Client) DialAndRegister(ctx context.Context) error {
 		return errors.Join(errors.New("register after connect"), err)
 	}
 	return nil
+}
+
+func (c *Client) lifecycleContext() context.Context {
+	c.startMu.Lock()
+	defer c.startMu.Unlock()
+	if c.lifecycleCtx == nil {
+		c.lifecycleCtx, c.lifecycleCancel = context.WithCancel(context.Background())
+	}
+	return c.lifecycleCtx
+}
+
+func (c *Client) isStopped() bool {
+	c.startMu.Lock()
+	defer c.startMu.Unlock()
+	return c.lifecycleCancel == nil || c.lifecycleCtx.Err() != nil
 }
 
 // RunReconnectLoop 按退避持续重试「连接+注册」，成功或 ctx 取消退出；手动
