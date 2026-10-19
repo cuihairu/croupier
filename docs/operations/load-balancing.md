@@ -11,7 +11,7 @@ tag:
 
 # 负载均衡
 
-Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-multi-instance.md)）有两个流量入口，各自需要负载均衡：
+Croupier HA 多实例架构（[Server 多实例 HA（本节仅有中文版）](/zh/architecture/server-ha-multi-instance)）有两个流量入口，各自需要负载均衡：
 
 - **Dashboard API（L7 / HTTP）**：Dashboard 前置网关分流到各 Server 实例 `:18780`
 - **Agent 接入（L4 / TCP）**：Agent 的自行开发 transport 长连接（`:19090`，长度前缀分帧 + 多路复用）打散到各 Server 实例

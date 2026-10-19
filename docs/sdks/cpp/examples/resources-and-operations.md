@@ -4,5 +4,5 @@
 
 ## 继续阅读
 
-- [资源与操作指南](/sdks/cpp/guide/resources-and-operations)
+- [资源与操作指南](/sdks/cpp/examples/resources-and-operations)
 - [OpenAPI / SDK Descriptor v2](/zh/architecture/openapi-sdk-descriptor-v2)

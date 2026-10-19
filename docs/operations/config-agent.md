@@ -124,7 +124,7 @@ ops:
           cron: "30 7 * * 1-5"
 ```
 
-面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记/快照档）。崩溃时 `detect_down` 事件登记快照目录与产物文件名；宿主机 `core_pattern` 非管道模式时 agent 发一次 `snapshot_hint` 只读提示（含建议命令，agent 不写宿主配置）。保留期/配额/产物下载权限见 [Agent Supervisor 设计简档](../design/agent-supervisor-design.md)。
+面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记/快照档）。崩溃时 `detect_down` 事件登记快照目录与产物文件名；宿主机 `core_pattern` 非管道模式时 agent 发一次 `snapshot_hint` 只读提示（含建议命令，agent 不写宿主配置）。保留期/配额/产物下载权限见 [Agent Supervisor 设计简档（本节仅有中文版）](/zh/design/agent-supervisor-design)。
 
 ### ops.allowUpdate（受管程序二进制更新，§10.4）
 
@@ -180,7 +180,7 @@ probe:
       address: "127.0.0.1:6379"
 ```
 
-**采样频率的唯一真值在 Server**（配置与执行分离）：面板发布 `probe.policy` 采样策略后经 wire 下发、agent 热生效（基础/按目标/时段/特殊时点四粒度叠加），此时**策略优先于本表 `interval`**，本表 `interval` 仅作未覆盖目标的兜底；策略未发布时用本表值。详见 [API 文档 probe 端点](../api/ops.md#probe-端点) 与 [评审简档 §13.3](../design/agent-health-recovery-review.md)。
+**采样频率的唯一真值在 Server**（配置与执行分离）：面板发布 `probe.policy` 采样策略后经 wire 下发、agent 热生效（基础/按目标/时段/特殊时点四粒度叠加），此时**策略优先于本表 `interval`**，本表 `interval` 仅作未覆盖目标的兜底；策略未发布时用本表值。详见 [API 文档 probe 端点](/archive/legacy-en/api/ops) 与 [评审简档 §13.3](/archive/legacy-en/design/agent-health-recovery-review)。
 
 **派生 db 探针目标（R4）**：`probe:` 段存在的 agent 会周期拉取 server 按 `db_sources.owner_agent_id` 派生的 db 目标集（30s 轮询，目标名 `db:<源名>`、重名源 `#<id>` 后缀消歧、driver 映射 postgres→pgx、探测断言 `SELECT 1`）。拉取失败或「空版本+空正文」（服务端不可派生）时保持现有目标；**空集**是真实状态（解除全部归属），agent 会卸掉全部动态探针；版本为目标集内容 hash，集不变则跳过。派生目标与本地目标同名时整体拒绝下发（下轮重试），不静默串台。DSN 明文只在 control 连接回给归属 agent，与本地 `probe.targets` 同信任边界。
 

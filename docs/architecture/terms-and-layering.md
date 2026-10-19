@@ -40,4 +40,4 @@ Use target, agent, and node fields for deployment placement. Keep environment se
 
 - [Layers](/architecture/layers)
 - [Architecture overview](/architecture/)
-- [Data flow](/architecture/data-flow)
+- [Data flow（本节仅有中文版）](/zh/architecture/data-flow)

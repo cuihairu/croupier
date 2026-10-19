@@ -468,19 +468,19 @@ server:
 
 **运维落点**
 
-| 面 | 位置 | 说明 |
-| -- | ---- | ---- |
-| 声明 | agent 配置 `probe.targets[]` / server 配置 `probe.targets[]` | 只声明探什么；阈值/语义/间隔有显式默认，见 [Agent 配置全解](./config-agent.md) |
-| 下发 | 采样策略 `/api/v1/ops/probe/policy`（运维中心面板同款能力） | ConfigVersion 资产面，发布后 agent 30s 内热生效（版本比对省空轮） |
-| 观测 | 节点维护页「探针汇总」`GET /api/v1/ops/probe/summary` | 状态矩阵（目标 × 执行位置），异常行前置；不出单一合成分 |
-| 告警 | 告警中心（`alertID=probe:<agentId>:<target>`） | 窗口开= firing、闭= resolved；失败明细随窗口落库 |
-| 规则 | 告警规则指标 `probe.<目标>.<successRate/failed/checked/latencyP95Ms>` | 直接走既有 AlertRule evaluator，无需新告警链路 |
-| 诊断 | `POST /api/v1/ops/probe/diagnose` | server 本机目标即时探一次，与周期探测共用同一状态机 |
+| 面   | 位置                                                                  | 说明                                                                           |
+| ---- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 声明 | agent 配置 `probe.targets[]` / server 配置 `probe.targets[]`          | 只声明探什么；阈值/语义/间隔有显式默认，见 [Agent 配置全解](./config-agent.md) |
+| 下发 | 采样策略 `/api/v1/ops/probe/policy`（运维中心面板同款能力）           | ConfigVersion 资产面，发布后 agent 30s 内热生效（版本比对省空轮）              |
+| 观测 | 节点维护页「探针汇总」`GET /api/v1/ops/probe/summary`                 | 状态矩阵（目标 × 执行位置），异常行前置；不出单一合成分                        |
+| 告警 | 告警中心（`alertID=probe:<agentId>:<target>`）                        | 窗口开= firing、闭= resolved；失败明细随窗口落库                               |
+| 规则 | 告警规则指标 `probe.<目标>.<successRate/failed/checked/latencyP95Ms>` | 直接走既有 AlertRule evaluator，无需新告警链路                                 |
+| 诊断 | `POST /api/v1/ops/probe/diagnose`                                     | server 本机目标即时探一次，与周期探测共用同一状态机                            |
 
-端点与报文细节见 [API 文档 probe 端点](../api/ops.md#probe-端点)。
+端点与报文细节见 [API 文档 probe 端点](/archive/legacy-en/api/ops)。
 
 ## 相关文档
 
-- [部署指南](./deploy-docker.md)
-- [安全配置](./security.md)
+- [部署指南（本节仅有中文版）](/zh/operations/deploy-docker)
+- [安全配置](/security)
 - [故障排查](./troubleshooting.md)

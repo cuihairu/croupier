@@ -11,7 +11,7 @@ tag:
 
 # 通知渠道
 
-平台事件的统一出口：**审批事件、告警触发、函数调用事件**。四个渠道独立开关，配置热生效（L3 覆盖层，见[配置分层](../architecture/config-layering)）。
+平台事件的统一出口：**审批事件、告警触发、函数调用事件**。四个渠道独立开关，配置热生效（L3 覆盖层，见[配置分层](/archive/legacy-en/architecture/config-layering)）。
 
 ## 渠道与配置键
 

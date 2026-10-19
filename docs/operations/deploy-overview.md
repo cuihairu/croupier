@@ -14,13 +14,13 @@ Croupier 是「单控制面 + 旁路 Agent」架构：Server 无本地持久状�
 
 ## 形态对比
 
-| 形态                                          | 适用                    | 可用性       | 入口层                                 | 参考文档                               |
-| --------------------------------------------- | ----------------------- | ------------ | -------------------------------------- | -------------------------------------- |
-| 单机 Compose（`docker/docker-compose.yml`）   | 开发、测试、小团队试点  | 单点         | 无（直连 18780/19090）                 | [Docker Compose 部署](./deploy-docker) |
-| 单机 HA（`docker/docker-compose.deploy.yml`） | 单宿主生产              | 99.9%+       | nginx（L7）+ HAProxy（L4）             | [Docker Compose 部署](./deploy-docker) |
-| 多宿主                                        | 跨机生产、LB 不允许单点 | 99.99%       | HAProxy 主备（keepalived VIP）或云 NLB | [负载均衡](./load-balancing)           |
-| Kubernetes                                    | 已有 K8s 基础设施       | 取决于副本数 | Service（ClusterIP）+ 探针             | [Kubernetes 部署](./deploy-kubernetes) |
-| 二进制 + systemd                              | 无容器约束的环境        | 取决于拓扑   | 自建 nginx/HAProxy                     | [二进制部署](./deploy-binary)          |
+| 形态                                          | 适用                    | 可用性       | 入口层                                 | 参考文档                                                              |
+| --------------------------------------------- | ----------------------- | ------------ | -------------------------------------- | --------------------------------------------------------------------- |
+| 单机 Compose（`docker/docker-compose.yml`）   | 开发、测试、小团队试点  | 单点         | 无（直连 18780/19090）                 | [Docker Compose 部署（本节仅有中文版）](/zh/operations/deploy-docker) |
+| 单机 HA（`docker/docker-compose.deploy.yml`） | 单宿主生产              | 99.9%+       | nginx（L7）+ HAProxy（L4）             | [Docker Compose 部署（本节仅有中文版）](/zh/operations/deploy-docker) |
+| 多宿主                                        | 跨机生产、LB 不允许单点 | 99.99%       | HAProxy 主备（keepalived VIP）或云 NLB | [负载均衡](./load-balancing)                                          |
+| Kubernetes                                    | 已有 K8s 基础设施       | 取决于副本数 | Service（ClusterIP）+ 探针             | [Kubernetes 部署](./deploy-kubernetes)                                |
+| 二进制 + systemd                              | 无容器约束的环境        | 取决于拓扑   | 自建 nginx/HAProxy                     | [二进制部署](./deploy-binary)                                         |
 
 ## 组件清单
 
@@ -43,7 +43,7 @@ Croupier 是「单控制面 + 旁路 Agent」架构：Server 无本地持久状�
     └─ K8s → Deployment 2 副本 + Service（kube-proxy 天然 L4 打散）
 ```
 
-关键事实（详见 [Server 多实例 HA](../architecture/server-ha-multi-instance.md)）：
+关键事实（详见 [Server 多实例 HA（本节仅有中文版）](/zh/architecture/server-ha-multi-instance)）：
 
 - Server **无状态**：任何实例崩溃不丢数据，恢复即回归集群（成员表租约自动续期/剔除）
 - Agent 断线重连 + 重新注册即可把归属迁移到存活实例，**入口层换型 Agent 零改动**（只改 `server.addr`）

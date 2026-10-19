@@ -69,7 +69,7 @@ journalctl -u croupier-server -f | grep -i migrate   # 观察 catch-up 完成
 
 ## 受管程序更新与指纹留痕（设计定稿 2026-10-14，随 R2-R4 上线）
 
-> 本节覆盖 agent 节点上受管进程（游戏辅助程序 / 外部探测适配器 / **游戏进程本体**）的二进制更新；上文各节是 Croupier 自身组件的升级。设计与权威出处见 [Agent Supervisor 设计](../design/agent-supervisor-design.md) §10.4。
+> 本节覆盖 agent 节点上受管进程（游戏辅助程序 / 外部探测适配器 / **游戏进程本体**）的二进制更新；上文各节是 Croupier 自身组件的升级。设计与权威出处见 [Agent Supervisor 设计（本节仅有中文版）](/zh/design/agent-supervisor-design) §10.4。
 
 - **每次更新必须记录指纹**（二进制 sha256）：字段含目标标识、执行位置（agentID）、旧指纹→新指纹、时间戳、操作者/来源、校验结果（哈希/签名/兼容）、结果（success/failed/**rolled_back**——回滚同样留痕）。
 - **查询口径**：按「目标 + 时间 + 指纹」检索执行审计（execlog）；一条日志自带指纹+版本串，可反查是哪次更新引入的问题。告警/探针 timeline 与更新记录按 (目标, 时间) 对齐即可定位「哪次更新后开始报警」。

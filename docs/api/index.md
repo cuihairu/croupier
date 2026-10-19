@@ -50,7 +50,7 @@ Health and version endpoints are useful smoke checks. Monitoring metrics require
 
 ## Related pages
 
-- [Function API](/api/function)
-- [Resource Catalog API](/api/resource)
-- [Auth API](/api/auth)
+- [Function API（本节仅有中文版）](/zh/api/function)
+- [Resource Catalog API（本节仅有中文版）](/zh/api/resource)
+- [Auth API（本节仅有中文版）](/zh/api/auth)
 - [Architecture overview](/architecture/)

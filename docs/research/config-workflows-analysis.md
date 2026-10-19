@@ -6,7 +6,7 @@ title: 配置工作流全景分析——项目组流程分类与平台适配模�
 
 ## 状态
 
-Proposed（分析稿）。前置文档：[配置热更新](./config-hot-reload-design.md)（通道与下发）、[Excel 在线配置](./excel-online-design.md)（双源版本模型）。
+Proposed（分析稿）。前置文档：[配置热更新（本节仅有中文版）](/zh/research/config-hot-reload-design)（通道与下发）、[Excel 在线配置](./excel-online-design.md)（双源版本模型）。
 
 > **落地注记（2026-08）**：本文 §5 的「在线查看」侧已实现为 `/dev/config-explorer` 配置浏览器
 > （`internal/platform/configsource` + `internal/api/configexplorer`）：

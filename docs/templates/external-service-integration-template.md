@@ -7,7 +7,7 @@ title: 外部服务接入模板——供应商自助 checklist（附录 A 全文
 ## 状态
 
 - 状态: **Draft（M4 落地稿，2026-10-10）**——走查对象 herald（webhook-out）/ Alertmanager+generic（webhook-in）已按本模板逐项复核（见文末走查记录）；模板正文待用户过目定稿。
-- 依据: [plugin-mechanism §4](../design/plugin-mechanism.md)（标准接入面五要素 + 三种协议形态）、[provider-plugin-design §3.2/§3.3/§7](../design/provider-plugin-design.md)（manifest provider 块 / binding 契约 / 权限面）。
+- 依据: [plugin-mechanism §4（本节仅有中文版）](/zh/design/plugin-mechanism)（标准接入面五要素 + 三种协议形态）、[provider-plugin-design §3.2/§3.3/§7](/archive/legacy-en/design/provider-plugin-design)（manifest provider 块 / binding 契约 / 权限面）。
 - 用途: 外部服务（短信网关/风控 API/数据平台/工单系统/告警系统…）接入 croupier 时，供应方或集成者按 10 步填空即完成接入评估与实施。
 
 ## 接入路径判据（先选路径，再走 10 步）

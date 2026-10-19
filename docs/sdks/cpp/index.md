@@ -128,10 +128,10 @@ provider.serve();
 - [测试进度](./test-implementation-progress)
 - [Client Config](./configuration/client-config)
 - [插件指南](./guide/plugins)
-- [资源与操作](./guide/resources-and-operations)
+- [资源与操作](/sdks/cpp/api/resources-and-operations)
 
 ## 相关文档
 
 - [SDK 文档](../../sdks/)
 - [SDK Wire Protocol](../../zh/architecture/sdk-wire-protocol.md)
-- [SDK-Agent 传输重构设计](../../architecture/sdk-agent-transport-redesign.md)
+- [SDK-Agent 传输重构设计（本节仅有中文版）](/zh/architecture/sdk-agent-transport-redesign)

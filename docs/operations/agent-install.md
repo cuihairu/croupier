@@ -16,7 +16,7 @@ GitHub Releases（匿名可下，无需 token）下载对应 `croupier-bin-<os>-
 只安装其中的所选 agent，装完以 `-version` 自校验。幂等——重复执行即覆盖升级。
 
 **三类 agent 统一入口**（`--agent` 选型；选型依据见
-[三类 Agent 选型](./agent-comparison)）：
+[三类 Agent 选型（本节仅有中文版）](/zh/operations/agent-comparison)）：
 
 | `--agent`         | 二进制           | systemd 服务             | 配置文件                           |
 | ----------------- | ---------------- | ------------------------ | ---------------------------------- |
@@ -80,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/inst
 
 ## 版本通道
 
-Nightly 由 `nightly.yml` 唯一更新；独立 Agent 归档、checksum、平台范围和能力成熟度见 [职能与构建产物](agent-comparison.md)。发布链修改合并并运行成功后，才可从 Release 下载新增独立包；原安装器继续从总包选择角色。ARMv7 仅 sidecar/devops，capture 需使用 amd64/arm64，不能把归档缺少 capture 当作已支持平台。
+Nightly 由 `nightly.yml` 唯一更新；独立 Agent 归档、checksum、平台范围和能力成熟度见 [职能与构建产物（本节仅有中文版）](/zh/operations/agent-comparison)。发布链修改合并并运行成功后，才可从 Release 下载新增独立包；原安装器继续从总包选择角色。ARMv7 仅 sidecar/devops，capture 需使用 amd64/arm64，不能把归档缺少 capture 当作已支持平台。
 
 | 参数                       | 含义                                                              |
 | -------------------------- | ----------------------------------------------------------------- |
@@ -159,7 +159,7 @@ curl -fsSL .../scripts/install.sh | sudo bash -s -- --agent capture --uninstall
 产物由 nightly 工作流产出（每日 02:00 UTC）；正式版随 `v*` tag 发布。同套
 交叉编译参数本地复现：`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./cmd/sidecar-agent`。
 
-> **定名注（2026-10-09 用户令；2026-10-11 方案 A 落地）**：源码目录 `cmd/sidecar-agent`，产物二进制名保持 `croupier-agent`（部署契约零影响）——目录即定名 **`sidecar-agent`**，见 [Agent 清单](../design/agents-inventory.md) §9。
+> **定名注（2026-10-09 用户令；2026-10-11 方案 A 落地）**：源码目录 `cmd/sidecar-agent`，产物二进制名保持 `croupier-agent`（部署契约零影响）——目录即定名 **`sidecar-agent`**，见 [Agent 清单（本节仅有中文版）](/zh/design/agents-inventory) §9。
 
 ## 排错
 

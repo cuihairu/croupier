@@ -16,7 +16,7 @@ tag:
 「运维中心 → 数据备份」页面与 `/api/v1/backups` 提供**数据库逻辑备份**：
 
 - 支持驱动：`mysql`（`mysqldump`）、`postgres`（`pg_dump`）、`sqlite`（文件复制）
-- SQL Server 尚不支持内置备份（驱动支持进行中，见[迁移策略](../architecture/database-migration-strategy.md)），用 `sqlcmd BACKUP DATABASE` 外部备份
+- SQL Server 尚不支持内置备份（驱动支持进行中，见[迁移策略（本节仅有中文版）](/zh/architecture/database-migration-strategy)），用 `sqlcmd BACKUP DATABASE` 外部备份
 - 备份由 Server 执行，要求 Server 容器/宿主内存在对应工具（`mysqldump`/`pg_dump`）
 
 ```bash

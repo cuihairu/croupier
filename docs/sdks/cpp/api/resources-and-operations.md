@@ -25,6 +25,6 @@ SDK descriptor 不提供页面 schema、组件树、页面 mapping、菜单、�
 
 ## 继续阅读
 
-- [资源与操作指南](/sdks/cpp/guide/resources-and-operations)
+- [资源与操作指南](/sdks/cpp/api/resources-and-operations)
 - [OpenAPI / SDK Descriptor v2](/zh/architecture/openapi-sdk-descriptor-v2)
-- [Dashboard Resource/Page 模型](/architecture/dashboard-page-model)
+- [Dashboard Resource/Page 模型（本节仅有中文版）](/zh/architecture/dashboard-page-model)

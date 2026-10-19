@@ -17,16 +17,16 @@ tag:
 
 `GET /api/v1/ops/cluster` 返回：
 
-| 字段                            | 说明                                                                             |
-| ------------------------------- | -------------------------------------------------------------------------------- |
-| `enabled`                       | 集群是否开启                                                                     |
-| `self` / `aliveCount` / `total` | 当前实例 / 在线数 / 总数                                                         |
-| `items[].instanceId`            | 实例标识                                                                         |
-| `items[].advertiseAddr`         | 实例互联地址                                                                     |
-| `items[].epoch`                 | fencing 代次（防脑裂，见[HA 架构](../architecture/server-ha-multi-instance.md)） |
-| `items[].startedAt`             | 启动时间                                                                         |
-| `items[].agentCount`            | 该实例名下 Agent 连接数（归属表统计）                                            |
-| `items[].alive`                 | 在线 = 租约未过期                                                                |
+| 字段                            | 说明                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `enabled`                       | 集群是否开启                                                                                     |
+| `self` / `aliveCount` / `total` | 当前实例 / 在线数 / 总数                                                                         |
+| `items[].instanceId`            | 实例标识                                                                                         |
+| `items[].advertiseAddr`         | 实例互联地址                                                                                     |
+| `items[].epoch`                 | fencing 代次（防脑裂，见[HA 架构（本节仅有中文版）](/zh/architecture/server-ha-multi-instance)） |
+| `items[].startedAt`             | 启动时间                                                                                         |
+| `items[].agentCount`            | 该实例名下 Agent 连接数（归属表统计）                                                            |
+| `items[].alive`                 | 在线 = 租约未过期                                                                                |
 
 ## 成员状态机
 

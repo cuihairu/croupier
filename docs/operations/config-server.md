@@ -230,5 +230,5 @@ cp configs/agent.yaml configs/agent.local.yaml
 
 ## 下一步
 
-- [部署指南](./deploy-docker.md)
-- [开发文档](../development/)
+- [部署指南（本节仅有中文版）](/zh/operations/deploy-docker)
+- [开发文档](/archive/legacy-en/development/index)
