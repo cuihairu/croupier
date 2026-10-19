@@ -125,6 +125,20 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 
 本片明确不做（照旧列明）：Python/JS 插件 SDK、ICMP/TCP 探测插件、targetCategory=game/third_party 类别绑定、凭证边界细化、真实游戏协议目标跨语言验收——均为 todo:36 剩余范围。
 
+## 裁剪构建同参数实测（2026-10-20，todo:32 收口）
+
+第二片交付的真实反向 tag 裁剪补做同参数对照（兑现 2026-10-17 实验遗留的「最终默认版需在完整实现后重新测量」）：同一源码（8508540）、同一平台 linux/amd64、go1.27.2、相同 `-trimpath` 与固定 `-ldflags "-s -w -X …Version=…GitCommit=…BuildTime=…"`，唯一变量是 `-tags no_go_plugin`：
+
+| 对照对象                 | 体积                                      |
+| ------------------------ | ----------------------------------------- |
+| 默认版（含插件宿主）     | 15,360,263 B / 14.652 MiB                 |
+| 裁剪版（`no_go_plugin`） | 9,466,119 B / 9.029 MiB                   |
+| 裁剪增量（默认 − 裁剪）  | 5,894,144 B / 5.622 MiB（占默认版 38.4%） |
+
+- **裁剪版依赖闭包**：`go list -deps -tags no_go_plugin ./cmd/synthetics-agent` 无 `hashicorp/go-plugin`、无 `google.golang.org/grpc`（默认版两者均链接，grpc 相关依赖 75 个包）；裁剪产物二进制 strings 0 命中 `go-plugin` / `google.golang.org/grpc`（默认版分别 325 / 2319 命中），且裁剪版仍可正常启动（`--help` rc=0），证明 5.622 MiB 增量即插件宿主 + gRPC 传输栈本身。
+- **插件程序与语言运行时独立体积**：Go 参考插件 `echoprobe`（`-trimpath -ldflags "-s -w"`）13,984,007 B / 13.336 MiB——Go 插件静态内嵌语言运行时，无独立解释器/VM 需要部署；Python/JS 等多语言插件程序及其解释器运行时体积待对应 SDK 交付时随实测补记（todo:36 剩余范围）。
+- 2026-10-17 的正向 tag 对照表保留为历史实验记录；本节为正式实现（反向 tag + 运行时开关）的交付口径。
+
 ## 第一片实施记录（2026-10-20，todo:36 部分完成）
 
 已落地最小可用插件链路：synthetics-agent 插件宿主 + Go 参考插件，经 go-plugin 本地 gRPC 打通 Describe/Check、结果进入既有 AlertEvent/probe_events 链路。交付物与登记：
