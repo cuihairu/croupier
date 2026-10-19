@@ -75,18 +75,19 @@ func (s *OpsServer) startScheduleLoopLocked() {
 		s.schedTick = 30 * time.Second
 	}
 	s.schedFired = make(map[string]string, 8)
-	s.schedStop = make(chan struct{})
-	go s.scheduleLoop()
+	schedStop := make(chan struct{})
+	s.schedStop = schedStop
+	go s.scheduleLoop(schedStop)
 }
 
 // scheduleLoop scans on a fixed tick; per-minute slot dedupe makes each
 // matching minute fire exactly once regardless of tick phase.
-func (s *OpsServer) scheduleLoop() {
+func (s *OpsServer) scheduleLoop(schedStop <-chan struct{}) {
 	ticker := time.NewTicker(s.schedTick)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-s.schedStop:
+		case <-schedStop:
 			return
 		case now := <-ticker.C:
 			s.scheduleTick(now)

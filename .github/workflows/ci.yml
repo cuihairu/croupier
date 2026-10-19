@@ -206,6 +206,10 @@ jobs:
         run: |
           # Server/sidecar, shared Agent runtime, and standalone Agent roles.
           go test -count=1 -coverprofile=coverage.out -covermode=atomic ./internal/... ./core/... ./agents/...
+      - name: Agent lifecycle race tests
+        timeout-minutes: 10
+        run: |
+          go test -race -count=1 ./core/register ./agents/devops/... ./agents/capture/runner ./cmd/sidecar-agent
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3

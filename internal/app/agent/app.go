@@ -55,6 +55,7 @@ type App struct {
 	localAddr     string
 
 	// Ops module (optional)
+	opsMu     sync.Mutex
 	opsConfig *OpsConfig
 	opsServer *OpsServer
 	agentID   string
@@ -68,6 +69,7 @@ type App struct {
 	// StartLocalServer 的错误日志分支（listener 在函数内部构造，无法
 	// 从外部触发其 Accept 故障路径）。
 	serveLocal func(server *agent.TCPLocalListener) error
+	serveErrMu sync.Mutex
 	serveErr   chan error
 }
 
@@ -152,11 +154,14 @@ func (a *App) StartLocalServer() error {
 	if a.opsConfig == nil {
 		a.opsConfig = DefaultOpsConfig()
 	}
+	a.opsMu.Lock()
 	a.opsServer = NewOpsServer(a.opsConfig, a.agentID, a.version, nil)
-	opsWrapper := &opsServerWrapper{ops: a.opsServer}
+	opsServer := a.opsServer
+	a.opsMu.Unlock()
+	opsWrapper := &opsServerWrapper{ops: opsServer}
 	a.localHandler.SetOpsServer(opsWrapper)
 	// 托管进程快照随 metrics 上报捎带（supervisor S1）
-	a.upstream.WithSupervisorSampler(a.opsServer)
+	a.upstream.WithSupervisorSampler(opsServer)
 
 	// Keep each SDK Provider's established TCP session so invocations can be
 	// forwarded over that session instead of dialing a provider-supplied address.
@@ -209,10 +214,12 @@ func (a *App) StartLocalServer() error {
 		}
 	}
 	serveErr := make(chan error, 1)
+	a.serveErrMu.Lock()
 	a.serveErr = serveErr
+	a.serveErrMu.Unlock()
 	go func() {
 		if err := serve(tcpServer); err != nil && !errors.Is(err, context.Canceled) {
-			a.serveErr <- err
+			serveErr <- err
 			return
 		}
 		a.localServerMu.Lock()
@@ -249,16 +256,51 @@ func (a *App) SetLocalAddr(addr string) {
 
 // Run starts the agent's background processes (upstream sync and local server).
 func (a *App) Run(ctx context.Context) error {
-	// Start local TCP server for SDK connections
-	if err := a.StartLocalServer(); err != nil {
+	if err := a.startLocalServerSafely(); err != nil {
 		a.Stop()
-		return fmt.Errorf("failed to start local server: %w", err)
+		return err
 	}
 
+	if err := a.startAgentServices(ctx); err != nil {
+		a.Stop()
+		return err
+	}
+
+	select {
+	case err := <-a.currentServeErr():
+		a.Stop()
+		return fmt.Errorf("agent local server failed: %w", err)
+	default:
+	}
+	return nil
+}
+
+func (a *App) startLocalServerSafely() error {
+	err := a.StartLocalServer()
+	if err != nil {
+		return fmt.Errorf("failed to start local server: %w", err)
+	}
+	a.serveErrMu.Lock()
+	serveErr := a.serveErr
+	a.serveErrMu.Unlock()
+	select {
+	case err := <-serveErr:
+		return fmt.Errorf("agent local server failed: %w", err)
+	default:
+		return nil
+	}
+}
+
+func (a *App) currentServeErr() chan error {
+	a.serveErrMu.Lock()
+	defer a.serveErrMu.Unlock()
+	return a.serveErr
+}
+
+func (a *App) startAgentServices(ctx context.Context) error {
 	// Load providers before starting upstream
 	if a.providerManager != nil {
 		if err := a.providerManager.Load(ctx); err != nil {
-			a.Stop()
 			return err
 		}
 	}
@@ -269,18 +311,10 @@ func (a *App) Run(ctx context.Context) error {
 	a.startProbePolicy(ctx)
 	a.startProbeDBTargets(ctx)
 	if err := a.upstream.Start(ctx); err != nil {
-		a.Stop()
 		return err
 	}
 	if err := a.opsServer.Start(); err != nil {
-		a.Stop()
 		return err
-	}
-	select {
-	case err := <-a.serveErr:
-		a.Stop()
-		return fmt.Errorf("agent local server failed: %w", err)
-	default:
 	}
 	return nil
 }
@@ -444,8 +478,11 @@ func (a *App) Stop() {
 			slog.Warn("agent telemetry shutdown failed", "error", err)
 		}
 	}
-	if a.opsServer != nil {
-		a.opsServer.Stop()
+	a.opsMu.Lock()
+	opsServer := a.opsServer
+	a.opsMu.Unlock()
+	if opsServer != nil {
+		opsServer.Stop()
 	}
 }
 
@@ -569,6 +606,8 @@ func (a *App) OpsServer() *OpsServer {
 	if a == nil {
 		return nil
 	}
+	a.opsMu.Lock()
+	defer a.opsMu.Unlock()
 	return a.opsServer
 }
 
