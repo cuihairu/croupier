@@ -30,15 +30,46 @@ type TLS struct {
 	ServerName         string `yaml:"serverName"`
 	InsecureSkipVerify bool   `yaml:"insecureSkipVerify"`
 }
+
+// PluginConfig declares one external probe plugin process (todo.md:36).
+// Commands are explicit config entries: nothing is launched unless the
+// config declares it and a target references it by name.
+type PluginConfig struct {
+	Name    string        `yaml:"name"`
+	Command string        `yaml:"command"`
+	Args    []string      `yaml:"args"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
+func (p *PluginConfig) UnmarshalYAML(n *yaml.Node) error {
+	var raw struct {
+		Name    string   `yaml:"name"`
+		Command string   `yaml:"command"`
+		Args    []string `yaml:"args"`
+		Timeout string   `yaml:"timeout"`
+	}
+	if err := n.Decode(&raw); err != nil {
+		return err
+	}
+	d, err := time.ParseDuration(raw.Timeout)
+	if err != nil {
+		return fmt.Errorf("plugin %q timeout: %w", raw.Name, err)
+	}
+	*p = PluginConfig{Name: raw.Name, Command: raw.Command, Args: raw.Args, Timeout: d}
+	return nil
+}
+
 type Synthetics struct {
-	Interval time.Duration `yaml:"interval"`
-	Targets  []Target      `yaml:"targets"`
+	Interval time.Duration  `yaml:"interval"`
+	Targets  []Target       `yaml:"targets"`
+	Plugins  []PluginConfig `yaml:"plugins"`
 }
 
 func (s *Synthetics) UnmarshalYAML(n *yaml.Node) error {
 	var raw struct {
-		Interval string   `yaml:"interval"`
-		Targets  []Target `yaml:"targets"`
+		Interval string         `yaml:"interval"`
+		Targets  []Target       `yaml:"targets"`
+		Plugins  []PluginConfig `yaml:"plugins"`
 	}
 	if err := n.Decode(&raw); err != nil {
 		return err
@@ -49,6 +80,7 @@ func (s *Synthetics) UnmarshalYAML(n *yaml.Node) error {
 	}
 	s.Interval = d
 	s.Targets = raw.Targets
+	s.Plugins = raw.Plugins
 	return nil
 }
 
@@ -59,6 +91,11 @@ type Target struct {
 	Timeout        time.Duration `yaml:"timeout"`
 	ExpectedStatus int           `yaml:"expectedStatus"`
 	BodyContains   string        `yaml:"bodyContains"`
+	// Plugin, when set, routes this target through the external probe
+	// plugin runtime (go-plugin local gRPC) instead of the native HTTP
+	// probe. The HTTP fields stay mandatory: they are the fallback probe
+	// parameters used when the plugin side degrades (see pluginhost).
+	Plugin string `yaml:"plugin"`
 }
 
 func (t *Target) UnmarshalYAML(n *yaml.Node) error {
@@ -69,6 +106,7 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 		Timeout        string `yaml:"timeout"`
 		ExpectedStatus int    `yaml:"expectedStatus"`
 		BodyContains   string `yaml:"bodyContains"`
+		Plugin         string `yaml:"plugin"`
 	}
 	if err := n.Decode(&raw); err != nil {
 		return err
@@ -77,7 +115,7 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 	if err != nil {
 		return fmt.Errorf("timeout: %w", err)
 	}
-	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains}
+	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin}
 	return nil
 }
 
@@ -105,6 +143,19 @@ func (c Config) Validate() error {
 		return fmt.Errorf("synthetics.interval must be positive")
 	}
 	seen := map[string]bool{}
+	plugins := map[string]bool{}
+	for i, p := range c.Synthetics.Plugins {
+		if strings.TrimSpace(p.Name) == "" || strings.TrimSpace(p.Command) == "" {
+			return fmt.Errorf("synthetics.plugins[%d] name and command are required", i)
+		}
+		if plugins[p.Name] {
+			return fmt.Errorf("duplicate plugin %q", p.Name)
+		}
+		plugins[p.Name] = true
+		if p.Timeout <= 0 {
+			return fmt.Errorf("plugin %q requires positive timeout", p.Name)
+		}
+	}
 	for i, t := range c.Synthetics.Targets {
 		if strings.TrimSpace(t.Name) == "" || strings.TrimSpace(t.URL) == "" {
 			return fmt.Errorf("synthetics.targets[%d] name and url are required", i)
@@ -118,6 +169,9 @@ func (c Config) Validate() error {
 		}
 		if t.Timeout <= 0 || t.ExpectedStatus < 100 || t.ExpectedStatus > 599 {
 			return fmt.Errorf("target %q requires positive timeout and valid expectedStatus", t.Name)
+		}
+		if t.Plugin != "" && !plugins[t.Plugin] {
+			return fmt.Errorf("target %q references undeclared plugin %q", t.Name, t.Plugin)
 		}
 	}
 	return nil

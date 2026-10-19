@@ -88,4 +88,31 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 
 本次只测宿主连接代码的链接体积，未实现 Describe/Check 等业务服务，也未计插件程序、语言运行时、部署包压缩体积、运行内存与调用时延；最终默认版需在完整实现后重新测量。实验使用的正向 `go_plugin` tag 仅用于此次对照，不是用户已确定的产品选项；正式实现采用默认集成、反向 tag 裁剪和运行时可关，不构成所有平台固定增加约 12 MiB 的保证。
 
+## 第一片实施记录（2026-10-20，todo:36 部分完成）
+
+已落地最小可用插件链路：synthetics-agent 插件宿主 + Go 参考插件，经 go-plugin 本地 gRPC 打通 Describe/Check、结果进入既有 AlertEvent/probe_events 链路。交付物与登记：
+
+| 交付物                                                           | 位置                                                                                  |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 插件契约（proto + 生成代码）                                     | `agents/synthetics/pluginhost/protocol/`（独立于顶层 `proto/`，分轨版本化）           |
+| 宿主：发现/加载/调用/超时/降级                                   | `agents/synthetics/pluginhost/controller.go`、`probe.go`、`plugin.go`                 |
+| 插件配置与校验（显式声明，不自动发现可执行文件）                 | `agents/synthetics/config/config.go`                                                  |
+| runner 路由与显式回退（插件故障 → 原生 HTTP 探测，原因记录在案） | `agents/synthetics/runner/runner.go`                                                  |
+| Go 参考插件（echo/固定结果，环境变量注入故障）                   | `agents/synthetics/pluginhost/examples/echoprobe/`                                    |
+| 全局禁用守卫 → 依赖边界守卫                                      | `scripts/check-no-grpc.sh`（gRPC import 仅允许 `agents/synthetics/pluginhost/` 子树） |
+
+钉扎版本与许可（`go.mod` 登记）：
+
+| 依赖                             | 版本    | 许可       | 用途                                   |
+| -------------------------------- | ------- | ---------- | -------------------------------------- |
+| `github.com/hashicorp/go-plugin` | v1.8.0  | MPL-2.0    | 插件宿主运行时（握手、子进程生命周期） |
+| `github.com/hashicorp/go-hclog`  | v1.6.3  | MIT        | go-plugin 内部日志（indirect）         |
+| `github.com/hashicorp/yamux`     | v0.1.2  | MPL-2.0    | go-plugin 内部多路复用（indirect）     |
+| `google.golang.org/grpc`         | v1.83.2 | Apache-2.0 | 插件 IPC 传输（仅宿主边界内）          |
+| `github.com/oklog/run`           | v1.1.0  | Apache-2.0 | go-plugin 内部（indirect）             |
+
+本片语义决定：插件按 `synthetics.plugins[]` 显式声明，目标经 `plugin:` 字段路由；插件不可用/超时/调用错误时返回降级原因（`plugin_not_configured` / `plugin_unavailable` / `plugin_timeout` / `plugin_error`），同一目标自动回退原生 HTTP 探测并在事件 details 记录 `pluginFallback`/`pluginCause`，插件进程常驻复用、故障后由宿主单一管理者重启。测试见 `pluginhost_test.go`（加载成功/缺失降级/超时降级/结果回传）与 `runner_plugin_test.go`（插件结果进事件链/缺失回退）。
+
+本片明确不做（照旧列明）：Python/JS 插件 SDK、ICMP/TCP 探测插件、`no_go_plugin` build tag 裁剪与运行时开关、并发背压与崩溃退避熔断、targetCategory=game/third_party 类别绑定、真实游戏协议目标验收——均为 todo:36 剩余范围。
+
 关联：[Agent 清单](../design/agents-inventory.md)、[健康评审](/archive/legacy-en/design/agent-health-recovery-review)、根目录 `todo.md`。

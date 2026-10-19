@@ -11,6 +11,7 @@ import (
 
 	"github.com/cuihairu/croupier/agents/controlconn"
 	"github.com/cuihairu/croupier/agents/synthetics/config"
+	"github.com/cuihairu/croupier/agents/synthetics/pluginhost"
 	"github.com/cuihairu/croupier/agents/synthetics/probe"
 	"github.com/cuihairu/croupier/core/register"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -24,13 +25,21 @@ type Runner struct {
 	cfg  config.Config
 	log  *slog.Logger
 	conn *controlconn.Conn
+	// plugins hosts external probe plugins (go-plugin local gRPC).
+	// nil when no plugin is declared: no plugin process is ever started
+	// and every target keeps the native HTTP probe.
+	plugins *pluginhost.Controller
 }
 
 func New(cfg config.Config, log *slog.Logger) *Runner {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Runner{cfg: cfg, log: log}
+	r := &Runner{cfg: cfg, log: log}
+	if len(cfg.Synthetics.Plugins) > 0 {
+		r.plugins = pluginhost.NewController(cfg.Synthetics.Plugins, log)
+	}
+	return r
 }
 func (r *Runner) Run(ctx context.Context) error {
 	reg := register.New(register.Config{AgentID: r.cfg.Agent.ID, Dial: func(context.Context) (register.Conn, error) {
@@ -42,6 +51,9 @@ func (r *Runner) Run(ctx context.Context) error {
 	}, Payload: r.buildPayload, Logger: r.log})
 	reg.Start(ctx)
 	defer reg.Stop()
+	if r.plugins != nil {
+		defer r.plugins.Stop()
+	}
 	for _, target := range r.cfg.Synthetics.Targets {
 		r.execute(ctx, target)
 	}
@@ -62,13 +74,8 @@ func (r *Runner) Run(ctx context.Context) error {
 	}
 }
 func (r *Runner) execute(ctx context.Context, t config.Target) {
-	res := probe.Run(ctx, t)
-	status := "failure"
-	if res.OK {
-		status = "success"
-	}
-	details := map[string]string{"probeType": "http", "status": status, "httpStatus": itoa(res.Status), "errorClass": errorClass(res.Error)}
-	ev := &opsv1.AlertEvent{Kind: "probe.detail", AgentId: r.cfg.Agent.ID, GameId: r.cfg.Agent.GameID, Env: r.cfg.Agent.Env, Detail: &opsv1.ProbeDetail{Target: t.Name, Semantics: "liveness", Ok: res.OK, Err: res.Error, AtTsUnixMs: res.At.UnixMilli(), LatencyMs: res.Latency.Milliseconds(), Details: details}}
+	res, details := r.runProbe(ctx, t)
+	ev := buildProbeEvent(r.cfg, t, res, details)
 	if r.conn == nil || !r.conn.Connected() {
 		r.log.Warn("probe result not reported: session unavailable", "target", t.Name)
 		return
@@ -79,6 +86,52 @@ func (r *Runner) execute(ctx context.Context, t config.Target) {
 		r.log.Warn("probe result report failed", "target", t.Name, "error", err)
 	}
 	r.log.Info("probe completed", "target", t.Name, "ok", res.OK, "status", res.Status, "latencyMs", res.Latency.Milliseconds(), "error", res.Error)
+}
+
+// runProbe routes one target through its declared external plugin, falling
+// back to the native HTTP probe with an explicit plugin cause when the
+// plugin side degrades. Targets without plugin routing keep the native
+// HTTP probe untouched.
+func (r *Runner) runProbe(ctx context.Context, t config.Target) (probe.Result, map[string]string) {
+	if t.Plugin != "" && r.plugins != nil {
+		out := r.plugins.Check(ctx, t)
+		if out.Cause == "" {
+			details := map[string]string{"probeType": "plugin", "status": statusString(out.Result.OK), "errorClass": errorClass(out.Result.Error), "pluginName": t.Plugin}
+			if v := r.plugins.Version(t.Plugin); v != "" {
+				details["pluginVersion"] = v
+			}
+			if out.Detail != "" {
+				details["pluginDetail"] = out.Detail
+			}
+			return out.Result, details
+		} else {
+			// Explicit fallback semantics: the plugin subprocess could not
+			// answer (unavailable / timed out / call error); the native HTTP
+			// probe keeps the target alive and the cause is recorded for the
+			// operator instead of masking the plugin fault.
+			r.log.Warn("probe plugin degraded; falling back to native HTTP probe", "target", t.Name, "plugin", t.Plugin, "cause", out.Cause)
+			res := probe.Run(ctx, t)
+			msg := "plugin degraded: " + out.Cause
+			details := map[string]string{"probeType": "http", "status": statusString(res.OK), "httpStatus": itoa(res.Status), "errorClass": errorClass(res.Error), "pluginName": t.Plugin, "pluginFallback": "true", "pluginCause": out.Cause, "probeError": msg}
+			return res, details
+		}
+	}
+	res := probe.Run(ctx, t)
+	return res, map[string]string{"probeType": "http", "status": statusString(res.OK), "httpStatus": itoa(res.Status), "errorClass": errorClass(res.Error)}
+}
+
+func statusString(ok bool) string {
+	if ok {
+		return "success"
+	}
+	return "failure"
+}
+
+// buildProbeEvent maps one probe outcome onto the existing AlertEvent /
+// ProbeDetail contract; plugin results land in the same event shape as
+// HTTP results, with routing metadata carried in Details.
+func buildProbeEvent(c config.Config, t config.Target, res probe.Result, details map[string]string) *opsv1.AlertEvent {
+	return &opsv1.AlertEvent{Kind: "probe.detail", AgentId: c.Agent.ID, GameId: c.Agent.GameID, Env: c.Agent.Env, Detail: &opsv1.ProbeDetail{Target: t.Name, Semantics: "liveness", Ok: res.OK, Err: res.Error, AtTsUnixMs: res.At.UnixMilli(), LatencyMs: res.Latency.Milliseconds(), Details: details}}
 }
 func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error) {
 	host, _ := os.Hostname()
