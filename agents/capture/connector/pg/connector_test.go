@@ -95,8 +95,8 @@ func TestPostgresConnectorContractGuards(t *testing.T) {
 	if _, err := c.Discover(t.Context(), connector.DiscoveryRequest{}); err == nil {
 		t.Fatal("discover before open accepted")
 	}
-	if _, err := c.Snapshot(t.Context(), connector.SnapshotRequest{}); err != connector.ErrUnsupportedSnapshot {
-		t.Fatalf("snapshot = %v, want ErrUnsupportedSnapshot", err)
+	if _, err := c.Snapshot(t.Context(), connector.SnapshotRequest{}); err == nil {
+		t.Fatal("snapshot before open accepted")
 	}
 }
 
@@ -121,15 +121,29 @@ func TestPostgresReplicationOptions(t *testing.T) {
 	}
 }
 
-// Snapshot 拒绝必须可 errors.Is 判定（契约）。
+// Snapshot 契约守卫：未 Open 与空表清单均显式拒绝。
 func TestPostgresSnapshotErrUnsupported(t *testing.T) {
 	c := NewPostgresConnector(connector.SourceConfig{}, nil)
-	_, err := c.Snapshot(t.Context(), connector.SnapshotRequest{})
-	if err == nil {
-		t.Fatal("snapshot accepted, want ErrUnsupportedSnapshot")
+	for _, req := range []connector.SnapshotRequest{{}, {Tables: []string{}}} {
+		if _, err := c.Snapshot(t.Context(), req); err == nil {
+			t.Fatal("snapshot accepted, want error")
+		}
 	}
-	if err.Error() == "" {
-		t.Fatal("error message empty")
+	if _, err := c.Snapshot(t.Context(), connector.SnapshotRequest{Tables: []string{"game.items"}}); err == nil {
+		t.Fatal("snapshot before open accepted")
+	}
+}
+
+func TestPostgresCapabilities(t *testing.T) {
+	caps := PostgresCapabilities()
+	if !caps.BeforeImage && !caps.AfterImage {
+		t.Fatalf("capabilities = %+v", caps)
+	}
+	if !caps.TransactionMetadata || !caps.Snapshot || caps.SchemaHistory || !caps.ResumableCheckpoint {
+		t.Fatalf("capabilities = %+v", caps)
+	}
+	if caps.Pushdown {
+		t.Fatalf("capabilities = %+v", caps)
 	}
 }
 

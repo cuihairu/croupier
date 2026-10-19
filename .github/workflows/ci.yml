@@ -504,7 +504,7 @@ jobs:
           TEST_POSTGRES_CAPTURE_DSN: "postgres://postgres:postgres@127.0.0.1:13308/postgres?sslmode=disable"
         run: |
           go test -tags=integration -count=1 -timeout 8m \
-            -run 'TestPostgresConnectorLogicalReplication' \
+            -run 'TestPostgresConnectorLogicalReplication|TestPostgresConnectorSnapshot' \
             ./agents/capture/connector/pg/ -v
       - name: Postgres recovery target tests
         timeout-minutes: 10

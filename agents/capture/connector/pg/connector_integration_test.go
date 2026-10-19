@@ -248,3 +248,107 @@ func TestPostgresConnectorLogicalReplication(t *testing.T) {
 		t.Fatalf("close2: %v", err)
 	}
 }
+
+func TestPostgresConnectorSnapshot(t *testing.T) {
+	dsn := os.Getenv("TEST_POSTGRES_CAPTURE_DSN")
+	if dsn == "" {
+		t.Skip("TEST_POSTGRES_CAPTURE_DSN not configured")
+	}
+	const pub = "snapshot_test_pub"
+	mustExecPG(t, dsn,
+		`DROP PUBLICATION IF EXISTS `+pub,
+		`DROP TABLE IF EXISTS public.snapshot_rows`,
+		`CREATE TABLE public.snapshot_rows (
+			id BIGINT PRIMARY KEY,
+			label TEXT,
+			amount NUMERIC,
+			enabled BOOLEAN,
+			created_at TIMESTAMPTZ
+		)`,
+		`CREATE PUBLICATION `+pub+` FOR TABLE public.snapshot_rows`,
+		`INSERT INTO public.snapshot_rows VALUES
+			(1, 'one', 1.25, true, '2026-10-19T00:00:00Z'),
+			(2, NULL, 2.50, false, '2026-10-19T01:00:00Z')`,
+	)
+	t.Cleanup(func() {
+		mustExecPG(t, dsn,
+			`DROP PUBLICATION IF EXISTS `+pub,
+			`DROP TABLE IF EXISTS public.snapshot_rows`,
+		)
+	})
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("dml open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cfg := connector.SourceConfig{
+		SourceID:   "pg-snapshot-itest",
+		SourceType: "postgres",
+		DSNEnv:     "TEST_POSTGRES_CAPTURE_DSN",
+		Options:    map[string]string{"slotName": "snapshot_poll_slot", "publication": pub},
+	}
+	c := NewPostgresConnector(cfg, nil)
+	if err := c.Open(ctx, cfg); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = c.Close(ctx) }()
+
+	events, err := c.Snapshot(ctx, connector.SnapshotRequest{Tables: []string{"public.snapshot_rows"}})
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	rows := make([]connector.ChangeEvent, 0, 2)
+	for event := range events {
+		rows = append(rows, event)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("snapshot rows = %d, want 2: %+v", len(rows), rows)
+	}
+	if rows[0].Database != "public" || rows[0].Table != "snapshot_rows" {
+		t.Fatalf("snapshot identity = %+v", rows[0])
+	}
+	if rows[0].Operation != connector.OpInsert || !rows[0].ColumnsMapped {
+		t.Fatalf("snapshot operation = %+v", rows[0])
+	}
+	if len(rows[0].Key) != 1 || rows[0].Key[0] != "id" {
+		t.Fatalf("snapshot key = %v", rows[0].Key)
+	}
+	if got := string(rows[0].After["id"]); got != "1" {
+		t.Fatalf("snapshot id = %s, want 1", got)
+	}
+	if got := string(rows[0].After["amount"]); got != "1.25" {
+		t.Fatalf("snapshot amount = %s, want 1.25", got)
+	}
+	if got := string(rows[0].After["enabled"]); got != "true" {
+		t.Fatalf("snapshot enabled = %s, want true", got)
+	}
+	if got := string(rows[1].After["label"]); got != "null" {
+		t.Fatalf("snapshot label = %s, want null", got)
+	}
+	if rows[0].Position.Kind != "lsn" || rows[0].Position.Value == "" || rows[0].Position != rows[1].Position {
+		t.Fatalf("snapshot positions = %+v and %+v", rows[0].Position, rows[1].Position)
+	}
+	if rows[0].Tx.ID != "" || rows[0].Tx.Seq != 1 || rows[0].Tx.End {
+		t.Fatalf("first transaction = %+v", rows[0].Tx)
+	}
+	if rows[1].Tx.Seq != 2 || !rows[1].Tx.End {
+		t.Fatalf("last transaction = %+v", rows[1].Tx)
+	}
+	for _, row := range rows {
+		if err := row.Validate(); err != nil {
+			t.Fatalf("row validation: %v", err)
+		}
+	}
+
+	var slots int
+	if err := db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pg_replication_slots WHERE slot_name LIKE 'croupier_snapshot_%'`).Scan(&slots); err != nil {
+		t.Fatalf("count snapshot slots: %v", err)
+	}
+	if slots != 0 {
+		t.Fatalf("temporary snapshot slots = %d, want 0", slots)
+	}
+}

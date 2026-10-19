@@ -2,11 +2,15 @@ package pg
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -211,9 +215,284 @@ WHERE tc.constraint_type = 'PRIMARY KEY'`
 	return result, nil
 }
 
-// Snapshot 能力缺失显式拒绝（契约要求，不静默回空流）。
-func (c *PostgresConnector) Snapshot(_ context.Context, _ connector.SnapshotRequest) (<-chan connector.ChangeEvent, error) {
-	return nil, connector.ErrUnsupportedSnapshot
+// Snapshot 返回临时 logical slot 的一致性快照流。导出的 slot snapshot 绑定
+// slot creation consistent point：先通过复制协议创建临时 slot 拿 snapshot
+// 和 LSN，再在独立只读 REPEATABLE READ 事务中导入同一 snapshot 逐表扫描。
+// 这保证行像与 WAL 增量边界不重不漏。快照行组共享 synthetic transaction
+// 边界，位点统一为 slot consistent point，最后一行标记 End。
+func (c *PostgresConnector) Snapshot(ctx context.Context, req connector.SnapshotRequest) (<-chan connector.ChangeEvent, error) {
+	c.pollMu.Lock()
+	defer c.pollMu.Unlock()
+	if c.closed.Load() || c.conn == nil {
+		return nil, errors.New("pg: connector not open")
+	}
+	if c.pumpCancel != nil {
+		return nil, errors.New("pg: snapshot is not allowed while poll is active")
+	}
+	tables := make([]string, 0, len(req.Tables))
+	seen := make(map[string]bool, len(req.Tables))
+	for _, table := range req.Tables {
+		if table == "" || seen[table] {
+			return nil, fmt.Errorf("pg: snapshot table %q invalid", table)
+		}
+		if schema, name, err := splitQualifiedTable(table); err != nil {
+			return nil, err
+		} else if !replicationIdentRe.MatchString(schema) || !replicationIdentRe.MatchString(name) {
+			return nil, fmt.Errorf("pg: snapshot table %q invalid identifier", table)
+		}
+		tables = append(tables, table)
+		seen[table] = true
+	}
+	if len(tables) == 0 {
+		return nil, errors.New("pg: snapshot requires explicit table list")
+	}
+
+	var randomSuffix [8]byte
+	if _, err := rand.Read(randomSuffix[:]); err != nil {
+		return nil, fmt.Errorf("pg: random snapshot slot: %w", err)
+	}
+	slot := "croupier_snapshot_" + strconv.FormatInt(time.Now().UnixNano(), 36) + strconv.FormatUint(uint64(binary.BigEndian.Uint64(randomSuffix[:])), 36)
+	if err := validateReplicationIdent("snapshot slot", slot); err != nil {
+		return nil, err
+	}
+	repl, err := c.ensureReplConn()
+	if err != nil {
+		return nil, err
+	}
+	result, err := pglogrepl.CreateReplicationSlot(ctx, repl, slot, "pgoutput", pglogrepl.CreateReplicationSlotOptions{
+		Temporary:      true,
+		SnapshotAction: "EXPORT_SNAPSHOT",
+	})
+	if err != nil {
+		if c.repl == repl {
+			_ = repl.Close(context.Background())
+			c.repl = nil
+		}
+		return nil, fmt.Errorf("pg: create snapshot slot: %w", err)
+	}
+	defer func() {
+		if err := pglogrepl.DropReplicationSlot(context.Background(), repl, slot, pglogrepl.DropReplicationSlotOptions{}); err != nil {
+			c.log.Warn("postgres snapshot: drop temporary slot", "slot", slot, "error", err)
+		}
+	}()
+	if result.SnapshotName == "" || result.ConsistentPoint == "" {
+		return nil, errors.New("pg: snapshot slot did not export snapshot")
+	}
+	lsn, err := ParseLSN(result.ConsistentPoint)
+	if err != nil {
+		return nil, fmt.Errorf("pg: parse snapshot consistent point %q: %w", result.ConsistentPoint, err)
+	}
+	position := connector.Position{Kind: "lsn", Value: lsn.Decimal()}
+
+	rows := make([]snapshotRow, 0)
+	snapshotConn, err := pgconn.ConnectConfig(context.Background(), c.pcc)
+	if err != nil {
+		return nil, fmt.Errorf("pg: connect snapshot reader: %w", err)
+	}
+	defer snapshotConn.Close(context.Background())
+	for _, table := range tables {
+		tableRows, err := c.snapshotTable(ctx, snapshotConn, result.SnapshotName, table)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, tableRows...)
+	}
+
+	out := make(chan connector.ChangeEvent, 64)
+	go func() {
+		defer close(out)
+		now := time.Now().UnixMilli()
+		for i, row := range rows {
+			event := connector.ChangeEvent{
+				SourceID:      c.cfg.SourceID,
+				SourceType:    "postgres",
+				Database:      row.schema,
+				Table:         row.name,
+				Operation:     connector.OpInsert,
+				After:         row.image,
+				Key:           row.keys,
+				SchemaVersion: 1,
+				ColumnsMapped: true,
+				TsUnixMs:      now,
+			}
+			event.Position = position
+			event.Tx = connector.TxInfo{Seq: int64(i + 1), End: i == len(rows)-1}
+			if err := event.Validate(); err != nil {
+				c.log.Error("postgres snapshot: row validation failed", "error", err)
+				return
+			}
+			select {
+			case out <- event:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return out, nil
+}
+
+func splitQualifiedTable(table string) (schema, name string, err error) {
+	schema, name, ok := strings.Cut(table, ".")
+	if !ok || schema == "" || name == "" || strings.Contains(name, ".") {
+		return "", "", fmt.Errorf("pg: table %q must use schema.name form", table)
+	}
+	return schema, name, nil
+}
+
+func (c *PostgresConnector) snapshotTable(ctx context.Context, conn *pgconn.PgConn, snapshot, table string) ([]snapshotRow, error) {
+	schema, name, err := splitQualifiedTable(table)
+	if err != nil {
+		return nil, err
+	}
+	quotedSchema := quoteIdent(schema)
+	quotedName := quoteIdent(name)
+	if err := c.beginSnapshotTransaction(ctx, conn, snapshot); err != nil {
+		return nil, err
+	}
+	metadata, err := c.tableMetadata(ctx, conn, schema, name)
+	if err != nil {
+		return nil, err
+	}
+	dataRows, err := conn.Exec(ctx,
+		`SELECT `+strings.Join(metadata.selectNames(), ", ")+` FROM `+quotedSchema+"."+quotedName).ReadAll()
+	if err != nil {
+		_ = conn.Exec(context.Background(), "ROLLBACK").Close()
+		return nil, fmt.Errorf("pg: snapshot table %s: %w", table, err)
+	}
+	if err := conn.Exec(context.Background(), "ROLLBACK").Close(); err != nil {
+		return nil, fmt.Errorf("pg: snapshot table %s rollback: %w", table, err)
+	}
+	rows := make([]snapshotRow, 0, len(dataRows))
+	for _, result := range dataRows {
+		for _, row := range result.Rows {
+			image, err := metadata.rowImage(row)
+			if err != nil {
+				return nil, fmt.Errorf("pg: snapshot table %s: %w", table, err)
+			}
+			rows = append(rows, snapshotRow{schema: schema, name: name, keys: metadata.keys, image: image})
+		}
+	}
+	return rows, nil
+}
+
+type snapshotMetadata struct {
+	columns []connector.ColumnMeta
+	keys    []string
+}
+
+type snapshotRow struct {
+	schema string
+	name   string
+	keys   []string
+	image  map[string]json.RawMessage
+}
+
+func (m snapshotMetadata) selectNames() []string {
+	names := make([]string, 0, len(m.columns))
+	for _, column := range m.columns {
+		names = append(names, quoteIdent(column.Name))
+	}
+	return names
+}
+
+func (m snapshotMetadata) rowImage(values [][]byte) (map[string]json.RawMessage, error) {
+	if len(values) != len(m.columns) {
+		return nil, fmt.Errorf("row has %d values, want %d", len(values), len(m.columns))
+	}
+	image := make(map[string]json.RawMessage, len(values))
+	for i, column := range m.columns {
+		if values[i] == nil {
+			image[column.Name] = json.RawMessage("null")
+			continue
+		}
+		encoded, err := snapshotDatumJSON(column.Type, values[i])
+		if err != nil {
+			return nil, fmt.Errorf("column %s: %w", column.Name, err)
+		}
+		image[column.Name] = encoded
+	}
+	return image, nil
+}
+
+func (c *PostgresConnector) tableMetadata(ctx context.Context, conn *pgconn.PgConn, schema, name string) (snapshotMetadata, error) {
+	columnRows, err := conn.Exec(ctx,
+		`SELECT column_name, data_type FROM information_schema.columns
+WHERE table_schema='`+schema+`' AND table_name='`+name+`'
+ORDER BY ordinal_position`).ReadAll()
+	if err != nil {
+		return snapshotMetadata{}, fmt.Errorf("pg: query table %s.%s columns: %w", schema, name, err)
+	}
+	keyRows, err := conn.Exec(ctx,
+		`SELECT kcu.column_name FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema AND tc.table_name=kcu.table_name
+WHERE tc.constraint_type='PRIMARY KEY' AND tc.table_schema='`+schema+`' AND tc.table_name='`+name+`'
+ORDER BY kcu.ordinal_position`).ReadAll()
+	if err != nil {
+		return snapshotMetadata{}, fmt.Errorf("pg: query table %s.%s keys: %w", schema, name, err)
+	}
+	metadata := snapshotMetadata{columns: make([]connector.ColumnMeta, 0), keys: make([]string, 0)}
+	for _, result := range columnRows {
+		for _, row := range result.Rows {
+			if len(row) != 2 {
+				return snapshotMetadata{}, fmt.Errorf("pg: table %s.%s returned invalid column row", schema, name)
+			}
+			metadata.columns = append(metadata.columns, connector.ColumnMeta{Name: string(row[0]), Type: string(row[1])})
+		}
+	}
+	for _, result := range keyRows {
+		for _, row := range result.Rows {
+			if len(row) != 1 {
+				return snapshotMetadata{}, fmt.Errorf("pg: table %s.%s returned invalid key row", schema, name)
+			}
+			metadata.keys = append(metadata.keys, string(row[0]))
+		}
+	}
+	if len(metadata.columns) == 0 {
+		return snapshotMetadata{}, fmt.Errorf("pg: table %s.%s not found", schema, name)
+	}
+	return metadata, nil
+}
+
+func (c *PostgresConnector) beginSnapshotTransaction(ctx context.Context, conn *pgconn.PgConn, snapshot string) error {
+	if err := conn.Exec(ctx, "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY").Close(); err != nil {
+		return fmt.Errorf("pg: begin snapshot: %w", err)
+	}
+	if err := conn.Exec(ctx, "SET TRANSACTION SNAPSHOT '"+snapshot+"'").Close(); err != nil {
+		_ = conn.Exec(context.Background(), "ROLLBACK").Close()
+		return fmt.Errorf("pg: import snapshot: %w", err)
+	}
+	return nil
+}
+
+func quoteIdent(value string) string {
+	return `"` + strings.ReplaceAll(value, `"`, `""`) + `"`
+}
+
+func snapshotDatumJSON(dataType string, value []byte) (json.RawMessage, error) {
+	switch dataType {
+	case "boolean":
+		switch string(value) {
+		case "t", "true":
+			return json.RawMessage("true"), nil
+		case "f", "false":
+			return json.RawMessage("false"), nil
+		}
+	case "smallint", "integer", "bigint", "real", "double precision", "numeric":
+		text := string(value)
+		switch text {
+		case "NaN", "Infinity", "-Infinity":
+		default:
+			if json.Valid(value) {
+				return json.RawMessage(append([]byte(nil), value...)), nil
+			}
+		}
+	}
+	encoded, err := json.Marshal(string(value))
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
 }
 
 // Poll 增量变更流：复制连接（懒建，DSN 克隆加 replication=database 启动
