@@ -213,9 +213,11 @@ func (a *App) StartLocalServer() error {
 			return server.Serve(context.Background())
 		}
 	}
-	serveErr := make(chan error, 1)
 	a.serveErrMu.Lock()
-	a.serveErr = serveErr
+	if a.serveErr == nil {
+		a.serveErr = make(chan error, 1)
+	}
+	serveErr := a.serveErr
 	a.serveErrMu.Unlock()
 	go func() {
 		if err := serve(tcpServer); err != nil && !errors.Is(err, context.Canceled) {

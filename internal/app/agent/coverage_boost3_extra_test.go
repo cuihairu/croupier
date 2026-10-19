@@ -334,13 +334,26 @@ func TestAppStartLocalServer_ServeErrorLoggedViaSeam(t *testing.T) {
 	app := NewWithConfigDir("", "agent-serve-err", t.TempDir())
 	app.SetLocalAddr("127.0.0.1:0")
 
-	served := make(chan struct{}, 2)
+	serveStarted := make(chan struct{})
+	allowServeReturn := make(chan struct{})
+	firstServe := true
 	app.serveLocal = func(server *agent.TCPLocalListener) error {
-		served <- struct{}{}
+		if !firstServe {
+			return nil
+		}
+		firstServe = false
+		close(serveStarted)
+		<-allowServeReturn
 		return errors.New("accept: emfile")
 	}
 	require.NoError(t, app.StartLocalServer())
-	<-served
+	<-serveStarted
+	serveErr := app.currentServeErr()
+	close(allowServeReturn)
+	// Wait for the first server's error to be queued, then leave it pending for
+	// Run. Run starts the server again; replacing this channel would lose it.
+	firstServeErr := <-serveErr
+	serveErr <- firstServeErr
 	require.ErrorContains(t, app.Run(context.Background()), "agent local server failed: accept: emfile")
 
 	// context.Canceled 被排除：注入 Canceled 不产生日志分支，但 serve 调用本身可达。
