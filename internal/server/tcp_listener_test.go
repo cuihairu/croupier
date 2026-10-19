@@ -828,14 +828,34 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 			listener: listener,
 		}
 
-		req := &agentv1.RegisterRequest{
-			AgentId: "",
+		// agent_id/game_id/env 任一缺失或去空白后为空都确定拒绝（归一化前），
+		// 且不物化任何会话（todo.md:29 四类显式归属，server 身份绑定前置防线）。
+		cases := map[string]func(*agentv1.RegisterRequest) *agentv1.RegisterRequest{
+			"missing agentId": func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest { r.AgentId = ""; return r },
+			"missing gameId":  func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest { r.GameId = ""; return r },
+			"missing env":     func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest { r.Env = ""; return r },
+			"blank gameId": func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest {
+				r.AgentId, r.GameId, r.Env = "agent-1", "   ", "prod"
+				return r
+			},
+			"blank env": func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest {
+				r.AgentId, r.GameId, r.Env = "agent-1", "game-1", "  \t"
+				return r
+			},
 		}
-		data, _ := proto.Marshal(req)
-
-		_, err = handler.handleRegister(context.Background(), data)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "agent_id, game_id and env are required")
+		base := agentv1.RegisterRequest{
+			AgentId: "agent-1", GameId: "game-1",
+			Env:     "prod",
+			Version: "1.0.0",
+		}
+		for name, mangle := range cases {
+			data, _ := proto.Marshal(mangle(&base))
+			_, err := handler.handleRegister(context.Background(), data)
+			assert.Error(t, err, name)
+			assert.Contains(t, err.Error(), "agent_id, game_id and env are required", name)
+		}
+		_, ok := listener.sessionStore.Get("agent-1")
+		assert.False(t, ok, "failed register must not materialize a session")
 	})
 
 	t.Run("with custom TTL", func(t *testing.T) {

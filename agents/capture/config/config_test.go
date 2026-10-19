@@ -118,6 +118,9 @@ func TestValidateRequiredFields(t *testing.T) {
 		"missing id":         "agent: {serverAddr: s:1, gameId: g}",
 		"missing serverAddr": "agent: {id: a, gameId: g}",
 		"missing gameId":     "agent: {id: a, serverAddr: s:1}",
+		"missing env":        "agent: {id: a, serverAddr: s:1, gameId: g}",
+		"blank gameId":       `agent: {id: a, serverAddr: s:1, gameId: "   ", env: prod}`,
+		"blank env":          `agent: {id: a, serverAddr: s:1, gameId: g, env: "   "}`,
 	}
 	for name, body := range cases {
 		cfg, err := Load(writeCfg(t, body))
