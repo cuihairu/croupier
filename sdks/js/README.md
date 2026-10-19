@@ -58,7 +58,7 @@ Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏
 ## 正式文档
 
 - 功能矩阵（跨语言一致性的单一事实来源）：[`sdks/SDK_FEATURE_MATRIX.md`](../SDK_FEATURE_MATRIX.md)
-- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)
+- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`（本节仅有中文版）](../../docs/zh/architecture/sdk-wire-protocol.md)
 - 统一文档站入口：`/docs/sdks/js/`
 - 仓库内路径：`docs/sdks/js`
 

@@ -118,7 +118,7 @@ curl http://localhost:8000
 ## 下一步
 
 - [配置管理](../operations/config-server.md)
-- [部署指南](../operations/deploy-docker.md)
-- [核心概念](./concepts/overview.md)
+- [部署指南（本节仅有中文版）](/zh/operations/deploy-docker)
+- [核心概念（本节仅有中文版）](/zh/guide/concepts/overview)
 - [SDK 文档](../sdks/)
-- [SDK-Agent 传输设计](../architecture/sdk-agent-transport-redesign.md)
+- [SDK-Agent 传输设计（本节仅有中文版）](/zh/architecture/sdk-agent-transport-redesign)

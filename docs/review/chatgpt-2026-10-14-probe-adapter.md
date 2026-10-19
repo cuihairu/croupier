@@ -3,7 +3,7 @@
 - **来源**：https://chatgpt.com/s/t_6acef396a7e88191a58ca4587f013fa4
 - **获取日期**：2026-10-14
 - **性质**：**外部建议，不是本仓事实陈述**。每条执行前必须对本仓代码核验（file:line）。
-- **承接**：[chatgpt-2026-10-14-probe-architecture.md](chatgpt-2026-10-14-probe-architecture.md)（同日第一份评审，定三层结构与执行位置）。本份回答的是**上一份留下的关键问题**：私有协议多、每个游戏都要单独接，怎么扩展。
+- **承接**：[chatgpt-2026-10-14-probe-architecture.md（本节仅有中文版）](/zh/review/chatgpt-2026-10-14-probe-architecture)（同日第一份评审，定三层结构与执行位置）。本份回答的是**上一份留下的关键问题**：私有协议多、每个游戏都要单独接，怎么扩展。
 
 ## 要解决的问题
 

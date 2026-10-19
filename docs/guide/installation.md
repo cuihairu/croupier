@@ -314,5 +314,5 @@ port: 19080
 安装完成后，请参考：
 
 - [配置指南](../operations/config-server.md) - 详细配置选项
-- [部署指南](../operations/deploy-docker.md) - 生产环境部署
-- [核心概念](./concepts/overview.md) - 了解系统设计
+- [部署指南（本节仅有中文版）](/zh/operations/deploy-docker) - 生产环境部署
+- [核心概念（本节仅有中文版）](/zh/guide/concepts/overview) - 了解系统设计

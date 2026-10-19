@@ -38,7 +38,7 @@ Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏�
 ## 正式文档
 
 - 功能矩阵（跨语言一致性的单一事实来源）：[`sdks/SDK_FEATURE_MATRIX.md`](../SDK_FEATURE_MATRIX.md)
-- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)
+- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`（本节仅有中文版）](../../docs/zh/architecture/sdk-wire-protocol.md)
 - 统一文档站入口：`/docs/sdks/python/`
 - 仓库内路径：`docs/sdks/python`
 
@@ -176,7 +176,7 @@ SDK 是 `sdk-agent subprotocol` 上的 Provider session 客户端，单条 TCP �
 4. **作业**：Agent 发送 `StartTaskRequest`，SDK 异步处理并回流 `TaskEvent`
 5. **Drain**：收到 `ProviderDrainRequest` 时停止接收新请求、完成在途、回 `ProviderDrainResponse`
 
-不监听本地端口，不依赖回调模型，不依赖外部 TCP 库。详见 [`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)。
+不监听本地端口，不依赖回调模型，不依赖外部 TCP 库。详见 [`docs/architecture/sdk-wire-protocol.md`（本节仅有中文版）](../../docs/zh/architecture/sdk-wire-protocol.md)。
 
 ## 开发指南
 
