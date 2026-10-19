@@ -17,20 +17,20 @@ tag:
 ### 核心概念
 
 - [游戏指标全景图](./game-metrics-overview.md)
-- [数据采集架构](./data-collection-architecture.md)
-- [游戏类型适配](./game-type-adaptation.md)
+- [数据采集架构](/archive/legacy-en/analytics/data-collection-architecture)
+- [游戏类型适配](/archive/legacy-en/analytics/game-type-adaptation)
 
 ### 技术实施
 
-- [OpenTelemetry 集成](./opentelemetry-integration.md)
-- [系统增强方案](./enhancement-plan.md)
-- [ClickHouse 表结构](./clickhouse-schema.md)
+- [OpenTelemetry 集成](/archive/legacy-en/analytics/opentelemetry-integration)
+- [系统增强方案](/archive/legacy-en/analytics/enhancement-plan)
+- [ClickHouse 表结构](/archive/legacy-en/analytics/clickhouse-schema)
 
 ### 快速落地
 
-- [快速开始](./quick-start.md)
-- [最佳实践](./best-practices.md)
-- [故障排除](./troubleshooting.md)
+- [快速开始](/zh/guide/quick-start)
+- [最佳实践](/archive/legacy-en/analytics/best-practices)
+- [故障排除](/operations/troubleshooting)
 
 ## 数据链路拓扑
 

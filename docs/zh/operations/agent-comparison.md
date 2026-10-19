@@ -27,7 +27,7 @@ Croupier 规划四类 Agent，目前有三个可执行入口；synthetics 仍待
 
 - 输入：SDK 注册、Server 调用/任务/明确授权动作、配置策略。
 - 输出：函数与 Provider 清单、调用结果/任务事件、系统/监管/探测信息。
-- 配置：`configs/agent.yaml`；字段现状见 [配置全解](agent-config.md)。
+- 配置：`configs/agent.yaml`；字段现状见 [配置全解](/operations/agent-config)。
 
 ## 3. devops：内网远程会话
 
@@ -102,7 +102,7 @@ Linux/macOS 安装器继续支持从总包按角色选择安装：
 curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.sh | bash -s -- --agent sidecar --version nightly --game-id demo --env prod
 ```
 
-手动安装时先配置真实 server 地址、gameId/env 和凭证引用，不能直接把示例当生产配置；校验归档 SHA256 后解压。Windows 当前安装脚本仅覆盖 sidecar，其他角色手动部署。详细流程见 [一键安装](agent-install.md)。
+手动安装时先配置真实 server 地址、gameId/env 和凭证引用，不能直接把示例当生产配置；校验归档 SHA256 后解压。Windows 当前安装脚本仅覆盖 sidecar，其他角色手动部署。详细流程见 [一键安装](/operations/agent-install)。
 
 ## 8. 源码、公共能力与测试
 

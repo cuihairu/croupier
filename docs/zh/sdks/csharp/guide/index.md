@@ -19,11 +19,11 @@ title: C# SDK 指南
 
 ## 详细页面
 
-- [安装](./installation)
-- [快速开始](./quick-start)
-- [配置](./configuration)
-- [依赖注入](./dependency-injection)
-- [异步处理器](./async-handlers)
+- [安装](/zh/guide/installation)
+- [快速开始](/zh/guide/quick-start)
+- [配置](/sdks/csharp/guide/configuration)
+- [依赖注入](/sdks/csharp/guide/dependency-injection)
+- [异步处理器](/sdks/csharp/guide/async-handlers)
 - [错误处理](./error-handling)
-- [主线程调度器](./threading)
-- [OpenAPI 导入](./openapi-import)
+- [主线程调度器](/zh/sdks/cpp/guide/threading)
+- [OpenAPI 导入](/sdks/csharp/guide/openapi-import)

@@ -109,7 +109,7 @@ graph TB
 > Server 支持多实例高可用部署（`cluster.enabled`）：成员发现走共享存储（无
 > seed、无静态 peers），请求落到非 owner 实例时经实例互联转发（一跳限制 +
 > epoch fencing）。单实例部署默认关闭集群，零开销。详见
-> [Server 多实例高可用设计](/architecture/server-ha-multi-instance.md)。
+> [Server 多实例高可用设计](/zh/architecture/server-ha-multi-instance)。
 
 关键边界说明：
 
@@ -187,14 +187,14 @@ curl http://localhost:18780/api/v1/
 
 按使用路径组织：
 
-| 路径         | 入口                                                                                                                                          | 说明                                                             |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **快速开始** | [指南](/guide/) · [快速开始](/guide/quick-start)                                                                                              | 安装、配置、Server + Agent 启动、最小闭环                        |
-| **页面产品** | [函数管理](/guide/concepts/function-management) · [Page Studio](/guide/concepts/function-registration-ui) · [Resource Catalog](/api/resource) | 注册函数 → 自动生成页面 → Proposal Inbox 发布 → Console 受控执行 |
-| **SDK**      | [SDK 概览](/sdks/)                                                                                                                            | Provider / Invoker / 配置 / 能力矩阵，6 种语言                   |
-| **API**      | [API 参考](/api/)                                                                                                                             | REST 契约、鉴权、game/env scope、各资源 API                      |
-| **运维**     | [监控](/operations/monitoring) · [数据分析](/analytics/)                                                                                      | 部署、监控、备份、分析、故障排除                                 |
-| **开发**     | [开发](/development/) · [架构](/architecture/)                                                                                                | 架构、代码规范、扩展策略、发布规则                               |
+| 路径         | 入口                                                                                                                                                   | 说明                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| **快速开始** | [指南](/guide/) · [快速开始](/guide/quick-start)                                                                                                       | 安装、配置、Server + Agent 启动、最小闭环                        |
+| **页面产品** | [函数管理](/zh/guide/concepts/function-management) · [Page Studio](/zh/guide/concepts/function-registration-ui) · [Resource Catalog](/zh/api/resource) | 注册函数 → 自动生成页面 → Proposal Inbox 发布 → Console 受控执行 |
+| **SDK**      | [SDK 概览](/sdks/)                                                                                                                                     | Provider / Invoker / 配置 / 能力矩阵，6 种语言                   |
+| **API**      | [API 参考](/api/)                                                                                                                                      | REST 契约、鉴权、game/env scope、各资源 API                      |
+| **运维**     | [监控](/operations/monitoring) · [数据分析](/analytics/)                                                                                               | 部署、监控、备份、分析、故障排除                                 |
+| **开发**     | [开发](/zh/development/agent-runtime-layout) · [架构](/architecture/)                                                                                  | 架构、代码规范、扩展策略、发布规则                               |
 
 历史设计与迁移文档归入 [架构 - 提案与迁移](/architecture/)（侧栏已折叠），不作为接入主路径。
 

@@ -44,5 +44,5 @@ invoke("wallet.transfer", {
 
 ## 相关页面
 
-- [OpenAPI / SDK Descriptor v2](/architecture/openapi-sdk-descriptor-v2)
-- [Dashboard Resource/Page 模型](/architecture/dashboard-page-model)
+- [OpenAPI / SDK Descriptor v2](/zh/architecture/openapi-sdk-descriptor-v2)
+- [Dashboard Resource/Page 模型](/zh/architecture/dashboard-page-model)
