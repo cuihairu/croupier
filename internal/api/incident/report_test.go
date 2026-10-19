@@ -2,6 +2,7 @@ package incident
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"testing"
@@ -249,11 +250,23 @@ func TestReportSummary_OpenIncidentTail(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
 	now := time.Now()
+	current, err := resolvePeriod(PeriodWeek, "", now)
+	if err != nil {
+		t.Fatalf("resolve current week: %v", err)
+	}
+	// Query the previous complete week so the test cannot cross a week boundary
+	// between seeding and ReportSummary's independent clock read.
+	previousStart := current.Start.AddDate(0, 0, -7)
+	year, week := previousStart.ISOWeek()
+	period, err := resolvePeriod(PeriodWeek, fmt.Sprintf("%d-W%02d", year, week), now)
+	if err != nil {
+		t.Fatalf("resolve previous week: %v", err)
+	}
 	qa := mustCategory(t, s, model.IncidentCatQA)
-	// open 事故：检测到 now-30min，拖尾计到 min(now, 期末)
-	seedIncident(t, s, qa.ID, now.Add(-30*time.Minute), time.Time{}, "", "", model.IncidentRespOperator, "alice")
+	// Open incident in the previous complete week; its tail ends at period.End.
+	seedIncident(t, s, qa.ID, period.Start.Add(time.Hour), time.Time{}, "", "", model.IncidentRespOperator, "alice")
 
-	resp, err := s.ReportSummary(ctx, PeriodWeek, "")
+	resp, err := s.ReportSummary(ctx, PeriodWeek, period.Key)
 	if err != nil {
 		t.Fatalf("summary: %v", err)
 	}
