@@ -14,9 +14,9 @@ import (
 
 	gsqlite "github.com/glebarez/sqlite"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/platform/registry"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"

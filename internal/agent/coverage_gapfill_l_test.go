@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/agents/sidecar"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,11 +29,9 @@ func TestProviderKeepaliveProbeOnce_MarshalFailureSkipsWithoutRemoval(t *testing
 	conn := tcptr.NewMuxConn(agentSide, nil, nil)
 	defer func() { _ = conn.Close() }()
 
-	sess := &ProviderSession{
-		conn:      conn,
-		SessionID: "\xff\xfe", // 无效 UTF-8：心跳探测帧编码必败
-		ServiceID: "svc-bad-utf8",
-	}
+	sess := sidecar.NewProviderSession(conn)
+	sess.SessionID = "\xff\xfe" // 无效 UTF-8：心跳探测帧编码必败
+	sess.ServiceID = "svc-bad-utf8"
 	require.NoError(t, store.Add(sess))
 
 	k := NewProviderKeepalive(store, time.Hour, nil)

@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/sidecar"
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin"
 	"github.com/cuihairu/croupier/core/configsync"
 	transportcore "github.com/cuihairu/croupier/core/transport"
@@ -41,7 +42,7 @@ type App struct {
 	outTLS           *tlsutil.ClientTLSConfig
 	localTLS         *tls.Config
 	providerManager  *ProviderManager
-	providerSessions *agent.ProviderSessionStore
+	providerSessions *sidecar.ProviderSessionStore
 	telemetry        *telemetry.GameTelemetryService
 	configDir        string
 
@@ -178,7 +179,7 @@ func (a *App) StartLocalServer() error {
 
 	// Keep each SDK Provider's established TCP session so invocations can be
 	// forwarded over that session instead of dialing a provider-supplied address.
-	providerSessions := agent.NewProviderSessionStore()
+	providerSessions := sidecar.NewProviderSessionStore()
 	a.localHandler.SetProviderSessionStore(providerSessions)
 	a.providerSessions = providerSessions
 	tcpServer, err := agent.NewTCPLocalListener(&agent.TCPLocalListenerConfig{
@@ -202,14 +203,14 @@ func (a *App) StartLocalServer() error {
 		probe := agent.NewProviderKeepalive(providerSessions, probeInterval, slog.Default())
 		go probe.Run(context.Background())
 	}
-	tcpServer.SetOnConnect(func(session *agent.ProviderSession) {
+	tcpServer.SetOnConnect(func(session *sidecar.ProviderSession) {
 		addr := session.Conn().RemoteAddr()
 		// 平台固定键 + 会话携带的用户实例元数据（保留键已在帧解析时剥离，
 		// 见 agent.MergeUserProviderMetadata）。
 		a.store.Register(session.SessionID, session.ServiceID, addr, session.Version, session.Functions,
 			agent.MergeProviderInstanceMetadata(session, a.upstream.GameID(), a.upstream.Env()))
 	})
-	tcpServer.SetOnDisconnect(func(session *agent.ProviderSession) {
+	tcpServer.SetOnDisconnect(func(session *sidecar.ProviderSession) {
 		a.store.RemoveProvider(session.SessionID)
 	})
 	a.localServerMu.Lock()

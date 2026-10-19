@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

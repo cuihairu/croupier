@@ -22,6 +22,7 @@ import (
 
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/report"
+	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/common/labels"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/function/converter"
@@ -32,7 +33,6 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/registry/sdkversion"
 	"github.com/cuihairu/croupier/internal/tasks"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"

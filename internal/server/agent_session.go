@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 )
 
 // AgentSession represents an established session with a connected Agent.

@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/tasks"
-	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	gsqlite "github.com/glebarez/sqlite"

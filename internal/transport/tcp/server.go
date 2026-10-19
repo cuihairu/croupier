@@ -3,7 +3,6 @@ package tcp
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"log/slog"
 	"net"
@@ -12,7 +11,8 @@ import (
 	"sync"
 	"time"
 
-	transportcore "github.com/cuihairu/croupier/internal/transport"
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -216,63 +216,20 @@ func listen(config *Config) (net.Listener, error) {
 		return net.Listen("tcp", addr)
 	}
 
-	tlsConfig, err := createServerTLSConfig(config)
+	tlsConfig, err := tcptr.ServerTLSConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("create tls config: %w", err)
 	}
 	return tls.Listen("tcp", addr, tlsConfig)
 }
 
-func createServerTLSConfig(config *Config) (*tls.Config, error) {
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+// createServerTLSConfig preserves the package-local entry point for the
+// shared TLS listener configuration in core/transport/tcp.
+func createServerTLSConfig(config *Config) (*tls.Config, error) { return tcptr.ServerTLSConfig(config) }
 
-	if config.CertFile != "" && config.KeyFile != "" {
-		cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("load server certificate: %w", err)
-		}
-		tlsConfig.Certificates = []tls.Certificate{cert}
-	}
-
-	if config.CAFile != "" {
-		pemBytes, err := os.ReadFile(config.CAFile)
-		if err != nil {
-			return nil, fmt.Errorf("read CA file: %w", err)
-		}
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(pemBytes) {
-			return nil, fmt.Errorf("append CA certificate")
-		}
-		tlsConfig.ClientCAs = pool
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-	}
-
-	if config.InsecureSkipVerify {
-		tlsConfig.ClientAuth = tls.NoClientCert
-	}
-
-	return tlsConfig, nil
-}
-
-// BuildServerTLSConfig builds a server-side *tls.Config from plain file
-// settings with the exact semantics of Server's TLS listen path. Exported for
-// the Agent local gateway (tcp_local_listener) so both TLS surfaces share one
-// implementation: MinVersion 1.2, CAFile enables mTLS
-// (RequireAndVerifyClientCert), insecureSkipVerify downgrades to NoClientCert.
-//
-// Unlike Server's listen path, a certificate is REQUIRED here: callers gate on
-// an explicit "enabled" flag, and a cert-less TLS listener would accept TCP
-// connections only to fail every handshake.
+// BuildServerTLSConfig forwards to the shared TLS listener configuration.
 func BuildServerTLSConfig(certFile, keyFile, caFile string, insecureSkipVerify bool) (*tls.Config, error) {
-	if strings.TrimSpace(certFile) == "" || strings.TrimSpace(keyFile) == "" {
-		return nil, fmt.Errorf("tls enabled but certFile/keyFile missing: provide both to secure the listener")
-	}
-	return createServerTLSConfig(&Config{
-		CertFile:           certFile,
-		KeyFile:            keyFile,
-		CAFile:             caFile,
-		InsecureSkipVerify: insecureSkipVerify,
-	})
+	return tcptr.BuildServerTLSConfig(certFile, keyFile, caFile, insecureSkipVerify)
 }
 
 // defaultAddress returns the listen address used when Config.Address is

@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/cluster"
 	agentops "github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	gsqlite "github.com/glebarez/sqlite"

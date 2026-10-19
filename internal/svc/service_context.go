@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/config"
@@ -45,7 +46,6 @@ import (
 	"github.com/cuihairu/croupier/internal/service/permission"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"github.com/cuihairu/croupier/internal/telemetry"
-	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

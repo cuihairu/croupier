@@ -1,9 +1,11 @@
-package agent
+package sidecar
 
 import (
+	"net"
 	"testing"
 	"time"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/stretchr/testify/assert"
 )
@@ -372,4 +374,20 @@ func TestProviderSessionStore_PruneStale(t *testing.T) {
 		pruned := store.PruneStale(1 * time.Second)
 		assert.Equal(t, 0, pruned)
 	})
+}
+
+// The role owns the same established core session; binding must neither dial
+// a replacement connection nor initialize registration or heartbeat state.
+func TestNewProviderSessionBindsEstablishedConnection(t *testing.T) {
+	local, peer := net.Pipe()
+	defer peer.Close()
+	conn := tcptr.NewMuxConn(local, nil, nil)
+	defer conn.Close()
+
+	sess := NewProviderSession(conn)
+	assert.Same(t, conn, sess.Conn())
+	assert.Empty(t, sess.SessionID)
+	assert.Zero(t, sess.LastSeen.Load())
+	assert.NoError(t, sess.Close())
+	assert.True(t, conn.IsClosed())
 }

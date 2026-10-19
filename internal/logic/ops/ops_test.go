@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 )
 
 // TestInitAgentOpsClient tests the initialization of the global client

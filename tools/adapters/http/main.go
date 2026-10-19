@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/transport"
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/stretchr/testify/assert"
 )
 

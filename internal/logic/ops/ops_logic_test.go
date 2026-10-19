@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"

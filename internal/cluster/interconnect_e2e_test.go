@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/core/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -58,7 +59,7 @@ func TestInterconnect_E2EForwardDialAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal fixture response: %v", err)
 	}
-	srv, err := tcp.NewServer(srvCfg, &interconnectServeHandler{epoch: 7, rawResult: protoResp})
+	srv, err := internaltcp.NewServer(srvCfg, &interconnectServeHandler{epoch: 7, rawResult: protoResp})
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}
@@ -143,7 +144,7 @@ func TestInterconnect_E2EForwardKindRoundTrip(t *testing.T) {
 		t.Fatalf("marshal fixture response: %v", err)
 	}
 	var got *ForwardedInvoke
-	srv, err := tcp.NewServer(srvCfg, &startTaskServeHandler{
+	srv, err := internaltcp.NewServer(srvCfg, &startTaskServeHandler{
 		epoch: 7,
 		capture: func(req *ForwardedInvoke) {
 			got = req

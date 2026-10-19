@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/platform/agentlocal"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"

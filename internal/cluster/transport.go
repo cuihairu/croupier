@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 

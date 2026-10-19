@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"

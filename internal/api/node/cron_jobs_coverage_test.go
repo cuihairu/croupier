@@ -17,9 +17,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 )
 
 // NodeModel 未初始化：service 直接报「节点表未初始化」而非 panic。

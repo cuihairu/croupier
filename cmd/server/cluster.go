@@ -9,13 +9,14 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/platform/lbstats"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
@@ -30,7 +31,7 @@ import (
 // （时序分支禁相位对齐，用注入点驱动循环体），生产语义 30s。
 var reconcileTickerInterval = 30 * time.Second
 
-func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceContext) (*cluster.Lifecycle, *tcp.Server) {
+func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceContext) (*cluster.Lifecycle, *internaltcp.Server) {
 	cfg := c.Cluster
 	if !cfg.Enabled {
 		return nil, nil
@@ -211,7 +212,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		invoker = localInvoker{dispatcher: svcCtx.Dispatcher, audit: svcCtx.AuditService}
 	}
 	handler := newInterconnectHandler(lifecycle, invoker)
-	srv, err := tcp.NewServer(icCfg, handler)
+	srv, err := internaltcp.NewServer(icCfg, handler)
 	if err != nil {
 		slog.Error("cluster: interconnect listen failed (mesh dial-out still active)", "addr", icAddr, "error", err)
 		return lifecycle, nil

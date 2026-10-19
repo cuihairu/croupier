@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/core/healthprobe"
+	"github.com/cuihairu/croupier/core/transport/tcp"
 	agentcore "github.com/cuihairu/croupier/internal/app/agent"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
-	"github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

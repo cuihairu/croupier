@@ -16,11 +16,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 

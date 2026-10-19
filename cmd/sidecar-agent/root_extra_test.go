@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/core/transport/tcp"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"

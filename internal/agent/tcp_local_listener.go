@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/agents/sidecar"
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -326,18 +327,17 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 			"service_id", req.ServiceId, "session_id", sessionID, "warning", warning)
 	}
 
-	sess := &ProviderSession{
-		conn:        h.conn,
-		SessionID:   sessionID,
-		ServiceID:   req.ServiceId,
-		Version:     req.Version,
-		Functions:   convertProtoFunctions(req.Functions),
-		ConnectedAt: time.Now(),
-		SDKLanguage: req.SdkLanguage,
-		SDKVersion:  req.SdkVersion,
-		SDKName:     req.SdkName,
-		Metadata:    metadata,
-	}
+	sess := sidecar.NewProviderSession(h.conn)
+	sess.SessionID = sessionID
+	sess.ServiceID = req.ServiceId
+	sess.Version = req.Version
+	sess.Functions = convertProtoFunctions(req.Functions)
+	sess.ConnectedAt = time.Now()
+	sess.SDKLanguage = req.SdkLanguage
+	sess.SDKVersion = req.SdkVersion
+	sess.SDKName = req.SdkName
+	sess.Metadata = metadata
+
 	sess.UpdateLastSeen()
 
 	h.listener.sessionStore.Upsert(sess)

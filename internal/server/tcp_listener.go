@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"

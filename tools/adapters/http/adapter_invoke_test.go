@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -234,7 +235,7 @@ func TestInvokeGeneric(t *testing.T) {
 func fakeAgent(t *testing.T) (addr string, registered <-chan struct{}, stop func()) {
 	t.Helper()
 	registeredCh := make(chan struct{}, 1)
-	srv, err := tcptr.NewServer(&tcptr.Config{Address: "127.0.0.1:0", Insecure: true},
+	srv, err := internaltcp.NewServer(&tcptr.Config{Address: "127.0.0.1:0", Insecure: true},
 		transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 			if msgID == protocol.MsgProviderConnectRequest {
 				resp, _ := proto.Marshal(&sdkv1.ProviderConnectResponse{SessionId: "sess-test"})

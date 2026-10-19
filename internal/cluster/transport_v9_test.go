@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/core/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,7 +65,7 @@ func TestNewTCPDialer_DefaultTimeoutsHelloFailV9(t *testing.T) {
 }
 
 func TestNewTCPDialer_RoundTripAndCloseV9(t *testing.T) {
-	srv, err := tcp.NewServer(&tcp.Config{
+	srv, err := internaltcp.NewServer(&tcp.Config{
 		Address:     "127.0.0.1:0",
 		Insecure:    true,
 		RecvTimeout: 5 * time.Second,

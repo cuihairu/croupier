@@ -17,7 +17,7 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func newClusterSvcCtx(t *testing.T) *svc.ServiceContext {
 	return &svc.ServiceContext{DB: db, RegistryStore: reg.NewStoreWithDB(db)}
 }
 
-func stopCluster(t *testing.T, lc *cluster.Lifecycle, srv *tcp.Server) {
+func stopCluster(t *testing.T, lc *cluster.Lifecycle, srv *internaltcp.Server) {
 	t.Helper()
 	if lc != nil {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

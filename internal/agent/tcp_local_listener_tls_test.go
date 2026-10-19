@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/devcert"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/require"

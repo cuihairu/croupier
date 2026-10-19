@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cuihairu/croupier/core/transport"
 	agentops "github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
