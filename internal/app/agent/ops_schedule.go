@@ -8,21 +8,16 @@ package agent
 // 探测窗口不馈入调度（两路互不喂状态）。
 
 import (
+	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/tasks/scheduler"
+	processcore "github.com/cuihairu/croupier/core/process"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
-// processScheduleEntry is one compiled schedule action.
-type processScheduleEntry struct {
-	action string
-	cron   string
-	spec   *scheduler.CronSpec
-}
+type processScheduleEntry = processcore.ScheduleEntry
 
 // compileProcessSchedules parses schedule declarations once at construction.
 // Validate rejects bad entries at config load; compile skips defensively so a
@@ -33,14 +28,7 @@ func compileProcessSchedules(configs map[string]ManagedProcessConfig) map[string
 		if len(cfg.Schedule) == 0 {
 			continue
 		}
-		entries := make([]processScheduleEntry, 0, len(cfg.Schedule))
-		for _, sc := range cfg.Schedule {
-			spec, err := scheduler.ParseCron(sc.Cron)
-			if err != nil {
-				continue
-			}
-			entries = append(entries, processScheduleEntry{action: sc.Action, cron: sc.Cron, spec: spec})
-		}
+		entries := processcore.CompileSchedule(map[string][]processcore.ScheduleAction{name: cfg.Schedule})[name]
 		if len(entries) > 0 {
 			out[name] = entries
 		}
@@ -51,18 +39,7 @@ func compileProcessSchedules(configs map[string]ManagedProcessConfig) map[string
 // nextScheduleEntry returns the soonest upcoming fire across a process's
 // schedule entries (zero time when none matches within the cron horizon).
 func nextScheduleEntry(entries []processScheduleEntry, now time.Time) (time.Time, string) {
-	var best time.Time
-	action := ""
-	for _, e := range entries {
-		nx := e.spec.Next(now)
-		if nx.IsZero() {
-			continue
-		}
-		if best.IsZero() || nx.Before(best) {
-			best, action = nx, e.action
-		}
-	}
-	return best, action
+	return processcore.NextSchedule(entries, now)
 }
 
 // startScheduleLoop launches the minute-slot scanner when any schedule is
@@ -102,7 +79,7 @@ func (s *OpsServer) scheduleLoop(schedStop <-chan struct{}) {
 // (schedFired is loop-owned); tests drive it directly with the real loop
 // tick parked.
 func (s *OpsServer) scheduleTick(now time.Time) {
-	slot := strconv.FormatInt(scheduler.Slot(now).Unix(), 10)
+	slot := fmt.Sprint(processcore.Slot(now).Unix())
 	names := make([]string, 0, len(s.scheds))
 	for name := range s.scheds {
 		names = append(names, name)
@@ -115,10 +92,10 @@ func (s *OpsServer) scheduleTick(now time.Time) {
 			continue
 		}
 		for _, entry := range s.scheds[name] {
-			if !entry.spec.Matches(now) {
+			if !entry.Spec.Matches(now) {
 				continue
 			}
-			key := name + "\x00" + entry.action
+			key := name + "\x00" + entry.Action
 			if s.schedFired[key] == slot {
 				continue
 			}
@@ -139,7 +116,7 @@ func (s *OpsServer) fireScheduled(name string, entry processScheduleEntry) {
 	s.mu.RUnlock()
 
 	if !ok {
-		if entry.action == ScheduleActionStop {
+		if entry.Action == ScheduleActionStop {
 			// 幂等：实例不存在即无可停（未启动/已被停），无事件无副作用。
 			return
 		}
@@ -161,15 +138,15 @@ func (s *OpsServer) fireScheduled(name string, entry processScheduleEntry) {
 		s.mu.Unlock()
 	}
 
-	switch entry.action {
+	switch entry.Action {
 	case ScheduleActionStart:
-		if _, err := s.doStartProcess(p, supervisorEventScheduleAction, "scheduled start ("+entry.cron+")"); err != nil {
+		if _, err := s.doStartProcess(p, supervisorEventScheduleAction, "scheduled start ("+entry.Cron+")"); err != nil {
 			s.emitScheduleFireError(p, entry, err)
 		}
 	case ScheduleActionStop:
-		s.doStopProcess(p, supervisorEventScheduleAction, "scheduled stop ("+entry.cron+")")
+		s.doStopProcess(p, supervisorEventScheduleAction, "scheduled stop ("+entry.Cron+")")
 	case ScheduleActionRestart:
-		if err := s.doRestartProcess(p, supervisorEventScheduleAction, "scheduled restart ("+entry.cron+")"); err != nil {
+		if err := s.doRestartProcess(p, supervisorEventScheduleAction, "scheduled restart ("+entry.Cron+")"); err != nil {
 			s.emitScheduleFireError(p, entry, err)
 		}
 	}
@@ -179,6 +156,6 @@ func (s *OpsServer) fireScheduled(name string, entry processScheduleEntry) {
 // already-running rejections) — the event log is the full-truth audit trail.
 func (s *OpsServer) emitScheduleFireError(p *managedProcess, entry processScheduleEntry, err error) {
 	ev := newSupervisorEvent(p.name, supervisorEventScheduleAction)
-	ev.Message = "scheduled " + entry.action + " (" + entry.cron + ") failed: " + err.Error()
+	ev.Message = "scheduled " + entry.Action + " (" + entry.Cron + ") failed: " + err.Error()
 	s.emitSupervisorEvent(p, ev)
 }

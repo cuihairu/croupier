@@ -5,8 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"gopkg.in/yaml.v3"
+
+	processcore "github.com/cuihairu/croupier/core/process"
 )
 
 // OpsConfig defines configuration for the ops module.
@@ -196,14 +197,7 @@ type ManagedProcessConfig struct {
 }
 
 // ProcessScheduleAction is a single timed action on a managed process.
-type ProcessScheduleAction struct {
-	// Action is the lifecycle action to fire. Closed set: start/stop/restart.
-	Action string `json:"action" yaml:"action"`
-
-	// Cron is a five-field cron expression (minute hour day month weekday),
-	// parsed by the same parser as the server-side task scheduler.
-	Cron string `json:"cron" yaml:"cron"`
-}
+type ProcessScheduleAction = processcore.ScheduleAction
 
 // snapshotProfileClosure is the closed set of snapshot profiles (S3).
 var snapshotProfileClosure = map[string]bool{
@@ -282,7 +276,7 @@ func (c *ManagedProcessConfig) Validate() error {
 		if !scheduleActionClosure[sc.Action] {
 			return fmt.Errorf("schedule[%d]: unknown action %q (closed set: start/stop/restart)", i, sc.Action)
 		}
-		if _, err := scheduler.ParseCron(sc.Cron); err != nil {
+		if _, err := processcore.ParseCron(sc.Cron); err != nil {
 			return fmt.Errorf("schedule[%d]: %w", i, err)
 		}
 	}

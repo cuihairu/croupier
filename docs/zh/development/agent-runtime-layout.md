@@ -23,6 +23,7 @@ core/                         可组合的 Agent 公共运行时
   healthprobe/                探针、故障窗口与协议步骤
   report/ metrics/            上报适配与系统指标采样
   execlog/ crash/             执行审计与崩溃辅助
+  process/                    五字段 cron 与托管进程调度模型
 agents/
   controlconn/                devops/capture 共用控制消息适配
   devops/{config,runner,session}/
@@ -38,18 +39,18 @@ pkg/{pb,protocol}/           共享 wire message 与消息编号
 
 ## 公共能力与业务边界
 
-| 能力                           | 当前公共实现                                 | 当前消费/边界                                                                                                   | 后续收敛                                                         |
-| ------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| framing、TCP/TLS               | `core/transport/tcp`                         | internal 通过别名转发；standalone 通过 controlconn 消费                                                         | 同一实现，不复制 TLS/帧格式                                      |
-| 双向 session/多路复用/派发背压 | `core/transport/tcp.MuxConn`                 | sidecar 装配直接消费 core；Server 与 SDK Provider 仍可经 internal 兼容 shim 消费，devops/capture 仍串行请求响应 | 实现已上收；逐个迁移真实消费者并收敛兼容 shim，不做双份源码      |
-| 注册、心跳与重连               | `core/register`                              | 三类已消费；注册 payload 由各角色组装                                                                           | 生命周期 race 已入 CI；继续收敛真实断网恢复验收                  |
-| 上行消息适配                   | `agents/controlconn`、`core/report`          | controlconn 共用 Register/Heartbeat/capture 消息，非全部角色统一 session 客户端                                 | session 稳定后抽通用收发，业务消息 handler 留角色侧              |
-| 信号与被监管契约               | `core/supervisable`                          | devops/capture 使用；sidecar CLI 有自己的退出装配                                                               | 统一错误传播与清理，不把拥有 main 等同可被正确监管               |
-| 探测内核                       | `core/healthprobe`                           | sidecar/Server 装配较完整，capture 有 readiness；devops 探测消费未齐                                            | synthetics 复用内核，仅增加目标与外部插件装配                    |
-| configsync                     | `core/configsync`                            | 拉取/版本/last-good 为公共件，具体配置解析留业务侧                                                              | 不同 Agent 不各写一份拉取状态机                                  |
-| 指标/上报/审计/快照            | `core/metrics`、`report`、`execlog`、`crash` | 按需组合，公共包存在不等于所有角色都已接线                                                                      | 以真实消费与端到端证据标注状态                                   |
-| 受管程序 supervisor            | `internal/app/agent/ops_*`                   | 当前 sidecar 专用装配                                                                                           | 插件需要复用时先抽与游戏无关的生命周期部分；每进程只有一个管理者 |
-| go-plugin/OTel                 | 已有 OTel 内部实现；插件宿主待实现           | 默认集成与 no_go_plugin/no_otel 裁剪是已确定目标                                                                | 依赖隔离在宿主/遥测边界，避免灌入公共 Checker 或游戏 SDK         |
+| 能力                           | 当前公共实现                                 | 当前消费/边界                                                                                                   | 后续收敛                                                    |
+| ------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| framing、TCP/TLS               | `core/transport/tcp`                         | internal 通过别名转发；standalone 通过 controlconn 消费                                                         | 同一实现，不复制 TLS/帧格式                                 |
+| 双向 session/多路复用/派发背压 | `core/transport/tcp.MuxConn`                 | sidecar 装配直接消费 core；Server 与 SDK Provider 仍可经 internal 兼容 shim 消费，devops/capture 仍串行请求响应 | 实现已上收；逐个迁移真实消费者并收敛兼容 shim，不做双份源码 |
+| 注册、心跳与重连               | `core/register`                              | 三类已消费；注册 payload 由各角色组装                                                                           | 生命周期 race 已入 CI；继续收敛真实断网恢复验收             |
+| 上行消息适配                   | `agents/controlconn`、`core/report`          | controlconn 共用 Register/Heartbeat/capture 消息，非全部角色统一 session 客户端                                 | session 稳定后抽通用收发，业务消息 handler 留角色侧         |
+| 信号与被监管契约               | `core/supervisable`                          | devops/capture 使用；sidecar CLI 有自己的退出装配                                                               | 统一错误传播与清理，不把拥有 main 等同可被正确监管          |
+| 探测内核                       | `core/healthprobe`                           | sidecar/Server 装配较完整，capture 有 readiness；devops 探测消费未齐                                            | synthetics 复用内核，仅增加目标与外部插件装配               |
+| configsync                     | `core/configsync`                            | 拉取/版本/last-good 为公共件，具体配置解析留业务侧                                                              | 不同 Agent 不各写一份拉取状态机                             |
+| 指标/上报/审计/快照            | `core/metrics`、`report`、`execlog`、`crash` | 按需组合，公共包存在不等于所有角色都已接线                                                                      | 以真实消费与端到端证据标注状态                              |
+| 受管程序 supervisor            | `core/process`、`internal/app/agent/ops_*`   | cron/调度模型已公共化，sidecar 与 Server scheduler 复用同一实现；supervisor 装配仍留在 sidecar                  | 插件需要复用时继续抽生命周期管理；每进程只有一个管理者      |
+| go-plugin/OTel                 | 已有 OTel 内部实现；插件宿主待实现           | 默认集成与 no_go_plugin/no_otel 裁剪是已确定目标                                                                | 依赖隔离在宿主/遥测边界，避免灌入公共 Checker 或游戏 SDK    |
 
 SDK 函数注册与路由属于 sidecar；SSH/RDP/VNC 与白名单属于 devops；CDC 源、位点和三闸属于 capture；外部目标分类与探测任务属于 synthetics，不能为统一目录而把业务搬进 core。
 
