@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -388,9 +389,13 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 		return nil, fmt.Errorf("unmarshal RegisterRequest: %w", err)
 	}
 
-	if req.AgentId == "" {
-		return nil, fmt.Errorf("agent_id is required")
+	agentID := strings.TrimSpace(req.AgentId)
+	gameID := strings.TrimSpace(req.GameId)
+	env := strings.TrimSpace(req.Env)
+	if agentID == "" || gameID == "" || env == "" {
+		return nil, fmt.Errorf("agent_id, game_id and env are required")
 	}
+	req.AgentId, req.GameId, req.Env = agentID, gameID, env
 
 	// Compute session TTL
 	ttl := 5 * time.Minute

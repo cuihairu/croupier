@@ -644,12 +644,38 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "prod",
 		}
 		data, _ := proto.Marshal(req)
 
 		resp, err := handler.Handle(context.Background(), protocol.MsgRegisterRequest, 1, data)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
+	})
+
+	t.Run("register missing game scope is rejected", func(t *testing.T) {
+		config := &TCPListenerConfig{
+			Address:  ":0",
+			Insecure: true,
+		}
+
+		listener, err := NewTCPListener(config, nil, nil, nil)
+		require.NoError(t, err)
+		defer func() { _ = listener.Close() }()
+
+		handler := &agentSessionHandler{listener: listener}
+		data, err := proto.Marshal(&agentv1.RegisterRequest{
+			AgentId: " agent-1 ",
+			GameId:  " game-1 ",
+		})
+		require.NoError(t, err)
+
+		_, err = handler.handleRegister(context.Background(), data)
+
+		require.ErrorContains(t, err, "agent_id, game_id and env are required")
+		_, ok := listener.sessionStore.Get("agent-1")
+		assert.False(t, ok)
+		assert.False(t, handler.registered)
 	})
 
 	t.Run("cross-agent re-register is rejected", func(t *testing.T) {
@@ -788,7 +814,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 		assert.Contains(t, err.Error(), "unmarshal RegisterRequest")
 	})
 
-	t.Run("empty agent ID", func(t *testing.T) {
+	t.Run("missing game scope", func(t *testing.T) {
 		config := &TCPListenerConfig{
 			Address:  ":0",
 			Insecure: true,
@@ -804,13 +830,12 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 
 		req := &agentv1.RegisterRequest{
 			AgentId: "",
-			GameId:  "game-1",
 		}
 		data, _ := proto.Marshal(req)
 
 		_, err = handler.handleRegister(context.Background(), data)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "agent_id is required")
+		assert.Contains(t, err.Error(), "agent_id, game_id and env are required")
 	})
 
 	t.Run("with custom TTL", func(t *testing.T) {
