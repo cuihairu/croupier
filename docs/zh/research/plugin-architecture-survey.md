@@ -10,7 +10,7 @@ title: 插件架构调研——Grafana / VS Code / VitePress / WordPress（Provi
 - 日期: 2026-10-08
 - 范围: 四个成熟系统的插件机制，统一按六问口径核对官方文档——插件类型清单、发现/分发、契约、加载方式、沙箱/隔离、权限面、版本兼容
 - 结论: 契约强度与运行时隔离基本成正比；强契约插件平台的标配三角是「分发可信（签名/审核）、能力声明（显式权限/兼容清单）、版本协商（semver 约束字段）」。Croupier 既有扩展体系（`internal/core/extension` + `official.<domain>` 统一模式）已具备能力声明与配置契约的雏形，缺版本协商与分发可信层；运行时加载与沙箱按现有形态（编译期内置 + HTTP 外联）暂无必要引入
-- 关联: [商业游戏后台功能调研](./commercial-backend-survey.md)（同期批一产出）、[官方扩展统一模式](../architecture/official-extension-unified-pattern.md)、[扩展安装模型](../architecture/extension-installation-model.md)；Provider 插件设计文档在批二落 `docs/design/`
+- 关联: [商业游戏后台功能调研](/research/commercial-backend-survey)（同期批一产出）、[官方扩展统一模式](/archive/legacy-en/architecture/official-extension-unified-pattern)、[扩展安装模型](/archive/legacy-en/architecture/extension-installation-model)；Provider 插件设计文档在批二落 `docs/design/`
 
 ## 一、选例与口径
 

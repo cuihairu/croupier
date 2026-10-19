@@ -63,7 +63,7 @@ install -m 0755 croupier-server /usr/local/bin/croupier-server
 install -m 0755 croupier-agent /usr/local/bin/croupier-agent
 ```
 
-不要把示例配置直接当作生产配置；生产参数见[Server 配置](/zh/operations/config-server)与[Agent 配置](/zh/operations/agent-config)。
+不要把示例配置直接当作生产配置；生产参数见[Server 配置](/operations/config-server)与[Agent 配置](/operations/agent-config)。
 
 ## Docker 部署
 

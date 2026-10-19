@@ -13,7 +13,7 @@ tag:
 
 ## 迁移机制回顾（升级前必读）
 
-- Schema 变更走**版本化迁移**（goose 编号迁移，0001–0014+，随二进制嵌入）：启动时自动 catch-up，无需手工执行 SQL（详见[数据库迁移策略](../architecture/database-migration-strategy.md)）
+- Schema 变更走**版本化迁移**（goose 编号迁移，0001–0014+，随二进制嵌入）：启动时自动 catch-up，无需手工执行 SQL（详见[数据库迁移策略（本节仅有中文版）](/zh/architecture/database-migration-strategy)）
 - 迁移全程持**跨进程锁**（MySQL `GET_LOCK` / Postgres `pg_advisory_lock` / SQL Server `sp_getapplock`）——多实例同时滚动重启是安全的，迁移只会被一个进程执行
 - 每个二进制有 `MinimumRequiredVersion`：库上已应用版本**低于**要求时启动自动补齐；补齐后版本高于旧二进制要求时，**旧二进制会拒绝启动**（防旧代码写新库）
 

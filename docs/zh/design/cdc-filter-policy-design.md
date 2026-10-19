@@ -6,7 +6,7 @@ title: CDC 过滤策略体系——统一策略契约、分层执行与下发确
 
 ## 状态
 
-- 状态: **契约已落码，执行层首闸已接线（2026-10-11 阶段一+二交付）**。本文是用户令的整理稿：分层过滤模型、四类规则、统一策略契约、下发确认链、位点关系、失败语义与可观测性。契约面（统一策略头/库表授权匹配默认拒绝/依赖检查/结果四分类）已落地 `agents/capture/filter/`（纯逻辑零依赖，单测锁定）；EventFilter（操作白名单）已接入 runner 流水线进闸前（阶段二，缺省=全放行向后兼容）；位点-策略联动已拍板（§4）。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有三闸实现）、[CDC Connector 架构](cdc-connector-architecture.md)（多数据库接入）、[风控面板设计](risk-control-panel-design.md)（面板归属）互链。
+- 状态: **契约已落码，执行层首闸已接线（2026-10-11 阶段一+二交付）**。本文是用户令的整理稿：分层过滤模型、四类规则、统一策略契约、下发确认链、位点关系、失败语义与可观测性。契约面（统一策略头/库表授权匹配默认拒绝/依赖检查/结果四分类）已落地 `agents/capture/filter/`（纯逻辑零依赖，单测锁定）；EventFilter（操作白名单）已接入 runner 流水线进闸前（阶段二，缺省=全放行向后兼容）；位点-策略联动已拍板（§4）。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有三闸实现）、[CDC Connector 架构](/archive/legacy-en/design/cdc-connector-architecture)（多数据库接入）、[风控面板设计](/archive/legacy-en/design/risk-control-panel-design)（面板归属）互链。
 - **定调（用户令，2026-10-11）**：CDC Agent 不是过滤规则的最终管理中心——它是部署在数据源旁的采集与传输组件，负责尽早排除不需要的数据；规则的统一管理、版本控制和过滤语义由控制面负责。**统一的是策略定义与管理，不是强制所有事件回服务端过滤。**
 
 ## 0. 作用（先读这节）
@@ -102,7 +102,7 @@ detection:
 
 ## 3. 发布时校验（能力感知 + 依赖感知）
 
-- scope（gameId/env 必填且匹配）、表名/字段合法性、规则依赖（对账双表都在采集范围内）、权限、**数据源支持能力**（Connector 能力声明，见 [CDC Connector 架构](cdc-connector-architecture.md) §3——规则依赖的字段数据源给不出时发布即报不兼容，不让 Agent 静默漏报）。
+- scope（gameId/env 必填且匹配）、表名/字段合法性、规则依赖（对账双表都在采集范围内）、权限、**数据源支持能力**（Connector 能力声明，见 [CDC Connector 架构](/archive/legacy-en/design/cdc-connector-architecture) §3——规则依赖的字段数据源给不出时发布即报不兼容，不让 Agent 静默漏报）。
 - **已落码（2026-10-13 服务端化，capture-agent 简档 §8.13）**：发布路径 = 结构 lint + `config.ValidateGates` 语义真值 + 依赖感知（对账双表/CEP 突变表 ⊆ 采集范围，范围外发布即拒点名表名）+ 能力感知（对账/CEP 要求 `afterImage`）。能力集与采集范围经注册 labels 自报（`captureTables` / `captureConnectorCapabilities`，拍板：labels 通道零 proto；事实不可知跳过 lint 滞后容忍）。
 - include/exclude 冲突在发布时检测，不靠各 Agent 自行解释。
 - **默认拒绝新增采集范围**：未明确授权的库/表不自动加入。
@@ -151,7 +151,7 @@ detection:
 | `agents/capture/config/` | 本地连接配置与中心下发策略已分层：`capture.gates.*` 文件规则 = fallback（无中心/未发布时兜底，中心版本拉取生效即整体覆盖，启动日志显式标注）     |
 | `agents/capture/runner/` | 装配过滤流水线、原子切换、统计过滤结果、上报生效版本（新增 `agents/capture/filter/` 纯逻辑包：事件级匹配与过滤决策，不依赖 MySQL 驱动/面板 API） |
 | Server Agent 控制链      | 策略下发确认、版本同步、失败状态（appliedRevision 上行）                                                                                         |
-| 面板                     | 策略编辑、预览校验、发布、回滚、Agent 生效状态（归属见[风控面板设计](risk-control-panel-design.md)）                                             |
+| 面板                     | 策略编辑、预览校验、发布、回滚、Agent 生效状态（归属见[风控面板设计](/archive/legacy-en/design/risk-control-panel-design)）                      |
 | 告警与订阅               | 复用现有告警体系，单独管理输出范围与订阅权限（DeliveryPolicy）                                                                                   |
 
 **现状基线（2026-10-11 已交付）**：`capture.gates` 下行拉取链（wire 0x04011B/C + configsync 30s + gateSet 原子热换 + 服务端结构 lint 面板发布）= DetectionPolicy 下发链的 v1；面板 JSON 编辑卡 = 策略编辑器 v1。策略化改造在此基线上演进，不推翻。

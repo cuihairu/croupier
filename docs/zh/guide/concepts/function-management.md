@@ -178,6 +178,6 @@ stateDiagram-v2
 - [核心概念总览](./overview.md)
 - [函数注册与默认界面](./function-registration-ui.md)
 - [Dashboard Resource/Page 模型](../../architecture/dashboard-page-model.md)
-- [OpenAPI 函数注册](../integrations/openapi-registration.md)
+- [OpenAPI 函数注册](/archive/legacy-en/guide/integrations/openapi-registration)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
 - [SDK 文档](../../sdks/)

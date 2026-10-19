@@ -12,7 +12,7 @@ title: Agent 清单——四类 agent 定名/职责边界/公共模块/面板分
 - **角色口径重定（用户令，2026-10-11，覆盖 2026-10-09 旧口径）**：`sidecar-agent` = **外网侧、只做业务相关功能**（监控游戏进程、注册函数、汇报健康信息含主机与定时任务）；`devops-agent` = **内网堡垒机式远程接入代理**（可操作、更高权限、必须记录；旧「CI/CD 只观测」口径整节废弃）；`capture-agent` = **CDC**（防私改库）。
 - 本页是**唯一权威定名与职责边界清单**；每个 agent 的实现文档开头有同口径「作用」节；与 [agent-core 能力清单表](agent-core-design.md)（§2）互链。
 - 本页目录：§1 全景 → §2–§4 已有三类 Agent → §5 公共模块 → §6 synthetics 与其余路线图 → §7 scope 归属规则 → §8 四类后台分页（详设另页）。
-- **六件套索引（顺序令，2026-10-09：文档先行，过目前不动码）**：①《Agent 清单》=本页；②能力清单+目录树=[agent-core 简档](agent-core-design.md) §2/§4；③healthprobe+execlog 设计=[agent-core 简档](agent-core-design.md) §6；④dash 页面清单=[Agent 面板设计](agent-dashboard-design.md)；⑤scope 规则=本页 §7（页面侧联动=[Agent 面板设计](agent-dashboard-design.md) §5）；⑥herald 对接=[herald 对接简档](agent-herald-integration.md)。
+- **六件套索引（顺序令，2026-10-09：文档先行，过目前不动码）**：①《Agent 清单》=本页；②能力清单+目录树=[agent-core 简档](agent-core-design.md) §2/§4；③healthprobe+execlog 设计=[agent-core 简档](agent-core-design.md) §6；④dash 页面清单=[Agent 面板设计](agent-dashboard-design.md)；⑤scope 规则=本页 §7（页面侧联动=[Agent 面板设计](agent-dashboard-design.md) §5）；⑥herald 对接=[herald 对接简档](/archive/legacy-en/design/agent-herald-integration)。
 
 ## 1. 全景
 
@@ -89,7 +89,7 @@ title: Agent 清单——四类 agent 定名/职责边界/公共模块/面板分
 
 **按 system 角色建模（故障窗口，用户令 2026-10-09）**：探针不只看当下活死——每个受监控系统（target）记录故障窗口（开始/恢复/持续时长），历史可查，探活数据带 timeline；排查时直接回答「什么时间段服务不可用」。模型与留存见 agent-core §6.1，面板展示见 [Agent 面板设计](agent-dashboard-design.md) §2。
 
-**探测体系三层与统一装配（2026-10-14 评审定稿，权威出处 [健康评审](agent-health-recovery-review.md)）**：内核=本包（一份实现）；协议探测器=http/tcp/process/db+游戏协议骨架；执行位置按视角（每 agent 均可配 `probe.targets`，devops 为主使用方——用户 2026-10-14 拍板）。**实现层 ≠ 实例层**：共用 core 代码 ≠ 单点发起。上行不对称口径（正常聚合/异常明细）与采样策略（server 下发、默认 30s）见同简档 §13。当前现状：capture 已探库连通（TCP 层），devops 零探针待 M1。
+**探测体系三层与统一装配（2026-10-14 评审定稿，权威出处 [健康评审](/archive/legacy-en/design/agent-health-recovery-review)）**：内核=本包（一份实现）；协议探测器=http/tcp/process/db+游戏协议骨架；执行位置按视角（每 agent 均可配 `probe.targets`，devops 为主使用方——用户 2026-10-14 拍板）。**实现层 ≠ 实例层**：共用 core 代码 ≠ 单点发起。上行不对称口径（正常聚合/异常明细）与采样策略（server 下发、默认 30s）见同简档 §13。当前现状：capture 已探库连通（TCP 层），devops 零探针待 M1。
 
 ### 5.2 execlog（统一执行审计）
 
@@ -97,7 +97,7 @@ title: Agent 清单——四类 agent 定名/职责边界/公共模块/面板分
 
 ### 5.3 herald（告警投递出口）
 
-capture 告警 / healthprobe 故障窗口 / devops 异常（白名单主机不可达、审计拒绝等）经 **herald**（通知编排与投递平台）投递——croupier 当接入方（courier 式接法），**渠道/收件人由 herald 侧配置**，croupier 只报事件不配收件人；告警页仍是真值，herald 不可达不阻塞告警链。接法见 [herald 对接简档](agent-herald-integration.md)。**M2 已落地（2026-10-10）**：`internal/platform/outlet` 出口适配器 + `herald:` 配置段（缺省关），首事件源 supervisor 熔断，实现与简档差异见简档 §8。
+capture 告警 / healthprobe 故障窗口 / devops 异常（白名单主机不可达、审计拒绝等）经 **herald**（通知编排与投递平台）投递——croupier 当接入方（courier 式接法），**渠道/收件人由 herald 侧配置**，croupier 只报事件不配收件人；告警页仍是真值，herald 不可达不阻塞告警链。接法见 [herald 对接简档](/archive/legacy-en/design/agent-herald-integration)。**M2 已落地（2026-10-10）**：`internal/platform/outlet` 出口适配器 + `herald:` 配置段（缺省关），首事件源 supervisor 熔断，实现与简档差异见简档 §8。
 
 ## 6. 外部探测 Agent 与其余路线图
 
@@ -115,7 +115,7 @@ capture 告警 / healthprobe 故障窗口 / devops 异常（白名单主机不�
 | 权限边界   | 只探测并上报，不获得游戏进程管理或堡垒机权限；插件崩溃与目标不可用分别记录                                                                                               |
 | 当前状态   | 尚无独立入口与外部插件调用运行时；现有 kind=probe-adapter 元数据和内置协议探测不视为该能力已完成                                                                         |
 
-2026-10-17 最新需求覆盖此前“不新增 agent 类型”的部署限制；既有 Agent 仍可复用公共探测能力，独立外部探测载体单列为第四类，代码复用不等于部署实例合并；用户进一步澄清无 gRPC 约束针对游戏 SDK 依赖负担，本地 go-plugin gRPC 允许用于独立探测宿主及插件，游戏 SDK 依赖闭包必须保持轻量，更新后的 [传输决策](../architecture/transport-no-grpc.md) 与 [选型调研](../research/synthetics-agent-go-plugin.md) 为当前口径。
+2026-10-17 最新需求覆盖此前“不新增 agent 类型”的部署限制；既有 Agent 仍可复用公共探测能力，独立外部探测载体单列为第四类，代码复用不等于部署实例合并；用户进一步澄清无 gRPC 约束针对游戏 SDK 依赖负担，本地 go-plugin gRPC 允许用于独立探测宿主及插件，游戏 SDK 依赖闭包必须保持轻量，更新后的 [传输决策](/archive/legacy-en/architecture/transport-no-grpc) 与 [选型调研](../research/synthetics-agent-go-plugin.md) 为当前口径。
 
 ### 6.2 connector-agent（仍为路线图占位）
 
@@ -145,7 +145,7 @@ capture 告警 / healthprobe 故障窗口 / devops 异常（白名单主机不�
 
 - sidecar-agent 主体已存在（`internal/agent` + `internal/app/agent`，**源码目录 `cmd/sidecar-agent` 即 sidecar-agent**）；2026-10-11 用户拍板改名方案 A 落地——仅源码目录改名，产物名 `croupier-agent` 保持，部署面（镜像 ENTRYPOINT/systemd/安装脚本/nightly 资产）零影响。
 - devops-agent **骨架已实施（2026-10-11 拍板批简档）**：`cmd/devops-agent` + `agents/devops/`（config/session/runner）——注册/心跳/execlog audit-first + 会话建立链（白名单前置→审计落库→Open，顺序不可倒）+ 会话存档元数据 JSONL。**剩余边界**：协议通道（guacd/SSH 终端，noop Provider 占位）、面板→agent 下行会话接线、白名单 configsync 下发、会话录像存档格式/保留期/回放粒度——均另批报批。
-- capture-agent 闸层 C2 已交付（reconcile/cep/lineage 三闸 + 告警上报链 + 规则下行拉取 + 面板编辑面，2026-10-11，下行链闭环；见 [capture-agent 简档](capture-agent-design.md) §8）。后续平台化演进（分层过滤策略/多数据库 Connector/风控一级分类）已立项待实施，见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- capture-agent 闸层 C2 已交付（reconcile/cep/lineage 三闸 + 告警上报链 + 规则下行拉取 + 面板编辑面，2026-10-11，下行链闭环；见 [capture-agent 简档](capture-agent-design.md) §8）。后续平台化演进（分层过滤策略/多数据库 Connector/风控一级分类）已立项待实施，见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](/archive/legacy-en/design/cdc-connector-architecture)、[风控面板设计](/archive/legacy-en/design/risk-control-panel-design)。
 - 旧 outlet kind 闭集含 `devops.build_failed`（按旧口径实施）：devops 事件语义随简档定稿改判（改名或复用），简档批准前代码不动（零代码单）。
 - execlog server 侧保存期默认值与导出格式随实施报批；agent 本地文件保留期有限（轮转），真值以 server 审计存储为准。
 - 无标签注册「不进面板」的展示口径（彻底不可见 vs 列表置灰）随面板实施报批，默认彻底不可见。

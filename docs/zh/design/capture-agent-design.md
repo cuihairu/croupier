@@ -6,7 +6,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
 
 ## 状态
 
-- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）+ 乐观锁（§8.10，策略资产化 v1）+ 业务规则迁出 YAML（§8.11，fallback 口径显式化）+ dry-run 校验端点（§8.12，发布预检，校验真值与 agent apply 单一化）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](cdc-connector-architecture.md)、[风控面板设计](risk-control-panel-design.md)。
+- 状态: **C2 已交付（2026-10-11）**。C1 骨架（2026-10-10：注册上线/心跳/事件流/位点）+ 闸层三闸 reconcile/cep/lineage（§8.1–8.3）+ 告警上报链（§8.4）+ 闸规则下行拉取（§8.5）+ 面板编辑面（§8.6，下行链闭环）+ 事件粗过滤接线（§8.7，CDC 平台化批阶段二起步）+ appliedRevision 上报链（§8.8，阶段三首项）+ 回滚 API（§8.9）+ 乐观锁（§8.10，策略资产化 v1）+ 业务规则迁出 YAML（§8.11，fallback 口径显式化）+ dry-run 校验端点（§8.12，发布预检，校验真值与 agent apply 单一化）落地（`agents/capture/{source,gate,config,runner}` + `cmd/capture-agent`，`capture.enabled` 缺省关）。后续演进（过滤策略体系/多数据库 Connector/风控面板）见 [CDC 过滤策略体系](cdc-filter-policy-design.md)、[CDC Connector 架构](/archive/legacy-en/design/cdc-connector-architecture)、[风控面板设计](/archive/legacy-en/design/risk-control-panel-design)。
 - 定名（用户拍板，2026-10-09）：本 agent 定名 **`capture-agent`**（capture = Change Data Capture 的 C）；旧候选 cdc-agent 弃用。三 agent 定稿 sidecar-agent / devops-agent / capture-agent，全景见 [Agent 清单](agents-inventory.md)。
 - 立项口径（用户令，2026-10-09）：
   1. CDC（Change Data Capture，变更数据捕获）读游戏业务库变更日志，**可开关**；
@@ -14,7 +14,7 @@ title: capture-agent 设计简档——游戏库变更捕获与道具反作弊�
   3. capture-agent 归入**现有 agent 注册链**，进程纳入 supervisor（进程监管）；
   4. **源层可插拔 Provider**：MySQL（binlog）+ PostgreSQL（逻辑复制）默认提供，SQLite/SQL Server/MongoDB 留扩展位；三道闸规则层与源解耦，所有源吐**统一变更事件流**；
   5. **极简**：规则白名单/阈值全部走面板配置不写死；规则 DSL 择最简。
-- 关联: [Agent 清单](agents-inventory.md)（三 agent 定名/职责边界/面板分页/scope 归属）· [agent-core 通用能力层简档](agent-core-design.md)（capture-agent = core + 业务插件的载体）· [Agent Supervisor 简档](agent-supervisor-design.md)（core 即被监管对象，协议一份）· [数据库监控设计](../research/db-monitoring-design.md)（同库部署的姊妹件：那个管指标健康，本件管数据变更合规）· [Provider 插件设计](provider-plugin-design.md)（可插拔原则同源）· [通用 CDC 核心库与回放设计](cdc-library-design.md)（通用采集/过滤/回放与 Croupier 业务适配边界）
+- 关联: [Agent 清单](agents-inventory.md)（三 agent 定名/职责边界/面板分页/scope 归属）· [agent-core 通用能力层简档](agent-core-design.md)（capture-agent = core + 业务插件的载体）· [Agent Supervisor 简档](agent-supervisor-design.md)（core 即被监管对象，协议一份）· [数据库监控设计](/research/db-monitoring-design)（同库部署的姊妹件：那个管指标健康，本件管数据变更合规）· [Provider 插件设计](/archive/legacy-en/design/provider-plugin-design)（可插拔原则同源）· [通用 CDC 核心库与回放设计](cdc-library-design.md)（通用采集/过滤/回放与 Croupier 业务适配边界）
 
 ## 0. 作用（Agent 清单口径，先读这节）
 
@@ -149,7 +149,7 @@ context: 账号、GTID、时间窗内相邻事件摘要、规则参数快照
 - capture-agent 经现有 agent→server 上行通道新增**告警事件上报**（消息类型新增，wire 协议同族扩展），server 落现有告警存储/告警页，复用静默、认领、升级链路——**不另立告警面**。
 - 告警页可见：来源 agent、规则命中详情（§4.4）、事件摘要与跳转参数。
 - 面板 **capture-agent 页**（见 [Agent 清单](agents-inventory.md) §面板）：实例列表 + 实时变更事件流与命中告警，全部按 `game_id`+`env` scope 过滤；日志入口复用 supervisor 日志下载链。
-- **投递出口 herald**：规则命中告警在落告警页（真值）后，可经 [herald 对接](agent-herald-integration.md) 投递到 IM/短信等渠道（croupier 只报事件，渠道/收件人 herald 侧配置；herald 不可达不影响告警落库）。
+- **投递出口 herald**：规则命中告警在落告警页（真值）后，可经 [herald 对接](/archive/legacy-en/design/agent-herald-integration) 投递到 IM/短信等渠道（croupier 只报事件，渠道/收件人 herald 侧配置；herald 不可达不影响告警落库）。
 
 ## 8. 分期
 
@@ -366,7 +366,7 @@ Ops/Nodes 新增「捕获」列（注册 labels `captureLineage=degraded` →
 3. **降级徽标零新 API**：血缘降级态走注册 labels 链路（OpsAgentInfo
    已暴露），面板列只做展示映射。
 4. **编辑器 v1 是 JSON textarea**：结构化表单（模板 + 参数 + 测试）
-   归 [风控面板设计](risk-control-panel-design.md) 阶段四；本文只交付
+   归 [风控面板设计](/archive/legacy-en/design/risk-control-panel-design) 阶段四；本文只交付
    下行链闭环所需的最小编辑面。
 5. **appliedRevision 未上报**：面板无「待生效」态可见性，随 [CDC
    过滤策略体系](cdc-filter-policy-design.md) 阶段三补上行通道。
