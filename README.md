@@ -98,7 +98,7 @@ Croupier is not a fork. It is a control-plane business layer, and everything und
 - Observability: [OpenTelemetry](https://opentelemetry.io) Go SDK with OTLP HTTP exporter
 - Console: built on [Umi Max](https://umijs.org) and [Ant Design](https://ant.design) / ProComponents; JSON Schema forms are driven by [RJSF](https://rjsf.github.io/react-jsonschema-form/), and the editor is [Monaco](https://microsoft.github.io/monaco-editor/)
 - Protocol and tooling: [protobuf](https://protobuf.dev) (fully local protoc generation) + [buf](https://buf.build) lint
-- The six SDKs (go / js / python / java / csharp / cpp) are built on each language's standard library; the wire contract is in [sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
+- The six SDKs (go / js / python / java / csharp / cpp) are built on each language's standard library; the wire contract is in [sdk-wire-protocol.md](docs/zh/architecture/sdk-wire-protocol.md)
 
 ## Session Model
 
@@ -136,7 +136,7 @@ Croupier does not adopt a SaaS multi-tenant abstraction. The standard business s
 - Game and environment scope: [docs/architecture/game-environment-scope.md](docs/architecture/game-environment-scope.md)
 - SDK-Agent design: [docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
 - Agent-Server design: [docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
-- Wire protocol: [docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
+- Wire protocol: [docs/architecture/sdk-wire-protocol.md](docs/zh/architecture/sdk-wire-protocol.md)
 - Unified SDK documentation: [docs/sdks/index.md](docs/sdks/index.md)
 - SDK capability matrix: [docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
 - SDK code entry point: [sdks/README.md](sdks/README.md)

@@ -49,11 +49,11 @@ opts := &function.ImportOptions{
 | `x-risk`       | risk                | `safe/warning/high/danger`（`parseRiskLevel` 归一） |
 
 未标注扩展时按默认值归一（GET→查询、其余→操作；
-详见 [Descriptor v2 规范](../../../architecture/openapi-sdk-descriptor-v2.md)）。
+详见 [Descriptor v2 规范](../../../zh/architecture/openapi-sdk-descriptor-v2.md)）。
 
 ## 参考实现
 
 - 源码：`sdks/go/function/openapi.go`（`Registry.RegisterFromOpenAPI` /
   `RegisterFromOpenAPIWithHandlers`）、`builder.go`（`ImportOptions`）
 - 测试：`sdks/go/function/openapi_test.go`
-- 其余五语言等价 helper 见 [SDK 对齐矩阵](/sdks/sdk-parity-matrix)
+- 其余五语言等价 helper 见 [SDK 对齐矩阵](/zh/sdks/sdk-parity-matrix)

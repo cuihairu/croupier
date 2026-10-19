@@ -54,4 +54,4 @@ This prevents a single function descriptor from becoming an implicit page, menu,
 - [Architecture overview](/architecture/)
 - [Data flow](/architecture/data-flow)
 - [Session lifecycle](/architecture/session-lifecycle)
-- [SDK Wire protocol](/architecture/sdk-wire-protocol)
+- [SDK Wire protocol](/zh/architecture/sdk-wire-protocol)

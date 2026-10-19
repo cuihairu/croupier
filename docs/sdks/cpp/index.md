@@ -133,5 +133,5 @@ provider.serve();
 ## 相关文档
 
 - [SDK 文档](../../sdks/)
-- [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
+- [SDK Wire Protocol](../../zh/architecture/sdk-wire-protocol.md)
 - [SDK-Agent 传输重构设计](../../architecture/sdk-agent-transport-redesign.md)

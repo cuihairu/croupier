@@ -46,4 +46,4 @@ Function registration -> Function contract -> Resource semantics -> Page proposa
 - Start with [Layers](/architecture/layers) for the component and boundary model.
 - Review [Terms and layering](/architecture/terms-and-layering) for shared vocabulary.
 - Follow [Data flow](/architecture/data-flow) for registration, dispatch, and page execution.
-- Read [Session lifecycle](/architecture/session-lifecycle) and [SDK Wire protocol](/architecture/sdk-wire-protocol) for transport behavior.
+- Read [Session lifecycle](/architecture/session-lifecycle) and [SDK Wire protocol](/zh/architecture/sdk-wire-protocol) for transport behavior.

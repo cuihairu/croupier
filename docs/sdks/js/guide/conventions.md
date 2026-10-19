@@ -92,4 +92,4 @@ const registered = registerFromOpenAPI(
 - `x-approval: { required, policyKey }` 映射 `approvalRequired` / `approvalPolicyKey`。
 - `risk` 词表为 `safe|warning|high|danger`（`low`/`medium` 等旧别名会被归一）；`capability`、`execution` 为受控枚举，非法值抛错，可用 `continueOnError` 跳过。
 
-完整契约见 [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md)。
+完整契约见 [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md)。
