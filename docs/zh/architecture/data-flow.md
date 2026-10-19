@@ -197,7 +197,7 @@ sequenceDiagram
 
 ## 6. 受管程序与探测数据流（2026-10-14 三份外部评审反哺，随 R2-R4 上线）
 
-探测/受管程序的结论已并入评审定稿 [Agent 健康监控与恢复评审](../design/agent-health-recovery-review.md)（权威出处），本节只登记数据流层面的口径。
+探测/受管程序的结论已并入评审定稿 [Agent 健康监控与恢复评审](/archive/legacy-en/design/agent-health-recovery-review)（权威出处），本节只登记数据流层面的口径。
 
 ### 6.1 探测体系三层与执行位置
 
@@ -217,7 +217,7 @@ sequenceDiagram
 
 - 正常态：聚合/采样走既有 MetricsReport 批量面（probe 采样器折叠先例 `upstream.go:622,645`）。
 - 异常态：失败明细与窗口事件即时走 SendAlertEvent 事件面（`probe.window`/`probe.detail` 两 kind）；降频策略不影响失败路径。
-- 采样频率（基础/时段/特殊时间点）是 server 下发策略（ConfigVersion + configsync 热更），agent 不本地写死；默认 30s 显式。运维口径见 [监控指南](../operations/monitoring.md)。
+- 采样频率（基础/时段/特殊时间点）是 server 下发策略（ConfigVersion + configsync 热更），agent 不本地写死；默认 30s 显式。运维口径见 [监控指南](/operations/monitoring)。
 
 ## 7. 核心原则
 

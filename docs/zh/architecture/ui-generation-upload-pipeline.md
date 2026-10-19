@@ -13,7 +13,7 @@ tag:
 # 上传即成页：契约与绑定正交化设计
 
 > **状态**：Current -- D1–D7 已全部落地（todo.md T1–T10、T12、T13；T11 收尾中），本文为正交化模型的权威设计依据。
-> 前置阅读：[ProComponents 页面生成与运行时](./ui-generation.md)、[Dashboard Resource/Page 模型](./dashboard-page-model.md)、[OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md)。
+> 前置阅读：[ProComponents 页面生成与运行时](/archive/legacy-en/architecture/ui-generation)、[Dashboard Resource/Page 模型](./dashboard-page-model.md)、[OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md)。
 
 ## 1. 问题陈述：为什么现在"传了文档却生成不了页面"
 
@@ -140,7 +140,7 @@ function_contracts 新增列：execution_state VARCHAR(16) NOT NULL DEFAULT 'bou
 
 ## 5. 与非目标
 
-- 不改 PageSpec 协议、不改渲染器映射表（见 [ui-generation.md](./ui-generation.md)）。
+- 不改 PageSpec 协议、不改渲染器映射表（见 [ui-generation.md](/archive/legacy-en/architecture/ui-generation)）。
 - 不引入第二套表单/页面运行时。
 - 不为 unbound 函数提供"模拟执行"（mock 数据仅在编辑器数据试跑面板内可用，发布页禁止）。
 - httpConnector 直连执行仍按现状禁用（需 allowlist + SecretRef 策略，另行设计）。

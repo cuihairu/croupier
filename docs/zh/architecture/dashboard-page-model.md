@@ -13,7 +13,7 @@ tag:
 
 # Dashboard Resource/Page 模型
 
-> **状态**：In progress -- 本文是 Dashboard 页面模型的权威定义。实现、文档和 SDK 以本文的正向模型为准；旧模型按 [旧模型删除清单](./legacy-deletion-inventory.md) 清理，并由 `scripts/dashboard_vnext_guard.sh` 防回流；真实浏览器回归仍以根目录 `todo.md` 的未完成项目为准。
+> **状态**：In progress -- 本文是 Dashboard 页面模型的权威定义。实现、文档和 SDK 以本文的正向模型为准；旧模型按 [旧模型删除清单](/archive/legacy-en/architecture/legacy-deletion-inventory) 清理，并由 `scripts/dashboard_vnext_guard.sh` 防回流；真实浏览器回归仍以根目录 `todo.md` 的未完成项目为准。
 
 ## 决策
 

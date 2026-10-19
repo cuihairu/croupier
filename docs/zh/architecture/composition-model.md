@@ -16,7 +16,7 @@ tag:
 > 表达力边界与扩展方法论。规则细节以 pagespec-protocol.md（wire）、
 > dashboard-page-model.md（模型）、presentation-hints.md（hints）为准，本文不重复。
 > 新手入门（为什么有这套设计、全流程怎么走）见
-> [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md)。
+> [界面是怎么生成的：核心思路与全链路](/archive/legacy-en/architecture/descriptor-driven-ui)。
 
 ## 定位：为什么这是产品的关键设计
 
@@ -115,6 +115,6 @@ React 的表达力是**任意代码**；PageSpec 的表达力是**白名单原�
 
 - wire 契约细节：[pagespec-protocol.md](./pagespec-protocol.md)
 - 领域模型（契约/语义/提案/发布）：[dashboard-page-model.md](./dashboard-page-model.md)
-- 呈现 hints（x-ui-\*）：[presentation-hints.md](./presentation-hints.md)
-- 生成与运行时：[ui-generation.md](./ui-generation.md)
+- 呈现 hints（x-ui-\*）：[presentation-hints.md](/archive/legacy-en/architecture/presentation-hints)
+- 生成与运行时：[ui-generation.md](/archive/legacy-en/architecture/ui-generation)
 - 编辑器使用：[组合页编辑器 V3](../dashboard/composite-editor-v3.md)
