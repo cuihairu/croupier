@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/sidecar/funcplugin"
 	"github.com/cuihairu/croupier/core/configsync"
 	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/agent"
@@ -63,6 +64,9 @@ type App struct {
 
 	// probeManager 声明式探针装配（R2）。为 nil = 未配置探测（默认）。
 	probeManager *ProbeManager
+
+	// funcHost 函数适配插件宿主（todo.md:35）。为 nil = 未配置（默认）。
+	funcHost *funcplugin.Host
 
 	// serveLocal 是本地 listener Serve 的注入点：生产为 nil（走真实
 	// tcpServer.Serve），测试注入返回非 Canceled 错误的实现以驱动
@@ -468,6 +472,14 @@ func (a *App) startExtensionSync(ctx context.Context) {
 func (a *App) Stop() {
 	if a == nil {
 		return
+	}
+	// Stop function adapter plugin hosting first (todo.md:35): drain
+	// in-flight plugin calls within the bounded window, then kill the
+	// resident subprocesses — no plugin child outlives the agent. The
+	// wired host is cleared so post-stop access sees "not wired".
+	if a.funcHost != nil {
+		a.funcHost.Stop()
+		a.funcHost = nil
 	}
 	// Stop local TCP server（localServer 经锁快照读取，与 StartLocalServer
 	// 的发布同步；启动未完成即收到停止信号时此处看到 nil，与原 nil 检查

@@ -39,6 +39,15 @@ type ProviderManager interface {
 	Call(ctx context.Context, functionID string, request []byte) ([]byte, error)
 }
 
+// PluginFunctionManager dispatches plugin-adapted functions (todo.md:35):
+// functions declared by external function adapter plugins. Declared like
+// ProviderManager so the handler stays transport- and plugin-runtime
+// agnostic; the App wires the real host, tests inject fakes.
+type PluginFunctionManager interface {
+	IsPluginFunction(functionID string) bool
+	CallPluginFunction(ctx context.Context, functionID string, paramsJSON []byte) ([]byte, error)
+}
+
 // OpsServerWrapper wraps the OpsServer functionality
 type OpsServerWrapper interface {
 	GetSystemInfo(ctx context.Context, req *emptypb.Empty) (*opsv1.SystemInfo, error)
@@ -67,6 +76,7 @@ type LocalHandler struct {
 	store            *agentlocal.LocalStore
 	tasks            *TaskRunner
 	pm               ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
+	pluginFuncs      PluginFunctionManager
 	opsServer        OpsServerWrapper
 	reporter         TaskEventReporter
 	providerSessions *ProviderSessionStore
@@ -156,6 +166,14 @@ func (h *LocalHandler) SetProviderManager(pm ProviderManager) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.pm = pm
+}
+
+// SetPluginFunctionManager wires the function adapter plugin dispatch
+// (todo.md:35); nil disables plugin dispatch (default, no plugins).
+func (h *LocalHandler) SetPluginFunctionManager(m PluginFunctionManager) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pluginFuncs = m
 }
 
 // SetOpsServer sets the ops server wrapper
@@ -280,6 +298,24 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 		resp, err := h.invokePlatform(ctx, functionID, req)
 		recordSpanResult(span, err)
 		return resp, err
+	}
+
+	// Function adapter plugin dispatch (todo.md:35): functions declared
+	// by external plugins are served locally by the plugin host, never
+	// forwarded to game instances — the plugin IS the mapping to the
+	// game interface. Params ride the protocol-v1 JSON payload.
+	h.mu.RLock()
+	pfm := h.pluginFuncs
+	h.mu.RUnlock()
+	if pfm != nil && pfm.IsPluginFunction(functionID) {
+		respPayload, err := pfm.CallPluginFunction(ctx, functionID, req.GetPayload())
+		if err != nil {
+			recordSpanResult(span, err)
+			return nil, err
+		}
+		out, err := proto.Marshal(&sdkv1.InvokeResponse{Payload: respPayload})
+		recordSpanResult(span, err)
+		return out, err
 	}
 
 	// Regular function forwarding - need to dial game server

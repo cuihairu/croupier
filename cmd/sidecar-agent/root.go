@@ -80,17 +80,18 @@ func init() {
 
 // AgentConfig represents the agent-specific configuration
 type AgentConfig struct {
-	Name        string              `json:"name" yaml:"name"`
-	Host        string              `json:"host" yaml:"host"`
-	Port        int                 `json:"port" yaml:"port"`
-	Server      AgentServerConfig   `json:"server" yaml:"server"`
-	Agent       AgentInfoConfig     `json:"agent" yaml:"agent"`
-	Upstream    AgentUpstreamConfig `json:"upstream" yaml:"upstream"`
-	Logging     common.LogConfig    `json:"log" yaml:"log"`
-	TLS         AgentTLSConfig      `json:"tls" yaml:"tls"`
-	OutboundTLS AgentTLSConfig      `json:"outboundTLS" yaml:"outboundTLS"`
-	Ops         *OpsConfig          `json:"ops,omitempty" yaml:"ops,omitempty"`
-	Probe       *ProbeConfig        `json:"probe,omitempty" yaml:"probe,omitempty"`
+	Name        string                           `json:"name" yaml:"name"`
+	Host        string                           `json:"host" yaml:"host"`
+	Port        int                              `json:"port" yaml:"port"`
+	Server      AgentServerConfig                `json:"server" yaml:"server"`
+	Agent       AgentInfoConfig                  `json:"agent" yaml:"agent"`
+	Upstream    AgentUpstreamConfig              `json:"upstream" yaml:"upstream"`
+	Logging     common.LogConfig                 `json:"log" yaml:"log"`
+	TLS         AgentTLSConfig                   `json:"tls" yaml:"tls"`
+	OutboundTLS AgentTLSConfig                   `json:"outboundTLS" yaml:"outboundTLS"`
+	Ops         *OpsConfig                       `json:"ops,omitempty" yaml:"ops,omitempty"`
+	Probe       *ProbeConfig                     `json:"probe,omitempty" yaml:"probe,omitempty"`
+	Functions   *agentcore.FunctionPluginsConfig `json:"functions,omitempty" yaml:"functions,omitempty"`
 	// Telemetry 是 OTel 遥测面（todo.md:31，与 server 同一结构同一语义）：
 	// enabled 总开关 + enable_tracing/enable_metrics 子开关 + collector_url；
 	// OTEL_* 环境变量经 telemetry.MergeEnv 同口径覆盖。缺省（未配置）=关闭，
@@ -471,6 +472,11 @@ func runAgent() error {
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
+	if c.Functions != nil {
+		if err := c.Functions.Validate(); err != nil {
+			return fmt.Errorf("invalid functions config: %w", err)
+		}
+	}
 	// Agent 会话绑定单一 (gameId, env)（作用域规范 §14）——scope 必填，
 	// 缺失直接启动失败（无空值兼容：provider 校验依赖 agent scope 非空）。
 	if err := agentcore.ValidateAgentScope(c.Agent.GameID, c.Agent.Env); err != nil {
@@ -681,6 +687,15 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 			return nil, "", nil, fmt.Errorf("agent probe config: %w", err)
 		}
 		slog.Info("probe face enabled", "static_targets", len(c.Probe.Targets))
+	}
+
+	// 函数适配插件（`functions:` 段，todo.md:35）：显式声明的插件进程由
+	// 宿主拉起并注册其函数；scope 校验在装配层 fail-closed（函数继承
+	// agent 的 game/env，插件不自带 scope）。
+	if c.Functions != nil {
+		if err := core.WithFunctionPlugins(c.Functions); err != nil {
+			return nil, "", nil, fmt.Errorf("agent function plugins: %w", err)
+		}
 	}
 
 	runErr := make(chan error, 1)

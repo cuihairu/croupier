@@ -1,14 +1,15 @@
 // Package pluginhost implements the synthetics-agent side of the external
 // probe plugin runtime (todo.md:36). It hosts HashiCorp go-plugin
-// processes speaking the local gRPC mode, runs call concurrency under a
-// bounded queue, restarts crashed plugin processes with exponential
-// backoff, and circuit-breaks consecutive plugin failures into explicit
-// degradation causes — the native HTTP probe remains the fallback of
-// last resort.
+// processes speaking the local gRPC mode on top of the shared resident
+// host engine (core/pluginhost, todo.md:35 — the same lifecycle engine
+// the sidecar function host runs on), and maps probe outcomes onto the
+// shared probe result so plugin results traverse the existing
+// AlertEvent / probe_events chain unchanged.
 //
-// The gRPC dependency is confined to this package, the generated
-// protocol package, and plugin examples; game SDKs and the Agent↔Server
-// link never import it (docs/archive/legacy-en/architecture/transport-no-grpc.md).
+// The gRPC dependency is confined to the plugin host boundary — this
+// package, the generated protocol package, plugin examples, and the
+// shared core engine; game SDKs and the Agent↔Server link never import
+// them (docs/archive/legacy-en/architecture/transport-no-grpc.md).
 // Building with the no_go_plugin tag compiles only the stub in this
 // package (stub.go), keeping go-plugin/gRPC/protocol code out of the
 // binary; the controller, plugins, handshake and generated protocol live
@@ -16,33 +17,37 @@
 package pluginhost
 
 import (
+	coreplugin "github.com/cuihairu/croupier/core/pluginhost"
+
 	"github.com/cuihairu/croupier/agents/synthetics/probe"
 )
 
-// Degradation causes returned when a plugin cannot answer. Each cause is
-// prefixed so runner.errorClass() can classify it; the caller falls back
-// to the native HTTP probe and records the cause verbatim in probe
-// details, keeping plugin faults distinguishable from target faults.
+// Degradation causes returned when a plugin cannot answer. Single-sourced
+// in the shared core engine so every plugin face reports the same
+// vocabulary; aliased here for the probe-facing callers (runner tests
+// classify causes by these prefixes). The caller falls back to the
+// native HTTP probe and records the cause verbatim in probe details,
+// keeping plugin faults distinguishable from target faults.
 const (
 	// CauseNotConfigured: the target names a plugin that is not declared.
-	CauseNotConfigured = "plugin_not_configured"
+	CauseNotConfigured = coreplugin.CauseNotConfigured
 	// CauseUnavailable: the plugin process could not start or exited.
-	CauseUnavailable = "plugin_unavailable"
+	CauseUnavailable = coreplugin.CauseUnavailable
 	// CauseTimeout: no answer within the per-check deadline.
-	CauseTimeout = "plugin_timeout"
+	CauseTimeout = coreplugin.CauseTimeout
 	// CauseError: the plugin call failed with a non-exit, non-timeout error.
-	CauseError = "plugin_error"
+	CauseError = coreplugin.CauseError
 	// CauseDisabled: the runtime master switch or the per-plugin switch
 	// is off, or (trimmed builds) the runtime is compiled out.
-	CauseDisabled    = "plugin_disabled"
-	CauseNotCompiled = "plugin_not_compiled"
+	CauseDisabled    = coreplugin.CauseDisabled
+	CauseNotCompiled = coreplugin.CauseNotCompiled
 	// CauseBackpressure: the concurrency limit was saturated and no slot
 	// was freed within the bounded queue window.
-	CauseBackpressure = "plugin_backpressure"
+	CauseBackpressure = coreplugin.CauseBackpressure
 	// CauseBackoff: a previous crash/failure still gates the next restart.
-	CauseBackoff = "plugin_backoff"
+	CauseBackoff = coreplugin.CauseBackoff
 	// CauseCircuitOpen: consecutive plugin failures tripped the circuit.
-	CauseCircuitOpen = "plugin_circuit_open"
+	CauseCircuitOpen = coreplugin.CauseCircuitOpen
 )
 
 // CheckOutcome is one plugin-mediated check: the mapped shared probe
