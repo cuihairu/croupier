@@ -167,7 +167,7 @@ if rg -n '"domain"\s*:\s*"entity"|domain=entity|Domain:\s*"entity"' \
 fi
 
 if rg -n "ProvidersEntities|openAPIDocEntities|aggregateEntities|/providers/.*/entities|/:id/entities|x-entities" \
-  internal/api/provider internal/handler internal/router docs/api/provider.md \
+  internal/api/provider internal/handler internal/router docs/archive/legacy-en/api/provider.md \
   --glob "*.go" --glob "*.md" >/dev/null 2>&1; then
   fail "provider API must expose resources, not legacy entities"
 fi

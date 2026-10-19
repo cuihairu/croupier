@@ -743,7 +743,7 @@ jobs:
           - `capture-agent-<os>-<arch>.tar.gz` - capture: CDC and change-rule alerts (64-bit targets only)
           - Windows packages use `.zip`; `agents-<os>-<arch>.json` and `.sha256` record contents and checksums.
           - `synthetics-agent` is planned and has no executable/package yet.
-          - Agent roles and scope requirements: [Agent guide](https://github.com/cuihairu/croupier/blob/main/docs/operations/agent-comparison.md).
+          - Agent roles and scope requirements: [Agent guide](https://github.com/cuihairu/croupier/blob/main/docs/zh/operations/agent-comparison.md).
 
           ### Go SDK (Multi-platform)
           - `sdk-go-linux-amd64.tar.gz` - Linux x64

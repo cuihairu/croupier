@@ -61,7 +61,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 | capture    | 数据库 CDC、过滤/规则与告警               | `capture-agent`，位点/告警可靠性仍需加强    |
 | synthetics | 游戏及第三方外部探测、多语言插件宿主      | 待实现，无二进制或安装包                    |
 
-各实例显式配置 `gameId/env`。角色选型、部署与 nightly 独立包见 [Agent 指南](docs/operations/agent-comparison.md)，公共能力和源码归位见 [目录边界](docs/development/agent-runtime-layout.md)。新增独立包需发布工作流成功运行后可下载；ARMv7 只提供 sidecar/devops。
+各实例显式配置 `gameId/env`。角色选型、部署与 nightly 独立包见 [Agent 指南](docs/zh/operations/agent-comparison.md)，公共能力和源码归位见 [目录边界](docs/zh/development/agent-runtime-layout.md)。新增独立包需发布工作流成功运行后可下载；ARMv7 只提供 sidecar/devops。
 
 ## SDK 生态
 
@@ -96,7 +96,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 Croupier 不是 fork，是一层控制面业务系统，底层全部站在开源组件上（版本以 `go.mod` / `web/package.json` 为准）：
 
 - 服务端：Go 1.27，HTTP 用 [Gin](https://github.com/gin-gonic/gin)，ORM 用 [GORM](https://gorm.io)（MySQL / PostgreSQL / SQL Server / glebarez SQLite 四驱动），权限判定用 [Casbin](https://casbin.org)，编号迁移用 goose
-- 传输：Agent↔Server、SDK↔Agent 的 TCP session 基于Go 标准库 `net` + `crypto/tls` 实现（长度前缀分帧、protobuf 信封），未引入 gRPC，取舍见 [transport-no-grpc.md](docs/architecture/transport-no-grpc.md)
+- 传输：Agent↔Server、SDK↔Agent 的 TCP session 基于Go 标准库 `net` + `crypto/tls` 实现（长度前缀分帧、protobuf 信封），未引入 gRPC，取舍见 [transport-no-grpc.md](docs/archive/legacy-en/architecture/transport-no-grpc.md)
 - 可观测：[OpenTelemetry](https://opentelemetry.io) Go SDK + OTLP HTTP exporter 上报
 - 控制台：基于 [Umi Max](https://umijs.org) 与 [Ant Design](https://ant.design) / ProComponents 构建，JSON Schema 表单由 [RJSF](https://rjsf.github.io/react-jsonschema-form/) 驱动，编辑器用 [Monaco](https://microsoft.github.io/monaco-editor/)
 - 协议与工具链：[protobuf](https://protobuf.dev)（protoc 全本地生成）+ [buf](https://buf.build) lint

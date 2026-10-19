@@ -2,7 +2,7 @@
 #
 # Croupier Agent 一键安装脚本（Linux / macOS）
 #
-# 三类 agent 统一入口（--agent 选型；差别见 docs/operations/agent-comparison.md）：
+# 三类 agent 统一入口（--agent 选型；差别见 docs/zh/operations/agent-comparison.md）：
 #   sidecar  业务旁挂 agent：函数注册/调用、健康与指标上报（默认，历史行为）
 #   devops   内网堡垒机式远程接入 agent（远程会话协议通道接线前只注册上线）
 #   capture  CDC 数据变更捕获 agent（capture.enabled 缺省关，先注册后开闸）
@@ -609,7 +609,7 @@ if [ -n "$SERVER_ADDR" ] && [ "$SERVER_APPLIED" -eq 0 ]; then
   warn "本次未把 Server 地址写进配置（${CFG_PATH}），请手动补 ${CFG_NAME} 的上游地址字段"
 fi
 
-DOCS_HINT="docs/operations/agent-comparison.md（选型）/ agent-config.md（配置逐字段）"
+DOCS_HINT="docs/zh/operations/agent-comparison.md（选型）/ agent-config.md（配置逐字段）"
 case "$AGENT_KIND" in
   sidecar)
     NEXT="业务进程经 SDK 连 agent.localAddr（默认 TCP 19091）注册函数" ;;

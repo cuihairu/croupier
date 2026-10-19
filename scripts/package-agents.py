@@ -46,7 +46,9 @@ def package_agents(root, binaries, output, goos, goarch, roles):
         files = [
             (binary, binary.name),
             (root / "configs" / source_config, "configs/" + target_config),
-            (root / "docs/operations/agent-comparison.md", "AGENTS.md"),
+            # This is the only authoritative copy; the bilingual migration
+            # moved it under zh/ and did not retain an English duplicate.
+            (root / "docs/zh/operations/agent-comparison.md", "AGENTS.md"),
             (root / "docs/operations/agent-install.md", "INSTALL.md"),
         ]
         for source, _ in files:

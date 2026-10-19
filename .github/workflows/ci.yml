@@ -316,7 +316,7 @@ jobs:
 
   migrate-matrix:
     name: Migration Matrix (MySQL/Postgres/SQLServer)
-    # Phase 4 of docs/architecture/database-migration-strategy.md: the
+    # Phase 4 of docs/zh/architecture/database-migration-strategy.md: the
     # versioned migration executor must work on all four dialects. SQLite is
     # covered by the unit tests in internal/svc/migrations_test.go; this job
     # runs the integration-tagged matrix against real MySQL, Postgres and

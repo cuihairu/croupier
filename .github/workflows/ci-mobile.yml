@@ -1,6 +1,6 @@
 name: CI - Mobile
 
-# 移动伴侣端（docs/design/mobile-companion-design.md）质量门禁：
+# 移动伴侣端（docs/archive/legacy-en/design/mobile-companion-design.md）质量门禁：
 # flutter analyze 0 告警 + dart format 零 diff + flutter test 全绿
 # + APK debug 构建烟测（设计稿 §7，M2 起追加）
 # + workflow_dispatch 手动产 release APK 可下载产物（§7，M4 起追加）。

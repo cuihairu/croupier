@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # gRPC 禁入门禁（docs/archive/grpc-investigation.md）。
 #
-# 本仓库已废除 gRPC（docs/architecture/transport-no-grpc.md），传输层为自研
+# 本仓库已废除 gRPC（docs/archive/legacy-en/architecture/transport-no-grpc.md），传输层为自研
 # TCP（长度前缀分帧 + protobuf）。本脚本在 CI 阻断 gRPC 经四条路径再次潜入：
 #   1) go.mod 出现 gRPC 直接依赖
 #   2) Go 源码 import gRPC 包
