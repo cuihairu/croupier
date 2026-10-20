@@ -184,10 +184,28 @@ export default withMermaid(
                 ],
               },
             ],
+            "/zh/development/": [
+              {
+                text: "开发",
+                items: [
+                  {
+                    text: "开发周期与发布说明",
+                    link: "/zh/development/lifecycle",
+                  },
+                ],
+              },
+            ],
             "/zh/operations/": [
               {
                 text: "运维",
-                items: [{ text: "概述", link: "/zh/operations/" }],
+                items: [
+                  { text: "概述", link: "/zh/operations/" },
+                  { text: "DevOps 说明", link: "/zh/operations/devops" },
+                  {
+                    text: "权限控制说明",
+                    link: "/zh/operations/access-control",
+                  },
+                ],
               },
             ],
             "/zh/api/": [
