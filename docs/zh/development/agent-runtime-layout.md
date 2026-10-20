@@ -25,7 +25,7 @@ core/                         可组合的 Agent 公共运行时
   healthprobe/                探针、故障窗口与协议步骤
   report/ metrics/            上报适配与系统指标采样
   execlog/ crash/             执行审计与崩溃辅助
-  process/                    五字段 cron 与托管进程调度模型
+  process/                    五字段 cron、托管进程调度与重启生命周期决策
   pluginhost/                 go-plugin 进程、限流、退避、熔断与退出唯一管理者
 agents/
   controlconn/                devops/capture/synthetics 共用控制消息适配
@@ -58,7 +58,7 @@ pkg/{pb,protocol}/           共享 wire message 与消息编号
 | 探测内核                       | `core/healthprobe`                           | sidecar/Server 装配较完整，capture 有 readiness；synthetics 当前原生 HTTP probe 仍在 agents/synthetics/probe，未消费 healthprobe；devops 探测消费未齐 | 后续核对探测内核复用；外部目标分类与插件协议适配留 synthetics                 |
 | configsync                     | `core/configsync`                            | 拉取/版本/last-good 为公共件，具体配置解析留业务侧                                                                                                    | 不同 Agent 不各写一份拉取状态机                                               |
 | 指标/上报/审计/快照            | `core/metrics`、`report`、`execlog`、`crash` | 按需组合，公共包存在不等于所有角色都已接线                                                                                                            | 以真实消费与端到端证据标注状态                                                |
-| 受管程序 supervisor            | `core/process`、`internal/app/agent/ops_*`   | cron/调度模型已公共化，sidecar 与 Server scheduler 复用同一实现；supervisor 装配仍留在 sidecar                                                        | 插件需要复用时继续抽生命周期管理；每进程只有一个管理者                        |
+| 受管程序 supervisor            | `core/process`、`internal/app/agent/ops_*`   | cron/调度、重启退避、熔断、退出分类与 OOM 线索决策公共化；Ops 状态机、事件日志与进程装配仍留在 sidecar                                                | 后续按真实消费者抽完整 supervisor 状态机；每进程只有一个管理者                |
 | go-plugin 进程生命周期         | `core/pluginhost`（本片前已抽取）            | sidecar/funcplugin 与 synthetics/pluginhost 已共用启动、背压、退避、熔断、Stop；角色分别保留函数/探测协议                                             | 保持一个 Controller 管理一组插件进程，不并入受管程序 supervisor               |
 | OTel                           | `internal/telemetry`                         | 已有默认 SDK/禁用开关与 no_otel 裁剪；插件另有 no_go_plugin 裁剪                                                                                      | 本片不移动遥测，避免依赖灌入公共 Checker 或游戏 SDK                           |
 
@@ -101,3 +101,5 @@ SDK 函数注册与路由属于 sidecar；SSH/RDP/VNC 与白名单属于 devops�
 | CLI/示例/函数适配工具   | `cmd/sidecar-agent/root.go:19`；`examples/cmd/e2e-agent-probe/main.go:32`；`tools/adapters/{http/main.go:15,prom/main.go:10}`                                                                                                                        | Client/Config 直接消费 core；测试中的 NewServer 仍用 internal 构造器                                            |
 
 迁移不修改业务判断、报错、wire、默认超时、队列、重连或退出策略。todo:17 保持部分完成：scope 校验集中抽取、受管程序 supervisor 生命周期公共化、本地网关/Provider 装配和其余 sidecar 业务归位、控制消息/探测内核进一步收敛及发布聚合均有剩余。
+
+2026-10-20 生命周期决策复核：`core/process` 提供重启退避、熔断判定/文案、`cmd.Wait` 退出分类（Unix 信号与 Windows 无信号边界）及 OOM 疑似线索短路逻辑；`internal/app/agent` 保留 supervisor 状态机、事件日志、进程装配与授权。迁移不改默认退避、熔断阈值、事件类型、状态迁移或探测行为。

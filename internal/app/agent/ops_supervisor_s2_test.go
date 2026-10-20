@@ -69,56 +69,6 @@ func stopManaged(t *testing.T, s *OpsServer, name string) {
 	require.NoError(t, err)
 }
 
-func TestSupervisorBackoffDelay(t *testing.T) {
-	cfg := ManagedProcessConfig{RestartBackoffInitial: time.Second, RestartBackoffMax: 60 * time.Second}
-	assert.Equal(t, time.Second, supervisorBackoffDelay(cfg, 1))
-	assert.Equal(t, 2*time.Second, supervisorBackoffDelay(cfg, 2))
-	assert.Equal(t, 4*time.Second, supervisorBackoffDelay(cfg, 3))
-	assert.Equal(t, 32*time.Second, supervisorBackoffDelay(cfg, 6))
-	// 封顶：2^7=128s > 60s
-	assert.Equal(t, 60*time.Second, supervisorBackoffDelay(cfg, 7))
-	assert.Equal(t, 60*time.Second, supervisorBackoffDelay(cfg, 100))
-
-	// 零值回退默认 1s 起步、60s 封顶。
-	zero := ManagedProcessConfig{}
-	assert.Equal(t, time.Second, supervisorBackoffDelay(zero, 1))
-	assert.Equal(t, 60*time.Second, supervisorBackoffDelay(zero, 50))
-
-	// max < initial 时以 initial 为准（不出现倒退）。
-	odd := ManagedProcessConfig{RestartBackoffInitial: 10 * time.Second, RestartBackoffMax: 3 * time.Second}
-	assert.Equal(t, 10*time.Second, supervisorBackoffDelay(odd, 1))
-	assert.Equal(t, 10*time.Second, supervisorBackoffDelay(odd, 5))
-}
-
-func TestBreakerTripped(t *testing.T) {
-	cfg := ManagedProcessConfig{RestartBreakerLimit: 5}
-	assert.False(t, breakerTripped(cfg, 4))
-	assert.True(t, breakerTripped(cfg, 5))
-	assert.True(t, breakerTripped(cfg, 9))
-
-	// limit=0 → 永不熔断
-	assert.False(t, breakerTripped(ManagedProcessConfig{}, 1000))
-
-	msg := breakerMessage(cfg, 5)
-	assert.Contains(t, msg, "5")
-	assert.Contains(t, msg, "熔断")
-}
-
-func TestSupervisorOomSuspect(t *testing.T) {
-	// 非 kill 信号 / 无 RSS → 必 false（与系统内存无关的短路分支）。
-	assert.False(t, supervisorOomSuspect("", 1<<40))
-	assert.False(t, supervisorOomSuspect("terminated", 1<<40))
-	assert.False(t, supervisorOomSuspect("SIGKILL", 0))
-	// kill 类信号但 RSS 极小 → false（低于 90% available）。
-	assert.False(t, supervisorOomSuspect("SIGKILL", 1))
-}
-
-func TestExitDetailClosedSet(t *testing.T) {
-	code, sig := exitDetail(nil)
-	assert.Equal(t, int32(0), code)
-	assert.Equal(t, "", sig)
-}
-
 func TestSupervisorEventLogEmitAndRing(t *testing.T) {
 	dir := t.TempDir()
 	log := newSupervisorEventLog(SupervisorLogConfig{Dir: dir, MaxSizeMB: 1, MaxBackups: 1, MaxAgeDays: 1})

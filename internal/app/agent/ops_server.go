@@ -13,10 +13,19 @@ import (
 
 	"github.com/shirou/gopsutil/v4/process"
 
+	processcore "github.com/cuihairu/croupier/core/process"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func restartConfig(config ManagedProcessConfig) processcore.RestartConfig {
+	return processcore.RestartConfig{
+		InitialBackoff: config.RestartBackoffInitial,
+		MaxBackoff:     config.RestartBackoffMax,
+		BreakerLimit:   config.RestartBreakerLimit,
+	}
+}
 
 // OpsServer implements ops functionality for the agent.
 // It provides system info, process management, and command execution capabilities.
@@ -537,7 +546,7 @@ func (s *OpsServer) autoRestartAllowed(p *managedProcess) bool {
 // 打断；每次状态迁移前都重查实例归属，手动 stop/restart 换掉 p.cmd 后旧
 // monitor 直接退出。
 func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr error) {
-	exitCode, sigName := exitDetail(waitErr)
+	exit := processcore.ExitDetail(waitErr)
 
 	// 主动停止判定收进锁内（stopProcess 的 close 与新实例的 stopCh 赋值都
 	// 持 p.mu——锁外读曾与 RestartProcess 换 stopCh 竞态）：stopProcess 已
@@ -564,9 +573,9 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 
 	detectDown := newSupervisorEvent(p.name, supervisorEventDetectDown)
 	detectDown.OldPid = oldPID
-	detectDown.ExitCode = exitCode
-	detectDown.Signal = sigName
-	detectDown.OomSuspect = supervisorOomSuspect(sigName, lastRSS)
+	detectDown.ExitCode = exit.Code
+	detectDown.Signal = exit.Signal
+	detectDown.OomSuspect = processcore.IsOOMSuspect(exit.Signal, lastRSS)
 	detectDown.LastRssBytes = lastRSS
 	detectDown.LastHeartbeatUnix = lastSample
 	// S3：崩溃时刻登记快照产物（best-effort——目录为空/不存在即空列表）。
@@ -590,11 +599,11 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 		}
 		p.consecutiveFails++
 		fails := p.consecutiveFails
-		if breakerTripped(p.config, int32(fails)) {
+		if processcore.BreakerTripped(restartConfig(p.config), int32(fails)) {
 			p.state = opsv1.ProcessState_PROCESS_STATE_BROKEN
 			p.nextRestartAt = nil
 			restarts := p.restarts
-			msg := breakerMessage(p.config, int32(fails))
+			msg := processcore.BreakerMessage(restartConfig(p.config), int32(fails))
 			p.mu.Unlock()
 			tripped := newSupervisorEvent(p.name, supervisorEventBreakerTripped)
 			tripped.OldPid = oldPID
@@ -603,7 +612,7 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 			s.emitSupervisorEvent(p, tripped)
 			return
 		}
-		delay := supervisorBackoffDelay(p.config, fails)
+		delay := processcore.RestartDelay(restartConfig(p.config), fails)
 		nextAt := time.Now().Add(delay)
 		p.state = opsv1.ProcessState_PROCESS_STATE_BACKOFF
 		p.nextRestartAt = &nextAt
@@ -669,7 +678,7 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 // being the current p.cmd in RUNNING state. Ownership guard同 monitor：期间
 // 发生的手动操作/再次崩溃都会让本定时器失效。
 func (s *OpsServer) armSuccessTimer(p *managedProcess, watched *exec.Cmd, stopCh chan struct{}) {
-	delay := supervisorBackoffDelay(p.config, 2)
+	delay := processcore.RestartDelay(restartConfig(p.config), 2)
 	go func() {
 		if stopCh != nil {
 			select {

@@ -3,17 +3,15 @@ package agent
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/shirou/gopsutil/v4/mem"
-	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"google.golang.org/protobuf/encoding/protojson"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
@@ -199,72 +197,4 @@ func newSupervisorEvent(processName, event string) *opsv1.SupervisorEvent {
 		Process: processName,
 		Event:   event,
 	}
-}
-
-// exitDetail extracts (exit code, signal name) from a cmd.Wait error. A clean
-// exit maps to (0, ""); a signal kill maps to (-1, signal). On Windows no
-// signal name is available (see supervisor_exit_windows.go).
-func exitDetail(err error) (int32, string) {
-	if err == nil {
-		return 0, ""
-	}
-	var ee *exec.ExitError
-	if errors.As(err, &ee) {
-		if sig := exitSignal(ee); sig != "" {
-			return -1, sig
-		}
-		return int32(ee.ExitCode()), ""
-	}
-	return -1, ""
-}
-
-// supervisorOomSuspect is the best-effort OOM heuristic from the design doc:
-// SIGKILL-class death while the last RSS sample sat above 90% of the system's
-// available memory. It is a lead for triage, not a verdict.
-func supervisorOomSuspect(signal string, lastRSS int64) bool {
-	if lastRSS <= 0 || !strings.Contains(strings.ToLower(signal), "kill") {
-		return false
-	}
-	vm, err := mem.VirtualMemory()
-	if err != nil || vm.Available <= 0 {
-		return false
-	}
-	return float64(lastRSS) >= 0.9*float64(vm.Available)
-}
-
-// supervisorBackoffDelay returns the exponential backoff before the next
-// auto-restart attempt: initial × 2^(fails-1), capped at max. Zero config
-// values fall back to the defaults (1s → 60s).
-func supervisorBackoffDelay(cfg ManagedProcessConfig, fails int) time.Duration {
-	initial := cfg.RestartBackoffInitial
-	if initial <= 0 {
-		initial = time.Second
-	}
-	max := cfg.RestartBackoffMax
-	if max <= 0 {
-		max = 60 * time.Second
-	}
-	if max < initial {
-		max = initial
-	}
-	d := initial
-	for i := 1; i < fails && d < max; i++ {
-		d *= 2
-	}
-	if d > max {
-		d = max
-	}
-	return d
-}
-
-// breakerTripped reports whether the consecutive-failure count reached the
-// configured limit. limit <= 0 disables the breaker (not recommended).
-func breakerTripped(cfg ManagedProcessConfig, fails int32) bool {
-	limit := cfg.RestartBreakerLimit
-	return limit > 0 && fails >= int32(limit)
-}
-
-// breakerMessage summarizes why the breaker tripped (panel shows it in red).
-func breakerMessage(cfg ManagedProcessConfig, fails int32) string {
-	return fmt.Sprintf("连续失败 %d 次达到熔断阈值 %d，已停止自动拉起，请人工介入", fails, cfg.RestartBreakerLimit)
 }
