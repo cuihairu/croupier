@@ -38,7 +38,7 @@ todo.md:35（2026-10-17 用户提出复用 go-plugin 模式）：开发者插件
 
 ## 调用映射与错误翻译
 
-映射逻辑在**插件侧**：宿主保持协议无关（不认识 HTTP/TCP），插件是协议适配器，把 `Invoke(params_json)` 翻译成游戏已有接口调用。目标配置（URL/地址、每函数方法与路径、目标超时）由插件自己的启动参数/环境持有，不经 sidecar 配置下发，插件也拿不到 agent 凭据或 server 地址。参考插件 `httpget` 把调用映射为本地 HTTP GET（`GET <base><path>`）。
+映射逻辑在**插件侧**：宿主保持协议无关（不认识 HTTP/TCP），插件是协议适配器，把 `Invoke(params_json)` 翻译成游戏已有接口调用。目标配置（URL/地址、每函数方法与路径、目标超时）由插件自己的启动参数/环境持有，不经 sidecar 配置下发，插件也拿不到 agent 凭据或 server 地址。参考插件 `httpget` 把调用映射为本地 HTTP GET（`GET <base><path>`）；`tcp`（第四片）把调用映射为游戏已有 TCP 管理/文本接口——一次调用一条连接，请求帧 `<path>[ <紧凑 JSON body>]` + 换行，应答读一行（换行或 EOF 结束、1 MiB 封顶）。TCP 协议没有状态码：应答不是 `{"ok":...}` 对象时原样作为数据返回（不臆造无状态协议没有的成功语义），`{"ok":false}` 才译为 `target_rejected`。
 
 错误闭集（设计约束：调用方拿到的永远是可判别、可审计的有限形态）：
 
@@ -50,6 +50,8 @@ todo.md:35（2026-10-17 用户提出复用 go-plugin 模式）：开发者插件
 | `bad_response`                                                      | 接口应答不符合声明契约（不可解析/缺字段）   | 插件翻译 |
 | `plugin_unavailable` / `plugin_timeout` / `plugin_error`            | 插件进程崩溃、deadline 内未答、插件内部错误 | 宿主分类 |
 | `plugin_not_configured` / `plugin_disabled` / `plugin_not_compiled` | 未声明、运行时/按插件开关关闭、裁剪构建     | 宿主分类 |
+
+自持目标超时：适配器的 socket 等待取 ctx 取消、宿主每调用 deadline、插件自持 `-target-timeout`（同 httpget 的 client timeout）三者最早。没有自持超时的适配器里，卡死目标永远先撞宿主 deadline 报 `plugin_timeout`（宿主级降级），适配器无法报告「游戏接口超时未答」这一业务事实——这是两处超时各司其职的原因。
 
 翻译规则：目标 2xx 且可解析→成功；目标侧连接失败/超时→`target_unavailable`；目标 4xx/业务拒绝→`target_rejected`（携带状态码与响应摘要）；目标 5xx→`target_unavailable`（目标故障，非调用方过错）。宿主侧每调用 deadline = min（调用方预算，插件配置 timeout）；超时经 ctx 取消传播到插件，插件应中止目标调用。
 
@@ -65,8 +67,9 @@ todo.md:35（2026-10-17 用户提出复用 go-plugin 模式）：开发者插件
 
 - 插件进程崩溃：宿主观察 `client.Exited()`，本次调用报 `plugin_unavailable`，进程由宿主重建（函数面复用核心引擎的退避/熔断状态机时同样适用；最小实现按调用分类报错，重试由调用方/任务层决策）。
 - 超时：每调用 deadline 到期报 `plugin_timeout`；调用方 context 取消（任务取消、断连）向插件传播，语义与直连 SDK 的 ctx 取消一致，额外开销仅为一次本机 gRPC 往返。
+- 注册漂移：宿主每 30s 重跑 `ListFunctions` 并整组替换该插件的注册集（`Start` 为严格变体）；注册集只在拿到完全合法应答时才变化——进程不可达或声明非法都保留上一组、下次派发可见降级；server 侧注册快照整体重建，缺席即撤销（第三片）。
 - 停机：`Stop()` 有界排空（5s 窗口）后由唯一管理者 kill 全部常驻插件，不留孤儿子进程。
-- 可选构建：`no_go_plugin` 下函数宿主编译为 stub，配置仍声明函数插件时启动即报错（fail-closed，同探测宿主裁剪口径）；运行时总开关 `functions.pluginsEnabled`（缺省 true，默认集成）+ 按插件 `enabled`，关闭时不拉起子进程、派发显式报 `plugin_disabled`。
+- 可选构建：`no_go_plugin` 下函数宿主编译为 stub，配置仍声明函数插件时启动即报错（fail-closed，同探测宿主裁剪口径）；运行时总开关 `functions.enabled`（缺省 true，默认集成；`functions:` 段未声明则不托管任何插件）+ 按插件 `enabled`，关闭时不拉起子进程、派发显式报 `plugin_disabled`。
 
 ## 与直连 SDK 的对比
 
@@ -81,5 +84,8 @@ todo.md:35（2026-10-17 用户提出复用 go-plugin 模式）：开发者插件
 3. sidecar 装配与派发：`internal/app/agent` 装配/校验钩子、`internal/agent.LocalHandler` 插件函数派发分支、`cmd/sidecar-agent` 配置段；`App.Stop` 作为宿主唯一生命周期出口。
 4. 参考插件 `agents/sidecar/funcplugin/examples/httpget`（HTTP GET 映射）。
 5. 配置校验、gRPC 依赖边界守卫扩展、通用引擎与函数宿主集成测试。
+6. 第二片：插件函数并入注册上报快照与 server 侧注册表/审批/审计真实接线（`UpstreamClient.SetPluginFunctionsSource` 晚绑定快照源 + `Registered.Descriptor()` risk 归一；store 同名 id SDK/provider 恒赢；server 注册边界锁定插件命名空间与 presentation 拒绝，链路零 server 改动即闭环）。
+7. 第三片：注册 reconcile（`Host.Reconcile` + 30s 宿主自持循环，tick 不带自有 deadline；注册集只在完全合法应答时变化，撤销链经 server 快照整体重建闭环）。
+8. 第四片：TCP 参考插件 `examples/tcp`（一次调用一条连接的行协议帧约定、错误闭集翻译、自持 `-target-timeout` 与宿主 deadline 双向有界；映射成功、五类失败翻译、双超时均有真实子进程测试）。
 
-剩余（后续切片）：插件函数并入注册上报快照与 server 侧注册表/审批/审计真实接线、sidecar 运行时开关钩子接配置文件、TCP/管理接口参考插件、多语言（Python/JS）插件 SDK、IPC 时延与直连 SDK 对比实测、真实游戏接口端到端验收。
+剩余（后续切片）：多语言（Python/JS）插件 SDK、IPC 时延与直连 SDK 对比实测、真实游戏接口端到端验收。

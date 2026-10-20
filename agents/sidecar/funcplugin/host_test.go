@@ -14,10 +14,13 @@ import (
 	"time"
 )
 
-var httpgetBin string
+var (
+	httpgetBin string
+	tcpBin     string
+)
 
-// TestMain compiles the slice-1 reference adapter once so the tests
-// exercise the real go-plugin subprocess protocol end to end.
+// TestMain compiles the reference adapters once so the tests exercise the
+// real go-plugin subprocess protocol end to end.
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "funcplugin-test")
 	if err != nil {
@@ -29,6 +32,11 @@ func TestMain(m *testing.M) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		os.RemoveAll(dir)
 		panic("build example plugin: " + string(out))
+	}
+	tcpBin = filepath.Join(dir, "tcp")
+	if out, err := exec.Command("go", "build", "-o", tcpBin, "./examples/tcp").CombinedOutput(); err != nil {
+		os.RemoveAll(dir)
+		panic("build tcp example plugin: " + string(out))
 	}
 	code := m.Run()
 	os.RemoveAll(dir)
