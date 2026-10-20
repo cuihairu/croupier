@@ -1,5 +1,6 @@
 docs/guide/quick-start.md|REQ/REP
 docs/guide/quick-start.md|gRPC
+docs/index.md|rpc_addr
 docs/operations/health-monitoring.md|gRPC
 docs/operations/troubleshooting.md|LocalControlService
 docs/operations/troubleshooting.md|REQ/REP
@@ -23,6 +24,7 @@ docs/zh/architecture/sdk-agent-transport-redesign.md|rpc_addr
 docs/zh/architecture/sdk-wire-protocol.md|LocalControlService
 docs/zh/architecture/sdk-wire-protocol.md|gRPC
 docs/zh/architecture/sdk-wire-protocol.md|rpc_addr
+docs/zh/design/agent-core-design.md|gRPC
 docs/zh/design/agents-inventory.md|gRPC
 docs/zh/design/plugin-mechanism.md|gRPC
 docs/zh/design/sidecar-function-plugin-design.md|gRPC
