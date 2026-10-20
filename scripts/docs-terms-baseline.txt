@@ -25,6 +25,7 @@ docs/zh/architecture/sdk-wire-protocol.md|gRPC
 docs/zh/architecture/sdk-wire-protocol.md|rpc_addr
 docs/zh/design/agents-inventory.md|gRPC
 docs/zh/design/plugin-mechanism.md|gRPC
+docs/zh/design/sidecar-function-plugin-design.md|gRPC
 docs/zh/development/repository-guidelines.md|gRPC
 docs/zh/development/repository-guidelines.md|rpc_addr
 docs/zh/guide/quick-start.md|REQ/REP
