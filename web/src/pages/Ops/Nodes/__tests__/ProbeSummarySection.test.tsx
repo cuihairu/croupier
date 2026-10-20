@@ -11,7 +11,7 @@
  *  - 旧版 agent 未上报类型时不伪造类型值
  */
 import React from 'react';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App, ConfigProvider } from 'antd';
 import ProbeSummarySection from '../ProbeSummarySection';
 
@@ -273,5 +273,79 @@ describe('Ops/Nodes 探针汇总卡', () => {
     expect(screen.queryByText('已验证')).not.toBeInTheDocument();
     // 声明位不污染正常态证据：计数照实、无失败原因
     expect(screen.getAllByText('20 / 0')).toHaveLength(2);
+  });
+
+  it('类别列渲染 游戏 / 第三方服务；旧版未分类行不猜类别（目标分类 §4.4）', async () => {
+    getOpsProbeSummary.mockResolvedValue({
+      onlineDataIntegrated: false,
+      rows: [
+        { ...ROW_OK, target: 'login-gw', targetCategory: 'game' },
+        { ...ROW_BAD, target: 'payment', targetCategory: 'third_party' },
+        { ...ROW_NO_SAMPLE, target: 'legacy' }, // 无类别位 = 未分类
+      ],
+    });
+    renderSection();
+
+    await screen.findByText('login-gw');
+    expect(screen.getByText('游戏')).toBeInTheDocument();
+    expect(screen.getByText('第三方服务')).toBeInTheDocument();
+    expect(screen.getByText('未分类')).toBeInTheDocument();
+  });
+
+  it('类别筛选：切到 游戏 重查并带 targetCategory 参数（服务端聚合）', async () => {
+    getOpsProbeSummary.mockResolvedValue({
+      onlineDataIntegrated: false,
+      rows: [ROW_OK],
+    });
+    renderSection();
+
+    // 初次加载：不带类别参数（全部）。
+    await screen.findByText('mysql');
+    expect(getOpsProbeSummary).toHaveBeenLastCalledWith(undefined);
+
+    // 打开筛选下拉并选择「游戏」（antd6 无 .ant-select-selector：mouseDown 落
+    // .ant-select 根；option 在 dropdown portal，点可见 content 冒泡触发 onSelect）。
+    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
+    const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+    expect(dropdown).not.toBeNull();
+    fireEvent.click(
+      within(dropdown).getByText('游戏', { selector: '.ant-select-item-option-content' }),
+    );
+
+    await waitFor(() => {
+      expect(getOpsProbeSummary).toHaveBeenLastCalledWith('game');
+    });
+    // 筛选后数据照常渲染（mock 复用同一行集）。
+    await screen.findByText('mysql');
+  });
+
+  it('类别筛选：切回 全部 时不带类别参数', async () => {
+    getOpsProbeSummary.mockResolvedValue({
+      onlineDataIntegrated: false,
+      rows: [ROW_OK],
+    });
+    renderSection();
+
+    await screen.findByText('mysql');
+    expect(getOpsProbeSummary).toHaveBeenLastCalledWith(undefined);
+
+    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
+    let dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+    fireEvent.click(
+      within(dropdown).getByText('游戏', { selector: '.ant-select-item-option-content' }),
+    );
+    await waitFor(() => {
+      expect(getOpsProbeSummary).toHaveBeenLastCalledWith('game');
+    });
+
+    // 再切回「全部」：不带类别参数重查。
+    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
+    dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+    fireEvent.click(
+      within(dropdown).getByText('全部', { selector: '.ant-select-item-option-content' }),
+    );
+    await waitFor(() => {
+      expect(getOpsProbeSummary).toHaveBeenLastCalledWith(undefined);
+    });
   });
 });

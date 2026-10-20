@@ -15,6 +15,7 @@ package ops
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,8 +24,40 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// ProbeSummaryRequest 汇总查询请求（scope 走 X-Game-ID/X-Env 头，无查询参数）。
-type ProbeSummaryRequest struct{}
+// ProbeSummaryRequest 汇总查询请求（scope 走 X-Game-ID/X-Env 头）。
+// TargetCategory 类别筛选（目标分类设计 §4.4）：空 = 全部；
+// game|third_party 由服务端按 scope+类别过滤行（服务端聚合，非前端筛）；
+// 未知值 400 拒绝。未分类历史行（旧版 agent 未携带类别）只作受权诊断——
+// 不计入任一类别筛选，仅在「全部」下可见。
+type ProbeSummaryRequest struct {
+	TargetCategory string `form:"targetCategory"`
+}
+
+// 目标类别闭集（与 core/healthprobe.TargetCategory* 同口径；API 面独立闭集
+// 校验，不引公共包依赖）。
+const (
+	probeCategoryAll     = ""
+	probeCategoryGame    = "game"
+	probeCategoryPartner = "third_party"
+)
+
+// probeCategoryValid 校验类别筛选值；空 = 全部。
+func probeCategoryValid(v string) bool {
+	switch v {
+	case probeCategoryAll, probeCategoryGame, probeCategoryPartner:
+		return true
+	}
+	return false
+}
+
+// probeCategoryMatches 行级类别匹配：无筛选恒真；有筛选按执行时快照严格
+// 相等——未分类行（空类别）不计入任一类别（不默认游戏）。
+func probeCategoryMatches(filter, category string) bool {
+	if filter == probeCategoryAll {
+		return true
+	}
+	return category == filter
+}
 
 // ProbeSummaryRow 状态矩阵单行（目标 × 执行位置）。
 type ProbeSummaryRow struct {
@@ -74,6 +107,13 @@ type ProbeSummaryResponse struct {
 
 // ProbeSummary GET /api/v1/ops/probe/summary。
 func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*ProbeSummaryResponse, error) {
+	if req == nil {
+		req = &ProbeSummaryRequest{}
+	}
+	if !probeCategoryValid(req.TargetCategory) {
+		return nil, fmt.Errorf("targetCategory must be game|third_party (got %q)", req.TargetCategory)
+	}
+	category := req.TargetCategory
 	scope := svc.GameScopeFromContext(ctx)
 	resp := &ProbeSummaryResponse{OnlineDataIntegrated: false, Rows: []ProbeSummaryRow{}}
 
@@ -89,6 +129,9 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 					continue
 				}
 				if !scopeMatches(scope, st.GetGameId(), st.GetEnv()) {
+					continue
+				}
+				if !probeCategoryMatches(category, st.GetTargetCategory()) {
 					continue
 				}
 				resp.Rows = append(resp.Rows, ProbeSummaryRow{
@@ -121,6 +164,9 @@ func (s *Service) ProbeSummary(ctx context.Context, req *ProbeSummaryRequest) (*
 		for _, st := range s.svcCtx.ServerProbes.Statuses() {
 			// server 本机目标天然平台级（无 game/env 归属）。
 			if !scopeMatches(scope, "", "") {
+				continue
+			}
+			if !probeCategoryMatches(category, st.Category) {
 				continue
 			}
 			resp.Rows = append(resp.Rows, ProbeSummaryRow{
@@ -161,9 +207,19 @@ func scopeMatches(scope svc.GameScope, gameID, env string) bool {
 	return true
 }
 
-// ProbeSummaryHandler handles GET /api/v1/ops/probe/summary.
+// ProbeSummaryHandler handles GET /api/v1/ops/probe/summary?targetCategory=…
+// 类别筛选值闭集校验在 handler 面 400 拒绝（目标分类设计 §4.4：未知值拒绝）。
 func (h *Handler) ProbeSummaryHandler(c *gin.Context) {
-	resp, err := h.service.ProbeSummary(c.Request.Context(), &ProbeSummaryRequest{})
+	var req ProbeSummaryRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if !probeCategoryValid(req.TargetCategory) {
+		response.BadRequest(c, fmt.Sprintf("targetCategory must be game|third_party (got %q)", req.TargetCategory))
+		return
+	}
+	resp, err := h.service.ProbeSummary(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return

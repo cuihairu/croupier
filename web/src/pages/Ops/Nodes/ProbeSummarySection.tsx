@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import { StandardListSection } from '@/components';
@@ -9,12 +9,24 @@ import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
 
+// 目标类别筛选闭集（目标分类设计 §4.4）：''=全部；未分类行（旧版 agent）
+// 只在「全部」可见，不计入任一类别。
+const TARGET_CATEGORY_ALL = '';
+const TARGET_CATEGORY_GAME = 'game';
+const TARGET_CATEGORY_THIRD_PARTY = 'third_party';
+const TARGET_CATEGORY_OPTIONS = [
+  TARGET_CATEGORY_ALL,
+  TARGET_CATEGORY_GAME,
+  TARGET_CATEGORY_THIRD_PARTY,
+];
+
 // 探针在线汇总卡（agent-health-recovery-review §13.2）：
 // 一行 = 目标 × 执行位置，呈现窗口开合（两态事实）+ 窗口聚合计数 + 最近
 // 失败原因 + 数据新鲜度；**不出单一合成分**——权重无真实数据支撑。
 // 在线趋势列在 SDK metric 入口接入前显式灰态（未接入即一等状态）。
 // 协议目标另带类型/适配器/失败阶段标注（§5.5.3 四态）：不可达（dial 失败）
 // 与协议失败（handshake/status 半途失败）在探活列即可区分，无需读原因文本。
+// 类别筛选走服务端聚合（scope+类别过滤在服务端，非前端筛）。
 export default function ProbeSummarySection() {
   const intl = useIntl();
   // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
@@ -25,12 +37,15 @@ export default function ProbeSummarySection() {
   const [loadError, setLoadError] = useState<string>('');
   const [rows, setRows] = useState<ProbeSummaryRow[]>([]);
   const [onlineDataIntegrated, setOnlineDataIntegrated] = useState(false);
+  const [category, setCategory] = useState<string>(TARGET_CATEGORY_ALL);
+  const categoryRef = useRef(category);
+  categoryRef.current = category;
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError('');
     try {
-      const r = await getOpsProbeSummary();
+      const r = await getOpsProbeSummary(categoryRef.current || undefined);
       setRows(r?.rows ?? []);
       setOnlineDataIntegrated(Boolean(r?.onlineDataIntegrated));
     } catch (error) {
@@ -53,6 +68,18 @@ export default function ProbeSummarySection() {
     load();
   }, [load]);
 
+  // 类别切换即重查（服务端聚合；切类别后必须重拉，否则显示的是旧类别的行）。
+  const handleCategoryChange = useCallback(
+    (value: string) => {
+      // ref 先行同步：load 读 categoryRef.current，setCategory 的重渲染在
+      // 事件回调返回前不会跑——先改 ref 才能让本轮查询带上新类别。
+      categoryRef.current = value;
+      setCategory(value);
+      load();
+    },
+    [load],
+  );
+
   // scope（X-Game-ID/X-Env）由全局拦截器注入服务端过滤：切游戏/环境后必须重拉，
   // 否则面板显示的是上一个 scope 的行。
   useScopeReload(load);
@@ -70,6 +97,28 @@ export default function ProbeSummarySection() {
   );
 
   const unavailableCount = useMemo(() => rows.filter((r) => !r.available).length, [rows]);
+
+  // 类别标签（目标分类 §4.4）：game=游戏 / third_party=第三方服务；空类别 =
+  // 旧版 agent 未携带类别位——按未分类呈现（受权诊断，不计入任一类别统计）。
+  const categoryLabel = useCallback((v?: string): string => {
+    switch (v) {
+      case TARGET_CATEGORY_GAME:
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.category.game',
+          defaultMessage: '游戏',
+        });
+      case TARGET_CATEGORY_THIRD_PARTY:
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.category.thirdParty',
+          defaultMessage: '第三方服务',
+        });
+      default:
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.category.unclassified',
+          defaultMessage: '未分类',
+        });
+    }
+  }, []);
 
   // 探活标签（§5.5.3 协议四态标注面）：
   //   可用×protocol  = 已验证（协议 Check 成功过，状态 4）；
@@ -159,6 +208,28 @@ export default function ProbeSummarySection() {
       dataIndex: 'target',
       width: 160,
       ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.category',
+        defaultMessage: '类别',
+      }),
+      dataIndex: 'targetCategory',
+      width: 110,
+      render: (v?: string) =>
+        v ? (
+          <Tag color={v === TARGET_CATEGORY_GAME ? 'blue' : 'purple'}>{categoryLabel(v)}</Tag>
+        ) : (
+          // 未分类：旧版 agent 上报无类别位。缺失就显示缺失，不猜类别。
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.opsNodes.probe.categoryMissing',
+              defaultMessage: '该行数据由旧版 agent 上报，未携带目标类别；升级后按配置补分类',
+            })}
+          >
+            <Tag color="default">{categoryLabel(v)}</Tag>
+          </Tooltip>
+        ),
     },
     {
       title: intl.formatMessage({
@@ -290,6 +361,26 @@ export default function ProbeSummarySection() {
       })}
       extra={
         <Space>
+          <Select
+            value={category}
+            onChange={handleCategoryChange}
+            size="small"
+            style={{ minWidth: 132 }}
+            aria-label={intl.formatMessage({
+              id: 'pages.opsNodes.probe.categoryFilter',
+              defaultMessage: '按目标类别筛选',
+            })}
+            options={TARGET_CATEGORY_OPTIONS.map((v) => ({
+              value: v,
+              label:
+                v === TARGET_CATEGORY_ALL
+                  ? intl.formatMessage({
+                      id: 'pages.opsNodes.probe.category.all',
+                      defaultMessage: '全部',
+                    })
+                  : categoryLabel(v),
+            }))}
+          />
           {rows.length > 0 ? (
             <Text type="secondary">
               {intl.formatMessage(
@@ -340,7 +431,7 @@ export default function ProbeSummarySection() {
         loading={loading}
         columns={columns}
         tableLayout="fixed"
-        scroll={{ x: 1340 }}
+        scroll={{ x: 1450 }}
         pagination={false}
         locale={{
           emptyText: intl.formatMessage({

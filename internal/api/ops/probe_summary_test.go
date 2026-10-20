@@ -8,6 +8,8 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
@@ -205,6 +207,54 @@ func TestProbeSummary_ServerRowsArePlatformScopeOnly(t *testing.T) {
 	assert.Empty(t, resp.Rows[0].Env)
 }
 
+// TestProbeSummary_CategoryFiltering 类别筛选（目标分类设计 §4.4）：
+// 服务端按 scope+类别聚合；未分类历史行（旧版 agent 无类别位）不计入任一
+// 类别筛选，仅「全部」可见；未知类别值拒绝。
+func TestProbeSummary_CategoryFiltering(t *testing.T) {
+	store := registry.NewMetricsStore()
+	store.Add("agent-a", &opsv1.MetricsReport{ProbeStats: []*opsv1.ProbeStats{
+		{Target: "login-gw", TargetCategory: "game", GameId: "demo", Env: "prod", Checked: 3, SuccessRate: 1},
+		{Target: "payment", TargetCategory: "third_party", GameId: "demo", Env: "prod", Checked: 3, SuccessRate: 1},
+		{Target: "legacy", GameId: "demo", Env: "prod", Checked: 3, SuccessRate: 1}, // 旧版未分类
+	}})
+	mgr, err := svc.NewServerProbeManager([]healthprobe.TargetConfig{
+		{Name: "srv-game", Category: healthprobe.TargetCategoryGame, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1", Interval: time.Minute},
+		{Name: "srv-partner", Category: healthprobe.TargetCategoryThirdParty, Type: healthprobe.TargetTypeTCP, Address: "127.0.0.1:1", Interval: time.Minute},
+	}, nil, 0, nil)
+	require.NoError(t, err)
+
+	s := summaryService(store, mgr)
+
+	// 全部：三行 agent + 两行 server。
+	all, err := s.ProbeSummary(context.Background(), &ProbeSummaryRequest{})
+	require.NoError(t, err)
+	require.Len(t, all.Rows, 5)
+
+	// game：只留 game 行——未分类行不得默认归入游戏。
+	game, err := s.ProbeSummary(context.Background(), &ProbeSummaryRequest{TargetCategory: "game"})
+	require.NoError(t, err)
+	byKey := summaryRows(game.Rows)
+	require.Len(t, game.Rows, 2)
+	assert.Contains(t, byKey, "agent-a|login-gw")
+	assert.Contains(t, byKey, svc.ServerProbeAgentID+"|srv-game")
+	assert.NotContains(t, byKey, "agent-a|legacy", "未分类行不计入 game 筛选")
+	assert.NotContains(t, byKey, "agent-a|payment")
+
+	// third_party：只留 third_party 行。
+	partner, err := s.ProbeSummary(context.Background(), &ProbeSummaryRequest{TargetCategory: "third_party"})
+	require.NoError(t, err)
+	byKey = summaryRows(partner.Rows)
+	require.Len(t, partner.Rows, 2)
+	assert.Contains(t, byKey, "agent-a|payment")
+	assert.Contains(t, byKey, svc.ServerProbeAgentID+"|srv-partner")
+	assert.NotContains(t, byKey, "agent-a|legacy")
+
+	// 未知类别值：服务端拒绝（不静默当「全部」）。
+	_, err = s.ProbeSummary(context.Background(), &ProbeSummaryRequest{TargetCategory: "bogus"})
+	require.Error(t, err)
+}
+
+// TestScopeMatches_Matrix scope 过滤矩阵（4862 口径）。
 func TestScopeMatches_Matrix(t *testing.T) {
 	cases := []struct {
 		name        string
@@ -225,4 +275,31 @@ func TestScopeMatches_Matrix(t *testing.T) {
 			assert.Equal(t, tc.want, scopeMatches(tc.scope, tc.gameID, tc.env))
 		})
 	}
+}
+
+// TestProbeSummaryHandler_CategoryQueryParam handler 面：query 绑定 + 未知
+// 类别值 400（目标分类 §4.4 未知值拒绝发布口径在查询面的对应物）。
+func TestProbeSummaryHandler_CategoryQueryParam(t *testing.T) {
+	store := registry.NewMetricsStore()
+	store.Add("agent-a", &opsv1.MetricsReport{ProbeStats: []*opsv1.ProbeStats{
+		{Target: "login-gw", TargetCategory: "game", GameId: "demo", Env: "prod", Checked: 1, SuccessRate: 1},
+		{Target: "payment", TargetCategory: "third_party", GameId: "demo", Env: "prod", Checked: 1, SuccessRate: 1},
+	}})
+	h := NewHandler(summaryService(store, nil))
+
+	// 合法筛选：只有 game 行。
+	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/probe/summary?targetCategory=game", "")
+	h.ProbeSummaryHandler(ctx)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Rows []ProbeSummaryRow `json:"rows"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Rows, 1)
+	assert.Equal(t, "login-gw", resp.Rows[0].Target)
+
+	// 未知值：400 而非静默全量。
+	ctx, rec = newOpsTestContext(http.MethodGet, "/api/v1/ops/probe/summary?targetCategory=bogus", "")
+	h.ProbeSummaryHandler(ctx)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

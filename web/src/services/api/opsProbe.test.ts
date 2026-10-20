@@ -29,6 +29,7 @@ describe('opsProbe service', () => {
           successRate: 0.8,
           lastReason: 'dial tcp: i/o timeout',
           lastReportAt: '2026-10-14T12:00:00Z',
+          targetCategory: 'third_party',
         },
       ],
     };
@@ -36,6 +37,23 @@ describe('opsProbe service', () => {
 
     await expect(getOpsProbeSummary()).resolves.toEqual(payload);
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/probe/summary', {
+      params: {},
+      skipErrorHandler: true,
+    });
+  });
+
+  it('getOpsProbeSummary: 类别筛选作为 targetCategory 查询参数透传', async () => {
+    mockedRequest.mockResolvedValueOnce({ onlineDataIntegrated: false, rows: [] });
+
+    await getOpsProbeSummary('game');
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/probe/summary', {
+      params: { targetCategory: 'game' },
+      skipErrorHandler: true,
+    });
+
+    await getOpsProbeSummary('third_party');
+    expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/ops/probe/summary', {
+      params: { targetCategory: 'third_party' },
       skipErrorHandler: true,
     });
   });

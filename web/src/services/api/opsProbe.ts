@@ -38,6 +38,8 @@ export type ProbeSummaryRow = {
   phase?: string;
   /** 目标声明了协议期望但只落在 http/tcp/db 层（reachable-unverified 触发位）。 */
   protocolExpected?: boolean;
+  /** 目标归属类别（game|third_party）；空 = 未分类（旧版 agent，仅诊断呈现）。 */
+  targetCategory?: string;
 };
 
 // Source: croupier/internal/api/ops/probe_summary.go ProbeSummaryResponse
@@ -49,8 +51,15 @@ export type ProbeSummaryResult = {
 
 // scope（X-Game-ID/X-Env）由全局请求拦截器注入，与告警列表同口径：
 // 带 scope 返回同 scope 行 + 平台级行，不带 scope 返回全部。
-export async function getOpsProbeSummary() {
+// targetCategory 类别筛选（目标分类设计 §4.4）：空 = 全部；game|third_party
+// 由服务端按 scope+类别聚合；未分类行不计入任一类别筛选。
+export async function getOpsProbeSummary(targetCategory?: string) {
+  const params: Record<string, string> = {};
+  if (targetCategory) {
+    params.targetCategory = targetCategory;
+  }
   return request<ProbeSummaryResult>('/api/v1/ops/probe/summary', {
+    params,
     skipErrorHandler: true,
   });
 }
