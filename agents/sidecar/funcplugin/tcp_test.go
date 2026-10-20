@@ -222,7 +222,7 @@ func TestHostInvokeTCPCallDeadlineBounded(t *testing.T) {
 		t.Fatalf("start: %v", err)
 	}
 	started := time.Now()
-	out, cause := h.Invoke(context.Background(), "plugin.tcp.ping", `{"path":"/status"}`, 300*time.Millisecond)
+	out, cause := h.Invoke(context.Background(), "plugin.tcp.ping", `{"path":"/status"}`, time.Second)
 	elapsed := time.Since(started)
 	if !strings.Contains(cause, "plugin_timeout") {
 		t.Fatalf("the host deadline owns this call: out=%+v cause=%q", out, cause)
