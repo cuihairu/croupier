@@ -19,7 +19,7 @@ title: agent-core 通用能力层设计简档——能力清单/目录树/抽取
 
 ## 1. 定位
 
-**core/ 不是框架，是零件箱。** 不提供 god-object（无 `core.App` 大装配），每个能力是独立小包，main 按需 import——没 import 的能力不参与编译，天然满足「按需可裁」。主 croupier agent（internal/agent + internal/app/agent）即 **sidecar-agent**（定名见 [Agent 清单](agents-inventory.md) §2，作用：游戏服务器旁的 GM 基础设施代理——进程监管 + 函数注册调用 + 自探活），是 core 的**第一个消费方**（抽取=原地切换 import，行为零变化），capture-agent 是第二个，devops-agent（§7）是第三个——数据面样例与内网操作面样例各验证一次裁剪面。
+**core/ 不是框架，是零件箱。** 不提供 god-object（无 `core.App` 大装配），每个能力是独立小包，main 按需 import——没 import 的能力不参与编译，天然满足「按需可裁」。主 croupier agent（internal/agent + internal/app/agent）即 **sidecar-agent**（定名见 [Agent 清单](agents-inventory.md) §2，作用：游戏服务器旁的 GM 基础设施代理——进程监管 + 函数注册调用 + 自探活），是 core 的**第一个消费方**（抽取=原地切换 import，行为零变化），capture-agent 是第二个，devops-agent（§7）是第三个，synthetics-agent（2026-10-20 交付）是第四个消费方（`core/supervisable` 被监管契约 + `core/pluginhost` 常驻插件宿主引擎）——数据面样例、内网操作面样例与外部探测面样例各验证一次裁剪面。
 
 **「一个能力一个小 agent」原则（内网拆分令）**：泛监控/旁路观测类能力不再长进主 agent——sidecar-agent 收敛为「函数注册调用 + 进程监管」的 GM 基础设施代理；每个监控域（数据变更合规、CI/CD 健康、未来更多）独立小 agent，崩溃域/攻击面/配置面三者天然隔离，sidecar-agent 挂了不连坐监控，监控挂了不拖累 GM 通道。
 
@@ -223,16 +223,17 @@ devops-agent 不 import `core/metrics`（无资源采集需求时的可裁证明
 
 ## 8. 路线图登记（只登记不实现）
 
-> 2026-10-17 更新：用户明确外部游戏探测、多语言插件宿主与第三方服务探活需求，`synthetics-agent` 已从下表历史占位提升为第四类待实现 Agent，最新职责以 [Agent 清单 §6](agents-inventory.md#_6-外部探测-agent-与其余路线图) 为准；[go-plugin 调研](../research/synthetics-agent-go-plugin.md) 记录 IPC 选型与现有约束，本节“不实现”和“协议零新增”不再适用于该需求。
+> 2026-10-17 更新：用户明确外部游戏探测、多语言插件宿主与第三方服务探活需求，`synthetics-agent` 已从下表历史占位提升为第四类 Agent，最新职责以 [Agent 清单 §6](agents-inventory.md#_6-外部探测-agent-与其余路线图) 为准；[go-plugin 调研](../research/synthetics-agent-go-plugin.md) 记录 IPC 选型与现有约束，本节“不实现”和“协议零新增”不再适用于该需求。
+>
+> 2026-10-20 更新：`synthetics-agent` **已交付**（独立入口、目标类别闭集、go-plugin 插件宿主、Go/Python 参考插件、HTTP 结果闭环与外部探测代理页），占位身份结束，能力台账见 [Agent 清单 §10](agents-inventory.md#_10-能力台账按实现生产接线真实环境验收已知边界2026-10-20-口径)；本节当前唯一占位项为 `connector-agent`。
 
-两个未来独立 agent 的**命名已定稿（行业词）**，此处仅登记占位、不立项不写码——出现真实需求时按「一个能力一个小 agent」另开简档报批：
+`synthetics-agent` 已于 2026-10-20 交付（第四类），下表仅登记占位、不立项不写码的仍是 **`connector-agent`**——出现真实需求时按「一个能力一个小 agent」另开简档报批：
 
-| Agent              | 定位                                                                                             | 对标（命名来源）             | 立项触发条件                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------ | ---------------------------- | --------------------------------------------------------------------- |
-| `connector-agent`  | 第三方服务接入——外部系统（云厂商健康、工单/IM、支付通道等）的状态与事件汇入 croupier 告警/观测面 | Datadog Integrations / n8n   | 出现 CI 之外的真实接入源需求                                          |
-| `synthetics-agent` | 外部合成探测——从外网/多点位主动拨测线上端点可用性                                                | Datadog Synthetics / Pingdom | 需要公网视角的拨测面（内网 devops-agent 的 Readiness 探不到外网视角） |
-
-两者届时与 capture-agent 同构（source Provider + 规则模板 + core 装配，探活面复用 `core/healthprobe`，协议与被监管契约零新增）；devops-agent 已重定为堡垒机代理（§7），不再是 Provider 形态参照。
+| Agent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 定位                                                                                             | 对标（命名来源）             | 立项触发条件                                                                                              |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `connector-agent`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 第三方服务接入——外部系统（云厂商健康、工单/IM、支付通道等）的状态与事件汇入 croupier 告警/观测面 | Datadog Integrations / n8n   | 出现 CI 之外的真实接入源需求                                                                              |
+| `synthetics-agent`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 外部合成探测——从外网/多点位主动拨测线上端点可用性                                                | Datadog Synthetics / Pingdom | 已触发并已交付（2026-10-20，见 [Agent 清单 §6.1](agents-inventory.md#_6-1-synthetics-agent第四类已交付)） |
+| `connector-agent` 届时与 capture-agent 同构（source Provider + 规则模板 + core 装配，探活面复用 `core/healthprobe`，协议与被监管契约零新增）；devops-agent 已重定为堡垒机代理（§7），不再是 Provider 形态参照。`synthetics-agent` 已交付的实现口径与 core 复用面见 [Agent 清单 §6.1](agents-inventory.md#_6-1-synthetics-agent第四类已交付) 与 [go-plugin 调研](../research/synthetics-agent-go-plugin.md)：插件宿主上收为 `core/pluginhost` （探测与函数插件共享同一常驻宿主引擎），本地 go-plugin gRPC 仅限插件宿主子树。 |
 
 ## 9. 已知边界（诚实清单）
 
