@@ -30,13 +30,21 @@
 //	probe-check-ok     a passing target maps onto the shared probe result
 //	probe-check-fail   a failing target maps as ok=false with the reason
 //	probe-version      the controller stamps the described plugin version
+//
+// funcbench mode (hostdriver -mode funcbench -scenario bench-invoke) is a
+// latency measurement tool, not an assertion scenario: it prints one
+// BENCH-inline and one BENCH-plugin stats line (mean/p50/p95/max per
+// call) quantifying the extra IPC the plugin hop adds over an in-process
+// call; see runFuncBench for what each side measures.
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,10 +54,12 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "func", "host to drive: func | probe")
+	mode := flag.String("mode", "func", "host to drive: func | probe | funcbench")
 	scenario := flag.String("scenario", "", "scenario name (see the package comment)")
 	command := flag.String("command", "", "plugin executable the host launches")
 	args := flag.String("args", "", "comma-separated plugin argv; empty = none")
+	n := flag.Int("n", 300, "funcbench: timed samples per measurement")
+	warmup := flag.Int("warmup", 20, "funcbench: untimed warmup invokes before sampling")
 	flag.Parse()
 
 	if *scenario == "" || *command == "" {
@@ -70,6 +80,8 @@ func main() {
 		err = runFuncScenario(ctx, *scenario, *command, pluginArgs)
 	case "probe":
 		err = runProbeScenario(*scenario, *command, pluginArgs)
+	case "funcbench":
+		err = runFuncBench(ctx, *scenario, *command, pluginArgs, *n, *warmup)
 	default:
 		err = fmt.Errorf("unknown -mode %q", *mode)
 	}
@@ -77,6 +89,135 @@ func main() {
 		fmt.Printf("FAIL %s: %v\n", *scenario, err)
 		os.Exit(1)
 	}
+}
+
+// benchStats summarises per-call wall times over one measurement.
+type benchStats struct {
+	N    int
+	Mean time.Duration
+	P50  time.Duration
+	P95  time.Duration
+	Max  time.Duration
+}
+
+// benchMeasure runs fn n times and summarises the per-call wall times.
+func benchMeasure(n int, fn func() error) (benchStats, error) {
+	if n <= 0 {
+		return benchStats{}, fmt.Errorf("sample count must be positive, got %d", n)
+	}
+	samples := make([]time.Duration, 0, n)
+	for i := 0; i < n; i++ {
+		start := time.Now()
+		if err := fn(); err != nil {
+			return benchStats{}, err
+		}
+		samples = append(samples, time.Since(start))
+	}
+	sort.Slice(samples, func(i, j int) bool { return samples[i] < samples[j] })
+	var total time.Duration
+	for _, s := range samples {
+		total += s
+	}
+	pick := func(p float64) time.Duration {
+		idx := int(p * float64(len(samples)))
+		if idx >= len(samples) {
+			idx = len(samples) - 1
+		}
+		if idx < 0 {
+			idx = 0
+		}
+		return samples[idx]
+	}
+	return benchStats{
+		N:    n,
+		Mean: total / time.Duration(n),
+		P50:  pick(0.50),
+		P95:  pick(0.95),
+		Max:  samples[len(samples)-1],
+	}, nil
+}
+
+func printBench(label string, s benchStats) {
+	fmt.Printf("BENCH %s n=%d mean=%.3fms p50=%.3fms p95=%.3fms max=%.3fms\n",
+		label, s.N, ms(s.Mean), ms(s.P50), ms(s.P95), ms(s.Max))
+}
+
+func ms(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) }
+
+// runFuncBench measures the extra latency the plugin hop adds to one
+// function invocation: "inline" runs the reference plugin's echo work
+// (JSON parse/validate/marshal) in-process as the zero-IPC baseline,
+// "plugin" drives the same echo through the REAL host→plugin gRPC round
+// trip, so (plugin - inline) ≈ local IPC + host dispatch + wire
+// marshaling. Timing-sensitive by design, hence not a CI gate; the SDK
+// suites only assert the output shape.
+func runFuncBench(ctx context.Context, scenario, command string, pluginArgs []string, n, warmup int) error {
+	if scenario != "bench-invoke" {
+		return failf("unknown funcbench scenario %q", scenario)
+	}
+	if warmup < 0 {
+		return failf("warmup must be >= 0, got %d", warmup)
+	}
+
+	inline, err := benchMeasure(n, func() error {
+		var params struct {
+			Message string `json:"message"`
+		}
+		if e := json.Unmarshal([]byte(`{"message":"bench"}`), &params); e != nil {
+			return e
+		}
+		if params.Message == "" {
+			return fmt.Errorf("message must be a non-empty string")
+		}
+		if _, e := json.Marshal(map[string]string{"message": params.Message}); e != nil {
+			return e
+		}
+		return nil
+	})
+	if err != nil {
+		return failf("inline baseline: %v", err)
+	}
+
+	h, err := funcplugin.NewHost(
+		funcplugin.AgentScope{GameID: "game-1", Env: "prod"},
+		[]funcplugin.PluginConfig{{
+			Name:    "pyecho",
+			Command: command,
+			Args:    pluginArgs,
+			Timeout: 10 * time.Second,
+		}},
+		nil,
+	)
+	if err != nil {
+		return failf("NewHost: %v", err)
+	}
+	if err := h.Start(ctx); err != nil {
+		return failf("host start: %v", err)
+	}
+	defer h.Stop()
+
+	for i := 0; i < warmup; i++ {
+		if _, cause := h.Invoke(ctx, "plugin.pyecho.echo", `{"message":"bench"}`, 5*time.Second); cause != "" {
+			return failf("warmup invoke %d degraded with cause %s", i, cause)
+		}
+	}
+	plugin, err := benchMeasure(n, func() error {
+		out, cause := h.Invoke(ctx, "plugin.pyecho.echo", `{"message":"bench"}`, 5*time.Second)
+		if cause != "" {
+			return fmt.Errorf("degraded with cause %s", cause)
+		}
+		if !out.OK || out.ErrorCode != "" {
+			return fmt.Errorf("envelope ok=%v code=%q", out.OK, out.ErrorCode)
+		}
+		return nil
+	})
+	if err != nil {
+		return failf("plugin hop: %v", err)
+	}
+
+	printBench("inline", inline)
+	printBench("plugin", plugin)
+	return nil
 }
 
 // failf is the scenario assertion helper: a non-nil error fails the

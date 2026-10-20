@@ -69,7 +69,7 @@ Server ← 共用 TCP/TLS session → synthetics-agent
 
 未编译插件能力却配置启用时明确启动报错；在线停用时先停止接收新调用，再按定义的超时策略排空/取消在途调用并关闭插件，不能把开关关闭当成无条件杀进程。
 
-sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明/调用转换成游戏已有 HTTP/TCP/管理接口；探测插件与函数插件分别定义契约及权限，均不要求游戏 SDK 引入 go-plugin/gRPC；额外 IPC 时延需独立测量。
+sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明/调用转换成游戏已有 HTTP/TCP/管理接口；探测插件与函数插件分别定义契约及权限，均不要求游戏 SDK 引入 go-plugin/gRPC；额外 IPC 时延已实测（见「插件路径 IPC 时延实测」）。
 
 体积应分别记录 Agent 二进制、开发者插件程序及其 Python/.NET/JVM 等运行环境；历史 1.7GB debug 场景不作为 Go 宿主增量估值，跨平台与正式完整实现均需重新测量。
 
@@ -188,5 +188,19 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 - **CI**：`.github/workflows/ci-sdk-plugins-js.yml`（node 24，`pnpm/action-setup` + `--frozen-lockfile`，build/typecheck/verify:proto/test 四道，setup-go 编译 hostdriver 跑集成；paths 覆盖 js 与共享 hostdriver）。
 - **运行时体积实测**（linux/amd64、Node 24.21.0）：运行时依赖 `@grpc/grpc-js + @grpc/proto-loader + protobufjs(+long)` 共约 2.7 MiB node_modules（对比 Python grpcio+protobuf 原生轮子 34 MiB；typescript/jest 等 dev 工具链另有 ~52 MiB 不随部署）；握手就绪态常驻 RSS ≈ 74 MiB / VSZ ≈ 1.49 GB（V8 虚拟地址空间预留，属 node 进程基线）。对照 Python 面 RSS ≈ 2.1 MiB——JS 面以更高的常驻内存与更重的运行时换来更小的依赖盘载。
 - **已知边界**：协议协商只讲 v1（宿主契约也只有 v1）；multiplex 标志按协议回显但 Croupier 宿主不启用；绑定仅 TCP（见上）；GRPCStdio 停泊流不走转发（插件日志直写 stderr，宿主同样回收）；宿主侧 sidecar 函数插件配置的消费路径（配置面/下发链）不在本 SDK 范围。
+
+## 插件路径 IPC 时延实测（2026-10-21，todo:38 剩余子项）
+
+测量工具 `hostdriver -mode funcbench -scenario bench-invoke`（`sdks/plugins/hostdriver/`，共享给三语言 SDK 套件；jest 仅断言输出形态，不跑计时）：同一进程内先跑 **inline** 基线（参考插件 echo 语义的进程内 JSON parse/校验/marshal，代表零 IPC 的调用工作本身），再拉起**真实** `funcplugin.NewHost` 顺序驱动参考插件跑 **plugin**（宿主派发 + 本地 go-plugin gRPC 往返 + 插件 echo 工作），n=300 次顺序调用、20 次预热，输出每调用 mean/p50/p95/max。两条路径的上游链（注册/审批/审计/路由）同链（todo:38 第二片实证），故插件路径的额外时延即此 hop 差值。
+
+实测（共享开发机 linux/amd64，顺序负载，两次独立运行展示抖动；Python 为 venv CPython 3.14.4 + grpcio 1.84 + protobuf 7.36，JS 为 Node 24.21.0）：
+
+| 路径                                     | run1 mean / p50 / p95 / max             | run2 mean / p50 / p95 / max      |
+| ---------------------------------------- | --------------------------------------- | -------------------------------- |
+| inline 基线（进程内 echo，两语言同量级） | 0.002 / 0.001 / 0.004–0.005 / ≤0.031 ms | —                                |
+| plugin hop（Node 24 + grpc-js）          | 0.573 / 0.534 / 0.789 / 2.282 ms        | 0.773 / 0.719 / 1.107 / 3.304 ms |
+| plugin hop（Python + grpcio）            | 0.583 / 0.560 / 0.703 / 2.033 ms        | 0.593 / 0.578 / 0.726 / 1.484 ms |
+
+结论与边界：**每次经插件适配器的函数调用额外 ≈0.5–0.8ms（p50 0.53–0.72ms）**，两语言差异在共享开发机运行间抖动内（开销由本地 gRPC hop 与宿主派发主导，不是解释器）；对照 inline 的 ~2µs，插件路径约放大 250–400 倍——对管理面/探活类低频调用无感，对高频批量路径应在插件侧做批量聚合或改走直连 SDK。边界：共享开发机、顺序调用、含宿主派发与框架开销，非吞吐上限（并发与专用硬件下另行测量）；未覆盖完整部署链端到端（SDK→agent→sidecar→插件的跨进程叠加），该验收归 todo:38 剩余的「真实游戏接口端到端验收」。
 
 关联：[Agent 清单](../design/agents-inventory.md)、[健康评审](/archive/legacy-en/design/agent-health-recovery-review)、根目录 `todo.md`。

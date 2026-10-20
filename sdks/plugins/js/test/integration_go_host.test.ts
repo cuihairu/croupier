@@ -119,6 +119,30 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
     });
   });
 
+  describe("bench mode (function plugin IPC latency)", () => {
+    it("bench-invoke prints inline and plugin-hop stats", () => {
+      const out = execFileSync(
+        driver,
+        [
+          "-mode", "funcbench",
+          "-scenario", "bench-invoke",
+          "-command", nodeBin,
+          "-args", funcExample,
+          "-n", "50",
+          "-warmup", "5",
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+          timeout: 120_000,
+          env: { ...process.env, GO_LOG_FORMAT: "standard", GO_LOG_LEVEL: "warn" },
+        },
+      );
+      expect(out).toMatch(/^BENCH inline n=50 /m);
+      expect(out).toMatch(/^BENCH plugin n=50 /m);
+    });
+  });
+
   it("refuses to serve without the host cookie", () => {
     const run = (): string =>
       execFileSync(nodeBin, [probeExample], {
