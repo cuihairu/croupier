@@ -85,7 +85,11 @@ class PassResult(CheckResult):
         detail: str = "",
         at_unix_ms: int | None = None,
     ) -> None:
-        super().__init__(
+        # Explicit parent init: dataclass(slots=True) rebuilds the class,
+        # so a zero-arg super() inside __init__ resolves against the stale
+        # __class__ cell and raises TypeError on Python 3.12/3.13.
+        CheckResult.__init__(
+            self,
             ok=True,
             status=status,
             latency_ms=latency_ms,
@@ -108,7 +112,9 @@ class FailResult(CheckResult):
         detail: str = "",
         at_unix_ms: int | None = None,
     ) -> None:
-        super().__init__(
+        # Same explicit parent init as PassResult (see the note there).
+        CheckResult.__init__(
+            self,
             ok=False,
             status=status,
             latency_ms=latency_ms,
