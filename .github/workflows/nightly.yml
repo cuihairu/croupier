@@ -86,24 +86,26 @@ jobs:
           # devops/capture 版本号在非 main 包（agents/*/runner），-X 须完整导入路径
           DEV_LDFLAGS="$LDFLAGS -X github.com/cuihairu/croupier/agents/devops/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/devops/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/devops/runner.BuildTime=$BUILD_TIME"
           CAP_LDFLAGS="$LDFLAGS -X github.com/cuihairu/croupier/agents/capture/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/capture/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/capture/runner.BuildTime=$BUILD_TIME"
+          SYN_LDFLAGS="$LDFLAGS -X github.com/cuihairu/croupier/agents/synthetics/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/synthetics/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/synthetics/runner.BuildTime=$BUILD_TIME"
           mkdir -p bin
           if [ -n "${{ matrix.goos }}" ]; then
             # 交叉编译补位：与 Makefile 同参（无额外 tags，全驱动编译进二进制），
             # CGO_ENABLED=0——server/agent 均为纯 Go（glebarez/sqlite、pg 驱动无 cgo）
             # The CDC parser uses 64-bit int constants: server/capture do not
-            # compile for ARMv7. Keep sidecar/devops available on that target.
+            # compile for ARMv7. synthetics is not validated on 32-bit either.
+            # Keep sidecar/devops available on that target.
             if [ "${{ matrix.goarch }}" != "arm" ]; then
               CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
                 GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
+              CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
+                GOFLAGS=-mod=mod go build -ldflags "$CAP_LDFLAGS" -o bin/capture-agent ./cmd/capture-agent
+              CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
+                GOFLAGS=-mod=mod go build -ldflags "$SYN_LDFLAGS" -o bin/synthetics-agent ./cmd/synthetics-agent
             fi
             CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
               GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/sidecar-agent
             CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
               GOFLAGS=-mod=mod go build -ldflags "$DEV_LDFLAGS" -o bin/devops-agent ./cmd/devops-agent
-            if [ "${{ matrix.goarch }}" != "arm" ]; then
-              CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} \
-                GOFLAGS=-mod=mod go build -ldflags "$CAP_LDFLAGS" -o bin/capture-agent ./cmd/capture-agent
-            fi
           else
             make build
             # make build 注入的是 VERSION 文件值（发布时点可能滞后，v0.1.5 实证恒 0.1.4）——
@@ -112,6 +114,7 @@ jobs:
             GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/sidecar-agent
             GOFLAGS=-mod=mod go build -ldflags "$DEV_LDFLAGS" -o bin/devops-agent ./cmd/devops-agent
             GOFLAGS=-mod=mod go build -ldflags "$CAP_LDFLAGS" -o bin/capture-agent ./cmd/capture-agent
+            GOFLAGS=-mod=mod go build -ldflags "$SYN_LDFLAGS" -o bin/synthetics-agent ./cmd/synthetics-agent
           fi
 
       - name: Build (Windows)
@@ -129,10 +132,12 @@ jobs:
           # devops/capture 版本号在非 main 包（agents/*/runner），-X 须完整导入路径
           $DEV_LDFLAGS = "$LDFLAGS -X github.com/cuihairu/croupier/agents/devops/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/devops/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/devops/runner.BuildTime=$BUILD_TIME"
           $CAP_LDFLAGS = "$LDFLAGS -X github.com/cuihairu/croupier/agents/capture/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/capture/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/capture/runner.BuildTime=$BUILD_TIME"
+          $SYN_LDFLAGS = "$LDFLAGS -X github.com/cuihairu/croupier/agents/synthetics/runner.Version=$VERSION -X github.com/cuihairu/croupier/agents/synthetics/runner.GitCommit=$GIT_COMMIT -X github.com/cuihairu/croupier/agents/synthetics/runner.BuildTime=$BUILD_TIME"
           go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./cmd/server
           go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/sidecar-agent
           go build -ldflags "$DEV_LDFLAGS" -o bin/devops-agent.exe ./cmd/devops-agent
           go build -ldflags "$CAP_LDFLAGS" -o bin/capture-agent.exe ./cmd/capture-agent
+          go build -ldflags "$SYN_LDFLAGS" -o bin/synthetics-agent.exe ./cmd/synthetics-agent
 
       - name: Package binaries (Linux/Mac)
         if: runner.os != 'Windows'
@@ -180,12 +185,12 @@ jobs:
             PKG_ARCH=$(go env GOARCH)
             SUFFIX=""
             if [ "$PKG_OS" = "windows" ]; then SUFFIX=".exe"; fi
-            for AGENT in croupier-agent devops-agent capture-agent; do
+            for AGENT in croupier-agent devops-agent capture-agent synthetics-agent; do
               VERSION_OUTPUT=$("./bin/${AGENT}${SUFFIX}" --version)
               [[ "$VERSION_OUTPUT" == *"nightly-"* ]] || { echo "missing nightly version: $AGENT"; exit 1; }
             done
           fi
-          ROLES=(sidecar devops capture)
+          ROLES=(sidecar devops capture synthetics)
           if [ "$PKG_ARCH" = "arm" ]; then ROLES=(sidecar devops); PKG_ARCH=armv7; fi
           python scripts/package-agents.py --os "$PKG_OS" --arch "$PKG_ARCH" --roles "${ROLES[@]}"
 
@@ -731,7 +736,7 @@ jobs:
           ### Server/Agent Binaries
           - `croupier-bin-linux-amd64.tar.gz` - Linux x64
           - `croupier-bin-linux-arm64.tar.gz` - Linux ARM64
-          - `croupier-bin-linux-armv7.tar.gz` - Linux ARMv7 (sidecar/devops only; server/capture require 64-bit)
+          - `croupier-bin-linux-armv7.tar.gz` - Linux ARMv7 (sidecar/devops only; server/capture/synthetics require 64-bit)
           - `croupier-bin-darwin-amd64.tar.gz` - macOS Intel
           - `croupier-bin-darwin-arm64.tar.gz` - macOS ARM64
           - `croupier-bin-windows-amd64.zip` - Windows x64
@@ -741,8 +746,8 @@ jobs:
           - `croupier-agent-<os>-<arch>.tar.gz` - sidecar: SDK function gateway and game-side operations
           - `devops-agent-<os>-<arch>.tar.gz` - devops: remote-access skeleton (SSH/RDP/VNC channels pending)
           - `capture-agent-<os>-<arch>.tar.gz` - capture: CDC and change-rule alerts (64-bit targets only)
+          - `synthetics-agent-<os>-<arch>.tar.gz` - synthetics: external HTTP probes and optional probe plugins (64-bit targets only)
           - Windows packages use `.zip`; `agents-<os>-<arch>.json` and `.sha256` record contents and checksums.
-          - `synthetics-agent` is planned and has no executable/package yet.
           - Agent roles and scope requirements: [Agent guide](https://github.com/cuihairu/croupier/blob/main/docs/zh/operations/agent-comparison.md).
 
           ### Go SDK (Multi-platform)

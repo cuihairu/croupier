@@ -26,7 +26,7 @@ Croupier is a Server / Agent / SDK platform for game operations and control, int
 | sidecar | Game function gateway, task forwarding and game-side observation | `croupier-agent`; supervisor configuration/startup wiring still needs completion |
 | devops | Allowlisted internal remote access with audit | `devops-agent` skeleton; real session channels pending |
 | capture | Database CDC, change rules and alerts | `capture-agent`; checkpoint and alert delivery reliability still need work |
-| synthetics | External game/service checks with developer plugins | Planned; no executable or package yet |
+| synthetics | External game/service checks with developer plugins | `synthetics-agent`; probe plugins included, native probe kernel migration pending |
 
 Each instance explicitly belongs to one `gameId/env`. See the [Agent guide（本节仅有中文版）](docs/zh/operations/agent-comparison.md) for roles, deployment and individual nightly packages, and [runtime layout（本节仅有中文版）](docs/zh/development/agent-runtime-layout.md) for shared code and remaining migrations. New assets require a successful release run; ARMv7 supports sidecar/devops only.
 

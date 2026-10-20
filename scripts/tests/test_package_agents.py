@@ -24,7 +24,7 @@ class AgentPackageTests(unittest.TestCase):
                 for name, _, _ in PACKAGER.AGENTS.values():
                     (binaries / (name + (".exe" if goos == "windows" else ""))).write_bytes(b"binary")
                 manifest = PACKAGER.package_agents(ROOT, binaries, output, goos, "amd64", list(PACKAGER.AGENTS))
-                self.assertEqual({a["role"] for a in manifest["agents"]}, {"sidecar", "devops", "capture"})
+                self.assertEqual({a["role"] for a in manifest["agents"]}, {"sidecar", "devops", "capture", "synthetics"})
                 self.assertEqual(json.loads((output / f"agents-{goos}-amd64.json").read_text()), manifest)
                 checksums = (output / f"agents-{goos}-amd64.sha256").read_text()
                 for agent in manifest["agents"]:
@@ -46,7 +46,6 @@ class AgentPackageTests(unittest.TestCase):
                     expected_config = PACKAGER.AGENTS[agent["role"]][2]
                     self.assertIn("configs/" + expected_config, names)
                     self.assertIn("https://github.com/cuihairu/croupier/blob/main/docs/", guide)
-                    self.assertNotIn("synthetics-agent", names)
 
     def test_missing_binary_prevents_partial_release(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -63,8 +62,10 @@ class AgentPackageTests(unittest.TestCase):
                 (folder / name).write_bytes(b"binary")
             manifest = PACKAGER.package_agents(ROOT, folder, folder / "out", "linux", "arm", ["sidecar", "devops"])
             self.assertEqual(len(manifest["agents"]), 2)
-            with self.assertRaisesRegex(ValueError, "64-bit"):
-                PACKAGER.package_agents(ROOT, folder, folder / "invalid", "linux", "arm", ["capture"])
+            # capture（CDC 依赖）与 synthetics（32 位未验证）都不允许进 ARMv7 包。
+            for role in ("capture", "synthetics"):
+                with self.subTest(role=role), self.assertRaisesRegex(ValueError, "64-bit"):
+                    PACKAGER.package_agents(ROOT, folder, folder / f"invalid-{role}", "linux", "arm", [role])
 
 
 if __name__ == "__main__":

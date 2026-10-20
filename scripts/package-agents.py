@@ -15,6 +15,7 @@ AGENTS = {
     "sidecar": ("croupier-agent", "agent.yaml", "agent.yaml"),
     "devops": ("devops-agent", "devops-agent.example.yaml", "devops-agent.yaml"),
     "capture": ("capture-agent", "capture-agent.example.yaml", "capture-agent.yaml"),
+    "synthetics": ("synthetics-agent", "synthetics-agent.example.yaml", "synthetics-agent.yaml"),
 }
 
 
@@ -42,6 +43,8 @@ def package_agents(root, binaries, output, goos, goarch, roles):
         name, source_config, target_config = AGENTS[role]
         if goarch in ("arm", "armv7") and role == "capture":
             raise ValueError("capture-agent requires a 64-bit target (CDC parser dependency)")
+        if goarch in ("arm", "armv7") and role == "synthetics":
+            raise ValueError("synthetics-agent requires a 64-bit target (not validated on 32-bit)")
         binary = binaries / (name + (".exe" if goos == "windows" else ""))
         files = [
             (binary, binary.name),

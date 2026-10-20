@@ -78,11 +78,11 @@ SDK 函数注册与路由属于 sidecar；SSH/RDP/VNC 与白名单属于 devops�
 
 ## 构建与发布职责
 
-- Makefile：`make agents`/`make build` 仍只含 sidecar/devops/capture；synthetics 已有独立 `make agent-synthetics`（`Makefile:125`），尚未纳入聚合构建。
+- Makefile：`make agents`/`make build` 已含四类 Agent（synthetics 经 `agent-synthetics` 进聚合）。
 - `nightly.yml`：唯一每日构建与 nightly tag 更新入口，保留总包并发布每类独立包、配置、职责文档和 checksum 清单。
 - `release.yml`：仅 v* tag 稳定发布，手动运行选择 v* tag；不再作为第二个 nightly 上传器。
-- 原生 runner 运行 Agent `--version` 检查，交叉编译产物不冒充本机执行；ARMv7 仅 sidecar/devops，server/capture 的旧 CDC parser 存在 32 位整数溢出，待依赖兼容方案解决后再扩大平台支持。
-- 包装输入缺失即失败，manifest 按真实二进制记录 SHA256；现有 nightly 包装角色列表仍未纳入 synthetics，不能把源码入口存在或本地裁剪构建通过写成已发布变体。本片不改构建、打包、版本或发布行为。
+- 原生 runner 运行 Agent `--version` 检查，交叉编译产物不冒充本机执行；ARMv7 仅 sidecar/devops，server/capture 的旧 CDC parser 存在 32 位整数溢出；synthetics 未在 32 位验证，交付面暂不扩大。
+- 包装输入缺失即失败，manifest 按真实二进制记录 SHA256；nightly 与稳定版包装角色（`package-agents.py` AGENTS 单一清单）已含 synthetics，64 位面交付（ARMv7 仍仅 sidecar/devops），`release.yml` 未传 `--roles` 时按同一清单自动对齐。
 
 ## 第一片迁移与消费者核对（2026-10-20）
 
