@@ -1614,3 +1614,20 @@ func TestLocalHandler_PickInstance_WithMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "localhost:8080", addr)
 }
+
+func TestLocalHandlerSetProviderSessionStoreAndExpectedGameEnv(t *testing.T) {
+	store := agentlocal.NewLocalStore()
+	h := NewLocalHandler(store, "/tmp", "agent-1", nil)
+
+	sessStore := NewProviderSessionStore()
+	h.SetProviderSessionStore(sessStore)
+	h.mu.RLock()
+	assert.Same(t, sessStore, h.providerSessions)
+	h.mu.RUnlock()
+
+	h.SetExpectedGameEnv("game-a", "prod")
+	h.mu.RLock()
+	assert.Equal(t, "game-a", h.expectedGameID)
+	assert.Equal(t, "prod", h.expectedEnv)
+	h.mu.RUnlock()
+}

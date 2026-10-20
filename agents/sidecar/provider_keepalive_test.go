@@ -1,4 +1,4 @@
-package agent
+package sidecar
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 
 	transportcore "github.com/cuihairu/croupier/core/transport"
 	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
-	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
@@ -16,39 +15,30 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// newKeepaliveTestProvider 建立一条真实 TCP 会话（provider 端 handler 可控），
-// 返回 (store, session)。provider 端通过 agent 侧握手入池，语义与生产一致。
-func newKeepaliveTestProvider(t *testing.T, serviceID string, handler func(msgID uint32, body []byte) ([]byte, error)) (*ProviderSessionStore, *ProviderSession) {
+// newKeepaliveTestSession 用 net.Pipe 建一条真实 MuxConn 会话入池（provider
+// 端 handler 可控），语义与生产同构：Call/Close/IsClosed 全走 core transport。
+func newKeepaliveTestSession(t *testing.T, serviceID string, handler func(ctx context.Context, msgID uint32, body []byte) ([]byte, error)) (*ProviderSessionStore, *ProviderSession) {
 	t.Helper()
-	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{Address: "127.0.0.1:0"}, nil, nil)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, listener.Close()) })
-
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go func() { _ = listener.Serve(ctx) }()
 
-	conn, err := net.Dial("tcp", listener.Addr())
-	require.NoError(t, err)
-	provider := tcptr.NewMuxConn(conn, nil, transportcore.HandlerFunc(
-		func(_ context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
-			return handler(msgID, body)
+	agentSide, peerSide := net.Pipe()
+	peer := tcptr.NewMuxConn(peerSide, nil, transportcore.HandlerFunc(
+		func(c context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
+			return handler(c, msgID, body)
 		}))
-	go func() { _ = provider.Run(ctx) }()
-	t.Cleanup(func() { _ = provider.Close() })
+	go func() { _ = peer.Run(ctx) }()
+	t.Cleanup(func() { _ = peer.Close() })
 
-	connectBody, err := proto.Marshal(&sdkv1.ProviderConnectRequest{
-		ServiceId: serviceID,
-		Version:   "1.0.0",
-		Functions: []*sdkv1.ProviderFunctionDescriptor{{Id: "f.ping", Version: "1.0.0"}},
-	})
-	require.NoError(t, err)
-	_, _, err = provider.Call(ctx, protocol.MsgProviderConnectRequest, connectBody)
-	require.NoError(t, err)
+	conn := tcptr.NewMuxConn(agentSide, nil, nil)
+	t.Cleanup(func() { _ = conn.Close() })
 
-	session, ok := listener.SessionStore().GetByServiceID(serviceID)
-	require.True(t, ok)
-	return listener.SessionStore(), session
+	store := NewProviderSessionStore()
+	sess := NewProviderSession(conn)
+	sess.SessionID = serviceID + "-sess"
+	sess.ServiceID = serviceID
+	require.NoError(t, store.Add(sess))
+	return store, sess
 }
 
 func TestNewProviderKeepaliveDefaults(t *testing.T) {
@@ -80,8 +70,8 @@ func TestProviderKeepaliveRunStopsOnContextCancel(t *testing.T) {
 }
 
 func TestProviderKeepaliveHealthyProviderStays(t *testing.T) {
-	store, session := newKeepaliveTestProvider(t, "healthy-provider",
-		func(msgID uint32, _ []byte) ([]byte, error) {
+	store, session := newKeepaliveTestSession(t, "healthy-provider",
+		func(_ context.Context, msgID uint32, _ []byte) ([]byte, error) {
 			if msgID == protocol.MsgProviderHeartbeatRequest {
 				return proto.Marshal(&sdkv1.ProviderHeartbeatResponse{})
 			}
@@ -100,12 +90,10 @@ func TestProviderKeepaliveHealthyProviderStays(t *testing.T) {
 }
 
 func TestProviderKeepaliveDeadProviderRemoved(t *testing.T) {
-	// provider 端对心跳永不响应（模拟 SDK 事件循环卡死）
-	store, session := newKeepaliveTestProvider(t, "dead-provider",
-		func(msgID uint32, _ []byte) ([]byte, error) {
-			if msgID == protocol.MsgProviderHeartbeatRequest {
-				select {} // 永不返回，靠调用方超时
-			}
+	// provider 端对心跳永不响应（模拟 SDK 事件循环卡死；conn Run 退出时放行）
+	store, session := newKeepaliveTestSession(t, "dead-provider",
+		func(ctx context.Context, _ uint32, _ []byte) ([]byte, error) {
+			<-ctx.Done()
 			return nil, nil
 		})
 
@@ -122,8 +110,8 @@ func TestProviderKeepaliveDeadProviderRemoved(t *testing.T) {
 }
 
 func TestProviderKeepaliveClosedConnRemovedWithoutProbe(t *testing.T) {
-	store, session := newKeepaliveTestProvider(t, "closing-provider",
-		func(uint32, []byte) ([]byte, error) { return nil, nil })
+	store, session := newKeepaliveTestSession(t, "closing-provider",
+		func(context.Context, uint32, []byte) ([]byte, error) { return nil, nil })
 
 	// 先关掉连接，再跑探测：走 conn.IsClosed() 分支直接摘除
 	require.NoError(t, session.Close())
@@ -135,19 +123,25 @@ func TestProviderKeepaliveClosedConnRemovedWithoutProbe(t *testing.T) {
 	assert.False(t, ok, "closed provider must be removed")
 }
 
-func TestLocalHandlerSetProviderSessionStoreAndExpectedGameEnv(t *testing.T) {
-	store := agentlocal.NewLocalStore()
-	h := NewLocalHandler(store, "/tmp", "agent-1", nil)
+// proto3 string 字段含无效 UTF-8 时 Marshal 必败。探测帧的 SessionID 来自
+// ProviderSessionStore（不经 proto 反序列化闸门直填），可以构造出编码必败
+// 的会话——probeOnce 必须跳过它而不是误摘除。
+func TestProviderKeepaliveProbeOnce_MarshalFailureSkipsWithoutRemoval(t *testing.T) {
+	store := NewProviderSessionStore()
 
-	sessStore := NewProviderSessionStore()
-	h.SetProviderSessionStore(sessStore)
-	h.mu.RLock()
-	assert.Same(t, sessStore, h.providerSessions)
-	h.mu.RUnlock()
+	agentSide, peerSide := net.Pipe()
+	defer func() { _ = peerSide.Close() }()
+	conn := tcptr.NewMuxConn(agentSide, nil, nil)
+	defer func() { _ = conn.Close() }()
 
-	h.SetExpectedGameEnv("game-a", "prod")
-	h.mu.RLock()
-	assert.Equal(t, "game-a", h.expectedGameID)
-	assert.Equal(t, "prod", h.expectedEnv)
-	h.mu.RUnlock()
+	sess := NewProviderSession(conn)
+	sess.SessionID = "\xff\xfe" // 无效 UTF-8：心跳探测帧编码必败
+	sess.ServiceID = "svc-bad-utf8"
+	require.NoError(t, store.Add(sess))
+
+	k := NewProviderKeepalive(store, time.Hour, nil)
+	k.probeOnce(context.Background())
+
+	_, ok := store.GetBySessionID("\xff\xfe")
+	assert.True(t, ok, "marshal-failed session must be skipped, not removed")
 }
