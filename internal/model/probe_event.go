@@ -22,7 +22,11 @@ type ProbeEvent struct {
 	Status     string    `gorm:"size:32;index"`
 	LatencyMS  int64
 	ErrorClass string `gorm:"size:64;index"`
-	Payload    []byte `gorm:"type:blob"`
+	// 原始事件字节（proto 序列化的 opsv1.AlertEvent）。不写 `type:blob`——
+	// blob 是 MySQL 专有类型，pg/mssql 无此类型（Migration Matrix 实证：
+	// pg SQLSTATE 42704、mssql Cannot find data type blob）；留空走 GORM
+	// 按驱动的 bytes 默认映射（mysql longblob / pg bytea / mssql varbinary(max)）。
+	Payload []byte
 }
 
 func (ProbeEvent) TableName() string { return "probe_events" }

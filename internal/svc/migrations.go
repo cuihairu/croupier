@@ -125,6 +125,11 @@ import (
 //   0045 (Go)   db_sources.owner_agent_id 列（DB 源周期探测归属 agent，
 //               agent-health-recovery-review.md §12 R4；加列 0025 模式；
 //               存量行不回填——历史源无归属=未归属，server 诊断端点兜底）
+//   0046 (Go)   probe_events 建表（synthetics 探测事件持久化表；此前只在
+//               AutoMigrate 路径存在，线上 postgres 缺表即写入报错，且
+//               payload `type:blob` 为 MySQL 专有使 Migration Matrix 在
+//               pg/mssql 直接失败；HasTable 检查后 CreateTable，新表无
+//               存量约束名漂移；payload 走驱动 bytes 默认映射）
 
 func init() {
 	registerSvcMigrations()
@@ -180,6 +185,7 @@ func registerSvcMigrations() {
 		alertScopeMigration(),
 		agentMetricsProbeJSONMigration(),
 		dbSourceOwnerMigration(),
+		probeEventsTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1503,6 +1509,33 @@ func migrateDBSourceOwnerColumn(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := migrator.AddColumn(&model.DBSource{}, "OwnerAgentID"); err != nil {
 		return fmt.Errorf("migrate: 0045 add db_sources.owner_agent_id: %w", err)
+	}
+	return nil
+}
+
+// probeEventsTableMigration 为 0046：probe_events 建表（synthetics 探测事件
+// 持久化，item 31/36 交付的模型 998e79f 起只在 AutoMigrate 路径建表，线上
+// postgres 从未有过该表——2026-10-20 实证 information_schema 无 probe_events，
+// 探测事件写入在线上必报错，页面侧永远查不到数据）。新建表无存量约束名漂移
+// 问题，HasTable 检查后 CreateTable；payload 列类型见 model.ProbeEvent 的
+// 注释（不用 MySQL 专有的 `type:blob`）。
+func probeEventsTableMigration() *goose.Migration {
+	return goose.NewGoMigration(46,
+		&goose.GoFunc{RunDB: migrateProbeEventsTable},
+		nil,
+	)
+}
+
+func migrateProbeEventsTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if db.Migrator().HasTable(&model.ProbeEvent{}) {
+		return nil
+	}
+	if err := db.Migrator().CreateTable(&model.ProbeEvent{}); err != nil {
+		return fmt.Errorf("migrate: 0046 create probe_events: %w", err)
 	}
 	return nil
 }
