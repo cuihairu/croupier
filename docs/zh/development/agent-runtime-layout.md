@@ -32,13 +32,14 @@ agents/
   sidecar/
     provider_session.go       SDK Provider 会话、索引与连接关闭（本片归位）
     provider_keepalive.go     Provider 会话传输层保活探针（本片归位）
+    task_runner.go            在途任务生命周期（执行 seam、取消、事件上报；本片归位）
     funcplugin/               函数插件声明、协议与宿主适配
   devops/{config,runner,session}/
   capture/{config,runner,connector,source,filter,gate}/
   synthetics/{config,runner,probe,pluginhost}/
 internal/
   app/agent/                  sidecar 装配、监管、Provider、探针（迁移余量）
-  agent/                      SDK 本地网关、保活、任务转发；Provider session 仅别名
+  agent/                      SDK 本地网关与 handler（迁移余量）；Provider session/保活/任务转发仅别名
   transport/tcp/              请求响应 Server；client/framing/MuxConn/TLS 配置转发 core
 pkg/{pb,protocol}/           共享 wire message 与消息编号
 ```
@@ -90,6 +91,7 @@ SDK 函数注册与路由属于 sidecar；SSH/RDP/VNC 与白名单属于 devops�
 | Provider 会话与索引 | `internal/agent/provider_session.go` → `agents/sidecar/provider_session.go:16`、`:96`                                               | 旧路径类型别名；新增绑定已建立 MuxConn 的构造入口，不拨新连接；索引、TTL、关闭行为不变                                                                                                        |
 | Provider 会话测试   | `internal/agent/provider_session_test.go` → `agents/sidecar/provider_session_test.go`                                               | 原测试函数全部随迁，保留断言；补充连接绑定与关闭测试                                                                                                                                          |
 | Provider 保活探针   | `internal/agent/provider_keepalive.go` → `agents/sidecar/provider_keepalive.go:16`                                                  | 实现逐行平移（仅包名变化），探测间隔/摘除/超时/Marshal 失败跳过语义不变；旧路径类型别名+构造转发；依赖网关监听器的握手 helper 留 `internal/agent/tcp_local_listener_test.go` 供路由类用例复用 |
+| 在途任务生命周期    | `internal/agent/task_runner.go` → `agents/sidecar/task_runner.go:17`                                                                | 实现逐行平移（仅包名变化），Start/Cancel/事件上报/Marshal 语义不变；旧路径类型别名+构造转发；`marshalTaskInvoke` 等私有 helper 用例随迁，仅用导出面的用例经别名留在 internal                  |
 
 | 消费者                  | 引用点（file:line）                                                                                                                                                                                                                                  | 本片状态                                                                                                        |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |

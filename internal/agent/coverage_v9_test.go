@@ -57,18 +57,6 @@ func TestLocalHandlerHandleListCronJobsV9(t *testing.T) {
 	})
 }
 
-func TestMarshalTaskInvokeV9(t *testing.T) {
-	assert.Nil(t, marshalTaskInvoke(nil))
-
-	req := &sdkv1.InvokeRequest{FunctionId: "fn.v9", Payload: []byte(`{}`)}
-	data := marshalTaskInvoke(req)
-	require.NotNil(t, data)
-
-	decoded := &sdkv1.InvokeRequest{}
-	require.NoError(t, proto.Unmarshal(data, decoded))
-	assert.Equal(t, "fn.v9", decoded.GetFunctionId())
-}
-
 func TestExecuteTaskRoutesThroughInvokePathV9(t *testing.T) {
 	newHandlerWithPM := func(resp []byte, callErr error) *LocalHandler {
 		h := NewLocalHandler(agentlocal.NewLocalStore(), "/tmp", "agent-1", nil)
@@ -125,20 +113,6 @@ func TestProviderDescriptorPresentationViolationNilV9(t *testing.T) {
 
 func TestNewTaskRunnerNilExecutorPanicsV9(t *testing.T) {
 	assert.Panics(t, func() { NewTaskRunner(nil, nil, nil) })
-}
-
-func TestTaskRunnerReportEmptyPayloadV9(t *testing.T) {
-	r := NewTaskRunner(func(context.Context, *sdkv1.InvokeRequest) ([]byte, error) {
-		return nil, nil
-	}, nil, nil)
-	require.NoError(t, r.report(context.Background(), &sdkv1.TaskEvent{}))
-
-	reporter := &mockTaskEventReporter{}
-	r.SetReporter(reporter)
-	event := &sdkv1.TaskEvent{TaskId: "t-v9"}
-	require.NoError(t, r.report(context.Background(), event))
-	assert.Equal(t, []byte("null"), event.Payload)
-	assert.Equal(t, 1, reporter.callCount())
 }
 
 func TestHandleCancelTaskNilRunnerV9(t *testing.T) {
