@@ -136,7 +136,7 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 | 裁剪增量（默认 − 裁剪）  | 5,894,144 B / 5.622 MiB（占默认版 38.4%） |
 
 - **裁剪版依赖闭包**：`go list -deps -tags no_go_plugin ./cmd/synthetics-agent` 无 `hashicorp/go-plugin`、无 `google.golang.org/grpc`（默认版两者均链接，grpc 相关依赖 75 个包）；裁剪产物二进制 strings 0 命中 `go-plugin` / `google.golang.org/grpc`（默认版分别 325 / 2319 命中），且裁剪版仍可正常启动（`--help` rc=0），证明 5.622 MiB 增量即插件宿主 + gRPC 传输栈本身。
-- **插件程序与语言运行时独立体积**：Go 参考插件 `echoprobe`（`-trimpath -ldflags "-s -w"`）13,984,007 B / 13.336 MiB——Go 插件静态内嵌语言运行时，无独立解释器/VM 需要部署；Python/JS 等多语言插件程序及其解释器运行时体积待对应 SDK 交付时随实测补记（todo:36 剩余范围）。
+- **插件程序与语言运行时独立体积**：Go 参考插件 `echoprobe`（`-trimpath -ldflags "-s -w"`）13,984,007 B / 13.336 MiB——Go 插件静态内嵌语言运行时，无独立解释器/VM 需要部署；Python 插件程序本体为 KiB 级脚本，解释器由部署环境提供，运行时依赖体积与常驻内存实测见下方「Python 插件 SDK 交付」；JS 插件 SDK 及体积待交付时随实测补记（todo:38 剩余范围）。
 - 2026-10-17 的正向 tag 对照表保留为历史实验记录；本节为正式实现（反向 tag + 运行时开关）的交付口径。
 
 ## 第一片实施记录（2026-10-20，todo:36 部分完成）
@@ -165,5 +165,16 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 本片语义决定：插件按 `synthetics.plugins[]` 显式声明，目标经 `plugin:` 字段路由；插件不可用/超时/调用错误时返回降级原因（`plugin_not_configured` / `plugin_unavailable` / `plugin_timeout` / `plugin_error`），同一目标自动回退原生 HTTP 探测并在事件 details 记录 `pluginFallback`/`pluginCause`，插件进程常驻复用、故障后由宿主单一管理者重启。测试见 `pluginhost_test.go`（加载成功/缺失降级/超时降级/结果回传）与 `runner_plugin_test.go`（插件结果进事件链/缺失回退）。
 
 本片明确不做（照旧列明）：Python/JS 插件 SDK、ICMP/TCP 探测插件、`no_go_plugin` build tag 裁剪与运行时开关、并发背压与崩溃退避熔断、targetCategory=game/third_party 类别绑定、真实游戏协议目标验收——均为 todo:36 剩余范围（其中裁剪/开关/背压/退避已由上方第二片记录交付）。
+
+## Python 插件 SDK 交付（2026-10-20，todo:38/40 共尾项）
+
+探测面与函数面共用一个 Python 包 `croupier-plugin-sdk`（`sdks/plugins/python/`，与游戏 SDK 目录 `sdks/python/` 分离，互不携带依赖），首次给出跨语言插件链路的完整实测：
+
+- **协议面**（`croupier_plugin/serve.py`）：按钉扎 go-plugin v1.8.0 逐项实现的子进程半协议——魔法 cookie 精确值门禁（缺失/不符即拒绝直接执行、exit 1）、`PLUGIN_PROTOCOL_VERSIONS` 协商（不在宿主可讲版本集合内即拒启）、stdout 单行握手 `1|1|unix|<sock>|grpc|`（`PLUGIN_MULTIPLEX_GRPC` 置位时追加 `|true`）、GRPCStdio 停泊流 / GRPCController Shutdown / grpc.health.v1 三个宿主必用控制服务、SIGTERM/SIGINT 有界排空（2s grace）。stdout 只承载握手行，插件日志走 stderr 由宿主回收。
+- **契约面**（`funcplugin.py` / `probeplugin.py`）：`FunctionPlugin`（describe/list_functions/invoke）与 `ProbePlugin`（describe/check）两个 ABC；错误码闭集常量与 `error_result` 本地校验（越集即抛，先于宿主拒绝暴露）；`InvokeInput.context` / `CheckInput.context` 暴露 RPC 取消（长等待必须轮询 `is_active()`，与 Go 适配器自持超时同语义）。
+- **跨语言实证**（`hostdriver/`）：Go 程序驱动**真实**宿主（`funcplugin.NewHost` 与 `pluginhost.NewController`，非桩非 mock）跑七个场景——func-register / func-invoke / func-envelope（五类业务失败全部留在闭集信封）/ func-timeout（短宿主 deadline 报 `plugin_timeout`）/ probe-check-ok / probe-check-fail / probe-version，全部 PASS。pytest 共 24 用例（握手子进程 7 + 契约映射 17 中含集成 7）。
+- **CI**：`.github/workflows/ci-sdk-plugins-python.yml`（matrix 3.12/3.13，`pip install -e '.[dev]'` + setup-go 编译 hostdriver 跑集成）。
+- **运行时体积实测**（兑现上方 todo:32 补记承诺；linux/amd64、CPython 3.14）：运行时依赖 `grpcio==1.84.0 + grpcio-health-checking + protobuf==7.36.2` 共 34 MiB site-packages（含各平台原生 .so 轮子，实际部署可裁剪）；插件进程握手就绪态常驻 RSS ≈ 2.1 MiB / VSZ ≈ 7.7 MiB（grpc 原生库按需分页，流量态会增长，此为空闲基线）。对照：Go 参考插件 13.336 MiB 静态自含、零部署依赖；Python 面把「单插件部署体积」换成「每机一次解释器 + 依赖环境」。
+- **已知边界**：协议协商只讲 v1（宿主契约也只有 v1）；GRPCStdio 停泊流不走转发（插件日志直写 stderr，宿主同样回收）；multiplex 标志按协议回显但 Croupier 宿主不启用多路复用；stub 为提交态、由 `protos/gen.sh` 重生（不入 `make proto` 主链）；JS 插件 SDK 未交付。
 
 关联：[Agent 清单](../design/agents-inventory.md)、[健康评审](/archive/legacy-en/design/agent-health-recovery-review)、根目录 `todo.md`。

@@ -87,5 +87,6 @@ todo.md:35（2026-10-17 用户提出复用 go-plugin 模式）：开发者插件
 6. 第二片：插件函数并入注册上报快照与 server 侧注册表/审批/审计真实接线（`UpstreamClient.SetPluginFunctionsSource` 晚绑定快照源 + `Registered.Descriptor()` risk 归一；store 同名 id SDK/provider 恒赢；server 注册边界锁定插件命名空间与 presentation 拒绝，链路零 server 改动即闭环）。
 7. 第三片：注册 reconcile（`Host.Reconcile` + 30s 宿主自持循环，tick 不带自有 deadline；注册集只在完全合法应答时变化，撤销链经 server 快照整体重建闭环）。
 8. 第四片：TCP 参考插件 `examples/tcp`（一次调用一条连接的行协议帧约定、错误闭集翻译、自持 `-target-timeout` 与宿主 deadline 双向有界；映射成功、五类失败翻译、双超时均有真实子进程测试）。
+9. 第五片：Python 插件 SDK（与探测面共用 `sdks/plugins/python/croupier-plugin-sdk`，协议面/体积实测/边界见 docs/zh/research/synthetics-agent-go-plugin.md「Python 插件 SDK 交付」；函数面契约 `croupier_plugin.funcplugin`，参考插件 `examples/func_echo.py`，跨语言实证经 `hostdriver` 驱动真实 Go 宿主七场景全过、CI `ci-sdk-plugins-python.yml`）。宿主侧零改动即接入——Python 插件进程与 Go 插件在同一宿主契约下不可区分。
 
-剩余（后续切片）：多语言（Python/JS）插件 SDK、IPC 时延与直连 SDK 对比实测、真实游戏接口端到端验收。
+剩余（后续切片）：多语言（JS）插件 SDK、IPC 时延与直连 SDK 对比实测、真实游戏接口端到端验收。

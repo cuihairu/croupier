@@ -1,0 +1,48 @@
+// External probe plugin contract (HashiCorp go-plugin local gRPC mode).
+//
+// The gRPC dependency is intentionally confined to the synthetics plugin
+// host and its plugins (docs/archive/legacy-en/architecture/transport-no-grpc.md,
+// docs/zh/research/synthetics-agent-go-plugin.md). Game SDKs and the
+// Agent<->Server link must never depend on this package: they stay on the
+// shared TCP wire. This proto lives outside the top-level proto/ directory
+// so the transport contract and the plugin IPC contract version separately.
+syntax = "proto3";
+
+package croupier.probeplugin.v1;
+
+option go_package = "github.com/cuihairu/croupier/agents/synthetics/pluginhost/protocol;protocol";
+
+// Describe / Check are the minimal lifecycle calls of probe slice 1
+// (todo.md:36); the host always issues Describe once after handshake to
+// stamp plugin metadata onto probe results, Check per probe run.
+service ProbePlugin {
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+  rpc Check(CheckRequest) returns (CheckResult);
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  string name = 1;
+  string version = 2;
+}
+
+message CheckRequest {
+  // Target identity (config target name), informational.
+  string target = 1;
+  // Remaining host-side deadline in milliseconds; plugins should honor
+  // their own RPC cancellation, which go-plugin already propagates.
+  int64 timeout_ms = 2;
+  // Optional plugin-specific payload, JSON encoded.
+  string payload_json = 3;
+}
+
+message CheckResult {
+  bool ok = 1;
+  // Plugin-semantic status code (e.g. HTTP status for HTTP-like plugins).
+  int32 status = 2;
+  int64 latency_ms = 3;
+  string error = 4;
+  string detail = 5;
+  int64 at_unix_ms = 6;
+}
