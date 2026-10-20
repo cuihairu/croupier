@@ -100,3 +100,21 @@ func TestRunProbePluginMissingFallsBackToNativeHTTP(t *testing.T) {
 		t.Fatalf("fallback event: %+v", ev)
 	}
 }
+
+func TestRunProbeICMPPluginBusinessFailureIsNotHTTPFallback(t *testing.T) {
+	r := pluginRunner(t, os.Getenv("RUNNER_PLUGIN_TEST_BIN"))
+	os.Setenv("ECHO_PROBE_FAIL", "1")
+	t.Cleanup(func() { os.Unsetenv("ECHO_PROBE_FAIL") })
+	target := config.Target{
+		Name: "gateway", Type: config.TypeICMP, Address: "127.0.0.1",
+		URL: "http://127.0.0.1:1/degraded", Method: "GET", Timeout: 5 * time.Second,
+		ExpectedStatus: 200, Plugin: "echo",
+	}
+	res, details := r.runProbe(context.Background(), target)
+	if res.OK || !strings.Contains(res.Error, "echo: forced failure") {
+		t.Fatalf("ICMP plugin failure must stay a target failure: %+v", res)
+	}
+	if details["probeType"] != "plugin:icmp" || details["pluginFallback"] == "true" || details["pluginCause"] != "" {
+		t.Fatalf("plugin ICMP details: %v", details)
+	}
+}

@@ -148,9 +148,10 @@ Agent 侧探针配置（R2）。`targets[]` 只声明**探什么**；阈值、�
 | 键                     | 默认        | 说明                                                                               |
 | ---------------------- | ----------- | ---------------------------------------------------------------------------------- |
 | `name`                 | 必填        | 目标标识（同一 agent 内唯一；告警行标识与指标路径 `probe.<target>.*` 都用它）      |
-| `type`                 | 必填        | 闭集 `http` / `tcp` / `db`（`process` 不进工厂，由 supervisor 侧负责）             |
+| `type`                 | 必填        | 闭集 `http` / `tcp` / `icmp` / `db`（`process` 不进工厂，由 supervisor 侧负责）    |
 | `url`                  | type=http   | HTTP 探测地址                                                                      |
 | `address`              | type=tcp    | `host:port`                                                                        |
+| `address`              | type=icmp   | 主机名或 IP；ICMP 另支持 `count`（缺省 1，需 `CAP_NET_RAW`）                       |
 | `dsn`/`driver`/`query` | type=db     | 数据库连接串 / 驱动名（由二进制依赖注册的驱动）/ 断言 SQL                          |
 | `timeout`              | 类型内默认  | 单次探测超时                                                                       |
 | `semantics`            | `readiness` | 视角声明，闭集 `readiness`（就绪：功能是否可用）/ `liveness`（存活：进程是否活着） |
@@ -178,6 +179,10 @@ probe:
     - name: redis
       type: tcp
       address: "127.0.0.1:6379"
+    - name: gateway
+      type: icmp
+      address: "192.0.2.1"
+      timeout: 2s
 ```
 
 **采样频率的唯一真值在 Server**（配置与执行分离）：面板发布 `probe.policy` 采样策略后经 wire 下发、agent 热生效（基础/按目标/时段/特殊时点四粒度叠加），此时**策略优先于本表 `interval`**，本表 `interval` 仅作未覆盖目标的兜底；策略未发布时用本表值。详见 [API 文档 probe 端点](/archive/legacy-en/api/ops) 与 [评审简档 §13.3](/archive/legacy-en/design/agent-health-recovery-review)。

@@ -15,6 +15,7 @@ const DefaultInterval = 30 * time.Second
 const (
 	TargetTypeHTTP     = "http"
 	TargetTypeTCP      = "tcp"
+	TargetTypeICMP     = "icmp"
 	TargetTypeDB       = "db"
 	TargetTypeProtocol = "protocol" // 声明式私有协议（steps）或游戏协议适配器（protocol）
 )
@@ -34,6 +35,7 @@ type TargetConfig struct {
 	Category         string        `json:"targetCategory" yaml:"targetCategory"` // game | third_party
 	URL              string        `json:"url,omitempty" yaml:"url,omitempty"`
 	Address          string        `json:"address,omitempty" yaml:"address,omitempty"`
+	Count            int           `json:"count,omitempty" yaml:"count,omitempty"`
 	DSN              string        `json:"dsn,omitempty" yaml:"dsn,omitempty"`
 	Driver           string        `json:"driver,omitempty" yaml:"driver,omitempty"`
 	Query            string        `json:"query,omitempty" yaml:"query,omitempty"`
@@ -90,6 +92,19 @@ func NewChecker(t TargetConfig) (Checker, error) {
 			to = 2 * time.Second
 		}
 		return NewTCPChecker(t.Address, to), nil
+	case TargetTypeICMP:
+		if strings.TrimSpace(t.Address) == "" {
+			return nil, fmt.Errorf("target %q: icmp requires address", t.Name)
+		}
+		to := t.Timeout
+		if to <= 0 {
+			to = 2 * time.Second
+		}
+		count := t.Count
+		if count <= 0 {
+			count = 1
+		}
+		return NewICMPChecker(t.Address, to, count), nil
 	case TargetTypeDB:
 		if strings.TrimSpace(t.DSN) == "" || strings.TrimSpace(t.Driver) == "" {
 			return nil, fmt.Errorf("target %q: db requires dsn and driver", t.Name)

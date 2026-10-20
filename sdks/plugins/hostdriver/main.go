@@ -468,6 +468,22 @@ func runProbeScenario(scenario, command string, pluginArgs []string) error {
 		fmt.Printf("PASS probe-tcp: payload reached plugin; open=%v refused=%q timeout=%q\n", open.Result.OK, closed.Result.Error, timedOut.Cause)
 		return nil
 
+	case "probe-icmp-capability":
+		out := ctl.Check(context.Background(), synconfig.Target{
+			Name:        "icmp-capability",
+			Plugin:      "probe-echo",
+			Timeout:     5 * time.Second,
+			PayloadJSON: `{"host":"127.0.0.1","count":1,"force_capability_error":true}`,
+		})
+		if out.Cause != "" {
+			return failf("capability check degraded with cause %s", out.Cause)
+		}
+		if out.Result.OK || !strings.Contains(out.Result.Error, "capability") {
+			return failf("capability check: ok=%v error=%q detail=%q", out.Result.OK, out.Result.Error, out.Detail)
+		}
+		fmt.Printf("PASS probe-icmp-capability: explicit capability failure = %q\n", out.Result.Error)
+		return nil
+
 	default:
 		return failf("unknown probe scenario %q", scenario)
 	}

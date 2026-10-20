@@ -34,6 +34,22 @@ func TestSyntheticsPluginPayloadValidation(t *testing.T) {
 	})
 }
 
+func TestSyntheticsICMPTargetParsingAndValidation(t *testing.T) {
+	c, err := Load("testdata/target_type_icmp.yaml")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	target := c.Synthetics.Targets[0]
+	if target.Type != TypeICMP || target.Address != "127.0.0.1" || target.Count != 2 {
+		t.Fatalf("ICMP target = %+v", target)
+	}
+
+	_, err = Load("testdata/target_type_icmp_invalid.yaml")
+	if err == nil || !strings.Contains(err.Error(), "type icmp requires address") {
+		t.Fatalf("Load() error = %v, want ICMP address validation", err)
+	}
+}
+
 func TestSyntheticsPluginKnobsYamlTwoStatesAndValidation(t *testing.T) {
 	base := func(toggles string) string {
 		return `

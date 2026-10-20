@@ -38,3 +38,11 @@ synthetics:
   #   expectedStatus: 200
   #   plugin: game-tcp-probe
   #   payloadJson: '{"host":"127.0.0.1","port":7001}'
+  # Native ICMP is configured without an HTTP fallback endpoint. It requires
+  # CAP_NET_RAW; without that capability the probe reports a capability error
+  # instead of pretending the target is down.
+  # - name: internet-gateway
+  #   type: icmp
+  #   address: 192.0.2.1
+  #   timeout: 2s
+  #   count: 1

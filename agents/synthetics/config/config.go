@@ -18,6 +18,12 @@ type Config struct {
 	OutboundTLS TLS        `yaml:"outboundTLS"`
 	Synthetics  Synthetics `yaml:"synthetics"`
 }
+
+const (
+	TypeHTTP = "http"
+	TypeICMP = "icmp"
+)
+
 type Agent struct {
 	ID            string `yaml:"id"`
 	ServerAddr    string `yaml:"serverAddr"`
@@ -181,10 +187,18 @@ type Target struct {
 	// probe. The HTTP fields stay mandatory: they are the fallback probe
 	// parameters used when the plugin side degrades (see pluginhost).
 	Plugin string `yaml:"plugin"`
+	// Type selects the native implementation for non-plugin targets.
+	// Empty and http preserve the existing HTTP behavior; icmp uses a raw
+	// ICMP echo probe and does not depend on an HTTP fallback endpoint.
+	Type string `yaml:"type"`
 	// PayloadJSON carries target parameters to a non-HTTP probe plugin,
 	// such as a TCP host/port assertion. It is plugin-specific JSON and
 	// is not interpreted by the native HTTP fallback.
 	PayloadJSON string `yaml:"payloadJson"`
+	// Address is the ICMP host or IP.
+	Address string `yaml:"address"`
+	// Count is the number of ICMP echo attempts required for success.
+	Count int `yaml:"count"`
 }
 
 func (t *Target) UnmarshalYAML(n *yaml.Node) error {
@@ -197,15 +211,22 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 		BodyContains   string `yaml:"bodyContains"`
 		Plugin         string `yaml:"plugin"`
 		PayloadJSON    string `yaml:"payloadJson"`
+		Type           string `yaml:"type"`
+		Address        string `yaml:"address"`
+		Count          int    `yaml:"count"`
 	}
 	if err := n.Decode(&raw); err != nil {
 		return err
 	}
-	d, err := time.ParseDuration(raw.Timeout)
-	if err != nil {
-		return fmt.Errorf("timeout: %w", err)
+	var d time.Duration
+	if raw.Timeout != "" {
+		var err error
+		d, err = time.ParseDuration(raw.Timeout)
+		if err != nil {
+			return fmt.Errorf("timeout: %w", err)
+		}
 	}
-	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin, PayloadJSON: raw.PayloadJSON}
+	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin, PayloadJSON: raw.PayloadJSON, Type: raw.Type, Address: raw.Address, Count: raw.Count}
 	return nil
 }
 
@@ -265,17 +286,25 @@ func (c Config) Validate() error {
 		}
 	}
 	for i, t := range c.Synthetics.Targets {
-		if strings.TrimSpace(t.Name) == "" || strings.TrimSpace(t.URL) == "" {
-			return fmt.Errorf("synthetics.targets[%d] name and url are required", i)
+		if strings.TrimSpace(t.Name) == "" {
+			return fmt.Errorf("synthetics.targets[%d] name is required", i)
+		}
+		icmp := strings.EqualFold(strings.TrimSpace(t.Type), TypeICMP)
+		if !icmp && strings.TrimSpace(t.URL) == "" {
+			return fmt.Errorf("synthetics.targets[%d] type http requires url", i)
 		}
 		if seen[t.Name] {
 			return fmt.Errorf("duplicate target %q", t.Name)
 		}
 		seen[t.Name] = true
-		if t.Method != "GET" && t.Method != "HEAD" {
+		if !icmp && t.Method != "GET" && t.Method != "HEAD" {
 			return fmt.Errorf("target %q method must be GET or HEAD", t.Name)
 		}
-		if t.Timeout <= 0 || t.ExpectedStatus < 100 || t.ExpectedStatus > 599 {
+		if icmp {
+			if t.Timeout <= 0 {
+				return fmt.Errorf("target %q requires positive timeout", t.Name)
+			}
+		} else if t.Timeout <= 0 || t.ExpectedStatus < 100 || t.ExpectedStatus > 599 {
 			return fmt.Errorf("target %q requires positive timeout and valid expectedStatus", t.Name)
 		}
 		if t.Plugin != "" && !plugins[t.Plugin] {
@@ -283,6 +312,15 @@ func (c Config) Validate() error {
 		}
 		if t.PayloadJSON != "" && !json.Valid([]byte(t.PayloadJSON)) {
 			return fmt.Errorf("target %q payloadJson must be valid JSON", t.Name)
+		}
+		switch strings.ToLower(t.Type) {
+		case "", TypeHTTP:
+		case TypeICMP:
+			if strings.TrimSpace(t.Address) == "" {
+				return fmt.Errorf("target %q type icmp requires address", t.Name)
+			}
+		default:
+			return fmt.Errorf("target %q type must be http or icmp", t.Name)
 		}
 	}
 	return nil

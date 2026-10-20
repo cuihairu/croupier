@@ -109,7 +109,11 @@ func (r *Runner) runProbe(ctx context.Context, t config.Target) (probe.Result, m
 		}
 		out := r.plugins.Check(ctx, t)
 		if out.Cause == "" {
-			details := map[string]string{"probeType": "plugin", "status": statusString(out.Result.OK), "errorClass": errorClass(out.Result.Error), "pluginName": t.Plugin}
+			probeType := "plugin"
+			if strings.EqualFold(strings.TrimSpace(t.Type), config.TypeICMP) {
+				probeType = "plugin:icmp"
+			}
+			details := map[string]string{"probeType": probeType, "status": statusString(out.Result.OK), "errorClass": errorClass(out.Result.Error), "pluginName": t.Plugin}
 			if v := r.plugins.Version(t.Plugin); v != "" {
 				details["pluginVersion"] = v
 			}
@@ -119,6 +123,14 @@ func (r *Runner) runProbe(ctx context.Context, t config.Target) (probe.Result, m
 			return out.Result, details
 		}
 		return r.fallbackHTTP(ctx, t, out.Cause)
+	}
+	if strings.EqualFold(strings.TrimSpace(t.Type), config.TypeICMP) {
+		res := probe.NewICMPProbe(t.Address, t.Timeout, t.Count).Run(ctx)
+		details := map[string]string{"probeType": "icmp", "status": statusString(res.OK), "errorClass": errorClass(res.Error), "address": t.Address}
+		if res.Status > 0 {
+			details["replyStatus"] = itoa(res.Status)
+		}
+		return res, details
 	}
 	res := probe.Run(ctx, t)
 	return res, map[string]string{"probeType": "http", "status": statusString(res.OK), "httpStatus": itoa(res.Status), "errorClass": errorClass(res.Error)}

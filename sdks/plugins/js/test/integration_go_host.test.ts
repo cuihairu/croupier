@@ -42,6 +42,7 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
   let driver: string;
   let probeExample: string;
   let tcpExample: string;
+  let icmpExample: string;
   let funcExample: string;
 
   beforeAll(() => {
@@ -52,6 +53,7 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
     });
     probeExample = path.join(sdkDir, "dist", "examples", "probe_echo.js");
     tcpExample = path.join(sdkDir, "dist", "examples", "probe_tcp.js");
+    icmpExample = path.join(sdkDir, "dist", "examples", "probe_icmp.js");
     funcExample = path.join(sdkDir, "dist", "examples", "func_echo.js");
     expect(fs.existsSync(probeExample)).toBe(true);
     expect(fs.existsSync(funcExample)).toBe(true);
@@ -102,6 +104,11 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
       const out = drive("probe", "probe-version", probeExample);
       expect(out).toContain("PASS probe-version");
     });
+  });
+
+  it("probe-icmp capability failure stays a plugin target failure", () => {
+    const out = drive("probe", "probe-icmp-capability", icmpExample);
+    expect(out).toContain("PASS probe-icmp-capability");
   });
 
   describe("func mode (sidecar function host)", () => {

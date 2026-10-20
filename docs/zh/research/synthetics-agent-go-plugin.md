@@ -195,7 +195,13 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 
 Python SDK 新增 `examples/probe_tcp.py` TCP 参考插件：接受 `{"host":"127.0.0.1","port":<1-65535>}`，用配置截止时间内的一次 TCP connect 返回连通/失败，长等待轮询 RPC cancellation。其语义刻意止步于网络可达，不把端口连通提升为游戏登录或业务成功；`sleep_ms` 旋钮仅用于跨语言注入取消用例。
 
-跨语言实证扩展共享 `hostdriver -mode probe -scenario probe-tcp`：先监听临时本地端口断言成功结果与 detail，再释放端口断言 connection refused 是目标失败且不产生 `plugin_*` 降级，最后用 80ms 截止时间加 1s 插件等待断言 `plugin_timeout`。该场景由 Python 25 用例与 JS 58 用例的真实宿主集成套件共同驱动（宿主 Go、插件分别 Python/Node）。
+跨语言实证扩展共享 `hostdriver -mode probe -scenario probe-tcp`：先监听临时本地端口断言成功结果与 detail，再释放端口断言 connection refused 是目标失败且不产生 `plugin_*` 降级，最后用 80ms 截止时间加 1s 插件等待断言 `plugin_timeout`。该场景由 Python 26 用例与 JS 60 用例的真实宿主集成套件共同驱动（宿主 Go、插件分别 Python/Node）。
+
+## ICMP 探测类型与能力降级（2026-10-21，todo:40 剩余子项）
+
+`core/healthprobe` 新增 `icmp` 目标闭集：`address` 支持主机名/IP、`timeout` 缺省 2s、`count` 缺省 1；共享内核只执行一次 ICMP echo 断言，不把网络可达提升为业务成功。Linux 原始 socket 需要 `CAP_NET_RAW`；权限失败映射为显式 `capability: CAP_NET_RAW is required for ICMP`，随 `lastReason` / probe detail 进入健康面，绝不 panic 或伪装为目标不可达。
+
+synthetics-agent 的原生目标新增 `type: icmp`（`address`/`count`），默认空值仍保持 `http`；`plugin` 目标可带 `type: icmp` 标注插件语义。外部插件上报的业务失败与能力失败保持原样，不再触发 HTTP fallback——fallback 只表示插件运行时不可用/禁用/超时等宿主故障。Python/Node SDK 参考插件 `probe_icmp` 由共享 `hostdriver -mode probe -scenario probe-icmp-capability` 驱动，确定性断言能力错误是插件目标失败且不产生 `plugin_*` 降级。
 
 ## 插件路径 IPC 时延实测（2026-10-21，todo:38 剩余子项）
 

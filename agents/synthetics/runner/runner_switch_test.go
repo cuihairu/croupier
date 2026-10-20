@@ -98,3 +98,22 @@ func TestRunProbePerPluginSwitchRoutesNativeFallback(t *testing.T) {
 		t.Fatalf("disabled plugin must never launch its subprocess: %q", v)
 	}
 }
+
+func TestRunProbeICMPWithoutPlugin(t *testing.T) {
+	r := New(config.Config{Agent: config.Agent{ID: "syn-1", GameID: "demo", Env: "prod"}, Synthetics: config.Synthetics{Interval: time.Minute}}, nil)
+	target := config.Target{Name: "gateway", Type: config.TypeICMP, Address: "127.0.0.1", Timeout: time.Second, Count: 1}
+	res, details := r.runProbe(context.Background(), target)
+	if details["probeType"] != "icmp" || details["address"] != "127.0.0.1" {
+		t.Fatalf("native ICMP details: %v", details)
+	}
+	switch {
+	case res.OK:
+		if res.Status != 200 {
+			t.Fatalf("successful ICMP reply status = %d", res.Status)
+		}
+	case strings.Contains(res.Error, "CAP_NET_RAW is required for ICMP"):
+		// Expected on unprivileged test runners; the explicit reason is the assertion.
+	default:
+		t.Fatalf("unprivileged ICMP must explain its capability: %+v", res)
+	}
+}
