@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -180,6 +181,10 @@ type Target struct {
 	// probe. The HTTP fields stay mandatory: they are the fallback probe
 	// parameters used when the plugin side degrades (see pluginhost).
 	Plugin string `yaml:"plugin"`
+	// PayloadJSON carries target parameters to a non-HTTP probe plugin,
+	// such as a TCP host/port assertion. It is plugin-specific JSON and
+	// is not interpreted by the native HTTP fallback.
+	PayloadJSON string `yaml:"payloadJson"`
 }
 
 func (t *Target) UnmarshalYAML(n *yaml.Node) error {
@@ -191,6 +196,7 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 		ExpectedStatus int    `yaml:"expectedStatus"`
 		BodyContains   string `yaml:"bodyContains"`
 		Plugin         string `yaml:"plugin"`
+		PayloadJSON    string `yaml:"payloadJson"`
 	}
 	if err := n.Decode(&raw); err != nil {
 		return err
@@ -199,7 +205,7 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 	if err != nil {
 		return fmt.Errorf("timeout: %w", err)
 	}
-	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin}
+	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin, PayloadJSON: raw.PayloadJSON}
 	return nil
 }
 
@@ -274,6 +280,9 @@ func (c Config) Validate() error {
 		}
 		if t.Plugin != "" && !plugins[t.Plugin] {
 			return fmt.Errorf("target %q references undeclared plugin %q", t.Name, t.Plugin)
+		}
+		if t.PayloadJSON != "" && !json.Valid([]byte(t.PayloadJSON)) {
+			return fmt.Errorf("target %q payloadJson must be valid JSON", t.Name)
 		}
 	}
 	return nil

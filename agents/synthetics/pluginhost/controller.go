@@ -87,7 +87,7 @@ func (c *Controller) Check(ctx context.Context, t config.Target) CheckOutcome {
 	var out CheckOutput
 	cause := c.host.Call(ctx, t.Plugin, t.Timeout, func(ctx context.Context, impl Probe) error {
 		var err error
-		out, err = impl.Check(ctx, CheckInput{Target: t.Name, Timeout: t.Timeout})
+		out, err = impl.Check(ctx, CheckInput{Target: t.Name, Timeout: t.Timeout, PayloadJSON: t.PayloadJSON})
 		return err
 	})
 	if cause != "" {

@@ -30,6 +30,9 @@
 //	probe-check-ok     a passing target maps onto the shared probe result
 //	probe-check-fail   a failing target maps as ok=false with the reason
 //	probe-version      the controller stamps the described plugin version
+//	probe-tcp          payloadJson reaches a real TCP reference probe and
+//	                   success/refused/timeout retain their distinct
+//	                   target/plugin semantics
 //
 // funcbench mode (hostdriver -mode funcbench -scenario bench-invoke) is a
 // latency measurement tool, not an assertion scenario: it prints one
@@ -43,8 +46,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -400,6 +405,67 @@ func runProbeScenario(scenario, command string, pluginArgs []string) error {
 			return failf("controller stamped version %q, want it to contain 1.0.0", version)
 		}
 		fmt.Printf("PASS probe-version: controller stamped %q\n", version)
+		return nil
+
+	case "probe-tcp":
+		listener, listenErr := net.Listen("tcp", "127.0.0.1:0")
+		if listenErr != nil {
+			return fmt.Errorf("start local TCP target: %w", listenErr)
+		}
+		defer listener.Close()
+		_, portStr, _ := net.SplitHostPort(listener.Addr().String())
+		port, _ := strconv.Atoi(portStr)
+		payload := fmt.Sprintf(`{"host":"127.0.0.1","port":%d}`, port)
+
+		check := func(name string, timeoutMS int) pluginhost.CheckOutcome {
+			return ctl.Check(context.Background(), synconfig.Target{
+				Name:        name,
+				Plugin:      "probe-echo",
+				Timeout:     time.Duration(timeoutMS) * time.Millisecond,
+				PayloadJSON: payload,
+			})
+		}
+
+		open := check("tcp-open", 5000)
+		if open.Cause != "" {
+			return failf("open TCP check degraded with cause %s", open.Cause)
+		}
+		if !open.Result.OK || open.Result.Status != 200 {
+			return failf("open TCP check: ok=%v status=%d detail=%q error=%q", open.Result.OK, open.Result.Status, open.Detail, open.Result.Error)
+		}
+
+		var closedPort int
+		closedListener, closeErr := net.Listen("tcp", "127.0.0.1:0")
+		if closeErr != nil {
+			return fmt.Errorf("reserve closed TCP port: %w", closeErr)
+		}
+		_, closedPortStr, _ := net.SplitHostPort(closedListener.Addr().String())
+		closedPort, _ = strconv.Atoi(closedPortStr)
+		closedListener.Close()
+
+		closedPayload := fmt.Sprintf(`{"host":"127.0.0.1","port":%d}`, closedPort)
+		closed := ctl.Check(context.Background(), synconfig.Target{
+			Name: "tcp-refused", Plugin: "probe-echo", Timeout: 2 * time.Second,
+			PayloadJSON: closedPayload,
+		})
+		if closed.Cause != "" {
+			return failf("refused TCP check degraded with cause %s", closed.Cause)
+		}
+		if closed.Result.OK || !strings.Contains(strings.ToLower(closed.Result.Error), "refused") {
+			return failf("refused TCP check: ok=%v error=%q", closed.Result.OK, closed.Result.Error)
+		}
+
+		controllerCall := func(timeoutMS int, payload string) pluginhost.CheckOutcome {
+			return ctl.Check(context.Background(), synconfig.Target{
+				Name: "tcp-cancel", Plugin: "probe-echo", Timeout: time.Duration(timeoutMS) * time.Millisecond,
+				PayloadJSON: payload,
+			})
+		}
+		timedOut := controllerCall(80, `{"sleep_ms":1000}`)
+		if !strings.Contains(timedOut.Cause, pluginhost.CauseTimeout) {
+			return failf("timeout cause=%q want prefix %q", timedOut.Cause, pluginhost.CauseTimeout)
+		}
+		fmt.Printf("PASS probe-tcp: payload reached plugin; open=%v refused=%q timeout=%q\n", open.Result.OK, closed.Result.Error, timedOut.Cause)
 		return nil
 
 	default:

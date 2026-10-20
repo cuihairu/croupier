@@ -41,6 +41,7 @@ const describeHost = goAvailable ? describe : describe.skip;
 describeHost("real hostdriver scenarios (node plugins)", () => {
   let driver: string;
   let probeExample: string;
+  let tcpExample: string;
   let funcExample: string;
 
   beforeAll(() => {
@@ -50,6 +51,7 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
       cwd: sdkDir,
     });
     probeExample = path.join(sdkDir, "dist", "examples", "probe_echo.js");
+    tcpExample = path.join(sdkDir, "dist", "examples", "probe_tcp.js");
     funcExample = path.join(sdkDir, "dist", "examples", "func_echo.js");
     expect(fs.existsSync(probeExample)).toBe(true);
     expect(fs.existsSync(funcExample)).toBe(true);
@@ -89,6 +91,11 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
     it("probe-check-fail surfaces the synthetic failure", () => {
       const out = drive("probe", "probe-check-fail", probeExample);
       expect(out).toContain("PASS probe-check-fail");
+    });
+
+    it("probe-tcp carries payloadJson and keeps target timeout separate", () => {
+      const out = drive("probe", "probe-tcp", tcpExample);
+      expect(out).toContain("PASS probe-tcp");
     });
 
     it("probe-version reports the plugin self-description", () => {

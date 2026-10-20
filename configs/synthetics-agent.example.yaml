@@ -30,3 +30,11 @@ synthetics:
   #     args: []
   #     timeout: 5s
   #     enabled: true                 # 按插件启停（缺省 true）
+  # 非 HTTP 插件的目标参数放在 payloadJson；原生 HTTP 回退不解释它。
+  # - name: game-tcp
+  #   url: http://127.0.0.1:9/health   # 仅插件降级时的 HTTP 回退参数
+  #   method: GET
+  #   timeout: 3s
+  #   expectedStatus: 200
+  #   plugin: game-tcp-probe
+  #   payloadJson: '{"host":"127.0.0.1","port":7001}'

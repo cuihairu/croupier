@@ -14,6 +14,26 @@ import (
 // slice-2 plugin knobs (todo.md:36): pluginsEnabled defaults to on
 // (默认集成) and parses an explicit false; per-plugin enabled:false
 // parses; optional duration knobs parse; negative values are rejected.
+func TestSyntheticsPluginPayloadValidation(t *testing.T) {
+	t.Run("parses and forwards plugin payload", func(t *testing.T) {
+		c, err := Load("testdata/plugin_payload.yaml")
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		target := c.Synthetics.Targets[0]
+		if target.PayloadJSON != `{"expect":"tcp"}` {
+			t.Fatalf("PayloadJSON = %q", target.PayloadJSON)
+		}
+	})
+
+	t.Run("rejects invalid payload", func(t *testing.T) {
+		_, err := Load("testdata/plugin_payload_invalid.yaml")
+		if err == nil || !strings.Contains(err.Error(), "payloadJson must be valid JSON") {
+			t.Fatalf("Load() error = %v, want payload JSON validation", err)
+		}
+	})
+}
+
 func TestSyntheticsPluginKnobsYamlTwoStatesAndValidation(t *testing.T) {
 	base := func(toggles string) string {
 		return `

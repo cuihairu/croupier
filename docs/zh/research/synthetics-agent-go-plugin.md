@@ -189,6 +189,14 @@ sidecar 可用同一宿主机制提供可选函数适配插件，将函数声明
 - **运行时体积实测**（linux/amd64、Node 24.21.0）：运行时依赖 `@grpc/grpc-js + @grpc/proto-loader + protobufjs(+long)` 共约 2.7 MiB node_modules（对比 Python grpcio+protobuf 原生轮子 34 MiB；typescript/jest 等 dev 工具链另有 ~52 MiB 不随部署）；握手就绪态常驻 RSS ≈ 74 MiB / VSZ ≈ 1.49 GB（V8 虚拟地址空间预留，属 node 进程基线）。对照 Python 面 RSS ≈ 2.1 MiB——JS 面以更高的常驻内存与更重的运行时换来更小的依赖盘载。
 - **已知边界**：协议协商只讲 v1（宿主契约也只有 v1）；multiplex 标志按协议回显但 Croupier 宿主不启用；绑定仅 TCP（见上）；GRPCStdio 停泊流不走转发（插件日志直写 stderr，宿主同样回收）；宿主侧 sidecar 函数插件配置的消费路径（配置面/下发链）不在本 SDK 范围。
 
+## 非 HTTP 目标参数与 TCP 参考插件（2026-10-21，todo:40 剩余子项）
+
+`synthetics.targets[].payloadJson` 现在是插件目标的显式参数面：YAML 解析后由真实 `pluginhost.NewController` 传入 `CheckRequest.payload_json`，并按 JSON 语法校验（`agents/synthetics/config/config.go`、`agents/synthetics/pluginhost/controller.go`）。该字段只服务插件；原生 HTTP 回退不解释它，降级目标仍使用既有 `url/method/expectedStatus/bodyContains` 回退契约。目标参数不是凭据：连接串、令牌和密钥必须继续由部署环境注入给插件进程，禁止写入提交配置或事件详情。
+
+Python SDK 新增 `examples/probe_tcp.py` TCP 参考插件：接受 `{"host":"127.0.0.1","port":<1-65535>}`，用配置截止时间内的一次 TCP connect 返回连通/失败，长等待轮询 RPC cancellation。其语义刻意止步于网络可达，不把端口连通提升为游戏登录或业务成功；`sleep_ms` 旋钮仅用于跨语言注入取消用例。
+
+跨语言实证扩展共享 `hostdriver -mode probe -scenario probe-tcp`：先监听临时本地端口断言成功结果与 detail，再释放端口断言 connection refused 是目标失败且不产生 `plugin_*` 降级，最后用 80ms 截止时间加 1s 插件等待断言 `plugin_timeout`。该场景由 Python 25 用例与 JS 58 用例的真实宿主集成套件共同驱动（宿主 Go、插件分别 Python/Node）。
+
 ## 插件路径 IPC 时延实测（2026-10-21，todo:38 剩余子项）
 
 测量工具 `hostdriver -mode funcbench -scenario bench-invoke`（`sdks/plugins/hostdriver/`，共享给三语言 SDK 套件；jest 仅断言输出形态，不跑计时）：同一进程内先跑 **inline** 基线（参考插件 echo 语义的进程内 JSON parse/校验/marshal，代表零 IPC 的调用工作本身），再拉起**真实** `funcplugin.NewHost` 顺序驱动参考插件跑 **plugin**（宿主派发 + 本地 go-plugin gRPC 往返 + 插件 echo 工作），n=300 次顺序调用、20 次预热，输出每调用 mean/p50/p95/max。两条路径的上游链（注册/审批/审计/路由）同链（todo:38 第二片实证），故插件路径的额外时延即此 hop 差值。

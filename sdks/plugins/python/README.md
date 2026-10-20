@@ -79,6 +79,11 @@ cp.serve_probe_plugin(MyProbe())
 Synthetics-agent config routes a target to the plugin by name
 (`plugin: myprobe`).
 
+Non-HTTP destinations pass their parameters through the target's
+`payloadJson` field. The Python reference TCP probe accepts
+`{"host":"127.0.0.1","port":5432}`; a TCP connect remains only a network
+reachability assertion, not a game-protocol success.
+
 ## Contract rules
 
 - Business failures ride the closed-set envelope

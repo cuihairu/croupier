@@ -128,3 +128,19 @@ func TestControllerCheckResultRoundTripCarriesPluginFields(t *testing.T) {
 		t.Fatalf("bounded detail round trip: %q", out.Detail)
 	}
 }
+
+func TestControllerSendsTargetPayload(t *testing.T) {
+	c := echoController(t, echoprobeBin, 10*time.Second)
+	out := c.Check(context.Background(), config.Target{
+		Name:        "payload-target",
+		Plugin:      "echo",
+		Timeout:     2 * time.Second,
+		PayloadJSON: `{"sleep_ms":1}`,
+	})
+	if out.Cause != "" {
+		t.Fatalf("Check() degraded: %s", out.Cause)
+	}
+	if !out.Result.OK {
+		t.Fatalf("Check() = %+v detail=%q", out.Result, out.Detail)
+	}
+}
