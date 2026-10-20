@@ -19,6 +19,7 @@ core/                         可组合的 Agent 公共运行时
   transport/                  Handler/Client/Server 公共契约
     tcp/                      TCP/TLS 客户端、framing、MuxConn、服务端 TLS 配置
   register/                   注册、心跳、重连、owner 身份
+  agentscope/                 注册身份（id/serverAddr/gameId/env）空白拒绝公共规则
   backoff/ logx/              通用退避与日志装配
   configsync/                 版本化拉取与 last-good 应用
   supervisable/               进程信号、退出码、本地心跳契约
@@ -54,7 +55,7 @@ pkg/{pb,protocol}/           共享 wire message 与消息编号
 | 双向 session/多路复用/派发背压 | `core/transport/tcp.MuxConn`                                  | sidecar、SDK Provider、Server 派发与集群客户端已直接消费 core；devops/capture/synthetics 经 controlconn 使用串行 Client                               | 实现早已上收；本片收敛真实消费者，保留 internal 兼容 shim；不改变角色收发模型 |
 | SDK Provider 会话/索引/保活    | `agents/sidecar/provider_session.go`、`provider_keepalive.go` | 本片从 internal/agent 归位；sidecar 装配直接消费，旧路径为类型别名和构造转发                                                                          | 本地网关与注册 handler 仍待后续按职责迁移，不进入 core                        |
 | 注册、心跳与重连               | `core/register`                                               | 四类已消费；注册 payload 由各角色组装                                                                                                                 | 生命周期 race 已入 CI；继续收敛真实断网恢复验收                               |
-| 显式 game/env 归属             | 各角色配置校验、sidecar scope 校验                            | 四类空白拒绝已有一致性测试，本片保留各入口报错与校验顺序                                                                                              | 尚未集中抽取，不把一致口径宣称为单一实现                                      |
+| 显式 game/env 归属             | `core/agentscope`                                             | 四类空白拒绝共用单一规则（去空白即拒、按声明顺序报第一个缺项）；各入口保留自己的报错文案与调用时机；sidecar scope 校验只查 game/env 且保留中文文案    | 已集中抽取；报错文案与调用时机留入口侧，四类一致性测试维持同口径              |
 | 上行消息适配                   | `agents/controlconn`、`core/report`                           | controlconn 共用 Register/Heartbeat/capture 消息与 synthetics 探测上报，非全部角色统一 session 客户端                                                 | session 稳定后抽通用收发，业务消息 handler 留角色侧                           |
 | 信号与被监管契约               | `core/supervisable`                                           | devops/capture/synthetics 使用；sidecar CLI 有自己的退出装配                                                                                          | 统一错误传播与清理，不把拥有 main 等同可被正确监管                            |
 | 探测内核                       | `core/healthprobe`                                            | sidecar/Server 装配较完整，capture 有 readiness；synthetics 当前原生 HTTP probe 仍在 agents/synthetics/probe，未消费 healthprobe；devops 探测消费未齐 | 后续核对探测内核复用；外部目标分类与插件协议适配留 synthetics                 |
@@ -104,6 +105,8 @@ SDK 函数注册与路由属于 sidecar；SSH/RDP/VNC 与白名单属于 devops�
 | Server/集群/运维派发    | `internal/server/{agent_session.go:10,tcp_listener.go:15,control_handler.go:25}`；`internal/cluster/transport.go:9`；`internal/logic/ops/agent_ops_client.go:9`；`internal/platform/dispatch/dispatcher.go:14`；`internal/svc/service_context.go:17` | session/client 引用改到 core；`cmd/server/cluster.go:215` 的请求响应 NewServer 保留 internal                    |
 | CLI/示例/函数适配工具   | `cmd/sidecar-agent/root.go:19`；`examples/cmd/e2e-agent-probe/main.go:32`；`tools/adapters/{http/main.go:15,prom/main.go:10}`                                                                                                                        | Client/Config 直接消费 core；测试中的 NewServer 仍用 internal 构造器                                            |
 
-迁移不修改业务判断、报错、wire、默认超时、队列、重连或退出策略。todo:17 保持部分完成：scope 校验集中抽取、受管程序 supervisor 生命周期公共化、本地网关与其余 sidecar 业务归位、控制消息/探测内核进一步收敛及发布聚合均有剩余。
+迁移不修改业务判断、报错、wire、默认超时、队列、重连或退出策略。todo:17 保持部分完成：受管程序 supervisor 生命周期公共化、本地网关与其余 sidecar 业务归位、控制消息/探测内核进一步收敛及发布聚合均有剩余。
 
 2026-10-20 生命周期决策复核：`core/process` 提供重启退避、熔断判定/文案、`cmd.Wait` 退出分类（Unix 信号与 Windows 无信号边界）及 OOM 疑似线索短路逻辑；`internal/app/agent` 保留 supervisor 状态机、事件日志、进程装配与授权。迁移不改默认退避、熔断阈值、事件类型、状态迁移或探测行为。
+
+2026-10-20 归属校验集中抽取：`core/agentscope` 提供去空白判定 `NonBlank` 与注册身份四字段 `Identity`（id/serverAddr/gameId/env，按声明顺序报第一个缺项）；devops/capture/synthetics 配置校验与 `internal/app/agent.ValidateAgentScope` 改为消费该规则。各入口报错文案与调用时机不变（sidecar 保留中文文案）；synthetics 首个报错字段由 map 遍历序漂移改为固定声明顺序（有意的行为改进，文案本身不变）。

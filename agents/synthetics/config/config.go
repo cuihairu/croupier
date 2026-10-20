@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/core/agentscope"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -213,10 +215,10 @@ func Load(path string) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
-	for key, v := range map[string]string{"agent.id": c.Agent.ID, "agent.serverAddr": c.Agent.ServerAddr, "agent.gameId": c.Agent.GameID, "agent.env": c.Agent.Env} {
-		if strings.TrimSpace(v) == "" {
-			return fmt.Errorf("%s is required", key)
-		}
+	// 注册身份四字段走公共校验规则（core/agentscope：去空白即拒、按声明顺序
+	// 报第一个缺项——原 map 遍历使首个报错字段随 map 序漂移）。
+	if err := agentscope.Identity(c.Agent.ID, c.Agent.ServerAddr, c.Agent.GameID, c.Agent.Env); err != nil {
+		return err
 	}
 	if len(c.Synthetics.Targets) == 0 {
 		return fmt.Errorf("synthetics.targets must explicitly configure at least one target")

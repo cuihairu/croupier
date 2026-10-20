@@ -7,7 +7,8 @@ package config
 import (
 	"fmt"
 	"os"
-	"strings"
+
+	"github.com/cuihairu/croupier/core/agentscope"
 
 	"gopkg.in/yaml.v3"
 )
@@ -90,17 +91,9 @@ func Load(path string) (Config, error) {
 
 // Validate 必填项与取值校验（缺 id/serverAddr/gameId/env 直接报错，宁可不起进程）。
 func (c Config) Validate() error {
-	if strings.TrimSpace(c.Agent.ID) == "" {
-		return fmt.Errorf("agent.id is required")
-	}
-	if strings.TrimSpace(c.Agent.ServerAddr) == "" {
-		return fmt.Errorf("agent.serverAddr is required")
-	}
-	if strings.TrimSpace(c.Agent.GameID) == "" {
-		return fmt.Errorf("agent.gameId is required")
-	}
-	if strings.TrimSpace(c.Agent.Env) == "" {
-		return fmt.Errorf("agent.env is required")
+	// 注册身份四字段走公共校验规则（core/agentscope：去空白即拒、声明顺序报错）。
+	if err := agentscope.Identity(c.Agent.ID, c.Agent.ServerAddr, c.Agent.GameID, c.Agent.Env); err != nil {
+		return err
 	}
 	if c.Devops.Enabled {
 		if len(c.Devops.Allowlist) == 0 {
