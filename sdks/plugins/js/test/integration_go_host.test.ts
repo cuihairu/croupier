@@ -38,18 +38,21 @@ const goAvailable = goBin !== null;
 
 const describeHost = goAvailable ? describe : describe.skip;
 
-describeHost("real hostdriver probe scenarios (node plugin)", () => {
+describeHost("real hostdriver scenarios (node plugins)", () => {
   let driver: string;
-  let example: string;
+  let probeExample: string;
+  let funcExample: string;
 
   beforeAll(() => {
     expect(goBin).not.toBeNull();
-    // Compile the JS example fresh so the suite is self-contained.
+    // Compile the JS examples fresh so the suite is self-contained.
     execFileSync(path.join(sdkDir, "node_modules", ".bin", "tsc"), ["-p", "tsconfig.json"], {
       cwd: sdkDir,
     });
-    example = path.join(sdkDir, "dist", "examples", "probe_echo.js");
-    expect(fs.existsSync(example)).toBe(true);
+    probeExample = path.join(sdkDir, "dist", "examples", "probe_echo.js");
+    funcExample = path.join(sdkDir, "dist", "examples", "func_echo.js");
+    expect(fs.existsSync(probeExample)).toBe(true);
+    expect(fs.existsSync(funcExample)).toBe(true);
 
     driver = path.join(os.tmpdir(), "croupier-hostdriver-jest");
     execFileSync(
@@ -59,11 +62,11 @@ describeHost("real hostdriver probe scenarios (node plugin)", () => {
     );
   }, 300_000);
 
-  const drive = (scenario: string): string =>
+  const drive = (mode: string, scenario: string, example: string): string =>
     execFileSync(
       driver,
       [
-        "-mode", "probe",
+        "-mode", mode,
         "-scenario", scenario,
         "-command", nodeBin,
         "-args", example,
@@ -77,24 +80,48 @@ describeHost("real hostdriver probe scenarios (node plugin)", () => {
       },
     );
 
-  it("probe-check-ok passes through the real handshake", () => {
-    const out = drive("probe-check-ok");
-    expect(out).toContain("PASS probe-check-ok");
+  describe("probe mode (synthetics controller)", () => {
+    it("probe-check-ok passes through the real handshake", () => {
+      const out = drive("probe", "probe-check-ok", probeExample);
+      expect(out).toContain("PASS probe-check-ok");
+    });
+
+    it("probe-check-fail surfaces the synthetic failure", () => {
+      const out = drive("probe", "probe-check-fail", probeExample);
+      expect(out).toContain("PASS probe-check-fail");
+    });
+
+    it("probe-version reports the plugin self-description", () => {
+      const out = drive("probe", "probe-version", probeExample);
+      expect(out).toContain("PASS probe-version");
+    });
   });
 
-  it("probe-check-fail surfaces the synthetic failure", () => {
-    const out = drive("probe-check-fail");
-    expect(out).toContain("PASS probe-check-fail");
-  });
+  describe("func mode (sidecar function host)", () => {
+    it("func-register registers the four declared functions", () => {
+      const out = drive("func", "func-register", funcExample);
+      expect(out).toContain("PASS func-register");
+    });
 
-  it("probe-version reports the plugin self-description", () => {
-    const out = drive("probe-version");
-    expect(out).toContain("PASS probe-version");
+    it("func-invoke carries the echo message back through the envelope", () => {
+      const out = drive("func", "func-invoke", funcExample);
+      expect(out).toContain("PASS func-invoke");
+    });
+
+    it("func-envelope keeps all five business failures on the closed set", () => {
+      const out = drive("func", "func-envelope", funcExample);
+      expect(out).toContain("PASS func-envelope");
+    });
+
+    it("func-timeout bounds the call and reports plugin_timeout", () => {
+      const out = drive("func", "func-timeout", funcExample);
+      expect(out).toContain("PASS func-timeout");
+    });
   });
 
   it("refuses to serve without the host cookie", () => {
     const run = (): string =>
-      execFileSync(nodeBin, [example], {
+      execFileSync(nodeBin, [probeExample], {
         cwd: sdkDir,
         encoding: "utf8",
         timeout: 30_000,

@@ -45,6 +45,35 @@ export type {
   CheckRequestShape,
   CheckResultShape,
   DescribeResponseShape,
+  FuncDescriptorShape,
+  InvokeRequestShape,
+  InvokeResponseShape,
   ProtoModules,
 } from "./proto";
 export { loadProtos, resolveProtosDir } from "./proto";
+export {
+  BAD_RESPONSE,
+  COOKIE_KEY as FUNC_COOKIE_KEY,
+  COOKIE_VALUE as FUNC_COOKIE_VALUE,
+  ERROR_CODES,
+  RISK_DANGER,
+  RISK_HIGH,
+  RISK_LEVELS,
+  RISK_LOW,
+  RISK_MEDIUM,
+  TARGET_REJECTED,
+  TARGET_UNAVAILABLE,
+  descriptorToProto,
+  errorResult,
+  funcHandlers,
+  makeInvokeCall,
+  okResult,
+  serveFunctionPlugin,
+} from "./funcplugin";
+export type {
+  FunctionDescriptor,
+  FunctionPlugin,
+  InvokeCall,
+  InvokeOutcome,
+  ServeFuncOptions,
+} from "./funcplugin";

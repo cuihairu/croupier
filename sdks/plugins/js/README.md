@@ -1,12 +1,14 @@
 # Croupier Plugin SDK (Node.js)
 
 Node.js plugin SDK for the Croupier go-plugin hosts: **synthetics probe
-plugins** (check one configured target). It speaks HashiCorp go-plugin's
-local gRPC mode as pinned in the server's `go.mod`; this package has no
-relationship to the game-facing SDK in `sdks/js/` and adds no
-dependencies to it. The probe contract mirrors the Python SDK
-(`sdks/plugins/python/`), so a probe authored in either language is
-interchangeable in a `synthetics.plugins[]` list.
+plugins** (check one configured target) and **sidecar function adapter
+plugins** (map registered functions onto a game's existing HTTP/TCP/admin
+interface). It speaks HashiCorp go-plugin's local gRPC mode as pinned in
+the server's `go.mod`; this package has no relationship to the
+game-facing SDK in `sdks/js/` and adds no dependencies to it. Both
+contracts mirror the Python SDK (`sdks/plugins/python/`), so a plugin
+authored in either language is interchangeable behind the same host
+config (`synthetics.plugins[]` / the sidecar function host).
 
 ## Install
 
@@ -47,6 +49,55 @@ void serve(probe);
 
 A complete runnable example ships in `examples/probe_echo.ts`.
 
+## Function adapter plugin
+
+```ts
+import {
+  errorResult,
+  okResult,
+  serveFunctionPlugin,
+  type FunctionDescriptor,
+  type FunctionPlugin,
+} from "croupier-plugin-sdk-node";
+
+const plugin: FunctionPlugin = {
+  describe: () => ({ name: "pyecho", version: "1.2.3" }), // must match the sidecar config
+  listFunctions: () => [
+    {
+      id: "plugin.pyecho.echo", // namespace: "plugin.<plugin-name>.<function>"
+      summary: "echo the message back",
+      paramSchema: '{"type":"object","properties":{"message":{"type":"string"}}}',
+      resultSchema: '{"type":"object","properties":{"message":{"type":"string"}}}',
+      riskLevel: "low", // closed set: low|medium|high|danger (default low)
+    },
+  ],
+  invoke: (call) => {
+    if (call.functionId !== "plugin.pyecho.echo") {
+      return errorResult("bad_response", `unknown function ${call.functionId}`);
+    }
+    const params = JSON.parse(call.paramsJson) as { message?: unknown };
+    if (typeof params.message !== "string" || params.message === "") {
+      return errorResult("bad_response", "message must be a non-empty string");
+    }
+    return okResult(JSON.stringify({ message: params.message }));
+  },
+};
+
+void serveFunctionPlugin(plugin);
+```
+
+- Business failures ride the closed-set envelope
+  (`target_unavailable | target_rejected | bad_response`) and must never
+  throw — a thrown exception means the plugin process itself is broken,
+  which the host classifies as a `plugin_*` degradation cause.
+- `call.functionId` / `call.paramsJson` / `call.timeoutMs` mirror the
+  Python `InvokeInput`; `call.isCancelled()` fires on the host deadline,
+  `call.remainingMs()` is the time left. Long work must `await` timer
+  slices (same event-loop rule as the probe face).
+
+A complete runnable example ships in `examples/func_echo.ts` (the
+`pyecho` reference: echo, fail_unavailable, fail_rejected, slow).
+
 ## Protocol behaviour (same as the Python SDK)
 
 - Cookie gate, `PLUGIN_PROTOCOL_VERSIONS` negotiation (v1 only),
@@ -64,9 +115,11 @@ A complete runnable example ships in `examples/probe_echo.ts`.
 
 The contracts load at runtime from `protos/` (no codegen):
 `probeplugin.proto` (canonical: `agents/synthetics/pluginhost/protocol/`),
-`plugin_stdio.proto` / `plugin_controller.proto` (canonical: the Python
-SDK's mirrors), and `health.proto` (grpc-js ships no health service).
-`pnpm verify:proto` asserts the mirrors are byte-identical.
+`funcplugin.proto` (canonical:
+`agents/sidecar/funcplugin/protocol/`), `plugin_stdio.proto` /
+`plugin_controller.proto` (canonical: the Python SDK's mirrors), and
+`health.proto` (grpc-js ships no health service). `pnpm verify:proto`
+asserts the mirrors are byte-identical.
 
 ## Tests
 
@@ -75,15 +128,14 @@ pnpm typecheck && pnpm test && pnpm verify:proto
 ```
 
 `test/integration_go_host.test.ts` builds the shared Go hostdriver
-(`sdks/plugins/hostdriver`) and drives the compiled example through the
-real synthetics controller's probe scenarios — not a mock of either
-side. It skips itself when no Go toolchain is installed (CI installs
-one).
+(`sdks/plugins/hostdriver`) and drives the compiled examples through the
+real hosts — the synthetics controller's probe scenarios and the sidecar
+function host's `func-register` / `func-invoke` / `func-envelope` /
+`func-timeout` scenarios — not a mock of either side. It skips itself
+when no Go toolchain is installed (CI installs one).
 
 ## Known boundaries
 
-- Probe face only. The sidecar **function adapter** face stays Python/Go
-  for now; the JS SDK does not implement `funcplugin` contracts.
 - Protocol negotiation speaks v1 only (the Croupier host also only has v1).
 - The multiplex flag is echoed per the protocol, but the Croupier host
   does not enable multiplexed gRPC.

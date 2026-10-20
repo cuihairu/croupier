@@ -38,9 +38,36 @@ export interface DescribeResponseShape {
   version: string;
 }
 
+/** Wire shape of one host->plugin invoke (snake_case -> camelCase). */
+export interface InvokeRequestShape {
+  functionId: string;
+  paramsJson: string;
+  timeoutMs: number;
+}
+
+/** Wire shape of one plugin->host invoke outcome. */
+export interface InvokeResponseShape {
+  ok: boolean;
+  resultJson: string;
+  errorCode: string;
+  errorMessage: string;
+  atUnixMs: number;
+}
+
+/** Wire shape of one declared function descriptor. */
+export interface FuncDescriptorShape {
+  id: string;
+  summary: string;
+  paramSchema: string;
+  resultSchema: string;
+  errorSchema: string;
+  riskLevel: string;
+}
+
 /** The loaded service definitions the SDK registers. */
 export interface ProtoModules {
   probeService: grpc.ServiceDefinition;
+  funcService: grpc.ServiceDefinition;
   controllerService: grpc.ServiceDefinition;
   stdioService: grpc.ServiceDefinition;
   healthService: grpc.ServiceDefinition;
@@ -50,6 +77,7 @@ export interface ProtoModules {
 
 const NAMES = {
   probeService: "croupier.probeplugin.v1.ProbePlugin",
+  funcService: "croupier.funcplugin.v1.FunctionPlugin",
   stdioService: "plugin.GRPCStdio",
   controllerService: "plugin.GRPCController",
   healthService: "grpc.health.v1.Health",
@@ -57,6 +85,7 @@ const NAMES = {
 
 const PROTO_FILES = [
   "probeplugin.proto",
+  "funcplugin.proto",
   "plugin_stdio.proto",
   "plugin_controller.proto",
   "health.proto",
@@ -113,6 +142,7 @@ export function loadProtos(protosDir?: string): ProtoModules {
 
   cached = {
     probeService: service(NAMES.probeService),
+    funcService: service(NAMES.funcService),
     controllerService: service(NAMES.controllerService),
     stdioService: service(NAMES.stdioService),
     healthService: service(NAMES.healthService),

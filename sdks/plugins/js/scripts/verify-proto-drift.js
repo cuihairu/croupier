@@ -27,6 +27,10 @@ const MIRRORS = [
     canonical: "agents/synthetics/pluginhost/protocol/probeplugin.proto",
   },
   {
+    copy: "protos/funcplugin.proto",
+    canonical: "agents/sidecar/funcplugin/protocol/funcplugin.proto",
+  },
+  {
     copy: "protos/plugin_stdio.proto",
     canonical: "sdks/plugins/python/protos/plugin_stdio.proto",
   },
@@ -79,5 +83,5 @@ for (const shape of HEALTH_SHAPES) {
 if (drift) {
   process.stderr.write("proto drift detected\n");
 } else {
-  process.stdout.write("proto drift check: OK (3 mirrors + health shape)\n");
+  process.stdout.write("proto drift check: OK (4 mirrors + health shape)\n");
 }
