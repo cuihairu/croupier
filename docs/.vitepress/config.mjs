@@ -10,19 +10,8 @@ export default withMermaid(
   defineConfig({
     title: "Croupier",
     ignoreDeadLinks: true,
-    srcExclude: [
-      "archive/**",
-      "guide/**",
-      "architecture/**",
-      "operations/**",
-      "api/**",
-      "analytics/**",
-      "sdks/**",
-      "development/**",
-      "design/**",
-      "research/**",
-      "review/**",
-    ],
+    // 2026-10-20 用户令：英文内页必须上线，撤除 srcExclude（review/archive 仍藏）
+    srcExclude: ["archive/**", "review/**"],
     head: sharedHead,
     base: "/croupier/",
     locales: {
@@ -32,6 +21,7 @@ export default withMermaid(
         description:
           "Game operations control plane and Agent collaboration platform",
         themeConfig: {
+      logo: "/logo.png",
           langMenuLabel: "Change language",
           returnToTopLabel: "Return to top",
           sidebarMenuLabel: "Documentation",
@@ -127,6 +117,7 @@ export default withMermaid(
         lang: "zh-CN",
         description: "分布式游戏运营控制面与 Agent 协同平台",
         themeConfig: {
+        logo: "/logo.png",
           langMenuLabel: "切换语言",
           returnToTopLabel: "回到顶部",
           sidebarMenuLabel: "文档",
