@@ -13,6 +13,7 @@ package declare
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
@@ -43,6 +44,11 @@ const (
 )
 
 var validRisk = map[string]bool{"": true, RiskLow: true, RiskMedium: true, RiskHigh: true, RiskDanger: true}
+
+// validFunctionName matches the lowercase dotted id shape the server
+// register boundary normalizes to (`functionIDPattern`); declarations
+// outside it would register under a rewritten key.
+var validFunctionName = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*$`).MatchString
 
 // Namespace returns the only id prefix plugin functions may live under.
 func Namespace(pluginName string) string { return "plugin." + pluginName + "." }
@@ -92,6 +98,15 @@ func Validate(pluginName string, d Descriptor) error {
 	}
 	if strings.ContainsAny(fn, " \t\r\n") || strings.Contains(fn, "..") {
 		return fmt.Errorf("function id %q has an invalid function name part %q", d.ID, fn)
+	}
+	// The server lowercases every function id at the registration
+	// boundary; a declared id that is not already lowercase-dotted would
+	// register under a rewritten key while the agent dispatch seam still
+	// matches the declared one — reject that mismatch at declaration time
+	// so the id is stable end to end (lowercase letters, digits and
+	// ./_/- separators, no empty segments).
+	if !validFunctionName(fn) {
+		return fmt.Errorf("function id %q must use a lowercase [a-z0-9] name part with . _ - separators (server normalizes ids to lowercase; mixed case would silently rewrite the registered id)", d.ID)
 	}
 	if err := validateObjectSchema(d.ParamSchema, "param_schema"); err != nil {
 		return err

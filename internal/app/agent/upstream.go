@@ -67,6 +67,25 @@ type UpstreamClient struct {
 	// localHandler processes inbound requests from Server (e.g., Invoke, StartTask)
 	// when using MuxConn-based TCP transport.
 	localHandler transportcore.Handler
+
+	// pluginFunctions reports the function adapter plugins' current
+	// declaration snapshot (todo.md:35 remaining wiring) merged into the
+	// register payload. Closure is late-bound and read on every payload
+	// build (initial sync / periodic resync / reconnect), so wiring order
+	// relative to Start is irrelevant. nil = no plugin face (trimmed
+	// builds or unconfigured plugins).
+	pluginFunctions func() []*agentv1.FunctionDescriptor
+}
+
+// SetPluginFunctionsSource wires the plugin-declared function snapshot
+// into the registration payload. The source is consulted on every payload
+// build, so periodic resyncs and reconnects re-report the current
+// declarations without extra plumbing.
+func (c *UpstreamClient) SetPluginFunctionsSource(fn func() []*agentv1.FunctionDescriptor) {
+	if c == nil {
+		return
+	}
+	c.pluginFunctions = fn
 }
 
 func (c *UpstreamClient) Connected() bool {
@@ -408,6 +427,26 @@ func (c *UpstreamClient) buildRegisterPayload(_ context.Context) (*agentv1.Regis
 	}
 
 	providers := buildProviders(localData, versionSnapshot)
+
+	// Merge plugin-declared functions (todo.md:35 remaining wiring) after
+	// the store snapshot: the payload then carries plugin functions
+	// through the same server-side registry/approval/audit chain as SDK
+	// functions. A live SDK/provider registration with the same id always
+	// wins — plugin declarations never shadow a running provider function.
+	if c.pluginFunctions != nil {
+		for _, pf := range c.pluginFunctions() {
+			if pf == nil || pf.GetId() == "" {
+				continue
+			}
+			if _, exists := localData[pf.GetId()]; exists {
+				slog.Warn("[upstream] plugin function id collides with a registered SDK function; plugin declaration skipped",
+					"function_id", pf.GetId())
+				continue
+			}
+			pf.Enabled = true
+			funcs = append(funcs, pf)
+		}
+	}
 
 	req := &agentv1.RegisterRequest{
 		AgentId:   c.agentID,

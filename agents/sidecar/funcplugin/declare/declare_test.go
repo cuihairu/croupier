@@ -98,3 +98,35 @@ func TestValidateRejectsBadPluginNameAndRisk(t *testing.T) {
 		t.Fatalf("danger risk must be accepted: %v", err)
 	}
 }
+
+// TestValidateRejectsNonLowercaseFunctionName pins the id normalization
+// boundary: the server register boundary lowercases ids, so a mixed-case
+// declaration would register under a rewritten key while the agent
+// dispatch seam matches the declared one. Declarations must be lowercase
+// dotted ids, rejected here at declaration time.
+func TestValidateRejectsNonLowercaseFunctionName(t *testing.T) {
+	for _, id := range []string{
+		"plugin.httpget.banPlayer", // mixed case rewrites server-side
+		"plugin.httpget.Health",
+		"plugin.httpget.-lead",
+		"plugin.httpget.double..part",
+	} {
+		d := validDescriptor()
+		d.ID = id
+		if err := Validate("httpget", d); err == nil {
+			t.Fatalf("non-lowercase or malformed function id %q must be rejected", id)
+		}
+	}
+	// Separators the server id pattern accepts stay valid.
+	for _, id := range []string{
+		"plugin.httpget.ban-player",
+		"plugin.httpget.ban_player",
+		"plugin.httpget.v2.fetch",
+	} {
+		d := validDescriptor()
+		d.ID = id
+		if err := Validate("httpget", d); err != nil {
+			t.Fatalf("lowercase dotted id %q must be accepted: %v", id, err)
+		}
+	}
+}

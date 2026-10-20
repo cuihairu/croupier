@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin"
+	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 )
 
 // startFunctionPlugins builds and starts the real function adapter
@@ -32,8 +33,26 @@ func (a *App) startFunctionPlugins(plugins []funcplugin.PluginConfig) error {
 	}
 	a.funcHost = host
 	a.localHandler.SetPluginFunctionManager(functionPluginDispatch{host: host})
+	if a.upstream != nil {
+		a.upstream.SetPluginFunctionsSource(pluginFunctionDescriptors(host))
+	}
 	slog.Info("function plugins wired", "plugins", len(plugins), "functions", len(host.Registered()))
 	return nil
+}
+
+// pluginFunctionDescriptors returns the registration payload source for
+// the host: each sync re-reads the validated declarations, so periodic
+// resyncs and reconnects carry the current snapshot without extra
+// plumbing (todo.md:35 remaining wiring).
+func pluginFunctionDescriptors(host *funcplugin.Host) func() []*agentv1.FunctionDescriptor {
+	return func() []*agentv1.FunctionDescriptor {
+		regs := host.Registered()
+		out := make([]*agentv1.FunctionDescriptor, 0, len(regs))
+		for _, r := range regs {
+			out = append(out, r.Descriptor())
+		}
+		return out
+	}
 }
 
 // functionPluginDispatch adapts the funcplugin Host to the

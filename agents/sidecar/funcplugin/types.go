@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin/declare"
+	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 )
 
@@ -93,4 +94,90 @@ type Registered struct {
 	Version  string
 	Declared declare.Descriptor
 	Metadata *functionv1.FunctionMetadata
+}
+
+// Descriptor renders the validated declaration as an agent registration
+// payload descriptor (todo.md:35 remaining wiring: plugin functions join
+// the register snapshot). The risk value is normalized to the wire
+// vocabulary the agent register contract documents (low→safe,
+// medium→warning); approval/permission stay unset — they remain
+// server-side policy, the descriptor adds no bypass. When Metadata is
+// nil (declaration validated but the shared builder not yet run) the
+// declared fields render directly.
+func (r Registered) Descriptor() *agentv1.FunctionDescriptor {
+	d := &agentv1.FunctionDescriptor{
+		Id:           r.Declared.ID,
+		Version:      r.Version,
+		Resource:     "plugin." + r.Plugin,
+		Risk:         wireRisk(r.Declared.RiskLevel),
+		Enabled:      true,
+		Execution:    "sync",
+		Summary:      r.Declared.Summary,
+		InputSchema:  r.Declared.ParamSchema,
+		OutputSchema: r.Declared.ResultSchema,
+		Tags:         []string{"plugin", r.Plugin},
+	}
+	if md := r.Metadata; md != nil {
+		if md.Id != "" {
+			d.Id = md.Id
+		}
+		if md.Version != "" {
+			d.Version = md.Version
+		}
+		if md.Resource != "" {
+			d.Resource = md.Resource
+		}
+		if len(md.Tags) > 0 {
+			d.Tags = append([]string(nil), md.Tags...)
+		}
+		if md.Description != "" {
+			d.Summary = md.Description
+		}
+		if md.InputSchema != "" {
+			d.InputSchema = md.InputSchema
+		}
+		if md.OutputSchema != "" {
+			d.OutputSchema = md.OutputSchema
+		}
+		if md.Execution != "" {
+			d.Execution = md.Execution
+		}
+		if md.GetSecurity() != nil {
+			d.Risk = securityRiskWire(md.GetSecurity().GetRiskLevel())
+		}
+	}
+	if d.Tags == nil {
+		d.Tags = []string{}
+	}
+	return d
+}
+
+// wireRisk maps the declare closed set onto the wire vocabulary the
+// agent register contract and the server contract parser use.
+func wireRisk(risk string) string {
+	switch risk {
+	case declare.RiskMedium:
+		return "warning"
+	case declare.RiskHigh:
+		return "high"
+	case declare.RiskDanger:
+		return "danger"
+	default:
+		return "safe"
+	}
+}
+
+// securityRiskWire maps the functionv1 security enum onto the same wire
+// vocabulary.
+func securityRiskWire(level functionv1.FunctionSecurity_RiskLevel) string {
+	switch level {
+	case functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM:
+		return "warning"
+	case functionv1.FunctionSecurity_RISK_LEVEL_HIGH:
+		return "high"
+	case functionv1.FunctionSecurity_RISK_LEVEL_DANGER:
+		return "danger"
+	default:
+		return "safe"
+	}
 }
