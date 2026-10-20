@@ -8,13 +8,13 @@ hero:
   tagline: Distributed game operations control plane and agent collaboration platform
   actions:
     - text: Quick Start →
-      link: /guide/quick-start
+      link: /guide
       theme: primary
     - text: SDK Guide
-      link: /sdks/
+      link: /sdks
       theme: secondary
     - text: API Reference
-      link: /api/
+      link: /api
       theme: secondary
 features:
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><rect x="3" y="4.5" width="18" height="13" rx="2"/><path d="M7 9h5"/><path d="M7 13h7"/><circle cx="17" cy="9" r="1.6"/><circle cx="17" cy="13" r="1.6"/><path d="M9 17.5v2"/><path d="M15 17.5v2"/></svg>'
@@ -104,7 +104,7 @@ graph TB
 
 > The two entry planes do not overlap: the web plane's nginx never touches Agent traffic, and the
 > Agent plane's haproxy never touches HTTP. The L4/L7 selection rationale and removing the LB
-> single point via VRRP are covered in [Load Balancing](/operations/load-balancing).
+> single point via VRRP are covered in [Operations](/operations).
 
 > The Server supports multi-instance high-availability deployment (`cluster.enabled`): member
 > discovery goes through shared storage (no seeds, no static peers), and requests landing on a
@@ -190,12 +190,12 @@ Organized by usage path:
 
 | Path             | Entry                                                                                                                                                             | Description                                                                                                       |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Quick Start**  | [Guide](/guide/) · [Quick Start](/guide/quick-start)                                                                                                              | Installation, configuration, Server + Agent startup, minimal loop                                                 |
+| **Quick Start**  | [Guide](/guide/) · [Guide](/guide)                                                                                                                                | Installation, configuration, Server + Agent startup, minimal loop                                                 |
 | **Page product** | [Function management](/zh/guide/concepts/function-management) · [Page Studio](/zh/guide/concepts/function-registration-ui) · [Resource Catalog](/zh/api/resource) | Register functions → pages generated automatically → publish via Proposal Inbox → controlled execution in Console |
-| **SDK**          | [SDK overview](/sdks/)                                                                                                                                            | Provider / Invoker / configuration / capability matrix, 6 languages                                               |
-| **API**          | [API reference](/api/)                                                                                                                                            | REST contracts, authentication, game/env scope, per-resource APIs                                                 |
-| **Operations**   | [Monitoring](/operations/monitoring) · [Analytics](/analytics/)                                                                                                   | Deployment, monitoring, backup, analysis, troubleshooting                                                         |
-| **Development**  | [Development](/zh/development/agent-runtime-layout) · [Architecture](/architecture/)                                                                              | Architecture, code conventions, extension strategy, release rules                                                 |
+| **SDK**          | [SDK overview](/sdks)                                                                                                                                             | Provider / Invoker / configuration / capability matrix, 6 languages                                               |
+| **API**          | [API reference](/api)                                                                                                                                             | REST contracts, authentication, game/env scope, per-resource APIs                                                 |
+| **Operations**   | [Operations](/operations) · [Analytics](/analytics)                                                                                                               | Deployment, monitoring, backup, analysis, troubleshooting                                                         |
+| **Development**  | [Architecture](/architecture)                                                                                                                                     | Architecture, code conventions, extension strategy, release rules                                                 |
 
 Historical design and migration documents live under [Architecture — proposals and migrations](/architecture/) (collapsed in the sidebar) and are not part of the main onboarding path.
 
