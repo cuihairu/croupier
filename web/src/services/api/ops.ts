@@ -38,6 +38,9 @@ export type SyntheticsResult = {
   errorClass: string;
   error: string;
   createdAt: number;
+  // 执行时目标类别快照（目标分类设计 §4.4）：game | third_party；
+  // 旧版 agent 上报无该位 → 空串（页面上按「未分类」呈现，不猜类别）。
+  targetCategory?: string;
 };
 
 export async function listSyntheticsResults(gameId: string, env: string, limit = 100) {

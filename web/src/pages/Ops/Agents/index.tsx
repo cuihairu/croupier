@@ -11,6 +11,9 @@ import { normalizeOpsNode, type NodeRow } from '../Nodes/shared';
 
 export type AgentPageProps = {
   agentType: AgentType;
+  // 类型职责区块（如 synthetics 的最近探测结果）：渲染在实例列表之后、
+  // 同一页面骨架与 scope 头之下（§3 共用布局）。
+  children?: React.ReactNode;
 };
 
 type AgentMeta = {
@@ -45,7 +48,7 @@ export const AGENT_META: Record<AgentType, AgentMeta> = {
   },
 };
 
-export default function OpsAgentsPage({ agentType }: AgentPageProps) {
+export default function OpsAgentsPage({ agentType, children }: AgentPageProps) {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<NodeRow[]>([]);
   const [query, setQuery] = useState('');
@@ -187,6 +190,7 @@ export default function OpsAgentsPage({ agentType }: AgentPageProps) {
             ]}
           />
         </StandardListSection>
+        {children}
       </Space>
 
       <NodeDetailDrawer
