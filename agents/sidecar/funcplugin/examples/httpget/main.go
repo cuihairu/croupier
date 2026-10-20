@@ -10,10 +10,12 @@
 //
 //	go build ./agents/sidecar/funcplugin/examples/httpget
 //
-// It declares one function, plugin.httpget.health, whose params are
-// {"path": "/..."}; the plugin issues GET <target><path> against the
-// game interface given by -target and translates the answer onto the
-// closed-set error envelope:
+// By default it declares one function, plugin.httpget.health; its params
+// are {"path": "/..."}. -functions-file instead declares one function per
+// line of a file that is re-read on every ListFunctions call, so the
+// declared list can change under a running plugin. Every declared
+// function issues GET <target><path> against the game interface given by
+// -target and translates the answer onto the closed-set error envelope:
 //
 //	2xx            → ok=true, result={"status":..,"body":".."}
 //	4xx            → ok=false, error_code=target_rejected
@@ -33,17 +35,23 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin"
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin/declare"
 )
 
-const functionID = "plugin.httpget.health"
-
-// paramSchema / resultSchema are the declared contract of the reference
-// adapter: params and results are JSON objects by contract.
 const (
+	// pluginNamespace is the only id prefix this adapter declares and
+	// serves. The host only ever routes ids it registered, so serving the
+	// whole namespace is what a changing function list needs.
+	pluginNamespace = "plugin.httpget."
+	// defaultFunction is declared when no -functions-file is given.
+	defaultFunction = "health"
+
+	// paramSchema / resultSchema are the declared contract of the
+	// reference adapter: params and results are JSON objects by contract.
 	paramSchema  = `{"type":"object","properties":{"path":{"type":"string","pattern":"^/"}},"additionalProperties":false}`
 	resultSchema = `{"type":"object","properties":{"status":{"type":"integer"},"body":{"type":"string"}},"required":["status","body"],"additionalProperties":false}`
 )
@@ -51,6 +59,11 @@ const (
 type httpGetPlugin struct {
 	client *http.Client
 	target string
+	// functionsFile, when set, lists one function name per line and is
+	// re-read on every ListFunctions call, so the adapter declares exactly
+	// the endpoints the game interface advertises right now — which is
+	// what the host's registration reconcile loop tracks.
+	functionsFile string
 }
 
 func (p *httpGetPlugin) Describe(context.Context) (string, string, error) {
@@ -58,22 +71,51 @@ func (p *httpGetPlugin) Describe(context.Context) (string, string, error) {
 }
 
 func (p *httpGetPlugin) ListFunctions(context.Context) ([]declare.Descriptor, error) {
-	descs := []declare.Descriptor{{
-		ID:           functionID,
-		Summary:      "map an invoke onto GET <target><path> of the game HTTP interface",
-		ParamSchema:  paramSchema,
-		ResultSchema: resultSchema,
-		RiskLevel:    declare.RiskLow,
-	}}
-	if os.Getenv("HTTPGET_DUPLICATE_FUNCTION") != "" {
+	names, err := p.functionNames()
+	if err != nil {
+		return nil, err
+	}
+	descs := make([]declare.Descriptor, 0, len(names))
+	for _, name := range names {
+		descs = append(descs, declare.Descriptor{
+			ID:           pluginNamespace + name,
+			Summary:      "map an invoke onto GET <target><path> of the game HTTP interface",
+			ParamSchema:  paramSchema,
+			ResultSchema: resultSchema,
+			RiskLevel:    declare.RiskLow,
+		})
+	}
+	if os.Getenv("HTTPGET_DUPLICATE_FUNCTION") != "" && len(descs) > 0 {
 		descs = append(descs, descs[0])
 	}
 	return descs, nil
 }
 
+// functionNames is the declared function list: the fixed reference
+// function by default, or one name per non-blank line of -functions-file,
+// re-read per call so a changing game interface is visible without a
+// plugin restart. A read failure is returned rather than an empty list —
+// an unreadable list must not silently withdraw every function.
+func (p *httpGetPlugin) functionNames() ([]string, error) {
+	if p.functionsFile == "" {
+		return []string{defaultFunction}, nil
+	}
+	body, err := os.ReadFile(p.functionsFile)
+	if err != nil {
+		return nil, fmt.Errorf("reading functions file %q: %w", p.functionsFile, err)
+	}
+	var names []string
+	for _, line := range strings.Split(string(body), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			names = append(names, line)
+		}
+	}
+	return names, nil
+}
+
 func (p *httpGetPlugin) Invoke(ctx context.Context, in funcplugin.InvokeInput) (funcplugin.InvokeOutput, error) {
 	out := funcplugin.InvokeOutput{At: time.Now()}
-	if in.FunctionID != functionID {
+	if !strings.HasPrefix(in.FunctionID, pluginNamespace) {
 		return p.fail(out, "bad_response", fmt.Sprintf("unknown function %q", in.FunctionID))
 	}
 	var params struct {
@@ -120,9 +162,11 @@ func (p *httpGetPlugin) fail(out funcplugin.InvokeOutput, code, msg string) (fun
 
 func main() {
 	target := flag.String("target", "http://127.0.0.1:8080", "base URL of the game HTTP interface to map onto")
+	functionsFile := flag.String("functions-file", "", "optional file listing one declared function name per line, re-read on every ListFunctions call")
 	flag.Parse()
 	funcplugin.Serve(&httpGetPlugin{
-		client: &http.Client{Timeout: 30 * time.Second},
-		target: *target,
+		client:        &http.Client{Timeout: 30 * time.Second},
+		target:        *target,
+		functionsFile: *functionsFile,
 	})
 }

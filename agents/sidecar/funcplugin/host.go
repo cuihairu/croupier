@@ -4,6 +4,7 @@ package funcplugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -12,8 +13,16 @@ import (
 	coreplugin "github.com/cuihairu/croupier/core/pluginhost"
 
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin/declare"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 )
+
+// DefaultReconcileInterval is how often the registration reconcile loop
+// re-enumerates the declared plugins. Declarations are runtime state, not
+// boot-time config: a plugin that is restarted after a crash or that
+// advertises a different function list must be visible to the
+// registration chain without a host restart, and the loop is what keeps
+// the reported snapshot honest. One ListFunctions call per enabled plugin
+// per interval is the whole cost.
+const DefaultReconcileInterval = 30 * time.Second
 
 // Host manages the declared function adapter plugins for one sidecar
 // (todo.md:35): explicit config declarations, lazily started resident
@@ -29,6 +38,16 @@ type Host struct {
 	mu         sync.RWMutex
 	registered map[string]Registered
 	pluginVer  map[string]string
+
+	// reconcileInterval is the registration reconcile loop period; set by
+	// NewHost to the package default and fixed for the host's lifetime, so
+	// the only writer runs before the loop goroutine reads it. A non
+	// positive value keeps the Start-time set frozen.
+	reconcileInterval time.Duration
+	reconcileStop     chan struct{}
+	reconcileWG       sync.WaitGroup
+	loopStartOnce     sync.Once
+	loopStopOnce      sync.Once
 }
 
 // NewHost validates the scope and plugin names and builds the host; no
@@ -56,12 +75,14 @@ func NewHost(scope AgentScope, plugins []PluginConfig, log *slog.Logger) (*Host,
 		})
 	}
 	return &Host{
-		scope:      scope,
-		cfgs:       plugins,
-		ctrl:       coreplugin.NewController(cfgs, contract(), coreplugin.Knobs{Log: log}),
-		log:        log,
-		registered: map[string]Registered{},
-		pluginVer:  map[string]string{},
+		scope:             scope,
+		cfgs:              plugins,
+		ctrl:              coreplugin.NewController(cfgs, contract(), coreplugin.Knobs{Log: log}),
+		log:               log,
+		registered:        map[string]Registered{},
+		pluginVer:         map[string]string{},
+		reconcileInterval: DefaultReconcileInterval,
+		reconcileStop:     make(chan struct{}),
 	}, nil
 }
 
@@ -70,37 +91,183 @@ func NewHost(scope AgentScope, plugins []PluginConfig, log *slog.Logger) (*Host,
 // and enabled plugin that cannot start or declare is a startup error —
 // unlike probe checks (which retry every tick and degrade visibly), a
 // function that silently failed to register would be a missing feature,
-// not a degraded one. The registration reconcile loop is future work.
+// not a degraded one. Start applies nothing until every enabled plugin
+// has been validated, so a failure leaves the host with no functions, and
+// it starts the registration reconcile loop only after that.
 func (h *Host) Start(ctx context.Context) error {
+	var sets []pluginDeclarations
 	for _, pc := range h.cfgs {
 		if !pc.IsEnabled() {
 			continue
 		}
-		var descs []declare.Descriptor
-		cause := h.ctrl.Call(ctx, pc.Name, pc.Timeout, func(ctx context.Context, impl FuncPlugin) error {
-			var err error
-			descs, err = impl.ListFunctions(ctx)
+		ds, err := h.describePlugin(ctx, pc)
+		if err != nil {
 			return err
-		})
-		if cause != "" {
-			return fmt.Errorf("function plugin %q registration failed: %s", pc.Name, cause)
 		}
-		version := h.ctrl.Version(pc.Name)
-		for _, d := range descs {
-			if err := declare.Validate(pc.Name, d); err != nil {
-				return fmt.Errorf("function plugin %q declaration rejected: %w", pc.Name, err)
-			}
-			md, err := declare.Metadata(pc.Name, version, d)
-			if err != nil {
-				return fmt.Errorf("function plugin %q metadata rejected: %w", pc.Name, err)
-			}
-			if err := h.register(pc.Name, version, d, md); err != nil {
-				h.clear()
-				return err
-			}
+		if ds.unanswered != "" {
+			return fmt.Errorf("function plugin %q registration failed: %s", pc.Name, ds.unanswered)
+		}
+		sets = append(sets, ds)
+	}
+	for _, ds := range sets {
+		if err := h.applyPlugin(ds); err != nil {
+			h.clear()
+			return err
 		}
 	}
+	h.startReconcileLoop()
 	return nil
+}
+
+// pluginDeclarations is one plugin's answer to ListFunctions after
+// validation: every entry is registrable, ids are unique within the
+// plugin and confined to its own namespace.
+type pluginDeclarations struct {
+	plugin  string
+	version string
+	items   map[string]Registered
+	// unanswered carries the degradation cause when the plugin process did
+	// not answer at all (crash backoff, open circuit, wedged call). That is
+	// not a declaration fault — it is "unreachable right now".
+	unanswered string
+}
+
+// describePlugin asks one plugin for its current declarations and turns
+// the answer into a validated set. It is the single declaration path for
+// both the fail-closed Start and the tolerant Reconcile, so the two can
+// never disagree about what a plugin is allowed to declare.
+func (h *Host) describePlugin(ctx context.Context, pc PluginConfig) (pluginDeclarations, error) {
+	var descs []declare.Descriptor
+	cause := h.ctrl.Call(ctx, pc.Name, pc.Timeout, func(ctx context.Context, impl FuncPlugin) error {
+		var err error
+		descs, err = impl.ListFunctions(ctx)
+		return err
+	})
+	if cause != "" {
+		return pluginDeclarations{plugin: pc.Name, unanswered: cause}, nil
+	}
+	// The version comes from the live process: after a crash restart the
+	// engine has re-run the Describe handshake, so re-reading it is what
+	// "re-Describe" means here.
+	ds := pluginDeclarations{plugin: pc.Name, version: h.ctrl.Version(pc.Name), items: map[string]Registered{}}
+	for _, d := range descs {
+		if err := declare.Validate(pc.Name, d); err != nil {
+			return pluginDeclarations{}, fmt.Errorf("function plugin %q declaration rejected: %w", pc.Name, err)
+		}
+		if _, dup := ds.items[d.ID]; dup {
+			return pluginDeclarations{}, fmt.Errorf("function plugin %q declared duplicate id %q", pc.Name, d.ID)
+		}
+		md, err := declare.Metadata(pc.Name, ds.version, d)
+		if err != nil {
+			return pluginDeclarations{}, fmt.Errorf("function plugin %q metadata rejected: %w", pc.Name, err)
+		}
+		ds.items[d.ID] = Registered{Plugin: pc.Name, Version: ds.version, Declared: d, Metadata: md}
+	}
+	return ds, nil
+}
+
+// applyPlugin makes one plugin's reconciled set live: its previous
+// registrations are replaced by the fresh set in a single locked step, so
+// a function the plugin stopped declaring stops being a plugin function
+// in the same instant the rest of its set updates. The result is
+// registered per id, so the registration source never sees a torn
+// snapshot.
+func (h *Host) applyPlugin(ds pluginDeclarations) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for id := range ds.items {
+		if existing, ok := h.registered[id]; ok && existing.Plugin != ds.plugin {
+			// Namespace validation already confines every declared id to
+			// plugin.<name>.; a foreign owner under this id means the same
+			// plugin name was declared twice. Refuse instead of stealing the
+			// other plugin's registration.
+			return fmt.Errorf("function plugin %q declared duplicate id %q already owned by %q", ds.plugin, id, existing.Plugin)
+		}
+	}
+	for id, existing := range h.registered {
+		if existing.Plugin == ds.plugin {
+			delete(h.registered, id)
+		}
+	}
+	for id, r := range ds.items {
+		h.registered[id] = r
+	}
+	h.pluginVer[ds.plugin] = ds.version
+	return nil
+}
+
+// Reconcile re-enumerates every enabled declared plugin and updates this
+// host's registration set with what the plugin processes declare right
+// now (todo.md:38). This is the half the Start-time collection is
+// missing: a plugin restarted after a crash, or one whose declared list
+// changes at runtime, never tells the host, and the registration chain
+// must not keep advertising a function the plugin stopped declaring — or
+// miss one it started to offer.
+//
+// A plugin's set only ever changes on a fully valid answer. An
+// unreachable process (crash backoff, open circuit, wedged call) keeps
+// its last known declarations and degrades on the next dispatch, which
+// owns the restart retry; an invalid declaration returns an error and
+// also keeps the last set — withdrawing a working function over one bad
+// line would be a worse outcome. Start is the strict variant: the same
+// unanswered answer is a startup error there.
+//
+// Reconcile is safe to call from the loop, from a registration sync or by
+// hand: it is idempotent and bounded by each plugin's own configured
+// timeout, never by a caller deadline.
+func (h *Host) Reconcile(ctx context.Context) error {
+	var errs []error
+	for _, pc := range h.cfgs {
+		if !pc.IsEnabled() {
+			continue
+		}
+		ds, err := h.describePlugin(ctx, pc)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if ds.unanswered != "" {
+			h.log.Warn("function plugin declarations not reconciled; keeping the last known set",
+				"plugin", pc.Name, "cause", ds.unanswered)
+			continue
+		}
+		if err := h.applyPlugin(ds); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// startReconcileLoop starts the registration reconcile loop owned by the
+// host: the upstream registration source re-reads Registered() on every
+// sync, so a reconciled set reaches the server on the next registration
+// cycle with no extra plumbing.
+func (h *Host) startReconcileLoop() {
+	if h.reconcileInterval <= 0 {
+		return
+	}
+	h.loopStartOnce.Do(func() {
+		h.reconcileWG.Add(1)
+		go h.reconcileLoop()
+	})
+}
+
+func (h *Host) reconcileLoop() {
+	defer h.reconcileWG.Done()
+	for {
+		select {
+		case <-h.reconcileStop:
+			return
+		case <-time.After(h.reconcileInterval):
+		}
+		// The tick uses no caller deadline of its own: each ListFunctions
+		// call is bounded by the plugin's configured timeout, exactly like
+		// Start and Invoke, so the loop can never poison the engine's
+		// failure accounting with a deadline of its own making.
+		if err := h.Reconcile(context.Background()); err != nil {
+			h.log.Warn("function plugin declaration reconcile failed", "error", err)
+		}
+	}
 }
 
 func (h *Host) clear() {
@@ -108,27 +275,6 @@ func (h *Host) clear() {
 	defer h.mu.Unlock()
 	h.registered = map[string]Registered{}
 	h.pluginVer = map[string]string{}
-}
-
-func (h *Host) register(pluginName, version string, d declare.Descriptor, md *functionv1.FunctionMetadata) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if existing, ok := h.registered[d.ID]; ok {
-		delete(h.registered, d.ID)
-		if existing.Plugin != pluginName {
-			delete(h.pluginVer, existing.Plugin)
-		}
-		owner := existing.Plugin
-		if owner == pluginName {
-			owner = ""
-		} else {
-			owner = " already owned by " + owner
-		}
-		return fmt.Errorf("function plugin %q declared duplicate id %q%s", pluginName, d.ID, owner)
-	}
-	h.registered[d.ID] = Registered{Plugin: pluginName, Version: version, Declared: d, Metadata: md}
-	h.pluginVer[pluginName] = version
-	return nil
 }
 
 // IsPluginFunction reports whether the id is a registered plugin function
@@ -195,6 +341,15 @@ var validTargetCode = map[string]bool{
 	"bad_response":       true,
 }
 
-// Stop drains in-flight calls within the bounded window and shuts down
-// every resident plugin process (single lifecycle owner: the host).
-func (h *Host) Stop() { h.ctrl.Stop() }
+// Stop stops accepting new plugin calls, drains in-flight ones up to a
+// bounded window (each ongoing call owns its own deadline), then shuts
+// down every resident plugin process (single lifecycle owner: the host).
+// It also stops the registration reconcile loop and waits for a tick in
+// flight, which is bounded by the plugin's configured timeout.
+func (h *Host) Stop() {
+	h.loopStopOnce.Do(func() {
+		close(h.reconcileStop)
+		h.reconcileWG.Wait()
+	})
+	h.ctrl.Stop()
+}
