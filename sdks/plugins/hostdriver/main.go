@@ -3,10 +3,11 @@
 // Command hostdriver drives the REAL Croupier plugin hosts (the sidecar
 // function host and the synthetics probe controller) against one
 // external plugin process given on the command line. It exists for the
-// Python plugin SDK's test suite (sdks/plugins/python/tests): pytest
-// builds this binary and runs scenarios against the reference Python
-// plugins, so the proof is a full host⇄plugin round trip through the
-// real go-plugin handshake — not a mock of either side.
+// plugin SDK test suites (sdks/plugins/python/tests via pytest,
+// sdks/plugins/js/test via jest): the suite builds this binary and runs
+// scenarios against the reference plugins, so the proof is a full
+// host⇄plugin round trip through the real go-plugin handshake — not a
+// mock of either side.
 //
 // Usage:
 //

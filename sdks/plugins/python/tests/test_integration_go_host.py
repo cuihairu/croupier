@@ -29,7 +29,7 @@ def hostdriver() -> Path:
     assert go_bin is not None
     out = Path("/tmp") / "croupier-hostdriver-pytest"
     built = subprocess.run(
-        [go_bin, "build", "-o", str(out), "./sdks/plugins/python/hostdriver"],
+        [go_bin, "build", "-o", str(out), "./sdks/plugins/hostdriver"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

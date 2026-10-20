@@ -1,0 +1,50 @@
+{
+  "name": "croupier-plugin-sdk-node",
+  "version": "0.1.0",
+  "description": "Node.js plugin SDK for Croupier go-plugin hosts (synthetics probe plugins; sidecar function adapters follow the same handshake)",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "license": "MIT",
+  "author": "cuihairu <chuihairu@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cuihairu/croupier.git",
+    "directory": "sdks/plugins/js"
+  },
+  "keywords": [
+    "croupier",
+    "go-plugin",
+    "grpc",
+    "synthetics",
+    "probe"
+  ],
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "files": [
+    "dist/src",
+    "dist/examples",
+    "protos",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "verify:proto": "node scripts/verify-proto-drift.js"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.0",
+    "@grpc/proto-loader": "^0.8.0",
+    "protobufjs": "^7.6.6"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^24.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.6.0"
+  }
+}

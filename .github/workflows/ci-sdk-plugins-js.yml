@@ -1,0 +1,48 @@
+name: CI - Plugin SDK (JS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "sdks/plugins/js/**"
+      - "sdks/plugins/hostdriver/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "sdks/plugins/js/**"
+      - "sdks/plugins/hostdriver/**"
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: sdks/plugins/js/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "sdks/plugins/js/pnpm-lock.yaml"
+      # The integration suite builds the shared Go hostdriver and drives the
+      # real plugin hosts against the JS plugins; the Go toolchain is part
+      # of the fixture, not an implementation dependency.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+      - run: pnpm install --frozen-lockfile
+        working-directory: sdks/plugins/js
+      - run: pnpm build
+        working-directory: sdks/plugins/js
+      - run: pnpm typecheck
+        working-directory: sdks/plugins/js
+      - run: pnpm verify:proto
+        working-directory: sdks/plugins/js
+      - run: pnpm test
+        working-directory: sdks/plugins/js

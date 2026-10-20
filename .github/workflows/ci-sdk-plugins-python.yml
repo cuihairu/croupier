@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["sdks/plugins/python/**"]
+    paths: ["sdks/plugins/python/**", "sdks/plugins/hostdriver/**"]
   pull_request:
     branches: [main]
-    paths: ["sdks/plugins/python/**"]
+    paths: ["sdks/plugins/python/**", "sdks/plugins/hostdriver/**"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
