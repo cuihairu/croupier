@@ -1,134 +1,134 @@
 ---
-title: SDK 包发布
+title: SDK Package Release
 icon: send
 order: 8
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 发布
+  - Release
   - SDK
 ---
 
-# SDK 包发布
+# SDK Package Release
 
-六语言 SDK 发布到各语言官方包仓库。**每语言一个独立手动工作流**（`.github/workflows/release-sdk-<lang>.yml`，仅 `workflow_dispatch`，不在 push 时自动触发）——失败重发互不影响，单独重跑即可。
+The six-language SDKs are published to each language's official package registry. **One standalone manual workflow per language** (`.github/workflows/release-sdk-<lang>.yml`, `workflow_dispatch` only, not auto-triggered on push) — a failed run can be re-sent independently without affecting the others; just re-run that one alone.
 
 ```text
 Actions → Release SDK — Python / JS / Go / Java / C# / C++ → Run workflow
 ```
 
-## 1. 工作流输入（六个工作流相同）
+## 1. Workflow Inputs (identical across the six workflows)
 
-| 输入      | 类型 | 说明                                                                                                             |
-| --------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
-| `version` | 文本 | 发布版本。**留空 = 最新 release tag**（如 `v0.1.1`）；可显式指定，`v0.2.0` 与 `0.2.0` 两种写法等价（自动归一化） |
+| Input     | Type | Description                                                                                                                                                   |
+| --------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version` | Text | Release version. **Empty = latest release tag** (e.g. `v0.1.1`); can be specified explicitly, `v0.2.0` and `0.2.0` are equivalent spellings (auto-normalized) |
 
-| 工作流               | 目标                                  | 所需 Secrets                               |
-| -------------------- | ------------------------------------- | ------------------------------------------ |
-| Release SDK — Python | PyPI                                  | `PYPI_API_TOKEN`                           |
-| Release SDK — JS     | npm                                   | `NPM_TOKEN`                                |
-| Release SDK — Go     | Go module tag（`sdks/go/vX.Y.Z`）     | 无                                         |
-| Release SDK — Java   | GitHub Packages（可选 Maven Central） | 无（Central 需 `MAVEN_CENTRAL_*`+`GPG_*`） |
-| Release SDK — C#     | NuGet                                 | `NUGET_API_KEY`                            |
-| Release SDK — C++    | GitHub Release 源码包                 | 无                                         |
+| Workflow             | Target                                   | Required Secrets                                  |
+| -------------------- | ---------------------------------------- | ------------------------------------------------- |
+| Release SDK — Python | PyPI                                     | `PYPI_API_TOKEN`                                  |
+| Release SDK — JS     | npm                                      | `NPM_TOKEN`                                       |
+| Release SDK — Go     | Go module tag (`sdks/go/vX.Y.Z`)         | None                                              |
+| Release SDK — Java   | GitHub Packages (optional Maven Central) | None (Central requires `MAVEN_CENTRAL_*`+`GPG_*`) |
+| Release SDK — C#     | NuGet                                    | `NUGET_API_KEY`                                   |
+| Release SDK — C++    | GitHub Release source package            | None                                              |
 
-## 2. 发布目标与所需 Secrets
+## 2. Release Targets and Required Secrets
 
-版本号只注入构建产物，不回写仓库（各语言清单文件保持不变）。
+The version number is only injected into build artifacts and never written back to the repository (each language's manifest file stays unchanged).
 
-| 语言         | 目标仓库                       | 包名 / 坐标                            | 所需 Secrets                                                                                                    | 未配置时行为                         |
-| ------------ | ------------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Python       | [PyPI](https://pypi.org)       | `croupier`（pyproject）                | `PYPI_API_TOKEN`                                                                                                | job 显式报错并提示凭据名             |
-| JS           | [npm](https://www.npmjs.com)   | `croupier-js-sdk`                      | `NPM_TOKEN`                                                                                                     | 同上                                 |
-| Go           | Go module proxy                | `github.com/cuihairu/croupier/sdks/go` | 无（打 tag `sdks/go/vX.Y.Z`）                                                                                   | 无需凭据，可直接试跑                 |
-| Java         | GitHub Packages（主仓库）      | `io.github.cuihairu.croupier:*`        | 无（内置 `GITHUB_TOKEN`）                                                                                       | 无需额外凭据                         |
-| Java（可选） | Maven Central（OSSRH）         | 同上                                   | `MAVEN_CENTRAL_USERNAME`、`MAVEN_CENTRAL_PASSWORD`、`GPG_KEY_ID`、`GPG_PRIVATE_KEY`、`GPG_PRIVATE_KEY_PASSWORD` | 未配置时仅发 GitHub Packages，不报错 |
-| C#           | [NuGet](https://www.nuget.org) | `Croupier.Sdk`                         | `NUGET_API_KEY`                                                                                                 | job 显式报错并提示凭据名             |
-| C++          | GitHub Release 附源码包        | `croupier-cpp-sdk-<version>.tar.gz`    | 无（内置 `GITHUB_TOKEN`）                                                                                       | 无需凭据，可直接试跑                 |
+| Language        | Target registry                  | Package name / coordinates             | Required Secrets                                                                                                | Behavior when unconfigured                                |
+| --------------- | -------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Python          | [PyPI](https://pypi.org)         | `croupier` (pyproject)                 | `PYPI_API_TOKEN`                                                                                                | Job fails explicitly, naming the missing credential       |
+| JS              | [npm](https://www.npmjs.com)     | `croupier-js-sdk`                      | `NPM_TOKEN`                                                                                                     | Same as above                                             |
+| Go              | Go module proxy                  | `github.com/cuihairu/croupier/sdks/go` | None (tags `sdks/go/vX.Y.Z`)                                                                                    | No credentials needed; can be trial-run directly          |
+| Java            | GitHub Packages (main repo)      | `io.github.cuihairu.croupier:*`        | None (built-in `GITHUB_TOKEN`)                                                                                  | No extra credentials needed                               |
+| Java (optional) | Maven Central (OSSRH)            | Same as above                          | `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`, `GPG_KEY_ID`, `GPG_PRIVATE_KEY`, `GPG_PRIVATE_KEY_PASSWORD` | Without them, only GitHub Packages is published, no error |
+| C#              | [NuGet](https://www.nuget.org)   | `Croupier.Sdk`                         | `NUGET_API_KEY`                                                                                                 | Job fails explicitly, naming the missing credential       |
+| C++             | GitHub Release source attachment | `croupier-cpp-sdk-<version>.tar.gz`    | None (built-in `GITHUB_TOKEN`)                                                                                  | No credentials needed; can be trial-run directly          |
 
-## 3. Secrets 配置步骤
+## 3. Secrets Setup Steps
 
-仓库路径：**Settings → Secrets and variables → Actions → New repository secret**。
+Repository path: **Settings → Secrets and variables → Actions → New repository secret**.
 
-### PYPI_API_TOKEN（Python）
+### PYPI_API_TOKEN (Python)
 
-1. 注册/登录 PyPI 账号，目标包名首次发布前需在 PyPI 确认可用；
-2. Account settings → API tokens → Add API token；
-3. Scope 选 Entire account（首次）或限定 `croupier` 包；Token 形如 `pypi-AgEIcHlwaS5vcmc...`；
-4. Name 填 `PYPI_API_TOKEN`。
+1. Register/log in to a PyPI account; before the first publish of the target package name, its availability must be confirmed on PyPI;
+2. Account settings → API tokens → Add API token;
+3. Choose scope Entire account (first time) or limit it to the `croupier` package; the token looks like `«redacted:pypi-…»...`;
+4. Set Name to `PYPI_API_TOKEN`.
 
-### NPM_TOKEN（JS）
+### NPM_TOKEN (JS)
 
-1. 注册/登录 npmjs.com（发布 `croupier-js-sdk` 需拥有该包名，或选择 scoped 包名 `@<scope>/croupier-js-sdk`）；
-2. Access Tokens → Generate New Token → **Granular Access Token**（勾选 Read and write）；
-3. Name 填 `NPM_TOKEN`。工作流内以 `NODE_AUTH_TOKEN` 生效。
+1. Register/log in to npmjs.com (publishing `croupier-js-sdk` requires owning that package name, or choose a scoped name `@<scope>/croupier-js-sdk`);
+2. Access Tokens → Generate New Token → **Granular Access Token** (check Read and write);
+3. Set Name to `NPM_TOKEN`. Inside the workflow it takes effect as `NODE_AUTH_TOKEN`.
 
-### NUGET_API_KEY（C#）
+### NUGET_API_KEY (C#)
 
-1. 注册/登录 nuget.org（微软账号）；
-2. 账号 → API Keys → Create；Package scope 选 `Croupier.Sdk`，Expiration 按策略；
-3. Name 填 `NUGET_API_KEY`。
+1. Register/log in to nuget.org (Microsoft account);
+2. Account → API Keys → Create; set Package scope to `Croupier.Sdk`, Expiration per policy;
+3. Set Name to `NUGET_API_KEY`.
 
-### Maven Central（Java，可选）
+### Maven Central (Java, optional)
 
-命名空间 `io.github.cuihairu` 对应 GitHub 命名空间，走 Sonatype Central Portal：
+The namespace `io.github.cuihairu` corresponds to the GitHub namespace, via the Sonatype Central Portal:
 
-1. Central Portal（central.sonatype.com）用 GitHub 账号登录并验证 `io.github.cuihairu` 命名空间；
-2. 生成 Portal 用户 token（Account → Generate User Token）→ 分别配 `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD`；
-3. GPG 签名密钥：`gpg --full-generate-key`（RSA 4096）后导出——
-   - Key ID（8 位或完整 40 位十六进制）→ `GPG_KEY_ID`
-   - `gpg --export-secret-keys --armor <KEYID>` 输出全文 → `GPG_PRIVATE_KEY`
-   - 密钥口令 → `GPG_PRIVATE_KEY_PASSWORD`
-4. 五个 secret 齐备后，工作流自动附加 `-PforceRelease` 同步发布 Central；任一缺失则只发 GitHub Packages。
+1. Log in to the Central Portal (central.sonatype.com) with a GitHub account and verify the `io.github.cuihairu` namespace;
+2. Generate a Portal user token (Account → Generate User Token) → configure `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` respectively;
+3. GPG signing key: after `gpg --full-generate-key` (RSA 4096), export —
+   - Key ID (8-digit or the full 40-character hex) → `GPG_KEY_ID`
+   - The full output of `gpg --export-secret-keys --armor <KEYID>` → `GPG_PRIVATE_KEY`
+   - The key passphrase → `GPG_PRIVATE_KEY_PASSWORD`
+4. Once all five secrets are in place, the workflow automatically appends `-PforceRelease` to publish to Central as well; if any one is missing, only GitHub Packages is published.
 
-## 4. 各语言发布机制
+## 4. Per-Language Release Mechanics
 
-### Python（PyPI）
+### Python (PyPI)
 
-`pyproject.toml` 的 `version` 由 `sed` 注入 → `python -m build` 产出 sdist/wheel → `twine upload`（token 认证）。
+The `version` in `pyproject.toml` is injected via `sed` → `python -m build` produces sdist/wheel → `twine upload` (token auth).
 
-### JS（npm）
+### JS (npm)
 
-`npm version <v> --no-git-tag-version` 置版 → `npm ci` → `npm run build`（如定义）→ `npm publish --access public`。
+`npm version <v> --no-git-tag-version` sets the version → `npm ci` → `npm run build` (if defined) → `npm publish --access public`.
 
-### Go（module tag）
+### Go (module tag)
 
-Go 无中心仓库，发布约定为**子模块 tag**：`sdks/go/vX.Y.Z`（module path 为 `github.com/cuihairu/croupier/sdks/go`）。tag 已存在时跳过不报错；proxy.golang.org 按 tag 拉取。
+Go has no central registry; the release convention is a **submodule tag**: `sdks/go/vX.Y.Z` (module path `github.com/cuihairu/croupier/sdks/go`). If the tag already exists it is skipped without error; proxy.golang.org fetches by tag.
 
-### Java（GitHub Packages / Maven Central）
+### Java (GitHub Packages / Maven Central)
 
-`sdks/java/build.gradle` 已适配三个构建属性（与环境变量）：
+`sdks/java/build.gradle` already adapts three build properties (plus environment variables):
 
-| 属性 / 环境变量                                           | 作用                                                                                             |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `-PoverrideVersion=<v>`                                   | 覆盖写死的 `baseVersion`（工作流注入发布版本）                                                   |
-| `-PforceRelease`                                          | 无 tag 的手动发布也走 release 通道（signing + OSSHR 仓库）                                       |
-| `GITHUB_PACKAGES_URL`                                     | 覆盖 GitHub Packages 上传地址（工作流指回主仓库 `croupier`；缺省为独立仓库 `croupier-sdk-java`） |
-| `MAVEN_CENTRAL_USERNAME/PASSWORD`                         | OSSRH 凭据                                                                                       |
-| `GPG_KEY_ID / GPG_PRIVATE_KEY / GPG_PRIVATE_KEY_PASSWORD` | 签名（key 缺失时 signing 自动跳过，仅本地构建场景）                                              |
+| Property / environment variable                           | Purpose                                                                                                                                                    |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-PoverrideVersion=<v>`                                   | Overrides the hard-coded `baseVersion` (the workflow injects the release version)                                                                          |
+| `-PforceRelease`                                          | Manual releases without a tag also go through the release channel (signing + OSSRH repository)                                                             |
+| `GITHUB_PACKAGES_URL`                                     | Overrides the GitHub Packages upload URL (the workflow points it back to the main `croupier` repo; the default is the standalone repo `croupier-sdk-java`) |
+| `MAVEN_CENTRAL_USERNAME/PASSWORD`                         | OSSRH credentials                                                                                                                                          |
+| `GPG_KEY_ID / GPG_PRIVATE_KEY / GPG_PRIVATE_KEY_PASSWORD` | Signing (signing is skipped automatically when the key is missing; local-build scenario only)                                                              |
 
-### C#（NuGet）
+### C# (NuGet)
 
-`dotnet pack -c Release -p:Version=<v>`（csproj 中 `<Version>` 不回写）→ `dotnet nuget push`（`--skip-duplicate` 允许重试）。
+`dotnet pack -c Release -p:Version=<v>` (`<Version>` in the csproj is not written back) → `dotnet nuget push` (`--skip-duplicate` allows retries).
 
-### C++（Release 附件）
+### C++ (Release attachment)
 
-C++ 无中心包仓库：`sdks/cpp` 打 tarball（排除 build 目录）上传到版本对应的 GitHub Release；Release 不存在时自动创建 draft。
+C++ has no central package registry: `sdks/cpp` is packed into a tarball (excluding the build directory) and uploaded to the GitHub Release for that version; if the Release does not exist, a draft is created automatically.
 
-## 5. 首次发布检查清单
+## 5. First-Release Checklist
 
-1. （按需）配置第 3 节 Secrets；
-2. 建议先用 **Go + C++** 试跑（两者零外部凭据）验证工作流与版本解析；
-3. 确认目标包名未被占用（PyPI `croupier` / npm `croupier-js-sdk` / NuGet `Croupier.Sdk`）；
-4. Java 同步 Central 前确认命名空间验证与 GPG 全套 secret；
-5. 发布后在对应仓库检索版本：`pip index versions croupier`、`npm view croupier-js-sdk versions`、NuGet 页面、`go list -m github.com/cuihairu/croupier/sdks/go@vX.Y.Z`。
+1. (As needed) configure the Section 3 secrets;
+2. It is recommended to trial-run **Go + C++** first (both require zero external credentials) to verify the workflows and version resolution;
+3. Confirm the target package names are not taken (PyPI `croupier` / npm `croupier-js-sdk` / NuGet `Croupier.Sdk`);
+4. Before Java syncs to Central, confirm namespace verification and the full GPG secret set;
+5. After release, search for the version in each registry: `pip index versions croupier`, `npm view croupier-js-sdk versions`, the NuGet page, `go list -m github.com/cuihairu/croupier/sdks/go@vX.Y.Z`.
 
-## 6. 常见问题
+## 6. Common Issues
 
-| 现象                                 | 处理                                                                 |
-| ------------------------------------ | -------------------------------------------------------------------- |
-| job 立即失败并提示 `缺少 secret ...` | 按提示补配对应凭据后重跑                                             |
-| PyPI 403 目标包不可用                | 包名被占用或 token scope 不含该包；首次需 Entire account scope       |
-| NuGet 409                            | 版本已发布；`--skip-duplicate` 已容错，确认版本号是否递增            |
-| Java 发布到旧独立仓库                | `GITHUB_PACKAGES_URL` 未注入；确认通过本工作流运行而非旧 release.yml |
-| Go tag 已存在跳过                    | 同版本重复发布属预期幂等行为；新版本请指定新 version 输入            |
+| Symptom                                         | Resolution                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Job fails immediately with `missing secret ...` | Configure the corresponding credential as prompted and re-run                                                             |
+| PyPI 403 target package unavailable             | Package name taken or token scope excludes that package; first time requires Entire account scope                         |
+| NuGet 409                                       | Version already published; `--skip-duplicate` already tolerates this — confirm whether the version number was incremented |
+| Java published to the old standalone repo       | `GITHUB_PACKAGES_URL` was not injected; confirm it ran through this workflow rather than the old release.yml              |
+| Go tag already exists, skipped                  | Re-publishing the same version is expected idempotent behavior; for a new version specify a new version input             |

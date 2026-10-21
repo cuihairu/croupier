@@ -1,45 +1,45 @@
 ---
-title: 告警管理
+title: Alert Management
 icon: bell
 order: 21
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 可观测性
-  - 告警
+  - Observability
+  - Alerts
 ---
 
-# 告警管理
+# Alert Management
 
-平台内置**自建阈值规则引擎**（不是 Alertmanager 转发）：Agent 周期上报系统指标 → 规则评估器逐条判定 → 命中即产生告警并分发通知渠道。入口「运维中心 → 告警中心」（需 `ops` 功能域开启）。
+The platform ships with a **built-in threshold rule engine** (not an Alertmanager forwarder): Agents periodically report system metrics → the rule evaluator judges them one by one → a hit raises an alert and dispatches it to notification channels. Entry point: "Ops Center → Alert Center" (requires the `ops` feature domain to be enabled).
 
-## 指标来源
+## Metric Sources
 
-Agent 上报的系统指标（路径式 key）：
+System metrics reported by Agents (path-style keys):
 
-| 指标路径                    | 含义                            |
-| --------------------------- | ------------------------------- |
-| `cpu.usagePercent`          | CPU 使用率                      |
-| `memory.usagePercent`       | 内存使用率                      |
-| `disk.<挂载点>.usedPercent` | 磁盘使用率（按挂载点）          |
-| `custom.<key>`              | 自定义指标（业务经 Agent 注入） |
+| Metric path                      | Meaning                                             |
+| -------------------------------- | --------------------------------------------------- |
+| `cpu.usagePercent`               | CPU usage                                           |
+| `memory.usagePercent`            | Memory usage                                        |
+| `disk.<mount-point>.usedPercent` | Disk usage (per mount point)                        |
+| `custom.<key>`                   | Custom metrics (injected by business via the Agent) |
 
-## 告警规则
+## Alert Rules
 
-规则字段（Dashboard 规则 Tab 或 `POST /api/v1/alerts/rules`）：
+Rule fields (Dashboard Rules tab or `POST /api/v1/alerts/rules`):
 
-| 字段              | 说明                                                |
-| ----------------- | --------------------------------------------------- |
-| `metric`          | 指标路径，如 `cpu.usagePercent`                     |
-| `operator`        | `gt` / `gte` / `lt` / `lte`                         |
-| `threshold`       | 阈值                                                |
-| `forCount`        | 连续命中 N 次才触发（模拟持续窗口；中断即重置计数） |
-| `cooldownSeconds` | 触发后冷却（默认 300s，冷却期内同规则不再触发）     |
-| `level`           | `info` / `warning` / `critical`                     |
-| `agentFilter`     | 空 = 全部 Agent；否则按 Agent ID 过滤               |
-| `gameId` / `env`  | 作用域                                              |
+| Field             | Description                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `metric`          | Metric path, e.g. `cpu.usagePercent`                                                          |
+| `operator`        | `gt` / `gte` / `lt` / `lte`                                                                   |
+| `threshold`       | Threshold                                                                                     |
+| `forCount`        | Fires only after N consecutive hits (simulating a sustained window; a break resets the count) |
+| `cooldownSeconds` | Cooldown after firing (default 300s; the same rule does not fire again during cooldown)       |
+| `level`           | `info` / `warning` / `critical`                                                               |
+| `agentFilter`     | Empty = all Agents; otherwise filter by Agent ID                                              |
+| `gameId` / `env`  | Scope                                                                                         |
 
-示例——CPU 超 90% 持续 3 个周期才告警、冷却 10 分钟：
+Example — alert only when CPU exceeds 90% for 3 consecutive cycles, with a 10-minute cooldown:
 
 ```json
 {
@@ -55,29 +55,29 @@ Agent 上报的系统指标（路径式 key）：
 }
 ```
 
-## 告警生命周期
+## Alert Lifecycle
 
 ```
-规则命中 → firing（写 alerts 表 + 分发通知渠道）
-        → 静默（手动，minutes + reason）→ 静默期内不再提示
-        → 恢复（指标回落，规则不再命中后自动 resolve）
+Rule hit → firing (write to the alerts table + dispatch to notification channels)
+        → silenced (manual, minutes + reason) → no further prompts during silence
+        → recovered (metric falls back; automatically resolved once the rule no longer hits)
 ```
 
-- 列表按 `level` / `status` 过滤；critical 默认置顶
-- 静默到期自动失效，也可在「静默列表」手动删除
-- 触发历史审计留痕（谁静默的、为什么）
+- The list can be filtered by `level` / `status`; critical alerts are pinned to the top by default
+- Silence expires automatically; it can also be deleted manually in the "Silence List"
+- Trigger history is kept for audit (who silenced it and why)
 
-## 与通知渠道联动
+## Integration with Notification Channels
 
-告警触发时按[通知渠道](./notifications)配置分发：站内信（默认开）、钉钉机器人、自定义 webhook、SMTP 邮件。分发失败只记日志不阻塞告警落库。
+When an alert fires, it is dispatched according to the [notification channel](./notifications) configuration: in-app messages (on by default), DingTalk bots, custom webhooks, SMTP email. Dispatch failures are only logged and never block the alert from being persisted.
 
-另有 **herald 外部告警出口**（`herald.enabled` 缺省关）：开启后监管熔断（supervisor breaker_tripped）等事件经 [herald](/archive/legacy-en/design/agent-herald-integration) 投递——渠道/收件人全在 herald 侧配置，herald 不可达只记日志与失败计数、不阻塞告警落库。
+There is also the **herald external alert outlet** (`herald.enabled`, off by default): when enabled, events such as supervision circuit breaks (supervisor breaker_tripped) are delivered via [herald](/archive/legacy-en/design/agent-herald-integration) — channels/recipients are all configured on the herald side; if herald is unreachable it only logs and counts failures, without blocking alert persistence.
 
-## 与外部 Alertmanager 的关系
+## Relationship with External Alertmanager
 
-已有 Alertmanager 体系可选两种接法：
+With an existing Alertmanager setup, there are two ways to integrate:
 
-1. **入站 webhook（可落库）**：Alertmanager webhook_configs 指向 `POST /api/v1/alerts/inbound/alertmanager`（HMAC-SHA256 签名 + 时间戳防重放，密钥走 `alertInbound.sources.alertmanager.secretEnv` 环境变量引用），告警落入本页与 capture/dbmon 告警同桶管理；generic 来源（`POST /api/v1/alerts/inbound/generic`）供任意第三方按统一信封推入。
-2. **仅跳转链接（现状）**：`GET /api/v1/ops/config` 返回的 `alertmanagerUrl`（环境变量 `CROUPIER_ALERTMANAGER_URL`）仅作为页面跳转链接。
+1. **Inbound webhook (persistable)**: point Alertmanager webhook_configs at `POST /api/v1/alerts/inbound/alertmanager` (HMAC-SHA256 signature + timestamp anti-replay; the secret is referenced via the `alertInbound.sources.alertmanager.secretEnv` environment variable); alerts land in the same bucket as the ones on this page and capture/dbmon alerts; the generic source (`POST /api/v1/alerts/inbound/generic`) lets any third party push in with a unified envelope.
+2. **Jump link only (current state)**: the `alertmanagerUrl` returned by `GET /api/v1/ops/config` (environment variable `CROUPIER_ALERTMANAGER_URL`) serves only as a page jump link.
 
-croupier 不做跨系统告警收敛/降噪引擎；入站为单向接收，不回写确认状态到来源系统。
+croupier is not a cross-system alert deduplication/noise-reduction engine; inbound is one-way reception and does not write acknowledgment status back to the source system.

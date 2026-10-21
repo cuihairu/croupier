@@ -1,54 +1,54 @@
 ---
-title: 二进制部署（systemd）
+title: Binary Deployment (systemd)
 icon: server
 order: 4
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 部署
+  - Deployment
 ---
 
-# 二进制部署（systemd）
+# Binary Deployment (systemd)
 
-适合无容器约束的裸机/VM 环境。产物来自 [Release](https://github.com/cuihairu/croupier/releases) 或本地构建（`make build` → `bin/croupier-server`、`bin/croupier-agent`）。
+Suitable for bare-metal/VM environments without container constraints. Artifacts come from [Releases](https://github.com/cuihairu/croupier/releases) or a local build (`make build` → `bin/croupier-server`, `bin/croupier-agent`).
 
-> 只需要 agent 时可用[一键安装脚本](./agent-install)（自动识别架构、匿名下载、幂等升级，可选注册服务）；本页为全量手动部署（目录规划、server 配置、生产级 systemd 单元）。
+> If you only need the agent, use the [one-click install script](./agent-install) (auto-detects architecture, anonymous download, idempotent upgrades, optional service registration); this page covers the full manual deployment (directory layout, server configuration, production-grade systemd units).
 
-## 前置依赖
+## Prerequisites
 
-- Linux x86_64，Go 1.26+（仅本地构建需要）
-- MySQL 8.x / PostgreSQL 16（生产）——SQLite 仅适合单机试点
-- Redis 7+（多实例必须；单实例可退化为 `cache.type: memory`）
-- 备份执行器依赖命令行工具：`mysqldump`（MySQL）/ `pg_dump`（PostgreSQL）——见[备份与恢复](./backup-restore)
+- Linux x86_64, Go 1.26+ (only needed for local builds)
+- MySQL 8.x / PostgreSQL 16 (production) — SQLite is only suitable for single-machine pilots
+- Redis 7+ (required for multi-instance; a single instance can degrade to `cache.type: memory`)
+- The backup executor depends on command-line tools: `mysqldump` (MySQL) / `pg_dump` (PostgreSQL) — see [Backup and Restore](./backup-restore)
 
-## 目录规划
+## Directory Layout
 
 ```
 /opt/croupier/
 ├── bin/            # croupier-server, croupier-agent
 ├── etc/            # server.yaml, agent.yaml, rbac.json, ...
-├── data/           # assignments.json、上传文件等运行时数据
-└── logs/           # （可选）文件日志；默认 stdout 交给 journald
+├── data/           # assignments.json, uploaded files, and other runtime data
+└── logs/           # (optional) file logs; by default stdout goes to journald
 ```
 
-## 配置
+## Configuration
 
-从仓库模板起步并按[Server 配置全解](./config-server)调整：
+Start from the repository templates and adjust following the [Full Server Configuration Reference](./config-server):
 
 ```bash
 cp configs/server.yaml /opt/croupier/etc/server.yaml
-# 生产必改：auth.jwtSecret、database.dataSource、cache 密码、server.mode: prod
+# Must change for production: auth.jwtSecret, database.dataSource, cache password, server.mode: prod
 ```
 
-配置校验（不启动服务）：
+Configuration validation (without starting the service):
 
 ```bash
 /opt/croupier/bin/croupier-server --config /opt/croupier/etc/server.yaml validate
 ```
 
-## systemd 单元
+## systemd Units
 
-`/etc/systemd/system/croupier-server.service`：
+`/etc/systemd/system/croupier-server.service`:
 
 ```ini
 [Unit]
@@ -64,8 +64,8 @@ WorkingDirectory=/opt/croupier
 ExecStart=/opt/croupier/bin/croupier-server --config /opt/croupier/etc/server.yaml
 Restart=on-failure
 RestartSec=5
-# 敏感值建议：YAML 里写 $(VAR) 占位，加载时按环境变量展开
-# （config_loader 的 os.ExpandEnv），秘钥不落盘：
+# Recommended for sensitive values: write a $(VAR) placeholder in YAML, expanded from environment variables at load time
+# (config_loader's os.ExpandEnv), so secrets never touch disk:
 #   auth:
 #     jwtSecret: "$(CROUPIER_JWT_SECRET)"
 # Environment=CROUPIER_JWT_SECRET=xxx
@@ -77,17 +77,17 @@ ReadWritePaths=/opt/croupier/data
 WantedBy=multi-user.target
 ```
 
-`croupier-agent.service` 同构，差异点：
+`croupier-agent.service` has the same shape; the differences:
 
 ```ini
 [Unit]
 After=network-online.target
 [Service]
 ExecStart=/opt/croupier/bin/croupier-agent --config /opt/croupier/etc/agent.yaml
-# Agent 无本地状态目录要求；上游地址指向 Server 入口（LB 或直连）
+# The Agent has no local state directory requirements; the upstream address points at the Server entry point (LB or direct)
 ```
 
-启动与自启：
+Start and enable at boot:
 
 ```bash
 systemctl daemon-reload
@@ -95,25 +95,25 @@ systemctl enable --now croupier-server
 systemctl enable --now croupier-agent
 ```
 
-## 验证
+## Verification
 
 ```bash
 systemctl status croupier-server
 curl -fsS http://127.0.0.1:18780/healthz          # {"status":"ok"}
-curl -fsS http://127.0.0.1:18780/api/v1           # 版本 + features 元信息
-journalctl -u croupier-server -f                  # 启动期迁移日志（goose catch-up）
+curl -fsS http://127.0.0.1:18780/api/v1           # version + features metadata
+journalctl -u croupier-server -f                  # startup migration logs (goose catch-up)
 ```
 
-Agent 侧验证：Server 日志出现 session 注册即通；Dashboard「节点维护」页可见 agent 在线。
+Agent-side verification: a session registration appearing in the Server logs means it works; the Dashboard "Node Maintenance" page shows the agent online.
 
-## 多实例（裸机 HA）
+## Multi-Instance (Bare-Metal HA)
 
-1. 每个 Server 实例一份 `server.yaml`，`cluster.enabled: true` 且 `advertiseAddr` 填**对端可达地址**
-2. 前置 HAProxy/nginx 分流（配置模板见[负载均衡](./load-balancing)）
-3. Agent `server.addr` 指向 LB 入口，不指具体实例
+1. One `server.yaml` per Server instance, with `cluster.enabled: true` and `advertiseAddr` set to a **peer-reachable address**
+2. Put HAProxy/nginx in front for traffic splitting (configuration templates in [Load Balancing](./load-balancing))
+3. Point the Agent `server.addr` at the LB entry point, not a specific instance
 
-## 常见坑
+## Common Pitfalls
 
-- **首次启动慢**：版本化迁移在启动时 catch-up（新库跑 baseline AutoMigrate），多表时需几十秒，不是卡死
-- **`data/` 权限**：`ProtectSystem=strict` 下必须显式 `ReadWritePaths`，否则 assignments/上传写入失败
-- **时区**：MySQL DSN 需带 `loc=Local`，否则审计/任务时间偏移
+- **Slow first startup**: versioned migrations catch up at startup (a fresh database runs the baseline AutoMigrate), which can take tens of seconds with many tables — it is not a hang
+- **`data/` permissions**: under `ProtectSystem=strict` an explicit `ReadWritePaths` is required, otherwise assignments/uploads fail to write
+- **Time zone**: the MySQL DSN needs `loc=Local`, otherwise audit/task timestamps are shifted

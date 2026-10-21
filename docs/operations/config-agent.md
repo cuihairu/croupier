@@ -1,113 +1,113 @@
 ---
-title: Agent 配置全解
+title: Agent Configuration Guide
 icon: settings
 order: 11
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 配置
+  - configuration
   - agent
 ---
 
-# Agent 配置全解
+# Agent Configuration Guide
 
-对应 `configs/agent.yaml`（模板见仓库）。本二进制**无环境变量展开层**：配置只从 YAML 读取；运行时环境变量仅有 `CROUPIER_CONFIG_DIR` / `CROUPIER_AGENTLOCAL_*` 等（见 agent-config.md 环境变量表），CLI 参数仅 `--config` 指定配置文件路径。
+Corresponds to `configs/agent.yaml` (template in the repository). This binary has **no environment-variable expansion layer**: configuration is read only from YAML; runtime environment variables are limited to `CROUPIER_CONFIG_DIR` / `CROUPIER_AGENTLOCAL_*` etc. (see the environment variable table in agent-config.md), and the only CLI parameter is `--config` for the config file path.
 
-## 完整键位
+## Complete Key Reference
 
-### server（上游连接）
+### server (upstream connection)
 
-| 键                          | 默认    | 说明                                                                       |
-| --------------------------- | ------- | -------------------------------------------------------------------------- |
-| `server.addr`               | 必填    | Server transport 入口。生产指向 L4 LB（HAProxy/NLB/Service），不指具体实例 |
-| `server.insecure`           | `false` | 默认 TLS；置 `true` 才裸连（仅 dev 排障）                                  |
-| `server.serverName`         | `""`    | TLS SNI/校验名（与证书 CN 不一致时使用）                                   |
-| `server.insecureSkipVerify` | `false` | 跳过证书校验（仅排障，禁止生产开启）                                       |
+| Key                         | Default  | Description                                                                                                        |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `server.addr`               | required | Server transport entry point. In production point it at an L4 LB (HAProxy/NLB/Service), not at a specific instance |
+| `server.insecure`           | `false`  | TLS by default; set `true` for a plaintext connection (dev troubleshooting only)                                   |
+| `server.serverName`         | `""`     | TLS SNI/verification name (used when it differs from the certificate CN)                                           |
+| `server.insecureSkipVerify` | `false`  | Skip certificate verification (troubleshooting only; forbidden in production)                                      |
 
-### agent（身份与可达性）
+### agent (identity and reachability)
 
-| 键                           | 默认                                  | 说明                                                                                                |
-| ---------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `agent.id`                   | `""`                                  | 留空自动生成；多 Agent 部署建议显式指定（拓扑页可读性）                                             |
-| `agent.gameId` / `agent.env` | 必填                                  | 作用域绑定；留空启动失败（单 agent 单 game+env）                                                    |
-| `agent.localAddr`            | 空→host:port 兜底，再兜底 `0.0.0.0:0` | 本地 TCP 监听（游戏服函数注册入口）                                                                 |
-| `agent.httpAddr`             | 必填                                  | **Server→Agent 回调地址**，必须是 Server 视角可达的地址（容器网络用服务名，裸机用 IP）              |
-| `agent.labels`               | `{}`                                  | 自定义标签（机房/机型等，节点页过滤用）                                                             |
-| `agent.invokeTimeoutMs`      | `15000`                               | Agent→游戏服同步调用默认预算（毫秒）；请求 `metadata["timeoutMs"]` 声明更小值时取更小者，上限 60000 |
+| Key                          | Default                                      | Description                                                                                                                                                    |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent.id`                   | `""`                                         | Auto-generated when left empty; specifying it explicitly is recommended for multi-agent deployments (readability on the topology page)                         |
+| `agent.gameId` / `agent.env` | required                                     | Scope binding; startup fails when empty (one agent per game+env)                                                                                               |
+| `agent.localAddr`            | empty → host:port fallback, then `0.0.0.0:0` | Local TCP listener (entry point for game-server function registration)                                                                                         |
+| `agent.httpAddr`             | required                                     | **Server→Agent callback address**; must be reachable from the Server's point of view (service name in container networks, IP on bare metal)                    |
+| `agent.labels`               | `{}`                                         | Custom labels (datacenter/machine type etc., used for filtering on the node page)                                                                              |
+| `agent.invokeTimeoutMs`      | `15000`                                      | Default budget (ms) for Agent→game-server synchronous calls; when a request's `metadata["timeoutMs"]` declares a smaller value the smaller one wins; cap 60000 |
 
-> `httpAddr` 是最常见的部署错误：写 `0.0.0.0` 或 `localhost` 会导致 Server 回调失败——job 下发/文件传输走不通。
+> `httpAddr` is the most common deployment mistake: writing `0.0.0.0` or `localhost` breaks Server callbacks — job dispatch/file transfer will not go through.
 >
-> 注册标签含 agent 自报系统标签（`os`/`arch`/`hostname`/`ip` 等）与运行二进制指纹 `agentBinarySha256`（agent-supervisor-design §10.5 持久锚点：每次注册自报，随注册标签持久化，agent 失联后 system-info 靠它回答「最后已知指纹」）。指纹在配置/动态标签合并之后注入——`agent.labels` 显式写同键也不会生效（计算事实不可覆盖）。
+> Registration labels include the agent's self-reported system labels (`os`/`arch`/`hostname`/`ip` etc.) and the running-binary fingerprint `agentBinarySha256` (agent-supervisor-design §10.5 persistence anchor: self-reported at every registration, persisted together with the registration labels; after the agent goes offline, system-info uses it to answer "last known fingerprint"). The fingerprint is injected after config/dynamic label merging — explicitly writing the same key in `agent.labels` has no effect (computed facts cannot be overridden).
 
-### upstream（连接韧性）
+### upstream (connection resilience)
 
-| 键                           | 默认            | 说明                                                                           |
-| ---------------------------- | --------------- | ------------------------------------------------------------------------------ |
-| `upstream.heartbeatInterval` | `0`→核心默认 3s | 心跳秒数；Server 侧按 3 倍间隔判失联                                           |
-| `upstream.retryInterval`     | `5`             | **DEAD**：解析后无人读取；重连退避固定 5s→60s×1.5（core/register/register.go） |
-| `upstream.maxRetries`        | `3`             | **DEAD**：解析后无人读取（同上）                                               |
-| `upstream.timeout`           | `10000`         | 请求超时（毫秒）                                                               |
+| Key                          | Default             | Description                                                                                                |
+| ---------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `upstream.heartbeatInterval` | `0`→core default 3s | Heartbeat in seconds; the Server declares an agent lost after 3× the interval                              |
+| `upstream.retryInterval`     | `5`                 | **DEAD**: nobody reads it after parsing; reconnect backoff is fixed 5s→60s×1.5 (core/register/register.go) |
+| `upstream.maxRetries`        | `3`                 | **DEAD**: nobody reads it after parsing (same as above)                                                    |
+| `upstream.timeout`           | `10000`             | Request timeout (ms)                                                                                       |
 
-### tls（本地 `:19091` 监听的入站 TLS）
+### tls (inbound TLS on the local `:19091` listener)
 
-`tls.enabled / certFile / keyFile / caFile / insecureSkipVerify`——加密 SDK Provider 拨入 Agent 本地网关的连接；TLS 在分帧之下，wire 协议不变。`enabled: true` 时 `certFile` + `keyFile` 必配（缺失启动即报错）；`caFile` 配置后启用双向 TLS（Provider 须出示 CA 签发的客户端证书）。单条连接握手失败仅丢弃该连接（记告警日志），不影响 Accept 循环与其余会话。SDK 侧需支持 TLS 拨号选项（六语言 SDK 逐个跟进，未跟进前保持 `enabled: false`）。
+`tls.enabled / certFile / keyFile / caFile / insecureSkipVerify` — encrypts connections where SDK Providers dial into the Agent's local gateway; TLS sits below the framing, and the wire protocol is unchanged. With `enabled: true`, `certFile` + `keyFile` are mandatory (missing → immediate startup error); configuring `caFile` enables mutual TLS (Providers must present a CA-signed client certificate). A failed handshake on a single connection only drops that connection (a warning is logged) and does not affect the Accept loop or other sessions. The SDK side needs TLS dialing options (the six language SDKs are being tracked one by one; keep `enabled: false` until then).
 
-### outboundTLS（Agent → 本地 Provider 出站调用链 TLS）
+### outboundTLS (TLS for the Agent → local Provider outbound call chain)
 
-Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号）时的客户端 TLS：`enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`。`enabled: false`（默认）时该链路保持明文（兼容回退）。注意与 `server:` 段分工：**agent → server 上游链路 TLS 由 `server:` 段驱动**（`server.insecure: false` 时启用，证书字段同在 `server` 段），`outboundTLS` 只作用于 Agent 调本地 Provider 这条出站链路。生产推荐内部 CA 签发，见 [TLS 与证书](./tls-certificates)。
+Client TLS for the Agent's outbound calls to game-side Providers (dialed by the local gateway `callLocalProvider`): `enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`. With `enabled: false` (the default) this link stays plaintext (compatibility fallback). Note the division of labor with the `server:` block: **TLS for the agent → server upstream link is driven by the `server:` block** (enabled when `server.insecure: false`; the certificate fields also live in the `server` block), while `outboundTLS` only applies to the outbound Agent→local-Provider link. In production, an internal CA is recommended; see [TLS and Certificates](./tls-certificates).
 
-### ops（指标上报与进程监管）
+### ops (metrics reporting and process supervision)
 
-| 键                    | 默认                                        | 说明                               |
-| --------------------- | ------------------------------------------- | ---------------------------------- |
-| `ops.enabled`         | `false`                                     | 系统指标采集上报（须显式开启）     |
-| `ops.metricsInterval` | `30s`                                       | 采集周期（也是托管进程的采样周期） |
-| `ops.metricsEnabled`  | `false`（YAML 缺省即 false，需显式置 true） | 指标开关（关掉采集但保留上报通道） |
+| Key                   | Default                                                         | Description                                                            |
+| --------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ops.enabled`         | `false`                                                         | System metrics collection and reporting (must be enabled explicitly)   |
+| `ops.metricsInterval` | `30s`                                                           | Collection interval (also the sampling interval for managed processes) |
+| `ops.metricsEnabled`  | `false` (YAML default is false; must be set to true explicitly) | Metrics switch (stops collection but keeps the reporting channel)      |
 
-> 注：早期部署存在 `ops.metrics_interval` / `ops.metrics_enabled` snake_case 旧键，仍被兼容解析；新配置一律用上表 lowerCamelCase 键。
-> 其余 `ops` 键（`allowRestart` / `allowExec` / `allowUpdate`、`managedProcesses`、
-> `execAllowedCommands`、`supervisorLog`、`snapshotDir`）由 sidecar CLI 直接解析并透传
-> agentcore `Validate()`；非法闭集、cron 与白名单配置在启动期失败退出。
+> Note: older deployments used the snake_case legacy keys `ops.metrics_interval` / `ops.metrics_enabled`, which are still parsed for compatibility; new configurations must use the lowerCamelCase keys in the table above.
+> The remaining `ops` keys (`allowRestart` / `allowExec` / `allowUpdate`, `managedProcesses`,
+> `execAllowedCommands`, `supervisorLog`, `snapshotDir`) are parsed directly by the sidecar CLI and passed through
+> to agentcore's `Validate()`; invalid closed-set, cron, and allowlist configuration fails at startup and exits.
 
-### ops.managedProcesses（托管进程监管，supervisor）
+### ops.managedProcesses (managed process supervision, supervisor)
 
-> `autoRestart: true` 的进程在 sidecar 正常启动路径开机拉起；运维手动停止的期望状态会跨 sidecar 重启保留。
+> Processes with `autoRestart: true` are brought up at boot by the sidecar's normal startup path; the desired state of a process stopped manually by operations survives sidecar restarts.
 
-每个条目以逻辑名为键，声明一个 agent 托管进程。S1（只读监控）已交付：每 `ops.metricsInterval` 采样一次 RSS/CPU，超阈值在面板打标记（不自动杀进程），快照随 metrics 上报捎带。
+Each entry is keyed by a logical name and declares one agent-managed process. S1 (read-only monitoring) is delivered: RSS/CPU is sampled once per `ops.metricsInterval`; above threshold a flag is raised on the panel (processes are not killed automatically), and snapshots ride along with metrics reporting.
 
-**管理状态**：运维手动 stop 的进程期望状态落盘 supervisor 日志目录 `desired_state.json`——`autoRestart: true` 只恢复**崩溃**的进程，agent 重启后开机自启不误启运维主动停掉的进程；手动 start/restart 恢复期望运行。文件缺失或损坏时 fail-open（等同无记录，沿用 autoRestart 既有语义）。
+**Managed state**: the desired state of a process stopped manually by operations is persisted to `desired_state.json` in the supervisor log directory — `autoRestart: true` only restores **crashed** processes, so the boot-time autostart after an agent restart does not mistakenly start a process operations stopped on purpose; a manual start/restart restores the desired running state. A missing or corrupt file fails open (treated as no record; the existing autoRestart semantics apply).
 
-**调度状态**（§10.6）：`schedule[]` 声明定时 start/stop/restart。定时触发与恢复环是两条执行路径——定时停与手动停同信号（stopCh），恢复环不会把定时停误拉起；触发走显式动作同一漏斗（期望状态与 `schedule_fire` 事件随流，与 `manual_start`/`manual_stop` 事件分型）。快照携带下一次触发时间与动作（`nextScheduleAtUnix`/`nextScheduleAction`，无调度为零值）。边界诚实：schedule 是 agent 本地配置意图，与 `autoRestart`/开机自启同信任根，**不受 `allowRestart` 门禁**（`allowRestart` 门的是远程操作面）——要禁用定时动作请删除 `schedule` 配置。**暂停/恢复调度**（§10.2 暂停与恢复，暂停对象=调度）：`POST /ops/agents/:agentId/processes/:name/schedule/pause`（或 `resume`）冻结/解冻该进程全部 cron 触发，进程运行态不动，暂停期间错过的槽位不补跑（crond 语义）；**它是远程运维动作，走 `allowRestart` 双闸**（与上面「触发本身不受门禁」不矛盾——门禁的是远程开关，不是本地配置意图），无独立配置键；暂停意图落盘 `logs/supervisor/schedule_pause_state.json`（跨 agent 重启保留，损坏 fail-open 空映射），快照上行 `scheduleSuspended`，事件留痕 `schedule_paused`/`schedule_resumed`。
+**Scheduling state** (§10.6): `schedule[]` declares timed start/stop/restart. Timed triggering and the recovery loop are two execution paths — a timed stop uses the same signal as a manual stop (stopCh), so the recovery loop will not mistakenly bring up a process stopped by schedule; triggering goes through the same funnel as explicit actions (desired state persisted + a `schedule_fire` event riding along, typed separately from `manual_start`/`manual_stop` events). Snapshots carry the next trigger time and action (`nextScheduleAtUnix`/`nextScheduleAction`; zero values when there is no schedule). Honest boundary: the schedule is agent-local configuration intent, with the same trust root as `autoRestart`/boot autostart, and is **not gated by `allowRestart`** (`allowRestart` gates the remote operation surface) — to disable timed actions, delete the `schedule` configuration. **Pausing/resuming the schedule** (§10.2 pause and resume; the pause target = scheduling): `POST /ops/agents/:agentId/processes/:name/schedule/pause` (or `resume`) freezes/unfreezes all cron triggers for that process, the process runtime state is untouched, and slots missed during the pause are not caught up (crond semantics); **it is a remote ops action subject to the `allowRestart` double gate** (this does not contradict "the trigger itself is not gated" above — the gate covers the remote on/off switch, not local configuration intent); there is no dedicated configuration key; the pause intent is persisted to `logs/supervisor/schedule_pause_state.json` (survives agent restarts; corrupt → fail-open empty map); snapshots report `scheduleSuspended` upward, and events leave a trace as `schedule_paused`/`schedule_resumed`.
 
-### ops.allowExec（远程命令执行，§10.7 边界三件套）
+### ops.allowExec (remote command execution, §10.7 three-part boundary)
 
-`allowExec: true` 开启远程命令执行（`POST /ops/agents/:agentId/exec`），三条前置缺一不可：
+`allowExec: true` enables remote command execution (`POST /ops/agents/:agentId/exec`); all three prerequisites are mandatory:
 
-1. **双闸**（既有口径）：`ops.enabled: true` + `allowExec: true` 都缺省 false，须显式同开。
-2. **白名单 fail-closed**：`execAllowedCommands` 必须非空——空列表一律拒绝一切命令，**不再等价「放行一切」**（2026-10-15 物化前为 fail-open，已纠正）。`OpsConfig.Validate()` 同步拦配置面。
-3. **审计**：每次尝试（成功 / 业务失败 / 客户端不可用）写 `execution_logs`（`source=agent_exec`），操作人、命令、参数、退出码、耗时入审计载荷；审计面缺失不阻断执行主路径（fail-open）。
+1. **Double gate** (existing baseline): `ops.enabled: true` + `allowExec: true` both default to false and must be turned on explicitly together.
+2. **Allowlist fail-closed**: `execAllowedCommands` must be non-empty — an empty list rejects every command and is **no longer equivalent to "allow everything"** (before materialization on 2026-10-15 it was fail-open; this has been corrected). `OpsConfig.Validate()` blocks the configuration surface in sync.
+3. **Audit**: every attempt (success / business failure / client unavailable) writes `execution_logs` (`source=agent_exec`); operator, command, arguments, exit code, and duration go into the audit payload; a missing audit surface does not block the main execution path (fail-open).
 
-> 注意：面板不设通用 Shell 入口——程序操作一律走托管进程的显式动作（start/stop/restart），这是 §10.7「程序操作=明确受授权动作」的既有口径。
+> Note: the panel has no general-purpose Shell entry — program operations always go through the explicit actions of managed processes (start/stop/restart); this is the existing §10.7 baseline of "program operations = explicitly authorized actions".
 
-**管理状态**：运维手动 stop 的进程期望状态落盘 supervisor 日志目录 `desired_state.json`——`autoRestart: true` 只恢复**崩溃**的进程，agent 重启后开机自启不误启运维主动停掉的进程；手动 start/restart 恢复期望运行。文件缺失或损坏时 fail-open（等同无记录，沿用 autoRestart 既有语义）。
+**Managed state**: the desired state of a process stopped manually by operations is persisted to `desired_state.json` in the supervisor log directory — `autoRestart: true` only restores **crashed** processes, so the boot-time autostart after an agent restart does not mistakenly start a process operations stopped on purpose; a manual start/restart restores the desired running state. A missing or corrupt file fails open (treated as no record; the existing autoRestart semantics apply).
 
-| 键                                        | 默认      | 说明                                                                                                                                                                                                                                                                                                         |
-| ----------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `command` / `args` / `workingDir` / `env` | —         | 进程启动参数                                                                                                                                                                                                                                                                                                 |
-| `kind`                                    | `program` | 受管对象类别（闭集 `program` / `probe-adapter`，缺省 program）。`probe-adapter`=外部探测适配器，走与 program 同一套生命周期（§10.1）                                                                                                                                                                         |
-| `adapterId` / `adapterVersion`            | 空        | 适配器身份与版本（清单 metadata.id / version）。`kind=probe-adapter` 时 `adapterId` **必填**，缺失配置校验失败——它是探测面引用与授权校验的锚点                                                                                                                                                               |
-| `adapterProtocol` / `adapterCapabilities` | —         | 适配器 IPC 协议名（缺省 `croupier-probe-jsonl-v1`）与声明能力集（如 `login` / `handshake`）。**声明≠已验证**：平台仍以实际探测结果判定目标状态；游戏地址/频率/授权/凭证不进此清单（留探测面配置）                                                                                                            |
-| `autoRestart`                             | `false`   | 崩溃自动拉起与 sidecar 启动拉起开关（指数退避 + 熔断，S2 已交付）                                                                                                                                                                                                                                            |
-| `memThresholdBytes`                       | `0`（关） | RSS 达到该值打 `mem_over_limit` 标记                                                                                                                                                                                                                                                                         |
-| `cpuThresholdPercent`                     | `0`（关） | CPU% 达到该值打 `cpu_over_limit` 标记                                                                                                                                                                                                                                                                        |
-| `snapshotProfile`                         | `none`    | S3 崩溃快照档，闭集 `none/go/node/python/jvm`（显式声明，不做语言自动探测）：`go` 注入 `GOTRACEBACK=crash`；`node` 前置 `--report-on-fatalerror --report-exclude-env`；`python` 注入 `PYTHONFAULTHANDLER=1`；`jvm` 注入 `JAVA_TOOL_OPTIONS`（`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=<快照目录>`） |
-| `schedule[]`                              | 空        | 定时动作列表（§10.6 调度状态）：`action` 闭集 `start/stop/restart` + `cron` 五字段（分 时 日 月 周，与 server 侧任务调度同一解析器）。到点走与面板显式动作同一漏斗（期望状态落盘 + `schedule_fire` 事件随流）；30s 分钟槽扫描去重，无补跑（agent 停机错过的槽位不补触发）                                    |
+| Key                                       | Default   | Description                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command` / `args` / `workingDir` / `env` | —         | Process launch parameters                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `kind`                                    | `program` | Managed object category (closed set `program` / `probe-adapter`, default program). `probe-adapter` = external probe adapter, going through the same lifecycle as program (§10.1)                                                                                                                                                                                                                                              |
+| `adapterId` / `adapterVersion`            | empty     | Adapter identity and version (manifest metadata.id / version). With `kind=probe-adapter`, `adapterId` is **required**; missing → configuration validation fails — it is the anchor for probe-surface reference and authorization checks                                                                                                                                                                                       |
+| `adapterProtocol` / `adapterCapabilities` | —         | Adapter IPC protocol name (default `croupier-probe-jsonl-v1`) and declared capability set (e.g. `login` / `handshake`). **Declared ≠ verified**: the platform still judges target state by actual probe results; game address/frequency/authorization/credentials do not go into this manifest (left to probe-surface configuration)                                                                                          |
+| `autoRestart`                             | `false`   | Switch for crash auto-restart and sidecar startup bring-up (exponential backoff + circuit breaker, S2 delivered)                                                                                                                                                                                                                                                                                                              |
+| `memThresholdBytes`                       | `0` (off) | Raise the `mem_over_limit` flag when RSS reaches this value                                                                                                                                                                                                                                                                                                                                                                   |
+| `cpuThresholdPercent`                     | `0` (off) | Raise the `cpu_over_limit` flag when CPU% reaches this value                                                                                                                                                                                                                                                                                                                                                                  |
+| `snapshotProfile`                         | `none`    | S3 crash snapshot profile, closed set `none/go/node/python/jvm` (declared explicitly, no language auto-detection): `go` injects `GOTRACEBACK=crash`; `node` prepends `--report-on-fatalerror --report-exclude-env`; `python` injects `PYTHONFAULTHANDLER=1`; `jvm` injects `JAVA_TOOL_OPTIONS` (`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=<snapshot dir>`)                                                            |
+| `schedule[]`                              | empty     | Timed action list (§10.6 scheduling state): `action` closed set `start/stop/restart` + five-field `cron` (minute hour day month weekday, same parser as server-side task scheduling). Firing goes through the same funnel as explicit panel actions (desired state persisted + `schedule_fire` event riding along); 30s minute-slot scanning with dedup, no catch-up (slots missed while the agent was down are not re-fired) |
 
 ```yaml
 ops:
   enabled: true
   metricsInterval: 30s
-  # S3：崩溃快照产物根目录（每进程一子目录，权限 0700——产物含进程内存）。
+  # S3: root directory for crash snapshot artifacts (one subdirectory per process, permission 0700 — artifacts contain process memory).
   snapshotDir: logs/snapshots
   managedProcesses:
     demo-app:
@@ -116,48 +116,48 @@ ops:
       workingDir: /srv/demo-app
       memThresholdBytes: 2147483648 # 2GiB
       cpuThresholdPercent: 90
-      snapshotProfile: go # 崩溃时全 goroutine 栈转储并尝试 core dump
-      schedule: # 定时动作（§10.6）：凌晨停、工作日早晨起
+      snapshotProfile: go # dump full goroutine stacks on crash and attempt a core dump
+      schedule: # timed actions (§10.6): stop at night, start on weekday mornings
         - action: stop
           cron: "0 3 * * *"
         - action: start
           cron: "30 7 * * 1-5"
 ```
 
-面板入口：节点维护页「监管」列 → 进程监管抽屉（状态灯/PID/运行时长/内存/CPU/超限标记/快照档）。崩溃时 `detect_down` 事件登记快照目录与产物文件名；宿主机 `core_pattern` 非管道模式时 agent 发一次 `snapshot_hint` 只读提示（含建议命令，agent 不写宿主配置）。保留期/配额/产物下载权限见 [Agent Supervisor 设计简档（本节仅有中文版）](/zh/design/agent-supervisor-design)。
+Panel entry: the node maintenance page's "Supervision" column → the process supervision drawer (status light/PID/uptime/memory/CPU/over-limit flags/snapshot profile). On a crash, a `detect_down` event records the snapshot directory and artifact filename; when the host's `core_pattern` is not in pipe mode, the agent sends a one-time read-only `snapshot_hint` tip (including suggested commands; the agent does not write host configuration). Retention/quota/artifact download permissions: see [Agent Supervisor Design Brief (this section is Chinese-only)](/zh/design/agent-supervisor-design).
 
-### ops.allowUpdate（受管程序二进制更新，§10.4）
+### ops.allowUpdate (managed program binary update, §10.4)
 
-`allowUpdate: true` 开启远程换包（`POST /ops/agents/:agentId/processes/:name/update`，入参 `stagedPath` + `expectedSha256`），与 allowExec 同属双闸家族（`ops.enabled` + `allowUpdate` 都缺省 false，须显式同开），独立键控。
+`allowUpdate: true` enables remote package swap (`POST /ops/agents/:agentId/processes/:name/update`, inputs `stagedPath` + `expectedSha256`); it belongs to the double-gate family alongside allowExec (both `ops.enabled` + `allowUpdate` default to false and must be turned on explicitly together), with independent keying.
 
-**更新状态**（§10.4）：流程=内容哈希钉扎（staged 文件 sha256 ≠ `expectedSha256` 一律拒绝，fail-closed 不碰运行态）→ 先停后换（静默核心，不发 `manual_*` 中间事件）→ 旧二进制备份 `<command>.croupier-bak`（**成功后保留**为 last-known-good，滚动覆盖，供人工回滚）→ 拉起 → 稳定性窗口（缺省 5s）内退出即自动回滚旧版。更新意图落 desired running（与手动 restart 一致）。指纹留痕三处：supervisor 事件 `update_applied` / `update_rolled_back`（message 带旧→新 sha256）、server 侧 execution_logs（`source=process_update`，持久查询主入口，按目标+时间+指纹检索）、进程快照 `fingerprint` 字段随 metrics 上行。
+**Update state** (§10.4): the flow = content-hash pinning (a staged file whose sha256 ≠ `expectedSha256` is always rejected, fail-closed, running state untouched) → stop before swap (quiet core, no `manual_*` intermediate events) → back up the old binary as `<command>.croupier-bak` (**kept after success** as last-known-good, overwritten on each roll, for manual rollback) → bring up → exiting within the stability window (default 5s) triggers automatic rollback to the old version. The update intent lands as desired running (the same as a manual restart). The fingerprint is recorded in three places: supervisor events `update_applied` / `update_rolled_back` (message carries old→new sha256), server-side execution_logs (`source=process_update`, the primary persistent query entry, searchable by target+time+fingerprint), and the process snapshot `fingerprint` field reported with metrics.
 
-边界诚实（v1）：签名校验未实现（只做内容哈希——哈希是稳定可查锚点，来源可信性由分发通道保证）；数据库/配置兼容性检查未实现（属游戏侧知识，由调用方把关）；游戏进程维护窗口/在线阈值/流量导入闸未核实，随首个真实游戏接入定；首次安装（无旧版）即失败无事件（留痕在 execution_logs）。
+Honest boundaries (v1): signature verification is not implemented (content hash only — the hash is a stable, queryable anchor; source trustworthiness is guaranteed by the distribution channel); database/configuration compatibility checks are not implemented (game-side knowledge, guarded by the caller); game process maintenance windows/online thresholds/traffic admission gates are unverified, to be settled with the first real game onboarding; a first installation (no old version) fails with no event (trace left in execution_logs).
 
-### probe（声明式探针面）
+### probe (declarative probe surface)
 
-Agent 侧探针配置（R2）。`targets[]` 只声明**探什么**；阈值、语义、采样间隔与上行口径由 `core/healthprobe` 给显式默认。**`probe:` 段存在即参与探测面**（R4）：`targets` 为空是合法声明（空静态 + 动态可增删——server 按 DB 源归属派生的 db 探针目标会下发进来）；整段缺省 = 不装配探针面（零行为差异）。任一本地目标非法（重名/类型未知/缺必填参数）**启动即失败**，不做静默跳过——重名会让上行路由串台。
+Agent-side probe configuration (R2). `targets[]` only declares **what to probe**; thresholds, semantics, sampling interval, and reporting semantics are given explicit defaults by `core/healthprobe`. **The presence of a `probe:` block enrolls the agent in the probe surface** (R4): an empty `targets` is a legal declaration (empty static + dynamic targets can be added/removed — db probe targets derived by the server from DB source ownership get pushed in); omitting the whole block = the probe surface is not assembled (zero behavioral difference). Any invalid local target (duplicate name/unknown type/missing required parameter) **fails startup immediately** — no silent skipping: duplicate names would cross-wire upstream routing.
 
-| 键                          | 默认        | 说明                                                                   |
-| --------------------------- | ----------- | ---------------------------------------------------------------------- |
-| `probe.targets`             | 空→仅动态面 | 本地目标列表（见下表）；空 = 只接 server 派生的 db 目标（R4）          |
-| `probe.maxDetailsPerWindow` | `10`        | 每个故障窗口每目标的失败明细条数上限（上限只裁明细，不裁失败总数事实） |
+| Key                         | Default              | Description                                                                                                              |
+| --------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `probe.targets`             | empty → dynamic only | Local target list (table below); empty = only server-derived db targets (R4)                                             |
+| `probe.maxDetailsPerWindow` | `10`                 | Cap on failure detail entries per target per fault window (the cap trims details only, not the total failure count fact) |
 
-**单目标键位**（`core/healthprobe.TargetConfig`，键一律小驼峰）
+**Per-target keys** (`core/healthprobe.TargetConfig`, keys are all lowerCamelCase)
 
-| 键                     | 默认        | 说明                                                                               |
-| ---------------------- | ----------- | ---------------------------------------------------------------------------------- |
-| `name`                 | 必填        | 目标标识（同一 agent 内唯一；告警行标识与指标路径 `probe.<target>.*` 都用它）      |
-| `type`                 | 必填        | 闭集 `http` / `tcp` / `icmp` / `db`（`process` 不进工厂，由 supervisor 侧负责）    |
-| `url`                  | type=http   | HTTP 探测地址                                                                      |
-| `address`              | type=tcp    | `host:port`                                                                        |
-| `address`              | type=icmp   | 主机名或 IP；ICMP 另支持 `count`（缺省 1，需 `CAP_NET_RAW`）                       |
-| `dsn`/`driver`/`query` | type=db     | 数据库连接串 / 驱动名（由二进制依赖注册的驱动）/ 断言 SQL                          |
-| `timeout`              | 类型内默认  | 单次探测超时                                                                       |
-| `semantics`            | `readiness` | 视角声明，闭集 `readiness`（就绪：功能是否可用）/ `liveness`（存活：进程是否活着） |
-| `interval`             | `30s`       | 本地基础采样频率——**下发策略未覆盖该目标时的兜底值**                               |
-| `failThreshold`        | `3`         | 连续失败多少次开故障窗口                                                           |
-| `recoverThreshold`     | `1`         | 连续成功多少次闭故障窗口                                                           |
+| Key                    | Default          | Description                                                                                                                  |
+| ---------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `name`                 | required         | Target identifier (unique within one agent; both the alert-line identifier and the metrics path `probe.<target>.*` use it)   |
+| `type`                 | required         | Closed set `http` / `tcp` / `icmp` / `db` (`process` does not go through the factory; it is handled by the supervisor side)  |
+| `url`                  | type=http        | HTTP probe address                                                                                                           |
+| `address`              | type=tcp         | `host:port`                                                                                                                  |
+| `address`              | type=icmp        | Hostname or IP; ICMP also supports `count` (default 1, needs `CAP_NET_RAW`)                                                  |
+| `dsn`/`driver`/`query` | type=db          | Database connection string / driver name (a driver registered by the binary's dependencies) / assertion SQL                  |
+| `timeout`              | per-type default | Single probe timeout                                                                                                         |
+| `semantics`            | `readiness`      | Perspective declaration, closed set `readiness` (ready: is the function usable) / `liveness` (alive: is the process running) |
+| `interval`             | `30s`            | Local base sampling frequency — **the fallback when a pushed policy does not cover this target**                             |
+| `failThreshold`        | `3`              | How many consecutive failures open a fault window                                                                            |
+| `recoverThreshold`     | `1`              | How many consecutive successes close a fault window                                                                          |
 
 ```yaml
 probe:
@@ -185,33 +185,33 @@ probe:
       timeout: 2s
 ```
 
-**采样频率的唯一真值在 Server**（配置与执行分离）：面板发布 `probe.policy` 采样策略后经 wire 下发、agent 热生效（基础/按目标/时段/特殊时点四粒度叠加），此时**策略优先于本表 `interval`**，本表 `interval` 仅作未覆盖目标的兜底；策略未发布时用本表值。详见 [API 文档 probe 端点](/archive/legacy-en/api/ops) 与 [评审简档 §13.3](/archive/legacy-en/design/agent-health-recovery-review)。
+**The single source of truth for sampling frequency is the Server** (configuration and execution are separated): after the panel publishes a `probe.policy` sampling strategy it is pushed over the wire and takes effect on the agent hot (four stacked granularities: base/per-target/time-window/special-times); at that point **the policy takes precedence over this table's `interval`**, which serves only as the fallback for uncovered targets; when no policy is published, this table's values are used. See the [API documentation probe endpoint](/archive/legacy-en/api/ops) and the [Review Brief §13.3](/archive/legacy-en/design/agent-health-recovery-review).
 
-**派生 db 探针目标（R4）**：`probe:` 段存在的 agent 会周期拉取 server 按 `db_sources.owner_agent_id` 派生的 db 目标集（30s 轮询，目标名 `db:<源名>`、重名源 `#<id>` 后缀消歧、driver 映射 postgres→pgx、探测断言 `SELECT 1`）。拉取失败或「空版本+空正文」（服务端不可派生）时保持现有目标；**空集**是真实状态（解除全部归属），agent 会卸掉全部动态探针；版本为目标集内容 hash，集不变则跳过。派生目标与本地目标同名时整体拒绝下发（下轮重试），不静默串台。DSN 明文只在 control 连接回给归属 agent，与本地 `probe.targets` 同信任边界。
+**Derived db probe targets (R4)**: agents with a `probe:` block periodically pull the db target set derived by the server from `db_sources.owner_agent_id` (30s polling, target names `db:<source name>`, duplicate source names disambiguated with a `#<id>` suffix, driver mapping postgres→pgx, probe assertion `SELECT 1`). On pull failure or "empty version + empty body" (the server cannot derive anything), the existing targets are kept; **an empty set** is a real state (all ownership removed), and the agent tears down all dynamic probes; the version is the content hash of the target set — if the set is unchanged, it is skipped. If a derived target has the same name as a local target, the push is rejected wholesale (retry next round) — no silent cross-wiring. DSN plaintext is only returned over the control connection to the owning agent, with the same trust boundary as local `probe.targets`.
 
-探针结果两处可见：节点维护页「探针汇总」卡（状态矩阵，异常行前置），以及告警中心（窗口开/合转 firing/resolved 生命周期，告警 ID `probe:<agentId>:<target>`）。
+Probe results are visible in two places: the node maintenance page's "Probe Summary" card (a status matrix, abnormal rows first) and the alert center (window open/close drives the firing/resolved lifecycle; alert ID `probe:<agentId>:<target>`).
 
-## 双 Agent / 多 Agent 部署
+## Dual-Agent / Multi-Agent Deployment
 
-同一宿主多 Agent（多游戏或多环境）：复制配置差异点只有 `agent.id`、`agent.gameId/env`、`agent.localAddr`、`agent.httpAddr` 四项（`configs/agent2.yaml` 不入库，由运维复制 `configs/agent.yaml` 改上述四项生成——`docker/docker-compose.deploy.yml` 的 `agent2` 服务按该路径挂载）。上游 `server.addr` 共用同一 LB 入口。
+Multiple agents on one host (multiple games or multiple environments): the only configuration deltas to copy are four items — `agent.id`, `agent.gameId/env`, `agent.localAddr`, `agent.httpAddr` (`configs/agent2.yaml` is not committed; operations generate it by copying `configs/agent.yaml` and changing those four items — the `agent2` service in `docker/docker-compose.deploy.yml` mounts that path). The upstream `server.addr` shares the same LB entry point.
 
-## 环境变量
+## Environment Variables
 
-本二进制无「env 覆盖 YAML」层——下表为运行时环境变量（不映射配置键）：
+This binary has no "env overrides YAML" layer — the table below lists runtime environment variables (not mapped to configuration keys):
 
-| 变量                                                               | 默认              | 说明                                                   |
-| ------------------------------------------------------------------ | ----------------- | ------------------------------------------------------ |
-| `CROUPIER_CONFIG_DIR`                                              | —                 | 配置目录（优先于 `--config` 指向）                     |
-| `CROUPIER_AGENT_LOCAL_ADDR`                                        | 空→host:port 兜底 | 本地 TCP 监听地址（覆盖 `agent.localAddr` 的兜底路径） |
-| `CROUPIER_AGENT_VERSION`                                           | —                 | 版本号覆盖（注册/上报用）                              |
-| `CROUPIER_AGENTLOCAL_PROBE_INTERVAL`                               | 5s                | provider keepalive 探针间隔                            |
-| `CROUPIER_AGENTLOCAL_PRUNE_INTERVAL`                               | 30s               | 会话清理周期                                           |
-| `CROUPIER_AGENTLOCAL_MAX_AGE`                                      | 2m                | 会话最大存活                                           |
-| `CROUPIER_AGENTLOCAL_TASKRESULT_MAX_AGE`                           | 10m               | 任务结果保留时长                                       |
-| `CROUPIER_EXTENSION_SYNC_API` / `CROUPIER_EXTENSION_SYNC_INTERVAL` | 30s               | 扩展同步地址与周期                                     |
+| Variable                                                           | Default                    | Description                                                                |
+| ------------------------------------------------------------------ | -------------------------- | -------------------------------------------------------------------------- |
+| `CROUPIER_CONFIG_DIR`                                              | —                          | Configuration directory (takes priority over the `--config` path)          |
+| `CROUPIER_AGENT_LOCAL_ADDR`                                        | empty → host:port fallback | Local TCP listener address (overrides the `agent.localAddr` fallback path) |
+| `CROUPIER_AGENT_VERSION`                                           | —                          | Version override (for registration/reporting)                              |
+| `CROUPIER_AGENTLOCAL_PROBE_INTERVAL`                               | 5s                         | Provider keepalive probe interval                                          |
+| `CROUPIER_AGENTLOCAL_PRUNE_INTERVAL`                               | 30s                        | Session pruning interval                                                   |
+| `CROUPIER_AGENTLOCAL_MAX_AGE`                                      | 2m                         | Maximum session lifetime                                                   |
+| `CROUPIER_AGENTLOCAL_TASKRESULT_MAX_AGE`                           | 10m                        | Task-result retention                                                      |
+| `CROUPIER_EXTENSION_SYNC_API` / `CROUPIER_EXTENSION_SYNC_INTERVAL` | 30s                        | Extension sync address and interval                                        |
 
-## 验证
+## Verification
 
-1. Agent 日志出现 session 建立与注册成功
-2. Dashboard「运维中心 → 节点维护」看到 agent 在线、标签正确
-3. 从 Dashboard 触发一次该 Agent 名下函数调用，验证回调链路（`httpAddr` 正确性）
+1. The agent log shows session establishment and successful registration
+2. The Dashboard's "Ops Center → Node Maintenance" shows the agent online with correct labels
+3. Trigger one function call for this agent from the Dashboard to verify the callback path (`httpAddr` correctness)

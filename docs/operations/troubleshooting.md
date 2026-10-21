@@ -1,69 +1,69 @@
 ---
-title: 故障排查
+title: Troubleshooting
 icon: wrench
 order: 31
 category:
-  - 运维指南
+  - Operations Guide
 tag:
-  - 故障排查
-  - 问题解决
+  - Troubleshooting
+  - Problem Solving
   - FAQ
 ---
 
-# 故障排查指南
+# Troubleshooting Guide
 
-本文档聚焦当前 session 架构下最常见的排障路径。
+This document focuses on the most common troubleshooting paths under the current session architecture.
 
-## 关键端口
+## Key Ports
 
 - `18780`: Server REST API
-- `19090`: Server session/control 入口
-- `19091`: Agent 本地 gateway
+- `19090`: Server session/control entry point
+- `19091`: Agent local gateway
 
-## 快速诊断
+## Quick Diagnosis
 
 ```mermaid
 graph TD
-    A[问题出现] --> B{哪条链路异常}
-    B -->|Server 自身| C[检查 18780 健康状态]
-    B -->|Agent <-> Server| D[检查 19090 连通性与 TLS]
-    B -->|SDK <-> Agent| E[检查 19091 连通性与首帧协议]
-    C --> F[查看配置与日志]
+    A[Problem appears] --> B{Which link is abnormal}
+    B -->|Server itself| C[Check 18780 health status]
+    B -->|Agent <-> Server| D[Check 19090 connectivity and TLS]
+    B -->|SDK <-> Agent| E[Check 19091 connectivity and first-frame protocol]
+    C --> F[Check configuration and logs]
     D --> F
     E --> F
 ```
 
-## Server 无法启动
+## Server Fails to Start
 
-### 检查配置
+### Check the Configuration
 
 ```bash
 python3 -c "import yaml; yaml.safe_load(open('configs/server.yaml'))"
 ```
 
-### 检查端口
+### Check the Ports
 
 ```bash
 lsof -i :18780
 lsof -i :19090
 ```
 
-### 检查健康状态
+### Check the Health Status
 
 ```bash
 curl http://localhost:18780/healthz
 ```
 
-## Agent 无法连接到 Server
+## Agent Cannot Connect to the Server
 
-### 检查 Server 是否在线
+### Check Whether the Server Is Online
 
 ```bash
 curl http://server:18780/healthz
 nc -zv server 19090
 ```
 
-### 检查 TLS
+### Check TLS
 
 ```bash
 openssl s_client -connect server:19090 \
@@ -72,88 +72,88 @@ openssl s_client -connect server:19090 \
   -CAfile ca.crt
 ```
 
-### 常见原因
+### Common Causes
 
-| 现象                 | 原因                                 |
-| -------------------- | ------------------------------------ |
-| `connection refused` | Server session/control 端口未监听    |
-| TLS 握手失败         | 证书、CA、SNI 或 mTLS 配置错误       |
-| 反复重连             | 目标地址错误、首帧校验失败、心跳超时 |
+| Symptom               | Cause                                                                   |
+| --------------------- | ----------------------------------------------------------------------- |
+| `connection refused`  | The Server session/control port is not listening                        |
+| TLS handshake failure | Wrong certificate, CA, SNI, or mTLS configuration                       |
+| Repeated reconnecting | Wrong target address, first-frame validation failure, heartbeat timeout |
 
-## SDK 无法连接到 Agent
+## SDK Cannot Connect to the Agent
 
-### 检查本地 gateway
+### Check the Local Gateway
 
 ```bash
 nc -zv 127.0.0.1 19091
 ```
 
-### 关键确认项
+### Key Checks
 
-- SDK 连接的是 `19091`，不是 `19090`
-- SDK 首帧必须是 `ProviderConnectRequest`
-- SDK 不应要求本地监听端口
-- SDK 不应配置 `rpc_addr`
+- The SDK connects to `19091`, not `19090`
+- The SDK's first frame must be a `ProviderConnectRequest`
+- The SDK should not require a locally listening port
+- The SDK should not configure `rpc_addr`
 
-### 常见原因
+### Common Causes
 
-| 现象           | 原因                                               |
-| -------------- | -------------------------------------------------- |
-| 建连后立即断开 | 首帧不是 `ProviderConnectRequest` 或 body 解码失败 |
-| 连不上 Agent   | 连接到了错误端口、Agent 未启动或 TLS 不匹配        |
-| 断线后不恢复   | 重连策略未启用或 backoff 配置错误                  |
+| Symptom                               | Cause                                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| Disconnects immediately after connect | The first frame is not a `ProviderConnectRequest` or the body fails to decode |
+| Cannot reach the Agent                | Connected to the wrong port, the Agent is not started, or TLS mismatch        |
+| No recovery after disconnect          | Reconnect policy not enabled or backoff misconfigured                         |
 
-## 调用失败
+## Call Failures
 
-### 检查函数是否已注册
+### Check Whether the Function Is Registered
 
 ```bash
 curl http://localhost:18780/api/v1/functions
 curl http://localhost:18780/api/v1/functions/descriptors
 ```
 
-### 检查调用超时
+### Check Call Timeouts
 
-优先排查：
+Investigate in order:
 
-- SDK handler 是否阻塞
-- `requestTimeoutMs` 是否过短
-- session 是否处于 draining 状态
-- Agent / Server 是否触发背压
+- Whether the SDK handler is blocking
+- Whether `requestTimeoutMs` is too short
+- Whether the session is in the draining state
+- Whether the Agent / Server is applying backpressure
 
-## TLS 常见问题
+## Common TLS Issues
 
-### 证书不受信任
+### Untrusted Certificate
 
 ```text
 x509: certificate signed by unknown authority
 ```
 
-排查：
+Checks:
 
-- `caFile` 是否指向正确 CA
-- 客户端与服务端是否使用同一套信任链
+- Whether `caFile` points to the correct CA
+- Whether the client and server use the same trust chain
 
-### 主机名不匹配
+### Hostname Mismatch
 
 ```text
 x509: certificate is not valid for any names
 ```
 
-排查：
+Checks:
 
-- `serverName` 是否与证书 SAN / CN 匹配
-- 是否误把 IP 地址当成证书名使用
+- Whether `serverName` matches the certificate SAN / CN
+- Whether an IP address was mistakenly used as the certificate name
 
-## 旧概念排查
+## Legacy Concept Check
 
-如果你在日志、配置或文档中看到以下概念，优先怀疑走到了旧路径：
+If you see the following concepts in logs, configuration, or documentation, first suspect you have hit a legacy path:
 
 - `gRPC`
-- `历史 REQ/REP`
+- `legacy REQ/REP`
 - `LocalControlService`
 - `RegisterLocal`
 - `rpc_addr`
-- SDK 本地监听
+- SDK local listening
 
-这些概念都不应再作为新的排障基线。
+None of these concepts should any longer serve as the baseline for new troubleshooting.

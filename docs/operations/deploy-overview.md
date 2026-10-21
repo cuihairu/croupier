@@ -1,50 +1,50 @@
 ---
-title: 部署形态总览
+title: Deployment Topology Overview
 icon: rocket
 order: 2
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 部署
+  - Deployment
 ---
 
-# 部署形态总览
+# Deployment Topology Overview
 
-Croupier 是「单控制面 + 旁路 Agent」架构：Server 无本地持久状态（状态全部在数据库/Redis），因此部署形态的选择本质上只有两个问题——**几个 Server 实例**、**入口层怎么做**。
+Croupier has a "single control plane + sidecar Agents" architecture: the Server has no local persistent state (all state lives in the database/Redis), so the choice of deployment topology boils down to just two questions — **how many Server instances** and **how to build the entry layer**.
 
-## 形态对比
+## Topology Comparison
 
-| 形态                                          | 适用                    | 可用性       | 入口层                                 | 参考文档                                                              |
-| --------------------------------------------- | ----------------------- | ------------ | -------------------------------------- | --------------------------------------------------------------------- |
-| 单机 Compose（`docker/docker-compose.yml`）   | 开发、测试、小团队试点  | 单点         | 无（直连 18780/19090）                 | [Docker Compose 部署（本节仅有中文版）](/zh/operations/deploy-docker) |
-| 单机 HA（`docker/docker-compose.deploy.yml`） | 单宿主生产              | 99.9%+       | nginx（L7）+ HAProxy（L4）             | [Docker Compose 部署（本节仅有中文版）](/zh/operations/deploy-docker) |
-| 多宿主                                        | 跨机生产、LB 不允许单点 | 99.99%       | HAProxy 主备（keepalived VIP）或云 NLB | [负载均衡](./load-balancing)                                          |
-| Kubernetes                                    | 已有 K8s 基础设施       | 取决于副本数 | Service（ClusterIP）+ 探针             | [Kubernetes 部署](./deploy-kubernetes)                                |
-| 二进制 + systemd                              | 无容器约束的环境        | 取决于拓扑   | 自建 nginx/HAProxy                     | [二进制部署](./deploy-binary)                                         |
+| Topology                                            | Applicability                                           | Availability             | Entry layer                                          | Reference                                                                |
+| --------------------------------------------------- | ------------------------------------------------------- | ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------ |
+| Single-host Compose (`docker/docker-compose.yml`)   | Development, testing, small-team pilots                 | Single point             | None (direct to 18780/19090)                         | [Docker Compose Deployment (Chinese only)](/zh/operations/deploy-docker) |
+| Single-host HA (`docker/docker-compose.deploy.yml`) | Single-host production                                  | 99.9%+                   | nginx (L7) + HAProxy (L4)                            | [Docker Compose Deployment (Chinese only)](/zh/operations/deploy-docker) |
+| Multi-host                                          | Cross-machine production, LB must not be a single point | 99.99%                   | HAProxy active/standby (keepalived VIP) or cloud NLB | [Load Balancing](./load-balancing)                                       |
+| Kubernetes                                          | Existing K8s infrastructure                             | Depends on replica count | Service (ClusterIP) + probes                         | [Kubernetes Deployment](./deploy-kubernetes)                             |
+| Binary + systemd                                    | Environments without container constraints              | Depends on topology      | Self-managed nginx/HAProxy                           | [Binary Deployment](./deploy-binary)                                     |
 
-## 组件清单
+## Component Checklist
 
-最小可用的控制面组件：
+The minimal viable control-plane components:
 
-- **Server**（必须）：HTTP API `:18780` + transport 入口 `:19090`
-- **数据库**（必须）：MySQL / PostgreSQL（生产推荐）；SQLite 仅开发
-- **Redis**（生产必须）：缓存、集群成员表、注册表共享状态；单机 `memory` 模式可用但不推荐
-- **Agent**（按游戏网络部署）：每个游戏网络至少一个，出站连接 Server
-- 可选：`analytics-worker` / `ingest` / ClickHouse（数据分析域）、`dashboard`（前端静态资源）
+- **Server** (required): HTTP API `:18780` + transport entry point `:19090`
+- **Database** (required): MySQL / PostgreSQL (recommended for production); SQLite for development only
+- **Redis** (required for production): cache, cluster member table, registry shared state; single-host `memory` mode works but is not recommended
+- **Agents** (deployed per game network): at least one per game network, connecting outbound to the Server
+- Optional: `analytics-worker` / `ingest` / ClickHouse (data analytics domain), `dashboard` (frontend static assets)
 
-## 选型决策
+## Decision Guide
 
 ```
-需要高可用吗？
-├─ 否 → 单机 Compose（接受 Server 重启期间的平台中断）
-└─ 是 → 宿主环境是什么？
-    ├─ 单台宿主 → docker-compose.deploy.yml（双 Server + 双 LB 容器）
-    ├─ 多台宿主 → HAProxy 主备 + keepalived VIP（或云 NLB）
-    └─ K8s → Deployment 2 副本 + Service（kube-proxy 天然 L4 打散）
+Is high availability needed?
+├─ No → single-host Compose (accept platform downtime during Server restarts)
+└─ Yes → what is the hosting environment?
+    ├─ Single host → docker-compose.deploy.yml (two Servers + two LB containers)
+    ├─ Multiple hosts → HAProxy active/standby + keepalived VIP (or cloud NLB)
+    └─ K8s → Deployment with 2 replicas + Service (kube-proxy spreads L4 naturally)
 ```
 
-关键事实（详见 [Server 多实例 HA（本节仅有中文版）](/zh/architecture/server-ha-multi-instance)）：
+Key facts (details in [Server Multi-Instance HA (Chinese only)](/zh/architecture/server-ha-multi-instance)):
 
-- Server **无状态**：任何实例崩溃不丢数据，恢复即回归集群（成员表租约自动续期/剔除）
-- Agent 断线重连 + 重新注册即可把归属迁移到存活实例，**入口层换型 Agent 零改动**（只改 `server.addr`）
-- HA 不是「双写」：多实例通过共享存储成员表 + owner 转发协同，`cluster.enabled` 是唯一开关
+- The Server is **stateless**: no data is lost when any instance crashes; on recovery it rejoins the cluster automatically (member-table leases renew/get evicted automatically)
+- An Agent that reconnects and re-registers migrates its ownership to a surviving instance; **switching the entry layer requires zero Agent changes** (only `server.addr` changes)
+- HA is not "dual write": multiple instances coordinate via the shared-storage member table + owner forwarding; `cluster.enabled` is the single switch

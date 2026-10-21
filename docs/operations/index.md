@@ -1,38 +1,38 @@
 ---
-title: 运维手册
+title: Operations Manual
 icon: tool
 order: 1
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 运维
-  - 部署
+  - Operations
+  - Deployment
   - SRE
 ---
 
-# 运维手册
+# Operations Manual
 
-面向平台值班与 SRE 角色的操作文档：回答「怎么部署、怎么升级、怎么配置、怎么排障」——设计动机见[架构栏目](/architecture/)，端点语义见 [API 参考](/api/)。
+Operational documentation for on-call and SRE roles: it answers "how to deploy, how to upgrade, how to configure, how to troubleshoot" — for design motivation see the [Architecture section](/architecture/), and for endpoint semantics see the [API Reference](/api/).
 
-## 内容地图
+## Content Map
 
-| 分组                                | 覆盖                                                                                                                                                                                                                                                                                     |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [部署](/operations/deploy-overview) | 形态选型总览、Docker Compose（含 HA 编排）、二进制 + systemd、Kubernetes、版本升级与回滚、负载均衡                                                                                                                                                                                       |
-| 配置                                | [Server 配置全解](/operations/config-server)、[Agent 配置全解](/operations/config-agent)、[TLS 与证书](/operations/tls-certificates)；分层模型与热更新见架构栏（[配置分层](/archive/legacy-en/architecture/config-layering)、[功能开关](/archive/legacy-en/architecture/feature-flags)） |
-| [可观测性](/operations/monitoring)  | 指标、健康检查、Prometheus 接入                                                                                                                                                                                                                                                          |
-| 可靠性                              | [备份与恢复](/operations/backup-restore)、[故障排除](/operations/troubleshooting)、[数据库迁移策略（本节仅有中文版）](/zh/architecture/database-migration-strategy)                                                                                                                      |
-| [安全](/security)                   | TLS、密钥、RBAC 审计基线                                                                                                                                                                                                                                                                 |
-| 发布                                | [SDK 包发布](/operations/sdk-release)：六语言官方仓库发布工作流（手动）、所需 Secrets 配置、各语言发布机制与常见问题                                                                                                                                                                     |
+| Group                                     | Coverage                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Deployment](/operations/deploy-overview) | Overview of topology choices, Docker Compose (including HA orchestration), binary + systemd, Kubernetes, version upgrades and rollbacks, load balancing                                                                                                                                                                                                                                         |
+| Configuration                             | [Full Server Configuration Reference](/operations/config-server), [Full Agent Configuration Reference](/operations/config-agent), [TLS and Certificates](/operations/tls-certificates); for the layering model and hot reload see the Architecture section ([Config Layering](/archive/legacy-en/architecture/config-layering), [Feature Flags](/archive/legacy-en/architecture/feature-flags)) |
+| [Observability](/operations/monitoring)   | Metrics, health checks, Prometheus integration                                                                                                                                                                                                                                                                                                                                                  |
+| Reliability                               | [Backup and Restore](/operations/backup-restore), [Troubleshooting](/operations/troubleshooting), [Database Migration Strategy (Chinese only)](/zh/architecture/database-migration-strategy)                                                                                                                                                                                                    |
+| [Security](/security)                     | TLS, secrets, RBAC audit baseline                                                                                                                                                                                                                                                                                                                                                               |
+| Release                                   | [SDK Package Release](/operations/sdk-release): release workflows for the official repositories of six languages (manual), required Secrets configuration, per-language release mechanics and common issues                                                                                                                                                                                     |
 
-## 端口与端点速查
+## Port and Endpoint Quick Reference
 
-| 端口/路径      | 归属    | 用途                                                    |
-| -------------- | ------- | ------------------------------------------------------- |
-| `:18780`       | Server  | HTTP API + Dashboard 后端                               |
-| `:19090`       | Server  | 自行开发 transport，Agent/SDK 接入入口（经 L4 LB）      |
-| `:19091`       | Agent   | 本地 TCP，游戏服函数注册                                |
-| `:8404`        | HAProxy | stats 页（Agent 连接分布排查）                          |
-| `GET /healthz` | Server  | 存活探针（根路径与 `/api/v1/monitoring/healthz` 均可）  |
-| `GET /metrics` | Server  | Prometheus 指标（需认证，`/api/v1/monitoring/metrics`） |
-| `GET /api/v1`  | Server  | 版本与功能域元信息（前端菜单裁剪依据）                  |
+| Port/Path      | Owner   | Purpose                                                                    |
+| -------------- | ------- | -------------------------------------------------------------------------- |
+| `:18780`       | Server  | HTTP API + Dashboard backend                                               |
+| `:19090`       | Server  | Self-developed transport, Agent/SDK access entry point (via L4 LB)         |
+| `:19091`       | Agent   | Local TCP, game-server function registration                               |
+| `:8404`        | HAProxy | stats page (for troubleshooting Agent connection distribution)             |
+| `GET /healthz` | Server  | Liveness probe (both the root path and `/api/v1/monitoring/healthz` work)  |
+| `GET /metrics` | Server  | Prometheus metrics (authentication required, `/api/v1/monitoring/metrics`) |
+| `GET /api/v1`  | Server  | Version and feature-domain metadata (basis for frontend menu trimming)     |

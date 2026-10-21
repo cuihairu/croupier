@@ -1,34 +1,34 @@
 ---
-title: Kubernetes 部署
+title: Kubernetes Deployment
 icon: cloud
 order: 5
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 部署
+  - Deployment
   - kubernetes
 ---
 
-# Kubernetes 部署
+# Kubernetes Deployment
 
-> 仓库暂未附带官方 Helm Chart / manifests，以下为**参考模板**——按命名空间、镜像仓库与游戏网络拓扑裁剪。Server 无本地持久状态，不需要 PVC（SQLite 部署除外）。
+> The repository does not yet ship an official Helm Chart / manifests; the following are **reference templates** — tailor them to your namespaces, image registry, and game network topology. The Server has no local persistent state and needs no PVC (except for SQLite deployments).
 
-## 拓扑
+## Topology
 
 ```
-Game pods ──► Agent Deployment ──出站 TCP──► Service(croupier-server:19090)
-                                                ├─► server-0 (Deployment, 2 副本)
+Game pods ──► Agent Deployment ──outbound TCP──► Service(croupier-server:19090)
+                                                ├─► server-0 (Deployment, 2 replicas)
                                                 └─► server-1
 Dashboard/UI ──► Ingress ──► Service(croupier-server:18780)
 ```
 
-要点：
+Key points:
 
-- Agent 是**出站连接**，游戏网络只需允许 egress 到 Service `:19090`——不需要把 Server 暴露进游戏网络
-- kube-proxy 对 TCP 长连接做天然 L4 打散，等价于[负载均衡](./load-balancing)中的 HAProxy 职能；Agent 断线重连自动换后端
-- 双端口同一 Service 即可；无需 session 亲和
+- Agents make **outbound connections**; the game network only needs to allow egress to Service `:19090` — the Server does not need to be exposed into the game network
+- kube-proxy spreads TCP long connections at L4 naturally, equivalent to the HAProxy role in [Load Balancing](./load-balancing); on disconnect, Agents automatically fail over to another backend on reconnect
+- Both ports can live on the same Service; no session affinity needed
 
-## ConfigMap 与 Secret
+## ConfigMap and Secret
 
 ```yaml
 apiVersion: v1
@@ -42,12 +42,12 @@ data:
       driver: mysql
       dataSource: "user:$(DB_PASSWORD)@tcp(mysql:3306)/croupier_meta?charset=utf8mb4&parseTime=True&loc=Local"
     auth:
-      jwtSecret: "$(CROUPIER_JWT_SECRET)"   # 加载时按环境变量展开（ExpandEnv）
+      jwtSecret: "$(CROUPIER_JWT_SECRET)"   # Expanded from environment variables at load time (ExpandEnv)
     cache: { enabled: true, type: redis, addr: redis:6379 }
-    # 多实例必开
+    # Required for multi-instance
     cluster:
       enabled: true
-      advertiseAddr: ""   # 留空时使用 POD_IP（见下方环境变量注入）
+      advertiseAddr: ""   # When empty, POD_IP is used (see the env var injection below)
 ---
 apiVersion: v1
 kind: Secret
@@ -67,7 +67,7 @@ metadata:
 spec:
   replicas: 2
   strategy:
-    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } # 滚动升级不断流
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } # Rolling upgrade without interrupting traffic
   selector:
     matchLabels: { app: croupier-server }
   template:
@@ -84,9 +84,9 @@ spec:
           env:
             - name: POD_IP
               valueFrom: { fieldRef: { fieldPath: status.podIP } }
-            - name: CROUPIER_CLUSTER_ADVERTISE_ADDR # root.go 显式读取的覆盖变量：Pod IP 做实例互联
+            - name: CROUPIER_CLUSTER_ADVERTISE_ADDR # Override variable read explicitly by root.go: Pod IP for instance interconnect
               value: "$(POD_IP):19099"
-            - name: CROUPIER_JWT_SECRET # 供 server.yaml 占位符 $(CROUPIER_JWT_SECRET) 展开
+            - name: CROUPIER_JWT_SECRET # Expands the $(CROUPIER_JWT_SECRET) placeholder in server.yaml
               valueFrom:
                 {
                   secretKeyRef:
@@ -107,9 +107,9 @@ spec:
           configMap: { name: croupier-server-config }
 ```
 
-> 首次启动的迁移 catch-up 可能在 readiness 初期未就绪——`initialDelaySeconds` 给足基线 AutoMigrate 时间，或用 `startupProbe` 包住。
+> The first-startup migration catch-up may leave readiness unready initially — give `initialDelaySeconds` enough time for the baseline AutoMigrate, or wrap it in a `startupProbe`.
 
-## Service 与 Ingress
+## Service and Ingress
 
 ```yaml
 apiVersion: v1
@@ -137,11 +137,11 @@ spec:
               { service: { name: croupier-server, port: { number: 18780 } } }
 ```
 
-Ingress 注意：SSE（任务事件流、配置 watch）需要关闭代理缓冲（nginx ingress 注解 `nginx.ingress.kubernetes.io/proxy-buffering: "off"`）。
+Ingress note: SSE (task event streams, config watch) requires disabling proxy buffering (nginx ingress annotation `nginx.ingress.kubernetes.io/proxy-buffering: "off"`).
 
-## Agent（游戏网络侧）
+## Agents (Game Network Side)
 
-Agent 与游戏服同网络部署（Deployment 或 DaemonSet 按需），配置走 ConfigMap + `--config`（本二进制无 env 展开层，`CROUPIER_AGENT_*` 形式的 env 覆盖不存在）：
+Agents are deployed in the same network as the game servers (Deployment or DaemonSet as needed); configuration goes through a ConfigMap + `--config` (this binary has no env-expansion layer; env overrides of the form `CROUPIER_AGENT_*` do not exist):
 
 ```yaml
 command: ["agent", "--config", "/etc/croupier/agent.yaml"]
@@ -154,28 +154,28 @@ volumes:
       name: croupier-agent
 ```
 
-ConfigMap 内容（`server.addr` 指向 Service DNS，`agent.httpAddr` 用对 Server 可达的地址）：
+ConfigMap contents (`server.addr` points at the Service DNS; `agent.httpAddr` uses an address reachable by the Server):
 
 ```yaml
 server:
   addr: "croupier-server.namespace.svc:19090"
 agent:
-  gameId: "demo" # 必填
-  env: "prod" # 必填
+  gameId: "demo" # Required
+  env: "prod" # Required
   httpAddr: "croupier-agent.namespace.svc:19091"
 ```
 
-每 Pod 独立回调地址时（需注入 `POD_IP`），改用 StatefulSet 固定 pod DNS 名或把该地址写入 ConfigMap；本二进制不支持在 YAML 值内展开环境变量。
+When each Pod needs its own callback address (requires injecting `POD_IP`), use a StatefulSet to pin pod DNS names or write that address into the ConfigMap; this binary does not support expanding environment variables inside YAML values.
 
-跨集群/游戏 IDC 场景：Service 换成 LoadBalancer 或经专线/VPN 暴露的入口，其余不变。
+For cross-cluster / game IDC scenarios: replace the Service with a LoadBalancer or an entry point exposed over a dedicated line/VPN; everything else stays the same.
 
-## 验证清单
+## Verification Checklist
 
 ```bash
 kubectl get pods -l app=croupier-server        # 2/2 Running
 curl http://<svc>:18780/healthz                # ok
-curl http://<svc>:18780/api/v1                 # 版本元信息
-kubectl logs deploy/croupier-server | grep -i "migrat\|cluster"   # 迁移与成员表
+curl http://<svc>:18780/api/v1                 # version metadata
+kubectl logs deploy/croupier-server | grep -i "migrat\|cluster"   # migrations and member table
 ```
 
-Dashboard「运维中心 → 集群拓扑」应显示 2 个在线成员及其 agent 分布。
+The Dashboard "Ops Center → Cluster Topology" should show 2 online members and their agent distribution.

@@ -1,34 +1,34 @@
 ---
-title: 限速管理
+title: Rate Limit Management
 icon: throttle
 order: 42
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 安全
+  - Security
 ---
 
-# 限速管理
+# Rate Limit Management
 
-「运维中心 → 限速管理」是**规则管理与影响预览**的工作台：定义函数/服务维度的 QPS 规则、灰度百分比，并用实时数据预览影响面，再落到执行侧。
+"Ops Center → Rate Limit Management" is a workbench for **rule management and impact preview**: define function/service-dimension QPS rules and rollout percentages, preview the blast radius with real-time data, then land them on the enforcement side.
 
-## 模型（`rate_limits` 表）
+## Model (`rate_limits` table)
 
-| 字段                   | 说明                                         |
-| ---------------------- | -------------------------------------------- |
-| `rateLimitId` / `name` | 标识与展示名                                 |
-| `resource`             | `function` / `api` / `user`                  |
-| `limit` / `window`     | 窗口内请求数 / 窗口秒数（合成 QPS）          |
-| `action`               | `reject`（超限拒绝）/ `throttle`（平滑降速） |
-| `rules`                | 规则组 JSON：`{scope(function                | service), key, limitQps, match(labels), percent}` |
-| `status`               | 启停                                         |
+| Field                  | Description                                                 |
+| ---------------------- | ----------------------------------------------------------- |
+| `rateLimitId` / `name` | Identifier and display name                                 |
+| `resource`             | `function` / `api` / `user`                                 |
+| `limit` / `window`     | Requests per window / window in seconds (implied QPS)       |
+| `action`               | `reject` (reject over-limit) / `throttle` (smooth slowdown) |
+| `rules`                | Rule group JSON: `{scope(function                           | service), key, limitQps, match(labels), percent}` |
+| `status`               | Enabled/disabled                                            |
 
-规则形态（`PUT /api/v1/rate-limits` 整组写入）：
+Rule shape (`PUT /api/v1/rate-limits` writes the whole group):
 
 ```json
 {
   "rateLimitId": "mail.send.guard",
-  "name": "批量发信保护",
+  "name": "Bulk mail sending guard",
   "resource": "function",
   "limit": 100,
   "window": 1,
@@ -52,24 +52,24 @@ tag:
 }
 ```
 
-- `scope: function` 按函数 ID 限；`scope: service` 按 Agent/服务实例限
-- `match` 按 Agent labels 匹配；`percent` 灰度比例（30 = 仅三成流量受此规则约束）
+- `scope: function` limits by function ID; `scope: service` limits by Agent/service instance
+- `match` matches on Agent labels; `percent` is the rollout percentage (30 = only 30% of traffic is subject to this rule)
 
-## 影响预览
+## Impact Preview
 
-`POST /api/v1/rate-limits/preview`：基于注册表实时数据返回规则命中面——匹配到的 Agent、当前 `qps` / `qps1m`，帮助上线前回答「这条规则会打到谁、现有流量是否已经超限」。
+`POST /api/v1/rate-limits/preview`: based on real-time registry data, returns the rule's hit surface — matched Agents and their current `qps` / `qps1m`, helping you answer before rollout "who will this rule hit, and does current traffic already exceed the limit".
 
-## 执行侧（重要边界）
+## Enforcement Side (Important Boundary)
 
-**规则表本身不被 HTTP 中间件消费**——实际限速引擎在 `internal/platform/ratelimit`（令牌桶/分布式限速器），当前接入点是 OpenAPI 网关侧（`openapi` 配置的 `rateLimit.requestsPerMinute` / `burstSize`）。本页面的定位：
+**The rule table itself is not consumed by the HTTP middleware** — the actual rate-limiting engine lives in `internal/platform/ratelimit` (token bucket / distributed limiter); the current integration point is the OpenAPI gateway side (the `openapi` config's `rateLimit.requestsPerMinute` / `burstSize`). This page's role is:
 
-1. 规则的**登记、审计、预览**中心
-2. 生效需在执行侧（OpenAPI provider 配置或游戏侧 SDK）引用对应规则
+1. The central place for rule **registration, audit, and preview**
+2. Taking effect requires the enforcement side (OpenAPI provider config or the game-side SDK) to reference the corresponding rule
 
-函数调用的硬保护另有通道：注册表/审批的高危函数治理与平台级 API 限流，勿混同本页配置。
+Hard protection for function calls has its own channel: high-risk function governance in the registry/approval flow and platform-level API rate limiting; do not confuse them with this page's configuration.
 
-## 运维建议
+## Operational Recommendations
 
-- 先 `preview` 后落规则：避免对高流量函数直接全量 `reject`
-- 灰度：`percent` 从 10% 起步观察，再逐步放大
-- `throttle` 适合可排队的批量操作；对外 API 用 `reject` 语义更清晰
+- Preview before landing a rule: avoid applying a full `reject` directly to high-traffic functions
+- Rollout: start `percent` at 10%, observe, then scale up gradually
+- `throttle` suits batch operations that can queue; `reject` is the clearer semantic for public APIs

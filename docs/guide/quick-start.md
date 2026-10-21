@@ -1,32 +1,32 @@
 ---
-title: 快速开始
+title: Quick Start
 icon: lightbulb
 order: 1
 category:
-  - 入门指南
+  - Getting Started
 tag:
-  - 快速开始
+  - Quick Start
 ---
 
-# 快速开始
+# Quick Start
 
-本指南只覆盖当前仍然有效的启动方式：
+This guide only covers the startup methods that are still valid today:
 
-- `Server <-> Agent` 使用单条内部 session 链路
-- `SDK / GameServer / 第三方本地应用 <-> Agent` 使用 Agent 本地 gateway
-- 不再以历史 `gRPC` 或 `历史 REQ/REP` 文档作为新的接入依据
+- `Server <-> Agent` uses a single internal session link
+- `SDK / GameServer / third-party local applications <-> Agent` use the Agent's local gateway
+- The historical `gRPC` or `legacy REQ/REP` documentation is no longer the basis for new integrations
 
-除默认 sidecar agent 外，另有 `devops-agent`（堡垒机代理与进程监管）与 `capture-agent`（CDC 数据捕获）两类 agent，按需独立部署。
+Besides the default sidecar agent, there are two other agent types — `devops-agent` (bastion proxy and process supervision) and `capture-agent` (CDC data capture) — deployed independently as needed.
 
-## 环境要求
+## Environment Requirements
 
 - Go `1.27.2`
 - Node.js `24+`
 - pnpm `11+`
-- Docker（可选）
+- Docker (optional)
 - `buf`
 
-## 安装与构建
+## Installation and Build
 
 ```bash
 git clone https://github.com/cuihairu/croupier.git
@@ -36,43 +36,43 @@ make proto
 make build
 ```
 
-构建产物默认输出到 `bin/`。
+Build artifacts are output to `bin/` by default.
 
-## 准备配置
+## Prepare Configuration
 
-本地开发推荐直接使用仓库内示例配置：
+For local development, it is recommended to use the example configurations in the repository directly:
 
 ```bash
 cp configs/server.yaml configs/server.local.yaml
 cp configs/agent.local.yaml configs/agent.runtime.yaml
 ```
 
-关键端口含义：
+Meaning of the key ports:
 
 - `18780`: Server REST API
-- `19090`: Server session/control 入口，供 Agent 主动连接
-- `19091`: Agent 本地 gateway，供 SDK / GameServer / 第三方本地程序接入
+- `19090`: Server session/control entry point, for Agents to connect proactively
+- `19091`: Agent local gateway, for SDK / GameServer / third-party local programs to connect
 
-说明：
+Notes:
 
-- `19090` 是内部控制与会话链路端口，不应再理解为 `gRPC` 或 `旧传输` 专用端口
-- `19091` 是本地接入边界，不是 `Server -> Agent` 回拨入口
+- `19090` is the internal control and session link port and should no longer be understood as a `gRPC` or `legacy transport` dedicated port
+- `19091` is the local access boundary, not a `Server -> Agent` callback entry point
 
-## 启动服务
+## Start Services
 
-### 1. 启动 Server
+### 1. Start the Server
 
 ```bash
 ./bin/croupier-server --config configs/server.local.yaml
 ```
 
-### 2. 启动 Agent
+### 2. Start the Agent
 
 ```bash
 ./bin/croupier-agent --config configs/agent.runtime.yaml
 ```
 
-### 3. 启动 Dashboard（可选）
+### 3. Start the Dashboard (optional)
 
 ```bash
 cd web
@@ -80,45 +80,45 @@ pnpm install
 pnpm dev
 ```
 
-## 验证
+## Verification
 
-### 检查 Server 健康状态
+### Check Server Health
 
 ```bash
 curl http://localhost:18780/healthz
 ```
 
-### 检查 Agent 是否已连上 Server
+### Check Whether the Agent Has Connected to the Server
 
-Agent 列表需要认证与 scope 头：
+The Agent list requires authentication and scope headers:
 
 ```bash
 curl http://localhost:18780/api/v1/ops/agents \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer ***" \
   -H "X-Game-ID: default" \
   -H "X-Env: prod"
 ```
 
-### 检查 Dashboard
+### Check the Dashboard
 
 ```bash
 curl http://localhost:8000
 ```
 
-### 检查本地接入边界
+### Check the Local Access Boundary
 
-如果你准备接入 SDK，请确认 SDK 目标地址指向 Agent 本地 gateway，例如：
+If you are about to integrate the SDK, make sure the SDK target address points to the Agent's local gateway, for example:
 
 ```text
 127.0.0.1:19091
 ```
 
-而不是 Server 的 `19090` 端口。
+and not the Server's `19090` port.
 
-## 下一步
+## Next Steps
 
-- [配置管理](../operations/config-server.md)
-- [部署指南（本节仅有中文版）](/zh/operations/deploy-docker)
-- [核心概念（本节仅有中文版）](/zh/guide/concepts/overview)
-- [SDK 文档](../sdks/)
-- [SDK-Agent 传输设计（本节仅有中文版）](/zh/architecture/sdk-agent-transport-redesign)
+- [Configuration Management](../operations/config-server.md)
+- [Deployment Guide (Chinese only)](/zh/operations/deploy-docker)
+- [Core Concepts (Chinese only)](/zh/guide/concepts/overview)
+- [SDK Documentation](../sdks/)
+- [SDK-Agent Transport Design (Chinese only)](/zh/architecture/sdk-agent-transport-redesign)

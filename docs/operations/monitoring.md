@@ -1,41 +1,41 @@
 ---
-title: 监控指南
+title: Monitoring Guide
 icon: chart-line
 order: 20
 category:
-  - 运维指南
+  - Operations Guide
 tag:
-  - 监控
+  - Monitoring
   - Prometheus
-  - 日志
+  - Logs
 ---
 
-# 监控指南
+# Monitoring Guide
 
-本文档介绍 Croupier 的监控、日志和告警配置。
+This document describes Croupier's monitoring, logging, and alerting configuration.
 
-## 目录
+## Table of Contents
 
 [[toc]]
 
-## 监控架构
+## Monitoring Architecture
 
 ```mermaid
 graph TB
-    subgraph "Croupier 服务"
+    subgraph "Croupier Services"
         Server[Server<br/>:9090 /metrics]
         Agent[Agent<br/>:9091 /metrics]
     end
 
-    subgraph "监控采集"
+    subgraph "Monitoring Collection"
         Prometheus[Prometheus]
     end
 
-    subgraph "可视化"
+    subgraph "Visualization"
         Grafana[Grafana]
     end
 
-    subgraph "告警"
+    subgraph "Alerting"
         Alertmgr[AlertManager]
     end
 
@@ -45,44 +45,44 @@ graph TB
     Prometheus --> Alertmgr
 ```
 
-## Prometheus 指标
+## Prometheus Metrics
 
-Server 提供 Prometheus exposition 端点，**默认关闭**。开启后无需部署 OTel Collector 即可被 Prometheus 直接抓取（与 OTLP 推送链路互不影响）：
+The Server exposes a Prometheus exposition endpoint, **disabled by default**. Once enabled, Prometheus can scrape it directly without deploying an OTel Collector (no interference with the OTLP push pipeline):
 
 ```yaml
 telemetry:
   prometheus:
     enabled: true
-    path: /metrics/prometheus # 默认值，可自定义
+    path: /metrics/prometheus # default value, customizable
 ```
 
-端点免认证（抓取器不带 JWT），路径在开启时自动加入认证白名单。
+The endpoint is unauthenticated (scrapers carry no JWT), and the path is automatically added to the auth whitelist when enabled.
 
-### Server 指标
+### Server Metrics
 
-| 指标名称                        | 类型  | 说明                          |
-| ------------------------------- | ----- | ----------------------------- |
-| `croupier_db_up`                | Gauge | 数据库连通性（1=正常 0=异常） |
-| `croupier_db_latency_ms`        | Gauge | 数据库 ping 延迟（毫秒）      |
-| `croupier_agents_total`         | Gauge | 已注册 Agent 数               |
-| `croupier_agents_healthy`       | Gauge | 健康检查通过的 Agent 数       |
-| `croupier_functions_registered` | Gauge | 当前已注册函数数              |
-| `go_*` / `process_*`            | -     | Go runtime 与进程标准指标     |
+| Metric name                     | Type  | Description                               |
+| ------------------------------- | ----- | ----------------------------------------- |
+| `croupier_db_up`                | Gauge | Database connectivity (1=ok 0=fault)      |
+| `croupier_db_latency_ms`        | Gauge | Database ping latency (ms)                |
+| `croupier_agents_total`         | Gauge | Number of registered Agents               |
+| `croupier_agents_healthy`       | Gauge | Number of Agents passing the health check |
+| `croupier_functions_registered` | Gauge | Number of currently registered functions  |
+| `go_*` / `process_*`            | -     | Standard Go runtime and process metrics   |
 
-以上平台指标与 JSON 端点 `GET /api/v1/monitoring/metrics` 同源同口径（请求时实时计算，无后台采样）。
+The platform metrics above share the same source and semantics as the JSON endpoint `GET /api/v1/monitoring/metrics` (computed in real time on request, no background sampling).
 
-> 历史文档曾列出 `croupier_server_requests_total` 等指标，从未有对应实现，已移除。
+> Historical documentation once listed metrics such as `croupier_server_requests_total` that never had a corresponding implementation; they have been removed.
 
-### Agent 指标
+### Agent Metrics
 
-| 指标名称                              | 类型      | 说明           |
-| ------------------------------------- | --------- | -------------- |
-| `croupier_agent_connected`            | Gauge     | Agent 连接状态 |
-| `croupier_agent_functions_registered` | Gauge     | 已注册函数数   |
-| `croupier_agent_jobs_executed_total`  | Counter   | 执行作业总数   |
-| `croupier_agent_jobs_duration`        | Histogram | 作业执行时长   |
+| Metric name                           | Type      | Description                    |
+| ------------------------------------- | --------- | ------------------------------ |
+| `croupier_agent_connected`            | Gauge     | Agent connection status        |
+| `croupier_agent_functions_registered` | Gauge     | Number of registered functions |
+| `croupier_agent_jobs_executed_total`  | Counter   | Total jobs executed            |
+| `croupier_agent_jobs_duration`        | Histogram | Job execution duration         |
 
-### 配置指标采集
+### Configuring Metric Collection
 
 ```yaml
 # prometheus.yml
@@ -96,11 +96,11 @@ scrape_configs:
       - targets: ["agent1:9091", "agent2:9091", "agent3:9091"]
 ```
 
-## Grafana 面板
+## Grafana Dashboards
 
-### Server 面板
+### Server Dashboard
 
-导入 JSON 配置创建仪表盘：
+Import the JSON configuration to create the dashboard:
 
 ```json
 {
@@ -108,7 +108,7 @@ scrape_configs:
     "title": "Croupier Server",
     "panels": [
       {
-        "title": "请求速率",
+        "title": "Request Rate",
         "targets": [
           {
             "expr": "rate(croupier_server_requests_total[5m])"
@@ -116,7 +116,7 @@ scrape_configs:
         ]
       },
       {
-        "title": "请求延迟 (P99)",
+        "title": "Request Latency (P99)",
         "targets": [
           {
             "expr": "histogram_quantile(0.99, rate(croupier_server_request_duration_bucket[5m]))"
@@ -124,7 +124,7 @@ scrape_configs:
         ]
       },
       {
-        "title": "函数调用 Top 10",
+        "title": "Function Calls Top 10",
         "targets": [
           {
             "expr": "topk(10, sum by (function_id) (croupier_server_functions_invoked_total))"
@@ -136,11 +136,11 @@ scrape_configs:
 }
 ```
 
-## 日志配置
+## Logging Configuration
 
-### 日志格式
+### Log Format
 
-Croupier 使用结构化 JSON 日志：
+Croupier uses structured JSON logs:
 
 ```json
 {
@@ -156,7 +156,7 @@ Croupier 使用结构化 JSON 日志：
 }
 ```
 
-### 日志配置
+### Log Configuration
 
 ```yaml
 server:
@@ -169,7 +169,7 @@ server:
     max_age: 7 # days
 ```
 
-### 日志收集 (Loki)
+### Log Collection (Loki)
 
 ```yaml
 # promtail-config.yml
@@ -192,9 +192,9 @@ scrape_configs:
           __path__: /var/log/croupier/*.log
 ```
 
-## 告警规则
+## Alerting Rules
 
-### Prometheus 告警规则
+### Prometheus Alert Rules
 
 ```yaml
 # alerts.yml
@@ -202,27 +202,27 @@ groups:
   - name: croupier
     interval: 30s
     rules:
-      # 服务可用性
+      # Service availability
       - alert: CroupierServerDown
         expr: up{job="croupier-server"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Croupier Server 宕机"
-          description: "{{ $labels.instance }} 已宕机超过 1 分钟"
+          summary: "Croupier Server down"
+          description: "{{ $labels.instance }} has been down for over 1 minute"
 
-      # Agent 离线
+      # Agent offline
       - alert: CroupierAgentDisconnected
         expr: croupier_agent_connected == 0
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Croupier Agent 离线"
-          description: "{{ $labels.instance }} 已离线超过 5 分钟"
+          summary: "Croupier Agent offline"
+          description: "{{ $labels.instance }} has been offline for over 5 minutes"
 
-      # 高错误率
+      # High error rate
       - alert: HighErrorRate
         expr: |
           rate(croupier_server_requests_total{status="error"}[5m])
@@ -232,10 +232,10 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "错误率过高"
-          description: "错误率超过 5%"
+          summary: "Error rate too high"
+          description: "Error rate exceeds 5%"
 
-      # 高延迟
+      # High latency
       - alert: HighLatency
         expr: |
           histogram_quantile(0.99,
@@ -245,21 +245,21 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "请求延迟过高"
-          description: "P99 延迟超过 1 秒"
+          summary: "Request latency too high"
+          description: "P99 latency exceeds 1 second"
 
-      # 待审批积压
+      # Approval backlog
       - alert: ApprovalBacklog
         expr: croupier_server_approvals_pending > 50
         for: 1h
         labels:
           severity: warning
         annotations:
-          summary: "审批积压"
-          description: "待审批数量超过 50"
+          summary: "Approval backlog"
+          description: "Pending approvals exceed 50"
 ```
 
-### AlertManager 配置
+### AlertManager Configuration
 
 ```yaml
 # alertmanager.yml
@@ -297,9 +297,9 @@ receivers:
         channel: "#alerts"
 ```
 
-## 分布式追踪
+## Distributed Tracing
 
-### OpenTelemetry 集成
+### OpenTelemetry Integration
 
 ```go
 import (
@@ -329,7 +329,7 @@ func initTracer() error {
 }
 ```
 
-### 追踪调用
+### Tracing Calls
 
 ```go
 import (
@@ -346,7 +346,7 @@ func (s *Server) InvokeFunction(ctx context.Context, req *Request) (*Response, e
         attribute.String("game_id", req.GameId),
     )
 
-    // 调用 Agent
+    // Invoke the Agent
     resp, err := s.agent.InvokeFunction(ctx, req)
     if err != nil {
         span.RecordError(err)
@@ -357,19 +357,19 @@ func (s *Server) InvokeFunction(ctx context.Context, req *Request) (*Response, e
 }
 ```
 
-## 健康检查
+## Health Checks
 
-### HTTP 健康检查
+### HTTP Health Checks
 
 ```bash
-# 健康检查
+# Health check
 curl http://localhost:18780/healthz
 
-# 就绪检查
+# Readiness check
 curl http://localhost:18780/readyz
 ```
 
-### 响应示例
+### Response Example
 
 ```json
 {
@@ -385,49 +385,49 @@ curl http://localhost:18780/readyz
 }
 ```
 
-## 性能监控
+## Performance Monitoring
 
-### 数据库性能
+### Database Performance
 
 ```sql
--- 慢查询
+-- Slow queries
 SELECT query, mean_exec_time, calls
 FROM pg_stat_statements
 WHERE mean_exec_time > 100
 ORDER BY mean_exec_time DESC
 LIMIT 10;
 
--- 连接数
+-- Connection count
 SELECT count(*) FROM pg_stat_activity;
 ```
 
-### Redis 性能
+### Redis Performance
 
 ```bash
-# Redis 信息
+# Redis info
 redis-cli INFO stats
 
-# 慢日志
+# Slow log
 redis-cli SLOWLOG GET 10
 ```
 
-## 最佳实践
+## Best Practices
 
-### 1. 指标命名规范
+### 1. Metric Naming Conventions
 
 ```
 croupier_<component>_<metric>_<unit>
 
-示例：
+Examples:
 - croupier_server_requests_total
 - croupier_agent_functions_registered
 - croupier_job_duration_seconds
 ```
 
-### 2. 标签使用
+### 2. Label Usage
 
 ```go
-// 添加标签
+// Add labels
 counter.WithLabelValues(
     "player.ban",  // function_id
     "my-game",     // game_id
@@ -436,16 +436,16 @@ counter.WithLabelValues(
 ).Inc()
 ```
 
-### 3. 日志级别
+### 3. Log Levels
 
-| 级别    | 用途         |
-| ------- | ------------ |
-| `debug` | 开发调试信息 |
-| `info`  | 正常操作日志 |
-| `warn`  | 警告信息     |
-| `error` | 错误信息     |
+| Level   | Purpose                    |
+| ------- | -------------------------- |
+| `debug` | Development debugging info |
+| `info`  | Normal operation logs      |
+| `warn`  | Warning messages           |
+| `error` | Error messages             |
 
-### 4. 敏感信息脱敏
+### 4. Sensitive-Data Masking
 
 ```yaml
 server:
@@ -456,31 +456,31 @@ server:
       - "secret"
 ```
 
-## 探测体系、采样策略与在线健康度（设计定稿 2026-10-14，R2/R3 已上线）
+## Probe System, Sampling Policy, and Online Health (Design finalized 2026-10-14, R2/R3 shipped)
 
-> **状态标注**：R2（agent 装配面）与 R3（server 消费面六个子批）已于 2026-10-14 交付（证据见评审简档 §12），下列能力均已在代码中；R4（dbmon 收敛到共用内核）与游戏协议探测适配器（L2 声明式 / L3 按游戏接）尚未落地。**在线趋势列仍为「未接入在线数据」灰态**——SDK metric 上报入口未排期，面板只呈现探活事实。
+> **Status notes**: R2 (agent assembly surface) and R3 (server consumption surface, six sub-batches) were delivered on 2026-10-14 (evidence in the review profile §12); all of the following capabilities are in the code. R4 (dbmon convergence onto the shared kernel) and the game-protocol probe adapters (L2 declarative / L3 per-game) have not landed yet. **The online-trend column is still grayed out as "not connected to online data"** — the SDK metric reporting entry point is unscheduled, and the panel only presents liveness facts.
 
-- **三层探测体系**：共用内核（`core/healthprobe`）/ 协议探测器（http/tcp/process/db + 游戏协议骨架）/ 执行位置按视角——**谁的视角有意义就由谁探**（agent 提供业务网络视角；server 保留自身依赖探测与手动诊断；第三方监控不要求为监控新增 agent 部署）。
-- **采样频率（server 后台可设，未设按显式默认）**：三粒度=基础间隔（默认 **30s**，与 configsync 轮询/metrics 上报周期同档；配内核默认 fail=3 → 最坏 90s 开窗）/ 按时间段（高峰加密、低谷降频）/ 特殊时间点（活动开服前等一次性/日历式）。配置落 ConfigVersion 资产、configsync 下发、热更生效（最坏 30s）；agent 不本地写死频率。
-- **不对称上报**：正常态=聚合/采样（成功率、时延分布、窗口时长、探测点分布，走 metrics 批量面）；异常态=明细即时（失败阶段、错误原文、最近 5 次序列、目标/执行位置/时间戳，走事件面）——**降频不影响失败路径，异常必达**。
-- **游戏服务器在线健康度**：在线数据=游戏侧上报（业务真值），按既有 ops 的 game/env 维度汇总（不另起维度表）；健康度=状态矩阵（探活两态 × 在线趋势三档）+ 异常证据，骤降阈值默认 50%/5min（对比前 7 天同时刻基线，配置可调）。
-- **受管程序更新指纹**：每次更新记录二进制 sha256 指纹（含回滚留痕），按「目标+时间+指纹」查 execlog 反查版本——排查「哪次更新后开始报警」时与告警 timeline 对齐；运维口径见 [版本升级与回滚](./upgrade-rollback.md)。
+- **Three-layer probe system**: shared kernel (`core/healthprobe`) / protocol probes (http/tcp/process/db + game-protocol skeleton) / execution location by perspective — **whoever's perspective matters does the probing** (agents provide the business network perspective; the server keeps its own dependency probes and manual diagnostics; third-party monitoring never requires deploying a new agent just for monitoring).
+- **Sampling frequency (settable in the server background; explicit defaults when unset)**: three granularities = base interval (default **30s**, same tier as the configsync polling/metrics reporting period; kernel default fail=3 → worst-case 90s window) / by time of day (denser at peak, sparser at trough) / special time points (one-off/calendar-style, e.g. before an event launch). Configuration lands as a ConfigVersion asset, is distributed via configsync, and takes effect hot (worst case 30s); agents never hard-code the frequency locally.
+- **Asymmetric reporting**: normal state = aggregated/sampled (success rate, latency distribution, window duration, probe-point distribution, via the metrics batch surface); abnormal state = itemized, immediate (failure stage, raw error, the last 5 attempts, target/execution location/timestamp, via the event surface) — **throttling never affects the failure path; anomalies always get through**.
+- **Game server online health**: online data comes from game-side reporting (the business source of truth), aggregated along the existing ops game/env dimensions (no separate dimension tables); health = status matrix (two liveness states × three online-trend tiers) + anomaly evidence, with the sudden-drop threshold defaulting to 50%/5min (compared against the same-time baseline of the previous 7 days, configurable).
+- **Managed-program update fingerprints**: every update records a binary sha256 fingerprint (rollbacks audited too); search the execlog by "target + time + fingerprint" to trace the version — align with the alert timeline when investigating "after which update the alerts started"; for the operations model see [Version Upgrade and Rollback](./upgrade-rollback.md).
 
-**运维落点**
+**Operations touchpoints**
 
-| 面   | 位置                                                                  | 说明                                                                           |
-| ---- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| 声明 | agent 配置 `probe.targets[]` / server 配置 `probe.targets[]`          | 只声明探什么；阈值/语义/间隔有显式默认，见 [Agent 配置全解](./config-agent.md) |
-| 下发 | 采样策略 `/api/v1/ops/probe/policy`（运维中心面板同款能力）           | ConfigVersion 资产面，发布后 agent 30s 内热生效（版本比对省空轮）              |
-| 观测 | 节点维护页「探针汇总」`GET /api/v1/ops/probe/summary`                 | 状态矩阵（目标 × 执行位置），异常行前置；不出单一合成分                        |
-| 告警 | 告警中心（`alertID=probe:<agentId>:<target>`）                        | 窗口开= firing、闭= resolved；失败明细随窗口落库                               |
-| 规则 | 告警规则指标 `probe.<目标>.<successRate/failed/checked/latencyP95Ms>` | 直接走既有 AlertRule evaluator，无需新告警链路                                 |
-| 诊断 | `POST /api/v1/ops/probe/diagnose`                                     | server 本机目标即时探一次，与周期探测共用同一状态机                            |
+| Aspect     | Location                                                                             | Description                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Declare    | agent config `probe.targets[]` / server config `probe.targets[]`                     | Only declare what to probe; thresholds/semantics/intervals have explicit defaults, see [Agent Configuration Complete Reference](./config-agent.md) |
+| Distribute | Sampling policy `/api/v1/ops/probe/policy` (same capability as the Ops Center panel) | ConfigVersion asset surface; after publishing, agents take effect hot within 30s (version comparison avoids wasted polls)                          |
+| Observe    | Node maintenance page "Probe Summary" `GET /api/v1/ops/probe/summary`                | Status matrix (target × execution location), abnormal rows first; no single composite score is produced                                            |
+| Alert      | Alert Center (`alertID=probe:<agentId>:<target>`)                                    | Window opens = firing, closes = resolved; failure details are persisted with the window                                                            |
+| Rules      | Alert rule metrics `probe.<target>.<successRate/failed/checked/latencyP95Ms>`        | Runs directly on the existing AlertRule evaluator; no new alerting pipeline needed                                                                 |
+| Diagnose   | `POST /api/v1/ops/probe/diagnose`                                                    | Probes a local server target once immediately, sharing the same state machine as periodic probing                                                  |
 
-端点与报文细节见 [API 文档 probe 端点](/archive/legacy-en/api/ops)。
+For endpoint and payload details, see [API Documentation probe endpoints](/archive/legacy-en/api/ops).
 
-## 相关文档
+## Related Documentation
 
-- [部署指南（本节仅有中文版）](/zh/operations/deploy-docker)
-- [安全配置](/security)
-- [故障排查](./troubleshooting.md)
+- [Deployment Guide (Chinese-only section)](/zh/operations/deploy-docker)
+- [Security Configuration](/security)
+- [Troubleshooting](./troubleshooting.md)

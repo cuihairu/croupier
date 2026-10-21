@@ -1,133 +1,133 @@
 ---
-title: 安装指南
+title: Installation Guide
 icon: download
 order: 2
 category:
-  - 入门指南
+  - Getting Started
 tag:
-  - 安装
-  - 环境配置
+  - Installation
+  - Environment Setup
 ---
 
-# 安装指南
+# Installation Guide
 
-本指南详细介绍 Croupier 各组件的安装和配置方法。
+This guide describes in detail how to install and configure each Croupier component.
 
-## 目录
+## Table of Contents
 
 [[toc]]
 
-## 系统要求
+## System Requirements
 
-### 最低要求
+### Minimum Requirements
 
-| 组件     | 最低版本            | 推荐版本    |
-| -------- | ------------------- | ----------- |
-| Go       | 1.27.2              | 1.27.2+     |
-| Node.js  | 24                  | 24+         |
-| pnpm     | 11                  | 11+         |
-| buf      | -                   | latest      |
-| 操作系统 | Linux/macOS/Windows | Linux/macOS |
+| Component | Minimum Version     | Recommended |
+| --------- | ------------------- | ----------- |
+| Go        | 1.27.2              | 1.27.2+     |
+| Node.js   | 24                  | 24+         |
+| pnpm      | 11                  | 11+         |
+| buf       | -                   | latest      |
+| OS        | Linux/macOS/Windows | Linux/macOS |
 
-### 硬件要求
+### Hardware Requirements
 
-| 场景           | CPU   | 内存   | 磁盘    |
-| -------------- | ----- | ------ | ------- |
-| 开发           | 2 核  | 4 GB   | 10 GB   |
-| 生产（小规模） | 4 核  | 8 GB   | 50 GB   |
-| 生产（大规模） | 8 核+ | 16 GB+ | 100 GB+ |
+| Scenario           | CPU      | Memory | Disk    |
+| ------------------ | -------- | ------ | ------- |
+| Development        | 2 cores  | 4 GB   | 10 GB   |
+| Production (small) | 4 cores  | 8 GB   | 50 GB   |
+| Production (large) | 8+ cores | 16 GB+ | 100 GB+ |
 
-## 开发环境安装
+## Development Environment Installation
 
-### 1. 安装 Go
+### 1. Install Go
 
 #### macOS
 
 ```bash
-# 使用 Homebrew
+# Using Homebrew
 brew install go
 
-# 验证安装
+# Verify the installation
 go version
 ```
 
 #### Linux (Ubuntu/Debian)
 
 ```bash
-# 下载并安装
+# Download and install
 wget https://go.dev/dl/go1.27.2.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.27.2.linux-amd64.tar.gz
 
-# 配置 PATH
+# Configure PATH
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
 source ~/.bashrc
 ```
 
 #### Windows
 
-从 [Go 官网](https://go.dev/dl/) 下载安装程序并运行。
+Download the installer from the [Go website](https://go.dev/dl/) and run it.
 
-### 2. 安装 Node.js 和 pnpm
+### 2. Install Node.js and pnpm
 
 ```bash
-# 使用 fnm 安装 Node.js（推荐）
+# Install Node.js using fnm (recommended)
 curl -fsSL https://fnm.vercel.app/install | bash
 fnm install 22
 fnm use 22
 
-# 安装 pnpm
+# Install pnpm
 npm install -g pnpm
 
-# 验证安装
+# Verify the installation
 node -v
 pnpm -v
 ```
 
-### 3. 安装 buf
+### 3. Install buf
 
 ```bash
-# 使用 go install
+# Using go install
 go install github.com/bufbuild/buf/cmd/buf@latest
 
-# 或使用 Homebrew（macOS）
+# Or using Homebrew (macOS)
 brew install bufbuild/buf/buf
 
-# 验证安装
+# Verify the installation
 buf --version
 ```
 
-### 4. 克隆项目
+### 4. Clone the Project
 
 ```bash
-# 克隆主仓库
+# Clone the main repository
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
 ```
 
-## 生产环境安装
+## Production Environment Installation
 
-### Docker 部署
+### Docker Deployment
 
-#### 使用 Docker Compose
+#### Using Docker Compose
 
 ```bash
-# 构建镜像
+# Build the images
 docker compose build
 
-# 启动服务
+# Start the services
 docker compose up -d
 
-# 查看日志
+# View logs
 docker compose logs -f
 ```
 
-#### 单独部署
+#### Standalone Deployment
 
 ```bash
-# 构建 Server 镜像
+# Build the Server image
 docker build -t croupier-server:latest -f docker/Dockerfile.server .
 
-# 运行 Server
+# Run the Server
 docker run -d \
   --name croupier-server \
   -p 19090:19090 \
@@ -137,30 +137,30 @@ docker run -d \
   croupier-server:latest
 ```
 
-### 二进制部署
+### Binary Deployment
 
-#### 下载预构建版本
+#### Download Prebuilt Binaries
 
-从 [Release 页面](https://github.com/cuihairu/croupier/releases) 下载对应平台的二进制文件。
+Download the binaries for your platform from the [Release page](https://github.com/cuihairu/croupier/releases).
 
-#### 从源码构建
+#### Build from Source
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
 
-# 构建二进制（server / agent / devops-agent / capture-agent / worker / ingest / tools）
+# Build the binaries (server / agent / devops-agent / capture-agent / worker / ingest / tools)
 make build
 
-# 二进制文件位于 bin/ 目录
+# The binaries are located in the bin/ directory
 ls -la bin/
 ```
 
-## SDK 安装
+## SDK Installation
 
-各语言 SDK 均为本仓库 `sdks/<lang>/` 目录下的源码（安装细节以
-[docs/sdks/](../sdks/index.md) 各语言指南为准）：
+The SDKs for each language are source code in this repository under `sdks/<lang>/` (for installation details, follow the per-language guides in
+[docs/sdks/](../sdks/index.md)):
 
 ### Go SDK
 
@@ -171,7 +171,7 @@ go get github.com/cuihairu/croupier/sdks/go@latest
 ### C++ SDK
 
 ```bash
-# 从本仓库源码构建（vcpkg 依赖清单见 sdks/cpp/vcpkg.json）
+# Build from this repository's source (vcpkg dependency manifest in sdks/cpp/vcpkg.json)
 cd sdks/cpp
 cmake --preset linux-x64-release-vcpkg
 cmake --build --preset linux-x64-debug
@@ -180,42 +180,42 @@ cmake --build --preset linux-x64-debug
 ### Java SDK
 
 ```bash
-# 从本仓库源码构建（发布管线已配置 OSSRH staging，经 release workflow 发布）
+# Build from this repository's source (the release pipeline is configured with OSSRH staging and published via the release workflow)
 cd sdks/java && ./gradlew publishToMavenLocal
 ```
 
 ### JavaScript/TypeScript SDK
 
 ```bash
-# 包名 croupier-js-sdk（源码构建）
+# Package name croupier-js-sdk (built from source)
 cd sdks/js && pnpm install && pnpm build
 ```
 
 ### Python SDK
 
 ```bash
-# 包名 croupier-sdk（源码构建）
+# Package name croupier-sdk (built from source)
 cd sdks/python && pip install .
 ```
 
-## 配置文件
+## Configuration Files
 
-### Server 配置
+### Server Configuration
 
 ```yaml
 server:
   host: 0.0.0.0
-  port: 18780 # HTTP 监听地址
+  port: 18780 # HTTP listen address
   control:
-    addr: ":19090" # Control（agent 接入）监听地址
+    addr: ":19090" # Control (agent access) listen address
 database:
-  # 支持 sqlite、mysql、postgres、sqlserver
+  # Supports sqlite, mysql, postgres, sqlserver
   driver: postgres
-  dataSource: "postgres://user:pass@localhost:5432/croupier"
-  # SQLite 示例：
+  dataSource: "postgres://user:***@localhost:5432/croupier"
+  # SQLite example:
   # driver: sqlite
   # dataSource: "data/croupier.db"
-  # MySQL 示例：
+  # MySQL example:
   # driver: mysql
   # dataSource: "user:pass@tcp(localhost:3306)/croupier_meta?charset=utf8mb4&parseTime=True"
 log:
@@ -223,7 +223,7 @@ log:
   format: json
 ```
 
-### Agent 配置
+### Agent Configuration
 
 ```yaml
 name: croupier-agent
@@ -246,49 +246,49 @@ outboundTLS:
   keyFile: "data/agent.key"
 ```
 
-## 验证安装
+## Verify the Installation
 
-### 健康检查
+### Health Check
 
 ```bash
-# Server 健康检查
+# Server health check
 curl http://localhost:18780/healthz
 
-# 预期输出（ok / timestamp / uptimeSeconds / components）
+# Expected output (ok / timestamp / uptimeSeconds / components)
 {"ok":true,"timestamp":"2026-10-13T00:00:00Z","uptimeSeconds":3600,"components":{"database":"ok","registry":"ok","ops":"ok"}}
 ```
 
-### 功能测试
+### Functional Testing
 
 ```bash
-# 运行单元测试
+# Run unit tests
 make test
 
-# 运行集成测试
+# Run integration tests
 make test-integration
 ```
 
-## 故障排查
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
 <details>
-<summary>Go 版本不兼容</summary>
+<summary>Incompatible Go version</summary>
 
-确保 Go 版本为 1.27.2 或更高：
+Make sure the Go version is 1.27.2 or higher:
 
 ```bash
 go version
 ```
 
-如果不满足，请升级 Go 版本。
+If not, upgrade Go.
 
 </details>
 
 <details>
-<summary>buf 命令未找到</summary>
+<summary>buf command not found</summary>
 
-确保 `$GOPATH/bin` 在 `PATH` 中：
+Make sure `$GOPATH/bin` is in your `PATH`:
 
 ```bash
 export PATH=$PATH:$(go env GOPATH)/bin
@@ -297,9 +297,9 @@ export PATH=$PATH:$(go env GOPATH)/bin
 </details>
 
 <details>
-<summary>端口已被占用</summary>
+<summary>Port already in use</summary>
 
-修改配置文件中的端口：
+Change the ports in the configuration file:
 
 ```yaml
 control:
@@ -309,10 +309,10 @@ port: 19080
 
 </details>
 
-## 下一步
+## Next Steps
 
-安装完成后，请参考：
+After installation, refer to:
 
-- [配置指南](../operations/config-server.md) - 详细配置选项
-- [部署指南（本节仅有中文版）](/zh/operations/deploy-docker) - 生产环境部署
-- [核心概念（本节仅有中文版）](/zh/guide/concepts/overview) - 了解系统设计
+- [Configuration Guide](../operations/config-server.md) - detailed configuration options
+- [Deployment Guide (Chinese only)](/zh/operations/deploy-docker) - production deployment
+- [Core Concepts (Chinese only)](/zh/guide/concepts/overview) - understanding the system design
