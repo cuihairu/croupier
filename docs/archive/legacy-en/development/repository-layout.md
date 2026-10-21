@@ -28,7 +28,6 @@ web/                前端控制台仓库（monorepo 内）
 
 - 所有新二进制入口放在 `cmd/`，不要再引入 `services/*` 风格目录。
 - Agent 公共能力放 `core/`，独立角色业务放 `agents/<role>`；`core/` 与 `agents/` 的生产代码不得 import `internal/`，Server 可消费公共件。
-- sidecar 的现有业务仍在 `internal/app/agent` 与 `internal/agent`，后续按职责迁移到 `agents/sidecar`；目录现状、公共能力消费与目标树见 [Agent 运行时目录边界](agent-runtime-layout.md)。
 - 配置统一从 `configs/` 读取，脚本、Docker、文档都应引用这里。
 - 文档只保留当前结构对应的说明，迁移过程文档不再作为长期文档维护。
 - SDK 代码在 `sdks/<lang>`，正式文档统一放在 `docs/sdks/<lang>`。

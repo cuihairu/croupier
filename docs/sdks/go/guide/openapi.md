@@ -56,4 +56,3 @@ opts := &function.ImportOptions{
 - 源码：`sdks/go/function/openapi.go`（`Registry.RegisterFromOpenAPI` /
   `RegisterFromOpenAPIWithHandlers`）、`builder.go`（`ImportOptions`）
 - 测试：`sdks/go/function/openapi_test.go`
-- 其余五语言等价 helper 见 [SDK 对齐矩阵](/zh/sdks/sdk-parity-matrix)

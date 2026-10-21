@@ -11,7 +11,7 @@ tag:
 
 # Load Balancing
 
-The Croupier HA multi-instance architecture ([Server Multi-Instance HA (this section is Chinese-only)](/zh/architecture/server-ha-multi-instance)) has two traffic entry points, each of which needs load balancing:
+The Croupier HA multi-instance architecture (Server Multi-Instance HA (this section is Chinese-only)) has two traffic entry points, each of which needs load balancing:
 
 - **Dashboard API (L7 / HTTP)**: the Dashboard's fronting gateway splits traffic across the Server instances on `:18780`
 - **Agent access (L4 / TCP)**: the agents' in-house transport long connections (`:19090`, length-prefixed framing + multiplexing) are spread across the Server instances

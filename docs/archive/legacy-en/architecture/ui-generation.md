@@ -18,7 +18,7 @@ tag:
 > [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md)。
 
 > **组合模型总纲**：本文聚焦生成器与运行时实现。组合方式的心智模型、
-> React 原语映射、表达力边界与路线见 [组合模型与表达力边界](./composition-model.md)。
+> React 原语映射、表达力边界与路线见 组合模型与表达力边界。
 
 ## 端到端流程总览
 
@@ -118,7 +118,7 @@ auto 语义统一约束：质量门槛不因免审核降低（error 级诊断照
 DB 持久化接线留待独立需求。
 
 同通道另有 SDK 滑动版本门槛告警（规则与高水位语义见
-[数据流 §4](./data-flow.md)）：`sdk_version_behind`（落后 1 个 minor，放行
+数据流 §4）：`sdk_version_behind`（落后 1 个 minor，放行
 +提示升级）、`sdk_version_floor_rejected`（落后 ≥2 minor 或 ≥1 major，该
 进程独占函数不进本次注册）。追赶后 `sdk_version_behind` 不自动清除，人工
 删除兜底。

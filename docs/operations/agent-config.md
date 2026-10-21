@@ -1,12 +1,12 @@
 # Agent Configuration: Field-by-Field Complete Reference (sidecar / devops / capture)
 
-This document covers only the three existing entry points; for the fourth category, synthetics, see the [Four-Category Agent Guide (this section is Chinese-only)](/zh/operations/agent-comparison) for its responsibilities and unimplemented boundaries — it currently has no runnable configuration or release package. The fact that `env` may be empty for devops/capture below is the current state of the code; deployments must fill in gameId/env explicitly, and enforced validation is on the backlog.
+This document covers only the three existing entry points; for the fourth category, synthetics, see the Four-Category Agent Guide (this section is Chinese-only) for its responsibilities and unimplemented boundaries — it currently has no runnable configuration or release package. The fact that `env` may be empty for devops/capture below is the current state of the code; deployments must fill in gameId/env explicitly, and enforced validation is on the backlog.
 
 Each of the three agent categories has a single YAML configuration file, and the loading chain is minimal: **read file → yaml.Unmarshal →
 validate → run**. This document lists, field by field, the field names, types, defaults, meanings, and code read sites
 (`file:line`, aligned with the current mainline; every field has a real read point in the code — no invented fields).
-For selection see [agent-comparison.md (this section is Chinese-only)](/zh/operations/agent-comparison); for installation see
-[agent-install.md](./agent-install).
+For selection see agent-comparison.md (this section is Chinese-only); for installation see
+agent-install.md.
 
 **Three common conventions (identical across all three agents):**
 

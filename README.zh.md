@@ -100,7 +100,6 @@ Croupier 不是 fork，是一层控制面业务系统，底层全部站在开源
 - 可观测：[OpenTelemetry](https://opentelemetry.io) Go SDK + OTLP HTTP exporter 上报
 - 控制台：基于 [Umi Max](https://umijs.org) 与 [Ant Design](https://ant.design) / ProComponents 构建，JSON Schema 表单由 [RJSF](https://rjsf.github.io/react-jsonschema-form/) 驱动，编辑器用 [Monaco](https://microsoft.github.io/monaco-editor/)
 - 协议与工具链：[protobuf](https://protobuf.dev)（protoc 全本地生成）+ [buf](https://buf.build) lint
-- 六语言 SDK（go / js / python / java / csharp / cpp）基于各自语言标准库实现，wire 契约见 [sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
 
 ## Session 模型
 
@@ -136,10 +135,6 @@ Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
 ## 文档入口
 
 - 架构总览：[docs/architecture/index.md](docs/architecture/index.md)
-- 游戏与环境作用域：[docs/architecture/game-environment-scope.md](docs/architecture/game-environment-scope.md)
-- SDK-Agent 设计：[docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
-- Agent-Server 设计：[docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
-- Wire 协议：[docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
 - 统一 SDK 文档：[docs/sdks/index.md](docs/sdks/index.md)
 - SDK 能力矩阵：[docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
 - SDK 代码入口：[sdks/README.md](sdks/README.md)
@@ -213,7 +208,7 @@ docker compose -f docker-compose.quickstart.yml down -v          # ⚠️ 清数
 可选组件（SDK 六语言示例 / 分析管道）用 `--profile` 拉起，不混进默认栈；secret、
 端口、多游戏/单库切换与「`--profile` pull 级联重建全栈」的坑见
 [docker-compose.quickstart.yml](docker/docker-compose.quickstart.yml) 文件头注释
-与 [Docker 部署指南](docs/operations/deploy-docker.md)。
+与 Docker 部署指南。
 
 ## 快速开始
 

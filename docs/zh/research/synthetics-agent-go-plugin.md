@@ -6,7 +6,7 @@
 
 第四类 Agent 沿用已有名称 `synthetics-agent`，在代表玩家或服务消费方的网络位置独立运行，从游戏进程外主动探测游戏及第三方服务；负责拉起、复用、监管开发者实现的探测插件，插件可使用支持所定 IPC 契约的语言，游戏地址、环境、凭证引用、频率与超时由平台配置。
 
-此前记录并非完全缺失：[外部适配器评审](/review/chatgpt-2026-10-14-probe-adapter) 已采纳独立进程、多语言和进程常驻复用，[监管设计](../design/agent-supervisor-design.md) §10 已加入 `kind=probe-adapter` 元数据，但独立 Agent 分类、插件调用运行时和完整待办未落地；`core/healthprobe` 内置 Checker、声明式协议步骤与 Minecraft SLP 不等于外部程序插件实现。
+此前记录并非完全缺失：外部适配器评审 已采纳独立进程、多语言和进程常驻复用，[监管设计](../design/agent-supervisor-design.md) §10 已加入 `kind=probe-adapter` 元数据，但独立 Agent 分类、插件调用运行时和完整待办未落地；`core/healthprobe` 内置 Checker、声明式协议步骤与 Minecraft SLP 不等于外部程序插件实现。
 
 ## go-plugin 调研事实
 
@@ -30,7 +30,7 @@ Server ← 共用 TCP/TLS session → synthetics-agent
 
 ## 本仓约束与选型边界
 
-2026-10-17 用户澄清：禁止 gRPC 的原意是避免游戏 SDK 携带过大的运行时与构建依赖，历史 debug 接入场景约 1.7GB；独立外部探测插件不属于该禁用范围，[传输决策](/archive/legacy-en/architecture/transport-no-grpc) 已据此修正，无需再把本地插件 IPC 视为待批准的例外。
+2026-10-17 用户澄清：禁止 gRPC 的原意是避免游戏 SDK 携带过大的运行时与构建依赖，历史 debug 接入场景约 1.7GB；独立外部探测插件不属于该禁用范围，传输决策 已据此修正，无需再把本地插件 IPC 视为待批准的例外。
 
 按此边界采用 go-plugin 的本地 gRPC 多语言模式，把依赖集中在插件宿主与插件，保持 `core/healthprobe` 的 Checker 抽象及 Agent↔Server↔SDK 的 TCP 契约；实现时统一替换外部适配器 JSONL 候选，不同时维护两份等价协议，保证游戏 SDK 的依赖闭包及产物不引入 gRPC；`scripts/check-no-grpc.sh` 仍是旧全局规则，需随实现同步为依赖边界守卫，不能仅删除检查。
 
@@ -217,4 +217,4 @@ synthetics-agent 的原生目标新增 `type: icmp`（`address`/`count`），默
 
 结论与边界：**每次经插件适配器的函数调用额外 ≈0.5–0.8ms（p50 0.53–0.72ms）**，两语言差异在共享开发机运行间抖动内（开销由本地 gRPC hop 与宿主派发主导，不是解释器）；对照 inline 的 ~2µs，插件路径约放大 250–400 倍——对管理面/探活类低频调用无感，对高频批量路径应在插件侧做批量聚合或改走直连 SDK。边界：共享开发机、顺序调用、含宿主派发与框架开销，非吞吐上限（并发与专用硬件下另行测量）；未覆盖完整部署链端到端（SDK→agent→sidecar→插件的跨进程叠加），该验收归 todo:38 剩余的「真实游戏接口端到端验收」。
 
-关联：[Agent 清单](../design/agents-inventory.md)、[健康评审](/archive/legacy-en/design/agent-health-recovery-review)、根目录 `todo.md`。
+关联：[Agent 清单](../design/agents-inventory.md)、健康评审、根目录 `todo.md`。

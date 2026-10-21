@@ -12,14 +12,13 @@ tag:
 
 Suitable for bare-metal/VM environments without container constraints. Artifacts come from [Releases](https://github.com/cuihairu/croupier/releases) or a local build (`make build` → `bin/croupier-server`, `bin/croupier-agent`).
 
-> If you only need the agent, use the [one-click install script](./agent-install) (auto-detects architecture, anonymous download, idempotent upgrades, optional service registration); this page covers the full manual deployment (directory layout, server configuration, production-grade systemd units).
+> If you only need the agent, use the one-click install script (auto-detects architecture, anonymous download, idempotent upgrades, optional service registration); this page covers the full manual deployment (directory layout, server configuration, production-grade systemd units).
 
 ## Prerequisites
 
 - Linux x86_64, Go 1.26+ (only needed for local builds)
 - MySQL 8.x / PostgreSQL 16 (production) — SQLite is only suitable for single-machine pilots
 - Redis 7+ (required for multi-instance; a single instance can degrade to `cache.type: memory`)
-- The backup executor depends on command-line tools: `mysqldump` (MySQL) / `pg_dump` (PostgreSQL) — see [Backup and Restore](./backup-restore)
 
 ## Directory Layout
 
@@ -33,7 +32,7 @@ Suitable for bare-metal/VM environments without container constraints. Artifacts
 
 ## Configuration
 
-Start from the repository templates and adjust following the [Full Server Configuration Reference](./config-server):
+Start from the repository templates and adjust following the Full Server Configuration Reference:
 
 ```bash
 cp configs/server.yaml /opt/croupier/etc/server.yaml
@@ -109,8 +108,7 @@ Agent-side verification: a session registration appearing in the Server logs mea
 ## Multi-Instance (Bare-Metal HA)
 
 1. One `server.yaml` per Server instance, with `cluster.enabled: true` and `advertiseAddr` set to a **peer-reachable address**
-2. Put HAProxy/nginx in front for traffic splitting (configuration templates in [Load Balancing](./load-balancing))
-3. Point the Agent `server.addr` at the LB entry point, not a specific instance
+2. Point the Agent `server.addr` at the LB entry point, not a specific instance
 
 ## Common Pitfalls
 

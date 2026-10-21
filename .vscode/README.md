@@ -124,9 +124,6 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 ## 更多文档
 
 - [Agent 调试指南](./AGENT-DEBUG-GUIDE.md)
-- [快速开始](../services/agent/etc/QUICKSTART.md)
-- [完整指南](../services/agent/etc/README-OPENAPI.md)
-- [多服务配置](../services/agent/etc/MULTI-SERVICE-GUIDE.md)
 
 ---
 

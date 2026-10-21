@@ -46,5 +46,4 @@ Agent 会周期性向 provider 下发 `ProviderHeartbeatRequest` 探针（provid
 
 ## 继续阅读
 
-- [线程与并发](./threading)
 - [API 参考](../api/)

@@ -279,4 +279,4 @@ pkg-config --exists grpc++  # 检查 gRPC 安装
 
 ---
 
-需要帮助？查看 [完整文档](./COMPLETE_SDK_README.md) 或提交 [Issue](https://github.com/cuihairu/croupier-sdk-cpp/issues)。
+需要帮助？查看 完整文档 或提交 [Issue](https://github.com/cuihairu/croupier-sdk-cpp/issues)。

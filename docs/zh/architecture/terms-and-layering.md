@@ -38,6 +38,4 @@ title: 术语与分层
 
 ## 相关页面
 
-- [分层](/zh/architecture/layers)
 - [架构总览](/zh/architecture/)
-- [数据流](/zh/architecture/data-flow)

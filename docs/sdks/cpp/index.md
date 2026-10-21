@@ -122,16 +122,8 @@ provider.serve();
 - [API](./api/)
 - [配置](./configuration/)
 - [示例](./examples/)
-- [集成指南](./integration)
-- [约定规范](./conventions)
-- [运行时库修复](./runtime-library-fix)
-- [测试进度](./test-implementation-progress)
-- [Client Config](./configuration/client-config)
-- [插件指南](./guide/plugins)
-- [资源与操作](/sdks/cpp/api/resources-and-operations)
 
 ## 相关文档
 
 - [SDK 文档](../../sdks/)
 - [SDK Wire Protocol](../../zh/architecture/sdk-wire-protocol.md)
-- [SDK-Agent 传输重构设计（本节仅有中文版）](/zh/architecture/sdk-agent-transport-redesign)

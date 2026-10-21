@@ -34,7 +34,6 @@ Approvals (Two-person rule)
   见 [Descriptor v2](./zh/architecture/openapi-sdk-descriptor-v2.md)）；调用高风险函数时生成审批待办。
 - Storage：统一 GORM 实现（`internal/platform/approvals`），随主库迁移自动建表
   （MySQL/Postgres/SQLite/SQL Server 均内置，无需 build tag）。
-- API（详见 [审批 API](/archive/legacy-en/api/approval)）：
   - 列表：`GET /api/v1/approvals`（查询参数 state/functionId/gameId/env/page/size 等）
   - 详情：`GET /api/v1/approvals/:id`（含脱敏 payload 快照）
   - 同意：`POST /api/v1/approvals/:id/approve`（同意后执行原调用并返回结果/Job）

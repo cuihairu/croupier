@@ -54,7 +54,7 @@ Corresponds to `configs/agent.yaml` (template in the repository). This binary ha
 
 ### outboundTLS (TLS for the Agent → local Provider outbound call chain)
 
-Client TLS for the Agent's outbound calls to game-side Providers (dialed by the local gateway `callLocalProvider`): `enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`. With `enabled: false` (the default) this link stays plaintext (compatibility fallback). Note the division of labor with the `server:` block: **TLS for the agent → server upstream link is driven by the `server:` block** (enabled when `server.insecure: false`; the certificate fields also live in the `server` block), while `outboundTLS` only applies to the outbound Agent→local-Provider link. In production, an internal CA is recommended; see [TLS and Certificates](./tls-certificates).
+Client TLS for the Agent's outbound calls to game-side Providers (dialed by the local gateway `callLocalProvider`): `enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`. With `enabled: false` (the default) this link stays plaintext (compatibility fallback). Note the division of labor with the `server:` block: **TLS for the agent → server upstream link is driven by the `server:` block** (enabled when `server.insecure: false`; the certificate fields also live in the `server` block), while `outboundTLS` only applies to the outbound Agent→local-Provider link. In production, an internal CA is recommended; see TLS and Certificates.
 
 ### ops (metrics reporting and process supervision)
 
@@ -124,7 +124,7 @@ ops:
           cron: "30 7 * * 1-5"
 ```
 
-Panel entry: the node maintenance page's "Supervision" column → the process supervision drawer (status light/PID/uptime/memory/CPU/over-limit flags/snapshot profile). On a crash, a `detect_down` event records the snapshot directory and artifact filename; when the host's `core_pattern` is not in pipe mode, the agent sends a one-time read-only `snapshot_hint` tip (including suggested commands; the agent does not write host configuration). Retention/quota/artifact download permissions: see [Agent Supervisor Design Brief (this section is Chinese-only)](/zh/design/agent-supervisor-design).
+Panel entry: the node maintenance page's "Supervision" column → the process supervision drawer (status light/PID/uptime/memory/CPU/over-limit flags/snapshot profile). On a crash, a `detect_down` event records the snapshot directory and artifact filename; when the host's `core_pattern` is not in pipe mode, the agent sends a one-time read-only `snapshot_hint` tip (including suggested commands; the agent does not write host configuration). Retention/quota/artifact download permissions: see Agent Supervisor Design Brief (this section is Chinese-only).
 
 ### ops.allowUpdate (managed program binary update, §10.4)
 
@@ -185,7 +185,7 @@ probe:
       timeout: 2s
 ```
 
-**The single source of truth for sampling frequency is the Server** (configuration and execution are separated): after the panel publishes a `probe.policy` sampling strategy it is pushed over the wire and takes effect on the agent hot (four stacked granularities: base/per-target/time-window/special-times); at that point **the policy takes precedence over this table's `interval`**, which serves only as the fallback for uncovered targets; when no policy is published, this table's values are used. See the [API documentation probe endpoint](/archive/legacy-en/api/ops) and the [Review Brief §13.3](/archive/legacy-en/design/agent-health-recovery-review).
+**The single source of truth for sampling frequency is the Server** (configuration and execution are separated): after the panel publishes a `probe.policy` sampling strategy it is pushed over the wire and takes effect on the agent hot (four stacked granularities: base/per-target/time-window/special-times); at that point **the policy takes precedence over this table's `interval`**, which serves only as the fallback for uncovered targets; when no policy is published, this table's values are used. See the API documentation probe endpoint and the Review Brief §13.3.
 
 **Derived db probe targets (R4)**: agents with a `probe:` block periodically pull the db target set derived by the server from `db_sources.owner_agent_id` (30s polling, target names `db:<source name>`, duplicate source names disambiguated with a `#<id>` suffix, driver mapping postgres→pgx, probe assertion `SELECT 1`). On pull failure or "empty version + empty body" (the server cannot derive anything), the existing targets are kept; **an empty set** is a real state (all ownership removed), and the agent tears down all dynamic probes; the version is the content hash of the target set — if the set is unchanged, it is skipped. If a derived target has the same name as a local target, the push is rejected wholesale (retry next round) — no silent cross-wiring. DSN plaintext is only returned over the control connection to the owning agent, with the same trust boundary as local `probe.targets`.
 

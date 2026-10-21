@@ -81,5 +81,5 @@ tls: # :19091 local listener (game server → Agent)
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Agent reconnects repeatedly with `connection closed` | Certificate SAN does not include the LB address → set `server.serverName` or reissue the certificate |
 | `x509: certificate signed by unknown authority`      | The peer's `caFile` has not been updated to the new CA                                               |
-| Handshake succeeds but job dispatch fails            | Unrelated to TLS — check `agent.httpAddr` reachability (see [Agent Configuration](./config-agent))   |
+| Handshake succeeds but job dispatch fails            | Unrelated to TLS — check `agent.httpAddr` reachability (see Agent Configuration)                     |
 | Plaintext connection to a TLS port                   | `server.insecure` inconsistent with the port's actual form                                           |

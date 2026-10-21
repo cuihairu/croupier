@@ -217,8 +217,6 @@
 
 **选读**:
 
-- [TODO_V2_UI_ENTERPRISE.md](./TODO_V2_UI_ENTERPRISE.md) - 了解后续规划
-
 ### 开发者
 
 **必读**:
@@ -229,7 +227,6 @@
 
 **选读**:
 
-- [CHANGELOG.md](./CHANGELOG.md) - 查看变更日志
 - [docs/PHASE1_FINAL_REPORT.md](./docs/PHASE1_FINAL_REPORT.md) - 了解技术细节
 
 ### 测试人员
@@ -265,8 +262,6 @@
 2. [QUICK_REFERENCE_v0.1.6.md](./QUICK_REFERENCE_v0.1.6.md) - 快速查看关键信息
 
 **选读**:
-
-- [TODO_V2_UI_ENTERPRISE.md](./TODO_V2_UI_ENTERPRISE.md) - 了解后续规划
 
 ---
 
@@ -309,7 +304,6 @@
 
 1. [重构总结](./docs/TABEDITOR_REFACTOR_SUMMARY.md)
 2. [最终报告](./docs/PHASE1_FINAL_REPORT.md)
-3. [V2 TODO](./TODO_V2_UI_ENTERPRISE.md)
 
 ---
 
@@ -324,7 +318,6 @@
 ### 日常查阅
 
 - 需要快速查看信息：[快速参考卡片](./QUICK_REFERENCE_v0.1.6.md)
-- 需要了解变更：[CHANGELOG.md](./CHANGELOG.md)
 - 需要测试：[测试指南](./docs/TABEDITOR_TEST_GUIDE.md)
 - 需要发布：[发布检查清单](./RELEASE_CHECKLIST_v0.1.6.md)
 

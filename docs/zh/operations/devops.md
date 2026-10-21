@@ -8,7 +8,7 @@ title: DevOps 说明（CI/CD、构建、部署与回滚）
 
 > 路径口径说明：本仓 `docs/operations/` 下部分部署/回滚文档（deploy-overview、deploy-binary、deploy-kubernetes、upgrade-rollback）路径在英文侧但内容为中文，且被站点构建排除（`docs/.vitepress/config.mjs:13-25` 的 `srcExclude` 含 `operations/**`）——这些文件在仓库里可查、在文档站上看不到。本文把其中与 DevOps 直接相关的事实收进 zh 侧可访问页面；原文件仍是细节出处。
 >
-> 术语消歧：本文的「DevOps」指 CI/CD 与交付面；`agents/devops`（devops-agent，内网远程访问代理）是另一个东西，其堡垒机/跳板能力现状见[权限控制说明](/zh/operations/access-control)。
+> 术语消歧：本文的「DevOps」指 CI/CD 与交付面；`agents/devops`（devops-agent，内网远程访问代理）是另一个东西，其堡垒机/跳板能力现状见权限控制说明。
 
 ## CI/CD 流程
 
@@ -24,7 +24,7 @@ title: DevOps 说明（CI/CD、构建、部署与回滚）
 | 部署    | `deploy-self-hosted.yml`（**仅手动**，`:4`）                                                                       | 自托管环境部署                                                      |
 | 文档    | `docs-check.yml`（链接/术语守卫）、`docs-pages.yml`（Pages 发布）                                                  | push/PR/手动                                                        |
 
-**CI - Core 的 job 拓扑**：`lint`/`security`/`test` 三轨并行，`e2e`、`migrate-matrix`、`capture-matrix` 均只依赖 `test`（`ci.yml:232`/`:331`/`:432`）。各 job 内容与守卫脚本调用点见[开发周期与发布说明](/zh/development/lifecycle)。
+**CI - Core 的 job 拓扑**：`lint`/`security`/`test` 三轨并行，`e2e`、`migrate-matrix`、`capture-matrix` 均只依赖 `test`（`ci.yml:232`/`:331`/`:432`）。各 job 内容与守卫脚本调用点见开发周期与发布说明。
 
 **自托管部署工作流**（`deploy-self-hosted.yml`）：手动触发后由 `self-hosted` runner 执行（`:51-52`）——复制 compose 编排与遥测栈（`:66-67`）、重建 `configs/`（`:74-110`，含 agent 地址收敛到 `haproxy:19090`）、按 inputs 写 `.env` 镜像 tag（`:125-132`，默认 `main`）、GHCR 登录与全量 `docker compose pull`（`:155-188`）、compose 归属校验防误操作（`:213`）、`docker compose up -d --wait --remove-orphans`（`:240`）+ 核心容器 force-recreate（`:249`），并采集 server panic、agent 注册与 dashboard 失败证据（`:220`/`:265`/`:268`）。
 
@@ -63,7 +63,3 @@ Agent 一律主动出连 Server（控制入口 `:19090`），Server 不反向拨
 - `zh/operations/index.md:21-22` 内容地图声称覆盖「升级回滚」等条目，但对应文件不在站点构建内，导航与实际可见页面不符（已知口径问题，本文不代修该索引以外的指向）。
 
 ## 相关页面
-
-- 发布节奏、版本策略与门禁：[开发周期与发布说明](/zh/development/lifecycle)
-- 部署形态细节：[Docker 部署](/zh/operations/deploy-docker)
-- 安全与风控：[安全基线](/zh/operations/security)、[风控](/zh/operations/risk-control)

@@ -42,8 +42,3 @@ Function registration -> Function contract -> Resource semantics -> Page proposa
 - **Presentation layer** is driven by strongly typed page specifications, not ad hoc component trees.
 
 ## Reading path
-
-- Start with [Layers](/architecture/layers) for the component and boundary model.
-- Review [Terms and layering](/architecture/terms-and-layering) for shared vocabulary.
-- Follow [Data flow（本节仅有中文版）](/zh/architecture/data-flow) for registration, dispatch, and page execution.
-- Read [Session lifecycle（本节仅有中文版）](/zh/architecture/session-lifecycle) and [SDK Wire protocol](/zh/architecture/sdk-wire-protocol) for transport behavior.

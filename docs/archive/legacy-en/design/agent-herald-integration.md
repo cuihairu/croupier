@@ -6,7 +6,6 @@ title: herald 对接简档——croupier 告警出口对接通知编排平台（
 
 ## 状态
 
-- 状态: **M2 已落地（2026-10-10，Outlet 接口位 + herald 出口适配器，见 §8）**，六件套之一（[Agent 清单](agents-inventory.md) 顶部有索引）。
 - 报警出口令（用户令，2026-10-09）：capture 告警 / healthprobe 故障窗口 / devops 异常 → 走 **herald**（用户自研通知编排与投递平台，仓 `~/workspaces/herald`）的 REST API/webhook 投递；**croupier 这边当接入方，courier 式接法**——herald 只提供能力，通道/收件人由 herald 侧配置；接入方式写进本简档。
 - **devops 口径注（2026-10-11 用户令重定）**：原「devops 构建失败」口径随 devops-agent 重定为内网堡垒机代理而改判（新语义=白名单主机不可达、审计拒绝等会话面异常，待简档定稿）；下方 `devops.build_*` kind 是旧口径实施物，简档批准前代码不动，改名或复用随简档一并拍。
 - 依据: herald `docs/api/rest.md`、`docs/guide/integration.md`（应用接入/集成者 API，2026-10 时点）。

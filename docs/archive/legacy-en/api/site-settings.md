@@ -65,7 +65,7 @@ type OutboundSnapshot struct {
 
 语义实现见 `internal/security/secguard`（`CheckURL` 静态校验 + 拨号 `Control` 钩子 +
 `DoWithRetry`）；边界（覆盖面仅 webhook 通知与检查更新两处外呼）见
-[安全配置](../operations/security.md)。
+安全配置。
 
 ## 通知快照结构（`GET /site/notification`，节选）
 
@@ -87,4 +87,4 @@ type NotificationSnapshot struct {
 }
 ```
 
-渠道语义与事件绑定见 [通知渠道](../operations/notifications.md)。
+渠道语义与事件绑定见 通知渠道。

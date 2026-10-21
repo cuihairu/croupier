@@ -94,7 +94,7 @@ SDK/游戏方可在 `input_schema` 的字段 schema 上声明 `x-ui-*` 扩展字
 分组/联动/远程选项源等），前端经 `derivePresentationSpec`（调试路径）与服务端
 `buildFormFields`（发布路径，U4 起含 `x-options-source` → `remoteOptions`）推导为本
 协议的 `FormPresentationSpec`，两端表现一致。字段清单、推导规则与治理边界见
-[呈现 Hints 契约](/archive/legacy-en/architecture/presentation-hints)。hints 不进入页面编排（PageSpec），wire
+呈现 Hints 契约。hints 不进入页面编排（PageSpec），wire
 契约零改动。
 
 ## PageSpec 视图节点
@@ -187,7 +187,7 @@ section 内）：`componentTemplates?: Array<{ key: string; digest: string }>`�
 （trim / 同 key 去重保留首个 / 空白 key 丢弃）后随 `PageSpec.componentTemplates`
 落库，proposal→draft→published 全程 JSON 透传。语义：记录页面创建/编辑时所用
 组件模板的内容指纹（digest 算法与模板 API 透出见
-[组件模板 API](/archive/legacy-en/api/component-templates)），编辑器打开页面时与模板库当前
+组件模板 API），编辑器打开页面时与模板库当前
 digest 比对提示「所用模板有新版本」。**不参与发布校验、不参与渲染**——实例化是
 复制语义，页面内容始终是保存时的副本（提醒不自动同步）。
 
@@ -443,7 +443,7 @@ PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终�
 
 组件模板（V4 复用层）的 REST 契约不承载 PageSpec 本体，但模板 `tree`
 字段持有组合页 PageNode 子树（经组合页编辑器编译为 PageSpec 后发布）。
-端点与 DTO 定义见 [组件模板 API](/archive/legacy-en/api/component-templates)。
+端点与 DTO 定义见 组件模板 API。
 
 ## ABI 与版本
 

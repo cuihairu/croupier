@@ -391,10 +391,6 @@ platforms:
 
 ## 相关文档
 
-- [快速参考](../services/agent/etc/QUICKSTART.md)
-- [完整指南](../services/agent/etc/README-OPENAPI.md)
-- [多服务配置](../services/agent/etc/MULTI-SERVICE-GUIDE.md)
-- [OpenAPI 示例](../services/agent/etc/openapi.example.yaml)
 
 ---
 

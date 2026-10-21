@@ -229,6 +229,3 @@ This page covers the commonly used keys. The following effective configuration d
 - `herald`, `alertInbound`, `externalAPI`, `serverStatus`
 
 ## Next Steps
-
-- [Deployment Guide (Chinese only)](/zh/operations/deploy-docker)
-- [Development Documentation](/archive/legacy-en/development/index)

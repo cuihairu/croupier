@@ -110,7 +110,7 @@ graph TB
 > discovery goes through shared storage (no seeds, no static peers), and requests landing on a
 > non-owner instance are forwarded over the inter-instance link (one-hop limit + epoch fencing).
 > Single-instance deployments have clustering off by default with zero overhead. See
-> [Server multi-instance HA design](/zh/architecture/server-ha-multi-instance).
+> Server multi-instance HA design.
 
 Key boundary notes:
 
@@ -188,14 +188,14 @@ curl http://localhost:18780/api/v1/
 
 Organized by usage path:
 
-| Path             | Entry                                                                                                                                                             | Description                                                                                                       |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Quick Start**  | [Guide](/guide/) · [Guide](/guide)                                                                                                                                | Installation, configuration, Server + Agent startup, minimal loop                                                 |
-| **Page product** | [Function management](/zh/guide/concepts/function-management) · [Page Studio](/zh/guide/concepts/function-registration-ui) · [Resource Catalog](/zh/api/resource) | Register functions → pages generated automatically → publish via Proposal Inbox → controlled execution in Console |
-| **SDK**          | [SDK overview](/sdks)                                                                                                                                             | Provider / Invoker / configuration / capability matrix, 6 languages                                               |
-| **API**          | [API reference](/api)                                                                                                                                             | REST contracts, authentication, game/env scope, per-resource APIs                                                 |
-| **Operations**   | [Operations](/operations) · [Analytics](/analytics)                                                                                                               | Deployment, monitoring, backup, analysis, troubleshooting                                                         |
-| **Development**  | [Architecture](/architecture)                                                                                                                                     | Architecture, code conventions, extension strategy, release rules                                                 |
+| Path             | Entry                                                | Description                                                                                                       |
+| ---------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Quick Start**  | [Guide](/guide/) · [Guide](/guide)                   | Installation, configuration, Server + Agent startup, minimal loop                                                 |
+| **Page product** | Function management · Page Studio · Resource Catalog | Register functions → pages generated automatically → publish via Proposal Inbox → controlled execution in Console |
+| **SDK**          | [SDK overview](/sdks)                                | Provider / Invoker / configuration / capability matrix, 6 languages                                               |
+| **API**          | [API reference](/api)                                | REST contracts, authentication, game/env scope, per-resource APIs                                                 |
+| **Operations**   | [Operations](/operations) · [Analytics](/analytics)  | Deployment, monitoring, backup, analysis, troubleshooting                                                         |
+| **Development**  | [Architecture](/architecture)                        | Architecture, code conventions, extension strategy, release rules                                                 |
 
 Historical design and migration documents live under [Architecture — proposals and migrations](/architecture/) (collapsed in the sidebar) and are not part of the main onboarding path.
 

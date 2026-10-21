@@ -508,5 +508,4 @@ server:
 ## 相关文档
 
 - [函数管理](./function-management.md)
-- [配置管理](/operations/config-server)
 - [安全配置](../../operations/security.md)

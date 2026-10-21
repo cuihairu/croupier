@@ -16,6 +16,3 @@ int main() {
 ```
 
 ## 下一步
-
-- [函数注册](./functions)
-- [Client Config](/sdks/cpp/configuration/client-config)

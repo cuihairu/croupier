@@ -6,7 +6,7 @@ title: CDC Connector 架构——多数据库数据源接入与能力声明（�
 
 ## 状态
 
-- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层与流式接线已落码（2026-10-13，4306 增量一/二），三源活栈冒烟已进 CI；runner 多 Connector 装配与三闸消费面切换已落码（2026-10-13，4306 增量四）**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 实现落地 `agents/capture/connector/pg/`（pgoutput 解码层 + `PostgresConnector` 复制流接线，§8.1/8.2）；MySQL 迁移契约落地 `source.MySQLConnector`（§8.3，行像位置下标 + 凭据 DSNEnv 通道，活体冒烟）；runner 统一消费面落地（§8.4，`newConnector` 工厂 + ProviderConnector 桥接 + sourceType/dsnEnv 配置面）。全链（规则→面板）活栈验证未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（现有 MySQL 单源实现）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
+- 状态: **契约已落码（2026-10-11 阶段一交付）；PostgreSQL P0 解码层与流式接线已落码（2026-10-13，4306 增量一/二），三源活栈冒烟已进 CI；runner 多 Connector 装配与三闸消费面切换已落码（2026-10-13，4306 增量四）**。本文是用户令的整理稿：多数据库优先级、SourceConnector 契约、统一 ChangeEvent、Connector 能力声明与能力感知发布校验、自研 vs 复用选型、部署形态与产品边界。§3 契约面已落地 `agents/capture/connector/`（ChangeEvent/SourceConnector/Capabilities，纯逻辑零驱动，单测锁定）；PG 实现落地 `agents/capture/connector/pg/`（pgoutput 解码层 + `PostgresConnector` 复制流接线，§8.1/8.2）；MySQL 迁移契约落地 `source.MySQLConnector`（§8.3，行像位置下标 + 凭据 DSNEnv 通道，活体冒烟）；runner 统一消费面落地（§8.4，`newConnector` 工厂 + ProviderConnector 桥接 + sourceType/dsnEnv 配置面）。全链（规则→面板）活栈验证未实施。任务拆分见 `todo.md`「CDC 平台化批」；与 capture-agent 简档（现有 MySQL 单源实现）、CDC 过滤策略体系（能力声明消费方）、[风控面板设计](risk-control-panel-design.md)（能力透明展示）互链。
 
 ## 8. 交付记录
 

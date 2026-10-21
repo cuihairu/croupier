@@ -41,7 +41,7 @@ OpenAPI
 | `approval`                | `x-approval`                     | `required` 与可选 `policyKey`；可与同步/异步执行组合 |
 | `risk` / `permission`     | `x-risk` / `x-permission`        | 治理字段                                             |
 
-版本回退链（契约物化时）：operation 级 `x-version` > 运行时注册版本（SDK 同名函数） > 文档 `info.version` > 默认 `1.0.0`。`info.version` 按 OpenAPI 规范允许任意字符串，非 semver 值不会让函数被丢弃，而是回退到 `1.0.0`。Agent provider 路径的版本规则见 [Agent Providers](agent-providers.md#函数注册规则)。
+版本回退链（契约物化时）：operation 级 `x-version` > 运行时注册版本（SDK 同名函数） > 文档 `info.version` > 默认 `1.0.0`。`info.version` 按 OpenAPI 规范允许任意字符串，非 semver 值不会让函数被丢弃，而是回退到 `1.0.0`。Agent provider 路径的版本规则见 Agent Providers。
 
 REST 自动识别示例：
 
@@ -127,4 +127,4 @@ DELETE /api/v1/openapi/sources/{sourceId}/bindings/{bindingId}
 
 用户在 Page Studio 显式接受并发布 Proposal；运行 Console 不直接读取 OpenAPI 或 tags 生成菜单。
 
-详见 [Descriptor v2](../../architecture/openapi-sdk-descriptor-v2.md) 和 [Dashboard Page 模型](../../architecture/dashboard-page-model.md)。
+详见 Descriptor v2 和 Dashboard Page 模型。

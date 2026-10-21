@@ -11,7 +11,7 @@ tag:
 
 # Database Monitoring
 
-"Ops Center → Database Monitoring" performs **read-only direct-connection probing** of the game/platform's MySQL and PostgreSQL instances (not a proxy, no Agent detour): register data sources → probe with one click → snapshot-style display of connections/locks/deadlocks, with automatic integration into the [Alert Center](./alerts) when thresholds are exceeded.
+"Ops Center → Database Monitoring" performs **read-only direct-connection probing** of the game/platform's MySQL and PostgreSQL instances (not a proxy, no Agent detour): register data sources → probe with one click → snapshot-style display of connections/locks/deadlocks, with automatic integration into the Alert Center when thresholds are exceeded.
 
 ## Data Source Registration
 

@@ -63,7 +63,7 @@ install -m 0755 croupier-server /usr/local/bin/croupier-server
 install -m 0755 croupier-agent /usr/local/bin/croupier-agent
 ```
 
-不要把示例配置直接当作生产配置；生产参数见[Server 配置](/operations/config-server)与[Agent 配置](/operations/agent-config)。
+不要把示例配置直接当作生产配置；生产参数见Server 配置与Agent 配置。
 
 ## Docker 部署
 
@@ -81,7 +81,7 @@ docker compose logs -f
 docker build -t croupier-server:local -f docker/Dockerfile.server .
 ```
 
-生产部署、卷、依赖服务、升级与回滚见 [Docker 部署](/zh/operations/deploy-docker)。
+生产部署、卷、依赖服务、升级与回滚见 Docker 部署。
 
 ## SDK 安装
 

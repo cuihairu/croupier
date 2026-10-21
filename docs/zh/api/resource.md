@@ -70,7 +70,7 @@ POST /api/v1/resource-catalog/{resourceKey}/conflicts/{field}/resolve
 
 ## Proposal 查询与重建
 
-按资源过滤 Proposal 使用 [Proposal API](/archive/legacy-en/api/page)：
+按资源过滤 Proposal 使用 Proposal API：
 
 ```http
 GET  /api/v1/proposals?resourceKey={resourceKey}

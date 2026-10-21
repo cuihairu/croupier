@@ -10,7 +10,7 @@ title: 插件机制正式设计——扩展点全景、外部服务接入规范�
   - **代决范围**：12 项决策按「决策摘要」的推荐方案定稿生效；M4 接入模板由 Draft 转定稿。**事后用户可推翻任一条**，推翻即按对应 § 回改。
   - **代决理由**：①12 项均已给出推荐方案与触发条件，代决不引入新技术判断；②决策①②④⑥⑪（默认 no-op 零外发 / 一套机制不新建注册中心 / 无动态代码加载 / 检测器 v1 不开放第三方规则 / 破坏性基础设施动作强制审批审计）均为**收紧口径**——收紧比放开安全；③继续挂待拍板会连带冻结 M5 与检测器插件化的触发评估，冻结成本高于代决成本。
 - 补单令三项合写一份：①插件机制正式设计（§2/§3/§6/§7）②外部服务接入规范（§4 + 附录 A）③herald 对接规范（§5 + 附录 B）；另并入 ④devops-agent LAN 资产接入方式（§3.8，cockpit 首选 + provider 兜底）。
-- 设计输入: [插件架构调研](../research/plugin-architecture-survey.md)（Grafana/VS Code/WordPress/VitePress 六问口径）、[Provider 插件设计](/archive/legacy-en/design/provider-plugin-design)（#66，P0 已落地）、[扩展安装模型](/archive/legacy-en/architecture/extension-installation-model)（五表 4 态）、[官方扩展统一模式](/archive/legacy-en/architecture/official-extension-unified-pattern)、[herald 对接简档](/archive/legacy-en/design/agent-herald-integration)、[Agent 清单](agents-inventory.md)。
+- 设计输入: [插件架构调研](../research/plugin-architecture-survey.md)（Grafana/VS Code/WordPress/VitePress 六问口径）、Provider 插件设计（#66，P0 已落地）、扩展安装模型（五表 4 态）、官方扩展统一模式、herald 对接简档、[Agent 清单](agents-inventory.md)。
 - 口径令（2026-10-10，出口 Provider 化 + 通知强化，并入本设计）：①告警出口 Provider 化——`notify(event) -> {delivered, channel, retry}` 契约 + 注册表 + 配置降级顺序（主出口失败滑下一个，网关 fallback 同构）；herald 只是默认外部出口选项，不绑死；②**默认 no-op 第一原则**——所有外部服务 Provider（告警出口/状态源/供应商调用）默认=注册表内真实 no-op 实现（同接口，非 if 散落），零配置=零外发（数据外发默认关闭红线）；herald/atlas 均为选项，配置显式添加启用才生效，可增可删可换，切换=换注册项业务零改动；③告警默认=站内通知（内建默认开，零配置可达、零外发，走既有通知体系未读/已读/持久化）；外部出口=可选 Provider 链，失败降级回站内；④站内通知强化——level(info|warn|critical)/type/source/ref 字段 + 紧急度排序 + 重复触发升级去重（§5.1）。
 - 决策摘要（按推荐方案定稿，供拍板后审）:
   1. **默认 no-op 第一原则（零配置=零外发）**：所有外部服务 Provider（告警出口/状态源/供应商调用）默认=注册表内**真实 no-op 实现**（同接口，非 if 判断散落业务代码）——零配置即零外发，符合数据外发默认关闭红线；herald/atlas 都是**选项**，配置里显式添加并启用才生效，可增可删可换；切换=换注册项，业务代码零改动；配置页列清「已启用的外部服务」，每项带启用开关。
@@ -165,7 +165,6 @@ type DeliveryOutcome struct {
 - **站内通知强化（2026-10-10 口径令）**：messages 表加 `level`（`info|warn|critical` 枚举，默认 info，历史回填 info）/ `type`（通知类型：incident/alert/report/system…，复用既有列）/ `source`（哪个 agent/状态源）/ `ref_type`+`ref_id`（关联对象：incident/服务器，可筛选）/ `scope`（**可见范围，必备字段**，见下）；**排序**=紧急度 critical>warn>info、同级内时间倒序（列表/面板默认）；**视觉分级**=角标颜色/图标按级别区分，站内出口产生的通知默认按事件 severity 映射分级（critical/warning/info→critical/warn/info）；**升级机制**=同一事件（dedupKey）重复触发升级级别（info→warn→critical，重复 warn→critical）并去重（更新同行不新建）；报表推送同按此分级（见 [incident-reports](incident-reports.md) §6）。
 - **通知可见范围（scope，2026-10-10 补令）**：**通知不是全员广播**。messages.scope 记录类别上下文（如 `{category: "client"}`）；可见性=read 时经「类别→部门/角色」映射解析（映射存 incident_categories.audience `{roles, users}`，设置页可改）：该类别受众（部门角色+显式账号）+ 该类 leader 可见，**管理员看全量**；报表/排行榜/责任人报告同规则——**总聚合只给管理员，leader 收自己类别分片，不是人人一份**；无归属类别的通知归「运维」或配置的兜底接收组，**不落空**；对外 API/Webhook 同理按 token 的 scope 限可见面（incident-reports §9）。
 - 事件源（capture 规则命中 / devops 规则 / supervisor 熔断 / healthprobe 窗口）只产 §5.2 信封，**不感知出口**；出口管理器按配置链投递（M2 Manager 扇出/重试/Permanent 短路语义保留，扩展为链式降级）。
-- **herald = 默认外部出口选项**：对接方式以 [herald 简档](/archive/legacy-en/design/agent-herald-integration)为权威（apps 集成者 API / 事件适配面 / trigger token / 品类映射 / courier 式接法），本设计不重复；差异仅在实现落点上把「herald 适配器」泛化为「Outlet 注册表的一个实现」。
 - **generic webhook = 同接口实现**（§4.2 形态 2）：同一信封 POST 出去，供应商侧自建映射；无 herald 的部署用 webhook 出口对接钉钉/飞书/企业微信机器人。
 
 ### 5.2 统一告警事件信封（出站 wire）

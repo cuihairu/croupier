@@ -22,7 +22,4 @@ JavaScript SDK 运行在单进程事件循环模型上。阻塞型 CPU 任务应
 
 ## 继续阅读
 
-- [主线程调度器](./threading)
-- [约定规范](./conventions)
-- [集成指南](./integration)
 - [API 参考](../api/)

@@ -69,9 +69,9 @@ Rule hit → firing (write to the alerts table + dispatch to notification channe
 
 ## Integration with Notification Channels
 
-When an alert fires, it is dispatched according to the [notification channel](./notifications) configuration: in-app messages (on by default), DingTalk bots, custom webhooks, SMTP email. Dispatch failures are only logged and never block the alert from being persisted.
+When an alert fires, it is dispatched according to the notification channel configuration: in-app messages (on by default), DingTalk bots, custom webhooks, SMTP email. Dispatch failures are only logged and never block the alert from being persisted.
 
-There is also the **herald external alert outlet** (`herald.enabled`, off by default): when enabled, events such as supervision circuit breaks (supervisor breaker_tripped) are delivered via [herald](/archive/legacy-en/design/agent-herald-integration) — channels/recipients are all configured on the herald side; if herald is unreachable it only logs and counts failures, without blocking alert persistence.
+There is also the **herald external alert outlet** (`herald.enabled`, off by default): when enabled, events such as supervision circuit breaks (supervisor breaker_tripped) are delivered via herald — channels/recipients are all configured on the herald side; if herald is unreachable it only logs and counts failures, without blocking alert persistence.
 
 ## Relationship with External Alertmanager
 

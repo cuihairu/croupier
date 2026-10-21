@@ -55,4 +55,4 @@
 
 - 调度器随 server 启动运行（多实例 HA 下由 cluster owner 单点执行）
 - 备份等平台自身定时任务建议托管于此（见
-  [备份恢复](../operations/backup-restore.md)）
+  备份恢复）

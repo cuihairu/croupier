@@ -314,5 +314,3 @@ port: 19080
 After installation, refer to:
 
 - [Configuration Guide](../operations/config-server.md) - detailed configuration options
-- [Deployment Guide (Chinese only)](/zh/operations/deploy-docker) - production deployment
-- [Core Concepts (Chinese only)](/zh/guide/concepts/overview) - understanding the system design

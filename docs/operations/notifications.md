@@ -11,7 +11,7 @@ tag:
 
 # Notification Channels
 
-The unified outlet for platform events: **approval events, alert triggers, function call events**. The four channels have independent switches, and configuration takes effect hot (L3 override layer, see [Config Layering](/archive/legacy-en/architecture/config-layering)).
+The unified outlet for platform events: **approval events, alert triggers, function call events**. The four channels have independent switches, and configuration takes effect hot (L3 override layer, see Config Layering).
 
 ## Channels and Configuration Keys
 
@@ -42,12 +42,12 @@ Key/value semantics: value is a JSON value (string/boolean); deleting an overrid
 
 ## Events and Bindings
 
-| Event                                                               | Trigger source                           |
-| ------------------------------------------------------------------- | ---------------------------------------- |
-| Approval flow transitions (pending/approved/rejected)               | Approval Center                          |
-| Alert fired (`alert.fired`)                                         | [Alert rule engine](./alerts)            |
-| Certificate expiry (`certificate_expiring` / `certificate_expired`) | [Certificate Monitoring](./certificates) |
-| Function call events                                                | Call path                                |
+| Event                                                               | Trigger source         |
+| ------------------------------------------------------------------- | ---------------------- |
+| Approval flow transitions (pending/approved/rejected)               | Approval Center        |
+| Alert fired (`alert.fired`)                                         | Alert rule engine      |
+| Certificate expiry (`certificate_expiring` / `certificate_expired`) | Certificate Monitoring |
+| Function call events                                                | Call path              |
 
 On the ops side there is also event → channel routing (`GET/PUT /api/v1/ops/notifications`, stored in `ops_state.json`): `{channels:[{id,type,url,secret}], rules:[{event, channels, thresholdDays}]}` — which channels receive which events can be picked per event (e.g. certificate expiry only to DingTalk, not email).
 

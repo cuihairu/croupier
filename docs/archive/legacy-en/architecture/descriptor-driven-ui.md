@@ -115,7 +115,7 @@ Schema 里的 `x-widget`/`x-ui-*` 字段是**呈现提示**（用下拉还是文
 点击「接受并发布」后：Proposal 变成 **PublishedPageSpec——不可变快照**。
 页面要出现在控制台左侧导航，还需把它挂到菜单管理中的某个菜单
 （`PUT /api/v1/pages/{pageKey}/menu`，见
-[运行控制台导航与页面挂载](../guide/concepts/console-navigation.md)）。
+运行控制台导航与页面挂载）。
 
 > **为什么发布的是「快照」而不是「活引用」？** 如果运行时页面实时读取最新
 > 契约，函数一改线上页面立即跟着变——运营看到的界面可能在没有任何审核的
@@ -158,7 +158,7 @@ POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute
 > 改一下请求体就能调用任意函数，页面级权限形同虚设。把 functionId 收进
 > 服务端 binding，「页面无论怎么组合都绕不过治理」才成立——这是组合页
 > 可以放开手脚做「自由拖放」的安全前提（详见
-> [组合模型与表达力边界](./composition-model.md)）。
+> 组合模型与表达力边界）。
 
 ### ⑥ 契约变更：页面被强制对齐
 
@@ -195,18 +195,18 @@ POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute
 - 页面是 JSON 树：可校验、可快照、可 diff、可回滚。
 
 完整的心智模型（图形化的声明式 React、组合四轴、扩展方法论）见
-[组合模型与表达力边界](./composition-model.md)。
+组合模型与表达力边界。
 
 ## 新手阅读地图
 
 建议按这个顺序读，每篇解决一类疑问：
 
-| 顺序 | 文档                                                      | 回答的问题                                          |
-| ---- | --------------------------------------------------------- | --------------------------------------------------- |
-| 1    | 本文                                                      | 核心思路是什么？全流程怎么走？为什么这么设计？      |
-| 2    | [Dashboard 术语表](./dashboard-glossary.md)               | FunctionContract/Proposal/PageSpec 这些词的精确定义 |
-| 3    | [组合模型与表达力边界](./composition-model.md)            | 组合页的心智模型、能力边界、怎么扩展新原语          |
-| 4    | [Dashboard Resource/Page 模型](./dashboard-page-model.md) | 契约/提案/发布的领域模型权威定义                    |
-| 5    | [PageSpec 协议规范](./pagespec-protocol.md)               | wire 层的 JSON 长什么样（前端↔后端唯一契约）        |
-| 6    | [ProComponents 页面生成与运行时](./ui-generation.md)      | 生成器/运行时的实现规范与约束                       |
-| 7    | [组合页编辑器 V3](../dashboard/composite-editor-v3.md)    | 实际动手搭一个组合页的操作指南                      |
+| 顺序 | 文档                                                 | 回答的问题                                          |
+| ---- | ---------------------------------------------------- | --------------------------------------------------- |
+| 1    | 本文                                                 | 核心思路是什么？全流程怎么走？为什么这么设计？      |
+| 2    | Dashboard 术语表                                     | FunctionContract/Proposal/PageSpec 这些词的精确定义 |
+| 3    | 组合模型与表达力边界                                 | 组合页的心智模型、能力边界、怎么扩展新原语          |
+| 4    | Dashboard Resource/Page 模型                         | 契约/提案/发布的领域模型权威定义                    |
+| 5    | PageSpec 协议规范                                    | wire 层的 JSON 长什么样（前端↔后端唯一契约）        |
+| 6    | [ProComponents 页面生成与运行时](./ui-generation.md) | 生成器/运行时的实现规范与约束                       |
+| 7    | 组合页编辑器 V3                                      | 实际动手搭一个组合页的操作指南                      |

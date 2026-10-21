@@ -32,8 +32,4 @@ The following legacy content has been removed:
 
 1. [Quick Start](./quick-start.md)
 2. [Installation Guide](./installation.md)
-3. [Interface Preview (Chinese only)](/zh/guide/interface-preview) — screenshots of the main interfaces of the running stack
-4. [Configuration Management](../operations/config-server.md)
-5. [Deployment Guide (Chinese only)](/zh/operations/deploy-docker)
-6. Core concepts: [System Overview (Chinese only)](/zh/guide/concepts/overview) → [Function Management (Chinese only)](/zh/guide/concepts/function-management) → [Page Studio (Chinese only)](/zh/guide/concepts/function-registration-ui) → [Permissions (Chinese only)](/zh/guide/concepts/permissions)
-7. Integration guides: [OpenAPI Registration](/archive/legacy-en/guide/integrations/openapi-registration), [Third-Party Platforms](/archive/legacy-en/guide/integrations/third-party-platforms)
+3. [Configuration Management](../operations/config-server.md)

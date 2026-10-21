@@ -1,6 +1,6 @@
 # 函数调用兼容 API
 
-> **状态**：Compatibility — 兼容历史调用，不是 canonical。当前函数管理请用 [函数 API](./function.md)，任务与调用请用 [任务 API](./task.md)。
+> **状态**：Compatibility — 兼容历史调用，不是 canonical。当前函数管理请用 函数 API，任务与调用请用 [任务 API](./task.md)。
 
 本页描述 Dashboard 兼容使用的 `/api/v1/function-calls*` 接口。
 

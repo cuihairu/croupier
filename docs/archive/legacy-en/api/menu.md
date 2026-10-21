@@ -7,11 +7,11 @@ order: 22
 # 控制台菜单 API（Menus）
 
 控制台动态菜单的管理面 CRUD 与当前用户可见树。实现以 `internal/api/menu/` 为准；
-菜单模型与渲染链路见 [控制台动态菜单](../architecture/console-dynamic-menu.md)。
+菜单模型与渲染链路见 控制台动态菜单。
 
 - **认证**：均需 JWT；挂在 scoped 组（`X-Game-ID`/`X-Env` 生效，菜单绑定 per-game）。
 - **labels 为 `LocalizedText`**（BCP47 键，如 `{"zh-CN": "...", "en-US": "..."}`），
-  契约见 [本地化文本契约](../architecture/localized-text-contract.md)。
+  契约见 本地化文本契约。
 
 ## 端点
 

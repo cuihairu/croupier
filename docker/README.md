@@ -49,7 +49,7 @@ docker compose -f docker-compose.quickstart.yml up -d
 镜像匿名可拉），五容器全 healthy 即就绪；Dashboard `:8000`、API `:18780`。
 可选组件（SDK 示例 / 分析管道）用 `--profile sdk-examples` / `--profile analytics`
 拉起；secret、端口、多游戏单库切换与「--profile pull 级联重建全栈」的坑见
-`docker-compose.quickstart.yml` 文件头注释与 [部署指南](../docs/operations/deploy-docker.md)。
+`docker-compose.quickstart.yml` 文件头注释与 部署指南。
 
 ### 启动核心服务（源码构建）
 

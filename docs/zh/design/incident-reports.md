@@ -8,7 +8,7 @@ title: 事故报表体系——登记、归因、报表与 leader 分发（设�
 
 - 状态: **已批开工（2026-10-10 设计令落档；同日多批补充令并入，见各节标注）**——文档先落盘，落盘即按 §10 分批开工，每批测试绿才推送。
 - 需求令四件：①责任人报告（周/月，事故归属到人：agent/操作员/变更引入，来源=execlog 审计 + herald 事件 + incident 登记）②排行榜（周/月/季/年四档，事故数/影响时长/修复速度）③事故趋势（时间序列，分类含 bug 与运维故障：编译红/服务不可用/探活失败/部署失败）④事故统计（总量/分类占比/MTTR/复发率）。
-- 补充令：职能域类别（六类默认 + 设置可配存库 + 子类 + 删除归并未分类）→ §2.1/§3；每类配 leader → §2.1/§6；报告按类聚合分发 → §6；对比维度（环比/月度对比/同比三列 + 去年同期虚线 + 无数据不算假数）→ §5.4；对外开放 API（定案 REST + Webhook 两条，SDK/OpenAPI 客户端生成不做，OpenAPI 仅文档）→ §9；出口 Provider 链（站内默认必有 → 外部可选降级，默认 no-op 第一原则）与通知分级强化（level/type/source/ref/scope + 紧急度排序 + 升级去重）与通知可见范围（audience 定向 + 管理员全量 + 兜底组）→ §2.5/§6，机制面见[插件机制](plugin-mechanism.md) §5.1；配套[服务器状态 Provider](/archive/legacy-en/design/server-status-provider)（维护窗口 gate）独立简档。
+- 补充令：职能域类别（六类默认 + 设置可配存库 + 子类 + 删除归并未分类）→ §2.1/§3；每类配 leader → §2.1/§6；报告按类聚合分发 → §6；对比维度（环比/月度对比/同比三列 + 去年同期虚线 + 无数据不算假数）→ §5.4；对外开放 API（定案 REST + Webhook 两条，SDK/OpenAPI 客户端生成不做，OpenAPI 仅文档）→ §9；出口 Provider 链（站内默认必有 → 外部可选降级，默认 no-op 第一原则）与通知分级强化（level/type/source/ref/scope + 紧急度排序 + 升级去重）与通知可见范围（audience 定向 + 管理员全量 + 兜底组）→ §2.5/§6，机制面见[插件机制](plugin-mechanism.md) §5.1；配套服务器状态 Provider（维护窗口 gate）独立简档。
 - 数据源现状探查基线：alerts（`internal/model/alert.go`，meta DB，无 game 归库列）、execution_logs（`internal/model/execution_log.go:14`，Actor/FunctionID/Status/DurationMs，per-game DB）、bugs（`internal/model/bug.go:18`，含 Source/Assignee/CrashFingerprint）、cicd_builds（0038 迁移建表）、supervisor 事件（内存环，经 MetricsStore hook 出 herald）、probe 故障窗口（availability 品类）。
 
 ## 1. 定位与职责边界

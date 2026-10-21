@@ -15,7 +15,7 @@ tag:
 
 > **状态**：Current -- 路由注册于 `internal/handler/routes.go`（Proposal / Pages / Versioning / Console 四组）。默认工作流是语义化编辑与发布。
 
-这组 API 管理当前 `game_id + env` scope 的 PageProposal、PageDraft、PublishedPageSpec、三方合并与 Console 运行时。运行控制台导航由菜单系统（`menu_items`）驱动：ConsoleMenuSpec 按「菜单树 + 挂载的已发布页面」组装（见 [运行控制台动态菜单](../architecture/console-dynamic-menu.md)）。
+这组 API 管理当前 `game_id + env` scope 的 PageProposal、PageDraft、PublishedPageSpec、三方合并与 Console 运行时。运行控制台导航由菜单系统（`menu_items`）驱动：ConsoleMenuSpec 按「菜单树 + 挂载的已发布页面」组装（见 运行控制台动态菜单）。
 
 ## Scope
 
@@ -66,7 +66,7 @@ POST /api/v1/pages/{pageKey}/rollback
 
 `PUT /{pageKey}/menu` 挂载/解除页面与菜单的关联（请求体 `{ "menuId": 123 }`；`null` 或 `0` 解除挂载）。挂载读 draft 表（`page_specs.menu_id`）即时生效，无需重发页面；要求 `pages:edit`。
 
-PageSpec 使用导航、列表、详情、表单动作、确认动作、任务、报表和 typed selector DTO（见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)）。它不含具体 React 组件 props、无约束 JSON mapping 或浏览器可控 target。
+PageSpec 使用导航、列表、详情、表单动作、确认动作、任务、报表和 typed selector DTO（见 PageSpec 协议规范）。它不含具体 React 组件 props、无约束 JSON mapping 或浏览器可控 target。
 
 ## 变更链与三方合并（Versioning）
 

@@ -9,7 +9,6 @@ title: 服务器状态对接——可插拔维护状态 Provider（设计简档�
 - 状态: **已批开工（2026-10-10 需求令落档）**——文档先落盘，落盘即开工。
 - 需求令：agent 监控到服务异常时，查目标服务器的维护状态——**在维护=静默不报，不在维护=报警通知**；状态源抽成可插拔 Provider（atlas 只是第一个实现，用户自有项目），未来自建 Zabbix/Prometheus/云监控按同接口接入。
 - 判定裁决（用户令原文）：**agent 探活异常 ∧ 状态源不在维护窗 → 报警；状态源不可达=按未知处理，照报警并标 `source_unknown`，不许静默**。
-- 机制归位：本设计与[插件机制](plugin-mechanism.md)同一套 Provider 模式——**状态源 Provider、告警出口 Provider、供应商 Provider 三者同构**（决策①/⑦），不搞三套模式；**默认 no-op 第一原则**全适用（零配置=零维护信息，零外发）。
 
 ## 1. 定位与判定规则
 
@@ -94,8 +93,6 @@ serverStatus:
       baseUrl: http://ops-status.internal:9100/status # baseUrl 即端点
       timeoutMs: 3000
 ```
-
-- 接入路径判定（[外部服务接入模板](../templates/external-service-integration-template.md)）：**路径 B 平台接口位**（单实例语义、编译期 Provider + 配置段，`herald:`/`alertInbound:` 同款）；步骤 3/4/6 不适用；secrets=tokenEnv；拨测=单测（httptest stub）+ env 门控冒烟；面板=v1 状态标记进事件与设置页；下线=`enabled: false`。
 
 ### 3.3 provider 切换与 http 源逐字段（批 S4）
 

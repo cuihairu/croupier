@@ -3,7 +3,7 @@
 本文件是各语言 SDK 的**单一事实来源**，定义"必备 / 可选 / 语言扩展"三层能力。
 新增 SDK 或新能力时，先更新本表，再落到具体语言实现与 README。
 
-参考协议基线：[`docs/architecture/sdk-wire-protocol.md`](../docs/architecture/sdk-wire-protocol.md)。
+参考协议基线：`docs/architecture/sdk-wire-protocol.md`。
 
 > **与对齐矩阵的关系**：本表定义 L1–L4 分层与各 SDK 的实现状态（"做了什么"）；
 > [`docs/sdks/sdk-parity-matrix.md`](../docs/sdks/sdk-parity-matrix.md) 定义跨语言统一基线

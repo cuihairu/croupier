@@ -6,7 +6,7 @@ title: 权限控制说明（RBAC、鉴权、敏感操作与堡垒机现状）
 
 面向安全与运维角色，盘点本仓权限控制的真实实现路径：角色与权限模型、鉴权链路、敏感操作管控，以及堡垒机/跳板接入能力现状。逐项给出 file:line 证据，未实现或仅骨架的部分如实标注。口径核对日期 2026-10-20，行号以后续演进可能漂移，以核对日为准。
 
-> 口径边界：`docs/zh/guide/concepts/permissions.md` 与 `docs/zh/operations/security.md` 是面向使用者的概念与配置文档；本文以代码实现为口径，两者不一致处以本文标注的差异为准（见文末「已知口径差异」）。本文不涉及 CI/CD 面的内容，那在[DevOps 说明](/zh/operations/devops)。
+> 口径边界：`docs/zh/guide/concepts/permissions.md` 与 `docs/zh/operations/security.md` 是面向使用者的概念与配置文档；本文以代码实现为口径，两者不一致处以本文标注的差异为准（见文末「已知口径差异」）。本文不涉及 CI/CD 面的内容，那在DevOps 说明。
 
 ## 角色与权限模型（RBAC 生产路径）
 
@@ -86,8 +86,3 @@ title: 权限控制说明（RBAC、鉴权、敏感操作与堡垒机现状）
 | 堡垒机远程会话                            | 部分设计文档描述了 guacd/SSH 方案                            | 仅骨架（`noopTarget` 恒拒），方案未落地                                                                               |
 
 ## 相关页面
-
-- 权限概念与配置操作：[权限模型](/zh/guide/concepts/permissions)
-- 安全基线清单：[安全基线](/zh/operations/security)
-- 风控（capture CDC 域，与本文权限风控不同域）：[风控](/zh/operations/risk-control)
-- CI/CD 与交付面：[DevOps 说明](/zh/operations/devops)

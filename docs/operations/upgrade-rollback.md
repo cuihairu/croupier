@@ -13,15 +13,13 @@ tag:
 
 ## Migration Mechanism Recap (Required Reading Before Upgrading)
 
-- Schema changes go through **versioned migrations** (goose numbered migrations, 0001–0014+, embedded in the binary): automatic catch-up at startup, no manual SQL execution needed (see [Database Migration Strategy (Chinese-only section)](/zh/architecture/database-migration-strategy))
 - The entire migration runs under a **cross-process lock** (MySQL `GET_LOCK` / Postgres `pg_advisory_lock` / SQL Server `sp_getapplock`) — rolling restarts of multiple instances at the same time are safe; the migration is executed by only one process
 - Each binary has a `MinimumRequiredVersion`: when the version already applied on the database is **lower** than required, startup automatically catches up; once caught up, if the version is higher than what an old binary requires, **the old binary refuses to start** (preventing old code from writing to the new schema)
 
 ## Pre-Upgrade Checklist
 
 1. Read the Release Notes: watch for `MinimumRequiredVersion` bumps and breaking configuration changes
-2. Back up (see [Backup and Restore](./backup-restore)) — especially the meta database (user/role/audit/member tables)
-3. Confirm disk space and DB quota (migrations may add tables/columns)
+2. Confirm disk space and DB quota (migrations may add tables/columns)
 
 ## Single-Instance Upgrade
 
@@ -69,7 +67,7 @@ Hence the discipline during an upgrade window: **back up first, then upgrade; if
 
 ## Managed-Program Updates and Fingerprint Auditing (Design finalized 2026-10-14, shipping with R2-R4)
 
-> This section covers binary updates of managed processes on agent nodes (game assist programs / external probe adapters / **the game process itself**); the sections above are about upgrading Croupier's own components. For the design and authoritative source, see [Agent Supervisor Design (Chinese-only section)](/zh/design/agent-supervisor-design) §10.4.
+> This section covers binary updates of managed processes on agent nodes (game assist programs / external probe adapters / **the game process itself**); the sections above are about upgrading Croupier's own components. For the design and authoritative source, see Agent Supervisor Design (Chinese-only section) §10.4.
 
 - **Every update must record a fingerprint** (binary sha256): fields include the target identifier, execution location (agentID), old fingerprint → new fingerprint, timestamp, operator/source, verification result (hash/signature/compatibility), and outcome (success/failed/**rolled_back** — rollbacks are audited too).
 - **Query model**: search the execution audit (execlog) by "target + time + fingerprint"; one log entry carries fingerprint + version string, letting you trace a problem back to the update that introduced it. Aligning the alert/probe timeline with update records by (target, time) locates "after which update the alerts started".

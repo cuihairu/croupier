@@ -164,7 +164,7 @@ GET    /api/v1/functions/{function_id}
 DELETE /api/v1/functions/{function_id}
 ```
 
-函数注册由 SDK / OpenAPI provider 经 Agent session 完成，或通过 `POST /api/v1/metadata/functions` 登记元数据；注册字段以 [OpenAPI / SDK Descriptor v2](../architecture/openapi-sdk-descriptor-v2.md) 为准。OpenAPI 文档导入见 [OpenAPI 注册](../guide/integrations/openapi-registration.md)。
+函数注册由 SDK / OpenAPI provider 经 Agent session 完成，或通过 `POST /api/v1/metadata/functions` 登记元数据；注册字段以 OpenAPI / SDK Descriptor v2 为准。OpenAPI 文档导入见 [OpenAPI 注册](../guide/integrations/openapi-registration.md)。
 
 ## Agent 管理
 

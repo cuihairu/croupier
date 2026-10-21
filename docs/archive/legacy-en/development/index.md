@@ -8,10 +8,8 @@ title: 开发指南
 
 ## 文档列表
 
-- [仓库规范](./repository-guidelines.md)
 - [仓库结构](./repository-layout.md)
 - [发布约定](./release-conventions.md)
-- [新业务准入规则（Extension-First）](./new-business-extension-policy.md)
 - [前端库分层与复用规范](./frontend-library-usage.md)
 - [文档治理规则](./documentation-governance.md)
 - [real-dashboard E2E](./real-dashboard-e2e.md)

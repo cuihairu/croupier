@@ -21,8 +21,6 @@ title: SDK 文档
 - L3 Invoker 是独立调用方，只调用 Server HTTP API，不复用 Provider session。
 - SDK 不暴露 `rpc_addr`、`local_listen` 或让 Agent 回拨 SDK 的本地 server 语义。
 - 平台控制字段使用 protobuf；业务 payload 默认 UTF-8 JSON。
-- 跨语言能力差异以 [SDK 能力矩阵](/zh/sdks/sdk-parity-matrix)为准。
-- Wire 契约以 [SDK Wire 协议](/zh/architecture/sdk-wire-protocol)为准。
 
 ## 语言入口
 

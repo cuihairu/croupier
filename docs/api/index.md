@@ -4,7 +4,7 @@ title: API overview
 
 # API overview
 
-The REST API serves the operator console, external management systems, and compatible clients. Agent and SDK communication is a separate session protocol; see [Architecture](/architecture/) and [SDK Wire protocol](/zh/architecture/sdk-wire-protocol).
+The REST API serves the operator console, external management systems, and compatible clients. Agent and SDK communication is a separate session protocol; see [Architecture](/architecture/) and SDK Wire protocol.
 
 ## Basics
 
@@ -50,7 +50,4 @@ Health and version endpoints are useful smoke checks. Monitoring metrics require
 
 ## Related pages
 
-- [Function API（本节仅有中文版）](/zh/api/function)
-- [Resource Catalog API（本节仅有中文版）](/zh/api/resource)
-- [Auth API（本节仅有中文版）](/zh/api/auth)
 - [Architecture overview](/architecture/)

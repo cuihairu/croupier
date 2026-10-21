@@ -182,7 +182,7 @@ docker compose -f docker-compose.deploy.yml up -d
 
 ### 负载均衡方案选型
 
-Agent 的 L4 入口与 Dashboard 的 L7 入口均可按部署环境替换，详细对比（nginx stream vs HAProxy vs keepalived+LVS）、配置示例与迁移路径见独立篇 **[负载均衡](/operations/load-balancing)**。速记：
+Agent 的 L4 入口与 Dashboard 的 L7 入口均可按部署环境替换，详细对比（nginx stream vs HAProxy vs keepalived+LVS）、配置示例与迁移路径见独立篇 **负载均衡**。速记：
 
 | 方案                               | 层级      | 适用                                                                                               |
 | ---------------------------------- | --------- | -------------------------------------------------------------------------------------------------- |
@@ -249,6 +249,4 @@ curl http://localhost:8088/healthz
 
 ## 下一步
 
-- [监控指南](/operations/monitoring)
 - [安全配置](./security.md)
-- [故障排查](/operations/troubleshooting)

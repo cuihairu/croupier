@@ -14,13 +14,13 @@ Croupier has a "single control plane + sidecar Agents" architecture: the Server 
 
 ## Topology Comparison
 
-| Topology                                            | Applicability                                           | Availability             | Entry layer                                          | Reference                                                                |
-| --------------------------------------------------- | ------------------------------------------------------- | ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------ |
-| Single-host Compose (`docker/docker-compose.yml`)   | Development, testing, small-team pilots                 | Single point             | None (direct to 18780/19090)                         | [Docker Compose Deployment (Chinese only)](/zh/operations/deploy-docker) |
-| Single-host HA (`docker/docker-compose.deploy.yml`) | Single-host production                                  | 99.9%+                   | nginx (L7) + HAProxy (L4)                            | [Docker Compose Deployment (Chinese only)](/zh/operations/deploy-docker) |
-| Multi-host                                          | Cross-machine production, LB must not be a single point | 99.99%                   | HAProxy active/standby (keepalived VIP) or cloud NLB | [Load Balancing](./load-balancing)                                       |
-| Kubernetes                                          | Existing K8s infrastructure                             | Depends on replica count | Service (ClusterIP) + probes                         | [Kubernetes Deployment](./deploy-kubernetes)                             |
-| Binary + systemd                                    | Environments without container constraints              | Depends on topology      | Self-managed nginx/HAProxy                           | [Binary Deployment](./deploy-binary)                                     |
+| Topology                                            | Applicability                                           | Availability             | Entry layer                                          | Reference                                |
+| --------------------------------------------------- | ------------------------------------------------------- | ------------------------ | ---------------------------------------------------- | ---------------------------------------- |
+| Single-host Compose (`docker/docker-compose.yml`)   | Development, testing, small-team pilots                 | Single point             | None (direct to 18780/19090)                         | Docker Compose Deployment (Chinese only) |
+| Single-host HA (`docker/docker-compose.deploy.yml`) | Single-host production                                  | 99.9%+                   | nginx (L7) + HAProxy (L4)                            | Docker Compose Deployment (Chinese only) |
+| Multi-host                                          | Cross-machine production, LB must not be a single point | 99.99%                   | HAProxy active/standby (keepalived VIP) or cloud NLB | Load Balancing                           |
+| Kubernetes                                          | Existing K8s infrastructure                             | Depends on replica count | Service (ClusterIP) + probes                         | Kubernetes Deployment                    |
+| Binary + systemd                                    | Environments without container constraints              | Depends on topology      | Self-managed nginx/HAProxy                           | Binary Deployment                        |
 
 ## Component Checklist
 
@@ -43,7 +43,7 @@ Is high availability needed?
     └─ K8s → Deployment with 2 replicas + Service (kube-proxy spreads L4 naturally)
 ```
 
-Key facts (details in [Server Multi-Instance HA (Chinese only)](/zh/architecture/server-ha-multi-instance)):
+Key facts (details in Server Multi-Instance HA (Chinese only)):
 
 - The Server is **stateless**: no data is lost when any instance crashes; on recovery it rejoins the cluster automatically (member-table leases renew/get evicted automatically)
 - An Agent that reconnects and re-registers migrates its ownership to a surviving instance; **switching the entry layer requires zero Agent changes** (only `server.addr` changes)

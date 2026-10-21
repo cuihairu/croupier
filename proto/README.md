@@ -134,7 +134,3 @@ Proto 文件主要描述的是这些子协议之上的消息格式。
 
 ## 相关文档
 
-- [架构总览](../docs/architecture/README.md)
-- [SDK-Agent 传输重构设计](../docs/architecture/sdk-agent-transport-redesign.md)
-- [Agent-Server TCP Session 重构设计](../docs/architecture/agent-server-session-transport-redesign.md)
-- [SDK Wire Protocol](../docs/architecture/sdk-wire-protocol.md)

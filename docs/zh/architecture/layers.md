@@ -52,6 +52,3 @@ Croupier 把控制面职责和游戏进程接入分开。每一层都有明确�
 ## 相关页面
 
 - [架构总览](/zh/architecture/)
-- [数据流](/zh/architecture/data-flow)
-- [会话生命周期](/zh/architecture/session-lifecycle)
-- [SDK Wire 协议](/zh/architecture/sdk-wire-protocol)

@@ -16,6 +16,3 @@ title: C# SDK API
 
 - [C# SDK 首页](/sdks/csharp/)
 - [C# SDK 指南](/sdks/csharp/guide/)
-- [Client API](/sdks/csharp/api/client)
-- [Invoker API](/sdks/csharp/api/invoker)
-- [模型 API](/sdks/csharp/api/models)

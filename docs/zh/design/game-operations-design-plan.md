@@ -27,7 +27,7 @@ title: 游戏后台业务设计补齐清单与验收场景
 
 ## 2. 游戏数据权威归属
 
-**已观察事实**：`internal/model/player_model.go` 存在本地 Player 读写、余额修改与封禁状态更新；当前仅据此不能判定该数据是否对应真实游戏资产。[Core/Extension Mapping](/archive/legacy-en/architecture/core-extension-mapping) 已提出业务能力通过扩展交付，边界需进一步落实。
+**已观察事实**：`internal/model/player_model.go` 存在本地 Player 读写、余额修改与封禁状态更新；当前仅据此不能判定该数据是否对应真实游戏资产。Core/Extension Mapping 已提出业务能力通过扩展交付，边界需进一步落实。
 
 **建议方案**：逐项标注账号、角色、资产、封禁、订单、邮件与活动数据的权威系统、读写入口、同步方式、缓存时效及恢复责任；建议由游戏保存游戏业务真值，Croupier 保存操作意图、凭据、审计及必要查询副本，具体例外必须显式声明。
 

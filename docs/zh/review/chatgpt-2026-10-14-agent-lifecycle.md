@@ -3,7 +3,7 @@
 - **来源**：https://chatgpt.com/s/t_6acef63fad008191b11dbaece3056aab
 - **获取日期**：2026-10-14
 - **性质**：**外部建议，不是本仓事实陈述**。原文亦自述：「**Reconciler 是建议新增的架构组件，并不代表当前 Croupier 已经实现了完整的期望状态协调机制**」——执行前必须对代码核验（file:line）。
-- **承接**：[probe-architecture](chatgpt-2026-10-14-probe-architecture.md)（三层结构）、[probe-adapter](/review/chatgpt-2026-10-14-probe-adapter)（外部适配器契约）。本份把前两份提到的**受管对象**统一成一个模型。
+- **承接**：[probe-architecture](chatgpt-2026-10-14-probe-architecture.md)（三层结构）、probe-adapter（外部适配器契约）。本份把前两份提到的**受管对象**统一成一个模型。
 
 ## 一、整体架构：期望状态协调（Reconciler）
 

@@ -15,7 +15,7 @@ Install the agent on a game server with a single command: it auto-detects the op
 installs only the selected agent from it, and self-verifies with `-version` after installation. Idempotent — re-running it overwrites and upgrades.
 
 **Unified entry point for the three agent types** (choose with `--agent`; see
-[Three Agent Types Comparison (Chinese-only section)](/zh/operations/agent-comparison) for the selection rationale):
+Three Agent Types Comparison (Chinese-only section) for the selection rationale):
 
 | `--agent`           | Binary           | systemd service          | Config file                        |
 | ------------------- | ---------------- | ------------------------ | ---------------------------------- |
@@ -42,9 +42,9 @@ bash scripts/install.sh --agent capture --local ./dist --bin-dir /tmp/bin --conf
 initial configuration for the selected agent (kept as-is if it already exists; includes values from `--server`/`--agent-id`/`--game-id`/`--env`,
 with the default id being `<role>-<short hostname>`). Config loading for all three agents has no `${ENV}` expansion layer;
 configs containing passwords stay `root:0600`. For field-by-field explanations see
-[Agent Configuration Field-by-Field Reference](./agent-config).
+Agent Configuration Field-by-Field Reference.
 
-For manual item-by-item deployment (directory layout, production systemd unit templates), see [Binary Deployment](./deploy-binary).
+For manual item-by-item deployment (directory layout, production systemd unit templates), see Binary Deployment.
 
 ## One-Command Install
 
@@ -78,7 +78,7 @@ When piping remotely makes passing arguments inconvenient, use environment varia
 
 ## Version Channels
 
-Nightly is updated solely by `nightly.yml`; for standalone Agent archives, checksums, platform coverage, and capability maturity see [Roles and Build Artifacts (Chinese-only section)](/zh/operations/agent-comparison). A release-chain change may only make new standalone packages downloadable from a Release after it is merged and runs successfully; the original installer keeps selecting roles from the monolithic package. ARMv7 supports only sidecar/devops; capture requires amd64/arm64, and a missing capture archive must not be treated as a supported platform.
+Nightly is updated solely by `nightly.yml`; for standalone Agent archives, checksums, platform coverage, and capability maturity see Roles and Build Artifacts (Chinese-only section). A release-chain change may only make new standalone packages downloadable from a Release after it is merged and runs successfully; the original installer keeps selecting roles from the monolithic package. ARMv7 supports only sidecar/devops; capture requires amd64/arm64, and a missing capture archive must not be treated as a supported platform.
 
 | Option                       | Meaning                                                                                       |
 | ---------------------------- | --------------------------------------------------------------------------------------------- |
@@ -102,7 +102,7 @@ curl -fsSL .../scripts/install.sh | bash -s -- --version v0.1.5
   `-BinDir` can be specified explicitly.
 
 The script installs only the selected agent; the server (control plane) must be deployed separately, see
-[Deployment Topologies Overview](./deploy-overview).
+Deployment Topologies Overview.
 
 ## Registering a Boot-Time Auto-Start Service
 
@@ -157,7 +157,7 @@ Stops and removes the corresponding service and deletes the binary; config files
 Artifacts are produced by the nightly workflow (daily at 02:00 UTC); official releases are published with `v*` tags. The same
 cross-compilation parameters reproduce locally: `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./cmd/sidecar-agent`.
 
-> **Naming note (user decree 2026-10-09; Plan A landed 2026-10-11)**: the source directory is `cmd/sidecar-agent`, and the produced binary name remains `croupier-agent` (zero impact on the deployment contract) — the directory is the definitive name **`sidecar-agent`**, see [Agent Inventory (Chinese-only section)](/zh/design/agents-inventory) §9.
+> **Naming note (user decree 2026-10-09; Plan A landed 2026-10-11)**: the source directory is `cmd/sidecar-agent`, and the produced binary name remains `croupier-agent` (zero impact on the deployment contract) — the directory is the definitive name **`sidecar-agent`**, see Agent Inventory (Chinese-only section) §9.
 
 ## Troubleshooting
 
@@ -168,5 +168,5 @@ cross-compilation parameters reproduce locally: `CGO_ENABLED=0 GOOS=linux GOARCH
 - **Platforms beyond the published architectures** (e.g. windows-arm64, linux riscv64): cross-compile with Go yourself
   (command in the previous section); the artifact itself is a pure-Go static binary.
 - **Service won't start**: most likely the upstream Server address/certificate is not configured; for field-by-field explanations see
-  [Agent Configuration Field-by-Field Reference](./agent-config); the existing full reference for the sidecar is at
-  [Agent Configuration Complete Reference](./config-agent).
+  Agent Configuration Field-by-Field Reference; the existing full reference for the sidecar is at
+  Agent Configuration Complete Reference.

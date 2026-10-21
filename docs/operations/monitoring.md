@@ -477,10 +477,8 @@ server:
 | Rules      | Alert rule metrics `probe.<target>.<successRate/failed/checked/latencyP95Ms>`        | Runs directly on the existing AlertRule evaluator; no new alerting pipeline needed                                                                 |
 | Diagnose   | `POST /api/v1/ops/probe/diagnose`                                                    | Probes a local server target once immediately, sharing the same state machine as periodic probing                                                  |
 
-For endpoint and payload details, see [API Documentation probe endpoints](/archive/legacy-en/api/ops).
+For endpoint and payload details, see API Documentation probe endpoints.
 
 ## Related Documentation
 
-- [Deployment Guide (Chinese-only section)](/zh/operations/deploy-docker)
-- [Security Configuration](/security)
 - [Troubleshooting](./troubleshooting.md)

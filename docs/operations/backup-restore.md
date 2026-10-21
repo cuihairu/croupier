@@ -16,7 +16,6 @@ tag:
 The "Ops Center → Data Backup" page and `/api/v1/backups` provide **logical database backups**:
 
 - Supported drivers: `mysql` (`mysqldump`), `postgres` (`pg_dump`), `sqlite` (file copy)
-- SQL Server does not yet support built-in backups (driver support in progress, see the [Migration Strategy (Chinese only)](/zh/architecture/database-migration-strategy)); use external backups via `sqlcmd BACKUP DATABASE`
 - Backups are executed by the Server; the corresponding tools (`mysqldump`/`pg_dump`) must exist inside the Server container/host
 
 ```bash
@@ -61,7 +60,6 @@ psql -h <host> -U postgres -d croupier_meta -f weekly-meta.sql
 
 Notes for the first startup after a restore:
 
-- The restored database carries old migration version numbers; if the current binary's `MinimumRequiredVersion` is higher, startup automatically catches up migrations (see [Upgrades and Rollbacks](./upgrade-rollback))
 - Losing audit/task records created after the restore point is expected; Agents re-register and member-table leases converge automatically
 
 ## Recommended Cadence

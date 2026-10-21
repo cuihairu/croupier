@@ -8,7 +8,7 @@ title: 功能分层审计——核心 / 可选 / 可切换服务商 / 不可换
 
 - 状态: Accepted（2026-10-10，用户令：功能分层审计落盘，面板设置页照 §6 总表出开关）
 - 方法：通读代码现状（带 file:line 锚点，2026-10-10 巡检）+ 既有设计稿（plugin-mechanism / provider-plugin-design / server-status-provider / agents-inventory / incident-reports），不拍脑补。
-- 关联：[配置整理](config-organization.md)（分层结论直接作为设置页/配置文件归类的输入）· [插件机制正式设计](plugin-mechanism.md) · [Provider 插件设计](provider-plugin-design.md) · [服务器状态源](server-status-provider.md)
+- 关联：[配置整理](config-organization.md)（分层结论直接作为设置页/配置文件归类的输入）· 插件机制正式设计 · [Provider 插件设计](provider-plugin-design.md) · [服务器状态源](server-status-provider.md)
 
 ## 1. 三层定义与判定规则
 

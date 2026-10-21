@@ -353,11 +353,11 @@ curl http://localhost:8081/health
 
 | 需求             | 查看文档                                                               |
 | ---------------- | ---------------------------------------------------------------------- |
-| **30 秒上手**    | [QUICKSTART.md](../services/agent/etc/QUICKSTART.md)                   |
-| **完整指南**     | [README-OPENAPI.md](../services/agent/etc/README-OPENAPI.md)           |
-| **多服务配置**   | [MULTI-SERVICE-GUIDE.md](../services/agent/etc/MULTI-SERVICE-GUIDE.md) |
+| **30 秒上手** | QUICKSTART.md |
+| **完整指南** | README-OPENAPI.md |
+| **多服务配置** | MULTI-SERVICE-GUIDE.md |
 | **VS Code 调试** | [AGENT-DEBUG-GUIDE.md](./AGENT-DEBUG-GUIDE.md)                         |
-| **OpenAPI 示例** | [openapi.example.yaml](../services/agent/etc/openapi.example.yaml)     |
+| **OpenAPI 示例** | openapi.example.yaml |
 
 ---
 

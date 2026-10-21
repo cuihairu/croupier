@@ -17,16 +17,16 @@ tag:
 
 `GET /api/v1/ops/cluster` returns:
 
-| Field                           | Description                                                                                                                |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                       | Whether the cluster is enabled                                                                                             |
-| `self` / `aliveCount` / `total` | Current instance / online count / total                                                                                    |
-| `items[].instanceId`            | Instance identifier                                                                                                        |
-| `items[].advertiseAddr`         | Instance interconnect address                                                                                              |
-| `items[].epoch`                 | Fencing generation (prevents split brain, see [HA Architecture (Chinese only)](/zh/architecture/server-ha-multi-instance)) |
-| `items[].startedAt`             | Start time                                                                                                                 |
-| `items[].agentCount`            | Number of Agent connections owned by this instance (ownership table statistics)                                            |
-| `items[].alive`                 | Online = lease not expired                                                                                                 |
+| Field                           | Description                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| `enabled`                       | Whether the cluster is enabled                                                  |
+| `self` / `aliveCount` / `total` | Current instance / online count / total                                         |
+| `items[].instanceId`            | Instance identifier                                                             |
+| `items[].advertiseAddr`         | Instance interconnect address                                                   |
+| `items[].epoch`                 | Fencing generation (prevents split brain, see HA Architecture (Chinese only))   |
+| `items[].startedAt`             | Start time                                                                      |
+| `items[].agentCount`            | Number of Agent connections owned by this instance (ownership table statistics) |
+| `items[].alive`                 | Online = lease not expired                                                      |
 
 ## Member State Machine
 
@@ -50,7 +50,7 @@ Agent ownership: within `cluster.ownerTtl` (default 3m) Agents renew ownership v
 
 ### Rolling Upgrades
 
-See [Version Upgrades and Rollbacks](./upgrade-rollback) — drain traffic per instance → replace → healthy → return traffic; the topology page lets you watch members come and go throughout.
+See Version Upgrades and Rollbacks — drain traffic per instance → replace → healthy → return traffic; the topology page lets you watch members come and go throughout.
 
 ### Split-Brain Concerns
 

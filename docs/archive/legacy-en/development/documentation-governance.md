@@ -76,4 +76,4 @@ title: 文档治理
 
 ## 与仓库规范的关系
 
-本文档约束**文档术语**。代码、协议、SDK 的兼容性治理（无兼容遗留原则、暂留门控、检查脚本）见 [`repository-guidelines.md` § 兼容性与遗留治理](./repository-guidelines.md)。两者配合：文档不写旧链路，代码不留旧入口，`scripts/check-sdk-matrix.sh` 兜底检测。
+本文档约束**文档术语**。代码、协议、SDK 的兼容性治理（无兼容遗留原则、暂留门控、检查脚本）见 `repository-guidelines.md` § 兼容性与遗留治理。两者配合：文档不写旧链路，代码不留旧入口，`scripts/check-sdk-matrix.sh` 兜底检测。

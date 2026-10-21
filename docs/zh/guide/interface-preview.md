@@ -1,6 +1,6 @@
 # 界面预览
 
-以下截图均来自**真实运行的 Croupier 栈**（docker compose 快速启动栈，详见[快速开始](./quick-start)），非设计稿或效果图。
+以下截图均来自**真实运行的 Croupier 栈**（docker compose 快速启动栈，详见快速开始），非设计稿或效果图。
 
 截图环境口径：
 
@@ -12,7 +12,7 @@
 
 ![登录页](../../screenshots/ui/01-login.png)
 
-统一登录入口。管理员账号来源见[安装](./installation)（首次启动日志中的引导账号，quickstart 演示栈为 `admin`）。
+统一登录入口。管理员账号来源见安装（首次启动日志中的引导账号，quickstart 演示栈为 `admin`）。
 
 ## 控制台工作台
 

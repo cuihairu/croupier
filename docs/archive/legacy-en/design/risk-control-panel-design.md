@@ -6,7 +6,7 @@ title: 风控面板设计——一级分类、四子模块与规则/执行分离
 
 ## 状态
 
-- 状态: **设计整理完成（2026-10-11）；实施进行中（CDC 平台化批阶段四）——§6 之 1+3+4+5 已落地**：菜单一级分类「风控」随首个真实页面「风控策略」（`/risk/strategies`）落地，空架子页不单独实施；告警中心已迁入 `/risk/alerts`（旧路径隐藏重定向兼容）；风险事件工作流四列已落库（§3.3 落地注记）。本文是用户令的整理稿：风控一级分类导航、四子模块、Filter 与 Detection 归属边界、规则定义与执行分离原则、明确不做清单。实施任务拆分见 `todo.md`「CDC 平台化批」；与 [capture-agent 简档](capture-agent-design.md)（三闸检测执行面）、[CDC 过滤策略体系](cdc-filter-policy-design.md)（DetectionPolicy 归属）、[CDC Connector 架构](cdc-connector-architecture.md)（能力透明展示）互链。
+- 状态: **设计整理完成（2026-10-11）；实施进行中（CDC 平台化批阶段四）——§6 之 1+3+4+5 已落地**：菜单一级分类「风控」随首个真实页面「风控策略」（`/risk/strategies`）落地，空架子页不单独实施；告警中心已迁入 `/risk/alerts`（旧路径隐藏重定向兼容）；风险事件工作流四列已落库（§3.3 落地注记）。本文是用户令的整理稿：风控一级分类导航、四子模块、Filter 与 Detection 归属边界、规则定义与执行分离原则、明确不做清单。实施任务拆分见 `todo.md`「CDC 平台化批」；与 capture-agent 简档（三闸检测执行面）、CDC 过滤策略体系（DetectionPolicy 归属）、[CDC Connector 架构](cdc-connector-architecture.md)（能力透明展示）互链。
 - **定调（用户令）**：轻量起步——先四子模块承载现有三闸告警链与策略下发，不做大平台。
 
 ## 1. 一级分类与四子模块

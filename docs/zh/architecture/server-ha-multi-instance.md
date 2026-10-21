@@ -13,7 +13,7 @@ tag:
 
 # Server 多实例高可用设计
 
-> **状态**：已实现 — 成员表（复用 RegistryStore 自注册 + 租约）、实例互联与 owner 转发（含 fencing epoch / 一跳防环）、`cluster.enabled` 接线与集群拓扑页均已落地；测试见 `internal/cluster/`。部署形态（L4 LB / 多宿主 / K8s）参见[负载均衡指南](/operations/load-balancing)。
+> **状态**：已实现 — 成员表（复用 RegistryStore 自注册 + 租约）、实例互联与 owner 转发（含 fencing epoch / 一跳防环）、`cluster.enabled` 接线与集群拓扑页均已落地；测试见 `internal/cluster/`。部署形态（L4 LB / 多宿主 / K8s）参见负载均衡指南。
 >
 > **调用路径补全（2026-09-11）**：读路径聚合（`/functions/instances` 系列接共享归属表）与写/调用路径的 owner 转发均已落地——同步 invoke、异步任务（`start_task`）、任务取消（`cancel_task`）、广播（broadcast）三类共用同一转发帧（§5.4 `kind`）；dispatcher 候选集本地为空或 failover 耗尽本地候选时，经共享归属表 + `agent_sessions` 快照表同步兜底（RemoteAgentSource，1s 预算，出错降级）补远端候选再转发（§5.5）；跨实例任务取消从共享 `task_runs` 解析 agent。`refreshRemoteSnapshots` 30s 回灌降级为性能优化层。双活切换步骤与剩余已知边界（mesh 明文、哈希落点等）见负载均衡指南「部署模式约束」。
 

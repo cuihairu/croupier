@@ -51,7 +51,7 @@ Create、Update（`internal/api/component/handler.go`）与 regenerate 落到的
 客户端不提交。消费方：组合页编辑器保存页面时把所用模板的 `{key, digest}`
 快照进 `PageSpec.componentTemplates`，再次打开页面时与本列表当前 digest 比对，
 不一致提示「所用模板有新版本」（只提示不自动同步，见
-[组合页编辑器 V3 §8.6](../dashboard/composite-editor-v3.md)）。`updatedAt`
+组合页编辑器 V3 §8.6）。`updatedAt`
 为最近一次内容更新时间。
 
 ### 列表
@@ -98,4 +98,4 @@ key 重复 `409`。
 
 - 更新/删除对 `builtin=true` 模板受限（builtin 模板由 regenerate 维护）
 - 模板 `tree` 的 PageNode 结构由前端组合编辑器定义，
-  语义见 [组合页编辑器](../dashboard/composite-editor-v3.md)
+  语义见 组合页编辑器

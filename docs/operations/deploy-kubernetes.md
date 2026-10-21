@@ -25,7 +25,6 @@ Dashboard/UI ──► Ingress ──► Service(croupier-server:18780)
 Key points:
 
 - Agents make **outbound connections**; the game network only needs to allow egress to Service `:19090` — the Server does not need to be exposed into the game network
-- kube-proxy spreads TCP long connections at L4 naturally, equivalent to the HAProxy role in [Load Balancing](./load-balancing); on disconnect, Agents automatically fail over to another backend on reconnect
 - Both ports can live on the same Service; no session affinity needed
 
 ## ConfigMap and Secret

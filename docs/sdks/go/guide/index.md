@@ -19,9 +19,3 @@ Go SDK 当前存在本地开发与 CI/生产环境两类构建关注点。文档
 Go SDK 适合并发服务场景，但处理器仍然需要明确边界，避免无控制 goroutine 泄漏。
 
 ## 继续阅读
-
-- [OpenAPI 导入](./openapi)
-- [并发与调度](./threading)
-- [约定规范](./conventions)
-- [集成指南](./integration)
-- [E2E 流程](../e2e-flow)

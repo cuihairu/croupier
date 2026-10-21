@@ -19,8 +19,6 @@ title: SDK 文档
 
 - L1/L2 Provider 使用 Agent 本地 gateway 上的 TCP session；L3 Invoker 是独立调用方，只调用 Server HTTP API，不复用 Provider session。
 - SDK 不应再暴露 `rpc_addr`、`local_listen` 或本地 server 回拨语义。
-- 跨语言能力以 [SDK 能力矩阵](/zh/sdks/sdk-parity-matrix) 为准。
-- 协议细节以 [SDK Wire Protocol](/zh/architecture/sdk-wire-protocol) 为准。
 
 ## 语言入口
 

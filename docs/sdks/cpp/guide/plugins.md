@@ -58,6 +58,3 @@ extern "C" {
 - 插件内注册的函数 ID 应稳定，便于 Dashboard、权限和审计引用。
 
 ## 相关页面
-
-- [函数注册 API](/sdks/cpp/api/functions)
-- [插件示例](/sdks/cpp/examples/plugin)

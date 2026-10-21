@@ -6,7 +6,7 @@ title: 组合页编辑器 V3 使用与扩展指南
 
 > 状态：**已上线全量**（V3 计划 + V3.1 边界清零：动作链/弹窗分组多组件/容器子级交互/回读增强/多选/撤销重做/右键菜单）
 
-> 设计依据：[V3 计划](/archive/legacy-en/dashboard/composite-editor-v3-plan)｜[参考产品对比分析](./editor-reference-analysis.md)｜spec 模型见 [Dashboard 页面模型](../architecture/dashboard-page-model.md) CompositePage 节
+> 设计依据：V3 计划｜[参考产品对比分析](./editor-reference-analysis.md)｜spec 模型见 [Dashboard 页面模型](../architecture/dashboard-page-model.md) CompositePage 节
 > 参考样品：[amis-editor](http://192.168.5.5:8001)、[Appsmith](http://192.168.5.5:8002)
 
 ## 1. 功能全景
@@ -159,7 +159,7 @@ error 级诊断写入提案并降级 `needs_review`——提案收件箱「需�
 
 ### 4.1 变量名与表达式绑定（V5，已实现）
 
-组件组装的数据层，详见 [V5 设计](/archive/legacy-en/dashboard/composite-editor-v5-design)。使用要点：
+组件组装的数据层，详见 V5 设计。使用要点：
 
 - **变量名**：拖入组件自动生成语义名（`player.list` 表格 → `playerListTable`），即发布 spec 区块 key。
   画布卡片以 `⌗varName` 徽标展示；属性面板「变量名」输入框可改名——保存时**同步重写**树内全部表达式/裸引用。
@@ -400,7 +400,7 @@ prev schema 语义与 wire 契约见
 
 - **模板侧**：每个模板带 `digest`（sha256 canonical Tree JSON，创建/更新/
   regenerate 三个写路径全覆盖）与 `updatedAt`，随模板列表透出
-  （[组件模板 API](/archive/legacy-en/api/component-templates)）
+  （组件模板 API）
 - **页面侧快照**：编辑器实例化模板（组件库点击/拖入/带参弹窗确认/「从模板开始」
   四入口）时登记 `{key, digest}`，保存时随 POST body 的 `componentTemplates`
   并入 `PageSpec.componentTemplates`（页面级字段，随 proposal→draft→published

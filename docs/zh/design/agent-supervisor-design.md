@@ -176,7 +176,7 @@ repeated SupervisedProcessSnapshot supervised_processes = 9;
 
 ## 10. 生命周期统一模型（2026-10-14 三份外部评审反哺；未动码，采纳判定见各评审文件）
 
-来源：[agent-lifecycle 评审](../review/chatgpt-2026-10-14-agent-lifecycle.md)、[probe-adapter 评审](/review/chatgpt-2026-10-14-probe-adapter)（均 2026-10-14，外部建议经本仓核验采纳）；与本简档 S1-S3 已交付部分的关系=**S1-S3 是本节的运行状态面与进程恢复环既有实现**，以下为统一模型的增量面。
+来源：[agent-lifecycle 评审](../review/chatgpt-2026-10-14-agent-lifecycle.md)、probe-adapter 评审（均 2026-10-14，外部建议经本仓核验采纳）；与本简档 S1-S3 已交付部分的关系=**S1-S3 是本节的运行状态面与进程恢复环既有实现**，以下为统一模型的增量面。
 
 ### 10.1 统一受管对象：ManagedProcess（不引入外部新词）
 

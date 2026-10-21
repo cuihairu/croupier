@@ -118,7 +118,4 @@ and not the Server's `19090` port.
 ## Next Steps
 
 - [Configuration Management](../operations/config-server.md)
-- [Deployment Guide (Chinese only)](/zh/operations/deploy-docker)
-- [Core Concepts (Chinese only)](/zh/guide/concepts/overview)
 - [SDK Documentation](../sdks/)
-- [SDK-Agent Transport Design (Chinese only)](/zh/architecture/sdk-agent-transport-redesign)

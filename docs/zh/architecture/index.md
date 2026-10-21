@@ -42,8 +42,3 @@ Croupier 是由三个协作组件构成的游戏运营控制面：
 - **呈现层**由强类型 PageSpec 驱动，不依赖临时组件树。
 
 ## 阅读路径
-
-- 先看[分层](/zh/architecture/layers)了解组件与边界。
-- 看[术语与分层](/zh/architecture/terms-and-layering)统一词汇。
-- 通过[数据流](/zh/architecture/data-flow)理解注册、分发和页面执行。
-- 通过[会话生命周期](/zh/architecture/session-lifecycle)和 [SDK Wire 协议](/zh/architecture/sdk-wire-protocol)理解传输行为。

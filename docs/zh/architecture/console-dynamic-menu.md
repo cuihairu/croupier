@@ -12,7 +12,7 @@ tag:
 
 # 运行控制台动态菜单
 
-> **状态**：Current — 运行控制台菜单由菜单管理（`menu_items`）**唯一驱动**：菜单节点构成导航树，挂载到菜单且已发布的页面才出现在控制台。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)，操作向导（建菜单→发布→挂载→控制台出现）见 [运行控制台导航与页面挂载](/zh/guide/concepts/console-navigation)。实现索引：菜单生成 `internal/api/console/`（`generateMenuFromMenuItems`，`GET /api/v1/console/menu`）、菜单树与权限过滤 `internal/api/menu/`（`AccessibleTree`）、菜单模型 `internal/model/menu.go`、挂载字段 `internal/model/page_spec.go`（`MenuID`）、前端路由 `web/config/routes.ts`、侧边菜单组装 `web/src/utils/consoleMenu.ts`（`buildMenuFromConsoleSpec`）、canonical 仲裁 `resolveConsolePageCanonicalPath`。
+> **状态**：Current — 运行控制台菜单由菜单管理（`menu_items`）**唯一驱动**：菜单节点构成导航树，挂载到菜单且已发布的页面才出现在控制台。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)，操作向导（建菜单→发布→挂载→控制台出现）见 运行控制台导航与页面挂载。实现索引：菜单生成 `internal/api/console/`（`generateMenuFromMenuItems`，`GET /api/v1/console/menu`）、菜单树与权限过滤 `internal/api/menu/`（`AccessibleTree`）、菜单模型 `internal/model/menu.go`、挂载字段 `internal/model/page_spec.go`（`MenuID`）、前端路由 `web/config/routes.ts`、侧边菜单组装 `web/src/utils/consoleMenu.ts`（`buildMenuFromConsoleSpec`）、canonical 仲裁 `resolveConsolePageCanonicalPath`。
 
 ## 结论
 
@@ -43,7 +43,7 @@ menu_items（菜单树结构） + page_specs.menu_id（挂载映射） + 最新�
 
 ## PageSpec.category 的现状
 
-PageSpec 的 `category.key` 保留为页面侧元数据（页面工作台分组展示），**不再驱动运行控制台菜单**。其推导规则（显式声明 > `resourceKey` 前缀 > 主 binding `functionId` 前缀 > `pageKey` 前缀；详见 [ProComponents 页面生成与运行时](/archive/legacy-en/architecture/ui-generation)）仍用于新页面草稿的默认值，但只影响工作台侧分组，与控制台导航无关。
+PageSpec 的 `category.key` 保留为页面侧元数据（页面工作台分组展示），**不再驱动运行控制台菜单**。其推导规则（显式声明 > `resourceKey` 前缀 > 主 binding `functionId` 前缀 > `pageKey` 前缀；详见 ProComponents 页面生成与运行时）仍用于新页面草稿的默认值，但只影响工作台侧分组，与控制台导航无关。
 
 ## 多语言
 

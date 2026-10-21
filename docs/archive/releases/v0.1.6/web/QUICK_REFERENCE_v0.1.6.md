@@ -121,7 +121,7 @@ git checkout v0.1.6
 | ------------------------------------------------------------ | -------------------- |
 | [RELEASE_v0.1.6_CN.md](./RELEASE_v0.1.6_CN.md)               | 中文发布说明（推荐） |
 | [RELEASE_v0.1.6.md](./RELEASE_v0.1.6.md)                     | 完整发布说明         |
-| [CHANGELOG.md](./CHANGELOG.md)                               | 变更日志             |
+| CHANGELOG.md                                                 | 变更日志             |
 | [GIT_TAG_v0.1.6.md](./GIT_TAG_v0.1.6.md)                     | Git 操作指南         |
 | [docs/PHASE1_FINAL_REPORT.md](./docs/PHASE1_FINAL_REPORT.md) | 最终报告             |
 

@@ -11,11 +11,10 @@ title: agent-core 通用能力层设计简档——能力清单/目录树/抽取
 - 补充令（2026-10-09，内网 agent 拆分）：泛监控类能力从主 agent 拆成独立小 agent，**「一个能力一个小 agent」**；首个样例 = 内网独立 agent（`agents/devops/`，设计见 §7）——与 capture-agent 同构，用第二个业务 agent 验证 core 可裁剪抽象是否成立。（样例职责后经 2026-10-11 用户令重定为堡垒机代理，见 §7。）
 - 定稿补充（2026-10-09，用户令④）：①服务探活升为 core 独立公共模块 **`healthprobe`**——内分 Liveness/Readiness/Heartbeat 三语义（对标 k8s probe 术语），游戏进程探活/内网探主机端口/capture 探库连通三处**共用同一份实现**；②路线图登记两个未来独立 agent，**命名用行业词**：`connector-agent`（第三方服务接入，对标 Datadog Integrations/n8n）、`synthetics-agent`（外部合成探测，对标 Datadog Synthetics/Pingdom）——**只登记不实现**（§8）；③三 agent 定稿不变：sidecar-agent=游戏服务器 GM 通道（外网侧仅业务）、devops-agent=内网堡垒机代理（2026-10-11 重定）、capture-agent=防私改库（CDC）。
 - 审计令（2026-10-09，用户令）：每个 agent 的每次执行都留审计记录——core 新增统一 **`execlog`** 公共模块（与 healthprobe 同级），含 audit-first 放行闸、面板执行记录页（§6.2）。
-- 建模令与报警出口（2026-10-09，用户令）：①healthprobe **按 system 角色建模**——不只看当下活死，记录**故障窗口**（开始/恢复/持续时长）历史可查，探活数据带 timeline（§6.1）；②告警出口对接 **herald**（用户自研通知编排与投递平台）——capture 告警/healthprobe 故障窗口/devops 异常（旧口径「构建失败」随 2026-10-11 重定改判，语义待简档定稿）经 herald 投递，croupier 当接入方（courier 式接法，渠道/收件人由 herald 侧配置），接法见 [herald 对接简档](/archive/legacy-en/design/agent-herald-integration)。
 - 定名令（2026-10-09，用户拍板）：三 agent 定名 **sidecar-agent / devops-agent / capture-agent**，旧候选（gameserver-agent/cicd-agent/cdc-agent/ci-agent）弃用；权威口径见 [Agent 清单](agents-inventory.md)（目录：全景 → 三 agent 作用 → 公共模块 → 路线图占位 → scope 归属 → 面板分页）。
 - **角色口径重定（用户令，2026-10-11，覆盖 2026-10-09 旧口径）**：`sidecar-agent` = 外网侧、只做业务相关功能（监控游戏进程、注册函数、汇报健康信息含主机与定时任务）；`devops-agent` = **内网堡垒机式远程接入代理**（SSH/RDP/VNC 可操作、更高权限、必须记录；旧「CI/CD 只观测」口径整节废弃，§7 已按新口径重写）；`capture-agent` = CDC（防私改库）。三 agent 现状：capture C2 已交付（C1 骨架 2026-10-10 + 三闸/告警上报链 2026-10-11）、devops **骨架已实施**（2026-10-11 拍板批简档，§7）、sidecar = 现有主体（源码目录 `cmd/sidecar-agent`，2026-10-11 改名方案 A 落地，产物名 `croupier-agent`）。
 - 底稿: [Agent 能力成熟库盘点矩阵](../research/agent-capability-library-matrix.md)（16 项换/留/补已拍板，A–F 批已全部落地——core 的库选型全部沿用该拍板，不重新选型）
-- 关联: [Agent 清单](agents-inventory.md)（定名/职责边界/scope 归属权威页）· [Agent 面板设计](agent-dashboard-design.md)（每类 agent 一页）· [herald 对接简档](/archive/legacy-en/design/agent-herald-integration)（告警投递出口）· [capture-agent 简档](capture-agent-design.md)（业务 agent 之一）· [Provider 插件设计](/archive/legacy-en/design/provider-plugin-design)（可插拔原则同源）· [崩溃快照调研](../research/crash-capture-survey-2026-10.md)（core/crash 的分级方案依据）
+- 关联: [Agent 清单](agents-inventory.md)（定名/职责边界/scope 归属权威页）· [Agent 面板设计](agent-dashboard-design.md)（每类 agent 一页）· herald 对接简档（告警投递出口）· [capture-agent 简档](capture-agent-design.md)（业务 agent 之一）· Provider 插件设计（可插拔原则同源）· [崩溃快照调研](../research/crash-capture-survey-2026-10.md)（core/crash 的分级方案依据）
 
 ## 1. 定位
 
@@ -141,7 +140,6 @@ core 十包全部建成且自带测试（`go test ./core/...` 绿）；sidecar-a
 - **按 system 角色建模（故障窗口，用户令 2026-10-09）**：探针对象 = 受监控系统（target），状态不是单点布尔而是带时间线的两态机——连续失败达阈值即**故障窗口开始**（unavailable，记 start），恢复达阈值即**窗口关闭**（recovered，记 end 与持续时长）。窗口记录 `{target, semantics, start_ts, end_ts(未恢复=空), duration, last_reason, game_id, env}`：
   - 双通道留存：agent 本地时间线文件（真值）+ 上报捎带（快照带当前窗口，窗口开/合作为事件上行），server 侧历史可查——排查时直接回答「**什么时间段服务不可用**」；
   - 探活数据带 timeline：面板探针卡片展示历史故障窗口列表（未恢复窗口标「进行中」），见 [Agent 面板设计](agent-dashboard-design.md)；
-  - 出口：窗口开始/恢复可经 herald 投递（`probe.unavailable` / `probe.recovered`，dedup 状态折叠与窗口二态天然对齐），见 [herald 对接简档](/archive/legacy-en/design/agent-herald-integration)。
 
 ### 6.2 execlog（统一执行审计）
 

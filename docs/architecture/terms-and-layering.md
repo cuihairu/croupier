@@ -38,6 +38,4 @@ Use target, agent, and node fields for deployment placement. Keep environment se
 
 ## Related pages
 
-- [Layers](/architecture/layers)
 - [Architecture overview](/architecture/)
-- [Data flow（本节仅有中文版）](/zh/architecture/data-flow)

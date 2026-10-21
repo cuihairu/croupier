@@ -16,15 +16,15 @@ tag:
 
 ## 内容地图
 
-| 分组     | 内容                                                                                                                                      |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 部署     | 部署形态总览、Docker、二进制与 systemd、Kubernetes、升级回滚、负载均衡、集群操作。                                                        |
-| 配置     | [Server 配置](/operations/config-server)、[Agent 配置](/operations/agent-config)、TLS 证书、告警、通知与限流。                            |
-| 可观测性 | 指标、健康监控、数据库监控、外部服务探测。                                                                                                |
-| 可靠性   | 备份恢复、故障排除、升级回滚、Server HA 与多实例。                                                                                        |
-| 安全     | [安全基线](/zh/operations/security)、[风控](/zh/operations/risk-control)、[权限控制说明](/zh/operations/access-control)、证书与传输安全。 |
-| Agent    | [Agent 对照](/zh/operations/agent-comparison)、默认 sidecar、devops 与 capture 的部署边界。                                               |
-| 发布     | SDK 包发布流程和发布前置检查。CI/CD 与交付面盘点见 [DevOps 说明](/zh/operations/devops)。                                                 |
+| 分组     | 内容                                                                               |
+| -------- | ---------------------------------------------------------------------------------- |
+| 部署     | 部署形态总览、Docker、二进制与 systemd、Kubernetes、升级回滚、负载均衡、集群操作。 |
+| 配置     | Server 配置、Agent 配置、TLS 证书、告警、通知与限流。                              |
+| 可观测性 | 指标、健康监控、数据库监控、外部服务探测。                                         |
+| 可靠性   | 备份恢复、故障排除、升级回滚、Server HA 与多实例。                                 |
+| 安全     | 安全基线、风控、权限控制说明、证书与传输安全。                                     |
+| Agent    | Agent 对照、默认 sidecar、devops 与 capture 的部署边界。                           |
+| 发布     | SDK 包发布流程和发布前置检查。CI/CD 与交付面盘点见 DevOps 说明。                   |
 
 ## 部署形态
 
@@ -60,4 +60,4 @@ tag:
 
 ## 阅读入口
 
-新部署从[部署总览](/zh/operations/deploy-docker)或现有平台对应的形态页开始。排障从[故障排除](/operations/troubleshooting)开始；改动安全边界前先读[安全基线](/zh/operations/security)和[风控](/zh/operations/risk-control)。
+新部署从部署总览或现有平台对应的形态页开始。排障从故障排除开始；改动安全边界前先读安全基线和风控。

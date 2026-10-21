@@ -1164,7 +1164,7 @@ type probeView struct {
 | GET  | `/api/v1/ops/agent/metrics/history` | agent 指标历史（节点详情页用）                                    |
 
 LB 监控依赖 `ops.prometheusUrl`（env `CROUPIER_LB_PROMETHEUS_URL`），
-详见 [负载均衡监控](../operations/load-balancing.md)。
+详见 负载均衡监控。
 
 ## capture 闸规则端点
 
@@ -1215,7 +1215,7 @@ capture-agent 闸规则（reconcile / cep / lineage 三闸 + eventOps）的发�
 }
 ```
 
-设计依据：[capture-agent-design](../design/capture-agent-design.md) §6/§8.5。
+设计依据：capture-agent-design §6/§8.5。
 
 ## probe 端点
 
@@ -1314,4 +1314,4 @@ type OpsProcessSchedulePauseResponse struct {
 }
 ```
 
-语义边界：暂停的是**声明的 cron 调度触发**，进程运行态不动（不 stop、不影响恢复环）；恢复后下一匹配分钟槽照常触发，**暂停期间错过的槽位不补跑**（crond 语义，同 §10.6）；无调度条目时暂停为幂等空操作（意图落盘，快照不渲染字段）；暂停意图跨 agent 重启保留（`logs/supervisor/schedule_pause_state.json`，损坏文件 fail-open 空映射）。门禁：与手动 start/stop/restart 同双闸（`ops.enabled` + `allowRestart` 均须显式开启），无独立配置键。事件留痕：`schedule_paused` / `schedule_resumed`（§3.6 事件闭集）；快照上行 `scheduleSuspended`（proto 17）。设计依据：[agent-supervisor-design](../design/agent-supervisor-design.md) §10.2/§10.6。
+语义边界：暂停的是**声明的 cron 调度触发**，进程运行态不动（不 stop、不影响恢复环）；恢复后下一匹配分钟槽照常触发，**暂停期间错过的槽位不补跑**（crond 语义，同 §10.6）；无调度条目时暂停为幂等空操作（意图落盘，快照不渲染字段）；暂停意图跨 agent 重启保留（`logs/supervisor/schedule_pause_state.json`，损坏文件 fail-open 空映射）。门禁：与手动 start/stop/restart 同双闸（`ops.enabled` + `allowRestart` 均须显式开启），无独立配置键。事件留痕：`schedule_paused` / `schedule_resumed`（§3.6 事件闭集）；快照上行 `scheduleSuspended`（proto 17）。设计依据：agent-supervisor-design §10.2/§10.6。

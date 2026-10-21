@@ -23,4 +23,4 @@
 | `Operation`         | 业务动作标识                                                                           |
 | `Permission`        | 权限标识                                                                               |
 
-审批与执行方式正交：需要审批的批量操作可同时设置 `Execution = "task"` 与 `ApprovalRequired = true`。OpenAPI 导入的对应扩展字段（`x-capability`/`x-execution`/`x-approval` 等）见 [OpenAPI 导入指南](../guide/openapi-import)。
+审批与执行方式正交：需要审批的批量操作可同时设置 `Execution = "task"` 与 `ApprovalRequired = true`。OpenAPI 导入的对应扩展字段（`x-capability`/`x-execution`/`x-approval` 等）见 OpenAPI 导入指南。

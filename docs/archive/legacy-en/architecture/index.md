@@ -85,10 +85,10 @@ graph TB
 
 > 两个入口面互不共享：Web 面的 nginx 不碰 Agent 流量，Agent 面的 haproxy
 > 不碰 HTTP。L4/L7 选型与 VRRP 消除 LB 单点的论证见
-> [负载均衡](../operations/load-balancing.md)。
+> 负载均衡。
 
 > Server 支持多实例高可用部署（`cluster.enabled`）：单实例默认关闭集群，零
-> 开销。详见 [Server 多实例高可用设计](./server-ha-multi-instance.md)。
+> 开销。详见 Server 多实例高可用设计。
 
 关键边界说明：
 
@@ -217,23 +217,12 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 
 - [分层设计](./layers.md)
 - [术语与分层](./terms-and-layering.md)
-- [数据流](./data-flow.md)
-- [游戏与环境作用域](./game-environment-scope.md)
-- [Session 生命周期](./session-lifecycle.md)
-- [SDK Wire 协议](./sdk-wire-protocol.md) — 含过载反馈/背压现状与双车道设计
-- [本地化文本契约](./localized-text-contract.md) — `LocalizedText` BCP47 键与前后端归一规则
 - [SDK OTel 传播](./sdk-otel-propagation.md) — trace 上下文跨 SDK 边界传播
 
 ### Dashboard 页面模型
 
 - [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md) — 新手从这里开始：描述驱动的核心思路、从函数注册到页面执行的完整流程、每个关键决策的取舍
-- [Dashboard 术语表](./dashboard-glossary.md) — FunctionContract、CapabilitySemantics、PageProposal、PageSpec 与 freshness/merge 的统一定义，建议首先阅读
-- [Dashboard Resource/Page 模型](./dashboard-page-model.md) — 注册、语义聚合、Proposal、发布快照与执行治理的权威模型
-- [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 FunctionContract 的统一注册契约
-- [PageSpec 协议规范](./pagespec-protocol.md) — PageSpec/FormPresentationSpec/typed selector 的 wire 契约唯一出处
 - [ProComponents 页面生成与运行时](./ui-generation.md) — 生成器默认值、Page Studio 与唯一运行时边界
-- [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) — OpenAPI 上传即生成组件/页面、unbound 契约与发布分级的设计
-- [运行控制台动态菜单](./console-dynamic-menu.md) — PublishedPageSpec 到 ConsoleMenuSpec 的菜单唯一来源与分类仲裁
 - [旧模型删除清单](./legacy-deletion-inventory.md) — 旧模型删除的历史记录与防回流 guard 索引
 
 ### 决策与边界
@@ -241,7 +230,6 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [传输层决策（不使用 gRPC）](./transport-no-grpc.md)
 - [平台配置分层 L1←L2←L3](./config-layering.md)
 - [功能开关](./feature-flags.md)
-- [数据库迁移策略](./database-migration-strategy.md)
 - [扩展安装模型](./extension-installation-model.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)
 - [扩展 API 契约基线](./extensions-api-contract-baseline.md)
@@ -249,13 +237,9 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 ### 提案与迁移设计
 
 - [游戏环境作用域 API 传输设计](./game-env-scope-api-transport.md) — scope 通过 Header/Query/Body 传递的选型与统一规范（提案）
-- [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
-- [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
 - [扩展统一模式](./official-extension-unified-pattern.md)
 - [双布局设计（设计态/运行态导航隔离）](./dual-layout-design.md) — 已评审待决策
-- [Server 多实例高可用设计](./server-ha-multi-instance.md) — 已实现：成员表、实例互联与 owner 转发、`cluster.enabled` 接线与集群拓扑页（正文标注 Current）
 
 ### 参考资料
 
-- [Session Runtime 参考实现](./session-runtime-landscape.md)
 - [前端 Adapter 模板](./frontend-adapter-layer-template.md)

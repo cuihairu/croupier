@@ -10,7 +10,7 @@ tag:
 
 # Certificate Monitoring
 
-"Ops Center → Certificate Monitoring" tracks the expiry and status of TLS certificates related to the platform — **primarily manual registration** (the platform cannot auto-discover certificates signed by your internal CA), combined with expiry alert rules and integration with [notification channels](./notifications).
+"Ops Center → Certificate Monitoring" tracks the expiry and status of TLS certificates related to the platform — **primarily manual registration** (the platform cannot auto-discover certificates signed by your internal CA), combined with expiry alert rules and integration with notification channels.
 
 ## Registering Certificates
 
@@ -19,7 +19,7 @@ Two ways:
 1. **Form registration**: domain + port (default 443) + optional PEM certificate (+ private key, used only for expiry parsing, never for traffic handling)
 2. **TLS dial helper** (`GET /api/v1/certificates/domain-info?domain=xxx`): performs a live TLS handshake against any domain (10s timeout) to read certificate info and prefill the form — good for probing before registering
 
-> For configuring the platform's internal link certificates (transport/dispatch), see [TLS and Certificates](./tls-certificates); this page is an **expiry ledger** and is not responsible for issuing them.
+> For configuring the platform's internal link certificates (transport/dispatch), see TLS and Certificates; this page is an **expiry ledger** and is not responsible for issuing them.
 
 ## State Machine and Re-checks
 

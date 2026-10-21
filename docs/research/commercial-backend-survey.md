@@ -9,7 +9,6 @@ title: 商业游戏后台功能调研——PlayFab / Steamworks / Epic EOS / Nak
 - 状态: 调研归档（2026-10-08，Provider 插件设计前置调研之一）
 - 日期: 2026-10-08
 - 范围: 业界运营/GM 后台功能清单，按八维分类——权限、RM 资源操作（邮件/道具/钱包/发放）、公告、客服、数据看板、充值对账、风控、审计；论断均带来源（官方文档优先，检索快照与二手来源单独标注）
-- 结论: ①权限分级、玩家处置（封禁/风控）、数据看板、操作审计是跨产品高频项；②充值对账深度与「平台是否自营商店」成正比（Steamworks 最深，纯服务层只记自家计费）；③客服工单是最稀缺维度（官方文档仅 Epic）；④商业后台自身也面临扩展问题（PlayFab Add-ons、Nakama Runtime Modules、Photon Plugins），与[插件架构调研（本节仅有中文版）](/zh/research/plugin-architecture-survey)互为印证；⑤国内大厂不公开 GM 后台内部架构，正面证据来自行业参考文档与二手资料（§5 诚实边界）
 - 关联: Provider 插件设计文档在批二落 `docs/design/`
 
 ## 一、调研对象与证据强度
@@ -136,7 +135,6 @@ title: 商业游戏后台功能调研——PlayFab / Steamworks / Epic EOS / Nak
 1. **四个高频项**：权限分级、玩家处置（封禁/风控）、数据看板、（发放场景下的）操作审计，在绝大多数调研对象中存在；公告次之；客服工单最稀缺。
 2. **对账深度与 storefront 正相关**（§2.6 观察）。
 3. **两类形态分工**：live-ops 后台（PlayFab/Steamworks/EOS/Nakama）面向「玩家+运营」——RM/公告/客服齐备；基础设施面板（Photon/Pterodactyl/Crafty）面向「服务器+资源」——RM/公告/客服系统性缺位。Croupier 定位偏前者，八维里 RM/公告/客服/对账是功能面，权限/审计/风控是平台底座。
-4. **商业后台自身的扩展问题**：PlayFab Add-ons（第三方集成控制中心/marketplace integrations）、Nakama Runtime Modules（Go/Lua/TS 模块在 Console 展示活跃函数）、Photon Cloud Plugins（dashboard 上传入口）、Steamworks Inventory Web Functions——商业后台同样需要「接入第三方能力」的插件机制，具体机制设计见[插件架构调研（本节仅有中文版）](/zh/research/plugin-architecture-survey)。
 
 ## 四、国内公开资料（含诚实边界）
 

@@ -139,8 +139,6 @@ src/pages/WorkspaceEditor/components/
 
 ### 规划文档
 
-- [V2 TODO](./TODO_V2_UI_ENTERPRISE.md) - 企业级改造计划（75 个任务）
-
 ---
 
 ## 升级指南

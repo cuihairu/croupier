@@ -43,6 +43,3 @@ invoke("wallet.transfer", {
 - 描述符 ID 和 operation key 应保持稳定。
 
 ## 相关页面
-
-- [OpenAPI / SDK Descriptor v2](/zh/architecture/openapi-sdk-descriptor-v2)
-- [Dashboard Resource/Page 模型](/zh/architecture/dashboard-page-model)

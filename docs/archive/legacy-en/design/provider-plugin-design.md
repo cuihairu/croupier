@@ -14,7 +14,7 @@ title: Provider 插件设计——外部平台接入的契约、加载与权限�
   3. **`platform/provider` 的 Provider 接口语义保留为 driver 契约蓝本**，quicksdk 实现按 mapping 文档迁 `official.external-platform`（§8）
   4. **cicd / identity 两处抽象保留内置不迁移**（§8）
   5. 版本协商复用 release 体系（`min_core_version` + 依赖图校验），provider manifest 不另立版本字段（§3.4）
-- 关联: [商业游戏后台功能调研](../research/commercial-backend-survey.md) · [插件架构调研](../research/plugin-architecture-survey.md) · [扩展安装模型](../architecture/extension-installation-model.md) · [官方扩展统一模式](../architecture/official-extension-unified-pattern.md) · [扩展域 API 契约基线](../architecture/extensions-api-contract-baseline.md) · [Core/Extension Mapping](../architecture/core-extension-mapping.md)
+- 关联: 商业游戏后台功能调研 · 插件架构调研 · [扩展安装模型](../architecture/extension-installation-model.md) · [官方扩展统一模式](../architecture/official-extension-unified-pattern.md) · [扩展域 API 契约基线](../architecture/extensions-api-contract-baseline.md) · [Core/Extension Mapping](../architecture/core-extension-mapping.md)
 
 ## 1. 问题与目标
 
@@ -209,6 +209,5 @@ installation.enable
 
 ## 11. 设计依据索引
 
-- 调研：[commercial-backend-survey](../research/commercial-backend-survey.md)（商业后台八维清单与插件形态旁证）· [plugin-architecture-survey](../research/plugin-architecture-survey.md)（四系统六问对比与标配三角）
 - 架构（现状约束）：[extension-installation-model](../architecture/extension-installation-model.md)（五表/四态/Agent 副本）· [official-extension-unified-pattern](../architecture/official-extension-unified-pattern.md)（三层 capability/config schema/事件前缀）· [extensions-api-contract-baseline](../architecture/extensions-api-contract-baseline.md)（API/错误码基线）· [core-extension-mapping](../architecture/core-extension-mapping.md)（目录目标形态与迁移顺序）
 - 代码参照：`internal/cicd/provider.go`（工厂注册表模式）· `internal/core/extension/externalfunc`（binding spec/function ID/capability 现状）· `internal/api/extension/service.go:153`（渠道闭集）
