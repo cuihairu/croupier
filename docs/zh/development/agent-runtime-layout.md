@@ -105,7 +105,7 @@ SDK 函数注册与路由属于 sidecar；SSH/RDP/VNC 与白名单属于 devops�
 | Server/集群/运维派发    | `internal/server/{agent_session.go:10,tcp_listener.go:15,control_handler.go:25}`；`internal/cluster/transport.go:9`；`internal/logic/ops/agent_ops_client.go:9`；`internal/platform/dispatch/dispatcher.go:14`；`internal/svc/service_context.go:17` | session/client 引用改到 core；`cmd/server/cluster.go:215` 的请求响应 NewServer 保留 internal                    |
 | CLI/示例/函数适配工具   | `cmd/sidecar-agent/root.go:19`；`examples/cmd/e2e-agent-probe/main.go:32`；`tools/adapters/{http/main.go:15,prom/main.go:10}`                                                                                                                        | Client/Config 直接消费 core；测试中的 NewServer 仍用 internal 构造器                                            |
 
-迁移不修改业务判断、报错、wire、默认超时、队列、重连或退出策略。todo:17 保持部分完成：受管程序 supervisor 生命周期公共化、本地网关与其余 sidecar 业务归位、控制消息/探测内核进一步收敛及发布聚合均有剩余。
+迁移不修改业务判断、报错、wire、默认超时、队列、重连或退出策略。todo:17 的 MuxConn/session、受管程序 supervisor 生命周期、sidecar 归位、synthetics 入口与发布聚合已交付；控制消息和探测内核的进一步收敛不属于本轮范围，按独立台账跟踪。
 
 2026-10-20 生命周期决策复核：`core/process` 提供重启退避、熔断判定/文案、`cmd.Wait` 退出分类（Unix 信号与 Windows 无信号边界）及 OOM 疑似线索短路逻辑；`internal/app/agent` 保留 supervisor 状态机、事件日志、进程装配与授权。迁移不改默认退避、熔断阈值、事件类型、状态迁移或探测行为。
 2026-10-22 supervisor 状态机公共化：`core/process.SupervisorState` 收敛连续失败计数、`allowRestart` 门、熔断/退避决策、backoff 到期消费、重启尝试与稳定性窗口恢复；`internal/app/agent.supervisorState` 为类型别名、`newSupervisorState` 构造转发，Ops monitor 驱动同一状态机并继续拥有 Wait、spawn/stop、授权、事件与稳定性窗口。状态迁移、默认退避、阈值与事件不变；旧 managedProcess 字段仅作展示快照兼容面。
