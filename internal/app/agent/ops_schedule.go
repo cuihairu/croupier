@@ -13,8 +13,6 @@ import (
 	"time"
 
 	processcore "github.com/cuihairu/croupier/core/process"
-
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
 type processScheduleEntry = processcore.ScheduleEntry
@@ -127,12 +125,7 @@ func (s *OpsServer) fireScheduled(name string, entry processScheduleEntry) {
 		if !hasCfg {
 			return
 		}
-		p = &managedProcess{
-			name:   name,
-			config: cfg,
-			state:  opsv1.ProcessState_PROCESS_STATE_STOPPED,
-			stopCh: make(chan struct{}),
-		}
+		p = newManagedProcess(name, cfg)
 		s.mu.Lock()
 		s.processes[name] = p
 		s.mu.Unlock()

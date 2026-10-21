@@ -61,7 +61,7 @@ pkg/{pb,protocol}/           共享 wire message 与消息编号
 | 探测内核                       | `core/healthprobe`                                            | sidecar/Server 装配较完整，capture 有 readiness；synthetics 当前原生 HTTP probe 仍在 agents/synthetics/probe，未消费 healthprobe；devops 探测消费未齐 | 后续核对探测内核复用；外部目标分类与插件协议适配留 synthetics                 |
 | configsync                     | `core/configsync`                                             | 拉取/版本/last-good 为公共件，具体配置解析留业务侧                                                                                                    | 不同 Agent 不各写一份拉取状态机                                               |
 | 指标/上报/审计/快照            | `core/metrics`、`report`、`execlog`、`crash`                  | 按需组合，公共包存在不等于所有角色都已接线                                                                                                            | 以真实消费与端到端证据标注状态                                                |
-| 受管程序 supervisor            | `core/process`、`internal/app/agent/ops_*`                    | cron/调度、重启退避、熔断、退出分类与 OOM 线索决策公共化；Ops 状态机、事件日志与进程装配仍留在 sidecar                                                | 后续按真实消费者抽完整 supervisor 状态机；每进程只有一个管理者                |
+| 受管程序 supervisor            | `core/process`、`internal/app/agent/ops_*`                    | cron/调度、重启退避、熔断、退出分类、OOM 线索决策与失败计数/退避/恢复状态机公共化；Ops 事件日志、进程装配与授权仍留在 sidecar                         | 每进程只有一个管理者；探测窗口、spawn 失败与稳定性窗口口径由 Ops 馈入状态机   |
 | go-plugin 进程生命周期         | `core/pluginhost`（本片前已抽取）                             | sidecar/funcplugin 与 synthetics/pluginhost 已共用启动、背压、退避、熔断、Stop；角色分别保留函数/探测协议                                             | 保持一个 Controller 管理一组插件进程，不并入受管程序 supervisor               |
 | OTel                           | `internal/telemetry`                                          | 已有默认 SDK/禁用开关与 no_otel 裁剪；插件另有 no_go_plugin 裁剪                                                                                      | 本片不移动遥测，避免依赖灌入公共 Checker 或游戏 SDK                           |
 
@@ -108,5 +108,6 @@ SDK 函数注册与路由属于 sidecar；SSH/RDP/VNC 与白名单属于 devops�
 迁移不修改业务判断、报错、wire、默认超时、队列、重连或退出策略。todo:17 保持部分完成：受管程序 supervisor 生命周期公共化、本地网关与其余 sidecar 业务归位、控制消息/探测内核进一步收敛及发布聚合均有剩余。
 
 2026-10-20 生命周期决策复核：`core/process` 提供重启退避、熔断判定/文案、`cmd.Wait` 退出分类（Unix 信号与 Windows 无信号边界）及 OOM 疑似线索短路逻辑；`internal/app/agent` 保留 supervisor 状态机、事件日志、进程装配与授权。迁移不改默认退避、熔断阈值、事件类型、状态迁移或探测行为。
+2026-10-22 supervisor 状态机公共化：`core/process.SupervisorState` 收敛连续失败计数、`allowRestart` 门、熔断/退避决策、backoff 到期消费、重启尝试与稳定性窗口恢复；`internal/app/agent.supervisorState` 为类型别名、`newSupervisorState` 构造转发，Ops monitor 驱动同一状态机并继续拥有 Wait、spawn/stop、授权、事件与稳定性窗口。状态迁移、默认退避、阈值与事件不变；旧 managedProcess 字段仅作展示快照兼容面。
 
 2026-10-20 归属校验集中抽取：`core/agentscope` 提供去空白判定 `NonBlank` 与注册身份四字段 `Identity`（id/serverAddr/gameId/env，按声明顺序报第一个缺项）；devops/capture/synthetics 配置校验与 `internal/app/agent.ValidateAgentScope` 改为消费该规则。各入口报错文案与调用时机不变（sidecar 保留中文文案）；synthetics 首个报错字段由 map 遍历序漂移改为固定声明顺序（有意的行为改进，文案本身不变）。

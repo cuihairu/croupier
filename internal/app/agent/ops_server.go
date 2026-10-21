@@ -91,6 +91,7 @@ type managedProcess struct {
 	// 事件上下文 last_heartbeat 使用。
 	consecutiveFails int
 	nextRestartAt    *time.Time
+	supervisor       *processcore.SupervisorState
 	lastEventUnix    int64
 	lastSampleUnix   int64
 	// snapshotDir 是本实例的崩溃快照目录（S3 轻档，startProcess 时建），
@@ -213,6 +214,7 @@ func (s *OpsServer) doRestartProcess(p *managedProcess, event, message string) e
 	p.nextRestartAt = nil
 	// 人工干预成功即复位熔断计数（BROKEN → RUNNING 的修复路径）。
 	p.consecutiveFails = 0
+	p.supervisor.RecordStart()
 	newPID := p.pid
 	restarts := p.restarts
 	p.mu.Unlock()
@@ -274,6 +276,7 @@ func (s *OpsServer) coreStopProcess(p *managedProcess) int32 {
 	p.pid = 0
 	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
 	p.nextRestartAt = nil
+	p.supervisor.CancelBackoff()
 	return oldPID
 }
 
@@ -298,12 +301,7 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 		}
 
 		// Create new managed process
-		p = &managedProcess{
-			name:   req.ProcessName,
-			config: cfg,
-			state:  opsv1.ProcessState_PROCESS_STATE_STOPPED,
-			stopCh: make(chan struct{}),
-		}
+		p = newManagedProcess(req.ProcessName, cfg)
 
 		s.mu.Lock()
 		s.processes[req.ProcessName] = p
@@ -366,6 +364,7 @@ func (s *OpsServer) coreStartProcess(p *managedProcess) (int32, int32, error) {
 	p.nextRestartAt = nil
 	// start 是 BROKEN 的复位路径：成功即清连续失败计数。
 	p.consecutiveFails = 0
+	p.supervisor.RecordStart()
 	newPID := p.pid
 	restarts := p.restarts
 	p.mu.Unlock()
@@ -594,16 +593,18 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 		if !s.autoRestartAllowed(p) {
 			p.state = opsv1.ProcessState_PROCESS_STATE_FAILED
 			p.nextRestartAt = nil
+			p.supervisor.DecideExit(false, time.Now())
 			p.mu.Unlock()
 			return
 		}
-		p.consecutiveFails++
-		fails := p.consecutiveFails
-		if processcore.BreakerTripped(restartConfig(p.config), int32(fails)) {
+		decision := p.supervisor.DecideExit(true, time.Now())
+		fails := decision.ConsecutiveFails
+		p.consecutiveFails = fails
+		if decision.Action == processcore.SupervisorBreak {
 			p.state = opsv1.ProcessState_PROCESS_STATE_BROKEN
 			p.nextRestartAt = nil
 			restarts := p.restarts
-			msg := processcore.BreakerMessage(restartConfig(p.config), int32(fails))
+			msg := breakerMessage(p.config, fails)
 			p.mu.Unlock()
 			tripped := newSupervisorEvent(p.name, supervisorEventBreakerTripped)
 			tripped.OldPid = oldPID
@@ -612,8 +613,8 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 			s.emitSupervisorEvent(p, tripped)
 			return
 		}
-		delay := processcore.RestartDelay(restartConfig(p.config), fails)
-		nextAt := time.Now().Add(delay)
+		delay := decision.Delay
+		nextAt := p.supervisor.NextRestartAt()
 		p.state = opsv1.ProcessState_PROCESS_STATE_BACKOFF
 		p.nextRestartAt = &nextAt
 		stopCh := p.stopCh
@@ -644,6 +645,7 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 		p.nextRestartAt = nil
 		p.state = opsv1.ProcessState_PROCESS_STATE_STARTING
 		spawnErr := s.startProcess(p)
+		p.supervisor.MarkRestartAttempted()
 		if spawnErr == nil {
 			newCmd := p.cmd
 			newPID := p.pid
@@ -678,7 +680,7 @@ func (s *OpsServer) superviseExit(p *managedProcess, watched *exec.Cmd, waitErr 
 // being the current p.cmd in RUNNING state. Ownership guard同 monitor：期间
 // 发生的手动操作/再次崩溃都会让本定时器失效。
 func (s *OpsServer) armSuccessTimer(p *managedProcess, watched *exec.Cmd, stopCh chan struct{}) {
-	delay := processcore.RestartDelay(restartConfig(p.config), 2)
+	delay := p.supervisor.SuccessWindow()
 	go func() {
 		if stopCh != nil {
 			select {
@@ -693,6 +695,7 @@ func (s *OpsServer) armSuccessTimer(p *managedProcess, watched *exec.Cmd, stopCh
 		defer p.mu.Unlock()
 		if p.cmd == watched && p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
 			p.consecutiveFails = 0
+			p.supervisor.RecordSuccess()
 		}
 	}()
 }
@@ -716,11 +719,7 @@ func (s *OpsServer) Start() error {
 			continue
 		}
 
-		p := &managedProcess{
-			name:   name,
-			config: cfg,
-			state:  opsv1.ProcessState_PROCESS_STATE_STOPPED,
-		}
+		p := newManagedProcess(name, cfg)
 
 		if err := s.startProcess(p); err != nil {
 			// Log but don't fail
