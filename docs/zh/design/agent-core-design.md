@@ -6,7 +6,7 @@ title: agent-core 通用能力层设计简档——能力清单/目录树/抽取
 
 ## 状态
 
-- 状态: **已实施（K1–K4 抽取完成，2026-10-09）**。core 十包建成并自带测试，sidecar-agent 六包已接线、四包建成待消费方接线，接线状态与剩余项见 §5.1/§9。
+- 状态: **已实施（K1–K4 抽取完成，2026-10-09；2026-10-22 台账复核）**。core 十包建成并自带测试；transport/session、supervisor 决策与 pluginhost 已按消费矩阵收口，旧 internal 仅保留兼容 shim 与请求响应 Server。core 系四类 Agent 已消费注册、心跳、控制连接、监管契约与插件宿主；healthprobe/execlog 的具体剩余消费面见 [Agent 清单 §10](agents-inventory.md#_10-能力台账按实现生产接线真实环境验收已知边界2026-10-20-口径)。
 - 立项口径（用户令，2026-10-09）：agent 越来越多（capture/未来更多），通用能力上收为 `agent-core` Go 公共库；**各 agent = agent-core + 业务插件**；与 [Agent Supervisor 简档](agent-supervisor-design.md) 合并定稿——**core 即 supervisor 的被监管对象，协议一份**；目录 `core/` 归 core、`agents/capture/` 归业务；极简：core 每文件守百行内、能力按需可裁（不用的不编译进来）。
 - 补充令（2026-10-09，内网 agent 拆分）：泛监控类能力从主 agent 拆成独立小 agent，**「一个能力一个小 agent」**；首个样例 = 内网独立 agent（`agents/devops/`，设计见 §7）——与 capture-agent 同构，用第二个业务 agent 验证 core 可裁剪抽象是否成立。（样例职责后经 2026-10-11 用户令重定为堡垒机代理，见 §7。）
 - 定稿补充（2026-10-09，用户令④）：①服务探活升为 core 独立公共模块 **`healthprobe`**——内分 Liveness/Readiness/Heartbeat 三语义（对标 k8s probe 术语），游戏进程探活/内网探主机端口/capture 探库连通三处**共用同一份实现**；②路线图登记两个未来独立 agent，**命名用行业词**：`connector-agent`（第三方服务接入，对标 Datadog Integrations/n8n）、`synthetics-agent`（外部合成探测，对标 Datadog Synthetics/Pingdom）——**只登记不实现**（§8）；③三 agent 定稿不变：sidecar-agent=游戏服务器 GM 通道（外网侧仅业务）、devops-agent=内网堡垒机代理（2026-10-11 重定）、capture-agent=防私改库（CDC）。
@@ -108,18 +108,18 @@ internal/                    # 现有主体不动（sidecar-agent = internal 骨
 
 core 十包全部建成且自带测试（`go test ./core/...` 绿）；sidecar-agent 接线状态分两档：
 
-| 包             | sidecar 接线 | 说明                                                                                                                     |
-| -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `backoff`      | ✅ 已切      | 默认档断言迁 sidecar 防漂移（backoff_regression_test）                                                                   |
-| `logx`         | ✅ 已切      | `internal/cli/common/logging.go` 收敛为 shim，新代码直用 core/logx                                                       |
-| `register`     | ✅ 已切      | upstream.go 注册/心跳/重连全走 core；保语义：payload 先组装后取连接快照、断连 not connected 文案、OnConnected 初始双触发 |
-| `report`       | ✅ 已切      | Conn 含 Connected() 短路；**告警通道 wire 未新增**（§9 边界，capture C1 前置）                                           |
-| `metrics`      | ✅ 已切      | sidecar 留别名 + GetSystemInfo（OpsConfig 属 sidecar 面）；Sampler 注入受管进程快照                                      |
-| `configsync`   | ✅ 已切      | extension sync puller 委托 core 版本轮询；wire 解码留业务侧                                                              |
-| `healthprobe`  | 建成未接线   | supervisor 心跳采样切换与探针消费随 capture C1 / 面板批次                                                                |
-| `supervisable` | 建成未接线   | sidecar main 继续用现有装配；core 系 agent（capture/devops）落地时即用                                                   |
-| `execlog`      | 建成未接线   | 本地真值闭环（双写/闸/导出）；server 摄取端点与 sidecar 执行面接线属后续批次                                             |
-| `crash`        | 建成未接线   | 轻档注入映射 + dump 目录管理就绪；ManagedProcesses `snapshotProfile` 接线随 #67 S3                                       |
+| 包             | sidecar 接线           | 说明                                                                                                                     |
+| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `backoff`      | ✅ 已切                | 默认档断言迁 sidecar 防漂移（backoff_regression_test）                                                                   |
+| `logx`         | ✅ 已切                | `internal/cli/common/logging.go` 收敛为 shim，新代码直用 core/logx                                                       |
+| `register`     | ✅ 已切                | upstream.go 注册/心跳/重连全走 core；保语义：payload 先组装后取连接快照、断连 not connected 文案、OnConnected 初始双触发 |
+| `report`       | ✅ 已切                | Conn 含 Connected() 短路；**告警通道 wire 未新增**（§9 边界，capture C1 前置）                                           |
+| `metrics`      | ✅ 已切                | sidecar 留别名 + GetSystemInfo（OpsConfig 属 sidecar 面）；Sampler 注入受管进程快照                                      |
+| `configsync`   | ✅ 已切                | extension sync puller 委托 core 版本轮询；wire 解码留业务侧                                                              |
+| `healthprobe`  | 已接线（按消费方分档） | sidecar 本地探测/打点、capture readiness、server 探测汇总/诊断已消费；devops 目标探针与 synthetics 内核复用仍待后续批次  |
+| `supervisable` | 已接线（core 系）      | devops/capture/synthetics main 消费；sidecar 保留既有 signal/beat 装配，不强制同构改写                                   |
+| `execlog`      | 已接线（本地/闸）      | devops audit-first 与本地真值已消费；server 摄取、sidecar 执行面与断点续传仍待后续批次                                   |
+| `crash`        | 已接线（轻档）         | sidecar `snapshotProfile` spawn 注入/事件提示已消费；保留期、配额与下载权限仍未拍板                                      |
 
 ## 6. 公共模块：healthprobe 与 execlog
 
@@ -235,7 +235,7 @@ devops-agent 不 import `core/metrics`（无资源采集需求时的可裁证明
 
 ## 9. 已知边界（诚实清单）
 
-- core/ 与 internal/ 短期并存双路径（K1-K4 过渡期），以批次消灭，不做一次性大迁移（历史教训：19-sync 类协议面事故都出自「一把梭」迁移）。K1–K4 抽取已完成（§5.1），双路径余量收敛到四个「建成未接线」包。
+- core/ 与 internal/ 短期并存的历史过渡已收敛：MuxConn/TLS、supervisor 决策与 pluginhost 均以 core 为唯一实现，旧 internal 仅保留兼容 shim、请求响应 Server 与既有装配面。后续按消费者职责迁移，不做一次性大迁移。
 - **report 告警通道 wire 未新增**：core/report 现只承载指标/任务事件（与 sidecar 现状等价）；告警上报消息（capture 简档 §7）与 herald 出口对接未做，是 capture C1 的前置项。
 - **execlog 仅本地真值闭环**：双写中的 server 摄取端点（落审计存储、按 scope 归 game 库）未做，Uploader 为接口位；sidecar 执行面（函数调用/任务执行留审计）接线属后续批次；本地落盘为 lumberjack 无缓冲直写——进程崩溃不丢，断电级 fsync 不保证。
 - **healthprobe 上行未接**：故障窗口时间线本地文件闭环；上报捎带（快照带当前窗口、窗口事件上行）与面板消费属后续批次；herald 投递（probe.unavailable/recovered）未接。
