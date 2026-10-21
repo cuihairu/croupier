@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Input, Space, Table } from 'antd';
+import { Alert, Button, Input, Space, Table } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage } from '@umijs/max';
 import { listOpsAgentsByType, type AgentType } from '@/services/api/ops';
 import { useScopeReload } from '@/hooks/useScopeReload';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
-import NodeDetailDrawer from '../Nodes/NodeDetailDrawer';
 import SupervisorDrawer from '../Nodes/SupervisorDrawer';
+import AgentDetailDrawer from './AgentDetailDrawer';
+import AgentExecutionAudit from './AgentExecutionAudit';
 import { normalizeOpsNode, type NodeRow } from '../Nodes/shared';
 
 export type AgentPageProps = {
@@ -54,6 +55,7 @@ export default function OpsAgentsPage({ agentType, children }: AgentPageProps) {
   const [query, setQuery] = useState('');
   const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
   const [supervisorNode, setSupervisorNode] = useState<NodeRow | null>(null);
+  const [auditAgentId, setAuditAgentId] = useState('');
   const requestId = useRef(0);
   const meta = AGENT_META[agentType];
 
@@ -114,6 +116,9 @@ export default function OpsAgentsPage({ agentType, children }: AgentPageProps) {
       subTitle={`当前 scope · gameId=${scope.gameId || '-'} env=${scope.env || '-'} · ${agentType}`}
     >
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+        {!scope.gameId || !scope.env ? (
+          <Alert type="info" showIcon title="请先选择游戏与环境。" />
+        ) : null}
         <SummaryOverview
           title="实例概览"
           description={meta.description}
@@ -190,16 +195,24 @@ export default function OpsAgentsPage({ agentType, children }: AgentPageProps) {
             ]}
           />
         </StandardListSection>
-        {children}
+        {scope.gameId && scope.env ? children : null}
       </Space>
 
-      <NodeDetailDrawer
+      <AgentDetailDrawer
         node={detailNode}
-        onClose={() => setDetailNode(null)}
-        onDrain={() => undefined}
-        onUndrain={() => undefined}
-        onRestart={() => undefined}
+        agentType={agentType}
+        onViewAudit={(agentId) => {
+          setDetailNode(null);
+          setAuditAgentId(agentId);
+        }}
       />
+
+      {agentType === 'sidecar' && auditAgentId && scope.gameId && scope.env ? (
+        <AgentExecutionAudit
+          key={`${auditAgentId}:${scope.gameId}:${scope.env}`}
+          agentId={auditAgentId}
+        />
+      ) : null}
       {agentType === 'sidecar' && (
         <SupervisorDrawer node={supervisorNode} onClose={() => setSupervisorNode(null)} />
       )}

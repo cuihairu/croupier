@@ -145,6 +145,13 @@ function SidecarFunctions() {
             render: (_, row) => row.lastSeen || row.lastHeartbeat || '-',
           },
           {
+            title: '归属',
+            key: 'scope',
+            width: 170,
+            ellipsis: true,
+            render: (_, row) => `gameId=${row.gameId || '-'} env=${row.env || '-'}`,
+          },
+          {
             title: '操作',
             key: 'actions',
             width: 90,

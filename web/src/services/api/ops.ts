@@ -294,6 +294,7 @@ export type OpsAlertHandleResult = {
 export type OpsTask = {
   id: string;
   functionId: string;
+  agentId?: string;
   actor?: string;
   gameId?: string;
   env?: string;
@@ -385,6 +386,7 @@ type RawOpsTask = {
   endedAt?: string;
   durationMs?: number;
   error?: string;
+  agentId?: string;
   addr?: string;
   traceId?: string;
 };
@@ -490,6 +492,7 @@ function normalizeOpsTask(raw: RawOpsTask): OpsTask {
     durationMs: raw?.durationMs,
     error: raw.error,
     addr: raw.addr,
+    agentId: raw.agentId,
     traceId: raw.traceId,
   };
 }
