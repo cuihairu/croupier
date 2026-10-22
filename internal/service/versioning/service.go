@@ -2136,9 +2136,32 @@ func actorFromContext(ctx context.Context) string {
 
 func (s *Service) withTransaction(ctx context.Context, fn func(context.Context) error) error {
 	db := dbctx.Resolve(ctx, s.db)
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return fn(dbctx.WithDB(ctx, tx))
-	})
+	// 文件型 sqlite 高负载下，deferred 事务读→写升级会撞上并发写锁：
+	// 升级死锁规避路径不经过 busy_handler，SQLITE_BUSY 立即返回（E2E
+	// safe-auto-merge 在 CI 上实证 0.1ms 内 500）。事务回滚后 fn 的全部
+	// 副作用作废，短暂退避重试安全。
+	const maxAttempts = 5
+	for attempt := 1; ; attempt++ {
+		err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			return fn(dbctx.WithDB(ctx, tx))
+		})
+		if err == nil || !isSQLiteBusyErr(err) || attempt >= maxAttempts {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Duration(attempt) * 200 * time.Millisecond):
+		}
+	}
+}
+
+func isSQLiteBusyErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "SQLITE_BUSY") || strings.Contains(msg, "database is locked")
 }
 
 func digestRaw(raw model.JSON) string {
