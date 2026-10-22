@@ -6,8 +6,7 @@ overrides:
   vite@<=5.4.20: ">=5.4.21 <6.0.0"
   esbuild@<=0.24.2: "~0.25.0"
   postcss@<=8.5.17: ">=8.5.18"
-  dompurify@<=3.4.11: ">=3.4.12"
-  dompurify@<3.4.16: ">=3.4.16" # 2026-09-30 抬（afterSanitize hook DOM XSS，patched 3.4.16）
+  dompurify@<3.4.17: ">=3.4.17 <4.0.0" # 2026-10-23 抬（critical DOM XSS 后续修复，patched 3.4.17；含并此前 <=3.4.11/<3.4.16 两条）
   # 2026-10-07 安全补丁：Dependabot #419/#420（GHSA-g2v6-rqmx-r4w6 /
   # GHSA-68fv-2mgg-jv7q）；vue 与 @vue/server-renderer 同源锁步发布，两键须同步
   vue: ">=3.5.42 <4.0.0"
