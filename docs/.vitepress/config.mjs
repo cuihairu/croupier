@@ -79,16 +79,7 @@ export default withMermaid(
                     text: "Terms and layering",
                     link: "/architecture/terms-and-layering",
                   },
-                  { text: "Data flow", link: "/architecture/data-flow" },
-                  {
-                    text: "Session lifecycle",
-                    link: "/architecture/session-lifecycle",
-                  },
-                  {
-                    text: "SDK Wire protocol",
-                    link: "/architecture/sdk-wire-protocol",
-                  },
-                ],
+                  ],
               },
             ],
             "/operations/": [

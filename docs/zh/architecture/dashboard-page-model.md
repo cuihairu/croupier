@@ -559,7 +559,7 @@ menu_items（菜单树） + page_specs.menu_id（挂载） + active PublishedPag
 （`configs/server.yaml`，含 `publishReviewByEnv` 按 env 覆盖；优先级
 `publishReviewByEnv[env]` > 全局 > 内置默认——`dev=auto`，其余 env 与 `X-Env`
 缺失一律从严 `required`）。该策略是 L2 配置（见
-[配置分层](./config-layering.md)），在保存链路同步判定，不进运行时设置。
+配置分层），在保存链路同步判定，不进运行时设置。
 
 composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` 策略下
 保存成功后直接发布（`page.Service.AutoPublishComposite`，经 routes 装配注入回调，
@@ -615,7 +615,7 @@ composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` �
 
 ## 完成定义
 
-满足以下条件后才可验收发布（真实浏览器 E2E 回归入口见 `web/e2e/` 与 [真实 Dashboard E2E](../development/real-dashboard-e2e.md)）：
+满足以下条件后才可验收发布（真实浏览器 E2E 回归入口见 `web/e2e/` 与 真实 Dashboard E2E）：
 
 1. 一个 OpenAPI REST Resource 可自动生成并直接发布 ResourcePage；声明写 capability 时提供完整 CRUD，未声明写 capability 时提供只读查询/详情页面。
 2. 一个 SDK 显式能力 Resource 可自动生成并直接发布同等 ResourcePage。
@@ -624,4 +624,4 @@ composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` �
 5. Page Studio 的常用路径不要求编辑原始 PageSpec JSON 或自定义 mapping。
 6. 发布、动态菜单、scope、权限、审批、审计、OTel 和函数变更 stale 在真实浏览器 E2E 中闭环。
 
-旧模型的删除记录与防回流证据见 [旧模型删除清单](./legacy-deletion-inventory.md)。
+旧模型的删除记录与防回流证据见 旧模型删除清单。
