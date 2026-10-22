@@ -30,7 +30,7 @@ Operational documentation for on-call and SRE roles: it answers "how to deploy, 
 | Port/Path      | Owner   | Purpose                                                                    |
 | -------------- | ------- | -------------------------------------------------------------------------- |
 | `:18780`       | Server  | HTTP API + Dashboard backend                                               |
-| `:19090`       | Server  | Self-developed transport, Agent/SDK access entry point (via L4 LB)         |
+| `:19090`       | Server  | Custom TCP session transport, Agent/SDK access entry point (via L4 LB)     |
 | `:19091`       | Agent   | Local TCP, game-server function registration                               |
 | `:8404`        | HAProxy | stats page (for troubleshooting Agent connection distribution)             |
 | `GET /healthz` | Server  | Liveness probe (both the root path and `/api/v1/monitoring/healthz` work)  |

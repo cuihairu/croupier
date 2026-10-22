@@ -24,14 +24,14 @@ title: SDK 文档
 
 ## 语言入口
 
-| 语言       | 当前中文文档                                                                                | 源码入口                |
-| ---------- | ------------------------------------------------------------------------------------------- | ----------------------- |
-| C++        | [线程模型](./cpp/guide/threading.md)、[资源与操作](./cpp/guide/resources-and-operations.md) | `sdks/cpp/README.md`    |
-| C#         | [概览](./csharp/guide/index.md)、[错误处理](./csharp/guide/error-handling.md)               | `sdks/csharp/README.md` |
-| Go         | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                      | `sdks/go/README.md`     |
-| Java       | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                      | `sdks/java/README.md`   |
-| JavaScript | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                      | `sdks/js/README.md`     |
-| Python     | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                      | `sdks/python/README.md` |
+| 语言       | 当前中文文档                                                                                                        | 源码入口                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| C++        | [概览](./cpp/index.md)、[线程模型](./cpp/guide/threading.md)、[资源与操作](./cpp/guide/resources-and-operations.md) | `sdks/cpp/README.md`    |
+| C#         | [概览](./csharp/guide/index.md)、[错误处理](./csharp/guide/error-handling.md)                                       | `sdks/csharp/README.md` |
+| Go         | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                                              | `sdks/go/README.md`     |
+| Java       | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                                              | `sdks/java/README.md`   |
+| JavaScript | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                                              | `sdks/js/README.md`     |
+| Python     | [SDK 能力矩阵](./sdk-parity-matrix.md)                                                                              | `sdks/python/README.md` |
 
 表格中出现英文站入口时，通过默认主题语言切换器可达对应内容；不复制英文正文顶替中文页。
 

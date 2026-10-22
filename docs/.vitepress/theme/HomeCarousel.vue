@@ -2,7 +2,9 @@
   首页界面轮播（用户令：dashboard 真实截图 + 手机原型图混排展示放文档首页，
   而非深页单独节）。当前素材：10 张真实运行栈截图（3200×1800，16:9 统一）；
   手机原型图仓库无资产（不生成代餐），素材到位后在 slides 数组追加即可。
-  挂载点：theme/index.ts 经 home-features-before 插槽注入（hero 之下、特性之上）。
+  挂载点：index.md / zh/index.md 内 <HomeCarousel />，置于「What is Croupier /
+  什么是 Croupier」小节之下（2026-10-22 用户令：条目移到该分组下方）；
+  组件经 theme/index.ts enhanceApp 全局注册。文案与详情链接按当前语言切换。
 -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
@@ -22,19 +24,20 @@ import shot10 from '../../screenshots/ui/10-execution-logs.png';
 interface Slide {
   src: string;
   caption: string;
+  captionEn: string;
 }
 
 const slides: Slide[] = [
-  { src: shot01, caption: '登录' },
-  { src: shot02, caption: '工作台总览' },
-  { src: shot03, caption: '函数目录' },
-  { src: shot04a, caption: '函数执行 · 参数表单' },
-  { src: shot04c, caption: '函数执行 · 结果' },
-  { src: shot05, caption: '高危操作 · 触发审批' },
-  { src: shot06, caption: '审批列表' },
-  { src: shot07, caption: '审批详情' },
-  { src: shot08, caption: '节点维护' },
-  { src: shot10, caption: '执行留痕' },
+  { src: shot01, caption: '登录', captionEn: 'Login' },
+  { src: shot02, caption: '工作台总览', captionEn: 'Console overview' },
+  { src: shot03, caption: '函数目录', captionEn: 'Function catalog' },
+  { src: shot04a, caption: '函数执行 · 参数表单', captionEn: 'Invoke · schema form' },
+  { src: shot04c, caption: '函数执行 · 结果', captionEn: 'Invoke · result' },
+  { src: shot05, caption: '高危操作 · 触发审批', captionEn: 'High-risk · approval flow' },
+  { src: shot06, caption: '审批列表', captionEn: 'Approval list' },
+  { src: shot07, caption: '审批详情', captionEn: 'Approval detail' },
+  { src: shot08, caption: '节点维护', captionEn: 'Node maintenance' },
+  { src: shot10, caption: '执行留痕', captionEn: 'Execution logs' },
 ];
 
 const AUTOPLAY_MS = 4500;
@@ -65,15 +68,30 @@ onMounted(() => {
 
 onBeforeUnmount(stopTimer);
 
-const { site } = useData();
-const detailLink = `${site.value.base}guide/interface-preview`;
+const { site, lang } = useData();
+const isZh = computed(() => lang.value.startsWith('zh'));
+const detailLink = computed(
+  () => `${site.value.base}${isZh.value ? 'zh/' : ''}guide/interface-preview`,
+);
+const t = computed(() => ({
+  title: isZh.value ? '界面预览' : 'Interface preview',
+  more: isZh.value ? '分屏详解 →' : 'Full tour →',
+  caption: (s: Slide) => (isZh.value ? s.caption : s.captionEn),
+  consoleAlt: isZh.value ? 'Croupier 控制台' : 'Croupier console',
+  ariaLabel: isZh.value ? '界面预览' : 'Interface preview',
+  prevLabel: (s: Slide) => (isZh.value ? `上一张：${s.caption}` : `Previous: ${s.captionEn}`),
+  nextLabel: (s: Slide) => (isZh.value ? `下一张：${s.caption}` : `Next: ${s.captionEn}`),
+  dotLabel: (i: number, s: Slide) =>
+    isZh.value ? `第 ${i + 1} 张：${s.caption}` : `Slide ${i + 1}: ${s.captionEn}`,
+  dotsLabel: isZh.value ? `共 ${total} 张` : `${total} slides`,
+}));
 </script>
 
 <template>
   <section
     class="home-carousel"
     aria-roledescription="轮播"
-    aria-label="界面预览"
+    :aria-label="t.ariaLabel"
     @mouseenter="paused = true"
     @mouseleave="paused = false"
     @focusin="paused = true"
@@ -82,8 +100,8 @@ const detailLink = `${site.value.base}guide/interface-preview`;
     @keydown.right="go(index + 1)"
   >
     <header class="hc-head">
-      <h2 class="hc-title">界面预览</h2>
-      <a class="hc-more" :href="detailLink">分屏详解 →</a>
+      <h2 class="hc-title">{{ t.title }}</h2>
+      <a class="hc-more" :href="detailLink">{{ t.more }}</a>
     </header>
 
     <div class="hc-frame">
@@ -92,7 +110,7 @@ const detailLink = `${site.value.base}guide/interface-preview`;
           :key="current.src"
           class="hc-img"
           :src="current.src"
-          :alt="`Croupier 控制台：${current.caption}`"
+          :alt="`${t.consoleAlt}：${t.caption(current)}`"
           loading="lazy"
           decoding="async"
         />
@@ -101,7 +119,7 @@ const detailLink = `${site.value.base}guide/interface-preview`;
       <button
         type="button"
         class="hc-nav hc-prev"
-        :aria-label="`上一张：${slides[(index - 1 + total) % total].caption}`"
+        :aria-label="t.prevLabel(slides[(index - 1 + total) % total])"
         @click="go(index - 1)"
       >
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -111,7 +129,7 @@ const detailLink = `${site.value.base}guide/interface-preview`;
       <button
         type="button"
         class="hc-nav hc-next"
-        :aria-label="`下一张：${slides[(index + 1) % total].caption}`"
+        :aria-label="t.nextLabel(slides[(index + 1) % total])"
         @click="go(index + 1)"
       >
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -119,17 +137,17 @@ const detailLink = `${site.value.base}guide/interface-preview`;
         </svg>
       </button>
 
-      <span class="hc-caption">{{ current.caption }}</span>
+      <span class="hc-caption">{{ t.caption(current) }}</span>
     </div>
 
-    <div class="hc-dots" role="tablist" :aria-label="`共 ${total} 张`">
+    <div class="hc-dots" role="tablist" :aria-label="t.dotsLabel">
       <button
         v-for="(slide, i) in slides"
         :key="slide.src"
         type="button"
         role="tab"
         :aria-selected="i === index"
-        :aria-label="`第 ${i + 1} 张：${slide.caption}`"
+        :aria-label="t.dotLabel(i, slide)"
         :class="['hc-dot', { active: i === index }]"
         @click="go(i)"
       />

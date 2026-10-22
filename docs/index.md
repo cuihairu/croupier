@@ -43,6 +43,8 @@ Croupier is a Server / Agent / SDK platform for game operations and control scen
 - `SDK <-> Agent`: `TCP session` by default, `TLS` off by default and enabled on demand
 - Both links share the same session transport foundation and differ only in the first handshake message and business semantics of the sub-protocol
 
+<HomeCarousel />
+
 ## System Architecture
 
 Entries are split by audience into **two independent planes** — do not merge them into one "load balancer layer":

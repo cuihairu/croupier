@@ -43,6 +43,8 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 - `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
 - 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
 
+<HomeCarousel />
+
 ## 系统架构
 
 入口按受众分为**两个独立的面**，不要合并成一个「负载均衡层」：

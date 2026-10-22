@@ -1,15 +1,14 @@
-import { h } from "vue";
 import DefaultTheme from "vitepress/theme-without-fonts";
 import HomeCarousel from "./HomeCarousel.vue";
 import "../styles/index.scss";
 import "./custom.css";
 
-// 首页界面轮播（用户令）：hero 之下、特性之上（home-features-before 插槽
-// 只在 layout: home 页生效，仓库仅 docs/index.md 一页 home）。
+// 首页界面轮播不再走 Layout 插槽：按 2026-10-22 用户令，「界面预览」条目
+// 移到「What is Croupier / 什么是 Croupier」分组下方，由 index.md /
+// zh/index.md 的 <HomeCarousel /> 直接落位。此处仅做全局注册供 markdown 使用。
 export default {
   ...DefaultTheme,
-  Layout: () =>
-    h(DefaultTheme.Layout, null, {
-      "home-features-before": () => h(HomeCarousel),
-    }),
+  enhanceApp({ app }) {
+    app.component("HomeCarousel", HomeCarousel);
+  },
 };

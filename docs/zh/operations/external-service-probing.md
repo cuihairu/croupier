@@ -78,15 +78,39 @@ LDAP 5 秒拨号在 `internal/api/sitesettings/auth_test_conn.go:69`；OIDC 5 �
 
 失败动作只有状态机开窗、告警落库和通知出口；探针不重启进程、不切流、不修改配置。该边界由 `internal/app/agent/probe_manager.go:25` 明确约束。
 
+### 游戏协议 Checker
+
+`type: protocol` 在声明式私有协议握手（`steps`）之外支持游戏协议适配器：适配器实现 `healthprobe.Checker` 接口（`core/healthprobe/probe.go:45`，可选 `Detailing` 附带阶段明细，`core/healthprobe/probe.go:47`），经 `RegisterGameProtocol` 注册（`core/healthprobe/protocol.go:317`，重复注册视为装配错误）。目前内置 Minecraft Java SLP 探测：`core/healthprobe/games/minecraft/slp.go:50` 定义 `SLPChecker`，`core/healthprobe/games/minecraft/slp.go:69` 在包 init 中注册为 `minecraft` 协议；该注册由 `internal/app/agent/probe_protocols.go:8` 的空导入接入 Agent 装配。`core/healthprobe/targets.go:123` 对未注册的协议名在配置校验期直接报错并列出已注册集合。
+
+## 独立 synthetics Agent
+
+`synthetics-agent` 是面向跨网络目标的独立拨测进程，与 sidecar Agent 分开部署：入口 `cmd/synthetics-agent/main.go:15` 默认读 `configs/synthetics-agent.yaml`（示例见 `configs/synthetics-agent.example.yaml`），`:27` 以 `supervisable.Main` 托管并写心跳文件。
+
+### 配置与目标
+
+- 身份与上行：`agents/synthetics/config/config.go:28` 定义 `id/serverAddr/gameId/env/heartbeatFile`；拨测周期 `synthetics.interval` 必须为正（`agents/synthetics/config/config.go:260`）。
+- 目标模型：`agents/synthetics/config/config.go:179` 的 `Target` 只支持 `http` 与 `icmp` 两种原生类型（`agents/synthetics/config/config.go:334`；http 缺 `url` 在 `:305`、icmp 缺 `address` 在 `:331` 校验期拒绝）。http 目标支持 `method`、`expectedStatus`、`bodyContains` 断言；icmp 目标以 `count` 次 echo 判定成功（`agents/synthetics/config/config.go:202`）。
+- 归属标注：`targetCategory`（game / third_party）是必填的归属类，随每条持久化结果上行走带，运维不需要猜目标归谁（`agents/synthetics/config/config.go:206`）。
+
+### 插件探测与降级
+
+- 插件进程只做外部探测程序托管：`agents/synthetics/config/config.go:47` 的 `PluginConfig` 要求命令在配置中显式声明、且目标按名引用才会启动（`:48` 注释口径），未声明什么都不拉起。
+- 三层开关与背压：per-plugin `Enabled`（false 时插件进程永不启动，插件目标以 `plugin_disabled` 原因降级到原生 HTTP 探测）；运行时总开关 `pluginsEnabled`（`agents/synthetics/config/config.go:107`）；`pluginMaxConcurrent` 限制并发、排队超过 `pluginQueueWindow` 即拒绝（`agents/synthetics/config/config.go:111`）；插件进程崩溃按 `pluginBackoff/pluginBackoffMax` 指数退避，连续 `pluginBreakAfter` 次失败开 `pluginOpenWindow` 熔断窗口，熔断期间不经子进程直接降级（`agents/synthetics/config/config.go:113`）。
+- 路由：目标带 `plugin` 字段走插件运行时（`agents/synthetics/pluginhost/controller.go:86` 的 `Check`），HTTP 字段同时必填——它们是插件侧降级时的兜底探测参数；原生探测与兜底实现分别在 `agents/synthetics/runner/runner.go:129` 与 `agents/synthetics/runner/runner.go:168`。
+
+### 结果上行
+
+每次探测结果组包为 `opsv1.AlertEvent`（`agents/synthetics/runner/runner.go:190`），经控制链路上行；服务端按 Agent 身份分派处理（`internal/server/control_handler.go:449`、`internal/server/control_handler.go:451`）。与 probe.targets 一致：失败动作只有告警落库与通知出口，没有自动处置。
+
 ## 缺口与计划
 
-| 缺口               | 当前状态                                        | 计划                                         |
-| ------------------ | ----------------------------------------------- | -------------------------------------------- |
-| 第三方服务周期探测 | 只有人工 `/ops/probes/:channel`                 | 目标类别化后接入 healthprobe 与告警生命周期  |
-| 身份源健康         | 只有 LDAP/OIDC 手动测试                         | 统一 Probe 契约、失败告警与可选降级开关      |
-| OAuth 出站超时     | 自定义 OAuth userinfo 无显式超时                | 收敛到受守卫 HTTP 客户端与统一 timeout       |
-| 服务目录/状态页    | 文件配置清单不含 Redis、对象存储、herald 连通性 | 扩展清单项并绑定探测目标                     |
-| 告警/降级编排      | 第三方失败只返回调用结果                        | 连续失败开窗、告警、自动降级必须审批与可观测 |
+| 缺口               | 当前状态                                                                       | 计划                                         |
+| ------------------ | ------------------------------------------------------------------------------ | -------------------------------------------- |
+| 第三方服务周期探测 | synthetics-agent 已覆盖 http/icmp 周期拨测；身份源、通知渠道仍未登记为周期目标 | 目标类别化后接入 healthprobe 与告警生命周期  |
+| 身份源健康         | 只有 LDAP/OIDC 手动测试                                                        | 统一 Probe 契约、失败告警与可选降级开关      |
+| OAuth 出站超时     | 自定义 OAuth userinfo 无显式超时                                               | 收敛到受守卫 HTTP 客户端与统一 timeout       |
+| 服务目录/状态页    | 文件配置清单不含 Redis、对象存储、herald 连通性                                | 扩展清单项并绑定探测目标                     |
+| 告警/降级编排      | 第三方失败只返回调用结果                                                       | 连续失败开窗、告警、自动降级必须审批与可观测 |
 
 ## 最小运行建议
 

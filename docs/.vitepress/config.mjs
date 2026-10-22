@@ -43,22 +43,28 @@ export default withMermaid(
                   { text: "Introduction", link: "/guide/" },
                   { text: "Quick start", link: "/guide/quick-start" },
                   { text: "Installation", link: "/guide/installation" },
+                  {
+                    text: "Interface preview",
+                    link: "/guide/interface-preview",
+                  },
                 ],
               },
               {
                 text: "Concepts",
                 items: [
                   {
-                    text: "System overview",
-                    link: "/guide/concepts/overview",
+                    // EN 概念页尚未落地，先指向真实存在的中文页（跨 locale 侧栏
+                    // 必须用完整 https URL，见 docs-sites 规约）；EN 版翻译见 todo.md 挂账。
+                    text: "System overview (中文)",
+                    link: "https://cuihairu.github.io/croupier/zh/guide/concepts/overview",
                   },
                   {
-                    text: "Function management",
-                    link: "/guide/concepts/function-management",
+                    text: "Function management (中文)",
+                    link: "https://cuihairu.github.io/croupier/zh/guide/concepts/function-management",
                   },
                   {
-                    text: "Permissions",
-                    link: "/guide/concepts/permissions",
+                    text: "Permissions (中文)",
+                    link: "https://cuihairu.github.io/croupier/zh/guide/concepts/permissions",
                   },
                 ],
               },
@@ -88,7 +94,18 @@ export default withMermaid(
             "/operations/": [
               {
                 text: "Operations",
-                items: [{ text: "Overview", link: "/operations/" }],
+                items: [
+                  { text: "Overview", link: "/operations/" },
+                  {
+                    text: "Health monitoring",
+                    link: "/operations/health-monitoring",
+                  },
+                  {
+                    text: "External service probing",
+                    link: "/operations/external-service-probing",
+                  },
+                  { text: "Risk control", link: "/operations/risk-control" },
+                ],
               },
             ],
             "/api/": [
@@ -139,6 +156,7 @@ export default withMermaid(
                   { text: "简介", link: "/zh/guide/" },
                   { text: "快速开始", link: "/zh/guide/quick-start" },
                   { text: "安装", link: "/zh/guide/installation" },
+                  { text: "界面预览", link: "/zh/guide/interface-preview" },
                 ],
               },
               {
@@ -196,6 +214,15 @@ export default withMermaid(
                     text: "权限控制说明",
                     link: "/zh/operations/access-control",
                   },
+                  {
+                    text: "运维健康监控",
+                    link: "/zh/operations/health-monitoring",
+                  },
+                  {
+                    text: "外部服务探测",
+                    link: "/zh/operations/external-service-probing",
+                  },
+                  { text: "风控说明", link: "/zh/operations/risk-control" },
                 ],
               },
             ],

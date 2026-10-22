@@ -16,6 +16,8 @@ title: 风控说明
 | 血缘闸       | 受监控表写入账号必须命中白名单                                               | 降级实现：CDC 事件无会话账号，恒跳过并计数 |
 | 规则发布     | `capture.gates` 版本化发布；dry-run、scope、采集表和连接器能力预检           | 已实现，无审批工作流                       |
 | 风险事件处置 | 命中生成告警；确认、忽略、升级加备注留痕                                     | 已实现，自动封禁/补偿/阻断未实现           |
+| 函数风险评级 | 函数与操作分 safe/warning/high/danger 四级；声明、归一化与治理解析三段口径   | 已实现                                     |
+| 高危策略审批 | high/danger 调用强制进入审批流，两人复核加 TOTP 二次验证，全程审计           | 已实现；`capture.gates` 发布审批未实现     |
 
 ## 风控规则
 
@@ -44,6 +46,29 @@ title: 风控说明
 - `agents/capture/gate/lineage.go:12` 定义白名单账号外写入受监控表为异常。
 - `agents/capture/gate/lineage.go:15` 声明当前 binlog/WAL 事件不带会话账号；`agents/capture/gate/lineage.go:38` 要求 `allowAccounts` 非空，但运行时 `agents/capture/gate/lineage.go:89` 对空账号跳过并递增 `Degraded` 计数。
 - 因此血缘闸当前不产生有效风险事件；启用它只代表白名单配置与降级计数可观测。
+
+## 风险评级
+
+函数与操作的风险分四级，语义在 `internal/dashboard/spec/types.go:78` 定死：`safe` 只读无副作用、`warning` 中等副作用、`high` 显著副作用需确认、`danger` 破坏性或不可逆、要求审批（`internal/dashboard/spec/types.go:87`）。
+
+- 声明入口是 OpenAPI 的 `x-risk` 扩展：`internal/drivers/openapi/provider.go:192` 定义该字段随函数契约上传。
+- 归一化在 `internal/dashboard/normalizer/normalizer.go:300`：接受 legacy 别名 `low/medium/critical`（与 `internal/dbenum/p1_enums.go:264` 的 `ParseRisk` 保持同步），未知值归空、落库为 safe。
+- 治理解析在 `internal/platform/functioninvoke/policy.go:35`：优先级为内存 OpenAPI 的 `x-risk` → 契约行非 safe risk（safe 零值不采信）→ 兜底 medium；`internal/platform/functioninvoke/policy.go:72` 的 `ResolvePolicyRisk` 把同一口径暴露给审批路径，禁止各包私抄解析逻辑。
+- 评级直接驱动生成页面：`internal/dashboard/generator/resource_generator.go:851` 对 high/danger 生成 danger 级按钮，`internal/dashboard/generator/resource_generator.go:860` 对 high/danger 强制二次确认，审批策略 Required 时同样确认。
+- 运行策略可按函数覆盖：`internal/model/function.go:72` 区分 `default`（按风险级自动生成）与 `manual` 两种来源，覆盖项含 `RequireApproval`、`ApprovalWorkflow` 与 `RequireAudit`。
+
+## 策略审批
+
+高危调用不直接执行：`internal/platform/functioninvoke/invoke.go:125` 在函数策略 `RequireApproval` 且审批存储就绪时把调用转入审批流，调用方拿到审批单号。审批面与规则：
+
+- 审批 API：`internal/handler/routes.go:229` 挂载 `/approvals`，`internal/handler/routes.go:856` 至 `internal/handler/routes.go:859` 注册 List/Get/Approve/Reject 四个端点；实现分别位于 `internal/api/approval/service.go:38`、`:159`、`:198`、`:273`。
+- 两人规则：`internal/api/approval/service.go:120` 拒绝自审批并落审计（`:138`）；`internal/config/config.go:865` 的 `ApprovalConfig.AllowSelfApprove` 默认 false，仅建议单管理员部署显式打开。
+- 高危 step-up TOTP：`internal/api/approval/stepup_otp.go:23` 规定治理风险 high/danger（与调用路径共用 `ResolvePolicyRisk` 口径，`:66`）的批准必须二次验证；已绑定 TOTP 的账号 otp 必填且校验通过，未绑定账号以 `otp_not_enrolled` 直接拒绝（`internal/api/approval/stepup_otp.go:123`），高危批准禁止静默放行。
+- 批准后续接：`internal/api/approval/service.go:494` 执行批准后的函数调用续接；`:536` 校验页面类审批的已发布快照仍新鲜，审批策略变更后旧快照不得放行。
+- scope 隔离与审计：`internal/api/approval/service.go:369` 强制审批操作携带 game/env scope；`:325` 把每次动作写入审计链。
+- 待审模型：`internal/model/function.go:84` 的 `PendingFunction` 保存等待审批的函数注册。
+
+当前未实现：`capture.gates` 风控规则发布复用该审批模型（见下节计划）。
 
 ## 发布与校验
 

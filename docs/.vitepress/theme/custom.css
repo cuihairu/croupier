@@ -1,70 +1,219 @@
-/* croupier「荷官墨粉」主题 — charcoal + blush，对齐 logo #262626 / #FDEDEE
- *
- * 亮色（brand ramp 三档）：
- *   #b8556b  brand-1  链接、图标、行内代码
- *   #93394d  brand-2  按钮底、强调
- *   #7a2b3e  brand-3  hover / 标题强调
- *   rgba(184,85,107,0.13)  brand-soft  feature 图标底
- * 正文墨黑 #262626；hero 名纯品牌色（2026-10 主题审核批：字体渐变全站禁用）
- *
- * 暗色整体提亮一档：brand-1 #e58aa0 / brand-2 #cf6a82。
- */
+/* ============================================================================
+   Croupier docs theme — ui-ux-pro-max 三层 token 架构
+   primitive（原始色阶/比例尺，唯一允许裸值的一层）
+     → semantic（用途别名，light/dark 在这一层切换）
+     → component（VitePress 官方 --vp-* 组件变量，只引用 semantic）
+   品牌 ramp 源自 logo「荷官墨粉」#93394d / #FDEDEE；中性 ramp 源自 logo 墨黑 #262626。
+   对比度：亮色 accent #b8556b on #fff = 4.62:1，暗色 accent #e58aa0 on #1b1b1f = 6.93:1，
+   正文 #262626 on #fff = 15.1:1 —— 全部 ≥ AA。
+   注：CSS 自定义属性按声明元素求值，.dark 必须整组重声明 component 映射，
+   不能指望 :root 的 var() 间接引用自动翻转（本文件历史教训）。
+   ========================================================================== */
+
+/* ---------- 1. Primitive：原始值 ---------- */
 :root {
-  --vp-c-brand-1: #b8556b;
-  --vp-c-brand-2: #93394d;
-  --vp-c-brand-3: #7a2b3e;
-  --vp-c-brand-soft: rgba(184, 85, 107, 0.13);
+  /* 品牌玫瑰 ramp */
+  --cr-rose-100: #fdedee;
+  --cr-rose-300: #e58aa0;
+  --cr-rose-400: #d97e95;
+  --cr-rose-500: #b8556b;
+  --cr-rose-600: #93394d;
+  --cr-rose-700: #7a2b3e;
+  --cr-rose-800: #662335;
 
-  /* 正文墨黑（logo 文字色），替代默认中性灰 */
-  --vp-c-text-1: #262626;
-  --vp-c-text-2: rgba(38, 38, 38, 0.78);
-  --vp-c-text-3: rgba(38, 38, 38, 0.56);
+  /* 中性墨色 ramp */
+  --cr-ink-0: #ffffff;
+  --cr-ink-50: #f7f7f8;
+  --cr-ink-100: #ececee;
+  --cr-ink-300: #c2c2c6;
+  --cr-ink-500: #7e7e85;
+  --cr-ink-700: #4c4c52;
+  --cr-ink-900: #262626;
+  --cr-ink-950: #1b1b1f;
+  --cr-ink-900-soft: rgba(38, 38, 38, 0.78);
+  --cr-ink-900-faint: rgba(38, 38, 38, 0.56);
+  --cr-paper-soft: rgba(235, 235, 245, 0.6);
+  --cr-paper-faint: rgba(235, 235, 245, 0.38);
 
-  /* 按钮 #93394d 系：底 brand-2 → hover brand-3 → active 再压一档 */
-  --vp-button-brand-bg: #93394d;
-  --vp-button-brand-hover-bg: #7a2b3e;
-  --vp-button-brand-active-bg: #662335;
+  /* Typography scale（1.25 模数，16px 基准） */
+  --cr-text-xs: 0.8125rem;
+  --cr-text-sm: 0.875rem;
+  --cr-text-base: 1rem;
+  --cr-text-lg: 1.125rem;
+  --cr-text-xl: 1.375rem;
+  --cr-text-2xl: 1.75rem;
+  --cr-leading-body: 1.75;
+  --cr-leading-heading: 1.3;
 
-  /* hero 名纯品牌色：不设 name-color/name-background，回落 --vp-c-brand-1 纯色 */
+  /* Spacing scale（4px 基准） */
+  --cr-sp-1: 4px;
+  --cr-sp-2: 8px;
+  --cr-sp-3: 12px;
+  --cr-sp-4: 16px;
+  --cr-sp-5: 24px;
+  --cr-sp-6: 32px;
+  --cr-sp-7: 48px;
+  --cr-sp-8: 64px;
 
-  --vp-custom-outline: #b8556b;
-
-  .VPFeature .icon {
-    border-radius: 10px;
-    background-color: var(--vp-c-brand-soft);
-    color: var(--vp-c-brand-1);
-  }
+  /* Radius scale */
+  --cr-radius-sm: 6px;
+  --cr-radius-md: 10px;
+  --cr-radius-lg: 14px;
 }
 
-/* 暗色：亮色系主色压暗会发闷，整体提亮一档 */
-.dark {
-  --vp-c-brand-1: #e58aa0;
-  --vp-c-brand-2: #cf6a82;
-  --vp-c-brand-3: #b8556b;
-  --vp-c-brand-soft: rgba(229, 138, 160, 0.16);
-
-  /* 上面 :root 的墨黑文本必须在此翻回白系：本文件在 VitePress vars
-   * 之后加载，:root 的文本值会按源序压过库内 .dark，不补则暗色黑字黑底 */
-  --vp-c-text-1: rgba(255, 255, 255, 0.87);
-  --vp-c-text-2: rgba(235, 235, 245, 0.6);
-  --vp-c-text-3: rgba(235, 235, 245, 0.38);
-
-  /* 暗色按钮：底 brand-2 → hover 提亮 brand-1 → active 落 brand-3 */
-  --vp-button-brand-bg: #cf6a82;
-  --vp-button-brand-hover-bg: #e58aa0;
-  --vp-button-brand-active-bg: #b8556b;
-
-  --vp-custom-outline: #e58aa0;
-}
-
-/* 行内代码沿用品牌色，替掉默认蓝 */
-code {
-  color: var(--vp-c-brand-1);
-}
-
-/* hero 名用纯品牌色,不用 VitePress 默认渐变名 */
+/* ---------- 2. Semantic：亮色语义（用途别名） ---------- */
 :root {
-  --vp-home-hero-name-color: var(--vp-c-brand-1);
+  --sem-accent: var(--cr-rose-500);         /* 链接、图标、行内代码 */
+  --sem-accent-strong: var(--cr-rose-600);  /* 按钮底、强调 */
+  --sem-accent-deep: var(--cr-rose-700);    /* hover */
+  --sem-accent-active: var(--cr-rose-800);  /* active 再压一档 */
+  --sem-accent-soft: rgba(184, 85, 107, 0.13);
+  --sem-accent-soft-strong: rgba(184, 85, 107, 0.22);
+
+  --sem-fg: var(--cr-ink-900);
+  --sem-fg-muted: var(--cr-ink-900-soft);
+  --sem-fg-faint: var(--cr-ink-900-faint);
+  --sem-bg: var(--cr-ink-0);
+  --sem-bg-soft: var(--cr-ink-50);
+  --sem-border: var(--cr-ink-100);
+  --sem-heading-weight: 600;
+}
+
+/* ---------- 3. Component：VitePress 官方组件变量映射（亮色） ---------- */
+:root {
+  --vp-c-brand-1: var(--sem-accent);
+  --vp-c-brand-2: var(--sem-accent-strong);
+  --vp-c-brand-3: var(--sem-accent-deep);
+  --vp-c-brand-soft: var(--sem-accent-soft);
+
+  --vp-c-text-1: var(--sem-fg);
+  --vp-c-text-2: var(--sem-fg-muted);
+  --vp-c-text-3: var(--sem-fg-faint);
+
+  --vp-c-bg: var(--sem-bg);
+  --vp-c-bg-soft: var(--sem-bg-soft);
+  --vp-c-bg-alt: var(--sem-bg-soft);
+  --vp-c-divider: var(--sem-border);
+  --vp-c-border: var(--sem-border);
+  --vp-c-gutter: var(--sem-bg-soft);
+
+  --vp-button-brand-bg: var(--sem-accent-strong);
+  --vp-button-brand-hover-bg: var(--sem-accent-deep);
+  --vp-button-brand-active-bg: var(--sem-accent-active);
+  --vp-button-brand-border: var(--sem-accent-strong);
+  --vp-button-brand-hover-border: var(--sem-accent-deep);
+  --vp-button-brand-active-border: var(--sem-accent-active);
+
+  --vp-custom-outline: var(--sem-accent);
+
+  /* hero 名纯品牌色：禁用渐变字（2026-10 主题审核批） */
+  --vp-home-hero-name-color: var(--sem-accent);
   --vp-home-hero-name-background: transparent;
 }
 
+body {
+  font-size: var(--cr-text-base);
+  line-height: var(--cr-leading-body);
+}
+
+/* ---------- 2'. Semantic：暗色语义（同一套 primitive 派生） ---------- */
+.dark {
+  --sem-accent: var(--cr-rose-300);         /* 提亮一档，6.93:1 on #1b1b1f */
+  --sem-accent-strong: var(--cr-rose-400);
+  --sem-accent-deep: var(--cr-rose-500);
+  --sem-accent-active: var(--cr-rose-600);
+  --sem-accent-soft: rgba(229, 138, 160, 0.16);
+  --sem-accent-soft-strong: rgba(229, 138, 160, 0.26);
+
+  --sem-fg: rgba(255, 255, 255, 0.87);
+  --sem-fg-muted: var(--cr-paper-soft);
+  --sem-fg-faint: var(--cr-paper-faint);
+  --sem-bg: var(--cr-ink-950);
+  --sem-bg-soft: #232326;
+  --sem-border: #313136;
+}
+
+/* ---------- 3'. Component 映射（暗色整组重声明） ---------- */
+.dark {
+  --vp-c-brand-1: var(--sem-accent);
+  --vp-c-brand-2: var(--sem-accent-strong);
+  --vp-c-brand-3: var(--sem-accent-deep);
+  --vp-c-brand-soft: var(--sem-accent-soft);
+
+  --vp-c-text-1: var(--sem-fg);
+  --vp-c-text-2: var(--sem-fg-muted);
+  --vp-c-text-3: var(--sem-fg-faint);
+
+  --vp-c-bg: var(--sem-bg);
+  --vp-c-bg-soft: var(--sem-bg-soft);
+  --vp-c-bg-alt: var(--sem-bg-soft);
+  --vp-c-divider: var(--sem-border);
+  --vp-c-border: var(--sem-border);
+  --vp-c-gutter: var(--sem-bg-soft);
+
+  --vp-button-brand-bg: var(--sem-accent-strong);
+  --vp-button-brand-hover-bg: var(--sem-accent);
+  --vp-button-brand-active-bg: var(--sem-accent-deep);
+  --vp-button-brand-border: var(--sem-accent-strong);
+  --vp-button-brand-hover-border: var(--sem-accent);
+  --vp-button-brand-active-border: var(--sem-accent-deep);
+
+  --vp-custom-outline: var(--sem-accent);
+}
+
+/* ---------- Typography：标题比例尺与层级 ---------- */
+.vp-doc h1 {
+  font-size: var(--cr-text-2xl);
+  line-height: var(--cr-leading-heading);
+  letter-spacing: -0.015em;
+}
+.vp-doc h2 {
+  font-size: var(--cr-text-xl);
+  line-height: var(--cr-leading-heading);
+  letter-spacing: -0.01em;
+  margin-top: var(--cr-sp-7);
+}
+.vp-doc h3 {
+  font-size: var(--cr-text-lg);
+  line-height: var(--cr-leading-heading);
+  margin-top: var(--cr-sp-6);
+}
+.vp-doc h2 .header-anchor,
+.vp-doc h3 .header-anchor {
+  color: var(--sem-accent);
+}
+
+/* ---------- 正文可读性：行宽、段距、中文首行缩进 ---------- */
+.vp-doc p {
+  margin: var(--cr-sp-4) 0;
+}
+.vp-doc li + li {
+  margin-top: var(--cr-sp-2);
+}
+.vp-doc blockquote {
+  border-left: 3px solid var(--sem-accent);
+  border-radius: 0 var(--cr-radius-sm) var(--cr-radius-sm) 0;
+}
+/* 中文页正文段落首行缩进 2em；列表/引用/表格内不缩进 */
+html[lang^="zh"] .vp-doc .vp-doc-content-container > p,
+html[lang^="zh"] .theme-default-content > div > p {
+  text-indent: 2em;
+}
+html[lang^="zh"] .vp-doc li p,
+html[lang^="zh"] .vp-doc blockquote p,
+html[lang^="zh"] .vp-doc td p,
+html[lang^="zh"] .vp-doc .custom-block p {
+  text-indent: 0;
+}
+
+/* ---------- 行内代码沿用品牌色 ---------- */
+code {
+  color: var(--sem-accent);
+}
+
+/* ---------- VPFeature 图标底 ---------- */
+:root .VPFeature .icon {
+  border-radius: var(--cr-radius-md);
+  background-color: var(--sem-accent-soft);
+  color: var(--sem-accent);
+}

@@ -1,10 +1,23 @@
-// 增加内容容器宽度到 1280px
-.theme-default-content {
-  max-width: 1280px !important;
+// 阅读度量（ui-ux-pro-max 正文可读性优先，2026-10-22 用户令放宽到 72rem）：
+// 散文行宽可读，表格密集页（/zh/analytics/ 等）不被挤压。
+// 注意：VitePress 文章容器是 .VPDoc .content-container（.theme-default-content
+// 是 VuePress 的类名，此处从未生效）。
+.VPDoc .content-container {
+  max-width: 72rem;
 }
 
-// 减小首页 hero logo 大小为一半 (280px -> 140px)
-.vp-hero-image {
-  height: 140px !important;
-  width: 140px !important;
+// 防裁剪兜底：宽表格/代码块横向滚动而非溢出或挤压
+.vp-doc {
+  table,
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
+// hero logo 定妆尺寸（2026-10-22 用户令 140px -> 90px）：等比缩放。
+// 注意 VitePress 实际类名是 .image-container 下的 .image-src，无 .VPHeroImage。
+.VPHero .image-container img {
+  max-width: 90px;
+  height: auto;
 }
