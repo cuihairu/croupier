@@ -82,7 +82,20 @@ for f in "${FILES[@]}"; do
       broken=$((broken + 1))
     fi
   done < <(
-    awk '/^```/ { fence = !fence; next } !fence' "$f" 2>/dev/null \
+    awk '{
+      s = $0
+      sub(/^[ \t]+/, "", s)
+      c = substr(s, 1, 1)
+      if (c == "`" || c == "~") {
+        n = 0
+        while (substr(s, n + 1, 1) == c) n++
+        if (n >= 3) {
+          if (!infence) { infence = 1; fc = c; fl = n; next }
+          if (c == fc && n >= fl) { infence = 0; next }
+        }
+      }
+      if (!infence) print
+    }' "$f" 2>/dev/null \
       | grep -hoE '\[[^]]+\]\([^)]+\)' \
       | sed -E 's/^\[[^]]*\]\(//; s/\)$//'
   )

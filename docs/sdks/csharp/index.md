@@ -36,6 +36,6 @@ var client = new CroupierClient(new ClientConfig {
 
 ## Keep Reading
 
-- [Guide](/sdks/csharp/guide/)
+- [Guide](/sdks/csharp/guide/quick-start)
 - [API Reference](/sdks/csharp/api/)
 - [Repository README](https://github.com/cuihairu/croupier/tree/main/sdks/csharp)

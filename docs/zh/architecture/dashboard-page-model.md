@@ -354,7 +354,7 @@ interface BlockedProposalIssue {
 }
 ```
 
-`proposalKey` 是生成器幂等身份：一个 ResourceCapability 只能有 `resource:<resourceKey>`，每个独立 Operation/Task/Report 函数分别有 `<kind>:<functionId>`。`pageKey` 固定为 `resource--<resourceKey>` 或 `<kind>--<functionId>`，其中 source key 必须符合 `[a-z0-9][a-z0-9._-]*`；它是可读的路由与发布身份，不得从 summary、labels 或本次生成结果随机生成。分类建议的默认规则以 [ProComponents 页面生成与运行时](./ui-generation.md) 为唯一出处；不得从带 kind 前缀的 pageKey 推断分类。Resource action 只有在 `subject` 可验证时才并入唯一 ResourcePage；否则保留为函数自己的 OperationPage，避免重复菜单或覆盖资源页。
+`proposalKey` 是生成器幂等身份：一个 ResourceCapability 只能有 `resource:<resourceKey>`，每个独立 Operation/Task/Report 函数分别有 `<kind>:<functionId>`。`pageKey` 固定为 `resource--<resourceKey>` 或 `<kind>--<functionId>`，其中 source key 必须符合 `[a-z0-9][a-z0-9._-]*`；它是可读的路由与发布身份，不得从 summary、labels 或本次生成结果随机生成。分类建议的默认规则以 ProComponents 页面生成与运行时为唯一出处；不得从带 kind 前缀的 pageKey 推断分类。Resource action 只有在 `subject` 可验证时才并入唯一 ResourcePage；否则保留为函数自己的 OperationPage，避免重复菜单或覆盖资源页。
 
 - `ready`：页面全部已声明能力都有可验证的 binding、selector、治理与 renderer 支持，可直接接受并发布。ResourcePage 的写能力是可选的，因此只读 ResourcePage 也可以是 `ready`。
 - `basic`：安全的同步 OperationPage，含输入表单、确认、受控执行和结果区；可要求审批，并在审批通过后展示真实结果；可直接接受并发布。
@@ -407,7 +407,7 @@ interface ComponentTemplate {
   且 Builtin 标记不翻转；手工改动强制回归语义保留（内容不同必写）
 
 REST：`/api/v1/component-templates`（List/Get/Create/Update/Delete/Regenerate），
-wire 契约见 [API 文档](../api/component-templates.md)。使用层文档见
+wire 契约见 API 文档。使用层文档见
 [组合页编辑器 V4](../dashboard/composite-editor-v4-design.md)。
 
 ## PageSpec：业务级页面协议
@@ -441,7 +441,7 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 
 ### ResourcePage
 
-当 ResourceCapability 有可验证的 `collection_query` 与对象 identity 时，生成 ResourcePage；生命周期写操作是可选能力。只读资源也必须生成查询/列表/详情页面，不能因为缺少 create/update/delete 被错误降级为 OperationPage。语义到页面节点与组件的生成模板见 [ProComponents 页面生成与运行时](./ui-generation.md)。
+当 ResourceCapability 有可验证的 `collection_query` 与对象 identity 时，生成 ResourcePage；生命周期写操作是可选能力。只读资源也必须生成查询/列表/详情页面，不能因为缺少 create/update/delete 被错误降级为 OperationPage。语义到页面节点与组件的生成模板见 ProComponents 页面生成与运行时。
 
 JSON Schema 为列表列、详情项和表单字段生成候选。`CapabilitySemantics` 解决分页、identity、集合与对象响应；PageProposal 决定列、默认排序、动作位置和展示文本。管理员可覆盖 Proposal，但不能绕过类型和发布校验。
 
@@ -504,7 +504,7 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 ## 前端运行时：ProComponents 页面渲染器
 
-页面运行时固定使用 Ant Design Pro/ProComponents；PageSpec 节点与运行时组件的对应关系见 [ProComponents 页面生成与运行时](./ui-generation.md)。
+页面运行时固定使用 Ant Design Pro/ProComponents；PageSpec 节点与运行时组件的对应关系见 ProComponents 页面生成与运行时。
 
 Renderer 只接受 PublishedPageSpec，并只通过 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。执行前服务端做两道结构化阻断（wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)）：契约 `executionState=unbound`（上传物料未绑定运行时执行器）返回 `409 executor_unbound`，前端渲染「未绑定执行器」空态并引导去绑定；契约漂移返回 `409 binding_stale`。发布页禁止 mock 数据兜底——执行失败必须显式呈现。
 
@@ -512,7 +512,7 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 ## 表单策略
 
-JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 [ProComponents 页面生成与运行时](./ui-generation.md)。
+JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
 

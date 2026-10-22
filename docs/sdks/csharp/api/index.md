@@ -15,4 +15,4 @@ The current API reference is the implementation under `sdks/csharp/src`.
 ## Keep Reading
 
 - [C# SDK landing page](/sdks/csharp/)
-- [C# SDK Guide](/sdks/csharp/guide/)
+- [C# SDK Guide](/sdks/csharp/guide/quick-start)
