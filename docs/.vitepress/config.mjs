@@ -11,7 +11,7 @@ export default withMermaid(
     title: "Croupier",
     ignoreDeadLinks: true,
     // 2026-10-20 用户令：英文内页必须上线，撤除 srcExclude（review/archive 仍藏）
-    srcExclude: ["archive/**", "review/**"],
+    srcExclude: ["archive/**", "review/**", "zh/review/**"],
     head: sharedHead,
     base: "/croupier/",
     locales: {
