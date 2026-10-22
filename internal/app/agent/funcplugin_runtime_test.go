@@ -44,3 +44,36 @@ func TestWithFunctionPluginsAssemblesAndStopsHost(t *testing.T) {
 		t.Fatalf("post-stop invoke must degrade, got out=%+v cause=%s", out, cause)
 	}
 }
+
+func TestWithFunctionPluginsSkipsAssemblyWhenSwitchDisabled(t *testing.T) {
+	disabled := false
+	app := New("127.0.0.1:1", "agent-1")
+	app.WithUpstreamMetadata(UpstreamMetadata{GameID: "game-1", Env: "prod"})
+	app.localHandler = agent.NewLocalHandler(agentlocal.NewLocalStore(), t.TempDir(), "agent-1", nil)
+	t.Cleanup(app.Stop)
+
+	cfg := &FunctionPluginsConfig{
+		Enabled: &disabled,
+		Plugins: []FunctionPluginConfig{{
+			Name:    "httpget",
+			Command: "./httpget",
+			Timeout: time.Second,
+		}},
+	}
+	if err := app.WithFunctionPlugins(cfg); err != nil {
+		t.Fatalf("disabled master switch must not assemble: %v", err)
+	}
+	if app.FunctionPlugins() != nil {
+		t.Fatal("disabled master switch must not launch plugins")
+	}
+
+	perPluginDisabled := false
+	cfg.Enabled = nil
+	cfg.Plugins[0].Enabled = &perPluginDisabled
+	if err := app.WithFunctionPlugins(cfg); err != nil {
+		t.Fatalf("disabled plugin must be skipped: %v", err)
+	}
+	if app.FunctionPlugins() != nil {
+		t.Fatal("all-disabled plugin list must not launch plugins")
+	}
+}

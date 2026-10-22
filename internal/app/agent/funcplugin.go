@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -35,6 +36,9 @@ type FunctionPluginsConfig struct {
 // IsEnabled reports the runtime master switch; nil defaults to enabled.
 func (c *FunctionPluginsConfig) IsEnabled() bool { return c.Enabled == nil || *c.Enabled }
 
+// IsEnabled reports the per-plugin runtime switch; nil defaults to enabled.
+func (c FunctionPluginConfig) IsEnabled() bool { return c.Enabled == nil || *c.Enabled }
+
 // WithFunctionPlugins assembles the function adapter plugin hosting:
 // validates the agent scope (fail closed on blank gameId/env — plugin
 // functions inherit the sidecar scope and never declare their own),
@@ -47,7 +51,7 @@ func (c *FunctionPluginsConfig) IsEnabled() bool { return c.Enabled == nil || *c
 // build runs the real go-plugin host, the no_go_plugin build fails
 // closed when the config still declares plugins.
 func (a *App) WithFunctionPlugins(cfg *FunctionPluginsConfig) error {
-	if a == nil || cfg == nil || !cfg.IsEnabled() || len(cfg.Plugins) == 0 {
+	if a == nil || cfg == nil || len(cfg.Plugins) == 0 {
 		return nil
 	}
 	if a.upstream == nil {
@@ -59,17 +63,27 @@ func (a *App) WithFunctionPlugins(cfg *FunctionPluginsConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("function plugins: %w", err)
 	}
-	plugins := make([]funcplugin.PluginConfig, 0, len(cfg.Plugins))
+	enabledPlugins := make([]funcplugin.PluginConfig, 0, len(cfg.Plugins))
 	for _, p := range cfg.Plugins {
-		plugins = append(plugins, funcplugin.PluginConfig{
+		if !p.IsEnabled() {
+			continue
+		}
+		enabledPlugins = append(enabledPlugins, funcplugin.PluginConfig{
 			Name:    p.Name,
 			Command: p.Command,
 			Args:    p.Args,
 			Timeout: p.Timeout,
-			Enabled: p.Enabled,
 		})
 	}
-	return a.startFunctionPlugins(plugins)
+	if len(enabledPlugins) == 0 {
+		slog.Info("function plugins configured but disabled", "plugins", len(cfg.Plugins))
+		return nil
+	}
+	if !cfg.IsEnabled() {
+		slog.Info("function plugins disabled", "plugins", len(cfg.Plugins))
+		return nil
+	}
+	return a.startFunctionPlugins(enabledPlugins)
 }
 
 // Validate rejects an invalid functions.plugins declaration before
