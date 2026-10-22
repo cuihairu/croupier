@@ -12,6 +12,12 @@
   <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/>
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
   <img src="https://img.shields.io/badge/go-1.27.2+-green.svg" alt="Go Version"/>
+  <img src="https://img.shields.io/badge/SDK-Go-00ADD8?logo=go&logoColor=white" alt="SDK Go"/>
+  <img src="https://img.shields.io/badge/SDK-C%23-239120?logo=csharp&logoColor=white" alt="SDK C#"/>
+  <img src="https://img.shields.io/badge/SDK-C%2B%2B-00599C?logo=cplusplus&logoColor=white" alt="SDK C++"/>
+  <img src="https://img.shields.io/badge/SDK-Java-b07219?logo=openjdk&logoColor=white" alt="SDK Java"/>
+  <img src="https://img.shields.io/badge/SDK-JavaScript-F7DF1E?logo=javascript&logoColor=black" alt="SDK JavaScript"/>
+  <img src="https://img.shields.io/badge/SDK-Python-3776AB?logo=python&logoColor=white" alt="SDK Python"/>
 </p>
 
 [English](README.md) | [中文](README.zh.md)
