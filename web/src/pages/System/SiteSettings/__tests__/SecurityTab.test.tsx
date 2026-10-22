@@ -1,12 +1,14 @@
 /**
  * 账号安全策略子 Tab 单测。
  *
- * 锁定契约：五键快照读（回填 + 未配置回零）/写（bool 开关与数字直提、
- * 空值/false/0 = 清除覆盖回默认全关）/加载与保存失败路径。
+ * 锁定契约：六键快照读（回填 + 未配置回零，唯一例外 approvalStepUpOtp
+ * 默认开）/写（bool 开关与数字直提、空值/false/0 = 清除覆盖回默认全关，
+ * defaultOn 键关闭时显式落 false 不清除）/加载与保存失败路径。
  *
  * mock 口径沿用 __tests__/index.test.tsx：services/api/sites 三方法 jest.mock、
  * @umijs/max 本地 mock。message 提示经真实 antd App 渲染进 portal，用 DOM
- * 文本断言；开关无 accessible name，按 DOM 序索引定位（mfaRequired 在前）。
+ * 文本断言；开关无 accessible name，按 DOM 序索引定位（approvalStepUpOtp
+ * 在前，其后 mfaRequired）。
  *
  * 边界（诚实）：保存按钮在 Form.Item 之外的 Row 内（与 NotificationTab 不同，
  * 不能用 .ant-form-item 定位），按 .ant-row 定位并断言所在行含对应控件。
@@ -47,6 +49,7 @@ const mSet = setSiteSetting as jest.MockedFunction<typeof setSiteSetting>;
 const mClear = clearSiteSetting as jest.MockedFunction<typeof clearSiteSetting>;
 
 const baseSettings: SecuritySettings = {
+  approvalStepUpOtp: true,
   mfaRequired: false,
   passwordMinLength: 0,
   passwordRequireUppercase: false,
@@ -92,8 +95,9 @@ beforeEach(() => {
 });
 
 describe('SecurityTab 加载', () => {
-  it('成功：开关与数字按快照回填，默认全关', async () => {
+  it('成功：开关与数字按快照回填（approvalStepUpOtp 默认开，其余默认关）', async () => {
     mFetch.mockResolvedValue({
+      approvalStepUpOtp: true,
       mfaRequired: true,
       passwordMinLength: 12,
       passwordRequireUppercase: true,
@@ -102,8 +106,9 @@ describe('SecurityTab 加载', () => {
     });
     renderTab();
 
-    expect(await screen.findByText('强制二次验证 (TOTP)')).toBeInTheDocument();
-    const [mfa, upper, special] = within(cardOf('账号安全策略')).getAllByRole('switch');
+    expect(await screen.findByText('高危审批二次验证 (TOTP)')).toBeInTheDocument();
+    const [stepUp, mfa, upper, special] = within(cardOf('账号安全策略')).getAllByRole('switch');
+    expect(stepUp).toBeChecked();
     expect(mfa).toBeChecked();
     expect(upper).toBeChecked();
     expect(special).not.toBeChecked();
@@ -112,14 +117,16 @@ describe('SecurityTab 加载', () => {
     expect(maxAge).toHaveValue('90');
   });
 
-  it('快照缺省字段回零（?? 兜底分支）', async () => {
+  it('快照缺省字段：approvalStepUpOtp 缺省回开（!== false），其余回零（?? 兜底分支）', async () => {
     mFetch.mockResolvedValue({});
     renderTab();
 
-    await screen.findByText('强制二次验证 (TOTP)');
-    within(cardOf('账号安全策略'))
-      .getAllByRole('switch')
-      .forEach((sw) => expect(sw).not.toBeChecked());
+    await screen.findByText('高危审批二次验证 (TOTP)');
+    const [stepUp, mfa, upper, special] = within(cardOf('账号安全策略')).getAllByRole('switch');
+    expect(stepUp).toBeChecked();
+    expect(mfa).not.toBeChecked();
+    expect(upper).not.toBeChecked();
+    expect(special).not.toBeChecked();
     screen.getAllByRole('spinbutton').forEach((num) => expect(num).toHaveValue('0'));
     expect(within(cardOf('账号安全策略')).getByText(/全部默认关闭/)).toBeInTheDocument();
   });
@@ -139,7 +146,7 @@ describe('SecurityTab 加载', () => {
 describe('SecurityTab 保存（saveKey）', () => {
   it('开关开启：setSiteSetting(key, true) + 「已保存」+ 重拉', async () => {
     renderTab();
-    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[1];
     fireEvent.click(mfa);
     fireEvent.click(saveButtonOf(mfa));
 
@@ -152,7 +159,7 @@ describe('SecurityTab 保存（saveKey）', () => {
   it('开关关闭：false 走 clearSiteSetting 回默认', async () => {
     mFetch.mockResolvedValue({ ...baseSettings, mfaRequired: true });
     renderTab();
-    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[1];
     expect(mfa).toBeChecked();
     fireEvent.click(mfa); // → false
     fireEvent.click(saveButtonOf(mfa));
@@ -160,6 +167,33 @@ describe('SecurityTab 保存（saveKey）', () => {
     await waitFor(() => expect(mClear).toHaveBeenCalledWith('security.mfaRequired'));
     expect(await screen.findByText('已保存')).toBeInTheDocument();
     expect(mSet).not.toHaveBeenCalled();
+  });
+
+  // #61：defaultOn 键的保存语义与其余 bool 键相反——默认开，关闭必须显式
+  // 落 false（走 clear 会回到开、关不掉）。
+  it('approvalStepUpOtp 关闭：显式 setSiteSetting(key, false)，不走 clear', async () => {
+    renderTab(); // baseSettings.approvalStepUpOtp = true（默认开）
+    const stepUp = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
+    expect(stepUp).toBeChecked();
+    fireEvent.click(stepUp); // → false
+    fireEvent.click(saveButtonOf(stepUp));
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('security.approvalStepUpOtp', false));
+    expect(await screen.findByText('已保存')).toBeInTheDocument();
+    expect(mClear).not.toHaveBeenCalled();
+  });
+
+  it('approvalStepUpOtp 回开：setSiteSetting(key, true)', async () => {
+    mFetch.mockResolvedValue({ ...baseSettings, approvalStepUpOtp: false });
+    renderTab();
+    const stepUp = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
+    expect(stepUp).not.toBeChecked();
+    fireEvent.click(stepUp); // → true
+    fireEvent.click(saveButtonOf(stepUp));
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('security.approvalStepUpOtp', true));
+    expect(await screen.findByText('已保存')).toBeInTheDocument();
+    expect(mClear).not.toHaveBeenCalled();
   });
 
   it('数字字段直提（非字符串分支）：12 提交 setSiteSetting(key, 12)', async () => {
@@ -189,7 +223,7 @@ describe('SecurityTab 保存（saveKey）', () => {
   it('保存失败：错误提示透出后端 message、不重拉、按钮退出 loading', async () => {
     mSet.mockRejectedValue(new Error('policy key readonly'));
     renderTab();
-    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[1];
     fireEvent.click(mfa);
     fireEvent.click(saveButtonOf(mfa));
 
@@ -201,7 +235,7 @@ describe('SecurityTab 保存（saveKey）', () => {
   it('保存失败（无可提取信息）：「保存失败」兜底文案', async () => {
     mSet.mockRejectedValue(undefined);
     renderTab();
-    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[1];
     fireEvent.click(mfa);
     fireEvent.click(saveButtonOf(mfa));
 

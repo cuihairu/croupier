@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P6 我的设置 · croupier 手机端原型</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="glyphs">▂▄▆ &nbsp;5G&nbsp;&nbsp;100%</span></div>
+
+  <div class="topbar">
+    <div class="title">我的</div>
+    <div class="spacer"></div>
+    <div class="iconbtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+  </div>
+
+  <div class="content" style="gap:9px;">
+    <!-- 个人 -->
+    <div class="card" style="display:flex; align-items:center; gap:13px;">
+      <div style="width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg, var(--accent-strong), var(--accent)); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800;">陈</div>
+      <div style="flex:1;">
+        <div style="font-size:16px; font-weight:700;">admin</div>
+        <div style="font-size:12px; color:var(--fg-3); margin-top:2px;">超级管理员 · 最后登录 10-07 08:32</div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+
+    <!-- 作用域 -->
+    <div class="section-h"><span class="h">作用域</span></div>
+    <div class="card" style="padding:2px 14px;">
+      <div class="row" style="border-top:none;">
+        <div class="main"><div class="t">当前游戏</div><div class="s">多游戏部署下切换数据面</div></div>
+        <span class="chip dim">tower_defense</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="row">
+        <div class="main"><div class="t">当前环境</div><div class="s">切 PROD 前需二次确认</div></div>
+        <span class="chip dev">DEV</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+
+    <!-- 连接 -->
+    <div class="section-h"><span class="h">连接</span></div>
+    <div class="card" style="padding:2px 14px;">
+      <div class="row" style="border-top:none;">
+        <div class="main"><div class="t">服务器探测</div><div class="s" style="font-family:var(--mono);">https://gm.example.com</div></div>
+        <div class="meta"><div class="m1" style="color:var(--ok);">● 42ms</div></div>
+      </div>
+    </div>
+
+    <!-- 偏好 -->
+    <div class="section-h"><span class="h">偏好</span></div>
+    <div class="card" style="padding:2px 14px;">
+      <div class="row" style="border-top:none;">
+        <div class="main"><div class="t">外观</div></div>
+        <span class="chip dim">🌙 深色</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="row">
+        <div class="main"><div class="t">语言</div></div>
+        <span class="chip dim">简体中文</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="row">
+        <div class="main"><div class="t">告警与审批推送</div><div class="s">紧急+警告 · 审批超时升级</div></div>
+        <span class="chip ok">开启</span>
+      </div>
+    </div>
+
+    <div class="btn ghost" style="margin-top:4px; color:var(--crit);">退出登录</div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      首页
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      服务器
+    </div>
+    <div class="tab-fab">
+      <div class="orb">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      执行
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      告警
+      <span class="badge">5</span>
+    </div>
+    <div class="tab active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      我的
+    </div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<div class="notes">
+  <h3>P6 我的设置 · 设计说明</h3>
+  <div class="blk"><div class="bt">布局</div><p>分组卡：身份（头像/角色/最后登录）→ 作用域（游戏/环境）→ 连接（探测/推送通道）→ 偏好（外观/语言/通知）→ 退出。分组标题用 11px 小节标，卡片间距 12px 保持呼吸感。</p></div>
+  <div class="blk"><div class="bt">关键交互</div><p>① 环境切换到 PROD 需二次确认（与 P5 的高风险语义同源）；② 服务器探测行常显 RTT，点击手动重探；③ 通知两级分离：告警推送按级别过滤，审批提醒带超时升级；④ 外观默认跟随系统，深色为运营场景默认。</p></div>
+  <div class="blk"><div class="bt">信息层级</div><p>设置页的层级原则是「状态先于入口」：探测行直接给 ● 42ms 而非只有「服务器探测」四个字；推送行给「开启」态而非裸开关——扫一眼就知道哪里断了。退出登录是唯一红色元素，负动作唯一化。</p></div>
+</div>
+
+</body>
+</html>

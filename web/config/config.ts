@@ -115,6 +115,10 @@ export default defineConfig({
         // 逐组件覆盖圆角，样式只从这里出。
         borderRadius: 8,
         borderRadiusLG: 12,
+        // 构建期兜底主色：拂晓蓝（默认主题套）。主题套/明暗的完整
+        // token 在运行时由 app.tsx antd 导出 + <ThemeSync> 接管，
+        // 这里不再钉品牌色板。
+        colorPrimary: '#1677ff',
       },
     },
   },

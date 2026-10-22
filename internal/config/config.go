@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"gopkg.in/yaml.v3"
 )
@@ -38,6 +39,31 @@ type Config struct {
 	// only explicit `false` disables a domain. Data-plane components (agent,
 	// analytics worker, ingest) are not governed by these flags.
 	FeatureFlags FeatureFlagsConfig `json:"featureFlags,omitempty" yaml:"featureFlags,omitempty"`
+	// Herald 告警出口（Outlet 第一内置实现，plugin-mechanism 设计 §5/M2）：
+	// 告警经 herald 投递（courier 式，渠道/收件人 herald 侧配置）。
+	// Enabled 缺省 false——关=纯 croupier 告警页，行为与现状一致。
+	Herald HeraldConfig `json:"herald,omitempty" yaml:"herald,omitempty"`
+	// AlertInbound 告警入站 webhook（plugin-mechanism 设计 §5.3/M3）：
+	// 第三方告警系统推入 croupier 落现有告警存储。每来源一个 secretEnv
+	//（环境变量引用密钥，同 herald tokenEnv 口径）；alertmanager 来源的
+	// labels→信封字段映射（配置驱动，不写死供应商字段名）。
+	AlertInbound AlertInboundConfig `json:"alertInbound,omitempty" yaml:"alertInbound,omitempty"`
+	// ExternalAPI 对外 REST API（incident-reports §9）：调用令牌鉴权 + 按
+	// 令牌名限流。rateLimitPerMinute 缺省 30。
+	ExternalAPI ExternalAPIConfig `json:"externalAPI,omitempty" yaml:"externalAPI,omitempty"`
+	// ServerStatus 服务器维护状态 Provider（server-status-provider §3.2）：
+	// agent 探活异常的维护窗口 gate。enabled 缺省 false=gate 整体旁路；
+	// provider 缺省 noop（零配置=零行为变化+零外发）。
+	ServerStatus ServerStatusConfig `json:"serverStatus,omitempty" yaml:"serverStatus,omitempty"`
+	// Vault 密码箱（vault-provider 设计 §3）：渠道/支付商户密钥、上游服务
+	// 与数据库凭据等敏感配置的统一存取面。enabled 缺省 false=现状行为
+	//（凭据仍走各接入点的环境变量引用）；提供商切换=只改 provider 键。
+	Vault VaultConfig `json:"vault,omitempty" yaml:"vault,omitempty"`
+	// Probe server 本机探针（agent-health-recovery-review §4.2/§4.3，R3
+	// server 侧内核装配）：周期探测只有 server 视角才是运维真值的目标
+	//（server 自身依赖、只有 server 能访问的第三方平台 API），窗口事件走
+	// 与 agent 上行同一条 Alert 生命周期（视角=server）。空段=不装配（现状）。
+	Probe ServerProbeConfig `json:"probe,omitempty" yaml:"probe,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
@@ -52,6 +78,128 @@ const (
 	// PublishReviewRequired 提案 → 人工审核 → 发布（现状链路）。
 	PublishReviewRequired = "required"
 )
+
+// HeraldConfig herald 告警出口接入配置（plugin-mechanism 设计 §5/M2）。
+// courier 式接法：croupier 只投事件，渠道/收件人由 herald 侧配置。
+type HeraldConfig struct {
+	// Enabled 缺省 false：关=纯 croupier 告警页，行为与现状一致。
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// BaseURL herald 服务地址（如 http://herald:8080）。
+	BaseURL string `json:"baseUrl,omitempty" yaml:"baseUrl,omitempty"`
+	// App herald 侧 app 命名空间（herald 配置播种名，默认 croupier）。
+	App string `json:"app,omitempty" yaml:"app,omitempty"`
+	// TokenEnv 持 trigger token 的环境变量名（默认 HERALD_TRIGGER_TOKEN）：
+	// 凭证走环境变量引用，不落配置文件。
+	TokenEnv string `json:"tokenEnv,omitempty" yaml:"tokenEnv,omitempty"`
+	// Target 默认受众 ref（默认 group:gm-ops，herald 侧解析到群组/值班表）。
+	Target string `json:"target,omitempty" yaml:"target,omitempty"`
+}
+
+// AlertInboundConfig 告警入站 webhook 配置（plugin-mechanism 设计 §5.3/M3）。
+// 来源闭集起步 alertmanager / generic；每来源独立密钥与映射。
+type AlertInboundConfig struct {
+	// Sources 来源配置表（key=来源名，闭集 alertmanager/generic）。
+	Sources map[string]AlertInboundSourceConfig `json:"sources,omitempty" yaml:"sources,omitempty"`
+}
+
+// AlertInboundSourceConfig 单个入站来源配置。
+type AlertInboundSourceConfig struct {
+	// SecretEnv 持 HMAC 共享密钥的环境变量名（凭证走环境变量引用，
+	// 不落配置文件；空=该来源未启用）。
+	SecretEnv string `json:"secretEnv,omitempty" yaml:"secretEnv,omitempty"`
+	// LabelMapping alertmanager 来源的 labels 键→信封字段名映射
+	//（配置驱动，不写死供应商字段名；generic 来源直接用 §5.2 信封，
+	// 不需要此映射）。
+	LabelMapping map[string]string `json:"labelMapping,omitempty" yaml:"labelMapping,omitempty"`
+}
+
+// ExternalAPIConfig 对外 REST API 配置（incident-reports §9）。
+type ExternalAPIConfig struct {
+	// RateLimitPerMinute 按令牌名分桶的滑动窗口限流上限；<=0 取默认 30。
+	RateLimitPerMinute int `json:"rateLimitPerMinute,omitempty" yaml:"rateLimitPerMinute,omitempty"`
+}
+
+// ServerStatusConfig 服务器维护状态 Provider 配置（server-status-provider
+// 设计 §3.2）。零配置（缺省）= gate 整体旁路，行为与现状一致。
+type ServerStatusConfig struct {
+	// Enabled 缺省 false：关=gate 整体旁路（全部照报，行为与现状一致）。
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// Provider 状态源注册表键（noop | atlas | http）。空缺省 atlas（批 S4：
+	// 启用时选源零配置，只需 providers.atlas.baseUrl）；noop=无维护信息
+	// gate 直通。
+	Provider string `json:"provider,omitempty" yaml:"provider,omitempty"`
+	// MatchBy 服务器定位匹配键（agentId | host | ip；缺省 agentId）。
+	MatchBy string `json:"matchBy,omitempty" yaml:"matchBy,omitempty"`
+	// CacheTtlSeconds 状态查询缓存 TTL 秒数；<=0 取默认 60。
+	CacheTtlSeconds int `json:"cacheTtlSeconds,omitempty" yaml:"cacheTtlSeconds,omitempty"`
+	// Providers 各状态源实现专属配置（key=注册表键）。
+	Providers map[string]ServerStatusSourceConfig `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// ServerStatusSourceConfig 单个状态源实现的专属配置。
+type ServerStatusSourceConfig struct {
+	// BaseURL 状态源服务地址（atlas 等真实源必填）。
+	BaseURL string `json:"baseUrl,omitempty" yaml:"baseUrl,omitempty"`
+	// TokenEnv 持 API token 的环境变量名（凭证走环境变量引用，不落配置
+	// 文件——herald tokenEnv 同款口径）。
+	TokenEnv string `json:"tokenEnv,omitempty" yaml:"tokenEnv,omitempty"`
+	// TimeoutMs 单次查询超时毫秒；<=0 取实现默认 3000。
+	TimeoutMs int `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty"`
+	// StatusPath 状态查询路径模板（REST 源通用；atlas 默认
+	// /v1/discovery/servers/{id}，http 默认空=baseUrl 即端点；
+	// {id} 占位符=路径参数替换）。
+	StatusPath string `json:"statusPath,omitempty" yaml:"statusPath,omitempty"`
+	// MatchKey 定位参数名（REST 源通用；默认 agentId）。
+	MatchKey string `json:"matchKey,omitempty" yaml:"matchKey,omitempty"`
+	// InMaintenanceStatus 状态枚举值口径（REST 源通用）：映射到的
+	// inMaintenance 字段不是 bool 时按此字符串判等；atlas 默认
+	// "maintenance"，http 默认 "true"。
+	InMaintenanceStatus string `json:"inMaintenanceStatus,omitempty" yaml:"inMaintenanceStatus,omitempty"`
+	// FieldMapping 响应字段映射（REST 源通用：契约字段名→状态源 JSON 键；
+	// 配置驱动，不写死供应商字段名——alertInbound labelMapping 同款）。
+	FieldMapping map[string]string `json:"fieldMapping,omitempty" yaml:"fieldMapping,omitempty"`
+}
+
+// VaultConfig 密码箱配置（vault-provider 设计 §3，todo 4249/4252）。
+// 主口令与凭据值本身不落配置文件——口令走环境变量（passphraseEnv），
+// env 提供商凭据走带前缀环境变量。
+type VaultConfig struct {
+	// Enabled 缺省 false：关=密码箱不装配（ctx.Vault 为 nil），各接入点
+	// 行为与现状一致。
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// Provider 提供商注册表键（local | env）。空缺省 local。
+	Provider string `json:"provider,omitempty" yaml:"provider,omitempty"`
+	// SessionTtlSeconds 解锁会话空闲超时秒数（local；滑动续期，<=0 取
+	// 实现默认 900）。
+	SessionTtlSeconds int `json:"sessionTtlSeconds,omitempty" yaml:"sessionTtlSeconds,omitempty"`
+	// Providers 各提供商实现专属配置（key=注册表键，取
+	// Providers[Provider] 装配）。
+	Providers map[string]VaultSourceConfig `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// ServerProbeConfig server `probe:` 段（agent-health-recovery-review §4.2/
+// §4.3）：目标契约与 agent probe.targets 同一份（core/healthprobe.TargetConfig，
+// 键一律小驼峰）。只声明「探什么」，阈值/语义/间隔由装配侧给显式默认
+// （failThreshold=3、recoverThreshold=1、semantics=readiness、interval=30s）。
+type ServerProbeConfig struct {
+	// Targets 目标列表；重名/未知类型装配整体报错（启动失败，与 agent 同口径）。
+	Targets []healthprobe.TargetConfig `json:"targets,omitempty" yaml:"targets,omitempty"`
+	// MaxDetailsPerWindow 每故障窗口每目标的失败明细条数上限（<=0 用默认 10）。
+	MaxDetailsPerWindow int `json:"maxDetailsPerWindow,omitempty" yaml:"maxDetailsPerWindow,omitempty"`
+}
+
+// VaultSourceConfig 单个提供商实现的专属配置。
+type VaultSourceConfig struct {
+	// Path local：加密存储文件路径（缺省 data/vault.json；目录 0700、
+	// 文件 0600）。
+	Path string `json:"path,omitempty" yaml:"path,omitempty"`
+	// PassphraseEnv local：持主口令的环境变量名（缺省
+	// CROUPIER_VAULT_PASSPHRASE；口令不落配置文件、不落日志）。
+	PassphraseEnv string `json:"passphraseEnv,omitempty" yaml:"passphraseEnv,omitempty"`
+	// Prefix env：环境变量名前缀（缺省 CROUPIER_VAULT_ENV_；凭据路径
+	// smtp/password → CROUPIER_VAULT_ENV_SMTP_PASSWORD）。
+	Prefix string `json:"prefix,omitempty" yaml:"prefix,omitempty"`
+}
 
 // PagesConfig 页面发布分级配置。
 type PagesConfig struct {

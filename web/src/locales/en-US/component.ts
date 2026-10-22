@@ -16,4 +16,9 @@ export default {
   'component.tagSelect.expand': 'Expand',
   'component.tagSelect.collapse': 'Collapse',
   'component.tagSelect.all': 'All',
+  'component.themeToggle.menu': 'Theme',
+  'component.gameIconField.upload': 'Upload Icon',
+  'component.gameIconField.uploaded': 'Icon uploaded and filled in',
+  'component.gameIconField.badType': 'Only png/jpg/webp/svg icons are supported',
+  'component.gameIconField.oversize': 'Icon exceeds the 2MB size limit',
 };

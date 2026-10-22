@@ -58,12 +58,19 @@ type ToolFormValues = {
   enabled?: boolean;
 };
 
-/** 作用域切换联动：经 useFormInstance 取 ModalForm 托管的表单实例，切换时回填/清空 gameId/env */
-function ScopeModeSelect({ scope }: { scope: Scope }) {
+/** 作用域切换联动：经 useFormInstance 取 ModalForm 托管的表单实例，切换时回填/清空 gameId/env。
+ * 必须透传 Form.Item 注入的 value/onChange（经 rest 展开 + 先调 rest.onChange
+ * 派发 scopeMode 落库）——自定义包装组件若不透传，内层 Select 等于脱管，
+ * scopeMode 永远进不了 store（表单始终按 global 提交，scoped 工具无法创建）。 */
+function ScopeModeSelect({
+  scope,
+  ...rest
+}: { scope: Scope } & React.ComponentProps<typeof Select>) {
   const form = Form.useFormInstance<ToolFormValues>();
   const intl = useIntl();
   return (
     <Select
+      {...rest}
       options={[
         {
           label: intl.formatMessage({
@@ -83,7 +90,8 @@ function ScopeModeSelect({ scope }: { scope: Scope }) {
           value: 'scoped',
         },
       ]}
-      onChange={(mode) => {
+      onChange={(mode, option) => {
+        rest.onChange?.(mode, option);
         if (mode === 'global') {
           form.setFieldsValue({ gameId: '', env: '' });
         } else {

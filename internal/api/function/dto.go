@@ -36,6 +36,7 @@ type FunctionAnalyticsRequest struct {
 // FunctionAnalyticsResponse represents analytics data for a function
 type FunctionAnalyticsResponse struct {
 	TotalCalls     int64   `json:"totalCalls"`
+	FailedCalls    int64   `json:"failedCalls"`
 	SuccessRate    float64 `json:"successRate"`
 	AvgLatency     float64 `json:"avgLatency"`
 	CallsToday     int64   `json:"callsToday"`
@@ -312,17 +313,17 @@ type PendingFunction struct {
 
 // FunctionDeleteRequest represents a request to delete a function
 type FunctionDeleteRequest struct {
-	FunctionId string `json:"functionId"`
+	FunctionId string `uri:"id" json:"functionId"`
 }
 
 // FunctionDisableRequest represents a request to disable a function
 type FunctionDisableRequest struct {
-	FunctionId string `json:"functionId"`
+	FunctionId string `uri:"id" json:"functionId"`
 }
 
 // FunctionEnableRequest represents a request to enable a function
 type FunctionEnableRequest struct {
-	FunctionId string `json:"functionId"`
+	FunctionId string `uri:"id" json:"functionId"`
 }
 
 // Batch operations DTOs
@@ -403,3 +404,17 @@ type WarningsRequest = FunctionWarningsRequest
 type WarningsResponse = FunctionWarningsResponse
 type PendingRequest = FunctionsPendingRequest
 type PendingResponse = FunctionsPendingResponse
+
+// WarningFilterOptionItem GET /api/v1/functions/warnings/filter-options 的
+// 选项行（#34）：value 即函数 ID / Agent ID 本身，count 为该维度警告条数。
+type WarningFilterOptionItem struct {
+	Value string `json:"value"`
+	Label string `json:"label,omitempty"`
+	Count int64  `json:"count"`
+}
+
+// FunctionWarningFilterOptionsResponse 注册警告过滤下拉聚合响应（#34）。
+type FunctionWarningFilterOptionsResponse struct {
+	Functions []WarningFilterOptionItem `json:"functions"`
+	Agents    []WarningFilterOptionItem `json:"agents"`
+}

@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/config"
@@ -31,9 +33,11 @@ import (
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
+	"github.com/cuihairu/croupier/internal/platform/outlet"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/platform/vault"
 	policymgr "github.com/cuihairu/croupier/internal/policy"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/runtime"
@@ -42,7 +46,7 @@ import (
 	"github.com/cuihairu/croupier/internal/service/permission"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"github.com/cuihairu/croupier/internal/telemetry"
-	"github.com/cuihairu/croupier/internal/transport"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"log/slog"
@@ -87,6 +91,10 @@ type ServiceContext struct {
 	SystemInfoCache      *reg.SystemInfoCache
 	AgentSessionResolver dispatch.AgentSessionResolver
 
+	// ServerProbes server 本机探针面（R3 server 侧内核装配）：空段不装配
+	//（nil），手动诊断端点据此如实报「探测面未配置」。
+	ServerProbes *ServerProbeManager
+
 	AdminModel             *model.AdminModel
 	AdminOTPRecoveryModel  *model.AdminOTPRecoveryCodeModel
 	EmailVerificationModel *model.EmailVerificationModel
@@ -128,8 +136,26 @@ type ServiceContext struct {
 	// LogRetention 留痕保留期清理器（R3 + #54 手动清理入口）；
 	// ExecutionLog 关闭时为 nil。
 	LogRetention *executionlog.Retention
+	// retentionCancel 取消 LogRetention 的后台 sweep 循环（Close 收尾用）；
+	// ExecutionLog 关闭时为 nil。
+	retentionCancel context.CancelFunc
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
 	Scheduler *scheduler.Manager
+	// ReportRunner 是 server-local 报表执行面（Kind=incident_report 的调度
+	// 注入 scheduler.LocalRunner）；cmd/server 启动时经 SetReportRunner 注入。
+	ReportRunner scheduler.LocalRunner
+	// OutletManager 是告警出口链管理器（registerOutlets 构造；MetricsStore
+	// 缺失时为 nil）。报表分发经此派发到站内/外部出口。
+	OutletManager *outlet.Manager
+	// StationSink 是站内通知落库面（registerOutlets 构造的 messageSink）。
+	StationSink outlet.MessageSink
+	// Vault 是密码箱（vault-provider 设计 §4；wireVault 构造）。凭据统一
+	// 存取面——enabled=false 时 nil，接入点迁移（todo 4251）逐点接入。
+	Vault vault.Provider
+	// Secrets 是凭据值内引用（vault://）展开函数（NewServiceContext 装配，
+	// 恒非 nil）：密码箱启用时引用经 provider 展开，未启用时引用 fail-closed
+	// 报错、内联值直通（存量部署零行为变化）。
+	Secrets vault.Resolver
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
 	Cluster                  *ClusterRuntime
 	CertificateModel         *model.CertificateModel
@@ -171,9 +197,21 @@ type ExtensionServices struct {
 }
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
-	// 初始化数据库连接
-	slog.Default().Info("Connecting to database", "driver", c.Database.Driver, "dataSource", c.Database.DataSource)
-	db, err := openDatabase(c)
+	// 密码箱先行（todo 4251）：DB DSN 与后续装配面凭据可能是 vault:// 引用，
+	// provider/resolver 必须先于 openDatabase 就位；resolver 同时注入
+	// settings 层（L3 凭据键读边界展开）。
+	vaultProvider := newVaultProvider(c)
+	secrets := vault.NewResolver(vaultProvider)
+	settings.SetSecretResolver(secrets)
+
+	// 初始化数据库连接。dataSource 日志不回显内联明文（密码箱红线）：
+	// vault:// 引用原样打印（路径非密），内联形态只打 driver。
+	if vault.IsVaultRef(c.Database.DataSource) {
+		slog.Default().Info("Connecting to database", "driver", c.Database.Driver, "dataSource", c.Database.DataSource)
+	} else {
+		slog.Default().Info("Connecting to database", "driver", c.Database.Driver)
+	}
+	db, err := openDatabase(c, secrets)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to connect to database: %v", err))
 	}
@@ -197,7 +235,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 创建 per-game 数据库路由（当启用 multiGame 时）
 	var dbRouter *router.Router
 	if multiGame {
-		dbRouter = newGameRouter(c, db)
+		dbRouter = newGameRouter(c, db, secrets)
 		slog.Default().Info("Database-per-game router initialized")
 	}
 
@@ -296,7 +334,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	opsStateStore := NewOpsStateStore(resolveBootstrapBaseDir(c))
 
-	objectStore, err := initObjectStore(context.Background(), c.Storage)
+	objectStore, err := initObjectStore(context.Background(), c.Storage, secrets)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize object store: %v", err))
 	}
@@ -317,6 +355,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	var execLogWriter *executionlog.Writer
 	// 留痕保留期清理器（R3/#54）：ExecutionLog 关闭时不启动、保持 nil
 	var logRetention *executionlog.Retention
+	// 留痕后台循环的 ctx 必须可取消：ServiceContext.Close 收停 Writer 与
+	// Retention（此前挂 context.Background() 永不退出，测试 teardown 临时
+	// 目录时在飞 sweep 仍经 router 懒开 sqlite，与 RemoveAll 竞态）。
+	var retentionCancel context.CancelFunc
 	if c.ExecutionLog.IsEnabled() && db != nil {
 		// multiGame：按 entry 的 game+env 路由到对应物理库（否则读写错位）。
 		// 注意 typed-nil：仅 multiGame 启用时才传入 router 接口。
@@ -332,7 +374,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		execLogWriter.Run(context.Background())
 		slog.Default().Info("ExecutionLog writer started")
 
-		// 保留期清理（R3）：默认 7 天，0=永久；audit_records 不参与清理。
+		retentionCtx, cancelRetention := context.WithCancel(context.Background())
+		retentionCancel = cancelRetention
 		// ResolveDays 每轮清理前读 L3 log.retentionDays 覆盖（#54，热生效）。
 		execDays, taskDays := c.ExecutionLog.EffectiveRetentionDays(), c.TaskLog.EffectiveRetentionDays()
 		logRetention = executionlog.NewRetention(db, executionlog.RetentionConfig{
@@ -349,7 +392,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 			Router:     execLogRouter,
 			GameScopes: listGameEnvScopes(db),
 		})
-		logRetention.Run(context.Background())
+		logRetention.Run(retentionCtx)
 		slog.Default().Info("Retention sweep loop started",
 			"executionLogDays", execDays,
 			"taskLogDays", taskDays)
@@ -366,8 +409,16 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		slog.Default().Info("PolicyManager initialized", "configPath", policyConfigPath)
 	}
 
-	// 初始化缓存
-	cacheStore, err := cache.NewCacheStore(c.Cache)
+	// 初始化缓存。cache 密码支持 vault:// 引用（todo 4251）；解析失败按
+	// 「未配置密码」降级（fail-closed，不把引用串当真凭据发往 redis）。
+	cacheCfg := c.Cache
+	if pw, rerr := secrets(context.Background(), cacheCfg.Password); rerr != nil {
+		slog.Default().Error("Cache password resolve failed; continuing without password", "error", rerr)
+		cacheCfg.Password = ""
+	} else {
+		cacheCfg.Password = pw
+	}
+	cacheStore, err := cache.NewCacheStore(cacheCfg)
 	if err != nil {
 		slog.Default().Error("Failed to initialize cache, using NullCache", "error", err)
 		cacheStore = cache.NewNullCache()
@@ -377,7 +428,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	extensionManifestSvc := extensionmanifest.NewService()
 	extensionCatalogSvc := extensioncatalog.NewService(extensionRepos.Catalog, extensionRepos.Release)
 	extensionInstallationSvc := extensioninstallation.NewService(extensionRepos.Installation, extensionRepos.Event, extensionRepos.Binding)
-	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Binding, extensionRepos.Event)
+	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Release, extensionRepos.Binding, extensionRepos.Event)
 	extensionSyncSvc := extensionsync.NewService(extensionRepos.Installation, extensionRepos.Binding)
 
 	ctx := &ServiceContext{
@@ -423,6 +474,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		MessageModel:              messageModel,
 		ExecutionLogWriter:        execLogWriter,
 		LogRetention:              logRetention,
+		retentionCancel:           retentionCancel,
 		ExecutionLogModel:         model.NewExecutionLogModel(db),
 		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,
@@ -542,27 +594,57 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		evaluator := alertrule.New(ctx.AlertRuleModel, ctx.AlertModel, nil)
 		ctx.MetricsStore.SetOnReport(evaluator.EvaluateAgent)
 	}
+	// 告警出口链（plugin-mechanism §5.1）：站内出口链首恒注册（默认必有、
+	// 零外发）；herald 显式启用且凭证齐全时注册为外部主出口，否则注册
+	// noop（零配置=零外发）。MetricsStore 缺失（裁剪部署）时不接线。
+	registerOutlets(ctx)
+	// 密码箱（vault-provider §4）：已在函数顶部装配（先于 openDatabase，
+	// DSN 引用展开依赖）；此处接入上下文字段。
+	ctx.Vault = vaultProvider
+	ctx.Secrets = secrets
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}
 
-	// 初始化 JWT 密钥（从配置文件读取）。原「非开发态 panic / 开发态兜底
-	// DevSecret」的双分支已收敛为直接 panic：ResolveSecret 报错 ⟺ secret
-	// 为空且 jwtutil.isDevelopmentMode 为 false，而该判定与本包
-	// isDevelopmentConfig 对 mode/CROUPIER_ENV/CROUPIER_MODE 逐条等价，
-	// err != nil 时 isDevelopmentConfig 必为 false——开发态兜底分支恒不可
-	// 达（开发态下 ResolveSecret 自身已返回 DevSecret、err 为 nil）。
-	secret, err := jwtutil.ResolveSecret(ctx.Config)
+	// 初始化 JWT 密钥（从配置文件读取）。值内支持 vault:// 引用（todo 4251）。
+	// 原「非开发态 panic / 开发态兜底 DevSecret」的双分支已收敛为直接 panic：
+	// ResolveSecret 报错 ⟺ secret 为空且 jwtutil.isDevelopmentMode 为 false，
+	// 而该判定与本包 isDevelopmentConfig 对 mode/CROUPIER_ENV/CROUPIER_MODE
+	// 逐条等价，err != nil 时 isDevelopmentConfig 必为 false——开发态兜底
+	// 分支恒不可达（开发态下 ResolveSecret 自身已返回 DevSecret、err 为 nil）。
+	// 引用解析失败走同一 panic 通道（fail-closed：不回落 DevSecret）；展开后
+	// 明文写回 ctx.Config，防下游（routes 装配等）再读到原始引用。
+	secret, err := resolveJWTSecret(ctx.Config, secrets)
 	if err != nil {
-		// JWT secret 未配置且不在开发模式，这是一个严重配置错误
+		// JWT secret 未配置/引用不可解析且不在开发模式，这是一个严重配置错误
 		panic(fmt.Sprintf("JWT secret not configured: %v", err))
 	}
+	ctx.Config.Auth.JWTSecret = secret
 	jwtutil.InitGlobalSecret(secret)
 
 	// 设置认证中间件
 	ctx.Authority = NewAuthMiddleware(ctx)
 
 	return ctx
+}
+
+// Close 收停 NewServiceContext 起动的后台 goroutine：留痕写入器冲刷队列后
+// 退出，保留期清理 cancel 后等待在飞的一轮 sweep 结束。进程内多实例（测试、
+// 备件装配）teardown 临时目录前必须先 Close——后台 sweep 仍经 router 懒开
+// per-game sqlite 时 RemoveAll 会撞文件竞态。幂等，可安全重复调用。
+func (ctx *ServiceContext) Close() {
+	if ctx == nil {
+		return
+	}
+	if ctx.ExecutionLogWriter != nil {
+		ctx.ExecutionLogWriter.Stop()
+	}
+	if ctx.retentionCancel != nil {
+		ctx.retentionCancel()
+	}
+	if ctx.LogRetention != nil {
+		ctx.LogRetention.Wait()
+	}
 }
 
 func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env string) context.Context {
@@ -582,7 +664,90 @@ func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env str
 	return dbctx.WithDB(base, gameDB)
 }
 
-func NewTelemetryService(c config.Config, serviceName string, logger *slog.Logger) (*telemetry.GameTelemetryService, error) {
+// registerOutlets 布线告警出口链（plugin-mechanism §5.1）：站内出口链首恒
+// 注册（默认必有、零外发、不受降级影响）；herald 显式启用且凭证齐全时
+// 注册为外部主出口，否则注册 noop——零配置=零外发红线的真实注册项。
+// MetricsStore 缺失（裁剪部署）时不接线——出口只经 supervisor hook 触达。
+func registerOutlets(ctx *ServiceContext) {
+	if ctx.MetricsStore == nil {
+		return
+	}
+	manager := outlet.NewManager()
+	manager.Register(outlet.NewInternalOutlet(messageSink{db: ctx.DB}, outlet.DefaultStationRecipient))
+	cfg := ctx.Config.Herald
+	external := false
+	if cfg.Enabled && strings.TrimSpace(cfg.BaseURL) != "" {
+		tokenEnv := cfg.TokenEnv
+		if tokenEnv == "" {
+			tokenEnv = outlet.HeraldDefaultTokenEnv
+		}
+		token := os.Getenv(tokenEnv)
+		app := cfg.App
+		if app == "" {
+			app = outlet.HeraldDefaultApp
+		}
+		target := cfg.Target
+		if target == "" {
+			target = outlet.HeraldDefaultTarget
+		}
+		if token == "" {
+			slog.WarnContext(context.Background(), "herald outlet enabled but token env missing; falling back to noop",
+				"tokenEnv", tokenEnv)
+		} else {
+			manager.Register(outlet.NewHeraldOutlet(cfg.BaseURL, app, token, target))
+			external = true
+			slog.InfoContext(context.Background(), "herald outlet registered", "app", app, "target", target)
+		}
+	}
+	if !external {
+		manager.Register(outlet.NewNoopOutlet())
+	}
+	ctx.OutletManager = manager
+	ctx.StationSink = messageSink{db: ctx.DB}
+	ctx.MetricsStore.SetOnSupervisorEvent(supervisorEventToOutlet(manager))
+	wireServerStatusGate(ctx)
+}
+
+// supervisorEventToOutlet 把新监管事件映射为统一信封：v1 闭集只消费
+// breaker_tripped（severity 恒 critical；其余类型出口零改动地忽略）。
+// event_id/dedup_key 携 agentId——seq 是 agent 本地游标、重启归零，跨
+// agent 不加前缀必撞。
+func supervisorEventToOutlet(m *outlet.Manager) func(ctx context.Context, agentID string, ev *opsv1.SupervisorEvent) {
+	return func(_ context.Context, agentID string, ev *opsv1.SupervisorEvent) {
+		if m == nil || ev == nil || ev.GetEvent() != "breaker_tripped" {
+			return
+		}
+		title := "supervisor: breaker tripped for " + ev.GetProcess()
+		body := ev.GetMessage()
+		if body == "" {
+			body = "too many restart failures"
+		}
+		m.Dispatch(outlet.AlertEvent{
+			Kind:             outlet.KindSupervisorBreaker,
+			Severity:         outlet.SeverityCritical,
+			EventID:          agentID + ":" + strconv.FormatInt(ev.GetSeq(), 10),
+			DedupKey:         "supervisor.breaker_tripped:" + agentID + ":" + strconv.FormatInt(ev.GetSeq(), 10),
+			Title:            title,
+			Body:             body,
+			OccurredAtUnixMs: ev.GetTsUnix() * 1000,
+			Scope:            outlet.Scope{AgentID: agentID},
+		})
+	}
+}
+
+func NewTelemetryService(c config.Config, secrets vault.Resolver, serviceName string, logger *slog.Logger) (*telemetry.GameTelemetryService, error) {
+	// analytics redis 密码支持 vault:// 引用（todo 4251）；解析失败按
+	// 「未配置」降级（fail-closed，不把引用串当真凭据发往 redis）。secrets
+	// 允许 nil（直通，兼容测试面）。
+	analyticsPassword := c.Telemetry.Analytics.RedisPassword
+	if secrets != nil {
+		if pw, rerr := secrets(context.Background(), analyticsPassword); rerr != nil {
+			slog.Warn("telemetry analytics redis password resolve failed; treat as unset", "error", rerr)
+			analyticsPassword = ""
+		} else {
+			analyticsPassword = pw
+		}
+	}
 	cfg := telemetry.MergeEnv(telemetry.TelemetryConfig{
 		Enabled:        c.Telemetry.Enabled,
 		ServiceName:    firstNonEmpty(c.Telemetry.ServiceName, serviceName),
@@ -598,7 +763,7 @@ func NewTelemetryService(c config.Config, serviceName string, logger *slog.Logge
 		Analytics: telemetry.AnalyticsBridgeConfig{
 			Enabled:        c.Telemetry.Analytics.Enabled,
 			RedisAddr:      c.Telemetry.Analytics.RedisAddr,
-			RedisPassword:  c.Telemetry.Analytics.RedisPassword,
+			RedisPassword:  analyticsPassword,
 			RedisDB:        c.Telemetry.Analytics.RedisDB,
 			TopicPrefix:    c.Telemetry.Analytics.TopicPrefix,
 			RetentionHours: c.Telemetry.Analytics.RetentionHours,
@@ -692,8 +857,13 @@ func autoMigrateMeta(db *gorm.DB) error {
 // newGameRouter builds a database-per-game router wired to the resolved
 // driver/DSN. The router auto-creates and migrates each game database on
 // first use.
-func newGameRouter(c config.Config, metaDB *gorm.DB) *router.Router {
-	driver, dsn := resolveDriverAndDSN(c)
+func newGameRouter(c config.Config, metaDB *gorm.DB, secrets vault.Resolver) *router.Router {
+	driver, dsn, err := resolveDriverAndDSN(c, secrets)
+	if err != nil {
+		// 不可达论证（C 类）：metaDB 已用同一 resolver 展开同一 DSN 成功，
+		// 此处重复解析无新增失败输入；err 为签名契约必须处理，保留 panic。
+		panic(fmt.Sprintf("resolve game router DSN: %v", err))
+	}
 	dsnForDB := func(metaDSN, dbName string) string {
 		return DSNForDatabase(driver, metaDSN, dbName)
 	}
@@ -1269,10 +1439,34 @@ func seedBootstrapExtensionCatalog(ctx *ServiceContext) error {
 // 调用处注释）。
 var validateStoreConfig = objstore.Validate
 
-func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.Store, error) {
+// initObjectStore 构建对象存储。secrets 为可选（variadic）：生产装配传入
+// NewServiceContext 的 resolver（AK/SK 支持 vault:// 引用，todo 4251）；
+// 测试面/未传时为 nil（引用原样直通，存量零行为变化）。
+func initObjectStore(ctx context.Context, cfg config.StorageConfig, secrets ...vault.Resolver) (objstore.Store, error) {
 	driver := strings.TrimSpace(cfg.Driver)
 	if driver == "" {
 		return nil, nil
+	}
+	var resolve vault.Resolver
+	if len(secrets) > 0 {
+		resolve = secrets[0]
+	}
+
+	// AK/SK 支持 vault:// 引用（todo 4251）；解析失败按「未配置」降级
+	// （fail-closed，不把引用串当真凭据发往对象存储端点）。
+	accessKey := strings.TrimSpace(cfg.AccessKey)
+	secretKey := strings.TrimSpace(cfg.SecretKey)
+	if v, rerr := resolveSecretOrPassthrough(ctx, resolve, accessKey); rerr != nil {
+		slog.WarnContext(ctx, "objstore accessKey resolve failed; treat as unset", "error", rerr)
+		accessKey = ""
+	} else {
+		accessKey = strings.TrimSpace(v)
+	}
+	if v, rerr := resolveSecretOrPassthrough(ctx, resolve, secretKey); rerr != nil {
+		slog.WarnContext(ctx, "objstore secretKey resolve failed; treat as unset", "error", rerr)
+		secretKey = ""
+	} else {
+		secretKey = strings.TrimSpace(v)
 	}
 
 	storeCfg := objstore.Config{
@@ -1280,8 +1474,8 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 		Bucket:         strings.TrimSpace(cfg.Bucket),
 		Region:         strings.TrimSpace(cfg.Region),
 		Endpoint:       strings.TrimSpace(cfg.Endpoint),
-		AccessKey:      strings.TrimSpace(cfg.AccessKey),
-		SecretKey:      strings.TrimSpace(cfg.SecretKey),
+		AccessKey:      accessKey,
+		SecretKey:      secretKey,
 		ForcePathStyle: cfg.ForcePathStyle,
 		BaseDir:        toAbs(strings.TrimSpace(cfg.BaseDir)),
 	}
@@ -1413,6 +1607,9 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 			// 必须免鉴权：<img src> 请求不会携带 Authorization 头，走鉴权必然
 			// 401，头像永远加载不出来。只放行 avatars 子树，其余上传物不对外。
 			string(objstore.AvatarPublicPrefix),
+			// 游戏图标静态目录（registerIconStaticRoute）：同头像逻辑，<img>
+			// 直载免鉴权；内容寻址命名 + CSP 响应头兜 SVG XSS。
+			string(objstore.IconPublicPrefix),
 		},
 	}
 	// Prometheus 抓取器不带 JWT：端点开启时加入免认证白名单。

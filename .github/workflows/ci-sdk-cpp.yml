@@ -20,7 +20,7 @@ jobs:
     # 新增依赖（zlib）触发 manifest 重装时逼近 15 分钟，留足余量。
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Install system dependencies
         run: |
@@ -64,7 +64,7 @@ jobs:
           lcov --list build/linux-x64-debug-tests-vcpkg/coverage.info
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/cpp/build/linux-x64-debug-tests-vcpkg/coverage.info

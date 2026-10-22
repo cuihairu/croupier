@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/api/incident"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/handler"
@@ -191,10 +192,14 @@ func runServer() error {
 		ObsGrafanaExploreURL: os.Getenv("CROUPIER_GRAFANA_EXPLORE_URL"),
 		ObsJaegerURL:         os.Getenv("CROUPIER_JAEGER_URL"),
 	}, svcCtx.PlatformSettingModel)
-	// cron 定时任务调度循环（Dispatcher 就绪后启动）。
+	// 报告生成器注入调度器（Kind=incident_report 的调度 server-local 执行，
+	// docs/design/incident-reports.md §6——internal/api/incident import svc，
+	// 须在 cmd 层反向注入避免环）。
+	svcCtx.SetReportRunner(incident.NewService(svcCtx))
+	// cron 定时任务调度循环（Dispatcher 就绪后启动，含报表调度播种）。
 	svcCtx.StartScheduler()
 	defer svcCtx.StopScheduler()
-	if telemetrySvc, err := svc.NewTelemetryService(c, "croupier-server", slog.Default()); err != nil {
+	if telemetrySvc, err := svc.NewTelemetryService(c, svcCtx.Secrets, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)
 	} else if telemetrySvc != nil {
 		svcCtx.Telemetry = telemetrySvc
@@ -446,6 +451,38 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 		model.NewTaskEventModel(svcCtx.DB),
 	))
 	controlService.SetMetricsDB(svcCtx.DB)
+	// capture 规则命中告警：落 alerts 表 + 出口分发（Manager 可为 nil）
+	controlService.SetAlertModel(svcCtx.AlertModel)
+	controlService.SetProbeEventModel(model.NewProbeEventModel(svcCtx.DB))
+	// 探测窗口→Alert 生命周期（review §12 R3）：probe.window 开/合转 firing/resolved。
+	controlService.SetProbeLifecycleModel(svcCtx.AlertModel)
+	// server 本机探针（R3 server 侧内核装配，§4.2/§4.3）：探 server 自身
+	// 依赖与只有 server 可达的第三方平台 API；窗口/明细事件与 agent 上行
+	// 同一条生命周期（视角=server）。配置非法即启动失败（与 agent 同口径）。
+	serverProbes, err := svc.NewServerProbeManager(
+		c.Probe.Targets,
+		controlService.HandleServerProbeEvent,
+		c.Probe.MaxDetailsPerWindow,
+		slog.Default(),
+	)
+	if err != nil {
+		slog.Default().Error("server probe config invalid", "error", err)
+		os.Exit(1)
+	}
+	if serverProbes != nil {
+		svcCtx.ServerProbes = serverProbes
+		go serverProbes.Start(ctx)
+	}
+	controlService.SetOutletManager(svcCtx.OutletManager)
+	// capture 闸规则下行拉取：config_versions capture.gates（分库模式注入
+	// Router 解析 game 库；单库 nil 即走默认连接）
+	controlService.SetConfigVersionModel(svcCtx.ConfigVersionModel)
+	if svcCtx.Router != nil {
+		controlService.SetGameDBResolver(svcCtx.Router)
+	}
+	// db 探针目标下行拉取（R4）：按 db_sources.owner_agent_id 归属派生
+	// （meta 库 db_sources，不随 game 分库）
+	controlService.SetDBSourceModel(svcCtx.DBSourceModel)
 	controlService.StartBackgroundTasks()
 
 	// 将 ControlService 的 MetricsStore 同步到 ServiceContext

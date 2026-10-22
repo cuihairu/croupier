@@ -82,6 +82,18 @@ describe('AnnouncementPopup', () => {
     await waitFor(() => expect(screen.getByTestId('announcement-popup-title')).not.toBeVisible());
   });
 
+  it('contentMd 按 Markdown 渲染（粗体语法出 strong，不露星号）— #50', async () => {
+    respondActive([activeItem({ contentMd: '## 维护窗口\n**02:00** 开始停机' })]);
+    render(<AnnouncementPopup />);
+    expect(await screen.findByTestId('announcement-popup-title')).toHaveTextContent('停机维护通知');
+    // `**02:00**` 渲染为 strong，原样星号不出现
+    const strong = await screen.findByText('02:00');
+    expect(strong.tagName).toBe('STRONG');
+    expect(screen.queryByText('**02:00**')).not.toBeInTheDocument();
+    // ## 标题按标题级渲染（弹窗语境为 Title level 5 → h5）
+    expect(document.querySelector('h5')?.textContent).toContain('维护窗口');
+  });
+
   it('多条 popup 公告逐条弹出', async () => {
     respondActive([activeItem({ id: 3, title: '第一条' }), activeItem({ id: 4, title: '第二条' })]);
     render(<AnnouncementPopup />);

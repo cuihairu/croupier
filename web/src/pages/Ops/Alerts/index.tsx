@@ -1,5 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Table, Space, Tag, Button, Select, Input, App, Drawer, Tabs } from 'antd';
+import {
+  Card,
+  Table,
+  Space,
+  Tag,
+  Button,
+  Select,
+  Input,
+  App,
+  Drawer,
+  Tabs,
+  Dropdown,
+  Modal,
+  Tooltip,
+} from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { FormattedMessage, useIntl } from '@umijs/max';
@@ -7,13 +21,16 @@ import {
   deleteSilence,
   fetchOpsAlerts,
   fetchOpsConfig,
+  handleOpsAlert,
   listSilences,
   silenceOpsAlert,
+  type AlertHandleAction,
   type OpsAlert,
   type OpsConfig,
   type OpsSilence,
 } from '@/services/api/ops';
 import AlertRulesTab from './AlertRulesTab';
+import ConvertToIncidentModal, { type ConvertPrefill } from '@/components/ConvertToIncidentModal';
 
 export default function OpsAlertsPage() {
   const { message, modal } = App.useApp();
@@ -27,7 +44,16 @@ export default function OpsAlertsPage() {
   const [cfg, setCfg] = useState<OpsConfig>({});
   const [lk, setLk] = useState('');
   const [lv, setLv] = useState('');
+  const [hst, setHst] = useState('');
   const [detail, setDetail] = useState<OpsAlert | null>(null);
+  const [convert, setConvert] = useState<ConvertPrefill | null>(null);
+  // 工作流流转（风险事件扩展）：目标行 + 动作 + 备注，一次 Modal 提交。
+  const [handleTarget, setHandleTarget] = useState<{
+    id: string;
+    action: AlertHandleAction;
+  } | null>(null);
+  const [handleRemark, setHandleRemark] = useState('');
+  const [handling, setHandling] = useState(false);
 
   const toStringRecord = (input?: Record<string, unknown>): Record<string, string> =>
     Object.fromEntries(
@@ -88,6 +114,7 @@ export default function OpsAlertsPage() {
       (rows || []).filter((a) => {
         if (sev && (a.severity || '') !== sev) return false;
         if (svc && (a.service || '') !== svc) return false;
+        if (hst && (a.handleStatus || 'pending') !== hst) return false;
         if (q) {
           const s = `${a.summary || ''} ${JSON.stringify(a.labels || {})}`.toLowerCase();
           if (!s.includes(q.toLowerCase())) return false;
@@ -99,8 +126,38 @@ export default function OpsAlertsPage() {
         }
         return true;
       }),
-    [rows, sev, svc, q, lk, lv],
+    [rows, sev, svc, hst, q, lk, lv],
   );
+
+  // 工作流流转提交：处理人在服务端取认证上下文；成功后整表刷新（对账行
+  // 的 handledBy/remark/at 一并更新）。行 id 来自 labels.id（ops 列表装载）。
+  const submitHandle = useCallback(async () => {
+    if (!handleTarget) return;
+    setHandling(true);
+    try {
+      await handleOpsAlert(handleTarget.id, handleTarget.action, handleRemark.trim() || undefined);
+      message.success(
+        intl.formatMessage({
+          id: 'pages.opsAlerts.handle.success',
+          defaultMessage: '已流转',
+        }),
+      );
+      setHandleTarget(null);
+      setHandleRemark('');
+      await load();
+    } catch (e) {
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.opsAlerts.handle.failed',
+              defaultMessage: '流转失败',
+            });
+      message.error(errMsg);
+    } finally {
+      setHandling(false);
+    }
+  }, [handleTarget, handleRemark, message, intl, load]);
 
   const columns: ColumnsType<OpsAlert> = [
     {
@@ -143,112 +200,195 @@ export default function OpsAlertsPage() {
       render: (v) => (v ? <Tag>silenced</Tag> : <Tag color="volcano">firing</Tag>),
     },
     {
+      // 工作流状态（独立于 firing/silenced 入站态）；tooltip 带审计三件套
+      title: intl.formatMessage({
+        id: 'pages.opsAlerts.column.handleStatus',
+        defaultMessage: '处理状态',
+      }),
+      dataIndex: 'handleStatus',
+      width: 120,
+      render: (v: string | undefined, r) => {
+        const status = v || 'pending';
+        const color =
+          status === 'acknowledged'
+            ? 'green'
+            : status === 'escalated'
+              ? 'volcano'
+              : status === 'ignored'
+                ? 'default'
+                : 'orange';
+        const label = intl.formatMessage({
+          id: `pages.opsAlerts.handle.${status}`,
+          defaultMessage: status,
+        });
+        const tag = <Tag color={color}>{label}</Tag>;
+        if (!r.handledBy) return tag;
+        return (
+          <Tooltip
+            title={`${r.handledBy} · ${r.handledAt || ''}${r.handledRemark ? ` · ${r.handledRemark}` : ''}`}
+          >
+            {tag}
+          </Tooltip>
+        );
+      },
+    },
+    {
       title: intl.formatMessage({ id: 'pages.opsAlerts.column.actions', defaultMessage: '操作' }),
-      width: 160,
-      render: (_, r) => (
-        <Space>
-          {!r.silenced && (
+      width: 300,
+      render: (_, r) => {
+        const rowId = String(r.labels?.id ?? '');
+        const handleMenu: {
+          key: AlertHandleAction;
+          labelKey: string;
+          defaultLabel: string;
+        }[] = [
+          {
+            key: 'acknowledge',
+            labelKey: 'pages.opsAlerts.handle.acknowledge',
+            defaultLabel: '确认',
+          },
+          { key: 'ignore', labelKey: 'pages.opsAlerts.handle.ignore', defaultLabel: '忽略' },
+          { key: 'escalate', labelKey: 'pages.opsAlerts.handle.escalate', defaultLabel: '升级' },
+        ];
+        return (
+          <Space>
             <Button
               size="small"
               onClick={() => {
-                modal.confirm({
-                  title: intl.formatMessage({
-                    id: 'pages.opsAlerts.silence.modalTitle',
-                    defaultMessage: '静默告警',
-                  }),
-                  content: intl.formatMessage({
-                    id: 'pages.opsAlerts.silence.confirm1h',
-                    defaultMessage: '静默 1 小时？',
-                  }),
-                  onOk: async () => {
-                    try {
-                      await silenceOpsAlert({
-                        matchers: toStringRecord(r.labels),
-                        duration: '1h',
-                        comment: r.summary || '',
-                      });
-                      message.success(
-                        intl.formatMessage({
-                          id: 'pages.opsAlerts.silence.success',
-                          defaultMessage: '已静默',
-                        }),
-                      );
-                      load();
-                    } catch (e) {
-                      const errMsg =
-                        e instanceof Error
-                          ? e.message
-                          : intl.formatMessage({
-                              id: 'pages.opsAlerts.error.operationFailed',
-                              defaultMessage: '操作失败',
-                            });
-                      message.error(
-                        errMsg ||
-                          intl.formatMessage({
-                            id: 'pages.opsAlerts.error.silenceFailed',
-                            defaultMessage: '静默失败',
-                          }),
-                      );
-                    }
-                  },
+                const alertname = String(r.labels?.alertname ?? '') || r.service || 'alert';
+                const instance = r.instance ? `:${r.instance}` : '';
+                setConvert({
+                  title: r.summary || `${alertname}${instance}`,
+                  severity: r.severity || 'warning',
+                  detectedAt: r.startsAt,
+                  refType: 'alert',
+                  refId: `${alertname}${instance}`,
                 });
               }}
             >
-              <FormattedMessage id="pages.opsAlerts.silence.button1h" defaultMessage="静默1h" />
+              <FormattedMessage id="pages.incidents.action.convert" defaultMessage="转事故" />
             </Button>
-          )}
-          {!r.silenced && (
-            <Button
-              size="small"
-              onClick={() => {
-                modal.confirm({
-                  title: intl.formatMessage({
-                    id: 'pages.opsAlerts.silence.modalTitle',
-                    defaultMessage: '静默告警',
-                  }),
-                  content: intl.formatMessage({
-                    id: 'pages.opsAlerts.silence.confirm24h',
-                    defaultMessage: '静默 24 小时？',
-                  }),
-                  onOk: async () => {
-                    try {
-                      await silenceOpsAlert({
-                        matchers: toStringRecord(r.labels),
-                        duration: '24h',
-                        comment: r.summary || '',
-                      });
-                      message.success(
-                        intl.formatMessage({
-                          id: 'pages.opsAlerts.silence.success',
-                          defaultMessage: '已静默',
-                        }),
-                      );
-                      load();
-                    } catch (e) {
-                      const errMsg =
-                        e instanceof Error
-                          ? e.message
-                          : intl.formatMessage({
-                              id: 'pages.opsAlerts.error.operationFailed',
-                              defaultMessage: '操作失败',
-                            });
-                      message.error(
-                        errMsg ||
+            {!r.silenced && (
+              <Button
+                size="small"
+                onClick={() => {
+                  modal.confirm({
+                    title: intl.formatMessage({
+                      id: 'pages.opsAlerts.silence.modalTitle',
+                      defaultMessage: '静默告警',
+                    }),
+                    content: intl.formatMessage({
+                      id: 'pages.opsAlerts.silence.confirm1h',
+                      defaultMessage: '静默 1 小时？',
+                    }),
+                    onOk: async () => {
+                      try {
+                        await silenceOpsAlert({
+                          matchers: toStringRecord(r.labels),
+                          duration: '1h',
+                          comment: r.summary || '',
+                        });
+                        message.success(
                           intl.formatMessage({
-                            id: 'pages.opsAlerts.error.silenceFailed',
-                            defaultMessage: '静默失败',
+                            id: 'pages.opsAlerts.silence.success',
+                            defaultMessage: '已静默',
                           }),
-                      );
-                    }
+                        );
+                        load();
+                      } catch (e) {
+                        const errMsg =
+                          e instanceof Error
+                            ? e.message
+                            : intl.formatMessage({
+                                id: 'pages.opsAlerts.error.operationFailed',
+                                defaultMessage: '操作失败',
+                              });
+                        message.error(
+                          errMsg ||
+                            intl.formatMessage({
+                              id: 'pages.opsAlerts.error.silenceFailed',
+                              defaultMessage: '静默失败',
+                            }),
+                        );
+                      }
+                    },
+                  });
+                }}
+              >
+                <FormattedMessage id="pages.opsAlerts.silence.button1h" defaultMessage="静默1h" />
+              </Button>
+            )}
+            {!r.silenced && (
+              <Button
+                size="small"
+                onClick={() => {
+                  modal.confirm({
+                    title: intl.formatMessage({
+                      id: 'pages.opsAlerts.silence.modalTitle',
+                      defaultMessage: '静默告警',
+                    }),
+                    content: intl.formatMessage({
+                      id: 'pages.opsAlerts.silence.confirm24h',
+                      defaultMessage: '静默 24 小时？',
+                    }),
+                    onOk: async () => {
+                      try {
+                        await silenceOpsAlert({
+                          matchers: toStringRecord(r.labels),
+                          duration: '24h',
+                          comment: r.summary || '',
+                        });
+                        message.success(
+                          intl.formatMessage({
+                            id: 'pages.opsAlerts.silence.success',
+                            defaultMessage: '已静默',
+                          }),
+                        );
+                        load();
+                      } catch (e) {
+                        const errMsg =
+                          e instanceof Error
+                            ? e.message
+                            : intl.formatMessage({
+                                id: 'pages.opsAlerts.error.operationFailed',
+                                defaultMessage: '操作失败',
+                              });
+                        message.error(
+                          errMsg ||
+                            intl.formatMessage({
+                              id: 'pages.opsAlerts.error.silenceFailed',
+                              defaultMessage: '静默失败',
+                            }),
+                        );
+                      }
+                    },
+                  });
+                }}
+              >
+                <FormattedMessage id="pages.opsAlerts.silence.button1d" defaultMessage="静默1d" />
+              </Button>
+            )}
+            {rowId && (
+              <Dropdown
+                menu={{
+                  items: handleMenu.map((m) => ({
+                    key: m.key,
+                    label: <FormattedMessage id={m.labelKey} defaultMessage={m.defaultLabel} />,
+                  })),
+                  onClick: ({ key }) => {
+                    setHandleRemark('');
+                    setHandleTarget({ id: rowId, action: key as AlertHandleAction });
                   },
-                });
-              }}
-            >
-              <FormattedMessage id="pages.opsAlerts.silence.button1d" defaultMessage="静默1d" />
-            </Button>
-          )}
-        </Space>
-      ),
+                }}
+              >
+                <Button size="small">
+                  <FormattedMessage id="pages.opsAlerts.handle.menu" defaultMessage="处理" />
+                </Button>
+              </Dropdown>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -297,6 +437,54 @@ export default function OpsAlertsPage() {
                         value={svc || undefined}
                         onChange={(v) => setSvc(v || '')}
                         options={serviceOptions}
+                      />
+                      <Select
+                        placeholder={intl.formatMessage({
+                          id: 'pages.opsAlerts.filter.handleStatus',
+                          defaultMessage: '处理状态',
+                        })}
+                        allowClear
+                        style={{ width: 130 }}
+                        value={hst || undefined}
+                        onChange={(v) => setHst(v || '')}
+                        options={[
+                          {
+                            label: (
+                              <FormattedMessage
+                                id="pages.opsAlerts.handle.pending"
+                                defaultMessage="待处理"
+                              />
+                            ),
+                            value: 'pending',
+                          },
+                          {
+                            label: (
+                              <FormattedMessage
+                                id="pages.opsAlerts.handle.acknowledged"
+                                defaultMessage="已确认"
+                              />
+                            ),
+                            value: 'acknowledged',
+                          },
+                          {
+                            label: (
+                              <FormattedMessage
+                                id="pages.opsAlerts.handle.ignored"
+                                defaultMessage="已忽略"
+                              />
+                            ),
+                            value: 'ignored',
+                          },
+                          {
+                            label: (
+                              <FormattedMessage
+                                id="pages.opsAlerts.handle.escalated"
+                                defaultMessage="已升级"
+                              />
+                            ),
+                            value: 'escalated',
+                          },
+                        ]}
                       />
                       <Input
                         placeholder={intl.formatMessage({
@@ -760,6 +948,54 @@ export default function OpsAlertsPage() {
           </Space>
         )}
       </Drawer>
+      <ConvertToIncidentModal
+        prefill={convert}
+        onClose={() => setConvert(null)}
+        onConverted={load}
+      />
+      <Modal
+        title={
+          handleTarget ? (
+            <FormattedMessage
+              id="pages.opsAlerts.handle.modalTitle"
+              defaultMessage="流转告警（{action}）"
+              values={{
+                action: intl.formatMessage({
+                  id: `pages.opsAlerts.handle.${handleTarget.action}`,
+                  defaultMessage: handleTarget.action,
+                }),
+              }}
+            />
+          ) : (
+            ''
+          )
+        }
+        open={!!handleTarget}
+        confirmLoading={handling}
+        onOk={submitHandle}
+        onCancel={() => {
+          setHandleTarget(null);
+          setHandleRemark('');
+        }}
+        okText={intl.formatMessage({
+          id: 'pages.opsAlerts.handle.confirm',
+          defaultMessage: '确定',
+        })}
+        cancelText={intl.formatMessage({
+          id: 'pages.opsAlerts.handle.cancel',
+          defaultMessage: '取消',
+        })}
+      >
+        <Input.TextArea
+          value={handleRemark}
+          onChange={(e) => setHandleRemark(e.target.value)}
+          rows={3}
+          placeholder={intl.formatMessage({
+            id: 'pages.opsAlerts.handle.remarkPlaceholder',
+            defaultMessage: '备注（可选，随流转落审计）',
+          })}
+        />
+      </Modal>
     </PageContainer>
   );
 }

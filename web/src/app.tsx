@@ -1,4 +1,12 @@
-import { Footer, Question, SelectLang, AvatarDropdown, AvatarName } from '@/components';
+import {
+  Footer,
+  Question,
+  SelectLang,
+  AvatarDropdown,
+  AvatarName,
+  ThemeSync,
+  ThemeToggle,
+} from '@/components';
 import MessagesBell from '@/components/MessagesBell';
 import AnnouncementPopup from '@/components/AnnouncementPopup';
 import { LinkOutlined } from '@ant-design/icons';
@@ -11,7 +19,7 @@ import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 import { fetchCurrentUser, getMyPermissions } from '@/services/api';
 import React, { useEffect } from 'react';
-import { App as AntdApp, Grid } from 'antd';
+import { App as AntdApp, Grid, type ThemeConfig } from 'antd';
 import { clearAppApi, setAppApi } from './utils/antdApp';
 import { getConsoleMenu } from './services/console';
 import type { ProfilePermission } from '@/services/api/me';
@@ -27,6 +35,8 @@ import {
 import { resetAccessibleMenus } from './store/modules/menu';
 import { AvatarFallback, avatarInitials } from '@/components/UserAvatar';
 import { normalizeAvatarSrc } from '@/pages/Profile/shared';
+import { getAntdThemeConfig } from '@/utils/antdThemeConfig';
+import { initThemeAttr, readThemePreset } from '@/utils/themeMode';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -61,10 +71,15 @@ const AppApiRegistrar: React.FC = () => {
  * 「取 消」定位因此 20s 超时，f56bfa8 引入）；innerProvider 恰好在
  * _LocaleContainer 之内，语言切换也随其响应式更新。
  */
+// <ThemeSync />：主题切换生效器（antd algorithm/token 跟随 data-theme，
+// 详见组件头注）。必须在 innerProvider（ConfigProvider 之内、路由之外），
+// 且置于 {container} 之后——web/tests/appAntdRoot.test.ts 的正则合同以
+// 「首个 }」截断函数体，提前出现的 JSX 注释/组件花括号会截掉 {container}。
 export const innerProvider = (container: React.ReactNode) => (
   <AntdApp>
     <AppApiRegistrar />
     {container}
+    <ThemeSync />
   </AntdApp>
 );
 
@@ -185,6 +200,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         <>
           <GameSelector key="scope-mobile" variant="mobile" />
           <MessagesBell key="msgs-mobile" />
+          <ThemeToggle key="theme-mobile" />
         </>
       );
     }
@@ -194,6 +210,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         <MessagesBell key="msgs" />
         <Question key="doc" />
         <SelectLang key="SelectLang" />
+        <ThemeToggle key="theme" />
       </>
     );
   };
@@ -325,6 +342,18 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
  * @name request 配置
  * @doc https://umijs.org/docs/max/request#配置
  */
+/**
+ * antd 运行时配置（plugin-antd modify 钩子——注意键名是 `antd`；早前导出的
+ * `theme` 不在插件键清单里，实际从未生效）：
+ * - 启动期按当前主题套 × 生效明暗给出 algorithm/token，首帧即正确
+ *   （非默认偏好用户不闪默认屏）；
+ * - 之后的切换由 innerProvider 里的 <ThemeSync> 实时推送。
+ */
+export const antd = (memo: { theme?: ThemeConfig } & Record<string, unknown>) => ({
+  ...memo,
+  theme: { ...memo.theme, ...getAntdThemeConfig(readThemePreset(), initThemeAttr()) },
+});
+
 export const request = {
   ...errorConfig,
 };

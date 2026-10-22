@@ -1,11 +1,13 @@
 package function
 
 import (
+	"log/slog"
 	"strconv"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
+	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,6 +25,21 @@ func (h *Handler) ContractVersions(c *gin.Context) {
 	if err != nil {
 		response.Error(c, err)
 		return
+	}
+	// 存量函数惰性回填（B2 版本历史晚于注册面引入，0029 前注册的契约没有
+	// created 记录，历史页为空）：首次查看时补一条 created 初始快照再重查。
+	// 历史是衍生审计数据，回填失败降级为日志、不影响列表响应。
+	if resp != nil && resp.Total == 0 {
+		if created, bfErr := contractsvc.NewContractService(h.service.SvcCtx().DB).
+			BackfillInitialContractVersion(c.Request.Context(), gameID, env, functionID); bfErr != nil {
+			slog.Default().Warn("backfill initial contract version failed",
+				"functionId", functionID, "gameId", gameID, "env", env, "err", bfErr)
+		} else if created {
+			if resp, err = logic.List(gameID, env, functionID, page, pageSize); err != nil {
+				response.Error(c, err)
+				return
+			}
+		}
 	}
 	response.Success(c, resp)
 }

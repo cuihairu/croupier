@@ -1,38 +1,35 @@
 ---
 home: true
-title: 使用指南
+title: User Guide
 heroImage: /logo.png
 heroText: Croupier Guide
-tagline: 上手与核心概念——部署、配置与运维见「运维」栏目
+tagline: Getting started and core concepts — for deployment, configuration, and operations see the "Operations" section
 actions:
-  - text: 快速开始 →
+  - text: Quick Start →
     link: /guide/quick-start.html
     type: primary
-  - text: 配置管理
+  - text: Configuration Management
     link: /operations/
     type: secondary
 ---
 
-## 维护说明
+## Maintenance Notes
 
-本节只保留和当前仓库结构一致的使用文档：
+This section only keeps usage documentation that matches the current repository structure:
 
-- `quick-start.md`: 本地启动最短路径
-- `installation.md`: 依赖安装
+- `quick-start.md`: the shortest path to a local startup
+- `installation.md`: dependency installation
 
-部署、配置全解、负载均衡、监控/安全/故障排除、备份恢复等运维内容已独立为 [运维栏目](/operations/)。
+Operations content such as deployment, full configuration reference, load balancing, monitoring/security/troubleshooting, and backup/restore has been split into the [Operations section](/operations/).
 
-以下旧内容已经移除：
+The following legacy content has been removed:
 
-- 基于 `services/*` 的入口说明
-- go-zero 迁移过程文档
-- 已失效的旧 FAQ、tutorial、运行手册
+- Entry-point instructions based on `services/*`
+- go-zero migration process documentation
+- The outdated legacy FAQ, tutorial, and runbooks
 
-## 推荐阅读顺序
+## Recommended Reading Order
 
-1. [快速开始](./quick-start.md)
-2. [安装指南](./installation.md)
-3. [配置管理](../operations/config-server.md)
-4. [部署指南](../operations/deploy-docker.md)
-5. 核心概念：[系统概述](./concepts/overview.md) → [函数管理](./concepts/function-management.md) → [Page Studio](./concepts/function-registration-ui.md) → [权限控制](./concepts/permissions.md)
-6. 集成指南：[OpenAPI 注册](./integrations/openapi-registration.md)、[第三方平台](./integrations/third-party-platforms.md)
+1. [Quick Start](./quick-start.md)
+2. [Installation Guide](./installation.md)
+3. [Configuration Management](../operations/config-server.md)

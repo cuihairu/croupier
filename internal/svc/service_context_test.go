@@ -2178,7 +2178,7 @@ func TestOpenDatabase_PostgresNoDSN(t *testing.T) {
 		},
 	}
 
-	_, err := openDatabase(cfg)
+	_, err := openDatabase(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "postgres DSN is required")
 }
@@ -2197,7 +2197,7 @@ func TestOpenDatabase_MySQLNoDSN(t *testing.T) {
 		},
 	}
 
-	_, err := openDatabase(cfg)
+	_, err := openDatabase(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "mysql DSN is required")
 }
@@ -2216,7 +2216,7 @@ func TestOpenDatabase_SQLServerNoDSN(t *testing.T) {
 		},
 	}
 
-	_, err := openDatabase(cfg)
+	_, err := openDatabase(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "sqlserver DSN is required")
 }
@@ -2235,7 +2235,7 @@ func TestOpenDatabase_UnsupportedDriver(t *testing.T) {
 		},
 	}
 
-	_, err := openDatabase(cfg)
+	_, err := openDatabase(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported database driver")
 }
@@ -2253,7 +2253,7 @@ func TestOpenDatabase_SQLite(t *testing.T) {
 		},
 	}
 
-	db, err := openDatabase(cfg)
+	db, err := openDatabase(cfg, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -2276,7 +2276,7 @@ func TestOpenDatabase_Auto(t *testing.T) {
 		},
 	}
 
-	db, err := openDatabase(cfg)
+	db, err := openDatabase(cfg, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 }
@@ -2295,7 +2295,7 @@ func TestOpenDatabase_EnvOverride(t *testing.T) {
 		},
 	}
 
-	db, err := openDatabase(cfg)
+	db, err := openDatabase(cfg, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 }

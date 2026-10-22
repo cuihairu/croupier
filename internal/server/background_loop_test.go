@@ -52,7 +52,7 @@ func TestControlService_CleanupLoop_TickFires(t *testing.T) {
 		close(done)
 	}()
 
-	waitLoopCond(t, func() bool { return loader.deleteCalled >= 1 })
+	waitLoopCond(t, func() bool { return atomic.LoadInt32(&loader.deleteCalled) >= 1 })
 
 	svc.cancel()
 	select {

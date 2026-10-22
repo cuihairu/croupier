@@ -125,6 +125,15 @@ sdks/python/.coverage
 sdks/python/htmlcov/
 sdks/python/uv.lock
 
+# Plugin SDKs (shared Go hostdriver has no build artifacts)
+sdks/plugins/python/__pycache__/
+sdks/plugins/python/*/__pycache__/
+sdks/plugins/python/.venv/
+sdks/plugins/python/*.egg-info/
+sdks/plugins/python/.pytest_cache/
+sdks/plugins/js/dist/
+sdks/plugins/js/coverage/
+
 # Go SDK
 # (已由主项目Go配置覆盖)
 
@@ -222,3 +231,9 @@ sdks/java/*/.classpath
 sdks/java/*/.project
 sdks/java/*/.factorypath
 sdks/java/*/.settings/
+
+# web 转译生成物（tsc 产物，源为 tracked .ts/.tsx；sourcaps 一律不入库）
+web/config/*.js
+web/config/*.js.map
+web/**/*.js.map
+web/**/*.jsx.map

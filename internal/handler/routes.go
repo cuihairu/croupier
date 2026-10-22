@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/api/admin"
@@ -32,6 +34,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/functioncall"
 	"github.com/cuihairu/croupier/internal/api/game"
 	"github.com/cuihairu/croupier/internal/api/hotpatch"
+	"github.com/cuihairu/croupier/internal/api/incident"
 	"github.com/cuihairu/croupier/internal/api/menu"
 	"github.com/cuihairu/croupier/internal/api/message"
 	"github.com/cuihairu/croupier/internal/api/meta"
@@ -106,6 +109,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerOpenAPIReadRoutes(v1, serverCtx)
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
 	registerCicdWebhookRoute(v1, serverCtx)    // 外部 CI 构建状态回写（公开端点，令牌校验在 handler）
+	registerAlertInboundRoute(v1, serverCtx)   // 第三方告警推入（公开端点，HMAC 签名校验在 handler）
 	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
 	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {
 		playerSupport := v1.Group("/", newSoftFeatureGuard(settings.Current()).guard(configpkg.FlagSupport))
@@ -130,6 +134,9 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// RegisterAdmin 路径已带 /site 前缀（PUT/DELETE /site/:key、GET /site/features 等），
 	// 这里必须挂根组；挂 "/site" 会变成 /api/v1/site/site/... 全线 404。
 	siteSettingsHandler.RegisterAdmin(protected.Group("/"))
+	// 文件侧外部服务清单（herald/alertInbound/serverStatus 只读呈现，
+	// server-status-provider 批 S3；与 L3 分层设置无关，纯 L2 快照）。
+	settingsapi.NewExternalServicesHandler(serverCtx.Config).Register(protected.Group("/"))
 	// 登录方式（外部身份源 L3 运行时配置——Harbor 模式：保存即热生效）
 	authSite := protected.Group("/site")
 	authSite.GET("/auth", siteSettingsHandler.GetAuth)
@@ -160,6 +167,13 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			opsSoft := protected.Group("/", softFlags.guard(configpkg.FlagOps))
 			registerDBMonRoutes(opsSoft.Group("/dbmon"), serverCtx)
 			registerAlertRoutes(opsSoft.Group("/alerts"), serverCtx)
+			registerIncidentCategoryRoutes(opsSoft.Group("/incident-categories"), serverCtx)
+			registerIncidentRoutes(opsSoft.Group("/incidents"), serverCtx)
+			registerIncidentReportRoutes(opsSoft.Group("/incident-reports"), serverCtx)
+			// 对外事故/bug REST（公开端点，Bearer token 校验在 handler）+
+			// 外部令牌管理（JWT + admin 角色）；事故域整体随 ops L2 开关
+			// 物理裁剪，外部 API 与面板路由同进退。
+			registerExternalIncidentRoutes(v1, opsSoft, serverCtx)
 			registerBackupRoutes(opsSoft.Group("/backups"), serverCtx)
 			registerCertificateRoutes(opsSoft.Group("/certificates"), serverCtx)
 		}
@@ -438,6 +452,8 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/batch-copy", functionHandler.BatchCopy)
 	g.POST("/batch-delete", functionHandler.BatchDelete)
 	g.GET("/warnings", functionHandler.Warnings)
+	// #34：警告过滤下拉聚合选项（静态段，与 /warnings/:key 共存）
+	g.GET("/warnings/filter-options", functionHandler.WarningFilterOptions)
 	g.DELETE("/warnings/:key", functionHandler.WarningDelete)
 	g.POST("/warnings/read/:key", functionHandler.WarningMarkRead)
 	g.POST("/warnings/read-all", functionHandler.WarningMarkAllRead)
@@ -471,6 +487,10 @@ func registerGameRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/:id", gameHandler.Update)
 	g.DELETE("/:id", gameHandler.Delete)
 
+	// 图标上传：静态段注册，与 /:id 共存（gin 静态优先匹配）。挂在 /games 下
+	// 复用鉴权组；权限 games:write 在 service 层校验（同 Create/Update）。
+	g.POST("/icons", gameHandler.UploadIcon)
+
 	// 环境管理
 	g.GET("/:id/envs", gameHandler.EnvsList)
 	g.POST("/:id/envs", gameHandler.EnvAdd)
@@ -486,6 +506,8 @@ func registerTaskRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	taskHandler := task.NewHandler(taskSvc)
 	g.GET("", taskHandler.List)
 	g.GET("/", taskHandler.List)
+	// #23：操作者聚合选项（静态段注册，与 /:id 共存——gin 静态优先匹配）
+	g.GET("/operator-options", taskHandler.OperatorOptions)
 	g.POST("", taskHandler.Start)
 	g.POST("/", taskHandler.Start)
 	g.POST("/cancel", taskHandler.CancelByBody)
@@ -536,10 +558,17 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/agents", opsHandler.AgentsList)
 	g.GET("/agents/metrics", opsHandler.AgentMetrics)
 	g.GET("/agents/:agentId/system-info", opsHandler.AgentSystemInfo)
+	g.GET("/agents/:agentId/supervisor", opsHandler.AgentSupervisor)
+	g.GET("/agents/:agentId/supervisor/events", opsHandler.AgentSupervisorEvents)
+	g.GET("/agents/synthetics/results", opsHandler.SyntheticsResults)
+	g.GET("/agents/:agentId/supervisor/logs", opsHandler.AgentSupervisorLog)
 	g.GET("/agents/:agentId/processes", opsHandler.AgentProcesses)
 	g.POST("/agents/:agentId/processes/:name/restart", opsHandler.AgentProcessRestart)
 	g.POST("/agents/:agentId/processes/:name/stop", opsHandler.AgentProcessStop)
 	g.POST("/agents/:agentId/processes/:name/start", opsHandler.AgentProcessStart)
+	g.POST("/agents/:agentId/processes/:name/update", opsHandler.AgentProcessUpdate)
+	g.POST("/agents/:agentId/processes/:name/schedule/pause", opsHandler.AgentProcessSchedulePause)
+	g.POST("/agents/:agentId/processes/:name/schedule/resume", opsHandler.AgentProcessScheduleResume)
 	g.POST("/agents/:agentId/exec", opsHandler.AgentExecCommand)
 
 	// 核心 Ops
@@ -547,6 +576,8 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/cluster", opsHandler.ClusterInfo)
 	g.GET("/alerts", opsHandler.Alerts)
 	g.POST("/alerts/silence", opsHandler.AlertSilence)
+	// 风险事件工作流流转（确认/忽略/升级 + 备注；handled_by 取认证上下文）
+	g.POST("/alerts/:id/handle", opsHandler.OpsAlertHandle)
 	g.DELETE("/silences/:id", opsHandler.SilenceDelete)
 	g.GET("/silences", opsHandler.Silences)
 
@@ -591,6 +622,7 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/nodes", opsHandler.Nodes)
 	g.POST("/cluster/lb-stats", opsHandler.LBStatsQuery)
 	g.GET("/nodes/commands", opsHandler.NodeCommands)
+	g.GET("/nodes/:nodeId", opsHandler.NodeDetail)
 	g.GET("/nodes/:nodeId/meta", opsHandler.NodeMeta)
 	g.POST("/nodes/:nodeId/drain", opsHandler.NodeDrain)
 	g.POST("/nodes/:nodeId/undrain", opsHandler.NodeUndrain)
@@ -598,6 +630,34 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 
 	// Agent Metrics History
 	g.GET("/agent/metrics/history", opsHandler.AgentMetricsHistory)
+
+	// capture 闸规则面板下发（capture-agent 简档 §6/§8.5：config_versions
+	// capture.gates，namespace=ops；agent 经 wire 拉取热生效；回滚=历史
+	// 版本内容再发一版，版本日志不可变）
+	g.GET("/capture/gates", opsHandler.CaptureGatesGet)
+	g.GET("/capture/gates/versions", opsHandler.CaptureGatesVersionsGet)
+	g.PUT("/capture/gates", opsHandler.CaptureGatesPut)
+	g.POST("/capture/gates/rollback", opsHandler.CaptureGatesRollback)
+	// dry-run 发布预检：lint + config.ValidateGates（agent apply 同一校验真值）
+	g.POST("/capture/gates/validate", opsHandler.CaptureGatesValidate)
+
+	// probe 采样策略面板下发（评审简档 §13.3 C：config_versions probe.policy，
+	// namespace=ops；agent 经 wire 拉取 + configsync 热生效；回滚=历史版本
+	// 内容再发一版，版本日志不可变）
+	g.GET("/probe/policy", opsHandler.ProbePolicyGet)
+	g.GET("/probe/policy/versions", opsHandler.ProbePolicyVersionsGet)
+	g.PUT("/probe/policy", opsHandler.ProbePolicyPut)
+	g.POST("/probe/policy/rollback", opsHandler.ProbePolicyRollback)
+	g.POST("/probe/policy/validate", opsHandler.ProbePolicyValidate)
+
+	// server 手动诊断探针（评审简档 §4.2/§4.3）：对 server 探针面已配置的
+	// 目标即时探一次（与周期探测共用同一探针实例与状态机）
+	g.POST("/probe/diagnose", opsHandler.ProbeDiagnoseHandler)
+
+	// probe 在线汇总（评审简档 §13.2）：状态矩阵 + 证据，不出合成分。
+	// scope 走 X-Game-ID/X-Env 头（与告警列表同口径）。在线趋势列在 SDK
+	// metric 入口接入前为「未接入」一等状态。
+	g.GET("/probe/summary", opsHandler.ProbeSummaryHandler)
 }
 
 // ============================================================================
@@ -689,6 +749,46 @@ func registerAlertRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
+// Incident 路由注册（事故报表批 1：类别管理 + 事故登记）
+// ============================================================================
+func registerIncidentCategoryRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	incidentSvc := incident.NewService(ctx)
+	incidentHandler := incident.NewHandler(incidentSvc)
+	g.GET("", incidentHandler.ListCategories)
+	g.GET("/", incidentHandler.ListCategories)
+	g.POST("", incidentHandler.CreateCategory)
+	g.POST("/", incidentHandler.CreateCategory)
+	g.PUT("/:id", incidentHandler.UpdateCategory)
+	g.GET("/:id/usage", incidentHandler.CategoryUsage)
+	g.DELETE("/:id", incidentHandler.DeleteCategory)
+}
+
+func registerIncidentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	incidentSvc := incident.NewService(ctx)
+	incidentHandler := incident.NewHandler(incidentSvc)
+	g.GET("", incidentHandler.ListIncidents)
+	g.GET("/", incidentHandler.ListIncidents)
+	g.POST("", incidentHandler.CreateIncident)
+	g.POST("/", incidentHandler.CreateIncident)
+	g.GET("/:id", incidentHandler.GetIncident)
+	g.PUT("/:id", incidentHandler.UpdateIncident)
+	g.POST("/:id/status", incidentHandler.TransitionIncident)
+}
+
+// registerIncidentReportRoutes 挂报表聚合 API（汇总/趋势/排行榜/责任人报告/
+// 存量报表历史/手动重推）。
+func registerIncidentReportRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	incidentSvc := incident.NewService(ctx)
+	incidentHandler := incident.NewHandler(incidentSvc)
+	g.GET("/summary", incidentHandler.GetSummary)
+	g.GET("/trend", incidentHandler.GetTrend)
+	g.GET("/leaderboard", incidentHandler.GetLeaderboard)
+	g.GET("/responsibility", incidentHandler.GetResponsibility)
+	g.GET("/stored", incidentHandler.ListStoredReports)
+	g.POST("/:id/repush", incidentHandler.RepushReport)
+}
+
+// ============================================================================
 // Analytics 路由注册（合并所有 analytics_* 模块）
 // ============================================================================
 func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
@@ -745,6 +845,8 @@ func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerExecutionLogRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	execLogHandler := executionlogapi.NewHandler(executionlogapi.NewService(ctx))
 	g.GET("/", execLogHandler.List)
+	// #33：操作人聚合选项（静态段，与 /:id 共存）
+	g.GET("/operator-options", execLogHandler.OperatorOptions)
 	g.GET("/:id", execLogHandler.Get)
 }
 
@@ -990,6 +1092,50 @@ func registerUploadStaticRoute(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	r.StaticFS(objstore.AvatarPublicPrefix, gin.Dir(dir, false))
 	slog.Default().Info("已挂载本地头像静态目录",
 		"prefix", objstore.AvatarPublicPrefix, "dir", dir)
+
+	registerIconStaticRoute(r, baseDir)
+}
+
+// registerIconStaticRoute 挂载游戏图标静态目录（file 驱动，键空间
+// icons/**，上传入口 POST /api/v1/games/icons）。
+//
+// 不用 StaticFS：SVG 可内嵌 <script>，直开 URL 即存储型 XSS——手动注册
+// GET/HEAD 并附加响应头（CSP 禁脚本与外链 + nosniff；内联 style 保留，图标
+// 渐变/填充常用）。图标 key 是内容寻址哈希名（上传端点产出），可放心
+// immutable 长缓存。
+func registerIconStaticRoute(r *gin.Engine, baseDir string) {
+	dir, err := objstore.LocalIconDir(baseDir)
+	if err != nil {
+		slog.Default().Warn("本地图标静态目录无效，未挂载 "+objstore.IconPublicPrefix,
+			"baseDir", baseDir, "error", err)
+		return
+	}
+	// 目录可能尚未创建（还没人上传过图标）：仍挂载，文件缺失时 404。
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		slog.Default().Warn("本地图标目录创建失败，未挂载 "+objstore.IconPublicPrefix,
+			"dir", dir, "error", err)
+		return
+	}
+	handler := func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+		// 前置 "/" 使 Clean 以虚拟根为锚，".." 折叠后不会逃出目录；再兜一层
+		// 前缀校验双保险。
+		name := filepath.Clean("/" + c.Param("filepath"))
+		full := filepath.Join(dir, filepath.FromSlash(name))
+		if abs, err := filepath.Abs(full); err != nil ||
+			!strings.HasPrefix(abs, dir+string(filepath.Separator)) {
+			c.String(http.StatusNotFound, "not found")
+			return
+		}
+		c.File(full)
+	}
+	pattern := objstore.IconPublicPrefix + "*filepath"
+	r.GET(pattern, handler)
+	r.HEAD(pattern, handler)
+	slog.Default().Info("已挂载本地游戏图标静态目录",
+		"prefix", objstore.IconPublicPrefix, "dir", dir)
 }
 
 // ============================================================================
@@ -1333,6 +1479,38 @@ func registerCicdWebhookRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	cicdSvc := cicdapi.NewService(ctx)
 	cicdHandler := cicdapi.NewHandler(cicdSvc)
 	g.POST("/cicd/webhooks/:id", cicdHandler.Webhook)
+}
+
+// registerAlertInboundRoute 挂告警入站 webhook 端点（第三方告警系统无法
+// 携带 JWT；鉴权 = 来源级共享密钥的 X-Croupier-Signature HMAC-SHA256 签名
+// + X-Croupier-Timestamp ±5 分钟防重放，校验在 handler——plugin-mechanism
+// 设计 §5.3/M3。无配置的来源一律 404/403，非开放端点）。
+func registerAlertInboundRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	alertSvc := alert.NewService(ctx)
+	alertHandler := alert.NewHandler(alertSvc)
+	g.POST("/alerts/inbound/:source", alertHandler.Inbound)
+}
+
+// registerExternalIncidentRoutes 挂对外开放 REST（incident-reports §9）：
+//   - 公开端点（无 JWT）：POST /ext/incidents、GET /ext/incidents、
+//     POST /ext/bugs——鉴权 = external_tokens Bearer token，校验在 handler
+//     （第三方系统无法携带 JWT），限流按令牌名分桶；
+//   - 令牌管理端点（ops 组，JWT + admin 角色）：/ext/tokens CRUD，
+//     明文 token 仅创建时返回一次。
+//
+// 挂 /ext 命名空间避免与面板 JWT 路由 /incidents 冲突。
+func registerExternalIncidentRoutes(v1, opsSoft *gin.RouterGroup, ctx *svc.ServiceContext) {
+	extSvc := incident.NewExternalService(ctx)
+	extHandler := incident.NewExternalHandler(extSvc, ctx.ExecutionLogWriter)
+	v1.POST("/ext/incidents", extHandler.RegisterIncident)
+	v1.GET("/ext/incidents", extHandler.ListIncidents)
+	v1.POST("/ext/bugs", extHandler.CreateBug)
+	tokens := opsSoft.Group("/ext/tokens")
+	tokens.Use(incident.RequireAdminRole())
+	tokens.POST("", extHandler.CreateToken)
+	tokens.GET("", extHandler.ListTokens)
+	tokens.PUT("/:id", extHandler.UpdateToken)
+	tokens.DELETE("/:id", extHandler.DeleteToken)
 }
 
 // ============================================================================

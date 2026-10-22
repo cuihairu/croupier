@@ -11,7 +11,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/platform/vault"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -158,6 +160,12 @@ const (
 	KeySecurityPasswordRequireSpecial = "security.passwordRequireSpecial"   // bool：必须含特殊字符
 	KeySecurityPasswordMaxAgeDays     = "security.passwordMaxAgeDays"       // int：0 = 永不过期
 
+	// 审批 step-up TOTP 总开关（OPEN-ISSUES #61）：high/danger 审批是否强制
+	// 二次验证。默认 true（fail-safe，与 #75 落地语义一致）；关闭后高危审批
+	// 降级为中低风险语义（otp 可选、提供了就校验），审计记 disabled 旁路档。
+	// 移动端定位是便利，强制门槛必须可由服务端一键降级。
+	KeySecurityApprovalStepUpOTP = "security.approvalStepUpOtp" // bool
+
 	// 系统维护（OPEN-ISSUES #52）：更新检查源 URL。返回 JSON 版本清单
 	// （识别 version/tagName/tag_name/latestVersion 任意一键，兼容 GitHub
 	// releases/latest 的 tag_name）；空 = 未配置，检查更新仅回版本注记。
@@ -234,7 +242,7 @@ var ValidKeys = map[string]struct{}{
 
 	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
 	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
-	KeySecurityPasswordMaxAgeDays: {},
+	KeySecurityPasswordMaxAgeDays: {}, KeySecurityApprovalStepUpOTP: {},
 
 	KeySystemUpdateCheckURL: {},
 }
@@ -299,10 +307,10 @@ var boolKeys = map[string]struct{}{
 	KeyAuthGenericOAuthEnabled: {},
 	KeyAuthRegisterEnabled:     {},
 	KeySecurityMFARequired:     {}, KeySecurityPasswordRequireUpper: {},
-	KeySecurityPasswordRequireSpecial: {},
-	KeySecSSRFProtection:              {},
-	KeyAuthEmailAliasRestriction:      {},
-	KeyAuthEmailVerificationRequired:  {},
+	KeySecurityPasswordRequireSpecial: {}, KeySecurityApprovalStepUpOTP: {},
+	KeySecSSRFProtection:             {},
+	KeyAuthEmailAliasRestriction:     {},
+	KeyAuthEmailVerificationRequired: {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -670,7 +678,7 @@ func (l *Layered) NotifySMTP() NotifySMTPConfig {
 		Host:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPHost)),
 		Port:               l.GetInt(KeyNotifySMTPPort, 0),
 		User:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPUser)),
-		Password:           stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPPassword)),
+		Password:           l.secretStr(context.Background(), KeyNotifySMTPPassword),
 		From:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPFrom)),
 		Encryption:         stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPEncryption)),
 		AuthType:           stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPAuthType)),
@@ -695,12 +703,12 @@ type NotifyChannelsResolved struct {
 func (l *Layered) NotifyChannels() NotifyChannelsResolved {
 	return NotifyChannelsResolved{
 		DingtalkURL:    stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkURL)),
-		DingtalkSecret: stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkSecret)),
+		DingtalkSecret: l.secretStr(context.Background(), KeyNotifyDingtalkSecret),
 		WebhookURL:     stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookURL)),
-		WebhookSecret:  stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookSecret)),
+		WebhookSecret:  l.secretStr(context.Background(), KeyNotifyWebhookSecret),
 		WecomURL:       stringOrEmpty(l.GetString(context.Background(), KeyNotifyWecomURL)),
 		FeishuURL:      stringOrEmpty(l.GetString(context.Background(), KeyNotifyFeishuURL)),
-		FeishuSecret:   stringOrEmpty(l.GetString(context.Background(), KeyNotifyFeishuSecret)),
+		FeishuSecret:   l.secretStr(context.Background(), KeyNotifyFeishuSecret),
 		InAppEnabled:   l.GetBool(KeyNotifyInAppEnabled, true),
 		EmailEnabled:   l.GetBool(KeyNotifyEmailEnabled, false),
 	}
@@ -710,6 +718,40 @@ func (l *Layered) NotifyChannels() NotifyChannelsResolved {
 //
 //nolint:revive // 参数名 _ 保持调用点可读
 func stringOrEmpty(v string, _ string, _ bool) string { return v }
+
+// ---- 凭据值内引用展开（todo 4251）----
+//
+// secretKeys 类键的取值支持 vault:// 路径引用（vault-provider 设计 §5）：
+// L1 yaml 与 L3 DB 共用同一条规则。展开函数由 svc 装配期注入（nil = 未接
+// 密码箱，全部值原样直通——存量内联部署零行为变化）。
+
+var secretResolver vault.Resolver
+
+// SetSecretResolver 注入凭据展开函数（server 装配期调用一次；测试用
+// SetSecretResolver(nil) 复位）。Layered 单例尚未初始化时同样安全——
+// 展开函数是包级装配，getter 侧按需取用。
+func SetSecretResolver(r vault.Resolver) { secretResolver = r }
+
+// secretStr 读取 secretKeys 类键并展开值内引用：vault:// 引用经 resolver
+// 展开，内联值直通。解析失败 → 空串 + warn 日志（fail-closed：消费侧按
+// 「未配置」降级，绝不把引用串当真凭据外发）。日志只含键名与引用路径，
+// 不含明文。
+func (l *Layered) secretStr(ctx context.Context, key string) string {
+	v, _, ok := l.GetString(ctx, key)
+	if !ok || v == "" {
+		return ""
+	}
+	if secretResolver == nil || !vault.IsVaultRef(v) {
+		return v
+	}
+	resolved, err := secretResolver(ctx, v)
+	if err != nil {
+		slog.WarnContext(ctx, "settings: secret resolve failed; treat as unset",
+			"key", key, "error", err)
+		return ""
+	}
+	return resolved
+}
 
 // FeatureDomainState 是单个功能域的开关诊断信息。
 type FeatureDomainState struct {
@@ -889,6 +931,7 @@ func ResetForTest() {
 func resetForTest() {
 	layeredOnce = sync.Once{}
 	layered = nil
+	secretResolver = nil
 }
 
 // AuthSnapshot 是登录方式（外部身份源）的读视图（凭据脱敏）。
@@ -968,16 +1011,20 @@ func (l *Layered) AuthSnapshot() AuthSnapshot {
 }
 
 // SecurityPolicySnapshot 是账号安全策略的读视图（登录/改密/建号校验链
-// 与设置页共用；全零值 = 关闭，维持内置基线）。
+// 与设置页共用；全零值 = 关闭，维持内置基线；唯一例外 ApprovalStepUpOTP
+// 默认 true——审批 step-up 是 #75 落地的强制门槛，缺省安全姿态不放宽，
+// #61 开关只用于「出问题时一键降级」）。
 type SecurityPolicySnapshot struct {
 	MFARequired              bool `json:"mfaRequired"`
 	PasswordMinLength        int  `json:"passwordMinLength"`
 	PasswordRequireUppercase bool `json:"passwordRequireUppercase"`
 	PasswordRequireSpecial   bool `json:"passwordRequireSpecial"`
 	PasswordMaxAgeDays       int  `json:"passwordMaxAgeDays"`
+	ApprovalStepUpOTP        bool `json:"approvalStepUpOtp"`
 }
 
-// SecurityPolicy resolves the account security policy (defaults off).
+// SecurityPolicy resolves the account security policy (defaults off;
+// ApprovalStepUpOTP defaults on).
 func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
 	return SecurityPolicySnapshot{
 		MFARequired:              l.GetBool(KeySecurityMFARequired, false),
@@ -985,6 +1032,7 @@ func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
 		PasswordRequireUppercase: l.GetBool(KeySecurityPasswordRequireUpper, false),
 		PasswordRequireSpecial:   l.GetBool(KeySecurityPasswordRequireSpecial, false),
 		PasswordMaxAgeDays:       l.GetInt(KeySecurityPasswordMaxAgeDays, 0),
+		ApprovalStepUpOTP:        l.GetBool(KeySecurityApprovalStepUpOTP, true),
 	}
 }
 
@@ -1027,7 +1075,7 @@ func (l *Layered) OutboundSnapshot() OutboundSnapshot {
 		KeyNetRetryBackoffMs:   &snap.RetryBackoffMs,
 	} {
 		v, src := l.getIntWithSource(key, 0)
-		*dst = int(v)
+		*dst = intSafe(v, 0)
 		snap.Sources[key] = src
 	}
 	return snap
@@ -1043,6 +1091,17 @@ type PerformanceSettingsSnapshot struct {
 	MaxThreadCount int               `json:"maxThreadCount"`
 	CacheSize      int64             `json:"cacheSize"`
 	Sources        map[string]string `json:"sources"`
+}
+
+// intSafe 将 int64 配置值收窄到 int：超出 int32 可表示范围时回退默认值。
+// 32 位平台（GOARCH=386/arm）上 int 为 32 位，直接 int(v) 会静默截断
+// （CodeQL go/incorrect-integer-conversion）；统一按 int32 边界收口，
+// 跨平台行为一致，配置值合理域远小于该边界。
+func intSafe(v, def int64) int {
+	if v < math.MinInt32 || v > math.MaxInt32 {
+		return int(def)
+	}
+	return int(v)
 }
 
 // getIntWithSource 带来源读整型（database/config/default），层逻辑同 GetInt
@@ -1088,11 +1147,11 @@ func (l *Layered) PerformanceSettings() PerformanceSettingsSnapshot {
 	diskPct, diskSrc := l.getIntWithSource(KeyPerfMaxDiskPct, 0)
 	maxConc, concSrc := l.getIntWithSource(KeyPerfMaxConcurrent, 0)
 	maxThr, thrSrc := l.getIntWithSource(KeyPerfMaxThreadCount, 0)
-	snap.MaxCpuPct, snap.Sources["maxCpuPct"] = int(cpuPct), cpuSrc
-	snap.MaxMemoryPct, snap.Sources["maxMemoryPct"] = int(memPct), memSrc
-	snap.MaxDiskPct, snap.Sources["maxDiskPct"] = int(diskPct), diskSrc
-	snap.MaxConcurrent, snap.Sources["maxConcurrent"] = int(maxConc), concSrc
-	snap.MaxThreadCount, snap.Sources["maxThreadCount"] = int(maxThr), thrSrc
+	snap.MaxCpuPct, snap.Sources["maxCpuPct"] = intSafe(cpuPct, 0), cpuSrc
+	snap.MaxMemoryPct, snap.Sources["maxMemoryPct"] = intSafe(memPct, 0), memSrc
+	snap.MaxDiskPct, snap.Sources["maxDiskPct"] = intSafe(diskPct, 0), diskSrc
+	snap.MaxConcurrent, snap.Sources["maxConcurrent"] = intSafe(maxConc, 0), concSrc
+	snap.MaxThreadCount, snap.Sources["maxThreadCount"] = intSafe(maxThr, 0), thrSrc
 	snap.CacheSize, snap.Sources["cacheSize"] = l.getIntWithSource(KeyPerfCacheSize, 0)
 	return snap
 }
@@ -1109,7 +1168,7 @@ type LogsSettingsSnapshot struct {
 func (l *Layered) LogsSettings() LogsSettingsSnapshot {
 	snap := LogsSettingsSnapshot{Sources: map[string]string{}}
 	days, src := l.getIntWithSource(KeyLogRetentionDays, 0)
-	snap.RetentionDays, snap.Sources["retentionDays"] = int(days), src
+	snap.RetentionDays, snap.Sources["retentionDays"] = intSafe(days, 0), src
 	return snap
 }
 
@@ -1166,6 +1225,8 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 		}
 		return v
 	}
+	// secret 与 str 同源，但值内 vault:// 引用经密码箱展开（todo 4251）。
+	secret := func(key string) string { return l.secretStr(ctx, key) }
 	roles := func(key string) []string {
 		raw := str(key)
 		if raw == "" {
@@ -1190,7 +1251,7 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 			Addr:           str(KeyAuthLdapAddr),
 			BaseDN:         str(KeyAuthLdapBaseDn),
 			BindDN:         str(KeyAuthLdapBindDn),
-			BindPassword:   str(KeyAuthLdapBindPassword),
+			BindPassword:   secret(KeyAuthLdapBindPassword),
 			UserFilter:     str(KeyAuthLdapUserFilter),
 			StartTLS:       l.GetBool(KeyAuthLdapStartTLS, false),
 			UserDNTemplate: str(KeyAuthLdapUserFilter), // 兼容：filter 未配时回退模板语义由 build 侧处理
@@ -1200,14 +1261,14 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 			Enabled:      l.GetBool(KeyAuthOidcEnabled, false),
 			Issuer:       str(KeyAuthOidcIssuer),
 			ClientID:     str(KeyAuthOidcClientId),
-			ClientSecret: str(KeyAuthOidcClientSecret),
+			ClientSecret: secret(KeyAuthOidcClientSecret),
 			RedirectURL:  str(KeyAuthOidcRedirectUrl),
 			DefaultRoles: roles(KeyAuthOidcDefaultRoles),
 		},
 		GitHub: config.GitHubProviderConfig{
 			Enabled:         l.GetBool(KeyAuthGitHubEnabled, false),
 			ClientID:        str(KeyAuthGitHubClientId),
-			ClientSecret:    str(KeyAuthGitHubClientSecret),
+			ClientSecret:    secret(KeyAuthGitHubClientSecret),
 			RedirectURL:     str(KeyAuthGitHubRedirectUrl),
 			DefaultRoles:    roles(KeyAuthGitHubDefaultRoles),
 			LoginSuccessURL: str(KeyAuthGitHubSuccessURL),
@@ -1215,7 +1276,7 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 		WeChat: config.WeChatProviderConfig{
 			Enabled:         l.GetBool(KeyAuthWeChatEnabled, false),
 			AppID:           str(KeyAuthWeChatAppId),
-			AppSecret:       str(KeyAuthWeChatAppSecret),
+			AppSecret:       secret(KeyAuthWeChatAppSecret),
 			RedirectURL:     str(KeyAuthWeChatRedirectUrl),
 			DefaultRoles:    roles(KeyAuthWeChatDefaultRoles),
 			LoginSuccessURL: str(KeyAuthWeChatSuccessURL),
@@ -1223,7 +1284,7 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 		GenericOAuth: config.GenericOAuthProviderConfig{
 			Enabled:       l.GetBool(KeyAuthGenericOAuthEnabled, false),
 			ClientID:      str(KeyAuthGenericOAuthClientId),
-			ClientSecret:  str(KeyAuthGenericOAuthClientSecret),
+			ClientSecret:  secret(KeyAuthGenericOAuthClientSecret),
 			RedirectURL:   str(KeyAuthGenericOAuthRedirectUrl),
 			AuthURL:       str(KeyAuthGenericOAuthAuthUrl),
 			TokenURL:      str(KeyAuthGenericOAuthTokenUrl),

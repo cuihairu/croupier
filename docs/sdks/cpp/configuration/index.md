@@ -7,8 +7,3 @@
 - 重连与心跳独立配置
 
 ## 继续阅读
-
-- [client-config](./client-config)
-- [environments](./environments)
-- [security](./security)
-- [Client Config](/sdks/cpp/configuration/client-config)

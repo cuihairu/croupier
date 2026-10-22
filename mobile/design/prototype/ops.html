@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P5 远程操作入口 · croupier 手机端原型</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="glyphs">▂▄▆ &nbsp;5G&nbsp;&nbsp;100%</span></div>
+
+  <div class="topbar">
+    <div>
+      <div class="title">执行</div>
+      <div class="sub">远程函数调用 · tower_defense · PROD</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="scope-pill"><span class="dot" style="background:var(--crit);"></span>PROD
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <div class="content" style="gap:10px;">
+    <!-- 审批门禁提示 -->
+    <div class="approval-strip">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      高风险操作 · 需双人审批
+      <span class="sub" style="margin-left:auto;">player.ban@prod</span>
+    </div>
+
+    <!-- 函数选择 -->
+    <div class="section-h" style="margin:0 2px -2px;"><span class="h">选择函数</span><span class="more">搜索全部 128 ›</span></div>
+    <div class="card" style="padding:2px 14px;">
+      <div class="row" style="border-top:none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--crit)" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+        <div class="main">
+          <div class="t" style="font-family:var(--mono); font-size:13.5px;">player.ban</div>
+          <div class="s">封禁玩家账号 · 已选</div>
+        </div>
+        <span class="chip crit">需审批</span>
+      </div>
+      <div class="row">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/></svg>
+        <div class="main">
+          <div class="t" style="font-family:var(--mono); font-size:13.5px;">mail.send</div>
+          <div class="s">发送全服邮件</div>
+        </div>
+        <span class="chip dim">免审批</span>
+      </div>
+    </div>
+
+    <!-- schema 驱动参数表单 -->
+    <div class="card">
+      <div style="font-size:11px; color:var(--fg-3); margin-bottom:9px;">参数 · 由函数 Schema 生成</div>
+      <div class="field" style="margin-bottom:9px;">
+        <label style="margin-bottom:5px;">player_id *</label>
+        <div class="input" style="height:40px;">10086</div>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>reason *</label>
+        <div class="input" style="height:40px;"><span class="ph">打金行为（经济违规）</span>
+          <svg class="suffix" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label style="margin-bottom:5px;">note（选填）</label>
+        <div class="input" style="height:40px;"><span class="ph">处理工单 #8821</span></div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:2px;">
+      <div class="btn ghost" style="flex:1;">预览影响</div>
+      <div class="btn tone-crit" style="flex:1.6;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="margin-right:7px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        发起执行
+      </div>
+    </div>
+
+    <div class="section-h" style="margin:0 2px -2px;"><span class="h">最近执行</span><span class="more">全部 ›</span></div>
+    <div class="card" style="padding:2px 14px;">
+      <div class="row">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/></svg>
+        <div class="main"><div class="t" style="font-family:var(--mono); font-size:13px;">econ.add_gold</div><div class="s">由 陈GM 发起</div></div>
+        <div class="meta"><div class="m1" style="color:var(--ok);">成功</div><div class="m2">2 分钟前</div></div>
+      </div>
+      <div class="row">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+        <div class="main"><div class="t" style="font-family:var(--mono); font-size:13px;">player.unban</div><div class="s">等待第二审批人</div></div>
+        <div class="meta"><div class="m1" style="color:var(--warn);">审批中</div><div class="m2">18 分钟前</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      首页
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      服务器
+    </div>
+    <div class="tab-fab">
+      <div class="orb">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      执行
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      告警
+      <span class="badge">5</span>
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      我的
+    </div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<div class="notes">
+  <h3>P5 远程操作入口 · 设计说明</h3>
+  <div class="blk"><div class="bt">布局</div><p>自上而下 = 风险提示条 → 函数选择（按 scope 过滤）→ Schema 驱动的参数表单 → 主操作对（预览影响 / 发起执行）→ 最近执行记录。把「风险」放在页面第一个元素而非按钮旁的小字——进页面先知道自己手里拿的是什么。</p></div>
+  <div class="blk"><div class="bt">关键交互</div><p>① 参数表单完全由函数契约 JSON Schema 生成（与桌面端同源，required/枚举/默认值自动校验）；② 「发起执行」≠ 直接执行：高风险函数自动进入审批工作流（按钮态变为「发起审批」语义），低风险函数直发任务流；③ 「预览影响」在执行前展示目标对象状态（如玩家在线状态、账号资产），降低误操作；④ 幂等键自动生成，弱网重试不重复生效。</p></div>
+  <div class="blk"><div class="bt">信息层级</div><p>函数名一律 mono——它是机器标识不是文案；审批态用琥珀、成功绿、失败红三色贯通「提示条→函数 chip→执行记录」，让审批语义在一屏内三次强化；执行记录位于次屏（列表页可滚动查看），首屏保持「选函数→填参数→执行」一气呵成。</p></div>
+</div>
+
+</body>
+</html>

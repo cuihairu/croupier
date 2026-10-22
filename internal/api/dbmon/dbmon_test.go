@@ -23,6 +23,7 @@ func newDBMonFixture(t *testing.T) (*Service, *model.DBSourceModel, *model.Alert
 	srcModel := model.NewDBSourceModel(db)
 	alertModel := model.NewAlertModel(db)
 	return NewService(&svc.ServiceContext{
+		DB:            db,
 		DBSourceModel: srcModel,
 		AlertModel:    alertModel,
 	}), srcModel, alertModel
@@ -30,7 +31,7 @@ func newDBMonFixture(t *testing.T) (*Service, *model.DBSourceModel, *model.Alert
 
 func TestValidateDBSource(t *testing.T) {
 	ok := &model.DBSource{Name: "游戏主库", Driver: "mysql", Kind: model.DBSourceKindAliyun,
-		DSN: "readonly:pass@tcp(10.0.0.1:3306)/game"}
+		DSN: "readonly:pass@tcp(10.0.0.1:3306)/game", GameID: "demo", Env: "prod"}
 	require.NoError(t, model.ValidateDBSource(ok))
 
 	cases := []struct {
@@ -38,10 +39,12 @@ func TestValidateDBSource(t *testing.T) {
 		src  *model.DBSource
 		want string
 	}{
-		{"empty name", &model.DBSource{Driver: "mysql", DSN: "a:b@c/d"}, "名称"},
-		{"bad driver", &model.DBSource{Name: "x", Driver: "oracle", DSN: "a:b@c/d"}, "驱动"},
-		{"bad kind", &model.DBSource{Name: "x", Driver: "mysql", Kind: "gcp", DSN: "a:b@c/d"}, "部署类型"},
-		{"root dsn", &model.DBSource{Name: "x", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: "root:pw@tcp(127.0.0.1)/x"}, "只读"},
+		{"empty name", &model.DBSource{Driver: "mysql", DSN: "a:b@c/d", GameID: "demo", Env: "prod"}, "名称"},
+		{"bad driver", &model.DBSource{Name: "x", Driver: "oracle", DSN: "a:b@c/d", GameID: "demo", Env: "prod"}, "驱动"},
+		{"bad kind", &model.DBSource{Name: "x", Driver: "mysql", Kind: "gcp", DSN: "a:b@c/d", GameID: "demo", Env: "prod"}, "部署类型"},
+		{"root dsn", &model.DBSource{Name: "x", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: "root:pw@tcp(127.0.0.1)/x", GameID: "demo", Env: "prod"}, "只读"},
+		{"missing game", &model.DBSource{Name: "x", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: "a:b@c/d", Env: "prod"}, "gameId"},
+		{"missing env", &model.DBSource{Name: "x", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: "a:b@c/d", GameID: "demo"}, "env"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

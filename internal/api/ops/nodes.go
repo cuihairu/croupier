@@ -25,6 +25,9 @@ func (s *NodeService) List(ctx context.Context, gameId, env, status string) ([]N
 }
 
 func (s *NodeService) GetCommands(ctx context.Context, nodeId string) ([]NodeCommand, error) {
+	if err := NewAgentService(s.svcCtx).requireAgentScope(ctx, nodeId); err != nil {
+		return nil, err
+	}
 	// Return available commands for the node
 	commands := []NodeCommand{
 		{Name: "drain", Description: "Drain node from accepting new functions"},
@@ -36,6 +39,9 @@ func (s *NodeService) GetCommands(ctx context.Context, nodeId string) ([]NodeCom
 }
 
 func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
+	if err := NewAgentService(s.svcCtx).requireAgentScope(ctx, nodeId); err != nil {
+		return err
+	}
 	store := s.svcCtx.RegistryStore
 	if store == nil {
 		return errors.New("registry store unavailable")
@@ -71,6 +77,9 @@ func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
 }
 
 func (s *NodeService) GetMeta(ctx context.Context, nodeId string) (map[string]string, error) {
+	if err := NewAgentService(s.svcCtx).requireAgentScope(ctx, nodeId); err != nil {
+		return nil, err
+	}
 	store := s.svcCtx.RegistryStore
 	if store == nil {
 		return nil, errors.New("registry store unavailable")
@@ -89,6 +98,9 @@ func (s *NodeService) GetMeta(ctx context.Context, nodeId string) (map[string]st
 }
 
 func (s *NodeService) Restart(ctx context.Context, nodeId string) error {
+	if err := NewAgentService(s.svcCtx).requireAgentScope(ctx, nodeId); err != nil {
+		return err
+	}
 	store := s.svcCtx.RegistryStore
 	if store == nil {
 		return errors.New("registry store unavailable")
@@ -115,6 +127,9 @@ func (s *NodeService) Restart(ctx context.Context, nodeId string) error {
 }
 
 func (s *NodeService) Undrain(ctx context.Context, nodeId string) error {
+	if err := NewAgentService(s.svcCtx).requireAgentScope(ctx, nodeId); err != nil {
+		return err
+	}
 	store := s.svcCtx.RegistryStore
 	if store == nil {
 		return errors.New("registry store unavailable")

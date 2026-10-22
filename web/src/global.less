@@ -1,19 +1,189 @@
+/* Croupier 控制台主题：双主题套 × 明暗四套 CSS 变量。
+ * - blue（拂晓蓝，出厂默认，对齐 antd 6 默认种子 #1677ff）：:root 默认块，
+ *   亮色正文石板 #0f172a（原默认观感）；
+ * - inkpink（荷官墨粉，可选保留，对齐 logo #262626 / #FDEDEE）：亮色
+ *   brand-1 #b8556b / brand-2 #93394d / brand-3 #7a2b3e / 正文墨黑 #262626；
+ * - 暗色壳层（body/顶栏/侧栏/卡片）两套共用藏蓝基底，品牌强调色按主题套
+ *   分别提亮一档（blue：#69b1ff/#3c89e8/#1668dc；inkpink：#e58aa0/#cf6a82/
+ *   #b8556b）。
+ * 变量开关：<html data-preset="blue|inkpink"> × <html data-theme="light|dark">，
+ * 由 utils/themeMode 写入；antd 组件内 algorithm/token 由 <ThemeSync> 推送。
+ */
+
+/* ---------- 主题套定义（TS 侧 utils/antdThemeConfig.ts 同源维护） ---------- */
 @shell-bg: #f3f5f7;
 @panel-bg: rgba(255, 255, 255, 0.9);
 @panel-border: #e6eaf0;
 @panel-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 @panel-shadow-soft: 0 6px 18px rgba(15, 23, 42, 0.04);
-@text-strong: #0f172a;
-@text-secondary: #475569;
 
-:root {
+/* ---------- blue · 亮色（默认；html 未标 data-preset 时同样生效） ---------- */
+:root,
+html[data-preset='blue'] {
   --app-shell-bg: @shell-bg;
   --app-panel-bg: @panel-bg;
   --app-panel-border: @panel-border;
   --app-panel-shadow: @panel-shadow;
   --app-panel-shadow-soft: @panel-shadow-soft;
-  --app-text-strong: @text-strong;
-  --app-text-secondary: @text-secondary;
+  --app-text-strong: #0f172a;
+  --app-text-secondary: #475569;
+  --brand-1: #4096ff;
+  --brand-2: #1677ff;
+  --brand-3: #0958d9;
+  --brand-1-rgb: 64, 150, 255;
+  --brand-2-rgb: 22, 119, 255;
+  --rose-1: #69b1ff;
+  --rose-2: #4096ff;
+  --rose-3: #1668dc;
+  --text-meng: #0f172a;
+  --menu-selected-bg: #e7edf4;
+  --menu-selected-text: #0f172a;
+  --menu-hover-bg: #eef2f6;
+  --menu-hover-text: #4b5563;
+  --vp-c-brand-1: #1677ff;
+  --vp-c-brand-2: #0958d9;
+  --vp-c-brand-3: #4096ff;
+  --vp-c-brand-soft: rgba(22, 119, 255, 0.1);
+}
+
+/* ---------- inkpink · 亮色 ---------- */
+html[data-preset='inkpink'] {
+  --app-text-strong: #262626;
+  --app-text-secondary: rgba(38, 38, 38, 0.65);
+  --brand-1: #b8556b;
+  --brand-2: #93394d;
+  --brand-3: #7a2b3e;
+  --brand-1-rgb: 184, 85, 107;
+  --brand-2-rgb: 147, 57, 77;
+  --rose-1: #e58aa0;
+  --rose-2: #b8556b;
+  --rose-3: #7a2b3e;
+  --text-meng: #262626;
+  --menu-selected-bg: rgba(184, 85, 107, 0.15);
+  --menu-selected-text: #b8556b;
+  --menu-hover-bg: rgba(184, 85, 107, 0.08);
+  --menu-hover-text: #b8556b;
+  --vp-c-brand-1: #b8556b;
+  --vp-c-brand-2: #93394d;
+  --vp-c-brand-3: #7a2b3e;
+  --vp-c-brand-soft: rgba(184, 85, 107, 0.13);
+}
+
+/* ---------- 暗色壳层（两套共用基底） ---------- */
+html[data-theme='dark'] {
+  --app-shell-bg: #1a1a2e;
+  --app-panel-bg: rgba(30, 30, 50, 0.92);
+  --app-panel-border: rgba(255, 255, 255, 0.14);
+  --app-panel-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --app-panel-shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.25);
+  --app-text-strong: rgba(255, 255, 255, 0.88);
+  --app-text-secondary: rgba(235, 235, 245, 0.58);
+  --text-meng: #f5f5f5;
+  --menu-selected-bg: rgba(255, 255, 255, 0.1);
+  --menu-selected-text: rgba(255, 255, 255, 0.92);
+  --menu-hover-bg: rgba(255, 255, 255, 0.06);
+  --menu-hover-text: rgba(255, 255, 255, 0.88);
+}
+
+/* ---------- blue · 暗色：品牌强调提亮一档 ---------- */
+html[data-preset='blue'][data-theme='dark'] {
+  --brand-1: #69b1ff;
+  --brand-2: #3c89e8;
+  --brand-3: #1668dc;
+  --brand-1-rgb: 105, 177, 255;
+  --brand-2-rgb: 60, 137, 232;
+  --rose-1: #91caff;
+  --rose-2: #69b1ff;
+  --rose-3: #3c89e8;
+  --vp-c-brand-1: #69b1ff;
+  --vp-c-brand-2: #3c89e8;
+  --vp-c-brand-3: #1668dc;
+  --vp-c-brand-soft: rgba(105, 177, 255, 0.16);
+}
+
+/* ---------- inkpink · 暗色：整体提亮一档 ---------- */
+html[data-preset='inkpink'][data-theme='dark'] {
+  --brand-1: #e58aa0;
+  --brand-2: #cf6a82;
+  --brand-3: #b8556b;
+  --brand-1-rgb: 229, 138, 160;
+  --brand-2-rgb: 207, 106, 130;
+  --rose-1: #ffb3c6;
+  --rose-2: #e58aa0;
+  --rose-3: #cf6a82;
+  --vp-c-brand-1: #e58aa0;
+  --vp-c-brand-2: #cf6a82;
+  --vp-c-brand-3: #b8556b;
+  --vp-c-brand-soft: rgba(229, 138, 160, 0.16);
+}
+
+/* Hero 区三色渐变背景（亮/暗、双主题套随 CSS 变量自适应） */
+.hero-grad {
+  background: linear-gradient(
+    135deg,
+    var(--rose-3) 0%,
+    var(--rose-2) 33%,
+    var(--rose-1) 66%,
+    var(--brand-2) 100%
+  );
+}
+
+/* 侧边菜单/顶栏品牌强调：html[data-preset] 前缀提高特异性，压过
+   pro-layout 由 defaultSettings.token 生成的单类名样式，保证主题套
+   切换时菜单选中/悬停强调色跟着 CSS 变量走。 */
+html[data-preset] {
+  .ant-menu-item-selected,
+  .ant-menu-submenu-selected {
+    background-color: var(--menu-selected-bg);
+    color: var(--menu-selected-text);
+  }
+
+  .ant-menu-item:hover,
+  .ant-menu-submenu-title:hover {
+    color: var(--brand-1);
+  }
+
+  .ant-pro-global-header-actions > li > span,
+  .ant-pro-global-header-actions button,
+  .ant-pro-global-header-actions a {
+    color: var(--brand-2);
+  }
+  .ant-pro-global-header-actions > li > span:hover,
+  .ant-pro-global-header-actions button:hover,
+  .ant-pro-global-header-actions a:hover {
+    color: var(--brand-1);
+  }
+
+  .ant-breadcrumb a,
+  .ant-breadcrumb-link a {
+    color: var(--brand-2);
+  }
+  .ant-breadcrumb a:hover,
+  .ant-breadcrumb-link a:hover {
+    color: var(--brand-1);
+  }
+}
+
+/* 侧边栏 logo 区品牌色微调 */
+.ant-pro-sider-logo {
+  color: var(--brand-1) !important;
+}
+
+/* 行内代码品牌色 */
+code:not(.ant-btn):not([class*='monaco']) {
+  color: var(--brand-1);
+  background: var(--vp-c-brand-soft);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+/* 滚动条品牌色点缀 */
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--brand-1-rgb), 0.35);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--brand-1-rgb), 0.55);
 }
 
 html,
@@ -62,7 +232,7 @@ canvas {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(24, 144, 255, 0.08), transparent 28%),
+    radial-gradient(circle at top left, rgba(var(--brand-1-rgb), 0.08), transparent 28%),
     linear-gradient(180deg, #f8fafc 0%, var(--app-shell-bg) 100%);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -133,7 +303,7 @@ ol {
 }
 
 .ant-btn-primary {
-  box-shadow: 0 8px 18px rgba(24, 144, 255, 0.18);
+  box-shadow: 0 8px 18px rgba(var(--brand-1-rgb), 0.18);
 }
 
 .ant-list .ant-list-item {
@@ -157,7 +327,7 @@ form fieldset {
 
 /* Proposal Inbox focus 定位行高亮（?focus=pageKey） */
 .proposal-inbox-focus-row > td {
-  background: rgba(22, 119, 255, 0.08) !important;
+  background: rgba(var(--brand-1-rgb), 0.12) !important;
 }
 
 @media (max-width: 768px) {
@@ -178,5 +348,46 @@ form fieldset {
         }
       }
     }
+  }
+}
+
+/* ============ 暗色壳层适配（html[data-theme='dark']） ============
+ * antd 组件内部由 <ThemeSync> 推送的 darkAlgorithm 换肤；这里只补布局壳
+ * （body 背景/顶栏/侧栏/页头卡片）与少数硬编码浅色边线，保证明暗切换后
+ * 全站不漏白。defaultSettings 的 pro-layout token 是静态亮色，故壳层
+ * 以 !important 覆盖其内联背景。 */
+html[data-theme='dark'] {
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(var(--brand-1-rgb), 0.1), transparent 30%),
+      linear-gradient(180deg, #14141e 0%, var(--app-shell-bg) 100%);
+    color: var(--app-text-strong);
+  }
+
+  .ant-pro-layout .ant-layout-header.ant-pro-layout-header {
+    background: rgba(26, 26, 46, 0.92) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .ant-pro-sider,
+  .ant-pro-sider .ant-layout-sider-children {
+    background: #1f1f33 !important;
+  }
+
+  .ant-pro-page-container-warp {
+    border-color: var(--app-panel-border);
+    background: linear-gradient(180deg, rgba(30, 30, 50, 0.96), rgba(26, 26, 46, 0.88));
+    box-shadow: var(--app-panel-shadow-soft);
+  }
+
+  .ant-card .ant-card-head,
+  .ant-drawer .ant-drawer-header,
+  .ant-modal .ant-modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .ant-card {
+    border: 1px solid var(--app-panel-border);
+    background: var(--app-panel-bg);
   }
 }

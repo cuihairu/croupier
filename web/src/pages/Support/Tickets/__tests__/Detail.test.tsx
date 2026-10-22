@@ -784,4 +784,24 @@ describe('Support/Tickets/Detail', () => {
       await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('bug 不存在'));
     });
   });
+
+  // #42 回归点：Form.Item 带 name 时子节点必须是单一元素——
+  // `{' '}<Input/>{' '}` 三段式会让 rc-field-form 跳过注入（无 id/value/onChange），
+  // 输入与 store 脱钩、required 永不通过（BUG-028 同族）。真实提交载荷验证绑定。
+  describe('编辑工单（#42 回归点：Form.Item 单一子元素绑定）', () => {
+    it('提交载荷携带表单输入的编辑值', async () => {
+      renderDetail();
+      await screen.findByText('工单详情 #1');
+
+      fireEvent.click(screen.getByRole('button', { name: '编辑工单' }));
+      const titleInput = (await screen.findByLabelText('标题')) as HTMLInputElement;
+      expect(titleInput.value).toBe('登录失败');
+      fireEvent.change(titleInput, { target: { value: '登录失败-已改' } });
+      fireEvent.click(await screen.findByRole('button', { name: /确\s*定/ }));
+
+      await waitFor(() => expect(mockedUpdateTicket).toHaveBeenCalledTimes(1));
+      const payload = mockedUpdateTicket.mock.calls[0][1] as { title?: string };
+      expect(payload.title).toBe('登录失败-已改');
+    });
+  });
 });

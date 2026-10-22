@@ -68,7 +68,8 @@ func TestResolveDriverAndDSN_Extended(t *testing.T) {
 			if tt.envDSN != "" {
 				t.Setenv("DATABASE_URL", tt.envDSN)
 			}
-			driver, dsn := resolveDriverAndDSN(tt.cfg)
+			driver, dsn, rErr := resolveDriverAndDSN(tt.cfg, nil)
+			require.NoError(t, rErr)
 			assert.Equal(t, tt.wantDriver, driver)
 			assert.Equal(t, tt.wantDSN, dsn)
 		})
@@ -250,7 +251,7 @@ func TestOpenDatabase(t *testing.T) {
 			DataSource: ":memory:",
 		},
 	}
-	db, err := openDatabase(cfg)
+	db, err := openDatabase(cfg, nil)
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
@@ -269,7 +270,7 @@ func TestResolveDriverAndDSN_EnvOverride(t *testing.T) {
 		},
 	}
 
-	driver, dsn := resolveDriverAndDSN(cfg)
+	driver, dsn, _ := resolveDriverAndDSN(cfg, nil)
 	assert.Equal(t, "sqlite", driver)
 	assert.Equal(t, ":memory:", dsn)
 }

@@ -5,24 +5,30 @@
 ### 1. ClientConfig 新增字段
 
 #### 1.1 连接和标识
+
 - [`agentId: String` - Agent 唯一标识符（自动生成或手动指定）]
 - [`serverName: String` - TLS 服务器名称验证]
 
 #### 1.2 认证配置
+
 - [`authToken: String` - Bearer token 认证]
 - [`headers: Map<String, String>` - 自定义 HTTP 头]
 
 #### 1.3 心跳配置
+
 - [`heartbeatInterval: int` - 心跳间隔（秒），默认 60]
 
 #### 1.4 重连配置
+
 - [`reconnect: ReconnectConfig` - 完整的重连配置对象]
 
 #### 1.5 文件传输配置
+
 - [`enableFileTransfer: boolean` - 启用文件传输（默认 false）]
 - [`maxFileSize: int` - 最大文件大小（默认 10485760 = 10MB）]
 
 #### 1.6 日志配置
+
 - [`disableLogging: boolean` - 禁用所有日志]
 - [`debugLogging: boolean` - 启用调试级别日志]
 - [`logLevel: String` - 日志级别（DEBUG, INFO, WARN, ERROR, OFF）]
@@ -43,6 +49,7 @@ ReconnectConfig config = ReconnectConfig.builder()
 ```
 
 #### 字段说明
+
 - `enabled: boolean` - 是否启用自动重连（默认 true）
 - `maxAttempts: int` - 最大重连次数（0 = 无限）
 - `initialDelayMs: int` - 初始重连延迟（毫秒，默认 1000）
@@ -53,12 +60,14 @@ ReconnectConfig config = ReconnectConfig.builder()
 ### 3. 测试覆盖
 
 #### ReconnectConfigTest
+
 - [11 个测试用例]
 - [覆盖所有字段和边界情况]
 - [Builder 模式测试]
 - [equals/hashCode/toString 测试]
 
 #### ClientConfigTest (新增)
+
 - [`agentIdCanBeSet()` - Agent ID 配置]
 - [`serverNameCanBeSet()` - TLS 服务器名称]
 - [`authTokenCanBeSet()` - 认证令牌]
@@ -81,19 +90,19 @@ ReconnectConfig config = ReconnectConfig.builder()
 
 #### 新增字段对比
 
-| 配置项 | JavaScript | Java (更新前) | Java (更新后) | C++ | 状态 |
-|--------|-----------|-------------|-------------|-----|------|
-| `agentId` | ❌ | ✅ | ✅ | ✅ | ✅ |
-| `serverName` | ❌ | ❌ | ✅ | ✅ | ✅ |
-| `authToken` | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `headers` | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `heartbeatInterval` | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `ReconnectConfig` | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `enableFileTransfer` | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `maxFileSize` | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `disableLogging` | ❌ | ❌ | ✅ | ✅ | ⚠️ |
-| `debugLogging` | ❌ | ❌ | ✅ | ✅ | ⚠️ |
-| `logLevel` | ❌ | ❌ | ✅ | ✅ | ⚠️ |
+| 配置项               | JavaScript | Java (更新前) | Java (更新后) | C++ | 状态 |
+| -------------------- | ---------- | ------------- | ------------- | --- | ---- |
+| `agentId`            | ❌         | ✅            | ✅            | ✅  | ✅   |
+| `serverName`         | ❌         | ❌            | ✅            | ✅  | ✅   |
+| `authToken`          | ✅         | ❌            | ✅            | ✅  | ✅   |
+| `headers`            | ✅         | ❌            | ✅            | ✅  | ✅   |
+| `heartbeatInterval`  | ✅         | ❌            | ✅            | ✅  | ✅   |
+| `ReconnectConfig`    | ✅         | ❌            | ✅            | ✅  | ✅   |
+| `enableFileTransfer` | ✅         | ❌            | ✅            | ✅  | ✅   |
+| `maxFileSize`        | ✅         | ❌            | ✅            | ✅  | ✅   |
+| `disableLogging`     | ❌         | ❌            | ✅            | ✅  | ⚠️   |
+| `debugLogging`       | ❌         | ❌            | ✅            | ✅  | ⚠️   |
+| `logLevel`           | ❌         | ❌            | ✅            | ✅  | ⚠️   |
 
 **更新前对齐度**: 60%
 **更新后对齐度**: **85%** (+25%)
@@ -101,6 +110,7 @@ ReconnectConfig config = ReconnectConfig.builder()
 ### 5. 使用示例
 
 #### 基础配置
+
 ```java
 ClientConfig config = new ClientConfig("game-123", "my-service");
 config.setAgentAddr("localhost:19090");
@@ -108,6 +118,7 @@ config.setInsecure(true);  // 开发环境
 ```
 
 #### 完整配置
+
 ```java
 ReconnectConfig reconnectConfig = ReconnectConfig.builder()
     .maxAttempts(10)
@@ -139,6 +150,7 @@ config.setLogLevel("DEBUG");
 ```
 
 #### 创建客户端
+
 ```java
 ClientConfig config = new ClientConfig("game-123", "my-service");
 config.setReconnect(ReconnectConfig.createDefault());  // 使用默认重连配置
@@ -151,11 +163,13 @@ client.serve();  // 阻塞直到停止
 ### 6. 安全考虑
 
 #### 文件传输默认禁用
+
 - `enableFileTransfer` 默认为 `false`
 - 需要显式启用
 - 符合安全最佳实践
 
 #### TLS 默认不安全
+
 - `insecure` 默认为 `true`（开发环境）
 - 生产环境必须显式设置 `setInsecure(false)`
 - 提醒用户配置 TLS
@@ -163,6 +177,7 @@ client.serve();  // 阻塞直到停止
 ### 7. 向后兼容性
 
 ✅ **完全向后兼容**
+
 - 所有新字段都有合理的默认值
 - 现有代码无需修改即可工作
 - `ReconnectConfig` 为可选字段（可为 null）
@@ -181,31 +196,36 @@ Total: 259+ tests passing
 ### 9. 剩余缺失功能
 
 #### P0 (必需) - [已完成]
-  - 实现了完整的 REQ/REP 模式
-  - 支持 send/recv 操作
-  - 正确的内存管理和错误处理
+
+- 实现了完整的 REQ/REP 模式
+- 支持 send/recv 操作
+- 正确的内存管理和错误处理
 
 #### P2 (可选) - 未实现
+
 - [`AsyncIterable` 支持 - Java 8 暂不支持（Java 21+ 有虚拟线程）]
 - [虚拟对象功能 - 仅 C++ 特有]
 - [Pipeline 协议 - 仅 C++ 特有]
 
-
 #### 问题与修复
 
 **问题：**
+
 - 项目无法编译
 
 **解决方案：**
+
 - 使用现有 JNA 依赖（已在 build.gradle 中）
 
 **关键变更：**
+
 ```java
     // ...
 }
 ```
 
 **状态：**
+
 - [**已修复并可编译**]
 - [**与现有测试兼容**]
 - [**使用标准 JNA 方法**]
@@ -215,16 +235,19 @@ Total: 259+ tests passing
 ### 11. 文件清单
 
 #### 新增文件
+
 - `src/main/java/io/github/cuihairu/croupier/sdk/ReconnectConfig.java`
 - `src/test/java/io/github/cuihairu/croupier/sdk/ReconnectConfigTest.java`
 
 #### 修改文件
+
 - `src/main/java/io/github/cuihairu/croupier/sdk/ClientConfig.java` - 新增 10 个字段
 - `src/test/java/io/github/cuihairu/croupier/sdk/ClientConfigTest.java` - 新增 15 个测试
 
 ### 12. 下一步建议
 
 #### 短期 (可选)
+
 1. **添加更多集成测试**
    - 端到端测试
 
@@ -233,11 +256,13 @@ Total: 259+ tests passing
    - API 文档生成
 
 #### 中期 (可选)
+
 3. **性能基准测试**
 4. **连接池实现**
 5. **重试逻辑增强**
 
 #### 长期 (可选)
+
 6. 考虑虚拟对象功能是否需要
 7. 探索 Reactive Streams 与 AsyncIterable 的互操作
 

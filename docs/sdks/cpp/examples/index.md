@@ -8,8 +8,3 @@
 - 资源与操作示例
 
 ## 继续阅读
-
-- [basic-function](./basic-function)
-- [comprehensive](./comprehensive)
-- [plugin](./plugin)
-- [resource-operation](./resources-and-operations)

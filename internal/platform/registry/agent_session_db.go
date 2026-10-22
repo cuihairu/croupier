@@ -3,8 +3,10 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/labels"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -166,6 +168,73 @@ func (m *AgentSessionModel) DeleteExpired(ctx context.Context) (int64, error) {
 		Delete(&AgentSessionDB{})
 
 	return result.RowsAffected, result.Error
+}
+
+// LastKnownIdentity 返回 agent 最后持久化的版本与二进制指纹（§10.5 持久
+// 「最后已知指纹」锚点）。Unscoped 读：会话过期软删后行仍在，而锚点必须
+// 比会话 TTL 活得久——system-info 在 agent 失联且会话已过期时靠它兜底
+// （内存缓存跨 server 重启即失，registry 内存视图只持有未过期会话）。
+// 指纹取自注册标签（agent 每次注册自报，见 app/agent composeLabels）。
+// 无记录返回 ok=false；查询失败返回 err（调用方 fail-open 降级）。
+func (m *AgentSessionModel) LastKnownIdentity(ctx context.Context, agentID string) (version, sha string, ok bool, err error) {
+	agentID = strings.TrimSpace(agentID)
+	if m == nil || m.db == nil || agentID == "" {
+		return "", "", false, nil
+	}
+
+	var row AgentSessionDB
+	res := m.db.WithContext(ctx).
+		Unscoped().
+		Where("agent_id = ?", agentID).
+		Order("last_seen DESC").
+		Limit(1).
+		Find(&row)
+	if res.Error != nil {
+		return "", "", false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return "", "", false, nil
+	}
+
+	return row.Version, sessionLabelValue(row.Labels, labels.AgentBinarySHA256), true, nil
+}
+
+// LastKnownScope returns the durable game environment bound to an Agent ID.
+// Like LastKnownIdentity it intentionally survives session expiry: historical
+// read paths still need scope authorization after an Agent goes offline.
+func (m *AgentSessionModel) LastKnownScope(ctx context.Context, agentID string) (gameID, env string, ok bool, err error) {
+	agentID = strings.TrimSpace(agentID)
+	if m == nil || m.db == nil || agentID == "" {
+		return "", "", false, nil
+	}
+
+	var row AgentSessionDB
+	res := m.db.WithContext(ctx).
+		Unscoped().
+		Where("agent_id = ?", agentID).
+		Order("last_seen DESC").
+		Limit(1).
+		Find(&row)
+	if res.Error != nil {
+		return "", "", false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return "", "", false, nil
+	}
+	return row.GameID, row.Env, true, nil
+}
+
+// sessionLabelValue 从会话标签 JSON 取键值；空串/非法 JSON 视为无该标签
+// （锚点缺位，不报错——标签是 agent 自报的可选面）。
+func sessionLabelValue(labelsJSON, key string) string {
+	if labelsJSON == "" || key == "" {
+		return ""
+	}
+	var m map[string]string
+	if err := json.Unmarshal([]byte(labelsJSON), &m); err != nil {
+		return ""
+	}
+	return m[key]
 }
 
 // toDomainSession converts a DB session to a registry.AgentSession.

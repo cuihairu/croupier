@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -39,6 +39,15 @@ type ProviderManager interface {
 	Call(ctx context.Context, functionID string, request []byte) ([]byte, error)
 }
 
+// PluginFunctionManager dispatches plugin-adapted functions (todo.md:35):
+// functions declared by external function adapter plugins. Declared like
+// ProviderManager so the handler stays transport- and plugin-runtime
+// agnostic; the App wires the real host, tests inject fakes.
+type PluginFunctionManager interface {
+	IsPluginFunction(functionID string) bool
+	CallPluginFunction(ctx context.Context, functionID string, paramsJSON []byte) ([]byte, error)
+}
+
 // OpsServerWrapper wraps the OpsServer functionality
 type OpsServerWrapper interface {
 	GetSystemInfo(ctx context.Context, req *emptypb.Empty) (*opsv1.SystemInfo, error)
@@ -47,6 +56,8 @@ type OpsServerWrapper interface {
 	RestartProcess(ctx context.Context, req *opsv1.RestartProcessRequest) (*opsv1.RestartProcessResponse, error)
 	StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error)
 	StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error)
+	UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error)
+	SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error)
 	ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error)
 
 	// System services (platform-specific, read-only)
@@ -54,6 +65,9 @@ type OpsServerWrapper interface {
 	ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error)
 	GetServiceStatusJSON(ctx context.Context, jsonReq []byte) ([]byte, error)
 	ListCronJobsJSON(ctx context.Context) ([]byte, error)
+
+	// Supervisor event log download (agent-local rotating file, size-capped)
+	GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error)
 }
 
 // LocalHandler contains the business logic for handling agent requests
@@ -62,6 +76,7 @@ type LocalHandler struct {
 	store            *agentlocal.LocalStore
 	tasks            *TaskRunner
 	pm               ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
+	pluginFuncs      PluginFunctionManager
 	opsServer        OpsServerWrapper
 	reporter         TaskEventReporter
 	providerSessions *ProviderSessionStore
@@ -153,6 +168,14 @@ func (h *LocalHandler) SetProviderManager(pm ProviderManager) {
 	h.pm = pm
 }
 
+// SetPluginFunctionManager wires the function adapter plugin dispatch
+// (todo.md:35); nil disables plugin dispatch (default, no plugins).
+func (h *LocalHandler) SetPluginFunctionManager(m PluginFunctionManager) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pluginFuncs = m
+}
+
 // SetOpsServer sets the ops server wrapper
 func (h *LocalHandler) SetOpsServer(ops OpsServerWrapper) {
 	h.mu.Lock()
@@ -216,6 +239,10 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleStopProcess(ctx, data)
 	case protocol.MsgStartProcessRequest:
 		return h.handleStartProcess(ctx, data)
+	case protocol.MsgUpdateProcessRequest:
+		return h.handleUpdateProcess(ctx, data)
+	case protocol.MsgSchedulePauseRequest:
+		return h.handleSchedulePause(ctx, data)
 	case protocol.MsgExecuteCommandRequest:
 		return h.handleExecuteCommand(ctx, data)
 	case protocol.MsgListServicesRequest:
@@ -224,6 +251,8 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleGetServiceStatus(ctx, data)
 	case protocol.MsgListCronJobsRequest:
 		return h.handleListCronJobs(ctx, data)
+	case protocol.MsgGetSupervisorLogRequest:
+		return h.handleGetSupervisorLog(ctx, data)
 	case protocol.MsgRegisterCapabilitiesReq:
 		return h.handleRegisterCapabilities(ctx, data)
 
@@ -269,6 +298,24 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 		resp, err := h.invokePlatform(ctx, functionID, req)
 		recordSpanResult(span, err)
 		return resp, err
+	}
+
+	// Function adapter plugin dispatch (todo.md:35): functions declared
+	// by external plugins are served locally by the plugin host, never
+	// forwarded to game instances — the plugin IS the mapping to the
+	// game interface. Params ride the protocol-v1 JSON payload.
+	h.mu.RLock()
+	pfm := h.pluginFuncs
+	h.mu.RUnlock()
+	if pfm != nil && pfm.IsPluginFunction(functionID) {
+		respPayload, err := pfm.CallPluginFunction(ctx, functionID, req.GetPayload())
+		if err != nil {
+			recordSpanResult(span, err)
+			return nil, err
+		}
+		out, err := proto.Marshal(&sdkv1.InvokeResponse{Payload: respPayload})
+		recordSpanResult(span, err)
+		return out, err
 	}
 
 	// Regular function forwarding - need to dial game server
@@ -331,14 +378,28 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 
 // callLocalProvider calls a local provider using TCP transport only
 func (h *LocalHandler) callLocalProvider(ctx context.Context, addr string, msgID uint32, data []byte) ([]byte, error) {
-	// Only TCP transport is supported for LocalHandler
-	client, err := tcptr.NewClient(&tcptr.Config{
+	h.mu.RLock()
+	tlsCfg := h.tlsCfg
+	h.mu.RUnlock()
+	// Only TCP transport is supported for LocalHandler.
+	// outboundTLS 配置段经 SetTLSConfig 注入；非 nil 时按证书文件拨号 TLS，
+	// 零值回退明文（能力矩阵批次 F 死接线修复：此前 tlsCfg 存入即丢，
+	// 配置显式开启 outboundTLS 也不产生任何效果）。
+	cfg := &tcptr.Config{
 		Address:        addr,
-		Insecure:       true,
+		Insecure:       tlsCfg == nil,
 		ConnectTimeout: 5 * time.Second,
 		RecvTimeout:    30 * time.Second,
 		SendTimeout:    30 * time.Second,
-	})
+	}
+	if tlsCfg != nil {
+		cfg.CertFile = tlsCfg.CertFile
+		cfg.KeyFile = tlsCfg.KeyFile
+		cfg.CAFile = tlsCfg.CAFile
+		cfg.ServerName = tlsCfg.ServerName
+		cfg.InsecureSkipVerify = tlsCfg.InsecureSkipVerify
+	}
+	client, err := tcptr.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -658,6 +719,53 @@ func (h *LocalHandler) handleStartProcess(ctx context.Context, data []byte) ([]b
 	return proto.Marshal(resp)
 }
 
+// handleUpdateProcess handles UpdateProcessRequest
+func (h *LocalHandler) handleUpdateProcess(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.UpdateProcessRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal UpdateProcessRequest: %w", err)
+	}
+
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	resp, err := ops.UpdateProcess(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("update process: %w", err)
+	}
+
+	return proto.Marshal(resp)
+}
+
+// handleSchedulePause suspends or resumes a managed process's schedule firing
+// (§10.2 暂停与恢复，暂停对象=调度).
+func (h *LocalHandler) handleSchedulePause(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.SchedulePauseRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal SchedulePauseRequest: %w", err)
+	}
+
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	resp, err := ops.SetSchedulePause(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("schedule pause: %w", err)
+	}
+
+	return proto.Marshal(resp)
+}
+
 // handleExecuteCommand handles ExecuteCommandRequest
 func (h *LocalHandler) handleExecuteCommand(ctx context.Context, data []byte) ([]byte, error) {
 	req := &opsv1.ExecuteCommandRequest{}
@@ -705,6 +813,30 @@ func (h *LocalHandler) handleListCronJobs(ctx context.Context, _ []byte) ([]byte
 		return nil, fmt.Errorf("ops server not configured")
 	}
 	return ops.ListCronJobsJSON(ctx)
+}
+
+// handleGetSupervisorLog handles GetSupervisorLogRequest（回源读 agent 本地轮转日志）。
+func (h *LocalHandler) handleGetSupervisorLog(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.GetSupervisorLogRequest{}
+	if len(data) > 0 {
+		if err := proto.Unmarshal(data, req); err != nil {
+			return nil, fmt.Errorf("unmarshal GetSupervisorLogRequest: %w", err)
+		}
+	}
+
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	resp, err := ops.GetSupervisorLog(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("get supervisor log: %w", err)
+	}
+	return proto.Marshal(resp)
 }
 
 // handleGetServiceStatus handles GetServiceStatusRequest

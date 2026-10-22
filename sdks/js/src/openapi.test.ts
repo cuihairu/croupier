@@ -57,7 +57,10 @@ const SPEC = {
           200: {
             content: {
               "application/json": {
-                schema: { type: "object", properties: { ok: { type: "boolean" } } },
+                schema: {
+                  type: "object",
+                  properties: { ok: { type: "boolean" } },
+                },
               },
             },
           },
@@ -74,7 +77,9 @@ const SPEC = {
         "x-risk": "low",
         "x-approval": { required: false },
         responses: {
-          200: { content: { "application/json": { schema: { type: "object" } } } },
+          200: {
+            content: { "application/json": { schema: { type: "object" } } },
+          },
         },
       },
     },
@@ -84,7 +89,9 @@ const SPEC = {
         "x-capability": "collection_query",
         "x-risk": "warning",
         responses: {
-          200: { content: { "application/json": { schema: { type: "array" } } } },
+          200: {
+            content: { "application/json": { schema: { type: "array" } } },
+          },
         },
       },
     },
@@ -92,7 +99,15 @@ const SPEC = {
 };
 
 function makeHandlers(...ids: string[]): Map<string, FunctionHandler> {
-  return new Map(ids.map((id) => [id, ((): FunctionHandler => async () => "{}")()]));
+  return new Map(
+    ids.map((id) => [
+      id,
+      (
+        (): FunctionHandler => async () =>
+          "{}"
+      )(),
+    ]),
+  );
 }
 
 describe("registerFromOpenAPI (Descriptor v2)", () => {
@@ -147,8 +162,12 @@ describe("registerFromOpenAPI (Descriptor v2)", () => {
     );
 
     expect(client.descriptors.get("player_export")!.risk).toBe("safe");
-    expect(client.descriptors.get("player_export")!.approvalRequired).toBe(false);
-    expect(client.descriptors.get("player_export")!.approvalPolicyKey).toBeUndefined();
+    expect(client.descriptors.get("player_export")!.approvalRequired).toBe(
+      false,
+    );
+    expect(
+      client.descriptors.get("player_export")!.approvalPolicyKey,
+    ).toBeUndefined();
     expect(client.descriptors.get("players")!.risk).toBe("warning");
   });
 

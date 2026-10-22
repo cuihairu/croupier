@@ -494,3 +494,99 @@ func TestAnnouncementGamesTableMigration(t *testing.T) {
 	// 幂等：重复执行不报错
 	require.NoError(t, migrateAnnouncementGamesTable(context.Background(), sqlDB))
 }
+
+// 0042：alerts 工作流状态四列迁移（风险事件扩展）。存量老库形态：手工
+// CREATE TABLE 只有旧列（无 handle_*）→ AddColumn 逐列补齐 + 存量行回填
+// pending；幂等；缺表跳过（fanout 重放不建空壳）。
+func TestAlertHandlingColumnsMigration_LegacyTableShape(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m42.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TABLE alerts (
+		id integer primary key autoincrement,
+		created_at datetime, updated_at datetime, deleted_at datetime,
+		alert_id text NOT NULL,
+		type text, level text, message text, source text, status text,
+		details json, metadata json, created_by text,
+		CONSTRAINT alerts_alert_id_key UNIQUE (alert_id))`).Error)
+	// 存量行：迁移后回填 pending（工作流的诚实初始态）
+	require.NoError(t, db.Exec(
+		`INSERT INTO alerts (created_at, updated_at, alert_id, type, level, message, source, status)
+		 VALUES (datetime(), datetime(), 'legacy-1', 'capture_rule_hit', 'critical', 'm', 'capture', 'firing'),
+		 (datetime(), datetime(), 'legacy-2', 'infra', 'warning', 'm', 'system', 'firing')`).Error)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateAlertHandlingColumns(context.Background(), sqlDB))
+	for _, col := range []string{"HandleStatus", "HandledBy", "HandledRemark", "HandledAt"} {
+		require.True(t, db.Migrator().HasColumn(&model.Alert{}, col), col)
+	}
+	var pending int64
+	require.NoError(t, db.Raw(`SELECT count(*) FROM alerts WHERE handle_status = 'pending'`).Scan(&pending).Error)
+	require.EqualValues(t, 2, pending, "legacy rows backfilled to pending")
+	// 既有唯一约束原样保留
+	var uniIdx []struct {
+		Origin string
+	}
+	require.NoError(t, db.Raw("PRAGMA index_list(alerts)").Scan(&uniIdx).Error)
+	require.NotEmpty(t, uniIdx, "legacy unique constraint must be untouched")
+	// 幂等
+	require.NoError(t, migrateAlertHandlingColumns(context.Background(), sqlDB))
+}
+
+// 0042 缺表跳过：无 alerts 表的库（fanout 重放）不报错、不建空壳。
+func TestAlertHandlingColumnsMigration_MissingTableSkips(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m42skip.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateAlertHandlingColumns(context.Background(), sqlDB))
+	require.False(t, db.Migrator().HasTable("alerts"))
+}
+
+// 0043：alerts scope 两列 game_id/env（4862 ops 告警列表按 game/env 过滤）。
+// 存量老库形态：手工 CREATE TABLE 只有旧列（无 game_id/env）→ AddColumn 逐列补齐；
+// 存量行不回填（历史告警无 scope 归属，诚实留空）；幂等；缺表跳过。
+func TestAlertScopeColumnsMigration_LegacyTableShape(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m43.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TABLE alerts (
+		id integer primary key autoincrement,
+		created_at datetime, updated_at datetime, deleted_at datetime,
+		alert_id text NOT NULL,
+		type text, level text, message text, source text, status text,
+		details json, metadata json, created_by text,
+		CONSTRAINT alerts_alert_id_key UNIQUE (alert_id))`).Error)
+	// 存量行：迁移后 game_id/env 留空（NULL），不回填
+	require.NoError(t, db.Exec(
+		`INSERT INTO alerts (created_at, updated_at, alert_id, type, level, message, source, status)
+		VALUES (datetime(), datetime(), 'legacy-s1', 'capture_rule_hit', 'critical', 'm', 'capture', 'firing')`).Error)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateAlertScopeColumns(context.Background(), sqlDB))
+	for _, col := range []string{"GameID", "Env"} {
+		require.True(t, db.Migrator().HasColumn(&model.Alert{}, col), col)
+	}
+	// 存量行 game_id/env 留空（NULL 或空串），不回填
+	var nullCount int64
+	require.NoError(t, db.Raw(`SELECT count(*) FROM alerts WHERE game_id IS NULL OR game_id = ''`).Scan(&nullCount).Error)
+	require.EqualValues(t, 1, nullCount, "legacy rows keep empty game_id/env")
+	// 既有唯一约束原样保留
+	var uniIdx []struct {
+		Origin string
+	}
+	require.NoError(t, db.Raw("PRAGMA index_list(alerts)").Scan(&uniIdx).Error)
+	require.NotEmpty(t, uniIdx, "legacy unique constraint must be untouched")
+	// 幂等
+	require.NoError(t, migrateAlertScopeColumns(context.Background(), sqlDB))
+}
+
+// 0043 缺表跳过：无 alerts 表的库（fanout 重放）不报错、不建空壳。
+func TestAlertScopeColumnsMigration_MissingTableSkips(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m43skip.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateAlertScopeColumns(context.Background(), sqlDB))
+	require.False(t, db.Migrator().HasTable("alerts"))
+}

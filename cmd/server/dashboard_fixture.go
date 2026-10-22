@@ -325,7 +325,7 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 
 	svcCtx := svc.NewServiceContext(cfg)
 	wireDashboardRegistrationPipeline(svcCtx)
-	telemetrySvc, err := svc.NewTelemetryService(cfg, "croupier-server", slog.Default())
+	telemetrySvc, err := svc.NewTelemetryService(cfg, svcCtx.Secrets, "croupier-server", slog.Default())
 	if err != nil {
 		return fmt.Errorf("initialize fixture telemetry: %w", err)
 	}

@@ -38,6 +38,7 @@ import menuManagement from './en-US/menuManagement';
 import mergeConflictModal from './en-US/mergeConflictModal';
 import openapiSources from './en-US/openapiSources';
 import operationsConfigs from './en-US/operationsConfigs';
+import incidentReports from './en-US/incidentReports';
 import opsAlerts from './en-US/opsAlerts';
 import opsAnalyticsFilters from './en-US/opsAnalyticsFilters';
 import opsBackups from './en-US/opsBackups';
@@ -46,6 +47,7 @@ import opsCluster from './en-US/opsCluster';
 import opsDBMonitor from './en-US/opsDBMonitor';
 import opsJobs from './en-US/opsJobs';
 import opsLBMonitor from './en-US/opsLBMonitor';
+import opsCapture from './en-US/opsCapture';
 import opsNodes from './en-US/opsNodes';
 import opsNotifications from './en-US/opsNotifications';
 import opsRateLimits from './en-US/opsRateLimits';
@@ -130,6 +132,7 @@ export default {
   ...mergeConflictModal,
   ...openapiSources,
   ...operationsConfigs,
+  ...incidentReports,
   ...opsAlerts,
   ...opsAnalyticsFilters,
   ...opsBackups,
@@ -138,6 +141,7 @@ export default {
   ...opsDBMonitor,
   ...opsJobs,
   ...opsLBMonitor,
+  ...opsCapture,
   ...opsNodes,
   ...opsNotifications,
   ...opsRateLimits,

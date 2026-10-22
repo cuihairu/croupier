@@ -388,6 +388,12 @@ class TCPTransport:
             self.send_response(resp_msg_id, req_id, resp_body)
         except Exception as exc:
             LOG.error("Handler error for %s: %s", protocol.msg_id_string(msg_id), exc)
+            # 失败也要答 Agent（对齐 Go transport inboundWorker 语义，BUG-038）：
+            # 不回帧对端只能阻塞到自身超时且无诊断。invoke 的错误 payload
+            # 语义封装在 handler 侧（CroupierClient._handle_inbound_invoke
+            # 已回 InvokeResponse{"error":...}），这里回空 body 帧兜底
+            # 漏网异常（如请求反序列化失败），保证对端不挂起。
+            self.send_response(protocol.get_response_msg_id(msg_id), req_id, b"")
 
     @staticmethod
     def _strip_scheme(address: str) -> str:

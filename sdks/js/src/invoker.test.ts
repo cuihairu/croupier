@@ -1,19 +1,17 @@
-import {
-  Invoker,
-  createInvoker,
-  InvokerError,
-} from "./invoker";
+import { Invoker, createInvoker, InvokerError } from "./invoker";
 
 // Minimal global fetch mock. Each test installs its own responder.
 type FetchImpl = typeof fetch;
 let originalFetch: FetchImpl | undefined;
 
-function mockFetch(responder: (url: string, init?: RequestInit) => Promise<Response>): void {
+function mockFetch(
+  responder: (url: string, init?: RequestInit) => Promise<Response>,
+): void {
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (((url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
     const u = typeof url === "string" ? url : url.toString();
     return responder(u, init);
-  }) as unknown) as FetchImpl;
+  }) as unknown as FetchImpl;
 }
 
 function restoreFetch(): void {
@@ -43,14 +41,22 @@ describe("Invoker construction", () => {
   });
 
   it("normalizes Server root and rejects legacy TCP addresses", () => {
-    expect((new Invoker({ baseUrl: "server.example:18780" }) as any).config.baseUrl).toBe("http://server.example:18780/api/v1");
-    expect(() => new Invoker({ baseUrl: "tcp://127.0.0.1:19090" })).toThrow("HTTP(S)");
+    expect(
+      (new Invoker({ baseUrl: "server.example:18780" }) as any).config.baseUrl,
+    ).toBe("http://server.example:18780/api/v1");
+    expect(() => new Invoker({ baseUrl: "tcp://127.0.0.1:19090" })).toThrow(
+      "HTTP(S)",
+    );
   });
 });
 
 describe("Invoker.invoke", () => {
   it("posts to /functions/:id/invoke and returns payload", async () => {
-    let captured: { url: string; body: string; headers: Record<string, string> } | null = null;
+    let captured: {
+      url: string;
+      body: string;
+      headers: Record<string, string>;
+    } | null = null;
     mockFetch(async (url, init) => {
       captured = {
         url,
@@ -87,7 +93,9 @@ describe("Invoker.invoke", () => {
   });
 
   it("throws InvokerError on non-2xx", async () => {
-    mockFetch(async () => jsonResponse({ error: "forbidden", message: "no perm" }, 403));
+    mockFetch(async () =>
+      jsonResponse({ error: "forbidden", message: "no perm" }, 403),
+    );
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
     await expect(inv.invoke("f")).rejects.toMatchObject({
       name: "InvokerError",
@@ -105,7 +113,11 @@ describe("Invoker.startTask", () => {
       body = init?.body as string;
       return jsonResponse({ taskId: "task-xyz", status: "dispatching" });
     });
-    const inv = new Invoker({ baseUrl: "https://h/api/v1", gameId: "g", env: "e" });
+    const inv = new Invoker({
+      baseUrl: "https://h/api/v1",
+      gameId: "g",
+      env: "e",
+    });
     const id = await inv.startTask("player.kick", { reason: "afk" });
     expect(id).toBe("task-xyz");
     expect(JSON.parse(body!)).toEqual({
@@ -126,11 +138,19 @@ describe("Invoker.getTaskStatus", () => {
     let captured = "";
     mockFetch(async (url, init) => {
       captured = url;
-      expect((init?.headers as Record<string, string>)["X-Game-ID"]).toBe("game-a");
-      expect((init?.headers as Record<string, string>)["X-Env"]).toBe("staging");
+      expect((init?.headers as Record<string, string>)["X-Game-ID"]).toBe(
+        "game-a",
+      );
+      expect((init?.headers as Record<string, string>)["X-Env"]).toBe(
+        "staging",
+      );
       return jsonResponse({ id: "task-1", status: "running", progress: 50 });
     });
-    const inv = new Invoker({ baseUrl: "https://h", gameId: "game-a", env: "staging" });
+    const inv = new Invoker({
+      baseUrl: "https://h",
+      gameId: "game-a",
+      env: "staging",
+    });
     const task = await inv.getTaskStatus("task-1");
     expect(captured).toBe("https://h/api/v1/tasks/task-1");
     expect(task.status).toBe("running");
@@ -160,7 +180,9 @@ describe("Invoker.streamTask", () => {
   });
 
   it("surfaces server errors as InvokerError", async () => {
-    mockFetch(async () => jsonResponse({ error: "not_found", message: "missing" }, 404));
+    mockFetch(async () =>
+      jsonResponse({ error: "not_found", message: "missing" }, 404),
+    );
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
     let caught: any = null;
     try {

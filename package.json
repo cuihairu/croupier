@@ -4,6 +4,7 @@
   "packageManager": "pnpm@11.11.0",
   "scripts": {
     "format:check": "prettier -c README.md docs/index.md \"docs/development/**/*.md\" \"docs/sdks/**/*.md\" \".github/workflows/*.yml\"",
+    "docs:build": "pnpm --dir docs build",
     "prepare": "husky",
     "gofmt:check": "gofmt -l .",
     "gofmt:fix": "gofmt -w .",

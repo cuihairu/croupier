@@ -84,6 +84,13 @@ func TestEnsureUpToDate_FreshDatabaseRunsBaselineAndMigrations(t *testing.T) {
 		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 		"0037_add_probe37.sql": "-- +goose Up\nCREATE TABLE probe37 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe37;\n",
 		"0038_add_probe38.sql": "-- +goose Up\nCREATE TABLE probe38 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe38;\n",
+		"0039_add_probe39.sql": "-- +goose Up\nCREATE TABLE probe39 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe39;\n",
+		"0040_add_probe40.sql": "-- +goose Up\nCREATE TABLE probe40 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe40;\n",
+		"0041_add_probe41.sql": "-- +goose Up\nCREATE TABLE probe41 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe41;\n",
+		"0042_add_probe42.sql": "-- +goose Up\nCREATE TABLE probe42 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe42;\n",
+		"0043_add_probe43.sql": "-- +goose Up\nCREATE TABLE probe43 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe43;\n",
+		"0044_add_probe44.sql": "-- +goose Up\nCREATE TABLE probe44 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe44;\n",
+		"0046_add_probe46.sql": "-- +goose Up\nCREATE TABLE probe46 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe46;\n",
 	})
 
 	version, err := ensureUpToDate(context.Background(), db, fsys, ScopeMeta, baselineProbe)
@@ -152,6 +159,13 @@ func TestEnsureUpToDate_LegacyDatabaseBridgesOnceThenCatchesUp(t *testing.T) {
 		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 		"0037_add_probe37.sql": "-- +goose Up\nCREATE TABLE probe37 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe37;\n",
 		"0038_add_probe38.sql": "-- +goose Up\nCREATE TABLE probe38 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe38;\n",
+		"0039_add_probe39.sql": "-- +goose Up\nCREATE TABLE probe39 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe39;\n",
+		"0040_add_probe40.sql": "-- +goose Up\nCREATE TABLE probe40 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe40;\n",
+		"0041_add_probe41.sql": "-- +goose Up\nCREATE TABLE probe41 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe41;\n",
+		"0042_add_probe42.sql": "-- +goose Up\nCREATE TABLE probe42 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe42;\n",
+		"0043_add_probe43.sql": "-- +goose Up\nCREATE TABLE probe43 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe43;\n",
+		"0044_add_probe44.sql": "-- +goose Up\nCREATE TABLE probe44 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe44;\n",
+		"0046_add_probe46.sql": "-- +goose Up\nCREATE TABLE probe46 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe46;\n",
 	})
 	if _, err := ensureUpToDate(context.Background(), db, fsys, ScopeGame, baselineProbe); err != nil {
 		t.Fatalf("ensureUpToDate: %v", err)
@@ -200,6 +214,13 @@ func TestEnsureUpToDate_LegacyDatabaseBridgesOnceThenCatchesUp(t *testing.T) {
 		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 		"0037_add_probe37.sql": "-- +goose Up\nCREATE TABLE probe37 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe37;\n",
 		"0038_add_probe38.sql": "-- +goose Up\nCREATE TABLE probe38 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe38;\n",
+		"0039_add_probe39.sql": "-- +goose Up\nCREATE TABLE probe39 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe39;\n",
+		"0040_add_probe40.sql": "-- +goose Up\nCREATE TABLE probe40 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe40;\n",
+		"0041_add_probe41.sql": "-- +goose Up\nCREATE TABLE probe41 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe41;\n",
+		"0042_add_probe42.sql": "-- +goose Up\nCREATE TABLE probe42 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe42;\n",
+		"0043_add_probe43.sql": "-- +goose Up\nCREATE TABLE probe43 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe43;\n",
+		"0044_add_probe44.sql": "-- +goose Up\nCREATE TABLE probe44 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe44;\n",
+		"0046_add_probe46.sql": "-- +goose Up\nCREATE TABLE probe46 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe46;\n",
 	})
 	version, err := ensureUpToDate(context.Background(), db, fsys2, ScopeGame, nil)
 	if err != nil {
@@ -252,6 +273,13 @@ func TestEnsureUpToDate_UpToDateDatabaseSkipsBaseline(t *testing.T) {
 		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 		"0037_add_probe37.sql": "-- +goose Up\nCREATE TABLE probe37 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe37;\n",
 		"0038_add_probe38.sql": "-- +goose Up\nCREATE TABLE probe38 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe38;\n",
+		"0039_add_probe39.sql": "-- +goose Up\nCREATE TABLE probe39 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe39;\n",
+		"0040_add_probe40.sql": "-- +goose Up\nCREATE TABLE probe40 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe40;\n",
+		"0041_add_probe41.sql": "-- +goose Up\nCREATE TABLE probe41 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe41;\n",
+		"0042_add_probe42.sql": "-- +goose Up\nCREATE TABLE probe42 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe42;\n",
+		"0043_add_probe43.sql": "-- +goose Up\nCREATE TABLE probe43 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe43;\n",
+		"0044_add_probe44.sql": "-- +goose Up\nCREATE TABLE probe44 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe44;\n",
+		"0046_add_probe46.sql": "-- +goose Up\nCREATE TABLE probe46 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe46;\n",
 	})
 	if _, err := ensureUpToDate(context.Background(), db, fsys, ScopeMeta, baselineProbe); err != nil {
 		t.Fatalf("first ensureUpToDate: %v", err)

@@ -33,6 +33,18 @@ message MetricsReport {
   
   // Custom metrics (key-value pairs)
   map<string, double> custom = 8;
+
+  // Snapshots of supervisor-managed processes (resource usage and state)
+  repeated SupervisedProcessSnapshot supervised_processes = 9;
+
+  // Supervisor events that occurred since the previous report (incremental)
+  repeated SupervisorEvent supervisor_events = 10;
+
+  // Probe stats folded in since the previous report (probe sampler, same
+  // shape as supervisor sampler folding; review §13.1). Aggregated per
+  // target per reporting window: success samples count only, failure
+  // details ride the AlertEvent channel.
+  repeated ProbeStats probe_stats = 11;
 }
 
 message CpuMetrics {
@@ -96,7 +108,11 @@ message SystemInfo {
   uint64 total_memory = 7;       // Total memory in bytes
   google.protobuf.Timestamp boot_time = 8;  // System boot time
   string agent_version = 9;      // Croupier agent version
-  
+
+  // Agent binary content sha256, hex lowercase (§10.5 fingerprint: running
+  // instance identity for triage and self-upgrade; empty = unreadable binary).
+  string agent_binary_sha256 = 11;
+
   // Ops module status
   OpsStatus ops_status = 10;
 }
@@ -144,6 +160,39 @@ message StartProcessResponse {
   int32 pid = 3;                 // Process ID
 }
 
+// UpdateProcessRequest swaps a managed process binary (agent-supervisor-design
+// §10.4 更新状态+指纹). The staged file is delivered out-of-band (file transfer);
+// the update is content-pinned: the agent computes the staged file's sha256 and
+// refuses everything that does not match expected_sha256 (fail-closed).
+message UpdateProcessRequest {
+  string process_name = 1;       // ManagedProcess logical name
+  string staged_path = 2;        // Agent-local path of the staged binary
+  string expected_sha256 = 3;    // Expected binary sha256 (hex, lowercase) — hard prerequisite
+}
+
+message UpdateProcessResponse {
+  bool success = 1;
+  string message = 2;
+  string old_fingerprint = 3;    // sha256 of the binary before update ("" when unknown)
+  string new_fingerprint = 4;    // sha256 of the binary after update
+  bool rolled_back = 5;          // true when the new binary failed to start and the old one was restored
+}
+
+// SchedulePauseRequest suspends or resumes a managed process's declared
+// schedule firing (agent-supervisor-design §10.2 暂停与恢复，暂停对象=调度).
+// Suspension never touches the running process: cron actions simply stop firing
+// until the operator resumes.
+message SchedulePauseRequest {
+  string process_name = 1;   // ManagedProcess logical name
+  bool suspend = 2;          // true=暂停调度, false=恢复调度
+}
+
+message SchedulePauseResponse {
+  bool success = 1;
+  string message = 2;
+  bool suspended = 3;        // Effective pause state after this call
+}
+
 // ListProcessesResponse contains the list of managed processes.
 message ListProcessesResponse {
   repeated ManagedProcess processes = 1;
@@ -157,6 +206,46 @@ message ManagedProcess {
   int32 pid = 5;                 // Current PID (0 if not running)
   int32 restart_count = 6;       // Number of restarts
   google.protobuf.Timestamp last_start = 7;  // Last start time
+  int64 uptime_seconds = 8;      // Seconds since last start (0 when not running)
+  repeated string flags = 9;     // Anomaly markers (mem_over_limit / cpu_over_limit)
+  int64 next_restart_at_unix = 10; // Unix seconds of the scheduled auto-restart (0 if none)
+}
+
+// SupervisorEvent records one supervisor lifecycle event (exit, restart, breaker
+// trip, resource over-limit, manual start/stop) for the process event log.
+message SupervisorEvent {
+  int64 ts_unix = 1;             // Event time (Unix seconds)
+  string process = 2;            // Managed process name
+  string event = 3;              // Closed set: detect_down/auto_restart/restart_failed/breaker_tripped/resource_over_limit/manual_start/manual_stop/snapshot_hint
+  int32 old_pid = 4;             // PID before the event (0 if none)
+  int32 new_pid = 5;             // PID after the event (0 if none)
+  int32 exit_code = 6;           // Exit code of the process that died
+  string signal = 7;             // Signal name if killed by signal ("" otherwise)
+  int32 restart_count = 8;       // Restart count at event time
+  string message = 9;            // Human-readable detail (required for breaker_tripped)
+  // Context captured at event time (best-effort diagnostics).
+  int64 last_heartbeat_unix = 10;
+  string last_error = 11;
+  bool oom_suspect = 12;         // Heuristic: killed by SIGKILL-like signal with high RSS
+  int64 last_rss_bytes = 13;
+  int64 seq = 14;                // Agent-assigned monotonic sequence (report dedupe / incremental pull)
+  // Crash snapshot context (S3, best-effort): artifacts found on disk after a
+  // detect_down. snapshot_hint events carry the host-level core_pattern
+  // suggestion in message instead.
+  string snapshot_dir = 15;      // Directory scanned for artifacts ("" when snapshot profile disabled)
+  repeated string snapshot_files = 16; // Artifact file names found after the crash
+}
+
+// GetSupervisorLogRequest pulls the supervisor event log file content from an agent.
+message GetSupervisorLogRequest {
+  int32 max_bytes = 1;           // Size cap for the returned content (tail bytes kept)
+}
+
+// GetSupervisorLogResponse carries the (possibly truncated) log file content.
+message GetSupervisorLogResponse {
+  bytes content = 1;             // Log content (JSON lines), tail side kept when truncated
+  string file_name = 2;          // Source file name (for Content-Disposition)
+  bool truncated = 3;            // True when content was cut by max_bytes
 }
 
 enum ProcessState {
@@ -166,6 +255,31 @@ enum ProcessState {
   PROCESS_STATE_FAILED = 3;
   PROCESS_STATE_STARTING = 4;
   PROCESS_STATE_STOPPING = 5;
+  PROCESS_STATE_BACKOFF = 6;     // Exited, waiting in restart backoff
+  PROCESS_STATE_BROKEN = 7;      // Restart breaker tripped, manual intervention required
+}
+
+// SupervisedProcessSnapshot is a per-sample view of one supervisor-managed
+// process, carried in MetricsReport so the server can display live state
+// without a dedicated polling RPC.
+message SupervisedProcessSnapshot {
+  string name = 1;               // Managed process name (as configured)
+  int32 pid = 2;                 // Current PID (0 if not running)
+  ProcessState state = 3;        // Current state
+  int64 uptime_seconds = 4;      // Seconds since last start
+  int32 restart_count = 5;       // Number of restarts since agent start
+  int64 rss_bytes = 6;           // Resident set size in bytes (0 when not running)
+  double cpu_percent = 7;        // CPU usage percent over the sampling interval
+  repeated string flags = 8;     // Anomaly markers (mem_over_limit / cpu_over_limit / breaker_tripped)
+  int64 last_event_unix = 9;     // Unix seconds of the last supervisor event (0 if none)
+  int64 next_restart_at_unix = 10; // Unix seconds of the scheduled auto-restart (BACKOFF only)
+  string snapshot_profile = 11;  // Crash snapshot profile in effect (none/go/node/python/jvm; "" when unknown)
+  string kind = 12;              // Managed object category: program / probe-adapter (§10.1)
+  string adapter_id = 13;        // Adapter identity when kind=probe-adapter ("" for program)
+  int64 next_schedule_at_unix = 14;  // Unix seconds of the next scheduled action (0 when unscheduled, §10.6)
+  string next_schedule_action = 15;  // Next scheduled action: start / stop / restart ("" when unscheduled)
+  string fingerprint = 16;       // sha256 (hex) of the running binary, computed at spawn (§10.4 指纹)
+  bool schedule_suspended = 17;  // Operator-suspended schedule firing (§10.2 暂停与恢复)
 }
 
 // ExecuteCommandRequest requests command execution.
@@ -241,4 +355,150 @@ message CronJob {
   string user = 3;               // User who runs the job
   string source_file = 4;        // File where this job is defined
   bool enabled = 5;              // Whether the job is active
+}
+
+// ========== Capture rule-hit alerts (anti-cheat CDC gates) ==========
+
+// CaptureRuleHitReport carries one capture-agent gate hit on the CDC change
+// stream (reconcile / CEP / lineage rules) to the server alert store.
+// Server maps it into the alerts table idempotently (dedup by hit identity).
+message CaptureRuleHitReport {
+  string agent_id = 1;        // Reporting capture-agent id
+  string game_id = 2;         // Game scope label
+  string env = 3;             // Environment scope label
+  string rule = 4;            // Rule id (reconcile.missing_ledger | cep.burst_delta | cep.off_hours | cep.probing | lineage.whitelist_violation)
+  string severity = 5;        // warn | critical (gate closed set)
+  string table = 6;           // "db.table" the hit fired on
+  string key = 7;             // Join/row key (may be empty: missing-key sentinel)
+  string detail = 8;          // Human-readable hit detail
+  string gtid = 9;            // Source change event GTID (idempotency material)
+  string event_op = 10;       // insert | update | delete
+  int64 event_ts_unix_ms = 11; // Source change event timestamp (ms)
+}
+
+// CaptureRuleHitAck acknowledges one uploaded hit.
+message CaptureRuleHitAck {
+  bool accepted = 1;   // Upserted into the alerts store
+  bool duplicate = 2;  // alert_id already existed (idempotent replay)
+}
+
+// CaptureGatesConfigRequest pulls the game-scoped capture gate rules the
+// server holds for the calling agent (scope resolved from the registered
+// session; agent-side pull via core/configsync).
+message CaptureGatesConfigRequest {
+  string agent_id = 1; // Calling capture-agent id (must match the session)
+}
+
+// CaptureGatesConfigResponse carries the latest published rules payload.
+// Empty version = nothing published for this scope (agent keeps file rules).
+// gates_json is opaque to the server: the agent validates the full shape
+// before hot-applying (agent is the validator of last resort).
+message CaptureGatesConfigResponse {
+  string version = 1;    // config_versions.Version (as string); "" = none
+  string gates_json = 2; // capture.gates JSON block (reconcile/cep/lineage)
+}
+
+// ProbePolicyConfigRequest pulls the game/env-scoped probe sampling policy
+// the server holds for the calling agent (scope resolved from the registered
+// session; agent-side pull via core/configsync, review §13.3 C).
+message ProbePolicyConfigRequest {
+  string agent_id = 1; // Calling agent id (must match the session)
+}
+
+// ProbePolicyConfigResponse carries the latest published policy payload.
+// Empty version = nothing published for this scope (agent keeps local
+// intervals). policy_json is validated by both sides (admin publish
+// pre-check and agent apply share core/healthprobe.ParseProbePolicy).
+message ProbePolicyConfigResponse {
+  string version = 1;     // config_versions.Version (as string); "" = none
+  string policy_json = 2; // probe.policy JSON block (interval/targets/windows/events)
+}
+
+// ProbeDBTargetsConfigRequest pulls the db probe targets the server derives
+// for the calling agent (R4: periodic db probes run on the owning agent,
+// derived at pull time from db_sources.owner_agent_id; no config_versions
+// row and no push channel — the pull response IS the source of truth).
+message ProbeDBTargetsConfigRequest {
+  string agent_id = 1; // Calling agent id (must match the session)
+}
+
+// ProbeDBTargetsConfigResponse carries the derived db probe targets.
+//   - version: content hash of targets_json (stable across unchanged sets,
+//     so the agent-side configsync puller skips no-op rounds). Never empty
+//     on success — the empty target set has its own hash.
+//   - targets_json: JSON array of core/healthprobe.TargetConfig (db type:
+//     name/dsn/driver/timeout). Empty version + empty payload = server side
+//     not derivable (degrade: agent keeps current targets).
+message ProbeDBTargetsConfigResponse {
+  string version = 1;
+  string targets_json = 2;
+}
+
+// ========== Probe uplink (agent probes → server; review §11/§13) ==========
+
+// AlertEvent is the one-way probe/alert event stream upload (new wire
+// message MsgAlertEvent, review §11 decision 2: alert traffic needs its own
+// QoS lane, not the metrics batch slot). v1 carries two probe kinds;
+// future alert families evolve on the same channel.
+//   - kind = probe.window: window open/close (Window below)
+//   - kind = probe.detail: per-failure detail (Detail below, immediate,
+//     not waiting for the batch window — asymmetric uplink §13.1)
+message AlertEvent {
+  string kind = 1;     // machine identifier: probe.window | probe.detail
+  string agent_id = 2; // sender id (server validates non-empty; review R2 log sink)
+  string game_id = 3;  // Game scope label
+  string env = 4;      // Environment scope label
+  ProbeWindow window = 5; // set when kind = probe.window
+  ProbeDetail detail = 6; // set when kind = probe.detail
+  string target_category = 7; // target ownership: game | third_party
+}
+
+// ProbeWindow mirrors one probe window open/close (unavailable → recovered).
+message ProbeWindow {
+  string target = 1;
+  string semantics = 2;      // liveness | readiness | heartbeat
+  string window_kind = 3;    // unavailable | recovered
+  int64 start_ts_unix_ms = 4;
+  int64 end_ts_unix_ms = 5;  // 0 = still open
+  int64 duration_ms = 6;     // 0 until recovered
+  string last_reason = 7;    // failure reason at threshold (truncated 2KB)
+  string target_category = 8; // target ownership: game | third_party
+}
+
+// ProbeDetail mirrors one failed probe result (asymmetric uplink: failures
+// report full detail, never a bare bool — review §13.1).
+message ProbeDetail {
+  string target = 1;
+  string semantics = 2;
+  bool ok = 3;                     // always false for detail events
+  string err = 4;                  // error text (truncated 2KB by sender)
+  int64 at_ts_unix_ms = 5;
+  int64 latency_ms = 6;
+  int32 consecutive_failures = 7;
+  bool window_open = 8;
+  map<string, string> details = 9; // probeType/phase/assertion etc (Detailing)
+  string target_category = 10;     // target ownership: game | third_party
+}
+
+// ProbeStats aggregates probe results per target per reporting window
+// (normal state = counts only; failure facts are never trimmed — only the
+// detail stream is capped, counted here as dropped_details; review §13.1).
+message ProbeStats {
+  string target = 1;
+  string semantics = 2;
+  string game_id = 3;
+  string env = 4;
+  int64 checked = 5;                  // checks in this reporting window
+  int64 failed = 6;                   // failures in this window (as-is)
+  double success_rate = 7;            // 1 - failed/checked; 1 when checked=0
+  repeated int64 latency_buckets = 8; // counts per bucket, boundaries [50ms,200ms,1s,5s], len 5
+  bool window_open = 9;               // fault window open at drain time
+  int64 window_duration_ms = 10;      // open fault window elapsed (0 when closed)
+  string last_reason = 11;            // last failure reason
+  int64 dropped_details = 12;         // details trimmed by the per-window cap
+  string probe_type = 13;             // checker type: http | tcp | db | protocol
+  string protocol = 14;               // game protocol adapter name (type=protocol only)
+  string phase = 15;                  // last failure phase marker (protocol checkers only)
+  bool protocol_expected = 16;        // target declares protocol-level probing is expected but not integrated
+  string target_category = 17;        // target ownership: game | third_party
 }

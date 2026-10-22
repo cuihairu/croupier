@@ -105,8 +105,9 @@ type lifecycleHook struct {
 	disconnected atomic.Bool
 }
 
-func (h *lifecycleHook) OnAgentRegistered(context.Context, string, string, string) {}
-func (h *lifecycleHook) OnAgentHeartbeat(context.Context, string)                  {}
+func (h *lifecycleHook) OnAgentRegistered(context.Context, string, string, string, map[string]string) {
+}
+func (h *lifecycleHook) OnAgentHeartbeat(context.Context, string) {}
 func (h *lifecycleHook) OnAgentDisconnected(context.Context, string) {
 	h.disconnected.Store(true)
 }
@@ -205,9 +206,9 @@ func TestServeConn_EdgeBranches(t *testing.T) {
 	require.True(t, still3, "failed re-register must keep session")
 
 	// 4. 模拟新连接替换：同 agent 注入新 session → 旧连接断开后应走"已被替换"分支
-	listener.SessionStore().Upsert(&AgentSession{
-		AgentID: "agent-1", SessionID: "session-new",
-	})
+	require.NoError(t, listener.SessionStore().Upsert(&AgentSession{
+		AgentID: "agent-1", GameID: "game-1", Env: "dev", SessionID: "session-new",
+	}))
 
 	_ = clientEnd.Close()
 	deadline := time.Now().Add(2 * time.Second)

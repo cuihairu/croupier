@@ -3,17 +3,31 @@ package dbmon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	"gorm.io/gorm"
 )
 
 type Service struct {
 	svcCtx *svc.ServiceContext
+}
+
+type ownerScopeReader interface {
+	LastKnownScope(ctx context.Context, agentID string) (gameID, env string, ok bool, err error)
+}
+
+func newOwnerScopeReader(db *gorm.DB) ownerScopeReader {
+	if db == nil {
+		return nil
+	}
+	return registry.NewAgentSessionModel(db)
 }
 
 // NewService creates a dbmon service.
@@ -39,13 +53,17 @@ func (s *Service) CreateSource(ctx context.Context, req *SourceUpsertRequest) (*
 	src := &model.DBSource{
 		Name: req.Name, Driver: strings.ToLower(req.Driver), Kind: strings.ToLower(strings.TrimSpace(req.Kind)),
 		DSN: req.DSN, GameID: strings.TrimSpace(req.GameID), Env: strings.TrimSpace(req.Env),
-		Enabled: true, Sort: req.Sort, CreatedBy: currentUsername(ctx),
+		OwnerAgentID: strings.TrimSpace(req.OwnerAgentID),
+		Enabled:      true, Sort: req.Sort, CreatedBy: currentUsername(ctx),
 	}
 	if src.Kind == "" {
 		src.Kind = model.DBSourceKindSelf
 	}
 	if err := model.ValidateDBSource(src); err != nil {
 		return nil, errorx.NewBadRequest(err.Error())
+	}
+	if err := s.validateOwnerScope(ctx, src.OwnerAgentID, src.GameID, src.Env); err != nil {
+		return nil, err
 	}
 	if err := s.svcCtx.DBSourceModel.Create(ctx, src); err != nil {
 		return nil, err
@@ -82,6 +100,10 @@ func (s *Service) UpdateSource(ctx context.Context, req *SourceUpdateRequest) (*
 	if req.Env != nil {
 		updates["env"] = strings.TrimSpace(*req.Env)
 	}
+	// 归属 agent：指针非 nil 即以提交值为准（空串 = 解归属）。
+	if req.OwnerAgentID != nil {
+		updates["owner_agent_id"] = strings.TrimSpace(*req.OwnerAgentID)
+	}
 	if req.Sort != nil {
 		updates["sort"] = *req.Sort
 	}
@@ -96,6 +118,9 @@ func (s *Service) UpdateSource(ctx context.Context, req *SourceUpdateRequest) (*
 	if err := model.ValidateDBSource(&merged); err != nil {
 		return nil, errorx.NewBadRequest(err.Error())
 	}
+	if err := s.validateOwnerScope(ctx, merged.OwnerAgentID, merged.GameID, merged.Env); err != nil {
+		return nil, err
+	}
 	if err := s.svcCtx.DBSourceModel.Update(ctx, id, updates); err != nil {
 		return nil, err
 	}
@@ -104,6 +129,25 @@ func (s *Service) UpdateSource(ctx context.Context, req *SourceUpdateRequest) (*
 		return nil, err
 	}
 	return &SourceResponse{DBSource: buildSourceDTO(updated)}, nil
+}
+
+func (s *Service) validateOwnerScope(ctx context.Context, agentID, gameID, env string) error {
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		return nil
+	}
+	reader := newOwnerScopeReader(s.svcCtx.DB)
+	if reader == nil {
+		return errors.New("owner agent registry unavailable")
+	}
+	ownerGameID, ownerEnv, ok, err := reader.LastKnownScope(ctx, agentID)
+	if err != nil {
+		return err
+	}
+	if !ok || ownerGameID != gameID || ownerEnv != env {
+		return errorx.NewBadRequest("ownerAgentId does not belong to source game environment")
+	}
+	return nil
 }
 
 // DeleteSource removes a registration.
@@ -229,6 +273,9 @@ func applyUpdates(dst *model.DBSource, updates map[string]interface{}) {
 	}
 	if v, ok := updates["env"].(string); ok {
 		dst.Env = v
+	}
+	if v, ok := updates["owner_agent_id"].(string); ok {
+		dst.OwnerAgentID = v
 	}
 }
 

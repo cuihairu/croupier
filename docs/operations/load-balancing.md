@@ -1,182 +1,182 @@
 ---
-title: 负载均衡
+title: Load Balancing
 icon: deployment
 order: 7
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 部署
-  - 高可用
+  - deployment
+  - high availability
 ---
 
-# 负载均衡
+# Load Balancing
 
-Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-multi-instance.md)）有两个流量入口，各自需要负载均衡：
+The Croupier HA multi-instance architecture (Server Multi-Instance HA (this section is Chinese-only)) has two traffic entry points, each of which needs load balancing:
 
-- **Dashboard API（L7 / HTTP）**：Dashboard 前置网关分流到各 Server 实例 `:18780`
-- **Agent 接入（L4 / TCP）**：Agent 的自研 transport 长连接（`:19090`，长度前缀分帧 + 多路复用）打散到各 Server 实例
+- **Dashboard API (L7 / HTTP)**: the Dashboard's fronting gateway splits traffic across the Server instances on `:18780`
+- **Agent access (L4 / TCP)**: the agents' in-house transport long connections (`:19090`, length-prefixed framing + multiplexing) are spread across the Server instances
 
-**为什么 Agent 必须经 L4 LB 而不是直连**：直连会导致实例故障时该实例名下所有 Agent 失联需人工干预；经 LB 打散后，断连重连自动分发到存活实例 + 重新注册更新 owner（架构文档 §6 故障转移时间线，全程无人工干预）。
+**Why agents must go through an L4 LB instead of connecting directly**: with direct connections, an instance failure leaves every agent owned by that instance disconnected and requiring manual intervention; spread through an LB, reconnections are automatically distributed to live instances + re-registration updates the owner (architecture document §6 failover timeline, zero manual intervention throughout).
 
-## 部署模式约束：单活 + 冷备（当前推荐，双活前置已补齐待切换验证）
+## Deployment Mode Constraint: Active + Cold Standby (current recommendation; the dual-active prerequisites are in place, pending switchover validation)
 
-**前提认知**：Agent 会话表与函数注册 registry 是 Server 实例的**进程内存态**，跨实例同步仅覆盖部分路径（`/ops/nodes`、agent 列表、`/functions/instances` 走共享归属表聚合——instances 已于 2026-09-11 补齐）。invoke 执行路径已在 2026-09-11 完成归属表接入与转发补全，双活下的调用正确性不再依赖「请求恰好落到持有 agent 的实例」：
+**Background understanding**: the agent session table and the function registration registry are **in-process memory state** of a Server instance; cross-instance sync covers only some paths (`/ops/nodes`, the agent list, and `/functions/instances` aggregate via the shared ownership table — instances was completed on 2026-09-11). The invoke execution path completed ownership-table integration and forwarding on 2026-09-11, so call correctness under dual-active no longer depends on "the request happening to land on the instance holding the agent":
 
-- **候选集兜底（RemoteAgentSource）**：本地候选为空或 failover 耗尽本地候选时，同步查共享归属表 + `agent_sessions` 快照表（1s 预算，出错降级回 `no live agent` 语义不放大故障）补远端候选，选中的远端候选经 mesh 转发到 owner 实例执行
-- **三分支转发**：同步 invoke、异步任务（start_task，与 invoke 同款 failover——lb 路由失败换候选重试、失败尝试的 task_runs 行标 failed、耗尽映射 503）、任务取消（cancel_task，task routing miss 时从共享 `task_runs` 解析 agent）、广播（候选集 local ∪ remote，按 AgentID 去重本地优先）都走同一帧格式（`kind` 区分），owner 侧定向投递并落审计（不重查 policy，信任边界见 `docs/architecture/server-ha-multi-instance.md` §5.3）
-- `refreshRemoteSnapshots` 的 30s 周期回灌从正确性依赖降级为性能优化层（减少热路径同步查库）
-- **registry 内存会话生命周期与归属表对齐**（2026-09-11 补齐，三级清理）：本实例断连即时清（`RemoveAgentIfStale` 的 notAfter 校验挡住断连瞬间重连注册的竞态）、重启恢复按归属表活跃全集过滤快照行、30s 对账周期清理「归属表无行且 5min 无心跳」的孤儿副本——断连 agent 不再以僵尸候选滞留函数视图/lb/broadcast 候选至 ExpireAt（24h）。DB `agent_sessions` 快照行不删不改、自然过期（归属表是跨实例查询的唯一入口，无归属行的快照行无消费者）；单实例（cluster 未启用）行为不变：断连即时清生效，重启恢复仍全量
+- **Candidate-set fallback (RemoteAgentSource)**: when local candidates are empty or failover has exhausted the local candidates, a synchronous query of the shared ownership table + the `agent_sessions` snapshot table (1s budget; on error it degrades back to the `no live agent` semantics without amplifying the failure) supplements remote candidates; the chosen remote candidate is forwarded over the mesh to the owner instance for execution
+- **Three-branch forwarding**: synchronous invoke, async tasks (start_task, the same failover as invoke — an lb routing failure moves to the next candidate for retry, failed attempts mark the task_runs row failed, exhaustion maps to 503), and task cancellation (cancel_task, resolving the agent from the shared `task_runs` on a task routing miss) all go through the same frame format (distinguished by `kind`); broadcast (candidate set local ∪ remote, deduped by AgentID, local first) also uses it; the owner side delivers directly and records the audit (no policy re-query; trust boundary in `docs/architecture/server-ha-multi-instance.md` §5.3)
+- `refreshRemoteSnapshots`' 30s periodic backfill is demoted from a correctness dependency to a performance optimization layer (reduces synchronous DB lookups on the hot path)
+- **Registry in-memory session lifecycle aligned with the ownership table** (completed 2026-09-11, three-level cleanup): immediate cleanup on local disconnect (the notAfter check in `RemoveAgentIfStale` blocks the race with a re-registration right at disconnect), restart recovery filters snapshot rows against the ownership table's active full set, and a 30s reconciliation pass cleans up orphan copies that "have no ownership row and no heartbeat for 5min" — disconnected agents no longer linger as zombie candidates in the function view/lb/broadcast candidate sets until ExpireAt (24h). The DB `agent_sessions` snapshot rows are neither deleted nor modified and expire naturally (the ownership table is the only entry point for cross-instance queries; snapshot rows without ownership rows have no consumers); single-instance (cluster not enabled) behavior is unchanged: disconnect-immediate cleanup still applies, and restart recovery is still full-volume
 
-已知边界（切双活前须知）：
+Known boundaries (read before switching to dual-active):
 
-- mesh 互联为内网明文 TCP、无对端认证——互联端口必须仅集群内网可达
-- 哈希路由（`route: hash`）跨实例不保证稳定落点：仅本地候选耗尽才扩远端
-- 异步任务事件不走 mesh 回传：事件经 owner 落共享库（`task_events`），caller 的 HTTP 轮询/SSE 从共享库读取（既有链路不变）
+- the mesh interconnect is plaintext intranet TCP with no peer authentication — the interconnect port must be reachable only from the cluster intranet
+- hash routing (`route: hash`) gives no stable placement across instances: extend to remote candidates only when the local candidates are exhausted
+- async task events do not return over the mesh: events land in the shared DB via the owner (`task_events`), and the caller's HTTP polling/SSE reads from the shared DB (existing path unchanged)
 
-因此当前部署形态仍是**单活 + 冷备**（双活切换是独立操作，前置条件已凑齐）：
+Therefore the current deployment posture is still **active + cold standby** (dual-active switchover is a separate operation; the prerequisites are complete):
 
-| 层                    | 配置                                       | 故障语义                                                                 |
-| --------------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
-| L4（haproxy.cfg）     | `server croupier-server2 ... check backup` | agent 全部连主实例；主实例摘除后 agent 重连自动落 backup 并重新注册      |
-| L7（nginx-main.conf） | `split_clients ... 100% croupier-server`   | API 全量指向主实例；主实例故障时人工提升此处切到 server2（换一处分流值） |
+| Layer                | Configuration                              | Failure semantics                                                                                                                     |
+| -------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| L4 (haproxy.cfg)     | `server croupier-server2 ... check backup` | all agents connect to the primary; after the primary is removed, agent reconnections land on the backup automatically and re-register |
+| L7 (nginx-main.conf) | `split_clients ... 100% croupier-server`   | all API traffic goes to the primary; on primary failure, promote it manually here to switch to server2 (change one split value)       |
 
-**切换双活**（前置已补齐，操作时点自定）：
+**Switching to dual-active** (prerequisites complete, timing at your discretion):
 
-1. L7 分流值从 `100% croupier-server` 改为按比例（如 `50%`/`50%`），`nginx -s reload`
-2. L4 去掉 server2 的 `backup` 标记（agent 连接开始打散）
-3. 观察：`/ops/nodes` 两实例都有 agent 归属；dashboard 发起 invoke/async/broadcast 三类调用混合落在两实例均成功（owner 侧审计记录出现在对端实例）；`server2` 日志出现 `cluster: refreshed remote agent snapshot` / owner 侧审计
-4. 回滚即恢复 `100%` + `backup`（agent 会随重连自然回归主实例，期间跨实例调用经转发兜底）
+1. Change the L7 split value from `100% croupier-server` to a ratio (e.g. `50%`/`50%`), `nginx -s reload`
+2. L4: remove server2's `backup` flag (agent connections start spreading)
+3. Observe: both instances show agent ownership in `/ops/nodes`; invoke/async/broadcast calls triggered from the dashboard land mixed on both instances and succeed (owner-side audit records appear on the peer instance); the `server2` log shows `cluster: refreshed remote agent snapshot` / owner-side audit
+4. Rollback = restore `100%` + `backup` (agents naturally return to the primary on reconnection; cross-instance calls are covered by forwarding in the meantime)
 
-## 背景概念：L4 / L7 / VRRP
+## Background Concepts: L4 / L7 / VRRP
 
-### L4 / L7 按协议分层定义
+### L4 / L7 defined by protocol layering
 
-L4/L7 指的是 OSI 模型中的协议层次——负载均衡器**工作在哪一层，决定了它看得见什么、能按什么分发**：
+L4/L7 refer to the protocol layers of the OSI model — **the layer a load balancer works at determines what it can see and what it can dispatch by**:
 
-| 层     | OSI 名称 | LB 看得见什么                               | 分发依据                         | 典型实现                                          |
-| ------ | -------- | ------------------------------------------- | -------------------------------- | ------------------------------------------------- |
-| **L4** | 传输层   | IP + 端口（TCP/UDP 头），**不解析**应用内容 | 五元组哈希、最少连接             | LVS、HAProxy（`mode tcp`）、nginx stream、云 NLB  |
-| **L7** | 应用层   | 完整 HTTP 请求（方法/路径/Header/Cookie）   | 路径路由、Header、会话粘滞、灰度 | nginx http、HAProxy（`mode http`）、Envoy、云 ALB |
+| Layer  | OSI name    | What the LB sees                                                       | Dispatch basis                                    | Typical implementations                             |
+| ------ | ----------- | ---------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------- |
+| **L4** | transport   | IP + port (TCP/UDP headers); it does **not parse** application content | 5-tuple hash, least connections                   | LVS, HAProxy (`mode tcp`), nginx stream, cloud NLB  |
+| **L7** | application | Full HTTP request (method/path/Header/Cookie)                          | Path routing, Headers, session stickiness, canary | nginx http, HAProxy (`mode http`), Envoy, cloud ALB |
 
-两者的取舍：
+The trade-off between the two:
 
-- **L4 透传字节流**：协议无关（自研协议也能跑）、长连接天然友好、开销低；但看不见请求内容，只能按「连接」粒度分发，也无法做基于内容的路由
-- **L7 理解应用语义**：能按路径/Header 分流、改写、重试、灰度；代价是必须解析（甚至终结）应用层协议
+- **L4 passes bytes through**: protocol-agnostic (in-house protocols work too), naturally friendly to long connections, low overhead; but it cannot see request content, can only dispatch at "connection" granularity, and cannot do content-based routing
+- **L7 understands application semantics**: it can split/rewrite/retry/canary by path/Header; the cost is that it must parse (and even terminate) the application-layer protocol
 
-对 Croupier 的映射：Dashboard API 是标准 HTTP，天然适合 **L7**；Agent 用的是自研二进制分帧协议（长度前缀 + protobuf），LB 无法也无需理解，**L4 透传**即可——这也是本文两个入口分层选型的依据。
+The mapping to Croupier: the Dashboard API is standard HTTP, naturally suited to **L7**; agents use an in-house binary framing protocol (length prefix + protobuf) that the LB cannot and need not understand — **L4 passthrough** suffices — and that is the basis for the layering of the two entry points in this document.
 
-> 顺带一提 **LVS**（Linux Virtual Server）：工作在内核态的 L4 转发（IPVS），不经过用户态协议栈，性能是所有方案中最高的；代价是配置与生态复杂度，单公司千级节点规模内通常用不到。
+> By the way, **LVS** (Linux Virtual Server): L4 forwarding in kernel mode (IPVS), bypassing the user-space protocol stack; the performance is the highest of all options; the cost is configuration and ecosystem complexity — usually unnecessary below a thousandish nodes within one company.
 
-### VRRP：解决「LB 自己是单点」
+### VRRP: solving "the LB itself is a single point"
 
-**VRRP（Virtual Router Redundancy Protocol，RFC 5798）** 是一个**网络层高可用协议**，与负载均衡本身无关：
+**VRRP (Virtual Router Redundancy Protocol, RFC 5798)** is a **network-layer high-availability protocol**, unrelated to load balancing itself:
 
-- 多台主机组成一个虚拟路由器，共享一个**虚拟 IP（VIP）**；对外只暴露 VIP，客户端永远连 VIP
-- 协议自动选举 **Master**（按 priority 最高者）持有 VIP 并应答流量，其余为 **Backup** 待命
-- Master 周期性广播通告（默认 1s 一次）；Backup 连续约 3 个周期收不到通告即认定 Master 死亡，按 priority 接管 VIP——**秒级故障转移，客户端无感知**
-- **keepalived** 是 Linux 上 VRRP 的守护进程实现，常与 nginx/HAProxy 成对部署：LB 进程做分发，keepalived 保证「跑 LB 的这台机器」挂了 VIP 能漂到备机
+- multiple hosts form one virtual router sharing a **virtual IP (VIP)**; only the VIP is exposed externally, and clients always connect to the VIP
+- the protocol automatically elects a **Master** (the one with the highest priority) that holds the VIP and answers traffic; the rest are **Backup** on standby
+- the Master broadcasts advertisements periodically (by default once every 1s); when a Backup misses advertisements for about 3 consecutive periods it declares the Master dead and takes over the VIP by priority — **second-level failover, imperceptible to clients**
+- **keepalived** is the VRRP daemon implementation on Linux, usually deployed in pairs with nginx/HAProxy: the LB process does the dispatching, and keepalived ensures that if "the machine running the LB" dies, the VIP can drift to the backup
 
-注意 VRRP 依赖二层组播/单播可达，**多数公有云 VPC 内不可用**——云上的等价物是云 NLB（跨可用区 + 健康检查 + 免运维）。
+Note that VRRP depends on Layer-2 multicast/unicast reachability and is **unavailable inside most public-cloud VPCs** — the cloud equivalent is the cloud NLB (cross-AZ + health checks + zero ops).
 
-## 概念澄清：keepalived 不是负载均衡器
+## Concept Clarification: keepalived Is Not a Load Balancer
 
-三者的关系经常被混淆：
+The relationship among the three is often confused:
 
-- **nginx（stream 模块）**、**HAProxy**：负载均衡器，真正分发流量
-- **keepalived**：VRRP 守护进程，只负责 **VIP 漂移**（主备高可用），本身不负载均衡；通常与 nginx/HAProxy 成对部署，解决「LB 自己挂了」的问题
-- 第三种自建高可用 LB 形态是 **keepalived + LVS**（内核态转发，性能最高）
+- **nginx (stream module)** and **HAProxy**: load balancers, the ones actually dispatching traffic
+- **keepalived**: the VRRP daemon, responsible only for **VIP drift** (primary/backup high availability); it does no load balancing itself; usually deployed in pairs with nginx/HAProxy to solve the "the LB itself died" problem
+- a third self-hosted high-availability LB shape is **keepalived + LVS** (kernel-mode forwarding, highest performance)
 
-## 方案对比
+## Option Comparison
 
-### L4 能力对比（nginx stream vs HAProxy）
+### L4 Capability Comparison (nginx stream vs HAProxy)
 
-| 维度              | nginx stream                                                                                          | HAProxy                                                                       | 对 Croupier 的影响                                                                                           |
-| ----------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 运行时 DNS 重解析 | ❌ upstream 域名只在启动/reload 时解析；实例重建换 IP 后旧 IP 仍被使用（502/连接失败），需手动 reload | ✅ `resolvers` 块 + `resolve-prefer ipv4`，容器 IP 变动自动跟随               | **最关键差异**：compose 重建 server 容器后，nginx 需 `--force-recreate dashboard` 兜底，HAProxy 无需任何动作 |
-| 主动健康检查      | ❌ 开源版被动探测（`max_fails`/`fail_timeout`，连接失败才累计标记）                                   | ✅ `option tcp-check` / `http-check` 主动探活，摘除半死实例                   | Agent 是长连接多路复用：Server 进程僵死但 TCP 连接未断时，被动探测摘不干净，调用会持续打到死实例             |
-| 优雅下线          | ❌ reload 直接断存量连接                                                                              | ✅ stats socket 运行时 `set server ... state drain`：存量连接排空、新连接停入 | Server 实例滚动升级时，HAProxy 可零断连切换                                                                  |
-| 可观测性          | access log 为主                                                                                       | ✅ 内置 stats 页：每后端会话数/队列/错误率实时可见                            | 排查「agent 连不上/连不均」时直接看图                                                                        |
-| 性能              | epoll，数万并发连接                                                                                   | epoll，同量级；均低于 LVS（内核态）                                           | 单公司多游戏（千级节点内）**两者都不是瓶颈**，不必纠结                                                       |
-| 组件成本          | ✅ 复用 dashboard 镜像，零新增                                                                        | ❌ 新增组件（镜像/配置/监控面）                                               | 小团队 nginx 的核心优势                                                                                      |
-| L7 能力           | ✅ SPA 静态资源 + API 反代 + SSE 调优一体                                                             | ✅ 但静态资源服务弱于 nginx                                                   | Dashboard 已经需要 nginx 服务静态资源                                                                        |
+| Dimension                 | nginx stream                                                                                                                                                                           | HAProxy                                                                                                                 | Impact on Croupier                                                                                                                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime DNS re-resolution | ❌ upstream hostnames are resolved only at startup/reload; after an instance is rebuilt with a new IP the old IP keeps being used (502/connection failures); a manual reload is needed | ✅ `resolvers` block + `resolve-prefer ipv4`; container IP changes are followed automatically                           | **The most critical difference**: after compose rebuilds the server container, nginx needs `--force-recreate dashboard` as a crutch, while HAProxy needs no action at all                                |
+| Active health checks      | ❌ the open-source edition is passive (`max_fails`/`fail_timeout`; counted only on connection failure)                                                                                 | ✅ `option tcp-check` / `http-check` active probing; removes half-dead instances                                        | Agents are long-lived multiplexed connections: when the Server process is wedged but the TCP connection is not broken, passive probing cannot remove it cleanly and calls keep hitting the dead instance |
+| Graceful decommission     | ❌ reload severs existing connections outright                                                                                                                                         | ✅ runtime `set server ... state drain` via the stats socket: existing connections drain, new connections stop entering | During rolling Server upgrades, HAProxy can switch with zero dropped connections                                                                                                                         |
+| Observability             | mainly the access log                                                                                                                                                                  | ✅ built-in stats page: per-backend session counts/queues/error rates visible in real time                              | When debugging "agents can't connect / connect unevenly", just look at the charts                                                                                                                        |
+| Performance               | epoll, tens of thousands of concurrent connections                                                                                                                                     | epoll, same order of magnitude; both below LVS (kernel mode)                                                            | For one company with multiple games (under ~1k nodes) **neither is the bottleneck**; no need to agonize                                                                                                  |
+| Component cost            | ✅ reuses the dashboard image, zero additions                                                                                                                                          | ❌ new component (image/config/monitoring surface)                                                                      | nginx's core advantage for small teams                                                                                                                                                                   |
+| L7 capability             | ✅ SPA static assets + API reverse proxy + SSE tuning in one                                                                                                                           | ✅ but weaker at static asset serving than nginx                                                                        | The Dashboard already needs nginx to serve static assets                                                                                                                                                 |
 
-### 结论
+### Conclusion
 
-> **就 L4 负载均衡职能而言，HAProxy 全面占优**（运行时重解析 + 主动健康检查 + 优雅下线 + 可观测性）；nginx stream 唯一优势是**复用现有 dashboard 容器、零新增组件**。
+> **For the L4 load-balancing role, HAProxy wins across the board** (runtime re-resolution + active health checks + graceful decommission + observability); nginx stream's only advantage is **reusing the existing dashboard container, zero new components**.
 
-推荐按部署形态选择：
+Recommended choice by deployment shape:
 
-| 部署形态                                    | 推荐                                                                | 理由                                                                             |
-| ------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 单机 compose（`docker-compose.deploy.yml`） | **HAProxy**（现状，独立 `haproxy` 服务）                            | 统一形态：L4 能力完整（重解析/健康检查/stats），单机与多宿主无需两套配置         |
-| 多宿主容器化生产                            | **HAProxy**（agent L4 入口）                                        | IP 变动自动跟随 + 主动摘除僵死实例 + stats 排查；dashboard 的 L7 仍由 nginx 承担 |
-| LB 自身不允许单点                           | **keepalived + HAProxy**（主备 VIP 漂移）；公有云等价物是**云 NLB** | VRRP 需要网络层支持，公有云内用 NLB 免运维                                       |
-| Kubernetes                                  | **Service（ClusterIP）**                                            | kube-proxy 天然负载均衡 + Endpoints 就绪探针，无需自建 LB 层                     |
+| Deployment shape                                  | Recommendation                                                                                 | Rationale                                                                                                                                   |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single-host compose (`docker-compose.deploy.yml`) | **HAProxy** (current state, a standalone `haproxy` service)                                    | One uniform shape: full L4 capability (re-resolution/health checks/stats); no need for two configurations across single-host and multi-host |
+| Multi-host containerized production               | **HAProxy** (the agent L4 entry point)                                                         | IP changes followed automatically + active removal of wedged instances + stats for debugging; the dashboard's L7 stays with nginx           |
+| The LB itself must not be a single point          | **keepalived + HAProxy** (primary/backup VIP drift); the cloud equivalent is the **cloud NLB** | VRRP needs network-layer support; inside a public cloud use the NLB for zero ops                                                            |
+| Kubernetes                                        | **Service (ClusterIP)**                                                                        | kube-proxy is a natural load balancer + Endpoints readiness probes; no need to build your own LB layer                                      |
 
-## 配置示例
+## Configuration Examples
 
-### nginx stream（备选：复用 dashboard 容器）
+### nginx stream (alternative: reuse the dashboard container)
 
 ```nginx
-# docker/nginx-main.conf（部署产物的一部分）
+# docker/nginx-main.conf (part of the deployment artifacts)
 stream {
     upstream croupier_agent_lb {
-        least_conn;                          # 按活跃会话数，贴合长连接
-        server croupier-server:19090;        # 单活 + 冷备（见「部署模式约束」）：
-        server croupier-server2:19090 backup; # 主实例故障后 agent 重连落 backup
+        least_conn;                          # by active session count; fits long connections
+        server croupier-server:19090;        # active + cold standby (see "Deployment Mode Constraint"):
+        server croupier-server2:19090 backup; # agents reconnect to the backup after a primary failure
     }
     server {
         listen 19090;
         proxy_pass croupier_agent_lb;
-        proxy_timeout 1h;                    # agent 心跳 30s 保活，1h 空闲兜底
-        proxy_connect_timeout 3s;            # 故障快速切换
+        proxy_timeout 1h;                    # agent heartbeat keepalive at 30s; 1h idle fallback
+        proxy_connect_timeout 3s;            # fast failover
     }
 }
 ```
 
-注意事项：
+Caveats:
 
-- upstream 域名只在启动/reload 解析；**server 实例重建换 IP 后**：`docker compose up -d --force-recreate dashboard`
-- 被动探测：实例僵死但连接未断时不会被摘除，依赖 agent 侧心跳超时重连兜底
+- upstream hostnames are resolved only at startup/reload; **after a server instance is rebuilt with a new IP**: `docker compose up -d --force-recreate dashboard`
+- passive probing: a wedged instance with connections still open will not be removed; rely on the agent-side heartbeat-timeout reconnect as the fallback
 
-### HAProxy（本仓库默认，docker/configs/haproxy.cfg）
+### HAProxy (this repository's default, docker/configs/haproxy.cfg)
 
 ```haproxy
-# /etc/haproxy/haproxy.cfg（agent L4 入口）
+# /etc/haproxy/haproxy.cfg (the agent L4 entry point)
 resolvers docker_dns
-    nameserver dns1 127.0.0.11:53    # docker 内嵌 DNS；裸机部署换成环境 DNS
+    nameserver dns1 127.0.0.11:53    # docker's embedded DNS; use the environment's DNS for bare metal
     resolve_retries 3
     timeout resolve 1s
-    hold valid 10s                   # 10s 重解析，实例重建换 IP 自动跟随
+    hold valid 10s                   # re-resolve every 10s; follows instance rebuilds changing IPs automatically
 
 defaults
     mode tcp
     timeout connect 3s
-    timeout client 1h                # agent 长连接会话
+    timeout client 1h                # agent long-lived sessions
     timeout server 1h
 
 listen croupier_agent_lb
     bind *:19090
     balance leastconn
-    # 主动健康检查：TCP 建连探活（server 的 control listener）
+    # Active health check: TCP connect probe (the server's control listener)
     option tcp-check
     default-server inter 2s fall 3 rise 2 resolvers docker_dns init-addr libc,none
-    # 单活 + 冷备（见「部署模式约束」）：server2 仅在主实例摘除后承接重连
+    # Active + cold standby (see "Deployment Mode Constraint"): server2 takes reconnections only after the primary is removed
     server server1 croupier-server:19090 check
     server server2 croupier-server2:19090 check backup
 
-listen stats                        # 排查连接分布
+listen stats                        # debugging the connection distribution
     bind *:8404
     stats enable
     stats uri /stats
 ```
 
-Dashboard 的 L7（API 反代 + SPA + SSE）仍由 nginx 承担——两层各司其职：nginx 管「人」（HTTP），HAProxy 管「机器」（agent TCP）。
+The Dashboard's L7 (API reverse proxy + SPA + SSE) stays with nginx — the two layers divide the work: nginx handles "humans" (HTTP), HAProxy handles "machines" (agent TCP).
 
-### keepalived + HAProxy（LB 自身高可用）
+### keepalived + HAProxy (high availability for the LB itself)
 
 ```conf
-# /etc/keepalived/keepalived.conf（主 LB 宿主；备机 priority 略低、其余相同）
+# /etc/keepalived/keepalived.conf (the primary LB host; the backup has slightly lower priority, everything else identical)
 vrrp_instance VI_CROUPIER {
     state MASTER
     interface eth0
@@ -184,122 +184,122 @@ vrrp_instance VI_CROUPIER {
     priority 100
     advert_int 1
     virtual_ipaddress {
-        10.0.0.100/24                # VIP：agent/Dashboard 统一连这个地址
+        10.0.0.100/24                # VIP: the single address agents/Dashboard connect to
     }
 }
 ```
 
-两台宿主各跑一个 HAProxy（配置完全相同），keepalived 维持 VIP 在主上；主挂了 VIP 秒级漂移到备，agent 断连重连自动到备——**agent 侧依然零改动**。
+Each of the two hosts runs one HAProxy (identical configurations), and keepalived keeps the VIP on the primary; if the primary dies, the VIP drifts to the backup within seconds and agent disconnects reconnect to the backup automatically — **still zero changes on the agent side**.
 
-注意：VRRP 依赖网络层组播/单播支持，多数公有云 VPC 内不可用——云上等价方案是**云 NLB**（跨可用区 + 健康检查 + 免运维），直接替代 keepalived+HAProxy 整层。
+Note: VRRP depends on network-layer multicast/unicast support and is unavailable inside most public-cloud VPCs — the cloud equivalent is the **cloud NLB** (cross-AZ + health checks + zero ops), which directly replaces the entire keepalived+HAProxy layer.
 
-## Agent 侧零改动原则
+## Zero-Change Principle on the Agent Side
 
-无论入口层怎么换型，Agent 不需要任何改动：单地址连接 + 断线退避重连 + 重新注册（owner 随之更新到新实例）。换 LB 只需改 `agent.yaml` 的 `server.addr` 指向新入口。
+However the entry layer changes shape, the agent needs no changes: single-address connect + disconnect backoff reconnect + re-register (the owner is updated to the new instance accordingly). Swapping the LB only requires pointing `server.addr` in `agent.yaml` at the new entry point.
 
-## 迁移路径（nginx stream [HAProxy]
+## Migration Path (nginx stream → HAProxy)
 
-1. 起新 HAProxy（指向现有 croupier-server/croupier-server2:19090）
-2. 灰度：先改一个 agent 的 `server.addr` 指向 HAProxy，验证注册与调用正常
-3. 全量 agent 切换；观察 HAProxy stats 会话分布
-4. nginx stream 块下线（dashboard 回归纯 L7）
+1. Start the new HAProxy (pointing at the existing croupier-server/croupier-server2:19090)
+2. Canary: first point one agent's `server.addr` at HAProxy and verify that registration and calls work
+3. Switch all agents; watch the session distribution in HAProxy stats
+4. Retire the nginx stream block (the dashboard returns to pure L7)
 
-整个过程 Server 集群无感知（成员表按连接归属自动更新 owner）。
+The Server cluster is oblivious throughout the whole process (the membership table updates the owner automatically by connection ownership).
 
-## LB 监控（设计定案）
+## LB Monitoring (Design Decision)
 
-> 状态：Accepted（方案定案，分阶段落地）。核心原则：**管道用开源生态，展示做平台原生；数据源可配置，不绑定任何 LB 品牌。**
+> Status: Accepted (decision made; landing in phases). Core principle: **the pipeline uses the open-source ecosystem, the presentation is platform-native; data sources are configurable, bound to no LB brand.**
 
-### 设计演进与结论
+### Design Evolution and Conclusion
 
-监控 LB 的方案经历三轮讨论收敛：
+The LB monitoring approach converged over three rounds of discussion:
 
-1. ~~server 端自研 LB stats 解析适配器（拉 haproxy CSV）~~ —— **否决**：重复造轮子，等价于重新实现 haproxy exporter 的一部分；且绑死 haproxy，换 LB 就废
-2. ~~跳转/iframe 嵌 Grafana~~ —— **否决为主案**：体验割裂（另一套 UI）、权限绕过平台 RBAC（Grafana 需配匿名/auth-proxy）
-3. **最终定案**：采集与存储用 Prometheus exporter 生态（开源），展示层由平台原生渲染（直读 Prometheus API + Ant Design Charts），Grafana 仅作深度分析外链兜底
+1. ~~a server-side in-house LB stats parsing adapter (pulls the haproxy CSV)~~ — **rejected**: reinventing the wheel, equivalent to reimplementing part of the haproxy exporter; and hard-bound to haproxy — swap the LB and it is dead
+2. ~~link-out/iframe embedding of Grafana~~ — **rejected as the main plan**: a fragmented experience (a second UI), permissions bypassing the platform's RBAC (Grafana would need anonymous/auth-proxy setup)
+3. **Final decision**: collection and storage use the Prometheus exporter ecosystem (open source); the presentation layer is rendered platform-native (reading the Prometheus API directly + Ant Design Charts); Grafana remains only as an external-link fallback for deep analysis
 
-### 分层架构
+### Layered Architecture
 
 ```text
-HAProxy 2.4+ 内置 exporter（零新增容器，cfg 一行）
-        → Prometheus（存储/历史/聚合/告警，开源 TSDB）
-        → Server 只读代理端点（metric 白名单 + 平台 RBAC 鉴权收口）
-        → Dashboard 原生图表页 /ops/lb（与 dbmon 同模式：server 拉数、原生渲染）
+HAProxy 2.4+ built-in exporter (zero new containers, one line in the cfg)
+        → Prometheus (storage/history/aggregation/alerting, open-source TSDB)
+        → Server read-only proxy endpoint (metric allowlist + platform RBAC auth consolidation)
+        → Dashboard native chart page /ops/lb (the same pattern as dbmon: the server pulls the data, native rendering)
 ```
 
-自己做 VS 不做的边界：
+The boundary of what we build ourselves vs. what we don't:
 
-| 层                 | 自研 or 开源         | 理由                                           |
-| ------------------ | -------------------- | ---------------------------------------------- |
-| 采集（exporter）   | 开源                 | 每个 LB 都有官方/社区 exporter，追不完也不该追 |
-| 存储/查询/告警引擎 | 开源（Prometheus）   | TSDB 自研纯属重复劳动                          |
-| 查询代理 + 图表    | **自研（薄两层）**   | 鉴权收口 + 体验一致；dbmon 页是同模式先例      |
-| 深度分析大盘       | 开源（Grafana 外链） | 平台只做日常对账，不复制 Grafana               |
+| Layer                      | In-house or open source             | Rationale                                                                                                      |
+| -------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Collection (exporter)      | open source                         | every LB has an official/community exporter; keeping up with them all is impossible and shouldn't be attempted |
+| Storage/query/alert engine | open source (Prometheus)            | building your own TSDB is pure duplicated labor                                                                |
+| Query proxy + charts       | **in-house (two thin layers)**      | auth consolidation + a consistent experience; the dbmon page is the same-pattern precedent                     |
+| Deep-analysis dashboard    | open source (Grafana external link) | the platform only does daily reconciliation; it does not clone Grafana                                         |
 
-### 开源 exporter 对照表
+### Open-Source Exporter Comparison
 
-| LB         | 方案                                                                                                         | 接入成本       |
-| ---------- | ------------------------------------------------------------------------------------------------------------ | -------------- |
-| HAProxy    | 2.4+ 内置 Prometheus exporter（`http-request use-service prometheus-exporter`）——本仓库 haproxy 2.9 原生支持 | 极低（改 cfg） |
-| nginx      | `nginx-prometheus-exporter`（nginxinc 官方）                                                                 | 低（sidecar）  |
-| keepalived | `keepalived-exporter`（VRRP 状态/漂移）                                                                      | 低             |
-| LVS/IPVS   | `prometheus-ipvs-exporter`（需宿主权限）                                                                     | 中             |
-| 云 NLB     | 云厂商 exporter（AWS yace / 阿里云 aliyun-exporter）                                                         | 中（云凭据）   |
-| 通用兜底   | `blackbox_exporter`（TCP 探测入口可达/延迟——无管理接口也适用）                                               | 极低           |
+| LB                 | Solution                                                                                                                                       | Integration cost           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| HAProxy            | built-in Prometheus exporter since 2.4+ (`http-request use-service prometheus-exporter`) — natively supported by this repository's haproxy 2.9 | very low (edit the cfg)    |
+| nginx              | `nginx-prometheus-exporter` (official from nginxinc)                                                                                           | low (sidecar)              |
+| keepalived         | `keepalived-exporter` (VRRP state/drift)                                                                                                       | low                        |
+| LVS/IPVS           | `prometheus-ipvs-exporter` (needs host privileges)                                                                                             | medium                     |
+| Cloud NLB          | cloud vendor exporter (AWS yace / Alibaba Cloud aliyun-exporter)                                                                               | medium (cloud credentials) |
+| Universal fallback | `blackbox_exporter` (TCP probing of entry reachability/latency — works even without a management API)                                          | very low                   |
 
-Grafana 官方大盘：HAProxy 2（dashboard ID 12693）、NGINX（12708），导入即用。
+Official Grafana dashboards: HAProxy 2 (dashboard ID 12693), NGINX (12708) — import and use.
 
-### 平台侧核心图表（原生渲染）
+### Core Platform-Side Charts (native rendering)
 
-| 图              | PromQL（现成）                                                         | 对账意义                 |
-| --------------- | ---------------------------------------------------------------------- | ------------------------ |
-| 各后端会话分布  | `haproxy_backend_current_sessions`                                     | 与归属表 agentCount 对照 |
-| 后端健康状态    | `haproxy_server_status`                                                | UP/DOWN/NMA 实时可见     |
-| 请求速率/错误率 | `haproxy_backend_http_requests_total` / `haproxy_backend_errors_total` | 流量异常发现             |
-| 健康检查失败    | `haproxy_server_check_failures`                                        | 半死实例探测             |
+| Chart                            | PromQL (off the shelf)                                                 | Reconciliation meaning                               |
+| -------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| Per-backend session distribution | `haproxy_backend_current_sessions`                                     | cross-check against the ownership table's agentCount |
+| Backend health state             | `haproxy_server_status`                                                | UP/DOWN/NMA visible in real time                     |
+| Request rate/error rate          | `haproxy_backend_http_requests_total` / `haproxy_backend_errors_total` | traffic anomaly detection                            |
+| Health check failures            | `haproxy_server_check_failures`                                        | half-dead instance detection                         |
 
-**对账列（僵尸探测器）**：`/ops/cluster` 每实例展示「LB 会话数 vs 归属表 agent 数」——两者长期不一致（连接在、心跳停）即半开连接信号，正是 HA 双实例排障中最缺的一屏可见性。
+**Reconciliation column (zombie detector)**: `/ops/cluster` shows, per instance, "LB session count vs. ownership-table agent count" — a long-term mismatch between the two (connection alive, heartbeat stopped) is the half-open-connection signal, exactly the screenful of visibility most missing when debugging HA dual instances.
 
-### 配置化（不写死任何地址）
+### Configurable (No Addresses Hardcoded)
 
 ```yaml
-# server.yaml——部署拓扑事实，支持环境变量覆盖（与 cluster 段同模式）
+# server.yaml — deployment topology facts, overridable via environment variables (the same pattern as the cluster block)
 ops:
-  prometheusUrl: http://prometheus:9090 # 空 = /ops/lb 页隐藏（单实例/无遥测栈优雅降级）
-  grafanaUrl: http://grafana:3000 # 可选，配置后出现"深度分析"外链
+  prometheusUrl: http://prometheus:9090 # empty = the /ops/lb page is hidden (graceful degradation for single instance / no telemetry stack)
+  grafanaUrl: http://grafana:3000 # optional; when set, a "deep analysis" external link appears
 ```
 
-- 未配置 → 页面不出现，零依赖
-- 换 LB / 加 keepalived → 只改 prometheus.yml 的 scrape job，平台侧零改动
-- 配置归属支持层（ops 段），不进站点配置（业务运营开关）——遵循信号分层定案
+- unset → the page does not appear, zero dependencies
+- swapping the LB / adding keepalived → only change the scrape job in prometheus.yml; zero platform-side changes
+- configuration ownership: the support layer (the ops block), not site configuration (business operation switches) — following the signal-layering decision
 
-### 网络注意点（部署）
+### Networking Notes (Deployment)
 
-telemetry 栈（`docker-compose.telemetry.yaml`）与 deploy 栈（`docker-compose.deploy.yml`）是**两个独立 compose 网络**。Server 连 Prometheus 需要任选其一：
+The telemetry stack (`docker-compose.telemetry.yaml`) and the deploy stack (`docker-compose.deploy.yml`) are **two separate compose networks**. For the Server to reach Prometheus, pick one of:
 
-1. 共享 external network（`croupier-telemetry` 声明为 external 并挂给 deploy 栈）
-2. `prometheusUrl` 指宿主映射端口（`http://<host>:19092`）
+1. share an external network (declare `croupier-telemetry` as external and attach it to the deploy stack)
+2. point `prometheusUrl` at a host-mapped port (`http://<host>:19092`)
 
-HAProxy exporter 端点只需集群内可达（scrape 走容器网），**无需暴露宿主端口**——顺带解决 stats :8404 裸奔问题（stats 页可加 basic auth 或完全收回内网，平台代理走 exporter 通道）。
+The HAProxy exporter endpoint only needs to be reachable within the cluster (the scrape goes over the container network); **no host port exposure is needed** — which incidentally solves the exposed stats :8404 problem (the stats page can get basic auth or be pulled fully back into the intranet; the platform proxy goes over the exporter channel).
 
-### 与 agent 视角三方对账的关系（并行推进）
+### Relationship to the Agent-View Three-Way Reconciliation (Proceeding in Parallel)
 
-Prometheus 生态覆盖的是**支持层**（LB 管理面数据）；平台仍需自研**业务数据面真实性**（生态覆盖不了）：
+The Prometheus ecosystem covers the **support layer** (LB management-plane data); the platform still has to build the **business data-plane truth** itself (the ecosystem does not cover it):
 
 ```text
-三方对账：
-  LB 视角   ：agent 的 TCP 会话在实例 X（Prometheus / exporter）
-  归属表视角：实例 X claim 了该 agent，心跳新鲜（cluster_agent_owners）
-  agent 视角：agent 自报"我连着实例 X"（注册响应携带 instanceId，心跳回传）
+Three-way reconciliation:
+  LB view        : the agent's TCP session is on instance X (Prometheus / exporter)
+  Ownership view : instance X claims this agent, heartbeat fresh (cluster_agent_owners)
+  Agent view     : the agent self-reports "I'm connected to instance X" (the registration response carries instanceId, echoed by the heartbeat)
 ```
 
-三方不一致的组合即可精确定位故障形态（半开连接 / 路由漂移 / 注册丢失）。agent 视角为零配置通用实现（不依赖任何 LB 类型），与本节 Prometheus 管道互补。
+Any inconsistent combination of the three precisely pinpoints the failure shape (half-open connection / route drift / lost registration). The agent view is a zero-configuration universal implementation (independent of any LB type), complementary to the Prometheus pipeline in this section.
 
-### 落地阶段
+### Landing Phases
 
-| 阶段 | 内容                                                                                                 | 依赖               |
-| ---- | ---------------------------------------------------------------------------------------------------- | ------------------ |
-| P0   | haproxy.cfg 开 exporter + telemetry prometheus.yml 加 scrape + 文档                                  | 无（纯配置）       |
-| P1   | `ops.prometheusUrl` 配置 + server 只读代理端点（metric 白名单）+ `/ops/lb` 原生图表 + cluster 对账列 | P0                 |
-| P2   | agent 视角三方对账（注册响应带 instanceId + 心跳自报 owner + nodes 页对账列）                        | 无（独立于 P0/P1） |
-| P3   | Grafana 外链配置化 + blackbox_exporter 数据面探测标配                                                | P1                 |
+| Phase | Content                                                                                                                                              | Dependencies                |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| P0    | enable the exporter in haproxy.cfg + add the scrape to telemetry prometheus.yml + documentation                                                      | none (pure config)          |
+| P1    | `ops.prometheusUrl` configuration + server read-only proxy endpoint (metric allowlist) + `/ops/lb` native charts + the cluster reconciliation column | P0                          |
+| P2    | agent-view three-way reconciliation (registration response carries instanceId + heartbeat self-reports the owner + nodes page reconciliation column) | none (independent of P0/P1) |
+| P3    | Grafana external-link configuration + blackbox_exporter as standard for data-plane probing                                                           | P1                          |

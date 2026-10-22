@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -113,7 +113,17 @@ func TestCicdHandler_RejectsBadPathID(t *testing.T) {
 		{http.MethodPost, "/cicd/integrations/0/trigger", `{"pipeline":"p"}`},
 		{http.MethodPost, "/cicd/builds/abc/refresh", ""},
 		{http.MethodPost, "/cicd/builds/0/refresh", ""},
+		// 溢出：超 uint32 的路径 id 必须在 pathID 处拒绝（bitSize 32），
+		// 而非 64 位解析后被 uint() 静默截断（CodeQL
+		// go/incorrect-integer-conversion，32 位平台 2^32→0）。
+		{http.MethodPut, "/cicd/integrations/4294967296", `{"name":"x"}`},
+		{http.MethodDelete, "/cicd/integrations/4294967296", ""},
+		{http.MethodPost, "/cicd/builds/4294967296/refresh", ""},
 	}
+	// 边界接受：uint32 上边界（4294967295）在 bitSize 32 内可解析，不被
+	// pathID 拒绝（不存在记录由 service 层按 404 处理）。
+	w := doCicd(r, http.MethodDelete, "/cicd/integrations/4294967295", "")
+	assert.NotEqual(t, http.StatusBadRequest, w.Code, "uint32 上边界不应被 pathID 拒绝：%s", w.Body.String())
 	for _, tc := range cases {
 		w := doCicd(r, tc.method, tc.target, tc.body)
 		assert.Equal(t, http.StatusBadRequest, w.Code, "%s %s → %d %s", tc.method, tc.target, w.Code, w.Body.String())

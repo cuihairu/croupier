@@ -9,7 +9,7 @@ import React from 'react';
 import { App as AntdApp } from 'antd';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ExecutionLogsPage from '../index';
-import { listExecutionLogs } from '@/services/api/executionLogs';
+import { listExecutionLogOperators, listExecutionLogs } from '@/services/api/executionLogs';
 
 configure({ asyncUtilTimeout: 5000 });
 jest.setTimeout(20000);
@@ -56,6 +56,7 @@ jest.mock('antd', () => {
 jest.mock('@/services/api/executionLogs', () => ({
   listExecutionLogs: jest.fn(),
   getExecutionLog: jest.fn(),
+  listExecutionLogOperators: jest.fn(),
 }));
 
 // ProTable 桩：挂载触发一次 request，并把 pagination.showTotal 的返回值
@@ -144,6 +145,7 @@ jest.mock('@ant-design/pro-components', () => {
 });
 
 const mockedList = jest.mocked(listExecutionLogs);
+const mockedListOperators = jest.mocked(listExecutionLogOperators);
 
 const sampleItem = {
   id: 1,
@@ -161,6 +163,7 @@ const sampleItem = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockedList.mockResolvedValue({ items: [sampleItem], total: 42 });
+  mockedListOperators.mockResolvedValue([{ value: 'alice', count: 7 }]);
 });
 
 describe('执行留痕页残余分支', () => {
@@ -234,7 +237,7 @@ describe('执行留痕页残余分支', () => {
     const { container } = renderPage();
     await screen.findByText('player.kick');
 
-    await chooseSelectOption(0, '页面');
+    await chooseSelectOption(1, '页面');
     await waitFor(() =>
       expect(mockedList).toHaveBeenLastCalledWith(expect.objectContaining({ source: 'page' })),
     );
@@ -245,7 +248,7 @@ describe('执行留痕页残余分支', () => {
       expect(mockedList.mock.calls[mockedList.mock.calls.length - 1][0].source).toBeUndefined(),
     );
 
-    await chooseSelectOption(1, '失败');
+    await chooseSelectOption(2, '失败');
     await waitFor(() =>
       expect(mockedList).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'error' })),
     );

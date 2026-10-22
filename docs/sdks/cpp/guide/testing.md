@@ -10,5 +10,3 @@
 - Windows/Linux/macOS 构建一致性
 
 ## 继续阅读
-
-- [测试覆盖率提升进度](/sdks/cpp/test-implementation-progress)

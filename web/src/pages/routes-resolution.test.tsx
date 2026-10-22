@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import LoginLogsPage from './Admin/LoginLogs';
 import OperationLogsPage from './Admin/OperationLogs';
 import TicketDetailPage from './Support/Tickets/Detail';
+import RiskStrategiesPage from './Risk/Strategies';
 
 jest.mock('@/services/api', () => ({
   listAudit: jest.fn().mockResolvedValue({ events: [] }),
@@ -21,6 +22,17 @@ jest.mock('@/services/api/support', () => ({
 }));
 
 jest.mock('@/services/api/storage', () => ({ uploadAsset: jest.fn() }));
+
+// Risk/Strategies 直渲染：service 全 resolve（App.useApp 的 message 不被
+// 触达），锁「真实页面」而非占位。
+jest.mock('@/services/api/opsCapture', () => ({
+  getCaptureGates: jest.fn().mockResolvedValue({ key: 'capture.gates', version: 0, content: '' }),
+  listCaptureGatesVersions: jest.fn().mockResolvedValue([]),
+  rollbackCaptureGates: jest.fn().mockResolvedValue({ version: 2 }),
+}));
+jest.mock('@/services/api/ops', () => ({
+  listOpsNodes: jest.fn().mockResolvedValue({ nodes: [] }),
+}));
 
 // 整页渲染用例在 coverage instrumentation 负载下撞默认 5s 用例预算
 // （隔离跑恒绿），与 Ops/Jobs 等重 suite 同法放宽
@@ -47,6 +59,7 @@ describe('configured page route modules', () => {
     ['Admin/LoginLogs', LoginLogsPage, /登录日志/],
     ['Admin/OperationLogs', OperationLogsPage, /操作日志/],
     ['Support/Tickets/Detail', TicketDetailPage, /工单详情/],
+    ['Risk/Strategies', RiskStrategiesPage, /风控策略/],
   ])('%s resolves to the real page instead of a placeholder', async (_route, Component, title) => {
     await act(async () => {
       render(<Component />);

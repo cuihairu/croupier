@@ -6,6 +6,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -18,6 +19,14 @@ type warningRegisterClientC struct{}
 func (warningRegisterClientC) Connected() bool { return true }
 
 func (warningRegisterClientC) Close() error { return nil }
+
+func (warningRegisterClientC) PullProbePolicy(context.Context, []byte) ([]byte, error) {
+	return nil, errors.New("not used in this test")
+}
+
+func (warningRegisterClientC) PullProbeDBTargets(context.Context, []byte) ([]byte, error) {
+	return nil, errors.New("not used in this test")
+}
 
 func (warningRegisterClientC) Register(context.Context, *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
 	return &agentv1.RegisterResponse{
@@ -37,6 +46,8 @@ func (warningRegisterClientC) RegisterCapabilities(context.Context, *agentv1.Reg
 func (warningRegisterClientC) SendTaskEvent(context.Context, []byte) error { return nil }
 
 func (warningRegisterClientC) SendMetricEvent(context.Context, []byte) error { return nil }
+
+func (warningRegisterClientC) SendAlertEvent(context.Context, []byte) error { return nil }
 
 // syncOnce：注册响应带 warnings 时走 Warn 分支并正常完成同步，不视为
 // 注册失败。

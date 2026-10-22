@@ -74,6 +74,6 @@ providers:
 4. Agent `providers.yaml` 增加 provider 条目，重启 Agent（或通过扩展安装下发）。
 
 完整字段参考与鉴权配置见
-[Agent OpenAPI Provider 指南](../../docs/guide/integrations/agent-providers.md)；
+Agent OpenAPI Provider 指南；
 与 Dashboard「OpenAPI Source」绑定的关系见
-[OpenAPI 函数注册](../../docs/guide/integrations/openapi-registration.md)。
+OpenAPI 函数注册。

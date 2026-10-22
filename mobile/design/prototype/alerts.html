@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P4 告警处理 · croupier 手机端原型</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="glyphs">▂▄▆ &nbsp;5G&nbsp;&nbsp;100%</span></div>
+
+  <div class="topbar">
+    <div>
+      <div class="title">告警</div>
+      <div class="sub">5 条未处理 · 按 严重度 + 时间 排序</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="iconbtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      <span class="badge" style="background:var(--accent);">1</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="filters">
+      <div class="fchip active">紧急<span class="n">1</span></div>
+      <div class="fchip">警告<span class="n">4</span></div>
+      <div class="fchip">已处理<span class="n">12</span></div>
+    </div>
+
+    <!-- 紧急卡：可展开态 -->
+    <div class="alert-card">
+      <div class="stripe" style="background:var(--crit);"></div>
+      <div class="body">
+        <div class="head">
+          <span class="chip crit">紧急</span>
+          <span class="chip prod">PROD</span>
+          <span class="spacer"></span>
+          <span style="font-size:11px; color:var(--fg-3); font-family:var(--mono);">5 分钟前</span>
+        </div>
+        <div class="msg">agent-07 心跳丢失超过 3 分钟，生产服函数不可达</div>
+        <div class="src">来源 agent-07 · tower_defense/prod · rule:heartbeat_lost</div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <div class="btn small ghost" style="flex:1;">关联节点</div>
+          <div class="btn small ghost" style="flex:1;">静默 1h</div>
+          <div class="btn small tone-crit" style="flex:1;">认领处理</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 警告卡：已认领态（带处理记录） -->
+    <div class="alert-card">
+      <div class="stripe" style="background:var(--warn);"></div>
+      <div class="body">
+        <div class="head">
+          <span class="chip warn">警告</span>
+          <span class="chip dev">DEV</span>
+          <span class="chip ok" style="margin-left:auto;">处理中 · 王运维</span>
+        </div>
+        <div class="msg">DB 连接池使用率 92%，接近上限</div>
+        <div class="src">croupier-meta · postgres · rule:pool_saturation</div>
+        <div class="note"><b style="color:var(--fg);">处理记录 · 13:58</b><br>已定位慢查询 term_dict 全表扫，加索引中；预计 20 分钟内回落，暂不扩容。</div>
+        <div class="acts">
+          <div class="btn small ghost" style="flex:1;">追加记录</div>
+          <div class="btn small tone-ok" style="flex:1;">标记已解决</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 警告卡：未认领态 -->
+    <div class="alert-card">
+      <div class="stripe" style="background:var(--warn);"></div>
+      <div class="body">
+        <div class="head">
+          <span class="chip warn">警告</span>
+          <span class="chip prod">PROD</span>
+          <span class="spacer"></span>
+          <span style="font-size:11px; color:var(--fg-3); font-family:var(--mono);">41 分钟前</span>
+        </div>
+        <div class="msg">支付回调延迟 P95 &gt; 2s，持续 10 分钟</div>
+        <div class="src">payment-gateway · rule:callback_latency</div>
+        <div class="acts">
+          <div class="btn small ghost" style="flex:1;">详情</div>
+          <div class="btn small" style="flex:1;">认领处理</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      首页
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      服务器
+    </div>
+    <div class="tab-fab">
+      <div class="orb">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      执行
+    </div>
+    <div class="tab active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      告警
+      <span class="badge">5</span>
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      我的
+    </div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<div class="notes">
+  <h3>P4 告警处理 · 设计说明</h3>
+  <div class="blk"><div class="bt">布局</div><p>严重度 tabs（紧急/警告/已处理，带计数）→ 告警卡流。每卡结构：色条（严重度）→ 标签行（级别 + 环境 + 状态/时间）→ 一句话事故描述 → 规则来源（mono）→ 动作区。展开卡内嵌处理记录时间线。</p></div>
+  <div class="blk"><div class="bt">关键交互</div><p>① 认领即锁：点击「认领处理」写入处理人与时间，避免多人重复响应（与桌面端 two-person 规则联动，高风险处置仍需第二人在桌面端复核）；② 「静默 1h」抑制重复通知但保留卡片；③ 处理记录追加式留痕，标记已解决需填写根因摘要（进入审计链）。</p></div>
+  <div class="blk"><div class="bt">信息层级</div><p>紧急卡色条 + 描边 + 主按钮红色，视觉权重最高；处理中卡突出「谁在管、进展如何」而非按钮；已处理折叠为单行可查。规则 ID 用 mono 灰字——定位有用、扫视无用，刻意降权。</p></div>
+</div>
+
+</body>
+</html>

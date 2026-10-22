@@ -3,6 +3,12 @@
 // plain SQL against information_schema / performance_schema / pg_stat_*,
 // executed with a hard timeout on a read-only connection. Metrics a cloud
 // RDS does not expose are reported as unavailable (degraded), never guessed.
+//
+// 连通判定收口 core/healthprobe.DBChecker（R4 评审简档 §6：探测实现只留
+// 一份）：不可用 = 连不上（Ping 或只读断言失败），error 串即不可用原因。
+// 诊断电池（连接水位/锁等待/死锁计数）是 gate 语义而非探测语义——留本端点，
+// 复用同一次执行打开的同一连接，不独立连库（一份实现两处消费）。电池查询
+// 失败只降级指标，不改变可用性判定。
 package dbmon
 
 import (
@@ -12,8 +18,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/internal/model"
 )
+
+// verdictTimeout 连通判定硬超时（对齐 DBChecker 默认，只读不写）。
+const verdictTimeout = 5 * time.Second
 
 // ProbeResult is the normalized snapshot for one source.
 type ProbeResult struct {
@@ -75,10 +85,17 @@ func Probe(ctx context.Context, src *model.DBSource, dsn string) (*ProbeResult, 
 		return res, nil
 	}
 	defer func() { _ = db.Close() }()
-	res.LatencyMS = time.Since(start).Milliseconds()
 
-	pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// 连通判定走 DBChecker（探测实现只留一份）：Ping + 只读断言，error 即
+	// 不可用原因串。连不上时电池不再执行（连接是死的，查询只会徒劳）。
+	pctx, cancel := context.WithTimeout(ctx, verdictTimeout)
 	defer cancel()
+	chk := &healthprobe.DBChecker{Timeout: verdictTimeout}
+	if verr := chk.CheckWith(pctx, db); verr != nil {
+		res.Error = verr.Error()
+		res.LatencyMS = time.Since(start).Milliseconds()
+		return res, nil
+	}
 
 	switch driver {
 	case "postgres":
@@ -87,9 +104,7 @@ func Probe(ctx context.Context, src *model.DBSource, dsn string) (*ProbeResult, 
 		probeMySQL(pctx, db, res)
 	}
 
-	if res.Error == "" {
-		res.OK = true
-	}
+	res.OK = true
 	res.LatencyMS = time.Since(start).Milliseconds()
 	return res, nil
 }
@@ -109,29 +124,29 @@ func probeMySQL(ctx context.Context, db *sql.DB, res *ProbeResult) {
 	rows, err := db.QueryContext(ctx,
 		"SHOW GLOBAL STATUS WHERE Variable_name IN ('Threads_connected','Threads_running','Innodb_deadlocks','Queries','Com_commit','Com_rollback')")
 	if err != nil {
-		res.Error = "status query: " + err.Error()
+		// 不可达已在 DBChecker 连通判定拦下（Error=连不上）；这里读不到
+		// 状态表 = 监控账号权限不足，指标降级，不改可用性判定。
 		return
-	} else {
-		statuses := map[string]string{}
-		for rows.Next() {
-			_ = rows.Scan(&variable, &value)
-			statuses[variable] = value
-		}
-		_ = rows.Close()
-		res.Connections.Current = atoi(statuses["Threads_connected"])
-		res.Connections.Active = atoi(statuses["Threads_running"])
-		if v := atoi(statuses["Innodb_deadlocks"]); v > 0 || statuses["Innodb_deadlocks"] != "" {
-			n := int64(v)
-			res.DeadlockCount = &n
-			res.DeadlockNote = "cumulative since server start"
-		}
-		if q := statuses["Queries"]; q != "" {
-			n := int64(atoi(q))
-			res.QueryCount = &n
-		}
-		t := int64(atoi(statuses["Com_commit"]) + atoi(statuses["Com_rollback"]))
-		res.TxnCount = &t
 	}
+	statuses := map[string]string{}
+	for rows.Next() {
+		_ = rows.Scan(&variable, &value)
+		statuses[variable] = value
+	}
+	_ = rows.Close()
+	res.Connections.Current = atoi(statuses["Threads_connected"])
+	res.Connections.Active = atoi(statuses["Threads_running"])
+	if v := atoi(statuses["Innodb_deadlocks"]); v > 0 || statuses["Innodb_deadlocks"] != "" {
+		n := int64(v)
+		res.DeadlockCount = &n
+		res.DeadlockNote = "cumulative since server start"
+	}
+	if q := statuses["Queries"]; q != "" {
+		n := int64(atoi(q))
+		res.QueryCount = &n
+	}
+	t := int64(atoi(statuses["Com_commit"]) + atoi(statuses["Com_rollback"]))
+	res.TxnCount = &t
 
 	var maxConns sql.NullInt64
 	if err := db.QueryRowContext(ctx, "SELECT @@max_connections").Scan(&maxConns); err == nil {
@@ -178,9 +193,8 @@ SELECT
   current_setting('max_connections')::int
 FROM pg_stat_activity`).Scan(&cur, &active, &maxc)
 	if err != nil {
-		// 与 MySQL 路径对齐：核心状态查询失败（不可达/权限不足）必须置
-		// Error，否则不可达的 postgres 源会被报成 OK=true。
-		res.Error = "status query: " + err.Error()
+		// 不可达已在 DBChecker 连通判定拦下（Error=连不上）；这里读不到
+		// 状态表 = 监控账号权限不足，指标降级，不改可用性判定。
 		return
 	}
 	res.Connections = &ConnectionsInfo{Current: cur, Active: active, Max: maxc}

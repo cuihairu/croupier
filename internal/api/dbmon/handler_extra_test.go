@@ -113,11 +113,11 @@ func TestDBMonHandler_CreateSourceRejections(t *testing.T) {
 		body string
 		want string
 	}{
-		{"bad driver", `{"name":"x","driver":"oracle","dsn":"a:b@c/d"}`, "驱动"},
-		{"bad kind", `{"name":"x","driver":"mysql","kind":"gcp","dsn":"a:b@c/d"}`, "部署类型"},
-		{"root dsn", `{"name":"x","driver":"mysql","dsn":"root:pw@tcp(127.0.0.1)/x"}`, "只读"},
-		{"superuser dsn", `{"name":"x","driver":"postgres","dsn":"postgres://superuser:pw@h/db"}`, "只读"},
-		{"malformed dsn", `{"name":"x","driver":"mysql","dsn":"just-a-string"}`, "DSN"},
+		{"bad driver", `{"name":"x","driver":"oracle","dsn":"a:b@c/d","gameId":"demo","env":"prod"}`, "驱动"},
+		{"bad kind", `{"name":"x","driver":"mysql","kind":"gcp","dsn":"a:b@c/d","gameId":"demo","env":"prod"}`, "部署类型"},
+		{"root dsn", `{"name":"x","driver":"mysql","dsn":"root:pw@tcp(127.0.0.1)/x","gameId":"demo","env":"prod"}`, "只读"},
+		{"superuser dsn", `{"name":"x","driver":"postgres","dsn":"postgres://superuser:pw@h/db","gameId":"demo","env":"prod"}`, "只读"},
+		{"malformed dsn", `{"name":"x","driver":"mysql","dsn":"just-a-string","gameId":"demo","env":"prod"}`, "DSN"},
 		{"empty name", `{"name":"","driver":"mysql","dsn":"a:b@c/d"}`, "名称"},
 	}
 	for _, tc := range cases {
@@ -135,7 +135,8 @@ func TestDBMonHandler_CreateSourceRejections(t *testing.T) {
 func TestDBMonHandler_UpdateDeleteInvalidOrMissingID(t *testing.T) {
 	r, _, srcModel, _ := newDBMonTestEnv(t)
 	ctx := context.Background()
-	src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN, Enabled: true}
+	src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
+		GameID: "demo", Env: "prod", Enabled: true}
 	require.NoError(t, srcModel.Create(ctx, src))
 
 	for _, path := range []string{"/dbmon/sources/abc", "/dbmon/sources/0", "/dbmon/sources/-1"} {
@@ -154,7 +155,8 @@ func TestDBMonHandler_UpdateDeleteInvalidOrMissingID(t *testing.T) {
 func TestDBMonService_UpdateSourceFieldValidation(t *testing.T) {
 	dbmonSvc, srcModel, _ := newDBMonFixture(t)
 	ctx := context.Background()
-	src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN, Enabled: true}
+	src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
+		GameID: "demo", Env: "prod", Enabled: true}
 	require.NoError(t, srcModel.Create(ctx, src))
 	id := fmt.Sprintf("%d", src.ID)
 
@@ -195,12 +197,14 @@ func TestDBMonService_CreateSourceCreatedByFallback(t *testing.T) {
 	dbmonSvc, srcModel, _ := newDBMonFixture(t)
 	ctx := context.Background()
 
-	resp, err := dbmonSvc.CreateSource(ctx, &SourceUpsertRequest{Name: "a", Driver: "mysql", DSN: goodDSN})
+	resp, err := dbmonSvc.CreateSource(ctx, &SourceUpsertRequest{Name: "a", Driver: "mysql", DSN: goodDSN,
+		GameID: "demo", Env: "prod"})
 	require.NoError(t, err)
 	assert.Equal(t, "system", resp.CreatedBy)
 
 	named := context.WithValue(ctx, "username", "bob")
-	resp, err = dbmonSvc.CreateSource(named, &SourceUpsertRequest{Name: "b", Driver: "mysql", DSN: goodDSN})
+	resp, err = dbmonSvc.CreateSource(named, &SourceUpsertRequest{Name: "b", Driver: "mysql", DSN: goodDSN,
+		GameID: "demo", Env: "prod"})
 	require.NoError(t, err)
 	assert.Equal(t, "bob", resp.CreatedBy)
 
@@ -222,15 +226,16 @@ func TestDBMonHandler_ProbeAllDegradedOnUnreachable(t *testing.T) {
 
 	// 坏 DSN 的 mysql 源(enabled)、正常但 disabled 的源、坏 DSN 的 postgres 源。
 	require.NoError(t, srcModel.Create(ctx, &model.DBSource{
-		Name: "bad-mysql", Driver: "mysql", Kind: model.DBSourceKindSelf,
+		Name: "bad-mysql", Driver: "mysql", Kind: model.DBSourceKindSelf, GameID: "demo", Env: "prod",
 		DSN: "ro:ro@tcp(127.0.0.1:1)/none?timeout=1s&readTimeout=1s", Enabled: true,
 	}))
-	off := &model.DBSource{Name: "disabled", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN}
+	off := &model.DBSource{Name: "disabled", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
+		GameID: "demo", Env: "prod"}
 	require.NoError(t, srcModel.Create(ctx, off))
 	// Create 会把零值 Enabled=false 吞成列默认 true,用 map 更新关闭。
 	require.NoError(t, srcModel.Update(ctx, off.ID, map[string]interface{}{"enabled": false}))
 	require.NoError(t, srcModel.Create(ctx, &model.DBSource{
-		Name: "bad-pg", Driver: "postgres", Kind: model.DBSourceKindAliyun,
+		Name: "bad-pg", Driver: "postgres", Kind: model.DBSourceKindAliyun, GameID: "demo", Env: "prod",
 		DSN: "postgres://ro:pw@127.0.0.1:1/none?sslmode=disable&connect_timeout=1", Enabled: true,
 	}))
 
@@ -285,7 +290,8 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 
 	t.Run("lock waits above default threshold fires critical", func(t *testing.T) {
 		dbmonSvc, srcModel, alertModel := newDBMonFixture(t)
-		src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN}
+		src := &model.DBSource{Name: "s", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
+			GameID: "demo", Env: "prod"}
 		require.NoError(t, srcModel.Create(ctx, src))
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(6, nil))
 
@@ -301,7 +307,8 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 
 	t.Run("lock waits at custom threshold", func(t *testing.T) {
 		dbmonSvc, srcModel, alertModel := newDBMonFixture(t)
-		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, LockWaitWarn: 2}
+		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod",
+			LockWaitWarn: 2}
 		require.NoError(t, srcModel.Create(ctx, src))
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(2, nil)) // 等于阈值不触发
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(3, nil)) // 超过触发
@@ -312,7 +319,7 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 
 	t.Run("connection ratio default threshold 80", func(t *testing.T) {
 		dbmonSvc, srcModel, alertModel := newDBMonFixture(t)
-		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN}
+		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod"}
 		require.NoError(t, srcModel.Create(ctx, src))
 
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(0, &ConnectionsInfo{Current: 79, Max: 100}))
@@ -330,7 +337,8 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 
 	t.Run("custom conn warn ratio suppresses default", func(t *testing.T) {
 		dbmonSvc, srcModel, alertModel := newDBMonFixture(t)
-		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, ConnWarnRatio: 95}
+		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod",
+			ConnWarnRatio: 95}
 		require.NoError(t, srcModel.Create(ctx, src))
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(0, &ConnectionsInfo{Current: 90, Max: 100}))
 		alerts, _, err := alertModel.List(ctx, model.ListAlertsOptions{})
@@ -340,7 +348,7 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 
 	t.Run("lock wait takes precedence over conn ratio", func(t *testing.T) {
 		dbmonSvc, srcModel, alertModel := newDBMonFixture(t)
-		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN}
+		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod"}
 		require.NoError(t, srcModel.Create(ctx, src))
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(6, &ConnectionsInfo{Current: 95, Max: 100}))
 		alerts, _, err := alertModel.List(ctx, model.ListAlertsOptions{})
@@ -351,7 +359,7 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 
 	t.Run("firing dedups then resolves", func(t *testing.T) {
 		dbmonSvc, srcModel, alertModel := newDBMonFixture(t)
-		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN}
+		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod"}
 		require.NoError(t, srcModel.Create(ctx, src))
 
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(6, nil))
@@ -373,7 +381,7 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 
 	t.Run("probe error result is ignored", func(t *testing.T) {
 		dbmonSvc, srcModel, alertModel := newDBMonFixture(t)
-		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN}
+		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod"}
 		require.NoError(t, srcModel.Create(ctx, src))
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, &ProbeResult{Error: "boom"})
 		alerts, _, err := alertModel.List(ctx, model.ListAlertsOptions{})

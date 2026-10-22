@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// ErrGameNotFound 标识"游戏不存在"。同时包装 gorm.ErrRecordNotFound：
+// 调用方可用 errors.Is 精确识别；漏了翻译的路径也会被响应层的
+// record-not-found 分支兜底成 404，而不是把普通 error 泄成 500。
+// 文案保留 "game not found" 以兼容既有断言。
+var ErrGameNotFound = fmt.Errorf("game not found: %w", gorm.ErrRecordNotFound)
+
 // GameModel 提供游戏数据访问方法
 type GameModel struct {
 	db *gorm.DB
@@ -36,7 +42,7 @@ func (m *GameModel) FindOne(ctx context.Context, id uint) (*Game, error) {
 	var game Game
 	if err := m.db.WithContext(ctx).First(&game, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("game not found")
+			return nil, ErrGameNotFound
 		}
 		return nil, err
 	}
@@ -48,7 +54,7 @@ func (m *GameModel) FindByName(ctx context.Context, name string) (*Game, error) 
 	var game Game
 	if err := m.db.WithContext(ctx).Where("name = ?", name).First(&game).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("game not found")
+			return nil, ErrGameNotFound
 		}
 		return nil, err
 	}
@@ -74,9 +80,11 @@ func (m *GameModel) Update(ctx context.Context, id uint, updates map[string]inte
 	return m.db.WithContext(ctx).Model(&Game{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// Delete 删除游戏
+// Delete 删除游戏。物理删除：game_id/alias_name 是含软删行的物理唯一索引，
+// 软删行会占住索引位导致同名游戏重建直接 duplicate-key 500（0024/0026 同族
+// 事故）；游戏本体无恢复入口，墓碑行没有保留价值。
 func (m *GameModel) Delete(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&Game{}, id).Error
+	return m.db.WithContext(ctx).Unscoped().Delete(&Game{}, id).Error
 }
 
 // List 分页获取游戏列表
@@ -152,7 +160,7 @@ func (m *GameModel) FindByGameIDString(ctx context.Context, gameID string) (*Gam
 	var game Game
 	if err := m.db.WithContext(ctx).Where("game_id = ?", gameID).First(&game).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("game not found")
+			return nil, ErrGameNotFound
 		}
 		return nil, err
 	}
@@ -275,11 +283,13 @@ func (m *GameModel) UpdateEnvsAndBindings(
 }
 
 // DeleteWithEnvBindings deletes a game and all its routing bindings as one
-// transaction. The Game row remains soft-deleted while the routing metadata
-// is hard-deleted so a future game may reuse the business identifier.
+// transaction. Both the Game row and the routing metadata are hard-deleted so
+// a future game may reuse the business identifier — games.game_id/alias_name
+// 唯一索引含软删行，软删墓碑会让同名重建直接 duplicate-key 500（线上实证
+// e2e_walkthrough_tmp；0024/0026 软删残留同族）。
 func (m *GameModel) DeleteWithEnvBindings(ctx context.Context, id uint, gameID string) error {
 	return m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Delete(&Game{}, id).Error; err != nil {
+		if err := tx.Unscoped().Delete(&Game{}, id).Error; err != nil {
 			return err
 		}
 		return tx.Unscoped().Where("game_id = ?", gameID).Delete(&GameEnvBinding{}).Error

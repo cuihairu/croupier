@@ -31,6 +31,7 @@ export type DirectoryPageSchema = {
       | 'operation'
       | 'tags'
       | 'enabled'
+      | 'assignments'
       | 'actions';
     title: string;
     width?: number;
@@ -178,6 +179,14 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
         defaultMessage: '状态',
       }),
       width: 80,
+    },
+    {
+      key: 'assignments',
+      title: intl.formatMessage({
+        id: 'pages.functionsDirectory.column.assignments',
+        defaultMessage: '开放范围',
+      }),
+      width: 130,
     },
     {
       key: 'actions',

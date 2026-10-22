@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/sidecar"
+	"github.com/cuihairu/croupier/agents/sidecar/funcplugin"
+	"github.com/cuihairu/croupier/core/configsync"
+	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/agent"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
@@ -19,7 +24,6 @@ import (
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -36,8 +40,9 @@ type App struct {
 	extensionMu      sync.RWMutex
 	extensionPuller  *ExtensionSyncPuller
 	outTLS           *tlsutil.ClientTLSConfig
+	localTLS         *tls.Config
 	providerManager  *ProviderManager
-	providerSessions *agent.ProviderSessionStore
+	providerSessions *sidecar.ProviderSessionStore
 	telemetry        *telemetry.GameTelemetryService
 	configDir        string
 
@@ -52,16 +57,25 @@ type App struct {
 	localAddr     string
 
 	// Ops module (optional)
+	opsMu     sync.Mutex
 	opsConfig *OpsConfig
 	opsServer *OpsServer
 	agentID   string
 	version   string
+
+	// probeManager 声明式探针装配（R2）。为 nil = 未配置探测（默认）。
+	probeManager *ProbeManager
+
+	// funcHost 函数适配插件宿主（todo.md:35）。为 nil = 未配置（默认）。
+	funcHost *funcplugin.Host
 
 	// serveLocal 是本地 listener Serve 的注入点：生产为 nil（走真实
 	// tcpServer.Serve），测试注入返回非 Canceled 错误的实现以驱动
 	// StartLocalServer 的错误日志分支（listener 在函数内部构造，无法
 	// 从外部触发其 Accept 故障路径）。
 	serveLocal func(server *agent.TCPLocalListener) error
+	serveErrMu sync.Mutex
+	serveErr   chan error
 }
 
 func (a *App) WithTelemetry(service *telemetry.GameTelemetryService) {
@@ -69,6 +83,15 @@ func (a *App) WithTelemetry(service *telemetry.GameTelemetryService) {
 		return
 	}
 	a.telemetry = service
+}
+
+// TelemetryService returns the wired telemetry service (nil when the OTel
+// master switch is off and nothing was wired, todo.md:31).
+func (a *App) TelemetryService() *telemetry.GameTelemetryService {
+	if a == nil {
+		return nil
+	}
+	return a.telemetry
 }
 
 func New(serverAddr, agentID string) *App {
@@ -145,13 +168,18 @@ func (a *App) StartLocalServer() error {
 	if a.opsConfig == nil {
 		a.opsConfig = DefaultOpsConfig()
 	}
+	a.opsMu.Lock()
 	a.opsServer = NewOpsServer(a.opsConfig, a.agentID, a.version, nil)
-	opsWrapper := &opsServerWrapper{ops: a.opsServer}
+	opsServer := a.opsServer
+	a.opsMu.Unlock()
+	opsWrapper := &opsServerWrapper{ops: opsServer}
 	a.localHandler.SetOpsServer(opsWrapper)
+	// 托管进程快照随 metrics 上报捎带（supervisor S1）
+	a.upstream.WithSupervisorSampler(opsServer)
 
 	// Keep each SDK Provider's established TCP session so invocations can be
 	// forwarded over that session instead of dialing a provider-supplied address.
-	providerSessions := agent.NewProviderSessionStore()
+	providerSessions := sidecar.NewProviderSessionStore()
 	a.localHandler.SetProviderSessionStore(providerSessions)
 	a.providerSessions = providerSessions
 	tcpServer, err := agent.NewTCPLocalListener(&agent.TCPLocalListenerConfig{
@@ -162,6 +190,7 @@ func (a *App) StartLocalServer() error {
 		// heartbeat and Server reports no live agent for their functions.
 		RecvTimeout: 2 * time.Minute,
 		SendTimeout: 30 * time.Second,
+		TLSConfig:   a.localTLS,
 	}, providerSessions, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
@@ -174,14 +203,14 @@ func (a *App) StartLocalServer() error {
 		probe := agent.NewProviderKeepalive(providerSessions, probeInterval, slog.Default())
 		go probe.Run(context.Background())
 	}
-	tcpServer.SetOnConnect(func(session *agent.ProviderSession) {
+	tcpServer.SetOnConnect(func(session *sidecar.ProviderSession) {
 		addr := session.Conn().RemoteAddr()
 		// 平台固定键 + 会话携带的用户实例元数据（保留键已在帧解析时剥离，
 		// 见 agent.MergeUserProviderMetadata）。
 		a.store.Register(session.SessionID, session.ServiceID, addr, session.Version, session.Functions,
 			agent.MergeProviderInstanceMetadata(session, a.upstream.GameID(), a.upstream.Env()))
 	})
-	tcpServer.SetOnDisconnect(func(session *agent.ProviderSession) {
+	tcpServer.SetOnDisconnect(func(session *sidecar.ProviderSession) {
 		a.store.RemoveProvider(session.SessionID)
 	})
 	a.localServerMu.Lock()
@@ -198,10 +227,22 @@ func (a *App) StartLocalServer() error {
 			return server.Serve(context.Background())
 		}
 	}
+	a.serveErrMu.Lock()
+	if a.serveErr == nil {
+		a.serveErr = make(chan error, 1)
+	}
+	serveErr := a.serveErr
+	a.serveErrMu.Unlock()
 	go func() {
 		if err := serve(tcpServer); err != nil && !errors.Is(err, context.Canceled) {
-			slog.Error("agent tcp local server stopped", "error", err)
+			serveErr <- err
+			return
 		}
+		a.localServerMu.Lock()
+		if a.localServer != nil {
+			a.localServer = nil
+		}
+		a.localServerMu.Unlock()
 	}()
 
 	return nil
@@ -231,11 +272,48 @@ func (a *App) SetLocalAddr(addr string) {
 
 // Run starts the agent's background processes (upstream sync and local server).
 func (a *App) Run(ctx context.Context) error {
-	// Start local TCP server for SDK connections
-	if err := a.StartLocalServer(); err != nil {
-		return fmt.Errorf("failed to start local server: %w", err)
+	if err := a.startLocalServerSafely(); err != nil {
+		a.Stop()
+		return err
 	}
 
+	if err := a.startAgentServices(ctx); err != nil {
+		a.Stop()
+		return err
+	}
+
+	select {
+	case err := <-a.currentServeErr():
+		a.Stop()
+		return fmt.Errorf("agent local server failed: %w", err)
+	default:
+	}
+	return nil
+}
+
+func (a *App) startLocalServerSafely() error {
+	err := a.StartLocalServer()
+	if err != nil {
+		return fmt.Errorf("failed to start local server: %w", err)
+	}
+	a.serveErrMu.Lock()
+	serveErr := a.serveErr
+	a.serveErrMu.Unlock()
+	select {
+	case err := <-serveErr:
+		return fmt.Errorf("agent local server failed: %w", err)
+	default:
+		return nil
+	}
+}
+
+func (a *App) currentServeErr() chan error {
+	a.serveErrMu.Lock()
+	defer a.serveErrMu.Unlock()
+	return a.serveErr
+}
+
+func (a *App) startAgentServices(ctx context.Context) error {
 	// Load providers before starting upstream
 	if a.providerManager != nil {
 		if err := a.providerManager.Load(ctx); err != nil {
@@ -245,7 +323,96 @@ func (a *App) Run(ctx context.Context) error {
 
 	a.startMaintenance(ctx)
 	a.startExtensionSync(ctx)
-	return a.upstream.Start(ctx)
+	a.startProbes(ctx)
+	a.startProbePolicy(ctx)
+	a.startProbeDBTargets(ctx)
+	if err := a.upstream.Start(ctx); err != nil {
+		return err
+	}
+	if err := a.opsServer.Start(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// WithProbeConfig 配置声明式探针（`probe.targets[]`，R2）。校验失败即返回错误
+// 且不起装配——配置错却在运行期静默少探，等于把观测面悄悄关掉。targets 为
+// 空也起装配（R4：空静态集 = 只接 server 派生的 db 目标）。
+func (a *App) WithProbeConfig(cfg *ProbeConfig) error {
+	if a == nil || cfg == nil {
+		return nil
+	}
+	if a.upstream == nil {
+		return errors.New("agent upstream not initialized")
+	}
+	pm, err := NewProbeManager(cfg.Targets, ProbeManagerOptions{
+		AgentID:             a.agentID,
+		GameID:              a.upstream.GameID(),
+		Env:                 a.upstream.Env(),
+		Send:                a.upstream.AlertEventSender(),
+		MaxDetailsPerWindow: cfg.MaxDetailsPerWindow,
+	})
+	if err != nil {
+		return err
+	}
+	a.probeManager = pm
+	// 正常态统计折进 metrics 批量面（§13.1：探测统计与系统指标同面捎带）。
+	a.upstream.WithProbeSampler(pm)
+	return nil
+}
+
+// ProbeManager 返回已装配的探针面（未配置时 nil）。
+func (a *App) ProbeManager() *ProbeManager {
+	if a == nil {
+		return nil
+	}
+	return a.probeManager
+}
+
+// startProbes 启动周期探测（每个目标一个 goroutine，随 ctx 取消退出）。
+func (a *App) startProbes(ctx context.Context) {
+	if a == nil || a.probeManager == nil {
+		return
+	}
+	go a.probeManager.Start(ctx)
+}
+
+// startProbePolicy 启动采样策略下行轮询（probe.policy，§13.3 C）。未配置
+// 探针面时不启动；未就绪期间按本地配置间隔跑，策略到达后热更。
+func (a *App) startProbePolicy(ctx context.Context) {
+	if a == nil || a.probeManager == nil || a.upstream == nil {
+		return
+	}
+	NewProbePolicyPuller(a.probeManager, a.fetchProbePolicy, configsync.DefaultInterval, nil).Start(ctx)
+}
+
+// fetchProbePolicy 采样策略拉取（经 control conn 的 MsgProbePolicyRequest；
+// version 空串 = 未发布，Puller 保持现状）。
+func (a *App) fetchProbePolicy(ctx context.Context) (*configsync.Versioned[string], error) {
+	resp, err := a.upstream.PullProbePolicy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &configsync.Versioned[string]{Version: resp.GetVersion(), Payload: resp.GetPolicyJson()}, nil
+}
+
+// startProbeDBTargets 启动 db 探针目标下行轮询（R4：server 按
+// db_sources.owner_agent_id 归属派生；探测面未装配时不启动）。
+func (a *App) startProbeDBTargets(ctx context.Context) {
+	if a == nil || a.probeManager == nil || a.upstream == nil {
+		return
+	}
+	NewProbeDBTargetsPuller(a.probeManager, a.fetchProbeDBTargets, configsync.DefaultInterval, nil).Start(ctx)
+}
+
+// fetchProbeDBTargets db 目标拉取（经 control conn 的 MsgProbeDBTargetsRequest；
+// version = 目标集内容 hash，空集也有 hash）。
+func (a *App) fetchProbeDBTargets(ctx context.Context) (*configsync.Versioned[string], error) {
+	resp, err := a.upstream.PullProbeDBTargets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &configsync.Versioned[string]{Version: resp.GetVersion(), Payload: resp.GetTargetsJson()}, nil
 }
 
 func (a *App) startMaintenance(ctx context.Context) {
@@ -307,6 +474,14 @@ func (a *App) Stop() {
 	if a == nil {
 		return
 	}
+	// Stop function adapter plugin hosting first (todo.md:35): drain
+	// in-flight plugin calls within the bounded window, then kill the
+	// resident subprocesses — no plugin child outlives the agent. The
+	// wired host is cleared so post-stop access sees "not wired".
+	if a.funcHost != nil {
+		a.funcHost.Stop()
+		a.funcHost = nil
+	}
 	// Stop local TCP server（localServer 经锁快照读取，与 StartLocalServer
 	// 的发布同步；启动未完成即收到停止信号时此处看到 nil，与原 nil 检查
 	// 语义一致）
@@ -326,6 +501,12 @@ func (a *App) Stop() {
 		if err := a.telemetry.Shutdown(ctx); err != nil {
 			slog.Warn("agent telemetry shutdown failed", "error", err)
 		}
+	}
+	a.opsMu.Lock()
+	opsServer := a.opsServer
+	a.opsMu.Unlock()
+	if opsServer != nil {
+		opsServer.Stop()
 	}
 }
 
@@ -388,6 +569,16 @@ func (a *App) WithOutboundTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 	a.outTLS = cfg
 }
 
+// WithLocalTLSConfig enables TLS on the Agent's local gateway — the listener
+// SDK Providers dial into (configs/agent.yaml `tls:` section). Nil (default)
+// keeps plain TCP.
+func (a *App) WithLocalTLSConfig(cfg *tls.Config) {
+	if a == nil {
+		return
+	}
+	a.localTLS = cfg
+}
+
 // Store exposes the local instance registry.
 func (a *App) Store() *agentlocal.LocalStore {
 	if a == nil {
@@ -439,6 +630,8 @@ func (a *App) OpsServer() *OpsServer {
 	if a == nil {
 		return nil
 	}
+	a.opsMu.Lock()
+	defer a.opsMu.Unlock()
 	return a.opsServer
 }
 
@@ -937,8 +1130,20 @@ func (w *opsServerWrapper) StartProcess(ctx context.Context, req *opsv1.StartPro
 	return w.ops.StartProcess(ctx, req)
 }
 
+func (w *opsServerWrapper) UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error) {
+	return w.ops.UpdateProcess(ctx, req)
+}
+
+func (w *opsServerWrapper) SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error) {
+	return w.ops.SetSchedulePause(ctx, req)
+}
+
 func (w *opsServerWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	return w.ops.ExecuteCommand(ctx, req)
+}
+
+func (w *opsServerWrapper) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	return w.ops.GetSupervisorLog(ctx, req)
 }
 
 func (w *opsServerWrapper) ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error) {

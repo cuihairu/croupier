@@ -99,6 +99,37 @@ import (
 //   0038 (Go)   cicd_integrations + cicd_builds 表（CI/CD 可插拔 provider
 //               接入 #58：外部构建系统注册 + 构建记录；game-scoped，单库/
 //               多游戏两 scope 都补齐；0020 execution_logs 同模式）
+//   0039 (Go)   games 软删除残留行清理（0024/0026 同族：games 删除路径改
+//               硬删后，把已软删的存量游戏行物理清除——game_id/alias_name
+//               的物理唯一索引被墓碑行占位，同名重建 500，线上实证）
+//   0040 (Go)   incident_categories + incidents 表 + bugs.category_id/
+//               subcategory 列 + 播种默认七行类别（事故报表体系批 1，
+//               docs/design/incident-reports.md；建表 0019/0038 模式、
+//               加列 0025 模式、播种按 slug 幂等缺行才插）
+//   0041 (Go)   incident_reports + external_tokens 表 + messages 加五列
+//               （level/source/ref_type/ref_id/scope，level 历史回填 info）
+//               + task_schedules.kind 列（回填 function）（事故报表体系
+//               批 4 §2.4/§2.5：建表 0019/0038 模式、加列 0025 模式；
+//               调度行播种不在迁移内——Manager 支持 kind 路由后才落行）
+//   0042 (Go)   alerts 工作流状态四列 handle_status/handled_by/
+//               handled_remark/handled_at（风险事件扩展，
+//               risk-control-panel-design.md §3.3；独立于入站 lifecycle
+//               status 列，加列 0033 模式；存量行回填 pending）
+//   0043 (Go)   alerts scope 两列 game_id/env（4862 ops 告警列表按
+//               game/env 过滤；空 = 平台级全局可见，非空 = game/env 级；
+//               加列 0033 模式；存量行不回填——历史告警无 scope 归属，
+//               诚实留空）
+//   0044 (Go)   agent_metrics_history.probe_json 列（探测统计持久化，
+//               agent-health-recovery-review.md §13.1 统计面；加列 0025
+//               模式；存量行不回填——历史窗口无统计快照）
+//   0045 (Go)   db_sources.owner_agent_id 列（DB 源周期探测归属 agent，
+//               agent-health-recovery-review.md §12 R4；加列 0025 模式；
+//               存量行不回填——历史源无归属=未归属，server 诊断端点兜底）
+//   0046 (Go)   probe_events 建表（synthetics 探测事件持久化表；此前只在
+//               AutoMigrate 路径存在，线上 postgres 缺表即写入报错，且
+//               payload `type:blob` 为 MySQL 专有使 Migration Matrix 在
+//               pg/mssql 直接失败；HasTable 检查后 CreateTable，新表无
+//               存量约束名漂移；payload 走驱动 bytes 默认映射）
 
 func init() {
 	registerSvcMigrations()
@@ -147,6 +178,14 @@ func registerSvcMigrations() {
 		announcementGamesTableMigration(),
 		emailVerificationMigration(),
 		cicdTablesMigration(),
+		gameSoftDeleteResidueCleanupMigration(),
+		incidentTablesMigration(),
+		reportDistributionMigration(),
+		alertHandlingMigration(),
+		alertScopeMigration(),
+		agentMetricsProbeJSONMigration(),
+		dbSourceOwnerMigration(),
+		probeEventsTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1197,6 +1236,306 @@ func migrateCicdTables(ctx context.Context, sqlDB *sql.DB) error {
 		if err := migrator.CreateTable(&model.CicdBuild{}); err != nil {
 			return fmt.Errorf("migrate: 0038 create cicd_builds: %w", err)
 		}
+	}
+	return nil
+}
+
+// gameSoftDeleteResidueCleanupMigration 为 0039：games 删除路径改硬删
+// （Unscoped）之后，把 0024/0026 同族的存量软删游戏行物理清除。
+// games.game_id 与 games.alias_name 是含软删行的物理唯一索引，墓碑行占住
+// 索引位会导致同名游戏重建直接 duplicate-key 500（线上实证：删除
+// e2e_walkthrough_tmp 后重建报 idx_games_game_id 冲突）。纯 DELETE，
+// 不动表结构，幂等；缺表/缺列跳过。
+func gameSoftDeleteResidueCleanupMigration() *goose.Migration {
+	return goose.NewGoMigration(39,
+		&goose.GoFunc{RunDB: migrateGameSoftDeleteResidue},
+		nil,
+	)
+}
+
+// migrateGameSoftDeleteResidue 是 0039 的迁移体（抽出便于直测）。
+func migrateGameSoftDeleteResidue(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.Game{}) {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&model.Game{}, "DeletedAt") {
+		return nil
+	}
+	if err := db.Exec("DELETE FROM games WHERE deleted_at IS NOT NULL").Error; err != nil {
+		return fmt.Errorf("migrate: 0039 purge soft-deleted rows from games: %w", err)
+	}
+	return nil
+}
+
+// incidentTablesMigration 为 0040：事故报表体系批 1（docs/design/
+// incident-reports.md）——incident_categories + incidents 建表（HasTable
+// 检查后 CreateTable，0019/0038 新表模式，无存量约束名漂移）+ bugs 加
+// category_id/subcategory 两列（HasColumn+AddColumn，0025 加列模式）+
+// 播种默认七行类别（未分类兜底 + 六类职能域，按 slug 幂等缺行才插，
+// 已有行不回改）。
+func incidentTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(40,
+		&goose.GoFunc{RunDB: migrateIncidentTables},
+		nil,
+	)
+}
+
+// migrateIncidentTables 是 0040 的迁移体（抽出便于直测）。
+func migrateIncidentTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.IncidentCategory{}) {
+		if err := m.CreateTable(&model.IncidentCategory{}); err != nil {
+			return fmt.Errorf("migrate: 0040 create incident_categories: %w", err)
+		}
+	}
+	if !m.HasTable(&model.Incident{}) {
+		if err := m.CreateTable(&model.Incident{}); err != nil {
+			return fmt.Errorf("migrate: 0040 create incidents: %w", err)
+		}
+	}
+	// bugs 缺表的库（multiGame fanout 重放到 game 库）整段跳过：不建空壳
+	if m.HasTable(&model.Bug{}) {
+		for _, col := range []string{"CategoryID", "Subcategory"} {
+			if !m.HasColumn(&model.Bug{}, col) {
+				if err := m.AddColumn(&model.Bug{}, col); err != nil {
+					return fmt.Errorf("migrate: 0040 add bugs.%s: %w", col, err)
+				}
+			}
+		}
+	}
+	if err := model.SeedIncidentCategories(ctx, db); err != nil {
+		return fmt.Errorf("migrate: 0040 seed incident categories: %w", err)
+	}
+	return nil
+}
+
+// reportDistributionMigration 为 0041：事故报表体系批 4（docs/design/
+// incident-reports.md §2.4/§2.5）——incident_reports + external_tokens 建
+// 表（HasTable 检查后 CreateTable，新表无存量约束名漂移）+ messages 加
+// level/source/ref_type/ref_id/scope 五列（HasColumn+AddColumn，0025 模
+// 式；level 历史行回填 info）+ task_schedules 加 kind 列（回填 function，
+// 存量行全是 function 形态）。调度行播种不在迁移内：Manager 支持 kind
+// 路由（批 4c）之前落行会被误派发到占位 function_id 进 dead_letter。
+func reportDistributionMigration() *goose.Migration {
+	return goose.NewGoMigration(41,
+		&goose.GoFunc{RunDB: migrateReportDistribution},
+		nil,
+	)
+}
+
+// migrateReportDistribution 是 0041 的迁移体（抽出便于直测）。
+func migrateReportDistribution(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.IncidentReport{}) {
+		if err := m.CreateTable(&model.IncidentReport{}); err != nil {
+			return fmt.Errorf("migrate: 0041 create incident_reports: %w", err)
+		}
+	}
+	if !m.HasTable(&model.ExternalToken{}) {
+		if err := m.CreateTable(&model.ExternalToken{}); err != nil {
+			return fmt.Errorf("migrate: 0041 create external_tokens: %w", err)
+		}
+	}
+	// 缺表的库（multiGame fanout 重放到 game 库）整段跳过：不建空壳
+	if m.HasTable(&model.Message{}) {
+		for _, col := range []string{"Level", "Source", "RefType", "RefID", "Scope"} {
+			if !m.HasColumn(&model.Message{}, col) {
+				if err := m.AddColumn(&model.Message{}, col); err != nil {
+					return fmt.Errorf("migrate: 0041 add messages.%s: %w", col, err)
+				}
+			}
+		}
+		// level 回填：ADD COLUMN 的 default 只保证新行，存量行跨驱动保险
+		if err := db.WithContext(ctx).Exec(
+			"UPDATE messages SET level = ? WHERE level IS NULL OR level = ''",
+			model.MessageLevelInfo,
+		).Error; err != nil {
+			return fmt.Errorf("migrate: 0041 backfill messages.level: %w", err)
+		}
+	}
+	if m.HasTable(&model.TaskSchedule{}) {
+		if !m.HasColumn(&model.TaskSchedule{}, "Kind") {
+			if err := m.AddColumn(&model.TaskSchedule{}, "Kind"); err != nil {
+				return fmt.Errorf("migrate: 0041 add task_schedules.kind: %w", err)
+			}
+		}
+		if err := db.WithContext(ctx).Exec(
+			"UPDATE task_schedules SET kind = ? WHERE kind IS NULL OR kind = ''",
+			model.ScheduleKindFunction,
+		).Error; err != nil {
+			return fmt.Errorf("migrate: 0041 backfill task_schedules.kind: %w", err)
+		}
+	}
+	return nil
+}
+
+// alertHandlingMigration 为 0042：alerts 风险事件工作流状态四列
+// （handle_status/handled_by/handled_remark/handled_at，risk-control-panel
+// 设计 §3.3 风险事件扩展）。HandleStatus 独立于既有 status 列——后者被
+// AlertManager 入站 lifecycle（firing/resolved）占用，人工处理状态混列会
+// 互相覆盖。HasColumn+AddColumn 逐列补齐（0033 同模式；不整模型
+// AutoMigrate——0023 教训）；缺表跳过（fanout 不建空壳）；存量行回填
+// handle_status='pending'（与模型 default 对齐，NULL 不参与语义）。
+func alertHandlingMigration() *goose.Migration {
+	return goose.NewGoMigration(42,
+		&goose.GoFunc{RunDB: migrateAlertHandlingColumns},
+		nil,
+	)
+}
+
+// migrateAlertHandlingColumns 是 0042 的迁移体（抽出便于直测）。
+func migrateAlertHandlingColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.Alert{}) {
+		return nil
+	}
+	for _, col := range []string{"HandleStatus", "HandledBy", "HandledRemark", "HandledAt"} {
+		if migrator.HasColumn(&model.Alert{}, col) {
+			continue
+		}
+		if err := migrator.AddColumn(&model.Alert{}, col); err != nil {
+			return fmt.Errorf("migrate: 0042 add alerts.%s: %w", col, err)
+		}
+	}
+	// 存量行回填：待处理是唯一诚实的初始态（幂等，仅 NULL 行）。
+	if err := db.WithContext(ctx).Model(&model.Alert{}).
+		Where("handle_status IS NULL OR handle_status = ''").
+		Update("handle_status", model.AlertHandlePending).Error; err != nil {
+		return fmt.Errorf("migrate: 0042 backfill alerts.handle_status: %w", err)
+	}
+	return nil
+}
+
+// alertScopeMigration 为 0043：alerts scope 两列 game_id/env（4862 ops 告警
+// 列表按 game/env 过滤）。空 = 平台级（全局可见），非空 = game/env 级。
+// HasColumn+AddColumn 逐列补齐（0042 同模式）；缺表跳过；存量行不回填——
+// 历史告警无 scope 归属，诚实留空（平台级）。
+func alertScopeMigration() *goose.Migration {
+	return goose.NewGoMigration(43,
+		&goose.GoFunc{RunDB: migrateAlertScopeColumns},
+		nil,
+	)
+}
+
+// migrateAlertScopeColumns 是 0043 的迁移体（抽出便于直测）。
+func migrateAlertScopeColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.Alert{}) {
+		return nil
+	}
+	for _, col := range []string{"GameID", "Env"} {
+		if migrator.HasColumn(&model.Alert{}, col) {
+			continue
+		}
+		if err := migrator.AddColumn(&model.Alert{}, col); err != nil {
+			return fmt.Errorf("migrate: 0043 add alerts.%s: %w", col, err)
+		}
+	}
+	// 存量行不回填：历史告警无 scope 归属，留空（平台级）。
+	return nil
+}
+
+func agentMetricsProbeJSONMigration() *goose.Migration {
+	return goose.NewGoMigration(44,
+		&goose.GoFunc{RunDB: migrateAgentMetricsProbeJSON},
+		nil,
+	)
+}
+
+// migrateAgentMetricsProbeJSON 为 0044：agent_metrics_history 加 probe_json
+// 列（探测统计持久化，评审简档 §13.1）。模型定义在 platform/registry（svc
+// 可 import，无环）。存量行不回填——历史窗口本就无探测统计快照，留空。
+func migrateAgentMetricsProbeJSON(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&reg.AgentMetricsHistory{}) {
+		return nil
+	}
+	if migrator.HasColumn(&reg.AgentMetricsHistory{}, "ProbeJSON") {
+		return nil
+	}
+	if err := migrator.AddColumn(&reg.AgentMetricsHistory{}, "ProbeJSON"); err != nil {
+		return fmt.Errorf("migrate: 0044 add agent_metrics_history.probe_json: %w", err)
+	}
+	return nil
+}
+
+// dbSourceOwnerMigration 为 0045：db_sources 加 owner_agent_id 列（R4：DB 源
+// 周期探测下放归属 agent，M3 必须能把 DB 源指到具体 agent；空 = 未归属，
+// server 诊断端点兜底）。HasTable 跳过、HasColumn 幂等、存量行不回填
+// （历史源无归属=未归属，诚实留空）。不加索引：表小（注册源数十级）、
+// 归属查询按 ID 主键过滤后行扫，不为它引入存量索引漂移面。
+func dbSourceOwnerMigration() *goose.Migration {
+	return goose.NewGoMigration(45,
+		&goose.GoFunc{RunDB: migrateDBSourceOwnerColumn},
+		nil,
+	)
+}
+
+func migrateDBSourceOwnerColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.DBSource{}) {
+		return nil
+	}
+	if migrator.HasColumn(&model.DBSource{}, "OwnerAgentID") {
+		return nil
+	}
+	if err := migrator.AddColumn(&model.DBSource{}, "OwnerAgentID"); err != nil {
+		return fmt.Errorf("migrate: 0045 add db_sources.owner_agent_id: %w", err)
+	}
+	return nil
+}
+
+// probeEventsTableMigration 为 0046：probe_events 建表（synthetics 探测事件
+// 持久化，item 31/36 交付的模型 998e79f 起只在 AutoMigrate 路径建表，线上
+// postgres 从未有过该表——2026-10-20 实证 information_schema 无 probe_events，
+// 探测事件写入在线上必报错，页面侧永远查不到数据）。新建表无存量约束名漂移
+// 问题，HasTable 检查后 CreateTable；payload 列类型见 model.ProbeEvent 的
+// 注释（不用 MySQL 专有的 `type:blob`）。
+func probeEventsTableMigration() *goose.Migration {
+	return goose.NewGoMigration(46,
+		&goose.GoFunc{RunDB: migrateProbeEventsTable},
+		nil,
+	)
+}
+
+func migrateProbeEventsTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if db.Migrator().HasTable(&model.ProbeEvent{}) {
+		return nil
+	}
+	if err := db.Migrator().CreateTable(&model.ProbeEvent{}); err != nil {
+		return fmt.Errorf("migrate: 0046 create probe_events: %w", err)
 	}
 	return nil
 }

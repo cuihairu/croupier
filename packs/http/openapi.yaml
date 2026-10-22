@@ -42,7 +42,7 @@ paths:
                 - method
                 - url
       responses:
-        '200':
+        "200":
           description: Successful HTTP response
           content:
             application/json:

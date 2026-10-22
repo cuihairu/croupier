@@ -142,6 +142,8 @@ func TestOpsServer_ExecuteCommand(t *testing.T) {
 		cfg := DefaultOpsConfig()
 		cfg.Enabled = true
 		cfg.AllowExec = true
+		// 白名单前置（§10.7）：空列表不再等价「放行一切」，显式声明被测命令。
+		cfg.ExecAllowedCommands = []string{"echo", "sh", "sleep", "/nonexistent/cmd-xyz"}
 		cfg.ExecTimeout = 10 * time.Second
 		if mutate != nil {
 			mutate(cfg)

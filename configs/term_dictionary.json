@@ -3,12 +3,7 @@
     {
       "domain": "resource",
       "key": "player",
-      "aliases": [
-        "players",
-        "user",
-        "users",
-        "role"
-      ],
+      "aliases": ["players", "user", "users", "role"],
       "display": {
         "zh-CN": "玩家",
         "en-US": "Player"
@@ -18,10 +13,7 @@
     {
       "domain": "operation",
       "key": "create",
-      "aliases": [
-        "add",
-        "new"
-      ],
+      "aliases": ["add", "new"],
       "display": {
         "zh-CN": "创建",
         "en-US": "Create"
@@ -31,10 +23,7 @@
     {
       "domain": "resource",
       "key": "guild",
-      "aliases": [
-        "clan",
-        "alliance"
-      ],
+      "aliases": ["clan", "alliance"],
       "display": {
         "zh-CN": "公会",
         "en-US": "Guild"
@@ -44,13 +33,7 @@
     {
       "domain": "operation",
       "key": "read",
-      "aliases": [
-        "get",
-        "list",
-        "query",
-        "search",
-        "detail"
-      ],
+      "aliases": ["get", "list", "query", "search", "detail"],
       "display": {
         "zh-CN": "查询",
         "en-US": "Query"
@@ -70,11 +53,7 @@
     {
       "domain": "operation",
       "key": "update",
-      "aliases": [
-        "edit",
-        "patch",
-        "modify"
-      ],
+      "aliases": ["edit", "patch", "modify"],
       "display": {
         "zh-CN": "更新",
         "en-US": "Update"
@@ -84,9 +63,7 @@
     {
       "domain": "resource",
       "key": "inventory",
-      "aliases": [
-        "bag"
-      ],
+      "aliases": ["bag"],
       "display": {
         "zh-CN": "背包",
         "en-US": "Inventory"
@@ -96,10 +73,7 @@
     {
       "domain": "resource",
       "key": "mail",
-      "aliases": [
-        "message",
-        "messages"
-      ],
+      "aliases": ["message", "messages"],
       "display": {
         "zh-CN": "邮件",
         "en-US": "Mail"
@@ -109,9 +83,7 @@
     {
       "domain": "operation",
       "key": "delete",
-      "aliases": [
-        "remove"
-      ],
+      "aliases": ["remove"],
       "display": {
         "zh-CN": "删除",
         "en-US": "Delete"
@@ -121,11 +93,7 @@
     {
       "domain": "resource",
       "key": "order",
-      "aliases": [
-        "payment",
-        "payments",
-        "transaction"
-      ],
+      "aliases": ["payment", "payments", "transaction"],
       "display": {
         "zh-CN": "订单",
         "en-US": "Order"
@@ -135,11 +103,7 @@
     {
       "domain": "operation",
       "key": "ban",
-      "aliases": [
-        "mute",
-        "unban",
-        "unmute"
-      ],
+      "aliases": ["mute", "unban", "unmute"],
       "display": {
         "zh-CN": "风控",
         "en-US": "Risk Control"
@@ -149,10 +113,7 @@
     {
       "domain": "resource",
       "key": "match",
-      "aliases": [
-        "battle",
-        "arena"
-      ],
+      "aliases": ["battle", "arena"],
       "display": {
         "zh-CN": "对局",
         "en-US": "Match"
@@ -162,10 +123,7 @@
     {
       "domain": "operation",
       "key": "execute",
-      "aliases": [
-        "invoke",
-        "run"
-      ],
+      "aliases": ["invoke", "run"],
       "display": {
         "zh-CN": "执行",
         "en-US": "Execute"

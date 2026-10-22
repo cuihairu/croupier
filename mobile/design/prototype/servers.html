@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P3 服务器列表与状态 · croupier 手机端原型</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="glyphs">▂▄▆ &nbsp;5G&nbsp;&nbsp;100%</span></div>
+
+  <div class="topbar">
+    <div>
+      <div class="title">服务器</div>
+      <div class="sub">tower_defense · DEV · 14 个 agent</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="iconbtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </div>
+    <div class="iconbtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      搜索节点 / 函数 / 版本…
+    </div>
+
+    <div class="filters">
+      <div class="fchip active">全部<span class="n">14</span></div>
+      <div class="fchip">在线<span class="n">12</span></div>
+      <div class="fchip">离线<span class="n">2</span></div>
+      <div class="fchip">维护<span class="n">1</span></div>
+    </div>
+
+    <!-- 在线节点卡 -->
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:9px;">
+        <span class="dot ok"></span>
+        <div class="main" style="flex:1;">
+          <div style="font-size:14.5px; font-weight:700;">agent-01 <span class="chip prod" style="margin-left:5px;">PROD</span></div>
+          <div style="font-size:11.5px; color:var(--fg-3); margin-top:3px; font-family:var(--mono);">v1.4.2 · 128 函数 · 心跳 3s 前</div>
+        </div>
+        <div class="meta"><div class="m1" style="color:var(--ok);">23ms</div></div>
+      </div>
+      <div style="display:flex; gap:18px; margin-top:11px;">
+        <div class="meter"><div class="bar"><div class="fill" style="width:34%;"></div></div><div class="cap">CPU 34%</div></div>
+        <div class="meter"><div class="bar"><div class="fill hot" style="width:61%;"></div></div><div class="cap">MEM 61%</div></div>
+        <div style="flex:1"></div>
+        <div class="btn small ghost" style="align-self:center;">详情</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:9px;">
+        <span class="dot ok"></span>
+        <div class="main" style="flex:1;">
+          <div style="font-size:14.5px; font-weight:700;">agent-02 <span class="chip dev" style="margin-left:5px;">DEV</span></div>
+          <div style="font-size:11.5px; color:var(--fg-3); margin-top:3px; font-family:var(--mono);">v1.4.2 · 96 函数 · 心跳 1s 前</div>
+        </div>
+        <div class="meta"><div class="m1" style="color:var(--ok);">45ms</div></div>
+      </div>
+      <div style="display:flex; gap:18px; margin-top:11px;">
+        <div class="meter"><div class="bar"><div class="fill" style="width:12%;"></div></div><div class="cap">CPU 12%</div></div>
+        <div class="meter"><div class="bar"><div class="fill" style="width:38%;"></div></div><div class="cap">MEM 38%</div></div>
+        <div style="flex:1"></div>
+        <div class="btn small ghost" style="align-self:center;">详情</div>
+      </div>
+    </div>
+
+    <!-- 离线节点卡：异常态置顶级配色 -->
+    <div class="card" style="border-color:rgba(235,87,87,0.35);">
+      <div style="display:flex; align-items:center; gap:9px;">
+        <span class="dot crit"></span>
+        <div class="main" style="flex:1;">
+          <div style="font-size:14.5px; font-weight:700;">agent-07 <span class="chip prod" style="margin-left:5px;">PROD</span></div>
+          <div style="font-size:11.5px; color:var(--crit); margin-top:3px;">离线 12 分钟 · 最后心跳 21:05</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <div class="btn small ghost" style="flex:1;">查看日志</div>
+        <div class="btn small" style="flex:1;">尝试重连</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:9px;">
+        <span class="dot warn"></span>
+        <div class="main" style="flex:1;">
+          <div style="font-size:14.5px; font-weight:700;">agent-11 <span class="chip test" style="margin-left:5px;">TEST</span></div>
+          <div style="font-size:11.5px; color:var(--fg-3); margin-top:3px; font-family:var(--mono);">维护中 · drain 生效 10:02 起</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      首页
+    </div>
+    <div class="tab active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      服务器
+    </div>
+    <div class="tab-fab">
+      <div class="orb">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      执行
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      告警
+      <span class="badge">5</span>
+    </div>
+    <div class="tab">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      我的
+    </div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<div class="notes">
+  <h3>P3 服务器列表与状态 · 设计说明</h3>
+  <div class="blk"><div class="bt">布局</div><p>搜索 + 状态过滤 chips（带计数）→ 节点卡列表。每张卡三层：身份层（状态点 + 节点名 + 环境 chip + 版本/函数数/心跳）、指标层（CPU/MEM 迷你条 + 延迟）、动作层（详情/重连）。异常卡用红色描边升出列表。</p></div>
+  <div class="blk"><div class="bt">关键交互</div><p>① 状态点即健康语言：绿=在线（呼吸光晕）、琥珀=维护/drain、灰=离线、红=异常离线，配色与桌面端运维台一致；② 离线卡内联「尝试重连」直达 agent 重连指令（走任务模型，进度推送回告警）；③ 下拉刷新 + 30s 自动轮询心跳，弱网下降级为手动刷新。</p></div>
+  <div class="blk"><div class="bt">信息层级</div><p>运维扫视顺序 = 状态 → 身份 → 资源 → 动作。版本与函数数用 mono 小字降噪；延迟按阈值变色（&lt;80ms 绿）。过滤 chips 的计数让「离线 2」无需进列表就能感知规模。</p></div>
+</div>
+
+</body>
+</html>

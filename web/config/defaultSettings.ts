@@ -2,14 +2,17 @@ import { ProLayoutProps } from '@ant-design/pro-components';
 
 /**
  * @name
+ * pro-layout 静态壳层 token 保持中性默认（拂晓蓝观感）；主题套（默认蓝 /
+ * 荷官墨粉）的强调色由 global.less 的 CSS 变量（html[data-preset] 作用域）
+ * 与 <ThemeSync> 推送的 antd token 在运行时接管，这里不再钉任何品牌色。
  */
 const Settings: ProLayoutProps & {
   pwa?: boolean;
   logo?: string;
 } = {
   navTheme: 'light',
-  // 拂晓蓝
-  colorPrimary: '#1890ff',
+  // 拂晓蓝（antd 6 默认种子色）
+  colorPrimary: '#1677ff',
   layout: 'mix',
   contentWidth: 'Fluid',
   fixedHeader: true,

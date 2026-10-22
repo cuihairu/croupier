@@ -111,7 +111,11 @@ type DecodedPushResponse = {
   storedPath?: string;
 };
 type InboundDispatch = {
-  handleInboundRequest: (msgId: number, reqId: number, body: Buffer) => Promise<Buffer>;
+  handleInboundRequest: (
+    msgId: number,
+    reqId: number,
+    body: Buffer,
+  ) => Promise<Buffer>;
 };
 
 function inboundOf(client: BasicClient): InboundDispatch {
@@ -190,7 +194,10 @@ describe("startTask handler edge results", () => {
     payload?: Uint8Array;
   };
 
-  async function collectEvents(client: BasicClient, taskId: string): Promise<TaskEventShape[]> {
+  async function collectEvents(
+    client: BasicClient,
+    taskId: string,
+  ): Promise<TaskEventShape[]> {
     const events: TaskEventShape[] = [];
     const stream = client.streamTask(taskId) as AsyncIterable<TaskEventShape>;
     for await (const event of stream) {
@@ -209,12 +216,15 @@ describe("startTask handler edge results", () => {
 
     expect(events.map((event) => event.type)).toEqual(["started", "completed"]);
     expect(events[1].progress).toBe(100);
-    expect(new TextDecoder().decode(events[1].payload ?? new Uint8Array())).toBe("");
+    expect(
+      new TextDecoder().decode(events[1].payload ?? new Uint8Array()),
+    ).toBe("");
   });
 
   it("reports 'Handler failed' when the handler rejects with a non-Error", async () => {
     const client = new BasicClient({ autoReconnect: false });
-    const handler: FunctionHandler = () => Promise.reject("kaput") as unknown as Promise<string>;
+    const handler: FunctionHandler = () =>
+      Promise.reject("kaput") as unknown as Promise<string>;
     client.registerFunction({ id: "task.nonerror", version: "1.0.0" }, handler);
 
     const taskId = client.startTask("task.nonerror", "{}");
@@ -233,7 +243,9 @@ describe("startTask handler edge results", () => {
 
 describe("uploadFile content and extension edges", () => {
   it("copies cross-realm Uint8Array content that fails the instanceof check", async () => {
-    const crossRealm = runInNewContext("new Uint8Array([104, 105])") as Uint8Array;
+    const crossRealm = runInNewContext(
+      "new Uint8Array([104, 105])",
+    ) as Uint8Array;
     // The whole point of this input: a real Uint8Array from another context
     // whose `instanceof Uint8Array` is false, so the copy branch runs.
     expect(crossRealm instanceof Uint8Array).toBe(false);
@@ -246,7 +258,9 @@ describe("uploadFile content and extension edges", () => {
 
     expect(result.size).toBe(2);
     expect(result.sha256).toBe(
-      createHash("sha256").update(Buffer.from([104, 105])).digest("hex"),
+      createHash("sha256")
+        .update(Buffer.from([104, 105]))
+        .digest("hex"),
     );
   });
 
@@ -293,7 +307,9 @@ describe("file push field validation", () => {
     data?: Buffer;
   }): Buffer {
     return Buffer.from(
-      FilePushRequestMessage.encode(FilePushRequestMessage.create(fields)).finish(),
+      FilePushRequestMessage.encode(
+        FilePushRequestMessage.create(fields),
+      ).finish(),
     );
   }
 
@@ -307,7 +323,9 @@ describe("file push field validation", () => {
   it("rejects a push without transferId", async () => {
     const { push } = pushClient();
     const decoded = decode(
-      await push(pushBody({ fileName: "a.lua", data: payload, contentSha256: sha256 })),
+      await push(
+        pushBody({ fileName: "a.lua", data: payload, contentSha256: sha256 }),
+      ),
     );
     expect(decoded.ok).toBe(false);
     expect(decoded.error).toBe("transferId is required");
@@ -316,7 +334,9 @@ describe("file push field validation", () => {
   it("rejects a push without a file name (bare basename rule)", async () => {
     const { push } = pushClient();
     const decoded = decode(
-      await push(pushBody({ transferId: "t-1", data: payload, contentSha256: sha256 })),
+      await push(
+        pushBody({ transferId: "t-1", data: payload, contentSha256: sha256 }),
+      ),
     );
     expect(decoded.ok).toBe(false);
     expect(decoded.error).toContain("bare basename");
@@ -325,7 +345,13 @@ describe("file push field validation", () => {
   it("rejects a push with empty data", async () => {
     const { push } = pushClient();
     const decoded = decode(
-      await push(pushBody({ transferId: "t-2", fileName: "b.lua", contentSha256: sha256 })),
+      await push(
+        pushBody({
+          transferId: "t-2",
+          fileName: "b.lua",
+          contentSha256: sha256,
+        }),
+      ),
     );
     expect(decoded.ok).toBe(false);
     expect(decoded.error).toBe("file payload is empty");
@@ -334,7 +360,9 @@ describe("file push field validation", () => {
   it("rejects a push without a checksum", async () => {
     const { push } = pushClient();
     const decoded = decode(
-      await push(pushBody({ transferId: "t-3", fileName: "c.lua", data: payload })),
+      await push(
+        pushBody({ transferId: "t-3", fileName: "c.lua", data: payload }),
+      ),
     );
     expect(decoded.ok).toBe(false);
     expect(decoded.error).toBe("contentSha256 is required");
@@ -377,7 +405,9 @@ describe("file push field validation", () => {
       expect(decoded.storedPath).toBe(join("croupier-staging", "e.lua"));
       const storedAbsolute = join(workingDir, "croupier-staging", "e.lua");
       expect(fs.existsSync(storedAbsolute)).toBe(true);
-      expect(fs.readFileSync(storedAbsolute).toString()).toBe("print('gapfix')");
+      expect(fs.readFileSync(storedAbsolute).toString()).toBe(
+        "print('gapfix')",
+      );
     } finally {
       process.chdir(originalCwd);
       rmSync(workingDir, { recursive: true, force: true });
@@ -389,11 +419,11 @@ describe("file push field validation", () => {
     // writeFileSync throw a plain string. protobuf decode errors are always
     // Error instances, but the staging write calls into user-land FS code
     // where non-Error throwables are possible (e.g. EMFILE from a wrapper).
-    (fs.writeFileSync as unknown as ReturnType<typeof jest.fn>).mockImplementationOnce(
-      () => {
-        throw "EIO: disk on fire";
-      },
-    );
+    (
+      fs.writeFileSync as unknown as ReturnType<typeof jest.fn>
+    ).mockImplementationOnce(() => {
+      throw "EIO: disk on fire";
+    });
     const { push } = pushClient();
     const decoded = decode(
       await push(
@@ -519,18 +549,18 @@ describe("inbound payload validation fallbacks", () => {
       handler,
     );
 
-    const parseSpy = jest
-      .spyOn(JSON, "parse")
-      .mockImplementationOnce(() => {
-        throw "bad input stream";
-      });
+    const parseSpy = jest.spyOn(JSON, "parse").mockImplementationOnce(() => {
+      throw "bad input stream";
+    });
     const response = await (
       client as unknown as {
         handleInboundInvoke: (body: Buffer) => Promise<Buffer>;
       }
     ).handleInboundInvoke(encodeInvoke("jsonparse.fn", "x"));
 
-    const parsed = JSON.parse(decodeInvokePayload(response)) as { error?: string };
+    const parsed = JSON.parse(decodeInvokePayload(response)) as {
+      error?: string;
+    };
     expect(parsed.error).toBe("payload must be valid JSON: bad input stream");
     expect(handler).not.toHaveBeenCalled();
     parseSpy.mockRestore();
@@ -548,7 +578,11 @@ describe("inbound payload validation fallbacks", () => {
       validateInputPayloads: true,
     });
     client.registerFunction(
-      { id: "silentvalidator.fn", version: "1.0.0", inputSchema: { type: "object" } },
+      {
+        id: "silentvalidator.fn",
+        version: "1.0.0",
+        inputSchema: { type: "object" },
+      },
       handler,
     );
 
@@ -561,14 +595,19 @@ describe("inbound payload validation fallbacks", () => {
     cache.set(schemaKey, null);
     // First dispatch compiles-and-caches is bypassed by seeding the cache
     // with a validator that fails with no errors array at all.
-    const silentValidator = Object.assign(() => false, {}) as unknown as ValidateFunction;
+    const silentValidator = Object.assign(
+      () => false,
+      {},
+    ) as unknown as ValidateFunction;
     cache.set(schemaKey, silentValidator);
     let response = await (
       client as unknown as {
         handleInboundInvoke: (body: Buffer) => Promise<Buffer>;
       }
     ).handleInboundInvoke(encodeInvoke("silentvalidator.fn", "{}"));
-    let parsed = JSON.parse(decodeInvokePayload(response)) as { error?: string };
+    let parsed = JSON.parse(decodeInvokePayload(response)) as {
+      error?: string;
+    };
     expect(parsed.error).toBe("payload validation failed: ");
     expect(handler).not.toHaveBeenCalled();
 
@@ -609,7 +648,8 @@ describe("inbound invoke handler edge results", () => {
 
   it("reports 'Handler failed' when the handler rejects with a non-Error", async () => {
     const client = new BasicClient({ autoReconnect: false });
-    const handler: FunctionHandler = () => Promise.reject("boom") as unknown as Promise<string>;
+    const handler: FunctionHandler = () =>
+      Promise.reject("boom") as unknown as Promise<string>;
     client.registerFunction({ id: "str.fn", version: "1.0.0" }, handler);
 
     const response = await (
@@ -617,7 +657,9 @@ describe("inbound invoke handler edge results", () => {
         handleInboundInvoke: (body: Buffer) => Promise<Buffer>;
       }
     ).handleInboundInvoke(encodeInvoke("str.fn", "{}"));
-    const parsed = JSON.parse(decodeInvokePayload(response)) as { error?: string };
+    const parsed = JSON.parse(decodeInvokePayload(response)) as {
+      error?: string;
+    };
     expect(parsed.error).toBe("Handler failed");
   });
 });
@@ -691,7 +733,9 @@ describe("provider connect request flags", () => {
             msgType + 1,
             Buffer.from(
               ProviderConnectResponseMessage.encode(
-                ProviderConnectResponseMessage.create({ sessionId: "sess-gapfix" }),
+                ProviderConnectResponseMessage.create({
+                  sessionId: "sess-gapfix",
+                }),
               ).finish(),
             ),
           ];
@@ -762,7 +806,10 @@ describe("setFieldHint key normalization", () => {
   it("normalizes an x_ prefixed hint to the x- canonical form", () => {
     const withHint = setFieldHint(base, "level", "x_widget", "slider");
     const schema = withHint.inputSchema as Record<string, unknown>;
-    const properties = schema.properties as Record<string, Record<string, unknown>>;
+    const properties = schema.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
     expect(properties.level["x-widget"]).toBe("slider");
     // Original descriptor is not mutated.
     expect(base.inputSchema).toBeUndefined();
@@ -782,7 +829,12 @@ function withMockedFetch(
   const fetchSpy = jest.fn(((url: string | URL | Request, init?: RequestInit) =>
     responder(url.toString(), init)) as unknown as FetchImpl);
   globalThis.fetch = fetchSpy as unknown as FetchImpl;
-  return { fetchSpy, restore: () => { globalThis.fetch = original; } };
+  return {
+    fetchSpy,
+    restore: () => {
+      globalThis.fetch = original;
+    },
+  };
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -850,8 +902,14 @@ describe("invoker status-0 retry and schema_validation passthrough", () => {
     // (status 0, schema_validation). This matches the class of failures the
     // retry layer must treat as network-level (status 0) while invoke()
     // guarantees schema_validation errors surface untouched.
-    const synthetic = new InvokerError("synthetic schema failure", 0, "schema_validation");
-    const { fetchSpy, restore } = withMockedFetch(() => Promise.reject(synthetic));
+    const synthetic = new InvokerError(
+      "synthetic schema failure",
+      0,
+      "schema_validation",
+    );
+    const { fetchSpy, restore } = withMockedFetch(() =>
+      Promise.reject(synthetic),
+    );
     try {
       const invoker = new Invoker({
         baseUrl: "https://h/api/v1",
@@ -877,7 +935,10 @@ describe("invoker default timeout fallback", () => {
       // Note: the events URL carries a query string (?after_seq=...), so
       // match with includes() before the generic /tasks/ branch.
       if (url.includes("/events")) {
-        return jsonResponse({ items: [{ seq: 1, type: "completed" }], done: true });
+        return jsonResponse({
+          items: [{ seq: 1, type: "completed" }],
+          done: true,
+        });
       }
       if (url.endsWith("/cancel")) return jsonResponse({});
       if (url.includes("/tasks/")) {
@@ -901,7 +962,9 @@ describe("invoker default timeout fallback", () => {
         status: "running",
       });
       const events: string[] = [];
-      for await (const event of invoker.streamTask("t-gapfix", { pollIntervalMs: 0 })) {
+      for await (const event of invoker.streamTask("t-gapfix", {
+        pollIntervalMs: 0,
+      })) {
         events.push(event.type);
       }
       expect(events).toEqual(["completed"]);
@@ -926,7 +989,9 @@ describe("invoker streamTask null items", () => {
     try {
       const invoker = new Invoker({ baseUrl: "https://h/api/v1" });
       const events: string[] = [];
-      for await (const event of invoker.streamTask("t-none", { pollIntervalMs: 1 })) {
+      for await (const event of invoker.streamTask("t-none", {
+        pollIntervalMs: 1,
+      })) {
         events.push(event.type);
       }
       expect(events).toEqual([]);
@@ -945,7 +1010,10 @@ describe("invoker streamTask null items", () => {
     const validators = (
       invoker as unknown as { validators: Map<string, ValidateFunction> }
     ).validators;
-    validators.set("fn", Object.assign(() => false, {}) as unknown as ValidateFunction);
+    validators.set(
+      "fn",
+      Object.assign(() => false, {}) as unknown as ValidateFunction,
+    );
 
     await expect(invoker.invoke("fn", {})).rejects.toMatchObject({
       name: "InvokerError",
@@ -963,7 +1031,10 @@ describe("invoker streamTask null items", () => {
 class RecordingTarget implements RegistrationTarget {
   readonly descriptors: FunctionDescriptor[] = [];
 
-  registerFunction(descriptor: FunctionDescriptor, _handler: FunctionHandler): void {
+  registerFunction(
+    descriptor: FunctionDescriptor,
+    _handler: FunctionHandler,
+  ): void {
     this.descriptors.push(descriptor);
   }
 }

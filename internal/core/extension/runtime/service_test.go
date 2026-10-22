@@ -2,8 +2,11 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
+	extmanifest "github.com/cuihairu/croupier/internal/core/extension/manifest"
 	"github.com/cuihairu/croupier/internal/model"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	gsqlite "github.com/glebarez/sqlite"
@@ -14,7 +17,7 @@ import (
 func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(gsqlite.Open("file::memory:?mode=memory"), &gorm.Config{})
 	require.NoError(t, err)
-	err = db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionRuntimeBinding{}, &model.ExtensionEvent{})
+	err = db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionRelease{}, &model.ExtensionRuntimeBinding{}, &model.ExtensionEvent{})
 	require.NoError(t, err)
 	return db
 }
@@ -26,7 +29,7 @@ func TestNewService(t *testing.T) {
 	bindingRepo := extensiongorm.NewBindingRepo(db)
 	eventRepo := extensiongorm.NewEventRepo(db)
 
-	svc := NewService(installationRepo, bindingRepo, eventRepo)
+	svc := NewService(installationRepo, extensiongorm.NewReleaseRepo(db), bindingRepo, eventRepo)
 
 	require.NotNil(t, svc)
 	require.NotNil(t, svc.installationRepo)
@@ -61,7 +64,7 @@ func TestReconcile_Success_Analytics(t *testing.T) {
 	bindingRepo := extensiongorm.NewBindingRepo(db)
 	eventRepo := extensiongorm.NewEventRepo(db)
 
-	s := NewService(installationRepo, bindingRepo, eventRepo)
+	s := NewService(installationRepo, extensiongorm.NewReleaseRepo(db), bindingRepo, eventRepo)
 
 	result, err := s.Reconcile(ctx, installation.ID)
 	require.NoError(t, err)
@@ -103,7 +106,7 @@ func TestReconcile_WithExistingStatus(t *testing.T) {
 	bindingRepo := extensiongorm.NewBindingRepo(db)
 	eventRepo := extensiongorm.NewEventRepo(db)
 
-	s := NewService(installationRepo, bindingRepo, eventRepo)
+	s := NewService(installationRepo, extensiongorm.NewReleaseRepo(db), bindingRepo, eventRepo)
 
 	result, err := s.Reconcile(ctx, installation.ID)
 	require.NoError(t, err)
@@ -118,7 +121,7 @@ func TestReconcile_NotFound(t *testing.T) {
 	bindingRepo := extensiongorm.NewBindingRepo(db)
 	eventRepo := extensiongorm.NewEventRepo(db)
 
-	s := NewService(installationRepo, bindingRepo, eventRepo)
+	s := NewService(installationRepo, extensiongorm.NewReleaseRepo(db), bindingRepo, eventRepo)
 
 	_, err := s.Reconcile(ctx, 999)
 	require.Error(t, err)
@@ -140,7 +143,7 @@ func TestReconcile_AllOfficialExtensions(t *testing.T) {
 	bindingRepo := extensiongorm.NewBindingRepo(db)
 	eventRepo := extensiongorm.NewEventRepo(db)
 
-	s := NewService(installationRepo, bindingRepo, eventRepo)
+	s := NewService(installationRepo, extensiongorm.NewReleaseRepo(db), bindingRepo, eventRepo)
 
 	for i, extID := range extensions {
 		t.Run(extID, func(t *testing.T) {
@@ -183,4 +186,128 @@ func TestBuildRuntimeBindings_Default(t *testing.T) {
 	require.Len(t, out, 1)
 	require.Equal(t, "custom.extension.default", out[0].BindingKey)
 	require.Equal(t, "extension:custom.extension", out[0].TargetRef)
+}
+
+func TestBuildRuntimeBindings_ProviderRequiresExplicitName(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID:    "official.external-platform",
+		ReleaseVersion: "1.0.0",
+		Enabled:        true,
+		ConfigJSON:     model.JSON(`{}`),
+	})
+	require.Len(t, out, 1)
+	require.Equal(t, "function", out[0].BindingType)
+}
+
+func TestBuildRuntimeBindings_ExplicitProvider(t *testing.T) {
+	raw := `{
+		"provider": "acme ops",
+		"config": {"base_url": "http://127.0.0.1:8080", "version": "1.2.3"},
+		"secret_refs": {"api_key": "secret/acme"}
+	}`
+	item := &model.ExtensionInstallation{
+		ExtensionID:    "official.external-platform",
+		ReleaseVersion: "1.0.0",
+		Enabled:        true,
+		ConfigJSON:     model.JSON(raw),
+		SecretRefsJSON: model.JSON(`{"api_key":"secret/acme"}`),
+	}
+	block, err := extmanifest.ParseProviderBlock(map[string]any{
+		"provider": map[string]any{
+			"type":       "openapi",
+			"operations": []any{"day_report", "user_live", "order_list"},
+		},
+	})
+	require.NoError(t, err)
+	out := append(buildRuntimeBindings(item), providerBindingFromInstallation(item, block)...)
+	require.Len(t, out, 2)
+	require.Equal(t, "function", out[0].BindingType)
+
+	provider := out[1]
+	require.Equal(t, "provider", provider.BindingType)
+	require.Equal(t, "acme_ops", provider.BindingKey)
+	require.Equal(t, "extension:official.external-platform", provider.TargetRef)
+	require.Equal(t, "active", provider.Status)
+
+	var spec map[string]any
+	require.NoError(t, json.Unmarshal(provider.SpecJSON, &spec))
+	require.Equal(t, "acme_ops", spec["provider"])
+	require.Equal(t, "openapi", spec["type"])
+	require.Equal(t, []any{"day_report", "user_live", "order_list"}, spec["operations"])
+	require.Equal(t, true, spec["enabled"])
+	require.Equal(t, "http://127.0.0.1:8080", spec["config"].(map[string]any)["base_url"])
+	require.Equal(t, "secret/acme", spec["config"].(map[string]any)["api_key"])
+
+	parsed, ok := externalfunc.ParseProviderBinding(provider.BindingKey, spec)
+	require.True(t, ok)
+	require.Equal(t, "acme_ops", parsed.Provider)
+	require.Equal(t, "openapi", parsed.Type)
+	require.Equal(t, []string{"day_report", "user_live", "order_list"}, parsed.Operations)
+	require.True(t, parsed.Enabled)
+	require.Equal(t, "http://127.0.0.1:8080", parsed.Config["base_url"])
+	require.Equal(t, "secret/acme", parsed.Config["api_key"])
+}
+
+func TestBuildRuntimeBindings_ExplicitProviderDisabled(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID: "official.external-platform",
+		ConfigJSON:  model.JSON(`{"provider":"acme_ops"}`),
+	})
+	for _, binding := range out {
+		if binding.BindingType != "provider" {
+			continue
+		}
+		require.Equal(t, "acme_ops", binding.BindingKey)
+		require.Equal(t, "disabled", binding.Status)
+		var spec map[string]any
+		require.NoError(t, json.Unmarshal(binding.SpecJSON, &spec))
+		require.Equal(t, false, spec["enabled"])
+	}
+}
+
+func TestBuildRuntimeBindings_ExplicitProviderInvalidConfig(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID: "official.external-platform",
+		ConfigJSON:  model.JSON(`not-json`),
+	})
+	require.Len(t, out, 1)
+	require.Equal(t, "function", out[0].BindingType)
+}
+
+func TestReconcile_DerivesProviderBindingFromReleaseManifest(t *testing.T) {
+	db := setupTestDB(t)
+	require.NoError(t, db.Create(&model.ExtensionRelease{
+		ExtensionID:    "official.external-platform",
+		Version:        "1.0.0",
+		ReleaseChannel: "stable",
+		ManifestJSON: model.JSON(`{
+			"id":"official.external-platform",
+			"provider":{"type":"webhook","operations":["day_report","user_live"]}
+		}`),
+	}).Error)
+	installation := &model.ExtensionInstallation{
+		ExtensionID:    "official.external-platform",
+		ReleaseVersion: "1.0.0",
+		Status:         "enabled",
+		Enabled:        true,
+		ConfigJSON:     model.JSON(`{"provider":"acme_ops","config":{"base_url":"http://127.0.0.1:8080"}}`),
+	}
+	require.NoError(t, db.Create(installation).Error)
+
+	svc := NewService(
+		extensiongorm.NewInstallationRepo(db),
+		extensiongorm.NewReleaseRepo(db),
+		extensiongorm.NewBindingRepo(db),
+		extensiongorm.NewEventRepo(db),
+	)
+	_, err := svc.Reconcile(context.Background(), installation.ID)
+	require.NoError(t, err)
+
+	var provider model.ExtensionRuntimeBinding
+	require.NoError(t, db.Where("installation_id = ? AND binding_type = ?", installation.ID, "provider").First(&provider).Error)
+	var spec map[string]any
+	require.NoError(t, json.Unmarshal(provider.SpecJSON, &spec))
+	require.Equal(t, "acme_ops", spec["provider"])
+	require.Equal(t, "webhook", spec["type"])
+	require.Equal(t, []any{"day_report", "user_live"}, spec["operations"])
 }

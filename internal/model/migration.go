@@ -129,6 +129,7 @@ func MetaModels() []interface{} {
 		&GameEnvBinding{},
 		&Descriptor{},
 		&Alert{},
+		&ProbeEvent{},
 		&AlertRule{},
 		&AlertSilence{},
 		&Backup{},
@@ -150,6 +151,10 @@ func MetaModels() []interface{} {
 		&ExtensionInstallation{},
 		&ExtensionRuntimeBinding{},
 		&ExtensionEvent{},
+		&IncidentCategory{},
+		&Incident{},
+		&IncidentReport{},
+		&ExternalToken{},
 	}
 }
 

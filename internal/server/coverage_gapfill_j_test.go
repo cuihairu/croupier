@@ -14,9 +14,9 @@ import (
 
 	gsqlite "github.com/glebarez/sqlite"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/platform/registry"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -72,9 +72,8 @@ func TestHandleMetricEvent_StoresReport(t *testing.T) {
 func TestHandleRegisterRequest_OpenAPIConversionFails(t *testing.T) {
 	svc := newTestControlService()
 	_, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
-		AgentId: "agent-openapi",
-		GameId:  "game-1",
-		Env:     "dev",
+		AgentId: "agent-openapi", GameId: "game-1",
+		Env: "dev",
 		Functions: []*agentv1.FunctionDescriptor{
 			{
 				Id:          "player.bad",
@@ -94,9 +93,8 @@ func TestHandleRegisterRequest_SchemaDiffNonBreakingFinding(t *testing.T) {
 	ctx := context.Background()
 
 	first := &agentv1.RegisterRequest{
-		AgentId: "agent-diff",
-		GameId:  "game-1",
-		Env:     "dev",
+		AgentId: "agent-diff", GameId: "game-1",
+		Env: "dev",
 		Functions: []*agentv1.FunctionDescriptor{
 			{
 				Id:          "player.list",
@@ -112,9 +110,8 @@ func TestHandleRegisterRequest_SchemaDiffNonBreakingFinding(t *testing.T) {
 	// 第二次注册：输入 schema 新增可选字段（非破坏性）→ finding 非
 	// SeverityBreaking → L547 continue。
 	second := &agentv1.RegisterRequest{
-		AgentId: "agent-diff",
-		GameId:  "game-1",
-		Env:     "dev",
+		AgentId: "agent-diff", GameId: "game-1",
+		Env: "dev",
 		Functions: []*agentv1.FunctionDescriptor{
 			{
 				Id:          "player.list",
@@ -146,7 +143,7 @@ type recordingHooks struct {
 	registered atomic.Bool
 }
 
-func (h *recordingHooks) OnAgentRegistered(context.Context, string, string, string) {
+func (h *recordingHooks) OnAgentRegistered(context.Context, string, string, string, map[string]string) {
 	h.registered.Store(true)
 }
 func (h *recordingHooks) OnAgentHeartbeat(context.Context, string)    {}

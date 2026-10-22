@@ -28,6 +28,7 @@ import {
   type CicdBuild,
   type CicdIntegration,
 } from '@/services/api/cicd';
+import ConvertToIncidentModal, { type ConvertPrefill } from '@/components/ConvertToIncidentModal';
 
 /**
  * Dev / CI-CD 集成（OPEN-ISSUES #58 批 2）：可插拔 provider 接入管理 +
@@ -115,6 +116,7 @@ const CicdPage: React.FC = () => {
   const [buildsPage, setBuildsPage] = useState(1);
   const [buildsLoading, setBuildsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState<number | null>(null);
+  const [convert, setConvert] = useState<ConvertPrefill | null>(null);
 
   const [form] = Form.useForm<FormValues>();
   const kind = Form.useWatch('kind', form);
@@ -415,11 +417,30 @@ const CicdPage: React.FC = () => {
         ),
     },
     {
-      title: intl.formatMessage({ id: 'pages.devCicd.col.refresh', defaultMessage: '刷新' }),
+      title: intl.formatMessage({ id: 'pages.devCicd.col.actions', defaultMessage: '操作' }),
       render: (_: unknown, b: CicdBuild) => (
-        <Button size="small" loading={refreshing === b.id} onClick={() => void doRefresh(b)}>
-          <FormattedMessage id="pages.devCicd.refresh" defaultMessage="拉取状态" />
-        </Button>
+        <Space size={4}>
+          {b.status === 'failed' && (
+            <Button
+              size="small"
+              onClick={() =>
+                setConvert({
+                  title: `${b.pipeline || 'CI'} 构建失败${b.version ? ` (${b.version})` : ''}`,
+                  severity: 'critical',
+                  detectedAt: b.finishedAt || b.startedAt || b.createdAt,
+                  refType: 'cicd_build',
+                  refId: b.externalId || String(b.id),
+                  responsibleType: 'change',
+                })
+              }
+            >
+              <FormattedMessage id="pages.incidents.action.convert" defaultMessage="转事故" />
+            </Button>
+          )}
+          <Button size="small" loading={refreshing === b.id} onClick={() => void doRefresh(b)}>
+            <FormattedMessage id="pages.devCicd.refresh" defaultMessage="拉取状态" />
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -593,6 +614,7 @@ const CicdPage: React.FC = () => {
           )}
         </Form>
       </Modal>
+      <ConvertToIncidentModal prefill={convert} onClose={() => setConvert(null)} />
     </PageContainer>
   );
 };

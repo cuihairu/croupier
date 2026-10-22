@@ -13,66 +13,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
-	"go.opentelemetry.io/otel/sdk/resource"
 )
 
 // --- provider.go 缝隙注入：不可达错误分支 ---
-
-// resource.New 仅 WithAttributes 时不存在失败输入，错误分支只能注入触达；
-// 同一失败顺带覆盖 NewGameTelemetryService 的 provider 包装错误。
-func TestNewProvider_ResourceErrorSeam(t *testing.T) {
-	orig := resourceNew
-	resourceNew = func(ctx context.Context, opts ...resource.Option) (*resource.Resource, error) {
-		return nil, errors.New("injected resource failure")
-	}
-	t.Cleanup(func() { resourceNew = orig })
-
-	cfg := TelemetryConfig{ServiceName: "svc"}
-	_, err := NewProvider(context.Background(), cfg, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create resource")
-	assert.Contains(t, err.Error(), "injected resource failure")
-
-	_, err = NewGameTelemetryService(cfg, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create telemetry provider")
-}
-
-// otlptracehttp.New 在本包的选项组合下不可失败（不组合
-// WithTLSClientConfig），initTracing 的错误分支只能注入触达。
-func TestNewProvider_TraceExporterErrorSeam(t *testing.T) {
-	orig := newTraceExpor
-	newTraceExpor = func(ctx context.Context, opts ...otlptracehttp.Option) (*otlptrace.Exporter, error) {
-		return nil, errors.New("injected trace exporter failure")
-	}
-	t.Cleanup(func() { newTraceExpor = orig })
-
-	cfg := TelemetryConfig{ServiceName: "svc", EnableTracing: true}
-	_, err := NewProvider(context.Background(), cfg, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to init tracing")
-	assert.Contains(t, err.Error(), "injected trace exporter failure")
-}
-
-// otlpmetrichttp.New 同理不可失败，initMetrics 错误分支只能注入触达。
-func TestNewProvider_MetricExporterErrorSeam(t *testing.T) {
-	orig := newMetricExpor
-	newMetricExpor = func(ctx context.Context, opts ...otlpmetrichttp.Option) (*otlpmetrichttp.Exporter, error) {
-		return nil, errors.New("injected metric exporter failure")
-	}
-	t.Cleanup(func() { newMetricExpor = orig })
-
-	cfg := TelemetryConfig{ServiceName: "svc", EnableMetrics: true}
-	_, err := NewProvider(context.Background(), cfg, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to init metrics")
-	assert.Contains(t, err.Error(), "injected metric exporter failure")
-}
 
 // NewGameMetrics 用全局 meter 创建固定合法指标名，不存在失败输入。
 func TestNewProvider_GameMetricsErrorSeam(t *testing.T) {

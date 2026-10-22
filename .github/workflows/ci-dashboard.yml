@@ -40,13 +40,23 @@ permissions:
 jobs:
   dashboard-quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 分片 3 份跑 unit step（动机见 step 内注释）；fail-fast=false 防止单分片
+    # 失败级联取消兄弟分片（矩阵默认 fail-fast 会制造 cancelled 噪音）。
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    # job 预算按 unit step 实际耗时定：覆盖率巡检把套件扩到 331 套件/4041
+    # 用例后，jest+coverage 在 ubuntu-latest 上 >27 分钟（2026-09-29 两次
+    # 30 分钟墙钟强杀 / runner shutdown，见 step 内注释）；分片后单份
+    # ~12-15 分钟，60 留满慢机余量。
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -62,7 +72,7 @@ jobs:
           exit 1
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -112,11 +122,18 @@ jobs:
         run: pnpm exec tsc --noEmit
 
       - name: Unit tests with coverage
-        # 全量 jest+coverage 在自托管 runner 上实测 ~908s（210 套件/2766 用例
-        # 全绿后仍被 15 分钟墙钟强杀，2026-09-21 两次连炸），15 已低于实际
-        # 耗时；放宽到 30 留出慢机余量。
-        timeout-minutes: 30
-        run: pnpm test:coverage
+        # 全量 jest+coverage 实测随套件体量水涨船高：2026-09-21 为 210 套件/
+        # 2766 用例 ~908s（15 分钟墙钟两次连炸后放宽到 30）；2026-09-29 覆盖
+        # 率巡检已扩到 331 套件/4041 用例，ubuntu-latest 上 26.5 分钟仍未跑完
+        # 被墙钟/runner shutdown 强杀，30 已再次低于实际耗时——放宽到 45。
+        # 2026-10-03/07 追加观测：放宽到 45 后仍整批红——单步跑到 20~33 分钟
+        # 即被 runner infra 级取消（step conclusion=cancelled + "The operation
+        # was canceled."，job/run 仍为 failure；同日成功 run 实测 33~38 分钟
+        # 跑完，排除固定墙钟）。分片 3 份把单步时长压回 ~12-15 分钟，低于全部
+        # 观测取消点（最短 19:56）；codecov 按 commit 合并三份 lcov，覆盖率
+        # 口径不变。
+        timeout-minutes: 45
+        run: pnpm exec jest --coverage --testTimeout=20000 --shard=${{ matrix.shard }}/3
 
       # jest rootDir 为 web/，lcov 的 SF 路径不带 web/ 前缀；web 又是
       # submodule，codecov uploader 无法自行推断映射，SF:src/... 落在仓库
@@ -128,7 +145,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         timeout-minutes: 5
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./web/coverage/lcov.info
@@ -145,7 +162,7 @@ jobs:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -161,7 +178,7 @@ jobs:
           exit 1
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -172,7 +189,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
@@ -211,7 +228,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-report-mock
           path: web/playwright-report/
@@ -219,7 +236,7 @@ jobs:
 
       - name: Upload test screenshots
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-screenshots-mock
           path: web/test-results/
@@ -233,12 +250,12 @@ jobs:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -268,7 +285,7 @@ jobs:
           exit 1
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -279,7 +296,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
@@ -321,7 +338,7 @@ jobs:
 
       - name: Upload real test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-report-real-dashboard
           path: web/playwright-report/
@@ -329,7 +346,7 @@ jobs:
 
       - name: Upload real test screenshots
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-screenshots-real-dashboard
           path: web/test-results/
@@ -350,16 +367,16 @@ jobs:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
       - timeout-minutes: 5
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v4.4.1
 
       - name: Login to GHCR
         timeout-minutes: 3
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -368,14 +385,14 @@ jobs:
       - name: Extract metadata
         timeout-minutes: 3
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@v6.2.0
         with:
           images: ghcr.io/${{ github.repository_owner }}/croupier-dashboard
 
       - name: Build and push Docker image
         timeout-minutes: 25
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v7.4.0
         with:
           context: .
           file: ./docker/Dockerfile.web

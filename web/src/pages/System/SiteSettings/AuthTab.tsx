@@ -1294,7 +1294,9 @@ function ExternalOAuthCard({
                 }
                 rules={[{ required: true }]}
               >
-                <Input placeholder="wx1234567890abcdef" />
+                {/* 占位符用大写 X（hex 集外），避免被 secret scanning 正则
+                    wx[0-9a-f]{16} 误判为真实 AppID（#1 false_positive） */}
+                <Input placeholder="wxXXXXXXXXXXXXXXXX" />
               </Form.Item>
             </Col>
           ) : (

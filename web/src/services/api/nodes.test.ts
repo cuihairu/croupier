@@ -2,12 +2,10 @@ import { request } from '@umijs/max';
 import {
   drainNode,
   getNodeCommands,
-  getNodeMeta,
   listNodes,
   listNodesCronJobsAll,
   restartNode,
   undrainNode,
-  updateNodeMeta,
 } from './nodes';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
@@ -40,27 +38,6 @@ describe('nodes API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes', {
       method: 'GET',
       params: undefined,
-    });
-  });
-
-  it('reads node metadata via GET', async () => {
-    mockedRequest.mockResolvedValue({ meta: { region: 'cn-1' } });
-
-    await getNodeMeta('node-1');
-
-    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/meta', {
-      method: 'GET',
-    });
-  });
-
-  it('writes node metadata via PUT with a wrapped body', async () => {
-    mockedRequest.mockResolvedValue(undefined);
-
-    await updateNodeMeta('node-1', { zone: 'z-a' });
-
-    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/meta', {
-      method: 'PUT',
-      data: { meta: { zone: 'z-a' } },
     });
   });
 

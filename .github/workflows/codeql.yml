@@ -3,7 +3,22 @@ name: CodeQL (SAST)
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
+      - "*.svg"
+      - ".editorconfig"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
+      - "*.svg"
+      - ".editorconfig"
+      - "sdks/**"
     branches: [main]
   schedule:
     - cron: "0 3 * * 1" # weekly at 03:00 UTC (Mon)
@@ -24,13 +39,13 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           submodules: false
 
       - name: Setup Go
         timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
       - name: Normalize Go toolchain env
@@ -72,7 +87,7 @@ jobs:
       # 仅 main（默认分支）上执行，避免分支上误改全局告警状态。
       - name: Dismiss suppressed alerts
         if: github.ref == 'refs/heads/main'
-        uses: advanced-security/dismiss-alerts@v2
+        uses: advanced-security/dismiss-alerts@v2.0.3
         with:
           sarif-id: ${{ steps.analyze.outputs.sarif-id }}
           sarif-file: sarif-results/go.sarif

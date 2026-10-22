@@ -58,6 +58,8 @@ type mockOpsServer struct {
 	statusJSONErr    error
 	cronJobsResp     []byte
 	cronJobsErr      error
+	supLogResp       *opsv1.GetSupervisorLogResponse
+	supLogErr        error
 }
 
 func (m *mockOpsServer) GetSystemInfo(ctx context.Context, req *emptypb.Empty) (*opsv1.SystemInfo, error) {
@@ -84,6 +86,14 @@ func (m *mockOpsServer) StartProcess(ctx context.Context, req *opsv1.StartProces
 	return m.startResp, m.startErr
 }
 
+func (m *mockOpsServer) UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error) {
+	return &opsv1.UpdateProcessResponse{}, nil
+}
+
+func (m *mockOpsServer) SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error) {
+	return &opsv1.SchedulePauseResponse{}, nil
+}
+
 func (m *mockOpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	return m.executeResp, m.executeErr
 }
@@ -98,6 +108,10 @@ func (m *mockOpsServer) GetServiceStatusJSON(ctx context.Context, jsonReq []byte
 
 func (m *mockOpsServer) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
 	return m.cronJobsResp, m.cronJobsErr
+}
+
+func (m *mockOpsServer) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	return m.supLogResp, m.supLogErr
 }
 
 type mockTaskEventReporter struct {
@@ -1599,4 +1613,21 @@ func TestLocalHandler_PickInstance_WithMetadata(t *testing.T) {
 	addr, err := handler.pickInstance("game.player.get", metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, "localhost:8080", addr)
+}
+
+func TestLocalHandlerSetProviderSessionStoreAndExpectedGameEnv(t *testing.T) {
+	store := agentlocal.NewLocalStore()
+	h := NewLocalHandler(store, "/tmp", "agent-1", nil)
+
+	sessStore := NewProviderSessionStore()
+	h.SetProviderSessionStore(sessStore)
+	h.mu.RLock()
+	assert.Same(t, sessStore, h.providerSessions)
+	h.mu.RUnlock()
+
+	h.SetExpectedGameEnv("game-a", "prod")
+	h.mu.RLock()
+	assert.Equal(t, "game-a", h.expectedGameID)
+	assert.Equal(t, "prod", h.expectedEnv)
+	h.mu.RUnlock()
 }

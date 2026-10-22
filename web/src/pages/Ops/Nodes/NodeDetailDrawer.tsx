@@ -9,11 +9,17 @@ import {
   Space,
   Spin,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import { Line } from '@ant-design/charts';
 import { FormattedMessage, useIntl } from '@umijs/max';
-import { getAgentMetricsHistory, type MetricsHistoryEntry } from '@/services/api/ops';
+import {
+  getAgentMetricsHistory,
+  fetchAgentSystemInfo,
+  type MetricsHistoryEntry,
+  type AgentSystemInfo,
+} from '@/services/api/ops';
 import { formatBytes } from '@/utils/format';
 import type { NodeRow } from './shared';
 
@@ -38,6 +44,9 @@ export default function NodeDetailDrawer({
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistoryEntry[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsMinutes, setMetricsMinutes] = useState(5);
+  // §10.5 agent 自身二进制指纹锚点：server 侧四级降级链（缓存→live RPC→
+  // 注册标签→DB 最后已知），失联且会话过期后仍可读到最后一次注册自报值。
+  const [systemInfo, setSystemInfo] = useState<AgentSystemInfo | null>(null);
 
   // Load metrics history when detail node changes
   const loadMetricsHistory = useCallback(
@@ -47,7 +56,8 @@ export default function NodeDetailDrawer({
       try {
         const entries = await getAgentMetricsHistory(agentId, {
           since: since || new Date(Date.now() - metricsMinutes * 60 * 1000).toISOString(),
-          limit: limit || 50,
+          // 默认取数上限随时间窗放大（短窗 50，长窗 200），避免长窗被 50 条截断。
+          limit: limit || (metricsMinutes === 5 ? 50 : metricsMinutes === 60 ? 120 : 200),
         });
         setMetricsHistory(entries || []);
       } catch (error) {
@@ -68,6 +78,23 @@ export default function NodeDetailDrawer({
       setMetricsHistory([]);
     }
   }, [node?.agentId, loadMetricsHistory]);
+
+  // 拉取 agent 系统信息（含 §10.5 二进制指纹）。失败按空态渲染——排查面
+  // 不该因为一个读不到的字段整体报错；agent 切走时清空避免串号显示。
+  useEffect(() => {
+    let cancelled = false;
+    setSystemInfo(null);
+    if (!node?.agentId) {
+      return undefined;
+    }
+    (async () => {
+      const info = await fetchAgentSystemInfo(node.agentId as string);
+      if (!cancelled) setSystemInfo(info);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [node?.agentId]);
 
   return (
     <Drawer
@@ -227,6 +254,39 @@ export default function NodeDetailDrawer({
               })}
             >
               {node.lastSeen || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item
+              label={intl.formatMessage({
+                id: 'pages.opsNodes.detail.basic.agentVersion',
+                defaultMessage: 'Agent 版本',
+              })}
+            >
+              {systemInfo?.agentVersion || node.version || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item
+              label={intl.formatMessage({
+                id: 'pages.opsNodes.detail.basic.agentBinarySha',
+                defaultMessage: 'Agent 二进制指纹',
+              })}
+            >
+              {systemInfo?.agentBinarySha256 ? (
+                // 截断展示但保留全文可读：失联排查要复制全串比对 execlog
+                <Typography.Text
+                  copyable={{ text: systemInfo.agentBinarySha256 }}
+                  style={{ fontFamily: 'monospace', fontSize: 12 }}
+                >
+                  {systemInfo.agentBinarySha256.slice(0, 12)}
+                </Typography.Text>
+              ) : (
+                <Tooltip
+                  title={intl.formatMessage({
+                    id: 'pages.opsNodes.detail.basic.agentBinaryShaEmpty',
+                    defaultMessage: '该 agent 未上报二进制指纹（旧版本 agent 或二进制不可读）',
+                  })}
+                >
+                  <span>-</span>
+                </Tooltip>
+              )}
             </Descriptions.Item>
           </Descriptions>
 
@@ -494,17 +554,10 @@ export default function NodeDetailDrawer({
                     key={range.value}
                     size="small"
                     type={metricsMinutes === range.value ? 'primary' : 'default'}
-                    onClick={() => {
-                      setMetricsMinutes(range.value);
-                      if (node?.agentId) {
-                        const since = new Date(Date.now() - range.value * 60 * 1000).toISOString();
-                        loadMetricsHistory(
-                          node.agentId,
-                          since,
-                          range.value === 5 ? 50 : range.value === 60 ? 120 : 200,
-                        );
-                      }
-                    }}
+                    // 只改窗口状态：metricsMinutes 驱动 loadMetricsHistory 重建，
+                    // useEffect 自动以新窗口的 since/limit 重载（避免双请求，
+                    // 且旧写法手动 load 的 limit 会被 effect 重放覆盖回默认）。
+                    onClick={() => setMetricsMinutes(range.value)}
                   >
                     {range.label}
                   </Button>

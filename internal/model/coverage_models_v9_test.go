@@ -454,9 +454,11 @@ func TestDBSourceValidateMaskAndDeleteV9(t *testing.T) {
 	ctx := context.Background()
 
 	// Validation branches.
-	root := &DBSource{Name: "mysql-prod", Driver: "mysql", Kind: "self", DSN: "root:pass@tcp(1.2.3.4)/db"}
+	root := &DBSource{Name: "mysql-prod", Driver: "mysql", Kind: "self", DSN: "root:pass@tcp(1.2.3.4)/db",
+		GameID: "demo", Env: "prod"}
 	assert.ErrorContains(t, ValidateDBSource(root), "只读监控账号")
-	badDSN := &DBSource{Name: "pg", Driver: "postgres", Kind: "self", DSN: "plainhost"}
+	badDSN := &DBSource{Name: "pg", Driver: "postgres", Kind: "self", DSN: "plainhost",
+		GameID: "demo", Env: "prod"}
 	assert.ErrorContains(t, ValidateDBSource(badDSN), "DSN 格式无效")
 
 	// MaskedDSN branches.
@@ -466,7 +468,8 @@ func TestDBSourceValidateMaskAndDeleteV9(t *testing.T) {
 	assert.Equal(t, "***", (&DBSource{DSN: "no-at-sign"}).MaskedDSN())
 
 	// FindOne / Delete.
-	src := &DBSource{Name: "s1", Driver: "mysql", Kind: "self", DSN: "u:p@h/d", Enabled: true}
+	src := &DBSource{Name: "s1", Driver: "mysql", Kind: "self", DSN: "u:p@h/d",
+		GameID: "demo", Env: "prod", Enabled: true}
 	require.NoError(t, m.Create(ctx, src))
 	got, err := m.FindOne(ctx, src.ID)
 	require.NoError(t, err)

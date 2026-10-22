@@ -4,7 +4,7 @@ This folder can host Flink SQL scripts for local pipelines.
 
 Example rough steps:
 
-1) Define Kafka source tables (events/payments)
+1. Define Kafka source tables (events/payments)
 
 ```
 CREATE TABLE events (
@@ -23,7 +23,7 @@ CREATE TABLE events (
 );
 ```
 
-2) Derive minute_online and sink to ClickHouse (via JDBC or custom sink)
+2. Derive minute_online and sink to ClickHouse (via JDBC or custom sink)
 
 ```
 CREATE TABLE minute_online (
@@ -49,4 +49,3 @@ GROUP BY TUMBLE(event_time, INTERVAL '1' MINUTE), game_id, env;
 ```
 
 Note: In production, prefer a dedicated connector (ClickHouse sink) or Debezium/JDBC with upsert semantics.
-

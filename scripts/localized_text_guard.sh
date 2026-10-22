@@ -2,7 +2,7 @@
 # LocalizedText contract guard.
 #
 # Contract (see CLAUDE.md "Localized Text Contract (Mandatory)" and
-# docs/architecture/localized-text-contract.md): localized fields are keyed by
+# docs/zh/architecture/localized-text-contract.md): localized fields are keyed by
 # BCP47 locale ("zh-CN"/"en-US"), normalized once at the service boundary
 # (normalizeLocalizedText) and rendered only through
 # web/src/utils/localizedText.ts#localizedText.
@@ -70,7 +70,7 @@ done < <(rg -n "\{\s*(\.\.\.\()?\{?\s*zh:|\{ zh: '[^']*', en: " \
           web/src/services --glob '!*.test.*' --glob '!functions-enhanced.ts' 2>/dev/null || true)
 
 if [ "$FAIL" -ne 0 ]; then
-  echo "LocalizedText contract violations found. See docs/architecture/localized-text-contract.md"
+  echo "LocalizedText contract violations found. See docs/zh/architecture/localized-text-contract.md"
   exit 1
 fi
 note "PASS: single LocalizedText definition, single render path, no short-key fabrication"

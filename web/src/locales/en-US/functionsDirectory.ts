@@ -70,6 +70,20 @@ export default {
   'pages.functionsDirectory.rowAction.detail': 'View Details',
   'pages.functionsDirectory.rowAction.schema': 'Contract Schema',
   'pages.functionsDirectory.state.disabled': 'Disabled',
+  'pages.functionsDirectory.column.assignments': 'Open scopes',
+  'pages.functionsDirectory.assignments.defaultOpen': 'Open by default',
+  'pages.functionsDirectory.assignments.none': 'Not open',
+  'pages.functionsDirectory.assignments.openScopes': 'Open in {open}/{total} envs',
+  'pages.functionsDirectory.assignments.tooltip':
+    'No environment allowlist has been saved for this game: all functions are open by default. Click to configure in "Function Availability".',
+  'pages.functionsDirectory.assignments.tooltipScoped':
+    'Open in {open} of the {total} environments with a saved allowlist. Note: environments without a saved allowlist default to open for all functions. Click to adjust in "Function Availability".',
+  'pages.functionsDirectory.assignments.unknownTooltip':
+    'Failed to load availability data; refresh to retry',
+  'pages.functionsDirectory.alert.scopeRelation.title': 'Directory status ≠ availability scope',
+  'pages.functionsDirectory.alert.scopeRelation.description':
+    'The enable/disable switch here is a global master switch: once disabled, the function is not callable in any environment. Which functions each environment actually exposes is configured separately as an allowlist in the "Function Availability" page — both conditions (enabled in directory AND in the environment allowlist) must hold for a call to go through; the two statuses not syncing is by design.',
+  'pages.functionsDirectory.alert.scopeRelation.action': 'Go to Function Availability',
   'pages.functionsDirectory.state.enabled': 'Enabled',
   'pages.functionsDirectory.subTitle':
     'The function directory manages only atomic capability contracts; pages, menus, and categories are determined in Page Studio',

@@ -114,7 +114,7 @@ func TestHandleHeartbeatRequest_SelfHealsMissingSession(t *testing.T) {
 
 	svc := NewControlService(registry.NewStore(), nil)
 	// 模拟本实例为 croupier-server 的持有者：
-	if err := resolver.ClaimOwner(context.Background(), "agent-1", "demo_game", "development", "croupier-server", 10); err != nil {
+	if err := resolver.ClaimOwner(context.Background(), "agent-1", "demo_game", "development", "croupier-server", 10, nil); err != nil {
 		t.Fatal(err)
 	}
 	svc.SetHeartbeatOwnerLookup(resolver)

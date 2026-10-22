@@ -27,7 +27,7 @@ func TestReconcile_SaveError(t *testing.T) {
 	}))
 	id := mustCreateInstallation(t, db)
 
-	svc := NewService(extensiongorm.NewInstallationRepo(db), extensiongorm.NewBindingRepo(db), extensiongorm.NewEventRepo(db))
+	svc := NewService(extensiongorm.NewInstallationRepo(db), extensiongorm.NewReleaseRepo(db), extensiongorm.NewBindingRepo(db), extensiongorm.NewEventRepo(db))
 	res, err := svc.Reconcile(context.Background(), id)
 	require.Error(t, err)
 	assert.Nil(t, res)
@@ -43,7 +43,7 @@ func TestReconcile_ReplaceBindingsError(t *testing.T) {
 		_ = tx.AddError(errors.New("binding boom"))
 	}))
 
-	svc := NewService(extensiongorm.NewInstallationRepo(db), extensiongorm.NewBindingRepo(db), extensiongorm.NewEventRepo(db))
+	svc := NewService(extensiongorm.NewInstallationRepo(db), extensiongorm.NewReleaseRepo(db), extensiongorm.NewBindingRepo(db), extensiongorm.NewEventRepo(db))
 	res, err := svc.Reconcile(context.Background(), id)
 	require.Error(t, err)
 	assert.Nil(t, res)

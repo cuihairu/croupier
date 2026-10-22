@@ -1,0 +1,451 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Button, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
+import { useIntl } from '@umijs/max';
+import { StandardListSection } from '@/components';
+import { getOpsProbeSummary, type ProbeSummaryRow } from '@/services/api/opsProbe';
+import { useScopeReload } from '@/hooks/useScopeReload';
+import { extractErrorMessage } from '@/utils/errors';
+
+const { Text } = Typography;
+
+// 目标类别筛选闭集（目标分类设计 §4.4）：''=全部；未分类行（旧版 agent）
+// 只在「全部」可见，不计入任一类别。
+const TARGET_CATEGORY_ALL = '';
+const TARGET_CATEGORY_GAME = 'game';
+const TARGET_CATEGORY_THIRD_PARTY = 'third_party';
+const TARGET_CATEGORY_OPTIONS = [
+  TARGET_CATEGORY_ALL,
+  TARGET_CATEGORY_GAME,
+  TARGET_CATEGORY_THIRD_PARTY,
+];
+
+// 探针在线汇总卡（agent-health-recovery-review §13.2）：
+// 一行 = 目标 × 执行位置，呈现窗口开合（两态事实）+ 窗口聚合计数 + 最近
+// 失败原因 + 数据新鲜度；**不出单一合成分**——权重无真实数据支撑。
+// 在线趋势列在 SDK metric 入口接入前显式灰态（未接入即一等状态）。
+// 协议目标另带类型/适配器/失败阶段标注（§5.5.3 四态）：不可达（dial 失败）
+// 与协议失败（handshake/status 半途失败）在探活列即可区分，无需读原因文本。
+// 类别筛选走服务端聚合（scope+类别过滤在服务端，非前端筛）。
+export default function ProbeSummarySection() {
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建（Ops/Status 同款陷阱）；经 ref 转发后 load 依赖稳定。
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string>('');
+  const [rows, setRows] = useState<ProbeSummaryRow[]>([]);
+  const [onlineDataIntegrated, setOnlineDataIntegrated] = useState(false);
+  const [category, setCategory] = useState<string>(TARGET_CATEGORY_ALL);
+  const categoryRef = useRef(category);
+  categoryRef.current = category;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const r = await getOpsProbeSummary(categoryRef.current || undefined);
+      setRows(r?.rows ?? []);
+      setOnlineDataIntegrated(Boolean(r?.onlineDataIntegrated));
+    } catch (error) {
+      setRows([]);
+      setLoadError(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.opsNodes.probe.loadFailed',
+            defaultMessage: '探针汇总加载失败',
+          }),
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // 类别切换即重查（服务端聚合；切类别后必须重拉，否则显示的是旧类别的行）。
+  const handleCategoryChange = useCallback(
+    (value: string) => {
+      // ref 先行同步：load 读 categoryRef.current，setCategory 的重渲染在
+      // 事件回调返回前不会跑——先改 ref 才能让本轮查询带上新类别。
+      categoryRef.current = value;
+      setCategory(value);
+      load();
+    },
+    [load],
+  );
+
+  // scope（X-Game-ID/X-Env）由全局拦截器注入服务端过滤：切游戏/环境后必须重拉，
+  // 否则面板显示的是上一个 scope 的行。
+  useScopeReload(load);
+
+  // 异常行前置：先看有问题的，再看正常的；组内按执行位置+目标稳定排序。
+  const sorted = useMemo(
+    () =>
+      [...rows].sort((a, b) => {
+        if (a.available !== b.available) return a.available ? 1 : -1;
+        const an = `${a.agentId}/${a.target}`;
+        const bn = `${b.agentId}/${b.target}`;
+        return an.localeCompare(bn);
+      }),
+    [rows],
+  );
+
+  const unavailableCount = useMemo(() => rows.filter((r) => !r.available).length, [rows]);
+
+  // 类别标签（目标分类 §4.4）：game=游戏 / third_party=第三方服务；空类别 =
+  // 旧版 agent 未携带类别位——按未分类呈现（受权诊断，不计入任一类别统计）。
+  const categoryLabel = useCallback((v?: string): string => {
+    switch (v) {
+      case TARGET_CATEGORY_GAME:
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.category.game',
+          defaultMessage: '游戏',
+        });
+      case TARGET_CATEGORY_THIRD_PARTY:
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.category.thirdParty',
+          defaultMessage: '第三方服务',
+        });
+      default:
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.category.unclassified',
+          defaultMessage: '未分类',
+        });
+    }
+  }, []);
+
+  // 探活标签（§5.5.3 协议四态标注面）：
+  //   可用×protocol  = 已验证（协议 Check 成功过，状态 4）；
+  //   可用×非 protocol×protocolExpected = 可达≠可用（L1 探到、协议层未接入，
+  //     状态 2；副标签「未接入协议探测」灰态）；
+  //   不可用×protocol 按失败阶段区分 不可达（dial，未进协议交互）与
+  //     协议失败（handshake/status 半途失败）；
+  //   无阶段标记 = 该目标未定义阶段或旧版 agent 未上报，退回内核两态文案。
+  const statusLabel = useCallback((available: boolean, r: ProbeSummaryRow): string => {
+    if (available) {
+      if (r.probeType === 'protocol') {
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.verified',
+          defaultMessage: '已验证',
+        });
+      }
+      if (r.protocolExpected) {
+        return intlRef.current.formatMessage({
+          id: 'pages.opsNodes.probe.reachableOnly',
+          defaultMessage: '可达≠可用',
+        });
+      }
+      return intlRef.current.formatMessage({
+        id: 'pages.opsNodes.probe.available',
+        defaultMessage: '可用',
+      });
+    }
+    if (r.probeType !== 'protocol') {
+      return intlRef.current.formatMessage({
+        id: 'pages.opsNodes.probe.unavailable',
+        defaultMessage: '不可用',
+      });
+    }
+    if (r.phase === 'dial') {
+      return intlRef.current.formatMessage({
+        id: 'pages.opsNodes.probe.unreachable',
+        defaultMessage: '不可达',
+      });
+    }
+    if (r.phase) {
+      return intlRef.current.formatMessage(
+        { id: 'pages.opsNodes.probe.protocolFailed', defaultMessage: '协议失败·{phase}' },
+        { phase: r.phase },
+      );
+    }
+    return intlRef.current.formatMessage({
+      id: 'pages.opsNodes.probe.unavailable',
+      defaultMessage: '不可用',
+    });
+  }, []);
+
+  // 探活标签色：不可用红；已验证绿；可达≠可用橙（警示不是故障）；其余可用绿。
+  const statusColor = useCallback((available: boolean, r: ProbeSummaryRow): string => {
+    if (!available) return 'red';
+    if (r.probeType === 'protocol') return 'green';
+    if (r.protocolExpected) return 'orange';
+    return 'green';
+  }, []);
+
+  const columns = [
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.location',
+        defaultMessage: '执行位置',
+      }),
+      dataIndex: 'agentId',
+      width: 190,
+      render: (_: unknown, r: ProbeSummaryRow) => (
+        <Space orientation="vertical" size={0}>
+          <Text>{r.agentId}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {r.gameId && r.env
+              ? `${r.gameId} / ${r.env}`
+              : intl.formatMessage({
+                  id: 'pages.opsNodes.probe.platformScope',
+                  defaultMessage: '平台级',
+                })}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.target',
+        defaultMessage: '目标',
+      }),
+      dataIndex: 'target',
+      width: 160,
+      ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.category',
+        defaultMessage: '类别',
+      }),
+      dataIndex: 'targetCategory',
+      width: 110,
+      render: (v?: string) =>
+        v ? (
+          <Tag color={v === TARGET_CATEGORY_GAME ? 'blue' : 'purple'}>{categoryLabel(v)}</Tag>
+        ) : (
+          // 未分类：旧版 agent 上报无类别位。缺失就显示缺失，不猜类别。
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.opsNodes.probe.categoryMissing',
+              defaultMessage: '该行数据由旧版 agent 上报，未携带目标类别；升级后按配置补分类',
+            })}
+          >
+            <Tag color="default">{categoryLabel(v)}</Tag>
+          </Tooltip>
+        ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.semantics',
+        defaultMessage: '视角',
+      }),
+      dataIndex: 'semantics',
+      width: 110,
+      render: (v?: string) => <Tag color={v === 'readiness' ? 'blue' : 'default'}>{v || '-'}</Tag>,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.probeType',
+        defaultMessage: '探测类型',
+      }),
+      dataIndex: 'probeType',
+      width: 120,
+      render: (_: unknown, r: ProbeSummaryRow) =>
+        r.probeType ? (
+          <Tag>
+            {r.probeType}
+            {r.protocol ? `:${r.protocol}` : ''}
+          </Tag>
+        ) : (
+          // 旧版 agent 未上报类型（wire 新增字段）：缺失就显示缺失，不猜类型。
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.opsNodes.probe.probeTypeMissing',
+              defaultMessage: '该行数据由旧版 agent 上报，未携带探测类型',
+            })}
+          >
+            <Text type="secondary">-</Text>
+          </Tooltip>
+        ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.status',
+        defaultMessage: '探活',
+      }),
+      dataIndex: 'available',
+      width: 120,
+      render: (available: boolean, r: ProbeSummaryRow) =>
+        available && r.protocolExpected && r.probeType !== 'protocol' ? (
+          <Space size={4} wrap>
+            <Tag color={statusColor(available, r)}>{statusLabel(available, r)}</Tag>
+            <Tag color="default">
+              {intl.formatMessage({
+                id: 'pages.opsNodes.probe.protocolNotIntegrated',
+                defaultMessage: '未接入协议探测',
+              })}
+            </Tag>
+          </Space>
+        ) : (
+          <Tag color={statusColor(available, r)}>{statusLabel(available, r)}</Tag>
+        ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.window',
+        defaultMessage: '窗口时长',
+      }),
+      dataIndex: 'windowDurationMs',
+      width: 110,
+      render: (ms: number | undefined, r: ProbeSummaryRow) =>
+        r.windowOpen && typeof ms === 'number' && ms > 0 ? (
+          `${(ms / 1000).toFixed(1)}s`
+        ) : (
+          <Text type="secondary">-</Text>
+        ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.checkedFailed',
+        defaultMessage: '检查 / 失败',
+      }),
+      key: 'checkedFailed',
+      width: 130,
+      render: (_: unknown, r: ProbeSummaryRow) => `${r.checked} / ${r.failed}`,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.successRate',
+        defaultMessage: '成功率',
+      }),
+      dataIndex: 'successRate',
+      width: 100,
+      render: (rate: number, r: ProbeSummaryRow) =>
+        r.checked > 0 ? (
+          `${(rate * 100).toFixed(1)}%`
+        ) : (
+          // checked=0 = 没测过，不是「全成功」——缺失就显示缺失。
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.opsNodes.probe.noSamples',
+              defaultMessage: '窗口内没有采样，指标缺失',
+            })}
+          >
+            <Text type="secondary">-</Text>
+          </Tooltip>
+        ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.lastReason',
+        defaultMessage: '最近失败原因',
+      }),
+      dataIndex: 'lastReason',
+      ellipsis: true,
+      render: (v?: string) =>
+        v ? <Text style={{ fontSize: 12 }}>{v}</Text> : <Text type="secondary">-</Text>,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.probe.column.reportAt',
+        defaultMessage: '数据时间',
+      }),
+      dataIndex: 'lastReportAt',
+      width: 170,
+      render: (v?: string) => <Text type="secondary">{v || '-'}</Text>,
+    },
+  ];
+
+  return (
+    <StandardListSection
+      title={intl.formatMessage({
+        id: 'pages.opsNodes.probe.title',
+        defaultMessage: '探针汇总',
+      })}
+      extra={
+        <Space>
+          <Select
+            value={category}
+            onChange={handleCategoryChange}
+            size="small"
+            style={{ minWidth: 132 }}
+            aria-label={intl.formatMessage({
+              id: 'pages.opsNodes.probe.categoryFilter',
+              defaultMessage: '按目标类别筛选',
+            })}
+            options={TARGET_CATEGORY_OPTIONS.map((v) => ({
+              value: v,
+              label:
+                v === TARGET_CATEGORY_ALL
+                  ? intl.formatMessage({
+                      id: 'pages.opsNodes.probe.category.all',
+                      defaultMessage: '全部',
+                    })
+                  : categoryLabel(v),
+            }))}
+          />
+          {rows.length > 0 ? (
+            <Text type="secondary">
+              {intl.formatMessage(
+                {
+                  id: 'pages.opsNodes.probe.resultCount',
+                  defaultMessage: `目标 ${rows.length} / 异常 ${unavailableCount}`,
+                },
+                { total: rows.length, bad: unavailableCount },
+              )}
+            </Text>
+          ) : null}
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={load}
+            loading={loading}
+            size="small"
+            aria-label={intl.formatMessage({
+              id: 'pages.opsNodes.probe.refresh',
+              defaultMessage: '刷新探针汇总',
+            })}
+          />
+        </Space>
+      }
+    >
+      {loadError ? (
+        <Alert type="error" showIcon title={loadError} style={{ marginBottom: 12 }} />
+      ) : null}
+      {!onlineDataIntegrated ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          title={intl.formatMessage({
+            id: 'pages.opsNodes.probe.notIntegrated',
+            defaultMessage: '在线趋势：未接入在线数据',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.opsNodes.probe.notIntegratedDesc',
+            defaultMessage:
+              '在线人数/峰值来源是游戏服务器自身上报，需 SDK 提供 metric 上报入口；未接入前本页只呈现探活事实，不做推导。',
+          })}
+        />
+      ) : null}
+      <Table<ProbeSummaryRow>
+        rowKey={(r) => `${r.agentId}/${r.target}`}
+        size="small"
+        dataSource={sorted}
+        loading={loading}
+        columns={columns}
+        tableLayout="fixed"
+        scroll={{ x: 1450 }}
+        pagination={false}
+        locale={{
+          emptyText: intl.formatMessage({
+            id: 'pages.opsNodes.probe.empty',
+            defaultMessage: '暂无探针数据：agent 未配置 probe.targets，或尚未上报采样。',
+          }),
+        }}
+      />
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {intl.formatMessage({
+          id: 'pages.opsNodes.probe.scopeHint',
+          defaultMessage: '列表按顶栏游戏/环境过滤（同环境行 + 平台级行）。',
+        })}
+      </Text>
+    </StandardListSection>
+  );
+}

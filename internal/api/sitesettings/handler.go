@@ -63,7 +63,7 @@ func (h *Handler) GetNotification(c *gin.Context) {
 }
 
 // GetSecurity serves GET /api/v1/site/security: 账号安全策略生效值
-// （security.* 五键，默认全关）。
+// （security.* 六键，默认全关；唯一例外 approvalStepUpOtp 默认开，#61）。
 func (h *Handler) GetSecurity(c *gin.Context) {
 	response.Success(c, h.layered.SecurityPolicy())
 }

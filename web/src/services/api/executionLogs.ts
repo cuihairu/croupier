@@ -41,3 +41,19 @@ export async function listExecutionLogs(
 export async function getExecutionLog(id: number): Promise<ExecutionLogDetail> {
   return request<ExecutionLogDetail>(`/api/v1/execution-logs/${id}`);
 }
+
+/** 服务端聚合选项行（#33：操作人过滤下拉） */
+export type ExecutionLogOperatorOption = {
+  value: string;
+  label?: string;
+  count?: number;
+};
+
+/** 执行留痕操作人聚合选项（#33：GET /api/v1/execution-logs/operator-options）。
+ *  需 admin:all / audit:read 权限（与列表非 mine 分支一致）。 */
+export async function listExecutionLogOperators(): Promise<ExecutionLogOperatorOption[]> {
+  const res = await request<{ items?: ExecutionLogOperatorOption[] }>(
+    '/api/v1/execution-logs/operator-options',
+  );
+  return res.items ?? [];
+}

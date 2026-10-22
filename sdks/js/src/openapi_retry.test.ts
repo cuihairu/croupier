@@ -18,10 +18,10 @@ function mockFetch(
   responder: (url: string, init?: RequestInit) => Promise<Response>,
 ): void {
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (((url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
     const u = typeof url === "string" ? url : url.toString();
     return responder(u, init);
-  }) as unknown) as FetchImpl;
+  }) as unknown as FetchImpl;
 }
 
 function restoreFetch(): void {
@@ -80,7 +80,10 @@ const SPEC = {
           200: {
             content: {
               "application/json": {
-                schema: { type: "object", properties: { ok: { type: "boolean" } } },
+                schema: {
+                  type: "object",
+                  properties: { ok: { type: "boolean" } },
+                },
               },
             },
           },
@@ -91,7 +94,9 @@ const SPEC = {
       get: {
         tags: ["query"],
         responses: {
-          200: { content: { "application/json": { schema: { type: "array" } } } },
+          200: {
+            content: { "application/json": { schema: { type: "array" } } },
+          },
         },
       },
     },
@@ -102,7 +107,9 @@ function makeClient(): BasicClient {
   return new BasicClient();
 }
 
-function registeredDescriptors(client: BasicClient): Map<string, FunctionDescriptor> {
+function registeredDescriptors(
+  client: BasicClient,
+): Map<string, FunctionDescriptor> {
   return (client as any).descriptors as Map<string, FunctionDescriptor>;
 }
 
@@ -114,7 +121,13 @@ describe("registerFromOpenAPI", () => {
 
   it("registers all operations and returns their ids", () => {
     const client = makeClient();
-    const registered = registerFromOpenAPI(client, SPEC, undefined, undefined, handlers);
+    const registered = registerFromOpenAPI(
+      client,
+      SPEC,
+      undefined,
+      undefined,
+      handlers,
+    );
     expect(registered).toEqual(["player_ban", "players.search"]);
     expect(registeredDescriptors(client).size).toBe(2);
   });
@@ -163,7 +176,10 @@ describe("registerFromOpenAPI", () => {
 
   it("applies resource and tag prefixes", () => {
     const client = makeClient();
-    const options: ImportOptions = { resourcePrefix: "game", tagPrefix: "svc-" };
+    const options: ImportOptions = {
+      resourcePrefix: "game",
+      tagPrefix: "svc-",
+    };
     registerFromOpenAPI(client, SPEC, options, undefined, handlers);
     const descriptor = registeredDescriptors(client).get("player_ban")!;
 
@@ -208,20 +224,38 @@ describe("registerFromOpenAPI", () => {
 
   it("rejects invalid JSON specs", () => {
     expect(() =>
-      registerFromOpenAPI(makeClient(), "{not json", undefined, undefined, new Map()),
+      registerFromOpenAPI(
+        makeClient(),
+        "{not json",
+        undefined,
+        undefined,
+        new Map(),
+      ),
     ).toThrow("load OpenAPI spec failed");
   });
 
   it("rejects specs without paths", () => {
     expect(() =>
-      registerFromOpenAPI(makeClient(), { openapi: "3.0.3" }, undefined, undefined, new Map()),
+      registerFromOpenAPI(
+        makeClient(),
+        { openapi: "3.0.3" },
+        undefined,
+        undefined,
+        new Map(),
+      ),
     ).toThrow("paths");
   });
 
   it("handles empty paths objects", () => {
     const client = makeClient();
     expect(
-      registerFromOpenAPI(client, { paths: {} }, undefined, undefined, new Map()),
+      registerFromOpenAPI(
+        client,
+        { paths: {} },
+        undefined,
+        undefined,
+        new Map(),
+      ),
     ).toEqual([]);
   });
 
@@ -252,9 +286,13 @@ describe("Invoker.setSchema (Draft-07)", () => {
       properties: { playerId: { type: "string", minLength: 3 } },
     });
 
-    await expect(invoker.invoke("fn", { playerId: "abc" })).resolves.toEqual({ payload: {} });
+    await expect(invoker.invoke("fn", { playerId: "abc" })).resolves.toEqual({
+      payload: {},
+    });
 
-    await expect(invoker.invoke("fn", { playerId: "ab" })).rejects.toMatchObject({
+    await expect(
+      invoker.invoke("fn", { playerId: "ab" }),
+    ).rejects.toMatchObject({
       code: "schema_validation",
     });
     await expect(invoker.invoke("fn", { playerId: 42 })).rejects.toThrow(
@@ -282,7 +320,9 @@ describe("Invoker.setSchema (Draft-07)", () => {
     const invoker = new Invoker({ baseUrl: "http://s:18780" });
 
     invoker.setSchema("fn", { type: "object", required: ["a"] });
-    await expect(invoker.invoke("fn", {})).rejects.toMatchObject({ code: "schema_validation" });
+    await expect(invoker.invoke("fn", {})).rejects.toMatchObject({
+      code: "schema_validation",
+    });
 
     invoker.setSchema("fn", { type: "object" });
     await expect(invoker.invoke("fn", {})).resolves.toEqual({ payload: {} });
@@ -345,7 +385,9 @@ describe("Invoker retry", () => {
       retry: { maxAttempts: 5, initialDelayMs: 1 },
     });
 
-    await expect(invoker.invoke("fn", {})).rejects.toMatchObject({ status: 404 });
+    await expect(invoker.invoke("fn", {})).rejects.toMatchObject({
+      status: 404,
+    });
     expect(calls).toBe(1);
   });
 
@@ -393,7 +435,9 @@ describe("Invoker retry", () => {
       retry: { enabled: false },
     });
 
-    await expect(invoker.invoke("fn", {})).rejects.toMatchObject({ status: 500 });
+    await expect(invoker.invoke("fn", {})).rejects.toMatchObject({
+      status: 500,
+    });
     expect(calls).toBe(1);
   });
 

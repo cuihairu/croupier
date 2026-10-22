@@ -14,11 +14,7 @@
  */
 
 import os from "os";
-import {
-  Socket,
-  createConnection,
-  TcpSocketConnectOpts,
-} from "net";
+import { Socket, createConnection, TcpSocketConnectOpts } from "net";
 import { getResponseMsgId, isControlRequest } from "./protocol";
 
 /** Frame constants */
@@ -118,7 +114,7 @@ interface PendingCall {
 export interface TCPTransportConfig {
   address?: string;
   timeoutMs?: number;
-  connectTimeoutMs?: number;  // Connection timeout (separate from request timeout)
+  connectTimeoutMs?: number; // Connection timeout (separate from request timeout)
   // 入站处理并发（固定 worker 池，防读循环头部阻塞——一个慢 handler
   // 卡住整条连接的所有请求）。0/未设 = os.cpus().length；队列容量
   // = workers * 4，满时立即回 busy 错误响应（Agent failover 接管）。
@@ -169,11 +165,13 @@ export class TCPTransport {
   // inbound request handler
   private handler: RequestHandler | null = null;
   // 入站 worker 池：读循环只投递，handler 由固定并发消费。
-  private inboundQueue: Array<{ msgId: number; reqId: number; body: Buffer }> = [];
+  private inboundQueue: Array<{ msgId: number; reqId: number; body: Buffer }> =
+    [];
   private inboundWorkersRunning = 0;
   private inboundWorkerLimit = 0;
   // 控制车道：心跳/注册/drain 独立队列 + 单并发（双车道，对齐 Go MuxConn）
-  private controlQueue: Array<{ msgId: number; reqId: number; body: Buffer }> = [];
+  private controlQueue: Array<{ msgId: number; reqId: number; body: Buffer }> =
+    [];
   private controlWorkerRunning = false;
 
   constructor(config: TCPTransportConfig = {}) {
@@ -238,16 +236,20 @@ export class TCPTransport {
     const onError = (err: Error) => {
       cleanup();
       socket?.destroy();
-      rejectConnect?.(new Error(`Failed to connect to ${this.address}: ${err.message}`));
+      rejectConnect?.(
+        new Error(`Failed to connect to ${this.address}: ${err.message}`),
+      );
     };
     let resolveConnect: (() => void) | null = null;
     let rejectConnect: ((reason?: Error) => void) | null = null;
     const connectionPromise = new Promise<void>((resolve, reject) => {
       resolveConnect = resolve;
       rejectConnect = reject;
-      socket = createConnection(
-        { host, port, family: 4 } as TcpSocketConnectOpts,
-      );
+      socket = createConnection({
+        host,
+        port,
+        family: 4,
+      } as TcpSocketConnectOpts);
       socket.once("connect", onConnect);
       socket.once("error", onError);
       socket.setTimeout(this.timeoutMs);
@@ -257,7 +259,11 @@ export class TCPTransport {
       timeout = setTimeout(() => {
         cleanup();
         socket?.destroy();
-        reject(new Error(`Connection timeout to ${this.address} after ${this.connectTimeoutMs}ms`));
+        reject(
+          new Error(
+            `Connection timeout to ${this.address} after ${this.connectTimeoutMs}ms`,
+          ),
+        );
       }, this.connectTimeoutMs);
     });
 
@@ -333,7 +339,10 @@ export class TCPTransport {
       // wait for response
       let timeout: NodeJS.Timeout | null = null;
       const timeoutPromise = new Promise<void>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error("timeout")), this.timeoutMs);
+        timeout = setTimeout(
+          () => reject(new Error("timeout")),
+          this.timeoutMs,
+        );
       });
 
       try {

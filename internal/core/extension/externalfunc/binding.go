@@ -70,7 +70,7 @@ func extractConfig(spec map[string]any) map[string]any {
 	for k, v := range spec {
 		key := strings.ToLower(strings.TrimSpace(k))
 		switch key {
-		case "provider", "provider_name", "name", "id", "bindingkey", "type", "driver", "enabled", "operations", "operation", "config":
+		case "provider", "provider_name", "name", "id", "bindingkey", "type", "driver", "enabled", "operations", "operation", "permission", "permissions", "config":
 			continue
 		default:
 			out[k] = v

@@ -1,0 +1,4 @@
+allowBuilds:
+  # protobufjs's postinstall only writes an optional install-check marker;
+  # the SDK uses it as a plain library, so no build script is needed.
+  protobufjs: false

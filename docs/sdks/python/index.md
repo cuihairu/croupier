@@ -16,8 +16,6 @@ Python SDK 是 Croupier 的官方 Python 客户端，面向函数注册、调用
 - 基于单连接会话模型与 Agent 通信
 - 内置心跳、重连和基础类型注解
 
-- 呈现 hints 便捷层（x-ui-* 契约，见 [呈现 Hints 契约](/architecture/presentation-hints)）：
-
 ```python
 from croupier import set_field_widget, set_field_hint
 
@@ -49,8 +47,8 @@ client = CroupierClient(
 )
 
 client.register_function(
-    function_id="hello.world",
-    handler=lambda payload: {"message": "hello"},
+    FunctionDescriptor(id="hello.world", version="1"),
+    handler=lambda ctx, payload: {"message": "hello"},
 )
 
 client.connect()

@@ -83,8 +83,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "VCPKG_TARGET_TRIPLET": "x64-osx"
       }
-    }
-    ,
+    },
     {
       "name": "linux-x64-debug-vcpkg",
       "displayName": "Linux x64 Debug (vcpkg)",

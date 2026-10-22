@@ -33,6 +33,7 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		Status:            req.Status,
 		GameID:            svc.ResolveGameID(ctx, req.GameID),
 		Env:               svc.ResolveEnv(ctx, req.Env),
+		Actor:             req.Actor,
 	})
 	if err != nil {
 		return nil, err
@@ -42,6 +43,32 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		result = append(result, buildItem(&items[i]))
 	}
 	return &ListResponse{Items: result, Total: int(total)}, nil
+}
+
+// OperatorOptions 操作者聚合选项（#23）：当前 scope（含游戏/环境覆盖语义
+// 与 List 一致）下 distinct actor + 留痕条数，供过滤下拉消费。
+func (s *Service) OperatorOptions(ctx context.Context, req *ListRequest) (*OperatorOptionsResponse, error) {
+	if req == nil {
+		req = &ListRequest{}
+	}
+	rows, err := model.NewTaskRunModel(s.svcCtx.DB).OperatorOptions(ctx, model.ListTasksOptions{
+		FunctionID: req.FunctionID,
+		Status:     req.Status,
+		GameID:     svc.ResolveGameID(ctx, req.GameID),
+		Env:        svc.ResolveEnv(ctx, req.Env),
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]OperatorOptionsItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, OperatorOptionsItem{
+			Value: row.Name,
+			Label: row.Name,
+			Count: row.Count,
+		})
+	}
+	return &OperatorOptionsResponse{Items: items}, nil
 }
 
 func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse, error) {

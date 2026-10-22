@@ -3,12 +3,16 @@ package ops
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/labels"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +27,9 @@ import (
 func TestNewService(t *testing.T) {
 	t.Parallel()
 
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
 	assert.NotNil(t, s)
@@ -118,7 +124,8 @@ func TestServiceOpsAgentSystemInfo(t *testing.T) {
 		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
-		Labels:    map[string]string{"os": "linux"},
+		Version:   "1.2.3",
+		Labels:    map[string]string{"os": "linux", labels.AgentBinarySHA256: "fp-tier3"},
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
 	})
@@ -126,30 +133,107 @@ func TestServiceOpsAgentSystemInfo(t *testing.T) {
 	resp, err := s.OpsAgentSystemInfo(ctx, &OpsAgentSystemInfoRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
 	assert.Equal(t, "linux", resp.SystemInfo.OS)
+	// §10.5：降级视图的指纹随注册标签在列。
+	assert.Equal(t, "fp-tier3", resp.SystemInfo.AgentBinarySha256)
+	assert.Equal(t, "1.2.3", resp.SystemInfo.AgentVersion)
+}
+
+// TestServiceOpsAgentSystemInfoDBAnchor 钉四级数据面第 4 级：registry 内存
+// 视图没有（会话已过期软删）、DB 里 agent_sessions 行仍在——Unscoped 读出
+// 最后已知版本与指纹，锚点跨 server 重启与会话 TTL 存活。
+func TestServiceOpsAgentSystemInfoDBAnchor(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, registry.MigrateAgentSessions(db))
+
+	sessModel := registry.NewAgentSessionModel(db)
+	past := time.Now().Add(-2 * time.Hour)
+	require.NoError(t, sessModel.Upsert(ctx, &registry.AgentSession{
+		AgentID:  "agent-anchor",
+		Version:  "3.4.5",
+		ExpireAt: past,
+		LastSeen: past,
+		Labels:   map[string]string{labels.AgentBinarySHA256: "fp-db-anchor"},
+	}))
+	n, err := sessModel.DeleteExpired(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n, "会话行须已软删（内存/活跃视图不再可见）")
+
+	store := registry.NewStore()
+	svcCtx := &svc.ServiceContext{RegistryStore: store, DB: db}
+	s := NewService(svcCtx)
+
+	resp, err := s.OpsAgentSystemInfo(ctx, &OpsAgentSystemInfoRequest{AgentID: "agent-anchor"})
+	require.NoError(t, err)
+	assert.Equal(t, "3.4.5", resp.SystemInfo.AgentVersion)
+	assert.Equal(t, "fp-db-anchor", resp.SystemInfo.AgentBinarySha256)
+
+	// DB 里也没有 → 既有 not found 语义不变。
+	_, err = s.OpsAgentSystemInfo(ctx, &OpsAgentSystemInfoRequest{AgentID: "ghost"})
+	assert.Error(t, err)
 }
 
 func TestServiceOpsAgentMetrics(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	metrics := registry.NewMetricsStore()
+	metrics.Add("agent-1", &opsv1.MetricsReport{
+		Cpu:      &opsv1.CpuMetrics{Cores: 2, UsagePercent: 30.5},
+		Memory:   &opsv1.MemoryMetrics{TotalBytes: 100, UsedBytes: 40, UsagePercent: 40},
+		Disks:    []*opsv1.DiskMetrics{{MountPoint: "/", TotalBytes: 200, UsedBytes: 80, UsagePercent: 40}},
+		Networks: []*opsv1.NetworkMetrics{{Interface: "eth0", BytesSent: 10, BytesRecv: 20, PacketsSent: 2, PacketsRecv: 4}},
+	})
+	svcCtx := &svc.ServiceContext{RegistryStore: store, MetricsStore: metrics}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsAgentMetrics(ctx, &OpsAgentMetricsRequest{})
+	resp, err := s.OpsAgentMetrics(ctx, &OpsAgentMetricsRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Metrics)
+	require.Len(t, resp.Metrics, 1)
+	assert.Equal(t, "agent-1", resp.Metrics[0].AgentID)
+	assert.Equal(t, int32(2), resp.Metrics[0].CPU.Cores)
+	assert.Equal(t, 40.0, resp.Metrics[0].Memory.UsagePercent)
+	assert.Len(t, resp.Metrics[0].Disks, 1)
+	assert.Len(t, resp.Metrics[0].Networks, 1)
+
+	_, err = s.OpsAgentMetrics(svc.WithGameScope(ctx, svc.GameScope{GameID: "other", Env: "prod"}), &OpsAgentMetricsRequest{AgentID: "agent-1"})
+	assert.ErrorContains(t, err, "does not belong")
 }
 
 func TestServiceOpsAgentProcesses(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	metrics := registry.NewMetricsStore()
+	metrics.Add("agent-1", &opsv1.MetricsReport{
+		SupervisedProcesses: []*opsv1.SupervisedProcessSnapshot{{
+			Name:          "game",
+			Pid:           123,
+			State:         opsv1.ProcessState_PROCESS_STATE_RUNNING,
+			UptimeSeconds: 45,
+			RestartCount:  2,
+		}},
+	})
+	svcCtx := &svc.ServiceContext{RegistryStore: store, MetricsStore: metrics}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsAgentProcesses(ctx, &OpsAgentProcessesRequest{})
+	resp, err := s.OpsAgentProcesses(ctx, &OpsAgentProcessesRequest{AgentID: "agent-1"})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Processes)
+	require.Len(t, resp.Processes, 1)
+	assert.Equal(t, "game", resp.Processes[0].Name)
+	assert.Equal(t, int32(123), resp.Processes[0].Pid)
+	assert.Equal(t, "running", resp.Processes[0].State)
+	assert.Equal(t, int32(2), resp.Processes[0].RestartCount)
+
+	_, err = s.OpsAgentProcesses(svc.WithGameScope(ctx, svc.GameScope{GameID: "other", Env: "prod"}), &OpsAgentProcessesRequest{AgentID: "agent-1"})
+	assert.ErrorContains(t, err, "does not belong")
 }
 
 func TestServiceOpsAgentProcessStart(t *testing.T) {
@@ -182,6 +266,17 @@ func TestServiceOpsAgentProcessRestart(t *testing.T) {
 	s := NewService(svcCtx)
 
 	_, err := s.OpsAgentProcessRestart(ctx, &OpsProcessActionRequest{})
+	require.Error(t, err)
+}
+
+func TestServiceOpsAgentProcessSchedulePause(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svcCtx := &svc.ServiceContext{}
+	s := NewService(svcCtx)
+
+	_, err := s.OpsAgentProcessSchedulePause(ctx, &OpsProcessSchedulePauseRequest{Suspend: true})
 	require.Error(t, err)
 }
 
@@ -723,7 +818,6 @@ func TestAgentServiceListFilterByGameID(t *testing.T) {
 func TestAgentServiceGetMeta(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
 	store := registry.NewStore()
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewAgentService(svcCtx)
@@ -738,6 +832,7 @@ func TestAgentServiceGetMeta(t *testing.T) {
 		LastSeen:  time.Now(),
 	})
 
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "prod"})
 	meta, err := s.GetMeta(ctx, "agent-1")
 	require.NoError(t, err)
 	assert.Equal(t, "linux", meta.OS)
@@ -752,6 +847,20 @@ func TestAgentServiceGetMetaNotFound(t *testing.T) {
 
 	_, err := s.GetMeta(ctx, "nonexistent")
 	assert.Error(t, err)
+}
+
+func TestAgentServiceGetMetaRejectsWrongScope(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent-scope", GameID: "game1", Env: "prod",
+	}))
+	s := NewAgentService(&svc.ServiceContext{RegistryStore: store})
+
+	wrongScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "dev"})
+	_, err := s.GetMeta(wrongScope, "agent-scope")
+	require.ErrorContains(t, err, "does not belong")
 }
 
 func TestNewNodeService(t *testing.T) {
@@ -789,19 +898,36 @@ func TestNodeServiceList(t *testing.T) {
 func TestNodeServiceGetCommands(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{RegistryStore: registry.NewStore()}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "node-1", GameID: "game1", Env: "prod",
+	}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewNodeService(svcCtx)
 
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "prod"})
 	commands, err := s.GetCommands(ctx, "node-1")
 	require.NoError(t, err)
 	assert.Len(t, commands, 3)
 }
 
+func TestNodeServiceGetCommandsRejectsWrongScope(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "node-scope", GameID: "game1", Env: "prod",
+	}))
+	s := NewNodeService(&svc.ServiceContext{RegistryStore: store})
+
+	wrongScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "other", Env: "prod"})
+	_, err := s.GetCommands(wrongScope, "node-scope")
+	require.ErrorContains(t, err, "does not belong")
+}
+
 func TestNodeServiceGetMeta(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
 	store := registry.NewStore()
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewNodeService(svcCtx)
@@ -816,6 +942,7 @@ func TestNodeServiceGetMeta(t *testing.T) {
 		LastSeen:  time.Now(),
 	})
 
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game1", Env: "prod"})
 	meta, err := s.GetMeta(ctx, "node-1")
 	require.NoError(t, err)
 	assert.Equal(t, "us-east-1", meta["zone"])
@@ -900,7 +1027,9 @@ func TestOpsHealthGetHandler(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	h := NewHandler(NewService(svcCtx))
 	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/health", "")
 
@@ -1137,7 +1266,7 @@ func TestOpsBackupDownloadHandler(t *testing.T) {
 
 // Agent handlers with proper registry setup
 
-func TestOpsAgentProcessesHandler(t *testing.T) {
+func TestOpsAgentProcessesHandlerWithoutAgentIDRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1147,10 +1276,10 @@ func TestOpsAgentProcessesHandler(t *testing.T) {
 
 	h.OpsAgentProcesses(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestOpsAgentMetricsHandler(t *testing.T) {
+func TestOpsAgentMetricsHandlerWithoutAgentIDRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1160,7 +1289,7 @@ func TestOpsAgentMetricsHandler(t *testing.T) {
 
 	h.OpsAgentMetrics(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsAgentProcessStartHandler(t *testing.T) {
@@ -1203,6 +1332,57 @@ func TestOpsAgentProcessRestartHandler(t *testing.T) {
 	assert.GreaterOrEqual(t, rec.Code, http.StatusBadRequest)
 }
 
+func TestOpsAgentProcessSchedulePauseHandler(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	svcCtx := &svc.ServiceContext{}
+	h := NewHandler(NewService(svcCtx))
+	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/agent/process/schedule/pause", "")
+
+	h.OpsAgentProcessSchedulePause(ctx)
+
+	assert.GreaterOrEqual(t, rec.Code, http.StatusBadRequest)
+}
+
+// TestProcessActionHandlersAcceptEmptyBody 钉死进程动作面的绑定形态：面板发的
+// 是无 body POST，bindOpsRequest 的 ShouldBindJSON 对空 body 报 EOF
+// （400 bad_request），三条既有路由在线上一律失效。入参唯一来源是路径
+// （agentId/name），处理器必须走 c.Param 而非 body 绑定。
+func TestProcessActionHandlersAcceptEmptyBody(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
+	h := NewHandler(NewService(svcCtx))
+
+	engine := gin.New()
+	g := engine.Group("/api/v1/ops/agents/:agentId/processes/:name")
+	g.POST("/start", h.OpsAgentProcessStart)
+	g.POST("/stop", h.OpsAgentProcessStop)
+	g.POST("/restart", h.OpsAgentProcessRestart)
+	g.POST("/schedule/pause", h.OpsAgentProcessSchedulePause)
+	g.POST("/schedule/resume", h.AgentProcessScheduleResume)
+
+	for _, sub := range []string{"/start", "/stop", "/restart", "/schedule/pause", "/schedule/resume"} {
+		target := "/api/v1/ops/agents/agent-1/processes/my-app" + sub
+		req := httptest.NewRequest(http.MethodPost, target, nil)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		engine.ServeHTTP(rec, req)
+
+		body := rec.Body.String()
+		if strings.Contains(body, "EOF") {
+			t.Fatalf("%s: empty-body POST rejected at binding: status=%d body=%s", sub, rec.Code, body)
+		}
+		if !strings.Contains(body, "ops client unavailable") {
+			t.Fatalf("%s: request did not reach agent ops service: status=%d body=%s", sub, rec.Code, body)
+		}
+	}
+}
+
 // Alias handler tests
 
 func TestHandlerAliasMethods(t *testing.T) {
@@ -1231,6 +1411,8 @@ func TestHandlerAliasMethods(t *testing.T) {
 		{name: "AgentProcessStart", fn: h.AgentProcessStart},
 		{name: "AgentProcessStop", fn: h.AgentProcessStop},
 		{name: "AgentProcessRestart", fn: h.AgentProcessRestart},
+		{name: "AgentProcessSchedulePause", fn: h.AgentProcessSchedulePause},
+		{name: "AgentProcessScheduleResume", fn: h.AgentProcessScheduleResume},
 		{name: "AgentExecCommand", fn: h.AgentExecCommand},
 		{name: "Nodes", fn: h.Nodes},
 		{name: "NodeCommands", fn: h.NodeCommands},

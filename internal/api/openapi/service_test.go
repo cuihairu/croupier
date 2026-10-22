@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
@@ -22,7 +23,6 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/getkin/kin-openapi/openapi3"

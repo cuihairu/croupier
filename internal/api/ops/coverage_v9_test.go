@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cluster"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
@@ -23,7 +24,6 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/gin-gonic/gin"
@@ -100,7 +100,9 @@ func TestOpsAgentProcessHelpersV9(t *testing.T) {
 	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
 	t.Cleanup(func() { client.SetSessionResolver(nil) })
 
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo", Env: "prod"}))
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	ctx := context.Background()
 
 	// ExecCommand 成功 → 响应转换
@@ -625,11 +627,10 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 	}
 
 	// agent 进程命令成功
-	agentH := NewHandler(NewService(&svc.ServiceContext{}))
+	agentStore := registry.NewStore()
+	require.NoError(t, agentStore.UpsertAgent(&registry.AgentSession{AgentID: "agent-1"}))
+	agentH := NewHandler(NewService(&svc.ServiceContext{RegistryStore: agentStore}))
 	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentExecCommand, http.MethodPost, `{"AgentID":"agent-1","command":"ls","args":[],"timeout":1}`))
-	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentProcessStart, http.MethodPost, `{"AgentID":"agent-1","Name":"p1"}`))
-	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentProcessStop, http.MethodPost, `{"AgentID":"agent-1","Name":"p1"}`))
-	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentProcessRestart, http.MethodPost, `{"AgentID":"agent-1","Name":"p1"}`))
 
 	// node 命令成功
 	nodeH := NewHandler(NewService(nodeCtx))
@@ -642,6 +643,45 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsHealthUpdate, http.MethodPost, `{"checks":[{"id":"hc-1","kind":"tcp","target":"127.0.0.1:80"}]}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsHealthRun, http.MethodPost, `{"id":"hc-1"}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsMaintenanceUpdate, http.MethodPost, `{"windows":[{"gameId":"g","env":"prod"}]}`))
+}
+
+// TestHandlerProcessActionSuccessPathV9 用真实路由驱动进程动作面（路径入参）：
+// 面板发的是无 body POST，agentId/name 只来自路径参数（#59 同款绑定缺口：
+// ShouldBindJSON 对空 body 报 EOF，uri tag 不被 JSON 绑定读取）。证明入参从
+// 路径贯通到 agent ops 隧道调用。
+func TestHandlerProcessActionSuccessPathV9(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	caller := &fakeCaller{respFor: map[uint32]proto.Message{
+		protocol.MsgStartProcessRequest:   &opsv1.StartProcessResponse{Pid: 99},
+		protocol.MsgStopProcessRequest:    &opsv1.StopProcessResponse{},
+		protocol.MsgRestartProcessRequest: &opsv1.RestartProcessResponse{},
+		protocol.MsgSchedulePauseRequest:  &opsv1.SchedulePauseResponse{Success: true, Suspended: true},
+	}}
+	client := agentops.GetAgentOpsClient()
+	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
+	t.Cleanup(func() { client.SetSessionResolver(nil) })
+
+	processStore := registry.NewStore()
+	require.NoError(t, processStore.UpsertAgent(&registry.AgentSession{AgentID: "agent-1"}))
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: processStore}))
+	router := gin.New()
+	g := router.Group("/api/v1/ops/agents/:agentId/processes/:name")
+	g.POST("/start", h.OpsAgentProcessStart)
+	g.POST("/stop", h.OpsAgentProcessStop)
+	g.POST("/restart", h.OpsAgentProcessRestart)
+	g.POST("/schedule/pause", h.OpsAgentProcessSchedulePause)
+	g.POST("/schedule/resume", h.AgentProcessScheduleResume)
+
+	for _, sub := range []string{"/start", "/stop", "/restart", "/schedule/pause", "/schedule/resume"} {
+		target := "/api/v1/ops/agents/agent-1/processes/p1" + sub
+		req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(""))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code, "%s: %s", sub, rec.Body.String())
+	}
 }
 
 // ---- handler 服务错误路径 ----
@@ -726,6 +766,7 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 					{AgentID: "agent-remote", InstanceID: "peer", GameID: "g1", Env: "prod", LastSeenAt: now},
 					{AgentID: "agent-drained", InstanceID: "peer", GameID: "g1", Env: "prod", LastSeenAt: now},
 					{AgentID: "agent-only-owner", InstanceID: "peer", GameID: "g1", Env: "prod", LastSeenAt: now.Add(-time.Minute)},
+					{AgentID: "agent-owner-capture", InstanceID: "peer", GameID: "g1", Env: "prod", LabelsMap: map[string]string{"role": "capture"}, LastSeenAt: now},
 					{AgentID: "agent-other-game", InstanceID: "peer", GameID: "gX", Env: "prod", LastSeenAt: now},
 					{AgentID: "agent-other-env", InstanceID: "peer", GameID: "g1", Env: "dev", LastSeenAt: now},
 				}, nil
@@ -751,6 +792,17 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "online", onlyOwner.Status)
 	assert.Equal(t, "peer", onlyOwner.Labels["ownerInstance"])
+
+	// 四类页按 role 过滤：仅归属表可见的远端 Agent 仍保留 type。
+	captureNodes := listNodes(context.Background(), svcCtx, "g1", "prod", "capture")
+	captureByID := map[string]Node{}
+	for _, n := range captureNodes {
+		captureByID[n.Id] = n
+	}
+	require.Contains(t, captureByID, "agent-owner-capture")
+	assert.Equal(t, "capture", captureByID["agent-owner-capture"].Labels["role"])
+	assert.NotContains(t, captureByID, "agent-other-game")
+	assert.NotContains(t, captureByID, "agent-other-env")
 	// 过滤掉其他 game/env
 	assert.NotContains(t, byID, "agent-other-game")
 	assert.NotContains(t, byID, "agent-other-env")

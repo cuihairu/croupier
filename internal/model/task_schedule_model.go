@@ -45,11 +45,18 @@ type CreateScheduleInput struct {
 	Metadata   JSON
 	MaxFailed  int
 	Actor      string
+	// Kind 触发形态（ScheduleKindFunction/ScheduleKindIncidentReport）；
+	// 空 = function（默认派发链）。
+	Kind string
 }
 
 func (m *TaskScheduleModel) Create(ctx context.Context, in CreateScheduleInput) (*TaskSchedule, error) {
 	if err := ValidateScheduleInput(in.Name, in.CronExpr, in.GameID, in.Env, in.FunctionID); err != nil {
 		return nil, err
+	}
+	kind := strings.TrimSpace(in.Kind)
+	if kind == "" {
+		kind = ScheduleKindFunction
 	}
 	s := &TaskSchedule{
 		Name:          strings.TrimSpace(in.Name),
@@ -60,6 +67,7 @@ func (m *TaskScheduleModel) Create(ctx context.Context, in CreateScheduleInput) 
 		Payload:       in.Payload,
 		Metadata:      in.Metadata,
 		Status:        ScheduleStatusActive,
+		Kind:          kind,
 		MaxFailedRuns: in.MaxFailed,
 		Actor:         in.Actor,
 	}

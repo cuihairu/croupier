@@ -450,6 +450,8 @@ export default {
   'pages.announcements.field.audience': '受众',
   'pages.announcements.field.content': '正文（Markdown）',
   'pages.announcements.field.content.required': '请填写正文',
+  'pages.announcements.field.content.syntaxHint':
+    '支持子集：#/##/### 标题、- 列表、1. 有序、**粗体**、*斜体*、`代码`、[链接](https://…)；其余写法按原文展示',
   'pages.announcements.field.gameIds': '适用游戏（可多选，不选=全服可见）',
   'pages.announcements.field.gameIds.placeholder': '不选=全服可见',
   'pages.announcements.field.popup': '登录后弹窗提示',

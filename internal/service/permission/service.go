@@ -245,9 +245,10 @@ func permissionCandidates(resource, action string) []string {
 	case "game":
 		switch action {
 		case "read":
-			keys = append(keys, "games:read", "games:manage")
+			keys = append(keys, "games:read", "games:manage", "games:write")
 		case "create", "update", "edit", "delete":
-			keys = append(keys, "games:manage")
+			// 游戏本体增删改与环境管理（games:manage）分离，须持 games:write。
+			keys = append(keys, "games:write")
 		}
 	case "function":
 		if action == "execute" {

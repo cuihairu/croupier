@@ -1,44 +1,28 @@
-// Package transport defines shared transport abstractions for Croupier.
+// Package transport 传输层抽象（shim）。本体已上收 core/transport（capture C1
+// 前置：agents/* 依赖方向不得 import internal/，通道面归 core）；本包保留类型
+// 别名与常量转发，internal 侧既有 import 路径零变化，新代码请直用 core/transport。
 package transport
 
-import "context"
+import "github.com/cuihairu/croupier/core/transport"
 
 // Kind identifies a transport implementation.
-type Kind string
+type Kind = transport.Kind
 
 const (
-	KindTCP Kind = "tcp"
+	KindTCP = transport.KindTCP
 )
 
 // Handler handles a request and returns the response body.
-type Handler interface {
-	Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error)
-}
+type Handler = transport.Handler
 
 // HandlerFunc adapts a function to Handler.
-type HandlerFunc func(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error)
-
-// Handle calls f(ctx, msgID, reqID, body).
-func (f HandlerFunc) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
-	return f(ctx, msgID, reqID, body)
-}
+type HandlerFunc = transport.HandlerFunc
 
 // Client is a request-response transport client.
-type Client interface {
-	Call(ctx context.Context, msgID uint32, reqBody []byte) (respMsgID uint32, respBody []byte, err error)
-	Close() error
-	IsClosed() bool
-}
+type Client = transport.Client
 
 // Server is a request-response transport server.
-type Server interface {
-	Serve(ctx context.Context) error
-	Close() error
-	IsClosed() bool
-	Addr() string
-}
+type Server = transport.Server
 
 // SessionCaller sends a request over an established TCP session and returns the response.
-type SessionCaller interface {
-	Call(ctx context.Context, msgID uint32, reqBody []byte) (respMsgID uint32, respBody []byte, err error)
-}
+type SessionCaller = transport.SessionCaller

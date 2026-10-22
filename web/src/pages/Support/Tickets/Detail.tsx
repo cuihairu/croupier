@@ -866,8 +866,7 @@ export default function TicketDetailPage() {
             },
           ]}
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -876,8 +875,7 @@ export default function TicketDetailPage() {
           })}
           name="content"
         >
-          {' '}
-          <Input.TextArea rows={4} />{' '}
+          <Input.TextArea rows={4} />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -886,8 +884,7 @@ export default function TicketDetailPage() {
           })}
           name="category"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -896,7 +893,6 @@ export default function TicketDetailPage() {
           })}
           name="priority"
         >
-          {' '}
           <Select
             options={[
               { label: intl.formatMessage(priTextMap.low), value: 'low' },
@@ -904,7 +900,7 @@ export default function TicketDetailPage() {
               { label: intl.formatMessage(priTextMap.high), value: 'high' },
               { label: intl.formatMessage(priTextMap.urgent), value: 'urgent' },
             ]}
-          />{' '}
+          />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -913,7 +909,6 @@ export default function TicketDetailPage() {
           })}
           name="status"
         >
-          {' '}
           <Select
             options={[
               { label: intl.formatMessage(stTextMap.open), value: 'open' },
@@ -921,7 +916,7 @@ export default function TicketDetailPage() {
               { label: intl.formatMessage(stTextMap.resolved), value: 'resolved' },
               { label: intl.formatMessage(stTextMap.closed), value: 'closed' },
             ]}
-          />{' '}
+          />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -930,8 +925,7 @@ export default function TicketDetailPage() {
           })}
           name="assignee"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -940,8 +934,7 @@ export default function TicketDetailPage() {
           })}
           name="tags"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -950,8 +943,7 @@ export default function TicketDetailPage() {
           })}
           name="playerId"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -960,8 +952,7 @@ export default function TicketDetailPage() {
           })}
           name="contact"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -970,8 +961,7 @@ export default function TicketDetailPage() {
           })}
           name="gameId"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -980,8 +970,7 @@ export default function TicketDetailPage() {
           })}
           name="env"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -990,8 +979,7 @@ export default function TicketDetailPage() {
           })}
           name="source"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
       </ModalForm>
     </>

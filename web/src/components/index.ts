@@ -30,6 +30,12 @@ import PlayerManageTemplate, {
   createPlayerManageDemoExecute,
 } from './PageRenderer/templates/playerManage';
 
+/**
+ * Theme 组件
+ */
+import { ThemeSync } from './ThemeSync';
+import { ThemeToggle } from './ThemeToggle';
+
 export {
   Footer,
   Question,
@@ -52,4 +58,7 @@ export {
   PlayerManageTemplate,
   playerManagePageSpec,
   createPlayerManageDemoExecute,
+  // Theme
+  ThemeSync,
+  ThemeToggle,
 };

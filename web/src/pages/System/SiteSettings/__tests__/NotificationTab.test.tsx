@@ -1,10 +1,11 @@
 /**
- * 通知设置子 Tab 单测（覆盖率巡检：0% → 行覆盖 100%）。
+ * 通知设置子 Tab 单测（覆盖率巡检：0% → 行覆盖 100% → 分支翼收口）。
  *
  * 锁定契约：通知配置读（回填 + 密文永不回显）/写（trim、空值=清除、
- * 数字直提）/开关（开/关文案）/三条失败路径（加载/保存/操作）与渲染分支
- * （密文徽标两态、placeholderMsg/help）。SMTP/邮件开关已迁运维 SMTP 卡
- * （#55），本文件不再覆盖；对应行为见 __tests__/SmtpCard.test.tsx。
+ * 非字符串 undefined 直提不清 trim）/开关（开/关双翼文案）/三条失败路径
+ * （加载/保存/操作）与渲染分支（密文徽标两态、placeholderMsg/help）。
+ * SMTP/邮件开关已迁运维 SMTP 卡（#55），本文件不再覆盖；对应行为见
+ * __tests__/SmtpCard.test.tsx。
  *
  * mock 口径沿用 __tests__/index.test.tsx：services/api/sites 三方法 jest.mock、
  * @umijs/max 本地 mock。message 提示经真实 antd App 渲染进 portal，用 DOM
@@ -192,6 +193,20 @@ describe('NotificationTab 保存（saveKey）', () => {
     expect(mSet).not.toHaveBeenCalled();
   });
 
+  it('非字符串空值（undefined，未触碰的密钥字段）：不经 trim 直落 clearSiteSetting', async () => {
+    renderTab();
+    // load 显式 setFieldsValue(secret: undefined)：字段未触碰时 getFieldValue
+    // 恒 undefined → typeof 翼走非字符串侧（L176），trim 不适用
+    const input = await screen.findByPlaceholderText('SEC…');
+    fireEvent.click(saveButtonOf(input));
+
+    await waitFor(() => expect(mClear).toHaveBeenCalledWith('notification.dingtalkSecret'));
+    expect(await screen.findByText('已保存')).toBeInTheDocument();
+    expect(mSet).not.toHaveBeenCalled();
+    // 空值清除同样触发重拉
+    await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
+  });
+
   it('保存失败：错误提示透出后端 message、不重拉、按钮退出 loading', async () => {
     mSet.mockRejectedValue(new Error('smtp quota exceeded'));
     mFetch.mockResolvedValue({ ...baseSettings, dingtalkUrl: 'https://old' });
@@ -217,6 +232,19 @@ describe('NotificationTab 开关（toggleBool）', () => {
     expect(await screen.findByText('已关闭')).toBeInTheDocument();
     // 重拉后 settings.inAppEnabled 仍为 true：开关回到选中态
     expect(screen.getAllByRole('switch')[0]).toBeChecked();
+  });
+
+  it('站内信开关开启：起点 false → setSiteSetting(key, true) + 「已开启」双翼', async () => {
+    mFetch.mockResolvedValue({ ...baseSettings, inAppEnabled: false });
+    renderTab();
+    const [inApp] = await screen.findAllByRole('switch');
+    expect(inApp).not.toBeChecked();
+    fireEvent.click(inApp);
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('notification.inAppEnabled', true));
+    expect(await screen.findByText('已开启')).toBeInTheDocument();
+    // 重拉后 settings.inAppEnabled 仍为 false：开关回到未选中态
+    expect(screen.getAllByRole('switch')[0]).not.toBeChecked();
   });
 
   it('开关失败：提示「操作失败」兜底链路，不重拉', async () => {

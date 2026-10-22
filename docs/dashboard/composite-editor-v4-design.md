@@ -1,314 +1,77 @@
 ---
-title: 组合页编辑器 V4 — 组件模板与三层组合
+title: Composite editor V4 design
 ---
 
-# 组合页编辑器 V4 — 组件模板与三层组合
+# Composite editor V4 design
 
-> 状态：**已完成**（V4-1~V4-6 全部交付，线上验证 22 契约→24 组件模板）
-> 前置：V3 已上线（组件化编辑器 + 通用事件 + 动作链），见 [V3 使用指南](./composite-editor-v3.md)
-> 参考产品：Appsmith Module、Retool Custom Component、amis 组合渲染器
+V4 extends V3 with a reusable component-template layer. Functions remain atomic capabilities and pages remain the final composition; templates capture recurring combinations of functions, layout, actions, and links.
 
-## 1. 核心概念
-
-用户提出的分层组合模型：
+## Three-layer model
 
 ```text
-第一层  函数（已有）
-        SDK 注册的原子能力：player.list、mail.send、inventory.grant…
-
-第二层  组件模板（V4 新增——核心缺失）
-        多个函数 + 布局 + 联动 → 封装为可复用组件
-
-第三层  页面（已有）
-        多个组件 → 组合成复杂工作台页面
+Functions -> Component templates -> Pages
 ```
 
-**为什么需要第二层**：当前从零搭建一个"玩家管理"页面需要拖 3-5 个函数、配弹窗、配行操作、配联动——每次都重复。封装后一次拖入即得到完整功能块，然后在页面上组合多个功能块。
+V4 removes the repeated work of rebuilding a management page from several functions. A template can include a table, detail modal, operation forms, row actions, and refresh behavior, then be instantiated and adjusted as ordinary editor nodes.
 
-## 2. 组件模板模型
+## Template model
 
-### 2.1 数据结构
+| Field                  | Purpose                                                                |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `key`                  | Stable unique template identity.                                       |
+| `name` / `description` | Localized display metadata.                                            |
+| `category`             | Operations, support, data, configuration, or custom.                   |
+| `requiredFunctions`    | Scope availability check during insertion.                             |
+| `tree`                 | Editor-node subtree with the same structure as a page.                 |
+| `builtin`              | Marks templates generated from contracts; built-ins cannot be deleted. |
+| `params`               | Optional display-property parameters with defaults.                    |
 
-```go
-// ComponentTemplate 是可复用的页面组件模板（V4 核心实体）。
-type ComponentTemplate struct {
-    gorm.Model
-    // 唯一标识（如 player-management）
-    Key string `gorm:"size:128;uniqueIndex"`
-    // 显示名（LocalizedText）
-    Name JSON `gorm:"type:json"`
-    // 描述
-    Description JSON `gorm:"type:json"`
-    // 分类：运营 / 客服 / 数据 / 配置 / 自定义
-    Category string `gorm:"size:32;index"`
-    // 图标（antd icon 名）
-    Icon string `gorm:"size:64"`
-    // 依赖的函数 ID 列表（拖入时检查 scope 可用性）
-    RequiredFunctions JSON `gorm:"type:json"`
-    // 页面组件子树（与编辑器 PageNode 同构）
-    Tree JSON `gorm:"type:json"`
-    // 是否为内置模板（契约自动生成 vs 用户保存）
-    Builtin bool `gorm:"default:false"`
-    // 创建者
-    CreatedBy string `gorm:"size:64"`
-}
+## Instantiation
+
+1. Compare `requiredFunctions` with the functions available in the current scope.
+2. Deep-copy the template tree.
+3. Allocate fresh node identifiers.
+4. Remap event, row-action, refresh, and parameter references.
+5. Insert the subtree at the drop point or as root children when parameter collection is required.
+
+Template instances are expanded rather than referenced. Operators can edit columns, titles, and local actions without changing every future page; this also avoids publication-time questions about template versions.
+
+## Parameterization
+
+Only safe display properties are parameterizable:
+
+- `title`
+- `span`
+- `autoRun`
+
+Execution-critical fields such as function IDs, row actions, events, and input mappings cannot be parameterized. Parameter keys must be unique and must point to an existing node in the template tree. Values are stored with the template and applied during instantiation; omitted values fall back to defaults.
+
+## Built-in templates
+
+The server scans complete resource contracts and generates management templates:
+
+| Contract capability           | Generated node                          |
+| ----------------------------- | --------------------------------------- |
+| `collection_query`            | Auto-run, paginated table.              |
+| `item_query`                  | Detail fields in a row-triggered modal. |
+| `item_create` / `item_update` | Create or edit forms.                   |
+| `item_delete`                 | Dangerous row action with confirmation. |
+
+A complete CRUD resource becomes one management template rather than four unrelated fragments.
+
+## API surface
+
+```http
+GET    /api/v1/component-templates
+GET    /api/v1/component-templates/:key
+POST   /api/v1/component-templates
+PUT    /api/v1/component-templates/:key
+DELETE /api/v1/component-templates/:key
+POST   /api/v1/component-templates/regenerate
 ```
 
-### 2.2 Tree 结构（与编辑器 PageNode 同构）
+Availability is checked locally while loading the component library; a missing-function card is disabled with the missing IDs shown.
 
-```json
-{
-  "key": "player-management",
-  "name": { "zh-CN": "玩家管理", "en-US": "Player Management" },
-  "description": "搜索玩家→查看详情→执行操作",
-  "category": "运营",
-  "requiredFunctions": ["player.list", "player.get", "mail.send"],
-  "tree": [
-    {
-      "id": "table",
-      "type": "fnTable",
-      "props": {
-        "functionId": "player.list",
-        "title": "玩家列表",
-        "span": 24,
-        "autoRun": true,
-        "columns": ["uid", "nickname", "level", "vip"],
-        "rowActions": [
-          {
-            "label": "发邮件",
-            "targetSection": "mail-modal",
-            "params": { "player_id": "uid" }
-          }
-        ]
-      },
-      "events": {
-        "onRowClick": { "kind": "openModal", "target": "detail-modal" }
-      }
-    },
-    {
-      "id": "detail-modal",
-      "type": "modal",
-      "props": { "title": "玩家详情", "width": "medium" },
-      "children": [
-        {
-          "id": "detail-fields",
-          "type": "fnFields",
-          "props": { "functionId": "player.get", "span": 24 }
-        }
-      ]
-    },
-    {
-      "id": "mail-modal",
-      "type": "modal",
-      "props": { "title": "发送邮件", "width": "medium" },
-      "children": [
-        {
-          "id": "mail-form",
-          "type": "fnForm",
-          "props": {
-            "functionId": "mail.send",
-            "span": 24,
-            "onSuccess": { "kind": "refreshNode", "target": "table" }
-          }
-        }
-      ]
-    }
-  ]
-}
-```
+## Relationship to V3
 
-### 2.3 内置模板自动生成
-
-当 SDK 注册的函数契约具有完整 CRUD 能力时（`collection_query` + `item_query` + `item_update` + `item_delete`），自动生成「资源管理」组件模板：
-
-```text
-资源管理组件 = CRUD 表格 + 详情弹窗 + 新建/编辑弹窗 + 删除确认
-```
-
-这消除了最高频的重复搭建场景。生成规则：
-
-| 契约能力                      | 生成的组件节点                           |
-| ----------------------------- | ---------------------------------------- |
-| `collection_query`            | fnTable（列=输出 schema，autoRun，分页） |
-| `item_query`                  | fnFields（详情弹窗内，行点击触发）       |
-| `item_create` / `item_update` | fnForm（新建/编辑弹窗，顶部按钮触发）    |
-| `item_delete`                 | 行操作（确认弹窗，danger）               |
-
-## 3. 编辑器改造
-
-### 3.1 左栏改为三 Tab
-
-```text
-┌─ 左栏 ────────────────────────┐
-│ ┌────┐ ┌────┐ ┌────┐         │
-│ │组件库│ │函数│ │大纲│         │
-│ └────┘ └────┘ └────┘         │
-│ ┌──────────────────────────┐ │
-│ │ 🔍 搜索组件…              │ │
-│ ├──────────────────────────┤ │
-│ │ 📦 玩家管理     [运营]    │ │
-│ │    搜索→详情→操作          │ │
-│ │ 📦 邮件管理     [运营]    │ │
-│ │    模板列表→发送→记录      │ │
-│ │ 📦 数据面板     [数据]    │ │
-│ │    多图表+筛选             │ │
-│ │ 📦 配置管理     [配置]    │ │
-│ │    CRUD+版本回滚          │ │
-│ │ ─ ─ ─ 自定义 ─ ─ ─        │ │
-│ │ 📦 我的组件 A             │ │
-│ └──────────────────────────┘ │
-└──────────────────────────────┘
-```
-
-### 3.2 拖入组件 [实例化]
-
-```text
-从组件库拖入「玩家管理」→
-  1. 检查 scope：requiredFunctions 是否全部可用
-  2. 复制 tree 子树，重新分配所有节点 id
-  3. 重映射内部引用（events/rowActions/onSuccess 的 target）
-  4. 整棵子树插入画布（可继续编辑，不是黑盒）
-```
-
-### 3.3 选中多节点 [保存为组件]
-
-```text
-画布上选中 1 个或多个节点（点选累积）→
-  顶栏「保存为组件（N）」按钮 →
-  弹出表单：组件名 / 描述 / 分类 / 图标 →
-  序列化选中的节点子树（含引用关系）→
-  存入 ComponentTemplate（builtin=false）
-```
-
-（无右键菜单入口——4.4 使用指南描述的顶栏按钮是唯一入口。）
-
-### 3.4 组件实例展开编辑
-
-组件拖入后是**普通节点**（非黑盒引用）——用户可以直接修改内部任何配置。这是与 Appsmith Module 的关键差异（Appsmith 的 Module 是引用，修改需要回到 Module 定义处）。
-
-选择展开而非引用的理由：
-
-- 游戏后台页面通常只需要微调（改列、改文案），不需要全局同步
-- 避免引用带来的版本管理复杂度（组件改了，已发布页面是否自动更新？）
-- 保持编辑器模型简单（只有 PageNode 树，没有引用间接层）
-
-### 3.5 区块 key 与多实例命名空间（U5，2026-09）
-
-区块 key 是联动（refreshOn）、参数映射（inputAssignments）、行操作目标在 page_state 中的引用标识（后端 `stateKey = sectionKey`）。规则：
-
-1. **声明优先**：节点声明 `sectionKey`（属性面板「区块 key」输入框，字符集 `[a-zA-Z0-9][a-zA-Z0-9._-]*`）时编译期优先固化；非法或重复自动回退 `fid`/`fid-2` 分配并警告。
-2. **回读固化**：发布 spec 回读编辑（decompileToTree）时把 `section.key` 写回 `props.sectionKey`——再次编译、删除其他实例、调整顺序均不改变既有 key（修复此前按树顺序分配导致的引用漂移/静默断链）。
-3. **实例化隔离**：`instantiateTemplate` 不复制模板内 `sectionKey`（每个实例独立分配）；同时修复前向引用不重映射与嵌套对象污染模板缓存两个缺陷。
-4. **round-trip 修复**：`inputAssignments.sourceNodeId` 反查为真实上游节点 id（原恒等映射导致显式参数映射回读后丢失）；`staticForm` 的 `refreshOn` 编译期透传。
-
-大纲树在声明 key 时显示「标题 (key)」便于多实例辨识。
-
-### 3.6 模板参数化（U6，2026-09）
-
-组件模板支持**参数定义**（props 默认值）：保存时勾选可参数化项，拖入时弹窗快速配置，免逐节点手改。
-
-```json
-{
-  "params": [
-    {
-      "key": "table.title",
-      "label": { "zh-CN": "表格·标题" },
-      "nodeId": "table",
-      "prop": "title",
-      "default": "玩家列表"
-    },
-    {
-      "key": "table.autoRun",
-      "label": { "zh-CN": "表格·自动执行" },
-      "nodeId": "table",
-      "prop": "autoRun",
-      "default": true
-    }
-  ]
-}
-```
-
-规则：
-
-1. **白名单 prop**：仅 `title`/`span`/`autoRun`（展示类字段）可参数化；执行类配置（functionId/rowActions/事件/参数映射）由后端 `validateTemplateParams` 拒绝（实现位于 `internal/api/component/handler.go`）。
-2. **校验**：`key` 非空且唯一；`nodeId` 必须存在于 `tree`（含子树）；违反返回 400。
-3. **保存**：保存为组件弹窗列出候选（选中节点子树扫描），勾选生成参数定义（`default` = 保存时当前值）。
-4. **使用**：拖入/点击带参数模板 → 弹「配置组件参数」（default 预填，title=Input / span=InputNumber / autoRun=Switch）→ 确认后 `instantiateTemplate(tpl, values)` 应用（未填项回退 default）。
-5. **存储**：`component_templates.params` JSON 列（`TemplateParam[]`），DTO 透传 `params`；builtin 模板不产参数。
-6. 已知边界：参数应用于节点 props 层（不涉及函数输入参数默认值）；拖拽落点语义在带参数模板时退化为根级追加（先配置后插入）。
-
-## 4. API 设计
-
-### 4.1 组件模板 CRUD
-
-```text
-GET    /api/v1/component-templates           # 列表（含内置+自定义）
-GET    /api/v1/component-templates/:key      # 详情
-POST   /api/v1/component-templates           # 创建（用户保存）
-PUT    /api/v1/component-templates/:key      # 更新
-DELETE /api/v1/component-templates/:key      # 删除（内置不可删）
-```
-
-### 4.2 预置模板生成
-
-```text
-POST /api/v1/component-templates/regenerate  # 手动触发契约扫描→生成
-```
-
-### 4.3 拖入时可用性检查（前端本地实现）
-
-无 `check` 端点：组件库面板加载时以当前 scope 的函数集（`availableFnIds`）
-比对模板 `requiredFunctions`，缺失时组件卡置灰并提示缺少的函数
-（`ComponentLibrary.tsx` 的 `checkAvailable`）。
-
-## 4.4 使用指南
-
-### 从组件库搭建页面（30 秒一个 CRUD）
-
-1. 打开编辑器 → 左栏「组件库」Tab
-2. 点击「player 管理」（资源管理分类）→ 整棵 CRUD 子树进画布
-3. 顶栏「预览」→ 表格自动执行 → 行点击查看详情 → 新建/编辑弹窗提交后自动刷新
-4. 「保存为提案」→ 发布
-
-### 保存自定义组件
-
-1. 画布上选中多个组件（点选累积）
-2. 顶栏出现「保存为组件（N）」按钮 → 点击
-3. 输入名称 → 保存 → 在组件库「自定义」分类中出现
-4. 下次搭页面直接点击拖入
-
-### 管理组件模板
-
-- 页面：`/functions/component-templates`（「函数与页面」菜单域下）
-- 操作：查看卡片列表 / 预览（界面渲染=复用编辑器发布渲染器 PreviewRuntime，含 autoRun/弹窗/动作链；可切 JSON 结构视图）/ 从契约重新生成 / 删除自定义组件
-- 内置组件（契约自动生成）不可删除
-
-### 组件模板自动生成规则
-
-| 契约能力                     | 生成组件                                                    |
-| ---------------------------- | ----------------------------------------------------------- |
-| `collection_query`           | 表格组件（autoRun、分页）                                   |
-| `item_query`                 | 字段卡组件（半宽）                                          |
-| 其他（action/task 等）       | 表单组件                                                    |
-| 资源具备 list + get + 写操作 | CRUD 组合组件（表格 + 详情弹窗 + 新建/编辑弹窗 + 联动刷新） |
-
-## 5. 任务清单
-
-| #        | 任务       | 内容                                               | 预估   |
-| -------- | ---------- | -------------------------------------------------- | ------ |
-| ✅ V4-1  | 后端模型   | ComponentTemplate 表 + CRUD API + 契约扫描自动生成 | 1d     |
-| ✅ V4-2  | 组件库面板 | 左栏 Tab + 搜索/分类/描述展示 + 拖入               | 0.5d   |
-| ✅ V4-3  | 实例化     | tree 复制 + id 重分配 + 引用重映射 + scope 检查    | 0.5d   |
-| ✅ V4-4  | 保存为组件 | 选中节点 → 顶栏「保存为组件」→ 序列化保存          | 0.5d   |
-| ✅ V4-5  | 预置模板   | CRUD 资源→「资源管理」组件（契约推导）             | 1d     |
-| ✅ V4-6  | 集成测试   | 拖入→编辑→保存→发布全链 + round-trip               | 0.5d   |
-| **合计** |            |                                                    | **4d** |
-
-## 6. 与 V3 的关系
-
-V4 是 V3 的**扩展**而非替代：
-
-- V3 的所有功能（事件/动作链/分组弹窗/回读）不变
-- 组件库面板新增在左栏（与函数/大纲并列）
-- 保存的组件模板可包含 V3 的所有高级特性（事件/链/分组）
-- 编译/发布链零改动（组件实例化后就是普通 PageNode 树）
+V4 does not replace V3. It adds a component-library tab, reusable saved subtrees, contract-derived templates, and parameters. Compilation, validation, publication, and execution still operate on an ordinary expanded `PageNode` tree, so V3 behavior and tests remain the baseline.

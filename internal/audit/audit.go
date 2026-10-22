@@ -48,6 +48,9 @@ const (
 	EventApprovalRejected  AuditEventType = "approval.rejected"
 	EventApprovalCancelled AuditEventType = "approval.cancelled"
 	EventApprovalExpired   AuditEventType = "approval.expired"
+	// EventApprovalStepUpFailed 记高危审批 step-up TOTP 校验未通过/未提供/未绑定；
+	// 只记结果档位与账号，绝不记 otp 值本身（对齐字段脱敏要求）。
+	EventApprovalStepUpFailed AuditEventType = "approval.stepup_failed"
 
 	// Workflow events
 	EventWorkflowStarted   AuditEventType = "workflow.started"

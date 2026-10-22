@@ -20,7 +20,3 @@ title: JavaScript SDK API
 3. 最后结合 `sdks/js/src` 阅读类型定义与实现
 
 ## 补充页面
-
-- [集成指南](/sdks/js/guide/integration)
-- [约定规范](/sdks/js/guide/conventions)
-- [主线程调度器](/sdks/js/guide/threading)

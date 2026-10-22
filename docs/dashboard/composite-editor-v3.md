@@ -1,534 +1,65 @@
 ---
-title: 组合页编辑器 V3 使用与扩展指南
+title: Composite page editor V3
 ---
 
-# 组合页编辑器 V3（组件化）
-
-> 状态：**已上线全量**（V3 计划 + V3.1 边界清零：动作链/弹窗分组多组件/容器子级交互/回读增强/多选/撤销重做/右键菜单）
-
-> 设计依据：[V3 计划](./composite-editor-v3-plan.md)｜[参考产品对比分析](./editor-reference-analysis.md)｜spec 模型见 [Dashboard 页面模型](../architecture/dashboard-page-model.md) CompositePage 节
-> 参考样品：[amis-editor](http://192.168.5.5:8001)、[Appsmith](http://192.168.5.5:8002)
-
-## 1. 功能全景
-
-| 模块                   | 能力                                                                                                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 入口                   | 提案收件箱「创建组合页」/ 页面管理列表 composite 页「编辑」（**回读已有页面**）                                                                                                                  |
-| 组件面板（左）         | 函数组件（按资源分组、scaffold 按契约实例化）+ 基础组件（按钮/弹窗/容器/文本）；空 scope 引导切换                                                                                                |
-| 大纲（左 Tab）         | 组件树导航，点击定位                                                                                                                                                                             |
-| 添加                   | 点击（根末尾）/ 拖拽（**落点指示线**；拖到容器上按 allowedChildren 契约进 children（非法子类型回退为容器后插入）；拖到弹窗占位卡进弹窗）                                                         |
-| 同函数多实例           | 同一函数可拖 N 个组件（key 自动 `fid`/`fid-2`…），分别配置                                                                                                                                       |
-| 换绑                   | 属性面板「函数（可换绑）」全量下拉；换绑后组件重新 scaffold                                                                                                                                      |
-| 画布                   | 拖拽排序、右缘调宽（4-24 栅格）、**右键菜单**（上移/下移/选择父容器/复制/删除）、容器子级点选/删除/同级移动                                                                                      |
-| 多选                   | **Shift+点选**累积（高亮+计数），普通点击=单选（清空多选）→ 顶栏「删除所选」批量删除；删除/撤销/重做后按存活节点自动清理悬空选中                                                                 |
-| 撤销/重做              | 顶栏 ↩/↪ + **Ctrl+Z / Ctrl+Shift+Z**（50 步快照，覆盖全部树变更）                                                                                                                                |
-| 弹窗                   | 栅格占位卡 → **双击/「进入弹窗编辑」切换画布为弹窗内部**（面包屑「页面 / 弹窗名」返回）；内部可放多个函数表单                                                                                    |
-| 属性面板（右）         | rjsf schema 驱动；**「配置/动作」两 Tab**（Appsmith 式；选中按钮自动切「动作」Tab）；标题/宽度/自动执行/展示方式/列勾选（Checkbox）/成功后刷新                                                   |
-| 行操作                 | 表格属性面板可视化配置：行尾按钮 → 弹窗，行字段→表单参数映射下拉，危险标记                                                                                                                       |
-| 动作链                 | 按钮主动作 + **后续动作列表**（执行/刷新/关弹窗/跳转/提示，按序执行，步骤可带参数来源）                                                                                                          |
-| **通用事件**           | 全组件事件（WinForms 式）：button=点击；**表格=行点击/行选中**（携带行数据上下文）；**表单=成功后/失败时**；文本/字段卡=点击——「动作」Tab 自动出现                                               |
-| **动作类型**           | 6 种：打开弹窗（重复点击=toggle 关闭）/ 关闭弹窗 / 执行 / 刷新 / 跳转链接(url) / 提示消息(文案)；删除目标节点后绑定自动清理（按钮徽标恢复「点击绑定动作」）                                      |
-| **执行参数**           | run/refresh 动作参数来源：`参数=节点.字段`（取组件输出）/ `参数=row.字段`（事件行）/ 字面量                                                                                                      |
-| **条件显示（U10）**    | 属性面板「显示条件」：表达式 <code v-pre>{{变量.路径}}</code>（变量补全）+ 运算符（等于/不等于/有值）+ 比较值；条件不满足时区块发布页不渲染（执行照常）                                          |
-| **级联失败策略（U9）** | 属性面板「级联失败策略」（设 refreshOn 的函数组件）：上游执行失败时本区块**暂停级联（默认，提示）**/ 清空数据 / 保留旧数据——均不重跑；上游恢复后级联自动续跑                                     |
-| 数据试跑               | 底部数据面板：选中函数组件一键执行（Appsmith Query 面板形态），结果表格/JSON 即席展示                                                                                                            |
-| 预览                   | 顶栏切换，**复用发布渲染器**——autoRun 执行/弹窗提交/刷新级联/动作链，所见即发布                                                                                                                  |
-| 保存                   | 编译树 → `POST /versioning/pages/composite`（提案）→ 收件箱接受发布 → 挂载菜单后进控制台导航（发布不自动进菜单，挂载向导见 [运行控制台导航与页面挂载](../guide/concepts/console-navigation.md)） |
-| 回读                   | `?pageKey=` 自动载入（提案 `composite--key` → 裸 key → draft 三数据源 fallback），**顶部按钮还原为独立按钮节点**（round-trip 等价）                                                              |
-
-## 2. 典型页面搭建（玩家管理页）
-
-```
-① 玩家表格（自动执行）
-   左栏点击 player.list → 表格组件（列=输出 schema 全选）
-② 发邮件弹窗
-   基础组件拖「弹窗」→ 画布紫色占位卡
-   双击占位卡 → 进入弹窗内部（面包屑出现）
-   左栏拖 mail.send 进来 → 表单（字段=输入 schema）
-   点选表单 → 属性面板「成功后刷新」= 刷新 player.list
-③ 行操作（行尾按钮）
-   面包屑回「页面」→ 点选表格 → 属性面板底部「行操作」
-   添加：文案=发邮件｜打开弹窗=发邮件｜映射 playerId ← 行.playerId｜危险=否
-④ 预览
-   顶栏「预览」→ 表格自动执行出数据 → 行尾[发邮件] → 弹窗（playerId 已带入）
-   → 提交 → 关窗+提示 → 表格自动刷新
-⑤ 保存
-   「保存为提案」→ 提案收件箱接受发布 → 挂载菜单后控制台导航出现页面
-```
-
-变体：
-
-- **顶部按钮**：拖「按钮」到表格后 → 属性「点击动作」=打开弹窗（编译为表格顶部按钮）；可加**后续动作**（如先执行再刷新）
-- **同一数据多视图**：再拖一次 player.list（key 自动 -2 后缀），配置不同列/宽度
-- **弹窗多组件**：弹窗内部可继续拖入第二个函数表单（编辑器限制弹窗内仅 fnForm，V1 边界；同 group 渲染进同一弹窗）
-- **页签容器（V2）**：拖「页签容器」→ 自带 2 个空页签；点击页签头切换激活页，拖入的表格/字段卡/按钮/文本自动进**当前页签**。属性「页签组名」可选（缺省自动分配）；页签标签在页容器的「标题」配置。发布端同组渲染进同一 Tabs，页内区块照常 autoRun/联动
-- **卡片分组容器（#94）**：拖「分组容器」→ 属性「发布形态」选**卡片分组**；「分组标题」即卡片标题，卡内拖入表格/字段卡/表单/常量表单。发布端同组渲染进同一 Card（卡片标题缺省回退组名），组内区块垂直堆叠、照常 autoRun/联动；选**平铺（默认）**保持「编辑期分组、发布平铺」现状
-
-## 3. 编译规则（编辑树 [CompositeSection]
-
-| 画布                                | 发布 spec                                                                                                                                                                     |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| fnTable / fnFields / fnForm(inline) | 区块（view=table/fields/form）                                                                                                                                                |
-| 弹窗容器（modal）                   | 其每个函数子组件 → `display: dialog` + `group: modal-<id>`（同弹窗）                                                                                                          |
-| 页签容器（tabs）                    | 每页（container）内区块 → `display: tab` + `group: 页签组名`（优先 `sectionKey`，否则 `tabs-<id尾6>` 去重）+ `tab: 页签标签`（缺省「页签 N」）；同 group 渲染进同一 Tabs      |
-| 页签页内的按钮                      | 同独立按钮：挂最近表格的 `toolbar.actions`                                                                                                                                    |
-| 页签页内的文本                      | 静默跳过（同弹窗）                                                                                                                                                            |
-| 表格属性「行操作」                  | `table.rowActions`（目标=group；行字段→参数映射；链透传）                                                                                                                     |
-| 独立按钮（置于表格后）              | 该表格 `toolbar.actions`；非弹窗动作（执行/刷新）发布为 `chain`                                                                                                               |
-| fnForm「成功后刷新」                | `onSuccessRefresh`（目标=区块 key）                                                                                                                                           |
-| 显示条件（U10）                     | `visibleWhen`（叶子：表达式 <code v-pre>{{var.path}}</code> 拆 `key`+`path` + 运算符/值；弹窗内组件不携带——dialog 由动作显式触发）                                            |
-| 级联失败策略（U9）                  | `cascadePolicy`（下拉三值 `pause`/`clear`/`keep`，白名单透传——非枚举值不编译）                                                                                                |
-| 容器（平铺，默认）                  | 子节点平铺（span 各自保留）                                                                                                                                                   |
-| 容器（卡片分组 #94）                | 卡内区块 → `display: card` + `group: 卡组名`（优先 `sectionKey`，否则 `card-<id尾6>` 去重）+ `cardTitle: 分组标题`；同 group 渲染进同一 Card。卡内文本静默跳过（同弹窗/页签） |
-| 文本                                | 不发布（警告）                                                                                                                                                                |
-
-警告场景（保存时提示，不阻断）：空弹窗、空页签容器、动作目标已删、按钮不在任何表格之后、区块未绑定函数、文本组件。
-
-**保存即发布级校验（2026-09 统一）**：组合页提案创建（保存）与服务端
-accept-and-publish 共用**同一 selector 规则源**（`CollectBindingSelectorIssues`：
-必填参数映射 / output shape 匹配 / source kind 上下文合法性等）。保存时违规以
-error 级诊断写入提案并降级 `needs_review`——提案收件箱「需要处理」队列可见具体
-字段与原因；不再出现「保存看似可发布、点发布才 422」。修复映射后重新保存，
-质量恢复并由收件箱正常发布。
-
-## 4. 发布页行为（PageRenderer/CompositeRenderer）
-
-- `autoRun` 区块进入页面自动执行；`refreshOn` 上游产出自动重跑（page_state 同名字段合并）；页签（`display=tab`）内区块同样执行——分组只影响布局聚合，不影响数据行为
-- `display=tab` 区块按 `group` 聚合渲染进同一 `<Tabs>`（整行），组内按 `tab` 标签聚合页，页内区块整行堆叠；标签缺省兜底「页签 N」
-- `display=card` 区块按 `group` 聚合渲染进同一 `<Card>`（整行），卡片标题取 `cardTitle`（缺省回退组名），组内区块垂直堆叠；卡内区块照常执行、visibleWhen 过滤同 inline
-- 行操作列/顶部按钮 → 打开 group 对应弹窗（参数预填，danger 二次确认）→ 提交成功关窗+提示 → `onSuccessRefresh` 级联刷新
-- `chain` 步骤在主动作后按序执行（runBinding/refreshNode）
-- **区块级条件显示（U10）**：`visibleWhen` 按页面状态求值（叶子 `key`=来源区块、
-  `path` 寻址 `/values/字段`、`/data/字段`、`/selectedRow/字段`）；false 的
-  inline/tab 区块不渲染，**执行不变**——autoRun/refreshOn 照常跑（隐藏≠剔除）；
-  dialog 区块不参与条件显隐
-- **refreshOn 级联失败策略（U9）**：上游依赖执行失败时本区块按 `cascadePolicy`
-  处理（均不重跑）——`pause`（默认）数据保持 + warning 提示「联动已暂停」；
-  `keep` 静默保留旧数据；`clear` 清空本区块数据。级联信号按「key 集合 + 各区块
-  失败标记」计算：上游恢复（失败→成功）后暂停的级联自动续跑，同态新值不重复触发
-- **执行边界（T8）**：区块绑定的契约 `executionState=unbound`（上传物料未绑定
-  运行时执行器）时执行返回 `409 executor_unbound`——失败标记携带稳定码，区块
-  卡片内渲染「未绑定执行器」空态 + 「去绑定」入口（跳 OpenAPI Sources）；
-  Operation/Resource 页同样按错误码分支渲染空态。发布页无 mock 数据兜底
-  （编辑器预览的模拟数据是编辑器内安全环境，与发布运行时无关）；同名函数注册后
-  契约自动翻转 bound（T6），无需改页重发即可恢复执行
-- **编辑器内绑定抽屉（T9）**：编辑态选中 unbound 组件 → 属性面板顶部警示
-  「执行器：未绑定 [去绑定]」就地打开抽屉（不必再跳 OpenAPI Sources 页）：
-  - 抽屉打开即**溯源**：前端复刻服务端确定性映射（`DeriveFunctionID` +
-    `unboundFunctionID` 归一）把组件引用的 unbound functionId 反查回
-    (source, operationId) 并预填（命中项标注「来源匹配」）；零命中降级为
-    手动选择（warning 提示）
-  - 函数候选 = bound 描述符 ∪ 运行时 provider 独有函数（与 `CreateBinding`
-    服务端校验源一致）；保存复用 Binding 模型（`kind=provider`，
-    bindingId 缺省 operationId）并即时刷新编辑器契约视图（组件面板「未绑定」
-    标记随刷新消失）
-  - **同名绑定**（所选函数 id == unbound functionId）→ T6 原地翻转，组件无需改动；
-    **不同名绑定** → bound 契约建在运行时函数名下，弹确认引导切换组件函数引用
-    （换绑 scaffold：列/字段/映射按新函数重建），不切换则执行仍被阻断
-- **发布分级（T10，`pages.publishReview`）**：保存组合页后的动作由 env 级策略
-  控制（`configs/server.yaml` 的 `pages.publishReview: auto | required` +
-  `publishReviewByEnv` 按 env 覆盖；未配置时 `dev=auto`，其余 env=required）：
-  - `auto`：保存即发布——保存响应带 `published: true`；控制台导航还须把页面
-    挂到菜单（发布不自动进菜单）；
-    质量门槛不降（error 级诊断/发布校验拒绝时 `published: false` 且
-    `publishError` 带回原因，**保存本身已成功**，去 ProposalInbox 人工接受即可）
-  - `required`：保存只建提案（`published: false`），ProposalInbox 人工接受并
-    发布——与历史行为一致
-  - 权限说明：auto 的 env 中发布权限沿用保存入口 `pages:edit`（策略声明免审核，
-    保存者即发布者）；required 的 env 发布仍需 `pages:publish`
-  - **ProposalInbox「接受」在 auto 的 env 下同样自动接续发布（M5）**：接受落
-    draft 成功后直接发布，前端提示「已接受并自动发布」；自动发布失败**不回滚
-    接受**——draft 保留，提示 `publishError` 并指引走 accept-and-publish/手动
-    发布。required 的 env 仍只落 draft（历史行为）。编辑器 SaveDraft 恒不自动
-    发布（两策略一致）
-- 同函数多实例按 key 独立执行互不干扰
-
-### 4.1 预览验证闭环（交互规格）
-
-预览 = 发布行为的编辑器内等价物。交互设计遵循三条原则：**状态常驻可见**（数据来源模式在工具条常驻）、**副作用安全**（模拟模式不触发真实操作；真实模式下操作类函数有真实副作用并明确警示）、**就近反馈**（每个动作在触发点附近给出结果反馈）。
-
-| 交互点       | 行为                                                                                           |
-| ------------ | ---------------------------------------------------------------------------------------------- |
-| 进入预览     | 工具条显示「数据来源」开关 + 状态徽标（模拟中=橙 / 真实调用=默认）；autoRun 区块按当前模式执行 |
-| 切换数据来源 | 清空全部状态并按新模式重跑 autoRun；toast 提示当前模式语义                                     |
-| 模拟模式     | 按函数 outputSchema 动态生成假数据（@faker-js/faker zh_CN），不调用真实函数                    |
-| 真实调用失败 | 错误 toast + 引导开启模拟数据                                                                  |
-| 表格行操作   | 行尾按钮（danger 红色 + 二次确认）；点击后行字段映射 → 弹窗表单预填                            |
-| 选中行       | 写入 selectedRow/selectedRows 运行时状态；触发行选中事件（动作参数按选中行上下文求值）         |
-| 弹窗提交     | 模拟=立即成功（假输出）；成功后关窗 + onSuccessRefresh 级联刷新 + 成功 toast                   |
-
-### 4.1 变量名与表达式绑定（V5，已实现）
-
-组件组装的数据层，详见 [V5 设计](./composite-editor-v5-design.md)。使用要点：
-
-- **变量名**：拖入组件自动生成语义名（`player.list` 表格 → `playerListTable`），即发布 spec 区块 key。
-  画布卡片以 `⌗varName` 徽标展示；属性面板「变量名」输入框可改名——保存时**同步重写**树内全部表达式/裸引用。
-- **表达式**：参数映射/动作链参数/行操作映射的值可填受限表达式
-  <code v-pre>{{变量名.路径.字段}}</code>（如 <code v-pre>{{playerListTable.selectedRow.uid}}</code>、<code v-pre>{{filterForm.values.keyword}}</code>、<code v-pre>{{row.uid}}</code>）。
-  输入 <code v-pre>{{</code> 弹出变量补全，选中后继续补全 schema 路径；未知变量红标（阻断保存诊断）、路径不在 schema 黄标。
-- **上游区块映射**（U8）：参数映射选「上游区块」时，来源字段名与参数名不一致会显示
-  「改名 字段 → 参数」徽标（发布端编译为 `transform: rename` 映射，映射表未覆盖的
-  字段被丢弃）；可填**缺省值**——上游字段缺失或为 null 时兜底（编译为
-  `transform: default`，纯数字/布尔/null 输入保持 JSON 类型，如 `0` → 数字 0）。
-- **运行时状态**：每区块暴露 `data`（函数输出）/ `selectedRow`/`selectedRows`（表格选中）/ `values`（表单当前值，防抖）。
-  选中行/输入变化**不触发** refreshOn 自动重跑，只在动作求值时取值。
-- **编译**：保存时 <code v-pre>{{var.path}}</code> 编译为现有 wire（`inputAssignments` page_state 路径 / 事件参数 / `row.字段`），
-  服务端与发布链零改动；回读按同规则还原为表达式文本。
-
-## 5. 组件开发指南
-
-新组件 = 在 `components/builtin.tsx` 注册 `ComponentDef`：
-
-```tsx
-registerComponent({
-  type: "statCard", // ComponentType 联合类型加一项
-  name: "统计卡",
-  icon: <Tag color="orange">统计</Tag>,
-  category: "basic", // function=由契约生成 / basic=直接拖入
-  allowedChildren: ["fnFields"], // 容器类才配（可选）
-  propSchema: ({ nodes, fnById, allFns, fn }) => ({
-    type: "object",
-    properties: {
-      title: { type: "string", title: "标题" },
-      span: { type: "integer", minimum: 4, maximum: 24, default: 24 },
-      onClick: { type: "object", title: "点击动作", format: "action" }, // 动作编排
-    },
-  }),
-  scaffold: (fn) => ({ title: fn?.id ?? "统计", span: 12 }), // 拖入即骨架
-  Preview: ({ node, fn }) => <StatCardPreview node={node} fn={fn} />, // 画布预览
-});
-```
-
-propSchema 字段渲染约定：
-
-| 声明                   | 渲染                                                                    |
-| ---------------------- | ----------------------------------------------------------------------- |
-| 普通字段               | rjsf（SchemaFormRenderer）                                              |
-| `format: 'columns'`    | Checkbox.Group 列勾选                                                   |
-| `format: 'rowActions'` | 行操作编辑器（目标弹窗+参数映射+危险）                                  |
-| `format: 'action'`     | 动作编排（主动作下拉+目标；`actionKinds` 限定可选动作；支持后续动作链） |
-
-新组件参与发布：`compiler.ts` 加编译规则 + 快照用例；参与回读：`decompileToTree` 对应分支。
-
-## 6. 代码结构
-
-```
-web/src/pages/PageStudio/CompositeEditor/
-├── model.ts          # PageNode 树模型 + 纯函数树操作（insert/remove/move/duplicate/pruneDanglingBindings…10 用例）
-├── registry.tsx      # ComponentDef 注册表（scaffold/propSchema/Preview/scaffoldProps）
-├── compiler/         # 编译器（模块化，2026-09 拆分）
-│   ├── types.ts      #   CompiledSection/CompileResult/SpecSectionLike/SECTION_KEY_RE/VIEW_MAP
-│   ├── normalize.ts  #   normalizeRowActionParams（行操作参数归一/警告）
-│   ├── compile.ts    #   compileTree（编辑树 → sections）
-│   ├── decompile.ts  #   decompileToTree（sections → 编辑树，回读）
-│   └── index.ts      #   门面（re-export，测试与调用方导入路径不变）
-├── components/       # 内置组件定义（2026-09 由单文件拆分）
-│   ├── builtin.tsx   #   registerBuiltinComponents 引导 + viewTypeToComponent（门面）
-│   └── Fn*.tsx/Button/Modal/Container/Text/StaticForm.tsx + shared.ts（commonFnSchema）
-├── ComponentPanel.tsx# 组件面板（函数分组+基础组件+scope 引导）
-├── Canvas.tsx        # 画布（ModalPlaceholder / RootDropZone；CanvasNode 从 CanvasNode.tsx re-export）
-├── CanvasNode.tsx    # 画布节点装饰（选中/拖拽/右键菜单/容器子级）
-├── OutlinePanel.tsx  # 大纲树
-├── PropsPanel.tsx    # 属性面板（rjsf + columns/rowActions/action 分区渲染）
-├── ActionEditor.tsx  # 动作编排（主动作+链）
-├── RowActionsEditor.tsx      # 行操作编辑器
-├── previewShared.ts  # 预览共享层（payloadOf/itemsOf/findIn/JSONRecord/StepLike）
-├── PreviewRuntime.tsx# 预览运行时引擎（状态/执行/动作分派，=发布形态）
-├── PreviewNode.tsx   # 预览渲染子组件（表格/字段卡/表单/ModalForm/StaticFormLive）
-├── DataPanel.tsx     # 底部数据试跑面板
-├── actions.ts        # ActionSpec/动作注册表
-├── useEditorHistory.ts      # 树历史 hook（撤销/重做 50 步 + 统一 setTree 入口 + 快捷键）
-├── useCanvasDnd.ts   # 画布拖拽 hook（面板插入/重排/modal 收纳/模板落点）
-├── SaveComponentModal.tsx   # 「保存为组件模板」弹窗（表单+参数化候选）
-├── InsertTemplateModal.tsx  # 带参模板快速配置弹窗
-└── index.tsx         # 编辑器主页（四区布局编排/回读/保存/多选/属性分发）
-```
-
-页面工作台（`web/src/pages/PageStudio/index.tsx`）2026-09 同步拆分：`studio/` 子目录承载
-6 个抽屉/弹窗组件（PreviewDrawer/EditorModal/VersionsDrawer/ChangeChainDrawer/DiffDrawer/MergeModal）
-
-- draftColumns 列定义 + shared 工具，主页保留列表编排与全部数据回调。
-- 主视图（提案收件箱上方）常驻「一键发布全部 / 一键下架全部」（2026-09 自高级
-  管理面板提升）：发布走 `POST /api/v1/pages/bulk-publish`（重算契约提案 → ready/basic
-  批量 accept-and-publish）；下架走 `bulk-unpublish`（逐页复用
-  单页真实下线链路；下架后页面不再出现在运行控制台（控制台导航由菜单挂载 + 已发布
-  共同决定，见 `docs/architecture/console-dynamic-menu.md`）。「高级页面管理」面板回归版本/回滚定位。
-- **契约变更队列批量重发布（2026-09-14）**：契约变更 Tab 头部「一键重新发布全部」
-  走 `POST /api/v1/pages/bulk-republish`（权限 pages:publish）——对 stale 的**已发布**
-  页面逐页「重生成草稿 → 乐观锁发布」，把线上快照拉齐到最新契约；单页失败记录原因
-  并继续。请求体 `{pageKeys?: string[]}`：显式指定只处理指定页面；省略时后端按与
-  收件箱同源的 stale 评估自动发现目标。草稿态漂移页面不在批量范围（从未上线的
-  页面不应被一键上线，仍走单页处理）。注意：`bulk-publish` 只消化 pending 提案，
-  已发布页面的契约漂移由本端点负责——两者互补而非重复。
-- **契约变更队列批量同步 Selector（2026-09，M4）**：契约变更 Tab 头部「一键同步
-  Selector」与「一键重新发布全部」并列，走 `POST /api/v1/pages/bulk-sync-selectors`
-  （权限 pages:edit）——对队列内页面逐页跑与单页 sync-selectors 同源的
-  planner/apply，把 selector 拉齐到最新契约（DraftRevision+1）。**严格只写草稿、
-  不发布**：完成后需再点「一键重新发布全部」才生效（按钮文案已明示）。governance/
-  version 等不可由 selector 同步修复的页面整体 skipped 并透传诊断；单页失败不中断
-  其余页面（对齐 bulk-republish 取舍）。
-- **诊断直达处理位置（2026-09，OPEN-ISSUES #29）**：提案收件箱三个队列的「诊断/变更原因」
-  计数标签（`n 错误`/`n 警告`/`n 信息`）改为可点击直达对应处理位置——提案行：资源类提案跳
-  资源目录（带 `resourceKey` 锚点），已有草稿/页面跳页面工作台（`?focus=`），纯提案态开
-  提案详情诊断表；阻断项行：与「修复语义」按钮同源跳资源目录；契约变更行：开该页的
-  Selector 同步报告（漂移明细与一键同步入口所在）。「需要处理」队列的主操作「处理」从
-  「更多」下拉前置为行内按钮（此前是该队列唯一动作却藏在二级菜单里）。未配置跳转回调的
-  诊断标签保持纯展示计数（如详情弹窗内）。
-
-发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
-
-## 7. 测试
-
-`__tests__/`：model 10（树操作/悬空绑定清理）、registry 3（注册/约束）、scaffold 8（实例化快照/面板声明）、compiler 11（编译快照/多实例/警告）、decompile 5（回读 round-trip/破损引用）、canvas 3（弹窗占位卡交互）、action-editor 6（动作编排）、integration 4（组合流程）。合计 50 用例，`pnpm --dir web test` 全绿。
-
-**模板可用性与入口（2026-09）**：
-
-- 空白画布自动显示「从模板开始」——列出全部组合模板（T1 起取消区块数下限，
-  单节点模板同样出现，单函数区块页面合法），点击即实例化为页面起点；「从空白开始」切换到空白白板
-  （根落区即拖放目标，可「查看组合模板」返回引导，双向切换）——2026-09-12
-  修复：Canvas 的空树根落区（droppable canvas-root）与外层渲染条件互斥曾是
-  死代码，空态拖拽无落区、亦无空白起步入口
-- builtin 模板带 stale 检测：契约能力/结构变化后，组件库与模板页标记
-  「已过期」，到组件模板页「从契约重新生成」刷新；常量/自定义模板不参与
-- 入口分工：组件模板页=管理+发起创建（新建组合组件/导入常量/重新生成/删除）；
-  编辑器组件库=消费（拖选）+ 组合保存（画布选区存为组件）
-- 「保存为组件」四入口（2026-09-12，发现性改进）：顶栏按钮常驻（未多选时禁用
-  +Tooltip 教学多选手势；多选后启用并显示计数）、组件库面板头部「从画布选中创建」
-  （无选中先提示多选、有选中直接弹保存弹窗）、节点右键菜单「保存为组件」（多选
-  集合含该节点时保存整个集合，否则保存单节点子树；仅 CanvasNode——弹窗占位卡
-  ModalPlaceholder 无右键菜单，弹窗节点走顶栏多选保存）、模板卡片结构缩略图
-  （TemplateThumb 线框：表格=表头+行线/表单=标签行/按钮=圆角块/弹窗=紫框/容器
-  =嵌套，宽度按 span 占比，纯 div 不实例化真实组件；组件库与「从模板开始」共用）
-- 保存弹窗「更新已有模板」通道（2026-09-12，V3）：保存方式可选「另存新模板」
-  （默认，`custom--<ts>` 新 key）或「更新已有模板」——后者拉取当前 scope 自定义
-  模板下拉（builtin 不列：内置模板改版走组件模板页「从契约重新生成」，且后端
-  Update 会强置 builtin=false），选中后名称/分类/描述预填，提交走
-  `PUT /api/v1/component-templates/:key` 以当前画布选择覆盖结构/参数/依赖函数
-- 模板库「新建组合组件」入口（2026-09-18）：组件模板页顶部主按钮，跳编辑器并带
-  `?createComponent=1`（进入弹一次性引导「组合 → 框选 → 保存为组件」，引导后清
-  query 防重复弹出）；「创建组合页」按钮保留（建页面，不再承担组件创建入口语义）
-- 分类体系规范化（2026-09-18）：模板页分组按固定顺序展示——函数组件（内置单函数）
-  → 查询组合（内置）→ 资源管理（内置 CRUD）→ 组合组件（用户组合保存的默认分类，
-  保存弹窗下拉与默认值同步）→ 常量（导入常量）；未收录的自由分类按字母序排尾
-  （不丢弃）。保存弹窗分类下拉选项集合与该体系一致，默认值由「自定义」改为
-  「组合组件」
-
-**自动生成模板清单（2026-09）**：组件模板「从契约重新生成」现产出三类内置模板——
-
-1. `fn--<fid>`：单函数组件（collection_query→表格、item_query→字段卡、其余→表单）
-2. `crud--<resource>`：资源管理组合（列表+详情+增改弹窗，onSuccess 自动刷新）
-3. `query--<fid>`：查询组合（查询条件表单 + 结果表格，经 refreshOnNode 引用在
-   实例化后解析为区块 key，键位漂移安全）——带查询参数的 collection_query 自动生成
-
-非函数类需配置生成：常量表单（staticForm，Excel/JSON 导入常量）、用户自定义组合
-（画布多选保存）。暂不可自动生成（需新组件类型，backlog）：任务监控组合
-（taskStatus 节点）、报表图表（chart 节点）、批量选择操作。
-
-**常量表单（staticForm，2026-09）**：基础组件新增「常量表单」——不绑定函数，
-
-> 组合原语与表达力边界的总纲见 [组合模型与表达力边界](../architecture/composition-model.md)。
-> 字段在设计期以 JSON Schema 定义（属性面板支持在线编辑与 JSON/Excel 导入选项，
-> 第 1 列=值、第 2 列=标签）。画布/预览/发布均渲染真实控件（enum→下拉），
-> 值防抖并入页面状态驱动 refreshOn 联动下游。可保存为组件模板复用
-> （「变量下拉框」场景的标准做法）。发布校验：static 区块禁带 bindingId。
-
-**常量导入规范（2026-09 修订）**：一种常量 = 一个独立组件模板——导入弹窗不再
-填写模板名称，逐常量生成单下拉 staticForm 模板（key `consts--<batch>-<i>`，
-按常量名命名），组合页中自由拖选数量与位置；基础组件列表中的「常量表单」入口
-已移除，创建统一走组件模板页「导入常量」。组件模板页配套：
-
-- **旧版合并模板检测**：页面自动识别「一个 staticForm 塞多个常量」的历史模板
-  （key `consts--<batch>` 时代的数据），提供一键清理，清理后重新导入即可
-- **生成示例常量**：一键创建 4 个示例常量组件（封禁原因/会员等级/服务器状态/
-  支付渠道，key `consts--demo-*`，重复点击幂等跳过），便于无数据环境体验；
-  后端等价接口 `POST /api/v1/component-templates/seed-demo-constants` 可直接
-  curl 灌入（无需前端重建）
-
-**预览态交互（2026-09 修订）**：编辑器预览与模板预览弹窗中的 staticForm 是
-**可交互的真实控件**（与发布渲染同一 rjsf 运行时，`StaticFormLive`）——下拉/
-输入可操作，值防抖（300ms）并入预览页面状态。已知边界：预览内 refreshOn
-对 staticForm 值的级联刷新尚未接线（画布设计态预览仍为静态渲染，避免与
-拖拽手势冲突）。
-
-V4 新增文件：`ComponentLibrary.tsx`（组件库面板——模板浏览/实例化/id 重映射/scope 检查）、`types.ts`（共享类型）。
-
-**模板拖放（2026-09）**：组件库 Tab 的模板卡片是 dnd-kit 拖拽源——可拖入画布任意落点
-（根级末尾/节点之后链式插入/容器内），落点规则与函数组件一致；拖放与点击插入共用
-`instantiateTemplate`（id 重分配 + 内部引用重映射）。落点决策抽为纯函数
-`templateDrop.ts#planTemplateDrop`（含 V1 弹窗仅 fnForm 边界），7 个单测覆盖。缺依赖
-函数的模板拖入时在落点处警告并放弃（不静默失败）。
-
-## 8. V4 展望：组件模板与三层组合
-
-V3 之上已上线**组件模板层 V4**（组件库面板实例化 + 选中节点保存为组件 + 契约自动生成模板），详见
-[组合页编辑器 V4 设计](./composite-editor-v4-design.md)。
-
-## 8.5 Selector 一键同步（契约漂移修复，2026-09）
-
-函数契约 schema 变化后页面绑定 stale（发布 422 阻断 / console 409 拒绝执行）时，
-除「重生成」（整页替换、定制冲掉）与手动逐 binding 重选外，第三条路径是
-**一键同步 Selector**：只修受影响的 assignment，保留全部未受影响定制
-（form/row/selection/page_state/literal 来源与 Transform）。
-
-**三个入口**（共用 `SelectorSyncReportModal`，打开即 dry-run 展示计划）：
-
-- 契约变更收件箱（Proposal Inbox → 契约变更队列）行操作「更多 → 一键同步 Selector」
-- 运行控制台 stale 提示条上的「同步 Selector」按钮（发布页被 409 阻断时）
-- Page Studio 编辑器 stale 警告条上的「同步 Selector」按钮
-
-报告按 binding 分组，逐条标注动作（kept 保留 / renamed 重映射 / removed 摘除 /
-added 补齐 / type_changed 类型变化 / shape_updated 形状更新 / manual_required
-需人工处理）与置信度（精确匹配=prev schema 命中 / 启发式）。确认后「应用同步
-到草稿」生成新版本（revision+1 + 版本记录 + 审计），**不自动发布**——报告底部
-提示剩余错误级诊断，处理完 manual_required 项后手动发布。
-
-composite 页边界：新增 required 输入一律 `manual_required`（composite 输入只应
-来自 page_state/literal，不自动补 form），需在编辑器里手动加参数映射。策略阶梯、
-prev schema 语义与 wire 契约见
-[Dashboard Resource/Page 模型](../architecture/dashboard-page-model.md)与
-[PageSpec 协议规范](../architecture/pagespec-protocol.md)。
-
-批量入口（M4）：契约变更队列 Tab 头部「一键同步 Selector」（见第 6 节）逐页
-跑同一 planner/apply——存在 `manual_required` 级诊断（governance/version 漂移）
-的页面整体 skipped 透传诊断，可同步的页面自动 apply（revision+1）；**严格只写
-草稿**，完成后需再「一键重新发布全部」才上线。
-
-## 8.6 模板更新提醒（U11，2026-09）
-
-模板实例化是**复制语义**——页面保存的是拖入时刻的模板内容副本，模板之后改版
-页面不会变。U11 在此语义上补一条**提醒通道**（不改变复制语义）：
-
-- **模板侧**：每个模板带 `digest`（sha256 canonical Tree JSON，创建/更新/
-  regenerate 三个写路径全覆盖）与 `updatedAt`，随模板列表透出
-  （[组件模板 API](../api/component-templates.md)）
-- **页面侧快照**：编辑器实例化模板（组件库点击/拖入/带参弹窗确认/「从模板开始」
-  四入口）时登记 `{key, digest}`，保存时随 POST body 的 `componentTemplates`
-  并入 `PageSpec.componentTemplates`（页面级字段，随 proposal→draft→published
-  全程透传；同 key 去重）
-- **打开比对**：带 `?pageKey=` 打开旧页面时，回读快照并拉当前模板库比对——
-  **双方都有 digest 且不一致**才在顶部提示「所用模板有新版本：xxx」；旧快照
-  无 digest、模板未迁移（无 digest）、模板已删除、digest 一致均不提示（宁可漏报
-  不误报）；模板库拉取失败静默（提醒是增值信息，不阻断编辑）
-- **提醒文案明示行为**：页面保持当前配置不受影响；如需新版内容请重新拖入模板
-  （不会自动同步）
-
-注意与 builtin 模板 `stale` 标记（契约漂移，需 regenerate）的区别：`stale` 指
-模板与**函数契约**脱节，digest 提醒指模板**内容改版**与页面快照不一致——两者
-并存、语义不同。
-
-## 8.7 注册衍生重建告警（M1/M2，2026-09）
-
-函数注册（agent 心跳重注册 / 手动重注册）后，提案与组件模板的重建已移出注册
-事务——注册的权威状态（契约 + 能力聚合）不再被衍生重建失败回滚。衍生重建
-失败降级为**注册告警**，在 Functions → Warnings（`GET /api/v1/functions/warnings`）
-暴露，Code 以 Tag 原样渲染：
-
-| Code                      | 含义                                                         |
-| ------------------------- | ------------------------------------------------------------ |
-| `proposal_rebuild_failed` | 提交后提案重建失败（Message 带 resource/function 标识）      |
-| `template_regen_failed`   | 提交后组件模板重建失败（「从契约重新生成」手动兜底语义不变） |
-
-处理路径：按 Message 定位目标——提案侧手动 `POST /api/v1/pages/proposals/rebuild`
-（或等待心跳重注册自动重触发）；模板侧到组件模板页「从契约重新生成」。
-
-已知边界：两类告警与既有注册告警同为**内存生命周期**——进程重启即失；重建
-成功不自动清除既有告警条目（重复失败按 Count 递增）；`registration_warnings`
-DB 持久化接线留待独立需求。
-
-同通道另有 SDK 滑动版本门槛告警（判定规则见
-[数据流文档 §4](../architecture/data-flow.md)）：`sdk_version_behind`
-（SDK 落后高水位 1 个 minor，函数照常注册，提示升级）、
-`sdk_version_floor_rejected`（落后 ≥2 个 minor 或 ≥1 个 major，该进程独占
-函数不进本次注册，连接保持）。处理路径：升级对应语言 SDK 至高水位后重新
-注册即恢复。
-
-## 8.8 页面工作台搜索/过滤/分页下推（#30，2026-09）
-
-页面工作台（`/functions/pages`）草稿列表的查询全部由服务端执行，前端不拉全量
-自算：
-
-- **工具栏三个过滤**：关键词搜索（回车提交，匹配页面标识/标题/涉及资源）、
-  状态下拉（draft/published/archived）、资源过滤下拉（#13，选项来自
-  `GET /pages/resources` 服务端聚合）。任一过滤变更都会回到第 1 页重拉。
-- **分页**：ProTable 翻页/改页大小直接下发 `page/pageSize`，服务端默认 20、
-  上限 200（非法值钳制）；`total` 由响应带回驱动页数渲染。
-- **「涉及资源」列**：展示服务端读取时计算的页面→资源关联
-  （`resourceKey` ∪ binding 函数契约资源，多资源页以 `/` 展开展示）；旧
-  payload 缺 `resources` 时回退单列 `resourceKey`。
-
-wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「草稿列表
-过滤与资源聚合」；模型口径见
-[dashboard-page-model](../architecture/dashboard-page-model.md)。
-
-## 9. 已知边界
-
-- **列表关联口径依赖函数契约索引（#30）**：「涉及资源」与 `resourceKey`
-  过滤的关联命中依赖 binding 函数契约在库内的 `resourceKey`；契约缺失或未重建
-  索引时该 binding 不贡献资源（退化为 `resourceKey` 列口径）。菜单管理页的
-  「已挂载页面」视图固定拉 `pageSize=200` 一页取挂载映射（挂载态低频小数据面），
-  超 200 页的 scope 下该视图不完整
-- **发布分级（T10/M5）覆盖 composite 保存与收件箱接受两处入口**：
-  `pages.publishReview=auto` 的自动发布在 `POST /versioning/pages/composite`
-  （组合页保存，T10）与 ProposalInbox「接受」（AcceptProposal，M5）生效；其余
-  保持人工链——编辑器 SaveDraft 恒不自动发布，显式 accept-and-publish 本就直发。
-  批量发布（BulkPublish/BulkRepublish）不受策略影响，权限语义不变；保存弹窗
-  按响应三态提示（`published=true` → 「页面已发布」；`published=false` 带
-  `publishError` → 「提案已创建，自动发布失败」+ 原因与人工重试指引；默认 →
-  「提案已创建」进收件箱）。自动
-  发布失败一律不回滚前置成功操作（提案/草稿保留，`publishError` 带回原因）
-- **编辑器内绑定抽屉（T9）不同名绑定即时清理旧物料**：bound 契约建在运行时函数
-  名下，原 operationId 名下的 unbound 契约行在绑定事务内即时清理
-  （removeSupersededUnboundContract，与上传重放对称）——组件面板不再出现
-  永不可执行的重复物料，资源语义槽位也不会因双候选冲突把 proposal 降级。
-  抽屉内不展示 proposal/模板 freshness 提示（Proposal 队列有独立入口）
-- **模板更新提醒（U11）只提示不自动同步**：实例化保持复制语义，提醒不提供一键
-  更新（需手动重新拖入模板）；快照按 key 去重——同模板多次拖入只登记一次 digest，
-  页面内删除模板节点也不摘除快照条目（快照描述「创建页面时用过哪些模板」，
-  不追踪后续增删）；digest 提示在编辑器打开时一次性比对（编辑会话中模板再改版
-  不实时刷新提示）
-- **页签容器（V2）**：页签内组件的细粒度画布交互（拖拽排序/调宽/右键菜单）不生效，
-  请用左侧大纲面板选中与删除（大纲树已递归全深，页签页内组件可见可选）；页签嵌套
-  （tabs 进 tabs/页内再放 tabs）不支持；页内区块发布为整行堆叠（span 不生效）；
-  预览里切换页签不回写编辑树（仅编辑态页签头切换记录激活页）；
-  页签页内可拖入 staticForm/fnForm（#94 起页容器 allowedChildren 放宽，
-  编译为 `display=tab` 的 static/form 区块）
-- **卡片分组容器（#94）**：卡内区块发布为整行堆叠（span 不生效，同页签页）；
-  卡片嵌套（tabs 页内再放卡片容器 / 卡片进卡片）不支持——wire 层卡内区块
-  一律 `display=card`，嵌套层级在编译时折叠；卡组名与 modal/tabs 共享 group
-  命名空间（编译器兜底前缀 `card-` 区分）；预览不渲染 Card 外壳（编辑态预览
-  仍是虚线容器，发布端才聚合为 Card）
-- 容器子级两层内完整交互（孙层为简化预览）
-- 文本组件不参与发布（编译警告）；弹窗/页签页内 text 组件不进 spec
-- 回读依赖提案或 draft 至少其一存在（三者都无则提示）
-- container 的 click 事件无独立 section 挂载点（预览可用，发布忽略）
-- 预览「模拟数据」开关**默认开启**：按函数 outputSchema 动态生成假数据
-  （@faker-js/faker zh_CN，字段名启发式映射 uid/昵称/时间/手机号等），
-  不调用真实函数——预览是编辑器内安全环境，默认不对 agent 发起真实调用
-  （scope 不匹配时会得到 no live agent 之类的真实路由错误）；
-  显式切到「真实数据」才走发布运行时（操作类函数有真实副作用）。
-  无 outputSchema 或顶层非 object 结构时**模拟数据为空**（每节点提示一次），
-  不伪造数据——与发布端真实调用为空的行为一致
-- 编译警告（不再静默）：行操作参数的嵌套行路径
-  （<code v-pre>{{row.a.b}}</code>，发布端只支持单段 row.字段）按字面量保存并警告；
-  参数映射的未知 kind / 来源节点失效 → 警告并跳过该映射（不再静默归 page_state 或丢弃）
-- 常量表单（staticForm）区块按画布顺序落库（2026-09 修订：服务端此前把 static
-  统一追加到 sections 末尾，画布首位的常量筛选发布后会漂移到页尾）
-- V5 表达式：预览运行时（编辑器内）尚未接入表达式参数求值（发布渲染器完整支持）；
-  行操作参数仅支持 <code v-pre>{{row.字段}}</code>（跨变量表达式编译警告、按字面量保留）；
-  模板混排文案（<code v-pre>"玩家 {{row.uid}} 已处理"</code>）属 V5.1 未实现
-- **条件显示（U10）边界**：预览不接条件显隐（预览运行时平行状态，同 V5 表达式
-  预览先例——发布渲染器完整支持）；dialog 区块不参与条件显隐（弹窗由动作显式
-  触发）；条件隐藏不剔除执行（autoRun/refreshOn 照常跑）；编辑器仅产出叶子条件
-  （等于/不等于/有值），嵌套 all/any 仅 wire 支持——回读遇到时警告丢弃（不静默）
-- **级联失败策略（U9）边界**：策略运行时语义（失败标记、pause 提示、clear 清空）
-  在发布渲染器（CompositeRenderer）生效；预览运行时（PreviewRuntime 平行实现）
-  不接失败标记——上游失败预览侧表现为「下游不重跑且无提示」（近似 pause 无
-  提示版，clear/keep 不区分），同 U10/V5 预览边界先例。static 区块不执行绑定，
-  cascadePolicy 对其无实际作用（wire 允许透传）
-- V5-T5.7 端到端线上验收（提案→发布→真实联动）待执行
-- Selector 一键同步（8.5 节）边界：prev schema 只存一版且仅在本功能上线后的下一次
-  契约更新才写入，存量漂移页首次同步走启发式（confidence=low）；多跳漂移
-  （发布后又改契约）digest 判定不符时同样降级；composite 页新增 required 输入
-  一律 manual_required；新 required 字段补 form 要求页面表单有同名字段，且
-  resource 语义盲区（新 required 恰为 identity 字段时应来自 row 源）只在 reason
-  里提示核对、不自动推断；同步不自动 publish
+# Composite page editor V3
+
+V3 is the componentized production editor for composite operator pages. It turns function contracts into editable components and reuses the published renderer for preview, so the page an operator edits is the page the runtime will execute.
+
+## Editor capabilities
+
+| Area            | Capability                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Entry points    | Create a composite page from the proposal inbox or edit an existing composite page.      |
+| Component panel | Function components grouped by resource, plus buttons, modals, containers, and text.     |
+| Outline         | Tree navigation with click-to-locate selection.                                          |
+| Insertion       | Click insertion, drag insertion, drop indicators, and contract-aware container children. |
+| Instances       | Multiple instances of the same function; automatic stable key allocation and rebinding.  |
+| Canvas          | Grid width adjustment, ordering, context menu, parent selection, copy, and delete.       |
+| Selection       | Shift-click accumulation and bulk deletion.                                              |
+| History         | Undo and redo for tree changes with a 50-step snapshot window.                           |
+| Modals          | Enter a modal's inner canvas, edit several forms, and return through breadcrumbs.        |
+| Properties      | Schema-driven configuration and action tabs for the selected node.                       |
+| Events          | Button, table row, form success/failure, field, and text interactions.                   |
+| Action chains   | Ordered execution, refresh, modal close, navigation, and notification actions.           |
+| Data debugging  | Try a function in the bottom panel and inspect the result before publishing.             |
+
+## Typical workflow
+
+1. Create a composite page in the current `gameId + env` scope.
+2. Drag a collection query into a table and enable automatic execution if appropriate.
+3. Add a detail modal, map row fields to its inputs, and wire row actions.
+4. Add operation forms and configure confirmation or refresh behavior.
+5. Preview with the published renderer and try the data panel.
+6. Save the proposal, resolve validation diagnostics, publish, and mount the page.
+
+## Compilation model
+
+The editor serializes a `CompositeSection` tree into a `PageSpec`. The compiler:
+
+- assigns section keys for page state;
+- converts node props into typed page fields;
+- validates selector mappings and output shapes;
+- preserves refresh, visibility, and action-chain edges;
+- keeps dialogs as execution groups even when they are grouped for display.
+
+Published behavior is deterministic: hidden inline sections still execute according to their configuration, while rendering is filtered by `visibleWhen`.
+
+## Component development
+
+- Register a component with its accepted props and child contract.
+- Separate schema-driven configuration from action configuration.
+- Implement round-trip serialization to preserve existing keys and references.
+- Test insertion, deletion, undo, redraw, publication, and decompilation.
+- Avoid component-specific logic in the runtime renderer; prefer typed PageSpec fields.
+
+## Later hardening
+
+The page also records subsequent production hardening: selector diagnostics shared by save and publish, contract drift repair, template update notices, registration-derived rebuild warnings, workspace filtering, pagination pushdown, and expression binding. Consult the implementation tests listed in the guide before changing compiler or round-trip behavior.
+
+## Known boundaries
+
+- Container rendering intentionally simplifies very deep descendant layout.
+- Text components are editor aids and do not publish runtime content.
+- Preview data is an editor-only debugging aid; published pages have no mock fallback.
+- Execution requires a bound runtime contract and a published page binding.

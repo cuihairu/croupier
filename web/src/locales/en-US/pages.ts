@@ -477,6 +477,8 @@ export default {
   'pages.announcements.field.audience': 'Audience',
   'pages.announcements.field.content': 'Body (Markdown)',
   'pages.announcements.field.content.required': 'Please enter the body',
+  'pages.announcements.field.content.syntaxHint':
+    'Supported subset: #/##/### headings, - lists, 1. ordered, **bold**, *italic*, `code`, [link](https://…); anything else renders as-is',
   'pages.announcements.field.gameIds': 'Games (multi-select, empty = all games)',
   'pages.announcements.field.gameIds.placeholder': 'Leave empty for all games',
   'pages.announcements.field.popup': 'Show popup after sign-in',

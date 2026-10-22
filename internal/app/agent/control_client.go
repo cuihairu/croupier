@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -22,6 +22,12 @@ type controlClient interface {
 	RegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error)
 	SendTaskEvent(ctx context.Context, reqBody []byte) error
 	SendMetricEvent(ctx context.Context, reqBody []byte) error
+	SendAlertEvent(ctx context.Context, reqBody []byte) error
+	// PullProbePolicy 采样策略下行拉取（request-response；评审简档 §13.3 C）。
+	PullProbePolicy(ctx context.Context, reqBody []byte) ([]byte, error)
+	// PullProbeDBTargets db 探针目标下行拉取（R4：server 按归属派生，
+	// request-response；version = 目标集内容 hash，空集也有 hash）。
+	PullProbeDBTargets(ctx context.Context, reqBody []byte) ([]byte, error)
 }
 
 // tcpControlClient wraps a simple TCP request-response client (no multiplexing).
@@ -130,6 +136,36 @@ func (c *tcpControlClient) SendMetricEvent(ctx context.Context, reqBody []byte) 
 	return err
 }
 
+// SendAlertEvent 单发探测/告警流事件（review §11 已决 2：独立 QoS 通道，
+// 不复用指标批量面）。
+func (c *tcpControlClient) SendAlertEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.client == nil {
+		return fmt.Errorf("tcp control client not initialized")
+	}
+	_, _, err := c.client.Call(ctx, protocol.MsgAlertEvent, reqBody)
+	return err
+}
+
+// PullProbePolicy 拉取采样策略下行配置（MsgProbePolicyRequest/Response；
+// version 空串 = 未发布，agent 保持现状）。
+func (c *tcpControlClient) PullProbePolicy(ctx context.Context, reqBody []byte) ([]byte, error) {
+	if c == nil || c.client == nil {
+		return nil, fmt.Errorf("tcp control client not initialized")
+	}
+	_, respData, err := c.client.Call(ctx, protocol.MsgProbePolicyRequest, reqBody)
+	return respData, err
+}
+
+// PullProbeDBTargets 拉取 server 派生的 db 探针目标（R4：按归属 agent 派生，
+// 拉取即真值；version = 目标集内容 hash，空集也有 hash）。
+func (c *tcpControlClient) PullProbeDBTargets(ctx context.Context, reqBody []byte) ([]byte, error) {
+	if c == nil || c.client == nil {
+		return nil, fmt.Errorf("tcp control client not initialized")
+	}
+	_, respData, err := c.client.Call(ctx, protocol.MsgProbeDBTargetsRequest, reqBody)
+	return respData, err
+}
+
 func (c *tcpControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("tcp control client not initialized")
@@ -203,6 +239,32 @@ func (c *muxControlClient) SendMetricEvent(ctx context.Context, reqBody []byte) 
 		return fmt.Errorf("mux control client not initialized")
 	}
 	return c.mux.Send(ctx, protocol.MsgMetricEvent, reqBody)
+}
+
+// SendAlertEvent 单发探测/告警流事件（流事件走 Send 不等响应）。
+func (c *muxControlClient) SendAlertEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.mux == nil {
+		return fmt.Errorf("mux control client not initialized")
+	}
+	return c.mux.Send(ctx, protocol.MsgAlertEvent, reqBody)
+}
+
+// PullProbePolicy 拉取采样策略下行配置（request-response）。
+func (c *muxControlClient) PullProbePolicy(ctx context.Context, reqBody []byte) ([]byte, error) {
+	if c == nil || c.mux == nil {
+		return nil, fmt.Errorf("mux control client not initialized")
+	}
+	_, respData, err := c.mux.Call(ctx, protocol.MsgProbePolicyRequest, reqBody)
+	return respData, err
+}
+
+// PullProbeDBTargets 拉取 server 派生的 db 探针目标（request-response）。
+func (c *muxControlClient) PullProbeDBTargets(ctx context.Context, reqBody []byte) ([]byte, error) {
+	if c == nil || c.mux == nil {
+		return nil, fmt.Errorf("mux control client not initialized")
+	}
+	_, respData, err := c.mux.Call(ctx, protocol.MsgProbeDBTargetsRequest, reqBody)
+	return respData, err
 }
 
 func (c *muxControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {

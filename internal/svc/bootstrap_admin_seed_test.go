@@ -35,6 +35,7 @@ func TestSeedBootstrapAdminsRepairsExistingAdminRoleBindings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
+	pinMemorySQLite(t, db)
 	if err := model.AutoMigrate(db); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
@@ -125,6 +126,7 @@ func TestSeedBootstrapAdminsBackfillsEmptyProfileFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
+	pinMemorySQLite(t, db)
 	if err := model.AutoMigrate(db); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}

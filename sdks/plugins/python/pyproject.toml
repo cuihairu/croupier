@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "croupier-plugin-sdk"
+version = "0.1.0"
+description = "Python plugin SDK for Croupier go-plugin hosts (sidecar function adapters and synthetics probes)"
+authors = [
+    {name = "cuihairu", email = "chuihairu@gmail.com"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "grpcio>=1.71",
+    "grpcio-health-checking>=1.71",
+    "protobuf>=5.29",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["croupier_plugin*"]
+
+[tool.setuptools.package-data]
+croupier_plugin = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

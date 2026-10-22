@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -182,6 +182,48 @@ func (w *OpsClientWrapper) StartProcess(ctx context.Context, req *opsv1.StartPro
 	return resp, nil
 }
 
+// UpdateProcess swaps a managed process binary on the agent (agent-supervisor-
+// design §10.4 更新状态+指纹).
+func (w *OpsClientWrapper) UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errorx.NewInternalError("marshal update request failed")
+	}
+
+	_, respData, err := w.caller.Call(ctx, protocol.MsgUpdateProcessRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.UpdateProcessResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, errorx.NewInternalError("unmarshal update response failed")
+	}
+
+	return resp, nil
+}
+
+// SetSchedulePause suspends or resumes a managed process's schedule firing on
+// the agent (agent-supervisor-design §10.2 暂停与恢复).
+func (w *OpsClientWrapper) SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errorx.NewInternalError("marshal schedule pause request failed")
+	}
+
+	_, respData, err := w.caller.Call(ctx, protocol.MsgSchedulePauseRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.SchedulePauseResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, errorx.NewInternalError("unmarshal schedule pause response failed")
+	}
+
+	return resp, nil
+}
+
 // ExecuteCommand executes a command on the agent
 func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	data, err := proto.Marshal(req)
@@ -197,6 +239,27 @@ func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 	resp := &opsv1.ExecuteCommandResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
 		return nil, errorx.NewInternalError("unmarshal execute response failed")
+	}
+
+	return resp, nil
+}
+
+// GetSupervisorLog pulls the supervisor event log (tail, size-capped) from
+// the agent via the ops tunnel.
+func (w *OpsClientWrapper) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errorx.NewInternalError("marshal supervisor log request failed")
+	}
+
+	_, respData, err := w.caller.Call(ctx, protocol.MsgGetSupervisorLogRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.GetSupervisorLogResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, errorx.NewInternalError("unmarshal supervisor log response failed")
 	}
 
 	return resp, nil

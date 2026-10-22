@@ -270,14 +270,22 @@ describe('localizeFormErrors', () => {
   });
 
   it('property 缺省 / required 缺 missingProperty：回退「该字段」', () => {
+    // minLength limit=1 是「必填字符串=非空」派生约束，走「不能为空」特化文案
     const [noProperty] = localizeFormErrors(
       [errOf('minLength', undefined, { limit: 1 })],
       schema,
       'zh-CN',
     );
-    expect(noProperty.message).toBe('至少需要 1 个字符');
+    expect(noProperty.message).toBe('「该字段」不能为空');
     const [noMissing] = localizeFormErrors([errOf('required', '')], schema, 'zh-CN');
     expect(noMissing.message).toBe('「该字段」为必填项');
+    // 通用 minLength（limit>1）仍走「至少 N 个字符」模板
+    const [generic] = localizeFormErrors(
+      [errOf('minLength', undefined, { limit: 3 })],
+      schema,
+      'zh-CN',
+    );
+    expect(generic.message).toBe('至少需要 3 个字符');
   });
 
   it('嵌套路径取叶子 title；路径断链回退叶子 key', () => {

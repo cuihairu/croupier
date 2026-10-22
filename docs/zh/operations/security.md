@@ -1,0 +1,244 @@
+---
+title: 安全配置
+icon: shield-halved
+order: 40
+category:
+  - 运维指南
+tag:
+  - 安全
+  - TLS
+  - 认证
+---
+
+# 安全配置
+
+本文档描述当前 session 架构下的安全边界与推荐配置。
+
+## 安全边界
+
+```mermaid
+graph TB
+    subgraph "用户入口"
+        UI[Dashboard / REST]
+    end
+
+    subgraph "控制面"
+        Server[Server]
+    end
+
+    subgraph "代理层"
+        Agent[Agent]
+    end
+
+    subgraph "本地接入"
+        SDK[SDK / GameServer / 第三方应用]
+    end
+
+    UI -->|HTTPS| Server
+    Agent -->|TLS / mTLS| Server
+    SDK -->|TCP 或 TLS| Agent
+```
+
+## 默认策略
+
+### `Agent <-> Server`
+
+- 默认启用 TLS
+- 生产环境推荐 mTLS
+- `19090` 应视为内部控制面端口
+
+### `SDK <-> Agent`
+
+- 默认可不开启 TLS
+- 跨主机、跨网段或零信任环境时启用 TLS
+- 是否启用 TLS 取决于部署边界，而不是协议本身要求
+
+## 配置示例
+
+### Server
+
+`configs/server.yaml`：
+
+```yaml
+control:
+  addr: ":19090"
+  cert: "/etc/croupier/server.crt"
+  key: "/etc/croupier/server.key"
+  ca: "/etc/croupier/ca.crt"
+```
+
+### Agent 上行到 Server
+
+`configs/agent.yaml`：
+
+```yaml
+server:
+  addr: "server.example.com:19090"
+  insecure: false
+  serverName: "server.example.com"
+  insecureSkipVerify: false
+  tlsCertFile: "/etc/croupier/agent.crt"
+  tlsKeyFile: "/etc/croupier/agent.key"
+  caFile: "/etc/croupier/ca.crt"
+```
+
+### Agent 本地 gateway TLS
+
+`configs/agent.yaml`：
+
+```yaml
+tls:
+  enabled: true
+  certFile: "/etc/croupier/agent-local.crt"
+  keyFile: "/etc/croupier/agent-local.key"
+  caFile: "/etc/croupier/ca.crt"
+  insecureSkipVerify: false
+```
+
+## 证书建议
+
+- 同一控制域可使用统一内部 CA
+- `Agent <-> Server` 推荐双向证书校验
+- `SDK <-> Agent` 若启用 TLS，可按需要决定是否要求客户端证书
+
+## 防火墙建议
+
+至少明确区分以下端口边界：
+
+```bash
+# REST / Dashboard
+ufw allow 18780/tcp
+
+# Agent -> Server session/control
+ufw allow 19090/tcp
+
+# SDK / GameServer -> Agent local gateway
+ufw allow 19091/tcp
+```
+
+如果部署里仍保留历史兼容端口，应按过渡资产管理，避免把它们写成新的基线。
+
+## 认证与授权
+
+除了 TLS，还应继续保留：
+
+- JWT / OIDC 鉴权
+- RBAC / ABAC 授权
+- 审计日志
+- 高风险操作审批
+
+TLS 只解决“谁在和谁通信”，不替代平台级权限控制。
+
+## 外部身份源（LDAP / OIDC）
+
+平台默认仅使用本地账号（`admins` 表 + bcrypt + TOTP）。如有企业身份源，可在 `auth.providers` 中按需开启，默认全部关闭：
+
+```yaml
+auth:
+  providers:
+    ldap:
+      enabled: true
+      addr: "ldap://ldap.example.com:389"
+      baseDn: "dc=example,dc=com"
+      bindDn: "uid=svc-croupier,ou=system,dc=example,dc=com"
+      bindPassword: "${LDAP_BIND_PASSWORD}"
+      userFilter: "(uid=%s)"
+      startTls: true
+      defaultRoles: ["viewer"]
+    oidc:
+      enabled: true
+      issuer: "https://keycloak.example.com/realms/main"
+      clientId: "croupier"
+      clientSecret: "${OIDC_CLIENT_SECRET}"
+      redirectUrl: "https://croupier.example.com/api/auth/oidc/callback"
+      defaultRoles: ["viewer"]
+      loginSuccessUrl: "https://croupier.example.com/login"
+```
+
+完整字段说明见 `configs/auth-providers.example.yaml`。行为约定：
+
+- **登录级联**：密码登录按 `local → ldap` 顺序尝试；本地失败且 LDAP 启用时自动回落到 LDAP，登录框无需区分。
+- **JIT 建号**：外部身份首次登录自动创建本地影子账号（密码为随机值，不能本地登录），并按 `defaultRoles` 赋予本地角色；角色与权限始终由本地 RBAC 裁决，外部身份只负责"证明你是谁"。
+- **OIDC 流程**：登录页通过 `GET /api/v1/auth/providers` 获取已启用方式；`GET /api/v1/auth/oidc/login` 跳转身份源，回调 `GET /api/v1/auth/oidc/callback` 换取身份并签发平台 JWT（与密码登录同一 token 体系，后续请求无差别）。
+- **失效降级**：OIDC 身份源在 Server 启动时不可达只会禁用 OIDC 登录（告警日志），不影响本地与 LDAP 登录；LDAP 拨号发生在认证时，目录故障表现为"认证服务暂时不可用"。
+- **审计**：登录审计记录携带 `provider` 字段，可区分 `local` / `ldap` / `oidc` 来源。
+
+## 登录方式与自助注册（L3 运行时键）
+
+除 yaml 静态声明外，登录方式与注册策略已支持数据库 L3 运行时键（设置中心「账号安全」Tab，保存即热刷新身份源，`auth.*` 键族）：
+
+- **密码登录开关** `auth.local.enabled`（默认开；关闭时存在防锁死守卫——若本地管理员账号无法经其他身份源登录则拒绝关闭）。
+- **OAuth 身份源** `auth.providers.github.*` / `wechat.*` / `generic.*`（自定义 OAuth2 端点）：与 yaml 声明的 LDAP/OIDC 同一 `auth.providers` 模型，L3 覆盖 yaml，热生效。
+- **自助注册** `auth.register.enabled`（默认关，匿名 `POST /api/v1/auth/register` 关闭时 403 `registration_disabled`）+ `auth.register.defaultRoles`（留空不赋角色）。
+- **邮箱策略** `auth.email.domainWhitelist`（空=不限）/ `auth.email.aliasRestriction`（拒绝 + 去点归一查重）/ `auth.email.verificationRequired`（注册后须邮件验证，`GET /api/v1/auth/verify-email` 完成验证）。
+
+## 出站安全与限制（sec.*）
+
+服务端出站 HTTP（通知 webhook 与「检查更新」两处外呼）受出站守卫约束（`sec.*` 键族，设置中心「账号安全 → 出站安全与限制」卡，保存即热生效）：
+
+- `sec.allowPorts`：端口白名单（空=不限）；`sec.domainFilter`：域名后缀白名单（配置后仅清单内域名可出站）；`sec.allowIPs`：单 IP/CIDR 放行清单。
+- `sec.ssrfProtection`：开启后 DNS 解析与真实连接双层拦截私有/回环/链路本地地址（拨号前复核对端 IP，消除解析重绑定）。
+
+边界：守卫仅覆盖用户可配置 URL 的外呼——agent/数据库/SDK 通道与固定 URL 外呼（GitHub OAuth 等）不经守卫；默认全关零行为变更。生效值查询 `GET /api/v1/site/outbound`。
+
+## 高危审批 step-up 二次验证（TOTP）
+
+治理风险 high / danger 的审批（默认策略中强制审批的两档）在批准动作落库前要求 step-up 二次验证（OPEN-ISSUES #75）：
+
+- 已绑定 TOTP 的账号：`POST /api/v1/approvals/:id/approve` 必须携带 `otp`，错码拒绝（`otp_invalid`）。
+- 未绑定账号：直接拒绝（`otp_not_enrolled`），提示回 Web「个人中心-安全设置」绑定——高危批准禁止静默放行。
+- 中低风险：`otp` 可选；提供了就校验，错的拒绝。
+
+**总开关** `security.approvalStepUpOtp`（OPEN-ISSUES #61，设置页「系统设置-站点设置-安全」）：默认开启（fail-safe，settings 未初始化或键未配置时维持强制语义）。关闭后高危审批降级为可选验证（带了仍校验），批准审计 `stepUp` 档位记 `disabled`——事后可审计开关放行了哪些高危操作。移动端定位是便利，强制门槛出问题时由服务端一键降级，不需要回滚版本。
+
+稳定错误码与审计档位的完整契约见 `docs/api/approval.md`；otp 值永不写入审计/日志。
+
+## 最佳实践
+
+1. 生产环境的 `Agent <-> Server` 默认启用 mTLS
+2. `SDK <-> Agent` 根据网络边界决定是否启用 TLS
+3. 不要把 `insecureSkipVerify` 带到生产环境
+4. 证书、JWT secret、数据库凭据统一由 Secret Manager 管理
+5. 审计日志与敏感字段脱敏必须持续开启
+
+## 明确不再推荐的旧模型
+
+- 把内部控制链路继续写成 `gRPC`
+- 把 `19090` 写成 `控制链路` 固定语义
+- 让 SDK 开本地端口给 Agent 回拨
+- 使用 `rpc_addr` 作为长期运行时依赖
+
+## 数据库备份与恢复
+
+### 备份（自动执行）
+
+`POST /api/v1/backups` 创建备份记录后会**真实执行**导出（异步）：
+
+1. 按当前 `database.driver` 选择工具：mysql → `mysqldump`、postgres → `pg_dump`、sqlite → 文件复制
+2. 导出到临时文件 → 计算 sha256 → 上传对象存储（`storage.*` 配置；file driver 即本地 `backups/` 目录）
+3. 更新记录为 `succeeded`（含 location/size/checksum）或 `failed`（含错误信息）
+
+要求：Server 运行环境内需安装 `mysqldump`/`pg_dump`（容器镜像可加 `default-mysql-client`/`postgresql-client`）。密码通过 `MYSQL_PWD`/`PGPASSWORD` 环境变量传递，不出现在命令行与进程列表。
+
+建议配合定时任务（`/api/v1/schedules`）每日触发备份，并对高价值备份将 `location` 归档到外部存储。
+
+### 恢复（runbook）
+
+```bash
+# 1. 从对象存储/本地目录取回备份文件
+ls data/uploads/backups/           # file driver
+# 或从 S3/OSS/COS 按记录中的 location 下载
+
+# 2. 校验完整性（与记录中 checksum 比对）
+sha256sum <backup-file>
+
+# 3. 恢复（在目标库执行；生产恢复前先在影子库演练）
+mysql -h <host> -u <user> -p <db> < backup.sql          # mysql
+psql -h <host> -U <user> -d <db> -f backup.sql          # postgres
+# sqlite：停服后替换文件
+cp <backup-file> /path/to/croupier.db
+
+# 4. 重启 Server 并抽查关键表（admins/audit_records/task_runs 行数与时间戳）
+```
+
+注意：恢复属高危操作，必须走两人规则审批并全程留存操作记录。

@@ -17,4 +17,3 @@ title: Java SDK API
 
 - [Java SDK 首页](/sdks/java/)
 - [Java SDK 指南](/sdks/java/guide/)
-- [线程与并发](/sdks/java/guide/threading)

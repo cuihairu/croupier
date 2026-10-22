@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAgentSessionFields(t *testing.T) {
@@ -139,22 +140,24 @@ func TestAgentSessionStoreUpsert(t *testing.T) {
 	sess1 := &AgentSession{
 		AgentID:   "agent-1",
 		SessionID: "session-1",
-		Env:       "dev",
+		GameID:    "game-1",
+		Env:       "prod",
 	}
 	sess2 := &AgentSession{
 		AgentID:   "agent-1", // Same agent ID
 		SessionID: "session-2",
+		GameID:    "game-1",
 		Env:       "prod",
 	}
 
 	// Upsert should add first
-	store.Upsert(sess1)
+	require.NoError(t, store.Upsert(sess1))
 	if store.Count() != 1 {
 		t.Errorf("Count() after first Upsert() = %d, want 1", store.Count())
 	}
 
 	// Upsert should replace
-	store.Upsert(sess2)
+	require.NoError(t, store.Upsert(sess2))
 	if store.Count() != 1 {
 		t.Errorf("Count() after second Upsert() = %d, want 1", store.Count())
 	}
@@ -166,8 +169,8 @@ func TestAgentSessionStoreUpsert(t *testing.T) {
 	if got.SessionID != "session-2" {
 		t.Errorf("SessionID after upsert = %s, want session-2", got.SessionID)
 	}
-	if got.Env != "prod" {
-		t.Errorf("Env after upsert = %s, want prod", got.Env)
+	if got.Env != "prod" || got.GameID != "game-1" {
+		t.Errorf("scope after upsert = %s/%s, want game-1/prod", got.GameID, got.Env)
 	}
 }
 
@@ -204,7 +207,8 @@ func TestAgentSessionStoreRemoveSessionReconnect(t *testing.T) {
 	sess1 := &AgentSession{
 		AgentID:   "agent-1",
 		SessionID: "session-1",
-		Env:       "dev",
+		GameID:    "game-1",
+		Env:       "prod",
 	}
 	_ = store.Add(sess1)
 
@@ -212,9 +216,10 @@ func TestAgentSessionStoreRemoveSessionReconnect(t *testing.T) {
 	sess2 := &AgentSession{
 		AgentID:   "agent-1",
 		SessionID: "session-2",
+		GameID:    "game-1",
 		Env:       "prod",
 	}
-	store.Upsert(sess2)
+	require.NoError(t, store.Upsert(sess2))
 
 	// The stored session must be the new one.
 	got, ok := store.Get("agent-1")
@@ -303,8 +308,8 @@ func TestAgentSessionStorePruneStale(t *testing.T) {
 	}
 
 	// Add sessions (Upsert calls UpdateLastSeen)
-	store.Upsert(oldSess)
-	store.Upsert(newSess)
+	require.NoError(t, store.Upsert(oldSess))
+	require.NoError(t, store.Upsert(newSess))
 
 	// Manually set old session's LastSeen to the past
 	oldSess.LastSeen.Store(now.Add(-2 * time.Hour).Unix())
@@ -348,7 +353,7 @@ func TestAgentSessionStoreConcurrentAccess(t *testing.T) {
 				AgentID:   string(rune('a'+n%26)) + "-agent",
 				SessionID: "session",
 			}
-			store.Upsert(sess)
+			_ = store.Upsert(sess)
 		}(i)
 	}
 
@@ -440,6 +445,7 @@ func TestSetClusterHooks_Setters(t *testing.T) {
 
 type fakeClusterHook struct{}
 
-func (f *fakeClusterHook) OnAgentRegistered(context.Context, string, string, string) {}
-func (f *fakeClusterHook) OnAgentHeartbeat(context.Context, string)                  {}
-func (f *fakeClusterHook) OnAgentDisconnected(context.Context, string)               {}
+func (f *fakeClusterHook) OnAgentRegistered(context.Context, string, string, string, map[string]string) {
+}
+func (f *fakeClusterHook) OnAgentHeartbeat(context.Context, string)    {}
+func (f *fakeClusterHook) OnAgentDisconnected(context.Context, string) {}

@@ -270,6 +270,29 @@ func TestDelete(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestScheduleMutationsRequireScope(t *testing.T) {
+	r, db := newTestEnv(t, true)
+	id := mustCreate(t, r)
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "other", Env: "prod"})
+	s := NewService(&svc.ServiceContext{
+		TaskScheduleModel: model.NewTaskScheduleModel(db),
+		Dispatcher:        dispatch.NewDispatcher(reg.NewStore()),
+	})
+
+	_, err := s.SetStatus(ctx, id, model.ScheduleStatusPaused)
+	require.ErrorContains(t, err, "not found in game")
+	_, err = s.RunLogs(ctx, id, 1, 10)
+	require.ErrorContains(t, err, "not found in game")
+	require.ErrorContains(t, s.Delete(ctx, id), "not found in game")
+	_, err = s.TriggerNow(ctx, id)
+	require.ErrorContains(t, err, "not found in game")
+
+	items, _, err := model.NewTaskScheduleModel(db).List(context.Background(), model.ListSchedulesOptions{})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, model.ScheduleStatusActive, items[0].Status)
+}
+
 func TestModelNotInitialized(t *testing.T) {
 	h := NewHandler(NewService(&svc.ServiceContext{}))
 	gin.SetMode(gin.TestMode)

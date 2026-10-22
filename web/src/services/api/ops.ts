@@ -26,6 +26,29 @@ export type OpsAgent = {
   ownerInstance?: string;
 };
 
+export type SyntheticsResult = {
+  id: number;
+  agentId: string;
+  gameId: string;
+  env: string;
+  kind: string;
+  target: string;
+  status: string;
+  latencyMs: number;
+  errorClass: string;
+  error: string;
+  createdAt: number;
+  // 执行时目标类别快照（目标分类设计 §4.4）：game | third_party；
+  // 旧版 agent 上报无该位 → 空串（页面上按「未分类」呈现，不猜类别）。
+  targetCategory?: string;
+};
+
+export async function listSyntheticsResults(gameId: string, env: string, limit = 100) {
+  return request<{ items: SyntheticsResult[] }>(
+    `/api/v1/ops/agents/synthetics/results?gameId=${encodeURIComponent(gameId)}&env=${encodeURIComponent(env)}&limit=${limit}`,
+  );
+}
+
 // Source: croupier/internal/api/ops/dto.go OpsServiceProcess.
 export type AgentProcess = {
   serviceId: string;
@@ -210,6 +233,7 @@ export type OpsNode = {
   sdkLanguage?: string;
   sdkVersion?: string;
   sdkName?: string;
+  version?: string;
   functions?: number;
   expiresInSec?: number;
   // System metrics
@@ -240,6 +264,8 @@ export type OpsNode = {
     inodeTotal?: number;
     inodeUsed?: number;
   }>;
+  // Supervisor 监管聚合灯（数据源同 cpu/memory：metrics 上报捎带的托管进程快照）
+  supervisor?: OpsSupervisorSummary;
 };
 export type OpsAlert = {
   severity?: string;
@@ -252,10 +278,23 @@ export type OpsAlert = {
   silenced?: boolean;
   labels?: Record<string, JSONValue>;
   annotations?: Record<string, JSONValue>;
+  handleStatus?: string;
+  handledBy?: string;
+  handledRemark?: string;
+  handledAt?: string;
+};
+// 工作流状态（风险事件扩展）：独立于 annotations.status（入站 lifecycle）。
+export type AlertHandleAction = 'acknowledge' | 'ignore' | 'escalate';
+export type OpsAlertHandleResult = {
+  alertId: string;
+  handleStatus: string;
+  handledBy: string;
+  handledAt: string;
 };
 export type OpsTask = {
   id: string;
   functionId: string;
+  agentId?: string;
   actor?: string;
   gameId?: string;
   env?: string;
@@ -308,6 +347,7 @@ type RawOpsNode = {
   sdkLanguage?: string;
   sdkVersion?: string;
   sdkName?: string;
+  version?: string;
   functions?: number;
   expiresInSec?: number;
   // System metrics
@@ -326,6 +366,10 @@ type RawOpsAlert = {
   silenced?: boolean;
   labels?: Record<string, JSONValue>;
   annotations?: Record<string, JSONValue>;
+  handleStatus?: string;
+  handledBy?: string;
+  handledRemark?: string;
+  handledAt?: string;
 };
 type RawOpsTask = {
   id: string;
@@ -342,6 +386,7 @@ type RawOpsTask = {
   endedAt?: string;
   durationMs?: number;
   error?: string;
+  agentId?: string;
   addr?: string;
   traceId?: string;
 };
@@ -407,6 +452,7 @@ function normalizeOpsNode(raw: RawOpsNode): OpsNode {
     sdkLanguage: raw?.sdkLanguage,
     sdkVersion: raw?.sdkVersion,
     sdkName: raw?.sdkName,
+    version: raw?.version,
     functions: raw?.functions ?? 0,
     expiresInSec: raw?.expiresInSec ?? 0,
     // System metrics
@@ -427,6 +473,10 @@ function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
     silenced: raw.silenced,
     labels: raw.labels,
     annotations: raw.annotations,
+    handleStatus: raw.handleStatus,
+    handledBy: raw.handledBy,
+    handledRemark: raw.handledRemark,
+    handledAt: raw.handledAt,
   };
 }
 function normalizeOpsTask(raw: RawOpsTask): OpsTask {
@@ -442,6 +492,7 @@ function normalizeOpsTask(raw: RawOpsTask): OpsTask {
     durationMs: raw?.durationMs,
     error: raw.error,
     addr: raw.addr,
+    agentId: raw.agentId,
     traceId: raw.traceId,
   };
 }
@@ -646,6 +697,15 @@ export async function fetchOpsAlerts() {
   return { alerts: (response?.alerts || []).map(normalizeOpsAlert) };
 }
 
+// 风险事件工作流流转（确认/忽略/升级 + 备注）；处理人取认证上下文，
+// handled_at 以服务端库钟为准。
+export async function handleOpsAlert(id: string, action: AlertHandleAction, remark?: string) {
+  return request<OpsAlertHandleResult>(`/api/v1/ops/alerts/${encodeURIComponent(id)}/handle`, {
+    method: 'POST',
+    data: { action, remark },
+  });
+}
+
 export async function silenceOpsAlert(data: {
   matchers: Record<string, string>;
   duration: string;
@@ -664,6 +724,13 @@ export async function silenceOpsAlert(data: {
 
 export async function listOpsNodes() {
   const response = await request<{ nodes?: RawOpsNode[] }>('/api/v1/ops/nodes');
+  return { nodes: (response?.nodes || []).map(normalizeOpsNode) };
+}
+
+export async function listOpsAgentsByType(agentType: AgentType) {
+  const response = await request<{ nodes?: RawOpsNode[] }>(
+    `/api/v1/ops/nodes?status=${encodeURIComponent(agentType)}`,
+  );
   return { nodes: (response?.nodes || []).map(normalizeOpsNode) };
 }
 
@@ -834,3 +901,368 @@ export async function fetchNodeCronJobs(nodeId: string): Promise<NodeCronJob[]> 
   );
   return res.items ?? [];
 }
+
+// Supervisor 监管视图 + 事件流 + 手工动作（Source: croupier/internal/api/ops/dto.go
+// OpsSupervisorSummary / OpsSupervisedProcess / OpsAgentSupervisorResponse /
+// supervisor events；事件为 server 端 ring buffer 快照，非流式）
+
+/** 聚合状态灯：ok=全部 RUNNING 且无超限标记；warn=有非 RUNNING 或超限；error=有 FAILED/BROKEN */
+export type OpsSupervisorSummary = {
+  status: 'ok' | 'warn' | 'error';
+  total: number;
+  running: number;
+};
+
+/** 被监管进程快照（agent 每 metrics 周期采样上报） */
+export type SupervisedProcess = {
+  name: string;
+  pid: number;
+  state: string;
+  uptimeSeconds: number;
+  restartCount: number;
+  rssBytes: number;
+  cpuPercent: number;
+  flags: string[];
+  /** S3 崩溃快照档（none/go/node/python/jvm，空=未知） */
+  snapshotProfile: string;
+  /** 最近一次 supervisor 事件时间（unix 秒，0=无） */
+  lastEventUnix: number;
+  /** 仅 BACKOFF 态非零：退避倒计时目标（unix 秒） */
+  nextRestartAtUnix: number;
+  /** 受管对象类别（program/probe-adapter，§10.1；空=旧版 agent 未上报） */
+  kind: string;
+  /** kind=probe-adapter 时的适配器标识（§10.1，其余为空） */
+  adapterId: string;
+  /** 调度状态（§10.6）：下一次定时触发时间（unix 秒）与动作，无调度条目为零值 */
+  nextScheduleAtUnix: number;
+  nextScheduleAction: string;
+  /** 运行实例二进制 sha256（§10.4，spawn 时算一次；空=未运行或未计算） */
+  fingerprint: string;
+  /** 调度暂停态（§10.2 暂停对象=调度）：cron 冻结，进程运行态不动 */
+  scheduleSuspended: boolean;
+};
+
+type RawOpsAgentSupervisor = {
+  agentId?: string;
+  timestamp?: string;
+  processes?: Array<{
+    name?: string;
+    pid?: number;
+    state?: string;
+    uptimeSeconds?: number;
+    restartCount?: number;
+    rssBytes?: number;
+    cpuPercent?: number;
+    flags?: string[];
+    snapshotProfile?: string;
+    lastEventUnix?: number;
+    nextRestartAtUnix?: number;
+    kind?: string;
+    adapterId?: string;
+    nextScheduleAtUnix?: number;
+    nextScheduleAction?: string;
+    fingerprint?: string;
+    scheduleSuspended?: boolean;
+  }>;
+  summary?: { status?: string; total?: number; running?: number };
+};
+
+function normalizeSupervisedProcess(
+  raw: NonNullable<RawOpsAgentSupervisor['processes']>[number],
+): SupervisedProcess {
+  return {
+    name: raw.name || '',
+    pid: raw.pid || 0,
+    state: raw.state || 'unknown',
+    uptimeSeconds: raw.uptimeSeconds || 0,
+    restartCount: raw.restartCount || 0,
+    rssBytes: raw.rssBytes || 0,
+    cpuPercent: raw.cpuPercent || 0,
+    flags: Array.isArray(raw.flags) ? raw.flags : [],
+    snapshotProfile: raw.snapshotProfile || '',
+    lastEventUnix: raw.lastEventUnix || 0,
+    nextRestartAtUnix: raw.nextRestartAtUnix || 0,
+    kind: raw.kind || '',
+    adapterId: raw.adapterId || '',
+    nextScheduleAtUnix: raw.nextScheduleAtUnix || 0,
+    nextScheduleAction: raw.nextScheduleAction || '',
+    fingerprint: raw.fingerprint || '',
+    scheduleSuspended: raw.scheduleSuspended === true,
+  };
+}
+
+function normalizeSupervisorSummary(raw: RawOpsAgentSupervisor['summary']): OpsSupervisorSummary {
+  const status = raw?.status;
+  return {
+    status: status === 'error' || status === 'warn' ? status : 'ok',
+    total: raw?.total || 0,
+    running: raw?.running || 0,
+  };
+}
+
+/** 读取 agent 的 supervisor 快照（server 端 MetricsStore 最新一报，零隧道请求）。 */
+export async function fetchAgentSupervisor(agentId: string): Promise<OpsAgentSupervisorResponse> {
+  const raw = await request<RawOpsAgentSupervisor>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/supervisor`,
+    { method: 'GET' },
+  );
+  return {
+    agentId: raw.agentId || agentId,
+    timestamp: raw.timestamp || '',
+    processes: (raw.processes || []).map(normalizeSupervisedProcess),
+    summary: normalizeSupervisorSummary(raw.summary),
+  };
+}
+
+export type OpsAgentSupervisorResponse = {
+  agentId: string;
+  /** server 收到最新 metrics 上报的时间；面板据此判断数据新鲜度 */
+  timestamp: string;
+  processes: SupervisedProcess[];
+  summary: OpsSupervisorSummary;
+};
+
+/** supervisor 事件闭集：detect_down | auto_restart | restart_failed |
+ *  breaker_tripped | resource_over_limit | manual_start | manual_stop |
+ *  snapshot_hint */
+export const SUPERVISOR_EVENT_TYPES = [
+  'detect_down',
+  'auto_restart',
+  'restart_failed',
+  'breaker_tripped',
+  'resource_over_limit',
+  'manual_start',
+  'manual_stop',
+  'snapshot_hint',
+  // §10.6 调度状态：定时动作与手动操作分型
+  'schedule_fire',
+  // §10.2 暂停与恢复（暂停对象=调度）
+  'schedule_paused',
+  'schedule_resumed',
+  // §10.4 更新状态：message 带指纹
+  'update_applied',
+  'update_rolled_back',
+] as const;
+
+export type SupervisorEventType = (typeof SUPERVISOR_EVENT_TYPES)[number];
+
+/** supervisor 事件（server 端 ring buffer；零值字段可能被 omitempty 省略） */
+export type SupervisorEvent = {
+  seq: number;
+  tsUnix: number;
+  process: string;
+  event: string;
+  oldPid: number;
+  newPid: number;
+  exitCode: number;
+  signal: string;
+  restartCount: number;
+  message: string;
+  lastHeartbeatUnix: number;
+  lastError: string;
+  oomSuspect: boolean;
+  lastRssBytes: number;
+  /** S3：detect_down 附带崩溃快照目录与产物文件名（best-effort） */
+  snapshotDir: string;
+  snapshotFiles: string[];
+};
+
+export type OpsAgentSupervisorEventsResponse = {
+  agentId: string;
+  events: SupervisorEvent[];
+};
+
+type RawSupervisorEvent = Record<string, JSONValue>;
+
+function asNumber(v: JSONValue | undefined): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function asString(v: JSONValue | undefined): string {
+  return typeof v === 'string' ? v : '';
+}
+
+/** 事件原始形态 → 显式零值（server omitempty 缺字段时兜底 0/''/false） */
+export function normalizeSupervisorEvent(raw: RawSupervisorEvent): SupervisorEvent {
+  return {
+    seq: asNumber(raw.seq),
+    tsUnix: asNumber(raw.tsUnix),
+    process: asString(raw.process),
+    event: asString(raw.event),
+    oldPid: asNumber(raw.oldPid),
+    newPid: asNumber(raw.newPid),
+    exitCode: asNumber(raw.exitCode),
+    signal: asString(raw.signal),
+    restartCount: asNumber(raw.restartCount),
+    message: asString(raw.message),
+    lastHeartbeatUnix: asNumber(raw.lastHeartbeatUnix),
+    lastError: asString(raw.lastError),
+    oomSuspect: raw.oomSuspect === true,
+    lastRssBytes: asNumber(raw.lastRssBytes),
+    snapshotDir: asString(raw.snapshotDir),
+    snapshotFiles: Array.isArray(raw.snapshotFiles)
+      ? raw.snapshotFiles.filter((f): f is string => typeof f === 'string')
+      : [],
+  };
+}
+
+/** 读取 agent 的 supervisor 事件 ring（seq 降序返回，limit 供服务端截断）。 */
+export async function fetchAgentSupervisorEvents(
+  agentId: string,
+  sinceSeq = 0,
+  limit = 200,
+): Promise<OpsAgentSupervisorEventsResponse> {
+  const raw = await request<{ agentId?: string; events?: RawSupervisorEvent[] }>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/supervisor/events?sinceSeq=${sinceSeq}&limit=${limit}`,
+    { method: 'GET' },
+  );
+  return {
+    agentId: raw.agentId || agentId,
+    events: (raw.events || []).map(normalizeSupervisorEvent),
+  };
+}
+
+/** 手工拉起进程（server → agent 隧道下发 start），返回新 pid（失败/未知为 0）。 */
+export async function startAgentProcess(agentId: string, name: string): Promise<number> {
+  const raw = await request<{ pid?: number }>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/start`,
+    { method: 'POST' },
+  );
+  return typeof raw?.pid === 'number' && Number.isFinite(raw.pid) ? raw.pid : 0;
+}
+
+/** 手工停止进程（server → agent 隧道下发 stop）。 */
+export async function stopAgentProcess(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/stop`,
+    { method: 'POST' },
+  );
+}
+
+/** 手工重启进程（server → agent 隧道下发 restart）。 */
+export async function restartAgentProcess(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/restart`,
+    { method: 'POST' },
+  );
+}
+
+/** 暂停进程调度（§10.2 暂停对象=调度）：冻结声明的 cron 触发，进程运行态不动；
+ * 跨 agent 重启保留，恢复后下一匹配槽照常触发（crond 语义，暂停期不补跑）。 */
+export async function pauseAgentProcessSchedule(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/schedule/pause`,
+    { method: 'POST' },
+  );
+}
+
+/** 恢复进程调度（§10.2，与 pause 同处理器、suspend 由路由固定）。 */
+export async function resumeAgentProcessSchedule(agentId: string, name: string): Promise<void> {
+  await request<void>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/schedule/resume`,
+    { method: 'POST' },
+  );
+}
+
+/** agent 系统信息（§10.5 指纹锚点数据面）：server 侧四级降级链
+ * （SystemInfoCache → 隧道 live RPC → registry 标签 → DB 最后已知锚点），
+ * agent 失联且会话过期后仍能读到最后一次注册自报的指纹。 */
+export type AgentSystemInfo = {
+  hostname: string;
+  os: string;
+  osVersion: string;
+  kernelVersion: string;
+  arch: string;
+  cpuCores: number;
+  totalMemory: number;
+  bootTime: string;
+  agentVersion: string;
+  /** 运行中的 agent 二进制内容 sha256；空=未上报或二进制不可读 */
+  agentBinarySha256: string;
+};
+
+/** 读取 agent 系统信息。返回 null 表示四级数据面都没命中（agent 未知），
+ * 调用方按空态渲染而不是抛错——失联 agent 的排查面本就要能优雅空。 */
+export async function fetchAgentSystemInfo(agentId: string): Promise<AgentSystemInfo | null> {
+  let raw: { systemInfo?: Record<string, unknown> } | null;
+  try {
+    raw = await request<{ systemInfo?: Record<string, unknown> }>(
+      `/api/v1/ops/agents/${encodeURIComponent(agentId)}/system-info`,
+      { method: 'GET' },
+    );
+  } catch {
+    return null;
+  }
+  const info = raw?.systemInfo;
+  if (!info || typeof info !== 'object') return null;
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return {
+    hostname: str(info.hostname),
+    os: str(info.os),
+    osVersion: str(info.osVersion),
+    kernelVersion: str(info.kernelVersion),
+    arch: str(info.arch),
+    cpuCores: num(info.cpuCores),
+    totalMemory: num(info.totalMemory),
+    bootTime: str(info.bootTime),
+    agentVersion: str(info.agentVersion),
+    agentBinarySha256: str(info.agentBinarySha256),
+  };
+}
+
+/** 更新进程二进制（§10.4）：stagedPath 是 agent 主机上已暂存的文件，
+ * expectedSha256 是内容哈希（64 位小写 hex，fail-closed）。服务端先停后换、
+ * 自动启动、失败回滚旧版，返回旧→新指纹（无旧版时 oldFingerprint 为空）。 */
+export async function updateAgentProcess(
+  agentId: string,
+  name: string,
+  stagedPath: string,
+  expectedSha256: string,
+): Promise<{
+  success: boolean;
+  message?: string;
+  oldFingerprint?: string;
+  newFingerprint?: string;
+  rolledBack: boolean;
+}> {
+  const raw = await request<{
+    success?: boolean;
+    message?: string;
+    oldFingerprint?: string;
+    newFingerprint?: string;
+    rolledBack?: boolean;
+  }>(
+    `/api/v1/ops/agents/${encodeURIComponent(agentId)}/processes/${encodeURIComponent(name)}/update`,
+    { method: 'POST', data: { stagedPath, expectedSha256 } },
+  );
+  return {
+    success: raw.success === true,
+    message: raw.message,
+    oldFingerprint: raw.oldFingerprint,
+    newFingerprint: raw.newFingerprint,
+    rolledBack: raw.rolledBack === true,
+  };
+}
+
+/** supervisor ndjson 日志下载直链（浏览器直接 attachment 下载，不走 blob）。 */
+export function getAgentSupervisorLogUrl(agentId: string) {
+  return buildDownloadUrl(`/api/v1/ops/agents/${encodeURIComponent(agentId)}/supervisor/logs`);
+}
+
+/** 服务端聚合选项行（#23/#33/#34 族：操作者/函数/Agent 过滤下拉） */
+export type ServerSelectOptionRow = {
+  value: string;
+  label?: string;
+  count?: number;
+};
+
+/** 任务操作者聚合选项（#23：GET /api/v1/tasks/operator-options）。
+ *  供 /ops/jobs 操作者下拉消费，选项为当前 scope 下 distinct actor 全集，
+ *  不随列表过滤塌缩。 */
+export async function listOpsTaskOperatorOptions(): Promise<ServerSelectOptionRow[]> {
+  const res = await request<{ items?: ServerSelectOptionRow[] }>('/api/v1/tasks/operator-options');
+  return res.items ?? [];
+}
+
+export type AgentType = 'sidecar' | 'devops' | 'capture' | 'synthetics';

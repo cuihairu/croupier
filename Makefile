@@ -10,7 +10,8 @@ FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 LDFLAGS := -X main.Version=$(FULL_VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT) -s -w
 
 .PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator
-.PHONY: test test-coverage test-coverage-html test-race test-integration test-all
+.PHONY: agents agent-devops agent-capture agent-synthetics
+.PHONY: test test-changed test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
 .PHONY: version version-sync
@@ -105,9 +106,30 @@ server-sqlite-ip2loc:
 agent:
 	@echo "[build] agent"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./cmd/agent
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./cmd/sidecar-agent
 
-build: server agent worker ingest tools
+# devops/capture 的版本号在非 main 包（agents/*/runner.Version），
+# -X 须写完整导入路径；其 main 包无 Version 变量，LDFLAGS 的 main.X 注入
+# 在这两个二进制上是静默 no-op（无害保留，保持与 server target 同一写法）。
+agent-devops:
+	@echo "[build] devops-agent"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/devops/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/devops/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/devops/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/devops-agent ./cmd/devops-agent
+
+agent-capture:
+	@echo "[build] capture-agent"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/capture/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/capture/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/capture/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/capture-agent ./cmd/capture-agent
+
+.PHONY: agent-synthetics
+agent-synthetics:
+	@echo "[build] synthetics-agent"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/agents/synthetics/runner.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/agents/synthetics/runner.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/agents/synthetics/runner.BuildTime=$(BUILD_TIME)" -o $(BINDIR)/synthetics-agent ./cmd/synthetics-agent
+
+agents: agent agent-devops agent-capture agent-synthetics
+
+build: server agents worker ingest tools
 
 .PHONY: build-ip2loc
 build-ip2loc:
@@ -275,6 +297,12 @@ proto-docs:
 test:
 	@echo "[test] running unit tests..."
 	go test -v -short ./...
+
+# Scoped validation for changed files only (dev convenience; CI stays full gate).
+# 口径见 docs/development/repository-guidelines.md "Selective Testing"。
+# 传参：make test-changed ARG=--committed / ARG=origin/main
+test-changed:
+	./scripts/test-changed.sh $(ARG)
 
 # Run tests with race detection
 test-race:

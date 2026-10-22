@@ -285,7 +285,7 @@ func TestWriteFrame_ReadFrame(t *testing.T) {
 
 func TestWriteFrame_TooLarge(t *testing.T) {
 	var buf bytes.Buffer
-	payload := make([]byte, maxFrameBytes+1)
+	payload := make([]byte, MaxFrameBytes+1)
 	err := writeFrame(&buf, payload)
 	if err == nil {
 		t.Error("expected error for frame too large")
@@ -298,7 +298,7 @@ func TestWriteFrame_TooLarge(t *testing.T) {
 func TestReadFrame_TooLarge(t *testing.T) {
 	// Craft a frame header with size > maxFrameBytes
 	var buf bytes.Buffer
-	header := make([]byte, frameHeaderBytes)
+	header := make([]byte, FrameHeaderBytes)
 	// Write size = maxFrameBytes + 1
 	header[0] = 0x02 // 32MB + 1 in big endian
 	header[1] = 0x00
@@ -315,7 +315,7 @@ func TestReadFrame_TooLarge(t *testing.T) {
 func TestReadFrame_EmptyPayload(t *testing.T) {
 	var buf bytes.Buffer
 	// Write size = 0
-	header := make([]byte, frameHeaderBytes)
+	header := make([]byte, FrameHeaderBytes)
 	buf.Write(header)
 
 	got, err := readFrame(&buf)

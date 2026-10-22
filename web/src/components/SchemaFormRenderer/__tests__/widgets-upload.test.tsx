@@ -112,7 +112,7 @@ describe('F4: KeyValue widget', () => {
 });
 
 describe('F4: Upload widget', () => {
-  test('渲染既有 URL 为 done 列表，移除后值清空（单值，required 保留空串）', async () => {
+  test('渲染既有 URL 为 done 列表，移除后值清空；required 空串提交被拦（必填串=非空）', async () => {
     const spec: FormPresentationSpec = {
       jsonSchema: schemaOf({
         type: 'object',
@@ -139,8 +139,8 @@ describe('F4: Upload widget', () => {
       fireEvent.click(remove as Element);
     });
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
-    await waitFor(() =>
-      expect(onFinish).toHaveBeenCalledWith(expect.objectContaining({ logo: '' })),
-    );
+    // 移除后值为空串，required 字段不再放行空串出网（BUG-038 关联观察修复）
+    await screen.findByText('「图标」不能为空');
+    expect(onFinish).not.toHaveBeenCalled();
   });
 });

@@ -14,10 +14,12 @@ import (
 	"testing"
 	"time"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
@@ -27,11 +29,14 @@ import (
 
 // mockControlClientV9 是 controlClient 的可编程 fake，用于直接驱动 syncOnce。
 type mockControlClientV9 struct {
-	mu         sync.Mutex
-	connected  bool
-	closed     bool
-	instanceID string
-	registers  []*agentv1.RegisterRequest
+	mu              sync.Mutex
+	connected       bool
+	closed          bool
+	instanceID      string
+	registers       []*agentv1.RegisterRequest
+	pullProbePolicy func(context.Context, []byte) ([]byte, error)
+	// pullProbeDBTargets 可编程的 db 目标下行出口（R4；nil 回空响应）。
+	pullProbeDBTargets func(context.Context, []byte) ([]byte, error)
 }
 
 func (m *mockControlClientV9) Connected() bool {
@@ -67,6 +72,24 @@ func (m *mockControlClientV9) RegisterCapabilities(ctx context.Context, req *age
 func (m *mockControlClientV9) SendTaskEvent(ctx context.Context, body []byte) error { return nil }
 
 func (m *mockControlClientV9) SendMetricEvent(ctx context.Context, body []byte) error { return nil }
+
+func (m *mockControlClientV9) SendAlertEvent(ctx context.Context, body []byte) error { return nil }
+
+// pullProbePolicy 可编程的策略下行出口（默认回未发布的空响应）。
+func (m *mockControlClientV9) PullProbePolicy(ctx context.Context, body []byte) ([]byte, error) {
+	if m.pullProbePolicy != nil {
+		return m.pullProbePolicy(ctx, body)
+	}
+	return proto.Marshal(&opsv1.ProbePolicyConfigResponse{})
+}
+
+// PullProbeDBTargets 可编程的 db 目标下行出口（默认回空版本+空正文 = 保持现状）。
+func (m *mockControlClientV9) PullProbeDBTargets(ctx context.Context, body []byte) ([]byte, error) {
+	if m.pullProbeDBTargets != nil {
+		return m.pullProbeDBTargets(ctx, body)
+	}
+	return proto.Marshal(&opsv1.ProbeDBTargetsConfigResponse{})
+}
 
 // heartbeatFlakyServerV9 让心跳按次数注入失败：前 failFirst 次返回
 // 非 protobuf 的垃圾响应（client 反序列化失败但 TCP 连接保持存活），
@@ -110,7 +133,7 @@ func newHeartbeatFlakyServerV9(t *testing.T, failFirst, failRegisterFrom int64) 
 			return proto.Marshal(&agentv1.RegisterCapabilitiesResponse{})
 		}
 	})
-	srv, err := tcptr.NewServer(&tcptr.Config{
+	srv, err := internaltcp.NewServer(&tcptr.Config{
 		Address:        "127.0.0.1:0",
 		Insecure:       true,
 		RecvTimeout:    5 * time.Second,

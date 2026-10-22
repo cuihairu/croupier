@@ -234,7 +234,14 @@ func buildTestPlugin(t *testing.T) string {
 		[]byte("package main\n"), 0o644))
 
 	out := filepath.Join(dir, "plug.so")
-	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", out, ".")
+	args := []string{"build", "-buildmode=plugin", "-o", out}
+	if testBinaryRaceEnabled {
+		// 测试二进制带 -race 时插件必须同参数编译，否则 plugin.Open 报
+		// "built with a different version of package internal/runtime/sys"。
+		args = append(args, "-race")
+	}
+	args = append(args, ".")
+	cmd := exec.Command("go", args...)
 	cmd.Dir = plugdir
 	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local")
 	buildOut, err := cmd.CombinedOutput()

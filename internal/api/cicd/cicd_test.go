@@ -254,6 +254,30 @@ func TestMaskToken(t *testing.T) {
 	assert.Equal(t, "****9999", model.MaskToken("super-secret-9999"))
 }
 
+func TestCicdService_TestConnection(t *testing.T) {
+	// 通过假服务器验证连通性测试成功路径
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	ctxSvc, _ := setupCtx(t)
+	svcCicd := cicd.NewService(ctxSvc).WithHTTPClient(srv.Client())
+	ctx := context.Background()
+	created, err := svcCicd.Create(ctx, &cicd.IntegrationCreateRequest{
+		GameID: "demo", Env: "prod", Kind: "jenkins", Name: "ci",
+		Endpoint: srv.URL,
+	})
+	require.NoError(t, err)
+
+	resp, err := svcCicd.TestConnection(ctx, created.Integration.ID)
+	require.NoError(t, err)
+	assert.True(t, resp.OK)
+	assert.Contains(t, resp.Message, "HTTP 200")
+}
+
 func itoa(v uint) string {
 	return strconv.FormatUint(uint64(v), 10)
 }
@@ -264,4 +288,195 @@ func errFromCode(code int) error {
 
 func stringsReader(s string) *strings.Reader {
 	return strings.NewReader(s)
+}
+
+// ----- handler.List / handler.Trigger / handler.Webhook 覆盖补齐 -----
+// 仅测 handler 层绑定/路径错误（不依赖 provider 假服务器，全链已在 service 测试覆盖）
+
+func setupHandlerCtx(t *testing.T) (*cicd.Service, *gin.Engine) {
+	t.Helper()
+	ctxSvc, db := setupCtx(t)
+	_ = db
+	svcCicd := cicd.NewService(ctxSvc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	return svcCicd, r
+}
+
+func TestCicdHandler_List_BindError(t *testing.T) {
+	// ShouldBindQuery 对 string form 字段无失败路径，空查询 200 即可
+	svcCicd, r := setupHandlerCtx(t)
+	h := cicd.NewHandler(svcCicd)
+	r.GET("/cicd/integrations", h.List)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/cicd/integrations", nil)
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestCicdHandler_Trigger_BindAndPathErrors(t *testing.T) {
+	svcCicd, r := setupHandlerCtx(t)
+	h := cicd.NewHandler(svcCicd)
+	r.POST("/cicd/integrations/:id/trigger", h.Trigger)
+	// 无效路径 id → 400
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/cicd/integrations/abc/trigger", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	// 无效 JSON → 400
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodPost, "/cicd/integrations/1/trigger", strings.NewReader("not json"))
+	req2.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}
+
+func TestCicdHandler_Webhook_BindAndPathErrors(t *testing.T) {
+	svcCicd, r := setupHandlerCtx(t)
+	h := cicd.NewHandler(svcCicd)
+	r.POST("/cicd/webhooks/:id", h.Webhook)
+	// 无效路径 id → 400
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/abc", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	// 无效 JSON → 400
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader("not json"))
+	req2.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+	// 缺少 externalId → 先建集成再验 payload 校验（不存在集成先 404）
+	ctx := context.Background()
+	created, err := svcCicd.Create(ctx, &cicd.IntegrationCreateRequest{
+		GameID: "demo", Env: "prod", Kind: "generic", Name: "hook-test",
+		Endpoint: "http://ci.internal", Token: "hook-secret",
+		Extra: map[string]string{"statusUrl": "http://x/{id}"},
+	})
+	require.NoError(t, err)
+	w3 := httptest.NewRecorder()
+	body3 := `{"status":"passed"}`
+	req3 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/"+strconv.FormatUint(uint64(created.Integration.ID), 10), strings.NewReader(body3))
+	req3.Header.Set("Content-Type", "application/json")
+	req3.Header.Set("X-CICD-Token", "hook-secret")
+	r.ServeHTTP(w3, req3)
+	assert.Equal(t, http.StatusBadRequest, w3.Code)
+}
+
+func TestCicdHandler_TriggerFull(t *testing.T) {
+	svcCicd, r := setupHandlerCtx(t)
+	// jenkins provider 会真发 HTTP 出站：起本地 mock server 兜住（同
+	// TestCicdService_TriggerFullChain 的形态——build 201+Location、queue
+	// executable 拉回构建号），经 WithHTTPClient 注入后 Endpoint 指向 mock。
+	mux := http.NewServeMux()
+	mux.HandleFunc("/job/pack/build", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location", "/queue/item/3/")
+		w.WriteHeader(http.StatusCreated)
+	})
+	mux.HandleFunc("/queue/item/3/api/json", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"executable": map[string]any{"number": 12}})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	svcCicd = svcCicd.WithHTTPClient(srv.Client())
+
+	// 先建集成，handler 才有数据可查
+	_, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
+		GameID: "demo", Env: "prod", Kind: "jenkins", Name: "trigger-test",
+		Endpoint: srv.URL,
+	})
+	require.NoError(t, err)
+
+	h := cicd.NewHandler(svcCicd)
+	gin.SetMode(gin.TestMode)
+	// 路由须带 :id 参数（同生产 routes.go 与本文件 BindAndPathErrors 先例）：
+	// pathID 读 c.Param("id")，字面量注册恒得「路径 id 无效」400。
+	r.POST("/cicd/integrations/:id/trigger", h.Trigger)
+	w := httptest.NewRecorder()
+	body := `{"pipeline":"pack","version":"1.2.3"}`
+	req := httptest.NewRequest(http.MethodPost, "/cicd/integrations/1/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var out struct {
+		Integration cicd.Integration `json:"integration"`
+		Build       cicd.Build       `json:"build"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &out))
+	assert.Equal(t, model.CicdBuildQueued, out.Build.Status)
+	// 触发后再次查询列表，验证记录已落库
+	lst, err := svcCicd.ListBuilds(context.Background(), &cicd.BuildListRequest{Version: "1.2.3", GameID: "demo", Env: "prod"})
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, lst.Total)
+	// 未命中的 version 不应出现
+	lst2, err := svcCicd.ListBuilds(context.Background(), &cicd.BuildListRequest{Version: "9.9.9", GameID: "demo", Env: "prod"})
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, lst2.Total)
+}
+
+func TestCicdHandler_WebhookFull(t *testing.T) {
+	svcCicd, r := setupHandlerCtx(t)
+	// 先建带 token 的集成，Webhook 才能校验 token；generic provider 要求
+	// triggerUrl/statusUrl 至少配置一个（本用例走 webhook 入口不真打外部，
+	// statusUrl 仅为过 Create 校验）。
+	_, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
+		GameID: "demo", Env: "prod", Kind: "generic", Name: "hook-full-test",
+		Endpoint: "http://ci.internal",
+		Token:    "full-secret",
+		Extra:    map[string]string{"statusUrl": "http://x/{id}"},
+	})
+	require.NoError(t, err)
+
+	h := cicd.NewHandler(svcCicd)
+	gin.SetMode(gin.TestMode)
+	// 同上：注册 :id 参数路由，c.Param("id") 才有值
+	r.POST("/cicd/webhooks/:id", h.Webhook)
+	w := httptest.NewRecorder()
+	body := `{"externalId":"b-3","status":"passed","version":"3.0.0"}`
+	req := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-CICD-Token", "full-secret")
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var out struct {
+		Build cicd.Build `json:"build"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &out))
+	assert.Equal(t, model.CicdBuildSuccess, out.Build.Status)
+	assert.NotNil(t, out.Build.FinishedAt)
+	// 令牌错误（新 engine 须注册同款路由，空引擎只会 404）
+	r2 := gin.New()
+	r2.POST("/cicd/webhooks/:id", h.Webhook)
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader(body))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("X-CICD-Token", "wrong-secret")
+	r2.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusUnauthorized, w2.Code)
+	// 缺少 externalId → 400
+	r3 := gin.New()
+	r3.POST("/cicd/webhooks/:id", h.Webhook)
+	w3 := httptest.NewRecorder()
+	req3 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader(`{"status":"passed"}`))
+	req3.Header.Set("Content-Type", "application/json")
+	req3.Header.Set("X-CICD-Token", "full-secret")
+	r3.ServeHTTP(w3, req3)
+	assert.Equal(t, http.StatusBadRequest, w3.Code)
+	// 无令牌接入 → 开放端点测试
+	created2, _ := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
+		GameID: "demo", Env: "prod", Kind: "generic", Name: "no-token-e2e",
+		Endpoint: "http://ci.internal",
+		Extra:    map[string]string{"statusUrl": "http://x/{id}"},
+	})
+	r4 := gin.New()
+	r4.POST("/cicd/webhooks/:id", h.Webhook)
+	w4 := httptest.NewRecorder()
+	body4 := `{"externalId":"b-4","status":"passed","version":"1.0.0"}`
+	req4 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/"+strconv.FormatUint(uint64(created2.Integration.ID), 10), strings.NewReader(body4))
+	req4.Header.Set("Content-Type", "application/json")
+	// 未配置 token 的接入为开放端点
+	r4.ServeHTTP(w4, req4)
+	assert.Equal(t, http.StatusOK, w4.Code)
 }

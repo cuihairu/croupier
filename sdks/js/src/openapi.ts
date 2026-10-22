@@ -83,9 +83,7 @@ function deriveOperationId(operation: JsonRecord, path: string): string {
     return operationId;
   }
   if (path) {
-    const segments = path
-      .split("/")
-      .filter((segment) => segment !== "");
+    const segments = path.split("/").filter((segment) => segment !== "");
     if (segments.length > 0) {
       return segments.join(".");
     }
@@ -96,7 +94,9 @@ function deriveOperationId(operation: JsonRecord, path: string): string {
 function toTitleCase(value: string): string {
   return value
     .split("_")
-    .map((word) => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word))
+    .map((word) =>
+      word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word,
+    )
     .join(" ");
 }
 
@@ -112,7 +112,9 @@ function deriveName(operation: JsonRecord, operationId: string): string {
 }
 
 /** Shallow OpenAPI-schema -> JSON-Schema conversion (Go parity). */
-function schemaToJsonSchema(schema: unknown): Record<string, unknown> | undefined {
+function schemaToJsonSchema(
+  schema: unknown,
+): Record<string, unknown> | undefined {
   if (!isRecord(schema) || Object.keys(schema).length === 0) {
     return undefined;
   }
@@ -144,7 +146,9 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> | undefine
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function jsonContentSchema(holder: unknown): Record<string, unknown> | undefined {
+function jsonContentSchema(
+  holder: unknown,
+): Record<string, unknown> | undefined {
   if (!isRecord(holder)) return undefined;
   const content = holder.content;
   if (!isRecord(content)) return undefined;
@@ -205,11 +209,15 @@ function applyApproval(
   }
   const required = value.required;
   if (required !== undefined && typeof required !== "boolean") {
-    throw new Error(`x-approval.required for ${descriptor.id} must be a boolean`);
+    throw new Error(
+      `x-approval.required for ${descriptor.id} must be a boolean`,
+    );
   }
   const policyKey = value.policyKey;
   if (policyKey !== undefined && typeof policyKey !== "string") {
-    throw new Error(`x-approval.policyKey for ${descriptor.id} must be a string`);
+    throw new Error(
+      `x-approval.policyKey for ${descriptor.id} must be a string`,
+    );
   }
   descriptor.approvalRequired = required === true;
   if (policyKey) {
@@ -232,7 +240,10 @@ function operationToDescriptor(
     version: "1.0.0",
     name,
     summary: name,
-    description: typeof operation.description === "string" ? operation.description : undefined,
+    description:
+      typeof operation.description === "string"
+        ? operation.description
+        : undefined,
     tags,
     resource: extractExtension(operation, "x-resource") || undefined,
     operation: extractExtension(operation, "x-operation") || undefined,
@@ -246,7 +257,8 @@ function operationToDescriptor(
   }
 
   const capability = extractExtension(operation, "x-capability");
-  if (capability) descriptor.capability = parseCapability(capability, functionId);
+  if (capability)
+    descriptor.capability = parseCapability(capability, functionId);
 
   const execution = extractExtension(operation, "x-execution");
   if (execution) descriptor.execution = parseExecution(execution, functionId);
@@ -307,9 +319,7 @@ export function registerFromOpenAPI(
     try {
       document = JSON.parse(spec) as JsonRecord;
     } catch (error) {
-      throw new Error(
-        `load OpenAPI spec failed: ${(error as Error).message}`,
-      );
+      throw new Error(`load OpenAPI spec failed: ${(error as Error).message}`);
     }
   } else {
     document = spec;
@@ -320,9 +330,7 @@ export function registerFromOpenAPI(
 
   const resolver: HandlerResolver =
     handlerResolver ??
-    (handlers
-      ? (functionId) => handlers.get(functionId)
-      : () => undefined);
+    (handlers ? (functionId) => handlers.get(functionId) : () => undefined);
 
   const registered: string[] = [];
   for (const [path, operation] of iterOperations(document)) {

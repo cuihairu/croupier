@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net"
@@ -10,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/agents/sidecar"
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -26,7 +28,18 @@ type TCPLocalListenerConfig struct {
 	// Timeouts.
 	RecvTimeout time.Duration
 	SendTimeout time.Duration
+
+	// TLSConfig, when non-nil, wraps every accepted connection in TLS
+	// (crypto/tls) — above TCP, below the framing layer, so the wire protocol
+	// is unaffected. Handshake failures drop only the offending connection;
+	// the accept loop keeps serving (plaintext probes must not kill the
+	// gateway, hence per-conn wrapping instead of tls.NewListener).
+	TLSConfig *tls.Config
 }
+
+// tlsHandshakeTimeout bounds the server-side TLS handshake of an accepted
+// connection; half-open peers are dropped instead of pinning a goroutine.
+const tlsHandshakeTimeout = 10 * time.Second
 
 // TCPLocalListener accepts SDK Provider TCP sessions on the Agent's local gateway.
 //
@@ -60,14 +73,22 @@ type TCPLocalListener struct {
 }
 
 // NewTCPLocalListener creates a new local TCP listener for SDK connections.
-func NewTCPLocalListener(config *TCPLocalListenerConfig, sessionStore *ProviderSessionStore, logger *slog.Logger) (*TCPLocalListener, error) {
-	if config == nil {
-		addr := os.Getenv("CROUPIER_AGENT_LOCAL_ADDR")
-		if strings.TrimSpace(addr) == "" {
-			addr = "127.0.0.1:19091"
-		}
-		config = &TCPLocalListenerConfig{Address: addr}
+// resolveLocalListenerAddress 决定本地监听地址：显式配置优先；config 为 nil 时
+// 读 CROUPIER_AGENT_LOCAL_ADDR，为空回落 127.0.0.1:19091。独立成函数以便在
+// 不实际绑定端口的前提下测默认值（构造函数会立即 net.Listen）。
+func resolveLocalListenerAddress(config *TCPLocalListenerConfig) *TCPLocalListenerConfig {
+	if config != nil {
+		return config
 	}
+	addr := os.Getenv("CROUPIER_AGENT_LOCAL_ADDR")
+	if strings.TrimSpace(addr) == "" {
+		addr = "127.0.0.1:19091"
+	}
+	return &TCPLocalListenerConfig{Address: addr}
+}
+
+func NewTCPLocalListener(config *TCPLocalListenerConfig, sessionStore *ProviderSessionStore, logger *slog.Logger) (*TCPLocalListener, error) {
+	config = resolveLocalListenerAddress(config)
 	if sessionStore == nil {
 		sessionStore = NewProviderSessionStore()
 	}
@@ -146,6 +167,20 @@ func (l *TCPLocalListener) serveConn(ctx context.Context, conn net.Conn) {
 		_ = conn.Close()
 		l.logger.Info("Provider TCP connection closed", "remote", remoteAddr)
 	}()
+
+	// TLS 在 TCP 之上、分帧之下（能力矩阵批次 E）：握手失败只丢弃当前
+	// 连接并告警，Accept 循环与既有会话不受影响——明文探测/扫描不致命。
+	if tlsCfg := l.config.TLSConfig; tlsCfg != nil {
+		tlsConn := tls.Server(conn, tlsCfg)
+		hsCtx, cancel := context.WithTimeout(ctx, tlsHandshakeTimeout)
+		err := tlsConn.HandshakeContext(hsCtx)
+		cancel()
+		if err != nil {
+			l.logger.Warn("Provider TLS handshake failed", "remote", remoteAddr, "error", err)
+			return
+		}
+		conn = tlsConn
+	}
 
 	muxCfg := &tcptr.Config{
 		RecvTimeout: l.config.RecvTimeout,
@@ -292,18 +327,17 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 			"service_id", req.ServiceId, "session_id", sessionID, "warning", warning)
 	}
 
-	sess := &ProviderSession{
-		conn:        h.conn,
-		SessionID:   sessionID,
-		ServiceID:   req.ServiceId,
-		Version:     req.Version,
-		Functions:   convertProtoFunctions(req.Functions),
-		ConnectedAt: time.Now(),
-		SDKLanguage: req.SdkLanguage,
-		SDKVersion:  req.SdkVersion,
-		SDKName:     req.SdkName,
-		Metadata:    metadata,
-	}
+	sess := sidecar.NewProviderSession(h.conn)
+	sess.SessionID = sessionID
+	sess.ServiceID = req.ServiceId
+	sess.Version = req.Version
+	sess.Functions = convertProtoFunctions(req.Functions)
+	sess.ConnectedAt = time.Now()
+	sess.SDKLanguage = req.SdkLanguage
+	sess.SDKVersion = req.SdkVersion
+	sess.SDKName = req.SdkName
+	sess.Metadata = metadata
+
 	sess.UpdateLastSeen()
 
 	h.listener.sessionStore.Upsert(sess)

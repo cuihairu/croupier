@@ -4,6 +4,7 @@ set -euo pipefail
 fixture_paths=(
   "web/src/dashboard-vnext-guard-fixture.ts"
   "internal/agent/dashboard_vnext_guard_fixture.go"
+  "internal/drivers/openapi/dashboard_vnext_guard_fixture.go"
 )
 created_fixtures=()
 
@@ -42,5 +43,10 @@ expect_rejection "form-render runtime import" "web/src/dashboard-vnext-guard-fix
 expect_rejection "legacy Function Form reference" "web/src/dashboard-vnext-guard-fixture.ts" "const legacy = 'FunctionFormManager';"
 expect_rejection "legacy page runtime reference" "web/src/dashboard-vnext-guard-fixture.ts" "const legacy = 'WorkspaceRenderer';"
 expect_rejection "registration-side UI field" "internal/agent/dashboard_vnext_guard_fixture.go" $'package agent\n\nconst dashboardVNextGuardFixture = "category_display"'
+
+# The openapi driver moved internal/platform/openapi -> internal/drivers/openapi
+# (#66 P1-a). Before the scan list followed, rg exited 2 on the stale path and this
+# negative check passed silently.
+expect_rejection "registration-side UI field in moved driver tree" "internal/drivers/openapi/dashboard_vnext_guard_fixture.go" $'package openapi\n\nconst dashboardVNextGuardFixture = "category_display"'
 
 echo "Dashboard vNext guard rejection test passed."

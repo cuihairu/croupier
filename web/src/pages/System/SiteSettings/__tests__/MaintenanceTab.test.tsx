@@ -24,6 +24,7 @@ jest.mock('@/services/api/opsStatus', () => ({
 
 jest.mock('@/services/api/sites', () => ({
   fetchSiteConfig: jest.fn(),
+  fetchExternalServices: jest.fn(),
 }));
 
 jest.mock('@umijs/max', () => ({
@@ -34,11 +35,12 @@ jest.mock('@umijs/max', () => ({
 }));
 
 import { checkSystemUpdate, getSystemRuntime } from '@/services/api/opsStatus';
-import { fetchSiteConfig } from '@/services/api/sites';
+import { fetchExternalServices, fetchSiteConfig } from '@/services/api/sites';
 
 const mRuntime = getSystemRuntime as jest.MockedFunction<typeof getSystemRuntime>;
 const mCheck = checkSystemUpdate as jest.MockedFunction<typeof checkSystemUpdate>;
 const mCfg = fetchSiteConfig as jest.MockedFunction<typeof fetchSiteConfig>;
+const mExt = fetchExternalServices as jest.MockedFunction<typeof fetchExternalServices>;
 
 const baseRuntime = {
   version: 'v1.4.0',
@@ -64,6 +66,8 @@ beforeEach(() => {
   mCfg.mockResolvedValue({ docsUrl: 'https://docs.example.com' } as Awaited<
     ReturnType<typeof fetchSiteConfig>
   >);
+  // 外部服务卡为运维 Tab 常驻子卡，默认空清单避免各用例断言被额外行干扰
+  mExt.mockResolvedValue({ services: [], source: 'file' });
 });
 
 describe('humanizeUptime', () => {

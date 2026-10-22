@@ -1,0 +1,13 @@
+agent:
+  id: agent
+  serverAddr: 127.0.0.1:1
+  gameId: game
+  env: prod
+synthetics:
+  interval: 1s
+  targets:
+    - name: gateway
+      type: icmp
+      address: 127.0.0.1
+      timeout: 2s
+      count: 2

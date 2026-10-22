@@ -7,7 +7,7 @@
 所有 SDK 共享：
 
 - 主仓库根目录的 **Protobuf 协议**：[`proto/croupier/sdk/v1/`](../proto/croupier/sdk/v1/)
-- **线协议约定**：[`docs/architecture/sdk-wire-protocol.md`](../docs/architecture/sdk-wire-protocol.md)
+- **线协议约定**：[`docs/architecture/sdk-wire-protocol.md`（本节仅有中文版）](../docs/zh/architecture/sdk-wire-protocol.md)
 - **功能点对照单一事实来源**：[`SDK_FEATURE_MATRIX.md`](./SDK_FEATURE_MATRIX.md)
 
 `sdk-agent subprotocol` 模型：单条 TCP 长连接、4 字节 FrameLength + 8 字节 Header + protobuf body、首帧 `ProviderConnectRequest`、心跳 + 自动重连 + drain。SDK **不监听本地端口**。
@@ -48,5 +48,5 @@
 ## 规划文档
 
 - [功能矩阵（单一事实来源）](./SDK_FEATURE_MATRIX.md)
-- [SDK Wire Protocol](../docs/architecture/sdk-wire-protocol.md)
-- [SDK-Agent 传输重构设计](../docs/architecture/sdk-agent-transport-redesign.md)
+- [SDK Wire Protocol（本节仅有中文版）](../docs/zh/architecture/sdk-wire-protocol.md)
+- [SDK-Agent 传输重构设计（本节仅有中文版）](../docs/zh/architecture/sdk-agent-transport-redesign.md)

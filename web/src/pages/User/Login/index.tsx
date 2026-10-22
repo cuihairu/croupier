@@ -56,9 +56,10 @@ const useStyles = createStyles(({ token }) => {
       flexDirection: 'column',
       height: '100vh',
       overflow: 'auto',
-      backgroundImage:
-        "url('https://mdn.alipayobjects.com/yuyan_qk0oxh/afts/img/V-_oS6r-i7wAAAAAAAAAAAAAFl94AQBr')",
-      backgroundSize: '100% 100%',
+      // 主题套 × 明暗全由 global.less 的 CSS 变量驱动（data-preset/data-theme），
+      // 登录页不钉任何品牌色；变量缺失时回退 antd 默认观感
+      background:
+        'linear-gradient(180deg, var(--app-shell-bg, #f3f5f7) 0%, var(--app-panel-bg, #ffffff) 100%)',
     },
   };
 });

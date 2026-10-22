@@ -230,3 +230,38 @@ func TestCanonicalLogConfig_ToCommon(t *testing.T) {
 		t.Error("Compress = false, want true")
 	}
 }
+
+// herald 告警出口段解析（plugin-mechanism §5/M2）：lowerCamelCase 键位
+// 与缺省关语义。
+func TestConfigHeraldSection(t *testing.T) {
+	input := `
+herald:
+  enabled: true
+  baseUrl: http://herald:8080
+  app: croupier
+  tokenEnv: HERALD_TRIGGER_TOKEN
+  target: group:gm-ops
+`
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatalf("yaml.Unmarshal() error = %v", err)
+	}
+	if !cfg.Herald.Enabled {
+		t.Error("Herald.Enabled = false, want true")
+	}
+	if cfg.Herald.BaseURL != "http://herald:8080" {
+		t.Errorf("Herald.BaseURL = %q", cfg.Herald.BaseURL)
+	}
+	if cfg.Herald.App != "croupier" || cfg.Herald.TokenEnv != "HERALD_TRIGGER_TOKEN" || cfg.Herald.Target != "group:gm-ops" {
+		t.Errorf("Herald fields = %+v", cfg.Herald)
+	}
+
+	// 未配置段：零值即缺省关。
+	var disabled Config
+	if err := yaml.Unmarshal([]byte("server:\n  port: 18780\n"), &disabled); err != nil {
+		t.Fatalf("yaml.Unmarshal() error = %v", err)
+	}
+	if disabled.Herald.Enabled {
+		t.Error("herald must default to disabled")
+	}
+}

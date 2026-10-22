@@ -3,7 +3,7 @@
 本文件是各语言 SDK 的**单一事实来源**，定义"必备 / 可选 / 语言扩展"三层能力。
 新增 SDK 或新能力时，先更新本表，再落到具体语言实现与 README。
 
-参考协议基线：[`docs/architecture/sdk-wire-protocol.md`](../docs/architecture/sdk-wire-protocol.md)。
+参考协议基线：`docs/architecture/sdk-wire-protocol.md`。
 
 > **与对齐矩阵的关系**：本表定义 L1–L4 分层与各 SDK 的实现状态（"做了什么"）；
 > [`docs/sdks/sdk-parity-matrix.md`](../docs/sdks/sdk-parity-matrix.md) 定义跨语言统一基线
@@ -43,14 +43,14 @@
 
 ### L2 Provider 扩展
 
-| 能力                                                                   | Go              | Python                | Java            | JS/TS               | C++                                       | C#                       |
-| ---------------------------------------------------------------------- | --------------- | --------------------- | --------------- | ------------------- | ----------------------------------------- | ------------------------ |
-| Descriptor v2 字段（builder/构造器）                                   | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅                       |
-| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法 | ✅ `set_field_hint()` | ✅ `FieldHints` | ✅ `setFieldHint()` | ✅ `field_hints.h`                        | ✅ `FieldHints`          |
-| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅                       |
-| JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅ `JsonSchemaValidator` |
-| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ✅              | ✅                  | ✅                                        | ✅                       |
-| 文件下发接收（`enableFileTransfer`，暂存区落盘，hotpatch P1 传输层）   | ✅              | ✅                    | ❌              | ✅                  | ⚠️ 实现暂缓（与并行编辑冲突，stash 保留） | ❌                       |
+| 能力                                                                   | Go              | Python                | Java            | JS/TS               | C++                | C#                       |
+| ---------------------------------------------------------------------- | --------------- | --------------------- | --------------- | ------------------- | ------------------ | ------------------------ |
+| Descriptor v2 字段（builder/构造器）                                   | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法 | ✅ `set_field_hint()` | ✅ `FieldHints` | ✅ `setFieldHint()` | ✅ `field_hints.h` | ✅ `FieldHints`          |
+| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅ `JsonSchemaValidator` |
+| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| 文件下发接收（`enableFileTransfer`，暂存区落盘，hotpatch P1 传输层）   | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
 
 ### L3 Invoker（invoke / startTask / getTaskStatus / streamTask / cancelTask）
 
@@ -71,7 +71,7 @@ C# DI / Unity / Java Spring Boot starter），明细见下文第五章；此层�
 2. **文件下发接收（L2）**：Go/Python/JS 已实现（`MsgProviderFilePushRequest
 0x050109`，protobuf 兼容 wire 手写编解码；校验链：开关/大小/ basename/
    sha256/ 暂存区原子落盘，**不自动应用**——应用由 hotpatch runner 单独
-   编排）；Java/C++/C# 待对齐。
+   编排）；C# 待对齐（Java/C++ 已实现：开关/大小/basename/sha256/暂存区原子落盘）。
 
 ---
 
@@ -244,17 +244,17 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ### L1 配置字段映射
 
-| 字段（canonical snake_case） | Go                  | Python               | Java                | JS                         | C++                  | C#                         |
-| ---------------------------- | ------------------- | -------------------- | ------------------- | -------------------------- | -------------------- | -------------------------- |
-| `agent_addr`                 | `AgentAddr`         | `agent_addr`         | `agentAddr`         | `agentAddr`                | `agent_addr`         | `AgentAddr`                |
-| `service_id`                 | `ServiceID`         | `service_id`         | `serviceId`         | `serviceId`                | `service_id`         | `ServiceId`                |
-| `service_version`            | `ServiceVersion`    | `service_version`    | `serviceVersion`    | `serviceVersion`           | `service_version`    | `ServiceVersion`           |
-| `game_id`                    | `GameID`            | `game_id`            | `gameId`            | `gameId`                   | `game_id`            | `GameId`                   |
-| `env`                        | `Env`               | `env`                | `env`               | `env`                      | `env`                | `Env`                      |
-| `insecure`                   | `Insecure`          | `insecure`           | `insecure`          | `insecure`                 | `insecure`           | `Insecure`                 |
-| `auto_reconnect`             | `Reconnect.Enabled` | `auto_reconnect`     | `reconnect`         | `autoReconnect`            | `auto_reconnect`     | `AutoReconnect`            |
-| `heartbeat_interval_seconds` | `HeartbeatInterval` | `heartbeat_interval` | `heartbeatInterval` | `heartbeatIntervalSeconds` | `heartbeat_interval` | `HeartbeatIntervalSeconds` |
-| `instance_metadata`（用户自定义实例 KV，随 `ProviderConnectRequest.metadata` 上报；保留键由 agent 剥离） | `InstanceMetadata` | ❌ | ❌ | `instanceMetadata` | ❌ | ❌ |
+| 字段（canonical snake_case）                                                                             | Go                  | Python               | Java                | JS                         | C++                  | C#                         |
+| -------------------------------------------------------------------------------------------------------- | ------------------- | -------------------- | ------------------- | -------------------------- | -------------------- | -------------------------- |
+| `agent_addr`                                                                                             | `AgentAddr`         | `agent_addr`         | `agentAddr`         | `agentAddr`                | `agent_addr`         | `AgentAddr`                |
+| `service_id`                                                                                             | `ServiceID`         | `service_id`         | `serviceId`         | `serviceId`                | `service_id`         | `ServiceId`                |
+| `service_version`                                                                                        | `ServiceVersion`    | `service_version`    | `serviceVersion`    | `serviceVersion`           | `service_version`    | `ServiceVersion`           |
+| `game_id`                                                                                                | `GameID`            | `game_id`            | `gameId`            | `gameId`                   | `game_id`            | `GameId`                   |
+| `env`                                                                                                    | `Env`               | `env`                | `env`               | `env`                      | `env`                | `Env`                      |
+| `insecure`                                                                                               | `Insecure`          | `insecure`           | `insecure`          | `insecure`                 | `insecure`           | `Insecure`                 |
+| `auto_reconnect`                                                                                         | `Reconnect.Enabled` | `auto_reconnect`     | `reconnect`         | `autoReconnect`            | `auto_reconnect`     | `AutoReconnect`            |
+| `heartbeat_interval_seconds`                                                                             | `HeartbeatInterval` | `heartbeat_interval` | `heartbeatInterval` | `heartbeatIntervalSeconds` | `heartbeat_interval` | `HeartbeatIntervalSeconds` |
+| `instance_metadata`（用户自定义实例 KV，随 `ProviderConnectRequest.metadata` 上报；保留键由 agent 剥离） | `InstanceMetadata`  | ❌                   | ❌                  | `instanceMetadata`         | ❌                   | ❌                         |
 
 ### L3 Invoker 能力映射
 

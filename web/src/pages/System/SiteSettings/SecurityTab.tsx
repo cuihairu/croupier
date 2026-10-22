@@ -26,9 +26,36 @@ type SecuritySettings = {
   passwordRequireUppercase?: boolean;
   passwordRequireSpecial?: boolean;
   passwordMaxAgeDays?: number;
+  approvalStepUpOtp?: boolean;
 };
 
-const BOOL_KEYS = [
+// defaultOn 键（当前仅 approvalStepUpOtp）的缺省值是 true：关闭时必须显式
+// 落 L3 false，而不是走「清空覆盖回默认」——否则关不掉（保存语义与其余
+// bool 键相反，OPEN-ISSUES #61）。
+type BoolKeyConfig = {
+  key: string;
+  field:
+    'approvalStepUpOtp' | 'mfaRequired' | 'passwordRequireUppercase' | 'passwordRequireSpecial';
+  defaultOn?: boolean;
+  label: { id: string; defaultMessage: string };
+  help: { id: string; defaultMessage: string };
+};
+
+const BOOL_KEYS: BoolKeyConfig[] = [
+  {
+    key: 'security.approvalStepUpOtp',
+    field: 'approvalStepUpOtp' as const,
+    defaultOn: true,
+    label: {
+      id: 'pages.systemSiteSettings.security.approvalStepUpOtp',
+      defaultMessage: '高危审批二次验证 (TOTP)',
+    },
+    help: {
+      id: 'pages.systemSiteSettings.security.approvalStepUpOtpHelp',
+      defaultMessage:
+        '开启后 high/danger 审批必须输入动态验证码（未绑定账号拒绝批准）；关闭即一键降级为可选验证（带了仍校验），批准审计记 disabled 档',
+    },
+  },
   {
     key: 'security.mfaRequired',
     field: 'mfaRequired' as const,
@@ -107,6 +134,7 @@ export default function SecurityTab() {
     try {
       const cfg = await fetchSecuritySettings();
       form.setFieldsValue({
+        approvalStepUpOtp: cfg.approvalStepUpOtp !== false,
         mfaRequired: !!cfg.mfaRequired,
         passwordRequireUppercase: !!cfg.passwordRequireUppercase,
         passwordRequireSpecial: !!cfg.passwordRequireSpecial,
@@ -133,7 +161,7 @@ export default function SecurityTab() {
   }, [load]);
 
   // field = Form.Item 名（表单取值路径），key = settings 键（存储路径），两者分开传
-  const saveKey = async (key: string, field: string) => {
+  const saveKey = async (key: string, field: string, defaultOn?: boolean) => {
     const value = form.getFieldValue(field);
     setSavingKey(key);
     try {
@@ -143,8 +171,9 @@ export default function SecurityTab() {
           : value === undefined || value === null
             ? ''
             : value;
-      if (normalized === '' || normalized === false || normalized === 0) {
-        // 空值/关闭/0 = 清除覆盖回到默认（全关基线）
+      // defaultOn 键（approvalStepUpOtp）：关闭要显式落 false（默认开，
+      // 清除=回到开）；其余键空值/关闭/0 = 清除覆盖回到默认（全关基线）
+      if (normalized === '' || (normalized === false && !defaultOn) || normalized === 0) {
         await clearSiteSetting(key);
       } else {
         await setSiteSetting(key, normalized);
@@ -204,7 +233,7 @@ export default function SecurityTab() {
                       size="small"
                       type="link"
                       loading={savingKey === item.key}
-                      onClick={() => saveKey(item.key, item.field)}
+                      onClick={() => saveKey(item.key, item.field, item.defaultOn)}
                     >
                       <FormattedMessage
                         id="pages.systemSiteSettings.security.save"

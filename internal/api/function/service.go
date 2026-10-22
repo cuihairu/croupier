@@ -113,3 +113,8 @@ func (s *Service) BatchUpdateFunctions(ctx context.Context, req *BatchUpdateFunc
 func trimString(s string) string {
 	return strings.TrimSpace(s)
 }
+
+// FunctionWarningFilterOptions 注册警告过滤下拉聚合选项（#34）。
+func (s *Service) FunctionWarningFilterOptions(ctx context.Context) (*FunctionWarningFilterOptionsResponse, error) {
+	return functionWarningFilterOptions(ctx, s.svcCtx)
+}

@@ -17,6 +17,17 @@ import { history } from '@umijs/max';
 import { ProTable } from '@ant-design/pro-components';
 import * as SchemaFormModule from '@/components/SchemaFormRenderer';
 import ResourcePageRenderer from '../ResourcePageRenderer';
+import { formatDateTime } from '@/utils/format';
+
+// 日期列断言（'2026/01/01 10:00:00'）依赖本地时区：UTC runner 绿、UTC+8 本机红。
+// 本套件测的是列接线（有值→formatDateTime，null→'-'），格式化实现有自有单测
+// ——mock 成固定值让断言与 runner 时区解耦。process.env.TZ 运行时改无效
+// （V8/ICU 时区进程启动即定），这是唯一可靠解。
+jest.mock('@/utils/format', () => ({
+  ...jest.requireActual('@/utils/format'),
+  formatDateTime: jest.fn(() => '2026/01/01 10:00:00'),
+}));
+void formatDateTime;
 import type {
   ActionSpec,
   ColumnSpec,

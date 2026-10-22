@@ -130,9 +130,11 @@ func migrateOneEnumColumn(db *gorm.DB, m enumColumnMigration) error {
 	}
 
 	// Drop the legacy default FIRST: PG refuses to alter a column whose
-	// default needs a cast when the column type changes. Harmless on int
-	// columns and on SQLite.
-	if migrator.HasColumn(m.table, m.column) {
+	// default needs a cast when the column type changes. Postgres-only:
+	// MySQL has no such cast restriction and SQLite lacks the
+	// ALTER COLUMN ... DROP DEFAULT syntax entirely (it errored on every
+	// sqlite boot/migration run).
+	if db.Dialector.Name() == "postgres" && migrator.HasColumn(m.table, m.column) {
 		_ = db.Exec(fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s DROP DEFAULT", m.table, m.column)).Error
 	}
 

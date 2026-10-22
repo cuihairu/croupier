@@ -1,4 +1,4 @@
-import type { OpsNode } from '@/services/api/ops';
+import type { OpsNode, OpsSupervisorSummary } from '@/services/api/ops';
 import type { RegistryAgent } from '@/services/api/registry';
 
 export type NodeRow = RegistryAgent & {
@@ -43,6 +43,8 @@ export type NodeRow = RegistryAgent & {
     inodeTotal?: number;
     inodeUsed?: number;
   }>;
+  // Supervisor 监管聚合灯（无上报为 undefined，列内展示「-」）
+  supervisor?: OpsSupervisorSummary;
 };
 
 // 从 "host:port" 提取 host 部分作为 IP 展示。
@@ -76,5 +78,6 @@ export function normalizeOpsNode(node: OpsNode): NodeRow {
     cpu: node.cpu,
     memory: node.memory,
     disks: node.disks,
+    supervisor: node.supervisor,
   };
 }

@@ -1,0 +1,82 @@
+// External function adapter plugin contract (HashiCorp go-plugin local
+// gRPC mode, todo.md:35).
+//
+// The gRPC dependency is intentionally confined to the plugin host
+// boundary (scripts/check-no-grpc.sh): the sidecar function plugin host,
+// the synthetics probe plugin host, the shared core engine and their
+// plugins. Game SDKs and the Agent<->Server link must never depend on
+// this package: they stay on the shared TCP wire. This proto lives
+// outside the top-level proto/ directory so the transport contract and
+// the plugin IPC contracts version separately (sibling of
+// agents/synthetics/pluginhost/protocol/probeplugin.proto).
+syntax = "proto3";
+
+package croupier.funcplugin.v1;
+
+option go_package = "github.com/cuihairu/croupier/agents/sidecar/funcplugin/protocol;protocol";
+
+// Describe / ListFunctions / Invoke are the lifecycle calls of the
+// sidecar function adapter slice (todo.md:35): the host issues Describe
+// once after handshake to stamp plugin metadata, ListFunctions at
+// registration to collect declared functions, and Invoke per function
+// call. Business failures ride the InvokeResponse error envelope — a
+// gRPC error means the plugin process itself is broken.
+service FunctionPlugin {
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+  rpc ListFunctions(ListFunctionsRequest) returns (ListFunctionsResponse);
+  rpc Invoke(InvokeRequest) returns (InvokeResponse);
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  string name = 1;
+  string version = 2;
+}
+
+message ListFunctionsRequest {}
+
+message FuncDescriptor {
+  // Fully-qualified function id under the plugin namespace:
+  // "plugin.<plugin-name>.<function>"; the host rejects anything else.
+  string id = 1;
+  // Short technical summary (not a UI label).
+  string summary = 2;
+  // JSON Schema (Draft 2020-12) for the request object; must be a
+  // top-level object schema.
+  string param_schema = 3;
+  // JSON Schema for the success result object; must be a top-level
+  // object schema.
+  string result_schema = 4;
+  // Optional JSON Schema describing the error envelope shape.
+  string error_schema = 5;
+  // Closed set: low|medium|high|danger (empty = low). Drives the
+  // existing server-side risk/approval chain; plugins add no bypass.
+  string risk_level = 6;
+}
+
+message ListFunctionsResponse {
+  repeated FuncDescriptor functions = 1;
+}
+
+message InvokeRequest {
+  // The registered function id (namespace-checked by the host).
+  string function_id = 1;
+  // JSON-encoded params object, already conforming to the declared
+  // param_schema contract.
+  string params_json = 2;
+  // Remaining host-side deadline in milliseconds; plugins should honor
+  // their own RPC cancellation, which go-plugin already propagates.
+  int64 timeout_ms = 3;
+}
+
+message InvokeResponse {
+  // ok=true: result_json carries the game interface response.
+  // ok=false: error_code/error_message carry the translated failure
+  // (closed set: target_unavailable | target_rejected | bad_response).
+  bool ok = 1;
+  string result_json = 2;
+  string error_code = 3;
+  string error_message = 4;
+  int64 at_unix_ms = 5;
+}

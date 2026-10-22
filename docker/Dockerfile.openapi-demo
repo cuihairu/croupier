@@ -2,7 +2,7 @@
 # examples/openapi-provider 的常驻 demo 镜像：内嵌 Agent 经 providers.yaml
 # 把自带 HTTP API（players CRUD）注册进 server，供线上演示「运行时导入」。
 # 无版本注入（示例无 Version 变量）；构建上下文为仓库根（主 Go module）。
-ARG GO_IMAGE=golang:1.26.6
+ARG GO_IMAGE=golang:1.27.2
 ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
 ARG GOPROXY_URL=https://goproxy.cn,direct
 FROM ${GO_IMAGE} AS build

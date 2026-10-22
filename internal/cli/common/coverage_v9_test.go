@@ -1,13 +1,10 @@
 package common
 
 import (
-	"bytes"
-	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -37,81 +34,8 @@ func TestApplySectionAndProfile_ProfileMissingInSectionV9(t *testing.T) {
 	}
 }
 
-// TestColoredTextHandler_HandleNonTerminalFileV9 覆盖 logging.go:58-60 与
-// isTerminal：writer 为非终端 *os.File 时退回底层 handler。
-func TestColoredTextHandler_HandleNonTerminalFileV9(t *testing.T) {
-	f, err := os.Create(filepath.Join(t.TempDir(), "log.txt"))
-	if err != nil {
-		t.Fatalf("create file: %v", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	handler := newColoredTextHandler(f, nil)
-	record := slog.NewRecord(time.Now(), slog.LevelInfo, "plain", 0)
-	if err := handler.Handle(context.Background(), record); err != nil {
-		t.Fatalf("Handle: %v", err)
-	}
-
-	info, _ := f.Stat()
-	if info.Size() == 0 {
-		t.Fatal("expected delegated handler to write output")
-	}
-}
-
-// TestIsTerminalV9 覆盖 logging.go:106-109 的 true/false 两个分支。
-func TestIsTerminalV9(t *testing.T) {
-	f, err := os.Create(filepath.Join(t.TempDir(), "regular.txt"))
-	if err != nil {
-		t.Fatalf("create file: %v", err)
-	}
-	defer func() { _ = f.Close() }()
-	if isTerminal(f) {
-		t.Error("regular file should not be a terminal")
-	}
-
-	devNull, err := os.Open("/dev/null")
-	if err != nil {
-		t.Fatalf("open /dev/null: %v", err)
-	}
-	defer func() { _ = devNull.Close() }()
-	if !isTerminal(devNull) {
-		t.Error("/dev/null is a char device and should be reported as terminal")
-	}
-}
-
-// TestColoredTextHandler_HandleWithAttrsV9 覆盖 logging.go:90-96 属性循环。
-func TestColoredTextHandler_HandleWithAttrsV9(t *testing.T) {
-	var buf bytes.Buffer
-	handler := newColoredTextHandler(&buf, nil)
-
-	record := slog.NewRecord(time.Now(), slog.LevelWarn, "with attrs", 0)
-	record.AddAttrs(slog.String("key", "value"), slog.Int("num", 7))
-	if err := handler.Handle(context.Background(), record); err != nil {
-		t.Fatalf("Handle: %v", err)
-	}
-	out := buf.String()
-	if !bytes.Contains([]byte(out), []byte("key=value")) {
-		t.Errorf("output should contain attr key=value, got %q", out)
-	}
-}
-
-// TestCountHandler_HandleAllLevelsV9 覆盖 logging.go:187-194 debug/warn/error 计数分支。
-func TestCountHandler_HandleAllLevelsV9(t *testing.T) {
-	var buf bytes.Buffer
-	base := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
-	ch := &countHandler{next: base}
-
-	levels := []slog.Level{slog.LevelDebug, slog.LevelWarn, slog.LevelError}
-	for _, lvl := range levels {
-		rec := slog.NewRecord(time.Now(), lvl, "msg", 0)
-		if err := ch.Handle(context.Background(), rec); err != nil {
-			t.Fatalf("Handle(%v): %v", lvl, err)
-		}
-	}
-	if buf.Len() == 0 {
-		t.Fatal("expected underlying handler output")
-	}
-}
+// 日志实现（coloredTextHandler/isTerminal/countHandler）已上收 core/logx
+// （K1），对应分支用例随迁 core/logx；此处仅保留经 shim 的装配面用例。
 
 // TestSetupLoggerWithFile_OutputEnvStderrV9 覆盖 logging.go:117-122 两个环境变量分支。
 func TestSetupLoggerWithFile_OutputEnvStderrV9(t *testing.T) {

@@ -1,47 +1,47 @@
 ---
-title: TLS 与证书
+title: TLS and Certificates
 icon: lock
 order: 12
 category:
-  - 运维手册
+  - Operations Manual
 tag:
-  - 安全
-  - 配置
+  - Security
+  - Configuration
 ---
 
-# TLS 与证书
+# TLS and Certificates
 
-平台三条内部链路各自独立配置 TLS，互不影响：
+The platform's three internal links each have independent TLS configuration with no cross-effects:
 
-| 链路              | 方向                      | Server 侧配置                | Agent 侧配置                               |
-| ----------------- | ------------------------- | ---------------------------- | ------------------------------------------ |
-| control transport | Agent → Server `:19090`   | `control.cert / key / ca`    | `outboundTLS.*` + `server.insecure: false` |
-| dispatch 回调     | Server → Agent `httpAddr` | `agentDispatch.toAgentTLS.*` | `tls.*`（本地监听）                        |
-| 本地注册          | 游戏服 → Agent `:19091`   | —                            | `tls.*`（是否加密由游戏侧要求决定）        |
+| Link               | Direction                    | Server-side configuration    | Agent-side configuration                                                |
+| ------------------ | ---------------------------- | ---------------------------- | ----------------------------------------------------------------------- |
+| control transport  | Agent → Server `:19090`      | `control.cert / key / ca`    | `outboundTLS.*` + `server.insecure: false`                              |
+| dispatch callback  | Server → Agent `httpAddr`    | `agentDispatch.toAgentTLS.*` | `tls.*` (local listener)                                                |
+| Local registration | Game server → Agent `:19091` | —                            | `tls.*` (whether to encrypt is decided by the game side's requirements) |
 
-Dashboard 的 HTTP `:18780` 建议挂在前置 nginx/Ingress 上统一终结 TLS（平台自身不做 HTTPS）。
+The Dashboard's HTTP `:18780` should sit behind a fronting nginx/Ingress that terminates TLS uniformly (the platform itself does not do HTTPS).
 
-## 开发证书
+## Development Certificates
 
 ```bash
-./scripts/dev-certs.sh   # 生成自签证书到本地（仅开发/联调）
+./scripts/dev-certs.sh   # Generates self-signed certificates locally (development/integration testing only)
 ```
 
-## 生产建议
+## Production Recommendations
 
-1. **内部 CA 签发**：为 Server transport 与 Agent 各签服务证书，CA 证书分发到对端 `caFile`
-2. **双向校验**：Server `control.ca` 校验 Agent 客户端证书；Agent `outboundTLS.caFile` 校验 Server——双端 mTLS
-3. **证书轮换**：证书文件路径热加载不生效，轮换后需重启对应进程；建议滚动的窗口期内新旧 CA 并存（`caFile` 指向 CA bundle）
-4. **`insecureSkipVerify` 禁止生产开启**——它绕过的是身份校验，不是加密协商失败兜底
+1. **Signed by an internal CA**: issue a server certificate each for the Server transport and the Agents; distribute the CA certificate to the peers' `caFile`
+2. **Mutual verification**: the Server's `control.ca` verifies Agent client certificates; the Agent's `outboundTLS.caFile` verifies the Server — mTLS on both ends
+3. **Certificate rotation**: hot reloading of certificate file paths does not take effect; after rotation the corresponding process must be restarted; during a rolling window it is recommended to keep the old and new CAs side by side (`caFile` pointing at a CA bundle)
+4. **Never enable `insecureSkipVerify` in production** — it bypasses identity verification, it is not a fallback for failed encryption negotiation
 
-## Server 侧配置示例
+## Server-Side Configuration Example
 
 ```yaml
 control:
   addr: ":19090"
   cert: /etc/croupier/tls/server.pem
   key: /etc/croupier/tls/server-key.pem
-  ca: /etc/croupier/tls/ca.pem # 校验 Agent 客户端证书；空 = 单向 TLS
+  ca: /etc/croupier/tls/ca.pem # Verifies Agent client certificates; empty = one-way TLS
 
 agentDispatch:
   toAgentTLS:
@@ -51,13 +51,13 @@ agentDispatch:
     caFile: /etc/croupier/tls/ca.pem
 ```
 
-## Agent 侧配置示例
+## Agent-Side Configuration Example
 
 ```yaml
 server:
   addr: "haproxy.internal:19090"
   insecure: false
-  serverName: "croupier-transport.internal" # 证书 SAN 不等于 LB 地址时指定
+  serverName: "croupier-transport.internal" # Specify when the certificate SAN differs from the LB address
 
 outboundTLS:
   enabled: true
@@ -65,21 +65,21 @@ outboundTLS:
   keyFile: /etc/croupier/tls/agent-key.pem
   caFile: /etc/croupier/tls/ca.pem
 
-tls: # :19091 本地监听（游戏服 → Agent）
-  enabled: false # 与游戏服同网段时通常内网明文；有合规要求再开
+tls: # :19091 local listener (game server → Agent)
+  enabled: false # Usually plaintext within the game server's subnet; enable only if compliance requires it
 ```
 
-## 证书有效期管理
+## Certificate Validity Management
 
-- 平台不内置过期告警前，用外部巡检（Prometheus blackbox / cert-exporter）监控证书 `notAfter`
-- 「运维中心 → 证书监控」页面展示平台纳管证书的状态与到期时间（ops 域能力，见 [API 参考](/api/) certificates 一节）
-- 高危操作（审批双签）走平台审批流，证书更换属于低风险操作可直接执行
+- Until the platform has built-in expiry alerts, use external patrols (Prometheus blackbox / cert-exporter) to monitor certificate `notAfter`
+- The "Ops Center → Certificate Monitoring" page shows the status and expiry of certificates managed by the platform (an ops feature-domain capability, see the certificates section of the [API Reference](/api/))
+- High-risk operations (dual-signature approvals) go through the platform approval flow; certificate replacement is a low-risk operation and can be executed directly
 
-## 排障
+## Troubleshooting
 
-| 症状                                            | 常见原因                                                                  |
-| ----------------------------------------------- | ------------------------------------------------------------------------- |
-| Agent 反复重连 `connection closed`              | 证书 SAN 不含 LB 地址 → 配 `server.serverName` 或重签证书                 |
-| `x509: certificate signed by unknown authority` | 对端 `caFile` 未更新为新 CA                                               |
-| 握手成功但 job 下发失败                         | TLS 无关——检查 `agent.httpAddr` 可达性（见 [Agent 配置](./config-agent)） |
-| 明文连到 TLS 端口                               | `server.insecure` 与端口实际形态不一致                                    |
+| Symptom                                              | Common cause                                                                                         |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Agent reconnects repeatedly with `connection closed` | Certificate SAN does not include the LB address → set `server.serverName` or reissue the certificate |
+| `x509: certificate signed by unknown authority`      | The peer's `caFile` has not been updated to the new CA                                               |
+| Handshake succeeds but job dispatch fails            | Unrelated to TLS — check `agent.httpAddr` reachability (see Agent Configuration)                     |
+| Plaintext connection to a TLS port                   | `server.insecure` inconsistent with the port's actual form                                           |

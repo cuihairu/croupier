@@ -20,4 +20,3 @@ title: Go SDK API
 - [Go SDK 首页](/sdks/go/)
 - [Go SDK 指南](/sdks/go/guide/)
 - [Go SDK 示例](/sdks/go/examples/)
-- [Go SDK E2E 流程](/sdks/go/e2e-flow)

@@ -54,7 +54,7 @@ export default function AssignmentsPage() {
           })}
           items={[
             {
-              color: '#1677ff',
+              color: 'var(--brand-2)',
               text: intl.formatMessage(
                 {
                   id: 'pages.assignments.summary.stat.total',
@@ -134,6 +134,22 @@ export default function AssignmentsPage() {
             id: 'pages.assignments.gate.description',
             defaultMessage:
               '作用域（游戏/环境）未保存过分配时默认开放所有函数；一旦保存分配列表，该作用域按白名单执行——未分配的函数调用会返回 403「函数未开放执行权限」。清空列表保存即恢复默认开放。',
+          })}
+        />
+
+        {/* 互释文案：目录总开关（全局启停）vs 本页白名单（环境维度）两套独立语义，
+            消除「函数目录状态与开放范围状态为什么不同步」的误解 */}
+        <Alert
+          type="info"
+          showIcon
+          title={intl.formatMessage({
+            id: 'pages.assignments.directoryRelation.title',
+            defaultMessage: '与函数目录总开关的关系',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.assignments.directoryRelation.description',
+            defaultMessage:
+              '本页维护的是各环境的调用白名单；函数目录中的「启用/禁用」是全局总开关——目录禁用的函数在所有环境都不可调用，本页会将其标注「已禁用」并禁止勾选。函数可被调用需同时满足：目录已启用 且 在该环境白名单内。',
           })}
         />
 

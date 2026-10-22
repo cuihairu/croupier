@@ -135,7 +135,7 @@ export async function fetchNotificationSettings(): Promise<NotificationSettings>
   });
 }
 
-// ---- 账号安全策略（security.*，默认全关） ----
+// ---- 账号安全策略（security.*，默认全关；唯一例外 approvalStepUpOtp 默认开） ----
 
 // Source: internal/platform/settings/layered.go SecurityPolicySnapshot
 export type SecuritySettings = {
@@ -144,6 +144,7 @@ export type SecuritySettings = {
   passwordRequireUppercase: boolean;
   passwordRequireSpecial: boolean;
   passwordMaxAgeDays: number;
+  approvalStepUpOtp: boolean;
 };
 
 // Admin: effective account security policy.
@@ -240,7 +241,44 @@ export type LoginProviders = {
   register: boolean;
 };
 
-// Public: 登录页据此渲染 SSO 入口 / LDAP 提示。
+// ---- 外部服务清单（L2 配置文件只读；herald / alertInbound / serverStatus）----
+
+// 单条外部服务。configured=配置文件有该段；active=启用态且必填项全齐；
+// missing=缺项名（契约键或环境变量名，可操作提示）；secretEnv/secretSet 只
+// 报「用哪个环境变量 + 是否已设值」，后端永不回显值。
+export type ExternalServiceEntry = {
+  name: string;
+  kind: 'outbound' | 'inbound';
+  configured: boolean;
+  active: boolean;
+  missing?: string[];
+  secretEnv?: string;
+  secretSet?: boolean;
+  detail?: string;
+};
+
+export type ExternalServicesSnapshot = {
+  services: ExternalServiceEntry[];
+  /** 真值层：固定 "file"（L2 配置文件；L3 数据库覆盖不适用） */
+  source: string;
+};
+
+// Admin: 外部服务启用态只读清单（页面侧配置编辑属配置整理单，待批准）。
+export async function fetchExternalServices(): Promise<ExternalServicesSnapshot> {
+  return request<ExternalServicesSnapshot>('/api/v1/site/external-services', {
+    skipErrorHandler: true,
+  });
+}
+
+// Public: 登录页据此渲染 SSO 入口 / LDAP 提示。响应形态不对（如路由缺失时
+// 静态兜底回 index.html 的 HTML 字符串）视为拉取失败抛错——登录页 catch 后
+// fail-open 显示账密表单，避免把字符串误读成 providers 而「停用账密登录」。
 export async function fetchLoginProviders(): Promise<LoginProviders> {
-  return request<LoginProviders>('/api/v1/auth/providers', { skipErrorHandler: true });
+  const data = await request<LoginProviders>('/api/v1/auth/providers', {
+    skipErrorHandler: true,
+  });
+  if (typeof data !== 'object' || data === null || typeof data.local !== 'boolean') {
+    throw new Error('invalid login providers payload');
+  }
+  return data;
 }

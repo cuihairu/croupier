@@ -48,10 +48,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": [
-        "${file}",
-        "-v"
-      ],
+      "args": ["${file}", "-v"],
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": {
@@ -63,10 +60,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": [
-        "tests",
-        "-v"
-      ],
+      "args": ["tests", "-v"],
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": {
@@ -78,12 +72,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": [
-        "tests",
-        "-k",
-        "${input:testName}",
-        "-v"
-      ],
+      "args": ["tests", "-k", "${input:testName}", "-v"],
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": {
@@ -95,12 +84,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": [
-        "tests",
-        "-v",
-        "--cov=croupier",
-        "--cov-report=term-missing"
-      ],
+      "args": ["tests", "-v", "--cov=croupier", "--cov-report=term-missing"],
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": {

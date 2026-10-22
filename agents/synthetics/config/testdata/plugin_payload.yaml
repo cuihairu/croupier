@@ -1,0 +1,19 @@
+agent:
+  id: agent
+  serverAddr: 127.0.0.1:1
+  gameId: game
+  env: prod
+synthetics:
+  interval: 1s
+  targets:
+    - name: tcp-target
+      url: http://127.0.0.1:9/health
+      method: GET
+      timeout: 1s
+      expectedStatus: 200
+      plugin: tcp
+      payloadJson: '{"expect":"tcp"}'
+  plugins:
+    - name: tcp
+      command: /bin/true
+      timeout: 1s

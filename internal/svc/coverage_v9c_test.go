@@ -311,6 +311,9 @@ func TestNewServiceContextSeedErrorsLoggedV9(t *testing.T) {
 	}
 	ctx := NewServiceContext(cfg)
 	require.NotNil(t, ctx)
+	// 同 TestNewServiceContextRouterGameMigrationFailureV9：teardown 前收停
+	// 后台循环，避免在飞 sweep 与 TempDir RemoveAll 竞态。
+	t.Cleanup(ctx.Close)
 }
 
 // A games table shadowed by a column-less view breaks the environment
@@ -361,6 +364,10 @@ func TestNewServiceContextRouterGameMigrationFailureV9(t *testing.T) {
 	}
 	ctx := NewServiceContext(cfg)
 	require.NotNil(t, ctx)
+	// 后台循环（留痕写入/保留期 sweep）必须先于 TempDir teardown 收停：
+	// 在飞 sweep 经 router 懒开 per-game sqlite 会与 RemoveAll 竞态。
+	// Cleanup 后进先出，Close 先于目录删除执行。
+	t.Cleanup(ctx.Close)
 
 	out := ctx.scopeContextForBackgroundRegistration("default", "prod")
 	scope := GameScopeFromContext(out)

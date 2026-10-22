@@ -45,6 +45,7 @@ jest.mock('@umijs/max', () => {
 jest.mock('@/services/api', () => ({
   listDescriptors: jest.fn().mockResolvedValue({ functions: [] }),
   listFunctionInstances: jest.fn(),
+  fetchAssignments: jest.fn().mockResolvedValue({ assignments: {} }),
 }));
 
 jest.mock('@/services/api/functions-enhanced', () => ({
@@ -190,6 +191,7 @@ describe('目录 minVersion 列渲染', () => {
       onOpenDetail: () => {},
       onOpenSchema: () => {},
       onInvoke: () => {},
+      onOpenAssignments: () => {},
     });
     const col = cols.find((c) => c.dataIndex === 'minVersion');
     return render(

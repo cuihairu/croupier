@@ -48,7 +48,6 @@ export default function SupportFeedbackPage() {
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
-  const [gameId, setGameId] = useState('');
   const [pendingOnly, setPendingOnly] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FeedbackItem | null>(null);
@@ -298,15 +297,6 @@ export default function SupportFeedbackPage() {
                 },
               ]}
             />
-            <Input
-              placeholder={intl.formatMessage({
-                id: 'pages.supportFeedback.search.gameId',
-                defaultMessage: '游戏',
-              })}
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value)}
-              style={{ width: 120 }}
-            />
             <Checkbox checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)}>
               <FormattedMessage
                 id="pages.supportFeedback.filter.hideConverted"
@@ -342,15 +332,15 @@ export default function SupportFeedbackPage() {
           search={false}
           options={false}
           toolBarRender={false}
-          // scopeKey：顶栏切游戏后触发 ProTable 重发请求（同 #38 族）
-          params={{ q, category, status, gameId, pendingOnly, scopeKey }}
+          // scopeKey：顶栏切游戏后触发 ProTable 重发请求（同 #38 族）。
+          // 游戏过滤只认全局游戏选择器（请求头注入），不再提供页内游戏筛选。
+          params={{ q, category, status, pendingOnly, scopeKey }}
           request={async ({
             current = 1,
             pageSize = 20,
             q: qFilter,
             category: categoryFilter,
             status: statusFilter,
-            gameId: gameIdFilter,
             pendingOnly: pendingOnlyFlag,
           }) => {
             try {
@@ -358,7 +348,6 @@ export default function SupportFeedbackPage() {
                 q: qFilter ?? '',
                 category: categoryFilter ?? '',
                 status: statusFilter ?? '',
-                gameId: gameIdFilter ?? '',
                 page: current,
                 size: pageSize,
                 // 分诊队列定位：默认隐藏已转工单的反馈，避免与工单列表重复

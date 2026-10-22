@@ -503,10 +503,10 @@ func TestAgentServiceExecCommand(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewAgentService(svcCtx)
 
-	// This should return an error since GetAgentOpsClient will fail
+	// This should return a scope-gate error before reaching the ops client.
 	_, err := s.ExecCommand(ctx, "agent-1", "ls", []string{"-la"}, 30)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceStartProcess(t *testing.T) {
@@ -518,7 +518,7 @@ func TestAgentServiceStartProcess(t *testing.T) {
 
 	_, err := s.StartProcess(ctx, "agent-1", "test", []string{}, nil, "/tmp")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceStopProcess(t *testing.T) {
@@ -530,7 +530,7 @@ func TestAgentServiceStopProcess(t *testing.T) {
 
 	err := s.StopProcess(ctx, "agent-1", "my-process")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceRestartProcess(t *testing.T) {
@@ -542,7 +542,7 @@ func TestAgentServiceRestartProcess(t *testing.T) {
 
 	err := s.RestartProcess(ctx, "agent-1", "my-process")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ops client unavailable")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestAgentServiceGetMetaNilStore(t *testing.T) {
@@ -945,8 +945,10 @@ func TestOpsNodeMetaHandlerNotFound(t *testing.T) {
 
 	h.OpsNodeMeta(ctx)
 
-	// Returns 500 when node not found
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	// 未命中按契约回 404（2026-10-02 起不再 500：裸 errors.New 已改
+	// errorx.NewNotFound，线上 /nodes/:id/meta 恒 500 事故第二病灶修复）
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Contains(t, rec.Body.String(), "not_found")
 }
 
 // Tests for OpsBackupsList handler with real model
@@ -1642,7 +1644,7 @@ func TestOpsNodeMetaHandlerGET(t *testing.T) {
 
 // Test for OpsAgentProcessesHandler with GET
 
-func TestOpsAgentProcessesHandlerWithAgentID(t *testing.T) {
+func TestOpsAgentProcessesHandlerUnknownAgentRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1652,12 +1654,12 @@ func TestOpsAgentProcessesHandlerWithAgentID(t *testing.T) {
 
 	h.OpsAgentProcesses(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 // Test for OpsAgentMetricsHandler with GET
 
-func TestOpsAgentMetricsHandlerWithParams(t *testing.T) {
+func TestOpsAgentMetricsHandlerUnknownAgentRejected(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
@@ -1667,7 +1669,7 @@ func TestOpsAgentMetricsHandlerWithParams(t *testing.T) {
 
 	h.OpsAgentMetrics(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 // Test for OpsAgentsListHandler with GET

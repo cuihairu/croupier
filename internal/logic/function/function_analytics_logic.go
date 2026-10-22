@@ -49,6 +49,7 @@ func (l *FunctionAnalyticsLogic) FunctionAnalytics(req *FunctionAnalyticsRequest
 		return nil, err
 	}
 	resp.TotalCalls = stats.Total
+	resp.FailedCalls = stats.Total - stats.Ok
 	resp.CallsToday = stats.Today
 	resp.CallsThisWeek = stats.Week
 	resp.CallsThisMonth = stats.Month

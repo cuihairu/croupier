@@ -13,7 +13,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import * as protobuf from "protobufjs";
-import { BasicClient, type ClientConfig, type FunctionDescriptor } from "./index";
+import {
+  BasicClient,
+  type ClientConfig,
+  type FunctionDescriptor,
+} from "./index";
 import { setFieldWidget } from "./index";
 import { TCPTransport } from "./tcp_transport";
 import { Invoker } from "./invoker";
@@ -28,8 +32,7 @@ import {
 // jest.spyOn cannot redefine writeFileSync. Wrap it in a jest.fn via a
 // module mock (default behaviour stays the real implementation).
 jest.mock("node:fs", () => {
-  const actual =
-    jest.requireActual("node:fs") as typeof import("node:fs");
+  const actual = jest.requireActual("node:fs") as typeof import("node:fs");
   return { ...actual, writeFileSync: jest.fn(actual.writeFileSync) };
 });
 
@@ -100,7 +103,11 @@ function makeClient(config: ClientConfig = {}): BasicClient {
 }
 
 type InboundDispatch = {
-  handleInboundRequest: (msgId: number, reqId: number, body: Buffer) => Promise<Buffer>;
+  handleInboundRequest: (
+    msgId: number,
+    reqId: number,
+    body: Buffer,
+  ) => Promise<Buffer>;
 };
 
 function inboundOf(client: BasicClient): InboundDispatch {
@@ -175,13 +182,16 @@ describe("capabilities registration failure logging", () => {
       .spyOn(TCPTransport.prototype, "close")
       .mockImplementation(() => {});
 
-    const client = makeClient({ autoReconnect: false, heartbeatIntervalSeconds: 3600 });
+    const client = makeClient({
+      autoReconnect: false,
+      heartbeatIntervalSeconds: 3600,
+    });
     await client.connect();
     await new Promise((r) => setTimeout(r, 20));
 
-    const requestedTypes = (callSpy.mock.calls as unknown as Array<[number]>).map(
-      ([type]) => type,
-    );
+    const requestedTypes = (
+      callSpy.mock.calls as unknown as Array<[number]>
+    ).map(([type]) => type);
     expect(requestedTypes).not.toContain(MSG_REGISTER_CAPABILITIES_REQ);
 
     await client.disconnect();
@@ -214,17 +224,17 @@ describe("file push failure paths", () => {
   const payload = Buffer.from("print('final')");
   const sha256 = createHash("sha256").update(payload).digest("hex");
 
-  function makePushClient(): { client: BasicClient; dispatch: (b: Buffer) => Promise<Buffer> } {
+  function makePushClient(): {
+    client: BasicClient;
+    dispatch: (b: Buffer) => Promise<Buffer>;
+  } {
     const config: ClientConfig = {
       autoReconnect: false,
       enableFileTransfer: true,
       fileStagingDir: staging,
     };
     const client = new BasicClient(config);
-    client.registerFunction(
-      { id: "player.ban", version: "1.0.0" },
-      () => "ok",
-    );
+    client.registerFunction({ id: "player.ban", version: "1.0.0" }, () => "ok");
     return {
       client,
       dispatch: (body: Buffer) =>
@@ -245,7 +255,10 @@ describe("file push failure paths", () => {
     );
   }
 
-  function decodePushResponse(response: Buffer): { ok?: boolean; error?: string } {
+  function decodePushResponse(response: Buffer): {
+    ok?: boolean;
+    error?: string;
+  } {
     return FilePushResponseMessage.toObject(
       FilePushResponseMessage.decode(response),
       { defaults: true },
@@ -263,16 +276,18 @@ describe("file push failure paths", () => {
   });
 
   it("reports staging write failures without crashing", async () => {
-    const writeSpy = jest
-      .spyOn(fs, "writeFileSync")
-      .mockImplementation(() => {
-        throw new Error("EACCES: permission denied");
-      });
+    const writeSpy = jest.spyOn(fs, "writeFileSync").mockImplementation(() => {
+      throw new Error("EACCES: permission denied");
+    });
     const { dispatch } = makePushClient();
-    const response = await dispatch(buildPushBody("t-write-fail", "hotfix.lua"));
+    const response = await dispatch(
+      buildPushBody("t-write-fail", "hotfix.lua"),
+    );
     const decoded = decodePushResponse(response);
     expect(decoded.ok).toBe(false);
-    expect(decoded.error).toContain("write staging file: EACCES: permission denied");
+    expect(decoded.error).toContain(
+      "write staging file: EACCES: permission denied",
+    );
     writeSpy.mockRestore();
   });
 });
@@ -289,12 +304,13 @@ describe("drain recovery paths", () => {
 
     // First Date.now() computes the deadline; every later call is past it.
     let nowCalls = 0;
-    jest.spyOn(Date, "now").mockImplementation(() =>
-      nowCalls++ === 0 ? 1_000 : 32_000,
-    );
+    jest
+      .spyOn(Date, "now")
+      .mockImplementation(() => (nowCalls++ === 0 ? 1_000 : 32_000));
 
-    const response = (client as unknown as { handleDrainRequest: (b: Buffer) => Buffer })
-      .handleDrainRequest(Buffer.alloc(0));
+    const response = (
+      client as unknown as { handleDrainRequest: (b: Buffer) => Buffer }
+    ).handleDrainRequest(Buffer.alloc(0));
     expect(response.length).toBe(0);
     // With the clock already past the deadline the recovery completes
     // synchronously and clears the draining flag immediately.
@@ -306,7 +322,9 @@ describe("drain recovery paths", () => {
       expect.stringContaining("Drain timeout with 2 in-flight call(s)"),
     );
     expect((client as unknown as { draining: boolean }).draining).toBe(false);
-    expect((client as unknown as { inflightCalls: number }).inflightCalls).toBe(2);
+    expect((client as unknown as { inflightCalls: number }).inflightCalls).toBe(
+      2,
+    );
   });
 
   it("schedules a reconnect after draining when autoReconnect is enabled", async () => {
@@ -335,8 +353,9 @@ describe("drain recovery paths", () => {
       },
     });
 
-    const response = (client as unknown as { handleDrainRequest: (b: Buffer) => Buffer })
-      .handleDrainRequest(Buffer.alloc(0));
+    const response = (
+      client as unknown as { handleDrainRequest: (b: Buffer) => Buffer }
+    ).handleDrainRequest(Buffer.alloc(0));
     expect(response.length).toBe(0);
 
     await new Promise((r) => setTimeout(r, 100));
@@ -430,7 +449,11 @@ describe("inbound payload validation corners", () => {
       handler,
     );
 
-    const response = await dispatchInboundInvoke(client, "json.fn", "not-json{{");
+    const response = await dispatchInboundInvoke(
+      client,
+      "json.fn",
+      "not-json{{",
+    );
     const parsed = JSON.parse(response) as { error?: string };
     expect(parsed.error).toContain("payload must be valid JSON");
     expect(handler).not.toHaveBeenCalled();
@@ -438,10 +461,7 @@ describe("inbound payload validation corners", () => {
 
   it("answers inbound StartTask with an empty task id when starting fails", async () => {
     const client = new BasicClient({ autoReconnect: false });
-    client.registerFunction(
-      { id: "task.fn", version: "1.0.0" },
-      () => "ok",
-    );
+    client.registerFunction({ id: "task.fn", version: "1.0.0" }, () => "ok");
     jest.spyOn(client, "startTask").mockImplementation(() => {
       throw new Error("task slot exhausted");
     });
@@ -554,7 +574,10 @@ describe("trace helper non-string values", () => {
   });
 
   it("trims whitespace around string trace fields", () => {
-    const ctx = JSON.stringify({ traceparent: "  00-abc-def-01  ", traceId: " abc " });
+    const ctx = JSON.stringify({
+      traceparent: "  00-abc-def-01  ",
+      traceId: " abc ",
+    });
     expect(traceParentFromContext(ctx)).toBe("00-abc-def-01");
     expect(traceIdFromContext(ctx)).toBe("abc");
   });

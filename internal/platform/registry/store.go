@@ -687,6 +687,13 @@ func (s *Store) previousAgentSession(agentID string) *AgentSession {
 	return cloneAgentSession(s.agents[agentID])
 }
 
+// PreviousAgentSession returns the current in-memory session snapshot. It
+// allows callers to enforce a stable agent-to-scope binding before replacing
+// a session.
+func (s *Store) PreviousAgentSession(agentID string) *AgentSession {
+	return s.previousAgentSession(agentID)
+}
+
 func functionSnapshot(session *AgentSession) map[string]FunctionMeta {
 	if session == nil || session.Functions == nil {
 		return nil

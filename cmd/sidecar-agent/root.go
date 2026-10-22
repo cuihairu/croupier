@@ -1,0 +1,768 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/cuihairu/croupier/core/healthprobe"
+	"github.com/cuihairu/croupier/core/transport/tcp"
+	agentcore "github.com/cuihairu/croupier/internal/app/agent"
+	"github.com/cuihairu/croupier/internal/cli/common"
+	"github.com/cuihairu/croupier/internal/devcert"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/telemetry"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+)
+
+var (
+	Version   = "dev"
+	GitCommit = "unknown"
+	BuildTime = ""
+
+	cfgFile string
+	mode    string
+	debug   bool
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "croupier-agent",
+	Short: "Croupier Agent 服务守护进程",
+	Long: `Croupier Agent 用于与游戏实例交互、分发作业以及上报指标。
+
+支持通过配置文件或命令行参数覆盖运行时行为。`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runAgent()
+	},
+}
+
+// Execute runs the CLI entrypoint.
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// main is the entry point for the croupier-agent CLI
+func main() {
+	Execute()
+}
+
+func init() {
+	rootCmd.Version = Version
+	rootCmd.SetVersionTemplate("{{printf \"%s\\n\" .Version}}")
+
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "f", "etc/agent.yaml", "配置文件路径")
+	rootCmd.PersistentFlags().StringVarP(&mode, "mode", "m", "dev", "运行模式 (dev|prod|test)")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "启用调试模式")
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "agent",
+		Short: "Run agent (alias)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAgent()
+		},
+	})
+	rootCmd.AddCommand(versionCmd)
+}
+
+// AgentConfig represents the agent-specific configuration
+type AgentConfig struct {
+	Name        string                           `json:"name" yaml:"name"`
+	Host        string                           `json:"host" yaml:"host"`
+	Port        int                              `json:"port" yaml:"port"`
+	Server      AgentServerConfig                `json:"server" yaml:"server"`
+	Agent       AgentInfoConfig                  `json:"agent" yaml:"agent"`
+	Upstream    AgentUpstreamConfig              `json:"upstream" yaml:"upstream"`
+	Logging     common.LogConfig                 `json:"log" yaml:"log"`
+	TLS         AgentTLSConfig                   `json:"tls" yaml:"tls"`
+	OutboundTLS AgentTLSConfig                   `json:"outboundTLS" yaml:"outboundTLS"`
+	Ops         *OpsConfig                       `json:"ops,omitempty" yaml:"ops,omitempty"`
+	Probe       *ProbeConfig                     `json:"probe,omitempty" yaml:"probe,omitempty"`
+	Functions   *agentcore.FunctionPluginsConfig `json:"functions,omitempty" yaml:"functions,omitempty"`
+	// Telemetry 是 OTel 遥测面（todo.md:31，与 server 同一结构同一语义）：
+	// enabled 总开关 + enable_tracing/enable_metrics 子开关 + collector_url；
+	// OTEL_* 环境变量经 telemetry.MergeEnv 同口径覆盖。缺省（未配置）=关闭，
+	// 不创建 provider/周期导出任务。
+	Telemetry telemetry.TelemetryConfig `json:"telemetry" yaml:"telemetry"`
+}
+
+// ProbeConfig 探测面配置（声明式探针，R2）。targets[] 只声明探什么；阈值、
+// 语义、间隔与上行口径由 core/healthprobe 给显式默认。键一律小驼峰。
+type ProbeConfig struct {
+	Targets []healthprobe.TargetConfig `json:"targets" yaml:"targets"`
+	// MaxDetailsPerWindow 每故障窗口每目标的失败明细条数上限（<=0 用默认 10）。
+	MaxDetailsPerWindow int `json:"maxDetailsPerWindow,omitempty" yaml:"maxDetailsPerWindow,omitempty"`
+}
+
+// OpsConfig is the wire-adjacent shape of agentcore.OpsConfig. It is converted
+// immediately after parsing; runtime validation and defaults stay in one place.
+type OpsConfig = agentcore.OpsConfig
+
+type AgentTLSConfig struct {
+	Enabled            bool   `json:"enabled" yaml:"enabled"`
+	CertFile           string `json:"certFile" yaml:"certFile"`
+	KeyFile            string `json:"keyFile" yaml:"keyFile"`
+	CAFile             string `json:"caFile" yaml:"caFile"`
+	ServerName         string `json:"serverName,omitempty" yaml:"serverName,omitempty"`
+	InsecureSkipVerify bool   `json:"insecureSkipVerify" yaml:"insecureSkipVerify"`
+}
+
+func (c *AgentTLSConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentTLSConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		Enabled            *bool  `yaml:"Enabled,omitempty"`
+		CertFile           string `yaml:"CertFile,omitempty"`
+		KeyFile            string `yaml:"KeyFile,omitempty"`
+		CAFile             string `yaml:"CAFile,omitempty"`
+		ServerName         string `yaml:"ServerName,omitempty"`
+		InsecureSkipVerify *bool  `yaml:"InsecureSkipVerify,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if !decoded.Enabled && compat.Enabled != nil {
+		decoded.Enabled = *compat.Enabled
+	}
+	if decoded.CertFile == "" {
+		decoded.CertFile = compat.CertFile
+	}
+	if decoded.KeyFile == "" {
+		decoded.KeyFile = compat.KeyFile
+	}
+	if decoded.CAFile == "" {
+		decoded.CAFile = compat.CAFile
+	}
+	if decoded.ServerName == "" {
+		decoded.ServerName = compat.ServerName
+	}
+	if !decoded.InsecureSkipVerify && compat.InsecureSkipVerify != nil {
+		decoded.InsecureSkipVerify = *compat.InsecureSkipVerify
+	}
+	*c = AgentTLSConfig(decoded)
+	return nil
+}
+
+func (c *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+
+	var compat struct {
+		Name        string               `yaml:"Name"`
+		Host        string               `yaml:"Host"`
+		Port        int                  `yaml:"Port"`
+		Server      AgentServerConfig    `yaml:"Server"`
+		Agent       AgentInfoConfig      `yaml:"Agent"`
+		Upstream    AgentUpstreamConfig  `yaml:"Upstream"`
+		Logging     legacyAgentLogConfig `yaml:"Logging"`
+		TLS         AgentTLSConfig       `yaml:"TLS"`
+		OutboundTLS AgentTLSConfig       `yaml:"OutboundTLS"`
+	}
+	var canonical struct {
+		Logging canonicalAgentLogConfig `yaml:"log"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if err := value.Decode(&canonical); err != nil {
+		return err
+	}
+
+	if decoded.Name == "" {
+		decoded.Name = compat.Name
+	}
+	if decoded.Host == "" {
+		decoded.Host = compat.Host
+	}
+	if decoded.Port == 0 {
+		decoded.Port = compat.Port
+	}
+	if isZeroAgentServerConfig(decoded.Server) {
+		decoded.Server = compat.Server
+	}
+	if isZeroAgentInfoConfig(decoded.Agent) {
+		decoded.Agent = compat.Agent
+	}
+	if isZeroAgentUpstreamConfig(decoded.Upstream) {
+		decoded.Upstream = compat.Upstream
+	}
+	if isZeroCommonLogConfig(decoded.Logging) {
+		switch {
+		case !canonical.Logging.isZero():
+			decoded.Logging = canonical.Logging.toCommon()
+		case !compat.Logging.isZero():
+			decoded.Logging = compat.Logging.toCommon()
+		}
+	}
+	// TLS/OutboundTLS 不设 canonical 视图：AgentConfig 内联字段本身就是
+	// canonical 键（yaml:"tls"/"outboundTLS"），plain 解码已捕获；这里只
+	// 需要把旧部署的 PascalCase（TLS:/OutboundTLS:）兼容进来。
+	if isZeroInlineTLSConfig(decoded.TLS) && !isZeroAgentTLSConfig(compat.TLS) {
+		decoded.TLS = compat.TLS
+	}
+	if isZeroInlineTLSConfig(decoded.OutboundTLS) && !isZeroAgentTLSConfig(compat.OutboundTLS) {
+		decoded.OutboundTLS = compat.OutboundTLS
+	}
+
+	cfg := AgentConfig(decoded)
+	applyAgentConfigDefaults(&cfg)
+	*c = cfg
+	return nil
+}
+
+type AgentServerConfig struct {
+	Addr               string `json:"addr" yaml:"addr"`
+	Transport          string `json:"transport,omitempty" yaml:"transport,omitempty"`
+	Insecure           bool   `json:"insecure" yaml:"insecure"`
+	ServerName         string `json:"serverName" yaml:"serverName"`
+	InsecureSkipVerify bool   `json:"insecureSkipVerify" yaml:"insecureSkipVerify"`
+	TLSCertFile        string `json:"tlsCertFile" yaml:"tlsCertFile"`
+	TLSKeyFile         string `json:"tlsKeyFile" yaml:"tlsKeyFile"`
+	CAFile             string `json:"caFile" yaml:"caFile"`
+}
+
+func (c *AgentServerConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentServerConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		Addr               string `yaml:"Addr,omitempty"`
+		Transport          string `yaml:"Transport,omitempty"`
+		Insecure           *bool  `yaml:"Insecure,omitempty"`
+		ServerName         string `yaml:"ServerName,omitempty"`
+		InsecureSkipVerify *bool  `yaml:"InsecureSkipVerify,omitempty"`
+		TLSCertFile        string `yaml:"TLSCertFile,omitempty"`
+		TLSKeyFile         string `yaml:"TLSKeyFile,omitempty"`
+		CAFile             string `yaml:"CAFile,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if decoded.Addr == "" {
+		decoded.Addr = compat.Addr
+	}
+	if decoded.Transport == "" {
+		decoded.Transport = compat.Transport
+	}
+	if !decoded.Insecure && compat.Insecure != nil {
+		decoded.Insecure = *compat.Insecure
+	}
+	if decoded.ServerName == "" {
+		decoded.ServerName = compat.ServerName
+	}
+	if !decoded.InsecureSkipVerify && compat.InsecureSkipVerify != nil {
+		decoded.InsecureSkipVerify = *compat.InsecureSkipVerify
+	}
+	if decoded.TLSCertFile == "" {
+		decoded.TLSCertFile = compat.TLSCertFile
+	}
+	if decoded.TLSKeyFile == "" {
+		decoded.TLSKeyFile = compat.TLSKeyFile
+	}
+	if decoded.CAFile == "" {
+		decoded.CAFile = compat.CAFile
+	}
+	*c = AgentServerConfig(decoded)
+	return nil
+}
+
+type AgentInfoConfig struct {
+	ID        string            `json:"id" yaml:"id"`
+	GameID    string            `json:"gameId" yaml:"gameId"`
+	Env       string            `json:"env" yaml:"env"`
+	Transport string            `json:"transport,omitempty" yaml:"transport,omitempty"`
+	LocalAddr string            `json:"localAddr" yaml:"localAddr"`
+	HTTPAddr  string            `json:"httpAddr" yaml:"httpAddr"`
+	Labels    map[string]string `json:"labels" yaml:"labels"`
+	// InvokeTimeoutMs 是 Agent → Provider 同步调用的默认预算（毫秒）。
+	// 请求 metadata["timeout_ms"] 声明更小值时取更小者；默认 15000
+	// （对齐 Server 派发层）；上限 60000。
+	InvokeTimeoutMs int `json:"invokeTimeoutMs,omitempty" yaml:"invokeTimeoutMs,omitempty"`
+}
+
+func (c *AgentInfoConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentInfoConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		ID        string            `yaml:"ID,omitempty"`
+		GameID    string            `yaml:"GameID,omitempty"`
+		Env       string            `yaml:"Env,omitempty"`
+		Transport string            `yaml:"Transport,omitempty"`
+		LocalAddr string            `yaml:"LocalAddr,omitempty"`
+		HTTPAddr  string            `yaml:"HTTPAddr,omitempty"`
+		Labels    map[string]string `yaml:"Labels,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if decoded.ID == "" {
+		decoded.ID = compat.ID
+	}
+	if decoded.GameID == "" {
+		decoded.GameID = compat.GameID
+	}
+	if decoded.Env == "" {
+		decoded.Env = compat.Env
+	}
+	if decoded.Transport == "" {
+		decoded.Transport = compat.Transport
+	}
+	if decoded.LocalAddr == "" {
+		decoded.LocalAddr = compat.LocalAddr
+	}
+	if decoded.HTTPAddr == "" {
+		decoded.HTTPAddr = compat.HTTPAddr
+	}
+	if decoded.Labels == nil {
+		decoded.Labels = compat.Labels
+	}
+	*c = AgentInfoConfig(decoded)
+	return nil
+}
+
+type AgentUpstreamConfig struct {
+	HeartbeatInterval int `json:"heartbeatInterval" yaml:"heartbeatInterval"`
+	RetryInterval     int `json:"retryInterval" yaml:"retryInterval"`
+	MaxRetries        int `json:"maxRetries" yaml:"maxRetries"`
+	Timeout           int `json:"timeout" yaml:"timeout"`
+}
+
+func (c *AgentUpstreamConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentUpstreamConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		HeartbeatInterval *int `yaml:"HeartbeatInterval,omitempty"`
+		RetryInterval     *int `yaml:"RetryInterval,omitempty"`
+		MaxRetries        *int `yaml:"MaxRetries,omitempty"`
+		Timeout           *int `yaml:"Timeout,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if decoded.HeartbeatInterval == 0 && compat.HeartbeatInterval != nil {
+		decoded.HeartbeatInterval = *compat.HeartbeatInterval
+	}
+	if decoded.RetryInterval == 0 && compat.RetryInterval != nil {
+		decoded.RetryInterval = *compat.RetryInterval
+	}
+	if decoded.MaxRetries == 0 && compat.MaxRetries != nil {
+		decoded.MaxRetries = *compat.MaxRetries
+	}
+	if decoded.Timeout == 0 && compat.Timeout != nil {
+		decoded.Timeout = *compat.Timeout
+	}
+	*c = AgentUpstreamConfig(decoded)
+	return nil
+}
+
+type canonicalAgentLogConfig struct {
+	Level      string `yaml:"level,omitempty"`
+	Format     string `yaml:"format,omitempty"`
+	Output     string `yaml:"output,omitempty"`
+	File       string `yaml:"file,omitempty"`
+	MaxSize    int    `yaml:"maxSize,omitempty"`
+	MaxBackups int    `yaml:"maxBackups,omitempty"`
+	MaxAge     int    `yaml:"maxAge,omitempty"`
+	Compress   bool   `yaml:"compress,omitempty"`
+}
+
+func (c canonicalAgentLogConfig) isZero() bool { return c == (canonicalAgentLogConfig{}) }
+func (c canonicalAgentLogConfig) toCommon() common.LogConfig {
+	return common.LogConfig{
+		Level: c.Level, Format: c.Format, Output: c.Output, File: c.File,
+		MaxSize: c.MaxSize, MaxBackups: c.MaxBackups, MaxAge: c.MaxAge, Compress: c.Compress,
+	}
+}
+
+type legacyAgentLogConfig struct {
+	Level      string `yaml:"Level,omitempty"`
+	Format     string `yaml:"Format,omitempty"`
+	Output     string `yaml:"Output,omitempty"`
+	File       string `yaml:"File,omitempty"`
+	MaxSize    int    `yaml:"MaxSize,omitempty"`
+	MaxBackups int    `yaml:"MaxBackups,omitempty"`
+	MaxAge     int    `yaml:"MaxAge,omitempty"`
+	Compress   bool   `yaml:"Compress,omitempty"`
+}
+
+func (c legacyAgentLogConfig) isZero() bool { return c == (legacyAgentLogConfig{}) }
+func (c legacyAgentLogConfig) toCommon() common.LogConfig {
+	return common.LogConfig{
+		Level: c.Level, Format: c.Format, Output: c.Output, File: c.File,
+		MaxSize: c.MaxSize, MaxBackups: c.MaxBackups, MaxAge: c.MaxAge, Compress: c.Compress,
+	}
+}
+
+func isZeroAgentServerConfig(cfg AgentServerConfig) bool { return cfg == (AgentServerConfig{}) }
+func isZeroAgentInfoConfig(cfg AgentInfoConfig) bool {
+	return cfg.ID == "" &&
+		cfg.GameID == "" &&
+		cfg.Env == "" &&
+		cfg.LocalAddr == "" &&
+		cfg.HTTPAddr == "" &&
+		len(cfg.Labels) == 0
+}
+func isZeroAgentUpstreamConfig(cfg AgentUpstreamConfig) bool {
+	return cfg == (AgentUpstreamConfig{})
+}
+func isZeroCommonLogConfig(cfg common.LogConfig) bool { return cfg == (common.LogConfig{}) }
+func isZeroAgentTLSConfig(cfg AgentTLSConfig) bool    { return cfg == (AgentTLSConfig{}) }
+func isZeroInlineTLSConfig(cfg AgentTLSConfig) bool   { return cfg == (AgentTLSConfig{}) }
+
+func applyAgentConfigDefaults(cfg *AgentConfig) {
+	if cfg == nil {
+		return
+	}
+
+	// Agent <-> Server defaults to TLS. The legacy "insecure" switch only
+	// changes this when callers explicitly opt out.
+	if strings.TrimSpace(cfg.Server.Addr) != "" && !cfg.Server.Insecure {
+		cfg.Server.Insecure = false
+	}
+
+	// SDK <-> Agent local gateway remains plain TCP by default unless TLS is
+	// explicitly configured.
+	if isZeroAgentTLSConfig(cfg.TLS) {
+		cfg.TLS.Enabled = false
+	}
+}
+
+func runAgent() error {
+	if cfgFile == "" {
+		return fmt.Errorf("配置文件是必需的")
+	}
+
+	// 获取配置文件所在目录（用于 providers.yaml 等辅助配置）
+	configDir := filepath.Dir(cfgFile)
+
+	// Read YAML config file
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var c AgentConfig
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+	if c.Functions != nil {
+		if err := c.Functions.Validate(); err != nil {
+			return fmt.Errorf("invalid functions config: %w", err)
+		}
+	}
+	// Agent 会话绑定单一 (gameId, env)（作用域规范 §14）——scope 必填，
+	// 缺失直接启动失败（无空值兼容：provider 校验依赖 agent scope 非空）。
+	if err := agentcore.ValidateAgentScope(c.Agent.GameID, c.Agent.Env); err != nil {
+		return err
+	}
+	slog.Info("parsed agent upstream config",
+		"server_addr", strings.TrimSpace(c.Server.Addr),
+		"local_addr", strings.TrimSpace(c.Agent.LocalAddr),
+		"http_addr", strings.TrimSpace(c.Agent.HTTPAddr),
+		"game_id", strings.TrimSpace(c.Agent.GameID),
+		"env", strings.TrimSpace(c.Agent.Env),
+	)
+
+	// 初始化日志系统
+	if c.Logging.Level == "" {
+		c.Logging.Level = "info"
+	}
+	if c.Logging.Format == "" {
+		c.Logging.Format = "console"
+	}
+	common.SetupLoggerWithFile(
+		c.Logging.Level,
+		c.Logging.Format,
+		c.Logging.Output,
+		c.Logging.MaxSize,
+		c.Logging.MaxBackups,
+		c.Logging.MaxAge,
+		c.Logging.Compress,
+	)
+
+	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	core, localAddr, runErr, err := startAgentCore(runCtx, &c, configDir)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if core != nil {
+			core.Stop()
+		}
+	}()
+
+	fmt.Printf("Starting Croupier Agent (mode: %s, debug: %v)...\n", mode, debug)
+	slog.Info("agent local server started", "listen", localAddr)
+
+	select {
+	case <-runCtx.Done():
+		return nil
+	case err := <-runErr:
+		if err != nil {
+			return fmt.Errorf("agent run failed: %w", err)
+		}
+		return nil
+	}
+}
+
+func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*agentcore.App, string, <-chan error, error) {
+	if c == nil {
+		return nil, "", nil, fmt.Errorf("missing config")
+	}
+
+	slog.Info("loading agent config", "config_file", cfgFile, "config_dir", configDir)
+
+	// SDK 连接的是 Agent 本地 TCP 服务，而不是 Server 控制端口。
+	localListenAddr := strings.TrimSpace(c.Agent.LocalAddr)
+	if localListenAddr == "" {
+		host := strings.TrimSpace(c.Host)
+		switch host {
+		case "", "0.0.0.0":
+			localListenAddr = net.JoinHostPort("0.0.0.0", strconv.Itoa(c.Port))
+		default:
+			localListenAddr = net.JoinHostPort(host, strconv.Itoa(c.Port))
+		}
+	}
+	localListenAddr = strings.TrimPrefix(localListenAddr, "tcp://")
+	localAddr := localListenAddr
+
+	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))
+
+	// 收集系统标签
+	labels := collectSystemLabels()
+	labels["role"] = "sidecar"
+	// Merge with config labels
+	for k, v := range c.Agent.Labels {
+		labels[k] = v
+	}
+
+	// 使用 NewWithConfigDir 以确保 providers.yaml 能从正确的目录加载
+	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
+	core.SetLocalAddr(localAddr)
+	core.SetUpstreamTransportKind(strings.TrimSpace(c.Server.Transport))
+
+	// OTel 遥测面接线（todo.md:31）：与 server 同一 TelemetryConfig/总开关
+	// 语义。关闭=不建服务（App 生命周期内零 exporter/零周期导出任务）；
+	// 开启则挂到 App.WithTelemetry，App.Stop 统一 5s 有界 Shutdown。
+	// no_otel 裁剪构建下配置启用 → NewGameTelemetryService fail-closed 报错，
+	// 启动即失败而非静默无导出。
+	telCfg := buildAgentTelemetryConfig(c)
+	if telCfg.Enabled {
+		telSvc, telErr := telemetry.NewGameTelemetryService(telCfg, slog.Default())
+		if telErr != nil {
+			return nil, "", nil, fmt.Errorf("agent telemetry: %w", telErr)
+		}
+		core.WithTelemetry(telSvc)
+		slog.Info("agent telemetry enabled",
+			"tracing", telCfg.EnableTracing,
+			"metrics", telCfg.EnableMetrics,
+			"collector_configured", strings.TrimSpace(telCfg.CollectorURL) != "",
+		)
+	}
+
+	// Agent → Provider 同步调用预算（默认 15s，可经 agent.invokeTimeoutMs 配置）
+	core.SetProviderCallTimeout(time.Duration(c.Agent.InvokeTimeoutMs) * time.Millisecond)
+	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
+		GameID:            strings.TrimSpace(c.Agent.GameID),
+		Env:               strings.TrimSpace(c.Agent.Env),
+		Version:           Version,
+		Region:            "",
+		Zone:              "",
+		Labels:            labels,
+		DialTimeout:       time.Duration(c.Upstream.Timeout) * time.Millisecond,
+		RequestTimeout:    time.Duration(c.Upstream.Timeout) * time.Millisecond,
+		HeartbeatInterval: time.Duration(c.Upstream.HeartbeatInterval) * time.Second,
+	})
+
+	// Ensure CA cert exists (if needed for Server certificate verification)
+	if !c.Server.Insecure && strings.TrimSpace(c.Server.CAFile) != "" {
+		caFile := strings.TrimSpace(c.Server.CAFile)
+		if _, err := os.Stat(caFile); os.IsNotExist(err) {
+			certDir := filepath.Join(filepath.Dir(cfgFile), "certs")
+			fmt.Printf("CA cert not found, auto-generating dev certs in %s...\n", certDir)
+			if _, _, err := devcert.EnsureDevCA(certDir); err != nil {
+				return nil, "", nil, fmt.Errorf("failed to generate CA cert: %w", err)
+			}
+			fmt.Printf("  CA: %s\n", filepath.Join(certDir, "ca.crt"))
+		}
+	}
+
+	if !c.Server.Insecure {
+		core.WithUpstreamTLSConfig(&tlsutil.ClientTLSConfig{
+			CertFile:           strings.TrimSpace(c.Server.TLSCertFile),
+			KeyFile:            strings.TrimSpace(c.Server.TLSKeyFile),
+			CAFile:             strings.TrimSpace(c.Server.CAFile),
+			ServerName:         strings.TrimSpace(c.Server.ServerName),
+			InsecureSkipVerify: c.Server.InsecureSkipVerify,
+		})
+	} else {
+		core.WithUpstreamTLSConfig(nil)
+	}
+
+	if c.OutboundTLS.Enabled {
+		core.WithOutboundTLSConfig(&tlsutil.ClientTLSConfig{
+			CertFile:           strings.TrimSpace(c.OutboundTLS.CertFile),
+			KeyFile:            strings.TrimSpace(c.OutboundTLS.KeyFile),
+			CAFile:             strings.TrimSpace(c.OutboundTLS.CAFile),
+			ServerName:         strings.TrimSpace(c.OutboundTLS.ServerName),
+			InsecureSkipVerify: c.OutboundTLS.InsecureSkipVerify,
+		})
+	} else {
+		core.WithOutboundTLSConfig(nil)
+	}
+
+	// 本地网关 TLS（`tls:` 段）：SDK Provider 拨入 agent 本地监听的加密面。
+	// TLS 在 TCP 之上、分帧之下，wire 协议不受影响；证书缺失在启动期报错，
+	// 杜绝「配置了却不生效」的静默降级（能力矩阵批次 E 接线）。
+	if c.TLS.Enabled {
+		localTLS, err := tcp.BuildServerTLSConfig(
+			strings.TrimSpace(c.TLS.CertFile),
+			strings.TrimSpace(c.TLS.KeyFile),
+			strings.TrimSpace(c.TLS.CAFile),
+			c.TLS.InsecureSkipVerify,
+		)
+		if err != nil {
+			return nil, "", nil, fmt.Errorf("agent local gateway tls: %w", err)
+		}
+		core.WithLocalTLSConfig(localTLS)
+	}
+
+	// Configure ops module if enabled
+	if c.Ops != nil && c.Ops.Enabled {
+		opsCfg := agentcore.DefaultOpsConfig()
+		*opsCfg = *c.Ops
+		opsCfg.Enabled = true
+		if err := opsCfg.Validate(); err != nil {
+			return nil, "", nil, fmt.Errorf("invalid ops config: %w", err)
+		}
+		core.WithOpsConfig(opsCfg)
+		slog.Info("ops module enabled",
+			"metrics_interval", opsCfg.MetricsInterval,
+			"managed_processes", len(opsCfg.ManagedProcesses),
+			"allow_restart", opsCfg.AllowRestart,
+			"allow_exec", opsCfg.AllowExec,
+			"allow_update", opsCfg.AllowUpdate,
+		)
+	}
+
+	// 探测面参与声明（`probe:` 段存在即参与）：targets 可空——空静态目标集
+	// = 只接 server 按 db_sources.owner_agent_id 派生的 db 目标（R4）。非法
+	// 目标声明即启动失败：观测面配置错了却静默不探，比直接报错危险。
+	if c.Probe != nil {
+		probeCfg := &agentcore.ProbeConfig{
+			Targets:             c.Probe.Targets,
+			MaxDetailsPerWindow: c.Probe.MaxDetailsPerWindow,
+		}
+		if err := core.WithProbeConfig(probeCfg); err != nil {
+			return nil, "", nil, fmt.Errorf("agent probe config: %w", err)
+		}
+		slog.Info("probe face enabled", "static_targets", len(c.Probe.Targets))
+	}
+
+	// 函数适配插件（`functions:` 段，todo.md:35）：显式声明的插件进程由
+	// 宿主拉起并注册其函数；scope 校验在装配层 fail-closed（函数继承
+	// agent 的 game/env，插件不自带 scope）。
+	if c.Functions != nil {
+		if err := core.WithFunctionPlugins(c.Functions); err != nil {
+			return nil, "", nil, fmt.Errorf("agent function plugins: %w", err)
+		}
+	}
+
+	runErr := make(chan error, 1)
+	go func() {
+		if err := core.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			runErr <- err
+		}
+	}()
+
+	return core, localAddr, runErr, nil
+}
+
+// buildAgentTelemetryConfig 解析 sidecar 遥测配置（todo.md:31）：service
+// name 缺省为 croupier-agent，随后走与 server 同一套 OTEL_* 环境覆盖与
+// normalize（总开关只认 enabled 字段/OTEL_ENABLED/CROUPIER_TELEMETRY_ENABLED）。
+func buildAgentTelemetryConfig(c *AgentConfig) telemetry.TelemetryConfig {
+	cfg := c.Telemetry
+	if strings.TrimSpace(cfg.ServiceName) == "" {
+		cfg.ServiceName = "croupier-agent"
+	}
+	return telemetry.MergeEnv(cfg)
+}
+
+func resolveAgentID(configured string) string {
+	if strings.TrimSpace(configured) != "" {
+		return strings.TrimSpace(configured)
+	}
+	host, _ := os.Hostname()
+	// os.Hostname 对可运行进程恒非空（仅病态系统调用失败才落入兜底），
+	// 分支不可构造（coverage-exemptions.md cmd-6）。
+	if host == "" {
+		host = "agent"
+	}
+	return fmt.Sprintf("%s-%d", host, time.Now().Unix())
+}
+
+// collectSystemLabels 收集系统信息作为标签
+func collectSystemLabels() map[string]string {
+	labels := make(map[string]string)
+
+	// 操作系统
+	labels["os"] = runtime.GOOS
+	// CPU 架构
+	labels["arch"] = runtime.GOARCH
+
+	// 主机名
+	if hostname, err := os.Hostname(); err == nil {
+		labels["hostname"] = hostname
+	}
+
+	// 获取第一个非回环 IP 地址
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					labels["ip"] = ipnet.IP.String()
+					break
+				}
+			}
+		}
+	}
+
+	// CPU 核心数
+	labels["cpu_count"] = fmt.Sprintf("%d", runtime.NumCPU())
+
+	// Go 版本
+	labels["go_version"] = runtime.Version()
+
+	return labels
+}

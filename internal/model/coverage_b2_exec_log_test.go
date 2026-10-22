@@ -157,7 +157,11 @@ func TestB2TaskModels_DeleteBefore(t *testing.T) {
 	tm := NewTaskRunModel(runDB)
 	now := time.Now().UTC()
 	for i := 0; i < 3; i++ {
-		require.NoError(t, tm.Create(ctx, &TaskRun{TaskID: fmt.Sprintf("b2task-%d", i), GameID: "b2game", Status: "done"}))
+		// CreatedAt 必须显式给 UTC：依赖 autoCreateTime 会落本地时区字符串，
+		// sqlite 文本比较下与 UTC cutoff 错位（TZ≠UTC 机器上 DeleteBefore 判 0 行）
+		row := &TaskRun{TaskID: fmt.Sprintf("b2task-%d", i), GameID: "b2game", Status: "done"}
+		row.CreatedAt = now
+		require.NoError(t, tm.Create(ctx, row))
 	}
 	n, err := tm.DeleteBefore(ctx, now.Add(time.Hour), 2)
 	require.NoError(t, err)

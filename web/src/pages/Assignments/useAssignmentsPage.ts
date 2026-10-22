@@ -8,6 +8,7 @@ import {
   setAssignments,
   FunctionDescriptor,
 } from '@/services/api';
+import { getFunctionSummary } from '@/services/api/functions-enhanced';
 import { useScope } from '@/hooks/useScopeReload';
 import { buildAssignmentColumns, buildCategoryColumns, buildRouteColumns } from './columns';
 import type { AssignmentHistory, AssignmentItem, HistoryAction } from './types';
@@ -72,7 +73,14 @@ export default function useAssignmentsPage() {
   const [cloneModalVisible, setCloneModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
 
-  const options = useMemo(() => buildAssignmentOptions(descs), [descs]);
+  // 函数目录总开关状态（enabled=false → 本页标注「已禁用」且不可勾选）。
+  // 拉取失败降级为空集：全部按可勾选处理，不阻塞白名单维护。
+  const [directoryDisabledIds, setDirectoryDisabledIds] = useState<Set<string>>(new Set());
+
+  const options = useMemo(
+    () => buildAssignmentOptions(descs, directoryDisabledIds),
+    [descs, directoryDisabledIds],
+  );
 
   const { initialState } = useModel('@@initialState');
   const canWrite = useMemo(() => {
@@ -90,8 +98,19 @@ export default function useAssignmentsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const d = await listDescriptors();
+      const [d, summary] = await Promise.all([
+        listDescriptors(),
+        // enabled 真值源与函数目录页一致（/api/v1/functions 摘要）
+        getFunctionSummary().catch(() => []),
+      ]);
       setDescs(toDescriptorArray(d as DescriptorListResponse));
+      setDirectoryDisabledIds(
+        new Set(
+          (Array.isArray(summary) ? summary : [])
+            .filter((item) => item.enabled === false && item.id)
+            .map((item) => item.id),
+        ),
+      );
       if (gameId) {
         try {
           const res = await fetchAssignments();
@@ -139,7 +158,10 @@ export default function useAssignmentsPage() {
 
   const onBatchAssign = useCallback(
     (resource: string, assign: boolean) => {
-      const ids = options.filter((o) => o.resource === resource).map((o) => o.value);
+      // 目录总开关禁用的函数不参与批量启用（勾选仍不可达）
+      const ids = options
+        .filter((o) => o.resource === resource && !o.directoryDisabled)
+        .map((o) => o.value);
       if (assign) {
         setSelected([...new Set([...selected, ...ids])]);
       } else {
@@ -280,7 +302,8 @@ export default function useAssignmentsPage() {
       columns,
       resourceColumns,
       capabilityColumns,
-      onSelectAll: () => setSelected(options.map((o) => o.value)),
+      onSelectAll: () =>
+        setSelected(options.filter((o) => !o.directoryDisabled).map((o) => o.value)),
       onClearAll: () => setSelected([]),
       onBatchAssign,
       onSave,

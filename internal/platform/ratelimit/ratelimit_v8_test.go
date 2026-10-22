@@ -133,8 +133,9 @@ func TestV8SlidingWindow_CleanupRemovesExpiredWindow(t *testing.T) {
 
 func TestV8TokenBucket_MinimalBurst(t *testing.T) {
 	tb := NewTokenBucket(30, 0)
-	if cap(tb.tokens) != 1 {
-		t.Fatalf("expected minimal burst capacity 1, got %d", cap(tb.tokens))
+	// burst 归一化：0 → max(rpm/60,1)=1（与旧 channel 桶容量语义一致）。
+	if tb.lim.Burst() != 1 {
+		t.Fatalf("expected minimal burst capacity 1, got %d", tb.lim.Burst())
 	}
 	// 桶初始有一个令牌，可立即取到。
 	if err := tb.Wait(context.Background()); err != nil {
@@ -142,11 +143,14 @@ func TestV8TokenBucket_MinimalBurst(t *testing.T) {
 	}
 }
 
-func TestV8TokenBucket_RefillDiscardsWhenFull(t *testing.T) {
-	// 高 refill 频率（1ms/个）+ 初始满桶 → refill goroutine 走 default 丢弃分支。
+func TestV8TokenBucket_LimitAndBurstMapping(t *testing.T) {
+	// 旧实现靠 refill goroutine 的 default 丢弃分支封顶桶容量；x/time/rate 以
+	// burst 参数硬封顶、按 limit 连续记账，映射为 rpm/60 每秒速率。
 	tb := NewTokenBucket(60000, 5)
-	time.Sleep(60 * time.Millisecond)
-	if cap(tb.tokens) != 5 {
-		t.Fatalf("unexpected bucket capacity %d", cap(tb.tokens))
+	if got := tb.lim.Limit(); got != 1000 {
+		t.Fatalf("expected limit 1000/s (60000rpm), got %v", got)
+	}
+	if tb.lim.Burst() != 5 {
+		t.Fatalf("unexpected burst capacity %d", tb.lim.Burst())
 	}
 }

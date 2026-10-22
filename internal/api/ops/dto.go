@@ -18,6 +18,8 @@ type OpsAgentInfo struct {
 	Labels    map[string]string `json:"labels"`
 	// OwnerInstance 集群模式下该 agent 连接的持有实例（本实例直连时为空）。
 	OwnerInstance string `json:"ownerInstance,omitempty"`
+	// Supervisor 监管聚合灯（ok/warn/error + 计数）；agent 无上报时为 nil。
+	Supervisor *OpsSupervisorSummary `json:"supervisor,omitempty"`
 }
 
 type OpsAgentMetaResponse struct {
@@ -57,6 +59,9 @@ type OpsAgentSystemInfo struct {
 	TotalMemory   uint64 `json:"totalMemory"`
 	BootTime      string `json:"bootTime"`
 	AgentVersion  string `json:"agentVersion"`
+	// AgentBinarySha256 是 agent 二进制内容 sha256（§10.5 指纹：失联排查
+	// 锚点；空=agent 未上行或二进制不可读）。
+	AgentBinarySha256 string `json:"agentBinarySha256,omitempty"`
 }
 
 type OpsAgentSystemInfoRequest struct {
@@ -74,6 +79,106 @@ type OpsAgentsListResponse struct {
 	Agents []OpsAgentInfo `json:"agents"`
 }
 
+// Supervisor 监管视图（S1 只读：快照来自 agent metrics 上报捎带的
+// SupervisedProcessSnapshot，server 内存 MetricsStore 最新一报）。
+
+type OpsAgentSupervisorRequest struct {
+	AgentID string `uri:"agentId" form:"agentId"`
+}
+
+type OpsSupervisedProcess struct {
+	Name          string   `json:"name"`
+	Pid           int32    `json:"pid"`
+	State         string   `json:"state"`
+	UptimeSeconds int64    `json:"uptimeSeconds"`
+	RestartCount  int32    `json:"restartCount"`
+	RssBytes      int64    `json:"rssBytes"`
+	CpuPercent    float64  `json:"cpuPercent"`
+	Flags         []string `json:"flags"`
+	// LastEventUnix 最近一次 supervisor 事件时间（0=无）；NextRestartAtUnix
+	// 仅 BACKOFF 态非零（面板渲染退避倒计时）。SnapshotProfile 是 S3 崩溃
+	// 快照档（none/go/node/python/jvm，空=未知）。Kind 是受管对象类别
+	// （program/probe-adapter，§10.1）；AdapterId 在 kind=probe-adapter 时非空。
+	LastEventUnix     int64  `json:"lastEventUnix"`
+	NextRestartAtUnix int64  `json:"nextRestartAtUnix"`
+	SnapshotProfile   string `json:"snapshotProfile,omitempty"`
+	Kind              string `json:"kind"`
+	AdapterId         string `json:"adapterId,omitempty"`
+	// NextScheduleAtUnix/NextScheduleAction 是调度状态（§10.6）：下一次
+	// 定时触发时间与动作，无调度条目为零值（事前可见，面板可渲染倒计时）。
+	NextScheduleAtUnix int64  `json:"nextScheduleAtUnix,omitempty"`
+	NextScheduleAction string `json:"nextScheduleAction,omitempty"`
+	// Fingerprint 是运行实例二进制的 sha256（§10.4 指纹，spawn 时算一次）；
+	// 空=未运行或未计算。告警/探针 timeline 与更新记录按 (target, 时间, 指纹) 对齐。
+	Fingerprint string `json:"fingerprint,omitempty"`
+	// ScheduleSuspended 是调度暂停态（§10.2 暂停与恢复，暂停对象=调度）：
+	// 维护窗口内 cron 冻结，进程运行态不动；无调度条目恒 false。
+	ScheduleSuspended bool `json:"scheduleSuspended,omitempty"`
+}
+
+type OpsSupervisorSummary struct {
+	// Status 聚合灯：ok（全部 RUNNING 且无 flags）/ warn（有非 RUNNING 或
+	// 有超限标记）/ error（有 FAILED/BROKEN）。
+	Status  string `json:"status"`
+	Total   int    `json:"total"`
+	Running int    `json:"running"`
+}
+
+type OpsAgentSupervisorResponse struct {
+	AgentID string `json:"agentId"`
+	// Timestamp 是 server 收到最新 metrics 上报的时间（面板据此判断数据新鲜度）。
+	Timestamp string                 `json:"timestamp"`
+	Processes []OpsSupervisedProcess `json:"processes"`
+	Summary   OpsSupervisorSummary   `json:"summary"`
+}
+
+// Supervisor 事件日志（S2：事件由 agent 产生、metrics 上报捎带，server 端
+// MetricsStore 内存环缓存；面板增量拉取游标为 seq）。
+
+type OpsAgentSupervisorEventsRequest struct {
+	AgentID  string `uri:"agentId" form:"agentId"`
+	SinceSeq int64  `form:"sinceSeq"`
+	Limit    int    `form:"limit"`
+}
+
+type OpsSupervisorEvent struct {
+	Seq int64  `json:"seq"`
+	Ts  string `json:"ts"`
+	// TsUnix 事件原始 unix 秒（面板本地化渲染用；ts 是 server 格式化串）。
+	TsUnix       int64  `json:"tsUnix,omitempty"`
+	Process      string `json:"process"`
+	Event        string `json:"event"`
+	OldPid       int32  `json:"oldPid"`
+	NewPid       int32  `json:"newPid"`
+	ExitCode     int32  `json:"exitCode"`
+	Signal       string `json:"signal"`
+	RestartCount int32  `json:"restartCount"`
+	Message      string `json:"message,omitempty"`
+	// 事件时点上下文（尽力诊断）：lastHeartbeat 最后心跳、lastError 进程
+	// 最后错误输出、oomSuspect OOM 疑似启发式、lastRssBytes 最后 RSS。
+	// S3：detect_down 附带崩溃快照目录与产物文件名（best-effort）。
+	LastHeartbeat string   `json:"lastHeartbeat,omitempty"`
+	LastError     string   `json:"lastError,omitempty"`
+	OomSuspect    bool     `json:"oomSuspect"`
+	LastRssBytes  int64    `json:"lastRssBytes"`
+	SnapshotDir   string   `json:"snapshotDir,omitempty"`
+	SnapshotFiles []string `json:"snapshotFiles,omitempty"`
+}
+
+type OpsAgentSupervisorEventsResponse struct {
+	AgentID string               `json:"agentId"`
+	Events  []OpsSupervisorEvent `json:"events"`
+	// LatestSeq server 环内最新 seq（0=无事件）；面板以此为增量游标。
+	LatestSeq int64 `json:"latestSeq"`
+}
+
+// OpsAgentSupervisorLogRequest 拉取 agent 本地 supervisor 事件日志文件
+// （tail 截断，二进制直传响应，非 JSON envelope）。
+type OpsAgentSupervisorLogRequest struct {
+	AgentID  string `uri:"agentId" form:"agentId"`
+	MaxBytes int    `form:"maxBytes"`
+}
+
 // Alert operations DTOs
 
 type OpsAlert struct {
@@ -87,6 +192,12 @@ type OpsAlert struct {
 	Silenced    bool                   `json:"silenced,omitempty"`
 	Labels      map[string]interface{} `json:"labels,omitempty"`
 	Annotations map[string]interface{} `json:"annotations,omitempty"`
+	// 工作流状态（风险事件扩展，risk-control-panel-design.md §3.3）：
+	// 独立于 annotations.status（入站 lifecycle firing/resolved）。
+	HandleStatus  string `json:"handleStatus,omitempty"`
+	HandledBy     string `json:"handledBy,omitempty"`
+	HandledRemark string `json:"handledRemark,omitempty"`
+	HandledAt     string `json:"handledAt,omitempty"`
 }
 
 type OpsAlertSilenceDeleteRequest struct {
@@ -103,6 +214,23 @@ type OpsAlertSilenceResponse struct {
 }
 
 type OpsAlertsRequest struct {
+	// HandleStatus 工作流状态过滤（pending/acknowledged/ignored/escalated）。
+	HandleStatus string `form:"handleStatus" json:"handleStatus,omitempty"`
+}
+
+// OpsAlertHandleRequest 风险事件工作流流转（POST /ops/alerts/:id/handle，
+// :id 为告警主键）。Action: acknowledge 已确认 / ignore 已忽略 /
+// escalate 已升级；remark 随流转落审计（处理人取认证上下文，时间取库钟）。
+type OpsAlertHandleRequest struct {
+	Action string `json:"action"`
+	Remark string `json:"remark,omitempty"`
+}
+
+type OpsAlertHandleResponse struct {
+	AlertID      string `json:"alertId"`
+	HandleStatus string `json:"handleStatus"`
+	HandledBy    string `json:"handledBy"`
+	HandledAt    string `json:"handledAt"`
 }
 
 type OpsAlertsResponse struct {
@@ -384,12 +512,25 @@ type OpsNodeDrainResponse struct {
 	Status string `json:"status"`
 }
 
+// GET 走 BindQueryCompat 只认 form/json tag（不绑 uri tag），handler 侧以
+// c.Param 兜底路径参数（同 OpsNodeDetailRequest）。
 type OpsNodeMetaRequest struct {
-	NodeID string `uri:"nodeId"`
+	NodeID string `form:"nodeId" uri:"nodeId"`
 }
 
 type OpsNodeMetaResponse struct {
 	Labels map[string]string `json:"labels"`
+}
+
+// OpsNodeDetailRequest/Response 支撑 GET /ops/nodes/:nodeId 单设备详情：
+// 与列表同源（listNodes），按 id 过滤，字段集一致。GET 走 BindQueryCompat
+// 只认 form/json tag（不绑 uri tag），handler 侧以 c.Param 兜底路径参数。
+type OpsNodeDetailRequest struct {
+	NodeID string `form:"nodeId" uri:"nodeId"`
+}
+
+type OpsNodeDetailResponse struct {
+	Node Node `json:"node"`
 }
 
 type OpsNodeRestartResponse struct {
@@ -471,6 +612,33 @@ type OpsProcessStartRequest struct {
 
 type OpsProcessStartResponse struct {
 	Pid int32 `json:"pid,omitempty"`
+}
+
+type OpsProcessUpdateRequest struct {
+	AgentID        string `uri:"agentId"`
+	Name           string `uri:"name"`
+	StagedPath     string `json:"stagedPath"`
+	ExpectedSha256 string `json:"expectedSha256"`
+}
+
+type OpsProcessSchedulePauseRequest struct {
+	AgentID string `uri:"agentId"`
+	Name    string `uri:"name"`
+	Suspend bool   `json:"suspend"`
+}
+
+type OpsProcessSchedulePauseResponse struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
+	Suspended bool   `json:"suspended"`
+}
+
+type OpsProcessUpdateResponse struct {
+	Success        bool   `json:"success"`
+	Message        string `json:"message,omitempty"`
+	OldFingerprint string `json:"oldFingerprint,omitempty"`
+	NewFingerprint string `json:"newFingerprint,omitempty"`
+	RolledBack     bool   `json:"rolledBack"`
 }
 
 // Service operations DTOs
@@ -606,12 +774,16 @@ type Node struct {
 	SDKLanguage  string            `json:"sdkLanguage,omitempty"`
 	SDKVersion   string            `json:"sdkVersion,omitempty"`
 	SDKName      string            `json:"sdkName,omitempty"`
+	Version      string            `json:"version,omitempty"` // agent 二进制版本（agent_sessions.Version）
 	Functions    int               `json:"functions"`
 	ExpiresInSec int64             `json:"expiresInSec"`
 	// System metrics (from SystemInfoCache)
 	CPU    *CpuMetrics    `json:"cpu,omitempty"`
 	Memory *MemoryMetrics `json:"memory,omitempty"`
 	Disks  []DiskMetrics  `json:"disks,omitempty"`
+	// Supervisor 监管聚合灯（数据源同 CPU/Memory：MetricsStore 最新一报的
+	// SupervisedProcesses）；无上报或 agent 不在本地实例时为 nil。
+	Supervisor *OpsSupervisorSummary `json:"supervisor,omitempty"`
 }
 
 // NodeCommand represents a command that can be executed on a node
@@ -672,6 +844,8 @@ type NodeCommandsResponse = OpsNodeCommandsResponse
 type NodeDrainResponse = OpsNodeDrainResponse
 type NodeMetaRequest = OpsNodeMetaRequest
 type NodeMetaResponse = OpsNodeMetaResponse
+type NodeDetailRequest = OpsNodeDetailRequest
+type NodeDetailResponse = OpsNodeDetailResponse
 type NodeRestartResponse = OpsNodeRestartResponse
 type NodeUndrainResponse = OpsNodeUndrainResponse
 type NodesRequest = OpsNodesRequest

@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 

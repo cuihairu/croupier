@@ -4,12 +4,12 @@
 
 ## 文件说明
 
-| 文件 | 用途 |
-|------|------|
-| `launch.json` | 调试启动配置 |
-| `settings.json` | 项目设置 |
-| `tasks.json` | 任务配置 |
-| `extensions.json` | 推荐扩展 |
+| 文件                   | 用途           |
+| ---------------------- | -------------- |
+| `launch.json`          | 调试启动配置   |
+| `settings.json`        | 项目设置       |
+| `tasks.json`           | 任务配置       |
+| `extensions.json`      | 推荐扩展       |
 | `AGENT-DEBUG-GUIDE.md` | Agent 调试指南 |
 
 ## 快速开始
@@ -19,6 +19,7 @@
 VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 
 主要包括：
+
 - Go (golang.go)
 - YAML (redhat.vscode-yaml)
 - GitLens (eamodio.gitlens)
@@ -28,11 +29,13 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 按 `F5` 或点击调试面板，选择以下配置之一：
 
 #### Server 配置
+
 - **Server (dev sqlite)** - 使用 SQLite 数据库
 - **Server (postgres)** - 使用 PostgreSQL
 - **Server (mysql)** - 使用 MySQL
 
 #### Agent 配置
+
 - **Agent (多文件示例)** ⭐ - 加载多个 OpenAPI 文件
 - **Agent (加载所有 Packs)** - 加载所有 Packs
 - **Agent (调试模式)** - Debug 模式，可设置断点
@@ -45,6 +48,7 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 按 `Cmd+Shift+P` (Mac) 或 `Ctrl+Shift+P` (Windows/Linux)，输入 "Tasks: Run Task"，选择要运行的任务。
 
 可用任务：
+
 - `make: build` - 构建项目
 - `make: test` - 运行测试
 - `make: proto` - 生成 proto 代码
@@ -107,7 +111,7 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 
 ### 调试 OpenAPI 解析
 
-1. 在 `internal/platform/openapi/provider.go` 设置断点
+1. 在 `internal/drivers/openapi/provider.go` 设置断点
 2. 按 F5 → 选择 "Agent (调试模式)"
 3. 触发 OpenAPI 加载
 
@@ -120,9 +124,6 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 ## 更多文档
 
 - [Agent 调试指南](./AGENT-DEBUG-GUIDE.md)
-- [快速开始](../services/agent/etc/QUICKSTART.md)
-- [完整指南](../services/agent/etc/README-OPENAPI.md)
-- [多服务配置](../services/agent/etc/MULTI-SERVICE-GUIDE.md)
 
 ---
 

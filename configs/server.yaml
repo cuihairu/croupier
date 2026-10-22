@@ -126,3 +126,101 @@ metrics:
 #   publishReviewByEnv:
 #     dev: auto
 #     staging: auto
+
+# herald 告警出口（Outlet 第一内置实现，M2）：告警事件经 herald 投递
+# （courier 式——渠道/收件人由 herald 侧配置，croupier 只投事件；见
+# docs/design/agent-herald-integration.md）。缺省关；关=纯 croupier 告警
+# 页，行为与现状一致。tokenEnv 指向持 trigger token 的环境变量（凭证不
+# 落配置文件）；app/target 留空取默认 croupier / group:gm-ops。
+# herald:
+#   enabled: true
+#   baseUrl: http://herald:8080
+#   app: croupier
+#   tokenEnv: HERALD_TRIGGER_TOKEN
+#   target: group:gm-ops
+
+# alertInbound 告警入站 webhook（M3）：第三方告警系统（Alertmanager 或
+# generic）推入 croupier 落现有告警存储/告警页。来源闭集 alertmanager /
+# generic，每来源独立 secretEnv（环境变量引用 HMAC 共享密钥，凭证不落
+# 配置文件）；alertmanager 来源的 labels 键→告警字段映射可配置（配置驱动，
+# 不写死供应商字段名，未配置走内置默认）。校验在 handler：X-Croupier-
+# Signature（HMAC-SHA256 over raw body）+ X-Croupier-Timestamp（±5 分钟
+# 防重放）；来源未配置=403，来源不在闭集=404（非开放端点）。
+# alertInbound:
+#   sources:
+#     alertmanager:
+#       secretEnv: ALERTMANAGER_INBOUND_SECRET
+#       labelMapping:
+#         severity: level
+#         summary: message
+#         instance: type
+#     generic:
+#       secretEnv: GENERIC_INBOUND_SECRET
+
+# serverStatus 服务器维护状态 Provider（server-status-provider 设计）：agent
+# 探活异常的维护窗口 gate——在维护=静默不报（抑制计数留痕，落库不变），不在
+# 维护=照报；状态源不可达=按未知处理照报并标 source_unknown（宁误报不漏报）。
+# 缺省关=gate 整体旁路，行为与现状一致；provider 键闭集 noop/atlas/http，
+# 留空缺省 atlas（此时只需 providers.atlas.baseUrl，缺 baseUrl 同样旁路）；
+# noop=无维护信息 gate 直通；http=任意能返回状态 JSON 的简单服务。
+# tokenEnv 指向持 API token 的环境变量（凭证不落配置文件）；状态源不可达缓存
+# 不生效（错误不缓存），TTL 内维护窗变更最多延迟 cacheTtlSeconds 生效。
+# serverStatus:
+#   enabled: true
+#   provider: atlas # 留空=atlas；noop | atlas | http
+#   matchBy: agentId # v1 仅支持 agentId（事件 scope 无主机列可 join）；配 host/ip 会回落 agentId 并启动告警
+#   cacheTtlSeconds: 60
+#   providers:
+#     atlas:
+#       baseUrl: http://atlas.internal:8080
+#       tokenEnv: ATLAS_API_TOKEN
+#       timeoutMs: 3000
+#       statusPath: /api/servers
+#       matchKey: agentId
+#       fieldMapping:
+#         inMaintenance: frozen
+#     http: # 通用 HTTP 源：GET baseUrl(+statusPath) 返回状态 JSON 即可接入
+#       baseUrl: http://ops-status.internal:9100/status
+#       timeoutMs: 3000
+#       statusPath: "" # 缺省空=baseUrl 即端点；{id} 占位符=路径参数，否则拼 ?matchKey= 值
+#       fieldMapping: # 缺省=契约键名直读（healthy/inMaintenance/windowStart/windowEnd/windowNote）
+#         inMaintenance: frozen
+#       inMaintenanceStatus: "true" # 非布尔维护位时按此串判等（atlas 缺省 maintenance）
+
+# vault 密码箱（vault-provider 设计）：渠道/支付商户密钥、上游服务与数据库
+# 凭据等敏感配置的统一存取面。缺省关=不装配，行为与现状一致；提供商切换=
+# 只改 provider 键。红线：密钥不进仓库；主口令与凭据值不落配置文件、不落日志。
+# 主口令经 passphraseEnv 环境变量注入（如 CROUPIER_VAULT_PASSPHRASE）；
+# env 提供商凭据走带前缀环境变量（smtp/password → <prefix>SMTP_PASSWORD）。
+# vault:
+#   enabled: true
+#   provider: local # 留空=local；local（AES-256-GCM+scrypt 加密文件）| env（只读环境变量源）
+#   sessionTtlSeconds: 900 # 解锁会话空闲超时（滑动续期；缺省 900）
+#   providers:
+#     local:
+#       path: data/vault.json # 加密存储文件（0600）；首次解锁自动创建
+#       passphraseEnv: CROUPIER_VAULT_PASSPHRASE # 持主口令的环境变量名
+#     env:
+#       prefix: CROUPIER_VAULT_ENV_ # 凭据路径 → <prefix><大写下划线路径>
+
+# server 本机探针（agent-health-recovery-review §4.2/§4.3，R3 server 侧内核
+# 装配）：周期探测「只有 server 视角才是运维真值」的目标——server 自身依赖
+#（server 库/内部 API）与只有 server 能访问的第三方平台 API。窗口开/合走与
+# agent 上行同一条 Alert 生命周期（视角=server，alertID=probe:server:<目标>）。
+# 目标契约与 agent probe.targets 同一份；阈值/语义/间隔缺省同 agent
+#（failThreshold=3、recoverThreshold=1、semantics=readiness、interval=30s）。
+# 配置非法（重名/未知类型）时 server 启动失败——观测面配错静默不探比报错危险。
+# 手动诊断：POST /api/v1/ops/probe/diagnose {"target":"billing-api"} 即时探一次。
+# probe:
+#   maxDetailsPerWindow: 10  # 每故障窗口每目标的失败明细条数上限（缺省 10）
+#   targets:
+#     - name: billing-api     # 目标名唯一；手动诊断与告警 alertID 按名引用
+#   targetCategory: game   # game | third_party，必填
+#       type: http
+#       url: http://billing.internal:8080/healthz
+#       timeout: 5s
+#       interval: 30s
+#     - name: meta-db
+#       targetCategory: game
+#       type: tcp
+#       address: 127.0.0.1:5432

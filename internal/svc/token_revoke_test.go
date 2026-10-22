@@ -18,6 +18,7 @@ func setupTokenRevokeFixture(t *testing.T) (*AuthMiddleware, *model.AdminModel, 
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	pinMemorySQLite(t, db)
 	require.NoError(t, db.AutoMigrate(&model.Admin{}, &model.Role{}, &model.AdminRole{}))
 
 	adminModel := model.NewAdminModel(db)
@@ -86,6 +87,7 @@ func TestAuthMiddleware_VersionCacheHit(t *testing.T) {
 func TestAdminModel_BumpAndGetTokenVersion(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	pinMemorySQLite(t, db)
 	require.NoError(t, db.AutoMigrate(&model.Admin{}))
 
 	adminModel := model.NewAdminModel(db)

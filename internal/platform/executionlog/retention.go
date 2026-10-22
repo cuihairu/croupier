@@ -3,6 +3,7 @@ package executionlog
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -40,6 +41,9 @@ type GameScopeRef struct {
 type Retention struct {
 	db  *gorm.DB
 	cfg RetentionConfig
+	// wg 守 Run 起的清理循环；Wait 供装配方 Close 收尾（cancel 后等待在飞
+	// sweep 结束，杜绝 teardown 与懒开库的竞态）。
+	wg sync.WaitGroup
 }
 
 func NewRetention(db *gorm.DB, cfg RetentionConfig) *Retention {
@@ -49,9 +53,11 @@ func NewRetention(db *gorm.DB, cfg RetentionConfig) *Retention {
 	return &Retention{db: db, cfg: cfg}
 }
 
-// Run 周期性清理，直到 ctx 取消。
+// Run 周期性清理，直到 ctx 取消。goroutine 经 Wait 等待退出。
 func (r *Retention) Run(ctx context.Context) {
+	r.wg.Add(1)
 	go func() {
+		defer r.wg.Done()
 		ticker := time.NewTicker(r.cfg.Interval)
 		defer ticker.Stop()
 		// 启动即先清一次积压
@@ -65,6 +71,14 @@ func (r *Retention) Run(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// Wait 阻塞至 Run 的清理 goroutine 退出；未 Run 过立即返回。
+func (r *Retention) Wait() {
+	if r == nil {
+		return
+	}
+	r.wg.Wait()
 }
 
 // effectiveDays 每轮清理前的保留期合成：ResolveDays（L3 覆盖）>0 时压过静态配置。
@@ -97,7 +111,7 @@ func (r *Retention) Sweep(ctx context.Context) RetentionSummary {
 		summary.ExecutionLogsDeleted = deleted
 		summary.ExecutionLogCutoff = cutoff
 	}
-	if taskDays > 0 {
+	if taskDays > 0 && r.taskLogTablesPresent() {
 		cutoff := now.AddDate(0, 0, -taskDays)
 		runDeleted, eventDeleted, err := r.sweepTaskLogs(ctx, cutoff)
 		if err != nil {
@@ -108,6 +122,14 @@ func (r *Retention) Sweep(ctx context.Context) RetentionSummary {
 		summary.TaskLogCutoff = cutoff
 	}
 	return summary
+}
+
+// taskLogTablesPresent 周期清理的缺表守卫：task_runs/task_events 是 game 域
+// 模型，裁剪部署或测试的 meta 库可能没建——缺表即无数据可清，周期 Sweep
+// 直接跳过（避免每轮刷 no such table 告警噪声）；手动 PurgeBefore 不经此
+// 守卫，缺表仍如实报错（契约见 TestRetentionPurgeBefore_ErrorWings）。
+func (r *Retention) taskLogTablesPresent() bool {
+	return r.db.Migrator().HasTable("task_runs") && r.db.Migrator().HasTable("task_events")
 }
 
 // PurgeBefore 手动清理（OPEN-ISSUES #54）：按任意 cutoff 清理留痕表，

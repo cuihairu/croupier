@@ -674,7 +674,9 @@ describe("BasicClient", () => {
           });
           return [
             msgType + 1,
-            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
+            Buffer.from(
+              ProviderConnectResponseMessage.encode(response).finish(),
+            ),
           ];
         }
         if (msgType === MSG_PROVIDER_HEARTBEAT_REQUEST) {
@@ -697,7 +699,9 @@ describe("BasicClient", () => {
 
     await client.connect();
 
-    const request = ProviderConnectRequestMessage.decode(registerCalls[0]) as any;
+    const request = ProviderConnectRequestMessage.decode(
+      registerCalls[0],
+    ) as any;
     expect(request.serviceId).toBe("test-service");
     expect(request.sdkLanguage).toBe("node");
     expect(request.transportSecurityMode).toBe("plaintext");
@@ -723,7 +727,9 @@ describe("BasicClient", () => {
           });
           return [
             msgType + 1,
-            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
+            Buffer.from(
+              ProviderConnectResponseMessage.encode(response).finish(),
+            ),
           ];
         }
         if (msgType === MSG_REGISTER_CAPABILITIES_REQ) {
@@ -791,7 +797,9 @@ describe("BasicClient", () => {
           });
           return [
             msgType + 1,
-            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
+            Buffer.from(
+              ProviderConnectResponseMessage.encode(response).finish(),
+            ),
           ];
         }
         if (msgType === MSG_REGISTER_CAPABILITIES_REQ) {
@@ -844,7 +852,9 @@ describe("BasicClient", () => {
           });
           return [
             msgType + 1,
-            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
+            Buffer.from(
+              ProviderConnectResponseMessage.encode(response).finish(),
+            ),
           ];
         }
         if (msgType === MSG_PROVIDER_HEARTBEAT_REQUEST) {
@@ -975,7 +985,10 @@ describe("BasicClient", () => {
         summary: "Test function",
         description: "Detailed test function description",
         inputSchema: { type: "object", properties: { id: { type: "string" } } },
-        outputSchema: { type: "object", properties: { ok: { type: "boolean" } } },
+        outputSchema: {
+          type: "object",
+          properties: { ok: { type: "boolean" } },
+        },
         resource: "player",
         risk: "low",
         operation: "ban",
@@ -996,8 +1009,14 @@ describe("BasicClient", () => {
       description: "Detailed test function description",
       operationId: "test.fn",
       deprecated: undefined,
-      inputSchema: JSON.stringify({ type: "object", properties: { id: { type: "string" } } }),
-      outputSchema: JSON.stringify({ type: "object", properties: { ok: { type: "boolean" } } }),
+      inputSchema: JSON.stringify({
+        type: "object",
+        properties: { id: { type: "string" } },
+      }),
+      outputSchema: JSON.stringify({
+        type: "object",
+        properties: { ok: { type: "boolean" } },
+      }),
       resource: "player",
       risk: "low",
       operation: "ban",

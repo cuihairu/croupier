@@ -259,8 +259,7 @@ export default function RolesV2() {
             },
           ]}
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -269,8 +268,7 @@ export default function RolesV2() {
           })}
           name="description"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
       </ModalForm>
 

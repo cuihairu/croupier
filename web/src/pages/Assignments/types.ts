@@ -29,6 +29,8 @@ export type AssignmentItem = {
   canary?: CanaryConfig;
   assignedAt?: string;
   updatedAt?: string;
+  /** 函数目录总开关已禁用（enabled=false）：本页不可勾选，行内标注 */
+  directoryDisabled?: boolean;
 };
 
 export type AssignmentGroup = {

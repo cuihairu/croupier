@@ -77,11 +77,12 @@ func TestRedisOwnerStore_OwnerSemantics(t *testing.T) {
 	r.SetSelfID("inst-1")
 
 	// Claim + Find + Resolve（self 直返）。
-	if err := r.ClaimOwner(ctx, "ag-1", "g1", "prod", "inst-1", 5); err != nil {
+	labels := map[string]string{"role": "capture", "zone": "z1"}
+	if err := r.ClaimOwner(ctx, "ag-1", "g1", "prod", "inst-1", 5, labels); err != nil {
 		t.Fatalf("claim: %v", err)
 	}
 	rec, err := r.FindOwner(ctx, "ag-1")
-	if err != nil || rec == nil || rec.InstanceID != "inst-1" || rec.GameID != "g1" || rec.OwnerEpoch != 5 {
+	if err != nil || rec == nil || rec.InstanceID != "inst-1" || rec.GameID != "g1" || rec.OwnerEpoch != 5 || rec.LabelsMap["role"] != "capture" {
 		t.Fatalf("find owner: %+v err=%v", rec, err)
 	}
 	peer, err := r.ResolveOwner(ctx, "ag-1")
@@ -106,7 +107,7 @@ func TestRedisOwnerStore_OwnerSemantics(t *testing.T) {
 	}
 
 	// 被接管：inst-2 claim 后，inst-1 的 Touch/Release 不得影响新归属。
-	if err := r.ClaimOwner(ctx, "ag-1", "g1", "prod", "inst-2", 6); err != nil {
+	if err := r.ClaimOwner(ctx, "ag-1", "g1", "prod", "inst-2", 6, nil); err != nil {
 		t.Fatalf("takeover claim: %v", err)
 	}
 	_ = r.Touch(ctx, "ag-1") // 不应续命/改归属
@@ -116,10 +117,10 @@ func TestRedisOwnerStore_OwnerSemantics(t *testing.T) {
 	}
 
 	// ListAliveOwners + CountAgentsByOwner。
-	if err := r.ClaimOwner(ctx, "ag-1", "g1", "prod", "inst-1", 5); err != nil {
+	if err := r.ClaimOwner(ctx, "ag-1", "g1", "prod", "inst-1", 5, nil); err != nil {
 		t.Fatalf("claim1: %v", err)
 	}
-	if err := r.ClaimOwner(ctx, "ag-2", "g1", "prod", "inst-2", 5); err != nil {
+	if err := r.ClaimOwner(ctx, "ag-2", "g1", "prod", "inst-2", 5, nil); err != nil {
 		t.Fatalf("claim2: %v", err)
 	}
 	records, err := r.ListAliveOwners(ctx)

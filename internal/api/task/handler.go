@@ -29,6 +29,22 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// OperatorOptions handles GET /api/v1/tasks/operator-options（#23）：
+// 当前 scope 下操作者 distinct 聚合，供 /ops/jobs 过滤下拉消费。
+func (h *Handler) OperatorOptions(c *gin.Context) {
+	var req ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.OperatorOptions(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) Start(c *gin.Context) {
 	var req StartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

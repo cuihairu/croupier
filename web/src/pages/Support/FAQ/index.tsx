@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { App, Card, Space, Button, Input, Switch, Form } from 'antd';
+import { App, Card, Space, Button, Input, Select, Switch, Form } from 'antd';
 import {
   ModalForm,
   PageContainer,
@@ -211,17 +211,34 @@ export default function SupportFAQPage() {
               }
               epoch={optionEpoch}
             />
-            <Input
+            <Select
               placeholder={intl.formatMessage({
                 id: 'pages.supportFaq.search.visible',
                 defaultMessage: '是否可见(true/false)',
               })}
-              value={visible}
-              onChange={(e) => {
-                setVisible(e.target.value);
+              value={visible || undefined}
+              onChange={(v) => {
+                setVisible(v ?? '');
                 actionRef.current?.setPageInfo?.({ current: 1 });
               }}
-              style={{ width: 180 }}
+              allowClear
+              style={{ width: 140 }}
+              options={[
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFaq.search.visible.true',
+                    defaultMessage: '可见',
+                  }),
+                  value: 'true',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFaq.search.visible.false',
+                    defaultMessage: '隐藏',
+                  }),
+                  value: 'false',
+                },
+              ]}
             />
             <Button
               type="primary"

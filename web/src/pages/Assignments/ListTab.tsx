@@ -73,6 +73,8 @@ export default function ListTab({
               type: 'checkbox',
               selectedRowKeys: selected,
               onChange: onSelectionChange,
+              // 目录总开关禁用的函数不可勾选（白名单调整需先在函数目录启用）
+              getCheckboxProps: (record) => ({ disabled: !!record.directoryDisabled }),
             }}
           />
         </Card>

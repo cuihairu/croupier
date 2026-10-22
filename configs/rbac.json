@@ -1,12 +1,7 @@
 {
   "allow": {
-    "user:dev": [
-      "*",
-      "job:cancel"
-    ],
-    "user:admin": [
-      "*"
-    ],
+    "user:dev": ["*", "job:cancel"],
+    "user:admin": ["*"],
     "role:admin": [
       "*",
       "admin:all",
@@ -62,13 +57,7 @@
       "item:read",
       "currency:read"
     ],
-    "role:developer": [
-      "functions:read",
-      "schemas:read",
-      "schemas:write"
-    ],
-    "role:tech_lead": [
-      "schemas:read"
-    ]
+    "role:developer": ["functions:read", "schemas:read", "schemas:write"],
+    "role:tech_lead": ["schemas:read"]
   }
 }

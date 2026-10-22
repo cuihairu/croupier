@@ -13,8 +13,9 @@ import (
 
 	agent "github.com/cuihairu/croupier/internal/agent"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
+	"github.com/cuihairu/croupier/internal/drivers"
+	"github.com/cuihairu/croupier/internal/drivers/openapi"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	"github.com/cuihairu/croupier/internal/platform/openapi"
 	"github.com/cuihairu/croupier/internal/platform/provider"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"gopkg.in/yaml.v3"
@@ -99,25 +100,23 @@ func (m *ProviderManager) Load(ctx context.Context) error {
 
 // initProvider initializes a single provider.
 func (m *ProviderManager) initProvider(ctx context.Context, name string, entry ProviderEntry) error {
-	var p provider.Provider
-
-	switch entry.Type {
-	case "openapi":
-		p = openapi.NewProvider()
-	default:
-		return fmt.Errorf("unsupported provider type: %s", entry.Type)
+	providerType := strings.TrimSpace(entry.Type)
+	if providerType == "" {
+		providerType = "openapi"
 	}
-
-	// Build provider config
 	providerConfig := provider.ProviderConfig{
 		Enabled: entry.Enabled,
-		Type:    entry.Type,
+		Type:    providerType,
 		Config:  m.expandEnvVars(entry.Config),
 	}
-
-	// Initialize provider
-	if err := p.Init(ctx, providerConfig); err != nil {
-		return fmt.Errorf("provider init failed: %w", err)
+	driver, err := drivers.NewWithContext(ctx, providerType, drivers.Config{Raw: cloneConfigMap(providerConfig.Config)})
+	if err != nil {
+		return err
+	}
+	p, ok := driver.(provider.Provider)
+	if !ok {
+		_ = driver.Close()
+		return fmt.Errorf("provider type %s does not implement the provider interface", providerType)
 	}
 
 	m.providers[name] = p
@@ -125,13 +124,14 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 	// Register methods as functions in LocalStore
 	methods := p.SupportedMethods()
 	funcs := make([]*sdkv1.ProviderFunctionDescriptor, 0, len(methods))
-
-	// Try to get method details from OpenAPI provider (if available)
 	var methodDetails map[string]*openapi.MethodDetails
-	var infoVersion string
 	if openapiProvider, ok := p.(*openapi.Provider); ok {
 		methodDetails = openapiProvider.GetMethodDetails()
-		infoVersion = openapiProvider.InfoVersion()
+	}
+
+	var infoVersion string
+	if versioner, ok := p.(interface{ InfoVersion() string }); ok {
+		infoVersion = versioner.InfoVersion()
 	}
 
 	// Version resolution chain for this provider's functions:
@@ -299,6 +299,14 @@ func (m *ProviderManager) SyncExtensionProviders(ctx context.Context, entries ma
 		m.extensionNames[name] = struct{}{}
 	}
 	return nil
+}
+
+func cloneConfigMap(config map[string]interface{}) map[string]any {
+	out := make(map[string]any, len(config))
+	for key, value := range config {
+		out[key] = value
+	}
+	return out
 }
 
 func envBool(key string) bool {

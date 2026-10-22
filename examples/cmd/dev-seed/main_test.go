@@ -23,7 +23,14 @@ func openTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := model.AutoMigrate(gdb); err != nil {
+	if err := gdb.AutoMigrate(
+		&model.Game{}, &model.GameEnvBinding{},
+		&model.Admin{}, &model.AdminRole{}, &model.Permission{}, &model.Role{}, &model.RolePermission{},
+		&model.Announcement{}, &model.AnnouncementRead{}, &model.Message{},
+		&model.FAQ{}, &model.FAQCategory{}, &model.Function{}, &model.PageSpec{},
+		&model.Player{}, &model.Ticket{}, &model.TicketComment{}, &model.Feedback{}, &model.Bug{},
+		&model.TaskSchedule{}, &model.ConfigVersion{},
+	); err != nil {
 		t.Fatalf("automigrate: %v", err)
 	}
 	return gdb

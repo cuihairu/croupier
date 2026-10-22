@@ -77,7 +77,11 @@ function mergeRetry(
   base: RetryConfig | undefined,
   override: RetryConfig | undefined,
 ): Required<RetryConfig> {
-  const merged: Required<RetryConfig> = { ...DEFAULT_RETRY, ...(base || {}), ...(override || {}) };
+  const merged: Required<RetryConfig> = {
+    ...DEFAULT_RETRY,
+    ...(base || {}),
+    ...(override || {}),
+  };
   if (merged.maxAttempts < 1) merged.maxAttempts = 1;
   if (merged.backoffMultiplier <= 0) merged.backoffMultiplier = 2.0;
   return merged;
@@ -92,7 +96,10 @@ function retryDelayMs(attempt: number, retry: Required<RetryConfig>): number {
   return Math.max(0, delay);
 }
 
-function isRetryableFailure(error: unknown, retry: Required<RetryConfig>): boolean {
+function isRetryableFailure(
+  error: unknown,
+  retry: Required<RetryConfig>,
+): boolean {
   if (error instanceof InvokerError) {
     if (error.status === 0) return true; // network-level failure
     if (error.status === 429 || error.status >= 500) return true;
@@ -117,10 +124,15 @@ async function withRetry<T>(
       return await operation();
     } catch (error) {
       lastError = error;
-      if (attempt === retry.maxAttempts - 1 || !isRetryableFailure(error, retry)) {
+      if (
+        attempt === retry.maxAttempts - 1 ||
+        !isRetryableFailure(error, retry)
+      ) {
         throw error;
       }
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt, retry)));
+      await new Promise((resolve) =>
+        setTimeout(resolve, retryDelayMs(attempt, retry)),
+      );
     }
   }
   throw lastError;
@@ -168,7 +180,12 @@ export class InvokerError extends Error {
   status: number;
   code?: string;
   details?: unknown;
-  constructor(message: string, status: number, code?: string, details?: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    details?: unknown,
+  ) {
     super(message);
     this.name = "InvokerError";
     this.status = status;
@@ -193,7 +210,8 @@ function buildHeaders(
   };
   const has = (name: string) =>
     Object.keys(merged).some((key) => key.toLowerCase() === name);
-  if (config.token && !has("authorization")) merged.Authorization = `Bearer ${config.token}`;
+  if (config.token && !has("authorization"))
+    merged.Authorization = `Bearer ${config.token}`;
   if (config.gameId && !has("x-game-id")) merged["X-Game-ID"] = config.gameId;
   if (config.env && !has("x-env")) merged["X-Env"] = config.env;
   return merged;
@@ -238,7 +256,9 @@ export class Invoker {
     if (/^tcp:\/\//i.test(rawBaseUrl)) {
       throw new Error("Invoker baseUrl must be an HTTP(S) Server address");
     }
-    const withScheme = rawBaseUrl.includes("://") ? rawBaseUrl : `http://${rawBaseUrl}`;
+    const withScheme = rawBaseUrl.includes("://")
+      ? rawBaseUrl
+      : `http://${rawBaseUrl}`;
     const parsed = new URL(withScheme);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       throw new Error("Invoker baseUrl must be an HTTP(S) Server address");
@@ -312,16 +332,30 @@ export class Invoker {
         async () => {
           const { signal, cancel } = withTimeout(timeout);
           try {
-            const res = await fetch(`${this.config.baseUrl}/functions/${encodeURIComponent(functionId)}/invoke`, {
-              method: "POST",
-              headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
-              body: JSON.stringify({ params: payload ?? {} }),
-              signal,
-            });
+            const res = await fetch(
+              `${this.config.baseUrl}/functions/${encodeURIComponent(functionId)}/invoke`,
+              {
+                method: "POST",
+                headers: buildHeaders(
+                  this.config,
+                  options,
+                  options?.idempotencyKey
+                    ? { "Idempotency-Key": options.idempotencyKey }
+                    : undefined,
+                ),
+                body: JSON.stringify({ params: payload ?? {} }),
+                signal,
+              },
+            );
             if (!res.ok) throw await parseError(res);
             const data: unknown = await res.json();
             if (!data || typeof data !== "object" || !("result" in data)) {
-              throw new InvokerError("server did not return a result", 502, "no_result", data);
+              throw new InvokerError(
+                "server did not return a result",
+                502,
+                "no_result",
+                data,
+              );
             }
             const { result, traceId } = data as {
               result: unknown;
@@ -336,7 +370,8 @@ export class Invoker {
         options?.retry,
       );
     } catch (error) {
-      if (error instanceof InvokerError && error.code === "schema_validation") throw error;
+      if (error instanceof InvokerError && error.code === "schema_validation")
+        throw error;
       throw error;
     }
   }
@@ -363,14 +398,26 @@ export class Invoker {
         try {
           const res = await fetch(`${this.config.baseUrl}/tasks`, {
             method: "POST",
-            headers: buildHeaders(this.config, options, options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined),
+            headers: buildHeaders(
+              this.config,
+              options,
+              options?.idempotencyKey
+                ? { "Idempotency-Key": options.idempotencyKey }
+                : undefined,
+            ),
             body: JSON.stringify(body),
             signal,
           });
           if (!res.ok) throw await parseError(res);
           const data: any = await res.json();
           const taskId = data?.taskId;
-          if (!taskId) throw new InvokerError("server did not return a taskId", 502, "no_task_id", data);
+          if (!taskId)
+            throw new InvokerError(
+              "server did not return a taskId",
+              502,
+              "no_task_id",
+              data,
+            );
           return taskId as string;
         } finally {
           cancel();
@@ -382,25 +429,39 @@ export class Invoker {
   }
 
   /** Get the current Server-persisted task state. GET /tasks/:id */
-  async getTaskStatus(taskId: string, options?: InvokeTaskOptions): Promise<TaskStatus> {
+  async getTaskStatus(
+    taskId: string,
+    options?: InvokeTaskOptions,
+  ): Promise<TaskStatus> {
     if (!taskId) throw new Error("getTaskStatus requires a taskId");
     const timeout = options?.timeout ?? this.config.timeout ?? DEFAULT_TIMEOUT;
     return withRetry(
       async () => {
         const { signal, cancel } = withTimeout(timeout);
         try {
-          const res = await fetch(`${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}`, {
-            method: "GET",
-            headers: buildHeaders(this.config, options),
-            signal,
-          });
+          const res = await fetch(
+            `${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}`,
+            {
+              method: "GET",
+              headers: buildHeaders(this.config, options),
+              signal,
+            },
+          );
           if (!res.ok) throw await parseError(res);
           const data: unknown = await res.json();
           if (!data || typeof data !== "object") {
-            throw new InvokerError("server task status response must be an object", 502, "invalid_task_status", data);
+            throw new InvokerError(
+              "server task status response must be an object",
+              502,
+              "invalid_task_status",
+              data,
+            );
           }
           const status = data as Omit<TaskStatus, "id"> & { id?: unknown };
-          return { ...status, id: typeof status.id === "string" && status.id ? status.id : taskId };
+          return {
+            ...status,
+            id: typeof status.id === "string" && status.id ? status.id : taskId,
+          };
         } finally {
           cancel();
         }
@@ -416,14 +477,19 @@ export class Invoker {
    *
    * pollIntervalMs overrides the default 500ms poll cadence (useful in tests).
    */
-  async *streamTask(taskId: string, options?: InvokeTaskOptions & { pollIntervalMs?: number }): AsyncIterable<TaskEvent> {
+  async *streamTask(
+    taskId: string,
+    options?: InvokeTaskOptions & { pollIntervalMs?: number },
+  ): AsyncIterable<TaskEvent> {
     if (!taskId) throw new Error("streamTask requires a taskId");
     const timeout = this.config.timeout ?? DEFAULT_TIMEOUT;
     let afterSeq = 0;
     const terminal = new Set(["completed", "failed", "cancelled", "timed_out"]);
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const url = new URL(`${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}/events`);
+      const url = new URL(
+        `${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}/events`,
+      );
       url.searchParams.set("after_seq", String(afterSeq));
       const { signal, cancel } = withTimeout(timeout);
       let res: Response;
@@ -461,12 +527,15 @@ export class Invoker {
     const timeout = options?.timeout ?? this.config.timeout ?? DEFAULT_TIMEOUT;
     const { signal, cancel } = withTimeout(timeout);
     try {
-      const res = await fetch(`${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}/cancel`, {
-        method: "POST",
-        headers: buildHeaders(this.config, options),
-        body: "{}",
-        signal,
-      });
+      const res = await fetch(
+        `${this.config.baseUrl}/tasks/${encodeURIComponent(taskId)}/cancel`,
+        {
+          method: "POST",
+          headers: buildHeaders(this.config, options),
+          body: "{}",
+          signal,
+        },
+      );
       if (!res.ok) throw await parseError(res);
     } finally {
       cancel();
@@ -483,7 +552,10 @@ export function createInvoker(config: InvokerConfig): Invoker {
 // instead of using async iteration. Prefer `for await (const ev of streamTask())`.
 export class InvokerEventSource extends EventEmitter {
   private cancelled = false;
-  constructor(private invoker: Invoker, private taskId: string) {
+  constructor(
+    private invoker: Invoker,
+    private taskId: string,
+  ) {
     super();
   }
   async run(): Promise<void> {
@@ -491,7 +563,9 @@ export class InvokerEventSource extends EventEmitter {
       for await (const ev of this.invoker.streamTask(this.taskId)) {
         if (this.cancelled) break;
         this.emit("event", ev);
-        if (["completed", "failed", "cancelled", "timed_out"].includes(ev.type)) {
+        if (
+          ["completed", "failed", "cancelled", "timed_out"].includes(ev.type)
+        ) {
           this.emit("done", ev);
           return;
         }

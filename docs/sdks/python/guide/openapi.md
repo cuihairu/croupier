@@ -49,4 +49,4 @@ handler 按 operationId（或 path 回退派生的 ID）查找；也可以用 `h
 
 参见 `sdks/python/examples/game_demo.py` 与 `sdks/python/tests/test_openapi.py`。
 
-完整契约见 [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md)。
+完整契约见 [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md)。

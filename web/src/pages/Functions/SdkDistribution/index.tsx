@@ -86,7 +86,8 @@ function LanguageCard({ stats }: { stats: SdkLanguageStats }) {
                 style={{
                   width: `${Math.round((version.count / maxCount) * 100)}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, #1677ff88, #1677ff)',
+                  background:
+                    'linear-gradient(90deg, rgba(var(--brand-2-rgb), 0.53), var(--brand-2))',
                 }}
               />
             </div>

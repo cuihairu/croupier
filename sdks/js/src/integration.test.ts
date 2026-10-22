@@ -9,7 +9,8 @@ import net from "node:net";
 
 import { BasicClient, FunctionDescriptor } from "./index";
 
-const RUN_INTEGRATION_TESTS = process.env.CROUPIER_RUN_INTEGRATION_TESTS === "1";
+const RUN_INTEGRATION_TESTS =
+  process.env.CROUPIER_RUN_INTEGRATION_TESTS === "1";
 const AGENT_ADDR = process.env.CROUPIER_AGENT_ADDR || "tcp://127.0.0.1:19091";
 const INTEGRATION_TEST_TIMEOUT = 15000; // 15 seconds
 const integrationDescribe = RUN_INTEGRATION_TESTS ? describe : describe.skip;

@@ -6,20 +6,20 @@
 
 ## 来源路径
 
-| 当前路径 | 原路径 |
-| --- | --- |
-| `web/DOCUMENTATION_INDEX_v0.1.6.md` | `web/DOCUMENTATION_INDEX_v0.1.6.md` |
-| `web/EMAIL_TEMPLATE_v0.1.6.md` | `web/EMAIL_TEMPLATE_v0.1.6.md` |
-| `web/GIT_TAG_v0.1.6.md` | `web/GIT_TAG_v0.1.6.md` |
-| `web/QUICK_REFERENCE_v0.1.6.md` | `web/QUICK_REFERENCE_v0.1.6.md` |
-| `web/RELEASE_CHECKLIST_v0.1.6.md` | `web/RELEASE_CHECKLIST_v0.1.6.md` |
-| `web/RELEASE_NOTES_v0.1.6.md` | `web/RELEASE_NOTES_v0.1.6.md` |
-| `web/RELEASE_v0.1.6.md` | `web/RELEASE_v0.1.6.md` |
-| `web/RELEASE_v0.1.6_CN.md` | `web/RELEASE_v0.1.6_CN.md` |
-| `web/docs/PHASE1_COMPLETION_REPORT.md` | `web/docs/PHASE1_COMPLETION_REPORT.md` |
-| `web/docs/PHASE1_FINAL_REPORT.md` | `web/docs/PHASE1_FINAL_REPORT.md` |
+| 当前路径                                 | 原路径                                   |
+| ---------------------------------------- | ---------------------------------------- |
+| `web/DOCUMENTATION_INDEX_v0.1.6.md`      | `web/DOCUMENTATION_INDEX_v0.1.6.md`      |
+| `web/EMAIL_TEMPLATE_v0.1.6.md`           | `web/EMAIL_TEMPLATE_v0.1.6.md`           |
+| `web/GIT_TAG_v0.1.6.md`                  | `web/GIT_TAG_v0.1.6.md`                  |
+| `web/QUICK_REFERENCE_v0.1.6.md`          | `web/QUICK_REFERENCE_v0.1.6.md`          |
+| `web/RELEASE_CHECKLIST_v0.1.6.md`        | `web/RELEASE_CHECKLIST_v0.1.6.md`        |
+| `web/RELEASE_NOTES_v0.1.6.md`            | `web/RELEASE_NOTES_v0.1.6.md`            |
+| `web/RELEASE_v0.1.6.md`                  | `web/RELEASE_v0.1.6.md`                  |
+| `web/RELEASE_v0.1.6_CN.md`               | `web/RELEASE_v0.1.6_CN.md`               |
+| `web/docs/PHASE1_COMPLETION_REPORT.md`   | `web/docs/PHASE1_COMPLETION_REPORT.md`   |
+| `web/docs/PHASE1_FINAL_REPORT.md`        | `web/docs/PHASE1_FINAL_REPORT.md`        |
 | `web/docs/TABEDITOR_REFACTOR_SUMMARY.md` | `web/docs/TABEDITOR_REFACTOR_SUMMARY.md` |
-| `web/docs/TABEDITOR_TEST_GUIDE.md` | `web/docs/TABEDITOR_TEST_GUIDE.md` |
+| `web/docs/TABEDITOR_TEST_GUIDE.md`       | `web/docs/TABEDITOR_TEST_GUIDE.md`       |
 
 ## 入口
 

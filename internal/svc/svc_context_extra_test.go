@@ -115,7 +115,7 @@ func TestNewGameRouter_NameForGameWithPrefix(t *testing.T) {
 	cfg.Database.GameDBPrefix = "game_"
 
 	db := setupTestDB(t)
-	router := newGameRouter(cfg, db)
+	router := newGameRouter(cfg, db, nil)
 	require.NotNil(t, router)
 	require.NotNil(t, router.NameForGame)
 

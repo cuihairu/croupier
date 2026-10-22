@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P1 登录 · croupier 手机端原型</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="glyphs">▂▄▆ &nbsp;5G&nbsp;&nbsp;100%</span></div>
+
+  <!-- 品牌：中性占位 -->
+  <div style="display:flex; flex-direction:column; align-items:center; margin-top:64px; gap:14px;">
+    <div class="brand-tile">C</div>
+    <div class="wordmark">Croupier <span class="dim">GM</span></div>
+    <div style="font-size:12.5px; color:var(--fg-3);">游戏运营管理台 · 自托管</div>
+  </div>
+
+  <div style="padding:44px 24px 0;">
+    <div style="font-size:24px; font-weight:800; letter-spacing:-0.4px;">欢迎回来</div>
+    <div style="font-size:13px; color:var(--fg-3); margin:6px 0 26px;">登录以继续 · 凭据仅保存在本机钥匙串</div>
+
+    <div class="field">
+      <label>服务器地址</label>
+      <div class="input">https://gm.example.com<span class="suffix" style="color:var(--ok);">● 42ms</span></div>
+    </div>
+    <div class="field">
+      <label>账号</label>
+      <div class="input"><span class="ph">admin</span></div>
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <div class="input"><span class="ph">••••••••</span><span class="suffix">忘记密码</span></div>
+    </div>
+
+    <div class="btn" style="margin-top:8px;">登 录</div>
+    <div class="btn ghost" style="margin-top:10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:8px;"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      企业 SSO 登录
+    </div>
+  </div>
+
+  <div style="flex:1"></div>
+  <div style="text-align:center; font-size:11px; color:var(--fg-3); padding-bottom:26px; font-family:var(--mono);">v1.4.2 · TLS 已验证</div>
+  <div class="homebar"></div>
+</div>
+
+<div class="notes">
+  <h3>P1 登录 · 设计说明</h3>
+  <div class="blk"><div class="bt">布局</div><p>单列纵向：品牌区（占位 tile + 字标）→ 表单（服务器地址 / 账号 / 密码）→ 主按钮 → SSO 次按钮。品牌区上留白 64px 建立仪式感；表单区左右 24px 边距。</p></div>
+  <div class="blk"><div class="bt">关键交互</div><p>① 服务器地址为第一字段（自托管定位，连上谁比谁登录更优先），内置 TCP/HTTP 探测并显示 RTT 与可达状态点，探测失败禁止提交；② 登录成功后凭据入系统钥匙串，支持生物识别快捷重登（Face ID）；③ SSO 为可选入口，LDAP/OIDC 由服务端配置决定显隐。</p></div>
+  <div class="blk"><div class="bt">信息层级</div><p>探测状态（绿点+RTT）位于字段行内右端——它是自托管用户最先要确认的信息，优先级高于占位文案；版本号与 TLS 状态沉底为 mono 小字，仅排查时需要。</p></div>
+</div>
+
+</body>
+</html>

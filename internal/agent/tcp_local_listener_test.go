@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
@@ -589,4 +589,41 @@ func TestConvertProtoFunctions(t *testing.T) {
 		assert.Equal(t, "func-1", result[0].Id)
 		assert.Equal(t, "func-2", result[1].Id)
 	})
+}
+
+// newKeepaliveTestProvider 建立一条经本地网关的真实 TCP 会话（provider 端
+// handler 可控），返回 (store, session)。provider 端通过 agent 侧握手入池，
+// 语义与生产一致。（keepalive 实现已迁 agents/sidecar；该 helper 依赖网关
+// 监听器，留此供 internal 侧路由/会话类用例复用。）
+func newKeepaliveTestProvider(t *testing.T, serviceID string, handler func(msgID uint32, body []byte) ([]byte, error)) (*ProviderSessionStore, *ProviderSession) {
+	t.Helper()
+	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{Address: "127.0.0.1:0"}, nil, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, listener.Close()) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = listener.Serve(ctx) }()
+
+	conn, err := net.Dial("tcp", listener.Addr())
+	require.NoError(t, err)
+	provider := tcptr.NewMuxConn(conn, nil, transportcore.HandlerFunc(
+		func(_ context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
+			return handler(msgID, body)
+		}))
+	go func() { _ = provider.Run(ctx) }()
+	t.Cleanup(func() { _ = provider.Close() })
+
+	connectBody, err := proto.Marshal(&sdkv1.ProviderConnectRequest{
+		ServiceId: serviceID,
+		Version:   "1.0.0",
+		Functions: []*sdkv1.ProviderFunctionDescriptor{{Id: "f.ping", Version: "1.0.0"}},
+	})
+	require.NoError(t, err)
+	_, _, err = provider.Call(ctx, protocol.MsgProviderConnectRequest, connectBody)
+	require.NoError(t, err)
+
+	session, ok := listener.SessionStore().GetByServiceID(serviceID)
+	require.True(t, ok)
+	return listener.SessionStore(), session
 }

@@ -25,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: "10.0"
       - run: dotnet build --configuration Release
@@ -44,7 +44,7 @@ jobs:
         run: |
           test -f "sdks/csharp/TestResults/codecov/coverage.xml"
           grep -q 'filename="sdks/csharp/src/Croupier.Sdk/' "sdks/csharp/TestResults/codecov/coverage.xml"
-      - uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: sdks/csharp/TestResults/codecov/coverage.xml

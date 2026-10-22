@@ -60,3 +60,15 @@ type ListResponse struct {
 type GetRequest struct {
 	ID int64 `uri:"id"`
 }
+
+// OperatorOptionsItem GET /api/v1/execution-logs/operator-options 的选项行。
+type OperatorOptionsItem struct {
+	Value string `json:"value"`
+	Label string `json:"label,omitempty"`
+	Count int64  `json:"count"`
+}
+
+// OperatorOptionsResponse 操作人聚合选项响应（#33）。
+type OperatorOptionsResponse struct {
+	Items []OperatorOptionsItem `json:"items"`
+}

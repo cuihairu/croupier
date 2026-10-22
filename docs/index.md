@@ -1,88 +1,88 @@
 ---
 layout: home
-title: 首页
+title: Home
 hero:
   name: Croupier
   image:
     src: /logo.png
-  tagline: 分布式游戏运营控制面与 Agent 协同平台
+  tagline: Distributed game operations control plane and agent collaboration platform
   actions:
-    - text: 快速开始 →
-      link: /guide/quick-start
+    - text: Quick Start →
+      link: /guide
       theme: primary
-    - text: SDK 指南
-      link: /sdks/
+    - text: SDK Guide
+      link: /sdks
       theme: secondary
-    - text: API 参考
-      link: /api/
+    - text: API Reference
+      link: /api
       theme: secondary
 features:
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><rect x="3" y="4.5" width="18" height="13" rx="2"/><path d="M7 9h5"/><path d="M7 13h7"/><circle cx="17" cy="9" r="1.6"/><circle cx="17" cy="13" r="1.6"/><path d="M9 17.5v2"/><path d="M15 17.5v2"/></svg>'
-    title: 控制面与 Agent 协同
-    details: Server 负责权限、审批、审计、配置和函数路由，Agent 通过统一 session 链路接入游戏服务与节点能力。
+    title: Control plane and agent collaboration
+    details: The Server owns permissions, approvals, audit, configuration and function routing; Agents connect game services and node capabilities through a unified session transport.
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9.5 3.5h5v3h-5z"/><rect x="4.5" y="6.5" width="15" height="14" rx="2"/><path d="M8.5 11.5h7"/><path d="M8.5 15.5h4.5"/><path d="M15.5 15.5h1.5"/></svg>'
-    title: 函数注册驱动
-    details: OpenAPI/JSON Schema 作为函数契约输入，Server 识别资源能力并生成可直接发布、可局部编辑的默认业务页面。
+    title: Registration-driven functions
+    details: OpenAPI/JSON Schema act as the function contract input; the Server recognizes resource capabilities and generates default business pages that can be published directly and edited in place.
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M12 3 5 6v5.2c0 4.4 2.9 7.4 7 8.8 4.1-1.4 7-4.4 7-8.8V6l-7-3z"/><path d="M9 10.5h6"/><path d="M9 14h6"/></svg>'
-    title: 双层政策架构
-    details: YAML 默认政策与数据库覆盖策略结合，支持低/中/高/危险四级风险控制。
+    title: Two-layer policy architecture
+    details: YAML defaults combined with database override policies, supporting low / medium / high / critical four-level risk control.
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9.5 14.5H7a2.5 2.5 0 0 1 0-5h2.5"/><path d="M14.5 9.5H17a2.5 2.5 0 0 1 0 5h-2.5"/><path d="M8.5 12h7"/><circle cx="12" cy="12" r="9" stroke-dasharray="2.5 3.5"/></svg>'
-    title: 完整的审计链
-    details: 所有操作记录审计日志，高风险操作需要双人审批，支持哈希链防篡改。
+    title: Complete audit chain
+    details: Every operation is written to the audit log, high-risk operations require dual approval, and a hash chain prevents tampering.
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M4 20V11"/><path d="M9.5 20V5"/><path d="M15 20v-6"/><path d="M20.5 20V8"/><path d="m3.5 8.5 5-4 5 4.5 6-5.5"/></svg>'
-    title: 数据分析链路
-    details: ingest、worker、Redis Streams 与 ClickHouse 组成独立分析链路，文档单独归入 Analytics 入口。
+    title: Analytics pipeline
+    details: ingest, worker, Redis Streams and ClickHouse form a standalone analytics pipeline; its docs live under the Analytics entry.
 footer: Apache-2.0 License | Copyright © 2024-present Croupier
 ---
 
-## 什么是 Croupier
+## What is Croupier
 
-Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
+Croupier is a Server / Agent / SDK platform for game operations and control scenarios, serving multiple games and environments inside a single game company by default. The architecture has converged on "unified session transport":
 
-- `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
-- `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
-- 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
+- `Agent <-> Server`: `TCP session` by default, `TLS` enabled by default
+- `SDK <-> Agent`: `TCP session` by default, `TLS` off by default and enabled on demand
+- Both links share the same session transport foundation and differ only in the first handshake message and business semantics of the sub-protocol
 
-## 系统架构
+## System Architecture
 
-入口按受众分为**两个独立的面**，不要合并成一个「负载均衡层」：
+Entries are split by audience into **two independent planes** — do not merge them into one "load balancer layer":
 
-- **Web 控制台面**（面向运营/管理员，公网或办公网）：L7 `dashboard nginx`，
-  按请求分流 HTTP API / SSE 到 Server 的 `:18780`
-- **Agent 面**（内网，面向游戏 VPC 出站连接）：L4 `haproxy`（`:19090`），
-  按 TCP 长连接打散到 Server 的 control listener；连接语义是「断线重连即漂移」，
-  与 HTTP 的按请求分流完全不同
+- **Web console plane** (for operators/administrators, public or office network): L7 `dashboard nginx`,
+  routing HTTP API / SSE per request to the Server's `:18780`
+- **Agent plane** (intranet, outbound connections from game VPCs): L4 `haproxy` (`:19090`),
+  spreading TCP long connections across Server control listeners; connection semantics are
+  "reconnect equals failover", completely different from per-request HTTP routing
 
 ```mermaid
 graph TB
-  subgraph "展示层"
+  subgraph "Presentation"
     UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
   end
 
-  subgraph "入口 · Web 控制台面（L7，按请求分流）"
+  subgraph "Entry · Web console plane (L7, per-request routing)"
     NGINX[dashboard nginx<br/>HTTP API / SSE → :18780]
   end
 
-  subgraph "入口 · Agent 面（L4，内网，按连接打散）"
-    HAPROXY[haproxy :19090<br/>TCP 长连接 / 主动健康检查]
+  subgraph "Entry · Agent plane (L4, intranet, per-connection spreading)"
+    HAPROXY[haproxy :19090<br/>TCP long connections / active health checks]
   end
 
-  subgraph "控制层（可多实例 HA）"
+  subgraph "Control layer (multi-instance HA)"
     ServerA["Server A<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
     ServerB["Server B<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
-    ServerA <-.->|实例互联<br/>转发 + fencing| ServerB
+    ServerA <-.->|inter-instance<br/>forwarding + fencing| ServerB
   end
 
-  subgraph "共享状态"
-    Shared[(共享目录<br/>成员表 / 注册表 / DB / Redis)]
+  subgraph "Shared state"
+    Shared[(shared storage<br/>membership / registry / DB / Redis)]
   end
 
-  subgraph "代理层（游戏 VPC，只出不进）"
+  subgraph "Proxy layer (game VPC, outbound only)"
     Agent1[Agent 1<br/>Session Client + Local Gateway]
     Agent2[Agent 2<br/>Session Client + Local Gateway]
   end
 
-  subgraph "业务层"
+  subgraph "Business layer"
     GS1[Game Server A<br/>SDK / Third-party App]
     GS2[Game Server B<br/>SDK / Third-party App]
     GS3[Game Server C<br/>SDK / Third-party App]
@@ -102,127 +102,122 @@ graph TB
   GS3 -->|TCP Session| Agent1
 ```
 
-> 两个入口面互不共享：Web 面的 nginx 不碰 Agent 流量，Agent 面的 haproxy
-> 不碰 HTTP。L4/L7 选型与 VRRP 消除 LB 单点的论证见
-> [负载均衡](/operations/load-balancing)。
+> The two entry planes do not overlap: the web plane's nginx never touches Agent traffic, and the
+> Agent plane's haproxy never touches HTTP. The L4/L7 selection rationale and removing the LB
+> single point via VRRP are covered in [Operations](/operations).
 
-> Server 支持多实例高可用部署（`cluster.enabled`）：成员发现走共享存储（无
-> seed、无静态 peers），请求落到非 owner 实例时经实例互联转发（一跳限制 +
-> epoch fencing）。单实例部署默认关闭集群，零开销。详见
-> [Server 多实例高可用设计](/architecture/server-ha-multi-instance.md)。
+> The Server supports multi-instance high-availability deployment (`cluster.enabled`): member
+> discovery goes through shared storage (no seeds, no static peers), and requests landing on a
+> non-owner instance are forwarded over the inter-instance link (one-hop limit + epoch fencing).
+> Single-instance deployments have clustering off by default with zero overhead. See
+> Server multi-instance HA design.
 
-关键边界说明：
+Key boundary notes:
 
-- `Server` 不再依赖反向直连 `Agent` 暴露的 `rpc_addr`
-- `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`
-- `Server -> Agent` 的 `Invoke / StartTask / CancelTask / Ops` 都应复用既有 `Agent-Server` session
+- The `Server` no longer depends on reverse connections to the `rpc_addr` exposed by `Agent`
+- The `Agent`'s local listener only serves `GameServer / SDK / third-party applications`
+- `Server -> Agent` calls (`Invoke / StartTask / CancelTask / Ops`) reuse the existing `Agent-Server` session
 
-## 核心能力
+## Core Capabilities
 
-### 函数管理
+### Function management
 
-- **OpenAPI 驱动注册**：通过 OpenAPI 规范快速注册函数
-- **JSON Schema 表单展示**：根据函数契约生成字段与校验，JSON Schema form adapter 统一渲染调用、查询、创建、编辑与动作表单
-- **Resource/PageSpec 编排**：CRUD Resource、独立操作、分页表格、报表和任务页由强类型 PageSpec 组合多个函数
-- **统一调用链路**：控制面通过 Agent session 路由调用，本地接入通过 Agent gateway 完成
+- **OpenAPI-driven registration**: register functions quickly via the OpenAPI specification
+- **JSON Schema form rendering**: fields and validation derived from the function contract; a JSON Schema form adapter uniformly renders call, query, create, edit and action forms
+- **Resource/PageSpec orchestration**: CRUD resources, standalone operations, paginated tables, reports and task pages are composed from strongly-typed PageSpecs binding multiple functions
+- **Unified invocation path**: the control plane routes calls through the Agent session; local access goes through the Agent gateway
 
-### 权限与安全
+### Permissions and security
 
-- **RBAC/ABAC 混合模型**：基于角色和属性的灵活权限控制
-- **双层政策架构**：YAML 默认策略 + 数据库覆盖策略
-- **四级风险控制**：低、中、高、危险四级，自动触发审批流程
-- **双人审批规则**：高风险操作需要多人审批
+Authorization is based on a Casbin RBAC/ABAC hybrid model — beyond roles, requests can be allowed or denied by attributes. Policies are two-layer: YAML provides defaults, and database override policies tune them online. Operations carry low / medium / high / critical risk levels; high-risk operations automatically enter the approval flow, and dual-approval rules require multiple confirmations before release.
 
-### 作用域模型
+### Scope model
 
-- **单公司多游戏**：不引入 SaaS 多租户抽象，标准业务边界是 `game_id`
-- **多环境治理**：`env` 表达 `dev/test/staging/prod` 等逻辑环境
-- **归属与部署分离**：`scope` 表达业务归属，`target` 表达运行位置
+- **Single company, multiple games**: no SaaS multi-tenant abstraction; the standard business boundary is `game_id`
+- **Multi-environment governance**: `env` expresses logical environments such as `dev/test/staging/prod`
+- **Ownership vs. deployment separated**: `scope` expresses business ownership, `target` expresses runtime location
 
-### 可观测性
+### Observability
 
-- **完整审计链**：所有操作记录审计日志
-- **哈希防篡改**：审计记录通过哈希链关联，确保数据完整性
-- **敏感字段脱敏**：自动脱敏密码、token 等敏感信息
+Every operation is written to the audit log; records are linked by a hash chain — altering one entry breaks the chain and can be detected afterwards. Sensitive fields such as passwords and tokens are automatically masked in logs and responses.
 
-### 运维工具
+### Operations tooling
 
-- **工单系统**：玩家问题工单流转
-- **反馈管理**：收集玩家反馈
-- **公告系统**：游戏公告发布
-- **数据分析**：玩家行为、留存、支付等数据分析
+- **Ticketing**: player issue ticket workflows
+- **Feedback management**: collect player feedback
+- **Announcements**: publish game announcements
+- **Analytics**: player behavior, retention, payment and other data analysis
 
-## 快速开始
+## Quick Start
 
-### 安装
+### Installation
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
 
-# 下载依赖
+# Download dependencies
 go mod download
 
-# 构建服务
+# Build the services
 make build
 ```
 
-### 启动服务
+### Start the services
 
 ```bash
-# 启动 Server
+# Start the Server
 ./bin/croupier-server --config configs/server.yaml
 
-# 启动 Agent
+# Start the Agent
 ./bin/croupier-agent --config configs/agent.yaml
 ```
 
-### 验证安装
+### Verify the installation
 
 ```bash
-# 检查 Server 健康状态
+# Check Server health
 curl http://localhost:18780/healthz
 
-# 查看 API 文档
+# Inspect API meta information (version / capability declarations)
 curl http://localhost:18780/api/v1/
 ```
 
-## 文档导航
+## Documentation Navigation
 
-按使用路径组织：
+Organized by usage path:
 
-| 路径         | 入口                                                                                                                                          | 说明                                                             |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **快速开始** | [指南](/guide/) · [快速开始](/guide/quick-start)                                                                                              | 安装、配置、Server + Agent 启动、最小闭环                        |
-| **页面产品** | [函数管理](/guide/concepts/function-management) · [Page Studio](/guide/concepts/function-registration-ui) · [Resource Catalog](/api/resource) | 注册函数 → 自动生成页面 → Proposal Inbox 发布 → Console 受控执行 |
-| **SDK**      | [SDK 概览](/sdks/)                                                                                                                            | Provider / Invoker / 配置 / 能力矩阵，6 种语言                   |
-| **API**      | [API 参考](/api/)                                                                                                                             | REST 契约、鉴权、game/env scope、各资源 API                      |
-| **运维**     | [监控](/operations/monitoring) · [数据分析](/analytics/)                                                                                      | 部署、监控、备份、分析、故障排除                                 |
-| **开发**     | [开发](/development/) · [架构](/architecture/)                                                                                                | 架构、代码规范、扩展策略、发布规则                               |
+| Path             | Entry                                                | Description                                                                                                       |
+| ---------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Quick Start**  | [Guide](/guide/) · [Guide](/guide)                   | Installation, configuration, Server + Agent startup, minimal loop                                                 |
+| **Page product** | Function management · Page Studio · Resource Catalog | Register functions → pages generated automatically → publish via Proposal Inbox → controlled execution in Console |
+| **SDK**          | [SDK overview](/sdks)                                | Provider / Invoker / configuration / capability matrix, 6 languages                                               |
+| **API**          | [API reference](/api)                                | REST contracts, authentication, game/env scope, per-resource APIs                                                 |
+| **Operations**   | [Operations](/operations) · [Analytics](/analytics)  | Deployment, monitoring, backup, analysis, troubleshooting                                                         |
+| **Development**  | [Architecture](/architecture)                        | Architecture, code conventions, extension strategy, release rules                                                 |
 
-历史设计与迁移文档归入 [架构 - 提案与迁移](/architecture/)（侧栏已折叠），不作为接入主路径。
+Historical design and migration documents live under [Architecture — proposals and migrations](/architecture/) (collapsed in the sidebar) and are not part of the main onboarding path.
 
-## 技术栈
+## Tech Stack
 
-- **Go**：后端核心实现
-- **TCP Session**：Agent/SDK 内部主链路
-- **Protobuf**：接口定义与信封序列化
-- **SQLite/PostgreSQL**：数据存储
-- **React + Ant Design Pro + ProComponents**：管理界面与生成式页面运行时
-- **VitePress**：文档站点
+- Backend: Go 1.27, Gin for HTTP, GORM for ORM (MySQL / PostgreSQL / SQLite / SQL Server)
+- Authorization: Casbin (RBAC/ABAC)
+- Internal transport: custom TCP session, length-prefixed framing with a protobuf envelope
+- Console: Umi Max + React + Ant Design Pro / ProComponents
+- Documentation site: VitePress
 
-## 路线图
+## Roadmap
 
-- [x] 基础函数注册与调用
-- [x] RBAC 权限控制
-- [x] 审批流程
-- [x] 审计日志
-- [x] 双层政策架构
-- [x] Dashboard vNext：函数注册自动生成页面（Proposal Inbox / Page Studio / Resource Catalog / Console 动态菜单）
-- [ ] 插件市场
-- [ ] 更多 SDK 语言支持
+- [x] Basic function registration and invocation
+- [x] RBAC permission control
+- [x] Approval workflow
+- [x] Audit log
+- [x] Two-layer policy architecture
+- [x] Dashboard vNext: function registration generates pages automatically (Proposal Inbox / Page Studio / Resource Catalog / Console dynamic menus)
+- [ ] Plugin marketplace
+- [ ] More SDK languages
 
-## 开源协议
+## License
 
 Apache-2.0 License

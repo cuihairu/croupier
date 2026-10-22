@@ -11,13 +11,13 @@ import (
 // 单实例部署不构造 OwnerStore（Cluster 为 nil，hooks no-op）。
 type OwnerStore interface {
 	// ClaimOwner 声明 instanceID 持有该 Agent（注册/重连时覆盖写）。
-	ClaimOwner(ctx context.Context, agentID, gameID, env, instanceID string, epoch uint64) error
+	ClaimOwner(ctx context.Context, agentID, gameID, env, instanceID string, epoch uint64, labels map[string]string) error
 	// Touch 续期（仅当记录仍归属本实例；被接管时静默不动）。
 	Touch(ctx context.Context, agentID string) error
 	// Release 释放归属（仅本实例持有的记录）。
 	Release(ctx context.Context, agentID string) error
 
-	// ResolveOwner 返回持有该 Agent 的存活实例；无存活 owner 返回 (nil, nil)。
+	// ResolveOwner 返回持有该 Agent 的存活实例；无存活 owner 返回 (nil)。
 	// 存活判定 = owner 记录未过期 AND 实例成员租约未过期（peers 交叉验证）。
 	ResolveOwner(ctx context.Context, agentID string) (*PeerInfo, error)
 	// FindOwner 回读归属记录（不做 TTL 过滤；心跳自愈回读 scope 用）。

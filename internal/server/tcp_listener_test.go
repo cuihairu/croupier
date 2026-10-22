@@ -328,6 +328,42 @@ func TestAgentSessionStore(t *testing.T) {
 	})
 }
 
+func TestAgentSessionStoreRejectsCrossScopeUpsert(t *testing.T) {
+	store := NewAgentSessionStore()
+	existing := &AgentSession{AgentID: "agent-1", GameID: "game-1", Env: "prod"}
+	replacement := &AgentSession{AgentID: "agent-1", GameID: "game-2", Env: "prod"}
+
+	store.Upsert(existing)
+	err := store.Upsert(replacement)
+
+	require.ErrorContains(t, err, "already bound")
+	got, ok := store.Get("agent-1")
+	require.True(t, ok)
+	assert.Same(t, existing, got)
+}
+
+func TestAgentSessionHandler_HandleRegisterRejectsCrossScope(t *testing.T) {
+	listener, err := NewTCPListener(&TCPListenerConfig{Address: ":0", Insecure: true}, nil, nil, nil)
+	require.NoError(t, err)
+	defer func() { _ = listener.Close() }()
+
+	existing := &AgentSession{AgentID: "agent-1", GameID: "game-1", Env: "prod"}
+	require.NoError(t, listener.sessionStore.Upsert(existing))
+	handler := &agentSessionHandler{listener: listener}
+	body, err := proto.Marshal(&agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-2", Env: "prod",
+	})
+	require.NoError(t, err)
+
+	_, err = handler.handleRegister(context.Background(), body)
+
+	require.ErrorContains(t, err, "bind agent session")
+	got, ok := listener.sessionStore.Get("agent-1")
+	require.True(t, ok)
+	assert.Same(t, existing, got)
+	assert.False(t, handler.registered)
+}
+
 // NOTE: AgentSession method tests (Conn, Close, LastSeen) are in agent_session_test.go.
 
 // --- Tests for listenTCP ---
@@ -425,6 +461,42 @@ func TestTCPListener_Integration(t *testing.T) {
 	})
 }
 
+// TestTCPListener_CloseWaitsForServeLoop pins the shutdown ordering that makes
+// the in-flight-connection WaitGroup legal: Close must drain the accept loop
+// (so no further wg.Add can race wg.Wait) before waiting for active
+// connections. With the ordering in place, Close returning guarantees Serve
+// has already returned, so the result channel must be readable immediately.
+func TestTCPListener_CloseWaitsForServeLoop(t *testing.T) {
+	config := &TCPListenerConfig{
+		Address:  ":0",
+		Insecure: true,
+	}
+
+	listener, err := NewTCPListener(config, nil, nil, nil)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- listener.Serve(ctx)
+	}()
+
+	// Give the server time to enter the accept loop.
+	time.Sleep(50 * time.Millisecond)
+
+	require.NoError(t, listener.Close())
+
+	select {
+	case <-errCh:
+		// Close returned only after Serve exited: required for the
+		// WaitGroup happens-before contract.
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close returned before Serve exited")
+	}
+}
+
 // --- Tests for agentSessionHandler ---
 
 func TestAgentSessionHandler_Handle(t *testing.T) {
@@ -449,8 +521,8 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		}
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -572,12 +644,38 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "prod",
 		}
 		data, _ := proto.Marshal(req)
 
 		resp, err := handler.Handle(context.Background(), protocol.MsgRegisterRequest, 1, data)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
+	})
+
+	t.Run("register missing game scope is rejected", func(t *testing.T) {
+		config := &TCPListenerConfig{
+			Address:  ":0",
+			Insecure: true,
+		}
+
+		listener, err := NewTCPListener(config, nil, nil, nil)
+		require.NoError(t, err)
+		defer func() { _ = listener.Close() }()
+
+		handler := &agentSessionHandler{listener: listener}
+		data, err := proto.Marshal(&agentv1.RegisterRequest{
+			AgentId: " agent-1 ",
+			GameId:  " game-1 ",
+		})
+		require.NoError(t, err)
+
+		_, err = handler.handleRegister(context.Background(), data)
+
+		require.ErrorContains(t, err, "agent_id, game_id and env are required")
+		_, ok := listener.sessionStore.Get("agent-1")
+		assert.False(t, ok)
+		assert.False(t, handler.registered)
 	})
 
 	t.Run("cross-agent re-register is rejected", func(t *testing.T) {
@@ -679,8 +777,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 		}
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
+			AgentId: "agent-1", GameId: "game-1",
 			Env:     "prod",
 			Version: "1.0.0",
 		}
@@ -717,7 +814,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 		assert.Contains(t, err.Error(), "unmarshal RegisterRequest")
 	})
 
-	t.Run("empty agent ID", func(t *testing.T) {
+	t.Run("missing game scope", func(t *testing.T) {
 		config := &TCPListenerConfig{
 			Address:  ":0",
 			Insecure: true,
@@ -731,15 +828,34 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 			listener: listener,
 		}
 
-		req := &agentv1.RegisterRequest{
-			AgentId: "",
-			GameId:  "game-1",
+		// agent_id/game_id/env 任一缺失或去空白后为空都确定拒绝（归一化前），
+		// 且不物化任何会话（todo.md:29 四类显式归属，server 身份绑定前置防线）。
+		cases := map[string]func(*agentv1.RegisterRequest) *agentv1.RegisterRequest{
+			"missing agentId": func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest { r.AgentId = ""; return r },
+			"missing gameId":  func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest { r.GameId = ""; return r },
+			"missing env":     func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest { r.Env = ""; return r },
+			"blank gameId": func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest {
+				r.AgentId, r.GameId, r.Env = "agent-1", "   ", "prod"
+				return r
+			},
+			"blank env": func(r *agentv1.RegisterRequest) *agentv1.RegisterRequest {
+				r.AgentId, r.GameId, r.Env = "agent-1", "game-1", "  \t"
+				return r
+			},
 		}
-		data, _ := proto.Marshal(req)
-
-		_, err = handler.handleRegister(context.Background(), data)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "agent_id is required")
+		base := agentv1.RegisterRequest{
+			AgentId: "agent-1", GameId: "game-1",
+			Env:     "prod",
+			Version: "1.0.0",
+		}
+		for name, mangle := range cases {
+			data, _ := proto.Marshal(mangle(&base))
+			_, err := handler.handleRegister(context.Background(), data)
+			assert.Error(t, err, name)
+			assert.Contains(t, err.Error(), "agent_id, game_id and env are required", name)
+		}
+		_, ok := listener.sessionStore.Get("agent-1")
+		assert.False(t, ok, "failed register must not materialize a session")
 	})
 
 	t.Run("with custom TTL", func(t *testing.T) {
@@ -757,9 +873,8 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 		}
 
 		req := &agentv1.RegisterRequest{
-			AgentId:    "agent-1",
-			GameId:     "game-1",
-			TtlSeconds: 600,
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", TtlSeconds: 600,
 		}
 		data, _ := proto.Marshal(req)
 
@@ -883,7 +998,7 @@ func TestAgentSessionHandler_HandleHeartbeat(t *testing.T) {
 			AgentID: "agent-1",
 			GameID:  "game-1",
 		}
-		listener.sessionStore.Upsert(sess)
+		require.NoError(t, listener.sessionStore.Upsert(sess))
 
 		handler := &agentSessionHandler{
 			listener: listener,
@@ -952,7 +1067,7 @@ func TestAgentSessionStore_ResolveSessionCaller(t *testing.T) {
 			AgentID: "agent-1",
 			GameID:  "game-1",
 		}
-		store.Upsert(sess)
+		require.NoError(t, store.Upsert(sess))
 
 		caller, ok := store.ResolveSessionCaller("agent-1")
 		assert.False(t, ok)
@@ -977,7 +1092,7 @@ func TestSessionResolverAdapter_ResolveAgentConn(t *testing.T) {
 			AgentID: "agent-1",
 			GameID:  "game-1",
 		}
-		store.Upsert(sess)
+		require.NoError(t, store.Upsert(sess))
 
 		caller, ok := adapter.ResolveAgentConn("agent-1")
 		assert.False(t, ok)
@@ -1033,7 +1148,8 @@ type countingClusterHooks struct {
 	heartbeats int
 }
 
-func (c *countingClusterHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env string) {}
+func (c *countingClusterHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env string, labels map[string]string) {
+}
 func (c *countingClusterHooks) OnAgentHeartbeat(ctx context.Context, agentID string) {
 	c.heartbeats++
 }

@@ -39,10 +39,10 @@ function mockFetch(
   responder: (url: string, init?: RequestInit) => Promise<Response>,
 ): void {
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (((url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
     const u = typeof url === "string" ? url : url.toString();
     return responder(u, init);
-  }) as unknown) as FetchImpl;
+  }) as unknown as FetchImpl;
 }
 
 function restoreFetch(): void {
@@ -116,7 +116,10 @@ describe("BasicClient lifecycle edges", () => {
     (client as any).connected = true;
 
     expect(() =>
-      client.registerFunction({ id: "b.fn", version: "1.0.0" }, async () => "ok"),
+      client.registerFunction(
+        { id: "b.fn", version: "1.0.0" },
+        async () => "ok",
+      ),
     ).toThrow("connected");
 
     (client as any).connected = false;
@@ -142,7 +145,10 @@ describe("BasicClient lifecycle edges", () => {
       },
       async () => "ok",
     );
-    client.registerFunction({ id: "bare.fn" as string, version: "1.0.0" }, async () => "ok");
+    client.registerFunction(
+      { id: "bare.fn" as string, version: "1.0.0" },
+      async () => "ok",
+    );
 
     const manifest = (client as any).buildManifest();
     const full = manifest.functions.find((f: any) => f.id === "full.fn");
@@ -163,7 +169,9 @@ describe("BasicClient lifecycle edges", () => {
 
   it("connect registers every descriptor and stores the session id", async () => {
     const seen: Buffer[] = [];
-    jest.spyOn(TCPTransport.prototype, "connect").mockImplementation(async () => {});
+    jest
+      .spyOn(TCPTransport.prototype, "connect")
+      .mockImplementation(async () => {});
     jest
       .spyOn(TCPTransport.prototype, "call")
       .mockImplementation(async (msgType: number, data: Buffer) => {
@@ -186,8 +194,14 @@ describe("BasicClient lifecycle edges", () => {
     jest.spyOn(TCPTransport.prototype, "close").mockImplementation(() => {});
 
     const client = new BasicClient({ heartbeatIntervalSeconds: 60 });
-    client.registerFunction({ id: "one.fn", version: "1.0.0" }, async () => "1");
-    client.registerFunction({ id: "two.fn", version: "1.0.0" }, async () => "2");
+    client.registerFunction(
+      { id: "one.fn", version: "1.0.0" },
+      async () => "1",
+    );
+    client.registerFunction(
+      { id: "two.fn", version: "1.0.0" },
+      async () => "2",
+    );
 
     await client.connect();
 
@@ -215,14 +229,13 @@ describe("BasicClient lifecycle edges", () => {
   it("startTask/streamTask/cancelTask work locally without a connection", async () => {
     const client = new BasicClient();
     let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    client.registerFunction(
-      { id: "job.fn", version: "1.0.0" },
-      async () => {
-        await gate;
-        return "done-payload";
-      },
-    );
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    client.registerFunction({ id: "job.fn", version: "1.0.0" }, async () => {
+      await gate;
+      return "done-payload";
+    });
 
     const taskId = client.startTask("job.fn", "{}");
     expect(typeof taskId).toBe("string");
@@ -252,12 +265,9 @@ describe("BasicClient lifecycle edges", () => {
 
   it("streamTask surfaces handler failures as error events", async () => {
     const client = new BasicClient();
-    client.registerFunction(
-      { id: "bad.fn", version: "1.0.0" },
-      async () => {
-        throw new Error("handler exploded");
-      },
-    );
+    client.registerFunction({ id: "bad.fn", version: "1.0.0" }, async () => {
+      throw new Error("handler exploded");
+    });
 
     const taskId = client.startTask("bad.fn", "{}");
     const types: string[] = [];
@@ -279,12 +289,18 @@ describe("registerFromOpenAPI corner cases", () => {
     const client = new BasicClient();
     registerFromOpenAPI(
       client,
-      { paths: { "/a": { post: { operationId: "a_post", tags: ["ok", 5, null] } } } },
+      {
+        paths: {
+          "/a": { post: { operationId: "a_post", tags: ["ok", 5, null] } },
+        },
+      },
       undefined,
       undefined,
       new Map([["a_post", resolver]]),
     );
-    const descriptor = ((client as any).descriptors as Map<string, any>).get("a_post")!;
+    const descriptor = ((client as any).descriptors as Map<string, any>).get(
+      "a_post",
+    )!;
     expect(descriptor.tags).toEqual(["ok"]);
   });
 
@@ -314,14 +330,18 @@ describe("registerFromOpenAPI corner cases", () => {
       client,
       {
         paths: {
-          "/a": { get: { operationId: "a_get", "x-resource": "thing", tags: ["t"] } },
+          "/a": {
+            get: { operationId: "a_get", "x-resource": "thing", tags: ["t"] },
+          },
         },
       },
       options,
       undefined,
       new Map([["a_get", resolver]]),
     );
-    const descriptor = ((client as any).descriptors as Map<string, any>).get("a_get")!;
+    const descriptor = ((client as any).descriptors as Map<string, any>).get(
+      "a_get",
+    )!;
     expect(descriptor.resource).toBe("thing");
     expect(descriptor.tags).toEqual(["t"]);
   });
@@ -410,7 +430,9 @@ describe("Invoker retry corners", () => {
       retry: { maxAttempts: 5, initialDelayMs: 1 },
     });
 
-    await expect(invoker.cancelTask("t1")).rejects.toMatchObject({ status: 403 });
+    await expect(invoker.cancelTask("t1")).rejects.toMatchObject({
+      status: 403,
+    });
     expect(calls).toBe(1);
   });
 

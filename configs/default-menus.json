@@ -1,32 +1,44 @@
 [
   {
     "menuKey": "player",
-    "labels": { "zh-CN": "玩家管理", "en-US": "Players" },
+    "labels": { "zh-CN": "玩家工作台", "en-US": "Player Workspace" },
     "icon": "UserOutlined",
     "sortOrder": 10
   },
   {
-    "menuKey": "operation",
-    "labels": { "zh-CN": "运营", "en-US": "Operations" },
-    "icon": "ToolOutlined",
+    "menuKey": "mail",
+    "labels": { "zh-CN": "邮件与补偿", "en-US": "Mail & Compensation" },
+    "icon": "MailOutlined",
     "sortOrder": 20
   },
   {
-    "menuKey": "payment",
-    "labels": { "zh-CN": "支付订单", "en-US": "Payments" },
-    "icon": "PayCircleOutlined",
+    "menuKey": "ban",
+    "labels": { "zh-CN": "封禁管理", "en-US": "Ban Management" },
+    "icon": "SafetyOutlined",
     "sortOrder": 30
   },
   {
-    "menuKey": "announcement",
-    "labels": { "zh-CN": "公告", "en-US": "Announcements" },
-    "icon": "BellOutlined",
+    "menuKey": "payment",
+    "labels": { "zh-CN": "订单核查", "en-US": "Order Verification" },
+    "icon": "PayCircleOutlined",
     "sortOrder": 40
   },
   {
-    "menuKey": "audit",
-    "labels": { "zh-CN": "审计", "en-US": "Audit" },
-    "icon": "FileSearchOutlined",
+    "menuKey": "operation",
+    "labels": { "zh-CN": "活动配置", "en-US": "LiveOps Configuration" },
+    "icon": "ToolOutlined",
     "sortOrder": 50
+  },
+  {
+    "menuKey": "announcement",
+    "labels": { "zh-CN": "公告管理", "en-US": "Announcements" },
+    "icon": "BellOutlined",
+    "sortOrder": 60
+  },
+  {
+    "menuKey": "audit",
+    "labels": { "zh-CN": "操作记录", "en-US": "Operation History" },
+    "icon": "FileSearchOutlined",
+    "sortOrder": 70
   }
 ]

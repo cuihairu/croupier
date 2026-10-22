@@ -37,7 +37,11 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 	}
 
 	now := time.Now()
-	statusFilter := normalizeNodeStatusFilter(status)
+	roleFilter := normalizeAgentRoleFilter(normalizeNodeStatusFilter(status))
+	statusFilter := ""
+	if roleFilter == "" {
+		statusFilter = normalizeNodeStatusFilter(status)
+	}
 	items := make([]nodeListItem, 0)
 	registered := make(map[string]bool)
 
@@ -93,6 +97,9 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 			if !nodeStatusMatches(statusFilter, nodeStatus) {
 				continue
 			}
+			if !agentRoleMatches(sess.Labels["role"], roleFilter) {
+				continue
+			}
 
 			item := runtimeNodeListItem(sess, nodeStatus, svcCtx.MetricsStore)
 			if remoteOwner != "" {
@@ -128,7 +135,7 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 				GameId:   rec.GameID,
 				Env:      rec.Env,
 				Status:   "online",
-				Labels:   map[string]string{"ownerInstance": rec.InstanceID},
+				Labels:   appendOwnerLabels(rec),
 				LastSeen: utils.FormatTimestamp(rec.LastSeenAt),
 			}
 			items = append(items, nodeListItem{
@@ -158,6 +165,30 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 	return nodes
 }
 
+func appendOwnerLabels(rec cluster.AgentOwnerRecord) map[string]string {
+	labels := map[string]string{"ownerInstance": rec.InstanceID}
+	for key, value := range rec.LabelsMap {
+		labels[key] = value
+	}
+	return labels
+}
+
+func normalizeAgentRoleFilter(statusFilter string) string {
+	switch statusFilter {
+	case "sidecar", "devops", "capture", "synthetics":
+		return statusFilter
+	default:
+		return ""
+	}
+}
+
+func agentRoleMatches(role, roleFilter string) bool {
+	if roleFilter == "" {
+		return true
+	}
+	return strings.TrimSpace(role) == roleFilter
+}
+
 func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string, metricsStore *registry.MetricsStore) nodeListItem {
 	sdkLanguage, sdkVersion, sdkName := "", "", ""
 	if len(sess.Providers) > 0 {
@@ -183,6 +214,7 @@ func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string, metrics
 		SDKLanguage:  sdkLanguage,
 		SDKVersion:   sdkVersion,
 		SDKName:      sdkName,
+		Version:      sess.Version,
 		Functions:    len(sess.Functions),
 		ExpiresInSec: expiresInSec,
 	}
@@ -191,6 +223,8 @@ func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string, metrics
 	if metricsStore != nil {
 		if entry, ok := metricsStore.GetLatest(sess.AgentID); ok && entry != nil {
 			report := entry.Report
+			summary := summarizeSupervised(report.GetSupervisedProcesses())
+			node.Supervisor = &summary
 			if report.GetCpu() != nil {
 				node.CPU = &CpuMetrics{
 					UsagePercent: report.GetCpu().GetUsagePercent(),

@@ -83,6 +83,34 @@ const (
 	// Host cron jobs (Agent 自身应答，读 crontab + /etc/cron.d + systemd timers)
 	MsgListCronJobsRequest  = 0x040115
 	MsgListCronJobsResponse = 0x040116
+	// Supervisor event log download (Agent 自身应答，回源读本地轮转日志)
+	MsgGetSupervisorLogRequest  = 0x040117
+	MsgGetSupervisorLogResponse = 0x040118
+	// Capture rule-hit alert upload (capture-agent → server；落 alerts 表)
+	MsgAlertEventRequest  = 0x040119
+	MsgAlertEventResponse = 0x04011A
+	// Capture gate rules pull (capture-agent 拉 server 发布的 game-scoped 规则)
+	MsgCaptureConfigRequest  = 0x04011B
+	MsgCaptureConfigResponse = 0x04011C
+	// Probe/alert event stream upload (agent → server 单向流事件，§11 已决 2)：
+	// v1 承载探测 probe.window/probe.detail 两 kind（简档 §13.1）；后续告警类
+	// 事件同通道演进。流事件取偶数号（同 MsgMetricEvent 0x040108 先例），
+	// 0x04011D 留空防奇偶语义混淆。
+	MsgAlertEvent = 0x04011E
+	// Probe sampling policy pull (agent 拉 server 发布的 game/env 级采样策略，
+	// configsync 下拉热更，评审简档 §13.3 C)
+	MsgProbePolicyRequest  = 0x04011F
+	MsgProbePolicyResponse = 0x040120
+	// Probe db targets pull (R4: server 按 db_sources.owner_agent_id 拉取时
+	// 派生 db 探针目标下发归属 agent；configsync 下拉热更，无推送通道)
+	MsgProbeDBTargetsRequest  = 0x040121
+	MsgProbeDBTargetsResponse = 0x040122
+	// Managed process binary update (agent-supervisor-design §10.4 更新状态+指纹)
+	MsgUpdateProcessRequest  = 0x040123
+	MsgUpdateProcessResponse = 0x040124
+	// Managed process schedule suspension (agent-supervisor-design §10.2 暂停与恢复)
+	MsgSchedulePauseRequest  = 0x040125
+	MsgSchedulePauseResponse = 0x040126
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
@@ -113,17 +141,18 @@ func GetMsgID(buf []byte) uint32 {
 
 // IsRequest returns true if the MsgID indicates a request message.
 func IsRequest(msgID uint32) bool {
-	return msgID%2 == 1 && msgID != MsgTaskEvent && msgID != MsgMetricEvent
+	return msgID%2 == 1 && msgID != MsgTaskEvent && msgID != MsgMetricEvent && msgID != MsgAlertEvent
 }
 
 // IsResponse returns true if the MsgID indicates a response message.
 func IsResponse(msgID uint32) bool {
-	return msgID%2 == 0 && msgID != MsgTaskEvent && msgID != MsgMetricEvent // TaskEvent and MetricEvent are stream events, not responses
+	// TaskEvent, MetricEvent and AlertEvent are stream events, not responses
+	return msgID%2 == 0 && msgID != MsgTaskEvent && msgID != MsgMetricEvent && msgID != MsgAlertEvent
 }
 
 // IsEvent returns true if the MsgID is a one-way event frame.
 func IsEvent(msgID uint32) bool {
-	return msgID == MsgTaskEvent || msgID == MsgMetricEvent
+	return msgID == MsgTaskEvent || msgID == MsgMetricEvent || msgID == MsgAlertEvent
 }
 
 // controlRequests is the explicit set of session/transport control requests.
@@ -270,6 +299,14 @@ func MsgIDString(msgID uint32) string {
 		return "ExecuteCommandRequest"
 	case MsgExecuteCommandResponse:
 		return "ExecuteCommandResponse"
+	case MsgUpdateProcessRequest:
+		return "UpdateProcessRequest"
+	case MsgUpdateProcessResponse:
+		return "UpdateProcessResponse"
+	case MsgSchedulePauseRequest:
+		return "SchedulePauseRequest"
+	case MsgSchedulePauseResponse:
+		return "SchedulePauseResponse"
 	case MsgListServicesRequest:
 		return "ListServicesRequest"
 	case MsgListServicesResponse:
@@ -290,6 +327,28 @@ func MsgIDString(msgID uint32) string {
 		return "ProviderDrainRequest"
 	case MsgProviderDrainResponse:
 		return "ProviderDrainResponse"
+	case MsgGetSupervisorLogRequest:
+		return "GetSupervisorLogRequest"
+	case MsgGetSupervisorLogResponse:
+		return "GetSupervisorLogResponse"
+	case MsgAlertEventRequest:
+		return "AlertEventRequest"
+	case MsgAlertEventResponse:
+		return "AlertEventResponse"
+	case MsgCaptureConfigRequest:
+		return "CaptureConfigRequest"
+	case MsgCaptureConfigResponse:
+		return "CaptureConfigResponse"
+	case MsgProbePolicyRequest:
+		return "ProbePolicyRequest"
+	case MsgProbePolicyResponse:
+		return "ProbePolicyResponse"
+	case MsgProbeDBTargetsRequest:
+		return "ProbeDBTargetsRequest"
+	case MsgProbeDBTargetsResponse:
+		return "ProbeDBTargetsResponse"
+	case MsgAlertEvent:
+		return "AlertEvent"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

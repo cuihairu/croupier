@@ -157,6 +157,24 @@ export default [
         redirect: '/system/environments',
       },
       {
+        // 游戏本体管理独立页面：新增/编辑是页面而非弹窗；权限 games:write
+        // 与环境管理（games:manage）分离。环境页只管环境。
+        path: '/system/games',
+        name: 'GamesManage',
+        access: 'canGamesRead',
+        component: './GamesManage',
+      },
+      {
+        path: '/system/games/new',
+        component: './GamesManage/Create',
+        hideInMenu: true,
+      },
+      {
+        path: '/system/games/:id/edit',
+        component: './GamesManage/Edit',
+        hideInMenu: true,
+      },
+      {
         path: '/system/environments',
         name: 'GameEnvironments',
         access: 'canGamesRead',
@@ -429,6 +447,30 @@ export default [
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       {
+        path: '/ops/agents/sidecar',
+        name: 'SidecarAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/sidecar',
+      },
+      {
+        path: '/ops/agents/devops',
+        name: 'DevopsAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/devops',
+      },
+      {
+        path: '/ops/agents/capture',
+        name: 'CaptureAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/capture',
+      },
+      {
+        path: '/ops/agents/synthetics',
+        name: 'SyntheticsAgents',
+        access: 'canOpsRead',
+        component: './Ops/Agents/synthetics',
+      },
+      {
         // LB 监控（管道用开源：haproxy exporter → prometheus → 平台原生渲染；
         // docs/operations/load-balancing.md「LB 监控」）
         path: '/ops/lb',
@@ -446,6 +488,15 @@ export default [
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
 
       {
+        // capture-agent 闸规则面板下发（config_versions capture.gates，
+        // capture-agent 经上行通道拉取热生效；简档 §6/§8.5）
+        path: '/ops/capture',
+        name: 'Capture',
+        access: 'canOpsRead',
+        component: './Ops/Capture',
+      },
+
+      {
         // cron 定时调度管理（/api/v1/schedules）
         path: '/ops/schedules',
         name: 'Schedules',
@@ -453,10 +504,25 @@ export default [
         component: './Ops/Schedules',
       },
       {
-        path: '/ops/alerts',
-        name: 'Alerts',
+        // 事故登记（docs/design/incident-reports.md §8）
+        path: '/ops/incidents',
+        name: 'Incidents',
         access: 'canOpsRead',
-        component: './Ops/Alerts',
+        component: './Ops/Incidents',
+      },
+      {
+        // 事故报表（周/月/季/年 + 三列对比 + 趋势/排行榜/责任人报告）
+        path: '/ops/incident-reports',
+        name: 'IncidentReports',
+        access: 'canOpsRead',
+        component: './Ops/IncidentReports',
+      },
+      {
+        // 事故类别设置（职能域六类 + 未分类，leader/子类白名单/可见范围）
+        path: '/ops/incident-categories',
+        name: 'IncidentCategories',
+        access: 'canOpsManage',
+        component: './Ops/IncidentCategories',
       },
       {
         path: '/ops/rate-limits',
@@ -486,6 +552,33 @@ export default [
         // 旧路径重定向：采样配置已归位系统配置（/system/analytics-filters）
         path: '/ops/analytics-filters',
         redirect: '/system/analytics-filters',
+      },
+    ],
+  },
+  // 风控（CDC 平台化批阶段四；docs/design/risk-control-panel-design.md §6）
+  // 一级分类随首个真实页面落地，不建占位页（routes-resolution 先例）。
+  {
+    path: '/risk',
+    name: 'Risk',
+    icon: 'securityScan',
+    access: 'canOpsRead',
+    routes: [
+      { path: '/risk', redirect: '/risk/strategies' },
+      {
+        // 风控策略页：闸规则版本历史（config_versions capture.gates）+
+        // desired/applied 生效对账 + 回滚（历史版本内容再发一版）
+        path: '/risk/strategies',
+        name: 'RiskStrategies',
+        access: 'canOpsRead',
+        component: './Risk/Strategies',
+      },
+      {
+        // 告警中心：自 /ops 迁入风控分类（risk-control-panel-design.md §6 之 5），
+        // 数据面不动；旧路径 /ops/alerts 留隐藏重定向兼容书签
+        path: '/risk/alerts',
+        name: 'Alerts',
+        access: 'canOpsRead',
+        component: './Ops/Alerts',
       },
     ],
   },
@@ -571,7 +664,13 @@ export default [
   },
   {
     path: '/ops/maintenance',
-    redirect: '/ops/alerts',
+    redirect: '/risk/alerts',
+    hideInMenu: true,
+  },
+  {
+    // 告警中心旧路径（迁入风控分类）兼容书签
+    path: '/ops/alerts',
+    redirect: '/risk/alerts',
     hideInMenu: true,
   },
   {

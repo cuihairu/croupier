@@ -15,9 +15,7 @@ import { TextDecoder, TextEncoder } from "node:util";
 import * as protobuf from "protobufjs";
 import Ajv, { type ValidateFunction } from "ajv";
 import { SDK_VERSION } from "./version";
-import {
-  TCPTransport,
-} from "./tcp_transport";
+import { TCPTransport } from "./tcp_transport";
 import {
   MSG_PROVIDER_FILE_PUSH_REQUEST,
   MSG_PROVIDER_FILE_PUSH_RESPONSE,
@@ -370,7 +368,7 @@ export interface ClientConfig {
   // === Connection ===
   agentAddr?: string;
   timeout?: number;
-  connectTimeout?: number;  // Connection timeout in milliseconds (default: 5000)
+  connectTimeout?: number; // Connection timeout in milliseconds (default: 5000)
   controlAddr?: string;
 
   // === Service Identity ===
@@ -599,7 +597,10 @@ export class BasicClient implements CroupierClient {
   private descriptors: Map<string, FunctionDescriptor> = new Map();
   // F15：入站校验编译缓存（schema 原文 → 编译后的校验函数）
   private readonly inboundAjv = new Ajv({ allErrors: true });
-  private readonly inboundSchemaCache = new Map<string, ValidateFunction | null>();
+  private readonly inboundSchemaCache = new Map<
+    string,
+    ValidateFunction | null
+  >();
   private taskStates: Map<string, TaskState> = new Map();
   private transport: TCPTransport | null = null;
   private connected = false;
@@ -823,9 +824,7 @@ export class BasicClient implements CroupierClient {
         description: desc.description || "",
         operationId: desc.operationId || desc.id,
         deprecated: desc.deprecated || false,
-        inputSchema: desc.inputSchema
-          ? JSON.stringify(desc.inputSchema)
-          : "",
+        inputSchema: desc.inputSchema ? JSON.stringify(desc.inputSchema) : "",
         outputSchema: desc.outputSchema
           ? JSON.stringify(desc.outputSchema)
           : "",
@@ -1469,7 +1468,9 @@ export class BasicClient implements CroupierClient {
         { defaults: true },
       ) as typeof decoded;
     } catch (error) {
-      return fail(`unmarshal FilePushRequest: ${error instanceof Error ? error.message : String(error)}`);
+      return fail(
+        `unmarshal FilePushRequest: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     // istanbul ignore next -- protobufjs toObject({defaults:true}) 恒为缺失字段
     // 填充默认值（""/空 bytes），?? fallback 仅为防御 protobufjs 行为变化
@@ -1482,7 +1483,12 @@ export class BasicClient implements CroupierClient {
     const data = Buffer.from(decoded.data ?? new Uint8Array());
 
     if (!transferId) return fail("transferId is required");
-    if (!fileName || fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) {
+    if (
+      !fileName ||
+      fileName.includes("/") ||
+      fileName.includes("\\") ||
+      fileName.includes("..")
+    ) {
       return fail(`file name must be a bare basename: "${fileName}"`);
     }
     const maxSize = this.config.maxFileSize ?? 10 * 1024 * 1024;
@@ -1513,7 +1519,9 @@ export class BasicClient implements CroupierClient {
       ).finish();
       return Buffer.from(response);
     } catch (error) {
-      return fail(`write staging file: ${error instanceof Error ? error.message : String(error)}`);
+      return fail(
+        `write staging file: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -1614,10 +1622,14 @@ export class BasicClient implements CroupierClient {
    * F15：按函数声明的 input schema 校验入站 payload。开关关闭 / 未注册 /
    * schema 缺失或非法时跳过（服务端仍是权威校验方）；失败返回 Error。
    */
-  private validateInboundPayload(functionId: string, payload: string): Error | null {
+  private validateInboundPayload(
+    functionId: string,
+    payload: string,
+  ): Error | null {
     if (!this.config.validateInputPayloads) return null;
     const descriptor = this.descriptors.get(functionId);
-    const schema = descriptor?.inputSchema as Record<string, unknown> | undefined;
+    const schema = descriptor?.inputSchema as
+      Record<string, unknown> | undefined;
     if (!schema || typeof schema !== "object") return null;
     const cacheKey = JSON.stringify(schema);
     if (!this.inboundSchemaCache.has(cacheKey)) {
@@ -1640,7 +1652,9 @@ export class BasicClient implements CroupierClient {
     const ok = validate(value);
     if (!ok) {
       const messages = (validate.errors ?? [])
-        .map((item) => `${item.instancePath || "/"} ${item.message ?? ""}`.trim())
+        .map((item) =>
+          `${item.instancePath || "/"} ${item.message ?? ""}`.trim(),
+        )
         .join("; ");
       return new Error(`payload validation failed: ${messages}`);
     }
@@ -1654,7 +1668,10 @@ export class BasicClient implements CroupierClient {
       // 未注册函数：回空 payload，Agent 侧按失败处理并 failover。
       return this.encodeInvokeResponse(new Uint8Array());
     }
-    const validationError = this.validateInboundPayload(req.functionId, req.payload);
+    const validationError = this.validateInboundPayload(
+      req.functionId,
+      req.payload,
+    );
     if (validationError) {
       return this.encodeInvokeResponse(
         encoder.encode(JSON.stringify({ error: validationError.message })),
@@ -1678,7 +1695,10 @@ export class BasicClient implements CroupierClient {
   private handleInboundStartTask(body: Buffer): Buffer {
     const req = this.decodeInvokeRequest(body);
     let taskId = "";
-    const validationError = this.validateInboundPayload(req.functionId, req.payload);
+    const validationError = this.validateInboundPayload(
+      req.functionId,
+      req.payload,
+    );
     if (!validationError && this.handlers.has(req.functionId)) {
       try {
         taskId = this.startTask(req.functionId, req.payload, req.metadata);
@@ -1841,7 +1861,9 @@ export class BasicClient implements CroupierClient {
     return Buffer.from(ProviderConnectRequestMessage.encode(payload).finish());
   }
 
-  private parseProviderConnectProtobufResponse(data: Buffer): { sessionId: string } {
+  private parseProviderConnectProtobufResponse(data: Buffer): {
+    sessionId: string;
+  } {
     const decoded = ProviderConnectResponseMessage.decode(data);
     const object = ProviderConnectResponseMessage.toObject(decoded, {
       defaults: true,
@@ -1937,7 +1959,6 @@ export class BasicClient implements CroupierClient {
   }
 }
 
-
 /**
  * F14：向函数描述符的 input schema 注入 x-ui 呈现 hints 的便捷层
  * （契约见 docs/architecture/presentation-hints.md）。
@@ -1953,11 +1974,20 @@ export function setFieldHint(
   }
   const normalized = normalizeHintKey(hint);
   if (!normalized) {
-    throw new Error(`hint "${hint}" must be an x- extension key (e.g. x-widget)`);
+    throw new Error(
+      `hint "${hint}" must be an x- extension key (e.g. x-widget)`,
+    );
   }
-  const schema = { type: "object", ...(descriptor.inputSchema ?? {}) } as Record<string, unknown>;
-  const properties = { ...((schema.properties as Record<string, unknown>) ?? {}) };
-  const property = { ...((properties[field] as Record<string, unknown>) ?? {}) };
+  const schema = {
+    type: "object",
+    ...(descriptor.inputSchema ?? {}),
+  } as Record<string, unknown>;
+  const properties = {
+    ...((schema.properties as Record<string, unknown>) ?? {}),
+  };
+  const property = {
+    ...((properties[field] as Record<string, unknown>) ?? {}),
+  };
   property[normalized] = value;
   properties[field] = property;
   schema.properties = properties;

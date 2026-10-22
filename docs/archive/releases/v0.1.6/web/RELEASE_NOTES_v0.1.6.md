@@ -60,7 +60,6 @@
 - [重构总结](./docs/TABEDITOR_REFACTOR_SUMMARY.md)
 - [完成报告](./docs/PHASE1_FINAL_REPORT.md)
 - [测试指南](./docs/TABEDITOR_TEST_GUIDE.md)
-- [V2 TODO](./TODO_V2_UI_ENTERPRISE.md) - 75 个任务
 
 ---
 
@@ -80,7 +79,6 @@ npm run build
 
 ## 相关资源
 
-- **完整变更日志**: [CHANGELOG.md](./CHANGELOG.md)
 - **详细发布说明**: [RELEASE_v0.1.6.md](./RELEASE_v0.1.6.md)
 
 ---

@@ -62,4 +62,4 @@ var registered = OpenAPIImporter.RegisterFromOpenAPI(
 
 `x-approval` 与 `execution` 正交：`execution: "task"` + `approval.required: true` 表示审批通过后再创建任务；审批不是 `execution` 的第三个枚举值。
 
-完整契约见 [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md)。
+完整契约见 [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md)。

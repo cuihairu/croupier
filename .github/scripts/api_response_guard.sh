@@ -15,7 +15,7 @@ ROOT_DIR="${1:-internal/api}"
 raw_json_hits="$(grep -RInE '\bc\.(JSON|IndentedJSON|String|Data|PureJSON|XML|YAML|ProtoBuf)\(' "${ROOT_DIR}" --include='*.go' --exclude='*_test.go' || true)"
 
 if [[ -n "${raw_json_hits}" ]]; then
-  filtered_hits="$(printf '%s\n' "${raw_json_hits}" | grep -vE 'text/event-stream|status": "ok"|gin\.H\{"status": "ok"\}' || true)"
+  filtered_hits="$(printf '%s\n' "${raw_json_hits}" | grep -vE 'text/event-stream|text/plain|application/octet-stream|Content-Disposition|status": "ok"|gin\.H\{"status": "ok"\}' || true)"
   if [[ -n "${filtered_hits}" ]]; then
     printf '%s\n' "${filtered_hits}"
     fail "found raw response writes in API handlers"

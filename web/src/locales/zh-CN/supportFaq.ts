@@ -23,7 +23,9 @@ export default {
   'pages.supportFaq.pagination.total': '共 {total} 条',
   'pages.supportFaq.search.category': '分类',
   'pages.supportFaq.search.keyword': '关键词',
-  'pages.supportFaq.search.visible': '是否可见(true/false)',
+  'pages.supportFaq.search.visible': '是否可见',
+  'pages.supportFaq.search.visible.false': '隐藏',
+  'pages.supportFaq.search.visible.true': '可见',
   'pages.supportFaq.visible.no': '否',
   'pages.supportFaq.visible.yes': '是',
 };

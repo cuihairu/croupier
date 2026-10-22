@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	"github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 )
 
 // AgentSession represents an established session with a connected Agent.
@@ -104,15 +104,21 @@ func (store *AgentSessionStore) Add(sess *AgentSession) error {
 	return nil
 }
 
-// Upsert adds or replaces an Agent session.
-func (store *AgentSessionStore) Upsert(sess *AgentSession) {
+// Upsert adds or replaces an Agent session. An active Agent ID is bound to
+// one game environment; a replacement that changes that binding is rejected.
+func (store *AgentSessionStore) Upsert(sess *AgentSession) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
+
+	existing, exists := store.sessions[sess.AgentID]
+	if exists && (existing.GameID != sess.GameID || existing.Env != sess.Env) {
+		return fmt.Errorf("agent session already bound to game_id=%q env=%q", existing.GameID, existing.Env)
+	}
 
 	// Close existing connection if replacing with a DIFFERENT connection.
 	// If the connection is the same (re-register on same TCP session),
 	// do NOT close it — that would kill the current request's transport.
-	if existing, exists := store.sessions[sess.AgentID]; exists && existing.conn != nil {
+	if exists && existing.conn != nil {
 		if existing.conn != sess.conn {
 			_ = existing.conn.Close()
 		}
@@ -120,6 +126,7 @@ func (store *AgentSessionStore) Upsert(sess *AgentSession) {
 
 	sess.UpdateLastSeen()
 	store.sessions[sess.AgentID] = sess
+	return nil
 }
 
 // Get returns the Agent session by AgentID.

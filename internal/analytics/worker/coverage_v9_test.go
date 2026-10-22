@@ -50,7 +50,7 @@ func deadRedisClientV9() *redis.Client {
 // pastMinuteKeyV9 builds an hll:online key for a minute safely in the past.
 func pastMinuteKeyV9() string {
 	return fmt.Sprintf("hll:online:g1:prod:%s",
-		time.Now().Add(-2*time.Minute).Truncate(time.Minute).Format("200601021504"))
+		time.Now().UTC().Add(-2*time.Minute).Truncate(time.Minute).Format("200601021504"))
 }
 
 // ---------------------------------------------------------------------------

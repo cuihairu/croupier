@@ -14,8 +14,9 @@ import (
 	"testing"
 	"time"
 
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -177,7 +178,7 @@ func TestMainFatalsWhenRunFails(t *testing.T) {
 // with a configurable responder.
 func fakeAgentHandler(t *testing.T, respond func(msgID uint32, body []byte) ([]byte, error)) (addr string, stop func()) {
 	t.Helper()
-	srv, err := tcptr.NewServer(&tcptr.Config{Address: "127.0.0.1:0", Insecure: true},
+	srv, err := internaltcp.NewServer(&tcptr.Config{Address: "127.0.0.1:0", Insecure: true},
 		transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 			return respond(msgID, body)
 		}))

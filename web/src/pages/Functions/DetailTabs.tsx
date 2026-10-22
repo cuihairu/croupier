@@ -7,7 +7,6 @@ import {
   Col,
   Descriptions,
   Drawer,
-  Input,
   Row,
   Select,
   Space,
@@ -18,6 +17,7 @@ import {
 import { StatisticCard } from '@ant-design/pro-components';
 import { BarChartOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
+import VersionFloorSelect from './Directory/VersionFloorSelect';
 import {
   deleteFunctionVersionFloor,
   diffContractVersions,
@@ -41,9 +41,12 @@ import {
 
 type AnalyticsData = {
   totalCalls: number;
+  failedCalls: number;
   successRate: number;
   avgLatency: number;
   callsToday: number;
+  callsThisWeek: number;
+  callsThisMonth: number;
 };
 
 const formatDateTime = (value?: string) => {
@@ -431,6 +434,47 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
           }}
         />
       </Col>
+      <Col span={6}>
+        <StatisticCard
+          loading={analyticsLoading}
+          statistic={{
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.analytics.failedCalls',
+              defaultMessage: '失败次数',
+            }),
+            value: analyticsData?.failedCalls || 0,
+            styles: {
+              content: {
+                color: (analyticsData?.failedCalls || 0) > 0 ? '#cf1322' : '#3f8600',
+              },
+            },
+          }}
+        />
+      </Col>
+      <Col span={6}>
+        <StatisticCard
+          loading={analyticsLoading}
+          statistic={{
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.analytics.callsThisWeek',
+              defaultMessage: '近 7 天调用',
+            }),
+            value: analyticsData?.callsThisWeek || 0,
+          }}
+        />
+      </Col>
+      <Col span={6}>
+        <StatisticCard
+          loading={analyticsLoading}
+          statistic={{
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.analytics.callsThisMonth',
+              defaultMessage: '近 30 天调用',
+            }),
+            value: analyticsData?.callsThisMonth || 0,
+          }}
+        />
+      </Col>
     </Row>
   );
 }
@@ -699,6 +743,11 @@ export function VersionsTab({ functionId }: { functionId: string }) {
   };
 
   const seqOptions = rows.map((row) => ({ value: row.seq, label: `#${row.seq}` }));
+  // 版本门槛候选：本函数契约版本流中出现过的版本去重（#26 同口径——
+  // 杜绝手拼不存在的版本号）；当前 floor 值由 VersionFloorSelect 兜底补入。
+  const floorVersionOptions = Array.from(
+    new Set(rows.map((row) => row.version).filter((v): v is string => Boolean(v))),
+  );
   const changeTypeLabel = (type: ContractVersionItem['changeType']) => {
     if (type !== 'created' && type !== 'updated' && type !== 'removed') return type;
     return intl.formatMessage({
@@ -723,12 +772,17 @@ export function VersionsTab({ functionId }: { functionId: string }) {
               defaultMessage="函数以低于该值的版本注册时不物化（只产生注册警告）——挡住滚动升级窗口里旧 game server 重注册造成的契约回退。留空表示不设置。"
             />
           </Typography.Text>
-          <Input
-            style={{ width: 160 }}
-            placeholder="0.3.0"
+          <VersionFloorSelect
             value={floorInput}
-            disabled={floorSaving}
-            onChange={(e) => setFloorInput(e.target.value)}
+            options={floorVersionOptions}
+            submitting={floorSaving}
+            allowClear={false}
+            placeholder={intl.formatMessage({
+              id: 'pages.functionsDirectory.batch.versionPlaceholder',
+              defaultMessage: '选择历史版本',
+            })}
+            style={{ width: 160 }}
+            onChange={(next) => setFloorInput(next ?? '')}
           />
           <Button
             type="primary"

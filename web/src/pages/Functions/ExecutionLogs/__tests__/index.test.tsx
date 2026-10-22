@@ -16,6 +16,7 @@ import { configure, fireEvent, render, screen, waitFor, within } from '@testing-
 import ExecutionLogsPage from '../index';
 import {
   getExecutionLog,
+  listExecutionLogOperators,
   listExecutionLogs,
   type ExecutionLogDetail,
   type ExecutionLogItem,
@@ -69,6 +70,7 @@ jest.mock('antd', () => {
 
 jest.mock('@/services/api/executionLogs', () => ({
   listExecutionLogs: jest.fn(),
+  listExecutionLogOperators: jest.fn(),
   getExecutionLog: jest.fn(),
 }));
 
@@ -162,6 +164,7 @@ jest.mock('@ant-design/pro-components', () => {
 });
 
 const mockedList = jest.mocked(listExecutionLogs);
+const mockedListOperators = jest.mocked(listExecutionLogOperators);
 const mockedGetDetail = jest.mocked(getExecutionLog);
 
 const sampleItem = {
@@ -237,10 +240,20 @@ function lastListArgs(): Record<string, string | number | boolean | undefined> {
   return calls[calls.length - 1][0];
 }
 
+/** 操作人 Select 的 placeholder 定位：「操作人」文本与列头撞车，经 antd6 placeholder 类取。 */
+function selectPlaceholder(text: string): HTMLElement {
+  const hit = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-placeholder')).find(
+    (el) => el.textContent === text,
+  );
+  expect(hit).toBeTruthy();
+  return hit as HTMLElement;
+}
+
 describe('执行留痕页面结构（StandardPage 对齐）', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedList.mockResolvedValue({ items: [sampleItem], total: 1 } as never);
+    mockedListOperators.mockResolvedValue([{ value: 'alice', count: 12 }]);
     mockedGetDetail.mockReset();
   });
 
@@ -269,7 +282,11 @@ describe('执行留痕页面结构（StandardPage 对齐）', () => {
     await screen.findByText('当前结果 1 条');
     expect(screen.queryByText('清空筛选')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('操作人'), { target: { value: 'alice' } });
+    fireEvent.mouseDown(selectPlaceholder('操作人'));
+    fireEvent.click(await screen.findByText('alice (12)'));
+    await waitFor(() =>
+      expect(mockedList).toHaveBeenLastCalledWith(expect.objectContaining({ actor: 'alice' })),
+    );
     expect(screen.getByText('清空筛选')).toBeInTheDocument();
     expect(screen.getByText('当前正在查看筛选后的执行记录')).toBeInTheDocument();
     expect(screen.getByText('已生效条件：操作人 alice')).toBeInTheDocument();
@@ -288,7 +305,9 @@ describe('执行留痕页面结构（StandardPage 对齐）', () => {
       '暂无执行留痕。函数被调用或页面发起执行后',
     );
 
-    fireEvent.change(screen.getByPlaceholderText('操作人'), { target: { value: 'ghost' } });
+    fireEvent.mouseDown(selectPlaceholder('操作人'));
+    // 选中操作人但结果为空 → 空态切换到「调整条件」分支
+    fireEvent.click(await screen.findByText('alice (12)'));
     await waitFor(() => {
       expect(screen.getByTestId('stub-empty')).toHaveTextContent(
         '当前筛选条件下没有匹配的执行记录',
@@ -316,6 +335,7 @@ describe('执行留痕筛选扩展与详情抽屉', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedList.mockResolvedValue(listResponse([makeItem()]));
+    mockedListOperators.mockResolvedValue([{ value: 'alice', count: 12 }]);
     mockedGetDetail.mockReset();
   });
 
@@ -349,8 +369,8 @@ describe('执行留痕筛选扩展与详情抽屉', () => {
     await screen.findByText('当前结果 1 条');
 
     fireEvent.change(screen.getByPlaceholderText('函数ID'), { target: { value: 'player.ban' } });
-    await chooseSelectOption(0, '页面');
-    await chooseSelectOption(1, '失败');
+    await chooseSelectOption(1, '页面');
+    await chooseSelectOption(2, '失败');
     await waitFor(() => {
       expect(screen.getByText('已生效条件：函数 player.ban / page / error')).toBeInTheDocument();
     });
@@ -359,8 +379,8 @@ describe('执行留痕筛选扩展与详情抽屉', () => {
     );
 
     // 切换来源/状态覆盖摘要与请求参数的另一侧分支
-    await chooseSelectOption(0, '调用');
-    await chooseSelectOption(1, '成功');
+    await chooseSelectOption(1, '调用');
+    await chooseSelectOption(2, '成功');
     await waitFor(() => {
       expect(screen.getByText('已生效条件：函数 player.ban / invoke / ok')).toBeInTheDocument();
     });

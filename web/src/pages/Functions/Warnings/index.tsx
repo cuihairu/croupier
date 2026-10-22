@@ -22,8 +22,10 @@ import {
   listFunctionWarnings,
   markAllFunctionWarningsRead,
   markFunctionWarningRead,
+  listFunctionWarningFilterOptions,
   type FunctionRegistrationWarning,
 } from '@/services/api/functions';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 import { useScope } from '@/hooks/useScopeReload';
 import { formatDateTime } from '@/utils/format';
 
@@ -124,10 +126,23 @@ export default function FunctionWarningsPage() {
               defaultMessage: '函数ID',
             })}
           >
-            <Input allowClear placeholder="examples.player.create" style={{ width: 240 }} />
+            {/* #34：函数 ID / Agent 选项由服务端聚合（警告全集 distinct + 条数） */}
+            <ServerOptionsSelect
+              showSearch
+              allowClear
+              placeholder="examples.player.create"
+              style={{ width: 240 }}
+              fetchOptions={async () => (await listFunctionWarningFilterOptions()).functions}
+            />
           </Form.Item>
           <Form.Item name="agentId" label="Agent">
-            <Input allowClear placeholder="agent-1" style={{ width: 220 }} />
+            <ServerOptionsSelect
+              showSearch
+              allowClear
+              placeholder="agent-1"
+              style={{ width: 220 }}
+              fetchOptions={async () => (await listFunctionWarningFilterOptions()).agents}
+            />
           </Form.Item>
           <Form.Item
             name="code"

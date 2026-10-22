@@ -17,8 +17,6 @@ TypeScript 优先的 Node.js SDK，用于连接 Croupier Agent、注册函数并
 - 提供函数描述符与处理器注册能力
 - 面向 monorepo 统一协议演进
 
-- 呈现 hints 便捷层（x-ui-* 契约，见 [呈现 Hints 契约](/architecture/presentation-hints)）：
-
 ```ts
 import { setFieldWidget, setFieldHint } from "croupier-sdk";
 

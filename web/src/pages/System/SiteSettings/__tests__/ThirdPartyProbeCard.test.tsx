@@ -1,7 +1,7 @@
 /**
  * 第三方服务健康探针卡单测（OPEN-ISSUES #57）。
  *
- * 锁定契约：六渠道逐个「探测」→ POST /probes/:channel → 三态结果
+ * 锁定契约：六渠道逐个「探测」→ POST /ops/probes/:channel → 三态结果
  * （未配置 / 健康·延迟·状态 / 异常·错误透出）与请求失败兜底。
  *
  * mock 口径沿用同目录 SecurityTab.test.tsx：services 层 jest.mock、

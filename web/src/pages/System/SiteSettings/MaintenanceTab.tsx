@@ -21,6 +21,7 @@ import { fetchSiteConfig } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
 import SmtpCard from './SmtpCard';
 import ThirdPartyProbeCard from './ThirdPartyProbeCard';
+import ExternalServicesCard from './ExternalServicesCard';
 
 const { Text } = Typography;
 
@@ -245,6 +246,9 @@ export default function MaintenanceTab() {
 
       {/* 第三方服务健康探针（OPEN-ISSUES #57）：webhook 四渠道/更新源/SMTP 手动探活 */}
       <ThirdPartyProbeCard />
+
+      {/* 外部服务启用态（server-status-provider 批 S3）：文件侧只读清单 */}
+      <ExternalServicesCard />
     </Space>
   );
 }

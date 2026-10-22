@@ -28,6 +28,8 @@ flags:
   server:
     paths:
       - internal/**
+      - core/**
+      - agents/**
     carryforward: true
   web-dashboard:
     paths:

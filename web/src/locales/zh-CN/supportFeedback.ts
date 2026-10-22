@@ -35,7 +35,6 @@ export default {
   'pages.supportFeedback.priority.low': '低',
   'pages.supportFeedback.priority.normal': '普通',
   'pages.supportFeedback.search.category': '分类',
-  'pages.supportFeedback.search.gameId': '游戏',
   'pages.supportFeedback.search.keyword': '关键词',
   'pages.supportFeedback.search.status': '状态',
   'pages.supportFeedback.status.closed': '已关闭',

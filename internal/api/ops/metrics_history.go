@@ -9,6 +9,9 @@ import (
 )
 
 func agentMetricsHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *AgentMetricsHistoryRequest) (*AgentMetricsHistoryResponse, error) {
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
 	if svcCtx == nil || svcCtx.MetricsStore == nil {
 		return &AgentMetricsHistoryResponse{AgentID: req.AgentID}, nil
 	}

@@ -17,13 +17,17 @@ type DBSource struct {
 	Driver string `gorm:"size:32"` // mysql | postgres
 	// Deployment kind drives capability display (what the probe can and
 	// cannot see) and the deep-diagnosis external link.
-	Kind      string `gorm:"size:32"` // self | aliyun | huawei
-	DSN       string `gorm:"size:512"`
-	GameID    string `gorm:"size:64;index:idx_db_source_scope,priority:1"`
-	Env       string `gorm:"size:64;index:idx_db_source_scope,priority:2"`
-	Enabled   bool   `gorm:"default:true"`
-	Sort      int    `gorm:"default:0"`
-	CreatedBy string `gorm:"size:64"`
+	Kind   string `gorm:"size:32"` // self | aliyun | huawei
+	DSN    string `gorm:"size:512"`
+	GameID string `gorm:"size:64;index:idx_db_source_scope,priority:1"`
+	Env    string `gorm:"size:64;index:idx_db_source_scope,priority:2"`
+	// OwnerAgentID 归属 agent（R4 编号迁移 0045）：DB 源的周期探测下放给归属
+	// agent 执行（M3 下放必须能把 DB 源指到具体 agent）。空 = 未归属——
+	// server 侧诊断端点兜底现状，不因未归属而停止监控。
+	OwnerAgentID string `gorm:"size:64"`
+	Enabled      bool   `gorm:"default:true"`
+	Sort         int    `gorm:"default:0"`
+	CreatedBy    string `gorm:"size:64"`
 
 	// Thresholds for alert integration (0 = use platform defaults).
 	LockWaitWarn  int `gorm:"default:0"` // lock wait entries above → warning
@@ -51,6 +55,17 @@ func ValidateDBSource(src *DBSource) error {
 	src.Driver = strings.ToLower(strings.TrimSpace(src.Driver))
 	if src.Name == "" {
 		return errors.New("数据源名称不能为空")
+	}
+	if strings.TrimSpace(src.GameID) == "" {
+		return errors.New("gameId 不能为空")
+	}
+	if strings.TrimSpace(src.Env) == "" {
+		return errors.New("env 不能为空")
+	}
+	if strings.TrimSpace(src.OwnerAgentID) != "" {
+		if strings.TrimSpace(src.OwnerAgentID) != src.OwnerAgentID {
+			return errors.New("ownerAgentId 不能包含首尾空白")
+		}
 	}
 	if src.Driver != "mysql" && src.Driver != "postgres" {
 		return errors.New("驱动仅支持 mysql / postgres")
@@ -102,6 +117,28 @@ func NewDBSourceModel(db *gorm.DB) *DBSourceModel {
 func (m *DBSourceModel) List(ctx context.Context) ([]DBSource, error) {
 	var items []DBSource
 	err := m.db.WithContext(ctx).Order("sort ASC, updated_at DESC").Find(&items).Error
+	return items, err
+}
+
+// ListByOwner returns the enabled sources assigned to one agent (R4: 周期
+// 探测按归属下发给该 agent 执行)。按 id 升序稳定排序——派生目标集与内容
+// hash 都依赖稳定顺序。
+func (m *DBSourceModel) ListByOwner(ctx context.Context, ownerAgentID string) ([]DBSource, error) {
+	var items []DBSource
+	err := m.db.WithContext(ctx).
+		Where("owner_agent_id = ? AND enabled = ?", ownerAgentID, true).
+		Order("id ASC").Find(&items).Error
+	return items, err
+}
+
+// ListByOwnerAndScope returns enabled sources assigned to one agent and one
+// explicit game environment. Owner assignment is not by itself an authority
+// to cross an Agent's registration scope.
+func (m *DBSourceModel) ListByOwnerAndScope(ctx context.Context, ownerAgentID, gameID, env string) ([]DBSource, error) {
+	var items []DBSource
+	err := m.db.WithContext(ctx).
+		Where("owner_agent_id = ? AND game_id = ? AND env = ? AND enabled = ?", ownerAgentID, gameID, env, true).
+		Order("id ASC").Find(&items).Error
 	return items, err
 }
 

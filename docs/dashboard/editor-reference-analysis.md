@@ -1,86 +1,57 @@
 ---
-title: 组合页编辑器 × 参考产品对比拆分分析
+title: Editor reference analysis
 ---
 
-# 组合页编辑器 × 参考产品对比拆分分析
+# Editor reference analysis
 
-> 样品（可亲手操作）：amis-editor（http://192.168.5.5:8001）、Appsmith（http://192.168.5.5:8002）
-> 方法：逐交互维度对比参考产品的真实行为与当前实现。本文是事实清单，不做辩护。
-> 2026-08-30 更新：第三节改造清单已全部落地，使用方式见《组合页编辑器 V3 使用指南》。
+This analysis compares the composite editor with amis-editor and Appsmith by interaction dimension. It records observed behavior and implementation status; it is not a product argument.
 
-## 一、总体判断
+## Overall assessment
 
-当前实现的问题是交互完整度：单看每个功能都"有"，但对照成熟产品的操作流，关键环节缺失或形态错误，导致用户无法形成连贯操作。最大的三个断层：
+The earlier implementation had individual features but lacked a coherent operation flow. The largest gaps were:
 
-1. 空画布形态错误（曾放强制向导，参考产品从无此模式）
-2. 弹窗内编辑断层（参考产品可进入弹窗内部直接编辑）
-3. 函数数据源与组件的关系弱（参考产品：数据源可绑定任意组件反复使用）
+1. A forced empty-canvas wizard instead of an immediately usable canvas.
+2. No way to enter a modal and edit its children in context.
+3. Weak separation between reusable data sources and visual components.
 
-## 二、逐维度对比
+The August 2026 comparison round closed those workflow gaps. The current editor keeps Croupier's proposal-and-publication governance instead of adopting immediate deployment.
 
-### 1. 新建页面与空画布
+## Dimension comparison
 
-| 维度   | Appsmith                   | amis-editor  | 结论                             |
-| ------ | -------------------------- | ------------ | -------------------------------- |
-| 新建时 | 选模板或空白应用（一次性） | 直接空白画布 | 已改齐：无向导，空画布为拖拽占位 |
+| Dimension      | Appsmith                                             | amis-editor                             | Croupier implementation                                                                 |
+| -------------- | ---------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------- |
+| New page       | Template or blank application choice.                | Directly blank canvas.                  | Blank draggable canvas; no forced wizard.                                               |
+| Add component  | Drag to a drop target or click to place.             | Drag with insertion indicator or click. | Drag with insertion indicator or click.                                                 |
+| Data component | Widget and query are loosely coupled and rebindable. | CRUD component selects an API.          | Function becomes the initial component; rebinding and multiple instances are supported. |
+| Selection      | Resize handles, floating toolbar, and context menu.  | Selection and context actions.          | Selection frame and context menu.                                                       |
+| Multi-select   | Marquee or modifier selection.                       | Shift accumulation.                     | Shift-click accumulation and bulk delete.                                               |
+| Properties     | Property, style, and event tabs.                     | Config panels by component.             | Configuration and action tabs.                                                          |
+| Events         | Dropdown or JavaScript.                              | Configurable actions.                   | Declarative ordered action chains.                                                      |
+| Modal editing  | Enter modal content in place.                        | Modal canvas editing.                   | Placeholder card with inner canvas and breadcrumb return.                               |
+| Preview        | Immediate top-bar mode switch.                       | Preview mode.                           | Uses the published renderer.                                                            |
+| Data debugging | Persistent query panel.                              | Request debugging.                      | Bottom panel with one-click function execution.                                         |
+| Outline        | Component tree.                                      | Tree or layer navigation.               | Outline tab.                                                                            |
+| Save           | Immediate save or deploy.                            | Save configuration.                     | Proposal, validation, acceptance, publication, then menu mount.                         |
 
-### 2. 添加组件
+## Implemented improvement list
 
-| 维度     | Appsmith                             | amis-editor                      | 当前实现                       |
-| -------- | ------------------------------------ | -------------------------------- | ------------------------------ |
-| 方式     | 拖拽到任意落点（对齐线），或点击放置 | 拖拽插入（落点插入线），也可点击 | 拖拽（落点指示线）加点击       |
-| 数据组件 | widget 与 Query 解耦，任意绑定       | CRUD 组件选 API                  | 函数即组件；已支持换绑与多实例 |
+- In-modal nested editing.
+- Drag insertion indicators.
+- Property/action panel separation.
+- Bottom data trial panel.
+- Parent selection and context menu.
+- Undo and redo.
+- Backend action-chain model and visual editing.
+- Multi-component modal grouping.
+- Complete container-child interaction.
+- Top-button round-trip restoration.
+- Proposal and draft multi-source restoration.
+- Shift multi-select and deletion.
+- Same-function multiple instances and rebinding.
 
-### 3. 选中与快捷操作
+## Remaining boundaries
 
-| 维度     | 参考产品                     | 当前实现                                               |
-| -------- | ---------------------------- | ------------------------------------------------------ |
-| 选中反馈 | 控制点加悬浮工具条，右键菜单 | 选中框、右键菜单（上移、下移、选择父容器、复制、删除） |
-| 多选     | 框选或 Shift                 | 点选累积加批量删除                                     |
+- Very deep container descendants use simplified rendering.
+- Text nodes remain editor-only and do not publish.
 
-### 4. 属性配置
-
-| 维度 | Appsmith               | 当前实现                                        |
-| ---- | ---------------------- | ----------------------------------------------- |
-| 结构 | 属性、样式、事件三 Tab | 「配置/动作」两 Tab（Appsmith 属性/事件页形态） |
-| 事件 | 下拉动作加 JS          | 下拉动作编排，支持动作链                        |
-
-### 5. 弹窗编辑
-
-| 维度 | Appsmith 与 amis               | 当前实现                                                 |
-| ---- | ------------------------------ | -------------------------------------------------------- |
-| 形态 | 弹窗画布占位，点击进入内部编辑 | 占位卡双击进入内部画布（面包屑返回），内可多组件分组渲染 |
-
-### 6. 预览与数据调试
-
-| 维度     | 参考产品            | 当前实现                   |
-| -------- | ------------------- | -------------------------- |
-| 预览     | 顶栏即时切换        | 复用发布渲染器，所见即发布 |
-| 数据调试 | 底部常驻 Query 面板 | 底部数据面板一键试跑       |
-
-### 7. 保存与大纲
-
-| 维度 | 参考产品          | 当前实现                                         |
-| ---- | ----------------- | ------------------------------------------------ |
-| 保存 | 即时保存或 Deploy | 提案、接受发布、挂载菜单后进导航（符合平台治理） |
-| 大纲 | 左侧树            | 左侧大纲 Tab                                     |
-
-## 三、改造清单（已全部完成）
-
-| 序号 | 改造项                             | 状态   |
-| ---- | ---------------------------------- | ------ |
-| D    | 弹窗内嵌画布编辑（面包屑、多组件） | 已完成 |
-| A    | 拖拽落点指示线                     | 已完成 |
-| C    | 属性面板分区（事件固定区）         | 已完成 |
-| E    | 底部数据试跑面板                   | 已完成 |
-| B    | 选择父级与右键菜单                 | 已完成 |
-| 加   | 撤销重做（Ctrl 加 Z，50 步）       | 已完成 |
-| 加   | 动作链（后端 Chain 模型与链 UI）   | 已完成 |
-| 加   | 弹窗分组多组件（Section.Group）    | 已完成 |
-| 加   | 容器子级完整交互                   | 已完成 |
-| 加   | 顶部按钮回读（round-trip 等价）    | 已完成 |
-| 加   | 回读多数据源（提案、draft）        | 已完成 |
-| 加   | Shift 多选批量删除                 | 已完成 |
-| 加   | 同函数多实例与换绑                 | 已完成 |
-
-遗留（模型与成本权衡，非缺陷）：容器孙层简化渲染、文本不参与发布。详见《组合页编辑器 V3 使用指南》第九节。
+These are deliberate model and maintenance trade-offs rather than undocumented defects.

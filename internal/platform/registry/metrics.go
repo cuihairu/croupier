@@ -8,6 +8,7 @@ import (
 	"time"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -28,6 +29,10 @@ type AgentMetricsHistory struct {
 	MemoryJSON dbtype.JSON
 
 	DisksJSON dbtype.JSON
+
+	// ProbeJSON 探测统计快照（probe_stats，评审简档 §13.1 统计面；
+	// 迁移 0044 加列）。空 = 该份上报无探测统计（如 capture/devops agent）。
+	ProbeJSON dbtype.JSON
 }
 
 func (AgentMetricsHistory) TableName() string {
@@ -60,6 +65,10 @@ func DefaultMetricsStoreConfig() MetricsStoreConfig {
 	}
 }
 
+// supervisorEventRingSize 每个 agent 的 supervisor 事件内存环上限（与 agent
+// 侧 supervisorEventLog 环深一致）。
+const supervisorEventRingSize = 500
+
 // MetricsStore stores metrics with memory + database hybrid approach.
 type MetricsStore struct {
 	mu      sync.RWMutex
@@ -71,12 +80,30 @@ type MetricsStore struct {
 	// onReport 是上报后回调（告警规则评估等）。异步执行且有 recover
 	// 防护，评估异常不影响存储链路。
 	onReport func(ctx context.Context, agentID string, report *opsv1.MetricsReport)
+	// onSupervisorEvent 是新监管事件入库后回调（herald 告警出口等，仅
+	// 去重后的新事件触发）。异步执行且有 recover 防护，回调异常不影响
+	// 存储链路。
+	onSupervisorEvent func(ctx context.Context, agentID string, ev *opsv1.SupervisorEvent)
+	// supervisor 事件环（agent 经 metrics 上报捎带，server 内存缓存）。
+	// lastSeq/lastTs 用于去重：seq 不新且 ts 不新视为重传丢弃；seq 回退但
+	// ts 更新说明 agent 重启后游标归零，按新事件重新入库。
+	supEvents  map[string][]*opsv1.SupervisorEvent
+	supLastSeq map[string]int64
+	supLastTs  map[string]int64
 }
 
 // SetOnReport sets the post-report callback (e.g. alert rule evaluation).
 func (s *MetricsStore) SetOnReport(fn func(ctx context.Context, agentID string, report *opsv1.MetricsReport)) {
 	s.mu.Lock()
 	s.onReport = fn
+	s.mu.Unlock()
+}
+
+// SetOnSupervisorEvent sets the post-ingest callback fired for each NEW
+// supervisor event (重传去重后；herald 告警出口消费).
+func (s *MetricsStore) SetOnSupervisorEvent(fn func(ctx context.Context, agentID string, ev *opsv1.SupervisorEvent)) {
+	s.mu.Lock()
+	s.onSupervisorEvent = fn
 	s.mu.Unlock()
 }
 
@@ -136,7 +163,9 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 		Received: time.Now(),
 	}
 	s.head = (s.head + 1) % s.config.MaxTotalEntries
+	newSupEvents := s.ingestSupervisorEventsLocked(agentID, report.GetSupervisorEvents())
 	onReport := s.onReport
+	onSupEvent := s.onSupervisorEvent
 	s.mu.Unlock()
 
 	// Persist to database asynchronously
@@ -153,6 +182,21 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 			onReport(evalCtx, agentID, report)
 		}()
 	}
+
+	// 新监管事件回调（异步逐事件，回调失败不影响存储与上报链路）。
+	for _, ev := range newSupEvents {
+		if onSupEvent == nil {
+			break
+		}
+		go func(ev *opsv1.SupervisorEvent) {
+			defer func() {
+				_ = recover()
+			}()
+			evCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			onSupEvent(evCtx, agentID, ev)
+		}(ev)
+	}
 }
 
 // persistToDB saves metrics to database.
@@ -165,15 +209,96 @@ func (s *MetricsStore) persistToDB(agentID string, report *opsv1.MetricsReport) 
 	memoryJSON, _ := json.Marshal(report.GetMemory())
 	disksJSON, _ := json.Marshal(report.GetDisks())
 
+	// 探测统计只有配探针面的 agent 才有；空切片不落列（NULL 而非 "[]"），
+	// 读侧按列非空重建。
+	var probeJSON dbtype.JSON
+	if probes := report.GetProbeStats(); len(probes) > 0 {
+		if raw, err := json.Marshal(probes); err == nil {
+			probeJSON = dbtype.JSON(raw)
+		}
+	}
+
 	entry := AgentMetricsHistory{
 		AgentID:    agentID,
 		Timestamp:  time.Now(),
 		CPUJSON:    cpuJSON,
 		MemoryJSON: memoryJSON,
 		DisksJSON:  disksJSON,
+		ProbeJSON:  probeJSON,
 	}
 
 	s.db.Create(&entry)
+}
+
+// ingestSupervisorEventsLocked merges piggybacked supervisor events into the
+// per-agent ring and returns the newly ingested events (重传去重后) for the
+// post-ingest callback. Caller must hold s.mu.
+func (s *MetricsStore) ingestSupervisorEventsLocked(agentID string, evs []*opsv1.SupervisorEvent) []*opsv1.SupervisorEvent {
+	if len(evs) == 0 {
+		return nil
+	}
+	if s.supEvents == nil {
+		s.supEvents = make(map[string][]*opsv1.SupervisorEvent)
+		s.supLastSeq = make(map[string]int64)
+		s.supLastTs = make(map[string]int64)
+	}
+	lastSeq, lastTs := s.supLastSeq[agentID], s.supLastTs[agentID]
+	ring := s.supEvents[agentID]
+	var fresh []*opsv1.SupervisorEvent
+	for _, ev := range evs {
+		if ev == nil {
+			continue
+		}
+		// 重传去重：seq 与 ts 都不比已入库基线新才丢弃；seq 回退但 ts 更新
+		// 说明 agent 重启后游标归零，按新事件重新入库。
+		if ev.Seq <= lastSeq && ev.TsUnix <= lastTs {
+			continue
+		}
+		ring = append(ring, ev)
+		fresh = append(fresh, ev)
+		if len(ring) > supervisorEventRingSize {
+			ring = ring[len(ring)-supervisorEventRingSize:]
+		}
+		lastSeq, lastTs = ev.Seq, ev.TsUnix
+	}
+	s.supEvents[agentID] = ring
+	s.supLastSeq[agentID] = lastSeq
+	s.supLastTs[agentID] = lastTs
+	return fresh
+}
+
+// GetSupervisorEvents returns buffered supervisor events for an agent, oldest
+// first. sinceSeq > 0 keeps only events with a higher seq (incremental pull);
+// limit > 0 caps the result to the newest events.
+func (s *MetricsStore) GetSupervisorEvents(agentID string, sinceSeq int64, limit int) []*opsv1.SupervisorEvent {
+	if agentID == "" {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var out []*opsv1.SupervisorEvent
+	for _, ev := range s.supEvents[agentID] {
+		if ev == nil || (sinceSeq > 0 && ev.Seq <= sinceSeq) {
+			continue
+		}
+		out = append(out, ev)
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[len(out)-limit:]
+	}
+	return out
+}
+
+// SupervisorLatestSeq returns the newest buffered event seq for an agent
+// (0 when none), so panels can bootstrap their incremental cursor.
+func (s *MetricsStore) SupervisorLatestSeq(agentID string) int64 {
+	if agentID == "" {
+		return 0
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.supLastSeq[agentID]
 }
 
 // GetLatest returns the latest metrics report for an agent.
@@ -285,6 +410,11 @@ func (s *MetricsStore) getFromDB(agentID string, since time.Time, limit int) []M
 			_ = json.Unmarshal(record.DisksJSON, &disks)
 			report.Disks = disks
 		}
+		if len(record.ProbeJSON) > 0 {
+			probes := []*opsv1.ProbeStats{}
+			_ = json.Unmarshal(record.ProbeJSON, &probes)
+			report.ProbeStats = probes
+		}
 		result[i] = MetricsEntry{
 			AgentID:  agentID,
 			Report:   report,
@@ -394,21 +524,12 @@ func (c *SystemInfoCache) Get(agentID string) (*opsv1.SystemInfo, bool) {
 		return nil, false
 	}
 
-	// Return a copy to avoid mutation
-	info := &opsv1.SystemInfo{
-		Hostname:      entry.Info.Hostname,
-		Os:            entry.Info.Os,
-		OsVersion:     entry.Info.OsVersion,
-		KernelVersion: entry.Info.KernelVersion,
-		Arch:          entry.Info.Arch,
-		CpuCores:      entry.Info.CpuCores,
-		TotalMemory:   entry.Info.TotalMemory,
-		BootTime:      entry.Info.BootTime,
-		AgentVersion:  entry.Info.AgentVersion,
-		OpsStatus:     entry.Info.OpsStatus,
+	// Return a copy to avoid mutation. proto.Clone 逐字段拷贝——手写列清单会随
+	// proto 加字段静默漂移（agent_binary_sha256 落地时即踩中），Clone 根治。
+	if cloned, ok := proto.Clone(entry.Info).(*opsv1.SystemInfo); ok && cloned != nil {
+		return cloned, true
 	}
-
-	return info, true
+	return entry.Info, true
 }
 
 // List returns all cached system info.
@@ -509,4 +630,7 @@ func (s *MetricsStore) Clear(agentID string) {
 	}
 
 	delete(s.byAgent, agentID)
+	delete(s.supEvents, agentID)
+	delete(s.supLastSeq, agentID)
+	delete(s.supLastTs, agentID)
 }

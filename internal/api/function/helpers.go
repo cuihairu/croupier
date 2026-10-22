@@ -1,7 +1,6 @@
 package function
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
+	"github.com/cuihairu/croupier/internal/platform/functioncontract"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/policy"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
@@ -163,6 +163,7 @@ func functionAnalytics(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 	}
 	return &FunctionAnalyticsResponse{
 		TotalCalls:     stats.TotalCalls,
+		FailedCalls:    stats.FailedCalls,
 		SuccessRate:    stats.SuccessRate,
 		AvgLatency:     stats.AvgLatency,
 		CallsToday:     stats.CallsToday,
@@ -501,10 +502,8 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 }
 
 // validateInvokeInput 在 dispatch 前按函数 descriptor 的 inputSchema 校验
-// payload 必填参数：缺失时返回 400 并在 details 中指明字段（前端表单级
-// 渲染契约）。无 descriptor / 无 inputSchema.required / 查询失败时均不拦
-// 截——输入契约的完整校验（类型/枚举/嵌套）仍由游戏服侧兜底，此处只做
-// 平台可判定的「缺哪个参数」这一层。
+// payload。无 descriptor 或 schema 不可编译时透传；可编译契约则执行完整的
+// JSON Schema 校验，避免 HTTP API 与 logic 入口各自解释同一份契约。
 func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest, payload []byte) error {
 	if svcCtx == nil || svcCtx.FunctionModel == nil {
 		return nil
@@ -517,43 +516,7 @@ func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *F
 	if err != nil || len(descs) == 0 {
 		return nil
 	}
-	input := descs[0].Input // ListDescriptors 按版本倒序，取最新契约
-	if len(input) == 0 {
-		return nil
-	}
-	required, _ := input["required"].([]interface{})
-	if len(required) == 0 {
-		return nil
-	}
-	// payload 非对象（数组/标量/非法 JSON）不在本层拦截，交由下游处理。
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(payload, &body); err != nil {
-		return nil
-	}
-	missing := make([]string, 0, len(required))
-	details := make(map[string]any, len(required))
-	for _, r := range required {
-		name, ok := r.(string)
-		if !ok || name == "" {
-			continue
-		}
-		// 存在且非 null 即满足 JSON Schema required 语义（空串/false 是
-		// 合法值，是否为空由游戏服业务判断）。
-		raw, present := body[name]
-		if present && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-			continue
-		}
-		missing = append(missing, name)
-		details[name] = "required"
-	}
-	if len(missing) == 0 {
-		return nil
-	}
-	sort.Strings(missing)
-	return errorx.NewBadRequestWithDetails(
-		"缺少必填参数: "+strings.Join(missing, ", "),
-		details,
-	)
+	return functioncontract.ValidateInput(descs[0].Input, payload) // ListDescriptors 按版本倒序，取最新契约
 }
 
 // validateInvokeRoute enforces routing semantics at the HTTP API boundary.
@@ -1500,6 +1463,13 @@ func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, function
 	return policy.RiskMedium
 }
 
+// ResolvePolicyRisk exposes resolvePolicyRisk to the approve path
+// (internal/api/approval step-up gate, OPEN-ISSUES #75): 高危审批门槛必须与
+// 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。
+func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
+	return resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
+}
+
 // enforceFunctionPolicy checks if the user's roles are allowed to invoke the function
 // based on the effective policy for that function.
 // Returns the effective policy for auditing purposes.
@@ -1641,4 +1611,54 @@ func firstNonEmptyMap(a, b map[string]string) map[string]string {
 		return a
 	}
 	return b
+}
+
+// functionWarningFilterOptions 按 #34 提供注册警告过滤下拉的服务端聚合选项：
+// 当前 scope 警告全集（与 functionWarnings 同源、不过滤）下 distinct
+// 函数 ID / Agent 及各自警告条数，供 Warnings 页两个下拉一次取全。
+func functionWarningFilterOptions(ctx context.Context, svcCtx *svc.ServiceContext) (*FunctionWarningFilterOptionsResponse, error) {
+	scope := currentFunctionScope(ctx)
+
+	resp := &FunctionWarningFilterOptionsResponse{
+		Functions: []WarningFilterOptionItem{},
+		Agents:    []WarningFilterOptionItem{},
+	}
+	if svcCtx.RegistryStore == nil {
+		return resp, nil
+	}
+
+	warnings := svcCtx.RegistryStore.ListRegistrationWarnings(reg.RegistrationWarningFilter{
+		GameID: scope.GameID,
+		Env:    scope.Env,
+		Limit:  0, // 聚合用全集，不限条数
+	})
+
+	funcCounts := map[string]int64{}
+	agentCounts := map[string]int64{}
+	for _, w := range warnings {
+		if v := strings.TrimSpace(w.FunctionID); v != "" {
+			funcCounts[v]++
+		}
+		if v := strings.TrimSpace(w.AgentID); v != "" {
+			agentCounts[v]++
+		}
+	}
+	resp.Functions = optionItemsFromCounts(funcCounts)
+	resp.Agents = optionItemsFromCounts(agentCounts)
+	return resp, nil
+}
+
+func optionItemsFromCounts(counts map[string]int64) []WarningFilterOptionItem {
+	items := make([]WarningFilterOptionItem, 0, len(counts))
+	for value, count := range counts {
+		items = append(items, WarningFilterOptionItem{Value: value, Label: value, Count: count})
+	}
+	// 稳定序：条数降序、同数按 value 字典序（测试与展示均可预期）
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count != items[j].Count {
+			return items[i].Count > items[j].Count
+		}
+		return items[i].Value < items[j].Value
+	})
+	return items
 }

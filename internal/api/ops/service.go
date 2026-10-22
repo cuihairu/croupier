@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -21,6 +23,9 @@ var (
 	opsAgentsListFn       = opsAgentsList
 	opsAgentMetricsFn     = opsAgentMetrics
 	opsAgentProcessesFn   = opsAgentProcesses
+	opsAgentSupervisorFn  = opsAgentSupervisor
+	opsAgentSupEvtsFn     = opsAgentSupervisorEvents
+	opsAgentSupLogFn      = opsAgentSupervisorLog
 	opsNodesFn            = opsNodes
 	opsNodeCommandsFn     = opsNodeCommands
 	opsHealthGetFn        = opsHealthGet
@@ -55,6 +60,18 @@ func (s *Service) OpsAgentProcesses(ctx context.Context, req *OpsAgentProcessesR
 	return opsAgentProcessesFn(ctx, s.svcCtx, req)
 }
 
+func (s *Service) OpsAgentSupervisor(ctx context.Context, req *OpsAgentSupervisorRequest) (*OpsAgentSupervisorResponse, error) {
+	return opsAgentSupervisorFn(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsAgentSupervisorEvents(ctx context.Context, req *OpsAgentSupervisorEventsRequest) (*OpsAgentSupervisorEventsResponse, error) {
+	return opsAgentSupEvtsFn(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsAgentSupervisorLog(ctx context.Context, req *OpsAgentSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
+	return opsAgentSupLogFn(ctx, s.svcCtx, req)
+}
+
 func (s *Service) OpsAgentSystemInfo(ctx context.Context, req *OpsAgentSystemInfoRequest) (*OpsAgentSystemInfoResponse, error) {
 	return opsAgentSystemInfo(ctx, s.svcCtx, req)
 }
@@ -73,6 +90,14 @@ func (s *Service) OpsAgentProcessStop(ctx context.Context, req *OpsProcessAction
 
 func (s *Service) OpsAgentProcessRestart(ctx context.Context, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
 	return opsAgentProcessRestart(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsAgentProcessSchedulePause(ctx context.Context, req *OpsProcessSchedulePauseRequest) (*OpsProcessSchedulePauseResponse, error) {
+	return opsAgentProcessSchedulePause(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsAgentProcessUpdate(ctx context.Context, req *OpsProcessUpdateRequest) (*OpsProcessUpdateResponse, error) {
+	return opsAgentProcessUpdate(ctx, s.svcCtx, req)
 }
 
 // Backup operations methods
@@ -107,6 +132,11 @@ func (s *Service) OpsSilenceDelete(ctx context.Context, req *OpsAlertSilenceRequ
 	return opsSilenceDelete(ctx, s.svcCtx, req)
 }
 
+// OpsAlertHandle 风险事件工作流流转（确认/忽略/升级 + 备注）。
+func (s *Service) OpsAlertHandle(ctx context.Context, alertID string, req *OpsAlertHandleRequest) (*OpsAlertHandleResponse, error) {
+	return opsAlertHandle(ctx, s.svcCtx, alertID, req)
+}
+
 func (s *Service) OpsSilences(ctx context.Context, req *OpsSilencesRequest) (*OpsSilencesResponse, error) {
 	return opsSilences(ctx, s.svcCtx, req)
 }
@@ -135,6 +165,10 @@ func (s *Service) OpsNodeDrain(ctx context.Context, req *OpsNodeCommandsRequest)
 
 func (s *Service) OpsNodeMeta(ctx context.Context, req *OpsNodeMetaRequest) (*OpsNodeMetaResponse, error) {
 	return opsNodeMeta(ctx, s.svcCtx, req)
+}
+
+func (s *Service) OpsNodeDetail(ctx context.Context, req *OpsNodeDetailRequest) (*OpsNodeDetailResponse, error) {
+	return opsNodeDetail(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsNodeRestart(ctx context.Context, req *OpsNodeCommandsRequest) (*OpsNodeRestartResponse, error) {

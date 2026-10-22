@@ -8,11 +8,12 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -58,7 +59,40 @@ type TCPListener struct {
 	closing chan struct{}
 	once    sync.Once
 
+	// serveStarted/serveExited bracket the accept loop: Close drains the
+	// loop before waiting on wg so the WaitGroup contract (the first
+	// positive delta must happen-before Wait) holds structurally.
+	serveStarted   chan struct{}
+	serveExited    chan struct{}
+	serveStartOnce sync.Once
+	serveExitOnce  sync.Once
+
 	logger *slog.Logger
+}
+
+// agentIdentityKey carries the server-verified registration identity through
+// control-plane dispatch so uplink payloads cannot override Agent scope.
+type agentIdentityKey struct{}
+
+// AgentIdentity is the scope bound to a live Agent session.
+type AgentIdentity struct {
+	AgentID string
+	GameID  string
+	Env     string
+}
+
+// AgentIdentityFromContext returns the verified identity attached to an Agent
+// control connection. Nil means the request did not enter through one.
+func AgentIdentityFromContext(ctx context.Context) *AgentIdentity {
+	if ctx == nil {
+		return nil
+	}
+	identity, _ := ctx.Value(agentIdentityKey{}).(*AgentIdentity)
+	return identity
+}
+
+func withAgentIdentity(ctx context.Context, identity *AgentIdentity) context.Context {
+	return context.WithValue(ctx, agentIdentityKey{}, identity)
 }
 
 // defaultControlAddress is the Server-side Agent control-plane listen address
@@ -102,6 +136,8 @@ func NewTCPListener(config *TCPListenerConfig, sessionStore *AgentSessionStore, 
 		sessionStore: sessionStore,
 		registry:     registry,
 		closing:      make(chan struct{}),
+		serveStarted: make(chan struct{}),
+		serveExited:  make(chan struct{}),
 		logger:       logger,
 	}, nil
 }
@@ -113,6 +149,9 @@ func (l *TCPListener) SetHandler(h *ControlService) {
 
 // Serve accepts connections until ctx is done or the listener is closed.
 func (l *TCPListener) Serve(ctx context.Context) error {
+	l.serveStartOnce.Do(func() { close(l.serveStarted) })
+	defer l.serveExitOnce.Do(func() { close(l.serveExited) })
+
 	for {
 		if tcpln, ok := l.listener.(*net.TCPListener); ok {
 			_ = tcpln.SetDeadline(time.Now().Add(time.Second))
@@ -231,11 +270,23 @@ func (l *TCPListener) SessionStore() *AgentSessionStore {
 }
 
 // Close stops accepting new connections and waits for active ones to finish.
+//
+// Ordering contract: the accept loop is drained first (its exit implies every
+// wg.Add already happened), and only then does Close wait on the WaitGroup.
+// Waiting concurrently with a first wg.Add (counter at zero) violates the
+// WaitGroup contract and is reported by the race detector via the
+// sync.WaitGroup annotations.
 func (l *TCPListener) Close() error {
 	var closeErr error
 	l.once.Do(func() {
 		close(l.closing)
 		closeErr = l.listener.Close()
+		select {
+		case <-l.serveStarted:
+			<-l.serveExited
+		default:
+			// Serve was never started: no connection goroutines exist.
+		}
 		l.wg.Wait()
 	})
 	return closeErr
@@ -306,7 +357,12 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 	default:
 		// Delegate to the control service if available
 		if h.listener.handler != nil {
-			return h.listener.handler.TransportHandler().Handle(ctx, msgID, reqID, body)
+			identity := &AgentIdentity{AgentID: h.agentID}
+			if sess, ok := h.listener.sessionStore.Get(h.agentID); ok {
+				identity.GameID = sess.GameID
+				identity.Env = sess.Env
+			}
+			return h.listener.handler.TransportHandler().Handle(withAgentIdentity(ctx, identity), msgID, reqID, body)
 		}
 		return nil, fmt.Errorf("unsupported message type for Agent session: %s", protocol.MsgIDString(msgID))
 	}
@@ -333,9 +389,13 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 		return nil, fmt.Errorf("unmarshal RegisterRequest: %w", err)
 	}
 
-	if req.AgentId == "" {
-		return nil, fmt.Errorf("agent_id is required")
+	agentID := strings.TrimSpace(req.AgentId)
+	gameID := strings.TrimSpace(req.GameId)
+	env := strings.TrimSpace(req.Env)
+	if agentID == "" || gameID == "" || env == "" {
+		return nil, fmt.Errorf("agent_id, game_id and env are required")
 	}
+	req.AgentId, req.GameId, req.Env = agentID, gameID, env
 
 	// Compute session TTL
 	ttl := 5 * time.Minute
@@ -358,8 +418,12 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	}
 	sess.UpdateLastSeen()
 
-	// Store session (carries the live MuxConn for request forwarding).
-	h.listener.sessionStore.Upsert(sess)
+	// Store session (carries the live MuxConn for request forwarding). Fail
+	// closed so a same-ID agent cannot overwrite a live session from another
+	// game environment while the control-plane registry is still validating.
+	if err := h.listener.sessionStore.Upsert(sess); err != nil {
+		return nil, fmt.Errorf("bind agent session: %w", err)
+	}
 	h.agentID = req.AgentId
 	h.sessionID = sess.SessionID
 	h.registered = true

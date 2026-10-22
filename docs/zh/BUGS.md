@@ -1,0 +1,1907 @@
+# 界面 Bug 验证与回归台账
+
+> 范围：本地栈（`croupier-server` + `pnpm dev`）上复现/验证前端交互路径，发现的问题、
+> 根因、修复与回归测试。
+>
+> 验收口径：**每个 BUG 都要有一条能真正判别修复与回归的测试**——「修复前红、修复后绿」。
+> 仅断言渲染成功、或用被 mock 弱化到无法失败的断言，都不算回归测试（本文档多次踩到，
+> 已在各条的「回归测试」里写明）。
+>
+> 相关：`todo.md`（T1–T13 已完成）、`CLAUDE.md`、`web/package.json`（antd 6）。
+
+## 验证手段
+
+| 手段             | 位置                                            | 用途                                                                                                                                                                       |
+| ---------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 控制台审计脚本   | `web/scripts/console-audit.mjs`                 | 登录真实栈，遍历 **52** 条路由，收集 console warning/error/pageerror，输出 JSON 报告。dev 模式下 antd 的运行时废弃告警、React 重复 key、缺失 locale key 只有这样才抓得到。 |
+| 废弃属性静态守卫 | `web/tests/antd6Deprecations.test.ts`           | 从 `node_modules/antd` 的**运行时告警表**反推废弃清单，扫描 `src/**/*.tsx`，任何新写入的废弃属性直接失败并报文件行号。                                                     |
+| 单元测试         | `pnpm --dir web test`（jest，251 个 suite）     | 组件行为回归。                                                                                                                                                             |
+| Go 测试          | `make test`（`go test -short ./...`，169 个包） | 后端回归。                                                                                                                                                                 |
+
+审计脚本的运行方式（需本地栈已起）：
+
+```bash
+cd web && node --import tsx scripts/console-audit.mjs http://127.0.0.1:8000
+# 报告写入 web/test-results/console-audit.json
+```
+
+**最终结论**：**52 条**路由的 console 输出中，antd 废弃告警 **0 条**、其他
+warning/error/pageerror **0 条**（BUG-005 / 007 / 008 / 010 / 011 修复前分别为
+19、4、2、4、14 条）。
+
+唯一的残留是 `/analytics/warehouse` 的 3 条
+`Failed to load resource: 503`——后端返回
+`{"error":"service_unavailable","message":"分析仓库未启用"}`，即本地未启用
+ClickHouse 分析仓库（`services/api/analytics.ts:484` 已注明
+「503 when the warehouse is not enabled」）。这是**预期内的后端状态**，不是界面缺陷；
+浏览器对任何 503 都会打这条 resource 错误，前端无法消除。
+
+---
+
+## BUG-001 `TestNewTCPListener_NilConfigDefaults` 抢占生产默认端口，本地起栈即失败
+
+**严重度**：高（阻断「go test 全绿」）
+
+**现象**
+
+本地跑着 croupier 栈时执行 `make test`，`internal/server` 必挂：
+
+```
+--- FAIL: TestNewTCPListener_NilConfigDefaults (0.00s)
+    listen tcp :19090: bind: address already in use
+```
+
+**根因**
+
+用例直接 `NewTCPListener(nil, nil, nil, nil)`，而 `nil` 配置会回落到生产默认地址
+`:19090`（`configs/*.yaml` 的 `control.addr` 默认同为 `:19090`）。于是测试真的去
+bind 了**业务端口**。任何跑着本地栈的开发者、或并行占着该端口的用例都会中招——
+一个与被测逻辑完全无关的环境耦合。同包的 `tcp_listener_test.go` 其余用例早已改用
+临时端口 `:0`，只有这一条漏网。
+
+**修复**
+
+把「配置兜底」从「建监听器」里拆出来，使其可测而不占端口：
+
+- `internal/server/tcp_listener.go`：新增 `defaultControlAddress` 常量与
+  `defaultTCPListenerConfig(config)`（非 nil 配置原样返回，不覆盖调用方显式值），
+  `NewTCPListener` 改为调用它。生产行为不变。
+- `internal/server/control_handler_test.go`：拆成三条——
+  1. `TestNewTCPListener_NilConfigDefaults`：纯函数断言默认地址与 `Insecure`；
+  2. `TestNewTCPListener_ConfigDefaults_PreservesExplicitValues`：断言恒等返回、
+     不翻转显式 TLS 开关；
+  3. `TestNewTCPListener_NilDepsUseDefaults`：用 `127.0.0.1:0` 验证 nil
+     sessionStore/registry/logger 兜底，并断言实际端口**不等于**生产默认端口。
+
+**回归测试**：同文件三条用例。修复前第 1 条在本地栈运行时必红。
+
+---
+
+## BUG-002 引导管理员的 nickname/email/phone 被静默丢弃
+
+**严重度**：中（数据缺失，非崩溃）
+
+**现象**
+
+`GET /api/v1/profile` 对 `admin` 返回 `nickname:""`、`email:""`、`phone:""`，
+尽管 `configs/users.json` 明确写了 `nickname: "系统管理员"`、`email: "admin@croupier.local"`。
+
+**根因（两处叠加）**
+
+1. `AdminManager.loadDefaultAdmins` 按 `admins.json` → `users.json` 顺序遍历，
+   但只要某文件 `loadedCount > 0` 就 **`return`**。`configs/admins.json` 里
+   `admin` 只有身份没有档案字段，于是它先「命中」，`users.json` **根本没被读**，
+   同名去重把档案字段静默丢弃。
+2. `seedBootstrapAdmins` 对已存在的 DB 行只同步 `status`，不回填空档案字段——
+   即使配置正确，存量行也永远是空。
+
+**修复**
+
+- `loadDefaultAdmins`：不再提前 return；改为「首个贡献身份的文件生效后，后续文件
+  仅做档案补齐（nickname/email/phone 只补空、不覆盖），不再新增账号」，
+  保持「admins.json 优先、users.json 兜底」的语义不变。
+- `seedBootstrapAdmins`：对存量行仅回填空档案字段，**不覆盖用户已设置的值**，
+  二次 seed 幂等。
+
+**回归测试**：`internal/svc/admin_manager_test.go` 四条
+（`..._EnrichesProfileFromLaterConfig` / `..._EnrichDoesNotOverwriteExistingProfile` /
+`..._LaterFileDoesNotAddIdentity` / `..._SecondFileLoadsWhenFirstEmpty`）+
+`internal/svc/bootstrap_admin_seed_test.go` 的
+`TestSeedBootstrapAdminsBackfillsEmptyProfileFields`（含二次 seed 幂等断言）。
+
+---
+
+## BUG-003 LB 监控「归属率」仪表盘永远不显示数值
+
+**严重度**：中（功能静默失效）
+
+**现象**
+
+`/ops/lb` 的「归属 vs LB 对账（僵尸探测）」卡片里，归属率仪表盘是空白的，
+读数不反映 `agent 节点数 / LB 后端数` 的真实比例。
+
+**根因（已在本机复现，三段证据）**
+
+1. `@ant-design/plots@2.6.8` 的 gauge adaptor 把入参改写成对象——
+   实跑其 adaptor，`data: 0.5` 恒变为 **`{"value": 0.5}`**
+   （`es/core/plots/gauge/adaptor.js`：`params.options.data = { value: data }`）。
+2. `@antv/g2@5.4.8` 的 Gauge mark 只认 `number` 或
+   `{target, total, percent, name, thresholds}`——其 `GaugeData` 类型里**没有
+   `value` 这个键**。
+3. g2 的 `getGaugeData` 对非 number 原样返回，`dataTransform` 只解构
+   `{name, target, total, percent, thresholds}`。因此 `target/total/percent`
+   全部为 `undefined`，`_target = percent || target = undefined`、
+   `_total = percent ? 1 : total = undefined`，通道 y 退化成 `undefined` / `NaN`。
+
+即：**百分数被静默丢弃**，指针与读数都不动。
+
+> 早期注释写作「渲染即抛 TypeError」。按上述数据通路推导，值是**静默丢成
+> undefined/NaN** 而非必然抛错；本文档以实测到的事实为准。
+
+**修复**
+
+- `web/src/pages/Ops/LBMonitor/index.tsx`：改用 antd `Progress type="dashboard"`
+  呈现同一比例（不依赖 canvas 图表链路）。
+- 抽出纯函数 `ownershipRatioPercent(nodes, backends)`：无 agent → 0（不是 NaN）、
+  无 backend → 分母取 1 避免除零、超 100% 截断。
+
+**回归测试**：`web/src/pages/Ops/LBMonitor/__tests__/reconciliation.test.tsx`
+7 条——5 条纯函数边界（含 0–5 × 0–5 全组合断言恒为 0–100 整数、非 NaN/Infinity），
+2 条组件渲染（读出 `归属 2 / LB 后端 4` 与 `50%`；无 agent 时 `0%`）。
+
+---
+
+## BUG-004 菜单树排序标签漏传 intl values，真实 intl 抛 MISSING_VALUE
+
+**严重度**：低（界面正确、控制台报错），但**掩盖了错误的实现方式**
+
+**现象**
+
+菜单管理页每个带排序值的节点都在 console 刷 intl 解析错误（`MISSING_VALUE`），
+可见文本却是对的。
+
+**根因**
+
+组件写成：
+
+```ts
+fmt("pages.menuManagement.page.order", "排序 {order}").replace(
+  "{order}",
+  String(n),
+);
+```
+
+`{order}` 是 ICU 占位符。真实 `react-intl` 在 defaultMessage 含占位符却没有
+`values` 时会走 `onError`（MISSING_VALUE），返回未插值的串——`.replace` 只是把
+**可见文本**兜住了，错误本身仍在。正确写法是经 `values` 传参。
+
+**为什么长期没被发现**：`MenuTree.test.tsx` 自己 mock 了 `@umijs/max`：
+
+```ts
+formatMessage: ({ defaultMessage }) => defaultMessage; // 丢弃 values
+```
+
+这个 mock 把「漏传 values」的错误一并吞掉，等于替组件打了补丁，于是组件得以停留在
+错误写法上。
+
+**修复**
+
+- `MenuTree.tsx`：新增 `fmtOrder(order)`，`intl.formatMessage(desc, { order })`。
+- `MenuTree.test.tsx`：把 mock 换成**忠实实现**（按 `values` 插值），并记录
+  每次调用的 `id/defaultMessage/values`。
+
+**回归测试**（同文件）：`排序标签的 {order} 经 intl values 传入，不靠组件侧 replace 兜底`
+——断言每个含 `{order}` 的调用都带上了数值型 `order`，且插值后的文本为 `排序 3`。
+
+**变异验证**：把 `MenuTree.tsx` 改回 `.replace` 写法后，
+
+- 旧用例 `已发布/草稿页面…排序 3` **仍然通过**（证明它没有判别力）；
+- 新用例失败（`values` 为 `undefined`）。
+
+这条对比是本文档「验收口径」里「必须能判别」的由来。
+
+---
+
+## BUG-005 antd 6 废弃属性 142 处，TypeScript 不报错、页面也不报错
+
+**严重度**：中（污染控制台、掩盖真实问题、升级到 v7 会集体断裂）
+
+**现象**
+
+dev 模式每次进页面刷 `Warning: [antd: X] \`p\` is deprecated. Please use \`q\` instead.`。
+其中 `Drawer height`来自**全局布局**的`GameSelector`，等于每翻一页都刷一次
+（审计脚本量到单页 18 次）。
+
+**根因**
+
+仓库已升到 `antd@^6.4.3`（实测安装 6.6.0），但代码里仍有大量 antd 5 写法。
+antd 6 对这批属性**只打告警、不改行为**，所以 `tsc` 全绿、页面也正常，废弃用法可以
+无限期潜伏。真正的风险是 v7 移除后集中断裂，以及告警淹没控制台后真问题被埋掉。
+
+清单不是照文档手抄的，而是从 `node_modules/antd/es/**/*.js` 里的
+`devUseWarning('<Component>')` **运行时告警表**反推——antd 实际有三种写法，
+抽取器三种都认（否则会漏）：
+
+1. 对照表 + `forEach`：`[['message', 'title']].forEach(...)`（多数组件）
+2. 直接调用：`warning.deprecated(!tip, 'tip', 'description')`（`Spin`）
+3. 对象字面量映射：`const deprecatedProps = { dropdownRender: 'popupRender' }`（`Select`）
+
+> 只收**属性名**级别的废弃。形如 `size="default"` 的值级建议不是 JSX 属性，不纳入。
+
+**修复（142 处 → 0）**
+
+| 属性                                                  | 处数 | 处理方式                                                                                                                        |
+| ----------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Alert message` → `title`                             | 100  | 直接改名                                                                                                                        |
+| `Drawer width` / `height` → `size`                    | 20   | 直接改名（`drawerSize` 归一后取值一致）                                                                                         |
+| `Space direction` → `orientation`                     | 12   | 直接改名                                                                                                                        |
+| `Input` / `InputNumber addonBefore` → `Space.Compact` | 6    | **结构改写**：前缀移出输入框，成为 `Space.Compact` 的相邻兄弟节点（静态表单：PathControls ×3、BindingModal ×2、SourceModal ×1） |
+| `Input addonBefore` → `Input.prefix`                  | 3    | **结构改写**，但改用 `prefix` 而非 `Space.Compact`——见 BUG-009（热路径编辑器：ActionEditor ×1、ConstantFieldsEditor ×2）        |
+| `Statistic valueStyle` → `styles.content`             | 1    | 嵌套路径，改为 `styles` 的 `content` 槽（`content: {...}`）                                                                     |
+| `Spin tip` → `description`                            | 5    | 直接改名                                                                                                                        |
+
+改写通过「按 JSX 开始标签定位」的 codemod 完成，跳过 `{}` 表达式与字符串字面量里的
+`>`（否则 `<Alert title={a > b} />` 会在表达式中间被误判为标签结束），只改属性名，
+不碰子元素/对象字面量/同名的其他组件。
+
+**回归测试**：`web/tests/antd6Deprecations.test.ts` 3 条：
+
+1. 抽取器本身有效（`> 50` 条对照项 + 抽样命中 `Alert.message` / `Drawer.width` /
+   `Drawer.height` / `Space.direction` / `Statistic.valueStyle` / `Card.bordered` /
+   `Divider.type` / `Spin.tip` / `Select.dropdownRender`）——防止清单失效后守卫变成
+   「永远通过」的假阴性；
+2. `src` 下不存在任何废弃 JSX 属性，失败时逐条报 `文件:行号 <X p=…> → 改用 q`；
+3. 字面量兜底：`addonBefore=` / `addonAfter=` / `valueStyle=` 一律不得出现。
+
+**变异验证**：把 `Welcome.tsx` 的 `variant="borderless"` 改回 `bordered={false}`，
+第 2 条立即失败并指出 `src/pages/Welcome.tsx:126 <Card bordered=…> → 改用 variant`。
+
+---
+
+## BUG-006 组合页编辑器菜单缺 locale key
+
+**严重度**：低
+
+**现象**：`menu.FunctionsAndPages.CompositeEditor` 在 `zh-CN` / `en-US` 的
+`menu.ts` 里都没有登记，菜单项回退显示原始 key。
+
+**修复**：`web/src/locales/{zh-CN,en-US}/menu.ts` 补
+`组合页编辑器` / `Composite Page Editor`。
+
+---
+
+## BUG-007 后端返回空头像串时渲染 `<img src="">`，浏览器把当前页重新请求一遍
+
+**严重度**：中（真实的多余网络请求 + React 告警）
+
+**现象**
+
+`/admin/account/center`（亦即 `/account/center` 的重定向目标）控制台报：
+
+```
+An empty string ("") was passed to the src attribute. This may cause the
+browser to download the whole page again over the network.
+```
+
+**根因**
+
+`GET /api/v1/profile` 在未设置头像时返回 `"avatar":""`（本机实测确认）。
+`Profile/index.tsx` 与 `AvatarModal.tsx` 把它直接透传给 `<Avatar src={...}>`。
+空 `src` 被浏览器解释为「重新请求当前页面的 URL」。注意同处代码的
+`icon={!profile?.avatar ? <UserOutlined /> : undefined}` **已经**判空——只有
+`src` 漏了。
+
+**修复**
+
+抽出 `normalizeAvatarSrc()`（`web/src/pages/Profile/shared.ts`）：非字符串、空串、
+纯空白 → `undefined`；合法 URL 去首尾空白后返回。两处调用点统一使用。
+
+**回归测试**：`web/src/pages/Profile/__tests__/InfoTab.regression.test.tsx`
+5 条——`normalizeAvatarSrc` 的空串/空白/null/undefined/非字符串（防后端类型漂移）/
+合法 URL 六个分支，外加一条源码级锁定：两处 `src={...}` 必须走归一函数，且不得
+出现未归一的直接透传（渲染整个 Profile 需拉起 7 个 Tab 与一批接口，代价与收益
+不成比例，故此处用源码断言，并在用例注释里写明取舍）。
+
+---
+
+## BUG-008 个人中心表单实例未连接，antd 每次渲染都告警
+
+**严重度**：低
+
+**现象**：`/admin/account/center` 控制台报
+
+```
+Warning: Instance created by `useForm` is not connected to any Form element.
+Forget to pass `form` prop?
+```
+
+**根因**
+
+表单实例由主页 `Profile` 的 `useForm` 创建并复用（`useProfileData` 拉到资料后
+`form.setFieldsValue` 回填、取消编辑再回填、保存时 `form.submit()`），但
+`InfoTab` 里 `<Form form={form}>` **只在 `editing` 为真时渲染**。非编辑态下实例
+处于「未连接」状态。
+
+告警并非挂载时报的，而是 `FormHook.warningUnhooked`——由**表单实例方法**
+（`setFieldsValue` / `getFieldsValue` / `submit` …）在 `setTimeout` 里检查
+`formHooked` 触发。所以复现路径是「未连接 + 调方法」，只挂载不调方法不会告警。
+
+**修复**：`InfoTab` 中 `<Form>` 改为**常驻挂载**，非编辑态用 `hidden` 容器隐藏
+（`display:none` 不参与布局，视觉与之前一致）。
+
+**回归测试**：同文件 4 条。要点：
+
+- 一条**对照**用例：构造「不挂 `<Form>` 的孤立实例」并调 `setFieldsValue`，
+  断言确实命中告警——证明告警通道有效，否则正向断言是假阴性；
+- 回归锁用**结构不变量**（非编辑态 `<form>` 元素必须在 DOM 中、且带
+  `div[hidden]` 祖先），而不是「断言无告警」。
+
+**为什么不用「断言无告警」**：rc-util 的 `warning` 按 message 去重，同一条文案在
+一个模块生命周期内只报一次。对照用例一旦先报过，后续任何「无告警」断言都恒真。
+这一点是**实测踩出来的**：把 `InfoTab` 改回条件渲染后，「无告警」断言仍然通过，
+而结构断言失败。现已改为结构断言，变异验证下有 2 条用例转红。
+
+---
+
+## BUG-009 按 antd 官方建议用 `Space.Compact` 迁移 `addonBefore`，把编辑器拖慢 10 倍
+
+**严重度**：中（不改变功能，但把测试/交互性能打到超时）
+
+**发现经过**
+
+修 BUG-005 时按 antd 官方迁移建议，把 `ActionEditor` / `ConstantFieldsEditor` 里
+标签前缀包进 `Space.Compact`。改完 `tsc` 全绿、相关单测也过，直到跑**全量** jest：
+
+```
+Test Suites: 1 failed, 253 passed, 254 total
+Tests:       1 failed, 3251 passed, 3252 total
+```
+
+且失败用例每次都换一批、单例耗时从 <1s 涨到 5–21s——典型的**超时**特征而非逻辑错误。
+
+**根因**
+
+antd 的 `Space.Compact` 会给**每个子项**包一层 `CompactItem` context provider：
+
+```js
+const CompactItem = (props) => {
+  const { children, ...others } = props;
+  return (
+    <SpaceCompactItemContext.Provider value={useMemo(() => others, [others])}>
+      {children}
+    </SpaceCompactItemContext.Provider>
+  );
+};
+```
+
+`others` 是每次渲染新建的对象，`useMemo` 依赖因此每渲染必变 → **context 值每渲染
+都是新引用** → 所有消费该 context 的 `Input`（`useCompactItemContext`）每次都被
+拖进重渲染。行操作编辑器在表格/预览里会被大批量实例化，这个成本被成倍放大。
+
+> 注：这两个文件里包裹 `Select` 的 `Space.Compact` 是**既有写法**，且实测未触发
+> 问题（Select 的重渲染成本低于 Input）。本条只针对「标签前缀」这一处新增的包裹。
+
+**修复**
+
+标签前缀改用 `Input` 自带的 `prefix` 属性（未被 antd 6 废弃，同样能承载标签），
+不引入额外组件，因而不产生上述 context 重建。
+
+- `web/src/pages/PageStudio/CompositeEditor/ActionEditor.tsx`
+- `web/src/pages/PageStudio/CompositeEditor/ConstantFieldsEditor.tsx`
+
+静态表单（`PathControls` / `BindingModal` / `SourceModal`）仍按官方建议用
+`Space.Compact`——它们不是热路径，无此问题。
+
+**回归测试**：`web/tests/antd6Deprecations.test.ts` 的
+`热路径编辑器的标签前缀用 Input.prefix，未被 Space.Compact 包裹`——
+
+- 截取「承载标签的那个元素」所在源码片段，断言其内有 `<Input` + `prefix={<span`，
+  且**不含** `<Space.Compact`（先剥注释，否则解释性注释本身会命中子串匹配）；
+- `ConstantFieldsEditor` 另按 `titleAddon` / `varNameAddon` 两个锚点回溯到各自的
+  `<Input`，分别断言。
+
+**变异验证**：把 `ActionEditor` 改回 `Space.Compact` 包裹后该用例立即失败。
+
+**效果**：全量 jest 由 207s 回到 ~145s，连续两次全量通过（3252/3252）。
+
+> 一处实测反直觉，值得记下：单文件 40 个 `ActionEditor` 的定向基准里，
+> `prefix`（838ms 挂载 / 1115ms 重渲染 5 次）与 `Space.Compact`
+> （863ms / 1070ms）**基本无差异**。也就是说，定向基准测不出这个问题，
+> 只有全量并发下的真实负载才暴露。**性能回归不要指望单个基准用例来发现。**
+
+---
+
+## BUG-010 `app.cancel` 未登记 locale key，组合页编辑器每次打开都报错
+
+**严重度**：低（文案回退到 `defaultMessage`，但控制台每次都刷红）
+
+**现象**：`/functions/pages/composite-editor` 控制台连报 4 条
+
+```
+[React Intl] Missing message: "app.cancel" for locale: "zh-CN", using default message as fallback.
+```
+
+**根因**
+
+`DanglingRefsModal.tsx` 与 `BindingDrawer.tsx` 都用
+`intl.formatMessage({ id: 'app.cancel', defaultMessage: '取消' })`，但 `app.cancel`
+在 `locales/{zh-CN,en-US}/app.ts` 里从未登记——该文件此前只承载
+`app.layout.*` 与 `app.request.*` 两组键，没有通用动作文案这一组。
+
+`formatMessage` 带 `defaultMessage` 时会回退渲染，功能不受影响，但缺失键会被
+`onError` 上报，控制台每开一次弹窗就多两条。
+
+**修复**：在 `zh-CN/app.ts` 与 `en-US/app.ts` 补齐通用动作键组
+（`app.cancel` / `app.confirm` / `app.save` / `app.close`），两语言同步。
+
+> 该问题不在 BUG-005 的静态扫描范围内——废弃告警与缺失 locale 是两类不同问题。
+> 它是**控制台审计**（运行时证据）发现的，这正是本轮同时保留静态守卫与运行时
+> 审计两条路径的原因。
+
+---
+
+## BUG-011 审计日志两页用 `hash` 当 rowKey，整页 key 全同
+
+**严重度**：中（React 重复 key，行可能重复/漏渲染）
+
+**现象**：`/admin/login-logs` 每页刷十余条
+
+```
+Encountered two children with the same key, `%s`. Keys should be unique so that
+components maintain their identity across updates.
+```
+
+**根因**
+
+`LoginLogs.tsx` 与 `OperationLogs.tsx` 都写 `rowKey={(r) => r.hash}`，而
+`/api/v1/audit` 在当前部署**不回填 `hash`**——实测该接口返回 19 条记录，
+`hash` 字段**全部缺失**：
+
+```
+items 19 / unique hash 1 / empty hash count 19
+```
+
+`normalizeAuditEvent` 又把缺失的 `hash` 兜底成 `''`，于是 `r.hash` 恒为 `''`，
+整页所有行的 key 完全相同。服务端其实有唯一 `id`
+（形如 `audit_1790375253236648061_bb169c724c610ee5`，19 条互不相同），
+但归一化时**没有带过来**。
+
+**修复**
+
+- `services/api/audit.ts`：`AuditEvent` 增加 `id` 字段并在
+  `normalizeAuditEvent` 中透传 `item.id`。
+- 新增 `auditRowKey(event, index?)`：`id` → `hash` → `time|actor|kind|target`
+  → 行序号，保证同页内唯一。
+- 两个页面在**切片/取数阶段**就把 `__rowKey` 落到行上，Table 用字符串
+  `rowKey="__rowKey"`。
+
+**为什么不用 index 兜底在 rowKey 回调里**：antd 6 已废弃该参数
+（`index` parameter of `rowKey` function is deprecated）。第一版实现写成
+`rowKey={(r, i) => auditRowKey(r, i)}`，运行时审计立刻又抓到 2 条新告警——
+这正是「先改完再审计」比「静态扫描」多一层保障的例证。
+
+**回归测试**
+
+- `web/src/services/api/auditRowKey.test.ts`（7 条）：归一化保留 `id`；`auditRowKey`
+  四级回退各自命中；**还原真实响应**（19 条、`hash` 全空）后整页 key 互不相同。
+  变异验证（把实现退回 `return event.hash` 并删掉 `id`）后 6 条转红。
+- `web/src/pages/Admin/LoginLogs.test.tsx` 的 `hash/id 全缺时行 key 仍互不相同`：
+  页面级，直接断言 DOM 上 `data-row-key` 互异且非空。变异验证（改回
+  `rowKey={(r) => r.hash}`）后转红。
+
+> 这里**没有**用「断言控制台无 duplicate-key 告警」的方式：React 的该告警受全局
+> 去重影响，先跑到的用例会消费掉后续的告警，断言会恒真（BUG-008 已踩过一次同类坑）。
+> 改为直接断言 DOM 上的 key 唯一性这一被测性质。
+
+---
+
+## BUG-012 账户中心头像四处独立缺陷（数据互清 / 死链 / 404 / 顶栏恒占位）
+
+**严重度**：高（其一为数据丢失：任何一次资料保存都会清空其它字段）
+
+**现象**：用户实测反馈「账户中心头像错误」。定位为 4 个互相独立的缺陷：
+
+1. **数据互清**：`ProfileUpdateRequest` 四字段裸 string，Go 绑定缺失字段得空串，
+   service 无条件四列齐写——「只改昵称」会清空头像/邮箱/手机。既有测试只断言
+   `resp.Ok`，从不断言字段幸存，长期无人发现。
+2. **死链**：上传接口返回的 `url` 是带签名、带过期时间的地址（S3/OSS/COS 默认
+   15min TTL），原样存库等于存定时失效死链。
+3. **file 驱动 404**：`fileStore.SignedURL` 返回 `/uploads/<key>` 相对路径，但
+   全仓无 handler 提供该路径。
+4. **顶栏恒占位**：`toCurrentUser` 丢掉 profile 的 avatar，`getInitialState`
+   也不回填——顶栏头像从未生效过。
+
+**修复**（提交 `e69db6f`）：
+
+- 四字段改 `*string`：nil=未携带=保留原值，显式空串=清空，两种语义分开；
+  空请求短路不写库。
+- 库里只存**裸对象 key**，读取时现算有效 URL；`objstore.NormalizeAvatarKey`
+  统一归一（裸 key / file 相对路径 / 绝对 URL），拒绝非 `avatars/` 目录与路径
+  穿越；存量绝对 URL 读取时原样返回（拼成 `/uploads/https://…` 会把「可能
+  过期」变成「必然 404」），用户下次保存即自愈。
+- file 驱动挂载静态目录，只暴露 `avatars/` 子树（不泄露缺陷附件等通用上传物），
+  免鉴权（`<img src>` 不带 Authorization），dev proxy 补 `/uploads/` 转发。
+- `CurrentUser` 增加 avatar/nickname 透传回填；新增共享组件 `UserAvatar`，
+  占位统一为姓名首字母（中文首字/英文首字母/username/? 四级回退），src 与
+  占位用同一份归一结果判定，消除「纯空白头像渲染成空圆圈」的分叉。
+
+**回归测试**：`objstore/avatar_test.go`（归一四类输入、拒绝五类非法输入、
+穿越防护、每次读取现签、存量 URL 原样透传、静态目录校验）；
+`api/profile/avatar_test.go`（只改单字段时其余字段幸存、空请求不写库、显式
+空串即清空、头像落裸 key 四种输入、非约定目录拒绝）；`UserAvatar` 组件测试
+11 条（首字母规则/渲染/独立占位）。本机独立实例（28780/29090）实测上传→
+签名→保存→无 Authorization 头取回 200 且字节一致。
+
+## BUG-013 MFA 绑定体验不可用 + 无恢复码兜底
+
+**严重度**：高（丢失验证器 App 即被锁死在账号外）
+
+**现象**：`/admin/account/center?tab=security` 开启两步验证只有「手动抄 base32
+密钥」一条路径——微软/谷歌 Authenticator 并不提供「粘贴 otpauth 链接」的入口，
+绑定流程实际不可用；且开启后**没有任何恢复手段**，丢手机=丢账号。
+
+**根因**：
+
+1. `otpauth://` URI 手写拼接，账号名未 percent-encode（含 `@`/`/`/非 ASCII 的
+   用户名会让验证器解析失败），且缺 `algorithm/digits/period` 参数，部分 App
+   按自己的默认值解析；
+2. 前端无二维码渲染，无恢复码机制；
+3. `VerifyTOTP` 依赖 `time.Now()`，RFC 6238 附录 B 的固定测试向量无法复现，
+   实现正确性无规范级锁定。
+
+**修复**：
+
+- `otp.OtpauthURI`：label 规范 percent-encoding + issuer 参数显式 +
+  algorithm/digits/period 齐全（Google Authenticator 校验 label 前缀与 issuer
+  参数一致，不一致会静默丢弃）。
+- `VerifyTOTPAt`/`CodeAt` 暴露可注入时间点；`DecodeSecret` 归一各 App 导出的
+  密钥形态（大小写/空格/补位）。
+- 备用恢复码：绑定时一次性签发 10 码（30 字符字母表去易混淆字符，约 49.5 bit
+  熵），SHA-256 存储、明文仅 confirm 响应返回一次；逐条单次消费
+  （`UPDATE ... WHERE used_at IS NULL` 天然防并发复用）；登录页动态码输入框
+  兼容恢复码（`verifySecondFactor` 二选一）；关闭 MFA 随即清空恢复码。
+- 前端：二维码扫码即绑（手动录入兜底保留）、恢复码一次性展示+下载、剩余数量
+  提示（≤2 预警）；登录页 totpCode 输入 maxLength 6→12 并提示可用恢复码。
+- 迁移 0032 `admin_otp_recovery_codes` 表（HasTable/CreateTable 幂等），
+  `MinimumRequiredVersion` 31→32，migrate_test probe 同步。
+
+**回归测试**：`security/otp/rfc6238_test.go`（RFC 6238 附录 B 官方向量 +
+skew 行为）；`otpauth_test.go`（URI 归一/转义/参数）；`api/auth/mfa_recovery_test.go`
+14 条（签发/单次消费/空格输入归一/关闭清空/重绑替换/剩余统计/恢复码登录三态）；
+`MfaSettings.test.tsx` 8 条（二维码渲染/恢复码一次性展示/下载/关闭确认/外部
+账号说明）。
+
+线上链路实测（重启后的本地栈，curl 全流程）：setup → confirm（真实 TOTP 码）→
+一次性返回 10 码 → 无码登录 401 `mfa_required` → 恢复码登录 200 → **同一码重放
+401** → TOTP 登录 200 → disable（code+password）后库中恢复码清零、普通登录恢复。
+
+---
+
+## BUG-014 健康分数衰减用例依赖墙钟，机器繁忙时随机失败
+
+**严重度**：中（不稳定的门禁：会让「全绿」随机器负载随机翻车）
+
+**现象**
+
+`internal/platform/dispatch` 的 `TestHealthTracker_ScoreDecay` 间歇性失败：
+
+    expected score to decay, still at 100.000000
+
+同一份代码在低负载时连续通过，机器繁忙时（本次即遇到同机 45 个 C++ 编译进程、
+load average 144）失败。与被测逻辑无关。
+
+**根因**
+
+用例假定「100ms 的 decay ticker 一定会在 150ms 内至少跳一次」：
+
+```go
+tracker.Start()
+// ...
+time.Sleep(150 * time.Millisecond)
+if state.HealthScore() >= 100.0 { t.Errorf("expected score to decay, ...") }
+```
+
+`scoreDecayLoop` 是后台 goroutine 的 `time.NewTicker`。调度器繁忙时 150ms 内
+`ticker.C` 可能一次都没被消费，分数原封不动 → 用例失败。这与 BUG-001 同源：
+**测试把环境时序当成了前提**。
+
+**修复**
+
+改为轮询到「已衰减」为止并给出宽松上界（3s deadline），断言换成与实际跳数
+无关的不变量：
+
+- 分数确实下降（否则报超时并带上实际等待时长，便于定位）；
+- 分数落在 `100 × 0.5^n`（n≥1）的离散集合上——既锁住「按 `ScoreDecayRate`
+  衰减」，又不依赖到底跳了几次。
+
+**验证**：修复后连跑 5 次通过；再人为拉起 8 个 CPU 忙循环制造竞争，连跑 3 次
+仍全绿（原实现在该条件下失败）。
+
+---
+
+## BUG-015 antd 6 整体废弃 `List` 组件——属性级守卫的盲区
+
+**严重度**：中（控制台告警 + v7 升级即整体断裂）
+
+**现象**：交互走查 `/admin/account/messages`（消息中心）时控制台报：
+
+```
+Warning: [antd: List] The List component is deprecated. And will be removed in next major version.
+```
+
+而 BUG-005 的静态守卫与此前 52 条路由的运行时审计都是 **0 告警**——因为消息中心、
+工单详情、账户中心各 Tab 都不在当初的审计路由清单里（动态/详情页未纳入）。
+
+**根因**：`List` 是 antd 6 里**组件级**废弃（`warning(false, 'deprecated', ...)`，
+不挂在任何属性上）。BUG-005 守卫的抽取器从 `deprecated('p', 'q')` 表反推**属性**
+对照，组件级废弃天然扫不到——两条守卫（属性级/组件级）是不同维度，缺一不可。
+
+**修复**：
+
+- 全仓 6 个真实调用方（`Profile/GamesTab` / `NotificationsTab` / `AuditList` /
+  `PermissionsTab`、`Assignments/HistoryModal`、`Support/Tickets/Detail`；注意
+  `PageRenderer` / `ResourcePageEditor` 的 `<ListTab` 是同前缀误匹配）全部只用
+  `List / List.Item / List.Item.Meta` 只读面，统一迁到内部替身
+  `src/components/SimpleList`：泛型 + `renderItem` + `Item(actions/style/onClick)` +
+  `Item.Meta(title/description)` + `loading/pagination/locale.emptyText`，
+  createStyles 对齐 antd List 默认视觉契约（分隔线/标题/次要描述/底部分页）。
+- `web/tests/antd6Deprecations.test.ts` 新增**组件级**守卫：前置确认安装的 antd
+  仍处于 List 已废弃状态（升级后自动提示重审），随后断言 `src` 下无 `<List` JSX
+  （负向断言不误伤 `<ListTab`）也无 `import { List } from 'antd'`。
+
+**回归测试**：`SimpleList.test.tsx` 8 条（条目/Meta 渲染、emptyText、actions、
+整行 onClick、rowKey 逐条调用、Spin 包裹、pagination 翻页回调、泛型形态）+
+守卫新用例；迁移文件的既有测试全绿（Profile/Tickets/Permissions 64 条、
+Functions DetailSections 19 条）。运行时复证：重跑走查后 List 告警 0 条。
+
+---
+
+## BUG-016 安全中心「登录通知」是假开关（假状态 + 假交互）
+
+**严重度**：中（用户被误导以为自己在收短信登录提醒）
+
+**现象**：`/admin/account/center?tab=security` 的「登录通知」行，只要用户填了
+手机号就渲染绿色「已开启」标签；辅助文案写「用于登录提醒和短信验证」——而仓内
+**没有任何短信服务商**（`ChannelSMS` 只是个没人用的枚举常量，无 sender、无配置、
+无 UI 入口）。用户据此以为自己在收短信。
+
+**根因**：前端用「用户填了手机号」（`hasPhone`）推断通道可用。手机号只是接收
+目标，与「服务商是否接入」毫无关系。这正是本文档反复出现的**假状态**问题在
+通知域的变体。
+
+**修复**（新增 `GET /api/v1/profile/notification-channels`，可用性只由后端判定）：
+
+- `approvals/sms.go`：固定短信接入点——`SMSProvider` 接口 + `ErrSMSNotConfigured`
+  - 默认 `unconfiguredSMSProvider`（未接入时发送**明确失败**而非静默成功）；
+    `SMSRegistry.Status()` 只在「已注册 provider 且凭据齐备」时报可用。
+- `api/profile/notification_channels.go`：三通道事实来源——in_app（站内信零配置
+  即通，平台设置可关）、email（SMTP 未配置时 EmailSender 是 no-op，不得声称可用）、
+  sms（只看注册表）。`available` 与 `userEnabled` 是独立维度；不可用必带 `reason`。
+- 前端 `SecurityTab`：状态完全由后端驱动。不可达 → warning 标签 + 原因 tooltip +
+  开关禁用；**收口修正一**：开关改只读呈现 `userEnabled`——它当前来自平台级
+  设置、没有用户侧写接口，「可点击但无任何效果」的假交互同样是本条要消灭的东西；
+  **收口修正二**：状态标签三分支——通道可达但平台未开启时显示「已关闭」，否则
+  「SMTP 已配置但平台关了邮件通知」会渲染成绿色「已开启」+ 未勾选的开关，自相
+  矛盾（原实现就漏了这支）。
+- 区头文案改用新键 `profile.channel.section`（旧键 `profile.login.notification`
+  的现有值是「登录通知」，defaultMessage 不会生效，收口前区头实际显示的是旧文案）。
+
+**回归测试**：`notification_channels_test.go` 10 条（未接入/凭据不齐/SMTP 有无/
+管理员关闭/账号缺失/Registry 边界——含「填了手机号也不得变可用」的核心不变量）；
+`SecurityTab.channels.test.tsx` 14 条（含「可达但未开启 → 已关闭」「in_app 被
+关闭 → 已关闭+原因」「开关只读」三条收口新增）。
+
+---
+
+## BUG-017 飞书签名密钥漏登记 secretKeys，掩码回存会覆盖真值
+
+**严重度**：中（配置损坏：通知静默失败，非泄露）
+
+**现象**（代码审阅发现，未上网络）：`notification.feishuSecret` 在
+`ValidKeys` 里却不在 `secretKeys` 里。
+
+**根因与影响**：`GET /api/v1/site/notification` 快照对它有专门的
+`feishuSecretMasked` 字段（掩码一直正常），但 `PutKey` 的「掩码回存保护」分支
+只认 `IsSecretKey`——管理端把快照原样回存时，`****+尾4` 会被当成真值覆盖入库，
+此后飞书通知用假密钥**静默失败**。同类的 SMTP 密码/DingTalk/Webhook 密钥都
+登记了，唯独飞书漏网。
+
+**修复**：`secretKeys` 补 `KeyNotifyFeishuSecret`；注释原文声称「明文回显泄露」，
+经核对（快照掩码先于本修复存在、裸值 `FeishuSecret` 只进 sender 无 HTTP 暴露面）
+属于误判，已改为上述真实缺陷。
+
+**回归测试**：`layered_notify_test.go` 的 `TestKeyClassificationHelpers` 增加
+`IsSecretKey(KeyNotifyFeishuSecret)` 断言（修复前为 false）。
+
+---
+
+## BUG-018 游戏访问权限恒为空：admin 看到的是一块空白
+
+**严重度**：中（无法判断是「全部权限」还是「没有权限」）
+
+**现象**
+
+`/admin/account/center?tab=games`：admin 的每个游戏卡片上「权限」一栏永远是空的。
+
+**根因**
+
+`internal/api/profile/service.go` 的 `GetUserGames` 在构造 `ProfileGame` 时写死了
+
+```go
+Permissions: []string{},
+```
+
+不是「查不到」，是**字面量**——对所有用户、所有游戏恒为空。前端 `GamesTab` 直接
+`{(game.permissions || []).map(...)}` 渲染，空数组即空区域。admin 与只读账号
+看到的东西完全一样，无法区分「拥有全部权限」与「一个权限都没有」。
+
+**修复**：如实上报，并把口径讲清楚。
+
+- `GetUserGames` 改为按用户实际持有的权限计算
+  （`internal/api/profile/permissions.go` 的 `perGamePermissions`）：
+  持通配 → `["*"]`（前端渲染为绿色「全部权限」）；否则返回真实持有的权限 id。
+- DTO 增 `accessLevel`（`full` / `scoped` / `none`）与 `permissionScope`（固定
+  `"role"`）。空权限由此成为**可解释状态**而不是空白。
+- 前端 `GamesTab` 按级别渲染三态（全部权限 / 逐条标签 / 无显式权限+原因说明），
+  并说明「权限按角色授予，不按游戏单独切分」——避免用户以为每个游戏能单独授权。
+
+**口径澄清**：RBAC 挂在角色上、**不按游戏维度切分**；按游戏/环境切分的是
+「可见游戏与可见环境」（`admin_game_env_scopes`，`GetUserGames` 已用它过滤）。
+因此同一用户在所有可见游戏上的权限集本来就是同一个，per-game 权限不存在
+「只在这个游戏有某个操作」的语义。
+
+**回归测试**：`internal/api/profile/permissions_test.go`（`GetUserGames_AdminSeesFullAccessPerGame`
+断言 `["*"]`+`full`；`GetUserGames_NonAdminWithoutPermissionsIsNone` 断言 `none`）
+
+- `web/src/pages/Profile/__tests__/GamesTab.permissions.test.tsx` 5 条（含
+  「后端未升级、无 accessLevel 时也绝不留白」这条兼容路径）。
+
+---
+
+## BUG-019 权限概览是编造数据：resource 恒为 "role"、角色名混进权限 id
+
+**严重度**：高（前端据此渲染的「权限概览」与实际授权无关）
+
+**现象**
+
+个人中心「权限」页/弹窗里的「已有权限」列表内容不对：资源名全是 `role`，
+每条的操作是角色名。
+
+**根因**
+
+`GetPermissions` 的两处构造都是编造的：
+
+```go
+permissions = append(permissions, ProfilePermission{
+    Resource: "role",              // 字面量
+    Actions:  []string{role.Name}, // 把角色名当操作
+})
+```
+
+更隐蔽的一处：
+
+```go
+for _, role := range roles {
+    appendPermission(role)                    // ← 角色名进了 permissionIDs
+    if role == "admin" || role == "super_admin" {
+        appendPermission("admin")             // ← 同样是角色名，不是权限
+        appendPermission("*")
+    }
+}
+```
+
+于是 admin 的 `permissionIDs` 是 `["*", "admin", "user:read", ...]`。前端拿
+`permissionIDs` 与权限目录做差集来渲染「已授权 / 未授权」，`"admin"` 与
+`"super_admin"` 在 `configs/permissions.json` 里查不到，于是变成两条永远
+「未授权」的假权限。同时 `permissionIDs` **不含**具体资源的完整授权信息
+（只到并集），树状结构无从构建。
+
+**修复**
+
+- 角色名彻底退出 `permissionIDs`，只留在 `roles`；`permissions[]` 改为
+  真实的资源 → 操作分组（`resolvePermissions`）。
+- 资源轴取自**权限 id 的前缀**（`pages:write` → resource=pages），而不是
+  `permissions` 表的 `resource` 列——那一列存的是 module（如 `dashboard`），
+  38 条目录会塌缩成 7 个值。这是「树只剩几个节点」的直接原因。
+- 通配判定收紧为**两个维度都通配**才叫 `fullAccess`（`resource==* && action==*`，
+  即 `*` / `admin:all`）。`user:*` 只是「user 这个资源的全部操作」，无权访问
+  其它资源；把它算成 fullAccess 会让前端把所有条目渲染成「已授权」——又是一次
+  假状态。单段 id（无冒号）同理按「整串即资源」处理，不按 `.` 猜切分。
+- 通配 id 不生成假的 `*` 资源节点。
+- 拆分语义统一到 `rbac.SplitLogicalPermission`（本次为导出），
+  `splitLogicalPermission` 与 profile 侧不再各写一份。
+- 增 `rolePermissions`（逐角色授权明细）：只有并集时无法回答「这个操作是哪个
+  角色给的」，树就只能退化成单层列表。
+
+**回归测试**：`permissions_test.go` 21 条，含
+`KeepsRoleNamesOut`（角色名不进 permissionIDs）、
+`ResourceFromIDPrefixNotModule`（锁住「不塌缩成 module」）、
+`PartialWildcardIsNotFullAccess`（`user:*` 不等于全部权限）、
+`SingleSegmentIDBecomesItsOwnResource`（不按 `.` 切分）、
+`RoleGrantsIncludeEmptyRoles`。同时改写 4 条**锁住了旧错误行为**的既有用例
+（`TestService_GetPermissions_WithAdminRole` 等断言 `"admin" ∈ permissionIDs`），
+这些断言本身就是 BUG-019 的固化。
+
+---
+
+## BUG-020 权限概览是单层平铺，没有资源/操作分层与授权两态
+
+**严重度**：中（看不出哪些有、哪些没有）
+
+**现象**
+
+「已有权限」是一层平铺的列表，没有资源→操作的层级，也没有任何「已授权 /
+未授权」的区分。
+
+**根因**
+
+`PermissionsTab` 用 `SimpleList` 平铺后端返回的 `groups`，而那批数据
+（1）本身是编造的（见 BUG-019）；（2）只包含**已授权**项。因此灰掉的
+「未授权」操作根本没有数据来源——页面看上去就像「全部都有权限」。
+
+**修复**：新增 `permissionTree.ts` + `PermissionTreeView.tsx`，渲染
+角色 → 资源 → 操作三层。
+
+- **资源/操作的候选集来自全量权限目录**（`GET /api/v1/permissions`），不是
+  已授权 id；目录缺失时退化为「仅已授权」，仍不崩也不伪造。
+- 每项按当前角色独立判定：绿（`#52c41a`）+ `CheckOutlined` = 已授权，
+  灰（`#bfbfbf`）+ `CloseOutlined` = 未授权。颜色之外有第二重区分，不只靠色觉。
+- 三层可展开收起；「展开/收起全部」在「全展开 ⇄ 仅角色层」间循环。
+- 持账号级通配时整棵树按全绿呈现，并显式提示「灰色仅表示未由具体角色显式授予，
+  实际可用」——否则用户会把灰色读成「不可用」。
+- 有角色但零权限的角色仍出现在树上并标注「无显式权限」。
+- 前端再兜一层：`getMyPermissions` 归一化时剔除被误塞进 `permissionIDs` 的角色名。
+
+**回归测试**：`PermissionTree.test.tsx` 23 条（纯逻辑 17 + 渲染 6），
+其中 `目录提供未授权项` 锁住核心缺口、`资源级通配 user:* 覆盖该资源全部操作，
+但不影响别的资源` 锁住通配粒度。变异验证：把资源轴改回 module 后 7 条转红。
+
+---
+
+## BUG-021 「消息通知」Tab 挂着管理员广播入口，且公告功能无任何入口
+
+**严重度**：高（越权入口）+ 中（功能缺失）
+
+**现象**
+
+`/admin/account/center?tab=notifications` 顶部有一个 primary 按钮「发送消息」，
+点开是 `BroadcastModal`（群发站内消息）。个人中心是**所有用户都有**的页面，
+普通用户与管理员看到的是同一个界面。
+
+**根因**
+
+- `NotificationsTab` 接收 `isAdminUser` / `onSendClick` 两个 prop，渲染「发送消息」
+  按钮 + 挂 `BroadcastModal`。个人中心的语义是「我的资料/我的消息」，广播是管理
+  动作，位置错位。
+- 真正的公告接口 `/api/v1/admin/announcements`
+  （`internal/api/announcement`，List/Create/Update/Delete + 用户侧 `/active`）
+  一直存在且有测试，但**前端零引用**——即公告功能此前完全没有入口。
+  `configs/permissions.json` 的 38 条权限里也没有公告相关项。
+
+**修复**
+
+- ① 收到的通知列表：保留未读标记/全部已读/详情，并补上此前缺失的
+  **单条标为已读**（此前只能打开详情或一次性全标）。未读整行加底色 + 左侧竖条，
+  不只靠「加粗」区分。
+- ② 通知渠道偏好：站内/邮件/短信，状态**完全来自后端**
+  `GET /api/v1/profile/notification-channels`（见 BUG-016），未接入的通道禁用开关。
+  判定与渲染从 `SecurityTab` 抽到 `NotificationChannels.tsx`，两处共用同一份实现，
+  避免漂移；开关为只读呈现（当前是平台级设置，没有用户侧写接口）。
+- ③ 广播入口从个人中心**移除**：`NotificationsTab` 不再接受 `isAdminUser` /
+  `onSendClick`，`BroadcastModal.tsx` 删除。新增管理后台
+  `/admin/announcements`（`access: 'canAdmin'`，与后端 admin 路由组鉴权口径一致），
+  接入 List/Create/Update/Delete，支持受众（全体/指定角色）、弹窗标记、生效时间区间。
+
+**顺带修掉的两个缺陷**
+
+- `SimpleList.Item` 不透传 DOM 属性，`data-testid` / `data-*` 被静默丢弃（antd 的
+  `List.Item` 是透传的）。补上 `...rest` 透传，否则「按条目 id 断言未读状态」这类
+  测试根本写不出来。
+- 公告页 `load` 依赖 `intl` 派生的 `t`，测试环境的 intl mock 每次渲染返回新引用 →
+  `useEffect([load])` 反复触发 → 一次提交连拉 9 次列表。改为经 `useRef` 转发让 `t`
+  引用稳定。
+- `submit` 里 `form.validateFields()` 的 reject 未接住 → 点「保存」而表单非法时产生
+  unhandled rejection。
+
+**回归测试**
+
+- `web/src/pages/Profile/__tests__/NotificationsTab.test.tsx` 13 条：③ 无任何发送/
+  广播控件、① 未读高亮/单条已读/全部已读/未读计数/详情、`标为已读` 不打开详情
+  （stopPropagation）、② 通道状态渲染与「未加载时不得出现任何『已开启』」。
+- `web/src/pages/Admin/Announcements/__tests__/index.test.tsx` 10 条：列表/空态/
+  受众/标记如实展示/加载失败不白屏、创建必填校验、`audience=role` 必须填角色名、
+  创建后重拉列表、编辑带 id 走 update、删除二次确认。
+- `SecurityTab.channels.test.tsx`（14 条）改为从 `NotificationChannels` 导入
+  `channelAvailability`，两处共用实现的契约由此被测试锁住。
+
+---
+
+## BUG-022 登录页无 antd App 上下文，登录成功/失败/MFA 的 message 提示全部丢失
+
+**严重度**：高（登录失败时页面零反馈）
+
+**现象**
+
+Playwright 三条路径实测（修复前）：
+
+1. 直接打开 `/user/login` 用正确密码登录 → 登录成功，但**没有任何「登录成功」提示**；
+2. 从 `/` 重定向到登录页再登录 → 同样无提示，console 还报
+   `[antd: Message] You are calling notice in render ...`；
+3. **密码错误 → 页面完全零反馈**（既无 toast 也无内联错误，光停留在登录页）。
+
+**根因**
+
+`src/app.tsx` 把 `AppApiRegistrar`（`AntdApp.useApp()` → `setAppApi` 注册全局
+message/notification/modal）挂在了**已登录布局**的 `childrenRender` 里，而登录页是
+`layout: false`，根本不经过布局渲染。两条丢消息的路径：
+
+- 直接打开登录页：`getMessage()` 一直是 `undefined`，所有 `getMessage()?.xxx()`
+  被可选链静默吞掉；
+- 先访问 `/` 再被重定向：`/` 短暂挂载过布局里的 `<AntdApp>`，`setAppApi` 注册了一个
+  holder 尚未挂载（或已随布局卸载）的实例且 effect 无清理；登录页拿着这个死实例调
+  `message.success`，antd 检测到 `holderRef.current` 为空，告警**并静默丢弃**该条消息。
+
+另外登录页的内联错误兜底也是死代码：`const [userLoginState] = useState({})` 没有
+setter，`status === 'error'` 的 Alert 分支永远不会成立——即 toast 是失败反馈的唯一
+通道，丢了就是零反馈。
+
+**修复**
+
+- `src/app.tsx`：`AppApiRegistrar` 提升到模块级，新增 umi 运行时
+  `rootContainer` 导出，用 `<AntdApp>` 包裹**整个应用**（含 `layout: false` 的
+  登录页）；`childrenRender` 不再重复包裹（`ScopeMenuRefresher`/`SettingDrawer`
+  留在原地，它们依赖 layout 运行时闭包）。
+- effect 增加对称清理：`utils/antdApp.ts` 新增 `clearAppApi(api)`（仅当仍指向同一
+  实例时清空，不误清后来者），卸载 `<AntdApp>` 时不再残留死实例。
+- 顺带删除 `userLoginState` 死状态（`const [userLoginState] = useState({})` 与其
+  永假的 `status === 'error'` 分支）。——若后续没动这段可忽略本条。
+
+**回归测试**
+
+- `web/tests/appAntdRoot.test.ts` 4 条：rootContainer 存在且 `<AntdApp>` +
+  `AppApiRegistrar` 包裹 `{container}`、registrar effect 含 `setAppApi(inst)` 与
+  `clearAppApi(inst)` 清理、childrenRender 不再渲染 `<AntdApp>`、antdApp 模块导出
+  `clearAppApi`（防「搬回 childrenRender」/「删掉清理」两类回归）。
+- `web/src/utils/antdApp.test.ts` 新增 3 条 `clearAppApi` 语义用例（清当前实例、
+  不误清后来者、未注册 no-op）。
+- 运行时验证（Playwright，修复后）：三条路径 toast 分别为「登录成功！」/
+  「登录成功！」/「登录失败，请重试！」，`notice in render` 告警 0 条。
+
+---
+
+## BUG-023 公告页 40 个词条只登记了 26 个，双语目录缺 14 条 + 菜单键缺失
+
+**严重度**：中（英文界面回落中文、console 刷 Missing message）
+
+**现象**
+
+`/admin/announcements` 页面在 en-US 语言下，表单标签/占位/校验提示/行操作按钮
+（编辑/删除）/「公告已更新」提示全部显示**中文 defaultMessage**；console 每次渲染刷
+`[React Intl] Missing message: "pages.announcements.field.*"`。侧边栏菜单该条目在
+zh-CN/en-US 都没有 `menu.AccessControl.Announcements` 词条，每渲染一次刷一遍
+（一次走查累计 61 条）。
+
+**根因**
+
+2c236aa 新增公告页时，页面引用 40 个 `pages.announcements.*` id，locale 目录只登记
+了 26 个——漏掉的全部是**弹窗表单**（title/content/audience/role/popup/active/range
+的标签与校验提示）、行操作（edit/delete）和 update.success，即「不点开新建/编辑就
+看不到」的那批；走查脚本当时也只覆盖到列表层。菜单键则是 routes 的 `name` 加了、
+两个 `menu.ts` 都没加。
+
+**修复**
+
+- `src/locales/zh-CN/pages.ts` / `en-US/pages.ts`：补齐 14 条
+  （field.title/.placeholder/.required、field.content/.required、field.audience、
+  field.role/.required、field.popup、field.active、field.range、action.edit、
+  action.delete、update.success），值与页面 defaultMessage 语义一致。
+- `src/locales/zh-CN/menu.ts` / `en-US/menu.ts`：补
+  `menu.AccessControl.Announcements`（系统公告 / Announcements）。
+
+**回归测试**
+
+`web/tests/announcementsLocales.test.ts` 5 条：从**页面源码**提取全部
+`pages.announcements.*` id 引用（≥40，防守卫自身空转），断言 zh-CN/en-US 目录都
+存在；单独断言双语菜单键。新增词条时自动跟随，再出现「代码引用了未登记的 id」
+即失败。变异验证：stash 掉本次 locale 改动后 4/5 转红。
+
+修复后全站走查：console error/warn 0 条（修复前同走查 89 条）。
+
+---
+
+## 审核模块假数据验证（BUG-024 / 025 背景）
+
+「跳转到审核人的信息都是错的」此前一直没有系统性假数据来复现。本轮用仓库已有的
+dev 播种惯例（`internal/svc/approval_seed.go`，历史提交 2490e1e 引入）扩出一套
+可重复的审核假数据，并沿「列表页显示的审核人 → 跳转路由/参数 → 目标页查询 →
+后端过滤 → 展示字段」全链路逐层验证。
+
+### 假数据种子（dev 模式自动播种，一条命令重建）
+
+- **位置**：`internal/svc/approval_seed.go`（`seedDemoApprovals`，在
+  `service_context.go` 启动序列中 `seedBootstrapGames` 之后调用）。
+- **重建方式**：重启 dev server 即重建——审批库在 dev 配置下是
+  `approvals.NewMemStore()`（`service_context.go`），内存态、不落盘，每次启动
+  从种子全量重建，天然幂等，无需清理命令。
+- **生产隔离**：`isDevelopmentConfig` 门禁（mode 为 dev/development/debug，或
+  `CROUPIER_ENV=dev`；仅显式 production 才关闭），生产路径不执行任何播种。
+- **覆盖面**（单 scope 8 条：4 approved + 2 rejected + 2 pending）：
+  - 审批人 **3 个不同账号**：admin（3 条）/ reviewer01（2 条）/ reviewer02（1 条）；
+  - 申请人 operator / gm01 与审批人**全部错开**（跨角色组合：运营申请—管理员复核、
+    策划申请—安全复核、运营申请—安全复核）；
+  - 三态齐全，rejected 均带拒绝理由；1 条 approved 带
+    `metadata.delegatedFrom=reviewer02` 表达**转审**场景；
+  - 演示账号：admin / operator / gm01 / reviewer01 / reviewer02
+    （登录口令同 bootstrap，admin/admin123）。
+- **锁种子的测试**：`internal/svc/approval_seed_test.go`
+  `TestSeedDemoApprovalsInto_StatesAndTwoPerson` 断言三态计数、审批人覆盖
+  `{admin, reviewer01, reviewer02}`、审批人≠申请人、恰好 1 条转审记录。
+
+### 复现与判定（本地栈实测）
+
+```bash
+go build -o bin/croupier-server ./cmd/server
+(bin/croupier-server --config configs/server-sqlite.yaml &)
+# 登录后（X-Game-ID: default / X-Env: dev）：
+# GET /api/v1/approvals/                → 8 条种子（三态 × 3 审批人）
+# GET /api/v1/audit?kind=approval_approve&actor=<审批人>   → 跳转目标
+```
+
+- **修复前**：`kind=approval_approve` 任何 actor 都查不到（total=0）——
+  BUG-024 现场；前端遇 approver 缺失还会拿申请人去查（BUG-025）。
+- **修复后**：admin 批准一条 pending 后，`actor=admin&kind=approval_approve`
+  恰 1 行（userId=审批人、gameId/env 落列、metadata 同时可读申请人
+  actor=operator 与 operator=admin）；`actor=<申请人>&kind=approval_approve`
+  恒 0 行。续跑失败（无 live agent）时记录仍 approved、审计仍落链，
+  「审批事实」与「续跑结果」分离可判。
+
+### 动态路由走查注意（dev server 默认 mock 拦截登录）
+
+浏览器访问 `:8000` 时，`web/mock/user.ts` 会拦截 `POST /api/v1/auth/login`
+并返回 `mock-jwt-token-*`，后续真实 API 全部 401——**真实栈走查必须以
+`MOCK=none` 启动 dev server**（登录后 localStorage 存的应是真 JWT 而非
+`mock-jwt-token-` 前缀）。走查脚本存档：`/tmp/ui-audit/detail-walkthrough.mjs`
+（登录 → 工单列表/详情 → 函数目录/详情 → console 收集）。
+
+---
+
+## BUG-024 审批动作从不写审计链 + 通知把申请人当审批人
+
+**严重度**：高（用户点名「跳转到审核人的信息都是错的」的后端根因）
+
+**现象**
+
+审批列表/详情里点「查看审计（批准）」跳到
+`/admin/operation-logs?actor=<审批人>&kind=approval_approve`，页面永远
+「暂无数据」；任意 actor、任意时间都一样。审批通知文案写着
+「已由 operator 通过」——operator 是**申请人**，不是审批人。
+
+**根因**
+
+两层叠加：
+
+1. `internal/audit/audit.go` 定义了 `EventApprovalApproved/Rejected`
+   （approval.approved / approval.rejected），但**全仓库没有任何写入点**——
+   审批通过/拒绝只写扩展事件流（`recordApprovalEvent` → approvals 扩展表）和
+   通知，`audit_records` 里从没有对应行。operation-logs 的 kind 过滤
+   （kindAliases: approval_approve → approval.approved）于是永远空集。
+2. 通知文案拼的是 `record.Actor`（申请人）而非 `record.Approver`
+   （审批人），消息中心/站内信里审批归属张冠李戴。
+
+**修复**
+
+- `internal/api/approval/service.go`：`Approve`/`Reject` 在 store 落终态后
+  **先于续跑**调用新增的 `recordApprovalAudit`，把 approval.approved/rejected
+  写入哈希链审计：actor_id=审批人、game_id/env 随记录落列、details 同时带
+  申请人（actor）与审批人（operator）及 functionId/reason。放在续跑之前是
+  刻意的：续跑失败也是「已批准」这一事实，审计必须先落。写失败只吞掉
+  （审计是旁路，不阻塞审批主流程）。注意 `WithResourceID` 会整体替换
+  Resource，必须先于 `WithGameID` 调用，否则 scope 列被抹掉。
+- `internal/api/approval/service.go` + `notify.go`：通知文案改用
+  `record.Approver`，事件 Data 补 `approver` 字段。
+
+**回归测试**
+
+`internal/api/approval/audit_chain_test.go` 3 条：批准/拒绝各断言
+「按审批人 + 事件类型 + scope 过滤恰 1 行、details.actor=申请人、
+details.operator=审批人」，并反向断言**申请人名下不得出现
+approval.approved 行**（正是修复前会产生的错误数据形态）；第三条断言
+AuditService 缺席时审批主流程不受影响。线上栈复证：修复前基线 total=0，
+批准后 `actor=admin&kind=approval_approve` total=1。
+
+**已知边界（未修，属既有行为）**：续跑失败时 Approve 接口对前端返回
+`service_unavailable` 错误，但记录已 approved、审计已落链——审批人会看到
+报错提示，刷新列表才发现状态已通过。记录的 reason 字段保留
+「approved but continuation failed: …」全文。改动该语义需要前端/SDK 同步
+调整提示策略，本轮仅记录不修。
+
+---
+
+## BUG-025 前端审核人跳转回退到申请人（approver 缺失时）
+
+**严重度**：高（用户点名「跳转到审核人的信息都是错的」的前端根因）
+
+**现象**
+
+审批详情里「查看审计（批准）/（拒绝）」按钮的 actor 参数用
+`current.approver || current.actor` 兜底——只要记录缺 approver（历史数据、
+导入数据、异常态），跳转就把**申请人**当成过滤条件，去 operation-logs 查
+申请人名下的 approval_approve。正确情况下申请人名下根本没有这种行（审批是
+别人做的），查出来要么空、要么是此人自己审批**别人**申请的无关记录——
+无论哪种都是「跳过去人不对」。
+
+**根因**
+
+`web/src/pages/Approvals/index.tsx` 两处审计跳转按钮把「字段可能缺失」
+错误地处理成「换个人查」。语义上批准/拒绝动作只有审批人一个主体，
+缺 approver 时正确行为是**空串过滤**（明确查无），绝不能回退到申请人。
+（「查看审计（申请人）」按钮本来就是 actor=current.actor，不受影响。）
+
+**修复**
+
+两处按钮改为 `current.approver || ''`，并注释禁止回退。
+
+**回归测试**
+
+`web/src/pages/Approvals/index.test.tsx` 新增「approver 缺失但 actor 存在」
+用例：断言跳转为 `actor=&kind=approval_approve`，且**不得**出现
+`actor=gm01&kind=approval_approve`（修复前行为即后者）。与既有的
+「approver/actor 均为空按空串跳转」两条互补，覆盖全部分支。
+
+**已知边界（记录不修）**：转审（委托审批）目前只有平台层实现
+（`internal/platform/approvals/delegation.go` 的 DelegationService，
+未接线到任何 API handler），审批 DTO 也不透出 metadata，前端无从展示
+`delegatedFrom`。种子里用 `metadata.delegatedFrom` 表达的转审记录，
+在 API/界面侧暂不可见——待转审 API 落地后再接展示。
+
+---
+
+## BUG-026 站内信「发送」无权限校验：任何登录用户可给任意账号投递消息
+
+**严重度**：高（越权写：收件人无法分辨来源，可被用来伪造系统通知）
+
+**现象与背景**
+
+「通知」与「发通知」必须区分：收件（我收到的通知）人人可见；发送是后台
+运营能力，必须独立入口 + 权限门禁（用户反馈原文：「发送信息应该单独的页面，
+有些人没有权限就不应该看到，而信息通知每个人都可以看到」）。
+
+UI 侧 BUG-021 已完成分离（个人中心消息 Tab 只剩收件箱 + 渠道偏好，jest 有
+「页面里不存在任何发送消息/广播控件」守卫；发送唯一入口是 admin-only 的
+`/admin/announcements`，路由 `access: 'canAdmin'`、侧边栏菜单由后端
+`menu.AccessibleTree` 按权限过滤）。但 API 侧漏了一个洞：
+`POST /api/v1/messages`（点对点单发）的 handler **没有任何权限校验**，
+任何登录用户都能调用——群发 `POST /api/v1/messages/broadcast` 有
+`isBroadcaster`（admin 角色）校验，单发反而没有。
+
+**根因**
+
+`internal/api/message/handler.go` 的 `Send` 直接绑定请求体落库，未校验
+当前用户角色；且 `model.Message` 无发送者字段，消息来源完全不可追溯
+（谁发的、是不是本人发的都无法判定）。
+
+**修复**
+
+`Send` 复用与 `Broadcast` 相同的 `isBroadcaster` 门禁（仅 admin 角色可发送，
+含点对点单发）；收件侧（List/Detail/Read/UnreadCount/Stream）保持所有登录
+用户可用。前端 `services/api/messages.ts` 的 `sendMessage/broadcastMessage`
+无任何页面调用（发送 UI 唯一入口是公告管理页），保留为 admin API 客户端，
+非管理员调用现在会被后端 403 兜底。既有消息测试中「无登录态
+handler.Send 做种子/主流程」的用例按新契约修正：收件侧用例改模型层直种
+（`seedMessage`），发送主流程/校验用例改管理员登录态
+（`newMessageHandlerWithAdmin` + `withReqUsername`）。
+
+**回归测试**
+
+`internal/api/message/send_permission_test.go`：复用 broadcast 的
+admin/ops 双账号夹具，断言未认证 403、ops 角色 403、admin 200 且消息落库、
+ops 用户收件箱（GET /messages）仍 200 可读——收发两侧语义一次锁死。
+
+**已知边界（记录不修）**：`messages` 表没有发送者（from）列，站内信不记录
+来源账号；补该列属于模型变更，需按迁移契约走编号迁移并设计展示层，另行立项。
+当前所有合法发送路径（公告/群发/系统通知）都是管理员或系统行为，风险可控。
+
+---
+
+## BUG-027 工单详情 Descriptions 行内 span 越界，每次打开刷 antd 告警
+
+**严重度**：低（console 噪音，无功能影响；BUG-005「TS 不报错、页面也不报错」同族）
+
+**现象**
+
+打开 `/support/tickets/:id`，console 每次渲染刷
+`Warning: [antd: Descriptions] Sum of column 'span' in a line not match 'column' of Descriptions`。
+
+**根因**
+
+`Detail.tsx` 的 `Descriptions column={2}` 里，「玩家ID」（span=1）后面跟了
+「联系方式」（`span={2}`），该行 span 和 1+2=3 超过列数 2——antd 6 运行时
+告警，TypeScript 不报错。走查发现：真实栈（MOCK=none）打开工单详情即触发。
+
+**修复**
+
+「联系方式」去掉 `span={2}`，回到 span=1 与「玩家ID」同排（布局意图本来就是
+两者一对）。
+
+**回归测试**
+
+`Detail.test.tsx` 新增「span 行和等于列数」用例：spy `console.error` 渲染完整
+工单，断言无 `[antd: Descriptions]` 告警。变异验证：修复前该用例红（告警被
+捕获）、修复后绿（37/37）。
+
+**走查结论（本条来源与同轮其余判定）**
+
+- `/support/tickets/:id` 真实 id：详情完整渲染（标题/状态/优先级/操作按钮）✅；
+  不存在 id：优雅兜底「资源不存在」+ 返回按钮，无白屏 ✅；
+- `/functions/:id` 未知 id：优雅兜底「未找到函数 / 当前函数不存在」引导回目录 ✅
+  （dev 无已注册函数，真实 id 场景由占位等价覆盖）；
+- 不存在工单 id 的 404 请求会有无持有者的 `AxiosError` pageerror 日志（UI 已
+  兜底、仅控制台噪音），随本次走查记录，不单独立项。
+
+---
+
+## BUG-028 引导管理员可被删除（删除即打断登录链）+ 缺少显式禁用/解封入口
+
+**严重度**：高（`admin` 这类自举账号一旦删除，登录链立即中断；重启虽会补种，
+但已属破坏性操作）+ 体验缺口（停用账号只能靠「编辑」里的启用开关，无独立
+禁用/解封动作，也看不到禁用即吊销 token 的语义）。
+
+**现象与背景**
+
+用户要求：admin（引导配置 `configs/admins.json` 声明的账号）不可删除、可禁用、
+可解封。此前 `/admin/permissions/users` 对所有行无条件渲染「删除」，后端
+Delete 也无保护；状态语义（`1=启用 / 0=禁用`、`-1=不改`）全靠散落的字面量。
+
+**根因**
+
+后端只知道「admins.json 里的账号」这一事实存在于 `AdminManager` 的内存
+map，REST Delete/前端都没接这路信息——引导账号与普通账号在 API 视图里
+无法区分。
+
+**修复**
+
+1. 后端保护：`AdminManager.IsBootstrapAdmin(username)` 暴露自举账号集合；
+   `Delete` 事务内（FindOne 之后）命中引导账号直接 403「引导管理员不可删除，
+   可改为禁用」（事务回滚，无半删状态）；List/Create/Get/Update 响应统一经
+   `buildAdminView` 附加计算字段 `bootstrap`，前端据此隐藏删除入口并渲染
+   「引导」标识。
+2. 显式禁用/解封：操作列新增行内动作——启用中的账号显示「禁用」（danger，
+   Popconfirm 明示「已签发登录凭证立即失效，之后可随时解封」）、禁用账号显示
+   「解封」。提交走既有 Update `status=0/1`（禁用自动 `BumpTokenVersion`
+   吊销全部 token），删除入口仅对非引导账号渲染。
+3. 状态常量化（用户 review 意见：禁止裸字面量）：后端统一复用
+   `model.StatusEnabled/StatusDisabled`；Update 契约的「不修改」哨兵命名
+   为 `admin.AdminStatusUnchanged = -1`（Go int 零值与 0 撞值，只能显式
+   -1 表达）。前端在 `services/api/permissions.ts` 导出
+   `ADMIN_STATUS_ACTIVE/DISABLED/UNCHANGED`，UsersV2 全部字面量替换。
+
+**回归测试**
+
+- Go：`TestService_Delete_BootstrapAdminForbidden`（临时 admins.json 声明
+  `rootadmin`，Delete 必须 403 且账号原样保留；变异验证：摘掉 guard 转红）、
+  `TestService_Delete_NonBootstrapAdminAllowed`（非引导账号不受保护对照）、
+  `TestService_List_BootstrapFlag`（bootstrap 标记只在声明账号上为 true）、
+  `TestAdminManagerIsBootstrapAdmin`（nil/空白/未知用户名安全）。
+- jest：`UsersV2/__tests__/index.test.tsx` 3 条——bootstrap 行无「删除」带
+  「引导」标识、启用账号「禁用」提交 `{status: 0}`、禁用账号「解封」提交
+  `{status: 1}`。
+
+**边界诚实**
+
+- 引导账号禁用后仍不可删除（保护与状态无关）；若把所有管理员全部禁用会锁死
+  登录面——这是运维动作，不做代码限制。
+- `bootstrap` 标记按用户名实时计算：删掉 admins.json 里的声明并重启后，
+  该账号自动退化为普通账号（可删除）。
+
+---
+
+## BUG-029 实例元数据端到端丢失：Go SDK 交接链与 agent TCP 注册路径双漏点
+
+**严重度**：高（功能完全不可用——`sdk-distribution` 元信息页与
+`/api/v1/providers/sdk-stats` 的 `metaKey/metaValue` 过滤对所有 Go SDK 实例
+恒为空，实例元数据 feature 上线即哑火）。
+
+**现象与背景**
+
+实例元数据 feature（SDK `InstanceMetadata` → `ProviderConnectRequest.metadata`
+→ agent → server → sdk-stats）本地各环节单测全绿，但线上端到端验证时所有
+实例 `meta=None`：服务端过滤逻辑可用，却永远筛不到任何用户元数据。
+
+**根因（两处独立丢失点，各有单测覆盖盲区）**
+
+1. **Go SDK 交接链手工拷贝漏字段**：`client.Connect()` 构造 `ManagerConfig`
+   与 `NewManager()` 回拷 `ClientConfig` 时逐字段手工复制，两处都没带上
+   `InstanceMetadata`——元数据在 SDK 内部就被吞掉，注册帧不携带。
+2. **agent TCP provider 路径整体丢弃**：Go SDK 走 TCP 19091 连接，命中
+   `tcp_local_listener.handleConnect`——该路径解析了 `ProviderConnectRequest`
+   却没取 `metadata`（`agent.ProviderSession` 压根没有 Metadata 字段），而
+   `app.go` 的 `SetOnConnect` 回调把实例元数据**硬编码为纯平台键**
+   （sdkLanguage/sdkVersion/sdkName/gameId/env）。既有元数据合并单测覆盖的
+   `local_handler.handleProviderConnect` 在 TCP provider 流程中根本不会被
+   调用——测试绿在生产路径上，生产走的是没人测的路径。
+
+**修复**
+
+1. SDK：`ManagerConfig` 增加 `InstanceMetadata` 字段，`Connect()` 与
+   `NewManager()` 两处交接补拷贝。
+2. Agent：`agent.ProviderSession` 增加 `Metadata` 字段；TCP `handleConnect`
+   经新增共享 helper `MergeUserProviderMetadata` 解析用户 KV（保留键丢弃+
+   warnings 回传响应，空键跳过，语义与 local_handler 路径一致）；
+   `app.go onConnect` 经 `MergeProviderInstanceMetadata` 以「平台键 + 会话
+   用户 KV」注册实例；local_handler 路径改为复用同一 helper，两条连接路径
+   语义收敛到单一来源。
+
+**回归测试**
+
+- Go SDK：`TestNewManagerCarriesInstanceMetadata`、
+  `TestNewTCPManagerCarriesInstanceMetadata`（两处交接断言）、
+  `TestRegisterFrameCarriesInstanceMetadata`（帧级：fake agent 捕获
+  0x050101 帧解码断言 metadata 携带）。
+- Agent：`TestTCPProviderConnectCarriesUserMetadata`（真 TCP 拨号→连接→
+  onConnect 会话携带用户 KV、保留键丢弃、响应 warnings 标注）、
+  `TestMergeProviderInstanceMetadata`（平台键+用户 KV 合并、nil 安全）。
+
+**边界诚实**
+
+- 已注册 SDK 的旧版本（< 本次修复）仍不上送元数据，升级 SDK 后重连即恢复；
+- 保留键冲突仅在 agent 侧丢弃并在连接响应 warnings 中告知，SDK 侧不二次校验。
+
+**补充（同日，第三丢失点）**：上线后 demo 容器在 agent 重启后经
+`reconnectWithBackoff` 恢复会话，实例 meta 再次变空——重连路径在 client.go
+里**又**手搓了一份 `ManagerConfig`（`Connect()` 修了、它没修），漏
+`InstanceMetadata`。修复：抽取 `buildManagerConfig()` 供首连/重连共用，
+回归测试 `TestReconnectCarriesInstanceMetadata`（fake agent 真连接→agent 侧
+掐断→重连帧断言 metadata，修复前红/修复后绿）。教训：手工逐字段拷贝的
+配置交接链每多一处就多一个丢失点，必须收敛到单一构造函数。
+
+---
+
+## BUG-030 resource-catalog 分类/搜索过滤静默失效：query 绑定按字段名精确匹配
+
+**严重度**：高（功能完全不可用——「选择分类」「搜索」两个前端交互恒无效果，
+用户多次反馈）。
+
+**现象与背景**
+
+`/functions/resource-catalog` 页面选择分类后列表不变。前端接线正确
+（Select onChange → `?category=...` → 自动 refetch），后端 `List()` 的
+category 过滤逻辑本身正确。线上实锤：`GET /api/v1/resource-catalog?category=inventory`
+返回全量 5 条，`?Category=inventory`（大写 C）过滤生效——差一个字母大小写。
+
+**根因（helper 设计病 + DTO 触发条件）**
+
+`internal/common/requestbind.BindQueryCompat` 的反射兜底**只在
+`ShouldBindQuery` 返回错误时执行**；而 gin 的 `ShouldBindQuery` 对无 form tag
+字段按**字段名精确匹配**（大小写敏感），且 string-only 结构体绑定恒成功：
+
+1. `resourcecatalog.ListRequest` 四个字段全无 form tag → gin 按字段名
+   `Category` 匹配，前端契约键 `category` 永不命中；
+2. 绑定又恒「成功」→ 旧代码的反射 fallback 一行都不会执行。
+
+双重失效叠加，过滤参数静默丢失。`handler_coverage_test.go` 里原有的
+`?query=player` 用例只用单个种子数据断言 `Total==1`——不过滤时也是 1，
+**测试看起来覆盖了过滤，实际无判别力**，bug 因此存活。
+
+**修复**
+
+1. `ListRequest` 显式补 canonical form tag（`form:"gameId"/"env"/"category"/"query"`）——本例修复；
+2. `BindQueryCompat` 反射兜底改为**始终执行**（绑定错误不提前返回），无 tag
+   字段按 lcFirst → 全小写 → 大小写不敏感三档兜底。Go 缩写风格字段名
+   （`GameID`）与契约键（`gameId`）大小写分布不同，纯字符串变换推不出来，
+   最后一档 `strings.EqualFold` 兜住。
+
+**回归测试（修复前红/修复后绿）**
+
+- `TestBindQueryCompat_UntaggedFieldsBindLowercaseNames`（无 tag 结构体 +
+  小写 key：gameId/env/category/query/id 全绑定、`form:"-"` 不绑定）；
+- `TestBindQueryCompat_TaggedFieldsStillWinOverLowercaseFallback`（form tag 键优先）；
+- `TestHandler_List_CategoryAndQueryFiltersBindLowercaseParams`（双资源种子下
+  category/query 过滤真收窄——旧实现 total 恒 2）；
+- 改写 `TestHandler_Upsert_GETMethod`（internal/api/config，同病类第三例）：
+  旧断言只查「非 400」，实际 gin 绑不上 `key/value`、service 拿空 key 报错
+  500，测试**因错误原因转绿**；修复使绑定真正生效后暴露该测试 service 为
+  半构造空壳（nil model 会 panic）。改为兄弟用例同款的绑定直测断言
+  （旧代码 req.Key 恒空，可作回归）；
+- 改写 `TestBindQueryCompatJSONFallback`：原断言「json tags don't work with
+  query binding」是**把缺陷固化成预期**的 characterization test，改为断言
+  json fallback 真正兜底。
+
+**教训**
+
+gin 的 `ShouldBindQuery`「成功」≠「绑定上了」；string-only DTO 上它永远
+成功。凡「仅在出错时才走」的兜底路径，遇到恒成功的前置调用就是死代码。
+
+---
+
+## BUG-031 functions/pages 提案版本灌水：jsonb 键序致 digest 恒不等
+
+**严重度**：高（线上每 ~4 分钟 +11 个无意义提案版本，重启/agent 重连后
+functions/pages 冒出一堆需人工处理的警告；已实证单提案累积 2927+ 版）。
+
+**现象与背景**
+
+每次 server 重启或 agent 重连，`/functions/pages` 就出现一批「页面提案待
+确认」警告。demo 重启并不会改字段——用户判断为误报 bug。受控复证：重启
+croupier-agent 后 `proposal_versions` 从 2927 涨到 2971；相邻版本 payload
+diff 的**唯一差异是 UpdatedAt**，`function_digest`/`semantics_digest` 列恒等。
+
+**根因**
+
+`proposalComparableDigest` 对 PageSpec/Diagnostics 的 `model.JSON` **原始
+字节**做哈希，但 `page_proposals.page_spec`/`diagnostics` 是 Postgres
+**jsonb** 列——jsonb 会重排对象键序、去空白。fresh marshal 出的字节与 DB
+回读的字节**永不相等** → `generatedProposalChanged` 恒真 → 每轮提案重建都
+判定「内容变了」，灌入新版本快照。快照灌水同时触发待处理警告堆积。
+
+**修复**
+
+新增 `canonicalJSONBytes`（unmarshal → 重 marshal 键序归一），PageSpec/
+Diagnostics 进 digest 前先归一化，再与 DB 回读侧同法归一后比较。
+
+**回归测试（修复前红/修复后绿）**
+
+`TestGeneratedProposalChanged` 头部新增 jsonb 回归：键序不同的等价 JSON
+（`{"b":1,"a":{"y":1,"x":[2,3]}}` vs 重排+去空白形态）断言「不变化」；
+仅值变化（`"b":2`）仍断言「变化」。修复前第一条恒红（字节 digest 判真）。
+
+**教训**
+
+与 jsonb 列比较一律先键序归一化；「语义相同、字节不同」的存储往返是
+digest/幂等类逻辑的隐形炸弹——本地 sqlite（JSON 文本原样存取）测不出，
+只有线上 postgres 走 jsonb 路径。
+
+**补充（同日，残留第二病灶——重注册时间戳灌水）**：canonicalJSONBytes 上线后
+持续灌水（每 ~4 分钟 +11）停止、空闲 12 分钟零新版本，但 agent 重启仍每提案
++4 版。相邻版本 payload 的唯一实质差异是 `SemanticsDigest`（PageSpec/
+FunctionDigest 恒等）：`computeDigest(semantics)` 把整个 `CapabilitySemantics`
+结构体吃进 digest——内嵌 gorm.Model（ID/CreatedAt/UpdatedAt/DeletedAt）+ 显式
+UpdatedAt，agent 每次重注册 upsert 语义行都会刷新时间戳，内容未变也判「有
+变化」。修复：`semanticsComparableDigest` 只对语义**稳定内容字段**投影做
+digest（JSON 字段同时 canonical 归一），回归
+`TestSemanticsComparableDigest_StableAcrossRegistrationRefresh`（旧整结构体
+digest 对同一内容/不同元数据确实不稳定——文档化根因断言）。边界：无资源
+提案的 `semantics == nil`（无语义行）投影为全零语义——digest 保持 64 字符
+非空（`PageProposal.SemanticsDigest` 列契约），且与「空语义行」不可区分，
+二者本无内容差异可比较（首版实现返回空串，被
+`TestContractService_RebuildProposalForFunctionWithoutResource` 的 64 长度
+断言当场抓住）。
+
+**补充（同日，第三病灶——行 Version 无条件自增且被投影吃进）**：二病灶修复
+部署后线上复证：空闲灌水归零，但 **agent 重启后每提案仍 +3 版**（此前实测
++4 是二、三病灶叠加）。线上证据：`resource:order` 提案 v385→v390 相邻版本
+`function_digest` 恒定、仅 `semantics_digest` 变；`capability_semantics` 行
+`version` 390→393 而**全部稳定字段逐列相同**——语义行的 `Version` 是「每次
+upsert 无条件 +1」的行版本计数，而二病灶修复的稳定内容投影**误把 Version
+一并吃进 digest**：重连 upsert → Version+1 → digest 变 → 判「语义变化」→
+每提案灌一版快照 + 一版语义历史行。单测绿而线上红的原因：单测只模拟了
+「时间戳刷新」，没模拟 Version 自增路径。
+
+修复（收敛为模型层单一实现）：
+
+1. `CapabilitySemantics.StableContentDigest()`（model 层）：稳定内容投影
+   **唯一实现**，剔除 ID/时间戳/UpdatedBy/**Version**；JSON 字段经
+   `normalizeJSONContent`（Unmarshal→Marshal）归一 jsonb 字节漂移。service
+   层 `semanticsComparableDigest` 改为薄委托——model 的 upsert 变更判定与
+   proposal 的 SemanticsDigest 同源，两份投影必然漂移。
+2. `UpsertSemantics` 改签名 `(bool, error)`：内容未变**不动行**（Version/
+   UpdatedAt 均不刷新）并回填行标识；真实变化才 `Version+1` 落库。
+3. `rebuildFromContracts` 仅 `changed` 才插 `capability_semantic_versions`
+   历史行（自动重连不再灌历史）。人工编辑/冲突决议路径保持「显式保存即留
+   版本历史」语义（其后 createSemanticVersion 无条件执行）。
+
+回归测试（修复前红/修复后绿）：`TestCapabilitySemanticsModel_UpsertSkipsBumpWhenContentUnchanged`
+（旧实现同内容二跑 Version=2 红；新实现 changed=false、Version=1、UpdatedAt
+不刷新；真变化才 bump）、`TestSemanticsComparableDigest_IgnoresRowVersion`
+（仅 Version 不同的两份语义 digest 必须相等——旧投影吃 Version 恒红）。
+
+教训：**「行版本号」是生命周期元数据，不是内容**——把它放进内容投影，
+等于把自增计数器接进变化检测器，任何写入路径的无条件 bump 都会被放大成
+「内容变化」。同一投影必须只有一份实现（model 层），service 层只准委托。
+
+**补充（同日，第四病灶——Provenance 内嵌重建时间戳）**：三病灶修复部署后
+线上复证 **FLOOD-REMAIN**：agent 重启后每提案仍 +3（提案与语义行 410→413，
+后续idle 观察 414 还在涨）。`StableContentDigest` 已在运行的二进制中（symbol
+grep 证实部署无误），但 upsert 恒判「变化」。取证：`capability_semantics.
+provenance` 每个字段条目内嵌 `updatedAt`/`updatedBy`，且 `internal/dashboard/
+normalizer/provenance.go:75/85/103/180` 每次 track 都 `UpdatedAt: time.Now()`
+——**重建即刷新 Provenance 时间戳**，剥掉行级时间戳后，时间戳还藏在 JSON blob
+里。同病灶第四层：投影吃进了「何时写入」而非「内容是什么」。
+
+修复：`normalizeProvenance`（model 层）= jsonb 归一 + 递归剥除
+`updatedAt`/`updatedBy` 键后再进 digest；条目实质内容（field/value/source/
+status/confidence/sourceDigest）全部保留参与变化判定。
+
+回归测试（修复前红/修复后绿，红以临时还原 `normalizeJSONContent` 直投证得）：
+`TestCapabilitySemanticsDigest_ProvenanceVolatileKeysIgnored`（仅时间戳不同
+digest 必须相等；source 翻转仍必须不等）、
+`TestCapabilitySemanticsModel_UpsertIgnoresProvenanceTimestamps`（仅时间戳
+漂移 changed=false、Version 保持 1）。
+
+教训：内容投影不仅要剔除**行上的**生命周期元数据，还要递归审视**JSON blob
+内部**——凡由构建过程写时间戳的 blob（provenance/diagnostics 族）都是同族
+雷区；「投影吃什么」的验收标准是：把系统原样重跑一遍，喂给投影的每个字段
+都必须逐位复现。
+
+**闭环（2026-09-27 线上复证通过）**：四病灶修复部署（deploy run 36311407559）
+后重启 croupier-agent，提案 max 版本（resource:* = 423）与语义行（= 422）
+重启前后逐位一致——**零 bump**，FLOOD 停止（修复前同场景 410→414 连续灌）。
+复证脚本含快照行数 gate（<8 行判无效），防「查询失败两次空输出 diff 相等」
+的假绿。OPEN-ISSUES #12 移入已闭环。
+
+---
+
+## BUG-032 functions/assignments 分配从未拦截执行：数据在、闸门不在
+
+**严重度**：高（用户实测「未做分配也能远程执行调用」——分配页完整可操作、
+概览统计齐全，但执行链路从不读取分配数据，纯展示摆设）。
+
+**现象与背景**
+
+`/functions/assignments` 页面可按游戏/环境维护「开放哪些函数」，有概览
+统计（已分配/未分配）、变更历史、克隆到环境等完整功能面。但用户未做任何
+分配即可远程执行全部函数——怀疑「分配根本不生效（或语义不是执行闸门）」。
+
+**根因（取证）**
+
+- 分配数据落 `data/assignments.json`（`gameID|env → []functionId`），
+  全仓库只有 `internal/api/assignment`（页面 CRUD）与遗留
+  `internal/logic/assignment` 读它——**invoke 链路零消费**。
+- 执行链路实际权限面：scope 中间件（game/env 授权）→ `EnsureFunctionEnabled`
+  （禁用拦截）→ `enforceFunctionPolicy`（AllowedRoles 角色限制，空 = 放行；
+  审批工作流）。没有任何环节判定「该函数是否已分配给当前 scope」。
+- 前端分配页从未向用户讲清语义，「分配概览/已分配/未分配」的表述
+  强烈暗示闸门语义——功能面存在而 enforcement 缺位，同 BUG-009
+  「禁用按钮不拦截」一族的「UI 承诺 > 实际执行」漂移。
+
+**修复（含默认策略定案，OPEN-ISSUES #36 ①②③）**
+
+- **默认开放**：scope（gameID|env）无分配记录 → 放行（向后兼容，未配置
+  分配的部署行为与上线前完全一致；存量 invoke 用例即隐式回归）。
+- **有记录即白名单**：函数不在列表 → 403 `function_not_assigned`
+  「函数未开放执行权限：当前游戏/环境未分配该函数（可在「函数分配」页添加）」；
+  空列表 = 白名单空集（全拒），故 `Update` 清空保存时**删除记录**回到
+  默认开放（否则用户无法经 UI 恢复）。
+- 闸门与 EnsureFunctionEnabled 同位双入口：`functionInvoke` +
+  `task Start`（防异步入口绕过，与 E2 禁用拦截同理由）；拒绝发生在
+  遥测/审计之前——被拒的调用不是一次执行，不污染执行留痕。
+- scope key 匹配 EqualFold（与 filterAssignments 一致）；函数 ID 精确匹配
+  （注册表标识符大小写敏感）。读文件失败按错误透传（与 List 同真值表，
+  不静默 fail-open）。
+- `errorx` 补 `NewForbiddenWithCode`（对称既有 `NewConflictWithCode`）。
+- 分配页顶部新增「执行闸门」语义说明（zh/en locale），UI 把语义讲清。
+
+**边界（诚实声明）**：闸门覆盖 dashboard HTTP 调用路径；SDK/agent 走
+TCP 直连不经此闸门（transport 层鉴权独立）。admin 不绕过——与
+EnsureFunctionEnabled 一致（scope 级准入，无角色豁免），403 文案直接
+指路分配页。
+
+**回归测试（修复前红/修复后绿）**
+
+- 闸门单测 5 条（`assignment/gate_test.go`）：无记录放行 / 列表内放行 /
+  未列表 403+稳定码 / 空列表全拒 / scope 大小写不敏感且不外溢。
+- invoke 集成（`invoke_assignment_test.go`）2 条：未分配 403 且
+  **caller.requests 为空**（请求不触达 agent，同步/异步同闸门）；列表内
+  放行。修复前红以 stash 两处闸门调用点证得（两条集成用例均 FAIL）。
+- task 集成（`task/service_assignment_test.go`）2 条：未分配 403 且
+  `rt.lastReq == nil`（不派发任务）；列表内通过闸门（链路走到登录用户
+  校验，证明放行而非拒绝）。
+- `TestService_Update_RemoveAll` 断言更新：清空保存后 key 必须删除
+  （旧行为残留空列表——新语义下会被闸门视为白名单空集全拒）。
+- jest 2 条（`Assignments/__tests__/gateSemantics.test.tsx`）：页面渲染
+  闸门语义 Alert（默认开放/白名单/403/清空恢复）+ zh/en locale 键齐备。
+
+**教训**
+
+「有页面、有数据、有统计」不等于「有 enforcement」——新增管理面时必须
+先回答「谁在执行路径上消费这份数据」，答不出就是 BUG-009/BUG-032 同族的
+展示性功能。另：给展示性数据补闸门时，默认策略（开放/关闭）与「如何回到
+默认」必须同一次设计定案，否则清空列表这种自然操作会制造锁死态。
+
+---
+
+## BUG-033 组件模板预览假数据渲染不出：生成链路无恙，消费端三处取不到/取错
+
+**严重度**：中（预览功能核心承诺「开启模拟数据即可安全验证」不成立；
+用户多次反馈「号称修过几次都没解决」——历次修复都在 mock 生成侧，
+真实病灶在渲染消费侧）。
+
+**现象**
+
+`/functions/component-templates` 预览弹窗中「数据来源」已切到模拟，
+预览区仍然没有假数据（空表/崩溃态），内置模板与自定义组件模板均受影响。
+
+**根因（取证）**
+
+mock 生成链路本身无恙：`generateMockResponse` 对无 outputSchema、
+未注册函数均有兜底（`generateFallbackMockData`）。坏在渲染消费端三处：
+
+1. **列回退取顶层 schema 属性**：`PreviewNode.previewColumns` 在
+   `props.columns` 为空（内置模板 generator 产物固定 `columns: []`）时
+   回退 `schemaProperties(fn.outputSchema)`——列表形态 schema
+   （`{items:{...}, total:{...}}`）取到的是 `items`/`total` 容器字段，
+   不是行字段；表格行 `dataSource = itemsOf(payload)` 是 items 元素，
+   `record.items` 恒 undefined → 整表无单元格内容。
+2. **行提取只认 `payload.items`**：`previewShared.itemsOf` 无兜底——
+   schema 数组字段名非 `items`（如 `players`）时 mock 行永远取不到
+   （编译端有 items selector 把列表字段映射为 `pageState.items`，
+   预览端没有等价物）。
+3. **未注册函数零列**：fnById 无记录走 fallback 行数据（有 items 3 行），
+   但 `schemaProperties(undefined) = []` → 0 列空表，行数都看不见。
+
+**修复**
+
+- `types.ts` 新增 `rowFieldsOf(schema)`：行字段 = 第一个「数组-对象」
+  字段的元素属性（与 `generateMockOutput` 行生成、编译端 items selector
+  语义同源）→ 顶层标量属性（排除对象/数组——裸渲染非法）→ 空。
+- `PreviewNode.previewColumns` 回退链改为：声明列 → `rowFieldsOf` →
+  `FALLBACK_ROW_FIELDS`（mockData 新增常量，与
+  `generateFallbackMockData` 行形态对齐）；列单元格对象/数组值
+  JSON 序列化渲染（防 React 非法子节点）。
+- `previewShared.itemsOf` 兜底：payload.items 缺失时取首个
+  「对象数组」字段。
+
+**回归测试（修复前红/修复后绿，`previewMockData.test.tsx` 新增 4 条）**
+
+- 内置模板形态（`columns:[]` + 列表 schema + autoRun）：假数据行可见
+  （`u-1001`），列头为行字段 uid/nickname——修复前整表空。
+- 未注册函数（空 fnById）：fallback 行 `mock-1001` 可见——修复前零列。
+- 数组字段名非 items（`players`）：行提取兜底命中——修复前行取不到。
+- 行内含嵌套对象字段：列取行字段且对象值 JSON 序列化渲染——修复前
+  取顶层 items 列整表空。
+
+**教训**
+
+「数据生成了」≠「用户看得到」：修「不显示」类问题必须沿
+选择 → 生成 → **消费/渲染** 全链验证，只验生成侧就会出现「修了几次
+都没解决」。预览端与发布端共享语义的字段映射（items selector）要
+成对实现，单侧实现就是漂移点。
+
+---
+
+## BUG-034 mock e2e「一键发布/下架」取消键超时：AntdApp 挂载层错位，modal holder 拿不到 zh_CN
+
+**严重度**：中高（CI Dashboard mock e2e 连续 12+ 跑红（2026-09-26 18:13 起），阻断质量门禁；
+且 antd 内置文案在所有 confirm/modal 场景静默英文化，不只影响测试）。
+
+**现象**
+
+`page-studio.spec.ts › 一键发布/下架按钮在主视图直接可见`：confirm 弹窗正常弹出、
+内容文案可见，`getByRole('button', { name: /取 消/ })` 20s 超时。CI 快照显示
+取消键可访问名是 **"Cancel"**，而 okText「发 布」正常（我们自己的字符串）。
+
+**根因（取证）**
+
+f56bfa8（BUG-022）把 `<AntdApp>` 从已登录布局 childrenRender 挪到 app.tsx 的
+`rootContainer`。umi 渲染链由外到内：rootContainer（plugin-antd theme ConfigProvider、
+app.tsx 包裹）→ **i18nProvider（plugin-locale 在此注入 antd zh_CN locale）** →
+innerProvider → 路由。AntdApp 的 modal/message holder 渲染在 AntdApp 所在 React 层，
+挂 rootContainer 时位于 zh_CN ConfigProvider **之外**——App.useApp().modal 的
+confirm 弹窗按钮全部落回 antd 默认 locale（en）。BUG-022 修复前 AntdApp 在布局深处
+（locale 内），所以 9-26 05:38 前的 CI 是绿的；层级一变即红。
+
+**修复**
+
+app.tsx：挂载层 `rootContainer` → `innerProvider`（渲染链最内层、紧贴路由，
+仍全路由覆盖含 `layout:false` 登录页——BUG-022 语义不变；holder 进入 zh_CN
+上下文且随语言切换响应式更新）。
+
+**回归（红→绿）**
+
+- jest 守卫 `tests/appAntdRoot.test.ts`：改锁 innerProvider 布线，并**新增
+  「rootContainer 不得再挂 `<AntdApp>`」断言**——把 `<AntdApp>` 移回 rootContainer
+  的任何改动都会在此先红（本次回归的 jest 级复现）。
+- e2e 原用例：静态构建（CI 同路径 MOCK=all prod build）本地复现红
+  （`waiting for getByRole('button', { name: /取 消/ })` 15s 超时，1 failed）→
+  修复后绿（1 passed，52.7s）。
+
+**教训**
+
+「布局层级修复」要核对其在框架合成 Provider 链中的位置：AntdApp 这类
+**holder 型上下文组件**的挂载层决定了它能否继承下层 Provider（locale/theme）。
+umi 多个 rootContainer/i18nProvider/innerProvider 的包裹顺序是隐式契约，
+布线守卫测试要把「在哪个层」而不只是「有没有」固化下来。
+
+**边界（诚实）**
+
+同一 run 的 dashboard-quality 单测步 21:43 被 GitHub 运行时主动取消
+（"The operation was canceled"；run_attempt=1、无并发组、两个 30min 预算均未触达、
+被杀时用例仍在 PASS；前一跑同 job success）——定性一次性 infra 取消，非用例红
+非超时预算，不做配置改动，随本次 push 的新 run 复证。
+
+## BUG-035 assignments 白名单化石 null 值透出前端：旧版空保存产物，读取侧无兜底
+
+严重度：低-中（选中态/统计污染，不阻断保存链路）
+
+现象（线上诊断实证，2026-09-27）：部署机 `assignments.json` 躺着 `"default|dev": null`
+——861841d（BUG-032）之前 Update 是 `assignments[key] = accepted` 直写，空选保存落盘
+空值，volume 跨部署持久化成化石。GET /api/v1/assignments 原样透出 null，前端
+useAssignmentsPage 的 `Object.values(m).flat()` 把它卷成 `[null]` 选中态幻影项。
+
+根因：读取侧 `loadAssignments` 对逐键 null 无归一；同型实现两份
+（internal/api/assignment 与 internal/logic/assignment）需同步修。
+
+修复：两份 `loadAssignments` 读取时删除 null 键——产品语义「清空列表保存即恢复
+默认开放」（Assignments 页文案）等价于无记录；新代码空保存走 delete-on-empty，
+不再产生新化石。
+
+回归：`TestLoadAssignmentsScrubsNullFossilValues`（api 包）、
+`TestLoadAssignments_ScrubsNullFossilKeyValues`（logic 包）——
+`{"g1|dev": null, "g2|prod": [...]}` 读回后 null 键删除、正常键保留；
+修复前两用例红（git stash 修复文件复跑证得），修复后绿。
+
+教训：直写文件型存储的「空态」表达要先定语义（空数组 vs 删键）；跨部署持久化
+的 volume 会把旧版本写入的形状变成新版本的化石输入。
+
+## BUG-036 README 顶部 logo 整块消失：bf76dad 全仓 prettier 重排吞掉独立 HTML 块
+
+严重度：低（展示面，不影响功能）
+
+现象（用户报告，2026-10-02）：GitHub 上 README 顶部居中 logo 不见了。43df26e 时
+还在（h1 上方 `<p align="center"><img .../></p>` 居中块），bf76dad「prettier 全仓
+格式化」后整块消失——prettier 对 README 内独立 HTML 块的归一化把块吞了，且全仓
+比对确认仅丢此一块（其余内容零差异）。
+
+根因：两个叠加——① prettier 会重排/丢弃 markdown 中的独立 HTML 块；② 旧路径
+`docs/.vitepress/public/logo.png` 本身已过时（logo 现存 `docs/public/logo.png`
+与 `web/public/logo.png`，docs 站公共目录早已迁移）。
+
+修复：README 顶部恢复居中 logo 块（路径改现行 `docs/public/logo.png`，仓库根
+相对路径 GitHub 直渲）；`.prettierignore` 加 `README.md` 防再犯（与
+`sdks/js/examples/game_demo.ts` 同型的「prettier 破坏展示/契约面」教训）。
+
+回归：无代码路径可测——渲染面回归靠 `diff 43df26e:README.md` 全量比对（本条
+实证仅 logo 块差异）+ `.prettierignore` 守住后续重排。
+
+教训：prettier 全仓重排对「HTML 块 + 机器/平台解析面」的文件必须先进
+`.prettierignore`（同族事故第二起：第一起是 sdks/js game_demo.ts 契约 fixture）。
+
+## BUG-037 v0.1.5 发布二进制 --version 恒 0.1.4：切 tag 时 VERSION 文件滞后，make build 注入过期值
+
+严重度：低（版本自报错位，不影响功能；但干扰安装脚本升级判定与用户排查）
+
+现象（2026-10-02 一键安装脚本走查实证）：`curl` 装 v0.1.5 release 的
+linux-amd64 产物后 `croupier-agent --version` 输出 `0.1.4`（Windows 产物
+同 tag 输出 `v0.1.5` 正确）。
+
+根因：release.yml/nightly.yml 的 Linux/macOS 构建走 `make build`，其 LDFLAGS
+注入 `$(shell cat VERSION)` 文件值；切发布 tag 时若忘 bump VERSION 文件
+（`git show v0.1.5:VERSION` 实为 `0.1.4`），linux/darwin 二进制版本自报
+滞后一位。Windows 构建独立用 `git describe --tags --always --dirty` 注入
+故正确——同一 tag 两平台自报不一致是直接证据。
+
+修复：两工作流 Linux/macOS 构建在 `make build`（保留 worker/ingest/tools
+产物）之后，对 server/agent 以 git describe（nightly 用 nightly-YYYYMMDD）
+重注入重编译，与 Windows 构建口径统一，发布面版本不再依赖 VERSION 文件时点
+（本地 `make build` 仍用 VERSION 文件，开发语义不变）。
+
+回归：`git show v0.1.5:VERSION` 实证（修复前产物）+ 下一版发布产物
+`--version` 应等于 tag 名；nightly 全平台产物版本应一致为 nightly-YYYYMMDD。
+
+## BUG-038 Python SDK 同步 invoke 吞掉 handler 异常不回响应：调用方 15s 超时假象
+
+严重度：中（校验类错误被放大为 15s 超时；异步 task 路径不受影响）
+
+现象（2026-10-02 界面截图走查实证，quickstart 栈 + sdk-demo-python）：控制台
+函数执行页对 python demo 注册的 `inventory.grant` 提交缺失 `templateId` 的
+载荷，页面 15s 后报「调用失败：context deadline exceeded」；执行留痕记录
+状态=失败、耗时 15008ms。而同样的校验错误在 Go SDK demo 上即时返回错误
+payload。对照条件下（字段齐全）python demo 正常返回（33ms）。
+
+根因：`sdks/python/croupier/transport/tcp.py:385-391` `_process_inbound` 的
+`except Exception` 分支只 `LOG.error("Handler error for %s: %s", ...)`，
+**不向对端回送任何响应帧**——demo handler 抛出的
+`ValueError("playerId and templateId are required")` 被吞，调用方只能等到
+自身 deadline（默认 15s）超时。Go SDK 同路径
+`sdks/go/pkg/croupier/tcp_manager.go` invoke handler `return nil, err`，
+由框架把错误封装成错误响应帧回送（校验失败即时可达调用方）。python 的
+异步 start_task 路径有 TaskEvent 错误回传，仅同步 invoke 路径受影响。
+
+修复：两层对齐 Go 语义——`CroupierClient._handle_inbound_invoke` 接住
+handler/校验异常回 `InvokeResponse{"error":...}` payload 帧（语义层，类型
+正确）；transport `_process_inbound` except 兜底回空 body 帧保证
+「失败也要答 Agent」（漏网异常如请求反序列化失败不再让对端挂起）。
+e2e 契约用例同步改写（旧断言「error swallowed, no reply」即病灶本体）。
+
+关联观察（原「待核实，未立项」）已核实为通用缺陷并立项为 **BUG-039**
+同批修复，见下节。
+
+回归（修复后应绿）：对 python demo 函数提交非法载荷，同步 invoke 应在
+秒级返回错误响应（而非 15s 超时）；执行留痕耗时不应再出现 15008ms 量级的
+校验类失败。
+
+## BUG-039 Schema 表单必填字符串字段放行空串（required 只查键存在，清空后提交出网）
+
+**现象**：函数执行页对 `inventory.grant` 提交时，`* Template Id` 带必填
+星号，但输入后清空（或初值即空串）仍可直接提交——空串 payload 出网到游戏
+侧才报 `playerId and templateId are required`；叠加 BUG-038 时呈现为 15s
+超时假象。
+
+**根因**：`SchemaFormRenderer` 的校验事实源是 JSON Schema + AJV，而 AJV
+`required` 只断言键存在，`""` 是合法 string 值。demo 描述符的
+`templateId` 形态是 `{"type":"string"}` + `required`、无 `minLength`，
+必填星号（rjsf 按 schema.required 渲染）挡得住「没填」，挡不住「空串」。
+影响面是全部 Schema 表单的必填字符串字段（含 Invoke 页、页面渲染、编辑器
+预览同一渲染器），非该字段特例。
+
+**修复**：`deriveRuntimeSchema` 在 required 终态（visibleWhen 隐藏豁免
+摘除之后）对 required 且 `type:string` 且未显式声明 `minLength` 的字段补
+`minLength: 1`——「必填 = 非空」对齐用户预期（同 antd required 规则语义）。
+显式 `minLength`（含 `validationRules` min 映射产物）不覆盖；非字符串
+required（number/array/object）不动。错误本地化对 `minLength limit=1`
+特化为「{title} 不能为空」（否则报「至少需要 1 个字符」）。派生 schema
+仅存在于内存（ui-generation 约束），wire/PageSpec 无变更、无迁移。
+
+**回归**：field-validity 4 条（派生注入 schema/fields 双来源、显式
+minLength 不覆盖、空串提交被拦 onFinish 不出网、隐藏豁免不注入；前两条
+与提交拦截修复前红）+ index 本地化 1 条（limit=1 特化文案）+ upload 套件
+required 空串契约改写（旧断言「required 保留空串提交」即病灶本体）。
+渲染器语义文档同步 `docs/architecture/pagespec-protocol.md`「渲染器生效
+语义」。线上复证（deploy run 36994211146，gitCommit 0ab4878）：dashboard 产物
+含特化文案字面量（「不能为空」×8 / "cannot be empty"×9），新派生逻辑随镜像
+上线；拦截行为本身以前后端契约由 jest 覆盖，未做人工浏览器复验（边界诚实）。
+
+## 汇总
+
+| BUG | 位置                                                                            | 状态          | 回归测试                                                                                                                     |
+| --- | ------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 001 | `internal/server` 测试抢占 `:19090`                                             | 已修          | 3 条 Go 用例                                                                                                                 |
+| 002 | 引导管理员档案字段被丢弃                                                        | 已修          | 5 条 Go 用例                                                                                                                 |
+| 003 | LB 归属率仪表盘不显示                                                           | 已修          | 7 条 jest                                                                                                                    |
+| 004 | 排序标签漏传 intl values                                                        | 已修          | 1 条 jest（判别力已验证）                                                                                                    |
+| 005 | antd 6 废弃属性 142 处                                                          | 已修          | 4 条 jest（判别力已验证）                                                                                                    |
+| 006 | 组合页编辑器缺 locale key                                                       | 已修          | 随 `consoleMenu` 相关用例覆盖                                                                                                |
+| 007 | 空头像串触发多余请求                                                            | 已修          | 5 条 jest                                                                                                                    |
+| 008 | 表单实例未连接                                                                  | 已修          | 4 条 jest（判别力已验证）                                                                                                    |
+| 009 | `Space.Compact` 迁移拖慢热路径编辑器                                            | 已修          | 1 条 jest（判别力已验证）                                                                                                    |
+| 010 | `app.cancel` 未登记 locale key                                                  | 已修          | 随控制台审计守护                                                                                                             |
+| 011 | 审计日志两页 rowKey 全同                                                        | 已修          | 8 条 jest（判别力已验证）                                                                                                    |
+| 012 | 头像数据互清/死链/404/顶栏恒占位                                                | 已修          | Go 2 套 + jest 11 条 + 实测全链路                                                                                            |
+| 013 | MFA 绑定不可用 + 无恢复码兜底                                                   | 已修          | RFC 向量 + Go 14 条 + jest 8 条                                                                                              |
+| 014 | 健康分数衰减用例依赖墙钟                                                        | 已修          | 改写为轮询 + 离散不变量                                                                                                      |
+| 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区）                                   | 已修          | jest 8 条 + 守卫新用例 + 走查复证                                                                                            |
+| 016 | 安全中心「登录通知」假开关（假状态 + 假交互）                                   | 已修          | Go 10 条 + jest 14 条                                                                                                        |
+| 017 | 飞书密钥漏登记 secretKeys，掩码回存覆盖真值                                     | 已修          | `IsSecretKey` 断言（修复前红）                                                                                               |
+| 018 | 游戏访问权限恒为空（admin 看到空白）                                            | 已修          | Go 2 条 + jest 5 条                                                                                                          |
+| 019 | 权限概览是编造数据（resource="role"／角色名混入）                               | 已修          | Go 21 条（含改写 4 条固化旧错的用例）                                                                                        |
+| 020 | 权限概览单层平铺、无授权两态                                                    | 已修          | jest 23 条 + 变异验证 7 条转红                                                                                               |
+| 021 | 个人中心挂广播入口 + 公告无入口                                                 | 已修          | jest 23 条                                                                                                                   |
+| 022 | 登录页无 antd App 上下文，登录提示全部丢失                                      | 已修          | 布线守卫 4 条 + antdApp 3 条 + Playwright 三路径复证                                                                         |
+| 023 | 公告页双语词条缺 14 条 + 菜单键缺失                                             | 已修          | locale 覆盖守卫 5 条（stash 变异 4/5 转红）                                                                                  |
+| 024 | 审批动作从不写审计链 + 通知把申请人当审批人                                     | 已修          | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证                                                              |
+| 025 | 审核人跳转回退到申请人（approver 缺失时）                                       | 已修          | jest 1 条（修复前 actor=申请人 转红）                                                                                        |
+| 026 | 站内信「发送」无权限校验（人人可发任意账号）                                    | 已修          | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）                                                                         |
+| 027 | 工单详情 Descriptions span 越界刷告警                                           | 已修          | jest 1 条（修复前红/修复后绿，spy console.error）                                                                            |
+| 028 | 引导管理员可被删除 + 缺禁用/解封入口                                            | 已修          | Go 4 条（含 guard 变异转红）+ jest 3 条                                                                                      |
+| 029 | 实例元数据端到端丢失（SDK 交接链 + agent TCP 路径双漏点）                       | 已修          | Go SDK 3 条（含帧级）+ agent 2 条（TCP 真连接）                                                                              |
+| 030 | resource-catalog 分类/搜索过滤静默失效（query 绑定按字段名精确匹配）            | 已修          | requestbind 3 条 + handler 过滤收窄 1 条（均修复前红）                                                                       |
+| 031 | functions/pages 提案版本灌水（jsonb 键序 + 时间戳族四病灶）                     | 已修+线上闭环 | jsonb 回归 + StableContentDigest/UpsertSemantics 3 条 + Provenance 2 条（均修复前红）；线上 agent 重启零 bump                |
+| 032 | functions/assignments 分配从未拦截执行（数据在、闸门不在）                      | 已修          | 闸门单测 5 条 + invoke/task 集成 4 条（集成修复前红，stash 调用点证得）+ jest 2 条                                           |
+| 033 | 组件模板预览假数据渲染不出（生成无恙，消费端取不到/取错）                       | 已修          | jest 4 条（内置形态/未注册/非 items 字段名/嵌套对象列，修复前红，stash 消费端修复证得）                                      |
+| 034 | mock e2e 取消键超时（AntdApp 挂载层错位，holder 拿不到 zh_CN）                  | 已修          | jest 守卫新增 rootContainer 禁挂断言 + e2e 本地红→绿（静态构建同 CI 路径）                                                   |
+| 035 | assignments 白名单化石 null 值透出前端（旧版空保存产物，读取侧无兜底）          | 已修          | api/logic 两包各 1 条读回归（修复前 stash 复跑红证）                                                                         |
+| 036 | README 顶部 logo 整块消失（prettier 全仓重排吞独立 HTML 块）                    | 已修          | diff 43df26e 全量比对确认仅丢 logo 块；恢复 + README.md 进 .prettierignore 防再犯（同族第二起，第一起 sdks/js game_demo.ts） |
+| 037 | v0.1.5 发布二进制 --version 恒 0.1.4（VERSION 文件滞后，make build 注入过期值） | 已修          | git show v0.1.5:VERSION 实证 + release/nightly 两工作流 Linux/Mac 改 git describe/nightly 重注入（与 Windows 口径统一）      |
+| 038 | Python SDK 同步 invoke 吞 handler 异常不回响应（调用方 15s 超时假象）           | 已修          | 5 条 pytest（3 条修复前红 + 2 条成功路径对照）+ e2e 契约改写；全量 546 passed                                                |
+| 039 | Schema 表单必填字符串字段放行空串（AJV required 只查键存在）                    | 已修          | field-validity 4 条（2 条修复前红）+ 本地化特化 1 条 + upload 套件 required 空串契约改写                                     |
+
+### 遗留 / 未修
+
+- **`Input.addonBefore` 的 9 处结构改写**视觉上由 `addonBefore` 内置样式换成
+  `Space.Compact`（6 处）或 `Input.prefix`（3 处）。`prefix` 把标签从输入框**外侧**
+  移到**内侧**，这两处的标签位置与改写前不同；已通过组件级单测锁定交互与取值，
+  像素级差异未做视觉回归。
+- ~~**BUG-002 的存量数据**~~（已验证关闭）：重建二进制并重启 server 后，
+  `seedBootstrapAdmins` 自动回填，`GET /api/v1/profile` 对 `admin` 返回
+  `nickname: "系统管理员"`、`email: "admin@croupier.local"`。
+- **`Space.Compact` 的宽度行为**：`Space.Compact` 宽度由内容撑开，
+  `Analytics/Behavior` 的 `PathControls` 与 `OpenAPISources` 的两个弹窗宽度可能与
+  改写前有细微差异。已通过组件级单测锁定交互与取值；像素级差异未做视觉回归。
+- **`@ant-design/charts` 的 `Line`** 仍在 `LBMonitor` 中使用，本次只处理了
+  `Gauge`。`Line` 未观察到丢值问题（`xField/yField/colorField` 走 plots 正常
+  adaptor 路径），未改动。
+- **审计覆盖的 52 条路由**按「含废弃属性的组件」+「此前完全没覆盖到的路由组」
+  两条线索拼出（`config/routes.ts` 里 `/admin/*`、`/dev/*`、`/support/*`、
+  `/system/*`、`/ops/*` 余下路径等），仍不是逐条穷举；动态路由（如 `/functions/:id`、
+  `/support/tickets/:id`、`/console/:categoryKey`）需要具体 id，未纳入。
+  守卫用例（BUG-005 第 2 条）是**全量静态扫描** `src/**/*.tsx`，不依赖路由清单；
+  控制台审计是补充性的运行时证据。

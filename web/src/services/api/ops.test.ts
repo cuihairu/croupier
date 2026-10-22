@@ -16,12 +16,15 @@ import {
   fetchOpsAlerts,
   fetchOpsConfig,
   fetchOpsMetrics,
+  handleOpsAlert,
   fetchOpsNotifications,
+  fetchAgentSystemInfo,
   getAgentMetricsHistory,
   getOpsBackupDownloadUrl,
   listAlertRules,
   listCertificates,
   listOpsBackups,
+  listOpsAgentsByType,
   listOpsFunctions,
   listOpsNodes,
   listOpsTasks,
@@ -811,6 +814,27 @@ describe('ops alert adapters', () => {
     await expect(fetchOpsAlerts()).resolves.toEqual({ alerts: [] });
   });
 
+  it('posts an alert handle transition, encoding the id and defaulting the remark', async () => {
+    mockedRequest.mockResolvedValue({
+      alertId: '12',
+      handleStatus: 'acknowledged',
+      handledBy: 'alice',
+      handledAt: '2026-10-12T08:00:00Z',
+    });
+
+    await handleOpsAlert('12', 'acknowledge', 'checked ledger');
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/alerts/12/handle', {
+      method: 'POST',
+      data: { action: 'acknowledge', remark: 'checked ledger' },
+    });
+
+    await handleOpsAlert('/bad id', 'ignore');
+    expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/ops/alerts/%2Fbad%20id/handle', {
+      method: 'POST',
+      data: { action: 'ignore', remark: undefined },
+    });
+  });
+
   it('silences an alert with the wire-case body, defaulting the comment', async () => {
     mockedRequest.mockResolvedValue(undefined);
 
@@ -962,6 +986,37 @@ describe('ops node adapters', () => {
     await expect(listOpsNodes()).resolves.toEqual({ nodes: [] });
   });
 
+  it('requests agents by the closed type filter and preserves scope identity', async () => {
+    mockedRequest.mockResolvedValueOnce({
+      nodes: [{ id: 'sidecar-1', gameId: 'demo', env: 'prod', labels: { role: 'sidecar' } }],
+    });
+
+    await expect(listOpsAgentsByType('sidecar')).resolves.toEqual({
+      nodes: [
+        {
+          id: 'sidecar-1',
+          gameId: 'demo',
+          env: 'prod',
+          version: undefined,
+          status: undefined,
+          labels: { role: 'sidecar' },
+          hostname: undefined,
+          addr: undefined,
+          lastSeen: undefined,
+          sdkLanguage: undefined,
+          sdkVersion: undefined,
+          sdkName: undefined,
+          functions: 0,
+          expiresInSec: 0,
+          cpu: undefined,
+          memory: undefined,
+          disks: undefined,
+        },
+      ],
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/nodes?status=sidecar');
+  });
+
   it('drains, undrains and restarts nodes with encoded ids', async () => {
     mockedRequest.mockResolvedValue(undefined);
 
@@ -1046,6 +1101,51 @@ describe('alert rule adapters', () => {
     expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/alerts/rules/1', {
       method: 'DELETE',
     });
+  });
+});
+
+describe('agent system info adapter', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('normalizes the server response with encoded agent id', async () => {
+    mockedRequest.mockResolvedValue({
+      systemInfo: {
+        hostname: 'host-a',
+        os: 'linux',
+        osVersion: '6.8',
+        kernelVersion: '6.8.0',
+        arch: 'amd64',
+        cpuCores: 8,
+        totalMemory: 16 * 1024 ** 3,
+        bootTime: '2026-10-16T00:00:00Z',
+        agentVersion: 'v1.4.2',
+        agentBinarySha256: 'a'.repeat(64),
+      },
+    });
+
+    await expect(fetchAgentSystemInfo('agent/1')).resolves.toEqual({
+      hostname: 'host-a',
+      os: 'linux',
+      osVersion: '6.8',
+      kernelVersion: '6.8.0',
+      arch: 'amd64',
+      cpuCores: 8,
+      totalMemory: 16 * 1024 ** 3,
+      bootTime: '2026-10-16T00:00:00Z',
+      agentVersion: 'v1.4.2',
+      agentBinarySha256: 'a'.repeat(64),
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/ops/agents/agent%2F1/system-info', {
+      method: 'GET',
+    });
+  });
+
+  it('returns null for malformed payloads and request failures', async () => {
+    mockedRequest.mockResolvedValueOnce({});
+    await expect(fetchAgentSystemInfo('agent-1')).resolves.toBeNull();
+
+    mockedRequest.mockRejectedValueOnce(new Error('offline'));
+    await expect(fetchAgentSystemInfo('agent-1')).resolves.toBeNull();
   });
 });
 

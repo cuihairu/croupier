@@ -1,6 +1,9 @@
 package ops
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
@@ -11,6 +14,14 @@ func bindOpsRequest(c *gin.Context, req interface{}) error {
 		return requestbind.BindQueryCompat(c, req)
 	}
 	return c.ShouldBindJSON(req)
+}
+
+// processActionParams 取进程动作的路径参数（agentId / name）。进程动作面
+// 的入参唯一来源是路径——面板发的是无 body POST，bindOpsRequest 的
+// ShouldBindJSON 对空 body 报 EOF（400），而 `uri` tag 不被 JSON 绑定，
+// 两条路都取不到 agentId/name（#59 同款绑定缺口，POST 侧）。
+func processActionParams(c *gin.Context) (agentId, name string) {
+	return strings.TrimSpace(c.Param("agentId")), strings.TrimSpace(c.Param("name"))
 }
 
 type Handler struct {
@@ -59,6 +70,9 @@ func (h *Handler) OpsAgentMetrics(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
 
 	resp, err := h.service.OpsAgentMetrics(c.Request.Context(), &req)
 	if err != nil {
@@ -74,6 +88,9 @@ func (h *Handler) OpsAgentProcesses(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
 
 	resp, err := h.service.OpsAgentProcesses(c.Request.Context(), &req)
 	if err != nil {
@@ -81,6 +98,78 @@ func (h *Handler) OpsAgentProcesses(c *gin.Context) {
 		return
 	}
 	response.Success(c, resp)
+}
+
+func (h *Handler) OpsAgentSupervisor(c *gin.Context) {
+	var req OpsAgentSupervisorRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
+
+	resp, err := h.service.OpsAgentSupervisor(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) OpsAgentSupervisorEvents(c *gin.Context) {
+	var req OpsAgentSupervisorEventsRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag（#59 同款）。
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
+
+	resp, err := h.service.OpsAgentSupervisorEvents(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// OpsAgentSupervisorLog 代理下载 agent 本地 supervisor 事件日志。文件下载
+// 按 CLAUDE.md API 契约豁免 JSON envelope，直传字节流 + Content-Disposition。
+func (h *Handler) OpsAgentSupervisorLog(c *gin.Context) {
+	var req OpsAgentSupervisorLogRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if req.AgentID == "" {
+		req.AgentID = c.Param("agentId")
+	}
+
+	resp, err := h.service.OpsAgentSupervisorLog(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	fileName := resp.GetFileName()
+	if fileName == "" {
+		fileName = "supervisor-events.log"
+	}
+	c.Header("Content-Disposition", `attachment; filename="`+fileName+`"`)
+	c.Header("X-Truncated", boolHeader(resp.GetTruncated()))
+	c.Data(http.StatusOK, "text/plain; charset=utf-8", resp.GetContent())
+}
+
+func boolHeader(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
 }
 
 func (h *Handler) OpsAgentSystemInfo(c *gin.Context) {
@@ -114,13 +203,9 @@ func (h *Handler) OpsAgentExecCommand(c *gin.Context) {
 }
 
 func (h *Handler) OpsAgentProcessStart(c *gin.Context) {
-	var req OpsProcessStartRequest
-	if err := bindOpsRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.OpsAgentProcessStart(c.Request.Context(), &req)
+	agentId, name := processActionParams(c)
+	resp, err := h.service.OpsAgentProcessStart(c.Request.Context(),
+		&OpsProcessStartRequest{AgentID: agentId, Name: name})
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -129,13 +214,9 @@ func (h *Handler) OpsAgentProcessStart(c *gin.Context) {
 }
 
 func (h *Handler) OpsAgentProcessStop(c *gin.Context) {
-	var req OpsProcessActionRequest
-	if err := bindOpsRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.OpsAgentProcessStop(c.Request.Context(), &req)
+	agentId, name := processActionParams(c)
+	resp, err := h.service.OpsAgentProcessStop(c.Request.Context(),
+		&OpsProcessActionRequest{AgentID: agentId, Name: name})
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -144,18 +225,52 @@ func (h *Handler) OpsAgentProcessStop(c *gin.Context) {
 }
 
 func (h *Handler) OpsAgentProcessRestart(c *gin.Context) {
-	var req OpsProcessActionRequest
-	if err := bindOpsRequest(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.OpsAgentProcessRestart(c.Request.Context(), &req)
+	agentId, name := processActionParams(c)
+	resp, err := h.service.OpsAgentProcessRestart(c.Request.Context(),
+		&OpsProcessActionRequest{AgentID: agentId, Name: name})
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
 	response.Success(c, resp)
+}
+
+func (h *Handler) OpsAgentProcessUpdate(c *gin.Context) {
+	var req OpsProcessUpdateRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	// stagedPath/expectedSha256 走 body，但 agentId/name 只在路径上——JSON
+	// 绑定不认 uri tag，空 body 时 ShouldBindJSON 直接 EOF（#59 同款缺口）。
+	req.AgentID, req.Name = processActionParams(c)
+
+	resp, err := h.service.OpsAgentProcessUpdate(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// opsAgentProcessSchedulePause 暂停/恢复受管进程的 cron 调度触发（§10.2
+// 暂停与恢复，暂停对象=调度）。两个路由复用同处理器，suspend 由路由固定，
+// 不走请求体（语义在路径上，防路径与 body 语义分叉）。
+func (h *Handler) opsAgentProcessSchedulePause(c *gin.Context, suspend bool) {
+	agentId, name := processActionParams(c)
+	req := OpsProcessSchedulePauseRequest{AgentID: agentId, Name: name, Suspend: suspend}
+
+	resp, err := h.service.OpsAgentProcessSchedulePause(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// OpsAgentProcessSchedulePause 是公共暂停入口（路由与代理别名共用）。
+func (h *Handler) OpsAgentProcessSchedulePause(c *gin.Context) {
+	h.opsAgentProcessSchedulePause(c, true)
 }
 
 // Backup operations handlers
@@ -252,6 +367,24 @@ func (h *Handler) OpsAlertSilence(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// OpsAlertHandle handles POST /api/v1/ops/alerts/:id/handle.
+// 路径参数 :id 在 handler 直取 c.Param（BindQueryCompat 只绑 query，
+// uri tag 不可依赖——/nodes/:id/meta 同教训）；body 只装 action/remark。
+func (h *Handler) OpsAlertHandle(c *gin.Context) {
+	var req OpsAlertHandleRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.OpsAlertHandle(c.Request.Context(), c.Param("id"), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) OpsSilenceDelete(c *gin.Context) {
 	var req OpsAlertSilenceRequest
 	if err := bindOpsRequest(c, &req); err != nil {
@@ -335,8 +468,33 @@ func (h *Handler) OpsNodeMeta(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	if req.NodeID == "" {
+		req.NodeID = c.Param("nodeId")
+	}
 
 	resp, err := h.service.OpsNodeMeta(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// OpsNodeDetail handles GET /ops/nodes/:nodeId —— 单设备详情（NodeDetail 别名
+// 挂 /nodes/:nodeId 路由，语义同 meta 族）。
+func (h *Handler) OpsNodeDetail(c *gin.Context) {
+	var req OpsNodeDetailRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	if req.NodeID == "" {
+		req.NodeID = c.Param("nodeId")
+	}
+
+	resp, err := h.service.OpsNodeDetail(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -605,12 +763,36 @@ func (h *Handler) AgentProcessStart(c *gin.Context) {
 	h.OpsAgentProcessStart(c)
 }
 
+func (h *Handler) AgentSupervisor(c *gin.Context) {
+	h.OpsAgentSupervisor(c)
+}
+
+func (h *Handler) AgentSupervisorEvents(c *gin.Context) {
+	h.OpsAgentSupervisorEvents(c)
+}
+
+func (h *Handler) AgentSupervisorLog(c *gin.Context) {
+	h.OpsAgentSupervisorLog(c)
+}
+
 func (h *Handler) AgentProcessStop(c *gin.Context) {
 	h.OpsAgentProcessStop(c)
 }
 
 func (h *Handler) AgentProcessRestart(c *gin.Context) {
 	h.OpsAgentProcessRestart(c)
+}
+
+func (h *Handler) AgentProcessUpdate(c *gin.Context) {
+	h.OpsAgentProcessUpdate(c)
+}
+
+func (h *Handler) AgentProcessSchedulePause(c *gin.Context) {
+	h.opsAgentProcessSchedulePause(c, true)
+}
+
+func (h *Handler) AgentProcessScheduleResume(c *gin.Context) {
+	h.opsAgentProcessSchedulePause(c, false)
 }
 
 func (h *Handler) AgentExecCommand(c *gin.Context) {
@@ -663,6 +845,11 @@ func (h *Handler) NodeDrain(c *gin.Context) {
 
 func (h *Handler) NodeMeta(c *gin.Context) {
 	h.OpsNodeMeta(c)
+}
+
+// NodeDetail handles GET /nodes/:nodeId（单设备详情，与列表同源）。
+func (h *Handler) NodeDetail(c *gin.Context) {
+	h.OpsNodeDetail(c)
 }
 
 func (h *Handler) NodeRestart(c *gin.Context) {

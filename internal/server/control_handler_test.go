@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -20,9 +21,12 @@ import (
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/getkin/kin-openapi/openapi3"
+	gosqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // --- Helper Functions ---
@@ -354,9 +358,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId:    "agent-1",
-			GameId:     "game-1",
-			TtlSeconds: 600,
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", TtlSeconds: 600,
 		}
 
 		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
@@ -375,9 +378,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Functions: []*agentv1.FunctionDescriptor{
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:      "", // Empty ID
 					Version: "1.0.0",
@@ -400,6 +402,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 			Processes: []*agentv1.AgentProcess{
 				{
 					ServiceId:    "svc-1",
@@ -427,9 +430,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Env:     "dev",
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev",
 			Processes: []*agentv1.AgentProcess{
 				{ServiceId: "svc-dirty", Addr: "a:1", Version: "unknown", FunctionIds: []string{"game.player.get"}},
 				{ServiceId: "svc-misplaced", Addr: "b:2", Version: "provider:openapi-source-x", FunctionIds: []string{"game.player.get"}},
@@ -479,6 +481,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
@@ -493,6 +496,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
@@ -505,9 +509,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Functions: []*agentv1.FunctionDescriptor{
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "dev", Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:           "game.player.get",
 					Version:      "1.0.0",
@@ -544,8 +547,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc := newTestControlService()
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
+			AgentId: "agent-1", GameId: "game-1",
 			Env:     "prod",
 			Version: "1.0.0",
 			Functions: []*agentv1.FunctionDescriptor{
@@ -602,6 +604,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 			Processes: []*agentv1.AgentProcess{
 				nil,
 				{
@@ -622,6 +625,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 			Processes: []*agentv1.AgentProcess{
 				{
 					ServiceId: "", // Empty service ID
@@ -644,6 +648,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		// Should not fail even if database write fails
@@ -657,9 +662,8 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc.registry.SetContractService(failingRegisterContractService{err: fmt.Errorf("rebuild failed")})
 
 		req := &agentv1.RegisterRequest{
-			AgentId: "agent-1",
-			GameId:  "game-1",
-			Env:     "prod",
+			AgentId: "agent-1", GameId: "game-1",
+			Env: "prod",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:      "player.query",
@@ -679,6 +683,37 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		svc.registry.Mu().RUnlock()
 		assert.Nil(t, agent)
 	})
+}
+
+func TestControlService_HandleRegisterRequestScopeBinding(t *testing.T) {
+	svc := newTestControlService()
+	var err error
+
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "blank-game", GameId: " ", Env: "prod",
+	}, "")
+	assert.ErrorContains(t, err, "agent_id, game_id and env are required")
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "blank-env", GameId: "game-1", Env: " ",
+	}, "")
+	assert.ErrorContains(t, err, "agent_id, game_id and env are required")
+
+	req := &agentv1.RegisterRequest{AgentId: " agent-1 ", GameId: " game-1 ", Env: " prod "}
+	_, err = svc.handleRegisterRequest(context.Background(), req, "")
+	require.NoError(t, err)
+
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-2", Env: "prod",
+	}, "")
+	assert.ErrorContains(t, err, "already bound")
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-1", Env: "dev",
+	}, "")
+	assert.ErrorContains(t, err, "already bound")
+	_, err = svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "game-1", Env: "prod",
+	}, "")
+	require.NoError(t, err)
 }
 
 // --- Tests for handleHeartbeatRequest ---
@@ -1135,6 +1170,7 @@ func TestControlService_HandleRequest(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -1231,6 +1267,68 @@ func TestHandleMetricEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, resp)
 	})
+}
+
+func TestTransportHandlerNormalizesAgentUplinkIdentity(t *testing.T) {
+	store := registry.NewStore()
+	svc := NewControlService(store, nil)
+	svc.SetLogger(slog.Default())
+	db, err := gorm.Open(gosqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Alert{}))
+	svc.SetAlertModel(model.NewAlertModel(db))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	store.UpsertAgent(&registry.AgentSession{AgentID: "bound-agent", GameID: "demo", Env: "prod"})
+
+	tests := []struct {
+		name  string
+		msgID uint32
+		req   proto.Message
+	}{
+		{
+			name:  "metrics",
+			msgID: protocol.MsgMetricEvent,
+			req:   &opsv1.MetricsReport{AgentId: "spoofed-agent"},
+		},
+		{
+			name:  "capture alert",
+			msgID: protocol.MsgAlertEventRequest,
+			req:   &opsv1.CaptureRuleHitReport{AgentId: "spoofed-agent", GameId: "other", Env: "dev", Rule: "rule", Table: "game.items"},
+		},
+		{
+			name:  "probe event",
+			msgID: protocol.MsgAlertEvent,
+			req:   &opsv1.AlertEvent{AgentId: "spoofed-agent", GameId: "other", Env: "dev", Kind: "probe.window", Window: &opsv1.ProbeWindow{Target: "db"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := proto.Marshal(tt.req)
+			require.NoError(t, err)
+			ctx := withAgentIdentity(context.Background(), &AgentIdentity{AgentID: "bound-agent", GameID: "demo", Env: "prod"})
+
+			_, err = svc.TransportHandler().Handle(ctx, tt.msgID, 1, body)
+			require.NoError(t, err)
+
+			switch tt.msgID {
+			case protocol.MsgMetricEvent:
+				entry, ok := svc.metricsStore.GetLatest("bound-agent")
+				require.True(t, ok)
+				assert.Equal(t, "bound-agent", entry.Report.GetAgentId())
+			case protocol.MsgAlertEvent:
+				events := svc.probeEvents.recent("bound-agent", 1)
+				require.Len(t, events, 1)
+				assert.Equal(t, "bound-agent", events[0].GetAgentId())
+				assert.Equal(t, "demo", events[0].GetGameId())
+				assert.Equal(t, "prod", events[0].GetEnv())
+			}
+		})
+	}
 }
 
 // --- Tests for validateAndNormalizeFunctions ---
@@ -1524,6 +1622,7 @@ func TestControlHandler(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 
 		resp, err := handler.HandleRegister(context.Background(), req)
@@ -1635,6 +1734,7 @@ func TestControlService_TransportHandler(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -1707,6 +1807,7 @@ func TestControlService_HandleRegisterBytes(t *testing.T) {
 		req := &agentv1.RegisterRequest{
 			AgentId: "agent-1",
 			GameId:  "game-1",
+			Env:     "dev",
 		}
 		data, _ := proto.Marshal(req)
 
@@ -1939,9 +2040,8 @@ func TestCloneStringMap(t *testing.T) {
 func TestControlService_HandleRegisterSchemaDiffWarnings(t *testing.T) {
 	newReq := func(reason string) *agentv1.RegisterRequest {
 		return &agentv1.RegisterRequest{
-			AgentId: "agent-schema-diff",
-			GameId:  "game-1",
-			Env:     "prod",
+			AgentId: "agent-schema-diff", GameId: "game-1",
+			Env: "prod",
 			Functions: []*agentv1.FunctionDescriptor{
 				{
 					Id:          "game.player.ban",
@@ -1957,9 +2057,8 @@ func TestControlService_HandleRegisterSchemaDiffWarnings(t *testing.T) {
 		}
 	}
 	breakingReq := &agentv1.RegisterRequest{
-		AgentId: "agent-schema-diff",
-		GameId:  "game-1",
-		Env:     "prod",
+		AgentId: "agent-schema-diff", GameId: "game-1",
+		Env: "prod",
 		Functions: []*agentv1.FunctionDescriptor{
 			{
 				Id:          "game.player.ban",
@@ -2166,9 +2265,8 @@ func TestHandleRegisterRequest_UpsertOpenAPIErrorViaSeam(t *testing.T) {
 	}
 
 	req := &agentv1.RegisterRequest{
-		AgentId: "agent-1",
-		GameId:  "game-1",
-		Functions: []*agentv1.FunctionDescriptor{
+		AgentId: "agent-1", GameId: "game-1",
+		Env: "dev", Functions: []*agentv1.FunctionDescriptor{
 			{
 				Id:          "game.player.get",
 				Version:     "1.0.0",

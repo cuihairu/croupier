@@ -1,6 +1,6 @@
 # Proto Generation Guide
 
-Croupier 内部 RPC 不使用 gRPC（[传输层决策](../../docs/architecture/transport-no-grpc.md)）：Server ↔ Agent ↔ SDK 走自研 TCP transport（length-prefix framing）+ protobuf 消息。本文档说明 Go SDK 的 protobuf 代码生成流程。
+Croupier 内部 RPC 不使用 gRPC（传输层决策）：Server ↔ Agent ↔ SDK 走自行开发 TCP transport（length-prefix framing）+ protobuf 消息。本文档说明 Go SDK 的 protobuf 代码生成流程。
 
 ## 生成方式（唯一入口：仓库根 `make proto`）
 
@@ -14,12 +14,12 @@ make pack             # pack artifacts（protoc-gen-croupier）
 
 产物：
 
-| 目标 | 路径 | go_package |
-| --- | --- | --- |
-| 主仓库 | `pkg/pb/` | `github.com/cuihairu/croupier/pkg/pb/...`（proto 里的原值） |
-| Go SDK | `sdks/go/pkg/pb/` | `github.com/cuihairu/croupier/sdks/go/pkg/pb/...`（脚本改写前缀） |
-| Python SDK | `sdks/python/generated/` | — |
-| C++ SDK | `sdks/cpp/generated/` | — |
+| 目标       | 路径                     | go_package                                                        |
+| ---------- | ------------------------ | ----------------------------------------------------------------- |
+| 主仓库     | `pkg/pb/`                | `github.com/cuihairu/croupier/pkg/pb/...`（proto 里的原值）       |
+| Go SDK     | `sdks/go/pkg/pb/`        | `github.com/cuihairu/croupier/sdks/go/pkg/pb/...`（脚本改写前缀） |
+| Python SDK | `sdks/python/generated/` | —                                                                 |
+| C++ SDK    | `sdks/cpp/generated/`    | —                                                                 |
 
 Go SDK 那份的做法是「复制 proto 树 → 改写副本里的 `option go_package` 前缀 → 对副本跑 protoc」：protoc 的 `M<file>=<path>` flag 只影响跨文件 import，**不会**改写嵌入 descriptor 的 `go_package`，所以必须改 option 本身。脚本在任一 proto 缺少/不匹配该前缀时直接退出。
 

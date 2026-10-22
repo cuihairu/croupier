@@ -244,7 +244,10 @@ export default {
   'pages.systemSiteSettings.security.error.loadFailed': 'Failed to load account security policy',
   'pages.systemSiteSettings.security.error.saveFailed': 'Failed to save',
   'pages.systemSiteSettings.security.intro':
-    'Everything defaults to off: when off, the built-in baseline applies (password 8-128 chars, weak-password block, two character classes, no expiry, optional TOTP).',
+    'Everything defaults to off: when off, the built-in baseline applies (password 8-128 chars, weak-password block, two character classes, no expiry, optional TOTP). The single exception is high-risk approval step-up, which defaults to on.',
+  'pages.systemSiteSettings.security.approvalStepUpOtp': 'High-risk approval step-up (TOTP)',
+  'pages.systemSiteSettings.security.approvalStepUpOtpHelp':
+    'When on, high/danger approvals require a dynamic verification code (unenrolled accounts are rejected); off degrades to optional verification (still validated when provided), and approved audits record the disabled tier (OPEN-ISSUES #61)',
   'pages.systemSiteSettings.security.mfaRequired': 'Require two-factor auth (TOTP)',
   'pages.systemSiteSettings.security.mfaRequiredHelp':
     'When on, every local account must bind TOTP: unbound accounts get a setup prompt at login and other APIs return 403 mfa_required (external IdP accounts are unaffected)',
@@ -289,6 +292,19 @@ export default {
   'pages.systemSiteSettings.outbound.error.saveFailed': 'Save failed',
 
   'pages.systemSiteSettings.tab.site': 'System Info',
+  'pages.systemSiteSettings.tab.appearance': 'Theme',
+  'pages.systemSiteSettings.appearance.preset': 'Theme palette',
+  'pages.systemSiteSettings.appearance.preset.blue': 'Default Blue',
+  'pages.systemSiteSettings.appearance.preset.inkpink': 'Ink Rose',
+  'pages.systemSiteSettings.appearance.mode': 'Interface theme',
+  'pages.systemSiteSettings.appearance.light': 'Light',
+  'pages.systemSiteSettings.appearance.dark': 'Dark',
+  'pages.systemSiteSettings.appearance.system': 'Follow system',
+  'pages.systemSiteSettings.appearance.hint':
+    'Theme palette and light/dark preference are stored in this browser and apply instantly without saving; the header theme menu shares the same preference.',
+  'pages.systemSiteSettings.appearance.current': 'Current: {preset} · {mode}',
+  'pages.systemSiteSettings.appearance.systemHint':
+    'In follow-system mode the interface switches live when the OS toggles light/dark (within the current palette)',
 
   // 运维/系统维护（OPEN-ISSUES #52）
   'pages.systemSiteSettings.maintenance.buildTime': 'Build Time',
@@ -322,6 +338,22 @@ export default {
   'pages.systemSiteSettings.maintenance.probe.unhealthy': 'Unhealthy',
   'pages.systemSiteSettings.maintenance.probe.unconfigured': 'Not configured',
   'pages.systemSiteSettings.maintenance.probe.error.failed': 'Probe failed',
+  'pages.systemSiteSettings.maintenance.externalServices.title': 'External Services (Config File)',
+  'pages.systemSiteSettings.maintenance.externalServices.subtitle':
+    'Read-only view of external services enabled in server.yaml; changes require editing the config file and restarting.',
+  'pages.systemSiteSettings.maintenance.externalServices.state.active': 'Active',
+  'pages.systemSiteSettings.maintenance.externalServices.state.inactive': 'Config not effective',
+  'pages.systemSiteSettings.maintenance.externalServices.state.unconfigured': 'Not configured',
+  'pages.systemSiteSettings.maintenance.externalServices.missing': 'Missing',
+  'pages.systemSiteSettings.maintenance.externalServices.secretSet': 'Set',
+  'pages.systemSiteSettings.maintenance.externalServices.secretUnset': 'Not set',
+  'pages.systemSiteSettings.maintenance.externalServices.loadFailed':
+    'Failed to load external services',
+  'pages.systemSiteSettings.maintenance.externalServices.service.herald': 'Alert Outlet (herald)',
+  'pages.systemSiteSettings.maintenance.externalServices.service.alertInbound':
+    'Alert Inbound ({source})',
+  'pages.systemSiteSettings.maintenance.externalServices.service.serverStatus':
+    'Status Source ({provider})',
   'pages.systemSiteSettings.tab.maintenance': 'Maintenance',
   'pages.systemSiteSettings.tab.performance': 'Performance',
   'pages.systemSiteSettings.performance.action.refresh': 'Refresh',

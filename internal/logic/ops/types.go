@@ -66,21 +66,24 @@ type OpsAgentSystemInfoResponse struct {
 }
 
 type OpsAgentSystemInfo struct {
-	Hostname      string              `json:"hostname"`
-	OS            string              `json:"os"`
-	OSVersion     string              `json:"osVersion"`
-	KernelVersion string              `json:"kernelVersion"`
-	Arch          string              `json:"arch"`
-	Uptime        int64               `json:"uptime"`
-	CPUCores      int32               `json:"cpuCores"`
-	TotalMemory   uint64              `json:"totalMemory"`
-	BootTime      string              `json:"bootTime"`
-	AgentVersion  string              `json:"agentVersion"`
-	CPU           OpsCpuMetrics       `json:"cpu"`
-	Memory        OpsMemoryMetrics    `json:"memory"`
-	Disk          []OpsDiskMetrics    `json:"disk"`
-	Network       []OpsNetworkMetrics `json:"network"`
-	Agents        []OpsMetricsData    `json:"agents,omitempty"`
+	Hostname      string `json:"hostname"`
+	OS            string `json:"os"`
+	OSVersion     string `json:"osVersion"`
+	KernelVersion string `json:"kernelVersion"`
+	Arch          string `json:"arch"`
+	Uptime        int64  `json:"uptime"`
+	CPUCores      int32  `json:"cpuCores"`
+	TotalMemory   uint64 `json:"totalMemory"`
+	BootTime      string `json:"bootTime"`
+	AgentVersion  string `json:"agentVersion"`
+	// AgentBinarySha256 是 agent 二进制内容 sha256（§10.5 指纹：失联排查
+	// 锚点；空=agent 未上行或二进制不可读）。
+	AgentBinarySha256 string              `json:"agentBinarySha256,omitempty"`
+	CPU               OpsCpuMetrics       `json:"cpu"`
+	Memory            OpsMemoryMetrics    `json:"memory"`
+	Disk              []OpsDiskMetrics    `json:"disk"`
+	Network           []OpsNetworkMetrics `json:"network"`
+	Agents            []OpsMetricsData    `json:"agents,omitempty"`
 }
 
 type OpsAgentMetricsRequest struct {

@@ -15,6 +15,7 @@ updates:
       - dependency-name: "actions/*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "docker/*"
+        # 2026-10-21: sprintf-js alert dismissed as tolerable_risk (no fix version exists; transitive dev dep).
         update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/web"

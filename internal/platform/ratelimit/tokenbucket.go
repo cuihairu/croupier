@@ -3,7 +3,8 @@ package ratelimit
 
 import (
 	"context"
-	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // Limiter defines the rate limiting interface.
@@ -12,10 +13,12 @@ type Limiter interface {
 	Wait(ctx context.Context) error
 }
 
-// TokenBucket implements a token bucket rate limiter.
+// TokenBucket 令牌桶限流器，桶层委托 golang.org/x/time/rate.Limiter（Go 官方
+// 扩展库，单调时钟记账）。取代旧手写 channel 桶——后者 ticker 逐个回填、每桶
+// 常驻一条 goroutine，且等待语义对慢机时序敏感（TestSlidingWindowWaitVariants
+// 反复 flaky 即同族证据）。能力矩阵 #2（Batch B）：换。
 type TokenBucket struct {
-	tokens     chan struct{}
-	refillRate time.Duration
+	lim *rate.Limiter
 }
 
 // NewTokenBucket creates a new token bucket rate limiter.
@@ -32,42 +35,17 @@ func NewTokenBucket(requestsPerMinute, burstSize int) *TokenBucket {
 		}
 	}
 
-	tb := &TokenBucket{
-		tokens:     make(chan struct{}, burstSize),
-		refillRate: time.Minute / time.Duration(requestsPerMinute),
-	}
-
-	// Fill initial tokens
-	for i := 0; i < burstSize; i++ {
-		tb.tokens <- struct{}{}
-	}
-
-	// Start refill goroutine
-	go tb.refill()
-
-	return tb
-}
-
-// refill continuously adds tokens to the bucket.
-func (tb *TokenBucket) refill() {
-	ticker := time.NewTicker(tb.refillRate)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		select {
-		case tb.tokens <- struct{}{}:
-		default:
-			// Bucket is full, discard token
-		}
+	return &TokenBucket{
+		lim: rate.NewLimiter(rate.Limit(requestsPerMinute)/60.0, burstSize),
 	}
 }
 
 // Wait waits for a token to be available.
 func (tb *TokenBucket) Wait(ctx context.Context) error {
-	select {
-	case <-tb.tokens:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return tb.lim.Wait(ctx)
+}
+
+// Allow 非阻塞预检：有令牌立即取走并返回 true，无令牌立即 false。
+func (tb *TokenBucket) Allow() bool {
+	return tb.lim.Allow()
 }

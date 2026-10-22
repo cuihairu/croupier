@@ -138,12 +138,14 @@ func newOTLPStub(t *testing.T) string {
 }
 
 func TestNewProvider_TracingAndMetricsEnabled_FullURL(t *testing.T) {
+	requireFullAssembly(t) // 默认集成行为：默认构建含完整 SDK/exporter 装配
 	cfg := TelemetryConfig{
 		ServiceName:    "svc",
 		ServiceVersion: "1.0.0",
 		Environment:    "test",
 		CollectorURL:   "http://" + newOTLPStub(t),
 		GameID:         "g1",
+		Enabled:        true,
 		EnableTracing:  true,
 		EnableMetrics:  true,
 		SamplingRatio:  0.5,
@@ -161,6 +163,7 @@ func TestNewProvider_TracingAndMetricsEnabled_FullURL(t *testing.T) {
 }
 
 func TestNewProvider_HostPortForm_WithTLS(t *testing.T) {
+	requireFullAssembly(t)
 	// Keep TLS form but expect no collector: exporter creation succeeds,
 	// and shutdown failures are tolerated (asserting error paths only).
 	cfg := TelemetryConfig{
@@ -169,6 +172,7 @@ func TestNewProvider_HostPortForm_WithTLS(t *testing.T) {
 		Environment:    "test",
 		CollectorURL:   "127.0.0.1:14318",
 		GameID:         "g1",
+		Enabled:        true,
 		EnableTracing:  true,
 		EnableMetrics:  false,
 		UseTLS:         true,
@@ -182,12 +186,14 @@ func TestNewProvider_HostPortForm_WithTLS(t *testing.T) {
 // WithInsecure，otlpmetrichttp 默认即 HTTPS）。exporter 创建不发起连接，
 // 指向无 collector 的端口也成功；shutdown 无 pending 指标即成功。
 func TestNewProvider_MetricsWithTLS_SecureExporter(t *testing.T) {
+	requireFullAssembly(t)
 	cfg := TelemetryConfig{
 		ServiceName:    "svc",
 		ServiceVersion: "1.0.0",
 		Environment:    "test",
 		CollectorURL:   "127.0.0.1:14318",
 		GameID:         "g1",
+		Enabled:        true,
 		EnableTracing:  false,
 		EnableMetrics:  true,
 		UseTLS:         true,
@@ -205,16 +211,19 @@ func TestNewProvider_NormalizesEmptyConfig(t *testing.T) {
 	assert.Equal(t, "croupier-server", p.config.ServiceName)
 	assert.Equal(t, "1.0.0", p.config.ServiceVersion)
 	assert.Equal(t, "development", p.config.Environment)
-	assert.Equal(t, "http://localhost:4318", p.config.CollectorURL)
+	// todo.md:31：未配置采集端不再回填默认远端，留空=不导出。
+	assert.Equal(t, "", p.config.CollectorURL)
 	assert.Equal(t, "default", p.config.GameID)
 	assert.InDelta(t, 1.0, p.config.SamplingRatio, 0.0001)
 	require.NoError(t, p.Shutdown(context.Background()))
 }
 
 func TestProvider_Shutdown_WithPendingSpansCanceledContext(t *testing.T) {
+	requireFullAssembly(t)
 	cfg := TelemetryConfig{
 		ServiceName:   "svc",
 		CollectorURL:  "http://127.0.0.1:14318",
+		Enabled:       true,
 		EnableTracing: true,
 		EnableMetrics: true,
 	}

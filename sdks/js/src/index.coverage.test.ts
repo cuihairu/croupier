@@ -199,10 +199,7 @@ describe("isInvokeOptions normalization", () => {
 
     const result = await client.invoke("f", "payload", null as any);
     expect(result).toBe("done");
-    expect(handler).toHaveBeenCalledWith(
-      expect.any(String),
-      "payload",
-    );
+    expect(handler).toHaveBeenCalledWith(expect.any(String), "payload");
   });
 });
 

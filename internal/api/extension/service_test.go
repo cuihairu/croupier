@@ -2100,7 +2100,7 @@ func setupExtensionTestContext(t *testing.T, db *gorm.DB) *svc.ServiceContext {
 	extensionManifestSvc := extensionmanifest.NewService()
 	extensionCatalogSvc := extensioncatalog.NewService(extensionRepos.Catalog, extensionRepos.Release)
 	extensionInstallationSvc := extensioninstallation.NewService(extensionRepos.Installation, extensionRepos.Event, extensionRepos.Binding)
-	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Binding, extensionRepos.Event)
+	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Release, extensionRepos.Binding, extensionRepos.Event)
 	extensionSyncSvc := extensionsync.NewService(extensionRepos.Installation, extensionRepos.Binding)
 
 	return &svc.ServiceContext{

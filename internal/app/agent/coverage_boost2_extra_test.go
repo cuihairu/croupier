@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	transportcore "github.com/cuihairu/croupier/core/transport"
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -70,7 +71,7 @@ func newFlakyControlServer(t *testing.T) *flakyControlServer {
 			return proto.Marshal(&agentv1.RegisterCapabilitiesResponse{})
 		}
 	})
-	srv, err := tcptr.NewServer(&tcptr.Config{
+	srv, err := internaltcp.NewServer(&tcptr.Config{
 		Address:        "127.0.0.1:0",
 		Insecure:       true,
 		RecvTimeout:    5 * time.Second,
@@ -147,7 +148,7 @@ func TestUpstreamDialServer_RegisterGarbageResponse(t *testing.T) {
 	client := NewUpstreamClient(f.addr(), "agent-rej2", agentlocal.NewLocalStore(), &UpstreamMetadata{})
 	err := client.dialServer(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to register after connection")
+	assert.Contains(t, err.Error(), "register after connect")
 }
 
 func TestUpstreamUpdateLoop_DebounceBurstAndSyncFailure(t *testing.T) {

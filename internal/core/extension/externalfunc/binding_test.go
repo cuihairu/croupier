@@ -33,6 +33,32 @@ func TestParseProviderBinding_WithConfigMap(t *testing.T) {
 	}
 }
 
+func TestParseProviderBinding_PermissionKeysDoNotLeakIntoConfig(t *testing.T) {
+	// manifest provider 块是声明面（闭集 type/operations/permissions，
+	// provider-plugin-design §3.2），binding spec 是实例面；permissions 是
+	// 声明键而非 provider 配置项，不得混入 config。
+	spec := map[string]any{
+		"provider":    "external-platform",
+		"type":        "openapi",
+		"operations":  []any{"day_report"},
+		"permissions": map[string]any{"operate": "external-platform.operate"},
+		"url":         "https://api.example.com",
+	}
+	got, ok := ParseProviderBinding("", spec)
+	if !ok {
+		t.Fatalf("expected parse success")
+	}
+	if got.Config["permissions"] != nil {
+		t.Fatalf("declaration key leaked into config: %#v", got.Config)
+	}
+	if _, exists := got.Config["permission"]; exists {
+		t.Fatalf("declaration key leaked into config: %#v", got.Config)
+	}
+	if got.Config["url"] != "https://api.example.com" {
+		t.Fatalf("unexpected config: %#v", got.Config)
+	}
+}
+
 func TestParseProviderBinding_FallbackAndDefaults(t *testing.T) {
 	spec := map[string]any{
 		"name":    "Test Provider",

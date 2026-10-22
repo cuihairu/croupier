@@ -15,10 +15,10 @@ function mockFetch(
   responder: (url: string, init?: RequestInit) => Promise<Response>,
 ): void {
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (((url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
     const u = typeof url === "string" ? url : url.toString();
     return responder(u, init);
-  }) as unknown) as FetchImpl;
+  }) as unknown as FetchImpl;
 }
 
 function restoreFetch(): void {
@@ -194,7 +194,9 @@ describe("openapi schema conversion guards", () => {
 
 describe("openapi extension extraction", () => {
   const spec = (extensions: Record<string, unknown>) => ({
-    paths: { "/x": { post: { operationId: "x_post", responses: {}, ...extensions } } },
+    paths: {
+      "/x": { post: { operationId: "x_post", responses: {}, ...extensions } },
+    },
   });
 
   it("stringifies numeric and object extension values", () => {
@@ -222,7 +224,9 @@ describe("openapi extension extraction", () => {
     ];
     for (const [risk, expected] of cases) {
       const client = new BasicClient();
-      registerFromOpenAPI(client, spec({ "x-risk": risk }), undefined, () => makeHandler());
+      registerFromOpenAPI(client, spec({ "x-risk": risk }), undefined, () =>
+        makeHandler(),
+      );
       expect(descriptorsOf(client).get("x_post").risk).toBe(expected);
     }
   });
@@ -230,7 +234,12 @@ describe("openapi extension extraction", () => {
   it("rejects unknown x-risk values", () => {
     const client = new BasicClient();
     const action = () =>
-      registerFromOpenAPI(client, spec({ "x-risk": "unknown-word" }), undefined, () => makeHandler());
+      registerFromOpenAPI(
+        client,
+        spec({ "x-risk": "unknown-word" }),
+        undefined,
+        () => makeHandler(),
+      );
     expect(action).toThrow("invalid x-risk");
   });
 });
@@ -243,7 +252,13 @@ describe("openapi resolver and registration failures", () => {
   it("throws when no resolver or handlers are provided", () => {
     const client = new BasicClient();
     const action = () =>
-      registerFromOpenAPI(client, { paths: { "/a": { get: {} } } }, undefined, undefined, undefined as any);
+      registerFromOpenAPI(
+        client,
+        { paths: { "/a": { get: {} } } },
+        undefined,
+        undefined,
+        undefined as any,
+      );
     expect(action).toThrow("no handler provided for function: a");
   });
 
@@ -266,10 +281,12 @@ describe("openapi resolver and registration failures", () => {
   it("continues past registration failures when continueOnError is set", () => {
     const client = new BasicClient();
     const original = client.registerFunction.bind(client);
-    jest.spyOn(client, "registerFunction").mockImplementation((descriptor, handler) => {
-      if (descriptor.id === "a") throw new Error("duplicate");
-      return original(descriptor, handler);
-    });
+    jest
+      .spyOn(client, "registerFunction")
+      .mockImplementation((descriptor, handler) => {
+        if (descriptor.id === "a") throw new Error("duplicate");
+        return original(descriptor, handler);
+      });
 
     const registered = registerFromOpenAPI(
       client,
@@ -378,12 +395,18 @@ describe("client and invoker corners", () => {
       token: "config-token",
     });
 
-    await invoker.invoke("fn", {}, { headers: { Authorization: "Bearer request-token" } });
+    await invoker.invoke(
+      "fn",
+      {},
+      { headers: { Authorization: "Bearer request-token" } },
+    );
     expect(auth).toBe("Bearer request-token");
   });
 
   it("invoker constructs with minimum config and normalizes root URLs", () => {
     const invoker = new Invoker({ baseUrl: "server.example" });
-    expect((invoker as any).config.baseUrl).toBe("http://server.example/api/v1");
+    expect((invoker as any).config.baseUrl).toBe(
+      "http://server.example/api/v1",
+    );
   });
 });

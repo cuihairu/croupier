@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/core/transport"
 	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	openapiapi "github.com/cuihairu/croupier/internal/api/openapi"
 	pageapi "github.com/cuihairu/croupier/internal/api/page"
@@ -19,7 +20,6 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/require"
@@ -112,8 +112,8 @@ func TestDashboardRegistrationProposalPublishesToConsoleAndExecutes(t *testing.T
 	mountDashboardRegistrationPage(t, svcCtx, ctx, "demo-game", "development", "player", "operation--player.ban")
 	menu, err := consoleapi.NewService(svcCtx).Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
-	// T-M10 默认种子导入 5 个分类骨架；页面只出现在显式挂载分类下（T-M4）。
-	require.Len(t, menu.Items, 5)
+	// T-M10 默认种子导入 7 个分类骨架；页面只出现在显式挂载分类下（T-M4）。
+	require.Len(t, menu.Items, 7)
 	player := findConsoleMenuCategory(t, menu.Items, "player")
 	require.Len(t, player.Children, 1)
 	require.Equal(t, "operation--player.ban", player.Children[0].Key)
@@ -193,7 +193,7 @@ func TestOpenAPIBindingProposalPublishesToConsoleAndExecutes(t *testing.T) {
 	mountDashboardRegistrationPage(t, svcCtx, ctx, "demo-game", "development", "player", "resource--players")
 	menu, err := consoleSvc.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
-	require.Len(t, menu.Items, 5)
+	require.Len(t, menu.Items, 7)
 	player := findConsoleMenuCategory(t, menu.Items, "player")
 	require.Len(t, player.Children, 1)
 	require.Equal(t, "resource--players", player.Children[0].Key)

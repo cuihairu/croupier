@@ -741,8 +741,18 @@ class CroupierClient:
             return resp.SerializeToString()  # type: ignore[no-any-return]
         req = invocation_pb2.InvokeRequest()
         req.ParseFromString(body)
-        with self._active_call_tracker():
-            result = self.invoke(req.function_id, req.payload, dict(req.metadata))
+        try:
+            with self._active_call_tracker():
+                result = self.invoke(req.function_id, req.payload, dict(req.metadata))
+        except Exception as exc:
+            # 对齐 Go SDK（tcp_manager.invoke / transport inboundWorker）：
+            # handler/校验错误必须回错误 payload 帧而非吞掉，否则调用方
+            # 只能阻塞到自身 deadline（BUG-038：校验错呈现为 15s 超时）。
+            LOG.error("Invoke handler error for %s: %s", req.function_id, exc)
+            resp = invocation_pb2.InvokeResponse(
+                payload=json.dumps({"error": str(exc)}).encode("utf-8")
+            )
+            return resp.SerializeToString()  # type: ignore[no-any-return]
         resp = invocation_pb2.InvokeResponse(payload=result)
         return resp.SerializeToString()  # type: ignore[no-any-return]
 

@@ -1,6 +1,7 @@
 import { useIntl } from '@umijs/max';
 import { Button } from 'antd';
 import { getMessage, getNotification } from '@/utils/antdApp';
+import { initThemeAttr } from '@/utils/themeMode';
 import defaultSettings from '../config/defaultSettings';
 // Set default server origin for asset URLs if not provided
 if (typeof window !== 'undefined' && !window.CROUPIER_SERVER_ORIGIN) {
@@ -9,6 +10,13 @@ if (typeof window !== 'undefined' && !window.CROUPIER_SERVER_ORIGIN) {
   else if (process.env.NODE_ENV === 'development')
     window.CROUPIER_SERVER_ORIGIN = 'http://localhost:18780';
   else window.CROUPIER_SERVER_ORIGIN = window.location.origin;
+}
+
+// Early theme initialization to avoid flash
+// 三档偏好（亮/暗/跟随系统）统一在 utils/themeMode；此处只写 data-theme
+// 属性并安装系统色监听，不落盘（见模块头注）
+if (typeof window !== 'undefined') {
+  initThemeAttr();
 }
 
 // Dev-only: suppress noisy React StrictMode findDOMNode warnings from rc-* deps

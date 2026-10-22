@@ -3,7 +3,7 @@ import { Alert, Button, Card, Space, Table, Form, Input, App, Tag, Empty } from 
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage, history, useAccess, useIntl } from '@umijs/max';
 import type { ColumnsType } from 'antd/es/table';
-import { listMyGames, upsertGame, type Game as GameMeta } from '@/services/api';
+import { listMyGames, type Game as GameMeta } from '@/services/api';
 import {
   listGameEnvs,
   addGameEnv,
@@ -13,12 +13,7 @@ import {
 } from '@/services/api/envs';
 import { getScope, subscribeScope } from '@/stores/scope';
 
-// 新增游戏成功后广播：GameSelector 监听 games:changed 立即重拉授权列表，
-// 让新游戏即刻出现在全局选择器。
-function notifyGamesChanged() {
-  window.dispatchEvent(new Event('games:changed'));
-}
-
+// 游戏本体的新增/编辑已迁出本页：见 /system/games 独立页面（games:write 权限）。
 export default function GamesEnvsPage() {
   const { message, modal } = App.useApp();
   const intl = useIntl();
@@ -34,7 +29,6 @@ export default function GamesEnvsPage() {
   const [envs, setEnvs] = useState<GameEnv[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [addGameOpen, setAddGameOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<GameEnv | null>(null);
@@ -173,24 +167,6 @@ export default function GamesEnvsPage() {
     }
   };
 
-  const onAddGame = async (v: { name: string; aliasName?: string; description?: string }) => {
-    try {
-      await upsertGame({ name: v.name, aliasName: v.aliasName, description: v.description });
-      message.success(
-        intlRef.current.formatMessage({
-          id: 'pages.gamesEnvs.gameModal.created',
-          defaultMessage: '游戏已创建',
-        }),
-      );
-      notifyGamesChanged();
-      await loadGames();
-      return true;
-    } catch {
-      // 全局拦截器已 toast，失败时弹窗保持开启
-      return false;
-    }
-  };
-
   const emptyState = !scopeGameId ? (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -252,8 +228,11 @@ export default function GamesEnvsPage() {
               </Tag>
             )}
             {access.canGamesManage && (
-              <Button onClick={() => setAddGameOpen(true)}>
-                <FormattedMessage id="pages.gamesEnvs.action.addGame" defaultMessage="新增游戏" />
+              <Button onClick={() => history.push('/system/games')}>
+                <FormattedMessage
+                  id="pages.gamesEnvs.action.manageGames"
+                  defaultMessage="管理游戏"
+                />
               </Button>
             )}
             <Button type="primary" onClick={() => setAddOpen(true)} disabled={!currentKey}>
@@ -272,64 +251,6 @@ export default function GamesEnvsPage() {
           />
         )}
       </Card>
-
-      <ModalForm<{ name: string; aliasName?: string; description?: string }>
-        title={intl.formatMessage({
-          id: 'pages.gamesEnvs.gameModal.addTitle',
-          defaultMessage: '新增游戏',
-        })}
-        open={addGameOpen}
-        onOpenChange={setAddGameOpen}
-        modalProps={{ destroyOnHidden: true }}
-        width={520}
-        submitter={{
-          searchConfig: {
-            submitText: intl.formatMessage({
-              id: 'pages.gamesEnvs.modal.submit',
-              defaultMessage: '确定',
-            }),
-          },
-        }}
-        layout="vertical"
-        onFinish={onAddGame}
-      >
-        <Form.Item
-          name="name"
-          label={intl.formatMessage({
-            id: 'pages.gamesEnvs.gameModal.name',
-            defaultMessage: '游戏标识 (Name)',
-          })}
-          rules={[
-            {
-              required: true,
-              message: intl.formatMessage({
-                id: 'pages.gamesEnvs.gameModal.nameRequired',
-                defaultMessage: '请输入游戏标识（字母、数字和 _ - @）',
-              }),
-            },
-          ]}
-        >
-          <Input placeholder="e.g. demo_game" />
-        </Form.Item>
-        <Form.Item
-          name="aliasName"
-          label={intl.formatMessage({
-            id: 'pages.gamesEnvs.gameModal.aliasName',
-            defaultMessage: '显示名 (Alias)',
-          })}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="description"
-          label={intl.formatMessage({
-            id: 'pages.gamesEnvs.gameModal.description',
-            defaultMessage: '描述',
-          })}
-        >
-          <Input.TextArea rows={3} />
-        </Form.Item>
-      </ModalForm>
 
       <ModalForm<GameEnv>
         title={intl.formatMessage({

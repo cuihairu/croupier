@@ -18,6 +18,7 @@ type BuildNodeColumnsOptions = {
   onDrain: (agentId: string) => void;
   onRestart: (agentId: string) => void;
   onCron: (record: NodeRow) => void;
+  onSupervisor: (record: NodeRow) => void;
 };
 
 // 主表格列 - 只显示关键信息
@@ -27,6 +28,7 @@ export function buildNodeColumns({
   onDrain,
   onRestart,
   onCron,
+  onSupervisor,
 }: BuildNodeColumnsOptions): ColumnsType<NodeRow> {
   return [
     {
@@ -69,6 +71,30 @@ export function buildNodeColumns({
       width: 150,
       ellipsis: true,
       render: (v: string) => v || '-',
+    },
+    {
+      // capture-agent 降级标注（注册 labels captureLineage=degraded，简档 §8.3）：
+      // 血缘闸启用但源无会话账号——告警链不误报，但归因粒度受限。
+      title: intl.formatMessage({ id: 'pages.opsNodes.column.capture', defaultMessage: '捕获' }),
+      dataIndex: ['labels', 'captureLineage'],
+      width: 100,
+      render: (v: unknown) =>
+        v === 'degraded' ? (
+          <Tag
+            color="gold"
+            title={intl.formatMessage({
+              id: 'pages.opsNodes.capture.degradedTip',
+              defaultMessage: '血缘闸降级：源无会话账号，命中不做账号归因',
+            })}
+          >
+            {intl.formatMessage({
+              id: 'pages.opsNodes.capture.degraded',
+              defaultMessage: '血缘降级',
+            })}
+          </Tag>
+        ) : (
+          <span style={{ color: '#999' }}>-</span>
+        ),
     },
     {
       title: intl.formatMessage({
@@ -224,6 +250,44 @@ export function buildNodeColumns({
           );
         }
         return <Tag color={s.color}>{s.text}</Tag>;
+      },
+    },
+    {
+      // Supervisor 监管聚合灯：ok=全部 RUNNING；warn=有非 RUNNING/超限标记；
+      // error=有 FAILED/BROKEN。running/total 为运行数/配置数，点击打开进程详情。
+      title: intl.formatMessage({ id: 'pages.opsNodes.column.supervisor', defaultMessage: '监管' }),
+      dataIndex: 'supervisor',
+      width: 110,
+      render: (_, record) => {
+        const s = record.supervisor;
+        if (!s) return <span style={{ color: '#999' }}>-</span>;
+        const colorMap: Record<string, string> = { ok: 'green', warn: 'gold', error: 'red' };
+        const labelMap: Record<string, string> = {
+          ok: intl.formatMessage({
+            id: 'pages.opsNodes.supervisor.statusOk',
+            defaultMessage: '正常',
+          }),
+          warn: intl.formatMessage({
+            id: 'pages.opsNodes.supervisor.statusWarn',
+            defaultMessage: '注意',
+          }),
+          error: intl.formatMessage({
+            id: 'pages.opsNodes.supervisor.statusError',
+            defaultMessage: '异常',
+          }),
+        };
+        return (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => onSupervisor(record)}
+          >
+            <Tag color={colorMap[s.status] || 'default'}>
+              {labelMap[s.status] || s.status} {s.running}/{s.total}
+            </Tag>
+          </Button>
+        );
       },
     },
     {

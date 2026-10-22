@@ -231,10 +231,26 @@ export default {
   'pages.systemSiteSettings.tab.notification': '通知设置',
   'pages.systemSiteSettings.tab.observability': '观测集成',
   'pages.systemSiteSettings.tab.site': '系统信息',
+  'pages.systemSiteSettings.tab.appearance': '主题',
+  'pages.systemSiteSettings.appearance.preset': '主题套',
+  'pages.systemSiteSettings.appearance.preset.blue': '默认蓝',
+  'pages.systemSiteSettings.appearance.preset.inkpink': '荷官墨粉',
+  'pages.systemSiteSettings.appearance.mode': '界面主题',
+  'pages.systemSiteSettings.appearance.light': '亮色',
+  'pages.systemSiteSettings.appearance.dark': '暗色',
+  'pages.systemSiteSettings.appearance.system': '跟随系统',
+  'pages.systemSiteSettings.appearance.hint':
+    '主题套与明暗偏好保存在本机浏览器，切换即时生效、无需保存；顶栏的主题菜单与这里共享同一偏好。',
+  'pages.systemSiteSettings.appearance.current': '当前生效：{preset} · {mode}',
+  'pages.systemSiteSettings.appearance.systemHint':
+    '跟随系统模式下，操作系统切换深浅色时界面实时跟随（在当前主题套内切换亮暗）',
   'pages.systemSiteSettings.security.error.loadFailed': '加载账号安全策略失败',
   'pages.systemSiteSettings.security.error.saveFailed': '保存失败',
   'pages.systemSiteSettings.security.intro':
-    '全部默认关闭：关闭时维持内置基线（密码 8-128 位、弱密码拦截、至少两类字符、不限期、TOTP 自助绑定）。',
+    '全部默认关闭：关闭时维持内置基线（密码 8-128 位、弱密码拦截、至少两类字符、不限期、TOTP 自助绑定）。唯一例外是高危审批二次验证默认开启。',
+  'pages.systemSiteSettings.security.approvalStepUpOtp': '高危审批二次验证 (TOTP)',
+  'pages.systemSiteSettings.security.approvalStepUpOtpHelp':
+    '开启后 high/danger 审批必须输入动态验证码（未绑定账号拒绝批准）；关闭即一键降级为可选验证（带了仍校验），批准审计记 disabled 档（OPEN-ISSUES #61）',
   'pages.systemSiteSettings.security.mfaRequired': '强制二次验证 (TOTP)',
   'pages.systemSiteSettings.security.mfaRequiredHelp':
     '开启后所有本地账号必须绑定 TOTP：未绑定账号登录时收到引导，其余 API 返回 403 mfa_required（外部身份源账号由 IdP 负责，不受影响）',
@@ -308,6 +324,21 @@ export default {
   'pages.systemSiteSettings.maintenance.probe.unhealthy': '异常',
   'pages.systemSiteSettings.maintenance.probe.unconfigured': '未配置',
   'pages.systemSiteSettings.maintenance.probe.error.failed': '探测失败',
+  'pages.systemSiteSettings.maintenance.externalServices.title': '外部服务（配置文件）',
+  'pages.systemSiteSettings.maintenance.externalServices.subtitle':
+    '只读呈现 server.yaml 配置的外部服务启用态；修改需编辑配置文件并重启。',
+  'pages.systemSiteSettings.maintenance.externalServices.state.active': '已启用',
+  'pages.systemSiteSettings.maintenance.externalServices.state.inactive': '配置未生效',
+  'pages.systemSiteSettings.maintenance.externalServices.state.unconfigured': '未配置',
+  'pages.systemSiteSettings.maintenance.externalServices.missing': '缺项',
+  'pages.systemSiteSettings.maintenance.externalServices.secretSet': '已设置',
+  'pages.systemSiteSettings.maintenance.externalServices.secretUnset': '未设置',
+  'pages.systemSiteSettings.maintenance.externalServices.loadFailed': '加载外部服务清单失败',
+  'pages.systemSiteSettings.maintenance.externalServices.service.herald': '告警出口（herald）',
+  'pages.systemSiteSettings.maintenance.externalServices.service.alertInbound':
+    '告警入站（{source}）',
+  'pages.systemSiteSettings.maintenance.externalServices.service.serverStatus':
+    '状态源（{provider}）',
   'pages.systemSiteSettings.tab.maintenance': '运维',
   'pages.systemSiteSettings.tab.performance': '性能',
   'pages.systemSiteSettings.performance.action.refresh': '刷新',

@@ -4,6 +4,7 @@ package game
 type GameCreateRequest struct {
 	Name        string `json:"name"`
 	AliasName   string `json:"aliasName"`
+	Icon        string `json:"icon"`
 	Description string `json:"description"`
 	Config      string `json:"config"`
 }
@@ -115,12 +116,14 @@ type GameInfo struct {
 
 // GameUpdateRequest represents the request to update a game
 type GameUpdateRequest struct {
-	ID          string `uri:"id"`
-	Name        string `json:"name"`
-	AliasName   string `json:"aliasName"`
-	Description string `json:"description"`
-	Config      string `json:"config"`
-	Status      string `json:"status"`
+	ID        string `uri:"id"`
+	Name      string `json:"name"`
+	AliasName string `json:"aliasName"`
+	// Icon 指针语义：字段出现即更新（空串 = 清空，回落默认骰子图标），缺省 = 保持。
+	Icon        *string `json:"icon"`
+	Description string  `json:"description"`
+	Config      string  `json:"config"`
+	Status      string  `json:"status"`
 }
 
 // GameUpdateResponse represents the response after updating a game

@@ -25,6 +25,7 @@ configure({ asyncUtilTimeout: 5000 });
 jest.mock('@/services/api/ops', () => ({
   listOpsTasks: jest.fn(),
   listOpsFunctions: jest.fn(),
+  listOpsTaskOperatorOptions: jest.fn(),
 }));
 
 jest.mock('@/services/api/functions', () => ({
@@ -68,9 +69,12 @@ jest.mock('@/components', () => ({
   ),
 }));
 
-const { listOpsTasks, listOpsFunctions } = jest.requireMock('@/services/api/ops') as {
+const { listOpsTasks, listOpsFunctions, listOpsTaskOperatorOptions } = jest.requireMock(
+  '@/services/api/ops',
+) as {
   listOpsTasks: jest.Mock;
   listOpsFunctions: jest.Mock;
+  listOpsTaskOperatorOptions: jest.Mock;
 };
 const { cancelTask, fetchTaskResult, subscribeTaskEvents } = jest.requireMock(
   '@/services/api/functions',
@@ -164,10 +168,24 @@ beforeEach(() => {
   cancelTask.mockReset();
   fetchTaskResult.mockReset();
   subscribeTaskEvents.mockReset();
-  listOpsTasks.mockResolvedValue({ tasks: TASKS.map((t) => ({ ...t })), total: 57 });
+  // #23 服务端过滤下推后，mock 需模拟服务端按参数过滤（响应即过滤结果）
+  listOpsTasks.mockImplementation(
+    async (params?: { status?: string; functionId?: string; actor?: string }) => {
+      let items = TASKS.map((t) => ({ ...t }));
+      if (params?.status) items = items.filter((t) => t.state === params.status);
+      if (params?.functionId) items = items.filter((t) => t.functionId === params.functionId);
+      if (params?.actor) items = items.filter((t) => (t.actor || '') === params.actor);
+      return { tasks: items, total: 57 };
+    },
+  );
   listOpsFunctions.mockResolvedValue({
     functions: [{ id: 'fn-alpha' }, { id: 'fn-beta' }],
   });
+  // #23：操作者聚合选项（服务端 distinct 全集）
+  listOpsTaskOperatorOptions.mockResolvedValue([
+    { value: 'alice', count: 2 },
+    { value: 'bob', count: 1 },
+  ]);
   cancelTask.mockResolvedValue(undefined);
   fetchTaskResult.mockResolvedValue({ state: 'succeeded', payload: { ok: true } });
   subscribeTaskEvents.mockImplementation(() => ({ close: jest.fn() }));
@@ -356,22 +374,21 @@ describe('Ops/Jobs 任务监控页', () => {
     expect(screen.getByText('当前结果 2 个任务')).toBeInTheDocument();
   });
 
-  it('操作者筛选：大小写不敏感匹配，无匹配时展示筛选空态', async () => {
+  it('操作者筛选：服务端聚合下拉选择后按 actor 拉取（#23 过滤下推）', async () => {
     renderPage();
     await awaitInitialLoad();
 
-    const actorInput = screen.getByPlaceholderText('按操作者过滤');
-    fireEvent.change(actorInput, { target: { value: 'ALICE' } });
-    await waitFor(() =>
-      expect(listOpsTasks).toHaveBeenLastCalledWith(expect.objectContaining({ actor: 'ALICE' })),
-    );
-    expect(await screen.findByText('已生效条件：操作者 ALICE')).toBeInTheDocument();
-    expect(screen.getByText('当前结果 1 个任务')).toBeInTheDocument();
+    // 操作者过滤已从手输 Input 换为服务端聚合下拉（distinct actor 全集）
+    // antd6 展开先例（ResourceCatalog）：mouseDown 打在 placeholder 元素上；
+    // 选项不带 -content 后缀类，直接按文本取（弹层内唯一）
+    fireEvent.mouseDown(screen.getByText('按操作者过滤'));
+    const option = await screen.findByText('alice (2)');
+    fireEvent.click(option);
 
-    // 无匹配：筛选空态文案
-    fireEvent.change(actorInput, { target: { value: 'nobody' } });
-    await waitFor(() => expect(screen.getByText('当前结果 0 个任务')).toBeInTheDocument());
-    expect(screen.getByText('当前筛选条件下没有匹配任务，请调整筛选后重试。')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(listOpsTasks).toHaveBeenLastCalledWith(expect.objectContaining({ actor: 'alice' })),
+    );
+    expect(await screen.findByText('已生效条件：操作者 alice')).toBeInTheDocument();
   });
 
   it('刷新按钮：重新请求任务列表', async () => {

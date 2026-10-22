@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cuihairu/croupier/core/transport"
 	apperrors "github.com/cuihairu/croupier/internal/errors"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"

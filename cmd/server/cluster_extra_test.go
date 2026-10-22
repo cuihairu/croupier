@@ -17,7 +17,7 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func newClusterSvcCtx(t *testing.T) *svc.ServiceContext {
 	return &svc.ServiceContext{DB: db, RegistryStore: reg.NewStoreWithDB(db)}
 }
 
-func stopCluster(t *testing.T, lc *cluster.Lifecycle, srv *tcp.Server) {
+func stopCluster(t *testing.T, lc *cluster.Lifecycle, srv *internaltcp.Server) {
 	t.Helper()
 	if lc != nil {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -366,8 +366,9 @@ func TestStartCluster_DBEnsureTableFailure(t *testing.T) {
 	assert.Nil(t, srv)
 }
 
-// 归属表 DDL 失败（成员表已建成但 owner 表建不上）需要两个独立 DDL 命运
-// 分叉，单连接上无法干净构造；该分支归入 DDL 基础设施失败防御豁免。
+// 归属表 DDL 失败（成员表已建成但 owner 表建不上）：两连接构造已落地，
+// 见 cluster_ddl_wings_test.go 的 TestStartCluster_OwnerEnsureTableFailure
+//（可写连接预建成员表 + mode=ro 重开，成员表幂等通过、owner 表 CREATE 被拒）。
 
 // AdvertiseAddr 为空 → cluster.Start 拒绝 → standalone。
 func TestStartCluster_EmptyAdvertiseAddr(t *testing.T) {
@@ -406,7 +407,7 @@ func TestStartCluster_ReconcileLoop(t *testing.T) {
 
 	// 声明归属行后把 last_seen_at 拨旧，等 reconcile tick 续期回新
 	require.NoError(t, svcCtx.Cluster.Resolver.ClaimOwner(
-		context.Background(), "agent-recon", "demo", "prod", "server-recon", lc.Epoch()))
+		context.Background(), "agent-recon", "demo", "prod", "server-recon", lc.Epoch(), nil))
 	stale := time.Now().Add(-2 * time.Minute)
 	require.NoError(t, svcCtx.DB.Model(&cluster.AgentOwnerRecord{}).
 		Where("agent_id = ?", "agent-recon").

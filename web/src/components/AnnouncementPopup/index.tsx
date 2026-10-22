@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, Tag, Typography } from 'antd';
+import { Modal, Tag } from 'antd';
 import { request, useIntl } from '@umijs/max';
+import MarkdownText from '../MarkdownText';
 
 /**
  * 登录后公告弹窗（OPEN-ISSUES #17）。
@@ -104,12 +105,10 @@ export default function AnnouncementPopup() {
       mask={{ closable: false }}
       width={560}
     >
-      <Typography.Paragraph
-        type="secondary"
-        style={{ whiteSpace: 'pre-wrap', maxHeight: '50vh', overflow: 'auto', marginBottom: 8 }}
-      >
-        {current?.contentMd}
-      </Typography.Paragraph>
+      {/* contentMd 是 Markdown（#50）：受控子集渲染，滚动语义保留在容器上 */}
+      <div style={{ maxHeight: '50vh', overflow: 'auto' }}>
+        <MarkdownText source={current?.contentMd || ''} />
+      </div>
       {current?.audience === 'role' && (
         <Tag color="purple">
           {intl.formatMessage({

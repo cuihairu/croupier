@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/config"
+	extmanifest "github.com/cuihairu/croupier/internal/core/extension/manifest"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -225,9 +226,24 @@ func TestOfficialExtensionSeedFollowsUnifiedPattern(t *testing.T) {
 	checked := 0
 	for _, item := range payload.Items {
 		domain, ok := strings.CutPrefix(item.ExtensionID, "official.")
-		// 统一模式只约束四个业务扩展（见 official-extension-unified-pattern.md §1）；
-		// official.external-platform 是先于模式的连接器条目，不回溯改造。
-		if !ok || !map[string]bool{"notification": true, "alerting": true, "approval": true, "backup-advanced": true}[domain] {
+		if !ok {
+			continue
+		}
+		// #66 P1-c：连接器条目不走四扩展统一模式（页/权限/配置面），改由 manifest
+		// provider 块声明 provider 身份；该块是声明面（闭集
+		// type/operations/permissions），与 binding spec 实例面非同构（§3.2）。
+		if domain == "external-platform" {
+			for _, release := range item.Releases {
+				manifest := release.Manifest
+				if manifest == nil {
+					t.Fatalf("%s@%s: manifest missing", item.ExtensionID, release.Version)
+				}
+				assertExternalPlatformProviderBlock(t, manifest, item.ExtensionID, release.Version)
+			}
+			continue
+		}
+		// 统一模式只约束四个业务扩展（见 official-extension-unified-pattern.md §1）。
+		if !map[string]bool{"notification": true, "alerting": true, "approval": true, "backup-advanced": true}[domain] {
 			continue
 		}
 		checked++
@@ -265,5 +281,27 @@ func TestOfficialExtensionSeedFollowsUnifiedPattern(t *testing.T) {
 	}
 	if checked < 4 {
 		t.Fatalf("expected at least 4 official.* seed items, got: %d", checked)
+	}
+}
+
+// assertExternalPlatformProviderBlock（#66 P1-c）：official.external-platform 的
+// manifest provider 块是安装时派生 provider 绑定的模板声明。校验走真实解析入口
+// extmanifest.ParseProviderBlock（字段闭集 / type 闭集 / operations 形态 /
+// permissions 层级由解析器统一把关），本测试只锁定该条目的声明值。
+func assertExternalPlatformProviderBlock(t *testing.T, m map[string]any, extID, version string) {
+	t.Helper()
+	block, err := extmanifest.ParseProviderBlock(m)
+	if err != nil {
+		t.Fatalf("%s@%s: provider block invalid: %v", extID, version, err)
+	}
+	if block.Type != "openapi" {
+		t.Fatalf("%s@%s: provider.type = %q, want openapi", extID, version, block.Type)
+	}
+	if len(block.Operations) == 0 {
+		t.Fatalf("%s@%s: provider.operations empty", extID, version)
+	}
+	if block.Permissions["operate"] != "external-platform.operate" {
+		t.Fatalf("%s@%s: provider.permissions.operate = %q, want external-platform.operate",
+			extID, version, block.Permissions["operate"])
 	}
 }
