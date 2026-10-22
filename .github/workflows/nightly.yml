@@ -169,7 +169,7 @@ jobs:
 
       - name: Setup Python for Agent packaging
         timeout-minutes: 3
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
 
@@ -318,7 +318,7 @@ jobs:
 
       - name: Setup Python
         timeout-minutes: 5
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
 
