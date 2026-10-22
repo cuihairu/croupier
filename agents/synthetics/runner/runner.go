@@ -164,7 +164,7 @@ func statusString(ok bool) string {
 // ProbeDetail contract; plugin results land in the same event shape as
 // HTTP results, with routing metadata carried in Details.
 func buildProbeEvent(c config.Config, t config.Target, res probe.Result, details map[string]string) *opsv1.AlertEvent {
-	return &opsv1.AlertEvent{Kind: "probe.detail", AgentId: c.Agent.ID, GameId: c.Agent.GameID, Env: c.Agent.Env, Detail: &opsv1.ProbeDetail{Target: t.Name, Semantics: "liveness", Ok: res.OK, Err: res.Error, AtTsUnixMs: res.At.UnixMilli(), LatencyMs: res.Latency.Milliseconds(), Details: details}}
+	return &opsv1.AlertEvent{Kind: "probe.detail", AgentId: c.Agent.ID, GameId: c.Agent.GameID, Env: c.Agent.Env, TargetCategory: t.TargetCategory, Detail: &opsv1.ProbeDetail{Target: t.Name, Semantics: "liveness", Ok: res.OK, Err: res.Error, AtTsUnixMs: res.At.UnixMilli(), LatencyMs: res.Latency.Milliseconds(), TargetCategory: t.TargetCategory, Details: details}}
 }
 func (r *Runner) buildPayload(context.Context) (*agentv1.RegisterRequest, error) {
 	host, _ := os.Hostname()

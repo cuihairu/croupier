@@ -58,7 +58,7 @@ synthetics:
   interval: 30s
 ` + toggles + `
   targets:
-    - {name: t, url: "http://127.0.0.1", method: GET, timeout: 1s, expectedStatus: 200}
+    - {name: t, url: "http://127.0.0.1", method: GET, timeout: 1s, expectedStatus: 200, targetCategory: game}
 `
 	}
 	load := func(t *testing.T, text string) Config {

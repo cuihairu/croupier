@@ -11,3 +11,4 @@ synthetics:
       address: 127.0.0.1
       timeout: 2s
       count: 2
+      targetCategory: third_party

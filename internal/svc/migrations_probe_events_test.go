@@ -32,7 +32,7 @@ func TestProbeEventsTableMigration_CreatesMissingTable(t *testing.T) {
 	require.True(t, migrator.HasTable(&model.ProbeEvent{}), "0046 必须建 probe_events")
 	// 列集来自 model.ProbeEvent：诊断查询按 kind/status/error_class 过滤，
 	// payload 是唯一承载原始事件的列，缺一即存储面与页面同时不可用。
-	for _, col := range []string{"ID", "CreatedAt", "AgentID", "GameID", "Env", "Kind", "Target", "Status", "LatencyMS", "ErrorClass", "Payload"} {
+	for _, col := range []string{"ID", "CreatedAt", "AgentID", "GameID", "Env", "Kind", "Target", "Status", "LatencyMS", "ErrorClass", "TargetCategory", "Payload"} {
 		require.True(t, migrator.HasColumn(&model.ProbeEvent{}, col), "缺列 %s", col)
 	}
 
@@ -86,4 +86,35 @@ func TestProbeEventsTableMigration_SkipsExistingTable(t *testing.T) {
 	var extra []string
 	require.NoError(t, db.Table("probe_events").Where("agent_id = ?", "synthetics-1").Pluck("extra_legacy_column", &extra).Error)
 	require.Equal(t, []string{"keep"}, extra)
+}
+
+// 0047：已有表补类别列并保留存量数据；0046 新建表已含该列时幂等跳过。
+func TestProbeEventTargetCategoryMigration_AddsColumn(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/m47.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TABLE probe_events (
+		id integer primary key autoincrement,
+		created_at datetime,
+		agent_id text, game_id text, env text, kind text, target text,
+		status text, latency_ms integer default 0, error_class text,
+		payload blob)`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO probe_events
+		(agent_id, game_id, env, kind, status, error_class, payload)
+		VALUES ('synthetics-1', 'demo', 'prod', 'probe_result', 'down', 'conn_refused', x'0a026465')`).Error)
+
+	require.NoError(t, migrateProbeEventTargetCategory(context.Background(), sqlDB))
+	require.NoError(t, migrateProbeEventTargetCategory(context.Background(), sqlDB))
+
+	migrator := db.Migrator()
+	require.True(t, migrator.HasColumn(&model.ProbeEvent{}, "TargetCategory"))
+
+	var got model.ProbeEvent
+	require.NoError(t, db.Where("agent_id = ?", "synthetics-1").First(&got).Error)
+	require.Empty(t, got.TargetCategory, "historical rows must remain unclassified")
+
+	upsert := model.ProbeEvent{AgentID: "synthetics-1", GameID: "demo", Env: "prod",
+		Kind: "probe_result", Target: "payment", Status: "up", TargetCategory: "third_party"}
+	require.NoError(t, db.Create(&upsert).Error)
 }

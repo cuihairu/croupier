@@ -13,6 +13,7 @@ synthetics:
       expectedStatus: 200
       plugin: tcp
       payloadJson: '{"expect":"tcp"}'
+      targetCategory: game
   plugins:
     - name: tcp
       command: /bin/true

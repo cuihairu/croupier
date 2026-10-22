@@ -10,3 +10,4 @@ synthetics:
       type: icmp
       url: http://127.0.0.1/health
       timeout: 1s
+      targetCategory: third_party

@@ -13,6 +13,9 @@ synthetics:
       timeout: 3s
       expectedStatus: 200
       bodyContains: ok
+      # Required ownership class carried on configuration, downlink, results,
+      # fault windows and alerts (game | third_party).
+      targetCategory: game
   # 外部探测插件运行时（todo.md:36，默认集成、可禁用）：插件仅按下方显式
   # 声明启动，target 的 plugin 字段路由到声明名；全部旋钮可省略，省略即用
   # 宿主默认值。运行时总开关 pluginsEnabled: false 直接走原生 HTTP 探测、不拉起插件进程。
@@ -38,6 +41,7 @@ synthetics:
   #   expectedStatus: 200
   #   plugin: game-tcp-probe
   #   payloadJson: '{"host":"127.0.0.1","port":7001}'
+  #   targetCategory: game
   # Native ICMP is configured without an HTTP fallback endpoint. It requires
   # CAP_NET_RAW; without that capability the probe reports a capability error
   # instead of pretending the target is down.
@@ -46,3 +50,4 @@ synthetics:
   #   address: 192.0.2.1
   #   timeout: 2s
   #   count: 1
+  #   targetCategory: third_party

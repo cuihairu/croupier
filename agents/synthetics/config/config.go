@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/core/agentscope"
+	corehealthprobe "github.com/cuihairu/croupier/core/healthprobe"
 
 	"gopkg.in/yaml.v3"
 )
@@ -199,6 +200,10 @@ type Target struct {
 	Address string `yaml:"address"`
 	// Count is the number of ICMP echo attempts required for success.
 	Count int `yaml:"count"`
+	// TargetCategory is the required ownership class from todo.md:31:
+	// game or third_party. It is independent of protocol and travels with
+	// every durable result so operators never guess ownership.
+	TargetCategory string `yaml:"targetCategory"`
 }
 
 func (t *Target) UnmarshalYAML(n *yaml.Node) error {
@@ -214,6 +219,7 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 		Type           string `yaml:"type"`
 		Address        string `yaml:"address"`
 		Count          int    `yaml:"count"`
+		TargetCategory string `yaml:"targetCategory"`
 	}
 	if err := n.Decode(&raw); err != nil {
 		return err
@@ -226,7 +232,7 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 			return fmt.Errorf("timeout: %w", err)
 		}
 	}
-	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin, PayloadJSON: raw.PayloadJSON, Type: raw.Type, Address: raw.Address, Count: raw.Count}
+	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin, PayloadJSON: raw.PayloadJSON, Type: raw.Type, Address: raw.Address, Count: raw.Count, TargetCategory: raw.TargetCategory}
 	return nil
 }
 
@@ -288,6 +294,11 @@ func (c Config) Validate() error {
 	for i, t := range c.Synthetics.Targets {
 		if strings.TrimSpace(t.Name) == "" {
 			return fmt.Errorf("synthetics.targets[%d] name is required", i)
+		}
+		switch strings.TrimSpace(t.TargetCategory) {
+		case corehealthprobe.TargetCategoryGame, corehealthprobe.TargetCategoryThirdParty:
+		default:
+			return fmt.Errorf("target %q: targetCategory must be game|third_party", t.Name)
 		}
 		icmp := strings.EqualFold(strings.TrimSpace(t.Type), TypeICMP)
 		if !icmp && strings.TrimSpace(t.URL) == "" {

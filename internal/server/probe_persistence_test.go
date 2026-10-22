@@ -34,7 +34,7 @@ func TestSyntheticsAgentSessionUploadsAndPersistsResult(t *testing.T) {
 	go func() { _ = listener.Serve(ctx) }()
 	agent := synrunner.New(synconfig.Config{
 		Agent:      synconfig.Agent{ID: "synthetics-e2e", ServerAddr: listener.Addr(), GameID: "demo", Env: "staging"},
-		Synthetics: synconfig.Synthetics{Interval: time.Second, Targets: []synconfig.Target{{Name: "local-http", URL: httpServer.URL, Method: "GET", Timeout: time.Second, ExpectedStatus: http.StatusNoContent}}},
+		Synthetics: synconfig.Synthetics{Interval: time.Second, Targets: []synconfig.Target{{Name: "local-http", URL: httpServer.URL, Method: "GET", Timeout: time.Second, ExpectedStatus: http.StatusNoContent, TargetCategory: "third_party"}}},
 	}, slog.Default())
 	go func() { _ = agent.Run(ctx) }()
 	deadline := time.Now().Add(5 * time.Second)
@@ -51,6 +51,7 @@ func TestSyntheticsAgentSessionUploadsAndPersistsResult(t *testing.T) {
 	require.Equal(t, "local-http", rows[0].Target)
 	require.Equal(t, "probe.detail", rows[0].Kind)
 	require.Equal(t, "success", rows[0].Status)
+	require.Equal(t, "third_party", rows[0].TargetCategory)
 	require.Empty(t, rows[0].ErrorClass)
 	time.Sleep(100 * time.Millisecond) // let the one-way uplink write finish before closing the session
 	otherScope, err := model.NewProbeEventModel(db).Recent(context.Background(), "other", "staging", "", 10)

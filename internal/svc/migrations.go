@@ -130,6 +130,10 @@ import (
 //               payload `type:blob` 为 MySQL 专有使 Migration Matrix 在
 //               pg/mssql 直接失败；HasTable 检查后 CreateTable，新表无
 //               存量约束名漂移；payload 走驱动 bytes 默认映射）
+//   0047 (Go)   probe_events.target_category 列（外部探测目标分类 31：
+//               synthetics-agent 新目标强制携带类别；结果行保存执行时
+//               快照，便于不过 proto 反序列化过滤；存量行不回填——历史
+//               未分类行只在「全部」视图出现，不猜归属）
 
 func init() {
 	registerSvcMigrations()
@@ -186,6 +190,7 @@ func registerSvcMigrations() {
 		agentMetricsProbeJSONMigration(),
 		dbSourceOwnerMigration(),
 		probeEventsTableMigration(),
+		probeEventTargetCategoryMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1536,6 +1541,31 @@ func migrateProbeEventsTable(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := db.Migrator().CreateTable(&model.ProbeEvent{}); err != nil {
 		return fmt.Errorf("migrate: 0046 create probe_events: %w", err)
+	}
+	return nil
+}
+
+// probeEventTargetCategoryMigration 为 0047：已有 probe_events 表补目标
+// 类别列。0046 新表走 GORM CreateTable 已包含模型字段，HasColumn 后跳过。
+func probeEventTargetCategoryMigration() *goose.Migration {
+	return goose.NewGoMigration(47,
+		&goose.GoFunc{RunDB: migrateProbeEventTargetCategory},
+		nil,
+	)
+}
+
+func migrateProbeEventTargetCategory(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.ProbeEvent{}) {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&model.ProbeEvent{}, "TargetCategory") {
+		if err := db.Migrator().AddColumn(&model.ProbeEvent{}, "TargetCategory"); err != nil {
+			return fmt.Errorf("migrate: 0047 add probe_events.target_category: %w", err)
+		}
 	}
 	return nil
 }

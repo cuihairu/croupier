@@ -32,6 +32,20 @@ func TestValidateRequiresExplicitTargets(t *testing.T) {
 	}
 }
 
+func TestValidateRequiresExplicitTargetCategory(t *testing.T) {
+	c := valid()
+	c.Synthetics.Targets[0].TargetCategory = ""
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "targetCategory must be game|third_party") {
+		t.Fatalf("blank target category accepted: %v", err)
+	}
+
+	c = valid()
+	c.Synthetics.Targets[0].TargetCategory = "partner"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "targetCategory must be game|third_party") {
+		t.Fatalf("unknown target category accepted: %v", err)
+	}
+}
+
 func TestValidatePluginDeclarationsAndTargetRefs(t *testing.T) {
 	declared := func() Config {
 		c := valid()
@@ -39,7 +53,7 @@ func TestValidatePluginDeclarationsAndTargetRefs(t *testing.T) {
 		return c
 	}
 	c := declared()
-	c.Synthetics.Targets = []Target{{Name: "p", URL: "http://127.0.0.1", Method: "GET", Timeout: 1, ExpectedStatus: 200, Plugin: "echo"}}
+	c.Synthetics.Targets = []Target{{Name: "p", URL: "http://127.0.0.1", Method: "GET", Timeout: 1, ExpectedStatus: 200, Plugin: "echo", TargetCategory: "game"}}
 	if err := c.Validate(); err != nil {
 		t.Fatalf("declared plugin target rejected: %v", err)
 	}

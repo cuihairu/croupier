@@ -22,6 +22,9 @@ type ProbeEvent struct {
 	Status     string    `gorm:"size:32;index"`
 	LatencyMS  int64
 	ErrorClass string `gorm:"size:64;index"`
+	// Ownership class is snapshotted beside the raw payload so synthetic
+	// results can be filtered without decoding every protobuf row.
+	TargetCategory string `gorm:"size:32;index"`
 	// 原始事件字节（proto 序列化的 opsv1.AlertEvent）。不写 `type:blob`——
 	// blob 是 MySQL 专有类型，pg/mssql 无此类型（Migration Matrix 实证：
 	// pg SQLSTATE 42704、mssql Cannot find data type blob）；留空走 GORM
@@ -43,7 +46,7 @@ func (m *ProbeEventModel) Create(ctx context.Context, agentID, gameID, env strin
 	if err != nil {
 		return err
 	}
-	row := ProbeEvent{CreatedAt: time.Now(), AgentID: agentID, GameID: gameID, Env: env, Kind: ev.GetKind(), Payload: data}
+	row := ProbeEvent{CreatedAt: time.Now(), AgentID: agentID, GameID: gameID, Env: env, Kind: ev.GetKind(), TargetCategory: probeTargetCategory(ev), Payload: data}
 	if w := ev.GetWindow(); w != nil {
 		row.Target = w.GetTarget()
 		row.Status = w.GetWindowKind()
@@ -59,6 +62,19 @@ func (m *ProbeEventModel) Create(ctx context.Context, agentID, gameID, env strin
 		row.ErrorClass = probeErrorClass(d.GetErr())
 	}
 	return m.db.WithContext(ctx).Create(&row).Error
+}
+
+func probeTargetCategory(ev *opsv1.AlertEvent) string {
+	if category := strings.TrimSpace(ev.GetTargetCategory()); category != "" {
+		return category
+	}
+	if w := ev.GetWindow(); w != nil && strings.TrimSpace(w.GetTargetCategory()) != "" {
+		return w.GetTargetCategory()
+	}
+	if d := ev.GetDetail(); d != nil {
+		return strings.TrimSpace(d.GetTargetCategory())
+	}
+	return ""
 }
 
 func (m *ProbeEventModel) Recent(ctx context.Context, gameID, env, agentID string, limit int) ([]ProbeEvent, error) {

@@ -93,7 +93,7 @@ func syntheticsConfig(gameID, env string) syntheticsconfig.Config {
 		Agent: syntheticsconfig.Agent{ID: "a", ServerAddr: "s", GameID: gameID, Env: env},
 		Synthetics: syntheticsconfig.Synthetics{
 			Interval: time.Second,
-			Targets:  []syntheticsconfig.Target{{Name: "t", URL: "http://127.0.0.1", Method: "GET", Timeout: time.Second, ExpectedStatus: 200}},
+			Targets:  []syntheticsconfig.Target{{Name: "t", URL: "http://127.0.0.1", Method: "GET", Timeout: time.Second, ExpectedStatus: 200, TargetCategory: "game"}},
 		},
 	}
 }

@@ -55,7 +55,7 @@ func (r *Runner) stopPlugins() {
 // riding the same AlertEvent contract as native HTTP results.
 func TestRunProbePluginResultFeedsAlertEventChain(t *testing.T) {
 	r := pluginRunner(t, os.Getenv("RUNNER_PLUGIN_TEST_BIN"))
-	target := config.Target{Name: "web", URL: "http://localhost", Method: "GET", Timeout: 5 * time.Second, ExpectedStatus: 200, Plugin: "echo"}
+	target := config.Target{Name: "web", URL: "http://localhost", Method: "GET", Timeout: 5 * time.Second, ExpectedStatus: 200, Plugin: "echo", TargetCategory: "third_party"}
 	res, details := r.runProbe(context.Background(), target)
 	if details["probeType"] != "plugin" || details["pluginName"] != "echo" || details["pluginVersion"] != "1.0.0" || details["pluginDetail"] != "echo: web" || details["status"] != "success" || details["errorClass"] != "" {
 		t.Fatalf("plugin details: %v", details)
@@ -71,7 +71,7 @@ func TestRunProbePluginResultFeedsAlertEventChain(t *testing.T) {
 	}
 	// Plumb the plugin outcome into the same AlertEvent shape as HTTP:
 	ev := buildProbeEvent(r.cfg, target, out.Result, details)
-	if ev.Kind != "probe.detail" || ev.AgentId != "syn-1" || ev.GameId != "demo" || ev.Env != "prod" || ev.Detail.Target != "web" || !ev.Detail.Ok || ev.Detail.Details["probeType"] != "plugin" || ev.Detail.Details["pluginDetail"] != "echo: web" {
+	if ev.Kind != "probe.detail" || ev.AgentId != "syn-1" || ev.GameId != "demo" || ev.Env != "prod" || ev.TargetCategory != "third_party" || ev.Detail.Target != "web" || ev.Detail.TargetCategory != "third_party" || !ev.Detail.Ok || ev.Detail.Details["probeType"] != "plugin" || ev.Detail.Details["pluginDetail"] != "echo: web" {
 		t.Fatalf("event: %+v", ev.Detail)
 	}
 }
