@@ -4,19 +4,19 @@ title: JavaScript SDK API
 
 # JavaScript SDK API
 
-当前 API 以 SDK 源码与 TypeScript 类型定义为准，文档会逐步补齐。
+The current API reference is the SDK source code and TypeScript type definitions; documentation will be filled in gradually.
 
-## 核心对象
+## Core Objects
 
-- `CroupierClient`: 连接 Agent 并维持会话
-- `ClientConfig`: 客户端连接与标识配置
-- `registerFunction(...)`: 注册函数处理器
-- `registerFromOpenAPI(...)`: 从 OpenAPI 3 spec 本地导入并注册函数（Descriptor v2）
+- `CroupierClient`: connects to the Agent and maintains the session
+- `ClientConfig`: client connection and identity configuration
+- `registerFunction(...)`: registers a function handler
+- `registerFromOpenAPI(...)`: imports and registers functions locally from an OpenAPI 3 spec (Descriptor v2)
 
-## 建议阅读顺序
+## Suggested Reading Order
 
-1. 先看 [JavaScript SDK 首页](/sdks/js/)
-2. 再看 [指南](/sdks/js/guide/)
-3. 最后结合 `sdks/js/src` 阅读类型定义与实现
+1. Start with the [JavaScript SDK landing page](/sdks/js/)
+2. Then the [Guide](/sdks/js/guide/)
+3. Finally, read the type definitions and implementation alongside `sdks/js/src`
 
-## 补充页面
+## Additional Pages

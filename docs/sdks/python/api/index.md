@@ -4,18 +4,18 @@ title: Python SDK API
 
 # Python SDK API
 
-当前 API 文档以 `sdks/python` 源码和类型定义为准。
+The current API documentation follows the `sdks/python` source code and type definitions.
 
-## 核心对象
+## Core Objects
 
 - `CroupierClient`
 - `ClientConfig`
 - `FunctionDescriptor`
 
-## 阅读建议
+## Reading Advice
 
-- 先看 [Python SDK 首页](/sdks/python/)
-- 再看 [指南](/sdks/python/guide/)
-- 需要实现细节时直接阅读 `sdks/python/croupier`
+- Start with the [Python SDK landing page](/sdks/python/)
+- Then the [Guide](/sdks/python/guide/)
+- For implementation details, read `sdks/python/croupier` directly
 
-## 补充页面
+## Additional Pages

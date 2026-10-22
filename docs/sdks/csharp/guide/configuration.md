@@ -1,8 +1,8 @@
-# 配置
+# Configuration
 
-`ClientConfig` 是 C# SDK 的核心配置对象。
+`ClientConfig` is the core configuration object of the C# SDK.
 
-## 主要配置项
+## Main Options
 
 - `AgentAddr`
 - `ServiceId`

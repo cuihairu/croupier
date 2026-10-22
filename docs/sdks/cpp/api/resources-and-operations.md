@@ -1,12 +1,12 @@
-# 资源与操作 API
+# Resources and Operations API
 
-本文说明 C++ SDK 在 descriptor v2 下的资源页面生成 API 约定。
+This page describes the resource page generation API conventions of the C++ SDK under descriptor v2.
 
-当前目标模型不定义独立的资源运行时 API。SDK 只上报 FunctionContract，由 Server 归一化为 ResourceCapability / CapabilitySemantics，再生成 PageProposal。页面分类、动态 labels、页面类型和位置只在 Page Studio / PageSpec 中确定。
+The current target model does not define a standalone resource runtime API. The SDK only reports FunctionContract; the Server normalizes it into ResourceCapability / CapabilitySemantics and then generates PageProposal. Page categories, dynamic labels, page types, and placement are decided only in Page Studio / PageSpec.
 
-## 必要字段
+## Required Fields
 
-建议提供：
+Provide the following:
 
 - `id`
 - `version`
@@ -15,12 +15,12 @@
 - `resource`
 - `operation`
 - `capability`
-- `execution`（`sync` / `task`）
+- `execution` (`sync` / `task`)
 - `risk`
-- `input_schema`（成员名；契约键 `inputSchema`）
-- `output_schema`（成员名；契约键 `outputSchema`）
-- 高危操作建议：`approval_required`（契约键 `approvalRequired`）与 `approval_policy_key`（契约键 `approvalPolicyKey`）
+- `input_schema` (member name; contract key `inputSchema`)
+- `output_schema` (member name; contract key `outputSchema`)
+- For high-risk operations: `approval_required` (contract key `approvalRequired`) and `approval_policy_key` (contract key `approvalPolicyKey`)
 
-SDK descriptor 不提供页面 schema、组件树、页面 mapping、菜单、分类显示名、页面标题、按钮文案或页面位置。
+The SDK descriptor does not provide page schemas, component trees, page mappings, menus, category display names, page titles, button labels, or page placement.
 
-## 继续阅读
+## Keep Reading

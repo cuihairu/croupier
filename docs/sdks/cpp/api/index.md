@@ -1,15 +1,15 @@
 # C++ SDK API
 
-当前 API 以 `sdks/cpp/include` 和实现代码为准。
+The current API reference is `sdks/cpp/include` and the implementation code.
 
-## 核心对象
+## Core Objects
 
 - `ClientConfig`
 - `CroupierClient`
 - `FunctionDescriptor`
 - `ComponentDescriptor`
 
-## 阅读建议
+## Reading Advice
 
-- 先看 [C++ SDK 首页](/sdks/cpp/)
-- 最后结合 `sdks/cpp/include` 与 `sdks/cpp/src` 阅读实现
+- Start with the [C++ SDK landing page](/sdks/cpp/)
+- Finish by reading the implementation alongside `sdks/cpp/include` and `sdks/cpp/src`

@@ -1,10 +1,10 @@
-# C++ SDK 指南
+# C++ SDK Guide
 
-## 核心方向
+## Core Directions
 
-- 基于单条 session 与 Agent 通信
-- 默认使用 JSON payload
-- 支持函数、资源能力和组件注册
-- 按需启用 TLS
+- Communicate with the Agent over a single session
+- Use JSON payloads by default
+- Support registration of functions, resource capabilities, and components
+- Enable TLS on demand
 
-## 继续阅读
+## Keep Reading

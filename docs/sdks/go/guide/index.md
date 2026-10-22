@@ -1,21 +1,21 @@
 ---
-title: Go SDK 指南
+title: Go SDK Guide
 ---
 
-# Go SDK 指南
+# Go SDK Guide
 
-## 构建模式
+## Build Patterns
 
-Go SDK 当前存在本地开发与 CI/生产环境两类构建关注点。文档和实现都应以 monorepo 中的协议定义为准，不再依赖外部 SDK 仓库同步。
+The Go SDK currently has two build concerns: local development and CI/production. Both documentation and implementation should follow the protocol definitions in the monorepo; syncing from an external SDK repository is no longer required.
 
-## 集成建议
+## Integration Advice
 
-- 将处理器按业务域拆到独立 package
-- 把协议变更和 SDK 升级放在同一个 PR 中评审
-- 对超时、重试和错误映射建立统一封装
+- Split handlers into separate packages by business domain
+- Review protocol changes and SDK upgrades in the same PR
+- Build a unified wrapper for timeouts, retries, and error mapping
 
-## 并发模型
+## Concurrency Model
 
-Go SDK 适合并发服务场景，但处理器仍然需要明确边界，避免无控制 goroutine 泄漏。
+The Go SDK suits concurrent service scenarios, but handlers still need explicit boundaries to avoid uncontrolled goroutine leaks.
 
-## 继续阅读
+## Keep Reading

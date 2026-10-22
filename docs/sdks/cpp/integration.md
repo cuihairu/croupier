@@ -1,14 +1,14 @@
-# C++ SDK 集成指南
+# C++ SDK Integration Guide
 
-本文档说明如何在现有工程中集成 C++ SDK。
+This document explains how to integrate the C++ SDK into an existing project.
 
-## Windows 集成建议
+## Windows Integration Tips
 
-- 明确包含目录和库目录
-- 运行时库设置必须与 triplet 匹配
-- Debug/Release 下依赖库分别核对
+- Set include directories and library directories explicitly
+- The runtime library setting must match the triplet
+- Verify dependencies separately for Debug and Release builds
 
-## 重点
+## Key Points
 
-- 不再把历史 gRPC 本地监听模型作为默认前提
-- 优先围绕统一 session 模型做集成
+- The legacy gRPC local-listener model is no longer the default assumption
+- Build the integration around the unified session model first

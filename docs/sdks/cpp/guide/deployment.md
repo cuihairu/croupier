@@ -1,7 +1,7 @@
-# 部署
+# Deployment
 
-## 建议
+## Recommendations
 
-- 先确定 triplet 与运行时库策略
-- 跨主机部署时启用 TLS
-- 把配置文件、证书和构建工件分别管理
+- Decide on the triplet and runtime library strategy first
+- Enable TLS for cross-host deployments
+- Manage config files, certificates, and build artifacts separately

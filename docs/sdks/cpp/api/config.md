@@ -1,8 +1,8 @@
-# 配置 API
+# Configuration API
 
-配置语义以统一 session 模型为准，不再使用历史本地监听或回拨模型。
+Configuration semantics follow the unified session model; the legacy local-listener and callback models are no longer used.
 
-## 常见字段
+## Common Fields
 
 - `address`
 - `connectTimeoutMs`
@@ -11,6 +11,6 @@
 - `tls.*`
 - `reconnect.*`
 
-## 继续阅读
+## Keep Reading
 
 - [configuration/index](/sdks/cpp/configuration/)

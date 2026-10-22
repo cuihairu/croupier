@@ -1,12 +1,12 @@
-# Croupier Python SDK 集成指南
+# Croupier Python SDK Integration Guide
 
-## 安装
+## Installation
 
 ```bash
 python -m pip install -e ./sdks/python
 ```
 
-## 最小示例
+## Minimal Example
 
 ```python
 import json

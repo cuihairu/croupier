@@ -1,23 +1,23 @@
 ---
-title: Python SDK 指南
+title: Python SDK Guide
 ---
 
-# Python SDK 指南
+# Python SDK Guide
 
-## 连接模型
+## Connection Model
 
-Python SDK 使用单个双向连接与 Agent 通信，不需要本地额外监听端口。
+The Python SDK communicates with the Agent over a single bidirectional connection; no extra local listening port is needed.
 
-## 集成建议
+## Integration Advice
 
-- 把业务处理器保持为纯函数或薄封装
-- 对耗时任务使用后台任务系统，不要长时间阻塞主调用链
-- 将协议升级与 `proto/**` 变更一起评审
+- Keep business handlers as pure functions or thin wrappers
+- Use a background task system for long-running work; do not block the main invocation chain for long
+- Review protocol upgrades together with `proto/**` changes
 
-## 线程与并发
+## Threads and Concurrency
 
-如需并发处理，优先使用 Python 现有的异步或任务队列机制，不要把 SDK 客户端实例跨进程共享。
+For concurrent processing, prefer Python's existing async or task-queue mechanisms; do not share the SDK client instance across processes.
 
-## 继续阅读
+## Keep Reading
 
-- [API 参考](../api/)
+- [API Reference](../api/)

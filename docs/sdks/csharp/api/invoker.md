@@ -1,8 +1,8 @@
-# Invoker API 参考
+# Invoker API Reference
 
-`CroupierInvoker` 是独立调用方，只访问 Server HTTP API；它不复用 `CroupierClient` 的 Provider TCP session 或配置。鉴权、`gameId/env` 作用域、审计与任务持久化均由 Server 执行。
+`CroupierInvoker` is a standalone caller that only talks to the Server HTTP API; it does not reuse the `CroupierClient` Provider TCP session or its configuration. Authentication, `gameId/env` scoping, auditing, and task persistence are all performed by the Server.
 
-## 常见能力
+## Typical Capabilities
 
 - `InvokeAsync`
 - `BatchInvokeAsync`

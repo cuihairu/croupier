@@ -1,9 +1,9 @@
-# 配置
+# Configuration
 
-## 配置方向
+## Configuration Directions
 
-- 使用 session 语义
-- TLS 作为连接安全层
-- 重连与心跳独立配置
+- Use session semantics
+- TLS as the connection security layer
+- Reconnection and heartbeats configured independently
 
-## 继续阅读
+## Keep Reading

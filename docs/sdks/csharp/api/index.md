@@ -4,15 +4,15 @@ title: C# SDK API
 
 # C# SDK API
 
-当前 API 以 `sdks/csharp/src` 中的实现为准。
+The current API reference is the implementation under `sdks/csharp/src`.
 
-## 核心对象
+## Core Objects
 
 - `CroupierClient`
 - `ClientConfig`
 - `FunctionDescriptor`
 
-## 继续阅读
+## Keep Reading
 
-- [C# SDK 首页](/sdks/csharp/)
-- [C# SDK 指南](/sdks/csharp/guide/)
+- [C# SDK landing page](/sdks/csharp/)
+- [C# SDK Guide](/sdks/csharp/guide/)

@@ -1,22 +1,22 @@
 ---
-title: Java SDK 指南
+title: Java SDK Guide
 ---
 
-# Java SDK 指南
+# Java SDK Guide
 
-## 集成建议
+## Integration Advice
 
-- 统一通过 Gradle 或 Maven 管理 SDK 版本
-- 把业务处理器与连接配置分层，避免耦合在启动类中
-- 协议升级时同步检查生成代码和测试
+- Manage the SDK version uniformly through Gradle or Maven
+- Layer business handlers separately from connection configuration to avoid coupling them into startup classes
+- When upgrading the protocol, check generated code and tests at the same time
 
-## 并发模型
+## Concurrency Model
 
-Java SDK 更适合作为长生命周期服务组件运行。线程池、超时和重试策略应由业务方显式控制。
+The Java SDK works best as a long-lived service component. Thread pools, timeouts, and retry policies should be controlled explicitly by the business side.
 
-## OpenAPI 导入（Descriptor v2）
+## OpenAPI Import (Descriptor v2)
 
-`OpenAPIImporter.registerFromOpenAPI(client, spec, options, resolver)` 在本地解析 OpenAPI 3 JSON，把每个 operation 转换为 `FunctionDescriptor` 并注册，handler 按 function ID（即 operationId，缺失时由 path 回退为 `a.b.c`）查找：
+`OpenAPIImporter.registerFromOpenAPI(client, spec, options, resolver)` parses the OpenAPI 3 JSON locally, converts each operation into a `FunctionDescriptor`, and registers it. Handlers are looked up by function ID (i.e. the operationId, falling back to a path-derived `a.b.c` when missing):
 
 ```java
 OpenAPIImporter.ImportOptions options = new OpenAPIImporter.ImportOptions()
@@ -30,20 +30,20 @@ OpenAPIImporter.registerFromOpenAPIWithHandlers(
     Map.of("player_ban", (ctx, payload) -> "{\"ok\":true}"));
 ```
 
-转换规则与 Go SDK 一致：`inputSchema` 取 requestBody 的 `application/json` schema，`outputSchema` 取 200 响应 schema；`x-resource`/`x-operation`/`x-permission`/`x-capability`/`x-execution`/`x-risk` 直接映射到同名字段；`x-approval: {required, policyKey}` 映射到 `approvalRequired`/`approvalPolicyKey`。
+The conversion rules match the Go SDK: `inputSchema` comes from the requestBody's `application/json` schema, `outputSchema` from the 200 response schema; `x-resource`/`x-operation`/`x-permission`/`x-capability`/`x-execution`/`x-risk` map directly to the same-named fields; `x-approval: {required, policyKey}` maps to `approvalRequired`/`approvalPolicyKey`.
 
-- `capability` 枚举：`collection_query|item_query|create|update|delete|action|task|report`
-- `execution` 枚举：`sync|task`
-- `risk` 词表：`safe|warning|high|danger`
-- `defaultTimeoutMs` 为 Go 契约对齐项，当前 Java descriptor 尚无超时字段，仅记录不生效
-- `continueOnError` 开启后单个 operation 缺 handler 或注册失败会跳过并继续
+- `capability` enum: `collection_query|item_query|create|update|delete|action|task|report`
+- `execution` enum: `sync|task`
+- `risk` vocabulary: `safe|warning|high|danger`
+- `defaultTimeoutMs` exists for Go contract alignment; the Java descriptor has no timeout field yet, so it is recorded but has no effect
+- With `continueOnError` enabled, an operation missing a handler or failing registration is skipped and the import continues
 
-## Agent 入站请求与探针
+## Agent Inbound Requests and Probes
 
-Agent 会周期性向 provider 下发 `ProviderHeartbeatRequest` 探针（provider keepalive）。SDK 已内置处理：回空 `ProviderHeartbeatResponse`（pong），无需业务代码参与。不响应探针会被 agent 判定为死会话并摘除注册。
+The Agent periodically sends `ProviderHeartbeatRequest` probes to providers (provider keepalive). The SDK handles these out of the box: it replies with an empty `ProviderHeartbeatResponse` (pong), no business code required. Failing to answer probes makes the agent treat the session as dead and remove the registration.
 
-遇到无法识别的入站消息类型时，SDK 抛出的 `CroupierException` 会携带消息类型名（如 `Unsupported local request type: RegisterRequest (0x...)`），便于日志定位。
+When an unrecognized inbound message type arrives, the `CroupierException` thrown by the SDK carries the message type name (e.g. `Unsupported local request type: RegisterRequest (0x...)`) to make log triage easier.
 
-## 继续阅读
+## Keep Reading
 
-- [API 参考](../api/)
+- [API Reference](../api/)

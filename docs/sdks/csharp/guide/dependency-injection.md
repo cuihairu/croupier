@@ -1,9 +1,9 @@
-# 依赖注入
+# Dependency Injection
 
-C# SDK 适合在 ASP.NET Core 或后台服务中通过依赖注入集成。
+The C# SDK integrates well via dependency injection in ASP.NET Core or background services.
 
-## 建议
+## Recommendations
 
-- `CroupierClient` 使用单例或受控生命周期
-- 处理器和业务服务解耦
-- 配置通过 `IOptions<T>` 注入
+- Register `CroupierClient` as a singleton or with a controlled lifetime
+- Keep handlers decoupled from business services
+- Inject configuration via `IOptions<T>`

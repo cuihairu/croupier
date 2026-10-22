@@ -1,13 +1,13 @@
 ---
-title: Go SDK 示例
+title: Go SDK Examples
 ---
 
-# Go SDK 示例
+# Go SDK Examples
 
-示例代码位于 `sdks/go/examples`，建议把它们视为最贴近当前实现的使用参考。
+The example code lives in `sdks/go/examples`; treat it as the usage reference closest to the current implementation.
 
-## 建议
+## Recommendations
 
-- 用示例验证连接配置
-- 用示例验证处理器注册方式
-- 升级协议后优先检查示例是否仍可编译
+- Use the examples to verify connection configuration
+- Use the examples to verify handler registration patterns
+- After a protocol upgrade, first check whether the examples still compile

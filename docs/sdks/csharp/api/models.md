@@ -1,6 +1,6 @@
-# 模型 API 参考
+# Models API Reference
 
-## 核心模型
+## Core Models
 
 - `FunctionDescriptor`
 - `ClientConfig`
@@ -10,17 +10,17 @@
 - `JobStatus`
 - `BatchInvokeRequest`
 
-## FunctionDescriptor v2 字段
+## FunctionDescriptor v2 Fields
 
-| 字段                | 说明                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| `Capability`        | 能力类型：`collection_query\|item_query\|create\|update\|delete\|action\|task\|report` |
-| `Execution`         | 执行方式：`sync\|task`                                                                 |
-| `ApprovalRequired`  | 是否必须在执行前完成审批                                                               |
-| `ApprovalPolicyKey` | 可选审批流程标识                                                                       |
-| `Risk`              | 风险级别：`safe\|warning\|high\|danger`                                                |
-| `Resource`          | 业务资源或能力域标识                                                                   |
-| `Operation`         | 业务动作标识                                                                           |
-| `Permission`        | 权限标识                                                                               |
+| Field               | Description                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `Capability`        | Capability type: `collection_query\|item_query\|create\|update\|delete\|action\|task\|report` |
+| `Execution`         | Execution mode: `sync\|task`                                                                  |
+| `ApprovalRequired`  | Whether approval must complete before execution                                               |
+| `ApprovalPolicyKey` | Optional approval workflow identifier                                                         |
+| `Risk`              | Risk level: `safe\|warning\|high\|danger`                                                     |
+| `Resource`          | Business resource or capability-domain identifier                                             |
+| `Operation`         | Business action identifier                                                                    |
+| `Permission`        | Permission identifier                                                                         |
 
-审批与执行方式正交：需要审批的批量操作可同时设置 `Execution = "task"` 与 `ApprovalRequired = true`。OpenAPI 导入的对应扩展字段（`x-capability`/`x-execution`/`x-approval` 等）见 OpenAPI 导入指南。
+Approval and execution mode are orthogonal: a batch operation that requires approval can set both `Execution = "task"` and `ApprovalRequired = true`. For the corresponding OpenAPI import extension fields (`x-capability`/`x-execution`/`x-approval`, etc.), see the OpenAPI import guide.

@@ -1,16 +1,16 @@
-# Client API 参考
+# Client API Reference
 
-`CroupierClient` 是 C++ SDK 的核心入口。
+`CroupierClient` is the core entry point of the C++ SDK.
 
-## 常见职责
+## Typical Responsibilities
 
-- 建立与 Agent 的 session
-- 注册函数、资源能力和组件
-- 维持心跳、重连和请求处理循环
-- 管理关闭与资源释放
+- Establishing a session with the Agent
+- Registering functions, resource capabilities, and components
+- Maintaining heartbeats, reconnection, and the request-handling loop
+- Managing shutdown and resource release
 
-## 集成建议
+## Integration Advice
 
-- 将连接配置与业务处理器分离
-- 在服务启动阶段完成注册
-- 对高风险函数显式设置风险等级和 schema
+- Keep connection configuration separate from business handlers
+- Complete registration during service startup
+- Explicitly set risk levels and schemas for high-risk functions

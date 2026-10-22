@@ -1,12 +1,12 @@
-# 安装
+# Installation
 
-## NuGet 安装
+## Install from NuGet
 
 ```bash
 dotnet add package Croupier.Sdk
 ```
 
-## 从源码构建
+## Build from Source
 
 ```bash
 dotnet build

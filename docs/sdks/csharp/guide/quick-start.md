@@ -1,11 +1,11 @@
-# 快速开始
+# Quick Start
 
-## 系统要求
+## Requirements
 
-- .NET 10.0 SDK 或更高版本
-- 可访问的 Croupier Agent
+- .NET 10.0 SDK or later
+- A reachable Croupier Agent
 
-## 最小示例
+## Minimal Example
 
 ```csharp
 using Croupier.Sdk;

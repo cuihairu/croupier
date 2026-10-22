@@ -3,7 +3,7 @@ title: C++ SDK
 icon: file-code
 order: 1
 category:
-  - SDK 文档
+  - SDK Documentation
 tag:
   - C++
   - SDK
@@ -11,81 +11,81 @@ tag:
 
 # Croupier C++ SDK
 
-本文档描述的是 C++ SDK 在主仓库中的统一设计基线，不再沿用历史 `gRPC`、SDK 本地监听或默认原生传输依赖的写法。
+This document describes the unified design baseline for the C++ SDK in the main repository. It no longer follows the legacy `gRPC`, SDK-local-listener, or default native transport dependency patterns.
 
-## 当前定位
+## Current Positioning
 
-C++ SDK 的目标定位很明确：
+The C++ SDK has a clear target role:
 
-- 作为业务程序内嵌依赖
-- 主动连接 Agent 本地 gateway
-- 在单条 session 上完成注册、心跳、调用与作业控制
-- 默认使用 JSON payload
-- 按需启用 TLS
+- An embedded dependency inside business applications
+- Actively connects to the Agent's local gateway
+- Handles registration, heartbeats, invocations, and job control over a single session
+- Uses JSON payloads by default
+- Enables TLS on demand
 
-这意味着：
+This means:
 
-- 不再要求 SDK 开本地端口
-- 不再要求业务接入方维护 `rpc_addr`
-- 不再把 `gRPC` 作为当前默认链路
-- 不再把 `旧传输` 写成默认必选依赖
+- The SDK no longer needs to open local ports
+- Integrators no longer need to maintain `rpc_addr`
+- `gRPC` is no longer the default link
+- The legacy transport is no longer a mandatory default dependency
 
-## 当前设计基线
+## Current Design Baseline
 
-### 传输
+### Transport
 
-- 默认 transport：独立 `tcp session`
-- 默认安全策略：内网场景可明文，跨主机或合规场景启用 `tls`
-- 首帧：`ProviderConnectRequest`
-- 同一连接支持双向 request/response 复用
+- Default transport: an independent `tcp session`
+- Default security policy: plaintext is acceptable on intranets; enable `tls` for cross-host or compliance-sensitive scenarios
+- First frame: `ProviderConnectRequest`
+- The same connection supports bidirectional request/response multiplexing
 
-### 会话
+### Session
 
-- SDK 建连后建立 `provider session`
-- Agent 基于既有 session 向 SDK 下发调用请求
-- 断线后旧 session 立即失效
-- SDK 自动重连后重新发起 `ProviderConnectRequest`
+- The SDK establishes a `provider session` after connecting
+- The Agent dispatches invocation requests to the SDK over the existing session
+- Once disconnected, the old session becomes invalid immediately
+- After automatic reconnection, the SDK sends `ProviderConnectRequest` again
 
-### 数据
+### Data
 
-- 平台协议：protobuf
-- 业务 payload：UTF-8 JSON
-- `input_schema` / `output_schema`（C++ 成员名；对应契约键 `inputSchema` / `outputSchema`）：JSON Schema，可选
+- Platform protocol: protobuf
+- Business payload: UTF-8 JSON
+- `input_schema` / `output_schema` (C++ member names; corresponding contract keys `inputSchema` / `outputSchema`): JSON Schema, optional
 
-## C++ SDK 应向接入方暴露的核心能力
+## Core Capabilities the C++ SDK Should Expose
 
-- 连接管理
+- Connection management
   - `address`
   - `connect timeout`
   - `request timeout`
   - `tls`
-- 会话管理
+- Session management
   - `ProviderConnect`
   - `heartbeat`
   - `drain`
-  - 重连
-- 注册与调用
-  - 注册函数描述符
-  - 处理 Agent 下发的 `InvokeRequest`
-  - 处理作业型请求
-- 业务编解码
-  - 原生对象 <-> JSON
+  - Reconnection
+- Registration and invocation
+  - Registering function descriptors
+  - Handling `InvokeRequest` dispatched by the Agent
+  - Handling job-style requests
+- Business encoding/decoding
+  - Native objects <-> JSON
 
-## 不再推荐的旧模型
+## Legacy Models No Longer Recommended
 
-以下内容如果仍出现在文档、示例或 README 中，都属于过时设计：
+If any of the following still appear in documentation, examples, or READMEs, they are outdated designs:
 
-- SDK 本地 `gRPC server`
-- SDK 本地 `NNGServer`
+- A local `gRPC server` inside the SDK
+- A local `NNGServer` inside the SDK
 - `LocalControlService`
 - `RegisterLocal`
 - `rpc_addr`
 - `local_listen`
-- “Agent 回拨 SDK”
+- "Agent calls back into the SDK"
 
-## 概念性接入流程
+## Conceptual Onboarding Flow
 
-下面是概念流程，不代表某个具体 API 名字必须完全一致：
+The flow below is conceptual; concrete API names do not have to match it exactly:
 
 ```cpp
 ClientOptions options;
@@ -100,30 +100,30 @@ provider.registerFunction(descriptor, handler);
 provider.serve();
 ```
 
-语义说明：
+Semantic notes:
 
-- `serve()` 表示维持 session 生命周期与处理下行请求
-- `serve()` 不再表示“启动本地监听服务”
+- `serve()` means maintaining the session lifecycle and handling downstream requests
+- `serve()` no longer means "start a local listener service"
 
-## 推荐文档边界
+## Recommended Documentation Boundaries
 
-主仓库中的 C++ SDK 文档只应说明：
+The C++ SDK documentation in the main repository should only cover:
 
-- 协议基线
-- 传输基线
-- 配置语义
-- 禁止项
+- Protocol baseline
+- Transport baseline
+- Configuration semantics
+- Prohibited items
 
-具体 API 名称、构建脚本、发布工件和示例代码，应以 `croupier-sdk-cpp` 仓库为准。
+Concrete API names, build scripts, release artifacts, and example code are owned by the `croupier-sdk-cpp` repository.
 
-## 文档入口
+## Documentation Entry Points
 
-- [指南](./guide/)
+- [Guide](./guide/)
 - [API](./api/)
-- [配置](./configuration/)
-- [示例](./examples/)
+- [Configuration](./configuration/)
+- [Examples](./examples/)
 
-## 相关文档
+## Related Documents
 
-- [SDK 文档](../../sdks/)
+- [SDK Documentation](../../sdks/)
 - [SDK Wire Protocol](../../zh/architecture/sdk-wire-protocol.md)

@@ -1,16 +1,16 @@
-# 函数注册 API
+# Function Registration API
 
-函数注册是 C++ SDK 最基础的能力。
+Function registration is the most fundamental capability of the C++ SDK.
 
-## 关键概念
+## Key Concepts
 
-- `FunctionDescriptor`: 函数元数据
-- `FunctionHandler`: 业务处理器
-- `RegisterFunction(...)`: 注册函数
+- `FunctionDescriptor`: function metadata
+- `FunctionHandler`: business handler
+- `RegisterFunction(...)`: registers a function
 
-## OpenAPI 导入 API
+## OpenAPI Import API
 
-头文件：`croupier/sdk/openapi_importer.h`（命名空间 `croupier::sdk::openapi`）。
+Header: `croupier/sdk/openapi_importer.h` (namespace `croupier::sdk::openapi`).
 
 ```cpp
 std::vector<std::string> RegisterFromOpenAPI(
@@ -27,12 +27,12 @@ std::vector<std::string> RegisterFromOpenAPIWithHandlers(
     const std::map<std::string, FunctionHandler>& handlers);
 ```
 
-- `ImportOptions`：`resource_prefix`、`tag_prefix`、`default_timeout_ms`（Go 契约对齐；当前 C++ provider wire 契约无 timeout 字段，不写入 descriptor）、`continue_on_error`
-- 返回成功注册的函数 ID 列表；spec 非法或缺少 handler 时抛 `std::runtime_error`（`continue_on_error = true` 时跳过失败项）
-- 扩展映射：`x-capability` → `capability`、`x-execution` → `execution`、`x-approval`（`required` / `policyKey`）→ `approval_required` / `approval_policy_key`
+- `ImportOptions`: `resource_prefix`, `tag_prefix`, `default_timeout_ms` (kept for Go contract alignment; the current C++ provider wire contract has no timeout field, so it is not written into the descriptor), `continue_on_error`
+- Returns the list of successfully registered function IDs; throws `std::runtime_error` on an invalid spec or a missing handler (with `continue_on_error = true`, failures are skipped)
+- Extension mappings: `x-capability` → `capability`, `x-execution` → `execution`, `x-approval` (`required` / `policyKey`) → `approval_required` / `approval_policy_key`
 
-## 建议
+## Recommendations
 
-- 保持函数 ID 稳定
-- 描述符至少包含 `id` 和 `version`
-- 对输入输出使用 JSON 结构并按需附带 schema
+- Keep function IDs stable
+- Descriptors must include at least `id` and `version`
+- Use JSON structures for inputs and outputs, attaching schemas as needed

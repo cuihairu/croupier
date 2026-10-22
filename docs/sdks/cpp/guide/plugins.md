@@ -1,14 +1,14 @@
-# 插件
+# Plugins
 
-本文是 C++ SDK 动态插件能力的 canonical 入口。插件用于在运行时加载业务扩展，但不改变 SDK 与 Agent 之间的统一 session 基线。
+This page is the canonical entry point for the C++ SDK's dynamic plugin capability. Plugins load business extensions at runtime without changing the unified session baseline between the SDK and the Agent.
 
-## 使用场景
+## Use Cases
 
-- 将业务函数打包成独立动态库。
-- 在不重启宿主程序的情况下加载扩展能力。
-- 将示例、测试或特定游戏域能力与主 SDK 解耦。
+- Package business functions as standalone dynamic libraries.
+- Load extension capabilities without restarting the host application.
+- Decouple examples, tests, or game-domain-specific capabilities from the main SDK.
 
-## 构建与运行
+## Build and Run
 
 ```bash
 cmake -B build -DBUILD_EXAMPLES=ON \
@@ -17,15 +17,15 @@ cmake --build build --config Release
 ./build/bin/croupier-plugin-demo
 ```
 
-示例插件产物通常位于：
+The example plugin artifact is usually located at:
 
 - Windows: `build/plugins/example_plugin.dll`
 - macOS: `build/plugins/libexample_plugin.dylib`
 - Linux: `build/plugins/libexample_plugin.so`
 
-## 插件导出接口
+## Plugin Export Interface
 
-插件应导出稳定的 C ABI，避免 C++ ABI 差异影响运行时加载：
+Plugins should export a stable C ABI so that C++ ABI differences do not affect runtime loading:
 
 ```cpp
 extern "C" {
@@ -35,7 +35,7 @@ extern "C" {
 }
 ```
 
-业务函数推荐使用 JSON 输入输出：
+Business functions are recommended to use JSON input/output:
 
 ```cpp
 extern "C" {
@@ -43,18 +43,18 @@ extern "C" {
 }
 ```
 
-| 参数      | 说明                                   |
-| --------- | -------------------------------------- |
-| `context` | 执行上下文，通常是 JSON 字符串         |
-| `payload` | 输入数据，通常是 JSON 字符串           |
-| return    | 输出数据，必须在调用方读取期间保持有效 |
+| Parameter | Description                                              |
+| --------- | -------------------------------------------------------- |
+| `context` | Execution context, usually a JSON string                 |
+| `payload` | Input data, usually a JSON string                        |
+| return    | Output data; must remain valid while the caller reads it |
 
-## 实现要求
+## Implementation Requirements
 
-- `croupier_plugin_init()` 返回 `0` 表示初始化成功。
-- `croupier_plugin_info()` 返回插件元数据和函数清单。
-- `croupier_plugin_cleanup()` 负责释放插件级资源。
-- 插件函数不得依赖 SDK 本地监听或 Agent 回拨模型。
-- 插件内注册的函数 ID 应稳定，便于 Dashboard、权限和审计引用。
+- `croupier_plugin_init()` returning `0` means initialization succeeded.
+- `croupier_plugin_info()` returns the plugin metadata and function manifest.
+- `croupier_plugin_cleanup()` releases plugin-level resources.
+- Plugin functions must not depend on the SDK local-listener or Agent callback model.
+- Function IDs registered inside a plugin should be stable so the Dashboard, permissions, and audits can reference them.
 
-## 相关页面
+## Related Pages

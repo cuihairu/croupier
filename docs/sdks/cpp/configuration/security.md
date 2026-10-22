@@ -1,11 +1,11 @@
-# 安全配置
+# Security Configuration
 
-## 规则
+## Rules
 
-- 本机或受控内网可以不开 TLS
-- 跨主机、跨网段或合规要求场景启用 TLS
-- 双向身份校验场景启用 mTLS
+- TLS may stay off on localhost or a controlled intranet
+- Enable TLS for cross-host, cross-segment, or compliance-sensitive scenarios
+- Enable mTLS when mutual authentication is required
 
-## 注意
+## Note
 
-- TLS 是 session 的安全配置，不是新的 transport kind
+- TLS is the session's security configuration, not a new transport kind

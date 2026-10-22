@@ -1,28 +1,28 @@
 ---
-title: SDK 文档
+title: SDK Documentation
 ---
 
-# SDK 文档
+# SDK Documentation
 
-本目录是官方 SDK 的站点文档入口，重点描述跨语言契约、能力矩阵、接入方式和语言使用指南。SDK 源目录 `sdks/<lang>/README.md` 只作为对应语言包的开发、构建和发布入口。
+This directory is the documentation entry point for the official SDKs. It focuses on cross-language contracts, the capability matrix, onboarding, and per-language usage guides. The SDK source directories `sdks/<lang>/README.md` serve only as the development, build, and release entry points for each language package.
 
-## 文档边界
+## Documentation Boundaries
 
-| 位置                     | 职责                                                               |
-| ------------------------ | ------------------------------------------------------------------ |
-| `docs/sdks/`             | 使用者文档、能力矩阵、跨语言行为约束                               |
-| `docs/sdks/<lang>/`      | 单语言接入指南、API 概览、示例说明                                 |
-| `sdks/<lang>/README.md`  | 源码目录入口、构建、测试、发布、包管理说明                         |
-| `sdks/<lang>/*_GUIDE.md` | 迁移期遗留文档；正式内容应逐步合并回 `docs/sdks/<lang>/` 或 README |
+| Location                 | Responsibility                                                                                        |
+| ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `docs/sdks/`             | User-facing documentation, capability matrix, cross-language behavior rules                           |
+| `docs/sdks/<lang>/`      | Per-language onboarding guides, API overviews, example walkthroughs                                   |
+| `sdks/<lang>/README.md`  | Source directory entry point: builds, tests, releases, package management                             |
+| `sdks/<lang>/*_GUIDE.md` | Legacy migration-era documents; content should gradually merge into `docs/sdks/<lang>/` or the README |
 
-## 当前统一基线
+## Current Unified Baseline
 
-- L1/L2 Provider 使用 Agent 本地 gateway 上的 TCP session；L3 Invoker 是独立调用方，只调用 Server HTTP API，不复用 Provider session。
-- SDK 不应再暴露 `rpc_addr`、`local_listen` 或本地 server 回拨语义。
+- L1/L2 Providers use a TCP session on the Agent's local gateway; the L3 Invoker is a standalone caller that only talks to the Server HTTP API and does not reuse Provider sessions.
+- SDKs must no longer expose `rpc_addr`, `local_listen`, or local server callback semantics.
 
-## 语言入口
+## Language Entry Points
 
-| 语言       | 文档入口                    | 源码入口                |
+| Language   | Documentation               | Source                  |
 | ---------- | --------------------------- | ----------------------- |
 | C++        | [C++ SDK](/sdks/cpp/)       | `sdks/cpp/README.md`    |
 | Go         | [Go SDK](/sdks/go/)         | `sdks/go/README.md`     |
@@ -31,8 +31,8 @@ title: SDK 文档
 | Python     | [Python SDK](/sdks/python/) | `sdks/python/README.md` |
 | C#         | [C# SDK](/sdks/csharp/)     | `sdks/csharp/README.md` |
 
-## 迁移要求
+## Migration Requirements
 
-- 新增使用者文档必须写入 `docs/sdks/<lang>/`。
-- 新增构建、测试、发布说明必须写入 `sdks/<lang>/README.md` 或同目录开发文档。
-- C++ 当前存在多份配置、插件、资源文档，迁移时应先选定 canonical 内容，再将重复页改成跳转或归档。
+- New user-facing documentation must go into `docs/sdks/<lang>/`.
+- New build, test, and release notes must go into `sdks/<lang>/README.md` or a development document in the same directory.
+- C++ currently has multiple configuration, plugin, and resource documents. When migrating, pick the canonical content first, then turn duplicate pages into redirects or archive them.

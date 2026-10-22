@@ -4,19 +4,19 @@ title: Java SDK
 
 # Java SDK
 
-Java SDK 面向 JVM 服务，提供连接 Agent、注册函数和处理调用的核心能力。
+The Java SDK targets JVM services and provides the core capabilities for connecting to the Agent, registering functions, and handling invocations.
 
-## 代码位置
+## Code Location
 
 - `sdks/java`
 
-## 特性
+## Features
 
-- JDK 17+ 支持
-- 适合集成到现有 JVM 服务或 Spring 体系
-- 与 monorepo 协议演进统一管理
+- JDK 17+ support
+- Fits existing JVM services or the Spring ecosystem
+- Protocol evolution managed together with the monorepo
 
-## 快速开始
+## Quick Start
 
 ```xml
 <dependency>
@@ -26,8 +26,8 @@ Java SDK 面向 JVM 服务，提供连接 Agent、注册函数和处理调用的
 </dependency>
 ```
 
-## 继续阅读
+## Keep Reading
 
-- [指南](/sdks/java/guide/)
-- [API 参考](/sdks/java/api/)
-- [仓库 README](https://github.com/cuihairu/croupier/tree/main/sdks/java)
+- [Guide](/sdks/java/guide/)
+- [API Reference](/sdks/java/api/)
+- [Repository README](https://github.com/cuihairu/croupier/tree/main/sdks/java)

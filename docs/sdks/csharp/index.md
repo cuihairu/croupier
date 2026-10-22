@@ -4,25 +4,25 @@ title: C# SDK
 
 # C# SDK
 
-官方 .NET SDK，用于连接 Croupier Agent、注册函数并在服务端处理调用。
+The official .NET SDK for connecting to the Croupier Agent, registering functions, and handling invocations server-side.
 
-## 代码位置
+## Code Location
 
 - `sdks/csharp`
 
-## 特性
+## Features
 
-- .NET 10+ 支持
-- 异步 API 优先
-- 支持依赖注入、配置体系与日志抽象
+- .NET 10+ support
+- Async-API first
+- Dependency injection, configuration system, and logging abstractions supported
 
-## 安装
+## Installation
 
 ```bash
 dotnet add package Croupier.Sdk
 ```
 
-## 快速开始
+## Quick Start
 
 ```csharp
 using Croupier.Sdk;
@@ -34,8 +34,8 @@ var client = new CroupierClient(new ClientConfig {
 });
 ```
 
-## 继续阅读
+## Keep Reading
 
-- [指南](/sdks/csharp/guide/)
-- [API 参考](/sdks/csharp/api/)
-- [仓库 README](https://github.com/cuihairu/croupier/tree/main/sdks/csharp)
+- [Guide](/sdks/csharp/guide/)
+- [API Reference](/sdks/csharp/api/)
+- [Repository README](https://github.com/cuihairu/croupier/tree/main/sdks/csharp)

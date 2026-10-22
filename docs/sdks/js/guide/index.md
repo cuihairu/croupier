@@ -1,25 +1,25 @@
 ---
-title: JavaScript SDK 指南
+title: JavaScript SDK Guide
 ---
 
-# JavaScript SDK 指南
+# JavaScript SDK Guide
 
-## 集成建议
+## Integration Advice
 
-- 优先在 Node.js 24+ 环境运行
-- 将业务处理器按领域拆分，避免单个入口过重
-- 与 `proto/**` 同步升级，避免 SDK 与服务端协议漂移
+- Prefer running on Node.js 24+
+- Split business handlers by domain so no single entry point gets too heavy
+- Upgrade in sync with `proto/**` to avoid protocol drift between the SDK and the server
 
-## 并发与线程模型
+## Concurrency and Threading Model
 
-JavaScript SDK 运行在单进程事件循环模型上。阻塞型 CPU 任务应移交给 Worker 或外部服务，避免影响 Agent 回调处理时延。
+The JavaScript SDK runs on a single-process event loop. Move blocking CPU work to Workers or external services so Agent callback latency is unaffected.
 
-## 约定
+## Conventions
 
-- 使用稳定的函数 ID，例如 `player.ban`
-- 版本号与变更级别对应，不要把破坏性变更塞进补丁版本
-- 对输入输出 JSON 结构保持显式约束
+- Use stable function IDs, e.g. `player.ban`
+- Match version numbers to the level of change; never smuggle breaking changes into a patch release
+- Keep explicit constraints on input/output JSON structures
 
-## 继续阅读
+## Keep Reading
 
-- [API 参考](../api/)
+- [API Reference](../api/)

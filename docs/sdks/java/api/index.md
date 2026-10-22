@@ -4,16 +4,16 @@ title: Java SDK API
 
 # Java SDK API
 
-当前 API 文档以 `sdks/java` 中的源码和生成类型为准。
+The current API documentation follows the source code and generated types in `sdks/java`.
 
-## 核心对象
+## Core Objects
 
 - `ClientConfig`
 - `CroupierClient`
-- 相关描述符与处理器类型
-- `OpenAPIImporter` / `OpenAPIImporter.ImportOptions`（OpenAPI 3 导入，支持 Descriptor v2 的 capability/execution/approval 扩展）
+- Related descriptor and handler types
+- `OpenAPIImporter` / `OpenAPIImporter.ImportOptions` (OpenAPI 3 import, supporting the Descriptor v2 capability/execution/approval extensions)
 
-## 继续阅读
+## Keep Reading
 
-- [Java SDK 首页](/sdks/java/)
-- [Java SDK 指南](/sdks/java/guide/)
+- [Java SDK landing page](/sdks/java/)
+- [Java SDK Guide](/sdks/java/guide/)

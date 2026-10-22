@@ -1,5 +1,5 @@
-# 插件示例
+# Plugin Example
 
-插件示例用于验证动态加载、函数发现和运行时扩展。
+The plugin example verifies dynamic loading, function discovery, and runtime extension.
 
-## 继续阅读
+## Keep Reading

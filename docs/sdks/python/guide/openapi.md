@@ -1,10 +1,10 @@
 ---
-title: OpenAPI 导入
+title: OpenAPI Import
 ---
 
-# OpenAPI 导入
+# OpenAPI Import
 
-Python SDK 提供与 Go SDK `RegisterFromOpenAPI` 对齐的导入 helper，可把 OpenAPI 3 spec 的每个 operation 转换为 `FunctionDescriptor` 并注册：
+The Python SDK provides an import helper aligned with the Go SDK's `RegisterFromOpenAPI`. It converts each operation of an OpenAPI 3 spec into a `FunctionDescriptor` and registers it:
 
 ```python
 from croupier import CroupierClient, ImportOptions, register_from_openapi
@@ -12,41 +12,41 @@ from croupier import CroupierClient, ImportOptions, register_from_openapi
 client = CroupierClient(config)
 registered = register_from_openapi(
     client,
-    spec_data,  # JSON 字符串/bytes 或已解析的 dict
+    spec_data,  # JSON string/bytes or an already-parsed dict
     ImportOptions(resource_prefix="game", tag_prefix="svc-"),
     handler_resolver=lambda function_id: handlers.get(function_id),
 )
 ```
 
-handler 按 operationId（或 path 回退派生的 ID）查找；也可以用 `handlers={"player_ban": handler}` 映射代替 `handler_resolver`。
+Handlers are looked up by operationId (or a path-derived fallback ID); you can also pass a `handlers={"player_ban": handler}` mapping instead of `handler_resolver`.
 
 ## ImportOptions
 
-- `resource_prefix`：为非空 `x-resource` 追加前缀，如 `game.player`
-- `tag_prefix`：为 tags 追加前缀
-- `default_timeout_ms`：为与 Go ImportOptions 对齐而保留；Python descriptor 暂无 timeout 字段
-- `continue_on_error`：单个 operation 转换或注册失败时跳过而不是抛错
+- `resource_prefix`: prefixes non-empty `x-resource` values, e.g. `game.player`
+- `tag_prefix`: prefixes tags
+- `default_timeout_ms`: kept for alignment with the Go ImportOptions; the Python descriptor has no timeout field yet
+- `continue_on_error`: skip an operation whose conversion or registration fails instead of raising
 
-## 字段转换规则
+## Field Conversion Rules
 
-| OpenAPI 来源                                  | FunctionDescriptor 字段                     |
-| --------------------------------------------- | ------------------------------------------- |
-| `operationId`（无则 path 转 `a.b.c`）         | `id`                                        |
-| `summary`（无则 titleCase(operationId))       | `summary`                                   |
-| requestBody `application/json` schema         | `input_schema`                              |
-| 200 响应 `application/json` schema            | `output_schema`                             |
-| `x-resource` / `x-operation` / `x-permission` | `resource` / `operation` / `permission`     |
-| `x-capability`                                | `capability`（受控枚举，非法值丢弃）        |
-| `x-execution`                                 | `execution`（`sync` \| `task`，非法值丢弃） |
-| `x-approval`                                  | `approval_required` / `approval_policy_key` |
-| `x-risk`                                      | `risk`                                      |
+| OpenAPI source                                 | FunctionDescriptor field                               |
+| ---------------------------------------------- | ------------------------------------------------------ |
+| `operationId` (path-derived `a.b.c` if absent) | `id`                                                   |
+| `summary` (titleCase(operationId) if absent)   | `summary`                                              |
+| requestBody `application/json` schema          | `input_schema`                                         |
+| 200 response `application/json` schema         | `output_schema`                                        |
+| `x-resource` / `x-operation` / `x-permission`  | `resource` / `operation` / `permission`                |
+| `x-capability`                                 | `capability` (controlled enum, invalid values dropped) |
+| `x-execution`                                  | `execution` (`sync` \| `task`, invalid values dropped) |
+| `x-approval`                                   | `approval_required` / `approval_policy_key`            |
+| `x-risk`                                       | `risk`                                                 |
 
-`x-approval` 形如 `{"required": true, "policyKey": "gm.player.ban"}`，与 execution 正交。
+`x-approval` looks like `{"required": true, "policyKey": "gm.player.ban"}` and is orthogonal to execution.
 
-`x-risk` 输出统一为 canonical 词表 `safe|warning|high|danger`；`low`/`medium`/`moderate` 是废弃别名，导入时分别归一为 `safe`/`warning`。
+`x-risk` output is normalized to the canonical vocabulary `safe|warning|high|danger`; `low`/`medium`/`moderate` are deprecated aliases, normalized to `safe`/`warning` respectively at import time.
 
-## 完整示例
+## Full Example
 
-参见 `sdks/python/examples/game_demo.py` 与 `sdks/python/tests/test_openapi.py`。
+See `sdks/python/examples/game_demo.py` and `sdks/python/tests/test_openapi.py`.
 
-完整契约见 [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md)。
+For the full contract, see [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md).

@@ -1,13 +1,13 @@
-# 环境配置
+# Environments
 
-建议使用明确的 profile 概念区分运行环境：
+Use explicit profiles to distinguish runtime environments:
 
 - `local-dev`
 - `intra-cluster`
 - `cross-zone-tls`
 - `cross-zone-mtls`
 
-## 建议
+## Recommendations
 
-- 开发环境允许明文
-- 跨主机和合规环境启用 TLS 或 mTLS
+- Plaintext is acceptable in development environments
+- Enable TLS or mTLS for cross-host and compliance-sensitive environments

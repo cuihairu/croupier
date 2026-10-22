@@ -1,4 +1,4 @@
-# 快速开始
+# Quick Start
 
 ```cpp
 #include "croupier/sdk/croupier_client.h"
@@ -15,4 +15,4 @@ int main() {
 }
 ```
 
-## 下一步
+## Next Steps

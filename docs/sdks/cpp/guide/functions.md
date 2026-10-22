@@ -1,24 +1,24 @@
-# 函数注册
+# Function Registration
 
-## 基本流程
+## Basic Workflow
 
-1. 定义 `FunctionDescriptor`
-2. 绑定处理器
-3. 在 `Connect()` 之前完成注册
+1. Define a `FunctionDescriptor`
+2. Bind a handler
+3. Complete registration before `Connect()`
 
-## Descriptor v2 执行契约
+## Descriptor v2 Execution Contract
 
-每个 descriptor 应声明完整的 v2 执行契约：
+Each descriptor should declare the full v2 execution contract:
 
-- `capability`：`collection_query` / `item_query` / `create` / `update` / `delete` / `action` / `task` / `report`
-- `execution`：`sync` / `task`（批量扇出等长耗时操作用 `task`）
-- 高危操作（如 `risk = "danger"` / `"high"`）可声明 `approval_required = true` 并附带 `approval_policy_key`
+- `capability`: `collection_query` / `item_query` / `create` / `update` / `delete` / `action` / `task` / `report`
+- `execution`: `sync` / `task` (use `task` for long-running operations such as batch fan-out)
+- High-risk operations (e.g. `risk = "danger"` / `"high"`) may declare `approval_required = true` along with an `approval_policy_key`
 
-语义分配示例：列表 → `collection_query` + `sync`；单查 → `item_query` + `sync`；创建 → `create` + `sync`；批量 → `action` + `task`。完整示例见 `sdks/cpp/examples/game_demo.cpp`。
+Example semantic assignments: list → `collection_query` + `sync`; single-item query → `item_query` + `sync`; create → `create` + `sync`; batch → `action` + `task`. For a full example, see `sdks/cpp/examples/game_demo.cpp`.
 
-## OpenAPI 导入
+## OpenAPI Import
 
-已有 OpenAPI 3 文档时可用 `RegisterFromOpenAPI`（`croupier/sdk/openapi_importer.h`）批量导入：
+If you already have an OpenAPI 3 document, you can bulk-import it with `RegisterFromOpenAPI` (`croupier/sdk/openapi_importer.h`):
 
 ```cpp
 using croupier::sdk::openapi::ImportOptions;
@@ -37,10 +37,10 @@ handlers["player_ban"] = [](const std::string&, const std::string& payload) {
 RegisterFromOpenAPIWithHandlers(client, spec_json, options, handlers);
 ```
 
-转换规则与 Go SDK 一致：`operationId`（缺失时按 path 转 `a.b.c`）作为函数 ID；`summary` 作为名称；requestBody / 200 响应的 `application/json` schema 转为输入输出契约；`x-resource` / `x-operation` / `x-permission` / `x-risk` / `x-capability` / `x-execution` 映射到对应字段；`x-approval`（`required` / `policyKey`）映射审批字段。
+The conversion rules match the Go SDK: `operationId` (falling back to a path-derived `a.b.c` when missing) becomes the function ID; `summary` becomes the name; the `application/json` schemas of the requestBody / 200 response become the input/output contracts; `x-resource` / `x-operation` / `x-permission` / `x-risk` / `x-capability` / `x-execution` map to their corresponding fields; `x-approval` (`required` / `policyKey`) maps to the approval fields.
 
-## 建议
+## Recommendations
 
-- 函数 ID 采用 `[namespace.]resource.operation`
-- 高风险操作设置 `risk`，必要时声明审批字段
-- 处理器保持无状态或显式管理状态
+- Use `[namespace.]resource.operation` for function IDs
+- Set `risk` on high-risk operations and declare approval fields when necessary
+- Keep handlers stateless or manage state explicitly

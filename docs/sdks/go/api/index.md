@@ -4,19 +4,19 @@ title: Go SDK API
 
 # Go SDK API
 
-## 核心对象
+## Core Objects
 
 - `croupier.Client`
 - `croupier.ClientConfig`
 - `croupier.FunctionDescriptor`
 
-## 代码入口
+## Code Entry Points
 
-- 主要包：`sdks/go/pkg/croupier`
-- 示例：`sdks/go/examples`
+- Main package: `sdks/go/pkg/croupier`
+- Examples: `sdks/go/examples`
 
-## 继续阅读
+## Keep Reading
 
-- [Go SDK 首页](/sdks/go/)
-- [Go SDK 指南](/sdks/go/guide/)
-- [Go SDK 示例](/sdks/go/examples/)
+- [Go SDK landing page](/sdks/go/)
+- [Go SDK Guide](/sdks/go/guide/)
+- [Go SDK Examples](/sdks/go/examples/)

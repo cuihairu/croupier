@@ -4,17 +4,17 @@ title: Go SDK
 
 # Go SDK
 
-高性能 Go SDK，用于连接 Croupier Agent、注册函数并处理调用。
+A high-performance Go SDK for connecting to the Croupier Agent, registering functions, and handling invocations.
 
-## 代码位置
+## Code Location
 
 - `sdks/go`
 
-## 特性
+## Features
 
-- 与 monorepo 中的 `proto/**` 保持演进一致
-- 支持函数描述符、会话管理与错误处理
-- 适合服务端高并发集成
+- Evolves in lockstep with `proto/**` in the monorepo
+- Function descriptors, session management, and error handling supported
+- Well suited to high-concurrency server-side integration
 
 ```go
 metadata, _ := function.NewMetadataBuilder().
@@ -29,13 +29,13 @@ metadata, _ := function.NewMetadataBuilder().
     Build()
 ```
 
-## 安装
+## Installation
 
 ```bash
 go get github.com/cuihairu/croupier/sdks/go
 ```
 
-## 快速开始
+## Quick Start
 
 ```go
 package main
@@ -52,8 +52,8 @@ func main() {
 }
 ```
 
-## 继续阅读
+## Keep Reading
 
-- [指南](/sdks/go/guide/)
-- [API 参考](/sdks/go/api/)
-- [示例](/sdks/go/examples/)
+- [Guide](/sdks/go/guide/)
+- [API Reference](/sdks/go/api/)
+- [Examples](/sdks/go/examples/)

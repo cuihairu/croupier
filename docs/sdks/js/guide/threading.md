@@ -1,14 +1,14 @@
-# 主线程调度器
+# Main-Thread Dispatcher
 
-主线程调度器（`MainThreadDispatcher`）用于控制回调执行时机，实现批量处理和限流。
+The main-thread dispatcher (`MainThreadDispatcher`) controls when callbacks execute, enabling batching and rate limiting.
 
-## 使用场景
+## Use Cases
 
-- 控制执行时机，在主循环中批量处理回调
-- 防止大量回调堆积导致事件循环阻塞
-- 与其他语言 SDK 保持一致的抽象接口
+- Control execution timing and batch callbacks in the main loop
+- Prevent large callback backlogs from blocking the event loop
+- Keep a consistent abstraction with the other language SDKs
 
-## 基本用法
+## Basic Usage
 
 ```typescript
 import { getDispatcher } from "croupier-js-sdk/threading";
@@ -23,7 +23,7 @@ function mainLoop() {
 }
 ```
 
-## 常用接口
+## Common Interface
 
 - `initialize()`
 - `enqueue(callback)`
@@ -34,17 +34,17 @@ function mainLoop() {
 - `setMaxProcessPerFrame(max)`
 - `clear()`
 
-## 入站并发与背压
+## Inbound Concurrency and Backpressure
 
-入站请求（Agent→SDK 的 Invoke 等）由**有界 worker 池**处理：
-读循环只投递不执行业务（串行处理会让一个慢 handler 卡住整条连接）。
+Inbound requests (Invokes from the Agent→SDK, etc.) are handled by a **bounded worker pool**:
+the read loop only enqueues work and never runs business logic (serial processing would let one slow handler stall the whole connection).
 
-- 默认 worker 数 ≈ CPU 核数；待处理队列容量 ≈ `workers × 4`（突发吸收 4 轮满载）
-- 业务队列打满时**立即回 busy 错误帧**（`inbound queue full, retry on
-another instance`），Agent 侧 failover 换实例重试——SDK 内存不积累
-- 调优入口在 transport 层配置（Go：`InboundWorkers`/`InboundQLen`；
-  其他语言见各自配置章节），语义六语言一致
+- Default worker count ≈ CPU cores; pending-queue capacity ≈ `workers × 4` (absorbs about 4 rounds of full bursts)
+- When the business queue fills up, a **busy error frame is returned immediately** (`inbound queue full, retry on
+another instance`) and the Agent fails over to another instance — no memory accumulation in the SDK
+- Tuning lives in the transport-layer configuration (Go: `InboundWorkers`/`InboundQLen`;
+  other languages: see their configuration sections), with identical semantics across all six languages
 
-控制消息（心跳/注册/drain）的**双车道隔离**目前仅 Go 落地：控制请求走
-专用队列永不 reject，业务洪峰时会话仍存活（`protocol.IsControlRequest()`
-分类）。其余语言心跳与业务共用车道，待按 Go 基准迁移。
+**Two-lane isolation** for control messages (heartbeat/registration/drain) is currently Go-only: control requests go
+through a dedicated queue that is never rejected, so the session stays alive under business traffic surges (classified via
+`protocol.IsControlRequest()`). Other languages share one lane between heartbeats and business traffic, pending migration to the Go baseline.

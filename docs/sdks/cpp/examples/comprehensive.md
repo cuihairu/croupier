@@ -1,9 +1,9 @@
-# 综合示例
+# Comprehensive Example
 
-综合示例适合验证多个函数、配置项和运行时行为的组合。
+The comprehensive example is good for validating combinations of multiple functions, configuration options, and runtime behaviors.
 
-## 适用场景
+## Use Cases
 
-- 集成测试
-- 端到端联调
-- 发布前回归
+- Integration testing
+- End-to-end joint debugging
+- Pre-release regression checks

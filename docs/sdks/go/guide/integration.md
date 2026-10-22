@@ -1,12 +1,12 @@
-# Croupier Go SDK 集成指南
+# Croupier Go SDK Integration Guide
 
-## 安装
+## Installation
 
 ```bash
 go get github.com/cuihairu/croupier/sdks/go
 ```
 
-## 最小示例
+## Minimal Example
 
 ```go
 package main
@@ -27,15 +27,15 @@ func main() {
     _ = client.RegisterFunction(croupier.FunctionDescriptor{
         ID: "hello.world", Version: "0.1.0", Enabled: true,
     }, func(ctx context.Context, payload []byte) ([]byte, error) {
-        // 契约签名：FunctionHandler = func(ctx, payload []byte) ([]byte, error)
+        // Contract signature: FunctionHandler = func(ctx, payload []byte) ([]byte, error)
         return []byte(`{"message":"Hello from Go!"}`), nil
     })
 }
 ```
 
-## 实例元数据（provider 自描述）
+## Instance Metadata (Provider Self-Description)
 
-注册时可携带**用户自定义多 KV 实例元数据**（如 `serverId`、`pod`），随 `ProviderConnectRequest.metadata` 上报，用于控制台「SDK 版本分布」页展示实例信息与按元数据搜索（REST `GET /api/v1/providers/sdk-stats?metaKey=&metaValue=`）：
+At registration you can attach **user-defined multi-KV instance metadata** (e.g. `serverId`, `pod`). It is reported via `ProviderConnectRequest.metadata` and is used by the console's "SDK Version Distribution" page to show instance information and support metadata-based search (REST `GET /api/v1/providers/sdk-stats?metaKey=&metaValue=`):
 
 ```go
 client := croupier.NewClient(&croupier.ClientConfig{
@@ -47,11 +47,11 @@ client := croupier.NewClient(&croupier.ClientConfig{
 })
 ```
 
-- 保留键 `sdkLanguage` / `sdkVersion` / `sdkName` / `protocol_version` / `gameId` / `env` 由平台固定字段生成；用户元数据撞键时 agent 丢弃该键并在注册响应 `warnings` 中告警。
-- 元数据仅用于观测（展示/搜索/诊断），不参与路由与负载均衡。
-- demo（`sdks/go/examples/demo`）从环境变量 `CROUPIER_INSTANCE_METADATA` 读取，支持 JSON 对象或 `k=v,k=v` 简写两种写法，空值即不携带：
+- Reserved keys `sdkLanguage` / `sdkVersion` / `sdkName` / `protocol_version` / `gameId` / `env` are generated from platform fixed fields; when user metadata collides with a reserved key, the agent drops that key and reports a warning in the registration response `warnings`.
+- Metadata is for observability only (display/search/diagnostics); it does not participate in routing or load balancing.
+- The demo (`sdks/go/examples/demo`) reads the `CROUPIER_INSTANCE_METADATA` environment variable, accepting either a JSON object or the `k=v,k=v` shorthand; an empty value means no metadata is attached:
   ```bash
   CROUPIER_INSTANCE_METADATA='serverId=s1,pod=game-7c4d'
-  # 等价：CROUPIER_INSTANCE_METADATA='{"serverId":"s1","pod":"game-7c4d"}'
+  # Equivalent: CROUPIER_INSTANCE_METADATA='{"serverId":"s1","pod":"game-7c4d"}'
   ```
-- wire 语义与存储设计结论见 `docs/architecture/sdk-wire-protocol.md`「实例元数据」。
+- For wire semantics and storage design decisions, see the "Instance Metadata" section of `docs/architecture/sdk-wire-protocol.md`.

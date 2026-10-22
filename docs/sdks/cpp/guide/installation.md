@@ -1,12 +1,12 @@
-# 安装
+# Installation
 
-## 依赖
+## Dependencies
 
 - CMake
-- Ninja 或平台原生构建工具
+- Ninja or the platform's native build tool
 - vcpkg
 
-## 基本流程
+## Basic Workflow
 
 ```bash
 cmake -B build -G Ninja \
@@ -14,7 +14,7 @@ cmake -B build -G Ninja \
 cmake --build build --config Release
 ```
 
-## 建议
+## Recommendations
 
-- 优先使用仓库内 CI 已验证的 triplet
-- Windows 上显式确认运行时库与 triplet 一致
+- Prefer a triplet already validated by the repository's CI
+- On Windows, explicitly confirm the runtime library matches the triplet

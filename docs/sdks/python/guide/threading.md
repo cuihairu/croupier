@@ -1,8 +1,8 @@
-# 主线程调度器
+# Main-Thread Dispatcher
 
-主线程调度器用于确保回调在受控线程执行，减少并发状态问题。
+The main-thread dispatcher ensures callbacks run on a controlled thread, reducing concurrency-related state issues.
 
-## 基本用法
+## Basic Usage
 
 ```python
 from croupier.dispatcher import MainThreadDispatcher
@@ -17,7 +17,7 @@ while running:
     dispatcher.process_queue()
 ```
 
-## 常用接口
+## Common Interface
 
 - `initialize()`
 - `enqueue(callback)`
@@ -28,17 +28,17 @@ while running:
 - `set_max_process_per_frame(max_count)`
 - `clear()`
 
-## 入站并发与背压
+## Inbound Concurrency and Backpressure
 
-入站请求（Agent→SDK 的 Invoke 等）由**有界 worker 池**处理：
-读循环只投递不执行业务（串行处理会让一个慢 handler 卡住整条连接）。
+Inbound requests (Invokes from the Agent→SDK, etc.) are handled by a **bounded worker pool**:
+the read loop only enqueues work and never runs business logic (serial processing would let one slow handler stall the whole connection).
 
-- 默认 worker 数 ≈ CPU 核数；待处理队列容量 ≈ `workers × 4`（突发吸收 4 轮满载）
-- 业务队列打满时**立即回 busy 错误帧**（`inbound queue full, retry on
-another instance`），Agent 侧 failover 换实例重试——SDK 内存不积累
-- 调优入口在 transport 层配置（Go：`InboundWorkers`/`InboundQLen`；
-  其他语言见各自配置章节），语义六语言一致
+- Default worker count ≈ CPU cores; pending-queue capacity ≈ `workers × 4` (absorbs about 4 rounds of full bursts)
+- When the business queue fills up, a **busy error frame is returned immediately** (`inbound queue full, retry on
+another instance`) and the Agent fails over to another instance — no memory accumulation in the SDK
+- Tuning lives in the transport-layer configuration (Go: `InboundWorkers`/`InboundQLen`;
+  other languages: see their configuration sections), with identical semantics across all six languages
 
-控制消息（心跳/注册/drain）的**双车道隔离**目前仅 Go 落地：控制请求走
-专用队列永不 reject，业务洪峰时会话仍存活（`protocol.IsControlRequest()`
-分类）。其余语言心跳与业务共用车道，待按 Go 基准迁移。
+**Two-lane isolation** for control messages (heartbeat/registration/drain) is currently Go-only: control requests go
+through a dedicated queue that is never rejected, so the session stays alive under business traffic surges (classified via
+`protocol.IsControlRequest()`). Other languages share one lane between heartbeats and business traffic, pending migration to the Go baseline.

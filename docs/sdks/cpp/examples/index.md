@@ -1,10 +1,10 @@
-# 示例
+# Examples
 
-## 示例方向
+## Example Directions
 
-- 基础函数注册
-- 综合业务示例
-- 插件示例
-- 资源与操作示例
+- Basic function registration
+- Comprehensive business example
+- Plugin example
+- Resources and operations example
 
-## 继续阅读
+## Keep Reading

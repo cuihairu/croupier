@@ -4,17 +4,17 @@ title: Python SDK
 
 # Python SDK
 
-Python SDK 是 Croupier 的官方 Python 客户端，面向函数注册、调用处理和 Agent 会话管理。
+The Python SDK is Croupier's official Python client, focused on function registration, invocation handling, and Agent session management.
 
-## 代码位置
+## Code Location
 
 - `sdks/python`
 
-## 特性
+## Features
 
-- Python 3.12+ 支持
-- 基于单连接会话模型与 Agent 通信
-- 内置心跳、重连和基础类型注解
+- Python 3.12+ support
+- Communicates with the Agent over a single-connection session model
+- Built-in heartbeats, reconnection, and basic type annotations
 
 ```python
 from croupier import set_field_widget, set_field_hint
@@ -27,13 +27,13 @@ desc = set_field_hint(desc, "id", "x-options-source", {
 })
 ```
 
-## 安装
+## Installation
 
 ```bash
 python -m pip install -e ./sdks/python
 ```
 
-## 快速开始
+## Quick Start
 
 ```python
 from croupier import CroupierClient, ClientConfig
@@ -54,8 +54,8 @@ client.register_function(
 client.connect()
 ```
 
-## 继续阅读
+## Keep Reading
 
-- [指南](/sdks/python/guide/)
-- [API 参考](/sdks/python/api/)
-- [仓库 README](https://github.com/cuihairu/croupier/tree/main/sdks/python)
+- [Guide](/sdks/python/guide/)
+- [API Reference](/sdks/python/api/)
+- [Repository README](https://github.com/cuihairu/croupier/tree/main/sdks/python)

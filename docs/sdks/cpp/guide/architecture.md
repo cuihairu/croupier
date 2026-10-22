@@ -1,9 +1,9 @@
-# 架构
+# Architecture
 
-当前 C++ SDK 文档以统一 session 模型为基线，不再以历史 gRPC 本地监听模型为默认前提。
+The current C++ SDK documentation treats the unified session model as the baseline; the legacy gRPC local-listener model is no longer the default assumption.
 
-## 关键点
+## Key Points
 
-- SDK 主动连接 Agent
-- 单条连接上完成注册、心跳、调用和作业控制
-- 业务 payload 默认使用 JSON
+- The SDK connects to the Agent proactively
+- Registration, heartbeats, invocations, and job control all run over a single connection
+- Business payloads use JSON by default

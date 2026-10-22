@@ -1,9 +1,9 @@
-# 异步处理器
+# Async Handlers
 
-C# SDK 优先支持 `async/await` 风格的异步处理器。
+The C# SDK prefers `async/await`-style asynchronous handlers.
 
-## 建议
+## Recommendations
 
-- 所有外部 I/O 使用异步 API
-- 不要在处理器里做同步阻塞等待
-- 将超时和取消令牌贯穿到下游调用
+- Use async APIs for all external I/O
+- Do not block synchronously inside handlers
+- Thread timeouts and cancellation tokens through to downstream calls

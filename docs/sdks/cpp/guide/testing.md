@@ -1,12 +1,12 @@
-# 测试
+# Testing
 
-## 关注点
+## Focus Areas
 
-- 配置加载
-- 连接与重连
-- TLS 校验
-- 函数注册
-- 资源能力契约注册
-- Windows/Linux/macOS 构建一致性
+- Configuration loading
+- Connection and reconnection
+- TLS validation
+- Function registration
+- Resource capability contract registration
+- Build consistency across Windows/Linux/macOS
 
-## 继续阅读
+## Keep Reading

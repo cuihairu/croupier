@@ -4,18 +4,18 @@ title: JavaScript SDK
 
 # JavaScript SDK
 
-TypeScript 优先的 Node.js SDK，用于连接 Croupier Agent、注册函数并处理调用。
+A TypeScript-first Node.js SDK for connecting to the Croupier Agent, registering functions, and handling invocations.
 
-## 代码位置
+## Code Location
 
 - `sdks/js`
 
-## 特性
+## Features
 
-- TypeScript 优先，提供完整类型定义
-- 支持现代 Node.js 运行时
-- 提供函数描述符与处理器注册能力
-- 面向 monorepo 统一协议演进
+- TypeScript-first with complete type definitions
+- Supports modern Node.js runtimes
+- Function descriptor and handler registration
+- Aligned with the monorepo's unified protocol evolution
 
 ```ts
 import { setFieldWidget, setFieldHint } from "croupier-sdk";
@@ -32,13 +32,13 @@ desc = setFieldHint(desc, "id", "x-options-source", {
 });
 ```
 
-## 安装
+## Installation
 
 ```bash
 npm install croupier-js-sdk
 ```
 
-## 快速开始
+## Quick Start
 
 ```ts
 import { CroupierClient } from "croupier-js-sdk";
@@ -54,8 +54,8 @@ await client.connect();
 await client.serve();
 ```
 
-## 继续阅读
+## Keep Reading
 
-- [指南](/sdks/js/guide/)
-- [API 参考](/sdks/js/api/)
-- [仓库 README](https://github.com/cuihairu/croupier/tree/main/sdks/js)
+- [Guide](/sdks/js/guide/)
+- [API Reference](/sdks/js/api/)
+- [Repository README](https://github.com/cuihairu/croupier/tree/main/sdks/js)

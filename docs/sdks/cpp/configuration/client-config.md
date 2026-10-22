@@ -1,8 +1,8 @@
 # Client Config
 
-本文是 C++ SDK 配置语义的 canonical 入口。配置只表达当前统一 session 模型，不再绑定历史本地监听、回拨或特定 transport 实现。
+This page is the canonical entry point for C++ SDK configuration semantics. Configuration expresses only the current unified session model; it no longer binds to the legacy local-listener, callback, or any specific transport implementation.
 
-## 推荐配置模型
+## Recommended Configuration Model
 
 ```json
 {
@@ -31,38 +31,38 @@
 }
 ```
 
-## 字段说明
+## Field Reference
 
-| 字段                           | 说明                         |
-| ------------------------------ | ---------------------------- |
-| `address`                      | Agent 本地 gateway 地址      |
-| `connectTimeoutMs`             | 建连超时                     |
-| `requestTimeoutMs`             | 单请求超时                   |
-| `heartbeat.intervalMs`         | provider 心跳周期            |
-| `tls.enabled`                  | 是否启用 TLS                 |
-| `tls.certFile`                 | 客户端证书                   |
-| `tls.keyFile`                  | 客户端私钥                   |
-| `tls.caFile`                   | CA 文件                      |
-| `tls.serverName`               | 证书校验名或 SNI             |
-| `tls.insecureSkipVerify`       | 仅限开发环境跳过校验         |
-| `reconnect.enabled`            | 是否自动重连                 |
-| `reconnect.initialDelayMs`     | 初始退避时间                 |
-| `reconnect.maxDelayMs`         | 最大退避时间                 |
-| `reconnect.multiplier`         | 指数退避倍率                 |
-| `reconnect.jitter`             | 抖动比例                     |
-| `reconnect.steadyStateDelayMs` | 达到上限后的持续廉价重试周期 |
+| Field                          | Description                                             |
+| ------------------------------ | ------------------------------------------------------- |
+| `address`                      | Address of the Agent's local gateway                    |
+| `connectTimeoutMs`             | Connection timeout                                      |
+| `requestTimeoutMs`             | Per-request timeout                                     |
+| `heartbeat.intervalMs`         | Provider heartbeat interval                             |
+| `tls.enabled`                  | Whether TLS is enabled                                  |
+| `tls.certFile`                 | Client certificate                                      |
+| `tls.keyFile`                  | Client private key                                      |
+| `tls.caFile`                   | CA file                                                 |
+| `tls.serverName`               | Certificate verification name or SNI                    |
+| `tls.insecureSkipVerify`       | Skip verification, development environments only        |
+| `reconnect.enabled`            | Whether automatic reconnection is enabled               |
+| `reconnect.initialDelayMs`     | Initial backoff delay                                   |
+| `reconnect.maxDelayMs`         | Maximum backoff delay                                   |
+| `reconnect.multiplier`         | Exponential backoff multiplier                          |
+| `reconnect.jitter`             | Jitter ratio                                            |
+| `reconnect.steadyStateDelayMs` | Ongoing low-cost retry interval once the cap is reached |
 
-## 配置原则
+## Configuration Principles
 
-- 保持字段最小化，只保留当前明确需要的能力。
-- `SDK <-> Agent` 默认连接 Agent 本地 gateway，默认可以不开启 TLS。
-- 跨主机、跨网段或有合规要求时启用 TLS；需要双向身份校验时启用 mTLS。
-- `tls` 是 TCP session 的安全配置，不是新的 transport kind。
-- 重连应默认开启，避免 Agent 短暂重启导致业务进程长期不可用。
+- Keep the field set minimal; only keep capabilities that are explicitly needed today.
+- `SDK <-> Agent` connects to the Agent's local gateway by default; TLS may stay off by default.
+- Enable TLS for cross-host, cross-segment, or compliance-sensitive scenarios; enable mTLS when mutual authentication is required.
+- `tls` is the security configuration of the TCP session, not a new transport kind.
+- Reconnection should be on by default so a brief Agent restart does not leave the business process unavailable for long.
 
-## 禁止项
+## Prohibited Fields
 
-以下字段属于历史回拨或本地监听模型，不应再出现在新配置中：
+The following fields belong to the legacy callback or local-listener models and must not appear in new configurations:
 
 - `rpc_addr`
 - `local_listen`

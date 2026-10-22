@@ -1,14 +1,14 @@
-# Windows RuntimeLibrary 不匹配修复
+# Fixing Windows RuntimeLibrary Mismatches
 
-Windows 常见问题是运行时库不匹配，例如 `/MD` 与 `/MT` 混用。
+A common Windows problem is a runtime library mismatch, e.g. mixing `/MD` with `/MT`.
 
-## 根因
+## Root Causes
 
-- vcpkg triplet 与 SDK 编译选项不一致
-- 依赖库和目标库使用了不同 CRT 策略
+- The vcpkg triplet does not match the SDK compile options
+- Dependency libraries and the target library use different CRT strategies
 
-## 建议
+## Recommendations
 
-- `x64-windows` 对应动态运行时
-- `x64-windows-static` 对应静态运行时
-- CMake、CI 和本地 presets 保持一致
+- `x64-windows` maps to the dynamic runtime
+- `x64-windows-static` maps to the static runtime
+- Keep CMake, CI, and local presets consistent

@@ -1,8 +1,8 @@
-# 基础函数示例
+# Basic Function Example
 
-展示如何注册一个基础函数并接收调用。
+Shows how to register a basic function and receive invocations.
 
-## 建议
+## Recommendations
 
-- 从最小函数开始验证连接和调用链
-- 再逐步增加 schema、风险等级和业务逻辑
+- Start with the smallest possible function to verify the connection and invocation chain
+- Then gradually add schema, risk levels, and business logic

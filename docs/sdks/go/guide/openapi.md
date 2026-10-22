@@ -1,10 +1,9 @@
-# Go SDK：OpenAPI 导入
+# Go SDK: OpenAPI Import
 
-Go SDK 是六语言 OpenAPI helper 的基准实现。从 OpenAPI（3.x）文档批量
-注册函数，Descriptor v2 扩展字段（`x-capability`/`x-execution`/
-`x-approval`/`x-risk`）会被解析进契约语义。
+The Go SDK is the reference implementation of the six-language OpenAPI helper. It registers functions in bulk from an OpenAPI (3.x) document; Descriptor v2 extension fields (`x-capability`/`x-execution`/
+`x-approval`/`x-risk`) are parsed into the contract semantics.
 
-## 基本用法
+## Basic Usage
 
 ```go
 import (
@@ -13,12 +12,12 @@ import (
 
 registry := function.NewRegistry(client)
 
-// 按 operationId 生成 handler 桩（未映射的操作返回 not-implemented）
+// Generate handler stubs by operationId (unmapped operations return not-implemented)
 err := registry.RegisterFromOpenAPI(specData, nil, func(operationID string) function.Handler {
-    return dispatchByID(operationID) // 你的路由
+    return dispatchByID(operationID) // your routing
 })
 
-// 或显式 handler 映射
+// Or an explicit handler mapping
 err = registry.RegisterFromOpenAPIWithHandlers(specData, nil, map[string]function.Handler{
     "player.list": func(ctx context.Context, input []byte) ([]byte, error) {
         return []byte(`{"items":[]}`), nil
@@ -26,33 +25,33 @@ err = registry.RegisterFromOpenAPIWithHandlers(specData, nil, map[string]functio
 })
 ```
 
-`function.Handler` 契约：`func(ctx context.Context, input []byte) ([]byte, error)`。
+`function.Handler` contract: `func(ctx context.Context, input []byte) ([]byte, error)`.
 
 ## ImportOptions
 
 ```go
 opts := &function.ImportOptions{
-    ResourcePrefix:  "game1.",  // 资源前缀
-    TagPrefix:       "sdk:",    // tag 前缀
-    DefaultTimeoutMs: 5000,     // 未标注 x-execution 超时时的缺省
-    ContinueOnError:  true,     // 部分函数失败不中断整批
+    ResourcePrefix:  "game1.",  // resource prefix
+    TagPrefix:       "sdk:",    // tag prefix
+    DefaultTimeoutMs: 5000,     // default when no x-execution timeout is annotated
+    ContinueOnError:  true,     // a partial function failure does not abort the batch
 }
 ```
 
-## 扩展字段语义
+## Extension Field Semantics
 
-| OpenAPI 扩展   | 契约落点            | 说明                                                |
-| -------------- | ------------------- | --------------------------------------------------- |
-| `x-capability` | CapabilitySemantics | 资源/操作语义                                       |
-| `x-execution`  | ExecutionSemantics  | 超时/重试语义                                       |
-| `x-approval`   | ApprovalPolicy      | 审批要求（required、policyKey）                     |
-| `x-risk`       | risk                | `safe/warning/high/danger`（`parseRiskLevel` 归一） |
+| OpenAPI extension | Contract target     | Description                                                 |
+| ----------------- | ------------------- | ----------------------------------------------------------- |
+| `x-capability`    | CapabilitySemantics | Resource/operation semantics                                |
+| `x-execution`     | ExecutionSemantics  | Timeout/retry semantics                                     |
+| `x-approval`      | ApprovalPolicy      | Approval requirements (required, policyKey)                 |
+| `x-risk`          | risk                | `safe/warning/high/danger` (normalized by `parseRiskLevel`) |
 
-未标注扩展时按默认值归一（GET→查询、其余→操作；
-详见 [Descriptor v2 规范](../../../zh/architecture/openapi-sdk-descriptor-v2.md)）。
+Without annotated extensions, defaults apply (GET→query, everything else→operation;
+see the [Descriptor v2 specification](../../../zh/architecture/openapi-sdk-descriptor-v2.md) for details).
 
-## 参考实现
+## Reference Implementation
 
-- 源码：`sdks/go/function/openapi.go`（`Registry.RegisterFromOpenAPI` /
-  `RegisterFromOpenAPIWithHandlers`）、`builder.go`（`ImportOptions`）
-- 测试：`sdks/go/function/openapi_test.go`
+- Source: `sdks/go/function/openapi.go` (`Registry.RegisterFromOpenAPI` /
+  `RegisterFromOpenAPIWithHandlers`), `builder.go` (`ImportOptions`)
+- Tests: `sdks/go/function/openapi_test.go`

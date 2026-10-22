@@ -1,37 +1,37 @@
-# 并发与调度
+# Concurrency and Scheduling
 
-Go SDK 不需要单线程调度器，但需要明确并发边界。
+The Go SDK does not need a single-threaded dispatcher, but concurrency boundaries must be explicit.
 
-## 建议
+## Recommendations
 
-- 使用上下文超时和取消
-- 对共享状态加锁或使用并发安全结构
-- 避免无控制 goroutine 泄漏
-- 对外部依赖统一处理超时和重试
+- Use context timeouts and cancellation
+- Lock shared state or use concurrency-safe structures
+- Avoid uncontrolled goroutine leaks
+- Handle timeouts and retries for external dependencies uniformly
 
-## 入站并发与背压
+## Inbound Concurrency and Backpressure
 
-入站请求（Agent→SDK 的 Invoke 等）由**有界 worker 池**处理：
-读循环只投递不执行业务（串行处理会让一个慢 handler 卡住整条连接）。
+Inbound requests (Invokes from the Agent→SDK, etc.) are handled by a **bounded worker pool**:
+the read loop only enqueues work and never runs business logic (serial processing would let one slow handler stall the whole connection).
 
-- 默认 worker 数 ≈ CPU 核数；待处理队列容量 ≈ `workers × 4`（突发吸收 4 轮满载）
-- 业务队列打满时**立即回 busy 错误帧**（`inbound queue full, retry on
-another instance`），Agent 侧 failover 换实例重试——SDK 内存不积累
-- 调优入口在 transport 层配置（Go：`InboundWorkers`/`InboundQLen`；
-  其他语言见各自配置章节），语义六语言一致
+- Default worker count ≈ CPU cores; pending-queue capacity ≈ `workers × 4` (absorbs about 4 rounds of full bursts)
+- When the business queue fills up, a **busy error frame is returned immediately** (`inbound queue full, retry on
+another instance`) and the Agent fails over to another instance — no memory accumulation in the SDK
+- Tuning lives in the transport-layer configuration (Go: `InboundWorkers`/`InboundQLen`;
+  other languages: see their configuration sections), with identical semantics across all six languages
 
-控制消息（心跳/注册/drain）的**双车道隔离**目前仅 Go 落地：控制请求走
-专用队列永不 reject，业务洪峰时会话仍存活（`protocol.IsControlRequest()`
-分类）。其余语言心跳与业务共用车道，待按 Go 基准迁移。
+**Two-lane isolation** for control messages (heartbeat/registration/drain) is currently Go-only: control requests go
+through a dedicated queue that is never rejected, so the session stays alive under business traffic surges (classified via
+`protocol.IsControlRequest()`). Other languages share one lane between heartbeats and business traffic, pending migration to the Go baseline.
 
-## 双车道（Go 独有）
+## Two Lanes (Go Only)
 
-Go SDK 的入站派发为双车道（`transport/tcp_client.go`）：
+Inbound dispatch in the Go SDK uses two lanes (`transport/tcp_client.go`):
 
-- **系统车道** `ctrlInbox`（容量 64 + 单 worker）：`IsControlRequest()`
-  识别的心跳/注册/Provider 会话控制（含 drain）走此车道，**永不 reject**
-- **业务车道** `inbox`（`InboundWorkers` 默认 NumCPU、`InboundQLen` 默认
-  workers×4）：满则 fail-fast 回 busy 帧
-- 注意：`InboundWorkers`/`InboundQLen` 是 transport 层配置
-  （`transport.Config`）；高层 `ClientConfig` 暂未透传，需自定义 transport 时使用
-- 测试参考：`dual_lane_test.go`（业务队列打满时心跳仍被处理）
+- **System lane** `ctrlInbox` (capacity 64 + single worker): heartbeat/registration/Provider session control
+  (including drain) identified by `IsControlRequest()` goes here, **never rejected**
+- **Business lane** `inbox` (`InboundWorkers` defaults to NumCPU, `InboundQLen` defaults to
+  workers×4): fail-fast busy frame when full
+- Note: `InboundWorkers`/`InboundQLen` are transport-layer configuration
+  (`transport.Config`); the high-level `ClientConfig` does not forward them yet — use them when building a custom transport
+- Test reference: `dual_lane_test.go` (heartbeats are still processed when the business queue is full)

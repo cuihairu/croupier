@@ -1,16 +1,16 @@
-# Go SDK E2E 流程
+# Go SDK E2E Flow
 
-端到端验证建议重点关注：
+For end-to-end verification, focus on:
 
-1. SDK 与 Agent 建立连接
-2. 函数描述符成功注册
-3. 调用请求从 Agent 到达 SDK
-4. SDK 正确返回结果或错误
+1. The SDK establishing a connection with the Agent
+2. Function descriptors registering successfully
+3. Invocation requests reaching the SDK from the Agent
+4. The SDK returning results or errors correctly
 
-## 检查项
+## Checklist
 
-- 连接与重连
-- 心跳稳定性
-- 注册完整性
-- 超时与取消
-- 错误格式一致性
+- Connection and reconnection
+- Heartbeat stability
+- Registration completeness
+- Timeouts and cancellation
+- Error format consistency
