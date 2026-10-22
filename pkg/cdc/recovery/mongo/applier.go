@@ -46,7 +46,14 @@ func Open(ctx context.Context, uriEnv string) (*Applier, error) {
 		_ = client.Disconnect(context.Background())
 		return nil, fmt.Errorf("mongo recovery: ping: %w", err)
 	}
-	return NewApplier(ctx, client)
+	schemaCtx, cancelSchema := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelSchema()
+	applier, err := NewApplier(schemaCtx, client)
+	if err != nil {
+		_ = client.Disconnect(context.Background())
+		return nil, err
+	}
+	return applier, nil
 }
 
 // NewApplier accepts an existing client, normally in tests.
@@ -153,7 +160,7 @@ func (a *Applier) ApplyTransaction(ctx context.Context, requestID, transactionID
 	if err != nil {
 		return fmt.Errorf("mongo recovery: start session: %w", err)
 	}
-	defer session.EndSession(context.Background())
+	defer session.EndSession(ctx)
 
 	_, err = session.WithTransaction(ctx, func(sessionCtx context.Context) (any, error) {
 		var existing ledgerRecord
@@ -215,6 +222,32 @@ func applyEvent(ctx context.Context, client *mongo.Client, event cdc.ChangeEvent
 			return err
 		}
 		_, err = collection.InsertOne(ctx, document)
+		if mongo.IsDuplicateKeyError(err) {
+			filter, decodeErr := decodeDocument(keyFilter(event.After, key))
+			if decodeErr != nil {
+				return decodeErr
+			}
+			var existing bson.M
+			if findErr := collection.FindOne(ctx, filter).Decode(&existing); findErr != nil {
+				if errors.Is(findErr, mongo.ErrNoDocuments) {
+					return fmt.Errorf("mongo recovery: insert event %s duplicate key does not match event key", event.ID)
+				}
+				return findErr
+			}
+			expected, marshalErr := bson.Marshal(document)
+			if marshalErr != nil {
+				return marshalErr
+			}
+			current := canonicalDocument(existing)
+			currentBSON, marshalErr := bson.Marshal(current)
+			if marshalErr != nil {
+				return marshalErr
+			}
+			if bytes.Equal(expected, currentBSON) {
+				return nil
+			}
+			return fmt.Errorf("mongo recovery: insert event %s conflicts with existing document", event.ID)
+		}
 		return err
 	case cdc.OpUpdate:
 		document, err := decodeDocument(event.After)
@@ -288,6 +321,19 @@ func documentValue(document bson.D, key string) any {
 		}
 	}
 	return nil
+}
+
+func canonicalDocument(document bson.M) bson.D {
+	names := make([]string, 0, len(document))
+	for name := range document {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	current := make(bson.D, 0, len(document))
+	for _, name := range names {
+		current = append(current, bson.E{Key: name, Value: document[name]})
+	}
+	return current
 }
 
 func collectionExists(ctx context.Context, client *mongo.Client, database, collection string) error {
