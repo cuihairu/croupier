@@ -56,7 +56,7 @@ jobs:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -72,7 +72,7 @@ jobs:
           exit 1
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -145,7 +145,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         timeout-minutes: 5
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./web/coverage/lcov.info
@@ -162,7 +162,7 @@ jobs:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -178,7 +178,7 @@ jobs:
           exit 1
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -189,7 +189,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
@@ -228,7 +228,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-report-mock
           path: web/playwright-report/
@@ -236,7 +236,7 @@ jobs:
 
       - name: Upload test screenshots
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-screenshots-mock
           path: web/test-results/
@@ -250,12 +250,12 @@ jobs:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -285,7 +285,7 @@ jobs:
           exit 1
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -296,7 +296,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
@@ -338,7 +338,7 @@ jobs:
 
       - name: Upload real test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-report-real-dashboard
           path: web/playwright-report/
@@ -346,7 +346,7 @@ jobs:
 
       - name: Upload real test screenshots
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-screenshots-real-dashboard
           path: web/test-results/
@@ -367,16 +367,16 @@ jobs:
         working-directory: ./web
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
       - timeout-minutes: 5
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v4.4.1
 
       - name: Login to GHCR
         timeout-minutes: 3
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -385,14 +385,14 @@ jobs:
       - name: Extract metadata
         timeout-minutes: 3
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@v6.2.0
         with:
           images: ghcr.io/${{ github.repository_owner }}/croupier-dashboard
 
       - name: Build and push Docker image
         timeout-minutes: 25
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v7.4.0
         with:
           context: .
           file: ./docker/Dockerfile.web

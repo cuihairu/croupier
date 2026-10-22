@@ -17,6 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
-      - uses: github/dependabot-action@main
+      - uses: github/dependabot-action@v3.3.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

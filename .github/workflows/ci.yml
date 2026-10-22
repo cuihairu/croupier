@@ -30,9 +30,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
       - name: Install ripgrep
@@ -122,9 +122,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
       - name: Normalize Go toolchain env
@@ -164,9 +164,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
       - name: Normalize Go toolchain env
@@ -213,7 +213,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
@@ -232,9 +232,9 @@ jobs:
     needs: [test]
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
       - name: Normalize Go toolchain env
@@ -371,9 +371,9 @@ jobs:
       TEST_SQLSERVER_DSN: "sqlserver://sa:YourStr0ngPassw0rd@127.0.0.1:1433"
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
       - name: Normalize Go toolchain env
@@ -407,7 +407,7 @@ jobs:
         # ordering of embedded SQL migrations. (Rule-based `migrate lint` is
         # Pro-only since atlas v0.38.)
         timeout-minutes: 5
-        uses: ariga/setup-atlas@v0
+        uses: ariga/setup-atlas@v0.3
         with:
           cloud-token: ${{ secrets.ATLAS_CLOUD_TOKEN || '' }}
       - name: atlas migrate validate
@@ -432,9 +432,9 @@ jobs:
     needs: [test]
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       - timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
       - name: Normalize Go toolchain env
@@ -528,3 +528,11 @@ jobs:
           go test -tags=integration -count=1 -timeout 8m \
             -run 'TestMongoConnectorChangeStreams' \
             ./agents/capture/connector/mongo/ -v
+      - name: MongoDB recovery target tests
+        timeout-minutes: 10
+        env:
+          TEST_MONGO_RECOVERY_DSN: "mongodb://127.0.0.1:13309/?replicaSet=rs0&directConnection=true"
+        run: |
+          go test -tags=integration -count=1 -timeout 8m \
+            -run 'TestMongoApplierRealTarget|TestMongoRecoveryExecutorDryRunApplyAndRetry' \
+            ./pkg/cdc/recovery/mongo/ -v

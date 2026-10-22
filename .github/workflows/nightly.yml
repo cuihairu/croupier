@@ -48,14 +48,14 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: main
           submodules: false
 
       - name: Setup Go
         timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
 
@@ -169,7 +169,7 @@ jobs:
 
       - name: Setup Python for Agent packaging
         timeout-minutes: 3
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -196,7 +196,7 @@ jobs:
 
       - name: Upload artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: binaries-${{ matrix.label }}
           path: release/*
@@ -228,13 +228,13 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: main
 
       - name: Setup Go
         timeout-minutes: 5
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: "sdks/go/go.mod"
 
@@ -270,7 +270,7 @@ jobs:
 
       - name: Upload artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: go-sdk-${{ matrix.goos }}-${{ matrix.goarch }}
           path: release-artifacts/sdk-go-*.tar.gz
@@ -283,20 +283,20 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: main
           submodules: false
 
       - name: Setup Node.js
         timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
 
       - name: Setup pnpm
         timeout-minutes: 5
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.1.0
 
       - name: Build JS SDK
         timeout-minutes: 15
@@ -318,7 +318,7 @@ jobs:
 
       - name: Setup Python
         timeout-minutes: 5
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -341,7 +341,7 @@ jobs:
 
       - name: Setup .NET
         timeout-minutes: 5
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: "8.0.x"
 
@@ -373,7 +373,7 @@ jobs:
 
       - name: Upload SDKs artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: other-sdks
           path: release-sdks.tar.gz
@@ -417,7 +417,7 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: main
           submodules: recursive
@@ -610,7 +610,7 @@ jobs:
 
       - name: Upload artifacts
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: cpp-sdk-${{ matrix.artifact_name }}
           path: |
@@ -625,19 +625,19 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: main
 
       - name: Setup pnpm
         timeout-minutes: 5
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.1.0
         with:
           version: 11.11.0
 
       - name: Setup Node.js
         timeout-minutes: 5
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -661,7 +661,7 @@ jobs:
 
       - name: Upload Dashboard artifact
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: dashboard
           path: dashboard.tar.gz
@@ -684,14 +684,14 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: main
           fetch-depth: 0
 
       - name: Download all artifacts
         timeout-minutes: 10
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.2
         with:
           path: artifacts
 
@@ -816,7 +816,7 @@ jobs:
 
       - name: Create/Update Release
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v3.0.3
         with:
           tag_name: nightly
           name: Nightly
