@@ -32,7 +32,8 @@ export const AGENT_META: Record<AgentType, AgentMeta> = {
   },
   devops: {
     title: '运维代理',
-    description: '查看 devops 实例与运行状态。主机与会话数据面未交付，本页不提供入口。',
+    description:
+      '查看 devops 实例、进程监管状态与执行记录。主机与会话数据面未交付，本页不提供入口。',
     empty:
       '当前游戏环境暂无 devops Agent。请先部署 devops 并在其配置中设置 agent.gameId 与 agent.env。',
   },
@@ -178,13 +179,13 @@ export default function OpsAgentsPage({ agentType, children }: AgentPageProps) {
               {
                 title: '操作',
                 key: 'actions',
-                width: agentType === 'sidecar' ? 140 : 90,
+                width: agentType === 'sidecar' || agentType === 'devops' ? 140 : 90,
                 render: (_, row) => (
                   <Space>
                     <Button size="small" onClick={() => setDetailNode(row)}>
                       详情
                     </Button>
-                    {agentType === 'sidecar' && (
+                    {(agentType === 'sidecar' || agentType === 'devops') && (
                       <Button size="small" onClick={() => setSupervisorNode(row)}>
                         监管
                       </Button>
@@ -213,7 +214,13 @@ export default function OpsAgentsPage({ agentType, children }: AgentPageProps) {
           agentId={auditAgentId}
         />
       ) : null}
-      {agentType === 'sidecar' && (
+      {agentType === 'devops' && auditAgentId && scope.gameId && scope.env ? (
+        <AgentExecutionAudit
+          key={`${auditAgentId}:${scope.gameId}:${scope.env}`}
+          agentId={auditAgentId}
+        />
+      ) : null}
+      {(agentType === 'sidecar' || agentType === 'devops') && (
         <SupervisorDrawer node={supervisorNode} onClose={() => setSupervisorNode(null)} />
       )}
     </PageContainer>

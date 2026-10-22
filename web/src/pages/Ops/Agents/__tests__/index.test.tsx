@@ -141,22 +141,27 @@ it('opens scoped detail and sidecar supervisor drawers', async () => {
   expect(await screen.findByText('supervisor:sidecar-1:demo:prod')).toBeInTheDocument();
 });
 
-it('opens detail without supervisor actions for non-sidecar types', async () => {
+it('opens supervisor for devops', async () => {
   listOpsAgentsByType.mockResolvedValue({
-    nodes: [{ id: 'capture-1', gameId: 'demo', env: 'prod', labels: { role: 'capture' } }],
+    nodes: [
+      { id: 'devops-1', gameId: 'demo', env: 'prod', labels: { role: 'devops' } },
+      { id: 'capture-1', gameId: 'demo', env: 'prod', labels: { role: 'capture' } },
+    ],
   });
   listOpsTasks.mockResolvedValue({ tasks: [], total: 0 });
   render(
     <AntdApp>
       <ConfigProvider button={{ autoInsertSpace: false }}>
-        <OpsAgentsPage agentType="capture" />
+        <OpsAgentsPage agentType="devops" />
       </ConfigProvider>
     </AntdApp>,
   );
-  await screen.findByText('capture-1');
-  fireEvent.click(await screen.findByRole('button', { name: '详情' }));
-  expect(await screen.findByText('身份 scope · gameId=demo env=prod')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '监管' })).not.toBeInTheDocument();
+  await screen.findByText('devops-1');
+  const devopsRow = screen.getByText('devops-1').closest('.ant-table-row') as HTMLElement;
+  expect(devopsRow.querySelectorAll('button')).toHaveLength(2);
+  expect(devopsRow.textContent).toContain('监管');
+  fireEvent.click(devopsRow.querySelectorAll('button')[1]);
+  expect(await screen.findByText('supervisor:devops-1:demo:prod')).toBeInTheDocument();
 });
 
 it('loads audit records for the selected agent and rejects another scope', async () => {
