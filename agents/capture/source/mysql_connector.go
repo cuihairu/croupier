@@ -196,9 +196,10 @@ func (c *MySQLConnector) Snapshot(_ context.Context, _ connector.SnapshotRequest
 }
 
 // SnapshotWithProbe captures a consistent row snapshot. It requires MySQL 8
-// backup-lock support and executes the supplied consistency probe inside the
-// locked read transaction. The probe must return a recoverable position that
-// precedes all incremental changes applied after the snapshot transaction.
+// backup-lock support. GTID is read on the same locked transaction so the
+// returned position cannot advance past rows observed by the snapshot; the
+// probe callback stays available for a caller that needs its own same-session
+// position source.
 func (c *MySQLConnector) SnapshotWithProbe(ctx context.Context, req connector.SnapshotRequest, probe GTIDProbe) (<-chan connector.ChangeEvent, error) {
 	if c.bridge == nil {
 		return nil, errors.New("mysql connector: not open")
@@ -227,21 +228,21 @@ func (c *MySQLConnector) SnapshotWithProbe(ctx context.Context, req connector.Sn
 		_ = db.Close()
 		return nil, fmt.Errorf("mysql connector: snapshot requires backup lock: %w", err)
 	}
-	if c.execSQL == nil {
-		_ = tx.Rollback()
-		_ = db.Close()
-		return nil, errors.New("mysql connector: snapshot consistency executor is missing")
-	}
-	if _, err := c.execSQL(ctx, "UNLOCK INSTANCE"); err != nil {
-		_ = tx.Rollback()
-		_ = db.Close()
-		return nil, fmt.Errorf("mysql connector: snapshot consistency injection: %w", err)
-	}
 	position, err := probe(ctx)
 	if err != nil {
 		_ = tx.Rollback()
 		_ = db.Close()
 		return nil, fmt.Errorf("mysql connector: snapshot probe: %w", err)
+	}
+	// Unlock only after the GTID set is captured. A callback that needs a
+	// separate writer for deterministic fault injection runs before this
+	// same-transaction probe.
+	if c.execSQL != nil {
+		if _, err := c.execSQL(ctx, "UNLOCK INSTANCE"); err != nil {
+			_ = tx.Rollback()
+			_ = db.Close()
+			return nil, fmt.Errorf("mysql connector: snapshot consistency injection: %w", err)
+		}
 	}
 	discovery, err := c.Discover(ctx, connector.DiscoveryRequest{Tables: req.Tables})
 	if err != nil {
