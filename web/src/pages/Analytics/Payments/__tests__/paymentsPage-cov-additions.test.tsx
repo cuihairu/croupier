@@ -26,22 +26,37 @@ import type {
   TrendData,
 } from '../types';
 
+const baseTransaction = {
+  orderId: 'o1',
+  userId: 'u1',
+  channel: 'app',
+  amount: 5,
+  status: 'SUCCESS',
+  time: '2026-09-01T10:00:00Z',
+  amountCents: 500,
+  reason: 'ok',
+  order_id: 'o1',
+  user_id: 'u1',
+  amount_cents: 500,
+} as unknown as TransactionsResponse['transactions'][number];
+
 configure({ asyncUtilTimeout: 5000 });
 jest.setTimeout(30000);
 
-jest.mock('@umijs/max', () => ({
-  __esModule: true,
-  useIntl: () => ({
-    formatMessage: (_: { defaultMessage: string }, values?: Record<string, unknown>) =>
-      values
-        ? Object.entries(values || {}).reduce(
-            (m: string, [k, v]: [string, string]) => m.split(`{${k}}`).join(String(v)),
-            '',
-          )
-        : '',
-  }),
-  FormattedMessage: ({ defaultMessage }: { defaultMessage: string }) => <>{defaultMessage}</>,
-}));
+jest.mock('@umijs/max', () => {
+  const formatMessage = jest.fn(
+    ({ defaultMessage }: { defaultMessage: string }, values?: Record<string, unknown>) =>
+      Object.entries(values || {}).reduce(
+        (message: string, [key, value]) => message.split(`{${key}}`).join(String(value)),
+        defaultMessage,
+      ),
+  );
+  return {
+    __esModule: true,
+    useIntl: () => ({ formatMessage, locale: 'zh-CN' }),
+    FormattedMessage: ({ defaultMessage }: { defaultMessage: string }) => <>{defaultMessage}</>,
+  };
+});
 
 jest.mock('@ant-design/pro-components', () => ({
   __esModule: true,
@@ -144,7 +159,7 @@ beforeEach(() => {
 // Helper: render page with given summary and wait for load
 const renderPage = async (summary: PaymentSummary = baseSummary) => {
   mockSummary.mockResolvedValue(summary);
-  mockTx.mockResolvedValue({ transactions: [], total: 0 });
+  mockTx.mockResolvedValue({ transactions: [baseTransaction], total: 1 });
   render(<AnalyticsPaymentsPage />);
   await screen.findByText('o1');
 };
@@ -268,7 +283,9 @@ describe('AnalyticsPaymentsPage branch coverage补测', () => {
         byProduct: [],
       });
       // 所有数组均为空，hasBreakdowns 为 false，应显示空态提示
-      const emptyMsg = screen.queryByText('当前后端仅提供按日支付汇总');
+      const emptyMsg = await screen.findByText(
+        '当前后端仅提供按日支付汇总；渠道、地区和商品维度暂无可用数据。',
+      );
       expect(emptyMsg).toBeInTheDocument();
     });
 
@@ -282,11 +299,7 @@ describe('AnalyticsPaymentsPage branch coverage补测', () => {
         byCity: [],
         byProduct: baseSummary.byProduct,
       });
-      // Select 存在 country 选项
-      const countrySelect = Array.from(document.querySelectorAll('.ant-select')).find((el) =>
-        el.textContent?.includes('按地区'),
-      );
-      expect(countrySelect).toBeTruthy();
+      expect(screen.getByText('国家')).toBeInTheDocument();
     });
 
     it('geo dimension切换 region 时渲染地区表', async () => {
@@ -299,11 +312,7 @@ describe('AnalyticsPaymentsPage branch coverage补测', () => {
         byCity: [],
         byProduct: baseSummary.byProduct,
       });
-      // Select 切换到地区
-      const regionSelect = Array.from(document.querySelectorAll('.ant-select')).find((el) =>
-        el.textContent?.includes('按地区（省/区域）'),
-      );
-      expect(regionSelect).toBeTruthy();
+      expect(screen.getByText('按地区（省/区域）')).toBeInTheDocument();
     });
 
     it('geo dimension切换 city 时渲染城市表', async () => {
@@ -316,11 +325,7 @@ describe('AnalyticsPaymentsPage branch coverage补测', () => {
         byCity: baseSummary.byCity,
         byProduct: baseSummary.byProduct,
       });
-      // Select 切换到城市
-      const citySelect = Array.from(document.querySelectorAll('.ant-select')).find((el) =>
-        el.textContent?.includes('按地区（城市）'),
-      );
-      expect(citySelect).toBeTruthy();
+      expect(screen.getByText('城市')).toBeInTheDocument();
     });
 
     it('exportDimCSV 在 geo section 中正常导出', async () => {
@@ -333,7 +338,6 @@ describe('AnalyticsPaymentsPage branch coverage补测', () => {
         byCity: baseSummary.byCity,
         byProduct: baseSummary.byProduct,
       });
-      // 触发 channels CSV 导出
       fireEvent.click(screen.getByRole('button', { name: '导出 channels CSV' }));
       expect(mockExportCsv).toHaveBeenCalledTimes(1);
     });
