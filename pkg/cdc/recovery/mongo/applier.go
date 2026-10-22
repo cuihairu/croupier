@@ -221,19 +221,18 @@ func applyEvent(ctx context.Context, client *mongo.Client, event cdc.ChangeEvent
 		if err != nil {
 			return err
 		}
-		_, err = collection.InsertOne(ctx, document)
-		if mongo.IsDuplicateKeyError(err) {
-			filter, decodeErr := decodeDocument(keyFilter(event.After, key))
-			if decodeErr != nil {
-				return decodeErr
-			}
-			var existing bson.M
-			if findErr := collection.FindOne(ctx, filter).Decode(&existing); findErr != nil {
-				if errors.Is(findErr, mongo.ErrNoDocuments) {
-					return fmt.Errorf("mongo recovery: insert event %s duplicate key does not match event key", event.ID)
-				}
-				return findErr
-			}
+		filter, err := decodeDocument(keyFilter(event.After, key))
+		if err != nil {
+			return err
+		}
+		// Resolve duplicates with a pre-check read instead of insert-then-conflict:
+		// after an E11000 the transaction is already aborted server-side, and any
+		// follow-up statement in it fails with NoSuchTransaction, which the driver
+		// labels TransientTransactionError and retries until the context expires.
+		// A pre-check keeps every deterministic conflict a plain, non-retryable error.
+		var existing bson.M
+		findErr := collection.FindOne(ctx, filter).Decode(&existing)
+		if findErr == nil {
 			expected, marshalErr := bson.Marshal(document)
 			if marshalErr != nil {
 				return marshalErr
@@ -248,7 +247,16 @@ func applyEvent(ctx context.Context, client *mongo.Client, event cdc.ChangeEvent
 			}
 			return fmt.Errorf("mongo recovery: insert event %s conflicts with existing document", event.ID)
 		}
-		return err
+		if !errors.Is(findErr, mongo.ErrNoDocuments) {
+			return findErr
+		}
+		if _, err := collection.InsertOne(ctx, document); err != nil {
+			if mongo.IsDuplicateKeyError(err) {
+				return fmt.Errorf("mongo recovery: insert event %s duplicate key does not match event key", event.ID)
+			}
+			return err
+		}
+		return nil
 	case cdc.OpUpdate:
 		document, err := decodeDocument(event.After)
 		if err != nil {
@@ -258,69 +266,27 @@ func applyEvent(ctx context.Context, client *mongo.Client, event cdc.ChangeEvent
 		if err != nil {
 			return err
 		}
-		documentBSON, err := bson.Marshal(document)
-		if err != nil {
+		// Mirror the SQL adapters: an update overwrites the destination
+		// document selected by its key, which also makes replays naturally
+		// idempotent (the transaction ledger guards content divergence).
+		if _, err := collection.ReplaceOne(ctx, filter, document, options.Replace().SetUpsert(true)); err != nil {
 			return err
 		}
-		var existing bson.M
-		err = collection.FindOne(ctx, filter).Decode(&existing)
-		if err == nil {
-			var current bson.D
-			for _, name := range sortedDocumentKeys(document) {
-				current = append(current, bson.E{Key: name, Value: documentValue(document, name)})
-			}
-			currentBSON, err := bson.Marshal(current)
-			if err != nil {
-				return err
-			}
-			if bytes.Equal(documentBSON, currentBSON) {
-				return nil
-			}
-			return fmt.Errorf("mongo recovery: update event %s conflicts with existing document", event.ID)
-		}
-		if !errors.Is(err, mongo.ErrNoDocuments) {
-			return err
-		}
-		result, err := collection.InsertOne(ctx, document)
-		if err != nil {
-			return err
-		}
-		_ = result
 		return nil
 	case cdc.OpDelete:
 		filter, err := decodeDocument(keyFilter(event.Before, key))
 		if err != nil {
 			return err
 		}
-		result, err := collection.DeleteOne(ctx, filter)
-		if err != nil {
+		// A delete that matches nothing is an idempotent replay, same as a
+		// zero-row DELETE in the SQL adapters.
+		if _, err := collection.DeleteOne(ctx, filter); err != nil {
 			return err
-		}
-		if result.DeletedCount == 0 {
-			return fmt.Errorf("mongo recovery: delete event %s matched no document", event.ID)
 		}
 		return nil
 	default:
 		return fmt.Errorf("mongo recovery: unsupported operation %q", event.Operation)
 	}
-}
-
-func sortedDocumentKeys(document bson.D) []string {
-	keys := make([]string, 0, len(document))
-	for _, field := range document {
-		keys = append(keys, field.Key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func documentValue(document bson.D, key string) any {
-	for _, field := range document {
-		if field.Key == key {
-			return field.Value
-		}
-	}
-	return nil
 }
 
 func canonicalDocument(document bson.M) bson.D {

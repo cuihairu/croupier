@@ -60,12 +60,17 @@ func NewApplier(ctx context.Context, db *sql.DB) (*Applier, error) {
 	return &Applier{db: db}, nil
 }
 
-// EnsureSchema creates the transaction idempotency ledger.
+// EnsureSchema creates the transaction idempotency ledger. Statements run one
+// by one because the MySQL driver rejects multi-statement strings unless the
+// DSN enables multiStatements.
 func EnsureSchema(ctx context.Context, db *sql.DB) error {
 	if db == nil {
 		return errors.New("mysql recovery: db is required")
 	}
-	const statement = "CREATE DATABASE IF NOT EXISTS croupier_recovery CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci; CREATE TABLE IF NOT EXISTS " + ledgerTable + ` (
+	if _, err := db.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS croupier_recovery CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"); err != nil {
+		return fmt.Errorf("mysql recovery: ensure ledger database: %w", err)
+	}
+	const statement = "CREATE TABLE IF NOT EXISTS " + ledgerTable + ` (
 request_id varchar(191) NOT NULL,
 transaction_id varchar(191) NOT NULL,
 event_count bigint NOT NULL,

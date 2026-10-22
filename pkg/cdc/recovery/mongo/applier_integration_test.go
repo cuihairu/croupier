@@ -55,20 +55,22 @@ func TestMongoApplierRealTarget(t *testing.T) {
 	applier, err := Open(ctx, "TEST_MONGO_RECOVERY_DSN_ACTIVE")
 	require.NoError(t, err)
 
-	insertOne := event("event-insert-1", 1, "one")
-	insertTwo := event("event-insert-2", 2, "two")
+	insertOne := event("event-insert-1", cdc.OpInsert, 1, "one")
+	insertTwo := event("event-insert-2", cdc.OpInsert, 2, "two")
 	require.NoError(t, applier.ApplyTransaction(ctx, "request-1", "transaction-1", []cdc.ChangeEvent{insertOne, insertTwo}))
 	require.NoError(t, applier.ApplyTransaction(ctx, "request-1", "transaction-1", []cdc.ChangeEvent{insertOne, insertTwo}))
 	assertRows(ctx, t, applier.client, map[int64]string{1: "one", 2: "two"})
 
-	update := event("event-update-1", 1, "updated")
+	update := event("event-update-1", cdc.OpUpdate, 1, "updated")
+	update.Before = map[string]json.RawMessage{"_id": json.RawMessage(`1`), "name": json.RawMessage(`"one"`)}
 	require.NoError(t, applier.ApplyTransaction(ctx, "request-1", "transaction-2", []cdc.ChangeEvent{update}))
-	delete := event("event-delete-2", 2, "two")
+	delete := event("event-delete-2", cdc.OpDelete, 2, "two")
+	delete.Before = map[string]json.RawMessage{"_id": json.RawMessage(`2`), "name": json.RawMessage(`"two"`)}
 	require.NoError(t, applier.ApplyTransaction(ctx, "request-1", "transaction-3", []cdc.ChangeEvent{delete}))
 	assertRows(ctx, t, applier.client, map[int64]string{1: "updated"})
 
-	insertThree := event("event-insert-3", 3, "three")
-	conflict := event("event-insert-conflict", 1, "conflict")
+	insertThree := event("event-insert-3", cdc.OpInsert, 3, "three")
+	conflict := event("event-insert-conflict", cdc.OpInsert, 1, "conflict")
 	err = applier.ApplyTransaction(ctx, "request-1", "transaction-rollback", []cdc.ChangeEvent{insertThree, conflict})
 	require.Error(t, err)
 	assertRows(ctx, t, applier.client, map[int64]string{1: "updated"})
@@ -76,7 +78,7 @@ func TestMongoApplierRealTarget(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, count)
 
-	changed := event("event-update-1", 1, "changed")
+	changed := event("event-update-1", cdc.OpUpdate, 1, "changed")
 	err = applier.ApplyTransaction(ctx, "request-1", "transaction-2", []cdc.ChangeEvent{changed})
 	require.ErrorContains(t, err, "different content")
 	assertRows(ctx, t, applier.client, map[int64]string{1: "updated"})
@@ -135,7 +137,7 @@ func TestMongoRecoveryExecutorDryRunApplyAndRetry(t *testing.T) {
 	plan := recoveryPlan(event.QualifiedTable())
 	dryRun, err := executor.Execute(ctx, plan)
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), dryRun.LastSequence)
+	require.Equal(t, uint64(1), dryRun.LastSequence)
 	require.Equal(t, 1, dryRun.Transactions)
 	assertExecutorRows(ctx, t, client, map[string]string{})
 
@@ -162,10 +164,9 @@ func TestMongoRecoveryExecutorDryRunApplyAndRetry(t *testing.T) {
 	require.NoError(t, cursor.Err())
 	require.NoError(t, cursor.Close(ctx))
 	require.Equal(t, []string{
+		"requested", "started", "transaction_validated", "completed",
 		"requested", "started", "transaction_validated", "transaction_applied", "completed",
-		"requested", "started", "transaction_validated", "completed",
-		"requested", "started", "transaction_validated", "completed",
-		"requested", "started", "transaction_validated", "completed",
+		"requested", "started", "transaction_validated", "transaction_applied", "completed",
 	}, stages)
 }
 
@@ -224,10 +225,10 @@ func (allowSnapshot) VerifySnapshot(context.Context, recovery.Snapshot, recovery
 	return nil
 }
 
-func event(id string, rowID int64, name string) cdc.ChangeEvent {
+func event(id string, operation cdc.Operation, rowID int64, name string) cdc.ChangeEvent {
 	return cdc.ChangeEvent{
 		ID: id, SourceID: "source-1", SourceType: "mongodb", Database: "recovery_app", Table: "rows",
-		Operation: cdc.OpInsert, Key: []string{"_id"}, ColumnsMapped: true,
+		Operation: operation, Key: []string{"_id"}, ColumnsMapped: true,
 		Position: cdc.Position{Kind: "token", Value: "00"}, Tx: cdc.TxInfo{ID: "transaction-" + id, Seq: 1, End: true},
 		TsUnixMs: time.Now().UnixMilli(),
 		After: map[string]json.RawMessage{

@@ -518,6 +518,14 @@ jobs:
           go test -tags=integration -count=1 -timeout 8m \
             -run 'TestPostgresApplierRealTarget|TestPostgresRecoveryExecutorDryRunApplyAndRetry' \
             ./pkg/cdc/recovery/postgres/ -v
+      - name: MySQL recovery target tests
+        timeout-minutes: 10
+        env:
+          TEST_MYSQL_RECOVERY_DSN: "root:root@tcp(127.0.0.1:13306)/"
+        run: |
+          go test -tags=integration -count=1 -timeout 8m \
+            -run 'TestMySQLApplierRealTarget|TestMySQLRecoveryExecutorDryRunApplyAndRetry' \
+            ./pkg/cdc/recovery/mysql/ -v
       - name: MongoDB change streams connector tests
         timeout-minutes: 10
         env:
