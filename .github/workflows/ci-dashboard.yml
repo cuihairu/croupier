@@ -201,10 +201,11 @@ jobs:
         id: pw_install
         run: pnpm exec playwright install chromium
       - name: Install Playwright system dependencies
-        timeout-minutes: 8
-        # azure.archive.ubuntu.com 区域镜像今天持续 Ign；切换到主源再装依赖
+        timeout-minutes: 15
+        # azure.archive.ubuntu.com 慢时会拖到超时；切主源再装依赖。
+        # Ubuntu 24.04 runner 用 deb822 的 *.sources（无 sources.list/*.list），sed 必须覆盖两者
         run: |
-          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' {} + || true
           sudo apt-get update -qq
           pnpm exec playwright install-deps chromium
 
@@ -308,10 +309,11 @@ jobs:
         id: pw_install
         run: pnpm exec playwright install chromium
       - name: Install Playwright system dependencies
-        timeout-minutes: 8
-        # azure.archive.ubuntu.com 区域镜像今天持续 Ign；切换到主源再装依赖
+        timeout-minutes: 15
+        # azure.archive.ubuntu.com 慢时会拖到超时；切主源再装依赖。
+        # Ubuntu 24.04 runner 用 deb822 的 *.sources（无 sources.list/*.list），sed 必须覆盖两者
         run: |
-          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' {} + || true
           sudo apt-get update -qq
           pnpm exec playwright install-deps chromium
 
