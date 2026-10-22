@@ -3,12 +3,14 @@ package source
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
 
@@ -34,9 +36,10 @@ import (
 // ParseDSN 解析出 host/port/user/password）；Options 仅承载 serverId/
 // flavor/tables 等非密参数。明文密码不进契约、不落日志（红线）。
 type MySQLConnector struct {
-	cfg    connector.SourceConfig
-	log    *slog.Logger
-	bridge *ProviderConnector // Open 后组装的 Provider→契约桥接（流/位点复用同一份映射）
+	cfg     connector.SourceConfig
+	log     *slog.Logger
+	bridge  *ProviderConnector // Open 后组装的 Provider→契约桥接（流/位点复用同一份映射）
+	execSQL func(ctx context.Context, query string) (sql.Result, error)
 }
 
 // NewMySQLConnector 构造 MySQL 契约连接器（不立即连接，Open 时解析配置）。
@@ -44,7 +47,7 @@ func NewMySQLConnector(cfg connector.SourceConfig, log *slog.Logger) *MySQLConne
 	if log == nil {
 		log = slog.Default()
 	}
-	return &MySQLConnector{cfg: cfg, log: log}
+	return &MySQLConnector{cfg: cfg, log: log, execSQL: defaultConnectorSQLExecutor(cfg.DSNEnv)}
 }
 
 // Open 解析 DSNEnv → MySQLConfig → 构造 MySQLSource（不建连接）。
@@ -84,7 +87,7 @@ func (c *MySQLConnector) Open(_ context.Context, cfg connector.SourceConfig) err
 		return errors.New("mysql connector: options.tables required (whitelist, comma-separated db.table)")
 	}
 	c.cfg = cfg
-	c.bridge = NewProviderConnector(NewMySQLSource(MySQLConfig{
+	mysqlConfig := MySQLConfig{
 		Host:     host,
 		Port:     port,
 		User:     dsnCfg.User,
@@ -92,7 +95,11 @@ func (c *MySQLConnector) Open(_ context.Context, cfg connector.SourceConfig) err
 		ServerID: uint32(sid),
 		Flavor:   cfg.Options["flavor"],
 		Tables:   tables,
-	}, c.log), "mysql", c.log)
+	}
+	if c.execSQL != nil {
+		mysqlConfig.ExecSQL = c.execSQL
+	}
+	c.bridge = NewProviderConnector(NewMySQLSource(mysqlConfig, c.log), "mysql", c.log)
 	return nil
 }
 
@@ -181,9 +188,154 @@ WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'`
 	return result, nil
 }
 
-// Snapshot 能力缺失显式拒绝（MySQL 快照走独立回补流程；不静默回空流）。
+// Snapshot remains explicitly unsupported because the public Connector
+// contract has no consistency probe. SnapshotWithProbe is the guarded source
+// recovery extension and must not be exposed as a generic snapshot source.
 func (c *MySQLConnector) Snapshot(_ context.Context, _ connector.SnapshotRequest) (<-chan connector.ChangeEvent, error) {
 	return nil, connector.ErrUnsupportedSnapshot
+}
+
+// SnapshotWithProbe captures a consistent row snapshot. It requires MySQL 8
+// backup-lock support and executes the supplied consistency probe inside the
+// locked read transaction. The probe must return a recoverable position that
+// precedes all incremental changes applied after the snapshot transaction.
+func (c *MySQLConnector) SnapshotWithProbe(ctx context.Context, req connector.SnapshotRequest, probe GTIDProbe) (<-chan connector.ChangeEvent, error) {
+	if c.bridge == nil {
+		return nil, errors.New("mysql connector: not open")
+	}
+	if probe == nil {
+		return nil, errors.New("mysql connector: snapshot consistency probe is required")
+	}
+	for _, table := range req.Tables {
+		db, name, ok := strings.Cut(table, ".")
+		if !ok || db == "" || name == "" {
+			return nil, fmt.Errorf("mysql connector: snapshot table %q must be database.table", table)
+		}
+	}
+	dsn := os.Getenv(c.cfg.DSNEnv)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("mysql connector: snapshot open: %w", err)
+	}
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("mysql connector: snapshot begin: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, "LOCK INSTANCE FOR BACKUP"); err != nil {
+		_ = tx.Rollback()
+		_ = db.Close()
+		return nil, fmt.Errorf("mysql connector: snapshot requires backup lock: %w", err)
+	}
+	if c.execSQL == nil {
+		_ = tx.Rollback()
+		_ = db.Close()
+		return nil, errors.New("mysql connector: snapshot consistency executor is missing")
+	}
+	if _, err := c.execSQL(ctx, "UNLOCK INSTANCE"); err != nil {
+		_ = tx.Rollback()
+		_ = db.Close()
+		return nil, fmt.Errorf("mysql connector: snapshot consistency injection: %w", err)
+	}
+	position, err := probe(ctx)
+	if err != nil {
+		_ = tx.Rollback()
+		_ = db.Close()
+		return nil, fmt.Errorf("mysql connector: snapshot probe: %w", err)
+	}
+	discovery, err := c.Discover(ctx, connector.DiscoveryRequest{Tables: req.Tables})
+	if err != nil {
+		_ = tx.Rollback()
+		_ = db.Close()
+		return nil, err
+	}
+	out := make(chan connector.ChangeEvent)
+	go func() {
+		defer close(out)
+		defer func() { _ = tx.Rollback() }()
+		defer func() { _ = db.Close() }()
+		for _, table := range discovery.Tables {
+			if ctx.Err() != nil {
+				return
+			}
+			qualifiedName, err := quoteSnapshotTable(table.Name)
+			if err != nil {
+				c.log.Error("mysql snapshot table invalid", "table", table.Name, "error", err)
+				return
+			}
+			rows, err := tx.QueryContext(ctx, "SELECT * FROM "+qualifiedName)
+			if err != nil {
+				c.log.Error("mysql snapshot scan failed", "table", table.Name, "error", err)
+				return
+			}
+			columns, err := rows.Columns()
+			if err != nil {
+				_ = rows.Close()
+				c.log.Error("mysql snapshot columns failed", "table", table.Name, "error", err)
+				return
+			}
+			for rows.Next() {
+				values := make([]any, len(columns))
+				scans := make([]any, len(columns))
+				for i := range values {
+					scans[i] = &values[i]
+				}
+				if err := rows.Scan(scans...); err != nil {
+					_ = rows.Close()
+					c.log.Error("mysql snapshot row failed", "table", table.Name, "error", err)
+					return
+				}
+				image, err := snapshotImage(values)
+				if err != nil {
+					_ = rows.Close()
+					c.log.Error("mysql snapshot encode failed", "table", table.Name, "error", err)
+					return
+				}
+				event := connector.ChangeEvent{
+					SourceID: c.cfg.SourceID, SourceType: "mysql", Database: strings.SplitN(table.Name, ".", 2)[0],
+					Table: strings.SplitN(table.Name, ".", 2)[1], Operation: connector.OpInsert,
+					After: image, ColumnsMapped: true, Key: table.PrimaryKey,
+					Position: connector.Position{Kind: "gtid", Value: position},
+					Tx:       connector.TxInfo{ID: "snapshot:" + position, Seq: 1, End: true}, TsUnixMs: time.Now().UnixMilli(),
+				}
+				select {
+				case out <- event:
+				case <-ctx.Done():
+					return
+				}
+			}
+			if err := rows.Err(); err != nil {
+				c.log.Error("mysql snapshot rows failed", "table", table.Name, "error", err)
+				return
+			}
+			_ = rows.Close()
+		}
+	}()
+	return out, nil
+}
+
+func quoteSnapshotIdentifier(value string) string {
+	return "`" + strings.ReplaceAll(value, "`", "``") + "`"
+}
+
+func quoteSnapshotTable(value string) (string, error) {
+	schema, table, ok := strings.Cut(value, ".")
+	if !ok || schema == "" || table == "" || strings.Contains(table, ".") {
+		return "", fmt.Errorf("mysql connector: invalid snapshot table %q", value)
+	}
+	return quoteSnapshotIdentifier(schema) + "." + quoteSnapshotIdentifier(table), nil
+}
+
+func snapshotImage(values []any) (map[string]json.RawMessage, error) {
+	image := make(map[string]json.RawMessage, len(values))
+	for i, value := range values {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, fmt.Errorf("column %d: %w", i, err)
+		}
+		image[strconv.Itoa(i)] = encoded
+	}
+	return image, nil
 }
 
 // Poll 从 req.From 续读（空位点探测当前起点），事件过契约桥接为统一

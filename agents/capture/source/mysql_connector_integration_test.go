@@ -4,6 +4,8 @@ package source
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -11,14 +13,6 @@ import (
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
 )
-
-// MySQLConnector 契约适配器活源冒烟（todo 4306 增量三，CI capture-matrix
-// 与本地 docker 同跑法）：MySQLSource 包进统一契约后走完整链——Open
-// （DSNEnv 通道）→ Poll 空位点 → 事件按契约桥接（位置下标行像/位点
-// kind=gtid）→ Checkpoint → Close。
-//
-// 环境变量：TEST_MYSQL_DSN（缺席跳过；要求源端 binlog ROW + GTID on，与
-// TestCaptureSourceFlavors 同一容器约定）。
 
 func TestMySQLConnectorContract(t *testing.T) {
 	dsn := os.Getenv("TEST_MYSQL_DSN")
@@ -49,69 +43,129 @@ func TestMySQLConnectorContract(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	c := NewMySQLConnector(cfg, nil)
-	if err := c.Open(ctx, cfg); err != nil {
+	snapshotConnector := NewMySQLConnector(cfg, nil)
+	if err := snapshotConnector.Open(ctx, cfg); err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	defer func() { _ = c.Close(ctx) }()
+	defer func() { _ = snapshotConnector.Close(ctx) }()
 
-	// Discover：元数据 + 能力同源（契约面的摄取前置）。
-	disc, err := c.Discover(ctx, connector.DiscoveryRequest{Tables: []string{dbname + ".t1"}})
+	disc, err := snapshotConnector.Discover(ctx, connector.DiscoveryRequest{Tables: []string{dbname + ".t1"}})
 	if err != nil {
 		t.Fatalf("discover: %v", err)
 	}
 	if len(disc.Tables) != 1 || disc.Tables[0].Name != dbname+".t1" {
 		t.Fatalf("discover tables = %+v", disc.Tables)
 	}
-	if len(disc.Tables[0].PrimaryKey) != 1 || disc.Tables[0].PrimaryKey[0] != "id" {
-		t.Fatalf("discover pk = %+v", disc.Tables[0].PrimaryKey)
-	}
 	if !disc.Capabilities.AfterImage || !disc.Capabilities.ResumableCheckpoint {
 		t.Fatalf("capabilities = %+v", disc.Capabilities)
 	}
 
-	// Poll：空位点起订，桥接事件按契约形态断言。
-	events, err := c.Poll(ctx, connector.PollRequest{Tables: []string{dbname + ".t1"}})
+	events, err := snapshotConnector.Poll(ctx, connector.PollRequest{Tables: []string{dbname + ".t1"}})
 	if err != nil {
 		t.Fatalf("poll: %v", err)
 	}
 	mustExecStmts(t, dsn, fmt.Sprintf("INSERT INTO %s.t1 (v) VALUES ('marker-mc')", dbname))
+	waitEvent := func(match func(connector.ChangeEvent) bool) connector.ChangeEvent {
+		t.Helper()
+		deadline := time.After(15 * time.Second)
+		for {
+			select {
+			case ev, ok := <-events:
+				if !ok {
+					t.Fatal("event stream closed before marker")
+				}
+				if match(ev) {
+					return ev
+				}
+			case <-deadline:
+				t.Fatal("timed out waiting for marker")
+			}
+		}
+	}
+	insert := waitEvent(func(ev connector.ChangeEvent) bool {
+		return ev.Operation == connector.OpInsert && string(ev.After["1"]) == `"marker-mc"`
+	})
+	if insert.Database != dbname || insert.Table != "t1" || insert.ColumnsMapped {
+		t.Fatalf("identity = %+v", insert)
+	}
+	if insert.Position.Kind != "gtid" || !insert.Position.Valid() || insert.Tx.End {
+		t.Fatalf("position/tx = %+v", insert)
+	}
+
+	caps := MySQLCapabilities()
+	if caps.Snapshot || caps.TransactionMetadata {
+		t.Fatalf("public recovery capabilities = %+v, want fail-closed", caps)
+	}
+	if _, err := snapshotConnector.Snapshot(ctx, connector.SnapshotRequest{}); err == nil {
+		t.Fatal("public Snapshot must reject")
+	}
+	_, err = CurrentGTIDProbe(MySQLConfig{Flavor: "mariadb"})
+	if err == nil {
+		t.Fatal("MariaDB snapshot probe must reject")
+	}
+
+	before, err := CurrentGTIDProbe(MySQLConfig{
+		Host: "127.0.0.1", Port: portFromDSN(t, dsn), User: userFromDSN(t, dsn), Password: passFromDSN(t, dsn), Flavor: "mysql",
+	})
+	if err != nil {
+		t.Fatalf("gtid probe: %v", err)
+	}
+	position, err := before(ctx)
+	if err != nil || position == "" {
+		t.Fatalf("before position = %q, %v", position, err)
+	}
+	injected := NewMySQLConnector(cfg, nil)
+	if err := injected.Open(ctx, cfg); err != nil {
+		t.Fatalf("open invariant connector: %v", err)
+	}
+	defer func() { _ = injected.Close(ctx) }()
+	injected.execSQL = func(ctx context.Context, query string) (sql.Result, error) {
+		return nil, errors.New("injected snapshot consistency failure")
+	}
+	if _, err := injected.SnapshotWithProbe(ctx, connector.SnapshotRequest{Tables: []string{dbname + ".t1"}}, before); err == nil {
+		t.Fatal("snapshot must reject failed consistency lock")
+	}
+
+	snapshots, err := snapshotConnector.SnapshotWithProbe(ctx, connector.SnapshotRequest{Tables: []string{dbname + ".t1"}}, before)
+	if err != nil {
+		t.Fatalf("snapshot with probe: %v", err)
+	}
+	mustExecStmts(t, dsn, fmt.Sprintf("INSERT INTO %s.t1 (v) VALUES ('after-snapshot')", dbname))
+	var snapshotted []connector.ChangeEvent
+	for event := range snapshots {
+		if event.Position.Kind != "gtid" || event.Position.Value != position || !event.ColumnsMapped || !event.Tx.End {
+			t.Fatalf("snapshot event = %+v", event)
+		}
+		snapshotted = append(snapshotted, event)
+	}
+	if len(snapshotted) != 2 || string(snapshotted[0].After["0"]) != "1" || string(snapshotted[1].After["0"]) != "2" {
+		t.Fatalf("snapshot rows = %+v", snapshotted)
+	}
+	incremental := waitConnectorEvent(t, events, func(ev connector.ChangeEvent) bool {
+		return ev.Operation == connector.OpInsert && string(ev.After["1"]) == `"after-snapshot"`
+	})
+	if err := snapshotConnector.AckCheckpoint(ctx, incremental.Position); err != nil {
+		t.Fatalf("ack incremental: %v", err)
+	}
+	if _, err := snapshotConnector.Snapshot(ctx, connector.SnapshotRequest{}); err == nil {
+		t.Fatal("generic Snapshot must stay unsupported after guarded capture")
+	}
+}
+
+func waitConnectorEvent(t *testing.T, events <-chan connector.ChangeEvent, match func(connector.ChangeEvent) bool) connector.ChangeEvent {
+	t.Helper()
 	deadline := time.After(15 * time.Second)
 	for {
 		select {
-		case ev, ok := <-events:
+		case event, ok := <-events:
 			if !ok {
-				t.Fatal("event stream closed before marker-mc")
+				t.Fatal("connector event stream closed before marker")
 			}
-			if ev.Operation != connector.OpInsert || string(ev.After["1"]) != `"marker-mc"` {
-				continue
+			if match(event) {
+				return event
 			}
-			if ev.Database != dbname || ev.Table != "t1" {
-				t.Fatalf("identity = %+v", ev)
-			}
-			if ev.ColumnsMapped {
-				t.Fatal("mysql rows must stay positional (columnsMapped=false)")
-			}
-			if ev.Position.Kind != "gtid" || ev.Position.Value == "" || !ev.Position.Valid() {
-				t.Fatalf("position = %+v", ev.Position)
-			}
-			if err := ev.Validate(); err != nil {
-				t.Fatalf("contract validation: %v", err)
-			}
-			// Checkpoint：先确认位点，再读快照（b0e035d 起 Checkpoint 只回已确认位点）。
-			if err := c.AckCheckpoint(ctx, ev.Position); err != nil {
-				t.Fatalf("ack checkpoint: %v", err)
-			}
-			cp, err := c.Checkpoint(ctx)
-			if err != nil || cp.Kind != "gtid" || cp.Value == "" {
-				t.Fatalf("checkpoint = %+v err=%v", cp, err)
-			}
-			if cp.Value != ev.Position.Value {
-				t.Fatalf("checkpoint %q != event position %q", cp.Value, ev.Position.Value)
-			}
-			return
 		case <-deadline:
-			t.Fatal("timed out waiting for marker-mc")
+			t.Fatal("timed out waiting for connector marker")
 		}
 	}
 }

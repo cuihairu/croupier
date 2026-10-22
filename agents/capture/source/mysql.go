@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -27,6 +28,12 @@ type MySQLConfig struct {
 	Flavor string `yaml:"flavor" json:"flavor"`
 	// Tables 订阅白名单（"库.表"，只订道具相关表，噪声与带宽双控）。
 	Tables map[string]bool `yaml:"tables" json:"tables"`
+
+	// Probe overrides the GTID consistency probe in tests.
+	Probe GTIDProbe `yaml:"-" json:"-"`
+
+	// ExecSQL overrides the consistency-lock connection in tests.
+	ExecSQL func(ctx context.Context, query string) (sql.Result, error) `yaml:"-" json:"-"`
 }
 
 // normalizeFlavor 归一方言：空值兜底 mysql；未知值报错（不静默按 mysql 跑——
@@ -50,6 +57,8 @@ type MySQLSource struct {
 	probe  GTIDProbe // 空位点时的起点探测（默认查 @@GLOBAL.gtid_executed）
 	syncer *replication.BinlogSyncer
 
+	execSQL func(ctx context.Context, query string) (sql.Result, error)
+
 	gtidMu sync.Mutex
 	gtid   string // 当前 GTID 集合（Bookmark 快照源）
 }
@@ -59,8 +68,17 @@ func NewMySQLSource(cfg MySQLConfig, log *slog.Logger) *MySQLSource {
 	if log == nil {
 		log = slog.Default()
 	}
-	s := &MySQLSource{cfg: cfg, log: log, probe: defaultGTIDProbe(cfg)}
-	return s
+	if cfg.ExecSQL != nil || cfg.Probe != nil {
+		source := &MySQLSource{cfg: cfg, log: log, probe: cfg.Probe, execSQL: cfg.ExecSQL}
+		if source.probe == nil {
+			source.probe = defaultGTIDProbe(cfg)
+		}
+		if source.execSQL == nil {
+			source.execSQL = defaultSQLExecutor(cfg)
+		}
+		return source
+	}
+	return &MySQLSource{cfg: cfg, log: log, probe: defaultGTIDProbe(cfg), execSQL: defaultSQLExecutor(cfg)}
 }
 
 // MySQLCapabilities 本源的能力自报（connector 简档 §3 契约类型的 MySQL
