@@ -23,13 +23,34 @@ var Version = "dev"
 var GitCommit, BuildTime = "unknown", "unknown"
 
 type Runner struct {
-	cfg  config.Config
-	log  *slog.Logger
-	conn *controlconn.Conn
+	cfg config.Config
+	log *slog.Logger
+	reg *register.Client
 	// plugins hosts external probe plugins (go-plugin local gRPC).
 	// nil when no plugin is declared: no plugin process is ever started
 	// and every target keeps the native HTTP probe.
 	plugins *pluginhost.Controller
+}
+
+// probeSender is the slice of the upstream control connection the probe
+// loops consume. The register client owns the connection lifecycle
+// (background registration/reconnect swap it under its mutex); probes
+// must take a snapshot via upstream() instead of caching a Runner-owned
+// pointer that reconnect would overwrite unsynchronized.
+type probeSender interface {
+	Connected() bool
+	SendProbeEvent(ctx context.Context, ev *opsv1.AlertEvent) error
+}
+
+// upstream returns the current synchronized connection snapshot from the
+// register client. nil when the runner has no session (never started,
+// registration not yet completed, failed, or stopped).
+func (r *Runner) upstream() probeSender {
+	if r.reg == nil {
+		return nil
+	}
+	conn, _ := r.reg.Conn().(probeSender)
+	return conn
 }
 
 func New(cfg config.Config, log *slog.Logger) *Runner {
@@ -50,12 +71,12 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 }
 func (r *Runner) Run(ctx context.Context) error {
 	reg := register.New(register.Config{AgentID: r.cfg.Agent.ID, Dial: func(context.Context) (register.Conn, error) {
-		c, e := controlconn.Dial(r.cfg.Agent.ServerAddr, tlsFromCfg(r.cfg))
-		if e == nil {
-			r.conn = c
-		}
-		return c, e
+		// No Runner-owned alias: the client stores the dialed connection
+		// under its own lock and reconnect swaps it there; probes read it
+		// back through upstream().
+		return controlconn.Dial(r.cfg.Agent.ServerAddr, tlsFromCfg(r.cfg))
 	}, Payload: r.buildPayload, Logger: r.log})
+	r.reg = reg
 	reg.Start(ctx)
 	defer reg.Stop()
 	if r.plugins != nil {
@@ -83,13 +104,16 @@ func (r *Runner) Run(ctx context.Context) error {
 func (r *Runner) execute(ctx context.Context, t config.Target) {
 	res, details := r.runProbe(ctx, t)
 	ev := buildProbeEvent(r.cfg, t, res, details)
-	if r.conn == nil || !r.conn.Connected() {
+	// Synchronized snapshot: reconnect may swap the connection while this
+	// probe loop runs; a stale snapshot at worst reports a closed session.
+	conn := r.upstream()
+	if conn == nil || !conn.Connected() {
 		r.log.Warn("probe result not reported: session unavailable", "target", t.Name)
 		return
 	}
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := r.conn.SendProbeEvent(sendCtx, ev); err != nil {
+	if err := conn.SendProbeEvent(sendCtx, ev); err != nil {
 		r.log.Warn("probe result report failed", "target", t.Name, "error", err)
 	}
 	r.log.Info("probe completed", "target", t.Name, "ok", res.OK, "status", res.Status, "latencyMs", res.Latency.Milliseconds(), "error", res.Error)
