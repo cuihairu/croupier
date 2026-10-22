@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	functioninvoke "github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"net/http"
 	"testing"
 
@@ -28,19 +29,21 @@ func TestFunctionInvokeLogic_SharedInputContract(t *testing.T) {
 	}))
 	logic := NewFunctionInvokeLogic(f.ctxUser, f.svcCtx)
 
-	err := validateInvokeInput(context.Background(), f.svcCtx, "player.ban", []byte(`{}`))
+	err := functioninvoke.ValidateInvokeInput(context.Background(), f.svcCtx, &functioninvoke.Request{ID: "player.ban"}, []byte(`{}`))
 	require.Error(t, err)
 	codeErr, ok := err.(*errorx.CodeError)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusBadRequest, codeErr.Code)
 	assert.Equal(t, "required", codeErr.Details["playerId"])
 
-	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx, "player.ban", []byte(`{"playerId":"p-1"}`)))
+	require.NoError(t, functioninvoke.ValidateInvokeInput(context.Background(), f.svcCtx, &functioninvoke.Request{ID: "player.ban"}, []byte(`{"playerId":"p-1"}`)))
 
 	resp, err := logic.FunctionInvoke(&FunctionInvokeRequest{
 		ID:      "player.ban",
 		Payload: []byte(`{"playerId":"p-1"}`),
 		Route:   "broadcast",
+		GameID:  "demo",
+		Env:     "prod",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 2, resp.Broadcast.Success)

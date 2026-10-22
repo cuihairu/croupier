@@ -231,6 +231,11 @@ type FunctionInvokeResponse struct {
 	Duration  int64           `json:"duration"`
 	Timestamp string          `json:"timestamp"`
 	TaskId    string          `json:"taskId"`
+	// 审批面字段与生产入口（internal/api/function）同构：策略要求审批时
+	// 执行链返回 pending 审批单而非执行结果。
+	ApprovalID       string `json:"approvalId,omitempty"`
+	ApprovalRequired bool   `json:"approvalRequired,omitempty"`
+	ApprovalWorkflow string `json:"approvalWorkflow,omitempty"`
 	// Broadcast carries per-agent outcomes when route=broadcast. The legacy
 	// Result field is also populated with the first successful response so
 	// existing callers keep working without reading Broadcast.

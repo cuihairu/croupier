@@ -5,29 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/api/assignment"
-	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/dashboard/spec"
-	"github.com/cuihairu/croupier/internal/dbenum"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
-	"github.com/cuihairu/croupier/internal/platform/executionlog"
-	"github.com/cuihairu/croupier/internal/platform/functioncontract"
+	functioninvoke "github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/policy"
-	notify "github.com/cuihairu/croupier/internal/service/notify"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/telemetry"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 // Function management implementations
@@ -247,560 +237,129 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 	return &FunctionHistoryResponse{Items: result, Total: total}, nil
 }
 
+// --- 统一执行链薄壳（internal/platform/functioninvoke）---
+//
+// functionInvoke 的完整执行链（scope、禁用、分配、策略审批、审计、执行
+// 留痕）已上收为唯一实现 functioninvoke.Invoke，HTTP 入口与 logic 侧薄壳
+// 共用同一实现。本包只保留 API DTO 适配与既有用例依赖的私有 helper 转发。
+
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
-	scope, err := svc.CurrentScope(ctx)
+	shared := functioninvokeRequestFromDTO(req)
+	resp, err := functioninvoke.Invoke(ctx, svcCtx, shared)
+	// 统一链会把 GameID/Env 覆写为 ctx scope 值并归一化 Route；同步回 DTO
+	// 保持收口前入口行为（调用方可读到生效 scope）。
+	req.GameID, req.Env, req.Route = shared.GameID, shared.Env, shared.Route
 	if err != nil {
-		return nil, errorx.NewBadRequest("游戏环境 scope 缺失")
-	}
-	// Scope is resolved and authorized by middleware. Request body values are
-	// ignored so they can never redirect an invocation to another agent scope.
-	req.GameID = scope.GameID
-	req.Env = scope.Env
-	// 路由语义前置校验（400 级）：targeted 缺 targetServiceId / hash 缺
-	// hashKey / broadcast 配 async 属客户端错误，应在 policy 与 dispatch
-	// 之前拦截，而不是静默回落 lb 或静默走 async。
-	if err := validateInvokeRoute(req); err != nil {
+		// 派发失败同样返回可追踪的空响应（与收口前行为一致）。
+		if resp != nil {
+			return functionInvokeResponseFromUnified(resp), err
+		}
 		return nil, err
 	}
-	// 禁用拦截（E2）：dashboard 禁用按钮写 functions.status，但本路径从不
-	// 回读，禁用函数照常执行。守卫在遥测/审计/执行留痕之前——被拒的调用
-	// 不是一次执行，不产生失败执行记录污染成功率口径。
-	if err := utils.EnsureFunctionEnabled(ctx, svcCtx, strings.TrimSpace(req.ID)); err != nil {
-		return nil, err
-	}
-	// 分配闸门（BUG-032）：scope 存在分配记录时是执行白名单，未分配函数
-	// 403 function_not_assigned（无记录默认开放）。与 EnsureFunctionEnabled
-	// 同位、/tasks Start 共用，防止绕过。
-	if err := assignment.EnsureFunctionAssigned(ctx, svcCtx, strings.TrimSpace(req.ID), req.GameID, req.Env); err != nil {
-		return nil, err
-	}
-	startedAt := time.Now()
-	var spanErr error
-	if svcCtx != nil && svcCtx.Telemetry != nil {
-		nextCtx, span := svcCtx.Telemetry.StartSpan(ctx, "function.invoke",
-			attribute.String("function.id", req.ID),
-			attribute.String("function.mode", strings.TrimSpace(req.Mode)),
-			attribute.String("function.route", strings.TrimSpace(req.Route)),
-			attribute.String("game.id", strings.TrimSpace(req.GameID)),
-			attribute.String("game.env", strings.TrimSpace(req.Env)),
-		)
-		// 归流桥：函数调用是分析管道的核心业务事件（T12 断点④——
-		// 此前 bridge 建好但发送端从未接线，事件从未进过 ClickHouse）
-		svcCtx.Telemetry.BridgeFunctionCall(nextCtx, "function.call",
-			attribute.String("function.id", req.ID),
-			attribute.String("function.mode", strings.TrimSpace(req.Mode)),
-			attribute.String("function.route", strings.TrimSpace(req.Route)),
-			attribute.String("game.id", strings.TrimSpace(req.GameID)),
-			attribute.String("game.env", strings.TrimSpace(req.Env)),
-		)
-		defer func() {
-			eventType := "function.call.success"
-			completionAttrs := []attribute.KeyValue{
-				attribute.String("function.id", req.ID),
-				attribute.String("game.id", strings.TrimSpace(req.GameID)),
-				attribute.String("game.env", strings.TrimSpace(req.Env)),
-			}
-			if spanErr != nil {
-				eventType = "function.call.error"
-				completionAttrs = append(completionAttrs, attribute.String("error.message", spanErr.Error()))
-			}
-			svcCtx.Telemetry.BridgeFunctionCall(nextCtx, eventType, completionAttrs...)
-			svcCtx.Telemetry.EndSpan(span, startedAt, spanErr)
-		}()
-		ctx = nextCtx
-	}
-
-	admin, roles, err := utils.LoadCurrentAdmin(ctx, svcCtx)
-	if err != nil {
-		spanErr = err
-		return nil, err
-	}
-	_, err = utils.PermissionIDsFromRoles(ctx, svcCtx, roles)
-	if err != nil {
-		spanErr = err
-		return nil, err
-	}
-
-	approvedContinuation := isApprovedContinuation(req.Metadata)
-	pageSnapshotGoverned := isPageSnapshotGoverned(req.Metadata)
-	var functionPolicy *policy.Policy
-	// Apply function policy checks
-	if svcCtx.PolicyManager != nil && !approvedContinuation && !pageSnapshotGoverned {
-		roleNames := utils.RoleNamesFromModels(roles)
-		functionPolicy, err = enforceFunctionPolicy(ctx, svcCtx, req.ID, strings.TrimSpace(req.GameID), strings.TrimSpace(req.Env), roleNames)
-		if err != nil {
-			spanErr = err
-			return nil, err
-		}
-	}
-
-	payload := invokePayload(req)
-
-	// 输入契约前置校验：缺 required 参数属客户端错误，应在 dispatch 前
-	// 400 并指明缺失字段，而不是透传 agent 后以 5xx 路由错误收场。
-	if err := validateInvokeInput(ctx, svcCtx, req, payload); err != nil {
-		spanErr = err
-		return nil, err
-	}
-
-	// Check if approval is required
-	if functionPolicy != nil && functionPolicy.RequireApproval && svcCtx.ApprovalsStore != nil {
-		// Create approval request instead of executing directly
-		approvalID, err := createFunctionApproval(ctx, svcCtx, req, payload, admin, functionPolicy)
-		if err != nil {
-			spanErr = fmt.Errorf("failed to create approval request: %w", err)
-			return nil, spanErr
-		}
-
-		// Log approval creation if audit is enabled
-		if svcCtx.AuditService != nil && functionPolicy.RequireAudit {
-			auditApprovalCreated(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), approvalID, functionPolicy)
-		}
-
-		// Return approval response
-		return &FunctionInvokeResponse{
-			TaskId:            "",
-			ApprovalID:        approvalID,
-			ApprovalRequired:  true,
-			ApprovalWorkflow:  functionPolicy.ApprovalWorkflow,
-			Result:            nil,
-			TraceID:           telemetry.TraceIDFromContext(ctx),
-			ExecutionMetadata: cloneMetadata(req.Metadata),
-		}, nil
-	}
-
-	metadata := map[string]string{
-		"async": "false",
-	}
-	for key, value := range req.Metadata {
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		if key == "" || value == "" {
-			continue
-		}
-		metadata[key] = value
-	}
-	if req.Mode == "async" {
-		metadata["async"] = "true"
-	}
-	// 同步调用预算（毫秒）→ 约定键 timeout_ms：契约声明是上限，调用方
-	// 显式值不得突破契约（声明即契约）；两者皆无则不注入（各层全局默认）。
-	if req.Mode != "async" {
-		if effective := effectiveTimeoutMs(ctx, svcCtx, req); effective > 0 {
-			metadata["timeoutMs"] = strconv.Itoa(effective)
-		}
-	}
-	if gameID := strings.TrimSpace(req.GameID); gameID != "" {
-		metadata["gameId"] = gameID
-	}
-	if env := strings.TrimSpace(req.Env); env != "" {
-		metadata["env"] = env
-	}
-	if route := strings.TrimSpace(req.Route); route != "" {
-		metadata["route"] = route
-	}
-	if targetServiceID := strings.TrimSpace(req.TargetServiceID); targetServiceID != "" {
-		metadata["targetServiceId"] = targetServiceID
-	}
-	if hashKey := strings.TrimSpace(req.HashKey); hashKey != "" {
-		metadata["hashKey"] = hashKey
-	}
-
-	// 记录操作者
-	if admin != nil {
-		metadata["actor"] = admin.Username
-	}
-	metadata = telemetry.InjectContext(ctx, metadata)
-
-	var result *FunctionInvokeResponse
-	var invokeErr error
-
-	if req.Mode == "async" {
-		taskResp, err := svcCtx.Dispatcher.StartTaskRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
-		if err != nil {
-			invokeErr = err
-		} else {
-			result = &FunctionInvokeResponse{
-				TaskId:            taskResp.GetTaskId(),
-				Result:            nil,
-				TraceID:           telemetry.TraceIDFromContext(ctx),
-				ExecutionMetadata: cloneMetadata(metadata),
-			}
-		}
-	} else if strings.EqualFold(strings.TrimSpace(req.Route), "broadcast") {
-		broadcast, err := svcCtx.Dispatcher.InvokeBroadcast(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
-		if err != nil {
-			invokeErr = err
-		} else {
-			result = buildBroadcastResponse(broadcast)
-			result.TraceID = telemetry.TraceIDFromContext(ctx)
-			result.ExecutionMetadata = cloneMetadata(metadata)
-		}
-	} else {
-		resp, err := svcCtx.Dispatcher.InvokeRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
-		if err != nil {
-			invokeErr = err
-		} else {
-			result = &FunctionInvokeResponse{
-				TraceID:           telemetry.TraceIDFromContext(ctx),
-				ExecutionMetadata: cloneMetadata(metadata),
-			}
-			if resp != nil && len(resp.GetPayload()) > 0 {
-				result.Result = rawJSONFromBytes(resp.GetPayload())
-			}
-		}
-	}
-
-	// Audit logging: log function invocation if policy requires audit
-	if svcCtx.AuditService != nil && functionPolicy != nil && functionPolicy.RequireAudit {
-		invokeDurationMs := time.Since(startedAt).Milliseconds()
-		auditFunctionInvoke(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), functionPolicy, invokeErr, invokeDurationMs)
-	}
-
-	// 执行留痕（R1）：payload 级请求/响应异步落库（与 require_audit 解耦）；
-	// 页面绑定执行的内部 invoke 由 page 源记录承担，此处跳过避免双写
-	if svcCtx.ExecutionLogWriter != nil && !executionlog.Skipped(ctx) {
-		invokeDurationMs := time.Since(startedAt).Milliseconds()
-		var actor string
-		if admin != nil {
-			actor = admin.Username
-		}
-		status := executionlog.StatusOK
-		var responseBody interface{}
-		if invokeErr != nil {
-			status = executionlog.StatusFail
-			responseBody = map[string]string{"error": invokeErr.Error()}
-		} else if result != nil && len(result.Result) > 0 {
-			responseBody = json.RawMessage(result.Result)
-		}
-		scope := svc.GameScopeFromContext(ctx)
-		svcCtx.ExecutionLogWriter.Log(executionlog.Entry{
-			GameID:     scope.GameID,
-			Env:        scope.Env,
-			Source:     executionlog.SourceInvoke,
-			FunctionID: req.ID,
-			Actor:      actor,
-			Route:      strings.TrimSpace(req.Route),
-			Status:     status,
-			DurationMs: invokeDurationMs,
-			TraceID:    telemetry.TraceIDFromContext(ctx),
-			Request:    json.RawMessage(payload),
-			Response:   responseBody,
-		})
-	}
-
-	if invokeErr != nil {
-		spanErr = invokeErr
-		return &FunctionInvokeResponse{
-			TaskId:  "",
-			Result:  nil,
-			TraceID: telemetry.TraceIDFromContext(ctx),
-		}, invokeErr
-	}
-
-	return result, nil
+	return functionInvokeResponseFromUnified(resp), nil
 }
 
-// validateInvokeInput 在 dispatch 前按函数 descriptor 的 inputSchema 校验
-// payload。无 descriptor 或 schema 不可编译时透传；可编译契约则执行完整的
-// JSON Schema 校验，避免 HTTP API 与 logic 入口各自解释同一份契约。
+func functioninvokeRequestFromDTO(req *FunctionInvokeRequest) *functioninvoke.Request {
+	if req == nil {
+		return &functioninvoke.Request{}
+	}
+	return &functioninvoke.Request{
+		ID:              req.ID,
+		Params:          req.Params,
+		Payload:         req.Payload,
+		GameID:          req.GameID,
+		Env:             req.Env,
+		Mode:            req.Mode,
+		Route:           req.Route,
+		TargetServiceID: req.TargetServiceID,
+		HashKey:         req.HashKey,
+		TimeoutMs:       req.TimeoutMs,
+		Metadata:        req.Metadata,
+	}
+}
+
+func functionInvokeResponseFromUnified(resp *functioninvoke.Response) *FunctionInvokeResponse {
+	if resp == nil {
+		return nil
+	}
+	out := &FunctionInvokeResponse{
+		TaskId:            resp.TaskId,
+		Result:            resp.Result,
+		ApprovalID:        resp.ApprovalID,
+		ApprovalRequired:  resp.ApprovalRequired,
+		ApprovalWorkflow:  resp.ApprovalWorkflow,
+		TraceID:           resp.TraceID,
+		ExecutionMetadata: resp.ExecutionMetadata,
+	}
+	if resp.Broadcast != nil {
+		items := make([]BroadcastAgentItem, 0, len(resp.Broadcast.Results))
+		for _, item := range resp.Broadcast.Results {
+			items = append(items, BroadcastAgentItem{AgentID: item.AgentID, Result: item.Result, Error: item.Error})
+		}
+		out.Broadcast = &BroadcastResult{
+			Total:   resp.Broadcast.Total,
+			Success: resp.Broadcast.Success,
+			Failure: resp.Broadcast.Failure,
+			Results: items,
+		}
+	}
+	return out
+}
+
 func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest, payload []byte) error {
-	if svcCtx == nil || svcCtx.FunctionModel == nil {
-		return nil
-	}
-	functionID := strings.TrimSpace(req.ID)
-	if functionID == "" {
-		return nil
-	}
-	descs, err := svcCtx.FunctionModel.ListDescriptors(ctx, functionID)
-	if err != nil || len(descs) == 0 {
-		return nil
-	}
-	return functioncontract.ValidateInput(descs[0].Input, payload) // ListDescriptors 按版本倒序，取最新契约
+	return functioninvoke.ValidateInvokeInput(ctx, svcCtx, functioninvokeRequestFromDTO(req), payload)
 }
 
-// validateInvokeRoute enforces routing semantics at the HTTP API boundary.
-// The legacy helper dispatches directly and therefore must not rely only on
-// the separate logic-layer validation to prevent targeted calls falling back
-// to load balancing.
 func validateInvokeRoute(req *FunctionInvokeRequest) error {
 	if req == nil {
 		return errorx.NewBadRequest("invoke request is required")
 	}
-
-	route := strings.ToLower(strings.TrimSpace(req.Route))
-	if route == "" {
-		route = "lb"
+	shared := functioninvokeRequestFromDTO(req)
+	if err := functioninvoke.ValidateInvokeRoute(shared); err != nil {
+		return err
 	}
-	switch route {
-	case "lb":
-	case "targeted":
-		if strings.TrimSpace(req.TargetServiceID) == "" {
-			return errorx.NewBadRequest("target_service_id is required for route=targeted")
-		}
-	case "hash":
-		if strings.TrimSpace(req.HashKey) == "" {
-			return errorx.NewBadRequest("hash_key is required for route=hash")
-		}
-	case "broadcast":
-		mode := strings.ToLower(strings.TrimSpace(req.Mode))
-		if mode == "async" || mode == "task" || mode == "start_task" {
-			return errorx.NewBadRequest("route=broadcast is only supported for synchronous invoke")
-		}
-	default:
-		return errorx.NewBadRequest("invalid route " + route)
-	}
-	req.Route = route
+	req.Route = shared.Route
 	return nil
 }
 
 func cloneMetadata(metadata map[string]string) map[string]string {
-	if len(metadata) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(metadata))
-	for key, value := range metadata {
-		out[key] = value
-	}
-	return out
+	return functioninvoke.CloneMetadata(metadata)
 }
 
 func isApprovedContinuation(metadata map[string]string) bool {
-	if metadata == nil {
-		return false
-	}
-	return strings.EqualFold(strings.TrimSpace(metadata["approvalBypass"]), "approved")
+	return functioninvoke.IsApprovedContinuation(metadata)
 }
 
 func isPageSnapshotGoverned(metadata map[string]string) bool {
-	if metadata == nil {
-		return false
-	}
-	return strings.EqualFold(strings.TrimSpace(metadata["pageSnapshotGovernance"]), "validated")
+	return functioninvoke.IsPageSnapshotGoverned(metadata)
 }
 
-// effectiveTimeoutMs 计算同步调用的注入预算：
-//
-//	explicit = req.TimeoutMs（调用方显式声明）
-//	declared = 契约 FunctionContract.TimeoutMs（函数契约声明）
-//
-// 语义（声明即契约）：显式值不得突破契约上限 → effective = min(explicit,
-// declared)（两者皆有）；只有契约 → declared；只有显式 → explicit；
-// 都无 → 0（不注入，各层沿用全局默认）。契约读取失败按未声明处理
-// （查询问题不应阻断调用——超时预算是优化项不是准入项）。
 func effectiveTimeoutMs(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) int {
-	explicit := req.TimeoutMs
-	if explicit < 0 {
-		explicit = 0
-	}
-	declared := declaredTimeoutMs(ctx, svcCtx, req)
-	switch {
-	case declared > 0 && explicit > 0:
-		return min(explicit, declared)
-	case declared > 0:
-		return declared
-	default:
-		return explicit
-	}
+	return functioninvoke.EffectiveTimeoutMs(ctx, svcCtx, functioninvokeRequestFromDTO(req))
 }
 
-// declaredTimeoutMs 读取函数契约声明的同步预算（毫秒）；无契约/无声明/
-// 读取失败 → 0。
 func declaredTimeoutMs(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) int {
-	if svcCtx == nil || svcCtx.DB == nil {
-		return 0
-	}
-	gameID := strings.TrimSpace(req.GameID)
-	env := strings.TrimSpace(req.Env)
-	if gameID == "" || env == "" {
-		return 0
-	}
-	contract, err := model.NewFunctionContractModel(svcCtx.DB).
-		FindByScopeAndFunctionID(ctx, gameID, env, strings.TrimSpace(req.ID))
-	if err != nil || contract == nil {
-		return 0
-	}
-	return int(contract.TimeoutMs)
+	return functioninvoke.DeclaredTimeoutMs(ctx, svcCtx, functioninvokeRequestFromDTO(req))
 }
 
-// auditFunctionInvoke logs function invocation to audit service
 func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, functionPolicy *policy.Policy, invokeErr error, durationMs int64) {
-	username := ""
-	if admin != nil {
-		username = admin.Username
-	}
-
-	outcome := "success"
-	errorMsg := ""
-	if invokeErr != nil {
-		outcome = "failure"
-		errorMsg = invokeErr.Error()
-	}
-
-	// Build audit details
-	details := map[string]interface{}{
-		"function_id":   functionID,
-		"risk_level":    functionPolicy.DefaultRiskLevel,
-		"require_audit": functionPolicy.RequireAudit,
-		"is_override":   functionPolicy.IsOverride,
-		"policy_source": functionPolicy.Source,
-		"user_roles":    userRoles,
-		"allowed_roles": functionPolicy.AllowedRoles,
-		// Duration and trace id make audit records a data source for
-		// invocation analytics (volume / success rate / latency / Jaeger hop).
-		"duration_ms": durationMs,
-		"traceId":     telemetry.TraceIDFromContext(ctx),
-		"gameId":      svc.ResolveGameID(ctx, ""),
-		"env":         svc.ResolveEnv(ctx, ""),
-	}
-
-	// Log the audit event
-	_, err := svcCtx.AuditService.Log(ctx, audit.EventFunctionInvoke,
-		audit.WithActorID(username, "user", username),
-		audit.WithResourceID("function", functionID),
-		audit.WithDetails(details),
-		audit.WithOutcome(outcome, errorMsg),
-		audit.WithIPAddress("", ""), // Could extract from request context if needed
-	)
-	if err != nil {
-		// Log error but don't fail the request
-		fmt.Printf("Failed to log audit event: %v\n", err)
-	}
+	functioninvoke.AuditFunctionInvoke(ctx, svcCtx, functionID, admin, userRoles, functionPolicy, invokeErr, durationMs)
 }
 
-// createFunctionApproval creates an approval request for function invocation
 func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest, payload []byte, admin *model.Admin, functionPolicy *policy.Policy) (string, error) {
-	username := "system"
-	if admin != nil {
-		username = admin.Username
-	}
-	functionID := strings.TrimSpace(req.ID)
-
-	// Generate approval ID
-	approvalID := fmt.Sprintf("func_%s_%d", functionID, time.Now().UnixNano())
-
-	// Create approval record
-	approval := &approvals.Approval{
-		ID:         approvalID,
-		State:      "pending",
-		FunctionID: functionID,
-		GameID:     strings.TrimSpace(req.GameID),
-		Env:        strings.TrimSpace(req.Env),
-		Actor:      username,
-		Mode:       strings.TrimSpace(req.Mode),
-		// 空路由默认 lb（validateInvokeRoute 同一语义），审批存储需可读路由。
-		Route: func() string {
-			route := strings.TrimSpace(req.Route)
-			if route == "" {
-				return "lb"
-			}
-			return route
-		}(),
-		TargetServiceID: strings.TrimSpace(req.TargetServiceID),
-		HashKey:         strings.TrimSpace(req.HashKey),
-		Payload:         payload,
-		Metadata:        cloneMetadata(req.Metadata),
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-	}
-
-	// Store approval
-	_, err := svcCtx.ApprovalsStore.Create(approval)
-	if err != nil {
-		return "", fmt.Errorf("failed to create approval: %w", err)
-	}
-
-	// 通知有审批权限的管理员（站内信/钉钉/webhook，未配置渠道静默跳过）。
-	// 申请人同步接收提交通知，与完成事件（approval.approved/rejected）对齐。
-	if svcCtx.NotifyService != nil {
-		recipients, rErr := approvalNotifyRecipients(ctx, svcCtx)
-		if rErr != nil {
-			recipients = nil
-		}
-		if approval.Actor != "" {
-			recipients = dedupeStrings(append(recipients, approval.Actor))
-		}
-		svcCtx.NotifyService.Dispatch(ctx, notify.Event{
-			Type:       "approval.created",
-			Title:      "新的审批请求: " + approval.FunctionID,
-			Message:    "用户 " + approval.Actor + " 发起了 " + approval.FunctionID + " 调用审批，等待处理。",
-			Recipients: recipients,
-			Priority:   "high",
-			Data: map[string]interface{}{
-				"approvalId": approvalID,
-				"functionId": approval.FunctionID,
-				"gameId":     approval.GameID,
-				"env":        approval.Env,
-			},
-		})
-	}
-
-	return approvalID, nil
+	return functioninvoke.CreateFunctionApproval(ctx, svcCtx, functioninvokeRequestFromDTO(req), payload, admin, functionPolicy)
 }
 
-// approvalNotifyRecipients 列出审批通知接收人（admin 角色用户名）。
 func approvalNotifyRecipients(ctx context.Context, svcCtx *svc.ServiceContext) ([]string, error) {
-	if svcCtx.AdminModel == nil {
-		return nil, nil
-	}
-	active := 1
-	admins, _, err := svcCtx.AdminModel.List(ctx, model.ListAdminsOptions{Role: "admin", Status: &active, Page: 1, PageSize: 200})
-	if err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(admins))
-	for i := range admins {
-		if admins[i].Username != "" {
-			out = append(out, admins[i].Username)
-		}
-	}
-	return out, nil
+	return functioninvoke.ApprovalNotifyRecipients(ctx, svcCtx)
 }
 
-// dedupeStrings 去除空串与重复接收人。
 func dedupeStrings(in []string) []string {
-	seen := make(map[string]struct{}, len(in))
-	out := make([]string, 0, len(in))
-	for _, v := range in {
-		if v == "" {
-			continue
-		}
-		if _, ok := seen[v]; ok {
-			continue
-		}
-		seen[v] = struct{}{}
-		out = append(out, v)
-	}
-	return out
+	return functioninvoke.DedupeStrings(in)
 }
 
-// auditApprovalCreated logs approval creation to audit service
 func auditApprovalCreated(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin *model.Admin, userRoles []string, approvalID string, functionPolicy *policy.Policy) {
-	username := ""
-	if admin != nil {
-		username = admin.Username
-	}
-
-	// Build audit details
-	details := map[string]interface{}{
-		"function_id":       functionID,
-		"approvalId":        approvalID,
-		"approval_workflow": functionPolicy.ApprovalWorkflow,
-		"risk_level":        functionPolicy.DefaultRiskLevel,
-		"user_roles":        userRoles,
-		"allowed_roles":     functionPolicy.AllowedRoles,
-	}
-
-	// Log the audit event
-	_, err := svcCtx.AuditService.Log(ctx, audit.EventApprovalCreated,
-		audit.WithActorID(username, "user", username),
-		audit.WithResourceID("approval", approvalID),
-		audit.WithDetails(details),
-		audit.WithOutcome("success", ""),
-	)
-	if err != nil {
-		fmt.Printf("Failed to log approval audit event: %v\n", err)
-	}
+	functioninvoke.AuditApprovalCreated(ctx, svcCtx, functionID, admin, userRoles, approvalID, functionPolicy)
 }
 
 func functionPublish(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionPublishRequest) (*FunctionPublishResponse, error) {
@@ -1362,215 +921,42 @@ func invokePayload(req *FunctionInvokeRequest) []byte {
 	if req == nil {
 		return []byte("null")
 	}
-	if len(req.Payload) > 0 {
-		return append([]byte(nil), req.Payload...)
-	}
-	if len(req.Params) > 0 {
-		return append([]byte(nil), req.Params...)
-	}
-	return []byte("{}")
+	return functioninvoke.InvokePayload(functioninvokeRequestFromDTO(req))
 }
 
 func rawJSONFromAny(value interface{}) json.RawMessage {
-	if value == nil {
-		return nil
-	}
-	switch v := value.(type) {
-	case json.RawMessage:
-		return append(json.RawMessage(nil), v...)
-	case []byte:
-		return rawJSONFromBytes(v)
-	case string:
-		return rawJSONFromBytes([]byte(v))
-	default:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil
-		}
-		return rawJSONFromBytes(b)
-	}
+	return functioninvoke.RawJSONFromAny(value)
 }
-
-// marshalRawString encodes non-JSON bytes as a JSON string; it is a package
-// seam because json.Marshal has no failing input for strings.
-var marshalRawString = json.Marshal
 
 func rawJSONFromBytes(value []byte) json.RawMessage {
-	value = append([]byte(nil), value...)
-	if len(value) == 0 {
-		return nil
-	}
-	if json.Valid(value) {
-		return json.RawMessage(value)
-	}
-	encoded, err := marshalRawString(string(value))
-	if err != nil {
-		return nil
-	}
-	return json.RawMessage(encoded)
+	return functioninvoke.RawJSONFromBytes(value)
 }
 
-// policyRiskFromContract maps a contract risk word (safe/warning/high/danger)
-// into the policy engine's risk vocabulary (low/medium/high/danger). The two
-// vocabularies intentionally differ; this is the single seam. Unknown/empty
-// values fall back to medium, preserving the historical default.
 func policyRiskFromContract(risk string) policy.RiskLevel {
-	switch strings.ToLower(strings.TrimSpace(risk)) {
-	case string(spec.RiskSafe):
-		return policy.RiskLow
-	case string(spec.RiskWarning):
-		return policy.RiskMedium
-	case string(spec.RiskHigh):
-		return policy.RiskHigh
-	case string(spec.RiskDanger):
-		return policy.RiskDanger
-	default:
-		return policy.RiskMedium
-	}
+	return functioninvoke.PolicyRiskFromContract(risk)
 }
 
-// resolvePolicyRisk 解析函数治理风险，优先级：
-//  1. 内存 openapiOperations 的 x-risk（converter 写入的键是 x-risk，此前误读
-//     x-risk-level 永不命中）——本次启动内的显式声明，含 safe。
-//  2. 契约行的非 safe risk——契约行是 OpenAPI 上传（x-risk）与注册物化的汇聚点，
-//     重启后仍可解析；但 risk 列零值即 safe，无法区分「声明 safe」与「未声明」，
-//     故契约行的 safe 不采信，未声明函数保守维持 medium（治理只会收紧不会放松）。
-//  3. 皆无 → medium（历史默认）。
-//
-// 服务端治理覆盖入口是 PolicyManager 的 per-function DB override（SetOverride），
-// GetPolicy 优先命中 override，本函数只影响无 override 时的默认档位选择。
 func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
-	if svcCtx.RegistryStore != nil {
-		if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil && op != nil {
-			if riskVal, ok := op.Extensions["x-risk"].(string); ok && strings.TrimSpace(riskVal) != "" {
-				return policyRiskFromContract(riskVal)
-			}
-		}
-	}
-	if svcCtx.DB != nil {
-		gameID, env = strings.TrimSpace(gameID), strings.TrimSpace(env)
-		if gameID != "" && env != "" {
-			contract, err := model.NewFunctionContractModel(svcCtx.DB).
-				FindByScopeAndFunctionID(ctx, gameID, env, strings.TrimSpace(functionID))
-			if err == nil && contract != nil {
-				switch contract.Risk {
-				case dbenum.RiskWarning, dbenum.RiskHigh, dbenum.RiskDanger:
-					return policyRiskFromContract(contract.Risk.String())
-				}
-			}
-		}
-	}
-	return policy.RiskMedium
+	return functioninvoke.ResolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 }
 
 // ResolvePolicyRisk exposes resolvePolicyRisk to the approve path
 // (internal/api/approval step-up gate, OPEN-ISSUES #75): 高危审批门槛必须与
 // 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。
 func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
-	return resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
+	return functioninvoke.ResolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 }
 
-// enforceFunctionPolicy checks if the user's roles are allowed to invoke the function
-// based on the effective policy for that function.
-// Returns the effective policy for auditing purposes.
 func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string, userRoles []string) (*policy.Policy, error) {
-	riskLevel := resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
-
-	// Get effective policy (for approval/audit settings)
-	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
-	if err != nil {
-		// Log error but don't block invocation if policy check fails
-		return nil, nil
-	}
-
-	// If no role restriction, allow
-	if len(functionPolicy.AllowedRoles) == 0 {
-		return functionPolicy, nil
-	}
-
-	// Admin role bypasses all policy checks
-	if utils.HasAdminRole(userRoles) {
-		return functionPolicy, nil
-	}
-
-	// Use Casbin for unified permission check if AdminModel available
-	if svcCtx.AdminModel != nil {
-		// Check function:invoke permission via Casbin
-		_, _, err := utils.RequireAnyPermission(ctx, svcCtx, "无权调用该函数", "function:invoke")
-		if err != nil {
-			return nil, err
-		}
-		// Casbin allows, but also verify against AllowedRoles for function-specific restriction
-		// This ensures function-level policies are respected
-		admin, _, loadErr := utils.LoadCurrentAdmin(ctx, svcCtx)
-		if loadErr == nil {
-			adminRoles, roleErr := svcCtx.GetAdminRolesCached(ctx, admin.ID)
-			if roleErr == nil {
-				roleNames := utils.RoleNamesFromModels(adminRoles)
-				if !matchAnyRole(roleNames, functionPolicy.AllowedRoles) {
-					return nil, errorx.NewForbidden("无权调用该函数（需要角色: " + strings.Join(functionPolicy.AllowedRoles, ", ") + "）")
-				}
-			}
-		}
-		return functionPolicy, nil
-	}
-
-	// Fallback: simple role matching (for tests or when AdminModel not available)
-	if matchAnyRole(userRoles, functionPolicy.AllowedRoles) {
-		return functionPolicy, nil
-	}
-
-	return nil, errorx.NewForbidden("无权调用该函数")
+	return functioninvoke.EnforceFunctionPolicy(ctx, svcCtx, functionID, gameID, env, userRoles)
 }
 
-// matchAnyRole checks if userRoles contains any of the allowedRoles (case-insensitive)
 func matchAnyRole(userRoles []string, allowedRoles []string) bool {
-	for _, allowed := range allowedRoles {
-		for _, role := range userRoles {
-			if strings.EqualFold(strings.TrimSpace(role), strings.TrimSpace(allowed)) {
-				return true
-			}
-		}
-	}
-	return false
+	return functioninvoke.MatchAnyRole(userRoles, allowedRoles)
 }
 
-// buildBroadcastResponse aggregates per-agent outcomes from a broadcast
-// invocation. The legacy Result field is populated with the first successful
-// response so existing clients that don't know about Broadcast keep working.
 func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResponse {
-	if b == nil {
-		return &FunctionInvokeResponse{Broadcast: &BroadcastResult{}}
-	}
-
-	out := &FunctionInvokeResponse{
-		Broadcast: &BroadcastResult{
-			Total:   b.Total,
-			Success: len(b.Successes),
-			Failure: len(b.Failures),
-			Results: make([]BroadcastAgentItem, 0, b.Total),
-		},
-	}
-
-	for _, s := range b.Successes {
-		item := BroadcastAgentItem{AgentID: s.AgentID}
-		if s.Response != nil && len(s.Response.GetPayload()) > 0 {
-			item.Result = rawJSONFromBytes(s.Response.GetPayload())
-			if out.Result == nil {
-				out.Result = item.Result
-			}
-		}
-		out.Broadcast.Results = append(out.Broadcast.Results, item)
-	}
-
-	for _, f := range b.Failures {
-		out.Broadcast.Results = append(out.Broadcast.Results, BroadcastAgentItem{
-			AgentID: f.AgentID,
-			Error:   f.Err.Error(),
-		})
-	}
-
-	return out
+	return functionInvokeResponseFromUnified(functioninvoke.BuildBroadcastResponse(b))
 }
 
 // getLocalizedTextFromMetadata gets a localized text map from metadata

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
+	functioninvoke "github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -183,70 +184,30 @@ func TestSchemaRefToMap_NilValueAndRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// invokePayloadBytes & jsonValid
+// 统一执行链载荷/广播 helper（实现已上收 internal/platform/functioninvoke，
+// 用例随语义迁到统一入口；非法 JSON 的拒绝在契约校验面，不在载荷装配面）
 // ---------------------------------------------------------------------------
 
-func TestInvokePayloadBytes_NilReq(t *testing.T) {
-	result, err := invokePayloadBytes(nil)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("null"), result)
+func TestInvokePayload_NilReq(t *testing.T) {
+	assert.Equal(t, []byte("null"), functioninvoke.InvokePayload(nil))
 }
 
-func TestInvokePayloadBytes_WithPayload(t *testing.T) {
-	req := &FunctionInvokeRequest{
-		Payload: json.RawMessage(`{"key":"value"}`),
-	}
-	result, err := invokePayloadBytes(req)
-	require.NoError(t, err)
+func TestInvokePayload_WithPayload(t *testing.T) {
+	result := functioninvoke.InvokePayload(&functioninvoke.Request{Payload: []byte(`{"key":"value"}`)})
 	assert.JSONEq(t, `{"key":"value"}`, string(result))
 }
 
-func TestInvokePayloadBytes_WithParams(t *testing.T) {
-	req := &FunctionInvokeRequest{
-		Params: json.RawMessage(`{"param1":"val1"}`),
-	}
-	result, err := invokePayloadBytes(req)
-	require.NoError(t, err)
+func TestInvokePayload_WithParams(t *testing.T) {
+	result := functioninvoke.InvokePayload(&functioninvoke.Request{Params: []byte(`{"param1":"val1"}`)})
 	assert.JSONEq(t, `{"param1":"val1"}`, string(result))
 }
 
-func TestInvokePayloadBytes_Empty(t *testing.T) {
-	req := &FunctionInvokeRequest{}
-	result, err := invokePayloadBytes(req)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("{}"), result)
+func TestInvokePayload_Empty(t *testing.T) {
+	assert.Equal(t, []byte("{}"), functioninvoke.InvokePayload(&functioninvoke.Request{}))
 }
-
-func TestInvokePayloadBytes_InvalidPayload(t *testing.T) {
-	req := &FunctionInvokeRequest{
-		Payload: json.RawMessage(`not json`),
-	}
-	_, err := invokePayloadBytes(req)
-	assert.Error(t, err)
-}
-
-func TestInvokePayloadBytes_InvalidParams(t *testing.T) {
-	req := &FunctionInvokeRequest{
-		Params: json.RawMessage(`not json`),
-	}
-	_, err := invokePayloadBytes(req)
-	assert.Error(t, err)
-}
-
-func TestJsonValid(t *testing.T) {
-	assert.True(t, jsonValid(json.RawMessage(`{"a":1}`)))
-	assert.True(t, jsonValid(json.RawMessage(`"hello"`)))
-	assert.False(t, jsonValid(json.RawMessage(`not json`)))
-	assert.False(t, jsonValid(nil))
-	assert.False(t, jsonValid([]byte{}))
-}
-
-// ---------------------------------------------------------------------------
-// buildBroadcastResponse
-// ---------------------------------------------------------------------------
 
 func TestBuildBroadcastResponse_Nil(t *testing.T) {
-	result := buildBroadcastResponse(nil)
+	result := functioninvoke.BuildBroadcastResponse(nil)
 	assert.NotNil(t, result)
 	assert.NotNil(t, result.Broadcast)
 	assert.Equal(t, 0, result.Broadcast.Total)

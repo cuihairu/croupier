@@ -8,6 +8,7 @@ import (
 	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	functioninvoke "github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	policymgr "github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/service/permission"
@@ -133,6 +134,8 @@ func TestFunctionInvoke_SyncSuccess(t *testing.T) {
 	resp, err := logic.FunctionInvoke(&FunctionInvokeRequest{
 		ID:      "player.ban",
 		Payload: []byte(`{"playerId":"p1"}`),
+		GameID:  "demo",
+		Env:     "prod",
 	})
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"banned":true}`, string(resp.Result))
@@ -143,17 +146,19 @@ func TestFunctionInvoke_SyncDispatchError(t *testing.T) {
 	f.caller.err = assert.AnError
 
 	logic := NewFunctionInvokeLogic(f.ctxUser, f.svcCtx)
-	_, err := logic.FunctionInvoke(&FunctionInvokeRequest{ID: "player.ban"})
+	_, err := logic.FunctionInvoke(&FunctionInvokeRequest{ID: "player.ban", GameID: "demo", Env: "prod"})
 	require.Error(t, err)
 }
 
+// 统一后与生产入口同语义：仅 async 走任务派发（旧实现的 task/start_task
+// 分支已随执行链收口删除）。
 func TestFunctionInvoke_TaskSuccess(t *testing.T) {
 	f := newInvokeLogicFixture(t)
 	f.caller.startTaskID = "task-123"
 
 	logic := NewFunctionInvokeLogic(f.ctxUser, f.svcCtx)
 	resp, err := logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Mode: "task",
+		ID: "player.ban", Mode: "async", GameID: "demo", Env: "prod",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "task-123", resp.TaskId)
@@ -165,7 +170,7 @@ func TestFunctionInvoke_TaskDispatchError(t *testing.T) {
 
 	logic := NewFunctionInvokeLogic(f.ctxUser, f.svcCtx)
 	_, err := logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Mode: "start_task",
+		ID: "player.ban", Mode: "async", GameID: "demo", Env: "prod",
 	})
 	require.Error(t, err)
 }
@@ -176,7 +181,7 @@ func TestFunctionInvoke_BroadcastSuccess(t *testing.T) {
 
 	logic := NewFunctionInvokeLogic(f.ctxUser, f.svcCtx)
 	resp, err := logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Route: "broadcast",
+		ID: "player.ban", Route: "broadcast", GameID: "demo", Env: "prod",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp.Broadcast)
@@ -194,7 +199,7 @@ func TestFunctionInvoke_BroadcastPartialFailure(t *testing.T) {
 	logic := NewFunctionInvokeLogic(f.ctxUser, f.svcCtx)
 	// Per-agent failures are aggregated, not surfaced as a top-level error.
 	resp, err := logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Route: "broadcast",
+		ID: "player.ban", Route: "broadcast", GameID: "demo", Env: "prod",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp.Broadcast)
@@ -214,31 +219,31 @@ func TestFunctionInvoke_RouteValidation(t *testing.T) {
 	logic := NewFunctionInvokeLogic(f.ctxUser, f.svcCtx)
 
 	_, err := logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Route: "targeted",
+		ID: "player.ban", Route: "targeted", GameID: "demo", Env: "prod",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "target_service_id is required")
 
 	_, err = logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Route: "hash",
+		ID: "player.ban", Route: "hash", GameID: "demo", Env: "prod",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "hash_key is required")
 
 	_, err = logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Route: "broadcast", Mode: "task",
+		ID: "player.ban", Route: "broadcast", Mode: "async", GameID: "demo", Env: "prod",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "only supported for synchronous")
 
 	_, err = logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Route: "targeted", TargetServiceID: "svc-1",
+		ID: "player.ban", Route: "targeted", TargetServiceID: "svc-1", GameID: "demo", Env: "prod",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no live agent")
 
 	resp, err := logic.FunctionInvoke(&FunctionInvokeRequest{
-		ID: "player.ban", Route: "hash", HashKey: "player-1",
+		ID: "player.ban", Route: "hash", HashKey: "player-1", GameID: "demo", Env: "prod",
 	})
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -289,11 +294,14 @@ func TestFunctionInvoke_NonAdminMissingGameScope(t *testing.T) {
 	assert.Contains(t, err.Error(), "game_id is required")
 }
 
+// 统一后非管理员调用走生产同款策略面：默认策略按风险给出 AllowedRoles，
+// 命中角色 + function:invoke 权限即可调用（与 internal/api/function 入口
+// 同一 enforceFunctionPolicy 实现）。
 func TestFunctionInvoke_NonAdminWithInvokePermission(t *testing.T) {
 	f := newInvokeLogicFixture(t)
 	f.setupNonAdminScope(t)
 	f.caller.invokePayload = []byte(`{"ok":true}`)
-	seedNonAdminUser(t, f.svcCtx, "operator2", "function:invoke")
+	seedNonAdminRoleUser(t, f.svcCtx, "operator2", "operator", "function:invoke")
 
 	logic := NewFunctionInvokeLogic(context.WithValue(f.ctx, "username", "operator2"), f.svcCtx)
 	f.grantGameScope(t, "operator2")
@@ -302,6 +310,17 @@ func TestFunctionInvoke_NonAdminWithInvokePermission(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
+}
+
+// seedNonAdminRoleUser 创建非管理员用户并以显式角色名授予指定权限。
+func seedNonAdminRoleUser(t *testing.T, svcCtx *svc.ServiceContext, username, roleName, perm string) {
+	t.Helper()
+	admin := &model.Admin{Username: username, Status: 1}
+	require.NoError(t, svcCtx.AdminModel.Create(context.Background(), admin, "password"))
+	role := &model.Role{Name: roleName, Description: "role"}
+	require.NoError(t, svcCtx.RoleModel.Create(context.Background(), role))
+	require.NoError(t, svcCtx.AdminModel.AssignRole(context.Background(), admin.ID, role.ID))
+	require.NoError(t, svcCtx.RoleModel.ReplacePermissions(context.Background(), role.ID, []string{perm}))
 }
 
 func seedNonAdminUser(t *testing.T, svcCtx *svc.ServiceContext, username, perm string) {
@@ -330,7 +349,7 @@ func TestBuildBroadcastResponse_MixedResults(t *testing.T) {
 			{AgentID: "a4", Err: assert.AnError},
 		},
 	}
-	out := buildBroadcastResponse(b)
+	out := functioninvoke.BuildBroadcastResponse(b)
 	require.NotNil(t, out.Broadcast)
 	assert.Equal(t, 3, out.Broadcast.Total)
 	assert.Equal(t, 3, out.Broadcast.Success)

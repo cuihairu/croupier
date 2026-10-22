@@ -2,22 +2,31 @@ package function
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
-	"github.com/cuihairu/croupier/internal/platform/dispatch"
-	"github.com/cuihairu/croupier/internal/platform/functioncontract"
+	functioninvoke "github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
+// FunctionInvokeLogic 是历史 logic 侧调用入口的薄壳。
+//
+// 2026-10-22 收口：函数调用执行链唯一实现在 internal/platform/functioninvoke
+// （与生产在用的 internal/api/function HTTP 入口同一实现，scope、禁用、分配、
+// 策略审批、审计与执行留痕同源）。本类型不再持有旁路执行实现，仅做 DTO 适配
+// 与转发；入口行为差异：
+//   - scope：程序化入口由调用方显式给出 (gameId, env)，转发前经
+//     RequireGameEnvScope 授权（等价 HTTP 侧 GameDBMiddleware 的解析+授权），
+//     然后以 ctx scope 进入统一执行链，请求体值不再单独参与路由；
+//   - 禁用/分配/审批/审计/留痕：完全沿用统一执行链，不再有旧实现的无审批
+//     直执行旁路；mode 语义随生产入口（仅 async 走任务，task/start_task 按
+//     同步派发）。
 type FunctionInvokeLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-// 调用函数
+// 调用函数（薄壳转发）
 func NewFunctionInvokeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionInvokeLogic {
 	return &FunctionInvokeLogic{
 		ctx:    ctx,
@@ -26,17 +35,10 @@ func NewFunctionInvokeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fu
 }
 
 func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
+	if req == nil {
+		req = &FunctionInvokeRequest{}
+	}
 	functionID, err := utils.ValidateFunctionID(req.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
-	if err != nil {
-		return nil, err
-	}
-	roleNames := utils.RoleNamesFromModels(roles)
-	permIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
 	if err != nil {
 		return nil, err
 	}
@@ -44,173 +46,60 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 	gameID := strings.TrimSpace(req.GameID)
 	env := strings.TrimSpace(req.Env)
 
-	payload, err := invokePayloadBytes(req)
+	// 入口 scope 授权（HTTP 侧由 GameDBMiddleware 承担的同一道闸）。
+	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateInvokeInput(l.ctx, l.svcCtx, functionID, payload); err != nil {
-		return nil, err
-	}
-
-	mode := strings.ToLower(strings.TrimSpace(req.Mode))
-	route := strings.ToLower(strings.TrimSpace(req.Route))
-	if route == "" {
-		route = "lb"
-	}
-
-	metadata := map[string]string{}
-	if gameID != "" {
-		metadata["gameId"] = gameID
-	}
-	if env != "" {
-		metadata["env"] = env
-	}
-	switch route {
-	case "lb":
-		// no-op
-	case "targeted":
-		sid := strings.TrimSpace(req.TargetServiceID)
-		if sid == "" {
-			return nil, errorx.NewBadRequest("target_service_id is required for route=targeted")
-		}
-		metadata["targetServiceId"] = sid
-	case "hash":
-		key := strings.TrimSpace(req.HashKey)
-		if key == "" {
-			return nil, errorx.NewBadRequest("hash_key is required for route=hash")
-		}
-		metadata["hashKey"] = key
-	case "broadcast":
-		// no metadata required; fan-out happens via Dispatcher.InvokeBroadcast.
-	default:
-		return nil, errorx.NewBadRequest("invalid route " + route)
-	}
-
-	if route == "broadcast" && (mode == "task" || mode == "start_task" || mode == "async") {
-		return nil, errorx.NewBadRequest("route=broadcast is only supported for synchronous invoke")
-	}
-
-	if mode == "task" || mode == "start_task" || mode == "async" {
-		if err := utils.RequireGameEnvScope(l.ctx, l.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
-			return nil, err
-		}
-		if err := l.enforceInvokePermission(roleNames, permIDs, functionID, gameID, env); err != nil {
-			return nil, err
-		}
-		taskResp, err := l.svcCtx.Dispatcher.StartTaskRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
-		if err != nil {
-			return nil, err
-		}
-		taskID := taskResp.GetTaskId()
-		// 契约只输出 taskId（api/function 侧同款双字段设计债已清理，
-		// 此处同步：TaskID 与 TaskId 恒同值且全仓零读取点）。
-		return &FunctionInvokeResponse{TaskId: taskID}, nil
-	}
-
-	// Default: synchronous invoke.
+	roleNames := utils.RoleNamesFromModels(roles)
 	if err := utils.RequireGameEnvScope(l.ctx, l.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
 		return nil, err
 	}
-	if err := l.enforceInvokePermission(roleNames, permIDs, functionID, gameID, env); err != nil {
-		return nil, err
-	}
 
-	if route == "broadcast" {
-		broadcast, err := l.svcCtx.Dispatcher.InvokeBroadcast(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
-		if err != nil {
-			return nil, err
-		}
-		return buildBroadcastResponse(broadcast), nil
-	}
-
-	resp, err := l.svcCtx.Dispatcher.InvokeRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
+	// 程序化入口以显式 scope 进入统一执行链（等价中间件解析后的可信 scope）。
+	ctx := svc.WithGameScope(l.ctx, svc.GameScope{GameID: gameID, Env: env})
+	resp, err := functioninvoke.Invoke(ctx, l.svcCtx, &functioninvoke.Request{
+		ID:              functionID,
+		Params:          req.Params,
+		Payload:         req.Payload,
+		GameID:          gameID,
+		Env:             env,
+		Mode:            req.Mode,
+		Route:           req.Route,
+		TargetServiceID: req.TargetServiceID,
+		HashKey:         req.HashKey,
+		Metadata:        req.Metadata,
+	})
 	if err != nil {
 		return nil, err
 	}
-	out := &FunctionInvokeResponse{}
-	if resp != nil && len(resp.GetPayload()) > 0 {
-		out.Result = rawJSONFromBytes(resp.GetPayload())
-	}
-	return out, nil
+	return functionInvokeResponseFromUnified(resp), nil
 }
 
-func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, payload []byte) error {
-	if svcCtx == nil || svcCtx.FunctionModel == nil {
+func functionInvokeResponseFromUnified(resp *functioninvoke.Response) *FunctionInvokeResponse {
+	if resp == nil {
 		return nil
 	}
-	functionID = strings.TrimSpace(functionID)
-	if functionID == "" {
-		return nil
-	}
-	descriptors, err := svcCtx.FunctionModel.ListDescriptors(ctx, functionID)
-	if err != nil || len(descriptors) == 0 {
-		return nil
-	}
-	return functioncontract.ValidateInput(descriptors[0].Input, payload)
-}
-
-func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permIDs []string, functionID string, gameID string, env string) error {
-	return utils.CheckInvokePermission(l.ctx, l.svcCtx, roleNames, permIDs, functionID, gameID, env)
-}
-
-// buildBroadcastResponse aggregates per-agent outcomes and also populates
-// Result with the first successful response so legacy callers that don't
-// know about Broadcast keep working.
-func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResponse {
-	if b == nil {
-		return &FunctionInvokeResponse{Broadcast: &BroadcastResult{}}
-	}
-
 	out := &FunctionInvokeResponse{
-		Broadcast: &BroadcastResult{
-			Total:   b.Total,
-			Success: len(b.Successes),
-			Failure: len(b.Failures),
-			Results: make([]BroadcastAgentItem, 0, b.Total),
-		},
+		Result:           resp.Result,
+		TaskId:           resp.TaskId,
+		ApprovalID:       resp.ApprovalID,
+		ApprovalRequired: resp.ApprovalRequired,
+		ApprovalWorkflow: resp.ApprovalWorkflow,
 	}
-
-	for _, s := range b.Successes {
-		item := BroadcastAgentItem{AgentID: s.AgentID}
-		if s.Response != nil && len(s.Response.GetPayload()) > 0 {
-			item.Result = rawJSONFromBytes(s.Response.GetPayload())
-			if out.Result == nil {
-				out.Result = item.Result
-			}
+	if resp.Broadcast != nil {
+		items := make([]BroadcastAgentItem, 0, len(resp.Broadcast.Results))
+		for _, item := range resp.Broadcast.Results {
+			items = append(items, BroadcastAgentItem{AgentID: item.AgentID, Result: item.Result, Error: item.Error})
 		}
-		out.Broadcast.Results = append(out.Broadcast.Results, item)
+		out.Broadcast = &BroadcastResult{
+			Total:   resp.Broadcast.Total,
+			Success: resp.Broadcast.Success,
+			Failure: resp.Broadcast.Failure,
+			Results: items,
+		}
+		// 与旧行为一致：首个成功响应镜像进 Result，兼容只读 Result 的调用方。
+		out.Result = resp.Result
 	}
-
-	for _, f := range b.Failures {
-		out.Broadcast.Results = append(out.Broadcast.Results, BroadcastAgentItem{
-			AgentID: f.AgentID,
-			Error:   f.Err.Error(),
-		})
-	}
-
 	return out
-}
-
-func invokePayloadBytes(req *FunctionInvokeRequest) ([]byte, error) {
-	if req == nil {
-		return []byte("null"), nil
-	}
-	switch {
-	case len(req.Payload) > 0:
-		if !jsonValid(req.Payload) {
-			return nil, errorx.NewBadRequest("payload must be valid JSON")
-		}
-		return append([]byte(nil), req.Payload...), nil
-	case len(req.Params) > 0:
-		if !jsonValid(req.Params) {
-			return nil, errorx.NewBadRequest("params must be valid JSON")
-		}
-		return append([]byte(nil), req.Params...), nil
-	default:
-		return []byte("{}"), nil
-	}
-}
-
-func jsonValid(raw []byte) bool {
-	return len(raw) > 0 && json.Valid(raw)
 }

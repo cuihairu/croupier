@@ -100,13 +100,3 @@ func TestFunctionHistory_NilItemsNormalized(t *testing.T) {
 	assert.Empty(t, resp.Items)
 	assert.EqualValues(t, 7, resp.Total)
 }
-
-func TestRawJSONFromBytes_MarshalStringFailure(t *testing.T) {
-	orig := marshalRawString
-	marshalRawString = func(v any) ([]byte, error) {
-		return nil, errors.New("raw string marshal boom")
-	}
-	t.Cleanup(func() { marshalRawString = orig })
-
-	assert.Nil(t, rawJSONFromBytes([]byte("plain text")))
-}
