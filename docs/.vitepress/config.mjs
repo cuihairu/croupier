@@ -52,20 +52,12 @@ export default withMermaid(
               {
                 text: "Concepts",
                 items: [
+                  { text: "System overview", link: "/guide/concepts/overview" },
                   {
-                    // EN 概念页尚未落地，先指向真实存在的中文页（跨 locale 侧栏
-                    // 必须用完整 https URL，见 docs-sites 规约）；EN 版翻译见 todo.md 挂账。
-                    text: "System overview (中文)",
-                    link: "https://cuihairu.github.io/croupier/zh/guide/concepts/overview",
+                    text: "Function management",
+                    link: "/guide/concepts/function-management",
                   },
-                  {
-                    text: "Function management (中文)",
-                    link: "https://cuihairu.github.io/croupier/zh/guide/concepts/function-management",
-                  },
-                  {
-                    text: "Permissions (中文)",
-                    link: "https://cuihairu.github.io/croupier/zh/guide/concepts/permissions",
-                  },
+                  { text: "Permissions", link: "/guide/concepts/permissions" },
                 ],
               },
             ],
