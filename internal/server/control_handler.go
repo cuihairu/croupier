@@ -436,6 +436,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleProbePolicyConfig(ctx, data)
 	case protocol.MsgProbeDBTargetsRequest:
 		return s.handleProbeDBTargets(ctx, data)
+	case protocol.MsgDevopsAllowlistConfigRequest:
+		return s.handleDevopsAllowlistConfig(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -749,6 +751,70 @@ func (s *ControlService) handleProbePolicyConfig(ctx context.Context, data []byt
 // dbProbeTargetPrefix 归属派生 db 目标的目标名前缀：与本地 probe.targets[]
 // 声明的目标名空间隔离，避免 ApplyTargets 撞名被整体拒绝。
 const dbProbeTargetPrefix = "db:"
+
+// devopsAllowlistConfigKey config_versions 里的 devops 会话白名单键
+// （namespace=ops；面板发布侧 internal/api/ops 与 agent 拉取侧
+// agents/devops/runner 同键，两侧键一致是 wire 契约）。
+const devopsAllowlistConfigKey = "devops.allowlist"
+
+// handleDevopsAllowlistConfig 响应 agent 的 devops 会话白名单下行拉取
+// （capture gates/probe policy 同款通道语义）：从注册会话取 scope，读
+// config_versions 最新版本回给 agent。无记录/读失败/分库解析失败统一回空
+// 版本（agent 语义 = 保持现状，keep last-good）——拉取是周期轮询，单轮读
+// 异常不应放大为通道错误打断节奏。
+func (s *ControlService) handleDevopsAllowlistConfig(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.DevopsAllowlistConfigRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal DevopsAllowlistConfigRequest: %w", err)
+	}
+
+	s.mu.RLock()
+	configModel := s.configModel
+	gameDBs := s.gameDBs
+	s.mu.RUnlock()
+	if configModel == nil {
+		return nil, fmt.Errorf("config model not configured")
+	}
+
+	agentID := strings.TrimSpace(req.GetAgentId())
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	s.registry.Mu().RLock()
+	sess := s.registry.AgentsUnsafe()[agentID]
+	s.registry.Mu().RUnlock()
+	if sess == nil {
+		return nil, fmt.Errorf("agent session not found: %s", agentID)
+	}
+	gameID, env := strings.TrimSpace(sess.GameID), strings.TrimSpace(sess.Env)
+	if gameID == "" || env == "" {
+		return nil, fmt.Errorf("agent %s missing game scope", agentID)
+	}
+
+	dbCtx := ctx
+	if gameDBs != nil {
+		resolved, _, err := gameDBs.Resolve(ctx, gameID, env)
+		if err != nil {
+			s.logger.Warn("devops allowlist: resolve game db failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+			return proto.Marshal(&opsv1.DevopsAllowlistConfigResponse{})
+		}
+		dbCtx = resolved
+	}
+
+	rec, err := configModel.FindLatestByScope(dbCtx, devopsAllowlistConfigKey, gameID, env)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("devops allowlist: read config_versions failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+		}
+		return proto.Marshal(&opsv1.DevopsAllowlistConfigResponse{})
+	}
+	return proto.Marshal(&opsv1.DevopsAllowlistConfigResponse{
+		Version:       strconv.Itoa(rec.Version),
+		AllowlistJson: rec.Value,
+	})
+}
 
 // dbProbeDriverName 把 DB 源的逻辑 driver 映射为 sql.Open 可用的 driver 名
 // （dbmon 同款映射：postgres → pgx 标准库驱动；agent 二进制 blank import

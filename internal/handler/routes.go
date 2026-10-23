@@ -650,6 +650,15 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/probe/policy/rollback", opsHandler.ProbePolicyRollback)
 	g.POST("/probe/policy/validate", opsHandler.ProbePolicyValidate)
 
+	// devops 会话白名单面板下发（agent-core 简档 §7.6：config_versions
+	// devops.allowlist，namespace=ops；agent 经 wire 拉取 + configsync 热换
+	// 白名单，文件配置兜底；回滚=历史版本内容再发一版，版本日志不可变）
+	g.GET("/devops/allowlist", opsHandler.DevopsAllowlistGet)
+	g.GET("/devops/allowlist/versions", opsHandler.DevopsAllowlistVersionsGet)
+	g.PUT("/devops/allowlist", opsHandler.DevopsAllowlistPut)
+	g.POST("/devops/allowlist/rollback", opsHandler.DevopsAllowlistRollback)
+	g.POST("/devops/allowlist/validate", opsHandler.DevopsAllowlistValidate)
+
 	// server 手动诊断探针（评审简档 §4.2/§4.3）：对 server 探针面已配置的
 	// 目标即时探一次（与周期探测共用同一探针实例与状态机）
 	g.POST("/probe/diagnose", opsHandler.ProbeDiagnoseHandler)
