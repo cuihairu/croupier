@@ -22,12 +22,15 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/router"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	dashboardservice "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -118,7 +121,7 @@ func TestHealSafeReports_GuardMatrix(t *testing.T) {
 //   - interval<=0 回落 5 分钟默认值；已取消的 ctx 使 select 立即走 Done 分支返回。
 func TestStartStaleHealLoop_NilSvcCtxAndDefaultInterval(t *testing.T) {
 	// svcCtx 为 nil：不 panic、不进 ticker
-	(&Service{}).StartStaleHealLoop(healCtx(), time.Second)
+	(&Service{}).StartStaleHealLoop(healCtx(), time.Second, healStaleOptions{})
 
 	// svcCtx 非 nil（零值 ServiceContext）+ interval<=0：走默认 5 分钟分支；
 	// ctx 预先取消 → select 立即命中 Done，循环同步返回。
@@ -126,7 +129,7 @@ func TestStartStaleHealLoop_NilSvcCtxAndDefaultInterval(t *testing.T) {
 	cancel()
 	done := make(chan struct{})
 	go func() {
-		NewService(&svc.ServiceContext{}).StartStaleHealLoop(ctx, 0)
+		NewService(&svc.ServiceContext{}).StartStaleHealLoop(ctx, 0, healStaleOptions{})
 		close(done)
 	}()
 	select {
@@ -165,7 +168,7 @@ func TestStartStaleHealLoop_TickerFiresHealRound(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		service.StartStaleHealLoop(ctx, time.Millisecond)
+		service.StartStaleHealLoop(ctx, time.Millisecond, healStaleOptions{})
 		close(done)
 	}()
 	select {
@@ -252,7 +255,7 @@ func TestHealOnce_ScopeListFails(t *testing.T) {
 	service, _, _ := newPageTestService(t, "pages:edit")
 	require.NoError(t, service.svcCtx.DB.Exec("DROP TABLE page_specs").Error)
 	// 只验证「提前返回不 panic」：表已缺失，任何页级访问都会崩，能跑完即证明在 scope 枚举处返回。
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 }
 
 // TestHealOnce_ResolveScopeFailsContinues：某个 scope 的 Router.Resolve 失败
@@ -274,7 +277,7 @@ func TestHealOnce_ResolveScopeFailsContinues(t *testing.T) {
 	require.NoError(t, model.NewGameModel(metaDB).AddEnvBinding(healCtx(), "demo-game", "development", "game_demo_development", "", ""))
 
 	// 能跑完（不 panic、不返回错误）即证明 Resolve 失败走 continue 后循环正常收尾。
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 }
 
 // TestHealOnce_ListPagesFailsContinues：scope 的页级 ListByScope 查询失败
@@ -301,7 +304,7 @@ func TestHealOnce_ListPagesFailsContinues(t *testing.T) {
 			}
 		}))
 
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 	assert.GreaterOrEqual(t, atomic.LoadInt32(&listAttempts), int32(1),
 		"heal 必须已尝试该 scope 的页级枚举（失败后 continue）")
 }
@@ -329,11 +332,55 @@ func seedHealSafeDriftPage(t *testing.T, service *Service, ctx context.Context) 
 	return published.PageKey
 }
 
-// TestHealOnce_HealSafeDriftAutoPublishes：heal-safe 漂移（removed+kept）由
-// 系统身份同步草稿并自动接续发布（healed 计数路径）；同一轮里
-// draft-only（published_version=0）与无快照页（freshness 空）被跳过不动；
-// 二轮幂等（无变化不再 bump revision）。
-func TestHealOnce_HealSafeDriftAutoPublishes(t *testing.T) {
+// editDraftAsHuman 模拟「人工在编辑器改了标题、布局与按钮但没发布」：
+// 只改 page_specs（spec_json/title_json + draftRevision 递增），不写发布
+// 快照、不写提案——这正是自动愈合必须绕开的人工工作区状态。
+func editDraftAsHuman(t *testing.T, service *Service, pageKey, title string) *model.PageSpec {
+	t.Helper()
+	p, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	pageSpec, err := pageSpecFromModel(p)
+	require.NoError(t, err)
+	pageSpec.Title = map[string]string{"zh-CN": title, "en-US": title}
+	const layoutTitle = "人工未发布布局"
+	if pageSpec.Navigation == nil {
+		pageSpec.Navigation = &spec.NavigationSpec{}
+	}
+	pageSpec.Navigation.Title = map[string]string{"zh-CN": layoutTitle, "en-US": layoutTitle}
+	pageSpec.Navigation.Breadcrumb = []spec.BreadcrumbItem{{
+		Title: map[string]string{"zh-CN": layoutTitle, "en-US": layoutTitle},
+		Path:  "/console/manual-layout",
+	}}
+	const buttonText = "人工未发布按钮"
+	require.NotEmpty(t, pageSpec.Bindings, "自愈测试页必须至少有一个可绑定动作")
+	if pageSpec.Operation == nil {
+		pageSpec.Operation = &spec.OperationPageSpec{}
+	}
+	pageSpec.Operation.Confirm = &spec.ConfirmActionSpec{
+		Title:       map[string]string{"zh-CN": buttonText, "en-US": buttonText},
+		ConfirmText: map[string]string{"zh-CN": buttonText, "en-US": buttonText},
+		BindingID:   pageSpec.Bindings[0].ID,
+	}
+	specJSON, err := marshalPageSpec(pageSpec)
+	require.NoError(t, err)
+	p.SpecJSON = specJSON
+	require.NoError(t, p.SetTitle(map[string]string{"zh-CN": title, "en-US": title}))
+	p.DraftRevision++
+	require.NoError(t, service.svcCtx.PageSpecModel.Upsert(healCtx(), p))
+	edited, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	require.Contains(t, edited.SpecJSON, title, "播种的人工草稿必须真的改到了标题")
+	require.Contains(t, edited.SpecJSON, layoutTitle, "播种的人工草稿必须真的改到了布局")
+	require.Contains(t, edited.SpecJSON, buttonText, "播种的人工草稿必须真的改到了按钮")
+	require.Equal(t, p.DraftRevision, edited.DraftRevision)
+	return edited
+}
+
+// TestHealOnce_HealSafeDriftProposesAndKeepsHumanDraft：生产路径（零值选项）
+// 遇到 heal-safe 漂移时只生成 pending 变更提案——不读取、不同步、不发布
+// 人工未发布草稿；线上快照不前进、stale 继续可见；二轮扫描不重建同内容
+// 提案（人工已接受/拒绝的决定不会被翻回 pending）。
+func TestHealOnce_HealSafeDriftProposesAndKeepsHumanDraft(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	pageKey := seedHealSafeDriftPage(t, service, ctx)
 
@@ -344,22 +391,48 @@ func TestHealOnce_HealSafeDriftAutoPublishes(t *testing.T) {
 		('demo-game', 'development', 'zz-draft-only', '{}', 0, 7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 		('demo-game', 'development', 'zz-no-snapshot', '{}', 1, 9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`).Error)
 
-	page, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
+	const humanTitle = "人工未发布标题"
+	const humanLayout = "人工未发布布局"
+	const humanButton = "人工未发布按钮"
+	human := editDraftAsHuman(t, service, pageKey, humanTitle)
+	require.NotEmpty(t, service.bindingFreshnessForPublishedDraft(ctx, human), "播种漂移后必须先评估为 stale")
+	beforePublished, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	require.NotEmpty(t, service.bindingFreshnessForPublishedDraft(ctx, page), "播种漂移后必须先评估为 stale")
 
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 
+	// 1) 人工草稿原样：revision/内容/标题都不动。
 	after, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	assert.Greater(t, after.DraftRevision, page.DraftRevision, "heal-safe 漂移必须同步草稿")
-	// 自动发布：线上快照前进到同步后的草稿版本，stale 清零。
+	assert.Equal(t, human.DraftRevision, after.DraftRevision, "默认愈合路径不得改动人工草稿 revision")
+	assert.Equal(t, human.SpecJSON, after.SpecJSON, "默认愈合路径不得改写人工草稿内容")
+	assert.Contains(t, after.SpecJSON, humanTitle)
+	assert.Contains(t, after.SpecJSON, humanLayout)
+	assert.Contains(t, after.SpecJSON, humanButton)
+
+	// 2) 线上快照不前进，stale 仍可见（等人审提案或人工同步）。
 	publishedRow, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	assert.EqualValues(t, after.DraftRevision, publishedRow.Version, "heal-safe 同步后必须自动接续发布")
-	assert.Empty(t, service.bindingFreshnessForPublishedDraft(healCtx(), after), "自动发布后 stale 必须清零")
+	assert.Equal(t, beforePublished.Version, publishedRow.Version, "默认路径不得自动发布")
+	assert.NotEmpty(t, service.bindingFreshnessForPublishedDraft(healCtx(), after), "未发布前 stale 必须保持可见")
 
-	// 干扰页草稿不动（两个跳过分支均不落库）。
+	// 3) 变更提案基于已发布快照生成：uid selector 已被同步移除、count 保留，
+	//    且不含人工草稿标题（证明草稿未参与愈合输入）。
+	proposalModel := model.NewPageProposalModel(db)
+	proposal, err := proposalModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err, "默认路径必须留下变更提案")
+	assert.Equal(t, dbenum.ProposalStatusPending, proposal.Status)
+	assert.Equal(t, string(spec.GeneratedPageQualityReady), proposal.Quality)
+	proposalSpec := string(proposal.PageSpec)
+	assert.NotContains(t, proposalSpec, "/uid", "提案应携带已同步的 selector")
+	assert.Contains(t, proposalSpec, "/count", "保留字段的 selector 不得被丢弃")
+	assert.NotContains(t, proposalSpec, humanTitle, "人工未发布标题不得进入自动修复产物")
+	for _, manualChange := range []string{humanTitle, humanLayout, humanButton} {
+		assert.NotContains(t, proposalSpec, manualChange, "人工未发布草稿不得进入自动修复提案")
+	}
+	proposalID := proposal.ID
+
+	// 4) 干扰页草稿不动（两个跳过分支均不落库）。
 	draftOnly, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", "zz-draft-only")
 	require.NoError(t, err)
 	assert.Equal(t, 7, draftOnly.DraftRevision, "draft-only 页不得被 heal 改写")
@@ -367,37 +440,248 @@ func TestHealOnce_HealSafeDriftAutoPublishes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 9, noSnap.DraftRevision, "无快照页不得被 heal 改写")
 
-	// 二轮幂等：已拉齐，无变化不 bump。
-	revAfter := after.DraftRevision
-	service.healStalePublishedPagesOnce(context.Background())
+	// 5) 二轮幂等：同内容提案不重建、草稿与快照仍不动。
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 	again, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	assert.Equal(t, revAfter, again.DraftRevision, "二轮扫描必须无变化")
+	assert.Equal(t, human.DraftRevision, again.DraftRevision, "二轮扫描不得改动草稿")
+	againProposal, err := proposalModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Equal(t, proposalID, againProposal.ID, "二轮扫描不得重建同内容提案")
+	var proposalCount int64
+	require.NoError(t, db.Model(&model.PageProposal{}).
+		Where("game_id = ? AND env = ? AND page_key = ? AND proposal_key LIKE 'stale-heal:%'", "demo-game", "development", pageKey).
+		Count(&proposalCount).Error)
+	assert.EqualValues(t, 1, proposalCount, "同一漂移只应存在一个愈合提案")
 }
 
-// TestHealOnce_PublishFailureKeepsStale：同步成功但发布失败（published 快照
-// INSERT 被触发器阻断）时不得标记 AutoPublished——草稿已同步、线上快照
-// 保持旧版、stale 留给下一轮/人工。
+// TestHealOnce_AutoPublishRevisionsFromPublishedBase：显式开启自动发布时，
+// 系统只基于当前已发布快照落独立修订（page_versions 全局下一版）并发布，
+// 人工未发布标题既不进入修订也不被连带发布；发布后指针列与快照一致、
+// stale 清零；二轮扫描不再前进版本。
+func TestHealOnce_AutoPublishRevisionsFromPublishedBase(t *testing.T) {
+	service, ctx, auditStore := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	pageKey := seedHealSafeDriftPage(t, service, ctx)
+	const humanTitle = "人工未发布标题"
+	const humanLayout = "人工未发布布局"
+	const humanButton = "人工未发布按钮"
+	human := editDraftAsHuman(t, service, pageKey, humanTitle)
+	before, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
+	require.NoError(t, err)
+
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{AllowAutoPublish: true})
+
+	publishedAfter, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Greater(t, publishedAfter.Version, before.Version, "自动发布必须落在新的独立修订上")
+	assert.Equal(t, staleHealActor, publishedAfter.PublishedBy)
+	assert.NotContains(t, publishedAfter.SpecJSON, humanTitle, "人工未发布标题不得被连带发布")
+	for _, manualChange := range []string{humanTitle, humanLayout, humanButton} {
+		assert.NotContains(t, publishedAfter.SpecJSON, manualChange, "人工未发布草稿不得被连带发布")
+	}
+	publishedSpec, err := pageSpecFromPublishedModel(*publishedAfter)
+	require.NoError(t, err)
+	require.NotNil(t, publishedSpec.Navigation)
+	require.NotNil(t, publishedSpec.Operation)
+	assert.Empty(t, publishedSpec.Navigation.Breadcrumb, "人工布局修改不得连带发布")
+	assert.Nil(t, publishedSpec.Operation.Confirm, "人工按钮修改不得连带发布")
+	assert.NotContains(t, publishedSpec.Title["zh-CN"], humanTitle)
+	assert.NotContains(t, publishedAfter.SpecJSON, "/uid", "自动发布必须携带 selector 同步结果")
+	assert.Contains(t, publishedAfter.SpecJSON, "/count")
+
+	// 人工草稿仍然保留自己的 revision 与标题。
+	after, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Equal(t, human.DraftRevision, after.DraftRevision, "自动发布不得推进人工草稿 revision")
+	assert.Contains(t, after.SpecJSON, humanTitle)
+	assert.Contains(t, after.SpecJSON, humanLayout)
+	assert.Contains(t, after.SpecJSON, humanButton)
+	// 发布指针列必须与快照一致（列表/版本视图的真值）。
+	assert.Equal(t, publishedAfter.Version, after.PublishedVersion)
+	assert.Empty(t, service.bindingFreshnessForPublishedDraft(healCtx(), after), "自动发布后 stale 必须清零")
+
+	// 幂等：二轮扫描线上版本不再前进，也不留提案。
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{AllowAutoPublish: true})
+	again, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Equal(t, publishedAfter.Version, again.Version, "二轮扫描不得再发一版")
+	var proposalCount int64
+	require.NoError(t, service.svcCtx.DB.Model(&model.PageProposal{}).
+		Where("game_id = ? AND env = ? AND page_key = ? AND proposal_key LIKE 'stale-heal:%'", "demo-game", "development", pageKey).
+		Count(&proposalCount).Error)
+	assert.EqualValues(t, 0, proposalCount, "自动发布成功时不应再留愈合提案")
+
+	// 系统独立修订必须留下可追溯审计：actor/action/基线版本/新版本一致。
+	records, total, err := auditStore.List(audit.AuditFilter{
+		EventType: []audit.AuditEventType{audit.EventPagePublish},
+	}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, total, 1)
+	var healAudit *audit.AuditRecord
+	for _, record := range records {
+		if record.Actor.ID == staleHealActor && record.Details["action"] == "stale_heal" {
+			healAudit = record
+			break
+		}
+	}
+	require.NotNil(t, healAudit, "自动愈合发布必须写系统审计记录")
+	details := healAudit.Details
+	assert.Equal(t, "stale_heal", details["action"])
+	assert.Equal(t, before.Version, details["base_published_version"])
+	assert.Equal(t, publishedAfter.Version, details["published_version"])
+	assert.NotEmpty(t, details["safe_bindings"])
+}
+
+// TestHealOnce_GovernanceAndFunctionVersionDriftStaysManual：schema 已无
+// selector 缺口，但治理等级与函数版本漂移是人工风险判断，即便显式允许
+// 自动发布也必须停在变更提案，线上快照与系统发布审计都不能前进。
+func TestHealOnce_GovernanceAndFunctionVersionDriftStaysManual(t *testing.T) {
+	service, ctx, auditStore := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	pageKey := seedHealSafeDriftPage(t, service, ctx)
+
+	meta := syncGiftMeta(`{"type":"object","properties":{"count":{"type":"integer"}},"required":["count"]}`)
+	meta.Version = "2.0.0"
+	meta.Risk = "warning"
+	rebuildFunctionContract(t, service.svcCtx.DB, ctx, "gift.send", meta)
+
+	before, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
+	require.NoError(t, err)
+
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{AllowAutoPublish: true})
+
+	publishedAfter, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Equal(t, before.Version, publishedAfter.Version, "治理/版本漂移必须保留人工处理")
+
+	pageAfter, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Equal(t, before.Version, pageAfter.PublishedVersion, "治理/版本漂移不得推进发布指针")
+	codes := map[string]bool{}
+	for _, freshness := range service.bindingFreshnessForPublishedDraft(healCtx(), pageAfter) {
+		codes[freshness.Diagnostic.Code] = true
+	}
+	assert.True(t, codes["binding_governance_stale"], "治理漂移必须对人工显式可见")
+	assert.True(t, codes["binding_function_version_stale"], "函数版本漂移必须对人工显式可见")
+
+	proposal, err := model.NewPageProposalModel(service.svcCtx.DB).FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err, "治理/版本漂移必须留下待人工审核的变更提案")
+	assert.Equal(t, dbenum.ProposalStatusPending, proposal.Status)
+	assert.Contains(t, string(proposal.Diagnostics), "binding_governance_stale")
+	assert.Contains(t, string(proposal.Diagnostics), "binding_function_version_stale")
+
+	_, total, err := auditStore.List(audit.AuditFilter{
+		EventType: []audit.AuditEventType{audit.EventPagePublish},
+	}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, total, "治理/版本漂移不得留下自动发布审计")
+}
+
+// TestHealOnce_ConcurrentAutoPublishSingleWinner：两个愈合 worker 同时基于
+// 同一发布基线提交独立修订时，唯一约束与事务内基线重查必须让只有一个
+// 发布成功；人工未发布草稿仍保持原 revision/内容，审计只保留成功一次。
+func TestHealOnce_ConcurrentAutoPublishSingleWinner(t *testing.T) {
+	service, ctx, auditStore := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	pageKey := seedHealSafeDriftPage(t, service, ctx)
+	human := editDraftAsHuman(t, service, pageKey, "人工并发未发布标题")
+
+	// 两个 worker 均完成规划后才同时进入发布事务，复现同基线并发竞争。
+	revisions := make([]*staleHealRevision, 2)
+	for i := range revisions {
+		fresh, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
+		require.NoError(t, err)
+		revision, err := service.planStaleHealRevision(ctx, "demo-game", "development", fresh)
+		require.NoError(t, err)
+		require.NotNil(t, revision)
+		require.True(t, revision.Safe)
+		revisions[i] = revision
+	}
+
+	planned, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	require.Equal(t, human.DraftRevision, planned.DraftRevision, "规划不得写入人工草稿")
+	require.Equal(t, human.SpecJSON, planned.SpecJSON)
+
+	actorCtx := context.WithValue(healCtx(), "username", staleHealActor)
+	results := make(chan struct {
+		resp *PagePublishResponse
+		err  error
+	}, len(revisions))
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for _, revision := range revisions {
+		wg.Add(1)
+		go func(revision *staleHealRevision) {
+			defer wg.Done()
+			<-start
+			resp, err := service.publishStaleHealRevision(actorCtx, "demo-game", "development", revision)
+			results <- struct {
+				resp *PagePublishResponse
+				err  error
+			}{resp, err}
+		}(revision)
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+
+	var successes []*PagePublishResponse
+	conflicts := 0
+	for result := range results {
+		if result.err == nil {
+			successes = append(successes, result.resp)
+		} else {
+			conflicts++
+		}
+	}
+	require.Len(t, successes, 1, "同一发布基线只能有一个独立修订成功")
+	assert.Equal(t, 1, conflicts, "并发竞争必须返回冲突而非静默重复发布")
+
+	winnerVersion := successes[0].PublishedVersion
+	publishedAfter, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Equal(t, winnerVersion, publishedAfter.Version)
+	versions, err := service.svcCtx.PageVersionModel.ListByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Len(t, versions, 2, "并发发布不得产生第三个页面版本")
+
+	after, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.Equal(t, human.DraftRevision, after.DraftRevision, "自动发布不得推进人工草稿 revision")
+	assert.Equal(t, human.SpecJSON, after.SpecJSON, "自动发布不得覆盖人工草稿内容")
+
+	healAudit, total, err := auditStore.List(audit.AuditFilter{
+		EventType: []audit.AuditEventType{audit.EventPagePublish},
+		ActorID:   staleHealActor,
+	}, audit.AuditPage{PageSize: 10})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total, "只有一次成功并发自动发布可留下系统审计")
+	require.Len(t, healAudit, 1)
+	assert.Equal(t, "stale_heal", healAudit[0].Details["action"])
+	assert.Equal(t, winnerVersion, healAudit[0].Details["published_version"])
+}
+
+// TestHealOnce_PublishFailureKeepsStale：自动发布路径遇到发布快照落库失败
+// 必须整事务回滚——线上快照与指针列都不前进、stale 保持可见，人工草稿
+// 依然原样（不因失败回滚而被动过）。
 func TestHealOnce_PublishFailureKeepsStale(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	pageKey := seedHealSafeDriftPage(t, service, ctx)
 	db := service.svcCtx.DB
 
-	page, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
-	require.NoError(t, err)
+	human := editDraftAsHuman(t, service, pageKey, "人工未发布标题")
 	before, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
 	require.NoError(t, err)
 
-	// 只阻断发布快照落库：selector 同步（page_specs/page_versions）不受影响。
 	require.NoError(t, db.Exec(
 		"CREATE TRIGGER cov_d_block_published_insert BEFORE INSERT ON published_page_specs "+
 			"BEGIN SELECT RAISE(ABORT, 'injected publish failure heal'); END").Error)
 
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{AllowAutoPublish: true})
 
 	after, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	assert.Greater(t, after.DraftRevision, page.DraftRevision, "同步不因发布失败回滚")
+	assert.Equal(t, human.DraftRevision, after.DraftRevision, "发布失败不得改写人工草稿")
+	assert.Equal(t, human.PublishedVersion, after.PublishedVersion, "发布失败不得推进发布指针")
 	publishedRow, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
 	assert.Equal(t, before.Version, publishedRow.Version, "发布失败时线上快照不得前进")
@@ -419,7 +703,7 @@ func TestHealOnce_SyncConflictContinues(t *testing.T) {
 		"CREATE TRIGGER cov_d_block_pagespec_update BEFORE UPDATE ON page_specs "+
 			"BEGIN SELECT RAISE(ABORT, 'injected sync failure heal'); END").Error)
 
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 
 	after, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
@@ -453,7 +737,7 @@ func TestHealOnce_FindFreshDraftFailsContinues(t *testing.T) {
 			}
 		}))
 
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 	require.Equal(t, int32(1), atomic.LoadInt32(&blocked), "heal 内必须发生一次被拦的精确重载")
 
 	after, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)

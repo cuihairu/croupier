@@ -197,6 +197,22 @@ func (m *PageSpecModel) UpdateMenuID(ctx context.Context, gameID, env, pageKey s
 		Update("menu_id", menuID).Error
 }
 
+// UpdatePublishedPointer 只推进发布指针列（status/published_active/
+// published_version/updated_at），不触碰 spec_json、draft_revision 或标题：
+// 系统愈合的独立修订发布后，页面列表/版本视图仍须与当前发布快照一致，
+// 而人工未发布草稿必须原样保留。
+func (m *PageSpecModel) UpdatePublishedPointer(ctx context.Context, gameID, env, pageKey string, publishedVersion int, at time.Time) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&PageSpec{}).
+		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
+		Updates(map[string]interface{}{
+			"status":            "published",
+			"published_active":  true,
+			"published_version": publishedVersion,
+			"updated_at":        at,
+		}).Error
+}
+
 // ClearMenuReferences detaches pages from the given menus (menu deletion
 // cleanup). Missing menu references must not linger after the menu rows are
 // gone.

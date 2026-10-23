@@ -23,11 +23,11 @@ func healCtx() context.Context {
 	return svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
 }
 
-// TestStaleHeal_RenameSyncsDraftOnlyThenUserAutoPublishes：契约漂移
-// （uid→player_id rename）→ 系统愈合只同步草稿（rename 属语义判断，防
-// 「删旧+增新」误映射，绝不机器发布）；用户在编辑器一键同步（具备发布
-// 权限）自动接续发布，stale 清零；二轮扫描幂等。
-func TestStaleHeal_RenameSyncsDraftOnlyThenUserAutoPublishes(t *testing.T) {
+// TestStaleHeal_RenameProposesOnlyThenUserAutoPublishes：契约漂移
+// （uid→player_id rename）属语义判断，系统愈合默认只落提案：不同步草稿、
+// 不发布、stale 保持可见；用户在编辑器带发布权限一键同步后自动接续发布，
+// stale 清零；二轮扫描幂等。
+func TestStaleHeal_RenameProposesOnlyThenUserAutoPublishes(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	db := service.svcCtx.DB
 	const functionID = "gift.send"
@@ -49,13 +49,17 @@ func TestStaleHeal_RenameSyncsDraftOnlyThenUserAutoPublishes(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, service.bindingFreshnessForPublishedDraft(ctx, page), "seeded drift must be stale before heal")
 
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 
 	pageAfter, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	assert.Greater(t, pageAfter.DraftRevision, page.DraftRevision, "heal must sync the drifted draft")
+	assert.Equal(t, page.DraftRevision, pageAfter.DraftRevision, "系统愈合不得改写人工草稿（rename 属语义决策）")
+	assert.Equal(t, page.SpecJSON, pageAfter.SpecJSON)
 	assert.Equal(t, page.PublishedVersion, pageAfter.PublishedVersion, "rename 属语义决策：系统愈合不得自动发布")
 	assert.NotEmpty(t, service.bindingFreshnessForPublishedDraft(healCtx(), pageAfter), "published 未前进前 stale 保持可见")
+	proposal, err := model.NewPageProposalModel(db).FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
+	require.NoError(t, err, "rename 漂移必须留下待人工审核的提案")
+	assert.Contains(t, string(proposal.PageSpec), "/player_id", "提案必须携带 rename 推断结果")
 
 	// 用户一键同步（ctx 具备 publish 权限）→ 自动接续发布，stale 清零
 	rev := pageAfter.DraftRevision
@@ -68,7 +72,7 @@ func TestStaleHeal_RenameSyncsDraftOnlyThenUserAutoPublishes(t *testing.T) {
 
 	// 幂等：二轮扫描无变化不得再 bump revision（护栏）。
 	revAfter := pagePublished.DraftRevision
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 	pageAgain, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
 	assert.Equal(t, revAfter, pageAgain.DraftRevision, "second round must be a no-op")
@@ -99,7 +103,7 @@ func TestStaleHeal_LeavesManualRequiredAlone(t *testing.T) {
 		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
 	})
 
-	service.healStalePublishedPagesOnce(context.Background())
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 
 	after, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(healCtx(), "demo-game", "development", pageKey)
 	require.NoError(t, err)
@@ -120,7 +124,7 @@ func TestStaleHeal_LoopLifecycle(t *testing.T) {
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(healCtx())
 	go func() {
-		service.StartStaleHealLoop(ctx, time.Millisecond)
+		service.StartStaleHealLoop(ctx, time.Millisecond, healStaleOptions{})
 		close(done)
 	}()
 	cancel()
@@ -130,14 +134,14 @@ func TestStaleHeal_LoopLifecycle(t *testing.T) {
 		t.Fatal("loop must exit on ctx cancel")
 	}
 	var nilSvc *Service
-	nilSvc.StartStaleHealLoop(healCtx(), time.Second) // 不得 panic
+	nilSvc.StartStaleHealLoop(healCtx(), time.Second, healStaleOptions{}) // 不得 panic
 }
 
 // TestStaleHeal_MultiGameHealsAcrossGameDBs（U1）：分库模式 page_specs 在
 // game 库、meta 库无行——旧实现在 meta 直查得零 scope 静默跳过，愈合永不
 // 执行。修复后 scope 从 game_envs 绑定枚举，页级查询经 Router 落到 game 库：
-// 绑定 scope 内的已发布页漂移能被同步（rename 语义项仍只同步草稿不发布），
-// 二轮幂等。
+// 默认只把提案写进 game 库（人工草稿不动），显式自动发布时独立修订同样
+// 落在 game 库并清零 stale。
 func TestStaleHeal_MultiGameHealsAcrossGameDBs(t *testing.T) {
 	service, _, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	metaDB := service.svcCtx.DB
@@ -185,19 +189,26 @@ func TestStaleHeal_MultiGameHealsAcrossGameDBs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, service.bindingFreshnessForPublishedDraft(seedCtx, pageBefore), "seeded drift must be stale before heal")
 
-	service.healStalePublishedPagesOnce(context.Background())
-
+	// 默认路径：提案必须写进 game 库，草稿与发布快照不动。
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{})
 	pageAfter, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(seedCtx, "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	assert.Greater(t, pageAfter.DraftRevision, pageBefore.DraftRevision, "分库模式下 heal 必须命中 game 库并同步漂移草稿")
+	assert.Equal(t, pageBefore.DraftRevision, pageAfter.DraftRevision, "默认路径不得改写人工草稿")
 	assert.Equal(t, pageBefore.PublishedVersion, pageAfter.PublishedVersion, "rename 属语义决策：系统愈合不得自动发布")
+	proposal, err := model.NewPageProposalModel(gdb).FindByScopeAndPageKey(seedCtx, "demo-game", "development", pageKey)
+	require.NoError(t, err, "分库模式下提案必须落在 game 库")
+	assert.Contains(t, string(proposal.PageSpec), "/player_id")
 
-	// 幂等：二轮扫描无变化不得再 bump revision。
-	revAfter := pageAfter.DraftRevision
-	service.healStalePublishedPagesOnce(context.Background())
-	pageAgain, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(seedCtx, "demo-game", "development", pageKey)
+	// 显式自动发布（安全漂移）：独立修订落在 game 库并清零 stale。
+	// 先把 rename 换成 heal-safe 的 removed+kept 漂移。
+	rebuildFunctionContract(t, gdb, gctx, functionID, syncGiftMeta(
+		`{"type":"object","properties":{"count":{"type":"integer"}},"required":["count"]}`,
+	))
+	service.healStalePublishedPagesOnce(context.Background(), healStaleOptions{AllowAutoPublish: true})
+	pagePublished, err := service.svcCtx.PageSpecModel.FindByScopeAndPageKey(seedCtx, "demo-game", "development", pageKey)
 	require.NoError(t, err)
-	assert.Equal(t, revAfter, pageAgain.DraftRevision, "second round must be a no-op")
+	assert.Greater(t, pagePublished.PublishedVersion, pageBefore.PublishedVersion, "分库模式下自动发布必须写回 game 库的发布指针")
+	assert.Empty(t, service.bindingFreshnessForPublishedDraft(seedCtx, pagePublished), "自动发布后 stale 必须清零")
 }
 
 // 单库路径不回归：Router 为 nil 时仍从 page_specs 枚举 scope（含多 scope）。

@@ -754,13 +754,18 @@ func TestMerge_Auto_AcceptsLatestSnapshotWithoutChanges(t *testing.T) {
 	}
 	draftPage := basePage
 	seedVersioningMergeFixture(t, db, basePage, draftPage, basePage)
-	// Seed a third, identical snapshot so latest != base but content is equal.
+	// An identical rescan must not append a third snapshot: only timestamps
+	// changed, while the PageSpec and source digests remain the same.
 	proposal, err := service.proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "operation:player.ban")
 	require.NoError(t, err)
 	proposal.UpdatedAt = time.Now().Add(2 * time.Second)
 	require.NoError(t, service.proposalModel.UpsertProposal(ctx, proposal))
-	_, err = createProposalVersionSnapshot(ctx, service.proposalVersionModel, proposal, "identical snapshot", "tester")
+	snapshotVersion, err := createProposalVersionSnapshot(ctx, service.proposalVersionModel, proposal, "identical snapshot", "tester")
 	require.NoError(t, err)
+	assert.Equal(t, 2, snapshotVersion)
+	versions, err := service.proposalVersionModel.ListByProposalID(ctx, proposal.ID)
+	require.NoError(t, err)
+	assert.Len(t, versions, 2, "timestamp-only rescan must not duplicate the latest snapshot")
 
 	result, err := service.Merge(ctx, &MergeRequest{
 		GameID: "demo-game", Env: "development", PageKey: basePage.PageKey,
@@ -773,7 +778,7 @@ func TestMerge_Auto_AcceptsLatestSnapshotWithoutChanges(t *testing.T) {
 
 	pageRecord, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", basePage.PageKey)
 	require.NoError(t, err)
-	assert.Equal(t, 3, pageRecord.BaseProposalVersion)
+	assert.Equal(t, 2, pageRecord.BaseProposalVersion)
 }
 
 func TestMerge_Auto_NoChangesNoSnapshotAdvance(t *testing.T) {

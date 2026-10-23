@@ -624,75 +624,13 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 // 服务端读取当前草稿 revision 后调用（并发冲突在核心的事务内重查处
 // 409，调用方按页计失败继续）。
 func (s *Service) syncSelectorsCore(ctx context.Context, gameID, env, actor string, p *model.PageSpec, bindingIDs []string, dryRun bool, providedRevision int) (*PageSyncSelectorsResponse, error) {
-	pageSpec, err := pageSpecFromModel(p)
+	plan, err := s.planSelectorSync(ctx, gameID, env, p, bindingIDs)
 	if err != nil {
 		return nil, err
 	}
-	functions := s.normalizedFunctions(ctx)
-	contracts := s.publishedContractsForSync(ctx, p)
-	onlyBindings := map[string]struct{}{}
-	for _, id := range bindingIDs {
-		if id = strings.TrimSpace(id); id != "" {
-			onlyBindings[id] = struct{}{}
-		}
-	}
-
-	synced := pageSpec
-	reports := make([]spec.BindingSelectorSyncReport, 0, len(pageSpec.Bindings))
-	syncOpts := spec.SelectorSyncOptions{
-		RecomputeDefaults: generator.RecomputeDefaultOutputs,
-		IdentityOf:        s.identityFieldLookup(ctx, gameID, env),
-	}
-	for i, binding := range pageSpec.Bindings {
-		if len(onlyBindings) > 0 {
-			if _, ok := onlyBindings[strings.TrimSpace(binding.ID)]; !ok {
-				continue
-			}
-		}
-		fn, ok := functions[strings.TrimSpace(binding.FunctionID)]
-		if !ok {
-			// 函数缺失：selector 同步无法修复，报告透传而非整体失败
-			reports = append(reports, spec.BindingSelectorSyncReport{
-				BindingID:  binding.ID,
-				FunctionID: binding.FunctionID,
-				Manual: []spec.Diagnostic{diagnostic(
-					"binding_function_missing",
-					spec.SeverityError,
-					"bound function no longer exists; remove or rebind it before publishing",
-					"bindings."+binding.ID,
-				)},
-			})
-			continue
-		}
-		contract, hasContract := contracts[strings.TrimSpace(binding.ID)]
-		if hasContract {
-			// prev 与发布时点 digest 双双一致（快照 digest 非空）时
-			// prev diff 的 rename 候选才标 high；digest 缺失（旧快照）
-			// 或多跳漂移一律降级启发式。
-			syncOpts.PrevTrusted = contract.InputSchemaDigest != "" &&
-				contract.OutputSchemaDigest != "" &&
-				freshness.MatchesDigest(fn.PreviousInputSchema, contract.InputSchemaDigest) &&
-				freshness.MatchesDigest(fn.PreviousOutputSchema, contract.OutputSchemaDigest)
-		} else {
-			syncOpts.PrevTrusted = false
-		}
-		report, syncedBinding := spec.PlanBindingSelectorSync(pageSpec, binding, fn, syncOpts)
-		// governance/version/approval 漂移不可由 selector 同步修复——
-		// 同步后重跑 freshness，剩余的非 selector 诊断透传进 Manual。
-		if hasContract {
-			for _, stale := range freshness.EvaluateBinding(syncedBinding, contract, functions) {
-				switch stale.Status {
-				case spec.BindingFreshnessGovernanceStale, spec.BindingFreshnessFunctionVersionStale:
-					stale.Diagnostic.Field = "bindings." + binding.ID
-					report.Manual = append(report.Manual, stale.Diagnostic)
-				}
-			}
-		}
-		reports = append(reports, report)
-		synced.Bindings[i] = syncedBinding
-	}
-
-	remaining := s.validatePageSpec(ctx, synced, true)
+	synced := plan.synced
+	reports := plan.reports
+	remaining := plan.remaining
 
 	if dryRun {
 		return &PageSyncSelectorsResponse{
@@ -784,6 +722,79 @@ func (s *Service) syncSelectorsCore(ctx context.Context, gameID, env, actor stri
 	}, nil
 }
 
+// planSelectorSync 只规划不改库，dry-run、草稿同步与系统愈合共享同一
+// selector/governance 决策，避免不同入口产生不同步的修复语义。
+func (s *Service) planSelectorSync(ctx context.Context, gameID, env string, p *model.PageSpec, bindingIDs []string) (*selectorSyncPlan, error) {
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return nil, err
+	}
+	functions := s.normalizedFunctions(ctx)
+	contracts := s.publishedContractsForSync(ctx, p)
+	onlyBindings := map[string]struct{}{}
+	for _, id := range bindingIDs {
+		if id = strings.TrimSpace(id); id != "" {
+			onlyBindings[id] = struct{}{}
+		}
+	}
+
+	synced := pageSpec
+	reports := make([]spec.BindingSelectorSyncReport, 0, len(pageSpec.Bindings))
+	syncOpts := spec.SelectorSyncOptions{
+		RecomputeDefaults: generator.RecomputeDefaultOutputs,
+		IdentityOf:        s.identityFieldLookup(ctx, gameID, env),
+	}
+	for i, binding := range pageSpec.Bindings {
+		if len(onlyBindings) > 0 {
+			if _, ok := onlyBindings[strings.TrimSpace(binding.ID)]; !ok {
+				continue
+			}
+		}
+		fn, ok := functions[strings.TrimSpace(binding.FunctionID)]
+		if !ok {
+			reports = append(reports, spec.BindingSelectorSyncReport{
+				BindingID:  binding.ID,
+				FunctionID: binding.FunctionID,
+				Manual: []spec.Diagnostic{diagnostic(
+					"binding_function_missing",
+					spec.SeverityError,
+					"bound function no longer exists; remove or rebind it before publishing",
+					"bindings."+binding.ID,
+				)},
+			})
+			continue
+		}
+		contract, hasContract := contracts[strings.TrimSpace(binding.ID)]
+		if hasContract {
+			syncOpts.PrevTrusted = contract.InputSchemaDigest != "" &&
+				contract.OutputSchemaDigest != "" &&
+				freshness.MatchesDigest(fn.PreviousInputSchema, contract.InputSchemaDigest) &&
+				freshness.MatchesDigest(fn.PreviousOutputSchema, contract.OutputSchemaDigest)
+		} else {
+			syncOpts.PrevTrusted = false
+		}
+		report, syncedBinding := spec.PlanBindingSelectorSync(pageSpec, binding, fn, syncOpts)
+		if hasContract {
+			for _, stale := range freshness.EvaluateBinding(syncedBinding, contract, functions) {
+				switch stale.Status {
+				case spec.BindingFreshnessGovernanceStale, spec.BindingFreshnessFunctionVersionStale:
+					stale.Diagnostic.Field = "bindings." + binding.ID
+					report.Manual = append(report.Manual, stale.Diagnostic)
+				}
+			}
+		}
+		reports = append(reports, report)
+		synced.Bindings[i] = syncedBinding
+	}
+
+	return &selectorSyncPlan{
+		pageSpec:  pageSpec,
+		synced:    synced,
+		reports:   reports,
+		remaining: s.validatePageSpec(ctx, synced, true),
+	}, nil
+}
+
 // autoPublishAfterSync 是「自动化收口」（2026-09）：单页同步成功且
 // selector 全部适配（无 manual 遗留）、页面已发布时，自动接续发布，
 // 刷新契约快照并恢复控制台执行——用户不再需要「同步 → 发布」两步。
@@ -802,6 +813,13 @@ func (s *Service) autoPublishAfterSync(ctx context.Context, resp *PageSyncSelect
 		return
 	}
 	resp.AutoPublished = true
+}
+
+type selectorSyncPlan struct {
+	pageSpec  spec.PageSpec
+	synced    spec.PageSpec
+	reports   []spec.BindingSelectorSyncReport
+	remaining []spec.Diagnostic
 }
 
 // publishedContractsForSync 取最新发布快照的 binding contract（prev

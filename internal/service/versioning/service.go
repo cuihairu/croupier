@@ -1,6 +1,7 @@
 package versioning
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -829,11 +830,29 @@ func createProposalVersionSnapshot(
 	if proposal == nil || proposal.ID == 0 {
 		return 0, errorx.NewValidationError("proposal must be persisted before snapshot")
 	}
-	nextVersion, err := versionModel.GetNextVersion(ctx, proposal.ID)
+	latest, err := versionModel.LatestByProposalID(ctx, proposal.ID)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, err
+		}
+		latest = nil
+	}
+	proposalJSON, err := json.Marshal(proposal)
 	if err != nil {
 		return 0, err
 	}
-	proposalJSON, err := json.Marshal(proposal)
+	if latest != nil {
+		var latestProposal model.PageProposal
+		if err := json.Unmarshal(latest.Proposal, &latestProposal); err != nil {
+			return 0, err
+		}
+		if latestProposal.FunctionDigest == proposal.FunctionDigest &&
+			latestProposal.SemanticsDigest == proposal.SemanticsDigest &&
+			proposalPageSpecsEqual(latestProposal.PageSpec, proposal.PageSpec) {
+			return latest.Version, nil
+		}
+	}
+	nextVersion, err := versionModel.GetNextVersion(ctx, proposal.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -849,6 +868,25 @@ func createProposalVersionSnapshot(
 		return 0, err
 	}
 	return nextVersion, nil
+}
+
+func proposalPageSpecsEqual(snapshot model.JSON, current model.JSON) bool {
+	var snapshotPage, currentPage spec.PageSpec
+	if err := json.Unmarshal(snapshot, &snapshotPage); err != nil {
+		return false
+	}
+	if err := json.Unmarshal(current, &currentPage); err != nil {
+		return false
+	}
+	snapshotJSON, err := json.Marshal(snapshotPage)
+	if err != nil {
+		return false
+	}
+	currentJSON, err := json.Marshal(currentPage)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(snapshotJSON, currentJSON)
 }
 
 func applyAutoMergeItems(page spec.PageSpec, items []dashboardmerge.MergeItem) (spec.PageSpec, error) {
