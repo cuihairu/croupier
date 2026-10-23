@@ -51,6 +51,18 @@ export default {
   'component.pageRenderer.playerManage.pageSubtitle':
     'CRUD 模板 · 列表 / 详情 / 封禁 / 充值 / 邮件',
   'component.pageRenderer.playerManage.pageTitle': '玩家管理',
+  'component.pageRenderer.mailCompensation.pageSubtitle':
+    '业务模板 · 任务列表 / 目标快照 / 审批 / 失败重试',
+  'component.pageRenderer.mailCompensation.pageTitle': '邮件与补偿',
+  'component.pageRenderer.banManagement.pageSubtitle':
+    '业务模板 · 封禁列表 / 解封 / 延期 / 批量解封',
+  'component.pageRenderer.banManagement.pageTitle': '封禁管理',
+  'component.pageRenderer.orderReview.pageSubtitle':
+    '业务模板 · 订单查询 / 发货核查 / 对账差异 / 补发',
+  'component.pageRenderer.orderReview.pageTitle': '订单核查',
+  'component.pageRenderer.activityConfig.pageSubtitle':
+    '业务模板 · 活动列表 / 配置版本 / 发布 / 回滚',
+  'component.pageRenderer.activityConfig.pageTitle': '活动配置',
   'component.pageRenderer.reportPage.button.clear': '清空',
   'component.pageRenderer.reportPage.button.clearResults': '清空结果',
   'component.pageRenderer.reportPage.chart.empty': '暂无数据',

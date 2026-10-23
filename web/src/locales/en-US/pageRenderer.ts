@@ -56,6 +56,18 @@ export default {
   'component.pageRenderer.playerManage.pageSubtitle':
     'CRUD template · List / Detail / Ban / Recharge / Mail',
   'component.pageRenderer.playerManage.pageTitle': 'Player Management',
+  'component.pageRenderer.mailCompensation.pageSubtitle':
+    'Business template · Task list / Target snapshot / Approval / Failure retry',
+  'component.pageRenderer.mailCompensation.pageTitle': 'Mail & Compensation',
+  'component.pageRenderer.banManagement.pageSubtitle':
+    'Business template · Ban list / Unban / Extend / Batch unban',
+  'component.pageRenderer.banManagement.pageTitle': 'Ban Management',
+  'component.pageRenderer.orderReview.pageSubtitle':
+    'Business template · Order query / Credit check / Reconciliation / Re-credit',
+  'component.pageRenderer.orderReview.pageTitle': 'Order Review',
+  'component.pageRenderer.activityConfig.pageSubtitle':
+    'Business template · Activity list / Config versions / Publish / Rollback',
+  'component.pageRenderer.activityConfig.pageTitle': 'Activity Config',
   'component.pageRenderer.reportPage.button.clear': 'Clear',
   'component.pageRenderer.reportPage.button.clearResults': 'Clear results',
   'component.pageRenderer.reportPage.chart.empty': 'No data',
