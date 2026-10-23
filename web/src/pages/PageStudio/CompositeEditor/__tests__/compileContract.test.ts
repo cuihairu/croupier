@@ -28,6 +28,7 @@ const SECTION_ALLOWED_KEYS = [
   'rowActions',
   'toolbarActions',
   'onSuccessRefresh',
+  'columns',
 ] as const;
 const ACTION_ALLOWED_KEYS = ['label', 'targetSection', 'params', 'danger', 'chain'] as const;
 const ASSIGNMENT_ALLOWED_KEYS = ['target', 'kind', 'key', 'path', 'value'] as const;
@@ -268,6 +269,7 @@ describe('compileTree ↔ CompositeSectionRequest 字段面对齐', () => {
     // 表格：行操作 + 事件 + refreshOn（section key 形态）+ 工具栏按钮
     const table = byKey['playerListTable'];
     expect(table.view).toBe('table');
+    expect(table.columns).toEqual(['uid', 'nickname']);
     expect(table.rowActions).toHaveLength(2);
     // 行操作目标 = 弹窗 group 名（modal sectionKey，稳定）
     expect(table.rowActions?.[0]).toMatchObject({

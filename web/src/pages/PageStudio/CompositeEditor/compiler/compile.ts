@@ -34,6 +34,7 @@ const intl = getIntl();
 export function compileTree(tree: PageNode[]): CompileResult {
   const sections: CompiledSection[] = [];
   const warnings: string[] = [];
+  const blockers: string[] = [];
 
   // 区块 key 分配（实例命名空间，U5）：
   // 1) 节点声明的 sectionKey（合法且不重复）优先固化——回读/重命名/再实例化
@@ -100,6 +101,26 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
   };
   assignKeys(tree);
+
+  const nodeLocation = (node: PageNode): string => {
+    const labelOf = (item: PageNode): string => {
+      const title = typeof item.props.title === 'string' ? item.props.title.trim() : '';
+      const content = typeof item.props.content === 'string' ? item.props.content.trim() : '';
+      return title || content || `${item.type}:${item.id}`;
+    };
+    const trail: string[] = [];
+    const locate = (nodes: PageNode[]): boolean => {
+      for (const item of nodes) {
+        trail.push(labelOf(item));
+        if (item.id === node.id) return true;
+        if (item.children?.length && locate(item.children)) return true;
+        trail.pop();
+      }
+      return false;
+    };
+    locate(tree);
+    return trail.length ? trail.join(' / ') : `${node.type}:${node.id}`;
+  };
   // V5 表达式变量空间：全部区块 key（表达式 {{var.path}} 的变量必须命中区块）
   const sectionKeySet = new Set(nodeSectionKey.values());
 
@@ -150,6 +171,12 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
   };
   collectCardGroups(tree);
+  const structuralContainerIds = new Set<string>();
+  for (const tabsNode of tree.filter((item) => item.type === 'tabs')) {
+    for (const page of tabsNode.children ?? []) {
+      if (page.type === 'container') structuralContainerIds.add(page.id);
+    }
+  }
 
   /** 节点 → 引用目标（modal=group 名；其余=区块 key）。 */
   const sectionKeyOf = (n: PageNode): string | undefined => {
@@ -236,6 +263,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
             { content: String(node.props.content ?? '') },
           ),
         );
+        blockers.push(
+          intl.formatMessage(
+            {
+              id: 'pages.pageStudio.compiler.blocker.text',
+              defaultMessage: '文本「{content}」无法无损映射为 PageSpec，已阻断保存：{location}',
+            },
+            { content: String(node.props.content ?? ''), location: nodeLocation(node) },
+          ),
+        );
         continue;
       }
       if (node.type === 'container') {
@@ -251,6 +287,18 @@ export function compileTree(tree: PageNode[]): CompileResult {
             else emitFnSection(kid, 'card', cg, undefined, cardTitleOf(node));
           }
           continue;
+        }
+        if (!structuralContainerIds.has(node.id) && (node.children ?? []).length > 0) {
+          blockers.push(
+            intl.formatMessage(
+              {
+                id: 'pages.pageStudio.compiler.blocker.container',
+                defaultMessage:
+                  '容器「{title}」不是可发布的卡片/页签结构，无法无损映射，已阻断保存：{location}',
+              },
+              { title: String(node.props.title ?? node.id), location: nodeLocation(node) },
+            ),
+          );
         }
         walk(node.children ?? []);
         continue;
@@ -272,6 +320,19 @@ export function compileTree(tree: PageNode[]): CompileResult {
         }
         for (const kid of kids) {
           if (kid.type === 'text') continue; // 文本暂不进弹窗 spec
+          if (kid.type === 'button') {
+            blockers.push(
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.compiler.blocker.modalButton',
+                  defaultMessage:
+                    '按钮「{title}」位于弹窗内，组合页 PageSpec 无法无损表达，已阻断保存：{location}',
+                },
+                { title: String(kid.props.title ?? ''), location: nodeLocation(kid) },
+              ),
+            );
+            continue;
+          }
           emitFnSection(kid, 'dialog', group);
         }
         continue;
@@ -328,6 +389,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
             defaultMessage: '未知组件类型 {type}，已忽略',
           },
           { type: node.type },
+        ),
+      );
+      blockers.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.blocker.unknownNode',
+            defaultMessage: '未知组件「{type}」无法无损映射为 PageSpec，已阻断保存：{location}',
+          },
+          { type: node.type, location: nodeLocation(node) },
         ),
       );
     }
@@ -474,6 +544,16 @@ export function compileTree(tree: PageNode[]): CompileResult {
       }
     }
     if (refreshOnKeys.length > 0) section.refreshOn = refreshOnKeys;
+
+    // 展示列覆盖：undefined=契约默认；[] 与非空数组都显式透传，
+    // 避免服务端保存时重新按契约推导而覆盖用户选择。
+    if (node.type === 'fnTable') {
+      if (node.props.columns === undefined) section.columns = null;
+      else if (Array.isArray(node.props.columns)) {
+        const columns = [...new Set((node.props.columns as unknown[]).map(String))];
+        if (columns.every((key) => SECTION_KEY_RE.test(key))) section.columns = columns;
+      }
+    }
 
     // U10 区块级条件显示：dialog 区块不参与（弹窗由动作显式触发）
     if (display !== 'dialog') {
@@ -678,6 +758,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
           { title: String(node.props.title ?? '') },
         ),
       );
+      blockers.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.blocker.buttonNoAction',
+            defaultMessage: '按钮「{title}」没有可发布动作，已阻断保存：{location}',
+          },
+          { title: String(node.props.title ?? ''), location: nodeLocation(node) },
+        ),
+      );
       return;
     }
     const targetNode = act?.target ? findNode(tree, act.target) : undefined;
@@ -689,6 +778,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
             defaultMessage: '按钮「{title}」的弹窗目标无效（空弹窗），已忽略',
           },
           { title: String(node.props.title ?? '') },
+        ),
+      );
+      blockers.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.blocker.buttonEmptyModalTarget',
+            defaultMessage: '按钮「{title}」指向空弹窗，无法无损映射，已阻断保存：{location}',
+          },
+          { title: String(node.props.title ?? ''), location: nodeLocation(node) },
         ),
       );
       return;
@@ -703,6 +801,16 @@ export function compileTree(tree: PageNode[]): CompileResult {
             defaultMessage: '按钮「{title}」需放置在表格之后（编译为表格顶部按钮），已忽略',
           },
           { title: String(node.props.title ?? '') },
+        ),
+      );
+      blockers.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.blocker.buttonAfterTable',
+            defaultMessage:
+              '独立按钮「{title}」没有可归属的表格，无法无损映射，已阻断保存：{location}',
+          },
+          { title: String(node.props.title ?? ''), location: nodeLocation(node) },
         ),
       );
       return;
@@ -743,6 +851,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
             { title: String(node.props.title ?? '') },
           ),
         );
+        blockers.push(
+          intl.formatMessage(
+            {
+              id: 'pages.pageStudio.compiler.blocker.buttonTargetInvalid',
+              defaultMessage: '按钮「{title}」动作目标无法解析，已阻断保存：{location}',
+            },
+            { title: String(node.props.title ?? ''), location: nodeLocation(node) },
+          ),
+        );
         return;
       }
       const step = act.kind === 'runBinding' ? 'runBinding' : 'refreshNode';
@@ -767,6 +884,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
           { title: String(node.props.title ?? '') },
         ),
       );
+      blockers.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.blocker.buttonModalTargetInvalid',
+            defaultMessage: '按钮「{title}」的弹窗目标无法解析，已阻断保存：{location}',
+          },
+          { title: String(node.props.title ?? ''), location: nodeLocation(node) },
+        ),
+      );
       return;
     }
     const ta: CompiledAction = {
@@ -781,7 +907,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
   };
 
   walk(tree);
-  return { sections, warnings };
+  return { sections, warnings, blockers };
 }
 
 function findNode(nodes: PageNode[], id: string): PageNode | undefined {

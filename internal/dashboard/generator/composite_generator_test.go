@@ -122,6 +122,47 @@ func TestCompositeRowActionsSurviveListView(t *testing.T) {
 	}
 }
 
+func TestCompositeColumnsOverrideKeepsSelectionAndOrder(t *testing.T) {
+	contracts := []*model.FunctionContract{{
+		FunctionID:   "player.list",
+		ResourceKey:  "player",
+		Capability:   dbenum.CapabilityCollectionQuery,
+		Execution:    string(spec.FunctionExecutionSync),
+		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"uid":{"type":"string"},"gold":{"type":"number"},"nickname":{"type":"string"}}}},"total":{"type":"integer"}}}`),
+	}}
+	inputs := []CompositeSectionInput{{
+		FunctionID: "player.list",
+		View:       "table",
+		Columns:    []string{"gold", "uid"},
+	}}
+	generated, ok := GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	columns := generated.Composite.Sections[0].Table.Columns
+	if len(columns) != 2 || columns[0].Key != "gold" || columns[1].Key != "uid" {
+		t.Fatalf("columns not preserved: %+v", columns)
+	}
+
+	inputs[0].Columns = []string{}
+	generated, ok = GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	if columns = generated.Composite.Sections[0].Table.Columns; len(columns) != 0 {
+		t.Fatalf("empty override not preserved: %+v", columns)
+	}
+
+	inputs[0].Columns = nil
+	generated, ok = GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	if columns = generated.Composite.Sections[0].Table.Columns; len(columns) == 0 {
+		t.Fatal("nil override should keep contract columns")
+	}
+}
+
 // TestCompositeTabPassthrough V2 页签容器：display=tab 与 group/tab 从
 // Input 透传到发布 spec（Tab 包装系统默认语言 LocalizedText，同 Title 模式）。
 func TestCompositeTabPassthrough(t *testing.T) {

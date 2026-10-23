@@ -43,6 +43,8 @@ export type CompiledSection = {
   rowActions?: CompiledAction[];
   toolbarActions?: CompiledAction[];
   onSuccessRefresh?: string[];
+  /** 用户显式覆盖的展示列（view=table）：数组=选择与顺序；[]=隐藏全部；null=契约默认。 */
+  columns?: string[] | null;
 };
 
 /** 编译产物的条件形态（wire ConditionSpec 叶子）：key=来源区块 key。 */
@@ -64,6 +66,8 @@ export type CompiledAction = {
 export interface CompileResult {
   sections: CompiledSection[];
   warnings: string[];
+  /** 无法无损映射为 PageSpec 的画布节点；保存必须在发请求前阻断。 */
+  blockers: string[];
 }
 
 export const VIEW_MAP: Record<string, 'table' | 'fields' | 'form'> = {
@@ -116,6 +120,7 @@ export interface SpecSectionLike {
   /** refreshOn 级联失败策略（U9）：clear/keep/pause（宽松形态）。 */
   cascadePolicy?: string;
   onSuccessRefresh?: string[];
+  columns?: string[] | null;
   table?: { columns?: Array<{ key?: string }>; rowActions?: Array<Record<string, unknown>> };
   toolbar?: { actions?: Array<Record<string, unknown>> };
 }

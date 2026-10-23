@@ -180,7 +180,9 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       sectionKey: key,
     };
     if (view === 'fnTable') {
-      fnProps.columns = (sec.table?.columns ?? []).map((c) => String(c.key ?? '')).filter(Boolean);
+      fnProps.columns = Array.isArray(sec.columns)
+        ? sec.columns.map(String).filter(Boolean)
+        : (sec.table?.columns ?? []).map((c) => String(c.key ?? '')).filter(Boolean);
       fnProps.rowActions = sec.table?.rowActions ?? [];
       if (sec.toolbar) fnProps.toolbar = sec.toolbar; // 第二遍还原为按钮节点后移除
     }

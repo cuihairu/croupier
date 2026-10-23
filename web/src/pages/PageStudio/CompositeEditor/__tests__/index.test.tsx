@@ -1044,18 +1044,35 @@ describe('保存为提案', () => {
       [
         { id: 's1', type: 'fnTable', props: { functionId: 'player.list' } },
         { id: 's2', type: 'fnForm', props: { functionId: 'mail.send' } },
-        { id: 's3', type: 'text', props: { content: 'hi' } },
       ],
       tpl('save-warn'),
     );
-    await waitFor(() => expect(screen.getByText('3 个组件')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('2 个组件')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /保存为提案$/ }));
     expect((await screen.findAllByText('提案已创建')).length).toBeGreaterThan(0);
-    expect(
-      (await screen.findAllByText(/编译警告：文本「hi」不参与发布（V1）。/)).length,
-    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/编译警告/)).not.toBeInTheDocument();
     // 文本匹配会做空白归一（双空格折叠）：用 \s+ 容忍
     expect((await screen.findAllByText(/提案\s+已进入提案收件箱/)).length).toBeGreaterThan(0);
+  });
+
+  it('不可无损映射的节点在请求前阻断保存', async () => {
+    const post = jest.fn();
+    setRoutes({ 'POST /api/v1/versioning/pages/composite': post });
+    renderEditor();
+    await openLibraryTab();
+    insertViaLib(
+      [
+        { id: 's1', type: 'fnTable', props: { functionId: 'player.list' } },
+        { id: 's2', type: 'text', props: { content: '不可发布文本' } },
+      ],
+      tpl('save-warn'),
+    );
+    await waitFor(() => expect(screen.getByText('2 个组件')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /保存为提案$/ }));
+    expect(
+      await screen.findByText(/已阻止保存：文本「不可发布文本」无法无损映射/),
+    ).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
   });
 
   it('POST 失败 → message.error 兜底文案', async () => {

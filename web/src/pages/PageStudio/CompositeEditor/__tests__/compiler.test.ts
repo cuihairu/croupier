@@ -79,6 +79,7 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
         title: 'player.list',
         span: 24,
         autoRun: true,
+        columns: ['uid'],
         display: 'inline',
       },
       {
@@ -1046,6 +1047,20 @@ describe('compileTree 降级与防御分支补测', () => {
 });
 
 describe('compileTree 分支槽补测（缺省形态矩阵）', () => {
+  it('展示列覆盖显式透传：空数组隐藏全部，缺省编译为 null', () => {
+    const selected = fn('fnTable', 'a.selected', { columns: ['uid', 'uid', 'gold'] });
+    const hidden = fn('fnTable', 'a.hidden', { columns: [] });
+    const defaulted = fn('fnTable', 'a.default');
+    const { sections, warnings } = compileTree([selected, hidden, defaulted]);
+    expect(warnings).toEqual([]);
+    expect(sections.find((section) => section.key === 'a.selected')!.columns).toEqual([
+      'uid',
+      'gold',
+    ]);
+    expect(sections.find((section) => section.key === 'a.hidden')!.columns).toEqual([]);
+    expect(sections.find((section) => section.key === 'a.default')!.columns).toBeNull();
+  });
+
   it('modal/card 容器缺 children：空集兜底（空弹窗警告、卡片静默）', () => {
     const emptyModal: PageNode = { id: 'm-empty', type: 'modal', props: {} };
     const emptyCard: PageNode = { id: 'c-empty', type: 'container', props: { publishAs: 'card' } };
@@ -1485,10 +1500,8 @@ describe('compileTree #94 补充：卡内 staticForm 的 cardTitle 缺省', () =
   });
 });
 
-describe('compileTree 防御：modal 内非视图组件带函数绑定', () => {
-  it('modal 内 button 绑定函数：未登记区块 key，兜底用 functionId 作 key', () => {
-    // modal 分支不区分子组件类型（除 text）：button 不在 VIEW_MAP →
-    // collectDeclared/assignKeys 不登记 key → emitFnSection 的 key 走 ?? fid 兜底
+describe('compileTree 防御：modal 内非视图组件', () => {
+  it('modal 内 button 绑定函数：阻断保存', () => {
     const modal: PageNode = {
       id: 'M-BTN',
       type: 'modal',
@@ -1497,13 +1510,10 @@ describe('compileTree 防御：modal 内非视图组件带函数绑定', () => {
         { id: 'btn-fid', type: 'button', props: { title: '按钮表单', functionId: 'btn.fn' } },
       ],
     };
-    const { sections, warnings } = compileTree([modal]);
-    expect(warnings).toEqual([]);
-    expect(sections).toHaveLength(1);
-    expect(sections[0].key).toBe('btn.fn');
-    expect(sections[0].functionId).toBe('btn.fn');
-    expect(sections[0].display).toBe('dialog');
-    expect(sections[0].group).toMatch(/^modal-/);
+    const { sections, blockers } = compileTree([modal]);
+    expect(sections).toEqual([]);
+    expect(blockers).toHaveLength(1);
+    expect(blockers[0]).toContain('按钮「按钮表单」位于弹窗内');
   });
 });
 

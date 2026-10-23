@@ -403,7 +403,19 @@ export default function CompositeEditorPage() {
       );
       return;
     }
-    const { sections, warnings } = compileTree(tree);
+    const { sections, warnings, blockers } = compileTree(tree);
+    if (blockers.length > 0) {
+      message.error(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.pageStudio.editor.save.compileBlocked',
+            defaultMessage: '存在无法无损发布的内容，已阻止保存：{blockers}',
+          },
+          { blockers: blockers.join('\n') },
+        ),
+      );
+      return;
+    }
     setSaving(true);
     try {
       const resp = (await request('/api/v1/versioning/pages/composite', {

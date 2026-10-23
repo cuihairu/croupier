@@ -1951,6 +1951,7 @@ func (s *ContractService) CreateCompositeProposal(
 			Display:     sec.Display,
 			Tab:         sec.Tab,
 			CardTitle:   sec.CardTitle,
+			Columns:     sec.Columns,
 			OnSuccess:   sec.OnSuccessRefresh,
 			Events:      convEvents(sec.Events),
 			VisibleWhen: sec.VisibleWhen,
@@ -2083,6 +2084,8 @@ type CompositeSectionRequest struct {
 	// CardTitle 卡片分组标题（display=card）：同 group 区块渲染进同一
 	// 卡片时的组标题；缺省回退组名。
 	CardTitle string `json:"cardTitle,omitempty"`
+	// Columns 显式展示列覆盖（view=table）：nil=契约默认；空数组=隐藏全部。
+	Columns []string `json:"columns,omitempty"`
 	// Static 常量表单：不绑定函数，Form.jsonSchema 由编辑器设计期定义，
 	// 值仅写入页面状态供 refreshOn/动作链消费（不执行、无审计面）。
 	Static bool `json:"static,omitempty"`

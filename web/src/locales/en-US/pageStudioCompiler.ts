@@ -1,6 +1,24 @@
 // pages.pageStudio.compiler.* — CompositeEditor compiler (compile/decompile) diagnostics
 // and types (view metadata / param-candidate prop labels)
 export default {
+  'pages.pageStudio.compiler.blocker.buttonAfterTable':
+    'Button "{title}" must be placed after a table; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.buttonEmptyModalTarget':
+    'Button "{title}" points to an empty modal; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.buttonModalTargetInvalid':
+    'Button "{title}" has an invalid modal target; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.buttonNoAction':
+    'Button "{title}" has no publishable action; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.buttonTargetInvalid':
+    'Button "{title}" has an invalid action target; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.container':
+    'Container "{title}" is not a publishable card or tab structure; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.modalButton':
+    'Button "{title}" is inside a modal and cannot be represented losslessly; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.text':
+    'Text "{content}" cannot be mapped losslessly to PageSpec; saving is blocked: {location}',
+  'pages.pageStudio.compiler.blocker.unknownNode':
+    'Unknown component "{type}" cannot be mapped losslessly to PageSpec; saving is blocked: {location}',
   'pages.pageStudio.compiler.paramProp.autoRun': 'Auto run',
   'pages.pageStudio.compiler.paramProp.span': 'Grid span',
   'pages.pageStudio.compiler.paramProp.title': 'Title',

@@ -1,6 +1,24 @@
 // pages.pageStudio.compiler.* — CompositeEditor 编译器（compile/decompile）诊断警告
 // 与 types（视图元数据/参数化候选属性标签）
 export default {
+  'pages.pageStudio.compiler.blocker.buttonAfterTable':
+    '按钮「{title}」必须位于表格之后；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.buttonEmptyModalTarget':
+    '按钮「{title}」指向空弹窗；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.buttonModalTargetInvalid':
+    '按钮「{title}」的弹窗目标无法解析；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.buttonNoAction':
+    '按钮「{title}」没有可发布动作；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.buttonTargetInvalid':
+    '按钮「{title}」动作目标无法解析；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.container':
+    '容器「{title}」不是可发布的卡片/页签结构；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.modalButton':
+    '按钮「{title}」位于弹窗内，无法无损表达；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.text':
+    '文本「{content}」无法无损映射为 PageSpec；已阻断保存：{location}',
+  'pages.pageStudio.compiler.blocker.unknownNode':
+    '未知组件「{type}」无法无损映射为 PageSpec；已阻断保存：{location}',
   'pages.pageStudio.compiler.paramProp.autoRun': '自动执行',
   'pages.pageStudio.compiler.paramProp.span': '栅格宽度',
   'pages.pageStudio.compiler.paramProp.title': '标题',

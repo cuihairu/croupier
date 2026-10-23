@@ -39,7 +39,9 @@ type CompositeSectionInput struct {
 	CardTitle  string
 	RowActions []CompositeRowActionInput     // view=table
 	Toolbar    []CompositeToolbarActionInput // view=toolbar
-	OnSuccess  []string
+	// Columns 显式展示列覆盖（view=table）：nil=契约默认；空切片=隐藏全部。
+	Columns   []string
+	OnSuccess []string
 	// Events 通用事件绑定（发布触发点）。
 	Events []spec.CompositeEventBinding
 	// VisibleWhen 区块级条件显示（按页面状态求值，false 时不渲染）。
@@ -161,6 +163,29 @@ func GenerateCompositePage(
 		if view == "table" {
 			lv := buildListViewFromContract(contract, nil)
 			if lv != nil {
+				if in.Columns != nil {
+					selected := make(map[string]bool, len(in.Columns))
+					for _, key := range in.Columns {
+						if key = strings.TrimSpace(key); key != "" {
+							selected[key] = true
+						}
+					}
+					columns := make([]spec.ColumnSpec, 0, len(selected))
+					for _, key := range in.Columns {
+						if key = strings.TrimSpace(key); key == "" || !selected[key] {
+							continue
+						}
+						delete(selected, key)
+						for _, column := range lv.Columns {
+							if column.Key == key {
+								column.Visible = true
+								columns = append(columns, column)
+								break
+							}
+						}
+					}
+					lv.Columns = columns
+				}
 				section.Table = &spec.CompositeTableSpec{
 					Columns:     lv.Columns,
 					Pagination:  lv.Pagination,
