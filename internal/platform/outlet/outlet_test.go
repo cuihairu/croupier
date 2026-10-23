@@ -171,6 +171,11 @@ func TestManagerInternalDeliveredDespiteExternalFailure(t *testing.T) {
 	if notices[0].To != DefaultStationRecipient {
 		t.Fatalf("notice.To = %q, want default recipient", notices[0].To)
 	}
+	// Dispatch 异步：外部出口的失败计数与站内投递并发，此处须等待计数落定。
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && m.Failures() != 1 {
+		time.Sleep(5 * time.Millisecond)
+	}
 	if m.Failures() != 1 {
 		t.Fatalf("Failures() = %d, want 1 (external failure still counted)", m.Failures())
 	}
