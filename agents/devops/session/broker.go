@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/agents/devops/config"
 	"github.com/cuihairu/croupier/core/execlog"
 )
 
@@ -17,6 +18,12 @@ type Audit interface {
 	Admit(rec *execlog.Record) error
 	Record(rec *execlog.Record) error
 }
+
+// 会话审计动作名（execlog 真值里会话面与命令执行面按 action 区分）。
+const (
+	actionSessionOpen = "session.open"
+	actionSessionEnd  = "session.end"
+)
 
 // ExecAudit execlog 适配（生产装配）。
 type ExecAudit struct {
@@ -108,7 +115,7 @@ func (b *Broker) OpenSession(ctx context.Context, req SessionRequest) (Session, 
 		return nil, fmt.Errorf("session: audit-first rejected (channel not persisted): %w", err)
 	}
 
-	// 3) Provider Open（协议通道；骨架期 noop 一律拒绝）。
+	// 3) Provider Open（协议通道）。
 	sess, err := b.provider.Open(ctx, req)
 	elapsed := b.now().Sub(started).Milliseconds()
 	if err != nil {
@@ -117,7 +124,10 @@ func (b *Broker) OpenSession(ctx context.Context, req SessionRequest) (Session, 
 	}
 	b.result(req, execlog.StatusSuccess, "", elapsed)
 
-	// 4) 会话存档（起止元数据；内容流另批）。
+	// 4) 会话存档（起止元数据）。交互终端通道（SSH 等）的生命周期由 Hub
+	// 收束——结束存档（EndStats 带回放档统计）与会话结束审计在 cleanup
+	// 单点落，这里返回原生 Terminal 避免双重记账；非终端通道（guacd 批次
+	// 前占位等）沿用 archivedSession 包装（Close 即结束存档）。
 	meta := SessionMeta{
 		SessionID:     req.SessionID,
 		Protocol:      string(req.Protocol),
@@ -127,10 +137,84 @@ func (b *Broker) OpenSession(ctx context.Context, req SessionRequest) (Session, 
 		Channel:       b.provider.Name(),
 		StartedUnixMs: started.UnixMilli(),
 	}
+	if term, ok := sess.(Terminal); ok {
+		if b.recorder != nil {
+			_ = b.recorder.Start(meta) // 存档失败不回滚已审计会话，落日志由调用方兜底
+		}
+		return term, nil
+	}
 	if b.recorder != nil {
 		_ = b.recorder.Start(meta) // 存档失败不回滚已审计会话，落日志由调用方兜底
 	}
 	return &archivedSession{Session: sess, meta: meta, rec: b.recorder, broker: b}, nil
+}
+
+// SwapAllowlist 原子整体替换白名单（configsync 下发热生效；Check 读侧
+// 永远看到完整一致的一份名单）。返回 (prev, cur) 条目数供日志。
+func (b *Broker) SwapAllowlist(entries []config.AllowHost) (prev, cur int) {
+	return b.allow.Swap(entries)
+}
+
+// Channel 会话通道名（存档与日志辨识用）。
+func (b *Broker) Channel() string {
+	if b == nil || b.provider == nil {
+		return ""
+	}
+	return b.provider.Name()
+}
+
+// Refuse 建立链之外的拒绝留痕（准入上限等 Hub 侧闸）——谁试图进哪台、
+// 为什么被拒，同样进审计（白名单拒绝在链内已留痕，此处补链外闸的洞）。
+func (b *Broker) Refuse(req SessionRequest, reason string) {
+	if b == nil || b.audit == nil {
+		return
+	}
+	if req.SessionID == "" {
+		req.SessionID = newSessionID()
+	}
+	params, _ := json.Marshal(map[string]interface{}{
+		"protocol": string(req.Protocol),
+		"host":     req.Host,
+		"port":     req.Port,
+	})
+	_ = b.audit.Record(&execlog.Record{
+		TaskID:        req.SessionID,
+		Operator:      req.Operator,
+		AgentType:     b.agentType,
+		AgentInstance: b.instance,
+		Action:        actionSessionOpen,
+		Params:        params,
+		Status:        execlog.StatusFailure,
+		Summary:       reason,
+		GameID:        b.gameID,
+		Env:           b.env,
+		TsUnixMs:      b.now().UnixMilli(),
+	})
+}
+
+// RecordEnd 会话结束审计留痕（时长=堡垒机留痕四要素收口；Hub 断线清理
+// 单点调用）。outcome ∈ closed|eof|error|cast-broken|no-terminal-channel|…
+func (b *Broker) RecordEnd(sessionID, operator, outcome string, elapsedMs int64) {
+	if b == nil || b.audit == nil {
+		return
+	}
+	status := execlog.StatusSuccess
+	if outcome == "error" || outcome == "cast-broken" {
+		status = execlog.StatusFailure
+	}
+	_ = b.audit.Record(&execlog.Record{
+		TaskID:        sessionID,
+		Operator:      operator,
+		AgentType:     b.agentType,
+		AgentInstance: b.instance,
+		Action:        actionSessionEnd,
+		Status:        status,
+		Summary:       outcome,
+		DurationMs:    elapsedMs,
+		GameID:        b.gameID,
+		Env:           b.env,
+		TsUnixMs:      b.now().UnixMilli(),
+	})
 }
 
 // result 落一条结果记录（观测留痕，尽力而为——失败不阻断主流程）。
@@ -140,7 +224,7 @@ func (b *Broker) result(req SessionRequest, status execlog.Status, summary strin
 		Operator:      req.Operator,
 		AgentType:     b.agentType,
 		AgentInstance: b.instance,
-		Action:        "session.open",
+		Action:        actionSessionOpen,
 		Status:        status,
 		Summary:       summary,
 		DurationMs:    elapsedMs,

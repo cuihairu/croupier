@@ -1,8 +1,9 @@
 // Package session devops-agent 会话通道（业务插件位，非 source Provider，
 // agent-core 简档 §7.5）。协议三件套 SSH/RDP/VNC 闭集；会话建立链顺序不可倒：
 // capability 门禁（面板侧，另批）→ 白名单校验 → 审计落库（audit-first）→
-// Open，任一步失败即拒绝。协议实现（guacd 通道/SSH 终端）另批，骨架交付
-// Provider 接口位 + 会话存档 + audit-first 放行闸的会话级应用。
+// Open，任一步失败即拒绝。SSH 通道为本包真实实现（x/crypto/ssh：pty+shell、
+// 窗口调整、三向数据流）；RDP/VNC（guacd 通道）另批，Open 显式拒绝不伪装。
+// 会话内容回放 = asciicast v2 存档（Hub 落盘），起止元数据走 sessions.jsonl。
 package session
 
 import (
@@ -30,7 +31,7 @@ func (p Protocol) Valid() bool {
 	return false
 }
 
-// SessionRequest 会话建立请求（谁、连哪台、走什么协议）。
+// SessionRequest 会话建立请求（谁、连哪台、走什么协议、初始窗口多大）。
 type SessionRequest struct {
 	// SessionID 会话唯一 id（空则由 Broker 生成）。
 	SessionID string
@@ -42,9 +43,13 @@ type SessionRequest struct {
 	Port int
 	// Operator 操作者身份（审计必填——「谁」是堡垒机留痕的第一要素）。
 	Operator string
+	// Cols/Rows 初始 pty 窗口（<=0 取 DefaultCols/DefaultRows；合法性由
+	// ValidateWindow 把关，越界拒绝）。
+	Cols int
+	Rows int
 }
 
-// Session 一条已建立的会话（协议实现另批；骨架期仅 Close 语义）。
+// Session 一条已建立的会话。
 type Session interface {
 	ID() string
 	Close() error
@@ -54,22 +59,9 @@ type Session interface {
 // RDP/VNC/SSH-web、本地 SSH 兜底等），Open 前的白名单/审计由 Broker 统一
 // 前置，实现方只管协议本身。
 type Target interface {
-	// Name 渠道名（guacd / local-ssh / ...，审计与日志可辨）。
+	// Name 渠道名（guacd / local-ssh / ssh，审计与日志可辨）。
 	Name() string
 	Open(ctx context.Context, req SessionRequest) (Session, error)
-}
-
-// noopTarget 骨架占位 Provider：协议通道另批实施，Open 一律拒绝——白名单
-// 与审计链先行落地，协议到位即换实现，建立链零改动。
-type noopTarget struct{}
-
-// NewNoopTarget 骨架占位 Provider。
-func NewNoopTarget() Target { return noopTarget{} }
-
-func (noopTarget) Name() string { return "noop" }
-
-func (noopTarget) Open(_ context.Context, req SessionRequest) (Session, error) {
-	return nil, fmt.Errorf("session channel %s not implemented yet (skeleton)", req.Protocol)
 }
 
 // newSessionID 生成会话 id（16 hex，crypto/rand）。

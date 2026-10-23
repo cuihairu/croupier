@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 // fakeAudit 捕获审计记录；admitErr 模拟审计通道不可写。
 type fakeAudit struct {
+	mu       sync.Mutex
 	records  []execlog.Record
 	admitErr error
 }
@@ -23,13 +25,23 @@ func (f *fakeAudit) Admit(rec *execlog.Record) error {
 	if f.admitErr != nil {
 		return f.admitErr
 	}
+	f.mu.Lock()
 	f.records = append(f.records, *rec)
+	f.mu.Unlock()
 	return nil
 }
 
 func (f *fakeAudit) Record(rec *execlog.Record) error {
+	f.mu.Lock()
 	f.records = append(f.records, *rec)
+	f.mu.Unlock()
 	return nil
+}
+
+func (f *fakeAudit) snapshot() []execlog.Record {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]execlog.Record(nil), f.records...)
 }
 
 // stubTarget 捕获 Open 调用并回固定会话（或错误）。

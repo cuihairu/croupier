@@ -9,10 +9,9 @@ import (
 	"time"
 )
 
-// SessionMeta 会话存档条目（JSONL 追加，事件两态：started/ended）。会话内容
-// 存档（SSH 命令流 / RDP·VNC 录像帧）的格式与保留期另批报批（agent-core
-// §7.3）；骨架期先落起止元数据——「谁、何时、连哪台、多久」在协议通道到位
-// 前即可审计。
+// SessionMeta 会话存档条目（JSONL 追加，事件两态：started/ended）。会话
+// 内容回放存档为 asciicast v2（casts/<id>.cast，asciinema 直接可回放）；
+// 本文件是会话索引——「谁、何时、连哪台、多久、回放档在哪、多大」。
 type SessionMeta struct {
 	Event         string `json:"event"` // started | ended
 	SessionID     string `json:"sessionId"`
@@ -20,10 +19,14 @@ type SessionMeta struct {
 	Host          string `json:"host"`
 	Port          int    `json:"port"`
 	Operator      string `json:"operator"`
-	Channel       string `json:"channel"` // provider 名（guacd / local-ssh / noop）
+	Channel       string `json:"channel"` // provider 名（ssh / guacd / …）
 	StartedUnixMs int64  `json:"startedUnixMs"`
 	EndedUnixMs   int64  `json:"endedUnixMs,omitempty"`
-	Outcome       string `json:"outcome,omitempty"` // ended 态：closed | close-error
+	Outcome       string `json:"outcome,omitempty"` // ended 态：closed | eof | error | cast-broken
+	// 回放存档收尾统计（ended 态；File 为相对声明——运维按 SessionDir 拼）。
+	CastFile   string `json:"castFile,omitempty"`
+	CastEvents int    `json:"castEvents,omitempty"`
+	CastBytes  int64  `json:"castBytes,omitempty"`
 }
 
 // Recorder 会话存档写入器（JSONL 追加写；单文件 sessions.jsonl）。
@@ -81,6 +84,27 @@ func (r *Recorder) End(sessionID string, outcome string) error {
 		SessionID:   sessionID,
 		EndedUnixMs: time.Now().UnixMilli(),
 		Outcome:     outcome,
+	})
+}
+
+// EndStats 记会话结束并携带回放存档收尾统计（Hub 断线清理用；stats.File
+// 只存文件名——目录由 SessionDir 契约定位）。
+func (r *Recorder) EndStats(sessionID, outcome string, stats CastStats) error {
+	if r == nil || r.f == nil {
+		return fmt.Errorf("session: recorder is closed")
+	}
+	file := ""
+	if stats.File != "" {
+		file = filepath.Base(stats.File)
+	}
+	return r.append(SessionMeta{
+		Event:       "ended",
+		SessionID:   sessionID,
+		EndedUnixMs: time.Now().UnixMilli(),
+		Outcome:     outcome,
+		CastFile:    file,
+		CastEvents:  stats.Events,
+		CastBytes:   stats.Bytes,
 	})
 }
 
