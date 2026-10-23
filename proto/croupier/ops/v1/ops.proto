@@ -434,6 +434,24 @@ message ProbeDBTargetsConfigResponse {
   string targets_json = 2;
 }
 
+// DevopsAllowlistConfigRequest pulls the game/env-scoped devops session
+// allowlist (config_versions key devops.allowlist, namespace=ops). The
+// agent-side puller hot-swaps the session allowlist; file config stays as
+// the fallback when nothing was published.
+message DevopsAllowlistConfigRequest {
+  string agent_id = 1; // Calling agent id (must match the session)
+}
+
+// DevopsAllowlistConfigResponse carries the latest published allowlist.
+// Empty version = nothing published for this scope (agent keeps current).
+// allowlist_json is a JSON array of {host, ports[], protocols[]} entries,
+// validated by both sides (admin publish pre-check and agent apply share
+// agents/devops/config.ParseAllowlistJSON + ValidateAllowlist).
+message DevopsAllowlistConfigResponse {
+  string version = 1;        // config_versions.Version (as string); "" = none
+  string allowlist_json = 2; // devops.allowlist JSON block
+}
+
 // ========== Probe uplink (agent probes → server; review §11/§13) ==========
 
 // AlertEvent is the one-way probe/alert event stream upload (new wire

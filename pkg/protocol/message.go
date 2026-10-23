@@ -112,6 +112,11 @@ const (
 	MsgSchedulePauseRequest  = 0x040125
 	MsgSchedulePauseResponse = 0x040126
 
+	// Devops session allowlist downlink (config_versions devops.allowlist;
+	// agent-side pull via core/configsync, hot-swaps the session allowlist)
+	MsgDevopsAllowlistConfigRequest  = 0x040127
+	MsgDevopsAllowlistConfigResponse = 0x040128
+
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
 	MsgProviderConnectResponse   = 0x050102
@@ -347,6 +352,10 @@ func MsgIDString(msgID uint32) string {
 		return "ProbeDBTargetsRequest"
 	case MsgProbeDBTargetsResponse:
 		return "ProbeDBTargetsResponse"
+	case MsgDevopsAllowlistConfigRequest:
+		return "DevopsAllowlistConfigRequest"
+	case MsgDevopsAllowlistConfigResponse:
+		return "DevopsAllowlistConfigResponse"
 	case MsgAlertEvent:
 		return "AlertEvent"
 	default:
