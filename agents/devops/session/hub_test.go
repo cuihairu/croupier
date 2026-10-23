@@ -204,14 +204,31 @@ func itoa(n int) string { return strconv.Itoa(n) }
 
 // fakeTerminal 可编程 Terminal（Hub 数据面单测；不依赖网络）。
 type fakeTerminal struct {
-	id      string
-	stdinR  io.ReadCloser
-	stdinW  io.WriteCloser
-	stdoutR io.ReadCloser
-	stdoutW io.WriteCloser
-	resizes [][2]int
-	mu      sync.Mutex
-	closed  bool
+	id       string
+	stdinR   io.ReadCloser
+	stdinW   io.WriteCloser
+	stdoutR  io.ReadCloser
+	stdoutW  io.WriteCloser
+	waitCh   chan struct{}
+	waitOnce sync.Once
+	resizes  [][2]int
+	mu       sync.Mutex
+	closed   bool
+}
+
+// signalWriter Close 时额外发一个 done 信号（stdout 写端关闭 = 远端 EOF），
+// 让 Wait() 能在不消费 stdout 数据的前提下感知会话结束。
+type signalWriter struct {
+	w       io.WriteCloser
+	onClose func()
+}
+
+func (s *signalWriter) Write(p []byte) (int, error) { return s.w.Write(p) }
+func (s *signalWriter) Close() error {
+	if s.onClose != nil {
+		s.onClose()
+	}
+	return s.w.Close()
 }
 
 func newFakeTerminal(id string) *fakeTerminal {
@@ -220,10 +237,19 @@ func newFakeTerminal(id string) *fakeTerminal {
 	serrR, serrW := io.Pipe()
 	_ = serrR
 	_ = serrW
-	return &fakeTerminal{
+	f := &fakeTerminal{
 		id: id, stdinR: sinR, stdinW: sinW,
-		stdoutR: soutR, stdoutW: soutW,
+		stdoutR: soutR,
+		waitCh:  make(chan struct{}),
 	}
+	// stdout 写端 Close = 远端 EOF：发 done 信号给 Wait()（不消费 stdout 数据，
+	// 与两个 outputPump 不再抢同一管道）。
+	f.stdoutW = &signalWriter{w: soutW, onClose: f.signalEnd}
+	return f
+}
+
+func (f *fakeTerminal) signalEnd() {
+	f.waitOnce.Do(func() { close(f.waitCh) })
 }
 
 func (f *fakeTerminal) ID() string        { return f.id }
@@ -237,14 +263,11 @@ func (f *fakeTerminal) Resize(c, r int) error {
 	return nil
 }
 
-// Wait 远端结束 = stdout EOF（Close 关写端触发）。
+// Wait 远端结束 = stdout 写端关闭（EOF，经 signalWriter 发 done 信号）。
+// 不消费 stdout 数据——否则会与 outputPump 抢同一管道并丢字节（CI 竞态根因）。
 func (f *fakeTerminal) Wait() (TerminalExit, error) {
-	buf := make([]byte, 64)
-	for {
-		if _, err := f.stdoutR.Read(buf); err != nil {
-			return TerminalExit{ExitCode: 0}, nil
-		}
-	}
+	<-f.waitCh
+	return TerminalExit{ExitCode: 0}, nil
 }
 
 func (f *fakeTerminal) Close() error {
