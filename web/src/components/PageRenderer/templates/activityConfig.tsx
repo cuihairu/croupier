@@ -16,12 +16,8 @@ import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
 import type { PageSpec, PageExecuteFn, PageExecutionResult } from '@/types/dashboard';
-import {
-  asRecord,
-  createGameOpsDemoStore,
-  createRequestIdFactory,
-  type GameOpsDemoStore,
-} from './gameOpsDemoData';
+import { asRecord, createRequestIdFactory, type GameOpsDemoStore } from './gameOpsDemoData';
+import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 
 /** 活动配置页面规格 */
 export const activityConfigPageSpec: PageSpec = {
@@ -358,185 +354,189 @@ export const activityConfigPageSpec: PageSpec = {
  * 上线要求已发布、下线要求进行中、回滚要求目标版本存在。
  */
 export function createActivityConfigDemoExecute(
-  store: GameOpsDemoStore = createGameOpsDemoStore(),
+  store: GameOpsDemoStore = gameOpsDemoRuntimeStore,
 ): PageExecuteFn {
-  let activities = store.activities;
-  let seq = activities.length + 1;
+  let seq = store.activities.length + 1;
   const nextRequestId = createRequestIdFactory();
 
   const nextId = () => `act-demo-${++seq}`;
 
   return async (bindingId, context): Promise<PageExecutionResult> => {
+    let activities = store.activities;
     const form = asRecord(context.form);
     const row = asRecord(context.row);
 
-    switch (bindingId) {
-      case 'list': {
-        const current = Number(form.current) || 1;
-        const pageSize = Number(form.pageSize) || 10;
-        let filtered = activities;
-        if (form.name) {
-          filtered = filtered.filter((activity) => activity.name.includes(String(form.name)));
+    try {
+      switch (bindingId) {
+        case 'list': {
+          const current = Number(form.current) || 1;
+          const pageSize = Number(form.pageSize) || 10;
+          let filtered = activities;
+          if (form.name) {
+            filtered = filtered.filter((activity) => activity.name.includes(String(form.name)));
+          }
+          if (form.status) {
+            filtered = filtered.filter((activity) => activity.status === form.status);
+          }
+          if (form.type) {
+            filtered = filtered.filter((activity) => activity.type === form.type);
+          }
+          const start = (current - 1) * pageSize;
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
+          };
         }
-        if (form.status) {
-          filtered = filtered.filter((activity) => activity.status === form.status);
+        case 'detail': {
+          const activity = activities.find((item) => item.id === String(row.id));
+          if (!activity) {
+            return { kind: 'sync', requestId: nextRequestId(), data: null };
+          }
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: {
+              ...activity,
+              versionHistory: activity.versions
+                .slice()
+                .reverse()
+                .map((version) => `v${version.version} ${version.note} · ${version.operator}`)
+                .join('；'),
+            },
+          };
         }
-        if (form.type) {
-          filtered = filtered.filter((activity) => activity.type === form.type);
+        case 'create': {
+          const name = String(form.name ?? '').trim();
+          if (!name) {
+            throw new Error('name_required');
+          }
+          const type = String(form.type ?? 'login_gift');
+          const timezone = String(form.timezone ?? 'Asia/Shanghai');
+          const activity = {
+            id: nextId(),
+            name,
+            type: (['login_gift', 'rank_reward', 'shop_discount', 'holiday_event'].includes(type)
+              ? type
+              : 'login_gift') as 'login_gift',
+            timezone: timezone as 'Asia/Shanghai' | 'UTC' | 'America/Los_Angeles',
+            startAt: String(form.startAt ?? ''),
+            endAt: String(form.endAt ?? ''),
+            status: 'configured' as const,
+            currentVersion: 0,
+            versions: [],
+          };
+          activities = [activity, ...activities];
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'activity.create',
+            target: activity.id,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { id: activity.id } };
         }
-        const start = (current - 1) * pageSize;
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
-        };
+        case 'action.publish': {
+          const activity = activities.find((item) => item.id === String(row.id));
+          if (!activity) {
+            throw new Error('activity_not_found');
+          }
+          const version = activity.currentVersion + 1;
+          activities = activities.map((item) =>
+            item.id === activity.id
+              ? {
+                  ...item,
+                  status: 'published',
+                  currentVersion: version,
+                  versions: [
+                    ...item.versions,
+                    {
+                      version,
+                      note: String(form.note ?? ''),
+                      publishedAt: new Date().toISOString(),
+                      operator: 'admin',
+                    },
+                  ],
+                }
+              : item,
+          );
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'activity.publish',
+            target: activity.id,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { version } };
+        }
+        case 'action.activate': {
+          const activity = activities.find((item) => item.id === String(row.id));
+          if (!activity) {
+            throw new Error('activity_not_found');
+          }
+          if (activity.status !== 'published' && activity.status !== 'rolled_back') {
+            throw new Error('activate_requires_published');
+          }
+          activities = activities.map((item) =>
+            item.id === activity.id ? { ...item, status: 'active' } : item,
+          );
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'activity.activate',
+            target: activity.id,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        case 'action.end': {
+          const activity = activities.find((item) => item.id === String(row.id));
+          if (!activity) {
+            throw new Error('activity_not_found');
+          }
+          if (activity.status !== 'active' && activity.status !== 'published') {
+            throw new Error('end_requires_active');
+          }
+          activities = activities.map((item) =>
+            item.id === activity.id ? { ...item, status: 'ended' } : item,
+          );
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'activity.end',
+            target: activity.id,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        case 'action.rollback': {
+          const activity = activities.find((item) => item.id === String(row.id));
+          if (!activity) {
+            throw new Error('activity_not_found');
+          }
+          const targetVersion = Number(form.targetVersion) || 0;
+          const exists = activity.versions.some((version) => version.version === targetVersion);
+          if (!exists) {
+            throw new Error('target_version_not_found');
+          }
+          activities = activities.map((item) =>
+            item.id === activity.id
+              ? { ...item, status: 'rolled_back', currentVersion: targetVersion }
+              : item,
+          );
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'activity.rollback',
+            target: activity.id,
+            result: 'success',
+          });
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { success: true, version: targetVersion },
+          };
+        }
+        default:
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
       }
-      case 'detail': {
-        const activity = activities.find((item) => item.id === String(row.id));
-        if (!activity) {
-          return { kind: 'sync', requestId: nextRequestId(), data: null };
-        }
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: {
-            ...activity,
-            versionHistory: activity.versions
-              .slice()
-              .reverse()
-              .map((version) => `v${version.version} ${version.note} · ${version.operator}`)
-              .join('；'),
-          },
-        };
-      }
-      case 'create': {
-        const name = String(form.name ?? '').trim();
-        if (!name) {
-          throw new Error('name_required');
-        }
-        const type = String(form.type ?? 'login_gift');
-        const timezone = String(form.timezone ?? 'Asia/Shanghai');
-        const activity = {
-          id: nextId(),
-          name,
-          type: (['login_gift', 'rank_reward', 'shop_discount', 'holiday_event'].includes(type)
-            ? type
-            : 'login_gift') as 'login_gift',
-          timezone: timezone as 'Asia/Shanghai' | 'UTC' | 'America/Los_Angeles',
-          startAt: String(form.startAt ?? ''),
-          endAt: String(form.endAt ?? ''),
-          status: 'configured' as const,
-          currentVersion: 0,
-          versions: [],
-        };
-        activities = [activity, ...activities];
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'activity.create',
-          target: activity.id,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { id: activity.id } };
-      }
-      case 'action.publish': {
-        const activity = activities.find((item) => item.id === String(row.id));
-        if (!activity) {
-          throw new Error('activity_not_found');
-        }
-        const version = activity.currentVersion + 1;
-        activities = activities.map((item) =>
-          item.id === activity.id
-            ? {
-                ...item,
-                status: 'published',
-                currentVersion: version,
-                versions: [
-                  ...item.versions,
-                  {
-                    version,
-                    note: String(form.note ?? ''),
-                    publishedAt: new Date().toISOString(),
-                    operator: 'admin',
-                  },
-                ],
-              }
-            : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'activity.publish',
-          target: activity.id,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { version } };
-      }
-      case 'action.activate': {
-        const activity = activities.find((item) => item.id === String(row.id));
-        if (!activity) {
-          throw new Error('activity_not_found');
-        }
-        if (activity.status !== 'published' && activity.status !== 'rolled_back') {
-          throw new Error('activate_requires_published');
-        }
-        activities = activities.map((item) =>
-          item.id === activity.id ? { ...item, status: 'active' } : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'activity.activate',
-          target: activity.id,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      case 'action.end': {
-        const activity = activities.find((item) => item.id === String(row.id));
-        if (!activity) {
-          throw new Error('activity_not_found');
-        }
-        if (activity.status !== 'active' && activity.status !== 'published') {
-          throw new Error('end_requires_active');
-        }
-        activities = activities.map((item) =>
-          item.id === activity.id ? { ...item, status: 'ended' } : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'activity.end',
-          target: activity.id,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      case 'action.rollback': {
-        const activity = activities.find((item) => item.id === String(row.id));
-        if (!activity) {
-          throw new Error('activity_not_found');
-        }
-        const targetVersion = Number(form.targetVersion) || 0;
-        const exists = activity.versions.some((version) => version.version === targetVersion);
-        if (!exists) {
-          throw new Error('target_version_not_found');
-        }
-        activities = activities.map((item) =>
-          item.id === activity.id
-            ? { ...item, status: 'rolled_back', currentVersion: targetVersion }
-            : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'activity.rollback',
-          target: activity.id,
-          result: 'success',
-        });
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { success: true, version: targetVersion },
-        };
-      }
-      default:
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+    } finally {
+      store.activities = activities;
     }
   };
 }

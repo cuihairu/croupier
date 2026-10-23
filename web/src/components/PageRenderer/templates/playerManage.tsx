@@ -14,6 +14,8 @@ import React, { useMemo } from 'react';
 import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
+import { type GameOpsDemoStore, type GameOpsPlayer } from './gameOpsDemoData';
+import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 import type {
   PageSpec,
   PageExecuteFn,
@@ -83,8 +85,8 @@ export const playerManagePageSpec: PageSpec = {
           ],
         },
         {
-          key: 'balance',
-          title: { 'zh-CN': '余额', 'en-US': 'Balance' },
+          key: 'balanceGold',
+          title: { 'zh-CN': '金币余额（金）', 'en-US': 'Gold Balance (Gold)' },
           dataType: 'number',
           width: 110,
         },
@@ -193,7 +195,11 @@ export const playerManagePageSpec: PageSpec = {
         { key: 'level', title: { 'zh-CN': '等级', 'en-US': 'Level' }, dataType: 'number' },
         { key: 'vip', title: { 'zh-CN': 'VIP', 'en-US': 'VIP' }, dataType: 'number' },
         { key: 'status', title: { 'zh-CN': '状态', 'en-US': 'Status' }, dataType: 'string' },
-        { key: 'balance', title: { 'zh-CN': '余额', 'en-US': 'Balance' }, dataType: 'number' },
+        {
+          key: 'balanceGold',
+          title: { 'zh-CN': '金币余额（金）', 'en-US': 'Gold Balance (Gold)' },
+          dataType: 'number',
+        },
         {
           key: 'lastLoginAt',
           title: { 'zh-CN': '最近登录', 'en-US': 'Last Login' },
@@ -363,35 +369,6 @@ export const playerManagePageSpec: PageSpec = {
 // Demo 执行器（内存数据，仅供模板预览/联调）
 // ---------------------------------------------------------------------------
 
-interface DemoPlayer {
-  [key: string]: JSONValue;
-  id: string;
-  nickname: string;
-  level: number;
-  vip: number;
-  status: 'active' | 'banned';
-  balance: number;
-  lastLoginAt: string;
-  createdAt: string;
-}
-
-function seedPlayers(): DemoPlayer[] {
-  const now = Date.now();
-  return Array.from({ length: 23 }, (_, index) => {
-    const seq = index + 1;
-    return {
-      id: `100${String(seq).padStart(2, '0')}`,
-      nickname: `玩家${seq}号`,
-      level: 5 + ((seq * 7) % 55),
-      vip: seq % 6,
-      status: seq % 7 === 0 ? 'banned' : 'active',
-      balance: (seq * 137) % 5000,
-      lastLoginAt: new Date(now - seq * 3600_000).toISOString(),
-      createdAt: new Date(now - seq * 86400_000 * 3).toISOString(),
-    };
-  });
-}
-
 function asRecord(value: JSONValue | undefined): FormValues {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as FormValues) : {};
 }
@@ -400,109 +377,119 @@ function asRecord(value: JSONValue | undefined): FormValues {
  * 创建玩家管理 demo 执行器：内存实现 list/detail/create/update/delete
  * 与封禁/充值/邮件/批量操作，返回结构对齐 PageSpec selectors。
  */
-export function createPlayerManageDemoExecute(): PageExecuteFn {
-  let players = seedPlayers();
+export function createPlayerManageDemoExecute(
+  store: GameOpsDemoStore = gameOpsDemoRuntimeStore,
+): PageExecuteFn {
   let requestSeq = 0;
   const nextRequestId = () => `demo-${++requestSeq}`;
 
   return async (bindingId, context): Promise<PageExecutionResult> => {
+    let players: GameOpsPlayer[] = store.players;
     const form = asRecord(context.form);
     const row = asRecord(context.row);
     const selection = Array.isArray(context.selection) ? context.selection.map(String) : [];
 
-    switch (bindingId) {
-      case 'list': {
-        const current = Number(form.current) || 1;
-        const pageSize = Number(form.pageSize) || 10;
-        let filtered = players;
-        if (form.nickname) {
-          filtered = filtered.filter((player) => player.nickname.includes(String(form.nickname)));
+    try {
+      switch (bindingId) {
+        case 'list': {
+          const current = Number(form.current) || 1;
+          const pageSize = Number(form.pageSize) || 10;
+          let filtered = players;
+          if (form.nickname) {
+            filtered = filtered.filter((player) => player.nickname.includes(String(form.nickname)));
+          }
+          if (form.status) {
+            filtered = filtered.filter((player) => player.status === form.status);
+          }
+          const start = (current - 1) * pageSize;
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
+          };
         }
-        if (form.status) {
-          filtered = filtered.filter((player) => player.status === form.status);
+        case 'detail': {
+          const player = players.find((item) => item.id === String(row.id));
+          return { kind: 'sync', requestId: nextRequestId(), data: player ?? null };
         }
-        const start = (current - 1) * pageSize;
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
-        };
+        case 'create': {
+          const id = String(Math.max(...players.map((p) => Number(p.id)), 10000) + 1);
+          players = [
+            {
+              id,
+              nickname: String(form.nickname ?? `玩家${id}`),
+              character: String(form.character ?? `角色${id}`),
+              serverId: String(form.serverId ?? 's1'),
+              level: Number(form.level) || 1,
+              vip: Number(form.vip) || 0,
+              status: 'active',
+              balanceGold: 0,
+              lastLoginAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+            },
+            ...players,
+          ];
+          return { kind: 'sync', requestId: nextRequestId(), data: { id } };
+        }
+        case 'update': {
+          players = players.map((player) =>
+            player.id === String(row.id)
+              ? {
+                  ...player,
+                  nickname: String(form.nickname ?? player.nickname),
+                  level: Number(form.level ?? player.level),
+                  vip: Number(form.vip ?? player.vip),
+                }
+              : player,
+          );
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        case 'delete': {
+          players = players.filter((player) => player.id !== String(row.id));
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        case 'action.ban': {
+          players = players.map((player) =>
+            player.id === String(row.id) ? { ...player, status: 'banned' } : player,
+          );
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        case 'action.recharge': {
+          const amount = Number(form.amount) || 0;
+          players = players.map((player) =>
+            player.id === String(row.id)
+              ? { ...player, balanceGold: player.balanceGold + amount }
+              : player,
+          );
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true, amount } };
+        }
+        case 'action.mail':
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        case 'action.batchBan': {
+          players = players.map((player) =>
+            selection.includes(player.id) ? { ...player, status: 'banned' } : player,
+          );
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { success: true, count: selection.length },
+          };
+        }
+        case 'action.batchUnban': {
+          players = players.map((player) =>
+            selection.includes(player.id) ? { ...player, status: 'active' } : player,
+          );
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { success: true, count: selection.length },
+          };
+        }
+        default:
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
       }
-      case 'detail': {
-        const player = players.find((item) => item.id === String(row.id));
-        return { kind: 'sync', requestId: nextRequestId(), data: player ?? null };
-      }
-      case 'create': {
-        const id = String(Math.max(...players.map((p) => Number(p.id)), 10000) + 1);
-        players = [
-          {
-            id,
-            nickname: String(form.nickname ?? `玩家${id}`),
-            level: Number(form.level) || 1,
-            vip: Number(form.vip) || 0,
-            status: 'active',
-            balance: 0,
-            lastLoginAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          },
-          ...players,
-        ];
-        return { kind: 'sync', requestId: nextRequestId(), data: { id } };
-      }
-      case 'update': {
-        players = players.map((player) =>
-          player.id === String(row.id)
-            ? {
-                ...player,
-                nickname: String(form.nickname ?? player.nickname),
-                level: Number(form.level ?? player.level),
-                vip: Number(form.vip ?? player.vip),
-              }
-            : player,
-        );
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      case 'delete': {
-        players = players.filter((player) => player.id !== String(row.id));
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      case 'action.ban': {
-        players = players.map((player) =>
-          player.id === String(row.id) ? { ...player, status: 'banned' } : player,
-        );
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      case 'action.recharge': {
-        const amount = Number(form.amount) || 0;
-        players = players.map((player) =>
-          player.id === String(row.id) ? { ...player, balance: player.balance + amount } : player,
-        );
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true, amount } };
-      }
-      case 'action.mail':
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      case 'action.batchBan': {
-        players = players.map((player) =>
-          selection.includes(player.id) ? { ...player, status: 'banned' } : player,
-        );
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { success: true, count: selection.length },
-        };
-      }
-      case 'action.batchUnban': {
-        players = players.map((player) =>
-          selection.includes(player.id) ? { ...player, status: 'active' } : player,
-        );
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { success: true, count: selection.length },
-        };
-      }
-      default:
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+    } finally {
+      store.players = players;
     }
   };
 }

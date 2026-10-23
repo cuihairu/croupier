@@ -16,12 +16,8 @@ import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
 import type { PageSpec, PageExecuteFn, PageExecutionResult } from '@/types/dashboard';
-import {
-  asRecord,
-  createGameOpsDemoStore,
-  createRequestIdFactory,
-  type GameOpsDemoStore,
-} from './gameOpsDemoData';
+import { asRecord, createRequestIdFactory, type GameOpsDemoStore } from './gameOpsDemoData';
+import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 
 /** 邮件与补偿任务页面规格 */
 export const mailCompensationPageSpec: PageSpec = {
@@ -371,141 +367,158 @@ export const mailCompensationPageSpec: PageSpec = {
  * 失败重试、撤回。补偿创建进入待审批态并落审批号，邮件直接进入发送完成。
  */
 export function createMailCompensationDemoExecute(
-  store: GameOpsDemoStore = createGameOpsDemoStore(),
+  store: GameOpsDemoStore = gameOpsDemoRuntimeStore,
 ): PageExecuteFn {
-  let tasks = store.tasks;
-  let seq = tasks.length + 1;
+  let seq = store.tasks.length + 1;
   const nextId = () => `task-demo-${++seq}`;
   const nextRequestId = createRequestIdFactory();
 
   return async (bindingId, context): Promise<PageExecutionResult> => {
+    let tasks = store.tasks;
     const form = asRecord(context.form);
     const row = asRecord(context.row);
 
-    switch (bindingId) {
-      case 'list': {
-        const current = Number(form.current) || 1;
-        const pageSize = Number(form.pageSize) || 10;
-        let filtered = tasks;
-        if (form.type) {
-          filtered = filtered.filter((task) => task.type === form.type);
+    try {
+      switch (bindingId) {
+        case 'list': {
+          const current = Number(form.current) || 1;
+          const pageSize = Number(form.pageSize) || 10;
+          let filtered = tasks;
+          if (form.type) {
+            filtered = filtered.filter((task) => task.type === form.type);
+          }
+          if (form.status) {
+            filtered = filtered.filter((task) => task.status === form.status);
+          }
+          const start = (current - 1) * pageSize;
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
+          };
         }
-        if (form.status) {
-          filtered = filtered.filter((task) => task.status === form.status);
+        case 'detail': {
+          const task = tasks.find((item) => item.id === String(row.id));
+          return { kind: 'sync', requestId: nextRequestId(), data: task ?? null };
         }
-        const start = (current - 1) * pageSize;
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
-        };
-      }
-      case 'detail': {
-        const task = tasks.find((item) => item.id === String(row.id));
-        return { kind: 'sync', requestId: nextRequestId(), data: task ?? null };
-      }
-      case 'create': {
-        const type = String(form.type) === 'compensation' ? 'compensation' : 'mail';
-        const targetCount = type === 'mail' ? 26 : 1;
-        const perAmount = type === 'compensation' ? Number(form.perAmount) || 0 : null;
-        const approvalId = type === 'compensation' ? `approval-${nextId()}` : null;
-        tasks = [
-          {
-            id: nextId(),
-            type,
-            title: String(form.title ?? '未命名任务'),
-            detail: String(form.detail ?? ''),
-            receiverRange:
-              form.receiverRange === 'server' || form.receiverRange === 'players'
-                ? form.receiverRange
-                : 'all',
-            targetCount,
-            perAmount,
-            totalAmount: perAmount === null ? null : perAmount * targetCount,
-            currency: type === 'compensation' ? '金' : null,
-            status: type === 'compensation' ? 'pending_approval' : 'sent',
-            sentCount: type === 'mail' ? targetCount : 0,
-            failedCount: 0,
-            operator: 'admin',
-            approvalId,
-            createdAt: new Date().toISOString(),
-          },
-          ...tasks,
-        ];
-        if (approvalId) {
+        case 'create': {
+          const type = String(form.type) === 'compensation' ? 'compensation' : 'mail';
+          const targetCount = type === 'mail' ? 26 : 1;
+          const perAmount = type === 'compensation' ? Number(form.perAmount) || 0 : null;
+          const id = nextId();
+          const approvalId = type === 'compensation' ? `approval-${id}` : null;
+          const receiverRange =
+            form.receiverRange === 'server' || form.receiverRange === 'players'
+              ? form.receiverRange
+              : 'all';
+          tasks = [
+            {
+              id,
+              type,
+              title: String(form.title ?? '未命名任务'),
+              detail: String(form.detail ?? ''),
+              receiverRange,
+              targetServerId:
+                receiverRange === 'server' ? String(form.targetServerId ?? 's1') : null,
+              targetPlayerId:
+                receiverRange === 'players' && form.targetPlayerId
+                  ? String(form.targetPlayerId)
+                  : null,
+              targetOrderNo: form.targetOrderNo ? String(form.targetOrderNo) : null,
+              targetCount,
+              perAmount,
+              totalAmount: perAmount === null ? null : perAmount * targetCount,
+              currency: type === 'compensation' ? '金' : null,
+              status: type === 'compensation' ? 'pending_approval' : 'sent',
+              sentCount: type === 'mail' ? targetCount : 0,
+              failedCount: 0,
+              operator: 'admin',
+              approvalId,
+              createdAt: new Date().toISOString(),
+            },
+            ...tasks,
+          ];
+          if (approvalId) {
+            store.pushOpRecord({
+              operator: 'admin',
+              action: 'compensation.grant',
+              target: tasks[0].id,
+              result: 'pending_approval',
+              approvalId,
+            });
+          }
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { id: tasks[0].id, approvalId },
+          };
+        }
+        case 'update': {
+          tasks = tasks.map((task) =>
+            task.id === String(row.id)
+              ? {
+                  ...task,
+                  title: String(form.title ?? task.title),
+                  detail: String(form.detail ?? task.detail),
+                }
+              : task,
+          );
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        case 'action.retryFailed': {
+          const task = tasks.find((item) => item.id === String(row.id));
+          if (!task) {
+            throw new Error('task_not_found');
+          }
+          if (task.failedCount === 0) {
+            throw new Error('no_failed_targets');
+          }
+          tasks = tasks.map((item) =>
+            item.id === task.id
+              ? {
+                  ...item,
+                  sentCount: item.sentCount + item.failedCount,
+                  failedCount: 0,
+                  status: 'sent',
+                }
+              : item,
+          );
           store.pushOpRecord({
             operator: 'admin',
-            action: 'compensation.grant',
-            target: tasks[0].id,
-            result: 'pending_approval',
-            approvalId,
+            action: 'mail_task.retry_failed',
+            target: task.id,
+            result: 'success',
           });
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { success: true, retried: task.failedCount },
+          };
         }
-        return { kind: 'sync', requestId: nextRequestId(), data: { id: tasks[0].id, approvalId } };
+        case 'action.cancelTask': {
+          const task = tasks.find((item) => item.id === String(row.id));
+          if (!task) {
+            throw new Error('task_not_found');
+          }
+          if (task.status === 'sent' || task.status === 'completed') {
+            throw new Error('task_already_finished');
+          }
+          tasks = tasks.map((item) =>
+            item.id === task.id ? { ...item, status: 'cancelled' } : item,
+          );
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'mail_task.cancel',
+            target: task.id,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        default:
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
       }
-      case 'update': {
-        tasks = tasks.map((task) =>
-          task.id === String(row.id)
-            ? {
-                ...task,
-                title: String(form.title ?? task.title),
-                detail: String(form.detail ?? task.detail),
-              }
-            : task,
-        );
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      case 'action.retryFailed': {
-        const task = tasks.find((item) => item.id === String(row.id));
-        if (!task) {
-          throw new Error('task_not_found');
-        }
-        if (task.failedCount === 0) {
-          throw new Error('no_failed_targets');
-        }
-        tasks = tasks.map((item) =>
-          item.id === task.id
-            ? {
-                ...item,
-                sentCount: item.sentCount + item.failedCount,
-                failedCount: 0,
-                status: 'sent',
-              }
-            : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'mail_task.retry_failed',
-          target: task.id,
-          result: 'success',
-        });
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { success: true, retried: task.failedCount },
-        };
-      }
-      case 'action.cancelTask': {
-        const task = tasks.find((item) => item.id === String(row.id));
-        if (!task) {
-          throw new Error('task_not_found');
-        }
-        if (task.status === 'sent' || task.status === 'completed') {
-          throw new Error('task_already_finished');
-        }
-        tasks = tasks.map((item) =>
-          item.id === task.id ? { ...item, status: 'cancelled' } : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'mail_task.cancel',
-          target: task.id,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      default:
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+    } finally {
+      store.tasks = tasks;
     }
   };
 }

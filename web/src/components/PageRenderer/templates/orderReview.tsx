@@ -15,12 +15,8 @@ import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
 import type { PageSpec, PageExecuteFn, PageExecutionResult } from '@/types/dashboard';
-import {
-  asRecord,
-  createGameOpsDemoStore,
-  createRequestIdFactory,
-  type GameOpsDemoStore,
-} from './gameOpsDemoData';
+import { asRecord, createRequestIdFactory, type GameOpsDemoStore } from './gameOpsDemoData';
+import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 
 /** 订单核查页面规格 */
 export const orderReviewPageSpec: PageSpec = {
@@ -287,77 +283,81 @@ export const orderReviewPageSpec: PageSpec = {
  * 补发仅允许「缺发货」订单，重复补发与已发货订单直接报错（幂等边界示例）。
  */
 export function createOrderReviewDemoExecute(
-  store: GameOpsDemoStore = createGameOpsDemoStore(),
+  store: GameOpsDemoStore = gameOpsDemoRuntimeStore,
 ): PageExecuteFn {
-  let orders = store.orders;
   const nextRequestId = createRequestIdFactory();
 
   return async (bindingId, context): Promise<PageExecutionResult> => {
+    let orders = store.orders;
     const form = asRecord(context.form);
     const row = asRecord(context.row);
 
-    switch (bindingId) {
-      case 'list': {
-        const current = Number(form.current) || 1;
-        const pageSize = Number(form.pageSize) || 10;
-        let filtered = orders;
-        if (form.nickname) {
-          filtered = filtered.filter((order) => order.nickname.includes(String(form.nickname)));
+    try {
+      switch (bindingId) {
+        case 'list': {
+          const current = Number(form.current) || 1;
+          const pageSize = Number(form.pageSize) || 10;
+          let filtered = orders;
+          if (form.nickname) {
+            filtered = filtered.filter((order) => order.nickname.includes(String(form.nickname)));
+          }
+          if (form.channel) {
+            filtered = filtered.filter((order) => order.channel === form.channel);
+          }
+          if (form.reconciliation) {
+            filtered = filtered.filter((order) => order.reconciliation === form.reconciliation);
+          }
+          const start = (current - 1) * pageSize;
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
+          };
         }
-        if (form.channel) {
-          filtered = filtered.filter((order) => order.channel === form.channel);
+        case 'detail': {
+          const order = orders.find((item) => item.orderNo === String(row.orderNo));
+          return { kind: 'sync', requestId: nextRequestId(), data: order ?? null };
         }
-        if (form.reconciliation) {
-          filtered = filtered.filter((order) => order.reconciliation === form.reconciliation);
+        case 'action.recredit': {
+          const order = orders.find((item) => item.orderNo === String(row.orderNo));
+          if (!order) {
+            throw new Error('order_not_found');
+          }
+          if (order.gameCredit === 'credited') {
+            throw new Error('already_credited');
+          }
+          if (order.gameCredit !== 'missing') {
+            throw new Error('credit_not_applicable');
+          }
+          orders = orders.map((item) =>
+            item.orderNo === order.orderNo
+              ? {
+                  ...item,
+                  gameCredit: 'credited',
+                  status: 'credited',
+                  reconciliation: 'match',
+                  gameCreditRef: `credit-re-${order.orderNo}`,
+                  creditedAt: new Date().toISOString(),
+                }
+              : item,
+          );
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'order.recredit',
+            target: order.orderNo,
+            result: 'success',
+          });
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { success: true, orderNo: order.orderNo },
+          };
         }
-        const start = (current - 1) * pageSize;
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
-        };
+        default:
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
       }
-      case 'detail': {
-        const order = orders.find((item) => item.orderNo === String(row.orderNo));
-        return { kind: 'sync', requestId: nextRequestId(), data: order ?? null };
-      }
-      case 'action.recredit': {
-        const order = orders.find((item) => item.orderNo === String(row.orderNo));
-        if (!order) {
-          throw new Error('order_not_found');
-        }
-        if (order.gameCredit === 'credited') {
-          throw new Error('already_credited');
-        }
-        if (order.gameCredit !== 'missing') {
-          throw new Error('credit_not_applicable');
-        }
-        orders = orders.map((item) =>
-          item.orderNo === order.orderNo
-            ? {
-                ...item,
-                gameCredit: 'credited',
-                status: 'credited',
-                reconciliation: 'match',
-                gameCreditRef: `credit-re-${order.orderNo}`,
-                creditedAt: new Date().toISOString(),
-              }
-            : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'order.recredit',
-          target: order.orderNo,
-          result: 'success',
-        });
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { success: true, orderNo: order.orderNo },
-        };
-      }
-      default:
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+    } finally {
+      store.orders = orders;
     }
   };
 }

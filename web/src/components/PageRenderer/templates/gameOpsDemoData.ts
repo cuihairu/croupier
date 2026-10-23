@@ -16,6 +16,26 @@
 
 import type { JSONValue } from '@/types/dashboard';
 
+/** 独立演示游戏环境（仅浏览器内存 demo；不映射真实租户 scope） */
+export interface GameOpsDemoEnvironment {
+  gameId: string;
+  environment: string;
+  accountId: string;
+  roleName: string;
+  permissions: string[];
+  persistence: 'memory-only';
+}
+
+/** 统一演示 scope 与账号；seed 永远只服务该独立 demo 环境 */
+export const gameOpsDemoEnvironment: GameOpsDemoEnvironment = {
+  gameId: 'croupier-demo',
+  environment: 'local-demo',
+  accountId: 'gm-demo',
+  roleName: 'Demo GameOps Operator',
+  permissions: ['console.read', 'gameops.demo.read', 'gameops.demo.write'],
+  persistence: 'memory-only',
+};
+
 /** 区服 */
 export interface GameOpsServer {
   [key: string]: JSONValue;
@@ -49,6 +69,12 @@ export interface GameOpsTask {
   /** 邮件正文或补偿原因 */
   detail: string;
   receiverRange: 'all' | 'server' | 'players';
+  /** 区服级任务的真实区服引用 */
+  targetServerId: string | null;
+  /** 玩家级任务的真实玩家引用 */
+  targetPlayerId: string | null;
+  /** 充值补偿指向的真实订单号 */
+  targetOrderNo: string | null;
   /** 目标人数快照 */
   targetCount: number;
   /** 补偿每人数量（单位随 currency；邮件任务为 null） */
@@ -79,6 +105,7 @@ export interface GameOpsBanRecord {
   playerId: string;
   nickname: string;
   serverId: string;
+  approvalId: string;
   reason: 'cheating' | 'fraud' | 'abuse' | 'risk';
   durationHours: number;
   bannedAt: string;
@@ -155,6 +182,8 @@ export interface GameOpsDemoStore {
   orders: GameOpsOrder[];
   activities: GameOpsActivity[];
   opRecords: GameOpsOpRecord[];
+  /** 恢复到初始 seed，供模板页重置入口调用 */
+  reset: () => void;
   /** 追加一条操作记录并返回 operationId */
   pushOpRecord(entry: {
     operator: string;
@@ -164,8 +193,6 @@ export interface GameOpsDemoStore {
     approvalId?: string | null;
   }): string;
 }
-
-let opRecordSeq = 0;
 
 /** 长昵称边界用例（>40 字符，验证列宽/截断/详情不溢出） */
 const LONG_NICKNAME = '风起云涌一区无敌战神丶樱花漫天飞舞的超级无敌可爱小龙女本尊在此';
@@ -205,6 +232,9 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       title: 'S3 赛季结算奖励',
       detail: '恭喜完成 S3 赛季，奖励已随信发放。',
       receiverRange: 'all',
+      targetServerId: null,
+      targetPlayerId: null,
+      targetOrderNo: null,
       targetCount: 26,
       perAmount: null,
       totalAmount: null,
@@ -222,6 +252,9 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       title: '停机维护补偿',
       detail: '感谢理解，维护补偿见附件。',
       receiverRange: 'server',
+      targetServerId: 's1',
+      targetPlayerId: null,
+      targetOrderNo: null,
       targetCount: 9,
       perAmount: null,
       totalAmount: null,
@@ -239,6 +272,9 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       title: '回档补偿',
       detail: '10-21 回档事故全员补偿',
       receiverRange: 'all',
+      targetServerId: null,
+      targetPlayerId: null,
+      targetOrderNo: null,
       targetCount: 26,
       perAmount: 500,
       totalAmount: 13000,
@@ -256,6 +292,9 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       title: '充值未到账补偿',
       detail: '订单 20261023001 补发',
       receiverRange: 'players',
+      targetServerId: null,
+      targetPlayerId: '20008',
+      targetOrderNo: '2026102308',
       targetCount: 1,
       perAmount: 648,
       totalAmount: 648,
@@ -280,6 +319,7 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       playerId: player.id,
       nickname: player.nickname,
       serverId: player.serverId,
+      approvalId: `approval-ban-${String(seq).padStart(4, '0')}`,
       reason: banReasons[seq % banReasons.length],
       durationHours,
       bannedAt: iso((seq + 2) * 86_400_000),
@@ -305,8 +345,9 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
         : seq === 26
           ? 'pending'
           : 'credited';
+    const orderNo = `2026102${String(300 + seq)}`;
     return {
-      orderNo: `2026102${String(300 + seq)}`,
+      orderNo,
       playerId: player.id,
       nickname: player.nickname,
       amount: [6, 30, 98, 328, 648][seq % 5],
@@ -363,10 +404,10 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       at: iso(26 * 3600_000),
       operator: 'operator',
       action: 'player.ban',
-      target: 'player 20007',
+      target: 'ban-30003',
       result: 'success',
       operationId: 'op-5001',
-      approvalId: 'approval-ban-3001',
+      approvalId: 'approval-ban-0003',
     },
     {
       id: 'op-5002',
@@ -390,7 +431,8 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
     },
   ];
 
-  return {
+  let opRecordSeq = 0;
+  const store: GameOpsDemoStore = {
     servers,
     players,
     tasks,
@@ -398,10 +440,22 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
     orders,
     activities,
     opRecords,
+    reset() {
+      // 原地替换整组关联 seed，共享 store 的调用方无需重新绑定。
+      const fresh = createGameOpsDemoStore();
+      store.servers = fresh.servers;
+      store.players = fresh.players;
+      store.tasks = fresh.tasks;
+      store.bans = fresh.bans;
+      store.orders = fresh.orders;
+      store.activities = fresh.activities;
+      store.opRecords = fresh.opRecords;
+      opRecordSeq = 0;
+    },
     pushOpRecord(entry) {
       opRecordSeq += 1;
       const operationId = `op-demo-${opRecordSeq}`;
-      opRecords.unshift({
+      store.opRecords.unshift({
         id: operationId,
         at: new Date().toISOString(),
         operator: entry.operator,
@@ -414,6 +468,7 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       return operationId;
     },
   };
+  return store;
 }
 
 /** 从未知来源读取对象记录（demo 执行器防御） */

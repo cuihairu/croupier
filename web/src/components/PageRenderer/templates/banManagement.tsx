@@ -18,11 +18,11 @@ import PageRenderer from '@/components/PageRenderer';
 import type { PageSpec, PageExecuteFn, PageExecutionResult } from '@/types/dashboard';
 import {
   asRecord,
-  createGameOpsDemoStore,
   createRequestIdFactory,
   type GameOpsBanRecord,
   type GameOpsDemoStore,
 } from './gameOpsDemoData';
+import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 
 /** 封禁管理页面规格 */
 export const banManagementPageSpec: PageSpec = {
@@ -324,148 +324,154 @@ export const banManagementPageSpec: PageSpec = {
  * 延长时长、批量解封。非生效中记录解封/延期时报错（业务校验前置）。
  */
 export function createBanManagementDemoExecute(
-  store: GameOpsDemoStore = createGameOpsDemoStore(),
+  store: GameOpsDemoStore = gameOpsDemoRuntimeStore,
 ): PageExecuteFn {
-  let bans = store.bans;
-  let seq = bans.length + 1;
+  let seq = store.bans.length + 1;
   const nextRequestId = createRequestIdFactory();
 
   const nextId = () => `ban-demo-${++seq}`;
 
   return async (bindingId, context): Promise<PageExecutionResult> => {
+    let bans = store.bans;
     const form = asRecord(context.form);
     const row = asRecord(context.row);
     const selection = Array.isArray(context.selection) ? context.selection : [];
 
-    switch (bindingId) {
-      case 'list': {
-        const current = Number(form.current) || 1;
-        const pageSize = Number(form.pageSize) || 10;
-        let filtered = bans;
-        if (form.nickname) {
-          filtered = filtered.filter((ban) => ban.nickname.includes(String(form.nickname)));
-        }
-        if (form.status) {
-          filtered = filtered.filter((ban) => ban.status === form.status);
-        }
-        if (form.reason) {
-          filtered = filtered.filter((ban) => ban.reason === form.reason);
-        }
-        const start = (current - 1) * pageSize;
-        return {
-          kind: 'sync',
-          requestId: nextRequestId(),
-          data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
-        };
-      }
-      case 'detail': {
-        const ban = bans.find((item) => item.id === String(row.id));
-        return { kind: 'sync', requestId: nextRequestId(), data: ban ?? null };
-      }
-      case 'create': {
-        const playerId = String(form.playerId ?? '').trim();
-        const durationHours = Number(form.durationHours) || 0;
-        if (!playerId) {
-          throw new Error('player_id_required');
-        }
-        if (durationHours <= 0) {
-          throw new Error('duration_must_be_positive');
-        }
-        const now = new Date();
-        const record: GameOpsBanRecord = {
-          id: nextId(),
-          playerId,
-          nickname: `玩家${playerId}号`,
-          serverId: String(form.serverId ?? 's1'),
-          reason: String(form.reason ?? 'risk') as GameOpsBanRecord['reason'],
-          durationHours,
-          bannedAt: now.toISOString(),
-          expiresAt: new Date(now.getTime() + durationHours * 3600_000).toISOString(),
-          status: 'active',
-          operator: 'admin',
-          approver: 'admin',
-        };
-        bans = [record, ...bans];
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'player.ban',
-          target: `player ${playerId}`,
-          result: 'success',
-          approvalId: `approval-${record.id}`,
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { id: record.id } };
-      }
-      case 'action.unban': {
-        const ban = bans.find((item) => item.id === String(row.id));
-        if (!ban) {
-          throw new Error('ban_not_found');
-        }
-        if (ban.status !== 'active') {
-          throw new Error('ban_not_active');
-        }
-        bans = bans.map((item) => (item.id === ban.id ? { ...item, status: 'lifted' } : item));
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'player.unban',
-          target: `player ${ban.playerId}`,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
-      }
-      case 'action.extend': {
-        const ban = bans.find((item) => item.id === String(row.id));
-        if (!ban) {
-          throw new Error('ban_not_found');
-        }
-        if (ban.status !== 'active') {
-          throw new Error('ban_not_active');
-        }
-        const extraHours = Number(form.extraHours) || 0;
-        if (extraHours <= 0) {
-          throw new Error('duration_must_be_positive');
-        }
-        bans = bans.map((item) =>
-          item.id === ban.id
-            ? {
-                ...item,
-                durationHours: item.durationHours + extraHours,
-                expiresAt: new Date(
-                  new Date(item.expiresAt).getTime() + extraHours * 3600_000,
-                ).toISOString(),
-              }
-            : item,
-        );
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'ban.extend',
-          target: ban.id,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true, extraHours } };
-      }
-      case 'action.batchUnban': {
-        const ids = selection.map((item) => String(asRecord(item as never).id));
-        let lifted = 0;
-        bans = bans.map((item) => {
-          if (ids.includes(item.id) && item.status === 'active') {
-            lifted += 1;
-            return { ...item, status: 'lifted' };
+    try {
+      switch (bindingId) {
+        case 'list': {
+          const current = Number(form.current) || 1;
+          const pageSize = Number(form.pageSize) || 10;
+          let filtered = bans;
+          if (form.nickname) {
+            filtered = filtered.filter((ban) => ban.nickname.includes(String(form.nickname)));
           }
-          return item;
-        });
-        if (lifted === 0) {
-          throw new Error('no_active_ban_selected');
+          if (form.status) {
+            filtered = filtered.filter((ban) => ban.status === form.status);
+          }
+          if (form.reason) {
+            filtered = filtered.filter((ban) => ban.reason === form.reason);
+          }
+          const start = (current - 1) * pageSize;
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: { items: filtered.slice(start, start + pageSize), total: filtered.length },
+          };
         }
-        store.pushOpRecord({
-          operator: 'admin',
-          action: 'ban.batch_unban',
-          target: `${lifted} records`,
-          result: 'success',
-        });
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true, lifted } };
+        case 'detail': {
+          const ban = bans.find((item) => item.id === String(row.id));
+          return { kind: 'sync', requestId: nextRequestId(), data: ban ?? null };
+        }
+        case 'create': {
+          const playerId = String(form.playerId ?? '').trim();
+          const durationHours = Number(form.durationHours) || 0;
+          if (!playerId) {
+            throw new Error('player_id_required');
+          }
+          if (durationHours <= 0) {
+            throw new Error('duration_must_be_positive');
+          }
+          const now = new Date();
+          const id = nextId();
+          const record: GameOpsBanRecord = {
+            id,
+            playerId,
+            nickname: `玩家${playerId}号`,
+            serverId: String(form.serverId ?? 's1'),
+            approvalId: `approval-${id}`,
+            reason: String(form.reason ?? 'risk') as GameOpsBanRecord['reason'],
+            durationHours,
+            bannedAt: now.toISOString(),
+            expiresAt: new Date(now.getTime() + durationHours * 3600_000).toISOString(),
+            status: 'active',
+            operator: 'admin',
+            approver: 'admin',
+          };
+          bans = [record, ...bans];
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'player.ban',
+            target: `player ${playerId}`,
+            result: 'success',
+            approvalId: record.approvalId,
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { id: record.id } };
+        }
+        case 'action.unban': {
+          const ban = bans.find((item) => item.id === String(row.id));
+          if (!ban) {
+            throw new Error('ban_not_found');
+          }
+          if (ban.status !== 'active') {
+            throw new Error('ban_not_active');
+          }
+          bans = bans.map((item) => (item.id === ban.id ? { ...item, status: 'lifted' } : item));
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'player.unban',
+            target: `player ${ban.playerId}`,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+        }
+        case 'action.extend': {
+          const ban = bans.find((item) => item.id === String(row.id));
+          if (!ban) {
+            throw new Error('ban_not_found');
+          }
+          if (ban.status !== 'active') {
+            throw new Error('ban_not_active');
+          }
+          const extraHours = Number(form.extraHours) || 0;
+          if (extraHours <= 0) {
+            throw new Error('duration_must_be_positive');
+          }
+          bans = bans.map((item) =>
+            item.id === ban.id
+              ? {
+                  ...item,
+                  durationHours: item.durationHours + extraHours,
+                  expiresAt: new Date(
+                    new Date(item.expiresAt).getTime() + extraHours * 3600_000,
+                  ).toISOString(),
+                }
+              : item,
+          );
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'ban.extend',
+            target: ban.id,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true, extraHours } };
+        }
+        case 'action.batchUnban': {
+          const ids = selection.map((item) => String(asRecord(item as never).id));
+          let lifted = 0;
+          bans = bans.map((item) => {
+            if (ids.includes(item.id) && item.status === 'active') {
+              lifted += 1;
+              return { ...item, status: 'lifted' };
+            }
+            return item;
+          });
+          if (lifted === 0) {
+            throw new Error('no_active_ban_selected');
+          }
+          store.pushOpRecord({
+            operator: 'admin',
+            action: 'ban.batch_unban',
+            target: `${lifted} records`,
+            result: 'success',
+          });
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true, lifted } };
+        }
+        default:
+          return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
       }
-      default:
-        return { kind: 'sync', requestId: nextRequestId(), data: { success: true } };
+    } finally {
+      store.bans = bans;
     }
   };
 }

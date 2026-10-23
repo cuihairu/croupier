@@ -14,6 +14,7 @@ import {
   gameOpsTemplates,
 } from './gameOpsTemplates';
 import TemplateGameOpsPage, { templateKeyFromPath } from '@/pages/Console/TemplateGameOps';
+import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 
 const mockPush = jest.fn();
 let mockPathname = '/console/templates/player-manage';
@@ -114,5 +115,17 @@ describe('Console/TemplateGameOps 壳', () => {
     expect(screen.getByText('ban-management')).toBeInTheDocument();
     fireEvent.click(screen.getByText('order-review'));
     expect(mockPush).toHaveBeenCalledWith('/console/templates/order-review');
+  });
+
+  it('示例数据重置入口恢复共享 store 初始状态', () => {
+    mockPathname = `${gameOpsTemplateRoutePrefix}/player-manage`;
+    gameOpsDemoRuntimeStore.players = [];
+    gameOpsDemoRuntimeStore.opRecords = [];
+    render(<TemplateGameOpsPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: '重置示例数据' }));
+
+    expect(gameOpsDemoRuntimeStore.players).toHaveLength(26);
+    expect(gameOpsDemoRuntimeStore.opRecords).toHaveLength(3);
   });
 });

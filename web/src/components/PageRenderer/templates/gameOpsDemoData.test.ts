@@ -29,6 +29,17 @@ describe('gameOpsDemoData', () => {
     for (const player of store.players) {
       expect(serverIds.has(player.serverId)).toBe(true);
     }
+    for (const task of store.tasks) {
+      if (task.targetServerId) {
+        expect(serverIds.has(task.targetServerId)).toBe(true);
+      }
+      if (task.targetPlayerId) {
+        expect(playerIds.has(task.targetPlayerId)).toBe(true);
+      }
+      if (task.targetOrderNo) {
+        expect(store.orders.some((order) => order.orderNo === task.targetOrderNo)).toBe(true);
+      }
+    }
   });
 
   it('边界用例在案：长昵称、三种封禁状态、三类对账结论、四态发货', () => {
@@ -80,6 +91,19 @@ describe('gameOpsDemoData', () => {
     const b = createGameOpsDemoStore();
     expect(a).not.toBe(b);
     expect(a.players[0]).not.toBe(b.players[0]);
+  });
+
+  it('reset 原地恢复整组 seed，已有引用读到新数据', () => {
+    const shared = createGameOpsDemoStore();
+    const players = shared.players;
+    shared.players = [];
+    shared.opRecords = [];
+    shared.reset();
+
+    expect(shared.players).toHaveLength(26);
+    expect(shared.opRecords).toHaveLength(3);
+    expect(shared.players).not.toBe(players);
+    expect(shared.tasks.every((task) => task.targetServerId !== undefined)).toBe(true);
   });
 
   it('createRequestIdFactory 递增；asRecord 非对象兜底空对象', () => {

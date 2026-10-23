@@ -8,12 +8,14 @@
 
 import React from 'react';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
-import { Alert, Card, Space, Typography } from 'antd';
+import { Alert, Button, Card, Space, Typography } from 'antd';
 import {
   findGameOpsTemplate,
   gameOpsTemplateRoutePrefix,
   gameOpsTemplates,
 } from '@/components/PageRenderer/templates/gameOpsTemplates';
+import { gameOpsDemoEnvironment } from '@/components/PageRenderer/templates/gameOpsDemoData';
+import { resetGameOpsDemoRuntime } from '@/components/PageRenderer/templates/gameOpsDemoRuntime';
 
 /** 从 /console/templates/<key> 提取模板 key */
 export function templateKeyFromPath(pathname: string): string {
@@ -72,9 +74,22 @@ const TemplateGameOpsPage: React.FC = () => {
         title={
           <FormattedMessage
             id="pages.console.templateGameOps.demoBanner"
-            defaultMessage="业务模板示例（内置演示数据，不写真实游戏环境）· 默认菜单分类：{menuKey}"
-            values={{ menuKey: entry.menuKey }}
+            defaultMessage="业务模板示例 · {gameId}/{environment} · 账号 {accountId} · 内置内存演示数据，不写真实游戏环境 · 默认菜单分类：{menuKey}"
+            values={{
+              gameId: gameOpsDemoEnvironment.gameId,
+              environment: gameOpsDemoEnvironment.environment,
+              accountId: gameOpsDemoEnvironment.accountId,
+              menuKey: entry.menuKey,
+            }}
           />
+        }
+        action={
+          <Button size="small" onClick={() => resetGameOpsDemoRuntime()}>
+            <FormattedMessage
+              id="pages.console.templateGameOps.resetDemo"
+              defaultMessage="重置示例数据"
+            />
+          </Button>
         }
       />
       <EntryComponent />
