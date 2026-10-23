@@ -204,22 +204,30 @@ type Target struct {
 	// game or third_party. It is independent of protocol and travels with
 	// every durable result so operators never guess ownership.
 	TargetCategory string `yaml:"targetCategory"`
+	// SecretEnv lists environment variable NAMES whose values are the
+	// target's credentials (todo.md:36 凭证边界: config carries references,
+	// never inline secret values). At check time the plugin host resolves
+	// them from its own environment and passes them to the plugin on that
+	// one call only; unset or empty references degrade the check with
+	// plugin_credential_missing before any plugin process is touched.
+	SecretEnv []string `yaml:"secretEnv"`
 }
 
 func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 	var raw struct {
-		Name           string `yaml:"name"`
-		URL            string `yaml:"url"`
-		Method         string `yaml:"method"`
-		Timeout        string `yaml:"timeout"`
-		ExpectedStatus int    `yaml:"expectedStatus"`
-		BodyContains   string `yaml:"bodyContains"`
-		Plugin         string `yaml:"plugin"`
-		PayloadJSON    string `yaml:"payloadJson"`
-		Type           string `yaml:"type"`
-		Address        string `yaml:"address"`
-		Count          int    `yaml:"count"`
-		TargetCategory string `yaml:"targetCategory"`
+		Name           string   `yaml:"name"`
+		URL            string   `yaml:"url"`
+		Method         string   `yaml:"method"`
+		Timeout        string   `yaml:"timeout"`
+		ExpectedStatus int      `yaml:"expectedStatus"`
+		BodyContains   string   `yaml:"bodyContains"`
+		Plugin         string   `yaml:"plugin"`
+		PayloadJSON    string   `yaml:"payloadJson"`
+		Type           string   `yaml:"type"`
+		Address        string   `yaml:"address"`
+		Count          int      `yaml:"count"`
+		TargetCategory string   `yaml:"targetCategory"`
+		SecretEnv      []string `yaml:"secretEnv"`
 	}
 	if err := n.Decode(&raw); err != nil {
 		return err
@@ -232,7 +240,7 @@ func (t *Target) UnmarshalYAML(n *yaml.Node) error {
 			return fmt.Errorf("timeout: %w", err)
 		}
 	}
-	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin, PayloadJSON: raw.PayloadJSON, Type: raw.Type, Address: raw.Address, Count: raw.Count, TargetCategory: raw.TargetCategory}
+	*t = Target{Name: raw.Name, URL: raw.URL, Method: raw.Method, Timeout: d, ExpectedStatus: raw.ExpectedStatus, BodyContains: raw.BodyContains, Plugin: raw.Plugin, PayloadJSON: raw.PayloadJSON, Type: raw.Type, Address: raw.Address, Count: raw.Count, TargetCategory: raw.TargetCategory, SecretEnv: raw.SecretEnv}
 	return nil
 }
 
@@ -320,6 +328,20 @@ func (c Config) Validate() error {
 		}
 		if t.Plugin != "" && !plugins[t.Plugin] {
 			return fmt.Errorf("target %q references undeclared plugin %q", t.Name, t.Plugin)
+		}
+		// Credential references (todo.md:36 凭证边界): only env var NAMES
+		// may appear in config — never values — and each target's list
+		// must be non-blank and duplicate-free so check-time resolution
+		// is unambiguous.
+		secretEnv := map[string]bool{}
+		for _, name := range t.SecretEnv {
+			if strings.TrimSpace(name) == "" {
+				return fmt.Errorf("target %q secretEnv entries must be non-blank env var names", t.Name)
+			}
+			if secretEnv[name] {
+				return fmt.Errorf("target %q lists env var %q in secretEnv twice", t.Name, name)
+			}
+			secretEnv[name] = true
 		}
 		if t.PayloadJSON != "" && !json.Valid([]byte(t.PayloadJSON)) {
 			return fmt.Errorf("target %q payloadJson must be valid JSON", t.Name)

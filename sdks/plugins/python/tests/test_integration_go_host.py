@@ -87,6 +87,7 @@ def test_function_host_scenarios(
         ("probe-check-fail", "probe_echo.py"),
         ("probe-tcp", "probe_tcp.py"),
         ("probe-icmp-capability", "probe_icmp.py"),
+        ("probe-credentials", "probe_echo.py"),
         ("probe-version", "probe_echo.py"),
     ],
 )

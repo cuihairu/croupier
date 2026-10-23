@@ -6,6 +6,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"sort"
+	"strings"
 
 	"github.com/hashicorp/go-plugin"
 
@@ -33,6 +36,9 @@ const (
 // there; this wrapper only maps the probe contract onto it.
 type Controller struct {
 	host *coreplugin.Controller[Probe]
+	// lookupEnv resolves the target's secretEnv references at check time;
+	// injectable for tests, defaulting to the host process environment.
+	lookupEnv func(string) (string, bool)
 }
 
 // probeContract pins the probe IPC contract onto the shared engine.
@@ -76,18 +82,40 @@ func NewController(syn config.Synthetics, log *slog.Logger) *Controller {
 		BreakAfter:    syn.PluginBreakAfter,
 		OpenWindow:    syn.PluginOpenWindow,
 		Log:           log,
-	})}
+	}), lookupEnv: os.LookupEnv}
 }
 
 // Check runs one probe through the named plugin under the shared
 // engine's bounded gate, then maps the plugin output onto the shared
 // probe result so plugin outcomes traverse the existing AlertEvent /
 // probe_events chain unchanged.
+//
+// Credential boundary (todo.md:36 凭证边界): the target's secretEnv
+// references are resolved from the host environment per check and ride
+// only this one call into the plugin — never the handshake or Describe.
+// A missing reference degrades with plugin_credential_missing before any
+// process is touched, and every string the host lets through (plugin
+// error/detail, call errors in degradation causes and engine logs) is
+// scrubbed of the resolved values, so a chatty plugin cannot leak a
+// secret into probe_events or the log sink.
 func (c *Controller) Check(ctx context.Context, t config.Target) CheckOutcome {
+	creds, cause := c.resolveCredentials(t)
+	if cause != "" {
+		return CheckOutcome{Cause: cause}
+	}
+	redact := newRedactor(creds)
 	var out CheckOutput
-	cause := c.host.Call(ctx, t.Plugin, t.Timeout, func(ctx context.Context, impl Probe) error {
+	cause = c.host.Call(ctx, t.Plugin, t.Timeout, func(ctx context.Context, impl Probe) error {
 		var err error
-		out, err = impl.Check(ctx, CheckInput{Target: t.Name, Timeout: t.Timeout, PayloadJSON: t.PayloadJSON})
+		out, err = impl.Check(ctx, CheckInput{Target: t.Name, Timeout: t.Timeout, PayloadJSON: t.PayloadJSON, Credentials: creds})
+		if err != nil {
+			// Redact before the shared engine sees the error: its
+			// classification (timeout/unavailable/…) is kept via
+			// Unwrap, but the message it logs and forwards is clean.
+			if msg := redact(err.Error()); msg != err.Error() {
+				return &redactedError{msg: msg, err: err}
+			}
+		}
 		return err
 	})
 	if cause != "" {
@@ -99,10 +127,65 @@ func (c *Controller) Check(ctx context.Context, t config.Target) CheckOutcome {
 			OK:      out.OK,
 			Status:  out.Status,
 			Latency: out.Latency,
-			Error:   out.Error,
+			Error:   redact(out.Error),
 			At:      out.At,
 		},
-		Detail: out.Detail,
+		Detail: redact(out.Detail),
+	}
+}
+
+// resolveCredentials maps the target's secretEnv references onto their
+// host-environment values. Names were validated at config load; an unset
+// or empty value at check time degrades the check with an explicit cause
+// that names the variable but never carries its value.
+func (c *Controller) resolveCredentials(t config.Target) (map[string]string, string) {
+	if len(t.SecretEnv) == 0 {
+		return nil, ""
+	}
+	creds := make(map[string]string, len(t.SecretEnv))
+	for _, name := range t.SecretEnv {
+		v, ok := c.lookupEnv(name)
+		if !ok || v == "" {
+			return nil, fmt.Sprintf("%s: target %q references env %q which is unset or empty", coreplugin.CauseCredentialMissing, t.Name, name)
+		}
+		creds[name] = v
+	}
+	return creds, ""
+}
+
+// redactedError carries an error message with credential values scrubbed
+// while preserving the original error chain, so the shared engine's
+// deadline/unavailable classification (errors.Is / status.Code) still
+// sees the real cause underneath.
+type redactedError struct {
+	msg string
+	err error
+}
+
+func (e *redactedError) Error() string { return e.msg }
+func (e *redactedError) Unwrap() error { return e.err }
+
+// newRedactor builds a scrubber over the resolved credential values.
+// Longer values replace first so a value that is a prefix of another
+// cannot leave a partial secret behind. With no credentials it is the
+// identity, keeping plain error passthrough (and its classification)
+// untouched.
+func newRedactor(creds map[string]string) func(string) string {
+	vals := make([]string, 0, len(creds))
+	for _, v := range creds {
+		if v != "" {
+			vals = append(vals, v)
+		}
+	}
+	if len(vals) == 0 {
+		return func(s string) string { return s }
+	}
+	sort.Slice(vals, func(i, j int) bool { return len(vals[i]) > len(vals[j]) })
+	return func(s string) string {
+		for _, v := range vals {
+			s = strings.ReplaceAll(s, v, "[redacted]")
+		}
+		return s
 	}
 }
 

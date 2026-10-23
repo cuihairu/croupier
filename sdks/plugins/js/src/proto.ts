@@ -21,6 +21,7 @@ export interface CheckRequestShape {
   target: string;
   timeoutMs: number;
   payloadJson: string;
+  credentials?: Record<string, string>;
 }
 
 /** Wire shape of one plugin->host probe outcome. */

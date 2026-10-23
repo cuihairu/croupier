@@ -217,4 +217,12 @@ synthetics-agent 的原生目标新增 `type: icmp`（`address`/`count`），默
 
 结论与边界：**每次经插件适配器的函数调用额外 ≈0.5–0.8ms（p50 0.53–0.72ms）**，两语言差异在共享开发机运行间抖动内（开销由本地 gRPC hop 与宿主派发主导，不是解释器）；对照 inline 的 ~2µs，插件路径约放大 250–400 倍——对管理面/探活类低频调用无感，对高频批量路径应在插件侧做批量聚合或改走直连 SDK。边界：共享开发机、顺序调用、含宿主派发与框架开销，非吞吐上限（并发与专用硬件下另行测量）；未覆盖完整部署链端到端（SDK→agent→sidecar→插件的跨进程叠加），该验收归 todo:38 剩余的「真实游戏接口端到端验收」。
 
+## 凭证边界细化（2026-10-23，todo:36 剩余子项）
+
+选型报告的契约行「参数与限定范围的凭证」与边界规则「凭证按目标最小范围传递，不写握手、日志或结果详情」落地为闭环形态：配置只携带**引用、永不携带值**——synthetics 目标声明 `secretEnv: [环境变量名...]`（`agents/synthetics/config/config.go`），检查期解析在探测控制器完成（`agents/synthetics/pluginhost/controller.go` 的 `resolveCredentials`）。解析出的值只随单次 `CheckRequest.credentials` map（`probeplugin.proto` 字段 4）传递；Describe 握手与 go-plugin 握手按构造即不含值；缺失或空引用在触碰任何插件子进程之前以新显式原因 `plugin_credential_missing` 降级——原因串点名变量、永不携带值。
+
+回写一侧由脱敏收口：宿主把插件应答映射进共享结果之前、调用错误进入共享引擎日志与降级原因之前，所有已解析凭证值被替换为 `[redacted]`（长值先替换，前缀值不会留下残缺秘密）；包装器保留错误链（`Unwrap`），deadline/unavailable 分类不变。脱敏发生在 synthetics 控制器内部，因此进入 `probe_events` / AlertEvent / 日志汇的插件失败与详情无论插件多话痨都是干净的。
+
+跨语言验收挂共享驱动：`hostdriver -mode probe -scenario probe-credentials` 在宿主进程设置环境变量、驱动真实子进程，断言三件事——插件恰收到解析后的凭证（detail 报「N credential(s)」）、刻意话痨的插件回显的秘密在 error 与 detail 中均被擦除、缺失引用在拉起前降级。参考插件（Go `echoprobe`、Python 与 Node `probe_echo`）镜像 `cred...`/`leak...` 目标语义；两个 SDK 的 `CheckInput` 视图都暴露 `credentials` 并附文档警告「进程内使用、不得回写 error/detail」（宿主脱敏是安全网，不是泄漏许可）。证据：`agents/synthetics/pluginhost` + `config` 的 `go test -race`（送达、缺失降级、泄漏擦除、Describe 无污染、redactor 单测）、pytest 27 passed（Python `probe_echo` 经真实宿主）、jest 61 passed（Node `probe_echo` 经真实宿主）、`scripts/check-no-grpc.sh` PASSED、`-tags no_go_plugin` 构建/测试绿。todo:36 剩余：真实游戏协议目标验收。
+
 关联：[Agent 清单](../design/agents-inventory.md)、健康评审、根目录 `todo.md`。

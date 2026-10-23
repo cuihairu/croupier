@@ -104,6 +104,11 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
       const out = drive("probe", "probe-version", probeExample);
       expect(out).toContain("PASS probe-version");
     });
+
+    it("probe-credentials rides Check and the host scrubs echoed secrets", () => {
+      const out = drive("probe", "probe-credentials", probeExample);
+      expect(out).toContain("PASS probe-credentials");
+    });
   });
 
   it("probe-icmp capability failure stays a plugin target failure", () => {

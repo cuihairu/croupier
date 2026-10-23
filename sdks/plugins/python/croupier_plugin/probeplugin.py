@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import abc
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import grpc
 
@@ -38,15 +38,20 @@ class CheckInput:
 
     target is the configured target name (informational, no URL
     passed), timeout_ms is the remaining host-side deadline and
-    payload_json is an optional plugin-specific payload. The plugin
-    keeps the target parameters it needs as its own config, exactly
-    like a function adapter keeps its game interface address.
+    payload_json is an optional plugin-specific payload. credentials
+    carries the target-scoped credentials the host resolved from its
+    environment (todo.md:36 credential boundary): use them in-process,
+    never write them into error/detail — the host scrubs known values,
+    but a plugin that echoes secrets leaks them into logs first. The
+    plugin keeps the target parameters it needs as its own config,
+    exactly like a function adapter keeps its game interface address.
     """
 
     target: str
     timeout_ms: int
     payload_json: str
     context: grpc.ServicerContext
+    credentials: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -157,6 +162,7 @@ class _ProbePluginServicer(probeplugin_pb2_grpc.ProbePluginServicer):
             timeout_ms=request.timeout_ms,
             payload_json=request.payload_json,
             context=context,
+            credentials=dict(request.credentials),
         )
         return self._impl.check(call).to_proto()
 

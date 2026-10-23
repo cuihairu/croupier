@@ -19,6 +19,11 @@
 //	ECHO_PROBE_CONC=1             append process-local concurrency (cur/max) to detail
 //	ECHO_PROBE_EXIT_AFTER_CHECKS  os.Exit before answering the Nth check of
 //	                              this process (crash injection)
+//
+// Credential-boundary targets (todo.md:36 凭证边界, mirrored by the
+// Python/JS probe_echo plugins): a target named "cred..." reports the
+// credential count it received, "leak..." echoes a credential value back
+// so hosts can prove their redaction scrubs it.
 package main
 
 import (
@@ -26,6 +31,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,6 +106,39 @@ func (p *echoProbe) Check(ctx context.Context, in pluginhost.CheckInput) (plugin
 	}
 	if os.Getenv("ECHO_PROBE_FAIL") == "1" {
 		return pluginhost.CheckOutput{OK: false, Error: "echo: forced failure", At: time.Now()}, nil
+	}
+	// Credential-boundary knobs (todo.md:36 凭证边界), mirrored by the
+	// Python/JS probe_echo reference plugins so hostdriver can prove the
+	// cross-language path:
+	//   target "cred..."  → detail reports how many credentials arrived
+	//                       (never their names/values)
+	//   target "leak..."  → a chatty-plugin simulation: the first
+	//                       credential value is echoed back in error and
+	//                       detail; the host must redact it before the
+	//                       result reaches probe_events or logs.
+	if strings.HasPrefix(in.Target, "cred") {
+		return pluginhost.CheckOutput{
+			OK:      true,
+			Status:  200,
+			Latency: time.Since(start),
+			Detail:  fmt.Sprintf("echo: %d credential(s)", len(in.Credentials)),
+			At:      time.Now(),
+		}, nil
+	}
+	if strings.HasPrefix(in.Target, "leak") {
+		secret := ""
+		for _, v := range in.Credentials {
+			secret = v
+			break
+		}
+		msg := "auth failed token=" + secret
+		return pluginhost.CheckOutput{
+			OK:      false,
+			Error:   msg,
+			Detail:  "echo: " + msg,
+			Latency: time.Since(start),
+			At:      time.Now(),
+		}, nil
 	}
 	detail := "echo: " + in.Target
 	if os.Getenv("ECHO_PROBE_CONC") == "1" {

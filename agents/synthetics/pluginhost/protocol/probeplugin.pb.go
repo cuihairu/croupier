@@ -126,7 +126,13 @@ type CheckRequest struct {
 	// their own RPC cancellation, which go-plugin already propagates.
 	TimeoutMs int64 `protobuf:"varint,2,opt,name=timeout_ms,json=timeoutMs,proto3" json:"timeout_ms,omitempty"`
 	// Optional plugin-specific payload, JSON encoded.
-	PayloadJson   string `protobuf:"bytes,3,opt,name=payload_json,json=payloadJson,proto3" json:"payload_json,omitempty"`
+	PayloadJson string `protobuf:"bytes,3,opt,name=payload_json,json=payloadJson,proto3" json:"payload_json,omitempty"`
+	// Credential boundary (todo.md:36 凭证边界): target-scoped credentials
+	// resolved from the host environment (secretEnv references, never
+	// inline config values). They travel only on this per-check call —
+	// never in the handshake or Describe — and the host scrubs their
+	// values from plugin-returned error/detail text and its own logs.
+	Credentials   map[string]string `protobuf:"bytes,4,rep,name=credentials,proto3" json:"credentials,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -180,6 +186,13 @@ func (x *CheckRequest) GetPayloadJson() string {
 		return x.PayloadJson
 	}
 	return ""
+}
+
+func (x *CheckRequest) GetCredentials() map[string]string {
+	if x != nil {
+		return x.Credentials
+	}
+	return nil
 }
 
 type CheckResult struct {
@@ -275,12 +288,16 @@ const file_probeplugin_proto_rawDesc = "" +
 	"\x0fDescribeRequest\"@\n" +
 	"\x10DescribeResponse\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\"h\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\"\x82\x02\n" +
 	"\fCheckRequest\x12\x16\n" +
 	"\x06target\x18\x01 \x01(\tR\x06target\x12\x1d\n" +
 	"\n" +
 	"timeout_ms\x18\x02 \x01(\x03R\ttimeoutMs\x12!\n" +
-	"\fpayload_json\x18\x03 \x01(\tR\vpayloadJson\"\xa0\x01\n" +
+	"\fpayload_json\x18\x03 \x01(\tR\vpayloadJson\x12X\n" +
+	"\vcredentials\x18\x04 \x03(\v26.croupier.probeplugin.v1.CheckRequest.CredentialsEntryR\vcredentials\x1a>\n" +
+	"\x10CredentialsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa0\x01\n" +
 	"\vCheckResult\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x1d\n" +
@@ -306,23 +323,25 @@ func file_probeplugin_proto_rawDescGZIP() []byte {
 	return file_probeplugin_proto_rawDescData
 }
 
-var file_probeplugin_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_probeplugin_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_probeplugin_proto_goTypes = []any{
 	(*DescribeRequest)(nil),  // 0: croupier.probeplugin.v1.DescribeRequest
 	(*DescribeResponse)(nil), // 1: croupier.probeplugin.v1.DescribeResponse
 	(*CheckRequest)(nil),     // 2: croupier.probeplugin.v1.CheckRequest
 	(*CheckResult)(nil),      // 3: croupier.probeplugin.v1.CheckResult
+	nil,                      // 4: croupier.probeplugin.v1.CheckRequest.CredentialsEntry
 }
 var file_probeplugin_proto_depIdxs = []int32{
-	0, // 0: croupier.probeplugin.v1.ProbePlugin.Describe:input_type -> croupier.probeplugin.v1.DescribeRequest
-	2, // 1: croupier.probeplugin.v1.ProbePlugin.Check:input_type -> croupier.probeplugin.v1.CheckRequest
-	1, // 2: croupier.probeplugin.v1.ProbePlugin.Describe:output_type -> croupier.probeplugin.v1.DescribeResponse
-	3, // 3: croupier.probeplugin.v1.ProbePlugin.Check:output_type -> croupier.probeplugin.v1.CheckResult
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	4, // 0: croupier.probeplugin.v1.CheckRequest.credentials:type_name -> croupier.probeplugin.v1.CheckRequest.CredentialsEntry
+	0, // 1: croupier.probeplugin.v1.ProbePlugin.Describe:input_type -> croupier.probeplugin.v1.DescribeRequest
+	2, // 2: croupier.probeplugin.v1.ProbePlugin.Check:input_type -> croupier.probeplugin.v1.CheckRequest
+	1, // 3: croupier.probeplugin.v1.ProbePlugin.Describe:output_type -> croupier.probeplugin.v1.DescribeResponse
+	3, // 4: croupier.probeplugin.v1.ProbePlugin.Check:output_type -> croupier.probeplugin.v1.CheckResult
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_probeplugin_proto_init() }
@@ -336,7 +355,7 @@ func file_probeplugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_probeplugin_proto_rawDesc), len(file_probeplugin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

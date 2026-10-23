@@ -63,6 +63,26 @@ const probeEcho: ProbePlugin = {
     }
 
     const latencyMs = elapsed(started);
+    // Credential-boundary targets (todo.md:36), mirrored by the Go
+    // echoprobe and the Python probe_echo so hostdriver can prove the
+    // cross-language path: "cred..." reports how many credentials
+    // arrived (never their values); "leak..." echoes a value back so
+    // hosts can prove their redaction scrubs it.
+    if (call.target.startsWith("cred")) {
+      return passResult({
+        status: 200,
+        latencyMs,
+        detail: `probe-echo received ${Object.keys(call.credentials).length} credential(s)`,
+      });
+    }
+    if (call.target.startsWith("leak")) {
+      const secret = Object.values(call.credentials)[0] ?? "";
+      const msg = `auth failed token=${secret}`;
+      return failResult(msg, {
+        latencyMs,
+        detail: `probe-echo ${msg}`,
+      });
+    }
     if (call.target.startsWith("fail")) {
       return failResult("synthetic probe failure", {
         status: 500,

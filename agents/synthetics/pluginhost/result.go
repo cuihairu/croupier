@@ -48,6 +48,10 @@ const (
 	CauseBackoff = coreplugin.CauseBackoff
 	// CauseCircuitOpen: consecutive plugin failures tripped the circuit.
 	CauseCircuitOpen = coreplugin.CauseCircuitOpen
+	// CauseCredentialMissing: the target's secretEnv references an env
+	// var that is unset (or empty) at check time; the cause names the
+	// variable, never its value.
+	CauseCredentialMissing = coreplugin.CauseCredentialMissing
 )
 
 // CheckOutcome is one plugin-mediated check: the mapped shared probe

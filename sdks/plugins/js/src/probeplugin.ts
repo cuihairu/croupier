@@ -37,6 +37,11 @@ export interface ProbeCall {
   timeoutMs: number;
   /** Optional per-check payload, encoded as a JSON string ("" if none). */
   payloadJson: string;
+  /** Target-scoped credentials the host resolved from its environment
+   * (todo.md:36 credential boundary). Use them in-process; never echo
+   * them into error/detail — the host scrubs known values, but a plugin
+   * that echoes secrets leaks them into logs first. */
+  credentials: Record<string, string>;
   /** True once the host cancels or the RPC deadline is reached. */
   isCancelled: () => boolean;
   /** Remaining ms until the RPC deadline, Infinity when the host set none. */
@@ -150,6 +155,7 @@ export function makeProbeCall(
     target: request.target ?? "",
     timeoutMs: Number(request.timeoutMs) || 0,
     payloadJson: request.payloadJson ?? "",
+    credentials: { ...(request.credentials ?? {}) },
     isCancelled: () => call.cancelled === true || reached(),
     remainingMs: () => Math.max(0, deadlineMs - Date.now()),
   };

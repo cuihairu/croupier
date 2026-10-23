@@ -35,6 +35,12 @@ message CheckRequest {
   int64 timeout_ms = 2;
   // Optional plugin-specific payload, JSON encoded.
   string payload_json = 3;
+  // Credential boundary (todo.md:36 凭证边界): target-scoped credentials
+  // resolved from the host environment (secretEnv references, never
+  // inline config values). They travel only on this per-check call —
+  // never in the handshake or Describe — and the host scrubs their
+  // values from plugin-returned error/detail text and its own logs.
+  map<string, string> credentials = 4;
 }
 
 message CheckResult {

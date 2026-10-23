@@ -57,6 +57,26 @@ class ProbeEchoPlugin(cp.ProbePlugin):
             time.sleep(min(0.02, max(0.0, deadline - time.monotonic())))
 
         latency = self._ms(started)
+        # Credential-boundary targets (todo.md:36), mirrored by the Go
+        # echoprobe and the JS probe_echo so hostdriver can prove the
+        # cross-language path: "cred..." reports how many credentials
+        # arrived (never their values); "leak..." echoes a value back so
+        # hosts can prove their redaction scrubs it.
+        if call.target.startswith("cred"):
+            return cp.PassResult(
+                status=200,
+                latency_ms=latency,
+                detail=f"probe-echo received {len(call.credentials)} credential(s)",
+            )
+        if call.target.startswith("leak"):
+            secret = next(iter(call.credentials.values()), "")
+            msg = f"auth failed token={secret}"
+            return cp.FailResult(
+                msg,
+                status=0,
+                latency_ms=latency,
+                detail=f"probe-echo {msg}",
+            )
         if call.target.startswith("fail"):
             return cp.FailResult(
                 "synthetic probe failure",

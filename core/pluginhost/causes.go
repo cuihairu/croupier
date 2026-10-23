@@ -42,4 +42,8 @@ const (
 	CauseBackoff = "plugin_backoff"
 	// CauseCircuitOpen: consecutive plugin failures tripped the circuit.
 	CauseCircuitOpen = "plugin_circuit_open"
+	// CauseCredentialMissing: the target's secretEnv references an env
+	// var that is unset (or empty) in the host process at check time.
+	// Credential values never appear in the cause — only the name.
+	CauseCredentialMissing = "plugin_credential_missing"
 )

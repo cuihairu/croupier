@@ -20,6 +20,11 @@ type CheckInput struct {
 	Timeout time.Duration
 	// PayloadJSON is the optional plugin-specific payload.
 	PayloadJSON string
+	// Credentials carries the target-scoped credential values the host
+	// resolved from its own environment (todo.md:36 凭证边界). They ride
+	// only this per-check call — never the handshake or Describe — and
+	// the host scrubs their values from everything it persists or logs.
+	Credentials map[string]string
 }
 
 // CheckOutput is the plugin→host check result; the host maps it onto the
@@ -77,6 +82,7 @@ func (s *probeServer) Check(ctx context.Context, req *protocol.CheckRequest) (*p
 		Target:      req.GetTarget(),
 		Timeout:     time.Duration(req.GetTimeoutMs()) * time.Millisecond,
 		PayloadJSON: req.GetPayloadJson(),
+		Credentials: req.GetCredentials(),
 	})
 	if err != nil {
 		return nil, err
@@ -109,6 +115,7 @@ func (c *probeClient) Check(ctx context.Context, in CheckInput) (CheckOutput, er
 		Target:      in.Target,
 		TimeoutMs:   in.Timeout.Milliseconds(),
 		PayloadJson: in.PayloadJSON,
+		Credentials: in.Credentials,
 	})
 	if err != nil {
 		return CheckOutput{}, err

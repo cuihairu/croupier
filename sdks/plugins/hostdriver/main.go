@@ -33,6 +33,10 @@
 //	probe-tcp          payloadJson reaches a real TCP reference probe and
 //	                   success/refused/timeout retain their distinct
 //	                   target/plugin semantics
+//	probe-credentials  secretEnv references resolve and ride the Check call
+//	                   across languages; a chatty plugin's echoed secret is
+//	                   scrubbed from the mapped result; a missing reference
+//	                   degrades with plugin_credential_missing before launch
 //
 // funcbench mode (hostdriver -mode funcbench -scenario bench-invoke) is a
 // latency measurement tool, not an assertion scenario: it prints one
@@ -482,6 +486,60 @@ func runProbeScenario(scenario, command string, pluginArgs []string) error {
 			return failf("capability check: ok=%v error=%q detail=%q", out.Result.OK, out.Result.Error, out.Detail)
 		}
 		fmt.Printf("PASS probe-icmp-capability: explicit capability failure = %q\n", out.Result.Error)
+		return nil
+
+	case "probe-credentials":
+		// The credential boundary (todo.md:36) end to end against the
+		// real subprocess: references resolve from the host environment
+		// and reach the plugin on the Check call; anything the plugin
+		// echoes back is scrubbed; missing references degrade before
+		// launch. The reference plugins (Go echoprobe / Python / JS
+		// probe_echo) mirror the cred/leak target semantics.
+		const secret = "hd-t0k3n-9f8e7d"
+		if err := os.Setenv("HOSTDRIVER_PROBE_TOKEN", secret); err != nil {
+			return fmt.Errorf("set credential env: %w", err)
+		}
+		defer os.Unsetenv("HOSTDRIVER_PROBE_TOKEN")
+
+		check := func(name string, env []string) pluginhost.CheckOutcome {
+			return ctl.Check(context.Background(), synconfig.Target{
+				Name: name, Plugin: "probe-echo", Timeout: 5 * time.Second, SecretEnv: env,
+			})
+		}
+
+		delivered := check("cred-target", []string{"HOSTDRIVER_PROBE_TOKEN"})
+		if delivered.Cause != "" {
+			return failf("credentialed check degraded with cause %s", delivered.Cause)
+		}
+		if !strings.Contains(delivered.Detail, "1 credential(s)") {
+			return failf("plugin did not receive the credential: detail=%q", delivered.Detail)
+		}
+		if strings.Contains(delivered.Detail, secret) {
+			return failf("detail carried the raw secret: %q", delivered.Detail)
+		}
+
+		leaked := check("leak-target", []string{"HOSTDRIVER_PROBE_TOKEN"})
+		if leaked.Cause != "" {
+			return failf("a plugin-echoed secret must not degrade: %q", leaked.Cause)
+		}
+		if leaked.Result.OK {
+			return failf("leak-target should be a business failure: %+v", leaked.Result)
+		}
+		if strings.Contains(leaked.Result.Error, secret) || strings.Contains(leaked.Detail, secret) {
+			return failf("host mapped the raw secret through: error=%q detail=%q", leaked.Result.Error, leaked.Detail)
+		}
+		if !strings.Contains(leaked.Result.Error, "[redacted]") || !strings.Contains(leaked.Detail, "[redacted]") {
+			return failf("expected scrubbed marker: error=%q detail=%q", leaked.Result.Error, leaked.Detail)
+		}
+
+		missing := check("cred-target", []string{"HOSTDRIVER_PROBE_TOKEN_MISSING"})
+		if !strings.HasPrefix(missing.Cause, pluginhost.CauseCredentialMissing) || strings.Contains(missing.Cause, secret) {
+			return failf("missing reference: cause=%q", missing.Cause)
+		}
+		if missing.Result.OK {
+			return failf("missing credential must not fabricate a result: %+v", missing.Result)
+		}
+		fmt.Printf("PASS probe-credentials: delivered=%q redacted=%q missing=%q\n", delivered.Detail, leaked.Result.Error, missing.Cause)
 		return nil
 
 	default:
