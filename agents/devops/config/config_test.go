@@ -27,6 +27,10 @@ devops:
     - host: 10.0.1.20
       ports: [22]
       protocols: [ssh]
+  ssh:
+    user: ops
+    privateKeyFile: /tmp/id_ed25519
+    knownHostsFile: /tmp/known_hosts
 `
 
 func TestLoadValid(t *testing.T) {
@@ -119,5 +123,67 @@ func TestValidateEnabledRequiresAllowlist(t *testing.T) {
 	}
 	if err := disabled.Validate(); err != nil {
 		t.Fatalf("disabled with empty allowlist should pass: %v", err)
+	}
+}
+
+func TestValidateEnabledRequiresSSH(t *testing.T) {
+	list := []AllowHost{{Host: "h", Ports: []int{22}, Protocols: []string{"ssh"}}}
+	base := Config{
+		Agent:  Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "prod"},
+		Devops: Devops{Enabled: true, Allowlist: list},
+	}
+
+	noUser := base
+	noUser.Devops.SSH = SSH{PrivateKeyFile: "k", KnownHostsFile: "kh"}
+	if err := noUser.Validate(); err == nil {
+		t.Fatal("ssh without user accepted")
+	}
+
+	noAuth := base
+	noAuth.Devops.SSH = SSH{User: "ops", KnownHostsFile: "kh"}
+	if err := noAuth.Validate(); err == nil {
+		t.Fatal("ssh without credentials accepted")
+	}
+
+	noHostKeyPolicy := base
+	noHostKeyPolicy.Devops.SSH = SSH{User: "ops", PrivateKeyFile: "k"}
+	if err := noHostKeyPolicy.Validate(); err == nil {
+		t.Fatal("ssh without host key policy accepted")
+	}
+
+	insecureExplicit := base
+	insecureExplicit.Devops.SSH = SSH{User: "ops", PrivateKeyFile: "k", InsecureHostKey: true}
+	if err := insecureExplicit.Validate(); err != nil {
+		t.Fatalf("explicit insecureHostKey should pass: %v", err)
+	}
+
+	passwordAuth := base
+	passwordAuth.Devops.SSH = SSH{User: "ops", PasswordFile: "p", KnownHostsFile: "kh"}
+	if err := passwordAuth.Validate(); err != nil {
+		t.Fatalf("password-only auth should pass: %v", err)
+	}
+}
+
+func TestParseAllowlistJSON(t *testing.T) {
+	entries, err := ParseAllowlistJSON([]byte(
+		`[{"host":"10.0.1.20","ports":[22,2222],"protocols":["ssh"]},{"host":"DB-01","ports":[3389],"protocols":["rdp"]}]`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(entries) != 2 || entries[1].Host != "DB-01" {
+		t.Fatalf("entries = %+v", entries)
+	}
+	if err := ValidateAllowlist(entries); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	if _, err := ParseAllowlistJSON([]byte(`{"host":"x"}`)); err == nil {
+		t.Fatal("object payload accepted")
+	}
+	if _, err := ParseAllowlistJSON([]byte(`[{"host":"x","ports":[22],"protocols":["ssh"],"extra":1}]`)); err == nil {
+		t.Fatal("unknown field accepted")
+	}
+	if err := ValidateAllowlist([]AllowHost{{Host: "x", Ports: []int{22}, Protocols: []string{"telnet"}}}); err == nil {
+		t.Fatal("unknown protocol accepted by ValidateAllowlist")
 	}
 }
