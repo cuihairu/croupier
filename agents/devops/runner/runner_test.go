@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/cuihairu/croupier/agents/devops/config"
@@ -45,11 +47,19 @@ func TestRunRegistrationOnlyWhenDisabled(t *testing.T) {
 }
 
 func TestRunRegistrationOnlyWhenEnabled(t *testing.T) {
-	// enabled=true 骨架期同样只注册待命（会话建立下行通道另批接线）；
-	// 审计/存档目录落 TempDir 不污染工作区。
+	// enabled=true 装配真实 SSH 通道（替代骨架 noop）+ Hub + configsync
+	// 白名单拉取；会话建立下行通道另批接线。审计/存档目录落 TempDir。
 	cfg := testConfig(true)
 	cfg.Devops.SessionDir = t.TempDir()
 	cfg.Devops.ExeclogDir = t.TempDir()
+	// SSH 凭据（测试用口令文件 + insecureHostKey 逃生门）。
+	pwFile := filepath.Join(t.TempDir(), "pw")
+	if err := os.WriteFile(pwFile, []byte("testpass\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Devops.SSH = config.SSH{
+		User: "ops", PasswordFile: pwFile, InsecureHostKey: true,
+	}
 	r := New(cfg, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)

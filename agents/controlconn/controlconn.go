@@ -108,6 +108,16 @@ func (c *Conn) PullCaptureGates(ctx context.Context, req *opsv1.CaptureGatesConf
 	return resp, nil
 }
 
+// PullDevopsAllowlist 拉取 devops 会话白名单下行配置（服务端读 config_versions
+// 的 devops.allowlist，version 空串 = 未发布，agent 保持现状）。
+func (c *Conn) PullDevopsAllowlist(ctx context.Context, req *opsv1.DevopsAllowlistConfigRequest) (*opsv1.DevopsAllowlistConfigResponse, error) {
+	resp := &opsv1.DevopsAllowlistConfigResponse{}
+	if err := c.call(ctx, protocol.MsgDevopsAllowlistConfigRequest, req, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *Conn) notify(ctx context.Context, msgID uint32, req proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("control conn not initialized")
