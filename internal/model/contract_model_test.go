@@ -107,6 +107,10 @@ func TestFunctionContractModel_FindByScopeAndFunctionID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "player.ban", found.FunctionID)
 
+	found, err = m.FindByScopeAndFunctionID(ctx, "game1", "prod", " player.ban ")
+	require.NoError(t, err)
+	assert.Equal(t, "player.ban", found.FunctionID)
+
 	_, err = m.FindByScopeAndFunctionID(ctx, "game1", "prod", "nonexistent")
 	assert.Error(t, err)
 }

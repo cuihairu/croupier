@@ -156,7 +156,7 @@ func mustMarshalMap(m datatypes.JSONMap) JSON {
 func (m *FunctionContractModel) FindByScopeAndFunctionID(ctx context.Context, gameID, env, functionID string) (*FunctionContract, error) {
 	var contract FunctionContract
 	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
-		Where("game_id = ? AND env = ? AND function_id = ?", gameID, env, functionID).
+		Where("game_id = ? AND env = ? AND TRIM(function_id) = ?", gameID, env, strings.TrimSpace(functionID)).
 		First(&contract).Error; err != nil {
 		return nil, err
 	}
