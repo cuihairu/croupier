@@ -8,6 +8,8 @@
 
 <p align="center">
   <img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+  <img src="https://github.com/cuihairu/croupier/actions/workflows/nightly.yml/badge.svg" alt="Nightly Build"/>
+  <img src="https://github.com/cuihairu/croupier/actions/workflows/docs-pages.yml/badge.svg" alt="Docs"/>
   <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/>
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
   <img src="https://img.shields.io/badge/go-1.27.3+-green.svg" alt="Go Version"/>
@@ -29,10 +31,10 @@ Croupier is a Server / Agent / SDK platform for game operations and control, int
 
 | Role | Responsibility | Delivery status |
 | --- | --- | --- |
-| sidecar | Game function gateway, task forwarding and game-side observation | `croupier-agent`; supervisor configuration/startup wiring still needs completion |
-| devops | Allowlisted internal remote access with audit | `devops-agent` skeleton; real session channels pending |
-| capture | Database CDC, change rules and alerts | `capture-agent`; checkpoint and alert delivery reliability still need work |
-| synthetics | External game/service checks with developer plugins | `synthetics-agent`; probe plugins included, native probe kernel migration pending |
+| sidecar | Game function gateway, task forwarding and game-side observation | `croupier-agent`; supervisor wiring, schedule/update lifecycle and function plugins shipped |
+| devops | Allowlisted internal remote access with audit | `devops-agent`; SSH sessions with replay archive shipped; RDP/VNC pending |
+| capture | Database CDC, change rules and alerts | `capture-agent`; MySQL/Mongo/PostgreSQL connectors and checkpoint/alert reliability shipped; source schema history pending |
+| synthetics | External game/service checks with developer plugins | `synthetics-agent`; HTTP/TCP probes with Go/Python/JS plugin SDKs and credential boundary shipped; ICMP pending |
 
 Each instance explicitly belongs to one `gameId/env`. See the [Agent guide（本节仅有中文版）](docs/zh/operations/agent-comparison.md) for roles, deployment and individual nightly packages, and [runtime layout（本节仅有中文版）](docs/zh/development/agent-runtime-layout.md) for shared code and remaining migrations. New assets require a successful release run; ARMv7 supports sidecar/devops only.
 

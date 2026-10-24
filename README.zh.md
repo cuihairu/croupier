@@ -9,6 +9,8 @@
 
 <p align="center">
   <img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+  <img src="https://github.com/cuihairu/croupier/actions/workflows/nightly.yml/badge.svg" alt="Nightly Build"/>
+  <img src="https://github.com/cuihairu/croupier/actions/workflows/docs-pages.yml/badge.svg" alt="Docs"/>
   <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/>
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
   <img src="https://img.shields.io/badge/go-1.27.3+-green.svg" alt="Go Version"/>
@@ -60,12 +62,12 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 ## Agent 职能与下载
 
-| 类型       | 职能                                      | 当前交付                                    |
-| ---------- | ----------------------------------------- | ------------------------------------------- |
-| sidecar    | 游戏函数注册/调用、任务转发与游戏旁挂观测 | `croupier-agent`，监管配置/启动接线仍需收口 |
-| devops     | 内网白名单远程会话与审计                  | `devops-agent` 骨架，真实协议通道待接       |
-| capture    | 数据库 CDC、过滤/规则与告警               | `capture-agent`，位点/告警可靠性仍需加强    |
-| synthetics | 游戏及第三方外部探测、多语言插件宿主      | 待实现，无二进制或安装包                    |
+| 类型       | 职能                                      | 当前交付                                                                             |
+| ---------- | ----------------------------------------- | ------------------------------------------------------------------------------------ |
+| sidecar    | 游戏函数注册/调用、任务转发与游戏旁挂观测 | `croupier-agent`，监管接线/调度与更新生命周期/函数插件已交付                         |
+| devops     | 内网白名单远程会话与审计                  | `devops-agent`，SSH 会话与回放存档已交付；RDP/VNC 待接                               |
+| capture    | 数据库 CDC、过滤/规则与告警               | `capture-agent`，MySQL/Mongo/PG 连接器与位点/告警可靠性已交付；源 schema 历史待做    |
+| synthetics | 游戏及第三方外部探测、多语言插件宿主      | `synthetics-agent`，HTTP/TCP 探测与 Go/Python/JS 插件 SDK、凭证边界已交付；ICMP 待做 |
 
 各实例显式配置 `gameId/env`。角色选型、部署与 nightly 独立包见 [Agent 指南](docs/zh/operations/agent-comparison.md)，公共能力和源码归位见 [目录边界](docs/zh/development/agent-runtime-layout.md)。新增独立包需发布工作流成功运行后可下载；ARMv7 只提供 sidecar/devops。
 
