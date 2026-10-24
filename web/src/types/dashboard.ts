@@ -461,7 +461,9 @@ export interface CompositeSection {
   onSuccessRefresh?: string[];
   table?: {
     columns: ColumnSpec[];
-    pagination?: Record<string, unknown>;
+    /** 服务端分页（与资源页 PaginationSpec 同构）：enabled 时渲染器按
+     * page/pageSize 请求并派生 offset，缺省按客户端分页（不分页请求）。 */
+    pagination?: PaginationSpec;
     rowSchema?: Record<string, unknown>;
     identityKey?: string;
     rowActions?: CompositeRowAction[];

@@ -527,6 +527,13 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   不接失败标记——上游失败预览侧表现为「下游不重跑且无提示」（近似 pause 无
   提示版，clear/keep 不区分），同 U10/V5 预览边界先例。static 区块不执行绑定，
   cascadePolicy 对其无实际作用（wire 允许透传）
+- **表格分页（D3）边界**：`table.pagination`（与资源页 `PaginationSpec` 同构）是发布
+  spec 配置，编辑器与模板暂未暴露配置入口——`enabled` 时渲染器按 `page`/`pageSize`
+  请求并派生 `offset=(page-1)*pageSize`（不把页码当偏移量传）；执行器未返回 `total`
+  时按「本页满则可能有下一页」估算上界、不满页即收口（不把缺 total 误判为只剩当前
+  页）；上游筛选/查询条件变化回首页；操作成功后的刷新（`onSuccessRefresh`/事件链）
+  保持当前页码与筛选；未设置时保持客户端分页（请求不带分页参数，存量页面行为不变）。
+  游标分页与自定义 `totalKey` 未实现（wire 无游标字段）；弹窗（dialog）内表格不分页
 - V5-T5.7 端到端线上验收（提案→发布→真实联动）待执行
 - Selector 一键同步（8.5 节）边界：prev schema 只存一版且仅在本功能上线后的下一次
   契约更新才写入，存量漂移页首次同步走启发式（confidence=low）；多跳漂移

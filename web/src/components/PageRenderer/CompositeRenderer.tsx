@@ -17,7 +17,69 @@ import type {
   CompositeSection,
   PageFunctionBinding,
   FormValues,
+  PaginationSpec,
 } from '@/types/dashboard';
+
+/** D3 组合页表格分页状态（仅 enabled 服务端分页的表格区块持有）。
+ * page 为 1-based 页码；inputFingerprint 是上次请求的非分页入参指纹（= 上游
+ * 筛选/查询条件）——入参变化回首页，入参不变（操作成功后刷新、手动重跑）保持
+ * 当前页码与每页条数；total 由执行器提供，缺省时按「本页满则可能有下一页」
+ * 估算上界（无总数边界），避免把缺 total 误判为只剩当前页。 */
+interface TablePageState {
+  page: number;
+  pageSize: number;
+  inputFingerprint: string;
+  total: number;
+}
+
+/** Table pagination 配置（服务端分页受控形态 + 客户端分页缺省形态）。 */
+interface TablePaginationProps {
+  current?: number;
+  pageSize?: number;
+  total?: number;
+  showSizeChanger?: boolean;
+  showQuickJumper?: boolean;
+  pageSizeOptions?: string[];
+  showTotal?: (total: number) => React.ReactNode;
+  onChange?: (page: number, pageSize: number) => void;
+}
+
+const TABLE_DEFAULT_SIZE = 20;
+const TABLE_MAX_SIZE = 200;
+const TABLE_DEFAULT_PAGE_SIZES: number[] = [10, 20, 50];
+
+/** 每页条数钳制到 [1, TABLE_MAX_SIZE]：spec 里配过大条数也不下发超大请求。 */
+function clampPageSize(size: number): number {
+  return Math.min(Math.max(1, Math.floor(size)), TABLE_MAX_SIZE);
+}
+
+/** 读取表格分页配置（PaginationSpec 缺省值：defaultSize 20、pageSizes 10/20/50）。 */
+function tablePaginationOf(sec: CompositeSection): PaginationSpec {
+  const cfg = sec.table?.pagination;
+  const pageSizes = (cfg?.pageSizes ?? TABLE_DEFAULT_PAGE_SIZES).map(clampPageSize);
+  return {
+    enabled: !!cfg?.enabled,
+    defaultSize: cfg?.defaultSize ? clampPageSize(cfg.defaultSize) : undefined,
+    pageSizes: [...new Set(pageSizes)].sort((a, b) => a - b),
+  };
+}
+
+/** 数据适配层：分页语义 → 请求参数。offset 由 (page-1)*pageSize 派生并与
+ * page/pageSize 一并下发——不把偏移量当页码传，也不把页码当偏移量传。 */
+export function paginationRequestParams(page: number, pageSize: number): Record<string, number> {
+  const p = Math.max(1, Math.floor(page));
+  const size = clampPageSize(pageSize);
+  return { page: p, pageSize: size, offset: (p - 1) * size };
+}
+
+/** 无总数边界：结果缺 total 时按「本页满则可能有下一页」估上界；不满页即收口。 */
+export function estimateTotal(page: number, pageSize: number, itemCount: number, total: unknown) {
+  if (typeof total === 'number' && Number.isFinite(total) && total >= 0) {
+    return Math.floor(total);
+  }
+  const full = itemCount >= pageSize;
+  return Math.max(0, page - 1) * pageSize + itemCount + (full ? 1 : 0);
+}
 
 /** 组合页渲染器：区块栅格布局；autoRun 加载即执行；refreshOn 联动
  * 自动重跑；dialog 形态区块由行操作/工具栏按钮触发弹窗打开（行字段
@@ -68,6 +130,10 @@ export const CompositeRenderer: React.FC<{
   // B2：级联联动账本——每区块已消费的上游修订号 + 上次失败态（同态连续失败
   // 不重复提示）。首次看到的上游结果照常联动（refreshOn 语义保持）。
   const cascadeSeenRef = useRef<Record<string, { rev: number; failed: boolean }>>({});
+  // D3：表格服务端分页状态（ref 为请求真值——runSection 在同一事件帧内读取，
+  // state 版仅驱动 Table 的 current/total 展示）
+  const tablePagesRef = useRef<Record<string, TablePageState>>({});
+  const [tablePages, setTablePages] = useState<Record<string, TablePageState>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
   // 运行时状态快照 ref（事件帧内求值/执行读取，避免 setState 异步导致同帧读旧值）
   const resultsRef = useRef(results);
@@ -136,7 +202,26 @@ export const CompositeRenderer: React.FC<{
   const runSection = useCallback(
     async (sec: CompositeSection, overrides?: Record<string, unknown>) => {
       if (preview) return null;
-      const merged = { ...(inputsRef.current[sec.key] || {}), ...(overrides || {}) };
+      const baseInputs = { ...(inputsRef.current[sec.key] || {}), ...(overrides || {}) };
+      // D3：表格区块入参 = 上游筛选/查询条件 + 派生分页参数（page/pageSize/
+      // offset）。指纹只覆盖非分页入参——筛选变化回首页，入参不变（操作成功后
+      // 刷新、手动重跑）保持当前页码与每页条数。
+      let merged = baseInputs;
+      const pagination = tablePaginationOf(sec);
+      if (sec.view === 'table' && pagination.enabled) {
+        const fingerprint = JSON.stringify(baseInputs);
+        const prev = tablePagesRef.current[sec.key];
+        const sameFilter = !!prev && prev.inputFingerprint === fingerprint;
+        const next: TablePageState = {
+          page: sameFilter ? prev.page : 1,
+          pageSize: clampPageSize(prev?.pageSize ?? pagination.defaultSize ?? TABLE_DEFAULT_SIZE),
+          inputFingerprint: fingerprint,
+          total: prev?.total ?? 0,
+        };
+        tablePagesRef.current = { ...tablePagesRef.current, [sec.key]: next };
+        setTablePages(tablePagesRef.current);
+        merged = { ...baseInputs, ...paginationRequestParams(next.page, next.pageSize) };
+      }
       setRunning((prev) => ({ ...prev, [sec.key]: true }));
       // B2：请求序号发请求前同步占用——并发同区块重跑时仅序号匹配的那次可
       // 落账（旧响应拒收）。修订号留给落账时 +1（成功/失败都算一次新结果，
@@ -155,6 +240,23 @@ export const CompositeRenderer: React.FC<{
           { data: (result as { data?: unknown })?.data ?? null },
           'merge',
         );
+        // D3：服务端分页落账后刷新分页展示——执行器给 total 则原样使用，
+        // 缺 total 按「本页满则可能有下一页」估上界（不满页即收口）。
+        if (sec.view === 'table' && tablePaginationOf(sec).enabled) {
+          const data = ((result || {}) as { data?: Record<string, unknown> }).data ?? {};
+          const items = Array.isArray(data.items) ? data.items : [];
+          const cur = tablePagesRef.current[sec.key];
+          if (cur) {
+            tablePagesRef.current = {
+              ...tablePagesRef.current,
+              [sec.key]: {
+                ...cur,
+                total: estimateTotal(cur.page, cur.pageSize, items.length, data.total),
+              },
+            };
+            setTablePages(tablePagesRef.current);
+          }
+        }
         // 操作类区块成功后刷新目标（发邮件成功 → 刷新玩家表格）
         if ((sec.view === 'form' || sec.view === 'actions') && sec.onSuccessRefresh?.length) {
           for (const target of sec.onSuccessRefresh) {
@@ -321,10 +423,52 @@ export const CompositeRenderer: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cascadeSignal]);
 
-  const resultFor = (sec: CompositeSection): Record<string, unknown> | undefined => {
-    const r = results[sec.key];
-    return (r as { data?: Record<string, unknown> } | null | undefined)?.data;
-  };
+  const resultFor = useCallback(
+    (sec: CompositeSection): Record<string, unknown> | undefined => {
+      const r = results[sec.key];
+      return (r as { data?: Record<string, unknown> } | null | undefined)?.data;
+    },
+    [results],
+  );
+
+  /** D3 翻页/改每页条数：先同步写入分页状态（runSection 同帧读取），
+   * 再按新 page/pageSize 重跑区块——筛选与列设置不变，仅分页参数变化。 */
+  const handleTablePageChange = useCallback((sec: CompositeSection, page: number, size: number) => {
+    const cur = tablePagesRef.current[sec.key];
+    if (!cur) return;
+    const next = { ...cur, page: Math.max(1, page), pageSize: Math.max(1, size) };
+    tablePagesRef.current = { ...tablePagesRef.current, [sec.key]: next };
+    setTablePages(tablePagesRef.current);
+    runSectionRef.current(sec).catch(() => undefined);
+  }, []);
+
+  /** 表格分页 UI：enabled 时服务端分页（current/pageSize 受控、total 已落账），
+   * 否则保持客户端分页（不分页请求，避免全量拉取被误判为只有一页）。 */
+  const tablePaginationProps = useCallback(
+    (sec: CompositeSection): TablePaginationProps => {
+      const cfg = tablePaginationOf(sec);
+      if (!cfg.enabled) return { pageSize: 10, showSizeChanger: false };
+      const st = tablePages[sec.key];
+      return {
+        current: st?.page ?? 1,
+        pageSize: st?.pageSize ?? cfg.defaultSize ?? TABLE_DEFAULT_SIZE,
+        total: st?.total ?? 0,
+        showSizeChanger: true,
+        showQuickJumper: true,
+        pageSizeOptions: (cfg.pageSizes ?? TABLE_DEFAULT_PAGE_SIZES).map(String),
+        showTotal: (total: number) =>
+          intl.formatMessage(
+            {
+              id: 'component.pageRenderer.composite.pagination.total',
+              defaultMessage: '共 {total} 条',
+            },
+            { total },
+          ),
+        onChange: (page: number, size: number) => handleTablePageChange(sec, page, size),
+      };
+    },
+    [handleTablePageChange, intl, tablePages],
+  );
 
   /** 打开弹窗：目标可以是区块 key 或弹窗分组名（Group）；危险操作先确认。 */
   const openDialog = useCallback(
@@ -579,7 +723,7 @@ export const CompositeRenderer: React.FC<{
               ? (resultFor(sec)?.items as Record<string, unknown>[])
               : []
           }
-          pagination={{ pageSize: 10, showSizeChanger: false }}
+          pagination={tablePaginationProps(sec)}
         />
       ) : sec.view === 'fields' ? (
         <div onClick={() => fireEvent(sec, 'click')}>

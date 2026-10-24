@@ -65,3 +65,4 @@ The page also records subsequent production hardening: selector diagnostics shar
 - Text components are editor aids and do not publish runtime content.
 - Preview data is an editor-only debugging aid; published pages have no mock fallback.
 - Execution requires a bound runtime contract and a published page binding.
+- Table pagination is a published-spec setting (`table.pagination`, D3) with no editor or template entry yet: when `enabled` the renderer requests `page`/`pageSize` with a renderer-derived `offset=(page-1)*pageSize`, uses the response `total` verbatim or, when absent, estimates the bound as "a full page means a next page may exist" and closes off on a partial page, resets to page 1 when the upstream filter input changes, and keeps the current page on a post-operation refresh; without the setting the table keeps client-side pagination. Cursor pagination and a per-table `totalKey` are not supported, and tables rendered inside a dialog do not paginate.
