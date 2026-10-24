@@ -3,14 +3,17 @@ package versioning
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -40,6 +43,70 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	return db
+}
+
+type localVersioningPublisher struct {
+	service *Service
+}
+
+func (p localVersioningPublisher) PublishVersioningDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, reason string) (int, error) {
+	page, err := p.service.pageModel.FindByScopeAndPageKey(ctx, gameID, env, pageKey)
+	if err != nil {
+		return 0, err
+	}
+	if page.DraftRevision != expectedDraftRevision {
+		return 0, fmt.Errorf("page draft revision conflict: expected %d, current %d", expectedDraftRevision, page.DraftRevision)
+	}
+	pageSpec, err := pageSpecFromModel(page)
+	if err != nil {
+		return 0, err
+	}
+	contracts, err := p.service.buildBindingContracts(ctx, gameID, env, pageSpec.Bindings)
+	if err != nil {
+		return 0, err
+	}
+	specJSON, err := marshalPageSpec(pageSpec)
+	if err != nil {
+		return 0, err
+	}
+	contractsJSON, err := json.Marshal(contracts)
+	if err != nil {
+		return 0, err
+	}
+	now := time.Now()
+	publishedModel := model.NewPublishedPageSpecModel(p.service.db)
+	pageVersionModel := model.NewPageVersionModel(p.service.db)
+	nextVersion, err := pageVersionModel.GetNextVersion(ctx, gameID, env, pageKey)
+	if err != nil {
+		return 0, err
+	}
+	if err := publishedModel.DeactivatePage(ctx, gameID, env, pageKey, now); err != nil {
+		return 0, err
+	}
+	if err := publishedModel.Create(ctx, &model.PublishedPageSpec{
+		GameID: gameID, Env: env, PageKey: pageKey, Version: nextVersion,
+		SpecJSON: specJSON, BindingContractsJSON: string(contractsJSON),
+		RendererSchemaVersion: rendererSchemaVersion, BaseProposalKey: page.BaseProposalKey,
+		BaseProposalVersion: page.BaseProposalVersion, Active: true, PublishedAt: now, PublishedBy: actor,
+	}); err != nil {
+		return 0, err
+	}
+	page.Status = "published"
+	page.PublishedActive = true
+	page.PublishedVersion = nextVersion
+	page.DraftRevision = nextVersion
+	page.UpdatedAt = now
+	page.UpdatedBy = actor
+	if err := model.NewPageSpecModel(p.service.db).Upsert(ctx, page); err != nil {
+		return 0, err
+	}
+	if err := pageVersionModel.UpsertByScopePageKeyVersion(ctx, &model.PageVersion{
+		GameID: gameID, Env: env, PageKey: pageKey, Version: nextVersion,
+		SpecJSON: specJSON, Status: "published", Message: reason, CreatedBy: actor, CreatedAt: now,
+	}); err != nil {
+		return 0, err
+	}
+	return nextVersion, nil
 }
 
 func createVersioningTestPage(db *gorm.DB, gameID, env string, page spec.PageSpec) error {
@@ -572,6 +639,51 @@ func TestVersioningService_RollbackPublishRejectsStaleRevision(t *testing.T) {
 	require.NoError(t, findErr)
 	assert.Equal(t, 1, current.DraftRevision)
 	assert.Equal(t, page.Title["zh-CN"], current.GetTitle()["zh-CN"])
+}
+
+func TestVersioningService_PublishEntriesRequirePublishPermission(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	service.SetPermissionGuard(func(context.Context, string) error {
+		return errorx.NewForbidden("无权发布页面")
+	})
+
+	rollback, rollbackErr := service.RollbackPublish(context.Background(), &RollbackRequest{
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "player.manage",
+		Version:               1,
+		ExpectedDraftRevision: 1,
+	})
+	require.Nil(t, rollback)
+	require.ErrorContains(t, rollbackErr, "无权发布页面")
+
+	republish, republishErr := service.Republish(context.Background(), &RepublishRequest{
+		GameID:  "demo-game",
+		Env:     "development",
+		PageKey: "player.manage",
+	})
+	require.Nil(t, republish)
+	require.ErrorContains(t, republishErr, "无权发布页面")
+}
+
+func TestVersioningService_RepublishRequiresCanonicalPublisher(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	pageCtx := svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "development"})
+	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", spec.PageSpec{
+		PageKey:  "operation--canonical-missing",
+		Type:     spec.PageTypeOperation,
+		Title:    spec.LocalizedText{"zh-CN": "canonical missing"},
+		Category: spec.PageCategorySpec{Key: "player"},
+	}))
+
+	service := NewService(db)
+	result, err := service.Republish(pageCtx, &RepublishRequest{
+		GameID: "demo-game", Env: "development", PageKey: "operation--canonical-missing",
+	})
+	require.Nil(t, result)
+	require.ErrorContains(t, err, "canonical versioning publisher is not configured")
 }
 
 func TestVersioningService_MergeRejectsStaleRevision(t *testing.T) {

@@ -24,6 +24,11 @@ func setupTestDBFileV9(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file:"+t.TempDir()+"/cov9.db?_pragma=synchronous(OFF)"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(
+		&model.Admin{},
+		&model.Role{},
+		&model.Permission{},
+		&model.AdminRole{},
+		&model.RolePermission{},
 		&model.FunctionContract{},
 		&model.ResourceCapability{},
 		&model.CapabilitySemantics{},

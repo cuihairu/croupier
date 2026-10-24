@@ -26,7 +26,9 @@ import (
 func newVersioningHandlerRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	handler := NewHandler(NewService(db))
+	versioningService := NewService(db)
+	versioningService.SetCanonicalPublishers(localVersioningPublisher{service: versioningService}, nil)
+	handler := NewHandler(versioningService)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		ctx := c.Request.Context()

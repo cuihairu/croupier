@@ -336,10 +336,10 @@ func rechooseInputTarget(
 		usable := filterUnoccupied(matches, occupied)
 		if len(usable) == 1 && isAssignable(newSchema, usable[0].NewPath, assignment.Source, ctx) {
 			confidence := SelectorSyncConfidenceLow
-			reason := "heuristically matched by same parent, type, and required flag (previous schema unverified)"
+			reason := "heuristically matched by same parent and type (previous schema unverified)"
 			if opts.PrevTrusted {
 				confidence = SelectorSyncConfidenceHigh
-				reason = "renamed according to the verified previous schema diff (same parent, type, and required flag)"
+				reason = "renamed according to the verified previous schema diff (same parent and type)"
 			}
 			return usable[0].NewPath, confidence, reason, true
 		}

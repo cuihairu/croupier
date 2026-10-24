@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -23,6 +24,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	err = db.AutoMigrate(
+		&model.Admin{},
+		&model.Role{},
+		&model.Permission{},
+		&model.AdminRole{},
+		&model.RolePermission{},
 		&model.FunctionContract{},
 		&model.FunctionContractVersion{},
 		&model.ResourceCapability{},
@@ -39,7 +45,31 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	)
 	require.NoError(t, err)
 
+	t.Cleanup(func() {
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		require.NoError(t, sqlDB.Close())
+	})
+
 	return db
+}
+
+func newPublishAuthorizedContext(t *testing.T, db *gorm.DB, username string) context.Context {
+	t.Helper()
+	admin := model.Admin{Username: username, Status: 1, PasswordHash: "test"}
+	require.NoError(t, db.Create(&admin).Error)
+	role := model.Role{Name: username + "-role", Description: "proposal publisher"}
+	require.NoError(t, db.Create(&role).Error)
+	require.NoError(t, db.Create(&model.AdminRole{AdminID: admin.ID, RoleID: role.ID}).Error)
+	permission := model.Permission{
+		ID: "pages:publish", Name: "pages:publish", Resource: "pages", Action: "publish",
+		Category: "dashboard",
+	}
+	require.NoError(t, db.Where("id = ?", permission.ID).FirstOrCreate(&permission).Error)
+	require.NoError(t, db.Create(&model.RolePermission{RoleID: role.ID, PermissionID: permission.ID}).Error)
+
+	ctx := context.WithValue(context.Background(), "username", username)
+	return svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "development"})
 }
 
 func TestContractService_RebuildContractFromFunctionMeta(t *testing.T) {

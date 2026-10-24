@@ -37,7 +37,8 @@ func TestStaleHeal_RenameProposesOnlyThenUserAutoPublishes(t *testing.T) {
 		`{"type":"object","properties":{"uid":{"type":"string"},"count":{"type":"integer"}},"required":["uid","count"]}`,
 	))
 	require.NoError(t, dashboardservice.NewContractService(db).RebuildProposalForFunction(ctx, "demo-game", "development", functionID))
-	published, err := dashboardservice.NewProposalService(db).AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
+	published, err := service.newInternalProposalServiceForContext(db).
+		AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
 	require.NoError(t, err)
 	pageKey := published.PageKey
 
@@ -90,7 +91,8 @@ func TestStaleHeal_LeavesManualRequiredAlone(t *testing.T) {
 		`{"type":"object","properties":{"uid":{"type":"string"}},"required":["uid"]}`,
 	))
 	require.NoError(t, dashboardservice.NewContractService(db).RebuildProposalForFunction(ctx, "demo-game", "development", functionID))
-	published, err := dashboardservice.NewProposalService(db).AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
+	published, err := service.newInternalProposalServiceForContext(db).
+		AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
 	require.NoError(t, err)
 	pageKey := published.PageKey
 
@@ -143,7 +145,7 @@ func TestStaleHeal_LoopLifecycle(t *testing.T) {
 // 默认只把提案写进 game 库（人工草稿不动），显式自动发布时独立修订同样
 // 落在 game 库并清零 stale。
 func TestStaleHeal_MultiGameHealsAcrossGameDBs(t *testing.T) {
-	service, _, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
+	service, gctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	metaDB := service.svcCtx.DB
 
 	dir := t.TempDir()
@@ -161,7 +163,6 @@ func TestStaleHeal_MultiGameHealsAcrossGameDBs(t *testing.T) {
 	}, metaDB)
 
 	// meta 侧登记绑定（分库 scope 枚举源）
-	gctx := healCtx()
 	require.NoError(t, model.NewGameModel(metaDB).AddEnvBinding(gctx, "demo-game", "development", "game_demo_development", "", ""))
 
 	// game 库内播种：发布 gift.send 页 → 契约漂移（uid→player_id rename）。
@@ -173,15 +174,16 @@ func TestStaleHeal_MultiGameHealsAcrossGameDBs(t *testing.T) {
 	require.NoError(t, err)
 	const functionID = "gift.send"
 	const proposalKey = "operation:gift.send"
-	rebuildFunctionContract(t, gdb, gctx, functionID, syncGiftMeta(
+	rebuildFunctionContract(t, gdb, seedCtx, functionID, syncGiftMeta(
 		`{"type":"object","properties":{"uid":{"type":"string"},"count":{"type":"integer"}},"required":["uid","count"]}`,
 	))
-	require.NoError(t, dashboardservice.NewContractService(gdb).RebuildProposalForFunction(gctx, "demo-game", "development", functionID))
-	published, err := dashboardservice.NewProposalService(gdb).AcceptAndPublishProposal(gctx, "demo-game", "development", proposalKey)
+	require.NoError(t, dashboardservice.NewContractService(gdb).RebuildProposalForFunction(seedCtx, "demo-game", "development", functionID))
+	published, err := service.newInternalProposalServiceForContext(gdb).
+		AcceptAndPublishProposal(seedCtx, "demo-game", "development", proposalKey)
 	require.NoError(t, err)
 	pageKey := published.PageKey
 
-	rebuildFunctionContract(t, gdb, gctx, functionID, syncGiftMeta(
+	rebuildFunctionContract(t, gdb, seedCtx, functionID, syncGiftMeta(
 		`{"type":"object","properties":{"player_id":{"type":"string"},"count":{"type":"integer"}},"required":["player_id","count"]}`,
 	))
 

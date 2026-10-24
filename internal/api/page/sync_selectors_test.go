@@ -230,7 +230,7 @@ func TestSyncSelectors_PublishChainEndToEnd(t *testing.T) {
 		`{"type":"object","properties":{"uid":{"type":"string"},"count":{"type":"integer"}},"required":["uid","count"]}`,
 	))
 	require.NoError(t, dashboardservice.NewContractService(db).RebuildProposalForFunction(ctx, "demo-game", "development", functionID))
-	published, err := dashboardservice.NewProposalService(db).AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
+	published, err := service.newInternalProposalService().AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
 	require.NoError(t, err)
 	pageKey := published.PageKey
 	require.NotEmpty(t, pageKey)
@@ -331,8 +331,8 @@ func TestSyncSelectors_PublishChainEndToEnd(t *testing.T) {
 	assert.True(t, applyResp.AutoPublished, "selector 完全适配后必须自动发布（自动化收口）")
 
 	newRevision := applyResp.DraftRevision
-	publishedRow, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
-	require.NoError(t, err)
+	publishedRow, latestErr := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
+	require.NoError(t, latestErr)
 	assert.EqualValues(t, newRevision, publishedRow.Version, "auto publish must land on the synced draft revision")
 
 	// 7. 新发布快照对最新契约 freshness 干净（console binding_stale 409 的判定源）

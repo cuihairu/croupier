@@ -323,7 +323,8 @@ func seedHealSafeDriftPage(t *testing.T, service *Service, ctx context.Context) 
 		`{"type":"object","properties":{"uid":{"type":"string"},"count":{"type":"integer"}},"required":["uid","count"]}`,
 	))
 	require.NoError(t, dashboardservice.NewContractService(db).RebuildProposalForFunction(ctx, "demo-game", "development", functionID))
-	published, err := dashboardservice.NewProposalService(db).AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
+	published, err := service.newInternalProposalServiceForContext(db).
+		AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
 	require.NoError(t, err)
 
 	rebuildFunctionContract(t, db, ctx, functionID, syncGiftMeta(
@@ -570,10 +571,11 @@ func TestHealOnce_GovernanceAndFunctionVersionDriftStaysManual(t *testing.T) {
 	assert.Contains(t, string(proposal.Diagnostics), "binding_function_version_stale")
 
 	_, total, err := auditStore.List(audit.AuditFilter{
-		EventType: []audit.AuditEventType{audit.EventPagePublish},
+		EventType:  []audit.AuditEventType{audit.EventPagePublish},
+		ResourceID: pageKey,
 	}, audit.AuditPage{PageSize: 10})
 	require.NoError(t, err)
-	assert.EqualValues(t, 0, total, "治理/版本漂移不得留下自动发布审计")
+	assert.EqualValues(t, 2, total, "只保留种子发布 core 与入口审计；治理/版本漂移不得新增发布审计")
 }
 
 // TestHealOnce_ConcurrentAutoPublishSingleWinner：两个愈合 worker 同时基于
@@ -874,10 +876,10 @@ func TestAutoPublishAfterSync_PublishFailure(t *testing.T) {
 // 存在——回调在 After 阶段只对成功查询注入，NotFound 查询由既有分支处理）
 // → 包装上抛。
 func TestAutoPublishComposite_LoadDraftQueryError(t *testing.T) {
-	service, ctx, _ := newPageTestService(t, "pages:edit")
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	seedResourceProposal(t, service)
 	// 先发布制造「已存在页」，使被测查询命中存在的行（tx.Error==nil）才会被注入。
-	_, err := dashboardservice.NewProposalService(service.svcCtx.DB).
+	_, err := service.newInternalProposalService().
 		AcceptAndPublishProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 
@@ -900,7 +902,7 @@ func TestAutoPublishComposite_LoadDraftQueryError(t *testing.T) {
 // TestAutoPublishComposite_AcceptAndPublishError：新页面（无草稿）走提案
 // 接受发布链，发布快照落库被触发器阻断 → 错误上抛，不产生半发布状态。
 func TestAutoPublishComposite_AcceptAndPublishError(t *testing.T) {
-	service, ctx, _ := newPageTestService(t, "pages:edit")
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	seedResourceProposal(t, service)
 
 	require.NoError(t, service.svcCtx.DB.Exec(
@@ -915,10 +917,10 @@ func TestAutoPublishComposite_AcceptAndPublishError(t *testing.T) {
 // TestAutoPublishComposite_CurrentUsernameError：已存在页路径的身份解析失败
 // （currentUsername 接缝注入）→ 原样上抛。
 func TestAutoPublishComposite_CurrentUsernameError(t *testing.T) {
-	service, ctx, _ := newPageTestService(t, "pages:edit")
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	seedResourceProposal(t, service)
 	// 先以正常身份发布，制造「已存在页」路径。
-	_, err := dashboardservice.NewProposalService(service.svcCtx.DB).
+	_, err := service.newInternalProposalService().
 		AcceptAndPublishProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 
@@ -932,9 +934,9 @@ func TestAutoPublishComposite_CurrentUsernameError(t *testing.T) {
 // TestAutoPublishComposite_RegenerateError：已存在页路径的草稿重生成失败
 // （触发器阻断 page_specs UPDATE）→ 上抛，页面保持原发布状态。
 func TestAutoPublishComposite_RegenerateError(t *testing.T) {
-	service, ctx, _ := newPageTestService(t, "pages:edit")
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	seedResourceProposal(t, service)
-	_, err := dashboardservice.NewProposalService(service.svcCtx.DB).
+	_, err := service.newInternalProposalService().
 		AcceptAndPublishProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 
@@ -950,9 +952,9 @@ func TestAutoPublishComposite_RegenerateError(t *testing.T) {
 // TestAutoPublishComposite_PublishError：已存在页路径的重生成成功但发布失败
 // （published 快照 INSERT 被阻断）→ 上抛。
 func TestAutoPublishComposite_PublishError(t *testing.T) {
-	service, ctx, _ := newPageTestService(t, "pages:edit")
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish")
 	seedResourceProposal(t, service)
-	_, err := dashboardservice.NewProposalService(service.svcCtx.DB).
+	_, err := service.newInternalProposalService().
 		AcceptAndPublishProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 	// 重生成需要新鲜提案与漂移契约。

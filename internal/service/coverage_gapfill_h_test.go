@@ -14,8 +14,9 @@ import (
 // "create page draft from proposal" 错误分支。
 func TestAcceptProposal_DraftUpsertBlockedV9H(t *testing.T) {
 	db := setupTestDBFileV9(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "gapfill_publisher")
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
 
 	require.NoError(t, db.Create(&model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: "player.query", Enabled: true, Version: "1.0.0",
@@ -34,17 +35,14 @@ func TestAcceptProposal_DraftUpsertBlockedV9H(t *testing.T) {
 	assert.Contains(t, err.Error(), "create page draft from proposal")
 }
 
-// AcceptAndPublishProposal：契约 function_id 带空白前后缀时，
-// functionSpecsByID（ListByScope + TrimSpace）能命中，而
-// buildBindingContracts（FindByScopeAndFunctionID 精确匹配）落空 →
-// "bound function contract does not exist" 分支。
+// AcceptAndPublishProposal：规范化与快照契约共用 TRIM 精确查询，
+// 带空白 function_id 的契约可命中同一行，不再因读写归一漂移失败。
 func TestAcceptAndPublish_BuildBindingContractsMissV9H(t *testing.T) {
 	db := setupTestDBFileV9(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "gapfill_contract_publisher")
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
 
-	// 注意 function_id 前导空格：投影层 TrimSpace 后参与校验，
-	// 但精确查询匹配不上。
 	require.NoError(t, db.Create(&model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: " player.query", Enabled: true, Version: "1.0.0",
 	}).Error)
@@ -54,8 +52,7 @@ func TestAcceptAndPublish_BuildBindingContractsMissV9H(t *testing.T) {
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, proposal))
 
 	_, err = svc.AcceptAndPublishProposal(ctx, "demo-game", "development", proposal.ProposalKey)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "bound function contract does not exist")
+	require.NoError(t, err)
 }
 
 // CreateCompositeProposal：panic → recover 显式转为错误（nil proposalModel

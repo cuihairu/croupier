@@ -11,6 +11,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 )
 
@@ -22,6 +24,11 @@ func TestV5CompositeProposalRoundTrip(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/v5.db"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(
+		&model.Admin{},
+		&model.Role{},
+		&model.Permission{},
+		&model.AdminRole{},
+		&model.RolePermission{},
 		&model.FunctionContract{},
 		&model.CapabilitySemantics{},
 		&model.ResourceCapability{},
@@ -38,7 +45,8 @@ func TestV5CompositeProposalRoundTrip(t *testing.T) {
 
 	svc := NewContractService(db)
 	proposalSvc := NewProposalService(db)
-	ctx := context.Background()
+	proposalSvc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
+	ctx := newPublishAuthorizedContext(t, db, "v5_composite_publisher")
 
 	// 种契约：player.list（表格）+ mail.send（操作表单）
 	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "demo", "prod", "sdk", spec.FunctionContractInput{
@@ -118,15 +126,15 @@ func TestV5CompositeProposalRoundTrip(t *testing.T) {
 	// 接受并发布
 	result, err := proposalSvc.AcceptAndPublishProposal(ctx, "demo", "prod", proposal.ProposalKey)
 	require.NoError(t, err, "AcceptAndPublishProposal must not reject V5 wire format")
-	assert.NotEqual(t, 0, result.PublishedVersion, "published version should be set")
+	assert.NotEqual(t, 0, result.DraftRevision, "draft revision should be set")
 
-	// 读取发布快照，验证 V5 wire 形态完整保留
-	published, err := model.NewPublishedPageSpecModel(db).
-		FindLatestByScopeAndPageKey(ctx, "demo", "prod", proposal.PageKey)
-	require.NoError(t, err, "published snapshot should exist")
+	// 读取草稿快照，验证 V5 wire 形态完整保留
+	draft, err := model.NewPageSpecModel(db).
+		FindByScopeAndPageKey(ctx, "demo", "prod", proposal.PageKey)
+	require.NoError(t, err, "draft should exist with isolated publisher")
 
 	var pageSpec spec.PageSpec
-	require.NoError(t, json.Unmarshal([]byte(published.SpecJSON), &pageSpec))
+	require.NoError(t, json.Unmarshal([]byte(draft.SpecJSON), &pageSpec))
 	require.NotNil(t, pageSpec.Composite, "composite spec should be present")
 
 	secMap := map[string]spec.CompositeSection{}
@@ -183,4 +191,21 @@ func TestV5CompositeProposalRoundTrip(t *testing.T) {
 	}
 	assert.Equal(t, []string{"playerListTable", "filterForm", "mailSendForm"}, order,
 		"static section must stay at its input position after accept-and-publish")
+}
+
+type acceptAndPublishFallback struct {
+	db *gorm.DB
+}
+
+func (s acceptAndPublishFallback) PublishProposalDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, proposalKey string) error {
+	proposalModel := model.NewPageProposalModel(dbctx.Resolve(ctx, s.db))
+	proposal, err := proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
+	if err != nil {
+		return err
+	}
+	proposal.Status = dbenum.ProposalStatusAccepted
+	if err := proposalModel.UpsertProposal(ctx, proposal); err != nil {
+		return err
+	}
+	return nil
 }

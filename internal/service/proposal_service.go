@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
 )
 
@@ -35,6 +36,31 @@ type ProposalService struct {
 	// 「只落 draft」现状。
 	publishReviewPolicy func(env string) string
 	autoPublish         func(ctx context.Context, gameID, env, proposalKey string) error
+	publishDraft        ProposalDraftPublisher
+	publishValidator    PagePublishValidator
+	permissionGuard     func(context.Context, string) (string, error)
+}
+
+// ProposalDraftPublisher isolates proposal acceptance from the dashboard
+// service package while still delegating to the single page publish core.
+type ProposalDraftPublisher interface {
+	PublishProposalDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, proposalKey string) error
+}
+
+type PagePublishValidator interface {
+	ValidatePageSpecInScope(ctx context.Context, gameID, env string, page spec.PageSpec, publish bool) []spec.Diagnostic
+}
+
+func (s *ProposalService) SetProposalDraftPublisher(publisher ProposalDraftPublisher) {
+	s.publishDraft = publisher
+}
+
+func (s *ProposalService) SetPublishValidator(validator PagePublishValidator) {
+	s.publishValidator = validator
+}
+
+func (s *ProposalService) SetPermissionGuard(guard func(context.Context, string) (string, error)) {
+	s.permissionGuard = guard
 }
 
 // SetPublishReviewHooks 注入发布分级策略与 auto 发布回调（镜像
@@ -47,6 +73,33 @@ func (s *ProposalService) SetPublishReviewHooks(
 ) {
 	s.publishReviewPolicy = policy
 	s.autoPublish = autoPublish
+}
+
+func (s *ProposalService) publishPermission(ctx context.Context) (string, error) {
+	if s.permissionGuard == nil {
+		return actorFromContext(ctx), nil
+	}
+	actor, err := s.permissionGuard(ctx, actorFromContext(ctx))
+	if err != nil {
+		return "", err
+	}
+	return actor, nil
+}
+
+func (s *ProposalService) publishValidationDiagnostics(ctx context.Context, gameID, env string, page spec.PageSpec) map[string]string {
+	if s.publishValidator == nil {
+		return nil
+	}
+	diagnostics := s.publishValidator.ValidatePageSpecInScope(ctx, gameID, env, page, true)
+	details := make(map[string]string, len(diagnostics))
+	for _, item := range diagnostics {
+		field := item.Field
+		if field == "" {
+			field = item.Code
+		}
+		details[field] = item.Message
+	}
+	return details
 }
 
 // ProposalAcceptOutcome accept 结果（auto env 下含接续发布结果）。
@@ -146,7 +199,7 @@ type ProposalDTO struct {
 
 // NewProposalService creates the service.
 func NewProposalService(db *gorm.DB) *ProposalService {
-	return &ProposalService{
+	service := &ProposalService{
 		db:             db,
 		proposalModel:  model.NewPageProposalModel(db),
 		pageModel:      model.NewPageSpecModel(db),
@@ -155,6 +208,34 @@ func NewProposalService(db *gorm.DB) *ProposalService {
 		publishedModel: model.NewPublishedPageSpecModel(db),
 		blockedModel:   model.NewBlockedProposalIssueModel(db),
 	}
+	service.permissionGuard = serviceProposalPermissionGuard(service)
+	return service
+}
+
+func serviceProposalPermissionGuard(s *ProposalService) func(context.Context, string) (string, error) {
+	return func(ctx context.Context, actor string) (string, error) {
+		if err := s.requireProposalPublishPermission(ctx); err != nil {
+			return "", err
+		}
+		return actor, nil
+	}
+}
+
+func InternalTestProposalPermissionGuard() func(context.Context, string) (string, error) {
+	return func(ctx context.Context, actor string) (string, error) {
+		return actor, nil
+	}
+}
+
+func (s *ProposalService) requireProposalPublishPermission(ctx context.Context) error {
+	resolvedDB := dbctx.Resolve(ctx, s.db)
+	_, _, err := logicutils.RequireAnyPermission(ctx, &svc.ServiceContext{
+		DB:              resolvedDB,
+		AdminModel:      model.NewAdminModel(resolvedDB),
+		RoleModel:       model.NewRoleModel(resolvedDB),
+		PermissionModel: model.NewPermissionModel(resolvedDB),
+	}, "无权发布页面", "admin:all", "pages:publish")
+	return err
 }
 
 // ListProposals lists all proposals in a scope.
@@ -402,19 +483,16 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 	if err != nil {
 		return ProposalPublishResult{}, err
 	}
-	if err := s.validateDirectPublishPageSpec(ctx, gameID, env, proposal, pageSpec); err != nil {
-		return ProposalPublishResult{}, err
-	}
-	contracts, err := s.buildBindingContracts(ctx, gameID, env, pageSpec.Bindings)
+	actor, err := s.publishPermission(ctx)
 	if err != nil {
 		return ProposalPublishResult{}, err
 	}
-	// json.Marshal 对 []spec.BindingContractSnapshot（纯数据字段构造，无
-	// func/chan/time 之外的复杂类型，digest 为 string）恒成功，err 分支为
-	// 死代码，已删。
-	contractsJSON, _ := json.Marshal(contracts)
-
-	actor := actorFromContext(ctx)
+	if err := s.validateDirectPublishPageSpec(ctx, gameID, env, proposal, pageSpec); err != nil {
+		return ProposalPublishResult{}, err
+	}
+	if details := s.publishValidationDiagnostics(ctx, gameID, env, pageSpec); len(details) > 0 {
+		return ProposalPublishResult{}, errorx.NewValidationErrorWithDetails("page validation failed", details)
+	}
 	now := time.Now()
 	result := ProposalPublishResult{
 		PageKey:          pageSpec.PageKey,
@@ -425,10 +503,10 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txCtx := dbctx.WithDB(ctx, tx)
 		pageModel := model.NewPageSpecModel(tx)
-		publishedModel := model.NewPublishedPageSpecModel(tx)
 		versionModel := model.NewPageVersionModel(tx)
 		proposalModel := model.NewPageProposalModel(tx)
 		proposalVersionModel := model.NewPageProposalVersionModel(tx)
+		contractModel := model.NewFunctionContractModel(tx)
 
 		existing, err := pageModel.FindByScopeAndPageKey(txCtx, gameID, env, pageSpec.PageKey)
 		if err != nil && err != gorm.ErrRecordNotFound {
@@ -442,7 +520,10 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 			return err
 		}
 		result.DraftRevision = nextVersion
-		result.PublishedVersion = nextVersion
+		proposal.FunctionDigest, err = currentFunctionDigest(txCtx, contractModel, gameID, env, pageSpec)
+		if err != nil {
+			return err
+		}
 
 		proposalSnapshotVersion, err := createProposalVersionSnapshot(txCtx, proposalVersionModel, proposal, "accept and publish", actor)
 		if err != nil {
@@ -459,10 +540,8 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 			Order:               pageSpec.Order,
 			Icon:                strings.TrimSpace(pageSpec.Icon),
 			SpecJSON:            specJSON,
-			Status:              "published",
-			PublishedActive:     true,
+			Status:              "draft",
 			DraftRevision:       nextVersion,
-			PublishedVersion:    nextVersion,
 			BaseProposalKey:     strings.TrimSpace(proposal.ProposalKey),
 			BaseProposalVersion: proposalSnapshotVersion,
 			UpdatedBy:           actor,
@@ -471,28 +550,6 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 		}
 		// 同 AcceptProposal：SetTitle 恒返回 nil，err 检查为死分支，已删。
 		_ = draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
-		if err := publishedModel.DeactivatePage(txCtx, gameID, env, pageSpec.PageKey, now); err != nil {
-			return err
-		}
-		if err := publishedModel.Create(txCtx, &model.PublishedPageSpec{
-			GameID:                gameID,
-			Env:                   env,
-			PageKey:               pageSpec.PageKey,
-			Version:               nextVersion,
-			SpecJSON:              specJSON,
-			BindingContractsJSON:  string(contractsJSON),
-			RendererSchemaVersion: rendererSchemaVersion,
-			BaseProposalKey:       strings.TrimSpace(proposal.ProposalKey),
-			BaseProposalVersion:   proposalSnapshotVersion,
-			FunctionDigest:        strings.TrimSpace(proposal.FunctionDigest),
-			SemanticsDigest:       strings.TrimSpace(proposal.SemanticsDigest),
-			GeneratorVersion:      strings.TrimSpace(proposal.GeneratorVersion),
-			Active:                true,
-			PublishedAt:           now,
-			PublishedBy:           actor,
-		}); err != nil {
-			return err
-		}
 		if err := pageModel.Upsert(txCtx, draft); err != nil {
 			return fmt.Errorf("create page draft from proposal: %w", err)
 		}
@@ -502,8 +559,8 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 			PageKey:   draft.PageKey,
 			Version:   nextVersion,
 			SpecJSON:  specJSON,
-			Status:    "published",
-			Message:   "accept and publish generated proposal " + strings.TrimSpace(proposal.ProposalKey),
+			Status:    "draft",
+			Message:   "accept generated proposal " + strings.TrimSpace(proposal.ProposalKey),
 			CreatedBy: actor,
 			CreatedAt: now,
 		}); err != nil {
@@ -517,6 +574,14 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 	if err != nil {
 		return ProposalPublishResult{}, err
 	}
+	revision := result.DraftRevision
+	if s.publishDraft == nil {
+		return ProposalPublishResult{}, fmt.Errorf("canonical proposal publisher is not configured")
+	}
+	if err := s.publishDraft.PublishProposalDraft(ctx, gameID, env, actor, pageSpec.PageKey, revision, proposalKey); err != nil {
+		return ProposalPublishResult{}, err
+	}
+	result.PublishedVersion = revision
 	return result, nil
 }
 
@@ -1282,6 +1347,30 @@ func (s *ProposalService) buildBindingContracts(ctx context.Context, gameID, env
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].BindingID < out[j].BindingID })
 	return out, nil
+}
+
+func currentFunctionDigest(ctx context.Context, contractModel *model.FunctionContractModel, gameID, env string, page spec.PageSpec) (string, error) {
+	contracts, err := contractModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		return "", err
+	}
+	selectedContracts := make([]*model.FunctionContract, 0, len(page.Bindings))
+	bindingFunctions := make(map[string]struct{}, len(page.Bindings))
+	for _, binding := range page.Bindings {
+		if functionID := strings.TrimSpace(binding.FunctionID); functionID != "" {
+			bindingFunctions[functionID] = struct{}{}
+		}
+	}
+	for _, contract := range contracts {
+		if contract == nil {
+			continue
+		}
+		if _, wanted := bindingFunctions[strings.TrimSpace(contract.FunctionID)]; !wanted {
+			continue
+		}
+		selectedContracts = append(selectedContracts, contract)
+	}
+	return computeDigest(selectedContracts), nil
 }
 
 func digestJSON(raw model.JSON) string {

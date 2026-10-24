@@ -285,12 +285,28 @@ func (s *Service) planStaleHealRevision(ctx context.Context, gameID, env string,
 	}, nil
 }
 
-// publishStaleHealRevision 基于已发布快照落独立 page_versions 修订并发布。
-// 事务内重查 active 基线：一旦基线已前进即冲突返回，不覆盖并发发布。
+// publishStaleHealRevision routes immutable published-base revisions through
+// the canonical snapshot transaction. Stale-heal semantics are limited to
+// base-version conflict detection and the system caller audit record.
 func (s *Service) publishStaleHealRevision(ctx context.Context, gameID, env string, revision *staleHealRevision) (*PagePublishResponse, error) {
 	if revision == nil {
 		return nil, errorx.NewBadRequest("stale heal revision is required")
 	}
+	response, err := s.publishPublishedBaseRevision(ctx, gameID, env, staleHealActor, revision)
+	if err != nil {
+		return nil, err
+	}
+	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, revision.Page.PageKey, map[string]interface{}{
+		"action":                 "stale_heal",
+		"caller":                 pagePublishCallerStaleHeal,
+		"base_published_version": revision.BaseVersion,
+		"published_version":      response.PublishedVersion,
+		"safe_bindings":          countChangedBindings(revision.Reports),
+	})
+	return response, nil
+}
+
+func (s *Service) publishPublishedBaseRevision(ctx context.Context, gameID, env, actor string, revision *staleHealRevision) (*PagePublishResponse, error) {
 	now := time.Now()
 	response := &PagePublishResponse{}
 	err := s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, publishedModel *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
@@ -299,7 +315,7 @@ func (s *Service) publishStaleHealRevision(ctx context.Context, gameID, env stri
 			return err
 		}
 		if base.Version != revision.BaseVersion {
-			return errorx.NewConflictWithDetails("stale heal publish conflict: published base changed", map[string]any{
+			return errorx.NewConflictWithDetails("published base changed", map[string]any{
 				"expected": revision.BaseVersion,
 				"current":  base.Version,
 			})
@@ -326,7 +342,7 @@ func (s *Service) publishStaleHealRevision(ctx context.Context, gameID, env stri
 			GeneratorVersion:      revision.PublishSource.GeneratorVersion,
 			Active:                true,
 			PublishedAt:           now,
-			PublishedBy:           staleHealActor,
+			PublishedBy:           actor,
 		}); err != nil {
 			return err
 		}
@@ -337,13 +353,12 @@ func (s *Service) publishStaleHealRevision(ctx context.Context, gameID, env stri
 			Version:   nextRevision,
 			SpecJSON:  revision.SpecJSON,
 			Status:    "published",
-			Message:   "stale heal from published base " + strconv.Itoa(revision.BaseVersion),
-			CreatedBy: staleHealActor,
+			Message:   "publish revision from published base " + strconv.Itoa(revision.BaseVersion),
+			CreatedBy: actor,
 			CreatedAt: now,
 		}); err != nil {
 			return err
 		}
-		// 只推进发布指针：人工未发布草稿的 spec/revision 原样保留。
 		if err := pageModel.UpdatePublishedPointer(txCtx, gameID, env, revision.Page.PageKey, nextRevision, now); err != nil {
 			return err
 		}
@@ -355,12 +370,6 @@ func (s *Service) publishStaleHealRevision(ctx context.Context, gameID, env stri
 	if err != nil {
 		return nil, err
 	}
-	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, revision.Page.PageKey, map[string]interface{}{
-		"action":                 "stale_heal",
-		"base_published_version": revision.BaseVersion,
-		"published_version":      response.PublishedVersion,
-		"safe_bindings":          countChangedBindings(revision.Reports),
-	})
 	return response, nil
 }
 

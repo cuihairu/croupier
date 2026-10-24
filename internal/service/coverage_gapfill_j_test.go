@@ -320,6 +320,8 @@ func TestAcceptProposal_UpdateProposalStatusError(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	svc := NewProposalService(db)
+	ctx = newPublishAuthorizedContext(t, db, "gapfill_failure_publisher")
+	svc.SetProposalDraftPublisher(erringDraftPublisher{message: "injected published failure"})
 
 	page := testProposalPageSpec("resource--player-acc4")
 	mustPersistProposal(t, svc, page, "ready")
@@ -335,6 +337,7 @@ func TestAcceptProposal_FindExistingDraftError(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(erringDraftPublisher{message: "injected published failure"})
 
 	page := testProposalPageSpec("resource--player-acc1")
 	mustPersistProposal(t, svc, page, "ready")
@@ -440,6 +443,7 @@ func TestAcceptAndPublishProposal_DeactivateError(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(erringDraftPublisher{message: "injected published failure"})
 
 	page := setupPublishableProposal(t, db, svc, "operation--mail-pub4")
 
@@ -454,6 +458,7 @@ func TestAcceptAndPublishProposal_PublishedCreateError(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(erringDraftPublisher{message: "injected published create failure"})
 
 	page := setupPublishableProposal(t, db, svc, "operation--mail-pub5")
 
@@ -474,6 +479,7 @@ func TestAcceptAndPublishProposal_DraftUpsertError(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	svc := NewProposalService(db)
+	ctx = newPublishAuthorizedContext(t, db, "draft_failure_publisher")
 
 	page := setupPublishableProposal(t, db, svc, "operation--mail-pub6")
 
@@ -495,6 +501,7 @@ func TestAcceptAndPublishProposal_VersionUpsertError(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	svc := NewProposalService(db)
+	ctx = newPublishAuthorizedContext(t, db, "version_failure_publisher")
 
 	page := setupPublishableProposal(t, db, svc, "operation--mail-pub7")
 

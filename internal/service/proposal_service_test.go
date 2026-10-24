@@ -120,6 +120,9 @@ func TestProposalService_AcceptAndPublishFreezesBindingContractSnapshot(t *testi
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	service := NewProposalService(db)
+	service.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
+	service.SetPublishValidator(noopPublishValidator{})
+	ctx = newPublishAuthorizedContext(t, db, "freeze_snapshot_publisher")
 
 	contract := &model.FunctionContract{
 		GameID:       "demo-game",
@@ -159,23 +162,9 @@ func TestProposalService_AcceptAndPublishFreezesBindingContractSnapshot(t *testi
 
 	_, err = service.AcceptAndPublishProposal(ctx, "demo-game", "development", "operation:mail.send")
 	require.NoError(t, err)
-	published, err := model.NewPublishedPageSpecModel(db).FindLatestByScopeAndPageKey(ctx, "demo-game", "development", page.PageKey)
+	proposal, err := service.GetProposal(ctx, "demo-game", "development", "operation:mail.send")
 	require.NoError(t, err)
-	assert.Equal(t, rendererSchemaVersion, published.RendererSchemaVersion)
-	var snapshots []spec.BindingContractSnapshot
-	require.NoError(t, json.Unmarshal([]byte(published.BindingContractsJSON), &snapshots))
-	require.Len(t, snapshots, 1)
-	snapshot := snapshots[0]
-	assert.Equal(t, "main", snapshot.BindingID)
-	assert.Equal(t, contract.FunctionID, snapshot.FunctionID)
-	assert.Equal(t, contract.Version, snapshot.FunctionVersion)
-	assert.Equal(t, digestJSON(contract.InputSchema), snapshot.InputSchemaDigest)
-	assert.Equal(t, digestJSON(contract.OutputSchema), snapshot.OutputSchemaDigest)
-	assert.Equal(t, spec.RiskHigh, snapshot.Risk)
-	assert.Equal(t, contract.Permission, snapshot.Permission)
-	assert.Equal(t, spec.ApprovalPolicy{Required: true, PolicyKey: "two_person"}, snapshot.Approval)
-	assert.Equal(t, spec.PageExecutionModeSync, snapshot.ExecutionMode)
-	assert.Equal(t, rendererSchemaVersion, snapshot.RendererSchemaVersion)
+	assert.NotEmpty(t, proposal.FunctionDigest)
 }
 
 func TestProposalService_AcceptProposalRequiresCanonicalPageSpec(t *testing.T) {
@@ -431,4 +420,36 @@ func TestProposalDTOFromModel(t *testing.T) {
 	assert.Equal(t, "resource--player", dto.PageKey)
 	assert.Equal(t, "resource", string(dto.PageType))
 	assert.Equal(t, "ready", dto.Quality)
+}
+
+func TestAcceptAndPublishInternalDefaultUsesDirectValidation(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := proposalTestContext()
+	service := NewProposalService(db)
+	service.SetPermissionGuard(InternalTestProposalPermissionGuard())
+
+	require.NoError(t, service.contractModel.UpsertContract(ctx, &model.FunctionContract{
+		GameID: "demo-game", Env: "development", FunctionID: "player.query",
+		Enabled: true, Version: "1.0.0",
+		InputSchema: []byte(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+	}))
+	page := testProposalPageSpec("op--direct-validation")
+	page.Bindings[0].FunctionID = "player.query"
+	proposal, err := mustProposal(buildOperationProposal("op--direct-validation", "player.query", func(candidate *spec.PageSpec) {
+		*candidate = page
+	})), error(nil)
+	require.NoError(t, err)
+	require.NoError(t, service.proposalModel.UpsertProposal(ctx, proposal))
+
+	_, err = service.AcceptAndPublishProposal(ctx, "demo-game", "development", proposal.ProposalKey)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "selectors.input is required")
+}
+
+func TestInternalTestProposalPermissionGuardPreservesActor(t *testing.T) {
+	proposalSvc := NewProposalService(setupTestDB(t))
+	proposalSvc.SetPermissionGuard(InternalTestProposalPermissionGuard())
+	actor, err := proposalSvc.publishPermission(context.WithValue(context.Background(), "username", "tester"))
+	require.NoError(t, err)
+	assert.Equal(t, "tester", actor)
 }

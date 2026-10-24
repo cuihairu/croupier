@@ -4,11 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/cuihairu/croupier/internal/api/page"
+	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	registry "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/service"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -18,7 +24,10 @@ import (
 func TestRegistrationMaterializesDefaultOperationProposal(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.FunctionContractVersion{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.Admin{}, &model.Role{}, &model.Permission{}, &model.AdminRole{}, &model.RolePermission{}, &model.FunctionContract{}, &model.FunctionContractVersion{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
 	store := registry.NewStoreWithDB(db)
 	store.SetContractService(service.NewContractService(db))
 	err = store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo-game", Env: "development", Functions: map[string]registry.FunctionMeta{
@@ -28,7 +37,8 @@ func TestRegistrationMaterializesDefaultOperationProposal(t *testing.T) {
 	contract, err := model.NewFunctionContractModel(db).FindByScopeAndFunctionID(context.Background(), "demo-game", "development", "inventory.consume")
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"type":"object","properties":{"player_id":{"type":"string"},"item_id":{"type":"string"}},"required":["player_id","item_id"]}`, string(contract.InputSchema))
-	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(context.Background(), "demo-game", "development", "operation:inventory.consume")
+	ctx := context.Background()
+	proposal, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:inventory.consume")
 	require.NoError(t, err)
 	assert.Equal(t, "operation", proposal.PageType)
 	assert.Equal(t, "basic", proposal.Quality)
@@ -39,12 +49,63 @@ func TestRegistrationMaterializesDefaultOperationProposal(t *testing.T) {
 	require.NotNil(t, generated.Operation.Form)
 	assert.JSONEq(t, string(contract.InputSchema), string(generated.Operation.Form.JSONSchema))
 
-	published, err := service.NewProposalService(db).AcceptAndPublishProposal(context.Background(), "demo-game", "development", proposal.ProposalKey)
+	pageSvcCtx := &svc.ServiceContext{
+		DB:                     db,
+		AdminModel:             model.NewAdminModel(db),
+		RoleModel:              model.NewRoleModel(db),
+		PermissionModel:        model.NewPermissionModel(db),
+		PageSpecModel:          model.NewPageSpecModel(db),
+		PublishedPageSpecModel: model.NewPublishedPageSpecModel(db),
+		PageVersionModel:       model.NewPageVersionModel(db),
+		MenuModel:              model.NewMenuItemModel(db),
+		RegistryStore:          store,
+		AuditService:           audit.NewAuditService(audit.NewInMemoryAuditStore(), nil),
+		Cache:                  cache.NewNullCache(),
+		CacheHelper:            cache.NewCacheHelper(cache.NewNullCache()),
+	}
+	pageSvc := page.NewService(pageSvcCtx)
+	publishCtx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
+	publishCtx = context.WithValue(publishCtx, "username", "integration-publisher")
+	admin := model.Admin{Username: "integration-publisher", Status: 1, PasswordHash: "test"}
+	require.NoError(t, db.Create(&admin).Error)
+	role := model.Role{Name: "integration-publisher", Description: "registry publish integration"}
+	require.NoError(t, db.Create(&role).Error)
+	require.NoError(t, db.Create(&model.AdminRole{AdminID: admin.ID, RoleID: role.ID}).Error)
+	require.NoError(t, db.FirstOrCreate(&model.Permission{ID: "pages:publish", Name: "pages:publish", Resource: "pages", Action: "publish", Category: "dashboard"}, model.Permission{ID: "pages:publish"}).Error)
+	require.NoError(t, db.Create(&model.RolePermission{RoleID: role.ID, PermissionID: "pages:publish"}).Error)
+	proposalSvc := service.NewProposalService(db)
+	proposalSvc.SetPermissionGuard(func(permissionCtx context.Context, actor string) (string, error) {
+		if _, _, err := logicutils.RequireAnyPermission(
+			permissionCtx, pageSvcCtx, "无权发布页面", "admin:all", "pages:publish",
+		); err != nil {
+			return "", err
+		}
+		return actor, nil
+	})
+	proposalSvc.SetPublishValidator(pageSvc)
+	proposalSvc.SetProposalDraftPublisher(pageSvc.PublishProposalDraftForService())
+	ctx = publishCtx
+	published, err := proposalSvc.AcceptAndPublishProposal(ctx, "demo-game", "development", proposal.ProposalKey)
 	require.NoError(t, err)
 	assert.Equal(t, proposal.PageKey, published.PageKey)
-	page, err := model.NewPublishedPageSpecModel(db).FindLatestByScopeAndPageKey(context.Background(), "demo-game", "development", proposal.PageKey)
+	var page *model.PublishedPageSpec
+	for range 20 {
+		page, err = model.NewPublishedPageSpecModel(db).FindLatestByScopeAndPageKey(ctx, "demo-game", "development", proposal.PageKey)
+		if err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	require.NoError(t, err)
 	assert.NotEmpty(t, page.SpecJSON)
+}
+
+type noopRegistryPublishValidator struct{}
+
+func (noopRegistryPublishValidator) ValidatePageSpecInScope(
+	context.Context, string, string, spec.PageSpec, bool,
+) []spec.Diagnostic {
+	return nil
 }
 
 func TestUpsertAgentDoesNotInferSDKResourceOrCapability(t *testing.T) {

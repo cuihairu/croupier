@@ -44,6 +44,19 @@ type Service struct {
 	// 「只建提案」现状。
 	publishReviewPolicy func(env string) string
 	autoPublish         func(ctx context.Context, gameID, env, proposalKey string) error
+	publishDraft        VersionDraftPublisher
+	publishRollback     VersionRollbackValidator
+	permissionGuard     func(context.Context, string) error
+}
+
+// VersionDraftPublisher and VersionRollbackValidator route version-owned
+// publish semantics through the canonical PageSpec core without importing it.
+type VersionDraftPublisher interface {
+	PublishVersioningDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, reason string) (int, error)
+}
+
+type VersionRollbackValidator interface {
+	ValidateVersioningRollbackTarget(ctx context.Context, gameID, env, pageKey string, targetVersion int) error
 }
 
 // NewService creates the service.
@@ -69,6 +82,25 @@ func (s *Service) SetPublishReviewHooks(
 ) {
 	s.publishReviewPolicy = policy
 	s.autoPublish = autoPublish
+}
+
+func (s *Service) SetCanonicalPublishers(
+	publishDraft VersionDraftPublisher,
+	publishRollback VersionRollbackValidator,
+) {
+	s.publishDraft = publishDraft
+	s.publishRollback = publishRollback
+}
+
+func (s *Service) SetPermissionGuard(guard func(context.Context, string) error) {
+	s.permissionGuard = guard
+}
+
+func (s *Service) requirePublishPermission(ctx context.Context) error {
+	if s.permissionGuard == nil {
+		return nil
+	}
+	return s.permissionGuard(ctx, actorFromContext(ctx))
 }
 
 // CompositePageOutcome composite 保存结果（T10：含 auto 发布分级结果）。
@@ -1705,6 +1737,9 @@ func (s *Service) RollbackDraft(ctx context.Context, req *RollbackRequest) (*Rol
 
 // RollbackPublish rolls back to a previous published version.
 func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*RollbackResponse, error) {
+	if err := s.requirePublishPermission(ctx); err != nil {
+		return nil, err
+	}
 	if req.Version <= 0 {
 		return nil, errorx.NewBadRequest("version is required")
 	}
@@ -1714,6 +1749,11 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 	pageKey := strings.TrimSpace(req.PageKey)
 	if pageKey == "" {
 		return nil, errorx.NewBadRequest("pageKey is required")
+	}
+	if s.publishRollback != nil {
+		if err := s.publishRollback.ValidateVersioningRollbackTarget(ctx, req.GameID, req.Env, pageKey, req.Version); err != nil {
+			return nil, err
+		}
 	}
 	target, err := s.publishedModel.FindByScopePageKeyAndVersion(ctx, req.GameID, req.Env, pageKey, req.Version)
 	if err != nil {
@@ -1871,6 +1911,9 @@ type RepublishResponse struct {
 
 // Republish creates a new published version from current draft.
 func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*RepublishResponse, error) {
+	if err := s.requirePublishPermission(ctx); err != nil {
+		return nil, err
+	}
 	pageKey := strings.TrimSpace(req.PageKey)
 	if pageKey == "" {
 		return nil, errorx.NewBadRequest("pageKey is required")
@@ -1879,21 +1922,51 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 	if err != nil {
 		return nil, errorx.NewNotFound("page draft not found")
 	}
-	pageSpec, err := pageSpecFromModel(page)
+	actor := actorFromContext(ctx)
+	currentRevision := page.DraftRevision
+	var nextVersion int
+	err = s.withTransaction(ctx, func(txCtx context.Context) error {
+		pageModel := model.NewPageSpecModel(dbctx.Resolve(txCtx, s.db))
+		current, err := pageModel.FindByScopeAndPageKey(txCtx, req.GameID, req.Env, pageKey)
+		if err != nil {
+			return errorx.NewNotFound("page draft not found")
+		}
+		if current.DraftRevision != currentRevision {
+			return draftRevisionConflict(currentRevision, current.DraftRevision)
+		}
+		if s.publishDraft == nil {
+			return fmt.Errorf("canonical versioning publisher is not configured")
+		}
+		nextVersion, err = s.publishDraft.PublishVersioningDraft(txCtx, req.GameID, req.Env, actor, pageKey, currentRevision, firstNonEmpty(req.Reason, "republish current draft"))
+		return err
+	})
 	if err != nil {
 		return nil, err
+	}
+	return &RepublishResponse{
+		Version: nextVersion,
+		Message: fmt.Sprintf("republished %s at version %d", pageKey, nextVersion),
+	}, nil
+}
+
+func (s *Service) republishLocalCore(ctx context.Context, req *RepublishRequest, pageKey string, currentRevision int, actor string) (int, error) {
+	page, err := s.pageModel.FindByScopeAndPageKey(ctx, req.GameID, req.Env, pageKey)
+	if err != nil {
+		return 0, errorx.NewNotFound("page draft not found")
+	}
+	if page.DraftRevision != currentRevision {
+		return 0, draftRevisionConflict(currentRevision, page.DraftRevision)
+	}
+	pageSpec, err := pageSpecFromModel(page)
+	if err != nil {
+		return 0, err
 	}
 	contracts, err := s.buildBindingContracts(ctx, req.GameID, req.Env, pageSpec.Bindings)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	// marshalPageSpec 对 Unmarshal 产物的 pageSpec 恒成功；json.Marshal 对
-	// []spec.BindingContractSnapshot（纯数据字段）恒成功——两处 err 检查为
-	// 死分支，已删（论证见 persistMergedDraft 处及 service 包同型处理）。
 	specJSON, _ := marshalPageSpec(pageSpec)
 	contractsJSON, _ := json.Marshal(contracts)
-
-	actor := actorFromContext(ctx)
 	now := time.Now()
 	var nextVersion int
 	err = s.withTransaction(ctx, func(txCtx context.Context) error {
@@ -1946,13 +2019,9 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 		})
 	})
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	return &RepublishResponse{
-		Version: nextVersion,
-		Message: fmt.Sprintf("republished %s at version %d", pageKey, nextVersion),
-	}, nil
+	return nextVersion, nil
 }
 
 const rendererSchemaVersion = "page-spec:1"

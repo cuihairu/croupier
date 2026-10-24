@@ -301,7 +301,8 @@ func TestV11SyncSelectors_FunctionVersionStaleManual(t *testing.T) {
 
 	rebuildFunctionContract(t, db, ctx, functionID, v11GiftMeta("1.0.0"))
 	require.NoError(t, dashboardservice.NewContractService(db).RebuildProposalForFunction(ctx, "demo-game", "development", functionID))
-	published, err := dashboardservice.NewProposalService(db).AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
+	published, err := service.newInternalProposalServiceForContext(db).
+		AcceptAndPublishProposal(ctx, "demo-game", "development", proposalKey)
 	require.NoError(t, err)
 	pageKey := published.PageKey
 	require.NotEmpty(t, pageKey)

@@ -199,9 +199,9 @@ digest 比对提示「所用模板有新版本」。**不参与发布校验、�
 - `pages.publishReview=auto`：保存成功后直接发布，`published: true`；发布被质量
   门槛（error 级诊断/发布校验）拒绝或失败时 `published: false` 且 `publishError`
   带回原因——**保存本身已成功、提案保留**，前端按提示降级人工链重试；
-- 发布走真实链路（快照/版本历史照常），权限沿用保存入口 `pages:edit`（策略已
-  声明该 env 免审核），详见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)
-  的「发布分级」小节。
+- 发布走真实链路（快照/版本历史照常），发布权限为 `pages:publish`；策略只
+  声明免审核，不豁免发布权限。详见
+  [Dashboard Resource/Page 模型](./dashboard-page-model.md) 的「发布分级」小节。
 
 ## 数据引用和 mapping（Selector AST）
 

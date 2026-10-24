@@ -21,6 +21,7 @@ func TestVersioningService_RollbackDraft_Success(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
+	service.SetCanonicalPublishers(localVersioningPublisher{service: service}, nil)
 
 	page := spec.PageSpec{
 		PageKey:     "resource--player",
@@ -105,6 +106,7 @@ func TestVersioningService_RollbackPublish_Success(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
+	service.SetCanonicalPublishers(localVersioningPublisher{service: service}, nil)
 
 	// Use unique game_id to avoid UNIQUE constraint conflicts across tests.
 	const testGame = "rollback_publish_test"
@@ -188,6 +190,7 @@ func TestVersioningService_Republish_Success(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
+	service.SetCanonicalPublishers(localVersioningPublisher{service: service}, nil)
 
 	// Use unique game_id to avoid UNIQUE constraint conflicts across tests.
 	const testGame = "republish_test"
@@ -249,6 +252,7 @@ func TestVersioningService_Republish_PageNotFound(t *testing.T) {
 func TestVersioningService_Republish_BindingWithEmptyFunctionID(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)
+	service.SetCanonicalPublishers(localVersioningPublisher{service: service}, nil)
 	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", spec.PageSpec{
 		PageKey: "resource--player", Type: spec.PageTypeResource,
 		Title:    spec.LocalizedText{"zh-CN": "玩家"},
@@ -265,6 +269,7 @@ func TestVersioningService_Republish_BindingWithEmptyFunctionID(t *testing.T) {
 func TestVersioningService_Republish_ContractNotFound(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)
+	service.SetCanonicalPublishers(localVersioningPublisher{service: service}, nil)
 	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", spec.PageSpec{
 		PageKey: "resource--player", Type: spec.PageTypeResource,
 		Title:    spec.LocalizedText{"zh-CN": "玩家"},
@@ -282,6 +287,7 @@ func TestVersioningService_Republish_DisabledContract(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	service := NewService(db)
+	service.SetCanonicalPublishers(localVersioningPublisher{service: service}, nil)
 	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, &model.FunctionContract{
 		GameID: "demo-game", Env: "development", FunctionID: "disabled.func",
 		Version: "1.0.0", Enabled: false, UpdatedAt: time.Now(),

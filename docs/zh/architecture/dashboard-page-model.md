@@ -568,12 +568,17 @@ composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` �
 - **新页面**：走提案接受发布链（AcceptAndPublishProposal）；
 - **已存在页面**：走「提案重生成草稿 + 发布」组合（与 BulkRepublish 单页路径
   一致）——乐观锁、published_page_specs 快照与 page_versions 历史照常记录。
+  `/pages/:pageKey/republish` 与 `/pages/:pageKey/rollback-publish` 也经 canonical
+  发布边界，并统一要求 `pages:publish`。
 
 两条不变的门槛：**质量门槛不因免审核降低**（提案 error 级诊断与发布校验照常
 拒绝）；**发布失败不回滚保存**（响应 `publishError` 带回原因，提案保留，前端
-降级人工链）。权限语义：auto 路径不额外要求 `pages:publish`——env 已由策略声明
-免审核，权限沿用保存入口的 `pages:edit`（这是有意决策：免审核的 env 中保存者
-即发布者，审计事件 `auto_publish_composite` 记录 variant 与操作者）。
+降级人工链）。发布入口统一收敛在 `page.Service.publishCore`：权限、预期草稿
+修订号、页面/selector 校验、契约快照与审计规则只在核心实现一次；入口用
+`pagePublishEntry` 显式建模 caller、内部调用者、批量范围与 auto 策略差异，
+自动化路径不得绕过草稿隔离。auto 路径仍必须持有 `pages:publish`——env 已由
+策略声明免审核不豁免发布权限（保存者需同时具备 `pages:edit` 与
+`pages:publish`；审计事件 `auto_publish_composite` 记录 variant 与操作者）。
 
 ### Selector 一键同步（sync-selectors）
 

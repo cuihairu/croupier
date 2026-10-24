@@ -50,7 +50,11 @@ func TestCreateCompositeProposalValidationBranchesV9(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, single)
 	assert.NotEmpty(t, single.ProposalKey)
-	pubRes, err := NewProposalService(db).AcceptAndPublishProposal(ctx, "g9", "e9", single.ProposalKey)
+	publishCtx := newPublishAuthorizedContext(t, db, "composite_single_publisher")
+	proposalSvc := NewProposalService(db)
+	proposalSvc.SetPermissionGuard(InternalTestProposalPermissionGuard())
+	proposalSvc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
+	pubRes, err := proposalSvc.AcceptAndPublishProposal(publishCtx, "g9", "e9", single.ProposalKey)
 	require.NoError(t, err)
 	assert.Equal(t, "composite--one", pubRes.PageKey)
 

@@ -287,7 +287,7 @@ func TestFieldRenameCandidatesEdgeCasesV9(t *testing.T) {
 		JSONSchema(`{"type":"object","properties":{"old":{"type":"string"}}}`),
 		JSONSchema(`{"type":"object","properties":{"new":{"type":"string"}},"required":["new"]}`),
 	)
-	assert.Empty(t, result.RenameCandidates)
+	assert.Empty(t, result.RenameCandidates, "required-flag changes must not be reported as renames")
 
 	nested := DiffJSONSchemaFields(
 		JSONSchema(`{"type":"object","properties":{"a":{"type":"object","properties":{"old":{"type":"string"}}}}}`),

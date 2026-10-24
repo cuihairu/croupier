@@ -22,6 +22,7 @@ import (
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
+	versioningservice "github.com/cuihairu/croupier/internal/service/versioning"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
 )
@@ -51,6 +52,14 @@ type Service struct {
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
+}
+
+type proposalDraftPublisher struct {
+	service *Service
+}
+
+func (p proposalDraftPublisher) PublishProposalDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, proposalKey string) error {
+	return p.service.PublishProposalDraft(ctx, gameID, env, actor, pageKey, expectedDraftRevision, proposalKey)
 }
 
 // pageInvolvedResources 计算一个页面涉及的资源集合（OPEN-ISSUES #30）：
@@ -729,7 +738,7 @@ func (s *Service) planSelectorSync(ctx context.Context, gameID, env string, p *m
 	if err != nil {
 		return nil, err
 	}
-	functions := s.normalizedFunctions(ctx)
+	functions := s.functionsForScope(ctx, gameID, env)
 	contracts := s.publishedContractsForSync(ctx, p)
 	onlyBindings := map[string]struct{}{}
 	for _, id := range bindingIDs {
@@ -791,7 +800,7 @@ func (s *Service) planSelectorSync(ctx context.Context, gameID, env string, p *m
 		pageSpec:  pageSpec,
 		synced:    synced,
 		reports:   reports,
-		remaining: s.validatePageSpec(ctx, synced, true),
+		remaining: s.ValidatePageSpecInScope(ctx, gameID, env, synced, true),
 	}, nil
 }
 
@@ -808,7 +817,14 @@ func (s *Service) autoPublishAfterSync(ctx context.Context, resp *PageSyncSelect
 		return
 	}
 	rev := draftRevision
-	if _, err := s.publishCore(ctx, gameID, env, actor, &PagePublishRequest{PageKey: resp.PageKey, DraftRevision: &rev}); err != nil {
+	if _, err := s.publishFromEntry(ctx, pagePublishEntry{
+		Caller:           pagePublishCallerAPI,
+		Actor:            actor,
+		AllowsAutoPolicy: false,
+		RequiresPublish:  false,
+		GameID:           gameID,
+		Env:              env,
+	}, &PagePublishRequest{PageKey: resp.PageKey, DraftRevision: &rev}); err != nil {
 		resp.AutoPublishError = err.Error()
 		return
 	}
@@ -949,6 +965,7 @@ func (s *Service) publishCore(ctx context.Context, gameID, env, actor string, re
 	}
 
 	functions := s.normalizedFunctions(ctx)
+	functions = s.functionsForScope(ctx, gameID, env)
 	contracts, err := buildBindingContracts(pageSpec.Bindings, functions)
 	if err != nil {
 		return nil, err
@@ -1333,7 +1350,7 @@ func isValidPageType(t spec.PageType) bool {
 	}
 }
 
-func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publish bool) []spec.Diagnostic {
+func (s *Service) ValidatePageSpecInScope(ctx context.Context, gameID, env string, page spec.PageSpec, publish bool) []spec.Diagnostic {
 	var diags []spec.Diagnostic
 	if !isValidPageType(page.Type) {
 		diags = append(diags, diagnostic("page_type_invalid", spec.SeverityError, "page type is invalid", "type"))
@@ -1355,7 +1372,7 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	}
 
 	bindingsByID := map[string]spec.PageFunctionBinding{}
-	functions := s.normalizedFunctions(ctx)
+	functions := s.functionsForScope(ctx, gameID, env)
 	for i, binding := range page.Bindings {
 		field := fmt.Sprintf("bindings[%d]", i)
 		diags = append(diags, validateBinding(field, binding, functions, page, publish)...)
@@ -1368,6 +1385,14 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	}
 
 	return diags
+}
+
+func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publish bool) []spec.Diagnostic {
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return []spec.Diagnostic{diagnostic("scope_missing", spec.SeverityError, "game and environment scope are required", "scope")}
+	}
+	return s.ValidatePageSpecInScope(ctx, gameID, env, page, publish)
 }
 
 func validatePageShape(page spec.PageSpec) []spec.Diagnostic {
@@ -1774,6 +1799,17 @@ func (s *Service) normalizedFunctions(ctx context.Context) map[string]spec.Funct
 	return functions
 }
 
+func (s *Service) functionsForScope(ctx context.Context, gameID, env string) map[string]spec.FunctionSpec {
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
+		return map[string]spec.FunctionSpec{}
+	}
+	functions, err := contractsvc.FunctionSpecsByScope(ctx, model.NewFunctionContractModel(s.svcCtx.DB), gameID, env)
+	if err != nil {
+		return map[string]spec.FunctionSpec{}
+	}
+	return functions
+}
+
 func (s *Service) requirePageRead(ctx context.Context) error {
 	_, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权查看页面", "admin:all", "pages:read", "pages:edit", "pages:publish", "pages:rollback")
 	return err
@@ -1960,6 +1996,284 @@ type pagePublishSource struct {
 	GeneratorVersion    string
 }
 
+// pagePublishEntry models the only permitted differences between publish
+// callers. Everything else uses the same permission policy, draft optimistic
+// lock, validation, contract snapshot, transaction, and audit contract.
+type pagePublishEntry struct {
+	Caller           pagePublishCaller
+	Actor            string
+	AllowsAutoPolicy bool
+	RequiresPublish  bool
+	InternalCaller   bool
+	GameID           string
+	Env              string
+}
+
+type pagePublishCaller string
+
+const (
+	pagePublishCallerAPI              pagePublishCaller = "api.publish"
+	pagePublishCallerRepublish        pagePublishCaller = "page.republish"
+	pagePublishCallerProposalAccept   pagePublishCaller = "proposal.accept_and_publish"
+	pagePublishCallerAutoPublish      pagePublishCaller = "auto.publish_composite"
+	pagePublishCallerVersionRepublish pagePublishCaller = "versioning.republish"
+	pagePublishCallerVersionRollback  pagePublishCaller = "versioning.rollback_publish"
+	pagePublishCallerStaleHeal        pagePublishCaller = "stale_heal"
+)
+
+// PublishProposalDraft adapts the package-safe proposal boundary to the same
+// explicit proposal-accept entry used by HTTP and bulk acceptance.
+func (s *Service) PublishProposalDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, proposalKey string) error {
+	entry := pagePublishEntry{
+		Caller:           pagePublishCallerProposalAccept,
+		Actor:            actor,
+		AllowsAutoPolicy: false,
+		RequiresPublish:  true,
+		GameID:           gameID,
+		Env:              env,
+	}
+	response, err := s.publishEntryCore(ctx, entry, &PagePublishRequest{PageKey: pageKey, DraftRevision: &expectedDraftRevision})
+	if err != nil {
+		return err
+	}
+	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, pageKey, map[string]interface{}{
+		"action":            "accept_and_publish",
+		"caller":            pagePublishCallerProposalAccept,
+		"proposal":          proposalKey,
+		"draft_revision":    expectedDraftRevision,
+		"published_version": response.PublishedVersion,
+	})
+	return nil
+}
+
+// PublishProposalDraftForService is the cross-package adapter used when the
+// dashboard proposal service cannot import this package directly. It exposes
+// only the canonical proposal-accept entry and never an escape hatch.
+func (s *Service) PublishProposalDraftForService() contractsvc.ProposalDraftPublisher {
+	return proposalDraftPublisher{service: s}
+}
+
+// PublishVersioningDraft adapts versioning republish to the canonical draft
+// publish core. It rejects a stale draft revision before writing a new version.
+func (s *Service) PublishVersioningDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, reason string) (int, error) {
+	entry := pagePublishEntry{
+		Caller: pagePublishCallerVersionRepublish,
+		Actor:  actor,
+		GameID: gameID,
+		Env:    env,
+	}
+	revision := expectedDraftRevision
+	if _, err := s.publishEntryCore(ctx, entry, &PagePublishRequest{PageKey: pageKey, DraftRevision: &revision}); err != nil {
+		return 0, err
+	}
+	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, pageKey, map[string]interface{}{
+		"action":            "republish_current_draft",
+		"caller":            pagePublishCallerVersionRepublish,
+		"reason":            reason,
+		"draft_revision":    expectedDraftRevision,
+		"published_version": revision,
+	})
+	return revision, nil
+}
+
+// ValidateVersioningRollbackTarget applies the same PageSpec publish contract
+// to the immutable rollback target before versioning creates the new revision.
+func (s *Service) ValidateVersioningRollbackTarget(ctx context.Context, gameID, env, pageKey string, targetVersion int) error {
+	published, err := s.svcCtx.PublishedPageSpecModel.FindByScopePageKeyAndVersion(ctx, gameID, env, pageKey, targetVersion)
+	if err != nil {
+		return errorx.NewNotFound("published page version not found")
+	}
+	pageSpec, err := pageSpecFromPublishedModel(*published)
+	if err != nil {
+		return err
+	}
+	diags := s.ValidatePageSpecInScope(ctx, gameID, env, pageSpec, true)
+	if countErrors(diags) > 0 {
+		return errorx.NewValidationErrorWithDetails("page validation failed", diagnosticsToDetails(diags))
+	}
+	contracts, err := buildBindingContracts(pageSpec.Bindings, s.functionsForScope(ctx, gameID, env))
+	if err != nil {
+		return err
+	}
+	if _, err := pageJSONMarshal(contracts); err != nil {
+		return err
+	}
+	return nil
+}
+
+// PublishVersioningDraftForService is the cross-package adapter for versioning
+// republish. It exposes only the canonical versioning entry.
+func (s *Service) PublishVersioningDraftForService() versioningservice.VersionDraftPublisher {
+	return versioningDraftPublisher{s: s}
+}
+
+// ValidateVersioningRollbackTargetForService is the cross-package adapter for
+// versioning rollback preflight. It exposes only canonical snapshot validation.
+func (s *Service) ValidateVersioningRollbackTargetForService() versioningservice.VersionRollbackValidator {
+	return versioningRollbackValidator{s: s}
+}
+
+type versioningDraftPublisher struct {
+	s *Service
+}
+
+func (p versioningDraftPublisher) PublishVersioningDraft(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, reason string) (int, error) {
+	return p.s.PublishVersioningDraft(ctx, gameID, env, actor, pageKey, expectedDraftRevision, reason)
+}
+
+type versioningRollbackValidator struct {
+	s *Service
+}
+
+func (p versioningRollbackValidator) ValidateVersioningRollbackTarget(ctx context.Context, gameID, env, pageKey string, targetVersion int) error {
+	return p.s.ValidateVersioningRollbackTarget(ctx, gameID, env, pageKey, targetVersion)
+}
+
+// PublishFromEntry is the shared boundary for cross-package entries whose
+// authorization is owned by the caller (proposal accept/auto-save and
+// versioning republish). It still enforces the canonical pages:publish rule.
+func (s *Service) PublishFromEntry(ctx context.Context, entry pagePublishEntry, req *PagePublishRequest) (*PagePublishResponse, error) {
+	return s.publishFromEntry(ctx, entry, req)
+}
+
+func (s *Service) publishFromEntry(ctx context.Context, entry pagePublishEntry, req *PagePublishRequest) (*PagePublishResponse, error) {
+	if entry.RequiresPublish {
+		if err := s.requirePagePublish(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return s.publishEntryCore(ctx, entry, req)
+}
+
+func (s *Service) publishEntryCore(ctx context.Context, entry pagePublishEntry, req *PagePublishRequest) (*PagePublishResponse, error) {
+	switch entry.Caller {
+	case pagePublishCallerProposalAccept:
+		if entry.InternalCaller {
+			return nil, fmt.Errorf("proposal accept cannot bypass pages:publish")
+		}
+	case pagePublishCallerAPI, pagePublishCallerRepublish:
+	case pagePublishCallerAutoPublish, pagePublishCallerVersionRepublish:
+		if !entry.InternalCaller {
+			return nil, fmt.Errorf("entry %q is internal-only", entry.Caller)
+		}
+	case pagePublishCallerVersionRollback:
+	default:
+		return nil, fmt.Errorf("unknown publish entry %q", entry.Caller)
+	}
+	if entry.GameID == "" || entry.Env == "" {
+		gameID, env, err := requireScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		entry.GameID, entry.Env = gameID, env
+	}
+	if entry.Actor == "" {
+		actor, err := currentUsername(ctx)
+		if err != nil {
+			return nil, err
+		}
+		entry.Actor = actor
+	}
+	if req == nil {
+		return nil, errorx.NewBadRequest("publish request is required")
+	}
+	return s.publishCore(ctx, entry.GameID, entry.Env, entry.Actor, req)
+}
+
+// RepublishDraftFromEntry republishes an existing draft through the canonical
+// core. Version-specific semantics (new revision from draft and stale-draft
+// protection) remain in the caller; validation and snapshots do not.
+type RepublishDraftRequest struct {
+	PageKey               string
+	ExpectedDraftRevision *int
+}
+
+func (s *Service) RepublishDraftFromEntry(ctx context.Context, entry pagePublishEntry, req *RepublishDraftRequest) (*PagePublishResponse, error) {
+	if req == nil {
+		return nil, errorx.NewBadRequest("republish request is required")
+	}
+	if entry.RequiresPublish {
+		if err := s.requirePagePublish(ctx); err != nil {
+			return nil, err
+		}
+	}
+	pageKey := strings.TrimSpace(req.PageKey)
+	if pageKey == "" {
+		return nil, errorx.NewBadRequest("pageKey is required")
+	}
+	if entry.GameID == "" || entry.Env == "" {
+		gameID, env, err := requireScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		entry.GameID, entry.Env = gameID, env
+	}
+	if entry.Actor == "" {
+		actor, err := currentUsername(ctx)
+		if err != nil {
+			return nil, err
+		}
+		entry.Actor = actor
+	}
+	switch entry.Caller {
+	case pagePublishCallerRepublish, pagePublishCallerVersionRepublish:
+	default:
+		return nil, fmt.Errorf("entry %q cannot republish a draft", entry.Caller)
+	}
+
+	page, err := s.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, entry.GameID, entry.Env, pageKey)
+	if err != nil {
+		return nil, ErrPageNotFound(pageKey)
+	}
+	if req.ExpectedDraftRevision != nil && page.DraftRevision != *req.ExpectedDraftRevision {
+		return nil, errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
+			"expected": *req.ExpectedDraftRevision,
+			"current":  page.DraftRevision,
+		})
+	}
+	response, err := s.publishCore(ctx, entry.GameID, entry.Env, entry.Actor, &PagePublishRequest{
+		PageKey:       pageKey,
+		DraftRevision: &page.DraftRevision,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.auditPageEvent(ctx, audit.EventPagePublish, entry.GameID, entry.Env, pageKey, map[string]interface{}{
+		"action":            "republish_draft",
+		"caller":            entry.Caller,
+		"draft_revision":    page.DraftRevision,
+		"published_version": response.PublishedVersion,
+	})
+	return response, nil
+}
+
+// PublishExistingDraftForProposal keeps auto-policy behavior explicit. It is
+// internal-only: the caller must already hold pages:edit and have resolved the
+// proposal-to-draft transition. The draft optimistic lock and validation are
+// never bypassed.
+func (s *Service) PublishExistingDraftForProposal(ctx context.Context, gameID, env, actor, pageKey string, expectedDraftRevision int, proposalKey string) (*PagePublishResponse, error) {
+	entry := pagePublishEntry{
+		Caller:           pagePublishCallerAutoPublish,
+		Actor:            actor,
+		AllowsAutoPolicy: true,
+		InternalCaller:   true,
+		GameID:           gameID,
+		Env:              env,
+	}
+	response, err := s.publishEntryCore(ctx, entry, &PagePublishRequest{PageKey: pageKey, DraftRevision: &expectedDraftRevision})
+	if err != nil {
+		return nil, err
+	}
+	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, pageKey, map[string]interface{}{
+		"action":            "auto_publish_composite",
+		"variant":           "regenerate_and_publish",
+		"proposal":          proposalKey,
+		"draft_revision":    expectedDraftRevision,
+		"published_version": response.PublishedVersion,
+	})
+	return response, nil
+}
+
 func (s *Service) pagePublishSource(ctx context.Context, gameID string, env string, page *model.PageSpec) pagePublishSource {
 	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil || page == nil {
 		return pagePublishSource{}
@@ -2036,7 +2350,7 @@ func (s *Service) BulkPublish(ctx context.Context, req *PageBulkRequest) (*PageB
 		return nil, err
 	}
 
-	proposalSvc := contractsvc.NewProposalService(s.svcCtx.DB)
+	proposalSvc := s.newInternalProposalService()
 	pending, err := proposalSvc.ListProposalsByStatus(ctx, gameID, env, dbenum.ProposalStatusPending)
 	if err != nil {
 		return nil, err
@@ -2061,8 +2375,8 @@ func (s *Service) BulkPublish(ctx context.Context, req *PageBulkRequest) (*PageB
 }
 
 // AutoPublishComposite 发布分级（T10/D5，pages.publishReview=auto）：composite
-// 保存链保存成功后调用，跳过人工提案接受直接发布。不做 pages:publish 权限
-// 检查——该 env 已由策略声明免审核，权限沿用保存入口的 pages:edit。
+// 保存链保存成功后调用，跳过人工提案接受直接发布。发布仍要求 pages:publish；
+// env 免审核只豁免人工审核，不豁免发布权限。
 //
 // 质量门槛不因免审核降低：提案 error 级诊断（HasBlockingDiagnostics）与
 // 页面校验（publishCore 的 validatePageSpec）照常拒绝发布，调用方将错误
@@ -2072,7 +2386,10 @@ func (s *Service) BulkPublish(ctx context.Context, req *PageBulkRequest) (*PageB
 // 「提案重建草稿 + 发布」组合（与 BulkRepublish 单页路径一致：乐观锁、
 // published_page_specs 快照与 page_versions 历史照常记录）。
 func (s *Service) AutoPublishComposite(ctx context.Context, gameID, env, proposalKey string) error {
-	proposalSvc := contractsvc.NewProposalService(s.svcCtx.DB)
+	if err := s.requirePagePublish(ctx); err != nil {
+		return err
+	}
+	proposalSvc := s.newInternalProposalService()
 	proposal, err := proposalSvc.GetProposal(ctx, gameID, env, proposalKey)
 	if err != nil {
 		return fmt.Errorf("load proposal %s: %w", proposalKey, err)
@@ -2097,8 +2414,8 @@ func (s *Service) AutoPublishComposite(ctx context.Context, gameID, env, proposa
 		return nil
 	}
 
-	// 已存在页面：提案 → 草稿 → 发布（regenerateDraft/publishCore 均不做
-	// 权限检查的内部路径，actor 取保存操作者）。
+	// 已存在页面：提案 → 草稿 → 发布（canonical core 已在上一步执行
+	// pages:publish 检查，actor 取保存操作者）。
 	actor, err := currentUsername(ctx)
 	if err != nil {
 		return err
@@ -2108,18 +2425,31 @@ func (s *Service) AutoPublishComposite(ctx context.Context, gameID, env, proposa
 	if err != nil {
 		return err
 	}
-	publishedRevision := regenerated.DraftRevision
-	if _, err := s.publishCore(ctx, gameID, env, actor, &PagePublishRequest{PageKey: proposal.PageKey, DraftRevision: &publishedRevision}); err != nil {
+	if _, err := s.PublishExistingDraftForProposal(ctx, gameID, env, actor, proposal.PageKey, regenerated.DraftRevision, proposalKey); err != nil {
 		return err
 	}
-	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, proposal.PageKey, map[string]interface{}{
-		"action":            "auto_publish_composite",
-		"variant":           "regenerate_and_publish",
-		"proposal":          proposalKey,
-		"draft_revision":    revision,
-		"published_version": publishedRevision,
-	})
 	return nil
+}
+
+// newInternalProposalService keeps every page-owned proposal publishing path
+// on the same validation and canonical publish boundary used by HTTP routes.
+func (s *Service) newInternalProposalService() *contractsvc.ProposalService {
+	return s.newInternalProposalServiceForContext(s.svcCtx.DB)
+}
+
+func (s *Service) newInternalProposalServiceForContext(db *gorm.DB) *contractsvc.ProposalService {
+	proposalSvc := contractsvc.NewProposalService(db)
+	proposalSvc.SetProposalDraftPublisher(s.PublishProposalDraftForService())
+	proposalSvc.SetPublishValidator(s)
+	proposalSvc.SetPermissionGuard(func(ctx context.Context, actor string) (string, error) {
+		if _, _, err := logicutils.RequireAnyPermission(
+			ctx, s.svcCtx, "无权发布页面", "admin:all", "pages:publish",
+		); err != nil {
+			return "", err
+		}
+		return actor, nil
+	})
+	return proposalSvc
 }
 
 // BulkUnpublish 一键下架全部：将 scope 内所有已发布页面逐一下线
@@ -2215,8 +2545,15 @@ func (s *Service) BulkRepublish(ctx context.Context, req *PageBulkRepublishReque
 			})
 			continue
 		}
-		// publishCore：入口已验 pages:publish，无需逐页二次权限检查
-		if _, err := s.publishCore(ctx, gameID, env, actor, &PagePublishRequest{PageKey: pageKey, DraftRevision: &publishedRevision}); err != nil {
+		// BulkRepublish 已验 pages:publish；逐页复用显式入口保证语义一致。
+		if _, err := s.publishFromEntry(ctx, pagePublishEntry{
+			Caller:           pagePublishCallerRepublish,
+			Actor:            actor,
+			AllowsAutoPolicy: false,
+			RequiresPublish:  false,
+			GameID:           gameID,
+			Env:              env,
+		}, &PagePublishRequest{PageKey: pageKey, DraftRevision: &publishedRevision}); err != nil {
 			result.Failed = append(result.Failed, map[string]string{
 				"pageKey": pageKey,
 				"error":   err.Error(),

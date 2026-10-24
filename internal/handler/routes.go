@@ -67,6 +67,7 @@ import (
 	configpkg "github.com/cuihairu/croupier/internal/config"
 	functionapi "github.com/cuihairu/croupier/internal/function/api"
 	"github.com/cuihairu/croupier/internal/function/registry"
+	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
@@ -1248,6 +1249,16 @@ func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// 依赖保持单向）；回调复用 versioning 同源的 page service
 	// AutoPublishComposite——已存在草稿走「提案重建草稿 + 发布」。
 	pageSvc := page.NewService(ctx)
+	proposalSvc.SetProposalDraftPublisher(pageSvc.PublishProposalDraftForService())
+	proposalSvc.SetPublishValidator(pageSvc)
+	proposalSvc.SetPermissionGuard(func(c context.Context, actor string) (string, error) {
+		if _, _, err := logicutils.RequireAnyPermission(
+			c, ctx, "无权发布页面", "admin:all", "pages:publish",
+		); err != nil {
+			return "", err
+		}
+		return actor, nil
+	})
 	proposalSvc.SetPublishReviewHooks(
 		func(env string) string { return ctx.Config.Pages.ResolvePublishReview(env) },
 		pageSvc.AutoPublishComposite,
@@ -1264,10 +1275,18 @@ func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 
 func registerVersioningRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	versioningSvc := versioningservice.NewService(ctx.DB)
+	versioningSvc.SetPermissionGuard(func(requestCtx context.Context, actor string) error {
+		_, _, err := logicutils.RequireAnyPermission(requestCtx, ctx, "无权发布页面", "admin:all", "pages:publish")
+		return err
+	})
 	// 发布分级（T10）：pages.publishReview=auto 时 composite 保存后直接发布。
 	// 策略与发布回调在此装配注入（versioning 不 import api/page，依赖保持
-	// 单向）；auto 路径权限沿用保存入口 pages:edit——env 策略已声明免审核。
+	// 单向）；republish/rollback-publish 统一要求 pages:publish。
 	pageSvc := page.NewService(ctx)
+	versioningSvc.SetCanonicalPublishers(
+		pageSvc.PublishVersioningDraftForService(),
+		pageSvc.ValidateVersioningRollbackTargetForService(),
+	)
 	versioningSvc.SetPublishReviewHooks(
 		func(env string) string { return ctx.Config.Pages.ResolvePublishReview(env) },
 		pageSvc.AutoPublishComposite,

@@ -16,10 +16,10 @@ tag:
 
 ## Two different schemas
 
-| Protocol    | Layer              | Purpose                                                                    | From registration? |
-| ----------- | ------------------- | -------------------------------------------------------------------------- | ------------------- |
-| JSON Schema | FunctionContract    | Inputs, outputs, validation, and field candidates                          | Yes                 |
-| PageSpec    | Page orchestration  | Page types, lists, details, actions, tasks, reports, navigation, and bindings | No              |
+| Protocol    | Layer              | Purpose                                                                       | From registration? |
+| ----------- | ------------------ | ----------------------------------------------------------------------------- | ------------------ |
+| JSON Schema | FunctionContract   | Inputs, outputs, validation, and field candidates                             | Yes                |
+| PageSpec    | Page orchestration | Page types, lists, details, actions, tasks, reports, navigation, and bindings | No                 |
 
 JSON Schema is not treated as a page layout tree. PageSpec does not reuse JSON Schema's component extension fields either.
 
@@ -207,9 +207,8 @@ page content is always the copy as of save time (the reminder never auto-syncs).
   when publishing is rejected by a quality gate (error-level diagnostics / publish validation) or
   fails, `published: false` and `publishError` carries the reason — **the save itself has already
   succeeded and the proposal is retained**; the frontend degrades to the manual chain per the prompt and retries;
-- Publishing goes through the real chain (snapshots / version history as usual), with permissions
-  inherited from the save entry point `pages:edit` (the policy has already declared that env
-  review-exempt); see the "publish tiering" subsection of the
+- Publishing goes through the real chain (snapshots / version history as usual) and requires `pages:publish`;
+  policy exempts review only, not the publish permission. See the "publish tiering" subsection of the
   [Dashboard resource/page model](./dashboard-page-model.md).
 
 ## Data references and mapping (the Selector AST)
@@ -310,10 +309,10 @@ Schema nodes and page actions may reference only a `bindingId`. At runtime the s
 
 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` applies two structured blocks before execution, both returning `409 + { error, message, details }` (the error codes are stable codes the frontend branches on):
 
-| error              | Trigger                                                                                                                    | details                               |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `executor_unbound` | The bound contract has `executionState=unbound` (uploaded material not yet bound to a runtime executor; checked before freshness) | `bindingId`, `functionId`               |
-| `binding_stale`    | The published snapshot's contract digest has drifted from the current contract (schema/version change)                        | `bindingId`, `functionId`, `statuses`   |
+| error              | Trigger                                                                                                                           | details                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `executor_unbound` | The bound contract has `executionState=unbound` (uploaded material not yet bound to a runtime executor; checked before freshness) | `bindingId`, `functionId`             |
+| `binding_stale`    | The published snapshot's contract digest has drifted from the current contract (schema/version change)                            | `bindingId`, `functionId`, `statuses` |
 
 The frontend branches on the stable `error` code: `executor_unbound` renders an "executor unbound" empty state and guides the user to complete binding in OpenAPI Sources (after same-named function registration, T6 flips it to bound automatically — no page edit or republish needed); `binding_stale` goes through the diff / republish chain. Published pages (the Console runtime) allow no mock-data fallback of any kind — a failed execution is an explicit failure.
 

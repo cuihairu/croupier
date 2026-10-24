@@ -59,6 +59,7 @@ func TestInboxErrorBranchesV9(t *testing.T) {
 	t.Run("blocked issue query error", func(t *testing.T) {
 		db := setupTestDBFileV9(t)
 		svc := NewProposalService(db)
+		svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
 		stubTableV9(t, db, &model.BlockedProposalIssue{})
 		_, err := svc.Inbox(ctx, "g9", "e9", ProposalListFilter{})
 		assert.Error(t, err)
@@ -241,6 +242,7 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 		db := setupTestDBFileV9(t)
 		svc := NewProposalService(db)
 		handler := NewProposalHandler(svc)
+		svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
 
 		// GetProposal 成功。
 		page := testProposalPageSpec("resource--player")
@@ -281,6 +283,8 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 		db := setupTestDBFileV9(t)
 		svc := NewProposalService(db)
 		handler := NewProposalHandler(svc)
+		publishCtx := newPublishAuthorizedContext(t, db, "handler_publisher")
+		svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
 
 		require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, &model.FunctionContract{
 			GameID: "demo-game", Env: "development", FunctionID: "mail.send", Version: "2.3.4", Enabled: true,
@@ -309,7 +313,7 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 
 		c, w := newHandlerTestContext(http.MethodPost, "/api/proposals/operation:mail.send/accept-and-publish")
 		c.Params = ginParamsV9("proposalKey", "operation:mail.send")
-		c.Request = c.Request.WithContext(ctx)
+		c.Request = c.Request.WithContext(publishCtx)
 		handler.AcceptAndPublishProposal(c)
 		assert.Equal(t, http.StatusOK, w.Code)
 	})

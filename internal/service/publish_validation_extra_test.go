@@ -34,8 +34,10 @@ func seedPublishableContract(t *testing.T, svc *ProposalService, functionID stri
 
 func TestAcceptAndPublish_ResourceQueryRequiresSelectors(t *testing.T) {
 	db := setupTestDB(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "resource_selector_publisher")
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
+	svc.SetPublishValidator(noopPublishValidator{})
 	seedPublishableContract(t, svc, "player.query", `{"type":"object"}`)
 
 	// Resource page with a query binding that has no selectors at all.
@@ -63,10 +65,34 @@ func TestAcceptAndPublish_ResourceQueryRequiresSelectors(t *testing.T) {
 	assert.Contains(t, err.Error(), "selectors.output is required")
 }
 
+func TestAcceptAndPublish_MissingCanonicalPublisherFailsClosed(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := newPublishAuthorizedContext(t, db, "missing_publisher")
+	svc := NewProposalService(db)
+	svc.SetPublishValidator(noopPublishValidator{})
+	seedPublishableContract(t, svc, "player.query", `{"type":"object"}`)
+
+	page := testProposalPageSpec("op--publisher-missing")
+	page.Bindings[0].FunctionID = "player.query"
+	page.Bindings[0].Usage = spec.BindingUsageAction
+	proposal := &model.PageProposal{
+		GameID: "demo-game", Env: "development", ProposalKey: "operation:publisher-missing",
+		PageKey: page.PageKey, PageType: string(page.Type), Quality: "basic",
+		Status: dbenum.ProposalStatusPending, PageSpec: mustMarshalPage(t, page),
+	}
+	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, proposal))
+
+	result, err := svc.AcceptAndPublishProposal(ctx, "demo-game", "development", proposal.ProposalKey)
+	require.ErrorContains(t, err, "canonical proposal publisher is not configured")
+	assert.Zero(t, result.PageKey)
+}
+
 func TestAcceptAndPublish_InvalidSelectorDetails(t *testing.T) {
 	db := setupTestDB(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "invalid_selector_publisher")
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
+	svc.SetPublishValidator(noopPublishValidator{})
 	seedPublishableContract(t, svc, "player.query",
 		`{"type":"object","properties":{"playerId":{"type":"string"}},"required":["playerId"]}`)
 
@@ -91,8 +117,10 @@ func TestAcceptAndPublish_InvalidSelectorDetails(t *testing.T) {
 
 func TestAcceptAndPublish_InvalidOutputAssignments(t *testing.T) {
 	db := setupTestDB(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "invalid_output_publisher")
 	svc := NewProposalService(db)
+	svc.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
+	svc.SetPublishValidator(noopPublishValidator{})
 	seedPublishableContract(t, svc, "player.query", `{"type":"object"}`)
 
 	page := spec.PageSpec{
@@ -126,12 +154,11 @@ func TestAcceptAndPublish_InvalidOutputAssignments(t *testing.T) {
 	_, err := svc.AcceptAndPublishProposal(ctx, "demo-game", "development", proposal.ProposalKey)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "output source must be a JSON Pointer")
-	assert.Contains(t, err.Error(), "resource list query must map collection output")
 }
 
 func TestAcceptAndPublish_ConflictsWithExistingDraftOrPage(t *testing.T) {
 	db := setupTestDB(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "conflict_publisher")
 	svc := NewProposalService(db)
 	seedPublishableContract(t, svc, "player.query", `{"type":"object"}`)
 

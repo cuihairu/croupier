@@ -707,7 +707,7 @@ func TestValidateDirectPublishPageSpecV3_MissingTitle(t *testing.T) {
 
 func TestAcceptProposalV3_Success(t *testing.T) {
 	db := setupTestDB(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "v3_accept_success")
 	p := NewProposalService(db)
 
 	page := testProposalPageSpec("resource--player")
@@ -757,8 +757,9 @@ func TestRejectProposalV3_Success(t *testing.T) {
 
 func TestAcceptAndPublishProposalV3_Success(t *testing.T) {
 	db := setupTestDB(t)
-	ctx := proposalTestContext()
+	ctx := newPublishAuthorizedContext(t, db, "v3_publish_success")
 	p := NewProposalService(db)
+	p.SetProposalDraftPublisher(acceptAndPublishFallback{db: db})
 	contractSvc := NewContractService(db)
 
 	require.NoError(t, contractSvc.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
