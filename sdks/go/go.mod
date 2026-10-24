@@ -1,6 +1,6 @@
 module github.com/cuihairu/croupier/sdks/go
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/getkin/kin-openapi v0.149.0

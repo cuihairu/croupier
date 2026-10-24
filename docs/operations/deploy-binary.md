@@ -16,7 +16,7 @@ Suitable for bare-metal/VM environments without container constraints. Artifacts
 
 ## Prerequisites
 
-- Linux x86_64, Go 1.26+ (only needed for local builds)
+- Linux x86_64, Go 1.27.3+ (only needed for local builds)
 - MySQL 8.x / PostgreSQL 16 (production) — SQLite is only suitable for single-machine pilots
 - Redis 7+ (required for multi-instance; a single instance can degrade to `cache.type: memory`)
 

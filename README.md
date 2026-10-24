@@ -10,7 +10,7 @@
   <img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/>
   <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/>
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
-  <img src="https://img.shields.io/badge/go-1.27.2+-green.svg" alt="Go Version"/>
+  <img src="https://img.shields.io/badge/go-1.27.3+-green.svg" alt="Go Version"/>
   <img src="https://img.shields.io/badge/SDK-Go-00ADD8?logo=go&logoColor=white" alt="SDK Go"/>
   <img src="https://img.shields.io/badge/SDK-C%23-239120?logo=csharp&logoColor=white" alt="SDK C#"/>
   <img src="https://img.shields.io/badge/SDK-C%2B%2B-00599C?logo=cplusplus&logoColor=white" alt="SDK C++"/>
@@ -230,7 +230,7 @@ cd croupier
 
 2. Install the toolchain
 
-- Go 1.27.2+
+- Go 1.27.3+
 - Node.js 24+ / pnpm
 - `buf`
 - `protoc`

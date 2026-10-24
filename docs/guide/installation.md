@@ -23,7 +23,7 @@ This guide describes in detail how to install and configure each Croupier compon
 
 | Component | Minimum Version     | Recommended |
 | --------- | ------------------- | ----------- |
-| Go        | 1.27.2              | 1.27.2+     |
+| Go        | 1.27.3              | 1.27.3+     |
 | Node.js   | 24                  | 24+         |
 | pnpm      | 11                  | 11+         |
 | buf       | -                   | latest      |
@@ -55,8 +55,8 @@ go version
 
 ```bash
 # Download and install
-wget https://go.dev/dl/go1.27.2.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.27.2.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.27.3.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.27.3.linux-amd64.tar.gz
 
 # Configure PATH
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
@@ -275,7 +275,7 @@ make test-integration
 <details>
 <summary>Incompatible Go version</summary>
 
-Make sure the Go version is 1.27.2 or higher:
+Make sure the Go version is 1.27.3 or higher:
 
 ```bash
 go version

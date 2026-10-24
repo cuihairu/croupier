@@ -100,7 +100,7 @@ docker compose up -d
 | `CAPTURE_AGENT_REPLICAS`     | `1`                                                                                | capture-agent 副本数。只允许 `0` 或 `1`——`capture_data` 是共享位点卷，多副本会互踩位点。`0` = 关闭服务                       |
 | `CROUPIER_CAPTURE_PG_DSN`    | `postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable` | 源库连接串。**凭据红线**：明文 DSN 只走环境变量，配置文件 `docker/configs/capture-agent.yaml` 只写变量名（`capture.dsnEnv`） |
 | `POSTGRES_IMAGE`             | `postgres:15-alpine`                                                               | 与全栈共用；CDC 需要 pgoutput 解码（PG 10+，逻辑复制）                                                                       |
-| `GO_IMAGE` / `RUNTIME_IMAGE` | `golang:1.27.2` / `gcr.io/distroless/static:nonroot`                               | 与其他服务共用                                                                                                               |
+| `GO_IMAGE` / `RUNTIME_IMAGE` | `golang:1.27.3` / `gcr.io/distroless/static:nonroot`                               | 与其他服务共用                                                                                                               |
 
 前置（postgres 侧）：
 

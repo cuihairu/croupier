@@ -102,7 +102,7 @@ Connects outbound to `server:19090` to register and come online + subscribes to 
 | `CAPTURE_AGENT_REPLICAS`     | `1`                                                              | Number of capture-agent replicas. Only `0` or `1` allowed — `capture_data` is a shared position volume; multiple replicas would trample each other's positions. `0` = service off                                    |
 | `CROUPIER_CAPTURE_PG_DSN`    | `postgres://croupier:***@postgres:5432/croupier?sslmode=disable` | Source database connection string. **Credential red line**: the plaintext DSN only travels via environment variables; the config file `docker/configs/capture-agent.yaml` only names the variable (`capture.dsnEnv`) |
 | `POSTGRES_IMAGE`             | `postgres:15-alpine`                                             | Shared with the whole stack; CDC needs pgoutput decoding (PG 10+, logical replication)                                                                                                                               |
-| `GO_IMAGE` / `RUNTIME_IMAGE` | `golang:1.27.2` / `gcr.io/distroless/static:nonroot`             | Shared with other services                                                                                                                                                                                           |
+| `GO_IMAGE` / `RUNTIME_IMAGE` | `golang:1.27.3` / `gcr.io/distroless/static:nonroot`             | Shared with other services                                                                                                                                                                                           |
 
 Prerequisites (postgres side):
 

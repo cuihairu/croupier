@@ -20,7 +20,7 @@ Besides the default sidecar agent, there are two other agent types — `devops-a
 
 ## Environment Requirements
 
-- Go `1.27.2`
+- Go `1.27.3`
 - Node.js `24+`
 - pnpm `11+`
 - Docker (optional)

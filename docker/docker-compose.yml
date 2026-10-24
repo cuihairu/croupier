@@ -88,7 +88,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.server
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.3}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
         # Optional: include sqlite support by setting BUILD_TAGS to "pg sqlite"
         BUILD_TAGS: ${SERVER_BUILD_TAGS:-"pg ip2location"}
@@ -131,7 +131,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.agent
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.3}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     volumes:
       - ./configs/agent.yaml:/app/configs/agent.yaml:ro
@@ -158,7 +158,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.capture-agent
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.3}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     image: croupier-capture-agent:local
     restart: unless-stopped
@@ -224,7 +224,7 @@ services:
       context: ../sdks/go
       dockerfile: examples/Dockerfile
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.3}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
         EXAMPLE_DIR: demo
     container_name: croupier-sdk-demo-go
@@ -418,7 +418,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.analytics-worker
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.3}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -442,7 +442,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.ingest
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.27.2}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.27.3}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}

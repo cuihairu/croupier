@@ -16,7 +16,7 @@ tag:
 
 ## 前置条件
 
-- Linux x86_64，Go 1.26+（仅本地构建需要）
+- Linux x86_64，Go 1.27.3+（仅本地构建需要）
 - MySQL 8.x / PostgreSQL 16（生产）——SQLite 只适合单机试点
 - Redis 7+（多实例必需；单实例可降级为 `cache.type: memory`）
 
