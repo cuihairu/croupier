@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dbenum"
@@ -147,32 +148,91 @@ func (h *Handler) GenerateCRUDTemplate(ctx context.Context, resource string, con
 	return h.model.UpsertBuiltin(ctx, tpl)
 }
 
-// buildCRUDTree 构建 CRUD 组合组件的 PageNode 树。
+// crudInputKey 从契约输入 schema 推导身份/主键字段名：优先常见命名（id/uid/
+// uuid），其次唯一属性，兜底首个属性名。用于把表格行字段映射进详情/编辑/删除
+// 表单参数——缺这层映射，行操作打开的弹窗拿不到当前行身份。
+func crudInputKey(c *model.FunctionContract) string {
+	if c == nil {
+		return "id"
+	}
+	var schema struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(c.InputSchema, &schema); err != nil || len(schema.Properties) == 0 {
+		return "id"
+	}
+	names := make([]string, 0, len(schema.Properties))
+	for n := range schema.Properties {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, preferred := range []string{"id", "uid", "uuid"} {
+		for _, n := range names {
+			if n == preferred {
+				return n
+			}
+		}
+	}
+	return names[0]
+}
+
+// buildCRUDTree 构建 CRUD 组合组件的 PageNode 树。行操作按「行身份字段」把当
+// 前行映射进详情/编辑/删除表单；删除走危险确认弹窗；新建走表格工具栏入口。
+// 缺能力的写操作不生成对应入口（不在树里留空节点）。
 func buildCRUDTree(listFn, getFn, createFn, updateFn, deleteFn *model.FunctionContract, fns *[]string) string {
 	nodes := []string{}
 
-	// 主表格
-	tableNode := fmt.Sprintf(`{"id":"table","type":"fnTable","props":{"functionId":%q,"title":%q,"span":24,"autoRun":true,"columns":[],"rowActions":[{"label":"查看详情","targetSection":"detail-modal"}]}}`,
-		listFn.FunctionID, listFn.ResourceKey)
+	// 行身份字段（列表输出列名）取 item_query 契约的主键
+	rowKey := crudInputKey(getFn)
+	// 目标参数名 → 行字段表达式（编译期规范化为 row.字段 映射）
+	paramOf := func(c *model.FunctionContract) string {
+		return fmt.Sprintf(`{"%s":"{{row.%s}}"}`, crudInputKey(c), rowKey)
+	}
+
+	// 主表格 + 行操作（详情/编辑/删除）
+	rowActions := []string{
+		fmt.Sprintf(`{"label":"查看详情","targetSection":"detail-modal","params":%s}`, paramOf(getFn)),
+	}
+	if updateFn != nil {
+		rowActions = append(rowActions,
+			fmt.Sprintf(`{"label":"编辑","targetSection":"edit-modal","params":%s}`, paramOf(updateFn)))
+	}
+	if deleteFn != nil {
+		rowActions = append(rowActions,
+			fmt.Sprintf(`{"label":"删除","targetSection":"delete-modal","params":%s,"danger":true}`, paramOf(deleteFn)))
+	}
+	tableNode := fmt.Sprintf(`{"id":"table","type":"fnTable","props":{"functionId":%q,"title":%q,"span":24,"autoRun":true,"columns":[],"rowActions":[%s]}}`,
+		listFn.FunctionID, listFn.ResourceKey, strings.Join(rowActions, ","))
 	nodes = append(nodes, tableNode)
 
 	// 详情弹窗
-	detailModal := fmt.Sprintf(`{"id":"detail-modal","type":"modal","props":{"title":%q,"width":"medium"},"children":[{"id":"detail-fields","type":"fnFields","props":{"functionId":%q,"span":24,"autoRun":true}}]}`,
+	detailModal := fmt.Sprintf(`{"id":"detail-modal","type":"modal","props":{"title":%q,"width":"medium","sectionKey":"detail-modal"},"children":[{"id":"detail-fields","type":"fnFields","props":{"functionId":%q,"span":24,"autoRun":true}}]}`,
 		"详情", getFn.FunctionID)
 	nodes = append(nodes, detailModal)
 
-	// 新建弹窗（如有 create）
+	// 新建入口（根级按钮编译为表格工具栏）+ 新建弹窗（如有 create）
 	if createFn != nil {
-		createModal := fmt.Sprintf(`{"id":"create-modal","type":"modal","props":{"title":%q,"width":"medium"},"children":[{"id":"create-form","type":"fnForm","props":{"functionId":%q,"span":24,"display":"inline","onSuccess":{"kind":"refreshNode","target":"table"}}}]}`,
-			"新建", createFn.FunctionID)
-		nodes = append(nodes, createModal)
+		*fns = append(*fns, createFn.FunctionID)
+		nodes = append(nodes,
+			`{"id":"create-btn","type":"button","props":{"title":"新建","onClick":{"kind":"openModal","target":"create-modal"}}}`,
+			fmt.Sprintf(`{"id":"create-modal","type":"modal","props":{"title":%q,"width":"medium","sectionKey":"create-modal"},"children":[{"id":"create-form","type":"fnForm","props":{"functionId":%q,"span":24,"display":"inline","onSuccess":{"kind":"refreshNode","target":"table"}}}]}`,
+				"新建", createFn.FunctionID))
 	}
 
 	// 编辑弹窗（如有 update）
 	if updateFn != nil {
-		updateModal := fmt.Sprintf(`{"id":"edit-modal","type":"modal","props":{"title":%q,"width":"medium"},"children":[{"id":"edit-form","type":"fnForm","props":{"functionId":%q,"span":24,"display":"inline","onSuccess":{"kind":"refreshNode","target":"table"}}}]}`,
+		*fns = append(*fns, updateFn.FunctionID)
+		updateModal := fmt.Sprintf(`{"id":"edit-modal","type":"modal","props":{"title":%q,"width":"medium","sectionKey":"edit-modal"},"children":[{"id":"edit-form","type":"fnForm","props":{"functionId":%q,"span":24,"display":"inline","onSuccess":{"kind":"refreshNode","target":"table"}}}]}`,
 			"编辑", updateFn.FunctionID)
 		nodes = append(nodes, updateModal)
+	}
+
+	// 删除弹窗（行操作带 danger → 打开前先弹确认）（如有 delete）
+	if deleteFn != nil {
+		*fns = append(*fns, deleteFn.FunctionID)
+		deleteModal := fmt.Sprintf(`{"id":"delete-modal","type":"modal","props":{"title":%q,"width":"medium","sectionKey":"delete-modal"},"children":[{"id":"delete-form","type":"fnForm","props":{"functionId":%q,"span":24,"display":"inline","onSuccess":{"kind":"refreshNode","target":"table"}}}]}`,
+			"删除确认", deleteFn.FunctionID)
+		nodes = append(nodes, deleteModal)
 	}
 
 	return "[" + strings.Join(nodes, ",") + "]"

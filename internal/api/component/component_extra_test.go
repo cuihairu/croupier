@@ -329,3 +329,63 @@ func TestRegenerateFromContracts_UpsertErrorsLogged(t *testing.T) {
 	require.NoError(t, db.Migrator().DropTable("component_templates"))
 	assert.NoError(t, h.RegenerateFromContracts(ctx, contracts))
 }
+
+// C1：buildCRUDTree 补齐新建入口（工具栏按钮）、编辑/删除行操作（含行身份
+// 参数映射、删除危险确认）与 RequiredFunctions 完整依赖声明。
+func TestBuildCRUDTree_FullCapabilities(t *testing.T) {
+	fns := []string{"p.list", "p.get"}
+	tree := buildCRUDTree(
+		&model.FunctionContract{FunctionID: "p.list", ResourceKey: "player"},
+		&model.FunctionContract{FunctionID: "p.get", ResourceKey: "player", InputSchema: model.JSON(`{"type":"object","properties":{"uid":{"type":"string"}}}`)},
+		&model.FunctionContract{FunctionID: "p.create"},
+		&model.FunctionContract{FunctionID: "p.update", InputSchema: model.JSON(`{"type":"object","properties":{"uid":{"type":"string"}}}`)},
+		&model.FunctionContract{FunctionID: "p.delete", InputSchema: model.JSON(`{"type":"object","properties":{"uid":{"type":"string"}}}`)},
+		&fns,
+	)
+	// 新建入口（根级按钮编译为表格工具栏）+ 三个写操作弹窗
+	assert.Contains(t, tree, `"onClick":{"kind":"openModal","target":"create-modal"}`)
+	assert.Contains(t, tree, `"functionId":"p.create"`)
+	assert.Contains(t, tree, `"functionId":"p.update"`)
+	assert.Contains(t, tree, `"functionId":"p.delete"`)
+	// 弹窗声明稳定 sectionKey：id 末 6 字符同为 "-modal"，缺声明会被编译器
+	// modal-<id尾6> 分组兜底并成同一弹窗组（行操作全部指向同一目标）
+	assert.Contains(t, tree, `"sectionKey":"detail-modal"`)
+	assert.Contains(t, tree, `"sectionKey":"create-modal"`)
+	assert.Contains(t, tree, `"sectionKey":"edit-modal"`)
+	assert.Contains(t, tree, `"sectionKey":"delete-modal"`)
+	// 行操作：详情/编辑/删除（删除带 danger），行身份参数 uid → {{row.uid}}
+	assert.Contains(t, tree, `{"label":"查看详情","targetSection":"detail-modal","params":{"uid":"{{row.uid}}"}}`)
+	assert.Contains(t, tree, `{"label":"编辑","targetSection":"edit-modal","params":{"uid":"{{row.uid}}"}}`)
+	assert.Contains(t, tree, `{"label":"删除","targetSection":"delete-modal","params":{"uid":"{{row.uid}}"},"danger":true}`)
+	// RequiredFunctions 完整依赖（写操作不再漏声明）
+	assert.ElementsMatch(t, []string{"p.list", "p.get", "p.create", "p.update", "p.delete"}, fns)
+}
+
+// C1：缺写能力时显式不生成对应入口，不在树里留不可达节点。
+func TestBuildCRUDTree_PartialCapabilities(t *testing.T) {
+	fns := []string{"p.list", "p.get"}
+	tree := buildCRUDTree(
+		&model.FunctionContract{FunctionID: "p.list", ResourceKey: "player"},
+		&model.FunctionContract{FunctionID: "p.get", ResourceKey: "player"},
+		nil, nil, nil,
+		&fns,
+	)
+	assert.NotContains(t, tree, "create-modal")
+	assert.NotContains(t, tree, "edit-modal")
+	assert.NotContains(t, tree, "delete-modal")
+	assert.NotContains(t, tree, `"label":"编辑"`)
+	assert.NotContains(t, tree, `"label":"删除"`)
+	assert.ElementsMatch(t, []string{"p.list", "p.get"}, fns)
+}
+
+// C1：行身份字段从契约输入 schema 推导（id/uid/uuid 优先，其次唯一属性，兜底 id）。
+func TestCrudInputKey(t *testing.T) {
+	assert.Equal(t, "id", crudInputKey(nil))
+	assert.Equal(t, "id", crudInputKey(&model.FunctionContract{}))
+	assert.Equal(t, "uid", crudInputKey(&model.FunctionContract{
+		InputSchema: model.JSON(`{"type":"object","properties":{"name":{"type":"string"},"uid":{"type":"string"}}}`),
+	}))
+	assert.Equal(t, "playerId", crudInputKey(&model.FunctionContract{
+		InputSchema: model.JSON(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+	}))
+}
