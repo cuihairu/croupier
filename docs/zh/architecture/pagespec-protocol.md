@@ -175,7 +175,7 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
 - `cardTitle`：卡片标题（LocalizedText；`display=card` 时有效）——同 group 区块渲染进同一 Card（整行）时的组标题；缺省回退组名。回读时还原为卡片容器的 `props.title`
 - `rowActions[].params`：行字段→表单参数映射（`"player_id": "uid"` = 行的 uid 填入弹窗表单 player_id）
 - `chain`：动作链，主动作后按序执行 `runBinding|refreshNode`
-- `onSuccessRefresh`：表单提交成功后自动重跑的区块 key
+- `onSuccessRefresh`：表单提交成功后自动重跑的区块 key——仅业务执行成功才重跑：`approval`/`task` 结果不重跑目标（D4，见下方执行结果反馈条目）
 - `events`：通用事件绑定（`rowClick`/`rowSelected`/`success`/`error`/`click` → 动作 + 链）；动作 kind：`runBinding`/`refreshNode`/`openModal`/`closeModal`/`navigate`/`showMessage`；步骤 `params` 支持来源引用（`"区块key.字段"`、`"row.字段"`、字面量）
 - `refreshOn`：page_state 联动——上游区块 key 变化自动重跑，上游输出顶层字段同名合并进本区块输入
 - `visibleWhen`：**区块级条件显示**（U10）——`ConditionSpec` 叶子必填 `key`（来源区块），从页面状态 `results[key]` 按 `path`（`/values/字段`、`/data/字段`、`/selectedRow/字段`）取值求值；false 的 inline/tab 区块不渲染但执行照常（autoRun/refreshOn 不受影响）；支持嵌套 `all`/`any`（深度 ≤4）；发布校验 key ∈ 页面区块、path 为 JSON Pointer、equals/notEquals 带 value；dialog 区块不参与（弹窗由动作显式触发）
@@ -204,6 +204,18 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认；批量
   目标核对未实现（跨页选择、总人数/当前页人数、目标清单入口、清空选择、筛选变化后旧选择的
   处理）——表格行选择仍为单选 radio，wire 无 `table.selection` 字段
+- **执行结果反馈**（D4，无新增 wire 字段）：渲染器按 `PageExecutionResult.kind` 分类
+  每次执行结果，不再把任何非 error 返回都当作成功。`sync`（或无 kind）为业务执行成功——
+  触发表单 `success` 事件绑定、重跑 `onSuccessRefresh` 目标并关闭弹窗。`approval` 保持
+  弹窗开启，显示「已提交审批」提示、审批单号（`approvalId`）与审批中心入口，且不发
+  success 事件、不触发刷新（审批通过前业务侧尚未变更）。`task` 保持弹窗开启，显示
+  「任务已提交」提示与任务号（`taskId`）。抛出的异常保持弹窗与已填参数开启，并在弹窗内
+  渲染失败反馈：响应体稳定 `error` 码、服务端 `message`，以及 `details` 的字段级条目
+  （按表单字段标题映射，不显示原始字段 key）；结果体自带顶层 `error` 字段（未抛异常）
+  同样按失败处理，不发 success 事件。边界：字段错误以文本列在表单旁而非注入 RJSF 控件
+  （共享表单渲染器无外部错误 prop）；控制台页面执行无服务端幂等键，失败或待处理的提交
+  可由用户重复发起；无任务中心路由，待处理任务只给任务号不给导航目标；审批入口固定跳
+  `/approvals`
 
 **页面级可选字段 `componentTemplates`**（U11 模板使用快照，位于 PageSpec 根而非
 section 内）：`componentTemplates?: Array<{ key: string; digest: string }>`——

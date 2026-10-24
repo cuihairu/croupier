@@ -26,7 +26,7 @@ import { resolveStepParams } from './runtime';
 import { sectionVisible } from './sectionCondition';
 import { confirmFieldTitle, describeConfirmEntries } from './confirmContent';
 import type { ConfirmEntry } from './confirmContent';
-import { describeExecFailure, describeExecOutcome } from './execFeedback';
+import { describeExecFailure, describeExecOutcome, isErrorExecResult } from './execFeedback';
 import type { ExecFailure, ExecOutcome } from './execFeedback';
 import type {
   PageExecuteFn,
@@ -684,6 +684,9 @@ export const CompositeRenderer: React.FC<{
       if (sec.form) onPageStateMerge?.(sec.key, { ...plain, values: plain });
       try {
         const r = await runSectionRef.current(sec, plain);
+        // 无结果（preview / 旧响应拒收）与结果体自带 error 标记都不算成功：
+        // 后者若不门控，执行器返回错误体（未抛异常）会误触发 success 级联。
+        if (!r || isErrorExecResult(r)) return false;
         const outcome = describeExecOutcome(r);
         if (outcome === 'approval') {
           setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.approvalId } }));
@@ -725,15 +728,21 @@ export const CompositeRenderer: React.FC<{
     const failure = execFailures[sec.key];
     const pending = execPending[sec.key];
     const fieldTitle = (key: string) =>
-      confirmFieldTitle(sec.form?.fields?.find((f) => f.key === key), key);
+      confirmFieldTitle(
+        sec.form?.fields?.find((f) => f.key === key),
+        key,
+      );
     return (
       <>
         {failure ? (
           <Alert
             type="error"
             showIcon
-            message={intl.formatMessage(
-              { id: 'component.pageRenderer.composite.execFailed', defaultMessage: '执行失败{codeSuffix}' },
+            title={intl.formatMessage(
+              {
+                id: 'component.pageRenderer.composite.execFailed',
+                defaultMessage: '执行失败{codeSuffix}',
+              },
               { codeSuffix: failure.code ? `（${failure.code}）` : '' },
             )}
             description={
@@ -757,7 +766,7 @@ export const CompositeRenderer: React.FC<{
             <Alert
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'component.pageRenderer.composite.pendingApproval',
                 defaultMessage: '已提交审批，等待审批通过后生效',
               })}
@@ -782,7 +791,7 @@ export const CompositeRenderer: React.FC<{
             <Alert
               type="warning"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'component.pageRenderer.composite.pendingTask',
                 defaultMessage: '任务已提交，正在后台执行',
               })}
@@ -1202,7 +1211,7 @@ export const CompositeRenderer: React.FC<{
                     try {
                       // D4：审批 / 任务提交 ≠ 业务执行成功——弹窗保持开启，
                       // 待处理反馈（含审批入口）与字段级错误都留在弹窗内。
-                      const succeeded = await submitFormSection(sec, values);
+                      const succeeded = await submitFormSection(sec, values as FormValues);
                       if (!succeeded) return;
                       setDialogKey(null);
                       message.success(
