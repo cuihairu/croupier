@@ -57,6 +57,17 @@ export const CompositeRenderer: React.FC<{
   >({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [sectionInputs, setSectionInputs] = useState<Record<string, Record<string, unknown>>>({});
+  // B2：结果修订号——每个区块每次产出新结果（成功或失败）+1。仅由 runSection
+  // 写入，选区/常量等辅助写入不进修订号。级联改由修订号驱动：上游同态新数据
+  // 也改变修订号，下游随之重跑（旧 key 集合信号看不到「成功→成功·新数据」）。
+  const [revisions, setRevisions] = useState<Record<string, number>>({});
+  // B2：请求序号（ref，同步占用）——并发同区块重跑时仅最新一次可落账（旧
+  // 响应拒收）。与结果修订号分离：修订号在结果真正落地时才前进，信号因此
+  // 只反映已落账的结果，不会被在飞请求预先污染。
+  const execSeqRef = useRef<Record<string, number>>({});
+  // B2：级联联动账本——每区块已消费的上游修订号 + 上次失败态（同态连续失败
+  // 不重复提示）。首次看到的上游结果照常联动（refreshOn 语义保持）。
+  const cascadeSeenRef = useRef<Record<string, { rev: number; failed: boolean }>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
   // 运行时状态快照 ref（事件帧内求值/执行读取，避免 setState 异步导致同帧读旧值）
   const resultsRef = useRef(results);
@@ -127,8 +138,16 @@ export const CompositeRenderer: React.FC<{
       if (preview) return null;
       const merged = { ...(inputsRef.current[sec.key] || {}), ...(overrides || {}) };
       setRunning((prev) => ({ ...prev, [sec.key]: true }));
+      // B2：请求序号发请求前同步占用——并发同区块重跑时仅序号匹配的那次可
+      // 落账（旧响应拒收）。修订号留给落账时 +1（成功/失败都算一次新结果，
+      // 下游 cascadePolicy 语义保持），因此级联信号只反映已落账的结果。
+      const execSeq = (execSeqRef.current[sec.key] ?? 0) + 1;
+      execSeqRef.current[sec.key] = execSeq;
+      const isCurrent = () => execSeqRef.current[sec.key] === execSeq;
       try {
         const result = await onExecute(sec.bindingId, { form: merged as never });
+        if (!isCurrent()) return null; // 旧响应拒收
+        setRevisions((prev) => ({ ...prev, [sec.key]: (prev[sec.key] ?? 0) + 1 }));
         setResults((prev) => ({ ...prev, [sec.key]: result || null }));
         // V5：函数输出并入 page_state.data（{{var.data.x}} 服务端求值来源）
         onPageStateMerge?.(
@@ -148,6 +167,8 @@ export const CompositeRenderer: React.FC<{
         // U9：失败也写入 results（error 标记）——下游 cascadePolicy 据此判定
         // 级联行为；错误继续上抛（弹窗提交路径靠 catch 保持弹窗开启并 toast）。
         // T8：附稳定错误码（executor_unbound → 区块内渲染绑定引导空态）
+        if (!isCurrent()) throw e; // 旧失败不覆盖新结果
+        setRevisions((prev) => ({ ...prev, [sec.key]: (prev[sec.key] ?? 0) + 1 }));
         setResults((prev) => ({
           ...prev,
           [sec.key]: {
@@ -207,46 +228,93 @@ export const CompositeRenderer: React.FC<{
     [message, intl],
   );
 
-  // U9：级联信号 = 区块 key 集合 + 各区块失败标记（o/e）。失败↔成功翻转
-  // 触发下游重跑——暂停的级联在上游恢复后自动续跑；同态新值不重复触发
-  // （既有 key 集合语义保持）。
+  // B2：级联信号 = 各区块「修订号:成败标记」。修订号是每次产出新结果的单调
+  // 计数（成功/失败都算），因此「连续两次成功但数据不同」也会改变信号——旧
+  // 信号只看 key 集合 + o/e 翻转，同态新值触不到下游。
   const cascadeSignal = Object.keys(results)
     .sort()
-    .map((k) => `${k}:${isFailedResult(results[k]) ? 'e' : 'o'}`)
+    .map((k) => `${k}:${revisions[k] ?? 0}:${isFailedResult(results[k]) ? 'e' : 'o'}`)
     .join(',');
+
+  // B2：依赖循环判定——refreshOn 图回溯到自身即拒绝联动（A→B→A）。仅标记
+  // 处于循环中的区块，其余级联照常。
+  const cyclicSections = useMemo(() => {
+    const graph = new Map<string, string[]>();
+    for (const sec of sections) graph.set(sec.key, sec.refreshOn || []);
+    const result = new Set<string>();
+    for (const sec of sections) {
+      if (!sec.refreshOn?.length) continue;
+      const visiting = new Set<string>();
+      const visited = new Set<string>();
+      const dfs = (node: string): boolean => {
+        for (const next of graph.get(node) || []) {
+          if (next === sec.key) return true;
+          if (visited.has(next) || visiting.has(next)) continue;
+          visiting.add(next);
+          if (dfs(next)) return true;
+          visiting.delete(next);
+          visited.add(next);
+        }
+        return false;
+      };
+      visiting.add(sec.key);
+      if (dfs(sec.key)) result.add(sec.key);
+    }
+    return result;
+  }, [sections]);
+
   useEffect(() => {
+    const seen = cascadeSeenRef.current;
     for (const sec of sections) {
       if (!sec.refreshOn?.length || sec.display === 'dialog') continue;
-      const depChanged = sec.refreshOn.some((dep) => dep in results);
-      if (!depChanged || running[sec.key]) continue;
-      // U9：任一上游依赖失败 → 本区块按 cascadePolicy 处理（不重跑）
+      const depRev = sec.refreshOn
+        .filter((dep) => dep in results)
+        .reduce((max, dep) => Math.max(max, revisions[dep] ?? 0), 0);
+      if (depRev === 0) continue; // 上游尚无结果
+      // 在跑时不消费修订号：等 running 翻转后重入本 effect，用最新上游数据重跑
+      if (running[sec.key]) continue;
+      if (seen[sec.key]?.rev >= depRev) continue; // 该修订号已联动过
       const failedDep = sec.refreshOn.find((dep) => isFailedResult(results[dep]));
+      const prevFailed = seen[sec.key]?.failed ?? false;
+      seen[sec.key] = { rev: depRev, failed: !!failedDep };
+      if (cyclicSections.has(sec.key)) continue; // 循环依赖：拒绝联动
       if (failedDep) {
-        applyCascadePolicy(sec, failedDep);
+        // U9：失败态首次出现才提示（同态连续失败不重复打扰）
+        if (!prevFailed) applyCascadePolicy(sec, failedDep);
         continue;
       }
+      // 发起前把上游最新输出同步并入 inputsRef（state 版 sectionInputs 要到
+      // 下一渲染才可见，直接读会拿到旧入参——「同态新数据」验收的关键）。
+      const merged: Record<string, unknown> = { ...(inputsRef.current[sec.key] || {}) };
+      for (const dep of sec.refreshOn) {
+        const depData = (results[dep] as { data?: Record<string, unknown> } | null | undefined)
+          ?.data;
+        if (depData) Object.assign(merged, depData);
+      }
+      inputsRef.current = { ...inputsRef.current, [sec.key]: merged };
+      setSectionInputs((prev) => ({ ...prev, [sec.key]: merged }));
       runSection(sec).catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cascadeSignal]);
+  }, [cascadeSignal, running]);
 
-  // 上游输出同名字段合并进下游输入
+  // 上游输出同名字段合并进下游输入（按实际差异返回，避免无谓重渲染）
   useEffect(() => {
     setSectionInputs((prev) => {
       const next = { ...prev };
       let changed = false;
       for (const sec of sections) {
         if (!sec.refreshOn?.length) continue;
-        const merged: Record<string, unknown> = { ...(next[sec.key] || {}) };
+        const merged: Record<string, unknown> = { ...(prev[sec.key] || {}) };
         for (const dep of sec.refreshOn) {
           const depData = (results[dep] as { data?: Record<string, unknown> } | null | undefined)
             ?.data;
-          if (depData) {
-            Object.assign(merged, depData);
-            changed = true;
-          }
+          if (depData) Object.assign(merged, depData);
         }
-        next[sec.key] = merged;
+        if (JSON.stringify(next[sec.key]) !== JSON.stringify(merged)) {
+          next[sec.key] = merged;
+          changed = true;
+        }
       }
       return changed ? next : prev;
     });
@@ -283,10 +351,10 @@ export const CompositeRenderer: React.FC<{
 
   /** 动作链执行：run/refresh（params 来源解析）/openModal/closeModal/navigate/showMessage。 */
   const runChain = useCallback(
-    (
+    async (
       chain: Array<{ kind: string; target: string; params?: Record<string, string> }> | undefined,
       ctx?: Record<string, unknown>,
-    ) => {
+    ): Promise<void> => {
       for (const step of chain ?? []) {
         if (step.kind === 'closeModal') {
           setDialogKey(null);
@@ -317,10 +385,16 @@ export const CompositeRenderer: React.FC<{
           const target = sectionsRef.current.find(
             (x) => x.key === step.target || x.group === step.target,
           );
-          if (target) {
-            runSectionRef
-              .current(target, resolveStepParams(step.params, resultsRef.current, ctx) as never)
-              .catch(() => undefined);
+          if (!target) continue;
+          // B2：链步骤顺序执行且失败中止——执行类步骤失败即终止整条链，不再
+          // 吞错继续跑后续步骤（避免「操作失败却跳转成功页」这类假成功）。
+          try {
+            await runSectionRef.current(
+              target,
+              resolveStepParams(step.params, resultsRef.current, ctx) as never,
+            );
+          } catch {
+            return;
           }
         }
       }

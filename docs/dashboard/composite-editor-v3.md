@@ -8,21 +8,21 @@ V3 is the componentized production editor for composite operator pages. It turns
 
 ## Editor capabilities
 
-| Area            | Capability                                                                               |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| Entry points    | Create a composite page from the proposal inbox or edit an existing composite page.      |
-| Component panel | Function components grouped by resource, plus buttons, modals, containers, and text.     |
-| Outline         | Tree navigation with click-to-locate selection.                                          |
-| Insertion       | Click insertion, drag insertion, drop indicators, and contract-aware container children. |
-| Instances       | Multiple instances of the same function; automatic stable key allocation and rebinding.  |
-| Canvas          | Grid width adjustment, ordering, context menu, parent selection, copy, and delete.       |
-| Selection       | Shift-click accumulation and bulk deletion.                                              |
-| History         | Undo and redo for tree changes with a 50-step snapshot window.                           |
-| Modals          | Enter a modal's inner canvas, edit several forms, and return through breadcrumbs.        |
-| Properties      | Schema-driven configuration and action tabs for the selected node.                       |
-| Events          | Button, table row, form success/failure, field, and text interactions.                   |
-| Action chains   | Ordered execution, refresh, modal close, navigation, and notification actions.           |
-| Data debugging  | Try a function in the bottom panel and inspect the result before publishing.             |
+| Area            | Capability                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Entry points    | Create a composite page from the proposal inbox or edit an existing composite page.                                       |
+| Component panel | Function components grouped by resource, plus buttons, modals, containers, and text.                                      |
+| Outline         | Tree navigation with click-to-locate selection.                                                                           |
+| Insertion       | Click insertion, drag insertion, drop indicators, and contract-aware container children.                                  |
+| Instances       | Multiple instances of the same function; automatic stable key allocation and rebinding.                                   |
+| Canvas          | Grid width adjustment, ordering, context menu, parent selection, copy, and delete.                                        |
+| Selection       | Shift-click accumulation and bulk deletion.                                                                               |
+| History         | Undo and redo for tree changes with a 50-step snapshot window.                                                            |
+| Modals          | Enter a modal's inner canvas, edit several forms, and return through breadcrumbs.                                         |
+| Properties      | Schema-driven configuration and action tabs for the selected node.                                                        |
+| Events          | Button, table row, form success/failure, field, and text interactions.                                                    |
+| Action chains   | Ordered execution with abort on a failed execution step, plus refresh, modal close, navigation, and notification actions. |
+| Data debugging  | Try a function in the bottom panel and inspect the result before publishing.                                              |
 
 ## Typical workflow
 
@@ -42,6 +42,8 @@ The editor serializes a `CompositeSection` tree into a `PageSpec`. The compiler:
 - validates selector mappings and output shapes;
 - preserves refresh, visibility, and action-chain edges;
 - keeps dialogs as execution groups even when they are grouped for display.
+
+Refresh edges (`refreshOn`) compile straight through to the published spec. At runtime the cascade is driven by a per-section result revision, so a same-state new upstream result (two consecutive successful runs with different data) cascades as well; a section whose `refreshOn` graph cycles back to itself is refused the cascade.
 
 Published behavior is deterministic: hidden inline sections still execute according to their configuration, while rendering is filtered by `visibleWhen`.
 
