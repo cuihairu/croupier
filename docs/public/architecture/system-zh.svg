@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="920" viewBox="0 0 1280 920" role="img" aria-labelledby="title desc" lang="zh-CN">
+<title id="title">Croupier 系统进程与数据流</title><desc id="desc">实线表示业务请求与结果，虚线表示注册与发现。运营控制台经 HTTPS 驱动 Server，Server 通过 Agent 主动外联的 TCP 会话下发调用，游戏进程以本地 provider 会话注册。</desc>
+<defs>
+ <marker id="blue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#245bb2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+ <marker id="teal" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#147565" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+ <style>text{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#172b45}.sub{fill:#4c5d73}.blue{fill:#245bb2}.teal{fill:#147565}</style>
+</defs><rect width="1280" height="920" fill="#fff"/>
+<text x="28" y="40" font-size="27" font-weight="600" text-anchor="start">系统进程与数据流</text>
+<path d="M760 31 L806 31" fill="none" stroke="#245bb2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue)"/>
+<text x="818" y="37" font-size="16" font-weight="400" text-anchor="start" class="sub">业务 / 数据</text>
+<path d="M960 31 L1006 31" fill="none" stroke="#147565" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#teal)" stroke-dasharray="7 6"/>
+<text x="1018" y="37" font-size="16" font-weight="400" text-anchor="start" class="sub">注册 / 发现</text>
+<text x="28" y="75" font-size="17" font-weight="400" text-anchor="start" class="sub">Agent 只向外拨号：Server 永不回连 Agent，Agent 也永不回连 SDK。</text>
+<rect x="28" y="106" width="1224" height="180" rx="10" fill="#f4f9f8" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="48" y="134" font-size="17" font-weight="600" text-anchor="start" class="teal">控制面</text>
+<g data-node="console">
+<rect x="48" y="150" width="250" height="102" rx="10" fill="#fff" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="66" y="184" font-size="23" font-weight="600" text-anchor="start">运营控制台</text>
+<text x="66" y="214" font-size="17" font-weight="400" text-anchor="start" class="sub">dashboard nginx</text>
+<text x="66" y="240" font-size="17" font-weight="400" text-anchor="start" class="sub">Umi Max · Ant Design</text>
+</g>
+<g data-node="server">
+<rect x="440" y="150" width="420" height="102" rx="10" fill="#f0f5fe" stroke="#9bb5dc" stroke-width="1.3"/>
+<text x="458" y="184" font-size="23" font-weight="600" text-anchor="start">Server</text>
+<text x="458" y="214" font-size="17" font-weight="400" text-anchor="start" class="sub">HTTP :18780 · TCP :19090</text>
+<text x="458" y="240" font-size="17" font-weight="400" text-anchor="start" class="sub">注册表 · 策略 · 审批 · 审计 · 路由</text>
+</g>
+<path d="M930 150 A130.0 14 0 0 1 1190 150 V250 A130.0 14 0 0 1 930 250 Z" fill="#f5f7fa" stroke="#ced8e5" stroke-width="1.3"/>
+<ellipse cx="1060.0" cy="150" rx="130.0" ry="14" fill="#eef2f7" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="1060.0" y="200" font-size="20" font-weight="600" text-anchor="middle">存储</text>
+<text x="1060.0" y="224" font-size="15" font-weight="400" text-anchor="middle" class="sub">元库 + 分游戏库 · Redis</text>
+<path d="M298 201 L440 201" fill="none" stroke="#245bb2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)"/>
+<rect x="291" y="178" width="156" height="23" rx="3" fill="#fff" stroke="none" stroke-width="1.3"/>
+<text x="369" y="194" font-size="15" font-weight="500" text-anchor="middle" class="blue">HTTPS · REST / SSE</text>
+<path d="M860 201 L930 201" fill="none" stroke="#245bb2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)"/>
+<rect x="871" y="178" width="48" height="23" rx="3" fill="#fff" stroke="none" stroke-width="1.3"/>
+<text x="895" y="194" font-size="15" font-weight="500" text-anchor="middle" class="blue">SQL</text>
+<rect x="28" y="380" width="1224" height="214" rx="10" fill="#f8fafc" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="48" y="408" font-size="17" font-weight="600" text-anchor="start">Agent 平面 —— 仅外联会话</text>
+<g data-node="agent">
+<rect x="300" y="434" width="400" height="112" rx="10" fill="#fff" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="318" y="468" font-size="23" font-weight="600" text-anchor="start">Agent</text>
+<text x="318" y="498" font-size="17" font-weight="400" text-anchor="start" class="sub">本地网关 :19091 · 上行会话客户端</text>
+<text x="318" y="524" font-size="17" font-weight="400" text-anchor="start" class="sub">作业执行 · 扩展同步拉取</text>
+</g>
+<g data-node="satellite agents">
+<rect x="760" y="434" width="360" height="112" rx="10" fill="#fff" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="778" y="468" font-size="23" font-weight="600" text-anchor="start">旁路 agent</text>
+<text x="778" y="498" font-size="17" font-weight="400" text-anchor="start" class="sub">capture · devops · synthetics</text>
+<text x="778" y="524" font-size="17" font-weight="400" text-anchor="start" class="sub">无入站监听端口</text>
+</g>
+<path d="M500 252 L500 434" fill="none" stroke="#245bb2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)"/>
+<rect x="382" y="314" width="100" height="23" rx="3" fill="#fff" stroke="none" stroke-width="1.3"/>
+<text x="432" y="330" font-size="15" font-weight="500" text-anchor="middle" class="blue">调用 · 结果</text>
+<path d="M620 434 L620 252" fill="none" stroke="#147565" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#teal)" stroke-dasharray="7 6"/>
+<rect x="630" y="314" width="100" height="23" rx="3" fill="#fff" stroke="none" stroke-width="1.3"/>
+<text x="680" y="330" font-size="15" font-weight="500" text-anchor="middle" class="teal">注册 · 心跳</text>
+<path d="M940 434 L940 366 L800 366 L800 252" fill="none" stroke="#147565" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#teal)" stroke-dasharray="7 6"/>
+<rect x="812" y="343" width="100" height="23" rx="3" fill="#fff" stroke="none" stroke-width="1.3"/>
+<text x="862" y="359" font-size="15" font-weight="500" text-anchor="middle" class="teal">注册 · 上报</text>
+<rect x="28" y="638" width="1224" height="152" rx="10" fill="#f4f9f8" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="48" y="666" font-size="17" font-weight="600" text-anchor="start">游戏进程</text>
+<g data-node="game server A">
+<rect x="220" y="688" width="250" height="88" rx="10" fill="#fff" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="238" y="722" font-size="22" font-weight="600" text-anchor="start">游戏进程 A</text>
+<text x="238" y="751" font-size="17" font-weight="400" text-anchor="start" class="sub">SDK · provider 会话</text>
+</g>
+<g data-node="game server B">
+<rect x="515" y="688" width="250" height="88" rx="10" fill="#fff" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="533" y="722" font-size="22" font-weight="600" text-anchor="start">游戏进程 B</text>
+<text x="533" y="751" font-size="17" font-weight="400" text-anchor="start" class="sub">SDK · provider 会话</text>
+</g>
+<g data-node="third-party app">
+<rect x="810" y="688" width="250" height="88" rx="10" fill="#fff" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="828" y="722" font-size="22" font-weight="600" text-anchor="start">第三方应用</text>
+<text x="828" y="751" font-size="17" font-weight="400" text-anchor="start" class="sub">provider 会话</text>
+</g>
+<path d="M500 546 L500 606 L345 606 L345 688" fill="none" stroke="#245bb2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue)" marker-start="url(#blue)"/>
+<path d="M500 606 L935 606 L935 688" fill="none" stroke="#245bb2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue)"/>
+<path d="M640 606 L640 688" fill="none" stroke="#245bb2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue)"/>
+<rect x="385" y="583" width="210" height="23" rx="3" fill="#fff" stroke="none" stroke-width="1.3"/>
+<text x="490" y="599" font-size="15" font-weight="500" text-anchor="middle" class="blue">本地 TCP · provider 会话</text>
+<rect x="28" y="822" width="1224" height="72" rx="10" fill="#fff" stroke="#ced8e5" stroke-width="1.3"/>
+<text x="48" y="856" font-size="21" font-weight="600" text-anchor="start">analytics</text>
+<text x="170" y="861" font-size="17" font-weight="400" text-anchor="start" class="sub">可选 profile：ingest :8088（HMAC）→ Redis Streams → analytics-worker → ClickHouse</text>
+</svg>

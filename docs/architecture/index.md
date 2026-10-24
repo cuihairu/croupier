@@ -18,6 +18,15 @@ The current transport baseline is a unified session model:
 - SDK-to-Agent uses a local TCP provider session.
 - Requests, responses, heartbeats, draining, reconnection, and backpressure share the same session runtime.
 
+## System diagram
+
+Solid lines carry business requests and results; dashed lines carry registration and discovery. The mobile layout stacks the same topology vertically.
+
+<picture>
+  <source media="(max-width: 768px)" srcset="/architecture/system-en-mobile.svg">
+  <img src="/architecture/system-en.svg" alt="Croupier system processes and data flow: console to Server over HTTPS, Server to Agent over outbound TCP sessions, Agent to game processes over local provider sessions" style="max-width: 100%;">
+</picture>
+
 ## Business scope
 
 The normal business boundary is `gameId + env`. A logical environment such as `dev`, `test`, `staging`, or `prod` does not imply a database, machine, or cluster. Deployment placement is expressed through targets, agents, and nodes.

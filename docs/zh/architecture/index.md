@@ -18,6 +18,15 @@ Croupier 是由三个协作组件构成的游戏运营控制面：
 - `SDK ↔ Agent` 使用本地 TCP provider session。
 - 请求、响应、心跳、drain、重连和背压共享同一套 session runtime。
 
+## 系统图
+
+实线表示业务请求与结果，虚线表示注册与发现；移动端版式把同一拓扑改为竖排。
+
+<picture>
+  <source media="(max-width: 768px)" srcset="/architecture/system-zh-mobile.svg">
+  <img src="/architecture/system-zh.svg" alt="Croupier 系统进程与数据流：运营控制台经 HTTPS 到 Server，Server 经外联 TCP 会话到 Agent，Agent 经本地 provider 会话到游戏进程" style="max-width: 100%;">
+</picture>
+
 ## 业务边界
 
 标准业务边界是 `gameId + env`。`dev`、`test`、`staging`、`prod` 是逻辑环境，不直接代表某个数据库、主机或集群。部署位置通过 target、agent、node 单独表达。
