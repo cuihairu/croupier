@@ -1,6 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table, Tabs } from 'antd';
-import { FormattedMessage, useIntl } from '@umijs/max';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Modal,
+  Row,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+} from 'antd';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ExecutorUnboundAlert, {
@@ -11,8 +24,10 @@ import { localizedText } from '@/utils/localizedText';
 import { extractApiErrorCode } from '@/utils/apiError';
 import { resolveStepParams } from './runtime';
 import { sectionVisible } from './sectionCondition';
-import { describeConfirmEntries } from './confirmContent';
+import { confirmFieldTitle, describeConfirmEntries } from './confirmContent';
 import type { ConfirmEntry } from './confirmContent';
+import { describeExecFailure, describeExecOutcome } from './execFeedback';
+import type { ExecFailure, ExecOutcome } from './execFeedback';
 import type {
   PageExecuteFn,
   PageExecutionResult,
@@ -172,6 +187,13 @@ export const CompositeRenderer: React.FC<{
   const tablePagesRef = useRef<Record<string, TablePageState>>({});
   const [tablePages, setTablePages] = useState<Record<string, TablePageState>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
+  // D4：执行反馈按区块留存——失败（稳定错误码 + 字段级定位）与待处理结果
+  // （审批 / 任务）。approval/task 一律不触发 success 事件与刷新级联：任务
+  // 提交与业务执行成功是两件事，不能共用一条提示语义。
+  const [execFailures, setExecFailures] = useState<Record<string, ExecFailure | null>>({});
+  const [execPending, setExecPending] = useState<
+    Record<string, { outcome: ExecOutcome; id?: string } | undefined>
+  >({});
   // 运行时状态快照 ref（事件帧内求值/执行读取，避免 setState 异步导致同帧读旧值）
   const resultsRef = useRef(results);
   // 常量表单（static）值缓冲：防抖后并入 results 驱动 refreshOn 联动。
@@ -294,8 +316,14 @@ export const CompositeRenderer: React.FC<{
             setTablePages(tablePagesRef.current);
           }
         }
-        // 操作类区块成功后刷新目标（发邮件成功 → 刷新玩家表格）
-        if ((sec.view === 'form' || sec.view === 'actions') && sec.onSuccessRefresh?.length) {
+        // 操作类区块成功后刷新目标（发邮件成功 → 刷新玩家表格）。
+        // D4：审批待处理 / 任务已提交≠业务执行成功——此时业务侧尚未变更，
+        // 刷新只会拉回旧数据，故按结果类别门控。
+        if (
+          (sec.view === 'form' || sec.view === 'actions') &&
+          sec.onSuccessRefresh?.length &&
+          describeExecOutcome(result) === 'success'
+        ) {
           for (const target of sec.onSuccessRefresh) {
             const t = sectionsRef.current.find((x) => x.key === target);
             if (t) runSection(t).catch(() => undefined);
@@ -639,6 +667,143 @@ export const CompositeRenderer: React.FC<{
     [runChain],
   );
 
+  /** 清空区块执行反馈（改输入或关弹窗时旧反馈失效）。 */
+  const clearExecFeedbackOf = (key: string) => {
+    setExecFailures((prev) => (prev[key] ? { ...prev, [key]: null } : prev));
+    setExecPending((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  };
+
+  /** D4：表单区块提交统一出口。返回 true 仅表示业务执行成功（同步结果），
+   * 调用方据此关弹窗；审批待处理 / 任务已提交 / 执行失败均保持弹窗开启，
+   * 把待处理入口与字段级错误留在用户面前。 */
+  const submitFormSection = useCallback(
+    async (sec: CompositeSection, values: FormValues): Promise<boolean> => {
+      const plain = values as Record<string, unknown>;
+      clearExecFeedbackOf(sec.key);
+      // 无表单区块（降级执行按钮）不落页面状态：与既有提交路径行为对齐
+      if (sec.form) onPageStateMerge?.(sec.key, { ...plain, values: plain });
+      try {
+        const r = await runSectionRef.current(sec, plain);
+        const outcome = describeExecOutcome(r);
+        if (outcome === 'approval') {
+          setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.approvalId } }));
+          message.info(
+            intl.formatMessage({
+              id: 'component.pageRenderer.composite.submittedForApproval',
+              defaultMessage: '操作已提交审批，等待审批通过后生效',
+            }),
+          );
+          return false;
+        }
+        if (outcome === 'task') {
+          setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.taskId } }));
+          message.success(
+            intl.formatMessage({
+              id: 'component.pageRenderer.composite.taskSubmitted',
+              defaultMessage: '任务已提交，正在后台执行',
+            }),
+          );
+          return false;
+        }
+        setExecPending((prev) => ({ ...prev, [sec.key]: undefined }));
+        fireEvent(sec, 'success');
+        return true;
+      } catch (e) {
+        setExecFailures((prev) => ({ ...prev, [sec.key]: describeExecFailure(e) }));
+        // 上抛：弹窗提交路径沿用既有失败 toast 分支（含 T8 unbound 指引文案）
+        throw e;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [message, intl, onPageStateMerge, fireEvent],
+  );
+
+  /** D4：区块执行反馈条——失败给稳定错误码 + 字段级定位，待处理给审批 /
+   * 任务入口。字段名按表单展示层 label 渲染（与 D2 确认框同源），不显示
+   * 原始 key。 */
+  const renderExecFeedback = (sec: CompositeSection): React.ReactNode => {
+    const failure = execFailures[sec.key];
+    const pending = execPending[sec.key];
+    const fieldTitle = (key: string) =>
+      confirmFieldTitle(sec.form?.fields?.find((f) => f.key === key), key);
+    return (
+      <>
+        {failure ? (
+          <Alert
+            type="error"
+            showIcon
+            message={intl.formatMessage(
+              { id: 'component.pageRenderer.composite.execFailed', defaultMessage: '执行失败{codeSuffix}' },
+              { codeSuffix: failure.code ? `（${failure.code}）` : '' },
+            )}
+            description={
+              <>
+                {failure.message ? <div>{failure.message}</div> : null}
+                {failure.fieldErrors.length > 0 ? (
+                  <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                    {failure.fieldErrors.map((fe, i) => (
+                      <li key={i}>
+                        {fe.field ? `${fieldTitle(fe.field)}：${fe.message}` : fe.message}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </>
+            }
+          />
+        ) : null}
+        {pending ? (
+          pending.outcome === 'approval' ? (
+            <Alert
+              type="info"
+              showIcon
+              message={intl.formatMessage({
+                id: 'component.pageRenderer.composite.pendingApproval',
+                defaultMessage: '已提交审批，等待审批通过后生效',
+              })}
+              description={
+                <Space size={8} wrap>
+                  {pending.id ? <Tag color="blue">审批单 {pending.id}</Tag> : null}
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0 }}
+                    onClick={() => history.push('/approvals')}
+                  >
+                    {intl.formatMessage({
+                      id: 'component.pageRenderer.composite.goToApprovals',
+                      defaultMessage: '前往审批中心',
+                    })}
+                  </Button>
+                </Space>
+              }
+            />
+          ) : (
+            <Alert
+              type="warning"
+              showIcon
+              message={intl.formatMessage({
+                id: 'component.pageRenderer.composite.pendingTask',
+                defaultMessage: '任务已提交，正在后台执行',
+              })}
+              description={
+                <Space size={8} wrap>
+                  {pending.id ? <Tag color="processing">任务 {pending.id}</Tag> : null}
+                  <span>
+                    {intl.formatMessage({
+                      id: 'component.pageRenderer.composite.pendingTaskHint',
+                      defaultMessage: '任务执行完成后业务数据才会变更，请避免重复提交',
+                    })}
+                  </span>
+                </Space>
+              }
+            />
+          )
+        ) : null}
+      </>
+    );
+  };
+
   /** 行字段映射：params 目标参数名 → 本行字段名。
    * V5 兼容两种形态：纯字段名（V3 编辑器产出）与 `row.字段`（{{row.x}} 编译产物）。 */
   const mapRowParams = (
@@ -883,35 +1048,37 @@ export const CompositeRenderer: React.FC<{
           }}
         />
       ) : sectionHasForm(sec) ? (
-        <SchemaFormRenderer
-          spec={sec.form!}
-          initialValues={(sectionInputs[sec.key] || {}) as FormValues}
-          disabled={running[sec.key] || false}
-          onValuesChange={(_, values) => {
-            // V5：fnForm 当前值防抖写入 results[key].values（{{var.values.x}}）
-            valuesMergeRef.current[sec.key] = values as Record<string, unknown>;
-            scheduleValuesFlush();
-          }}
-          onFinish={async (values) => {
-            // 双形态快照（扁平兼容遗留 + values 包装），并驱动提交
-            onPageStateMerge?.(sec.key, { ...(values as Record<string, unknown>), values });
-            const r = await runSection(sec, values);
-            if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
-          }}
-        />
+        <>
+          {renderExecFeedback(sec)}
+          <SchemaFormRenderer
+            spec={sec.form!}
+            initialValues={(sectionInputs[sec.key] || {}) as FormValues}
+            disabled={running[sec.key] || false}
+            onValuesChange={(_, values) => {
+              // V5：fnForm 当前值防抖写入 results[key].values（{{var.values.x}}）
+              valuesMergeRef.current[sec.key] = values as Record<string, unknown>;
+              scheduleValuesFlush();
+              // D4：输入变化后旧失败反馈失效
+              clearExecFeedbackOf(sec.key);
+            }}
+            onFinish={(values) => submitFormSection(sec, values).catch(() => undefined)}
+          />
+        </>
       ) : (
-        <Button
-          type="primary"
-          onClick={() =>
-            runSection(sec)
-              .then((r) => {
-                if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
-              })
-              .catch(() => undefined)
-          }
-        >
-          {localizedText(sec.title, 'zh-CN', sec.key)}
-        </Button>
+        <>
+          {renderExecFeedback(sec)}
+          <Button
+            type="primary"
+            loading={running[sec.key] || false}
+            onClick={() =>
+              submitFormSection(sec, (sectionInputs[sec.key] || {}) as FormValues).catch(
+                () => undefined,
+              )
+            }
+          >
+            {localizedText(sec.title, 'zh-CN', sec.key)}
+          </Button>
+        </>
       )}
     </Card>
   );
@@ -1009,7 +1176,10 @@ export const CompositeRenderer: React.FC<{
         <Modal
           title={localizedText(activeDialogs[0].title, 'zh-CN', dialogKey)}
           open
-          onCancel={() => setDialogKey(null)}
+          onCancel={() => {
+            activeDialogs.forEach((s) => clearExecFeedbackOf(s.key));
+            setDialogKey(null);
+          }}
           footer={null}
           destroyOnHidden
         >
@@ -1021,13 +1191,19 @@ export const CompositeRenderer: React.FC<{
                   section={sec}
                   running={running[sec.key] || false}
                   initialParams={sectionInputs[dialogKey] || {}}
+                  feedback={renderExecFeedback(sec)}
                   onValuesChange={(values) => {
                     valuesMergeRef.current[sec.key] = values;
                     scheduleValuesFlush();
+                    // D4：输入变化后旧失败反馈失效（弹窗保留待处理提示直至提交）
+                    clearExecFeedbackOf(sec.key);
                   }}
                   onSubmit={async (values) => {
                     try {
-                      await runSectionRef.current(sec, values);
+                      // D4：审批 / 任务提交 ≠ 业务执行成功——弹窗保持开启，
+                      // 待处理反馈（含审批入口）与字段级错误都留在弹窗内。
+                      const succeeded = await submitFormSection(sec, values);
+                      if (!succeeded) return;
                       setDialogKey(null);
                       message.success(
                         intl.formatMessage(
@@ -1038,7 +1214,6 @@ export const CompositeRenderer: React.FC<{
                           { title: localizedText(sec.title, 'zh-CN', sec.key) },
                         ),
                       );
-                      fireEvent(sec, 'success');
                     } catch (e) {
                       // 失败保持弹窗开启（保留已填参数）；App 实例 toast 给出
                       // 明确错误反馈（全局拦截器只对 request 层错误兜底）；
@@ -1100,33 +1275,41 @@ const DialogForm: React.FC<{
   section: CompositeSection;
   running: boolean;
   initialParams: Record<string, unknown>;
+  /** D4：执行反馈条（失败定位 + 审批/任务待处理），由调用方按区块状态渲染。 */
+  feedback?: React.ReactNode;
   /** V5：当前值变化（防抖写入 values 运行时状态由调用方处理）。 */
   onValuesChange?: (values: Record<string, unknown>) => void;
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
-}> = ({ section, running, initialParams, onValuesChange, onSubmit }) => {
+}> = ({ section, running, initialParams, feedback, onValuesChange, onSubmit }) => {
   const spec = section.form;
   const properties = spec?.jsonSchema?.properties;
   const hasFields = !!properties && typeof properties === 'object';
   if (!spec || !hasFields) {
     return (
-      <Button type="primary" block loading={running} onClick={() => void onSubmit({})}>
-        <FormattedMessage
-          id="component.pageRenderer.composite.confirmExecute"
-          defaultMessage="确认执行"
-        />
-      </Button>
+      <>
+        {feedback}
+        <Button type="primary" block loading={running} onClick={() => void onSubmit({})}>
+          <FormattedMessage
+            id="component.pageRenderer.composite.confirmExecute"
+            defaultMessage="确认执行"
+          />
+        </Button>
+      </>
     );
   }
   return (
-    <SchemaFormRenderer
-      spec={spec}
-      initialValues={initialParams as FormValues}
-      disabled={running}
-      onValuesChange={(_, values) => onValuesChange?.(values as Record<string, unknown>)}
-      onFinish={async (values) => {
-        await onSubmit(values);
-      }}
-    />
+    <>
+      {feedback}
+      <SchemaFormRenderer
+        spec={spec}
+        initialValues={initialParams as FormValues}
+        disabled={running}
+        onValuesChange={(_, values) => onValuesChange?.(values as Record<string, unknown>)}
+        onFinish={async (values) => {
+          await onSubmit(values);
+        }}
+      />
+    </>
   );
 };
 
