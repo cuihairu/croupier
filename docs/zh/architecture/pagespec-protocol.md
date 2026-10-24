@@ -193,6 +193,18 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   不变）。边界：游标分页与自定义 `totalKey` 未实现（wire `PaginationSpec` 无游标字段）；
   弹窗（dialog）内渲染的表格不分页
 
+- `danger` + `chain`（rowActions / toolbar.actions）：**危险操作确认契约**（D2）——`danger`
+  动作在用户显式确认前绝不执行。带 `targetSection` 时确认框列出目标弹窗的预填参数与动作链
+  步骤，确认后才打开弹窗并执行动作链；不带 `targetSection`（纯动作链按钮）时确认框列出动作
+  链步骤。确认内容按目标表单的字段标题渲染参数、枚举值映射为选项文案、参数名人性化展示
+  （不显示原始字段 key），所见即实际将提交的内容。非危险动作带 `targetSection` 时直接开弹窗
+  并执行动作链（详情弹窗用动作链预载自身 fields/table 数据）；非危险纯链动作直接执行动作链。
+  边界：确认框不做字段语义强调（游戏/环境/区服/玩家身份、原因、封禁到期时间、补偿每人数量
+  不单独突出——依赖 D5 的显式字段语义）；`openModal` 链步骤无 danger 标志位（wire 无该
+  字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认；批量
+  目标核对未实现（跨页选择、总人数/当前页人数、目标清单入口、清空选择、筛选变化后旧选择的
+  处理）——表格行选择仍为单选 radio，wire 无 `table.selection` 字段
+
 **页面级可选字段 `componentTemplates`**（U11 模板使用快照，位于 PageSpec 根而非
 section 内）：`componentTemplates?: Array<{ key: string; digest: string }>`——
 创建端点 `POST /api/v1/versioning/pages/composite` 请求体可携带，服务端规范化

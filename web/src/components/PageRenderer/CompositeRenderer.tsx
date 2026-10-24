@@ -11,14 +11,51 @@ import { localizedText } from '@/utils/localizedText';
 import { extractApiErrorCode } from '@/utils/apiError';
 import { resolveStepParams } from './runtime';
 import { sectionVisible } from './sectionCondition';
+import { describeConfirmEntries } from './confirmContent';
+import type { ConfirmEntry } from './confirmContent';
 import type {
   PageExecuteFn,
   PageExecutionResult,
   CompositeSection,
   PageFunctionBinding,
   FormValues,
+  FormPresentationSpec,
   PaginationSpec,
 } from '@/types/dashboard';
+
+/** 危险动作确认框内容：提交参数条目 + 待执行的动作链步骤。 */
+interface ConfirmContentModel {
+  entries?: ConfirmEntry[];
+  steps?: Array<{ kind: string; target: string }>;
+}
+
+/** 确认框内容：参数条目按字段标题渲染（Descriptions），链步骤逐行列目标。 */
+function renderConfirmContent(model: ConfirmContentModel): React.ReactNode {
+  const { entries = [], steps = [] } = model;
+  if (entries.length === 0 && steps.length === 0) return null;
+  return (
+    <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+      {entries.length > 0 ? (
+        <Descriptions size="small" column={1} bordered>
+          {entries.map((entry) => (
+            <Descriptions.Item key={entry.key} label={entry.title}>
+              {entry.value}
+            </Descriptions.Item>
+          ))}
+        </Descriptions>
+      ) : null}
+      {steps.length > 0 ? (
+        <ul style={{ margin: '12px 0 0', paddingLeft: 18 }}>
+          {steps.map((step, index) => (
+            <li key={index}>
+              {step.kind} → {step.target}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 /** D3 组合页表格分页状态（仅 enabled 服务端分页的表格区块持有）。
  * page 为 1-based 页码；inputFingerprint 是上次请求的非分页入参指纹（= 上游
@@ -470,27 +507,73 @@ export const CompositeRenderer: React.FC<{
     [handleTablePageChange, intl, tablePages],
   );
 
-  /** 打开弹窗：目标可以是区块 key 或弹窗分组名（Group）；危险操作先确认。 */
+  /** 危险操作确认（D2）：确认框内展示即将提交/执行的完整内容——参数按字段
+   * 标题与枚举文案渲染（不显示原始字段 key），链步骤逐行列目标；确认后执行。 */
+  const confirmDanger = useCallback(
+    (opts: {
+      label: string;
+      entries?: ConfirmEntry[];
+      steps?: ConfirmContentModel['steps'];
+      onOk: () => void;
+    }) => {
+      modal.confirm({
+        title: intl.formatMessage(
+          {
+            id: 'component.pageRenderer.composite.confirmDangerTitle',
+            defaultMessage: `确认执行「${opts.label}」`,
+          },
+          { label: opts.label },
+        ),
+        icon: <ExclamationCircleOutlined />,
+        okButtonProps: { danger: true },
+        content: renderConfirmContent({ entries: opts.entries, steps: opts.steps }),
+        onOk: opts.onOk,
+      });
+    },
+    [modal, intl],
+  );
+
+  /** 目标（区块 key / 弹窗分组名）的表单展示规格：确认框据此按字段标题、
+   * 枚举文案渲染待提交的参数。 */
+  const formSpecOfTarget = useCallback(
+    (target: string): FormPresentationSpec | undefined => {
+      const hits = sectionsRef.current.filter(
+        (s) => s.key === target || s.group === target || s.bindingId === target,
+      );
+      return (hits.find((s) => s.form) ?? hits[0])?.form as FormPresentationSpec | undefined;
+    },
+    [sectionsRef],
+  );
+
+  /** 打开弹窗：目标可以是区块 key 或弹窗分组名（Group）。
+   * 危险操作先确认（确认内容 = 预填参数 + 将执行的动作链步骤），确认后开弹窗并
+   * 执行动作链；非危险直接开弹窗并执行动作链。 */
   const openDialog = useCallback(
-    (targetSection: string, params: Record<string, unknown>, danger?: boolean, label?: string) => {
-      setSectionInputs((prev) => ({ ...prev, [targetSection]: params }));
-      if (danger && label) {
-        modal.confirm({
-          title: intl.formatMessage(
-            {
-              id: 'component.pageRenderer.composite.confirmDangerTitle',
-              defaultMessage: `确认执行「${label}」`,
-            },
-            { label },
-          ),
-          icon: <ExclamationCircleOutlined />,
-          onOk: () => setDialogKey(targetSection),
+    (opts: {
+      target: string;
+      params: Record<string, unknown>;
+      danger?: boolean;
+      label?: string;
+      steps?: ConfirmContentModel['steps'];
+      afterOpen?: () => void;
+    }) => {
+      setSectionInputs((prev) => ({ ...prev, [opts.target]: opts.params }));
+      const open = () => {
+        setDialogKey(opts.target);
+        opts.afterOpen?.();
+      };
+      if (opts.danger && opts.label) {
+        confirmDanger({
+          label: opts.label,
+          entries: describeConfirmEntries(formSpecOfTarget(opts.target), opts.params),
+          steps: opts.steps,
+          onOk: open,
         });
         return;
       }
-      setDialogKey(targetSection);
+      open();
     },
-    [modal, intl],
+    [confirmDanger, formSpecOfTarget],
   );
 
   /** 动作链执行：run/refresh（params 来源解析）/openModal/closeModal/navigate/showMessage。 */
@@ -516,13 +599,13 @@ export const CompositeRenderer: React.FC<{
         if (step.kind === 'openModal' && step.target) {
           // 链内打开弹窗（如「关闭当前 → 打开下一个」多步向导）：params 按表达式
           // 求值为弹窗预填初值——缺失此分支会让 openModal 链步骤发布后静默丢弃。
-          openDialog(
-            step.target,
-            (resolveStepParams(step.params, resultsRef.current, ctx) ?? {}) as Record<
+          openDialog({
+            target: step.target,
+            params: (resolveStepParams(step.params, resultsRef.current, ctx) ?? {}) as Record<
               string,
               unknown
             >,
-          );
+          });
           continue;
         }
         if (step.kind === 'runBinding' || step.kind === 'refreshNode') {
@@ -596,14 +679,21 @@ export const CompositeRenderer: React.FC<{
         danger={act.danger}
         onClick={() => {
           if (act.targetSection) {
-            openDialog(
-              act.targetSection,
-              { ...(act.params || {}) },
-              act.danger,
-              localizedText(act.label, 'zh-CN'),
-            );
-            // Don't run chain when opening dialog — chain should run after
-            // dialog form submission (configure via section onSuccess)
+            openDialog({
+              target: act.targetSection,
+              params: { ...(act.params || {}) },
+              danger: act.danger,
+              label: localizedText(act.label, 'zh-CN'),
+              steps: act.chain,
+              afterOpen: () => runChain(act.chain),
+            });
+          } else if (act.danger) {
+            // D2：无目标弹窗的危险操作（纯动作链）同样先确认，确认内容列链步骤
+            confirmDanger({
+              label: localizedText(act.label, 'zh-CN'),
+              steps: act.chain,
+              onOk: () => runChain(act.chain),
+            });
           } else {
             runChain(act.chain);
           }
@@ -698,14 +788,23 @@ export const CompositeRenderer: React.FC<{
                             danger={ra.danger}
                             onClick={() => {
                               if (ra.targetSection) {
-                                openDialog(
-                                  ra.targetSection,
-                                  mapRowParams(ra.params, row),
-                                  ra.danger,
-                                  localizedText(ra.label, 'zh-CN'),
-                                );
+                                openDialog({
+                                  target: ra.targetSection,
+                                  params: mapRowParams(ra.params, row),
+                                  danger: ra.danger,
+                                  label: localizedText(ra.label, 'zh-CN'),
+                                  steps: ra.chain,
+                                  afterOpen: () => runChain(ra.chain, row),
+                                });
+                              } else if (ra.danger) {
+                                // D2：行级危险操作无目标弹窗时先确认（ctx 为当前行）
+                                confirmDanger({
+                                  label: localizedText(ra.label, 'zh-CN'),
+                                  steps: ra.chain,
+                                  onOk: () => runChain(ra.chain, row),
+                                });
                               } else {
-                                runChain(ra.chain);
+                                runChain(ra.chain, row);
                               }
                             }}
                           >
@@ -746,14 +845,24 @@ export const CompositeRenderer: React.FC<{
               danger={act.danger}
               onClick={() => {
                 if (act.targetSection) {
-                  openDialog(
-                    act.targetSection,
-                    { ...(act.params || {}) },
-                    act.danger,
-                    localizedText(act.label, 'zh-CN'),
-                  );
+                  openDialog({
+                    target: act.targetSection,
+                    params: { ...(act.params || {}) },
+                    danger: act.danger,
+                    label: localizedText(act.label, 'zh-CN'),
+                    steps: act.chain,
+                    afterOpen: () => runChain(act.chain),
+                  });
+                } else if (act.danger) {
+                  // D2：纯链危险操作先确认（与表格工具栏分支同构）
+                  confirmDanger({
+                    label: localizedText(act.label, 'zh-CN'),
+                    steps: act.chain,
+                    onOk: () => runChain(act.chain),
+                  });
+                } else {
+                  runChain(act.chain);
                 }
-                runChain(act.chain);
               }}
             >
               {localizedText(act.label, 'zh-CN')}
