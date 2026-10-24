@@ -104,7 +104,7 @@ export default function DirectoryPage() {
             body: {
               padding: DASHBOARD_PAGE_TOKENS.cardPadding,
               background:
-                'linear-gradient(135deg, rgba(22,119,255,0.1) 0%, rgba(82,196,26,0.05) 55%, rgba(250,173,20,0.04) 100%)',
+                'linear-gradient(135deg, rgba(var(--brand-2-rgb), 0.1) 0%, rgba(82,196,26,0.05) 55%, rgba(250,173,20,0.04) 100%)',
             },
           }}
         >

@@ -177,7 +177,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           size="small"
           style={{
             borderColor: selected ? 'var(--brand-2)' : undefined,
-            boxShadow: selected ? '0 0 0 2px rgba(22,119,255,0.15)' : undefined,
+            boxShadow: selected ? '0 0 0 2px rgba(var(--brand-2-rgb), 0.15)' : undefined,
             height: '100%',
           }}
           title={

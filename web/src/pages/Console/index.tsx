@@ -124,7 +124,7 @@ export default function ConsoleIndex() {
                 display: 'grid',
                 placeItems: 'center',
                 background: isMenuGroup
-                  ? 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)'
+                  ? 'linear-gradient(135deg, var(--brand-3) 0%, var(--brand-2) 100%)'
                   : 'linear-gradient(135deg, var(--brand-2) 0%, var(--rose-1) 100%)',
                 color: '#fff',
               }}

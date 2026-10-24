@@ -13,7 +13,8 @@ export const DASHBOARD_PAGE_TOKENS = {
   mutedTextSize: 12,
   softSurface: 'rgba(0,0,0,0.03)',
   filterSurface: 'rgba(0,0,0,0.025)',
-  infoGradient: 'linear-gradient(180deg, rgba(22,119,255,0.04) 0%, rgba(22,119,255,0) 100%)',
+  infoGradient:
+    'linear-gradient(180deg, rgba(var(--brand-2-rgb), 0.04) 0%, rgba(var(--brand-2-rgb), 0) 100%)',
 } as const;
 
 type SummaryItem = {
@@ -154,22 +155,26 @@ const PAGE_STATE_THEME: Record<
   success: {
     accent: '#52c41a',
     badgeStatus: 'success',
-    background: 'linear-gradient(135deg, rgba(82,196,26,0.12) 0%, rgba(22,119,255,0.03) 100%)',
+    background:
+      'linear-gradient(135deg, rgba(82,196,26,0.12) 0%, rgba(var(--brand-2-rgb), 0.03) 100%)',
   },
   info: {
     accent: 'var(--brand-2)',
     badgeStatus: 'processing',
-    background: 'linear-gradient(135deg, rgba(22,119,255,0.1) 0%, rgba(114,46,209,0.03) 100%)',
+    background:
+      'linear-gradient(135deg, rgba(var(--brand-2-rgb), 0.1) 0%, rgba(var(--brand-1-rgb), 0.03) 100%)',
   },
   warning: {
     accent: '#faad14',
     badgeStatus: 'warning',
-    background: 'linear-gradient(135deg, rgba(250,173,20,0.12) 0%, rgba(22,119,255,0.03) 100%)',
+    background:
+      'linear-gradient(135deg, rgba(250,173,20,0.12) 0%, rgba(var(--brand-2-rgb), 0.03) 100%)',
   },
   error: {
     accent: '#ff4d4f',
     badgeStatus: 'error',
-    background: 'linear-gradient(135deg, rgba(255,77,79,0.12) 0%, rgba(22,119,255,0.03) 100%)',
+    background:
+      'linear-gradient(135deg, rgba(255,77,79,0.12) 0%, rgba(var(--brand-2-rgb), 0.03) 100%)',
   },
 };
 

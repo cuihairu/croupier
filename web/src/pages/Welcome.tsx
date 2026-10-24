@@ -264,7 +264,7 @@ const Welcome: React.FC = () => {
                   height: '100%',
                   background:
                     index === 1
-                      ? 'linear-gradient(180deg, rgba(22,119,255,0.06) 0%, #ffffff 100%)'
+                      ? 'linear-gradient(180deg, rgba(var(--brand-2-rgb), 0.06) 0%, var(--app-panel-bg, #ffffff) 100%)'
                       : undefined,
                 }}
               >
