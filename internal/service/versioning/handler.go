@@ -252,6 +252,30 @@ func (h *Handler) CreateCompositePage(c *gin.Context) {
 	response.Success(c, body)
 }
 
+// PreviewCompositePage handles POST /versioning/pages/composite/preview：
+// 与保存入口共用同一生成链生成 composite 页 PageSpec，但**不落库**——
+// 不产生提案/草稿/审计，编辑器预览由此消费与发布产物逐字段一致的 spec，
+// 而非客户端另行拼装（区块列/行结构、绑定分配与 selector 校验均由服务端
+// 生成链决定，客户端复刻会漂移）。响应 pageSpec 为完整 GeneratedPageSpec，
+// 含 quality 与 diagnostics，供预览栏就地展示生成质量与告警。
+func (h *Handler) PreviewCompositePage(c *gin.Context) {
+	var req CreateCompositePageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	gameID, env := getScope(c)
+	generated, err := h.service.PreviewCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.Sections, req.ComponentTemplates)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{
+		"pageKey":  generated.PageKey,
+		"pageSpec": generated,
+	})
+}
+
 // DeletePage handles DELETE /versioning/pages/:pageKey：清理草稿/已发布/提案
 // （废弃页面 schema 的清理，如旧 tab 版组合页）。
 func (h *Handler) DeletePage(c *gin.Context) {

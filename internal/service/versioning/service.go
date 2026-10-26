@@ -2367,6 +2367,19 @@ func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey 
 	return outcome, nil
 }
 
+// PreviewCompositePage 生成组合页 PageSpec 而不落库：编辑器实时预览消费与
+// 「保存→发布」同一份生成链（同一区块契约解析、绑定分配、static 交错、模板
+// 快照与发布级 selector 校验），预览产物与发布产物逐字段一致。
+// 纯只读：不产生提案/草稿/审计，故无需 pages:publish 门槛；契约可见性仍受
+// 请求链上的 scope 与权限中间件约束。
+func (s *Service) PreviewCompositePage(ctx context.Context, gameID, env, pageKey string, sections []service.CompositeSectionRequest, componentTemplates []spec.ComponentTemplateUsage) (spec.GeneratedPageSpec, error) {
+	generated, _, err := service.NewContractService(s.db).BuildCompositePageSpec(ctx, gameID, env, pageKey, sections, componentTemplates)
+	if err != nil {
+		return spec.GeneratedPageSpec{}, err
+	}
+	return generated, nil
+}
+
 // DeletePage deletes a page's draft, published versions and pending proposals
 // (cleanup of obsolete page schemas).
 func (s *Service) DeletePage(ctx context.Context, gameID, env, pageKey string) error {

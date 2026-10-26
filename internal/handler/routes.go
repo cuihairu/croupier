@@ -1301,6 +1301,8 @@ func registerVersioningRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/pages/:pageKey/republish", versioningHandler.Republish)
 	// 组合页：手动聚合 2+ 资源生成 composite 提案（ProposalInbox 接受发布）
 	g.POST("/pages/composite", versioningHandler.CreateCompositePage)
+	// 组合页实时预览：同一生成链产出 PageSpec 但不落库（编辑器预览消费）。
+	g.POST("/pages/composite/preview", versioningHandler.PreviewCompositePage)
 	g.DELETE("/pages/:pageKey", versioningHandler.DeletePage)
 }
 

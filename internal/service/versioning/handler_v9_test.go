@@ -37,6 +37,7 @@ func newVersioningHandlerRouterV9(t *testing.T, db *gorm.DB) *gin.Engine {
 	router.DELETE("/api/versioning/pages/:pageKey", handler.DeletePage)
 	router.DELETE("/api/versioning/pages", handler.DeletePage)
 	router.POST("/api/versioning/pages/composite", handler.CreateCompositePage)
+	router.POST("/api/versioning/pages/composite/preview", handler.PreviewCompositePage)
 	return router
 }
 

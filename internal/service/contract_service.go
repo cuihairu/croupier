@@ -1849,23 +1849,52 @@ func (s *ContractService) CreateCompositeProposal(
 	sections []CompositeSectionRequest,
 	componentTemplates []spec.ComponentTemplateUsage,
 ) (proposal *model.PageProposal, err error) {
-	// 组合页创建链路新近重构——panic 显式转为错误（含栈）返回前端，
-	// 避免 500 空响应无诊断。
+	// 组合页创建链路重构——panic 显式转为错误（含栈）返回前端，避免
+	// 500 空响应无诊断。生成段由 BuildCompositePageSpec 自守卫；此处守卫
+	// upsertGeneratedProposal 持久化段（nil model 等确定性空指针）。
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("CreateCompositeProposal panic", "recover", r, "stack", string(debug.Stack()))
 			err = fmt.Errorf("internal error creating composite page: %v", r)
 		}
 	}()
+	generated, contracts, err := s.BuildCompositePageSpec(ctx, gameID, env, pageKey, sections, componentTemplates)
+	if err != nil {
+		return nil, err
+	}
+	proposalKey := compositeProposalKey(pageKey)
+	if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, contracts, generated); err != nil {
+		return nil, err
+	}
+	return s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
+}
+
+// BuildCompositePageSpec 生成组合页 PageSpec 而不落库：供编辑器实时预览消费
+// 与「保存→发布」同一份生成链——区块契约解析、static 区块交错、模板快照与
+// 发布级 selector 校验全部共用，预览产物与提案/发布产物逐字段一致。
+// 仅只读副作用（查函数契约与术语词表），不产生提案/草稿/审计。
+// 返回生成产物（含 quality/diagnostics）与参与生成的契约，供持久化段复用。
+func (s *ContractService) BuildCompositePageSpec(
+	ctx context.Context,
+	gameID, env, pageKey string,
+	sections []CompositeSectionRequest,
+	componentTemplates []spec.ComponentTemplateUsage,
+) (generated spec.GeneratedPageSpec, contracts []*model.FunctionContract, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("BuildCompositePageSpec panic", "recover", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("internal error building composite page: %v", r)
+		}
+	}()
+
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
 	pageKey = strings.TrimSpace(pageKey)
 	// 上传即成页（D1）：单区块（单函数）组合页合法——仅要求 pageKey 非空。
 	if pageKey == "" {
-		return nil, fmt.Errorf("pageKey is required")
+		return spec.GeneratedPageSpec{}, nil, fmt.Errorf("pageKey is required")
 	}
 
-	var contracts []*model.FunctionContract
 	inputs := make([]generator.CompositeSectionInput, 0, len(sections))
 	staticSections := make([]spec.CompositeSection, 0)
 	// 每个 static 区块在输入流中的位置（其前面的非 static 输入数）——
@@ -1879,14 +1908,14 @@ func (s *ContractService) CreateCompositeProposal(
 		if sec.Static {
 			// 常量表单：不查契约、不生成绑定；表单 schema 由编辑器透传
 			if key == "" {
-				return nil, fmt.Errorf("static section requires key")
+				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("static section requires key")
 			}
 			if seenKey[key] {
-				return nil, fmt.Errorf("duplicate section key %q", key)
+				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("duplicate section key %q", key)
 			}
 			seenKey[key] = true
 			if sec.Form == nil || len(sec.Form.JSONSchema) == 0 {
-				return nil, fmt.Errorf("static section %q requires form.jsonSchema", key)
+				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("static section %q requires form.jsonSchema", key)
 			}
 			section := spec.CompositeSection{
 				Key:       key,
@@ -1923,7 +1952,7 @@ func (s *ContractService) CreateCompositeProposal(
 			key = fid
 		}
 		if seenKey[key] {
-			return nil, fmt.Errorf("duplicate section key %q (同函数多实例请提供不同 key)", key)
+			return spec.GeneratedPageSpec{}, nil, fmt.Errorf("duplicate section key %q (同函数多实例请提供不同 key)", key)
 		}
 		seenKey[key] = true
 		contract, ok := contractCache[fid]
@@ -1931,7 +1960,7 @@ func (s *ContractService) CreateCompositeProposal(
 			var err error
 			contract, err = s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, fid)
 			if err != nil {
-				return nil, fmt.Errorf("function %s contract not found: %w", fid, err)
+				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("function %s contract not found: %w", fid, err)
 			}
 			contractCache[fid] = contract
 		}
@@ -2003,7 +2032,7 @@ func (s *ContractService) CreateCompositeProposal(
 	opts.Terms = s.loadTermDictionary(ctx)
 	generated, ok := generator.GenerateCompositePage(pageKey, inputs, contracts, opts)
 	if !ok {
-		return nil, fmt.Errorf("composite page cannot be generated (see diagnostics)")
+		return spec.GeneratedPageSpec{}, nil, fmt.Errorf("composite page cannot be generated (see diagnostics)")
 	}
 	// 常量表单区块（static）：不经过生成器（无契约/绑定），按输入流原位置
 	// 交错合并进生成 sections——static 在前的输入不应被追加到页尾；
@@ -2059,11 +2088,7 @@ func (s *ContractService) CreateCompositeProposal(
 		}
 		generated.Quality = spec.GeneratedPageQualityNeedsReview
 	}
-	proposalKey := compositeProposalKey(pageKey)
-	if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, contracts, generated); err != nil {
-		return nil, err
-	}
-	return s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
+	return generated, contracts, nil
 }
 
 // CompositeSectionRequest 组合页区块输入。
