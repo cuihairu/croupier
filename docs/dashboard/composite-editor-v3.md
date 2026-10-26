@@ -47,6 +47,14 @@ Refresh edges (`refreshOn`) compile straight through to the published spec. At r
 
 Published behavior is deterministic: hidden inline sections still execute according to their configuration, while rendering is filtered by `visibleWhen`.
 
+## Preview pipeline (B1)
+
+Preview consumes the same generated spec as save and publish. Entering preview compiles the tree, posts the compiled sections to `POST /api/v1/versioning/pages/composite/preview`, and renders the returned generated spec through the production `PageRenderer`/`CompositeRenderer` — only the execution adapter is replaced. The mock executor synthesizes sample data from each binding's contract `outputSchema`, returns it as a synchronous result, and so exercises the real rendering, refresh, action-chain, and pagination paths. The endpoint runs the same generation chain as creation (contract lookup, binding assignment, static-section interleaving, template snapshot, publish-level selector validation) and writes no proposal, draft, or audit row, so it needs no `pages:publish` permission; its output is field-for-field identical to what saving and publishing would store.
+
+The response's `quality` and `diagnostics` render inline in the preview pane, so generation diagnostics are visible before saving. Fallback: a tree that cannot be losslessly compiled (text nodes, non-card containers) or a failed preview request falls back to the legacy structural preview, with the blockers listed, so preview is never blank.
+
+Boundary: preview execution is mock-only — there is no server-validated draft execution entry yet, so real side effects (operation functions, approvals) are not exercised in preview and action chains run against mock results. A tree whose save would be refused reports that refusal through the request error rather than as an inline diagnostic list.
+
 ## Component development
 
 - Register a component with its accepted props and child contract.
@@ -64,6 +72,7 @@ The page also records subsequent production hardening: selector diagnostics shar
 - Container rendering intentionally simplifies very deep descendant layout.
 - Text components are editor aids and do not publish runtime content.
 - Preview data is an editor-only debugging aid; published pages have no mock fallback.
+- Preview (B1) renders the server-generated spec through the production renderer with a mock executor: there is no server-validated draft execution entry, so operation functions and approval flows are not exercised in preview and action chains run against mock results. A tree that cannot be losslessly compiled (text nodes, non-card containers) or a failed preview request falls back to the legacy structural preview and lists the blockers — the preview is then structural rather than publish-identical.
 - Execution requires a bound runtime contract and a published page binding.
 - Table pagination is a published-spec setting (`table.pagination`, D3) with no editor or template entry yet: when `enabled` the renderer requests `page`/`pageSize` with a renderer-derived `offset=(page-1)*pageSize`, uses the response `total` verbatim or, when absent, estimates the bound as "a full page means a next page may exist" and closes off on a partial page, resets to page 1 when the upstream filter input changes, and keeps the current page on a post-operation refresh; without the setting the table keeps client-side pagination. Cursor pagination and a per-table `totalKey` are not supported, and tables rendered inside a dialog do not paginate.
 - Dangerous actions confirm before executing (D2): the confirm body lists the target modal's prefilled parameters by field title (enum values as option labels, no raw field keys) and the chain steps; with a `targetSection` the modal and its chain proceed only after the user confirms, and a pure-chain danger button confirms before running. Boundaries: batch target review (multi-select, cross-page selection, total vs current-page counts, a target list entry, clearing the selection, stale selections after a filter change) is not implemented — selection stays single-row radio and there is no `table.selection` wire field; the confirm carries no field-semantic emphasis (identity / reason / expiry / amounts — that depends on D5's explicit field semantics); `openModal` chain steps carry no danger flag, and the confirmation happens before the modal opens so in-modal edits are not re-confirmed.

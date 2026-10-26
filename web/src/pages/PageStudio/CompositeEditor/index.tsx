@@ -20,7 +20,7 @@ import SaveComponentModal from './SaveComponentModal';
 import InsertTemplateModal from './InsertTemplateModal';
 import OutlinePanel from './OutlinePanel';
 import DataPanel from './DataPanel';
-import PreviewRuntime from './PreviewRuntime';
+import PreviewPane from './PreviewPane';
 import { compileTree, decompileToTree, type SpecSectionLike } from './compiler';
 import { scanParamCandidates, type ParamCandidate } from './types';
 import { extractErrorMessage } from '@/utils/errors';
@@ -1042,10 +1042,15 @@ export default function CompositeEditorPage() {
             </Col>
           )}
 
-          {/* 中：预览=发布形态（真实执行/弹窗/刷新动作）；编辑=画布 */}
+          {/* 中：预览=发布形态（真实渲染器 + 模拟执行适配器）；编辑=画布 */}
           <Col flex="auto" style={{ minWidth: 420 }}>
             {preview ? (
-              <PreviewRuntime tree={tree} fnById={fnById.current} />
+              <PreviewPane
+                tree={tree}
+                fnById={fnById.current}
+                pageKey={pageKey}
+                componentTemplates={tplUsage}
+              />
             ) : (
               <div
                 ref={canvasRef}

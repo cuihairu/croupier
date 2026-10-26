@@ -113,6 +113,15 @@ ListViewSpec | DetailViewSpec | ActionSpec | ConfirmActionSpec
 
 `type: composite` 页面的主体（权威实现 `internal/dashboard/spec/types.go`，前端 `web/src/types/dashboard.ts`）。创建入口 `POST /api/v1/versioning/pages/composite`，请求为 `CompositeSectionRequest[]`（字段与 spec 同名透传，见 [使用指南 §3](../dashboard/composite-editor-v3.md)）。
 
+**编辑器预览端点（B1）**：`POST /api/v1/versioning/pages/composite/preview` 请求体与创建入口完全相同，
+返回 `{ pageKey, pageSpec }`，其中 `pageSpec` 为完整生成产物（`type`/`title`/`composite`/`bindings`/
+`componentTemplates`，外加生成元信息 `quality` 与 `diagnostics`）。它走与创建相同的生成链——区块契约
+解析、绑定分配、static 区块交错、模板快照透传、发布级 selector 校验——因此返回的 spec 与保存/发布落库
+的 spec 逐字段一致（由 `TestBuildCompositePageSpec_SameAsPersistedProposal` 与
+`TestV9Handler_PreviewCompositePage_SameSpecAsSaved` 验证）。该端点只读：不写提案/草稿/审计行，因此
+不需要 `pages:publish` 权限；契约可见性仍受请求链上的 scope 与权限中间件约束。任一区块缺契约时按统一
+`{ error, message }` 形状返回 `4xx`，而不是返回残缺 spec。
+
 **常量表单区块（static，2026-09）**：`CompositeSection` 增加 `static: true` 形态——
 不绑定 bindingId、不执行任何函数；`form.jsonSchema` 由编辑器设计期定义并经
 `CompositeSectionRequest.form` 透传（服务端校验 schema 存在性），值仅写入页面状态供
