@@ -10,8 +10,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import {
   findGameOpsTemplate,
   gameOpsDefaultMenuKeys,
+  gameOpsTemplateCategories,
+  gameOpsTemplateCrudRoles,
   gameOpsTemplateRoutePrefix,
   gameOpsTemplates,
+  missingTemplateCrudRoles,
+  templateFunctionRoles,
 } from './gameOpsTemplates';
 import TemplateGameOpsPage, { templateKeyFromPath } from '@/pages/Console/TemplateGameOps';
 import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
@@ -19,23 +23,36 @@ import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 const mockPush = jest.fn();
 let mockPathname = '/console/templates/player-manage';
 
-jest.mock('@umijs/max', () => ({
-  useIntl: () => ({
-    formatMessage: ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
-  }),
-  FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => (
-    <span>{defaultMessage}</span>
-  ),
-  history: {
-    // 工厂在变量初始化前被提升调用，这里用 getter 延迟读取外层可变状态
-    get location() {
-      return { pathname: mockPathname };
+jest.mock('@umijs/max', () => {
+  // formatMessage 按 {key} 替换 values（与生产 Intl 行为一致，未声明的键原样输出）
+  const formatMessage = (
+    descriptor: { defaultMessage?: string },
+    values?: Record<string, unknown>,
+  ): string =>
+    Object.entries(values ?? {}).reduce(
+      (msg, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+      descriptor.defaultMessage ?? '',
+    );
+  return {
+    useIntl: () => ({ formatMessage }),
+    FormattedMessage: ({
+      defaultMessage,
+      values,
+    }: {
+      defaultMessage?: string;
+      values?: Record<string, unknown>;
+    }) => <span>{formatMessage({ defaultMessage }, values)}</span>,
+    history: {
+      // 工厂在变量初始化前被提升调用，这里用 getter 延迟读取外层可变状态
+      get location() {
+        return { pathname: mockPathname };
+      },
+      get push() {
+        return mockPush;
+      },
     },
-    get push() {
-      return mockPush;
-    },
-  },
-}));
+  };
+});
 
 jest.mock('./playerManage', () => ({
   __esModule: true,
@@ -79,6 +96,32 @@ describe('gameOpsTemplates 注册表', () => {
     }
   });
 
+  it('每个模板声明能力分类、函数绑定与能力说明', () => {
+    const categoryKeys = gameOpsTemplateCategories.map((c) => c.key);
+    for (const entry of gameOpsTemplates) {
+      expect(entry.categories.length).toBeGreaterThan(0);
+      for (const category of entry.categories) {
+        expect(categoryKeys).toContain(category);
+      }
+      expect(entry.functions.length).toBeGreaterThan(0);
+      for (const fn of entry.functions) {
+        expect(fn.id).toBeTruthy();
+        expect(fn.role).toBeTruthy();
+      }
+      expect(entry.capabilitiesNote['zh-CN']).toBeTruthy();
+      expect(entry.capabilitiesNote['en-US']).toBeTruthy();
+    }
+    // CRUD 能力轴固定为新建/编辑/删除，缺口查询不越界
+    expect(gameOpsTemplateCrudRoles).toEqual(['create', 'update', 'delete']);
+    for (const entry of gameOpsTemplates) {
+      const roles = templateFunctionRoles(entry);
+      for (const missing of missingTemplateCrudRoles(entry)) {
+        expect(roles).not.toContain(missing);
+        expect(gameOpsTemplateCrudRoles).toContain(missing);
+      }
+    }
+  });
+
   it('findGameOpsTemplate 命中/未命中', () => {
     expect(findGameOpsTemplate('ban-management')?.menuKey).toBe('ban');
     expect(findGameOpsTemplate('nope')).toBeUndefined();
@@ -115,6 +158,22 @@ describe('Console/TemplateGameOps 壳', () => {
     expect(screen.getByText('ban-management')).toBeInTheDocument();
     fireEvent.click(screen.getByText('order-review'));
     expect(mockPush).toHaveBeenCalledWith('/console/templates/order-review');
+  });
+
+  it('兜底列表按四类能力分组，展示函数绑定与能力缺口提示', () => {
+    mockPathname = '/console/templates/nope';
+    render(<TemplateGameOpsPage />);
+
+    // 四类能力分类标题齐备（任务监控由邮件与补偿模板承接）
+    for (const category of gameOpsTemplateCategories) {
+      expect(screen.getAllByText(new RegExp(category.label['zh-CN'])).length).toBeGreaterThan(0);
+    }
+    // 函数绑定以标签展示，玩家工作台与订单核查各出现一次
+    expect(screen.getByText('player.list')).toBeInTheDocument();
+    expect(screen.getByText('order.recredit')).toBeInTheDocument();
+    // 能力缺口显式提示（不提供：… + 模板能力说明）
+    expect(screen.getAllByText(/不提供：/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/不提供：create \/ update \/ delete/)).toBeInTheDocument();
   });
 
   it('示例数据重置入口恢复共享 store 初始状态', () => {

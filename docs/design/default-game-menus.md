@@ -43,6 +43,14 @@ Default initialization only creates categories: it installs no business extensio
 
 Business pages can be carried by official extensions, game SDK functions, or external function adapter plugins, all reusing authorization, approval, tasks, audit, and published snapshots; menu visibility never replaces backend permissions. The authoritative ownership of third-party payment credentials, game assets, and character state is declared by the actual integrator — the existence of default categories never makes a Croupier local copy the game's truth.
 
+**Business template registry (2026-10-27).** `web/src/components/PageRenderer/templates/gameOpsTemplates.tsx` is the single catalog that maps the menu categories to business template pages: template key = console route segment (`/console/templates/<key>`), bilingual title and description, a template preview component (in-memory demo executor), and the PageSpec constant the publish chain consumes. Each entry declares, beyond `menuKey`:
+
+- `categories` — the capability axis that organizes template selection: `player-query` / `resource-management` / `compensation` / `task-monitoring`. An entry may belong to more than one axis; the mail-and-compensation template carries both `compensation` and `task-monitoring`, since `mail_task.retry_failed` and `mail_task.cancel` are the task-monitoring surface.
+- `functions` — the game function contracts the template binds, each tagged with a role (`list` / `get` / `create` / `update` / `delete` / `action`). This array is the dependency declaration the template → proposal → publish chain carries, and it stays in one-to-one correspondence with the entry's `pageSpec.bindings.functionId`: `gameOpsTemplateCapabilities.test.ts` asserts set equality, so the registry cannot drift from the spec.
+- `capabilitiesNote` — an explicit CRUD-coverage statement for the capability gaps: order review is read-only (orders are written by payment channels, only re-credit is offered), ban management mutates through extend/unban rather than edit/delete, activity config evolves through `publish_version`/`rollback` rather than in-place edit/delete, and mail compensation ends tasks through cancel rather than delete.
+
+The unknown-template fallback list groups entries by the four capability categories and shows the bound functions plus the missing CRUD roles, so a capability gap is visible before a template is adopted.
+
 ## 4. Relationship to Platform Fixed Menus
 
 This template serves the dynamic Runtime Console's game business navigation. The four agent page sets, monitoring alerts, resource/function catalogs, Page Studio, menu management, user permissions, and system settings keep using the existing platform navigation; they are not recreated as business categories in every game environment.
@@ -55,6 +63,7 @@ Support tickets, data analysis, server management, etc. can be added later or ha
 - The seeder's regression cases carry over: scope independence, idempotent repeated visits, no overwriting of existing categories, and no resurrection of user-deleted categories.
 - PageSpec wire, publishing, and menu-mount contracts are unchanged, and no live data migration is involved; running services need the updated bootstrap file and a restart to load the template.
 - Delivering the default categories is not the delivery of the business subpages; the five business loops are tracked separately in todo and accepted against real game integrations.
+- The CRUD loop (query → detail → create/edit/delete confirm → refresh) is accepted against real game contracts, not asserted from generated nodes or demo data: the registry declares which CRUD roles each template provides, and a template that lacks a role states why instead of implying coverage.
 
 Related: [Console dynamic menus](../architecture/console-dynamic-menu.md), [Page publish and mount wizard](../guide/concepts/console-navigation.md), [Agent console pages](agent-dashboard-design.md).
 
