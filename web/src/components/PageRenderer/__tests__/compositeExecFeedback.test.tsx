@@ -42,6 +42,7 @@ describe('D4 失败反馈构造', () => {
       code: 'validation_failed',
       message: '请求参数无效',
       fieldErrors: [{ field: 'to', message: '收件人不能为空' }],
+      outcome: 'failed',
     });
   });
 
@@ -62,7 +63,18 @@ describe('D4 失败反馈构造', () => {
       code: '',
       message: '网络错误',
       fieldErrors: [],
+      outcome: 'failed',
     });
+  });
+
+  it('传输层失败（超时/网络中断）结果未知，不按「已失败」归类', () => {
+    expect(describeExecFailure(new Error('timeout of 5000ms exceeded')).outcome).toBe('unknown');
+    expect(describeExecFailure(new TypeError('Failed to fetch')).outcome).toBe('unknown');
+    const abort = new Error('aborted');
+    abort.name = 'AbortError';
+    expect(describeExecFailure(abort).outcome).toBe('unknown');
+    // 服务端已应答（ResponseError 形态）即使 message 含 timeout 也不属未知
+    expect(describeExecFailure(apiError('gateway_timeout', '网关超时')).outcome).toBe('failed');
   });
 
   it('权限不足：稳定错误码与原因文案都保留（字段明细为空）', () => {
@@ -258,6 +270,24 @@ describe('D4 执行反馈闭环', () => {
     // 失败保留弹窗与已填参数
     expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
     expect((screen.getByLabelText('玩家 ID') as HTMLInputElement).value).toBe('u1001');
+  });
+
+  it('写操作超时：结果未知提示（不按「已失败」），阶段条不落 submit error', async () => {
+    const onExecute = jest.fn().mockRejectedValue(new Error('timeout of 5000ms exceeded'));
+    const { app } = await openBan(onExecute);
+    const errorSpy = jest.spyOn(app.current!.message, 'error');
+
+    clickSubmit();
+    await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    // 反馈条为「执行结果未知」warning，不出现「执行失败」error
+    expect(screen.getByText('执行结果未知', { selector: '.ant-alert-title' })).toBeInTheDocument();
+    expect(screen.queryByText(/执行失败/)).toBeNull();
+    // 明示请求可能已在服务端执行（不得盲目重复提交）
+    expect(screen.getByText(/可能已在服务端执行/)).toBeInTheDocument();
+    // D1 阶段条：结果未知不落提交阶段 error（无阶段渲染）
+    expect(screen.queryByText('提交操作')).toBeNull();
+    // 失败保留弹窗与已填参数（沿用失败分支）
+    expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
   });
 
   it('参数错误输入改动后：控件下错误消失，反馈条一并清除', async () => {

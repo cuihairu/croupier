@@ -276,6 +276,22 @@ describe('确认对话框', () => {
     await waitFor(() => expect(screen.getByText('post-fail')).toBeInTheDocument());
   });
 
+  it('写操作超时：结果未知（warning）而非「操作失败」，阶段条不落 submit error', async () => {
+    const { onExecute } = renderOp({ spec: confirmSpec });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    onExecute.mockRejectedValueOnce(new Error('timeout of 5000ms exceeded'));
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    // 结果卡片标题与 warning toast 各一处「操作结果未知」
+    await waitFor(() =>
+      expect(screen.getAllByText('操作结果未知').length).toBeGreaterThanOrEqual(1),
+    );
+    expect(screen.queryByText('操作失败')).toBeNull();
+    expect(screen.getByText(/可能已在服务端执行/)).toBeInTheDocument();
+    // D1 阶段条：结果未知不落提交阶段 error（无阶段渲染）
+    expect(screen.queryByText('提交操作')).toBeNull();
+  });
+
   it('确认后非 Error 异常兜底「操作失败」', async () => {
     const { onExecute } = renderOp({ spec: confirmSpec });
     submit();

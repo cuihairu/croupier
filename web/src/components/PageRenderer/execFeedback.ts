@@ -1,4 +1,4 @@
-import { extractApiErrorCode } from '@/utils/apiError';
+import { extractApiErrorCode, isResultUnknownError } from '@/utils/apiError';
 import type { PageExecutionResult } from '@/types/dashboard';
 
 /** 失败反馈：稳定错误码 + 用户可读文本 + 字段级明细（参数错误定位到字段）。 */
@@ -6,6 +6,9 @@ export interface ExecFailure {
   code: string;
   message: string;
   fieldErrors: Array<{ field: string; message: string }>;
+  /** 结果类别（D4 超时/网络中断）：unknown=请求可能已在服务端执行、结果未知，
+   * failed=服务端已应答（HTTP 错误）或本地失败、结果已知为未成功。 */
+  outcome: 'failed' | 'unknown';
 }
 
 /** 执行结果类别：审批待处理与任务已提交都不等于业务执行成功（D4）。 */
@@ -58,6 +61,9 @@ export function describeExecFailure(err: unknown): ExecFailure {
     code: extractApiErrorCode(err),
     message,
     fieldErrors: fieldErrorsOf(body?.details),
+    // 传输层失败（超时/网络中断）结果未知：可能已在服务端执行，不能按
+    // 「已失败」提示盲目重试（D4 只在幂等保证或确认未执行时安全重试）。
+    outcome: isResultUnknownError(err) ? 'unknown' : 'failed',
   };
 }
 

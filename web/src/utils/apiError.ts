@@ -19,3 +19,23 @@ export function extractApiErrorCode(err: unknown): string {
   }
   return '';
 }
+
+/** 请求结果是否「未知」（D4 超时/网络中断）：传输层失败且请求可能已在服务端
+ * 执行，不得按「已失败」提示盲目重试。umi request 对非 2xx 抛 ResponseError
+ * （有 .data/.response，服务端已应答=结果已知——即使文案含 timeout 也不算
+ * 未知）；传输层抛 TypeError（"Failed to fetch"）/ AbortError 或带 "timeout"
+ * 的错误——这类请求可能已到达服务端，写操作结果未知，只能经幂等键安全重试
+ * 或查询执行状态。 */
+export function isResultUnknownError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const like = err as ErrorLike & { name?: unknown; message?: unknown; response?: unknown };
+  if (like.data !== undefined || like.response !== undefined) return false;
+  if (like.name === 'AbortError') return true;
+  if (typeof like.message === 'string') {
+    const m = like.message.toLowerCase();
+    if (m.includes('timeout') || m.includes('failed to fetch') || m.includes('network error')) {
+      return true;
+    }
+  }
+  return false;
+}

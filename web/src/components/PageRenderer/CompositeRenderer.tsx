@@ -181,38 +181,64 @@ export const CompositeRenderer: React.FC<{
         <OperationStageBar
           input={{
             loading: running[sec.key] || false,
-            hasError: !!failure,
+            // D4：结果未知（超时/网络中断）不是「已失败」，阶段条不落 submit error
+            hasError: !!failure && failure.outcome !== 'unknown',
             resultKind: pending ? (pending.outcome === 'approval' ? 'approval' : 'task') : null,
             approvalStatus: null,
             continuationKind: null,
           }}
         />
         {failure ? (
-          <Alert
-            type="error"
-            showIcon
-            title={intl.formatMessage(
-              {
-                id: 'component.pageRenderer.composite.execFailed',
-                defaultMessage: '执行失败{codeSuffix}',
-              },
-              { codeSuffix: failure.code ? `（${failure.code}）` : '' },
-            )}
-            description={
-              <>
-                {failure.message ? <div>{failure.message}</div> : null}
-                {residualFieldErrors.length > 0 ? (
-                  <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                    {residualFieldErrors.map((fe, i) => (
-                      <li key={i}>
-                        {fe.field ? `${fieldTitle(fe.field)}：${fe.message}` : fe.message}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </>
-            }
-          />
+          failure.outcome === 'unknown' ? (
+            // D4：超时/网络中断——请求可能已在服务端执行，结果未知；不得按
+            // 「已失败」提示盲目重复提交，只能经幂等键安全重试或查询执行状态。
+            <Alert
+              type="warning"
+              showIcon
+              title={intl.formatMessage({
+                id: 'component.pageRenderer.composite.execUnknownOutcome',
+                defaultMessage: '执行结果未知',
+              })}
+              description={
+                <>
+                  {failure.message ? <div>{failure.message}</div> : null}
+                  <div>
+                    {intl.formatMessage({
+                      id: 'component.pageRenderer.composite.execUnknownOutcomeHint',
+                      defaultMessage:
+                        '请求可能已在服务端执行，请勿盲目重复提交；可在服务端幂等保证下安全重试，或稍后查询执行状态。',
+                    })}
+                  </div>
+                </>
+              }
+            />
+          ) : (
+            <Alert
+              type="error"
+              showIcon
+              title={intl.formatMessage(
+                {
+                  id: 'component.pageRenderer.composite.execFailed',
+                  defaultMessage: '执行失败{codeSuffix}',
+                },
+                { codeSuffix: failure.code ? `（${failure.code}）` : '' },
+              )}
+              description={
+                <>
+                  {failure.message ? <div>{failure.message}</div> : null}
+                  {residualFieldErrors.length > 0 ? (
+                    <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                      {residualFieldErrors.map((fe, i) => (
+                        <li key={i}>
+                          {fe.field ? `${fieldTitle(fe.field)}：${fe.message}` : fe.message}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              }
+            />
+          )
         ) : null}
         {pending ? (
           pending.outcome === 'approval' ? (

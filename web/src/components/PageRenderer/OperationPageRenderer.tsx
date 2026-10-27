@@ -17,6 +17,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
+  ExclamationCircleOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
@@ -25,7 +26,7 @@ import ExecutorUnboundAlert, { EXECUTOR_UNBOUND_CODE } from './ExecutorUnboundAl
 import OperationStageBar from './OperationStageBar';
 import { describeConfirmEntries } from './confirmContent';
 import { renderConfirmEntries } from './compositeRuntime';
-import { extractApiErrorCode } from '@/utils/apiError';
+import { extractApiErrorCode, isResultUnknownError } from '@/utils/apiError';
 import type {
   OperationPageSpec,
   PageFunctionBinding,
@@ -74,6 +75,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   const [error, setError] = useState<string | null>(null);
   // T8：稳定错误码（executor_unbound 等）驱动结构化空态分支
   const [errorCode, setErrorCode] = useState<string>('');
+  // D4：超时/网络中断=结果未知（请求可能已在服务端执行），不按「已失败」呈现
+  const [errorUnknown, setErrorUnknown] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
 
@@ -114,6 +117,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       setLoading(true);
       setError(null);
       setErrorCode('');
+      setErrorUnknown(false);
       setResult(null);
       setApprovalStatus(null);
 
@@ -172,8 +176,18 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               });
         setError(msg);
         setErrorCode(extractApiErrorCode(err));
+        // D4：超时/网络中断=结果未知，toast 用 warning 措辞而非「操作失败」
+        const unknown = isResultUnknownError(err);
+        setErrorUnknown(unknown);
 
-        if (spec.resultView?.errorMessage) {
+        if (unknown) {
+          message.warning(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.message.unknownOutcome',
+              defaultMessage: '操作结果未知',
+            }),
+          );
+        } else if (spec.resultView?.errorMessage) {
           message.error(
             localizedText(
               spec.resultView.errorMessage,
@@ -220,6 +234,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setLoading(true);
     setError(null);
     setErrorCode('');
+    setErrorUnknown(false);
     setResult(null);
     setApprovalStatus(null);
 
@@ -267,14 +282,26 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
             });
       setError(msg);
       setErrorCode(extractApiErrorCode(err));
+      // D4：超时/网络中断=结果未知，toast 用 warning 措辞而非「操作失败」
+      const unknown = isResultUnknownError(err);
+      setErrorUnknown(unknown);
       // Re-open confirm dialog on failure so user can retry
       setConfirmVisible(true);
-      message.error(
-        intlRef.current.formatMessage({
-          id: 'component.pageRenderer.operationPage.message.failed',
-          defaultMessage: '操作失败',
-        }),
-      );
+      if (unknown) {
+        message.warning(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.message.unknownOutcome',
+            defaultMessage: '操作结果未知',
+          }),
+        );
+      } else {
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.message.failed',
+            defaultMessage: '操作失败',
+          }),
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -286,6 +313,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setApprovalStatus(null);
     setError(null);
     setErrorCode('');
+    setErrorUnknown(false);
   }, []);
 
   const refreshApproval = useCallback(async () => {
@@ -343,7 +371,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   // 审批状态未查询时按进行中呈现；续跑类别仅在审批通过后有意义。
   const stageInput = {
     loading,
-    hasError: !!error,
+    // D4：结果未知（超时/网络中断）不是「已失败」，阶段条不落 submit error
+    hasError: !!error && !errorUnknown,
     resultKind: result?.kind ?? null,
     approvalStatus: approvalStatus?.status ?? null,
     continuationKind: approvalStatus?.continuation ? (approvalStatus.resultKind ?? null) : null,
@@ -436,6 +465,29 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
             // T8：unbound 阻断渲染结构化空态 + 去绑定入口（无伪数据兜底）
             errorCode === EXECUTOR_UNBOUND_CODE ? (
               <ExecutorUnboundAlert functionId={mainBinding?.functionId} />
+            ) : errorUnknown ? (
+              // D4：超时/网络中断——请求可能已在服务端执行，结果未知；
+              // 不按「已失败」提示盲目重复提交，只能经幂等键安全重试。
+              <Result
+                status="warning"
+                title={intl.formatMessage({
+                  id: 'component.pageRenderer.operationPage.message.unknownOutcome',
+                  defaultMessage: '操作结果未知',
+                })}
+                subTitle={error}
+                icon={<ExclamationCircleOutlined />}
+                extra={
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message={intl.formatMessage({
+                      id: 'component.pageRenderer.operationPage.message.unknownOutcomeHint',
+                      defaultMessage:
+                        '请求可能已在服务端执行，请勿盲目重复提交；可在服务端幂等保证下安全重试，或稍后查询执行状态。',
+                    })}
+                  />
+                }
+              />
             ) : (
               <Result
                 status="error"

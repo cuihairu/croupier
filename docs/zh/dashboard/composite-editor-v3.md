@@ -647,6 +647,11 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   真实重跑而非重放；重放的同步成功在操作页（`OperationPageRenderer`）同口径呈现——
   成功 toast 与结果卡片标题都换成「返回服务端记录的结果」文案（配置了
   `resultView.successMessage` 时同样被替换）
+- **传输失败反馈（D4）边界**：写操作下发遇超时或网络中断，按「执行结果未知」（warning）
+  而非「已失败」呈现——请求可能已在服务端执行，不得盲目重复提交；安全重试走幂等键
+  （已完成 key 重放记录结果、在途 key 返回 409），阶段条不落 submit error（结果确实
+  未知）。服务端已应答的 HTTP 错误（有响应体，包括 message 含 timeout 的 504）是已知
+  结果，仍按错误呈现。
 - **操作页多阶段状态反馈（D1）边界**：提交后操作页在结果卡上方追加一条紧凑 `Steps`
   阶段条（提交 → 审批 → 执行），由驱动结果卡的同一状态派生（辅助函数
   `web/src/components/PageRenderer/operationStages.ts` 的 `describeOperationStages`）：
