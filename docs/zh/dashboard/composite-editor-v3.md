@@ -652,10 +652,15 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   同步结果两阶段均完成；`task` 结果保持执行阶段进行中；`approval` 结果按已查询的
   审批状态推进（通过前为进行中，拒绝/过期为 error），执行阶段只在审批通过后推进
   （同步续跑为完成、续跑转任务为进行中）。提交失败停在提交阶段 error，不渲染流程
-  未到达的阶段；重置结果后阶段条一并清除。未实现：该条为纯追加展示层，无
+  未到达的阶段；重置结果后阶段条一并清除。阶段条即共享组件
+  `web/src/components/PageRenderer/OperationStageBar.tsx`，已同样接入
+  `CompositeRenderer`（区块反馈内派生自该区块的 running/失败/待处理状态——复合编排
+  无审批状态查询通道，审批待处理按进行中呈现）与 `TaskPageRenderer`（completed 任务
+  执行阶段为完成、running/pending 保持进行中、failed/cancelled 为执行阶段 error——
+  提交已成功，即派生里的 `executeError` 终态）。未实现：该条为纯追加展示层，无
   `PageSpec` 字段、编辑器无设置项、发布行为不变；阶段条不重复信息（审批单号、
   任务号与失败原因仍由结果卡承载）；审批阶段只随已查询状态推进，首次查询前保持
-  进行中；`TaskPageRenderer` 与 `CompositeRenderer` 尚未接入同一派生函数
+  进行中；复合编排无审批状态查询通道，审批阶段无法推进到完成
 
 - V5-T5.7 端到端线上验收（提案→发布→真实联动）待执行
 - Selector 一键同步（8.5 节）边界：prev schema 只存一版且仅在本功能上线后的下一次

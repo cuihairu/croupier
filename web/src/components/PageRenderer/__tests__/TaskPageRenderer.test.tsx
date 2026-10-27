@@ -110,6 +110,15 @@ function renderTask(options: RenderOptions = {}) {
 
 const submit = () => fireEvent.click(screen.getByTestId('form-submit'));
 
+/** D1 阶段条断言：标题所在 Steps item 的 ant-steps-item-<status> 状态类。 */
+const expectStage = (title: string, status: string) => {
+  const node = Array.from(document.querySelectorAll('.ant-steps-item')).find((n) =>
+    n.textContent?.includes(title),
+  ) as HTMLElement | undefined;
+  expect(node).toBeDefined();
+  expect(node!.className).toContain(`ant-steps-item-${status}`);
+};
+
 describe('提交流程', () => {
   it('未配置任务绑定时报错且不执行', async () => {
     renderTask({ bindings: [] });
@@ -135,6 +144,62 @@ describe('提交流程', () => {
     await waitFor(() => expect(screen.getByText('任务已提交')).toBeInTheDocument());
     await waitFor(() => expect(onQueryStatus).toHaveBeenCalledWith('t-1'));
     expect(screen.getByText('RUNNING')).toBeInTheDocument();
+    // D1 阶段条：提交完成、执行进行中（任务页无审批阶段）
+    expectStage('提交操作', 'finish');
+    expectStage('执行', 'process');
+  });
+
+  it('D1 阶段条随任务状态推进：完成 → 提交与执行均完成；失败/取消 → 执行阶段 error', async () => {
+    const onQueryStatus = jest
+      .fn<() => Promise<TaskStatusResult>>()
+      .mockResolvedValueOnce({ taskId: 't-1', status: 'running' })
+      .mockResolvedValueOnce({ taskId: 't-1', status: 'completed' });
+    const { onExecute } = renderTask({ onQueryStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { taskId: 't-1' }));
+    submit();
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    expectStage('执行', 'process');
+    // 递归 setTimeout 2s 周期自动推进到 completed（终态停轮询），waitFor 放宽超时
+    await waitFor(() => expect(onQueryStatus).toHaveBeenCalledTimes(2), { timeout: 4000 });
+    await waitFor(() => expect(screen.getByText('COMPLETED')).toBeInTheDocument(), {
+      timeout: 4000,
+    });
+    expectStage('提交操作', 'finish');
+    expectStage('执行', 'finish');
+  });
+
+  it('轮询修复回归：非终态持续递归轮询，终态后停止（刷新按钮不再死锁）', async () => {
+    const onQueryStatus = jest
+      .fn<() => Promise<TaskStatusResult>>()
+      .mockResolvedValue({ taskId: 't-1', status: 'running' });
+    const { onExecute } = renderTask({ onQueryStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { taskId: 't-1' }));
+    submit();
+    // 2s 周期：首次立即查询之外还应自动续期（旧实现只在首次查询后停摆）
+    await waitFor(() => expect(onQueryStatus).toHaveBeenCalledTimes(2), { timeout: 4000 });
+    // 终态停轮询：下一轮返回 completed 后不再有新调用
+    onQueryStatus.mockResolvedValueOnce({ taskId: 't-1', status: 'completed' });
+    await waitFor(() => expect(screen.getByText('COMPLETED')).toBeInTheDocument(), {
+      timeout: 4000,
+    });
+    const callsAtComplete = onQueryStatus.mock.calls.length;
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(onQueryStatus).toHaveBeenCalledTimes(callsAtComplete);
+  }, 15000);
+
+  it('D1 阶段条：任务失败终态停在执行阶段 error（提交已成功）', async () => {
+    const onQueryStatus = jest.fn<() => Promise<TaskStatusResult>>().mockResolvedValue({
+      taskId: 't-1',
+      status: 'failed',
+      error: '执行超时',
+    });
+    const { onExecute } = renderTask({ onQueryStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { taskId: 't-1' }));
+    submit();
+    await waitFor(() => expect(screen.getByText('FAILED')).toBeInTheDocument());
+    expectStage('提交操作', 'finish');
+    expectStage('执行', 'error');
+    expect(screen.queryByText('审批')).not.toBeInTheDocument();
   });
 
   it('taskId 缺失（response.taskId 与 selector 均无）时警告', async () => {

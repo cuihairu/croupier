@@ -120,4 +120,24 @@ describe('describeOperationStages', () => {
       { key: 'execute', status: 'wait' },
     ]);
   });
+
+  it('执行阶段错误（任务失败）：提交已成功，终态停在执行阶段 error', () => {
+    expect(of({ resultKind: 'task', executeError: true })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'error' },
+    ]);
+  });
+
+  it('执行阶段错误与提交失败互斥：hasError 优先，不渲染未到达的阶段', () => {
+    expect(of({ hasError: true, resultKind: 'task', executeError: true })).toEqual([
+      { key: 'submit', status: 'error' },
+    ]);
+  });
+
+  it('executeError 缺省（undefined）：按任务执行中处理，不受影响', () => {
+    expect(of({ resultKind: 'task' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'process' },
+    ]);
+  });
 });

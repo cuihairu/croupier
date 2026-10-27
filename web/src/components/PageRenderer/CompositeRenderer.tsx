@@ -25,6 +25,7 @@ import { localizedText } from '@/utils/localizedText';
 import { confirmFieldTitle, humanizeParamKey } from './confirmContent';
 import { isStaleSelection, rowIdentity, selectionFilterFingerprint } from './batchSelection';
 import type { ExecFailure } from './execFeedback';
+import OperationStageBar from './OperationStageBar';
 import { useCompositeRuntime } from './compositeRuntime';
 import { sectionVisible } from './sectionCondition';
 import type {
@@ -174,6 +175,18 @@ export const CompositeRenderer: React.FC<{
       );
     return (
       <>
+        {/* D1：多阶段状态反馈阶段条，与下方 Alert/Result 同源派生。复合编排
+         * 不查询审批状态（无续跑查询通道），审批中按 process 呈现；失败终态
+         * 停在提交阶段 error，与操作页一致。 */}
+        <OperationStageBar
+          input={{
+            loading: running[sec.key] || false,
+            hasError: !!failure,
+            resultKind: pending ? (pending.outcome === 'approval' ? 'approval' : 'task') : null,
+            approvalStatus: null,
+            continuationKind: null,
+          }}
+        />
         {failure ? (
           <Alert
             type="error"

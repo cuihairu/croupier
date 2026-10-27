@@ -30,12 +30,15 @@ export interface OperationStageInput {
   approvalStatus: 'pending' | 'approved' | 'rejected' | 'expired' | null;
   /** 审批通过后的续跑类别（仅 approvalStatus.continuation 为真时有意义） */
   continuationKind: 'sync' | 'task' | null;
+  /** 执行阶段失败（任务失败/取消）——提交已成功、终态停在执行阶段 error */
+  executeError?: boolean;
 }
 
 /** 派生阶段序列。
  *
  * - 在途：只有一阶段 process，后续阶段不可知；
  * - 失败：终态停在提交阶段 error，不渲染后续阶段（操作未走到那一步）；
+ * - 执行阶段错误（executeError）：提交已成功、终态停在执行阶段 error（任务页取消/失败）；
  * - 审批路径：审批阶段随审批状态推进，执行阶段在审批通过前保持 wait，
  *   通过后按续跑类别落成 finish（同步执行）或 process（转任务）；
  * - 任务路径：任务已提交但仍在执行，执行阶段保持 process。
@@ -49,8 +52,12 @@ export function describeOperationStages(input: OperationStageInput): OperationSt
   if (input.loading) return [submit];
   if (input.hasError) return [submit];
 
-  const { resultKind, approvalStatus, continuationKind } = input;
+  const { resultKind, approvalStatus, continuationKind, executeError } = input;
   if (!resultKind) return [];
+  // 执行阶段终态错误：提交已成功，停在执行阶段 error，不渲染审批阶段。
+  if (executeError) {
+    return [submit, { key: 'execute', status: 'error' }];
+  }
 
   if (resultKind === 'approval') {
     return [

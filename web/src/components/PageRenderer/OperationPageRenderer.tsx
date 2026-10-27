@@ -12,18 +12,7 @@ import { localizedText } from '@/utils/localizedText';
 
 import React, { useState, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from '@umijs/max';
-import {
-  App,
-  Card,
-  Button,
-  Modal,
-  Result,
-  Alert,
-  Space,
-  Typography,
-  Descriptions,
-  Steps,
-} from 'antd';
+import { App, Card, Button, Modal, Result, Alert, Space, Typography, Descriptions } from 'antd';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -33,8 +22,7 @@ import {
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer';
 import ExecutorUnboundAlert, { EXECUTOR_UNBOUND_CODE } from './ExecutorUnboundAlert';
-import { describeOperationStages } from './operationStages';
-import type { OperationStageKey } from './operationStages';
+import OperationStageBar from './OperationStageBar';
 import { extractApiErrorCode } from '@/utils/apiError';
 import type {
   OperationPageSpec,
@@ -63,22 +51,6 @@ export interface OperationPageRendererProps {
   /** 页面标题 */
   title?: string;
 }
-
-/** 多阶段反馈的阶段标题文案（D1 状态反馈 Steps）：阶段标识 → 本地化消息描述符。 */
-const STAGE_TITLE_MESSAGE: Record<OperationStageKey, { id: string; defaultMessage: string }> = {
-  submit: {
-    id: 'component.pageRenderer.operationPage.stage.submit',
-    defaultMessage: '提交操作',
-  },
-  approval: {
-    id: 'component.pageRenderer.operationPage.stage.approval',
-    defaultMessage: '审批',
-  },
-  execute: {
-    id: 'component.pageRenderer.operationPage.stage.execute',
-    defaultMessage: '执行',
-  },
-};
 
 const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   spec,
@@ -367,13 +339,13 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
 
   // 多阶段反馈（D1 状态反馈）：与结果卡同源派生，追加在结果卡顶部供扫读。
   // 审批状态未查询时按进行中呈现；续跑类别仅在审批通过后有意义。
-  const stages = describeOperationStages({
+  const stageInput = {
     loading,
     hasError: !!error,
     resultKind: result?.kind ?? null,
     approvalStatus: approvalStatus?.status ?? null,
     continuationKind: approvalStatus?.continuation ? (approvalStatus.resultKind ?? null) : null,
-  });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 880 }}>
@@ -464,16 +436,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
             defaultMessage: '执行结果',
           })}
         >
-          {stages.length > 0 && (
-            <Steps
-              size="small"
-              style={{ marginBottom: 16 }}
-              items={stages.map((stage) => ({
-                title: intl.formatMessage(STAGE_TITLE_MESSAGE[stage.key]),
-                status: stage.status,
-              }))}
-            />
-          )}
+          <OperationStageBar input={stageInput} />
           {error ? (
             // T8：unbound 阻断渲染结构化空态 + 去绑定入口（无伪数据兜底）
             errorCode === EXECUTOR_UNBOUND_CODE ? (

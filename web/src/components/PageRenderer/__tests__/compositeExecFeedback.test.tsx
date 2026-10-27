@@ -160,6 +160,20 @@ describe('D4 执行反馈闭环', () => {
 
   const clickSubmit = () => fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
 
+  /** D1 阶段条断言：标题所在 Steps item 的 ant-steps-item-<status> 状态类。
+   * 弹窗提交按钮文案可能同为「执行」，必须在 .ant-steps 容器内查找。 */
+  const expectStage = (title: string, status: string) => {
+    const items = Array.from(document.querySelectorAll('.ant-steps-item'));
+    const node = items.find((n) => n.textContent?.includes(title)) as HTMLElement | undefined;
+    expect(node).toBeDefined();
+    expect(node!.className).toContain(`ant-steps-item-${status}`);
+  };
+  /** 阶段条内是否出现某标题（弹窗按钮等外部同文案不干扰）。 */
+  const stageHasText = (title: string) =>
+    !!Array.from(document.querySelectorAll('.ant-steps-item')).find((n) =>
+      n.textContent?.includes(title),
+    );
+
   it('审批待处理：提示已提交审批、弹窗保持开启给审批入口，不刷新目标区块', async () => {
     const onExecute = jest
       .fn()
@@ -179,6 +193,10 @@ describe('D4 执行反馈闭环', () => {
     expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
     expect(screen.getByText('已提交审批，等待审批通过后生效')).toBeInTheDocument();
     expect(screen.getByText('审批单 ap-101')).toBeInTheDocument();
+    // D1 阶段条：提交完成、审批进行中、执行待审批
+    expectStage('提交操作', 'finish');
+    expectStage('审批', 'process');
+    expectStage('执行', 'wait');
     const pushSpy = jest.spyOn(history, 'push');
     fireEvent.click(screen.getByRole('button', { name: /前\s*往\s*审\s*批\s*中\s*心/ }));
     expect(pushSpy).toHaveBeenCalledWith('/approvals');
@@ -203,6 +221,10 @@ describe('D4 执行反馈闭环', () => {
     expect(notices.some((n) => !!n.closest('.ant-alert'))).toBe(true);
     expect(screen.getByText('任务 task-7')).toBeInTheDocument();
     expect(onExecute).not.toHaveBeenCalledWith('b-list', expect.anything());
+    // D1 阶段条：提交完成、执行进行中（无审批阶段）
+    expectStage('提交操作', 'finish');
+    expectStage('执行', 'process');
+    expect(stageHasText('审批')).toBe(false);
   });
 
   it('参数错误：字段错误注入控件，反馈条只留表单外字段，弹窗与输入保留', async () => {
@@ -229,6 +251,10 @@ describe('D4 执行反馈闭环', () => {
     }
     // 表单外未知字段仍留在反馈条，按 key 人性化展示
     expect(alert).toHaveTextContent('channel：渠道不可用');
+    // D1 阶段条：失败终态停在提交阶段 error，不渲染未到达的阶段
+    expectStage('提交操作', 'error');
+    expect(stageHasText('审批')).toBe(false);
+    expect(stageHasText('执行')).toBe(false);
     // 失败保留弹窗与已填参数
     expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
     expect((screen.getByLabelText('玩家 ID') as HTMLInputElement).value).toBe('u1001');
