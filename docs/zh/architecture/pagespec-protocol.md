@@ -120,7 +120,42 @@ ListViewSpec | DetailViewSpec | ActionSpec | ConfirmActionSpec
 的 spec 逐字段一致（由 `TestBuildCompositePageSpec_SameAsPersistedProposal` 与
 `TestV9Handler_PreviewCompositePage_SameSpecAsSaved` 验证）。该端点只读：不写提案/草稿/审计行，因此
 不需要 `pages:publish` 权限；契约可见性仍受请求链上的 scope 与权限中间件约束。任一区块缺契约时按统一
-`{ error, message }` 形状返回 `4xx`，而不是返回残缺 spec。
+`{ error, message, details }` 形状返回 `4xx`，而不是返回残缺 spec。
+
+输入校验失败一律不返回残缺 spec：`pageKey` 缺失、区块 `key` 缺失或冲突、static 区块缺
+`form.jsonSchema`、区块引用未登记契约的函数、画布无功能性区块可生成，均返回
+`400 + { error: "validation_failed", message, details }`，`details` 的每个键都是请求体字段路径——
+`pageKey`、`sections[i].key`、`sections[i].functionId`、`sections[i].form.jsonSchema`，无功能性区块
+时落裸 `sections`；生成器级诊断按同一形态映射（取其 `field`，缺省回退 `code`）。契约查询遇到数据库
+故障不属画布问题，仍按 `500` 兜底。预览栏与保存/发布弹窗经共享的 `ErrorDetailList` 把这些条目内联
+逐条呈现，便于定位到具体区块。
+
+**草稿预览执行端点（B1，2026-10）**：`POST /api/v1/versioning/pages/composite/preview/execute` 让编辑器预览栏
+在草稿上真实执行区块，而不只是模拟数据。请求体是预览端点的请求体加 `bindingId` 与 `context`：
+
+```json
+{
+  "pageKey": "composite--preview",
+  "bindingId": "player.list",
+  "sections": [
+    { "key": "player.list", "functionId": "player.list", "view": "table" }
+  ],
+  "componentTemplates": [{ "key": "tpl--card", "digest": "d1" }],
+  "context": {
+    "form": {},
+    "row": {},
+    "selection": [],
+    "detail": {},
+    "pageState": {}
+  }
+}
+```
+
+服务端按同一生成链从 `sections` 重建草稿 `PageSpec`（即预览栏渲染的那一份），重跑发布级 selector 校验，
+再走与已发布页面相同的执行门禁——权限校验、审批闸门、绑定的 `execution.functionId` 快照（浏览器不提交
+`functionId`/`route`/`scope`；`bindingId` 缺失或多余均按统一形状返回 `4xx`）。响应为 `{ result }`，与已发布
+区块执行端点的 `PageExecutionResult` 同形，渲染器对两侧按同一套结果语义处理。该端点仍然只读——不落
+提案/草稿/审批/审计——但会下发真实函数调用，因此操作类函数与审批在草稿模式下确有真实副作用。
 
 **常量表单区块（static，2026-09）**：`CompositeSection` 增加 `static: true` 形态——
 不绑定 bindingId、不执行任何函数；`form.jsonSchema` 由编辑器设计期定义并经

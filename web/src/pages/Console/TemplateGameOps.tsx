@@ -8,11 +8,12 @@
 
 import React from 'react';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
-import { Alert, Button, Card, Space, Typography } from 'antd';
+import { Alert, Button, Card, Space, Tag, Typography } from 'antd';
 import {
   findGameOpsTemplate,
   gameOpsTemplateRoutePrefix,
-  gameOpsTemplates,
+  gameOpsTemplatesByCategory,
+  missingTemplateCrudRoles,
 } from '@/components/PageRenderer/templates/gameOpsTemplates';
 import { gameOpsDemoEnvironment } from '@/components/PageRenderer/templates/gameOpsDemoData';
 import { resetGameOpsDemoRuntime } from '@/components/PageRenderer/templates/gameOpsDemoRuntime';
@@ -43,21 +44,54 @@ const TemplateGameOpsPage: React.FC = () => {
           })}
         />
         <Space orientation="vertical" style={{ marginTop: 16, width: '100%' }}>
-          {gameOpsTemplates.map((item) => (
-            <Card
-              key={item.key}
-              hoverable
-              size="small"
-              style={{ cursor: 'pointer' }}
-              onClick={() => history.push(`${gameOpsTemplateRoutePrefix}/${item.key}`)}
-            >
-              <Space>
-                <Typography.Text strong>
-                  {item.title['zh-CN']} / {item.title['en-US']}
-                </Typography.Text>
-                <Typography.Text code>{item.key}</Typography.Text>
+          {gameOpsTemplatesByCategory().map((group) => (
+            <div key={group.category}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {group.label['zh-CN']} / {group.label['en-US']}
+              </Typography.Text>
+              <Space orientation="vertical" style={{ marginTop: 8, width: '100%' }}>
+                {group.entries.map((item) => {
+                  const missing = missingTemplateCrudRoles(item);
+                  return (
+                    <Card
+                      key={item.key}
+                      hoverable
+                      size="small"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => history.push(`${gameOpsTemplateRoutePrefix}/${item.key}`)}
+                    >
+                      <Space orientation="vertical">
+                        <Space wrap>
+                          <Typography.Text strong>
+                            {item.title['zh-CN']} / {item.title['en-US']}
+                          </Typography.Text>
+                          <Typography.Text code>{item.key}</Typography.Text>
+                        </Space>
+                        <Space wrap size={4}>
+                          {item.functions.map((fn) => (
+                            <Tag key={fn.id}>{fn.id}</Tag>
+                          ))}
+                        </Space>
+                        {missing.length > 0 && (
+                          <Typography.Text type="warning" style={{ fontSize: 12 }}>
+                            {intl.formatMessage(
+                              {
+                                id: 'pages.console.templateGameOps.missingCapabilities',
+                                defaultMessage: '不提供：{roles}（{note}）',
+                              },
+                              {
+                                roles: missing.join(' / '),
+                                note: item.capabilitiesNote['zh-CN'],
+                              },
+                            )}
+                          </Typography.Text>
+                        )}
+                      </Space>
+                    </Card>
+                  );
+                })}
               </Space>
-            </Card>
+            </div>
           ))}
         </Space>
       </Card>
