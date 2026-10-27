@@ -618,6 +618,8 @@ composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` �
 - Renderer 只能消费 PublishedPageSpec，不能从最新函数目录或运行结果临时补字段。
 - 动态菜单文本来自 PublishedPageSpec 的 NavigationSpec，不能依赖静态 locale 或字典事实源。
 - 浏览器只能通过 published binding execute API 执行，不能选择 function、target、route 或 scope。
+- Console 只读 PublishedPageSpec 快照：人工未发布草稿不进入执行面，草稿领先发布时仍按发布快照执行；只落草稿未发布的页面不可执行。
+- PageRenderer fixture 链证明「提案接受 → 发布快照 → 控制台执行回读 → 未发布草稿保护」机制（`web/src/components/PageRenderer/templates/gameOpsPublishFixture.test.tsx`）；fixture 为内存数据，不宣称真实游戏页面全链交付，后者须独立环境验收。
 - 历史页面配置无自动迁移路径。旧页面配置模型的数据只能导出、备份和人工重建；不提供自动转换桥。
 
 ## 完成定义
