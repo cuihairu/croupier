@@ -39,6 +39,37 @@ export function confirmValueText(field: FormFieldSpec | undefined, value: unknow
   return labelOf(value) ?? String(value);
 }
 
+/** 值规范化：键序无关的稳定序列化，供「确认内容与实际提交是否一致」比较。
+ * undefined / null / 空串归一为「未填写」——表单初始化补出的空值不算改动。 */
+const canonicalConfirmValue = (value: unknown): string => {
+  if (value === undefined || value === null || value === '') return JSON.stringify(null);
+  if (Array.isArray(value)) return JSON.stringify(value.map(canonicalConfirmValue));
+  if (typeof value === 'object') {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[key] = (value as Record<string, unknown>)[key];
+    }
+    return JSON.stringify(sorted);
+  }
+  return JSON.stringify(value);
+};
+
+/** 确认时内容与最终提交内容是否不一致（D2：危险动作打开弹窗后，用户在弹窗内
+ * 改动参数则实际提交内容已超出原确认范围，执行前必须按最终值重新确认）。
+ * 键取两侧并集——新增、删除、改写任一参数都判为不一致；值做规范化比较。 */
+export function confirmPayloadChanged(
+  confirmed: Record<string, unknown> | undefined,
+  final: Record<string, unknown>,
+): boolean {
+  const keys = new Set([...Object.keys(confirmed ?? {}), ...Object.keys(final)]);
+  for (const key of keys) {
+    if (canonicalConfirmValue(confirmed?.[key]) !== canonicalConfirmValue(final[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** 确认框条目：params 按表单字段声明序排列（未在表单声明的参数按原序追加）。
  * 空值条目保留——「确认内容与实际提交一致」优先于视觉精简。 */
 export function describeConfirmEntries(

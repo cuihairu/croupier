@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from 'react';
+import type { MutableRefObject, ReactNode } from 'react';
 import { App, Descriptions } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
@@ -8,7 +8,7 @@ import { extractApiErrorCode } from '@/utils/apiError';
 import { resolveStepParams } from './runtime';
 import { describeExecFailure, describeExecOutcome, isErrorExecResult } from './execFeedback';
 import type { ExecFailure, ExecOutcome } from './execFeedback';
-import { confirmFieldTitle, describeConfirmEntries } from './confirmContent';
+import { confirmPayloadChanged, describeConfirmEntries } from './confirmContent';
 import type { ConfirmEntry } from './confirmContent';
 import type {
   FormPresentationSpec,
@@ -78,6 +78,19 @@ export type RuntimeResult =
 export interface ConfirmContentModel {
   entries?: ConfirmEntry[];
   steps?: Array<{ kind: string; target: string }>;
+}
+
+/** 区块是否属于指定弹窗（target 可为弹窗分组名或区块 key）——与渲染端的
+ * 弹窗成员判定同口径，用于把危险确认基线归属到实际提交的区块。 */
+export function sectionInDialog(
+  sec: { key: string; group?: string; bindingId?: string },
+  target: string,
+): boolean {
+  return (
+    (sec.group ?? sec.key ?? sec.bindingId) === target ||
+    sec.key === target ||
+    sec.bindingId === target
+  );
 }
 
 /** 确认框内容：参数条目按字段标题渲染（Descriptions），链步骤逐行列目标。 */
@@ -219,7 +232,8 @@ export interface CompositeRuntime<T extends RuntimeSection> {
   execPending: Record<string, { outcome: ExecOutcome; id?: string } | undefined>;
   tablePages: Record<string, TablePageState>;
   dialogKey: string | null;
-  setDialogKey: Dispatch<SetStateAction<string | null>>;
+  /** 打开/关闭弹窗（key=null 关闭）；关闭同时失效危险确认基线。 */
+  setDialogKey: (key: string | null) => void;
   /** 执行区块（inputs = 区块输入 + overrides 合并），失败上抛。 */
   run: (sec: T, overrides?: Record<string, unknown>) => Promise<PageExecutionResult | null>;
   runRef: MutableRefObject<
@@ -302,7 +316,18 @@ export function useCompositeRuntime<T extends RuntimeSection>(
   // state 版仅驱动 Table 的 current/total 展示）
   const tablePagesRef = useRef<Record<string, TablePageState>>({});
   const [tablePages, setTablePages] = useState<Record<string, TablePageState>>({});
-  const [dialogKey, setDialogKey] = useState<string | null>(null);
+  const [dialogKey, setDialogKeyState] = useState<string | null>(null);
+  // D2：危险动作打开弹窗时确认的参数基线（target=弹窗目标，confirmed=已确认
+  // 参数）。用户在弹窗内改动参数后，实际提交内容已超出原确认范围——执行前按
+  // 最终值重新确认。基线随弹窗关闭/切换失效，非危险打开不得沿用旧基线。
+  const [dangerConfirm, setDangerConfirm] = useState<{
+    target: string;
+    confirmed: Record<string, unknown>;
+  } | null>(null);
+  const setDialogKey = useCallback((key: string | null) => {
+    setDialogKeyState(key);
+    if (key === null) setDangerConfirm(null);
+  }, []);
   // D4：执行反馈按区块留存——失败（稳定错误码 + 字段级定位）与待处理结果
   // （审批 / 任务）。approval/task 一律不触发 success 事件与刷新级联：任务
   // 提交与业务执行成功是两件事，不能共用一条提示语义。
@@ -683,6 +708,8 @@ export function useCompositeRuntime<T extends RuntimeSection>(
       entries?: ConfirmEntry[];
       steps?: ConfirmContentModel['steps'];
       onOk: () => void;
+      /** 弹窗内二次确认（D2）需要取消回调：取消时让提交路径知晓未确认。 */
+      onCancel?: () => void;
     }) => {
       modal.confirm({
         title: intl.formatMessage(
@@ -696,6 +723,7 @@ export function useCompositeRuntime<T extends RuntimeSection>(
         okButtonProps: { danger: true },
         content: renderConfirmContent({ entries: opts.entries, steps: opts.steps }),
         onOk: opts.onOk,
+        onCancel: opts.onCancel,
       });
     },
     [modal, intl],
@@ -738,6 +766,10 @@ export function useCompositeRuntime<T extends RuntimeSection>(
       setSectionInputs((prev) => ({ ...prev, [opts.target]: opts.params }));
       const open = () => {
         setDialogKey(opts.target);
+        // 危险确认基线只归属本次弹窗打开；非危险打开必须清空旧基线。
+        setDangerConfirm(
+          opts.danger && opts.label ? { target: opts.target, confirmed: opts.params } : null,
+        );
         opts.afterOpen?.();
       };
       if (opts.danger && opts.label) {
@@ -751,7 +783,7 @@ export function useCompositeRuntime<T extends RuntimeSection>(
       }
       open();
     },
-    [confirmDanger, formSpecOfTarget],
+    [confirmDanger, formSpecOfTarget, setDialogKey],
   );
 
   const resolveTarget = useCallback(
@@ -803,7 +835,7 @@ export function useCompositeRuntime<T extends RuntimeSection>(
         }
       }
     },
-    [message, openDialog, resolveParams, resolveTarget],
+    [message, openDialog, resolveParams, resolveTarget, setDialogKey],
   );
 
   /** 区块事件执行：events 里找事件名 → 主动作 + 链。 */
@@ -824,50 +856,71 @@ export function useCompositeRuntime<T extends RuntimeSection>(
 
   /** D4：表单区块提交统一出口。返回 true 仅表示业务执行成功（同步结果），
    * 调用方据此关弹窗；审批待处理 / 任务已提交 / 执行失败均保持弹窗开启，
-   * 把待处理入口与字段级错误留在用户面前。 */
+   * 把待处理入口与字段级错误留在用户面前。
+   *
+   * D2：危险动作打开的弹窗，用户在弹窗内改动参数后，实际提交内容已超出原
+   * 确认范围——执行前按最终值重新确认（未改动则沿用原确认，不重复打扰）。
+   * 重新确认期间返回 false：不落页面状态、不执行，弹窗保留。 */
   const submitForm = useCallback(
     async (sec: T, values: FormValues): Promise<boolean> => {
       const plain = values as Record<string, unknown>;
-      clearExecFeedbackOf(sec.key);
-      // 无表单区块（降级执行按钮）不落页面状态：与既有提交路径行为对齐
-      if (sec.form) onPageStateMerge?.(sec.key, { ...plain, values: plain });
-      try {
-        const r = await runRef.current(sec, plain);
-        // 无结果（preview / 旧响应拒收）与结果体自带 error 标记都不算成功：
-        // 后者若不门控，执行器返回错误体（未抛异常）会误触发 success 级联。
-        if (!r || isErrorExecResult(r)) return false;
-        const outcome = describeExecOutcome(r);
-        if (outcome === 'approval') {
-          setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.approvalId } }));
-          message.info(
-            intl.formatMessage({
-              id: 'component.pageRenderer.composite.submittedForApproval',
-              defaultMessage: '操作已提交审批，等待审批通过后生效',
-            }),
-          );
-          return false;
+      const execute = async (): Promise<boolean> => {
+        clearExecFeedbackOf(sec.key);
+        // 无表单区块（降级执行按钮）不落页面状态：与既有提交路径行为对齐
+        if (sec.form) onPageStateMerge?.(sec.key, { ...plain, values: plain });
+        try {
+          const r = await runRef.current(sec, plain);
+          // 无结果（preview / 旧响应拒收）与结果体自带 error 标记都不算成功：
+          // 后者若不门控，执行器返回错误体（未抛异常）会误触发 success 级联。
+          if (!r || isErrorExecResult(r)) return false;
+          const outcome = describeExecOutcome(r);
+          if (outcome === 'approval') {
+            setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.approvalId } }));
+            message.info(
+              intl.formatMessage({
+                id: 'component.pageRenderer.composite.submittedForApproval',
+                defaultMessage: '操作已提交审批，等待审批通过后生效',
+              }),
+            );
+            return false;
+          }
+          if (outcome === 'task') {
+            setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.taskId } }));
+            message.success(
+              intl.formatMessage({
+                id: 'component.pageRenderer.composite.taskSubmitted',
+                defaultMessage: '任务已提交，正在后台执行',
+              }),
+            );
+            return false;
+          }
+          setExecPending((prev) => ({ ...prev, [sec.key]: undefined }));
+          fireEvent(sec, 'success');
+          return true;
+        } catch (e) {
+          setExecFailures((prev) => ({ ...prev, [sec.key]: describeExecFailure(e) }));
+          // 上抛：弹窗提交路径沿用既有失败 toast 分支（含 T8 unbound 指引文案）
+          throw e;
         }
-        if (outcome === 'task') {
-          setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.taskId } }));
-          message.success(
-            intl.formatMessage({
-              id: 'component.pageRenderer.composite.taskSubmitted',
-              defaultMessage: '任务已提交，正在后台执行',
-            }),
-          );
-          return false;
-        }
-        setExecPending((prev) => ({ ...prev, [sec.key]: undefined }));
-        fireEvent(sec, 'success');
-        return true;
-      } catch (e) {
-        setExecFailures((prev) => ({ ...prev, [sec.key]: describeExecFailure(e) }));
-        // 上抛：弹窗提交路径沿用既有失败 toast 分支（含 T8 unbound 指引文案）
-        throw e;
+      };
+      const dc = dangerConfirm;
+      if (dc && sectionInDialog(sec, dc.target) && confirmPayloadChanged(dc.confirmed, plain)) {
+        // 调用方 await 本返回值的最终结论：确认后执行成功才会关弹窗；
+        // 取消则保持弹窗与已改参数（不执行）。失败向上抛，沿用既有 toast 分支。
+        return new Promise<boolean>((resolve, reject) => {
+          confirmDanger({
+            label: localizedText(sec.title, 'zh-CN', sec.key),
+            entries: describeConfirmEntries(sec.form, plain),
+            onOk: () => {
+              execute().then(resolve, reject);
+            },
+            onCancel: () => resolve(false),
+          });
+        });
       }
+      return execute();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [message, intl, onPageStateMerge, fireEvent, clearExecFeedbackOf],
+    [message, intl, onPageStateMerge, fireEvent, clearExecFeedbackOf, dangerConfirm, confirmDanger],
   );
 
   /** V5：表单当前值缓冲写入（防抖后进 results[key].values，{{var.values.x}}）。 */
