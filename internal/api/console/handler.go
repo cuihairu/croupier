@@ -82,6 +82,7 @@ func (h *Handler) ExecuteDraftCompositeBinding(c *gin.Context) {
 		return
 	}
 
+	req.IdempotencyKey = normalizeIdempotencyKey(c.GetHeader("Idempotency-Key"))
 	resp, err := h.service.ExecuteDraftCompositeBinding(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
@@ -102,6 +103,7 @@ func (h *Handler) ExecuteBinding(c *gin.Context) {
 		return
 	}
 
+	req.IdempotencyKey = normalizeIdempotencyKey(c.GetHeader("Idempotency-Key"))
 	resp, err := h.service.ExecuteBinding(c.Request.Context(), &req)
 	if err != nil {
 		var notFound *PageNotFoundError

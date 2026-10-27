@@ -7,6 +7,8 @@ export default {
   'component.pageRenderer.composite.executeButton': '执行',
   'component.pageRenderer.composite.executeFailed': '执行失败',
   'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
+  'component.pageRenderer.composite.executeReplayed':
+    '{title} 已在先前提交过，本次返回服务端记录的结果（未重复执行）',
   'component.pageRenderer.composite.rowActionsColumn': '操作',
   'component.pageRenderer.composite.tabFallback': '页签 {n}',
   'component.pageRenderer.executorUnbound.description':

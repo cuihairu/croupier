@@ -904,6 +904,11 @@ export interface PageExecutionResult {
   taskId?: string;
   approvalId?: string;
   diagnostics?: Diagnostic[];
+  /**
+   * 幂等重放标记（客户端填充，服务端结果体无此字段）：本次返回取自服务端已
+   * 落地的执行记录而非新下发，由控制台服务在剥离响应包时置位。
+   */
+  replayed?: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -249,8 +249,8 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		return nil, ErrPageNotFound(req.PageKey)
 	}
 
-	result, err := s.executeBindingFromSnapshot(ctx, gameID, env, *published, req.BindingID, req.Context, governanceValidated, runtimeAPIPublishedExecute)
-	return &ConsoleExecuteBindingResponse{Result: result}, err
+	result, replayed, err := s.executeBindingFromSnapshot(ctx, gameID, env, *published, req.BindingID, req.Context, governanceValidated, runtimeAPIPublishedExecute, req.IdempotencyKey)
+	return &ConsoleExecuteBindingResponse{Result: result, Replayed: replayed}, err
 }
 
 // ExecuteDraftCompositeBinding 是草稿预览执行入口（编辑器「真实预览」消费）：
@@ -300,13 +300,16 @@ func (s *Service) ExecuteDraftCompositeBinding(ctx context.Context, req *Console
 		RendererSchemaVersion: rendererSchemaVersion,
 		BindingContracts:      snapshots,
 	}
-	result, err := s.executeBindingFromSnapshot(ctx, gameID, env, draft, bindingID, req.Context, governanceDraft, runtimeAPIDraftExecute)
-	return &ConsoleExecuteBindingResponse{Result: result}, err
+	result, replayed, err := s.executeBindingFromSnapshot(ctx, gameID, env, draft, bindingID, req.Context, governanceDraft, runtimeAPIDraftExecute, req.IdempotencyKey)
+	return &ConsoleExecuteBindingResponse{Result: result, Replayed: replayed}, err
 }
 
-// executeBindingFromSnapshot 是绑定执行核心：门禁、payload 构造、审批闸、
-// FunctionInvoke 与执行留痕对已发布快照与草稿预览共用（快照由调用方解析，
-// 核心不区分来源；来源差异只体现在 governance/runtimeAPI 标记）。
+// executeBindingFromSnapshot 是绑定执行核心：门禁、payload 构造、幂等占位、
+// 审批闸、FunctionInvoke 与执行留痕对已发布快照与草稿预览共用（快照由调用方
+// 解析，核心不区分来源；来源差异只体现在 governance/runtimeAPI 标记）。
+// idemKey 非空时启用服务端幂等（D4 安全重试）：同 key 已完成重放存储结果
+// （replayed=true），窗口内进行中判结果未知拒绝，键误复用拒绝；空 key 行为
+// 与既有无幂等链路完全一致。
 func (s *Service) executeBindingFromSnapshot(
 	ctx context.Context,
 	gameID string,
@@ -316,53 +319,66 @@ func (s *Service) executeBindingFromSnapshot(
 	execCtx ConsoleBindingExecutionContext,
 	governance string,
 	runtimeAPI string,
-) (result spec.PageExecutionResult, err error) {
+	idemKey string,
+) (result spec.PageExecutionResult, replayed bool, err error) {
 	executeStartedAt := time.Now()
 
 	binding, ok := findBinding(page.Bindings, bindingID)
 	if !ok {
-		return spec.PageExecutionResult{}, errorx.NewNotFound("page binding not found")
+		return spec.PageExecutionResult{}, false, errorx.NewNotFound("page binding not found")
 	}
 	contract, ok := findContract(page.BindingContracts, bindingID)
 	if !ok {
-		return spec.PageExecutionResult{}, errorx.NewValidationError("binding contract snapshot missing")
+		return spec.PageExecutionResult{}, false, errorx.NewValidationError("binding contract snapshot missing")
 	}
 	functions, err := loadPublishedFunctionSpecs(ctx, s.svcCtx)
 	if err != nil {
-		return spec.PageExecutionResult{}, err
+		return spec.PageExecutionResult{}, false, err
 	}
 	requestID := uuid.NewString()
 	actor := currentActor(ctx)
 	var target string
 	var payload json.RawMessage
+	// executed 标记副作用链已进入（占位成功后置位，决定是否回写幂等结果）；
+	// replayed 标记本次返回是幂等重放——同一动作只真实执行一次，重放不重复
+	// 写审计与执行留痕（一次动作一条执行记录）。
+	var executed bool
+	var idemClaimed bool
 	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, page, binding, contract, requestID, actor, runtimeAPI)
 	defer func() {
 		finishSpan(err, result, target)
-		s.auditPageExecute(ctx, gameID, env, page, binding, contract, requestID, target, result, err, time.Since(executeStartedAt).Milliseconds(), governance, runtimeAPI)
-		// 执行留痕（R2）：审批类执行不写（审批单本身已有 Payload 留痕）
-		if s.svcCtx.ExecutionLogWriter != nil && result.Kind != spec.PageExecutionKindApproval {
-			status := executionlog.StatusOK
-			var respBody interface{}
-			if err != nil {
-				status = executionlog.StatusFail
-				respBody = map[string]string{"error": err.Error()}
-			} else if len(result.Data) > 0 {
-				respBody = json.RawMessage(result.Data)
+		if !replayed {
+			s.auditPageExecute(ctx, gameID, env, page, binding, contract, requestID, target, result, err, time.Since(executeStartedAt).Milliseconds(), governance, runtimeAPI)
+			// 执行留痕（R2）：审批类执行不写（审批单本身已有 Payload 留痕）
+			if s.svcCtx.ExecutionLogWriter != nil && result.Kind != spec.PageExecutionKindApproval {
+				status := executionlog.StatusOK
+				var respBody interface{}
+				if err != nil {
+					status = executionlog.StatusFail
+					respBody = map[string]string{"error": err.Error()}
+				} else if len(result.Data) > 0 {
+					respBody = json.RawMessage(result.Data)
+				}
+				s.svcCtx.ExecutionLogWriter.Log(executionlog.Entry{
+					GameID:     gameID,
+					Env:        env,
+					Source:     executionlog.SourcePage,
+					FunctionID: contract.FunctionID,
+					PageKey:    page.PageKey,
+					BindingID:  bindingID,
+					Actor:      actor,
+					Status:     status,
+					DurationMs: time.Since(executeStartedAt).Milliseconds(),
+					TraceID:    result.TraceID,
+					Request:    payload,
+					Response:   respBody,
+				})
 			}
-			s.svcCtx.ExecutionLogWriter.Log(executionlog.Entry{
-				GameID:     gameID,
-				Env:        env,
-				Source:     executionlog.SourcePage,
-				FunctionID: contract.FunctionID,
-				PageKey:    page.PageKey,
-				BindingID:  bindingID,
-				Actor:      actor,
-				Status:     status,
-				DurationMs: time.Since(executeStartedAt).Milliseconds(),
-				TraceID:    result.TraceID,
-				Request:    payload,
-				Response:   respBody,
-			})
+		}
+		// 副作用链成功返回才回写幂等结果；失败保持 running——副作用是否发生
+		// 不可判定，同 key 重试在占位窗口内拒绝、超窗回收重跑。
+		if executed && idemClaimed && err == nil {
+			s.completeExecuteIdempotency(ctx, gameID, env, page.PageKey, bindingID, idemKey, result)
 		}
 	}()
 
@@ -372,38 +388,53 @@ func (s *Service) executeBindingFromSnapshot(
 	// schema 新旧无关紧要——执行器不存在是更根本的阻断，且语义互斥
 	//（函数整体注销走 binding_function_missing，不进本分支）。
 	if err := s.ensureExecutorBound(binding, functions); err != nil {
-		return spec.PageExecutionResult{}, err
+		return spec.PageExecutionResult{}, false, err
 	}
 	if err := s.ensureBindingFresh(binding, contract, functions); err != nil {
-		return spec.PageExecutionResult{}, err
+		return spec.PageExecutionResult{}, false, err
 	}
 	if err := s.enforcePublishedBindingGovernance(ctx, contract); err != nil {
-		return spec.PageExecutionResult{}, err
+		return spec.PageExecutionResult{}, false, err
 	}
 
 	payload, err = buildBindingPayloadFromSelectors(binding, execCtx)
 	if err != nil {
-		return spec.PageExecutionResult{}, err
+		return spec.PageExecutionResult{}, false, err
 	}
 	if err := validateBindingExecutePayload(payload, binding, functions); err != nil {
-		return spec.PageExecutionResult{}, err
+		return spec.PageExecutionResult{}, false, err
 	}
 	mode := ""
 	if binding.Execution.Mode == spec.PageExecutionModeTask {
 		mode = "async"
 	}
 	metadata := bindingExecutionMetadata(page, binding, contract, requestID, governance, runtimeAPI)
+
+	// D4 服务端幂等占位：门禁与 payload 校验全部通过后、副作用下发前占位。
+	// 无 key 时不启用，链路行为与既有完全一致。
+	if idemKey != "" {
+		claimed, replayResult, cerr := s.claimExecuteIdempotency(ctx, gameID, env, page, binding, contract, bindingID, payload, actor, idemKey)
+		if cerr != nil {
+			return spec.PageExecutionResult{}, false, cerr
+		}
+		if replayResult != nil {
+			return *replayResult, true, nil
+		}
+		idemClaimed = claimed
+	}
+	executed = true
+
 	if contract.Approval.Required {
 		approvalID, err := s.createPageApproval(ctx, gameID, env, binding, contract, payload, mode, metadata)
 		if err != nil {
-			return spec.PageExecutionResult{}, err
+			return spec.PageExecutionResult{}, false, err
 		}
 		return spec.PageExecutionResult{
 			Kind:       spec.PageExecutionKindApproval,
 			RequestID:  requestID,
 			TraceID:    telemetry.TraceIDFromContext(ctx),
 			ApprovalID: approvalID,
-		}, nil
+		}, false, nil
 	}
 
 	functionResp, err := function.NewService(s.svcCtx).FunctionInvoke(ctx, &function.FunctionInvokeRequest{
@@ -415,13 +446,77 @@ func (s *Service) executeBindingFromSnapshot(
 		Metadata: metadata,
 	})
 	if err != nil {
-		return spec.PageExecutionResult{}, err
+		return spec.PageExecutionResult{}, false, err
 	}
 	target = pageExecutionTarget(functionResp)
 
 	// 设计债清理：buildExecutionResult 为纯构造函数（四个出口均无出错路径），
 	// 已收紧为无 error 返回，原 err 分支不可达随之删除。
-	return buildExecutionResult(ctx, requestID, functionResp), nil
+	return buildExecutionResult(ctx, requestID, functionResp), false, nil
+}
+
+// claimExecuteIdempotency 原子占位幂等键并判定本次请求的处置：
+//
+//   - claimed=true：本次请求获得执行权（新占位或回收了超窗遗留行），副作用
+//     链成功后由 completeExecuteIdempotency 按同一作用域回写结果；
+//   - replayResult != nil：同 key 已完成，返回存储结果（调用方标记 replayed，
+//     不重复下发副作用，也不重复写审计与执行留痕）；
+//   - 非空 err：同 key 窗口内仍在进行（结果未知 409 idempotency_key_in_use）
+//     或同 key 请求内容不同（409 idempotency_key_reused）。
+//
+// 请求内容指纹取 (页面 key, 页面版本, bindingId, functionId, payload)——
+// payload 由绑定 selector 从渲染器上下文纯推导，同上下文的重复提交字节一致。
+func (s *Service) claimExecuteIdempotency(
+	ctx context.Context,
+	gameID, env string,
+	page spec.PublishedPageSpec,
+	binding spec.PageFunctionBinding,
+	contract spec.BindingContractSnapshot,
+	bindingID string,
+	payload json.RawMessage,
+	actor string,
+	idemKey string,
+) (bool, *spec.PageExecutionResult, error) {
+	requestHash := pageExecuteIdempotencyHash(
+		page.PageKey, strconv.Itoa(page.Version), bindingID, contract.FunctionID, string(payload),
+	)
+	claims := model.NewPageExecuteIdempotencyModel(s.svcCtx.DB)
+	rec, owner, err := claims.Begin(ctx, gameID, env, page.PageKey, bindingID, idemKey, requestHash, actor, contract.FunctionID)
+	if err != nil {
+		return false, nil, fmt.Errorf("page execute idempotency claim: %w", err)
+	}
+	if owner || rec == nil {
+		return true, nil, nil
+	}
+	if rec.RequestHash != requestHash {
+		return false, nil, errorx.NewConflictWithCode("idempotency_key_reused",
+			"幂等键已用于不同请求内容：请更换 Idempotency-Key 后重试",
+			map[string]any{"idempotencyKey": idemKey})
+	}
+	if rec.Status == model.PageExecuteIdempotencyCompleted {
+		var stored spec.PageExecutionResult
+		if err := json.Unmarshal([]byte(rec.Result), &stored); err != nil {
+			return false, nil, fmt.Errorf("page execute idempotency stored result unreadable: %w", err)
+		}
+		return false, &stored, nil
+	}
+	return false, nil, errorx.NewConflictWithCode("idempotency_key_in_use",
+		"执行仍在进行中，结果未知：请稍后用同一请求重试，服务端将返回落地结果",
+		map[string]any{"idempotencyKey": idemKey})
+}
+
+// completeExecuteIdempotency 在副作用链成功返回后按占位作用域回写幂等结果。
+// 失败不阻断执行返回：结果未落库只影响后续同 key 的重放（保持 running，
+// 占位窗口到期后由同 key 请求回收重跑），不影响本次结果。
+func (s *Service) completeExecuteIdempotency(ctx context.Context, gameID, env, pageKey, bindingID, idemKey string, result spec.PageExecutionResult) {
+	raw, err := json.Marshal(result)
+	if err != nil {
+		slog.Warn("page execute idempotency: marshal result failed", "idempotencyKey", idemKey, "error", err)
+		return
+	}
+	if err := model.NewPageExecuteIdempotencyModel(s.svcCtx.DB).Complete(ctx, gameID, env, pageKey, bindingID, idemKey, model.JSON(raw)); err != nil {
+		slog.Warn("page execute idempotency: complete failed", "idempotencyKey", idemKey, "error", err)
+	}
 }
 
 // buildDraftBindingContracts 为草稿预览执行冻结 binding 契约快照（与发布路径

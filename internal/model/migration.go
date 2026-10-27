@@ -183,6 +183,7 @@ func GameModels() []interface{} {
 		&CapabilitySemanticVersion{},
 		&PageProposal{},
 		&PageProposalVersion{},
+		&PageExecuteIdempotency{},
 		&BlockedProposalIssue{},
 		&PageSpec{},
 		&PublishedPageSpec{},

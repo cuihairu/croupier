@@ -285,6 +285,29 @@ describe('D4 执行反馈闭环', () => {
     // 业务执行成功 → 目标区块刷新（D4 只门控审批 / 任务态）
     await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-list', expect.anything()));
   });
+
+  it('幂等重放：结果带 replayed 标记时明确告知未重复执行（结果取自服务端记录）', async () => {
+    const onExecute = jest.fn().mockResolvedValue({
+      kind: 'sync',
+      requestId: 'r-9',
+      replayed: true,
+      data: { ok: 1 },
+    });
+    const { app } = await openBan(onExecute);
+    const successSpy = jest.spyOn(app.current!.message, 'success');
+
+    clickSubmit();
+    await waitFor(() =>
+      expect(successSpy).toHaveBeenCalledWith(
+        '处罚玩家 已在先前提交过，本次返回服务端记录的结果（未重复执行）',
+      ),
+    );
+    // 重放语义仍是业务执行成功：关弹窗 + 刷新目标区块
+    await waitFor(() =>
+      expect(screen.queryByText('处罚玩家', { selector: '.ant-modal-title' })).toBeNull(),
+    );
+    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-list', expect.anything()));
+  });
 });
 
 describe('D4 参数错误定位字段（inline 表单区块）', () => {

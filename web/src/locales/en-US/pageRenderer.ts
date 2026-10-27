@@ -7,6 +7,8 @@ export default {
   'component.pageRenderer.composite.executeButton': 'Run',
   'component.pageRenderer.composite.executeFailed': 'Execution failed',
   'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
+  'component.pageRenderer.composite.executeReplayed':
+    '{title} was already submitted earlier; this response returns the server-recorded result (not re-executed)',
   'component.pageRenderer.composite.rowActionsColumn': 'Actions',
   'component.pageRenderer.composite.tabFallback': 'Tab {n}',
   'component.pageRenderer.executorUnbound.description':

@@ -19,6 +19,13 @@ import type {
 } from '@/types/dashboard';
 
 /**
+ * 表单区块提交出口结果：ok=true 仅表示业务执行成功（同步结果），调用方据此
+ * 关弹窗；replayed=true 表示本次返回是幂等重放（服务端已落地结果回读，非新
+ * 下发）——结果语义仍是成功，但反馈文案需说明未重复执行。
+ */
+export type SubmitFormOutcome = { ok: true; replayed: boolean } | { ok: false };
+
+/**
  * B1 运行时核心（状态/级联/动作链唯一实现）：组合页发布渲染器（CompositeRenderer）
  * 与编辑器预览（PreviewRuntime）共用同一状态机——结果账本、修订号级联、
  * 失败策略、动作链、危险确认、表单提交出口、服务端分页。三个执行面
@@ -262,7 +269,7 @@ export interface CompositeRuntime<T extends RuntimeSection> {
   ) => Record<string, unknown>;
   clearExecFeedbackOf: (key: string) => void;
   /** 表单提交统一出口（D4）：返回 true 仅表示同步业务成功（调用方关弹窗）。 */
-  submitForm: (sec: T, values: FormValues) => Promise<boolean>;
+  submitForm: (sec: T, values: FormValues) => Promise<SubmitFormOutcome>;
 }
 
 /** B1 运行时核心（见模块注释）：唯一的状态/级联/动作链实现。 */
@@ -822,11 +829,11 @@ export function useCompositeRuntime<T extends RuntimeSection>(
     setExecPending((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   }, []);
 
-  /** D4：表单区块提交统一出口。返回 true 仅表示业务执行成功（同步结果），
+  /** D4：表单区块提交统一出口。ok=true 仅表示业务执行成功（同步结果），
    * 调用方据此关弹窗；审批待处理 / 任务已提交 / 执行失败均保持弹窗开启，
    * 把待处理入口与字段级错误留在用户面前。 */
   const submitForm = useCallback(
-    async (sec: T, values: FormValues): Promise<boolean> => {
+    async (sec: T, values: FormValues): Promise<SubmitFormOutcome> => {
       const plain = values as Record<string, unknown>;
       clearExecFeedbackOf(sec.key);
       // 无表单区块（降级执行按钮）不落页面状态：与既有提交路径行为对齐
@@ -835,7 +842,7 @@ export function useCompositeRuntime<T extends RuntimeSection>(
         const r = await runRef.current(sec, plain);
         // 无结果（preview / 旧响应拒收）与结果体自带 error 标记都不算成功：
         // 后者若不门控，执行器返回错误体（未抛异常）会误触发 success 级联。
-        if (!r || isErrorExecResult(r)) return false;
+        if (!r || isErrorExecResult(r)) return { ok: false };
         const outcome = describeExecOutcome(r);
         if (outcome === 'approval') {
           setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.approvalId } }));
@@ -845,7 +852,7 @@ export function useCompositeRuntime<T extends RuntimeSection>(
               defaultMessage: '操作已提交审批，等待审批通过后生效',
             }),
           );
-          return false;
+          return { ok: false };
         }
         if (outcome === 'task') {
           setExecPending((prev) => ({ ...prev, [sec.key]: { outcome, id: r?.taskId } }));
@@ -855,11 +862,11 @@ export function useCompositeRuntime<T extends RuntimeSection>(
               defaultMessage: '任务已提交，正在后台执行',
             }),
           );
-          return false;
+          return { ok: false };
         }
         setExecPending((prev) => ({ ...prev, [sec.key]: undefined }));
         fireEvent(sec, 'success');
-        return true;
+        return { ok: true, replayed: r.replayed === true };
       } catch (e) {
         setExecFailures((prev) => ({ ...prev, [sec.key]: describeExecFailure(e) }));
         // 上抛：弹窗提交路径沿用既有失败 toast 分支（含 T8 unbound 指引文案）
