@@ -46,3 +46,19 @@ pnpm start
 - 代码入口：`resetGameOpsDemoRuntime()`，原地替换共享 store 中全部集合。
 - 回归测试：`cd web && npx jest src/components/PageRenderer/templates --runInBand`。
 - 真实游戏数据接入时整体替换 demo 执行器，示例数据不参与正式执行链；真实环境验收需单独记录，不能以本示例通过替代。
+
+## 5. 服务端示例基座（E2 `demo-server` 基础）
+
+E2 闭环需要在共享数据源之上提供可调用函数契约与执行器，而非浏览器内存行。`sdks/go/examples/gameops-demo` 是本片第一步的服务端基座：
+
+- 把本节的示例 seed 镜像为进程内可变 store（`newGameOpsStore()`/`Reset()`）。
+- 通过 SDK→Agent→Server 既有注册链注册 E1 `PageSpec` 绑定引用的 32 个精确函数 ID（`player.*`、`mail_task.*`、`ban.*`、`order.*`、`activity.*`），携带 `FunctionContract` 字段（`resource/operation/capability/execution/risk/inputSchema/outputSchema`）。
+- 查询契约接受 `current/pageSize/orderBy/orderDirection` 与资源专属筛选字段；写操作写入共享 store 并可回读。
+- 幂等守卫在服务端（已发货补发 → `already_credited`；无失败目标重试 → `no_failed_targets`）。
+
+```bash
+make run-gameops-demo        # 默认 agent=127.0.0.1:19091 game=croupier-demo env=local-demo
+cd sdks/go && go test ./examples/gameops-demo/... -count=1
+```
+
+边界：本基座尚未把 E1 模板执行器替换为 `executePageBinding`；剩余 E2 闭环（页面生成→发布→binding→异常状态走查）为后续片，须与真实游戏验收分别记录。

@@ -46,3 +46,19 @@ The page banner shows the demo `gameId/env/accountId` and default menu category,
 - Code entry: `resetGameOpsDemoRuntime()`, which replaces every collection in the shared store in place.
 - Regression command: `cd web && npx jest src/components/PageRenderer/templates --runInBand`.
 - Real game integration replaces the demo executors entirely. Demo acceptance never substitutes for a real-environment acceptance record.
+
+## 5. Server-side Demo Base (E2 `demo-server` foundation)
+
+The E2 closure needs callable function contracts and executors over a shared data source instead of browser-memory rows. The `sdks/go/examples/gameops-demo` provider is the server-side base for that step:
+
+- Mirrors this section's seed as a process-local mutable store (`newGameOpsStore()`/`Reset()`).
+- Registers the 32 exact function IDs the E1 `PageSpec` bindings reference (`player.*`, `mail_task.*`, `ban.*`, `order.*`, `activity.*`) through the SDK→Agent→Server registration chain, with `FunctionContract` fields (`resource/operation/capability/execution/risk/inputSchema/outputSchema`).
+- Query contracts accept `current/pageSize/orderBy/orderDirection` and resource-specific filters; mutations write to the shared store and are readable back.
+- Idempotent guards are server-side (re-credit already credited → `already_credited`; retry with no failed targets → `no_failed_targets`).
+
+```bash
+make run-gameops-demo        # defaults agent=127.0.0.1:19091 game=croupier-demo env=local-demo
+cd sdks/go && go test ./examples/gameops-demo/... -count=1
+```
+
+Boundary: this base does not yet swap the E1 template executors to `executePageBinding`; that remaining E2 closure (page generation → publish → binding → abnormal-state walkthrough) is a later slice and must be recorded separately from real-game acceptance.

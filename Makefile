@@ -9,7 +9,7 @@ FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 # 写完整导入路径（github.com/.../cmd/server.Version）是静默 no-op，二进制恒 dev。
 LDFLAGS := -X main.Version=$(FULL_VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT) -s -w
 
-.PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator
+.PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator run-gameops-demo
 .PHONY: agents agent-devops agent-capture agent-synthetics
 .PHONY: test test-changed test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
@@ -213,6 +213,16 @@ seed-dev:
 	@echo "[seed] dev-seed -> data/croupier.db$(if $(HEAVY),（含万级数据）,)..."
 	@go run ./examples/cmd/dev-seed -dsn data/croupier.db$(if $(HEAVY), -heavy,)
 
+# Run the game-ops demo server (E2 demo-server base) against a local Agent.
+# Usage: make run-gameops-demo [AGENT=127.0.0.1:19091] [GAME_ID=croupier-demo] [ENV=local-demo]
+run-gameops-demo: AGENT ?= 127.0.0.1:19091
+run-gameops-demo: GAME_ID ?= croupier-demo
+run-gameops-demo: ENV ?= local-demo
+run-gameops-demo:
+	@echo "[demo] starting gameops-demo -> agent=$(AGENT) game=$(GAME_ID) env=$(ENV)"
+	@cd sdks/go && go run ./examples/gameops-demo -agent $(AGENT) -game-id $(GAME_ID) -env $(ENV)
+
+
 # ========== Clean Targets ==========
 clean: clean-sdks clean-web
 	rm -rf $(BINDIR)
@@ -275,6 +285,7 @@ help:
 	@echo "  build-web        - Build web and docs components"
 	@echo "  build-dashboard  - Build management dashboard"
 	@echo "  build-docs       - Build VitePress documentation"
+	@echo "  run-gameops-demo - Start gameops demo server (E2 demo-server base)"
 	@echo "  dev-dashboard    - Start dashboard dev server"
 	@echo "  dev-docs         - Start docs dev server"
 	@echo ""
