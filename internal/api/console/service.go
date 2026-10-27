@@ -31,6 +31,22 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// 绑定执行来源标记：pageSnapshotGovernance 决定 FunctionInvoke 是否跳过函数
+// 级 policy 审批闸（页面级门禁已在发布快照/草稿路径前置执行过）。
+const (
+	governanceValidated = "validated" // 已发布快照：审批续跑按快照版本回读校验
+	governanceDraft     = "draft"     // 草稿预览：页面无快照，审批续跑按契约版本校验
+)
+
+// 运行时入口标记（遥测/审计详情，不承载权限语义）。
+const (
+	runtimeAPIPublishedExecute = "console.binding.execute"
+	runtimeAPIDraftExecute     = "versioning.composite.preview.execute"
+)
+
+// rendererSchemaVersion 与发布路径同源（api/page 同名常量）。
+const rendererSchemaVersion = "page-spec:1"
+
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
@@ -217,7 +233,6 @@ func (s *Service) Page(ctx context.Context, req *ConsolePageRequest) (*ConsolePa
 }
 
 func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBindingRequest) (resp *ConsoleExecuteBindingResponse, err error) {
-	executeStartedAt := time.Now()
 	if err := s.requireConsoleExecute(ctx); err != nil {
 		return nil, err
 	}
@@ -234,27 +249,96 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		return nil, ErrPageNotFound(req.PageKey)
 	}
 
-	binding, ok := findBinding(published.Bindings, req.BindingID)
-	if !ok {
-		return nil, errorx.NewNotFound("page binding not found")
+	result, err := s.executeBindingFromSnapshot(ctx, gameID, env, *published, req.BindingID, req.Context, governanceValidated, runtimeAPIPublishedExecute)
+	return &ConsoleExecuteBindingResponse{Result: result}, err
+}
+
+// ExecuteDraftCompositeBinding 是草稿预览执行入口（编辑器「真实预览」消费）：
+// 请求体与组合页预览端点同形，服务端按与创建入口同一生成链重建草稿 spec 并
+// 跑发布级校验，再走与已发布页面完全相同的执行门禁（权限、executor bound、
+// binding freshness、契约 permission、schema 校验、审批闸）后下发执行。
+// 草稿不进入控制台——这里让草稿在发布前也能安全走完执行链，同时保留审批与
+// 操作确认；产物不落库（无提案/草稿/发布），审计以草稿来源标记。
+func (s *Service) ExecuteDraftCompositeBinding(ctx context.Context, req *ConsoleDraftCompositeExecuteRequest) (resp *ConsoleExecuteBindingResponse, err error) {
+	if err := s.requireConsoleExecute(ctx); err != nil {
+		return nil, err
 	}
-	contract, ok := findContract(published.BindingContracts, req.BindingID)
-	if !ok {
-		return nil, errorx.NewValidationError("binding contract snapshot missing")
-	}
-	functions, err := loadPublishedFunctionSpecs(ctx, s.svcCtx)
+	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
 	}
+	pageKey := strings.TrimSpace(req.PageKey)
+	bindingID := strings.TrimSpace(req.BindingID)
+	if pageKey == "" {
+		return nil, errorx.NewValidationError("pageKey is required")
+	}
+	if bindingID == "" {
+		return nil, errorx.NewValidationError("bindingId is required")
+	}
+
+	// 与预览/创建入口共用同一生成链（只读，不落库）：区块契约解析、绑定分配、
+	// static 区块交错、模板快照透传、发布级 selector 校验。
+	generated, contracts, err := contractsvc.NewContractService(s.svcCtx.DB).BuildCompositePageSpec(ctx, gameID, env, pageKey, req.Sections, req.ComponentTemplates)
+	if err != nil {
+		return nil, err
+	}
+	// 发布级诊断（selector 校验）非空 = 草稿形态不满足发布条件，执行前拒绝：
+	// 否则 payload 求值会在下游以残缺选择器失败，错误信息不可定位。
+	if issues := specErrorDiagnostics(generated.Diagnostics); len(issues) > 0 {
+		return nil, errorx.NewValidationErrorWithDetails("draft page fails publish validation", specDiagnosticDetails(issues))
+	}
+
+	// 契约快照由生成链已解析的契约投影而来（与发布路径共用 CanonicalDigest 语义）。
+	snapshots, err := buildDraftBindingContracts(generated.PageSpec.Bindings, contractsvc.FunctionSpecsFromContracts(contracts))
+	if err != nil {
+		return nil, err
+	}
+	draft := spec.PublishedPageSpec{
+		PageSpec:              generated.PageSpec,
+		GameID:                gameID,
+		Env:                   env,
+		RendererSchemaVersion: rendererSchemaVersion,
+		BindingContracts:      snapshots,
+	}
+	result, err := s.executeBindingFromSnapshot(ctx, gameID, env, draft, bindingID, req.Context, governanceDraft, runtimeAPIDraftExecute)
+	return &ConsoleExecuteBindingResponse{Result: result}, err
+}
+
+// executeBindingFromSnapshot 是绑定执行核心：门禁、payload 构造、审批闸、
+// FunctionInvoke 与执行留痕对已发布快照与草稿预览共用（快照由调用方解析，
+// 核心不区分来源；来源差异只体现在 governance/runtimeAPI 标记）。
+func (s *Service) executeBindingFromSnapshot(
+	ctx context.Context,
+	gameID string,
+	env string,
+	page spec.PublishedPageSpec,
+	bindingID string,
+	execCtx ConsoleBindingExecutionContext,
+	governance string,
+	runtimeAPI string,
+) (result spec.PageExecutionResult, err error) {
+	executeStartedAt := time.Now()
+
+	binding, ok := findBinding(page.Bindings, bindingID)
+	if !ok {
+		return spec.PageExecutionResult{}, errorx.NewNotFound("page binding not found")
+	}
+	contract, ok := findContract(page.BindingContracts, bindingID)
+	if !ok {
+		return spec.PageExecutionResult{}, errorx.NewValidationError("binding contract snapshot missing")
+	}
+	functions, err := loadPublishedFunctionSpecs(ctx, s.svcCtx)
+	if err != nil {
+		return spec.PageExecutionResult{}, err
+	}
 	requestID := uuid.NewString()
 	actor := currentActor(ctx)
-	var result spec.PageExecutionResult
 	var target string
 	var payload json.RawMessage
-	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, contract, requestID, actor)
+	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, page, binding, contract, requestID, actor, runtimeAPI)
 	defer func() {
 		finishSpan(err, result, target)
-		s.auditPageExecute(ctx, gameID, env, *published, binding, contract, requestID, target, result, err, time.Since(executeStartedAt).Milliseconds())
+		s.auditPageExecute(ctx, gameID, env, page, binding, contract, requestID, target, result, err, time.Since(executeStartedAt).Milliseconds(), governance, runtimeAPI)
 		// 执行留痕（R2）：审批类执行不写（审批单本身已有 Payload 留痕）
 		if s.svcCtx.ExecutionLogWriter != nil && result.Kind != spec.PageExecutionKindApproval {
 			status := executionlog.StatusOK
@@ -270,8 +354,8 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 				Env:        env,
 				Source:     executionlog.SourcePage,
 				FunctionID: contract.FunctionID,
-				PageKey:    req.PageKey,
-				BindingID:  req.BindingID,
+				PageKey:    page.PageKey,
+				BindingID:  bindingID,
 				Actor:      actor,
 				Status:     status,
 				DurationMs: time.Since(executeStartedAt).Milliseconds(),
@@ -288,39 +372,38 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	// schema 新旧无关紧要——执行器不存在是更根本的阻断，且语义互斥
 	//（函数整体注销走 binding_function_missing，不进本分支）。
 	if err := s.ensureExecutorBound(binding, functions); err != nil {
-		return nil, err
+		return spec.PageExecutionResult{}, err
 	}
 	if err := s.ensureBindingFresh(binding, contract, functions); err != nil {
-		return nil, err
+		return spec.PageExecutionResult{}, err
 	}
 	if err := s.enforcePublishedBindingGovernance(ctx, contract); err != nil {
-		return nil, err
+		return spec.PageExecutionResult{}, err
 	}
 
-	payload, err = buildBindingPayloadFromSelectors(binding, req.Context)
+	payload, err = buildBindingPayloadFromSelectors(binding, execCtx)
 	if err != nil {
-		return nil, err
+		return spec.PageExecutionResult{}, err
 	}
 	if err := validateBindingExecutePayload(payload, binding, functions); err != nil {
-		return nil, err
+		return spec.PageExecutionResult{}, err
 	}
 	mode := ""
 	if binding.Execution.Mode == spec.PageExecutionModeTask {
 		mode = "async"
 	}
-	metadata := publishedBindingExecutionMetadata(*published, binding, contract, requestID)
+	metadata := bindingExecutionMetadata(page, binding, contract, requestID, governance, runtimeAPI)
 	if contract.Approval.Required {
 		approvalID, err := s.createPageApproval(ctx, gameID, env, binding, contract, payload, mode, metadata)
 		if err != nil {
-			return nil, err
+			return spec.PageExecutionResult{}, err
 		}
-		result = spec.PageExecutionResult{
+		return spec.PageExecutionResult{
 			Kind:       spec.PageExecutionKindApproval,
 			RequestID:  requestID,
 			TraceID:    telemetry.TraceIDFromContext(ctx),
 			ApprovalID: approvalID,
-		}
-		return &ConsoleExecuteBindingResponse{Result: result}, nil
+		}, nil
 	}
 
 	functionResp, err := function.NewService(s.svcCtx).FunctionInvoke(ctx, &function.FunctionInvokeRequest{
@@ -332,14 +415,63 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		Metadata: metadata,
 	})
 	if err != nil {
-		return nil, err
+		return spec.PageExecutionResult{}, err
 	}
 	target = pageExecutionTarget(functionResp)
 
 	// 设计债清理：buildExecutionResult 为纯构造函数（四个出口均无出错路径），
 	// 已收紧为无 error 返回，原 err 分支不可达随之删除。
-	result = buildExecutionResult(ctx, requestID, functionResp)
-	return &ConsoleExecuteBindingResponse{Result: result}, nil
+	return buildExecutionResult(ctx, requestID, functionResp), nil
+}
+
+// buildDraftBindingContracts 为草稿预览执行冻结 binding 契约快照（与发布路径
+// 共用 CanonicalDigest 语义，保证 freshness 评估两端 digest 可比）。
+func buildDraftBindingContracts(bindings []spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) ([]spec.BindingContractSnapshot, error) {
+	out := make([]spec.BindingContractSnapshot, 0, len(bindings))
+	for _, binding := range bindings {
+		fn, ok := functions[strings.TrimSpace(binding.FunctionID)]
+		if !ok {
+			return nil, errorx.NewValidationError("bound function does not exist: " + binding.FunctionID)
+		}
+		out = append(out, spec.BindingContractSnapshot{
+			BindingID:             strings.TrimSpace(binding.ID),
+			FunctionID:            strings.TrimSpace(binding.FunctionID),
+			FunctionVersion:       strings.TrimSpace(fn.Version),
+			InputSchemaDigest:     freshness.CanonicalDigest(fn.InputSchema),
+			OutputSchemaDigest:    freshness.CanonicalDigest(fn.OutputSchema),
+			Risk:                  fn.Risk,
+			Permission:            strings.TrimSpace(fn.Permission),
+			Approval:              fn.Approval,
+			ExecutionMode:         binding.Execution.Mode,
+			RendererSchemaVersion: rendererSchemaVersion,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].BindingID < out[j].BindingID })
+	return out, nil
+}
+
+// specErrorDiagnostics 取出 error 级诊断（发布校验未通过项）。
+func specErrorDiagnostics(diags []spec.Diagnostic) []spec.Diagnostic {
+	out := make([]spec.Diagnostic, 0, len(diags))
+	for _, d := range diags {
+		if d.Severity == spec.SeverityError {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// specDiagnosticDetails 把诊断压平成 422 details（稳定机器码 + 可读消息）。
+func specDiagnosticDetails(diags []spec.Diagnostic) map[string]string {
+	out := make(map[string]string, len(diags))
+	for _, d := range diags {
+		key := strings.TrimSpace(d.Code)
+		if key == "" {
+			key = "diagnostic"
+		}
+		out[key] = strings.TrimSpace(d.Message)
+	}
+	return out
 }
 
 // ensureExecutorBound T8/D2 执行边界：binding 指向的契约处于 unbound
@@ -382,11 +514,13 @@ func (s *Service) enforcePublishedBindingGovernance(ctx context.Context, contrac
 	return err
 }
 
-func publishedBindingExecutionMetadata(
+func bindingExecutionMetadata(
 	page spec.PublishedPageSpec,
 	binding spec.PageFunctionBinding,
 	contract spec.BindingContractSnapshot,
 	requestID string,
+	governance string,
+	runtimeAPI string,
 ) map[string]string {
 	metadata := map[string]string{
 		"page_key":                 page.PageKey,
@@ -400,8 +534,8 @@ func publishedBindingExecutionMetadata(
 		"binding_id":               binding.ID,
 		"binding_usage":            string(binding.Usage),
 		"page_request_id":          requestID,
-		"page_runtime_api":         "console.binding.execute",
-		"pageSnapshotGovernance":   "validated",
+		"page_runtime_api":         runtimeAPI,
+		"pageSnapshotGovernance":   governance,
 		"function_id":              binding.FunctionID,
 		"snapshot_function_id":     contract.FunctionID,
 		"snapshot_function_ver":    contract.FunctionVersion,
@@ -861,6 +995,7 @@ func (s *Service) startPageExecuteSpan(
 	contract spec.BindingContractSnapshot,
 	requestID string,
 	actor string,
+	runtimeAPI string,
 ) (context.Context, func(error, spec.PageExecutionResult, string)) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.Telemetry == nil {
 		return ctx, func(error, spec.PageExecutionResult, string) {}
@@ -871,6 +1006,7 @@ func (s *Service) startPageExecuteSpan(
 		attribute.String("game.id", gameID),
 		attribute.String("game.env", env),
 		attribute.String("actor", actor),
+		attribute.String("page.runtime_api", runtimeAPI),
 		attribute.String("page.key", page.PageKey),
 		attribute.Int("page.publish_version", page.Version),
 		attribute.String("page.base_proposal_key", strings.TrimSpace(page.BaseProposalKey)),
@@ -917,6 +1053,8 @@ func (s *Service) auditPageExecute(
 	result spec.PageExecutionResult,
 	executeErr error,
 	elapsedMs int64,
+	governance string,
+	runtimeAPI string,
 ) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil {
 		return
@@ -938,6 +1076,8 @@ func (s *Service) auditPageExecute(
 		"gameId":                     gameID,
 		"env":                        env,
 		"page_key":                   page.PageKey,
+		"page_runtime_api":           runtimeAPI,
+		"page_snapshot_governance":   governance,
 		"publish_version":            page.Version,
 		"base_proposal_key":          strings.TrimSpace(page.BaseProposalKey),
 		"base_proposal_version":      page.BaseProposalVersion,

@@ -117,6 +117,36 @@ export async function executePageBinding(
   return response.result;
 }
 
+/** 草稿预览执行（B1）：请求体与组合页预览端点同形（页面 key + 区块请求 +
+ * 模板快照），服务端按同一生成链重建草稿 PageSpec 并跑发布级 selector 校验，
+ * 再走与已发布页面相同的执行门禁（权限 / 审批 / 契约快照）后下发执行；
+ * 不落库，浏览器不提交 functionId / route / scope。 */
+export async function executeDraftCompositeBinding(
+  pageKey: string,
+  bindingId: string,
+  sections: readonly Record<string, unknown>[],
+  context: BindingExecutionContext = {},
+  componentTemplates?: readonly unknown[],
+): Promise<PageExecutionResult> {
+  const response = await request<ConsoleExecuteBindingResponse>(
+    '/api/v1/versioning/pages/composite/preview/execute',
+    {
+      method: 'POST',
+      data: {
+        pageKey,
+        bindingId,
+        sections: [...sections],
+        ...(componentTemplates && componentTemplates.length > 0 ? { componentTemplates } : {}),
+        context,
+      },
+    },
+  );
+  if (!response?.result) {
+    throw new Error(`draft composite execution returned empty result: ${bindingId}`);
+  }
+  return response.result;
+}
+
 /** 查询异步任务状态，供 TaskPageRenderer 轮询使用 */
 export async function queryTaskStatus(taskId: string): Promise<TaskStatusResult> {
   const [detail, events] = await Promise.all([

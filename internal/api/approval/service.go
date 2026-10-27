@@ -534,9 +534,43 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 }
 
 func (s *Service) ensurePageApprovalStillFresh(ctx context.Context, record *approvals.Approval, metadata map[string]string) error {
-	if !strings.EqualFold(strings.TrimSpace(metadata["pageSnapshotGovernance"]), "validated") {
+	switch strings.ToLower(strings.TrimSpace(metadata["pageSnapshotGovernance"])) {
+	case "validated":
+		return s.ensurePublishedPageApprovalStillFresh(ctx, record, metadata)
+	case "draft":
+		return s.ensureDraftPageApprovalStillFresh(ctx, record, metadata)
+	default:
 		return nil
 	}
+}
+
+// ensureDraftPageApprovalStillFresh 校验草稿预览执行产生的审批在续跑时的新鲜度：
+// 草稿没有可回读的发布快照，故按「契约仍在且版本未变」判定——审批期间函数契约
+// 重新注册（版本变化或函数消失）即拒绝续跑，须重新预览执行并重新提交审批。
+func (s *Service) ensureDraftPageApprovalStillFresh(ctx context.Context, record *approvals.Approval, metadata map[string]string) error {
+	functionID := strings.TrimSpace(record.FunctionID)
+	if functionID == "" {
+		functionID = strings.TrimSpace(metadata["function_id"])
+	}
+	if functionID == "" {
+		return errors.New("draft page approval metadata is incomplete")
+	}
+	functions, err := loadApprovalFunctionSpecs(ctx, s.svcCtx, record)
+	if err != nil {
+		return err
+	}
+	fn, ok := functions[functionID]
+	if !ok {
+		return fmt.Errorf("draft page binding is stale: function %s no longer registered", functionID)
+	}
+	snapshotVersion := strings.TrimSpace(metadata["snapshot_function_ver"])
+	if snapshotVersion != "" && strings.TrimSpace(fn.Version) != snapshotVersion {
+		return fmt.Errorf("draft page binding is stale: contract version %s != snapshot %s", strings.TrimSpace(fn.Version), snapshotVersion)
+	}
+	return nil
+}
+
+func (s *Service) ensurePublishedPageApprovalStillFresh(ctx context.Context, record *approvals.Approval, metadata map[string]string) error {
 	if s == nil || s.svcCtx == nil || s.svcCtx.PublishedPageSpecModel == nil {
 		return errors.New("published page model unavailable")
 	}

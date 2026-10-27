@@ -109,7 +109,7 @@ func TestPublishedBindingExecutionMetadata_StripsEmptyAndAddsBaseVersion(t *test
 		Approval:        spec.ApprovalPolicy{Required: true, PolicyKey: "two-person"},
 	}
 
-	md := publishedBindingExecutionMetadata(page, binding, contract, "req-1")
+	md := bindingExecutionMetadata(page, binding, contract, "req-1", governanceValidated, runtimeAPIPublishedExecute)
 	assert.Equal(t, "ops.ban", md["page_key"])
 	assert.Equal(t, "3", md["publish_version"])
 	assert.Equal(t, "req-1", md["page_request_id"])
@@ -122,7 +122,7 @@ func TestPublishedBindingExecutionMetadata_StripsEmptyAndAddsBaseVersion(t *test
 
 	// BaseProposalVersion=0 → 不写 base_proposal_version。
 	page.BaseProposalVersion = 0
-	md = publishedBindingExecutionMetadata(page, binding, contract, "req-2")
+	md = bindingExecutionMetadata(page, binding, contract, "req-2", governanceValidated, runtimeAPIPublishedExecute)
 	assert.NotContains(t, md, "base_proposal_version")
 }
 
