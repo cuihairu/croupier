@@ -360,7 +360,10 @@ web/src/pages/PageStudio/CompositeEditor/
 **自动生成模板清单（2026-09）**：组件模板「从契约重新生成」现产出三类内置模板——
 
 1. `fn--<fid>`：单函数组件（collection_query→表格、item_query→字段卡、其余→表单）
-2. `crud--<resource>`：资源管理组合（列表+详情+增改弹窗，onSuccess 自动刷新）
+2. `crud--<resource>`：资源管理组合（列表+详情+增改弹窗，onSuccess 自动刷新）；资源缺 create/update/delete
+   能力时**不生成对应入口**（不在树里留空节点），缺口点名写进模板描述（如「缺 update/delete 能力，
+   未生成对应入口」，能力名取契约 capability 机器标识），模板列表与「从模板开始」卡片都展示该描述——
+   用户在实例化前即知流程不完整，不以「树里没有节点」替代能力缺口的可发现性
 3. `query--<fid>`：查询组合（查询条件表单 + 结果表格，经 refreshOnNode 引用在
    实例化后解析为区块 key，键位漂移安全）——带查询参数的 collection_query 自动生成
 

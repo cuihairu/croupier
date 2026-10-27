@@ -378,6 +378,53 @@ func TestBuildCRUDTree_PartialCapabilities(t *testing.T) {
 	assert.ElementsMatch(t, []string{"p.list", "p.get"}, fns)
 }
 
+// C1：缺写能力显式声明在模板描述（模板列表与「从模板开始」卡片均展示）——
+// 不以「树里没有对应节点」替代能力缺口的可发现性。
+func TestGenerateCRUDTemplate_MissingCapabilitiesExplicit(t *testing.T) {
+	db := setupV4DB(t)
+	h := NewHandler(model.NewComponentTemplateModel(db), nil)
+	ctx := context.Background()
+
+	contracts := func(base string, caps ...dbenum.Capability) []*model.FunctionContract {
+		out := make([]*model.FunctionContract, 0, len(caps))
+		for _, cap := range caps {
+			out = append(out, &model.FunctionContract{
+				GameID: "demo", Env: "dev",
+				FunctionID: base + "." + cap.String(), ResourceKey: base, Capability: cap,
+			})
+		}
+		return out
+	}
+
+	// 只读资源：三个写入口都不生成，描述点名全部缺口
+	require.NoError(t, h.GenerateCRUDTemplate(ctx, "ledger", contracts("ledger",
+		dbenum.CapabilityCollectionQuery, dbenum.CapabilityItemQuery)))
+	tpl, err := h.model.FindByKey(ctx, "crud--ledger")
+	require.NoError(t, err)
+	assert.Contains(t, string(tpl.Description), "缺 create/update/delete 能力")
+	assert.NotContains(t, string(tpl.Tree), "create-modal")
+	assert.NotContains(t, string(tpl.Tree), "edit-modal")
+	assert.NotContains(t, string(tpl.Tree), "delete-modal")
+
+	// 仅 create：只点名缺的 update/delete，create 入口照常生成
+	require.NoError(t, h.GenerateCRUDTemplate(ctx, "ticket", contracts("ticket",
+		dbenum.CapabilityCollectionQuery, dbenum.CapabilityItemQuery, dbenum.CapabilityCreate)))
+	tpl, err = h.model.FindByKey(ctx, "crud--ticket")
+	require.NoError(t, err)
+	assert.Contains(t, string(tpl.Description), "缺 update/delete 能力")
+	assert.Contains(t, string(tpl.Tree), "create-modal")
+	assert.NotContains(t, string(tpl.Tree), "delete-modal")
+
+	// 能力齐备：描述保持完整流程文案，不出现缺口提示
+	require.NoError(t, h.GenerateCRUDTemplate(ctx, "order", contracts("order",
+		dbenum.CapabilityCollectionQuery, dbenum.CapabilityItemQuery,
+		dbenum.CapabilityCreate, dbenum.CapabilityUpdate, dbenum.CapabilityDelete)))
+	tpl, err = h.model.FindByKey(ctx, "crud--order")
+	require.NoError(t, err)
+	assert.Contains(t, string(tpl.Description), "增删改")
+	assert.NotContains(t, string(tpl.Description), "缺")
+}
+
 // C1：行身份字段从契约输入 schema 推导（id/uid/uuid 优先，其次唯一属性，兜底 id）。
 func TestCrudInputKey(t *testing.T) {
 	assert.Equal(t, "id", crudInputKey(nil))
