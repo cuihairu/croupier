@@ -389,3 +389,51 @@ func TestCompositePaginationExplicitPassthrough(t *testing.T) {
 		t.Fatalf("no explicit config must stay nil: %+v", pg)
 	}
 }
+
+// 显式行选择配置透传：编辑器为发布态表格开启多选时落位到区块
+// table.selection；未配置时组合页不推导、不猜测，保持 nil（发布态维持单选）。
+func TestCompositeSelectionExplicitPassthrough(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			Model:        gorm.Model{ID: 402},
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			Enabled:      true,
+			InputSchema:  model.JSON(`{"type":"object","properties":{"page":{"type":"integer"}}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"uid":{"type":"string"}}}},"total":{"type":"integer"}}}`),
+		},
+	}
+	gen, ok := GenerateCompositePage("composite--player-list-sel", []CompositeSectionInput{
+		{
+			FunctionID: "player.list",
+			View:       "table",
+			Selection:  &spec.CompositeSelectionSpec{Multiple: true, IdentityKey: "uid"},
+		},
+	}, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	if len(gen.Composite.Sections) != 1 || gen.Composite.Sections[0].Table == nil {
+		t.Fatalf("single table section expected, got %+v", gen.Composite.Sections)
+	}
+	sel := gen.Composite.Sections[0].Table.Selection
+	if sel == nil {
+		t.Fatal("explicit selection not applied")
+	}
+	if !sel.Multiple || sel.IdentityKey != "uid" {
+		t.Fatalf("explicit selection mismatch: %+v", sel)
+	}
+
+	// 未配置：不推导行选择（组合页无资源语义上下文），保持 nil。
+	off, ok := GenerateCompositePage("composite--player-list-nosel", []CompositeSectionInput{
+		{FunctionID: "player.list", View: "table"},
+	}, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	if sel := off.Composite.Sections[0].Table.Selection; sel != nil {
+		t.Fatalf("no explicit config must stay nil: %+v", sel)
+	}
+}

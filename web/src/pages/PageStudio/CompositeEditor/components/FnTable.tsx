@@ -99,6 +99,43 @@ export const fnTable: ComponentDef = {
         }),
         format: 'rowActions',
       },
+      // 行选择（D2 批量目标核对）：multiple=true 时发布态表格启用 checkbox
+      // 多选 + 选择栏（跨页保留/计数/目标清单/清空/筛选变更核对）。行身份
+      // 列须是输出 schema 的稳定唯一字段——多选下跨页保留选择需要稳定键
+      // （缺省时渲染端按表格身份列 → 行下标兜底，跨页按键可能错位）。
+      selection: {
+        type: 'object',
+        title: intl.formatMessage({
+          id: 'pages.pageStudio.editor.component.fnTable.prop.selection',
+          defaultMessage: '行选择',
+        }),
+        additionalProperties: false,
+        properties: {
+          multiple: {
+            type: 'boolean',
+            title: intl.formatMessage({
+              id: 'pages.pageStudio.editor.component.fnTable.prop.selection.multiple',
+              defaultMessage: '启用多选（目标可核对）',
+            }),
+            default: false,
+          },
+          identityKey: {
+            type: 'string',
+            title: intl.formatMessage({
+              id: 'pages.pageStudio.editor.component.fnTable.prop.selection.identityKey',
+              defaultMessage: '行身份列（多选必须）',
+            }),
+            ...(cols.length
+              ? { enum: cols, enumNames: cols }
+              : {
+                  description: intl.formatMessage({
+                    id: 'pages.pageStudio.editor.component.fnTable.prop.selection.identityKeyHint',
+                    defaultMessage: '列来自输出 schema',
+                  }),
+                }),
+          },
+        },
+      },
       visibleWhen: visibleWhenSchema(),
       cascadePolicy: cascadePolicySchema(),
     });

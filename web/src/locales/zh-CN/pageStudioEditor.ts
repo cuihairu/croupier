@@ -137,6 +137,10 @@ export default {
   'pages.pageStudio.editor.component.fnTable.prop.pagination.enabled': '启用服务端分页',
   'pages.pageStudio.editor.component.fnTable.prop.pagination.pageSizes': '可选每页条数',
   'pages.pageStudio.editor.component.fnTable.prop.rowActions': '行操作',
+  'pages.pageStudio.editor.component.fnTable.prop.selection': '行选择',
+  'pages.pageStudio.editor.component.fnTable.prop.selection.identityKey': '行身份列（多选必须）',
+  'pages.pageStudio.editor.component.fnTable.prop.selection.identityKeyHint': '列来自输出 schema',
+  'pages.pageStudio.editor.component.fnTable.prop.selection.multiple': '启用多选（目标可核对）',
   'pages.pageStudio.editor.component.modal.defaultTitle': '操作',
   'pages.pageStudio.editor.component.modal.name': '弹窗',
   'pages.pageStudio.editor.component.modal.previewHint':

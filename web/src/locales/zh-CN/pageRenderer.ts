@@ -10,6 +10,13 @@ export default {
   'component.pageRenderer.composite.executeReplayed':
     '{title} 已在先前提交过，本次返回服务端记录的结果（未重复执行）',
   'component.pageRenderer.composite.rowActionsColumn': '操作',
+  'component.pageRenderer.composite.selection.clear': '取消选择',
+  'component.pageRenderer.composite.selection.count': '已选择 {count} 项',
+  'component.pageRenderer.composite.selection.stale':
+    '筛选条件已变更，已选对象不在当前结果集，请核对后清除或重新勾选',
+  'component.pageRenderer.composite.selection.targetList': '查看目标清单',
+  'component.pageRenderer.composite.selection.targetListTitle': '已选目标清单（{count} 项）',
+  'component.pageRenderer.composite.selection.visible': '本页可见 {count} 项',
   'component.pageRenderer.composite.tabFallback': '页签 {n}',
   'component.pageRenderer.executorUnbound.description':
     '该页面的函数来自上传物料，尚未绑定运行时执行器，执行已被阻断；请先绑定后再执行。',

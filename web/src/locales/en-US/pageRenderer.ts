@@ -10,6 +10,14 @@ export default {
   'component.pageRenderer.composite.executeReplayed':
     '{title} was already submitted earlier; this response returns the server-recorded result (not re-executed)',
   'component.pageRenderer.composite.rowActionsColumn': 'Actions',
+  'component.pageRenderer.composite.selection.clear': 'Clear selection',
+  'component.pageRenderer.composite.selection.count': 'Selected {count} item(s)',
+  'component.pageRenderer.composite.selection.stale':
+    'Filters changed; selected items are not in the current result set. Review, then clear or re-select.',
+  'component.pageRenderer.composite.selection.targetList': 'View target list',
+  'component.pageRenderer.composite.selection.targetListTitle':
+    'Selected target list ({count} item(s))',
+  'component.pageRenderer.composite.selection.visible': '{count} visible on this page',
   'component.pageRenderer.composite.tabFallback': 'Tab {n}',
   'component.pageRenderer.executorUnbound.description':
     'The function behind this page comes from uploaded material and has no runtime executor bound yet; execution is blocked. Bind it first.',

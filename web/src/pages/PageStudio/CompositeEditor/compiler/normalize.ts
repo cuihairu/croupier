@@ -93,3 +93,22 @@ export function normalizePaginationProp(raw: unknown): PaginationSpec | undefine
     ...(sizes.length > 0 ? { pageSizes: [...new Set(sizes)].sort((a, b) => a - b) } : {}),
   };
 }
+
+/** 行选择归一（D2，编译侧）：只有显式 multiple=true 才启用 checkbox 多选
+ * 与选择栏；缺失/关闭/非对象/数组一律按未启用处理——组合页不推导行选择，
+ * 保持既有单选 radio（rowSelected 事件语义不变）。identityKey 原样透传
+ * 非空字符串，缺省时渲染端按 table.identityKey → 行下标顺序兜底（跨页
+ * 保留选择需要稳定身份列，身份列缺失时跨页按键可能错位——由编辑器提示）。
+ */
+export function normalizeSelectionProp(
+  raw: unknown,
+): { multiple?: boolean; identityKey?: string } | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const cfg = raw as { multiple?: unknown; identityKey?: unknown };
+  if (cfg.multiple !== true) return undefined;
+  const identityKey =
+    typeof cfg.identityKey === 'string' && cfg.identityKey.trim()
+      ? cfg.identityKey.trim()
+      : undefined;
+  return identityKey ? { multiple: true, identityKey } : { multiple: true };
+}

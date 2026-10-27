@@ -242,6 +242,24 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   游标字段）；弹窗（dialog）内渲染的表格不分页；服务端排序/筛选下推未做（表头排序仍为
   客户端）
 
+- `table.selection`：**组合区块表格行选择**（D2）——`{multiple?, identityKey?}`。未设置或
+  `multiple: false` 保持既有单选 radio（选中行即 `selectedRow`，`rowSelected` 事件以该单行
+  触发）。`multiple: true` 时本区块表格切换为 checkbox 多选，并在表格上方渲染选择栏：已选
+  总数计数；当部分已选对象不在当前页时显示「本页可见」计数（算子无法只靠当前页核对目标）；
+  「查看目标清单」入口，弹窗逐条列出全部已选对象（身份列置前，最多再带两列展示列）；
+  「取消选择」；以及筛选变化后的旧选择核对提示（翻页不算筛选变化；筛选变化且选择非空即提示
+  ——跨页保留的键无法区分「仍在其它页」与「已被新筛选排除」，需算子核对后清除或重新勾选）。
+  `rowKey`、目标清单、计数与运行时 `selectedRow`/`selectedRows` 状态取同一行身份口径：
+  `selection.identityKey` → `table.identityKey` → 行 `id`/`key` → 行对象本身。选择写入区块
+  运行时状态（`selectedRow`=首行、`selectedRows`=全行）——与 `rowSelected` 事件、
+  <code v-pre>{{...selectedRow.x}}</code> 表达式及服务端 inputAssignment 同源；`rowSelected` 仍按首次勾选的
+  首行触发。该字段由组合页编辑器表格组件设置（行选择开关：启用多选 + 从输出 schema 选行
+  身份列），经组合区块请求的区块级 `selection` 字段透传，生成器写入 `table.selection`；
+  生成器从不为组合区块推导行选择（无资源语义上下文），故为逐表格显式 opt-in。边界：弹窗
+  （dialog）内渲染的表格无选择栏；目标清单弹窗最多展示三列（身份列置前）；「本页可见」计数
+  按本区块 `items` 计算（服务端分页即当前页；客户端分页即全量结果集，此时与已选数相等、
+  该提示不出现）；除表头全选外无逐行选择/禁用控制
+
 - `danger` + `chain`（rowActions / toolbar.actions）：**危险操作确认契约**（D2）——`danger`
   动作在用户显式确认前绝不执行。带 `targetSection` 时确认框列出目标弹窗的预填参数与动作链
   步骤，确认后才打开弹窗并执行动作链；不带 `targetSection`（纯动作链按钮）时确认框列出动作
@@ -250,9 +268,7 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   并执行动作链（详情弹窗用动作链预载自身 fields/table 数据）；非危险纯链动作直接执行动作链。
   边界：确认框不做字段语义强调（游戏/环境/区服/玩家身份、原因、封禁到期时间、补偿每人数量
   不单独突出——依赖 D5 的显式字段语义）；`openModal` 链步骤无 danger 标志位（wire 无该
-  字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认；批量
-  目标核对未实现（跨页选择、总人数/当前页人数、目标清单入口、清空选择、筛选变化后旧选择的
-  处理）——表格行选择仍为单选 radio，wire 无 `table.selection` 字段
+  字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认
 - **执行结果反馈**（D4，无新增 wire 字段）：渲染器按 `PageExecutionResult.kind` 分类
   每次执行结果，不再把任何非 error 返回都当作成功。`sync`（或无 kind）为业务执行成功——
   触发表单 `success` 事件绑定、重跑 `onSuccessRefresh` 目标并关闭弹窗。`approval` 保持

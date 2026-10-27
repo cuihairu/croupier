@@ -50,6 +50,10 @@ export type CompiledSection = {
   /** 服务端分页（view=table，D3）：启用后发布态表格按 page/pageSize/offset
    * 分页取数；缺省=关闭（组合页不推导，与资源页 listView.pagination 同契约）。 */
   pagination?: PaginationSpec;
+  /** 行选择（view=table，D2 批量目标核对）：multiple=true 启用 checkbox
+   * 多选 + 选择栏（跨页保留/计数/目标清单/清空/筛选变更核对）；缺省=
+   * 既有单选 radio。identityKey 为行身份列（多选必须，缺省回退表身份列）。 */
+  selection?: { multiple?: boolean; identityKey?: string };
 };
 
 /** 编译产物的条件形态（wire ConditionSpec 叶子）：key=来源区块 key。 */
@@ -126,11 +130,17 @@ export interface SpecSectionLike {
   cascadePolicy?: string;
   onSuccessRefresh?: string[];
   columns?: string[] | null;
+  /** 行选择（view=table，D2）：请求体形态（区块级），decompile 优先读
+   * table.selection（发布态形态）。 */
+  selection?: { multiple?: boolean; identityKey?: string };
   table?: {
     columns?: Array<{ key?: string }>;
     rowActions?: Array<Record<string, unknown>>;
     /** 服务端分页（D3）：宽松形态，decompile 按白名单字段还原。 */
     pagination?: { enabled?: boolean; defaultSize?: number; pageSizes?: number[] };
+    /** 行选择（D2）：发布态形态（CompositeSection.table.selection），
+     * decompile 按白名单字段还原到节点 props。 */
+    selection?: { multiple?: boolean; identityKey?: string };
   };
   toolbar?: { actions?: Array<Record<string, unknown>> };
 }

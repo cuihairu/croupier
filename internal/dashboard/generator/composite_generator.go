@@ -45,7 +45,12 @@ type CompositeSectionInput struct {
 	// 语义上下文，恒为 nil 即关闭）；非 nil 且 Enabled=true 时原样落位，
 	// 使编辑器可在发布态表格上开启服务端分页。
 	Pagination *spec.PaginationSpec
-	OnSuccess  []string
+	// Selection 显式行选择配置（view=table，D2 批量目标核对）：nil 或
+	// Multiple=false 保持既有单选 radio；Multiple=true 原样落位，发布态
+	// 表格启用 checkbox 多选与选择栏（生成器不推导身份列，渲染端按
+	// Selection.IdentityKey → Table.IdentityKey 顺序取行标识）。
+	Selection *spec.CompositeSelectionSpec
+	OnSuccess []string
 	// Events 通用事件绑定（发布触发点）。
 	Events []spec.CompositeEventBinding
 	// VisibleWhen 区块级条件显示（按页面状态求值，false 时不渲染）。
@@ -202,6 +207,7 @@ func GenerateCompositePage(
 					Pagination:  pagination,
 					RowSchema:   lv.RowSchema,
 					IdentityKey: lv.IdentityKey,
+					Selection:   in.Selection,
 				}
 			}
 		}

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   App,
@@ -20,7 +20,8 @@ import ExecutorUnboundAlert, {
   executeErrorToastText,
 } from './ExecutorUnboundAlert';
 import { localizedText } from '@/utils/localizedText';
-import { confirmFieldTitle } from './confirmContent';
+import { confirmFieldTitle, humanizeParamKey } from './confirmContent';
+import { isStaleSelection, rowIdentity, selectionFilterFingerprint } from './batchSelection';
 import type { ExecFailure } from './execFeedback';
 import { useCompositeRuntime } from './compositeRuntime';
 import { sectionVisible } from './sectionCondition';
@@ -232,69 +233,179 @@ export const CompositeRenderer: React.FC<{
       </Button>
     ));
 
-  /** 单区块渲染（V2 从 inline.map 抽出复用：栅格区块与页签页内整行堆叠
-   * 共用同一卡片渲染——span 由调用方决定）。 */
-  const bindingById = useMemo(() => {
-    const map: Record<string, PageFunctionBinding> = {};
-    for (const binding of bindings) map[binding.id] = binding;
-    return map;
-  }, [bindings]);
-  const renderSection = (sec: CompositeSection): React.ReactNode => (
-    <Card
-      size="small"
-      title={localizedText(sec.title, 'zh-CN', sec.key)}
-      // D4：表单区块提交期间不进整卡骨架——骨架会卸载表单，失败后已填值
-      // 随之丢失；在途状态由表单 disabled 表达。非表单区块保留骨架。
-      loading={(running[sec.key] || false) && !sectionHasForm(sec)}
-      extra={
-        sec.view === 'table' && (sec.toolbar?.actions?.length ?? 0) > 0 ? (
-          <Space size={4}>
-            {toolbarButtonsOf(sec)}
-            {!sec.autoRun ? (
-              <Button size="small" onClick={() => runSection(sec).catch(() => undefined)}>
-                <FormattedMessage
-                  id="component.pageRenderer.composite.executeButton"
-                  defaultMessage="执行"
-                />
-              </Button>
+  /** D2 批量目标核对：行选择配置（multiple=true 才启用 checkbox 多选与
+   * 选择栏；缺省保持既有单选 radio 语义）。 */
+  const tableSelectionOf = (sec: CompositeSection) =>
+    sec.table?.selection?.multiple ? sec.table.selection : undefined;
+
+  /** D2 行标识口径：selection.identityKey → 表格身份列，与目标清单、选择
+   * 计数取同一口径（多选缺身份列时 batchSelection.rowIdentity 按
+   * id/key/数据串兜底，跨页保留可能错位——编辑器提示配置身份列）。 */
+  const rowIdKeyOf = (sec: CompositeSection) =>
+    sec.table?.selection?.identityKey || sec.table?.identityKey;
+
+  /** D2 目标清单列：身份列置前，随后按展示列序最多补两列（缺失时人性化
+   * key 而非原始字段名——与资源页目标清单同一口径）。 */
+  const targetListColumnsOf = (sec: CompositeSection, idKey: string | undefined) => {
+    const cols = (sec.table?.columns ?? []).slice();
+    cols.sort((a, b) => {
+      if (a.key === idKey) return -1;
+      if (b.key === idKey) return 1;
+      return 0;
+    });
+    return cols.slice(0, 3).map((c) => ({
+      title: localizedText(c.title, 'zh-CN', humanizeParamKey(c.key)),
+      dataIndex: c.key,
+      width: 180,
+      ellipsis: true,
+    }));
+  };
+
+  // D2：选择状态按区块 key 记账（跨页保留的选中行对象 + 键 + 筛选变更警示
+  // + 目标清单弹窗归属）。选择行写入运行时（selectedRow/selectedRows），
+  // 供 inputAssignments 服务端求值与 rowSelected 事件消费。
+  const [selRows, setSelRows] = useState<Record<string, FormValues[]>>({});
+  const [selKeys, setSelKeys] = useState<Record<string, React.Key[]>>({});
+  const [selStale, setSelStale] = useState<Record<string, boolean>>({});
+  const [targetListKey, setTargetListKey] = useState<string | null>(null);
+  const selFingerprintRef = useRef<Record<string, string | null>>({});
+
+  // D2：筛选变化后旧选择的核对提示。指纹取执行入参（sectionInputs 含上游
+  // 映射后的查询条件，分页参数在 run 内并入不入账——翻页不算筛选变更）；
+  // 每次入参变化重新判定，选择变更（selRows）时同条件重算回 false。
+  useEffect(() => {
+    const next: Record<string, boolean> = {};
+    for (const sec of sections) {
+      if (sec.view !== 'table' || !tableSelectionOf(sec)) continue;
+      const key = sec.key;
+      const fp = selectionFilterFingerprint(sectionInputs[key] || {});
+      next[key] = isStaleSelection(
+        selFingerprintRef.current[key] ?? null,
+        fp,
+        selRows[key]?.length ?? 0,
+      );
+      selFingerprintRef.current = { ...selFingerprintRef.current, [key]: fp };
+    }
+    setSelStale((prev) => {
+      const changed = Object.keys(next).some((k) => (next[k] ?? false) !== (prev[k] ?? false));
+      return changed ? next : prev;
+    });
+  }, [sectionInputs, sections, selRows]);
+
+  const clearSelection = (sec: CompositeSection): void => {
+    setSelRows((prev) => ({ ...prev, [sec.key]: [] }));
+    setSelKeys((prev) => ({ ...prev, [sec.key]: [] }));
+    setSelStale((prev) => ({ ...prev, [sec.key]: false }));
+    setSelectionState(sec.key, []);
+  };
+
+  /** 表格区块渲染（D2 批量目标核对：选择栏 + 目标清单 + 多选/单选差异；
+   * 单选 radio 路径保持既有 rowSelected 事件语义）。 */
+  const renderTable = (sec: CompositeSection): React.ReactNode => {
+    const sel = tableSelectionOf(sec);
+    const idKey = rowIdKeyOf(sec);
+    const rows = selRows[sec.key] ?? [];
+    const keys = selKeys[sec.key] ?? [];
+    const data = Array.isArray(resultFor(sec)?.items)
+      ? (resultFor(sec)?.items as Record<string, unknown>[])
+      : [];
+    const visibleCount = data.filter((r) =>
+      keys.includes(rowIdentity(r as FormValues, idKey)),
+    ).length;
+    const stale = (selStale[sec.key] ?? false) && rows.length > 0;
+    return (
+      <>
+        {sel && rows.length > 0 ? (
+          <Space size={12} wrap style={{ marginBottom: 8 }}>
+            <span data-testid="selection-count">
+              {intl.formatMessage(
+                {
+                  id: 'component.pageRenderer.composite.selection.count',
+                  defaultMessage: '已选择 {count} 项',
+                },
+                { count: rows.length },
+              )}
+            </span>
+            {visibleCount !== rows.length ? (
+              <span data-testid="selection-visible">
+                {intl.formatMessage(
+                  {
+                    id: 'component.pageRenderer.composite.selection.visible',
+                    defaultMessage: '本页可见 {count} 项',
+                  },
+                  { count: visibleCount },
+                )}
+              </span>
             ) : null}
+            {stale ? (
+              <Alert
+                type="warning"
+                showIcon
+                data-testid="selection-stale"
+                title={intl.formatMessage({
+                  id: 'component.pageRenderer.composite.selection.stale',
+                  defaultMessage: '筛选条件已变更，已选对象不在当前结果集，请核对后清除或重新勾选',
+                })}
+              />
+            ) : null}
+            <Button
+              type="link"
+              size="small"
+              data-testid="selection-target-list"
+              onClick={() => setTargetListKey(sec.key)}
+            >
+              <FormattedMessage
+                id="component.pageRenderer.composite.selection.targetList"
+                defaultMessage="查看目标清单"
+              />
+            </Button>
+            <Button type="link" size="small" onClick={() => clearSelection(sec)}>
+              <FormattedMessage
+                id="component.pageRenderer.composite.selection.clear"
+                defaultMessage="取消选择"
+              />
+            </Button>
           </Space>
-        ) : sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
-          <Button size="small" onClick={() => runSection(sec).catch(() => undefined)}>
-            <FormattedMessage
-              id="component.pageRenderer.composite.executeButton"
-              defaultMessage="执行"
-            />
-          </Button>
-        ) : null
-      }
-    >
-      {/* T8：unbound 阻断（409 executor_unbound）渲染区块级空态 + 去绑定
-          入口；表格/字段区块保持空数据，无伪数据兜底 */}
-      {isExecutorUnboundResult(results[sec.key]) ? (
-        <ExecutorUnboundAlert
-          functionId={sec.bindingId ? bindingById[sec.bindingId]?.functionId : undefined}
-          style={{ marginBottom: 12 }}
-        />
-      ) : null}
-      {sec.view === 'table' ? (
+        ) : null}
         <Table
           size="small"
-          rowKey={(_, i) => String(i)}
+          rowKey={
+            sel
+              ? (record, i) => rowIdentity(record as FormValues, idKey) || String(i)
+              : (_record, i) => String(i)
+          }
           onRow={(record) => ({
             onClick: () => fireEvent(sec, 'rowClick', record as Record<string, unknown>),
           })}
-          rowSelection={{
-            type: 'radio',
-            onChange: (_keys, rows) => {
-              // V5：选中行写入运行时状态（{{var.selectedRow.x}} 数据来源），
-              // 仅在绑定 rowSelected 事件时同步触发事件。
-              setSelectionState(sec.key, rows as Record<string, unknown>[]);
-              if (rows[0] && (sec.events ?? []).some((e) => e.event === 'rowSelected')) {
-                fireEvent(sec, 'rowSelected', rows[0] as Record<string, unknown>);
-              }
-            },
-          }}
+          rowSelection={
+            sel
+              ? {
+                  type: 'checkbox',
+                  preserveSelectedRowKeys: true,
+                  selectedRowKeys: keys,
+                  onChange: (nextKeys, nextRows) => {
+                    setSelRows((prev) => ({ ...prev, [sec.key]: nextRows as FormValues[] }));
+                    setSelKeys((prev) => ({ ...prev, [sec.key]: nextKeys }));
+                    // V5：选中行写入运行时状态（selectedRow/selectedRows
+                    // 数据来源，{{var.selectedRows.x}} 服务端求值）。
+                    setSelectionState(sec.key, nextRows as Record<string, unknown>[]);
+                    if (nextRows[0] && (sec.events ?? []).some((e) => e.event === 'rowSelected')) {
+                      fireEvent(sec, 'rowSelected', nextRows[0] as Record<string, unknown>);
+                    }
+                  },
+                }
+              : {
+                  type: 'radio',
+                  onChange: (_keys, nextRows) => {
+                    // V5：选中行写入运行时状态（{{var.selectedRow.x}} 数据来源），
+                    // 仅在绑定 rowSelected 事件时同步触发事件。
+                    setSelectionState(sec.key, nextRows as Record<string, unknown>[]);
+                    if (nextRows[0] && (sec.events ?? []).some((e) => e.event === 'rowSelected')) {
+                      fireEvent(sec, 'rowSelected', nextRows[0] as Record<string, unknown>);
+                    }
+                  },
+                }
+          }
           columns={[
             ...(sec.table?.columns || []).map((c) => ({
               title: localizedText(c.title, 'zh-CN', c.key),
@@ -348,13 +459,79 @@ export const CompositeRenderer: React.FC<{
                 ]
               : []),
           ]}
-          dataSource={
-            Array.isArray(resultFor(sec)?.items)
-              ? (resultFor(sec)?.items as Record<string, unknown>[])
-              : []
-          }
+          dataSource={data}
           pagination={tablePaginationProps(sec)}
         />
+        <Modal
+          title={intl.formatMessage(
+            {
+              id: 'component.pageRenderer.composite.selection.targetListTitle',
+              defaultMessage: '已选目标清单（{count} 项）',
+            },
+            { count: rows.length },
+          )}
+          open={targetListKey === sec.key}
+          onCancel={() => setTargetListKey(null)}
+          footer={null}
+          width={720}
+        >
+          <Table
+            size="small"
+            rowKey={(record, i) => rowIdentity(record as FormValues, idKey) || String(i)}
+            pagination={false}
+            columns={targetListColumnsOf(sec, idKey)}
+            dataSource={rows as unknown as Record<string, unknown>[]}
+          />
+        </Modal>
+      </>
+    );
+  };
+
+  const bindingById = useMemo(() => {
+    const map: Record<string, PageFunctionBinding> = {};
+    for (const binding of bindings) map[binding.id] = binding;
+    return map;
+  }, [bindings]);
+  const renderSection = (sec: CompositeSection): React.ReactNode => (
+    <Card
+      size="small"
+      title={localizedText(sec.title, 'zh-CN', sec.key)}
+      // D4：表单区块提交期间不进整卡骨架——骨架会卸载表单，失败后已填值
+      // 随之丢失；在途状态由表单 disabled 表达。非表单区块保留骨架。
+      loading={(running[sec.key] || false) && !sectionHasForm(sec)}
+      extra={
+        sec.view === 'table' && (sec.toolbar?.actions?.length ?? 0) > 0 ? (
+          <Space size={4}>
+            {toolbarButtonsOf(sec)}
+            {!sec.autoRun ? (
+              <Button size="small" onClick={() => runSection(sec).catch(() => undefined)}>
+                <FormattedMessage
+                  id="component.pageRenderer.composite.executeButton"
+                  defaultMessage="执行"
+                />
+              </Button>
+            ) : null}
+          </Space>
+        ) : sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
+          <Button size="small" onClick={() => runSection(sec).catch(() => undefined)}>
+            <FormattedMessage
+              id="component.pageRenderer.composite.executeButton"
+              defaultMessage="执行"
+            />
+          </Button>
+        ) : null
+      }
+    >
+      {/* T8：unbound 阻断（409 executor_unbound）渲染区块级空态 + 去绑定
+          入口；表格/字段区块保持空数据，无伪数据兜底 */}
+      {isExecutorUnboundResult(results[sec.key]) ? (
+        <ExecutorUnboundAlert
+          functionId={sec.bindingId ? bindingById[sec.bindingId]?.functionId : undefined}
+          style={{ marginBottom: 12 }}
+        />
+      ) : null}
+      {sec.view === 'table' ? (
+        renderTable(sec)
       ) : sec.view === 'fields' ? (
         <div onClick={() => fireEvent(sec, 'click')}>
           <Descriptions size="small" column={2}>

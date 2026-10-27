@@ -151,6 +151,13 @@ export default {
     'Enable server-side pagination',
   'pages.pageStudio.editor.component.fnTable.prop.pagination.pageSizes': 'Page size options',
   'pages.pageStudio.editor.component.fnTable.prop.rowActions': 'Row actions',
+  'pages.pageStudio.editor.component.fnTable.prop.selection': 'Row selection',
+  'pages.pageStudio.editor.component.fnTable.prop.selection.identityKey':
+    'Row identity column (required for multi-select)',
+  'pages.pageStudio.editor.component.fnTable.prop.selection.identityKeyHint':
+    'Columns come from the output schema',
+  'pages.pageStudio.editor.component.fnTable.prop.selection.multiple':
+    'Enable multi-select (reviewable targets)',
   'pages.pageStudio.editor.component.modal.defaultTitle': 'Actions',
   'pages.pageStudio.editor.component.modal.name': 'Modal',
   'pages.pageStudio.editor.component.modal.previewHint':
