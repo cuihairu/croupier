@@ -132,6 +132,26 @@ describe('提交流程', () => {
     ).toBeInTheDocument();
   });
 
+  it('invoke 重放：返回服务端记录结果文案，替换成功文案（含 successMessage 定制）', async () => {
+    const { onExecute } = renderOp({
+      spec: spec({
+        resultView: {
+          fields: [{ key: 'total', title: { 'zh-CN': '总数' }, dataType: 'number' }],
+          successMessage: { 'zh-CN': '发放成功' },
+        },
+      }),
+    });
+    onExecute.mockResolvedValueOnce(ok({ total: 5 }, { kind: 'sync', replayed: true }));
+    submit();
+    await waitFor(() =>
+      expect(
+        screen.getByText('操作已在先前提交过，本次返回服务端记录的结果（未重复执行）'),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('发放成功')).not.toBeInTheDocument();
+    expect(screen.queryByText('操作成功')).not.toBeInTheDocument();
+  });
+
   it('approval 分流：等待审批 + approvalId', async () => {
     const { onExecute } = renderOp();
     onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'approval', approvalId: 'apr-1' }));
@@ -235,6 +255,20 @@ describe('确认对话框', () => {
     fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
     await waitFor(() => expect(screen.getByText('任务已提交')).toBeInTheDocument());
     expect(screen.getByText('tk-9')).toBeInTheDocument();
+  });
+
+  it('确认后重放：返回服务端记录结果文案，不用默认成功文案', async () => {
+    const { onExecute } = renderOp({ spec: confirmSpec });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'sync', replayed: true }));
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByText('操作已在先前提交过，本次返回服务端记录的结果（未重复执行）'),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('操作成功')).not.toBeInTheDocument();
   });
 
   it('预览模式下确认链同样被拦截', async () => {

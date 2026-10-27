@@ -51,6 +51,8 @@ export default {
   'component.pageRenderer.operationPage.message.failed': '操作失败',
   'component.pageRenderer.operationPage.message.submittedApproval': '操作已提交审批',
   'component.pageRenderer.operationPage.message.success': '操作成功',
+  'component.pageRenderer.operationPage.message.replayed':
+    '操作已在先前提交过，本次返回服务端记录的结果（未重复执行）',
   'component.pageRenderer.operationPage.message.taskSubmitted': '任务已提交',
   'component.pageRenderer.operationPage.preview.blocked': '预览模式不执行操作',
   'component.pageRenderer.operationPage.result.title': '执行结果',

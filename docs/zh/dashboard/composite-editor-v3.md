@@ -636,8 +636,9 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   结果保留 10 分钟（重复提交重放同一单号而非新建）。未实现：下发失败后占位保持
   `running` 满 15 分钟窗口（结果确实未知，窗口内重试得到 409 而非静默重跑）；key 只存
   标签页内存（刷新页面生成新键、缓存淘汰后重试退化为新意图）；窗口到期后的回收是
-  真实重跑而非重放；重放提示只覆盖 `CompositeRenderer` 的成功 toast，操作页
-  （`OperationPageRenderer`）的文案未区分重放
+  真实重跑而非重放；重放的同步成功在操作页（`OperationPageRenderer`）同口径呈现——
+  成功 toast 与结果卡片标题都换成「返回服务端记录的结果」文案（配置了
+  `resultView.successMessage` 时同样被替换）
 - **操作页多阶段状态反馈（D1）边界**：提交后操作页在结果卡上方追加一条紧凑 `Steps`
   阶段条（提交 → 审批 → 执行），由驱动结果卡的同一状态派生（辅助函数
   `web/src/components/PageRenderer/operationStages.ts` 的 `describeOperationStages`）：

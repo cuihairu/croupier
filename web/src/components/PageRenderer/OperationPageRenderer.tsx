@@ -161,6 +161,14 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               defaultMessage: '任务已提交',
             }),
           );
+        } else if (response.replayed) {
+          // D4：幂等重放——结果取自服务端已落地记录，明确告知未重复执行
+          message.success(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.message.replayed',
+              defaultMessage: '操作已在先前提交过，本次返回服务端记录的结果（未重复执行）',
+            }),
+          );
         } else if (spec.resultView?.successMessage) {
           message.success(
             localizedText(
@@ -257,6 +265,14 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
           intlRef.current.formatMessage({
             id: 'component.pageRenderer.operationPage.message.taskSubmitted',
             defaultMessage: '任务已提交',
+          }),
+        );
+      } else if (response.replayed) {
+        // D4：幂等重放——确认路径与直接执行同口径，替换成功文案
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.message.replayed',
+            defaultMessage: '操作已在先前提交过，本次返回服务端记录的结果（未重复执行）',
           }),
         );
       } else {
@@ -551,10 +567,17 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
           ) : (
             <Result
               status="success"
-              title={intl.formatMessage({
-                id: 'component.pageRenderer.operationPage.message.success',
-                defaultMessage: '操作成功',
-              })}
+              title={intl.formatMessage(
+                result?.replayed
+                  ? {
+                      id: 'component.pageRenderer.operationPage.message.replayed',
+                      defaultMessage: '操作已在先前提交过，本次返回服务端记录的结果（未重复执行）',
+                    }
+                  : {
+                      id: 'component.pageRenderer.operationPage.message.success',
+                      defaultMessage: '操作成功',
+                    },
+              )}
               icon={<CheckCircleOutlined />}
               extra={
                 <ResultViewRenderer

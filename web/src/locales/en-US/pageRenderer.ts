@@ -56,6 +56,8 @@ export default {
   'component.pageRenderer.operationPage.message.submittedApproval':
     'Operation submitted for approval',
   'component.pageRenderer.operationPage.message.success': 'Operation succeeded',
+  'component.pageRenderer.operationPage.message.replayed':
+    'The operation was already submitted earlier; this response returns the server-recorded result (not re-executed)',
   'component.pageRenderer.operationPage.message.taskSubmitted': 'Task submitted',
   'component.pageRenderer.operationPage.preview.blocked':
     'Operations are not executed in preview mode',
