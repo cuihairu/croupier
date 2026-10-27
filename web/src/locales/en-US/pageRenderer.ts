@@ -51,6 +51,9 @@ export default {
     'Operations are not executed in preview mode',
   'component.pageRenderer.operationPage.result.title': 'Execution result',
   'component.pageRenderer.operationPage.result.viewMissing': 'Result view is not configured',
+  'component.pageRenderer.operationPage.stage.approval': 'Approval',
+  'component.pageRenderer.operationPage.stage.execute': 'Execution',
+  'component.pageRenderer.operationPage.stage.submit': 'Submit',
   'component.pageRenderer.operationPage.task.runningSubtitle':
     'The async task is still running. Check its progress in the Task Center or on the task page.',
   'component.pageRenderer.playerManage.pageSubtitle':

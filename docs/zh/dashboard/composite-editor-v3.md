@@ -360,7 +360,10 @@ web/src/pages/PageStudio/CompositeEditor/
 **自动生成模板清单（2026-09）**：组件模板「从契约重新生成」现产出三类内置模板——
 
 1. `fn--<fid>`：单函数组件（collection_query→表格、item_query→字段卡、其余→表单）
-2. `crud--<resource>`：资源管理组合（列表+详情+增改弹窗，onSuccess 自动刷新）
+2. `crud--<resource>`：资源管理组合（列表+详情+增改弹窗，onSuccess 自动刷新）；资源缺 create/update/delete
+   能力时**不生成对应入口**（不在树里留空节点），缺口点名写进模板描述（如「缺 update/delete 能力，
+   未生成对应入口」，能力名取契约 capability 机器标识），模板列表与「从模板开始」卡片都展示该描述——
+   用户在实例化前即知流程不完整，不以「树里没有节点」替代能力缺口的可发现性
 3. `query--<fid>`：查询组合（查询条件表单 + 结果表格，经 refreshOnNode 引用在
    实例化后解析为区块 key，键位漂移安全）——带查询参数的 collection_query 自动生成
 
@@ -597,6 +600,16 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
     的错误。未实现：inline（非弹窗）表单区块提交期间整卡进 loading 骨架，失败后输入值不
     保留（弹窗表单会保留）；控制台页面执行无服务端幂等键（失败/待处理的提交可由用户重复
     发起）；无任务中心路由，待处理任务只给任务号；审批入口固定跳 `/approvals`
+- **操作页多阶段状态反馈（D1）边界**：提交后操作页在结果卡上方追加一条紧凑 `Steps`
+  阶段条（提交 → 审批 → 执行），由驱动结果卡的同一状态派生（辅助函数
+  `web/src/components/PageRenderer/operationStages.ts` 的 `describeOperationStages`）：
+  同步结果两阶段均完成；`task` 结果保持执行阶段进行中；`approval` 结果按已查询的
+  审批状态推进（通过前为进行中，拒绝/过期为 error），执行阶段只在审批通过后推进
+  （同步续跑为完成、续跑转任务为进行中）。提交失败停在提交阶段 error，不渲染流程
+  未到达的阶段；重置结果后阶段条一并清除。未实现：该条为纯追加展示层，无
+  `PageSpec` 字段、编辑器无设置项、发布行为不变；阶段条不重复信息（审批单号、
+  任务号与失败原因仍由结果卡承载）；审批阶段只随已查询状态推进，首次查询前保持
+  进行中；`TaskPageRenderer` 与 `CompositeRenderer` 尚未接入同一派生函数
 
 - V5-T5.7 端到端线上验收（提案→发布→真实联动）待执行
 - Selector 一键同步（8.5 节）边界：prev schema 只存一版且仅在本功能上线后的下一次

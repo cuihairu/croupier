@@ -46,6 +46,9 @@ export default {
   'component.pageRenderer.operationPage.preview.blocked': '预览模式不执行操作',
   'component.pageRenderer.operationPage.result.title': '执行结果',
   'component.pageRenderer.operationPage.result.viewMissing': '操作结果视图未配置',
+  'component.pageRenderer.operationPage.stage.approval': '审批',
+  'component.pageRenderer.operationPage.stage.execute': '执行',
+  'component.pageRenderer.operationPage.stage.submit': '提交操作',
   'component.pageRenderer.operationPage.task.runningSubtitle':
     '异步任务仍在执行，请在任务中心或任务页面查看进度。',
   'component.pageRenderer.playerManage.pageSubtitle':
