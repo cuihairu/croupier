@@ -53,7 +53,9 @@ Preview consumes the same generated spec as save and publish. Entering preview c
 
 The response's `quality` and `diagnostics` render inline in the preview pane, so generation diagnostics are visible before saving. Fallback: a tree that cannot be losslessly compiled (text nodes, non-card containers) or a failed preview request falls back to the legacy structural preview, with the blockers listed, so preview is never blank.
 
-Boundary: preview execution is mock-only — there is no server-validated draft execution entry yet, so real side effects (operation functions, approvals) are not exercised in preview and action chains run against mock results. A tree whose save would be refused reports that refusal through the request error rather than as an inline diagnostic list.
+Refusal reasons render inline too: a canvas the generation chain refuses — missing `pageKey`, a missing or duplicate section `key`, a static section without `form.jsonSchema`, a section referencing an unregistered function, or no functional section left to generate — returns `400` with `error=validation_failed` and a `details` object whose keys are request-body field paths (`pageKey`, `sections[i].key`, `sections[i].functionId`, `sections[i].form.jsonSchema`, or bare `sections`), and the preview pane and the save/publish dialogs list those entries through the shared `ErrorDetailList`, so the operator can point at the offending section rather than reading one generic message. A contract lookup that fails for a database reason is not a canvas problem and stays a `500`.
+
+Boundary: preview execution is mock-only — there is no server-validated draft execution entry yet, so real side effects (operation functions, approvals) are not exercised in preview and action chains run against mock results.
 
 ## Component development
 

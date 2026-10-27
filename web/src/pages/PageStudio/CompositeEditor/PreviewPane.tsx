@@ -12,7 +12,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Spin, Tag, Typography } from 'antd';
 import { FormattedMessage, request, useIntl } from '@umijs/max';
 import PageRenderer from '@/components/PageRenderer';
-import { extractErrorMessage } from '@/utils/errors';
+import ErrorDetailList from '@/components/ErrorDetailList';
+import { extractErrorMessage, hasErrorDetails } from '@/utils/errors';
 import type {
   BindingExecutionContext,
   ComponentTemplateUsage,
@@ -77,7 +78,14 @@ export default function PreviewPane({
 
   const [phase, setPhase] = useState<'loading' | 'ready' | 'blocked'>('loading');
   const [spec, setSpec] = useState<PreviewCompositeResponse | null>(null);
-  const [failure, setFailure] = useState<{ message: string; blockers: string[] } | null>(null);
+  // error：预览请求被服务端拒绝时的原始错误对象；400 + validation_failed 的
+  // details 由 ErrorDetailList 逐条内联呈现（与保存/发布弹窗共用同一组件），
+  // 而不止一条笼统 message 让前端无从定位。
+  const [failure, setFailure] = useState<{
+    message: string;
+    blockers: string[];
+    error?: unknown;
+  } | null>(null);
 
   const compiled = useMemo(() => compileTree(tree), [tree]);
 
@@ -154,6 +162,7 @@ export default function PreviewPane({
             fmtRef.current('pages.pageStudio.preview.fetchFailed', '预览生成失败'),
           ),
           blockers: [],
+          error,
         });
         setPhase('blocked');
       });
@@ -211,6 +220,8 @@ export default function PreviewPane({
 
   if (phase === 'blocked') {
     const blockers = failure?.blockers ?? [];
+    // 服务端结构化拒绝（400 + validation_failed）的字段级原因
+    const hasDetails = failure ? hasErrorDetails(failure.error) : false;
     return (
       <div>
         {failure && (
@@ -227,23 +238,26 @@ export default function PreviewPane({
                 : failure.message
             }
             description={
-              <div>
-                {blockers.length > 0 && (
-                  <ul style={{ margin: 0, paddingLeft: 16 }}>
-                    {blockers.map((b, i) => (
-                      <li key={`b-${i}`}>{b}</li>
-                    ))}
-                  </ul>
-                )}
-                {blockers.length > 0 && (
-                  <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
-                    {fmt(
-                      'pages.pageStudio.preview.fallbackHint',
-                      '修复上述内容后重新进入预览，即可获得与发布页一致的渲染。',
-                    )}
-                  </Paragraph>
-                )}
-              </div>
+              blockers.length > 0 || hasDetails ? (
+                <div>
+                  {blockers.length > 0 && (
+                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      {blockers.map((b, i) => (
+                        <li key={`b-${i}`}>{b}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {hasDetails && <ErrorDetailList error={failure.error} />}
+                  {blockers.length > 0 && (
+                    <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
+                      {fmt(
+                        'pages.pageStudio.preview.fallbackHint',
+                        '修复上述内容后重新进入预览，即可获得与发布页一致的渲染。',
+                      )}
+                    </Paragraph>
+                  )}
+                </div>
+              ) : undefined
             }
           />
         )}

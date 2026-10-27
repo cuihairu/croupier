@@ -197,6 +197,22 @@ describe('PreviewPane（B1 预览共用运行时）', () => {
     expect(screen.queryByText('页面规格预览')).not.toBeInTheDocument();
   });
 
+  it('服务端结构化拒绝：details 的字段级原因内联列出（可定位到区块）', async () => {
+    mockedRequest.mockRejectedValue({
+      data: {
+        error: 'validation_failed',
+        message: 'function no.such.fn contract not found',
+        details: { 'sections[1].functionId': 'function no.such.fn contract not found' },
+      },
+    });
+    renderPane();
+
+    expect(await screen.findByText('sections[1].functionId')).toBeInTheDocument();
+    expect(screen.getAllByText(/contract not found/).length).toBeGreaterThan(0);
+    // 阻断分支不展示生成规格标题
+    expect(screen.queryByText('页面规格预览')).not.toBeInTheDocument();
+  });
+
   it('编译阻断：回退画布结构预览并列出阻断项', async () => {
     mockedRequest.mockResolvedValue(responseOf(tree()));
     render(
