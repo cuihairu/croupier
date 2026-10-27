@@ -289,9 +289,8 @@ describe('D4 执行反馈闭环', () => {
 
 describe('D4 参数错误定位字段（inline 表单区块）', () => {
   // 非弹窗的表单区块走另一条渲染分支（CompositeRenderer 的 inline form），
-  // 字段错误注入与弹窗共用 formFieldErrors 口径，两处都要断言。输入保留断言
-  // 只在弹窗用例做：inline 区块提交期间卡片整体进 loading 骨架，表单随之
-  // 卸载重挂、值不保留（既有行为，与字段注入无关，见文档已知边界）。
+  // 字段错误注入与弹窗共用 formFieldErrors 口径，两处都要断言。inline 区块
+  // 提交期间不进整卡骨架（骨架卸载表单会丢值，已修），失败后已填值保留。
   const sections: CompositeSection[] = [
     {
       key: 'inlineBan',
@@ -353,5 +352,37 @@ describe('D4 参数错误定位字段（inline 表单区块）', () => {
       .closest('.ant-alert')!;
     expect(alert).not.toHaveTextContent('玩家 ID 不能为空');
     expect(alert).toHaveTextContent('unknown field：未知字段错误');
+  });
+
+  it('提交失败保留已填输入：表单不随整卡骨架卸载，续改后续提交沿用保留值', async () => {
+    const onExecute = jest
+      .fn()
+      .mockRejectedValue(
+        apiError('validation_failed', '请求参数无效', { playerId: '玩家 ID 不能为空' }),
+      );
+    render(
+      <App>
+        <CompositeRenderer sections={sections} bindings={[]} onExecute={onExecute as never} />
+      </App>,
+    );
+
+    fireEvent.change(screen.getByLabelText('玩家 ID'), { target: { value: 'u9' } });
+    fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
+    await waitFor(() =>
+      expect(screen.getByText('执行失败（validation_failed）')).toBeInTheDocument(),
+    );
+
+    // 失败后表单仍在（不再被骨架卸载重挂），已填值保留
+    expect(screen.getByLabelText('玩家 ID')).toHaveValue('u9');
+    fireEvent.change(screen.getByLabelText('封禁天数'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenLastCalledWith(
+        'b-ban',
+        expect.objectContaining({
+          form: expect.objectContaining({ playerId: 'u9', durationDays: 30 }),
+        }),
+      ),
+    );
   });
 });
