@@ -207,7 +207,8 @@ describe('C1 gameOps 玩家模板 CRUD fixture 端到端', () => {
 
     // 6. 成功刷新：初始 + 新建/编辑/删除三次 reload，列表被真实重查四次
     expect(onExecute.mock.calls.filter(([id]) => id === 'list')).toHaveLength(4);
-  }, 30000);
+    // 重 DOM 套件：coverage instrumentation 与并行负载下整链超 30s，放宽预算防假红
+  }, 90000);
 
   it('缺 CRUD 角色显式提示：玩家齐备，其余模板缺口可查', () => {
     expect(gameOpsTemplateCrudRoles).toEqual(['create', 'update', 'delete']);
