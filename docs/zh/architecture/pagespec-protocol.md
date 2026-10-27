@@ -234,8 +234,13 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   页」。翻页/改每页条数只变分页参数重跑本区块；上游筛选/查询条件变化（本区块的非分页
   入参）回首页；操作成功后的刷新（`onSuccessRefresh`/事件 `refreshNode`）保持当前页码
   与筛选。未设置或 `enabled: false` 保持既有客户端分页（请求不带分页参数，存量页面行为
-  不变）。边界：游标分页与自定义 `totalKey` 未实现（wire `PaginationSpec` 无游标字段）；
-  弹窗（dialog）内渲染的表格不分页
+  不变）。该字段由组合页编辑器的表格组件设置（服务端分页开关 + 每页条数 + 可选条数），
+  经组合区块请求的区块级 `pagination` 字段透传，生成器写入 `table.pagination`；生成器
+  从不为组合区块推导分页（无资源语义上下文），故为逐表格显式 opt-in。绑定函数须实际
+  消费 `page`/`pageSize`——平台放行附加输入键，函数忽略即每页都返回全量（每页内容相同、
+  页数按上界虚高）。边界：游标分页与自定义 `totalKey` 未实现（wire `PaginationSpec` 无
+  游标字段）；弹窗（dialog）内渲染的表格不分页；服务端排序/筛选下推未做（表头排序仍为
+  客户端）
 
 - `danger` + `chain`（rowActions / toolbar.actions）：**危险操作确认契约**（D2）——`danger`
   动作在用户显式确认前绝不执行。带 `targetSection` 时确认框列出目标弹窗的预填参数与动作链
