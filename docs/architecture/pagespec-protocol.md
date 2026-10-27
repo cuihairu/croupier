@@ -116,6 +116,28 @@ The body of a `type: composite` page (authoritative implementation `internal/das
 
 **Editor preview endpoint (B1)**: `POST /api/v1/versioning/pages/composite/preview` takes the exact same request body as the creation endpoint and returns `{ pageKey, pageSpec }`, where `pageSpec` is the full generated spec (`type`/`title`/`composite`/`bindings`/`componentTemplates` plus the generation metadata `quality` and `diagnostics`). It runs the same generation chain as creation — section contract lookup, binding assignment, static-section interleaving, template-snapshot passthrough, and publish-level selector validation — so the returned spec is field-for-field identical to what saving and publishing would store (verified by `TestBuildCompositePageSpec_SameAsPersistedProposal` and `TestV9Handler_PreviewCompositePage_SameSpecAsSaved`). It is read-only: no proposal, draft, or audit row is written, and it therefore carries no `pages:publish` requirement; contract visibility is still constrained by the scope and permission middleware on the request path. A missing contract for any section returns a `4xx` in the unified `{ error, message }` shape rather than a partial spec.
 
+**Draft preview execute endpoint (B1, 2026-10)**: `POST /api/v1/versioning/pages/composite/preview/execute` lets the editor preview pane execute a section against the draft instead of against mock data. The request body is the preview endpoint's body plus `bindingId` and `context`:
+
+```json
+{
+  "pageKey": "composite--preview",
+  "bindingId": "player.list",
+  "sections": [
+    { "key": "player.list", "functionId": "player.list", "view": "table" }
+  ],
+  "componentTemplates": [{ "key": "tpl--card", "digest": "d1" }],
+  "context": {
+    "form": {},
+    "row": {},
+    "selection": [],
+    "detail": {},
+    "pageState": {}
+  }
+}
+```
+
+The server rebuilds the draft `PageSpec` from `sections` through the identical generation chain (so the executed spec is the one the preview pane rendered), re-runs the publish-level selector validation, and then runs the binding through the same execution gates as a published page — permission check, approval gate, and the bound `execution.functionId` snapshot (the browser never submits `functionId`, `route`, or `scope`; a missing/extra `bindingId` is a `4xx`). The response is `{ result }`, the same `PageExecutionResult` shape as the published binding execute endpoint, so the renderer handles both identically. It is still read-only — no proposal, draft, approval record, or audit row is persisted — but a real function call is dispatched, so operation functions and approvals do have real side effects in draft mode.
+
 **Constant form sections (static, 2026-09)**: `CompositeSection` gains a `static: true` shape —
 no bindingId is bound and no function executes; `form.jsonSchema` is defined at editor design
 time and passed through `CompositeSectionRequest.form` (the server validates schema existence),

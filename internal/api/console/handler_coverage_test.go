@@ -357,7 +357,7 @@ func TestAuditPageExecuteWithoutAuditService(t *testing.T) {
 	require.NotPanics(t, func() {
 		service.auditPageExecute(context.Background(), "g", "e",
 			spec.PublishedPageSpec{}, spec.PageFunctionBinding{}, spec.BindingContractSnapshot{},
-			"req", "", spec.PageExecutionResult{}, nil, 0)
+			"req", "", spec.PageExecutionResult{}, nil, 0, governanceValidated, runtimeAPIPublishedExecute)
 	})
 }
 
