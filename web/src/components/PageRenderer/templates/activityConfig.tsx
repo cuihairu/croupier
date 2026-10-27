@@ -147,6 +147,7 @@ export const activityConfigPageSpec: PageSpec = {
           dataType: 'number',
           width: 100,
           sortable: true,
+          unit: { 'zh-CN': '版', 'en-US': 'versions' },
         },
       ],
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20] },

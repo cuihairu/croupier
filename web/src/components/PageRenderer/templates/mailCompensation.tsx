@@ -93,18 +93,21 @@ export const mailCompensationPageSpec: PageSpec = {
           dataType: 'number',
           width: 100,
           sortable: true,
+          unit: { 'zh-CN': '人', 'en-US': 'people' },
         },
         {
           key: 'perAmount',
           title: { 'zh-CN': '每人数量', 'en-US': 'Per Target' },
           dataType: 'number',
           width: 100,
+          unit: { 'zh-CN': '金', 'en-US': 'gold' },
         },
         {
           key: 'totalAmount',
-          title: { 'zh-CN': '总量（金）', 'en-US': 'Total (gold)' },
+          title: { 'zh-CN': '总量', 'en-US': 'Total' },
           dataType: 'number',
           width: 120,
+          unit: { 'zh-CN': '金', 'en-US': 'gold' },
         },
         {
           key: 'status',
@@ -146,15 +149,17 @@ export const mailCompensationPageSpec: PageSpec = {
         },
         {
           key: 'sentCount',
-          title: { 'zh-CN': '已送达/人', 'en-US': 'Delivered' },
+          title: { 'zh-CN': '已送达', 'en-US': 'Delivered' },
           dataType: 'number',
           width: 110,
+          unit: { 'zh-CN': '人', 'en-US': 'people' },
         },
         {
           key: 'failedCount',
-          title: { 'zh-CN': '失败/人', 'en-US': 'Failed' },
+          title: { 'zh-CN': '失败', 'en-US': 'Failed' },
           dataType: 'number',
           width: 90,
+          unit: { 'zh-CN': '人', 'en-US': 'people' },
         },
         {
           key: 'operator',
@@ -164,7 +169,7 @@ export const mailCompensationPageSpec: PageSpec = {
         },
         {
           key: 'createdAt',
-          title: { 'zh-CN': '创建时间（UTC）', 'en-US': 'Created At (UTC)' },
+          title: { 'zh-CN': '创建时间', 'en-US': 'Created At' },
           dataType: 'datetime',
           width: 180,
         },
@@ -260,7 +265,7 @@ export const mailCompensationPageSpec: PageSpec = {
         { key: 'operator', title: { 'zh-CN': '操作人', 'en-US': 'Operator' }, dataType: 'string' },
         {
           key: 'createdAt',
-          title: { 'zh-CN': '创建时间（UTC）', 'en-US': 'Created At (UTC)' },
+          title: { 'zh-CN': '创建时间', 'en-US': 'Created At' },
           dataType: 'datetime',
         },
       ],

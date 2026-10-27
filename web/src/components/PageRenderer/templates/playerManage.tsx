@@ -87,9 +87,10 @@ export const playerManagePageSpec: PageSpec = {
         },
         {
           key: 'balanceGold',
-          title: { 'zh-CN': '金币余额（金）', 'en-US': 'Gold Balance (Gold)' },
+          title: { 'zh-CN': '金币余额', 'en-US': 'Gold Balance' },
           dataType: 'number',
           width: 110,
+          unit: { 'zh-CN': '金', 'en-US': 'gold' },
         },
         {
           key: 'lastLoginAt',

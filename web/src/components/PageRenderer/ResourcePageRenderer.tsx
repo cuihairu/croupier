@@ -36,6 +36,7 @@ import {
   summarizeTargets,
 } from './batchSelection';
 import { humanizeParamKey, type ConfirmEntry } from './confirmContent';
+import { mergeFieldSemantic, renderFieldSemantic } from './resourceFieldSemantic';
 import { renderJSONValueSummary } from './ResultViewRenderer';
 import ExecutorUnboundAlert, {
   EXECUTOR_UNBOUND_CODE,
@@ -1317,7 +1318,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                       label={localizedText(field.title, 'zh-CN', field.key)}
                       span={field.span}
                     >
-                      {renderJSONValueSummary((detailRecord || currentRecord)[field.key])}
+                      {renderFieldSemantic(
+                        mergeFieldSemantic(
+                          spec.listView?.columns.find((col) => col.key === field.key),
+                          field,
+                        ),
+                        (detailRecord || currentRecord)[field.key],
+                      ) ?? renderJSONValueSummary((detailRecord || currentRecord)[field.key])}
                     </ProDescriptions.Item>
                   ))}
               </ProDescriptions>

@@ -161,7 +161,7 @@ export const orderReviewPageSpec: PageSpec = {
         },
         {
           key: 'paidAt',
-          title: { 'zh-CN': '支付时间（UTC）', 'en-US': 'Paid At (UTC)' },
+          title: { 'zh-CN': '支付时间', 'en-US': 'Paid At' },
           dataType: 'datetime',
           width: 180,
           sortable: true,
@@ -227,12 +227,12 @@ export const orderReviewPageSpec: PageSpec = {
         },
         {
           key: 'paidAt',
-          title: { 'zh-CN': '支付时间（UTC）', 'en-US': 'Paid At (UTC)' },
+          title: { 'zh-CN': '支付时间', 'en-US': 'Paid At' },
           dataType: 'datetime',
         },
         {
           key: 'creditedAt',
-          title: { 'zh-CN': '发货时间（UTC）', 'en-US': 'Credited At (UTC)' },
+          title: { 'zh-CN': '发货时间', 'en-US': 'Credited At' },
           dataType: 'datetime',
         },
       ],
