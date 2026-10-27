@@ -14,13 +14,16 @@ import type {
   OperationPageSpec,
   PageExecutionResult,
   PageFunctionBinding,
+  TaskStatusResult,
 } from '@/types/dashboard';
 
-// SchemaFormRenderer 替身：渲染提交按钮直接触发 onFinish
+// SchemaFormRenderer 替身：渲染提交按钮直接触发 onFinish。mockSubmitValues 让
+// 用例自定义提交参数（D2 确认内容按字段标题/枚举/单位渲染需要不同键组合）。
+let mockSubmitValues: Record<string, unknown> = { amount: 10 };
 jest.mock('@/components/SchemaFormRenderer', () => ({
   __esModule: true,
   default: jest.fn(({ onFinish }: { onFinish: (v: Record<string, unknown>) => void }) => (
-    <button type="button" data-testid="form-submit" onClick={() => onFinish({ amount: 10 })}>
+    <button type="button" data-testid="form-submit" onClick={() => onFinish(mockSubmitValues)}>
       form-submit
     </button>
   )),
@@ -62,6 +65,7 @@ interface RenderOptions {
   bindings?: PageFunctionBinding[];
   preview?: boolean;
   onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
+  onQueryTaskStatus?: (taskId: string) => Promise<TaskStatusResult>;
   title?: string;
 }
 
@@ -75,6 +79,7 @@ function renderOp(options: RenderOptions = {}) {
         onExecute={onExecute as never}
         preview={options.preview}
         onQueryApprovalStatus={options.onQueryApprovalStatus}
+        onQueryTaskStatus={options.onQueryTaskStatus}
         title={options.title}
       />
     </App>,
@@ -83,6 +88,10 @@ function renderOp(options: RenderOptions = {}) {
 }
 
 const submit = () => fireEvent.click(screen.getByTestId('form-submit'));
+
+beforeEach(() => {
+  mockSubmitValues = { amount: 10 };
+});
 
 describe('提交流程', () => {
   it('未配置操作绑定时报错', async () => {
@@ -135,6 +144,96 @@ describe('提交流程', () => {
     fireEvent.click(screen.getByRole('button', { name: /前往任务中心/ }));
     expect(pushSpy).toHaveBeenCalledWith('/ops/jobs');
     pushSpy.mockRestore();
+  });
+
+  it('task 结果无 onQueryTaskStatus：不渲染查询按钮（只给任务号）', async () => {
+    const { onExecute } = renderOp();
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    expect(screen.queryByText('查询执行状态')).not.toBeInTheDocument();
+  });
+
+  it('task 结果查询执行状态：点击后展示任务状态与进度，阶段条保持执行中', async () => {
+    const onQueryTaskStatus = jest.fn().mockResolvedValue({
+      taskId: 'tk-1',
+      status: 'running',
+      progress: 40,
+      message: '处理中',
+    } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(onQueryTaskStatus).toHaveBeenCalledWith('tk-1'));
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    expect(screen.getByText('处理中')).toBeInTheDocument();
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-process');
+  });
+
+  it('task 查询为 completed：阶段条执行阶段落 finish', async () => {
+    const onQueryTaskStatus = jest.fn().mockResolvedValue({
+      taskId: 'tk-1',
+      status: 'completed',
+    } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('COMPLETED')).toBeInTheDocument());
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-finish');
+  });
+
+  it('task 查询为 failed：阶段条执行阶段落 error', async () => {
+    const onQueryTaskStatus = jest.fn().mockResolvedValue({
+      taskId: 'tk-1',
+      status: 'failed',
+      error: '执行失败',
+    } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('FAILED')).toBeInTheDocument());
+    expect(screen.getByText('执行失败')).toBeInTheDocument();
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-error');
+  });
+
+  it('task 查询失败：错误提示，不展示状态', async () => {
+    const onQueryTaskStatus = jest.fn().mockRejectedValue(new Error('task not found'));
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('task not found')).toBeInTheDocument());
+    expect(screen.queryByText('RUNNING')).not.toBeInTheDocument();
+  });
+
+  it('invoke 重放：返回服务端记录结果文案，替换成功文案（含 successMessage 定制）', async () => {
+    const { onExecute } = renderOp({
+      spec: spec({
+        resultView: {
+          fields: [{ key: 'total', title: { 'zh-CN': '总数' }, dataType: 'number' }],
+          successMessage: { 'zh-CN': '发放成功' },
+        },
+      }),
+    });
+    onExecute.mockResolvedValueOnce(ok({ total: 5 }, { kind: 'sync', replayed: true }));
+    submit();
+    await waitFor(() =>
+      expect(
+        screen.getByText('操作已在先前提交过，本次返回服务端记录的结果（未重复执行）'),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('发放成功')).not.toBeInTheDocument();
+    expect(screen.queryByText('操作成功')).not.toBeInTheDocument();
   });
 
   it('approval 分流：等待审批 + approvalId', async () => {
@@ -205,6 +304,49 @@ describe('确认对话框', () => {
     await waitFor(() => expect(screen.getAllByText('操作成功').length).toBeGreaterThanOrEqual(2));
   });
 
+  it('确认内容按字段标题/枚举文案/单位渲染，不显示原始字段 key', async () => {
+    mockSubmitValues = { ban_duration: 30, ban_type: 'permanent' };
+    renderOp({
+      spec: spec({
+        confirm: {
+          title: { 'zh-CN': '危险操作' },
+          confirmText: { 'zh-CN': '执行' },
+          cancelText: { 'zh-CN': '返回' },
+          bindingId: 'b-act',
+        },
+        form: {
+          jsonSchema: { type: 'object' },
+          fields: [
+            { key: 'ban_duration', label: { 'zh-CN': '封禁时长' }, unit: { 'zh-CN': '天' } },
+            {
+              key: 'ban_type',
+              label: { 'zh-CN': '封禁类型' },
+              enumOptions: [{ value: 'permanent', label: { 'zh-CN': '永久封禁' } }],
+            },
+          ],
+        },
+      }),
+    });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    // 字段标题 + 单位后缀 + 枚举文案，均非原始字段 key
+    expect(screen.getByText('封禁时长')).toBeInTheDocument();
+    expect(screen.getByText('30 天')).toBeInTheDocument();
+    expect(screen.getByText('封禁类型')).toBeInTheDocument();
+    expect(screen.getByText('永久封禁')).toBeInTheDocument();
+    expect(screen.queryByText('ban_duration')).not.toBeInTheDocument();
+    expect(screen.queryByText('ban_type')).not.toBeInTheDocument();
+  });
+
+  it('未在表单声明的参数：snake_case 人性化为空格词组', async () => {
+    mockSubmitValues = { ban_duration: 30 };
+    renderOp({ spec: confirmSpec });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    expect(screen.getByText('ban duration')).toBeInTheDocument();
+    expect(screen.queryByText('ban_duration')).not.toBeInTheDocument();
+  });
+
   it('binding.execution.requireConfirm 同样触发确认', async () => {
     const { onExecute } = renderOp({ bindings: [actionBinding(true)] });
     submit();
@@ -228,6 +370,22 @@ describe('确认对话框', () => {
     onExecute.mockRejectedValueOnce(new Error('post-fail'));
     fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
     await waitFor(() => expect(screen.getByText('post-fail')).toBeInTheDocument());
+  });
+
+  it('写操作超时：结果未知（warning）而非「操作失败」，阶段条不落 submit error', async () => {
+    const { onExecute } = renderOp({ spec: confirmSpec });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    onExecute.mockRejectedValueOnce(new Error('timeout of 5000ms exceeded'));
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    // 结果卡片标题与 warning toast 各一处「操作结果未知」
+    await waitFor(() =>
+      expect(screen.getAllByText('操作结果未知').length).toBeGreaterThanOrEqual(1),
+    );
+    expect(screen.queryByText('操作失败')).toBeNull();
+    expect(screen.getByText(/可能已在服务端执行/)).toBeInTheDocument();
+    // D1 阶段条：结果未知不落提交阶段 error（无阶段渲染）
+    expect(screen.queryByText('提交操作')).toBeNull();
   });
 
   it('确认后非 Error 异常兜底「操作失败」', async () => {
@@ -258,6 +416,20 @@ describe('确认对话框', () => {
     fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
     await waitFor(() => expect(screen.getByText('任务已提交')).toBeInTheDocument());
     expect(screen.getByText('tk-9')).toBeInTheDocument();
+  });
+
+  it('确认后重放：返回服务端记录结果文案，不用默认成功文案', async () => {
+    const { onExecute } = renderOp({ spec: confirmSpec });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'sync', replayed: true }));
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByText('操作已在先前提交过，本次返回服务端记录的结果（未重复执行）'),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('操作成功')).not.toBeInTheDocument();
   });
 
   it('预览模式下确认链同样被拦截', async () => {

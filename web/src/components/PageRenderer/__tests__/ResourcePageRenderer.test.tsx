@@ -366,6 +366,49 @@ describe('列规格转换', () => {
   });
 });
 
+describe('D5 资源页列 unit/tz 接线', () => {
+  it('number 列 unit：单元格值追加单位后缀', async () => {
+    await loadList(
+      {
+        spec: spec({
+          listView: {
+            columns: [
+              { key: 'name', title: { 'zh-CN': '名称' }, dataType: 'string' },
+              {
+                key: 'level',
+                title: { 'zh-CN': '等级' },
+                dataType: 'number',
+                unit: { 'zh-CN': '金币' },
+              },
+            ],
+          },
+        }),
+      },
+      { data: [{ name: 'Alice', level: 100 }], total: 1 },
+    );
+    expect(screen.getByText('100 金币')).toBeInTheDocument();
+  });
+
+  it('datetime 列：formatDateTime 收到 withTz=true', async () => {
+    (formatDateTime as jest.Mock).mockClear();
+    await loadList(
+      {
+        spec: spec({
+          listView: {
+            columns: [
+              { key: 'name', title: { 'zh-CN': '名称' }, dataType: 'string' },
+              { key: 'createdAt', title: { 'zh-CN': '创建时间' }, dataType: 'datetime' },
+            ],
+          },
+        }),
+      },
+      { data: [{ name: 'Alice', createdAt: '2026-01-01T10:00:00Z' }], total: 1 },
+    );
+    const calls = (formatDateTime as jest.Mock).mock.calls as Array<[string, boolean]>;
+    expect(calls.some((args) => args[0] === '2026-01-01T10:00:00Z' && args[1] === true)).toBe(true);
+  });
+});
+
 describe('列表请求', () => {
   it('缺少列表绑定：Alert 报错', async () => {
     renderResource({ bindings: [] });

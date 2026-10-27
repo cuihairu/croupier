@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
-import { App, Descriptions } from 'antd';
+import { App, Descriptions, Typography } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import { localizedText } from '@/utils/localizedText';
@@ -100,21 +100,55 @@ export function sectionInDialog(
   );
 }
 
+/** 确认条目语义序：identity 置前（D5 身份强调），其余按原序稳定排后。 */
+function confirmEntryRank(role: ConfirmEntry['role']): number {
+  return role === 'identity' ? 0 : 1;
+}
+
+/** 确认条目值渲染（D5 语义强调）：identity 加粗、expiry 红字、声明 unit 的单位后缀。 */
+function renderConfirmEntryValue(entry: ConfirmEntry): ReactNode {
+  const unit = entry.unit ? localizedText(entry.unit, 'zh-CN', '') : '';
+  const text = unit ? `${entry.value} ${unit}` : entry.value;
+  switch (entry.role) {
+    case 'identity':
+      return <Typography.Text strong>{text}</Typography.Text>;
+    case 'expiry':
+      return <Typography.Text type="danger">{text}</Typography.Text>;
+    default:
+      return text;
+  }
+}
+
 /** 确认框内容：参数条目按字段标题渲染（Descriptions），链步骤逐行列目标。 */
+/** 确认条目 Descriptions：按语义序（identity 置前）渲染参数条目。空条目返回
+ * null。与 renderConfirmContent 共用——独立操作页确认框（OperationPageRenderer）
+ * 也走同一渲染，保证「确认内容按字段标题/枚举文案/单位/语义强调」两侧一致。 */
+export function renderConfirmEntries(entries: ConfirmEntry[]): ReactNode {
+  if (!entries.length) return null;
+  const ordered = entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => {
+      const rank = confirmEntryRank(a.entry.role) - confirmEntryRank(b.entry.role);
+      return rank === 0 ? a.index - b.index : rank;
+    })
+    .map(({ entry }) => entry);
+  return (
+    <Descriptions size="small" column={1} bordered>
+      {ordered.map((entry) => (
+        <Descriptions.Item key={entry.key} label={entry.title}>
+          {renderConfirmEntryValue(entry)}
+        </Descriptions.Item>
+      ))}
+    </Descriptions>
+  );
+}
+
 export function renderConfirmContent(model: ConfirmContentModel): ReactNode {
   const { entries = [], steps = [] } = model;
   if (entries.length === 0 && steps.length === 0) return null;
   return (
     <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-      {entries.length > 0 ? (
-        <Descriptions size="small" column={1} bordered>
-          {entries.map((entry) => (
-            <Descriptions.Item key={entry.key} label={entry.title}>
-              {entry.value}
-            </Descriptions.Item>
-          ))}
-        </Descriptions>
-      ) : null}
+      {renderConfirmEntries(entries)}
       {steps.length > 0 ? (
         <ul style={{ margin: '12px 0 0', paddingLeft: 18 }}>
           {steps.map((step, index) => (
@@ -128,16 +162,26 @@ export function renderConfirmContent(model: ConfirmContentModel): ReactNode {
   );
 }
 
+/** D3 组合页表格排序状态（服务端分页启用时的受控排序）。field 为列 key，
+ * order 为 asc/desc（渲染端 UI 的 ascend/descend 在入口处归一）。 */
+export interface TableSortState {
+  field: string;
+  order: 'asc' | 'desc';
+}
+
 /** D3 组合页表格分页状态（仅 enabled 服务端分页的表格区块持有）。
  * page 为 1-based 页码；inputFingerprint 是上次请求的非分页入参指纹（= 上游
  * 筛选/查询条件）——入参变化回首页，入参不变（操作成功后刷新、手动重跑）保持
  * 当前页码与每页条数；total 由执行器提供，缺省时按「本页满则可能有下一页」
- * 估算上界（无总数边界），避免把缺 total 误判为只剩当前页。 */
+ * 估算上界（无总数边界），避免把缺 total 误判为只剩当前页。排序状态随分页
+ * 状态保存：排序变化回首页，但排序不属于筛选指纹（排序只改变结果集顺序，
+ * 不改变成员，已选行仍有效），也不写入 sectionInputs（不触发选择核对提示）。 */
 export interface TablePageState {
   page: number;
   pageSize: number;
   inputFingerprint: string;
   total: number;
+  sort?: TableSortState;
 }
 
 /** Table pagination 配置（服务端分页受控形态 + 客户端分页缺省形态）。 */
@@ -178,6 +222,14 @@ export function paginationRequestParams(page: number, pageSize: number): Record<
   const p = Math.max(1, Math.floor(page));
   const size = clampPageSize(pageSize);
   return { page: p, pageSize: size, offset: (p - 1) * size };
+}
+
+/** 数据适配层：排序语义 → 请求参数（D3）。sortBy 为列 key、sortOrder 取
+ * asc/desc（与分页参数同口径：平台透传附加输入键，绑定函数按需消费）。
+ * 无排序状态时不下发任何键。 */
+export function sortRequestParams(sort: TableSortState | undefined): Record<string, string> {
+  if (!sort || !sort.field) return {};
+  return { sortBy: sort.field, sortOrder: sort.order === 'desc' ? 'desc' : 'asc' };
 }
 
 /** 无总数边界：结果缺 total 时按「本页满则可能有下一页」估上界；不满页即收口。 */
@@ -254,6 +306,12 @@ export interface CompositeRuntime<T extends RuntimeSection> {
   ) => Record<string, unknown>;
   handleTablePageChange: (sec: T, page: number, size: number) => void;
   tablePaginationProps: (sec: T) => TablePaginationProps;
+  handleTableSortChange: (
+    sec: T,
+    field: string | undefined,
+    order: 'asc' | 'desc' | undefined,
+  ) => void;
+  tableSortStateOf: (sec: T) => TableSortState | undefined;
   confirmDanger: (opts: {
     label: string;
     entries?: ConfirmEntry[];
@@ -430,8 +488,9 @@ export function useCompositeRuntime<T extends RuntimeSection>(
         ...(overrides || {}),
       };
       // D3：表格区块入参 = 上游筛选/查询条件 + 派生分页参数（page/pageSize/
-      // offset）。指纹只覆盖非分页入参——筛选变化回首页，入参不变（操作成功后
-      // 刷新、手动重跑）保持当前页码与每页条数。
+      // offset）+ 排序参数（sortBy/sortOrder，仅服务端分页时）。指纹只覆盖
+      // 非分页入参——筛选变化回首页，入参不变（操作成功后刷新、手动重跑）
+      // 保持当前页码与每页条数；排序不属于筛选指纹（只改变结果集顺序）。
       let merged = baseInputs;
       const pagination = tablePaginationOf(sec);
       if (sec.view === 'table' && pagination.enabled) {
@@ -443,10 +502,15 @@ export function useCompositeRuntime<T extends RuntimeSection>(
           pageSize: clampPageSize(prev?.pageSize ?? pagination.defaultSize ?? TABLE_DEFAULT_SIZE),
           inputFingerprint: fingerprint,
           total: prev?.total ?? 0,
+          sort: prev?.sort,
         };
         tablePagesRef.current = { ...tablePagesRef.current, [sec.key]: next };
         setTablePages(tablePagesRef.current);
-        merged = { ...baseInputs, ...paginationRequestParams(next.page, next.pageSize) };
+        merged = {
+          ...baseInputs,
+          ...paginationRequestParams(next.page, next.pageSize),
+          ...sortRequestParams(next.sort),
+        };
       }
       setRunning((prev) => ({ ...prev, [sec.key]: true }));
       // B2：请求序号发请求前同步占用——并发同区块重跑时仅序号匹配的那次可
@@ -679,6 +743,27 @@ export function useCompositeRuntime<T extends RuntimeSection>(
     runRef.current(sec).catch(() => undefined);
   }, []);
 
+  /** D3 表头排序（仅服务端分页启用时受控）：排序只改变结果集顺序，
+   * 因此回首页但不属于筛选指纹；排序状态不进 sectionInputs，已选行不因
+   * 排序被判过期（与分页参数同口径）。字段未变或已取消排序时不重复重跑。 */
+  const handleTableSortChange = useCallback(
+    (sec: T, field: string | undefined, order: 'asc' | 'desc' | undefined) => {
+      const cur = tablePagesRef.current[sec.key];
+      if (!cur) return;
+      const next = field && order ? { field, order } : undefined;
+      const same =
+        !!cur.sort === !!next && cur.sort?.field === next?.field && cur.sort?.order === next?.order;
+      if (same) return;
+      tablePagesRef.current = {
+        ...tablePagesRef.current,
+        [sec.key]: { ...cur, page: 1, sort: next },
+      };
+      setTablePages(tablePagesRef.current);
+      runRef.current(sec).catch(() => undefined);
+    },
+    [],
+  );
+
   /** 表格分页 UI：enabled 时服务端分页（current/pageSize 受控、total 已落账），
    * 否则保持客户端分页（不分页请求，避免全量拉取被误判为只有一页）。 */
   const tablePaginationProps = useCallback(
@@ -705,6 +790,15 @@ export function useCompositeRuntime<T extends RuntimeSection>(
       };
     },
     [handleTablePageChange, intl, tablePages],
+  );
+
+  /** D3 当前表格排序（渲染端列受控 sortOrder 的数据来源；非服务端分页
+   * 区块无分页状态，返回 undefined，排序由 antd 本地完成）。 */
+  const tableSortStateOf = useCallback(
+    (sec: T): TableSortState | undefined => {
+      return tablePages[sec.key]?.sort;
+    },
+    [tablePages],
   );
 
   /** 危险操作确认（D2）：确认框内展示即将提交/执行的完整内容——参数按字段
@@ -979,6 +1073,8 @@ export function useCompositeRuntime<T extends RuntimeSection>(
     resolveParams,
     handleTablePageChange,
     tablePaginationProps,
+    handleTableSortChange,
+    tableSortStateOf,
     confirmDanger,
     formSpecOfTarget,
     openDialog,

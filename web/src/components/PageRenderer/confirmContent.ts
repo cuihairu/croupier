@@ -1,12 +1,15 @@
 import { localizedText } from '@/utils/localizedText';
-import type { FormFieldSpec, FormPresentationSpec } from '@/types/dashboard';
+import type { FormFieldSpec, FormPresentationSpec, LocalizedText } from '@/types/dashboard';
 
 /** 确认框内容条目：title 为人工标题（字段展示 label > key 人性化），value 为
- * 枚举文案化后的展示值（enumOptions 命中用 label，数组逐项映射）。 */
+ * 枚举文案化后的展示值（enumOptions 命中用 label，数组逐项映射）。role/unit
+ * 为 D5 显式字段语义，驱动语义强调（身份置前、到期红字、金额单位后缀）。 */
 export interface ConfirmEntry {
   key: string;
   title: string;
   value: string;
+  role?: FormFieldSpec['role'];
+  unit?: LocalizedText;
 }
 
 /** 参数名人性化：snake_case / kebab-case / camelCase → 空格分隔小写词组。
@@ -78,7 +81,13 @@ export function describeConfirmEntries(
 ): ConfirmEntry[] {
   const entries = Object.entries(params ?? {}).map(([key, value]) => {
     const field = spec?.fields?.find((f) => f.key === key);
-    return { key, title: confirmFieldTitle(field, key), value: confirmValueText(field, value) };
+    return {
+      key,
+      title: confirmFieldTitle(field, key),
+      value: confirmValueText(field, value),
+      role: field?.role,
+      unit: field?.unit,
+    };
   });
   if (!spec?.fields?.length) return entries;
   const order = new Map(spec.fields.map((field, index) => [field.key, index]));

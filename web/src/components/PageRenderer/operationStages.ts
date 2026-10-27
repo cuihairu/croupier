@@ -30,12 +30,18 @@ export interface OperationStageInput {
   approvalStatus: 'pending' | 'approved' | 'rejected' | 'expired' | null;
   /** 审批通过后的续跑类别（仅 approvalStatus.continuation 为真时有意义） */
   continuationKind: 'sync' | 'task' | null;
+  /** 执行阶段失败（任务失败/取消）——提交已成功、终态停在执行阶段 error */
+  executeError?: boolean;
+  /** 任务路径的查询后状态：completed 落执行阶段 finish，failed/cancelled 落执行阶段 error，
+   *  未查询/进行中保持 process。仅任务路径有意义。 */
+  taskStatus?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | null;
 }
 
 /** 派生阶段序列。
  *
  * - 在途：只有一阶段 process，后续阶段不可知；
  * - 失败：终态停在提交阶段 error，不渲染后续阶段（操作未走到那一步）；
+ * - 执行阶段错误（executeError）：提交已成功、终态停在执行阶段 error（任务页取消/失败）；
  * - 审批路径：审批阶段随审批状态推进，执行阶段在审批通过前保持 wait，
  *   通过后按续跑类别落成 finish（同步执行）或 process（转任务）；
  * - 任务路径：任务已提交但仍在执行，执行阶段保持 process。
@@ -49,8 +55,12 @@ export function describeOperationStages(input: OperationStageInput): OperationSt
   if (input.loading) return [submit];
   if (input.hasError) return [submit];
 
-  const { resultKind, approvalStatus, continuationKind } = input;
+  const { resultKind, approvalStatus, continuationKind, executeError } = input;
   if (!resultKind) return [];
+  // 执行阶段终态错误：提交已成功，停在执行阶段 error，不渲染审批阶段。
+  if (executeError) {
+    return [submit, { key: 'execute', status: 'error' }];
+  }
 
   if (resultKind === 'approval') {
     return [
@@ -76,5 +86,16 @@ export function describeOperationStages(input: OperationStageInput): OperationSt
     ];
   }
 
-  return [submit, { key: 'execute', status: resultKind === 'task' ? 'process' : 'finish' }];
+  if (resultKind === 'task') {
+    // 任务路径：未查询或进行中保持 process；查询到终态则按任务状态收口
+    // （completed 落执行阶段 finish，failed/cancelled 落执行阶段 error）。
+    if (input.taskStatus === 'completed') {
+      return [submit, { key: 'execute', status: 'finish' }];
+    }
+    if (input.taskStatus === 'failed' || input.taskStatus === 'cancelled') {
+      return [submit, { key: 'execute', status: 'error' }];
+    }
+    return [submit, { key: 'execute', status: 'process' }];
+  }
+  return [submit, { key: 'execute', status: 'finish' }];
 }

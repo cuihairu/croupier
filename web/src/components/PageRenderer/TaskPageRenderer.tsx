@@ -36,6 +36,7 @@ import type {
 } from '@/types/dashboard';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
+import OperationStageBar from './OperationStageBar';
 
 const { Text } = Typography;
 
@@ -66,7 +67,8 @@ export interface TaskPageRendererProps {
 // 状态颜色
 // ---------------------------------------------------------------------------
 
-function getStatusColor(status: string): string {
+/** 任务状态 → antd Tag 颜色；供任务页与操作页任务结果面板共享。 */
+export function getStatusColor(status: string): string {
   switch (status) {
     case 'completed':
       return 'success';
@@ -81,7 +83,8 @@ function getStatusColor(status: string): string {
   }
 }
 
-function getStatusIcon(status: string): React.ReactNode {
+/** 任务状态 → 状态图标；供任务页与操作页任务结果面板共享。 */
+export function getStatusIcon(status: string): React.ReactNode {
   switch (status) {
     case 'completed':
       return <CheckCircleOutlined />;
@@ -457,14 +460,15 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       // concurrent polls when API responses are slow (>2s)
       const schedulePoll = () => {
         pollingRef.current = setTimeout(async () => {
+          // 终态/停止逻辑会把 pollingRef.current 置 null，命中即不再续期
+          if (pollingRef.current === null) return;
           await pollTaskStatus(taskId);
-          if (pollingRef.current) schedulePoll();
+          if (pollingRef.current !== null) schedulePoll();
         }, 2000) as unknown as ReturnType<typeof setInterval>;
       };
-      // 立即查询一次
-      void pollTaskStatus(taskId).then(() => {
-        if (pollingRef.current !== null) schedulePoll();
-      });
+      // 先挂上首个周期，再立即查询一次；终态时 pollTaskStatus 会清掉待触发的定时器
+      schedulePoll();
+      void pollTaskStatus(taskId);
     },
     [message, canQueryTaskStatus, pollTaskStatus],
   );
@@ -915,6 +919,21 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           disabled={loading || preview}
         />
       </Card>
+
+      {/* D1：多阶段状态反馈阶段条。任务页的失败/取消发生在执行阶段（提交已
+       * 成功），故走 executeError 终态而非提交 error；completed 落成执行完成
+       * （resultKind sync），running/pending 保持执行中；与任务状态卡同源。 */}
+      <OperationStageBar
+        input={{
+          loading,
+          hasError: false,
+          resultKind: taskStatus ? (taskStatus.status === 'completed' ? 'sync' : 'task') : null,
+          approvalStatus: null,
+          continuationKind: null,
+          executeError:
+            taskStatus?.status === 'failed' || taskStatus?.status === 'cancelled' || undefined,
+        }}
+      />
 
       {/* 任务进度 */}
       {renderTaskProgress()}

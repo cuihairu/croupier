@@ -62,8 +62,8 @@ Support tickets, data analysis, server management, etc. can be added later or ha
 - The config must be parseable by the real `LoadSeedMenus`: the seven keys unique, order increasing, labels BCP47-valid, icons renderable.
 - The seeder's regression cases carry over: scope independence, idempotent repeated visits, no overwriting of existing categories, and no resurrection of user-deleted categories.
 - PageSpec wire, publishing, and menu-mount contracts are unchanged, and no live data migration is involved; running services need the updated bootstrap file and a restart to load the template.
-- Delivering the default categories is not the delivery of the business subpages; the five business loops are tracked separately in todo and accepted against real game integrations.
-- The CRUD loop (query → detail → create/edit/delete confirm → refresh) is accepted against real game contracts, not asserted from generated nodes or demo data: the registry declares which CRUD roles each template provides, and a template that lacks a role states why instead of implying coverage.
+- Delivering the default categories is not the delivery of the business subpages; the five business loops are tracked separately in todo, and real business pages still require game capability wiring, publishing, mounting, and acceptance against real integrations.
+- The business-template CRUD loop (query → detail → create/edit/delete confirm → refresh) is accepted at fixture level by `web/src/components/PageRenderer/templates/gameOpsCrudFixture.test.tsx` on the player workbench with the in-memory `gameOpsDemo` fixture. This accepts the template and renderer chain, not a real game contract: the registry still declares which CRUD roles each template provides, and a template that lacks a role states why instead of implying coverage. Real-game contract acceptance remains tracked per integration separately from this C1 closure.
 
 Related: [Console dynamic menus](../architecture/console-dynamic-menu.md), [Page publish and mount wizard](../guide/concepts/console-navigation.md), [Agent console pages](agent-dashboard-design.md).
 

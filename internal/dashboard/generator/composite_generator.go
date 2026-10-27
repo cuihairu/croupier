@@ -45,7 +45,12 @@ type CompositeSectionInput struct {
 	// 语义上下文，恒为 nil 即关闭）；非 nil 且 Enabled=true 时原样落位，
 	// 使编辑器可在发布态表格上开启服务端分页。
 	Pagination *spec.PaginationSpec
-	OnSuccess  []string
+	// Selection 显式行选择配置（view=table，D2 批量目标核对）：nil 或
+	// Multiple=false 保持既有单选 radio；Multiple=true 原样落位，发布态
+	// 表格启用 checkbox 多选与选择栏（生成器不推导身份列，渲染端按
+	// Selection.IdentityKey → Table.IdentityKey 顺序取行标识）。
+	Selection *spec.CompositeSelectionSpec
+	OnSuccess []string
 	// Events 通用事件绑定（发布触发点）。
 	Events []spec.CompositeEventBinding
 	// VisibleWhen 区块级条件显示（按页面状态求值，false 时不渲染）。
@@ -190,6 +195,15 @@ func GenerateCompositePage(
 					}
 					lv.Columns = columns
 				}
+				// D3：可排序列按数据类型机械标注（number/datetime 有明确序），
+				// 不依赖资源语义上下文——与分页/行选择的 opt-in 不同，排序不
+				// 构成对绑定函数的隐式请求假设：未启用服务端分页时排序在渲染
+				// 端本地完成，启用后才随分页一并下推 sortBy/sortOrder。
+				for i := range lv.Columns {
+					if dt := lv.Columns[i].DataType; dt == "number" || dt == "datetime" {
+						lv.Columns[i].Sortable = true
+					}
+				}
 				// 显式分页配置优先于契约推导：组合页无资源语义上下文，
 				// 推导结果恒为 nil（服务端分页关闭），编辑器开启的分页
 				// 配置由此落位到发布态区块。
@@ -202,6 +216,7 @@ func GenerateCompositePage(
 					Pagination:  pagination,
 					RowSchema:   lv.RowSchema,
 					IdentityKey: lv.IdentityKey,
+					Selection:   in.Selection,
 				}
 			}
 		}

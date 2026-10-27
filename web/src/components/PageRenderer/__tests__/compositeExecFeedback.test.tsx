@@ -47,6 +47,7 @@ describe('D4 失败反馈构造', () => {
       code: 'validation_failed',
       message: '请求参数无效',
       fieldErrors: [{ field: 'to', message: '收件人不能为空' }],
+      outcome: 'failed',
     });
   });
 
@@ -68,7 +69,18 @@ describe('D4 失败反馈构造', () => {
       message: '网络错误',
       fieldErrors: [],
       reason: undefined,
+      outcome: 'failed',
     });
+  });
+
+  it('传输层失败（超时/网络中断）结果未知，不按「已失败」归类', () => {
+    expect(describeExecFailure(new Error('timeout of 5000ms exceeded')).outcome).toBe('unknown');
+    expect(describeExecFailure(new TypeError('Failed to fetch')).outcome).toBe('unknown');
+    const abort = new Error('aborted');
+    abort.name = 'AbortError';
+    expect(describeExecFailure(abort).outcome).toBe('unknown');
+    // 服务端已应答（ResponseError 形态）即使 message 含 timeout 也不属未知
+    expect(describeExecFailure(apiError('gateway_timeout', '网关超时')).outcome).toBe('failed');
   });
 
   it('权限不足：稳定错误码、服务端原因与 details 都保留（不暴露原始 key）', () => {
@@ -80,6 +92,14 @@ describe('D4 失败反馈构造', () => {
       }),
     );
     expect(f.code).toBe('permission_denied');
+    expect(f.fieldErrors).toEqual([]);
+    expect(f.reason).toBe('缺少权限：ban:write；需要角色：operator');
+  });
+
+  it('权限不足：稳定错误码与原因文案都保留（字段明细为空）', () => {
+    const f = describeExecFailure(apiError('forbidden', '无权限执行 punish.ban：缺少 ban 权限'));
+    expect(f.code).toBe('forbidden');
+
     expect(f.message).toContain('缺少 ban 权限');
     expect(f.fieldErrors).toEqual([]);
     expect(f.reason).toBe('缺少权限：ban:write；需要角色：operator');
@@ -180,6 +200,20 @@ describe('D4 执行反馈闭环', () => {
 
   const clickSubmit = () => fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
 
+  /** D1 阶段条断言：标题所在 Steps item 的 ant-steps-item-<status> 状态类。
+   * 弹窗提交按钮文案可能同为「执行」，必须在 .ant-steps 容器内查找。 */
+  const expectStage = (title: string, status: string) => {
+    const items = Array.from(document.querySelectorAll('.ant-steps-item'));
+    const node = items.find((n) => n.textContent?.includes(title)) as HTMLElement | undefined;
+    expect(node).toBeDefined();
+    expect(node!.className).toContain(`ant-steps-item-${status}`);
+  };
+  /** 阶段条内是否出现某标题（弹窗按钮等外部同文案不干扰）。 */
+  const stageHasText = (title: string) =>
+    !!Array.from(document.querySelectorAll('.ant-steps-item')).find((n) =>
+      n.textContent?.includes(title),
+    );
+
   it('审批待处理：提示已提交审批、弹窗保持开启给审批入口，不刷新目标区块', async () => {
     const onExecute = jest
       .fn()
@@ -199,6 +233,10 @@ describe('D4 执行反馈闭环', () => {
     expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
     expect(screen.getByText('已提交审批，等待审批通过后生效')).toBeInTheDocument();
     expect(screen.getByText('审批单 ap-101')).toBeInTheDocument();
+    // D1 阶段条：提交完成、审批进行中、执行待审批
+    expectStage('提交操作', 'finish');
+    expectStage('审批', 'process');
+    expectStage('执行', 'wait');
     const pushSpy = jest.spyOn(history, 'push');
     fireEvent.click(screen.getByRole('button', { name: /前\s*往\s*审\s*批\s*中\s*心/ }));
     expect(pushSpy).toHaveBeenCalledWith('/approvals?approvalId=ap-101');
@@ -227,6 +265,10 @@ describe('D4 执行反馈闭环', () => {
     expect(pushSpy).toHaveBeenCalledWith('/ops/jobs');
     pushSpy.mockRestore();
     expect(onExecute).not.toHaveBeenCalledWith('b-list', expect.anything());
+    // D1 阶段条：提交完成、执行进行中（无审批阶段）
+    expectStage('提交操作', 'finish');
+    expectStage('执行', 'process');
+    expect(stageHasText('审批')).toBe(false);
   });
 
   it('参数错误：字段错误注入控件，反馈条只留表单外字段，弹窗与输入保留', async () => {
@@ -253,9 +295,31 @@ describe('D4 执行反馈闭环', () => {
     }
     // 表单外未知字段仍留在反馈条，按 key 人性化展示
     expect(alert).toHaveTextContent('channel：渠道不可用');
+    // D1 阶段条：失败终态停在提交阶段 error，不渲染未到达的阶段
+    expectStage('提交操作', 'error');
+    expect(stageHasText('审批')).toBe(false);
+    expect(stageHasText('执行')).toBe(false);
     // 失败保留弹窗与已填参数
     expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
     expect((screen.getByLabelText('玩家 ID') as HTMLInputElement).value).toBe('u1001');
+  });
+
+  it('写操作超时：结果未知提示（不按「已失败」），阶段条不落 submit error', async () => {
+    const onExecute = jest.fn().mockRejectedValue(new Error('timeout of 5000ms exceeded'));
+    const { app } = await openBan(onExecute);
+    const errorSpy = jest.spyOn(app.current!.message, 'error');
+
+    clickSubmit();
+    await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    // 反馈条为「执行结果未知」warning，不出现「执行失败」error
+    expect(screen.getByText('执行结果未知', { selector: '.ant-alert-title' })).toBeInTheDocument();
+    expect(screen.queryByText(/执行失败/)).toBeNull();
+    // 明示请求可能已在服务端执行（不得盲目重复提交）
+    expect(screen.getByText(/可能已在服务端执行/)).toBeInTheDocument();
+    // D1 阶段条：结果未知不落提交阶段 error（无阶段渲染）
+    expect(screen.queryByText('提交操作')).toBeNull();
+    // 失败保留弹窗与已填参数（沿用失败分支）
+    expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
   });
 
   it('参数错误输入改动后：控件下错误消失，反馈条一并清除', async () => {

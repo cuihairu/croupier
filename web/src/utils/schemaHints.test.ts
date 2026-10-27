@@ -509,4 +509,26 @@ describe('derivePresentationSpec hints 边界（追加）', () => {
     );
     expect(spec.fields).toBeUndefined();
   });
+
+  it('x-field-role / x-field-unit（D5）：合法 role 透传，unit 归一双语；非法 role 忽略', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          playerId: { type: 'string', 'x-field-role': 'identity' },
+          coins: { type: 'number', 'x-field-role': 'amount', 'x-field-unit': '金币' },
+          rate: { type: 'number', 'x-field-unit': { 'zh-CN': '倍', 'en-US': 'x' } },
+          bad: { type: 'string', 'x-field-role': 'not-a-role' },
+        },
+      }),
+    );
+    const byKey = Object.fromEntries(spec.fields!.map((f) => [f.key, f]));
+    expect(byKey.playerId.role).toBe('identity');
+    expect(byKey.coins.role).toBe('amount');
+    // 裸字符串 unit 归一到默认语言单 key（与 x-label 等既有 hint 同约定）
+    expect(byKey.coins.unit).toEqual({ 'zh-CN': '金币' });
+    expect(byKey.rate.unit).toEqual({ 'zh-CN': '倍', 'en-US': 'x' });
+    expect(byKey.bad.role).toBeUndefined();
+    expect(byKey.bad.unit).toBeUndefined();
+  });
 });

@@ -61,6 +61,42 @@ describe('describeOperationStages', () => {
     ]);
   });
 
+  it('任务查询为 running/pending：执行阶段保持 process（与未查询同形）', () => {
+    expect(of({ resultKind: 'task', taskStatus: 'running' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'process' },
+    ]);
+    expect(of({ resultKind: 'task', taskStatus: 'pending' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'process' },
+    ]);
+  });
+
+  it('任务查询为 completed：执行阶段落 finish', () => {
+    expect(of({ resultKind: 'task', taskStatus: 'completed' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'finish' },
+    ]);
+  });
+
+  it('任务查询为 failed/cancelled：终态停在执行阶段 error', () => {
+    expect(of({ resultKind: 'task', taskStatus: 'failed' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'error' },
+    ]);
+    expect(of({ resultKind: 'task', taskStatus: 'cancelled' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'error' },
+    ]);
+  });
+
+  it('taskStatus 不影响同步路径：sync 结果执行阶段仍为 finish', () => {
+    expect(of({ resultKind: 'sync', taskStatus: 'failed' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'finish' },
+    ]);
+  });
+
   it('已提交审批但尚未查询状态：审批进行中、执行结果待审批', () => {
     expect(of({ resultKind: 'approval' })).toEqual([
       { key: 'submit', status: 'finish' },
@@ -118,6 +154,26 @@ describe('describeOperationStages', () => {
       { key: 'submit', status: 'finish' },
       { key: 'approval', status: 'error' },
       { key: 'execute', status: 'wait' },
+    ]);
+  });
+
+  it('执行阶段错误（任务失败）：提交已成功，终态停在执行阶段 error', () => {
+    expect(of({ resultKind: 'task', executeError: true })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'error' },
+    ]);
+  });
+
+  it('执行阶段错误与提交失败互斥：hasError 优先，不渲染未到达的阶段', () => {
+    expect(of({ hasError: true, resultKind: 'task', executeError: true })).toEqual([
+      { key: 'submit', status: 'error' },
+    ]);
+  });
+
+  it('executeError 缺省（undefined）：按任务执行中处理，不受影响', () => {
+    expect(of({ resultKind: 'task' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'process' },
     ]);
   });
 });

@@ -677,9 +677,24 @@ type CompositeTableSpec struct {
 	Pagination  *PaginationSpec `json:"pagination,omitempty"`
 	RowSchema   JSONSchema      `json:"rowSchema,omitempty"`
 	IdentityKey string          `json:"identityKey,omitempty"`
+	// Selection 行选择配置（D2 批量目标核对）：缺省无选择栏（行选择仍为
+	// 既有单选 radio，rowSelected 事件语义不变）；multiple=true 时表格启用
+	// checkbox 多选 + 选择栏（已选计数/目标清单/清空/筛选变更核对）。
+	Selection *CompositeSelectionSpec `json:"selection,omitempty"`
 	// RowActions 行尾操作按钮：打开弹窗表单（行字段映射进参数）或
 	// 直接执行函数。GM 后台最常见组合（列表行内封禁/发邮件）。
 	RowActions []CompositeRowAction `json:"rowActions,omitempty"`
+}
+
+// CompositeSelectionSpec 组合页表格行选择配置（D2 批量目标核对）。
+type CompositeSelectionSpec struct {
+	// Multiple 启用 checkbox 多选 + 选择栏（已选计数/本页可见数/筛选变更
+	// 核对/目标清单/清空）。false 或缺省=既有单选 radio（rowSelected 事件）。
+	Multiple bool `json:"multiple,omitempty"`
+	// IdentityKey 行身份列 key（多选必须）：表格 rowKey、跨页保留选择、
+	// 目标清单与确认条目取同一标识口径——多选下缺身份列会导致跨页按键
+	// 错位；渲染端缺省回退 CompositeTableSpec.IdentityKey。
+	IdentityKey string `json:"identityKey,omitempty"`
 }
 
 // CompositeRowAction 表格行操作。

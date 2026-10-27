@@ -197,6 +197,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           onExecute={executeWithPageState}
           preview={preview}
           onQueryApprovalStatus={onQueryApprovalStatus}
+          onQueryTaskStatus={onQueryStatus}
           title={localizedText(pageSpec.title, 'zh-CN', '')}
         />
       );

@@ -466,6 +466,11 @@ export interface CompositeSection {
     pagination?: PaginationSpec;
     rowSchema?: Record<string, unknown>;
     identityKey?: string;
+    /** 行选择（D2 批量目标核对）：缺省单选 radio（rowSelected 事件语义
+     * 不变）；multiple=true 启用 checkbox 多选 + 选择栏（跨页保留选择/
+     * 计数/目标清单/清空/筛选变更核对），行身份按 selection.identityKey →
+     * identityKey 顺序取（多选必须配稳定身份列，否则跨页按键错位）。 */
+    selection?: { multiple?: boolean; identityKey?: string };
     rowActions?: CompositeRowAction[];
   };
   fields?: DetailFieldSpec[];
@@ -592,6 +597,8 @@ export interface ColumnSpec {
   enum?: EnumOption[];
   format?: string;
   render?: 'tag' | 'link' | 'copy' | 'status';
+  /** 列单位后缀（x-field-unit hint，D5），如 金币/个 */
+  unit?: LocalizedText;
 }
 
 /** 枚举选项 */
@@ -793,6 +800,10 @@ export interface FormFieldSpec {
   label?: LocalizedText;
   placeholder?: LocalizedText;
   description?: LocalizedText;
+  /** 显式字段语义（x-field-role，D5）：identity|status|reason|expiry|amount|quantity */
+  role?: 'identity' | 'status' | 'reason' | 'expiry' | 'amount' | 'quantity';
+  /** 显示单位后缀（x-field-unit，D5），如 金币/个 */
+  unit?: LocalizedText;
   width?: number;
   order?: number;
   visible?: boolean;

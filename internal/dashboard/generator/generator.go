@@ -642,6 +642,12 @@ func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec
 		if description := hintLocalized(prop["x-description"]); description != nil {
 			field.Description = description
 		}
+		if role := hintFieldRole(rawString(prop["x-field-role"])); role != "" {
+			field.Role = role
+		}
+		if unit := hintLocalized(prop["x-field-unit"]); unit != nil {
+			field.Unit = unit
+		}
 		if width := rawInt(prop["x-width"]); width >= 1 && width <= 12 {
 			field.Width = width
 		}

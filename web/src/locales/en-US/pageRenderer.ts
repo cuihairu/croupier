@@ -1,17 +1,31 @@
 // component.pageRenderer.* — Operation/Task/Report 渲染器与模板
 export default {
+  'component.pageRenderer.activityConfig.pageSubtitle':
+    'Business template · Activity list / Config versions / Publish / Rollback',
+  'component.pageRenderer.activityConfig.pageTitle': 'Activity Config',
+  'component.pageRenderer.banManagement.pageSubtitle':
+    'Business template · Ban list / Unban / Extend / Batch unban',
+  'component.pageRenderer.banManagement.pageTitle': 'Ban Management',
   'component.pageRenderer.composite.cascadePaused':
     'Section "{upstream}" failed; cascade to "{section}" is paused',
   'component.pageRenderer.composite.confirmDangerTitle': 'Confirm "{label}"',
   'component.pageRenderer.composite.confirmExecute': 'Confirm',
   'component.pageRenderer.composite.executeButton': 'Run',
   'component.pageRenderer.composite.executeFailed': 'Execution failed',
-  'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
   'component.pageRenderer.composite.executeReplayed':
     '{title} was already submitted earlier; this response returns the server-recorded result (not re-executed)',
+  'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
   'component.pageRenderer.composite.goToApprovals': 'Go to approvals',
   'component.pageRenderer.composite.goToTaskCenter': 'Go to task center',
   'component.pageRenderer.composite.rowActionsColumn': 'Actions',
+  'component.pageRenderer.composite.selection.clear': 'Clear selection',
+  'component.pageRenderer.composite.selection.count': 'Selected {count} item(s)',
+  'component.pageRenderer.composite.selection.stale':
+    'Filters changed; selected items are not in the current result set. Review, then clear or re-select.',
+  'component.pageRenderer.composite.selection.targetList': 'View target list',
+  'component.pageRenderer.composite.selection.targetListTitle':
+    'Selected target list ({count} item(s))',
+  'component.pageRenderer.composite.selection.visible': '{count} visible on this page',
   'component.pageRenderer.composite.tabFallback': 'Tab {n}',
   'component.pageRenderer.executorUnbound.description':
     'The function behind this page comes from uploaded material and has no runtime executor bound yet; execution is blocked. Bind it first.',
@@ -19,7 +33,6 @@ export default {
   'component.pageRenderer.executorUnbound.title': 'Executor not bound',
   'component.pageRenderer.executorUnbound.toast':
     'The function has no runtime executor bound yet; complete the binding first',
-
   'component.pageRenderer.expression.error.arrayIndexUnterminated': 'Array index is missing ]',
   'component.pageRenderer.expression.error.empty': 'Expression is empty',
   'component.pageRenderer.expression.error.illegalCharacter': 'Invalid character "{char}"',
@@ -28,6 +41,9 @@ export default {
   'component.pageRenderer.expression.error.notExpression':
     "Not an expression (should start with '{{' and end with '}}')",
   'component.pageRenderer.expression.error.unknownVariable': 'Unknown variable: {variable}',
+  'component.pageRenderer.mailCompensation.pageSubtitle':
+    'Business template · Task list / Target snapshot / Approval / Failure retry',
+  'component.pageRenderer.mailCompensation.pageTitle': 'Mail & Compensation',
   'component.pageRenderer.operationPage.approval.incompleteDescription':
     'This returns an approvalId only and does not indicate a successful business execution.',
   'component.pageRenderer.operationPage.approval.incompleteTitle': 'Operation not completed yet',
@@ -39,16 +55,19 @@ export default {
     'Result view for post-approval execution is not configured',
   'component.pageRenderer.operationPage.approval.statusLabel': 'Approval status: {status}',
   'component.pageRenderer.operationPage.approval.taskStarted': 'Approval granted, task started',
-  'component.pageRenderer.operationPage.button.refreshApproval': 'Refresh approval status',
-  'component.pageRenderer.operationPage.button.resetResult': 'Reset result',
   'component.pageRenderer.operationPage.button.goToApprovals': 'Go to approvals',
   'component.pageRenderer.operationPage.button.goToTasks': 'Go to task center',
+  'component.pageRenderer.operationPage.button.queryTaskStatus': 'Query execution status',
+  'component.pageRenderer.operationPage.button.refreshApproval': 'Refresh approval status',
+  'component.pageRenderer.operationPage.button.resetResult': 'Reset result',
   'component.pageRenderer.operationPage.confirm.cancel': 'Cancel',
   'component.pageRenderer.operationPage.confirm.ok': 'OK',
   'component.pageRenderer.operationPage.confirm.title': 'Confirm operation',
   'component.pageRenderer.operationPage.error.missingBinding': 'No operation binding configured',
   'component.pageRenderer.operationPage.form.title': 'Run operation',
   'component.pageRenderer.operationPage.message.failed': 'Operation failed',
+  'component.pageRenderer.operationPage.message.replayed':
+    'The operation was already submitted earlier; this response returns the server-recorded result (not re-executed)',
   'component.pageRenderer.operationPage.message.submittedApproval':
     'Operation submitted for approval',
   'component.pageRenderer.operationPage.message.success': 'Operation succeeded',
@@ -60,23 +79,15 @@ export default {
   'component.pageRenderer.operationPage.stage.approval': 'Approval',
   'component.pageRenderer.operationPage.stage.execute': 'Execution',
   'component.pageRenderer.operationPage.stage.submit': 'Submit',
+  'component.pageRenderer.operationPage.task.queryFailed': 'Failed to query task status',
   'component.pageRenderer.operationPage.task.runningSubtitle':
     'The async task is still running. Check its progress in the Task Center or on the task page.',
-  'component.pageRenderer.playerManage.pageSubtitle':
-    'CRUD template · List / Detail / Ban / Recharge / Mail',
-  'component.pageRenderer.playerManage.pageTitle': 'Player Management',
-  'component.pageRenderer.mailCompensation.pageSubtitle':
-    'Business template · Task list / Target snapshot / Approval / Failure retry',
-  'component.pageRenderer.mailCompensation.pageTitle': 'Mail & Compensation',
-  'component.pageRenderer.banManagement.pageSubtitle':
-    'Business template · Ban list / Unban / Extend / Batch unban',
-  'component.pageRenderer.banManagement.pageTitle': 'Ban Management',
   'component.pageRenderer.orderReview.pageSubtitle':
     'Business template · Order query / Credit check / Reconciliation / Re-credit',
   'component.pageRenderer.orderReview.pageTitle': 'Order Review',
-  'component.pageRenderer.activityConfig.pageSubtitle':
-    'Business template · Activity list / Config versions / Publish / Rollback',
-  'component.pageRenderer.activityConfig.pageTitle': 'Activity Config',
+  'component.pageRenderer.playerManage.pageSubtitle':
+    'CRUD template · List / Detail / Ban / Recharge / Mail',
+  'component.pageRenderer.playerManage.pageTitle': 'Player Management',
   'component.pageRenderer.reportPage.button.clear': 'Clear',
   'component.pageRenderer.reportPage.button.clearResults': 'Clear results',
   'component.pageRenderer.reportPage.chart.empty': 'No data',
@@ -142,17 +153,17 @@ export default {
   'component.pageRenderer.taskPage.approval.submittedToast': 'Task submitted for approval',
   'component.pageRenderer.taskPage.approval.taskStarted': 'Approval granted, task started',
   'component.pageRenderer.taskPage.button.cancel': 'Cancel',
-  'component.pageRenderer.taskPage.button.refresh': 'Refresh',
-  'component.pageRenderer.taskPage.button.refreshApproval': 'Refresh approval status',
   'component.pageRenderer.taskPage.button.goToApprovals': 'Go to approvals',
   'component.pageRenderer.taskPage.button.goToTasks': 'Go to task center',
+  'component.pageRenderer.taskPage.button.refresh': 'Refresh',
+  'component.pageRenderer.taskPage.button.refreshApproval': 'Refresh approval status',
   'component.pageRenderer.taskPage.error.cancelFailed': 'Failed to cancel task: {detail}',
   'component.pageRenderer.taskPage.error.missingBinding': 'No task binding configured',
-  'component.pageRenderer.taskPage.error.submitFailedWithReason':
-    'Task submission failed: {detail}{reason}',
   'component.pageRenderer.taskPage.error.statusBindingUnmapped':
     'Task status binding is not mapped to pageState.taskStatus',
   'component.pageRenderer.taskPage.error.submitFailed': 'Task submission failed: {detail}',
+  'component.pageRenderer.taskPage.error.submitFailedWithReason':
+    'Task submission failed: {detail}{reason}',
   'component.pageRenderer.taskPage.error.unknown': 'Unknown error',
   'component.pageRenderer.taskPage.events.title': 'Task events',
   'component.pageRenderer.taskPage.form.title': 'Submit task',

@@ -1,17 +1,30 @@
 // component.pageRenderer.* — Operation/Task/Report 渲染器与模板
 export default {
+  'component.pageRenderer.activityConfig.pageSubtitle':
+    '业务模板 · 活动列表 / 配置版本 / 发布 / 回滚',
+  'component.pageRenderer.activityConfig.pageTitle': '活动配置',
+  'component.pageRenderer.banManagement.pageSubtitle':
+    '业务模板 · 封禁列表 / 解封 / 延期 / 批量解封',
+  'component.pageRenderer.banManagement.pageTitle': '封禁管理',
   'component.pageRenderer.composite.cascadePaused':
     '区块「{upstream}」执行失败，「{section}」联动已暂停',
   'component.pageRenderer.composite.confirmDangerTitle': '确认执行「{label}」',
   'component.pageRenderer.composite.confirmExecute': '确认执行',
   'component.pageRenderer.composite.executeButton': '执行',
   'component.pageRenderer.composite.executeFailed': '执行失败',
-  'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
   'component.pageRenderer.composite.executeReplayed':
     '{title} 已在先前提交过，本次返回服务端记录的结果（未重复执行）',
+  'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
   'component.pageRenderer.composite.goToApprovals': '前往审批中心',
   'component.pageRenderer.composite.goToTaskCenter': '前往任务中心',
   'component.pageRenderer.composite.rowActionsColumn': '操作',
+  'component.pageRenderer.composite.selection.clear': '取消选择',
+  'component.pageRenderer.composite.selection.count': '已选择 {count} 项',
+  'component.pageRenderer.composite.selection.stale':
+    '筛选条件已变更，已选对象不在当前结果集，请核对后清除或重新勾选',
+  'component.pageRenderer.composite.selection.targetList': '查看目标清单',
+  'component.pageRenderer.composite.selection.targetListTitle': '已选目标清单（{count} 项）',
+  'component.pageRenderer.composite.selection.visible': '本页可见 {count} 项',
   'component.pageRenderer.composite.tabFallback': '页签 {n}',
   'component.pageRenderer.executorUnbound.description':
     '该页面的函数来自上传物料，尚未绑定运行时执行器，执行已被阻断；请先绑定后再执行。',
@@ -26,6 +39,9 @@ export default {
   'component.pageRenderer.expression.error.notExpression':
     "不是表达式（应以 '{{' 开头、'}}' 结尾）",
   'component.pageRenderer.expression.error.unknownVariable': '未知变量：{variable}',
+  'component.pageRenderer.mailCompensation.pageSubtitle':
+    '业务模板 · 任务列表 / 目标快照 / 审批 / 失败重试',
+  'component.pageRenderer.mailCompensation.pageTitle': '邮件与补偿',
   'component.pageRenderer.operationPage.approval.incompleteDescription':
     '当前返回的是 approvalId，不代表业务执行成功。',
   'component.pageRenderer.operationPage.approval.incompleteTitle': '操作尚未完成',
@@ -36,16 +52,19 @@ export default {
   'component.pageRenderer.operationPage.approval.resultViewMissing': '审批后执行结果视图未配置',
   'component.pageRenderer.operationPage.approval.statusLabel': '审批状态：{status}',
   'component.pageRenderer.operationPage.approval.taskStarted': '审批已通过，任务已启动',
-  'component.pageRenderer.operationPage.button.refreshApproval': '刷新审批状态',
-  'component.pageRenderer.operationPage.button.resetResult': '重置结果',
   'component.pageRenderer.operationPage.button.goToApprovals': '前往审批中心',
   'component.pageRenderer.operationPage.button.goToTasks': '前往任务中心',
+  'component.pageRenderer.operationPage.button.queryTaskStatus': '查询执行状态',
+  'component.pageRenderer.operationPage.button.refreshApproval': '刷新审批状态',
+  'component.pageRenderer.operationPage.button.resetResult': '重置结果',
   'component.pageRenderer.operationPage.confirm.cancel': '取消',
   'component.pageRenderer.operationPage.confirm.ok': '确定',
   'component.pageRenderer.operationPage.confirm.title': '确认操作',
   'component.pageRenderer.operationPage.error.missingBinding': '未配置操作绑定',
   'component.pageRenderer.operationPage.form.title': '执行操作',
   'component.pageRenderer.operationPage.message.failed': '操作失败',
+  'component.pageRenderer.operationPage.message.replayed':
+    '操作已在先前提交过，本次返回服务端记录的结果（未重复执行）',
   'component.pageRenderer.operationPage.message.submittedApproval': '操作已提交审批',
   'component.pageRenderer.operationPage.message.success': '操作成功',
   'component.pageRenderer.operationPage.message.taskSubmitted': '任务已提交',
@@ -55,23 +74,15 @@ export default {
   'component.pageRenderer.operationPage.stage.approval': '审批',
   'component.pageRenderer.operationPage.stage.execute': '执行',
   'component.pageRenderer.operationPage.stage.submit': '提交操作',
+  'component.pageRenderer.operationPage.task.queryFailed': '任务状态查询失败',
   'component.pageRenderer.operationPage.task.runningSubtitle':
     '异步任务仍在执行，请在任务中心或任务页面查看进度。',
-  'component.pageRenderer.playerManage.pageSubtitle':
-    'CRUD 模板 · 列表 / 详情 / 封禁 / 充值 / 邮件',
-  'component.pageRenderer.playerManage.pageTitle': '玩家管理',
-  'component.pageRenderer.mailCompensation.pageSubtitle':
-    '业务模板 · 任务列表 / 目标快照 / 审批 / 失败重试',
-  'component.pageRenderer.mailCompensation.pageTitle': '邮件与补偿',
-  'component.pageRenderer.banManagement.pageSubtitle':
-    '业务模板 · 封禁列表 / 解封 / 延期 / 批量解封',
-  'component.pageRenderer.banManagement.pageTitle': '封禁管理',
   'component.pageRenderer.orderReview.pageSubtitle':
     '业务模板 · 订单查询 / 发货核查 / 对账差异 / 补发',
   'component.pageRenderer.orderReview.pageTitle': '订单核查',
-  'component.pageRenderer.activityConfig.pageSubtitle':
-    '业务模板 · 活动列表 / 配置版本 / 发布 / 回滚',
-  'component.pageRenderer.activityConfig.pageTitle': '活动配置',
+  'component.pageRenderer.playerManage.pageSubtitle':
+    'CRUD 模板 · 列表 / 详情 / 封禁 / 充值 / 邮件',
+  'component.pageRenderer.playerManage.pageTitle': '玩家管理',
   'component.pageRenderer.reportPage.button.clear': '清空',
   'component.pageRenderer.reportPage.button.clearResults': '清空结果',
   'component.pageRenderer.reportPage.chart.empty': '暂无数据',
@@ -129,16 +140,16 @@ export default {
   'component.pageRenderer.taskPage.approval.submittedToast': '任务已提交审批',
   'component.pageRenderer.taskPage.approval.taskStarted': '审批已通过，任务已启动',
   'component.pageRenderer.taskPage.button.cancel': '取消',
-  'component.pageRenderer.taskPage.button.refresh': '刷新',
-  'component.pageRenderer.taskPage.button.refreshApproval': '刷新审批状态',
   'component.pageRenderer.taskPage.button.goToApprovals': '前往审批中心',
   'component.pageRenderer.taskPage.button.goToTasks': '前往任务中心',
+  'component.pageRenderer.taskPage.button.refresh': '刷新',
+  'component.pageRenderer.taskPage.button.refreshApproval': '刷新审批状态',
   'component.pageRenderer.taskPage.error.cancelFailed': '取消任务失败: {detail}',
   'component.pageRenderer.taskPage.error.missingBinding': '未配置任务绑定',
-  'component.pageRenderer.taskPage.error.submitFailedWithReason': '任务提交失败: {detail}{reason}',
   'component.pageRenderer.taskPage.error.statusBindingUnmapped':
     '任务状态绑定未映射到 pageState.taskStatus',
   'component.pageRenderer.taskPage.error.submitFailed': '任务提交失败: {detail}',
+  'component.pageRenderer.taskPage.error.submitFailedWithReason': '任务提交失败: {detail}{reason}',
   'component.pageRenderer.taskPage.error.unknown': '未知错误',
   'component.pageRenderer.taskPage.events.title': '任务事件',
   'component.pageRenderer.taskPage.form.title': '提交任务',

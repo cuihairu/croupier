@@ -10,7 +10,11 @@ import {
 import type { CompiledSection, CompileResult } from './types';
 import { SECTION_KEY_RE, VIEW_MAP } from './types';
 import type { CompiledAction, CompiledCondition } from './types';
-import { normalizePaginationProp, normalizeRowActionParams } from './normalize';
+import {
+  normalizePaginationProp,
+  normalizeRowActionParams,
+  normalizeSelectionProp,
+} from './normalize';
 
 // 纯函数模块无法 useIntl：经 getIntl 求值诊断文案（SelectLang 切语言整页刷新后
 // 重新求值，先例 services/api/bugs.ts）；区块/动作的 title、label 兜底是编译
@@ -557,6 +561,10 @@ export function compileTree(tree: PageNode[]): CompileResult {
       // 关闭/缺失时不下发，发布态保持客户端分页（既有行为不变）。
       const pagination = normalizePaginationProp(node.props.pagination);
       if (pagination) section.pagination = pagination;
+      // 行选择（D2 批量目标核对）：仅显式 multiple=true 才透传，组合页不
+      // 推导行选择；关闭/缺失时不下发，发布态保持既有单选 radio。
+      const selection = normalizeSelectionProp(node.props.selection);
+      if (selection) section.selection = selection;
     }
 
     // U10 区块级条件显示：dialog 区块不参与（弹窗由动作显式触发）

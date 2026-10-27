@@ -78,6 +78,28 @@ func hintLocalized(raw json.RawMessage) spec.LocalizedText {
 	return out
 }
 
+// fieldRoles 是 x-field-role 的受控取值域（D5 显式字段语义）。非法值静默忽略。
+var fieldRoles = map[string]struct{}{
+	"identity": {},
+	"status":   {},
+	"reason":   {},
+	"expiry":   {},
+	"amount":   {},
+	"quantity": {},
+}
+
+// hintFieldRole 校验 x-field-role 是否为受控枚举内的合法值，非法值返回空。
+func hintFieldRole(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if _, ok := fieldRoles[raw]; !ok {
+		return ""
+	}
+	return raw
+}
+
 func firstLocalizedStr(pairs map[string]json.RawMessage, keys ...string) string {
 	for _, key := range keys {
 		if value := rawString(pairs[key]); value != "" {

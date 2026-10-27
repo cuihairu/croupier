@@ -42,6 +42,8 @@ interface FormFieldSpec {
   label?: LocalizedText; // 覆盖 schema title
   description?: LocalizedText; // 帮助文本
   placeholder?: LocalizedText;
+  role?: "identity" | "status" | "reason" | "expiry" | "amount" | "quantity"; // x-field-role（D5）
+  unit?: LocalizedText; // x-field-unit 单位后缀（D5）
   widget?: FormWidget; // 受控 antd 组件名枚举
   width?: number; // grid 栅格 1-12
   order?: number; // 排序，小者在前
@@ -239,8 +241,59 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   从不为组合区块推导分页（无资源语义上下文），故为逐表格显式 opt-in。绑定函数须实际
   消费 `page`/`pageSize`——平台放行附加输入键，函数忽略即每页都返回全量（每页内容相同、
   页数按上界虚高）。边界：游标分页与自定义 `totalKey` 未实现（wire `PaginationSpec` 无
-  游标字段）；弹窗（dialog）内渲染的表格不分页；服务端排序/筛选下推未做（表头排序仍为
-  客户端）
+  游标字段）；弹窗（dialog）内渲染的表格不分页且无表头排序；服务端筛选下推未做（组合页
+  筛选走查询表单 refreshOn 级联——已实现的排序下推见下方列排序条目）
+
+- `table.selection`：**组合区块表格行选择**（D2）——`{multiple?, identityKey?}`。未设置或
+  `multiple: false` 保持既有单选 radio（选中行即 `selectedRow`，`rowSelected` 事件以该单行
+  触发）。`multiple: true` 时本区块表格切换为 checkbox 多选，并在表格上方渲染选择栏：已选
+  总数计数；当部分已选对象不在当前页时显示「本页可见」计数（算子无法只靠当前页核对目标）；
+  「查看目标清单」入口，弹窗逐条列出全部已选对象（身份列置前，最多再带两列展示列）；
+  「取消选择」；以及筛选变化后的旧选择核对提示（翻页不算筛选变化；筛选变化且选择非空即提示
+  ——跨页保留的键无法区分「仍在其它页」与「已被新筛选排除」，需算子核对后清除或重新勾选）。
+  `rowKey`、目标清单、计数与运行时 `selectedRow`/`selectedRows` 状态取同一行身份口径：
+  `selection.identityKey` → `table.identityKey` → 行 `id`/`key` → 行对象本身。选择写入区块
+  运行时状态（`selectedRow`=首行、`selectedRows`=全行）——与 `rowSelected` 事件、
+  <code v-pre>{{...selectedRow.x}}</code> 表达式及服务端 inputAssignment 同源；`rowSelected` 仍按首次勾选的
+  首行触发。该字段由组合页编辑器表格组件设置（行选择开关：启用多选 + 从输出 schema 选行
+  身份列），经组合区块请求的区块级 `selection` 字段透传，生成器写入 `table.selection`；
+  生成器从不为组合区块推导行选择（无资源语义上下文），故为逐表格显式 opt-in。边界：弹窗
+  （dialog）内渲染的表格无选择栏；目标清单弹窗最多展示三列（身份列置前）；「本页可见」计数
+  按本区块 `items` 计算（服务端分页即当前页；客户端分页即全量结果集，此时与已选数相等、
+  该提示不出现）；除表头全选外无逐行选择/禁用控制
+
+- `table.columns[].sortable`：**表格区块列排序**（D3）——生成器按输出 schema 数据类型机械
+  标注：`dataType` 为 `number` 或 `datetime` 的列可排序（数据类型派生，非资源语义推断；与
+  分页/行选择不同，这不是编辑器显式 opt-in——未启用服务端分页时排序不构成对绑定函数接受
+  排序参数的隐式假设）。可排序列渲染 antd 表头排序 UI；`dataType` 为
+  `string`/`boolean`/`object`/`array` 的列不可排序。`table.pagination.enabled` 为 false（或
+  未设置）时排序在本地：渲染器对返回行做 compare 排序（number 按数值、其余按字符串码点、
+  缺失值排末尾），不下发排序请求参数。服务端分页开启时 sorter 仅表头 UI（`sorter: true`），
+  由受控 order 状态驱动请求：点击表头以 `sortBy`（列 key）与 `sortOrder`（`asc`/`desc`）
+  附加进请求表单并回首页重跑；再点同列表头切换相反序（两态，无取消态）。排序不属于区块
+  筛选指纹：状态存渲染器按区块维护的表格状态（不写入 `sectionInputs`），故排序重跑不触发
+  D2 旧选择核对提示；上游筛选变化（回首页）保持当前排序。边界：仅两态序（无三态取消、
+  无多列排序）；排序不跨页面刷新保留；请求参数为 `sortBy`/`sortOrder`（无 `orderBy`/
+  `direction` 别名）；绑定函数须真正消费这两个键（平台放行附加输入键，函数忽略即返回
+  未排序页、UI 却显示排序箭头）；弹窗内渲染的表格逐列原样渲染（无表头排序 UI）
+
+- `table.columns[].unit` / `columns[].enum` / `columns[].render` / **显式字段语义**（D5）——
+  `x-*` 呈现 hints 的输出侧。游戏 SDK 在契约输出 schema 的 items 属性上声明语义（机械解析、
+  不靠字段名猜测）：`x-field-role`（`identity|status|reason|expiry|amount|quantity`）与
+  `x-field-unit`（裸字符串或 `{zh-CN,en-US}` 对象），配合既有 `x-enum-options`。生成器坍缩为
+  wire 字段：`role=identity` → 列 `fixed:"left"` + `render:"copy"`（固定左列可复制身份列）；
+  `x-enum-options` → 列 `enum` + `render:"tag"`（状态枚举标签列）；`x-field-unit` → 列 `unit`。
+  输入侧进入 `FormFieldSpec.role`/`unit`（`form_hints.go` 与前端 `derivePresentationSpec`
+  同步解析，非法 role 静默忽略）。渲染：组合页与资源页渲染器把单位追加到列头（`标题 (单位)`）
+  与 `number` 单元格值；`render:"copy"` 渲染可复制单元格；`dataType:"datetime"` 单元格带显式
+  浏览器时区标签（`UTC±HH:MM`——平台不声明游戏服务器时区，故显式标注偏移而非暗示 UTC）；
+  `enum`+`tag` 渲染选项文案为彩色 antd Tag。确认框（D2 危险确认）从目标表单的
+  `FormFieldSpec.role`/`unit` 取语义：身份条目置前加粗、到期条目红字、amount/quantity 值带
+  单位后缀，操作者确认前即读到谁/什么/多少/多久。边界：单位仅展示（不做金额缩放或换算——
+  声明的单位原样追加，per-unit × 批量目标总量需 D2 批量上下文）；`identity` 之外的 role 不
+  改变列布局（status/reason/expiry 只驱动确认强调与未来缺省呈现）；时区标签为浏览器本地偏移
+  （无游戏级 tz 配置）；组合页列语义走同一生成器派生（绑定带 hints 契约的组合表格区块自动
+  获得同款列），弹窗内表格保留语义单元格渲染但不加表头排序 UI
 
 - `danger` + `chain`（rowActions / toolbar.actions）：**危险操作确认契约**（D2）——`danger`
   动作在用户显式确认前绝不执行。带 `targetSection` 时确认框列出目标弹窗的预填参数与动作链
@@ -248,11 +301,9 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   链步骤。确认内容按目标表单的字段标题渲染参数、枚举值映射为选项文案、参数名人性化展示
   （不显示原始字段 key），所见即实际将提交的内容。非危险动作带 `targetSection` 时直接开弹窗
   并执行动作链（详情弹窗用动作链预载自身 fields/table 数据）；非危险纯链动作直接执行动作链。
-  边界：确认框不做字段语义强调（游戏/环境/区服/玩家身份、原因、封禁到期时间、补偿每人数量
-  不单独突出——依赖 D5 的显式字段语义）；`openModal` 链步骤无 danger 标志位（wire 无该
-  字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认；批量
-  目标核对未实现（跨页选择、总人数/当前页人数、目标清单入口、清空选择、筛选变化后旧选择的
-  处理）——表格行选择仍为单选 radio，wire 无 `table.selection` 字段
+  边界：字段语义强调覆盖 `x-field-role` 声明的 identity/reason/expiry/amount/quantity
+  （未声明 role 的字段照旧渲染）；`openModal` 链步骤无 danger 标志位（wire 无该
+  字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认
 - **执行结果反馈**（D4，无新增 wire 字段）：渲染器按 `PageExecutionResult.kind` 分类
   每次执行结果，不再把任何非 error 返回都当作成功。`sync`（或无 kind）为业务执行成功——
   触发表单 `success` 事件绑定、重跑 `onSuccessRefresh` 目标并关闭弹窗。`approval` 保持
@@ -264,7 +315,9 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   同样按失败处理，不发 success 事件。服务端权限不足统一为 `403 permission_denied` 并透出机器可读 `details`（`required` 权限、`allowedRoles`、`functionId` 或任务 scope），渲染端把 `details` 收敛为原因行（`缺少权限：...`/`需要角色：...`）而不只显示通用状态文案。`details` 中字段存在于区块表单 schema 的条目经共享
   表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF `extraErrors`），反馈条只汇总
   表单外字段的错误。边界：inline（非弹窗）表单区块提交期间整卡进 loading 骨架，失败后
-  输入值不保留（弹窗表单会保留）；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）
+  输入值不保留（弹窗表单会保留）；无任务中心路由，待处理任务只给任务号不给导航目标；
+  审批入口固定跳 `/approvals`；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）
+
 - **执行幂等**（D4，`Idempotency-Key` 请求头；无新增 wire 字段）：每次页面 binding 执行
   ——已发布与草稿预览一视同仁——都带客户端生成的幂等键，服务端保证同一 key 在占位窗口内
   至多真实执行一次。占位时机在全部执行门禁通过之后（执行器已绑定、契约新鲜、治理、
@@ -557,3 +610,4 @@ PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终�
 - PageSpec 不存储 route、target service、scope 覆盖、Secret 或任意 HTTP 参数。
 - 未知 JSON 只能存在于 JSON Schema 的标准扩展边界；核心 DTO 使用明确类型和 `JSONValue`，禁止 `any`。
 - 表单展示变化不允许静默改变已发布页面；发布快照必须包含 FormPresentationSpec。
+- 运行控制台只消费 PublishedPageSpec；未发布草稿不得暴露到执行路径，人工草稿领先发布时仍以发布快照执行。

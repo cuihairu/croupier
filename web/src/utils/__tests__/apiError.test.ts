@@ -4,7 +4,7 @@
  * 响应契约（CLAUDE.md）：HTTP 状态表达错误类别，body.error 为 snake_case
  * 稳定码供前端分支；无结构化 body 时返回 ''（渲染层不得静默吞错）。
  */
-import { extractApiErrorCode } from '../apiError';
+import { extractApiErrorCode, isResultUnknownError } from '../apiError';
 
 describe('extractApiErrorCode', () => {
   it('data.error 为非空字符串时原样返回', () => {
@@ -30,5 +30,32 @@ describe('extractApiErrorCode', () => {
     expect(extractApiErrorCode(undefined)).toBe('');
     expect(extractApiErrorCode('boom')).toBe('');
     expect(extractApiErrorCode(new Error('boom'))).toBe('');
+  });
+});
+
+describe('isResultUnknownError', () => {
+  it('传输层超时/网络中断判为结果未知', () => {
+    expect(isResultUnknownError(new Error('timeout of 5000ms exceeded'))).toBe(true);
+    expect(isResultUnknownError(new TypeError('Failed to fetch'))).toBe(true);
+    expect(isResultUnknownError(new Error('Network Error'))).toBe(true);
+  });
+
+  it('AbortError 判为结果未知', () => {
+    const abort = new Error('aborted');
+    abort.name = 'AbortError';
+    expect(isResultUnknownError(abort)).toBe(true);
+  });
+
+  it('服务端已应答（ResponseError 带 .data）即使文案含 timeout 也不属未知', () => {
+    const resp = new Error('Request timeout') as Error & { data: Record<string, unknown> };
+    resp.data = { error: 'gateway_timeout', message: 'Request timeout' };
+    expect(isResultUnknownError(resp)).toBe(false);
+  });
+
+  it('本地业务错误/普通 Error/非对象输入不属结果未知', () => {
+    expect(isResultUnknownError(new Error('executor not bound'))).toBe(false);
+    expect(isResultUnknownError({ data: { error: 'validation_failed' } })).toBe(false);
+    expect(isResultUnknownError(null)).toBe(false);
+    expect(isResultUnknownError('boom')).toBe(false);
   });
 });

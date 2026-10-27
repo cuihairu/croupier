@@ -82,12 +82,13 @@ export function formatNumber(value: number): string {
 /**
  * 格式化日期时间
  * @example formatDateTime("2024-01-01T12:00:00Z") => "2024-01-01 12:00:00"
+ * @example formatDateTime("2024-01-01T12:00:00Z", true) => "2024-01-01 20:00:00 (UTC+08:00)"
  */
-export function formatDateTime(dateStr: string): string {
+export function formatDateTime(dateStr: string, withTz = false): string {
   if (!dateStr) return '-';
   try {
     const date = new Date(dateStr);
-    return date.toLocaleString('zh-CN', {
+    const formatted = date.toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -95,6 +96,14 @@ export function formatDateTime(dateStr: string): string {
       minute: '2-digit',
       second: '2-digit',
     });
+    if (!withTz) return formatted;
+    // D5：显式时区标签（浏览器本地偏移，UTC±HH:MM）——不依赖字段名猜测时区。
+    const offsetMin = -date.getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    const abs = Math.abs(offsetMin);
+    const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+    const mm = String(abs % 60).padStart(2, '0');
+    return `${formatted} (UTC${sign}${hh}:${mm})`;
   } catch {
     return dateStr;
   }
