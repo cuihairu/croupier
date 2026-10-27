@@ -603,9 +603,18 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   `extraErrors` 的字段级 `__errors` 形态），不再以独立列表复述，反馈条只汇总表单外
   字段（不在区块 schema 里）的错误。未实现：失败后已填值保留（inline（非弹窗）表单区块
   提交期间豁免整卡 loading 骨架——骨架会卸载表单丢掉已填值，在途状态由表单
-  `disabled` 表达）；控制台页面执行无服务端幂等键
-  （失败/待处理的提交可由用户重复发起）；无任务中心路由，待处理任务只给任务号；
-  审批入口固定跳 `/approvals`
+  `disabled` 表达）；无任务中心路由，待处理任务只给任务号；审批入口固定跳 `/approvals`
+- **执行幂等（D4）边界**：页面 binding 执行带 `Idempotency-Key` 请求头（已发布与草稿
+  预览一致），服务端保证同 key 在占位窗口内至多真实执行一次——已完成重放存储结果
+  （响应体 `replayed: true`，成功 toast 改为「返回服务端记录的结果（未重复执行）」），
+  进行中判 `409 idempotency_key_in_use`（结果未知，稍后用同一请求重试），同 key 不同
+  内容判 `409 idempotency_key_reused`；不带头则完全不启用幂等。客户端按执行意图
+  （页面 + 绑定 + 上下文）保留 key：同步结果释放（同内容再提交是新意图），审批/任务
+  结果保留 10 分钟（重复提交重放同一单号而非新建）。未实现：下发失败后占位保持
+  `running` 满 15 分钟窗口（结果确实未知，窗口内重试得到 409 而非静默重跑）；key 只存
+  标签页内存（刷新页面生成新键、缓存淘汰后重试退化为新意图）；窗口到期后的回收是
+  真实重跑而非重放；重放提示只覆盖 `CompositeRenderer` 的成功 toast，操作页
+  （`OperationPageRenderer`）的文案未区分重放
 - **操作页多阶段状态反馈（D1）边界**：提交后操作页在结果卡上方追加一条紧凑 `Steps`
   阶段条（提交 → 审批 → 执行），由驱动结果卡的同一状态派生（辅助函数
   `web/src/components/PageRenderer/operationStages.ts` 的 `describeOperationStages`）：

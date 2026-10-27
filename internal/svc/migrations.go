@@ -134,6 +134,11 @@ import (
 //               synthetics-agent 新目标强制携带类别；结果行保存执行时
 //               快照，便于不过 proto 反序列化过滤；存量行不回填——历史
 //               未分类行只在「全部」视图出现，不猜归属）
+//   0048 (Go)   page_execute_idempotencies 建表（D4 页面执行服务端幂等：
+//               Idempotency-Key 头对页面绑定执行去重——同 key 已完成重放
+//               结果、进行中判结果未知拒绝、超窗遗留可回收；新表无存量
+//               约束名漂移，HasTable 检查后 CreateTable，0027/0038 模式；
+//               建在 game scope 表集内，随 multiGame 路由到物理库）
 
 func init() {
 	registerSvcMigrations()
@@ -191,6 +196,7 @@ func registerSvcMigrations() {
 		dbSourceOwnerMigration(),
 		probeEventsTableMigration(),
 		probeEventTargetCategoryMigration(),
+		pageExecuteIdempotencyTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1566,6 +1572,31 @@ func migrateProbeEventTargetCategory(ctx context.Context, sqlDB *sql.DB) error {
 		if err := db.Migrator().AddColumn(&model.ProbeEvent{}, "TargetCategory"); err != nil {
 			return fmt.Errorf("migrate: 0047 add probe_events.target_category: %w", err)
 		}
+	}
+	return nil
+}
+
+// pageExecuteIdempotencyTableMigration 为 0048：页面绑定执行的服务端幂等
+// 占位表（D4 安全重试）。新表无存量数据与约束名漂移，HasTable 检查后
+// CreateTable（0027/0038 建表模式）；multiGame 模式下迁移 fanout 到各
+// game 物理库，缺表跳过语义由本函数 HasTable 保证。
+func pageExecuteIdempotencyTableMigration() *goose.Migration {
+	return goose.NewGoMigration(48,
+		&goose.GoFunc{RunDB: migratePageExecuteIdempotencyTable},
+		nil,
+	)
+}
+
+func migratePageExecuteIdempotencyTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if db.Migrator().HasTable(&model.PageExecuteIdempotency{}) {
+		return nil
+	}
+	if err := db.Migrator().CreateTable(&model.PageExecuteIdempotency{}); err != nil {
+		return fmt.Errorf("migrate: 0048 create page_execute_idempotencies: %w", err)
 	}
 	return nil
 }

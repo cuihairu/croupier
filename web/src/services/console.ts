@@ -5,6 +5,11 @@
  */
 
 import { request } from '@umijs/max';
+import {
+  acquireExecuteIdempotencyKey,
+  executeIntentScopeKey,
+  releaseExecuteIdempotencyKey,
+} from '@/services/executeIdempotency';
 import type {
   ApprovalStatusResult,
   BindingExecutionContext,
@@ -28,6 +33,8 @@ type ConsolePageResponse = {
 
 type ConsoleExecuteBindingResponse = {
   result?: PageExecutionResult;
+  /** 幂等重放：结果取自服务端已落地记录而非本次新下发。 */
+  replayed?: boolean;
 };
 
 type TaskDetailResponse = {
@@ -98,29 +105,46 @@ export async function getPublishedPage(pageKey: string): Promise<PublishedPageSp
   return response.page;
 }
 
-/** 受控执行已发布页面 binding，浏览器不传 functionId/route/scope */
+/**
+ * 意图闭环判定：仅同步结果算执行已完成，释放该作用域的幂等键——之后同内容
+ * 提交是新的意图（新 key 真实执行）。审批待处理与任务已提交结果未落定，保留
+ * key：同内容重复提交在保留窗口内由服务端重放同一审批单/任务号，而非新建
+ * （窗口到期后按新意图处理）。
+ */
+function finishExecuteIntent(scopeKey: string, result: PageExecutionResult): void {
+  if (result.kind === 'sync') {
+    releaseExecuteIdempotencyKey(scopeKey);
+  }
+}
+
+/** 受控执行已发布页面 binding，浏览器不传 functionId/route/scope。
+ * 同一提交意图（同页面/绑定/上下文且上一次未成功）复用同一 Idempotency-Key：
+ * 服务端重放已落地结果或判结果未知，不重复下发副作用。 */
 export async function executePageBinding(
   pageKey: string,
   bindingId: string,
   context: BindingExecutionContext = {},
 ): Promise<PageExecutionResult> {
+  const scopeKey = executeIntentScopeKey({ pageKey, bindingId, context });
   const response = await request<ConsoleExecuteBindingResponse>(
     `${BASE}/pages/${encodeURIComponent(pageKey)}/bindings/${encodeURIComponent(bindingId)}/execute`,
     {
       method: 'POST',
       data: { context },
+      headers: { 'Idempotency-Key': acquireExecuteIdempotencyKey(scopeKey) },
     },
   );
   if (!response?.result) {
     throw new Error(`page binding execution returned empty result: ${bindingId}`);
   }
-  return response.result;
+  finishExecuteIntent(scopeKey, response.result);
+  return response.replayed ? { ...response.result, replayed: true } : response.result;
 }
 
 /** 草稿预览执行（B1）：请求体与组合页预览端点同形（页面 key + 区块请求 +
  * 模板快照），服务端按同一生成链重建草稿 PageSpec 并跑发布级 selector 校验，
  * 再走与已发布页面相同的执行门禁（权限 / 审批 / 契约快照）后下发执行；
- * 不落库，浏览器不提交 functionId / route / scope。 */
+ * 不落库，浏览器不提交 functionId / route / scope。幂等语义与已发布执行一致。 */
 export async function executeDraftCompositeBinding(
   pageKey: string,
   bindingId: string,
@@ -128,6 +152,7 @@ export async function executeDraftCompositeBinding(
   context: BindingExecutionContext = {},
   componentTemplates?: readonly unknown[],
 ): Promise<PageExecutionResult> {
+  const scopeKey = executeIntentScopeKey({ pageKey, bindingId, context });
   const response = await request<ConsoleExecuteBindingResponse>(
     '/api/v1/versioning/pages/composite/preview/execute',
     {
@@ -139,12 +164,14 @@ export async function executeDraftCompositeBinding(
         ...(componentTemplates && componentTemplates.length > 0 ? { componentTemplates } : {}),
         context,
       },
+      headers: { 'Idempotency-Key': acquireExecuteIdempotencyKey(scopeKey) },
     },
   );
   if (!response?.result) {
     throw new Error(`draft composite execution returned empty result: ${bindingId}`);
   }
-  return response.result;
+  finishExecuteIntent(scopeKey, response.result);
+  return response.replayed ? { ...response.result, replayed: true } : response.result;
 }
 
 /** 查询异步任务状态，供 TaskPageRenderer 轮询使用 */

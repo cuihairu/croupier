@@ -425,7 +425,10 @@ export const CompositeRenderer: React.FC<{
               // D4：输入变化后旧失败反馈失效
               clearExecFeedbackOf(sec.key);
             }}
-            onFinish={(values) => submitFormSection(sec, values).catch(() => undefined)}
+            onFinish={(values) => {
+              // 失败已在运行时落失败反馈，此处仅防未捕获 rejection
+              submitFormSection(sec, values).catch(() => undefined);
+            }}
           />
         </>
       ) : (
@@ -434,11 +437,12 @@ export const CompositeRenderer: React.FC<{
           <Button
             type="primary"
             loading={running[sec.key] || false}
-            onClick={() =>
+            onClick={() => {
+              // 失败已在运行时落失败反馈，此处仅防未捕获 rejection
               submitFormSection(sec, (sectionInputs[sec.key] || {}) as FormValues).catch(
                 () => undefined,
-              )
-            }
+              );
+            }}
           >
             {localizedText(sec.title, 'zh-CN', sec.key)}
           </Button>
@@ -569,16 +573,23 @@ export const CompositeRenderer: React.FC<{
                     try {
                       // D4：审批 / 任务提交 ≠ 业务执行成功——弹窗保持开启，
                       // 待处理反馈（含审批入口）与字段级错误都留在弹窗内。
-                      const succeeded = await submitFormSection(sec, values as FormValues);
-                      if (!succeeded) return;
+                      const outcome = await submitFormSection(sec, values as FormValues);
+                      if (!outcome.ok) return;
                       setDialogKey(null);
+                      const title = localizedText(sec.title, 'zh-CN', sec.key);
+                      // D4 幂等重放：结果取自服务端已落地记录，明确告知未重复执行。
                       message.success(
                         intl.formatMessage(
-                          {
-                            id: 'component.pageRenderer.composite.executeSuccess',
-                            defaultMessage: `${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`,
-                          },
-                          { title: localizedText(sec.title, 'zh-CN', sec.key) },
+                          outcome.replayed
+                            ? {
+                                id: 'component.pageRenderer.composite.executeReplayed',
+                                defaultMessage: `${title} 已在先前提交过，本次返回服务端记录的结果（未重复执行）`,
+                              }
+                            : {
+                                id: 'component.pageRenderer.composite.executeSuccess',
+                                defaultMessage: `${title} 执行成功`,
+                              },
+                          { title },
                         ),
                       );
                     } catch (e) {

@@ -43,6 +43,9 @@ type ConsoleExecuteBindingRequest struct {
 	PageKey   string                         `uri:"pageKey" binding:"required"`
 	BindingID string                         `uri:"bindingId" binding:"required"`
 	Context   ConsoleBindingExecutionContext `json:"context"`
+	// IdempotencyKey 来自 Idempotency-Key 请求头（服务端读头，不由浏览器写在
+	// 请求体）：同一 key 在幂等窗口内只对应一次真实执行。
+	IdempotencyKey string `json:"-"`
 }
 
 // ConsoleBindingExecutionContext contains renderer-owned source values for
@@ -57,6 +60,9 @@ type ConsoleBindingExecutionContext struct {
 
 type ConsoleExecuteBindingResponse struct {
 	Result spec.PageExecutionResult `json:"result"`
+	// Replayed 标记本次返回是幂等重放（同 key 已完成执行、结果取自存储而非
+	// 新下发）：前端据此区分「结果未知后重试拿到落地结果」与新执行。
+	Replayed bool `json:"replayed,omitempty"`
 }
 
 // ConsoleDraftCompositeExecuteRequest 是草稿预览执行请求：请求体与组合页预览
@@ -73,4 +79,8 @@ type ConsoleDraftCompositeExecuteRequest struct {
 	ComponentTemplates []spec.ComponentTemplateUsage `json:"componentTemplates,omitempty"`
 
 	Context ConsoleBindingExecutionContext `json:"context"`
+
+	// IdempotencyKey 来自 Idempotency-Key 请求头：草稿预览执行会真实下发
+	// 函数，同样享受服务端幂等与安全重试语义。
+	IdempotencyKey string `json:"-"`
 }
