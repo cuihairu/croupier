@@ -407,6 +407,14 @@ describe('D5 资源页列 unit/tz 接线', () => {
     const calls = (formatDateTime as jest.Mock).mock.calls as Array<[string, boolean]>;
     expect(calls.some((args) => args[0] === '2026-01-01T10:00:00Z' && args[1] === true)).toBe(true);
   });
+
+  it('D5 模板默认呈现：查询条件默认折叠高级（search.defaultCollapsed=true）', async () => {
+    await loadList();
+    const call = (ProTable as unknown as jest.Mock).mock.calls[
+      (ProTable as unknown as jest.Mock).mock.calls.length - 1
+    ][0] as { search?: { defaultCollapsed?: boolean } };
+    expect(call.search?.defaultCollapsed).toBe(true);
+  });
 });
 
 describe('列表请求', () => {

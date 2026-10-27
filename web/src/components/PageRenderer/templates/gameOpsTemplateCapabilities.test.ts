@@ -104,3 +104,34 @@ describe('业务模板函数绑定', () => {
     }
   });
 });
+
+describe('D5 模板默认呈现', () => {
+  it('身份列固定可复制且作为常用查询条件前置', () => {
+    for (const entry of gameOpsTemplates) {
+      if (entry.pageSpec.type !== 'resource') continue;
+      const list = entry.pageSpec.resource?.listView;
+      expect(list).toBeDefined();
+      const columns = list?.columns ?? [];
+      // 首个身份列：固定左列 + 可复制，且是可查询的前置条件。
+      expect(columns[0]).toMatchObject({ fixed: 'left', render: 'copy', filterable: true });
+      // 常用（可查询）条件按列序前置，无高级条件插到身份条件之前。
+      const filterableKeys = columns.filter((c) => c.filterable).map((c) => c.key);
+      expect(filterableKeys[0]).toBe(columns[0].key);
+      expect(filterableKeys.indexOf(columns[0].key)).toBe(0);
+    }
+  });
+
+  it('危险操作位置明确：danger 行操作全部排在行操作末尾', () => {
+    for (const entry of gameOpsTemplates) {
+      if (entry.pageSpec.type !== 'resource') continue;
+      const actions = entry.pageSpec.resource?.listView?.rowActions ?? [];
+      const dangerKeys = actions.filter((a) => a.type === 'danger').map((a) => a.key);
+      const nonDanger = actions.filter((a) => a.type !== 'danger');
+      // danger 动作紧邻排最后，常态动作在前（不与 danger 交错）。
+      expect(nonDanger.length + dangerKeys.length).toBe(actions.length);
+      if (dangerKeys.length > 0) {
+        expect(actions.slice(-dangerKeys.length).map((a) => a.key)).toEqual(dangerKeys);
+      }
+    }
+  });
+});

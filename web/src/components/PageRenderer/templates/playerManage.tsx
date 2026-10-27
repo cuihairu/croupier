@@ -52,6 +52,7 @@ export const playerManagePageSpec: PageSpec = {
           width: 120,
           fixed: 'left',
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'nickname',
@@ -100,23 +101,6 @@ export const playerManagePageSpec: PageSpec = {
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20, 50] },
       rowActions: [
         {
-          key: 'ban',
-          title: { 'zh-CN': '封禁', 'en-US': 'Ban' },
-          type: 'danger',
-          form: {
-            jsonSchema: {
-              type: 'object',
-              properties: {
-                reason: { type: 'string', title: '封禁原因' },
-                duration: { type: 'number', title: '封禁时长（小时）' },
-              },
-              required: ['reason'],
-            },
-            layout: 'vertical',
-          },
-          bindingId: 'action.ban',
-        },
-        {
           key: 'recharge',
           title: { 'zh-CN': '充值', 'en-US': 'Recharge' },
           type: 'primary',
@@ -160,20 +144,26 @@ export const playerManagePageSpec: PageSpec = {
           type: 'link',
           bindingId: 'update',
         },
+        {
+          // D5 危险操作位置：danger 动作排到行操作末尾，与常态动作明确分界。
+          key: 'ban',
+          title: { 'zh-CN': '封禁', 'en-US': 'Ban' },
+          type: 'danger',
+          form: {
+            jsonSchema: {
+              type: 'object',
+              properties: {
+                reason: { type: 'string', title: '封禁原因' },
+                duration: { type: 'number', title: '封禁时长（小时）' },
+              },
+              required: ['reason'],
+            },
+            layout: 'vertical',
+          },
+          bindingId: 'action.ban',
+        },
       ],
       batchActions: [
-        {
-          key: 'batchBan',
-          title: { 'zh-CN': '批量封禁', 'en-US': 'Batch Ban' },
-          type: 'danger',
-          confirm: true,
-          confirmTitle: { 'zh-CN': '批量封禁', 'en-US': 'Batch Ban' },
-          confirmDescription: {
-            'zh-CN': '确认封禁选中的玩家？',
-            'en-US': 'Ban the selected players?',
-          },
-          bindingId: 'action.batchBan',
-        },
         {
           key: 'batchUnban',
           title: { 'zh-CN': '批量解封', 'en-US': 'Batch Unban' },
@@ -184,6 +174,19 @@ export const playerManagePageSpec: PageSpec = {
             'en-US': 'Unban the selected players?',
           },
           bindingId: 'action.batchUnban',
+        },
+        {
+          // D5 危险操作位置：danger 批量动作排到末尾，与恢复类动作明确分界。
+          key: 'batchBan',
+          title: { 'zh-CN': '批量封禁', 'en-US': 'Batch Ban' },
+          type: 'danger',
+          confirm: true,
+          confirmTitle: { 'zh-CN': '批量封禁', 'en-US': 'Batch Ban' },
+          confirmDescription: {
+            'zh-CN': '确认封禁选中的玩家？',
+            'en-US': 'Ban the selected players?',
+          },
+          bindingId: 'action.batchBan',
         },
       ],
     },
@@ -395,6 +398,9 @@ export function createPlayerManageDemoExecute(
           const current = Number(form.current) || 1;
           const pageSize = Number(form.pageSize) || 10;
           let filtered = players;
+          if (form.id) {
+            filtered = filtered.filter((player) => player.id === String(form.id));
+          }
           if (form.nickname) {
             filtered = filtered.filter((player) => player.nickname.includes(String(form.nickname)));
           }

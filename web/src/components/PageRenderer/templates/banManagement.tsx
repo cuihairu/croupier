@@ -48,6 +48,7 @@ export const banManagementPageSpec: PageSpec = {
           width: 140,
           fixed: 'left',
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'playerId',
@@ -55,6 +56,7 @@ export const banManagementPageSpec: PageSpec = {
           dataType: 'string',
           width: 110,
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'nickname',
@@ -343,6 +345,12 @@ export function createBanManagementDemoExecute(
           const current = Number(form.current) || 1;
           const pageSize = Number(form.pageSize) || 10;
           let filtered = bans;
+          if (form.id) {
+            filtered = filtered.filter((ban) => ban.id === String(form.id));
+          }
+          if (form.playerId) {
+            filtered = filtered.filter((ban) => ban.playerId === String(form.playerId));
+          }
           if (form.nickname) {
             filtered = filtered.filter((ban) => ban.nickname.includes(String(form.nickname)));
           }

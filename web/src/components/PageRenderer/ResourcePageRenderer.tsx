@@ -1039,7 +1039,9 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         request={handleRequest}
         search={{
           labelWidth: 'auto',
-          defaultCollapsed: false,
+          // D5 模板默认呈现：常用查询条件前置、高级条件默认折叠。
+          // 折叠时保留首个搜索字段（由 columns 顺序决定「常用在前」）。
+          defaultCollapsed: true,
         }}
         options={{
           reload: true,

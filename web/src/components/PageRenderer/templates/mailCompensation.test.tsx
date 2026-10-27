@@ -45,6 +45,11 @@ describe('mailCompensation demo 执行器', () => {
     const execute = createMailCompensationDemoExecute();
     const page1 = await run(execute, 'list', { form: { current: 1, pageSize: 2 } });
     expect(page1.data).toMatchObject({ total: 4 });
+    // D5 身份列前置查询：精确命中一条
+    const byId = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, id: 'task-mail-1001' },
+    });
+    expect(byId.data).toMatchObject({ total: 1 });
     const compensationOnly = await run(execute, 'list', {
       form: { current: 1, pageSize: 10, type: 'compensation' },
     });

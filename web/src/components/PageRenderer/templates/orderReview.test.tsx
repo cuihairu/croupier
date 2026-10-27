@@ -42,6 +42,15 @@ describe('orderReview demo 执行器', () => {
     const execute = createOrderReviewDemoExecute();
     const page2 = await run(execute, 'list', { form: { current: 2, pageSize: 20 } });
     expect(page2.data).toMatchObject({ total: 30 });
+    // D5 身份列前置查询：订单号与玩家 ID 均精确命中一条
+    const byOrderNo = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, orderNo: '2026102301' },
+    });
+    expect(byOrderNo.data).toMatchObject({ total: 1 });
+    const byPlayerId = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, playerId: '20001' },
+    });
+    expect(byPlayerId.data).toMatchObject({ total: 1 });
     const byChannel = await run(execute, 'list', {
       form: { current: 1, pageSize: 10, channel: 'ios' },
     });

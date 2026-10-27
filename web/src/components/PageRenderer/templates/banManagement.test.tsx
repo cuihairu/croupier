@@ -47,6 +47,15 @@ describe('banManagement demo 执行器', () => {
     const execute = createBanManagementDemoExecute();
     const page1 = await run(execute, 'list', { form: { current: 2, pageSize: 5 } });
     expect(page1.data).toMatchObject({ total: 12 });
+    // D5 身份列前置查询：记录 ID 与玩家 ID 均精确命中一条
+    const byId = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, id: 'ban-30001' },
+    });
+    expect(byId.data).toMatchObject({ total: 1 });
+    const byPlayerId = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, playerId: '20004' },
+    });
+    expect(byPlayerId.data).toMatchObject({ total: 1 });
     const byStatus = await run(execute, 'list', {
       form: { current: 1, pageSize: 10, status: 'lifted' },
     });

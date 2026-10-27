@@ -44,6 +44,7 @@ export const mailCompensationPageSpec: PageSpec = {
           width: 150,
           fixed: 'left',
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'type',
@@ -184,6 +185,13 @@ export const mailCompensationPageSpec: PageSpec = {
           bindingId: 'action.retryFailed',
         },
         {
+          key: 'edit',
+          title: { 'zh-CN': '编辑', 'en-US': 'Edit' },
+          type: 'link',
+          bindingId: 'update',
+        },
+        {
+          // D5 危险操作位置：danger 动作排到行操作末尾，与常态动作明确分界。
           key: 'cancelTask',
           title: { 'zh-CN': '撤回', 'en-US': 'Withdraw' },
           type: 'danger',
@@ -195,12 +203,6 @@ export const mailCompensationPageSpec: PageSpec = {
               'Undelivered targets will no longer receive it; delivered parts are not recalled.',
           },
           bindingId: 'action.cancelTask',
-        },
-        {
-          key: 'edit',
-          title: { 'zh-CN': '编辑', 'en-US': 'Edit' },
-          type: 'link',
-          bindingId: 'update',
         },
       ],
     },
@@ -384,6 +386,9 @@ export function createMailCompensationDemoExecute(
           const current = Number(form.current) || 1;
           const pageSize = Number(form.pageSize) || 10;
           let filtered = tasks;
+          if (form.id) {
+            filtered = filtered.filter((task) => task.id === String(form.id));
+          }
           if (form.type) {
             filtered = filtered.filter((task) => task.type === form.type);
           }
