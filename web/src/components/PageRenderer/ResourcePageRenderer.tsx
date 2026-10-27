@@ -15,10 +15,12 @@ import { ProTable, ProDescriptions } from '@ant-design/pro-components';
 import {
   App,
   Button,
+  Descriptions,
   Space,
   Modal,
   Alert,
   Drawer,
+  Table,
   Tag,
   Popconfirm,
   Skeleton,
@@ -27,6 +29,13 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
+import {
+  isStaleSelection,
+  rowIdentity,
+  selectionFilterFingerprint,
+  summarizeTargets,
+} from './batchSelection';
+import { humanizeParamKey, type ConfirmEntry } from './confirmContent';
 import { renderJSONValueSummary } from './ResultViewRenderer';
 import ExecutorUnboundAlert, {
   EXECUTOR_UNBOUND_CODE,
@@ -211,6 +220,18 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const [listErrorCode, setListErrorCode] = useState<string>('');
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailErrorCode, setDetailErrorCode] = useState<string>('');
+  // D2：跨页保留的选择需要与筛选条件一起核对。页内行数、选择状态与筛选指纹
+  // 在请求回调里读取，用 ref 避免把渲染期状态塞进 useCallback 依赖
+  const [selectionStale, setSelectionStale] = useState(false);
+  const [targetListVisible, setTargetListVisible] = useState(false);
+  const selectedRowsRef = useRef<FormValues[]>([]);
+  const pageRowsRef = useRef<FormValues[]>([]);
+  // null = 尚未完成过查询；空串是合法指纹（无筛选条件）
+  const filterFingerprintRef = useRef<string | null>(null);
+  const trackSelectedRows = useCallback((rows: FormValues[]) => {
+    selectedRowsRef.current = rows;
+    setSelectedRows(rows);
+  }, []);
 
   // 查找绑定
   const listBinding = bindings.find((b) => b.usage === 'query');
@@ -230,6 +251,69 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     spec.listView?.identityKey ||
     spec.listView?.columns.find((column) => column.fixed === 'left')?.key ||
     'id';
+
+  // D2：确认框目标条目。标识取自选择状态本身，与提交给 onExecute 的 selection
+  // 同源；超出部分只报数，完整清单走选择栏的清单入口
+  const targetEntries = useCallback(
+    (rows: FormValues[]): ConfirmEntry[] => {
+      const intl = intlRef.current;
+      if (rows.length === 0) return [];
+      const summary = summarizeTargets(rows, rowIdentityKey);
+      const overflow =
+        summary.omitted > 0
+          ? intl.formatMessage(
+              {
+                id: 'component.resourceRenderer.confirm.targetsOverflow',
+                defaultMessage: ' 等 {count} 项',
+              },
+              { count: rows.length },
+            )
+          : '';
+      const entries: ConfirmEntry[] = [
+        {
+          key: 'targets',
+          title: intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.targets',
+            defaultMessage: '目标对象',
+          }),
+          value: summary.identities.join('、') + overflow,
+        },
+      ];
+      if (rows.length > 1) {
+        entries.push({
+          key: 'count',
+          title: intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.targetCount',
+            defaultMessage: '目标数量',
+          }),
+          value: String(rows.length),
+        });
+      }
+      return entries;
+    },
+    [rowIdentityKey],
+  );
+
+  // D2：确认框内容——提示语 + 目标条目（Descriptions）。无目标时退回纯文案
+  const confirmContentWithTargets = useCallback(
+    (confirmText: string, rows: FormValues[]): React.ReactNode => {
+      const entries = targetEntries(rows);
+      if (entries.length === 0) return confirmText;
+      return (
+        <div>
+          <p style={{ margin: 0 }}>{confirmText}</p>
+          <Descriptions size="small" column={1} bordered style={{ marginTop: 12 }}>
+            {entries.map((entry) => (
+              <Descriptions.Item key={entry.key} label={entry.title}>
+                {entry.value}
+              </Descriptions.Item>
+            ))}
+          </Descriptions>
+        </div>
+      );
+    },
+    [targetEntries],
+  );
 
   // 处理列表数据请求
   const handleRequest = useCallback(
@@ -287,6 +371,19 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           return { data: [], total: 0 };
         }
         setListError(null);
+        // D2：筛选条件变了但跨页选择还在时提示核对。分页入参不计入指纹，翻页
+        // 不算变更；保留的键无法区分「仍在其它页」与「已被新筛选排除」，
+        // 因此每次查询都重新判定，而不是只置位不清位
+        const nextFingerprint = selectionFilterFingerprint(params);
+        setSelectionStale(
+          isStaleSelection(
+            filterFingerprintRef.current,
+            nextFingerprint,
+            selectedRowsRef.current.length,
+          ),
+        );
+        filterFingerprintRef.current = nextFingerprint;
+        pageRowsRef.current = rows;
         const total = getPageStateNumber(nextState, 'total');
         return {
           data: rows,
@@ -345,7 +442,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           }),
         );
         setCreateModalVisible(false);
-        setSelectedRows([]);
+        trackSelectedRows([]);
         actionRef.current?.reload();
         return true;
       } catch (err) {
@@ -361,7 +458,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [createBinding, message, onExecute, preview],
+    [createBinding, message, onExecute, preview, trackSelectedRows],
   );
 
   // 处理编辑
@@ -396,7 +493,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
         setEditModalVisible(false);
         setCurrentRecord(null);
-        setSelectedRows([]);
+        trackSelectedRows([]);
         actionRef.current?.reload();
         return true;
       } catch (err) {
@@ -412,7 +509,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [message, updateBinding, currentRecord, onExecute, preview],
+    [currentRecord, message, onExecute, preview, trackSelectedRows, updateBinding],
   );
 
   // 提交带表单的行操作：form 值 + 行 identity 一起交给 selector 组装
@@ -449,7 +546,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           }),
         );
         setActionFormState(null);
-        setSelectedRows([]);
+        trackSelectedRows([]);
         actionRef.current?.reload();
         return true;
       } catch (err) {
@@ -465,7 +562,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [actionFormState, bindings, message, onExecute, preview],
+    [actionFormState, bindings, message, onExecute, preview, trackSelectedRows],
   );
 
   const submitCreateForm = useCallback(async () => {
@@ -518,7 +615,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             defaultMessage: '删除成功',
           }),
         );
-        setSelectedRows([]);
+        trackSelectedRows([]);
         actionRef.current?.reload();
       } catch (err) {
         message.error(
@@ -532,7 +629,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
       }
     },
-    [deleteBinding, message, onExecute, preview],
+    [deleteBinding, message, onExecute, preview, trackSelectedRows],
   );
 
   // 处理行操作
@@ -573,13 +670,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               defaultMessage: '确认操作',
             }),
           ),
-          content: localizedText(
-            action.confirmDescription,
-            'zh-CN',
-            intl.formatMessage({
-              id: 'component.resourceRenderer.confirm.content',
-              defaultMessage: '确定要执行此操作吗？',
-            }),
+          content: confirmContentWithTargets(
+            localizedText(
+              action.confirmDescription,
+              'zh-CN',
+              intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.content',
+                defaultMessage: '确定要执行此操作吗？',
+              }),
+            ),
+            [record],
           ),
           onOk: async () => {
             try {
@@ -590,7 +690,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                   defaultMessage: '操作成功',
                 }),
               );
-              setSelectedRows([]);
+              trackSelectedRows([]);
               actionRef.current?.reload();
             } catch (err) {
               message.error(
@@ -614,7 +714,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               defaultMessage: '操作成功',
             }),
           );
-          setSelectedRows([]);
+          trackSelectedRows([]);
           actionRef.current?.reload();
         } catch (err) {
           message.error(
@@ -629,7 +729,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
       }
     },
-    [bindings, message, modal, onExecute, preview],
+    [bindings, confirmContentWithTargets, message, modal, onExecute, preview, trackSelectedRows],
   );
 
   const executeListAction = useCallback(
@@ -663,7 +763,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               defaultMessage: '操作成功',
             }),
           );
-          setSelectedRows([]);
+          trackSelectedRows([]);
           actionRef.current?.reload();
         } catch (err) {
           message.error(
@@ -687,13 +787,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               defaultMessage: '确认操作',
             }),
           ),
-          content: localizedText(
-            action.confirmDescription,
-            'zh-CN',
-            intl.formatMessage({
-              id: 'component.resourceRenderer.confirm.content',
-              defaultMessage: '确定要执行此操作吗？',
-            }),
+          content: confirmContentWithTargets(
+            localizedText(
+              action.confirmDescription,
+              'zh-CN',
+              intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.content',
+                defaultMessage: '确定要执行此操作吗？',
+              }),
+            ),
+            context.selection || (context.row ? [context.row] : []),
           ),
           onOk: run,
         });
@@ -701,7 +804,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       await run();
     },
-    [bindings, message, modal, onExecute, preview],
+    [bindings, confirmContentWithTargets, message, modal, onExecute, preview, trackSelectedRows],
   );
 
   const openDetail = useCallback(
@@ -864,6 +967,30 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     });
   }
 
+  // D2：跨页保留的选择里，只有这些对象出现在当前页——两者不等时算子无法
+  // 只靠当前页核对目标，选择栏与确认框都要给出总数
+  const pageRowIdentities = new Set(
+    pageRowsRef.current.map((row) => rowIdentity(row, rowIdentityKey)),
+  );
+  const visibleSelectedCount = selectedRows.filter((row) =>
+    pageRowIdentities.has(rowIdentity(row, rowIdentityKey)),
+  ).length;
+
+  // D2：目标清单列——标识列提到最前，再带最多三列辅助字段；标题走展示层文案，
+  // 缺失时人性化 key 而不是直接暴露原始字段名
+  const specColumns = (spec.listView?.columns || []).slice();
+  specColumns.sort((a, b) => {
+    if (a.key === rowIdentityKey) return -1;
+    if (b.key === rowIdentityKey) return 1;
+    return 0;
+  });
+  const targetListColumns = specColumns.slice(0, 3).map((column) => ({
+    title: localizedText(column.title, 'zh-CN', humanizeParamKey(column.key)),
+    dataIndex: column.key,
+    width: 180,
+    ellipsis: true,
+  }));
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {listError ? (
@@ -895,12 +1022,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
         actionRef={actionRef}
         rowKey={(record) => {
-          // identity 缺失时兜底数据本身：多条空串 key 在 React diff 下会
-          // 产生幻影残留行（连点刷新行数递增），数据串保证行内唯一
-          const identity = record[rowIdentityKey] ?? record.id ?? record.key;
-          return identity === undefined || identity === null
-            ? JSON.stringify(record)
-            : String(identity);
+          // 与选择状态、确认框目标同口径；identity 缺失时兜底数据本身
+          return rowIdentity(record, rowIdentityKey);
         }}
         columns={columns}
         request={handleRequest}
@@ -947,7 +1070,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             ? {
                 preserveSelectedRowKeys: true,
                 onChange: (_, rows) => {
-                  setSelectedRows(rows);
+                  trackSelectedRows(rows);
                 },
               }
             : undefined
@@ -955,17 +1078,62 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         tableAlertRender={
           batchActions.length > 0
             ? ({ selectedRowKeys, onCleanSelected }) => (
-                <Space size={16}>
-                  <span>
+                <Space size={16} wrap>
+                  <span data-testid="selection-count">
                     {intl.formatMessage(
                       {
                         id: 'component.resourceRenderer.selection.count',
-                        defaultMessage: `已选择 ${selectedRowKeys.length} 项`,
+                        defaultMessage: '已选择 {count} 项',
                       },
                       { count: selectedRowKeys.length },
                     )}
                   </span>
-                  <Button type="link" size="small" onClick={onCleanSelected}>
+                  {/* 跨页保留的选择里只有这些在当前页可见：两者不等说明算子
+                      无法只靠当前页核对目标，必须走清单 */}
+                  {visibleSelectedCount !== selectedRows.length ? (
+                    <span data-testid="selection-visible">
+                      {intl.formatMessage(
+                        {
+                          id: 'component.resourceRenderer.selection.visible',
+                          defaultMessage: '本页可见 {count} 项',
+                        },
+                        { count: visibleSelectedCount },
+                      )}
+                    </span>
+                  ) : null}
+                  {selectionStale ? (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      data-testid="selection-stale"
+                      title={intl.formatMessage({
+                        id: 'component.resourceRenderer.selection.stale',
+                        defaultMessage:
+                          '筛选条件已变更，已选对象不在当前结果集，请核对后清除或重新勾选',
+                      })}
+                    />
+                  ) : null}
+                  <Button
+                    type="link"
+                    size="small"
+                    disabled={selectedRows.length === 0}
+                    data-testid="selection-target-list"
+                    onClick={() => setTargetListVisible(true)}
+                  >
+                    <FormattedMessage
+                      id="component.resourceRenderer.selection.targetList"
+                      defaultMessage="查看目标清单"
+                    />
+                  </Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => {
+                      trackSelectedRows([]);
+                      setSelectionStale(false);
+                      onCleanSelected();
+                    }}
+                  >
                     <FormattedMessage
                       id="component.resourceRenderer.selection.clear"
                       defaultMessage="取消选择"
@@ -1019,6 +1187,32 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             : false
         }
       />
+
+      {/* D2：目标清单——跨页选择核对入口，列与主表同源且标识列在前 */}
+      <Modal
+        title={intl.formatMessage(
+          {
+            id: 'component.resourceRenderer.selection.targetListTitle',
+            defaultMessage: '已选目标清单（{count} 项）',
+          },
+          { count: selectedRows.length },
+        )}
+        open={targetListVisible}
+        onCancel={() => setTargetListVisible(false)}
+        footer={null}
+        width={560}
+        destroyOnHidden
+      >
+        <Table<FormValues>
+          rowKey={(record) => rowIdentity(record, rowIdentityKey)}
+          columns={targetListColumns}
+          dataSource={selectedRows}
+          pagination={false}
+          size="small"
+          data-testid="target-list-table"
+          scroll={{ y: 320 }}
+        />
+      </Modal>
 
       {/* 创建表单 */}
       {spec.createForm && (
