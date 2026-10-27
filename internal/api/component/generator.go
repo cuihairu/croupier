@@ -133,12 +133,12 @@ func (h *Handler) GenerateCRUDTemplate(ctx context.Context, resource string, con
 	tree := buildCRUDTree(listFn, getFn, createFn, updateFn, deleteFn, &fns)
 
 	name := fmt.Sprintf(`{"zh-CN":%q}`, resource+" 管理")
-	desc := fmt.Sprintf(`{"zh-CN":%q}`, "列表查看 → 详情 → 增删改操作（自动生成）")
+	desc := crudTemplateDescription(crudMissingCapabilities(createFn, updateFn, deleteFn))
 
 	tpl := &model.ComponentTemplate{
 		Key:               "crud--" + sanitizeKey(resource),
 		Name:              model.JSON(name),
-		Description:       model.JSON(desc),
+		Description:       desc,
 		Category:          "资源管理",
 		Icon:              "AppstoreOutlined",
 		RequiredFunctions: model.JSON(toJSONStringArray(fns)),
@@ -146,6 +146,37 @@ func (h *Handler) GenerateCRUDTemplate(ctx context.Context, resource string, con
 		Builtin:           true,
 	}
 	return h.model.UpsertBuiltin(ctx, tpl)
+}
+
+// crudMissingCapabilities 列出 CRUD 模板未覆盖的写能力（能力名与 dbenum 的
+// capability 机器标识一致）。缺能力的入口不生成（不在树里留空节点），缺口因此
+// 必须显式声明，否则模板卡片看起来是完整 CRUD、实际只有读流程。
+func crudMissingCapabilities(createFn, updateFn, deleteFn *model.FunctionContract) []string {
+	missing := make([]string, 0, 3)
+	for _, op := range []struct {
+		cap dbenum.Capability
+		fn  *model.FunctionContract
+	}{
+		{dbenum.CapabilityCreate, createFn},
+		{dbenum.CapabilityUpdate, updateFn},
+		{dbenum.CapabilityDelete, deleteFn},
+	} {
+		if op.fn == nil {
+			missing = append(missing, op.cap.String())
+		}
+	}
+	return missing
+}
+
+// crudTemplateDescription 生成 CRUD 模板描述：能力齐备时说明完整流程；缺写能力时
+// 点名缺口。模板列表与「从模板开始」卡片都展示该描述，用户在实例化前即知流程
+// 不完整，而不是靠「树里没有对应节点」自行推断。
+func crudTemplateDescription(missing []string) model.JSON {
+	if len(missing) == 0 {
+		return model.JSON(`{"zh-CN":"列表查看 → 详情 → 增删改操作（自动生成）"}`)
+	}
+	return model.JSON(fmt.Sprintf(`{"zh-CN":"列表查看 → 详情（自动生成）；缺 %s 能力，未生成对应入口"}`,
+		strings.Join(missing, "/")))
 }
 
 // crudInputKey 从契约输入 schema 推导身份/主键字段名：优先常见命名（id/uid/
