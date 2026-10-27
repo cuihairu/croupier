@@ -243,7 +243,9 @@ export const CompositeRenderer: React.FC<{
     <Card
       size="small"
       title={localizedText(sec.title, 'zh-CN', sec.key)}
-      loading={running[sec.key] || false}
+      // D4：表单区块提交期间不进整卡骨架——骨架会卸载表单，失败后已填值
+      // 随之丢失；在途状态由表单 disabled 表达。非表单区块保留骨架。
+      loading={(running[sec.key] || false) && !sectionHasForm(sec)}
       extra={
         sec.view === 'table' && (sec.toolbar?.actions?.length ?? 0) > 0 ? (
           <Space size={4}>
