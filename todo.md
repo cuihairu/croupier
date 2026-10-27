@@ -99,6 +99,8 @@
 
 - [x] Agent 健康监控与恢复：外部方案评审 + server 侧监控下放 agent（来源：用户 2026-10-14）——评审定稿 docs/design/agent-health-recovery-review.md：重合度审计 + 真缺口七项 + 迁移四步 + 三点已拍板（2026-10-14：probe.targets 每 agent 均可配 devops 主用 / 上行走 report.Conn 扩 SendAlertEvent 新 wire / DBSource 归属列 R4 才动表不停 R2/R3）+ 补充裁决并入（第三方监控零新增 agent 部署、单一权威分工表、实现层/实例层分标、dbmon SQL 探测收敛 core/healthprobe 不留第二套、熔断器=调用方策略留 server dispatch、游戏模拟探测=存量延后需求 P2）；R2 装配面代码批已交付（commit ebcde49，87 条新用例 + 全量门禁绿，证据见简档 §12）；R3 首子批（窗口→Alert 生命周期：probe.window 开/合转 firing/resolved + details 落最近 5 次失败明细）已交付（commit 06976e1，11 条新用例，证据见简档 §12）；R3 次子批（evaluator probe 指标路径）已交付（证据见简档 §12）；R3 三至六子批（probe.policy 管理面与下发 / probe_stats 持久化 / server 内核装配 / ops 在线汇总 server 面与前端卡片）已交付（证据见简档 §12）；R3 收口；R4 收敛批已交付（R4-1 归属列 0045 commit f57ff76 + R4-2 dbmon 判定切 DBChecker commit 79aaf76 + R4-3 周期探针按归属下发——拉取时派生 db_sources.owner_agent_id 目标集、wire 0x040121/0x040122、ApplyTargets diff 装配、derive/hash/拉取降级边界见简档 §12）；R4-4 验证已过（diagnose 端点保留 + DBChecker 判定链，简档 §12）；全条目完成（2026-10-15 翻账）；受管程序生命周期单列上行 15
 
+- [x] README 表格数据行被并成单行，拆回每行一条（2026-10-27，docs: split merged table rows）：README.md:68 / README.zh.md:71 SDK 表六条语言行被并成单物理行，GitHub 渲染成破行；按语言键拆回每行一条，列内容原样保留，`awk 'length($0)>500 && /\|/'` 两文件输出为空
+
 ## 已完成
 
 ### 平台与面板
