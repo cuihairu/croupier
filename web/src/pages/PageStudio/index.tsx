@@ -54,28 +54,8 @@ import type {
   PageVersionItem,
 } from '@/types/dashboard';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
-import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
-
-/** 结构化错误明细列表：展示后端 details（字段路径 → 失败原因）。 */
-function ErrorDetailList({ error }: { error: unknown }) {
-  const details = extractErrorDetails(error);
-  if (details.length === 0) return null;
-  return (
-    <ul style={{ margin: 0, paddingLeft: 18, maxHeight: 260, overflowY: 'auto' }}>
-      {details.map((d, i) => (
-        <li key={`${d.field}-${i}`}>
-          {d.field ? (
-            <>
-              <code>{d.field}</code>
-              {': '}
-            </>
-          ) : null}
-          {d.message}
-        </li>
-      ))}
-    </ul>
-  );
-}
+import { extractErrorMessage } from '@/utils/errors';
+import ErrorDetailList from '@/components/ErrorDetailList';
 
 /** 状态过滤选项（#30 服务端条件下拉）：文案渲染期经 intl 解析。 */
 const buildStatusOptions = (

@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 )
@@ -75,7 +77,7 @@ func TestBuildCompositePageSpec_SameAsPersistedProposal(t *testing.T) {
 }
 
 // TestBuildCompositePageSpec_Errors：预览路径继承生成链的全部输入校验，
-// 不另设一套宽松规则。
+// 不另设一套宽松规则；每条校验失败都带可定位到输入项的 details。
 func TestBuildCompositePageSpec_Errors(t *testing.T) {
 	db := setupTestDBFileV9(t)
 	ctx := context.Background()
@@ -84,21 +86,46 @@ func TestBuildCompositePageSpec_Errors(t *testing.T) {
 
 	_, _, err := svc.BuildCompositePageSpec(ctx, "g9", "e9", "  ", previewSections(), nil)
 	require.ErrorContains(t, err, "pageKey is required")
+	assert.Contains(t, requireValidationErrorDetails(t, err), "pageKey")
 
 	_, _, err = svc.BuildCompositePageSpec(ctx, "g9", "e9", "preview--missing-fn", []CompositeSectionRequest{
 		{FunctionID: "player.get"}, {FunctionID: "no.such.fn"},
 	}, nil)
 	require.ErrorContains(t, err, "contract not found")
+	assert.Contains(t, requireValidationErrorDetails(t, err)["sections[1].functionId"], "no.such.fn")
 
 	_, _, err = svc.BuildCompositePageSpec(ctx, "g9", "e9", "preview--dup-key", []CompositeSectionRequest{
 		{Key: "same", FunctionID: "player.get"}, {Key: "same", FunctionID: "order.list"},
 	}, nil)
 	require.ErrorContains(t, err, "duplicate section key")
+	assert.Contains(t, requireValidationErrorDetails(t, err)["sections[1].key"], `key "same"`)
 
 	_, _, err = svc.BuildCompositePageSpec(ctx, "g9", "e9", "preview--static", []CompositeSectionRequest{
 		{Static: true, Key: "s"}, // 缺 form.jsonSchema
 	}, nil)
 	require.ErrorContains(t, err, "requires form.jsonSchema")
+	assert.Contains(t, requireValidationErrorDetails(t, err)["sections[0].form.jsonSchema"], "form.jsonSchema")
+
+	// 全 static 区块无契约可生成：原因落在 sections 而非编造字段路径
+	_, _, err = svc.BuildCompositePageSpec(ctx, "g9", "e9", "preview--static-only", []CompositeSectionRequest{
+		{Static: true, Key: "s", Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(
+			`{"type":"object","properties":{"text":{"type":"string"}}}`)}},
+	}, nil)
+	require.ErrorContains(t, err, "cannot be generated")
+	assert.Contains(t, requireValidationErrorDetails(t, err)["sections"], "no functional section")
+}
+
+// requireValidationErrorDetails 断言生成链输入校验错误是结构化 400
+// （Code=400 + StableCode=validation_failed + 非空 details），返回 details
+// 供字段路径级断言复用。
+func requireValidationErrorDetails(t *testing.T, err error) map[string]any {
+	t.Helper()
+	var codeErr *errorx.CodeError
+	require.ErrorAs(t, err, &codeErr)
+	require.Equal(t, http.StatusBadRequest, codeErr.Code)
+	require.Equal(t, "validation_failed", codeErr.ErrorCode())
+	require.NotEmpty(t, codeErr.Details)
+	return codeErr.Details
 }
 
 // TestBuildCompositePageSpec_StaticAndTemplateSnapshot：预览路径与提案路径

@@ -3,6 +3,7 @@ package versioning
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,7 +71,8 @@ func TestV9Handler_PreviewCompositePage_NoWrite(t *testing.T) {
 }
 
 // TestV9Handler_PreviewCompositePage_ContractMissing：预览继承生成链的契约校验，
-// 缺契约时按统一错误形状返回，前端可直接展示 message。
+// 缺契约时返回 400 + validation_failed + details，前端可把原因定位到
+// sections[1].functionId 对应的那一个区块，而不是只看到一条笼统报错。
 func TestV9Handler_PreviewCompositePage_ContractMissing(t *testing.T) {
 	db := setupTestDB(t)
 	router := newVersioningHandlerRouterV9(t, db)
@@ -80,13 +82,73 @@ func TestV9Handler_PreviewCompositePage_ContractMissing(t *testing.T) {
 		`{"pageKey":"composite--missing-fn","sections":[`+
 			`{"functionId":"player.get","view":"fields"},`+
 			`{"functionId":"no.such.fn","view":"table"}]}`)
-	require.NotEqual(t, http.StatusOK, rec.Code)
+	details := requireValidationErrorBody(t, rec)
+	assert.Contains(t, details["sections[1].functionId"], "no.such.fn contract not found")
+}
 
-	var errBody map[string]interface{}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &errBody))
-	_, hasError := errBody["error"]
-	assert.True(t, hasError, "错误响应使用统一 error/message 形状")
-	assert.NotEmpty(t, errBody["message"])
+// TestV9Handler_PreviewCompositePage_PageKeyRequired：缺 pageKey → 400 +
+// details.pageKey，原因可指到具体输入项。
+func TestV9Handler_PreviewCompositePage_PageKeyRequired(t *testing.T) {
+	db := setupTestDB(t)
+	router := newVersioningHandlerRouterV9(t, db)
+	seedCompositeContractsV9(t, db)
+
+	details := requireValidationErrorBody(t, doVersioningRequestV9(router, http.MethodPost,
+		"/api/versioning/pages/composite/preview",
+		`{"sections":[{"functionId":"player.get","view":"fields"}]}`))
+	assert.Contains(t, details["pageKey"], "pageKey is required")
+}
+
+// TestV9Handler_PreviewCompositePage_DuplicateSectionKey：区块 key 冲突时，
+// details 键带上发生冲突的区块下标，编辑者可定位到具体区块。
+func TestV9Handler_PreviewCompositePage_DuplicateSectionKey(t *testing.T) {
+	db := setupTestDB(t)
+	router := newVersioningHandlerRouterV9(t, db)
+	seedCompositeContractsV9(t, db)
+
+	details := requireValidationErrorBody(t, doVersioningRequestV9(router, http.MethodPost,
+		"/api/versioning/pages/composite/preview",
+		`{"pageKey":"composite--dup-key","sections":[`+
+			`{"key":"k1","functionId":"player.get","view":"fields"},`+
+			`{"key":"k1","functionId":"order.list","view":"table"}]}`))
+	assert.Contains(t, details["sections[1].key"], `duplicate section key "k1"`)
+}
+
+// TestV9Handler_PreviewCompositePage_StaticSectionValidation：static 区块的
+// key 缺失与 form.jsonSchema 缺失分别落到对应字段路径。
+func TestV9Handler_PreviewCompositePage_StaticSectionValidation(t *testing.T) {
+	db := setupTestDB(t)
+	router := newVersioningHandlerRouterV9(t, db)
+
+	t.Run("MissingKey", func(t *testing.T) {
+		details := requireValidationErrorBody(t, doVersioningRequestV9(router, http.MethodPost,
+			"/api/versioning/pages/composite/preview",
+			`{"pageKey":"composite--static-no-key","sections":[`+
+				`{"static":true,"form":{"jsonSchema":{"type":"object","properties":{"text":{"type":"string"}}}}}]}`))
+		assert.Contains(t, details["sections[0].key"], "static section requires key")
+	})
+
+	t.Run("MissingForm", func(t *testing.T) {
+		details := requireValidationErrorBody(t, doVersioningRequestV9(router, http.MethodPost,
+			"/api/versioning/pages/composite/preview",
+			`{"pageKey":"composite--static-no-form","sections":[`+
+				`{"static":true,"key":"note","title":"说明"}]}`))
+		assert.Contains(t, details["sections[0].form.jsonSchema"], "form.jsonSchema")
+	})
+}
+
+// TestV9Handler_PreviewCompositePage_NoFunctionalSection：全 static 区块无契约可
+// 生成（生成器空输入流拒绝），回退原因落在 sections 而非编造字段路径。
+func TestV9Handler_PreviewCompositePage_NoFunctionalSection(t *testing.T) {
+	db := setupTestDB(t)
+	router := newVersioningHandlerRouterV9(t, db)
+
+	details := requireValidationErrorBody(t, doVersioningRequestV9(router, http.MethodPost,
+		"/api/versioning/pages/composite/preview",
+		`{"pageKey":"composite--static-only","sections":[`+
+			`{"static":true,"key":"note","title":"说明",`+
+			`"form":{"jsonSchema":{"type":"object","properties":{"text":{"type":"string"}}}}}]}`))
+	assert.Contains(t, details["sections"], "no functional section")
 }
 
 // TestV9Handler_PreviewCompositePage_InvalidBody：坏 JSON 按 400 返回。
@@ -96,6 +158,23 @@ func TestV9Handler_PreviewCompositePage_InvalidBody(t *testing.T) {
 
 	rec := doVersioningRequestV9(router, http.MethodPost, "/api/versioning/pages/composite/preview", `{bad`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// requireValidationErrorBody 断言统一验证错误形状（400 + error=validation_failed
+// + 非空结构化 details）并返回 details，供字段路径级断言复用。
+func requireValidationErrorBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	var body struct {
+		Error   string         `json:"error"`
+		Message string         `json:"message"`
+		Details map[string]any `json:"details"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Equal(t, "validation_failed", body.Error)
+	assert.NotEmpty(t, body.Message)
+	require.NotEmpty(t, body.Details, "校验失败须返回可内联展示的字段级 details")
+	return body.Details
 }
 
 // TestV9Handler_PreviewCompositePage_SameSpecAsSaved：同一请求体下，预览响应的

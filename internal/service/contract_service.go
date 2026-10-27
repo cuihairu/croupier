@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -1869,6 +1870,39 @@ func (s *ContractService) CreateCompositeProposal(
 	return s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
 }
 
+// sectionValidationErrors 组合页区块输入校验失败 → 结构化 400
+// （error=validation_failed + details）。details 以请求体 wire 字段路径为键
+// （sections[<i>].key 等），预览/保存入口据此把原因逐条内联展示到诊断列表，
+// 而不是只有一条笼统 message 让前端无从定位。
+func sectionValidationErrors(message string, details map[string]any) error {
+	return errorx.NewBadRequestWithCode("validation_failed", message, details)
+}
+
+// sectionPath 区块输入字段路径，与请求体 wire 形态一致。
+func sectionPath(index int, field string) string {
+	if field == "" {
+		return fmt.Sprintf("sections[%d]", index)
+	}
+	return fmt.Sprintf("sections[%d].%s", index, field)
+}
+
+// diagnosticsToDetails 生成诊断 → details（field 作键、message 作值，缺 field
+// 时回退诊断 code）。
+func diagnosticsToDetails(diagnostics []spec.Diagnostic) map[string]any {
+	details := map[string]any{}
+	for _, d := range diagnostics {
+		key := strings.TrimSpace(d.Field)
+		if key == "" {
+			key = d.Code
+		}
+		if key == "" {
+			continue
+		}
+		details[key] = d.Message
+	}
+	return details
+}
+
 // BuildCompositePageSpec 生成组合页 PageSpec 而不落库：供编辑器实时预览消费
 // 与「保存→发布」同一份生成链——区块契约解析、static 区块交错、模板快照与
 // 发布级 selector 校验全部共用，预览产物与提案/发布产物逐字段一致。
@@ -1892,7 +1926,7 @@ func (s *ContractService) BuildCompositePageSpec(
 	pageKey = strings.TrimSpace(pageKey)
 	// 上传即成页（D1）：单区块（单函数）组合页合法——仅要求 pageKey 非空。
 	if pageKey == "" {
-		return spec.GeneratedPageSpec{}, nil, fmt.Errorf("pageKey is required")
+		return spec.GeneratedPageSpec{}, nil, sectionValidationErrors("pageKey is required", map[string]any{"pageKey": "pageKey is required"})
 	}
 
 	inputs := make([]generator.CompositeSectionInput, 0, len(sections))
@@ -1903,19 +1937,20 @@ func (s *ContractService) BuildCompositePageSpec(
 	genCount := 0
 	seenKey := map[string]bool{}
 	contractCache := map[string]*model.FunctionContract{}
-	for _, sec := range sections {
+	for i, sec := range sections {
 		key := strings.TrimSpace(sec.Key)
 		if sec.Static {
 			// 常量表单：不查契约、不生成绑定；表单 schema 由编辑器透传
 			if key == "" {
-				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("static section requires key")
+				return spec.GeneratedPageSpec{}, nil, sectionValidationErrors("static section requires key", map[string]any{sectionPath(i, "key"): "static section requires key"})
 			}
 			if seenKey[key] {
-				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("duplicate section key %q", key)
+				msg := fmt.Sprintf("duplicate section key %q", key)
+				return spec.GeneratedPageSpec{}, nil, sectionValidationErrors(msg, map[string]any{sectionPath(i, "key"): msg})
 			}
 			seenKey[key] = true
 			if sec.Form == nil || len(sec.Form.JSONSchema) == 0 {
-				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("static section %q requires form.jsonSchema", key)
+				return spec.GeneratedPageSpec{}, nil, sectionValidationErrors(fmt.Sprintf("static section %q requires form.jsonSchema", key), map[string]any{sectionPath(i, "form.jsonSchema"): "static section requires form.jsonSchema"})
 			}
 			section := spec.CompositeSection{
 				Key:       key,
@@ -1952,7 +1987,8 @@ func (s *ContractService) BuildCompositePageSpec(
 			key = fid
 		}
 		if seenKey[key] {
-			return spec.GeneratedPageSpec{}, nil, fmt.Errorf("duplicate section key %q (同函数多实例请提供不同 key)", key)
+			msg := fmt.Sprintf("duplicate section key %q (同函数多实例请提供不同 key)", key)
+			return spec.GeneratedPageSpec{}, nil, sectionValidationErrors(msg, map[string]any{sectionPath(i, "key"): msg})
 		}
 		seenKey[key] = true
 		contract, ok := contractCache[fid]
@@ -1960,6 +1996,12 @@ func (s *ContractService) BuildCompositePageSpec(
 			var err error
 			contract, err = s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, fid)
 			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					// 区块引用的函数未登记契约：画布配置问题，可定位到
+					// sections[i].functionId（DB 故障仍走 500 兜底）。
+					msg := fmt.Sprintf("function %s contract not found", fid)
+					return spec.GeneratedPageSpec{}, nil, sectionValidationErrors(msg, map[string]any{sectionPath(i, "functionId"): msg})
+				}
 				return spec.GeneratedPageSpec{}, nil, fmt.Errorf("function %s contract not found: %w", fid, err)
 			}
 			contractCache[fid] = contract
@@ -2033,7 +2075,14 @@ func (s *ContractService) BuildCompositePageSpec(
 	opts.Terms = s.loadTermDictionary(ctx)
 	generated, ok := generator.GenerateCompositePage(pageKey, inputs, contracts, opts)
 	if !ok {
-		return spec.GeneratedPageSpec{}, nil, fmt.Errorf("composite page cannot be generated (see diagnostics)")
+		// 生成器拒绝（function_missing 等）时诊断已带原因，随 details 返回；
+		// 空输入流（全 static 区块或全空 functionId）无诊断，给出兜底原因。
+		details := diagnosticsToDetails(generated.Diagnostics)
+		if len(details) == 0 {
+			details = map[string]any{"sections": "no functional section to generate (all sections static or functionId empty)"}
+		}
+		msg := "composite page cannot be generated (see diagnostics)"
+		return spec.GeneratedPageSpec{}, nil, sectionValidationErrors(msg, details)
 	}
 	// 常量表单区块（static）：不经过生成器（无契约/绑定），按输入流原位置
 	// 交错合并进生成 sections——static 在前的输入不应被追加到页尾；
