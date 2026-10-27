@@ -54,7 +54,7 @@ title: 游戏运营默认菜单与建议业务能力
 - 配置必须可由真实 `LoadSeedMenus` 解析，七个 key 唯一、排序递增、标签符合 BCP47、图标可渲染。
 - 沿用 seeder 的 scope 独立、重复访问幂等、已有分类不覆盖及用户删除不复活回归用例。
 - 不变更 PageSpec wire、发布和菜单挂载契约，不涉及线上数据迁移；已运行服务需使用更新后的 bootstrap 文件并重启后加载模板。
-- 本次默认分类交付不等于业务子页完成，五类业务闭环单独列入 todo，按真实游戏接入验收。
+- 本次默认分类交付不等于业务子页完成，五类业务闭环单独列入 todo；玩家工作台 CRUD（查询→详情→新建/编辑/删除确认→成功刷新）已按 fixture 级验收（`gameOpsCrudFixture.test.tsx` + gameOpsDemo 内存数据），真实游戏接入仍按各集成单独验收，不用 demo 数据替代真实契约结论。
 
 关联：[控制台动态菜单](../architecture/console-dynamic-menu.md)、[页面发布与挂载向导](../guide/concepts/console-navigation.md)、[Agent 后台页面](agent-dashboard-design.md)。
 
