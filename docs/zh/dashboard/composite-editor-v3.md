@@ -595,11 +595,12 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   刷新 `onSuccessRefresh` 目标、关闭弹窗）；`approval` 提示「已提交审批」并给审批单号与
   审批中心入口，`task` 提示「任务已提交」并给任务号——两者都不关弹窗、不发 success 事件、
   不刷新目标。失败保持弹窗与已填参数，展示稳定错误码与服务端原因；服务端 `details` 里的
-  字段级错误经共享表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF `extraErrors`
-  - 字段 `__errors`），不再以独立列表复述，反馈条只汇总表单外字段（不在区块 schema 里）
-    的错误。未实现：inline（非弹窗）表单区块提交期间整卡进 loading 骨架，失败后输入值不
-    保留（弹窗表单会保留）；控制台页面执行无服务端幂等键（失败/待处理的提交可由用户重复
-    发起）；无任务中心路由，待处理任务只给任务号；审批入口固定跳 `/approvals`
+  字段级错误经共享表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF
+  `extraErrors` 的字段级 `__errors` 形态），不再以独立列表复述，反馈条只汇总表单外
+  字段（不在区块 schema 里）的错误。未实现：inline（非弹窗）表单区块提交期间整卡进
+  loading 骨架，失败后输入值不保留（弹窗表单会保留）；控制台页面执行无服务端幂等键
+  （失败/待处理的提交可由用户重复发起）；无任务中心路由，待处理任务只给任务号；
+  审批入口固定跳 `/approvals`
 - **操作页多阶段状态反馈（D1）边界**：提交后操作页在结果卡上方追加一条紧凑 `Steps`
   阶段条（提交 → 审批 → 执行），由驱动结果卡的同一状态派生（辅助函数
   `web/src/components/PageRenderer/operationStages.ts` 的 `describeOperationStages`）：
