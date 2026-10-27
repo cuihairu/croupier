@@ -132,6 +132,10 @@ export default {
   'pages.pageStudio.editor.component.fnTable.preview.emptyHint':
     '列来自输出 schema；试跑/预览后显示真实数据',
   'pages.pageStudio.editor.component.fnTable.prop.columns': '展示列',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination': '服务端分页',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination.defaultSize': '每页条数',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination.enabled': '启用服务端分页',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination.pageSizes': '可选每页条数',
   'pages.pageStudio.editor.component.fnTable.prop.rowActions': '行操作',
   'pages.pageStudio.editor.component.modal.defaultTitle': '操作',
   'pages.pageStudio.editor.component.modal.name': '弹窗',

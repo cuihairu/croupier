@@ -1981,6 +1981,7 @@ func (s *ContractService) BuildCompositePageSpec(
 			Tab:         sec.Tab,
 			CardTitle:   sec.CardTitle,
 			Columns:     sec.Columns,
+			Pagination:  sec.Pagination,
 			OnSuccess:   sec.OnSuccessRefresh,
 			Events:      convEvents(sec.Events),
 			VisibleWhen: sec.VisibleWhen,
@@ -2111,6 +2112,10 @@ type CompositeSectionRequest struct {
 	CardTitle string `json:"cardTitle,omitempty"`
 	// Columns 显式展示列覆盖（view=table）：nil=契约默认；空数组=隐藏全部。
 	Columns []string `json:"columns,omitempty"`
+	// Pagination 显式分页配置（view=table）：nil=生成器默认（组合页关闭
+	// 服务端分页）；enabled=true 时落位到区块 table.pagination，发布态
+	// 表格启用服务端分页（defaultSize/pageSizes 随配随传）。
+	Pagination *spec.PaginationSpec `json:"pagination,omitempty"`
 	// Static 常量表单：不绑定函数，Form.jsonSchema 由编辑器设计期定义，
 	// 值仅写入页面状态供 refreshOn/动作链消费（不执行、无审计面）。
 	Static bool `json:"static,omitempty"`

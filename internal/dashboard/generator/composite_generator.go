@@ -40,8 +40,12 @@ type CompositeSectionInput struct {
 	RowActions []CompositeRowActionInput     // view=table
 	Toolbar    []CompositeToolbarActionInput // view=toolbar
 	// Columns 显式展示列覆盖（view=table）：nil=契约默认；空切片=隐藏全部。
-	Columns   []string
-	OnSuccess []string
+	Columns []string
+	// Pagination 显式分页覆盖（view=table）：nil=生成器默认（组合页无资源
+	// 语义上下文，恒为 nil 即关闭）；非 nil 且 Enabled=true 时原样落位，
+	// 使编辑器可在发布态表格上开启服务端分页。
+	Pagination *spec.PaginationSpec
+	OnSuccess  []string
 	// Events 通用事件绑定（发布触发点）。
 	Events []spec.CompositeEventBinding
 	// VisibleWhen 区块级条件显示（按页面状态求值，false 时不渲染）。
@@ -186,9 +190,16 @@ func GenerateCompositePage(
 					}
 					lv.Columns = columns
 				}
+				// 显式分页配置优先于契约推导：组合页无资源语义上下文，
+				// 推导结果恒为 nil（服务端分页关闭），编辑器开启的分页
+				// 配置由此落位到发布态区块。
+				pagination := lv.Pagination
+				if in.Pagination != nil {
+					pagination = in.Pagination
+				}
 				section.Table = &spec.CompositeTableSpec{
 					Columns:     lv.Columns,
-					Pagination:  lv.Pagination,
+					Pagination:  pagination,
 					RowSchema:   lv.RowSchema,
 					IdentityKey: lv.IdentityKey,
 				}

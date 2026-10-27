@@ -341,3 +341,51 @@ func TestCompositeVisibleWhenPassthrough(t *testing.T) {
 		t.Fatalf("unconditional section should not carry visibleWhen: %+v", byKey["vip.rank"].VisibleWhen)
 	}
 }
+
+// 显式分页配置透传：编辑器为发布态表格开启服务端分页时落位到区块
+// table.pagination；未配置时组合页不推导、不猜测，保持 nil（关闭）。
+func TestCompositePaginationExplicitPassthrough(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			Model:        gorm.Model{ID: 401},
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			Enabled:      true,
+			InputSchema:  model.JSON(`{"type":"object","properties":{"page":{"type":"integer"},"pageSize":{"type":"integer"}}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"uid":{"type":"string"}}}},"total":{"type":"integer"}}}`),
+		},
+	}
+	gen, ok := GenerateCompositePage("composite--player-list", []CompositeSectionInput{
+		{
+			FunctionID: "player.list",
+			View:       "table",
+			Pagination: &spec.PaginationSpec{Enabled: true, DefaultSize: 10, PageSizes: []int{10, 20, 50}},
+		},
+	}, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	if len(gen.Composite.Sections) != 1 || gen.Composite.Sections[0].Table == nil {
+		t.Fatalf("single table section expected, got %+v", gen.Composite.Sections)
+	}
+	pg := gen.Composite.Sections[0].Table.Pagination
+	if pg == nil {
+		t.Fatal("explicit pagination not applied")
+	}
+	if !pg.Enabled || pg.DefaultSize != 10 || len(pg.PageSizes) != 3 || pg.PageSizes[2] != 50 {
+		t.Fatalf("explicit pagination mismatch: %+v", pg)
+	}
+
+	// 未配置：不推导分页（组合页无资源语义上下文），保持关闭。
+	off, ok := GenerateCompositePage("composite--player-list-plain", []CompositeSectionInput{
+		{FunctionID: "player.list", View: "table"},
+	}, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	if pg := off.Composite.Sections[0].Table.Pagination; pg != nil {
+		t.Fatalf("no explicit config must stay nil: %+v", pg)
+	}
+}

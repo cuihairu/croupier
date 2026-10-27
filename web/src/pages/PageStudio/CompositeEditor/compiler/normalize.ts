@@ -4,6 +4,7 @@ import {
   parseExpression,
   ROW_VARIABLE,
 } from '@/components/PageRenderer/expression';
+import type { PaginationSpec } from '@/types/dashboard';
 
 // 纯函数模块无法 useIntl：经 getIntl 求值诊断文案（先例 services/api/bugs.ts）
 const intl = getIntl();
@@ -64,4 +65,31 @@ export function normalizeRowActionParams(
     out[param] = String(value);
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+const PAGINATION_MAX_SIZE = 200;
+
+/** 服务端分页归一（D3，编译侧）：只有显式 enabled=true 才透传，其余形态
+ * （缺失/关闭/非对象/数组）一律按关闭处理——组合页不推导分页，误启用会让
+ * 不消费 page/pageSize 的函数全量返回，出现每页内容相同、页数按上界虚高。
+ * defaultSize/pageSizes 按渲染端同一钳制口径（[1,200]）归一：空值与非法值
+ * 丢弃，重复值去重，条数升序。
+ */
+export function normalizePaginationProp(raw: unknown): PaginationSpec | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const cfg = raw as { enabled?: unknown; defaultSize?: unknown; pageSizes?: unknown };
+  if (cfg.enabled !== true) return undefined;
+  const clamp = (n: number): number => Math.min(PAGINATION_MAX_SIZE, Math.max(1, Math.floor(n)));
+  const size = Number(cfg.defaultSize);
+  const sizes = Array.isArray(cfg.pageSizes)
+    ? cfg.pageSizes
+        .map((v) => Number(v))
+        .filter((v) => Number.isFinite(v) && v > 0)
+        .map(clamp)
+    : [];
+  return {
+    enabled: true,
+    ...(Number.isFinite(size) && size > 0 ? { defaultSize: clamp(size) } : {}),
+    ...(sizes.length > 0 ? { pageSizes: [...new Set(sizes)].sort((a, b) => a - b) } : {}),
+  };
 }

@@ -1,4 +1,6 @@
 /** 编译器共享类型与常量（编译/反编译两侧公用）。 */
+import type { PaginationSpec } from '@/types/dashboard';
+
 /** 编译产物：与后端 CompositeSectionRequest 对齐（POST /versioning/pages/composite）。 */
 export type CompiledSection = {
   /** 区块唯一 key（同函数多实例：fid、fid-2、fid-3…）；引用一律用 key。 */
@@ -45,6 +47,9 @@ export type CompiledSection = {
   onSuccessRefresh?: string[];
   /** 用户显式覆盖的展示列（view=table）：数组=选择与顺序；[]=隐藏全部；null=契约默认。 */
   columns?: string[] | null;
+  /** 服务端分页（view=table，D3）：启用后发布态表格按 page/pageSize/offset
+   * 分页取数；缺省=关闭（组合页不推导，与资源页 listView.pagination 同契约）。 */
+  pagination?: PaginationSpec;
 };
 
 /** 编译产物的条件形态（wire ConditionSpec 叶子）：key=来源区块 key。 */
@@ -121,6 +126,11 @@ export interface SpecSectionLike {
   cascadePolicy?: string;
   onSuccessRefresh?: string[];
   columns?: string[] | null;
-  table?: { columns?: Array<{ key?: string }>; rowActions?: Array<Record<string, unknown>> };
+  table?: {
+    columns?: Array<{ key?: string }>;
+    rowActions?: Array<Record<string, unknown>>;
+    /** 服务端分页（D3）：宽松形态，decompile 按白名单字段还原。 */
+    pagination?: { enabled?: boolean; defaultSize?: number; pageSizes?: number[] };
+  };
   toolbar?: { actions?: Array<Record<string, unknown>> };
 }

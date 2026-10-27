@@ -51,6 +51,46 @@ export const fnTable: ComponentDef = {
             },
           }
         : {}),
+      // 服务端分页（D3）：启用后发布态表格按 page/pageSize/offset 分页取数，
+      // 与资源页 listView.pagination 同一契约（渲染端 clamp 与缺省值一致）。
+      pagination: {
+        type: 'object',
+        title: intl.formatMessage({
+          id: 'pages.pageStudio.editor.component.fnTable.prop.pagination',
+          defaultMessage: '服务端分页',
+        }),
+        additionalProperties: false,
+        properties: {
+          enabled: {
+            type: 'boolean',
+            title: intl.formatMessage({
+              id: 'pages.pageStudio.editor.component.fnTable.prop.pagination.enabled',
+              defaultMessage: '启用服务端分页',
+            }),
+            default: false,
+          },
+          defaultSize: {
+            type: 'integer',
+            title: intl.formatMessage({
+              id: 'pages.pageStudio.editor.component.fnTable.prop.pagination.defaultSize',
+              defaultMessage: '每页条数',
+            }),
+            minimum: 1,
+            maximum: 200,
+            default: 10,
+          },
+          pageSizes: {
+            type: 'array',
+            title: intl.formatMessage({
+              id: 'pages.pageStudio.editor.component.fnTable.prop.pagination.pageSizes',
+              defaultMessage: '可选每页条数',
+            }),
+            uniqueItems: true,
+            items: { type: 'integer', minimum: 1, maximum: 200 },
+            default: [10, 20, 50],
+          },
+        },
+      },
       rowActions: {
         type: 'array',
         title: intl.formatMessage({

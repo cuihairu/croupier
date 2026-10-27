@@ -145,6 +145,11 @@ export default {
   'pages.pageStudio.editor.component.fnTable.preview.emptyHint':
     'Columns come from the output schema; real data appears after a trial run/preview',
   'pages.pageStudio.editor.component.fnTable.prop.columns': 'Columns',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination': 'Server-side pagination',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination.defaultSize': 'Page size',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination.enabled':
+    'Enable server-side pagination',
+  'pages.pageStudio.editor.component.fnTable.prop.pagination.pageSizes': 'Page size options',
   'pages.pageStudio.editor.component.fnTable.prop.rowActions': 'Row actions',
   'pages.pageStudio.editor.component.modal.defaultTitle': 'Actions',
   'pages.pageStudio.editor.component.modal.name': 'Modal',

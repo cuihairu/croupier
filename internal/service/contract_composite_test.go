@@ -673,3 +673,63 @@ func TestCreateCompositeProposal_CascadePolicyPassthrough(t *testing.T) {
 		t.Fatalf("static section cascadePolicy = %q, want empty (default pause)", got)
 	}
 }
+
+// TestCreateCompositeProposal_PaginationPassthrough 请求 DTO 的显式分页配置
+// 必须到达生成 spec 的区块 table.pagination——编辑器的服务端分页开关若在此
+// 环节被丢，发布态表格永远拿不到分页配置。
+func TestCreateCompositeProposal_PaginationPassthrough(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/pagination.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.list", Resource: "player", Capability: "collection_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"page":{"type":"integer"},"pageSize":{"type":"integer"}}}`, OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"integer"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--pagination-pass", []CompositeSectionRequest{
+		{
+			FunctionID: "player.list",
+			View:       "table",
+			Pagination: &spec.PaginationSpec{Enabled: true, DefaultSize: 10, PageSizes: []int{10, 20, 50}},
+		},
+		{FunctionID: "player.list", View: "table", Key: "player.plain"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	byKey := map[string]spec.CompositeSection{}
+	for _, s := range page.Composite.Sections {
+		byKey[s.Key] = s
+	}
+	pg := byKey["player.list"].Table.Pagination
+	if pg == nil || !pg.Enabled {
+		t.Fatalf("pagination lost in generated spec: %+v", byKey["player.list"].Table)
+	}
+	if pg.DefaultSize != 10 || len(pg.PageSizes) != 3 || pg.PageSizes[2] != 50 {
+		t.Fatalf("pagination detail mismatch: %+v", pg)
+	}
+	// 未配置 → 组合页不推导，保持关闭
+	if pg := byKey["player.plain"].Table.Pagination; pg != nil {
+		t.Fatalf("unconfigured table must not carry pagination: %+v", pg)
+	}
+}

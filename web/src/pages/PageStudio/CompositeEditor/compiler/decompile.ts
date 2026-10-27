@@ -4,6 +4,7 @@ import { localizedText } from '@/utils/localizedText';
 import { pointerToPath } from '@/components/PageRenderer/expression';
 import type { SpecSectionLike } from './types';
 import { SECTION_KEY_RE } from './types';
+import { normalizePaginationProp } from './normalize';
 
 // 纯函数模块无法 useIntl：经 getIntl 求值诊断文案（先例 services/api/bugs.ts）；
 // 回读节点的 title/label 兜底（'常量表单'/'操作'）是编辑树数据，不属于 UI 文案
@@ -185,6 +186,9 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
         : (sec.table?.columns ?? []).map((c) => String(c.key ?? '')).filter(Boolean);
       fnProps.rowActions = sec.table?.rowActions ?? [];
       if (sec.toolbar) fnProps.toolbar = sec.toolbar; // 第二遍还原为按钮节点后移除
+      // 服务端分页（D3）：与编译侧同一归一口径还原；关闭态不还原（编辑器缺省即关闭）。
+      const pagination = normalizePaginationProp(sec.table?.pagination);
+      if (pagination) fnProps.pagination = pagination;
     }
     if (view === 'fnForm') fnProps.display = 'inline';
     if (Array.isArray(sec.inputAssignments) && sec.inputAssignments.length > 0) {
