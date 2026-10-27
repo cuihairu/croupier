@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { FormattedMessage, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { App, Card, Button, Space, Typography, Timeline, Progress, Tag, Alert } from 'antd';
 import {
   CheckCircleOutlined,
@@ -23,6 +23,7 @@ import {
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer';
 import { outputPatchFromResult } from './runtime';
+import { describeExecFailure } from './execFeedback';
 import type {
   JSONValue,
   TaskPageSpec,
@@ -572,13 +573,14 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
             defaultMessage: '未知错误',
           }),
         );
+        const reason = describeExecFailure(error).reason;
         message.error(
           intlRef.current.formatMessage(
             {
-              id: 'component.pageRenderer.taskPage.error.submitFailed',
-              defaultMessage: `任务提交失败: ${detail}`,
+              id: 'component.pageRenderer.taskPage.error.submitFailedWithReason',
+              defaultMessage: `任务提交失败: ${detail}${reason ? `（${reason}）` : ''}`,
             },
-            { detail },
+            { detail, reason },
           ),
         );
       } finally {
@@ -807,6 +809,26 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
                 <FormattedMessage
                   id="component.pageRenderer.taskPage.button.refreshApproval"
                   defaultMessage="刷新审批状态"
+                />
+              </Button>
+            ) : null}
+            {approvalId ? (
+              <Button
+                onClick={() =>
+                  history.push(`/approvals?approvalId=${encodeURIComponent(approvalId)}`)
+                }
+              >
+                <FormattedMessage
+                  id="component.pageRenderer.taskPage.button.goToApprovals"
+                  defaultMessage="前往审批中心"
+                />
+              </Button>
+            ) : null}
+            {!approvalId ? (
+              <Button onClick={() => history.push('/ops/jobs')}>
+                <FormattedMessage
+                  id="component.pageRenderer.taskPage.button.goToTasks"
+                  defaultMessage="前往任务中心"
                 />
               </Button>
             ) : null}

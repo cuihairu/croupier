@@ -9,6 +9,8 @@ export default {
   'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
   'component.pageRenderer.composite.executeReplayed':
     '{title} was already submitted earlier; this response returns the server-recorded result (not re-executed)',
+  'component.pageRenderer.composite.goToApprovals': 'Go to approvals',
+  'component.pageRenderer.composite.goToTaskCenter': 'Go to task center',
   'component.pageRenderer.composite.rowActionsColumn': 'Actions',
   'component.pageRenderer.composite.tabFallback': 'Tab {n}',
   'component.pageRenderer.executorUnbound.description':
@@ -39,6 +41,8 @@ export default {
   'component.pageRenderer.operationPage.approval.taskStarted': 'Approval granted, task started',
   'component.pageRenderer.operationPage.button.refreshApproval': 'Refresh approval status',
   'component.pageRenderer.operationPage.button.resetResult': 'Reset result',
+  'component.pageRenderer.operationPage.button.goToApprovals': 'Go to approvals',
+  'component.pageRenderer.operationPage.button.goToTasks': 'Go to task center',
   'component.pageRenderer.operationPage.confirm.cancel': 'Cancel',
   'component.pageRenderer.operationPage.confirm.ok': 'OK',
   'component.pageRenderer.operationPage.confirm.title': 'Confirm operation',
@@ -140,8 +144,12 @@ export default {
   'component.pageRenderer.taskPage.button.cancel': 'Cancel',
   'component.pageRenderer.taskPage.button.refresh': 'Refresh',
   'component.pageRenderer.taskPage.button.refreshApproval': 'Refresh approval status',
+  'component.pageRenderer.taskPage.button.goToApprovals': 'Go to approvals',
+  'component.pageRenderer.taskPage.button.goToTasks': 'Go to task center',
   'component.pageRenderer.taskPage.error.cancelFailed': 'Failed to cancel task: {detail}',
   'component.pageRenderer.taskPage.error.missingBinding': 'No task binding configured',
+  'component.pageRenderer.taskPage.error.submitFailedWithReason':
+    'Task submission failed: {detail}{reason}',
   'component.pageRenderer.taskPage.error.statusBindingUnmapped':
     'Task status binding is not mapped to pageState.taskStatus',
   'component.pageRenderer.taskPage.error.submitFailed': 'Task submission failed: {detail}',

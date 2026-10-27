@@ -61,7 +61,13 @@ func TestTaskCenterDetailRequiresMatchingScope(t *testing.T) {
 	handler.Detail(c)
 
 	require.Equal(t, http.StatusForbidden, w.Code)
-	assert.Contains(t, w.Body.String(), "无权访问该任务")
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, "permission_denied", body["error"])
+	assert.Contains(t, body["message"], "无权访问该任务")
+	details, ok := body["details"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "task-scope", details["taskId"])
 }
 
 func TestTaskCenterDetailMapsRecordNotFoundToHTTP404(t *testing.T) {

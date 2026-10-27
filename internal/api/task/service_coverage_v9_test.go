@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -211,7 +212,11 @@ func TestServiceDetailV9_ScopeForbidden(t *testing.T) {
 
 	_, err := taskSvc.Detail(ctx, &DetailRequest{ID: "t-scope"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "无权访问该任务")
+	codeErr, ok := err.(*errorx.CodeError)
+	require.True(t, ok)
+	assert.Equal(t, "permission_denied", codeErr.ErrorCode())
+	assert.Equal(t, "t-scope", codeErr.Details["taskId"])
+	assert.Contains(t, codeErr.Message, "无权访问该任务")
 }
 
 func TestServiceEventsV9_ErrorPaths(t *testing.T) {

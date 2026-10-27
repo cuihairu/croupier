@@ -256,16 +256,15 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
 - **执行结果反馈**（D4，无新增 wire 字段）：渲染器按 `PageExecutionResult.kind` 分类
   每次执行结果，不再把任何非 error 返回都当作成功。`sync`（或无 kind）为业务执行成功——
   触发表单 `success` 事件绑定、重跑 `onSuccessRefresh` 目标并关闭弹窗。`approval` 保持
-  弹窗开启，显示「已提交审批」提示、审批单号（`approvalId`）与审批中心入口，且不发
+  弹窗开启，显示「已提交审批」提示、审批单号（`approvalId`）与审批中心深链入口（`/approvals?approvalId=...`），且不发
   success 事件、不触发刷新（审批通过前业务侧尚未变更）。`task` 保持弹窗开启，显示
-  「任务已提交」提示与任务号（`taskId`）。抛出的异常保持弹窗与已填参数开启，并在弹窗内
+  「任务已提交」提示与任务号（`taskId`）及任务中心入口（`/ops/jobs`），可沿用任务与执行日志链。抛出的异常保持弹窗与已填参数开启，并在弹窗内
   渲染失败反馈：响应体稳定 `error` 码、服务端 `message`，以及 `details` 的字段级条目
   （按表单字段标题映射，不显示原始字段 key）；结果体自带顶层 `error` 字段（未抛异常）
-  同样按失败处理，不发 success 事件。`details` 中字段存在于区块表单 schema 的条目经共享
+  同样按失败处理，不发 success 事件。服务端权限不足统一为 `403 permission_denied` 并透出机器可读 `details`（`required` 权限、`allowedRoles`、`functionId` 或任务 scope），渲染端把 `details` 收敛为原因行（`缺少权限：...`/`需要角色：...`）而不只显示通用状态文案。`details` 中字段存在于区块表单 schema 的条目经共享
   表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF `extraErrors`），反馈条只汇总
   表单外字段的错误。边界：inline（非弹窗）表单区块提交期间整卡进 loading 骨架，失败后
-  输入值不保留（弹窗表单会保留）；无任务中心路由，待处理任务只给任务号不给导航目标；
-  审批入口固定跳 `/approvals`
+  输入值不保留（弹窗表单会保留）；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）
 - **执行幂等**（D4，`Idempotency-Key` 请求头；无新增 wire 字段）：每次页面 binding 执行
   ——已发布与草稿预览一视同仁——都带客户端生成的幂等键，服务端保证同一 key 在占位窗口内
   至多真实执行一次。占位时机在全部执行门禁通过之后（执行器已绑定、契约新鲜、治理、

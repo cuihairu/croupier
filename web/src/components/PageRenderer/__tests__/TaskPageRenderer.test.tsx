@@ -8,6 +8,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
+import { history } from '@umijs/max';
 import TaskPageRenderer from '../TaskPageRenderer';
 import type {
   ApprovalStatusResult,
@@ -164,6 +165,25 @@ describe('提交流程', () => {
     submit();
     await waitFor(() => expect(screen.getByText('任务已提交审批')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('等待审批')).toBeInTheDocument());
+    const pushSpy = jest.spyOn(history, 'push');
+    fireEvent.click(screen.getByRole('button', { name: /前往审批中心/ }));
+    expect(pushSpy).toHaveBeenCalledWith('/approvals?approvalId=apr-1');
+    pushSpy.mockRestore();
+  });
+
+  it('任务已提交提供任务中心入口并复用现有状态查询链', async () => {
+    const onQueryStatus = jest.fn<() => Promise<TaskStatusResult>>().mockResolvedValue({
+      taskId: 't-entry',
+      status: 'running',
+    });
+    const { onExecute } = renderTask({ onQueryStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 't-entry' }));
+    submit();
+    await waitFor(() => expect(onQueryStatus).toHaveBeenCalledWith('t-entry'));
+    const pushSpy = jest.spyOn(history, 'push');
+    fireEvent.click(screen.getByRole('button', { name: /前往任务中心/ }));
+    expect(pushSpy).toHaveBeenCalledWith('/ops/jobs');
+    pushSpy.mockRestore();
   });
 
   it('提交异常时展示失败详情', async () => {
@@ -171,6 +191,21 @@ describe('提交流程', () => {
     onExecute.mockRejectedValueOnce(new Error('boom'));
     submit();
     await waitFor(() => expect(screen.getByText(/任务提交失败: boom/)).toBeInTheDocument());
+  });
+
+  it('提交权限不足：失败详情追加服务端收敛原因', async () => {
+    const { onExecute } = renderTask();
+    const err = new Error('无权限提交任务') as Error & { data: Record<string, unknown> };
+    err.data = {
+      error: 'permission_denied',
+      message: '无权限提交任务',
+      details: { required: ['function:invoke'] },
+    };
+    onExecute.mockRejectedValueOnce(err);
+    submit();
+    await waitFor(() =>
+      expect(screen.getByText(/任务提交失败: 无权限提交任务（缺少权限：function:invoke）/)),
+    );
   });
 });
 

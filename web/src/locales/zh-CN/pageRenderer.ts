@@ -9,6 +9,8 @@ export default {
   'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
   'component.pageRenderer.composite.executeReplayed':
     '{title} 已在先前提交过，本次返回服务端记录的结果（未重复执行）',
+  'component.pageRenderer.composite.goToApprovals': '前往审批中心',
+  'component.pageRenderer.composite.goToTaskCenter': '前往任务中心',
   'component.pageRenderer.composite.rowActionsColumn': '操作',
   'component.pageRenderer.composite.tabFallback': '页签 {n}',
   'component.pageRenderer.executorUnbound.description':
@@ -36,6 +38,8 @@ export default {
   'component.pageRenderer.operationPage.approval.taskStarted': '审批已通过，任务已启动',
   'component.pageRenderer.operationPage.button.refreshApproval': '刷新审批状态',
   'component.pageRenderer.operationPage.button.resetResult': '重置结果',
+  'component.pageRenderer.operationPage.button.goToApprovals': '前往审批中心',
+  'component.pageRenderer.operationPage.button.goToTasks': '前往任务中心',
   'component.pageRenderer.operationPage.confirm.cancel': '取消',
   'component.pageRenderer.operationPage.confirm.ok': '确定',
   'component.pageRenderer.operationPage.confirm.title': '确认操作',
@@ -127,8 +131,11 @@ export default {
   'component.pageRenderer.taskPage.button.cancel': '取消',
   'component.pageRenderer.taskPage.button.refresh': '刷新',
   'component.pageRenderer.taskPage.button.refreshApproval': '刷新审批状态',
+  'component.pageRenderer.taskPage.button.goToApprovals': '前往审批中心',
+  'component.pageRenderer.taskPage.button.goToTasks': '前往任务中心',
   'component.pageRenderer.taskPage.error.cancelFailed': '取消任务失败: {detail}',
   'component.pageRenderer.taskPage.error.missingBinding': '未配置任务绑定',
+  'component.pageRenderer.taskPage.error.submitFailedWithReason': '任务提交失败: {detail}{reason}',
   'component.pageRenderer.taskPage.error.statusBindingUnmapped':
     '任务状态绑定未映射到 pageState.taskStatus',
   'component.pageRenderer.taskPage.error.submitFailed': '任务提交失败: {detail}',

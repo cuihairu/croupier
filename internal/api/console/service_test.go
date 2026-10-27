@@ -207,7 +207,11 @@ func TestServiceExecuteBindingRequiresFunctionInvokePermission(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "无权执行运行控制台操作")
+	codeErr, ok := err.(*errorx.CodeError)
+	require.True(t, ok)
+	assert.Equal(t, "permission_denied", codeErr.ErrorCode())
+	assert.Equal(t, []string{"function:invoke"}, codeErr.Details["required"])
+	assert.Contains(t, codeErr.Message, "无权执行运行控制台操作")
 }
 
 func TestServiceExecuteBindingRequiresPublishedSnapshotPermission(t *testing.T) {

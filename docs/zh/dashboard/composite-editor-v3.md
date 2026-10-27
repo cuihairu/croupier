@@ -597,13 +597,13 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   关闭或下次打开失效
 - **执行反馈（D4）边界**：提交结果分三类——同步结果为业务执行成功（触发 `success` 事件、
   刷新 `onSuccessRefresh` 目标、关闭弹窗）；`approval` 提示「已提交审批」并给审批单号与
-  审批中心入口，`task` 提示「任务已提交」并给任务号——两者都不关弹窗、不发 success 事件、
-  不刷新目标。失败保持弹窗与已填参数，展示稳定错误码与服务端原因；服务端 `details` 里的
+  审批中心深链入口（`/approvals?approvalId=...`），`task` 提示「任务已提交」并给任务号与任务中心入口（`/ops/jobs`）——两者都不关弹窗、不发 success 事件、
+  不刷新目标。失败保持弹窗与已填参数，展示稳定错误码与服务端原因，权限不足由 `details` 收敛为原因行（`required` 权限 / `allowedRoles` / `functionId`），不只显示通用状态文案；服务端 `details` 里的
   字段级错误经共享表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF
   `extraErrors` 的字段级 `__errors` 形态），不再以独立列表复述，反馈条只汇总表单外
   字段（不在区块 schema 里）的错误。未实现：失败后已填值保留（inline（非弹窗）表单区块
   提交期间豁免整卡 loading 骨架——骨架会卸载表单丢掉已填值，在途状态由表单
-  `disabled` 表达）；无任务中心路由，待处理任务只给任务号；审批入口固定跳 `/approvals`
+  `disabled` 表达）；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）。
 - **执行幂等（D4）边界**：页面 binding 执行带 `Idempotency-Key` 请求头（已发布与草稿
   预览一致），服务端保证同 key 在占位窗口内至多真实执行一次——已完成重放存储结果
   （响应体 `replayed: true`，成功 toast 改为「返回服务端记录的结果（未重复执行）」），

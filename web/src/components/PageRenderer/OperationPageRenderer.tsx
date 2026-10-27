@@ -11,7 +11,7 @@ import { localizedText } from '@/utils/localizedText';
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import { FormattedMessage, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import {
   App,
   Card,
@@ -35,6 +35,7 @@ import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer
 import ExecutorUnboundAlert, { EXECUTOR_UNBOUND_CODE } from './ExecutorUnboundAlert';
 import { describeOperationStages } from './operationStages';
 import type { OperationStageKey } from './operationStages';
+import { describeExecFailure } from './execFeedback';
 import { extractApiErrorCode } from '@/utils/apiError';
 import type {
   OperationPageSpec,
@@ -98,6 +99,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   const [result, setResult] = useState<PageExecutionResult | null>(null);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 权限不足等结构化原因（服务端 details 收敛，不落字段明细）
+  const [errorReason, setErrorReason] = useState<string | undefined>(undefined);
   // T8：稳定错误码（executor_unbound 等）驱动结构化空态分支
   const [errorCode, setErrorCode] = useState<string>('');
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -139,6 +142,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       // 直接执行
       setLoading(true);
       setError(null);
+      setErrorReason(undefined);
       setErrorCode('');
       setResult(null);
       setApprovalStatus(null);
@@ -189,6 +193,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                 defaultMessage: '操作失败',
               });
         setError(msg);
+        setErrorReason(describeExecFailure(err).reason);
         setErrorCode(extractApiErrorCode(err));
 
         if (spec.resultView?.errorMessage) {
@@ -237,6 +242,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setConfirmVisible(false);
     setLoading(true);
     setError(null);
+    setErrorReason(undefined);
     setErrorCode('');
     setResult(null);
     setApprovalStatus(null);
@@ -276,6 +282,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               defaultMessage: '操作失败',
             });
       setError(msg);
+      setErrorReason(describeExecFailure(err).reason);
       setErrorCode(extractApiErrorCode(err));
       // Re-open confirm dialog on failure so user can retry
       setConfirmVisible(true);
@@ -295,6 +302,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setResult(null);
     setApprovalStatus(null);
     setError(null);
+    setErrorReason(undefined);
     setErrorCode('');
   }, []);
 
@@ -470,6 +478,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                   defaultMessage: '操作失败',
                 })}
                 subTitle={error}
+                // 权限不足时透出服务端 details 收敛原因，语义同组合页
+                {...(errorReason
+                  ? { children: <Typography.Text type="danger">{errorReason}</Typography.Text> }
+                  : {})}
                 icon={<CloseCircleOutlined />}
               />
             )
@@ -531,6 +543,20 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                       />
                     </Button>
                   ) : null}
+                  <Button
+                    onClick={() =>
+                      history.push(
+                        result.approvalId
+                          ? `/approvals?approvalId=${encodeURIComponent(result.approvalId)}`
+                          : '/approvals',
+                      )
+                    }
+                  >
+                    <FormattedMessage
+                      id="component.pageRenderer.operationPage.button.goToApprovals"
+                      defaultMessage="前往审批中心"
+                    />
+                  </Button>
                 </Space>
               }
             />
@@ -546,7 +572,17 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                 defaultMessage: '异步任务仍在执行，请在任务中心或任务页面查看进度。',
               })}
               icon={<SyncOutlined spin />}
-              extra={<Typography.Text code>{result.taskId || result.requestId}</Typography.Text>}
+              extra={
+                <Space>
+                  <Typography.Text code>{result.taskId || result.requestId}</Typography.Text>
+                  <Button onClick={() => history.push('/ops/jobs')}>
+                    <FormattedMessage
+                      id="component.pageRenderer.operationPage.button.goToTasks"
+                      defaultMessage="前往任务中心"
+                    />
+                  </Button>
+                </Space>
+              }
             />
           ) : (
             <Result

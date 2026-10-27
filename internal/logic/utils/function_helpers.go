@@ -90,7 +90,7 @@ func CheckInvokePermission(ctx context.Context, svcCtx *svc.ServiceContext, role
 		return nil
 	}
 	if svcCtx == nil || svcCtx.FunctionModel == nil {
-		return errorx.NewForbidden("无权调用该函数（函数权限模型未初始化）")
+		return NewPermissionDenied("无权调用该函数（函数权限模型未初始化）", map[string]any{"functionId": functionID})
 	}
 	perms, err := svcCtx.FunctionModel.ListPermissions(ctx, functionID)
 	if err != nil {
@@ -100,13 +100,20 @@ func CheckInvokePermission(ctx context.Context, svcCtx *svc.ServiceContext, role
 		if allowed {
 			return nil
 		}
-		return errorx.NewForbidden("无权调用该函数")
+		return NewPermissionDenied("无权调用该函数", map[string]any{
+			"functionId": functionID,
+			"gameId":     gameID,
+			"env":        env,
+		})
 	}
 	// Default policy: function:invoke can invoke when no per-function rule exists.
 	if HasPermissionID(permIDs, "*") || HasPermissionID(permIDs, "function:invoke") {
 		return nil
 	}
-	return errorx.NewForbidden("无权调用该函数（需要 function:invoke 或配置函数权限）")
+	return NewPermissionDenied("无权调用该函数（需要 function:invoke 或配置函数权限）", map[string]any{
+		"functionId": functionID,
+		"required":   []string{"function:invoke"},
+	})
 }
 
 // EnsureFunctionEnabled is the execution gate for disabled functions (E2):
