@@ -516,7 +516,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                   <Alert
                     type="warning"
                     showIcon
-                    message={intl.formatMessage({
+                    title={intl.formatMessage({
                       id: 'component.pageRenderer.operationPage.message.unknownOutcomeHint',
                       defaultMessage:
                         '请求可能已在服务端执行，请勿盲目重复提交；可在服务端幂等保证下安全重试，或稍后查询执行状态。',
