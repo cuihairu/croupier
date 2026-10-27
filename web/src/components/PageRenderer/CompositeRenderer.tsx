@@ -30,11 +30,36 @@ import type {
   CompositeSection,
   PageFunctionBinding,
   FormValues,
+  ColumnSpec,
 } from '@/types/dashboard';
 
 // 分页数据适配层已归位到共享运行时模块（B1 ④：状态/联动/动作链唯一实现）；
 // 保留此处的再导出以维持既有导入路径。
 export { paginationRequestParams, estimateTotal } from './compositeRuntime';
+
+/** D3 列排序比较函数（分页未启用时的客户端排序）：number 列按数值，
+ * 其余按字符串码点序（ISO 日期串的字典序即时间序）；缺失值排末尾。
+ * 服务端分页启用时列用 sorter=true（仅表头 UI），排序状态下推请求。 */
+function columnSorter(
+  c: ColumnSpec,
+): (a: Record<string, unknown>, b: Record<string, unknown>) => number {
+  const numeric = c.dataType === 'number';
+  return (a, b) => {
+    const av = a[c.key];
+    const bv = b[c.key];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (numeric) {
+      const an = typeof av === 'number' ? av : Number(av);
+      const bn = typeof bv === 'number' ? bv : Number(bv);
+      return (Number.isNaN(an) ? 0 : an) - (Number.isNaN(bn) ? 0 : bn);
+    }
+    const as = String(av);
+    const bs = String(bv);
+    return as < bs ? -1 : as > bs ? 1 : 0;
+  };
+}
 
 /** 组合页渲染器：区块栅格布局；autoRun 加载即执行；refreshOn 联动
  * 自动重跑；dialog 形态区块由行操作/工具栏按钮触发弹窗打开（行字段
@@ -67,6 +92,8 @@ export const CompositeRenderer: React.FC<{
     setDialogKey,
     run: runSection,
     tablePaginationProps,
+    handleTableSortChange,
+    tableSortStateOf,
     confirmDanger,
     openDialog,
     runChain,
@@ -407,11 +434,33 @@ export const CompositeRenderer: React.FC<{
                 }
           }
           columns={[
-            ...(sec.table?.columns || []).map((c) => ({
-              title: localizedText(c.title, 'zh-CN', c.key),
-              dataIndex: c.key,
-              ellipsis: true,
-            })),
+            ...(sec.table?.columns || []).map((c) => {
+              const serverPage = sec.table?.pagination?.enabled === true;
+              const sortState = tableSortStateOf(sec);
+              // 受控 sortOrder 仅在有值时下键：antd 以 `'sortOrder' in column`
+              // 判定受控排序，显式 undefined 会让内部排序状态失效（点击
+              // 表头不排序）。
+              const sortOrder: 'ascend' | 'descend' | undefined =
+                c.sortable && serverPage && sortState?.field === c.key
+                  ? sortState.order === 'desc'
+                    ? 'descend'
+                    : 'ascend'
+                  : undefined;
+              return {
+                title: localizedText(c.title, 'zh-CN', c.key),
+                dataIndex: c.key,
+                ellipsis: true,
+                // D3：可排序列给表头排序 UI。分页未启用时 antd 本地排序
+                //（compare 函数）；启用时 sorter=true（仅 UI），排序状态
+                // 经受控 sortOrder 下推请求（sortBy/sortOrder）。
+                ...(c.sortable
+                  ? {
+                      sorter: serverPage ? true : columnSorter(c),
+                      ...(sortOrder ? { sortOrder } : {}),
+                    }
+                  : {}),
+              };
+            }),
             ...(sec.table?.rowActions?.length
               ? [
                   {
@@ -460,6 +509,26 @@ export const CompositeRenderer: React.FC<{
               : []),
           ]}
           dataSource={data}
+          onChange={(_pagination, _filters, sorter) => {
+            // D3：排序变化走受控状态（服务端分页时下推 sortBy/sortOrder 并
+            // 回首页重跑；客户端排序由 antd 本地完成，运行时按分页状态
+            // 兜底 no-op）。翻页不经过此分支（pagination.onChange 已接手）。
+            const s = (Array.isArray(sorter) ? sorter[0] : sorter) as
+              | {
+                  order?: 'ascend' | 'descend' | null;
+                  field?: string;
+                  sortColumn?: { dataIndex?: unknown; key?: unknown };
+                }
+              | undefined;
+            if (!s) return;
+            const field = (s.sortColumn?.dataIndex ?? s.sortColumn?.key ?? s.field) as
+              string | undefined;
+            handleTableSortChange(
+              sec,
+              field,
+              s.order === 'ascend' ? 'asc' : s.order === 'descend' ? 'desc' : undefined,
+            );
+          }}
           pagination={tablePaginationProps(sec)}
         />
         <Modal

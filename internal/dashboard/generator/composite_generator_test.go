@@ -437,3 +437,44 @@ func TestCompositeSelectionExplicitPassthrough(t *testing.T) {
 		t.Fatalf("no explicit config must stay nil: %+v", sel)
 	}
 }
+
+// D3 列排序：number/datetime 列按数据类型机械标注可排序（无需资源语义
+// 上下文），string 列不标注——排序是列数据类型的序性质，非业务语义推断。
+func TestCompositeColumnSortableInference(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			Model:        gorm.Model{ID: 501},
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			Enabled:      true,
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"uid":{"type":"string"},"nickname":{"type":"string"},"level":{"type":"number"},"createdAt":{"type":"string","format":"date-time"}}}}}}`),
+		},
+	}
+	gen, ok := GenerateCompositePage("composite--player-list-sort", []CompositeSectionInput{
+		{FunctionID: "player.list", View: "table"},
+	}, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	if len(gen.Composite.Sections) != 1 || gen.Composite.Sections[0].Table == nil {
+		t.Fatalf("single table section expected, got %+v", gen.Composite.Sections)
+	}
+	byKey := map[string]spec.ColumnSpec{}
+	for _, c := range gen.Composite.Sections[0].Table.Columns {
+		byKey[c.Key] = c
+	}
+	if !byKey["level"].Sortable {
+		t.Fatalf("number column must be sortable: %+v", byKey["level"])
+	}
+	if !byKey["createdAt"].Sortable {
+		t.Fatalf("datetime column must be sortable: %+v", byKey["createdAt"])
+	}
+	if byKey["uid"].Sortable {
+		t.Fatalf("string identity column must not be sortable: %+v", byKey["uid"])
+	}
+	if byKey["nickname"].Sortable {
+		t.Fatalf("string column must not be sortable: %+v", byKey["nickname"])
+	}
+}

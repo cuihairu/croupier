@@ -239,8 +239,8 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   从不为组合区块推导分页（无资源语义上下文），故为逐表格显式 opt-in。绑定函数须实际
   消费 `page`/`pageSize`——平台放行附加输入键，函数忽略即每页都返回全量（每页内容相同、
   页数按上界虚高）。边界：游标分页与自定义 `totalKey` 未实现（wire `PaginationSpec` 无
-  游标字段）；弹窗（dialog）内渲染的表格不分页；服务端排序/筛选下推未做（表头排序仍为
-  客户端）
+  游标字段）；弹窗（dialog）内渲染的表格不分页且无表头排序；服务端筛选下推未做（组合页
+  筛选走查询表单 refreshOn 级联——已实现的排序下推见下方列排序条目）
 
 - `table.selection`：**组合区块表格行选择**（D2）——`{multiple?, identityKey?}`。未设置或
   `multiple: false` 保持既有单选 radio（选中行即 `selectedRow`，`rowSelected` 事件以该单行
@@ -259,6 +259,21 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   （dialog）内渲染的表格无选择栏；目标清单弹窗最多展示三列（身份列置前）；「本页可见」计数
   按本区块 `items` 计算（服务端分页即当前页；客户端分页即全量结果集，此时与已选数相等、
   该提示不出现）；除表头全选外无逐行选择/禁用控制
+
+- `table.columns[].sortable`：**表格区块列排序**（D3）——生成器按输出 schema 数据类型机械
+  标注：`dataType` 为 `number` 或 `datetime` 的列可排序（数据类型派生，非资源语义推断；与
+  分页/行选择不同，这不是编辑器显式 opt-in——未启用服务端分页时排序不构成对绑定函数接受
+  排序参数的隐式假设）。可排序列渲染 antd 表头排序 UI；`dataType` 为
+  `string`/`boolean`/`object`/`array` 的列不可排序。`table.pagination.enabled` 为 false（或
+  未设置）时排序在本地：渲染器对返回行做 compare 排序（number 按数值、其余按字符串码点、
+  缺失值排末尾），不下发排序请求参数。服务端分页开启时 sorter 仅表头 UI（`sorter: true`），
+  由受控 order 状态驱动请求：点击表头以 `sortBy`（列 key）与 `sortOrder`（`asc`/`desc`）
+  附加进请求表单并回首页重跑；再点同列表头切换相反序（两态，无取消态）。排序不属于区块
+  筛选指纹：状态存渲染器按区块维护的表格状态（不写入 `sectionInputs`），故排序重跑不触发
+  D2 旧选择核对提示；上游筛选变化（回首页）保持当前排序。边界：仅两态序（无三态取消、
+  无多列排序）；排序不跨页面刷新保留；请求参数为 `sortBy`/`sortOrder`（无 `orderBy`/
+  `direction` 别名）；绑定函数须真正消费这两个键（平台放行附加输入键，函数忽略即返回
+  未排序页、UI 却显示排序箭头）；弹窗内渲染的表格逐列原样渲染（无表头排序 UI）
 
 - `danger` + `chain`（rowActions / toolbar.actions）：**危险操作确认契约**（D2）——`danger`
   动作在用户显式确认前绝不执行。带 `targetSection` 时确认框列出目标弹窗的预填参数与动作链

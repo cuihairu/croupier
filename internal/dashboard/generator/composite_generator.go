@@ -195,6 +195,15 @@ func GenerateCompositePage(
 					}
 					lv.Columns = columns
 				}
+				// D3：可排序列按数据类型机械标注（number/datetime 有明确序），
+				// 不依赖资源语义上下文——与分页/行选择的 opt-in 不同，排序不
+				// 构成对绑定函数的隐式请求假设：未启用服务端分页时排序在渲染
+				// 端本地完成，启用后才随分页一并下推 sortBy/sortOrder。
+				for i := range lv.Columns {
+					if dt := lv.Columns[i].DataType; dt == "number" || dt == "datetime" {
+						lv.Columns[i].Sortable = true
+					}
+				}
 				// 显式分页配置优先于契约推导：组合页无资源语义上下文，
 				// 推导结果恒为 nil（服务端分页关闭），编辑器开启的分页
 				// 配置由此落位到发布态区块。
