@@ -609,3 +609,4 @@ PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终�
 - PageSpec 不存储 route、target service、scope 覆盖、Secret 或任意 HTTP 参数。
 - 未知 JSON 只能存在于 JSON Schema 的标准扩展边界；核心 DTO 使用明确类型和 `JSONValue`，禁止 `any`。
 - 表单展示变化不允许静默改变已发布页面；发布快照必须包含 FormPresentationSpec。
+- 运行控制台只消费 PublishedPageSpec；未发布草稿不得暴露到执行路径，人工草稿领先发布时仍以发布快照执行。
