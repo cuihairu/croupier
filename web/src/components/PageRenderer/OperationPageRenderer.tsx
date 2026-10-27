@@ -12,7 +12,7 @@ import { localizedText } from '@/utils/localizedText';
 
 import React, { useState, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from '@umijs/max';
-import { App, Card, Button, Modal, Result, Alert, Space, Typography, Descriptions } from 'antd';
+import { App, Card, Button, Modal, Result, Alert, Space, Typography } from 'antd';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -20,9 +20,11 @@ import {
   SyncOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
-import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer';
+import ResultViewRenderer from './ResultViewRenderer';
 import ExecutorUnboundAlert, { EXECUTOR_UNBOUND_CODE } from './ExecutorUnboundAlert';
 import OperationStageBar from './OperationStageBar';
+import { describeConfirmEntries } from './confirmContent';
+import { renderConfirmEntries } from './compositeRuntime';
 import { extractApiErrorCode } from '@/utils/apiError';
 import type {
   OperationPageSpec,
@@ -413,17 +415,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
             <p>{localizedText(spec.confirm.description, 'zh-CN', '')}</p>
           )}
           {pendingValues && (
-            <Descriptions
-              bordered
-              column={1}
-              size="small"
-              style={{ marginTop: 12 }}
-              items={Object.entries(pendingValues).map(([key, value]) => ({
-                key,
-                label: <Typography.Text strong>{key}</Typography.Text>,
-                children: renderJSONValueSummary(value),
-              }))}
-            />
+            <div style={{ marginTop: 12 }}>
+              {/* D2：确认内容按字段标题/枚举文案/单位/语义强调渲染，不显示原始字段 key */}
+              {renderConfirmEntries(describeConfirmEntries(spec.form, pendingValues))}
+            </div>
           )}
         </Modal>
       )}

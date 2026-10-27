@@ -120,9 +120,11 @@ function renderConfirmEntryValue(entry: ConfirmEntry): ReactNode {
 }
 
 /** 确认框内容：参数条目按字段标题渲染（Descriptions），链步骤逐行列目标。 */
-export function renderConfirmContent(model: ConfirmContentModel): ReactNode {
-  const { entries = [], steps = [] } = model;
-  if (entries.length === 0 && steps.length === 0) return null;
+/** 确认条目 Descriptions：按语义序（identity 置前）渲染参数条目。空条目返回
+ * null。与 renderConfirmContent 共用——独立操作页确认框（OperationPageRenderer）
+ * 也走同一渲染，保证「确认内容按字段标题/枚举文案/单位/语义强调」两侧一致。 */
+export function renderConfirmEntries(entries: ConfirmEntry[]): ReactNode {
+  if (!entries.length) return null;
   const ordered = entries
     .map((entry, index) => ({ entry, index }))
     .sort((a, b) => {
@@ -131,16 +133,22 @@ export function renderConfirmContent(model: ConfirmContentModel): ReactNode {
     })
     .map(({ entry }) => entry);
   return (
+    <Descriptions size="small" column={1} bordered>
+      {ordered.map((entry) => (
+        <Descriptions.Item key={entry.key} label={entry.title}>
+          {renderConfirmEntryValue(entry)}
+        </Descriptions.Item>
+      ))}
+    </Descriptions>
+  );
+}
+
+export function renderConfirmContent(model: ConfirmContentModel): ReactNode {
+  const { entries = [], steps = [] } = model;
+  if (entries.length === 0 && steps.length === 0) return null;
+  return (
     <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-      {entries.length > 0 ? (
-        <Descriptions size="small" column={1} bordered>
-          {ordered.map((entry) => (
-            <Descriptions.Item key={entry.key} label={entry.title}>
-              {renderConfirmEntryValue(entry)}
-            </Descriptions.Item>
-          ))}
-        </Descriptions>
-      ) : null}
+      {renderConfirmEntries(entries)}
       {steps.length > 0 ? (
         <ul style={{ margin: '12px 0 0', paddingLeft: 18 }}>
           {steps.map((step, index) => (

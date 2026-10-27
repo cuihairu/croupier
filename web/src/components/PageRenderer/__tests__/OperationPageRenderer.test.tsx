@@ -15,11 +15,13 @@ import type {
   PageFunctionBinding,
 } from '@/types/dashboard';
 
-// SchemaFormRenderer 替身：渲染提交按钮直接触发 onFinish
+// SchemaFormRenderer 替身：渲染提交按钮直接触发 onFinish。mockSubmitValues 让
+// 用例自定义提交参数（D2 确认内容按字段标题/枚举/单位渲染需要不同键组合）。
+let mockSubmitValues: Record<string, unknown> = { amount: 10 };
 jest.mock('@/components/SchemaFormRenderer', () => ({
   __esModule: true,
   default: jest.fn(({ onFinish }: { onFinish: (v: Record<string, unknown>) => void }) => (
-    <button type="button" data-testid="form-submit" onClick={() => onFinish({ amount: 10 })}>
+    <button type="button" data-testid="form-submit" onClick={() => onFinish(mockSubmitValues)}>
       form-submit
     </button>
   )),
@@ -82,6 +84,10 @@ function renderOp(options: RenderOptions = {}) {
 }
 
 const submit = () => fireEvent.click(screen.getByTestId('form-submit'));
+
+beforeEach(() => {
+  mockSubmitValues = { amount: 10 };
+});
 
 describe('提交流程', () => {
   it('未配置操作绑定时报错', async () => {
@@ -200,6 +206,49 @@ describe('确认对话框', () => {
     await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-act', { form: { amount: 10 } }));
     // toast 与结果标题各一次
     await waitFor(() => expect(screen.getAllByText('操作成功').length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('确认内容按字段标题/枚举文案/单位渲染，不显示原始字段 key', async () => {
+    mockSubmitValues = { ban_duration: 30, ban_type: 'permanent' };
+    renderOp({
+      spec: spec({
+        confirm: {
+          title: { 'zh-CN': '危险操作' },
+          confirmText: { 'zh-CN': '执行' },
+          cancelText: { 'zh-CN': '返回' },
+          bindingId: 'b-act',
+        },
+        form: {
+          jsonSchema: { type: 'object' },
+          fields: [
+            { key: 'ban_duration', label: { 'zh-CN': '封禁时长' }, unit: { 'zh-CN': '天' } },
+            {
+              key: 'ban_type',
+              label: { 'zh-CN': '封禁类型' },
+              enumOptions: [{ value: 'permanent', label: { 'zh-CN': '永久封禁' } }],
+            },
+          ],
+        },
+      }),
+    });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    // 字段标题 + 单位后缀 + 枚举文案，均非原始字段 key
+    expect(screen.getByText('封禁时长')).toBeInTheDocument();
+    expect(screen.getByText('30 天')).toBeInTheDocument();
+    expect(screen.getByText('封禁类型')).toBeInTheDocument();
+    expect(screen.getByText('永久封禁')).toBeInTheDocument();
+    expect(screen.queryByText('ban_duration')).not.toBeInTheDocument();
+    expect(screen.queryByText('ban_type')).not.toBeInTheDocument();
+  });
+
+  it('未在表单声明的参数：snake_case 人性化为空格词组', async () => {
+    mockSubmitValues = { ban_duration: 30 };
+    renderOp({ spec: confirmSpec });
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    expect(screen.getByText('ban duration')).toBeInTheDocument();
+    expect(screen.queryByText('ban_duration')).not.toBeInTheDocument();
   });
 
   it('binding.execution.requireConfirm 同样触发确认', async () => {
