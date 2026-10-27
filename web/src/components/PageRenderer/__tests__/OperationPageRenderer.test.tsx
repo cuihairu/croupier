@@ -13,6 +13,7 @@ import type {
   OperationPageSpec,
   PageExecutionResult,
   PageFunctionBinding,
+  TaskStatusResult,
 } from '@/types/dashboard';
 
 // SchemaFormRenderer 替身：渲染提交按钮直接触发 onFinish。mockSubmitValues 让
@@ -63,6 +64,7 @@ interface RenderOptions {
   bindings?: PageFunctionBinding[];
   preview?: boolean;
   onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
+  onQueryTaskStatus?: (taskId: string) => Promise<TaskStatusResult>;
   title?: string;
 }
 
@@ -76,6 +78,7 @@ function renderOp(options: RenderOptions = {}) {
         onExecute={onExecute as never}
         preview={options.preview}
         onQueryApprovalStatus={options.onQueryApprovalStatus}
+        onQueryTaskStatus={options.onQueryTaskStatus}
         title={options.title}
       />
     </App>,
@@ -136,6 +139,76 @@ describe('提交流程', () => {
     expect(
       screen.getByText('异步任务仍在执行，请在任务中心或任务页面查看进度。'),
     ).toBeInTheDocument();
+  });
+
+  it('task 结果无 onQueryTaskStatus：不渲染查询按钮（只给任务号）', async () => {
+    const { onExecute } = renderOp();
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    expect(screen.queryByText('查询执行状态')).not.toBeInTheDocument();
+  });
+
+  it('task 结果查询执行状态：点击后展示任务状态与进度，阶段条保持执行中', async () => {
+    const onQueryTaskStatus = jest.fn().mockResolvedValue({
+      taskId: 'tk-1',
+      status: 'running',
+      progress: 40,
+      message: '处理中',
+    } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(onQueryTaskStatus).toHaveBeenCalledWith('tk-1'));
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    expect(screen.getByText('处理中')).toBeInTheDocument();
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-process');
+  });
+
+  it('task 查询为 completed：阶段条执行阶段落 finish', async () => {
+    const onQueryTaskStatus = jest.fn().mockResolvedValue({
+      taskId: 'tk-1',
+      status: 'completed',
+    } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('COMPLETED')).toBeInTheDocument());
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-finish');
+  });
+
+  it('task 查询为 failed：阶段条执行阶段落 error', async () => {
+    const onQueryTaskStatus = jest.fn().mockResolvedValue({
+      taskId: 'tk-1',
+      status: 'failed',
+      error: '执行失败',
+    } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('FAILED')).toBeInTheDocument());
+    expect(screen.getByText('执行失败')).toBeInTheDocument();
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-error');
+  });
+
+  it('task 查询失败：错误提示，不展示状态', async () => {
+    const onQueryTaskStatus = jest.fn().mockRejectedValue(new Error('task not found'));
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('task not found')).toBeInTheDocument());
+    expect(screen.queryByText('RUNNING')).not.toBeInTheDocument();
   });
 
   it('invoke 重放：返回服务端记录结果文案，替换成功文案（含 successMessage 定制）', async () => {

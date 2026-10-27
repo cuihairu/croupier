@@ -46,6 +46,7 @@ export default {
   'component.pageRenderer.operationPage.approval.statusLabel': 'Approval status: {status}',
   'component.pageRenderer.operationPage.approval.taskStarted': 'Approval granted, task started',
   'component.pageRenderer.operationPage.button.refreshApproval': 'Refresh approval status',
+  'component.pageRenderer.operationPage.button.queryTaskStatus': 'Query execution status',
   'component.pageRenderer.operationPage.button.resetResult': 'Reset result',
   'component.pageRenderer.operationPage.confirm.cancel': 'Cancel',
   'component.pageRenderer.operationPage.confirm.ok': 'OK',
@@ -66,6 +67,7 @@ export default {
   'component.pageRenderer.operationPage.stage.approval': 'Approval',
   'component.pageRenderer.operationPage.stage.execute': 'Execution',
   'component.pageRenderer.operationPage.stage.submit': 'Submit',
+  'component.pageRenderer.operationPage.task.queryFailed': 'Failed to query task status',
   'component.pageRenderer.operationPage.task.runningSubtitle':
     'The async task is still running. Check its progress in the Task Center or on the task page.',
   'component.pageRenderer.playerManage.pageSubtitle':

@@ -66,7 +66,8 @@ export interface TaskPageRendererProps {
 // 状态颜色
 // ---------------------------------------------------------------------------
 
-function getStatusColor(status: string): string {
+/** 任务状态 → antd Tag 颜色；供任务页与操作页任务结果面板共享。 */
+export function getStatusColor(status: string): string {
   switch (status) {
     case 'completed':
       return 'success';
@@ -81,7 +82,8 @@ function getStatusColor(status: string): string {
   }
 }
 
-function getStatusIcon(status: string): React.ReactNode {
+/** 任务状态 → 状态图标；供任务页与操作页任务结果面板共享。 */
+export function getStatusIcon(status: string): React.ReactNode {
   switch (status) {
     case 'completed':
       return <CheckCircleOutlined />;

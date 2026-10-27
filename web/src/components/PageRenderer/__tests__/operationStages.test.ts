@@ -61,6 +61,42 @@ describe('describeOperationStages', () => {
     ]);
   });
 
+  it('任务查询为 running/pending：执行阶段保持 process（与未查询同形）', () => {
+    expect(of({ resultKind: 'task', taskStatus: 'running' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'process' },
+    ]);
+    expect(of({ resultKind: 'task', taskStatus: 'pending' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'process' },
+    ]);
+  });
+
+  it('任务查询为 completed：执行阶段落 finish', () => {
+    expect(of({ resultKind: 'task', taskStatus: 'completed' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'finish' },
+    ]);
+  });
+
+  it('任务查询为 failed/cancelled：终态停在执行阶段 error', () => {
+    expect(of({ resultKind: 'task', taskStatus: 'failed' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'error' },
+    ]);
+    expect(of({ resultKind: 'task', taskStatus: 'cancelled' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'error' },
+    ]);
+  });
+
+  it('taskStatus 不影响同步路径：sync 结果执行阶段仍为 finish', () => {
+    expect(of({ resultKind: 'sync', taskStatus: 'failed' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'finish' },
+    ]);
+  });
+
   it('已提交审批但尚未查询状态：审批进行中、执行结果待审批', () => {
     expect(of({ resultKind: 'approval' })).toEqual([
       { key: 'submit', status: 'finish' },

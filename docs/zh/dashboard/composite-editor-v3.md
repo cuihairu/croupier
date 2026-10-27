@@ -634,7 +634,9 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   `extraErrors` 的字段级 `__errors` 形态），不再以独立列表复述，反馈条只汇总表单外
   字段（不在区块 schema 里）的错误。未实现：失败后已填值保留（inline（非弹窗）表单区块
   提交期间豁免整卡 loading 骨架——骨架会卸载表单丢掉已填值，在途状态由表单
-  `disabled` 表达）；无任务中心路由，待处理任务只给任务号；审批入口固定跳 `/approvals`
+  `disabled` 表达）；无任务中心路由，操作页任务结果面板带显式「查询执行状态」入口
+  （`onQueryTaskStatus` prop 查任务状态 API，面板内渲染状态 Tag、进度与 message/error）
+  ——查询在页内闭环而非导航跳转；审批入口固定跳 `/approvals`
 - **执行幂等（D4）边界**：页面 binding 执行带 `Idempotency-Key` 请求头（已发布与草稿
   预览一致），服务端保证同 key 在占位窗口内至多真实执行一次——已完成重放存储结果
   （响应体 `replayed: true`，成功 toast 改为「返回服务端记录的结果（未重复执行）」），
@@ -655,7 +657,9 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 - **操作页多阶段状态反馈（D1）边界**：提交后操作页在结果卡上方追加一条紧凑 `Steps`
   阶段条（提交 → 审批 → 执行），由驱动结果卡的同一状态派生（辅助函数
   `web/src/components/PageRenderer/operationStages.ts` 的 `describeOperationStages`）：
-  同步结果两阶段均完成；`task` 结果保持执行阶段进行中；`approval` 结果按已查询的
+  同步结果两阶段均完成；`task` 结果保持执行阶段进行中，直至查询到的任务状态收口
+  ——操作页任务状态查询喂同一派生，`completed` 落执行阶段完成、`failed`/`cancelled`
+  落执行阶段 error（查询前保持进行中）；`approval` 结果按已查询的
   审批状态推进（通过前为进行中，拒绝/过期为 error），执行阶段只在审批通过后推进
   （同步续跑为完成、续跑转任务为进行中）。提交失败停在提交阶段 error，不渲染流程
   未到达的阶段；重置结果后阶段条一并清除。阶段条即共享组件

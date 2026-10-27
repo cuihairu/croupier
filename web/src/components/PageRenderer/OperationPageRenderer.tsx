@@ -12,7 +12,7 @@ import { localizedText } from '@/utils/localizedText';
 
 import React, { useState, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from '@umijs/max';
-import { App, Card, Button, Modal, Result, Alert, Space, Typography } from 'antd';
+import { App, Card, Button, Modal, Progress, Result, Alert, Space, Tag, Typography } from 'antd';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -26,6 +26,7 @@ import ExecutorUnboundAlert, { EXECUTOR_UNBOUND_CODE } from './ExecutorUnboundAl
 import OperationStageBar from './OperationStageBar';
 import { describeConfirmEntries } from './confirmContent';
 import { renderConfirmEntries } from './compositeRuntime';
+import { getStatusColor, getStatusIcon } from './TaskPageRenderer';
 import { extractApiErrorCode, isResultUnknownError } from '@/utils/apiError';
 import type {
   OperationPageSpec,
@@ -33,6 +34,7 @@ import type {
   PageExecuteFn,
   PageExecutionResult,
   ApprovalStatusResult,
+  TaskStatusResult,
   FormValues,
 } from '@/types/dashboard';
 
@@ -51,6 +53,8 @@ export interface OperationPageRendererProps {
   preview?: boolean;
   /** 查询审批状态 */
   onQueryApprovalStatus?: (approvalId: string) => Promise<ApprovalStatusResult>;
+  /** 查询异步任务状态，供任务结果面板直接查询进度（无任务中心路由，操作页内闭环） */
+  onQueryTaskStatus?: (taskId: string) => Promise<TaskStatusResult>;
   /** 页面标题 */
   title?: string;
 }
@@ -61,6 +65,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   onExecute,
   preview = false,
   onQueryApprovalStatus,
+  onQueryTaskStatus,
   title,
 }) => {
   const { message } = App.useApp();
@@ -77,6 +82,9 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   const [errorCode, setErrorCode] = useState<string>('');
   // D4：超时/网络中断=结果未知（请求可能已在服务端执行），不按「已失败」呈现
   const [errorUnknown, setErrorUnknown] = useState(false);
+  // D4：任务结果面板可直接查询执行状态（无任务中心路由，操作页内闭环）
+  const [taskStatus, setTaskStatus] = useState<TaskStatusResult | null>(null);
+  const [taskStatusLoading, setTaskStatusLoading] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
 
@@ -120,6 +128,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       setErrorUnknown(false);
       setResult(null);
       setApprovalStatus(null);
+      setTaskStatus(null);
 
       try {
         const response = await onExecute(mainBinding.id, { form: values });
@@ -237,6 +246,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setErrorUnknown(false);
     setResult(null);
     setApprovalStatus(null);
+    setTaskStatus(null);
 
     try {
       const response = await onExecute(mainBinding.id, { form: pendingValues });
@@ -314,6 +324,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setError(null);
     setErrorCode('');
     setErrorUnknown(false);
+    setTaskStatus(null);
   }, []);
 
   const refreshApproval = useCallback(async () => {
@@ -334,6 +345,29 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       message.error(msg);
     }
   }, [message, onQueryApprovalStatus, result?.approvalId]);
+
+  // D4：任务结果面板「查询执行状态」——无任务中心路由，操作页内闭环查进度
+  const refreshTaskStatus = useCallback(async () => {
+    const taskId = result?.taskId || result?.requestId;
+    if (!taskId || !onQueryTaskStatus) {
+      return;
+    }
+    setTaskStatusLoading(true);
+    try {
+      setTaskStatus(await onQueryTaskStatus(taskId));
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.task.queryFailed',
+              defaultMessage: '任务状态查询失败',
+            });
+      message.error(msg);
+    } finally {
+      setTaskStatusLoading(false);
+    }
+  }, [message, onQueryTaskStatus, result?.taskId, result?.requestId]);
 
   const renderApprovedContinuation = () => {
     if (!approvalStatus || approvalStatus.status !== 'approved' || !approvalStatus.continuation) {
@@ -376,6 +410,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     resultKind: result?.kind ?? null,
     approvalStatus: approvalStatus?.status ?? null,
     continuationKind: approvalStatus?.continuation ? (approvalStatus.resultKind ?? null) : null,
+    // D4：任务路径查询到终态后阶段条随任务状态收口（completed 完成/failed·cancelled error）
+    taskStatus: taskStatus?.status ?? null,
   };
 
   return (
@@ -572,7 +608,46 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                 defaultMessage: '异步任务仍在执行，请在任务中心或任务页面查看进度。',
               })}
               icon={<SyncOutlined spin />}
-              extra={<Typography.Text code>{result.taskId || result.requestId}</Typography.Text>}
+              extra={
+                <Space orientation="vertical">
+                  <Typography.Text code>{result.taskId || result.requestId}</Typography.Text>
+                  {/* D4：查询到任务状态后在面板内展示（无任务中心路由，操作页内闭环） */}
+                  {taskStatus && (
+                    <Space orientation="vertical" size={4}>
+                      <Tag
+                        color={getStatusColor(taskStatus.status)}
+                        icon={getStatusIcon(taskStatus.status)}
+                      >
+                        {taskStatus.status.toUpperCase()}
+                      </Tag>
+                      {taskStatus.progress !== undefined && (
+                        <Progress
+                          percent={taskStatus.progress}
+                          status={
+                            taskStatus.status === 'failed' || taskStatus.status === 'cancelled'
+                              ? 'exception'
+                              : taskStatus.status === 'completed'
+                                ? 'success'
+                                : 'active'
+                          }
+                        />
+                      )}
+                      {taskStatus.message && (
+                        <Alert type="info" showIcon title={taskStatus.message} />
+                      )}
+                      {taskStatus.error && <Alert type="error" showIcon title={taskStatus.error} />}
+                    </Space>
+                  )}
+                  {onQueryTaskStatus && (
+                    <Button onClick={refreshTaskStatus} loading={taskStatusLoading}>
+                      <FormattedMessage
+                        id="component.pageRenderer.operationPage.button.queryTaskStatus"
+                        defaultMessage="查询执行状态"
+                      />
+                    </Button>
+                  )}
+                </Space>
+              }
             />
           ) : (
             <Result

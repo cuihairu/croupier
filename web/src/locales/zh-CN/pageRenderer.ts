@@ -42,6 +42,7 @@ export default {
   'component.pageRenderer.operationPage.approval.statusLabel': '审批状态：{status}',
   'component.pageRenderer.operationPage.approval.taskStarted': '审批已通过，任务已启动',
   'component.pageRenderer.operationPage.button.refreshApproval': '刷新审批状态',
+  'component.pageRenderer.operationPage.button.queryTaskStatus': '查询执行状态',
   'component.pageRenderer.operationPage.button.resetResult': '重置结果',
   'component.pageRenderer.operationPage.confirm.cancel': '取消',
   'component.pageRenderer.operationPage.confirm.ok': '确定',
@@ -60,6 +61,7 @@ export default {
   'component.pageRenderer.operationPage.stage.approval': '审批',
   'component.pageRenderer.operationPage.stage.execute': '执行',
   'component.pageRenderer.operationPage.stage.submit': '提交操作',
+  'component.pageRenderer.operationPage.task.queryFailed': '任务状态查询失败',
   'component.pageRenderer.operationPage.task.runningSubtitle':
     '异步任务仍在执行，请在任务中心或任务页面查看进度。',
   'component.pageRenderer.playerManage.pageSubtitle':

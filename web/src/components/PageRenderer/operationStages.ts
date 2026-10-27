@@ -32,6 +32,9 @@ export interface OperationStageInput {
   continuationKind: 'sync' | 'task' | null;
   /** 执行阶段失败（任务失败/取消）——提交已成功、终态停在执行阶段 error */
   executeError?: boolean;
+  /** 任务路径的查询后状态：completed 落执行阶段 finish，failed/cancelled 落执行阶段 error，
+   *  未查询/进行中保持 process。仅任务路径有意义。 */
+  taskStatus?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | null;
 }
 
 /** 派生阶段序列。
@@ -83,5 +86,16 @@ export function describeOperationStages(input: OperationStageInput): OperationSt
     ];
   }
 
-  return [submit, { key: 'execute', status: resultKind === 'task' ? 'process' : 'finish' }];
+  if (resultKind === 'task') {
+    // 任务路径：未查询或进行中保持 process；查询到终态则按任务状态收口
+    // （completed 落执行阶段 finish，failed/cancelled 落执行阶段 error）。
+    if (input.taskStatus === 'completed') {
+      return [submit, { key: 'execute', status: 'finish' }];
+    }
+    if (input.taskStatus === 'failed' || input.taskStatus === 'cancelled') {
+      return [submit, { key: 'execute', status: 'error' }];
+    }
+    return [submit, { key: 'execute', status: 'process' }];
+  }
+  return [submit, { key: 'execute', status: 'finish' }];
 }
