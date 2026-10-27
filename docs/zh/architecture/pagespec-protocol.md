@@ -42,6 +42,8 @@ interface FormFieldSpec {
   label?: LocalizedText; // 覆盖 schema title
   description?: LocalizedText; // 帮助文本
   placeholder?: LocalizedText;
+  role?: "identity" | "status" | "reason" | "expiry" | "amount" | "quantity"; // x-field-role（D5）
+  unit?: LocalizedText; // x-field-unit 单位后缀（D5）
   widget?: FormWidget; // 受控 antd 组件名枚举
   width?: number; // grid 栅格 1-12
   order?: number; // 排序，小者在前
@@ -275,14 +277,32 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   `direction` 别名）；绑定函数须真正消费这两个键（平台放行附加输入键，函数忽略即返回
   未排序页、UI 却显示排序箭头）；弹窗内渲染的表格逐列原样渲染（无表头排序 UI）
 
+- `table.columns[].unit` / `columns[].enum` / `columns[].render` / **显式字段语义**（D5）——
+  `x-*` 呈现 hints 的输出侧。游戏 SDK 在契约输出 schema 的 items 属性上声明语义（机械解析、
+  不靠字段名猜测）：`x-field-role`（`identity|status|reason|expiry|amount|quantity`）与
+  `x-field-unit`（裸字符串或 `{zh-CN,en-US}` 对象），配合既有 `x-enum-options`。生成器坍缩为
+  wire 字段：`role=identity` → 列 `fixed:"left"` + `render:"copy"`（固定左列可复制身份列）；
+  `x-enum-options` → 列 `enum` + `render:"tag"`（状态枚举标签列）；`x-field-unit` → 列 `unit`。
+  输入侧进入 `FormFieldSpec.role`/`unit`（`form_hints.go` 与前端 `derivePresentationSpec`
+  同步解析，非法 role 静默忽略）。渲染：组合页与资源页渲染器把单位追加到列头（`标题 (单位)`）
+  与 `number` 单元格值；`render:"copy"` 渲染可复制单元格；`dataType:"datetime"` 单元格带显式
+  浏览器时区标签（`UTC±HH:MM`——平台不声明游戏服务器时区，故显式标注偏移而非暗示 UTC）；
+  `enum`+`tag` 渲染选项文案为彩色 antd Tag。确认框（D2 危险确认）从目标表单的
+  `FormFieldSpec.role`/`unit` 取语义：身份条目置前加粗、到期条目红字、amount/quantity 值带
+  单位后缀，操作者确认前即读到谁/什么/多少/多久。边界：单位仅展示（不做金额缩放或换算——
+  声明的单位原样追加，per-unit × 批量目标总量需 D2 批量上下文）；`identity` 之外的 role 不
+  改变列布局（status/reason/expiry 只驱动确认强调与未来缺省呈现）；时区标签为浏览器本地偏移
+  （无游戏级 tz 配置）；组合页列语义走同一生成器派生（绑定带 hints 契约的组合表格区块自动
+  获得同款列），弹窗内表格保留语义单元格渲染但不加表头排序 UI
+
 - `danger` + `chain`（rowActions / toolbar.actions）：**危险操作确认契约**（D2）——`danger`
   动作在用户显式确认前绝不执行。带 `targetSection` 时确认框列出目标弹窗的预填参数与动作链
   步骤，确认后才打开弹窗并执行动作链；不带 `targetSection`（纯动作链按钮）时确认框列出动作
   链步骤。确认内容按目标表单的字段标题渲染参数、枚举值映射为选项文案、参数名人性化展示
   （不显示原始字段 key），所见即实际将提交的内容。非危险动作带 `targetSection` 时直接开弹窗
   并执行动作链（详情弹窗用动作链预载自身 fields/table 数据）；非危险纯链动作直接执行动作链。
-  边界：确认框不做字段语义强调（游戏/环境/区服/玩家身份、原因、封禁到期时间、补偿每人数量
-  不单独突出——依赖 D5 的显式字段语义）；`openModal` 链步骤无 danger 标志位（wire 无该
+  边界：字段语义强调覆盖 `x-field-role` 声明的 identity/reason/expiry/amount/quantity
+  （未声明 role 的字段照旧渲染）；`openModal` 链步骤无 danger 标志位（wire 无该
   字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认
 - **执行结果反馈**（D4，无新增 wire 字段）：渲染器按 `PageExecutionResult.kind` 分类
   每次执行结果，不再把任何非 error 返回都当作成功。`sync`（或无 kind）为业务执行成功——

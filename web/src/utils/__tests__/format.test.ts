@@ -51,6 +51,15 @@ describe('formatNumber / formatDateTime', () => {
     expect(formatted).not.toBe('2024-01-01T12:00:00Z'); // 已本地化重排
   });
 
+  it('withTz（D5）：追加显式浏览器时区标签 UTC±HH:MM，默认不带', () => {
+    const plain = formatDateTime('2024-01-01T12:00:00Z');
+    const withTz = formatDateTime('2024-01-01T12:00:00Z', true);
+    expect(plain).not.toMatch(/\(UTC/);
+    expect(withTz).toMatch(/\(UTC[+-]\d{2}:\d{2}\)$/);
+    // 同一输入的本地时间部分一致，仅追加标签
+    expect(withTz.startsWith(plain)).toBe(true);
+  });
+
   it('非法日期字符串 → 原值透传（catch 分支）', () => {
     // 在 Node/某些环境下 toLocaleString 不抛异常而是返回 "Invalid Date"
     // 这里只验证不抛异常且返回字符串

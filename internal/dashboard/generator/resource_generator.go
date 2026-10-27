@@ -425,6 +425,22 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 		if key == identityField {
 			col.Fixed = "left"
 		}
+		// D5 显式字段语义：输出侧 x-* hints 机械派生列呈现，不靠字段名猜测。
+		// identity 坍缩为固定左列 + 可复制；x-enum-options 坍缩为枚举标签；
+		// x-field-unit 提供单位后缀。
+		if hints := parseJSONObject(prop); len(hints) > 0 {
+			if hintFieldRole(rawString(hints["x-field-role"])) == "identity" {
+				col.Fixed = "left"
+				col.Render = "copy"
+			}
+			if enumOptions := hintEnumOptions(hints["x-enum-options"]); len(enumOptions) > 0 {
+				col.Enum = enumOptions
+				col.Render = "tag"
+			}
+			if unit := hintLocalized(hints["x-field-unit"]); unit != nil {
+				col.Unit = unit
+			}
+		}
 		if _, ok := filterKeys[key]; ok {
 			col.Filterable = true
 		}

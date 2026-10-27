@@ -134,6 +134,72 @@ func TestExtraBuildListViewFromContract(t *testing.T) {
 	assert.Empty(t, buildListViewFromContract(noItems, semantics).Columns)
 }
 
+// TestColumnFieldSemanticsInference：D5 输出侧 x-* hints 机械派生列呈现。
+// identity 坍缩固定左列+复制、x-enum-options 坍缩枚举标签、x-field-unit 提供
+// 单位后缀；无 hints 列零变化；非法 role 静默忽略。
+func TestColumnFieldSemanticsInference(t *testing.T) {
+	semantics := &model.CapabilitySemantics{
+		IdentityField:     "",
+		PageFieldName:     "page",
+		PageSizeFieldName: "pageSize",
+		ItemsFieldName:    "items",
+		TotalFieldName:    "total",
+	}
+	contract := &model.FunctionContract{
+		FunctionID: "player.list",
+		Capability: dbenum.CapabilityCollectionQuery,
+		OutputSchema: model.JSON(`{
+			"type":"object",
+			"properties":{
+				"items":{"type":"array","items":{"type":"object","properties":{
+					"player_id":{"type":"string","x-field-role":"identity"},
+					"status":{"type":"string","x-field-role":"status","x-enum-options":[
+						{"value":"active","label":"在线"},{"value":"offline","label":{"en-US":"Offline"}}]},
+					"coins":{"type":"number","x-field-role":"amount","x-field-unit":"金币"},
+					"expire_at":{"type":"string","format":"date-time","x-field-role":"expiry"},
+					"plain":{"type":"string"},
+					"bad_role":{"type":"string","x-field-role":"not-a-role"}
+				}}}
+			}
+		}`),
+	}
+	list := buildListViewFromContract(contract, semantics)
+	require.NotNil(t, list)
+	byKey := map[string]spec.ColumnSpec{}
+	for _, col := range list.Columns {
+		byKey[col.Key] = col
+	}
+
+	// identity → Fixed left + Render copy
+	assert.Equal(t, "left", byKey["player_id"].Fixed)
+	assert.Equal(t, "copy", byKey["player_id"].Render)
+
+	// x-enum-options → Enum + Render tag
+	status := byKey["status"]
+	assert.Equal(t, "tag", status.Render)
+	require.Len(t, status.Enum, 2)
+	assert.Equal(t, "在线", status.Enum[0].Label["zh-CN"])
+	assert.Equal(t, "Offline", status.Enum[1].Label["en-US"])
+
+	// x-field-unit → Unit 双语后缀
+	coins := byKey["coins"]
+	assert.Equal(t, "金币", coins.Unit["zh-CN"])
+	assert.Equal(t, "金币", coins.Unit["en-US"])
+
+	// 无 hints 列零变化
+	plain := byKey["plain"]
+	assert.Empty(t, plain.Fixed)
+	assert.Empty(t, plain.Render)
+	assert.Nil(t, plain.Unit)
+	assert.Nil(t, plain.Enum)
+
+	// 非法 role 静默忽略（无 Fixed/Render 派生）
+	bad := byKey["bad_role"]
+	assert.Empty(t, bad.Fixed)
+	assert.Empty(t, bad.Render)
+	assert.Nil(t, bad.Unit)
+}
+
 func TestExtraBuildInlineResourceActionSelector(t *testing.T) {
 	singleField := &model.FunctionContract{
 		FunctionID: "player.ban",

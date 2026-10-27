@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
-import { App, Descriptions } from 'antd';
+import { App, Descriptions, Typography } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import { localizedText } from '@/utils/localizedText';
@@ -100,17 +100,43 @@ export function sectionInDialog(
   );
 }
 
+/** 确认条目语义序：identity 置前（D5 身份强调），其余按原序稳定排后。 */
+function confirmEntryRank(role: ConfirmEntry['role']): number {
+  return role === 'identity' ? 0 : 1;
+}
+
+/** 确认条目值渲染（D5 语义强调）：identity 加粗、expiry 红字、声明 unit 的单位后缀。 */
+function renderConfirmEntryValue(entry: ConfirmEntry): ReactNode {
+  const unit = entry.unit ? localizedText(entry.unit, 'zh-CN', '') : '';
+  const text = unit ? `${entry.value} ${unit}` : entry.value;
+  switch (entry.role) {
+    case 'identity':
+      return <Typography.Text strong>{text}</Typography.Text>;
+    case 'expiry':
+      return <Typography.Text type="danger">{text}</Typography.Text>;
+    default:
+      return text;
+  }
+}
+
 /** 确认框内容：参数条目按字段标题渲染（Descriptions），链步骤逐行列目标。 */
 export function renderConfirmContent(model: ConfirmContentModel): ReactNode {
   const { entries = [], steps = [] } = model;
   if (entries.length === 0 && steps.length === 0) return null;
+  const ordered = entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => {
+      const rank = confirmEntryRank(a.entry.role) - confirmEntryRank(b.entry.role);
+      return rank === 0 ? a.index - b.index : rank;
+    })
+    .map(({ entry }) => entry);
   return (
     <div style={{ maxHeight: 320, overflowY: 'auto' }}>
       {entries.length > 0 ? (
         <Descriptions size="small" column={1} bordered>
-          {entries.map((entry) => (
+          {ordered.map((entry) => (
             <Descriptions.Item key={entry.key} label={entry.title}>
-              {entry.value}
+              {renderConfirmEntryValue(entry)}
             </Descriptions.Item>
           ))}
         </Descriptions>

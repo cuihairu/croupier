@@ -95,8 +95,10 @@ type IntlFormatter = {
 };
 
 function columnSpecToProColumn(col: ColumnSpec, intl: IntlFormatter): ProColumns<FormValues> {
+  // D5 单位后缀（x-field-unit）：列头与 number 单元格值追加
+  const unitText = col.unit ? localizedText(col.unit, 'zh-CN', '') : '';
   const column: ProColumns<FormValues> = {
-    title: localizedText(col.title, 'zh-CN', col.key),
+    title: localizedText(col.title, 'zh-CN', col.key) + (unitText ? ` (${unitText})` : ''),
     dataIndex: col.key,
     key: col.key,
     width: col.width,
@@ -135,7 +137,8 @@ function columnSpecToProColumn(col: ColumnSpec, intl: IntlFormatter): ProColumns
       column.valueType = 'date';
       column.render = (_, record) => {
         const value = record[col.key];
-        return value ? formatDateTime(String(value)) : '-';
+        // D5：datetime 列带显式浏览器时区标签（不靠字段名猜测时区）
+        return value ? formatDateTime(String(value), true) : '-';
       };
       break;
     case 'enum':
@@ -153,6 +156,13 @@ function columnSpecToProColumn(col: ColumnSpec, intl: IntlFormatter): ProColumns
       break;
     case 'number':
       column.valueType = 'digit';
+      if (unitText) {
+        column.render = (_, record) => {
+          const value = record[col.key];
+          if (value === undefined || value === null || value === '') return '-';
+          return `${String(value)} ${unitText}`;
+        };
+      }
       break;
     default:
       column.valueType = 'text';

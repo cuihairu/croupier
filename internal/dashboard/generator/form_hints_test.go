@@ -71,6 +71,41 @@ func TestBuildFormFieldsHints(t *testing.T) {
 	assert.Empty(t, payload.Widget)
 }
 
+// TestBuildFormFieldsFieldSemantics：D5 x-field-role / x-field-unit 派生
+// FormFieldSpec.Role/Unit；非法 role 静默忽略；unit 裸串与对象形态都归一。
+func TestBuildFormFieldsFieldSemantics(t *testing.T) {
+	fields := buildFormFields(spec.JSONSchema(`{
+		"type":"object",
+		"properties":{
+			"playerId":{"type":"string","x-field-role":"identity"},
+			"coins":{"type":"number","x-field-role":"amount","x-field-unit":"金币"},
+			"rate":{"type":"number","x-field-unit":{"zh-CN":"倍","en-US":"x"}},
+			"bad":{"type":"string","x-field-role":"not-a-role"}
+		}
+	}`), "zh-CN")
+
+	byKey := map[string]spec.FormFieldSpec{}
+	for _, f := range fields {
+		byKey[f.Key] = f
+	}
+
+	assert.Equal(t, "identity", byKey["playerId"].Role)
+
+	coins := byKey["coins"]
+	assert.Equal(t, "amount", coins.Role)
+	assert.Equal(t, "金币", coins.Unit["zh-CN"])
+	assert.Equal(t, "金币", coins.Unit["en-US"])
+
+	rate := byKey["rate"]
+	assert.Empty(t, rate.Role)
+	assert.Equal(t, "倍", rate.Unit["zh-CN"])
+	assert.Equal(t, "x", rate.Unit["en-US"])
+
+	bad := byKey["bad"]
+	assert.Empty(t, bad.Role)
+	assert.Nil(t, bad.Unit)
+}
+
 func TestBuildFormFieldsHintOrder(t *testing.T) {
 	fields := buildFormFields(spec.JSONSchema(`{
 		"type":"object",

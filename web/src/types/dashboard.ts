@@ -597,6 +597,8 @@ export interface ColumnSpec {
   enum?: EnumOption[];
   format?: string;
   render?: 'tag' | 'link' | 'copy' | 'status';
+  /** 列单位后缀（x-field-unit hint，D5），如 金币/个 */
+  unit?: LocalizedText;
 }
 
 /** 枚举选项 */
@@ -798,6 +800,10 @@ export interface FormFieldSpec {
   label?: LocalizedText;
   placeholder?: LocalizedText;
   description?: LocalizedText;
+  /** 显式字段语义（x-field-role，D5）：identity|status|reason|expiry|amount|quantity */
+  role?: 'identity' | 'status' | 'reason' | 'expiry' | 'amount' | 'quantity';
+  /** 显示单位后缀（x-field-unit，D5），如 金币/个 */
+  unit?: LocalizedText;
   width?: number;
   order?: number;
   visible?: boolean;

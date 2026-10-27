@@ -79,6 +79,21 @@ function asWidget(value: unknown): FormWidget | undefined {
     : undefined;
 }
 
+const FIELD_ROLES: readonly NonNullable<FormFieldSpec['role']>[] = [
+  'identity',
+  'status',
+  'reason',
+  'expiry',
+  'amount',
+  'quantity',
+];
+
+function asFieldRole(value: unknown): FormFieldSpec['role'] | undefined {
+  return typeof value === 'string' && (FIELD_ROLES as readonly string[]).includes(value)
+    ? (value as FormFieldSpec['role'])
+    : undefined;
+}
+
 function asLayout(value: unknown): FormLayout | undefined {
   return typeof value === 'string' && (FORM_LAYOUTS as readonly string[]).includes(value)
     ? (value as FormLayout)
@@ -191,6 +206,16 @@ function deriveLeaf(key: string, schema: SchemaNode): FieldDerived {
   const description = asLocalizedText(schema['x-description']);
   if (description) {
     field.description = description;
+    included = true;
+  }
+  const role = asFieldRole(schema['x-field-role']);
+  if (role) {
+    field.role = role;
+    included = true;
+  }
+  const unit = asLocalizedText(schema['x-field-unit']);
+  if (unit) {
+    field.unit = unit;
     included = true;
   }
   const width = asIntInRange(schema['x-width'], 1, 12);

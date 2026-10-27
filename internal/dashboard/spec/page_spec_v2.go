@@ -78,6 +78,8 @@ type ColumnSpec struct {
 	Enum       []EnumOption  `json:"enum,omitempty"`
 	Format     string        `json:"format,omitempty"` // date/time format
 	Render     string        `json:"render,omitempty"` // render hint: tag|link|copy|status
+	// Unit is the display unit suffix (x-field-unit hint, D5), e.g. 金币/个.
+	Unit LocalizedText `json:"unit,omitempty"`
 }
 
 // EnumOption represents an enum value for display.

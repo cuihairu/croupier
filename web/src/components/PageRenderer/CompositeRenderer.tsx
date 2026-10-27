@@ -12,8 +12,10 @@ import {
   Table,
   Tabs,
   Tag,
+  Typography,
 } from 'antd';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
+import { formatDateTime } from '@/utils/format';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ExecutorUnboundAlert, {
   EXECUTOR_UNBOUND_CODE,
@@ -58,6 +60,47 @@ function columnSorter(
     const as = String(av);
     const bs = String(bv);
     return as < bs ? -1 : as > bs ? 1 : 0;
+  };
+}
+
+/** D5 列单元格语义渲染：enum→Tag 标签、render copy→可复制、datetime→带
+ * 浏览器时区标签格式化、unit 后缀（number 列）。无匹配返回 undefined（走
+ * 表格默认文本渲染）；空值统一 '- '。 */
+function compositeColumnRender(
+  c: ColumnSpec,
+): ((_: unknown, row: Record<string, unknown>) => React.ReactNode) | undefined {
+  const hasEnumTag = c.render === 'tag' && !!c.enum?.length;
+  const unitText = c.unit ? localizedText(c.unit, 'zh-CN', '') : '';
+  const needsRender =
+    hasEnumTag ||
+    c.render === 'copy' ||
+    c.dataType === 'datetime' ||
+    (unitText && c.dataType === 'number');
+  if (!needsRender) return undefined;
+  return (_: unknown, row: Record<string, unknown>) => {
+    const value = row[c.key];
+    if (value === undefined || value === null || value === '') return '-';
+    if (hasEnumTag) {
+      const opt = c.enum!.find((e) => e.value === String(value));
+      if (opt) {
+        return (
+          <Tag color={opt.color || 'default'}>
+            {localizedText(opt.label, 'zh-CN', String(value))}
+          </Tag>
+        );
+      }
+      return String(value);
+    }
+    if (c.render === 'copy') {
+      return <Typography.Text copyable>{String(value)}</Typography.Text>;
+    }
+    if (c.dataType === 'datetime') {
+      return formatDateTime(String(value), true);
+    }
+    if (unitText) {
+      return `${String(value)} ${unitText}`;
+    }
+    return String(value);
   };
 }
 
@@ -446,10 +489,14 @@ export const CompositeRenderer: React.FC<{
                     ? 'descend'
                     : 'ascend'
                   : undefined;
+              // D5：单位/枚举标签/复制/时区标注的列语义渲染
+              const cellRender = compositeColumnRender(c);
+              const unitText = c.unit ? localizedText(c.unit, 'zh-CN', '') : '';
               return {
-                title: localizedText(c.title, 'zh-CN', c.key),
+                title: localizedText(c.title, 'zh-CN', c.key) + (unitText ? ` (${unitText})` : ''),
                 dataIndex: c.key,
                 ellipsis: true,
+                ...(cellRender ? { render: cellRender } : {}),
                 // D3：可排序列给表头排序 UI。分页未启用时 antd 本地排序
                 //（compare 函数）；启用时 sorter=true（仅 UI），排序状态
                 // 经受控 sortOrder 下推请求（sortBy/sortOrder）。
@@ -873,11 +920,19 @@ export const CompositeRenderer: React.FC<{
                   size="small"
                   rowKey={(_, i) => String(i)}
                   pagination={false}
-                  columns={(sec.table?.columns ?? []).map((c) => ({
-                    title: localizedText(c.title, 'zh-CN', c.key),
-                    dataIndex: c.key,
-                    ellipsis: true,
-                  }))}
+                  columns={(sec.table?.columns ?? []).map((c) => {
+                    // D5：弹窗内表格列保留语义单元格渲染（unit/枚举标签/时区），
+                    // 但不加表头排序 UI（D3 边界：弹窗表格不分页不排序）。
+                    const cellRender = compositeColumnRender(c);
+                    const unitText = c.unit ? localizedText(c.unit, 'zh-CN', '') : '';
+                    return {
+                      title:
+                        localizedText(c.title, 'zh-CN', c.key) + (unitText ? ` (${unitText})` : ''),
+                      dataIndex: c.key,
+                      ellipsis: true,
+                      ...(cellRender ? { render: cellRender } : {}),
+                    };
+                  })}
                   dataSource={
                     Array.isArray(resultFor(sec)?.items)
                       ? (resultFor(sec)?.items as Record<string, unknown>[])

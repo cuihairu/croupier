@@ -60,6 +60,14 @@ type FormFieldSpec struct {
 	// Description/help text
 	Description LocalizedText `json:"description,omitempty"`
 
+	// Role is the explicit field semantics (x-field-role hint, D5):
+	// identity|status|reason|expiry|amount|quantity. Drives confirm-dialog
+	// semantic emphasis and default presentation.
+	Role string `json:"role,omitempty"`
+
+	// Unit is the display unit suffix (x-field-unit hint, D5), e.g. 金币/个.
+	Unit LocalizedText `json:"unit,omitempty"`
+
 	// Width in grid layout (1-12)
 	Width int `json:"width,omitempty"`
 
