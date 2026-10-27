@@ -21,6 +21,7 @@ import ExecutorUnboundAlert, {
 } from './ExecutorUnboundAlert';
 import { localizedText } from '@/utils/localizedText';
 import { confirmFieldTitle } from './confirmContent';
+import type { ExecFailure } from './execFeedback';
 import { useCompositeRuntime } from './compositeRuntime';
 import { sectionVisible } from './sectionCondition';
 import type {
@@ -89,6 +90,12 @@ export const CompositeRenderer: React.FC<{
   const renderExecFeedback = (sec: CompositeSection): React.ReactNode => {
     const failure = execFailures[sec.key];
     const pending = execPending[sec.key];
+    // D4：已注入控件的字段错误不再重复列在反馈条里，只留表单外的未知字段
+    const residualFieldErrors = failure
+      ? failure.fieldErrors.filter(
+          (fe) => !fe.field || !formFieldErrors(sec.form, failure)[fe.field],
+        )
+      : [];
     const fieldTitle = (key: string) =>
       confirmFieldTitle(
         sec.form?.fields?.find((f) => f.key === key),
@@ -110,9 +117,9 @@ export const CompositeRenderer: React.FC<{
             description={
               <>
                 {failure.message ? <div>{failure.message}</div> : null}
-                {failure.fieldErrors.length > 0 ? (
+                {residualFieldErrors.length > 0 ? (
                   <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                    {failure.fieldErrors.map((fe, i) => (
+                    {residualFieldErrors.map((fe, i) => (
                       <li key={i}>
                         {fe.field ? `${fieldTitle(fe.field)}：${fe.message}` : fe.message}
                       </li>
@@ -409,6 +416,7 @@ export const CompositeRenderer: React.FC<{
             spec={sec.form!}
             initialValues={(sectionInputs[sec.key] || {}) as FormValues}
             disabled={running[sec.key] || false}
+            externalErrors={formFieldErrors(sec.form, execFailures[sec.key])}
             onValuesChange={(_, values) => {
               // V5：fnForm 当前值防抖写入 results[key].values（{{var.values.x}}）
               mergeFormValues(sec.key, values as Record<string, unknown>);
@@ -549,6 +557,7 @@ export const CompositeRenderer: React.FC<{
                   running={running[sec.key] || false}
                   initialParams={sectionInputs[dialogKey] || {}}
                   feedback={renderExecFeedback(sec)}
+                  fieldErrors={formFieldErrors(sec.form, execFailures[sec.key])}
                   onValuesChange={(values) => {
                     mergeFormValues(sec.key, values);
                     // D4：输入变化后旧失败反馈失效（弹窗保留待处理提示直至提交）
@@ -633,10 +642,12 @@ const DialogForm: React.FC<{
   initialParams: Record<string, unknown>;
   /** D4：执行反馈条（失败定位 + 审批/任务待处理），由调用方按区块状态渲染。 */
   feedback?: React.ReactNode;
+  /** D4：字段级错误按字段名注入控件下方（只留表单外字段在反馈条）。 */
+  fieldErrors?: Record<string, string[]>;
   /** V5：当前值变化（防抖写入 values 运行时状态由调用方处理）。 */
   onValuesChange?: (values: Record<string, unknown>) => void;
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
-}> = ({ section, running, initialParams, feedback, onValuesChange, onSubmit }) => {
+}> = ({ section, running, initialParams, feedback, fieldErrors, onValuesChange, onSubmit }) => {
   const spec = section.form;
   const properties = spec?.jsonSchema?.properties;
   const hasFields = !!properties && typeof properties === 'object';
@@ -660,6 +671,7 @@ const DialogForm: React.FC<{
         spec={spec}
         initialValues={initialParams as FormValues}
         disabled={running}
+        externalErrors={fieldErrors}
         onValuesChange={(_, values) => onValuesChange?.(values as Record<string, unknown>)}
         onFinish={async (values) => {
           await onSubmit(values);
@@ -673,6 +685,25 @@ const DialogForm: React.FC<{
 function sectionHasForm(sec: CompositeSection): boolean {
   const properties = sec.form?.jsonSchema?.properties;
   return !!properties && typeof properties === 'object' && Object.keys(properties).length > 0;
+}
+
+/** D4：把服务端字段级错误映射成表单可注入的 externalErrors——只映射 schema
+ * 顶层存在且带文案的字段；其余字段留在反馈条汇总（不回退服务端返回的未知
+ * 字段错误）。键为 schema 顶层属性名，与 SchemaFormRenderer 的注入口径一致。 */
+function formFieldErrors(
+  form: CompositeSection['form'],
+  failure: ExecFailure | null | undefined,
+): Record<string, string[]> {
+  if (!failure || failure.fieldErrors.length === 0) return {};
+  const properties = form?.jsonSchema?.properties;
+  const known =
+    properties && typeof properties === 'object' ? new Set(Object.keys(properties)) : undefined;
+  const mapped: Record<string, string[]> = {};
+  for (const fe of failure.fieldErrors) {
+    if (!fe.field || !fe.message || !known || !known.has(fe.field)) continue;
+    (mapped[fe.field] ??= []).push(fe.message);
+  }
+  return mapped;
 }
 
 /** T8：区块失败标记是否为 executor_unbound（unbound 阻断 → 绑定引导空态）。 */
