@@ -70,6 +70,26 @@ func (h *Handler) Page(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// ExecuteDraftCompositeBinding handles POST /api/v1/versioning/pages/composite/preview/execute
+//
+// 草稿预览执行：与组合页预览端点同形请求体，服务端重建草稿 spec（发布级校验）
+// 后走与已发布页面相同的执行门禁（权限/审批/契约快照），让真实预览在发布前
+// 也能安全执行——产物不落库，执行审计以草稿来源标记。
+func (h *Handler) ExecuteDraftCompositeBinding(c *gin.Context) {
+	var req ConsoleDraftCompositeExecuteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.ExecuteDraftCompositeBinding(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // ExecuteBinding handles POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute
 func (h *Handler) ExecuteBinding(c *gin.Context) {
 	var req ConsoleExecuteBindingRequest

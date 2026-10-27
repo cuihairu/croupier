@@ -13,6 +13,9 @@ export default {
   'component.resourceRenderer.confirm.deleteDescription': '确认删除此记录？',
   'component.resourceRenderer.confirm.deleteTitle': '确认删除',
   'component.resourceRenderer.confirm.okText': '确认',
+  'component.resourceRenderer.confirm.targetCount': '目标数量',
+  'component.resourceRenderer.confirm.targets': '目标对象',
+  'component.resourceRenderer.confirm.targetsOverflow': ' 等 {count} 项',
   'component.resourceRenderer.confirm.title': '确认操作',
   'component.resourceRenderer.create.button': '新建',
   'component.resourceRenderer.create.failed': '创建失败',
@@ -50,4 +53,9 @@ export default {
   'component.resourceRenderer.rowAction.missingBinding': '未配置操作绑定',
   'component.resourceRenderer.selection.clear': '取消选择',
   'component.resourceRenderer.selection.count': '已选择 {count} 项',
+  'component.resourceRenderer.selection.stale':
+    '筛选条件已变更，已选对象不在当前结果集，请核对后清除或重新勾选',
+  'component.resourceRenderer.selection.targetList': '查看目标清单',
+  'component.resourceRenderer.selection.targetListTitle': '已选目标清单（{count} 项）',
+  'component.resourceRenderer.selection.visible': '本页可见 {count} 项',
 };

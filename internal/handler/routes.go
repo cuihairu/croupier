@@ -1303,6 +1303,10 @@ func registerVersioningRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/pages/composite", versioningHandler.CreateCompositePage)
 	// 组合页实时预览：同一生成链产出 PageSpec 但不落库（编辑器预览消费）。
 	g.POST("/pages/composite/preview", versioningHandler.PreviewCompositePage)
+	// 草稿预览执行：同一生成链重建草稿 spec 后走与发布页相同的执行门禁
+	// （权限/审批/契约快照），编辑器「真实预览」经此入口执行，不走已发布
+	// 快照，也不落库。执行核心复用 console 服务（快照由草稿侧构造）。
+	g.POST("/pages/composite/preview/execute", console.NewHandler(console.NewService(ctx)).ExecuteDraftCompositeBinding)
 	g.DELETE("/pages/:pageKey", versioningHandler.DeletePage)
 }
 

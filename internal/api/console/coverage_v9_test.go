@@ -255,11 +255,11 @@ func TestStartPageExecuteSpanFinisherAttributesV9(t *testing.T) {
 	contract := spec.BindingContractSnapshot{BindingID: "player.query"}
 
 	_, finishTask := service.startPageExecuteSpan(context.Background(), "demo-game", "development",
-		page, binding, contract, "req-task", "tester")
+		page, binding, contract, "req-task", "tester", runtimeAPIPublishedExecute)
 	finishTask(nil, spec.PageExecutionResult{Kind: spec.PageExecutionKindTask, TaskID: "task-1"}, "agent-1")
 
 	_, finishApproval := service.startPageExecuteSpan(context.Background(), "demo-game", "development",
-		page, binding, contract, "req-approval", "tester")
+		page, binding, contract, "req-approval", "tester", runtimeAPIPublishedExecute)
 	finishApproval(nil, spec.PageExecutionResult{Kind: spec.PageExecutionKindApproval, ApprovalID: "appr-1"}, "")
 }
 
@@ -272,7 +272,7 @@ func TestAuditPageExecuteStoreFailureV9(t *testing.T) {
 			spec.PublishedPageSpec{PageSpec: spec.PageSpec{PageKey: "player.manage"}},
 			spec.PageFunctionBinding{ID: "player.query", FunctionID: "player.query"},
 			spec.BindingContractSnapshot{BindingID: "player.query"},
-			"req-1", "", spec.PageExecutionResult{}, errors.New("boom"), 5)
+			"req-1", "", spec.PageExecutionResult{}, errors.New("boom"), 5, governanceValidated, runtimeAPIPublishedExecute)
 	})
 }
 

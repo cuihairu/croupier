@@ -14,6 +14,9 @@ export default {
   'component.resourceRenderer.confirm.deleteDescription': 'Delete this record?',
   'component.resourceRenderer.confirm.deleteTitle': 'Confirm Deletion',
   'component.resourceRenderer.confirm.okText': 'OK',
+  'component.resourceRenderer.confirm.targetCount': 'Target Count',
+  'component.resourceRenderer.confirm.targets': 'Targets',
+  'component.resourceRenderer.confirm.targetsOverflow': ' and {count} more items',
   'component.resourceRenderer.confirm.title': 'Confirm Action',
   'component.resourceRenderer.create.button': 'Create',
   'component.resourceRenderer.create.failed': 'Creation failed',
@@ -58,4 +61,9 @@ export default {
   'component.resourceRenderer.rowAction.missingBinding': 'Action binding is not configured',
   'component.resourceRenderer.selection.clear': 'Clear Selection',
   'component.resourceRenderer.selection.count': '{count} items selected',
+  'component.resourceRenderer.selection.stale':
+    'Filters changed; selected items may no longer match the current result set. Review, clear, or re-select them.',
+  'component.resourceRenderer.selection.targetList': 'View Targets',
+  'component.resourceRenderer.selection.targetListTitle': 'Selected Targets ({count} items)',
+  'component.resourceRenderer.selection.visible': '{count} visible on this page',
 };

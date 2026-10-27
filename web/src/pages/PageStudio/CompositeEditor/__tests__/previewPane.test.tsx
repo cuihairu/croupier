@@ -6,7 +6,7 @@
  * 生成质量与诊断就地展示；请求失败与编译阻断均回退旧 PreviewRuntime 且预览不空白。
  */
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import PreviewPane from '../PreviewPane';
 import { compileTree } from '../compiler';
@@ -89,6 +89,7 @@ function tree(): PageNode[] {
 function responseOf(
   nodes: PageNode[],
   extra: { quality?: string; diagnostics?: Diagnostic[] } = {},
+  view: 'fields' | 'form' = 'fields',
 ) {
   const sections = compileTree(nodes).sections;
   const spec = {
@@ -101,7 +102,7 @@ function responseOf(
         key: s.key,
         bindingId: `b-${s.key}`,
         title: { 'zh-CN': String(s.title ?? '') },
-        view: 'fields' as const,
+        view,
         autoRun: true,
       })),
     },
@@ -237,5 +238,71 @@ describe('PreviewPane（B1 预览共用运行时）', () => {
 
     expect(await screen.findByText('请填写页面 Key')).toBeInTheDocument();
     expect(mockedRequest).not.toHaveBeenCalled();
+  });
+
+  it('真实预览：经服务端校验的草稿执行入口执行，请求体与预览端点同形', async () => {
+    const executeUrl = '/api/v1/versioning/pages/composite/preview/execute';
+    mockedRequest.mockImplementation(async (url: string) => {
+      if (String(url).endsWith('/composite/preview')) return responseOf(tree());
+      if (String(url) === executeUrl) {
+        return { result: { kind: 'sync', requestId: 'req-1', data: { orderId: 'A-1' } } };
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    renderPane();
+
+    await waitFor(() => expect(screen.getByText('页面规格预览')).toBeInTheDocument());
+    // 默认模拟模式：只发预览请求，不发执行请求
+    expect(mockedRequest.mock.calls.filter((c) => String(c[0]) === executeUrl)).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('switch'));
+
+    // 真实结果渲染出图；模拟数据的 items/total 被替换（同一渲染器、仅换执行适配器）
+    expect(await screen.findByText('orderId')).toBeInTheDocument();
+    expect(screen.queryByText('items')).not.toBeInTheDocument();
+
+    const call = mockedRequest.mock.calls.find((c) => String(c[0]) === executeUrl) as [
+      string,
+      {
+        method?: string;
+        data?: {
+          pageKey: string;
+          bindingId: string;
+          sections: Array<{ functionId: string }>;
+          context: unknown;
+        };
+      },
+    ];
+    expect(call).toBeTruthy();
+    expect(call[1].method).toBe('POST');
+    expect(call[1].data?.pageKey).toBe('composite--preview');
+    expect(call[1].data?.bindingId).toBe('b-order.list');
+    expect(call[1].data?.sections).toHaveLength(1);
+    expect(call[1].data?.sections[0].functionId).toBe('order.list');
+    // 浏览器不提交 functionId / route / scope；上下文按契约 selector 投影
+    expect(call[1].data?.context).toEqual({});
+    expect(Object.keys(call[1].data as Record<string, unknown>)).not.toEqual(
+      expect.arrayContaining(['functionId', 'route', 'scope']),
+    );
+  });
+
+  it('真实预览失败：区块内渲染失败反馈（草稿发布级校验的可读诊断）', async () => {
+    // form 视图（无表单规格 → 执行按钮形态）渲染执行反馈条
+    mockedRequest.mockImplementation(async (url: string) => {
+      if (String(url).endsWith('/composite/preview')) return responseOf(tree(), {}, 'form');
+      throw { data: { message: 'draft page fails publish validation' } };
+    });
+    renderPane();
+
+    await waitFor(() => expect(screen.getByText('页面规格预览')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('switch'));
+
+    // 首次 autoRun 已被服务端拒绝（卡片仍在加载，按钮待重绘）；提交出口承载
+    // 区块内失败反馈（字段级定位 + 可读信息）
+    const execButton = await screen.findByRole('button', { name: /订单详情/ });
+    fireEvent.click(execButton);
+
+    expect(await screen.findByText(/执行失败/)).toBeInTheDocument();
+    expect(screen.getByText(/draft page fails publish validation/)).toBeInTheDocument();
   });
 });

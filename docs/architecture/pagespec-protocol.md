@@ -118,6 +118,28 @@ The body of a `type: composite` page (authoritative implementation `internal/das
 
 Input-validation failures never return a partial spec: a missing `pageKey`, a missing or duplicate section `key`, a static section without `form.jsonSchema`, a section referencing an unregistered function, or a canvas with no functional section returns `400 + { error: "validation_failed", message, details }`, where every `details` key is a request-body field path — `pageKey`, `sections[i].key`, `sections[i].functionId`, `sections[i].form.jsonSchema`, or bare `sections` when no functional section is left to generate. Generator-level diagnostics are mapped the same way (their `field`, falling back to their `code`). A database failure looking up a contract is not a canvas problem and stays a `500`. The preview pane and the save/publish dialogs render these entries inline through the shared `ErrorDetailList` so the operator can point at the offending section.
 
+**Draft preview execute endpoint (B1, 2026-10)**: `POST /api/v1/versioning/pages/composite/preview/execute` lets the editor preview pane execute a section against the draft instead of against mock data. The request body is the preview endpoint's body plus `bindingId` and `context`:
+
+```json
+{
+  "pageKey": "composite--preview",
+  "bindingId": "player.list",
+  "sections": [
+    { "key": "player.list", "functionId": "player.list", "view": "table" }
+  ],
+  "componentTemplates": [{ "key": "tpl--card", "digest": "d1" }],
+  "context": {
+    "form": {},
+    "row": {},
+    "selection": [],
+    "detail": {},
+    "pageState": {}
+  }
+}
+```
+
+The server rebuilds the draft `PageSpec` from `sections` through the identical generation chain (so the executed spec is the one the preview pane rendered), re-runs the publish-level selector validation, and then runs the binding through the same execution gates as a published page — permission check, approval gate, and the bound `execution.functionId` snapshot (the browser never submits `functionId`, `route`, or `scope`; a missing/extra `bindingId` is a `4xx`). The response is `{ result }`, the same `PageExecutionResult` shape as the published binding execute endpoint, so the renderer handles both identically. It is still read-only — no proposal, draft, approval record, or audit row is persisted — but a real function call is dispatched, so operation functions and approvals do have real side effects in draft mode.
+
 **Constant form sections (static, 2026-09)**: `CompositeSection` gains a `static: true` shape —
 no bindingId is bound and no function executes; `form.jsonSchema` is defined at editor design
 time and passed through `CompositeSectionRequest.form` (the server validates schema existence),

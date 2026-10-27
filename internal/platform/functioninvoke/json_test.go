@@ -76,4 +76,8 @@ func TestMetadataPredicates(t *testing.T) {
 	assert.True(t, IsApprovedContinuation(map[string]string{"approvalBypass": " Approved "}))
 	assert.False(t, IsPageSnapshotGoverned(nil))
 	assert.True(t, IsPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": "validated"}))
+	// draft = 草稿预览执行（页面无快照，审批续跑按契约版本校验新鲜度）
+	assert.True(t, IsPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": "draft"}))
+	assert.True(t, IsPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": " DRAFT "}))
+	assert.False(t, IsPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": "published"}))
 }

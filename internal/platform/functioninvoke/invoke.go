@@ -349,11 +349,16 @@ func IsApprovedContinuation(metadata map[string]string) bool {
 	return strings.EqualFold(strings.TrimSpace(metadata["approvalBypass"]), "approved")
 }
 
+// IsPageSnapshotGoverned 报告调用是否由页面快照治理（页面级门禁已前置执行，
+// 函数级 policy 审批闸须跳过以免二次审批）。两种治理来源：
+//   - "validated"：已发布页面快照（审批续跑回读快照版本校验新鲜度）；
+//   - "draft"：草稿预览执行（页面无快照，审批续跑按契约版本校验新鲜度）。
 func IsPageSnapshotGoverned(metadata map[string]string) bool {
 	if metadata == nil {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(metadata["pageSnapshotGovernance"]), "validated")
+	governance := strings.TrimSpace(metadata["pageSnapshotGovernance"])
+	return strings.EqualFold(governance, "validated") || strings.EqualFold(governance, "draft")
 }
 
 // EffectiveTimeoutMs 计算同步调用的注入预算：
