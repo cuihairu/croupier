@@ -39,6 +39,7 @@ interface FormStubProps {
   onChange: (event: { formData?: unknown }) => void;
   onSubmit: (event: { formData?: unknown }) => void;
   transformErrors?: (errors: RJSFValidationError[]) => RJSFValidationError[];
+  extraErrors?: Record<string, unknown>;
 }
 
 jest.mock('@rjsf/antd', () => {
@@ -62,7 +63,7 @@ jest.mock('@rjsf/antd', () => {
     validateForm = (): boolean => true;
 
     render(): React.ReactNode {
-      const { formData, readonly, disabled, uiSchema, transformErrors } = this.props;
+      const { formData, readonly, disabled, uiSchema, transformErrors, extraErrors } = this.props;
       const submitOptions = (uiSchema?.['ui:submitButtonOptions'] ?? {}) as {
         submitText?: string;
         norender?: boolean;
@@ -83,6 +84,7 @@ jest.mock('@rjsf/antd', () => {
           'data-disabled': String(disabled),
           'data-norender': String(submitOptions.norender),
           'data-submit-text': String(submitOptions.submitText ?? ''),
+          'data-extra-errors': JSON.stringify(extraErrors ?? null),
         },
         [
           button(
@@ -746,6 +748,28 @@ describe('SchemaFormRenderer 组件', () => {
     expect(stub()).toHaveAttribute('data-readonly', 'false');
     expect(stub()).toHaveAttribute('data-disabled', 'false');
     expect(stub()).toHaveAttribute('data-formdata', '{}');
+  });
+
+  it('externalErrors 按 RJSF ErrorSchema 注入；省略/空对象/空消息列表传 undefined', () => {
+    const { rerender } = render(<SchemaFormRenderer spec={visibleSpec} onFinish={jest.fn()} />);
+    expect(stub()).toHaveAttribute('data-extra-errors', 'null');
+    rerender(
+      <SchemaFormRenderer
+        spec={visibleSpec}
+        onFinish={jest.fn()}
+        externalErrors={{ name: ['不能为空'], mode: ['取值非法', '仅支持 single'] }}
+      />,
+    );
+    expect(JSON.parse(stub().getAttribute('data-extra-errors') ?? '{}')).toEqual({
+      name: { __errors: ['不能为空'] },
+      mode: { __errors: ['取值非法', '仅支持 single'] },
+    });
+    rerender(<SchemaFormRenderer spec={visibleSpec} onFinish={jest.fn()} externalErrors={{}} />);
+    expect(stub()).toHaveAttribute('data-extra-errors', 'null');
+    rerender(
+      <SchemaFormRenderer spec={visibleSpec} onFinish={jest.fn()} externalErrors={{ name: [] }} />,
+    );
+    expect(stub()).toHaveAttribute('data-extra-errors', 'null');
   });
 
   it('hideSubmit / readonly 收起提交按钮', () => {

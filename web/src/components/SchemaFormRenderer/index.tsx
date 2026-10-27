@@ -19,7 +19,7 @@ import type CoreForm from '@rjsf/core';
 import type { IChangeEvent } from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8';
 import { getLocale, getIntl } from '@umijs/max';
-import type { RJSFValidationError, RJSFSchema, UiSchema } from '@rjsf/utils';
+import type { ErrorSchema, RJSFValidationError, RJSFSchema, UiSchema } from '@rjsf/utils';
 import type {
   FormFieldSpec,
   FormPresentationSpec,
@@ -50,6 +50,10 @@ export interface SchemaFormRendererProps {
   readonly?: boolean;
   disabled?: boolean;
   hideSubmit?: boolean;
+  /** D4：外部字段级错误（服务端参数校验的 details），按字段名注入到控件下方
+   * （RJSF extraErrors），与本地校验并存、不替代本地校验。键为 schema 顶层
+   * 属性名（嵌套属性请按 RJSF ErrorSchema 嵌套传入）。省略或空对象时不注入。 */
+  externalErrors?: Record<string, string[]>;
 }
 
 type JsonObject = Record<string, JSONValue>;
@@ -519,6 +523,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       readonly = false,
       disabled = false,
       hideSubmit = false,
+      externalErrors,
     },
     ref,
   ) => {
@@ -606,6 +611,18 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       }
     }, [spec]);
 
+    // D4：外部字段错误按 RJSF ErrorSchema 注入——字段自身的错误键是 __errors，
+    // 但 @rjsf/utils 的 ErrorSchema 类型只声明了嵌套结构，运行时约定需断言收敛
+    const extraErrors = useMemo<ErrorSchema | undefined>(() => {
+      if (!externalErrors) return undefined;
+      const schema: Record<string, { __errors: string[] }> = {};
+      for (const [field, messages] of Object.entries(externalErrors)) {
+        if (!field || !messages || messages.length === 0) continue;
+        schema[field] = { __errors: messages };
+      }
+      return Object.keys(schema).length > 0 ? (schema as unknown as ErrorSchema) : undefined;
+    }, [externalErrors]);
+
     return (
       <SchemaFormErrorBoundary key={boundaryKey}>
         <Form
@@ -616,6 +633,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
           validator={validator}
           widgets={widgets}
           fields={uploadFields}
+          extraErrors={extraErrors}
           templates={customTemplates}
           formData={formValues}
           readonly={readonly}

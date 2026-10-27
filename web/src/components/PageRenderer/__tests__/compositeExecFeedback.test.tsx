@@ -205,11 +205,12 @@ describe('D4 执行反馈闭环', () => {
     expect(onExecute).not.toHaveBeenCalledWith('b-list', expect.anything());
   });
 
-  it('参数错误：details 定位到字段（展示 label + 服务端文案），弹窗与输入保留', async () => {
+  it('参数错误：字段错误注入控件，反馈条只留表单外字段，弹窗与输入保留', async () => {
     const onExecute = jest.fn().mockRejectedValue(
       apiError('validation_failed', '请求参数无效', {
         playerId: '玩家 ID 不能为空',
         durationDays: '封禁天数需为正整数',
+        channel: '渠道不可用', // 不在表单 schema 内 → 不进控件，留反馈条汇总
       }),
     );
     const { app } = await openBan(onExecute);
@@ -217,13 +218,36 @@ describe('D4 执行反馈闭环', () => {
 
     clickSubmit();
     await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('请求参数无效'));
-    // 稳定错误码进标题，字段错误逐条定位（字段名按展示层 label）
     expect(screen.getByText('执行失败（validation_failed）')).toBeInTheDocument();
-    expect(screen.getByText('玩家 ID：玩家 ID 不能为空')).toBeInTheDocument();
-    expect(screen.getByText('封禁天数：封禁天数需为正整数')).toBeInTheDocument();
+    // 表单内字段错误由 RJSF extraErrors 注入控件下方，不在反馈条重复列出
+    const alert = screen
+      .getByText('执行失败（validation_failed）', { selector: '.ant-alert-title' })
+      .closest('.ant-alert')!;
+    for (const text of ['玩家 ID 不能为空', '封禁天数需为正整数']) {
+      expect(screen.getByText(text).closest('.ant-alert')).toBeNull();
+      expect(alert).not.toHaveTextContent(text);
+    }
+    // 表单外未知字段仍留在反馈条，按 key 人性化展示
+    expect(alert).toHaveTextContent('channel：渠道不可用');
     // 失败保留弹窗与已填参数
     expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
     expect((screen.getByLabelText('玩家 ID') as HTMLInputElement).value).toBe('u1001');
+  });
+
+  it('参数错误输入改动后：控件下错误消失，反馈条一并清除', async () => {
+    const onExecute = jest
+      .fn()
+      .mockRejectedValue(
+        apiError('validation_failed', '请求参数无效', { playerId: '玩家 ID 不能为空' }),
+      );
+    await openBan(onExecute);
+
+    clickSubmit();
+    await waitFor(() => expect(screen.getByText('玩家 ID 不能为空')).toBeInTheDocument());
+    // 输入变化清掉旧的失败反馈（D4 反馈与输入状态保持一致）
+    fireEvent.change(screen.getByLabelText('玩家 ID'), { target: { value: 'u1002' } });
+    await waitFor(() => expect(screen.queryByText('玩家 ID 不能为空')).toBeNull());
+    expect(screen.queryByText('执行失败（validation_failed）')).toBeNull();
   });
 
   it('权限不足：展示稳定错误码与服务端原因，不落字段明细', async () => {
@@ -260,5 +284,74 @@ describe('D4 执行反馈闭环', () => {
     );
     // 业务执行成功 → 目标区块刷新（D4 只门控审批 / 任务态）
     await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-list', expect.anything()));
+  });
+});
+
+describe('D4 参数错误定位字段（inline 表单区块）', () => {
+  // 非弹窗的表单区块走另一条渲染分支（CompositeRenderer 的 inline form），
+  // 字段错误注入与弹窗共用 formFieldErrors 口径，两处都要断言。输入保留断言
+  // 只在弹窗用例做：inline 区块提交期间卡片整体进 loading 骨架，表单随之
+  // 卸载重挂、值不保留（既有行为，与字段注入无关，见文档已知边界）。
+  const sections: CompositeSection[] = [
+    {
+      key: 'inlineBan',
+      bindingId: 'b-ban',
+      view: 'form',
+      title: { 'zh-CN': '封禁玩家' },
+      form: {
+        jsonSchema: {
+          type: 'object',
+          properties: {
+            playerId: { type: 'string' },
+            durationDays: { type: 'number' },
+          },
+        },
+        fields: [
+          { key: 'playerId', label: { 'zh-CN': '玩家 ID' } },
+          { key: 'durationDays', label: { 'zh-CN': '封禁天数' } },
+        ],
+      },
+    },
+  ];
+
+  it('字段错误注入控件下方，反馈条只汇总表单外字段', async () => {
+    const onExecute = jest.fn().mockRejectedValue(
+      apiError('validation_failed', '请求参数无效', {
+        playerId: '玩家 ID 不能为空',
+        unknownField: '未知字段错误',
+      }),
+    );
+    const captured: { current?: AppApi } = {};
+    const Probe: React.FC = () => {
+      captured.current = App.useApp();
+      return null;
+    };
+    render(
+      <App>
+        <Probe />
+        <CompositeRenderer sections={sections} bindings={[]} onExecute={onExecute as never} />
+      </App>,
+    );
+    await waitFor(() => expect(captured.current).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('玩家 ID'), { target: { value: 'u9' } });
+    fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
+    await waitFor(() =>
+      expect(screen.getByText('执行失败（validation_failed）')).toBeInTheDocument(),
+    );
+
+    // 提交 payload 用当前输入，字段错误落在控件下方（RJSF extraErrors）不进反馈条
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith(
+        'b-ban',
+        expect.objectContaining({ form: expect.objectContaining({ playerId: 'u9' }) }),
+      ),
+    );
+    expect(screen.getByText('玩家 ID 不能为空').closest('.ant-alert')).toBeNull();
+    const alert = screen
+      .getByText('执行失败（validation_failed）', { selector: '.ant-alert-title' })
+      .closest('.ant-alert')!;
+    expect(alert).not.toHaveTextContent('玩家 ID 不能为空');
+    expect(alert).toHaveTextContent('unknown field：未知字段错误');
   });
 });
