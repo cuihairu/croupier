@@ -259,4 +259,64 @@ describe('D3 组合页表格服务端分页', () => {
     await screen.findByText('r11');
     expect(calls.length).toBe(1); // 翻页不重跑
   });
+
+  it('操作成功刷新相关行与详情：多目标刷新且列表保持页码（D3 验收点）', async () => {
+    const listCalls: Array<Record<string, unknown>> = [];
+    const detailCalls: Array<Record<string, unknown>> = [];
+    const onExecute = async (bindingId: string, context: ExecForm): Promise<ExecResult> => {
+      if (bindingId === 'b-list') {
+        const form = context.form ?? {};
+        listCalls.push({ ...form });
+        const page = Number(form.page) || 1;
+        const size = Number(form.pageSize) || 20;
+        const offset = Number(form.offset ?? (page - 1) * size);
+        return { data: { items: ROWS25.slice(offset, offset + size), total: ROWS25.length } };
+      }
+      if (bindingId === 'b-detail') {
+        detailCalls.push({ ...(context.form ?? {}) });
+        return { data: { name: `d${detailCalls.length}` } };
+      }
+      return { data: { ok: true } }; // 操作：成功后同时刷新列表与详情
+    };
+    renderComposite(
+      [
+        {
+          key: 'list',
+          bindingId: 'b-list',
+          view: 'table',
+          title: { 'zh-CN': '玩家' },
+          autoRun: true,
+          table: { columns: [col], pagination: { enabled: true, defaultSize: 20 } },
+        },
+        {
+          key: 'detail',
+          bindingId: 'b-detail',
+          view: 'fields',
+          title: { 'zh-CN': '详情' },
+        },
+        {
+          key: 'act',
+          bindingId: 'b-act',
+          view: 'form',
+          title: { 'zh-CN': '操作' },
+          form: { jsonSchema: { type: 'object', properties: { name: { type: 'string' } } } },
+          onSuccessRefresh: ['list', 'detail'],
+        },
+      ],
+      onExecute,
+    );
+
+    await waitFor(() => expect(listCalls.length).toBe(1));
+    // 详情无 autoRun/refreshOn：操作前不执行，仅操作成功后刷新
+    expect(detailCalls.length).toBe(0);
+
+    fireEvent.click(screen.getByText('2'));
+    await waitFor(() => expect(listCalls.length).toBe(2));
+    expect(listCalls[1]).toMatchObject({ page: 2, pageSize: 20, offset: 20 });
+
+    fireEvent.click(screen.getByTestId('form-submit')); // 操作成功 → 刷新列表+详情
+    await waitFor(() => expect(listCalls.length).toBe(3));
+    expect(listCalls[2]).toMatchObject({ page: 2, pageSize: 20, offset: 20 }); // 列表保持页码
+    expect(detailCalls.length).toBe(1); // 详情一并刷新
+  });
 });
