@@ -67,7 +67,22 @@ function firstString(details: Record<string, unknown>, keys: string[]): string {
 
 /** 权限类失败把服务端 details 收敛为可读原因（不暴露原始 key）。 */
 export function describePermissionReason(code: string, details: unknown): string | undefined {
-  if (!['forbidden', 'permission_denied'].includes(code)) return undefined;
+  if (
+    ![
+      'forbidden',
+      'permission_denied',
+      'scope_not_authorized',
+      'invalid_game_scope',
+      'scope_required',
+    ].includes(code)
+  ) {
+    return undefined;
+  }
+  // 无效 scope：全局错误处理已清 scope 让 GameSelector 重选，这里给页内
+  // 反馈条一个同源原因行（不暴露原始 key）。
+  if (['scope_not_authorized', 'invalid_game_scope', 'scope_required'].includes(code)) {
+    return '当前选择的游戏环境无效，请重新选择';
+  }
   if (!details || typeof details !== 'object' || Array.isArray(details)) return undefined;
   const record = details as Record<string, unknown>;
   const parts: string[] = [];
