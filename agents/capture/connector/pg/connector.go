@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
+	"github.com/cuihairu/croupier/pkg/cdc/schema"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
@@ -61,6 +62,12 @@ type PostgresConnector struct {
 
 	cpMu sync.Mutex
 	cp   connector.Position // 最近提交位点（pump 写，Checkpoint 读）
+
+	// schema 演进历史（SchemaHistorySource 扩展面）：pump 会话记录，重建即
+	// 替换。历史是当前复制会话的，重连后从新会话起点重记（会话级边界，诚实
+	// 声明——跨会话持久 schema 历史由恢复平台层负责持久化）。
+	schemaMu   sync.RWMutex
+	schemaHist *schema.History
 }
 
 // NewPostgresConnector 构造 PG 连接器（不立即连接，Open 时建立）。
@@ -677,6 +684,9 @@ func (c *PostgresConnector) slotConfirmedLSN(ctx context.Context, slot string) (
 func (c *PostgresConnector) pump(ctx context.Context, repl *pgconn.PgConn, out chan<- connector.ChangeEvent, whitelist map[string]bool) {
 	defer close(out)
 	dec := NewDecoder(c.cfg.SourceID)
+	c.schemaMu.Lock()
+	c.schemaHist = dec.SchemaHistory()
+	c.schemaMu.Unlock()
 	clientXLogPos := pglogrepl.LSN(0)
 	nextStandbyDeadline := time.Now().Add(10 * time.Second)
 	for {
@@ -736,7 +746,7 @@ func (c *PostgresConnector) pump(ctx context.Context, repl *pgconn.PgConn, out c
 				c.log.Error("postgres poll: parse xlog data", "error", err)
 				return
 			}
-			events, err := dec.Feed(xld.WALData)
+			events, err := dec.Feed(xld.WALData, LSN(xld.WALStart).Decimal())
 			if err != nil {
 				c.log.Error("postgres poll: decode", "error", err)
 				return
@@ -769,6 +779,48 @@ func (c *PostgresConnector) Checkpoint(_ context.Context) (connector.Position, e
 	c.cpMu.Lock()
 	defer c.cpMu.Unlock()
 	return c.cp, nil
+}
+
+// SchemaAt connector.SchemaHistorySource：表在指定位点当时生效的列型映射。
+// 历史未覆盖（无活动流 / 表未记录 / 位点早于首版）返回错误——fail-closed，
+// 恢复校验据此拒绝，不猜。
+func (c *PostgresConnector) SchemaAt(_ context.Context, table string, pos connector.Position) (connector.TableSchema, error) {
+	h := c.schemaHistorySnapshot()
+	if h == nil {
+		return connector.TableSchema{}, errors.New("pg: schema history not available (no active poll session)")
+	}
+	if pos.Kind != "lsn" || pos.Value == "" {
+		return connector.TableSchema{}, fmt.Errorf("pg: schema lookup needs an lsn position, got %s", pos.String())
+	}
+	ts, _, found := h.At(table, pos.Value)
+	if !found {
+		return connector.TableSchema{}, fmt.Errorf("pg: no schema version recorded for %s at %s", table, pos.String())
+	}
+	return ts, nil
+}
+
+// CurrentSchemaVersions connector.SchemaHistorySource：各表当前生效版本号。
+func (c *PostgresConnector) CurrentSchemaVersions(_ context.Context) (map[string]int64, error) {
+	h := c.schemaHistorySnapshot()
+	if h == nil {
+		return nil, errors.New("pg: schema history not available (no active poll session)")
+	}
+	out := make(map[string]int64)
+	for _, table := range h.Tables() {
+		if vers := h.Versions(table); len(vers) > 0 {
+			out[table] = vers[len(vers)-1].Revision
+		}
+	}
+	return out, nil
+}
+
+func (c *PostgresConnector) schemaHistorySnapshot() *schema.History {
+	c.schemaMu.RLock()
+	defer c.schemaMu.RUnlock()
+	if c.schemaHist == nil {
+		return nil
+	}
+	return c.schemaHist.Clone()
 }
 
 // AckCheckpoint marks a consumer-delivered commit position as resumable.

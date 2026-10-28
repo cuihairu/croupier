@@ -12,5 +12,7 @@ type DiscoveryResult = cdc.DiscoveryResult
 type SnapshotRequest = cdc.SnapshotRequest
 type PollRequest = cdc.PollRequest
 type SourceConnector = cdc.SourceConnector
+type TableSchema = cdc.TableSchema
+type SchemaHistorySource = cdc.SchemaHistorySource
 
 var ErrUnsupportedSnapshot = cdc.ErrUnsupportedSnapshot

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
+	"github.com/cuihairu/croupier/pkg/cdc/schema"
 )
 
 // game.items 表 fixture：id(身份键, int4) name(text) gold(numeric) blob(text)。
@@ -52,7 +53,12 @@ func deleteMsg(old []byte) []byte {
 
 func mustFeed(t *testing.T, d *Decoder, payload []byte) []connector.ChangeEvent {
 	t.Helper()
-	events, err := d.Feed(payload)
+	return mustFeedAt(t, d, "100", payload)
+}
+
+func mustFeedAt(t *testing.T, d *Decoder, lsn string, payload []byte) []connector.ChangeEvent {
+	t.Helper()
+	events, err := d.Feed(payload, lsn)
 	if err != nil {
 		t.Fatalf("Feed(%q): %v", string(payload[:1]), err)
 	}
@@ -197,7 +203,7 @@ func TestDecoderInvalidBoolDatum(t *testing.T) {
 		relCol(FlagReplicaIdentity, "id", 23), relCol(0, "flag", 16))))
 	mustFeed(t, d, beginMsg(1))
 	_, err := d.Feed(wireMessage('I', append(append(u32v(1), 'N'),
-		tupleData(textDatum("1"), textDatum("yes"))...)))
+		tupleData(textDatum("1"), textDatum("yes"))...)), "100")
 	if err == nil || !strings.Contains(err.Error(), "bool") {
 		t.Fatalf("invalid bool datum err = %v", err)
 	}
@@ -210,7 +216,7 @@ func TestDecoderBinaryDatumRejected(t *testing.T) {
 		relCol(FlagReplicaIdentity, "id", 23))))
 	mustFeed(t, d, beginMsg(1))
 	_, err := d.Feed(wireMessage('I', append(append(u32v(1), 'N'),
-		tupleData(binaryDatum("\x01\x02"))...)))
+		tupleData(binaryDatum("\x01\x02"))...)), "100")
 	if err == nil || !strings.Contains(err.Error(), "binary") {
 		t.Fatalf("binary datum err = %v", err)
 	}
@@ -241,7 +247,7 @@ func TestDecoderUpdateWithoutImagesRejected(t *testing.T) {
 	d := NewDecoder("s")
 	mustFeed(t, d, itemsRelation('n'))
 	mustFeed(t, d, beginMsg(5))
-	_, err := d.Feed(updateNoOldMsg(tupleData(unchangedDatum(), unchangedDatum(), unchangedDatum(), unchangedDatum())))
+	_, err := d.Feed(updateNoOldMsg(tupleData(unchangedDatum(), unchangedDatum(), unchangedDatum(), unchangedDatum())), "100")
 	if err == nil || !strings.Contains(err.Error(), "neither before nor after") {
 		t.Fatalf("update without images err = %v", err)
 	}
@@ -310,7 +316,7 @@ func TestDecoderRelationRevisionBump(t *testing.T) {
 		relCol(0, "blob", 25),
 		relCol(0, "extra", 25), // DDL：新列
 	))
-	mustFeed(t, d, changed)
+	mustFeedAt(t, d, "200", changed) // DDL 在新位点生效（真实 WAL 里结构消息位点单调递增）
 	if v := feedInsert(5); v != 2 {
 		t.Fatalf("bumped revision = %d, want 2", v)
 	}
@@ -320,14 +326,14 @@ func TestDecoderRelationRevisionBump(t *testing.T) {
 func TestDecoderProtocolErrors(t *testing.T) {
 	t.Run("行消息在事务外", func(t *testing.T) {
 		d := NewDecoder("s")
-		if _, err := d.Feed(insertMsg(textDatum("1"))); err == nil || !strings.Contains(err.Error(), "outside transaction") {
+		if _, err := d.Feed(insertMsg(textDatum("1")), "100"); err == nil || !strings.Contains(err.Error(), "outside transaction") {
 			t.Fatalf("err = %v", err)
 		}
 	})
 	t.Run("行消息先于 Relation", func(t *testing.T) {
 		d := NewDecoder("s")
 		mustFeed(t, d, beginMsg(1))
-		_, err := d.Feed(insertMsg(textDatum("1")))
+		_, err := d.Feed(insertMsg(textDatum("1")), "100")
 		if err == nil || !strings.Contains(err.Error(), "before its relation message") {
 			t.Fatalf("err = %v", err)
 		}
@@ -335,28 +341,28 @@ func TestDecoderProtocolErrors(t *testing.T) {
 	t.Run("事务内二次 Begin", func(t *testing.T) {
 		d := NewDecoder("s")
 		mustFeed(t, d, beginMsg(1))
-		_, err := d.Feed(beginMsg(2))
+		_, err := d.Feed(beginMsg(2), "100")
 		if err == nil || !strings.Contains(err.Error(), "inside transaction") {
 			t.Fatalf("err = %v", err)
 		}
 	})
 	t.Run("无 Begin 的 Commit", func(t *testing.T) {
 		d := NewDecoder("s")
-		_, err := d.Feed(commitMsg(1))
+		_, err := d.Feed(commitMsg(1), "100")
 		if err == nil || !strings.Contains(err.Error(), "without begin") {
 			t.Fatalf("err = %v", err)
 		}
 	})
 	t.Run("未知消息类型", func(t *testing.T) {
 		d := NewDecoder("s")
-		_, err := d.Feed([]byte{'Z', 0, 1})
+		_, err := d.Feed([]byte{'Z', 0, 1}, "100")
 		if err == nil || !strings.Contains(err.Error(), "unknown pgoutput message type") {
 			t.Fatalf("err = %v", err)
 		}
 	})
 	t.Run("空负载", func(t *testing.T) {
 		d := NewDecoder("s")
-		if _, err := d.Feed(nil); err == nil {
+		if _, err := d.Feed(nil, "100"); err == nil {
 			t.Fatal("empty payload accepted")
 		}
 	})
@@ -364,7 +370,7 @@ func TestDecoderProtocolErrors(t *testing.T) {
 		d := NewDecoder("s")
 		mustFeed(t, d, itemsRelation('d'))
 		mustFeed(t, d, beginMsg(1))
-		_, err := d.Feed(insertMsg(textDatum("1"))) // 少 3 列
+		_, err := d.Feed(insertMsg(textDatum("1")), "100") // 少 3 列
 		if err == nil || !strings.Contains(err.Error(), "columns") {
 			t.Fatalf("err = %v", err)
 		}
@@ -397,4 +403,77 @@ func mustJSON(t *testing.T, m map[string]json.RawMessage) []byte {
 		t.Fatalf("marshal image: %v", err)
 	}
 	return data
+}
+
+// schema 演进历史：DDL（结构变化消息）→ 列型映射版本化，按消息位点记录；
+// At() 按事务时点返回当时生效的列集——恢复校验据此拒绝引用时点外列的旧事件。
+// 流序即真实 WAL 序：v1 结构@100 → v1 事务（提交位点 200）→ DDL → v2 结构@500
+// → v2 事务（提交位点 600）。
+func TestDecoderSchemaHistoryVersions(t *testing.T) {
+	d := NewDecoder("s")
+	// v1：三列（id/name/gold），位点 100 生效。
+	mustFeedAt(t, d, "100", wireMessage('R', relPayload(itemsOID, "game", "items", 'd',
+		relCol(FlagReplicaIdentity, "id", 23), relCol(0, "name", 25), relCol(0, "gold", 1700))))
+	mustFeedAt(t, d, "150", beginMsg(1))
+	mustFeedAt(t, d, "180", insertMsg(textDatum("1"), textDatum("n"), textDatum("0")))
+	ev1 := mustFeedAt(t, d, "200", commitMsg(200))
+	if len(ev1) != 1 || ev1[0].SchemaVersion != 1 {
+		t.Fatalf("v1 event revision = %+v, want 1", ev1)
+	}
+	// DDL 加列 extra：v2 四列，位点 500 生效。
+	mustFeedAt(t, d, "500", wireMessage('R', relPayload(itemsOID, "game", "items", 'd',
+		relCol(FlagReplicaIdentity, "id", 23), relCol(0, "name", 25), relCol(0, "gold", 1700),
+		relCol(0, "extra", 25))))
+	mustFeedAt(t, d, "520", beginMsg(2))
+	mustFeedAt(t, d, "550", insertMsg(textDatum("2"), textDatum("n"), textDatum("0"), textDatum("e")))
+	ev2 := mustFeedAt(t, d, "600", commitMsg(600))
+	if len(ev2) != 1 || ev2[0].SchemaVersion != 2 {
+		t.Fatalf("v2 event revision = %+v, want 2", ev2)
+	}
+
+	h := d.SchemaHistory()
+	if err := h.Validate(); err != nil {
+		t.Fatalf("history validate: %v", err)
+	}
+	if got := len(h.Versions("game.items")); got != 2 {
+		t.Fatalf("versions = %d, want 2", got)
+	}
+	// 按事务时点查询：v1 事件提交位点 200 → v1 列集（无 extra）；
+	// v2 事件提交位点 600 → v2 列集（含 extra）。
+	v1, rev, found := h.At("game.items", ev1[0].Position.Value)
+	if !found || rev != 1 || v1.HasColumn("extra") {
+		t.Fatalf("At(v1 commit) = rev %d found %v cols %v", rev, found, v1.ColumnNames())
+	}
+	v2, rev, _ := h.At("game.items", ev2[0].Position.Value)
+	if rev != 2 || !v2.HasColumn("extra") {
+		t.Fatalf("At(v2 commit) = rev %d cols %v", rev, v2.ColumnNames())
+	}
+	// 列型映射版本化：同列名跨版本类型签名可核对（wire OID 十进制）。
+	if v1.Columns[2].Type != "1700" || v2.Columns[3].Name != "extra" {
+		t.Fatalf("column type mapping drift: %+v vs %+v", v1.Columns[2], v2.Columns[3])
+	}
+	// 首版之前无版本（不猜）：恢复校验 fail-closed。
+	if _, _, found := h.At("game.items", "50"); found {
+		t.Fatal("position before first version must not resolve")
+	}
+
+	// 旧事件列集按旧版本校验通过；引用 v2 新列的事件在 v1 时点被拒绝。
+	if err := schema.ValidateColumns(v1, imageColumnNames(ev1[0].After)); err != nil {
+		t.Fatalf("v1 event under v1 schema: %v", err)
+	}
+	if err := schema.ValidateColumns(v2, imageColumnNames(ev2[0].After)); err != nil {
+		t.Fatalf("v2 event under v2 schema: %v", err)
+	}
+	if err := schema.ValidateColumns(v1, imageColumnNames(ev2[0].After)); err == nil {
+		t.Fatal("v2 event validated under v1 schema must be rejected")
+	}
+}
+
+// imageColumnNames 行像键集（列名；ColumnsMapped=true 面）。
+func imageColumnNames(image map[string]json.RawMessage) []string {
+	names := make([]string, 0, len(image))
+	for name := range image {
+		names = append(names, name)
+	}
+	return names
 }

@@ -14,14 +14,14 @@ import (
 )
 
 // 能力声明闭集（设计 §4）：afterImage/transactionMetadata/resumableCheckpoint
-// 开，beforeImage/snapshot/pushdown 关。
+// 开，beforeImage/snapshot/pushdown/schemaHistory 关。
 func TestMongoCapabilities(t *testing.T) {
 	caps := MongoCapabilities()
 	if !caps.AfterImage || caps.TransactionMetadata || !caps.ResumableCheckpoint {
 		t.Fatalf("capabilities = %+v (want afterImage/resumable on, transactionMetadata off)", caps)
 	}
-	if caps.BeforeImage || caps.Snapshot || caps.Pushdown {
-		t.Fatalf("capabilities = %+v (want beforeImage/snapshot/pushdown off)", caps)
+	if caps.BeforeImage || caps.Snapshot || caps.Pushdown || caps.SchemaHistory {
+		t.Fatalf("capabilities = %+v (want beforeImage/snapshot/pushdown/schemaHistory off)", caps)
 	}
 	if err := caps.Validate(); err != nil {
 		t.Fatalf("validate: %v", err)

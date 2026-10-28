@@ -1,6 +1,10 @@
 package cdc
 
-import "context"
+import (
+	"context"
+
+	"github.com/cuihairu/croupier/pkg/cdc/schema"
+)
 
 // SourceConfig 数据源连接配置（契约面）。凭据红线：只携带环境变量名引用
 // （DSNEnv），明文连接串不进契约、不落日志、不进上报——真实取值由实现层
@@ -49,6 +53,20 @@ type SnapshotRequest struct {
 type PollRequest struct {
 	From   Position `json:"from"`
 	Tables []string `json:"tables,omitempty"` // 空=全库（SourceFilter 下推能力允许时由源端过滤）
+}
+
+// TableSchema 别名：pkg/cdc/schema 的列型映射（源侧 schema 演进历史契约面）。
+type TableSchema = schema.TableSchema
+
+// SchemaHistorySource 可选扩展面：声明 schemaHistory 能力的源连接器应实现
+// （类型断言发现，非必须方法——旧连接器不破坏）。恢复计划构建层据此填充
+// Snapshot.SchemaVersions；恢复执行层据此按事务位点校验事件列集。历史未
+// 覆盖（早于首版 / 表未记录 / 无活动流）返回错误——不猜、不伪造。
+type SchemaHistorySource interface {
+	// SchemaAt 表在指定位点当时生效的列型映射版本。
+	SchemaAt(ctx context.Context, table string, pos Position) (TableSchema, error)
+	// CurrentSchemaVersions 各表当前生效版本号（"db.table" → 修订号）。
+	CurrentSchemaVersions(ctx context.Context) (map[string]int64, error)
 }
 
 // ErrUnsupportedSnapshot Snapshot 能力缺失时的标准错误（errors.Is 判定）。

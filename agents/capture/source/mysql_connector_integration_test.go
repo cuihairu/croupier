@@ -93,8 +93,8 @@ func TestMySQLConnectorContract(t *testing.T) {
 	}
 
 	caps := MySQLCapabilities()
-	if caps.Snapshot || caps.TransactionMetadata {
-		t.Fatalf("public recovery capabilities = %+v, want fail-closed", caps)
+	if caps.Snapshot || caps.TransactionMetadata || caps.SchemaHistory {
+		t.Fatalf("public recovery capabilities = %+v, want fail-closed (no snapshot/txn-boundary/schema-history)", caps)
 	}
 	if _, err := snapshotConnector.Snapshot(ctx, connector.SnapshotRequest{}); err == nil {
 		t.Fatal("public Snapshot must reject")

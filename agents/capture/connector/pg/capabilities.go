@@ -15,8 +15,11 @@ import "github.com/cuihairu/croupier/agents/capture/connector"
 //   - snapshot：已实现真实一致性快照。Snapshot 使用临时 logical slot
 //     EXPORT_SNAPSHOT 返回的 consistent point，并在独立只读 REPEATABLE
 //     READ 事务中 SET TRANSACTION SNAPSHOT 后逐表扫描；
-//   - schemaHistory：未实现连续 DDL/schema 历史。decoder 可在 DML 上推进
-//     SchemaVersion 漂移信号，但不会产出连续 schema 事件，恢复门禁仍拒绝；
+//   - schemaHistory：已实现连续 DDL/schema 演进历史——decoder 按 Relation
+//     消息位点把结构变化（列名/类型 OID/typmod）记录为版本化列型映射
+//     （SchemaVersion 修订号 + schema.History），恢复时可按事务位点校验
+//     旧事件列集（引用时点外列→拒绝），见 pkg/cdc/schema 与 Decoder.SchemaHistory；
+//     仍不宣称 PITR（完整事务边界能力之外的时间点恢复面未实现）；
 //   - pushdown：无（表过滤是 agent 侧代码过滤，非源端下推）。
 func PostgresCapabilities() connector.Capabilities {
 	return connector.Capabilities{
@@ -24,5 +27,6 @@ func PostgresCapabilities() connector.Capabilities {
 		TransactionMetadata: true,
 		Snapshot:            true,
 		ResumableCheckpoint: true,
+		SchemaHistory:       true,
 	}
 }
