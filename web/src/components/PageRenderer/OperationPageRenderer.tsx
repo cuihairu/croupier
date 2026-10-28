@@ -11,7 +11,7 @@ import { localizedText } from '@/utils/localizedText';
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import { FormattedMessage, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { App, Card, Button, Modal, Progress, Result, Alert, Space, Tag, Typography } from 'antd';
 import {
   CheckCircleOutlined,
@@ -27,6 +27,7 @@ import OperationStageBar from './OperationStageBar';
 import { describeConfirmEntries } from './confirmContent';
 import { renderConfirmEntries } from './compositeRuntime';
 import { getStatusColor, getStatusIcon } from './TaskPageRenderer';
+import { describeExecFailure } from './execFeedback';
 import { extractApiErrorCode, isResultUnknownError } from '@/utils/apiError';
 import type {
   OperationPageSpec,
@@ -82,6 +83,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   const [errorCode, setErrorCode] = useState<string>('');
   // D4：超时/网络中断=结果未知（请求可能已在服务端执行），不按「已失败」呈现
   const [errorUnknown, setErrorUnknown] = useState(false);
+  // 权限不足等结构化原因（服务端 details 收敛，不落字段明细）
+  const [errorReason, setErrorReason] = useState<string | undefined>(undefined);
   // D4：任务结果面板可直接查询执行状态（无任务中心路由，操作页内闭环）
   const [taskStatus, setTaskStatus] = useState<TaskStatusResult | null>(null);
   const [taskStatusLoading, setTaskStatusLoading] = useState(false);
@@ -126,6 +129,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       setError(null);
       setErrorCode('');
       setErrorUnknown(false);
+      setErrorReason(undefined);
       setResult(null);
       setApprovalStatus(null);
       setTaskStatus(null);
@@ -185,6 +189,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               });
         setError(msg);
         setErrorCode(extractApiErrorCode(err));
+        setErrorReason(describeExecFailure(err).reason);
         // D4：超时/网络中断=结果未知，toast 用 warning 措辞而非「操作失败」
         const unknown = isResultUnknownError(err);
         setErrorUnknown(unknown);
@@ -244,6 +249,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setError(null);
     setErrorCode('');
     setErrorUnknown(false);
+    setErrorReason(undefined);
     setResult(null);
     setApprovalStatus(null);
     setTaskStatus(null);
@@ -292,6 +298,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
             });
       setError(msg);
       setErrorCode(extractApiErrorCode(err));
+      setErrorReason(describeExecFailure(err).reason);
       // D4：超时/网络中断=结果未知，toast 用 warning 措辞而非「操作失败」
       const unknown = isResultUnknownError(err);
       setErrorUnknown(unknown);
@@ -324,6 +331,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setError(null);
     setErrorCode('');
     setErrorUnknown(false);
+    setErrorReason(undefined);
     setTaskStatus(null);
   }, []);
 
@@ -533,6 +541,11 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                 })}
                 subTitle={error}
                 icon={<CloseCircleOutlined />}
+                children={
+                  errorReason ? (
+                    <Typography.Text type="danger">{errorReason}</Typography.Text>
+                  ) : null
+                }
               />
             )
           ) : result?.kind === 'approval' ? (
@@ -593,6 +606,20 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                       />
                     </Button>
                   ) : null}
+                  <Button
+                    onClick={() =>
+                      history.push(
+                        result.approvalId
+                          ? `/approvals?approvalId=${encodeURIComponent(result.approvalId)}`
+                          : '/approvals',
+                      )
+                    }
+                  >
+                    <FormattedMessage
+                      id="component.pageRenderer.operationPage.button.goToApprovals"
+                      defaultMessage="前往审批中心"
+                    />
+                  </Button>
                 </Space>
               }
             />
@@ -646,6 +673,16 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                       />
                     </Button>
                   )}
+                  <Button
+                    type="link"
+                    style={{ padding: 0 }}
+                    onClick={() => history.push('/ops/jobs')}
+                  >
+                    <FormattedMessage
+                      id="component.pageRenderer.operationPage.button.goToTaskCenter"
+                      defaultMessage="前往任务中心"
+                    />
+                  </Button>
                 </Space>
               }
             />

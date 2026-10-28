@@ -45,6 +45,11 @@ describe('activityConfig demo 执行器', () => {
     const execute = createActivityConfigDemoExecute();
     const page1 = await run(execute, 'list', { form: { current: 1, pageSize: 5 } });
     expect(page1.data).toMatchObject({ total: 8 });
+    // D5 身份列前置查询：精确命中一条
+    const byId = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, id: 'act-4001' },
+    });
+    expect(byId.data).toMatchObject({ total: 1 });
     const active = await run(execute, 'list', {
       form: { current: 1, pageSize: 10, status: 'active' },
     });

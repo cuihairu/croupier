@@ -12,7 +12,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { history } from '@umijs/max';
 import { CompositeRenderer } from '../CompositeRenderer';
-import { describeExecFailure, describeExecOutcome, isErrorExecResult } from '../execFeedback';
+import {
+  describeExecFailure,
+  describeExecOutcome,
+  describePermissionReason,
+  isErrorExecResult,
+} from '../execFeedback';
 import type { CompositeSection, FormPresentationSpec } from '@/types/dashboard';
 
 jest.mock('@/services/api/functions', () => ({ invokeFunction: jest.fn() }));
@@ -26,7 +31,7 @@ type AppApi = ReturnType<typeof App.useApp>;
 const apiError = (
   error: string,
   message: string,
-  details?: Record<string, string> | Array<{ field: string; message: string }>,
+  details?: Record<string, unknown> | Array<{ field: string; message: string }>,
 ): Error => {
   const e = new Error(message) as Error & { data: Record<string, unknown> };
   e.data = { error, message, ...(details ? { details } : {}) };
@@ -63,6 +68,7 @@ describe('D4 失败反馈构造', () => {
       code: '',
       message: '网络错误',
       fieldErrors: [],
+      reason: undefined,
       outcome: 'failed',
     });
   });
@@ -77,11 +83,32 @@ describe('D4 失败反馈构造', () => {
     expect(describeExecFailure(apiError('gateway_timeout', '网关超时')).outcome).toBe('failed');
   });
 
-  it('权限不足：稳定错误码与原因文案都保留（字段明细为空）', () => {
+  it('权限不足：稳定错误码、服务端原因与 details 都保留（不暴露原始 key）', () => {
+    const f = describeExecFailure(
+      apiError('permission_denied', '无权限执行 punish.ban：缺少 ban 权限', {
+        required: ['ban:write'],
+        allowedRoles: ['operator'],
+        functionId: 'punish.ban',
+      }),
+    );
+    expect(f.code).toBe('permission_denied');
+    expect(f.fieldErrors).toEqual([]);
+    expect(f.reason).toBe('缺少权限：ban:write；需要角色：operator');
+  });
+
+  it('权限不足（forbidden 无 details）：稳定码与文案保留，无原因行', () => {
     const f = describeExecFailure(apiError('forbidden', '无权限执行 punish.ban：缺少 ban 权限'));
     expect(f.code).toBe('forbidden');
     expect(f.message).toContain('缺少 ban 权限');
     expect(f.fieldErrors).toEqual([]);
+    expect(f.reason).toBeUndefined();
+  });
+
+  it('权限 details 收敛：缺 required 时用函数标识，非权限码不解析', () => {
+    expect(describePermissionReason('permission_denied', { functionId: 'mail.send' })).toBe(
+      '函数：mail.send',
+    );
+    expect(describePermissionReason('validation_failed', { required: ['x'] })).toBeUndefined();
   });
 });
 
@@ -211,7 +238,7 @@ describe('D4 执行反馈闭环', () => {
     expectStage('执行', 'wait');
     const pushSpy = jest.spyOn(history, 'push');
     fireEvent.click(screen.getByRole('button', { name: /前\s*往\s*审\s*批\s*中\s*心/ }));
-    expect(pushSpy).toHaveBeenCalledWith('/approvals');
+    expect(pushSpy).toHaveBeenCalledWith('/approvals?approvalId=ap-101');
     pushSpy.mockRestore();
     // 审批未通过 → 业务未变更，刷新级联不应触达目标区块
     expect(onExecute).not.toHaveBeenCalledWith('b-list', expect.anything());
@@ -232,6 +259,10 @@ describe('D4 执行反馈闭环', () => {
     expect(notices.length).toBeGreaterThan(1);
     expect(notices.some((n) => !!n.closest('.ant-alert'))).toBe(true);
     expect(screen.getByText('任务 task-7')).toBeInTheDocument();
+    const pushSpy = jest.spyOn(history, 'push');
+    fireEvent.click(screen.getByRole('button', { name: /前\s*往\s*任\s*务\s*中\s*心/ }));
+    expect(pushSpy).toHaveBeenCalledWith('/ops/jobs');
+    pushSpy.mockRestore();
     expect(onExecute).not.toHaveBeenCalledWith('b-list', expect.anything());
     // D1 阶段条：提交完成、执行进行中（无审批阶段）
     expectStage('提交操作', 'finish');
@@ -307,21 +338,27 @@ describe('D4 执行反馈闭环', () => {
   });
 
   it('权限不足：展示稳定错误码与服务端原因，不落字段明细', async () => {
-    const onExecute = jest
-      .fn()
-      .mockRejectedValue(apiError('forbidden', '无权限执行 punish.ban：缺少 ban 权限'));
+    const onExecute = jest.fn().mockRejectedValue(
+      apiError('permission_denied', '无权限执行 punish.ban：缺少 ban 权限', {
+        required: ['ban:write'],
+        functionId: 'punish.ban',
+      }),
+    );
     await openBan(onExecute);
 
     clickSubmit();
     await waitFor(() =>
       expect(
-        screen.getByText('执行失败（forbidden）', { selector: '.ant-alert-title' }),
+        screen.getByText('执行失败（permission_denied）', { selector: '.ant-alert-title' }),
       ).toBeInTheDocument(),
     );
     // 原因文案同时出现在 toast 与弹窗内反馈条
     const reasons = screen.getAllByText('无权限执行 punish.ban：缺少 ban 权限');
     expect(reasons.length).toBeGreaterThan(1);
     expect(reasons.some((n) => !!n.closest('.ant-alert'))).toBe(true);
+    // details 收敛为可读原因，不暴露原始 key（required 不再作为字段错误）
+    expect(screen.getByText('缺少权限：ban:write')).toBeInTheDocument();
+    expect(screen.queryByText(/required/)).toBeNull();
     expect(screen.getByText('处罚玩家', { selector: '.ant-modal-title' })).toBeInTheDocument();
   });
 

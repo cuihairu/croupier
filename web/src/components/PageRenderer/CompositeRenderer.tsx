@@ -226,6 +226,7 @@ export const CompositeRenderer: React.FC<{
               description={
                 <>
                   {failure.message ? <div>{failure.message}</div> : null}
+                  {failure.reason ? <div style={{ marginTop: 4 }}>{failure.reason}</div> : null}
                   {residualFieldErrors.length > 0 ? (
                     <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                       {residualFieldErrors.map((fe, i) => (
@@ -256,7 +257,13 @@ export const CompositeRenderer: React.FC<{
                     type="link"
                     size="small"
                     style={{ padding: 0 }}
-                    onClick={() => history.push('/approvals')}
+                    onClick={() =>
+                      history.push(
+                        pending.id
+                          ? `/approvals?approvalId=${encodeURIComponent(pending.id)}`
+                          : '/approvals',
+                      )
+                    }
                   >
                     {intl.formatMessage({
                       id: 'component.pageRenderer.composite.goToApprovals',
@@ -283,6 +290,17 @@ export const CompositeRenderer: React.FC<{
                       defaultMessage: '任务执行完成后业务数据才会变更，请避免重复提交',
                     })}
                   </span>
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0 }}
+                    onClick={() => history.push('/ops/jobs')}
+                  >
+                    {intl.formatMessage({
+                      id: 'component.pageRenderer.composite.goToTaskCenter',
+                      defaultMessage: '前往任务中心',
+                    })}
+                  </Button>
                 </Space>
               }
             />
@@ -325,6 +343,9 @@ export const CompositeRenderer: React.FC<{
               label: localizedText(act.label, 'zh-CN'),
               steps: act.chain,
               afterOpen: () => runChain(act.chain),
+              // D2 跨目标总量：本表格区块已选目标数（多选时确认框对
+              // x-field-per-target 字段追加总量条目）。
+              targetCount: selRows[sec.key]?.length,
             });
           } else if (act.danger) {
             // D2：无目标弹窗的危险操作（纯动作链）同样先确认，确认内容列链步骤

@@ -44,7 +44,7 @@ func RequireAnyPermission(ctx context.Context, svcCtx *svc.ServiceContext, messa
 	if strings.TrimSpace(message) == "" {
 		message = "无权执行该操作"
 	}
-	return roles, permIDs, errorx.NewForbidden(message)
+	return roles, permIDs, NewPermissionDenied(message, requiredPermissions(required...))
 }
 
 func appendPermissionIDs(permissionIDs []string, values ...string) []string {

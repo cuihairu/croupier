@@ -307,3 +307,19 @@ func TestAppendPermissionIDsEdgeCases(t *testing.T) {
 func mustEncodeJSON(s string) model.JSON {
 	return model.JSON([]byte(s))
 }
+
+func TestNewPermissionDeniedSurfacesStableCodeAndDetails(t *testing.T) {
+	err := NewPermissionDenied("无权执行", map[string]any{"required": []string{"function:invoke"}})
+	codeErr := err
+	assert.Equal(t, "permission_denied", codeErr.ErrorCode())
+	assert.Equal(t, "无权执行", codeErr.Message)
+	assert.Equal(t, []string{"function:invoke"}, codeErr.Details["required"])
+}
+
+func TestRequiredPermissionsFiltersBlanksAndSuperadminGrants(t *testing.T) {
+	details := requiredPermissions("", "  ", "admin:all", "*", "pages:read", "plain")
+	require.NotNil(t, details)
+	assert.Equal(t, []string{"pages:read"}, details["required"])
+	assert.Nil(t, requiredPermissions("", "plain"))
+	assert.Nil(t, requiredPermissions("admin:all", "*"))
+}

@@ -597,7 +597,9 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   `x-field-unit` 追加到列头与 `number` 单元格值；`dataType:"datetime"` 单元格带显式浏览器
   时区标签（`UTC±HH:MM`）。弹窗内表格保留语义单元格渲染但不加表头排序 UI。危险确认框从目标
   表单的 `FormFieldSpec.role`/`unit` 取同款语义（身份加粗置前、到期红字、amount/quantity 值
-  带单位后缀）。边界：单位仅展示（不做缩放或换算）；`identity` 之外的 role 不改变列布局；
+  带单位后缀）；声明 `x-field-per-target` 的字段在表格区块危险动作多选目标 >1 时另示总量条目
+  （`值 × 目标数`，单位与语义复用）——仅显式声明的字段聚合，未声明字段绝不乘总量（不做语义
+  猜测）。边界：单位仅展示（不做缩放或换算）；`identity` 之外的 role 不改变列布局；
   时区标签为浏览器本地偏移（无游戏级 tz 配置）
 - **表格行选择（D2）**：由表格组件的「行选择」设置配置——启用多选后编译为发布 spec
   区块的 `table.selection`（`multiple` 加可选 `identityKey`，身份列从输出 schema 选）。
@@ -628,15 +630,15 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   字段标题/枚举文案/单位渲染（不显示原始字段 key），与组合页确认条目渲染共用同一实现
 - **执行反馈（D4）边界**：提交结果分三类——同步结果为业务执行成功（触发 `success` 事件、
   刷新 `onSuccessRefresh` 目标、关闭弹窗）；`approval` 提示「已提交审批」并给审批单号与
-  审批中心入口，`task` 提示「任务已提交」并给任务号——两者都不关弹窗、不发 success 事件、
-  不刷新目标。失败保持弹窗与已填参数，展示稳定错误码与服务端原因；服务端 `details` 里的
+  审批中心深链入口（`/approvals?approvalId=...`），`task` 提示「任务已提交」并给任务号与任务中心入口（`/ops/jobs`）——两者都不关弹窗、不发 success 事件、
+  不刷新目标。失败保持弹窗与已填参数，展示稳定错误码与服务端原因，权限不足由 `details` 收敛为原因行（`required` 权限 / `allowedRoles` / `functionId`），不只显示通用状态文案；服务端 `details` 里的
   字段级错误经共享表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF
   `extraErrors` 的字段级 `__errors` 形态），不再以独立列表复述，反馈条只汇总表单外
   字段（不在区块 schema 里）的错误。未实现：失败后已填值保留（inline（非弹窗）表单区块
   提交期间豁免整卡 loading 骨架——骨架会卸载表单丢掉已填值，在途状态由表单
   `disabled` 表达）；无任务中心路由，操作页任务结果面板带显式「查询执行状态」入口
   （`onQueryTaskStatus` prop 查任务状态 API，面板内渲染状态 Tag、进度与 message/error）
-  ——查询在页内闭环而非导航跳转；审批入口固定跳 `/approvals`
+  ——查询在页内闭环而非导航跳转；审批入口固定跳 `/approvals`；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）。
 - **执行幂等（D4）边界**：页面 binding 执行带 `Idempotency-Key` 请求头（已发布与草稿
   预览一致），服务端保证同 key 在占位窗口内至多真实执行一次——已完成重放存储结果
   （响应体 `replayed: true`，成功 toast 改为「返回服务端记录的结果（未重复执行）」），

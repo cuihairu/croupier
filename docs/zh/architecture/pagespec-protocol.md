@@ -44,6 +44,7 @@ interface FormFieldSpec {
   placeholder?: LocalizedText;
   role?: "identity" | "status" | "reason" | "expiry" | "amount" | "quantity"; // x-field-role（D5）
   unit?: LocalizedText; // x-field-unit 单位后缀（D5）
+  perTarget?: boolean; // x-field-per-target 数量/金额按每个选中目标逐项计（D2 跨目标总量）
   widget?: FormWidget; // 受控 antd 组件名枚举
   width?: number; // grid 栅格 1-12
   order?: number; // 排序，小者在前
@@ -283,14 +284,16 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   `x-field-unit`（裸字符串或 `{zh-CN,en-US}` 对象），配合既有 `x-enum-options`。生成器坍缩为
   wire 字段：`role=identity` → 列 `fixed:"left"` + `render:"copy"`（固定左列可复制身份列）；
   `x-enum-options` → 列 `enum` + `render:"tag"`（状态枚举标签列）；`x-field-unit` → 列 `unit`。
-  输入侧进入 `FormFieldSpec.role`/`unit`（`form_hints.go` 与前端 `derivePresentationSpec`
-  同步解析，非法 role 静默忽略）。渲染：组合页与资源页渲染器把单位追加到列头（`标题 (单位)`）
+  输入侧进入 `FormFieldSpec.role`/`unit`/`perTarget`（`form_hints.go` 与前端
+  `derivePresentationSpec` 同步解析，非法 role 静默忽略；`x-field-per-target` 仅当恰为
+  `true` 时声明该字段按目标逐项计，其余值一律视为未声明）。渲染：组合页与资源页渲染器把单位追加到列头（`标题 (单位)`）
   与 `number` 单元格值；`render:"copy"` 渲染可复制单元格；`dataType:"datetime"` 单元格带显式
   浏览器时区标签（`UTC±HH:MM`——平台不声明游戏服务器时区，故显式标注偏移而非暗示 UTC）；
   `enum`+`tag` 渲染选项文案为彩色 antd Tag。确认框（D2 危险确认）从目标表单的
   `FormFieldSpec.role`/`unit` 取语义：身份条目置前加粗、到期条目红字、amount/quantity 值带
   单位后缀，操作者确认前即读到谁/什么/多少/多久。边界：单位仅展示（不做金额缩放或换算——
-  声明的单位原样追加，per-unit × 批量目标总量需 D2 批量上下文）；`identity` 之外的 role 不
+  声明的单位原样追加，仅 `x-field-per-target` 声明的字段在 D2 危险确认多选目标时另示总量）；
+  `identity` 之外的 role 不
   改变列布局（status/reason/expiry 只驱动确认强调与未来缺省呈现）；时区标签为浏览器本地偏移
   （无游戏级 tz 配置）；组合页列语义走同一生成器派生（绑定带 hints 契约的组合表格区块自动
   获得同款列），弹窗内表格保留语义单元格渲染但不加表头排序 UI
@@ -303,20 +306,24 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   并执行动作链（详情弹窗用动作链预载自身 fields/table 数据）；非危险纯链动作直接执行动作链。
   边界：字段语义强调覆盖 `x-field-role` 声明的 identity/reason/expiry/amount/quantity
   （未声明 role 的字段照旧渲染）；`openModal` 链步骤无 danger 标志位（wire 无该
-  字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内二次编辑不再次确认
+  字段），链内打开弹窗不触发确认；确认发生在弹窗打开之前，弹窗内改动导致提交参数
+  变化时提交前按最终值重新确认（参数未变不重复弹确认）；声明 `x-field-per-target` 的
+  字段在源表格多选目标 >1 时于危险确认框另示总量条目（`值 × 目标数`，单位与语义
+  复用该字段声明）——仅显式声明的字段聚合，未声明字段绝不乘总量（不做语义猜测）
 - **执行结果反馈**（D4，无新增 wire 字段）：渲染器按 `PageExecutionResult.kind` 分类
   每次执行结果，不再把任何非 error 返回都当作成功。`sync`（或无 kind）为业务执行成功——
   触发表单 `success` 事件绑定、重跑 `onSuccessRefresh` 目标并关闭弹窗。`approval` 保持
-  弹窗开启，显示「已提交审批」提示、审批单号（`approvalId`）与审批中心入口，且不发
+  弹窗开启，显示「已提交审批」提示、审批单号（`approvalId`）与审批中心深链入口（`/approvals?approvalId=...`），且不发
   success 事件、不触发刷新（审批通过前业务侧尚未变更）。`task` 保持弹窗开启，显示
-  「任务已提交」提示与任务号（`taskId`）。抛出的异常保持弹窗与已填参数开启，并在弹窗内
+  「任务已提交」提示与任务号（`taskId`）及任务中心入口（`/ops/jobs`），可沿用任务与执行日志链。抛出的异常保持弹窗与已填参数开启，并在弹窗内
   渲染失败反馈：响应体稳定 `error` 码、服务端 `message`，以及 `details` 的字段级条目
   （按表单字段标题映射，不显示原始字段 key）；结果体自带顶层 `error` 字段（未抛异常）
-  同样按失败处理，不发 success 事件。`details` 中字段存在于区块表单 schema 的条目经共享
+  同样按失败处理，不发 success 事件。服务端权限不足统一为 `403 permission_denied` 并透出机器可读 `details`（`required` 权限、`allowedRoles`、`functionId` 或任务 scope），渲染端把 `details` 收敛为原因行（`缺少权限：...`/`需要角色：...`）而不只显示通用状态文案。`details` 中字段存在于区块表单 schema 的条目经共享
   表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF `extraErrors`），反馈条只汇总
   表单外字段的错误。边界：inline（非弹窗）表单区块提交期间整卡进 loading 骨架，失败后
   输入值不保留（弹窗表单会保留）；无任务中心路由，待处理任务只给任务号不给导航目标；
-  审批入口固定跳 `/approvals`
+  审批入口固定跳 `/approvals`；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）
+
 - **执行幂等**（D4，`Idempotency-Key` 请求头；无新增 wire 字段）：每次页面 binding 执行
   ——已发布与草稿预览一视同仁——都带客户端生成的幂等键，服务端保证同一 key 在占位窗口内
   至多真实执行一次。占位时机在全部执行门禁通过之后（执行器已绑定、契约新鲜、治理、

@@ -7,6 +7,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
+import { history } from '@umijs/max';
 import OperationPageRenderer from '../OperationPageRenderer';
 import type {
   ApprovalStatusResult,
@@ -139,6 +140,10 @@ describe('提交流程', () => {
     expect(
       screen.getByText('异步任务仍在执行，请在任务中心或任务页面查看进度。'),
     ).toBeInTheDocument();
+    const pushSpy = jest.spyOn(history, 'push');
+    fireEvent.click(screen.getByRole('button', { name: /前往任务中心/ }));
+    expect(pushSpy).toHaveBeenCalledWith('/ops/jobs');
+    pushSpy.mockRestore();
   });
 
   it('task 结果无 onQueryTaskStatus：不渲染查询按钮（只给任务号）', async () => {
@@ -239,6 +244,10 @@ describe('提交流程', () => {
     expect(screen.getByText('等待审批')).toBeInTheDocument();
     expect(screen.getByText('apr-1')).toBeInTheDocument();
     expect(screen.getByText('操作尚未完成')).toBeInTheDocument();
+    const pushSpy = jest.spyOn(history, 'push');
+    fireEvent.click(screen.getByRole('button', { name: /前往审批中心/ }));
+    expect(pushSpy).toHaveBeenCalledWith('/approvals?approvalId=apr-1');
+    pushSpy.mockRestore();
   });
 
   it('异常：Error 取 message，errorMessage 定制', async () => {
@@ -260,6 +269,20 @@ describe('提交流程', () => {
     submit();
     // toast 与结果卡片标题各出现一次
     await waitFor(() => expect(screen.getAllByText('操作失败').length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('权限不足：透出服务端 details 收敛原因，不落字段明细', async () => {
+    const { onExecute } = renderOp();
+    const err = new Error('无权限执行') as Error & { data: Record<string, unknown> };
+    err.data = {
+      error: 'permission_denied',
+      message: '无权限执行该操作',
+      details: { required: ['function:invoke'] },
+    };
+    onExecute.mockRejectedValueOnce(err);
+    submit();
+    await waitFor(() => expect(screen.getByText('缺少权限：function:invoke')).toBeInTheDocument());
+    expect(screen.queryByText(/required/)).toBeNull();
   });
 });
 
@@ -601,5 +624,52 @@ describe('重置与标题', () => {
       </App>,
     );
     expect(screen.getByText('发补偿')).toBeInTheDocument();
+  });
+});
+
+describe('D4 验收矩阵（异步执行 / 超时后成功）', () => {
+  it('异步执行：任务已提交 → 查询 running（阶段条执行中）→ 再查 completed（阶段条完成）', async () => {
+    const onQueryTaskStatus = jest
+      .fn()
+      .mockResolvedValueOnce({
+        taskId: 'tk-1',
+        status: 'running',
+        progress: 40,
+      } as TaskStatusResult)
+      .mockResolvedValueOnce({ taskId: 'tk-1', status: 'completed' } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-process');
+
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('COMPLETED')).toBeInTheDocument());
+    expect(document.querySelectorAll('.ant-steps-item')[1].className).toContain(
+      'ant-steps-item-finish',
+    );
+  });
+
+  it('超时后成功：结果未知 → 重置 → 重提成功（安全重试闭环不残留未知态）', async () => {
+    const { onExecute } = renderOp();
+    onExecute.mockRejectedValueOnce(new Error('timeout of 5000ms exceeded'));
+    submit();
+    await waitFor(() =>
+      expect(screen.getAllByText('操作结果未知').length).toBeGreaterThanOrEqual(1),
+    );
+    expect(screen.getByText(/可能已在服务端执行/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /重置结果/ }));
+    // 重置清空结果卡（提示语随之消失）；瞬时 toast 允许残留
+    await waitFor(() => expect(screen.queryByText(/可能已在服务端执行/)).not.toBeInTheDocument());
+
+    onExecute.mockResolvedValueOnce(ok({ credited: true }));
+    submit();
+    await waitFor(() => expect(screen.getByText('执行结果')).toBeInTheDocument());
+    expect(screen.queryByText(/可能已在服务端执行/)).not.toBeInTheDocument();
   });
 });

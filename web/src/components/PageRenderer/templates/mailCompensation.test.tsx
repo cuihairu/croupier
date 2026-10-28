@@ -20,6 +20,10 @@ jest.mock('@/components/PageRenderer', () => ({
   __esModule: true,
   default: () => <div data-testid="page-renderer" />,
 }));
+jest.mock('./compensationWizard', () => ({
+  __esModule: true,
+  default: () => <div data-testid="compensation-wizard" />,
+}));
 
 const run = (
   execute: ReturnType<typeof createMailCompensationDemoExecute>,
@@ -45,6 +49,11 @@ describe('mailCompensation demo 执行器', () => {
     const execute = createMailCompensationDemoExecute();
     const page1 = await run(execute, 'list', { form: { current: 1, pageSize: 2 } });
     expect(page1.data).toMatchObject({ total: 4 });
+    // D5 身份列前置查询：精确命中一条
+    const byId = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, id: 'task-mail-1001' },
+    });
+    expect(byId.data).toMatchObject({ total: 1 });
     const compensationOnly = await run(execute, 'list', {
       form: { current: 1, pageSize: 10, type: 'compensation' },
     });
@@ -122,6 +131,7 @@ describe('MailCompensationTemplate 组件', () => {
   it('挂载渲染标题与 PageRenderer', () => {
     render(<MailCompensationTemplate />);
     expect(screen.getByRole('heading', { name: '邮件与补偿' })).toBeInTheDocument();
+    expect(screen.getByTestId('compensation-wizard')).toBeInTheDocument();
     expect(screen.getByTestId('page-renderer')).toBeInTheDocument();
   });
 });

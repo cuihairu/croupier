@@ -43,6 +43,7 @@ export const activityConfigPageSpec: PageSpec = {
           width: 120,
           fixed: 'left',
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'name',
@@ -146,6 +147,7 @@ export const activityConfigPageSpec: PageSpec = {
           dataType: 'number',
           width: 100,
           sortable: true,
+          unit: { 'zh-CN': '版', 'en-US': 'versions' },
         },
       ],
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20] },
@@ -372,6 +374,9 @@ export function createActivityConfigDemoExecute(
           const current = Number(form.current) || 1;
           const pageSize = Number(form.pageSize) || 10;
           let filtered = activities;
+          if (form.id) {
+            filtered = filtered.filter((activity) => activity.id === String(form.id));
+          }
           if (form.name) {
             filtered = filtered.filter((activity) => activity.name.includes(String(form.name)));
           }
