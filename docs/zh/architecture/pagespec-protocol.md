@@ -321,7 +321,7 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   同样按失败处理，不发 success 事件。服务端权限不足统一为 `403 permission_denied` 并透出机器可读 `details`（`required` 权限、`allowedRoles`、`functionId` 或任务 scope），渲染端把 `details` 收敛为原因行（`缺少权限：...`/`需要角色：...`）而不只显示通用状态文案。`details` 中字段存在于区块表单 schema 的条目经共享
   表单渲染器的 `externalErrors` prop 注入对应控件下方（RJSF `extraErrors`），反馈条只汇总
   表单外字段的错误。边界：inline（非弹窗）表单区块提交期间整卡进 loading 骨架，失败后
-  输入值不保留（弹窗表单会保留）；无任务中心路由，待处理任务只给任务号不给导航目标；
+  输入值不保留（弹窗表单会保留）；任务中心路由为 `/ops/jobs`（渲染器在任务提示上跳转该入口），
   审批入口固定跳 `/approvals`；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）
 
 - **执行幂等**（D4，`Idempotency-Key` 请求头；无新增 wire 字段）：每次页面 binding 执行
