@@ -172,4 +172,21 @@ export default {
   'component.pageRenderer.taskPage.warning.noStatusBinding':
     'Task submitted, but no status query binding is configured on this page',
   'component.pageRenderer.taskPage.warning.noTaskId': 'No task ID returned',
+  'component.pageRenderer.compensationWizard.title': 'Fixed-Step Configuration',
+  'component.pageRenderer.compensationWizard.step.basic': 'Task Info',
+  'component.pageRenderer.compensationWizard.step.targets': 'Targets & Quantity',
+  'component.pageRenderer.compensationWizard.step.review': 'Review & Submit',
+  'component.pageRenderer.compensationWizard.field.type': 'Task type',
+  'component.pageRenderer.compensationWizard.field.title': 'Title / reason',
+  'component.pageRenderer.compensationWizard.field.detail': 'Body / reason',
+  'component.pageRenderer.compensationWizard.field.range': 'Delivery range',
+  'component.pageRenderer.compensationWizard.field.server': 'Server',
+  'component.pageRenderer.compensationWizard.field.player': 'Player ID',
+  'component.pageRenderer.compensationWizard.field.amount': 'Per target (gold)',
+  'component.pageRenderer.compensationWizard.field.confirm': 'Confirm task submission',
+  'component.pageRenderer.compensationWizard.success': 'Task submitted',
+  'component.pageRenderer.compensationWizard.approval':
+    'Submitted for approval; execution waits for approval',
+  'component.pageRenderer.compensationWizard.error': 'Submission failed',
+  'component.pageRenderer.compensationWizard.retry': 'Resubmit',
 };

@@ -11,13 +11,14 @@
  * @module components/PageRenderer/templates/mailCompensation
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
 import type { PageSpec, PageExecuteFn, PageExecutionResult } from '@/types/dashboard';
 import { asRecord, createRequestIdFactory, type GameOpsDemoStore } from './gameOpsDemoData';
 import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
+import CompensationWizard from './compensationWizard';
 
 /** 邮件与补偿任务页面规格 */
 export const mailCompensationPageSpec: PageSpec = {
@@ -540,6 +541,7 @@ export function createMailCompensationDemoExecute(
 const MailCompensationTemplate: React.FC = () => {
   const intl = useIntl();
   const execute = useMemo(() => createMailCompensationDemoExecute(), []);
+  const [listKey, setListKey] = useState(0);
   return (
     <PageContainer
       title={intl.formatMessage({
@@ -551,7 +553,8 @@ const MailCompensationTemplate: React.FC = () => {
         defaultMessage: '业务模板 · 任务列表 / 目标快照 / 审批 / 失败重试',
       })}
     >
-      <PageRenderer pageSpec={mailCompensationPageSpec} onExecute={execute} />
+      <CompensationWizard execute={execute} onCreate={() => setListKey((key) => key + 1)} />
+      <PageRenderer key={listKey} pageSpec={mailCompensationPageSpec} onExecute={execute} />
     </PageContainer>
   );
 };

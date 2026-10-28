@@ -20,6 +20,10 @@ jest.mock('@/components/PageRenderer', () => ({
   __esModule: true,
   default: () => <div data-testid="page-renderer" />,
 }));
+jest.mock('./compensationWizard', () => ({
+  __esModule: true,
+  default: () => <div data-testid="compensation-wizard" />,
+}));
 
 const run = (
   execute: ReturnType<typeof createMailCompensationDemoExecute>,
@@ -127,6 +131,7 @@ describe('MailCompensationTemplate 组件', () => {
   it('挂载渲染标题与 PageRenderer', () => {
     render(<MailCompensationTemplate />);
     expect(screen.getByRole('heading', { name: '邮件与补偿' })).toBeInTheDocument();
+    expect(screen.getByTestId('compensation-wizard')).toBeInTheDocument();
     expect(screen.getByTestId('page-renderer')).toBeInTheDocument();
   });
 });
