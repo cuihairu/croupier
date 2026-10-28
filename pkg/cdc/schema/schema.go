@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Column is one column's type mapping within a schema version. Type is the
@@ -76,6 +77,7 @@ type LessFn func(a, b string) bool
 // appended in source position order; Record rejects out-of-order positions
 // and duplicate revisions so a connector cannot silently corrupt the chain.
 type History struct {
+	mu     sync.RWMutex
 	less   LessFn
 	tables map[string][]Version // qualified table → ascending From
 }
@@ -89,6 +91,8 @@ func NewHistory(less LessFn) *History {
 // revision (a connector re-sending an unchanged relation after reconnect) and
 // rejects a position that is not strictly after the previous version's From.
 func (h *History) Record(qualified string, revision int64, from string, ts TableSchema) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if h.less == nil {
 		return fmt.Errorf("schema: history has no position comparator")
 	}
@@ -131,6 +135,8 @@ func (h *History) Record(qualified string, revision int64, from string, ts Table
 // the latest recorded version whose From is not after the position. found is
 // false when the table has no version yet at that position (unknown schema).
 func (h *History) At(qualified, position string) (TableSchema, int64, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	vers := h.tables[qualified]
 	if len(vers) == 0 {
 		return TableSchema{}, 0, false
@@ -154,11 +160,15 @@ func (h *History) At(qualified, position string) (TableSchema, int64, bool) {
 
 // Versions returns the recorded versions for a table in ascending From order.
 func (h *History) Versions(qualified string) []Version {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	return append([]Version(nil), h.tables[qualified]...)
 }
 
 // Tables returns the qualified table names recorded, sorted for stable output.
 func (h *History) Tables() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	out := make([]string, 0, len(h.tables))
 	for t := range h.tables {
 		out = append(out, t)
@@ -172,8 +182,9 @@ func (h *History) Tables() []string {
 // recorded a history; Record already enforces this, so Validate is mainly for
 // defensive callers that reconstruct a history from an external source.
 func (h *History) Validate() error {
-	for _, table := range h.Tables() {
-		vers := h.tables[table]
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for table, vers := range h.tables {
 		for i := 1; i < len(vers); i++ {
 			if !h.less(vers[i-1].From, vers[i].From) {
 				return fmt.Errorf("schema: table %s positions out of order at %q -> %q",
@@ -187,6 +198,8 @@ func (h *History) Validate() error {
 // Clone returns a deep copy of the history (safe to hand to a concurrent
 // consumer that may read while the connector keeps recording).
 func (h *History) Clone() *History {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	cp := NewHistory(h.less)
 	for table, vers := range h.tables {
 		cp.tables[table] = append([]Version(nil), vers...)

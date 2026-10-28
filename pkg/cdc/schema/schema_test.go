@@ -1,7 +1,9 @@
 package schema
 
 import (
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -168,6 +170,46 @@ func TestHistoryValidateAndClone(t *testing.T) {
 	}
 	if got := h.Tables(); len(got) != 1 {
 		t.Fatalf("original history polluted: %v", got)
+	}
+}
+
+func TestHistoryConcurrentRecordAndRead(t *testing.T) {
+	h := NewHistory(lsnLessForTest)
+	const writers, perWriter = 4, 200
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for w := 0; w < writers; w++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			<-start
+			for i := 0; i < perWriter; i++ {
+				table := fmt.Sprintf("g.t%d", w*perWriter+i)
+				pos := fmt.Sprintf("%d", 100+i)
+				_ = h.Record(table, int64(i+1), pos, testSchema("g", fmt.Sprintf("t%d", w*perWriter+i), "id"))
+			}
+		}(w)
+	}
+	for r := 0; r < writers; r++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < perWriter; i++ {
+				cp := h.Clone()
+				_ = cp.Validate()
+				_, _, _ = h.At("g.t0", "150")
+				_ = h.Versions("g.t0")
+				_ = h.Tables()
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if got := len(h.Tables()); got != writers*perWriter {
+		t.Fatalf("tables = %d, want %d", got, writers*perWriter)
 	}
 }
 
