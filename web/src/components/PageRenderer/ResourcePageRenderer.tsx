@@ -35,6 +35,7 @@ import {
   rowIdentity,
   selectionFilterFingerprint,
   summarizeTargets,
+  summarizeQuantityTotal,
 } from './batchSelection';
 import { humanizeParamKey, type ConfirmEntry } from './confirmContent';
 import { mergeFieldSemantic, renderFieldSemantic } from './resourceFieldSemantic';
@@ -230,7 +231,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 带表单的行操作（如封禁/充值）：identity 由行注入，其余字段弹表单
   const [actionFormState, setActionFormState] = useState<{
     action: ActionSpec;
-    record: FormValues;
+    record?: FormValues;
+    selection?: FormValues[];
   } | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
@@ -563,7 +565,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     async (values: FormValues) => {
       const intl = intlRef.current;
       if (!actionFormState) return false;
-      const { action, record } = actionFormState;
+      const { action, record, selection } = actionFormState;
       const binding = bindings.find((item) => item.id === action.bindingId);
       if (!binding) {
         message.error(
@@ -583,8 +585,67 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
         return false;
       }
+      // D2 跨目标总量：批量操作的表单里声明了 quantity 语义字段时，在确认框
+      // 追加「总量 = 每人数量 × 目标数」条目，让确认内容覆盖实际提交范围。
+      const quantityField = action.form?.fields?.find((field) => field.role === 'quantity');
+      if (selection && quantityField) {
+        const perQuantity = values[quantityField.key];
+        const total = summarizeQuantityTotal(
+          perQuantity as number | string | undefined,
+          selection.length,
+        );
+        if (total !== undefined) {
+          const unit = quantityField.unit ? localizedText(quantityField.unit, 'zh-CN', '') : '';
+          const ok = await new Promise<boolean>((resolve) => {
+            modal.confirm({
+              title: intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.totalTitle',
+                defaultMessage: '核对跨目标总量',
+              }),
+              content: (
+                <Descriptions size="small" column={1} bordered>
+                  <Descriptions.Item
+                    label={intl.formatMessage({
+                      id: 'component.resourceRenderer.confirm.perQuantity',
+                      defaultMessage: '每人数量',
+                    })}
+                  >
+                    {String(perQuantity)}
+                    {unit ? ` ${unit}` : ''}
+                  </Descriptions.Item>
+                  <Descriptions.Item
+                    label={intl.formatMessage({
+                      id: 'component.resourceRenderer.confirm.targetCount',
+                      defaultMessage: '目标数量',
+                    })}
+                  >
+                    {String(selection.length)}
+                  </Descriptions.Item>
+                  <Descriptions.Item
+                    label={intl.formatMessage({
+                      id: 'component.resourceRenderer.confirm.totalAmount',
+                      defaultMessage: '总量',
+                    })}
+                  >
+                    {String(total)}
+                    {unit ? ` ${unit}` : ''}
+                  </Descriptions.Item>
+                </Descriptions>
+              ),
+              onOk: () => resolve(true),
+              onCancel: () => resolve(false),
+            });
+          });
+          if (!ok) return false;
+        }
+      }
       try {
-        await runMutation(() => onExecute(binding.id, { form: values, row: record }));
+        await runMutation(() =>
+          onExecute(
+            binding.id,
+            selection ? { form: values, selection } : { form: values, row: record },
+          ),
+        );
         message.success(
           intl.formatMessage({
             id: 'component.resourceRenderer.action.success',
@@ -608,7 +669,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [actionFormState, bindings, message, onExecute, preview, runMutation, trackSelectedRows],
+    [actionFormState, bindings, message, modal, onExecute, preview, runMutation, trackSelectedRows],
   );
 
   const submitCreateForm = useCallback(async (): Promise<boolean> => {
@@ -1226,7 +1287,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                       danger={action.type === 'danger'}
                       type={action.type === 'primary' ? 'primary' : 'default'}
                       disabled={preview}
-                      onClick={() => void executeListAction(action, { selection: selectedRows })}
+                      onClick={() => {
+                        // D2 跨目标总量：带 quantity 表单的批量操作先弹表单，
+                        // 提交时确认总量并携带 selection 与表单值执行。
+                        if (action.form) {
+                          setActionFormState({ action, selection: selectedRows });
+                          return;
+                        }
+                        void executeListAction(action, { selection: selectedRows });
+                      }}
                     >
                       {localizedText(action.title, 'zh-CN', action.key)}
                     </Button>
