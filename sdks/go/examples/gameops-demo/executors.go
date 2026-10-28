@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // executor is the E1-mirroring business logic bound to one FunctionContract.
@@ -450,6 +451,55 @@ func (s *gameOpsStore) mailTaskCancel(_ context.Context, payload []byte) ([]byte
 	t.Status = "cancelled"
 	s.pushOpLocked("admin", "mail_task.cancel", t.ID, "success", nil)
 	return encodeJSON(map[string]any{"success": true})
+}
+
+// --- report.generate --------------------------------------------------------
+//
+// The only task-mode executor. It simulates an asynchronous report job: the
+// handler returns after delayMs (default ~2s so the result is unknown to the
+// caller until the task streams completion), records a run sequence in the
+// store, and fails when `fail` is true. It honours context cancellation so a
+// cancelled task stops waiting instead of completing late.
+func (s *gameOpsStore) reportGenerate(ctx context.Context, payload []byte) ([]byte, error) {
+	m, err := decodePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	reportRange := strOr(valueString(m, "range"), "daily")
+	// Default the delay only when the field is absent; an explicit delayMs=0
+	// means "no delay" (tests use this so the scenario suite stays fast).
+	delayMs := 2000
+	if _, ok := m["delayMs"]; ok {
+		delayMs = valueInt(m, "delayMs")
+	}
+	if delayMs < 0 {
+		delayMs = 0
+	}
+	// Delay first so a cancelled task never records a run (the observable
+	// result-unknown window is the time between StartTask and completion).
+	timer := time.NewTimer(time.Duration(delayMs) * time.Millisecond)
+	select {
+	case <-ctx.Done():
+		timer.Stop()
+		return nil, fmt.Errorf("report_generate_cancelled: %w", ctx.Err())
+	case <-timer.C:
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reportRunSeq++
+	if valueBool(m, "fail") {
+		return nil, fmt.Errorf("report_generate_failed: simulated failure for range %s", reportRange)
+	}
+	id := "report-demo-" + intStr(s.reportRunSeq)
+	s.pushOpLocked("admin", "report.generate", id, "success", nil)
+	return encodeJSON(map[string]any{
+		"success":  true,
+		"reportId": id,
+		"runSeq":   s.reportRunSeq,
+		"rows":     42,
+		"range":    reportRange,
+	})
 }
 
 // --- ban.* ------------------------------------------------------------------

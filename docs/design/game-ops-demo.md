@@ -52,13 +52,14 @@ The page banner shows the demo `gameId/env/accountId` and default menu category,
 The E2 closure needs callable function contracts and executors over a shared data source instead of browser-memory rows. The `sdks/go/examples/gameops-demo` provider is the server-side base for that step:
 
 - Mirrors this section's seed as a process-local mutable store (`newGameOpsStore()`/`Reset()`).
-- Registers the 32 exact function IDs the E1 `PageSpec` bindings reference (`player.*`, `mail_task.*`, `ban.*`, `order.*`, `activity.*`) through the SDK→Agent→Server registration chain, with `FunctionContract` fields (`resource/operation/capability/execution/risk/inputSchema/outputSchema`).
+- Registers the 33 exact function IDs the E1 `PageSpec` bindings reference (`player.*`, `mail_task.*`, `ban.*`, `order.*`, `activity.*`) plus the task-mode `report.generate` through the SDK→Agent→Server registration chain, with `FunctionContract` fields (`resource/operation/capability/execution/risk/inputSchema/outputSchema`).
 - Query contracts accept `current/pageSize/orderBy/orderDirection` and resource-specific filters; mutations write to the shared store and are readable back.
 - Idempotent guards are server-side (re-credit already credited → `already_credited`; retry with no failed targets → `no_failed_targets`).
+- E2 abnormal-state closure: `report.generate` is the single `Execution: "task"` contract. Invoked with mode=task the server returns a task id immediately (result unknown until completion); the handler waits `delayMs` (default ~2s), then succeeds or fails on the `fail` flag, and honours context cancellation. Its `runSeq` counts actual executions so a platform idempotency-key dedupe (which happens before the handler) leaves it unchanged on retry — the observable for the idempotent-retry scenario. The pending-approval scenario is reachable through the existing high-risk functions (`player.ban`, `ban.*`) whose default policy `RequireApproval: true` routes through the real approval gate.
 
 ```bash
 make run-gameops-demo        # defaults agent=127.0.0.1:19091 game=croupier-demo env=local-demo
 cd sdks/go && go test ./examples/gameops-demo/... -count=1
 ```
 
-Boundary: this base does not yet swap the E1 template executors to `executePageBinding`; that remaining E2 closure (page generation → publish → binding → abnormal-state walkthrough) is a later slice and must be recorded separately from real-game acceptance.
+Boundary: this base does not yet swap the E1 template executors to `executePageBinding`; the abnormal-state scenarios are now expressible as callable contracts (`report.generate` for async/delay/failure/idempotency, high-risk functions for pending approval) but the console-side walkthrough that proves them end-to-end (task start → stream → completion, approval queue, idempotency-key retry) remains a manual slice to be recorded separately from real-game acceptance.

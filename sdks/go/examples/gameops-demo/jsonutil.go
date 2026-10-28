@@ -39,6 +39,18 @@ func valueString(m map[string]any, key string) string {
 	return ""
 }
 
+func valueBool(m map[string]any, key string) bool {
+	if m == nil {
+		return false
+	}
+	if v, ok := m[key]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+	}
+	return false
+}
+
 func valueInt(m map[string]any, key string) int {
 	if m == nil {
 		return 0
