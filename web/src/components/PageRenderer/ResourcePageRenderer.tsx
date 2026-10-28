@@ -37,6 +37,7 @@ import {
   summarizeTargets,
 } from './batchSelection';
 import { humanizeParamKey, type ConfirmEntry } from './confirmContent';
+import { mergeFieldSemantic, renderFieldSemantic } from './resourceFieldSemantic';
 import { renderJSONValueSummary } from './ResultViewRenderer';
 import ExecutorUnboundAlert, {
   EXECUTOR_UNBOUND_CODE,
@@ -1040,7 +1041,9 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         request={handleRequest}
         search={{
           labelWidth: 'auto',
-          defaultCollapsed: false,
+          // D5 模板默认呈现：常用查询条件前置、高级条件默认折叠。
+          // 折叠时保留首个搜索字段（由 columns 顺序决定「常用在前」）。
+          defaultCollapsed: true,
         }}
         options={{
           reload: true,
@@ -1320,7 +1323,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                       label={localizedText(field.title, 'zh-CN', field.key)}
                       span={field.span}
                     >
-                      {renderJSONValueSummary((detailRecord || currentRecord)[field.key])}
+                      {renderFieldSemantic(
+                        mergeFieldSemantic(
+                          spec.listView?.columns.find((col) => col.key === field.key),
+                          field,
+                        ),
+                        (detailRecord || currentRecord)[field.key],
+                      ) ?? renderJSONValueSummary((detailRecord || currentRecord)[field.key])}
                     </ProDescriptions.Item>
                   ))}
               </ProDescriptions>
