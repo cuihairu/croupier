@@ -148,17 +148,21 @@ describe('业务模板默认呈现（D5）与详情面（D1）', () => {
   it('定位危险操作：声明的 danger 动作落在列表动作区，破坏性封禁面为 danger', () => {
     for (const entry of gameOpsTemplates) {
       const res = resourceOf(entry);
-      const allActions = [
+      // 列表动作区 = 定位可见区（行/批量/工具栏）。
+      const listDanger = [
         ...(res.listView?.rowActions ?? []),
         ...(res.listView?.batchActions ?? []),
         ...(res.listView?.toolbarActions ?? []),
-      ];
-      // 声明的 danger 动作必须落在列表动作区（定位可见），不藏在详情/表单深处
-      for (const a of allActions) {
-        if (a.type === 'danger') {
-          expect(allActions.some((x) => x.type === 'danger')).toBe(true);
-        }
-      }
+      ].filter((a) => a.type === 'danger');
+      // 非列表区（详情面动作、页面级动作）是「藏在深处」的候补区；
+      // 删除动作是 ConfirmActionSpec（无 type 字段，不可能是 danger）。
+      const hiddenDanger = [...(res.detailView?.actions ?? []), ...(res.actions ?? [])].filter(
+        (a) => a.type === 'danger',
+      );
+      // 声明的 danger 动作必须落在列表动作区：深处不得藏任何 danger。
+      expect(hiddenDanger).toEqual([]);
+      // 列表中每个 danger 声明确实为 danger（与下方破坏性封禁面断言互证）。
+      expect(listDanger.every((a) => a.type === 'danger')).toBe(true);
     }
     // 破坏性操作面（封禁）定位为 danger：玩家管理模板的封禁行操作
     const player = resourceOf(gameOpsTemplates.find((e) => e.key === 'player-manage')!);

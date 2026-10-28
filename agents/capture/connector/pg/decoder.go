@@ -121,6 +121,12 @@ func (d *Decoder) Feed(payload []byte, msgLSN string) ([]connector.ChangeEvent, 
 		events := d.cur.events
 		d.cur = nil
 		d.curLSN = commit.EndLSN
+		// 事务结束：清空事务 Begin 位点。Relation 是 catalog 消息，不带自身
+		// WAL 位点，cacheRelation 用所在事务 Begin 位点兜底；若不清空，事务外
+		// 且位点未知的 Relation 会误回退到「上一个事务」的陈旧位点，把新
+		// schema 版本记到早于实际变更的位置（Record not-after 断流或恢复时点
+		// 误判列集）。事务外且无位点应走 cacheRelation 的「跳过（不猜）」。
+		d.curBeginLSN = ""
 		if len(events) > 0 {
 			events[len(events)-1].Tx.End = true
 		}

@@ -477,3 +477,44 @@ func imageColumnNames(image map[string]json.RawMessage) []string {
 	}
 	return names
 }
+
+// 事务 Begin 位点生命周期：Commit 后必须清空，避免事务外且位点未知的
+// Relation 回退到「上一个事务」的陈旧 Begin 位点。
+//
+// 场景：事务 T1（Begin LSN=100）内先见 Relation（WALStart=0）→ 记入 T1 位点；
+// Commit 后，事务外再收到一条 Relation（WALStart=0/空）——它不代表任何已
+// 开始事务的 DDL，cacheRelation 应「跳过（不猜）」而非复用 T1 的 100。
+func TestDecoderBeginLSNResetAfterCommit(t *testing.T) {
+	d := NewDecoder("s")
+
+	// T1：Begin(100) + Relation(位点缺失) + Insert + Commit。
+	// Relation 在事务内，应记入 Begin 位点 100。
+	mustFeedAt(t, d, "100", beginMsg(1))
+	mustFeedAt(t, d, "", itemsRelation('d')) // 无位点 → 兜底事务 Begin
+	mustFeedAt(t, d, "", insertMsg(textDatum("1"), textDatum("n"), textDatum("0"), nullDatum()))
+	mustFeedAt(t, d, "100", commitMsg(10))
+	if _, _, found := d.SchemaHistory().At("game.items", "100"); !found {
+		t.Fatal("relation in txn must be recorded at begin LSN")
+	}
+	// 事务外 Relation（无 Begin）：位点未知 → 不猜，跳过记录。
+	mustFeedAt(t, d, "", itemsRelation('d'))
+	// 不新增版本：At 仍只有 100 一个版本。
+	vers := d.SchemaHistory().Versions("game.items")
+	if len(vers) != 1 {
+		t.Fatalf("versions = %d, want 1 (txn-outside relation must be skipped)", len(vers))
+	}
+}
+
+// 事务外 Relation 若携带真实 WAL 位点（非 0/空），仍应正常记录（不依赖
+// 事务 Begin 兜底），Commit 清空不应误伤。
+func TestDecoderRelationWithOwnLSNOutsideTxn(t *testing.T) {
+	d := NewDecoder("s")
+	// 无 Begin，直接带位点 200 的 Relation：正常记录到 200。
+	mustFeedAt(t, d, "200", itemsRelation('d'))
+	if _, _, found := d.SchemaHistory().At("game.items", "200"); !found {
+		t.Fatal("relation with own LSN must be recorded")
+	}
+	if vers := d.SchemaHistory().Versions("game.items"); len(vers) != 1 {
+		t.Fatalf("versions = %d, want 1", len(vers))
+	}
+}
