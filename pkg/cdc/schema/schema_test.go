@@ -2,6 +2,7 @@ package schema
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -222,4 +223,67 @@ func TestQualifiedOf(t *testing.T) {
 			t.Fatalf("QualifiedOf(%q) must fail", bad)
 		}
 	}
+}
+
+// Clone 深拷贝列型映射：修改克隆的 Columns 不得污染原历史，反之亦然。
+// 这是「safe to hand to a concurrent consumer」注释承诺的隔离面。
+func TestHistoryCloneDeepCopiesColumns(t *testing.T) {
+	h := NewHistory(lsnLessForTest)
+	if err := h.Record("a.t", 1, "10", testSchema("a", "t", "id", "name")); err != nil {
+		t.Fatal(err)
+	}
+	cp := h.Clone()
+	orig, _, ok := h.At("a.t", "10")
+	if !ok {
+		t.Fatal("original lost version")
+	}
+	// 克隆侧修改列名：原历史不受影响。
+	clone, _, ok := cp.At("a.t", "10")
+	if !ok {
+		t.Fatal("clone lost version")
+	}
+	if len(clone.Columns) != 2 || clone.Columns[0].Name != "id" {
+		t.Fatalf("clone columns = %v", clone.Columns)
+	}
+	clone.Columns[0].Name = "mutated"
+	if got, _, _ := h.At("a.t", "10"); got.Columns[0].Name != "id" {
+		t.Fatalf("original columns polluted: %v", got.Columns[0].Name)
+	}
+	// 原侧修改列名：克隆不受影响。
+	orig.Columns[1].Name = "changed"
+	if got, _, _ := cp.At("a.t", "10"); got.Columns[1].Name != "name" {
+		t.Fatalf("clone columns polluted: %v", got.Columns[1].Name)
+	}
+	_ = orig
+}
+
+// 并发 Record 与 Clone/At 无数据竞争：捕获流持续记录 schema 版本，恢复侧
+// 并发读快照。go test -race 下若未加锁会报 concurrent map read/write。
+func TestHistoryConcurrentRecordAndRead(t *testing.T) {
+	h := NewHistory(lsnLessForTest)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// 并发读侧：At / Versions / Tables / Clone / Validate 反复执行。
+		for i := 0; i < 200; i++ {
+			h.At("a.t", "10")
+			h.Versions("a.t")
+			h.Tables()
+			_ = h.Clone()
+			_ = h.Validate()
+		}
+	}()
+	for i := 1; i <= 100; i++ {
+		// 位点单调递增（十进制串）；同表追加版本。
+		pos := lsnLessForTestPos(i)
+		if err := h.Record("a.t", int64(i), pos, testSchema("a", "t", "id", "name")); err != nil {
+			t.Fatalf("record %d: %v", i, err)
+		}
+	}
+	<-done
+}
+
+// lsnLessForTestPos 生成十进制单调递增位点串（长度量级对齐）。
+func lsnLessForTestPos(i int) string {
+	return strconv.Itoa(i)
 }
