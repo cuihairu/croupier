@@ -43,6 +43,9 @@ import ExecutorUnboundAlert, {
   EXECUTOR_UNBOUND_CODE,
   executeErrorToastText,
 } from './ExecutorUnboundAlert';
+import ResourceMutationFeedback, {
+  type ResourceMutationFeedbackState,
+} from './ResourceMutationFeedback';
 import { extractApiErrorCode } from '@/utils/apiError';
 import {
   getPageStateArray,
@@ -69,6 +72,14 @@ type TableRequestParams = FormValues & {
   current?: number;
   pageSize?: number;
 };
+
+/** ProTable 原生请求参数 → 绑定执行参数：页码与 offset 在适配层统一派生。 */
+function normalizeTableRequestParams(params: TableRequestParams): TableRequestParams {
+  const { current, pageSize, ...rest } = params;
+  if (typeof pageSize !== 'number' || pageSize <= 0) return params;
+  const page = typeof current === 'number' && current > 0 ? current : 1;
+  return { ...rest, current: page, page, pageSize, offset: (page - 1) * pageSize };
+}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -106,8 +117,9 @@ function columnSpecToProColumn(col: ColumnSpec, intl: IntlFormatter): ProColumns
     width: col.width,
     fixed: col.fixed,
     sorter: col.sortable,
-    // @ts-expect-error ProComponents v3 type change
-    hideInSearch: !col.filterable,
+    // pro-components 3.x 的查询表单以 `search === false` 排除字段（`hideInSearch`
+    // 在该版本未接入），非 filterable 列不进原生查询、仅作表格列。
+    search: col.filterable ? undefined : false,
     hideInTable: col.visible === false,
   };
 
@@ -226,6 +238,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const [detailRecord, setDetailRecord] = useState<FormValues | null>(null);
   const [selectedRows, setSelectedRows] = useState<FormValues[]>([]);
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [mutationFeedback, setMutationFeedback] = useState<ResourceMutationFeedbackState | null>(
+    null,
+  );
+  const mutationRunRef = useRef(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   // T8：稳定错误码伴生（executor_unbound → 结构化空态替代通用错误 Alert）
@@ -243,6 +259,22 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const trackSelectedRows = useCallback((rows: FormValues[]) => {
     selectedRowsRef.current = rows;
     setSelectedRows(rows);
+  }, []);
+
+  // 写操作统一反馈：开始时重置为进行中，成功/失败后保留结果直到下一次操作
+  // 或用户关闭。并发写操作只允许最后一次的运行态覆盖结果。
+  const runMutation = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
+    const runId = mutationRunRef.current + 1;
+    mutationRunRef.current = runId;
+    setMutationFeedback('running');
+    try {
+      const result = await operation();
+      if (mutationRunRef.current === runId) setMutationFeedback('success');
+      return result;
+    } catch (err) {
+      if (mutationRunRef.current === runId) setMutationFeedback('error');
+      throw err;
+    }
   }, []);
 
   // 查找绑定
@@ -263,6 +295,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     spec.listView?.identityKey ||
     spec.listView?.columns.find((column) => column.fixed === 'left')?.key ||
     'id';
+  const paginationEnabled = Boolean(spec.listView?.pagination?.enabled);
 
   // D2：确认框目标条目。标识取自选择状态本身，与提交给 onExecute 的 selection
   // 同源；超出部分只报数，完整清单走选择栏的清单入口
@@ -331,6 +364,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const handleRequest = useCallback(
     async (params: TableRequestParams) => {
       const intl = intlRef.current;
+      const requestParams = paginationEnabled ? normalizeTableRequestParams(params) : params;
       setListErrorCode('');
       if (!listBinding) {
         setListError(
@@ -346,7 +380,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return { data: [], total: 0 };
       }
       try {
-        const result = await onExecute(listBinding.id, { form: params });
+        const result = await onExecute(listBinding.id, { form: requestParams });
         const nextState = mergePageState({}, outputPatchFromResult(listBinding, result));
         const itemsAssignment = listBinding.selectors?.output?.find(
           (assignment) => assignment.stateKey === 'items',
@@ -386,7 +420,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         // D2：筛选条件变了但跨页选择还在时提示核对。分页入参不计入指纹，翻页
         // 不算变更；保留的键无法区分「仍在其它页」与「已被新筛选排除」，
         // 因此每次查询都重新判定，而不是只置位不清位
-        const nextFingerprint = selectionFilterFingerprint(params);
+        const nextFingerprint = selectionFilterFingerprint(requestParams);
         setSelectionStale(
           isStaleSelection(
             filterFingerprintRef.current,
@@ -420,7 +454,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return { data: [], total: 0 };
       }
     },
-    [listBinding, message, onExecute, preview],
+    [listBinding, message, onExecute, paginationEnabled, preview],
   );
 
   // 处理创建
@@ -446,7 +480,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
       try {
-        await onExecute(createBinding.id, { form: values });
+        await runMutation(() => onExecute(createBinding.id, { form: values }));
         message.success(
           intl.formatMessage({
             id: 'component.resourceRenderer.create.success',
@@ -470,7 +504,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [createBinding, message, onExecute, preview, trackSelectedRows],
+    [createBinding, message, onExecute, preview, runMutation, trackSelectedRows],
   );
 
   // 处理编辑
@@ -496,7 +530,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
       try {
-        await onExecute(updateBinding.id, { form: values, row: currentRecord });
+        await runMutation(() => onExecute(updateBinding.id, { form: values, row: currentRecord }));
         message.success(
           intl.formatMessage({
             id: 'component.resourceRenderer.edit.success',
@@ -521,7 +555,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [currentRecord, message, onExecute, preview, trackSelectedRows, updateBinding],
+    [currentRecord, message, onExecute, preview, runMutation, trackSelectedRows, updateBinding],
   );
 
   // 提交带表单的行操作：form 值 + 行 identity 一起交给 selector 组装
@@ -550,7 +584,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
       try {
-        await onExecute(binding.id, { form: values, row: record });
+        await runMutation(() => onExecute(binding.id, { form: values, row: record }));
         message.success(
           intl.formatMessage({
             id: 'component.resourceRenderer.action.success',
@@ -574,7 +608,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [actionFormState, bindings, message, onExecute, preview, trackSelectedRows],
+    [actionFormState, bindings, message, onExecute, preview, runMutation, trackSelectedRows],
   );
 
   const submitCreateForm = useCallback(async (): Promise<boolean> => {
@@ -620,7 +654,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return;
       }
       try {
-        await onExecute(deleteBinding.id, { row: record });
+        await runMutation(() => onExecute(deleteBinding.id, { row: record }));
         message.success(
           intl.formatMessage({
             id: 'component.resourceRenderer.delete.success',
@@ -641,7 +675,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
       }
     },
-    [deleteBinding, message, onExecute, preview, trackSelectedRows],
+    [deleteBinding, message, onExecute, preview, runMutation, trackSelectedRows],
   );
 
   // 处理行操作
@@ -695,7 +729,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           ),
           onOk: async () => {
             try {
-              await onExecute(binding.id, { row: record });
+              await runMutation(() => onExecute(binding.id, { row: record }));
               message.success(
                 intl.formatMessage({
                   id: 'component.resourceRenderer.action.success',
@@ -719,7 +753,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         });
       } else {
         try {
-          await onExecute(binding.id, { row: record });
+          await runMutation(() => onExecute(binding.id, { row: record }));
           message.success(
             intl.formatMessage({
               id: 'component.resourceRenderer.action.success',
@@ -741,7 +775,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
       }
     },
-    [bindings, confirmContentWithTargets, message, modal, onExecute, preview, trackSelectedRows],
+    [
+      bindings,
+      confirmContentWithTargets,
+      message,
+      modal,
+      onExecute,
+      preview,
+      runMutation,
+      trackSelectedRows,
+    ],
   );
 
   const executeListAction = useCallback(
@@ -768,7 +811,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       const run = async () => {
         try {
-          await onExecute(binding.id, context);
+          await runMutation(() => onExecute(binding.id, context));
           message.success(
             intl.formatMessage({
               id: 'component.resourceRenderer.action.success',
@@ -816,7 +859,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       await run();
     },
-    [bindings, confirmContentWithTargets, message, modal, onExecute, preview, trackSelectedRows],
+    [
+      bindings,
+      confirmContentWithTargets,
+      message,
+      modal,
+      onExecute,
+      preview,
+      runMutation,
+      trackSelectedRows,
+    ],
   );
 
   const openDetail = useCallback(
@@ -1018,6 +1070,12 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             onClose={() => setListError(null)}
           />
         )
+      ) : null}
+      {mutationFeedback ? (
+        <ResourceMutationFeedback
+          state={mutationFeedback}
+          onClose={() => setMutationFeedback(null)}
+        />
       ) : null}
       {/* 列表视图 */}
       <ProTable<FormValues, TableRequestParams>

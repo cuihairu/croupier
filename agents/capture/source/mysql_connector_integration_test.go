@@ -88,12 +88,12 @@ func TestMySQLConnectorContract(t *testing.T) {
 	if insert.Database != dbname || insert.Table != "t1" || insert.ColumnsMapped {
 		t.Fatalf("identity = %+v", insert)
 	}
-	if insert.Position.Kind != "gtid" || !insert.Position.Valid() || insert.Tx.End {
+	if insert.Position.Kind != "gtid" || !insert.Position.Valid() || !insert.Tx.End || insert.Tx.ID == "" {
 		t.Fatalf("position/tx = %+v", insert)
 	}
 
 	caps := MySQLCapabilities()
-	if caps.Snapshot || caps.TransactionMetadata {
+	if caps.Snapshot || !caps.TransactionMetadata {
 		t.Fatalf("public recovery capabilities = %+v, want fail-closed", caps)
 	}
 	if _, err := snapshotConnector.Snapshot(ctx, connector.SnapshotRequest{}); err == nil {

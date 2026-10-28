@@ -51,6 +51,8 @@ func (c MySQLConfig) normalizeFlavor() (string, error) {
 
 // MySQLSource MySQL binlog 变更源（go-mysql replication，canal 同源库）。
 // GTID 模式续读，位点经 XID/Query 事务边界推进，Bookmark() 随时可快照。
+// 同一事务的行事件先按 GTID 暂存，在提交边界统一补序号与末事件标记后
+// 一并放行；这样事务元数据能力可在恢复门禁中被诚实打开。
 type MySQLSource struct {
 	cfg    MySQLConfig
 	log    *slog.Logger
@@ -84,16 +86,16 @@ func NewMySQLSource(cfg MySQLConfig, log *slog.Logger) *MySQLSource {
 // MySQLCapabilities 本源的能力自报（connector 简档 §3 契约类型的 MySQL
 // log 订阅实现面；注册 labels captureConnectorCapabilities 的数据源，
 // server 发布校验能力感知 lint 消费）。诚实口径：afterImage / resumableCheckpoint
-// （位点周期落盘）具备；事务边界虽用于推进 GTID，但行事件
-// 未携带事务 ID 和结束标记，transactionMetadata 必须关闭；beforeImage
-// 依赖源端 binlog_row_image=FULL、agent 不可靠感知，从严声明 false；
-// snapshot 未实现（历史回补走独立流程，过滤策略简档 §4）；pushdown 无
-// （tables 白名单是 agent 侧代码过滤，非源端下推）。MariaDB 使用相同的保守
-// 事务边界声明，GTID 方言差异不改变恢复能力结论。
+// （位点周期落盘）具备；同一事务的 XID/Query 边界已转成事件上的事务 ID、
+// 连续序号与末事件标记，transactionMetadata 具备；beforeImage 依赖源端
+// binlog_row_image=FULL、agent 不可靠感知，从严声明 false；snapshot 未实现
+// （历史回补走独立流程，过滤策略简档 §4）；pushdown 无（tables 白名单是
+// agent 侧代码过滤，非源端下推）。MariaDB 使用相同的事务边界声明，GTID
+// 方言差异不改变恢复能力结论。
 func MySQLCapabilities() connector.Capabilities {
 	return connector.Capabilities{
 		AfterImage:          true,
-		TransactionMetadata: false,
+		TransactionMetadata: true,
 		ResumableCheckpoint: true,
 	}
 }

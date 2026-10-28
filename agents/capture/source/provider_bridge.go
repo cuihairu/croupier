@@ -156,6 +156,7 @@ func bridgeEvent(sourceID, sourceType string, ev ChangeEvent) (connector.ChangeE
 		ColumnsMapped: false, // binlog ROW 裸下标；列名映射随 Discover 摄取
 		Account:       ev.Account,
 		TsUnixMs:      ev.TsUnixMs,
+		Tx:            connector.TxInfo{ID: ev.TxID, Seq: ev.TxSeq, End: ev.TxEnd},
 		Position:      connector.Position{Kind: PositionKindOf(sourceType), Value: ev.GTID},
 	}, nil
 }

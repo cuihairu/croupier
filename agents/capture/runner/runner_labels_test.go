@@ -18,8 +18,8 @@ func TestBuildPayloadCarriesTablesAndCapabilities(t *testing.T) {
 	if got := req.Labels["captureTables"]; got != "game.items" {
 		t.Fatalf("captureTables = %q, want game.items", got)
 	}
-	// MySQL 有后像和断点续传，但行事件不带完整事务标识/结束标记，恢复能力关闭。
-	if got := req.Labels["captureConnectorCapabilities"]; got != "afterImage,resumableCheckpoint" {
+	// MySQL 有后像、事务元数据与断点续传；事务边界由 pump 在提交时补齐。
+	if got := req.Labels["captureConnectorCapabilities"]; got != "afterImage,transactionMetadata,resumableCheckpoint" {
 		t.Fatalf("captureConnectorCapabilities = %q", got)
 	}
 }
@@ -58,7 +58,7 @@ func TestMySQLCapabilitiesSelfConsistent(t *testing.T) {
 	if err := caps.Validate(); err != nil {
 		t.Fatalf("MySQLCapabilities invalid: %v", err)
 	}
-	if !caps.AfterImage || caps.TransactionMetadata || !caps.ResumableCheckpoint {
+	if !caps.AfterImage || !caps.TransactionMetadata || !caps.ResumableCheckpoint {
 		t.Fatalf("MySQLCapabilities lost baseline facts: %+v", caps)
 	}
 	if caps.Snapshot || caps.Pushdown || caps.BeforeImage {

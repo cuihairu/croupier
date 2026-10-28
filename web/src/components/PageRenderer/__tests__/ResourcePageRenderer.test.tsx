@@ -582,6 +582,7 @@ describe('创建', () => {
     const { onExecute } = await openCreateModal();
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     await waitFor(() => expect(screen.getByText('创建成功')).toBeInTheDocument());
+    expect(screen.getByText('资源操作已完成')).toBeInTheDocument();
     expect(onExecute).toHaveBeenCalledWith('create', { form: { name: 'New' } });
     await waitFor(() =>
       expect(onExecute.mock.calls.filter(([id]) => id === 'b-list')).toHaveLength(2),
@@ -599,6 +600,7 @@ describe('创建', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     await waitFor(() => expect(screen.getByText('创建失败')).toBeInTheDocument());
+    expect(screen.getByText('资源操作未完成')).toBeInTheDocument();
   });
 
   // 注：handleCreate 的 preview 拦截在 UI 上不可达——新建按钮 disabled={preview}，
