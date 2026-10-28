@@ -51,6 +51,26 @@ describe('console execute idempotency wiring', () => {
     expect(keyOf(mockRequest.mock.calls[0])).toMatch(/^page-exec-/);
   });
 
+  it('已发布执行错误保留给页面反馈，不走全局错误处理', async () => {
+    const rawError = new Error('permission denied');
+    mockRequest.mockRejectedValueOnce(rawError);
+
+    await expect(executePageBinding('player.manage', 'player.query', { form: {} })).rejects.toBe(
+      rawError,
+    );
+    expect(configOf(mockRequest.mock.calls[0]).skipErrorHandler).toBe(true);
+  });
+
+  it('草稿预览执行错误保留给页面反馈，不走全局错误处理', async () => {
+    const rawError = new Error('permission denied');
+    mockRequest.mockRejectedValueOnce(rawError);
+
+    await expect(
+      executeDraftCompositeBinding('player.manage', 'player.query', [], { form: {} }),
+    ).rejects.toBe(rawError);
+    expect(configOf(mockRequest.mock.calls[0]).skipErrorHandler).toBe(true);
+  });
+
   it('成功后清除意图：同内容再次提交是新意图（新 key）', async () => {
     const body = { result: { kind: 'sync', requestId: 'r1' } };
     mockRequest.mockResolvedValueOnce(body as unknown);

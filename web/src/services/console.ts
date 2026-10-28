@@ -131,6 +131,7 @@ export async function executePageBinding(
     {
       method: 'POST',
       data: { context },
+      skipErrorHandler: true,
       headers: { 'Idempotency-Key': acquireExecuteIdempotencyKey(scopeKey) },
     },
   );
@@ -164,6 +165,7 @@ export async function executeDraftCompositeBinding(
         ...(componentTemplates && componentTemplates.length > 0 ? { componentTemplates } : {}),
         context,
       },
+      skipErrorHandler: true,
       headers: { 'Idempotency-Key': acquireExecuteIdempotencyKey(scopeKey) },
     },
   );
