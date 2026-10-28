@@ -68,6 +68,11 @@ type FormFieldSpec struct {
 	// Unit is the display unit suffix (x-field-unit hint, D5), e.g. 金币/个.
 	Unit LocalizedText `json:"unit,omitempty"`
 
+	// PerTarget marks a quantity/amount that applies per selected target
+	// (x-field-per-target hint, D2): a batch confirm with more than one
+	// selected target additionally shows the total (value × targetCount).
+	PerTarget bool `json:"perTarget,omitempty"`
+
 	// Width in grid layout (1-12)
 	Width int `json:"width,omitempty"`
 

@@ -78,9 +78,11 @@ func TestBuildFormFieldsFieldSemantics(t *testing.T) {
 		"type":"object",
 		"properties":{
 			"playerId":{"type":"string","x-field-role":"identity"},
-			"coins":{"type":"number","x-field-role":"amount","x-field-unit":"金币"},
+			"coins":{"type":"number","x-field-role":"amount","x-field-unit":"金币","x-field-per-target":true},
 			"rate":{"type":"number","x-field-unit":{"zh-CN":"倍","en-US":"x"}},
-			"bad":{"type":"string","x-field-role":"not-a-role"}
+			"bad":{"type":"string","x-field-role":"not-a-role"},
+			"perfalse":{"type":"number","x-field-per-target":false},
+			"perbad":{"type":"number","x-field-per-target":"yes"}
 		}
 	}`), "zh-CN")
 
@@ -95,15 +97,20 @@ func TestBuildFormFieldsFieldSemantics(t *testing.T) {
 	assert.Equal(t, "amount", coins.Role)
 	assert.Equal(t, "金币", coins.Unit["zh-CN"])
 	assert.Equal(t, "金币", coins.Unit["en-US"])
+	assert.True(t, coins.PerTarget)
 
 	rate := byKey["rate"]
 	assert.Empty(t, rate.Role)
 	assert.Equal(t, "倍", rate.Unit["zh-CN"])
 	assert.Equal(t, "x", rate.Unit["en-US"])
+	assert.False(t, rate.PerTarget)
 
 	bad := byKey["bad"]
 	assert.Empty(t, bad.Role)
 	assert.Nil(t, bad.Unit)
+
+	assert.False(t, byKey["perfalse"].PerTarget, "x-field-per-target=false 视为未声明")
+	assert.False(t, byKey["perbad"].PerTarget, "非布尔值视为未声明")
 }
 
 func TestBuildFormFieldsHintOrder(t *testing.T) {

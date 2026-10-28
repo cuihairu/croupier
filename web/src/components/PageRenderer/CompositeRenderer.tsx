@@ -343,6 +343,9 @@ export const CompositeRenderer: React.FC<{
               label: localizedText(act.label, 'zh-CN'),
               steps: act.chain,
               afterOpen: () => runChain(act.chain),
+              // D2 跨目标总量：本表格区块已选目标数（多选时确认框对
+              // x-field-per-target 字段追加总量条目）。
+              targetCount: selRows[sec.key]?.length,
             });
           } else if (act.danger) {
             // D2：无目标弹窗的危险操作（纯动作链）同样先确认，确认内容列链步骤

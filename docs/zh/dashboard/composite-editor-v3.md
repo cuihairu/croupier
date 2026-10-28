@@ -597,7 +597,9 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   `x-field-unit` 追加到列头与 `number` 单元格值；`dataType:"datetime"` 单元格带显式浏览器
   时区标签（`UTC±HH:MM`）。弹窗内表格保留语义单元格渲染但不加表头排序 UI。危险确认框从目标
   表单的 `FormFieldSpec.role`/`unit` 取同款语义（身份加粗置前、到期红字、amount/quantity 值
-  带单位后缀）。边界：单位仅展示（不做缩放或换算）；`identity` 之外的 role 不改变列布局；
+  带单位后缀）；声明 `x-field-per-target` 的字段在表格区块危险动作多选目标 >1 时另示总量条目
+  （`值 × 目标数`，单位与语义复用）——仅显式声明的字段聚合，未声明字段绝不乘总量（不做语义
+  猜测）。边界：单位仅展示（不做缩放或换算）；`identity` 之外的 role 不改变列布局；
   时区标签为浏览器本地偏移（无游戏级 tz 配置）
 - **表格行选择（D2）**：由表格组件的「行选择」设置配置——启用多选后编译为发布 spec
   区块的 `table.selection`（`multiple` 加可选 `identityKey`，身份列从输出 schema 选）。

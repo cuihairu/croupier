@@ -218,6 +218,10 @@ function deriveLeaf(key: string, schema: SchemaNode): FieldDerived {
     field.unit = unit;
     included = true;
   }
+  if (schema['x-field-per-target'] === true) {
+    field.perTarget = true;
+    included = true;
+  }
   const width = asIntInRange(schema['x-width'], 1, 12);
   if (width !== undefined) {
     field.width = width;

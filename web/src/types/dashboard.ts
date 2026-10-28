@@ -804,6 +804,8 @@ export interface FormFieldSpec {
   role?: 'identity' | 'status' | 'reason' | 'expiry' | 'amount' | 'quantity';
   /** 显示单位后缀（x-field-unit，D5），如 金币/个 */
   unit?: LocalizedText;
+  /** 数量/金额按每个选中目标逐项计（x-field-per-target，D2）：批量确认在目标数 >1 时另示总量 */
+  perTarget?: boolean;
   width?: number;
   order?: number;
   visible?: boolean;
