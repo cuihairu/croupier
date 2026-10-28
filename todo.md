@@ -360,3 +360,9 @@
 - [ ] **SEC-001 · P1 · 资料调查 · 默认分支依赖告警适用性复核**
   - 依赖：—。交付与验收：获取 GitHub 默认分支未关闭告警的官方明细，映射 go.mod/go.sum、package.json/锁文件与 SDK/构建产物；区分运行时/开发/传递依赖、受影响版本与实际可达条件，逐项形成“需修复/不适用及依据/待验证”清单，再拆最小修复任务，不仅凭告警总数宣布存在可利用生产漏洞。
   - 状态／条件：NOT RUN；2026-10-29 推送 56c85dbb 的 GitHub 回执报告 19 条（1 high、10 moderate、8 low），仅回执已观察，告警详情/适用性尚未核实；读取详情可能需要仓库安全告警权限。
+
+## 审核发现
+
+- [x] 审核发现：`banManagement` 将 `serverId` 标记为可查询但 demo 列表未消费 `form.serverId`，筛选控件无效（web/src/components/PageRenderer/templates/banManagement.tsx:72）。属实并已修：demo 执行器 list 分支补 `form.serverId` 精确过滤（banManagement.tsx:365），`banManagement.test.tsx` 新增 s2 筛选用例（total=8 且逐行 serverId=s2），证据 commit（见 git log）；`pnpm --dir web test --testPathPatterns PageRenderer` 46 套 563 用例全绿、`pnpm --dir web run tsc` 0 错误。
+- 不属实：组合页行级危险 targetSection 动作未传 targetCount（CompositeRenderer.tsx:589）——行级动作只作用于单行，per-target 总量条目仅在 targetCount>1 时追加（confirmContent.ts:87），缺省 1 与工具栏单行选择行为一致，无用户可见差异；行级传 targetCount 反误报批量总量，故维持不传。
+- [x] 审核发现：新增操作页任务中心链接后，中文协议仍写“无任务中心路由/不给导航目标”，实现与文档冲突（web/src/components/PageRenderer/OperationPageRenderer.tsx:679）。属实并已修：同步中英四份协议文档（docs/zh/architecture/pagespec-protocol.md、docs/zh/dashboard/composite-editor-v3.md、docs/architecture/pagespec-protocol.md、docs/dashboard/composite-editor-v3.md）把「无任务中心路由/不给导航目标」改为「前往任务中心入口（/ops/jobs）+ 查询执行状态」；证据 commit（见 git log）；`bash scripts/check-docs-links.sh` 605 链接全解析、prettier 净。
