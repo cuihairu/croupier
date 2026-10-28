@@ -17,6 +17,7 @@ export default {
   'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
   'component.pageRenderer.composite.goToApprovals': 'Go to approvals',
   'component.pageRenderer.composite.goToTaskCenter': 'Go to task center',
+  'component.pageRenderer.operationPage.button.goToTaskCenter': 'Go to task center',
   'component.pageRenderer.composite.rowActionsColumn': 'Actions',
   'component.pageRenderer.composite.selection.clear': 'Clear selection',
   'component.pageRenderer.composite.selection.count': 'Selected {count} item(s)',

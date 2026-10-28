@@ -17,6 +17,7 @@ export default {
   'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
   'component.pageRenderer.composite.goToApprovals': '前往审批中心',
   'component.pageRenderer.composite.goToTaskCenter': '前往任务中心',
+  'component.pageRenderer.operationPage.button.goToTaskCenter': '前往任务中心',
   'component.pageRenderer.composite.rowActionsColumn': '操作',
   'component.pageRenderer.composite.selection.clear': '取消选择',
   'component.pageRenderer.composite.selection.count': '已选择 {count} 项',

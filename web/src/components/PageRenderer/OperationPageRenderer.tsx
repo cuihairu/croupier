@@ -673,6 +673,16 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                       />
                     </Button>
                   )}
+                  <Button
+                    type="link"
+                    style={{ padding: 0 }}
+                    onClick={() => history.push('/ops/jobs')}
+                  >
+                    <FormattedMessage
+                      id="component.pageRenderer.operationPage.button.goToTaskCenter"
+                      defaultMessage="前往任务中心"
+                    />
+                  </Button>
                 </Space>
               }
             />
