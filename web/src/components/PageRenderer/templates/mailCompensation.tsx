@@ -11,13 +11,14 @@
  * @module components/PageRenderer/templates/mailCompensation
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
 import type { PageSpec, PageExecuteFn, PageExecutionResult } from '@/types/dashboard';
 import { asRecord, createRequestIdFactory, type GameOpsDemoStore } from './gameOpsDemoData';
 import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
+import CompensationWizard from './compensationWizard';
 
 /** 邮件与补偿任务页面规格 */
 export const mailCompensationPageSpec: PageSpec = {
@@ -44,6 +45,7 @@ export const mailCompensationPageSpec: PageSpec = {
           width: 150,
           fixed: 'left',
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'type',
@@ -92,18 +94,21 @@ export const mailCompensationPageSpec: PageSpec = {
           dataType: 'number',
           width: 100,
           sortable: true,
+          unit: { 'zh-CN': '人', 'en-US': 'people' },
         },
         {
           key: 'perAmount',
           title: { 'zh-CN': '每人数量', 'en-US': 'Per Target' },
           dataType: 'number',
           width: 100,
+          unit: { 'zh-CN': '金', 'en-US': 'gold' },
         },
         {
           key: 'totalAmount',
-          title: { 'zh-CN': '总量（金）', 'en-US': 'Total (gold)' },
+          title: { 'zh-CN': '总量', 'en-US': 'Total' },
           dataType: 'number',
           width: 120,
+          unit: { 'zh-CN': '金', 'en-US': 'gold' },
         },
         {
           key: 'status',
@@ -145,15 +150,17 @@ export const mailCompensationPageSpec: PageSpec = {
         },
         {
           key: 'sentCount',
-          title: { 'zh-CN': '已送达/人', 'en-US': 'Delivered' },
+          title: { 'zh-CN': '已送达', 'en-US': 'Delivered' },
           dataType: 'number',
           width: 110,
+          unit: { 'zh-CN': '人', 'en-US': 'people' },
         },
         {
           key: 'failedCount',
-          title: { 'zh-CN': '失败/人', 'en-US': 'Failed' },
+          title: { 'zh-CN': '失败', 'en-US': 'Failed' },
           dataType: 'number',
           width: 90,
+          unit: { 'zh-CN': '人', 'en-US': 'people' },
         },
         {
           key: 'operator',
@@ -163,7 +170,7 @@ export const mailCompensationPageSpec: PageSpec = {
         },
         {
           key: 'createdAt',
-          title: { 'zh-CN': '创建时间（UTC）', 'en-US': 'Created At (UTC)' },
+          title: { 'zh-CN': '创建时间', 'en-US': 'Created At' },
           dataType: 'datetime',
           width: 180,
         },
@@ -184,6 +191,13 @@ export const mailCompensationPageSpec: PageSpec = {
           bindingId: 'action.retryFailed',
         },
         {
+          key: 'edit',
+          title: { 'zh-CN': '编辑', 'en-US': 'Edit' },
+          type: 'link',
+          bindingId: 'update',
+        },
+        {
+          // D5 危险操作位置：danger 动作排到行操作末尾，与常态动作明确分界。
           key: 'cancelTask',
           title: { 'zh-CN': '撤回', 'en-US': 'Withdraw' },
           type: 'danger',
@@ -195,12 +209,6 @@ export const mailCompensationPageSpec: PageSpec = {
               'Undelivered targets will no longer receive it; delivered parts are not recalled.',
           },
           bindingId: 'action.cancelTask',
-        },
-        {
-          key: 'edit',
-          title: { 'zh-CN': '编辑', 'en-US': 'Edit' },
-          type: 'link',
-          bindingId: 'update',
         },
       ],
     },
@@ -258,7 +266,7 @@ export const mailCompensationPageSpec: PageSpec = {
         { key: 'operator', title: { 'zh-CN': '操作人', 'en-US': 'Operator' }, dataType: 'string' },
         {
           key: 'createdAt',
-          title: { 'zh-CN': '创建时间（UTC）', 'en-US': 'Created At (UTC)' },
+          title: { 'zh-CN': '创建时间', 'en-US': 'Created At' },
           dataType: 'datetime',
         },
       ],
@@ -384,6 +392,9 @@ export function createMailCompensationDemoExecute(
           const current = Number(form.current) || 1;
           const pageSize = Number(form.pageSize) || 10;
           let filtered = tasks;
+          if (form.id) {
+            filtered = filtered.filter((task) => task.id === String(form.id));
+          }
           if (form.type) {
             filtered = filtered.filter((task) => task.type === form.type);
           }
@@ -530,6 +541,7 @@ export function createMailCompensationDemoExecute(
 const MailCompensationTemplate: React.FC = () => {
   const intl = useIntl();
   const execute = useMemo(() => createMailCompensationDemoExecute(), []);
+  const [listKey, setListKey] = useState(0);
   return (
     <PageContainer
       title={intl.formatMessage({
@@ -541,7 +553,8 @@ const MailCompensationTemplate: React.FC = () => {
         defaultMessage: '业务模板 · 任务列表 / 目标快照 / 审批 / 失败重试',
       })}
     >
-      <PageRenderer pageSpec={mailCompensationPageSpec} onExecute={execute} />
+      <CompensationWizard execute={execute} onCreate={() => setListKey((key) => key + 1)} />
+      <PageRenderer key={listKey} pageSpec={mailCompensationPageSpec} onExecute={execute} />
     </PageContainer>
   );
 };

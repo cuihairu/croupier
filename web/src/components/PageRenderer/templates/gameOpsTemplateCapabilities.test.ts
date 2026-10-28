@@ -104,3 +104,98 @@ describe('业务模板函数绑定', () => {
     }
   });
 });
+
+describe('D5 模板默认呈现', () => {
+  it('身份列固定可复制且作为常用查询条件前置', () => {
+    for (const entry of gameOpsTemplates) {
+      if (entry.pageSpec.type !== 'resource') continue;
+      const list = entry.pageSpec.resource?.listView;
+      expect(list).toBeDefined();
+      const columns = list?.columns ?? [];
+      // 首个身份列：固定左列 + 可复制，且是可查询的前置条件。
+      expect(columns[0]).toMatchObject({ fixed: 'left', render: 'copy', filterable: true });
+      // 常用（可查询）条件按列序前置，无高级条件插到身份条件之前。
+      const filterableKeys = columns.filter((c) => c.filterable).map((c) => c.key);
+      expect(filterableKeys[0]).toBe(columns[0].key);
+      expect(filterableKeys.indexOf(columns[0].key)).toBe(0);
+    }
+  });
+
+  it('危险操作位置明确：danger 行操作全部排在行操作末尾', () => {
+    for (const entry of gameOpsTemplates) {
+      if (entry.pageSpec.type !== 'resource') continue;
+      const actions = entry.pageSpec.resource?.listView?.rowActions ?? [];
+      const dangerKeys = actions.filter((a) => a.type === 'danger').map((a) => a.key);
+      const nonDanger = actions.filter((a) => a.type !== 'danger');
+      // danger 动作紧邻排最后，常态动作在前（不与 danger 交错）。
+      expect(nonDanger.length + dangerKeys.length).toBe(actions.length);
+      if (dangerKeys.length > 0) {
+        expect(actions.slice(-dangerKeys.length).map((a) => a.key)).toEqual(dangerKeys);
+      }
+    }
+  });
+
+  // D5 收尾：模板默认呈现的量纲列语义表。每列显式声明单位（x-field-unit
+  // 输出侧，列级 unit），不靠字段名猜测；金额列单位由独立 currency 列显式承载
+  // （orderReview.amount→currency 枚举）。时间列由渲染端附浏览器本地时区标签，
+  // 标题不硬编码 UTC。状态列走业务枚举标签（enum + render:tag）。
+  const quantityUnits: Record<string, Record<string, { 'zh-CN': string; 'en-US': string }>> = {
+    'player-manage': { balanceGold: { 'zh-CN': '金', 'en-US': 'gold' } },
+    'ban-management': { durationHours: { 'zh-CN': '小时', 'en-US': 'hours' } },
+    'mail-compensation': {
+      targetCount: { 'zh-CN': '人', 'en-US': 'people' },
+      perAmount: { 'zh-CN': '金', 'en-US': 'gold' },
+      totalAmount: { 'zh-CN': '金', 'en-US': 'gold' },
+      sentCount: { 'zh-CN': '人', 'en-US': 'people' },
+      failedCount: { 'zh-CN': '人', 'en-US': 'people' },
+    },
+    'activity-config': { currentVersion: { 'zh-CN': '版', 'en-US': 'versions' } },
+  };
+  const resourceColumns = (entry: (typeof gameOpsTemplates)[number]) =>
+    entry.pageSpec.resource?.listView?.columns ?? [];
+
+  it('量纲列显式声明单位、时间列标题不硬编码时区、状态列走枚举标签', () => {
+    for (const entry of gameOpsTemplates) {
+      if (entry.pageSpec.type !== 'resource') continue;
+      const columns = resourceColumns(entry);
+      for (const [key, unit] of Object.entries(quantityUnits[entry.key] ?? {})) {
+        const col = columns.find((c) => c.key === key);
+        expect(col).toBeDefined();
+        expect(col?.dataType).toBe('number');
+        expect(col?.unit).toEqual(unit);
+      }
+      for (const col of columns) {
+        if (col.dataType === 'datetime') {
+          expect(col.title['zh-CN']).not.toMatch(/UTC/);
+        }
+        if (col.dataType === 'enum' && col.render === 'tag') {
+          expect(col.enum?.length ?? 0).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('金额列单位由显式币种列承载（orderReview.amount→currency 枚举）', () => {
+    const order = gameOpsTemplates.find((e) => e.key === 'order-review');
+    const columns = resourceColumns(order!);
+    expect(columns.some((c) => c.key === 'amount')).toBe(true);
+    const currency = columns.find((c) => c.key === 'currency');
+    expect(currency?.dataType).toBe('enum');
+    expect(currency?.enum?.map((o) => o.value)).toEqual(['CNY', 'USD']);
+  });
+
+  it('保存回读与发布态默认表现一致：JSON 回读不丢失量纲/枚举语义', () => {
+    // 模拟模板 PageSpec 落库保存→回读（JSON 序列化/反序列化），列表列语义
+    // （unit/enum/render）必须原样保留；发布态渲染消费同一 spec 得一致呈现。
+    for (const entry of gameOpsTemplates) {
+      if (entry.pageSpec.type !== 'resource') continue;
+      const saved = JSON.parse(JSON.stringify(entry.pageSpec)) as typeof entry.pageSpec;
+      expect(saved.resource?.listView?.columns).toEqual(resourceColumns(entry));
+      for (const col of saved.resource?.listView?.columns ?? []) {
+        if (col.dataType === 'enum' && col.render === 'tag') {
+          expect(col.enum?.length ?? 0).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+});

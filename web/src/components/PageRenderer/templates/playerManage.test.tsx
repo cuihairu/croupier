@@ -103,15 +103,23 @@ describe('PageSpec 常量', () => {
       pageSizes: [10, 20, 50],
     });
     expect(playerManagePageSpec.resource?.listView.rowActions?.map((a) => a.key)).toEqual([
-      'ban',
       'recharge',
       'mail',
       'edit',
+      'ban',
     ]);
+    // D5 危险操作位置：danger 动作（封禁）排到行操作末尾。
+    const rowActions = playerManagePageSpec.resource?.listView.rowActions ?? [];
+    expect(rowActions.at(-1)).toMatchObject({ key: 'ban', type: 'danger' });
+    expect(rowActions.slice(0, -1).every((a) => a.type !== 'danger')).toBe(true);
     expect(playerManagePageSpec.resource?.listView.batchActions?.map((a) => a.key)).toEqual([
-      'batchBan',
       'batchUnban',
+      'batchBan',
     ]);
+    // D5 危险操作位置：danger 批量动作（批量封禁）排到末尾。
+    const batchActions = playerManagePageSpec.resource?.listView.batchActions ?? [];
+    expect(batchActions.at(-1)).toMatchObject({ key: 'batchBan', type: 'danger' });
+    expect(batchActions.slice(0, -1).every((a) => a.type !== 'danger')).toBe(true);
   });
 
   it('绑定覆盖 CRUD 与行/批量动作', () => {
@@ -171,6 +179,10 @@ describe('demo 执行器：list', () => {
 
   it('nickname/status 筛选与组合', async () => {
     const execute = newExecute();
+    // D5 身份列前置查询：精确命中一条
+    const byId = await listData(execute, { id: '20013' });
+    expect(byId.items.map((p) => p.id)).toEqual(['20013']);
+
     const byNickname = await listData(execute, { nickname: '玩家2' });
     // 玩家2号、玩家20~26号
     expect(byNickname.items.map((p) => p.id)).toEqual([

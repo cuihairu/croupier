@@ -42,6 +42,7 @@ export const orderReviewPageSpec: PageSpec = {
           width: 140,
           fixed: 'left',
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'playerId',
@@ -49,6 +50,7 @@ export const orderReviewPageSpec: PageSpec = {
           dataType: 'string',
           width: 110,
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'nickname',
@@ -159,7 +161,7 @@ export const orderReviewPageSpec: PageSpec = {
         },
         {
           key: 'paidAt',
-          title: { 'zh-CN': '支付时间（UTC）', 'en-US': 'Paid At (UTC)' },
+          title: { 'zh-CN': '支付时间', 'en-US': 'Paid At' },
           dataType: 'datetime',
           width: 180,
           sortable: true,
@@ -225,12 +227,12 @@ export const orderReviewPageSpec: PageSpec = {
         },
         {
           key: 'paidAt',
-          title: { 'zh-CN': '支付时间（UTC）', 'en-US': 'Paid At (UTC)' },
+          title: { 'zh-CN': '支付时间', 'en-US': 'Paid At' },
           dataType: 'datetime',
         },
         {
           key: 'creditedAt',
-          title: { 'zh-CN': '发货时间（UTC）', 'en-US': 'Credited At (UTC)' },
+          title: { 'zh-CN': '发货时间', 'en-US': 'Credited At' },
           dataType: 'datetime',
         },
       ],
@@ -298,6 +300,12 @@ export function createOrderReviewDemoExecute(
           const current = Number(form.current) || 1;
           const pageSize = Number(form.pageSize) || 10;
           let filtered = orders;
+          if (form.orderNo) {
+            filtered = filtered.filter((order) => order.orderNo === String(form.orderNo));
+          }
+          if (form.playerId) {
+            filtered = filtered.filter((order) => order.playerId === String(form.playerId));
+          }
           if (form.nickname) {
             filtered = filtered.filter((order) => order.nickname.includes(String(form.nickname)));
           }

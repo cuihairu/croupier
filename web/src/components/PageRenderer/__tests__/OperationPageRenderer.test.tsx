@@ -626,3 +626,50 @@ describe('重置与标题', () => {
     expect(screen.getByText('发补偿')).toBeInTheDocument();
   });
 });
+
+describe('D4 验收矩阵（异步执行 / 超时后成功）', () => {
+  it('异步执行：任务已提交 → 查询 running（阶段条执行中）→ 再查 completed（阶段条完成）', async () => {
+    const onQueryTaskStatus = jest
+      .fn()
+      .mockResolvedValueOnce({
+        taskId: 'tk-1',
+        status: 'running',
+        progress: 40,
+      } as TaskStatusResult)
+      .mockResolvedValueOnce({ taskId: 'tk-1', status: 'completed' } as TaskStatusResult);
+    const { onExecute } = renderOp({ onQueryTaskStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { kind: 'task', taskId: 'tk-1' }));
+    submit();
+    await waitFor(() => expect(screen.getAllByText('任务已提交').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    const items = document.querySelectorAll('.ant-steps-item');
+    expect(items[1].className).toContain('ant-steps-item-process');
+
+    fireEvent.click(screen.getByText('查询执行状态'));
+    await waitFor(() => expect(screen.getByText('COMPLETED')).toBeInTheDocument());
+    expect(document.querySelectorAll('.ant-steps-item')[1].className).toContain(
+      'ant-steps-item-finish',
+    );
+  });
+
+  it('超时后成功：结果未知 → 重置 → 重提成功（安全重试闭环不残留未知态）', async () => {
+    const { onExecute } = renderOp();
+    onExecute.mockRejectedValueOnce(new Error('timeout of 5000ms exceeded'));
+    submit();
+    await waitFor(() =>
+      expect(screen.getAllByText('操作结果未知').length).toBeGreaterThanOrEqual(1),
+    );
+    expect(screen.getByText(/可能已在服务端执行/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /重置结果/ }));
+    // 重置清空结果卡（提示语随之消失）；瞬时 toast 允许残留
+    await waitFor(() => expect(screen.queryByText(/可能已在服务端执行/)).not.toBeInTheDocument());
+
+    onExecute.mockResolvedValueOnce(ok({ credited: true }));
+    submit();
+    await waitFor(() => expect(screen.getByText('执行结果')).toBeInTheDocument());
+    expect(screen.queryByText(/可能已在服务端执行/)).not.toBeInTheDocument();
+  });
+});

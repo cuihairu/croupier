@@ -48,6 +48,7 @@ export const banManagementPageSpec: PageSpec = {
           width: 140,
           fixed: 'left',
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'playerId',
@@ -55,6 +56,7 @@ export const banManagementPageSpec: PageSpec = {
           dataType: 'string',
           width: 110,
           render: 'copy',
+          filterable: true,
         },
         {
           key: 'nickname',
@@ -98,14 +100,15 @@ export const banManagementPageSpec: PageSpec = {
         },
         {
           key: 'durationHours',
-          title: { 'zh-CN': '时长（小时）', 'en-US': 'Duration (h)' },
+          title: { 'zh-CN': '时长', 'en-US': 'Duration' },
           dataType: 'number',
           width: 120,
           sortable: true,
+          unit: { 'zh-CN': '小时', 'en-US': 'hours' },
         },
         {
           key: 'expiresAt',
-          title: { 'zh-CN': '到期时间（UTC）', 'en-US': 'Expires At (UTC)' },
+          title: { 'zh-CN': '到期时间', 'en-US': 'Expires At' },
           dataType: 'datetime',
           width: 180,
           sortable: true,
@@ -202,17 +205,17 @@ export const banManagementPageSpec: PageSpec = {
         { key: 'reason', title: { 'zh-CN': '封禁原因', 'en-US': 'Reason' }, dataType: 'string' },
         {
           key: 'durationHours',
-          title: { 'zh-CN': '时长（小时）', 'en-US': 'Duration (h)' },
+          title: { 'zh-CN': '时长', 'en-US': 'Duration' },
           dataType: 'number',
         },
         {
           key: 'bannedAt',
-          title: { 'zh-CN': '封禁时间（UTC）', 'en-US': 'Banned At (UTC)' },
+          title: { 'zh-CN': '封禁时间', 'en-US': 'Banned At' },
           dataType: 'datetime',
         },
         {
           key: 'expiresAt',
-          title: { 'zh-CN': '到期时间（UTC）', 'en-US': 'Expires At (UTC)' },
+          title: { 'zh-CN': '到期时间', 'en-US': 'Expires At' },
           dataType: 'datetime',
         },
         { key: 'status', title: { 'zh-CN': '状态', 'en-US': 'Status' }, dataType: 'string' },
@@ -343,6 +346,12 @@ export function createBanManagementDemoExecute(
           const current = Number(form.current) || 1;
           const pageSize = Number(form.pageSize) || 10;
           let filtered = bans;
+          if (form.id) {
+            filtered = filtered.filter((ban) => ban.id === String(form.id));
+          }
+          if (form.playerId) {
+            filtered = filtered.filter((ban) => ban.playerId === String(form.playerId));
+          }
           if (form.nickname) {
             filtered = filtered.filter((ban) => ban.nickname.includes(String(form.nickname)));
           }
