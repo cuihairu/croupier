@@ -96,13 +96,12 @@ describe('D4 失败反馈构造', () => {
     expect(f.reason).toBe('缺少权限：ban:write；需要角色：operator');
   });
 
-  it('权限不足：稳定错误码与原因文案都保留（字段明细为空）', () => {
+  it('权限不足（forbidden 无 details）：稳定码与文案保留，无原因行', () => {
     const f = describeExecFailure(apiError('forbidden', '无权限执行 punish.ban：缺少 ban 权限'));
     expect(f.code).toBe('forbidden');
-
     expect(f.message).toContain('缺少 ban 权限');
     expect(f.fieldErrors).toEqual([]);
-    expect(f.reason).toBe('缺少权限：ban:write；需要角色：operator');
+    expect(f.reason).toBeUndefined();
   });
 
   it('权限 details 收敛：缺 required 时用函数标识，非权限码不解析', () => {
