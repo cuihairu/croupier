@@ -21,7 +21,7 @@ on:
 jobs:
   analytics-e2e:
     name: Analytics E2E
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1

@@ -212,10 +212,10 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
-            runs-on: ubuntu-latest
+            runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
           - goos: linux
             goarch: arm64
-            runs-on: ubuntu-latest
+            runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
           - goos: darwin
             goarch: amd64
             runs-on: macos-latest
@@ -278,7 +278,7 @@ jobs:
 
   build-other-sdks:
     name: Build Other SDKs
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -620,7 +620,7 @@ jobs:
 
   build-dashboard:
     name: Build Dashboard
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -669,7 +669,7 @@ jobs:
 
   release:
     name: Create Nightly Release
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     needs:
       [

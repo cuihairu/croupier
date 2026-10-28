@@ -118,7 +118,7 @@ jobs:
 
   security:
     name: Security Scan
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
@@ -160,7 +160,7 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
@@ -227,7 +227,7 @@ jobs:
     # Restored: uses the SQLite config so no external DB is needed. The earlier
     # instability came from booting with configs/server.yaml (mysql/postgres)
     # in a CI runner with no database service.
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     needs: [test]
     steps:
@@ -326,7 +326,7 @@ jobs:
     # runs the integration-tagged matrix against real MySQL, Postgres and
     # SQL Server servers (fresh DB → baseline + catch-up, concurrent first
     # boot proving the session lock, idempotent second boot).
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 20
     needs: [test]
     services:
@@ -427,7 +427,7 @@ jobs:
     # 需 wal_level=logical；MongoDB 需 replica set（change streams 硬前置，
     # rs.initiate() 在就绪等待后执行）。service 容器传不了守护进程启动参数，
     # 这里用 setup 步骤 docker run（与本地验证同命令）。
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 15
     needs: [test]
     steps:

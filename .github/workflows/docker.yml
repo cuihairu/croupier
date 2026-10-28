@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   build-server:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 45
     steps:
       - timeout-minutes: 3
@@ -127,7 +127,7 @@ jobs:
           fi
 
   build-agent:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
@@ -210,7 +210,7 @@ jobs:
             echo "Skipping GHCR visibility update for ${PKG} (HTTP $code)"
           fi
   build-ingest:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
@@ -266,7 +266,7 @@ jobs:
           cache-to: type=gha,scope=ingest,mode=max
 
   build-analytics-worker:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
@@ -320,7 +320,7 @@ jobs:
   # examples/openapi-provider 常驻 demo：线上 openapi-sources「运行时导入」
   # 区块的数据源（与 sdk-examples 同 profile 部署，compose 注入 scope）。
   build-openapi-demo:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
@@ -391,7 +391,7 @@ jobs:
   # 供应链安全：镜像漏洞扫描（trivy）+ SBOM 归档 + cosign keyless 签名。
   # 仅在镜像实际推送后执行（PR 构建不 push）。
   supply-chain:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 20
     needs:
       [

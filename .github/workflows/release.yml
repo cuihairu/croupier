@@ -150,7 +150,7 @@ jobs:
   build-sdk-sources:
     if: startsWith(github.ref, 'refs/tags/v')
     name: Build SDK source packages
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 15
     steps:
       - timeout-minutes: 3
@@ -188,7 +188,7 @@ jobs:
 
   release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     needs: [build-go, build-sdk-sources]
     steps:

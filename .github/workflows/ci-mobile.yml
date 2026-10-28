@@ -22,7 +22,7 @@ on:
 
 jobs:
   flutter:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     defaults:
       run:
@@ -48,7 +48,7 @@ jobs:
   apk:
     if: github.event_name == 'workflow_dispatch'
     needs: flutter
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 40
     defaults:
       run:

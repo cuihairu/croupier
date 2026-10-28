@@ -14,7 +14,7 @@ permissions:
   contents: write
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     outputs:
       tag: ${{ steps.ver.outputs.tag }}
       version: ${{ steps.ver.outputs.version }}
@@ -53,7 +53,7 @@ jobs:
     # 游戏服使用方解包即可链接，无需自装 vcpkg（依赖需按 vcpkg.json
     # 清单自备 protobuf/curl/zlib/openssl/nlohmann-json）。
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1

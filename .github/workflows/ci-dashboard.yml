@@ -39,7 +39,7 @@ permissions:
 
 jobs:
   dashboard-quality:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     # 分片 3 份跑 unit step（动机见 step 内注释）；fail-fast=false 防止单分片
     # 失败级联取消兄弟分片（矩阵默认 fail-fast 会制造 cancelled 噪音）。
     strategy:
@@ -155,7 +155,7 @@ jobs:
           disable_search: true
 
   mock-e2e-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     defaults:
       run:
@@ -244,7 +244,7 @@ jobs:
           retention-days: 7
 
   real-dashboard-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 45
     defaults:
       run:
@@ -362,7 +362,7 @@ jobs:
           startsWith(github.ref, 'refs/tags/v')
         )
       )
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 30
     defaults:
       run:

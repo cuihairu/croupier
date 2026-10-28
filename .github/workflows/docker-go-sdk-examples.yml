@@ -25,7 +25,7 @@ permissions:
 jobs:
   build-and-push:
     name: Build ${{ matrix.language }} game demo image
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'zoomies-pool' }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
