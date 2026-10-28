@@ -4,14 +4,15 @@
  * 根据 ResourcePageSpec 渲染完整的资源 CRUD 页面，包括：
  * - ProTable 列表视图
  * - ProDescriptions 详情视图
- * - Modal + SchemaFormRenderer 创建/编辑表单
+ * - ModalForm + SchemaFormRenderer 创建/编辑表单
+ * - DrawerForm + SchemaFormRenderer 行操作表单
  * - Popconfirm 删除确认
  *
  * @module components/PageRenderer/ResourcePageRenderer
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import { ProTable, ProDescriptions } from '@ant-design/pro-components';
+import { ProTable, ProDescriptions, ModalForm, DrawerForm } from '@ant-design/pro-components';
 import {
   App,
   Button,
@@ -576,21 +577,21 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     [actionFormState, bindings, message, onExecute, preview, trackSelectedRows],
   );
 
-  const submitCreateForm = useCallback(async () => {
-    if (!createFormRef.current?.validate()) return;
+  const submitCreateForm = useCallback(async (): Promise<boolean> => {
+    if (!createFormRef.current?.validate()) return false;
     setFormSubmitting(true);
     try {
-      await handleCreate(createFormRef.current.getValues());
+      return await handleCreate(createFormRef.current.getValues());
     } finally {
       setFormSubmitting(false);
     }
   }, [handleCreate]);
 
-  const submitUpdateForm = useCallback(async () => {
-    if (!updateFormRef.current?.validate()) return;
+  const submitUpdateForm = useCallback(async (): Promise<boolean> => {
+    if (!updateFormRef.current?.validate()) return false;
     setFormSubmitting(true);
     try {
-      await handleEdit(updateFormRef.current.getValues());
+      return await handleEdit(updateFormRef.current.getValues());
     } finally {
       setFormSubmitting(false);
     }
@@ -1229,20 +1230,24 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
       {/* 创建表单 */}
       {spec.createForm && (
-        <Modal
+        <ModalForm
           title={intl.formatMessage({
             id: 'component.resourceRenderer.create.modalTitle',
             defaultMessage: '新建',
           })}
           open={createModalVisible}
-          onOk={submitCreateForm}
-          onCancel={() => setCreateModalVisible(false)}
-          confirmLoading={formSubmitting}
-          width={560}
-          destroyOnHidden
+          onOpenChange={setCreateModalVisible}
+          onFinish={submitCreateForm}
+          submitter={{ submitButtonProps: { loading: formSubmitting } }}
+          modalProps={{ destroyOnHidden: true, width: 560 }}
         >
-          <SchemaFormRenderer ref={createFormRef} spec={spec.createForm} hideSubmit />
-        </Modal>
+          <SchemaFormRenderer
+            ref={createFormRef}
+            spec={spec.createForm}
+            hideSubmit
+            containerTagName="div"
+          />
+        </ModalForm>
       )}
 
       {/* 带表单的行操作（封禁/充值等）：identity 行注入 + 用户填写附加字段 */}
@@ -1265,25 +1270,25 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
       {/* 编辑表单 */}
       {spec.updateForm && (
-        <Modal
+        <ModalForm
           title={intl.formatMessage({
             id: 'component.resourceRenderer.edit.modalTitle',
             defaultMessage: '编辑',
           })}
           open={editModalVisible}
-          onOk={submitUpdateForm}
-          onCancel={() => setEditModalVisible(false)}
-          confirmLoading={formSubmitting}
-          width={560}
-          destroyOnHidden
+          onOpenChange={setEditModalVisible}
+          onFinish={submitUpdateForm}
+          submitter={{ submitButtonProps: { loading: formSubmitting } }}
+          modalProps={{ destroyOnHidden: true, width: 560 }}
         >
           <SchemaFormRenderer
             ref={updateFormRef}
             spec={spec.updateForm}
             initialValues={currentRecord || {}}
             hideSubmit
+            containerTagName="div"
           />
-        </Modal>
+        </ModalForm>
       )}
 
       {/* 详情抽屉 */}
@@ -1348,27 +1353,21 @@ const ActionFormModal: React.FC<{
   onSubmit: (values: FormValues) => Promise<boolean>;
 }> = ({ title, formSpec, submitting, onCancel, onSubmit }) => {
   const formRef = useRef<SchemaFormRendererHandle | null>(null);
-  const [values, setValues] = useState<FormValues>({});
   return (
-    <Modal
+    <DrawerForm
       title={title}
       open
-      confirmLoading={submitting}
-      width={560}
-      destroyOnHidden
-      onCancel={onCancel}
-      onOk={async () => {
-        if (formRef.current && !formRef.current.validate()) return;
-        await onSubmit(values);
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onCancel();
       }}
+      onFinish={async () => {
+        if (formRef.current && !formRef.current.validate()) return false;
+        return onSubmit(formRef.current?.getValues() ?? {});
+      }}
+      submitter={{ submitButtonProps: { loading: submitting } }}
+      drawerProps={{ destroyOnHidden: true, width: 560 }}
     >
-      <SchemaFormRenderer
-        ref={formRef}
-        spec={formSpec}
-        initialValues={values}
-        onValuesChange={(_, allValues) => setValues(allValues)}
-        hideSubmit
-      />
-    </Modal>
+      <SchemaFormRenderer ref={formRef} spec={formSpec} hideSubmit containerTagName="div" />
+    </DrawerForm>
   );
 };

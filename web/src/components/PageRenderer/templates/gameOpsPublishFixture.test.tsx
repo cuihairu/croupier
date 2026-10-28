@@ -122,10 +122,33 @@ jest.mock('@ant-design/pro-components', () => {
     </div>
   );
   const PageContainerStub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  const ProFormShellStub: React.FC<{
+    open?: boolean;
+    title?: React.ReactNode;
+    children?: React.ReactNode;
+    onOpenChange?: (open: boolean) => void;
+    onFinish?: (values: Record<string, unknown>) => Promise<boolean>;
+  }> = ({ open, title, children, onOpenChange, onFinish }) => {
+    if (!open) return null;
+    return (
+      <div data-testid="proform-shell">
+        {title}
+        {children}
+        <button type="button" onClick={() => onOpenChange?.(false)}>
+          Cancel
+        </button>
+        <button type="button" onClick={() => void onFinish?.({})}>
+          OK
+        </button>
+      </div>
+    );
+  };
   return {
     ProTable: jest.fn(ProTableStub),
     ProDescriptions: ProDescriptionsStub,
     PageContainer: PageContainerStub,
+    ModalForm: ProFormShellStub,
+    DrawerForm: ProFormShellStub,
   };
 });
 

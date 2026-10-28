@@ -50,6 +50,9 @@ export interface SchemaFormRendererProps {
   readonly?: boolean;
   disabled?: boolean;
   hideSubmit?: boolean;
+  /** RJSF 容器元素标签：默认 'form'。嵌入 ProForm（ModalForm/DrawerForm）
+   * 时传 'div' 避免嵌套 <form>，仍由同一 RJSF 引擎收集/校验动态参数。 */
+  containerTagName?: 'form' | 'div';
   /** D4：外部字段级错误（服务端参数校验的 details），按字段名注入到控件下方
    * （RJSF extraErrors），与本地校验并存、不替代本地校验。键为 schema 顶层
    * 属性名（嵌套属性请按 RJSF ErrorSchema 嵌套传入）。省略或空对象时不注入。 */
@@ -523,6 +526,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       readonly = false,
       disabled = false,
       hideSubmit = false,
+      containerTagName = 'form',
       externalErrors,
     },
     ref,
@@ -629,6 +633,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
           ref={formRef as React.Ref<RJSFFormRef>}
           schema={schema}
           uiSchema={uiSchema}
+          tagName={containerTagName}
           formContext={formContext}
           validator={validator}
           widgets={widgets}
