@@ -465,6 +465,10 @@ func TestCheckInvokePermissionRuleDeniesV9(t *testing.T) {
 	}))
 	err := CheckInvokePermission(context.Background(), svcCtx, []string{"operator"}, nil, "fn.1", "", "")
 	require.Error(t, err)
+	codeErr, ok := err.(*errorx.CodeError)
+	require.True(t, ok)
+	assert.Equal(t, "permission_denied", codeErr.ErrorCode())
+	assert.Equal(t, "fn.1", codeErr.Details["functionId"])
 	assert.Contains(t, err.Error(), "无权调用该函数")
 }
 

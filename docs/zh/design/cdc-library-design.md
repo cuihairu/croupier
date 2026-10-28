@@ -6,7 +6,7 @@ title: 通用 CDC 核心库与事件回放设计
 
 ## 状态与结论
 
-- 状态：L1/L2 核心、Croupier 可选 journal 接线与通用恢复协调契约已实现；MySQL/Mongo 不再误报完整事务边界，恢复门禁拒绝缺失能力；PostgreSQL 目标 DML 应用器与持久审计适配已实现，真实隔离库覆盖事务、幂等、冲突拒绝、回滚、dry-run、apply 与重放；PostgreSQL 源一致性快照已用临时 logical slot 导出的 exported snapshot 实现，schema history、MySQL/Mongo 源与更多目标仍待实施（2026-10-19）。
+- 状态：L1/L2 核心、Croupier 可选 journal 接线与通用恢复协调契约已实现；MySQL/Mongo 不再误报完整事务边界，恢复门禁拒绝缺失能力；PostgreSQL 目标 DML 应用器与持久审计适配已实现，真实隔离库覆盖事务、幂等、冲突拒绝、回滚、dry-run、apply 与重放；PostgreSQL 源一致性快照已用临时 logical slot 导出的 exported snapshot 实现；PostgreSQL 源 schema history 已实现（2026-10-28）——DDL 变更按事务源位点记录为版本化列型映射，连接器经 `SchemaHistorySource` 扩展面暴露，恢复按事件事务时点校验列集（MySQL/Mongo 维持 `transactionMetadata=false`、恢复门禁仍拒绝，不宣称完整 PITR）；MySQL/Mongo 源与更多目标仍待实施（2026-10-19）。
 - 结论：方向成熟、技术上可行。先在本仓建立业务无关的 Go package 边界，等契约有第二个真实消费者且版本策略稳定后，再拆成独立 Go module / 仓库。
 - 目标不是采集所有表。每个数据源必须显式声明感兴趣的库表和操作；核心库负责通用选择、源端可用时下推，并在事件进入下游前再次过滤。
 - “可回放”不等于“任意数据库都能完整 PITR”。只记录筛选后的事件时，只能恢复已采集范围；完整时间点恢复还需要一致性快照、连续位点、事务边界、DDL/schema 历史和目标库应用器。
@@ -56,14 +56,16 @@ Croupier adapter 已提供可选 `capture.journal` 配置：filter include 从�
 
 恢复协调契约位于 `pkg/cdc/recovery`，不含游戏/env 或某个数据库的 SQL。`TargetConfig` 只接收 adapter ID、非密选项和 DSN 环境变量名，并拒绝常见明文凭据选项；`Plan` 要求明确 principal、source、target、日志区间、源位点、精确表清单和一致快照覆盖；`Authorizer` 由产品 adapter 映射租户/游戏/环境权限，`SnapshotVerifier` 负责验证快照位置早于恢复起点及 schema 版本，`Applier` 声明能力、提供只读校验以及具备原子回滚和幂等键的事务应用，`Auditor` 必须持久记录请求、授权、预检、每个事务和最终结果。dry-run 只执行校验；apply 只有在预检和审计成功后才调 applier。审计仅存元数据、哈希事件 ID 和错误类型，不写 row image、SQL 错误原文或凭据。目标调用返回错误时，applier 必须保证事务回滚；结果未知时按 request ID + transaction ID 重试。能力声明增加 `schemaHistory`，源适配器必须只在确实能提供连续 DDL/schema 历史时才置为 true。
 
+schema history 在源侧记录为版本化列型映射：DDL（Relation/TABLE_MAP 变化）推进表级修订号，新列集（列名 + 源原生类型描述）自该事务源位点起生效；入 journal 的事件携带该 `SchemaVersion`，连接器经可选 `SchemaHistorySource` 扩展面暴露记录的历史（`SchemaAt` 按位点解析当时生效列集；`CurrentSchemaVersions` 报各表当前修订号供快照填充）。置 `RequireSchemaHistory` 的恢复计划对每个事件按其源位点当时的 schema 校验：事件引用该时点尚不存在的列即拒绝、不静默重映射；位置下标像（未映射列名）与不可核验查询都 fail-closed。MySQL/Mongo 保持 `schemaHistory=false`（未实现关系型 DDL→列型追踪 / 无关系型 schema），恢复门禁仍拒绝；任何源都不据此宣称完整 PITR。
+
 ## 阶段与验收
 
-| 阶段 | 范围                                                                                                                                 | 验收                                                                                                                                    |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| L1   | 独立 CDC 契约与通用 include/exclude 过滤                                                                                             | 无 Croupier import；空 include 默认拒绝；exclude 优先；旧 connector import 兼容；源过滤和 runtime 过滤一致                              |
-| L2   | 可选 append-only journal 与顺序回放 API（已实现）                                                                                    | 崩溃残尾处理、校验损坏、幂等 append、范围回放、事务不完整拒绝、sink 失败不推进读取游标；journal 持久化后再 ack source 位点              |
-| L3   | Croupier 接线与运维配置（已实现可选本地接线）                                                                                        | game/env 留在 adapter；表白名单/操作/exclude 编译为通用 filter；同一个 source stream 在 ack 前写日志；容量满时 fail closed              |
-| L4   | 通用恢复协调契约（已实现）                                                                                                           | 精确 scope、授权、快照覆盖校验、source/target 能力门禁、dry-run、事务原子回滚与幂等契约、持久审计                                       |
-| L5   | 具体数据库快照与目标库 adapter（PostgreSQL 目标 DML adapter 与审计适配已实现；PostgreSQL 源一致性快照已实现；schema history 未实现） | 每种 source/target 验证 snapshot/before/transaction/schema 能力；真实隔离库 dry-run、事务应用、失败回滚和审计集成；无能力的来源保持拒绝 |
+| 阶段 | 范围                                                                                                                                                                          | 验收                                                                                                                                    |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| L1   | 独立 CDC 契约与通用 include/exclude 过滤                                                                                                                                      | 无 Croupier import；空 include 默认拒绝；exclude 优先；旧 connector import 兼容；源过滤和 runtime 过滤一致                              |
+| L2   | 可选 append-only journal 与顺序回放 API（已实现）                                                                                                                             | 崩溃残尾处理、校验损坏、幂等 append、范围回放、事务不完整拒绝、sink 失败不推进读取游标；journal 持久化后再 ack source 位点              |
+| L3   | Croupier 接线与运维配置（已实现可选本地接线）                                                                                                                                 | game/env 留在 adapter；表白名单/操作/exclude 编译为通用 filter；同一个 source stream 在 ack 前写日志；容量满时 fail closed              |
+| L4   | 通用恢复协调契约（已实现）                                                                                                                                                    | 精确 scope、授权、快照覆盖校验、source/target 能力门禁、dry-run、事务原子回滚与幂等契约、持久审计                                       |
+| L5   | 具体数据库快照与目标库 adapter（PostgreSQL 目标 DML adapter 与审计适配已实现；PostgreSQL 源一致性快照已实现；PostgreSQL 源 schema history 已实现——真实容器 DDL 演进注入覆盖） | 每种 source/target 验证 snapshot/before/transaction/schema 能力；真实隔离库 dry-run、事务应用、失败回滚和审计集成；无能力的来源保持拒绝 |
 
 L1/L2 是可独立复用的库能力；L3 是产品接入；L4 是数据库无关的恢复协调边界；只有 L5 完成后，具体数据库才可被称为“可恢复”。

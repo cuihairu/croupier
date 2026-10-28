@@ -100,6 +100,14 @@ func hintFieldRole(raw string) string {
 	return raw
 }
 
+// hintFieldPerTarget 解析 x-field-per-target（D2 跨目标总量）：仅显式 true
+// 表示「该数量/金额按每个选中目标逐项计，批量确认框在目标数 >1 时另示总量」。
+// 非 true / 非法值一律视为未声明（不做语义猜测）。
+func hintFieldPerTarget(raw json.RawMessage) bool {
+	b := rawBool(raw)
+	return b != nil && *b
+}
+
 func firstLocalizedStr(pairs map[string]json.RawMessage, keys ...string) string {
 	for _, key := range keys {
 		if value := rawString(pairs[key]); value != "" {

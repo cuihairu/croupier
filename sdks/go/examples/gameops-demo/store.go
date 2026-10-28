@@ -127,6 +127,11 @@ type gameOpsStore struct {
 	activities []gameOpsActivity
 	opRecords  []gameOpsOpRecord
 	opSeq      int
+	// reportRunSeq counts actual report.generate executions. The platform's
+	// idempotency-key dedupe happens before the handler runs, so a retried
+	// invocation with the same key leaves this counter unchanged — the
+	// observable evidence for the E2 idempotent-retry scenario.
+	reportRunSeq int
 }
 
 var longNickname = "风起云涌一区无敌战神丶樱花漫天飞舞的超级无敌可爱小龙女本尊在此"
@@ -319,6 +324,7 @@ func (s *gameOpsStore) resetLocked() {
 			Target: "act-4003", Result: "success", OperationID: "op-5003"},
 	}
 	s.opSeq = len(s.opRecords)
+	s.reportRunSeq = 0
 }
 
 // Reset restores the initial deterministic seed.

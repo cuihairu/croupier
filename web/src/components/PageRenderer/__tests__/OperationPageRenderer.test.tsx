@@ -7,6 +7,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
+import { history } from '@umijs/max';
 import OperationPageRenderer from '../OperationPageRenderer';
 import type {
   ApprovalStatusResult,
@@ -139,6 +140,10 @@ describe('提交流程', () => {
     expect(
       screen.getByText('异步任务仍在执行，请在任务中心或任务页面查看进度。'),
     ).toBeInTheDocument();
+    const pushSpy = jest.spyOn(history, 'push');
+    fireEvent.click(screen.getByRole('button', { name: /前往任务中心/ }));
+    expect(pushSpy).toHaveBeenCalledWith('/ops/jobs');
+    pushSpy.mockRestore();
   });
 
   it('task 结果无 onQueryTaskStatus：不渲染查询按钮（只给任务号）', async () => {
@@ -239,6 +244,10 @@ describe('提交流程', () => {
     expect(screen.getByText('等待审批')).toBeInTheDocument();
     expect(screen.getByText('apr-1')).toBeInTheDocument();
     expect(screen.getByText('操作尚未完成')).toBeInTheDocument();
+    const pushSpy = jest.spyOn(history, 'push');
+    fireEvent.click(screen.getByRole('button', { name: /前往审批中心/ }));
+    expect(pushSpy).toHaveBeenCalledWith('/approvals?approvalId=apr-1');
+    pushSpy.mockRestore();
   });
 
   it('异常：Error 取 message，errorMessage 定制', async () => {
@@ -260,6 +269,20 @@ describe('提交流程', () => {
     submit();
     // toast 与结果卡片标题各出现一次
     await waitFor(() => expect(screen.getAllByText('操作失败').length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('权限不足：透出服务端 details 收敛原因，不落字段明细', async () => {
+    const { onExecute } = renderOp();
+    const err = new Error('无权限执行') as Error & { data: Record<string, unknown> };
+    err.data = {
+      error: 'permission_denied',
+      message: '无权限执行该操作',
+      details: { required: ['function:invoke'] },
+    };
+    onExecute.mockRejectedValueOnce(err);
+    submit();
+    await waitFor(() => expect(screen.getByText('缺少权限：function:invoke')).toBeInTheDocument());
+    expect(screen.queryByText(/required/)).toBeNull();
   });
 });
 
@@ -642,9 +665,7 @@ describe('D4 验收矩阵（异步执行 / 超时后成功）', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /重置结果/ }));
     // 重置清空结果卡（提示语随之消失）；瞬时 toast 允许残留
-    await waitFor(() =>
-      expect(screen.queryByText(/可能已在服务端执行/)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText(/可能已在服务端执行/)).not.toBeInTheDocument());
 
     onExecute.mockResolvedValueOnce(ok({ credited: true }));
     submit();

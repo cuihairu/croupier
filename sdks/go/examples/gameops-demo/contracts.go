@@ -17,6 +17,7 @@ const (
 	orderSchema    = `{"type":"object","properties":{"orderNo":{"type":"string"},"playerId":{"type":"string"},"nickname":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"channel":{"type":"string"},"status":{"type":"string"},"gameCredit":{"type":"string"},"reconciliation":{"type":"string"},"payTransactionId":{"type":"string"},"gameCreditRef":{"type":"string"},"paidAt":{"type":"string","format":"date-time"},"creditedAt":{"type":"string","format":"date-time"}}}`
 	activitySchema = `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"type":{"type":"string"},"timezone":{"type":"string"},"startAt":{"type":"string","format":"date-time"},"endAt":{"type":"string","format":"date-time"},"status":{"type":"string"},"currentVersion":{"type":"integer"},"versions":{"type":"array","items":{"type":"object","properties":{"version":{"type":"integer"},"note":{"type":"string"},"publishedAt":{"type":"string","format":"date-time"},"operator":{"type":"string"}}}},"versionHistory":{"type":"string"}}}`
 	successSchema  = `{"type":"object","properties":{"success":{"type":"boolean"},"id":{"type":"string"},"orderNo":{"type":"string"},"version":{"type":"integer"},"amount":{"type":"integer"},"count":{"type":"integer"},"lifted":{"type":"integer"},"retried":{"type":"integer"},"extraHours":{"type":"integer"},"approvalId":{"type":"string"}}}`
+	reportSchema   = `{"type":"object","properties":{"success":{"type":"boolean"},"reportId":{"type":"string"},"runSeq":{"type":"integer"},"rows":{"type":"integer"},"range":{"type":"string"}},"required":["success","reportId","runSeq"]}`
 )
 
 func collectionSchema(itemSchema string) string {
@@ -88,6 +89,15 @@ func gameOpsFunctionDefinitions(store *gameOpsStore) []gameOpsDefinition {
 		{croupier.FunctionDescriptor{ID: "activity.activate", Version: "1.0.0", Resource: "activity", Operation: "activate", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: successSchema}, store.activityActivate},
 		{croupier.FunctionDescriptor{ID: "activity.end", Version: "1.0.0", Resource: "activity", Operation: "end", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: successSchema}, store.activityEnd},
 		{croupier.FunctionDescriptor{ID: "activity.rollback", Version: "1.0.0", Resource: "activity", Operation: "rollback", Capability: "action", Execution: "sync", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"targetVersion":{"type":"integer","minimum":1}},"required":["id","targetVersion"]}`, OutputSchema: successSchema}, store.activityRollback},
+
+		// report.generate is the single task-mode (Execution: "task") contract.
+		// It reproduces the E2 async-task, delay/result-unknown and failure
+		// scenarios: invoked with mode=task the server returns a task id
+		// immediately (result unknown until completion), the handler sleeps
+		// delayMs (default ~2s) then succeeds or fails on the `fail` flag.
+		// runSeq counts actual executions so a platform idempotency-key dedupe
+		// leaves it unchanged on retry — the idempotent-retry observable.
+		{croupier.FunctionDescriptor{ID: "report.generate", Version: "1.0.0", Resource: "report", Operation: "generate", Capability: "task", Execution: "task", Risk: "warning", Enabled: true, InputSchema: `{"type":"object","properties":{"range":{"type":"string"},"fail":{"type":"boolean"},"delayMs":{"type":"integer","minimum":0}},"required":["range"]}`, OutputSchema: reportSchema}, store.reportGenerate},
 	}
 	return defs
 }

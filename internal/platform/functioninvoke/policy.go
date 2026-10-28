@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
@@ -111,7 +110,13 @@ func EnforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 			if roleErr == nil {
 				roleNames := utils.RoleNamesFromModels(adminRoles)
 				if !MatchAnyRole(roleNames, functionPolicy.AllowedRoles) {
-					return nil, errorx.NewForbidden("无权调用该函数（需要角色: " + strings.Join(functionPolicy.AllowedRoles, ", ") + "）")
+					return nil, utils.NewPermissionDenied(
+						"无权调用该函数（需要角色: "+strings.Join(functionPolicy.AllowedRoles, ", ")+"）",
+						map[string]any{
+							"functionId":   functionID,
+							"allowedRoles": functionPolicy.AllowedRoles,
+						},
+					)
 				}
 			}
 		}
@@ -123,7 +128,10 @@ func EnforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 		return functionPolicy, nil
 	}
 
-	return nil, errorx.NewForbidden("无权调用该函数")
+	return nil, utils.NewPermissionDenied("无权调用该函数", map[string]any{
+		"functionId":   functionID,
+		"allowedRoles": functionPolicy.AllowedRoles,
+	})
 }
 
 // MatchAnyRole checks if userRoles contains any of the allowedRoles (case-insensitive)

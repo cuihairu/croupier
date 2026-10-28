@@ -162,7 +162,10 @@ func TestMenuHandlerErrorShapes(t *testing.T) {
 	// 403：无 delete 权限
 	rec, payload = doMenuRequest(t, r, http.MethodDelete, "/api/v1/menus/1", "")
 	require.Equal(t, http.StatusForbidden, rec.Code)
-	assert.Equal(t, "forbidden", payload["error"])
+	assert.Equal(t, "permission_denied", payload["error"])
+	details, ok := payload["details"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{"menu:delete"}, details["required"])
 }
 
 func TestMenuHandlerAccessibleRoute(t *testing.T) {

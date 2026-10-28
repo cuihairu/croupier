@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
+	"github.com/cuihairu/croupier/pkg/cdc/schema"
 )
 
 // Decoder pgoutput 流解码状态机：把逐条 replication 消息翻译成
@@ -27,9 +28,16 @@ type Decoder struct {
 	// relations 表结构缓存（wire OID → 解析结果 + 修订号）。
 	relations map[uint32]*relationEntry
 	revision  int64 // 全局结构修订号（每次结构变化 +1，SchemaVersion 取值）
+	// schemaHist 源侧 schema 演进历史：每次结构变化按消息位点记录一个
+	// 列型映射版本（DDL→版本化；恢复时按事务位点查询校验）。见 SchemaHistory。
+	schemaHist *schema.History
 
 	cur    *txnAcc
 	curLSN LSN // 最近 Commit 的 EndLSN（解码器当前位点快照）
+	// curBeginLSN 当前事务 Begin 消息位点：pgoutput 的 Relation 消息是
+	// catalog 消息，不携带自身 WAL 位点（WALStart=0）——schema 版本的生效
+	// 点用所在事务的 Begin 位点兜底定位（见 cacheRelation）。
+	curBeginLSN string
 	// TruncatedRelations 已跳过的 TRUNCATE 关系数（可观测性）。
 	TruncatedRelations int64
 }
@@ -48,8 +56,28 @@ type txnAcc struct {
 }
 
 // NewDecoder 构造解码器。sourceID 进事件的 SourceID（策略 scope 对齐）。
+// schema 历史以 LSN 位点排序（十进制串比较）。
 func NewDecoder(sourceID string) *Decoder {
-	return &Decoder{sourceID: sourceID, relations: make(map[uint32]*relationEntry)}
+	return &Decoder{
+		sourceID:   sourceID,
+		relations:  make(map[uint32]*relationEntry),
+		schemaHist: schema.NewHistory(lsnLess),
+	}
+}
+
+// lsnLess 十进制 LSN 串的严格弱序（LSN.Decimal() 无前导零，长度即量级）。
+func lsnLess(a, b string) bool {
+	if len(a) != len(b) {
+		return len(a) < len(b)
+	}
+	return a < b
+}
+
+// SchemaHistory 返回本解码器记录的 schema 演进历史（结构变化→列型映射
+// 版本，按消息位点排序）。连接器把它接到恢复校验；消费方应使用 Clone()
+// 或只读访问，避免与并发 Feed 竞态。
+func (d *Decoder) SchemaHistory() *schema.History {
+	return d.schemaHist
 }
 
 // Checkpoint 当前位点（最近提交的 EndLSN 十进制串；尚无提交时零值位点）。
@@ -62,9 +90,11 @@ func (d *Decoder) Checkpoint() connector.Position {
 }
 
 // Feed 消费一条 pgoutput 消息负载（含首字节消息类型；对齐 pglogrepl
-// XLogData.WALData 载荷形态）。返回提交完成时整段事务的事件（其余消息
-// 返回 nil）。解码错误返回 error（调用方按协议致命处理，重连换槽续读）。
-func (d *Decoder) Feed(payload []byte) ([]connector.ChangeEvent, error) {
+// XLogData.WALData 载荷形态）及其消息位点（XLogData.WALStart 十进制串，
+// Relation 消息用它定位 schema 版本生效点；空串=位点未知，schema 历史
+// 跳过该版本——不猜）。返回提交完成时整段事务的事件（其余消息返回 nil）。
+// 解码错误返回 error（调用方按协议致命处理，重连换槽续读）。
+func (d *Decoder) Feed(payload []byte, msgLSN string) ([]connector.ChangeEvent, error) {
 	if len(payload) == 0 {
 		return nil, fmt.Errorf("pg: empty payload")
 	}
@@ -79,6 +109,7 @@ func (d *Decoder) Feed(payload []byte) ([]connector.ChangeEvent, error) {
 			return nil, fmt.Errorf("pg: begin inside transaction %d", d.cur.xid)
 		}
 		d.cur = &txnAcc{xid: begin.XID}
+		d.curBeginLSN = msgLSN // 事务位点（Relation 兜底定位用）
 	case 'C':
 		commit, err := ParseCommit(body)
 		if err != nil {
@@ -107,7 +138,9 @@ func (d *Decoder) Feed(payload []byte) ([]connector.ChangeEvent, error) {
 		if err != nil {
 			return nil, fmt.Errorf("pg: relation: %w", err)
 		}
-		d.cacheRelation(rel)
+		if err := d.cacheRelation(rel, msgLSN); err != nil {
+			return nil, fmt.Errorf("pg: relation %s.%s: %w", rel.Schema, rel.Name, err)
+		}
 	case 'I':
 		msg, err := ParseInsert(body)
 		if err != nil {
@@ -282,13 +315,42 @@ func datumJSON(typeOID uint32, raw []byte) (json.RawMessage, error) {
 }
 
 // cacheRelation 结构缓存更新：形状未变复用（修订号稳定）；首见或变化时
-// 全局修订号 +1（SchemaVersion 漂移信号）。
-func (d *Decoder) cacheRelation(rel *Relation) {
+// 全局修订号 +1（SchemaVersion 漂移信号），并按消息位点把该版本记入
+// schema 历史。pgoutput 的 Relation 是 catalog 消息，自身不带 WAL 位点
+// （WALStart=0）——用所在事务的 Begin 位点兜底定位（版本自该事务起生效，
+// 语义正确）；事务外且位点仍未知时跳过记录，恢复校验对该表该时点按
+// 「无版本」拒绝（fail-closed，不猜）。历史链不连续（乱序位点）按协议
+// 致命错误暴露，不静默丢版本。
+func (d *Decoder) cacheRelation(rel *Relation, lsn string) error {
 	if cur, ok := d.relations[rel.OID]; ok && relationEqual(cur.rel, rel) {
-		return
+		return nil
 	}
 	d.revision++
 	d.relations[rel.OID] = &relationEntry{rel: rel, revision: d.revision}
+	if lsn == "" || lsn == "0" {
+		lsn = d.curBeginLSN // catalog 消息位点缺失 → 事务位点兜底
+	}
+	if lsn == "" || lsn == "0" {
+		return nil // 事务外且无位点：跳过（不猜）
+	}
+	if err := d.schemaHist.Record(rel.Schema+"."+rel.Name, d.revision, lsn, tableSchemaOf(rel)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// tableSchemaOf Relation → schema.TableSchema（列型映射；Type 取 wire OID
+// 十进制串，TypeMod 透传——恢复侧按同源语义解释，不跨方言猜测）。
+func tableSchemaOf(rel *Relation) schema.TableSchema {
+	cols := make([]schema.Column, len(rel.Columns))
+	for i, c := range rel.Columns {
+		cols[i] = schema.Column{
+			Name:    c.Name,
+			Type:    strconv.FormatUint(uint64(c.TypeOID), 10),
+			TypeMod: int64(c.TypeMod),
+		}
+	}
+	return schema.TableSchema{Database: rel.Schema, Table: rel.Name, Columns: cols}
 }
 
 func relationEqual(a, b *Relation) bool {

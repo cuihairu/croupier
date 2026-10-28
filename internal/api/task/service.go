@@ -27,8 +27,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 }
 
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
+	pagination := model.NewPagination(req.Page, req.Size)
 	items, total, err := s.runtime.ListRuns(ctx, model.ListTasksOptions{
-		PaginationOptions: model.NewPagination(req.Page, req.Size),
+		PaginationOptions: pagination,
 		FunctionID:        req.FunctionID,
 		Status:            req.Status,
 		GameID:            svc.ResolveGameID(ctx, req.GameID),
@@ -42,7 +43,7 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 	for i := range items {
 		result = append(result, buildItem(&items[i]))
 	}
-	return &ListResponse{Items: result, Total: int(total)}, nil
+	return &ListResponse{Items: result, Total: int(total), Page: pagination.Page, Size: pagination.PageSize}, nil
 }
 
 // OperatorOptions 操作者聚合选项（#23）：当前 scope（含游戏/环境覆盖语义
@@ -245,7 +246,13 @@ func currentTaskScope(ctx context.Context) (svc.GameScope, error) {
 func requireTaskScope(ctx context.Context, run *model.TaskRun) error {
 	scope := svc.GameScopeFromContext(ctx)
 	if run == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, run.GameID, run.Env)) {
-		return errorx.NewForbidden("无权访问该任务")
+		details := map[string]any{}
+		if run != nil {
+			details["taskId"] = run.TaskID
+			details["taskScope"] = map[string]any{"gameId": run.GameID, "env": run.Env}
+		}
+		details["currentScope"] = map[string]any{"gameId": scope.GameID, "env": scope.Env}
+		return utils.NewPermissionDenied("无权访问该任务（当前游戏/环境与任务作用域不一致）", details)
 	}
 	return nil
 }

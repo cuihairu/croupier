@@ -14,8 +14,8 @@ import (
 func TestGameOpsContractsAreComplete(t *testing.T) {
 	store := newGameOpsStore()
 	defs := gameOpsFunctionDefinitions(store)
-	if len(defs) != 32 {
-		t.Fatalf("definitions = %d, want 32", len(defs))
+	if len(defs) != 33 {
+		t.Fatalf("definitions = %d, want 33", len(defs))
 	}
 	seen := map[string]bool{}
 	for _, def := range defs {
@@ -30,7 +30,7 @@ func TestGameOpsContractsAreComplete(t *testing.T) {
 		if desc.Risk != "safe" && desc.Risk != "warning" && desc.Risk != "high" && desc.Risk != "danger" {
 			t.Fatalf("%s unsupported risk %q", desc.ID, desc.Risk)
 		}
-		if desc.Capability == "" || desc.Execution != "sync" {
+		if desc.Capability == "" || (desc.Execution != "sync" && desc.Execution != "task") {
 			t.Fatalf("%s incomplete execution: capability=%q execution=%q", desc.ID, desc.Capability, desc.Execution)
 		}
 		if !desc.Enabled {
@@ -40,6 +40,20 @@ func TestGameOpsContractsAreComplete(t *testing.T) {
 		if _, err := gojsonschema.Validate(gojsonschema.NewStringLoader(desc.InputSchema), gojsonschema.NewGoLoader(map[string]any{})); err != nil {
 			t.Fatalf("%s input schema rejects empty request: %v", desc.ID, err)
 		}
+	}
+	// Exactly one task-mode contract exists and it carries the task capability:
+	// report.generate reproduces the E2 async/delay/failure/idempotency scenarios.
+	taskFuncs := 0
+	for _, def := range defs {
+		if def.desc.Execution == "task" {
+			taskFuncs++
+			if def.desc.ID != "report.generate" || def.desc.Capability != "task" {
+				t.Fatalf("task-mode function %s must be report.generate with capability task", def.desc.ID)
+			}
+		}
+	}
+	if taskFuncs != 1 {
+		t.Fatalf("task-mode definitions = %d, want 1 (report.generate)", taskFuncs)
 	}
 }
 
@@ -119,8 +133,8 @@ func TestRegisterGameOpsFunctions_Registration(t *testing.T) {
 	if err := registerGameOpsFunctions(client, newGameOpsStore()); err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	if len(client.registered) != 32 {
-		t.Fatalf("registered = %d, want 32", len(client.registered))
+	if len(client.registered) != 33 {
+		t.Fatalf("registered = %d, want 33", len(client.registered))
 	}
 	for _, desc := range client.registered {
 		if desc.Tags == nil || desc.Summary == "" || desc.Description == "" {

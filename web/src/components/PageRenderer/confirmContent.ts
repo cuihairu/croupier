@@ -73,13 +73,45 @@ export function confirmPayloadChanged(
   return false;
 }
 
+/** 批量总量条目（D2 跨目标总量）：字段声明 x-field-per-target（数量/金额按
+ * 每个选中目标逐项计）且目标数 >1、值为有限数字时，追加一条「总量 = 值 ×
+ * 目标数」条目——单位与语义强调复用该字段声明，不做语义猜测（未声明
+ * per-target 的字段即使批量也不乘总量）。 */
+function batchTotalEntry(
+  field: FormFieldSpec | undefined,
+  key: string,
+  rawValue: unknown,
+  targetCount: number,
+  totalSuffix: string,
+): ConfirmEntry | null {
+  if (!field?.perTarget || targetCount <= 1) return null;
+  const num =
+    typeof rawValue === 'number'
+      ? rawValue
+      : typeof rawValue === 'string' && rawValue.trim() !== ''
+        ? Number(rawValue)
+        : NaN;
+  if (!Number.isFinite(num)) return null;
+  return {
+    key: `${key}__batchTotal`,
+    title: `${confirmFieldTitle(field, key)}${totalSuffix}`,
+    value: String(num * targetCount),
+    role: field.role,
+    unit: field.unit,
+  };
+}
+
 /** 确认框条目：params 按表单字段声明序排列（未在表单声明的参数按原序追加）。
- * 空值条目保留——「确认内容与实际提交一致」优先于视觉精简。 */
+ * 空值条目保留——「确认内容与实际提交一致」优先于视觉精简。opts.targetCount
+ * >1 时对 x-field-per-target 字段追加总量条目（D2 跨目标总量）。 */
 export function describeConfirmEntries(
   spec: FormPresentationSpec | undefined,
   params: Record<string, unknown> | undefined,
+  opts?: { targetCount?: number; totalSuffix?: string },
 ): ConfirmEntry[] {
-  const entries = Object.entries(params ?? {}).map(([key, value]) => {
+  const targetCount = opts?.targetCount ?? 1;
+  const totalSuffix = opts?.totalSuffix ?? '总量';
+  const entries: ConfirmEntry[] = Object.entries(params ?? {}).map(([key, value]) => {
     const field = spec?.fields?.find((f) => f.key === key);
     return {
       key,
@@ -89,10 +121,26 @@ export function describeConfirmEntries(
       unit: field?.unit,
     };
   });
-  if (!spec?.fields?.length) return entries;
-  const order = new Map(spec.fields.map((field, index) => [field.key, index]));
-  return [...entries].sort(
-    (a, b) =>
-      (order.get(a.key) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.key) ?? Number.MAX_SAFE_INTEGER),
-  );
+  let ordered = entries;
+  if (spec?.fields?.length) {
+    const order = new Map(spec.fields.map((field, index) => [field.key, index]));
+    ordered = [...entries].sort(
+      (a, b) =>
+        (order.get(a.key) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(b.key) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }
+  if (targetCount > 1) {
+    for (const [key, value] of Object.entries(params ?? {})) {
+      const total = batchTotalEntry(
+        spec?.fields?.find((f) => f.key === key),
+        key,
+        value,
+        targetCount,
+        totalSuffix,
+      );
+      if (total) ordered = [...ordered, total];
+    }
+  }
+  return ordered;
 }

@@ -52,9 +52,10 @@ pnpm start
 E2 闭环需要在共享数据源之上提供可调用函数契约与执行器，而非浏览器内存行。`sdks/go/examples/gameops-demo` 是本片第一步的服务端基座：
 
 - 把本节的示例 seed 镜像为进程内可变 store（`newGameOpsStore()`/`Reset()`）。
-- 通过 SDK→Agent→Server 既有注册链注册 E1 `PageSpec` 绑定引用的 32 个精确函数 ID（`player.*`、`mail_task.*`、`ban.*`、`order.*`、`activity.*`），携带 `FunctionContract` 字段（`resource/operation/capability/execution/risk/inputSchema/outputSchema`）。
+- 通过 SDK→Agent→Server 既有注册链注册 E1 `PageSpec` 绑定引用的 32 个精确函数 ID（`player.*`、`mail_task.*`、`ban.*`、`order.*`、`activity.*`）外加任务态 `report.generate`（共 33 个），携带 `FunctionContract` 字段（`resource/operation/capability/execution/risk/inputSchema/outputSchema`）。
 - 查询契约接受 `current/pageSize/orderBy/orderDirection` 与资源专属筛选字段；写操作写入共享 store 并可回读。
 - 幂等守卫在服务端（已发货补发 → `already_credited`；无失败目标重试 → `no_failed_targets`）。
+- E2 异常状态闭环：`report.generate` 是唯一 `Execution: "task"` 契约。以 mode=task 调用时服务端立即返回任务 id（结果未知直到完成）；执行器等待 `delayMs`（默认约 2s）后按 `fail` 标志成功或失败，并响应上下文取消。其 `runSeq` 统计实际执行次数，平台按幂等键去重（发生在执行器之前）时重试不改变它——即幂等重试场景的可观测证据。待审批场景经既有高风险函数（`player.ban`、`ban.*`）可达：其默认策略 `RequireApproval: true` 走真实审批闸。
 
 ```bash
 make run-gameops-demo        # 默认 agent=127.0.0.1:19091 game=croupier-demo env=local-demo

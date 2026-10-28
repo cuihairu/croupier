@@ -139,7 +139,7 @@ func TestPostgresCapabilities(t *testing.T) {
 	if !caps.BeforeImage && !caps.AfterImage {
 		t.Fatalf("capabilities = %+v", caps)
 	}
-	if !caps.TransactionMetadata || !caps.Snapshot || caps.SchemaHistory || !caps.ResumableCheckpoint {
+	if !caps.TransactionMetadata || !caps.Snapshot || !caps.ResumableCheckpoint || !caps.SchemaHistory {
 		t.Fatalf("capabilities = %+v", caps)
 	}
 	if caps.Pushdown {

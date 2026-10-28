@@ -6,6 +6,8 @@ export interface ExecFailure {
   code: string;
   message: string;
   fieldErrors: Array<{ field: string; message: string }>;
+  /** 权限类失败的结构化原因（required/allowedRoles），不落字段明细。 */
+  reason?: string;
   /** 结果类别（D4 超时/网络中断）：unknown=请求可能已在服务端执行、结果未知，
    * failed=服务端已应答（HTTP 错误）或本地失败、结果已知为未成功。 */
   outcome: 'failed' | 'unknown';
@@ -48,9 +50,55 @@ function fieldErrorsOf(details: unknown): ExecFailure['fieldErrors'] {
     .filter((item) => item.field);
 }
 
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0);
+}
+
+function firstString(details: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = details[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+/** 权限类失败把服务端 details 收敛为可读原因（不暴露原始 key）。 */
+export function describePermissionReason(code: string, details: unknown): string | undefined {
+  if (
+    ![
+      'forbidden',
+      'permission_denied',
+      'scope_not_authorized',
+      'invalid_game_scope',
+      'scope_required',
+    ].includes(code)
+  ) {
+    return undefined;
+  }
+  // 无效 scope：全局错误处理已清 scope 让 GameSelector 重选，这里给页内
+  // 反馈条一个同源原因行（不暴露原始 key）。
+  if (['scope_not_authorized', 'invalid_game_scope', 'scope_required'].includes(code)) {
+    return '当前选择的游戏环境无效，请重新选择';
+  }
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return undefined;
+  const record = details as Record<string, unknown>;
+  const parts: string[] = [];
+  const required = stringList(record.required ?? record.requiredPermissions ?? record.permissions);
+  if (required.length > 0) parts.push(`缺少权限：${required.join('、')}`);
+  const roles = stringList(record.allowedRoles);
+  if (roles.length > 0) parts.push(`需要角色：${roles.join('、')}`);
+  const functionId = firstString(record, ['functionId']);
+  if (functionId && parts.length === 0) parts.push(`函数：${functionId}`);
+  return parts.length > 0 ? parts.join('；') : undefined;
+}
+
 /** 从执行异常提取失败反馈（400 参数错误、403 权限不足等）。 */
 export function describeExecFailure(err: unknown): ExecFailure {
   const body = errorBody(err);
+  const code = extractApiErrorCode(err);
   const message =
     typeof body?.message === 'string' && body.message
       ? body.message
@@ -58,9 +106,10 @@ export function describeExecFailure(err: unknown): ExecFailure {
         ? ((err as ErrorLike).message as string)
         : '';
   return {
-    code: extractApiErrorCode(err),
+    code,
     message,
-    fieldErrors: fieldErrorsOf(body?.details),
+    reason: describePermissionReason(code, body?.details),
+    fieldErrors: describePermissionReason(code, body?.details) ? [] : fieldErrorsOf(body?.details),
     // 传输层失败（超时/网络中断）结果未知：可能已在服务端执行，不能按
     // 「已失败」提示盲目重试（D4 只在幂等保证或确认未执行时安全重试）。
     outcome: isResultUnknownError(err) ? 'unknown' : 'failed',

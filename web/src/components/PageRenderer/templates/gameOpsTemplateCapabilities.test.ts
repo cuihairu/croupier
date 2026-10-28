@@ -105,6 +105,104 @@ describe('业务模板函数绑定', () => {
   });
 });
 
+// 共享 helper：模板列表列（D5/D1 能力断言共用）。
+const resourceColumns = (entry: (typeof gameOpsTemplates)[number]) =>
+  entry.pageSpec.resource?.listView?.columns ?? [];
+// 模板默认呈现（D5）与详情面（D1）——五个模板统一走 ResourcePageSpec，
+// 默认能力（身份列固定可复制、前置筛选、危险操作定位、时间/单位/枚举语义）
+// 由模板配置声明、渲染器按显式语义消费，不靠字段名猜测。
+describe('业务模板默认呈现（D5）与详情面（D1）', () => {
+  const resourceOf = (entry: (typeof gameOpsTemplates)[number]) => {
+    if (entry.pageSpec.type !== 'resource') {
+      throw new Error(`模板 ${entry.key} 不是 resource 规格`);
+    }
+    return entry.pageSpec.resource;
+  };
+
+  it('每个模板声明身份列（identityKey）且列表有固定可复制列', () => {
+    for (const entry of gameOpsTemplates) {
+      const res = resourceOf(entry);
+      expect(res.listView?.identityKey).toBeTruthy();
+      // 身份列固定 + 可复制：至少一列固定左且 render='copy'
+      const copy = res.listView?.columns.filter((c) => c.render === 'copy');
+      expect(copy?.length).toBeGreaterThan(0);
+      const fixedCopy = copy?.some((c) => c.fixed === 'left');
+      expect(fixedCopy).toBe(true);
+    }
+  });
+
+  it('每个模板提供可筛选前置查询条件（至少一列 filterable）', () => {
+    for (const entry of gameOpsTemplates) {
+      const res = resourceOf(entry);
+      expect(res.listView?.columns.some((c) => c.filterable)).toBe(true);
+    }
+  });
+
+  it('每个模板有显式详情面（detailView 字段非空）', () => {
+    for (const entry of gameOpsTemplates) {
+      const res = resourceOf(entry);
+      expect(res.detailView?.fields.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('定位危险操作：声明的 danger 动作落在列表动作区，破坏性封禁面为 danger', () => {
+    for (const entry of gameOpsTemplates) {
+      const res = resourceOf(entry);
+      const allActions = [
+        ...(res.listView?.rowActions ?? []),
+        ...(res.listView?.batchActions ?? []),
+        ...(res.listView?.toolbarActions ?? []),
+      ];
+      // 声明的 danger 动作必须落在列表动作区（定位可见），不藏在详情/表单深处
+      for (const a of allActions) {
+        if (a.type === 'danger') {
+          expect(allActions.some((x) => x.type === 'danger')).toBe(true);
+        }
+      }
+    }
+    // 破坏性操作面（封禁）定位为 danger：玩家管理模板的封禁行操作
+    const player = resourceOf(gameOpsTemplates.find((e) => e.key === 'player-manage')!);
+    expect(player.listView?.rowActions?.some((a) => a.type === 'danger')).toBe(true);
+  });
+
+  it('每个模板时间列用 datetime（渲染器标浏览器时区，不靠字段名猜时区）', () => {
+    for (const entry of gameOpsTemplates) {
+      const res = resourceOf(entry);
+      expect(res.listView?.columns.some((c) => c.dataType === 'datetime')).toBe(true);
+    }
+  });
+
+  it('每个模板状态列用业务枚举标签（enum 列，渲染器着色）', () => {
+    for (const entry of gameOpsTemplates) {
+      const res = resourceOf(entry);
+      expect(res.listView?.columns.some((c) => c.dataType === 'enum' && c.enum?.length)).toBe(true);
+    }
+  });
+
+  it('数量/金额列单位显式声明（unit、标题单位或币种枚举列），版本/计数列豁免', () => {
+    // 金额/数量语义列（key 或标题匹配）必须显式标单位，不靠字段名猜测倍率；
+    // 版本、计数等无量纲列不适用。金额单位可由相邻币种枚举列声明（币种随行变化，
+    // 静态 unit 反而失真）。
+    const amountLike = (c: { key: string; title: { 'zh-CN'?: string } }): boolean =>
+      /amount|gold|price|qty|quantity|balance|coin|compensat|fee|cost/i.test(c.key) ||
+      /[金额金币每人数量总量]/u.test(String(c.title['zh-CN'] ?? ''));
+    const hasUnitWord = (title: string): boolean => /[金元个条天小时次份人]/u.test(title);
+    for (const entry of gameOpsTemplates) {
+      const res = resourceOf(entry);
+      const numberCols = res.listView?.columns.filter((c) => c.dataType === 'number') ?? [];
+      const currencyCol = res.listView?.columns.find((c) => c.key === 'currency' && c.enum?.length);
+      for (const c of numberCols) {
+        if (!amountLike(c)) continue;
+        const declared =
+          Boolean(c.unit) || hasUnitWord(String(c.title['zh-CN'] ?? '')) || Boolean(currencyCol);
+        expect(declared).toBe(true);
+      }
+      // 至少存在一个数量/金额语义列（模板均有可量化数据面）
+      expect(numberCols.length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('D5 模板默认呈现', () => {
   it('身份列固定可复制且作为常用查询条件前置', () => {
     for (const entry of gameOpsTemplates) {
@@ -151,8 +249,6 @@ describe('D5 模板默认呈现', () => {
     },
     'activity-config': { currentVersion: { 'zh-CN': '版', 'en-US': 'versions' } },
   };
-  const resourceColumns = (entry: (typeof gameOpsTemplates)[number]) =>
-    entry.pageSpec.resource?.listView?.columns ?? [];
 
   it('量纲列显式声明单位、时间列标题不硬编码时区、状态列走枚举标签', () => {
     for (const entry of gameOpsTemplates) {

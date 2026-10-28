@@ -326,6 +326,9 @@ export interface CompositeRuntime<T extends RuntimeSection> {
     label?: string;
     steps?: ConfirmContentModel['steps'];
     afterOpen?: () => void;
+    /** D2 跨目标总量：危险确认打开时源表格区块的已选目标数（>1 时确认框对
+     * x-field-per-target 字段追加总量条目；弹窗内改动后重新确认沿用同一计数）。 */
+    targetCount?: number;
   }) => void;
   runChain: (chain: RuntimeStep[] | undefined, ctx?: Record<string, unknown>) => Promise<void>;
   fireEvent: (sec: T, eventName: string, ctx?: Record<string, unknown>) => void;
@@ -388,6 +391,9 @@ export function useCompositeRuntime<T extends RuntimeSection>(
   const [dangerConfirm, setDangerConfirm] = useState<{
     target: string;
     confirmed: Record<string, unknown>;
+    /** D2 跨目标总量：危险确认打开时源表格区块的已选目标数（>1 时确认框对
+     * x-field-per-target 字段追加总量条目；弹窗内改动后重新确认沿用同一计数）。 */
+    targetCount?: number;
   } | null>(null);
   const setDialogKey = useCallback((key: string | null) => {
     setDialogKeyState(key);
@@ -863,20 +869,27 @@ export function useCompositeRuntime<T extends RuntimeSection>(
       label?: string;
       steps?: ConfirmContentModel['steps'];
       afterOpen?: () => void;
+      /** D2 跨目标总量：源表格区块的已选目标数（批量确认据此对
+       * x-field-per-target 字段追加总量条目）。 */
+      targetCount?: number;
     }) => {
       setSectionInputs((prev) => ({ ...prev, [opts.target]: opts.params }));
       const open = () => {
         setDialogKey(opts.target);
         // 危险确认基线只归属本次弹窗打开；非危险打开必须清空旧基线。
         setDangerConfirm(
-          opts.danger && opts.label ? { target: opts.target, confirmed: opts.params } : null,
+          opts.danger && opts.label
+            ? { target: opts.target, confirmed: opts.params, targetCount: opts.targetCount }
+            : null,
         );
         opts.afterOpen?.();
       };
       if (opts.danger && opts.label) {
         confirmDanger({
           label: opts.label,
-          entries: describeConfirmEntries(formSpecOfTarget(opts.target), opts.params),
+          entries: describeConfirmEntries(formSpecOfTarget(opts.target), opts.params, {
+            targetCount: opts.targetCount,
+          }),
           steps: opts.steps,
           onOk: open,
         });
@@ -1011,7 +1024,7 @@ export function useCompositeRuntime<T extends RuntimeSection>(
         return new Promise<SubmitFormOutcome>((resolve, reject) => {
           confirmDanger({
             label: localizedText(sec.title, 'zh-CN', sec.key),
-            entries: describeConfirmEntries(sec.form, plain),
+            entries: describeConfirmEntries(sec.form, plain, { targetCount: dc.targetCount }),
             onOk: () => {
               execute().then(resolve, reject);
             },

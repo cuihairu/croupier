@@ -14,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/agents/capture/connector"
 
 	// pgx stdlib：database/sql 驱动注册（测试建表/发布用普通连接）。
+	"github.com/cuihairu/croupier/pkg/cdc/schema"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -350,5 +351,150 @@ func TestPostgresConnectorSnapshot(t *testing.T) {
 	}
 	if slots != 0 {
 		t.Fatalf("temporary snapshot slots = %d, want 0", slots)
+	}
+}
+
+// schema 演进历史真实容器验收（todo 69）：DDL 变更（ALTER TABLE ADD COLUMN）
+// 注入真实 postgres 复制流 → 连接器按消息位点记录列型映射版本化；恢复按
+// 事务时点查询 schema（SchemaAt）——旧事务位点得到旧列集、DDL 后得到新
+// 列集；引用时点外列的事件按历史 schema 拒绝（旧事件恢复拒绝路径）。
+func TestPostgresConnectorSchemaEvolutionHistory(t *testing.T) {
+	dsn := os.Getenv("TEST_POSTGRES_CAPTURE_DSN")
+	if dsn == "" {
+		t.Skip("TEST_POSTGRES_CAPTURE_DSN not configured")
+	}
+	const slot = "capture_pg_schema_test_slot"
+	const pub = "capture_pg_schema_test_pub"
+	const table = "public.schema_evo"
+
+	mustExecPG(t, dsn,
+		`SELECT pg_drop_replication_slot('`+slot+`') WHERE EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name='`+slot+`')`,
+		`DROP PUBLICATION IF EXISTS `+pub,
+		`DROP TABLE IF EXISTS `+table,
+		`CREATE TABLE `+table+` (id INT PRIMARY KEY, v TEXT NOT NULL)`,
+		`CREATE PUBLICATION `+pub+` FOR TABLE `+table,
+	)
+	t.Cleanup(func() {
+		for i := 0; i < 10; i++ {
+			db, err := sql.Open("pgx", dsn)
+			if err != nil {
+				break
+			}
+			_, err = db.Exec(`SELECT pg_drop_replication_slot('` + slot + `') WHERE EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name='` + slot + `')`)
+			_ = db.Close()
+			if err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		mustExecPG(t, dsn, `DROP PUBLICATION IF EXISTS `+pub, `DROP TABLE IF EXISTS `+table)
+	})
+
+	cfg := connector.SourceConfig{
+		SourceID:   "pg-schema-itest",
+		SourceType: "postgres",
+		DSNEnv:     "TEST_POSTGRES_CAPTURE_DSN",
+		Options:    map[string]string{"slotName": slot, "publication": pub},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	c := NewPostgresConnector(cfg, nil)
+	if err := c.Open(ctx, cfg); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = c.Close(ctx) }()
+
+	events, err := c.Poll(ctx, connector.PollRequest{Tables: []string{table}})
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("dml open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	// v1 事件（DDL 前：id, v 两列）。
+	if _, err := db.Exec(`INSERT INTO ` + table + ` (id, v) VALUES (1, 'v1')`); err != nil {
+		t.Fatalf("insert v1: %v", err)
+	}
+	ev1 := waitPGEvent(t, events, func(e connector.ChangeEvent) bool {
+		return e.Operation == connector.OpInsert && imageHasMarker(e, "v1")
+	})
+	if ev1.SchemaVersion != 1 {
+		t.Fatalf("v1 event schema version = %d, want 1", ev1.SchemaVersion)
+	}
+	if ev1.Position.Kind != "lsn" || !ev1.Position.Valid() {
+		t.Fatalf("v1 event position = %+v", ev1.Position)
+	}
+
+	// DDL 注入：加列 w。
+	if _, err := db.Exec(`ALTER TABLE ` + table + ` ADD COLUMN w INT`); err != nil {
+		t.Fatalf("alter: %v", err)
+	}
+
+	// v2 事件（DDL 后：id, v, w 三列）。
+	if _, err := db.Exec(`INSERT INTO ` + table + ` (id, v, w) VALUES (2, 'v2', 7)`); err != nil {
+		t.Fatalf("insert v2: %v", err)
+	}
+	ev2 := waitPGEvent(t, events, func(e connector.ChangeEvent) bool {
+		return e.Operation == connector.OpInsert && imageHasMarker(e, "v2")
+	})
+	if ev2.SchemaVersion != 2 {
+		t.Fatalf("v2 event schema version = %d, want 2", ev2.SchemaVersion)
+	}
+
+	// 连接器暴露的 schema 历史：两版本，列集按 DDL 分割。
+	hist := c.schemaHistorySnapshot()
+	if err := hist.Validate(); err != nil {
+		t.Fatalf("history validate: %v", err)
+	}
+	if got := len(hist.Versions(table)); got != 2 {
+		t.Fatalf("history versions = %d, want 2", got)
+	}
+	s1, rev1, found1 := hist.At(table, ev1.Position.Value)
+	if !found1 || rev1 != 1 {
+		t.Fatalf("At(ev1 lsn) = rev %d found %v, want rev 1", rev1, found1)
+	}
+	if !s1.HasColumn("id") || !s1.HasColumn("v") || s1.HasColumn("w") {
+		t.Fatalf("v1 schema columns = %v, want [id v]", s1.ColumnNames())
+	}
+	s2, rev2, found2 := hist.At(table, ev2.Position.Value)
+	if !found2 || rev2 != 2 || !s2.HasColumn("w") {
+		t.Fatalf("At(ev2 lsn) = rev %d found %v cols %v, want rev 2 with w", rev2, found2, s2.ColumnNames())
+	}
+
+	// 连接器 SchemaHistorySource 扩展面：SchemaAt 与 CurrentSchemaVersions。
+	viaConn, err := c.SchemaAt(ctx, table, ev1.Position)
+	if err != nil {
+		t.Fatalf("SchemaAt(ev1): %v", err)
+	}
+	if viaConn.HasColumn("w") {
+		t.Fatalf("SchemaAt(ev1) returned future column set: %v", viaConn.ColumnNames())
+	}
+	viaConn2, err := c.SchemaAt(ctx, table, ev2.Position)
+	if err != nil {
+		t.Fatalf("SchemaAt(ev2): %v", err)
+	}
+	if !viaConn2.HasColumn("w") {
+		t.Fatalf("SchemaAt(ev2) missing w: %v", viaConn2.ColumnNames())
+	}
+	cur, err := c.CurrentSchemaVersions(ctx)
+	if err != nil {
+		t.Fatalf("CurrentSchemaVersions: %v", err)
+	}
+	if cur[table] != 2 {
+		t.Fatalf("current schema versions = %v, want %s=2", cur, table)
+	}
+
+	// 旧事件恢复拒绝路径：v2 事件列集（含 w）在 v1 时点 schema 下被拒。
+	if err := schema.ValidateColumns(s1, []string{"id", "v", "w"}); err == nil {
+		t.Fatal("v2 event columns validated under v1 time-point schema must be rejected")
+	}
+	// v1 事件列集在 v1 时点 schema 下通过（不误伤）。
+	if err := schema.ValidateColumns(s1, []string{"id", "v"}); err != nil {
+		t.Fatalf("v1 event under v1 schema: %v", err)
 	}
 }

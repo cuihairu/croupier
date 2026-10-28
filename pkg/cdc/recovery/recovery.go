@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/cuihairu/croupier/pkg/cdc"
 	"github.com/cuihairu/croupier/pkg/cdc/journal"
+	"github.com/cuihairu/croupier/pkg/cdc/schema"
 )
 
 type Mode string
@@ -205,6 +207,13 @@ type Auditor interface {
 	Append(context.Context, AuditRecord) error
 }
 
+// SchemaHistoryAt resolves the source schema version current at a source
+// position (恢复时按事务位点的 schema 校验). It is consulted only when
+// plan.RequireSchemaHistory is set; a lookup miss or unverifiable event is
+// fail-closed (reject), never silently re-mapped. The recovery wiring fills it
+// from the source connector's recorded schema history.
+type SchemaHistoryAt func(ctx context.Context, table string, pos cdc.Position) (schema.TableSchema, error)
+
 // Executor coordinates preflight, authorization, audit and journal replay.
 type Executor struct {
 	Journal      *journal.Journal
@@ -214,6 +223,9 @@ type Executor struct {
 	Target       Applier
 	Audit        Auditor
 	Source       cdc.Capabilities
+	// SchemaHistory 时点 schema 查询（RequireSchemaHistory 计划校验用；为 nil
+	// 时要求 schema 历史的计划在重放前即拒绝——不降级为跳过）。
+	SchemaHistory SchemaHistoryAt
 }
 
 // Result reports the last transaction sequence accepted by the target (or
@@ -263,6 +275,13 @@ func (x *Executor) Execute(ctx context.Context, plan Plan) (Result, error) {
 	}
 	if plan.RequireSchemaHistory && !x.Source.SchemaHistory {
 		err := errors.New("recovery: source does not provide schema history")
+		_ = x.audit(ctx, plan, "preflight_failed", 0, nil, err)
+		return result, err
+	}
+	if plan.RequireSchemaHistory && x.SchemaHistory == nil {
+		// 能力声明了 schema 历史，但重放侧没有时点查询来源：fail-closed，
+		// 不降级为跳过校验。
+		err := errors.New("recovery: plan requires schema history but executor has no schema history source")
 		_ = x.audit(ctx, plan, "preflight_failed", 0, nil, err)
 		return result, err
 	}
@@ -345,6 +364,10 @@ func (s *recoverySink) Apply(ctx context.Context, events []cdc.ChangeEvent) erro
 		sum := sha256.Sum256([]byte(event.ID))
 		ids = append(ids, hex.EncodeToString(sum[:]))
 	}
+	if err := s.executor.validateSchemaTimePoint(ctx, s.plan, events); err != nil {
+		_ = s.executor.audit(ctx, s.plan, "transaction_validation_failed", 0, ids, err)
+		return err
+	}
 	if err := s.executor.Target.ValidateTransaction(ctx, s.plan, events); err != nil {
 		_ = s.executor.audit(ctx, s.plan, "transaction_validation_failed", 0, ids, err)
 		return err
@@ -367,6 +390,53 @@ func (s *recoverySink) Apply(ctx context.Context, events []cdc.ChangeEvent) erro
 	}
 	s.transactions++
 	return nil
+}
+
+// validateSchemaTimePoint 恢复时按事务时点校验 schema：RequireSchemaHistory
+// 计划对每个事件的列集按其源位点当时的 schema 版本核验（旧事件引用时点外
+// 的列→拒绝）。位置下标像（ColumnsMapped=false）、空校验面与查询失败都
+// fail-closed——不可核验的事件不静默放行。
+func (x *Executor) validateSchemaTimePoint(ctx context.Context, plan Plan, events []cdc.ChangeEvent) error {
+	if !plan.RequireSchemaHistory {
+		return nil
+	}
+	if x.SchemaHistory == nil {
+		return errors.New("recovery: schema history validation requested without a schema history source")
+	}
+	for i := range events {
+		event := &events[i]
+		if !event.ColumnsMapped {
+			return fmt.Errorf("recovery: event %s columns are positional; cannot validate against schema history", event.ID)
+		}
+		cols := eventColumnNames(event)
+		if len(cols) == 0 {
+			return fmt.Errorf("recovery: event %s has no columns to validate against schema history", event.ID)
+		}
+		ts, err := x.SchemaHistory(ctx, event.QualifiedTable(), event.Position)
+		if err != nil {
+			return fmt.Errorf("recovery: schema history lookup for %s at %s: %w",
+				event.QualifiedTable(), event.Position.String(), err)
+		}
+		if err := schema.ValidateColumns(ts, cols); err != nil {
+			return fmt.Errorf("recovery: event %s violates schema at its time point: %w", event.ID, err)
+		}
+	}
+	return nil
+}
+
+// eventColumnNames 行像引用的列名集合（before/after 并集）。
+func eventColumnNames(event *cdc.ChangeEvent) []string {
+	seen := make(map[string]struct{})
+	for _, image := range []map[string]json.RawMessage{event.Before, event.After} {
+		for name := range image {
+			seen[name] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for name := range seen {
+		out = append(out, name)
+	}
+	return out
 }
 
 // NormalizeTables canonicalizes a table list for stable plan hashes and audits.
