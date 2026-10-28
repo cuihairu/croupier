@@ -63,14 +63,16 @@ export function summarizeTargets(
 }
 
 /** 批量操作的每人数量 × 目标数 = 总量（D2 跨目标总量）。
- * 只有 perQuantity 为有限非负数且目标数为正整数时才给出总量，否则返回
- * undefined——不确定的量不能硬猜成 0。 */
+ * 每人数量必须是有限非负整数且目标数为正整数，否则返回 undefined——
+ * 不确定的量不能硬猜成 0，也不能静默给出小数总量。 */
 export function summarizeQuantityTotal(
   perQuantity: number | string | undefined | null,
   targetCount: number,
 ): number | undefined {
   const per = typeof perQuantity === 'string' ? Number(perQuantity) : perQuantity;
-  if (typeof per !== 'number' || !Number.isFinite(per) || per < 0) return undefined;
+  if (typeof per !== 'number' || !Number.isFinite(per) || per < 0 || !Number.isInteger(per)) {
+    return undefined;
+  }
   if (!Number.isInteger(targetCount) || targetCount <= 0) return undefined;
   return per * targetCount;
 }

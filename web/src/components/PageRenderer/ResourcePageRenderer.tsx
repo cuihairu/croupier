@@ -594,50 +594,85 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           perQuantity as number | string | undefined,
           selection.length,
         );
-        if (total !== undefined) {
-          const unit = quantityField.unit ? localizedText(quantityField.unit, 'zh-CN', '') : '';
-          const ok = await new Promise<boolean>((resolve) => {
-            modal.confirm({
-              title: intl.formatMessage({
-                id: 'component.resourceRenderer.confirm.totalTitle',
-                defaultMessage: '核对跨目标总量',
-              }),
-              content: (
-                <Descriptions size="small" column={1} bordered>
-                  <Descriptions.Item
-                    label={intl.formatMessage({
-                      id: 'component.resourceRenderer.confirm.perQuantity',
-                      defaultMessage: '每人数量',
-                    })}
-                  >
-                    {String(perQuantity)}
-                    {unit ? ` ${unit}` : ''}
-                  </Descriptions.Item>
-                  <Descriptions.Item
-                    label={intl.formatMessage({
-                      id: 'component.resourceRenderer.confirm.targetCount',
-                      defaultMessage: '目标数量',
-                    })}
-                  >
-                    {String(selection.length)}
-                  </Descriptions.Item>
-                  <Descriptions.Item
-                    label={intl.formatMessage({
-                      id: 'component.resourceRenderer.confirm.totalAmount',
-                      defaultMessage: '总量',
-                    })}
-                  >
-                    {String(total)}
-                    {unit ? ` ${unit}` : ''}
-                  </Descriptions.Item>
-                </Descriptions>
-              ),
-              onOk: () => resolve(true),
-              onCancel: () => resolve(false),
-            });
-          });
-          if (!ok) return false;
+        if (total === undefined) {
+          message.error(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.invalidQuantity',
+              defaultMessage: '每人数量必须是不小于 0 的整数',
+            }),
+          );
+          return false;
         }
+        const unit = quantityField.unit ? localizedText(quantityField.unit, 'zh-CN', '') : '';
+        const ok = await new Promise<boolean>((resolve) => {
+          modal.confirm({
+            title: intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.totalTitle',
+              defaultMessage: '核对跨目标总量',
+            }),
+            content: (
+              <Descriptions size="small" column={1} bordered>
+                <Descriptions.Item
+                  label={intl.formatMessage({
+                    id: 'component.resourceRenderer.confirm.perQuantity',
+                    defaultMessage: '每人数量',
+                  })}
+                >
+                  {String(perQuantity)}
+                  {unit ? ` ${unit}` : ''}
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label={intl.formatMessage({
+                    id: 'component.resourceRenderer.confirm.targetCount',
+                    defaultMessage: '目标数量',
+                  })}
+                >
+                  {String(selection.length)}
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label={intl.formatMessage({
+                    id: 'component.resourceRenderer.confirm.totalAmount',
+                    defaultMessage: '总量',
+                  })}
+                >
+                  {String(total)}
+                  {unit ? ` ${unit}` : ''}
+                </Descriptions.Item>
+              </Descriptions>
+            ),
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+        if (!ok) return false;
+      }
+      if (selection && (action.confirm || binding.execution.requireConfirm)) {
+        const ok = await new Promise<boolean>((resolve) => {
+          modal.confirm({
+            title: localizedText(
+              action.confirmTitle,
+              'zh-CN',
+              intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.title',
+                defaultMessage: '确认操作',
+              }),
+            ),
+            content: confirmContentWithTargets(
+              localizedText(
+                action.confirmDescription,
+                'zh-CN',
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.confirm.content',
+                  defaultMessage: '确定要执行此操作吗？',
+                }),
+              ),
+              selection,
+            ),
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+        if (!ok) return false;
       }
       try {
         await runMutation(() =>
@@ -669,7 +704,17 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [actionFormState, bindings, message, modal, onExecute, preview, runMutation, trackSelectedRows],
+    [
+      actionFormState,
+      bindings,
+      confirmContentWithTargets,
+      message,
+      modal,
+      onExecute,
+      preview,
+      runMutation,
+      trackSelectedRows,
+    ],
   );
 
   const submitCreateForm = useCallback(async (): Promise<boolean> => {

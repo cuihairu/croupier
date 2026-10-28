@@ -361,6 +361,8 @@ describe('D2 纯逻辑：行标识与筛选指纹', () => {
     expect(summarizeQuantityTotal(100, 3)).toBe(300);
     expect(summarizeQuantityTotal('50', 4)).toBe(200);
     expect(summarizeQuantityTotal(0, 5)).toBe(0);
+    expect(summarizeQuantityTotal(2.5, 3)).toBeUndefined();
+    expect(summarizeQuantityTotal('2.5', 3)).toBeUndefined();
     expect(summarizeQuantityTotal(undefined, 3)).toBeUndefined();
     expect(summarizeQuantityTotal(null, 3)).toBeUndefined();
     expect(summarizeQuantityTotal(-1, 3)).toBeUndefined();
@@ -447,9 +449,96 @@ describe('D2 确认内容与实际提交一致', () => {
     expect(confirm.getByText('300 金')).toBeInTheDocument();
 
     fireEvent.click(confirm.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getAllByText('确认操作').length).toBeGreaterThan(0));
+    const targetConfirm = inConfirm();
+    expect(targetConfirm.getByText('目标对象')).toBeInTheDocument();
+    fireEvent.click(targetConfirm.getByRole('button', { name: 'OK' }));
     await waitFor(() =>
       expect(onExecute).toHaveBeenCalledWith('b-batch', {
         form: { perAmount: 100 },
+        selection: fourRows.slice(0, 3),
+      }),
+    );
+  });
+
+  it('非法 quantity 会阻断批量执行且不触发总量或目标确认', async () => {
+    const { onExecute } = await renderBatch({
+      spec: spec({
+        batchActions: [
+          {
+            key: 'batch-compensate',
+            title: { 'zh-CN': '批量补偿' },
+            type: 'danger',
+            bindingId: 'b-batch',
+            confirm: true,
+            form: {
+              jsonSchema: {
+                type: 'object',
+                properties: { perAmount: { type: 'number', title: '每人数量' } },
+                required: ['perAmount'],
+              },
+              fields: [{ key: 'perAmount', role: 'quantity', unit: { 'zh-CN': '金' } }],
+            },
+          },
+        ],
+      }),
+    });
+    await selectAcrossPages({ page2: [true] });
+    fireEvent.click(screen.getByRole('button', { name: /批量补偿/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+    formMockState.values = { perAmount: NaN };
+    fireEvent.click(
+      within(screen.getByTestId('proform-shell')).getByRole('button', { name: 'OK' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('每人数量必须是不小于 0 的整数')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('核对跨目标总量')).not.toBeInTheDocument();
+    expect(screen.queryAllByText('确认操作').length).toBe(0);
+    expect(onExecute).not.toHaveBeenCalledWith(
+      'b-batch',
+      expect.objectContaining({ selection: expect.anything() }),
+    );
+  });
+
+  it('confirm 且无 quantity 的批量表单提交前仍确认目标对象', async () => {
+    const { onExecute } = await renderBatch({
+      spec: spec({
+        batchActions: [
+          {
+            key: 'batch-notify',
+            title: { 'zh-CN': '批量通知' },
+            bindingId: 'b-batch',
+            confirm: true,
+            form: {
+              jsonSchema: {
+                type: 'object',
+                properties: { title: { type: 'string', title: '标题' } },
+                required: ['title'],
+              },
+              fields: [{ key: 'title', title: '标题' }],
+            },
+          },
+        ],
+      }),
+    });
+    await selectAcrossPages({ page2: [true] });
+    fireEvent.click(screen.getByRole('button', { name: /批量通知/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+    formMockState.values = { title: '通知' };
+    fireEvent.click(
+      within(screen.getByTestId('proform-shell')).getByRole('button', { name: 'OK' }),
+    );
+
+    await waitFor(() => expect(screen.getAllByText('确认操作').length).toBeGreaterThan(0));
+    const confirm = inConfirm();
+    expect(confirm.getByText('目标对象')).toBeInTheDocument();
+    expect(confirm.getByText('p1、p2、p3')).toBeInTheDocument();
+    fireEvent.click(confirm.getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-batch', {
+        form: { title: '通知' },
         selection: fourRows.slice(0, 3),
       }),
     );
