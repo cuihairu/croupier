@@ -22,6 +22,7 @@ import {
   missingTemplateCrudRoles,
 } from './gameOpsTemplates';
 import { createPlayerManageDemoExecute } from './playerManage';
+import { createOrderReviewDemoExecute } from './orderReview';
 import { createGameOpsDemoStore } from './gameOpsDemoData';
 import type { PageExecuteFn } from '@/types/dashboard';
 
@@ -116,10 +117,33 @@ jest.mock('@ant-design/pro-components', () => {
     </div>
   );
   const PageContainerStub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  const ProFormShellStub: React.FC<{
+    open?: boolean;
+    title?: React.ReactNode;
+    children?: React.ReactNode;
+    onOpenChange?: (open: boolean) => void;
+    onFinish?: (values: Record<string, unknown>) => Promise<boolean>;
+  }> = ({ open, title, children, onOpenChange, onFinish }) => {
+    if (!open) return null;
+    return (
+      <div data-testid="proform-shell">
+        {title}
+        {children}
+        <button type="button" onClick={() => onOpenChange?.(false)}>
+          Cancel
+        </button>
+        <button type="button" onClick={() => void onFinish?.({})}>
+          OK
+        </button>
+      </div>
+    );
+  };
   return {
     ProTable: jest.fn(ProTableStub),
     ProDescriptions: ProDescriptionsStub,
     PageContainer: PageContainerStub,
+    ModalForm: ProFormShellStub,
+    DrawerForm: ProFormShellStub,
   };
 });
 
@@ -161,6 +185,8 @@ describe('C1 gameOps 玩家模板 CRUD fixture 端到端', () => {
     // 2. 详情：click 查看 → drawer 拉到同一 fixture 行
     fireEvent.click(screen.getAllByRole('button', { name: /查\s*看/ })[0]);
     await waitFor(() => expect(screen.getByText('详情')).toBeInTheDocument());
+    expect(screen.getByTestId('prodescriptions')).toBeInTheDocument();
+    expect(screen.getAllByText('玩家 ID').length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.getAllByText('玩家1号').length).toBeGreaterThanOrEqual(2));
     expect(onExecute.mock.calls.filter(([id]) => id === 'detail')).toHaveLength(1);
     expect(onExecute).toHaveBeenCalledWith('detail', {
@@ -171,6 +197,7 @@ describe('C1 gameOps 玩家模板 CRUD fixture 端到端', () => {
 
     // 3. 新建：工具栏入口 → 表单提交 → 成功 → 表格刷新出现新行
     fireEvent.click(screen.getByRole('button', { name: /新\s*建/ }));
+    await waitFor(() => expect(screen.getByTestId('proform-shell')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
     formMockState.values = { nickname: 'fixture-new', level: 7, vip: 2 };
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
@@ -182,6 +209,7 @@ describe('C1 gameOps 玩家模板 CRUD fixture 端到端', () => {
 
     // 4. 编辑：行操作抽屉表单提交 → 成功 → 表格刷新显示新值
     fireEvent.click(screen.getAllByRole('button', { name: /编\s*辑/ })[0]);
+    await waitFor(() => expect(screen.getByTestId('proform-shell')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
     formMockState.values = { nickname: 'fixture-edited', level: 8, vip: 3 };
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
@@ -224,4 +252,46 @@ describe('C1 gameOps 玩家模板 CRUD fixture 端到端', () => {
       expect(entry.capabilitiesNote['en-US'].length).toBeGreaterThan(0);
     }
   });
+
+  it('订单详情用 Drawer+ProDescriptions；补发行操作用 DrawerForm+同一 RJSF', async () => {
+    const orderEntry = gameOpsTemplates.find((entry) => entry.key === 'order-review');
+    expect(orderEntry).toBeDefined();
+    const entry = orderEntry!;
+    expect(entry.pageSpec.resource).toBeDefined();
+    const store = createGameOpsDemoStore();
+    const onExecute = jest.fn(createOrderReviewDemoExecute(store));
+    render(
+      <App>
+        <ResourcePageRenderer
+          spec={entry.pageSpec.resource!}
+          bindings={entry.pageSpec.bindings}
+          onExecute={onExecute as unknown as PageExecuteFn}
+        />
+      </App>,
+    );
+
+    // 详情：Drawer + ProDescriptions，字段标题取详情模板
+    await waitFor(() => expect(screen.getAllByText('2026102301').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole('button', { name: /查\s*看/ })[0]);
+    await waitFor(() => expect(screen.getByText('详情')).toBeInTheDocument());
+    expect(screen.getByTestId('prodescriptions')).toBeInTheDocument();
+    expect(screen.getAllByText('订单号').length).toBeGreaterThan(0);
+    expect(onExecute).toHaveBeenCalledWith('detail', {
+      row: expect.objectContaining({ orderNo: '2026102301' }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    // 补发行操作：D1 用 DrawerForm 壳，内部仍是 RJSF SchemaForm 收集动态参数
+    fireEvent.click(screen.getAllByRole('button', { name: /补发奖励/ })[0]);
+    await waitFor(() => expect(screen.getByTestId('proform-shell')).toBeInTheDocument());
+    expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument();
+    formMockState.values = { reason: '客诉核实' };
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('action.recredit', {
+        form: { reason: '客诉核实' },
+        row: expect.objectContaining({ orderNo: '2026102301' }),
+      }),
+    );
+  }, 90000);
 });

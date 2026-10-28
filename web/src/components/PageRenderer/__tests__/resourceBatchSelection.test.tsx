@@ -155,7 +155,16 @@ jest.mock('@ant-design/pro-components', () => {
       <span>{children}</span>
     </div>
   );
-  return { ProTable: ProTableStub, ProDescriptions: ProDescriptionsStub };
+  const ProFormShellStub: React.FC<{ open?: boolean; children?: React.ReactNode }> = ({
+    open,
+    children,
+  }) => (open ? <div data-testid="proform-shell">{children}</div> : null);
+  return {
+    ProTable: ProTableStub,
+    ProDescriptions: ProDescriptionsStub,
+    ModalForm: ProFormShellStub,
+    DrawerForm: ProFormShellStub,
+  };
 });
 
 jest.setTimeout(20000);
