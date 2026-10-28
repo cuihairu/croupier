@@ -33,6 +33,7 @@ import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
 
 interface FormStubProps {
   formData?: Record<string, unknown>;
+  tagName?: string;
   readonly?: boolean;
   disabled?: boolean;
   uiSchema?: Record<string, unknown>;
@@ -63,7 +64,8 @@ jest.mock('@rjsf/antd', () => {
     validateForm = (): boolean => true;
 
     render(): React.ReactNode {
-      const { formData, readonly, disabled, uiSchema, transformErrors, extraErrors } = this.props;
+      const { formData, tagName, readonly, disabled, uiSchema, transformErrors, extraErrors } =
+        this.props;
       const submitOptions = (uiSchema?.['ui:submitButtonOptions'] ?? {}) as {
         submitText?: string;
         norender?: boolean;
@@ -80,6 +82,7 @@ jest.mock('@rjsf/antd', () => {
         {
           'data-testid': 'rjsf-stub',
           'data-formdata': JSON.stringify(formData ?? null),
+          'data-tag-name': String(tagName ?? ''),
           'data-readonly': String(readonly),
           'data-disabled': String(disabled),
           'data-norender': String(submitOptions.norender),
@@ -743,11 +746,17 @@ const clickStub = (label: string): void => {
 describe('SchemaFormRenderer 组件', () => {
   it('基础渲染：默认提交文案与按钮选项', () => {
     render(<SchemaFormRenderer spec={visibleSpec} onFinish={jest.fn()} />);
+    expect(stub()).toHaveAttribute('data-tag-name', 'form');
     expect(stub()).toHaveAttribute('data-submit-text', '提交');
     expect(stub()).toHaveAttribute('data-norender', 'false');
     expect(stub()).toHaveAttribute('data-readonly', 'false');
     expect(stub()).toHaveAttribute('data-disabled', 'false');
     expect(stub()).toHaveAttribute('data-formdata', '{}');
+  });
+
+  it('ProForm 容器内以 div 承载同一 RJSF 表单（不渲染嵌套 form）', () => {
+    render(<SchemaFormRenderer spec={visibleSpec} onFinish={jest.fn()} containerTagName="div" />);
+    expect(stub()).toHaveAttribute('data-tag-name', 'div');
   });
 
   it('externalErrors 按 RJSF ErrorSchema 注入；省略/空对象/空消息列表传 undefined', () => {

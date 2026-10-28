@@ -185,7 +185,64 @@ jest.mock('@ant-design/pro-components', () => {
       <span>{children}</span>
     </div>
   );
-  return { ProTable: jest.fn(ProTableStub), ProDescriptions: ProDescriptionsStub };
+  const ModalFormStub: React.FC<{
+    open?: boolean;
+    title?: React.ReactNode;
+    children?: React.ReactNode;
+    onOpenChange?: (open: boolean) => void;
+    onFinish?: (values: Record<string, unknown>) => Promise<boolean>;
+    submitter?: { submitButtonProps?: Record<string, unknown> };
+  }> = ({ open, title, children, onOpenChange, onFinish, submitter }) => {
+    if (!open) return null;
+    return (
+      <div data-testid="modal-form">
+        {title}
+        {children}
+        <button type="button" onClick={() => onOpenChange?.(false)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => void onFinish?.({})}
+          {...(submitter?.submitButtonProps as Record<string, unknown>)}
+        >
+          OK
+        </button>
+      </div>
+    );
+  };
+  const DrawerFormStub: React.FC<{
+    open?: boolean;
+    title?: React.ReactNode;
+    children?: React.ReactNode;
+    onOpenChange?: (open: boolean) => void;
+    onFinish?: (values: Record<string, unknown>) => Promise<boolean>;
+    submitter?: { submitButtonProps?: Record<string, unknown> };
+  }> = ({ open, title, children, onOpenChange, onFinish, submitter }) => {
+    if (!open) return null;
+    return (
+      <div data-testid="drawer-form">
+        {title}
+        {children}
+        <button type="button" onClick={() => onOpenChange?.(false)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => void onFinish?.({})}
+          {...(submitter?.submitButtonProps as Record<string, unknown>)}
+        >
+          OK
+        </button>
+      </div>
+    );
+  };
+  return {
+    ProTable: jest.fn(ProTableStub),
+    ProDescriptions: ProDescriptionsStub,
+    ModalForm: ModalFormStub,
+    DrawerForm: DrawerFormStub,
+  };
 });
 
 const { formMockState } = SchemaFormModule as unknown as {
@@ -668,10 +725,11 @@ describe('行操作', () => {
     });
     onExecute.mockResolvedValueOnce(ok({}));
     await clickRowAction(/封\s*禁/);
-    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    // D1：行操作表单用 DrawerForm 壳 + 同一 RJSF SchemaForm 收集动态参数
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
     // ActionFormModal 标题取 action.title（行按钮内文本同词，多处出现）
     expect(screen.getAllByText('封禁').length).toBeGreaterThan(1);
-    fireEvent.click(screen.getByTestId('form-change'));
+    formMockState.values = { days: 3 };
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     await waitFor(() =>
       expect(onExecute).toHaveBeenCalledWith('b-ban', { form: { days: 3 }, row: rows[0] }),
@@ -690,7 +748,7 @@ describe('行操作', () => {
       bindings: [listBinding, binding('b-ban', 'action')],
     });
     await clickRowAction(/封\s*禁/);
-    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(onExecute).toHaveBeenCalledTimes(1); // 仅列表
     formMockState.validate = true;
@@ -1134,7 +1192,7 @@ describe('preview 拦截', () => {
     const withBan = [listBinding, binding('b-ban', 'action')];
     const { onExecute, rerender } = await loadList({ spec: actionSpec, bindings: withBan });
     await clickRowAction(/封\s*禁/);
-    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
 
     rerenderAs(rerender, { spec: actionSpec, bindings: withBan, onExecute });
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
@@ -1247,7 +1305,7 @@ describe('bindings 热更（提案应用后绑定集变化）', () => {
       bindings: [listBinding, binding('b-ban', 'action')],
     });
     await clickRowAction(/封\s*禁/);
-    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
 
     rerenderBindings(rerender, { spec: actionSpec, onExecute });
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
@@ -1267,11 +1325,11 @@ describe('带表单行操作执行失败', () => {
     });
     onExecute.mockRejectedValueOnce(new Error('deny'));
     await clickRowAction(/封\s*禁/);
-    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     await waitFor(() => expect(screen.getByText('操作失败')).toBeInTheDocument());
     // 失败后弹窗保留（不静默关闭）
-    expect(screen.getByTestId('form-change')).toBeInTheDocument();
+    expect(screen.getByTestId('drawer-form')).toBeInTheDocument();
   });
 });
 
@@ -1484,9 +1542,9 @@ describe('弹窗校验失败与取消（分支补齐）', () => {
       bindings: [listBinding, binding('b-ban', 'action')],
     });
     await clickRowAction(/封\s*禁/);
-    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(screen.queryByTestId('form-change')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByTestId('drawer-form')).not.toBeInTheDocument());
     expect(onExecute.mock.calls.filter(([id]) => id === 'b-ban')).toHaveLength(0);
   });
 });
