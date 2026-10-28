@@ -27,8 +27,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 }
 
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
+	pagination := model.NewPagination(req.Page, req.Size)
 	items, total, err := s.runtime.ListRuns(ctx, model.ListTasksOptions{
-		PaginationOptions: model.NewPagination(req.Page, req.Size),
+		PaginationOptions: pagination,
 		FunctionID:        req.FunctionID,
 		Status:            req.Status,
 		GameID:            svc.ResolveGameID(ctx, req.GameID),
@@ -42,7 +43,7 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 	for i := range items {
 		result = append(result, buildItem(&items[i]))
 	}
-	return &ListResponse{Items: result, Total: int(total)}, nil
+	return &ListResponse{Items: result, Total: int(total), Page: pagination.Page, Size: pagination.PageSize}, nil
 }
 
 // OperatorOptions 操作者聚合选项（#23）：当前 scope（含游戏/环境覆盖语义

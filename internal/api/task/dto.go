@@ -42,6 +42,8 @@ type ListRequest struct {
 type ListResponse struct {
 	Items []Item `json:"items"`
 	Total int    `json:"total"`
+	Page  int    `json:"page"`
+	Size  int    `json:"pageSize"`
 }
 
 // OperatorOptionsItem GET /api/v1/tasks/operator-options 的选项行：

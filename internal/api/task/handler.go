@@ -26,7 +26,7 @@ func (h *Handler) List(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	response.SuccessList(c, resp.Items, int64(resp.Total), req.Page, req.Size)
+	response.SuccessList(c, resp.Items, int64(resp.Total), resp.Page, resp.Size)
 }
 
 // OperatorOptions handles GET /api/v1/tasks/operator-options（#23）：
