@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -95,4 +96,120 @@ func TestManager_ConcurrentTriggerExactlyOneDispatch(t *testing.T) {
 	for _, l := range store.runLogs {
 		assert.Equal(t, "dispatched", l.Status)
 	}
+}
+
+// ── ARCH-023 崩溃恢复：领取租约 ────────────────────────────────────────
+
+// 领取后/派发前中断：领取者崩溃，槽位残留 claimed。租约过期后被下一实例
+// 解析为 failed（不重派发——无法区分是否已派发，副作用去重归 GAME-010），
+// 调度推进、审计链不再永久停在 claimed。
+func TestManager_CrashAfterClaimBeforeDispatch_RecoversWithoutRedispatch(t *testing.T) {
+	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
+	lease := 60 * time.Second
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	// 模拟崩溃领取者：claimed 且已过租约（CreatedAt = now - 2×lease）。
+	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+		ScheduleID: 1, Slot: Slot(now), Status: "claimed",
+		CreatedAt: now.Add(-2 * lease),
+	}
+
+	var dispatches int32
+	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
+		atomic.AddInt32(&dispatches, 1)
+		return &sdkv1.StartTaskResponse{TaskId: "run-again"}, nil
+	})
+	m := NewManager(store, d)
+	m.SetClaimLease(lease)
+	m.tick(now)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&dispatches),
+		"ARCH-023: 陈旧领取恢复不重派发（重发=对派发后中断赌二次执行）")
+	require.Len(t, store.runLogs, 1)
+	rec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
+	assert.Equal(t, "failed", rec.Status, "租约过期的 claimed 必须解析为终态")
+	assert.Contains(t, rec.Message, "lease expired")
+	// 调度推进：next_triggered_at 被更新（下一槽照常触发）。
+	assert.NotEmpty(t, store.updates[1], "崩溃恢复必须推进调度，不能卡死")
+}
+
+// 派发后/回写前中断：任务可能已派发（真正运行中）但回写未落，库面同样
+// 残留 claimed。恢复动作与上一类一致：终态 failed + 推进 + 绝不二次派发。
+func TestManager_CrashAfterDispatchBeforeWriteback_MarksFailedNoRedispatch(t *testing.T) {
+	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
+	lease := 60 * time.Second
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+		ScheduleID: 1, Slot: Slot(now), Status: "claimed",
+		CreatedAt: now.Add(-10 * lease),
+	}
+
+	var dispatches int32
+	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
+		atomic.AddInt32(&dispatches, 1)
+		return &sdkv1.StartTaskResponse{TaskId: "run-again"}, nil
+	})
+	m := NewManager(store, d)
+	m.SetClaimLease(lease)
+	m.tick(now)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&dispatches),
+		"ARCH-023: 回写前中断的恢复不得重复派发（TaskRun 可能仍在运行）")
+	rec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
+	assert.Equal(t, "failed", rec.Status)
+	assert.Empty(t, rec.TaskRunID, "回写未落，恢复不得臆造 TaskRunID")
+}
+
+// 活跃领取不误判：他实例刚领取（租约内）正在派发，观察者不得把其标记为
+// failed——否则活领取被误杀、审计链被污染。
+func TestManager_ActiveClaimWithinLease_NotEvicted(t *testing.T) {
+	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
+	lease := 60 * time.Second
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+		ScheduleID: 1, Slot: Slot(now), Status: "claimed",
+		CreatedAt: now.Add(-lease / 2),
+	}
+
+	var dispatches int32
+	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
+		atomic.AddInt32(&dispatches, 1)
+		return &sdkv1.StartTaskResponse{TaskId: "run-x"}, nil
+	})
+	m := NewManager(store, d)
+	m.SetClaimLease(lease)
+	m.tick(now)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&dispatches))
+	rec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
+	assert.Equal(t, "claimed", rec.Status, "租约内的活跃领取不得被观察者改写")
+}
+
+// 已终态记录不解析：回写完成但推进崩溃的槽位（dispatched + next_triggered_at
+// 未推进），下一实例只推进、不改写终值、不重派发。
+func TestManager_TerminalRunLog_NotRewritten(t *testing.T) {
+	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
+	lease := 60 * time.Second
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+		ScheduleID: 1, Slot: Slot(now), Status: "dispatched", TaskRunID: "run-done",
+		CreatedAt: now.Add(-10 * lease),
+	}
+
+	var dispatches int32
+	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
+		atomic.AddInt32(&dispatches, 1)
+		return &sdkv1.StartTaskResponse{TaskId: "run-again"}, nil
+	})
+	m := NewManager(store, d)
+	m.SetClaimLease(lease)
+	m.tick(now)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&dispatches))
+	rec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
+	assert.Equal(t, "dispatched", rec.Status, "终态记录不被租约解析改写")
+	assert.Equal(t, "run-done", rec.TaskRunID)
 }

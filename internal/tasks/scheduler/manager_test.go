@@ -72,8 +72,21 @@ func (f *fakeStore) CreateRunLog(ctx context.Context, log *model.TaskScheduleRun
 	if _, ok := f.runLogs[key]; ok {
 		return false, nil
 	}
+	// gorm 在 Create 时自动填充 CreatedAt；租约判定读它，替身须同语义。
+	if log.CreatedAt.IsZero() {
+		log.CreatedAt = time.Now()
+	}
 	f.runLogs[key] = *log
 	return true, nil
+}
+
+func (f *fakeStore) GetRunLog(ctx context.Context, scheduleID uint, slot time.Time) (*model.TaskScheduleRunLog, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if l, ok := f.runLogs[fmt.Sprintf("%d|%s", scheduleID, slot.Format(time.RFC3339))]; ok {
+		return &l, nil
+	}
+	return nil, nil
 }
 
 func (f *fakeStore) UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error {
