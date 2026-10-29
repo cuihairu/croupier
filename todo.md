@@ -115,9 +115,9 @@
 - [x] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
   - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。
   - 状态／条件：DONE（2026-10-30 收口）。`worker.NewWorker` 启动预检在 `ANALYTICS_MQ_TYPE=kafka` 时返回错误拒绝启动（消息明示内置 worker 只消费 Redis Streams，需外部 Kafka consumer 或改回 redis）；compose 三模板（compose/deploy/quickstart）把 `ANALYTICS_MQ_TYPE` 传给 analytics-worker 使预检可见。默认（未设或 redis）链不受影响，noop 仍为显式本地调试不拦截；不扩建 Kafka consumer。文档见 docs/analytics/index.md 与 docs/zh/analytics/index.md（MQ 接线）、docs/architecture/runtime-topology.md（拓扑）、docs/review/architecture-audit-2026-10-28.md（A07 状态）。证据：`go test ./internal/analytics/...` 全绿（含 TestNewWorkerRefusesKafkaMQ/TestNewWorkerAllowsRedisMQ），compose 三文件 YAML 解析通过，guard PASSED。
-- [ ] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
+- [x] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
   - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-30 决策收口，docs/design/task-retry-recovery-protocol.md EN+zh 镜像）。D1 同 taskId 重复 Start=幂等 no-op（不启第二 goroutine、不覆盖 cancel 注册；完成清理只删自己的表项，per-taskId 代数守卫）；D2 事件落库后 ACK+有界重试，(task_id,seq) 幂等重放；D3 Agent 重启对账 running→显式 unknown 终态邻近态，非幂等函数禁自动重试；D4 终态单调（含 unknown），cancel_requested 非终态、取消不回退终态；D5 平台 idempotency-key 只去重 task_runs 记录创建，不注入/不推导游戏副作用去重，游戏幂等由游戏自建。驱动 ARCH-015（实现）/ARCH-018（演练）/ARCH-026。
 - [ ] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
   - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理
   - 状态／条件：READY；该能力尚未完整实现，并非只缺真实环境验收。
