@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1768" viewBox="0 0 1200 1768" role="img" aria-labelledby="title desc"><title id="title">异步任务接收、终态与取消</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="1768" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">异步任务接收、终态与取消</text>
+<text x="30" y="78" class="small" text-anchor="start">时间向下 ↓ · 虚线为生命线 · ALT 框内选一个分支 · 无圆点交叉不相连</text>
+<g data-node="运营客户端"><rect x="65" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="81" y="135" class="head" text-anchor="start">运营客户端</text>
+</g>
+<path d="M180 170 V1703" class="life"/>
+<g data-node="Server / DB"><rect x="345" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="361" y="135" class="head" text-anchor="start">Server / DB</text>
+</g>
+<path d="M460 170 V1703" class="life"/>
+<g data-node="sidecar TaskRunner"><rect x="625" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="641" y="135" class="head" text-anchor="start">sidecar TaskRunner</text>
+</g>
+<path d="M740 170 V1703" class="life"/>
+<g data-node="游戏 SDK"><rect x="905" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="921" y="135" class="head" text-anchor="start">游戏 SDK</text>
+</g>
+<path d="M1020 170 V1703" class="life"/>
+<g data-node="前置条件"><rect x="50" y="195" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="225" class="head" text-anchor="start">前置条件</text>
+<text x="66" y="253" class="" text-anchor="start">仅表示已治理的函数/页面 task 入口；裸任务/调度门禁仍有缺口</text>
+</g>
+<text x="600" y="335" class="message" text-anchor="middle">02 · HTTP 任务请求；Server 分配 taskId</text>
+<path d="M180 361 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="451" class="message" text-anchor="middle">03 · 先尝试 CreateRun(task_runs)；当前忽略错误仍派发（ARCH-026）</text>
+<path d="M460 469 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="567" class="message" text-anchor="middle">04 · 通过 session / owner 路由 StartTask(taskId / InvokeRequest)</text>
+<path d="M460 593 H740" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="683" class="message" text-anchor="middle">05 · StartTask ACK(taskId)：接收，不是执行完成</text>
+<path d="M740 709 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="799" class="message" text-anchor="middle">06 · HTTP taskId；随后查询 / SSE</text>
+<path d="M460 825 H180" class="edge control" marker-end="url(#control)"/>
+<g data-node="并发说明"><rect x="50" y="891" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="921" class="head" text-anchor="start">并发说明</text>
+<text x="66" y="949" class="" text-anchor="start">started 与 ACK 可交错；后台执行不以 HTTP 结束为结束</text>
+</g>
+<text x="600" y="1031" class="message" text-anchor="middle">08 · 后台 Provider Invoke；上报 started</text>
+<path d="M740 1057 H1020" class="edge control" marker-end="url(#control)"/>
+<rect x="40" y="1115" width="1120" height="224" rx="12" fill="#faf5f5" stroke="#976a3d" stroke-width="2"/>
+<text x="600" y="1230" class="small" text-anchor="middle">或 · 仅选一个分支</text>
+<g data-node="ALT · 自然结束"><rect x="50" y="1123" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1153" class="head" text-anchor="start">ALT · 自然结束</text>
+<text x="66" y="1181" class="" text-anchor="start">结果产生 completed / failed 二选一；最后清理 task map / cancel</text>
+</g>
+<g data-node="ALT · 用户取消，可与自然结束竞争"><rect x="50" y="1239" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1269" class="head" text-anchor="start">ALT · 用户取消，可与自然结束竞争</text>
+<text x="66" y="1297" class="" text-anchor="start">先记意图 → CancelTask → cancel ctx；实际结果决定 cancelled，不是回滚</text>
+</g>
+<text x="600" y="1379" class="message" text-anchor="middle">11 · 终态事件 → task_events / task_runs；取消不回退已终态</text>
+<path d="M740 1405 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="1495" class="message" text-anchor="middle">12 · 查询 / SSE 返回已存终态；正常观察结束</text>
+<path d="M460 1521 H180" class="edge control" marker-end="url(#control)"/>
+<g data-node="实际缺口"><rect x="50" y="1587" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="1617" class="head" text-anchor="start">实际缺口</text>
+<text x="66" y="1645" class="" text-anchor="start">上报错误被忽略，重复 Start 缺持久去重；重启后终态恢复不保证</text>
+</g>
+<text x="30" y="1743" class="small" text-anchor="start">结束：仅代表图示边界，未承诺的恢复/排空能力见正文</text>
+</svg>

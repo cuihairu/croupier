@@ -16,6 +16,7 @@ import {
   isStaleSelection,
   rowIdentity,
   selectionFilterFingerprint,
+  summarizePerTargetTotal,
   summarizeTargets,
 } from '../batchSelection';
 import type {
@@ -327,6 +328,15 @@ describe('D2 纯逻辑：行标识与筛选指纹', () => {
       omitted: 2,
     });
     expect(summarizeTargets(rows, 'id', 2)).toEqual({ identities: ['p1', 'p2'], omitted: 5 });
+  });
+
+  it('summarizePerTargetTotal：空串/全空白串不猜 0，返回 undefined', () => {
+    expect(summarizePerTargetTotal('', 3)).toBeUndefined();
+    expect(summarizePerTargetTotal('   ', 3)).toBeUndefined();
+    expect(summarizePerTargetTotal('\t ', 3)).toBeUndefined();
+    // 合法纯数字串仍按显式语义换算
+    expect(summarizePerTargetTotal('100', 3)).toBe(300);
+    expect(summarizePerTargetTotal('0', 3)).toBe(0);
   });
 });
 

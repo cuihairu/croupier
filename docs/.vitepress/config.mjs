@@ -21,7 +21,7 @@ export default withMermaid(
         description:
           "Game operations control plane and Agent collaboration platform",
         themeConfig: {
-      logo: "/logo.png",
+          logo: "/logo.png",
           langMenuLabel: "Change language",
           returnToTopLabel: "Return to top",
           sidebarMenuLabel: "Documentation",
@@ -66,6 +66,10 @@ export default withMermaid(
                 text: "Architecture",
                 items: [
                   { text: "Overview", link: "/architecture/" },
+                  {
+                    text: "Runtime and lifecycles",
+                    link: "/architecture/runtime-topology",
+                  },
                   { text: "Layers", link: "/architecture/layers" },
                   {
                     text: "Terms and layering",
@@ -109,7 +113,13 @@ export default withMermaid(
             "/analytics/": [
               {
                 text: "Analytics",
-                items: [{ text: "Overview", link: "/analytics/" }],
+                items: [
+                  { text: "Overview", link: "/analytics/" },
+                  {
+                    text: "Core and external analytics",
+                    link: "/analytics/core-and-external",
+                  },
+                ],
               },
             ],
             "/sdks/": [
@@ -126,7 +136,7 @@ export default withMermaid(
         lang: "zh-CN",
         description: "分布式游戏运营控制面与 Agent 协同平台",
         themeConfig: {
-        logo: "/logo.png",
+          logo: "/logo.png",
           langMenuLabel: "切换语言",
           returnToTopLabel: "回到顶部",
           sidebarMenuLabel: "文档",
@@ -168,6 +178,10 @@ export default withMermaid(
                 text: "架构",
                 items: [
                   { text: "概述", link: "/zh/architecture/" },
+                  {
+                    text: "运行架构与生命周期",
+                    link: "/zh/architecture/runtime-topology",
+                  },
                   { text: "分层", link: "/zh/architecture/layers" },
                   {
                     text: "术语与分层",
@@ -227,7 +241,13 @@ export default withMermaid(
             "/zh/analytics/": [
               {
                 text: "数据分析",
-                items: [{ text: "概述", link: "/zh/analytics/" }],
+                items: [
+                  { text: "概述", link: "/zh/analytics/" },
+                  {
+                    text: "核心指标与外部分析",
+                    link: "/zh/analytics/core-and-external",
+                  },
+                ],
               },
             ],
             "/zh/sdks/": [

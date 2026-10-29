@@ -83,17 +83,23 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 ## 架构
 
-三层结构：控制台（Web）→ Server（控制面，可多实例 HA）→ Agent（游戏 VPC 代理）→ Game Server / SDK。
+> 游戏后台当前成熟度：真实高风险写操作尚未达到可批准的生产稳定性。[代码与 TODO 复审](docs/review/code-todo-alignment-2026-10-29.md)记录多入口治理、策略故障、重复调度及游戏执行凭据缺口。
+
+![Croupier zh architecture](docs/public/architecture/system-zh.svg)
+
+[Full SVG / 完整 SVG](docs/public/architecture/system-zh.svg) · [Runtime evidence / 运行依据](docs/zh/architecture/runtime-topology.md)
+
+主执行链：控制台（Web）→ Server（控制面，可多实例 HA）→ Agent（游戏 VPC 代理）→ Game Server / SDK。
 入口按受众分离：Web 控制台走 L7（HTTP API / SSE），Agent 走内网 L4（TCP 长连接）。
 
-详见 [系统架构总览](docs/architecture/index.md)与[负载均衡选型](docs/operations/load-balancing.md)。
+详见 [系统架构总览](docs/zh/architecture/index.md)与[负载均衡选型](docs/operations/load-balancing.md)。
 
 ## 底座来源
 
 Croupier 不是 fork，是一层控制面业务系统，底层全部站在开源组件上（版本以 `go.mod` / `web/package.json` 为准）：
 
 - 服务端：Go 1.27，HTTP 用 [Gin](https://github.com/gin-gonic/gin)，ORM 用 [GORM](https://gorm.io)（MySQL / PostgreSQL / SQL Server / glebarez SQLite 四驱动），权限判定用 [Casbin](https://casbin.org)，编号迁移用 goose
-- 传输：Agent↔Server、SDK↔Agent 的 TCP session 基于Go 标准库 `net` + `crypto/tls` 实现（长度前缀分帧、protobuf 信封），未引入 gRPC，取舍见 [transport-no-grpc.md](docs/archive/legacy-en/architecture/transport-no-grpc.md)
+- 传输：Agent↔Server、SDK↔Agent 的 TCP session 基于Go 标准库 `net` + `crypto/tls` 实现（长度前缀分帧、protobuf 信封），这两条链路未引入 gRPC；插件子进程另用本地 go-plugin gRPC。传输取舍见 [transport-no-grpc.md](docs/archive/legacy-en/architecture/transport-no-grpc.md)
 - 可观测：[OpenTelemetry](https://opentelemetry.io) Go SDK + OTLP HTTP exporter 上报
 - 控制台：基于 [Umi Max](https://umijs.org) 与 [Ant Design](https://ant.design) / ProComponents 构建，JSON Schema 表单由 [RJSF](https://rjsf.github.io/react-jsonschema-form/) 驱动，编辑器用 [Monaco](https://microsoft.github.io/monaco-editor/)
 - 协议与工具链：[protobuf](https://protobuf.dev)（protoc 全本地生成）+ [buf](https://buf.build) lint

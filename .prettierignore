@@ -31,3 +31,6 @@ sdks/js/examples/game_demo.ts
 # README 顶部 logo 居中 HTML 块：bf76dad 全仓重排曾把它整没（BUGS.md BUG-036），
 # prettier 对独立 HTML 块的归一化会丢块，README 不再进 prettier
 README.md
+
+# Archived TODO is retained as verbatim review evidence; do not reflow it.
+docs/review/todo-history-2026-10-29.md

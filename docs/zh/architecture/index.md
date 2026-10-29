@@ -4,11 +4,13 @@ title: 当前架构总览
 
 # 当前架构总览
 
-Croupier 是面向单公司多游戏、多环境的运营控制面。当前实现采用 **模块化 Server + 按角色部署的出站 Agent + 游戏 SDK**，另有独立的数据分析管道。本页按 2026-10-28 源码装配描述当前态；历史设计中的目标能力不能视为默认已启用。
+> **2026-10-29 游戏后台再审**：统一 session 不等于所有入口统一治理。`/tasks` 只做部分门禁，调度自动/手动入口直达 Dispatcher；政策查询/输入契约读取失败还存在放行分支。定时任务“派发后写唯一记录”也不保证多实例只执行一次。见根目录 TODO 的 ARCH-023–027；详细证据在 `docs/review/code-todo-alignment-2026-10-29.md`。当前不能宣称真实高危写操作已达到生产稳定性。
+
+Croupier 是面向单公司多游戏、多环境的运营控制面。当前实现采用 **模块化 Server + 按角色部署的出站 Agent + 游戏 SDK**，另有独立的数据分析管道。本页按 2026-10-29 源码装配描述当前态；历史设计中的目标能力不能视为默认已启用。
 
 ## 系统图
 
-箭头表示标注的数据流或建连方向。Agent 主动连接 Server，SDK 主动连接 sidecar；建立后的 session 双向承载调用、结果与控制消息。虚线是可选集群协调关系。L7/L4 入口是多实例部署选项，单实例可直接连接。
+箭头表示标注的数据流或建连方向。Agent 主动连接 Server，SDK 主动连接 sidecar；建立后的 session 双向承载调用、结果与控制消息。虚线表示可选连接，包含集群协调。L7/L4 入口是多实例部署选项，单实例可直接连接。
 
 <ArchitectureDiagram lang="zh" />
 
@@ -20,7 +22,7 @@ Croupier 是面向单公司多游戏、多环境的运营控制面。当前实�
 | Server                    | Gin API、身份权限、scope、政策、审批、审计、契约和页面、registry/dispatch、Ops | 主部署单元仍是一个模块化服务                                        |
 | sidecar-agent             | SDK Provider 接入、函数转发、任务及受管程序/插件装配                           | Makefile 输出名仍为 croupier-agent；部分装配仍在 internal/app/agent |
 | capture-agent             | 数据库变更采集、位点、过滤和规则告警                                           | 独立角色，不是 SDK 函数网关                                         |
-| synthetics-agent          | 外部 HTTP 探测、结果与探测插件                                                 | 复用公共运行时，探测业务独立                                        |
+| synthetics-agent          | 按角色装配的目标探测、结果与探测插件                                           | 复用公共运行时，探测业务独立                                        |
 | devops-agent              | 注册、白名单同步、Broker/Hub 会话基础能力                                      | 面板→Server→Agent 的完整中继未接；RDP/VNC 尚不可用                  |
 | ingest / analytics-worker | 接收事件、队列消费、聚合并写 ClickHouse                                        | 内置 worker 消费 Redis Streams；Kafka 发布适配不代表消费端已支持    |
 
@@ -96,3 +98,7 @@ Server 保留契约、页面快照与发布历史。正式 Console 使用发布�
 - [Agent 选型](../operations/agent-comparison)
 - [分析管道](../analytics/)
 - [快速开始](../guide/quick-start)
+
+## 运行拓扑与生命周期证据
+
+[进程清单、逐条连接、生命周期 SVG、部署故障与外部核查记录](./runtime-topology)。图为当前实现；审批持久化、互联 mTLS、Provider 排空与任务可靠重放仍是待办。

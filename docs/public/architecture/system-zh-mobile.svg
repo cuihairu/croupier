@@ -1,55 +1,205 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="1580" viewBox="0 0 640 1580" role="img" aria-labelledby="title desc">
-<title id="title">Croupier 当前架构</title>
-<desc id="desc">控制台访问 Server；四类 Agent 出站连接控制面，SDK 接入 sidecar。共享数据库与可选集群协调，独立 Redis 分析管道。</desc>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#7c5260"/></marker></defs>
-<style>text{font-family:Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#292830} .heading{font-size:26px;font-weight:700} .label{font-size:20px;font-weight:700} .body{font-size:20px;fill:#55535e} .note{font-size:18px;fill:#6a6269} .line{fill:none;stroke:#7c5260;stroke-width:2;marker-end:url(#arrow)} .dash{stroke-dasharray:6 5}</style>
-<rect width="640" height="1580" rx="16" fill="#faf8f5"/>
-
-<text x="28" y="43" class="heading">CROUPIER / 当前运行架构</text>
-<text x="28" y="73" class="note">源码核对 · 2026-10-28</text>
-<rect x="24" y="100" width="592" height="91" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="132" class="label">运营控制台 · HTTP API / SSE</text>
-<text x="44" y="163" class="body">React / Umi · Page Studio / Console</text>
-<path d="M320 191 V222" class="line"/>
-<rect x="24" y="222" width="592" height="116" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="254" class="label">两类可选入口</text>
-<text x="44" y="285" class="body">L7 nginx → HTTP :18780</text>
-<text x="44" y="312" class="body">L4 HAProxy → Agent control :19090</text>
-<path d="M320 338 V370" class="line"/>
-<rect x="24" y="370" width="592" height="255" rx="12" fill="#f6e9ed" stroke="#b77a8b"/>
-<text x="44" y="402" class="label">SERVER · 模块化控制面</text>
-<text x="44" y="433" class="body">认证 / scope / 政策 / 契约 / 页面</text>
-<text x="44" y="460" class="body">functioninvoke → dispatch → Agent session</text>
-<text x="44" y="487" class="body">任务状态 / SSE / SQL 审计</text>
-<text x="44" y="514" class="body">可选 HA：owner 转发 + epoch fencing</text>
-<text x="44" y="541" class="body">审批接内存；实例互联目前为明文</text>
-<text x="44" y="568" class="body">TLS 按配置启用，开发模板未开启</text>
-<path d="M320 625 V657" class="line dash"/>
-<rect x="24" y="657" width="592" height="116" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="689" class="label">持久状态与可选协调</text>
-<text x="44" y="720" class="body">关系库：业务 / 页面 / 任务 / 审计</text>
-<text x="44" y="747" class="body">共享 DB 或 Redis：成员 / owner 租约</text>
-<text x="44" y="817" class="note">Agent 主动连上方 L4 / control，session 双向</text>
-<rect x="24" y="838" width="592" height="200" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="870" class="label">按角色部署的 Agent</text>
-<text x="44" y="901" class="body">sidecar：SDK 网关 / 函数 / 任务 / 插件</text>
-<text x="44" y="928" class="body">capture：CDC / 位点 / 规则</text>
-<text x="44" y="955" class="body">synthetics：HTTP 探测 / 探测插件</text>
-<text x="44" y="982" class="body">devops：会话基础已接；面板中继未完成</text>
-<text x="44" y="1009" class="body">每个实例声明一个 gameId + env</text>
-<path d="M320 1068 V1038" class="line"/>
-<rect x="24" y="1068" width="592" height="90" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="1100" class="label">游戏进程 + SDK → sidecar :19091</text>
-<text x="44" y="1131" class="body">SDK 主动建连，承载双向函数调用</text>
-<rect x="24" y="1185" width="592" height="116" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="1217" class="label">公共运行时 core/ · 按角色装配</text>
-<text x="44" y="1248" class="body">transport / register / backoff / configsync</text>
-<text x="44" y="1275" class="body">pluginhost / report / process / healthprobe</text>
-<rect x="24" y="1330" width="592" height="174" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="1362" class="label">独立分析管道</text>
-<text x="44" y="1393" class="body">ingest → Redis Streams</text>
-<text x="44" y="1420" class="body">→ analytics-worker → ClickHouse</text>
-<text x="44" y="1447" class="body">内置 worker 消费 Redis，不消费 Kafka</text>
-<text x="44" y="1474" class="body">与 SDK 函数执行链独立</text>
-<text x="24" y="1542" class="note">箭头标注建连或数据流；完整边界见架构正文</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="2310" viewBox="0 0 1200 2310" role="img" aria-labelledby="title desc"><title id="title">CROUPIER · 当前运行拓扑</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="2310" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">CROUPIER · 当前运行拓扑</text>
+<text x="30" y="77" class="small" text-anchor="start">2026-10-29 · 竖向总览 · Server 内文字是进程内模块</text>
+<g data-node="运营客户端"><rect x="365" y="110" width="470" height="100" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="381" y="140" class="head" text-anchor="start">运营客户端</text>
+<text x="381" y="168" class="" text-anchor="start">浏览器 Web / Flutter 移动端</text>
+<text x="381" y="193" class="" text-anchor="start">页面、受控操作、任务查询</text>
+</g>
+<path d="M600 210 V295" class="edge data" marker-end="url(#data)" marker-start="url(#data)"/>
+<text x="620" y="242" class="small" text-anchor="start">HTTP :18780 / JWT / SSE</text>
+<text x="620" y="266" class="small" text-anchor="start">可选 nginx L7 代理</text>
+<g data-node="SERVER · 一个模块化控制面进程"><rect x="310" y="295" width="580" height="300" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="326" y="325" class="head" text-anchor="start">SERVER · 一个模块化控制面进程</text>
+<text x="326" y="353" class="" text-anchor="start">身份 / scope / 政策 / 审批 / 审计</text>
+<text x="326" y="378" class="" text-anchor="start">契约 → 页面发布 → binding 执行</text>
+<text x="326" y="403" class="" text-anchor="start">registry / functioninvoke / dispatch / Ops</text>
+<text x="326" y="428" class="" text-anchor="start">任务状态与 SSE / 进程内 scheduler</text>
+<text x="326" y="453" class="" text-anchor="start">活连接归本实例；审批当前为内存</text>
+<text x="326" y="478" class="" text-anchor="start">本机探针 / 通知出口 / telemetry bridge</text>
+<text x="326" y="503" class="" text-anchor="start">core/ 是公共包，不是额外服务</text>
+</g>
+<g data-node="其他 Server 实例"><rect x="15" y="320" width="265" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="350" class="head" text-anchor="start">其他 Server 实例</text>
+<text x="31" y="378" class="" text-anchor="start">TCP interconnect</text>
+<text x="31" y="403" class="" text-anchor="start">单跳转发 / epoch</text>
+<text x="31" y="428" class="" text-anchor="start">明文；mTLS 是目标</text>
+</g>
+<path d="M310 390 H280" class="edge control" marker-end="url(#control)" marker-start="url(#control)"/>
+<g data-node="关系数据库"><rect x="925" y="295" width="260" height="125" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="941" y="325" class="head" text-anchor="start">关系数据库</text>
+<text x="941" y="353" class="" text-anchor="start">元数据 / 页面 / 任务</text>
+<text x="941" y="378" class="" text-anchor="start">契约 / 审计 / 业务</text>
+<text x="941" y="403" class="" text-anchor="start">可选 game DB 路由</text>
+</g>
+<path d="M890 350 H925" class="edge data" marker-end="url(#data)" marker-start="url(#data)"/>
+<g data-node="共享协调后端"><rect x="925" y="465" width="260" height="105" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="941" y="495" class="head" text-anchor="start">共享协调后端</text>
+<text x="941" y="523" class="" text-anchor="start">DB 或 Redis：租约</text>
+<text x="941" y="548" class="" text-anchor="start">membership / owner</text>
+</g>
+<path d="M890 510 H925" class="edge control optional" marker-end="url(#control)" marker-start="url(#control)"/>
+<g data-node="可选外部集成"><rect x="15" y="485" width="265" height="110" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="31" y="515" class="head" text-anchor="start">可选外部集成</text>
+<text x="31" y="543" class="" text-anchor="start">Herald / OIDC / Vault</text>
+<text x="31" y="568" class="" text-anchor="start">平台 API / 观测后端</text>
+</g>
+<path d="M310 540 H280" class="edge external optional" marker-end="url(#external)" marker-start="url(#external)"/>
+<path d="M600 765 V595" class="edge control" marker-end="url(#control)"/>
+<text x="620" y="638" class="small" text-anchor="start">Agent 主动建连 :19090（可经 HAProxy L4）</text>
+<text x="620" y="665" class="small" text-anchor="start">TCP + protobuf · TLS 按配置 · session 双向</text>
+<text x="620" y="692" class="small" text-anchor="start">注册 / 心跳 / 配置 / 命令 / 上报</text>
+<text x="30" y="735" class="small" text-anchor="start">四类独立 Agent</text>
+<text x="620" y="735" class="small" text-anchor="start">每实例一个 gameId + env；圆点为汇接点</text>
+<path d="M285 795 V620 H320 V595" class="edge control optional" marker-end="url(#control)"/>
+<text x="25" y="650" class="small" text-anchor="start">可选 HTTP 扩展同步</text>
+<text x="25" y="675" class="small" text-anchor="start">认证链未接通，见正文</text>
+<path d="M150 795 V765 H1050 V795" class="edge control"/>
+<path d="M450 795 V765" class="edge control"/>
+<path d="M750 795 V765" class="edge control"/>
+<circle cx="150" cy="765" r="4" fill="#53658d"/>
+<circle cx="450" cy="765" r="4" fill="#53658d"/>
+<circle cx="600" cy="765" r="4" fill="#53658d"/>
+<circle cx="750" cy="765" r="4" fill="#53658d"/>
+<circle cx="1050" cy="765" r="4" fill="#53658d"/>
+<g data-node="sidecar"><rect x="15" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="825" class="head" text-anchor="start">sidecar</text>
+<text x="31" y="853" class="" text-anchor="start">SDK 网关 / 函数 / 任务</text>
+<text x="31" y="878" class="" text-anchor="start">受管程序 / 探针 / 扩展</text>
+<text x="31" y="903" class="" text-anchor="start">Provider :19091</text>
+</g>
+<g data-node="capture"><rect x="315" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="331" y="825" class="head" text-anchor="start">capture</text>
+<text x="331" y="853" class="" text-anchor="start">CDC / 位点 / 过滤规则</text>
+<text x="331" y="878" class="" text-anchor="start">本地 spool / 可选 journal</text>
+<text x="331" y="903" class="" text-anchor="start">告警请求有 ACK</text>
+</g>
+<g data-node="synthetics"><rect x="615" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="631" y="825" class="head" text-anchor="start">synthetics</text>
+<text x="631" y="853" class="" text-anchor="start">目标探测 / 结果上报</text>
+<text x="631" y="878" class="" text-anchor="start">外部探测插件宿主</text>
+<text x="631" y="903" class="" text-anchor="start">按角色装配探测能力</text>
+</g>
+<g data-node="devops"><rect x="915" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="931" y="825" class="head" text-anchor="start">devops</text>
+<text x="931" y="853" class="" text-anchor="start">注册 / 白名单配置同步</text>
+<text x="931" y="878" class="" text-anchor="start">SSH Broker / Hub 基础</text>
+<text x="931" y="903" class="" text-anchor="start">面板中继未接通</text>
+</g>
+<g data-node="游戏进程 + SDK 库"><rect x="15" y="1060" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="1090" class="head" text-anchor="start">游戏进程 + SDK 库</text>
+<text x="31" y="1118" class="" text-anchor="start">主动建连；双向调用</text>
+<text x="31" y="1143" class="" text-anchor="start">游戏权威数据在游戏侧</text>
+<text x="31" y="1168" class="" text-anchor="start">排空 ACK 尚未摘流</text>
+</g>
+<path d="M275 1060 V940" class="edge data" marker-end="url(#data)"/>
+<text x="25" y="990" class="small" text-anchor="start">TCP / protobuf :19091</text>
+<text x="25" y="1015" class="small" text-anchor="start">Connect / Invoke / result</text>
+<g data-node="游戏源数据库"><rect x="315" y="1060" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="331" y="1090" class="head" text-anchor="start">游戏源数据库</text>
+<text x="331" y="1118" class="" text-anchor="start">MySQL / MariaDB binlog</text>
+<text x="331" y="1143" class="" text-anchor="start">PostgreSQL pgoutput</text>
+<text x="331" y="1168" class="" text-anchor="start">MongoDB change stream</text>
+</g>
+<path d="M570 940 V1060" class="edge external" marker-end="url(#external)" marker-start="url(#external)"/>
+<text x="325" y="990" class="small" text-anchor="start">复制连接 / 事件返回</text>
+<text x="325" y="1015" class="small" text-anchor="start">源凭据 / 本地位点</text>
+<g data-node="探测目标"><rect x="615" y="1060" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="631" y="1090" class="head" text-anchor="start">探测目标</text>
+<text x="631" y="1118" class="" text-anchor="start">HTTP / TCP / protocol</text>
+<text x="631" y="1143" class="" text-anchor="start">按配置的目标与凭据</text>
+<text x="631" y="1168" class="" text-anchor="start">Server/sidecar 亦可探测</text>
+</g>
+<path d="M870 940 V1060" class="edge external" marker-end="url(#external)" marker-start="url(#external)"/>
+<text x="625" y="990" class="small" text-anchor="start">轮询请求 / 阶段结果</text>
+<g data-node="SSH 主机"><rect x="915" y="1060" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="931" y="1090" class="head" text-anchor="start">SSH 主机</text>
+<text x="931" y="1118" class="" text-anchor="start">本地 Broker 调用才进入</text>
+<text x="931" y="1143" class="" text-anchor="start">Credentials / known_hosts</text>
+<text x="931" y="1168" class="" text-anchor="start">RDP / VNC 未实现</text>
+</g>
+<path d="M1170 940 V1060" class="edge external" marker-end="url(#external)" marker-start="url(#external)"/>
+<text x="925" y="990" class="small" text-anchor="start">SSH / allowlist</text>
+<text x="925" y="1015" class="small" text-anchor="start">不是已通的面板链路</text>
+<path d="M35 940 H5 V1370 H15" class="edge control optional" marker-end="url(#control)"/>
+<text x="25" y="1250" class="small" text-anchor="start">sidecar 宿主管理插件生命周期</text>
+<g data-node="函数插件子进程"><rect x="15" y="1315" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="1345" class="head" text-anchor="start">函数插件子进程</text>
+<text x="31" y="1373" class="" text-anchor="start">go-plugin / local gRPC</text>
+<text x="31" y="1398" class="" text-anchor="start">宿主启动 / 调用 / Kill</text>
+<text x="31" y="1423" class="" text-anchor="start">可选；不是游戏 SDK</text>
+</g>
+<g data-node="受管程序子进程"><rect x="315" y="1315" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="331" y="1345" class="head" text-anchor="start">受管程序子进程</text>
+<text x="331" y="1373" class="" text-anchor="start">sidecar Ops / 本地 cron</text>
+<text x="331" y="1398" class="" text-anchor="start">start / stop / restart / update</text>
+<text x="331" y="1423" class="" text-anchor="start">本机文件与期望状态</text>
+</g>
+<path d="M270 940 H300 V1370 H315" class="edge control" marker-end="url(#control)"/>
+<g data-node="探测插件子进程"><rect x="615" y="1315" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="631" y="1345" class="head" text-anchor="start">探测插件子进程</text>
+<text x="631" y="1373" class="" text-anchor="start">go-plugin / local gRPC</text>
+<text x="631" y="1398" class="" text-anchor="start">Describe / Check</text>
+<text x="631" y="1423" class="" text-anchor="start">超时 / 退避 / 熔断</text>
+</g>
+<path d="M865 940 H900 V1370 H885" class="edge control optional" marker-end="url(#control)"/>
+<path d="M880 595 V610 H1189 V1290 H880 V1185" class="edge external optional" marker-end="url(#external)"/>
+<path d="M280 940 H290 V1270 H800 V1185" class="edge external optional" marker-end="url(#external)"/>
+<text x="325" y="1260" class="small" text-anchor="start">sidecar / Server 本机探针 → 同类外部目标</text>
+<g data-node="外部平台 API"><rect x="915" y="1315" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="931" y="1345" class="head" text-anchor="start">外部平台 API</text>
+<text x="931" y="1373" class="" text-anchor="start">Server/sidecar 扩展路径</text>
+<text x="931" y="1398" class="" text-anchor="start">HTTP / 平台凭据</text>
+<text x="931" y="1423" class="" text-anchor="start">按配置启用</text>
+</g>
+<path d="M265 940 H295 V1220 H1193 V1375 H1185" class="edge external optional" marker-end="url(#external)"/>
+<text x="320" y="1208" class="small" text-anchor="start">可选 sidecar 扩展 → 外部平台（与 devops 无关）</text>
+<text x="30" y="1505" class="head" text-anchor="start">独立分析管道 · CDC 原始事件不会自动进入此管道</text>
+<g data-node="外部事件生产者"><rect x="15" y="1550" width="270" height="100" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="31" y="1580" class="head" text-anchor="start">外部事件生产者</text>
+<text x="31" y="1608" class="" text-anchor="start">事件 / 支付 JSON</text>
+<text x="31" y="1633" class="" text-anchor="start">与游戏 SDK 函数路由独立</text>
+</g>
+<g data-node="ingest · HTTP :8088"><rect x="375" y="1550" width="350" height="100" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="391" y="1580" class="head" text-anchor="start">ingest · HTTP :8088</text>
+<text x="391" y="1608" class="" text-anchor="start">HMAC / time window / limits</text>
+<text x="391" y="1633" class="" text-anchor="start">签名接入与 MQ 发布</text>
+</g>
+<path d="M285 1600 H375" class="edge data" marker-end="url(#data)"/>
+<text x="298" y="1585" class="small" text-anchor="start">HTTP</text>
+<g data-node="Redis Streams"><rect x="375" y="1740" width="350" height="100" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="391" y="1770" class="head" text-anchor="start">Redis Streams</text>
+<text x="391" y="1798" class="" text-anchor="start">事件流 / 消费组 / PEL</text>
+<text x="391" y="1823" class="" text-anchor="start">凭据与持久化依配置</text>
+</g>
+<path d="M550 1650 V1740" class="edge data" marker-end="url(#data)"/>
+<text x="570" y="1703" class="small" text-anchor="start">XADD</text>
+<path d="M890 575 H1197 V1790 H725" class="edge data optional" marker-end="url(#data)"/>
+<text x="750" y="1688" class="small" text-anchor="start">Server telemetry bridge（可选）</text>
+<g data-node="analytics-worker"><rect x="375" y="1910" width="350" height="100" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="391" y="1940" class="head" text-anchor="start">analytics-worker</text>
+<text x="391" y="1968" class="" text-anchor="start">Redis 消费 / 聚合 / 批写</text>
+<text x="391" y="1993" class="" text-anchor="start">内置 worker 不消费 Kafka</text>
+</g>
+<path d="M550 1840 V1910" class="edge data" marker-end="url(#data)"/>
+<text x="570" y="1880" class="small" text-anchor="start">XREADGROUP / XACK</text>
+<g data-node="ClickHouse"><rect x="845" y="1910" width="340" height="100" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="861" y="1940" class="head" text-anchor="start">ClickHouse</text>
+<text x="861" y="1968" class="" text-anchor="start">事件 / 支付 / 分析聚合</text>
+<text x="861" y="1993" class="" text-anchor="start">批写确认窗口待修复</text>
+</g>
+<path d="M725 1960 H845" class="edge data" marker-end="url(#data)"/>
+<text x="735" y="1945" class="small" text-anchor="start">native SQL</text>
+<g data-node="读图规则与现状边界"><rect x="15" y="2090" width="1170" height="160" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="31" y="2120" class="head" text-anchor="start">读图规则与现状边界</text>
+<text x="31" y="2148" class="" text-anchor="start">蓝线：控制 / 会话；绿线：业务数据；棕线：外部依赖；虚线：可选连接。</text>
+<text x="31" y="2173" class="" text-anchor="start">圆点是汇接点；无圆点的交叉线不相连。双箭头表示请求与返回，不表示双方都建连。</text>
+<text x="31" y="2198" class="" text-anchor="start">图是现状，不证明已部署；认证、数据、启动顺序和缺口见 runtime-topology 正文。</text>
+<text x="31" y="2223" class="" text-anchor="start">Redis 协调与分析用途分开；共享部署的故障和容量边界待核实。</text>
+</g>
 </svg>

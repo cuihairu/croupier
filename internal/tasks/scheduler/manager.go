@@ -33,6 +33,8 @@ type ScheduleStore interface {
 	HasRunLog(ctx context.Context, scheduleID uint, slot time.Time) (bool, error)
 	// CreateRunLog 写触发记录；唯一索引冲突返回 false（并发兜底）。
 	CreateRunLog(ctx context.Context, log *model.TaskScheduleRunLog) (bool, error)
+	// UpdateRunLog 回填领取槽位后的派发结果（ARCH-023 先领取再派发）。
+	UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error
 	// LastRunResult 取某 TaskRun 的终态（"" = 未终态/不存在）。
 	LastRunStatus(ctx context.Context, taskRunID string) (string, error)
 }
@@ -141,8 +143,19 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 	}
 
 	slot := Slot(now)
-	// 幂等窗口：本触发槽已处理过（多实例/重启重叠场景）。
-	if done, _ := m.store.HasRunLog(ctx, s.ID, slot); done {
+	// ARCH-023 先领取再派发：CreateRunLog 的 (schedule_id, slot) 唯一索引就是
+	// 领取令牌。唯一冲突（claimed==false）说明另一实例已领取本槽——只推进
+	// 下次触发时间、不派发。旧顺序（先 HasRunLog 判重→派发→后补记录且忽略
+	// 冲突返回）在双 Manager 下双方都通过判重、双双派发、仅 1 条唯一记录。
+	claimed, err := m.store.CreateRunLog(ctx, &model.TaskScheduleRunLog{
+		ScheduleID: s.ID, Slot: slot, Status: "claimed",
+	})
+	if err != nil {
+		// 基础设施错误：宁可不派发也不冒重复派发风险；不推进，下轮重试同槽。
+		slog.Warn("scheduler: claim run slot failed, skip dispatch", "schedule", s.ID, "error", err)
+		return
+	}
+	if !claimed {
 		m.advance(s, spec, now, nil)
 		return
 	}
@@ -163,9 +176,7 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 	}
 	if failures >= maxFailed {
 		slog.Warn("scheduler: schedule exceeded max failures, dead_letter", "schedule", s.ID, "failures", failures)
-		_, _ = m.store.CreateRunLog(ctx, &model.TaskScheduleRunLog{
-			ScheduleID: s.ID, Slot: slot, Status: "skipped", Message: "dead_letter: consecutive failures reached limit",
-		})
+		_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", "skipped", "dead_letter: consecutive failures reached limit")
 		_ = m.store.UpdateSchedule(ctx, s.ID, map[string]interface{}{
 			"status":               model.ScheduleStatusDeadLetter,
 			"consecutive_failures": failures,
@@ -213,9 +224,8 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 		runID = resp.GetTaskId()
 	}
 
-	_, _ = m.store.CreateRunLog(ctx, &model.TaskScheduleRunLog{
-		ScheduleID: s.ID, Slot: slot, TaskRunID: runID, Status: trigStatus, Message: trigMsg,
-	})
+	// 回填领取后的派发结果（claim 已在触发前写入）。
+	_ = m.store.UpdateRunLog(ctx, s.ID, slot, runID, trigStatus, trigMsg)
 
 	updates := map[string]interface{}{
 		"last_triggered_at":    now,
@@ -227,8 +237,8 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 }
 
 // triggerLocal 执行 server-local 调度（Kind=incident_report）：同步调用
-// LocalRunner——成功清零失败计数、失败 +1；run-log 记 dispatched/failed
-// （无 TaskRunID——不经异步任务链）。
+// LocalRunner——成功清零失败计数、失败 +1；run-log 回填 dispatched/failed
+// （无 TaskRunID——不经异步任务链）。领取已在 triggerSchedule 完成。
 func (m *Manager) triggerLocal(ctx context.Context, local LocalRunner, s *model.TaskSchedule, slot time.Time, spec *CronSpec, now time.Time, failures int) {
 	err := local.Run(ctx, s)
 	status, msg := "dispatched", ""
@@ -239,9 +249,7 @@ func (m *Manager) triggerLocal(ctx context.Context, local LocalRunner, s *model.
 	} else {
 		failures = 0
 	}
-	_, _ = m.store.CreateRunLog(ctx, &model.TaskScheduleRunLog{
-		ScheduleID: s.ID, Slot: slot, Status: status, Message: msg,
-	})
+	_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", status, msg)
 	updates := map[string]interface{}{
 		"last_triggered_at":    now,
 		"consecutive_failures": failures,

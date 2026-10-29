@@ -29,7 +29,7 @@ const props = withDefaults(defineProps<{ lang?: "en" | "zh" }>(), {
               : 'Croupier current architecture: console, Server, four Agent roles, SDKs, shared state and separate analytics pipeline'
           "
           width="1200"
-          height="1050"
+          height="2310"
           loading="lazy"
         />
       </picture>
@@ -37,8 +37,8 @@ const props = withDefaults(defineProps<{ lang?: "en" | "zh" }>(), {
     <figcaption>
       {{
         props.lang === "zh"
-          ? "2026-10-28 源码核对 · 点击打开完整 SVG"
-          : "Source review: 2026-10-28 · Open the full SVG"
+          ? "2026-10-29 源码核对 · 点击打开完整 SVG"
+          : "Source review: 2026-10-29 · Open the full SVG"
       }}
     </figcaption>
   </figure>
@@ -50,6 +50,7 @@ const props = withDefaults(defineProps<{ lang?: "en" | "zh" }>(), {
 }
 .architecture-diagram a {
   display: block;
+  overflow-x: auto;
   border-radius: 16px;
 }
 .architecture-diagram a:focus-visible {
@@ -67,5 +68,12 @@ const props = withDefaults(defineProps<{ lang?: "en" | "zh" }>(), {
   font-size: 13px;
   color: var(--vp-c-text-2);
   text-align: center;
+}
+@media (max-width: 768px) {
+  .architecture-diagram img {
+    width: 960px;
+    min-width: 960px;
+    max-width: none;
+  }
 }
 </style>

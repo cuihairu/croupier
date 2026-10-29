@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1768" viewBox="0 0 1200 1768" role="img" aria-labelledby="title desc"><title id="title">Asynchronous task acceptance, completion and cancellation</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="1768" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">Asynchronous task acceptance, completion and cancellation</text>
+<text x="30" y="78" class="small" text-anchor="start">Time ↓ · Dashed lifelines · Choose one ALT branch · Crossings do not join</text>
+<g data-node="Operator client"><rect x="65" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="81" y="135" class="head" text-anchor="start">Operator client</text>
+</g>
+<path d="M180 170 V1703" class="life"/>
+<g data-node="Server / DB"><rect x="345" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="361" y="135" class="head" text-anchor="start">Server / DB</text>
+</g>
+<path d="M460 170 V1703" class="life"/>
+<g data-node="sidecar TaskRunner"><rect x="625" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="641" y="135" class="head" text-anchor="start">sidecar TaskRunner</text>
+</g>
+<path d="M740 170 V1703" class="life"/>
+<g data-node="Game SDK"><rect x="905" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="921" y="135" class="head" text-anchor="start">Game SDK</text>
+</g>
+<path d="M1020 170 V1703" class="life"/>
+<g data-node="Preconditions"><rect x="50" y="195" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="225" class="head" text-anchor="start">Preconditions</text>
+<text x="66" y="253" class="" text-anchor="start">Governed function/page tasks only; raw task/schedule entry gates are incomplete</text>
+</g>
+<text x="600" y="335" class="message" text-anchor="middle">02 · HTTP task request; Server allocates taskId</text>
+<path d="M180 361 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="451" class="message" text-anchor="middle">03 · Attempt CreateRun(task_runs); errors currently do not stop dispatch (ARCH-026)</text>
+<path d="M460 469 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="567" class="message" text-anchor="middle">04 · Route StartTask(taskId / InvokeRequest) via session / owner</text>
+<path d="M460 593 H740" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="683" class="message" text-anchor="middle">05 · StartTask ACK(taskId): accepted, not completed</text>
+<path d="M740 709 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="799" class="message" text-anchor="middle">06 · HTTP taskId; client then queries / subscribes to SSE</text>
+<path d="M460 825 H180" class="edge control" marker-end="url(#control)"/>
+<g data-node="Concurrency note"><rect x="50" y="891" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="921" class="head" text-anchor="start">Concurrency note</text>
+<text x="66" y="949" class="" text-anchor="start">started may race with ACK; background execution outlives the HTTP response</text>
+</g>
+<text x="600" y="1031" class="message" text-anchor="middle">08 · Background Provider Invoke; report started</text>
+<path d="M740 1057 H1020" class="edge control" marker-end="url(#control)"/>
+<rect x="40" y="1115" width="1120" height="224" rx="12" fill="#faf5f5" stroke="#976a3d" stroke-width="2"/>
+<text x="600" y="1230" class="small" text-anchor="middle">OR · choose one branch</text>
+<g data-node="ALT · Natural completion"><rect x="50" y="1123" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1153" class="head" text-anchor="start">ALT · Natural completion</text>
+<text x="66" y="1181" class="" text-anchor="start">Result produces completed or failed; defer removes task map entry / cancels context</text>
+</g>
+<g data-node="ALT · User cancellation may race with completion"><rect x="50" y="1239" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1269" class="head" text-anchor="start">ALT · User cancellation may race with completion</text>
+<text x="66" y="1297" class="" text-anchor="start">Persist intent → CancelTask → cancel context; actual outcome decides cancelled, without rollback</text>
+</g>
+<text x="600" y="1379" class="message" text-anchor="middle">11 · Terminal event → task_events / task_runs; cancellation must not regress terminal state</text>
+<path d="M740 1405 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="1495" class="message" text-anchor="middle">12 · Query / SSE returns stored terminal state: normal observation ends</text>
+<path d="M460 1521 H180" class="edge control" marker-end="url(#control)"/>
+<g data-node="Current gap"><rect x="50" y="1587" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="1617" class="head" text-anchor="start">Current gap</text>
+<text x="66" y="1645" class="" text-anchor="start">Reporting errors discarded; no durable duplicate-Start protection or guaranteed restart recovery</text>
+</g>
+<text x="30" y="1743" class="small" text-anchor="start">End: guarantees stop at this boundary; see text for recovery/drain gaps</text>
+</svg>

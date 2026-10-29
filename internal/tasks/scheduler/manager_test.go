@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,8 +14,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakeStore 是 ScheduleStore 的内存替身。
+// fakeStore 是 ScheduleStore 的内存替身（带锁：ARCH-023 并发领取测试需要
+// 多 goroutine 同时调用 CreateRunLog）。
 type fakeStore struct {
+	mu        sync.Mutex
 	schedules []model.TaskSchedule
 	runLogs   map[string]model.TaskScheduleRunLog // key: scheduleID|slot
 	updates   map[uint][]map[string]interface{}
@@ -25,6 +28,8 @@ func newFakeStore(schedules ...model.TaskSchedule) *fakeStore {
 }
 
 func (f *fakeStore) ListDue(ctx context.Context, now time.Time, limit int) ([]model.TaskSchedule, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	var out []model.TaskSchedule
 	for i := range f.schedules {
 		s := &f.schedules[i]
@@ -37,6 +42,8 @@ func (f *fakeStore) ListDue(ctx context.Context, now time.Time, limit int) ([]mo
 }
 
 func (f *fakeStore) UpdateSchedule(ctx context.Context, id uint, updates map[string]interface{}) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.updates[id] = append(f.updates[id], updates)
 	for i := range f.schedules {
 		if f.schedules[i].ID == id {
@@ -52,17 +59,34 @@ func (f *fakeStore) UpdateSchedule(ctx context.Context, id uint, updates map[str
 }
 
 func (f *fakeStore) HasRunLog(ctx context.Context, scheduleID uint, slot time.Time) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	_, ok := f.runLogs[fmt.Sprintf("%d|%s", scheduleID, slot.Format(time.RFC3339))]
 	return ok, nil
 }
 
 func (f *fakeStore) CreateRunLog(ctx context.Context, log *model.TaskScheduleRunLog) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	key := fmt.Sprintf("%d|%s", log.ScheduleID, log.Slot.Format(time.RFC3339))
 	if _, ok := f.runLogs[key]; ok {
 		return false, nil
 	}
 	f.runLogs[key] = *log
 	return true, nil
+}
+
+func (f *fakeStore) UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	key := fmt.Sprintf("%d|%s", scheduleID, slot.Format(time.RFC3339))
+	if l, ok := f.runLogs[key]; ok {
+		l.TaskRunID = taskRunID
+		l.Status = status
+		l.Message = message
+		f.runLogs[key] = l
+	}
+	return nil
 }
 
 func (f *fakeStore) LastRunStatus(ctx context.Context, taskRunID string) (string, error) {

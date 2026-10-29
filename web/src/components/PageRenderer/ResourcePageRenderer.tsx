@@ -551,16 +551,27 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
         return false;
       }
-      // D2 跨目标总量：批量表单中显式声明 perTarget 的数字字段，按已选
-      // 目标数换算总量并再次确认；不确定输入阻断而不是猜总量。
+      // 动作级确认 + D2 跨目标总量合并为一次确认：
+      // - 带表单的批量/行动作同样尊重 action.confirm 与声明的
+      //   confirmTitle/confirmDescription（含目标清单），否则模板声明的
+      //   确认文案在表单路径不可达；
+      // - 显式声明 perTarget 的字段按已选目标数换算总量并同框核对；
+      //   不确定输入阻断而不是猜总量（含空串/全空白串不猜 0）。
       const perTargetField = action.form?.fields?.find((field) => field.perTarget);
+      let perTargetValue: number | string | undefined | null;
+      let perTargetTotal: number | undefined;
+      let perTargetUnit = '';
       if (selection && perTargetField) {
-        const perTargetValue = values[perTargetField.key];
-        const total = summarizePerTargetTotal(
+        const rawPerTarget = values[perTargetField.key];
+        perTargetValue =
+          typeof rawPerTarget === 'boolean'
+            ? undefined
+            : (rawPerTarget as number | string | undefined | null);
+        perTargetTotal = summarizePerTargetTotal(
           perTargetValue as number | string | undefined | null,
           selection.length,
         );
-        if (total === undefined) {
+        if (perTargetTotal === undefined) {
           message.error(
             intl.formatMessage({
               id: 'component.resourceRenderer.confirm.invalidPerTarget',
@@ -569,50 +580,96 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           );
           return false;
         }
-        const unit = perTargetField.unit ? localizedText(perTargetField.unit, 'zh-CN', '') : '';
-        const confirmed = await new Promise<boolean>((resolve) => {
-          modal.confirm({
-            title: intl.formatMessage({
+        perTargetUnit = perTargetField.unit ? localizedText(perTargetField.unit, 'zh-CN', '') : '';
+      }
+      if (action.confirm || binding.execution.requireConfirm || perTargetField) {
+        const actionConfirmed = action.confirm || binding.execution.requireConfirm;
+        const title = actionConfirmed
+          ? localizedText(
+              action.confirmTitle,
+              'zh-CN',
+              intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.title',
+                defaultMessage: '确认操作',
+              }),
+            )
+          : intl.formatMessage({
               id: 'component.resourceRenderer.confirm.totalTitle',
               defaultMessage: '核对跨目标总量',
-            }),
-            content: (
-              <Descriptions size="small" column={1} bordered>
-                <Descriptions.Item
-                  label={localizedText(
-                    perTargetField.label ?? {
-                      'zh-CN': '每人数量',
-                      'en-US': 'Per-target quantity',
-                    },
-                    'zh-CN',
-                    intl.formatMessage({
-                      id: 'component.resourceRenderer.confirm.perQuantity',
-                      defaultMessage: '每人数量',
-                    }),
-                  )}
-                >
-                  {String(perTargetValue)}
-                  {unit ? ` ${unit}` : ''}
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={intl.formatMessage({
-                    id: 'component.resourceRenderer.confirm.targetCount',
-                    defaultMessage: '目标数量',
-                  })}
-                >
-                  {selection.length}
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={intl.formatMessage({
-                    id: 'component.resourceRenderer.confirm.totalAmount',
-                    defaultMessage: '总量',
-                  })}
-                >
-                  {total}
-                  {unit ? ` ${unit}` : ''}
-                </Descriptions.Item>
-              </Descriptions>
-            ),
+            });
+        const base = actionConfirmed
+          ? confirmContentWithTargets(
+              localizedText(
+                action.confirmDescription,
+                'zh-CN',
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.confirm.content',
+                  defaultMessage: '确定要执行此操作吗？',
+                }),
+              ),
+              selection || (record ? [record] : []),
+            )
+          : null;
+        const confirmed = await new Promise<boolean>((resolve) => {
+          modal.confirm({
+            title,
+            content:
+              base || perTargetTotal !== undefined ? (
+                <div>
+                  {base}
+                  {perTargetTotal !== undefined ? (
+                    <Descriptions
+                      size="small"
+                      column={1}
+                      bordered
+                      style={base ? { marginTop: 12 } : undefined}
+                    >
+                      <Descriptions.Item
+                        label={localizedText(
+                          perTargetField!.label ?? {
+                            'zh-CN': '每人数量',
+                            'en-US': 'Per-target quantity',
+                          },
+                          'zh-CN',
+                          intl.formatMessage({
+                            id: 'component.resourceRenderer.confirm.perQuantity',
+                            defaultMessage: '每人数量',
+                          }),
+                        )}
+                      >
+                        {String(perTargetValue)}
+                        {perTargetUnit ? ` ${perTargetUnit}` : ''}
+                      </Descriptions.Item>
+                      <Descriptions.Item
+                        label={intl.formatMessage({
+                          id: 'component.resourceRenderer.confirm.targetCount',
+                          defaultMessage: '目标数量',
+                        })}
+                      >
+                        {selection!.length}
+                      </Descriptions.Item>
+                      <Descriptions.Item
+                        label={intl.formatMessage({
+                          id: 'component.resourceRenderer.confirm.totalAmount',
+                          defaultMessage: '总量',
+                        })}
+                      >
+                        {perTargetTotal}
+                        {perTargetUnit ? ` ${perTargetUnit}` : ''}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  ) : null}
+                </div>
+              ) : (
+                localizedText(
+                  action.confirmDescription,
+                  'zh-CN',
+                  intl.formatMessage({
+                    id: 'component.resourceRenderer.confirm.content',
+                    defaultMessage: '确定要执行此操作吗？',
+                  }),
+                )
+              ),
             onOk: () => resolve(true),
             onCancel: () => resolve(false),
           });
@@ -647,7 +704,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [actionFormState, bindings, message, modal, onExecute, preview, trackSelectedRows],
+    [
+      actionFormState,
+      bindings,
+      confirmContentWithTargets,
+      message,
+      modal,
+      onExecute,
+      preview,
+      trackSelectedRows,
+    ],
   );
 
   const submitCreateForm = useCallback(async (): Promise<boolean> => {

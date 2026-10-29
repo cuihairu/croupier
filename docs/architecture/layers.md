@@ -8,13 +8,13 @@ Croupier separates control-plane concerns from game-process integration. Each la
 
 ## Component layers
 
-| Layer               | Owner        | Responsibility                                                                                   |
-| ------------------- | ------------ | ------------------------------------------------------------------------------------------------ |
-| Console and API     | Server       | Authentication, RBAC, audit, proposals, publishing, monitoring, and operator-facing execution.   |
-| Registry and policy | Server       | Function contracts, resource semantics, snapshots, approvals, and execution policy.              |
-| Agent session       | Agent        | One outbound Server session with heartbeats, reconnection, draining, and request multiplexing.   |
-| Provider gateway    | Agent        | Local sessions for embedded SDKs and game processes, plus routing to healthy provider instances. |
-| Embedded SDK        | Game process | Registers functions, invokes local handlers, and reports process/provider metadata.              |
+| Layer               | Owner        | Responsibility                                                                                              |
+| ------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| Console and API     | Server       | Authentication, RBAC, audit, proposals, publishing, monitoring, and operator-facing execution.              |
+| Registry and policy | Server       | Function contracts, resource semantics, snapshots, approvals, and execution policy.                         |
+| Agent session       | Agent        | One outbound Server session with heartbeats, reconnection and request multiplexing; draining is incomplete. |
+| Provider gateway    | Agent        | Local sessions for embedded SDKs and game processes, plus routing to healthy provider instances.            |
+| Embedded SDK        | Game process | Registers functions, invokes local handlers, and reports process/provider metadata.                         |
 
 ## Technical boundaries
 
@@ -52,3 +52,5 @@ This prevents a single function descriptor from becoming an implicit page, menu,
 ## Related pages
 
 - [Architecture overview](/architecture/)
+
+[Runtime evidence / 运行依据](./runtime-topology)。

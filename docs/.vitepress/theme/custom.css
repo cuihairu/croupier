@@ -217,3 +217,15 @@ code {
   background-color: var(--sem-accent-soft);
   color: var(--sem-accent);
 }
+
+/* Keep analytics SVG labels readable; contain scrolling inside the figure. */
+.analytics-diagram {
+  overflow-x: auto;
+  margin: 24px 0;
+}
+.analytics-diagram img {
+  width: 960px;
+  min-width: 960px;
+  max-width: none;
+  height: auto;
+}

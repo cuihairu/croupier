@@ -69,6 +69,11 @@ export function summarizePerTargetTotal(
   perTargetValue: number | string | undefined | null,
   targetCount: number,
 ): number | undefined {
+  // 空串/全空白串是「不确定输入」而非 0：Number('') 与 Number('  ') 都会
+  // 得 0，直接按 0 计算会确认并提交 0 充值，违背下方「不猜 0」约定。
+  if (typeof perTargetValue === 'string' && perTargetValue.trim() === '') {
+    return undefined;
+  }
   const perTarget =
     typeof perTargetValue === 'string' ? Number(perTargetValue.trim()) : perTargetValue;
   if (

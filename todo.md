@@ -1,9 +1,10 @@
 # TODO
 
-需求清单：一条一句，只列需求。完成项保留一行证据（commit hash / 测试规模），过程叙述见 git log 与 docs/ 对应设计文档。
+更新：2026-10-29。当前执行清单以源码核对为依据；本轮重新按游戏运营后台复核代码与待办；实现、工作区在途修复、定向验证及真实环境验收分别记录，不把代码存在或测试总数作为完成依据。优先级 P0 > P1 > P2；依赖 `—` 表示无本清单前置，不代表无环境条件。每个复选框是独立交付；READY 表示可开展；NOT RUN 只表示该项验收未运行，不等于必须等待用户或外部环境；LOCAL VERIFIED 表示所注明的工作区定向证据已取得，未发布。
 
-## 未完成
+旧台账完整保存在 [整理前历史](docs/review/todo-history-2026-10-29.md)，已交付片段不再重列为实现任务。原 C2/E2/D2/D5 的重复父条、阻塞条合并为验收任务；过期行号依赖移除。架构审核 A01–A09 对应 ARCH-001–020，不表示修复完成。仅设计完成的记录不能当实现完成。2026-10-29 再审发现：原清单遗漏定时派发竞争、执行入口治理缺口、策略故障放行、游戏身份/凭据/批次协议落地与灾备验证；新增任务见下方稳定编号。
 
+当前执行顺序：先收口 ARCH-023/024/025 的调度领取、统一治理与政策故障语义；真实高危游戏写入须具备 GAME-009/010 的批准协议与游戏持久收据。审批/任务/停机等既有可靠性缺口并行推进。分析先做 DATA-001 口径，再修现有聚合/接入闭环；DATA-010 可并行调查专业平台，避免在核心未可靠前扩建 BI 或继续堆页面。
 - [x] 审核发现：console 绑定执行加 `skipErrorHandler: true` 后，`scope_not_authorized`/`invalid_game_scope`/`scope_required` 等 403 与 token 失效 401 穿透全局 `errorHandler` 直接抛出，绕过其专门处理（清 scope 让 GameSelector 重选、跳登录），渲染器仅按 `forbidden`/`permission_denied` 收敛原因行，无效 scope 卡在页面不提示重选（web/src/services/console.ts:134、web/src/services/console.ts:168、web/src/requestErrorConfig.ts:210、web/src/requestErrorConfig.ts:232、web/src/components/PageRenderer/execFeedback.ts:70）。属实：根因是 `errorHandler` 对 `skipErrorHandler` 无条件 `throw`，使 403/401 分支永不执行；修复为 skipErrorHandler 下仍先处理会话/scope 级错误（清 scope 重选、清 token 跳登录）再上抛，其余错误保留页内反馈；`execFeedback` 对无效 scope 也补专门原因行。证据：commit（见 git log）；web 全量 jest 452 suites/5327 tests 绿、`tsc --noEmit` 0 错误、新增 `requestErrorConfig.test.ts` 6 用例与 `compositeExecFeedback.test.tsx` 无效 scope 用例绿。
 - [ ] 界面生成链收口（2026-10-23 用户采纳审核建议，计划来源 commit 6d55367）：仅面向游戏运营，不扩展为通用低代码平台；优先复用 Ant Design/ProComponents 的表格、表单、详情、弹窗与状态组件，自研聚焦业务语义、函数绑定和执行治理；保留 React/Ant Design/RJSF 与 `FunctionContract → CapabilitySemantics → PageSpec → 受控执行`，以业务模板为主要入口、自由画布为高级能力，按下列 A→B→C 批次推进；复用既有语义、模板和发布体系，当前不整体迁移 React Admin/JSON Forms/amis，AI 辅助生成另行评估且产物仍须经过同一草稿校验与发布链。（2026-10-28 状态：父条保持未勾——收口依赖全部子项）A/B/C1 批次与 D1–D5 已收口（cc9faa49 及此前各子片）；剩余 C2（真实游戏页面全链独立环境验收，BLOCKED 外部依赖，见 C2 条）与 E2（示例操作与异常状态闭环，见 E2 条）。 BLOCKED：缺独立验收环境与用户确认验收目标（真实游戏页面或 E2 示例游戏）。
   - [ ] 阻塞登记（2026-10-28）：BLOCKED on user input——A1/A2/A3/B1/B2/C1 及各自子片均已交付（见下方逐条 [x]），唯 C2 页面生成全链验收被「真实游戏页面独立环境验收」卡住（C2 阻塞登记：须独立环境运行完整栈并人工走查六段全链，待用户确认以真实游戏页面还是 E2 示例游戏为准）；本收口条目随 C2 一并阻塞，其余批次不宣称收口。手动动作：随 C2 解除后一并回填。
@@ -60,23 +61,65 @@
   - [ ] 阻塞登记（2026-10-28）：BLOCKED on user input——示例函数契约/执行器/示例状态读写回与预览发布共用数据源已交付（gameops-demo 基座 33 函数 ID 经真实 SDK→Agent→Server 链注册，含任务态 `report.generate`：`Execution:"task"`，执行器等待 delayMs 后按 fail 标志成功/失败并响应取消，runSeq 统计实际执行次数供幂等键去重可观测；待审批经高风险 `player.ban`/`ban.*` 的真实审批闸复现，docs/design/game-ops-demo.md）；剩余「示例验证与真实游戏验收分别记录」的示例验证须独立环境运行完整栈（server+agent+gameops-demo+web）人工走查查询筛选/分页/排序、封禁/解封/邮件/补偿/活动配置写读回、待审批/异步任务/失败/延迟结果未知/幂等重试闭环，确认预览与发布共用示例数据源（非硬编码 toast/表格行）；不以单测通过宣称 E2 交付。手动动作：部署 demo 完整栈走查，走查后回填结论。
     - [x] demo-server 基础（服务端数据源 + 可调用契约执行器）：新增 `sdks/go/examples/gameops-demo`，把 E1 浏览器 seed 镜像为进程内共享可变 store（3 区服/26 玩家含长昵称/30 订单/12 封禁/4 任务/8 活动/操作记录，`Reset()` 可重复恢复），通过 SDK→Agent→Server 既有注册链注册 E1 模板引用的 32 个精确函数 ID（`player.*`、`mail_task.*`、`ban.*`、`order.*`、`activity.*`，含 camelCase `player.batchBan/batchUnban`），`FunctionContract` 字段齐备（resource/operation/capability/execution/risk/inputSchema/outputSchema）；查询统一支持 `current/pageSize/orderBy/orderDirection` 与资源筛选；封禁/解封/延期、任务创建/重试/取消、订单补发、活动发布/上线/结束/回滚写共享数据并可回读；服务端幂等守卫覆盖重复补发（`already_credited`）与无失败重试（`no_failed_targets`）；README/design 双语文档与 `make run-gameops-demo` 启动入口齐备。证据：`cd sdks/go && go test ./examples/gameops-demo/... -count=1` 9 用例全绿（契约完备/生命周期写后回读/注册/注册失败/camelCase ID/qurey 筛选分页排序/seed 不变量/reset/写后读可见）、`cd sdks/go && go vet ./...` 绿；剩余边界：尚未把 E1 模板执行器替换为 `executePageBinding`，正式控制台页面生成→发布→binding→异常状态端到端走查仍未完成，异步/延迟/结果未知复现需接后续片。
 
-- [x] 稳定版四类 Agent 发布一致性（2026-10-22 代码分析，P1）：补齐 `.github/workflows/release.yml` Windows 的 synthetics 构建，并将 Linux/macOS 的 synthetics 纳入 tag 版本重新注入；当前 Windows 只构建前三类，而 `scripts/package-agents.py` 默认要求四类，会因缺少 synthetics-agent.exe 拒绝打包；验收覆盖干净构建、四角色独立归档/manifest/SHA256 及版本与 tag 一致，修正既有“发布聚合收口”不代表稳定版全平台已完成的口径。（2026-10-22 收口（commit 596504e）：`.github/workflows/release.yml` Linux/macOS 角色循环（:67）与 Windows foreach（:84）均纳入 synthetics，同式注入 `agents/synthetics/runner.Version/GitCommit/BuildTime`（git describe tag 值），默认四角色打包不再缺 synthetics-agent[.exe]；证据：`actionlint .github/workflows/release.yml` 通过；按 workflow 同命令本地实测 linux/amd64 与 windows/amd64 四二进制构建 + `package-agents.py` 默认角色打包：manifest 四角色齐全、synthetics 归档含 binary+configs/synthetics-agent.yaml+AGENTS.md+INSTALL.md、`sha256sum -c` 全 OK、`synthetics-agent --version` 输出注入的 tag 版本（v0.1.6-smoke / commit 8edfda9 实测）。原证据记录于 commit ccb5dd9。2026-10-23 HEAD `da12b6c` 复核：`git fetch --all --prune` 后 main=origin/main；非 Windows 循环与 Windows foreach 均含 synthetics 且注入三角色版本信息（`.github/workflows/release.yml:67-68`、`.github/workflows/release.yml:84-86`）；`scripts/package-agents.py:14-18` 四角色含 synthetics、`scripts/package-agents.py:111` 默认全角色；runner 无 `r.conn` 字段/直接读写，探测经 `reg.Conn()` 加锁快照到 `probeSender`（`agents/synthetics/runner/runner.go:35-53`、`agents/synthetics/runner/runner.go:104-117`；`core/register/registration.go:179-189`）；`go build ./...` PASS；`go test -race -count=1 ./agents/synthetics/runner` PASS；`go vet ./agents/synthetics/...` PASS。）
-- [x] synthetics 上行连接并发安全（2026-10-22 代码分析，P1）：消除 `agents/synthetics/runner/runner.go:55` 后台注册/重连写 `r.conn` 与 `:86`、`:92` 探测循环读之间的无同步访问，优先复用注册客户端的同步连接访问能力；验收覆盖首次连接、重连与探测并发、注册失败和退出，增加可触发这些交错的 race 回归。（2026-10-22 收口（commit 596504e）：Runner 弃用自有 conn 指针，改持 register.Client 并经其加锁快照发送——dialer 只拨号不再写 Runner 字段，探测路径经 `probeSender`（Connected+SendProbeEvent）接口读 `reg.Conn()` 快照，stale 快照最坏报 session unavailable；新增 `agents/synthetics/runner/runner_conn_test.go` 覆盖首连送达、注册失败+重连与探测并发交错、无会话/停止后三态；证据：`go test -race -count=5 -run TestExecute ./agents/synthetics/runner` 绿、全包 `-race` 与 `-tags no_go_plugin` 绿、`go build ./...`+`go test -count=1 ./...` 全绿；回归有效性经 HEAD worktree 复现旧模式（dialer goroutine 写 Runner 字段 vs 探测循环读）5/5 触发 DATA RACE 证实。原勾账记录于 commit ccb5dd9。2026-10-23 复核当前 HEAD：Runner 无 `r.conn` 字段，快照入口 `agents/synthetics/runner/runner.go:48-52`（`upstream()` 读 `reg.Conn()`）、探测发送 `runner.go:109-110`，`runner_conn_test.go` 在案。）
-- [x] 函数调用重复实现收口（2026-10-22 代码分析，P2）：核实两套执行链真实消费方——生产在用侧为 `internal/api/function`（路由 `internal/handler/routes.go:416` → `handler.go:206` → `service.go:59`），旧 `internal/logic/function/function_invoke_logic.go` 构造函数零生产调用点（仅测试引用）；执行链上收为唯一实现 `internal/platform/functioninvoke.Invoke`（scope/禁用 `EnsureFunctionEnabled`/分配 `EnsureFunctionAssigned`/策略审批 `EnforceFunctionPolicy`+`createFunctionApproval`/审计/执行留痕 `ExecutionLogWriter` 同源），api 侧改 DTO 适配薄壳、logic 侧薄壳转发（显式 scope 经 `RequireGameEnvScope` 授权后进统一链，mode 语义随生产仅 async 走任务）；不硬删不半删，旧入口类型保留可恢复。证据：`go build ./...` 绿；`go test ./internal/logic/function ./internal/api/function ./internal/platform/functioninvoke ./internal/api/openapi ./internal/api/approval ./internal/api/task ./internal/handler ./internal/logic/... ./internal/server -count=1` 全绿（logic/function 252 用例）；新增语义等价回归 `TestUnifiedInvoke_*` 4 用例（审批/禁用/留痕/成功四面，双入口同 svcCtx 对拍）；`go vet`、architecture guard、check-no-grpc PASSED。（commit 9a50072，2026-10-22 落 main）
+## 架构与可靠性
 
-- [x] CDC 通用库边界抽取（2026-10-18，P1）：把统一事件、位点、能力与 `SourceConnector` 契约迁到不依赖 `agents/`、`internal/`、protobuf 和数据库驱动的 `pkg/cdc`，旧 `agents/capture/connector` 路径以别名兼容；不迁入 game/env、三闸、告警或面板语义，验收以依赖守卫及旧 Connector 全套测试通过为准，设计见 `docs/zh/design/cdc-library-design.md`。（契约与别名已迁移，兼容 Connector 测试通过；独立 module 化保留为未来拆库动作。）
-- [x] CDC 通用事件过滤器（2026-10-18，P1）：提供明确 include/exclude 选择器（source、库、表、操作），空 include 默认拒绝、exclude 优先；精确库表可请求 SourceConnector 下推，运行时必须再次过滤，通配能力不足时不得错误缩小/放大事件集；仅支持通用 DML 元数据，不引入游戏业务谓词或脚本，验收含匹配矩阵、pushdown 交集和运行时过滤器取消语义，设计见 `docs/zh/design/cdc-library-design.md`。（已实现于 `pkg/cdc/filter`；source pushdown 为建议范围，消费侧强制过滤。）
-- [x] CDC 筛选事件日志与回放内核（2026-10-18，P1）：只追加最终放行事件，要求稳定事件 ID、位点、事务序号/结束标记，支持崩溃残尾恢复、按序/区间读取、幂等追加及可插拔事务 sink；事件必须先持久化再确认源位点，部分事务/能力缺失必须拒绝恢复，不宣称任意数据库 PITR，验收含故障注入与重复回放，设计见 `docs/zh/design/cdc-library-design.md`。（已实现 `pkg/cdc/journal`；PG 提供事务末事件标记，MySQL/Mongo 未具备的边界会被回放拒绝，不伪造恢复能力。）
-- [x] CDC 生产接线与数据库无关恢复契约（2026-10-19，P2）：Croupier adapter 将 capture 表/操作/exclude 配置编译为通用 filter，并在同一 Connector 流中 journal 持久化后再 ack 位点；日志容量上限 fail-closed。`pkg/cdc/recovery` 定义精确恢复 scope、授权、snapshot 校验、source/target 能力门禁、dry-run、原子幂等 applier 与持久审计契约；game/env 留在 adapter，告警 runner/spool 不承担恢复职责。设计与限制见 `docs/zh/design/cdc-library-design.md`。
-- [x] CDC 具体数据库恢复适配器（2026-10-19，P2；**2026-10-22 解除 BLOCKED**——用户指正：本机 Docker 29.1.3 常驻且 mysql:8.4 容器在跑、mongo 拉镜像即得、PG:16 故障注入集成已先例在案，环境非缺）：逐源实现并实测一致性快照、完整事务边界及 schema 历史；逐目标实现隔离库 dry-run、事务应用、失败回滚、request/transaction 幂等和审计适配。MySQL/Mongo 缺事务结束标记、当前 Connector 缺快照能力时必须保持恢复拒绝；未通过真实数据库故障注入前不得标记 PITR 可用。缺真实 MySQL/Mongo 故障注入环境与源库 schema 历史契约；PostgreSQL 侧已完成但剩余目标适配器和 PITR 验收不能造假。（2026-10-22 代码复核：PG Snapshot/TransactionMetadata 已实现但 SchemaHistory 未实现，Mongo TransactionMetadata=false；保留恢复能力门禁。2026-10-22 目标侧收口（commit 714b98d）：mysql/mongo/postgres 三目标 applier+auditor 全部经真实容器集成验证，恢复→一致性核对通过，可复跑脚本 `scripts/cdc-recovery-integration.sh`；剩余为源侧 schema 历史契约与 MySQL/Mongo 源事务结束标记，能力门禁保持恢复拒绝，不得标记 PITR 可用。2026-10-23 三源容器复验收（本轮收口）：复跑 `scripts/cdc-recovery-integration.sh`（复用 mysql:8.4 GTID-on / mongo:7 rs0 / postgres:16 容器）三源全绿——`pkg/cdc/recovery/mysql` 7 tests、`./mongo` 2 tests、`./postgres` 8 tests PASS；源侧真实容器集成同绿：`agents/capture/source`（MySQL 快照+同 GTID+增量续读）、`agents/capture/connector/pg`（逻辑复制+快照，wal_level=logical）、`agents/capture/connector/mongo`（change streams+token 续传）三包 integration PASS；`go test ./pkg/cdc/... ./agents/capture/...` 13 个有测试包全绿。另以生产 Applier/Auditor 直驱三容器行数对账：应用后行数 mysql=3 / pg=2 / mongo=3，同 request+transaction 重放幂等吸收（行数不变、applied_transactions 各=1、audit_records 各=1，同 ID 异内容被拒）；断点续拉样本：MySQL `gtid_executed=c54b65ed-…:1-174`、PG 临时 slot `probe_l31` pgoutput `restart_lsn=0/23FFDC8 confirmed_flush=0/23FFE00`、Mongo 活 change stream 取到 resume token（hex 采样成功）。schema 历史余量另立条目跟踪。）
-  - [x] 收紧源能力误报：MySQL 行事件无事务 ID/结束标记、Mongo 缺事务最终事件标记时均声明 `transactionMetadata=false`；PG 保留已验证的事务边界能力。证据：`go test ./agents/capture/source ./agents/capture/connector/mongo ./agents/capture/connector/pg ./agents/capture/runner ./pkg/cdc/...`（7 个有测试包通过、1 个包无测试、exit 0）；声明位置 `agents/capture/source/mysql.go:78`、`agents/capture/connector/mongo/capabilities.go:19`、`agents/capture/connector/pg/capabilities.go:21`，恢复拒绝位置 `pkg/cdc/recovery/recovery.go:254`。历史验证曾出现非 CDC 包编译/测试失败；2026-10-22 基于 b9be80d 复核 `go test ./internal/cluster ./internal/server ./internal/api/ops ./agents/synthetics/runner -run '^$' -count=1` 通过，仅证明测试编译通过，旧编译错误不再作为当前阻塞；全量测试与真实数据库恢复仍按独立验收记录判断。
-  - [x] PostgreSQL 目标 DML adapter：按 schema+table 校验列、update/delete 强制键列、request+transaction 账本幂等、内容冲突拒绝、完整事务回滚；真实 PostgreSQL:16 集成覆盖 DML、重放跳过、冲突和失败回滚。证据：`TEST_POSTGRES_RECOVERY_DSN=... go test -tags=integration -count=1 ./pkg/cdc/recovery/postgres` 4 tests PASS；CI `capture-matrix` 新增真实库任务。
-  - [x] PostgreSQL 持久审计 adapter：request/授权/预检/事务结果元数据落库，不写 row image、原文 SQL 或凭据；journal→Executor→Applier→Auditor 真实 PostgreSQL:16 集成覆盖 dry-run、apply、重放审计。证据：`TEST_POSTGRES_RECOVERY_DSN=... go test -tags=integration -count=1 ./pkg/cdc/recovery/postgres` 7 tests PASS；CI `capture-matrix` 同步执行。
-  - [x] Mongo 目标 applier 收口：确定性冲突不再触发事务重试——insert 冲突改为事务内预检读比对（内容相同幂等吸收、不同即拒绝），杜绝 E11000 后同事务后续语句的 NoSuchTransaction 被 driver 打 TransientTransactionError 标签整回调重试到超时；update/delete 与 SQL 适配器对齐（ReplaceOne upsert 覆盖、删失即幂等重放），executor dry-run 断言对齐 journal 回放语义。真实 mongo:7 rs 容器覆盖 DML 全三操作、同 request+transaction 重放吸收、事务中途冲突故障注入整回滚（ledger 零残留）、同 ID 异内容拒绝及 journal→Executor→Applier→Auditor 的 dry-run/apply/重放审计链。证据：`TEST_MONGO_RECOVERY_DSN=... go test -tags=integration -count=1 ./pkg/cdc/recovery/mongo` 2 tests PASS（0.6s，此前 60.224s 超时 FAIL）；CI capture-matrix 既有 MongoDB recovery target tests 任务复跑同口径。
-  - [x] MySQL 目标 DML + 持久审计 adapter：修 `EnsureSchema` 多语句依赖（go-sql-driver 未开 multiStatements，CREATE DATABASE 与建表拆两条执行）；新增 mysql Auditor（metadata-only 落 `croupier_recovery.audit_records`）。真实 MySQL:8.4（GTID on）集成覆盖 DML 全三操作、同 request+transaction 重放幂等吸收、事务中途主键冲突故障注入整回滚（ledger 零残留）、同 ID 异内容拒绝、schema 列不存在预检拒绝及 journal→Executor→Applier→Auditor dry-run/apply/重放审计链。证据：`TEST_MYSQL_RECOVERY_DSN=... go test -tags=integration -count=1 ./pkg/cdc/recovery/mysql` 7 tests PASS（2 集成 + 5 单测）；CI `capture-matrix` 新增 MySQL recovery target tests 任务；`scripts/cdc-recovery-integration.sh` 起临时 mysql:8.4 / mongo:7 rs0 / postgres:16 三容器复跑三源全部恢复集成（实测三源全绿，容器留现场可复跑，`--down` 清理）。
-  - [x] PostgreSQL 源一致性快照：用临时 logical slot `EXPORT_SNAPSHOT` 返回 consistent point 与 snapshot，再在只读 `REPEATABLE READ` 事务导入 snapshot 后逐表扫描；事件位点固定为 consistent point，表名/列名/主键映射和 JSON 真值经真实 PostgreSQL:16 集成验证，临时槽自动回收；schema history 未实现，能力仍保持 `SchemaHistory=false`，不得标记 PG PITR 可用。证据：`TEST_POSTGRES_CAPTURE_DSN=... go test -tags=integration -count=1 -run 'TestPostgresConnectorLogicalReplication|TestPostgresConnectorSnapshot' ./agents/capture/connector/pg` 2 tests PASS；CI `capture-matrix` 同步执行。
-  - [x] MySQL 一致性快照位序收口：GTID 改在持有 `LOCK INSTANCE FOR BACKUP` 的同一只读 `REPEATABLE READ` 事务内读取，锁释放后才扫表，位点不早于快照视图；确定性锁注入仍在探位前执行。真实 MySQL:8.4 集成覆盖一致性失败拒绝、快照事件、同 GTID、行映射和增量续读。证据：`TEST_MYSQL_DSN=... go test -tags=integration -count=1 -run 'TestMySQLConnectorContract|TestCaptureSourceFlavors' ./agents/capture/source` 2 tests PASS；非 tag 同包测试 PASS。代码：`agents/capture/source/mysql_connector.go:198`、`agents/capture/source/mysql_connector.go:234`。
+- [x] **ARCH-001 · P1 · 方案决策 · 审批并发与执行领取语义**
+  - 依赖：—。交付与验收：基于现有 SQLStore 定义 pending 原子转换、续跑领取及重复请求规则；评审表覆盖批准/拒绝竞争、重复批准、执行结果未知。
+  - 状态／条件：LOCAL VERIFIED：已决策（2026-10-29）。D1–D7 见 [中英文审批并发设计](docs/zh/design/approval-concurrency-design.md)：CAS 原子转换、胜出者续跑领取、重复请求 409、转换前强制授权、结果未知语义，以及 D7 持久派发意图/领取令牌（fencing）/恢复对账协议（复用审批单领取字段与既有 `page_execute_idempotencies`/`task_runs` 原语，不新建平行表）。评审表覆盖批准对批准、批准对拒绝、重复批准/拒绝、续跑失败/崩溃未知结果。游戏侧 exactly-once 以 GAME-009/010 收据为界；崩溃安全派发与强制授权失败验收仍为 NOT RUN（随 ARCH-002/实现验收）。
+  - 完成证据：2026-10-29 决策文档更新；`docs/design/approval-concurrency-design.md`（D1–D7）与中文对应文档同步，评审表与 ARCH-002 实现要点已定。
+- [ ] **ARCH-002 · P1 · 实现 · 接入审批 SQL 存储**
+  - 依赖：ARCH-001。交付与验收：复用 internal/platform/approvals/sql_store.go；A 创建、B 读取/批准、重启后可查，并发仅一决定且仅一执行领取；不能只改构造器。
+  - 状态／条件：NOT RUN：需共享数据库双实例。
+- [ ] **ARCH-003 · P1 · 实现 · 集群互联身份认证**
+  - 依赖：—。交付与验收：增加专用 TLS 配置及身份绑定，拒绝无证书/错 CA/Agent 身份/未握手 forward；合法 invoke/start/cancel 保留 epoch fencing。
+  - 状态／条件：NOT RUN：需测试 CA 与双实例。
+- [ ] **ARCH-004 · P1 · 实现 · 集群就绪及失败降级语义**
+  - 依赖：—。交付与验收：独立存活/就绪探针；配置要求集群时协调库、互联监听或租约不可用返回 ready=503，显式配置才允许 standalone 降级。
+  - 状态／条件：READY。
+- [ ] **ARCH-005 · P1 · 故障验证 · 集群故障摘流与重连**
+  - 依赖：ARCH-003, ARCH-004。交付与验收：双实例注入协调库断连、互联占端口、owner 退出、旧 epoch；逐例记录拒绝、摘流、恢复及副作用次数。
+  - 状态／条件：NOT RUN：需隔离网络和双实例。
+- [ ] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
+  - 依赖：—。交付与验收：复用授权后的 binding.database_name，消除前缀重算；验收旧名/自定义名/前缀变更/下划线碰撞/并发首次开库，已有绑定有显式迁移。
+  - 状态／条件：READY。
+- [ ] **ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略**
+  - 依赖：—。交付与验收：列出 scope/Changes/Action 等规范化哈希字段、旧版本兼容和写失败策略；外部签名是否需要单列决策。
+  - 状态／条件：READY。
+- [ ] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
+  - 依赖：ARCH-007。交付与验收：逐字段修改被检测、旧链可验证、多实例写入一致；审计库故障按已批准策略处理。
+  - 状态／条件：READY。
+- [ ] **ARCH-009 · P2 · 实现 · 数据库首次打开的取消与预算**
+  - 依赖：—。交付与验收：让 resolver/open/migrate 消费 context；取消等待及时返回、同库 singleflight、不同库隔离，暴露池数/首开耗时；与 ARCH-006 路由命名修复可并行，合并时核对绑定行为
+  - 状态／条件：READY；不需要先获得生产数据库权限即可做确定性验证。
 
+- [ ] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
+  - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
+  - 状态／条件：NOT RUN：需容量目标和独立数据库。
+- [ ] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
+  - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入队故障下每条消息可核对，说明允许重复与去重策略。
+  - 状态／条件：READY。
+- [ ] **ARCH-012 · P1 · 故障验证 · 分析管道崩溃恢复**
+  - 依赖：ARCH-011。交付与验收：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
+  - 状态／条件：NOT RUN：需 Redis 与 ClickHouse 可控环境。
+- [ ] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
+  - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。
+  - 状态／条件：READY。
+- [ ] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
+  - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。
+  - 状态／条件：READY。
+- [ ] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
+  - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理
+  - 状态／条件：READY；该能力尚未完整实现，并非只缺真实环境验收。
+
+- [ ] **ARCH-016 · P1 · 实现 · Provider drain 真正摘流**
+  - 依赖：—。交付与验收：当前 handleDrain 仅记录并回空 ACK；实现停止新路由、等待在途及超时退出语义，验证 ACK 语义与执行结束条件。
+  - 状态／条件：READY。
+- [ ] **ARCH-017 · P1 · 实现 · Server 停机收尾顺序**
+  - 依赖：—。交付与验收：控制 listener.Close 等活跃会话时不阻塞后续 HTTP 停机/根取消；保证 ServiceContext.Close 冲刷留痕，设置有界清理并验证 socket/goroutine/池释放。
+  - 状态／条件：READY。
+- [ ] **ARCH-018 · P1 · 故障验证 · 执行中断与停机演练**
+  - 依赖：ARCH-015, ARCH-016, ARCH-017, ARCH-026。交付与验收：执行中注入断链、drain、SIGTERM；逐项记录新请求拒绝、终态/未知态、截止时间及资源释放；不把测试 fixture 的游戏副作用结果当真实游戏恢复凭据
+  - 状态／条件：NOT RUN；本地可搭计数执行器/完整栈，真实游戏另按 GAME-010 验收。
 - [x] CDC 源侧 schema 历史契约（2026-10-23 自 L31 验收余量立项，P3）：为源连接器声明并实测 schema 演进历史（DDL 变更→列型映射版本化，恢复时按事务时点的 schema 校验），MySQL/Mongo 源事务结束标记维持 `transactionMetadata=false`、恢复门禁继续拒绝，不得据此宣称 PITR；验收含真实容器 DDL 演进注入、历史 schema 下旧事件恢复拒绝路径测试。（2026-10-28 收口（commit 1e0a1c02）：`pkg/cdc/schema` 提供 DB 无关的版本化列型映射历史注册表（`History.Record/At/Versions`，位点弱序注入，幂等重放、乱序/冲突/零修订拒绝）；PG 解码器把 Relation 结构变化按事务源位点记录（pgoutput 的 Relation 是 catalog 消息、无自身 WAL 位点，用所在事务 Begin LSN 兜底定位），连接器经 `SchemaHistorySource` 扩展面暴露（`SchemaAt` 按位点解析当时列集、`CurrentSchemaVersions` 报当前修订），`capabilities.schemaHistory=true`；`pkg/cdc/recovery` 对 `RequireSchemaHistory` 计划按事件源位点当时 schema 校验列集——时点缺失列拒绝、不静默重映射，位置下标像与不可核验查询 fail-closed；真实容器 DDL 演进注入（postgres:16 建表→插入 v1→ALTER ADD COLUMN→插入 v2，断言 2 个 schema 版本、SchemaAt 前后列集、CurrentSchemaVersions、旧事件恢复拒绝路径）通过；MySQL/Mongo 维持 `schemaHistory=false`（无关系型 DDL→列型追踪 / 无关系型 schema），恢复门禁继续拒绝（双源能力断言测试钉住）；docs/design 英文+zh 镜像同步，CI `-run` 纳入新集成用例。已知边界：schema 历史为会话级/连接器本地（跨会话持久化属恢复平台层职责），仍不宣称完整 PITR。）
 - [x] Agent 公共能力抽取与角色目录归位（2026-10-17 用户强调，P1）：按 `docs/zh/development/agent-runtime-layout.md` 的真实消费矩阵先上收 MuxConn/session、再抽通用监管/插件进程生命周期，sidecar 专有业务逐步归位 agents/sidecar，synthetics 实现后建立 agents/synthetics 与根 cmd 入口，保持 core/agents 不 import internal 的守卫、单一实现与单一进程管理者，以每批调用链/重连/背压/退出/角色测试验收，不把文档树或空包视为迁移完成。（2026-10-20 Provider 保活归位：`internal/agent/provider_keepalive.go` → `agents/sidecar/provider_keepalive.go` 逐行平移（仅包名变化，探测间隔/摘除/超时/Marshal 失败跳过语义不变）；旧路径类型别名+构造转发（`internal/app/agent/app.go` 消费零改动）；5 个 keepalive 用例随迁并改为 net.Pipe 直建会话（不再依赖网关监听器），Marshal 失败用例从 coverage_gapfill_l_test.go 同迁；依赖网关握手 helper 留 internal/agent/tcp_local_listener_test.go 供 callProvider 路由用例复用；layout 文档目录树/能力表/迁移台账同步。证据：`go test -count=1 ./internal/agent ./agents/sidecar ./internal/app/agent ./cmd/sidecar-agent` 全绿，`go vet` 通过，`bash .github/scripts/architecture_guard.sh` PASSED，docs build 通过。）（2026-10-20 在途任务生命周期归位：`internal/agent/task_runner.go` → `agents/sidecar/task_runner.go` 逐行平移（仅包名变化，Start/Cancel/事件上报/Marshal 语义不变）；旧路径类型别名+构造转发（`local_handler.go` 装配零改动）；私有 helper 用例（marshalTaskInvoke/report 空载荷）随迁 agents/sidecar，仅用导出面的用例经别名留在 internal；layout 文档同步。证据：`go test -count=1 ./internal/agent ./agents/sidecar ./internal/app/agent ./cmd/sidecar-agent` 全绿，`go vet` 通过，`bash .github/scripts/architecture_guard.sh` PASSED。）（2026-10-20 scope 校验集中抽取：新增 `core/agentscope`（`NonBlank` 去空白判定 + `Identity` 注册身份四字段校验，去空白即拒、按声明顺序报第一个缺项）；devops/capture/synthetics 配置 Validate 与 `internal/app/agent.ValidateAgentScope` 改为消费同一规则，各入口报错文案与调用时机不变（sidecar 保留中文文案）；synthetics 首个报错字段由 map 遍历序漂移改为固定声明顺序（有意改进，文案不变）；layout 文档目录树/能力表/日期注记同步。证据：`go test -count=1 ./core/agentscope ./agents/devops/config ./agents/capture/config ./agents/synthetics/config` 全绿（core/agentscope 含 TestNonBlank/TestIdentity：逐字段缺项文案与声明顺序首错断言）；`go test -count=1 -run 'TestFourAgentKindsRejectBlankGameScope' ./internal/app/agent` PASS（四类空白拒绝/合法通过，含 ValidateAgentScope 断言；该包全量当期因并行会话 75bb29e 崩溃扫描用例自身红，与本片无接触）；`go test -count=1 -tags no_go_plugin ./agents/synthetics/config` 全绿，`go build -tags no_go_plugin ./agents/synthetics/...` 通过，`go vet` 通过。）（2026-10-20 发布聚合收口：`make agents`/`make build` 聚合四类（`agent-synthetics` 进链）；nightly.yml 四平台原生与 64 位交叉编译均构建 synthetics-agent（nightly 版本注入+`--version` 校验同前三类），ARMv7 仍仅 sidecar/devops（synthetics 未在 32 位验证，交付面不扩大）；`package-agents.py` AGENTS 单一清单加 synthetics 角色（example 配置已在 configs/），`release.yml` 默认角色自动对齐；nightly 发布说明与 README 交付状态同步，移除「planned/no package」旧口径。证据：`python3 -m unittest discover -s scripts/tests -p 'test_package_agents.py'` 3 tests OK（含角色集 {sidecar,devops,capture,synthetics} 与 capture/synthetics 双角色 ARMv7 64-bit 拒绝）；`actionlint .github/workflows/nightly.yml` 通过；本地四二进制真实打包冒烟：manifest 四角色、synthetics 包含 binary+configs/synthetics-agent.yaml+AGENTS.md+INSTALL.md、`--version` 输出正常、sha256 全部 OK；docs build 通过。不动 release.yml 行为、不打 tag、不触发任何发布。）（2026-10-22 受管程序 supervisor 状态机公共化：新增 `core/process/supervisor.go`（连续失败计数、allowRestart 门、熔断/退避决策、backoff 到期消费、重启尝试与稳定性窗口恢复）及随迁测试；新增 `internal/app/agent/ops_supervisor_state.go` 旧路径 `supervisorState` 类型别名与 `newSupervisorState` 构造转发，Ops monitor 保留 Wait/spawn/stop/授权/事件/稳定性窗口；`ops_server.go` 接入同一状态机，状态迁移与默认值不变；layout 能力表与日期台账同步。证据：`go test -count=1 ./core/process ./internal/app/agent ./cmd/sidecar-agent` 全绿，`go vet ./core/process ./internal/app/agent ./cmd/sidecar-agent` 通过，`bash .github/scripts/architecture_guard.sh` PASSED。）
   - [x] sidecar 装配直接消费公共 transport/session：`internal/app/agent` 生产代码改用 `core/transport` 与 `core/transport/tcp`，旧 Server 测试 shim 保留；更新真实消费矩阵。证据：`go test ./internal/app/agent ./core/transport/tcp`（2/2 包通过，exit 0）；`bash .github/scripts/architecture_guard.sh`（PASSED）；sidecar 生产目录 `rg 'internal/transport'` 命中 0。入口位置 `internal/app/agent/control_client.go:9`、`internal/app/agent/upstream.go:15`、`internal/app/agent/app.go:17`；矩阵 `docs/zh/development/agent-runtime-layout.md:44`。
@@ -138,65 +181,246 @@
 - [ ] 受管程序生命周期统一模型（agent-supervisor-design §10，三份外部评审反哺 2026-10-14）：ManagedProcess 扩 kind（program/probe-adapter/游戏进程本体，三配置模型归并两层一套）+ 四类状态 + 更新五要求与**指纹硬要求**（sha256+execlog 查询口径+回滚留痕，游戏进程更新需维护窗口联动）+ 远程 Shell 硬边界 + Agent 自升级单列；Reconciler 归属已核验（2026-10-15：既有机制补全不新增组件——supervisor 恢复环=运行状态事件驱动协调器、dispatch=命令路由面，data-flow §6.2 落笔）；**管理状态首块已实现**（2026-10-15）：运维手动 start/stop 期望落盘 `desired_state.json`（supervisor 日志目录），开机自启先查期望——运维主动停的进程跨 agent 重启不再被误启（§10.2「区分崩溃与主动停止」落地），缺记录 fail-open 沿既有 AutoRestart 语义零漂移，损坏文件 fail-open 空映射，原子写 tmp+rename，写盘失败仅告警不回滚；**远程 Shell 边界物化已交付**（2026-10-15，agent-supervisor-design §10.7）：既有 allowExec 远程命令面三件套核对与收口——双闸（ops.enabled+allowExec 缺省 false 同开，既有口径不变）+ 白名单改 fail-closed（`execAllowedCommands` 空列表不再等价「放行一切」，一律拒绝；Validate 拦配置面 + ExecuteCommand 运行期兜底）+ 审计补全（每次尝试写 execution_logs，source=agent_exec，操作人/命令/参数/退出码入审计载荷，审计面缺失 fail-open 不阻断主路径）；**ManagedProcess 扩 kind 已交付**（2026-10-15，§10.1/§10.8）：`kind` 闭集字段（program/probe-adapter，缺省 program 存量零漂移）+ 适配器清单字段（adapterId/adapterVersion/adapterProtocol 缺省 croupier-probe-jsonl-v1/adapterCapabilities，内嵌于 ManagedProcessConfig 而非独立文件，executable 复用既有 command/args）+ Validate 拦未知 kind 与 probe-adapter 缺身份 + kind/adapterId 随 supervisor 快照上行走面板（proto 追加 12/13）；**调度状态已交付**（2026-10-15，§10.6）：`schedule[]`（action 闭集 start/stop/restart + cron 五字段与 server 侧任务调度同一 ParseCron，Validate 配置加载即拦）+ 到点触发走显式动作同一漏斗（desired-state 落盘与 `schedule_fire` 事件随流，scheduled stop 与手动停同信号 stopCh、恢复环不误拉起，用例固化）+ 30s 分钟槽 (进程,动作,槽) 去重幂等 + 无补跑（crond 语义）+ 快照追加 next_schedule_at_unix/next_schedule_action（proto 14/15，调度状态事前可见）+ 边界：schedule 属本地配置意图不受 allowRestart 门禁（文档明示）；**更新状态+指纹已交付**（2026-10-15，§10.4）：`ops.allowUpdate` 独立双闸（缺省 false）+ `POST /ops/agents/:agentId/processes/:name/update`（stagedPath+expectedSha256，64 位小写 hex 内容哈希钉扎 fail-closed）+ wire 0x040123/24 + 先停后换静默核心（不发 manual_* 中间事件）+ 旧二进制 `.croupier-bak` 备份成功后保留为 last-known-good + 稳定性窗口 5s 内退出自动回滚旧版（update_rolled_back 事件带回滚指纹，无旧版首次安装失败无事件）+ 指纹硬要求三处落面（事件 update_applied/update_rolled_back、execution_logs source=process_update 持久查询主入口、快照 fingerprint proto 16 随 metrics 上行）；诚实边界：签名校验未实现（哈希为稳定锚点）、DB/配置兼容性检查未实现（游戏侧知识）、游戏进程维护窗口/在线阈值/流量导入闸未核实随首个真实游戏定；**自升级单列 v0.1 草稿已交付**（2026-10-15，§10.5）：失败不变量=「不替换也能活」退路（旧版 rename 备份不删+监管者重启兜底，最坏=按旧版重启不砖化）+ 四个待拍板问题（升级源建议 server 中继 / 触发建议手动 API 受授权双闸 / 重启机制建议 fork+exec 子进程接力 / 失败姿态=稳定性窗口+带外回滚）+ 指纹可先落项**已交付**（2026-10-15：SystemInfo.agent_binary_sha256 proto 11，agent spawn 语义自报；`GET /ops/agents/:agentId/system-info` 三级数据面（缓存最后已知→隧道 live RPC 回填→registry 标签降级）全携带指纹——原路由仅回标签 stub 到不了 API 面，已升级；SystemInfoCache.Get 改 proto.Clone 根治手写拷贝漂移；边界=缓存内存态，持久最后已知指纹需 agent_sessions 扩列随自升级一并落）；**持久「最后已知指纹」锚点已交付**（2026-10-15，§10.5）：agent 每次注册把运行二进制指纹写进注册标签（`labels.AgentBinarySHA256`，internal/common/labels 单一权威键；配置/动态标签不可覆盖——合并后注入，计算事实非配置；读不到不伪造），随标签走既有 upsert 持久化进 agent_sessions.labels（无需迁移，且规避独立列被 UpdateAll upsert 零值抹写）；system-info 数据面三级扩四级（+ DB 最后已知锚点 `registry.AgentSessionModel.LastKnownIdentity`，Unscoped 读——会话过期软删后行仍在，锚点跨 server 重启与会话 TTL）；实现口径偏离原「表扩列」记录（改用注册标签通道，理由见设计简档 §10.5）；边界：标签受 sanitizeAgentLabels 限额（2026-10-15 补强：平台键 `agentBinarySha256` 豁免限额——原实现满 32 随机 break 会按运气丢指纹，>32 标签的 agent 锚点不再静默丢失）、锚点新鲜度=最后一次注册（真值以 live RPC 与 execlog 为准）；**暂停与恢复调度 v1 已交付**（2026-10-15，§10.2 暂停对象=调度）：`POST /ops/agents/:agentId/processes/:name/schedule/pause`（或 resume，两路由同一处理器 suspend 由路径固定不走请求体）+ wire 0x040125/26 + 暂停声明的 cron 触发（进程运行态不动、不 stop、不影响恢复环、不改进程期望状态）+ 落盘 `schedule_pause_state.json`（与期望状态同目录同原子写，跨 agent 重启保留，缺/损坏 fail-open 空映射）+ scheduleTick 在槽去重前跳过暂停进程（暂停期间不写 schedFired，恢复后下一匹配槽照常触发、暂停期间不补跑，crond 语义）+ 门禁走 allowRestart 双闸（远程运维动作，与「定时触发本身不受门禁」不矛盾——门禁的是远程开关不是本地配置意图，无独立配置键）+ 快照 schedule_suspended proto 17 + 事件 schedule_paused/schedule_resumed（§3.6 闭集追加）；**顺带修复进程动作面绑定缺口**（#59 POST 侧）：start/stop/restart/update 原走 body 绑定，ShouldBindJSON 对面板发的无 body POST 一律报 EOF（400 bad_request），四条路由线上全失效；改为 agentId/name 只取路径参数（uri tag 不被 JSON 绑定读取），update 保留 stagedPath/expectedSha256 的 body 绑定 + 路径兜底；路由级用例钉死空 body POST 不再返回 EOF；边界诚实：暂停**程序**与暂停**探测**未做（程序暂停≈手动停+记住恢复，增量价值弱；探测暂停≈维护窗口抑制告警，随告警策略面一并做，不猜实现）；**§10 快照字段与调度暂停面板接入已交付**（2026-10-15：SupervisorDrawer 补「调度」列（下一次触发时间+动作 Tag，§10.6 事前可见；暂停态覆盖为「调度已暂停」）、`kind=probe-adapter` 的 `adapter:<id>` 标（§10.1）、指纹前 12 位 `fp:<hash>` 标（§10.4）、暂停/恢复调度按钮（暂停 Popconfirm/恢复直点，已暂停行禁用暂停、无调度条目禁用暂停，成功后复拉快照）、事件闭集五型本地化标签与 Tag 色（schedule_fire/schedule_paused/schedule_resumed/update_applied/update_rolled_back）；web 侧 SupervisedProcess 类型与归一化补齐 server DTO 全字段（lastEventUnix/nextRestartAtUnix/kind/adapterId/nextScheduleAtUnix/nextScheduleAction/fingerprint/scheduleSuspended），缺省零值旧版快照零漂移；23 条 drawer 用例 + Ops/Nodes 89 条全绿 + tsc 0 错误 + dashboard_vnext_guard PASSED）；**§10.4 更新面板接入已交付**（2026-10-15，同族第三次「后端已交付、面板零接入」：后端路由与 DTO 早已交付而 web 侧零接入——SupervisorDrawer 操作列补「更新」按钮（列宽 260→320）→ Modal 收集 stagedPath + expectedSha256，前端与服务端同口径 fail-closed（路径空白或 sha 非 64 位小写 hex 一律禁发请求，对齐「哈希钉扎」第一道闸）；提交成功=关 Modal+复拉快照（指纹列 `fp:<前 12 位>` 反映 new 值，与更新记录按 (进程, 时间, 指纹) 对齐）+复位入参，失败=message.error+保留 Modal 与已填入参便于修正重提+不复拉快照（失败不改写视图状态）；ops.ts 补 updateAgentProcess 强类型封装（POST body stagedPath/expectedSha256，布尔 `=== true` 归一）；新增 §10.4 更新二进制四组用例（Modal 渲染+空表单禁发、校验拦截三种非法+合法解禁、成功全链入参/提示/复拉/关闭、失败不复拉+Modal 保留），Ops/Nodes 93 条全绿 + tsc 0 错误 + dashboard_vnext_guard PASSED；设计简档 §4/§10.4 补面板接入段；测试坑沉淀：jsdom 无布局引擎 `getBoundingClientRect` 恒 0×0 → jest-dom `toBeVisible` 不可用（恒判不可见），Modal 开合改断 `.ant-modal-wrap` inline display；已关闭 Modal 保留旧子树快照、受控 Input 不回写 reset 后的值 → 复位不对 DOM 断言；antd 两字中文按钮自动插空格渲染「更 新」→ `getByRole` name 须用 `/更\s*新/`）；实现待用户拍板四项（拍板前不猜实现）；**§10.2「更新配置文件」行核实为未实现、无设计**（2026-10-15 台账核实）：`core/configsync` 版本化拉取器先例只接 agent 自身配置（probe 策略/targets、插件同步），托管进程配置文件无分发链路，能力表行不因先例存在视为已交付；立项需先拍板五问（路径沙箱、校验口径、原子性与重启耦合回滚、体积带宽、审批闸二人规则），已记入设计简档 §10.2，拍板前不猜实现；**§10.5 指纹面板接入已交付**（2026-10-15，同族第三次「后端已交付、面板零接入」：`GET /ops/agents/:agentId/system-info` 四级数据面 + `agentBinarySha256` DTO 早已落库，而 web 侧对该端点零引用——锚点存在但运维看不见，等于没交付）：`NodeDetailDrawer` 基本信息区补 Agent 版本（system-info `agentVersion` 优先，缺省回落节点列表 `version`）+ Agent 二进制指纹（前 12 位等宽字体 + `copyable` 全文，失联排查复制全串比对 execlog §10.4 查询口径）两行；ops.ts 补 `fetchAgentSystemInfo` 强类型封装（`systemInfo` 缺字段/`systemInfo` 整个缺失/请求抛错一律归一为 null 或零值，不臆造形状）；请求失败按空态渲染而非抛错（排查面不该因一个读不到的字段整体报错，空值给 Tooltip 说明「旧版 agent 或二进制不可读」）；node 置空不发请求、切走 agent 清空防串号（effect 内 `cancelled` 标志防过期响应回写）；新增 §10.5 锚点五组用例（拉到指纹版本与截断渲染+按 agentId 拉取、无指纹空态且标签可见回落 SDK 版本、接口失败抽屉不崩、node 为 null 不发请求、agentId 切换清空旧指纹防串号）+ ops adapter 两组（正常归一+encodeURIComponent、畸形/拒绝归一 null），NodeDetailDrawer 27 条、Ops/Nodes 目录 101 条全绿（96→101，R1021PATROL 接手复验）+ tsc 0 错误 + prettier/eslint 净 + dashboard_vnext_guard PASSED；设计简档 §4/§10.5 补面板接入段；边界：本轮只接锚点展示面，§10.5 自升级本体（升级源/触发/重启机制/失败姿态四问）与 §10.2 更新配置文件五问仍待用户拍板，拍板前不猜实现 BLOCKED：§10.5 自升级本体四问与 §10.2 更新配置文件五问仍待用户拍板。
   - [ ] 阻塞登记（2026-10-28）：BLOCKED on user input——受管程序生命周期主体已交付（ManagedProcess kind 扩 program/probe-adapter、四类状态、调度 schedule[]、暂停/恢复、更新五要求与指纹硬要求、远程 Shell 边界、自升级单列、快照字段与更新/指纹面板接入），剩余两块明确「拍板前不猜实现」：①§10.5 自升级本体四问（升级源/触发/重启机制/失败姿态）需用户拍板；②§10.2「更新配置文件」五问（路径沙箱/校验口径/原子性与重启耦合回滚/体积带宽/审批闸二人规则）需用户拍板。手动动作：用户对自升级四问与更新配置文件五问逐项拍板，拍板后按设计简档实施。
 
-- [x] Agent 健康监控与恢复：外部方案评审 + server 侧监控下放 agent（来源：用户 2026-10-14）——评审定稿 docs/design/agent-health-recovery-review.md：重合度审计 + 真缺口七项 + 迁移四步 + 三点已拍板（2026-10-14：probe.targets 每 agent 均可配 devops 主用 / 上行走 report.Conn 扩 SendAlertEvent 新 wire / DBSource 归属列 R4 才动表不停 R2/R3）+ 补充裁决并入（第三方监控零新增 agent 部署、单一权威分工表、实现层/实例层分标、dbmon SQL 探测收敛 core/healthprobe 不留第二套、熔断器=调用方策略留 server dispatch、游戏模拟探测=存量延后需求 P2）；R2 装配面代码批已交付（commit ebcde49，87 条新用例 + 全量门禁绿，证据见简档 §12）；R3 首子批（窗口→Alert 生命周期：probe.window 开/合转 firing/resolved + details 落最近 5 次失败明细）已交付（commit 06976e1，11 条新用例，证据见简档 §12）；R3 次子批（evaluator probe 指标路径）已交付（证据见简档 §12）；R3 三至六子批（probe.policy 管理面与下发 / probe_stats 持久化 / server 内核装配 / ops 在线汇总 server 面与前端卡片）已交付（证据见简档 §12）；R3 收口；R4 收敛批已交付（R4-1 归属列 0045 commit f57ff76 + R4-2 dbmon 判定切 DBChecker commit 79aaf76 + R4-3 周期探针按归属下发——拉取时派生 db_sources.owner_agent_id 目标集、wire 0x040121/0x040122、ApplyTargets diff 装配、derive/hash/拉取降级边界见简档 §12）；R4-4 验证已过（diagnose 端点保留 + DBChecker 判定链，简档 §12）；全条目完成（2026-10-15 翻账）；受管程序生命周期单列上行 15
+- [ ] **ARCH-019 · P2 · 实现 · 执行领域依赖方向收敛**
+  - 依赖：—。交付与验收：复用 assignment gate 下沉领域包，functioninvoke 不再 import internal/api；core/agents 的依赖边界检查可执行且原行为一致。
+  - 状态／条件：READY。
+- [ ] **ARCH-020 · P2 · 实现 · 架构文档防漂移检查入 CI**
+  - 依赖：—。交付与验收：复用 scripts/docs/check-architecture.py、check-architecture.cjs 与生成器，核对 SVG、路径、首页资源和 TODO DAG；新链接失败即报告，避免直接开启全站 strict 阻断旧页面。
+  - 状态／条件：READY。
 
-- [x] README 表格数据行被并成单行，拆回每行一条（2026-10-27，docs: split merged table rows）：README.md:68 / README.zh.md:71 SDK 表六条语言行被并成单物理行，GitHub 渲染成破行；按语言键拆回每行一条，列内容原样保留，`awk 'length($0)>500 && /\|/'` 两文件输出为空
+- [ ] **ARCH-021 · P1 · 实现 · 扩展同步身份与 scope 接入**
+  - 依赖：—。交付与验收：复用现有 HTTP puller/版本 payload 与 protected 路由，为 Agent 建立受限机器身份及 scope 授权；无凭据/跨 scope 拒绝，合法 Agent 实际拉取生效且坏版本保持 last-good。证据：internal/app/agent/extension_sync_puller.go 未设认证头，internal/handler/routes.go 受 protected 保护，AgentSyncPayload 检查读取权限；不通过取消服务端授权绕过。
+  - 状态／条件：READY；真实接入验收 NOT RUN，需受控机器凭据与完整栈。
 
-## 已完成
+- [ ] **ARCH-022 · P2 · 实现 · 注册与重连的显式请求预算**
+  - 依赖：—。交付与验收：复用 core/register，为 DialAndRegister/SyncOnce/SyncAttempts 明确一致的注册超时边界及调用者 deadline 优先级；核对心跳 tick 重拨与首拨退避差异，验证无注册响应时按预算退出、Stop 可释放连接与 goroutine，不引入重复并行重连。
+  - 状态／条件：READY；无响应服务端故障验证 NOT RUN。证据：core/register/registration.go 的 SyncAttempts 才包 requestTimeout，loops.go 的 DialAndRegister 直接调用 registerOnce。
 
-### 平台与面板
+- [ ] **ARCH-023 · P0 · 实现 · 定时触发先领取再派发**
+  - 依赖：—。交付与验收：复用 task_schedule_run_logs 唯一键，派发前原子领取 schedule+slot 并明确领取租约/崩溃恢复；多实例同槽仅一派发，记录失败不得执行；覆盖领取后/派发前和派发后/回写前中断，业务最终副作用去重仍由 GAME-010 承担
+  - 状态／条件：VERIFIED 缺陷：manager.go 先 HasRunLog，再 StartTask，最后 CreateRunLog 且忽略冲突；双 Manager 诊断实际派发 2 次、仅 1 条唯一记录。
 
-- [x] 门面三项：徽章补齐、Go 版本号对齐、主题设计收口（2026-10-24 用户点名三项）：①徽章——README/README.zh 头部补 nightly+docs-pages workflow 徽章，Agent Roles 表交付态同步至当前真实状态（zh 版 synthetics「待实现，无二进制」与已交付 nightly 包矛盾已修正；sidecar 监管接线/devops SSH 会话+回放/capture 位点告警可靠性/synthetics 插件面均已按 todo 收口记录改为「已交付+剩余边界」口径）。②Go 版本号对齐——go.mod 已 `go 1.27.3` 而 14 处文档/compose/SDK 仍写 1.27.2 或更旧：README 双语徽章+正文、quick-start/installation（含 wget 下载 URL）、deploy-docker/deploy-binary、docker-compose.yml 6 处 `GO_IMAGE`（覆盖 Dockerfile ARG 默认值，实际以 1.27.2 构建与 go.mod 要求不符）、sdks/go/go.mod 指令与 examples Dockerfile 与 README 徽章（原写 1.26.6+ 低于自身 go.mod 要求）全部统一 1.27.3；todo/审计/research 历史测量记录保留不改。③主题设计——主题套（blue/inkpink × 亮/暗 × 跟随系统）机制完整但品牌蓝色字面量绕过 preset：StandardPage 状态卡渐变、Console 菜单组头像（硬编码紫渐变）、Welcome 步骤卡、Functions 详情/目录装饰渐变、CompositeEditor CanvasNode 选中阴影共 6 处按既有 `var(--brand-*-rgb)`/`var(--brand-3)`/`var(--app-panel-bg)` 习惯改为跟随主题；紫色分类色词汇（图表系列/域强调）为语义轴不动。证据：commit bddb2f9/d78020b/eb74206；`tsc --noEmit` 0 错误、定向 jest 121 套件 1547 用例绿、prettier 干净、`bash scripts/dashboard_vnext_guard.sh` PASSED、`bash scripts/check-docs-links.sh` 604 链接全解析。
-- [x] Agent 发布链与职责入口补齐（2026-10-17，本地变更待合并发布）：nightly 唯一发布入口、前三类独立归档/配置/职责文档/manifest/SHA256、稳定版三 Agent 对齐、ARMv7 仅 sidecar/devops，CI 纳入 core/agents 并增加依赖方向守卫，职责指南与公共目录文档落盘；本地三个 Agent 构建/版本/真实打包、ARMv7 两 Agent 交叉编译与打包、3 项包装测试、actionlint、架构/PageSpec 守卫及 docs build 通过，不宣称远端已出新包，synthetics 无占位包。
-- [x] 游戏后台默认菜单分类更新（2026-10-17）：configs/default-menus.json 默认提供玩家工作台、邮件与补偿、封禁管理、订单核查、活动配置、公告管理、操作记录七类，沿用现有 gameId/env 惰性初始化与已有 key 不覆盖规则，建议子页及旧 scope 行为见 docs/design/default-game-menus.md；LoadSeedMenus/MenuSeederEnsureSeeded 既有回归通过、模板 key/排序/标签/图标校验通过、PageSpec guard PASSED，仅分类模板与文档交付，业务页面独立待实现。
-- [x] 上传即成页契约与绑定正交化 T1-T13（T1 65f88486b 至 T13 545477a5e，2026-09-18 全部完成）
-- [x] 菜单管理系统 T-M1 至 T-M10（menu_items 表、CRUD、权限过滤、默认菜单种子，2026-09-18）
-- [x] 风控面板：/risk 分类、capture gates 表单/JSON 双模式编辑、策略版本历史与行级回滚、风险事件人工处理四列（迁移 0042）、告警中心迁移 /risk/alerts（2026-10-13）
-- [x] 密码箱抽象与可替换提供商：vault.Provider 接口、local/env 双实现、vault:// 引用接入 settings/DSN/JWT 三 seam（internal/platform/vault，2026-10-13）
-- [x] 服务器状态源：默认 atlas、通用 http 源可切换（切换六用例 + http 源 12 用例，2026-10-12）
-- [x] 设置页外部服务只读清单 S3-web（92b6cfc，2026-10-11）
-- [x] 三 agent 体系：sidecar 定名、devops 堡垒机代理、capture CDC；使用场景文档、一键安装脚本、逐字段配置文档（2026-10-12）
-- [x] 插件机制 M2-M4：Outlet 告警出口、webhook 告警入口、外部服务接入模板（2026-10-10）
-- [x] 系统公告 Markdown 渲染补齐（#50）与运维七页全量核对（#51 至 #56，2026-10-08）
-- [x] Provider 插件设计立项 #66、Agent Supervisor 立项 #67（设计简档加 S1-S3 交付，2026-10-10）
+- [ ] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
+  - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
+  - 状态／条件：VERIFIED 装配缺口：task.Service.Start 只做部分 gate；schedule 和 svc.dispatcherAdapter 直连 Dispatcher。不可据统一 transport 宣称统一治理。
 
-### CDC 捕获链
+- [ ] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
+  - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败
+  - 状态／条件：VERIFIED 诊断：缺失 function_policies 表时 GetPolicy 返回错误，而 EnforceFunctionPolicy 返回 policy=nil/error=nil；初始化失败分支同样缺有效政策。高危失败策略须先明确再落地。
 
-- [x] 统一契约：ChangeEvent 模型、FilterPolicy 策略头、SourceConnector 六方法接口、能力闭集（agents/capture/connector，2026-10-11）
-- [x] 三闸与告警链：reconcile/cep/lineage 加 CaptureRuleHitReport 上报（fb189bb、db31e20、4f9584e、01646d4、b9ddc43，2026-10-11）
-- [x] 中心策略管理：config_versions 资产化乐观锁、发布依赖与能力感知 lint、appliedRevision 上报、回滚端点、位点-策略联动四拍板（2026-10-13）
-- [x] 过滤策略落地：event filter 热换、失败语义与统计计数入 Stats（runner_stats_test.go 三用例，2026-10-13）
-- [x] MySQL/MariaDB Connector：flavor 双方言、GTID 变量分叉、CI capture-matrix（2026-10-13）
-- [x] PostgreSQL P0 闭环：pgoutput 解码层、流式 Connector、runner 多源装配、活栈全链端到端、六阶段集成测试（2026-10-13）
-- [x] 4301 验证清单六项本地活栈跑通：规则热生效、断线恢复、位点恢复、新表启用、过滤错误可观测、跨 game/env 隔离（22ffb40 修复 Poll 启动失败 walsender 泄漏，2026-10-13）
-- [x] capture agent 进 docker compose：Dockerfile.capture-agent + 配置 + postgres-init 发布脚本 + compose 默认启用（CAPTURE_AGENT_REPLICAS 开关，默认 1）+ 文档同步（ef3c44f，2026-10-14）
-- [x] capture 链部署环境验收：4301 六项在部署机复验通过+截图取证（本地 capture agent×2 + 本地 CDC 源经 SSH 隧道指部署 server；部署栈滚动升级至最新 main 镜像；admin 口令已重置须改回；证据 docs/证据/4301-deploy-acceptance/README.md，2026-10-14）
+- [ ] **ARCH-026 · P1 · 实现 · 任务主记录持久化失败时禁止派发**
+  - 依赖：—。交付与验收：Dispatcher 在 CreateRunWithMeta 失败时返回可定位错误并不得发送 StartTask；验证 DB 失败时执行器计数为 0、无孤立事件/不可取消任务；不与 Agent 事件重放重复实现
+  - 状态／条件：VERIFIED 代码：dispatcher.go:startTaskOnPickedAgent 忽略 CreateRunWithMeta 错误仍派发；现有文字“先写任务”不等于写成功才执行。
 
-### 测试与竞态
+- [ ] **ARCH-027 · P1 · 实现 · 输入契约读取失败的明确拒绝语义**
+  - 依赖：—。交付与验收：区分旧函数确无 schema 与 descriptor 查询失败；契约读取故障不得作为跳过验证依据；固定已批准快照/版本，覆盖 schema DB 失败、required 缺失和版本漂移；复用 ValidateInvokeInput
+  - 状态／条件：VERIFIED 代码：functioninvoke.ValidateInvokeInput 在 ListDescriptors 出错时返回 nil，治理状态需先统一故障语义。
 
-- [x] `-race` 全量不可绿修复（存量，与 CI/门禁无关，2026-10-14）：pkg/protocol 溢出用例 checkptr fatal（`!race` 标签隔离）、internal/server 测试 atomic 写/裸读、internal/hotreload 插件 ABI 不匹配（构建标签常量对 + 插件同参编译）、cmd/ingest+cmd/server 测试竞态、TCPListener wg.Add/wg.Wait 契约违反（Close 先排空 accept 循环再 Wait，serveStarted/serveExited 两通道定序）；证据 55f63d1 + 555031a，internal/server -race count=50/10 零竞态、cmd/server -race 绿；边界：本机 14 核高负载下 -race 全量仍有 600s 环境性超时（非真竞态，memory 已记录）
+## 页面链验收
 
-### 质量工程
+- [ ] **UI-001 · P1 · 故障验证 · 真实游戏页面发布全链（旧 C2）**
+  - 依赖：GAME-002, GAME-010, ARCH-024。交付与验收：独立真实游戏环境走契约→模板→编辑保存→接受提案→发布→binding 执行；验证列表/详情/弹窗/刷新、筛选/契约变化/人工草稿隔离，记录落库快照与游戏调用凭据
+  - 状态／条件：NOT RUN；需要 GAME-002 接入的权威玩家函数；demo 验收不能代替此项。
 
-- [x] 当前代码定向分析基线（2026-10-22，b9be80d）：architecture guard、Dashboard PageSpec guard、Web `tsc --noEmit` 通过；`go test ./pkg/cdc/... ./internal/platform/functioncontract ./internal/api/function ./internal/logic/function -count=1 -timeout=90s` 8 个有测试包通过、2 个包无普通测试；cluster/server/api/ops/synthetics runner 的 `-run '^$'` 测试编译通过；未执行全量测试、race、真实数据库集成或线上验证，发现项见未完成列表。
+- [ ] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
+  - 依赖：—。交付与验收：复用现有 Go gameops-demo 的 33 函数及内存状态，独立 Server/sidecar/demo 栈验证发布、审批、report.generate、失败/未知/取消/幂等重试；既有 fixture 只证机制，不证明进程重启后游戏侧持久去重
+  - 状态／条件：NOT RUN；可用仓库样例在本地搭栈，不以缺真实游戏账号阻塞此项。
 
-- [x] Go 覆盖率巡检 56 轮：internal 多包收口至 100%（2026-09-27 至 10-08）
-- [x] web 覆盖率巡检 40 余轮：全站零测试页归零，全量 jest 360+ suites 绿（2026-09-28 至 10-01）
-- [x] Dependabot/audit advisory 收口：axios 12 条、dompurify（2026-09-30）
-- [x] PageSpec/渲染守卫复验七批（dashboard_vnext_guard，2026-09-30）
-- [x] 增量测试口径：scripts/test-changed.sh + make test-changed（改动分类 + 反向依赖闭包 + 三类验证，84b4f0c，2026-10-14）
-- [x] 快照产物测试抖动修复：report mtime 显式阶梯（25/25 通过，7cba119，2026-10-14）
-- [x] Docker workflow build-server 超时修复：gha 层缓存（含 go mod cache mount）+ timeout 15→25min，新 run 全绿（f64d569，2026-10-14）
-- [x] 文档补风控说明（2026-10-17 用户令，优先于双语文档）：见 docs/operations/risk-control.md；覆盖事件过滤、对账/CEP/血缘闸、发布预检与处置，标注血缘降级和阻断/审批未实现（初版 commit 1a17bb7，2026-10-22 深化风险章节 commit 66d7613）
-- [x] 文档补运维健康监控说明（2026-10-17 用户令，优先于双语文档）：见 docs/operations/health-monitoring.md；覆盖健康接口、Agent/server 探针、平台/Agent 指标、告警阈值与日志/OTel 接入，标注运维页合成探活、服务请求指标、日志转发和自动恢复未实现（初版 commit fb63f00，2026-10-22 深化健康章节 commit 66d7613）
-- [x] 文档补外部服务探测说明（2026-10-17 用户令，优先于双语文档）：见 docs/operations/external-service-probing.md；覆盖服务清单、身份源/SMTP/webhook/更新源/状态源、probe.targets 周期模型，标注周期第三方巡检、OAuth 测试、服务目录与降级编排未实现（初版 commit 07b1643，2026-10-22 深化探测章节 commit 66d7613）
-- [x] 文档补开发周期覆盖说明（2026-10-17 用户令，2026-10-20 交付，优先于双语文档）：docs/zh/development/lifecycle.md，分支模型（单 main 主干、PR 为辅）、发布节奏（nightly cron、v* tag 唯一稳定入口）、版本策略（VERSION 单源 + 三层漂移实证）、测试与发布门禁（CI Core/Dashboard 全 job 拓扑）全条目带 file:line；缺失项如实汇总为表（分支保护仓库内无、nightly 无变更检测、发布无强制测试门禁、版本号人工给定属约定非机制、SDK tag 口径漂移）；入口新增 docs/.vitepress/config.mjs 的 /zh/development/ 侧边栏。验证：docs build 通过、check-docs-links.sh OK、check-docs-terms.sh 本文件零命中（commit b327593）
-- [x] 文档补 DevOps 说明（2026-10-17 用户令，2026-10-20 交付，优先于双语文档）：docs/zh/operations/devops.md，CI/CD 流程（26 workflow 分组 + CI Core 拓扑 + 自托管部署逐步）、构建产物（8 二进制/归档包/GHCR 五镜像/SDK 镜像）、部署方式（compose/二进制 systemd/k8s/install.sh/CI 自托管五形态）、回滚手段（迁移只向前、镜像与二进制回滚、三场景）全条目带 file:line；如实标注路径口径问题（英文侧中文部署文档被 srcExclude 站点不可见）与缺失项（无 zh 回滚页、无 helm/kustomize、导航与可见页不符）。验证：docs build 通过、links OK、terms 零命中（commit b327593）
-- [x] 文档补权限控制说明（2026-10-17 用户令，2026-10-20 交付，优先于双语文档）：docs/zh/operations/access-control.md，角色与权限模型（EnforceAnyPermission 唯一生产路径、游戏隔离走 admin_game_scopes 表）、鉴权链路（JWT/tokenVersion 撤销、mfaGate、公开白名单、X-Admin-ID 兜底弱点）、敏感操作管控（四级风险、默认策略 danger=两人规则、rejectSelfApproval、step-up TOTP、审计链四条诚实边界）、堡垒机判定为未实现（noopTarget 恒拒 + 计划指针）全条目带 file:line；文末列出文档 vs 代码四处口径差异。验证：docs build 通过、links OK、terms 零命中（commit b327593）
-- [x] 在线文档切换为双语（2026-10-17 用户令）：vitepress/MkDocs 若已用则接官方 locales（root 英文 + zh 中文，每个 locale 独立 nav/sidebar），中文文档放标准目录，**禁止自造切换器或插件**；英文主文档，中文版内容必须是真中文，禁外部机翻；两份文件都要真实存在，禁止复制英文顶替中文；构建通过后在 README 顶部加双语切换链接（2026-10-23 补记双语文档批量落地：EN 侧 ee96ce8（18 EN architecture 页）+ 526ed0c（40 EN twins）+ c213173（15 EN twins）+ a212c08（68 页 zh→EN 去 CJK 翻译）；zh 侧 c0ecb8e（40 zh twins：operations/research/cpp api）+ d4cb292（22 zh twins：go/js/python sdk）+ 99470a2（44 zh twins：cpp/csharp/java sdk）；641919a 修死 zh 链接/过期锚点、da12b6c 删 3 条死 EN 导航项并解链 3 条死 zh 链接。复核于当前 HEAD：`pnpm --dir docs build` 通过、`bash scripts/check-docs-links.sh` 604 链接全解析。）
+- [ ] **UI-003 · P1 · 故障验证 · 批量确认与默认呈现实页验收（旧 D2/D5）**
+  - 依赖：UI-002。交付与验收：复用 perTarget、字段语义和五模板；跨页选人、筛选变化、总量确认与实际提交一致，发布回读保留身份列/单位/时区/枚举；不重复规划已实现 UI。
+  - 状态／条件：NOT RUN：需发布态 demo 栈。
 
-## 审核发现
+## 真实游戏接入
 
+- [ ] **GAME-001 · P1 · 资料调查 · 真实游戏权威数据与执行契约**
+  - 依赖：—。交付与验收：向接入方整理玩家/角色/封禁/订单/邮件/活动权威读写入口、身份映射、凭据与测试目标；核对现有 ownership/high-risk 设计，交付缺口矩阵。
+  - 状态／条件：NOT RUN：需接入方契约/样本/测试账号。
+- [ ] **GAME-002 · P1 · 实现 · 接入真实玩家工作台**
+  - 依赖：GAME-001, GAME-008。交付与验收：复用现有玩家模板和发布链，列表/详情/操作以权威游戏回读及执行凭据验收，失败不显示成功。
+  - 状态／条件：NOT RUN：需目标游戏环境。
+- [ ] **GAME-003 · P1 · 实现 · 接入真实邮件与补偿**
+  - 依赖：GAME-001, GAME-008, GAME-010, GAME-012, ARCH-024。交付与验收：复用模板/审批/任务，按对象凭据核对发放、部分失败重试和重复操作不重发。
+  - 状态／条件：NOT RUN：需目标游戏环境及受控写权限。
+- [ ] **GAME-004 · P1 · 实现 · 接入真实封禁管理**
+  - 依赖：GAME-001, GAME-008, GAME-010, ARCH-024。交付与验收：复用封禁模板，身份/期限/原因批准快照一致，封禁解封后权威回读可核对。
+  - 状态／条件：NOT RUN：需目标游戏环境及受控写权限。
+- [ ] **GAME-005 · P1 · 实现 · 接入真实订单核查**
+  - 依赖：GAME-001, GAME-008, GAME-010, ARCH-024。交付与验收：复用订单模板，订单/发货权威状态一致，补发有凭据且重试不重复发货。
+  - 状态／条件：NOT RUN：需测试订单与受控补发权限。
+- [ ] **GAME-006 · P1 · 实现 · 接入真实活动配置**
+  - 依赖：GAME-001, GAME-008, GAME-010, ARCH-024。交付与验收：复用活动模板，发布/回读版本一致，失败保留旧版本并有审计。
+  - 状态／条件：NOT RUN：需测试配置和发布权限。
+
+- [ ] **GAME-007 · P1 · 方案决策 · 评审游戏权威归属与统一目标引用**
+  - 依赖：GAME-001。交付与验收：复用已有 game-authority-ownership 和 player-identity-target-model 设计，决定本地 Player/Balance 的演示/副本定位以及账号/角色/区服/渠道/合服映射来源；交付批准的映射与迁移边界，禁止另建平台游戏经济真值
+  - 状态／条件：READY；既有设计仍待评审，不能把文档已完成当业务已实现。
+
+- [ ] **GAME-008 · P1 · 实现 · 统一游戏目标引用与歧义阻断**
+  - 依赖：GAME-007。交付与验收：实现已批准的 TargetRef 解析并供页面/审批/任务/审计复用；同角色 ID 多区服、账号多角色、合服旧引用明确解析，歧义拒绝，不以 gameId/env 或主机代替业务区服
+  - 状态／条件：NOT RUN；方案批准后实施，需接入方身份映射样本。
+
+- [ ] **GAME-009 · P0 · 方案决策 · 评审高风险操作凭据与未知结果协议**
+  - 依赖：GAME-001。交付与验收：复用 high-risk-operation-contract-design，决定稳定 operationId、参数/目标指纹、批准快照、游戏持久去重与收据查询职责；明确响应丢失后先查凭据及重试/取消/补偿边界，不重建与 taskId/page idempotency 重复的系统
+  - 状态／条件：READY；设计存在但实现协议未批准，禁止将平台去重当游戏 exactly-once。
+
+- [ ] **GAME-010 · P0 · 实现 · 游戏持久执行凭据与未知结果收敛**
+  - 依赖：GAME-009, GAME-008。交付与验收：按批准协议贯通游戏适配器、执行结果和凭据查询；同 operationId 改参数拒绝、响应丢失/服务重启不重复发奖、未知结果可查询收敛；取消不谎称回滚，补偿引用原凭据
+  - 状态／条件：NOT RUN；需游戏方持久去重/查询实现与受控写环境；Go demo 的内存记录不能替代。
+
+- [ ] **GAME-011 · P1 · 方案决策 · 评审批量运营冻结与预算恢复规则**
+  - 依赖：GAME-009。交付与验收：复用 batch-operations-compensation-design，评审名单快照、预演人数/预算、审批后变化处理、单位/倍率、速率并发、失败阈值、暂停恢复和逐对象凭据；冻结后的对象/金额变更重新审批
+  - 状态／条件：READY；前端跨页选择和 perTarget 确认不等于服务端批次协议。
+
+- [ ] **GAME-012 · P1 · 实现 · 服务端批次对象账本与受控恢复**
+  - 依赖：GAME-011, GAME-010。交付与验收：复用任务体系实施批准的快照/逐对象状态与预算约束；变更名单不可偷换批准范围，部分失败只重试可确认未执行对象；暂停恢复/阈值停止/最终核对可验，不以一次 onExecute 返回成功代替批次完成
+  - 状态／条件：NOT RUN；需批准的批次方案和游戏执行收据。
+
+## Agent 与隔离
+
+- [ ] **AGENT-001 · P0 · 故障验证 · 四类 Agent 当前接口的 scope 隔离矩阵**
+  - 依赖：—。交付与验收：按当前已支持的注册/配置/列表/统计/详情/动作/日志/离线读取逐项核对；复用非空 scope 和绑定测试，覆盖同 ID 冲突及跨 scope 指派；devops 未接通的会话/回放列 NOT IMPLEMENTED，不用假数据当验收
+  - 状态／条件：NOT RUN；本地模拟与四角色栈可以开展；未来 devops 会话隔离随 AGENT-002/003 验收，不把缺中继误写成只缺环境。
+
+- [ ] **AGENT-002 · P1 · 实现 · devops 面板会话中继**
+  - 依赖：—。交付与验收：接通已有 Broker/Hub 的创建/数据/窗口/关闭通道与 Server 授权、审计、背压；不新增 RDP/VNC；SSH 真目标端到端连接和断线清理可验。
+  - 状态／条件：NOT RUN：需 SSH 测试主机/凭据/指纹。
+- [ ] **AGENT-003 · P1 · 实现 · devops 主机/会话/回放界面**
+  - 依赖：AGENT-002。交付与验收：复用四类 Agent 公共页与现有 asciicast；真实会话列表、scope 权限、动作审计与回放可达，未实现能力不以假按钮替代。
+  - 状态／条件：NOT RUN：需 SSH 测试主机。
+
+## 探测验收与调查
+
+- [ ] **PROBE-001 · P1 · 故障验证 · 真实游戏协议的多语言插件验收**
+  - 依赖：—。交付与验收：复用 go-plugin 宿主、Go/Python/Node SDK；真实游戏目标验证 Describe/Check、凭证不回显、超时/取消/崩溃/熔断/恢复；不再规划 JSONL 等价运行时。
+  - 状态／条件：NOT RUN：需真实协议、目标与凭据。
+- [ ] **PROBE-002 · P1 · 故障验证 · 第三方服务多视角探活验收**
+  - 依赖：PROBE-004, PROBE-005。交付与验收：针对各角色实际能力建立矩阵，分别核对 sidecar 的 Checker/策略热更、synthetics 原生 HTTP/ICMP/插件、面板阶段/窗口/故障恢复；模拟端口通但业务错、断线和恢复；不宣称所有角色共享全部 DB/私有协议 Checker
+  - 状态／条件：NOT RUN；本地目标可先做机制验证，真实网络视角需目标/凭据；动态同步和丢失语义仍有实现/决策前置。
+
+- [ ] **PROBE-003 · P2 · 资料调查 · 玩家 Login 级适配边界**
+  - 依赖：—。交付与验收：复用已有 Minecraft SLP 与私有协议骨架，收集 online-mode/自家游戏登录协议与账号条件；SLP 状态检查不能作完整玩家登录证据。
+  - 状态／条件：NOT RUN：需 MC Java 账号/出网、自家游戏账号/协议；许可证变更另行授权。
+
+- [ ] **PROBE-004 · P1 · 实现 · synthetics 目标及策略版本同步**
+  - 依赖：—。交付与验收：按既有角色设计补齐静态配置到受控版本拉取/热生效，复用 core/configsync 并绑定 gameId/env；坏版本保留 last-good，重连后取最新，禁用/删除目标释放资源；不凭 sidecar 的 puller 宣称 synthetics 已拥有同能力
+  - 状态／条件：VERIFIED 未实现：synthetics Runner 仅遍历 cfg.Synthetics.Targets，不存在 configsync/中心策略拉取装配；可本地实施。
+
+- [ ] **PROBE-005 · P1 · 方案决策 · 探测结果与故障恢复事件丢失语义**
+  - 依赖：—。交付与验收：区分可丢的周期采样与必须可核对的故障/恢复跃迁；评审断链缓存/重传/新鲜度/缺测状态及容量预算，优先复用既有 report/告警机制，不默认持久化每条采样
+  - 状态／条件：READY；synthetics.execute 断链只日志且通知无应用 ACK；真实第三方环境不能补齐此协议缺口。
+
+## 待批准的运维方案
+
+- [ ] **OPS-001 · P2 · 方案决策 · Agent 自升级四问**
+  - 依赖：—。交付与验收：评审升级源/触发权限/重启接力/失败姿态，复用现有指纹及最后已知锚点；交付失败不砖化与带外回滚验收方案，等待既有要求的决策批准后实施。
+  - 状态／条件：READY：待方案批准。
+- [ ] **OPS-002 · P2 · 方案决策 · 受管程序配置更新五问**
+  - 依赖：—。交付与验收：明确路径沙箱/格式校验/原子性与重启回滚/体积带宽/审批闸，复用 configsync 先例；不声称现有探针配置拉取已支持程序文件分发。
+  - 状态／条件：READY：待方案批准。
+
+## 部署事实
+
+- [ ] **DEPLOY-001 · P1 · 资料调查 · 真实部署与外部依赖配置盘点**
+  - 依赖：—。交付与验收：核对实际镜像摘要/角色/端口/TLS/协调后端/备份、Herald 与外部平台开关、OIDC/Vault/观测出口；交付脱敏拓扑和与模板差异，不把 Compose 存在当部署证据。
+  - 状态／条件：NOT RUN：需只读部署权限与脱敏配置。
+
+- [ ] **DEPLOY-002 · P1 · 故障验证 · 备份可恢复与业务凭据核对**
+  - 依赖：DEPLOY-001。交付与验收：复用 backupexec 和既有备份/对象存储，在隔离环境实际恢复配置、契约/页面、审批/任务/执行凭据与角色数据，记录 RPO/RTO/校验和及未覆盖内存状态；验证副作用不因恢复重复执行，不新增未经设计的恢复服务
+  - 状态／条件：NOT RUN；需脱敏备份、隔离数据库/对象存储读权限；备份 API/文件存在不证明恢复成功。
+
+## 容量验证
+
+- [ ] **PERF-001 · P2 · 性能验证 · 会话与重连容量基线**
+  - 依赖：—。交付与验收：给定 SDK/Agent 数、并发、消息大小和延迟目标，测 MuxConn 队列、重连风暴、连接峰值/P95 和资源释放；单独记录已知正确性缺口，不用吞吐通过替代安全结论
+  - 状态／条件：NOT RUN；需容量目标与隔离环境；任务 SSE 和插件容量拆为 PERF-002/003。
+
+- [ ] **PERF-002 · P2 · 性能验证 · 任务查询与 SSE 容量基线**
+  - 依赖：—。交付与验收：给定并发任务/订阅者、事件频率和保留量测量事件写入/查询延迟、断线续读、慢客户端背压及资源释放；记录当前可靠性缺口，不能用吞吐替代 ARCH-015 验收
+  - 状态／条件：NOT RUN；需独立任务基准栈与延迟目标。
+
+- [ ] **PERF-003 · P2 · 性能验证 · 插件并发与故障隔离容量**
+  - 依赖：—。交付与验收：复用现有 go-plugin gate/backoff/breaker，给定插件数/并发/预算验证队列拒绝、超时、崩溃风暴、宿主资源和 Stop 释放；报告平台/版本，不做新的插件运行时选型
+  - 状态／条件：NOT RUN；需可控插件负载与资源预算。
+
+验收记录要求：逐项写触发输入、期望、实际、代码版本、环境、证据位置及未覆盖边界；总测试数和文件存在不是验收。完成后保留稳定编号，不复用或重排编号。尚未立项的产品/平台专题只登记调查，不自动扩建服务或替换 SDK。
+
+## 共用核心分析与外部专业分析
+
+产品边界（用户确认方向，2026-10-29）：内置共用核心运营指标；专业自助分析/复杂归因/预测通过外部集成。现有分析代码与页面继续复用，不把“管道存在”当作指标已验收。
+
+- [ ] **DATA-001 · P1 · 方案决策 · 内置共用指标与外部专业分析边界**
+  - 依赖：—。交付与验收：按用户确定的边界评审核心指标：新增、DAU/WAU/MAU、近实时在线、D1/D7/D30 留存、付费人数/订单/流水/退款/净额/付费率/ARPU/ARPPU；定义活跃事件、账号/角色去重、cohort/分母、UTC/业务时区、迟到更正、币种/单位及近似误差。复杂自助分析/归因/预测走外部，已有行为/关卡页保留但不扩建专业 BI
+  - 状态／条件：READY；复用 docs/analytics/core-and-external.md 和既有 game-metrics-overview，口径未验收不称已可用。
+- [ ] **DATA-002 · P1 · 实现 · 共用事件接入与指标数据来源归一**
+  - 依赖：DATA-001。交付与验收：复用 ingest/Server 事件入口/worker，提供游戏登录、注册、心跳、支付/退款的显式映射；每个指标声明权威来源、gameId/env/维度和新鲜度。统一 GORM 与 ClickHouse 读适配契约，不静默把平台 Player 数当游戏新增，不默认为两套库自动同步
+  - 状态／条件：VERIFIED 缺口：overview.go 读关系模型/Player，warehouse.go 读 ClickHouse；需接入样本，代码可先本地实施。
+- [ ] **DATA-003 · P1 · 实现 · 活跃与在线聚合的版本和重放语义**
+  - 依赖：DATA-001。交付与验收：修正 daily_users 的替换键/版本参数与分钟在线 HLL 快照重写策略，迁移已有表而不只改 initdb；同日多次 flush、迟到事件、重放和多 worker 的同一分钟结果可核对，不把全量 HLL 重写当增量相加
+  - 状态／条件：VERIFIED 源码与官方语义：010_analytics.sql 把 version 放入 ORDER BY 且未作为 ReplacingMergeTree 参数；minute_online 用 SummingMergeTree 接收 HLL 全量快照。真实 ClickHouse 验证 NOT RUN。
+- [ ] **DATA-004 · P1 · 实现 · 付费聚合的币种、订单状态与累计口径**
+  - 依赖：DATA-001。交付与验收：复用 payment 明细，按已批准币种/单位和订单唯一键处理重复成功、退款和状态变更；修复 revAgg flush 后删除而日表按替换读的增量/累计冲突，跨 flush/重启可回算，不能把不同币种原始金额直接相加
+  - 状态／条件：VERIFIED 代码 touchRevenue 按 day/game/env 分组，未含 currency/order 去重，flush 后清空；真实金额样本与 ClickHouse 验证 NOT RUN。
+- [ ] **DATA-005 · P1 · 实现 · 基础 cohort 留存的生产计算链**
+  - 依赖：DATA-001, DATA-002。交付与验收：复用 RetentionModel，补齐注册 cohort 与回访事件的受控计算/回算任务；D1/D7/D30 明确分母、业务日、观察窗成熟与迟到更正；未成熟/缺数据返回不可用，不能伪造 0；用逻辑时钟和回放样本验算，无需等真实运行 30 天才写机制测试
+  - 状态／条件：VERIFIED 缺口：生产路径只有 ListCohorts，未找到 UpsertCohort 的生产调用；前端概览 d1/d7/d30 固定 null。
+- [ ] **DATA-006 · P1 · 实现 · 统一核心指标查询响应与 scope**
+  - 依赖：DATA-002, DATA-003, DATA-004, DATA-005。交付与验收：复用现有 Analytics API/warehouse 查询，统一核心指标的窗口、维度、分母、source/freshness/approximation、币种和不可用原因；读取已有授权 scope，不让查询参数改到其它 game/env；缺配置/延迟/查询失败不能伪装零值
+  - 状态／条件：READY；依赖有效聚合口径后交付，复用既有函数不建第二套同名 API。
+- [ ] **DATA-007 · P1 · 实现 · 运营核心分析页的真实数据闭环**
+  - 依赖：DATA-006。交付与验收：复用 Overview/Realtime/Retention/Payments/Warehouse 组件，收敛为同口径核心视图；过滤条件/日期/时区/单位保持一致，展示延迟、缺测、未成熟和未启用状态，真实零值可区分；已有专业页不删除也不以硬编码值补齐
+  - 状态／条件：READY；现有页面/API 是可复用资产，当前不宣称完整产品闭环。
+- [ ] **DATA-008 · P1 · 故障验证 · 核心指标可核对样本与端到端验收**
+  - 依赖：ARCH-011, DATA-007。交付与验收：以固定多 game/env/跨日/多币种/重复乱序/退款样本，从接入→Redis→worker→查询→页面逐指标对账；验证重启/迟到/跨 scope 拒绝与不可用状态，记录原始样本、期望、实际、版本和数据新鲜度
+  - 状态／条件：NOT RUN；可先本地构建样本栈，真实游戏以脱敏事件和支付对账样本补验；不以现有单测总数代替。
+- [ ] **DATA-009 · P2 · 性能验证 · 核心分析吞吐与查询容量**
+  - 依赖：DATA-006。交付与验收：给定事件速率、保留量、查询并发与新鲜度预算，测写入/聚合/查询 P95、积压和回算对控制面的影响；复用现有独立分析管道，不自动引入新的流处理服务
+  - 状态／条件：NOT RUN；需业务量级和隔离 Redis/ClickHouse 环境。
+- [ ] **DATA-010 · P1 · 资料调查 · 专业分析外部产品接入核查**
+  - 依赖：—。交付与验收：按实际专业需求收集外部分析平台官方版本/许可、数据输入、授权 scope、身份/嵌入/深链、数据回流与成本限制；交付对接矩阵与单个首接目标，不在本轮选型或虚构任何供应商集成已完成
+  - 状态／条件：NOT RUN；需专业场景与候选外部环境，优先官方资料，记录核查日期。
+- [ ] **DATA-011 · P1 · 方案决策 · 外部专业分析的受控集成契约**
+  - 依赖：DATA-001, DATA-010。交付与验收：复用 extensions 与既有数据出口，评审指标/事件/只读数据集的输出契约和来源、scope、字段映射、时间窗、版本、短期凭据/SSO/深链及审计；外部查询必须被服务端或受限数据集约束，不把浏览器过滤器当隔离，不泄露仓库凭据
+  - 状态／条件：READY；方案依首接产品能力核对，不新增通用 BI/任意 SQL 平台。
+- [ ] **DATA-012 · P1 · 实现 · 首个专业分析平台适配与入口**
+  - 依赖：DATA-011。交付与验收：按批准契约实现一个真实外部平台的配置/连接验证、受控数据输出和当前 scope 的报告入口；复用扩展安装/开关/审计，失联有明确降级信息，不阻塞 Croupier 核心运营与内置指标
+  - 状态／条件：NOT RUN；需首接平台测试实例及最小权限凭据。
+- [ ] **DATA-013 · P1 · 故障验证 · 外部分析授权与故障隔离验收**
+  - 依赖：DATA-012。交付与验收：核对跨 game/env、撤权、过期凭据、外部故障、超时和重复导出；未授权数据不可见，导出可追溯，外部平台不可用时内置核心指标与运营执行可继续
+  - 状态／条件：NOT RUN；需真实外部分析环境和多 scope 测试身份。
+
+## 并行审核复验（保留在途修复）
+
+- [x] **REVIEW-001 · P1 · 故障验证 · 批量充值目标 ID 归一化复验**
+  - 依赖：—。交付与验收：批量充值 demo 把选中行对象整体 `map(String)` 成 `[object Object]`，导致实际渲染路径无法匹配玩家 ID 却返回成功（web/src/components/PageRenderer/templates/playerManage.tsx:442）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收以实际批量执行入参为玩家 ID、回读影响人数与目标名单一致且无 [object Object] 为准。
+  - 状态／条件：LOCAL VERIFIED：gameOpsPublishFixture.test.tsx 已断言对象 selection（ResourcePageRenderer 实际提交形态 `{form, selection}`）的两个目标各精确增加 100、未选目标不变且仅两项变化；裸 ID 直调兼容用例通过。执行器入参契约与 selector 投影（`selection → /id`）已核对，不以 count/total 字段代替副作用回读。
+  - 完成证据：2026-10-29 定向运行通过；`web/src/components/PageRenderer/templates/gameOpsPublishFixture.test.tsx`，验收断言与边界见上述状态。
+
+- [x] **REVIEW-002 · P1 · 故障验证 · 空白批量金额拒绝复验**
+  - 依赖：—。交付与验收：`summarizePerTargetTotal` 把空串/全空白串转换成 0，违背“不确定输入不猜 0、不执行”注释并会确认并提交 0 充值（web/src/components/PageRenderer/batchSelection.ts:73）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收以空串/全空白均禁止确认与提交、合法有限数字仍可按显式语义执行为准。
+  - 状态／条件：LOCAL VERIFIED：ResourcePageRenderer.test.tsx 的 REVIEW-002 用例验证空串/全空白提交不调用执行器，合法 10 经确认后按原 form 与 selection 提交；resourceBatchSelection.test.tsx 覆盖空白 guard。已完成本项本地边界验收；真实游戏接入另见既有任务。
+
+  - 完成证据：2026-10-29 定向运行通过；`web/src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx`，验收断言与边界见上述状态。
+
+- [x] **REVIEW-003 · P1 · 故障验证 · 错误响应体优先级一致性复验**
+  - 依赖：—。交付与验收：`extractApiErrorCode` 声称与 `utils/errors` 同口径但优先 `.data` 再 `.response.data`，后者相反优先 `.response.data`，二者可能取到不同响应体（web/src/utils/apiError.ts:7）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收覆盖 data 与 response.data 并存且内容冲突时，extractApiErrorCode 与 utils/errors.extractErrorCode 对有效冲突响应采用同一响应体与稳定码。
+  - 状态／条件：LOCAL VERIFIED：apiError.test.ts 冲突样本断言 response.data.error 优先；源码核对 apiError.ts 与 errors.ts 的有效响应体优先级一致。本项限定两字段均为有效响应对象的冲突情况，不宣称所有解析入口/畸形响应完全统一。
+
+  - 完成证据：2026-10-29 定向运行通过；`web/src/utils/__tests__/apiError.test.ts`，验收断言与边界见上述状态。
+
+- [x] **REVIEW-004 · P1 · 故障验证 · 批量表单确认文案可达性复验**
+  - 依赖：—。交付与验收：带表单批量动作进入表单后绕过原有 `confirm/confirmTitle/confirmDescription` 路径，批量充值模板声明的目标确认文案实际不可达（web/src/components/PageRenderer/ResourcePageRenderer.tsx:1246）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收覆盖带表单动作的确认标题/说明/目标可见且与实际提交一致，取消确认不会调用执行器。
+  - 状态／条件：LOCAL VERIFIED：ResourcePageRenderer.test.tsx 的 REVIEW-004 用例已限定确认框作用域，验证 confirm=true 带表单动作的标题/说明/目标/总量可见；取消不调用执行器；正向用例确认后提交完整 selection 与表单值一致。
+  - 完成证据：2026-10-29 定向运行通过；`web/src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx`，验收断言与边界见上述状态。
+
+- [ ] **REVIEW-005 · P1 · 实现 · 批量金额安全整数与乘积边界**
+  - 依赖：—。交付与验收：为 summarizePerTargetTotal 与业务金额契约明确单位/倍率/最大值，拒绝非安全整数及乘积溢出；覆盖 MAX_SAFE_INTEGER 邻界、极大目标数与 Infinity，不显示可确认的失真总量
+  - 状态／条件：VERIFIED 代码只检查 Number.isInteger/Finite 输入，未检查安全整数或最终乘积；原空白输入修复不覆盖此问题。
+
+## 依赖安全证据复核
+
+- [ ] **SEC-001 · P1 · 资料调查 · 默认分支依赖告警适用性复核**
+  - 依赖：—。交付与验收：获取 GitHub 默认分支未关闭告警的官方明细，映射 go.mod/go.sum、package.json/锁文件与 SDK/构建产物；区分运行时/开发/传递依赖、受影响版本与实际可达条件，逐项形成“需修复/不适用及依据/待验证”清单，再拆最小修复任务，不仅凭告警总数宣布存在可利用生产漏洞。
+  - 状态／条件：NOT RUN；2026-10-29 推送 56c85dbb 的 GitHub 回执报告 19 条（1 high、10 moderate、8 low），仅回执已观察，告警详情/适用性尚未核实；读取详情可能需要仓库安全告警权限。
 - [x] 审核发现：`GET /api/v1/tasks` 的 `pageSize` 回显原始请求 `size`，未反映服务端 `model.NewPagination` 钳制后的实际值（请求 `?size=200` 服务端实际返回 100 条但回显 200；`size=0` 实际返回 20 条但回显 0），响应契约与真实分页不一致（internal/api/task/handler.go:29、internal/model/vars.go:70、internal/api/task/task_center_read_test.go:42 未覆盖钳制回显）。证据：`ListResponse` 增补 `Page`/`Size` 字段并回显 `model.NewPagination` 钳制后的值（service.go 复用一次构造、handler.go 传 `resp.Page`/`resp.Size`），新增 `TestTaskCenterListEchoesClampedPagination` 覆盖 over-max→100、zero→20、zero-page→1 三档；`go test ./internal/api/task/` 全绿（含 372 用例套件）、`go build ./...` + `go vet ./...` 绿。
 - [x] 审核发现：页面 binding 执行（`executePageBinding`）未设 `skipErrorHandler`，403 `permission_denied` 会先被全局 `errorHandler` `msgWarn` 并 `history.push('/403')` 且不重新抛出，`describeExecFailure` 的权限原因行在真实页面不可见（web/src/requestErrorConfig.ts:207、web/src/services/console.ts:123）。证据：`executePageBinding` 与同口径的 `executeDraftCompositeBinding` 均加 `skipErrorHandler: true`，令原始错误穿透全局 `errorHandler` 重新抛出，由 `describeExecFailure` 在真实页面渲染权限原因；新增两则接线测试断言 `config.skipErrorHandler === true` 且原始错误原样 `rejects`；`jest src/services/` 603 用例全绿、`tsc --noEmit` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED。
 - [x] 审核发现：CDC schema `History.Clone()` 无锁保护，而 `Record` 在 decoder `Feed` 中并发写入同一 `tables` map/slice；文档声称 `Clone()` 可安全交给并发消费者，但 `Clone` 遍历 map 与 `Record` 写 map 存在竞态（pkg/cdc/schema/schema.go:189、agents/capture/connector/pg/connector.go:817、agents/capture/connector/pg/decoder.go:79）。证据：`History` 增加 `sync.RWMutex`，`Record` 取写锁、`At`/`Versions`/`Tables`/`Validate`/`Clone` 取读锁，彻底消除读（Clone 遍历 map 交付并发消费者）与写（Record append map/slice）竞态；新增 `TestHistoryConcurrentRecordAndRead`（4 写 × 200 表并发 Record，同时 4 读者并发 Clone/At/Versions/Tables/Validate）；`go test ./pkg/cdc/... ./agents/capture/connector/pg/... -race` 全绿、`go build ./...` + `go vet ./pkg/cdc/...` 绿。
