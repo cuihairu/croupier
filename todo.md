@@ -217,9 +217,9 @@
   - 依赖：—。交付与验收：Dispatcher 在 CreateRunWithMeta 失败时返回可定位错误并不得发送 StartTask；验证 DB 失败时执行器计数为 0、无孤立事件/不可取消任务；不与 Agent 事件重放重复实现
   - 状态／条件：VERIFIED 代码：dispatcher.go:startTaskOnPickedAgent 忽略 CreateRunWithMeta 错误仍派发；现有文字“先写任务”不等于写成功才执行。已修复（c4792098）：CreateRunWithMeta 失败即返回可定位错误（含 task_id 的 “persist task_runs row for task %s before dispatch”），不再发送 StartTask——主记录先持久化成功才派发；错误非 errAgentUnreachable，不触发 failover 重试（DB 故障与 agent 无关），失败轮无 MarkRunFailed 动作（行未建成）。不与 Agent 事件重放重复实现（事件回流仍按 task_id 匹配，只是现在保证回流必有主记录可更新）。门禁：go build ./...、go test ./internal/... 全绿（164 pkg）、gofmt 干净。用例：TestDispatcher_StartTaskRequest_CreateRunFailureBlocksDispatch（StartTask 帧零调用、恰好一次写尝试、taskAgentID 查不到生成 ID=无不可取消孤儿）。附带：api/task 测试库钉死单连接（8422a63c）修 glebarez :memory: 并发拿空库的既有 flake（no such table: task_runs）。
 
-- [ ] **ARCH-027 · P1 · 实现 · 输入契约读取失败的明确拒绝语义**
+- [x] **ARCH-027 · P1 · 实现 · 输入契约读取失败的明确拒绝语义**
   - 依赖：—。交付与验收：区分旧函数确无 schema 与 descriptor 查询失败；契约读取故障不得作为跳过验证依据；固定已批准快照/版本，覆盖 schema DB 失败、required 缺失和版本漂移；复用 ValidateInvokeInput
-  - 状态／条件：VERIFIED 代码：functioninvoke.ValidateInvokeInput 在 ListDescriptors 出错时返回 nil，治理状态需先统一故障语义。
+  - 状态／条件：VERIFIED 代码：functioninvoke.ValidateInvokeInput 在 ListDescriptors 出错时返回 nil，治理状态需先统一故障语义。已修复：ValidateInvokeInput 在 ListDescriptors 错误时 fail-closed 返回「读取函数输入契约失败」错误（不再与「零行=旧函数确无 schema」合并跳过）；err==nil 且零 descriptor 维持放行（旧函数无契约可验）；校验继续复用 ValidateInvokeInput 单一入口（Govern phaseFull/phaseInvocability 与 api/function 薄壳同链）；多版本契约仍取 version DESC 最新（descs[0]），批准快照/版本固定由审批续跑与页面快照新鲜度路径承担（IsApprovedContinuation/IsPageSnapshotGoverned 不重跑政策，契约校验按调用时最新契约）。门禁：go build ./...、go test ./internal/... 全绿（164 pkg）、gofmt 干净。用例：TestGovern_InputSchemaReadErrorDenies（全链拒绝且零审批）、TestValidateInvokeInput_SchemaReadErrorDenies（单元 fail-closed）、TestValidateInvokeInput_UsesLatestDescriptorVersion（版本漂移取最新，v1 无 required/v2 要求 playerId，缺参报错证明用 v2）；required 缺失 400 由既有 TestGovern_InputContractValidation 覆盖。
 
 ## 页面链验收
 
