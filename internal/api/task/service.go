@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/api/assignment"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/tasks"
 )
@@ -72,6 +72,10 @@ func (s *Service) OperatorOptions(ctx context.Context, req *ListRequest) (*Opera
 	return &OperatorOptionsResponse{Items: items}, nil
 }
 
+// statusApprovalRequired 是 StartResponse 在政策要求审批时的请求态
+// （区别于任务运行态 tasks.Status*）：/tasks Start 收到该响应不派发任务。
+const statusApprovalRequired = "approval_required"
+
 func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse, error) {
 	functionID, err := utils.ValidateFunctionID(req.FunctionID)
 	if err != nil {
@@ -84,37 +88,6 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	if _, err := s.runtime.FindFunctionContract(ctx, scope.GameID, scope.Env, functionID); err != nil {
 		return nil, err
 	}
-	// 禁用拦截（E2）：与 functionInvoke 同一守卫，/tasks 不能绕过禁用
-	// 状态启动异步任务——同一语义与 CheckInvokePermission 双入口共享同理。
-	if err := utils.EnsureFunctionEnabled(ctx, s.svcCtx, functionID); err != nil {
-		return nil, err
-	}
-	// 分配闸门（BUG-032）：与 functionInvoke 同一守卫，/tasks 不能绕过
-	// 分配白名单（scope 有记录时未分配函数 403 function_not_assigned）。
-	if err := assignment.EnsureFunctionAssigned(ctx, s.svcCtx, functionID, scope.GameID, scope.Env); err != nil {
-		return nil, err
-	}
-
-	// Apply the same authorization as the function-invoke path so /tasks
-	// cannot be used to bypass function-level RBAC.
-	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
-	if err != nil {
-		return nil, err
-	}
-	roleNames := utils.RoleNamesFromModels(roles)
-	permIDs, err := utils.PermissionIDsFromRoles(ctx, s.svcCtx, roles)
-	if err != nil {
-		return nil, err
-	}
-
-	gameID := scope.GameID
-	env := scope.Env
-	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
-		return nil, err
-	}
-	if err := utils.CheckInvokePermission(ctx, s.svcCtx, roleNames, permIDs, functionID, gameID, env); err != nil {
-		return nil, err
-	}
 
 	payloadObj := req.Params
 	if payloadObj == nil {
@@ -125,6 +98,48 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 		return nil, err
 	}
 
+	// 主体与 /tasks 专属授权门（与 functionInvoke 同语义：/tasks 不能绕过
+	// 函数级 RBAC）。在 Govern 之前——授权失败必须先于审批创建拒绝，防止
+	// 无权限用户制造审批噪音。
+	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := utils.RoleNamesFromModels(roles)
+	permIDs, err := utils.PermissionIDsFromRoles(ctx, s.svcCtx, roles)
+	if err != nil {
+		return nil, err
+	}
+	gameID := scope.GameID
+	env := scope.Env
+	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
+		return nil, err
+	}
+	if err := utils.CheckInvokePermission(ctx, s.svcCtx, roleNames, permIDs, functionID, gameID, env); err != nil {
+		return nil, err
+	}
+
+	// 执行准入（ARCH-024 统一治理）：禁用/分配/主体/政策审批/输入契约与
+	// functionInvoke、调度触发共用同一条 Govern 链，逐次一致。
+	governed, err := functioninvoke.Govern(ctx, s.svcCtx, &functioninvoke.Request{
+		ID:      functionID,
+		GameID:  gameID,
+		Env:     env,
+		Mode:    "async",
+		Payload: payload,
+	}, functioninvoke.Subject{Kind: functioninvoke.SubjectHuman})
+	if err != nil {
+		return nil, err
+	}
+	if governed.ApprovalRequired {
+		// 政策要求审批：创建审批请求、不派发任务（与 functionInvoke 一致）。
+		return &StartResponse{
+			Status:           statusApprovalRequired,
+			ApprovalID:       governed.ApprovalID,
+			ApprovalWorkflow: governed.ApprovalWorkflow,
+		}, nil
+	}
+
 	metadata := map[string]string{}
 	if gameID != "" {
 		metadata["gameId"] = gameID
@@ -133,7 +148,7 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 		metadata["env"] = env
 	}
 	// 记录操作者
-	metadata["actor"] = admin.Username
+	metadata["actor"] = governed.Admin.Username
 
 	// Dispatch through the same path as mode=task function invocation: the
 	// dispatcher generates the task ID, creates the task_runs row, and forwards

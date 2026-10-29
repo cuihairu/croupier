@@ -35,8 +35,12 @@ func newTestEnv(t *testing.T, scoped bool) (*gin.Engine, *gorm.DB) {
 
 	svcCtx := &svc.ServiceContext{
 		TaskScheduleModel: model.NewTaskScheduleModel(db),
+		AdminModel:        model.NewAdminModel(db),
 		Dispatcher:        dispatch.NewDispatcher(reg.NewStore()),
 	}
+	// TriggerNow 经 ARCH-024 Govern 链加载调用者主体（username=tester），
+	// 需存在对应 Admin 行；其余入口不触达主体加载，种子只影响触发路径。
+	seedScheduleAdmin(t, db, "tester")
 	h := NewHandler(NewService(svcCtx))
 
 	gin.SetMode(gin.TestMode)
@@ -66,6 +70,13 @@ func doJSON(r *gin.Engine, method, target, body string) *httptest.ResponseRecord
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	return rec
+}
+
+// seedScheduleAdmin 为 TriggerNow 的 Govern 主体加载准备调用者 Admin 行
+// （无角色即可通过：PolicyManager 为 nil 时政策链整体跳过）。
+func seedScheduleAdmin(t *testing.T, db *gorm.DB, username string) {
+	t.Helper()
+	require.NoError(t, db.Create(&model.Admin{Username: username, Nickname: username, Status: 1}).Error)
 }
 
 func doReq(r *gin.Engine, method, target string) *httptest.ResponseRecorder {

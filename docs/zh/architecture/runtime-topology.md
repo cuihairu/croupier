@@ -4,7 +4,7 @@ title: 运行架构、连接与生命周期（源码现状）
 
 # 运行架构、连接与生命周期
 
-> **2026-10-29 游戏后台再审**：统一 session 不等于所有入口统一治理。`/tasks` 只做部分门禁，调度自动/手动入口直达 Dispatcher；政策查询/输入契约读取失败还存在放行分支。定时任务“派发后写唯一记录”也不保证多实例只执行一次。见根目录 TODO 的 ARCH-023–027；详细证据在 `docs/review/code-todo-alignment-2026-10-29.md`。当前不能宣称真实高危写操作已达到生产稳定性。
+> **2026-10-29 游戏后台再审**：统一 session 不等于所有入口统一治理。执行治理已统一（ARCH-023/024）：`/tasks` Start、手动调度触发、定时自动触发与 HTTP/页面调用共用同一条 `functioninvoke.Govern` 链（禁用/分配/主体/政策/输入契约），并以显式自动化主体在每次触发时重载调度创建者的当前授权（撤权后不再派发）；调度 Create 仅校验可调度性。剩余缺口：政策/输入契约读取失败仍可能静默放行（ARCH-025）；任务路径幂等记录写错被忽略（ARCH-026）；重复 Start 的持久去重与游戏侧副作用收据未闭环（ARCH-027/GAME-010）。证据：`docs/review/code-todo-alignment-2026-10-29.md`。当前不能宣称真实高危写操作已达到生产稳定性。
 
 核查日 **2026-10-29**。这是源码与仓库部署模板的现状，不是线上盘点或生产认证。**已实现**表示可追踪到生产装配；**目标设计**表示尚有运行缺口；**待核实**表示需要真实配置、账号或环境。本轮不修改业务实现。历史审核见 仓库审核记录 `docs/review/architecture-audit-2026-10-28.md`。待办唯一入口为仓库根 `todo.md`。
 
@@ -89,7 +89,7 @@ Server 先创建 ServiceContext/数据库与注册物化、scheduler、session r
 
 [Task SVG](/architecture/task-zh.svg)
 
-HTTP 身份/scope → 页面快照 binding（或受控草稿）→ `functioninvoke` 门禁/输入契约/政策。拒绝、待审批与可执行互斥；审批决定后通过既有续跑入口重新验证，不能把 pending 当作已下发。dispatch 的任务路径先尝试建立 `task_runs` 再 StartTask，但当前忽略落库错误，不能保证“写成功才执行”（ARCH-026），返回 taskId 仅代表接收，最终结果看 task_events/查询/SSE。取消先记录意图，再按缓存/文件或 DB 的 agent 归属路由；Cancel ACK 不证明外部副作用撤销。
+HTTP 身份/scope → 页面快照 binding（或受控草稿）→ `functioninvoke` 门禁/输入契约/政策。拒绝、待审批与可执行互斥；审批决定后通过既有续跑入口重新验证，不能把 pending 当作已下发。任务 Start、手动调度触发与定时自动触发复用同一条链（`functioninvoke.Govern`，ARCH-024），主体显式——Human 由鉴权中间件解析，Automation 每次触发重载调度创建者的当前角色——撤权后不再裸派发；调度 Create 仅校验可调度性（禁用/分配/输入契约），授权与政策审批在每次触发时执行。dispatch 的任务路径先尝试建立 `task_runs` 再 StartTask，但当前忽略落库错误，不能保证“写成功才执行”（ARCH-026），返回 taskId 仅代表接收，最终结果看 task_events/查询/SSE。取消先记录意图，再按缓存/文件或 DB 的 agent 归属路由；Cancel ACK 不证明外部副作用撤销。
 
 **实现边界**：sidecar `TaskRunner.Start` 以 Background context 启动协程，map 用 taskId 保存 cancel；同 ID 再次 Start 没有持久去重保证，事件上报返回值被忽略。任务结束 defer 删除 map/cancel；这不是断线事件持久重放或进程崩溃恢复。页面数据库幂等不能覆盖游戏奖励/支付副作用；超时后可能结果未知，游戏方凭据与去重仍需协议。证据：`agents/sidecar/task_runner.go`、`internal/platform/dispatch/{dispatcher,task_routing_store}.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
 
