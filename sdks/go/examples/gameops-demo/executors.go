@@ -369,7 +369,12 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 	if taskType != "compensation" {
 		taskType = "mail"
 	}
+	// 补偿默认单目标（与 Web demo 口径 1 一致），邮件默认 26；多人补偿由
+	// 下方 targetPlayerIds 唯一数覆盖（D2 批量场景）。
 	targetCount := 26
+	if taskType == "compensation" {
+		targetCount = 1
+	}
 	var perAmount *int64
 	if taskType == "compensation" {
 		perAmount = int64Ptr(valueInt64(m, "perAmount"))
@@ -389,7 +394,7 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 	}
 	// 指定玩家补偿支持多人目标（D2 批量补偿场景）：targetPlayerIds 为目标
 	// 快照数组，按唯一玩家数计算目标人数与补偿总量；单值 targetPlayerId 保留
-	// 兼容。邮件与全服/区服任务仍按既有口径（26 / 区服人数）。
+	// 兼容。邮件按既有口径 26（全服/区服），补偿默认单目标 1（Web demo 口径）。
 	targetPlayerIDs := make([]string, 0)
 	if taskType == "compensation" && receiverRange == "players" {
 		if ids := valueStringSlice(m, "targetPlayerIds"); len(ids) > 0 {
@@ -528,6 +533,12 @@ func (s *gameOpsStore) reportGenerate(ctx context.Context, payload []byte) ([]by
 		timer.Stop()
 		return nil, fmt.Errorf("report_generate_cancelled: %w", ctx.Err())
 	case <-timer.C:
+	}
+	// 取消与 timer 同时就绪的窗口已闭合：timer 分支命中后若 ctx 已取消，
+	// 取消优先——不记录 run（delayMs=0 与取消竞态不再随机记录，闭合「取消
+	// 绝不记录」语义）。
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("report_generate_cancelled: %w", err)
 	}
 
 	s.mu.Lock()

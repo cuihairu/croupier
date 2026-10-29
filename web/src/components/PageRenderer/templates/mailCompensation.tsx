@@ -426,7 +426,21 @@ export function createMailCompensationDemoExecute(
           const rawTargetIds = Array.isArray(form.targetPlayerIds)
             ? (form.targetPlayerIds as unknown[]).map(String)
             : [];
-          const targetPlayerIds = [...new Set(rawTargetIds)];
+          // 快照契约：仅 players 范围持久化目标数组（空数组=非玩家级）——从
+          // players 切回 all/server 后残留 ID 不写入非玩家级任务；legacy 单值
+          // targetPlayerId 反填数组，保证「指定玩家必有非空目标快照」。
+          const targetPlayerIds =
+            receiverRange === 'players'
+              ? [
+                  ...new Set(
+                    rawTargetIds.length > 0
+                      ? rawTargetIds
+                      : form.targetPlayerId
+                        ? [String(form.targetPlayerId)]
+                        : [],
+                  ),
+                ]
+              : [];
           let targetCount = type === 'mail' ? 26 : 1;
           if (
             type === 'compensation' &&

@@ -241,3 +241,33 @@ func TestGameOpsMailTaskCreateSingleTargetCompat(t *testing.T) {
 		t.Fatalf("single target compat: count=%d total=%v", task.TargetCount, task.TotalAmount)
 	}
 }
+
+// TestGameOpsMailTaskCreateCompensationDefaultTargetCount pins the audit fix:
+// compensation tasks that are not an explicit multi-player batch default to a
+// single target (the web demo's per-target baseline) instead of inheriting the
+// mail all-server default of 26, which inflated targetCount and totalAmount.
+func TestGameOpsMailTaskCreateCompensationDefaultTargetCount(t *testing.T) {
+	store := newGameOpsStore()
+	for _, rangeName := range []string{"all", "server", "players"} {
+		payload := map[string]any{
+			"type": "compensation", "title": "默认口径", "perAmount": 100,
+			"receiverRange": rangeName,
+		}
+		if rangeName == "server" {
+			payload["targetServerId"] = "s1"
+		}
+		out := invokeHandler(t, store, "mail_task.create", payload)
+		task := store.taskByIDLocked(out["id"].(string))
+		if task.TargetCount != 1 {
+			t.Fatalf("compensation %s: TargetCount = %d, want 1 (web demo baseline)", rangeName, task.TargetCount)
+		}
+		if task.TotalAmount == nil || *task.TotalAmount != 100 {
+			t.Fatalf("compensation %s: TotalAmount = %v, want 100 (perAmount × 1)", rangeName, task.TotalAmount)
+		}
+		// players range with no target id must not silently become a 26-target
+		// all-server task either.
+		if rangeName == "players" && len(task.TargetPlayerIDs) != 0 {
+			t.Fatalf("compensation players without ids: TargetPlayerIDs = %v, want empty", task.TargetPlayerIDs)
+		}
+	}
+}
