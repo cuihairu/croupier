@@ -99,9 +99,11 @@ func TestTaskCenterDetailRequiresMatchingScope(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	assert.Equal(t, "permission_denied", body["error"])
 	assert.Contains(t, body["message"], "无权访问该任务")
-	details, ok := body["details"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "task-scope", details["taskId"])
+	// 无权调用方不得从 details 反推目标任务作用域（scope 泄露）。
+	if details, ok := body["details"].(map[string]any); ok {
+		assert.NotContains(t, details, "taskId")
+		assert.NotContains(t, details, "taskScope")
+	}
 }
 
 func TestTaskCenterDetailMapsRecordNotFoundToHTTP404(t *testing.T) {

@@ -215,7 +215,9 @@ func TestServiceDetailV9_ScopeForbidden(t *testing.T) {
 	codeErr, ok := err.(*errorx.CodeError)
 	require.True(t, ok)
 	assert.Equal(t, "permission_denied", codeErr.ErrorCode())
-	assert.Equal(t, "t-scope", codeErr.Details["taskId"])
+	// 无权调用方不得从 details 反推目标任务作用域（scope 泄露）。
+	assert.NotContains(t, codeErr.Details, "taskId")
+	assert.NotContains(t, codeErr.Details, "taskScope")
 	assert.Contains(t, codeErr.Message, "无权访问该任务")
 }
 

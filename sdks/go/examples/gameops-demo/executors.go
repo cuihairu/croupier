@@ -369,10 +369,14 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 	if taskType != "compensation" {
 		taskType = "mail"
 	}
+	// 补偿默认单目标（与 Web demo 口径 1 一致），邮件默认 26；多人补偿由
+	// 下方 targetPlayerIds 唯一数覆盖（D2 批量场景）。
 	targetCount := 26
-	var perAmount *int64
 	if taskType == "compensation" {
 		targetCount = 1
+	}
+	var perAmount *int64
+	if taskType == "compensation" {
 		perAmount = int64Ptr(valueInt64(m, "perAmount"))
 	}
 	id := "task-demo-" + intStr(len(s.tasks)+1)
@@ -388,23 +392,38 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 	if receiverRange == "" {
 		receiverRange = "all"
 	}
+	// 指定玩家补偿支持多人目标（D2 批量补偿场景）：targetPlayerIds 为目标
+	// 快照数组，按唯一玩家数计算目标人数与补偿总量；单值 targetPlayerId 保留
+	// 兼容。邮件按既有口径 26（全服/区服），补偿默认单目标 1（Web demo 口径）。
+	targetPlayerIDs := make([]string, 0)
+	if taskType == "compensation" && receiverRange == "players" {
+		if ids := valueStringSlice(m, "targetPlayerIds"); len(ids) > 0 {
+			targetPlayerIDs = uniqueStrings(ids)
+		} else if pid := valueString(m, "targetPlayerId"); pid != "" {
+			targetPlayerIDs = []string{pid}
+		}
+		if len(targetPlayerIDs) > 0 {
+			targetCount = len(targetPlayerIDs)
+		}
+	}
 	task := gameOpsTask{
 		ID: id, Type: taskType,
-		Title:          strOr(valueString(m, "title"), "未命名任务"),
-		Detail:         valueString(m, "detail"),
-		ReceiverRange:  receiverRange,
-		TargetServerID: optionalString(receiverRange == "server", valueString(m, "targetServerId"), "s1"),
-		TargetPlayerID: optionalString(receiverRange == "players" && valueString(m, "targetPlayerId") != "", valueString(m, "targetPlayerId"), ""),
-		TargetOrderNo:  optionalString(valueString(m, "targetOrderNo") != "", valueString(m, "targetOrderNo"), ""),
-		TargetCount:    targetCount,
-		PerAmount:      perAmount,
-		TotalAmount:    multiplyPtr(perAmount, targetCount),
-		Currency:       optionalString(taskType == "compensation", "金", ""),
-		Status:         status,
-		SentCount:      ternaryInt(taskType == "mail", targetCount, 0),
-		Operator:       "admin",
-		ApprovalID:     approvalID,
-		CreatedAt:      millisISO(nowMillis()),
+		Title:           strOr(valueString(m, "title"), "未命名任务"),
+		Detail:          valueString(m, "detail"),
+		ReceiverRange:   receiverRange,
+		TargetServerID:  optionalString(receiverRange == "server", valueString(m, "targetServerId"), "s1"),
+		TargetPlayerID:  optionalString(receiverRange == "players" && valueString(m, "targetPlayerId") != "", valueString(m, "targetPlayerId"), ""),
+		TargetPlayerIDs: targetPlayerIDs,
+		TargetOrderNo:   optionalString(valueString(m, "targetOrderNo") != "", valueString(m, "targetOrderNo"), ""),
+		TargetCount:     targetCount,
+		PerAmount:       perAmount,
+		TotalAmount:     multiplyPtr(perAmount, targetCount),
+		Currency:        optionalString(taskType == "compensation", "金", ""),
+		Status:          status,
+		SentCount:       ternaryInt(taskType == "mail", targetCount, 0),
+		Operator:        "admin",
+		ApprovalID:      approvalID,
+		CreatedAt:       millisISO(nowMillis()),
 	}
 	s.tasks = append([]gameOpsTask{task}, s.tasks...)
 	if approvalID != nil {
@@ -502,12 +521,24 @@ func (s *gameOpsStore) reportGenerate(ctx context.Context, payload []byte) ([]by
 	}
 	// Delay first so a cancelled task never records a run (the observable
 	// result-unknown window is the time between StartTask and completion).
+	// Check cancellation up front: with delayMs=0 the timer is already ready and
+	// a select between ctx.Done() and timer.C is random, so a pre-cancelled
+	// context could otherwise take the timer branch and record a run.
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("report_generate_cancelled: %w", err)
+	}
 	timer := time.NewTimer(time.Duration(delayMs) * time.Millisecond)
 	select {
 	case <-ctx.Done():
 		timer.Stop()
 		return nil, fmt.Errorf("report_generate_cancelled: %w", ctx.Err())
 	case <-timer.C:
+	}
+	// 取消与 timer 同时就绪的窗口已闭合：timer 分支命中后若 ctx 已取消，
+	// 取消优先——不记录 run（delayMs=0 与取消竞态不再随机记录，闭合「取消
+	// 绝不记录」语义）。
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("report_generate_cancelled: %w", err)
 	}
 
 	s.mu.Lock()

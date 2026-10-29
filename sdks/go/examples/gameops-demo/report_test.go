@@ -84,6 +84,29 @@ func TestGameOpsReportGenerateScenarios(t *testing.T) {
 			t.Fatalf("cancelled run must not record a run: runSeq=%d, want %d", seq, beforeSeq+1)
 		}
 	}
+
+	// Cancellation with delayMs=0: the timer is already ready and a select would
+	// pick a branch at random, so the handler must check ctx up front to honour
+	// "cancelled task never records a run" deterministically.
+	for i := 0; i < 20; i++ {
+		before, err := store.reportGenerate(contextTODO(), mustJSON(t, map[string]any{"range": "daily", "delayMs": 0}))
+		if err != nil {
+			t.Fatalf("seed run failed: %v", err)
+		}
+		seqBefore := int(listResult(t, before)["runSeq"].(float64))
+		cancelCtx0, cancel0 := context.WithCancel(context.Background())
+		cancel0()
+		if _, err := store.reportGenerate(cancelCtx0, mustJSON(t, map[string]any{"range": "daily", "delayMs": 0})); err == nil || !strings.Contains(err.Error(), "report_generate_cancelled") {
+			t.Fatalf("pre-cancelled delayMs=0 run err = %v, want report_generate_cancelled", err)
+		}
+		after, err := store.reportGenerate(contextTODO(), mustJSON(t, map[string]any{"range": "daily", "delayMs": 0}))
+		if err != nil {
+			t.Fatalf("post seed run failed: %v", err)
+		}
+		if seq := int(listResult(t, after)["runSeq"].(float64)); seq != seqBefore+1 {
+			t.Fatalf("pre-cancelled delayMs=0 run recorded a run: runSeq=%d, want %d", seq, seqBefore+1)
+		}
+	}
 }
 
 // TestGameOpsReportGenerateIsTaskMode asserts the descriptor is registered as a

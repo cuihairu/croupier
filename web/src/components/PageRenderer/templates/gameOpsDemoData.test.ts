@@ -36,6 +36,9 @@ describe('gameOpsDemoData', () => {
       if (task.targetPlayerId) {
         expect(playerIds.has(task.targetPlayerId)).toBe(true);
       }
+      for (const pid of task.targetPlayerIds ?? []) {
+        expect(playerIds.has(pid)).toBe(true);
+      }
       if (task.targetOrderNo) {
         expect(store.orders.some((order) => order.orderNo === task.targetOrderNo)).toBe(true);
       }

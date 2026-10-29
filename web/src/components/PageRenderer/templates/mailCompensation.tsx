@@ -414,7 +414,6 @@ export function createMailCompensationDemoExecute(
         }
         case 'create': {
           const type = String(form.type) === 'compensation' ? 'compensation' : 'mail';
-          const targetCount = type === 'mail' ? 26 : 1;
           const perAmount = type === 'compensation' ? Number(form.perAmount) || 0 : null;
           const id = nextId();
           const approvalId = type === 'compensation' ? `approval-${id}` : null;
@@ -422,6 +421,34 @@ export function createMailCompensationDemoExecute(
             form.receiverRange === 'server' || form.receiverRange === 'players'
               ? form.receiverRange
               : 'all';
+          // D2 批量补偿：指定玩家且提供 targetPlayerIds 数组时按唯一玩家数计算
+          // 目标快照与补偿总量；否则回退单值 targetPlayerId（兼容单人路径）。
+          const rawTargetIds = Array.isArray(form.targetPlayerIds)
+            ? (form.targetPlayerIds as unknown[]).map(String)
+            : [];
+          // 快照契约：仅 players 范围持久化目标数组（空数组=非玩家级）——从
+          // players 切回 all/server 后残留 ID 不写入非玩家级任务；legacy 单值
+          // targetPlayerId 反填数组，保证「指定玩家必有非空目标快照」。
+          const targetPlayerIds =
+            receiverRange === 'players'
+              ? [
+                  ...new Set(
+                    rawTargetIds.length > 0
+                      ? rawTargetIds
+                      : form.targetPlayerId
+                        ? [String(form.targetPlayerId)]
+                        : [],
+                  ),
+                ]
+              : [];
+          let targetCount = type === 'mail' ? 26 : 1;
+          if (
+            type === 'compensation' &&
+            receiverRange === 'players' &&
+            targetPlayerIds.length > 0
+          ) {
+            targetCount = targetPlayerIds.length;
+          }
           tasks = [
             {
               id,
@@ -435,6 +462,7 @@ export function createMailCompensationDemoExecute(
                 receiverRange === 'players' && form.targetPlayerId
                   ? String(form.targetPlayerId)
                   : null,
+              targetPlayerIds,
               targetOrderNo: form.targetOrderNo ? String(form.targetOrderNo) : null,
               targetCount,
               perAmount,

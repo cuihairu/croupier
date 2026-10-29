@@ -578,13 +578,16 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           }),
         );
         const reason = describeExecFailure(error).reason;
+        // 模板统一为「{detail}{reason}」：reason 作为已带分隔前缀的后缀传入，
+        // defaultMessage 与 locale 模板渲染一致（避免 locale 无括号无分隔的拼接串）。
+        const reasonSuffix = reason ? ` ${reason}` : '';
         message.error(
           intlRef.current.formatMessage(
             {
               id: 'component.pageRenderer.taskPage.error.submitFailedWithReason',
-              defaultMessage: `任务提交失败: ${detail}${reason ? `（${reason}）` : ''}`,
+              defaultMessage: `任务提交失败: ${detail}${reasonSuffix}`,
             },
-            { detail, reason },
+            { detail, reason: reasonSuffix },
           ),
         );
       } finally {

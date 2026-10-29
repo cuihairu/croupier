@@ -182,3 +182,92 @@ func (f *fakeGameOpsClient) Connect(ctx context.Context) error { return nil }
 func (f *fakeGameOpsClient) Serve(ctx context.Context) error   { return nil }
 func (f *fakeGameOpsClient) Stop() error                       { return nil }
 func (f *fakeGameOpsClient) Close() error                      { return nil }
+
+// TestGameOpsMailTaskCreateMultiTargetCompensation covers the D2 batch
+// compensation scenario: the demo contract accepts a targetPlayerIds array,
+// snapshots the unique target count, and computes perAmount × count.
+func TestGameOpsMailTaskCreateMultiTargetCompensation(t *testing.T) {
+	store := newGameOpsStore()
+	out := invokeHandler(t, store, "mail_task.create", map[string]any{
+		"type": "compensation", "title": "批量补偿",
+		"receiverRange":   "players",
+		"targetPlayerIds": []any{"20001", "20002", "20003", "20002"}, // duplicate should collapse
+		"perAmount":       100,
+	})
+	if out["approvalId"] == nil {
+		t.Fatalf("multi-target compensation must enter approval: %+v", out)
+	}
+	task := store.taskByIDLocked(out["id"].(string))
+	if task == nil {
+		t.Fatalf("created task not found")
+	}
+	if task.TargetCount != 3 {
+		t.Fatalf("TargetCount = %d, want 3 (unique targets)", task.TargetCount)
+	}
+	if len(task.TargetPlayerIDs) != 3 {
+		t.Fatalf("TargetPlayerIDs = %v, want 3 unique", task.TargetPlayerIDs)
+	}
+	if task.TotalAmount == nil || *task.TotalAmount != 300 {
+		t.Fatalf("TotalAmount = %v, want 300", task.TotalAmount)
+	}
+	// Read back through the wire contract.
+	raw, err := store.mailTaskGet(contextTODO(), mustJSON(t, map[string]any{"id": task.ID}))
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	ids, _ := got["targetPlayerIds"].([]any)
+	if len(ids) != 3 {
+		t.Fatalf("wire targetPlayerIds = %v, want 3", got["targetPlayerIds"])
+	}
+	if got["targetCount"].(float64) != 3 || got["totalAmount"].(float64) != 300 {
+		t.Fatalf("wire count/total = %v/%v", got["targetCount"], got["totalAmount"])
+	}
+}
+
+// TestGameOpsMailTaskCreateSingleTargetCompat keeps the legacy single
+// targetPlayerId path working for the existing one-player compensation seed.
+func TestGameOpsMailTaskCreateSingleTargetCompat(t *testing.T) {
+	store := newGameOpsStore()
+	out := invokeHandler(t, store, "mail_task.create", map[string]any{
+		"type": "compensation", "title": "单人补偿",
+		"receiverRange": "players", "targetPlayerId": "20005", "perAmount": 50,
+	})
+	task := store.taskByIDLocked(out["id"].(string))
+	if task.TargetCount != 1 || task.TotalAmount == nil || *task.TotalAmount != 50 {
+		t.Fatalf("single target compat: count=%d total=%v", task.TargetCount, task.TotalAmount)
+	}
+}
+
+// TestGameOpsMailTaskCreateCompensationDefaultTargetCount pins the audit fix:
+// compensation tasks that are not an explicit multi-player batch default to a
+// single target (the web demo's per-target baseline) instead of inheriting the
+// mail all-server default of 26, which inflated targetCount and totalAmount.
+func TestGameOpsMailTaskCreateCompensationDefaultTargetCount(t *testing.T) {
+	store := newGameOpsStore()
+	for _, rangeName := range []string{"all", "server", "players"} {
+		payload := map[string]any{
+			"type": "compensation", "title": "默认口径", "perAmount": 100,
+			"receiverRange": rangeName,
+		}
+		if rangeName == "server" {
+			payload["targetServerId"] = "s1"
+		}
+		out := invokeHandler(t, store, "mail_task.create", payload)
+		task := store.taskByIDLocked(out["id"].(string))
+		if task.TargetCount != 1 {
+			t.Fatalf("compensation %s: TargetCount = %d, want 1 (web demo baseline)", rangeName, task.TargetCount)
+		}
+		if task.TotalAmount == nil || *task.TotalAmount != 100 {
+			t.Fatalf("compensation %s: TotalAmount = %v, want 100 (perAmount × 1)", rangeName, task.TotalAmount)
+		}
+		// players range with no target id must not silently become a 26-target
+		// all-server task either.
+		if rangeName == "players" && len(task.TargetPlayerIDs) != 0 {
+			t.Fatalf("compensation players without ids: TargetPlayerIDs = %v, want empty", task.TargetPlayerIDs)
+		}
+	}
+}

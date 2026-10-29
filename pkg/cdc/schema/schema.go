@@ -111,6 +111,8 @@ func (h *History) Record(qualified string, revision int64, from string, ts Table
 	if len(ts.Columns) == 0 {
 		return fmt.Errorf("schema: revision %d for %s has no columns", revision, qualified)
 	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	vers := h.tables[qualified]
 	if len(vers) > 0 {
 		last := vers[len(vers)-1]
@@ -184,7 +186,13 @@ func (h *History) Tables() []string {
 func (h *History) Validate() error {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	for table, vers := range h.tables {
+	tables := make([]string, 0, len(h.tables))
+	for table := range h.tables {
+		tables = append(tables, table)
+	}
+	sort.Strings(tables)
+	for _, table := range tables {
+		vers := h.tables[table]
 		for i := 1; i < len(vers); i++ {
 			if !h.less(vers[i-1].From, vers[i].From) {
 				return fmt.Errorf("schema: table %s positions out of order at %q -> %q",
@@ -195,8 +203,12 @@ func (h *History) Validate() error {
 	return nil
 }
 
-// Clone returns a deep copy of the history (safe to hand to a concurrent
-// consumer that may read while the connector keeps recording).
+// Clone returns a copy of the history safe to hand to a concurrent consumer
+// that may read while the connector keeps recording. Each table's version
+// slice is copied so appends on the clone do not alias the original, but the
+// Version.Schema.Columns slices are shared: callers must treat recorded
+// TableSchema values as immutable (Record only ever appends fresh versions and
+// never mutates Columns in place, so sharing is safe today).
 func (h *History) Clone() *History {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

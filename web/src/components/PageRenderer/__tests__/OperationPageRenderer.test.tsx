@@ -655,7 +655,16 @@ describe('D4 验收矩阵（异步执行 / 超时后成功）', () => {
   });
 
   it('超时后成功：结果未知 → 重置 → 重提成功（安全重试闭环不残留未知态）', async () => {
-    const { onExecute } = renderOp();
+    // 成功结果视图：断言重提确实进入成功态并展示服务端结果数据（仅断言通用
+    // 卡片标题不够——重试若失败仍会渲染「执行结果」卡，此断言可让失败漏过）。
+    const { onExecute } = renderOp({
+      spec: spec({
+        resultView: {
+          fields: [{ key: 'credited', title: { 'zh-CN': '已发放' }, dataType: 'boolean' }],
+          successMessage: { 'zh-CN': '发放成功' },
+        },
+      }),
+    });
     onExecute.mockRejectedValueOnce(new Error('timeout of 5000ms exceeded'));
     submit();
     await waitFor(() =>
@@ -669,7 +678,12 @@ describe('D4 验收矩阵（异步执行 / 超时后成功）', () => {
 
     onExecute.mockResolvedValueOnce(ok({ credited: true }));
     submit();
-    await waitFor(() => expect(screen.getByText('执行结果')).toBeInTheDocument());
+    // 重提进入成功态：定制 successMessage + 结果字段渲染，未残留未知提示。
+    await waitFor(() => expect(screen.getByText('发放成功')).toBeInTheDocument());
+    expect(screen.getByText('执行结果')).toBeInTheDocument();
+    expect(screen.getByText('已发放')).toBeInTheDocument();
+    expect(screen.getByText('是')).toBeInTheDocument();
+    // 未知提示已随重置/成功消失；瞬时 warning toast 允许残留（既有口径）。
     expect(screen.queryByText(/可能已在服务端执行/)).not.toBeInTheDocument();
   });
 });

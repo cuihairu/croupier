@@ -91,6 +91,25 @@ func valueInt64(m map[string]any, key string) int64 {
 	return 0
 }
 
+func valueStringSlice(m map[string]any, key string) []string {
+	if m == nil {
+		return nil
+	}
+	v, ok := m[key]
+	if !ok || v == nil {
+		return nil
+	}
+	switch items := v.(type) {
+	case []any:
+		return stringSlice(items)
+	case []string:
+		out := make([]string, len(items))
+		copy(out, items)
+		return out
+	}
+	return nil
+}
+
 func stringSlice(in []any) []string {
 	out := make([]string, 0, len(in))
 	for _, item := range in {

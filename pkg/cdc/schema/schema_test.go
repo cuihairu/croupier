@@ -173,6 +173,43 @@ func TestHistoryValidateAndClone(t *testing.T) {
 	}
 }
 
+// TestHistoryConcurrentRecordAndClone exercises the connector's usage shape:
+// the pump goroutine Records while a recovery query Clones and reads. Run with
+// -race to prove there is no concurrent map iteration + map write.
+func TestHistoryConcurrentRecordAndClone(t *testing.T) {
+	h := NewHistory(lsnLessForTest)
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		rev := int64(0)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rev++
+			table := fmt.Sprintf("t%d", rev%8)
+			qualified := "game." + table
+			if err := h.Record(qualified, rev, fmt.Sprintf("%d", rev*100), testSchema("game", table, "id", "name")); err != nil {
+				t.Errorf("record: %v", err)
+				return
+			}
+		}
+	}()
+
+	for i := 0; i < 200; i++ {
+		cp := h.Clone()
+		cp.At("game.t0", "1")
+		cp.Tables()
+	}
+	close(stop)
+	wg.Wait()
+}
+
 func TestHistoryConcurrentRecordAndRead(t *testing.T) {
 	h := NewHistory(lsnLessForTest)
 	const writers, perWriter = 4, 200

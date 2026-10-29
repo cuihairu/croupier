@@ -246,13 +246,10 @@ func currentTaskScope(ctx context.Context) (svc.GameScope, error) {
 func requireTaskScope(ctx context.Context, run *model.TaskRun) error {
 	scope := svc.GameScopeFromContext(ctx)
 	if run == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, run.GameID, run.Env)) {
-		details := map[string]any{}
-		if run != nil {
-			details["taskId"] = run.TaskID
-			details["taskScope"] = map[string]any{"gameId": run.GameID, "env": run.Env}
-		}
-		details["currentScope"] = map[string]any{"gameId": scope.GameID, "env": scope.Env}
-		return utils.NewPermissionDenied("无权访问该任务（当前游戏/环境与任务作用域不一致）", details)
+		// Do not echo the target task's own scope into details: a caller without
+		// access must not learn the taskId/gameId/env of an unauthorized resource.
+		// The caller's own scope is already available in context.
+		return utils.NewPermissionDenied("无权访问该任务（当前游戏/环境与任务作用域不一致）", nil)
 	}
 	return nil
 }

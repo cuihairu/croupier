@@ -33,24 +33,25 @@ type gameOpsPlayer struct {
 }
 
 type gameOpsTask struct {
-	ID             string  `json:"id"`
-	Type           string  `json:"type"`
-	Title          string  `json:"title"`
-	Detail         string  `json:"detail"`
-	ReceiverRange  string  `json:"receiverRange"`
-	TargetServerID *string `json:"targetServerId"`
-	TargetPlayerID *string `json:"targetPlayerId"`
-	TargetOrderNo  *string `json:"targetOrderNo"`
-	TargetCount    int     `json:"targetCount"`
-	PerAmount      *int64  `json:"perAmount"`
-	TotalAmount    *int64  `json:"totalAmount"`
-	Currency       *string `json:"currency"`
-	Status         string  `json:"status"`
-	SentCount      int     `json:"sentCount"`
-	FailedCount    int     `json:"failedCount"`
-	Operator       string  `json:"operator"`
-	ApprovalID     *string `json:"approvalId"`
-	CreatedAt      string  `json:"createdAt"`
+	ID              string   `json:"id"`
+	Type            string   `json:"type"`
+	Title           string   `json:"title"`
+	Detail          string   `json:"detail"`
+	ReceiverRange   string   `json:"receiverRange"`
+	TargetServerID  *string  `json:"targetServerId"`
+	TargetPlayerID  *string  `json:"targetPlayerId"`
+	TargetPlayerIDs []string `json:"targetPlayerIds"`
+	TargetOrderNo   *string  `json:"targetOrderNo"`
+	TargetCount     int      `json:"targetCount"`
+	PerAmount       *int64   `json:"perAmount"`
+	TotalAmount     *int64   `json:"totalAmount"`
+	Currency        *string  `json:"currency"`
+	Status          string   `json:"status"`
+	SentCount       int      `json:"sentCount"`
+	FailedCount     int      `json:"failedCount"`
+	Operator        string   `json:"operator"`
+	ApprovalID      *string  `json:"approvalId"`
+	CreatedAt       string   `json:"createdAt"`
 }
 
 type gameOpsBan struct {
@@ -182,21 +183,21 @@ func (s *gameOpsStore) resetLocked() {
 		{
 			ID: "task-mail-1001", Type: "mail", Title: "S3 赛季结算奖励",
 			Detail:        "恭喜完成 S3 赛季，奖励已随信发放。",
-			ReceiverRange: "all", TargetCount: 26,
+			ReceiverRange: "all", TargetPlayerIDs: []string{}, TargetCount: 26,
 			Status: "sent", SentCount: 26, Operator: "gm01",
 			CreatedAt: iso(49 * 3_600_000),
 		},
 		{
 			ID: "task-mail-1002", Type: "mail", Title: "停机维护补偿",
 			Detail:        "感谢理解，维护补偿见附件。",
-			ReceiverRange: "server", TargetServerID: strPtr("s1"), TargetCount: 9,
+			ReceiverRange: "server", TargetServerID: strPtr("s1"), TargetPlayerIDs: []string{}, TargetCount: 9,
 			Status: "partial_failed", SentCount: 7, FailedCount: 2, Operator: "operator",
 			CreatedAt: iso(20 * 3_600_000),
 		},
 		{
 			ID: "task-comp-2001", Type: "compensation", Title: "回档补偿",
 			Detail:        "10-21 回档事故全员补偿",
-			ReceiverRange: "all", TargetCount: 26,
+			ReceiverRange: "all", TargetPlayerIDs: []string{}, TargetCount: 26,
 			PerAmount: int64Ptr(500), TotalAmount: int64Ptr(13000), Currency: strPtr("金"),
 			Status: "pending_approval", Operator: "operator", ApprovalID: strPtr("approval-comp-2001"),
 			CreatedAt: iso(2 * 3_600_000),
@@ -204,7 +205,7 @@ func (s *gameOpsStore) resetLocked() {
 		{
 			ID: "task-comp-2002", Type: "compensation", Title: "充值未到账补偿",
 			Detail:        "订单 20261023001 补发",
-			ReceiverRange: "players", TargetPlayerID: strPtr("20008"), TargetOrderNo: strPtr("2026102308"),
+			ReceiverRange: "players", TargetPlayerID: strPtr("20008"), TargetPlayerIDs: []string{"20008"}, TargetOrderNo: strPtr("2026102308"),
 			TargetCount: 1, PerAmount: int64Ptr(648), TotalAmount: int64Ptr(648), Currency: strPtr("金"),
 			Status: "completed", SentCount: 1, Operator: "gm01", ApprovalID: strPtr("approval-comp-2002"),
 			CreatedAt: iso(30 * 3_600_000),

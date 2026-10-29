@@ -106,6 +106,9 @@ func TestDashboardRegistrationProposalPublishesToConsoleAndExecutes(t *testing.T
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
 	ctx = context.WithValue(ctx, "username", "dashboard_tester")
 	proposalSvc := dashboardservice.NewProposalService(db)
+	// 生产装配在 registerProposalRoutes（routes.go:1252）注入 page service
+	// 的 PublishProposalDraftForService；测试复刻同一装配，否则 accept 后
+	// 落草稿却无发布回调（canonical proposal publisher is not configured）。
 	proposalSvc.SetProposalDraftPublisher(pageapi.NewService(svcCtx).PublishProposalDraftForService())
 	result, err := proposalSvc.AcceptAndPublishProposal(ctx, "demo-game", "development", "operation:player.ban")
 	require.NoError(t, err)

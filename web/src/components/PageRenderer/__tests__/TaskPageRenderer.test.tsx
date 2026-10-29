@@ -269,7 +269,7 @@ describe('提交流程', () => {
     onExecute.mockRejectedValueOnce(err);
     submit();
     await waitFor(() =>
-      expect(screen.getByText(/任务提交失败: 无权限提交任务（缺少权限：function:invoke）/)),
+      expect(screen.getByText(/任务提交失败: 无权限提交任务 缺少权限：function:invoke/)),
     );
   });
 });
