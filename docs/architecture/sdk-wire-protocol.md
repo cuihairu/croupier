@@ -126,11 +126,11 @@ The caller's declared budget for one synchronous call (milliseconds, decimal str
 metadata map and propagated end to end; each hop applies **min(its own configured cap, the declared value)** (the
 natural min semantics of a Go context deadline):
 
-| Layer         | Behavior                                                                                                  |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| HTTP API      | request-body `timeoutMs` (optional) → injected into `metadata["timeoutMs"]`                                 |
-| Server dispatch | `requestTimeoutBudget`: clamp [1000, 60000], tightens the ctx; the global default 15s serves only as a ceiling |
-| Agent         | `providerCallDeadline`: clamp [1000, the Agent's configured cap], min'd with the default (`agent.invokeTimeoutMs`, default 15000) |
+| Layer           | Behavior                                                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP API        | request-body `timeoutMs` (optional) → injected into `metadata["timeoutMs"]`                                                       |
+| Server dispatch | `requestTimeoutBudget`: clamp [1000, 60000], tightens the ctx; the global default 15s serves only as a ceiling                    |
+| Agent           | `providerCallDeadline`: clamp [1000, the Agent's configured cap], min'd with the default (`agent.invokeTimeoutMs`, default 15000) |
 
 - Garbage values / missing → each hop falls back to its own default, no error (zero intrusion)
 - A hard ceiling of 60s on the synchronous channel: longer operations belong in async tasks (the event-stream semantics)
@@ -140,11 +140,11 @@ natural min semantics of a Go context deadline):
 
 Layered by connection role, the current implementation status (the dual lanes have landed; see next section):
 
-| Path                                                          | Mechanism                                                                                                              | Backpressure semantics                                                                                                    |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Server → Agent/Provider (`transport/tcp/server.go`)            | The read loop invokes the handler synchronously                                                                          | Natural backpressure: a slow handler stalls reads, the TCP window tightens, pressure backs up end to end                    |
-| SDK → Agent (per-language SDK inbound; the Go baseline `tcp_client.go`) | A bounded worker pool (default `NumCPU`, queue `workers×4`) + a Go control lane                                     | Fail-fast: when the business queue is full, an `inbound queue full, retry on another instance` error frame returns immediately and the Agent side fails over to another instance; nothing accumulates in memory |
-| Agent↔Server, Agent↔Provider (`transport/tcp/mux_conn.go`)     | **Dual-lane bounded dispatch** (`dispatchInbound`): a dedicated system-lane queue (64) + one worker; the business lane gets NumCPU workers + a bounded workers×4 queue | When the business lane fills, a busy error frame returns inline (peer failover); the control lane never rejects (when full it blocks the read loop = natural control-plane backpressure) |
+| Path                                                                    | Mechanism                                                                                                                                                              | Backpressure semantics                                                                                                                                                                                          |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server → Agent/Provider (`transport/tcp/server.go`)                     | The read loop invokes the handler synchronously                                                                                                                        | Natural backpressure: a slow handler stalls reads, the TCP window tightens, pressure backs up end to end                                                                                                        |
+| SDK → Agent (per-language SDK inbound; the Go baseline `tcp_client.go`) | A bounded worker pool (default `NumCPU`, queue `workers×4`) + a Go control lane                                                                                        | Fail-fast: when the business queue is full, an `inbound queue full, retry on another instance` error frame returns immediately and the Agent side fails over to another instance; nothing accumulates in memory |
+| Agent↔Server, Agent↔Provider (`transport/tcp/mux_conn.go`)              | **Dual-lane bounded dispatch** (`dispatchInbound`): a dedicated system-lane queue (64) + one worker; the business lane gets NumCPU workers + a bounded workers×4 queue | When the business lane fills, a busy error frame returns inline (peer failover); the control lane never rejects (when full it blocks the read loop = natural control-plane backpressure)                        |
 
 Known boundaries:
 
@@ -160,11 +160,11 @@ overload escalates into a connection avalanche; a drain signal gets buried → g
 Inbound dispatch is therefore classified into two lanes by explicit MsgID (`protocol.IsControlRequest()`,
 an explicit set rather than a raw byte prefix — within the 0x06 cluster family, Hello is control and ForwardInvoke is business):
 
-| Lane           | Messages                                                                                    | Queue semantics                                  |
-| --------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| System (control) | `0x01xx` Register/Heartbeat, `0x05xx` Provider session control (including Drain), `0x060101` ServerHello | A small dedicated queue, **never rejected**         |
-| Business        | `0x03xx` Invoke/Task, `0x04xx` Ops/Metrics, `0x060103` ForwardInvoke                          | A bounded queue; when full, fail-fast returns an error frame (peer failover) |
-| Events          | One-way frames like `TaskEvent`/`MetricEvent`                                                 | Inline in the read loop, not queued (status quo kept) |
+| Lane             | Messages                                                                                                 | Queue semantics                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| System (control) | `0x01xx` Register/Heartbeat, `0x05xx` Provider session control (including Drain), `0x060101` ServerHello | A small dedicated queue, **never rejected**                                  |
+| Business         | `0x03xx` Invoke/Task, `0x04xx` Ops/Metrics, `0x060103` ForwardInvoke                                     | A bounded queue; when full, fail-fast returns an error frame (peer failover) |
+| Events           | One-way frames like `TaskEvent`/`MetricEvent`                                                            | Inline in the read loop, not queued (status quo kept)                        |
 
 Behavioral guarantees:
 
@@ -200,6 +200,19 @@ Boundary notes:
 - `drain` is not ordinary backpressure
 - `drain` does not mean canceling every in-flight request
 - during `drain`, session-governance control messages can still be exchanged
+
+Implementation status (ARCH-016, 2026-10-30):
+
+- The Agent implements the `draining` state on `ProviderSession` (`agents/sidecar/provider_session.go`): `Draining`/`SetDraining`/`Inflight`/`AddInflight`. `callProvider` (`internal/agent/local_handler.go`) skips draining sessions for new business requests and rejects with an explicit `provider <id> is draining (retry after <N>ms)` when the targeted session or all function-matching sessions drain. Task continuations (a `StartTask` accepted before drain) are still routed to their draining provider — drain must not cut off work already assigned.
+- The shared `LocalHandler.DrainProviderSession` marks targets draining, removes their agentlocal instances (legacy address-dial no longer routes), and waits for in-flight to reach zero or the grace to expire; the `ProviderDrainResponse` ACK is returned only after that point. `grace` defaults to `defaultDrainGrace` (30s) and is overridden by `retry_after_ms`.
+- The Server routing gate: `reg.AgentSession.Draining` is set/cleared by `opsNodeDrain`/`opsNodeUndrain` via `SetAgentDraining`; `Dispatcher.agentCanInvoke` returns false for a draining agent, so new requests are no longer assigned to the node. `UpsertAgent` carries `Draining` over across session refresh (heartbeat/reconnect does not silently un-drain).
+- Undrain is expressed with the `ProviderDrainRequest.reason` sentinel `__undrain__` (`protocol.ProviderDrainReasonUndrain`), sent by `opsNodeUndrain` and honored by both drain paths.
+
+Known boundaries (honest):
+
+- Force-close after the grace expires (constraint 5) is **not** implemented: remaining requests are not cancelled; a still-running task converges via the ARCH-015 D3 `unknown`/terminal-event path, and the drain ACK is returned at grace expiry.
+- Undrain clears the `draining` flag but does not repopulate the agentlocal instance table; a drained provider's legacy address-dial routing resumes only after the provider re-registers or heartbeats its functions.
+- The `reason == "__undrain__"` sentinel is used because the system protoc (3.21.12) produces bad gencode and no 34.x protoc is available; a dedicated `undrain` proto field is a follow-up when protoc 34.x is available.
 
 ## Message families
 
@@ -248,14 +261,14 @@ The message family for system info, metrics, and operational control.
 
 The provider session control messages of the `sdk-agent subprotocol`:
 
-|      MsgID | Name                        | Notes                                     |
-| ---------: | --------------------------- | ------------------------------------------ |
-| `0x050101` | `ProviderConnectRequest`    | Establish a provider session               |
+|      MsgID | Name                        | Notes                                                    |
+| ---------: | --------------------------- | -------------------------------------------------------- |
+| `0x050101` | `ProviderConnectRequest`    | Establish a provider session                             |
 | `0x050102` | `ProviderConnectResponse`   | Return `session_id`, negotiation results, and `warnings` |
-| `0x050103` | `ProviderHeartbeatRequest`  | Provider heartbeat                         |
-| `0x050104` | `ProviderHeartbeatResponse` | Heartbeat response                         |
-| `0x050105` | `ProviderDrainRequest`      | The Agent puts the provider session into `draining` |
-| `0x050106` | `ProviderDrainResponse`     | The provider acknowledges entering drain   |
+| `0x050103` | `ProviderHeartbeatRequest`  | Provider heartbeat                                       |
+| `0x050104` | `ProviderHeartbeatResponse` | Heartbeat response                                       |
+| `0x050105` | `ProviderDrainRequest`      | The Agent puts the provider session into `draining`      |
+| `0x050106` | `ProviderDrainResponse`     | The provider acknowledges entering drain                 |
 
 `ProviderConnectResponse` field semantics:
 

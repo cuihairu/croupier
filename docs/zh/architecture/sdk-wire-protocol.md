@@ -201,6 +201,19 @@ Config `DispatchWorkers`/`BusinessQLen`/`ControlQLen`，默认 NumCPU / workers�
 - `drain` 不等于取消所有在途请求
 - `drain` 期间仍可收发与会话治理相关的控制消息
 
+实现状态（ARCH-016，2026-10-30）：
+
+- Agent 在 `ProviderSession`（`agents/sidecar/provider_session.go`）上实现 `draining` 状态：`Draining`/`SetDraining`/`Inflight`/`AddInflight`。`callProvider`（`internal/agent/local_handler.go`）对新业务请求跳过 draining 会话；目标会话或全部函数匹配会话都在 drain 时显式拒绝 `provider <id> is draining (retry after <N>ms)`。任务延续（drain 前已接受的 `StartTask`）仍路由到其 draining provider——drain 不得截断已指派的工作。
+- 共享 `LocalHandler.DrainProviderSession` 标记目标 draining、摘除其 agentlocal 实例（legacy 地址拨号不再路由），并等待在途归零或宽限到点；`ProviderDrainResponse` ACK 仅在该点之后返回。`grace` 默认 `defaultDrainGrace`（30s），`retry_after_ms` 优先。
+- Server 侧路由门：`reg.AgentSession.Draining` 由 `opsNodeDrain`/`opsNodeUndrain` 经 `SetAgentDraining` 置/清；`Dispatcher.agentCanInvoke` 对 draining agent 返回 false，不再给该节点派新请求。`UpsertAgent` 在会话刷新时保留 `Draining`（心跳/重连不静默撤 drain）。
+- undrain 用 `ProviderDrainRequest.reason` 哨兵 `__undrain__`（`protocol.ProviderDrainReasonUndrain`）表达，由 `opsNodeUndrain` 下发、两条 drain 路径都识别。
+
+如实边界：
+
+- 宽限到点后的强制关闭（约束 5）**未实现**：剩余请求不取消；仍在跑的任务经 ARCH-015 D3 `unknown`/终态事件路径收敛，drain ACK 在宽限到点时返回。
+- undrain 只清 `draining` 标记，不重建 agentlocal 实例表；被 drain 的 provider 需重新注册或心跳刷新函数后，legacy 地址拨号路由才恢复。
+- `reason == "__undrain__"` 哨兵是因为系统 protoc 3.21.12 产出坏 gencode 且无 34.x 可用；待 protoc 34.x 可用时以独立 `undrain` proto 字段跟进。
+
 ## 消息族
 
 ### `0x01xx` Agent Session Control
