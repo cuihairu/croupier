@@ -18,6 +18,7 @@ import { StepsForm } from '@ant-design/pro-components';
 import OperationStageBar from '../OperationStageBar';
 import type { OperationStageInput } from '../operationStages';
 import type { BindingExecutionContext, JSONValue, PageExecuteFn } from '@/types/dashboard';
+import { gameOpsDemoRuntimeStore } from './gameOpsDemoRuntime';
 
 interface CompensationWizardValues {
   type: 'mail' | 'compensation';
@@ -25,7 +26,7 @@ interface CompensationWizardValues {
   detail?: string;
   receiverRange: 'all' | 'server' | 'players';
   targetServerId?: string;
-  targetPlayerId?: string;
+  targetPlayerIds?: string[];
   perAmount?: number;
   confirm?: boolean;
 }
@@ -243,8 +244,16 @@ const CompensationWizard: React.FC<{
             </Form.Item>
           )}
           {range === 'players' && (
-            <Form.Item name="targetPlayerId" label={labels.player} rules={[{ required: true }]}>
-              <Input />
+            <Form.Item name="targetPlayerIds" label={labels.player} rules={[{ required: true }]}>
+              <Select
+                mode="multiple"
+                showSearch
+                optionFilterProp="label"
+                options={gameOpsDemoRuntimeStore.players.map((player) => ({
+                  value: player.id,
+                  label: `${player.id} · ${player.nickname} · ${player.serverId}`,
+                }))}
+              />
             </Form.Item>
           )}
           {type === 'compensation' && (

@@ -83,8 +83,22 @@ describe('mailCompensation demo 执行器', () => {
       form: { type: 'compensation', title: '事故补偿', perAmount: 100 },
     });
     expect((comp.data as { approvalId: string }).approvalId).toBeTruthy();
+    const multi = await run(execute, 'create', {
+      form: {
+        type: 'compensation',
+        title: '批量补偿',
+        perAmount: 50,
+        receiverRange: 'players',
+        targetPlayerIds: ['20001', '20002', '20003', '20002'],
+      },
+    });
+    expect((multi.data as { approvalId: string }).approvalId).toBeTruthy();
+    const multiTask = store.tasks.find((task) => task.id === (multi.data as { id: string }).id);
+    expect(multiTask?.targetPlayerIds).toEqual(['20001', '20002', '20003']);
+    expect(multiTask?.targetCount).toBe(3);
+    expect(multiTask?.totalAmount).toBe(150);
     const list = await run(execute, 'list', { form: { current: 1, pageSize: 10 } });
-    expect(list.data).toMatchObject({ total: 6 });
+    expect(list.data).toMatchObject({ total: 7 });
     expect(store.opRecords[0].result).toBe('pending_approval');
   });
 

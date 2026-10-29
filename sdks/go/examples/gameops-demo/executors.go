@@ -347,7 +347,6 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 	targetCount := 26
 	var perAmount *int64
 	if taskType == "compensation" {
-		targetCount = 1
 		perAmount = int64Ptr(valueInt64(m, "perAmount"))
 	}
 	id := "task-demo-" + intStr(len(s.tasks)+1)
@@ -363,23 +362,38 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 	if receiverRange == "" {
 		receiverRange = "all"
 	}
+	// 指定玩家补偿支持多人目标（D2 批量补偿场景）：targetPlayerIds 为目标
+	// 快照数组，按唯一玩家数计算目标人数与补偿总量；单值 targetPlayerId 保留
+	// 兼容。邮件与全服/区服任务仍按既有口径（26 / 区服人数）。
+	targetPlayerIDs := make([]string, 0)
+	if taskType == "compensation" && receiverRange == "players" {
+		if ids := valueStringSlice(m, "targetPlayerIds"); len(ids) > 0 {
+			targetPlayerIDs = uniqueStrings(ids)
+		} else if pid := valueString(m, "targetPlayerId"); pid != "" {
+			targetPlayerIDs = []string{pid}
+		}
+		if len(targetPlayerIDs) > 0 {
+			targetCount = len(targetPlayerIDs)
+		}
+	}
 	task := gameOpsTask{
 		ID: id, Type: taskType,
-		Title:          strOr(valueString(m, "title"), "未命名任务"),
-		Detail:         valueString(m, "detail"),
-		ReceiverRange:  receiverRange,
-		TargetServerID: optionalString(receiverRange == "server", valueString(m, "targetServerId"), "s1"),
-		TargetPlayerID: optionalString(receiverRange == "players" && valueString(m, "targetPlayerId") != "", valueString(m, "targetPlayerId"), ""),
-		TargetOrderNo:  optionalString(valueString(m, "targetOrderNo") != "", valueString(m, "targetOrderNo"), ""),
-		TargetCount:    targetCount,
-		PerAmount:      perAmount,
-		TotalAmount:    multiplyPtr(perAmount, targetCount),
-		Currency:       optionalString(taskType == "compensation", "金", ""),
-		Status:         status,
-		SentCount:      ternaryInt(taskType == "mail", targetCount, 0),
-		Operator:       "admin",
-		ApprovalID:     approvalID,
-		CreatedAt:      millisISO(nowMillis()),
+		Title:           strOr(valueString(m, "title"), "未命名任务"),
+		Detail:          valueString(m, "detail"),
+		ReceiverRange:   receiverRange,
+		TargetServerID:  optionalString(receiverRange == "server", valueString(m, "targetServerId"), "s1"),
+		TargetPlayerID:  optionalString(receiverRange == "players" && valueString(m, "targetPlayerId") != "", valueString(m, "targetPlayerId"), ""),
+		TargetPlayerIDs: targetPlayerIDs,
+		TargetOrderNo:   optionalString(valueString(m, "targetOrderNo") != "", valueString(m, "targetOrderNo"), ""),
+		TargetCount:     targetCount,
+		PerAmount:       perAmount,
+		TotalAmount:     multiplyPtr(perAmount, targetCount),
+		Currency:        optionalString(taskType == "compensation", "金", ""),
+		Status:          status,
+		SentCount:       ternaryInt(taskType == "mail", targetCount, 0),
+		Operator:        "admin",
+		ApprovalID:      approvalID,
+		CreatedAt:       millisISO(nowMillis()),
 	}
 	s.tasks = append([]gameOpsTask{task}, s.tasks...)
 	if approvalID != nil {

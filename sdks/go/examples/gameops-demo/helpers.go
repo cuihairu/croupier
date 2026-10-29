@@ -84,3 +84,17 @@ func sortSliceBy[T any](m map[string]any, items []T) {
 		return vi < vj
 	})
 }
+
+// uniqueStrings removes duplicate target IDs while preserving first selection order.
+func uniqueStrings(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, item := range in {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}

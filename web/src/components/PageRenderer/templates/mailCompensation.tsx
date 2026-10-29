@@ -414,7 +414,6 @@ export function createMailCompensationDemoExecute(
         }
         case 'create': {
           const type = String(form.type) === 'compensation' ? 'compensation' : 'mail';
-          const targetCount = type === 'mail' ? 26 : 1;
           const perAmount = type === 'compensation' ? Number(form.perAmount) || 0 : null;
           const id = nextId();
           const approvalId = type === 'compensation' ? `approval-${id}` : null;
@@ -422,6 +421,20 @@ export function createMailCompensationDemoExecute(
             form.receiverRange === 'server' || form.receiverRange === 'players'
               ? form.receiverRange
               : 'all';
+          // D2 批量补偿：指定玩家且提供 targetPlayerIds 数组时按唯一玩家数计算
+          // 目标快照与补偿总量；否则回退单值 targetPlayerId（兼容单人路径）。
+          const rawTargetIds = Array.isArray(form.targetPlayerIds)
+            ? (form.targetPlayerIds as unknown[]).map(String)
+            : [];
+          const targetPlayerIds = [...new Set(rawTargetIds)];
+          let targetCount = type === 'mail' ? 26 : 1;
+          if (
+            type === 'compensation' &&
+            receiverRange === 'players' &&
+            targetPlayerIds.length > 0
+          ) {
+            targetCount = targetPlayerIds.length;
+          }
           tasks = [
             {
               id,
@@ -435,6 +448,7 @@ export function createMailCompensationDemoExecute(
                 receiverRange === 'players' && form.targetPlayerId
                   ? String(form.targetPlayerId)
                   : null,
+              targetPlayerIds,
               targetOrderNo: form.targetOrderNo ? String(form.targetOrderNo) : null,
               targetCount,
               perAmount,

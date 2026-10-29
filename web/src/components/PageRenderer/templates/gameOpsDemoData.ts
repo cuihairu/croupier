@@ -71,8 +71,10 @@ export interface GameOpsTask {
   receiverRange: 'all' | 'server' | 'players';
   /** 区服级任务的真实区服引用 */
   targetServerId: string | null;
-  /** 玩家级任务的真实玩家引用 */
+  /** 玩家级任务的真实玩家引用（单目标兼容，保留） */
   targetPlayerId: string | null;
+  /** 玩家级任务的真实玩家引用快照（D2 批量补偿多人目标；空数组表示非玩家级） */
+  targetPlayerIds: string[];
   /** 充值补偿指向的真实订单号 */
   targetOrderNo: string | null;
   /** 目标人数快照 */
@@ -234,6 +236,7 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       receiverRange: 'all',
       targetServerId: null,
       targetPlayerId: null,
+      targetPlayerIds: [],
       targetOrderNo: null,
       targetCount: 26,
       perAmount: null,
@@ -254,6 +257,7 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       receiverRange: 'server',
       targetServerId: 's1',
       targetPlayerId: null,
+      targetPlayerIds: [],
       targetOrderNo: null,
       targetCount: 9,
       perAmount: null,
@@ -274,6 +278,7 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       receiverRange: 'all',
       targetServerId: null,
       targetPlayerId: null,
+      targetPlayerIds: [],
       targetOrderNo: null,
       targetCount: 26,
       perAmount: 500,
@@ -294,6 +299,7 @@ export function createGameOpsDemoStore(): GameOpsDemoStore {
       receiverRange: 'players',
       targetServerId: null,
       targetPlayerId: '20008',
+      targetPlayerIds: ['20008'],
       targetOrderNo: '2026102308',
       targetCount: 1,
       perAmount: 648,
