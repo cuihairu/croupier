@@ -219,9 +219,10 @@
   - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败
   - 状态／条件：VERIFIED 诊断：缺失 function_policies 表时 GetPolicy 返回错误，而 EnforceFunctionPolicy 返回 policy=nil/error=nil；初始化失败分支同样缺有效政策。高危失败策略须先明确再落地。
 
-- [ ] **ARCH-026 · P1 · 实现 · 任务主记录持久化失败时禁止派发**
+- [x] **ARCH-026 · P1 · 实现 · 任务主记录持久化失败时禁止派发**
   - 依赖：—。交付与验收：Dispatcher 在 CreateRunWithMeta 失败时返回可定位错误并不得发送 StartTask；验证 DB 失败时执行器计数为 0、无孤立事件/不可取消任务；不与 Agent 事件重放重复实现
   - 状态／条件：VERIFIED 代码：dispatcher.go:startTaskOnPickedAgent 忽略 CreateRunWithMeta 错误仍派发；现有文字“先写任务”不等于写成功才执行。
+  - DONE（2026-10-30）：startTaskOnPickedAgent 改为 fail-closed——CreateRunWithMeta 失败返回 DATABASE_ERROR 可定位错误（含 taskId/agent/function，cause 可 Unwrap）且不发送 StartTask、注入的 taskId 从 metadata 撤回；用例 TestDispatcher_StartTaskRequest_CreateRunFails_NoDispatch 断言 executor 调用数为 0、无 task 注册。
 
 - [ ] **ARCH-027 · P1 · 实现 · 输入契约读取失败的明确拒绝语义**
   - 依赖：—。交付与验收：区分旧函数确无 schema 与 descriptor 查询失败；契约读取故障不得作为跳过验证依据；固定已批准快照/版本，覆盖 schema DB 失败、required 缺失和版本漂移；复用 ValidateInvokeInput
