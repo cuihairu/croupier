@@ -25,6 +25,7 @@ type Config struct {
 	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
+	Audit         AuditConfig              `json:"audit,omitempty" yaml:"audit,omitempty"`
 	Logging       common.LogConfig         `json:"log,omitempty" yaml:"log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Telemetry     TelemetryConfig          `json:"telemetry" yaml:"telemetry"`
@@ -1131,6 +1132,18 @@ func (c *SchemasConfig) UnmarshalYAML(value *yaml.Node) error {
 
 	*c = SchemasConfig(decoded)
 	return nil
+}
+
+// AuditConfig configures the audit subsystem.
+type AuditConfig struct {
+	// WriteFailurePolicy decides what happens when an audit-record write
+	// fails after the chain-conflict retries are exhausted (ARCH-007 D4):
+	// "strict" (default, fail-closed) fails the audited operation so the
+	// operator learns the trail has a gap; "best_effort" logs the gap at
+	// WARN, fires a rate-limited alert and continues, trading trail
+	// integrity for control-plane availability during an audit-store
+	// outage. Unknown values fall back to strict.
+	WriteFailurePolicy string `json:"writeFailurePolicy,omitempty" yaml:"writeFailurePolicy,omitempty"`
 }
 
 type StorageConfig struct {

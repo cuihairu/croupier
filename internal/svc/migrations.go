@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
@@ -139,6 +140,10 @@ import (
 //               结果、进行中判结果未知拒绝、超窗遗留可回收；新表无存量
 //               约束名漂移，HasTable 检查后 CreateTable，0027/0038 模式；
 //               建在 game scope 表集内，随 multiGame 路由到物理库）
+//   0049 (Go)   audit_records.chain_version 列（ARCH-008：逐行钉住哈希算法
+//               与字段集——1=旧 DJB2 7 字段子集、2=规范化 SHA-256 全记录；
+//               存量行经列 DEFAULT 回填 1，既有哈希绝不改写；AddColumn
+//               补列模式，0015/0016/0021/0025/0027）
 
 func init() {
 	registerSvcMigrations()
@@ -197,6 +202,7 @@ func registerSvcMigrations() {
 		probeEventsTableMigration(),
 		probeEventTargetCategoryMigration(),
 		pageExecuteIdempotencyTableMigration(),
+		auditChainVersionMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1597,6 +1603,38 @@ func migratePageExecuteIdempotencyTable(ctx context.Context, sqlDB *sql.DB) erro
 	}
 	if err := db.Migrator().CreateTable(&model.PageExecuteIdempotency{}); err != nil {
 		return fmt.Errorf("migrate: 0048 create page_execute_idempotencies: %w", err)
+	}
+	return nil
+}
+
+// auditChainVersionMigration adds audit_records.chain_version (ARCH-008):
+// pins the hash algorithm/field set per row (1 = legacy DJB2 over the
+// 7-field subset, 2 = canonical SHA-256 over the full record). Existing rows
+// backfill to 1 via the column DEFAULT; existing hashes are never rewritten
+// because each later row's chain_prev_hash references the previous hash
+// value. AddColumn 补列模式（0015/0016/0021/0025/0027）；multiGame fanout
+// 到无 audit_records 表的库由 HasTable 跳过。
+func auditChainVersionMigration() *goose.Migration {
+	return goose.NewGoMigration(49,
+		&goose.GoFunc{RunDB: migrateAuditChainVersionColumn},
+		nil,
+	)
+}
+
+func migrateAuditChainVersionColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&audit.AuditModel{}) {
+		return nil
+	}
+	if migrator.HasColumn(&audit.AuditModel{}, "ChainVersion") {
+		return nil
+	}
+	if err := migrator.AddColumn(&audit.AuditModel{}, "ChainVersion"); err != nil {
+		return fmt.Errorf("migrate: 0049 add audit_records.chain_version: %w", err)
 	}
 	return nil
 }

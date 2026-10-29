@@ -16,7 +16,7 @@
 > rewrite existing hashes), a strict-by-default write-failure policy with an
 > explicit opt-in best-effort mode, and the external signature kept as an
 > independent, separately-verified concern. Drives ARCH-008. This document
-> changes no runtime behavior.
+> changes no runtime behavior. Landed in ARCH-008 (2026-10-29).
 
 ## 1. Problem
 

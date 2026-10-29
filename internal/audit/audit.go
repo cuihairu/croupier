@@ -3,9 +3,12 @@ package audit
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +25,38 @@ var (
 	ErrExportFailed     = errors.New("audit export failed")
 	ErrInvalidTimeRange = errors.New("invalid time range")
 )
+
+// Chain versions for the audit integrity digest (ARCH-007/ARCH-008).
+// Version 1 is the legacy DJB2 digest over the original 7-field subset,
+// used by records written before the version field existed. Version 2 is
+// the canonical SHA-256 digest over the full semantic record. A version of
+// 0 (unset, records built before the version field existed or by code that
+// did not set it) is treated as version 1 for backward compatibility.
+const (
+	ChainVersionLegacy    = 1
+	ChainVersionCanonical = 2
+)
+
+// WriteFailurePolicy decides what Log does when the audit store rejects a
+// write after the chain-conflict retries are exhausted (ARCH-007 D4).
+type WriteFailurePolicy string
+
+const (
+	// WritePolicyStrict fails the Log call (fail-closed). This is the
+	// default: an audit trail must not silently proceed past a gap, so the
+	// operator learns the write failed.
+	WritePolicyStrict WriteFailurePolicy = "strict"
+	// WritePolicyBestEffort logs the gap at WARN, fires a rate-limited
+	// notifier alert and returns the record with ChainInfo.WriteFailed set
+	// instead of erroring. Opt-in; it trades trail integrity for control
+	// plane availability during an audit-store outage, and the gap is
+	// surfaced (alert) rather than silent.
+	WritePolicyBestEffort WriteFailurePolicy = "best_effort"
+)
+
+// defaultGapAlertInterval caps the notifier alert rate for best-effort
+// write failures so an extended outage does not spam the notify channel.
+const defaultGapAlertInterval = 5 * time.Minute
 
 // AuditEventType defines the type of audit event
 type AuditEventType string
@@ -215,6 +250,12 @@ type ChainInfo struct {
 	Sequence  int64  `json:"sequence"`
 	SignerID  string `json:"signerId,omitempty"`
 	Signature string `json:"signature,omitempty"`
+	// ChainVersion pins the hash algorithm and field set used for this
+	// record (1 = legacy DJB2, 2 = canonical SHA-256). 0 is read as 1.
+	ChainVersion int `json:"chainVersion,omitempty"`
+	// WriteFailed is set on the record returned by Log in best-effort mode
+	// when the store rejected the write; the row was not persisted.
+	WriteFailed bool `json:"writeFailed,omitempty"`
 }
 
 // AuditFilter for filtering audit records
@@ -289,15 +330,44 @@ type AuditService struct {
 	sensitiveFields []string
 	mu              sync.RWMutex
 	notifier        AuditNotifier
+
+	// writeFailurePolicy decides the audit-store write-failure behavior
+	// (ARCH-007 D4). Guarded by mu for the setter, read under RLock.
+	writeFailurePolicy WriteFailurePolicy
+	// gapAlert state rate-limits the best-effort write-gap notifier alert.
+	gapAlertMu       sync.Mutex
+	lastGapAlert     time.Time
+	gapAlertInterval time.Duration
 }
 
 // NewAuditService creates a new audit service
 func NewAuditService(store AuditStore, signer AuditSigner) *AuditService {
 	return &AuditService{
-		store:           store,
-		signer:          signer,
-		sensitiveFields: defaultSensitiveFields,
+		store:              store,
+		signer:             signer,
+		sensitiveFields:    defaultSensitiveFields,
+		writeFailurePolicy: WritePolicyStrict,
+		gapAlertInterval:   defaultGapAlertInterval,
 	}
+}
+
+// SetWriteFailurePolicy configures the audit-store write-failure policy
+// (ARCH-007 D4). An empty or unknown value falls back to strict.
+func (s *AuditService) SetWriteFailurePolicy(policy string) {
+	p := WriteFailurePolicy(strings.TrimSpace(strings.ToLower(policy)))
+	if p != WritePolicyStrict && p != WritePolicyBestEffort {
+		p = WritePolicyStrict
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.writeFailurePolicy = p
+}
+
+// WriteFailurePolicy returns the current write-failure policy.
+func (s *AuditService) WriteFailurePolicy() WriteFailurePolicy {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.writeFailurePolicy
 }
 
 // SetNotifier sets the audit notifier
@@ -358,6 +428,16 @@ func (s *AuditService) Log(ctx context.Context, eventType AuditEventType, opts .
 	// Mask sensitive data
 	s.maskSensitiveData(record)
 
+	// ARCH-008 canonical digest: new records use chain version 2 (SHA-256
+	// over the full semantic record). The timestamp is truncated to
+	// millisecond so the hash input survives the database round-trip
+	// (ValidateChain recomputes on the read-back form; postgres timestamptz
+	// and MySQL datetime(3) do not preserve nanoseconds). Free-form map
+	// normalization happens inside canonicalHashInput, on copies, so the
+	// caller-facing record keeps its original Go value shapes.
+	record.Timestamp = record.Timestamp.UTC().Truncate(time.Millisecond)
+	record.ChainInfo.ChainVersion = ChainVersionCanonical
+
 	// Build chain info
 	if err := s.buildChainInfo(record); err != nil {
 		return nil, fmt.Errorf("failed to build chain info: %w", err)
@@ -371,10 +451,14 @@ func (s *AuditService) Log(ctx context.Context, eventType AuditEventType, opts .
 	for attempt := 0; ; attempt++ {
 		err := s.store.Create(record)
 		if err == nil {
+			record.ChainInfo.WriteFailed = false
 			break
 		}
 		if !errors.Is(err, ErrChainSequenceConflict) || attempt >= maxChainRetries-1 {
-			return nil, fmt.Errorf("failed to store audit record: %w", err)
+			// Apply the configured write-failure policy (ARCH-007 D4):
+			// strict (default) fails, best-effort surfaces the gap and
+			// continues.
+			return s.handleWriteFailure(record, err)
 		}
 		if err := s.buildChainInfo(record); err != nil {
 			return nil, fmt.Errorf("failed to rebuild chain info: %w", err)
@@ -599,9 +683,17 @@ func (s *AuditService) buildChainInfo(record *AuditRecord) error {
 		sequence = latest.ChainInfo.Sequence + 1
 	}
 
+	// ChainVersion pins the hash algorithm/field set and must survive the
+	// ChainInfo rebuild; 0 (unset, records built before the version field
+	// existed) is stored/validated as version 1 (legacy).
+	version := record.ChainInfo.ChainVersion
+	if version == 0 {
+		version = ChainVersionLegacy
+	}
 	record.ChainInfo = ChainInfo{
-		PrevHash: prevHash,
-		Sequence: sequence,
+		PrevHash:     prevHash,
+		Sequence:     sequence,
+		ChainVersion: version,
 	}
 
 	// Calculate hash
@@ -624,9 +716,30 @@ func (s *AuditService) buildChainInfo(record *AuditRecord) error {
 	return nil
 }
 
-// calculateHash calculates the hash of a record
+// calculateHash calculates the hash of a record. The algorithm and input
+// field set are pinned by the record's chain version (ARCH-007/ARCH-008):
+// version 1 (and 0/unset, for records built before the version field
+// existed) uses the legacy DJB2 digest over the original 7-field subset;
+// version 2 uses SHA-256 over the canonical full-record encoding.
 func (s *AuditService) calculateHash(record *AuditRecord) (string, error) {
-	// Create a hashable representation
+	if record.ChainInfo.ChainVersion >= ChainVersionCanonical {
+		data, err := canonicalHashInput(record)
+		if err != nil {
+			return "", err
+		}
+		return sha256Hex(data), nil
+	}
+	data, err := legacyHashInput(record)
+	if err != nil {
+		return "", err
+	}
+	return legacyHashBytes(data), nil
+}
+
+// legacyHashInput builds the version-1 hash input: the original 7-field
+// subset (timestamp, event_type, actor_id, resource id, outcome, prev_hash,
+// sequence, details). Kept verbatim so pre-ARCH-008 rows remain verifiable.
+func legacyHashInput(record *AuditRecord) ([]byte, error) {
 	data := map[string]interface{}{
 		"timestamp":  record.Timestamp.UnixNano(),
 		"event_type": record.EventType,
@@ -641,12 +754,146 @@ func (s *AuditService) calculateHash(record *AuditRecord) (string, error) {
 		data["details"] = record.Details
 	}
 
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return "", err
+	return json.Marshal(data)
+}
+
+// canonicalHashInput builds the version-2 hash input: every semantic field
+// of the record, with empty/zero values included so the field set is closed
+// (ARCH-007 D1). Any future change to this set or its encoding is a new
+// chain version, not a silent drift.
+func canonicalHashInput(record *AuditRecord) ([]byte, error) {
+	details := normalizeHashPayloadMap(record.Details)
+	if details == nil {
+		details = map[string]interface{}{}
+	}
+	var changes interface{}
+	if record.Changes != nil {
+		before := normalizeHashPayloadMap(record.Changes.Before)
+		if before == nil {
+			before = map[string]interface{}{}
+		}
+		after := normalizeHashPayloadMap(record.Changes.After)
+		if after == nil {
+			after = map[string]interface{}{}
+		}
+		changes = map[string]interface{}{
+			"before":     before,
+			"after":      after,
+			"diffFields": record.Changes.DiffFields,
+		}
 	}
 
-	return hashBytes(jsonData), nil
+	data := map[string]interface{}{
+		"id":         record.ID,
+		"timestamp":  record.Timestamp.UTC().UnixMilli(),
+		"event_type": record.EventType,
+		"category":   record.Category,
+		"severity":   record.Severity,
+		"actor": map[string]interface{}{
+			"id":          record.Actor.ID,
+			"type":        record.Actor.Type,
+			"name":        record.Actor.Name,
+			"email":       record.Actor.Email,
+			"roles":       record.Actor.Roles,
+			"ipAddress":   record.Actor.IPAddress,
+			"userAgent":   record.Actor.UserAgent,
+			"sessionId":   record.Actor.SessionID,
+			"mfaUsed":     record.Actor.MFAUsed,
+			"delegatedBy": record.Actor.DelegatedBy,
+			"metadata":    record.Actor.Metadata,
+		},
+		"action": record.Action,
+		"resource": map[string]interface{}{
+			"type":        record.Resource.Type,
+			"id":          record.Resource.ID,
+			"name":        record.Resource.Name,
+			"gameId":      record.Resource.GameID,
+			"environment": record.Resource.Environment,
+			"metadata":    record.Resource.Metadata,
+		},
+		"outcome":       record.Outcome,
+		"error_message": record.ErrorMessage,
+		"changes":       changes,
+		"context": map[string]interface{}{
+			"requestId":     record.Context.RequestID,
+			"traceId":       record.Context.TraceID,
+			"correlationId": record.Context.CorrelationID,
+			"service":       record.Context.Service,
+			"version":       record.Context.Version,
+			"environment":   record.Context.Environment,
+			"tags":          record.Context.Tags,
+		},
+		"details":   details,
+		"prev_hash": record.ChainInfo.PrevHash,
+		"sequence":  record.ChainInfo.Sequence,
+	}
+
+	return json.Marshal(data)
+}
+
+// normalizeHashPayloadMap returns a JSON-round-tripped copy of v so numeric
+// values are in the database-normalized float64 form. canonicalHashInput uses
+// it so the hash input is byte-identical whether it comes from the caller
+// (e.g. int64) or from a DB read-back (float64): json.Marshal(int(100)) and
+// json.Marshal(float64(100)) are both "100", and values that lose precision
+// under float64 conversion are rounded identically on both sides. The input
+// map is never mutated. json.Marshal cannot fail on these shapes unless a
+// value is unmarshalable, in which case calculateHash fails later anyway;
+// on round-trip failure the original value is returned as-is.
+func normalizeHashPayloadMap(v map[string]interface{}) map[string]interface{} {
+	if v == nil {
+		return nil
+	}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return v
+	}
+	return out
+}
+
+// handleWriteFailure applies the configured write-failure policy (ARCH-007
+// D4). Strict (the default) fails the call; best-effort records the gap at
+// WARN, fires a rate-limited notifier alert and returns the record with
+// ChainInfo.WriteFailed set so callers can proceed without an error.
+func (s *AuditService) handleWriteFailure(record *AuditRecord, cause error) (*AuditRecord, error) {
+	s.mu.RLock()
+	policy := s.writeFailurePolicy
+	notifier := s.notifier
+	s.mu.RUnlock()
+
+	if policy != WritePolicyBestEffort {
+		return nil, fmt.Errorf("failed to store audit record: %w", cause)
+	}
+
+	slog.Default().Warn("audit store write failed; best-effort mode continues",
+		"error", cause, "eventType", record.EventType,
+		"sequence", record.ChainInfo.Sequence)
+	record.ChainInfo.WriteFailed = true
+	s.alertWriteGap(notifier, record)
+	return record, nil
+}
+
+// alertWriteGap fires the write-gap alert through the notifier, rate-limited
+// to one alert per gapAlertInterval so an extended outage does not spam the
+// notify channel.
+func (s *AuditService) alertWriteGap(notifier AuditNotifier, record *AuditRecord) {
+	if notifier == nil {
+		return
+	}
+	s.gapAlertMu.Lock()
+	now := time.Now()
+	if !s.lastGapAlert.IsZero() && now.Sub(s.lastGapAlert) < s.gapAlertInterval {
+		s.gapAlertMu.Unlock()
+		return
+	}
+	s.lastGapAlert = now
+	s.gapAlertMu.Unlock()
+
+	_ = notifier.NotifyAudit(context.Background(), record)
 }
 
 // Get retrieves an audit record by ID
@@ -804,14 +1051,22 @@ func randomString(n int) string {
 	return string(b)
 }
 
-func hashBytes(data []byte) string {
-	// Using SHA256 for hashing
-	// In production, you'd use crypto/sha256
+// legacyHashBytes is the version-1 digest: a 32-bit DJB2 accumulator,
+// formatted %08x. Retained only to validate pre-ARCH-008 rows; new records
+// use sha256Hex.
+func legacyHashBytes(data []byte) string {
 	h := uint32(5381)
 	for _, b := range data {
 		h = ((h << 5) + h) + uint32(b)
 	}
 	return fmt.Sprintf("%08x", h)
+}
+
+// sha256Hex is the version-2 digest: a SHA-256 over the canonical input,
+// formatted as lowercase hex (64 chars, exactly chain_hash varchar(64)).
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func maskMap(m map[string]interface{}, sensitiveFields []string) map[string]interface{} {

@@ -55,6 +55,10 @@ type AuditModel struct {
 	ChainSequence  int64       `gorm:"not null;uniqueIndex" json:"chainSequence"`
 	ChainSignerID  string      `gorm:"type:varchar(255)" json:"chainSignerId"`
 	ChainSignature string      `gorm:"type:text" json:"chainSignature"`
+	// ChainVersion pins the hash algorithm/field set: 1 = legacy DJB2,
+	// 2 = canonical SHA-256 (ARCH-008). Added by migration 0049; existing
+	// rows backfilled to 1.
+	ChainVersion int `gorm:"not null;default:1" json:"chainVersion"`
 	// Promoted first-class columns derived from Resource/Details at write
 	// time (and backfilled for legacy rows). They make game/env scoping and
 	// invocation analytics aggregable in plain SQL, keeping queries
@@ -85,11 +89,12 @@ func (m *AuditModel) ToRecord() (*AuditRecord, error) {
 		Outcome:      m.Outcome,
 		ErrorMessage: m.ErrorMessage,
 		ChainInfo: ChainInfo{
-			Hash:      m.ChainHash,
-			PrevHash:  m.ChainPrevHash,
-			Sequence:  m.ChainSequence,
-			SignerID:  m.ChainSignerID,
-			Signature: m.ChainSignature,
+			Hash:         m.ChainHash,
+			PrevHash:     m.ChainPrevHash,
+			Sequence:     m.ChainSequence,
+			SignerID:     m.ChainSignerID,
+			Signature:    m.ChainSignature,
+			ChainVersion: m.ChainVersion,
 		},
 	}
 
@@ -148,6 +153,13 @@ func FromRecord(r *AuditRecord) (*AuditModel, error) {
 	// ActorInfo/ResourceInfo/AuditContext 均为纯 string/bool/[]string/
 	// map[string]string 字段，Marshal 恒成功，err 分支为死代码，已删除
 	//（Details/Changes 含 interface{}，仍保留 err 检查并已有 NaN 注入用例）。
+	// ChainVersion 0（未设置）按版本 1（旧算法）落库，与 calculateHash 的
+	// 0→legacy 分派一致。
+	chainVersion := r.ChainInfo.ChainVersion
+	if chainVersion == 0 {
+		chainVersion = ChainVersionLegacy
+	}
+	model.ChainVersion = chainVersion
 	if r.Actor.ID != "" {
 		data, _ := json.Marshal(r.Actor)
 		model.ActorJSON = data
