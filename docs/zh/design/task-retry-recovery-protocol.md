@@ -151,10 +151,14 @@ ARCH-015 已实现 D1、D2（sidecar）与 D4（服务端）：
   相同的 `UpdateRunIfStatusNotIn` 迟到事件守卫。`cancel_requested` 保持非终
   态：待取消行上的 `completed` 事件不被拦（「取消不回退终态」）。
 
-**D3 的触发是明示边界，不是静默跳过**：协议约定服务端在 agent 重注册时把仍
-`running` 的 `task_runs` 对账为 `unknown`，但这要求区分 agent _重启_ 与瞬时
-_重连_——`RegisterRequest` 不携带重启身份（字段：AgentId/Version/Functions/
-GameId/Env/Processes/TtlSeconds/Region/Zone/Labels）。若对每次重注册都对账，
-会把重连 agent 的存活任务误标 `unknown`。`unknown` 状态与终态守卫已就位；
-`running → unknown` 的触发需要 wire 上的重启身份，推迟到 ARCH-018 执行中断
-演练落地（演练跑 fixture 而非真实游戏；真实游戏验证为 GAME-010）。
+**D3 的触发已落地（ARCH-018，2026-10-30）**，无需 wire 改动：agent 进程启动
+随机生成一次 `bootId`，经既有 `RegisterRequest.labels` map 上报
+（`internal/common/labels.BootID`）。server 在重注册时比较上次会话与本次的
+`bootId`：同值 = 断线重连（不对账存活任务）；不同值且两侧非空 = 进程重启
+（把该 agent 在途 `dispatching`/`running` 的 `task_runs` 对账为 `unknown` 并
+追加 `recovery` 事件）；任一侧为空 = 未声明重启身份（不对账，诚实边界——
+绝不误标重连 agent 的存活任务）。
+
+故障演练证据：`docs/review/arch018-fault-drill-2026-10-30.md`（断链+重启 →
+`unknown` 走真实 TCP 帧、重连保持 `running`、终态守卫、drain/SIGTERM 结果、
+仅 fixture 的边界）。

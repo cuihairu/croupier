@@ -91,7 +91,7 @@ Server 先创建 ServiceContext/数据库与注册物化、scheduler、session r
 
 HTTP 身份/scope → 页面快照 binding（或受控草稿）→ `functioninvoke` 门禁/输入契约/政策。拒绝、待审批与可执行互斥；审批决定后通过既有续跑入口重新验证，不能把 pending 当作已下发。dispatch 的任务路径先建立 `task_runs` 归属行再 StartTask，落库失败即拒绝派发（ARCH-026 已收口），持久化是派发前提，返回 taskId 必有匹配的 run 行，最终结果看 task_events/查询/SSE。取消先记录意图，再按缓存/文件或 DB 的 agent 归属路由；Cancel ACK 不证明外部副作用撤销。
 
-**实现边界**：sidecar `TaskRunner` 以每 taskId 代数守卫追踪在途任务：对运行中 ID 的重复 Start 为幂等 no-op，结束的 goroutine 只删除自己的表项（ARCH-015 D1）。生命周期事件以有界指数退避投递、失败以 warning 暴露——绝不静默丢弃（ARCH-015 D2），但仍是进程内保证。尚无持久（跨进程）去重或崩溃恢复对账：agent 重启时 `running → unknown` 转换需要 wire 上的重启身份，推迟至 ARCH-018（`unknown` 终态及其守卫已就位）。页面数据库幂等不能覆盖游戏奖励/支付副作用；超时后可能结果未知，游戏方凭据与去重仍需协议。证据：`agents/sidecar/task_runner.go`、`internal/platform/dispatch/{dispatcher,task_routing_store}.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
+**实现边界**：sidecar `TaskRunner` 以每 taskId 代数守卫追踪在途任务：对运行中 ID 的重复 Start 为幂等 no-op，结束的 goroutine 只删除自己的表项（ARCH-015 D1）。生命周期事件以有界指数退避投递、失败以 warning 暴露——绝不静默丢弃（ARCH-015 D2），但仍是进程内保证。崩溃恢复对账已落地（ARCH-018 D3）：agent 每次进程启动随机生成 `bootId`（经 `RegisterRequest.labels` 上报），重注册时 `bootId` 变化即重启——server 把该 agent 在途 `dispatching`/`running` 的 `task_runs` 对账为 `unknown` 并追加 `recovery` 事件；同 `bootId` 重连不触碰存活任务（`unknown` 终态及其守卫已就位）。页面数据库幂等不能覆盖游戏奖励/支付副作用；超时后可能结果未知，游戏方凭据与去重仍需协议。证据：`agents/sidecar/task_runner.go`、`internal/platform/dispatch/{dispatcher,task_routing_store}.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
 
 ### CDC 告警与出口
 

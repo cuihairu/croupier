@@ -186,14 +186,16 @@ ARCH-015 implements D1, D2 (sidecar) and D4 (server):
   `cancel_requested` stays non-terminal: a `completed` event is not blocked by
   a pending cancel intent ("cancel never regresses a terminal state").
 
-**D3's trigger is a documented boundary, not a silent skip**: the protocol
-states the server reconciles still-`running` `task_runs` into `unknown` on
-agent re-registration, but that requires distinguishing an agent _restart_
-from a transient _reconnect_ — `RegisterRequest` carries no restart identity
-(fields: AgentId/Version/Functions/GameId/Env/Processes/TtlSeconds/Region/
-Zone/Labels). Reconciling on every re-registration would falsely mark a
-reconnected agent's live tasks `unknown`. The `unknown` status and its
-terminal guard are in place; the `running → unknown` transition trigger needs
-a restart identity on the wire and is deferred to the ARCH-018
-execution-interruption drill, where the fault behavior is validated against
-fixtures (not a real game; that is GAME-010).
+**D3's trigger is implemented (ARCH-018, 2026-10-30)** without a wire change:
+the agent generates a `bootId` (random, once per process boot) and reports it
+via the existing `RegisterRequest.labels` map (`internal/common/labels.BootID`).
+The server compares the previous session's `bootId` with the incoming one on
+re-registration: same value = reconnect (live tasks are NOT reconciled);
+different non-empty values = restart (in-flight `dispatching`/`running`
+`task_runs` for that agent are reconciled to `unknown` and a `recovery` event
+is appended). Either side empty = undeclared restart identity (no reconcile,
+honest boundary — never mislabels a reconnected agent's live tasks).
+
+Fault drill evidence: `docs/review/arch018-fault-drill-2026-10-30.md` (link
+break + restart → `unknown` over real TCP frames, reconnect keeps `running`,
+terminal guard, drain/SIGTERM outcomes, fixture-only limits).
