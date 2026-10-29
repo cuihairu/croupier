@@ -78,7 +78,7 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		// binding the current user may access; otherwise use the normal default.
 		if usedPersistedScope && svcCtx != nil {
 			ctx := context.WithValue(c.Request.Context(), gameScopeCtxKey{}, GameScope{GameID: gameID, Env: env})
-			if authorizeScope(ctx, svcCtx, c, gameID, env) != nil || validateGameScope(ctx, svcCtx, gameID, env) != nil {
+			if _, scopeErr := validateGameScope(ctx, svcCtx, gameID, env); authorizeScope(ctx, svcCtx, c, gameID, env) != nil || scopeErr != nil {
 				gameID = ""
 				env = ""
 			}
@@ -127,8 +127,14 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 
 		// The binding is authoritative in both single-DB and multi-DB modes.
 		// Router selection only controls which database is opened afterwards.
+		// validateGameScope resolves the binding's physical database_name
+		// (ARCH-006: the authorized binding is the routing truth, not the
+		// recomputed "game_<gameID>_<env>" prefix).
+		var bindingDBName string
 		if svcCtx != nil && gameID != "" {
-			if err := validateGameScope(ctx, svcCtx, gameID, env); err != nil {
+			var err error
+			bindingDBName, err = validateGameScope(ctx, svcCtx, gameID, env)
+			if err != nil {
 				slog.WarnContext(ctx, "game scope validation failed",
 					"gameId", gameID, "env", env, "error", err)
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
@@ -141,7 +147,9 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 
 		if svcCtx != nil && svcCtx.Router != nil && gameID != "" {
 
-			gameDB, err := svcCtx.Router.GameDB(ctx, gameID, env)
+			// Pass the already-authorized binding name to avoid a duplicate
+			// lookup; the router opens by physical name, not by recomputation.
+			gameDB, err := svcCtx.Router.GameDBByPhysicalName(ctx, bindingDBName, gameID, env)
 			if err != nil {
 				slog.ErrorContext(ctx, "failed to resolve game database",
 					"gameId", gameID, "env", env, "error", err)
@@ -265,25 +273,26 @@ func authorizeScope(ctx context.Context, svcCtx *ServiceContext, c *gin.Context,
 }
 
 // validateGameScope checks that the (gameID, env) pair exists in the meta
-// database's game_envs table. This ensures only registered game environments
-// can access the database-per-game routing.
-func validateGameScope(ctx context.Context, svcCtx *ServiceContext, gameID, env string) error {
+// database's game_envs table and returns the binding's authorized physical
+// database name (ARCH-006 routing truth). This ensures only registered game
+// environments can access the database-per-game routing.
+func validateGameScope(ctx context.Context, svcCtx *ServiceContext, gameID, env string) (string, error) {
 	if svcCtx.GameModel == nil {
 		// If GameModel is not available, skip validation (legacy mode).
 		// This maintains backward compatibility for deployments without
 		// the meta database model.
-		return nil
+		return "", nil
 	}
 
 	// Check if the binding exists in game_envs table.
 	dbName, err := svcCtx.GameModel.LookupDatabaseName(ctx, gameID, env)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if dbName == "" {
-		return errGameScopeNotFound
+		return "", errGameScopeNotFound
 	}
-	return nil
+	return dbName, nil
 }
 
 // errGameScopeNotFound is returned when the requested (gameID, env) pair

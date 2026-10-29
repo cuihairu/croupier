@@ -377,11 +377,14 @@ func TestValidateGameScope_Direct(t *testing.T) {
 	ctx := context.Background()
 
 	// 无 GameModel → legacy 跳过
-	assert.NoError(t, validateGameScope(ctx, &ServiceContext{}, "g", "e"))
+	_, err := validateGameScope(ctx, &ServiceContext{}, "g", "e")
+	assert.NoError(t, err)
 
 	seedGameWithEnv(t, svcCtx, "demo", "prod")
-	assert.NoError(t, validateGameScope(ctx, svcCtx, "demo", "prod"))
-	err := validateGameScope(ctx, svcCtx, "demo", "ghost")
+	dbName, err := validateGameScope(ctx, svcCtx, "demo", "prod")
+	require.NoError(t, err)
+	assert.NotEmpty(t, dbName, "返回 binding 的物理库名（ARCH-006 路由真值）")
+	_, err = validateGameScope(ctx, svcCtx, "demo", "ghost")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errGameScopeNotFound)
 }

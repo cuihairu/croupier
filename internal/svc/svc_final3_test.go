@@ -6,13 +6,17 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestInitObjectStore_SignedURLTTLVariants(t *testing.T) {
@@ -107,4 +111,53 @@ func TestGameDBMiddleware_InjectsGameDatabase(t *testing.T) {
 	scope := GameScopeFromContext(c.Request.Context())
 	assert.Equal(t, "demo", scope.GameID)
 	assert.Equal(t, "prod", scope.Env)
+}
+
+// TestGameDBMiddleware_RoutesByBindingDatabaseName 是 ARCH-006 的中间件级
+// 验收：binding 的自定义 database_name 才是物理路由真值。中间件把授权后的
+// binding 名传给 GameDBByPhysicalName，打开的物理库必须正是 binding 名，
+// 而非重算的 game_<gameID>_<env>（旧实现会打开错误的库）。
+func TestGameDBMiddleware_RoutesByBindingDatabaseName(t *testing.T) {
+	ctx := context.Background()
+	svcCtx := setupTestServiceContext(t)
+
+	require.NoError(t, svcCtx.GameModel.Create(ctx, &model.Game{Name: "Demo", GameID: "demo", AliasName: "demo"}))
+	// 自定义名，刻意不同于默认 game_demo_prod。
+	require.NoError(t, svcCtx.GameModel.AddEnvBinding(ctx, "demo", "prod", "binding_truth_db", "", ""))
+
+	// t.TempDir() 每次调用返回同一路径；EnsureDatabase 的返回值会覆盖
+	// DSNForDatabase 的 DSN，两侧必须用同一绝对路径，否则 sqlite 会在
+	// 测试进程 CWD 落盘泄漏文件。
+	gameDir := t.TempDir()
+	var (
+		mu     sync.Mutex
+		opened []string
+	)
+	svcCtx.Router = router.New(router.Config{
+		Driver: "sqlite",
+		DSNForDatabase: func(metaDSN, dbName string) string {
+			return filepath.Join(gameDir, dbName+".db")
+		},
+		EnsureDatabase: func(_, _, dbName string) (string, error) {
+			mu.Lock()
+			opened = append(opened, dbName)
+			mu.Unlock()
+			return filepath.Join(gameDir, dbName+".db"), nil
+		},
+		Open: func(_, dsn string) (*gorm.DB, error) {
+			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
+		},
+	}, svcCtx.DB)
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/scoped", nil)
+	c.Request.Header.Set(GameDBHeader, "demo")
+	c.Request.Header.Set(EnvHeader, "prod")
+
+	GameDBMiddleware(svcCtx)(c)
+	assert.False(t, c.IsAborted())
+	require.Len(t, opened, 1, "中间件应恰好打开一个物理库")
+	assert.Equal(t, "binding_truth_db", opened[0], "必须路由到 binding 自定义名，而非重算 game_demo_prod")
 }

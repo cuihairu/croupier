@@ -144,10 +144,11 @@ game_rpg_prod
 
 ```text
 scope_key = game_id + ":" + env
-database_name = "game_" + game_id + "_" + env
 ```
 
 但它应该是派生值，不应替代主模型。
+
+`database_name` 曾在派生值之列。它不再是了：`game_envs.database_name` 绑定值是某个 scope 的**权威物理数据库名**（ARCH-006）。路由打开的是绑定指定的库——绝不会在既有绑定背后重算前缀约定。前缀只是在创建绑定时套用的默认名。
 
 ## 6. `env` 不等于部署位置
 
@@ -162,12 +163,14 @@ database_name = "game_" + game_id + "_" + env
 
 这些属于运行目标或基础设施边界，需要单独建模。
 
-在按游戏分库架构下，每个 `(game_id, env)` 组合对应一个独立的物理数据库：
+在按游戏分库架构下，每个 `(game_id, env)` 组合对应一个独立的物理数据库。映射的真值是 `game_envs` 绑定的 `database_name` 字段；下面的前缀约定只是新绑定的默认名：
 
 ```text
-game_id = "demo", env = "prod" → database = "game_demo_prod"
-game_id = "demo", env = "staging" → database = "game_demo_staging"
-game_id = "rpg", env = "prod" → database = "game_rpg_prod"
+game_id = "demo", env = "prod" → database = "game_demo_prod"        (默认名)
+game_id = "demo", env = "staging" → database = "game_demo_staging"  (默认名)
+game_id = "rpg", env = "prod" → database = "game_rpg_prod"          (默认名)
+# 绑定 database_name = "custom_rpg_db" 的 scope 路由到 "custom_rpg_db"，
+# 即使配置前缀会重算出不同的名字。
 ```
 
 ## 7. `scope` 与 `target` 分离

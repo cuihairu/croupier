@@ -155,7 +155,7 @@ func TestResolveFirstAuthorizedGame_Branches(t *testing.T) {
 
 	// validateGameScope reports errors from the meta database lookup.
 	closedCtx := newClosedServiceContext(t)
-	err := validateGameScope(ctx, closedCtx, "demo", "prod")
+	_, err := validateGameScope(ctx, closedCtx, "demo", "prod")
 	assert.Error(t, err)
 }
 

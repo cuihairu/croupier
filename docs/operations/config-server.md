@@ -51,10 +51,10 @@ log:
 
 Per-database `dataSource` (DSN) examples — `croupier_meta` is the metadata database; with per-game database splitting, the platform creates game databases automatically:
 
-| Key                     | Default | Description                                                                                                                                                                     |
-| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `database.multiGame`    | `false` | Single-database mode (default): all tables in one database with row-level isolation via the `game_id` column; when `true`, each `(game_id, env)` gets its own physical database |
-| `database.gameDbPrefix` | `game_` | Physical database name prefix in multiGame mode (final name `game_<gameID>_<env>`)                                                                                              |
+| Key                     | Default | Description                                                                                                                                                                                                                                                                       |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database.multiGame`    | `false` | Single-database mode (default): all tables in one database with row-level isolation via the `game_id` column; when `true`, each `(game_id, env)` gets its own physical database                                                                                                   |
+| `database.gameDbPrefix` | `game_` | Physical database name prefix for NEW bindings in multiGame mode (default name `game_<gameID>_<env>`). Routing always uses the authorized `game_envs.database_name` binding value — the prefix convention applies only when creating a binding, never to override an existing one |
 
 ```yaml
 # SQLite (development/testing)

@@ -182,12 +182,16 @@ func TestGameDBMiddleware_RouterFailureReturns400(t *testing.T) {
 	require.NoError(t, svcCtx.GameModel.Create(ctx, &model.Game{Name: "Demo", GameID: "demo", AliasName: "demo"}))
 	require.NoError(t, svcCtx.GameModel.AddEnvBinding(ctx, "demo", "prod", "db_demo_prod", "", ""))
 
-	// A router whose naming function yields an empty database name always
-	// fails, which drives the middleware's game_database_unavailable branch.
+	// A router whose Open fails always fails, which drives the middleware's
+	// game_database_unavailable branch. (ARCH-006: the middleware now passes
+	// the binding's authorized name to GameDBByPhysicalName, so the old
+	// "NameForGame returns empty name" trick no longer reaches the open path —
+	// a real open failure is the faithful way to exercise this branch.)
 	svcCtx.Router = router.New(router.Config{
-		Driver:      "sqlite",
-		NameForGame: func(string, string) string { return "" },
-		Open:        func(string, string) (*gorm.DB, error) { return nil, nil },
+		Driver:         "sqlite",
+		DSNForDatabase: func(_, _ string) string { return "demo.db" },
+		EnsureDatabase: func(_, _, _ string) (string, error) { return "", nil },
+		Open:           func(string, string) (*gorm.DB, error) { return nil, errors.New("open failed") },
 	}, svcCtx.DB)
 
 	gin.SetMode(gin.TestMode)

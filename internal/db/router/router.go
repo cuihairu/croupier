@@ -4,11 +4,13 @@
 // lazily opens one *gorm.DB per game database (e.g. game_demo_prod). Game
 // databases are created on first use when missing.
 //
-// Routing is by logical key "gameID\x00env" which maps to a physical
-// database name via a configurable naming function (default:
-// "game_<gameID>_<env>"). The meta games/game_envs tables are the source of
-// truth for which (gameID, env) pairs exist; the Router just manages
-// connections.
+// Routing is by logical key "gameID\x00env". The physical database name for a
+// scope comes from the meta database's game_envs binding (database_name) —
+// the single source of truth, authorized at binding creation. The configurable
+// naming function (default: "game_<gameID>_<env>") is only a fallback for
+// scopes that have no binding yet (and the default for NEW bindings). The meta
+// games/game_envs tables are the source of truth for which (gameID, env) pairs
+// exist; the Router just manages connections.
 package router
 
 import (
@@ -91,9 +93,10 @@ type Router struct {
 	cfg    Config
 	metaDB *gorm.DB
 
-	mu       sync.RWMutex
-	cache    map[string]*gorm.DB // keyed by physical database name
-	gameOfDB map[string]string   // dbName → gameID (for ForgetGame)
+	mu        sync.RWMutex
+	cache     map[string]*gorm.DB // keyed by physical database name
+	gameOfDB  map[string]string   // dbName → gameID (for ForgetGame)
+	dbOfScope map[string]string   // scopeKey(gameID,env) → dbName (for Forget)
 
 	// inflight deduplicates concurrent first-open attempts per physical
 	// database name so that expensive I/O (create/migrate) runs once per db
@@ -108,11 +111,45 @@ func New(cfg Config, metaDB *gorm.DB) *Router {
 		cfg.NameForGame = DefaultGameDBName
 	}
 	return &Router{
-		cfg:      cfg,
-		metaDB:   metaDB,
-		cache:    make(map[string]*gorm.DB),
-		gameOfDB: make(map[string]string),
+		cfg:       cfg,
+		metaDB:    metaDB,
+		cache:     make(map[string]*gorm.DB),
+		gameOfDB:  make(map[string]string),
+		dbOfScope: make(map[string]string),
 	}
+}
+
+// scopeKey is the canonical logical key for a (gameID, env) pair. It is used
+// only for map lookups (never a database value), so the NUL separator is safe.
+func scopeKey(gameID, env string) string { return gameID + "\x00" + env }
+
+// authoritativeName returns the physical database name for a game scope.
+//
+// ARCH-006: the meta database's game_envs binding is the single source of
+// truth. Its database_name is the value authorized at binding creation and may
+// legitimately differ from the prefix convention (custom names, a changed
+// prefix, or disambiguating underscore collisions). When no binding exists or
+// the meta DB cannot be consulted, it falls back to the configured naming
+// function — that fallback only ever applies while a binding is missing (e.g.
+// pre-backfill), never to override an existing binding.
+func (r *Router) authoritativeName(ctx context.Context, gameID, env string) string {
+	if r.metaDB != nil {
+		var row struct {
+			DatabaseName string
+		}
+		// Explicit deleted_at IS NULL: anonymous row struct does not carry a
+		// gorm.DeletedAt, so gorm would not add the soft-delete clause itself.
+		// Mirrors LookupDatabaseName (First on the model) semantics: a
+		// soft-deleted binding is not routable.
+		err := r.metaDB.WithContext(ctx).Table("game_envs").
+			Select("database_name").
+			Where("game_id = ? AND env = ? AND deleted_at IS NULL", gameID, env).
+			Take(&row).Error
+		if err == nil && strings.TrimSpace(row.DatabaseName) != "" {
+			return strings.TrimSpace(row.DatabaseName)
+		}
+	}
+	return r.cfg.NameForGame(gameID, env)
 }
 
 // MetaDB returns the meta database connection.
@@ -127,17 +164,37 @@ func (r *Router) NameForGame(gameID, env string) string {
 }
 
 // GameDB returns the *gorm.DB for the given (gameID, env), opening and
-// migrating the physical database on first use. Concurrent calls for the
-// same scope are deduplicated by singleflight; different scopes open in
-// parallel. All I/O (create/migrate/open) runs OUTSIDE the cache mutex so a
-// slow first-open for one game never blocks reads on another game's cached
-// connection.
-func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error) {
-	dbName := r.cfg.NameForGame(gameID, env)
+// migrating the physical database on first use. The physical database name is
+// the meta binding's authoritative database_name (see authoritativeName),
+// falling back to the configured naming function only when no binding exists.
+// Concurrent calls for the same scope are deduplicated by singleflight;
+// different scopes open in parallel. All I/O (create/migrate/open) runs
+// OUTSIDE the cache mutex so a slow first-open for one game never blocks reads
+// on another game's cached connection.
+func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, error) {
+	dbName := r.authoritativeName(ctx, gameID, env)
 	if dbName == "" {
 		return nil, fmt.Errorf("router: empty database name for game %q env %q", gameID, env)
 	}
+	return r.openByPhysicalName(ctx, dbName, gameID, env)
+}
 
+// GameDBByPhysicalName returns the *gorm.DB for an already-authorized physical
+// database name, skipping the binding lookup. Callers that resolved the name
+// from the meta binding (e.g. the request middleware, which already fetched it
+// for scope validation) use this to avoid a duplicate lookup. The name must be
+// non-empty and previously authorized; no default naming is applied.
+func (r *Router) GameDBByPhysicalName(ctx context.Context, dbName, gameID, env string) (*gorm.DB, error) {
+	if strings.TrimSpace(dbName) == "" {
+		return nil, fmt.Errorf("router: empty physical database name for game %q env %q", gameID, env)
+	}
+	return r.openByPhysicalName(ctx, strings.TrimSpace(dbName), gameID, env)
+}
+
+// openByPhysicalName is the shared fast/slow open path keyed by physical
+// database name. The name has already been resolved (either from the meta
+// binding or the configured naming function) by the caller.
+func (r *Router) openByPhysicalName(_ context.Context, dbName, gameID, env string) (*gorm.DB, error) {
 	// Fast path: read lock only, never blocks other scopes' opens.
 	r.mu.RLock()
 	if db, ok := r.cache[dbName]; ok {
@@ -180,6 +237,7 @@ func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error)
 		}
 		r.cache[dbName] = db
 		r.gameOfDB[dbName] = gameID
+		r.dbOfScope[scopeKey(gameID, env)] = dbName
 		r.mu.Unlock()
 		return db, nil
 	})
@@ -214,6 +272,7 @@ func (r *Router) Close() error {
 		delete(r.cache, name)
 		delete(r.gameOfDB, name)
 	}
+	r.dbOfScope = make(map[string]string)
 	return firstErr
 }
 
@@ -221,16 +280,29 @@ func (r *Router) Close() error {
 // pair. Use this when an environment is deleted to avoid leaking connections.
 // If the connection is not cached, it is a no-op. Subsequent GameDB calls for
 // the same scope will re-open the database.
+//
+// The connection is located by the scope→name mapping recorded at publish
+// time, so it works regardless of how the name was derived (meta binding vs
+// configured naming function) and survives binding deletions.
 func (r *Router) Forget(gameID, env string) error {
-	dbName := r.cfg.NameForGame(gameID, env)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	key := scopeKey(gameID, env)
+	dbName, ok := r.dbOfScope[key]
+	if !ok {
+		// Not published via the scope→name map (e.g. a connection seeded
+		// directly, or from a path that predates the map): fall back to the
+		// configured name so Forget still finds it.
+		dbName = r.cfg.NameForGame(gameID, env)
+	}
 	db, ok := r.cache[dbName]
 	if !ok {
+		delete(r.dbOfScope, key)
 		return nil
 	}
 	delete(r.cache, dbName)
 	delete(r.gameOfDB, dbName)
+	delete(r.dbOfScope, key)
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil
@@ -257,10 +329,19 @@ func (r *Router) ForgetGame(gameID string) error {
 			}
 		}
 	}
+	// Prune scope mappings whose game no longer has a cached connection.
+	for key, dbName := range r.dbOfScope {
+		if r.gameOfDB[dbName] == "" {
+			delete(r.dbOfScope, key)
+		}
+	}
 	return firstErr
 }
 
 func (r *Router) openGameDB(dbName string) (*gorm.DB, error) {
+	if r.cfg.DSNForDatabase == nil {
+		return nil, fmt.Errorf("router: DSNForDatabase is not configured")
+	}
 	dsn := r.cfg.DSNForDatabase(r.cfg.MetaDSN, dbName)
 	if r.cfg.EnsureDatabase != nil {
 		var err error

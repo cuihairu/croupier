@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
@@ -139,6 +140,9 @@ import (
 //               结果、进行中判结果未知拒绝、超窗遗留可回收；新表无存量
 //               约束名漂移，HasTable 检查后 CreateTable，0027/0038 模式；
 //               建在 game scope 表集内，随 multiGame 路由到物理库）
+//   0049 (Go)   game_envs.database_name 空名回填（ARCH-006 物理路由统一
+//               真值：binding.database_name 为唯一真值，前缀重算只作缺绑定
+//               回退；存量空名行回填规范默认名，幂等、缺表跳过）
 
 func init() {
 	registerSvcMigrations()
@@ -197,6 +201,7 @@ func registerSvcMigrations() {
 		probeEventsTableMigration(),
 		probeEventTargetCategoryMigration(),
 		pageExecuteIdempotencyTableMigration(),
+		gameEnvBindingsDBNameBackfillMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1597,6 +1602,55 @@ func migratePageExecuteIdempotencyTable(ctx context.Context, sqlDB *sql.DB) erro
 	}
 	if err := db.Migrator().CreateTable(&model.PageExecuteIdempotency{}); err != nil {
 		return fmt.Errorf("migrate: 0048 create page_execute_idempotencies: %w", err)
+	}
+	return nil
+}
+
+// gameEnvBindingsDBNameBackfillMigration 为 0049：ARCH-006 把 game_envs 的
+// database_name 定为物理路由唯一真值（router.authoritativeName 与请求中间件
+// GameDBByPhysicalName 不再做 game_<gameID>_<env> 前缀重算）。database_name
+// 列虽为 NOT NULL，历史写入路径可能留下空串/纯空白值；真值切换后空名行会让
+// 该 scope 落到前缀回退名，与绑定语义不一致。本迁移把空名行回填为规范默认名
+// game_<gameID>_<env>。幂等：无空名行即 no-op；缺表跳过（multiGame fanout
+// 到 game 物理库的库没有 game_envs）。自定义前缀部署的空名行也回填规范默认
+// 名——迁移在无运行时配置的独立环境执行读不到 prefix，这类行本就是无效数据。
+func gameEnvBindingsDBNameBackfillMigration() *goose.Migration {
+	return goose.NewGoMigration(49,
+		&goose.GoFunc{RunDB: migrateGameEnvBindingsDBNameBackfill},
+		nil,
+	)
+}
+
+// migrateGameEnvBindingsDBNameBackfill 是 0049 的迁移体（抽出便于直测）：
+// 逐行 UPDATE 空白 database_name 为 DefaultGameDBName(game_id, env)。
+func migrateGameEnvBindingsDBNameBackfill(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable("game_envs") {
+		return nil
+	}
+	var rows []struct {
+		ID     uint   `gorm:"column:id"`
+		GameID string `gorm:"column:game_id"`
+		Env    string `gorm:"column:env"`
+	}
+	// 匿名行结构不带 DeletedAt，gorm 不会自动加软删条件；显式不排除软删行
+	// ——回填它们无害（不可路由），若日后恢复绑定也得到合法名字。
+	if err := db.Table("game_envs").
+		Select("id, game_id, env").
+		Where("database_name IS NULL OR TRIM(database_name) = ''").
+		Find(&rows).Error; err != nil {
+		return fmt.Errorf("migrate: 0049 scan empty database_name: %w", err)
+	}
+	for _, row := range rows {
+		name := router.DefaultGameDBName(row.GameID, row.Env)
+		if err := db.Table("game_envs").
+			Where("id = ?", row.ID).
+			Update("database_name", name).Error; err != nil {
+			return fmt.Errorf("migrate: 0049 backfill database_name for game %q env %q: %w", row.GameID, row.Env, err)
+		}
 	}
 	return nil
 }

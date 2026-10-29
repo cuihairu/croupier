@@ -144,10 +144,11 @@ Composite keys may be derived for storage keys, cache keys, or topic keys, e.g.:
 
 ```text
 scope_key = game_id + ":" + env
-database_name = "game_" + game_id + "_" + env
 ```
 
 But they stay derived values; they must not replace the primary model.
+
+`database_name` used to be listed among those derived values. It no longer is: the `game_envs.database_name` binding value is the **authoritative physical database name** for a scope (ARCH-006). Routing opens the database named by the binding — it never recomputes the prefix convention behind an existing binding's back. The prefix is only the default name applied when a binding is created.
 
 ## 6. `env` is not a deployment location
 
@@ -162,12 +163,14 @@ But they stay derived values; they must not replace the primary model.
 
 Those are run targets or infrastructure boundaries and need their own modeling.
 
-Under the per-game database architecture, each `(game_id, env)` combination maps to an independent physical database:
+Under the per-game database architecture, each `(game_id, env)` combination maps to an independent physical database. The mapping's source of truth is the `game_envs` binding's `database_name` field; the prefix convention below is only what a NEW binding defaults to:
 
 ```text
-game_id = "demo", env = "prod" → database = "game_demo_prod"
-game_id = "demo", env = "staging" → database = "game_demo_staging"
-game_id = "rpg", env = "prod" → database = "game_rpg_prod"
+game_id = "demo", env = "prod" → database = "game_demo_prod"        (default name)
+game_id = "demo", env = "staging" → database = "game_demo_staging"  (default name)
+game_id = "rpg", env = "prod" → database = "game_rpg_prod"          (default name)
+# a binding whose database_name = "custom_rpg_db" routes to "custom_rpg_db",
+# even if the configured prefix would recompute a different name.
 ```
 
 ## 7. Separating `scope` from `target`
@@ -296,13 +299,13 @@ Croupier uses **stateless JWT + a persisted default scope + optional per-request
 
 The responsibility boundaries:
 
-| Data                             | Responsibility                                       | Lifecycle                              |
-| --------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
-| JWT                               | Authenticate the caller (`admin_id`, roles, etc.)        | Within the token's validity; the server stores no session |
-| `admin_game_env_scopes`           | Decide which game environments the user may access       | Persisted authorization data               |
-| `admins.last_game_id/last_env`    | The default scope when the user specifies none           | Persisted user preference; grants nothing  |
-| `X-Game-ID` / `X-Env`             | Override the default scope for a single request          | Only the current HTTP request              |
-| `ResolvedScope`                   | The sole scope used by business services, audit, and DB routing | Only the current request context  |
+| Data                           | Responsibility                                                  | Lifecycle                                                 |
+| ------------------------------ | --------------------------------------------------------------- | --------------------------------------------------------- |
+| JWT                            | Authenticate the caller (`admin_id`, roles, etc.)               | Within the token's validity; the server stores no session |
+| `admin_game_env_scopes`        | Decide which game environments the user may access              | Persisted authorization data                              |
+| `admins.last_game_id/last_env` | The default scope when the user specifies none                  | Persisted user preference; grants nothing                 |
+| `X-Game-ID` / `X-Env`          | Override the default scope for a single request                 | Only the current HTTP request                             |
+| `ResolvedScope`                | The sole scope used by business services, audit, and DB routing | Only the current request context                          |
 
 The scheme keeps HTTP/JWT stateless: the server maintains no "current game environment" in memory or Redis, so it scales horizontally and a restart loses nothing. What is persisted is a user preference, not session state.
 
@@ -310,11 +313,11 @@ The reason "rely solely on a single server-side current scope" was rejected is t
 
 ### 12.3 Alternatives compared
 
-| Scheme                                       | Scope source                          | Pros                                             | Why not adopted, or the limitation                                                |
-| --------------------------------------------- | ---------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Headers only                                  | `X-Game-ID/X-Env` on every request       | No server state; easy one-off switches               | The default lives only in the frontend; login and cross-device recovery are unreliable; every request depends on client state |
-| Stateful session                              | The user's current scope in memory or Redis | Clients need not send a scope                      | Horizontal scaling needs a shared session; restarts and expiry need recovery; a single current scope is overwritten across tabs/devices |
-| **Decided: JWT + default scope + optional headers** | Database default scope; full headers may override | No server session, recoverable, multi-tab and multi-device friendly | Needs one authorization check and clear header precedence; acceptable and necessary complexity |
+| Scheme                                              | Scope source                                      | Pros                                                                | Why not adopted, or the limitation                                                                                                      |
+| --------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Headers only                                        | `X-Game-ID/X-Env` on every request                | No server state; easy one-off switches                              | The default lives only in the frontend; login and cross-device recovery are unreliable; every request depends on client state           |
+| Stateful session                                    | The user's current scope in memory or Redis       | Clients need not send a scope                                       | Horizontal scaling needs a shared session; restarts and expiry need recovery; a single current scope is overwritten across tabs/devices |
+| **Decided: JWT + default scope + optional headers** | Database default scope; full headers may override | No server session, recoverable, multi-tab and multi-device friendly | Needs one authorization check and clear header precedence; acceptable and necessary complexity                                          |
 
 ### 12.4 Persisting the last selection
 
@@ -418,13 +421,13 @@ The browser's native `EventSource` cannot set request headers. SSE authenticatio
 
 ### 14.1 Why single-valued
 
-| Dimension            | Rationale                                                                                                                    |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Network topology       | Agents deploy inside game networks; a game project's subnet/VPC/K8s cluster is naturally isolated — an Agent's reachable range is inherently one place |
-| Blast radius / attack surface | The Agent executes commands; one game per agent minimizes the blast radius of a credential leak                              |
-| Audit and attribution  | The ownership table/audit chain queries Agent → (game_id, env) directly; the single-value model leaves "who is in which environment" unambiguous |
-| Operational autonomy   | Each game team upgrades/troubleshoots its own Agents without interference                                                      |
-| Cost                   | The Agent is a lightweight proxy; containerized multi-instance marginal cost is near zero — more games means more Agent deployments (the `agent`/`agent2` shape of the deploy compose) |
+| Dimension                     | Rationale                                                                                                                                                                              |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Network topology              | Agents deploy inside game networks; a game project's subnet/VPC/K8s cluster is naturally isolated — an Agent's reachable range is inherently one place                                 |
+| Blast radius / attack surface | The Agent executes commands; one game per agent minimizes the blast radius of a credential leak                                                                                        |
+| Audit and attribution         | The ownership table/audit chain queries Agent → (game_id, env) directly; the single-value model leaves "who is in which environment" unambiguous                                       |
+| Operational autonomy          | Each game team upgrades/troubleshoots its own Agents without interference                                                                                                              |
+| Cost                          | The Agent is a lightweight proxy; containerized multi-instance marginal cost is near zero — more games means more Agent deployments (the `agent`/`agent2` shape of the deploy compose) |
 
 ### 14.2 Hard constraint: env is always single-valued
 
@@ -444,10 +447,10 @@ When an SDK/custom game server connects to an Agent (ProviderConnect) and when t
 
 **Layering principle (Accepted)**: platform signals split into two layers by audience, and **the same event is never double-written across layers**:
 
-| Layer         | Page                                       | Audience      | Carried content                                                                          | Lifecycle                       |
-| -------------- | --------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Layer          | Page                                               | Audience               | Carried content                                                                                                       | Lifecycle                                                           |
+| -------------- | -------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Business layer | `/system/functions/warnings` registration warnings | Developers/integrators | Integration contract issues: coded registration validation warnings like `invalid_version`, `provider_scope_mismatch` | Follows the registration act: a consistent registration auto-clears |
-| Support layer  | `/ops/alerts` operations alerts               | Operations      | Infrastructure health: resource thresholds, dbmon lock waits, etc.                            | firing→resolved state machine + silencing |
+| Support layer  | `/ops/alerts` operations alerts                    | Operations             | Infrastructure health: resource thresholds, dbmon lock waits, etc.                                                    | firing→resolved state machine + silencing                           |
 
 Rationale: **operations does not watch business integration issues, and developers do not watch support-layer information**. A scope mismatch is a business integration error whose "recovery" is simply the next consistent registration — it belongs to the business layer's own lifecycle and closes the loop inside the registration-warning system (a consistent registration clears the historical warning), never borrowing the ops alert's state machine.
 
@@ -472,15 +475,15 @@ Defenses and rules:
 
 The user has specified that all four agent types — sidecar/devops/capture/synthetics — must explicitly carry `gameId` and `env`, with corresponding back-office pages, all uniformly subject to §14's one-session-one-scope constraint; independent external plugins and third-party probes form no cross-scope exception.
 
-| Contract surface      | Rules that must be followed                                                                                                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Configuration and startup | YAML/JSON uses `agent.gameId` and `agent.env`, both mandatory after whitespace trim, no implicit fallback to dev/prod/default; cross-game/environment uses independent instances, IDs, data directories, and credentials |
-| Registration and session  | Proto uses `game_id/env`; the server validates that the registering identity is authorized for the game environment and then binds it fixedly; labels are descriptive only and cannot override; the same global Agent ID must not let an active connection override across scopes |
-| Heartbeat, reconnect, and HA | Inherits the registration identity; forwarding and owner recovery preserve the bound attribution; switching game environments deploys a new instance identity and cleans old routes; editing attribution from a page is unsupported |
-| Configuration delivery and tasks | Targets, functions, processes, hosts, collection sources, probe plugins, and credential references must belong to the same scope; ownerAgentId does not substitute for an attribution check; cross-scope assignment is forbidden |
-| Upstream and storage      | Statistics, windows, alerts, audit, execution records, offsets, logs, and recording indexes explicitly retain the Agent scope, with authority from the bound session/persistent identity; plugin output cannot re-attribute itself — conflicts are rejected and logged as contract errors |
-| Queries and actions       | Reuses ResolvedScope; reads, aggregation, control, download, and replay verify authorization and target attribution first, consistently across local/cluster/fallback/offline queries; a target not found within the legal current scope returns 404 uniformly, never leaking other scopes |
-| Pages and cache           | Page headers, per-row, detail, and confirmation dialogs all show gameId/env; requests determine scope via §13.1's context/header contract, never duplicated into query/body; on switch, old data/actions are cleared, cache keys include the scope, and stale responses never write back into the new environment |
+| Contract surface                 | Rules that must be followed                                                                                                                                                                                                                                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Configuration and startup        | YAML/JSON uses `agent.gameId` and `agent.env`, both mandatory after whitespace trim, no implicit fallback to dev/prod/default; cross-game/environment uses independent instances, IDs, data directories, and credentials                                                                                          |
+| Registration and session         | Proto uses `game_id/env`; the server validates that the registering identity is authorized for the game environment and then binds it fixedly; labels are descriptive only and cannot override; the same global Agent ID must not let an active connection override across scopes                                 |
+| Heartbeat, reconnect, and HA     | Inherits the registration identity; forwarding and owner recovery preserve the bound attribution; switching game environments deploys a new instance identity and cleans old routes; editing attribution from a page is unsupported                                                                               |
+| Configuration delivery and tasks | Targets, functions, processes, hosts, collection sources, probe plugins, and credential references must belong to the same scope; ownerAgentId does not substitute for an attribution check; cross-scope assignment is forbidden                                                                                  |
+| Upstream and storage             | Statistics, windows, alerts, audit, execution records, offsets, logs, and recording indexes explicitly retain the Agent scope, with authority from the bound session/persistent identity; plugin output cannot re-attribute itself — conflicts are rejected and logged as contract errors                         |
+| Queries and actions              | Reuses ResolvedScope; reads, aggregation, control, download, and replay verify authorization and target attribution first, consistently across local/cluster/fallback/offline queries; a target not found within the legal current scope returns 404 uniformly, never leaking other scopes                        |
+| Pages and cache                  | Page headers, per-row, detail, and confirmation dialogs all show gameId/env; requests determine scope via §13.1's context/header contract, never duplicated into query/body; on switch, old data/actions are cleared, cache keys include the scope, and stale responses never write back into the new environment |
 
 Legacy or migrating records lacking attribution must not enter the four business pages, and a record missing one field is never treated as global; historical diagnostics stay in the authorization-guarded platform logs. While an Agent is offline, history is queried by the persisted last-known scope and collection time, with the page marked stale and real-time control disabled.
 

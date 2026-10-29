@@ -196,10 +196,12 @@ func newMultiGameRouter(t *testing.T, service *Service) *router.Router {
 	r := router.New(router.Config{
 		Driver: "sqlite",
 		NameForGame: func(gameID, env string) string {
-			return filepath.Join(dir, "game_"+gameID+"_"+env+".db")
+			return "game_" + gameID + "_" + env
 		},
-		DSNForDatabase: func(_, dbName string) string { return dbName },
-		EnsureDatabase: func(_, _, dbName string) (string, error) { return dbName, nil },
+		// DSN 映射进 t.TempDir()：binding 种的是裸库名（如 game_demo_development），
+		// ARCH-006 后路由以 binding 名为真值，裸名直传会把 sqlite 文件落在进程 CWD。
+		DSNForDatabase: func(_, dbName string) string { return filepath.Join(dir, dbName+".db") },
+		EnsureDatabase: func(_, _, dbName string) (string, error) { return filepath.Join(dir, dbName+".db"), nil },
 		Open: func(_, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
