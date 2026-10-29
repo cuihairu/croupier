@@ -78,7 +78,13 @@ All official SDKs are maintained together in the `sdks/` directory of this monor
 | Dashboard | `web/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=web-dashboard)](https://codecov.io/gh/cuihairu/croupier) |
 ## Architecture
 
-Three tiers: Console (Web) → Server (control plane, capable of multi-instance HA) → Agent (proxy inside the game VPC) → Game Server / SDK.
+> Current game-operations readiness: high-risk production writes are not approved. [Code/TODO review](docs/review/code-todo-alignment-2026-10-29.md) records governance, policy-failure, duplicate-scheduling and receipt gaps.
+
+![Croupier en architecture](docs/public/architecture/system-en.svg)
+
+[Full SVG / 完整 SVG](docs/public/architecture/system-en.svg) · [Runtime evidence / 运行依据](docs/architecture/runtime-topology.md)
+
+Primary execution path: Console (Web) → Server (control plane, capable of multi-instance HA) → Agent (proxy inside the game VPC) → Game Server / SDK.
 Entry points are separated by audience: the web console uses L7 (HTTP API / SSE), while agents use internal L4 (long-lived TCP connections).
 The health-probe system is layered the same way for every runtime — one shared kernel (`core/healthprobe`), protocol checkers (HTTP/TCP/process/DB plus a declarative game-protocol skeleton), and execution placed wherever the network perspective matters, extensible via external probe adapters (see [agent-health-recovery-review.md](docs/archive/legacy-en/design/agent-health-recovery-review.md)).
 
@@ -89,7 +95,7 @@ See the [architecture overview](docs/architecture/index.md) and the [load balanc
 Croupier is not a fork. It is a control-plane business layer, and everything underneath is built on open-source components (versions as pinned in `go.mod` / `web/package.json`):
 
 - Server: Go 1.27, [Gin](https://github.com/gin-gonic/gin) for HTTP, [GORM](https://gorm.io) as the ORM (MySQL / PostgreSQL / SQL Server / glebarez SQLite drivers), [Casbin](https://casbin.org) for authorization decisions, goose for numbered migrations
-- Transport: the TCP session for Agent↔Server and SDK↔Agent is implemented on the Go standard library `net` + `crypto/tls` (length-prefix framing, protobuf envelope). gRPC is not used; the rationale is in [transport-no-grpc.md](docs/archive/legacy-en/architecture/transport-no-grpc.md)
+- Transport: the TCP session for Agent↔Server and SDK↔Agent is implemented on the Go standard library `net` + `crypto/tls` (length-prefix framing, protobuf envelope). These links do not use gRPC; plugin children separately use local go-plugin gRPC. The transport rationale is in [transport-no-grpc.md](docs/archive/legacy-en/architecture/transport-no-grpc.md)
 - Observability: [OpenTelemetry](https://opentelemetry.io) Go SDK with OTLP HTTP exporter
 - Console: built on [Umi Max](https://umijs.org) and [Ant Design](https://ant.design) / ProComponents; JSON Schema forms are driven by [RJSF](https://rjsf.github.io/react-jsonschema-form/), and the editor is [Monaco](https://microsoft.github.io/monaco-editor/)
 - Protocol and tooling: [protobuf](https://protobuf.dev) (fully local protoc generation) + [buf](https://buf.build) lint

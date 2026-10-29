@@ -636,9 +636,9 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   `extraErrors` 的字段级 `__errors` 形态），不再以独立列表复述，反馈条只汇总表单外
   字段（不在区块 schema 里）的错误。未实现：失败后已填值保留（inline（非弹窗）表单区块
   提交期间豁免整卡 loading 骨架——骨架会卸载表单丢掉已填值，在途状态由表单
-  `disabled` 表达）；无任务中心路由，操作页任务结果面板带显式「查询执行状态」入口
+  `disabled` 表达）；操作页任务结果面板带显式「查询执行状态」入口
   （`onQueryTaskStatus` prop 查任务状态 API，面板内渲染状态 Tag、进度与 message/error）
-  ——查询在页内闭环而非导航跳转；审批入口固定跳 `/approvals`；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）。
+  ——查询在页内闭环，面板同时提供「前往任务中心」入口（`/ops/jobs`）；审批入口固定跳 `/approvals`；仅文档化的权限 details 键渲染为原因行（其余 `details` 仍按字段级处理）。
 - **执行幂等（D4）边界**：页面 binding 执行带 `Idempotency-Key` 请求头（已发布与草稿
   预览一致），服务端保证同 key 在占位窗口内至多真实执行一次——已完成重放存储结果
   （响应体 `replayed: true`，成功 toast 改为「返回服务端记录的结果（未重复执行）」），

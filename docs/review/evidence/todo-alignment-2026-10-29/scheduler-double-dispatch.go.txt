@@ -1,0 +1,20 @@
+package main
+import (
+ "context"
+ "fmt"
+ "sync"
+ "sync/atomic"
+ "time"
+ "github.com/cuihairu/croupier/internal/model"
+ scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
+ sdk "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+)
+type store struct{ polls atomic.Int32; mu sync.Mutex; logged bool; commits chan bool }
+func(s *store)ListDue(context.Context,time.Time,int)([]model.TaskSchedule,error){if s.polls.Add(1)>2{return nil,nil};return []model.TaskSchedule{{ID:1,CronExpr:"* * * * *",GameID:"review",Env:"test",FunctionID:"reward.grant"}},nil}
+func(s *store)UpdateSchedule(context.Context,uint,map[string]interface{})error{return nil}
+func(s *store)HasRunLog(context.Context,uint,time.Time)(bool,error){s.mu.Lock();defer s.mu.Unlock();return s.logged,nil}
+func(s *store)CreateRunLog(context.Context,*model.TaskScheduleRunLog)(bool,error){s.mu.Lock();ok:=!s.logged;s.logged=true;s.mu.Unlock();s.commits<-ok;return ok,nil}
+func(s *store)LastRunStatus(context.Context,string)(string,error){return "",nil}
+type dispatcher struct{entered chan struct{};release chan struct{};calls atomic.Int32}
+func(d *dispatcher)StartTask(context.Context,*sdk.InvokeRequest)(*sdk.StartTaskResponse,error){n:=d.calls.Add(1);d.entered<-struct{}{};<-d.release;return &sdk.StartTaskResponse{TaskId:fmt.Sprintf("run-%d",n)},nil}
+func main(){s:=&store{commits:make(chan bool,2)};d:=&dispatcher{entered:make(chan struct{},2),release:make(chan struct{})};a:=scheduler.NewManager(s,d);b:=scheduler.NewManager(s,d);a.SetInterval(time.Millisecond);b.SetInterval(time.Millisecond);a.Start();b.Start();for i:=0;i<2;i++{select{case<-d.entered:case<-time.After(5*time.Second):panic("did not reach both dispatches")}};close(d.release);inserted:=0;for i:=0;i<2;i++{select{case ok:=<-s.commits:if ok{inserted++};case<-time.After(5*time.Second):panic("log timeout")}};a.Stop();b.Stop();fmt.Printf("same schedule+slot: dispatches=%d, accepted_unique_logs=%d\n",d.calls.Load(),inserted);if d.calls.Load()!=2||inserted!=1{panic("unexpected result")}}

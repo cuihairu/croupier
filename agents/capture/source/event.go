@@ -33,6 +33,9 @@ type ChangeEvent struct {
 	BeforeJSON json.RawMessage `json:"beforeJson,omitempty"` // 前像（update/delete 有）
 	AfterJSON  json.RawMessage `json:"afterJson,omitempty"`  // 后像（insert/update 有）
 	GTID       string          `json:"gtid"`                 // 源原生位点：MySQL GTID / PG LSN
+	TxID       string          `json:"txId,omitempty"`       // 事务 ID（事务元数据能力缺失时为空）
+	TxSeq      int64           `json:"txSeq,omitempty"`      // 事务内事件序号，从 1 开始
+	TxEnd      bool            `json:"txEnd,omitempty"`      // 事务末事件标记
 	Account    string          `json:"account,omitempty"`    // 连接账号（血缘闸核心；PG 拿不到，降级空）
 	ClientAddr string          `json:"clientAddr,omitempty"` // 尽力而为
 	TsUnixMs   int64           `json:"tsUnixMs"`

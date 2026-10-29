@@ -12,6 +12,8 @@ tag:
 
 # Session lifecycle
 
+> **Status: target lifecycle model, not a complete runtime guarantee (2026-10-29).** ProviderDrain only logs/ACKs; routing drain, shutdown and task replay remain incomplete. See [runtime evidence and sequence diagrams](./runtime-topology).
+
 This document defines the minimal lifecycle model of the Croupier `shared session runtime`, focusing on unifying:
 
 - session states

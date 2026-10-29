@@ -1,0 +1,12 @@
+package main
+import (
+ "context"
+ "fmt"
+ "github.com/glebarez/sqlite"
+ "gorm.io/gorm"
+ "gorm.io/gorm/logger"
+ "github.com/cuihairu/croupier/internal/policy"
+ "github.com/cuihairu/croupier/internal/svc"
+ "github.com/cuihairu/croupier/internal/platform/functioninvoke"
+)
+func main(){db,e:=gorm.Open(sqlite.Open("file:todo-policy-probe?mode=memory&cache=shared"),&gorm.Config{Logger:logger.Default.LogMode(logger.Silent)});if e!=nil{panic(e)};m,e:=policy.NewManager(db,"configs/default-policies.yaml");if e!=nil{panic(e)};_,lookupErr:=m.GetPolicy(context.Background(),"reward.grant",policy.RiskHigh);p,callErr:=functioninvoke.EnforceFunctionPolicy(context.Background(),&svc.ServiceContext{DB:db,PolicyManager:m},"reward.grant","review","test",[]string{"operator"});fmt.Printf("lookup_error=%t, enforced_policy_nil=%t, enforced_error_nil=%t\n",lookupErr!=nil,p==nil,callErr==nil);if lookupErr==nil||p!=nil||callErr!=nil{panic("unexpected result")}}

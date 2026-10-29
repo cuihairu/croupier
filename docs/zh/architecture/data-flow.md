@@ -12,7 +12,9 @@ tag:
 
 # 数据流
 
-> **状态**：Current — 当前实现/规范，可作为实现依据。
+> **2026-10-29 游戏后台再审**：统一 session 不等于所有入口统一治理。`/tasks` 只做部分门禁，调度自动/手动入口直达 Dispatcher；政策查询/输入契约读取失败还存在放行分支。定时任务“派发后写唯一记录”也不保证多实例只执行一次。见根目录 TODO 的 ARCH-023–027；详细证据在 `docs/review/code-todo-alignment-2026-10-29.md`。当前不能宣称真实高危写操作已达到生产稳定性。
+
+> **状态**：主链与目标说明并存；当前边界以 [源码运行核查](./runtime-topology) 为准。旧 Mermaid 是简化说明，不是完整连接或恢复保证。
 
 本文档只描述当前目标架构下的主要调用流，不再使用历史 `gRPC/旧传输 回拨` 模型。
 
@@ -27,7 +29,7 @@ sequenceDiagram
     participant Admin as 管理员（Proposal Inbox / Page Studio）
     participant UI as Console 运行时
 
-    SDK->>Server: 注册 FunctionContract（无 UI 字段）
+    SDK->>Server: 经 sidecar 转发函数描述，Server 物化契约（简化）
     Server->>Server: 聚合 CapabilitySemantics、生成 PageProposal
     Admin->>Server: 预览 / accept-and-publish（冻结 BindingContractSnapshot）
     Server-->>UI: GET /api/v1/console/menu（菜单树 menu_items + 挂载的 active PublishedPageSpec）
