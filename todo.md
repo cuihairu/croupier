@@ -105,9 +105,9 @@
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
   - 状态／条件：NOT RUN：需容量目标和独立数据库。
   - BLOCKED（2026-10-29 登记）：容量目标与独立数据库不可得——「给定 game/env 数、并发、连接配额下记录池数/连接峰值/P95 首开耗时，给出回收阈值与容量结论」需要用户给定容量目标并独占一批数据库实例测基准；无目标无基线，无法给出有意义的容量结论。依赖 ARCH-009 实施后再测。
-- [ ] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
+- [x] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
   - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入队故障下每条消息可核对，说明允许重复与去重策略。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-30 收口）。worker.go 改为延迟 ACK：消息只在其 ClickHouse batch `Send()` 成功后才 XACK，Send 失败重置 batch 与待 ACK 记录；重入队/死信 `XAdd` 错误核对后返回不 ACK。投递为 at-least-once，查询期按 `event_id`/`order_id` 去重；写库/入队故障路径已由单测覆盖（Send/XAdd/死信失败均断言消息留在 PEL 不 ACK），残留 Send 成功与 XACK 之间崩溃仍重投（重复行而非丢数）。杀进程实机复现归 ARCH-012（BLOCKED，需可控 Redis/ClickHouse）。文档见 docs/analytics/core-and-external.md「投递语义（ARCH-011）」。
 - [ ] **ARCH-012 · P1 · 故障验证 · 分析管道崩溃恢复**
   - 依赖：ARCH-011。交付与验收：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
   - 状态／条件：NOT RUN：需 Redis 与 ClickHouse 可控环境。
