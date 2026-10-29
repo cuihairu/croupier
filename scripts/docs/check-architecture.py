@@ -34,7 +34,10 @@ for i in range(0,len(parts),2):
  d=re.search(r'依赖：([^。]+)',body);graph[key]=re.findall(r'[A-Z]+-\d{3}',d[1]) if d else []
  for field in ('依赖：','交付与验收：','状态／条件：'):
   if field not in body:errors.append(key+' lacks '+field)
- if state=='x':errors.append(key+' incorrectly checked')
+ if state=='x':
+  evidence=re.search(r'完成证据：([^\n]+)',body)
+  if not evidence or 'LOCAL VERIFIED' not in body:errors.append(key+' lacks completion evidence')
+  elif not any((R/src).is_file() for src in re.findall(r'`([^`]+)`',evidence[1])):errors.append(key+' lacks existing evidence file')
 seen=set()
 def visit(k,stack):
  if k in stack:errors.append('Cycle '+str(stack+[k]));return

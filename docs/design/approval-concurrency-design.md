@@ -9,7 +9,9 @@
 > multi-step workflows with expiry/escalation) is a separate feature and is
 > deliberately out of scope here.
 >
-> Status: **DECIDED** (2026-10-29). Drives ARCH-002 implementation.
+> Status: **PROPOSED — NOT IMPLEMENTED** (reviewed 2026-10-29).
+> ARCH-001 remains open until durable execution claim/recovery is resolved;
+> this document does not establish production readiness.
 > Prerequisite for: ARCH-002 (接入审批 SQL 存储).
 
 ## 1. Problem
@@ -29,17 +31,17 @@ Evidence:
 - `internal/api/approval/service.go` `Approve`: after
   `ApprovalsStore.Approve(...)` returns, it unconditionally calls
   `continueApprovedFunction(ctx, record)`. The continuation invoke carries no
-  idempotency key, so every caller that reaches this point executes the
-  function once.
+  idempotency key, so each successful caller can dispatch another invocation. Actual game-side
+  effects depend on dispatch success and the game implementation.
 
-Consequences (all real, all reachable):
+Static findings (the following interleavings follow from the code; real multi-instance fault injection is NOT RUN):
 
 | #   | Scenario                                                                                                    | Current behavior                                                                                                                 | Harm                                                                                                                                           |
 | --- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Two operators approve the same pending request concurrently                                                 | Both read `pending`, both write `approved`, both run the continuation                                                            | **Function executes twice** — double side effect (e.g. double recharge / double ban).                                                          |
 | 2   | Approve races Reject                                                                                        | Both read `pending`; last writer wins; if Approve's write lands last, the continuation runs even though a rejection was recorded | Undecidable final state; audit chain shows both `approved` and `rejected` rows for one request; execution proceeds against a rejected request. |
 | 3   | Duplicate approve (same operator double-click, or retry)                                                    | Second `Approve` overwrites `Approver`/`ReviewedAt` and re-runs the continuation                                                 | **Function executes twice**; reviewer attribution and timestamps corrupted.                                                                    |
-| 4   | Approve succeeds but the continuation fails / server crashes between the approve-save and the result Update | `state="approved"` with no `ResultKind`/`TaskID`/`Result`; `Reason` may carry `approved but continuation failed`                 | "Approved but result unknown" — no recovery path: the operator cannot tell whether the function ran.                                           |
+| 4   | Approve succeeds but the continuation fails / server crashes between the approve-save and the result Update | `state="approved"` with no `ResultKind`/`TaskID`/`Result`; `Reason` may carry `approved but continuation failed`                 | "Approved but result unknown" — no verified automatic recovery protocol; the outcome may require reconciliation.                               |
 
 ## 2. Decisions
 
@@ -52,14 +54,14 @@ UPDATE approval SET state = :new, approver = :operator, reviewed_at = :now, reas
 WHERE id = :id AND state = 'pending'
 ```
 
-- `SQLStore` implements with `db.Model(&ApprovalModel{}).Where("id = ? AND state = 'pending'", id).Update(...)`
-  and inspects `RowsAffected`. This is portable across sqlite/mysql/postgres and
+- `SQLStore` implements with `db.Model(&ApprovalModel{}).Where("id = ? AND state = 'pending'", id).Updates(...)`
+  and inspects `RowsAffected`. Supported database behavior still requires integration verification; it
   needs no `SELECT ... FOR UPDATE` (single-statement atomicity is sufficient —
   there is no read-then-write window to lock).
 - `MemStore` implements the same rule under its existing `mu` lock: reject the
   transition if `a.State != "pending"`.
 - When `RowsAffected == 0` (or the MemStore state guard fails), the store
-  re-reads the record and returns it together with a typed sentinel
+  re-reads the record (missing IDs remain not-found, database errors remain errors) and returns it together with a typed sentinel
   `ErrAlreadyReviewed` (carrying the current state/approver/reviewedAt).
   The caller (service) maps this to an HTTP 409 and does **not** continue.
 - The store must not mutate the record on a failed CAS; a failed CAS is
@@ -72,35 +74,38 @@ notification.
 
 ### D2 — Continuation is claimed by the transition winner only
 
-`Service.Approve` must treat a successful CAS (`RowsAffected == 1`) as the sole
-authorization to run `continueApprovedFunction`. A `ErrAlreadyReviewed` result
+`Service.Approve` must treat a successful CAS (`RowsAffected == 1`) as the winning decision required, after mandatory authorization, to run `continueApprovedFunction`. A `ErrAlreadyReviewed` result
 must short-circuit before any continuation / audit / notify side effect.
 
 The continuation invoke (`FunctionInvoke` with
 `metadata["approvalBypass"]="approved"`, `runtime_api=approval.continue`) keeps
-its current shape, but **only the winner calls it**. This is the fix for
-double-execution: the invoke gate must not be reachable from a losing review.
+its current shape, but **only the winner calls it**. This prevents losing reviews from dispatching a continuation. CAS alone
+does not guarantee durable dispatch or exactly-once game effects after a crash.
 
 ### D3 — Unknown-execution-result semantics
 
-If the winner's `continueApprovedFunction` errors:
+An error or timeout does not establish that the game operation failed. Keep the
+approval decision final, preserve every known operation/task identifier and
+receipt, and report execution as unknown until reconciled. Do not erase known
+result fields or turn an unknown outcome into a fabricated failure.
 
-- `state` stays `approved` (the decision is final — already recorded in the
-  audit chain via `EventApprovalApproved`).
-- `Reason` is set to `approved but continuation failed: <err>` (existing
-  behavior, preserved).
-- The record keeps `ResultKind`/`TaskID`/`Result` empty, so the console
-  renders "approved, result unknown" rather than a fabricated result.
-- Recovery is **not** via re-approval (the state is no longer `pending`, so a
-  re-approve hits the CAS and returns 409). Recovery is either:
-  - task mode: the operator queries the task by `TaskID` for the real result
-    (task-mode continuations return `TaskID`; the approval row persists it);
-  - sync mode: the operator re-submits the original function invocation (a
-    fresh approval if the risk gate still requires one) — the decision and the
-    execution result stay decoupled.
+- Query the original task when its `TaskID` was durably recorded. The current
+  service writes it only after continuation returns; a crash may leave no ID.
+- For synchronous operations, query the game-side durable receipt using the
+  original operation identity. Without such a contract the result remains
+  unknown and requires manual reconciliation.
+- Never treat a fresh approval or a fresh invocation as a safe retry. Retry is
+  permitted only under a separately verified durable idempotency contract using
+  the same operation identity (GAME-009/010).
+- ARCH-001 must decide the durable execution intent/claim and recovery protocol
+  before ARCH-002 claims crash-safe dispatch. Persist the original identity and
+  payload fingerprint before dispatch, define ownership/fencing and recovery,
+  and reconcile dispatch/result updates. Storage migrations may be required.
 
-This intentionally keeps "decision" and "execution result" as two phases: a
-review decision is never rolled back because the downstream run failed.
+Current evidence: `Service.Approve` ignores result `Update` failures and writes
+`Reason` on continuation errors; `recordApprovalAudit` is best effort, so even
+an approved decision does not prove the audit write succeeded. The current
+console's exact unknown-state presentation remains to be verified.
 
 ### D4 — Duplicate-request rule
 
@@ -116,35 +121,32 @@ in a terminal state) is **not** a re-execution trigger:
   duplicate would hide that a continuation was already dispatched; the conflict
   makes the double-execution risk explicit at the UI layer.
 
-### D5 — Pre-checks stay on the pre-read; CAS is the final gate
+### D5 — Mandatory authorization before the transition
 
-Scope check, self-approval rejection, and step-up OTP enforcement all read the
-record via `Get` before the CAS (current behavior). They are advisory and stay
-as-is. The CAS is the **only** gate that decides "who won". No new pre-check is
-introduced; the ordering (pre-read → CAS → winner-only continuation) is the
-invariant.
+Scope, actor identity, self-approval rejection and step-up OTP checks remain
+mandatory. CAS chooses the winning decision; it does not replace authorization.
+If scope or approved payload can change between pre-read and transition, bind
+the transition to the authorized revision/fingerprint or revalidate atomically.
 
-### D6 — What stays unchanged
+### D6 — Compatibility and open storage decisions
 
-- `Create`/`List`/`Get`/`Update` shapes and the `Approval` fields
-  (`State`, `Approver`, `ReviewedAt`, `Reason`, `ResultKind`, `TaskID`,
-  `Result`).
-- The continuation payload/metadata (approvalBypass, approvalId,
-  approvalActor, runtime_api).
-- The audit events (`EventApprovalApproved`/`EventApprovalRejected`), the
-  extension upsert, and the notification events — but all fire only on the
-  winner's path (a loser fires none).
+Preserve the continuation metadata and winner-only decision audit/notification
+intent. Conflicting requests must not emit a successful decision event; security
+logging of rejected attempts remains allowed. Existing payload compatibility is
+a goal, not a promise that no schema migration is needed. Durable claim fields,
+transaction boundaries and recovery remain ARCH-001 design work, with
+GAME-009/010 providing the game-side operation/receipt boundary.
 
 ## 3. Review table (the ARCH-001 deliverable)
 
-| Case                                                                            | Pre-condition                              | Winner behavior                                                                                          | Loser / duplicate behavior                                                                               | Post-state                            | Execution count                                                                                                        |
-| ------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Approve vs Approve (two operators, concurrent)                                  | two requests read `pending`                | first CAS wins; audit `approved`, continuation runs, `ResultKind`/`TaskID` recorded                      | second CAS `RowsAffected==0` → 409 `approval_already_reviewed`; **no continuation, no audit, no notify** | `approved`                            | **exactly 1**                                                                                                          |
-| Approve vs Reject (concurrent)                                                  | one approve + one reject on `pending`      | first CAS wins; its decision + continuation (if approve won)                                             | loser → 409 `approval_already_reviewed`; no side effect                                                  | `approved` or `rejected` (first-wins) | 1 if approve won, else 0                                                                                               |
-| Duplicate approve (same operator, double-click / retry)                         | record already `approved`                  | first request's continuation already dispatched                                                          | second → 409; returns existing `approver`/`reviewedAt`                                                   | `approved`                            | 1 (total)                                                                                                              |
-| Duplicate reject                                                                | record already `rejected`                  | —                                                                                                        | second → 409; returns existing reason/approver                                                           | `rejected`                            | 0                                                                                                                      |
-| Approve succeeds, continuation fails (agent down / contract stale / task error) | CAS won, `continueApprovedFunction` errors | `state=approved`, `Reason=approved but continuation failed: ...`, `ResultKind` empty                     | —                                                                                                        | `approved` (decision final)           | 0 (continuation failed); result recoverable via `TaskID` (task mode) or re-submit (sync mode)                          |
-| Approve succeeds, server crashes before result Update                           | CAS won, no `ResultKind`/`TaskID` written  | on restart the record is `approved` with empty result fields; console renders "approved, result unknown" | —                                                                                                        | `approved`                            | 0..1 (indeterminate by design — the decision is final; the execution outcome is recovered via task query or re-submit) |
+| Case                                                                            | Pre-condition                              | Winner behavior                                                                                                                          | Loser / duplicate behavior                                                                               | Post-state                            | Execution count                                                                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Approve vs Approve (two operators, concurrent)                                  | two requests read `pending`                | first CAS wins; audit `approved`, continuation runs, `ResultKind`/`TaskID` recorded                                                      | second CAS `RowsAffected==0` → 409 `approval_already_reviewed`; **no continuation, no audit, no notify** | `approved`                            | At most one continuation attempt; game result needs a receipt                                     |
+| Approve vs Reject (concurrent)                                                  | one approve + one reject on `pending`      | first CAS wins; its decision + continuation (if approve won)                                                                             | loser → 409 `approval_already_reviewed`; no side effect                                                  | `approved` or `rejected` (first-wins) | At most one continuation attempt if approved; otherwise 0                                         |
+| Duplicate approve (same operator, double-click / retry)                         | record already `approved`                  | first request's continuation already dispatched                                                                                          | second → 409; returns existing `approver`/`reviewedAt`                                                   | `approved`                            | No additional attempt from the duplicate                                                          |
+| Duplicate reject                                                                | record already `rejected`                  | —                                                                                                                                        | second → 409; returns existing reason/approver                                                           | `rejected`                            | 0                                                                                                 |
+| Approve succeeds, continuation fails (agent down / contract stale / task error) | CAS won, `continueApprovedFunction` errors | `state=approved`, `Reason=approved but continuation failed: ...`, `ResultKind` empty                                                     | —                                                                                                        | `approved` (decision final)           | Unknown; query original task/receipt when available; no blind retry                               |
+| Approve succeeds, server crashes before result Update                           | CAS won, no `ResultKind`/`TaskID` written  | on restart the record is `approved` with empty result fields; console should render "approved, result unknown" (UI verification pending) | —                                                                                                        | `approved`                            | Unknown; durable intent/receipt reconciliation required; missing IDs require manual investigation |
 
 ## 4. Implementation notes for ARCH-002
 
@@ -156,7 +158,7 @@ invariant.
 3. Change `MemStore.Approve`/`Reject` to guard `a.State == "pending"` under the
    existing lock.
 4. `Service.Approve`: on `ErrAlreadyReviewed`, return
-   `errorx.NewConflict("approval_already_reviewed", ...)` with `details` =
+   an HTTP 409 error with stable code `approval_already_reviewed` (using the actual error helper contract) with `details` =
    current state/approver/reviewedAt; **skip** continuation, audit, extension
    upsert, event, and notify. Only the `RowsAffected==1` path proceeds to
    `continueApprovedFunction`.
@@ -165,8 +167,10 @@ invariant.
    and asserts exactly one continuation (e.g. via a fake that counts
    `continueApprovedFunction` calls or a `FunctionInvoke` spy), plus
    approve-vs-reject and duplicate-approve cases asserting 409 and exactly-one
-   execution. `MemStore` and `SQLStore` both need the CAS unit tests.
+   continuation attempt under a no-crash test. `MemStore` and `SQLStore` both need the CAS unit tests.
 7. The two-person/multi-approval accumulation (if a workflow requires N
    approvals before `approved`) is **not** part of this gate — the invoke-gate
    `Store` is single-approve. If a future workflow needs quorum, that is a new
    `workflow_store.go` concern, not a change to `Store.Approve`.
+
+Implementation acceptance also requires crash-before-dispatch, response-loss and result-write-failure cases, plus mandatory authorization failures. These are NOT RUN; this document changes no runtime behavior.

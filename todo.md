@@ -10,7 +10,7 @@
 
 - [ ] **ARCH-001 · P1 · 方案决策 · 审批并发与执行领取语义**
   - 依赖：—。交付与验收：基于现有 SQLStore 定义 pending 原子转换、续跑领取及重复请求规则；评审表覆盖批准/拒绝竞争、重复批准、执行结果未知。
-  - 状态／条件：READY。
+  - 状态／条件：方案草案见 [中英文审批并发设计](docs/zh/design/approval-concurrency-design.md)；CAS 防并发重复派发与持久执行领取不同，持久意图/恢复仍待决策，未实现。
 - [ ] **ARCH-002 · P1 · 实现 · 接入审批 SQL 存储**
   - 依赖：ARCH-001。交付与验收：复用 internal/platform/approvals/sql_store.go；A 创建、B 读取/批准、重启后可查，并发仅一决定且仅一执行领取；不能只改构造器。
   - 状态／条件：NOT RUN：需共享数据库双实例。
@@ -276,19 +276,23 @@
 
 - [ ] **REVIEW-001 · P1 · 故障验证 · 批量充值目标 ID 归一化复验**
   - 依赖：—。交付与验收：批量充值 demo 把选中行对象整体 `map(String)` 成 `[object Object]`，导致实际渲染路径无法匹配玩家 ID 却返回成功（web/src/components/PageRenderer/templates/playerManage.tsx:442）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收以实际批量执行入参为玩家 ID、回读影响人数与目标名单一致且无 [object Object] 为准。
-  - 状态／条件：实现已在工作区，审核期间新增对象 selection 用例；但初始余额为 977/1954 时仅断言 >=100，旧错误不充值也会通过，且 count/total 由 selection.length 构造。仍需精确验证选中余额增加 amount、未选余额不变及真实 selector 路径，不以新用例存在勾完成。
+  - 状态／条件：LOCAL VERIFIED：gameOpsPublishFixture.test.tsx 已断言对象 selection 的两个目标各精确增加 100、未选目标不变且仅两项变化；裸 ID 兼容用例通过。仍缺真实 selector 到执行器的贯通证据，保持开放；不以 count/total 字段代替副作用回读。
 
-- [ ] **REVIEW-002 · P1 · 故障验证 · 空白批量金额拒绝复验**
+- [x] **REVIEW-002 · P1 · 故障验证 · 空白批量金额拒绝复验**
   - 依赖：—。交付与验收：`summarizePerTargetTotal` 把空串/全空白串转换成 0，违背“不确定输入不猜 0、不执行”注释并会确认并提交 0 充值（web/src/components/PageRenderer/batchSelection.ts:73）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收以空串/全空白均禁止确认与提交、合法有限数字仍可按显式语义执行为准。
-  - 状态／条件：实现已在工作区；最新定向运行中新增空串/空白纯逻辑断言通过，实际表单阻断到执行器计数为零仍缺集成证据；不重复实现已有 guard。
+  - 状态／条件：LOCAL VERIFIED：ResourcePageRenderer.test.tsx 的 REVIEW-002 用例验证空串/全空白提交不调用执行器，合法 10 经确认后按原 form 与 selection 提交；resourceBatchSelection.test.tsx 覆盖空白 guard。已完成本项本地边界验收；真实游戏接入另见既有任务。
 
-- [ ] **REVIEW-003 · P1 · 故障验证 · 错误响应体优先级一致性复验**
-  - 依赖：—。交付与验收：`extractApiErrorCode` 声称与 `utils/errors` 同口径但优先 `.data` 再 `.response.data`，后者相反优先 `.response.data`，二者可能取到不同响应体（web/src/utils/apiError.ts:7）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收覆盖 data 与 response.data 并存且内容冲突时，各错误解析入口采用同一响应体与稳定码。
-  - 状态／条件：LOCAL VERIFIED：web/src/utils/**tests**/apiError.test.ts 的“response.data 优先于 data”冲突样本已通过，当前 apiError.ts 与 errors.ts 的两字段优先级一致；此修复仍未提交，推送审核文档不等于发布该代码。
+  - 完成证据：2026-10-29 定向运行通过；`web/src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx`，验收断言与边界见上述状态。
+
+- [x] **REVIEW-003 · P1 · 故障验证 · 错误响应体优先级一致性复验**
+  - 依赖：—。交付与验收：`extractApiErrorCode` 声称与 `utils/errors` 同口径但优先 `.data` 再 `.response.data`，后者相反优先 `.response.data`，二者可能取到不同响应体（web/src/utils/apiError.ts:7）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收覆盖 data 与 response.data 并存且内容冲突时，extractApiErrorCode 与 utils/errors.extractErrorCode 对有效冲突响应采用同一响应体与稳定码。
+  - 状态／条件：LOCAL VERIFIED：apiError.test.ts 冲突样本断言 response.data.error 优先；源码核对 apiError.ts 与 errors.ts 的有效响应体优先级一致。本项限定两字段均为有效响应对象的冲突情况，不宣称所有解析入口/畸形响应完全统一。
+
+  - 完成证据：2026-10-29 定向运行通过；`web/src/utils/__tests__/apiError.test.ts`，验收断言与边界见上述状态。
 
 - [ ] **REVIEW-004 · P1 · 故障验证 · 批量表单确认文案可达性复验**
   - 依赖：—。交付与验收：带表单批量动作进入表单后绕过原有 `confirm/confirmTitle/confirmDescription` 路径，批量充值模板声明的目标确认文案实际不可达（web/src/components/PageRenderer/ResourcePageRenderer.tsx:1246）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收覆盖带表单动作的确认标题/说明/目标可见且与实际提交一致，取消确认不会调用执行器。
-  - 状态／条件：最新 6 套定向测试的此新增用例 FAIL：screen.getByRole(button, Cancel) 同时匹配表单与确认框，取消断言未跑到；需限定确认框作用域，并补确认提交参数一致的正向分支。未修改他方测试，保持未勾。
+  - 状态／条件：LOCAL VERIFIED：ResourcePageRenderer.test.tsx 的 REVIEW-004 用例已限定确认框作用域，验证标题/说明/总量与取消不执行；REVIEW-002 验证普通总量确认后实际提交。仍需针对 confirm=true 的同一动作验证正向提交参数与完整目标名单一致，保持开放。
 
 - [ ] **REVIEW-005 · P1 · 实现 · 批量金额安全整数与乘积边界**
   - 依赖：—。交付与验收：为 summarizePerTargetTotal 与业务金额契约明确单位/倍率/最大值，拒绝非安全整数及乘积溢出；覆盖 MAX_SAFE_INTEGER 邻界、极大目标数与 Infinity，不显示可确认的失真总量

@@ -11,7 +11,7 @@
  * bindings 热更后弹窗提交的缺绑定护栏（提案应用后绑定集变化）、
  * rowKey 兜底、标题三态、分页开关。 */
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from 'antd';
 import { history } from '@umijs/max';
 import { ProTable } from '@ant-design/pro-components';
@@ -885,6 +885,130 @@ describe('工具栏与批量', () => {
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     await waitFor(() =>
       expect(onExecute).toHaveBeenCalledWith('b-batch', { selection: [rows[0]] }),
+    );
+  });
+
+  it('REVIEW-004：带表单批量动作确认文案可达（confirmTitle/Description/目标/总量），取消不执行', async () => {
+    const formBatch: ActionSpec = {
+      key: 'batch-recharge',
+      title: { 'zh-CN': '批量充值' },
+      type: 'danger',
+      bindingId: 'b-batch',
+      confirm: true,
+      confirmTitle: { 'zh-CN': '批量充值确认' },
+      confirmDescription: { 'zh-CN': '将按所选玩家逐个充值' },
+      form: {
+        jsonSchema: {
+          type: 'object',
+          properties: { coins: { type: 'number' }, reason: { type: 'string' } },
+        },
+        fields: [
+          {
+            key: 'coins',
+            label: { 'zh-CN': '每人数量' },
+            role: 'amount',
+            unit: { 'zh-CN': '金币', 'en-US': 'coins' },
+            perTarget: true,
+          },
+          { key: 'reason', label: { 'zh-CN': '原因' } },
+        ],
+      },
+    };
+    const { onExecute } = await loadList({
+      spec: spec({
+        listView: {
+          columns,
+          batchActions: [formBatch],
+          pagination: { enabled: true },
+        },
+      }),
+      bindings: bindings(),
+    });
+    onExecute.mockResolvedValueOnce(ok({}));
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('row-check-0'));
+    fireEvent.click(screen.getByTestId('row-check-1'));
+    await waitFor(() => expect(screen.getByText('已选择 2 项')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /批量充值/ }));
+    // 表单弹窗先出现，提交后进入合并确认
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
+    formMockState.values = { coins: 100, reason: '补偿' };
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    // 确认框展示动作级文案 + 目标 + 跨目标总量
+    await waitFor(() => expect(screen.getAllByText('批量充值确认').length).toBeGreaterThan(0));
+    expect(screen.getAllByText('将按所选玩家逐个充值').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('目标数量').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('总量').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('200 金币').length).toBeGreaterThan(0);
+    // 取消：不调用执行器
+    const confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
+    fireEvent.click(within(confirmBox).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(onExecute.mock.calls.filter(([id]) => id === 'b-batch')).toHaveLength(0),
+    );
+  });
+
+  it('REVIEW-002：批量金额为空串/全空白不确认不提交，合法数字仍按语义执行', async () => {
+    const formBatch: ActionSpec = {
+      key: 'batch-recharge',
+      title: { 'zh-CN': '批量充值' },
+      type: 'danger',
+      bindingId: 'b-batch',
+      form: {
+        jsonSchema: {
+          type: 'object',
+          properties: { coins: { type: 'number' } },
+        },
+        fields: [
+          {
+            key: 'coins',
+            label: { 'zh-CN': '每人数量' },
+            role: 'amount',
+            unit: { 'zh-CN': '金币', 'en-US': 'coins' },
+            perTarget: true,
+          },
+        ],
+      },
+    };
+    const { onExecute } = await loadList({
+      spec: spec({
+        listView: { columns, batchActions: [formBatch], pagination: { enabled: true } },
+      }),
+      bindings: bindings(),
+    });
+    onExecute.mockResolvedValueOnce(ok({}));
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('row-check-0'));
+    await waitFor(() => expect(screen.getByText('已选择 1 项')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /批量充值/ }));
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
+
+    // 空串：确认被阻断，不弹确认框、不调用执行器
+    formMockState.values = { coins: '' };
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute.mock.calls.filter(([id]) => id === 'b-batch')).toHaveLength(0),
+    );
+    expect(screen.queryByText('核对跨目标总量')).not.toBeInTheDocument();
+
+    // 全空白：同样阻断
+    formMockState.values = { coins: '   ' };
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute.mock.calls.filter(([id]) => id === 'b-batch')).toHaveLength(0),
+    );
+
+    // 合法数字：确认框出现，OK 后按语义提交
+    formMockState.values = { coins: '10' };
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getAllByText('核对跨目标总量').length).toBeGreaterThan(0));
+    const confirmBox2 = document.querySelector('.ant-modal-confirm') as HTMLElement;
+    fireEvent.click(within(confirmBox2).getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-batch', {
+        form: { coins: '10' },
+        selection: [rows[0]],
+      }),
     );
   });
 

@@ -13,7 +13,9 @@ type ErrorLike = { data?: unknown; response?: { data?: unknown } };
 export function extractApiErrorCode(err: unknown): string {
   if (err && typeof err === 'object') {
     const like = err as ErrorLike;
-    const data = like.data ?? like.response?.data;
+    // 与 utils/errors 同口径：优先 .response.data（axios 1.x ResponseError
+    // 的真实响应体），再回退 .data（部分 umi 封装）；避免两处取到不同体。
+    const data = like.response?.data ?? like.data;
     if (data && typeof data === 'object') {
       const code = (data as { error?: unknown }).error;
       if (typeof code === 'string' && code) return code;
