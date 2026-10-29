@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
+	"github.com/cuihairu/croupier/internal/common/labels"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -462,6 +463,40 @@ func TestUpstreamClientComposeLabels(t *testing.T) {
 	}
 	if labels["os"] != "override-linux" {
 		t.Fatalf("expected dynamic label override, got: %+v", labels)
+	}
+}
+
+// TestUpstreamClientBootIDLabel 验证 ARCH-018 D3 的 agent 侧重启身份：
+// bootId 构造时生成、进程生命周期内不变（重连沿用）、随注册标签上报且
+// 不可被配置 labels 覆盖；新客户端（= 新进程）换新值。
+func TestUpstreamClientBootIDLabel(t *testing.T) {
+	t.Parallel()
+
+	store := agentlocal.NewLocalStore()
+	client := NewUpstreamClient("127.0.0.1:9999", "agent-boot", store, &UpstreamMetadata{
+		Labels: map[string]string{
+			// 伪造配置键：不得能覆盖平台注入的 bootId。
+			"bootId": "forged-by-config",
+		},
+	})
+
+	first := client.composeLabels()
+	boot := first[labels.BootID]
+	if boot == "" {
+		t.Fatalf("expected bootId label, got: %+v", first)
+	}
+	if boot == "forged-by-config" {
+		t.Fatalf("bootId must not be overridable by configured labels")
+	}
+	// 进程生命周期内稳定（重连沿用同一 bootId）。
+	second := client.composeLabels()
+	if second[labels.BootID] != boot {
+		t.Fatalf("bootId must be stable for the client lifetime: %q vs %q", boot, second[labels.BootID])
+	}
+	// 新客户端（= 重启后的新进程）换新 bootId。
+	other := NewUpstreamClient("127.0.0.1:9999", "agent-boot", store, nil)
+	if other.composeLabels()[labels.BootID] == boot {
+		t.Fatalf("new client must generate a different bootId")
 	}
 }
 

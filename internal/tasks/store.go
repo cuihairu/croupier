@@ -40,6 +40,13 @@ func (s *Store) ListRuns(ctx context.Context, opts model.ListTasksOptions) ([]mo
 	return s.runs.List(ctx, opts)
 }
 
+// ListRunningByAgent returns the task IDs of an agent's in-flight runs
+// (`dispatching`/`running`) — the rows D3 reconciles to `unknown` when the
+// agent restarts (see ARCH-018).
+func (s *Store) ListRunningByAgent(ctx context.Context, agentID string) ([]string, error) {
+	return s.runs.ListRunningTaskIDsByAgent(ctx, agentID)
+}
+
 func (s *Store) AppendEvent(ctx context.Context, taskID string, eventType EventType, progress int32, message string, payload []byte) error {
 	seq, err := s.events.NextSeq(ctx, taskID)
 	if err != nil {

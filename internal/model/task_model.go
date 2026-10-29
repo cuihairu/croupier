@@ -113,6 +113,26 @@ func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskR
 	return items, total, nil
 }
 
+// ListRunningTaskIDsByAgent returns the task IDs of an agent's in-flight runs
+// (status `dispatching` or `running`). ARCH-018 D3 uses it to reconcile tasks
+// whose fate is unknowable after an agent restart: those rows are the ones a
+// live (re-registered, same bootId) agent could still complete, and the ones a
+// restarted (new bootId) agent leaves unresolvable.
+func (m *TaskRunModel) ListRunningTaskIDsByAgent(ctx context.Context, agentID string) ([]string, error) {
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		return nil, errors.New("agent id required")
+	}
+	var taskIDs []string
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&TaskRun{}).
+		Where("agent_id = ? AND status IN ?", agentID, []string{"dispatching", "running"}).
+		Pluck("task_id", &taskIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	return taskIDs, nil
+}
+
 // OperatorOptions 按 #23 提供 /ops/jobs「有权限的操作者」过滤下拉的
 // 服务端聚合选项：同过滤维度（函数/状态/scope）下的 distinct actor 及其
 // 留痕条数。空 actor（系统触发等无操作者留痕）不是可过滤选项，排除。

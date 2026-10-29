@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net"
@@ -39,6 +41,12 @@ type UpstreamClient struct {
 	zone     string
 	labels   map[string]string
 	tlsCfg   *tlsutil.ClientTLSConfig
+
+	// bootID 是本次 agent 进程启动身份（ARCH-018 D3）：构造时随机生成一次，
+	// 进程生命周期内不变——重连沿用、重启换新。server 以此区分「断线重连」
+	// 与「进程重启」，后者把在途任务收敛为 unknown。经 composeLabels 注入
+	// 注册标签（不可被配置覆盖），与二进制指纹同通道。
+	bootID string
 
 	// Timeouts (from config, with defaults)
 	dialTimeout       time.Duration
@@ -135,6 +143,7 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		agentID:       agentID,
 		store:         store,
 		transportKind: "tcp",
+		bootID:        newBootID(),
 	}
 	// 注册/心跳/重连上收 core/register（K2）：传输构造与 payload 组装留在
 	// 业务侧（闭包晚绑定字段，SetTLSConfig/SetLocalHandler/WithMetadata 生效）。
@@ -901,7 +910,26 @@ func (c *UpstreamClient) composeLabels() map[string]string {
 		}
 		base[labels.AgentBinarySHA256] = fp
 	}
+	// ARCH-018 D3：bootId 同指纹通道注入——计算事实而非配置，不可被
+	// labels 配置覆盖或伪造；空值不注入（缺位即「未声明重启身份」）。
+	if c.bootID != "" {
+		if base == nil {
+			base = map[string]string{}
+		}
+		base[labels.BootID] = c.bootID
+	}
 	return base
+}
+
+// newBootID 生成一次进程启动身份（hex 32 字节）。随机源失败时退化为
+// 时间戳派生值——仍满足「进程生命周期不变、重启大概率换新」的 D3 需求，
+// 且绝不返回空串（空 bootId 会被 server 当作「未声明重启身份」）。
+func newBootID() string {
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err == nil {
+		return hex.EncodeToString(buf[:])
+	}
+	return fmt.Sprintf("%x", time.Now().UnixNano())
 }
 
 func cloneLabels(src map[string]string) map[string]string {

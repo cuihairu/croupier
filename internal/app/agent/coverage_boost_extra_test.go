@@ -165,13 +165,17 @@ func TestUpstreamComposeLabels_DynamicVariants(t *testing.T) {
 		Labels: map[string]string{"base": "1"},
 	})
 
+	// bootId 每次构造随机生成：进程生命周期内稳定，比较时取其实际值并入期望。
 	client.SetDynamicLabelsProvider(func() map[string]string { return map[string]string{} })
-	assert.Equal(t, map[string]string{"base": "1"}, client.composeLabels())
+	first := client.composeLabels()
+	boot := first[labels.BootID]
+	assert.NotEmpty(t, boot)
+	assert.Equal(t, map[string]string{"base": "1", labels.BootID: boot}, first)
 
 	client.SetDynamicLabelsProvider(func() map[string]string {
 		return map[string]string{"dyn": "2", "  ": "skipped"}
 	})
-	assert.Equal(t, map[string]string{"base": "1", "dyn": "2"}, client.composeLabels())
+	assert.Equal(t, map[string]string{"base": "1", "dyn": "2", labels.BootID: boot}, client.composeLabels())
 }
 
 // TestUpstreamComposeLabels_InjectsBinaryFingerprint 钉 §10.5 指纹持久锚点
@@ -192,18 +196,24 @@ func TestUpstreamComposeLabels_InjectsBinaryFingerprint(t *testing.T) {
 	})
 
 	got := client.composeLabels()
+	boot := got[labels.BootID]
 	assert.Equal(t, fp, got[labels.AgentBinarySHA256], "指纹须为运行实例自报值")
 	assert.Equal(t, "1", got["base"])
 	assert.Equal(t, "2", got["dyn"])
+	assert.NotEmpty(t, boot)
 
 	// 无静态/动态标签时指纹仍须注入（不能因 base 为空而丢锚点）。
 	bare := NewUpstreamClient("127.0.0.1:1", "b", agentlocal.NewLocalStore(), nil)
-	assert.Equal(t, map[string]string{labels.AgentBinarySHA256: fp}, bare.composeLabels())
+	bareGot := bare.composeLabels()
+	assert.Equal(t, fp, bareGot[labels.AgentBinarySHA256])
+	assert.NotEmpty(t, bareGot[labels.BootID])
 
-	// 读不到指纹（空串）时不注入：锚点缺位，不伪造空值。
+	// 读不到指纹（空串）时不注入：锚点缺位，不伪造空值；bootId 恒注入。
 	restoreEmpty := stubSelfFingerprint("")
 	defer restoreEmpty()
-	assert.Nil(t, bare.composeLabels())
+	emptyGot := bare.composeLabels()
+	assert.NotContains(t, emptyGot, labels.AgentBinarySHA256)
+	assert.NotEmpty(t, emptyGot[labels.BootID])
 }
 
 // stubSelfFingerprint 临时替换指纹接缝，返回恢复函数。

@@ -120,6 +120,12 @@ type mockTaskStore struct {
 	lastTaskID          string
 	lastEventType       tasks.EventType
 	lastBlockedStatuses []string
+
+	// ARCH-018 D3 restart reconciliation support.
+	runningIDs        []string
+	listRunningErr    error
+	listRunningCalled int
+	lastListAgentID   string
 }
 
 func (m *mockTaskStore) UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error) {
@@ -134,6 +140,12 @@ func (m *mockTaskStore) AppendEvent(ctx context.Context, taskID string, eventTyp
 	m.appendCalled++
 	m.lastEventType = eventType
 	return m.appendEventErr
+}
+
+func (m *mockTaskStore) ListRunningByAgent(ctx context.Context, agentID string) ([]string, error) {
+	m.listRunningCalled++
+	m.lastListAgentID = agentID
+	return m.runningIDs, m.listRunningErr
 }
 
 // --- Tests for ParseListenAddr ---

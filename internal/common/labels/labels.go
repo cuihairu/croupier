@@ -9,3 +9,10 @@ package labels
 // 一次），随注册标签持久化——system-info 数据面在 agent 失联或跨 server
 // 重启后靠它回答「最后已知指纹」。
 const AgentBinarySHA256 = "agentBinarySha256"
+
+// BootID 是 agent 本次进程启动身份的注册标签键。每次 agent 进程启动随机
+// 生成一次（进程生命周期内不变），重连沿用同一 bootId、重启换新值。server
+// 据此区分「断线重连（同 bootId，任务仍可存活）」与「进程重启（换 bootId，
+// 在途 running 任务的落点不可知）」——D3 把后者在途任务收敛为 unknown，
+// 而不误把重连任务标未知（ARCH-018）。
+const BootID = "bootId"

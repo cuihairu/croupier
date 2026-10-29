@@ -6104,6 +6104,46 @@ func TestTaskRunModel_CRUD(t *testing.T) {
 	assert.Equal(t, int64(0), total)
 }
 
+// TestTaskRunModel_ListRunningTaskIDsByAgent 验证 ARCH-018 D3 的查询面：
+// 只返回该 agent 的在途任务（dispatching/running），终态与其它 agent 任务不返回。
+func TestTaskRunModel_ListRunningTaskIDsByAgent(t *testing.T) {
+	db := setupTestDB(t)
+	err := db.AutoMigrate(&TaskRun{})
+	require.NoError(t, err)
+
+	runModel := NewTaskRunModel(db)
+	ctx := context.Background()
+
+	seed := func(taskID, agentID, status string) {
+		require.NoError(t, runModel.Create(ctx, &TaskRun{
+			TaskID:     taskID,
+			FunctionID: "player.ban",
+			GameID:     "game1",
+			Env:        "prod",
+			AgentID:    agentID,
+			Status:     status,
+		}))
+	}
+
+	seed("t-running", "agent-a", "running")
+	seed("t-dispatching", "agent-a", "dispatching")
+	seed("t-succeeded", "agent-a", "succeeded") // 终态不返回
+	seed("t-other-agent", "agent-b", "running") // 其它 agent 不返回
+
+	ids, err := runModel.ListRunningTaskIDsByAgent(ctx, "agent-a")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"t-running", "t-dispatching"}, ids)
+
+	// 空 agentID 拒绝。
+	_, err = runModel.ListRunningTaskIDsByAgent(ctx, "")
+	assert.Error(t, err)
+
+	// 无在途任务返回空切片（不报错）。
+	ids, err = runModel.ListRunningTaskIDsByAgent(ctx, "agent-none")
+	require.NoError(t, err)
+	assert.Empty(t, ids)
+}
+
 // ===== TaskEventModel Tests =====
 
 func TestTaskEventModel_AppendAndList(t *testing.T) {

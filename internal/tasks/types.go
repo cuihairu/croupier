@@ -47,6 +47,10 @@ const (
 	EventFailed          EventType = "failed"
 	EventCancelRequested EventType = "cancel_requested"
 	EventCancelled       EventType = "cancelled"
+	// EventRecovery is appended when the platform reconciles a task's fate it
+	// can no longer determine (e.g. the agent restarted mid-task): the row is
+	// moved to `unknown` and this event records the recovery for manual review.
+	EventRecovery EventType = "recovery"
 )
 
 type StartRequest struct {

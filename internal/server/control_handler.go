@@ -98,10 +98,15 @@ type AgentSessionLoader interface {
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 
-// TaskStore defines the interface for task run persistence used by handleTaskEvent.
+// TaskStore defines the interface for task run persistence used by
+// handleTaskEvent and the ARCH-018 D3 restart reconciliation.
 type TaskStore interface {
 	UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error)
 	AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error
+	// ListRunningByAgent returns the task IDs of an agent's in-flight runs
+	// (`dispatching`/`running`); the D3 reconciliation moves them to `unknown`
+	// on an agent restart so they are never left silently stuck.
+	ListRunningByAgent(ctx context.Context, agentID string) ([]string, error)
 }
 
 // Handler handles control service requests.
@@ -982,6 +987,56 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 	return nil, nil
 }
 
+// reconcileRunningTasksOnRestart 落实 D3（ARCH-018）：agent 进程重启（同
+// agentId 的 bootId 变化）后，其在途任务（dispatching/running）的落点不可
+// 知——执行器内存已丢，游戏副作用是否发生无法从平台侧判定。逐条迁移到
+// unknown 终态并追加 recovery 事件，交由人工核对；不自动重试（非幂等函数
+// 重试可能重复副作用，D5）。逐条 best-effort：单条失败不阻断其余任务收敛，
+// 失败只记日志（注册链路不为对账失败拒绝 agent 上线）。
+func (s *ControlService) reconcileRunningTasksOnRestart(ctx context.Context, agentID, prevBootID, newBootID string) {
+	s.mu.RLock()
+	taskStore := s.taskStore
+	s.mu.RUnlock()
+	if taskStore == nil {
+		return
+	}
+	taskIDs, err := taskStore.ListRunningByAgent(ctx, agentID)
+	if err != nil {
+		s.logger.Error("[d3] failed to list running tasks for restart reconciliation",
+			"agent_id", agentID, "error", err)
+		return
+	}
+	if len(taskIDs) == 0 {
+		return
+	}
+	now := time.Now()
+	reconciled := 0
+	for _, taskID := range taskIDs {
+		updated, err := taskStore.UpdateRunIfStatusNotIn(ctx, taskID, tasks.TerminalStatuses(), map[string]interface{}{
+			"status":        tasks.StatusUnknown,
+			"finished_at":   &now,
+			"error_message": fmt.Sprintf("agent %s restarted (boot %s -> %s); execution outcome cannot be determined", agentID, prevBootID, newBootID),
+		})
+		if err != nil {
+			s.logger.Error("[d3] failed to reconcile task on agent restart",
+				"agent_id", agentID, "task_id", taskID, "error", err)
+			continue
+		}
+		if !updated {
+			continue // 并发终态先到：终态单调，不回退
+		}
+		reconciled++
+		if err := taskStore.AppendEvent(ctx, taskID, tasks.EventRecovery, 0,
+			fmt.Sprintf("agent %s restarted (boot %s -> %s); task outcome marked unknown for manual reconciliation", agentID, prevBootID, newBootID), nil); err != nil {
+			s.logger.Error("[d3] failed to append recovery event",
+				"agent_id", agentID, "task_id", taskID, "error", err)
+		}
+	}
+	s.logger.Info("[d3] reconciled running tasks to unknown on agent restart",
+		"agent_id", agentID, "inflight", len(taskIDs), "reconciled", reconciled,
+		"prev_boot", prevBootID, "new_boot", newBootID)
+}
+
 // handleProbeEvent 接收 agent 探测/告警流事件（MsgAlertEvent 流事件，review
 // §11 已决 2）。接收面：校验 session 身份 → 持久化与诊断环留证 → 窗口事件
 // 消费为 Alert 生命周期（§12 R3；lifecycle 未装配时仍落库留环）→ 按 kind 记日志。
@@ -1217,7 +1272,8 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	if agentID == "" || gameID == "" || env == "" {
 		return nil, fmt.Errorf("agent_id, game_id and env are required")
 	}
-	if previous := s.registry.PreviousAgentSession(agentID); previous != nil {
+	previous := s.registry.PreviousAgentSession(agentID)
+	if previous != nil {
 		if previous.GameID != gameID || previous.Env != env {
 			return nil, fmt.Errorf("agent %q is already bound to game_id=%q env=%q", agentID, previous.GameID, previous.Env)
 		}
@@ -1225,6 +1281,22 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	req.AgentId = agentID
 	req.GameId = gameID
 	req.Env = env
+
+	// ARCH-018 D3：agent 重启侦测。注册标签 bootId 在 agent 进程启动时随机
+	// 生成一次，重连沿用、重启换新。同 agent 上次会话存在且 bootId 变化 =>
+	// 进程重启：在途任务（dispatching/running）的落点不可知，收敛为 unknown
+	// 并追加 recovery 事件，绝不静默重试或悬置（边界诚实：任一侧 bootId 为空
+	// 无法判别，按「未声明重启身份」处理，不误标重连任务）。
+	prevBootID := ""
+	if previous != nil {
+		prevBootID = strings.TrimSpace(previous.Labels[labels.BootID])
+	}
+	newBootID := strings.TrimSpace(req.GetLabels()[labels.BootID])
+	if prevBootID != "" && newBootID != "" && prevBootID != newBootID {
+		if s.taskStore != nil {
+			s.reconcileRunningTasksOnRestart(ctx, agentID, prevBootID, newBootID)
+		}
+	}
 
 	functions, warnings := validateAndNormalizeFunctions(req.GetFunctions())
 	warningTexts := make([]string, 0, len(warnings))
@@ -1555,15 +1627,22 @@ func sanitizeAgentLabels(agentLabels map[string]string) map[string]string {
 		maxValLen = 256
 	)
 	sysVal := ""
+	bootVal := ""
 	if fp := strings.TrimSpace(agentLabels[labels.AgentBinarySHA256]); fp != "" {
 		if len(fp) > maxValLen {
 			fp = fp[:maxValLen]
 		}
 		sysVal = fp
 	}
+	if bid := strings.TrimSpace(agentLabels[labels.BootID]); bid != "" {
+		if len(bid) > maxValLen {
+			bid = bid[:maxValLen]
+		}
+		bootVal = bid
+	}
 	out := make(map[string]string, min(len(agentLabels), maxLabels))
 	for k, v := range agentLabels {
-		if k == labels.AgentBinarySHA256 {
+		if k == labels.AgentBinarySHA256 || k == labels.BootID {
 			continue // 平台键走豁免通道，不占限额也不受随机次序影响
 		}
 		if len(out) >= maxLabels {
@@ -1584,6 +1663,9 @@ func sanitizeAgentLabels(agentLabels map[string]string) map[string]string {
 	}
 	if sysVal != "" {
 		out[labels.AgentBinarySHA256] = sysVal
+	}
+	if bootVal != "" {
+		out[labels.BootID] = bootVal
 	}
 	return out
 }
