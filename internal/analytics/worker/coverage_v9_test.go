@@ -96,6 +96,14 @@ func TestRunPreCanceledContextV9(t *testing.T) {
 }
 
 func TestRunProcessesMessagesV9(t *testing.T) {
+	// ARCH-011: XACK is deferred until the ClickHouse batch Send()s, so the
+	// checkpoint only advances on a flush. Shrink the periodic flush interval
+	// so the batch is flushed (and the checkpoint persisted) within the test
+	// window instead of the 15s production default.
+	origFlush := runFlushInterval
+	runFlushInterval = 20 * time.Millisecond
+	defer func() { runFlushInterval = origFlush }()
+
 	w, _ := testWorker(t)
 	ctx := context.Background()
 	// Groups created at "0" so messages added now are delivered by ">".
@@ -182,10 +190,10 @@ func TestEnsureBatchPrepareErrorsV9(t *testing.T) {
 	if _, err := w.ensurePaymentBatch(ctx); err == nil {
 		t.Error("ensurePaymentBatch: expected error")
 	}
-	if err := w.appendEventRow(ctx, "x"); err == nil {
+	if err := w.appendEventRow(ctx, "1-1", "x"); err == nil {
 		t.Error("appendEventRow: expected error")
 	}
-	if err := w.appendPaymentRow(ctx, "x"); err == nil {
+	if err := w.appendPaymentRow(ctx, "1-1", "x"); err == nil {
 		t.Error("appendPaymentRow: expected error")
 	}
 }
@@ -195,12 +203,12 @@ func TestAppendRowAppendErrorsV9(t *testing.T) {
 	ctx := context.Background()
 
 	w.eventBatch = &appendErrBatchV9{mockBatch: &mockBatch{}, appendErr: errors.New("append boom")}
-	if err := w.appendEventRow(ctx, "x"); err == nil {
+	if err := w.appendEventRow(ctx, "1-1", "x"); err == nil {
 		t.Error("appendEventRow: expected Append error")
 	}
 
 	w.paymentBatch = &appendErrBatchV9{mockBatch: &mockBatch{}, appendErr: errors.New("append boom")}
-	if err := w.appendPaymentRow(ctx, "x"); err == nil {
+	if err := w.appendPaymentRow(ctx, "1-1", "x"); err == nil {
 		t.Error("appendPaymentRow: expected Append error")
 	}
 }
@@ -396,9 +404,11 @@ func TestProcessMessageAckErrorV9(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()
 	// The stream key holds a non-stream value → XACK fails with WRONGTYPE.
+	// ARCH-011: the empty-data path ACKs immediately (no batch row), so the
+	// XACK error surfaces from processMessage.
 	w.rdb.Set(ctx, w.streamEvents, "not-a-stream", 0)
 	msg := redis.XMessage{ID: "1-1", Values: map[string]any{
-		"data": `{"event":"click","game_id":"g1","env":"prod","user_id":"u1"}`,
+		"data": "",
 	}}
 	err := w.processMessage(ctx, w.streamEvents, msg)
 	if err == nil {
@@ -435,20 +445,45 @@ func TestReclaimPendingIdleClaimV9(t *testing.T) {
 
 	w.reclaimPendingFromStream(ctx, w.streamEvents)
 
-	// The reclaimed message was processed: checkpoint persisted and PEL drained.
+	// ARCH-011: the reclaimed message was re-appended to an unsent ClickHouse
+	// batch, so it is still PENDING (XACK deferred until the batch flushes).
+	// No checkpoint may be written before the rows are durably sent.
 	n, err := w.rdb.Exists(ctx, w.checkpointPrefix+":"+w.streamEvents).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 1 {
-		t.Errorf("checkpoint missing after reclaim (exists=%d)", n)
+	if n != 0 {
+		t.Errorf("checkpoint must not be persisted before batch flush (exists=%d)", n)
 	}
 	pending, _ := w.rdb.XPendingExt(ctx, &redis.XPendingExtArgs{
 		Stream: w.streamEvents, Group: w.group,
 		Start: "-", End: "+", Count: 100,
 	}).Result()
+	if len(pending) != 1 {
+		t.Errorf("reclaimed message must stay pending until batch flush, got %d", len(pending))
+	}
+	if w.eventBatchRows != 1 {
+		t.Errorf("reclaimed message should be re-appended to the event batch, got rows=%d", w.eventBatchRows)
+	}
+
+	// Flushing the batch durably writes the row, ACKs the message and
+	// advances the checkpoint.
+	if err := w.flushEventBatch(ctx); err != nil {
+		t.Fatalf("flush event batch: %v", err)
+	}
+	n, err = w.rdb.Exists(ctx, w.checkpointPrefix+":"+w.streamEvents).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("checkpoint missing after batch flush (exists=%d)", n)
+	}
+	pending, _ = w.rdb.XPendingExt(ctx, &redis.XPendingExtArgs{
+		Stream: w.streamEvents, Group: w.group,
+		Start: "-", End: "+", Count: 100,
+	}).Result()
 	if len(pending) != 0 {
-		t.Errorf("pending should be drained after reclaim, got %d", len(pending))
+		t.Errorf("pending should be drained after batch flush, got %d", len(pending))
 	}
 }
 

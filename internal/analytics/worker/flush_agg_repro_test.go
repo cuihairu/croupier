@@ -68,7 +68,7 @@ func TestInsertEventGeneratesUUIDWhenMissing(t *testing.T) {
 	err := w.insertEvent(t.Context(), map[string]any{
 		"game_id": "g", "env": "dev", "user_id": "u", "event": "login",
 		"ts": "2026-08-24T03:02:55Z",
-	})
+	}, "1-1")
 	if err != nil {
 		t.Fatalf("insertEvent without event_id: %v", err)
 	}

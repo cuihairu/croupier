@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
@@ -44,6 +45,16 @@ var pendingReclaimInterval = 30 * time.Second
 // 作为可注入缝隙供测试缩短以覆盖 ticker 分支。
 var runFlushInterval = 15 * time.Second
 
+// ackRef tracks a Redis stream message whose row has been appended to an
+// in-memory ClickHouse batch but not yet durably Send()ed. The message must
+// stay PENDING (un-ACKed) until the batch flushes, so a crash between append
+// and Send redelivers it via reclaim instead of silently losing the row
+// (ARCH-011: batch Append must not be ACKed before Send).
+type ackRef struct {
+	stream string
+	id     string
+}
+
 type Worker struct {
 	rdb            *redis.Client
 	ch             clickhouse.Conn
@@ -61,6 +72,15 @@ type Worker struct {
 	paymentBatch     chdriver.Batch
 	paymentBatchRows int
 	clickBatchSize   int
+	// batchMu guards the batch state and the deferred-ACK lists. The Run loop
+	// (append) and the periodic flush goroutine (Send+ACK) touch these
+	// concurrently; prior code raced on eventBatch/eventBatchRows.
+	batchMu     sync.Mutex
+	eventAcks   []ackRef
+	paymentAcks []ackRef
+	// lastMu guards lastIDs (written by both the Run goroutine's immediate
+	// ACK path and the flush goroutine's batch-ACK path).
+	lastMu sync.Mutex
 	// checkpoints
 	checkpointPrefix string
 	lastIDs          map[string]string
@@ -263,7 +283,7 @@ func normalizeTimestamp(raw string) string {
 	return trimmed
 }
 
-func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
+func (w *Worker) insertEvent(ctx context.Context, m map[string]any, msgID string) error {
 	// Minimal fields; props_json stays raw
 	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
@@ -282,10 +302,10 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
 		eid = uuid.NewString()
 	}
 	propsBytes, _ := json.Marshal(m["props"]) // may be nil
-	return w.appendEventRow(ctx, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
+	return w.appendEventRow(ctx, msgID, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
 }
 
-func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
+func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID string) error {
 	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
 	env := asString(m, "env")
@@ -301,10 +321,16 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
 	city := asString(m, "city")
 	product := asString(m, "product_id")
 	reason := asString(m, "reason")
-	return w.appendPaymentRow(ctx, ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason)
+	return w.appendPaymentRow(ctx, msgID, ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason)
 }
 
 func (w *Worker) ensureEventBatch(ctx context.Context) (chdriver.Batch, error) {
+	w.batchMu.Lock()
+	defer w.batchMu.Unlock()
+	return w.ensureEventBatchLocked(ctx)
+}
+
+func (w *Worker) ensureEventBatchLocked(ctx context.Context) (chdriver.Batch, error) {
 	if w.eventBatch != nil {
 		return w.eventBatch, nil
 	}
@@ -318,6 +344,12 @@ func (w *Worker) ensureEventBatch(ctx context.Context) (chdriver.Batch, error) {
 }
 
 func (w *Worker) ensurePaymentBatch(ctx context.Context) (chdriver.Batch, error) {
+	w.batchMu.Lock()
+	defer w.batchMu.Unlock()
+	return w.ensurePaymentBatchLocked(ctx)
+}
+
+func (w *Worker) ensurePaymentBatchLocked(ctx context.Context) (chdriver.Batch, error) {
 	if w.paymentBatch != nil {
 		return w.paymentBatch, nil
 	}
@@ -330,8 +362,13 @@ func (w *Worker) ensurePaymentBatch(ctx context.Context) (chdriver.Batch, error)
 	return batch, nil
 }
 
-func (w *Worker) appendEventRow(ctx context.Context, args ...any) error {
-	batch, err := w.ensureEventBatch(ctx)
+// appendEventRow appends one row to the event batch and records the source
+// message in eventAcks so it is ACKed only when the batch durably Send()s
+// (ARCH-011). The msgID is the Redis stream message the row came from.
+func (w *Worker) appendEventRow(ctx context.Context, msgID string, args ...any) error {
+	w.batchMu.Lock()
+	defer w.batchMu.Unlock()
+	batch, err := w.ensureEventBatchLocked(ctx)
 	if err != nil {
 		return err
 	}
@@ -339,14 +376,20 @@ func (w *Worker) appendEventRow(ctx context.Context, args ...any) error {
 		return err
 	}
 	w.eventBatchRows++
+	w.eventAcks = append(w.eventAcks, ackRef{stream: w.streamEvents, id: msgID})
 	if w.clickBatchSize > 0 && w.eventBatchRows >= w.clickBatchSize {
-		return w.flushEventBatch(ctx)
+		return w.flushEventBatchLocked(ctx)
 	}
 	return nil
 }
 
-func (w *Worker) appendPaymentRow(ctx context.Context, args ...any) error {
-	batch, err := w.ensurePaymentBatch(ctx)
+// appendPaymentRow appends one row to the payment batch and records the
+// source message in paymentAcks so it is ACKed only when the batch durably
+// Send()s (ARCH-011).
+func (w *Worker) appendPaymentRow(ctx context.Context, msgID string, args ...any) error {
+	w.batchMu.Lock()
+	defer w.batchMu.Unlock()
+	batch, err := w.ensurePaymentBatchLocked(ctx)
 	if err != nil {
 		return err
 	}
@@ -354,33 +397,65 @@ func (w *Worker) appendPaymentRow(ctx context.Context, args ...any) error {
 		return err
 	}
 	w.paymentBatchRows++
+	w.paymentAcks = append(w.paymentAcks, ackRef{stream: w.streamPayments, id: msgID})
 	if w.clickBatchSize > 0 && w.paymentBatchRows >= w.clickBatchSize {
-		return w.flushPaymentBatch(ctx)
+		return w.flushPaymentBatchLocked(ctx)
 	}
 	return nil
 }
 
 func (w *Worker) flushEventBatch(ctx context.Context) error {
+	w.batchMu.Lock()
+	defer w.batchMu.Unlock()
+	return w.flushEventBatchLocked(ctx)
+}
+
+// flushEventBatchLocked Send()s the event batch, then ACKs its deferred
+// message refs. On Send failure the batch and its refs are DROPPED (not
+// retried): the messages stay PENDING in Redis so reclaim redelivers them,
+// and the triggering message takes the processMessage retry path — avoiding
+// double-writing a row that was appended to a batch whose Send failed.
+func (w *Worker) flushEventBatchLocked(ctx context.Context) error {
 	if w.eventBatch == nil || w.eventBatchRows == 0 {
+		w.eventAcks = nil
 		return nil
 	}
 	if err := w.eventBatch.Send(); err != nil {
+		w.eventBatch = nil
+		w.eventBatchRows = 0
+		w.eventAcks = nil
 		return err
 	}
 	w.eventBatch = nil
 	w.eventBatchRows = 0
+	acks := w.eventAcks
+	w.eventAcks = nil
+	w.ackSent(ctx, acks)
 	return nil
 }
 
 func (w *Worker) flushPaymentBatch(ctx context.Context) error {
+	w.batchMu.Lock()
+	defer w.batchMu.Unlock()
+	return w.flushPaymentBatchLocked(ctx)
+}
+
+func (w *Worker) flushPaymentBatchLocked(ctx context.Context) error {
 	if w.paymentBatch == nil || w.paymentBatchRows == 0 {
+		w.paymentAcks = nil
 		return nil
 	}
 	if err := w.paymentBatch.Send(); err != nil {
+		w.paymentBatch = nil
+		w.paymentBatchRows = 0
+		w.paymentAcks = nil
 		return err
 	}
 	w.paymentBatch = nil
 	w.paymentBatchRows = 0
+	acks := w.paymentAcks
+	w.paymentAcks = nil
+	w.ackSent(ctx, acks)
 	return nil
 }
 
@@ -392,6 +467,71 @@ func (w *Worker) flushBatches(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// ackSent ACKs message refs whose rows have been durably Send()ed to
+// ClickHouse, then advances the per-stream checkpoint. A XAck failure is
+// logged but not fatal: the message stays pending and reclaim redelivers it,
+// and the ClickHouse natural key (event_id / order_id) deduplicates the
+// re-insert.
+func (w *Worker) ackSent(ctx context.Context, acks []ackRef) {
+	for _, a := range acks {
+		if err := w.rdb.XAck(ctx, a.stream, w.group, a.id).Err(); err != nil {
+			slog.Warn("batch ack failed", "stream", a.stream, "id", a.id, "err", err)
+			continue
+		}
+		w.advanceCheckpoint(ctx, a.stream, a.id)
+	}
+}
+
+// ackImmediate ACKs a message resolved without a pending batch row (empty
+// payload, dead-lettered, or re-queued) and advances the checkpoint.
+func (w *Worker) ackImmediate(ctx context.Context, stream string, msg redis.XMessage) error {
+	if err := w.rdb.XAck(ctx, stream, w.group, msg.ID).Err(); err != nil {
+		slog.Warn("ack failed", "stream", stream, "id", msg.ID, "err", err)
+		return err
+	}
+	w.advanceCheckpoint(ctx, stream, msg.ID)
+	return nil
+}
+
+// advanceCheckpoint moves the per-stream high-water mark forward. Stream IDs
+// are "<ms>-<seq>"; a later message may be ACKed immediately (dead-letter /
+// re-queue) while an earlier one still sits in an unsent batch, so the mark
+// must be monotonic rather than blindly overwritten — otherwise a checkpoint
+// regression would re-read already-resolved messages after a restart.
+func (w *Worker) advanceCheckpoint(ctx context.Context, stream, id string) {
+	w.lastMu.Lock()
+	cur := w.lastIDs[stream]
+	if streamIDLess(id, cur) {
+		w.lastMu.Unlock()
+		return
+	}
+	w.lastIDs[stream] = id
+	w.lastMu.Unlock()
+	w.persistCheckpoint(ctx, stream, id)
+}
+
+// parseStreamID splits a "<ms>-<seq>" stream ID; malformed IDs parse as 0.
+func parseStreamID(s string) (ms, seq uint64) {
+	i := strings.IndexByte(s, '-')
+	if i < 0 {
+		ms, _ = strconv.ParseUint(s, 10, 64)
+		return
+	}
+	ms, _ = strconv.ParseUint(s[:i], 10, 64)
+	seq, _ = strconv.ParseUint(s[i+1:], 10, 64)
+	return
+}
+
+// streamIDLess reports whether stream ID a sorts before b.
+func streamIDLess(a, b string) bool {
+	am, as := parseStreamID(a)
+	bm, bs := parseStreamID(b)
+	if am != bm {
+		return am < bm
+	}
+	return as < bs
 }
 
 // --- Aggregation helpers ---
@@ -616,7 +756,9 @@ func (w *Worker) restoreCheckpoints(ctx context.Context, stream string) {
 		slog.Warn("checkpoint setid", "stream", stream, "err", err)
 		return
 	}
+	w.lastMu.Lock()
 	w.lastIDs[stream] = id
+	w.lastMu.Unlock()
 }
 
 func (w *Worker) persistCheckpoint(ctx context.Context, stream, id string) {
@@ -629,19 +771,33 @@ func (w *Worker) persistCheckpoint(ctx context.Context, stream, id string) {
 	}
 }
 
-// processMessage handles a single message with error handling and dead letter queue
+// processMessage handles a single message with error handling and dead letter
+// queue.
+//
+// Durability contract (ARCH-011): a message whose row is appended to an
+// in-memory ClickHouse batch is NOT ACKed here — XACK is deferred until the
+// batch durably Send()s (see flushEventBatch/flushPaymentBatch). A crash
+// between append and Send therefore redelivers the message via the PEL
+// reclaim path instead of silently dropping the row. Duplicates can occur if
+// a crash lands between Send and XACK; the ClickHouse natural key
+// (event_id for events, order_id for payments) is the dedup point, and the
+// raw tables are plain MergeTree so consumers must treat those keys as
+// unique. A message that is re-queued or dead-lettered is ACKed only after
+// the re-queue / dead-letter XAdd succeeds — otherwise it stays pending.
 func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XMessage) error {
 	data := string(fmtAny(msg.Values["data"]))
 	if data == "" {
 		// Empty data, just acknowledge
-		return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
+		return w.ackImmediate(ctx, stream, msg)
 	}
 
 	var m map[string]any
 	if err := json.Unmarshal([]byte(data), &m); err != nil {
 		// Invalid JSON, move to dead letter
-		w.sendToDeadLetter(ctx, stream, msg, "invalid_json", err.Error())
-		return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
+		if derr := w.sendToDeadLetter(ctx, stream, msg, "invalid_json", err.Error()); derr != nil {
+			return derr // do not ack: reclaim retries the dead-letter
+		}
+		return w.ackImmediate(ctx, stream, msg)
 	}
 
 	// Add retry count if not present
@@ -654,45 +810,50 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 	case w.streamEvents:
 		// Update Redis HLL for minute online, DAU/new_users
 		w.touchAgg(ctx, m)
-		err = w.insertEvent(ctx, m)
+		err = w.insertEvent(ctx, m, msg.ID)
 	case w.streamPayments:
 		w.touchRevenue(ctx, m)
-		err = w.insertPayment(ctx, m)
+		err = w.insertPayment(ctx, m, msg.ID)
 	}
 
 	if err != nil {
 		retries := int(m["retry_count"].(float64))
 		if retries >= maxPendingRetries {
 			// Max retries exceeded, move to dead letter
-			w.sendToDeadLetter(ctx, stream, msg, "max_retries_exceeded", err.Error())
-			return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
+			if derr := w.sendToDeadLetter(ctx, stream, msg, "max_retries_exceeded", err.Error()); derr != nil {
+				return derr // do not ack: reclaim retries the dead-letter
+			}
+			return w.ackImmediate(ctx, stream, msg)
 		}
 		// Increment retry count and re-queue
 		m["retry_count"] = retries + 1
 		retryData, _ := json.Marshal(m)
-		w.rdb.XAdd(ctx, &redis.XAddArgs{
+		if rerr := w.rdb.XAdd(ctx, &redis.XAddArgs{
 			Stream: stream,
 			MaxLen: 1000, // Keep retry queue bounded
 			Approx: true,
 			ID:     "*",
 			Values: map[string]interface{}{"data": string(retryData)},
-		})
+		}).Err(); rerr != nil {
+			// Re-queue failed: do NOT ack. The message stays pending so the
+			// reclaim path retries it; acking here would lose it.
+			slog.Warn("message requeue failed; leaving pending for reclaim", "stream", stream, "id", msg.ID, "retries", retries+1, "err", rerr)
+			return rerr
+		}
 		slog.Warn("message processing failed, re-queued", "stream", stream, "id", msg.ID, "retries", retries+1, "err", err)
+		return w.ackImmediate(ctx, stream, msg)
 	}
 
-	// Acknowledge successful processing
-	if ackErr := w.rdb.XAck(ctx, stream, w.group, msg.ID).Err(); ackErr != nil {
-		slog.Warn("ack failed", "stream", stream, "id", msg.ID, "err", ackErr)
-		return ackErr
-	}
-
-	w.lastIDs[stream] = msg.ID
-	w.persistCheckpoint(ctx, stream, msg.ID)
+	// Success: the row is in an unsent ClickHouse batch. XACK is deferred
+	// until the batch Send()s; do not ack or advance the checkpoint here.
 	return nil
 }
 
-// sendToDeadLetter sends a message to the dead letter stream
-func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.XMessage, reason, details string) {
+// sendToDeadLetter sends a message to the dead letter stream. It returns the
+// XAdd error so the caller can avoid ACKing a message whose dead-letter entry
+// was not enqueued (ARCH-011: unchecked re-queue/dead-letter error would
+// otherwise lose the message).
+func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.XMessage, reason, details string) error {
 	deadStream := w.deadEventsStream
 	if stream == w.streamPayments {
 		deadStream = w.deadPaymentsStream
@@ -716,9 +877,10 @@ func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.
 		Values: deadEntry,
 	}).Err(); err != nil {
 		slog.Error("failed to send to dead letter", "stream", deadStream, "original_id", msg.ID, "err", err)
-	} else {
-		slog.Warn("message sent to dead letter", "stream", deadStream, "original_stream", stream, "original_id", msg.ID, "reason", reason)
+		return err
 	}
+	slog.Warn("message sent to dead letter", "stream", deadStream, "original_stream", stream, "original_id", msg.ID, "reason", reason)
+	return nil
 }
 
 // reclaimPendingMessages periodically reclaims pending messages that have been idle too long
