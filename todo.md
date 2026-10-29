@@ -119,8 +119,9 @@
 - [x] **ARCH-016 · P1 · 实现 · Provider drain 真正摘流**
   - 依赖：—。交付与验收：当前 handleDrain 仅记录并回空 ACK；实现停止新路由、等待在途及超时退出语义，验证 ACK 语义与执行结束条件。✅ 完成：ProviderSession 增加 draining/inflight 原子态（Draining/SetDraining/Inflight/AddInflight）；callProvider 对 draining 会话跳过并返回显式「provider <id> is draining (retry after <N>ms)」（taskId 续接例外——drain 前已接受的 StartTask 仍路由至其 provider，不切断已派工作）；共享 LocalHandler.DrainProviderSession 标记 draining + RemoveProvider（agentlocal 旧地址拨号不再路由）+ 轮询等在途归零或宽限到期（默认 30s，retry_after_ms 覆盖），ACK 仅在该点后返回；handleProviderDrain 空 session_id=节点级 drain-all，undrain 走 reason=="**undrain**" 哨兵（系统 protoc 3.21.12 坏 gencode、无 34.x，未改 proto）；sidecar handleDrain 汇聚同一例程；Server 侧 reg.AgentSession.Draining + SetAgentDraining + UpsertAgent 跨会话刷新保留（心跳/重连不静默解 drain）+ agentCanInvoke 对 draining 节点拒绝新路由；opsNodeDrain/Undrain 同步置/清 registry 门。边界诚实：宽限到期不强制关闭（在途长任务经 ARCH-015 D3 unknown/终态收敛）；undrain 不清 agentlocal 实例表（重注册/心跳后恢复）；wire 协议 en+zh 同步「Implementation status (ARCH-016, 2026-10-30)」节。
   - 状态／条件：DONE（commit 52b14fdc）。
-- [ ] **ARCH-017 · P1 · 实现 · Server 停机收尾顺序**
-  - 依赖：—。交付与验收：控制 listener.Close 等活跃会话时不阻塞后续 HTTP 停机/根取消；保证 ServiceContext.Close 冲刷留痕，设置有界清理并验证 socket/goroutine/池释放。
+- [x] **ARCH-017 · P1 · 实现 · Server 停机收尾顺序**
+  - 依赖：—。交付与验收：控制 listener.Close 等活跃会话时不阻塞后续 HTTP 停机/根取消；保证 ServiceContext.Close 冲刷留痕，设置有界清理并验证 socket/goroutine/池释放。✅ 完成：TCPListener.Close 拆为 StopAccepting（仅停接受循环、不等活跃会话）+ WaitConnections（有界等连接协程、超时返回 ctx.Err）+ ActiveConnections 观测计数，Close 保持全加入语义供测试/夹具；runServer 停机序重排为「停收新连接 → drain 在途 HTTP → rootCancel（解除活跃 agent 会话读阻塞）→ StopScheduler+ControlService.Stop → 有界 WaitConnections → svcCtx.Close 冲刷并关池」——根取消必须先于会话等待，旧序在活跃 Agent 连接下互相等待死锁（新回归用例 TestRunServer_SigintWithActiveControlConn 开连接持住后 SIGINT，旧码必挂、新码 0.6s 走完）；svcCtx.Close 接入停机链（此前零调用方）并扩展为冲刷执行留痕队列 + retention 收尾 + 关 per-game Router/缓存/元库池（closeOnce 幂等）；Manager.Stop 幂等化（二次调用/并发安全，停机显式调用与 defer 兜底共存）；修根因：svcCtx.Close 关池暴露包级 contractTemplateRegen 单例陈旧闭包（捕获 runServer boot 的 DB），停机序列显式置 nil 使迟到调用者 no-op。边界诚实：宽限/预算用尽后不强制杀仍在跑的后台 goroutine（池关后跑完者仅记错误日志）；SSE 长流由进程退出收口。文档：runtime-topology en+zh 同步 ARCH-016/017 段与对照表。
+  - 状态／条件：DONE（commit 7f49a74d）。
   - 状态／条件：READY。
 - [ ] **ARCH-018 · P1 · 故障验证 · 执行中断与停机演练**
   - 依赖：ARCH-015, ARCH-016, ARCH-017, ARCH-026。交付与验收：执行中注入断链、drain、SIGTERM；逐项记录新请求拒绝、终态/未知态、截止时间及资源释放；不把测试 fixture 的游戏副作用结果当真实游戏恢复凭据
