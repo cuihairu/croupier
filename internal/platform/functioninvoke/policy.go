@@ -2,6 +2,7 @@ package functioninvoke
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -81,8 +82,9 @@ func EnforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 	// Get effective policy (for approval/audit settings)
 	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
 	if err != nil {
-		// Log error but don't block invocation if policy check fails
-		return nil, nil
+		// Fail-closed（ARCH-025）：策略存储/查询故障不得静默放行高风险调用，
+		// 否则绕过审批与审计。向上传播，由治理链判定为拒绝（不返回 nil,nil）。
+		return nil, fmt.Errorf("查询函数策略失败（fail-closed）: %w", err)
 	}
 
 	// If no role restriction, allow

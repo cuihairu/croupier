@@ -83,6 +83,46 @@ func NewManager(db *gorm.DB, configPath string) (*Manager, error) {
 	return m, nil
 }
 
+// defaultPolicyConfig returns the built-in default policy configuration used
+// when no config file is present or when config loading is bypassed.
+func defaultPolicyConfig() *DefaultPolicyConfig {
+	return &DefaultPolicyConfig{
+		Low: RiskPolicy{
+			RequireApproval: false,
+			RequireAudit:    false,
+			AllowedRoles:    []string{"user", "operator"},
+		},
+		Medium: RiskPolicy{
+			RequireApproval: false,
+			RequireAudit:    true,
+			AllowedRoles:    []string{"operator"},
+		},
+		High: RiskPolicy{
+			RequireApproval:  true,
+			ApprovalWorkflow: "single_admin",
+			RequireAudit:     true,
+			AllowedRoles:     []string{"admin"},
+		},
+		Danger: RiskPolicy{
+			RequireApproval:  true,
+			ApprovalWorkflow: "two_person",
+			RequireAudit:     true,
+			AllowedRoles:     []string{"super_admin"},
+		},
+	}
+}
+
+// NewManagerWithDefaults creates a policy manager using the built-in defaults,
+// bypassing any config file. It never fails. Used to keep governance enforced
+// when the configured policy file is malformed (ARCH-025: config fault must not
+// silently disable policy enforcement).
+func NewManagerWithDefaults(db *gorm.DB) *Manager {
+	return &Manager{
+		db:     db,
+		config: defaultPolicyConfig(),
+	}
+}
+
 // loadConfig loads the default policy configuration from YAML file.
 func (m *Manager) loadConfig() error {
 	m.mu.Lock()
@@ -106,30 +146,7 @@ func (m *Manager) loadConfig() error {
 
 	if len(configData) == 0 {
 		// Return empty config if file not found (will use hardcoded defaults)
-		m.config = &DefaultPolicyConfig{
-			Low: RiskPolicy{
-				RequireApproval: false,
-				RequireAudit:    false,
-				AllowedRoles:    []string{"user", "operator"},
-			},
-			Medium: RiskPolicy{
-				RequireApproval: false,
-				RequireAudit:    true,
-				AllowedRoles:    []string{"operator"},
-			},
-			High: RiskPolicy{
-				RequireApproval:  true,
-				ApprovalWorkflow: "single_admin",
-				RequireAudit:     true,
-				AllowedRoles:     []string{"admin"},
-			},
-			Danger: RiskPolicy{
-				RequireApproval:  true,
-				ApprovalWorkflow: "two_person",
-				RequireAudit:     true,
-				AllowedRoles:     []string{"super_admin"},
-			},
-		}
+		m.config = defaultPolicyConfig()
 		return nil
 	}
 

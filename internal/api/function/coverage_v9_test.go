@@ -734,10 +734,11 @@ func TestEnforceFunctionPolicy_GetPolicyError_V9(t *testing.T) {
 	f := newInvokeFixture(t)
 	require.NoError(t, f.db.Migrator().DropTable("function_policies"))
 
-	// 策略读取失败不阻断调用：返回 (nil, nil)
+	// ARCH-025：策略读取故障 fail-closed——返回错误而非 (nil, nil) 静默放行。
 	p, err := enforceFunctionPolicy(context.Background(), f.svcCtx, "any.fn", "", "", []string{"admin"})
-	require.NoError(t, err)
+	require.Error(t, err)
 	assert.Nil(t, p)
+	assert.Contains(t, err.Error(), "查询函数策略失败")
 }
 
 func TestEnforceFunctionPolicy_CasbinBranch_V9(t *testing.T) {

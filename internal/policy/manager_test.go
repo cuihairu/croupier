@@ -39,6 +39,25 @@ func TestNewManager(t *testing.T) {
 	assert.Equal(t, true, m.config.Danger.RequireApproval)
 }
 
+// TestNewManagerWithDefaults（ARCH-025）：配置加载失败的回退构造器永不失败，
+// 且 high/danger 仍要求审批——治理不被静默禁用。
+func TestNewManagerWithDefaults(t *testing.T) {
+	m := NewManagerWithDefaults(nil)
+	require.NotNil(t, m)
+
+	high := m.GetDefaultPolicy(RiskHigh)
+	assert.True(t, high.RequireApproval, "high 必须要求审批")
+	assert.Equal(t, "single_admin", high.ApprovalWorkflow)
+
+	danger := m.GetDefaultPolicy(RiskDanger)
+	assert.True(t, danger.RequireApproval, "danger 必须要求审批")
+	assert.Equal(t, "two_person", danger.ApprovalWorkflow)
+
+	medium := m.GetDefaultPolicy(RiskMedium)
+	assert.False(t, medium.RequireApproval)
+	assert.True(t, medium.RequireAudit)
+}
+
 func TestGetDefaultPolicy(t *testing.T) {
 	db := setupTestDB(t)
 	m, err := NewManager(db, "")

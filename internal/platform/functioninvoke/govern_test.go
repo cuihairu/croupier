@@ -308,3 +308,34 @@ func TestGovernInvocability_NoSubjectNoApproval(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, total, "定义期不得创建审批记录")
 }
+
+// ── ARCH-025：策略查询/初始化故障禁止静默放行 ────────────────────────
+// 策略存储故障（GetPolicy SQL 错误）必须 fail-closed 拒绝，绝不返回 nil,nil
+// 绕过审批/审计；且不产生审批记录。
+
+// 全链验证：function_policies 表被删（模拟存储故障）→ Govern 以错误拒绝，
+// 不派发、不建审批。此前 EnforceFunctionPolicy 在此路径返回 nil,nil 放行。
+func TestGovern_PolicyLookupErrorDenies(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "alice", "operator")
+	require.NoError(t, db.Migrator().DropTable(&model.FunctionPolicy{}))
+
+	_, err := Govern(humanCtx("alice"), svcCtx, governReq(), Subject{Kind: SubjectHuman})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "查询函数策略失败")
+
+	_, total, err := svcCtx.ApprovalsStore.List(approvals.Filter{}, approvals.Page{Page: 1, Size: 10})
+	require.NoError(t, err)
+	assert.Zero(t, total, "策略故障不得静默创建审批/放行")
+}
+
+// 单元级：EnforceFunctionPolicy 在 GetPolicy 故障时返回错误而非 nil,nil。
+func TestEnforceFunctionPolicy_GetPolicyErrorDenies(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	require.NoError(t, db.Migrator().DropTable(&model.FunctionPolicy{}))
+
+	fp, err := EnforceFunctionPolicy(context.Background(), svcCtx, "player.cleanup", "test-game", "test-env", []string{"operator"})
+	require.Error(t, err)
+	require.Nil(t, fp, "故障时不得返回空政策让调用方视为无限制放行")
+	assert.Contains(t, err.Error(), "查询函数策略失败")
+}

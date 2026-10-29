@@ -9,6 +9,7 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -18,7 +19,8 @@ func TestNewServiceContext_PolicyAndCacheFallbacks(t *testing.T) {
 	cfg := newSvcConfig(t, false)
 
 	require.NoError(t, os.MkdirAll(cfg.BootstrapData.BaseDir, 0o755))
-	// Broken YAML makes the policy manager fall back to nil.
+	// Broken YAML must not silently disable governance (ARCH-025): the manager
+	// falls back to built-in defaults and policy enforcement stays on.
 	require.NoError(t, os.WriteFile(filepath.Join(cfg.BootstrapData.BaseDir, "default-policies.yaml"),
 		[]byte(":not-a-valid-yaml-map:["), 0o644))
 
@@ -28,7 +30,8 @@ func TestNewServiceContext_PolicyAndCacheFallbacks(t *testing.T) {
 
 	ctx := NewServiceContext(cfg)
 	require.NotNil(t, ctx)
-	assert.Nil(t, ctx.PolicyManager)
+	require.NotNil(t, ctx.PolicyManager, "配置故障不得静默禁用策略治理")
+	assert.True(t, ctx.PolicyManager.GetDefaultPolicy(policy.RiskHigh).RequireApproval)
 	assert.NotNil(t, ctx.Cache)
 	assert.NotNil(t, ctx.Dispatcher)
 }

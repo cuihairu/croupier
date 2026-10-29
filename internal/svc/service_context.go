@@ -415,9 +415,11 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	policyConfigPath := filepath.Join(resolveBootstrapBaseDir(c), "default-policies.yaml")
 	policyManager, err := policymgr.NewManager(db, policyConfigPath)
 	if err != nil {
-		slog.Default().Error("Failed to initialize PolicyManager", "error", err)
-		// Continue without policy manager - system will use defaults
-		policyManager = nil
+		// ARCH-025：配置文件损坏不得静默禁用策略治理。回退到内置默认档位
+		// （high/danger 仍需审批），治理链保持强制；配置故障记录在案。
+		slog.Default().Error("Failed to load policy config; falling back to built-in defaults (governance stays enforced)",
+			"error", err, "configPath", policyConfigPath)
+		policyManager = policymgr.NewManagerWithDefaults(db)
 	} else {
 		slog.Default().Info("PolicyManager initialized", "configPath", policyConfigPath)
 	}
