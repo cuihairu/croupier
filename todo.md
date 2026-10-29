@@ -118,9 +118,9 @@
 - [x] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
   - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。
   - 状态／条件：DONE（2026-10-30 决策收口，docs/design/task-retry-recovery-protocol.md EN+zh 镜像）。D1 同 taskId 重复 Start=幂等 no-op（不启第二 goroutine、不覆盖 cancel 注册；完成清理只删自己的表项，per-taskId 代数守卫）；D2 事件落库后 ACK+有界重试，(task_id,seq) 幂等重放；D3 Agent 重启对账 running→显式 unknown 终态邻近态，非幂等函数禁自动重试；D4 终态单调（含 unknown），cancel_requested 非终态、取消不回退终态；D5 平台 idempotency-key 只去重 task_runs 记录创建，不注入/不推导游戏副作用去重，游戏幂等由游戏自建。驱动 ARCH-015（实现）/ARCH-018（演练）/ARCH-026。
-- [ ] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
+- [x] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
   - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理
-  - 状态／条件：READY；该能力尚未完整实现，并非只缺真实环境验收。
+  - 状态／条件：DONE（2026-10-30，commit 2c8e5c8a + 7e56c181）。D1 同 taskId 重复 Start 幂等 no-op + 每 taskId 代数守卫（`taskSlot.gen`，旧协程清理只删自己的表项、不删同名新任务）；D2 有界指数退避事件投递（`SetEventRetryPolicy`，窗口耗尽以 warning 暴露不静默丢）；D4 `StatusUnknown` 终态入 `IsTerminalStatus`/`TerminalStatuses`（unknown 行受 `UpdateRunIfStatusNotIn` 迟到守卫），`cancel_requested` 非终态、`completed` 不被待取消行拦截（取消不回退终态）；web 状态归一 `unknown→failed`（不显示为 pending）。验证：`go test ./internal/... ./agents/...` 全绿、`go vet` 通过、TaskPageRenderer 65/65、`tsc` 0 错、`dashboard_vnext_guard.sh` PASSED、docs build 通过。已知边界：D3 `running→unknown` 触发需 wire 重启身份（`RegisterRequest` 无重启标识），推迟至 ARCH-018（设计文档 §5 实现状态）；派发前落库失败归 ARCH-026。
 
 - [ ] **ARCH-016 · P1 · 实现 · Provider drain 真正摘流**
   - 依赖：—。交付与验收：当前 handleDrain 仅记录并回空 ACK；实现停止新路由、等待在途及超时退出语义，验证 ACK 语义与执行结束条件。
