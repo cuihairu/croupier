@@ -64,6 +64,39 @@ type Store interface {
 	Update(approval *Approval) (*Approval, error)
 }
 
+// ErrAlreadyReviewed 标记一次「pending → 终态」的 CAS 转换失败：记录已不在
+// pending（被其他操作员批准/拒绝，或本请求重复点击）。携带当前记录，
+// 供调用方映射为 409 approval_already_reviewed，且绝不再触发续跑/副作用。
+// 这是 ARCH-001 D1（原子转换）与 D4（重复请求规则）的存储层契约。
+var ErrAlreadyReviewed = errors.New("approval already reviewed")
+
+type alreadyReviewedError struct {
+	record *Approval
+	err    error
+}
+
+func (e *alreadyReviewedError) Error() string { return e.err.Error() }
+func (e *alreadyReviewedError) Unwrap() error { return e.err }
+
+// AsAlreadyReviewed 从 err 中提取 ErrAlreadyReviewed 携带的当前记录。
+// 返回 (record, true) 表示 err 是「已处理」冲突；否则 (nil, false)。
+func AsAlreadyReviewed(err error) (*Approval, bool) {
+	if err == nil {
+		return nil, false
+	}
+	var ae *alreadyReviewedError
+	if errors.As(err, &ae) {
+		return ae.record, true
+	}
+	return nil, false
+}
+
+func wrapAlreadyReviewed(record *Approval) error {
+	// Unwrap 指向 ErrAlreadyReviewed 哨兵：errors.Is(err, ErrAlreadyReviewed)
+	// 与 AsAlreadyReviewed 都能识别。
+	return &alreadyReviewedError{record: record, err: ErrAlreadyReviewed}
+}
+
 // MemStore is an in-memory approval store for tests/dev.
 type MemStore struct {
 	mu   sync.RWMutex
@@ -133,6 +166,10 @@ func (s *MemStore) Approve(id, operator string) (*Approval, error) {
 	if a == nil {
 		return nil, errors.New("not found")
 	}
+	if a.State != "pending" {
+		// D1：只有 pending → 终态的转换胜出；重复/竞争请求原样返回当前记录。
+		return a, wrapAlreadyReviewed(a)
+	}
 	a.State = "approved"
 	a.Approver = strings.TrimSpace(operator)
 	now := time.Now()
@@ -147,6 +184,9 @@ func (s *MemStore) Reject(id, reason, operator string) (*Approval, error) {
 	a := s.data[id]
 	if a == nil {
 		return nil, errors.New("not found")
+	}
+	if a.State != "pending" {
+		return a, wrapAlreadyReviewed(a)
 	}
 	a.State = "rejected"
 	a.Reason = reason
