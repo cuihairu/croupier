@@ -21,6 +21,22 @@ type HealthzResponse struct {
 	Components    MonitoringComponents `json:"components"`
 }
 
+// ReadinessRequest readiness probe request
+type ReadinessRequest struct{}
+
+// ReadinessResponse is the readiness probe payload (ARCH-004). ready=false
+// maps to HTTP 503. degraded=true means the deployment required cluster
+// (cluster.enabled) but its dependencies (coordination store / interconnect
+// listener / lease) are unavailable AND cluster.allowStandaloneDegradation
+// is explicitly set — the instance keeps serving standalone and the probe
+// reports degraded instead of failing.
+type ReadinessResponse struct {
+	Ready     bool     `json:"ready"`
+	Degraded  bool     `json:"degraded,omitempty"`
+	Reasons   []string `json:"reasons,omitempty"`
+	Timestamp string   `json:"timestamp"`
+}
+
 // MetricsRequest metrics request
 type MetricsRequest struct{}
 

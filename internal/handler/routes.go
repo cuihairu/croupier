@@ -328,6 +328,9 @@ func registerMonitoringPublicRoutes(r *gin.Engine, g *gin.RouterGroup, ctx *svc.
 	monitoringHandler := monitoring.NewHandler(monitoringSvc)
 	r.GET("/healthz", monitoringHandler.Healthz)
 	g.GET("/healthz", monitoringHandler.Healthz)
+	// /readyz 就绪探针（ARCH-004）：依赖不可用回 503（集群要求时不静默降级）。
+	r.GET("/readyz", monitoringHandler.Readiness)
+	g.GET("/readyz", monitoringHandler.Readiness)
 }
 
 func registerMonitoringProtectedRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

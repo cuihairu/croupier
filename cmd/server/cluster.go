@@ -36,6 +36,13 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	if !cfg.Enabled {
 		return nil, nil
 	}
+	// degrade 记录降级原因并返回单实例形态（ARCH-004：集群要求时降级必
+	// 须可被就绪探针观测——/readyz 回 503，绝不静默；显式配置
+	// allowStandaloneDegradation 才允许降级续服）。
+	degrade := func(reason string) (*cluster.Lifecycle, *internaltcp.Server) {
+		svcCtx.ClusterReady = func() (bool, []string) { return false, []string{reason} }
+		return nil, nil
+	}
 	if svcCtx == nil {
 		slog.Warn("cluster: enabled but service context unavailable, running standalone")
 		return nil, nil
@@ -45,7 +52,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	useRedis := strings.EqualFold(strings.TrimSpace(cfg.Store), "redis")
 	if !useRedis && svcCtx.DB == nil {
 		slog.Warn("cluster: enabled but DB unavailable, running standalone")
-		return nil, nil
+		return degrade("cluster: coordination store (db) unavailable")
 	}
 
 	lcCfg, err := cluster.NormalizeConfig(struct {
@@ -67,7 +74,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	// 防御（coverage-exemptions.md cmd-5），实现增加真实校验时须补 standalone 用例。
 	if err != nil {
 		slog.Error("cluster: config invalid, running standalone", "error", err)
-		return nil, nil
+		return degrade(fmt.Sprintf("cluster: config invalid: %v", err))
 	}
 
 	ownerTTL := time.Duration(0)
@@ -83,7 +90,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		rdb, err := openClusterRedis(cfg, c)
 		if err != nil {
 			slog.Error("cluster: redis store unavailable, running standalone", "error", err)
-			return nil, nil
+			return degrade(fmt.Sprintf("cluster: redis store unavailable: %v", err))
 		}
 		// 客户端随集群生命周期存活（member/resolver 长期持有它）；不能
 		// defer Close——那会在本函数返回时立刻关掉协调面（member 续租、
@@ -98,7 +105,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		err = pingErr
 		if err != nil {
 			slog.Error("cluster: redis ping failed, running standalone", "error", err)
-			return nil, nil
+			return degrade(fmt.Sprintf("cluster: redis ping failed: %v", err))
 		}
 		member = cluster.NewRedisMembership(rdb, lcCfg.LeaseTTL)
 		resolver = cluster.NewRedisOwnerResolver(rdb, ownerTTL)
@@ -106,7 +113,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		dbm := cluster.NewDBMembership(svcCtx.DB, lcCfg.LeaseTTL)
 		if err := dbm.EnsureTable(ctx); err != nil {
 			slog.Error("cluster: ensure membership table failed, running standalone", "error", err)
-			return nil, nil
+			return degrade(fmt.Sprintf("cluster: membership table unavailable: %v", err))
 		}
 		member = dbm
 		dbr := cluster.NewDBOwnerResolver(svcCtx.DB, ownerTTL)
@@ -114,7 +121,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		// 成员表 + mode=ro 重开」构造（cluster_ddl_wings_test.go）。
 		if err := dbr.EnsureTable(ctx); err != nil {
 			slog.Error("cluster: ensure owner table failed, running standalone", "error", err)
-			return nil, nil
+			return degrade(fmt.Sprintf("cluster: owner table unavailable: %v", err))
 		}
 		resolver = dbr
 	}
@@ -136,7 +143,8 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 
 	lifecycle := cluster.Start(ctx, lcCfg, member, resolver, cluster.NewTCPDialer(icCfg))
 	if lifecycle == nil {
-		return nil, nil
+		slog.Error("cluster: member registration failed, running standalone")
+		return degrade("cluster: member registration failed (coordination store unreachable)")
 	}
 
 	// 归属 reconcile 兜底：本实例持有的 agent，只要本地 registry 会话
@@ -215,6 +223,12 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	srv, err := internaltcp.NewServer(icCfg, handler)
 	if err != nil {
 		slog.Error("cluster: interconnect listen failed (mesh dial-out still active)", "addr", icAddr, "error", err)
+		svcCtx.ClusterReady = func() (bool, []string) {
+			if lerr := lifecycle.Healthy(); lerr != nil {
+				return false, []string{lerr.Error()}
+			}
+			return false, []string{fmt.Sprintf("cluster: interconnect listener unavailable: %v", err)}
+		}
 		return lifecycle, nil
 	}
 	go func() {
@@ -223,6 +237,12 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		}
 	}()
 	slog.Info("cluster: interconnect listening", "addr", icAddr)
+	svcCtx.ClusterReady = func() (bool, []string) {
+		if lerr := lifecycle.Healthy(); lerr != nil {
+			return false, []string{lerr.Error()}
+		}
+		return true, nil
+	}
 	return lifecycle, srv
 }
 

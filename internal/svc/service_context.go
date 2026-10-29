@@ -157,7 +157,11 @@ type ServiceContext struct {
 	// 报错、内联值直通（存量部署零行为变化）。
 	Secrets vault.Resolver
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
-	Cluster                  *ClusterRuntime
+	Cluster *ClusterRuntime
+	// ClusterReady 是集群就绪探针（ARCH-004）：cluster.enabled 时恒非 nil
+	// （含注册失败/协调库不可用的降级态——降级也要报告不就绪），未启用时
+	// nil。ready=false 时 reasons 列出不可用原因（就绪端点回 503）。
+	ClusterReady             func() (ready bool, reasons []string)
 	CertificateModel         *model.CertificateModel
 	ConfigVersionModel       *model.ConfigVersionModel
 	ConfigSourceBindingModel *model.ConfigSourceBindingModel

@@ -2,15 +2,17 @@ package monitoring
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 
-// serviceAPI 是 Handler 对 Service 的最小接口缝隙：Service 三个方法恒返回
+// serviceAPI 是 Handler 对 Service 的最小接口缝隙：Service 方法恒返回
 // nil error，err != nil 分支仅在测试注入故障实现时可触达。
 type serviceAPI interface {
 	Healthz(ctx context.Context, req *HealthzRequest) (*HealthzResponse, error)
+	Readiness(ctx context.Context, req *ReadinessRequest) (*ReadinessResponse, error)
 	Metrics(ctx context.Context, req *MetricsRequest) (*MetricsResponse, error)
 	Status(ctx context.Context, req *StatusRequest) (*StatusResponse, error)
 }
@@ -32,6 +34,26 @@ func (h *Handler) Healthz(c *gin.Context) {
 		return
 	}
 	response.Success(c, resp)
+}
+
+// Readiness handles the readiness probe endpoint: 200 ready（degraded 仍
+// 200 且带 degraded=true）、503 not-ready。就绪探针按响应契约豁免走最小
+// 载荷直写（CLAUDE.md API Response Contract §4），不经统一信封。
+func (h *Handler) Readiness(c *gin.Context) {
+	var req ReadinessRequest
+	resp, err := h.service.Readiness(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"ready":   false,
+			"reasons": []string{err.Error()},
+		})
+		return
+	}
+	if !resp.Ready {
+		c.JSON(http.StatusServiceUnavailable, resp)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // Metrics handles system metrics endpoint

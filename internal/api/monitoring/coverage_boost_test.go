@@ -180,6 +180,10 @@ func (f failingMonitoringService) Healthz(_ context.Context, _ *HealthzRequest) 
 	return nil, f.err
 }
 
+func (f failingMonitoringService) Readiness(_ context.Context, _ *ReadinessRequest) (*ReadinessResponse, error) {
+	return nil, f.err
+}
+
 func (f failingMonitoringService) Metrics(_ context.Context, _ *MetricsRequest) (*MetricsResponse, error) {
 	return nil, f.err
 }
@@ -196,7 +200,10 @@ func TestHandler_ServiceErrorBranches(t *testing.T) {
 	r.GET("/healthz", h.Healthz)
 	r.GET("/metrics", h.Metrics)
 	r.GET("/status", h.Status)
+	r.GET("/readyz", h.Readiness)
 
+	// /healthz|/metrics|/status 走统一信封错误（500 internal_error）；
+	// /readyz 是就绪探针，按契约走最小载荷 503 直写。
 	for _, path := range []string{"/healthz", "/metrics", "/status"} {
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
@@ -205,6 +212,11 @@ func TestHandler_ServiceErrorBranches(t *testing.T) {
 		assert.Contains(t, body, "internal_error", "path %s", path)
 		assert.Contains(t, body, assert.AnError.Error(), "path %s", path)
 	}
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Contains(t, rec.Body.String(), "false")
+	assert.Contains(t, rec.Body.String(), assert.AnError.Error())
 }
 
 // checkDatabaseHealth 的 latencyMs 恒为 int64（time.Duration.Milliseconds），

@@ -2,7 +2,9 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +18,13 @@ type Lifecycle struct {
 	stopCh chan struct{}
 	doneCh chan struct{}
 	epoch  uint64
+
+	// 租约健康跟踪（ARCH-004 就绪探针）：注册成功后置健康，续租失败/超
+	// TTL 未续即报告不健康。mu 护三个字段（loop 协程写、探针读）。
+	mu           sync.Mutex
+	lastRenewOK  bool
+	lastRenewErr error
+	lastRenewAt  time.Time
 }
 
 // Config 是 Lifecycle 的运行参数（由 config.ClusterConfig 归一化）。
@@ -88,12 +97,14 @@ func Start(ctx context.Context, cfg Config, member Membership, resolver OwnerSto
 	mesh.SetEpoch(epoch)
 
 	lc := &Lifecycle{
-		cfg:    cfg,
-		member: member,
-		mesh:   mesh,
-		stopCh: make(chan struct{}),
-		doneCh: make(chan struct{}),
-		epoch:  epoch,
+		cfg:         cfg,
+		member:      member,
+		mesh:        mesh,
+		stopCh:      make(chan struct{}),
+		doneCh:      make(chan struct{}),
+		epoch:       epoch,
+		lastRenewOK: true, // 刚 Register 成功，租约视为有效直至首个续租失败
+		lastRenewAt: time.Now().UTC(),
 	}
 	go lc.loop()
 	slog.Info("cluster: joined", "instanceId", cfg.InstanceID,
@@ -106,6 +117,27 @@ func (lc *Lifecycle) Mesh() *MeshInterconnect { return lc.mesh }
 
 // Epoch 返回本实例任期号。
 func (lc *Lifecycle) Epoch() uint64 { return lc.epoch }
+
+// Healthy 报告集群依赖健康（ARCH-004 就绪探针）：已注册且租约续期未失败
+// 未超 TTL。返回 nil 表示健康，否则为原因。nil 接收者视为「未要求集群」
+// （单实例），恒健康。
+func (lc *Lifecycle) Healthy() error {
+	if lc == nil {
+		return nil
+	}
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+	if !lc.lastRenewOK {
+		if lc.lastRenewErr != nil {
+			return fmt.Errorf("cluster: lease renew failing: %w", lc.lastRenewErr)
+		}
+		return fmt.Errorf("cluster: lease not yet renewed")
+	}
+	if age := time.Since(lc.lastRenewAt); age > lc.cfg.LeaseTTL {
+		return fmt.Errorf("cluster: lease expired (%s since last renew, TTL %s)", age, lc.cfg.LeaseTTL)
+	}
+	return nil
+}
 
 func (lc *Lifecycle) loop() {
 	defer close(lc.doneCh)
@@ -120,6 +152,16 @@ func (lc *Lifecycle) loop() {
 		case <-heartbeat.C:
 			if err := lc.member.Renew(context.Background(), lc.cfg.InstanceID); err != nil {
 				slog.Warn("cluster: renew failed", "error", err)
+				lc.mu.Lock()
+				lc.lastRenewOK = false
+				lc.lastRenewErr = err
+				lc.mu.Unlock()
+			} else {
+				lc.mu.Lock()
+				lc.lastRenewOK = true
+				lc.lastRenewErr = nil
+				lc.lastRenewAt = time.Now().UTC()
+				lc.mu.Unlock()
 			}
 		case <-poll.C:
 			lc.mesh.RefreshPeers(context.Background())

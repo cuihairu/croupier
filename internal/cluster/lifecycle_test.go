@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -119,4 +120,51 @@ func (m *lifecycleMemMembership) ListAlive(ctx context.Context) ([]PeerInfo, err
 }
 func (m *lifecycleMemMembership) Resign(ctx context.Context, instanceID string) error {
 	return nil
+}
+
+// TestLifecycleHealthy_StateTransitions covers ARCH-004 readiness: lease
+// renew failures and TTL expiry must surface as not-healthy with a reason;
+// nil receiver (cluster not required) stays healthy.
+func TestLifecycleHealthy_StateTransitions(t *testing.T) {
+	lc := &Lifecycle{cfg: Config{LeaseTTL: time.Minute}}
+	// 注册尚未完成（lastRenewOK 零值）：不健康，无具体错误
+	err := lc.Healthy()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not yet renewed")
+
+	// 注册成功：健康
+	lc.mu.Lock()
+	lc.lastRenewOK = true
+	lc.lastRenewAt = time.Now().UTC()
+	lc.mu.Unlock()
+	require.NoError(t, lc.Healthy())
+
+	// 续租失败：不健康，原因带 renew failing
+	lc.mu.Lock()
+	lc.lastRenewOK = false
+	lc.lastRenewErr = fmt.Errorf("redis: connection refused")
+	lc.mu.Unlock()
+	err = lc.Healthy()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "renew failing")
+
+	// 续租恢复：健康
+	lc.mu.Lock()
+	lc.lastRenewOK = true
+	lc.lastRenewErr = nil
+	lc.lastRenewAt = time.Now().UTC()
+	lc.mu.Unlock()
+	require.NoError(t, lc.Healthy())
+
+	// 租约超 TTL 未续：不健康，原因带 expired
+	lc.mu.Lock()
+	lc.lastRenewAt = time.Now().UTC().Add(-2 * time.Minute)
+	lc.mu.Unlock()
+	err = lc.Healthy()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expired")
+
+	// nil 接收者 = 集群未要求（单实例）：恒健康
+	var nilLC *Lifecycle
+	require.NoError(t, nilLC.Healthy())
 }

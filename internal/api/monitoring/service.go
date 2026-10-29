@@ -37,6 +37,41 @@ func (s *Service) Healthz(ctx context.Context, req *HealthzRequest) (*HealthzRes
 	}, nil
 }
 
+// Readiness reports whether the instance can serve traffic now (ARCH-004).
+// Liveness (Healthz) is process-oriented; readiness is dependency-oriented:
+// meta DB reachable, and — when cluster is required by config
+// (cluster.enabled) — coordination store / interconnect listener / lease all
+// healthy. Cluster-required deployments report not-ready instead of silently
+// degrading to standalone; only explicit cluster.allowStandaloneDegradation
+// downgrades the failure to degraded=true.
+func (s *Service) Readiness(ctx context.Context, req *ReadinessRequest) (*ReadinessResponse, error) {
+	reasons := make([]string, 0, 2)
+	dbStatus := checkDatabaseHealth(ctx, s.svcCtx)
+	if !componentHealthy(dbStatus) {
+		if errText, ok := dbStatus["error"].(string); ok && errText != "" {
+			reasons = append(reasons, "database: "+errText)
+		} else {
+			reasons = append(reasons, "database: unavailable")
+		}
+	}
+	degraded := false
+	if s.svcCtx != nil && s.svcCtx.ClusterReady != nil {
+		clusterReady, clusterReasons := s.svcCtx.ClusterReady()
+		if !clusterReady {
+			if s.svcCtx.Config.Cluster.AllowStandaloneDegradation {
+				degraded = true
+			} else {
+				reasons = append(reasons, clusterReasons...)
+			}
+		}
+	}
+	ts := utils.FormatTimestamp(time.Now())
+	if len(reasons) > 0 {
+		return &ReadinessResponse{Ready: false, Reasons: reasons, Timestamp: ts}, nil
+	}
+	return &ReadinessResponse{Ready: true, Degraded: degraded, Timestamp: ts}, nil
+}
+
 // Metrics returns system metrics
 func (s *Service) Metrics(ctx context.Context, req *MetricsRequest) (*MetricsResponse, error) {
 	dbStatus := checkDatabaseHealth(ctx, s.svcCtx)

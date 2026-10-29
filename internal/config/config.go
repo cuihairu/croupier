@@ -560,6 +560,11 @@ type ClusterConfig struct {
 	// Store 协调面存储：db（默认，共享关系库）| redis。
 	// 单实例部署不启用集群（enabled: false）时无协调面。
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
+	// AllowStandaloneDegradation 显式允许集群依赖（协调库/互联监听/租约）
+	// 不可用时降级为单实例继续服务。默认 false：enabled=true 即要求集群，
+	// 依赖不可用必须经就绪探针报告 not-ready（503），绝不静默降级——
+	// 只有显式置 true 才允许降级（就绪报告 degraded=true 而非 503）。
+	AllowStandaloneDegradation bool `json:"allowStandaloneDegradation,omitempty" yaml:"allowStandaloneDegradation,omitempty"`
 	// RedisAddr 仅 store: redis 时生效；空则回退 cache 段的 redis 配置。
 	RedisAddr     string `json:"redisAddr,omitempty" yaml:"redisAddr,omitempty"`
 	RedisPassword string `json:"redisPassword,omitempty" yaml:"redisPassword,omitempty"`
