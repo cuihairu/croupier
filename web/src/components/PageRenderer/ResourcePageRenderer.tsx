@@ -34,6 +34,7 @@ import {
   isStaleSelection,
   rowIdentity,
   selectionFilterFingerprint,
+  summarizePerTargetTotal,
   summarizeTargets,
 } from './batchSelection';
 import { humanizeParamKey, type ConfirmEntry } from './confirmContent';
@@ -218,7 +219,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 带表单的行操作（如封禁/充值）：identity 由行注入，其余字段弹表单
   const [actionFormState, setActionFormState] = useState<{
     action: ActionSpec;
-    record: FormValues;
+    record?: FormValues;
+    selection?: FormValues[];
   } | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
@@ -529,7 +531,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     async (values: FormValues) => {
       const intl = intlRef.current;
       if (!actionFormState) return false;
-      const { action, record } = actionFormState;
+      const { action, record, selection } = actionFormState;
       const binding = bindings.find((item) => item.id === action.bindingId);
       if (!binding) {
         message.error(
@@ -549,8 +551,79 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
         return false;
       }
+      // D2 跨目标总量：批量表单中显式声明 perTarget 的数字字段，按已选
+      // 目标数换算总量并再次确认；不确定输入阻断而不是猜总量。
+      const perTargetField = action.form?.fields?.find((field) => field.perTarget);
+      if (selection && perTargetField) {
+        const perTargetValue = values[perTargetField.key];
+        const total = summarizePerTargetTotal(
+          perTargetValue as number | string | undefined | null,
+          selection.length,
+        );
+        if (total === undefined) {
+          message.error(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.invalidPerTarget',
+              defaultMessage: '每人数量必须是不小于 0 的整数',
+            }),
+          );
+          return false;
+        }
+        const unit = perTargetField.unit ? localizedText(perTargetField.unit, 'zh-CN', '') : '';
+        const confirmed = await new Promise<boolean>((resolve) => {
+          modal.confirm({
+            title: intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.totalTitle',
+              defaultMessage: '核对跨目标总量',
+            }),
+            content: (
+              <Descriptions size="small" column={1} bordered>
+                <Descriptions.Item
+                  label={localizedText(
+                    perTargetField.label ?? {
+                      'zh-CN': '每人数量',
+                      'en-US': 'Per-target quantity',
+                    },
+                    'zh-CN',
+                    intl.formatMessage({
+                      id: 'component.resourceRenderer.confirm.perQuantity',
+                      defaultMessage: '每人数量',
+                    }),
+                  )}
+                >
+                  {String(perTargetValue)}
+                  {unit ? ` ${unit}` : ''}
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label={intl.formatMessage({
+                    id: 'component.resourceRenderer.confirm.targetCount',
+                    defaultMessage: '目标数量',
+                  })}
+                >
+                  {selection.length}
+                </Descriptions.Item>
+                <Descriptions.Item
+                  label={intl.formatMessage({
+                    id: 'component.resourceRenderer.confirm.totalAmount',
+                    defaultMessage: '总量',
+                  })}
+                >
+                  {total}
+                  {unit ? ` ${unit}` : ''}
+                </Descriptions.Item>
+              </Descriptions>
+            ),
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+        if (!confirmed) return false;
+      }
       try {
-        await onExecute(binding.id, { form: values, row: record });
+        await onExecute(
+          binding.id,
+          selection ? { form: values, selection } : { form: values, row: record },
+        );
         message.success(
           intl.formatMessage({
             id: 'component.resourceRenderer.action.success',
@@ -574,7 +647,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [actionFormState, bindings, message, onExecute, preview, trackSelectedRows],
+    [actionFormState, bindings, message, modal, onExecute, preview, trackSelectedRows],
   );
 
   const submitCreateForm = useCallback(async (): Promise<boolean> => {
@@ -1168,7 +1241,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                       danger={action.type === 'danger'}
                       type={action.type === 'primary' ? 'primary' : 'default'}
                       disabled={preview}
-                      onClick={() => void executeListAction(action, { selection: selectedRows })}
+                      onClick={() => {
+                        // D2 跨目标总量：带 perTarget 表单的批量操作先弹表单，
+                        // 提交时按已选目标数核算总量并确认后执行。
+                        if (action.form) {
+                          setActionFormState({ action, selection: selectedRows });
+                          return;
+                        }
+                        void executeListAction(action, { selection: selectedRows });
+                      }}
                     >
                       {localizedText(action.title, 'zh-CN', action.key)}
                     </Button>

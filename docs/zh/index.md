@@ -27,8 +27,8 @@ features:
     title: 双层政策架构
     details: YAML 默认政策与数据库覆盖策略结合，支持低/中/高/危险四级风险控制。
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9.5 14.5H7a2.5 2.5 0 0 1 0-5h2.5"/><path d="M14.5 9.5H17a2.5 2.5 0 0 1 0 5h-2.5"/><path d="M8.5 12h7"/><circle cx="12" cy="12" r="9" stroke-dasharray="2.5 3.5"/></svg>'
-    title: 完整的审计链
-    details: 所有操作记录审计日志，高风险操作需要双人审批，支持哈希链防篡改。
+    title: 审批与审计
+    details: 按执行路径与政策记录审计，支持审批和哈希链校验；持久化及完整性保证以当前架构说明为准。
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M4 20V11"/><path d="M9.5 20V5"/><path d="M15 20v-6"/><path d="M20.5 20V8"/><path d="m3.5 8.5 5-4 5 4.5 6-5.5"/></svg>'
     title: 数据分析链路
     details: ingest、worker、Redis Streams 与 ClickHouse 组成独立分析链路，文档单独归入 Analytics 入口。
@@ -37,87 +37,19 @@ footer: Apache-2.0 License | Copyright © 2024-present Croupier
 
 ## 什么是 Croupier
 
-Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
-
-- `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
-- `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
-- 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
+Croupier 是面向单公司多游戏、多环境的运营控制面：Server 负责治理、契约、页面与路由；sidecar 接入游戏 SDK，capture、synthetics 和 devops 按角色扩展采集、探测与运维能力。分析事件通过独立管道处理。
 
 <HomeCarousel />
 
-## 系统架构
+## 当前系统架构
 
-入口按受众分为**两个独立的面**，不要合并成一个「负载均衡层」：
+Web 经 HTTP/SSE 访问 Server；Agent 主动建立上行 TCP session，SDK 连接 sidecar 本地网关。多实例部署通过 owner 转发访问实际持有连接的 Server。图中区分了进程边界、存储和可选部署组件。
 
-- **Web 控制台面**（面向运营/管理员，公网或办公网）：L7 `dashboard nginx`，
-  按请求分流 HTTP API / SSE 到 Server 的 `:18780`
-- **Agent 面**（内网，面向游戏 VPC 出站连接）：L4 `haproxy`（`:19090`），
-  按 TCP 长连接打散到 Server 的 control listener；连接语义是「断线重连即漂移」，
-  与 HTTP 的按请求分流完全不同
+<ArchitectureDiagram lang="zh" />
 
-```mermaid
-graph TB
-  subgraph "展示层"
-    UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
-  end
+[阅读当前架构、状态归属与已知边界 →](/zh/architecture/)
 
-  subgraph "入口 · Web 控制台面（L7，按请求分流）"
-    NGINX[dashboard nginx<br/>HTTP API / SSE → :18780]
-  end
-
-  subgraph "入口 · Agent 面（L4，内网，按连接打散）"
-    HAPROXY[haproxy :19090<br/>TCP 长连接 / 主动健康检查]
-  end
-
-  subgraph "控制层（可多实例 HA）"
-    ServerA["Server A<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
-    ServerB["Server B<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
-    ServerA <-.->|实例互联<br/>转发 + fencing| ServerB
-  end
-
-  subgraph "共享状态"
-    Shared[(共享目录<br/>成员表 / 注册表 / DB / Redis)]
-  end
-
-  subgraph "代理层（游戏 VPC，只出不进）"
-    Agent1[Agent 1<br/>Session Client + Local Gateway]
-    Agent2[Agent 2<br/>Session Client + Local Gateway]
-  end
-
-  subgraph "业务层"
-    GS1[Game Server A<br/>SDK / Third-party App]
-    GS2[Game Server B<br/>SDK / Third-party App]
-    GS3[Game Server C<br/>SDK / Third-party App]
-  end
-
-  UI -->|HTTPS · REST / SSE| NGINX
-  NGINX --> ServerA
-  NGINX --> ServerB
-  Agent1 -->|TCP Session + TLS| HAPROXY
-  Agent2 -->|TCP Session + TLS| HAPROXY
-  HAPROXY --> ServerA
-  HAPROXY --> ServerB
-  ServerA --- Shared
-  ServerB --- Shared
-  GS1 -->|TCP Session| Agent1
-  GS2 -->|TCP Session| Agent2
-  GS3 -->|TCP Session| Agent1
-```
-
-> 两个入口面互不共享：Web 面的 nginx 不碰 Agent 流量，Agent 面的 haproxy
-> 不碰 HTTP。L4/L7 选型与 VRRP 消除 LB 单点的论证见
-> 负载均衡。
-
-> Server 支持多实例高可用部署（`cluster.enabled`）：成员发现走共享存储（无
-> seed、无静态 peers），请求落到非 owner 实例时经实例互联转发（一跳限制 +
-> epoch fencing）。单实例部署默认关闭集群，零开销。详见
-> Server 多实例高可用设计。
-
-关键边界说明：
-
-- `Server` 不再依赖反向直连 `Agent` 暴露的 `rpc_addr`
-- `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`
-- `Server -> Agent` 的 `Invoke / StartTask / CancelTask / Ops` 都应复用既有 `Agent-Server` session
+> TLS 按配置启用，开发模板未开启。当前集群互联依赖可信网络隔离；审批的生产装配仍是内存存储。多实例路由能力不代表所有业务状态都已实现高可用。
 
 ## 核心能力
 
@@ -140,7 +72,7 @@ graph TB
 
 ### 可观测性
 
-所有操作写审计日志，记录之间用哈希链关联，改一条就断链，事后能查出来。密码、token 等敏感字段在日志与响应里自动脱敏。
+审计按执行路径与政策记录，哈希链校验参与摘要的字段；它不等于不可篡改存储，也不覆盖每一条操作。执行留痕、遥测与审计各有用途，敏感字段按对应脱敏规则处理。
 
 ### 运维工具
 

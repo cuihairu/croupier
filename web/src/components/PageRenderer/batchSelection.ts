@@ -61,3 +61,24 @@ export function summarizeTargets(
     omitted: Math.max(0, identities.length - limit),
   };
 }
+
+/** D2 跨目标总量：perTarget 数量/金额 × 已选目标数。
+ * perTarget 只接受非负整数（数字或纯数字字符串），目标数必须为正整数；
+ * 任一不确定输入返回 undefined，不猜 0、不执行。 */
+export function summarizePerTargetTotal(
+  perTargetValue: number | string | undefined | null,
+  targetCount: number,
+): number | undefined {
+  const perTarget =
+    typeof perTargetValue === 'string' ? Number(perTargetValue.trim()) : perTargetValue;
+  if (
+    typeof perTarget !== 'number' ||
+    !Number.isFinite(perTarget) ||
+    !Number.isInteger(perTarget) ||
+    perTarget < 0
+  ) {
+    return undefined;
+  }
+  if (!Number.isInteger(targetCount) || targetCount <= 0) return undefined;
+  return perTarget * targetCount;
+}

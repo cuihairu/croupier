@@ -1087,7 +1087,7 @@ describe('渲染细节', () => {
 
 describe('executor_unbound 结构化空态', () => {
   // umi request 对 409 抛 ResponseError（.data 即响应体）；本地以带 data 的
-  // Error 模拟同构错误对象（extractApiErrorCode 只读 err.data.error）
+  // Error 模拟同构错误对象（extractApiErrorCode 从 err.data.error 取码）
   const unboundErr = () =>
     Object.assign(new Error('executor unbound'), { data: { error: 'executor_unbound' } });
 

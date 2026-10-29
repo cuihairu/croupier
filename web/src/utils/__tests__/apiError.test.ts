@@ -13,6 +13,21 @@ describe('extractApiErrorCode', () => {
     );
   });
 
+  it('response.data.error（封装路径）同样提取', () => {
+    expect(extractApiErrorCode({ response: { data: { error: 'scope_not_authorized' } } })).toBe(
+      'scope_not_authorized',
+    );
+  });
+
+  it('data 优先于 response.data', () => {
+    expect(
+      extractApiErrorCode({
+        data: { error: 'from_data' },
+        response: { data: { error: 'from_response' } },
+      }),
+    ).toBe('from_data');
+  });
+
   it('data.error 为空串/非字符串时返回空串', () => {
     expect(extractApiErrorCode({ data: { error: '' } })).toBe('');
     expect(extractApiErrorCode({ data: { error: 409 } })).toBe('');

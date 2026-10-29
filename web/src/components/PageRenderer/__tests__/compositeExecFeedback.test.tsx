@@ -121,6 +121,14 @@ describe('D4 失败反馈构造', () => {
       expect(f.fieldErrors).toEqual([]);
     }
   });
+
+  it('无效 scope 经 response.data（封装路径）：稳定码与原因行同样可达', () => {
+    const f = describeExecFailure({
+      response: { data: { error: 'scope_not_authorized', message: '当前游戏环境无效' } },
+    });
+    expect(f.code).toBe('scope_not_authorized');
+    expect(f.reason).toBe('当前选择的游戏环境无效，请重新选择');
+  });
 });
 
 describe('D4 结果分类', () => {

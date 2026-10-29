@@ -113,3 +113,36 @@ func TestGameOpsStoreSelectionUpdateVisibleWR(t *testing.T) {
 		t.Fatal("20001 should now be banned (write visible to read)")
 	}
 }
+
+func TestGameOpsStoreBatchRecharge(t *testing.T) {
+	s := newGameOpsStore()
+	before1 := s.playerByIDLocked("20001").BalanceGold
+	before3 := s.playerByIDLocked("20003").BalanceGold
+	raw, err := s.playerBatchRecharge(contextTODO(), []byte(`{"playerIds":["20001","20003"],"amount":100}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["count"].(float64) != 2 {
+		t.Fatalf("batch count = %v", result["count"])
+	}
+	if result["amount"].(float64) != 100 {
+		t.Fatalf("amount = %v", result["amount"])
+	}
+	if result["total"].(float64) != 200 {
+		t.Fatalf("total = %v", result["total"])
+	}
+	if got := s.playerByIDLocked("20001").BalanceGold; got != before1+100 {
+		t.Fatalf("player 20001 balance = %d, want %d", got, before1+100)
+	}
+	if got := s.playerByIDLocked("20003").BalanceGold; got != before3+100 {
+		t.Fatalf("player 20003 balance = %d, want %d", got, before3+100)
+	}
+	// 负数金额拒绝
+	if _, err := s.playerBatchRecharge(contextTODO(), []byte(`{"playerIds":["20001"],"amount":-1}`)); err == nil {
+		t.Fatal("negative amount should be rejected")
+	}
+}
