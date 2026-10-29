@@ -15,7 +15,7 @@ import type { JSONValue } from '@/types/dashboard';
 
 const POLL_INTERVAL_MS = 2000;
 
-const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
+const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'timed_out', 'unknown']);
 
 /** 双字段模式：Map 的 key 是任务状态枚举契约，label 文案随 locale 解析 */
 const STATUS_META: Record<string, { id: string; defaultMessage: string; color: string }> = {
@@ -58,6 +58,12 @@ const STATUS_META: Record<string, { id: string; defaultMessage: string; color: s
     id: 'pages.functionsInvoke.taskPanel.status.timedOut',
     defaultMessage: '已超时',
     color: 'error',
+  },
+  // ARCH-014 D3：agent 会话丢失后任务收敛到 unknown——执行结果未确立。
+  unknown: {
+    id: 'pages.functionsInvoke.taskPanel.status.unknown',
+    defaultMessage: '结果未知',
+    color: 'warning',
   },
 };
 

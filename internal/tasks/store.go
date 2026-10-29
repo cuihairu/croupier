@@ -59,6 +59,15 @@ func (s *Store) AppendEvent(ctx context.Context, taskID string, eventType EventT
 	})
 }
 
+// ReapAgentNonTerminal transitions the given agent's still-active task_runs
+// rows to the target status (ARCH-014 D3: agent session loss → unknown).
+// Active means non-terminal and not already unknown (ReapableStatuses);
+// terminal and unknown rows are left untouched. Returns the number of rows
+// updated.
+func (s *Store) ReapAgentNonTerminal(ctx context.Context, agentID, status, message string) (int64, error) {
+	return s.runs.ReapByAgent(ctx, agentID, ReapableStatuses(), status, message)
+}
+
 func (s *Store) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]model.TaskEvent, error) {
 	return s.events.ListByTaskID(ctx, taskID, afterSeq)
 }

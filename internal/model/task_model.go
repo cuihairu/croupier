@@ -79,6 +79,33 @@ func (m *TaskRunModel) UpdateByTaskIDIfStatusNotIn(ctx context.Context, taskID s
 	return result.RowsAffected > 0, nil
 }
 
+// ReapByAgent transitions the given agent's task_runs rows that are still in
+// one of the supplied active statuses to the target status (ARCH-014 D3: agent
+// session loss → unknown). Rows already terminal or already unknown are left
+// untouched. Returns the number of rows updated.
+func (m *TaskRunModel) ReapByAgent(ctx context.Context, agentID string, activeStatuses []string, targetStatus, message string) (int64, error) {
+	if strings.TrimSpace(agentID) == "" {
+		return 0, errors.New("agent id required")
+	}
+	if len(activeStatuses) == 0 {
+		return 0, nil
+	}
+	now := time.Now()
+	result := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&TaskRun{}).
+		Where("agent_id = ?", agentID).
+		Where("status IN ?", activeStatuses).
+		Updates(map[string]interface{}{
+			"status":      targetStatus,
+			"message":     message,
+			"finished_at": &now,
+		})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return result.RowsAffected, nil
+}
+
 func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskRun, int64, error) {
 	opts.Normalize()
 

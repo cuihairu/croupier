@@ -33,8 +33,10 @@ export interface OperationStageInput {
   /** 执行阶段失败（任务失败/取消）——提交已成功、终态停在执行阶段 error */
   executeError?: boolean;
   /** 任务路径的查询后状态：completed 落执行阶段 finish，failed/cancelled 落执行阶段 error，
+   *  unknown（D3 软终态：agent 会话丢失、结果未知）按未决 wait 呈现——非完成、非失败、
+   *  也非进行中，真实语义由结果卡任务状态标签（warning「结果未知」）承载。
    *  未查询/进行中保持 process。仅任务路径有意义。 */
-  taskStatus?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | null;
+  taskStatus?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown' | null;
 }
 
 /** 派生阶段序列。
@@ -94,6 +96,11 @@ export function describeOperationStages(input: OperationStageInput): OperationSt
     }
     if (input.taskStatus === 'failed' || input.taskStatus === 'cancelled') {
       return [submit, { key: 'execute', status: 'error' }];
+    }
+    // D3 软终态 unknown（结果未知）：非完成、非失败（同「unknown ≠ failed」原则）、
+    // 也非进行中，按未决 wait 呈现，语义由结果卡任务状态标签承载。
+    if (input.taskStatus === 'unknown') {
+      return [submit, { key: 'execute', status: 'wait' }];
     }
     return [submit, { key: 'execute', status: 'process' }];
   }

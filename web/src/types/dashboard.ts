@@ -110,7 +110,8 @@ export type PageExecuteFn = (
 /** 任务状态查询结果 */
 export interface TaskStatusResult {
   taskId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  // ARCH-014 D3：unknown = agent 会话丢失后结果未确立（软终态，非失败）。
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown';
   progress?: number;
   message?: string;
   result?: JSONValue;

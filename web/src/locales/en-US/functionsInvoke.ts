@@ -113,6 +113,7 @@ export default {
   'pages.functionsInvoke.taskPanel.status.running': 'Running',
   'pages.functionsInvoke.taskPanel.status.succeeded': 'Completed',
   'pages.functionsInvoke.taskPanel.status.timedOut': 'Timed out',
+  'pages.functionsInvoke.taskPanel.status.unknown': 'Result unknown',
   'pages.functionsInvoke.validation.hashKey': 'Hash routing requires a hash key',
   'pages.functionsInvoke.validation.targetedServiceId': 'Targeted routing requires a service_id',
 };

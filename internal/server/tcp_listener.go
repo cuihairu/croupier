@@ -52,8 +52,12 @@ type TCPListener struct {
 	clusterHooks interface {
 		OnAgentDisconnected(ctx context.Context, agentID string)
 	}
-	registry *reg.Store
-	handler  *ControlService // control-plane service
+	// agentDisconnectReaper（ARCH-014 D3）：agent 会话被移除时收敛该 agent 的
+	// 非终态 task_runs 到 unknown。nil = 未装配（任务行不被收割）。装配期由
+	// cmd/server 注入具体 task store 的闭包。
+	agentDisconnectReaper func(ctx context.Context, agentID string) error
+	registry              *reg.Store
+	handler               *ControlService // control-plane service
 
 	wg      sync.WaitGroup
 	closing chan struct{}
@@ -241,6 +245,15 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 			if l.clusterHooks != nil {
 				l.clusterHooks.OnAgentDisconnected(context.Background(), handler.agentID)
 			}
+			// ARCH-014 D3：会话被真正移除后收敛该 agent 的非终态任务到
+			// unknown（执行状态未确立，不得自动重跑）。收割失败仅记日志：
+			// 断连清理不得阻断会话移除。
+			if l.agentDisconnectReaper != nil {
+				if err := l.agentDisconnectReaper(context.Background(), handler.agentID); err != nil {
+					l.logger.Warn("task reap on agent disconnect failed",
+						"agent_id", handler.agentID, "error", err)
+				}
+			}
 		} else {
 			l.logger.Debug("Agent session already replaced, skipping removal",
 				"agent_id", handler.agentID,
@@ -254,6 +267,13 @@ func (l *TCPListener) SetClusterHooks(h interface {
 	OnAgentDisconnected(ctx context.Context, agentID string)
 }) {
 	l.clusterHooks = h
+}
+
+// SetAgentDisconnectReaper 注入 agent 断连任务收割回调（ARCH-014 D3）。装配
+// 期由 cmd/server 绑定 task store 的 ReapAgentNonTerminal 闭包；nil 或零值
+// 关闭收割。
+func (l *TCPListener) SetAgentDisconnectReaper(reap func(ctx context.Context, agentID string) error) {
+	l.agentDisconnectReaper = reap
 }
 
 // Addr returns the bound listener address.

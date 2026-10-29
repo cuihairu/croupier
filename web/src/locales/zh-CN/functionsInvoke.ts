@@ -102,6 +102,7 @@ export default {
   'pages.functionsInvoke.taskPanel.status.running': '执行中',
   'pages.functionsInvoke.taskPanel.status.succeeded': '已完成',
   'pages.functionsInvoke.taskPanel.status.timedOut': '已超时',
+  'pages.functionsInvoke.taskPanel.status.unknown': '结果未知',
   'pages.functionsInvoke.validation.hashKey': '哈希路由需要填写 hash key',
   'pages.functionsInvoke.validation.targetedServiceId': '指定实例路由需要填写 service_id',
 };

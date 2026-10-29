@@ -90,6 +90,13 @@ describe('describeOperationStages', () => {
     ]);
   });
 
+  it('任务查询为 unknown（D3 软终态，结果未知）：非完成非失败也非进行中，按未决 wait 呈现', () => {
+    expect(of({ resultKind: 'task', taskStatus: 'unknown' })).toEqual([
+      { key: 'submit', status: 'finish' },
+      { key: 'execute', status: 'wait' },
+    ]);
+  });
+
   it('taskStatus 不影响同步路径：sync 结果执行阶段仍为 finish', () => {
     expect(of({ resultKind: 'sync', taskStatus: 'failed' })).toEqual([
       { key: 'submit', status: 'finish' },

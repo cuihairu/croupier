@@ -19,6 +19,7 @@ import {
   SyncOutlined,
   ClockCircleOutlined,
   StopOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer';
@@ -78,6 +79,9 @@ export function getStatusColor(status: string): string {
       return 'processing';
     case 'cancelled':
       return 'warning';
+    // ARCH-014 D3：结果未确立——非成功非失败的中性态。
+    case 'unknown':
+      return 'warning';
     default:
       return 'default';
   }
@@ -94,6 +98,9 @@ export function getStatusIcon(status: string): React.ReactNode {
       return <SyncOutlined spin />;
     case 'cancelled':
       return <StopOutlined />;
+    // ARCH-014 D3：结果未知用问号图标，区别于运行中的时钟。
+    case 'unknown':
+      return <QuestionCircleOutlined />;
     default:
       return <ClockCircleOutlined />;
   }
@@ -115,6 +122,8 @@ function normalizeTaskStatus(status?: string): TaskStatusResult['status'] {
     case 'cancel_requested':
     case 'cancelled':
       return 'cancelled';
+    case 'unknown':
+      return 'unknown';
     default:
       return 'pending';
   }

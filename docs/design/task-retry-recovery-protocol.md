@@ -54,16 +54,17 @@ The page-execution idempotency record dedupes **page execution on the control si
 
 ## Implementation mapping (for ARCH-015 / ARCH-018)
 
-| Protocol point                                        | Code seam                                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| D1 generation-tagged tracking, no eager cancel delete | `agents/sidecar/task_runner.go` (`Start`, `Cancel`, `run` cleanup, map type)                               |
-| D2 terminal-event retry-until-ACK                     | `agents/sidecar/task_runner.go` (`run` terminal report); agent reporter (`internal/app/agent/upstream.go`) |
-| D3 session-loss → `unknown` reaping                   | server agent-session removal path; task status predicates (`internal/tasks/types.go`)                      |
-| D3 watchdog → `timed_out`                             | server-side task reaper (new) or manual bound                                                              |
-| Boundary: re-run = new task ID                        | dispatch / task create path (already the case; keep it)                                                    |
+| Protocol point                                        | Code seam                                                                                                              |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| D1 generation-tagged tracking, no eager cancel delete | `agents/sidecar/task_runner.go` (`Start`, `Cancel`, `run` cleanup, map type)                                           |
+| D2 terminal-event retry-until-ACK                     | `agents/sidecar/task_runner.go` (`run` terminal report); agent reporter (`internal/app/agent/upstream.go`)             |
+| D3 session-loss → `unknown` reaping                   | server agent-session removal path; task status predicates (`internal/tasks/types.go`)                                  |
+| D3 watchdog → `timed_out`                             | **not shipped in ARCH-015** (deferred); rows manually bounded by operator until a reaper lands (ARCH-018 exercises it) |
+| Boundary: re-run = new task ID                        | dispatch / task create path (already the case; keep it)                                                                |
 
 ## Known boundaries
 
 - Cross-restart duplicate execution is not prevented (D1); the agent has no durable local journal (D2). Both are honest limitations surfaced to the operator, not hidden.
-- `unknown` is a new status value; UI/type surfaces and the task query must render it (ARCH-015/016).
+- `unknown` is a new status value; UI/type surfaces and the task query render it (implemented in ARCH-015: TaskRunner D1/D2, server session-loss reaping D3, web `unknown` status).
+- The D3 watchdog `timed_out` reaper is **not shipped in ARCH-015**; no-event-past-deadline rows are bounded manually until a reaper lands (ARCH-018 exercises the interrupt path).
 - The protocol does not establish game-side exactly-once semantics; that requires game-provided receipts / idempotency keys in the payload (GAME-010 adjacent, out of scope here).

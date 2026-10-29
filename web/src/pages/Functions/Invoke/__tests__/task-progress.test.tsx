@@ -102,6 +102,14 @@ describe('F11: TaskProgressPanel', () => {
     await waitFor(() => expect(screen.getByText('任务已超时')).toBeTruthy());
   });
 
+  test('unknown 展示结果未知（ARCH-014 D3 软终态，隐藏取消按钮）', async () => {
+    fetchTaskResult.mockResolvedValue({ state: 'unknown' });
+    render(<TaskProgressPanel taskId="t-unknown" />);
+    await waitFor(() => expect(screen.getByText('结果未知')).toBeTruthy());
+    // unknown 视为已解析（停止等待/轮询）：不显示取消按钮
+    await waitFor(() => expect(screen.queryByTestId('task-cancel')).toBeNull());
+  });
+
   test('取消失败保持面板状态（catch 静默，取消按钮复位）', async () => {
     fetchTaskResult.mockResolvedValue({ state: 'running' });
     cancelTask.mockRejectedValue(new Error('deny'));

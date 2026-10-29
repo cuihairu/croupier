@@ -470,10 +470,11 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	if svcCtx.Cluster != nil {
 		controlService.SetClusterInstanceID(svcCtx.Cluster.InstanceID)
 	}
-	controlService.SetTaskStore(tasks.NewStore(
+	taskStore := tasks.NewStore(
 		model.NewTaskRunModel(svcCtx.DB),
 		model.NewTaskEventModel(svcCtx.DB),
-	))
+	)
+	controlService.SetTaskStore(taskStore)
 	controlService.SetMetricsDB(svcCtx.DB)
 	// capture 规则命中告警：落 alerts 表 + 出口分发（Manager 可为 nil）
 	controlService.SetAlertModel(svcCtx.AlertModel)
@@ -533,6 +534,13 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 
 	// 设置 control handler
 	tcpListener.SetHandler(controlService)
+
+	// ARCH-014 D3：agent 会话被移除时收敛其非终态任务到 unknown（执行状态
+	// 未确立，不得自动重跑）。断连清理不得阻塞——收割失败仅记日志。
+	tcpListener.SetAgentDisconnectReaper(func(ctx context.Context, agentID string) error {
+		_, err := taskStore.ReapAgentNonTerminal(ctx, agentID, tasks.StatusUnknown, "agent session lost; execution state unknown")
+		return err
+	})
 
 	// 启动 session 清理任务（定期删除过时的 session）。
 	// 派生自 ctx，ctx 取消后退出。

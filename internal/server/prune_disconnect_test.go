@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -98,6 +99,75 @@ func TestServeConn_DisconnectPrunesRegistry(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	assert.False(t, inRegistry, "disconnect must prune registry entry immediately")
+}
+
+// TestServeConn_DisconnectReapsAgentTasks（ARCH-014 D3）：会话真正被移除后调
+// 用装配的收割回调，把该 agent 的非终态任务收敛到 unknown。
+func TestServeConn_DisconnectReapsAgentTasks(t *testing.T) {
+	store := registry.NewStore()
+	config := &TCPListenerConfig{Address: "127.0.0.1:0", Insecure: true}
+	listener, err := NewTCPListener(config, NewAgentSessionStore(), store, nil)
+	require.NoError(t, err)
+
+	svc := NewControlService(store, nil)
+	listener.SetHandler(svc)
+
+	var reapedMu sync.Mutex
+	var reaped []string
+	listener.SetAgentDisconnectReaper(func(ctx context.Context, agentID string) error {
+		reapedMu.Lock()
+		defer reapedMu.Unlock()
+		reaped = append(reaped, agentID)
+		return nil
+	})
+
+	serverEnd, clientEnd := net.Pipe()
+	defer func() { _ = clientEnd.Close() }()
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			if _, rerr := clientEnd.Read(buf); rerr != nil {
+				return
+			}
+		}
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go listener.serveConn(ctx, serverEnd)
+
+	writeFrame := func(msgID uint32, reqID uint32, body []byte) {
+		frame := protocol.NewMessageBody(msgID, reqID, body)
+		wrapped := make([]byte, 4+len(frame))
+		wrapped[0] = byte(len(frame) >> 24)
+		wrapped[1] = byte(len(frame) >> 16)
+		wrapped[2] = byte(len(frame) >> 8)
+		wrapped[3] = byte(len(frame))
+		copy(wrapped[4:], frame)
+		_, werr := clientEnd.Write(wrapped)
+		require.NoError(t, werr)
+	}
+
+	regReq, _ := proto.Marshal(&agentv1.RegisterRequest{AgentId: "agent-reap", GameId: "game-1", Env: "dev"})
+	writeFrame(protocol.MsgRegisterRequest, 1, regReq)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		store.Mu().RLock()
+		_, inRegistry := store.AgentsUnsafe()["agent-reap"]
+		store.Mu().RUnlock()
+		if inRegistry {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	_ = clientEnd.Close()
+	require.Eventually(t, func() bool {
+		reapedMu.Lock()
+		defer reapedMu.Unlock()
+		return len(reaped) == 1 && reaped[0] == "agent-reap"
+	}, 2*time.Second, 10*time.Millisecond)
 }
 
 // directory stub：可控活跃集合/错误。

@@ -59,11 +59,12 @@ title: 异步任务重试与终态恢复协议
 | D1 代际标记跟踪、不急删 cancel | `agents/sidecar/task_runner.go`（`Start`、`Cancel`、`run` 清理、映射类型）                          |
 | D2 终态事件重试至 ACK          | `agents/sidecar/task_runner.go`（`run` 终态上报）；agent 上报器（`internal/app/agent/upstream.go`） |
 | D3 会话丢失 → `unknown` 收割   | server agent 会话移除路径；任务状态谓词（`internal/tasks/types.go`）                                |
-| D3 看门狗 → `timed_out`        | server 侧任务收割器（新增）或人工定界                                                               |
+| D3 看门狗 → `timed_out`        | **ARCH-015 未随附**（延后）；行先由操作员人工定界，落地收割器后再切换（ARCH-018 演练覆盖）          |
 | 边界：重跑 = 新任务 ID         | 派发 / 任务创建路径（已是现状；保持）                                                               |
 
 ## 已知边界
 
 - 跨重启重复执行未防（D1）；agent 无持久本地日志（D2）。两者都是如实浮出的限制，不隐藏。
-- `unknown` 是新状态值；UI/类型面与任务查询须渲染之（ARCH-015/016）。
+- `unknown` 是新状态值；UI/类型面与任务查询已渲染之（ARCH-015 实现：TaskRunner D1/D2、server 会话丢失收割 D3、web `unknown` 状态）。
+- D3 看门狗 `timed_out` 收割器 **ARCH-015 未随附**；无事件超截止行先由操作员人工定界，直至落地收割器（ARCH-018 演练执行中断路径）。
 - 协议不确立游戏侧 exactly-once 语义；需游戏侧回执/载荷内幂等键（GAME-010 相邻，此处越界）。

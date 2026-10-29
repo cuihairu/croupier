@@ -655,7 +655,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                               ? 'exception'
                               : taskStatus.status === 'completed'
                                 ? 'success'
-                                : 'active'
+                                : // D3：unknown 软终态（结果未知）不是进行中，进度条静态展示
+                                  taskStatus.status === 'unknown'
+                                  ? 'normal'
+                                  : 'active'
                           }
                         />
                       )}

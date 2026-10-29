@@ -226,3 +226,63 @@ func TestTerminalStatuses(t *testing.T) {
 	statuses[0] = "mutated"
 	assert.ElementsMatch(t, []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut}, TerminalStatuses())
 }
+
+func TestIsReapableStatus(t *testing.T) {
+	assert.True(t, IsReapableStatus(StatusQueued))
+	assert.True(t, IsReapableStatus(StatusDispatching))
+	assert.True(t, IsReapableStatus(StatusRunning))
+	assert.True(t, IsReapableStatus(StatusCancelRequested))
+	assert.False(t, IsReapableStatus(StatusSucceeded))
+	assert.False(t, IsReapableStatus(StatusFailed))
+	assert.False(t, IsReapableStatus(StatusCancelled))
+	assert.False(t, IsReapableStatus(StatusTimedOut))
+	assert.False(t, IsReapableStatus(StatusUnknown))
+	assert.False(t, IsReapableStatus(""))
+}
+
+// TestStore_ReapAgentNonTerminal（ARCH-014 D3）：断连收割只收敛该 agent 的
+// 活动（非终态、非 unknown）任务到 unknown；终态与 unknown 行、以及其它
+// agent 的行不动。
+func TestStore_ReapAgentNonTerminal(t *testing.T) {
+	store := setupTaskStore(t)
+	ctx := context.Background()
+
+	mk := func(id, agentID, status string) *model.TaskRun {
+		r := newTaskRun(id)
+		r.AgentID = agentID
+		r.Status = status
+		return r
+	}
+	require.NoError(t, store.CreateRun(ctx, mk("a-queued", "agentA", StatusQueued)))
+	require.NoError(t, store.CreateRun(ctx, mk("a-running", "agentA", StatusRunning)))
+	require.NoError(t, store.CreateRun(ctx, mk("a-succeeded", "agentA", StatusSucceeded)))
+	require.NoError(t, store.CreateRun(ctx, mk("a-unknown", "agentA", StatusUnknown)))
+	require.NoError(t, store.CreateRun(ctx, mk("b-running", "agentB", StatusRunning)))
+
+	n, err := store.ReapAgentNonTerminal(ctx, "agentA", StatusUnknown, "agent session lost")
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), n) // a-queued + a-running
+
+	for id, want := range map[string]string{
+		"a-queued":    StatusUnknown,
+		"a-running":   StatusUnknown,
+		"a-succeeded": StatusSucceeded,
+		"a-unknown":   StatusUnknown,
+		"b-running":   StatusRunning,
+	} {
+		got, err := store.GetRun(ctx, id)
+		require.NoError(t, err)
+		assert.Equal(t, want, got.Status, "task %s", id)
+	}
+	// a-running 收割后置了 finished_at（未知终态语义）。
+	got, err := store.GetRun(ctx, "a-running")
+	require.NoError(t, err)
+	assert.NotNil(t, got.FinishedAt)
+	assert.Equal(t, "agent session lost", got.Message)
+}
+
+func TestStore_ReapAgentNonTerminal_EmptyAgent(t *testing.T) {
+	store := setupTaskStore(t)
+	_, err := store.ReapAgentNonTerminal(context.Background(), "", StatusUnknown, "msg")
+	assert.Error(t, err)
+}
