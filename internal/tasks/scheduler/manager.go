@@ -33,6 +33,9 @@ type ScheduleStore interface {
 	HasRunLog(ctx context.Context, scheduleID uint, slot time.Time) (bool, error)
 	// CreateRunLog 写触发记录；唯一索引冲突返回 false（并发兜底）。
 	CreateRunLog(ctx context.Context, log *model.TaskScheduleRunLog) (bool, error)
+	// GetRunLog 取指定槽位的触发记录（(nil, nil) = 不存在）。ARCH-023 租约
+	// 判定读既有领取的 CreatedAt/Status。
+	GetRunLog(ctx context.Context, scheduleID uint, slot time.Time) (*model.TaskScheduleRunLog, error)
 	// UpdateRunLog 回填领取槽位后的派发结果（ARCH-023 先领取再派发）。
 	UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error
 	// LastRunResult 取某 TaskRun 的终态（"" = 未终态/不存在）。
@@ -41,26 +44,28 @@ type ScheduleStore interface {
 
 // Manager 是调度循环。
 type Manager struct {
-	store     ScheduleStore
-	dispatch  Dispatcher
-	local     LocalRunner
-	interval  time.Duration
-	nowFn     func() time.Time
-	mu        sync.Mutex
-	started   bool
-	stopCh    chan struct{}
-	stoppedCh chan struct{}
+	store      ScheduleStore
+	dispatch   Dispatcher
+	local      LocalRunner
+	interval   time.Duration
+	nowFn      func() time.Time
+	claimLease time.Duration // ARCH-023 领取租约：超过即视为领取者崩溃
+	mu         sync.Mutex
+	started    bool
+	stopCh     chan struct{}
+	stoppedCh  chan struct{}
 }
 
 // NewManager creates a scheduler manager. interval 为扫描周期（默认 30s）。
 func NewManager(store ScheduleStore, dispatch Dispatcher) *Manager {
 	return &Manager{
-		store:     store,
-		dispatch:  dispatch,
-		interval:  30 * time.Second,
-		nowFn:     time.Now,
-		stopCh:    make(chan struct{}),
-		stoppedCh: make(chan struct{}),
+		store:      store,
+		dispatch:   dispatch,
+		interval:   30 * time.Second,
+		nowFn:      time.Now,
+		claimLease: 60 * time.Second,
+		stopCh:     make(chan struct{}),
+		stoppedCh:  make(chan struct{}),
 	}
 }
 
@@ -77,6 +82,9 @@ func (m *Manager) SetInterval(d time.Duration) { m.interval = d }
 
 // SetNow 覆盖时钟（测试用）。
 func (m *Manager) SetNow(fn func() time.Time) { m.nowFn = fn }
+
+// SetClaimLease 覆盖领取租约时长（测试用；缺省 60s）。
+func (m *Manager) SetClaimLease(d time.Duration) { m.claimLease = d }
 
 // Start 启动调度循环（非阻塞）。
 func (m *Manager) Start() {
@@ -156,6 +164,9 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 		return
 	}
 	if !claimed {
+		// 已被领取：他实例占住本槽，或领取者崩溃后的遗留。先解析陈旧领取
+		// （租约过期 → 终态 failed），再推进下次触发时间。
+		m.resolveStaleClaim(ctx, s, slot, now)
 		m.advance(s, spec, now, nil)
 		return
 	}
@@ -234,6 +245,34 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 	}
 	m.advanceWith(s, spec, now, updates)
 	_ = m.store.UpdateSchedule(ctx, s.ID, updates)
+}
+
+// resolveStaleClaim 处理被占槽位的既有领取记录（ARCH-023 崩溃恢复）。
+// 领取后超过租约仍停在 claimed 的，视为领取者崩溃——覆盖两类中断：
+//   - 领取后/派发前中断：任务从未派发，槽位被解析为 failed 并推进；
+//   - 派发后/回写前中断：任务可能已派发但回写未落，同样解析为 failed
+//     （无法与上一类区分），调度恢复推进。
+//
+// 关键约束：不重派发。重发会让「派发后崩溃」的槽位重复执行（业务最终
+// 副作用去重由 GAME-010 承担，执行层不赌二次运行）。活跃领取（未过租约，
+// 他实例正在派发）与已终态记录（dispatched/failed/skipped，他实例已回填
+// 或本槽本就结束）均不解析，只推进。
+func (m *Manager) resolveStaleClaim(ctx context.Context, s *model.TaskSchedule, slot time.Time, now time.Time) {
+	rec, err := m.store.GetRunLog(ctx, s.ID, slot)
+	if err != nil {
+		slog.Warn("scheduler: read existing run log failed", "schedule", s.ID, "error", err)
+		return
+	}
+	if rec == nil || rec.Status != "claimed" {
+		return
+	}
+	age := now.Sub(rec.CreatedAt)
+	if age <= m.claimLease {
+		return
+	}
+	slog.Warn("scheduler: claim lease expired, mark slot failed",
+		"schedule", s.ID, "slot", slot.Format(time.RFC3339), "age", age.String())
+	_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", "failed", "claim lease expired before dispatch")
 }
 
 // triggerLocal 执行 server-local 调度（Kind=incident_report）：同步调用

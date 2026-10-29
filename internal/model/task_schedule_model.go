@@ -171,6 +171,22 @@ func (m *TaskScheduleModel) CreateRunLog(ctx context.Context, log *TaskScheduleR
 	return true, nil
 }
 
+// GetRunLog 取指定槽位的触发记录。返回 (nil, nil) 表示不存在。
+// ARCH-023 领取租约判定需要读既有领取的 CreatedAt 与 Status。
+func (m *TaskScheduleModel) GetRunLog(ctx context.Context, scheduleID uint, slot time.Time) (*TaskScheduleRunLog, error) {
+	var log TaskScheduleRunLog
+	err := m.db.WithContext(ctx).
+		Where("schedule_id = ? AND slot = ?", scheduleID, slot).
+		First(&log).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &log, nil
+}
+
 // UpdateRunLog 回填领取槽位后的派发结果（ARCH-023 先领取再派发：领取行
 // 先占住唯一索引，派发完成后把 status/task_run_id/message 落为终值）。
 func (m *TaskScheduleModel) UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error {
