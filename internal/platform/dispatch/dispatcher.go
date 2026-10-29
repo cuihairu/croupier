@@ -763,10 +763,15 @@ func (d *Dispatcher) startTaskOnPickedAgent(ctx context.Context, span trace.Span
 		actor := origMeta["actor"]
 		addr := agent.Addr
 		traceID := telemetry.TraceIDFromMetadata(origMeta)
-		// Best-effort: create the run row. If this fails the task still
-		// dispatches — the agent will use the provided task_id and events
-		// will be orphaned but not lost (they land in task_events).
-		_ = writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, traceID, req.GetPayload())
+		// Fail-closed: the task_runs row is the ownership anchor. Without it,
+		// events flowing back from the agent would be orphaned (land in
+		// task_events with no run to match) and the task uncancellable.
+		// Refuse to dispatch rather than create an untracked execution.
+		if err := writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, traceID, req.GetPayload()); err != nil {
+			delete(meta, "taskId")
+			return nil, "", apperrors.Newf(apperrors.ErrCodeDatabaseError, "start_task", err,
+				"create task run %s (agent %s, function %s) failed", taskID, agent.AgentID, req.GetFunctionId())
+		}
 	}
 	req.Metadata = meta
 

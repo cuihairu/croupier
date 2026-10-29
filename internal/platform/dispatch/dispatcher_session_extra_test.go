@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/core/transport"
+	apperrors "github.com/cuihairu/croupier/internal/errors"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/stretchr/testify/assert"
@@ -215,6 +216,58 @@ func TestDispatcher_StartTaskRequest_UnmarshalErrorViaSession(t *testing.T) {
 	_, err := d.StartTaskRequest(context.Background(), &sdkv1.InvokeRequest{FunctionId: "test-func"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unmarshal response")
+}
+
+// ARCH-026: when the task_runs ownership row cannot be created, the dispatcher
+// must return a locatable error and must NOT send StartTask — otherwise events
+// flowing back are orphaned and the task is uncancellable.
+func TestDispatcher_StartTaskRequest_CreateRunFails_NoDispatch(t *testing.T) {
+	d := NewDispatcher(nil)
+	require.NoError(t, d.Store().UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		GameID:   "demo-game",
+		Env:      "development",
+		ExpireAt: time.Now().Add(time.Hour),
+		Functions: map[string]reg.FunctionMeta{
+			"test-func": {Enabled: true},
+		},
+	}))
+
+	writer := &recordingRunWriter{errToFail: errors.New("db down")}
+	d.SetTaskRunWriter(writer)
+
+	caller := &fakeSessionCaller{respBody: mustMarshal(t, &sdkv1.StartTaskResponse{TaskId: "agent-task-1"})}
+	d.SetSessionResolver(&fakeSessionResolver{callers: map[string]transport.SessionCaller{
+		"agent-1": caller,
+	}})
+
+	_, err := d.StartTaskRequest(context.Background(), &sdkv1.InvokeRequest{
+		FunctionId: "test-func",
+		Payload:    []byte("payload"),
+		Metadata: map[string]string{
+			"gameId": "demo-game",
+			"env":    "development",
+			"actor":  "admin",
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create task run")
+	assert.Contains(t, err.Error(), "agent-1")
+	var appErr *apperrors.AppError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, apperrors.ErrCodeDatabaseError, appErr.Code)
+	assert.ErrorIs(t, err, writer.errToFail)
+
+	// No StartTask was forwarded to the agent (executor count stays 0).
+	assert.Equal(t, 0, caller.callCount())
+
+	// The run row was attempted (so the failure is attributable) but no
+	// task was registered as live/uncancellable.
+	ids := writer.createdIDs()
+	require.Len(t, ids, 1)
+	assert.NotEmpty(t, ids[0])
+	_, ok := d.TaskAgentID("agent-task-1")
+	assert.False(t, ok)
 }
 
 func TestDispatcher_InvokeBroadcast_MixedResults(t *testing.T) {
