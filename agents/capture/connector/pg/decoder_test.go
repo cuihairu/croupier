@@ -22,6 +22,19 @@ func itemsRelation(identity byte) []byte {
 	))
 }
 
+// itemsRelationChanged 结构变化版（新增 level 列）：事务外重发的 Relation
+// 若结构未变，cacheRelation 经 relationEqual 提前返回，根本不会进入陈旧
+// Begin 位点的 Record 回退路径；用结构变化版才真正覆盖该缺陷路径。
+func itemsRelationChanged(identity byte) []byte {
+	return wireMessage('R', relPayload(itemsOID, "game", "items", identity,
+		relCol(FlagReplicaIdentity, "id", 23),
+		relCol(0, "name", 25),
+		relCol(0, "gold", 1700),
+		relCol(0, "blob", 25),
+		relCol(0, "level", 23),
+	))
+}
+
 func beginMsg(xid uint32) []byte { return wireMessage('B', beginPayload(xid)) }
 func commitMsg(lsn uint64) []byte {
 	// 2025-06-01T00:00:00Z 对应的 PG 纪元微秒（可读性优先，公式即断言）。
@@ -496,8 +509,11 @@ func TestDecoderBeginLSNResetAfterCommit(t *testing.T) {
 	if _, _, found := d.SchemaHistory().At("game.items", "100"); !found {
 		t.Fatal("relation in txn must be recorded at begin LSN")
 	}
-	// 事务外 Relation（无 Begin）：位点未知 → 不猜，跳过记录。
-	mustFeedAt(t, d, "", itemsRelation('d'))
+	// 事务外 Relation（无 Begin，结构已变化）：位点未知 → 不猜，跳过记录。
+	// 结构不变的重发会经 relationEqual 提前返回，不触及陈旧 Begin 位点的
+	// Record 回退路径；用结构变化版才真实覆盖「Commit 未清空 curBeginLSN」
+	// 的回归（父提交在此会复现 revision 2 "not after" 断流）。
+	mustFeedAt(t, d, "", itemsRelationChanged('d'))
 	// 不新增版本：At 仍只有 100 一个版本。
 	vers := d.SchemaHistory().Versions("game.items")
 	if len(vers) != 1 {
