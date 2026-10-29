@@ -35,7 +35,7 @@ Arrows represent writes or query requests/responses, not a timeline. Dashed line
 | Worker ↔ Redis; worker → ClickHouse | Consumer-group reads, pending reclaim, retry/dead letters and detail/aggregate batches in `internal/analytics/worker/worker.go`. Delivery is at-least-once: ACK is deferred until the ClickHouse batch `Send()` succeeds, so a crash between Send and ACK redelivers rather than loses (ARCH-011 resolved; ARCH-012 crash-recovery verification open). |
 | Browser → Server → databases        | `web/src/services/api/analytics.ts`, `internal/handler/routes.go`, `internal/api/analytics/warehouse.go` and the relational report implementations in that directory. Warehouse endpoints read ClickHouse; relational reports do not automatically consume warehouse events.                                                                           |
 
-This diagram shows the default Redis path. `internal/analytics/mq/factory.go` also offers Kafka/noop publishers, but the existing worker consumes Redis; Kafka is not a connected substitute in this diagram. Professional integrations and accepted core metrics remain [target deliverables](./core-and-external).
+This diagram shows the default Redis path. `internal/analytics/mq/factory.go` also offers Kafka/noop publishers, but the existing worker consumes Redis; Kafka is not a connected substitute in this diagram. The built-in worker refuses to start when the deployment declares `ANALYTICS_MQ_TYPE=kafka` (ARCH-013 startup preflight), so a Kafka publisher cannot be silently paired with the Redis-only worker; no Kafka consumer is built. Professional integrations and accepted core metrics remain [target deliverables](./core-and-external).
 
 ## Metric groups
 

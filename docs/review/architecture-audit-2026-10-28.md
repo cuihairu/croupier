@@ -77,6 +77,7 @@
 - **改法**：优先在配置和文档标出内置 worker 只消费 Redis；只有实际部署需求明确时才扩展消费适配接口。
 - **验收**：不支持的组合启动前可被识别；默认 Redis→worker→ClickHouse 闭环测试通过；Kafka 若声称支持必须有完整消费验证。
 - **投入**：小（约束与说明），中到大（完整 Kafka 消费）。
+- **状态**：ARCH-013 已收口（2026-10-30）——`worker.NewWorker` 启动预检在 `ANALYTICS_MQ_TYPE=kafka` 时返回错误拒绝启动，compose 三模板把 `ANALYTICS_MQ_TYPE` 传给 analytics-worker 使预检可见；默认（redis/未设）链不受影响，noop 仍为显式本地调试；不扩建 Kafka consumer，Kafka 完整消费验证仍不在范围。
 
 ### A08 · P2 · 模块边界值得渐进收口，不值得立即大拆
 

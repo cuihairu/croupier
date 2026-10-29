@@ -53,7 +53,7 @@ tag:
 | worker ↔ Redis；worker → ClickHouse | `internal/analytics/worker/worker.go` 的消费组读取、pending 回收、重试/死信及明细/聚合批写。投递为 at-least-once：ACK 推迟到 ClickHouse batch `Send()` 成功后才执行，Send 与 ACK 之间崩溃重投而非丢数（ARCH-011 已解决；ARCH-012 崩溃恢复实机验证仍开放）。 |
 | 浏览器 → Server → 数据库            | `web/src/services/api/analytics.ts`、`internal/handler/routes.go`、`internal/api/analytics/warehouse.go` 及同目录关系报表实现。仓库端点读 ClickHouse；其他报表按各自实现读关系模型，不自动复用仓库事件。                                                    |
 
-上图不画出未接通的能力：MQ 工厂另有 Kafka/noop 发布选项（`internal/analytics/mq/factory.go`），当前 worker 消费 Redis，不能把 Kafka 画成同一条已接通链路。专业分析集成和核心指标闭环参见 [范围与交付计划](./core-and-external)。
+上图不画出未接通的能力：MQ 工厂另有 Kafka/noop 发布选项（`internal/analytics/mq/factory.go`），当前 worker 消费 Redis，不能把 Kafka 画成同一条已接通链路。部署声明 `ANALYTICS_MQ_TYPE=kafka` 时内置 worker 拒绝启动（ARCH-013 启动预检），Kafka 发布不能与 Redis-only worker 静默配对；不扩建 Kafka consumer。专业分析集成和核心指标闭环参见 [范围与交付计划](./core-and-external)。
 
 ## 启动顺序
 

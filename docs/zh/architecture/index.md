@@ -16,15 +16,15 @@ Croupier 是面向单公司多游戏、多环境的运营控制面。当前实�
 
 ## 进程和职责
 
-| 进程/模块                 | 实际职责                                                                       | 边界                                                                |
-| ------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| Web 控制台                | Umi Max/React/Ant Design；资源目录、Page Studio、发布页面和运营操作            | HTTP API/SSE，不直接持有 Agent 连接                                 |
-| Server                    | Gin API、身份权限、scope、政策、审批、审计、契约和页面、registry/dispatch、Ops | 主部署单元仍是一个模块化服务                                        |
-| sidecar-agent             | SDK Provider 接入、函数转发、任务及受管程序/插件装配                           | Makefile 输出名仍为 croupier-agent；部分装配仍在 internal/app/agent |
-| capture-agent             | 数据库变更采集、位点、过滤和规则告警                                           | 独立角色，不是 SDK 函数网关                                         |
-| synthetics-agent          | 按角色装配的目标探测、结果与探测插件                                           | 复用公共运行时，探测业务独立                                        |
-| devops-agent              | 注册、白名单同步、Broker/Hub 会话基础能力                                      | 面板→Server→Agent 的完整中继未接；RDP/VNC 尚不可用                  |
-| ingest / analytics-worker | 接收事件、队列消费、聚合并写 ClickHouse                                        | 内置 worker 消费 Redis Streams；Kafka 发布适配不代表消费端已支持    |
+| 进程/模块                 | 实际职责                                                                       | 边界                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web 控制台                | Umi Max/React/Ant Design；资源目录、Page Studio、发布页面和运营操作            | HTTP API/SSE，不直接持有 Agent 连接                                                                                                                   |
+| Server                    | Gin API、身份权限、scope、政策、审批、审计、契约和页面、registry/dispatch、Ops | 主部署单元仍是一个模块化服务                                                                                                                          |
+| sidecar-agent             | SDK Provider 接入、函数转发、任务及受管程序/插件装配                           | Makefile 输出名仍为 croupier-agent；部分装配仍在 internal/app/agent                                                                                   |
+| capture-agent             | 数据库变更采集、位点、过滤和规则告警                                           | 独立角色，不是 SDK 函数网关                                                                                                                           |
+| synthetics-agent          | 按角色装配的目标探测、结果与探测插件                                           | 复用公共运行时，探测业务独立                                                                                                                          |
+| devops-agent              | 注册、白名单同步、Broker/Hub 会话基础能力                                      | 面板→Server→Agent 的完整中继未接；RDP/VNC 尚不可用                                                                                                    |
+| ingest / analytics-worker | 接收事件、队列消费、聚合并写 ClickHouse                                        | 内置 worker 消费 Redis Streams；Kafka 发布适配不代表消费端已支持。worker 在 `ANALYTICS_MQ_TYPE=kafka` 时拒绝启动（ARCH-013 预检），该组合不会静默误配 |
 
 ## 请求与发布链路
 
