@@ -201,9 +201,9 @@
   - 依赖：—。交付与验收：复用 core/register，为 DialAndRegister/SyncOnce/SyncAttempts 明确一致的注册超时边界及调用者 deadline 优先级；核对心跳 tick 重拨与首拨退避差异，验证无注册响应时按预算退出、Stop 可释放连接与 goroutine，不引入重复并行重连。
   - 状态／条件：READY；无响应服务端故障验证 NOT RUN。证据：core/register/registration.go 的 SyncAttempts 才包 requestTimeout，loops.go 的 DialAndRegister 直接调用 registerOnce。
 
-- [ ] **ARCH-023 · P0 · 实现 · 定时触发先领取再派发**
+- [x] **ARCH-023 · P0 · 实现 · 定时触发先领取再派发**
   - 依赖：—。交付与验收：复用 task_schedule_run_logs 唯一键，派发前原子领取 schedule+slot 并明确领取租约/崩溃恢复；多实例同槽仅一派发，记录失败不得执行；覆盖领取后/派发前和派发后/回写前中断，业务最终副作用去重仍由 GAME-010 承担
-  - 状态／条件：VERIFIED 缺陷：manager.go 先 HasRunLog，再 StartTask，最后 CreateRunLog 且忽略冲突；双 Manager 诊断实际派发 2 次、仅 1 条唯一记录。
+  - 状态／条件：VERIFIED 缺陷：manager.go 先 HasRunLog，再 StartTask，最后 CreateRunLog 且忽略冲突；双 Manager 诊断实际派发 2 次、仅 1 条唯一记录。已修复：领取（CreateRunLog 唯一索引）前移至派发前（6fffb0ea）；补领取租约崩溃恢复（2efbaa0d——租约过期 claimed 解析为 failed+推进、不重派发，覆盖领取后/派发前与派发后/回写前两类中断；活跃领取与已终态不误判）；并发恰一次派发与中断恢复四用例绿；业务最终副作用去重仍由 GAME-010 承担。
 
 - [ ] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
   - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
