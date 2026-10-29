@@ -1,0 +1,85 @@
+<svg data-check-edges="true" xmlns="http://www.w3.org/2000/svg" width="1200" height="1800" viewBox="0 0 1200 1800" role="img" aria-labelledby="title desc"><title id="title">CROUPIER · ANALYTICS RUNTIME TOPOLOGY</title><desc id="desc">2026-10-29 source review. Independent processes, in-process modules, stores and external clients. Arrows show writes or query requests, not a timeline. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="1800" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">CROUPIER · ANALYTICS RUNTIME TOPOLOGY</text>
+<text x="30" y="78" class="small" text-anchor="start">Current implementation · Default Redis path · Arrows are not a timeline</text>
+<g data-node="External event producers"><rect x="40" y="115" width="550" height="100" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="56" y="145" class="head" text-anchor="start">External event producers</text>
+<text x="56" y="173" class="" text-anchor="start">Game servers / trusted collectors · event/payment JSON</text>
+<text x="56" y="198" class="" text-anchor="start">Keep HMAC secrets on trusted producers</text>
+</g>
+<path d="M315 215 V315" class="edge external" marker-end="url(#external)"/>
+<text x="340" y="253" class="small" text-anchor="start">HTTP POST /api/ingest/{events,payments}</text>
+<text x="340" y="281" class="small" text-anchor="start">HMAC-SHA256 · timestamp / nonce / body</text>
+<g data-node="INGEST · cmd/ingest"><rect x="40" y="315" width="550" height="100" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="56" y="345" class="head" text-anchor="start">INGEST · cmd/ingest</text>
+<text x="56" y="373" class="" text-anchor="start">Process · authenticate / rate-limit / validate / publish</text>
+<text x="56" y="398" class="" text-anchor="start">HTTP 202 acknowledges ingestion, not warehouse durability</text>
+</g>
+<path d="M315 415 V525" class="edge data" marker-end="url(#data)"/>
+<text x="340" y="455" class="small" text-anchor="start">Redis RESP / XADD</text>
+<text x="340" y="483" class="small" text-anchor="start">JSON envelope · data field</text>
+<g data-node="REDIS · Streams"><rect x="40" y="525" width="550" height="115" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="56" y="555" class="head" text-anchor="start">REDIS · Streams</text>
+<text x="56" y="583" class="" text-anchor="start">analytics:events / analytics:payments</text>
+<text x="56" y="608" class="" text-anchor="start">Data service · consumer groups / pending / dead letters</text>
+<text x="56" y="633" class="" text-anchor="start">Credentials / TLS depend on the Redis URL</text>
+</g>
+<path d="M315 640 V745" class="edge data" marker-end="url(#data)" marker-start="url(#data)"/>
+<text x="340" y="678" class="small" text-anchor="start">RESP / XREADGROUP + XACK</text>
+<text x="340" y="706" class="small" text-anchor="start">Worker polls; events / payments returned</text>
+<g data-node="WORKER · cmd/analytics-worker"><rect x="40" y="745" width="550" height="130" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="56" y="775" class="head" text-anchor="start">WORKER · cmd/analytics-worker</text>
+<text x="56" y="803" class="" text-anchor="start">Process · consume / normalize / batch / aggregate</text>
+<text x="56" y="828" class="" text-anchor="start">Pending reclaim / retry / dead letters</text>
+<text x="56" y="853" class="" text-anchor="start">ACK / batch durability gaps: ARCH-011/012</text>
+</g>
+<path d="M315 875 V995" class="edge data" marker-end="url(#data)"/>
+<text x="340" y="920" class="small" text-anchor="start">clickhouse-go / INSERT batches</text>
+<text x="340" y="948" class="small" text-anchor="start">DSN controls endpoint / credentials / TLS</text>
+<g data-node="CLICKHOUSE"><rect x="40" y="995" width="550" height="130" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="56" y="1025" class="head" text-anchor="start">CLICKHOUSE</text>
+<text x="56" y="1053" class="" text-anchor="start">analytics.events / analytics.payments</text>
+<text x="56" y="1078" class="" text-anchor="start">minute_online / daily_users / daily_revenue</text>
+<text x="56" y="1103" class="" text-anchor="start">Data service · detail + existing aggregate tables</text>
+</g>
+<path d="M315 1245 V1125" class="edge control" marker-end="url(#control)" marker-start="url(#control)"/>
+<text x="340" y="1167" class="small" text-anchor="start">clickhouse-go / SQL SELECT / rows</text>
+<text x="340" y="1195" class="small" text-anchor="start">Server initiates · read-only warehouse API</text>
+<g data-node="SERVER · croupier-server"><rect x="40" y="1245" width="600" height="210" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="56" y="1275" class="head" text-anchor="start">SERVER · croupier-server</text>
+<text x="56" y="1303" class="" text-anchor="start">One process; the following are in-process modules</text>
+<text x="56" y="1328" class="" text-anchor="start">Analytics API: scope / report queries / responses</text>
+<text x="56" y="1353" class="" text-anchor="start">GORM: relational queries, separate from the warehouse</text>
+<text x="56" y="1378" class="" text-anchor="start">Telemetry bridge: optional in-process event publisher</text>
+<text x="56" y="1403" class="" text-anchor="start">Bridge telemetry is not player activity or retention</text>
+</g>
+<path d="M640 1400 H685 V582 H590" class="edge data optional" marker-end="url(#data)"/>
+<text x="745" y="560" class="head" text-anchor="start">Optional bridge → Redis</text>
+<text x="745" y="595" class="small" text-anchor="start">RESP / XADD · analytics:events</text>
+<text x="745" y="625" class="small" text-anchor="start">In-process buffer / background batches</text>
+<text x="745" y="655" class="small" text-anchor="start">No ingest HTTP / HMAC hop</text>
+<text x="745" y="1200" class="small" text-anchor="start">Server initiates · SQL / GORM</text>
+<text x="745" y="1228" class="small" text-anchor="start">Request / rows · datasource credentials</text>
+<g data-node="RELATIONAL DATABASE"><rect x="760" y="1285" width="400" height="130" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="776" y="1315" class="head" text-anchor="start">RELATIONAL DATABASE</text>
+<text x="776" y="1343" class="" text-anchor="start">Metadata / per-game routed databases</text>
+<text x="776" y="1368" class="" text-anchor="start">Player / payment / cohort models</text>
+<text x="776" y="1393" class="" text-anchor="start">No automatic ClickHouse synchronization</text>
+</g>
+<path d="M640 1335 H760" class="edge control" marker-end="url(#control)" marker-start="url(#control)"/>
+<path d="M315 1560 V1455" class="edge control" marker-end="url(#control)" marker-start="url(#control)"/>
+<text x="340" y="1494" class="small" text-anchor="start">HTTP / JWT / gameId + env</text>
+<text x="340" y="1522" class="small" text-anchor="start">Browser calls Server API; report JSON returned</text>
+<g data-node="OPERATOR BROWSER · Analytics pages"><rect x="40" y="1560" width="600" height="100" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="56" y="1590" class="head" text-anchor="start">OPERATOR BROWSER · Analytics pages</text>
+<text x="56" y="1618" class="" text-anchor="start">Warehouse and relational pages use the Server API</text>
+<text x="56" y="1643" class="" text-anchor="start">No browser-to-database connection or DB credentials</text>
+</g>
+<text x="30" y="1707" class="small" text-anchor="start">Legend: green = writes/events; blue = query/response; brown = external ingest; dashed = optional.</text>
+<text x="30" y="1737" class="small" text-anchor="start">Crossings without dots do not join. Node fills distinguish processes, modules, stores and external clients.</text>
+<text x="30" y="1767" class="small" text-anchor="start">Professional analytics is a target, not a deployed service; see DATA / ARCH tasks for metric and durability gaps.</text>
+</svg>

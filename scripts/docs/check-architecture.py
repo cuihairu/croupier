@@ -15,6 +15,8 @@ for lang in ('en','zh'):
    if u.startswith(('http:','https:')):continue
    target=R/'docs/public'/u.lstrip('/') if u.endswith('.svg') else p.parent/u
    if not any(x.exists() for x in [target,Path(str(target)+'.md'),target/'index.md']):errors.append(f'{p}: broken {u}')
+ overview=(analytics/'index.md').read_text()
+ if f'/architecture/analytics-{lang}.svg' not in overview or '```mermaid' in overview:errors.append(str(analytics)+': missing SVG or legacy Mermaid overview')
  for p in (R/('docs/index.md' if lang=='en' else 'docs/zh/index.md'),base/'index.md',base/'runtime-topology.md'):
   if f'<ArchitectureDiagram lang="{lang}" />' not in p.read_text():errors.append(str(p)+': inconsistent diagram')
  for src in re.findall(r'`((?:internal|core|agents|cmd|tools|mobile|web|docker|configs)/[^`\s]+)`',(base/'runtime-topology.md').read_text()):

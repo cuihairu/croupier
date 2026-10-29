@@ -69,7 +69,10 @@ const root = path.resolve(__dirname, "../.."),
                 "overlap: " + ts[i].textContent + " / " + ts[j].textContent,
               );
           }
-        if (svg.getAttribute("height") === "2310")
+        if (
+          svg.getAttribute("height") === "2310" ||
+          svg.hasAttribute("data-check-edges")
+        )
           for (const e of svg.querySelectorAll("path.edge")) {
             const hits = new Set();
             for (let d = 4; d < e.getTotalLength() - 4; d += 2) {
@@ -177,27 +180,57 @@ const root = path.resolve(__dirname, "../.."),
           console.log(`${lang} ${width} ${suffix || "home"}: page/image check`);
         }
     for (const lang of ["en", "zh"])
-      for (const width of [1440, 390]) {
-        await page.setViewportSize({ width, height: 1000 });
-        const url = `http://architecture.local/croupier/${lang === "zh" ? "zh/" : ""}analytics/core-and-external`;
-        const response = await page.goto(url);
-        await page.locator(".vp-doc h1").waitFor();
-        const info = await page.evaluate(() => ({
-          overflow: document.documentElement.scrollWidth > innerWidth,
-          title: document.querySelector(".vp-doc h1")?.textContent,
-        }));
-        if (response.status() !== 200 || info.overflow || !info.title)
-          fail.push({ url, width, info });
-        await page.screenshot({
-          path: path.join(out, `analytics-${lang}-${width}.png`),
-          fullPage: true,
-          timeout: 10000,
-        });
-        console.log(`${lang} ${width} analytics boundary: page check`);
-      }
+      for (const width of [1440, 390])
+        for (const suffix of ["analytics/", "analytics/core-and-external"]) {
+          await page.setViewportSize({ width, height: 1000 });
+          const url = `http://architecture.local/croupier/${lang === "zh" ? "zh/" : ""}${suffix}`;
+          const response = await page.goto(url);
+          await page.locator(".vp-doc h1").waitFor();
+          for (const image of await page
+            .locator(".analytics-diagram img")
+            .all()) {
+            await image.scrollIntoViewIfNeeded();
+            await image.evaluate((i) => i.decode());
+          }
+          const info = await page.evaluate(() => ({
+            diagrams: [
+              ...document.querySelectorAll(".analytics-diagram img"),
+            ].map((i) => ({
+              src: i.currentSrc,
+              loaded: i.complete && i.naturalWidth > 0,
+            })),
+            mermaid: document.querySelectorAll(".mermaid").length,
+            svgLink: document
+              .querySelector('.vp-doc a[href$=".svg"]')
+              ?.getAttribute("href"),
+            overflow: document.documentElement.scrollWidth > innerWidth,
+            title: document.querySelector(".vp-doc h1")?.textContent,
+          }));
+          if (
+            response.status() !== 200 ||
+            info.overflow ||
+            !info.title ||
+            (suffix === "analytics/" &&
+              (info.mermaid !== 0 ||
+                info.diagrams.length !== 1 ||
+                !info.diagrams[0].loaded ||
+                !info.diagrams[0].src.endsWith(`analytics-${lang}.svg`) ||
+                !info.svgLink?.endsWith(`analytics-${lang}.svg`)))
+          )
+            fail.push({ url, width, info });
+          await page.screenshot({
+            path: path.join(
+              out,
+              `analytics-${suffix === "analytics/" ? "overview" : "boundary"}-${lang}-${width}.png`,
+            ),
+            fullPage: true,
+            timeout: 10000,
+          });
+          console.log(`${lang} ${width} ${suffix}: page check`);
+        }
     if (fail.length) throw Error(JSON.stringify(fail, null, 2));
     console.log(
-      "PASS: 16 SVGs, 12 architecture pages and 4 analytics pages; screenshots: " +
+      "PASS: all architecture/analytics SVGs, 12 architecture pages and 8 analytics pages; screenshots: " +
         out,
     );
   } finally {

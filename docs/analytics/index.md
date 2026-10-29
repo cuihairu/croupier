@@ -16,11 +16,26 @@ The analytics stack supports game behavior, retention, revenue, and warehouse re
 | Server GORM          | Server business models   | Per-game relational tables                                                       | Business-entity joins and moderate-volume overview, retention, behavior, payment, and level reports. |
 | OpenTelemetry bridge | Server telemetry         | In-process bridge -> Redis Streams -> ClickHouse pipeline                        | Server-side automatic events without game-client changes.                                            |
 
-```text
-Game event -> ingest -> Redis Streams -> analytics worker -> ClickHouse -> console warehouse page
-```
+<div class="analytics-diagram">
 
-Redis absorbs bursts and decouples game traffic from warehouse writes. The worker consumes streams, validates and normalizes events, and writes detail and aggregate tables. Console queries do not read game databases directly for the ClickHouse path.
+![Actual analytics topology: ingest, worker and Server processes, in-process bridge, and separate data stores](/architecture/analytics-en.svg)
+
+</div>
+
+[Open the full SVG architecture diagram](/architecture/analytics-en.svg) · [Chinese SVG](/architecture/analytics-zh.svg)
+
+Arrows represent writes or query requests/responses, not a timeline. Dashed lines are optional; crossings without dots do not join. The bridge and Analytics API are Server modules. Browsers call Server APIs rather than connecting to databases. Warehouse and relational reports use separate sources.
+
+## Current wiring and source evidence
+
+| Relationship                        | Implementation and limits                                                                                                                                                                                                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Producers → ingest → Redis          | Routes `/api/ingest/events` and `/api/ingest/payments` and authentication in `cmd/ingest/cmd/root.go`; JSON stream publishing in `internal/analytics/mq/redis_pub.go`. HTTP 202 does not confirm ClickHouse durability. Keep HMAC secrets on trusted producers.              |
+| Server bridge → Redis               | The in-process buffer and publisher in `internal/telemetry/analytics_bridge.go` write directly to `analytics:events`, without ingest HTTP. Control-plane telemetry is not game DAU.                                                                                          |
+| Worker ↔ Redis; worker → ClickHouse | Consumer-group reads, pending reclaim, retry/dead letters and detail/aggregate batches in `internal/analytics/worker/worker.go`. ACK and warehouse persistence are not atomic; ARCH-011/012 remain open.                                                                     |
+| Browser → Server → databases        | `web/src/services/api/analytics.ts`, `internal/handler/routes.go`, `internal/api/analytics/warehouse.go` and the relational report implementations in that directory. Warehouse endpoints read ClickHouse; relational reports do not automatically consume warehouse events. |
+
+This diagram shows the default Redis path. `internal/analytics/mq/factory.go` also offers Kafka/noop publishers, but the existing worker consumes Redis; Kafka is not a connected substitute in this diagram. Professional integrations and accepted core metrics remain [target deliverables](./core-and-external).
 
 ## Metric groups
 
