@@ -112,9 +112,9 @@
   - 依赖：ARCH-011。交付与验收：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
   - 状态／条件：NOT RUN：需 Redis 与 ClickHouse 可控环境。
   - BLOCKED（2026-10-29 登记）：可控 Redis 与 ClickHouse 不可得——「Append 后/Send 前、Send 后/ACK 前、重入队失败时中断并比对源消息/PEL/死信/ClickHouse 行」需要能精确掐断消息流的 Redis 与可查证的 ClickHouse 实例；本机无此可控环境，故障注入验收无法执行。依赖 ARCH-011 实施后再测。
-- [ ] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
+- [x] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
   - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-30 收口）。`worker.NewWorker` 启动预检在 `ANALYTICS_MQ_TYPE=kafka` 时返回错误拒绝启动（消息明示内置 worker 只消费 Redis Streams，需外部 Kafka consumer 或改回 redis）；compose 三模板（compose/deploy/quickstart）把 `ANALYTICS_MQ_TYPE` 传给 analytics-worker 使预检可见。默认（未设或 redis）链不受影响，noop 仍为显式本地调试不拦截；不扩建 Kafka consumer。文档见 docs/analytics/index.md 与 docs/zh/analytics/index.md（MQ 接线）、docs/architecture/runtime-topology.md（拓扑）、docs/review/architecture-audit-2026-10-28.md（A07 状态）。证据：`go test ./internal/analytics/...` 全绿（含 TestNewWorkerRefusesKafkaMQ/TestNewWorkerAllowsRedisMQ），compose 三文件 YAML 解析通过，guard PASSED。
 - [ ] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
   - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。
   - 状态／条件：READY。
