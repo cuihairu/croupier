@@ -94,9 +94,9 @@
   - 依赖：—。交付与验收：列出 scope/Changes/Action 等规范化哈希字段、旧版本兼容和写失败策略；外部签名是否需要单列决策。
   - 状态／条件：LOCAL VERIFIED：已决策（2026-10-29）。D1–D7 见 [中英文审计链完整性设计](docs/zh/design/audit-chain-integrity-design.md)：D1 规范化全载荷摘要（action/category/severity/error_message/scope/changes/context/actor 全入哈希，JSON 列以存储原始字节嵌入消除 >2^53 整数假 mismatch）、D2 升级 SHA-256（替换 djb2 32 位）、D3 `hash_version` 列分版本校验兼容旧链（旧记录不重哈希）、D5 单一全局链、D6 失败开放+强制呈现（日志/计数器/X-Audit-Degraded）附失败关闭安全白名单与 `LogOrDegrade` 咽喉点、D7 外部签名已独占 `chain_signer_id`/`chain_signature` 列无需变更。评审表 8 场景；诚实边界：无密钥链为防篡改下限而非不可抵赖。驱动 ARCH-008 落地。
   - 完成证据：2026-10-29 决策文档；`docs/design/audit-chain-integrity-design.md`（D1–D7）与中文对应文档同步。
-- [ ] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
+- [x] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
   - 依赖：ARCH-007。交付与验收：逐字段修改被检测、旧链可验证、多实例写入一致；审计库故障按已批准策略处理。
-  - 状态／条件：READY。
+  - 状态／条件：完成（2026-10-29）。提交 2e4635ef：v2 摘要升级 SHA-256 全载荷（action/category/severity/error_message/scope/changes/context/actor 全入哈希，JSON 列原始字节嵌入 + UseNumber 解码消除 >2^53 假 mismatch）、`hash_version` 列 + 版本分发（0/1 走冻结 legacyHash，2 走 sha256Canonical，旧链可验证）；迁移 0050 补列；篡改矩阵 9 字段 + 旧链 4 子测 + 混合版本链 + 大整数往返 + D6 写失败策略（失败开放计数/降级头中间件、失败关闭白名单 7 事件经 `LogOrDegrade` 咽喉点，MFA 启用/关闭改写前审计并中止）全绿；13 个调用点迁移 `LogOrDegrade`，`X-Audit-Degraded` 头挂路由中间件；`go test ./internal/... ./cmd/...` 全绿、guard PASSED、docs 构建通过。
 - [ ] **ARCH-009 · P2 · 实现 · 数据库首次打开的取消与预算**
   - 依赖：—。交付与验收：让 resolver/open/migrate 消费 context；取消等待及时返回、同库 singleflight、不同库隔离，暴露池数/首开耗时；与 ARCH-006 路由命名修复可并行，合并时核对绑定行为
   - 状态／条件：READY；不需要先获得生产数据库权限即可做确定性验证。
