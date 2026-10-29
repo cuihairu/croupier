@@ -87,9 +87,9 @@
 - [x] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
   - 依赖：—。交付与验收：复用授权后的 binding.database_name，消除前缀重算；验收旧名/自定义名/前缀变更/下划线碰撞/并发首次开库，已有绑定有显式迁移。
   - 状态／条件：DONE（2026-10-29，证据 commit 见 git log）。Router 开库名改由注入的 `ResolveDatabaseName`（生产接 `GameModel.LookupDatabaseName`，即 authorized `game_envs.database_name`）给出——单一路由真值，开库时绝不重算；绑定缺失即路由错误，不静默回退合成名。缓存按物理名键控并记录 scope（`gameOfDB` 改 `map[string]scopeKey`），`Forget`/`ForgetGame` 按 scope 定位连接，EnvDelete 先删绑定行再 Forget 亦不泄漏/错关。规范名推导（`DefaultGameDBName`/`gameDBPrefix` 形式）仅保留在绑定创建/回填（`EnvAdd`/`EnvUpdate`/`BackfillEnvBindings`/`game_seed`）。验收：`router_binding_test.go` 自定义名/旧名/前缀变更（binding 胜出）、下划线碰撞（`a_b`/`c` vs `a`/`b_c` 各开各库）、并发首次开库（singleflight 只开 1 次）、绑定缺失报错且零开库、`Forget` 删行后仍关闭；文档 `docs/architecture/game-environment-scope.md` §6.1 + 中文镜像同步。
-- [ ] **ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略**
+- [x] **ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略**
   - 依赖：—。交付与验收：列出 scope/Changes/Action 等规范化哈希字段、旧版本兼容和写失败策略；外部签名是否需要单列决策。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-29，证据 commit 见 git log）。决策已定：D1 规范化哈希字段集=全部语义字段（含 category/severity/action/changes/context/errorMessage/gameId+env/metadata），编码跨 DB 往返稳定（毫秒时间戳截断 + Details/Changes JSON 往返 + 键排序、无 omitempty），完整性=任意字段改动都被检测；D2 SHA-256 取代 DJB2（64 十六进制恰容于 chain_hash varchar(64)，无需改列宽）；D3 显式 chain_version 列（goose 0049，存量回填 1，绝不改写既有哈希，v1 行以旧算法保持可校验）；D4 写失败策略默认 strict（fail-closed），显式 opt-in best_effort（WARN+限速告警+带缺口标记返回），无静默 fail-open；D5 外部签名保持独立、可选、单独校验，不并入哈希字段集、不随算法版本重算。交付物 `docs/design/audit-chain-integrity-design.md` + 中文镜像同步。
 - [ ] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
   - 依赖：ARCH-007。交付与验收：逐字段修改被检测、旧链可验证、多实例写入一致；审计库故障按已批准策略处理。
   - 状态／条件：READY。
