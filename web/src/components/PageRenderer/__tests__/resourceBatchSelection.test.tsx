@@ -12,11 +12,12 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from 'antd';
 import ResourcePageRenderer from '../ResourcePageRenderer';
+import * as SchemaFormModule from '@/components/SchemaFormRenderer';
 import {
   isStaleSelection,
   rowIdentity,
   selectionFilterFingerprint,
-  summarizePerTargetTotal,
+  summarizeQuantityTotal,
   summarizeTargets,
 } from '../batchSelection';
 import type {
@@ -26,6 +27,23 @@ import type {
   PageFunctionBinding,
   ResourcePageSpec,
 } from '@/types/dashboard';
+
+const { formMockState } = SchemaFormModule as unknown as {
+  formMockState: { validate: boolean; values: Record<string, unknown> };
+};
+
+jest.mock('@/components/SchemaFormRenderer', () => {
+  const formMockState = { validate: true, values: {} as Record<string, unknown> };
+  const Stub = React.forwardRef<unknown, Record<string, unknown>>((_props, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      validate: () => formMockState.validate,
+      getValues: () => formMockState.values,
+    }));
+    return <div data-testid="schema-form-stub" />;
+  });
+  Stub.displayName = 'SchemaFormRendererStub';
+  return { __esModule: true, default: Stub, formMockState };
+});
 
 // ProTable 契约级替身（只实现批量核对所需面）：
 // - request(params)：挂载即请求；真实 ProTable 在有查询表单时把筛选值并入
@@ -156,10 +174,19 @@ jest.mock('@ant-design/pro-components', () => {
       <span>{children}</span>
     </div>
   );
-  const ProFormShellStub: React.FC<{ open?: boolean; children?: React.ReactNode }> = ({
-    open,
-    children,
-  }) => (open ? <div data-testid="proform-shell">{children}</div> : null);
+  const ProFormShellStub: React.FC<{
+    open?: boolean;
+    children?: React.ReactNode;
+    onFinish?: () => Promise<boolean>;
+  }> = ({ open, children, onFinish }) =>
+    open ? (
+      <div data-testid="proform-shell">
+        {children}
+        <button type="button" onClick={() => void onFinish?.()}>
+          OK
+        </button>
+      </div>
+    ) : null;
   return {
     ProTable: ProTableStub,
     ProDescriptions: ProDescriptionsStub,
@@ -330,13 +357,18 @@ describe('D2 纯逻辑：行标识与筛选指纹', () => {
     expect(summarizeTargets(rows, 'id', 2)).toEqual({ identities: ['p1', 'p2'], omitted: 5 });
   });
 
-  it('summarizePerTargetTotal：空串/全空白串不猜 0，返回 undefined', () => {
-    expect(summarizePerTargetTotal('', 3)).toBeUndefined();
-    expect(summarizePerTargetTotal('   ', 3)).toBeUndefined();
-    expect(summarizePerTargetTotal('\t ', 3)).toBeUndefined();
-    // 合法纯数字串仍按显式语义换算
-    expect(summarizePerTargetTotal('100', 3)).toBe(300);
-    expect(summarizePerTargetTotal('0', 3)).toBe(0);
+  it('summarizeQuantityTotal：每人数量 × 目标数，非法输入不给总量', () => {
+    expect(summarizeQuantityTotal(100, 3)).toBe(300);
+    expect(summarizeQuantityTotal('50', 4)).toBe(200);
+    expect(summarizeQuantityTotal(0, 5)).toBe(0);
+    expect(summarizeQuantityTotal(2.5, 3)).toBeUndefined();
+    expect(summarizeQuantityTotal('2.5', 3)).toBeUndefined();
+    expect(summarizeQuantityTotal(undefined, 3)).toBeUndefined();
+    expect(summarizeQuantityTotal(null, 3)).toBeUndefined();
+    expect(summarizeQuantityTotal(-1, 3)).toBeUndefined();
+    expect(summarizeQuantityTotal('abc', 3)).toBeUndefined();
+    expect(summarizeQuantityTotal(100, 0)).toBeUndefined();
+    expect(summarizeQuantityTotal(100, 2.5)).toBeUndefined();
   });
 });
 
@@ -373,6 +405,145 @@ describe('D2 选择栏与目标清单', () => {
 });
 
 describe('D2 确认内容与实际提交一致', () => {
+  it('带 quantity 表单的批量操作：提交前展示总量，onExecute 携带 form+selection', async () => {
+    const { onExecute } = await renderBatch({
+      spec: spec({
+        batchActions: [
+          {
+            key: 'batch-compensate',
+            title: { 'zh-CN': '批量补偿' },
+            type: 'danger',
+            bindingId: 'b-batch',
+            confirm: true,
+            form: {
+              jsonSchema: {
+                type: 'object',
+                properties: { perAmount: { type: 'number', title: '每人数量' } },
+                required: ['perAmount'],
+              },
+              fields: [{ key: 'perAmount', role: 'quantity', unit: { 'zh-CN': '金' } }],
+            },
+          },
+        ],
+      }),
+    });
+    await selectAcrossPages({ page2: [true] });
+    await waitFor(() => expect(screen.getByText('已选择 3 项')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /批量补偿/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+    // DrawerForm 替身提交时 getValues 返回表单 mock 值
+    formMockState.values = { perAmount: 100 };
+    fireEvent.click(
+      within(screen.getByTestId('proform-shell')).getByRole('button', { name: 'OK' }),
+    );
+
+    // 总量确认弹窗
+    await waitFor(() => expect(screen.getAllByText('核对跨目标总量').length).toBeGreaterThan(0));
+    const confirm = inConfirm();
+    expect(confirm.getByText('每人数量')).toBeInTheDocument();
+    expect(confirm.getByText('100 金')).toBeInTheDocument();
+    expect(confirm.getByText('目标数量')).toBeInTheDocument();
+    expect(confirm.getByText('3')).toBeInTheDocument();
+    expect(confirm.getByText('总量')).toBeInTheDocument();
+    expect(confirm.getByText('300 金')).toBeInTheDocument();
+
+    fireEvent.click(confirm.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getAllByText('确认操作').length).toBeGreaterThan(0));
+    const targetConfirm = inConfirm();
+    expect(targetConfirm.getByText('目标对象')).toBeInTheDocument();
+    fireEvent.click(targetConfirm.getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-batch', {
+        form: { perAmount: 100 },
+        selection: fourRows.slice(0, 3),
+      }),
+    );
+  });
+
+  it('非法 quantity 会阻断批量执行且不触发总量或目标确认', async () => {
+    const { onExecute } = await renderBatch({
+      spec: spec({
+        batchActions: [
+          {
+            key: 'batch-compensate',
+            title: { 'zh-CN': '批量补偿' },
+            type: 'danger',
+            bindingId: 'b-batch',
+            confirm: true,
+            form: {
+              jsonSchema: {
+                type: 'object',
+                properties: { perAmount: { type: 'number', title: '每人数量' } },
+                required: ['perAmount'],
+              },
+              fields: [{ key: 'perAmount', role: 'quantity', unit: { 'zh-CN': '金' } }],
+            },
+          },
+        ],
+      }),
+    });
+    await selectAcrossPages({ page2: [true] });
+    fireEvent.click(screen.getByRole('button', { name: /批量补偿/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+    formMockState.values = { perAmount: NaN };
+    fireEvent.click(
+      within(screen.getByTestId('proform-shell')).getByRole('button', { name: 'OK' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('每人数量必须是不小于 0 的整数')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('核对跨目标总量')).not.toBeInTheDocument();
+    expect(screen.queryAllByText('确认操作').length).toBe(0);
+    expect(onExecute).not.toHaveBeenCalledWith(
+      'b-batch',
+      expect.objectContaining({ selection: expect.anything() }),
+    );
+  });
+
+  it('confirm 且无 quantity 的批量表单提交前仍确认目标对象', async () => {
+    const { onExecute } = await renderBatch({
+      spec: spec({
+        batchActions: [
+          {
+            key: 'batch-notify',
+            title: { 'zh-CN': '批量通知' },
+            bindingId: 'b-batch',
+            confirm: true,
+            form: {
+              jsonSchema: {
+                type: 'object',
+                properties: { title: { type: 'string', title: '标题' } },
+                required: ['title'],
+              },
+              fields: [{ key: 'title', title: '标题' }],
+            },
+          },
+        ],
+      }),
+    });
+    await selectAcrossPages({ page2: [true] });
+    fireEvent.click(screen.getByRole('button', { name: /批量通知/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+    formMockState.values = { title: '通知' };
+    fireEvent.click(
+      within(screen.getByTestId('proform-shell')).getByRole('button', { name: 'OK' }),
+    );
+
+    await waitFor(() => expect(screen.getAllByText('确认操作').length).toBeGreaterThan(0));
+    const confirm = inConfirm();
+    expect(confirm.getByText('目标对象')).toBeInTheDocument();
+    expect(confirm.getByText('p1、p2、p3')).toBeInTheDocument();
+    fireEvent.click(confirm.getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-batch', {
+        form: { title: '通知' },
+        selection: fourRows.slice(0, 3),
+      }),
+    );
+  });
+
   it('批量确认框展示目标标识与数量，onExecute 收到同一批对象', async () => {
     const { onExecute } = await renderBatch();
     await selectAcrossPages({ page2: [true] });

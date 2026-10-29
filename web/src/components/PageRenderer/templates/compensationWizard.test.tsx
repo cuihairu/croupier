@@ -6,6 +6,10 @@ import CompensationWizard from './compensationWizard';
 import { createMailCompensationDemoExecute } from './mailCompensation';
 import type { PageExecuteFn } from '@/types/dashboard';
 
+// 该套件在模板目录并行跑时因 antd StepsForm 渲染较重，单用例在高负载下
+// 可能逼近 jest 默认 5s 超时；放宽到套件级阈值避免 CI 抖动误报（同目录惯例）。
+jest.setTimeout(30000);
+
 function activeStep() {
   const root = document.querySelector('.ant-pro-steps-form-step-active');
   if (!root) throw new Error('active step not found');
