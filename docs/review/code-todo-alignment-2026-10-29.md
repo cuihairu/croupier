@@ -145,7 +145,7 @@ Number.MAX_SAFE_INTEGER × 2 → 18014398509481982（不属于安全整数）
 | ARCH-011   | 实现     | 已解决：worker 延迟 ACK（Send 成功后 XACK），at-least-once；见 docs/analytics/core-and-external.md 投递语义 |
 | ARCH-012   | 故障验证 | 缺口仍在；按现有稳定编号收口                                                                                |
 | ARCH-013   | 实现     | 缺口仍在；按现有稳定编号收口                                                                                |
-| ARCH-014   | 方案决策 | 缺口仍在；按现有稳定编号收口                                                                                |
+| ARCH-014   | 方案决策 | 已决（2026-10-30）：docs/design/task-retry-recovery-protocol.md（EN+zh）定义 D1–D5；落地归 ARCH-015         |
 | ARCH-015   | 实现     | 缺口仍在；按现有稳定编号收口                                                                                |
 | ARCH-016   | 实现     | 缺口仍在；按现有稳定编号收口                                                                                |
 | ARCH-017   | 实现     | 缺口仍在；按现有稳定编号收口                                                                                |
