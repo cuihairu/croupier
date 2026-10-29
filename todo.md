@@ -122,9 +122,9 @@
   - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理
   - 状态／条件：DONE（2026-10-30，commit 2c8e5c8a + 7e56c181）。D1 同 taskId 重复 Start 幂等 no-op + 每 taskId 代数守卫（`taskSlot.gen`，旧协程清理只删自己的表项、不删同名新任务）；D2 有界指数退避事件投递（`SetEventRetryPolicy`，窗口耗尽以 warning 暴露不静默丢）；D4 `StatusUnknown` 终态入 `IsTerminalStatus`/`TerminalStatuses`（unknown 行受 `UpdateRunIfStatusNotIn` 迟到守卫），`cancel_requested` 非终态、`completed` 不被待取消行拦截（取消不回退终态）；web 状态归一 `unknown→failed`（不显示为 pending）。验证：`go test ./internal/... ./agents/...` 全绿、`go vet` 通过、TaskPageRenderer 65/65、`tsc` 0 错、`dashboard_vnext_guard.sh` PASSED、docs build 通过。已知边界：D3 `running→unknown` 触发需 wire 重启身份（`RegisterRequest` 无重启标识），推迟至 ARCH-018（设计文档 §5 实现状态）；派发前落库失败归 ARCH-026。
 
-- [ ] **ARCH-016 · P1 · 实现 · Provider drain 真正摘流**
+- [x] **ARCH-016 · P1 · 实现 · Provider drain 真正摘流**
   - 依赖：—。交付与验收：当前 handleDrain 仅记录并回空 ACK；实现停止新路由、等待在途及超时退出语义，验证 ACK 语义与执行结束条件。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-30，commit d05d206e + ed95a3fa）。`ProviderSession` 增 drain 状态机（`BeginCall/EndCall/StartDraining/WaitDrained/IsDraining/InflightCount`：draining 后 `BeginCall` 拒绝新调用，inflight 归零经 `drainCh` 解除等待）；`callProvider` 服务 ID 路由对 draining 会话快速失败（不落到同一 provider 地址绕过摘流），遍历路由先 `IsDraining` 跳过、`BeginCall` 为权威守卫；`handleDrain` 标记会话 draining 并经 `WaitDrained` 有界等待在途（`drainWaitTimeout`，`RetryAfterMs` 0 回落 `defaultDrainWaitTimeout`=10s），超时照常 ACK 由 provider 强制断连。验证：unit `TestProviderSessionBeginCallBeforeDrain/TestProviderSessionDrainRejectsNewCalls/TestProviderSessionDrainWaitsForInflight/TestProviderSessionDrainTimeout/TestProviderSessionDrainImmediateWhenIdle` + integration `TestCallProviderRejectsDrainingSessionV9`、`TestHandleDrainWaitsForInflightCallV9`（ACK 在在途结束前不发、结束后发）、`TestHandleDrainTimesOutOnStuckCallV9`（50ms 窗口超时 ACK）全绿；`go test ./internal/... ./agents/...` 全绿、`go build ./...` 通过、`go vet` 通过、gofmt 干净、docs build 通过。已知边界：超时后仍在途调用在 provider 强制断连时失败（按设计，drain 不为未完成调用兜底）；Server 停机顺序（listener.Close 阻塞后续清理）归 ARCH-017/018。
 - [ ] **ARCH-017 · P1 · 实现 · Server 停机收尾顺序**
   - 依赖：—。交付与验收：控制 listener.Close 等活跃会话时不阻塞后续 HTTP 停机/根取消；保证 ServiceContext.Close 冲刷留痕，设置有界清理并验证 socket/goroutine/池释放。
   - 状态／条件：READY。
