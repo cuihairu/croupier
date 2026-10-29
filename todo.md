@@ -80,9 +80,9 @@
   - 依赖：—。交付与验收：增加专用 TLS 配置及身份绑定，拒绝无证书/错 CA/Agent 身份/未握手 forward；合法 invoke/start/cancel 保留 epoch fencing。
   - 状态／条件：NOT RUN：需测试 CA 与双实例。
   - BLOCKED（2026-10-29 登记）：测试 CA 与双实例不可得——「拒绝无证书/错 CA/Agent 身份/未握手 forward」需要为互联链路签发专用 CA 并跑双实例握手矩阵；单实例自签 TLS 无法覆盖拒绝矩阵，验收前置未满足前不宣称完成。
-- [ ] **ARCH-004 · P1 · 实现 · 集群就绪及失败降级语义**
+- [x] **ARCH-004 · P1 · 实现 · 集群就绪及失败降级语义**
   - 依赖：—。交付与验收：独立存活/就绪探针；配置要求集群时协调库、互联监听或租约不可用返回 ready=503，显式配置才允许 standalone 降级。
-  - 状态／条件：READY。
+  - 完成（2026-10-29，dab6d678）：`/healthz` 存活 + `/readyz` 就绪独立探针；`cluster.allowStandaloneDegradation` 显式降级配置；`Lifecycle.Healthy()` 续租失败/租约过期报告原因；`svc.ClusterReady` 注入，`cmd/server/cluster.go` 8 处降级点接线（DB 不可用/配置无效/redis 失败/EnsureTable 失败/成员注册失败/互联监听失败）；就绪探针走最小载荷 503/200 直写（非信封）。测试：`lifecycle_test.go` 状态转移矩阵、`readiness_test.go` DB 不可用/降级开关/健康/集群未要求/HTTP 503·200 映射、`coverage_boost_test.go` 服务错误分支含 readyz；`go test ./internal/... ./cmd/...` 全绿 + guard PASSED。
 - [ ] **ARCH-005 · P1 · 故障验证 · 集群故障摘流与重连**
   - 依赖：ARCH-003, ARCH-004。交付与验收：双实例注入协调库断连、互联占端口、owner 退出、旧 epoch；逐例记录拒绝、摘流、恢复及副作用次数。
   - 状态／条件：NOT RUN：需隔离网络和双实例。
