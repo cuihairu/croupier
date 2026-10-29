@@ -953,3 +953,37 @@ func TestRunIngest_Full(t *testing.T) {
 	// 避免它与测试进程退出竞态丢覆盖
 	time.Sleep(200 * time.Millisecond)
 }
+
+// ARCH-013：Kafka 发布端没有内置消费者（analytics-worker 只读 Redis 流）。
+// 未显式确认外部消费者时，kafka 组合启动即拒绝；redis/noop/默认链不受影响。
+func TestValidateMQCombination(t *testing.T) {
+	cases := []struct {
+		name    string
+		mqType  string
+		ack     string
+		wantErr bool
+	}{
+		{name: "kafka without ack blocked", mqType: "kafka", wantErr: true},
+		{name: "kafka with ack allowed", mqType: "kafka", ack: "true", wantErr: false},
+		{name: "kafka ack case-insensitive", mqType: "kafka", ack: "TRUE", wantErr: false},
+		{name: "kafka ack false still blocked", mqType: "kafka", ack: "false", wantErr: true},
+		{name: "redis untouched", mqType: "redis", wantErr: false},
+		{name: "noop untouched", mqType: "noop", wantErr: false},
+		{name: "unset default redis untouched", mqType: "", wantErr: false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("ANALYTICS_MQ_TYPE", tc.mqType)
+			t.Setenv("ANALYTICS_MQ_KAFKA_EXTERNAL_CONSUMER", tc.ack)
+
+			err := validateMQCombination()
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "external Kafka consumer")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

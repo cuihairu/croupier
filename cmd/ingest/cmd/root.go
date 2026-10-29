@@ -148,7 +148,25 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 }
 
+// validateMQCombination（ARCH-013）：启动预检拒绝不支持的分析 MQ 组合。
+// 内置 analytics-worker 只消费 Redis 流；ANALYTICS_MQ_TYPE=kafka 的发布端
+// 没有内置消费者——未显式确认外部消费者时，事件将发布入无人消费的队列，
+// 启动即拒绝。默认 Redis 链不受影响（预检只对 kafka 生效），不扩建
+// Kafka consumer。
+func validateMQCombination() error {
+	if strings.TrimSpace(os.Getenv("ANALYTICS_MQ_TYPE")) != "kafka" {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("ANALYTICS_MQ_KAFKA_EXTERNAL_CONSUMER")), "true") {
+		return nil
+	}
+	return fmt.Errorf("ANALYTICS_MQ_TYPE=kafka requires an external Kafka consumer: the built-in analytics-worker only consumes Redis streams; set ANALYTICS_MQ_KAFKA_EXTERNAL_CONSUMER=true to confirm")
+}
+
 func runIngest() error {
+	if err := validateMQCombination(); err != nil {
+		return err
+	}
 	q, err := mq.NewFromEnv()
 	if err != nil {
 		return fmt.Errorf("init analytics MQ: %w", err)
