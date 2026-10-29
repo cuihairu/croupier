@@ -113,7 +113,7 @@ capture 加载位点→连接源→Poll→可选 journal/consume→AckCheckpoint
 
 [完整 SVG](/architecture/shutdown-zh.svg)
 
-SDK `ProviderDrain` 当前只日志和空 ACK，**未实现摘流/等待在途**。Server SIGTERM 后先 `tcpListener.Close()`（等待连接协程），再 HTTP Shutdown，再 rootCancel/ControlService.Stop/Router.Close，外层有 30s 总等待；因此长连接可能阻挡后续清理，不能描述为完整优雅排空。`ServiceContext.Close` 定义了执行日志冲刷/retention 等待，但 root 未调用它。sidecar Stop 依次停函数插件、本地监听、上行、遥测、Ops；不保证 TaskRunner 持久任务已排空。worker main 取消后仅睡 200ms，不等待 Run 最终 flush 完成。证据：`internal/agent/tcp_local_listener.go:handleDrain`、`cmd/server/root.go`、`internal/svc/service_context.go:Close`、`internal/app/agent/app.go:Stop`、`cmd/analytics-worker/main.go`。改进分别登记 ARCH-015–018、ARCH-012。
+SDK `ProviderDrain` 现已停止新路由并按有界超时等待在途调用（ARCH-016）：会话标记为 draining，`callProvider` 拒绝新工作而非路由到将下线的 provider，`WaitDrained` 在 `RetryAfterMs`（默认 10s）内等待在途归零后 ACK；超时也照常 ACK，由 provider 强制断连，未完成调用在断连连接上失败。Server SIGTERM 后仍先 `tcpListener.Close()`（等待连接协程），再 HTTP Shutdown，再 rootCancel/ControlService.Stop/Router.Close，外层有 30s 总等待；长连接仍可能阻挡后续清理，故停机顺序尚不能描述为完整优雅排空。`ServiceContext.Close` 定义了执行日志冲刷/retention 等待，但 root 未调用它。sidecar Stop 依次停函数插件、本地监听、上行、遥测、Ops；不保证 TaskRunner 持久任务已排空。worker main 取消后仅睡 200ms，不等待 Run 最终 flush 完成。证据：`internal/agent/tcp_local_listener.go:handleDrain`、`agents/sidecar/provider_session.go:WaitDrained`、`internal/agent/local_handler.go:callProvider`、`cmd/server/root.go`、`internal/svc/service_context.go:Close`、`internal/app/agent/app.go:Stop`、`cmd/analytics-worker/main.go`。改进分别登记 ARCH-017–018（停机顺序）、ARCH-012。
 
 ## 部署方式与故障处理
 
@@ -132,7 +132,7 @@ SDK `ProviderDrain` 当前只日志和空 ACK，**未实现摘流/等待在途**
 | 内存审批；SQLStore 未装配                       | 跨实例持久审批、原子决定与执行领取 | ARCH-001/002           |
 | 页面/任务关系库存储；游戏副作用不由 UI 幂等覆盖 | 任务重放协议、真实游戏凭据         | ARCH-014/015、GAME-001 |
 | DB scope 校验；物理名双来源                     | 绑定作为路由真值、预算/池容量      | ARCH-006/009/010       |
-| SDK drain 空 ACK；停机顺序有阻塞窗口            | 摘流、截止时间与资源释放演练       | ARCH-016–018           |
+| SDK drain 停新路由、等在途；停机顺序有阻塞窗口  | 摘流、截止时间与资源释放演练       | ARCH-017–018           |
 | devops SSH 基础；面板中继缺失                   | 中继/回放界面；不自动扩 RDP/VNC    | AGENT-002/003          |
 | SLP/私有协议骨架与插件宿主                      | Login 级真实账号验收               | PROBE-001–003          |
 
