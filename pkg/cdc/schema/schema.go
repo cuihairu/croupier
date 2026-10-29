@@ -91,6 +91,8 @@ func NewHistory(less LessFn) *History {
 // revision (a connector re-sending an unchanged relation after reconnect) and
 // rejects a position that is not strictly after the previous version's From.
 func (h *History) Record(qualified string, revision int64, from string, ts TableSchema) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if h.less == nil {
 		return fmt.Errorf("schema: history has no position comparator")
 	}

@@ -165,6 +165,79 @@ function resolveRestMessage(payload: RestErrorPayload | undefined, status?: numb
   return getIntl().formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' });
 }
 
+/** 会话/scope 级错误：清无效 scope 让 GameSelector 重新选择、清失效 token
+ * 跳登录。这类错误即使请求带 skipErrorHandler 也必须走全局处理——其余错误
+ * 才保留给调用方局部反馈（执行器在页内呈现，不走全局 toast/跳转）。 */
+function handleSessionOrScopeError(error: unknown): boolean {
+  const reqError = error as RequestError;
+  const rawUrl: string | undefined = reqError?.response?.config?.url || reqError?.request?.url;
+  const url = normalizeApiUrl(rawUrl);
+  const status: number | undefined = reqError?.response?.status;
+  const payload = reqError?.response?.data as RestErrorPayload | undefined;
+  const errorCode = String(payload?.error || '')
+    .trim()
+    .toLowerCase();
+
+  // 认证入口接口（登录/注册/邮箱验证）自带 skipErrorHandler，由对应页面自管
+  // 错误展示（如 401+mfa_required 展示动态验证码），不得被全局清 token 跳转
+  // 劫持——跳过会话/scope 处理，完整交给调用方 catch。
+  if (
+    url &&
+    (url.includes(`${API_V1_PREFIX}/auth/login`) ||
+      url.includes(`${API_V1_PREFIX}/auth/register`) ||
+      url.includes(`${API_V1_PREFIX}/auth/verify-email`) ||
+      url.includes(`${API_V1_PREFIX}/auth/resend-verification`))
+  ) {
+    return false;
+  }
+
+  // Scope 相关的 403：清除无效 scope，让 GameSelector 重新选择
+  if (
+    status === 403 &&
+    (errorCode === 'scope_not_authorized' ||
+      errorCode === 'invalid_game_scope' ||
+      errorCode === 'scope_required')
+  ) {
+    setScope({ gameId: undefined, env: undefined }, { persist: true, emit: true });
+    msgWarn(
+      getIntl().formatMessage({
+        id: 'app.request.error.invalidScope',
+        defaultMessage: '当前选择的游戏环境无效，请重新选择',
+      }),
+    );
+    return true;
+  }
+
+  // token 失效：跳转登录
+  if (status === 401 && url) {
+    try {
+      localStorage.removeItem('token');
+    } catch {}
+    if (
+      url.includes(`${API_V1_PREFIX}/profile`) ||
+      url.includes(`${API_V1_PREFIX}/users/current`) ||
+      url.includes(`${API_V1_PREFIX}/messages`)
+    ) {
+      // 预期内 401（boot/login 的 profile + messages）静默跳转
+      history.push('/user/login');
+    } else {
+      msgWarn(resolveRestMessage(payload, status));
+      history.push('/user/login');
+    }
+    return true;
+  }
+
+  if (status === 401 && errorCode === 'unauthorized') {
+    try {
+      localStorage.removeItem('token');
+    } catch {}
+    history.push('/user/login');
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * @name 错误处理
  * pro 自带的错误处理， 可以在这里做自己的改动
@@ -196,7 +269,12 @@ export const errorConfig: RequestConfig = {
   errorConfig: {
     // 错误接收及处理
     errorHandler: (error: Error, opts: ErrorHandlerOptions) => {
-      if (opts?.skipErrorHandler) throw error;
+      if (opts?.skipErrorHandler) {
+        // 会话/scope 级错误仍须走全局处理（清 scope 重选、清 token 跳登录），
+        // 其余错误保留给调用方局部反馈；处理后再上抛原错误供页内 catch 呈现。
+        handleSessionOrScopeError(error);
+        throw error;
+      }
       const reqError = error as RequestError;
       const rawUrl: string | undefined = reqError?.response?.config?.url || reqError?.request?.url;
       const url = normalizeApiUrl(rawUrl);

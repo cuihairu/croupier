@@ -114,6 +114,7 @@ describe('PageSpec 常量', () => {
     expect(rowActions.slice(0, -1).every((a) => a.type !== 'danger')).toBe(true);
     expect(playerManagePageSpec.resource?.listView.batchActions?.map((a) => a.key)).toEqual([
       'batchUnban',
+      'action.batchRecharge',
       'batchBan',
     ]);
     // D5 危险操作位置：danger 批量动作（批量封禁）排到末尾。
@@ -134,6 +135,7 @@ describe('PageSpec 常量', () => {
       'action.mail',
       'action.batchBan',
       'action.batchUnban',
+      'action.batchRecharge',
     ]);
   });
 });
@@ -330,6 +332,23 @@ describe('demo 执行器：批量动作与兜底', () => {
     expect(unban.data).toEqual({ success: true, count: 1 });
     expect((await playerById(execute, '20001'))?.status).toBe('active');
     expect((await playerById(execute, '20002'))?.status).toBe('banned');
+  });
+
+  it('action.batchRecharge 按 selection 与每人数量累加，非法数量抛错', async () => {
+    const execute = newExecute();
+    const before1 = (await playerById(execute, '20001'))?.balanceGold ?? 0;
+    const before3 = (await playerById(execute, '20003'))?.balanceGold ?? 0;
+    const result = await execute(
+      'action.batchRecharge',
+      ctx({ amount: 100 }, undefined, [20001, 20003]),
+    );
+    expect(result.data).toEqual({ success: true, amount: 100, count: 2, total: 200 });
+    expect((await playerById(execute, '20001'))?.balanceGold).toBe(before1 + 100);
+    expect((await playerById(execute, '20003'))?.balanceGold).toBe(before3 + 100);
+
+    await expect(
+      execute('action.batchRecharge', ctx({ amount: -1 }, undefined, ['20001'])),
+    ).rejects.toThrow('invalid_per_target_amount');
   });
 
   it('selection 非数组时按空集处理', async () => {

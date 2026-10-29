@@ -251,6 +251,31 @@ func (s *gameOpsStore) playerRecharge(_ context.Context, payload []byte) ([]byte
 	return encodeJSON(map[string]any{"success": true, "amount": amount})
 }
 
+func (s *gameOpsStore) playerBatchRecharge(_ context.Context, payload []byte) ([]byte, error) {
+	m, err := decodePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	ids := stringSlice(toAnySlice(m["playerIds"]))
+	amount := valueInt64(m, "amount")
+	if amount < 0 {
+		return nil, fmt.Errorf("invalid_amount")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.players {
+		if contains(ids, s.players[i].ID) {
+			s.players[i].BalanceGold += amount
+		}
+	}
+	return encodeJSON(map[string]any{
+		"success": true,
+		"amount":  amount,
+		"count":   len(ids),
+		"total":   amount * int64(len(ids)),
+	})
+}
+
 func (s *gameOpsStore) playerMail(_ context.Context, payload []byte) ([]byte, error) {
 	// 只落操作记录；邮件正文由真实邮件服务投递（demo 收件箱不单独建模）。
 	m, err := decodePayload(payload)

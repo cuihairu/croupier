@@ -58,7 +58,7 @@ function renderComposite(sections: CompositeSection[], onExecute: jest.Mock, opt
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// 409 executor_unbound 同构错误（extractApiErrorCode 只读 err.data.error）
+// 409 executor_unbound 同构错误（extractApiErrorCode 从 err.data.error 取码）
 const unboundError = () =>
   Object.assign(new Error('executor unbound'), { data: { error: 'executor_unbound' } });
 

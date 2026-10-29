@@ -1,5 +1,6 @@
 import DefaultTheme from "vitepress/theme-without-fonts";
 import HomeCarousel from "./HomeCarousel.vue";
+import ArchitectureDiagram from "./ArchitectureDiagram.vue";
 import "../styles/index.scss";
 import "./custom.css";
 
@@ -10,5 +11,6 @@ export default {
   ...DefaultTheme,
   enhanceApp({ app }) {
     app.component("HomeCarousel", HomeCarousel);
+    app.component("ArchitectureDiagram", ArchitectureDiagram);
   },
 };

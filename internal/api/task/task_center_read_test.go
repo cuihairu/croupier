@@ -42,6 +42,40 @@ func TestTaskCenterListReturnsPaginatedEnvelope(t *testing.T) {
 	assert.Equal(t, 20, body.Size)
 }
 
+func TestTaskCenterListEchoesClampedPagination(t *testing.T) {
+	t.Parallel()
+
+	handler, taskSvc := setupHandler(t)
+	seedTaskRun(t, taskSvc.svcCtx.DB, "task-list-clamp", "player.ban", tasks.StatusRunning)
+
+	for _, tc := range []struct {
+		name     string
+		query    string
+		wantPage int
+		wantSize int
+	}{
+		{name: "over max clamps to 100", query: "?page=1&size=200", wantPage: 1, wantSize: 100},
+		{name: "zero size defaults to 20", query: "?page=1&size=0", wantPage: 1, wantSize: 20},
+		{name: "zero page defaults to 1", query: "?page=0&size=50", wantPage: 1, wantSize: 50},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request, _ = http.NewRequestWithContext(context.Background(), http.MethodGet, "/tasks"+tc.query, nil)
+			handler.List(c)
+
+			require.Equal(t, http.StatusOK, w.Code)
+			var body response.ListResponse
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+			assert.Equal(t, tc.wantPage, body.Page, "echoed page reflects server clamp")
+			assert.Equal(t, tc.wantSize, body.Size, "echoed pageSize reflects server clamp")
+		})
+	}
+}
+
 func TestTaskCenterDetailRequiresMatchingScope(t *testing.T) {
 	t.Parallel()
 

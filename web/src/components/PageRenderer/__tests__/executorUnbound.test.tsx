@@ -1,6 +1,6 @@
 /** T8/D2 执行边界前端覆盖：
- * 1. extractApiErrorCode：umi ResponseError 形态（.data.error）取稳定码，
- *    无结构化 body 返回 ''；
+ * 1. extractApiErrorCode：umi ResponseError 形态（.data.error，回退
+ *    .response.data.error）取稳定码，无结构化 body 返回 ''；
  * 2. executeErrorToastText：unbound 阻断给绑定指引文案，其余回退 fallback；
  * 3. ExecutorUnboundAlert：标题/描述/functionId + 「去绑定」跳 OpenAPI Sources；
  * 4. OperationPageRenderer：提交返回 409 executor_unbound → 结果区渲染

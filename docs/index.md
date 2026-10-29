@@ -27,8 +27,8 @@ features:
     title: Two-layer policy architecture
     details: YAML defaults combined with database override policies, supporting low / medium / high / critical four-level risk control.
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9.5 14.5H7a2.5 2.5 0 0 1 0-5h2.5"/><path d="M14.5 9.5H17a2.5 2.5 0 0 1 0 5h-2.5"/><path d="M8.5 12h7"/><circle cx="12" cy="12" r="9" stroke-dasharray="2.5 3.5"/></svg>'
-    title: Complete audit chain
-    details: Every operation is written to the audit log, high-risk operations require dual approval, and a hash chain prevents tampering.
+    title: Approvals and audit
+    details: Audit and approval follow execution paths and policy. Hash-chain validation is supported; persistence and integrity boundaries are documented in the architecture overview.
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M4 20V11"/><path d="M9.5 20V5"/><path d="M15 20v-6"/><path d="M20.5 20V8"/><path d="m3.5 8.5 5-4 5 4.5 6-5.5"/></svg>'
     title: Analytics pipeline
     details: ingest, worker, Redis Streams and ClickHouse form a standalone analytics pipeline; its docs live under the Analytics entry.
@@ -37,88 +37,19 @@ footer: Apache-2.0 License | Copyright © 2024-present Croupier
 
 ## What is Croupier
 
-Croupier is a Server / Agent / SDK platform for game operations and control scenarios, serving multiple games and environments inside a single game company by default. The architecture has converged on "unified session transport":
-
-- `Agent <-> Server`: `TCP session` by default, `TLS` enabled by default
-- `SDK <-> Agent`: `TCP session` by default, `TLS` off by default and enabled on demand
-- Both links share the same session transport foundation and differ only in the first handshake message and business semantics of the sub-protocol
+Croupier is an operations control plane for one company with multiple games and environments. The Server owns governance, contracts, pages and routing. A sidecar connects game SDKs; capture, synthetics and devops Agents provide distinct capabilities. Analytics runs through a separate pipeline.
 
 <HomeCarousel />
 
-## System Architecture
+## Current system architecture
 
-Entries are split by audience into **two independent planes** — do not merge them into one "load balancer layer":
+The console uses HTTP/SSE. Agents establish outbound TCP sessions; SDKs connect to the sidecar gateway. Multi-instance deployments forward requests to the Server that owns the live Agent connection. The diagram separates processes, storage and optional deployment components.
 
-- **Web console plane** (for operators/administrators, public or office network): L7 `dashboard nginx`,
-  routing HTTP API / SSE per request to the Server's `:18780`
-- **Agent plane** (intranet, outbound connections from game VPCs): L4 `haproxy` (`:19090`),
-  spreading TCP long connections across Server control listeners; connection semantics are
-  "reconnect equals failover", completely different from per-request HTTP routing
+<ArchitectureDiagram lang="en" />
 
-```mermaid
-graph TB
-  subgraph "Presentation"
-    UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
-  end
+[Explore the current architecture, state ownership and limitations →](/architecture/)
 
-  subgraph "Entry · Web console plane (L7, per-request routing)"
-    NGINX[dashboard nginx<br/>HTTP API / SSE → :18780]
-  end
-
-  subgraph "Entry · Agent plane (L4, intranet, per-connection spreading)"
-    HAPROXY[haproxy :19090<br/>TCP long connections / active health checks]
-  end
-
-  subgraph "Control layer (multi-instance HA)"
-    ServerA["Server A<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
-    ServerB["Server B<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
-    ServerA <-.->|inter-instance<br/>forwarding + fencing| ServerB
-  end
-
-  subgraph "Shared state"
-    Shared[(shared storage<br/>membership / registry / DB / Redis)]
-  end
-
-  subgraph "Proxy layer (game VPC, outbound only)"
-    Agent1[Agent 1<br/>Session Client + Local Gateway]
-    Agent2[Agent 2<br/>Session Client + Local Gateway]
-  end
-
-  subgraph "Business layer"
-    GS1[Game Server A<br/>SDK / Third-party App]
-    GS2[Game Server B<br/>SDK / Third-party App]
-    GS3[Game Server C<br/>SDK / Third-party App]
-  end
-
-  UI -->|HTTPS · REST / SSE| NGINX
-  NGINX --> ServerA
-  NGINX --> ServerB
-  Agent1 -->|TCP Session + TLS| HAPROXY
-  Agent2 -->|TCP Session + TLS| HAPROXY
-  HAPROXY --> ServerA
-  HAPROXY --> ServerB
-  ServerA --- Shared
-  ServerB --- Shared
-  GS1 -->|TCP Session| Agent1
-  GS2 -->|TCP Session| Agent2
-  GS3 -->|TCP Session| Agent1
-```
-
-> The two entry planes do not overlap: the web plane's nginx never touches Agent traffic, and the
-> Agent plane's haproxy never touches HTTP. The L4/L7 selection rationale and removing the LB
-> single point via VRRP are covered in [Operations](/operations).
-
-> The Server supports multi-instance high-availability deployment (`cluster.enabled`): member
-> discovery goes through shared storage (no seeds, no static peers), and requests landing on a
-> non-owner instance are forwarded over the inter-instance link (one-hop limit + epoch fencing).
-> Single-instance deployments have clustering off by default with zero overhead. See
-> Server multi-instance HA design.
-
-Key boundary notes:
-
-- The `Server` no longer depends on reverse connections to the `rpc_addr` exposed by `Agent`
-- The `Agent`'s local listener only serves `GameServer / SDK / third-party applications`
-- `Server -> Agent` calls (`Invoke / StartTask / CancelTask / Ops`) reuse the existing `Agent-Server` session
+> TLS is configuration-dependent and disabled in development templates. Cluster interconnect relies on trusted network isolation; production approval wiring still uses memory storage. HA routing does not imply HA for every business state.
 
 ## Core Capabilities
 
@@ -141,7 +72,7 @@ Authorization is based on a Casbin RBAC/ABAC hybrid model — beyond roles, requ
 
 ### Observability
 
-Every operation is written to the audit log; records are linked by a hash chain — altering one entry breaks the chain and can be detected afterwards. Sensitive fields such as passwords and tokens are automatically masked in logs and responses.
+Audit follows execution paths and policy. Hash-chain validation covers hashed fields; it is not immutable storage or a guarantee that every operation is recorded. Execution logs, telemetry and audit serve different purposes, with masking rules applied by their respective paths.
 
 ### Operations tooling
 

@@ -110,6 +110,25 @@ describe('D4 失败反馈构造', () => {
     );
     expect(describePermissionReason('validation_failed', { required: ['x'] })).toBeUndefined();
   });
+
+  it('无效 scope：保留专门原因行，提示重新选择', () => {
+    for (const code of ['scope_not_authorized', 'invalid_game_scope', 'scope_required']) {
+      const f = describeExecFailure(
+        apiError(code, '当前游戏环境无效', { gameId: 'demo', env: 'prod' }),
+      );
+      expect(f.code).toBe(code);
+      expect(f.reason).toBe('当前选择的游戏环境无效，请重新选择');
+      expect(f.fieldErrors).toEqual([]);
+    }
+  });
+
+  it('无效 scope 经 response.data（封装路径）：稳定码与原因行同样可达', () => {
+    const f = describeExecFailure({
+      response: { data: { error: 'scope_not_authorized', message: '当前游戏环境无效' } },
+    });
+    expect(f.code).toBe('scope_not_authorized');
+    expect(f.reason).toBe('当前选择的游戏环境无效，请重新选择');
+  });
 });
 
 describe('D4 结果分类', () => {
