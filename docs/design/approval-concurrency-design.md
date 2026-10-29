@@ -9,9 +9,12 @@
 > multi-step workflows with expiry/escalation) is a separate feature and is
 > deliberately out of scope here.
 >
-> Status: **PROPOSED — NOT IMPLEMENTED** (reviewed 2026-10-29).
-> ARCH-001 remains open until durable execution claim/recovery is resolved;
-> this document does not establish production readiness.
+> Status: **DECIDED** (2026-10-29). D1–D7 settled: CAS atomic transition,
+> winner-only continuation claim, unknown-result semantics, duplicate 409,
+> mandatory authorization before transition, compatibility goals, and the D7
+> durable dispatch intent / claim-token (fencing) / recovery reconciliation
+> protocol. Drives ARCH-002; game-side exactly-once remains bounded by
+> GAME-009/010 receipts. This document does not establish production readiness.
 > Prerequisite for: ARCH-002 (接入审批 SQL 存储).
 
 ## 1. Problem
@@ -136,6 +139,41 @@ logging of rejected attempts remains allowed. Existing payload compatibility is
 a goal, not a promise that no schema migration is needed. Durable claim fields,
 transaction boundaries and recovery remain ARCH-001 design work, with
 GAME-009/010 providing the game-side operation/receipt boundary.
+
+### D7 — Durable execution claim & recovery protocol (ARCH-001 closure)
+
+CAS guarantees a single approval decision; it does not guarantee exactly-once
+dispatch across a crash. To make "approved but result unknown" reconcilable,
+the winner must persist a **dispatch intent** before calling the continuation:
+
+- **Intent first**: after the CAS wins and before `continueApprovedFunction`,
+  write `claim_status = claimed` + `claim_token` (monotonic claim token) +
+  `claimed_at` + `dispatch_payload_fingerprint` on the same record. Only the
+  writer with `RowsAffected==1` on the intent may enter the continuation; any
+  other (already claimed / already written / unknown) gets 409 and does not
+  re-dispatch.
+- **Ownership / fencing**: `claim_token` travels in the continuation invoke
+  metadata (e.g. `approvalClaimToken`) to the game side, which dedupes on
+  `(operationId, claimToken)`. If the token does not advance, the old dispatch
+  is stale. Without a game-side dedupe contract the platform keeps intent and
+  unknown status only, and does not claim exactly-once (GAME-009/010 boundary).
+- **Recovery / reconciliation**: after a crash, `claim_status` decides the
+  path — `claimed` without `result_kind/task_id` queries the original
+  task/receipt; `dispatched` without a receipt stays unknown and requires
+  manual reconciliation. CAS alone never proves side-effect count.
+- **Reuse existing primitives**: no parallel table. The approval already has
+  `IdempotencyKey`/`Result`/`TaskID`; page binding execution already has
+  `page_execute_idempotencies` (running/completed placeholder + stale reclaim);
+  task execution already has `task_runs`. ARCH-001 adds claim fields and
+  conditional updates on the approval row, reusing existing placeholder and
+  reconciliation semantics; it does not introduce a third dedupe system.
+
+Schema migration & transaction boundary: `claim_status`/`claim_token`/
+`claimed_at` are new approval columns (ARCH-002 migration). Intent write and
+result write-back happen in conditional updates on the same record, with no
+cross-table transaction. Implementation acceptance must also cover crash
+before dispatch, response loss, result-write failure and mandatory
+authorization failures; these remain NOT RUN.
 
 ## 3. Review table (the ARCH-001 deliverable)
 

@@ -8,9 +8,10 @@
 
 ## 架构与可靠性
 
-- [ ] **ARCH-001 · P1 · 方案决策 · 审批并发与执行领取语义**
+- [x] **ARCH-001 · P1 · 方案决策 · 审批并发与执行领取语义**
   - 依赖：—。交付与验收：基于现有 SQLStore 定义 pending 原子转换、续跑领取及重复请求规则；评审表覆盖批准/拒绝竞争、重复批准、执行结果未知。
-  - 状态／条件：方案草案见 [中英文审批并发设计](docs/zh/design/approval-concurrency-design.md)；CAS 防并发重复派发与持久执行领取不同，持久意图/恢复仍待决策，未实现。
+  - 状态／条件：LOCAL VERIFIED：已决策（2026-10-29）。D1–D7 见 [中英文审批并发设计](docs/zh/design/approval-concurrency-design.md)：CAS 原子转换、胜出者续跑领取、重复请求 409、转换前强制授权、结果未知语义，以及 D7 持久派发意图/领取令牌（fencing）/恢复对账协议（复用审批单领取字段与既有 `page_execute_idempotencies`/`task_runs` 原语，不新建平行表）。评审表覆盖批准对批准、批准对拒绝、重复批准/拒绝、续跑失败/崩溃未知结果。游戏侧 exactly-once 以 GAME-009/010 收据为界；崩溃安全派发与强制授权失败验收仍为 NOT RUN（随 ARCH-002/实现验收）。
+  - 完成证据：2026-10-29 决策文档更新；`docs/design/approval-concurrency-design.md`（D1–D7）与中文对应文档同步，评审表与 ARCH-002 实现要点已定。
 - [ ] **ARCH-002 · P1 · 实现 · 接入审批 SQL 存储**
   - 依赖：ARCH-001。交付与验收：复用 internal/platform/approvals/sql_store.go；A 创建、B 读取/批准、重启后可查，并发仅一决定且仅一执行领取；不能只改构造器。
   - 状态／条件：NOT RUN：需共享数据库双实例。
