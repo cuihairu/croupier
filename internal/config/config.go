@@ -557,6 +557,11 @@ type ClusterConfig struct {
 	PeerPollInterval string `json:"peerPollInterval,omitempty" yaml:"peerPollInterval,omitempty"`
 	// InsecureSkipTLS 互联 TLS 校验跳过（仅开发联调）。
 	InsecureSkipTLS bool `json:"insecureSkipTls,omitempty" yaml:"insecureSkipTls,omitempty"`
+	// AllowStandaloneDegrade 显式允许 standalone 降级（ARCH-004）：集群
+	// enabled 时协调库/成员注册/互联监听不可用，默认保持「要求集群」
+	// 语义（就绪探针 503，实例不可服务）直到故障排除重启；只有显式置
+	// true 才允许按单实例降级运行（降级状态在 /healthz 组件可观测）。
+	AllowStandaloneDegrade bool `json:"allowStandaloneDegrade,omitempty" yaml:"allowStandaloneDegrade,omitempty"`
 	// Store 协调面存储：db（默认，共享关系库）| redis。
 	// 单实例部署不启用集群（enabled: false）时无协调面。
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`

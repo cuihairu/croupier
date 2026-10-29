@@ -438,6 +438,22 @@ The fuse: after heartbeats recover from failures, the Agent **re-registers once 
 | Upgrade/release        | Necessarily a whole-platform interruption        | Rolling restart instance by instance, available throughout |
 | Availability magnitude | ~99.9% (about 43 minutes of monthly downtime)    | 99.99%+ (about 4 minutes of monthly downtime)              |
 
+### 6.5 Cluster readiness probes and standalone degradation (ARCH-004)
+
+The deployment exposes two independent probes:
+
+- **Liveness** (`GET /healthz`, also under `/api/v1/healthz`): the process is up; returns 200 while the process runs (soft status with component detail, `ok` flag, not an availability gate).
+- **Readiness** (`GET /readyz`, also under `/api/v1/readyz`): the instance can serve traffic. Returns 200 only when database, registry and ops state are healthy **and**, when `cluster.enabled: true`, the cluster readiness plane is healthy: the membership registered, the member lease is renewing within its TTL window, and the interconnect listener is bound. Otherwise it returns 503 with `{ "status": "not_ready", "reasons": [...] }`.
+
+The cluster readiness plane is recorded by `internal/cluster.Readiness` (concurrency-safe), fed by `cmd/server/startCluster`: member registration result, lease renew successes/failures in the heartbeat loop (a lease is considered unavailable after consecutive failures × heartbeat ≥ lease TTL), and the interconnect listener bind result.
+
+**Standalone degradation is explicit-only** (`cluster.allowStandaloneDegrade`). When `cluster.enabled: true` and the coordination store / member registration is unavailable at startup:
+
+- default (`allowStandaloneDegrade: false`, the fail-closed semantics): the process runs but `/readyz` returns 503 — a cluster-required deployment does not silently become single-instance; the load balancer / scheduler pulls it out.
+- `allowStandaloneDegrade: true`: the instance degrades to standalone and `/readyz` returns 200 (the degraded state stays observable in the `/healthz` cluster component).
+
+The degrade knob only sanctions the **startup coordination-store** degrade. Once the instance has joined, a lease failure or an interconnect-listener failure is a broken cluster member and always reports 503 (half-joined state cannot serve).
+
 ## 7. Implementation breakdown
 
 | Component                                                              | Effort | Notes                                                     |

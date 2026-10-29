@@ -328,6 +328,10 @@ func registerMonitoringPublicRoutes(r *gin.Engine, g *gin.RouterGroup, ctx *svc.
 	monitoringHandler := monitoring.NewHandler(monitoringSvc)
 	r.GET("/healthz", monitoringHandler.Healthz)
 	g.GET("/healthz", monitoringHandler.Healthz)
+	// 就绪探针（ARCH-004）：独立于存活探针；要求集群时协调库/互联/租约
+	// 不可用返回 503（双路径同 /healthz）。
+	r.GET("/readyz", monitoringHandler.Ready)
+	g.GET("/readyz", monitoringHandler.Ready)
 }
 
 func registerMonitoringProtectedRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

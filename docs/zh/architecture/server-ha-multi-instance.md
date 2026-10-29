@@ -447,6 +447,22 @@ t+ε       全量重注册（函数 descriptor + providers 全量重发，非增
 | 升级发版    | 必然全平台中断             | 逐台滚动重启，全程可用       |
 | 可用性量级  | ~99.9%（月停机约 43 分钟） | 99.99%+（月停机约 4 分钟）   |
 
+### 6.5 集群就绪探针与 standalone 降级（ARCH-004）
+
+部署暴露两个独立探针：
+
+- **存活**（`GET /healthz`，`/api/v1/healthz` 同）：进程在即 200（软状态，带组件明细 `ok` 标志，不作可用门禁）。
+- **就绪**（`GET /readyz`，`/api/v1/readyz` 同）：实例可承接流量。仅当数据库、注册表、运维状态健康 **且**（`cluster.enabled: true` 时）集群就绪面健康——成员已注册、成员租约在 TTL 窗口内续期、互联监听已绑定——才 200；否则 503，`{ "status": "not_ready", "reasons": [...] }`。
+
+集群就绪面由 `internal/cluster.Readiness`（并发安全）记录，由 `cmd/server/startCluster` 投喂：成员注册结果、心跳循环里的续租成功/失败（连续失败 × 心跳 ≥ 租约 TTL 判租约不可用）、互联监听绑定结果。
+
+**standalone 降级仅显式允许**（`cluster.allowStandaloneDegrade`）。`cluster.enabled: true` 且启动期协调库/成员注册不可用时：
+
+- 默认（`allowStandaloneDegrade: false`，fail-closed 语义）：进程继续运行但 `/readyz` 返回 503——要求集群的部署不静默退化为单实例；LB/调度器将其摘流。
+- `allowStandaloneDegrade: true`：实例降级为 standalone，`/readyz` 返回 200（降级状态在 `/healthz` 集群组件可观测）。
+
+降级旋钮只豁免**启动期协调库**降级。实例已加入后发生租约失败或互联监听失败 = 损坏的集群成员，一律 503（半加入态不能服务）。
+
 ## 7. 实施拆解
 
 | 组件                                        | 工作量 | 说明                               |

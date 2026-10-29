@@ -25,6 +25,9 @@ type Config struct {
 	HeartbeatInterval time.Duration
 	LeaseTTL          time.Duration
 	PeerPollInterval  time.Duration
+	// Readiness 就绪面（ARCH-004）：注册/续租状态写入；nil = 不追踪
+	//（单实例或不接就绪探针的调用方）。
+	Readiness *Readiness
 }
 
 // NormalizeConfig 把 config.ClusterConfig 归一为 Lifecycle 参数并补默认值。
@@ -83,9 +86,12 @@ func Start(ctx context.Context, cfg Config, member Membership, resolver OwnerSto
 	epoch, err := member.Register(ctx, self)
 	if err != nil {
 		slog.Error("cluster: register failed, running standalone", "error", err)
+		cfg.Readiness.SetJoined(false)
+		cfg.Readiness.RecordDegrade("register: " + err.Error())
 		return nil
 	}
 	mesh.SetEpoch(epoch)
+	cfg.Readiness.SetJoined(true)
 
 	lc := &Lifecycle{
 		cfg:    cfg,
@@ -120,6 +126,9 @@ func (lc *Lifecycle) loop() {
 		case <-heartbeat.C:
 			if err := lc.member.Renew(context.Background(), lc.cfg.InstanceID); err != nil {
 				slog.Warn("cluster: renew failed", "error", err)
+				lc.cfg.Readiness.RenewFail(err)
+			} else {
+				lc.cfg.Readiness.RenewOK()
 			}
 		case <-poll.C:
 			lc.mesh.RefreshPeers(context.Background())

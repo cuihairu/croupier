@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/config"
 	extensioncatalog "github.com/cuihairu/croupier/internal/core/extension/catalog"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
@@ -157,7 +158,11 @@ type ServiceContext struct {
 	// 报错、内联值直通（存量部署零行为变化）。
 	Secrets vault.Resolver
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
-	Cluster                  *ClusterRuntime
+	Cluster *ClusterRuntime
+	// ClusterReadiness 是集群就绪面（ARCH-004）：cluster.enabled 时
+	// 创建（即使启动期降级），/readyz 判定与 /healthz 集群组件观测用；
+	// 未启用集群时 nil。
+	ClusterReadiness         *cluster.Readiness
 	CertificateModel         *model.CertificateModel
 	ConfigVersionModel       *model.ConfigVersionModel
 	ConfigSourceBindingModel *model.ConfigSourceBindingModel

@@ -115,6 +115,8 @@ metrics:
 #   leaseTtl: 15s                      # 租约 TTL（3 倍心跳）
 #   ownerTtl: 3m                       # agent 归属记录存活窗口
 #   peerPollInterval: 10s              # 对端发现轮询
+#   allowStandaloneDegrade: false      # 显式允许协调库不可用时按单实例降级
+#                                      #（默认 false：要求集群 → /readyz 503）
 
 # 页面发布分级（T10）：composite 保存后的发布策略。
 #   auto     = 保存即发布（跳过人工接受提案；质量门槛照常拦截）

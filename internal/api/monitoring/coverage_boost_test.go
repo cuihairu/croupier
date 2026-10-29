@@ -78,14 +78,21 @@ func TestHandler_Endpoints_AllComponentsDown(t *testing.T) {
 
 	r := gin.New()
 	r.GET("/healthz", h.Healthz)
+	r.GET("/readyz", h.Ready)
 	r.GET("/metrics", h.Metrics)
 	r.GET("/status", h.Status)
 
+	// /healthz 是存活探针：全组件不健康仍 200（软状态）。/readyz 是
+	// 就绪探针：组件不健康 → 503。
 	for _, path := range []string{"/healthz", "/metrics", "/status"} {
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		assert.Equal(t, http.StatusOK, rec.Code, "path %s", path)
 	}
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Contains(t, rec.Body.String(), "not_ready")
 }
 
 // Collect 在底层连接关闭（Exec 失败）时 db_up 必须为 0 且不 panic。
@@ -180,6 +187,10 @@ func (f failingMonitoringService) Healthz(_ context.Context, _ *HealthzRequest) 
 	return nil, f.err
 }
 
+func (f failingMonitoringService) Ready(_ context.Context, _ *ReadyRequest) (*ReadyResponse, error) {
+	return nil, f.err
+}
+
 func (f failingMonitoringService) Metrics(_ context.Context, _ *MetricsRequest) (*MetricsResponse, error) {
 	return nil, f.err
 }
@@ -194,10 +205,11 @@ func TestHandler_ServiceErrorBranches(t *testing.T) {
 
 	r := gin.New()
 	r.GET("/healthz", h.Healthz)
+	r.GET("/readyz", h.Ready)
 	r.GET("/metrics", h.Metrics)
 	r.GET("/status", h.Status)
 
-	for _, path := range []string{"/healthz", "/metrics", "/status"} {
+	for _, path := range []string{"/healthz", "/readyz", "/metrics", "/status"} {
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		assert.Equal(t, http.StatusInternalServerError, rec.Code, "path %s", path)

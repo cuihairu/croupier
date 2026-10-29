@@ -43,10 +43,6 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	// 协调面存储选择：db（默认，共享关系库）| redis。redis 模式不依赖
 	// 共享 DB（成员表/归属表全走 Redis 租约键），DB 仅剩业务库职责。
 	useRedis := strings.EqualFold(strings.TrimSpace(cfg.Store), "redis")
-	if !useRedis && svcCtx.DB == nil {
-		slog.Warn("cluster: enabled but DB unavailable, running standalone")
-		return nil, nil
-	}
 
 	lcCfg, err := cluster.NormalizeConfig(struct {
 		Enabled           bool
@@ -70,6 +66,27 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		return nil, nil
 	}
 
+	// ARCH-004 就绪面：cluster.enabled 时创建（即使启动期降级为 standalone），
+	// 供 /readyz 判定与 /healthz 集群组件观测。nil 仅当 svcCtx 不可得。
+	readiness := cluster.NewReadiness(lcCfg.HeartbeatInterval, lcCfg.LeaseTTL)
+	svcCtx.ClusterReadiness = readiness
+	// degrade 记录启动期协调库/注册不可用并返回单实例（是否允许降级由
+	// 监测服务按 config.Cluster.AllowStandaloneDegrade 判定；本函数始终
+	// 继续启动进程，/readyz 负责把「要求集群但不可用」的实例摘流）。
+	degrade := func(reason string) (*cluster.Lifecycle, *internaltcp.Server) {
+		readiness.SetJoined(false)
+		readiness.RecordDegrade(reason)
+		slog.Warn("cluster: "+reason+", running standalone", "error", "degraded")
+		return nil, nil
+	}
+
+	if !useRedis && svcCtx.DB == nil {
+		return degrade("db unavailable")
+	}
+	if lcCfg.AdvertiseAddr == "" {
+		return degrade("advertiseAddr required")
+	}
+
 	ownerTTL := time.Duration(0)
 	if cfg.OwnerTTL != "" {
 		if d, perr := time.ParseDuration(cfg.OwnerTTL); perr == nil {
@@ -82,8 +99,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	if useRedis {
 		rdb, err := openClusterRedis(cfg, c)
 		if err != nil {
-			slog.Error("cluster: redis store unavailable, running standalone", "error", err)
-			return nil, nil
+			return degrade("redis store unavailable: " + err.Error())
 		}
 		// 客户端随集群生命周期存活（member/resolver 长期持有它）；不能
 		// defer Close——那会在本函数返回时立刻关掉协调面（member 续租、
@@ -97,24 +113,21 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		cancel()
 		err = pingErr
 		if err != nil {
-			slog.Error("cluster: redis ping failed, running standalone", "error", err)
-			return nil, nil
+			return degrade("redis ping failed: " + err.Error())
 		}
 		member = cluster.NewRedisMembership(rdb, lcCfg.LeaseTTL)
 		resolver = cluster.NewRedisOwnerResolver(rdb, ownerTTL)
 	} else {
 		dbm := cluster.NewDBMembership(svcCtx.DB, lcCfg.LeaseTTL)
 		if err := dbm.EnsureTable(ctx); err != nil {
-			slog.Error("cluster: ensure membership table failed, running standalone", "error", err)
-			return nil, nil
+			return degrade("ensure membership table failed: " + err.Error())
 		}
 		member = dbm
 		dbr := cluster.NewDBOwnerResolver(svcCtx.DB, ownerTTL)
 		// 与成员表共用同一 DB 连接；owner 表 DDL 失败翼经「可写连接预建
 		// 成员表 + mode=ro 重开」构造（cluster_ddl_wings_test.go）。
 		if err := dbr.EnsureTable(ctx); err != nil {
-			slog.Error("cluster: ensure owner table failed, running standalone", "error", err)
-			return nil, nil
+			return degrade("ensure owner table failed: " + err.Error())
 		}
 		resolver = dbr
 	}
@@ -134,8 +147,11 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		Insecure:    true,
 	}
 
+	lcCfg.Readiness = readiness
 	lifecycle := cluster.Start(ctx, lcCfg, member, resolver, cluster.NewTCPDialer(icCfg))
 	if lifecycle == nil {
+		// 成员注册失败已由 cluster.Start 记录到 readiness（SetJoined(false)
+		// + RecordDegrade）；未降级时 /readyz 按「要求集群但不可用」判 503。
 		return nil, nil
 	}
 
@@ -215,8 +231,12 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	srv, err := internaltcp.NewServer(icCfg, handler)
 	if err != nil {
 		slog.Error("cluster: interconnect listen failed (mesh dial-out still active)", "addr", icAddr, "error", err)
+		// 互联监听不可用：成员已注册但实例间不可达——「要求集群」语义下
+		// /readyz 503（无论是否允许 standalone 降级，半加入态不能服务）。
+		readiness.SetInterconnect(false, err)
 		return lifecycle, nil
 	}
+	readiness.SetInterconnect(true, nil)
 	go func() {
 		if err := srv.Serve(ctx); err != nil {
 			slog.Warn("cluster: interconnect server stopped", "error", err)

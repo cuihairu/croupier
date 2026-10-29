@@ -21,6 +21,18 @@ type HealthzResponse struct {
 	Components    MonitoringComponents `json:"components"`
 }
 
+// ReadyRequest readiness probe request。
+type ReadyRequest struct{}
+
+// ReadyResponse 就绪探针响应（/readyz）。健康探针契约允许最小负载；
+// 这里额外带 reasons 供运维定位（503 时列出不可用组件原因）。
+type ReadyResponse struct {
+	Status    string                    `json:"status"` // ok | not_ready
+	Timestamp string                    `json:"timestamp"`
+	Reasons   []string                  `json:"reasons,omitempty"`
+	Cluster   MonitoringComponentStatus `json:"cluster,omitempty"`
+}
+
 // MetricsRequest metrics request
 type MetricsRequest struct{}
 
