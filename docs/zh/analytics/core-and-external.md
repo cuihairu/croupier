@@ -10,7 +10,7 @@ title: 共用核心指标与外部专业分析边界
 
 | 可复用资产                               | 代码依据                                                                                     | 当前边界                                                                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 事件/支付接入与 Redis→worker→ClickHouse  | cmd/ingest/cmd/root.go；internal/analytics/mq；internal/analytics/worker/worker.go           | 有实际处理链，仍有 ACK 先于批写持久化等可靠性缺口（ARCH-011/012）                                                         |
+| 事件/支付接入与 Redis→worker→ClickHouse  | cmd/ingest/cmd/root.go；internal/analytics/mq；internal/analytics/worker/worker.go           | 有实际处理链；ACK 先于 Send 的丢数窗口已由延迟 ACK 关闭（ARCH-011）。崩溃恢复的实机验证仍未做（ARCH-012）                 |
 | 关系库概览/付费/行为/留存 API            | internal/api/analytics/{overview,payments,behavior,retention}.go；internal/model/analytics_* | 概览读关系模型，新增还使用本地 Player；留存读取 cohort 表，未找到 UpsertCohort 的生产计算调用；不自动消费 ClickHouse 数据 |
 | ClickHouse 仓库只读查询                  | internal/api/analytics/warehouse.go                                                          | DAU/新增、分钟在线、日收入的查询入口存在；没配置 DSN 会返回未启用。表模型与聚合口径尚有问题                               |
 | 前端概览/实时/留存/付费/仓库页           | web/src/pages/Analytics；web/src/services/api/analytics.ts                                   | 概览转换函数把 d1/d7/d30 固定为 null；概览与仓库来自不同源。有页面不代表已有真实数据闭环                                  |
@@ -40,6 +40,15 @@ title: 共用核心指标与外部专业分析边界
 
 第 1/3 项结合源码与官方引擎语义判断；本轮未启动真实 ClickHouse 验证数据结果。官方核查日 **2026-10-29**：ReplacingMergeTree 以 ORDER BY 判定重复，显式 ver 参数才参与版本选择；SummingMergeTree 对同键数值求和。见 [ReplacingMergeTree 官方资料](https://clickhouse.com/docs/reference/engines/table-engines/mergetree-family/replacingmergetree)、[SummingMergeTree 官方资料](https://clickhouse.com/docs/reference/engines/table-engines/mergetree-family/summingmergetree)。仓库驱动 v2.43.0、Compose 模板 23-alpine（浮动标签）；真实服务器版本和迁移行为仍为 NOT RUN。
 
+## 投递语义（ARCH-011）
+
+Redis→worker→ClickHouse 管道是 **at-least-once 投递 + 查询期去重**。关闭原丢数窗口后，`internal/analytics/worker/worker.go` 的契约如下：
+
+- **延迟 ACK**：消息只有在它所在的 ClickHouse batch `Send()` 成功后才 XACK，入 batch 不 ACK。已入 batch 但未 Send 的消息留在消费组 PEL 里，Send 前崩溃会重投（at-least-once）。`Send()` 失败时重置 batch 与待 ACK 记录，消息保持 pending 等待 reclaim 重投。
+- **失败核对**：重入队（`XAdd`）与死信（`XAdd` 到 DLQ）的错误现在被核对并返回、不 ACK——重试/死信副本没写进去时不会静默丢数。
+- **允许重复**：崩溃/reclaim 后同一逻辑行可能多次落进 ClickHouse。去重键为 `event_id`（events）与 `order_id`（payments）；`events`/`payments` 是 MergeTree，去重在查询期完成（`GROUP BY`/`uniq`）。`daily_users`/`daily_revenue` 为 ReplacingMergeTree（版本=flush 时刻）、`minute_online` 为 SummingMergeTree，HLL 聚合对同一分钟/游戏/环境/用户集合幂等。
+- **残留窗口**：`Send()` 成功与 XACK 之间进程被杀仍可能发生（flush 中途死掉）；此时消息留在 PEL 会被重投，代价只是重复行而不是丢数。这是 at-least-once 的固有代价，明确接受；ARCH-012 登记的崩溃恢复实机验证会覆盖该场景。
+
 ## 专业能力通过外部系统集成（目标设计）
 
 复杂自助查询、任意维度钻取、复杂漏斗/路径、归因/广告 ROI、长期 LTV 预测、专业分群与大规模建模，纳入外部专业分析范围；现有行为/关卡页面继续保留并诚实标注能力，不在本轮删除。具体供应商及其授权规则没有确定，登记 DATA-010 调查后再决定。
@@ -56,7 +65,7 @@ Croupier 负责以下边界，复用现有扩展机制，不新增独立分析�
 ## 交付顺序与验收
 
 1. DATA-001：确定共用范围与口径；DATA-010 可并行调查专业接入。
-2. 复用现有管道修正聚合与可靠性，贯通事件映射/核心指标计算/查询/页面（DATA-002–008、ARCH-011/012）。
+2. 复用现有管道修正聚合与可靠性，贯通事件映射/核心指标计算/查询/页面（DATA-002–008、ARCH-012）。ARCH-011 的延迟 ACK 修复与 at-least-once 投递已完成；崩溃恢复实机验证仍待做。
 3. 用多 game/env、跨日时区、重复乱序、多币种、退款与观察窗样本逐指标对账，记录来源和新鲜度；真实环境缺失记 NOT RUN，不用接口或测试总数代替。
 4. 评审并交付一个真实专业平台适配，再验跨 scope/撤权/超时/失联（DATA-011–013）。
 

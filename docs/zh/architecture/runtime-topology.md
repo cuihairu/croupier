@@ -113,7 +113,7 @@ capture 加载位点→连接源→Poll→可选 journal/consume→AckCheckpoint
 
 [完整 SVG](/architecture/shutdown-zh.svg)
 
-SDK `ProviderDrain` 当前只日志和空 ACK，**未实现摘流/等待在途**。Server SIGTERM 后先 `tcpListener.Close()`（等待连接协程），再 HTTP Shutdown，再 rootCancel/ControlService.Stop/Router.Close，外层有 30s 总等待；因此长连接可能阻挡后续清理，不能描述为完整优雅排空。`ServiceContext.Close` 定义了执行日志冲刷/retention 等待，但 root 未调用它。sidecar Stop 依次停函数插件、本地监听、上行、遥测、Ops；不保证 TaskRunner 持久任务已排空。worker main 取消后仅睡 200ms，不等待 Run 最终 flush 完成。证据：`internal/agent/tcp_local_listener.go:handleDrain`、`cmd/server/root.go`、`internal/svc/service_context.go:Close`、`internal/app/agent/app.go:Stop`、`cmd/analytics-worker/main.go`。改进分别登记 ARCH-015–018、ARCH-011/012。
+SDK `ProviderDrain` 当前只日志和空 ACK，**未实现摘流/等待在途**。Server SIGTERM 后先 `tcpListener.Close()`（等待连接协程），再 HTTP Shutdown，再 rootCancel/ControlService.Stop/Router.Close，外层有 30s 总等待；因此长连接可能阻挡后续清理，不能描述为完整优雅排空。`ServiceContext.Close` 定义了执行日志冲刷/retention 等待，但 root 未调用它。sidecar Stop 依次停函数插件、本地监听、上行、遥测、Ops；不保证 TaskRunner 持久任务已排空。worker main 取消后仅睡 200ms，不等待 Run 最终 flush 完成。证据：`internal/agent/tcp_local_listener.go:handleDrain`、`cmd/server/root.go`、`internal/svc/service_context.go:Close`、`internal/app/agent/app.go:Stop`、`cmd/analytics-worker/main.go`。改进分别登记 ARCH-015–018、ARCH-012。
 
 ## 部署方式与故障处理
 
@@ -122,7 +122,7 @@ SDK `ProviderDrain` 当前只日志和空 ACK，**未实现摘流/等待在途**
 - **HA 模板**：`docker/docker-compose.deploy.yml` 的双 Server/sidecar 与 HAProxy，dashboard nginx 走 HTTP，Agent 走 L4；成员/owner 后端共享，session 留各实例内存。模板/healthcheck 的存在不证明线上可故障切换。互联仍需可信网络隔离，mTLS 为目标设计。
 - **TLS/状态卷**：开发模板证书留空、insecure 开启；生产需核对终止点、CA/证书、数据库/Redis ACL。保留 Server data、capture bookmark/spool/journal、devops casts 与审计日志、sidecar desired_state/schedule_pause 文件和插件版本。数据库备份不覆盖内存审批与正在执行的任务。
 - **故障诊断顺序**：先核对 scope/当前配置与真实进程→注册 ACK→owner/session→函数/Provider 快照→受控执行拒绝原因→task event/凭据。Agent 离线不靠重写 DB 在线标志恢复；SDK 断线应观察 Provider 移除和重注册；执行超时先查询结果和游戏凭据，禁止据未知结果盲目重发高风险操作。
-- **分析可靠性**：worker 批量 Append 成功后可先 XACK，批量 Send 尚未发生；重入队 XADD 的错误也未检查，存在崩溃丢失窗口。这是源码推断，故障复现 **NOT RUN**。`XACK` 只是移出 PEL，并不证明 ClickHouse 已持久化。正式修复与杀进程验证见 ARCH-011/012。
+- **分析可靠性**：原丢数窗口（批量 Append 后即 XACK、Send 未发生；重入队 XADD 错误未检查）已由延迟 ACK 修复：消息只有在其 ClickHouse batch `Send()` 成功后才 XACK，Send 失败重置 batch 与待 ACK 记录，重入队/死信错误核对后返回不 ACK——投递为 at-least-once，查询期按 `event_id`/`order_id` 去重（ARCH-011 已解决）。残留的 Send 成功与 XACK 之间崩溃仍会重投（重复行而非丢数）；杀进程实机复现仍未做，见 ARCH-012。
 
 ## 现状与目标分开
 

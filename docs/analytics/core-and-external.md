@@ -10,7 +10,7 @@ Date: 2026-10-29. The user set the product boundary: **Croupier provides reusabl
 
 | Reusable asset                                                 | Evidence                                                                           | Current limit                                                                                                                                                                                       |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Event/payment ingest and Redis→worker→ClickHouse               | cmd/ingest/cmd/root.go, internal/analytics/mq, internal/analytics/worker/worker.go | Real pipeline exists; batch durability/ACK gaps remain (ARCH-011/012)                                                                                                                               |
+| Event/payment ingest and Redis→worker→ClickHouse               | cmd/ingest/cmd/root.go, internal/analytics/mq, internal/analytics/worker/worker.go | Real pipeline exists; the ACK-before-Send loss window is closed by deferred ACK (ARCH-011). Crash-recovery verification remains (ARCH-012)                                                          |
 | Relational overview/payments/behavior/retention APIs           | internal/api/analytics and internal/model/analytics_*                              | Overview uses relational models and local Player counts; retention reads cohort rows, with no production UpsertCohort computation call found. These APIs do not automatically read warehouse events |
 | Read-only warehouse endpoints                                  | internal/api/analytics/warehouse.go                                                | DAU/new users, minute online and revenue queries exist; absent DSN is disabled. Aggregate semantics still need repair                                                                               |
 | Overview/realtime/retention/payments/warehouse UI              | web/src/pages/Analytics, web/src/services/api/analytics.ts                         | Overview adapter hardcodes d1/d7/d30 to null; overview and warehouse use different sources. Screens are not end-to-end acceptance                                                                   |
@@ -40,6 +40,15 @@ Relational storage and ClickHouse may implement queries at different scales, but
 
 Items 1/3 are source-based conclusions checked against upstream semantics; no real ClickHouse result validation ran. Official check date **2026-10-29**: ReplacingMergeTree identifies duplicates by ORDER BY and uses an explicit ver parameter for version selection; SummingMergeTree sums numeric values for matching keys. References: [ReplacingMergeTree](https://clickhouse.com/docs/reference/engines/table-engines/mergetree-family/replacingmergetree), [SummingMergeTree](https://clickhouse.com/docs/reference/engines/table-engines/mergetree-family/summingmergetree). Repository driver: v2.43.0; Compose tag: 23-alpine, floating. Deployed version/migration behavior remain NOT RUN.
 
+## Delivery semantics (ARCH-011)
+
+The Redis→worker→ClickHouse pipeline delivers **at least once**, with query-time deduplication. Closing the old loss window changed the contract in `internal/analytics/worker/worker.go`:
+
+- **Deferred ACK:** a message is XACKed only after its ClickHouse batch `Send()` succeeds, not when it is buffered. Messages that are buffered but not yet sent stay in the consumer-group PEL, so a crash between `Send()` and ACK redelivers them (at-least-once). On `Send()` failure the batch and pending-ACK tracking are reset, leaving the messages pending for reclaim.
+- **Failure handling:** re-queue (`XAdd`) and dead-letter (`XAdd` to the DLQ) errors are now checked and returned without ACK, so an undelivered retry/dead-letter copy is not silently dropped.
+- **Duplicates are possible and expected:** the same logical row may reach ClickHouse more than once after a crash/reclaim. Deduplication is by `event_id` (events) and `order_id` (payments); `events`/`payments` are MergeTree, so dedup happens at query time (`SELECT ... GROUP BY`/`uniq`). `daily_users`/`daily_revenue` are ReplacingMergeTree (version = flush time) and `minute_online` SummingMergeTree, so HLL aggregates are idempotent for the same minute/game/env/user set.
+- **Residual window:** a crash between a successful `Send()` and the XACK is still possible (the process dies mid-flush); because the message remains pending it is redelivered, so the only cost is a duplicate row, never a loss. This is inherent to at-least-once and is accepted; ARCH-012 registers the crash-recovery verification that would exercise it.
+
 ## External professional analytics — target design
 
 Complex self-service querying/drill-down, advanced funnels/paths, ad attribution/ROI, predictive LTV, professional segmentation and large-scale modeling belong to external professional analytics. Existing behavior/level pages remain available with honest limitations; this review does not delete them. No vendor or vendor authorization scheme has been selected; DATA-010 registers the investigation.
@@ -56,7 +65,7 @@ Read-only datasets, export, APIs or controlled embedding depend on the selected 
 ## Delivery and acceptance
 
 1. Define common metrics and semantics (DATA-001); investigate professional integration in parallel (DATA-010).
-2. Repair reliability/aggregation and connect events→computation→query→UI using existing assets (DATA-002–008, ARCH-011/012).
+2. Repair reliability/aggregation and connect events→computation→query→UI using existing assets (DATA-002–008, ARCH-012). ARCH-011's deferred-ACK fix and at-least-once delivery are done; crash-recovery verification remains.
 3. Reconcile fixed cross-scope/timezone, duplicate/out-of-order, multicurrency/refund and immature-cohort samples per metric. Record source/freshness; missing real environments remain NOT RUN.
 4. Deliver one real external adapter, then validate scope, revocation, timeout and outage isolation (DATA-011–013).
 

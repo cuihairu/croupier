@@ -35,7 +35,7 @@
 <text x="56" y="775" class="head" text-anchor="start">WORKER · cmd/analytics-worker</text>
 <text x="56" y="803" class="" text-anchor="start">Process · consume / normalize / batch / aggregate</text>
 <text x="56" y="828" class="" text-anchor="start">Pending reclaim / retry / dead letters</text>
-<text x="56" y="853" class="" text-anchor="start">ACK / batch durability gaps: ARCH-011/012</text>
+<text x="56" y="853" class="" text-anchor="start">ACK deferred until batch Send (ARCH-011); crash-recovery verification: ARCH-012</text>
 </g>
 <path d="M315 875 V995" class="edge data" marker-end="url(#data)"/>
 <text x="340" y="920" class="small" text-anchor="start">clickhouse-go / INSERT batches</text>

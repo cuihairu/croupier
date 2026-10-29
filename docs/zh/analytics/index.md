@@ -46,12 +46,12 @@ tag:
 
 ## 当前链路与代码依据
 
-| 关系                                | 实现依据与边界                                                                                                                                                                                                 |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 生产方 → ingest → Redis             | `cmd/ingest/cmd/root.go` 的 `/api/ingest/events`、`/api/ingest/payments` 路由与验签；`internal/analytics/mq/redis_pub.go` 发布 JSON 到 Streams。HTTP 202 不等于 ClickHouse 已落盘。HMAC 密钥应留在受信生产端。 |
-| Server bridge → Redis               | `internal/telemetry/analytics_bridge.go` 的进程内缓冲与批次发布，直接写 `analytics:events`，不经过 ingest HTTP。控制面遥测不能直接作为游戏 DAU。                                                               |
-| worker ↔ Redis；worker → ClickHouse | `internal/analytics/worker/worker.go` 的消费组读取、pending 回收、重试/死信及明细/聚合批写。ACK 与批次持久化不构成原子事务，ARCH-011/012 仍开放。                                                              |
-| 浏览器 → Server → 数据库            | `web/src/services/api/analytics.ts`、`internal/handler/routes.go`、`internal/api/analytics/warehouse.go` 及同目录关系报表实现。仓库端点读 ClickHouse；其他报表按各自实现读关系模型，不自动复用仓库事件。       |
+| 关系                                | 实现依据与边界                                                                                                                                                                                                                                              |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 生产方 → ingest → Redis             | `cmd/ingest/cmd/root.go` 的 `/api/ingest/events`、`/api/ingest/payments` 路由与验签；`internal/analytics/mq/redis_pub.go` 发布 JSON 到 Streams。HTTP 202 不等于 ClickHouse 已落盘。HMAC 密钥应留在受信生产端。                                              |
+| Server bridge → Redis               | `internal/telemetry/analytics_bridge.go` 的进程内缓冲与批次发布，直接写 `analytics:events`，不经过 ingest HTTP。控制面遥测不能直接作为游戏 DAU。                                                                                                            |
+| worker ↔ Redis；worker → ClickHouse | `internal/analytics/worker/worker.go` 的消费组读取、pending 回收、重试/死信及明细/聚合批写。投递为 at-least-once：ACK 推迟到 ClickHouse batch `Send()` 成功后才执行，Send 与 ACK 之间崩溃重投而非丢数（ARCH-011 已解决；ARCH-012 崩溃恢复实机验证仍开放）。 |
+| 浏览器 → Server → 数据库            | `web/src/services/api/analytics.ts`、`internal/handler/routes.go`、`internal/api/analytics/warehouse.go` 及同目录关系报表实现。仓库端点读 ClickHouse；其他报表按各自实现读关系模型，不自动复用仓库事件。                                                    |
 
 上图不画出未接通的能力：MQ 工厂另有 Kafka/noop 发布选项（`internal/analytics/mq/factory.go`），当前 worker 消费 Redis，不能把 Kafka 画成同一条已接通链路。专业分析集成和核心指标闭环参见 [范围与交付计划](./core-and-external)。
 

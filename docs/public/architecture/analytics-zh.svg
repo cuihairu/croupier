@@ -35,7 +35,7 @@
 <text x="56" y="775" class="head" text-anchor="start">WORKER · cmd/analytics-worker</text>
 <text x="56" y="803" class="" text-anchor="start">独立进程 · 消费 / 规范化 / 批写 / 聚合</text>
 <text x="56" y="828" class="" text-anchor="start">pending 回收 / 失败重试 / 死信</text>
-<text x="56" y="853" class="" text-anchor="start">ACK 与批次持久化缺口：ARCH-011/012</text>
+<text x="56" y="853" class="" text-anchor="start">ACK 推迟至批写成功（ARCH-011）；崩溃恢复实机验证：ARCH-012</text>
 </g>
 <path d="M315 875 V995" class="edge data" marker-end="url(#data)"/>
 <text x="340" y="920" class="small" text-anchor="start">clickhouse-go / INSERT batches</text>
