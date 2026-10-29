@@ -49,6 +49,16 @@ type ProviderSession struct {
 	// see MergeUserProviderMetadata). Consumed by the onConnect registration
 	// path to enrich the agentlocal instance metadata.
 	Metadata map[string]string
+
+	// draining marks the session as draining per the wire contract
+	// (docs/architecture/sdk-wire-protocol.md §drain): no new business
+	// requests are assigned; in-flight requests keep completing within the
+	// grace period; heartbeats continue.
+	draining atomic.Bool
+
+	// inflight counts business requests currently executing on this session.
+	// Drain waits for it to reach zero (or the grace period to expire).
+	inflight atomic.Int64
 }
 
 // NewProviderSession binds a Provider session to its established connection.
@@ -90,6 +100,18 @@ func (s *ProviderSession) Close() error {
 	}
 	return nil
 }
+
+// Draining reports whether the session is draining (no new requests assigned).
+func (s *ProviderSession) Draining() bool { return s.draining.Load() }
+
+// SetDraining marks or unmarks the session as draining.
+func (s *ProviderSession) SetDraining(v bool) { s.draining.Store(v) }
+
+// Inflight returns the number of business requests currently executing.
+func (s *ProviderSession) Inflight() int64 { return s.inflight.Load() }
+
+// AddInflight adjusts the in-flight counter. Call sites defer the decrement.
+func (s *ProviderSession) AddInflight(delta int64) { s.inflight.Add(delta) }
 
 // ProviderSessionStore manages active Provider sessions.
 // It provides thread-safe CRUD operations indexed by SessionID and ServiceID.

@@ -33,6 +33,21 @@ import (
 // 测试可注入负值覆盖以触达 stale 降级分支）。
 var instanceHealthyWindow = 30 * time.Second
 
+// defaultDrainGrace 是 provider drain 的默认等待窗：drain 标记后等待在途
+// 请求归零，超窗即完成并返回（contract 语义：in-flight 在宽限内完成，
+// 宽限过后不再等待）。请求携带 retry_after_ms 时以该值优先。
+const defaultDrainGrace = 30 * time.Second
+
+// drainPollInterval 是 drain 等待在途归零的轮询间隔。
+const drainPollInterval = 25 * time.Millisecond
+
+// providerDrainingError 把「目标 provider 正在 drain」显式回给调用方，供
+// 上层按 retry-after 语义呈现（wire contract：arriving requests 应答
+// draining/retry_after_ms）。
+func providerDrainingError(serviceID string) error {
+	return fmt.Errorf("provider %s is draining (retry after %dms)", serviceID, defaultDrainGrace.Milliseconds())
+}
+
 // ProviderManager is the interface for provider function calls
 type ProviderManager interface {
 	IsPlatformFunction(functionID string) bool
@@ -357,23 +372,50 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 	sessions := h.providerSessions
 	h.mu.RUnlock()
 	if sessions != nil {
+		// 任务延续（drain 前已接受的 StartTask）不得被 drain 截断：其
+		// provider 调用仍允许落在 draining 会话上，在途计数照常增减，
+		// drain 等待窗内可见。新业务请求（无 taskId）则按 contract 跳过
+		// draining 会话、全部候选 drain 时显式拒绝。
+		isTaskContinuation := metadata["taskId"] != ""
 		serviceID := metadata["serviceId"]
 		if serviceID != "" {
 			if session, ok := sessions.GetByServiceID(serviceID); ok && session.Conn() != nil {
-				_, response, err := session.Conn().Call(ctx, msgID, data)
-				return response, err
+				if session.Draining() && !isTaskContinuation {
+					return nil, providerDrainingError(serviceID)
+				}
+				return callSession(ctx, session, msgID, data)
 			}
 		}
+		var allDrainingService string
 		for _, session := range sessions.List() {
-			for _, id := range session.FunctionIDs() {
-				if id == functionID && session.Conn() != nil {
-					_, response, err := session.Conn().Call(ctx, msgID, data)
-					return response, err
-				}
+			if session.Conn() == nil {
+				continue
 			}
+			for _, id := range session.FunctionIDs() {
+				if id != functionID {
+					continue
+				}
+				if session.Draining() && !isTaskContinuation {
+					allDrainingService = session.ServiceID
+					continue
+				}
+				return callSession(ctx, session, msgID, data)
+			}
+		}
+		if allDrainingService != "" {
+			return nil, providerDrainingError(allDrainingService)
 		}
 	}
 	return h.callLocalProvider(ctx, fallbackAddr, msgID, data)
+}
+
+// callSession 在选中会话上执行一次 provider 调用，并把调用计入在途计数：
+// drain 的 ACK 等待据此知道何时在途归零。调用返回（含出错）即出队。
+func callSession(ctx context.Context, session *ProviderSession, msgID uint32, data []byte) ([]byte, error) {
+	session.AddInflight(1)
+	defer session.AddInflight(-1)
+	_, response, err := session.Conn().Call(ctx, msgID, data)
+	return response, err
 }
 
 // callLocalProvider calls a local provider using TCP transport only
@@ -1034,25 +1076,108 @@ func (h *LocalHandler) handleProviderHeartbeat(ctx context.Context, data []byte)
 	return proto.Marshal(resp)
 }
 
-// handleProviderDrain handles ProviderDrainRequest from SDK Providers.
+// handleProviderDrain handles ProviderDrainRequest (server-initiated drain of
+// one session or the whole node). Empty session_id drains all sessions.
+// undrain 由 reason == protocol.ProviderDrainReasonUndrain 哨兵表达。ACK 仅
+// 在 drain 完成（在途归零）或宽限到点后返回。
 func (h *LocalHandler) handleProviderDrain(ctx context.Context, data []byte) ([]byte, error) {
 	req := &sdkv1.ProviderDrainRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal ProviderDrainRequest: %w", err)
 	}
 
-	if req.SessionId == "" {
-		return nil, fmt.Errorf("session_id is required")
+	undrain := req.Reason == protocol.ProviderDrainReasonUndrain
+	grace := defaultDrainGrace
+	if req.RetryAfterMs > 0 {
+		grace = time.Duration(req.RetryAfterMs) * time.Millisecond
 	}
 
-	// Drain by removing all of this provider's function instances.
-	if h.store != nil {
-		h.store.RemoveProvider(req.SessionId)
-		h.logger.Info("Provider drained",
-			"session_id", req.SessionId,
-		)
+	drained, err := h.DrainProviderSession(ctx, req.SessionId, undrain, grace)
+	if err != nil {
+		return nil, fmt.Errorf("drain provider sessions: %w", err)
 	}
+	h.logger.Info("Provider drain processed",
+		"session_id", req.SessionId, "undrain", undrain, "drained", drained)
 
 	resp := &sdkv1.ProviderDrainResponse{}
 	return proto.Marshal(resp)
+}
+
+// DrainProviderSession 是 agent 侧 provider drain 的共享实现：server 发起的
+// 节点级/单会话 drain（handleProviderDrain）与 SDK 发起的自 drain（sidecar
+// handleDrain）都经此；两者共享同一 ProviderSessionStore（internal/app/agent
+// 的装配：SetProviderSessionStore 与 sidecar listener 同实例）。
+//
+// 语义（wire contract §drain）：
+//   - drain：目标会话标记 draining（callProvider 不再给新业务请求选路），
+//     并同步从 agentlocal 实例表摘除（legacy 地址拨号 fallback 不再路由），
+//     随后等待目标会话在途归零或宽限窗到点；等待不取消任何在途执行。
+//   - undrain：仅清除 draining 标记；agentlocal 实例表不回填（provider 需
+//     重新注册或心跳刷新函数——如实边界）。
+//
+// sessionID 为空表示作用于全部会话（节点级）。返回目标会话数。
+func (h *LocalHandler) DrainProviderSession(ctx context.Context, sessionID string, undrain bool, grace time.Duration) (int, error) {
+	if grace <= 0 {
+		grace = defaultDrainGrace
+	}
+
+	var targets []*ProviderSession
+	if h.providerSessions != nil {
+		if sessionID != "" {
+			if sess, ok := h.providerSessions.GetBySessionID(sessionID); ok {
+				targets = append(targets, sess)
+			}
+		} else {
+			targets = h.providerSessions.List()
+		}
+	}
+
+	// providerSessions 未装配（测试/退化装配）或目标会话未命中时，退化到
+	// agentlocal 摘除（旧语义），保证 handleProviderDrain 仍能清掉实例表。
+	if len(targets) == 0 && h.store != nil {
+		h.store.RemoveProvider(sessionID)
+	}
+
+	for _, sess := range targets {
+		sess.SetDraining(!undrain)
+		if undrain {
+			continue
+		}
+		// 摘除 agentlocal 实例：pickInstance/callLocalProvider 的 legacy
+		// 地址拨号不再路由到该会话；会话级函数路由由 callProvider 的
+		// draining 跳过兜底。
+		if h.store != nil {
+			h.store.RemoveProvider(sess.SessionID)
+		}
+	}
+
+	if undrain || len(targets) == 0 {
+		return len(targets), nil
+	}
+
+	// 等待在途归零或宽限到点。不取消在途执行；超窗返回，让仍在跑的任务
+	// 经 ARCH-015 D3 收敛（unknown/终态事件），不因 drain 强杀。
+	deadline := time.NewTimer(grace)
+	defer deadline.Stop()
+	ticker := time.NewTicker(drainPollInterval)
+	defer ticker.Stop()
+	for {
+		allZero := true
+		for _, sess := range targets {
+			if sess.Inflight() > 0 {
+				allZero = false
+				break
+			}
+		}
+		if allZero {
+			return len(targets), nil
+		}
+		select {
+		case <-ctx.Done():
+			return len(targets), ctx.Err()
+		case <-deadline.C:
+			return len(targets), nil
+		case <-ticker.C:
+		}
+	}
 }

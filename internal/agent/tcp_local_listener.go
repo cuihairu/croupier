@@ -398,11 +398,34 @@ func (h *providerSessionHandler) handleDrain(ctx context.Context, body []byte) (
 		return nil, fmt.Errorf("unmarshal ProviderDrainRequest: %w", err)
 	}
 
+	// SDK 自 drain：目标就是本会话。请求常省略 session_id（SDK 只能 drain
+	// 自己），此时回退到握手绑定的会话 id。
+	targetSession := req.SessionId
+	if targetSession == "" {
+		targetSession = h.sessionID
+	}
+	undrain := req.Reason == protocol.ProviderDrainReasonUndrain
+	grace := defaultDrainGrace
+	if req.RetryAfterMs > 0 {
+		grace = time.Duration(req.RetryAfterMs) * time.Millisecond
+	}
+
 	h.listener.logger.Info("Provider drain requested",
-		"session_id", req.SessionId,
+		"session_id", targetSession,
 		"reason", req.Reason,
 		"retry_after_ms", req.RetryAfterMs,
 	)
+
+	if local, ok := h.listener.localHandler.(*LocalHandler); ok {
+		if _, err := local.DrainProviderSession(ctx, targetSession, undrain, grace); err != nil {
+			return nil, err
+		}
+	} else {
+		// 非 LocalHandler 装配（测试/退化）：仅应答、不摘除会话——会话由
+		// disconnect 路径清理（onDisconnect → RemoveProvider），与旧行为一致。
+		h.listener.logger.Info("Provider drain acknowledged without shared LocalHandler",
+			"session_id", targetSession, "undrain", undrain)
+	}
 
 	resp := &sdkv1.ProviderDrainResponse{}
 	return proto.Marshal(resp)

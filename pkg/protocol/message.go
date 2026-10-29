@@ -125,6 +125,12 @@ const (
 	MsgProviderDrainRequest      = 0x050105
 	MsgProviderDrainResponse     = 0x050106
 
+	// ProviderDrainReasonUndrain 是 ProviderDrainRequest.reason 的 undrain 哨兵：
+	// ops 撤销 drain 时发送该值，agent 据此清除 draining 标记。复用字符串字段
+	// 而非新增 proto 字段——系统 protoc 3.21.12 会产出坏 gencode 且无 34.x
+	// 可用，proto 不动；wire 语义见 docs/architecture/sdk-wire-protocol.md §drain。
+	ProviderDrainReasonUndrain = "__undrain__"
+
 	// ClusterService (0x06xx) - server <-> server interconnect（HA 多实例）
 	MsgServerHelloRequest  = 0x060101 // server 互联握手（角色声明 + epoch）
 	MsgServerHelloResponse = 0x060102

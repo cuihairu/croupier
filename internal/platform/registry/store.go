@@ -149,6 +149,10 @@ type AgentSession struct {
 	Providers []ProviderSession
 	ExpireAt  time.Time
 	LastSeen  time.Time // 最后活跃时间
+	// Draining 为 true 时调度器不再给该 agent 路由新请求（agentCanInvoke
+	// 拦截）；由 opsNodeDrain/opsNodeUndrain 经 SetAgentDraining 设置。
+	// UpsertAgent 在会话刷新时原样保留（不因注册/心跳清空）。
+	Draining bool
 }
 
 // Store keeps lightweight agent registry state in-memory.
@@ -487,7 +491,24 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	}
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
+	// 会话刷新（注册/心跳）不得静默清除 drain：draining 是 ops 侧显式状态，
+	// 只经 SetAgentDraining 清除。注册方不携带该意图，故取并保留。
+	cur.Draining = cur.Draining || a.Draining
 	return nil
+}
+
+// SetAgentDraining 设置/清除 agent 的 draining 路由门（ops 侧显式状态）。
+// 返回 agent 是否在册（未找到时无操作并返回 false，调用方据此决定是否
+// 回 404，与 opsNodeDrain 的 ResolveAgentConn 存在性检查互补）。
+func (s *Store) SetAgentDraining(agentID string, draining bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	agent, ok := s.agents[agentID]
+	if !ok || agent == nil {
+		return false
+	}
+	agent.Draining = draining
+	return true
 }
 
 // carryProviderSessionHistory 在注册合并（内存态）时保留 provider 的进程内

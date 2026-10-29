@@ -807,7 +807,15 @@ func opsNodeDrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeC
 		return nil, errorx.NewNotFound("node not found or no active connection: " + nodeID)
 	}
 
-	// Send drain command to agent via TCP
+	// 先落注册表路由门：dispatcher 的 agentCanInvoke 从此刻起不再给该节点
+	// 派新请求（wire contract：drain 先停新路由，再等在途），而非等到
+	// agent ACK 之后才生效。
+	if svcCtx.RegistryStore != nil {
+		svcCtx.RegistryStore.SetAgentDraining(nodeID, true)
+	}
+
+	// Send drain command to agent via TCP. ACK 由 agent 侧在在途归零或宽限
+	// 到点后返回（caller.Call 同步等待，至多一个宽限窗）。
 	_, _, err := caller.Call(ctx, protocol.MsgProviderDrainRequest, []byte(`{}`))
 	if err != nil {
 		slog.Warn("failed to send drain command to agent", "agent_id", nodeID, "error", err)
@@ -919,8 +927,17 @@ func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 		return nil, errorx.NewNotFound("node not found or no active connection: " + nodeID)
 	}
 
-	// Send undrain command to agent via TCP
-	_, _, err := caller.Call(ctx, protocol.MsgProviderDrainRequest, []byte(`{"undrain": true}`))
+	// 先清注册表路由门：即使下行的 undrain 失败，server 侧调度也立即恢复
+	//（agent 侧 draining 标记在连接存活时是收紧项，清不掉只影响该节点
+	// 本地的兜底拒绝，不影响 server 恢复派发）。
+	if svcCtx.RegistryStore != nil {
+		svcCtx.RegistryStore.SetAgentDraining(nodeID, false)
+	}
+
+	// Send undrain command to agent via TCP (reason sentinel: agent clears its
+	// ProviderSession draining marks; see protocol.ProviderDrainReasonUndrain).
+	undrainPayload := fmt.Sprintf(`{"reason":%q}`, protocol.ProviderDrainReasonUndrain)
+	_, _, err := caller.Call(ctx, protocol.MsgProviderDrainRequest, []byte(undrainPayload))
 	if err != nil {
 		slog.Warn("failed to send undrain command to agent", "agent_id", nodeID, "error", err)
 		// Continue anyway - record the undrain

@@ -24,13 +24,20 @@ import (
 
 // fakeCaller 模拟 agent TCP 会话：按消息类型返回预置 protobuf 响应。
 type fakeCaller struct {
-	errOn   map[uint32]error         // 指定 msgID 返回错误
-	calls   []uint32                 // 记录调用过的 msgID
-	respFor map[uint32]proto.Message // msgID → 响应消息
+	errOn     map[uint32]error         // 指定 msgID 返回错误
+	calls     []uint32                 // 记录调用过的 msgID
+	respFor   map[uint32]proto.Message // msgID → 响应消息
+	lastBody  map[uint32][]byte        // msgID → 最近一次请求体（惰性初始化）
+	callCount int                      // 总调用次数
 }
 
 func (f *fakeCaller) Call(ctx context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error) {
 	f.calls = append(f.calls, msgID)
+	f.callCount++
+	if f.lastBody == nil {
+		f.lastBody = make(map[uint32][]byte)
+	}
+	f.lastBody[msgID] = append([]byte(nil), reqBody...)
 	if err, ok := f.errOn[msgID]; ok {
 		return 0, nil, err
 	}
@@ -109,6 +116,44 @@ func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {
 	snap = store.Snapshot()
 	_, drained = snap.Nodes.Drained["node-1"]
 	assert.False(t, drained)
+}
+
+// ARCH-016：drain/undrain 同步驱动 registry 路由门（agentCanInvoke 拦截源），
+// undrain 下行携带 reason 哨兵（protocol.ProviderDrainReasonUndrain）。
+func TestOpsNodeDrainRegistryGate(t *testing.T) {
+	ctx := context.Background()
+	store := svc.NewOpsStateStore(t.TempDir())
+	regStore := registry.NewStore()
+	svcCtx := &svc.ServiceContext{OpsStateStore: store, RegistryStore: regStore}
+	require.NoError(t, regStore.UpsertAgent(&registry.AgentSession{
+		AgentID:   "node-1",
+		GameID:    "g",
+		Env:       "prod",
+		ExpireAt:  time.Now().Add(time.Minute),
+		Functions: map[string]registry.FunctionMeta{"fn.x": {Enabled: true}},
+	}))
+	caller := &fakeCaller{}
+	svcCtx.AgentSessionResolver = &fakeResolver{conns: map[string]transport.SessionCaller{"node-1": caller}}
+
+	// drain → registry Draining 置位
+	_, err := opsNodeDrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
+	require.NoError(t, err)
+	regStore.Mu().RLock()
+	assert.True(t, regStore.AgentsUnsafe()["node-1"].Draining)
+	regStore.Mu().RUnlock()
+	// drain 下行体为空 session_id（节点级 drain-all，agent 侧对全部会话生效）
+	require.Equal(t, 1, caller.callCount)
+	assert.JSONEq(t, `{}`, string(caller.lastBody[protocol.MsgProviderDrainRequest]))
+
+	// undrain → registry Draining 清除，且下行携带 reason 哨兵
+	_, err = opsNodeUndrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
+	require.NoError(t, err)
+	regStore.Mu().RLock()
+	assert.False(t, regStore.AgentsUnsafe()["node-1"].Draining)
+	regStore.Mu().RUnlock()
+	assert.JSONEq(t,
+		`{"reason":"`+protocol.ProviderDrainReasonUndrain+`"}`,
+		string(caller.lastBody[protocol.MsgProviderDrainRequest]))
 }
 
 // ---- AgentService 进程命令（AgentOpsClient 真实编解码 + fake 会话） ----

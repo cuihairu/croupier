@@ -1409,6 +1409,8 @@ func TestLocalHandler_HandleProviderHeartbeat_EmptySessionID(t *testing.T) {
 
 // --- Tests for handleProviderDrain with empty session ID ---
 
+// 空 session_id 现在是合法的节点级 drain-all（ARCH-016：不再要求 session_id；
+// 无会话可 drain 时同样成功返回，ACK 语义为「在途归零或宽限到点」）。
 func TestLocalHandler_HandleProviderDrain_EmptySessionID(t *testing.T) {
 	store := agentlocal.NewLocalStore()
 	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
@@ -1418,9 +1420,9 @@ func TestLocalHandler_HandleProviderDrain_EmptySessionID(t *testing.T) {
 	}
 	data, _ := proto.Marshal(req)
 
-	_, err := handler.handleProviderDrain(context.Background(), data)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "session_id is required")
+	resp, err := handler.handleProviderDrain(context.Background(), data)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
 }
 
 // --- Tests for ops handler error paths ---

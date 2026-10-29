@@ -88,6 +88,13 @@ func TestAgentCanInvoke_Matrix(t *testing.T) {
 	// 函数不存在 / 未启用 → 拒绝。
 	assert.False(t, agentCanInvoke(base(), "ghost.fn", now, "g1", "prod", true))
 	assert.False(t, agentCanInvoke(base(), "player.off", now, "g1", "prod", true))
+
+	// ARCH-016：draining 节点不接收新路由（ops drain 的注册表路由门），
+	// scoped 与全局路由一致拦截。
+	drained := base()
+	drained.Draining = true
+	assert.False(t, agentCanInvoke(drained, "player.ban", now, "g1", "prod", true))
+	assert.False(t, agentCanInvoke(drained, "player.ban", now, "g2", "dev", false))
 }
 
 func TestFormatRoutingScope(t *testing.T) {

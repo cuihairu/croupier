@@ -1197,6 +1197,11 @@ func agentCanInvoke(agent *reg.AgentSession, functionID string, now time.Time, g
 	if agent == nil || !agent.ExpireAt.After(now) {
 		return false
 	}
+	// draining 节点不再接收新路由（ops drain；agent 侧 ProviderSession
+	// draining 是第二道兜底）。在途请求由 drain 宽限窗收口，不在此取消。
+	if agent.Draining {
+		return false
+	}
 	if scoped && (strings.TrimSpace(agent.GameID) != gameID || strings.TrimSpace(agent.Env) != env) {
 		return false
 	}
