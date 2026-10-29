@@ -333,7 +333,7 @@ func (s *Service) auditInboundRejected(c *gin.Context, source, reason string) {
 	if s.svcCtx.AuditService == nil {
 		return
 	}
-	s.svcCtx.AuditService.Log(c.Request.Context(),
+	s.svcCtx.AuditService.LogOrDegrade(c.Request.Context(),
 		audit.AuditEventType("alert.inbound_rejected"),
 		audit.WithResourceID("alert_inbound", source),
 		audit.WithDetails(map[string]interface{}{"source": source, "reason": reason}),

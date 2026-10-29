@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -143,6 +144,10 @@ import (
 //   0049 (Go)   game_envs.database_name 空名回填（ARCH-006 物理路由统一
 //               真值：binding.database_name 为唯一真值，前缀重算只作缺绑定
 //               回退；存量空名行回填规范默认名，幂等、缺表跳过）
+//   0050 (Go)   audit_records.hash_version 列（ARCH-007/008 版本化审计摘要：
+//               新记录写 2=SHA-256 全载荷，存量行回填 1=旧 djb2 摘要；
+//               default 1 使滚动部署期间旧代码写的行也按 v1 可验，无需
+//               显式回填体；HasColumn 检查后 AddColumn，幂等、缺表跳过）
 
 func init() {
 	registerSvcMigrations()
@@ -202,6 +207,7 @@ func registerSvcMigrations() {
 		probeEventTargetCategoryMigration(),
 		pageExecuteIdempotencyTableMigration(),
 		gameEnvBindingsDBNameBackfillMigration(),
+		auditHashVersionColumnMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1650,6 +1656,35 @@ func migrateGameEnvBindingsDBNameBackfill(ctx context.Context, sqlDB *sql.DB) er
 			Where("id = ?", row.ID).
 			Update("database_name", name).Error; err != nil {
 			return fmt.Errorf("migrate: 0049 backfill database_name for game %q env %q: %w", row.GameID, row.Env, err)
+		}
+	}
+	return nil
+}
+
+// auditHashVersionColumnMigration 为 0050：ARCH-007/008 版本化审计摘要。
+// audit_records 加 hash_version 列，列 default 1——存量行（以及滚动部署期间
+// 旧代码新写的行，旧代码不认识该列）一律按 1=旧 djb2 窄字段摘要参与校验，
+// 新代码显式写 2=SHA-256 全载荷。无需显式回填体；幂等、缺表跳过（0015/0031
+// 列迁移同模式）。
+func auditHashVersionColumnMigration() *goose.Migration {
+	return goose.NewGoMigration(50,
+		&goose.GoFunc{RunDB: migrateAuditHashVersionColumn},
+		nil,
+	)
+}
+
+// migrateAuditHashVersionColumn 是 0050 的迁移体（抽出便于直测）。
+func migrateAuditHashVersionColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&audit.AuditModel{}) {
+		return nil // 无该表的库（fanout 重放）跳过，不建空壳
+	}
+	if !db.Migrator().HasColumn(&audit.AuditModel{}, "HashVersion") {
+		if err := db.Migrator().AddColumn(&audit.AuditModel{}, "HashVersion"); err != nil {
+			return fmt.Errorf("migrate: 0050 add audit_records.hash_version: %w", err)
 		}
 	}
 	return nil

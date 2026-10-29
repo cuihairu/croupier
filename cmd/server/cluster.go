@@ -390,7 +390,7 @@ func (li localInvoker) auditForward(ctx context.Context, req *cluster.ForwardedI
 	// 审计失败不影响转发主路径（与 caller 侧审计同策略），但必须留痕：
 	// 双实例链 sequence 撞号重试耗尽等写库失败若静默吞掉，排障时只能靠
 	// postgres 日志抓现场（2026-09-11 线上即此路径）。
-	if _, err := li.audit.Log(ctx, audit.EventFunctionInvoke,
+	if _, err := li.audit.LogOrDegrade(ctx, audit.EventFunctionInvoke,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResourceID("function", req.FunctionID),
 		audit.WithDetails(details),

@@ -1033,7 +1033,7 @@ func (s *Service) recordLoginAudit(username, action, result string, req *LoginRe
 		eventType = audit.EventLoginFailed
 		outcome = "failure"
 	}
-	_, _ = s.auditSvc.Log(context.Background(), eventType,
+	_, _ = s.auditSvc.LogOrDegrade(context.Background(), eventType,
 		audit.WithActorID(strings.TrimSpace(username), "user", strings.TrimSpace(username)),
 		audit.WithIPAddress(ip, ua),
 		audit.WithDetails(metadata),

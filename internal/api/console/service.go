@@ -1194,7 +1194,7 @@ func (s *Service) auditPageExecute(
 		"approvalId":                 result.ApprovalID,
 		"diagnostic_count":           len(result.Diagnostics),
 	}
-	_, err := s.svcCtx.AuditService.Log(ctx, audit.EventPageExecute,
+	_, err := s.svcCtx.AuditService.LogOrDegrade(ctx, audit.EventPageExecute,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResource(audit.ResourceInfo{
 			Type:        "page",

@@ -1845,7 +1845,7 @@ func (s *Service) auditPageEvent(ctx context.Context, eventType audit.AuditEvent
 	details["env"] = env
 	details["page_key"] = pageKey
 
-	_, err = s.svcCtx.AuditService.Log(ctx, eventType,
+	_, err = s.svcCtx.AuditService.LogOrDegrade(ctx, eventType,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResource(audit.ResourceInfo{
 			Type:        "page",

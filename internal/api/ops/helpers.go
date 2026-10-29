@@ -39,7 +39,7 @@ func recordOpsAudit(ctx context.Context, svcCtx *svc.ServiceContext, eventType a
 	if username, err := utils.CurrentUsername(ctx); err == nil && strings.TrimSpace(username) != "" {
 		actor = strings.TrimSpace(username)
 	}
-	_, _ = svcCtx.AuditService.Log(ctx, eventType,
+	_, _ = svcCtx.AuditService.LogOrDegrade(ctx, eventType,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResourceID("node", strings.TrimSpace(target)),
 		audit.WithDetails(details),

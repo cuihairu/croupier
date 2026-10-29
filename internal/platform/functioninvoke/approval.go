@@ -47,7 +47,7 @@ func AuditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functi
 	}
 
 	// Log the audit event
-	_, err := svcCtx.AuditService.Log(ctx, audit.EventFunctionInvoke,
+	_, err := svcCtx.AuditService.LogOrDegrade(ctx, audit.EventFunctionInvoke,
 		audit.WithActorID(username, "user", username),
 		audit.WithResourceID("function", functionID),
 		audit.WithDetails(details),
@@ -184,7 +184,7 @@ func AuditApprovalCreated(ctx context.Context, svcCtx *svc.ServiceContext, funct
 	}
 
 	// Log the audit event
-	_, err := svcCtx.AuditService.Log(ctx, audit.EventApprovalCreated,
+	_, err := svcCtx.AuditService.LogOrDegrade(ctx, audit.EventApprovalCreated,
 		audit.WithActorID(username, "user", username),
 		audit.WithResourceID("approval", approvalID),
 		audit.WithDetails(details),

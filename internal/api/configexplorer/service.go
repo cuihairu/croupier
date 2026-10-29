@@ -81,7 +81,7 @@ func (s *Service) DeleteBinding(ctx context.Context, id uint) error {
 	if err := s.svcCtx.ConfigSourceBindingModel.Delete(ctx, id); err != nil {
 		return err
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.EventConfigSourceChange,
+	_, _ = s.svcCtx.AuditService.LogOrDegrade(ctx, audit.EventConfigSourceChange,
 		audit.WithDetails(map[string]interface{}{
 			"action": "delete", "gameId": binding.GameID, "env": binding.Env,
 			"name": binding.Name, "type": binding.Type,
@@ -168,7 +168,7 @@ func (s *Service) Write(ctx context.Context, req *WriteRequest, actor string) er
 	if err := ws.Write(ctx, req.Path, []byte(req.Content), req.Reason); err != nil {
 		return err
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.EventConfigEmergencyEdit,
+	_, _ = s.svcCtx.AuditService.LogOrDegrade(ctx, audit.EventConfigEmergencyEdit,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResourceID("config_source", fmt.Sprintf("%d", req.SourceID)),
 		audit.WithDetails(map[string]interface{}{
@@ -184,7 +184,7 @@ func (s *Service) auditBindingChange(ctx context.Context, isUpdate bool, b *mode
 	if isUpdate {
 		action = "update"
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.EventConfigSourceChange,
+	_, _ = s.svcCtx.AuditService.LogOrDegrade(ctx, audit.EventConfigSourceChange,
 		audit.WithDetails(map[string]interface{}{
 			"action": action, "gameId": b.GameID, "env": b.Env,
 			"name": b.Name, "type": b.Type,

@@ -609,7 +609,7 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 
 	// Audit log
 	if s.auditService != nil {
-		if _, err := s.auditService.Log(ctx, audit.EventSemanticUpdate,
+		if _, err := s.auditService.LogOrDegrade(ctx, audit.EventSemanticUpdate,
 			audit.WithActorID(actor, "user", actor),
 			audit.WithResourceID("resource_catalog", req.ResourceKey),
 			audit.WithDetails(map[string]interface{}{
@@ -1773,7 +1773,7 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 
 	// Audit log
 	if s.auditService != nil {
-		if _, err := s.auditService.Log(ctx, audit.EventSemanticConflictResolve,
+		if _, err := s.auditService.LogOrDegrade(ctx, audit.EventSemanticConflictResolve,
 			audit.WithActorID(actor, "user", actor),
 			audit.WithResourceID("resource_catalog", req.ResourceKey),
 			audit.WithDetails(map[string]interface{}{

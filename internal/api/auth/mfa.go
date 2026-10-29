@@ -102,10 +102,14 @@ func (s *Service) MFAConfirm(ctx context.Context, username, code string) (*MFACo
 	if err := s.recoveryCodeModel().Replace(ctx, admin.ID, hashes); err != nil {
 		return nil, fmt.Errorf("保存备用恢复码失败: %w", err)
 	}
+	// 写前审计：恢复码已落库、开关未翻之前写审计；写失败（失败关闭）
+	// 则中止——MFA 保持关闭，已落库的恢复码因 OTPEnabled=false 而不可消费。
+	if err := s.logMfaAudit(ctx, username, audit.EventMFAEnabled); err != nil {
+		return nil, fmt.Errorf("审计写失败，启用已中止: %w", err)
+	}
 	if err := s.adminModel.EnableOTP(ctx, admin.ID); err != nil {
 		return nil, fmt.Errorf("启用失败: %w", err)
 	}
-	s.recordMfaAudit(ctx, username, audit.EventMFAEnabled)
 	return &MFAConfirmResponse{RecoveryCodes: codes}, nil
 }
 
@@ -124,6 +128,11 @@ func (s *Service) MFADisable(ctx context.Context, username, code, password strin
 	if _, err := s.adminModel.ValidatePassword(ctx, username, password); err != nil {
 		return errors.New("密码错误")
 	}
+	// 写前审计：关闭开关之前写审计；写失败（失败关闭）则中止，
+	// MFA 保持开启且恢复码不被清空。
+	if err := s.logMfaAudit(ctx, username, audit.EventMFADisabled); err != nil {
+		return fmt.Errorf("审计写失败，关闭已中止: %w", err)
+	}
 	if err := s.adminModel.DisableOTP(ctx, admin.ID); err != nil {
 		return fmt.Errorf("关闭失败: %w", err)
 	}
@@ -132,7 +141,6 @@ func (s *Service) MFADisable(ctx context.Context, username, code, password strin
 		// 不阻断关闭流程，但要让运维看见——残留码是安全隐患。
 		slog.Default().Error("关闭两步验证后清理恢复码失败", "username", username, "error", err)
 	}
-	s.recordMfaAudit(ctx, username, audit.EventMFADisabled)
 	return nil
 }
 
@@ -175,17 +183,18 @@ func (s *Service) requireLocalAdmin(ctx context.Context, username string) (*mode
 	return a, nil
 }
 
-func (s *Service) recordMfaAudit(ctx context.Context, username string, event audit.AuditEventType) {
+// logMfaAudit 写 MFA 审计行。MFA 事件在 ARCH-007 D6 的失败关闭白名单内：
+// LogOrDegrade 在审计存储不可用时返回 ErrAuditWriteFailed，调用方须据此
+// 中止操作，保证「状态已变但无审计行」永不发生。
+func (s *Service) logMfaAudit(ctx context.Context, username string, event audit.AuditEventType) error {
 	if s.auditSvc == nil {
-		return
+		return nil
 	}
-	_, err := s.auditSvc.Log(ctx, event,
+	_, err := s.auditSvc.LogOrDegrade(ctx, event,
 		audit.WithActorID(username, "admin", username),
 		audit.WithDetails(map[string]interface{}{"provider": "local"}),
 	)
-	if err != nil {
-		slog.Default().Warn("mfa audit failed", "event", event, "username", username, "error", err)
-	}
+	return err
 }
 
 // verifySecondFactor accepts either a valid TOTP code or an unspent recovery

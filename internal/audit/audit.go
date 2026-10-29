@@ -3,11 +3,15 @@ package audit
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/ipgeo"
@@ -21,7 +25,25 @@ var (
 	ErrChainBroken      = errors.New("audit chain is broken")
 	ErrExportFailed     = errors.New("audit export failed")
 	ErrInvalidTimeRange = errors.New("invalid time range")
+	// ErrAuditWriteFailed 是 ARCH-007 D6 的失败关闭哨兵：审计存储写入失败
+	// 且事件属于失败关闭白名单时，调用方必须据此中止操作（记录未建 →
+	// 操作不执行）。白名单之外的事件走失败开放（见 LogOrDegrade）。
+	ErrAuditWriteFailed = errors.New("audit write failed; operation must not proceed")
 )
+
+// failClosedEvents 是 D6 的失败关闭白名单：不可逆安全变更，缺留痕比审计
+// 故障更危险。对这些事件，审计写入失败必须中止操作（返回
+// ErrAuditWriteFailed）。身份事件（auth.login* / authz.access_*）刻意
+// 不在列——无法失败关闭（审计库不可用时没有身份可鉴）。
+var failClosedEvents = map[AuditEventType]bool{
+	EventUserDelete:     true,
+	EventUserLock:       true,
+	EventUserUnlock:     true,
+	EventPasswordChange: true,
+	EventMFAEnabled:     true,
+	EventMFADisabled:    true,
+	EventBackupRestore:  true,
+}
 
 // AuditEventType defines the type of audit event
 type AuditEventType string
@@ -215,7 +237,23 @@ type ChainInfo struct {
 	Sequence  int64  `json:"sequence"`
 	SignerID  string `json:"signerId,omitempty"`
 	Signature string `json:"signature,omitempty"`
+	// HashVersion selects the digest algorithm/field set for this record
+	// (ARCH-007 D3). 1 = legacy narrow-field djb2 32-bit; 2 = SHA-256 over
+	// the canonical full payload. ValidateChain dispatches per record.
+	HashVersion int `json:"hashVersion"`
 }
+
+// Hash algorithm versions (ARCH-007 D2/D3).
+const (
+	// HashVersionLegacy is the pre-ARCH-008 digest: djb2 32-bit over a
+	// narrow field list (timestamp/event_type/actor_id/resource.ID/outcome/
+	// prev_hash/sequence/details). Kept only to verify records written before
+	// the upgrade; never used for new records.
+	HashVersionLegacy = 1
+	// HashVersionCurrent is the ARCH-008 digest: SHA-256 over the canonical
+	// full payload (D1). New records always use this.
+	HashVersionCurrent = 2
+)
 
 // AuditFilter for filtering audit records
 type AuditFilter struct {
@@ -289,6 +327,89 @@ type AuditService struct {
 	sensitiveFields []string
 	mu              sync.RWMutex
 	notifier        AuditNotifier
+	// writeFailures 统计审计存储写入失败次数（ARCH-007 D6 呈现信号；
+	// 白名单与失败开放路径共用）。导出经 WriteFailures。
+	writeFailures atomic.Int64
+}
+
+// WriteFailures returns the cumulative audit-store write failure count. A
+// monotonic observability signal: a nonzero/rising count means audit rows are
+// being lost and should alert (D6). Reset is not exposed; restart clears it.
+func (s *AuditService) WriteFailures() int64 {
+	if s == nil {
+		return 0
+	}
+	return s.writeFailures.Load()
+}
+
+// noteWriteFailure 是 D6 的统一呈现点：每次审计持久化失败计数 +1 并落
+// error 日志（含事件类型与原因），任何调用路径（Log 直调或 LogOrDegrade
+// 策略层）都不再静默丢行。
+func (s *AuditService) noteWriteFailure(record *AuditRecord, cause error) {
+	s.writeFailures.Add(1)
+	slog.Error("audit write failed",
+		"eventType", record.EventType,
+		"sequence", record.ChainInfo.Sequence,
+		"err", cause,
+	)
+}
+
+// degradedKey / degradedFlag 构成每请求一次的降级标记：HTTP 中间件把
+// *degradedFlag 植入请求 ctx，LogOrDegrade 在失败开放路径 set，响应阶段
+// 中间件读到后写 X-Audit-Degraded 头。非 HTTP 调用路径没有植入时
+// markDegraded 为安全 no-op（计数与日志照常生效）。
+type degradedKey struct{}
+
+type degradedFlag struct{ set atomic.Bool }
+
+func markDegraded(ctx context.Context) {
+	if ctx == nil {
+		return
+	}
+	if flag, ok := ctx.Value(degradedKey{}).(*degradedFlag); ok && flag != nil {
+		flag.set.Store(true)
+	}
+}
+
+// WasDegraded reports whether an audit write was degraded on this context.
+// Planted by WithDegradedFlag (see DegradedMiddleware).
+func WasDegraded(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	if flag, ok := ctx.Value(degradedKey{}).(*degradedFlag); ok && flag != nil {
+		return flag.set.Load()
+	}
+	return false
+}
+
+// WithDegradedFlag plants a per-request degraded flag into ctx so
+// markDegraded/WasDegraded can communicate across the (immutable) context
+// boundary.
+func WithDegradedFlag(ctx context.Context) context.Context {
+	return context.WithValue(ctx, degradedKey{}, &degradedFlag{})
+}
+
+// LogOrDegrade 是 ARCH-007 D6 的策略咽喉点：
+//   - 成功：返回 (record, nil)。
+//   - 失败且事件在失败关闭白名单：返回 (nil, ErrAuditWriteFailed)，调用方
+//     必须中止操作（记录未建 → 操作不执行）。
+//   - 失败且非白名单：失败开放——返回 (nil, nil)，操作照常进行；失败已
+//     经由计数器与 error 日志呈现（noteWriteFailure），并尽力标记请求
+//     降级（WasDegraded → X-Audit-Degraded 头）。
+//
+// 调用方约定：非白名单事件不再据返回值阻断业务（旧代码里分裂的
+// `_, err` 上抛 / `_, _` 静默两种形态统一收敛到这里）。
+func (s *AuditService) LogOrDegrade(ctx context.Context, eventType AuditEventType, opts ...AuditOption) (*AuditRecord, error) {
+	record, err := s.Log(ctx, eventType, opts...)
+	if err == nil {
+		return record, nil
+	}
+	if failClosedEvents[eventType] {
+		return nil, ErrAuditWriteFailed
+	}
+	markDegraded(ctx)
+	return nil, nil
 }
 
 // NewAuditService creates a new audit service
@@ -360,6 +481,7 @@ func (s *AuditService) Log(ctx context.Context, eventType AuditEventType, opts .
 
 	// Build chain info
 	if err := s.buildChainInfo(record); err != nil {
+		s.noteWriteFailure(record, err)
 		return nil, fmt.Errorf("failed to build chain info: %w", err)
 	}
 
@@ -374,9 +496,11 @@ func (s *AuditService) Log(ctx context.Context, eventType AuditEventType, opts .
 			break
 		}
 		if !errors.Is(err, ErrChainSequenceConflict) || attempt >= maxChainRetries-1 {
+			s.noteWriteFailure(record, err)
 			return nil, fmt.Errorf("failed to store audit record: %w", err)
 		}
 		if err := s.buildChainInfo(record); err != nil {
+			s.noteWriteFailure(record, err)
 			return nil, fmt.Errorf("failed to rebuild chain info: %w", err)
 		}
 	}
@@ -600,12 +724,13 @@ func (s *AuditService) buildChainInfo(record *AuditRecord) error {
 	}
 
 	record.ChainInfo = ChainInfo{
-		PrevHash: prevHash,
-		Sequence: sequence,
+		PrevHash:    prevHash,
+		Sequence:    sequence,
+		HashVersion: HashVersionCurrent,
 	}
 
 	// Calculate hash
-	hash, err := s.calculateHash(record)
+	hash, err := s.calculateHash(record, HashVersionCurrent)
 	if err != nil {
 		return err
 	}
@@ -624,9 +749,22 @@ func (s *AuditService) buildChainInfo(record *AuditRecord) error {
 	return nil
 }
 
-// calculateHash calculates the hash of a record
-func (s *AuditService) calculateHash(record *AuditRecord) (string, error) {
-	// Create a hashable representation
+// calculateHash dispatches by digest version (ARCH-007 D3). v1 recomputes the
+// legacy digest so pre-upgrade records stay verifiable; v2 (and any unknown
+// version, treated as current) computes the canonical full-payload SHA-256.
+func (s *AuditService) calculateHash(record *AuditRecord, version int) (string, error) {
+	switch version {
+	case HashVersionLegacy:
+		return legacyHash(record)
+	default:
+		return sha256Canonical(record)
+	}
+}
+
+// legacyHash is the pre-ARCH-008 digest, byte-identical to the old
+// calculateHash so existing v1 records verify unchanged. Deliberately frozen:
+// it must never gain fields, or old chains would stop verifying.
+func legacyHash(record *AuditRecord) (string, error) {
 	data := map[string]interface{}{
 		"timestamp":  record.Timestamp.UnixNano(),
 		"event_type": record.EventType,
@@ -647,6 +785,70 @@ func (s *AuditService) calculateHash(record *AuditRecord) (string, error) {
 	}
 
 	return hashBytes(jsonData), nil
+}
+
+// sha256Canonical computes the ARCH-008 digest (D1/D2): SHA-256 over the
+// canonical full-payload JSON, with the JSON sub-objects embedded as raw bytes.
+func sha256Canonical(record *AuditRecord) (string, error) {
+	payload, err := hashPayload(record)
+	if err != nil {
+		return "", err
+	}
+	return sha256Hex(payload), nil
+}
+
+// hashPayload builds the canonical payload for the current digest. It covers
+// every integrity-relevant field; JSON sub-objects are embedded as their raw
+// bytes so the write-time and verify-time digests are identical by
+// construction (D1 — eliminates the >2^53 integer round-trip divergence).
+// Excluded: chain.hash, chain.signature, chain.signer_id (self-referential /
+// keyed-cover) and created_at (store insertion timestamp).
+func hashPayload(record *AuditRecord) ([]byte, error) {
+	actor, err := json.Marshal(record.Actor)
+	if err != nil {
+		return nil, fmt.Errorf("hash payload: actor: %w", err)
+	}
+	resource, err := json.Marshal(record.Resource)
+	if err != nil {
+		return nil, fmt.Errorf("hash payload: resource: %w", err)
+	}
+	details, err := json.Marshal(record.Details)
+	if err != nil {
+		return nil, fmt.Errorf("hash payload: details: %w", err)
+	}
+	changes, err := json.Marshal(record.Changes)
+	if err != nil {
+		return nil, fmt.Errorf("hash payload: changes: %w", err)
+	}
+	contextJSON, err := json.Marshal(record.Context)
+	if err != nil {
+		return nil, fmt.Errorf("hash payload: context: %w", err)
+	}
+
+	data := map[string]interface{}{
+		"id":            record.ID,
+		"timestamp":     record.Timestamp.UnixNano(),
+		"event_type":    record.EventType,
+		"category":      record.Category,
+		"severity":      record.Severity,
+		"action":        record.Action,
+		"outcome":       record.Outcome,
+		"error_message": record.ErrorMessage,
+		"sequence":      record.ChainInfo.Sequence,
+		"prev_hash":     record.ChainInfo.PrevHash,
+		"actor":         json.RawMessage(actor),
+		"resource":      json.RawMessage(resource),
+		"details":       json.RawMessage(details),
+		"changes":       json.RawMessage(changes),
+		"context":       json.RawMessage(contextJSON),
+	}
+	return json.Marshal(data)
+}
+
+// sha256Hex returns the lowercase hex SHA-256 of data.
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 // Get retrieves an audit record by ID
@@ -678,8 +880,16 @@ func (s *AuditService) ValidateChain(startSeq, endSeq int64) (*ChainValidationRe
 	}
 
 	for i, record := range records {
-		// Verify hash
-		expectedHash, err := s.calculateHash(record)
+		// Verify hash. Dispatch by the record's digest version: v1 rows
+		// (written before ARCH-008, hash_version backfilled to 1) verify
+		// under the frozen legacy digest; v2 rows under the canonical
+		// SHA-256. Unknown/zero version is treated as legacy — the safe
+		// reading for rows that predate the column.
+		version := record.ChainInfo.HashVersion
+		if version == 0 {
+			version = HashVersionLegacy
+		}
+		expectedHash, err := s.calculateHash(record, version)
 		if err != nil {
 			result.Valid = false
 			result.Errors = append(result.Errors, ChainError{

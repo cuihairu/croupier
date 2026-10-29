@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -55,6 +56,11 @@ type AuditModel struct {
 	ChainSequence  int64       `gorm:"not null;uniqueIndex" json:"chainSequence"`
 	ChainSignerID  string      `gorm:"type:varchar(255)" json:"chainSignerId"`
 	ChainSignature string      `gorm:"type:text" json:"chainSignature"`
+	// HashVersion selects the digest algorithm for chain validation
+	// (ARCH-007 D3). Default 1: rows written before ARCH-008 (and by old
+	// code during a rolling deploy) carry the legacy digest; new code
+	// writes 2 explicitly.
+	HashVersion int `gorm:"column:hash_version;not null;default:1" json:"hashVersion"`
 	// Promoted first-class columns derived from Resource/Details at write
 	// time (and backfilled for legacy rows). They make game/env scoping and
 	// invocation analytics aggregable in plain SQL, keeping queries
@@ -85,11 +91,12 @@ func (m *AuditModel) ToRecord() (*AuditRecord, error) {
 		Outcome:      m.Outcome,
 		ErrorMessage: m.ErrorMessage,
 		ChainInfo: ChainInfo{
-			Hash:      m.ChainHash,
-			PrevHash:  m.ChainPrevHash,
-			Sequence:  m.ChainSequence,
-			SignerID:  m.ChainSignerID,
-			Signature: m.ChainSignature,
+			Hash:        m.ChainHash,
+			PrevHash:    m.ChainPrevHash,
+			Sequence:    m.ChainSequence,
+			SignerID:    m.ChainSignerID,
+			Signature:   m.ChainSignature,
+			HashVersion: m.HashVersion,
 		},
 	}
 
@@ -105,14 +112,19 @@ func (m *AuditModel) ToRecord() (*AuditRecord, error) {
 		}
 	}
 
+	// Details/Changes hold interface{} values; decode with UseNumber so the
+	// re-marshaled digest payload reproduces the stored digits exactly for any
+	// integer (including >2^53, which the default float64 decode would round)
+	// — ARCH-007 D1. Actor/Resource/Context are structs of strings/bools and
+	// need no special handling.
 	if m.DetailsJSON != nil {
-		if err := json.Unmarshal(m.DetailsJSON, &record.Details); err != nil {
+		if err := decodeJSONUseNumber(m.DetailsJSON, &record.Details); err != nil {
 			return nil, err
 		}
 	}
 
 	if m.ChangesJSON != nil {
-		if err := json.Unmarshal(m.ChangesJSON, &record.Changes); err != nil {
+		if err := decodeJSONUseNumber(m.ChangesJSON, &record.Changes); err != nil {
 			return nil, err
 		}
 	}
@@ -142,6 +154,7 @@ func FromRecord(r *AuditRecord) (*AuditModel, error) {
 		ChainSequence:  r.ChainInfo.Sequence,
 		ChainSignerID:  r.ChainInfo.SignerID,
 		ChainSignature: r.ChainInfo.Signature,
+		HashVersion:    r.ChainInfo.HashVersion,
 		CreatedAt:      time.Now(),
 	}
 
@@ -186,6 +199,15 @@ func FromRecord(r *AuditRecord) (*AuditModel, error) {
 	return model, nil
 }
 
+// decodeJSONUseNumber decodes JSON preserving numeric literals verbatim
+// (json.Number). Used for the digest-bearing interface{} columns so that
+// re-marshal reproduces the stored bytes for integers of any magnitude.
+func decodeJSONUseNumber(data []byte, v interface{}) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	return dec.Decode(v)
+}
+
 // derivePromotedFields extracts the queryable dimensions (game/env/
 // function/duration) from a record's Resource and Details payloads so they
 // can be stored as first-class columns. Explicit Resource fields win over
@@ -228,6 +250,12 @@ func detailsNumeric(v interface{}) (float64, bool) {
 		return float64(n), true
 	case int:
 		return float64(n), true
+	case json.Number:
+		f, err := n.Float64()
+		if err != nil {
+			return 0, false
+		}
+		return f, true
 	}
 	return 0, false
 }

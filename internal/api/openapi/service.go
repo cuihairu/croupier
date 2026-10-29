@@ -2069,7 +2069,7 @@ func (s *Service) auditSourceEvent(ctx context.Context, eventType audit.AuditEve
 	details["game_id"] = gameID
 	details["env"] = env
 	details["source_id"] = sourceID
-	_, err = s.svcCtx.AuditService.Log(ctx, eventType,
+	_, err = s.svcCtx.AuditService.LogOrDegrade(ctx, eventType,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResource(audit.ResourceInfo{
 			Type:        "openapi_source",

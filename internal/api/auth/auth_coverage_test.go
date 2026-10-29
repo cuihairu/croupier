@@ -252,15 +252,22 @@ func TestRecordMfaAudit_Branches(t *testing.T) {
 		assert.Equal(t, "auditmfa", row["actor_id"])
 	})
 
-	t.Run("audit store failure logs and continues", func(t *testing.T) {
+	t.Run("audit store failure aborts the operation (fail-closed)", func(t *testing.T) {
 		db := setupTestDB(t)
 		svc := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db))
-		require.NoError(t, db.Migrator().DropTable("audit_records"))
+		createTestAdminWithRole(t, db, "auditmfa2", "CorrectPass123", "admin")
+		setup, err := svc.MFASetup(ctx, "auditmfa2")
+		require.NoError(t, err)
 
-		// Log 失败：告警分支，不 panic。
-		assert.NotPanics(t, func() {
-			svc.recordMfaAudit(ctx, "someone", audit.EventMFADisabled)
-		})
+		// 审计存储不可用：MFA 事件在 D6 白名单，确认必须中止且不留开关侧效。
+		require.NoError(t, db.Migrator().DropTable("audit_records"))
+		_, err = svc.MFAConfirm(ctx, "auditmfa2", currentTOTP(t, setup.Secret))
+		require.ErrorIs(t, err, audit.ErrAuditWriteFailed, "MFA enable must abort on audit write failure")
+
+		// MFA 保持关闭：EnableOTP 未被调用。
+		admin, err := model.NewAdminModel(db).FindByUsername(ctx, "auditmfa2")
+		require.NoError(t, err)
+		assert.False(t, admin.OTPEnabled, "fail-closed abort must leave MFA disabled")
 	})
 }
 

@@ -139,7 +139,7 @@ func (s *Service) logSelfApprovalAudit(ctx context.Context, operator string, rec
 	if s.svcCtx == nil || s.svcCtx.AuditService == nil {
 		return
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.AuditEventType("approval.self_approval_blocked"),
+	_, _ = s.svcCtx.AuditService.LogOrDegrade(ctx, audit.AuditEventType("approval.self_approval_blocked"),
 		audit.WithActorID(operator, "admin", operator),
 		audit.WithResourceID("approval", record.ID),
 		audit.WithDetails(map[string]interface{}{
@@ -368,7 +368,7 @@ func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.Audit
 	}
 	// WithResourceID 会整体替换 Resource，必须先于 WithGameID 调用，
 	// 否则 game_id/env 列被抹掉（scope 过滤将查不到该行）。
-	_, _ = s.svcCtx.AuditService.Log(ctx, eventType,
+	_, _ = s.svcCtx.AuditService.LogOrDegrade(ctx, eventType,
 		audit.WithActorID(operator, "admin", operator),
 		audit.WithResourceID("approval", record.ID),
 		audit.WithGameID(record.GameID, record.Env),

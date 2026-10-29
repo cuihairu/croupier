@@ -387,7 +387,7 @@ func (s *ContractService) logAutoBindingAudit(ctx context.Context, gameID, env, 
 	if previous != nil {
 		details["materialSource"] = previous.Source
 	}
-	if _, err := s.auditSvc.Log(ctx, audit.EventOpenAPISourceBindingAuto,
+	if _, err := s.auditSvc.LogOrDegrade(ctx, audit.EventOpenAPISourceBindingAuto,
 		audit.WithResourceID("function_contract", functionID),
 		audit.WithActorID("system", "system", "Contract Rebuild"),
 		audit.WithDetails(details),
@@ -422,7 +422,7 @@ func (s *ContractService) logContractUpdateAudit(
 		"diffFindings": len(findings),
 		"breaking":     breaking,
 	}
-	if _, err := s.auditSvc.Log(ctx, audit.EventFunctionContractUpdated,
+	if _, err := s.auditSvc.LogOrDegrade(ctx, audit.EventFunctionContractUpdated,
 		audit.WithResourceID("function_contract", functionID),
 		audit.WithActorID("system", "system", "Contract Rebuild"),
 		audit.WithDetails(details),

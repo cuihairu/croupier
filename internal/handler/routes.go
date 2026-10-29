@@ -64,6 +64,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	"github.com/cuihairu/croupier/internal/api/tool"
+	auditcore "github.com/cuihairu/croupier/internal/audit"
 	configpkg "github.com/cuihairu/croupier/internal/config"
 	functionapi "github.com/cuihairu/croupier/internal/function/api"
 	"github.com/cuihairu/croupier/internal/function/registry"
@@ -88,6 +89,9 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// 客户端身份（IP/UA）注入 request context，供审计等非 handler 层读取
 	//（audit.AuditService.Log 自动补 WithIPAddress）。
 	r.Use(reqinfo.Middleware())
+	// 审计降级标记：LogOrDegrade 失败开放路径 set 请求标志，响应阶段据此
+	// 写 X-Audit-Degraded: true（ARCH-007 D6 呈现信号）。
+	r.Use(auditcore.DegradedMiddleware())
 	registerUploadStaticRoute(r, serverCtx)
 	v1 := r.Group("/api/v1")
 
