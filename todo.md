@@ -112,9 +112,9 @@
 - [x] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
   - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。✅ 完成：`docs/design/task-retry-recovery-protocol.md`（+zh）定 D1 同 ID 重复 Start 在途幂等 no-op + 代际标记清理、D2 终态事件重试至 ACK（Server 响应即 ACK）、D3 会话丢失→`unknown` 软终态 + 看门狗 `timed_out`，重跑必须新 taskId；边界节钉死「页面幂等≠游戏副作用去重」；index + data-flow §5 指针。
   - 状态／条件：DONE（commit 4829d020）。
-- [ ] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
-  - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理
-  - 状态／条件：READY；该能力尚未完整实现，并非只缺真实环境验收。
+- [x] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
+  - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理。✅ 完成：TaskRunner D1 同 ID 重复 Start 在途幂等 no-op + 代际跟踪 + Cancel 不急切删条目（旧协程清理 generation 校验不删同 ID 新任务）；D2 终态事件重试至 ACK（Server 响应即 ACK，默认 5 次退避封顶 5s，`reportTerminal`）；D3 server 会话丢失→`unknown` 收割（`ReapAgentNonTerminal` + TCPListener 断连 reaper 装配）；web `unknown` 状态渲染（dashboard 类型面/任务面板/操作页阶段条按未决 wait 非失败 + 任务状态标签 warning「结果未知」）；`IsReapableStatus`/`ReapableStatuses` 与收割谓词一致；复用 task_runs/task_events 无新表；protocol 实现映射/已知边界同步 en+zh（D3 看门狗 `timed_out` 收割器 ARCH-015 未随附，人工定界至 ARCH-018）。
+  - 状态／条件：DONE（commit 9735e0f5）。
 
 - [ ] **ARCH-016 · P1 · 实现 · Provider drain 真正摘流**
   - 依赖：—。交付与验收：当前 handleDrain 仅记录并回空 ACK；实现停止新路由、等待在途及超时退出语义，验证 ACK 语义与执行结束条件。
