@@ -105,30 +105,30 @@ func TestOpenGormForRouter_SQLite(t *testing.T) {
 }
 
 func TestEnsureGameDatabase_SQLite(t *testing.T) {
-	dsn, err := EnsureGameDatabase("sqlite", filepath.Join(t.TempDir(), "meta.db"), "game_demo_prod")
+	dsn, err := EnsureGameDatabase(context.Background(), "sqlite", filepath.Join(t.TempDir(), "meta.db"), "game_demo_prod")
 	require.NoError(t, err)
 	assert.Contains(t, dsn, "game_demo_prod.db")
 
-	dsn2, err := EnsureGameDatabase("sqlite3", ":memory:", "game_x")
+	dsn2, err := EnsureGameDatabase(context.Background(), "sqlite3", ":memory:", "game_x")
 	require.NoError(t, err)
 	assert.Contains(t, dsn2, "game_x")
 }
 
 func TestEnsureGameDatabase_UnreachableServers(t *testing.T) {
 	t.Run("postgres", func(t *testing.T) {
-		_, err := EnsureGameDatabase("postgres", "host=127.0.0.1 port=1 user=u dbname=meta", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "postgres", "host=127.0.0.1 port=1 user=u dbname=meta", "game_x")
 		require.Error(t, err)
 	})
 	t.Run("mysql", func(t *testing.T) {
-		_, err := EnsureGameDatabase("mysql", "u:p@tcp(127.0.0.1:1)/meta", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "mysql", "u:p@tcp(127.0.0.1:1)/meta", "game_x")
 		require.Error(t, err)
 	})
 	t.Run("sqlserver", func(t *testing.T) {
-		_, err := EnsureGameDatabase("sqlserver", "sqlserver://u:p@127.0.0.1:1?database=meta", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "sqlserver", "sqlserver://u:p@127.0.0.1:1?database=meta", "game_x")
 		require.Error(t, err)
 	})
 	t.Run("unsupported", func(t *testing.T) {
-		_, err := EnsureGameDatabase("oracle", "dsn", "db")
+		_, err := EnsureGameDatabase(context.Background(), "oracle", "dsn", "db")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported driver")
 	})

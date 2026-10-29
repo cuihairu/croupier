@@ -281,6 +281,15 @@ Croupier supports two run modes via the `database.multiGame` configuration:
 
 Under both modes, the API-layer and model-layer code is identical; only connection management differs.
 
+#### First-open lifecycle (ARCH-009)
+
+A game database's first open (ensure → connect → ping → migrate) is bounded and cancellable:
+
+- The whole sequence runs under an open budget (default 5 minutes, `Config.OpenBudget`; negative disables it) on the router's lifecycle context — `Router.Close()` aborts an in-flight open.
+- Per-caller cancellation only aborts that caller's wait: the shared open is coalesced per physical database by singleflight and runs to completion, so one cancelled request never aborts an open other requests are still waiting on. Different databases open in parallel.
+- `EnsureDatabase` / `MigrateGame` consume the context and check cancellation between phases; connection establishment is bounded via `PingContext`.
+- `Router.Stats()` exposes the connection pool size, first-open success/failure counters, and avg/max/P95 first-open latency over a retained window (capacity baseline input for ARCH-010).
+
 ## 12. Authorization and request scope resolution
 
 ### 12.1 The minimal authorization unit

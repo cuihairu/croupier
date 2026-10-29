@@ -95,7 +95,7 @@ func TestDashboardRegistrationPipelineSweepsExpiredRemovalsPerGameDB(t *testing.
 		MetaDSN:        filepath.Join(dir, "meta.db"),
 		NameForGame:    nameFor,
 		DSNForDatabase: func(_, dbName string) string { return dsnFor(dbName) },
-		EnsureDatabase: func(_, _ string, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, _ string, _ string, dbName string) (string, error) {
 			return dsnFor(dbName), nil
 		},
 		Open: open,

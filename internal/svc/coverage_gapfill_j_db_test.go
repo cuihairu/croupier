@@ -6,6 +6,7 @@ package svc
 // simple_protocol）；MySQL 侧实现最小握手 + ERR/OK 脚本。
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -279,7 +280,7 @@ func TestEnsureGameDatabase_PostgresAutoCreate(t *testing.T) {
 	s.mu.Unlock()
 
 	metaDSN := fakePGDSN(addr, "croupier_meta")
-	gameDSN, err := EnsureGameDatabase("postgres", metaDSN, "game_demo_prod")
+	gameDSN, err := EnsureGameDatabase(context.Background(), "postgres", metaDSN, "game_demo_prod")
 	require.NoError(t, err)
 	assert.Contains(t, gameDSN, "game_demo_prod")
 }
@@ -293,7 +294,7 @@ func TestEnsureGameDatabase_PostgresCreateFails(t *testing.T) {
 	s.probeExists = false
 	s.mu.Unlock()
 
-	_, err := EnsureGameDatabase("postgres", fakePGDSN(addr, "croupier_meta"), "game_demo_prod")
+	_, err := EnsureGameDatabase(context.Background(), "postgres", fakePGDSN(addr, "croupier_meta"), "game_demo_prod")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "create postgres database")
 }
@@ -525,7 +526,7 @@ func TestEnsureGameDatabase_MySQLAutoCreate(t *testing.T) {
 	s.firstConnErr = true
 	s.mu.Unlock()
 
-	gameDSN, err := EnsureGameDatabase("mysql", fakeMySQLDSN(addr, "croupier_meta"), "game_demo_prod")
+	gameDSN, err := EnsureGameDatabase(context.Background(), "mysql", fakeMySQLDSN(addr, "croupier_meta"), "game_demo_prod")
 	require.NoError(t, err)
 	assert.Contains(t, gameDSN, "game_demo_prod")
 }
@@ -538,7 +539,7 @@ func TestEnsureGameDatabase_MySQLCreateFails(t *testing.T) {
 	s.createErr = true
 	s.mu.Unlock()
 
-	_, err := EnsureGameDatabase("mysql", fakeMySQLDSN(addr, "croupier_meta"), "game_demo_prod")
+	_, err := EnsureGameDatabase(context.Background(), "mysql", fakeMySQLDSN(addr, "croupier_meta"), "game_demo_prod")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "create mysql database")
 }

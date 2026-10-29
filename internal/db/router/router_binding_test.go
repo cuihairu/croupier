@@ -38,7 +38,7 @@ func TestGameDB_UsesAuthorizedBindingName(t *testing.T) {
 	defer func() { _ = openSQLiteClose(metaDB) }()
 
 	var opened string
-	r.cfg.EnsureDatabase = func(driver, metaDSN, dbName string) (string, error) {
+	r.cfg.EnsureDatabase = func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 		opened = dbName
 		return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 	}
@@ -96,7 +96,7 @@ func TestGameDB_LegacyBindingRoutes(t *testing.T) {
 	defer func() { _ = openSQLiteClose(metaDB) }()
 
 	var opened string
-	r.cfg.EnsureDatabase = func(driver, metaDSN, dbName string) (string, error) {
+	r.cfg.EnsureDatabase = func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 		opened = dbName
 		return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 	}
@@ -127,7 +127,7 @@ func TestGameDB_UnderscoreCollisionDisambiguated(t *testing.T) {
 
 	var mu sync.Mutex
 	var opened []string
-	r.cfg.EnsureDatabase = func(driver, metaDSN, dbName string) (string, error) {
+	r.cfg.EnsureDatabase = func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 		mu.Lock()
 		opened = append(opened, dbName)
 		mu.Unlock()

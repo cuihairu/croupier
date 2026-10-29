@@ -275,6 +275,15 @@ Croupier 通过 `database.multiGame` 配置项支持两种运行模式：
 
 两种模式下，API 层和模型层代码完全一致，差异仅在连接管理。
 
+#### 首次打开生命周期（ARCH-009）
+
+游戏数据库的首次打开（ensure → connect → ping → migrate）有预算约束且可取消：
+
+- 整个序列在打开预算下运行（默认 5 分钟，`Config.OpenBudget`；负数禁用），基于路由器的生命周期 context——`Router.Close()` 会中止进行中的打开。
+- 单个调用方的取消只中止它自己的等待：共享打开按物理库名由 singleflight 合并并运行到完成，因此一个已取消的请求不会中止其他请求仍在等待的打开。不同数据库并行打开。
+- `EnsureDatabase` / `MigrateGame` 消费 context，并在阶段之间检查取消；连接建立通过 `PingContext` 受预算约束。
+- `Router.Stats()` 暴露连接池大小、首次打开成功/失败计数，以及保留窗口内的平均/最大/P95 首开耗时（ARCH-010 容量基线输入）。
+
 ## 12. 授权与请求 scope 解析
 
 ### 12.1 授权的最小单位

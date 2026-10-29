@@ -62,7 +62,7 @@ func TestEnsureGameDatabase_SQLiteDirFailure(t *testing.T) {
 	sub := filepath.Join(dir, "sub")
 	require.NoError(t, os.WriteFile(sub, []byte("x"), 0o644))
 
-	_, err := EnsureGameDatabase("sqlite", filepath.Join(sub, "meta.db"), "game_x")
+	_, err := EnsureGameDatabase(context.Background(), "sqlite", filepath.Join(sub, "meta.db"), "game_x")
 	assert.Error(t, err)
 }
 
