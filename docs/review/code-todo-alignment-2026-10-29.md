@@ -64,6 +64,8 @@ same schedule+slot: dispatches=2, accepted_unique_logs=1
 
 store/dispatcher 是确定性替身，模拟唯一键冲突；**没有把它宣称为真实多进程数据库 HA 演练**。代码时序本身已足以证明唯一索引放错阶段。任务：**ARCH-023**，领取在派发前，领取失败不执行；租约和崩溃恢复独立于游戏最终副作用去重。
 
+**已收口（2026-10-30，ARCH-023）。** 修复先落 claim-first（`6fffb0ea`：CreateRunLog 的 `(schedule_id, slot)` 唯一索引即领取令牌，唯一冲突即跳过派发；记录失败不执行——领取错误返回时宁可不派发），再补领取租约与崩溃恢复：`manager.go` `triggerSchedule` 在领取冲突时调 `ReclaimStaleRunLog`（`task_schedule_model.go`）做单条 UPDATE 的 CAS——仅当领取行仍 `status='claimed'` 且 `created_at` 早于租约窗口（默认 60s = 2×扫描周期）时原子重领并重置租约，随后重派发；否则视为活领取只推进。窗口一（领取后/派发前中断）触发不静默丢失——孤儿领取被重领重派发；窗口二（派发后/回写前中断）按 at-least-once 重派发，业务副作用去重由 GAME-010 承担（领取行无 taskID 可查，无法区分两窗口，边界如实记录）。并发恢复者由 CAS 保证恰好一个命中（`TestManager_ConcurrentReclaimExactlyOneRedispatch`）。证据：`docs/review/arch023-schedule-claim-recovery-2026-10-30.md`；用例 `internal/tasks/scheduler/arch023_test.go` + `internal/model/task_schedule_model_test.go`。
+
 ### R04 · P1 · task_runs 写失败仍发送任务
 
 **VERIFIED — 源码。** `internal/platform/dispatch/dispatcher.go:769` 用 `_ = writer.CreateRunWithMeta(...)` 忽略错误，再调用 Agent StartTask。前轮“先写 task_runs 再执行”的表述不完整：实际是先**尝试**写入，不要求成功。任务主记录缺失可能破坏查询/归属/取消与后续核对。真实 DB 故障注入 NOT RUN。任务：**ARCH-026**，写失败时执行计数必须为零；不能只解决 Agent 事件重放而保留此入口。

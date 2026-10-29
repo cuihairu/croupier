@@ -5,6 +5,8 @@ title: Runtime topology, connections and lifecycles (source status)
 # Runtime topology, connections and lifecycles
 
 > **Game-operations re-review, 2026-10-29:** unified sessions do not imply unified governance. Raw task entry has partial gates; scheduled/manual-trigger execution goes directly to Dispatcher. Policy/schema lookup failures can skip checks, and writing the unique schedule log after dispatch does not prevent duplicate execution. ARCH-023–027 in the root TODO track these gaps; evidence is in `docs/review/code-todo-alignment-2026-10-29.md`. Production stability for high-risk game writes is not established.
+>
+> **Update, 2026-10-30:** ARCH-023 closed. The scheduled-trigger path now claims `(schedule_id, slot)` before dispatch (unique index as the claim token) and reaps stale claims via a lease-based CAS (`ReclaimStaleRunLog`), so concurrent triggers dispatch exactly once per slot and a crash between claim and dispatch is recovered rather than silently skipped. Remaining open gaps: ARCH-024 (unified entry governance), ARCH-025 (policy failure semantics), ARCH-027 (input-contract read failure semantics). See `docs/review/arch023-schedule-claim-recovery-2026-10-30.md`.
 
 Reviewed **2026-10-29** against source wiring and repository deployment templates. This is not an inventory of a running production deployment. **Implemented** means production wiring can be traced; **target** means a runtime gap remains; **unverified** requires real configuration, accounts or infrastructure. No application behavior was changed. The root `todo.md` is the active delivery ledger; the earlier audit (`docs/review/architecture-audit-2026-10-28.md`) is historical evidence.
 

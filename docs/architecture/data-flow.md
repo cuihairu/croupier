@@ -13,6 +13,8 @@ tag:
 # Data flow
 
 > **Game-operations re-review, 2026-10-29:** unified sessions do not imply unified governance. Raw task entry has partial gates; scheduled/manual-trigger execution goes directly to Dispatcher. Policy/schema lookup failures can skip checks, and writing the unique schedule log after dispatch does not prevent duplicate execution. ARCH-023–027 in the root TODO track these gaps; evidence is in `docs/review/code-todo-alignment-2026-10-29.md`. Production stability for high-risk game writes is not established.
+>
+> **Update, 2026-10-30:** ARCH-023 closed. The scheduled-trigger path claims `(schedule_id, slot)` before dispatch (unique index as the claim token) and reaps stale claims via a lease-based CAS (`ReclaimStaleRunLog`); concurrent triggers dispatch exactly once per slot and a crash between claim and dispatch is recovered rather than silently skipped. Remaining open gaps: ARCH-024 (unified entry governance), ARCH-025 (policy failure semantics), ARCH-027 (input-contract read failure semantics). See `docs/review/arch023-schedule-claim-recovery-2026-10-30.md`.
 
 > **Status**: mixed main-path and target descriptions. See [source-reviewed runtime evidence](./runtime-topology). Older Mermaid diagrams are simplified, not complete topology/recovery guarantees.
 
