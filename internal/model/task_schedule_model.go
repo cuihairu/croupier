@@ -171,6 +171,18 @@ func (m *TaskScheduleModel) CreateRunLog(ctx context.Context, log *TaskScheduleR
 	return true, nil
 }
 
+// UpdateRunLog 回填领取槽位后的派发结果（ARCH-023 先领取再派发：领取行
+// 先占住唯一索引，派发完成后把 status/task_run_id/message 落为终值）。
+func (m *TaskScheduleModel) UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error {
+	return m.db.WithContext(ctx).Model(&TaskScheduleRunLog{}).
+		Where("schedule_id = ? AND slot = ?", scheduleID, slot).
+		Updates(map[string]interface{}{
+			"task_run_id": taskRunID,
+			"status":      status,
+			"message":     message,
+		}).Error
+}
+
 func isDuplicateKeyError(err error) bool {
 	if err == nil {
 		return false
