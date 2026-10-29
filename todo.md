@@ -90,9 +90,10 @@
 - [x] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
   - 依赖：—。交付与验收：复用授权后的 binding.database_name，消除前缀重算；验收旧名/自定义名/前缀变更/下划线碰撞/并发首次开库，已有绑定有显式迁移。
   - 状态／条件：完成（2026-10-29）。提交 61ee0720：`router.authoritativeName` 以 `game_envs.database_name` 为物理真值，前缀仅作无绑定回退与新绑定默认；`GameDBByPhysicalName` 供中间件复用已解析名；迁移 0049 回填空名绑定；8 个路由用例 + 3 个迁移用例 + 中间件绑定路由用例全绿；docs 三层（game-environment-scope / config-server）中英同步。
-- [ ] **ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略**
+- [x] **ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略**
   - 依赖：—。交付与验收：列出 scope/Changes/Action 等规范化哈希字段、旧版本兼容和写失败策略；外部签名是否需要单列决策。
-  - 状态／条件：READY。
+  - 状态／条件：LOCAL VERIFIED：已决策（2026-10-29）。D1–D7 见 [中英文审计链完整性设计](docs/zh/design/audit-chain-integrity-design.md)：D1 规范化全载荷摘要（action/category/severity/error_message/scope/changes/context/actor 全入哈希，JSON 列以存储原始字节嵌入消除 >2^53 整数假 mismatch）、D2 升级 SHA-256（替换 djb2 32 位）、D3 `hash_version` 列分版本校验兼容旧链（旧记录不重哈希）、D5 单一全局链、D6 失败开放+强制呈现（日志/计数器/X-Audit-Degraded）附失败关闭安全白名单与 `LogOrDegrade` 咽喉点、D7 外部签名已独占 `chain_signer_id`/`chain_signature` 列无需变更。评审表 8 场景；诚实边界：无密钥链为防篡改下限而非不可抵赖。驱动 ARCH-008 落地。
+  - 完成证据：2026-10-29 决策文档；`docs/design/audit-chain-integrity-design.md`（D1–D7）与中文对应文档同步。
 - [ ] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
   - 依赖：ARCH-007。交付与验收：逐字段修改被检测、旧链可验证、多实例写入一致；审计库故障按已批准策略处理。
   - 状态／条件：READY。
