@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"golang.org/x/sync/singleflight"
@@ -35,8 +37,10 @@ var gameDBInflightHook func()
 // DatabaseEnsurer creates the physical database named dbName on the server
 // reachable via baseDSN (which points at an existing/admin database), then
 // returns the DSN to connect to the newly created database. If the database
-// already exists it should be a no-op.
-type DatabaseEnsurer func(driver, baseDSN, dbName string) (gameDSN string, err error)
+// already exists it should be a no-op. The context carries the open budget
+// and lifecycle scope (ARCH-009): implementations must abort promptly on
+// cancellation instead of racing to finish.
+type DatabaseEnsurer func(ctx context.Context, driver, baseDSN, dbName string) (gameDSN string, err error)
 
 // Config controls Router behavior.
 type Config struct {
@@ -69,7 +73,12 @@ type Config struct {
 	Open DatabaseOpener
 	// MigrateGame runs game-scoped migrations against a freshly opened game
 	// DB. Optional; when set it runs once per game DB right after opening.
-	MigrateGame func(db *gorm.DB) error
+	// The context carries the open budget and lifecycle scope (ARCH-009).
+	MigrateGame func(ctx context.Context, db *gorm.DB) error
+	// OpenBudget bounds a single game-database first open
+	// (ensure+connect+ping+migrate). Zero uses the default (5 minutes);
+	// negative disables the budget.
+	OpenBudget time.Duration
 }
 
 // DefaultGameDBName produces the canonical database name for a game scope:
@@ -119,6 +128,22 @@ type Router struct {
 	// while different dbs open in parallel. I/O happens OUTSIDE the cache
 	// mutex to avoid blocking readers on other scopes.
 	inflight singleflight.Group
+
+	// lifecycleCtx bounds every shared first-open (ensure/connect/migrate):
+	// it is cancelled by Close so a router shutdown aborts in-flight opens.
+	// Per-caller cancellation only affects the wait in GameDB (the shared
+	// open coalesced by singleflight runs to completion on the lifecycle
+	// context so one cancelled caller cannot abort an open other callers are
+	// still waiting on).
+	lifecycleCtx    context.Context
+	lifecycleCancel context.CancelFunc
+
+	// openStats records game-database first-open latency for Stats()
+	// (ARCH-009). Samples are retained in a small ring; counters are atomic.
+	openStatsMu   sync.Mutex
+	openDurations []time.Duration
+	openCount     atomic.Int64
+	openFailCount atomic.Int64
 }
 
 // New constructs a Router. metaDB must already be open and migrated.
@@ -126,11 +151,14 @@ func New(cfg Config, metaDB *gorm.DB) *Router {
 	if cfg.NameForGame == nil {
 		cfg.NameForGame = DefaultGameDBName
 	}
+	lifecycleCtx, lifecycleCancel := context.WithCancel(context.Background())
 	return &Router{
-		cfg:      cfg,
-		metaDB:   metaDB,
-		cache:    make(map[string]*gorm.DB),
-		gameOfDB: make(map[string]scopeKey),
+		cfg:             cfg,
+		metaDB:          metaDB,
+		cache:           make(map[string]*gorm.DB),
+		gameOfDB:        make(map[string]scopeKey),
+		lifecycleCtx:    lifecycleCtx,
+		lifecycleCancel: lifecycleCancel,
 	}
 }
 
@@ -172,6 +200,11 @@ func (r *Router) resolveName(ctx context.Context, gameID, env string) (string, e
 // (create/migrate/open) runs OUTSIDE the cache mutex so a slow first-open for
 // one game never blocks reads on another game's cached connection.
 func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, error) {
+	// ARCH-009: a caller that arrives already-cancelled must not trigger any
+	// first-open I/O at all.
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("router: game db %q env %q cancelled before start: %w", gameID, env, err)
+	}
 	dbName, err := r.resolveName(ctx, gameID, env)
 	if err != nil {
 		return nil, err
@@ -188,9 +221,12 @@ func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, erro
 	}
 	r.mu.RUnlock()
 
-	// Slow path: deduplicate per-db. The create/migrate/open I/O happens
-	// inside openGameDB, outside any cache lock.
-	v, err, _ := r.inflight.Do(dbName, func() (interface{}, error) {
+	// Slow path: deduplicate per-db with a cancellable wait (ARCH-009). The
+	// create/migrate/open I/O happens inside openGameDB on the LIFECYCLE
+	// context (not the caller's), outside any cache lock, so it runs once and
+	// completes even if an individual caller cancels its wait — singleflight
+	// coalescing semantics. The caller's ctx only gates how long it waits.
+	resultCh := r.inflight.DoChan(dbName, func() (interface{}, error) {
 		// 测试接缝（产品恒 nil）：在回调入口同步注入「等待窗口内他人抢先
 		// 发布」的交错，使下方 re-check 分支可确定性覆盖——替代已退役的
 		// 锁泊车/TryLock 自旋相位对齐编排（时序分支用注入点）。
@@ -206,10 +242,13 @@ func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, erro
 		}
 		r.mu.RUnlock()
 
-		db, err := r.openGameDB(dbName)
+		start := time.Now()
+		db, err := r.openGameDB(r.lifecycleCtx, dbName)
 		if err != nil {
+			r.openFailCount.Add(1)
 			return nil, err
 		}
+		r.recordFirstOpen(time.Since(start))
 
 		// Publish under a brief write lock. Only map writes happen here, no I/O.
 		r.mu.Lock()
@@ -225,11 +264,98 @@ func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, erro
 		r.mu.Unlock()
 		return db, nil
 	})
-	if err != nil {
-		return nil, err
+
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("router: waiting for game db %q open cancelled: %w", dbName, ctx.Err())
+	case res := <-resultCh:
+		if res.Err != nil {
+			return nil, res.Err
+		}
+		return res.Val.(*gorm.DB), nil
 	}
-	return v.(*gorm.DB), nil
 }
+
+// FirstOpenStats summarizes game-database first opens (ARCH-009): how many
+// have completed or failed since boot, the current pool size, and the
+// latency distribution over the retained sample window.
+type FirstOpenStats struct {
+	PoolCount        int
+	FirstOpenCount   int64
+	OpenFailureCount int64
+	Window           int
+	AvgLatency       time.Duration
+	MaxLatency       time.Duration
+	P95Latency       time.Duration
+}
+
+// Stats returns the observable first-open statistics for the router. The
+// latency figures are over the retained window (most recent opens), not
+// since boot, so an outlier cold start does not skew the P95 forever.
+func (r *Router) Stats() FirstOpenStats {
+	r.mu.RLock()
+	pool := len(r.cache)
+	r.mu.RUnlock()
+
+	r.openStatsMu.Lock()
+	defer r.openStatsMu.Unlock()
+	s := FirstOpenStats{
+		PoolCount:        pool,
+		FirstOpenCount:   r.openCount.Load(),
+		OpenFailureCount: r.openFailCount.Load(),
+		Window:           len(r.openDurations),
+	}
+	if len(r.openDurations) == 0 {
+		return s
+	}
+	var total time.Duration
+	max := r.openDurations[0]
+	sorted := make([]time.Duration, len(r.openDurations))
+	copy(sorted, r.openDurations)
+	for _, d := range sorted {
+		total += d
+		if d > max {
+			max = d
+		}
+	}
+	s.AvgLatency = total / time.Duration(len(sorted))
+	s.MaxLatency = max
+	// P95 over the retained window (sorted ascending).
+	for i := 0; i < len(sorted); i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j] < sorted[i] {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+	idx := int(float64(len(sorted)) * 0.95)
+	if idx >= len(sorted) {
+		idx = len(sorted) - 1
+	}
+	s.P95Latency = sorted[idx]
+	return s
+}
+
+// recordFirstOpen records a successful first-open latency in the ring.
+func (r *Router) recordFirstOpen(d time.Duration) {
+	r.openCount.Add(1)
+	r.openStatsMu.Lock()
+	defer r.openStatsMu.Unlock()
+	if len(r.openDurations) < maxOpenStatsWindow {
+		r.openDurations = append(r.openDurations, d)
+		return
+	}
+	// Ring: overwrite oldest (index 0), then rotate so the ring reads as a
+	// window of the most recent N samples.
+	copy(r.openDurations, r.openDurations[1:])
+	r.openDurations[len(r.openDurations)-1] = d
+}
+
+const maxOpenStatsWindow = 1024
+
+// defaultGameOpenBudget bounds a single game-database first open when
+// Config.OpenBudget is zero. Negative disables the budget.
+const defaultGameOpenBudget = 5 * time.Minute
 
 // Resolve is a convenience that returns the game DB and stores it in ctx via
 // dbctx.WithDB, so downstream model calls pick it up automatically.
@@ -241,9 +367,13 @@ func (r *Router) Resolve(ctx context.Context, gameID, env string) (context.Conte
 	return dbctx.WithDB(ctx, db), db, nil
 }
 
-// Close closes every cached game DB. The meta DB is owned by the caller and
+// Close cancels the router lifecycle (aborting any in-flight first-open)
+// and closes every cached game DB. The meta DB is owned by the caller and
 // is NOT closed here.
 func (r *Router) Close() error {
+	if r.lifecycleCancel != nil {
+		r.lifecycleCancel()
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var firstErr error
@@ -307,21 +437,60 @@ func (r *Router) ForgetGame(gameID string) error {
 	return firstErr
 }
 
-func (r *Router) openGameDB(dbName string) (*gorm.DB, error) {
+// openGameDB runs the first-open sequence (ensure → connect → ping →
+// migrate) under the open budget, checking cancellation between phases
+// (ARCH-009). The context is the router lifecycle context, not any single
+// caller's, so a cancelled waiter never aborts a shared open.
+func (r *Router) openGameDB(ctx context.Context, dbName string) (*gorm.DB, error) {
+	budget := r.cfg.OpenBudget
+	if budget == 0 {
+		budget = defaultGameOpenBudget
+	}
+	if budget > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, budget)
+		defer cancel()
+	}
+
+	check := func(phase string) error {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("router: %s database %q cancelled: %w", phase, dbName, err)
+		}
+		return nil
+	}
+
+	if err := check("ensure"); err != nil {
+		return nil, err
+	}
 	dsn := r.cfg.DSNForDatabase(r.cfg.MetaDSN, dbName)
 	if r.cfg.EnsureDatabase != nil {
 		var err error
-		dsn, err = r.cfg.EnsureDatabase(r.cfg.Driver, r.cfg.MetaDSN, dbName)
+		dsn, err = r.cfg.EnsureDatabase(ctx, r.cfg.Driver, r.cfg.MetaDSN, dbName)
 		if err != nil {
 			return nil, fmt.Errorf("router: ensure database %q: %w", dbName, err)
 		}
+	}
+	if err := check("open"); err != nil {
+		return nil, err
 	}
 	db, err := r.cfg.Open(r.cfg.Driver, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("router: open database %q: %w", dbName, err)
 	}
+	// Establish the connection within the budget: gorm.Open does not take a
+	// context, so ping with one.
+	if sqlDB, err := db.DB(); err == nil {
+		if err := sqlDB.PingContext(ctx); err != nil {
+			_ = closeQuietly(db)
+			return nil, fmt.Errorf("router: ping database %q: %w", dbName, err)
+		}
+	}
+	if err := check("migrate"); err != nil {
+		_ = closeQuietly(db)
+		return nil, err
+	}
 	if r.cfg.MigrateGame != nil {
-		if err := r.cfg.MigrateGame(db); err != nil {
+		if err := r.cfg.MigrateGame(ctx, db); err != nil {
 			_ = closeQuietly(db)
 			return nil, fmt.Errorf("router: migrate database %q: %w", dbName, err)
 		}

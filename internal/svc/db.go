@@ -560,7 +560,10 @@ func DSNForDatabase(driver, metaDSN, dbName string) string {
 // reachable from metaDSN, then returns the DSN pointing at it. For SQLite
 // this is a no-op (the file is created on open). For server-based drivers it
 // connects to an admin database and runs CREATE DATABASE IF NOT EXISTS.
-func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
+func EnsureGameDatabase(ctx context.Context, driver, metaDSN, dbName string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", fmt.Errorf("ensure database %s: %w", dbName, err)
+	}
 	gameDSN := DSNForDatabase(driver, metaDSN, dbName)
 	switch driver {
 	case "sqlite", "sqlite3":
@@ -569,9 +572,17 @@ func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
 		}
 		return gameDSN, nil
 	case "postgres", "postgresql", "pg":
-		// Try connecting first; only create if missing.
+		// Try connecting first; only create if missing. gorm.Open does not
+		// take a context; cancellation is checked before and after the probe
+		// so a cancelled/budgeted first open aborts promptly between steps.
+		if err := ctx.Err(); err != nil {
+			return "", fmt.Errorf("ensure database %s: %w", dbName, err)
+		}
 		if _, err := gorm.Open(gpostgres.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
 			if strings.Contains(err.Error(), "database") && strings.Contains(err.Error(), "does not exist") {
+				if err := ctx.Err(); err != nil {
+					return "", fmt.Errorf("ensure database %s: %w", dbName, err)
+				}
 				adminDSN := removeDBFromPostgresDSN(metaDSN, "postgres")
 				if err := createPostgresDatabase(adminDSN, dbName); err != nil {
 					return "", fmt.Errorf("create postgres database %s: %w", dbName, err)
@@ -582,8 +593,14 @@ func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
 		}
 		return gameDSN, nil
 	case "mysql":
+		if err := ctx.Err(); err != nil {
+			return "", fmt.Errorf("ensure database %s: %w", dbName, err)
+		}
 		if _, err := gorm.Open(gmysql.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
 			if strings.Contains(err.Error(), "Unknown database") {
+				if err := ctx.Err(); err != nil {
+					return "", fmt.Errorf("ensure database %s: %w", dbName, err)
+				}
 				adminDSN := removeDBFromMySQLDSN(metaDSN)
 				if err := createMySQLDatabase(adminDSN, dbName); err != nil {
 					return "", fmt.Errorf("create mysql database %s: %w", dbName, err)
@@ -594,8 +611,14 @@ func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
 		}
 		return gameDSN, nil
 	case "sqlserver":
+		if err := ctx.Err(); err != nil {
+			return "", fmt.Errorf("ensure database %s: %w", dbName, err)
+		}
 		if _, err := gorm.Open(gsqlserver.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
 			if strings.Contains(err.Error(), "Could not locate database") || strings.Contains(err.Error(), "invalid database") {
+				if err := ctx.Err(); err != nil {
+					return "", fmt.Errorf("ensure database %s: %w", dbName, err)
+				}
 				adminDSN := replaceDBInSQLServerDSN(metaDSN, "master")
 				if err := createSQLServerDatabase(adminDSN, dbName); err != nil {
 					return "", fmt.Errorf("create sqlserver database %s: %w", dbName, err)

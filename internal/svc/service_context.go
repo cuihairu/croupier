@@ -886,8 +886,11 @@ func newGameRouter(c config.Config, metaDB *gorm.DB, secrets vault.Resolver) *ro
 		DSNForDatabase: dsnForDB,
 		EnsureDatabase: EnsureGameDatabase,
 		Open:           OpenGormForRouter,
-		MigrateGame: func(db *gorm.DB) error {
-			if _, err := migrate.EnsureUpToDate(context.Background(), db, migrate.ScopeGame, model.AutoMigrateGame); err != nil {
+		// ARCH-009: the router open budget and lifecycle context flow into the
+		// game-scoped migration so a cancelled/budgeted first open aborts
+		// rather than racing to finish.
+		MigrateGame: func(ctx context.Context, db *gorm.DB) error {
+			if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeGame, model.AutoMigrateGame); err != nil {
 				return err
 			}
 			return nil

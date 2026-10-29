@@ -77,14 +77,14 @@ func TestRouter_GameDB(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			// SQLite creates the file on open; just return the path.
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
-		MigrateGame: func(db *gorm.DB) error {
+		MigrateGame: func(_ context.Context, db *gorm.DB) error {
 			return model.AutoMigrateGame(db)
 		},
 	}, metaDB)
@@ -155,7 +155,7 @@ func TestRouter_Caching(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {
@@ -195,13 +195,13 @@ func TestRouter_Forget(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
-		MigrateGame: func(db *gorm.DB) error {
+		MigrateGame: func(_ context.Context, db *gorm.DB) error {
 			return model.AutoMigrateGame(db)
 		},
 	}, metaDB)
@@ -258,7 +258,7 @@ func TestRouter_ForgetGame(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {
@@ -318,13 +318,13 @@ func TestRouter_DbctxResolution(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
-		MigrateGame: func(db *gorm.DB) error {
+		MigrateGame: func(_ context.Context, db *gorm.DB) error {
 			return model.AutoMigrateGame(db)
 		},
 	}, metaDB)
@@ -380,7 +380,7 @@ func TestRouter_Accessors(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {
@@ -418,13 +418,13 @@ func TestRouter_Resolve(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
-		MigrateGame: func(db *gorm.DB) error {
+		MigrateGame: func(_ context.Context, db *gorm.DB) error {
 			return model.AutoMigrateGame(db)
 		},
 	}, metaDB)
@@ -480,7 +480,7 @@ func TestRouter_CustomNameFunction(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
 		Open: func(driver, dsn string) (*gorm.DB, error) {

@@ -155,11 +155,11 @@ func TestStaleHeal_MultiGameHealsAcrossGameDBs(t *testing.T) {
 			return filepath.Join(dir, "game_"+gameID+"_"+env+".db")
 		},
 		DSNForDatabase: func(_, dbName string) string { return dbName },
-		EnsureDatabase: func(_, _, dbName string) (string, error) { return dbName, nil },
+		EnsureDatabase: func(_ context.Context, _, _, dbName string) (string, error) { return dbName, nil },
 		Open: func(_, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
-		MigrateGame: model.AutoMigrateGame,
+		MigrateGame: func(_ context.Context, db *gorm.DB) error { return model.AutoMigrateGame(db) },
 	}, metaDB)
 
 	// meta 侧登记绑定（分库 scope 枚举源）

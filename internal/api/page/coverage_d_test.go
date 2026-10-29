@@ -199,11 +199,11 @@ func newMultiGameRouter(t *testing.T, service *Service) *router.Router {
 			return filepath.Join(dir, "game_"+gameID+"_"+env+".db")
 		},
 		DSNForDatabase: func(_, dbName string) string { return dbName },
-		EnsureDatabase: func(_, _, dbName string) (string, error) { return dbName, nil },
+		EnsureDatabase: func(_ context.Context, _, _, dbName string) (string, error) { return dbName, nil },
 		Open: func(_, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
-		MigrateGame: model.AutoMigrateGame,
+		MigrateGame: func(_ context.Context, db *gorm.DB) error { return model.AutoMigrateGame(db) },
 	}, service.svcCtx.DB)
 	service.svcCtx.Router = r
 	return r
@@ -239,9 +239,9 @@ func TestScopeDBContext_ResolveError(t *testing.T) {
 		Driver:         "sqlite",
 		NameForGame:    func(gameID, env string) string { return filepath.Join(dir, gameID+"_"+env+".db") },
 		DSNForDatabase: func(_, dbName string) string { return dbName },
-		EnsureDatabase: func(_, _, _ string) (string, error) { return "", injected },
+		EnsureDatabase: func(_ context.Context, _, _, _ string) (string, error) { return "", injected },
 		Open:           func(_, dsn string) (*gorm.DB, error) { return gorm.Open(gsqlite.Open(dsn), &gorm.Config{}) },
-		MigrateGame:    model.AutoMigrateGame,
+		MigrateGame:    func(_ context.Context, db *gorm.DB) error { return model.AutoMigrateGame(db) },
 	}, service.svcCtx.DB)
 
 	ctx, err := service.scopeDBContext(healCtx(), "demo-game", "development")
@@ -269,9 +269,9 @@ func TestHealOnce_ResolveScopeFailsContinues(t *testing.T) {
 		Driver:         "sqlite",
 		NameForGame:    func(gameID, env string) string { return filepath.Join(dir, gameID+"_"+env+".db") },
 		DSNForDatabase: func(_, dbName string) string { return dbName },
-		EnsureDatabase: func(_, _, _ string) (string, error) { return "", injected },
+		EnsureDatabase: func(_ context.Context, _, _, _ string) (string, error) { return "", injected },
 		Open:           func(_, dsn string) (*gorm.DB, error) { return gorm.Open(gsqlite.Open(dsn), &gorm.Config{}) },
-		MigrateGame:    model.AutoMigrateGame,
+		MigrateGame:    func(_ context.Context, db *gorm.DB) error { return model.AutoMigrateGame(db) },
 	}, metaDB)
 	// meta 侧登记绑定（scope 枚举成功，Resolve 才会被触达）
 	require.NoError(t, model.NewGameModel(metaDB).AddEnvBinding(healCtx(), "demo-game", "development", "game_demo_development", "", ""))
