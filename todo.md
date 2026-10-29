@@ -5,6 +5,7 @@
 旧台账完整保存在 [整理前历史](docs/review/todo-history-2026-10-29.md)，已交付片段不再重列为实现任务。原 C2/E2/D2/D5 的重复父条、阻塞条合并为验收任务；过期行号依赖移除。架构审核 A01–A09 对应 ARCH-001–020，不表示修复完成。仅设计完成的记录不能当实现完成。2026-10-29 再审发现：原清单遗漏定时派发竞争、执行入口治理缺口、策略故障放行、游戏身份/凭据/批次协议落地与灾备验证；新增任务见下方稳定编号。
 
 当前执行顺序：先收口 ARCH-023/024/025 的调度领取、统一治理与政策故障语义；真实高危游戏写入须具备 GAME-009/010 的批准协议与游戏持久收据。审批/任务/停机等既有可靠性缺口并行推进。分析先做 DATA-001 口径，再修现有聚合/接入闭环；DATA-010 可并行调查专业平台，避免在核心未可靠前扩建 BI 或继续堆页面。
+
 - [x] 审核发现：console 绑定执行加 `skipErrorHandler: true` 后，`scope_not_authorized`/`invalid_game_scope`/`scope_required` 等 403 与 token 失效 401 穿透全局 `errorHandler` 直接抛出，绕过其专门处理（清 scope 让 GameSelector 重选、跳登录），渲染器仅按 `forbidden`/`permission_denied` 收敛原因行，无效 scope 卡在页面不提示重选（web/src/services/console.ts:134、web/src/services/console.ts:168、web/src/requestErrorConfig.ts:210、web/src/requestErrorConfig.ts:232、web/src/components/PageRenderer/execFeedback.ts:70）。属实：根因是 `errorHandler` 对 `skipErrorHandler` 无条件 `throw`，使 403/401 分支永不执行；修复为 skipErrorHandler 下仍先处理会话/scope 级错误（清 scope 重选、清 token 跳登录）再上抛，其余错误保留页内反馈；`execFeedback` 对无效 scope 也补专门原因行。证据：commit（见 git log）；web 全量 jest 452 suites/5327 tests 绿、`tsc --noEmit` 0 错误、新增 `requestErrorConfig.test.ts` 6 用例与 `compositeExecFeedback.test.tsx` 无效 scope 用例绿。
 - [ ] 界面生成链收口（2026-10-23 用户采纳审核建议，计划来源 commit 6d55367）：仅面向游戏运营，不扩展为通用低代码平台；优先复用 Ant Design/ProComponents 的表格、表单、详情、弹窗与状态组件，自研聚焦业务语义、函数绑定和执行治理；保留 React/Ant Design/RJSF 与 `FunctionContract → CapabilitySemantics → PageSpec → 受控执行`，以业务模板为主要入口、自由画布为高级能力，按下列 A→B→C 批次推进；复用既有语义、模板和发布体系，当前不整体迁移 React Admin/JSON Forms/amis，AI 辅助生成另行评估且产物仍须经过同一草稿校验与发布链。（2026-10-28 状态：父条保持未勾——收口依赖全部子项）A/B/C1 批次与 D1–D5 已收口（cc9faa49 及此前各子片）；剩余 C2（真实游戏页面全链独立环境验收，BLOCKED 外部依赖，见 C2 条）与 E2（示例操作与异常状态闭环，见 E2 条）。 BLOCKED：缺独立验收环境与用户确认验收目标（真实游戏页面或 E2 示例游戏）。
   - [ ] 阻塞登记（2026-10-28）：BLOCKED on user input——A1/A2/A3/B1/B2/C1 及各自子片均已交付（见下方逐条 [x]），唯 C2 页面生成全链验收被「真实游戏页面独立环境验收」卡住（C2 阻塞登记：须独立环境运行完整栈并人工走查六段全链，待用户确认以真实游戏页面还是 E2 示例游戏为准）；本收口条目随 C2 一并阻塞，其余批次不宣称收口。手动动作：随 C2 解除后一并回填。
@@ -74,15 +75,18 @@
 - [ ] **ARCH-002 · P1 · 实现 · 接入审批 SQL 存储**
   - 依赖：ARCH-001。交付与验收：复用 internal/platform/approvals/sql_store.go；A 创建、B 读取/批准、重启后可查，并发仅一决定且仅一执行领取；不能只改构造器。
   - 状态／条件：NOT RUN：需共享数据库双实例。
+  - BLOCKED（2026-10-29 登记）：共享数据库双实例不可得——「并发仅一决定且仅一执行领取」「重启后可查」两项验收都要求两实例共享同一 SQL 存储做并发/重启断言，本机单实例无法证明；实施面（复用 `internal/platform/approvals/sql_store.go` 接线）与验收面分属不同依赖，验收前置未满足前不宣称完成。
 - [ ] **ARCH-003 · P1 · 实现 · 集群互联身份认证**
   - 依赖：—。交付与验收：增加专用 TLS 配置及身份绑定，拒绝无证书/错 CA/Agent 身份/未握手 forward；合法 invoke/start/cancel 保留 epoch fencing。
   - 状态／条件：NOT RUN：需测试 CA 与双实例。
+  - BLOCKED（2026-10-29 登记）：测试 CA 与双实例不可得——「拒绝无证书/错 CA/Agent 身份/未握手 forward」需要为互联链路签发专用 CA 并跑双实例握手矩阵；单实例自签 TLS 无法覆盖拒绝矩阵，验收前置未满足前不宣称完成。
 - [ ] **ARCH-004 · P1 · 实现 · 集群就绪及失败降级语义**
   - 依赖：—。交付与验收：独立存活/就绪探针；配置要求集群时协调库、互联监听或租约不可用返回 ready=503，显式配置才允许 standalone 降级。
   - 状态／条件：READY。
 - [ ] **ARCH-005 · P1 · 故障验证 · 集群故障摘流与重连**
   - 依赖：ARCH-003, ARCH-004。交付与验收：双实例注入协调库断连、互联占端口、owner 退出、旧 epoch；逐例记录拒绝、摘流、恢复及副作用次数。
   - 状态／条件：NOT RUN：需隔离网络和双实例。
+  - BLOCKED（2026-10-29 登记）：隔离网络与双实例不可得——「注入协调库断连/互联占端口/owner 退出/旧 epoch」需对两实例做网络分区注入与摘流观察，单机单实例无法复现集群故障场景；验收前置未满足前不宣称完成。
 - [ ] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
   - 依赖：—。交付与验收：复用授权后的 binding.database_name，消除前缀重算；验收旧名/自定义名/前缀变更/下划线碰撞/并发首次开库，已有绑定有显式迁移。
   - 状态／条件：READY。
@@ -99,12 +103,14 @@
 - [ ] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
   - 状态／条件：NOT RUN：需容量目标和独立数据库。
+  - BLOCKED（2026-10-29 登记）：容量目标与独立数据库不可得——「给定 game/env 数、并发、连接配额下记录池数/连接峰值/P95 首开耗时，给出回收阈值与容量结论」需要用户给定容量目标并独占一批数据库实例测基准；无目标无基线，无法给出有意义的容量结论。依赖 ARCH-009 实施后再测。
 - [ ] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
   - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入队故障下每条消息可核对，说明允许重复与去重策略。
   - 状态／条件：READY。
 - [ ] **ARCH-012 · P1 · 故障验证 · 分析管道崩溃恢复**
   - 依赖：ARCH-011。交付与验收：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
   - 状态／条件：NOT RUN：需 Redis 与 ClickHouse 可控环境。
+  - BLOCKED（2026-10-29 登记）：可控 Redis 与 ClickHouse 不可得——「Append 后/Send 前、Send 后/ACK 前、重入队失败时中断并比对源消息/PEL/死信/ClickHouse 行」需要能精确掐断消息流的 Redis 与可查证的 ClickHouse 实例；本机无此可控环境，故障注入验收无法执行。依赖 ARCH-011 实施后再测。
 - [ ] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
   - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。
   - 状态／条件：READY。
