@@ -763,10 +763,15 @@ func (d *Dispatcher) startTaskOnPickedAgent(ctx context.Context, span trace.Span
 		actor := origMeta["actor"]
 		addr := agent.Addr
 		traceID := telemetry.TraceIDFromMetadata(origMeta)
-		// Best-effort: create the run row. If this fails the task still
-		// dispatches — the agent will use the provided task_id and events
-		// will be orphaned but not lost (they land in task_events).
-		_ = writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, traceID, req.GetPayload())
+		// ARCH-026：task_runs 主记录必须持久化成功才可派发。写失败返回可
+		// 定位错误并不得发送 StartTask——否则 agent 侧执行照跑而账本缺失，
+		// 事件回流找不到主记录、任务无法取消（不可追踪的孤儿）。DB 故障与
+		// agent 无关，错误非 errAgentUnreachable，调用方不会 failover 重试。
+		if err := writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, traceID, req.GetPayload()); err != nil {
+			err = fmt.Errorf("persist task_runs row for task %s before dispatch: %w", taskID, err)
+			span.RecordError(err)
+			return nil, taskID, err
+		}
 	}
 	req.Metadata = meta
 

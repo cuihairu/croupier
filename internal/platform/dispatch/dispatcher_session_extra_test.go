@@ -465,3 +465,35 @@ func TestTaskEventsFromRecords_SkipsNilEvents(t *testing.T) {
 	events := taskEventsFromRecords(records)
 	require.Len(t, events, 2)
 }
+
+// ARCH-026：task_runs 主记录持久化失败禁止派发——StartTask 帧不得发出、
+// 执行器零调用、无事件回流源、无注册任务（无不可取消的孤儿）。
+func TestDispatcher_StartTaskRequest_CreateRunFailureBlocksDispatch(t *testing.T) {
+	d := NewDispatcher(nil)
+	registerTestAgent(t, d, "agent-1")
+
+	caller := &fakeSessionCaller{respBody: mustMarshal(t, &sdkv1.StartTaskResponse{TaskId: "agent-task-1"})}
+	d.SetSessionResolver(&fakeSessionResolver{callers: map[string]transport.SessionCaller{
+		"agent-1": caller,
+	}})
+	writer := &recordingRunWriter{errToFail: errors.New("db write failed")}
+	d.SetTaskRunWriter(writer)
+
+	_, err := d.StartTaskRequest(context.Background(), &sdkv1.InvokeRequest{FunctionId: "test-func"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "persist task_runs row")
+	assert.Contains(t, err.Error(), "db write failed")
+
+	// 执行器零调用：StartTask 不得发出（无游戏侧副作用、无事件回流源）。
+	assert.Zero(t, caller.callCount(), "task_runs 写失败时不得派发 StartTask")
+
+	// 恰好一次写尝试（失败），行未建成故无 failed 标记动作。
+	created := writer.createdIDs()
+	require.Len(t, created, 1)
+	taskID := created[0]
+
+	// 无不可取消孤儿：生成的任务 ID 未注册路由（taskAgentID 查不到）。
+	_, lookupErr := d.taskAgentID(context.Background(), taskID)
+	require.Error(t, lookupErr)
+	assert.Contains(t, lookupErr.Error(), "not tracked")
+}
