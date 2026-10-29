@@ -250,6 +250,10 @@ Downstream aggregation/query code must dedup on that key (e.g. `GROUP BY event_i
 
 The per-stream checkpoint is a high-water mark over stream IDs (`<ms>-<seq>`). A later message may be ACKed immediately (dead-letter / re-queue) while an earlier one still sits in an unsent batch; the mark therefore only moves forward (compared via `streamIDLess`) so a checkpoint regression can never re-read already-resolved messages after a restart.
 
+### 7.4 Startup MQ combination pre-check (ARCH-013)
+
+The built-in `analytics-worker` only consumes Redis Streams (§7). The ingest publisher, however, can be pointed at Kafka via `ANALYTICS_MQ_TYPE=kafka` — a combination with no built-in consumer: events would be published into a queue nobody reads. The ingest command therefore runs a startup pre-check (`validateMQCombination`) and **refuses to start** when `ANALYTICS_MQ_TYPE=kafka` is set without the explicit acknowledgement `ANALYTICS_MQ_KAFKA_EXTERNAL_CONSUMER=true` (confirming an external consumer owns that topic). The default Redis chain is unaffected (the pre-check only fires for kafka); no Kafka consumer is added to the built-in worker.
+
 ## 8. Core principles
 
 The current data flow follows these principles:

@@ -250,6 +250,10 @@ XReadGroup（认领 → PEL）→ append 行到批次 → 批次 Send() → XACK
 
 per-stream checkpoint 是流 ID（`<ms>-<seq>`）上的高水位。较晚消息可能被立即 ACK（死信/重入队）而较早消息仍在未发送批次中；因此水位只前进（经 `streamIDLess` 比较），checkpoint 永不回退，避免重启后重读已解析消息。
 
+### 7.4 启动期 MQ 组合预检（ARCH-013）
+
+内置 `analytics-worker` 只消费 Redis Streams（§7）。但 ingest 发布端可通过 `ANALYTICS_MQ_TYPE=kafka` 指向 Kafka——该组合没有内置消费者：事件会发布进无人读取的队列。因此 ingest 启动时运行预检（`validateMQCombination`）：当设置 `ANALYTICS_MQ_TYPE=kafka` 且未显式确认 `ANALYTICS_MQ_KAFKA_EXTERNAL_CONSUMER=true`（确认外部消费者接管该 topic）时，**拒绝启动**。默认 Redis 链不受影响（预检只对 kafka 生效）；不为内置 worker 增设 Kafka consumer。
+
 ## 8. 核心原则
 
 当前数据流遵循以下原则：

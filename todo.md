@@ -106,9 +106,9 @@
 - [ ] **ARCH-012 · P1 · 故障验证 · 分析管道崩溃恢复**
   - 依赖：ARCH-011。交付与验收：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
   - 状态／条件：NOT RUN：需 Redis 与 ClickHouse 可控环境。
-- [ ] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
-  - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。
-  - 状态／条件：READY。
+- [x] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
+  - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。✅ 完成：`validateMQCombination` 拒绝 `ANALYTICS_MQ_TYPE=kafka` 无外部消费者确认；`TestValidateMQCombination` 7 用例；docs data-flow §7.4 en+zh。
+  - 状态／条件：DONE（commit 43916f9d）。
 - [ ] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
   - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。
   - 状态／条件：READY。
