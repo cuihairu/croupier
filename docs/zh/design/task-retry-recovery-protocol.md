@@ -134,3 +134,27 @@ UI/API 的 `idempotency-key` 只在平台层去重任务*记录*创建。它不�
   *自动*重派。非幂等函数的重派是产品决策（游戏声明幂等，D5）。
 - 不声称生产就绪：协议是 ARCH-015 实现、ARCH-018 故障演练的契约；演练跑
   fixture 而非真实游戏（真实游戏验证为 GAME-010）。
+
+## 5. 实现状态（ARCH-015）
+
+ARCH-015 已实现 D1、D2（sidecar）与 D4（服务端）：
+
+- **D1**：`TaskRunner.Start` 对已在运行的 `taskId` 为幂等 no-op（不启第二
+  goroutine、不覆盖 cancel 注册）；在途表项携带每 `taskId` 代数
+  （`taskSlot.gen`），结束的 goroutine 只删除自己的表项，旧协程清理不能删除
+  同名新任务的槽位。
+- **D2**：`TaskRunner` 以有界指数退避投递生命周期事件
+  （`SetEventRetryPolicy`）；窗口耗尽以 warning 暴露，绝不静默丢弃。ACK 仍在
+  服务端落库之后。
+- **D4**：`StatusUnknown` 为 `internal/tasks/types.go` 的终态
+  （`IsTerminalStatus`/`TerminalStatuses`），`unknown` 行由此获得与其它终态
+  相同的 `UpdateRunIfStatusNotIn` 迟到事件守卫。`cancel_requested` 保持非终
+  态：待取消行上的 `completed` 事件不被拦（「取消不回退终态」）。
+
+**D3 的触发是明示边界，不是静默跳过**：协议约定服务端在 agent 重注册时把仍
+`running` 的 `task_runs` 对账为 `unknown`，但这要求区分 agent _重启_ 与瞬时
+_重连_——`RegisterRequest` 不携带重启身份（字段：AgentId/Version/Functions/
+GameId/Env/Processes/TtlSeconds/Region/Zone/Labels）。若对每次重注册都对账，
+会把重连 agent 的存活任务误标 `unknown`。`unknown` 状态与终态守卫已就位；
+`running → unknown` 的触发需要 wire 上的重启身份，推迟到 ARCH-018 执行中断
+演练落地（演练跑 fixture 而非真实游戏；真实游戏验证为 GAME-010）。

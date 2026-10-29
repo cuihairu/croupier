@@ -167,3 +167,33 @@ completion is indistinguishable from "never ran" without a game-side key.
 - No production readiness is claimed: the protocol is a contract for ARCH-015 to
   implement and ARCH-018 to fault-drill; the drill runs against fixtures, not a
   real game (real-game verification is GAME-010).
+
+## 5. Implementation status (ARCH-015)
+
+ARCH-015 implements D1, D2 (sidecar) and D4 (server):
+
+- **D1**: `TaskRunner.Start` is an idempotent no-op for an already-running
+  `taskId` (no second goroutine, no overwritten cancel registration); in-flight
+  entries carry a per-`taskId` generation (`taskSlot.gen`), and a finishing
+  goroutine removes only its own entry, so an old goroutine's cleanup cannot
+  delete a same-ID replacement's slot.
+- **D2**: `TaskRunner` delivers lifecycle events with bounded exponential
+  backoff (`SetEventRetryPolicy`); an exhausted window is surfaced as a warning,
+  never silently dropped. ACK remains server-side after persist.
+- **D4**: `StatusUnknown` is a terminal status in `internal/tasks/types.go`
+  (`IsTerminalStatus`/`TerminalStatuses`), so an `unknown` row is protected
+  from a late event by the same `UpdateRunIfStatusNotIn` guard.
+  `cancel_requested` stays non-terminal: a `completed` event is not blocked by
+  a pending cancel intent ("cancel never regresses a terminal state").
+
+**D3's trigger is a documented boundary, not a silent skip**: the protocol
+states the server reconciles still-`running` `task_runs` into `unknown` on
+agent re-registration, but that requires distinguishing an agent _restart_
+from a transient _reconnect_ — `RegisterRequest` carries no restart identity
+(fields: AgentId/Version/Functions/GameId/Env/Processes/TtlSeconds/Region/
+Zone/Labels). Reconciling on every re-registration would falsely mark a
+reconnected agent's live tasks `unknown`. The `unknown` status and its
+terminal guard are in place; the `running → unknown` transition trigger needs
+a restart identity on the wire and is deferred to the ARCH-018
+execution-interruption drill, where the fault behavior is validated against
+fixtures (not a real game; that is GAME-010).
