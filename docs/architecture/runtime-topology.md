@@ -113,7 +113,7 @@ Host acquires a concurrency gate, starts a child on demand, handshakes/Dispenses
 
 [Full SVG](/architecture/shutdown-en.svg)
 
-ProviderDrain currently logs and returns an empty ACK: **it neither removes routing eligibility nor waits for in-flight calls**. After SIGTERM, Server first closes the TCP listener and waits for connection goroutines, then shuts HTTP, cancels root background work, stops ControlService and closes Router; the outer wait is 30s. Long sessions can prevent later cleanup, so this is not complete graceful draining. ServiceContext.Close defines execution-log flushing and retention waiting but root does not call it. sidecar Stop orders function-plugin shutdown, local listener, upstream, telemetry and Ops; durable task draining is not established. worker main only sleeps 200ms after cancellation and does not join Run's final flush. Evidence: `internal/agent/tcp_local_listener.go:handleDrain`, `cmd/server/root.go`, `internal/svc/service_context.go:Close`, `internal/app/agent/app.go:Stop`, `cmd/analytics-worker/main.go`. Follow-up: ARCH-015–018 and ARCH-011/012.
+ProviderDrain is implemented (ARCH-016): the Agent marks the provider session draining, skips it for new business requests (a task continuation accepted before drain still routes to its provider), rejects with an explicit `provider <id> is draining` when every candidate drains, and returns the ACK only after in-flight reaches zero or the grace expires; the Server routing gate stops assigning new requests to a draining agent, and undrain is the `reason=="__undrain__"` sentinel (no dedicated proto field yet — protoc 3.21.12 produces bad gencode). Force-close of still-running requests after grace expiry is **not** implemented; a still-running task converges via the ARCH-015 `unknown`/terminal path. After SIGTERM the Server shuts down in a re-ordered sequence (ARCH-017): stop accepting new agent connections (`StopAccepting`, non-blocking) → drain in-flight HTTP → cancel the root context (which unblocks active agent session reads) → stop the scheduler and ControlService → bounded wait for connection goroutines (`WaitConnections`) → flush the execution-log trail and release pools (per-game Router, cache, meta DB) and clear the package-level template regenerator; the outer wait is 30s. Long sessions no longer block HTTP shutdown or the root cancel, and the flush ordering guarantees in-flight audit/execution-log writes land while the pools are still open. A straggler background goroutine that runs after the pools close logs an error rather than blocking shutdown. sidecar Stop orders function-plugin shutdown, local listener, upstream, telemetry and Ops; durable task draining is not established. worker main only sleeps 200ms after cancellation and does not join Run's final flush. Evidence: `agents/sidecar/provider_session.go`, `internal/agent/local_handler.go:DrainProviderSession`, `internal/server/tcp_listener.go:StopAccepting/WaitConnections`, `cmd/server/root.go`, `internal/svc/service_context.go:Close`, `internal/app/agent/app.go:Stop`, `cmd/analytics-worker/main.go`. Follow-up: ARCH-018 and ARCH-011/012.
 
 ## Deployment and operational failure handling
 
@@ -126,15 +126,15 @@ ProviderDrain currently logs and returns an empty ACK: **it neither removes rout
 
 ## Current behavior versus targets
 
-| Implemented / limitation                                          | Target or unverified work                                    | TODO                   |
-| ----------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------- |
-| One-hop owner routing / epochs; partial standalone fallback       | Authenticated interconnect, readiness and lease-loss removal | ARCH-003–005           |
-| Memory approvals; SQLStore not wired                              | Durable cross-instance decisions and execution claims        | ARCH-001/002           |
-| SQL page/task records; UI idempotency does not cover game effects | Task replay contract and real-game receipts                  | ARCH-014/015, GAME-001 |
-| Scope validation; dual DB-name sources                            | Binding-driven routing and pool budgets                      | ARCH-006/009/010       |
-| Drain returns empty ACK; blocking shutdown order                  | Routing drain, deadlines and resource-release exercises      | ARCH-016–018           |
-| SSH foundations; missing console relay                            | Relay and playback UI; no automatic RDP/VNC expansion        | AGENT-002/003          |
-| SLP/protocol skeleton and plugin runtime                          | Real-account login-level acceptance                          | PROBE-001–003          |
+| Implemented / limitation                                                                   | Target or unverified work                                    | TODO                   |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------- |
+| One-hop owner routing / epochs; partial standalone fallback                                | Authenticated interconnect, readiness and lease-loss removal | ARCH-003–005           |
+| Memory approvals; SQLStore not wired                                                       | Durable cross-instance decisions and execution claims        | ARCH-001/002           |
+| SQL page/task records; UI idempotency does not cover game effects                          | Task replay contract and real-game receipts                  | ARCH-014/015, GAME-001 |
+| Scope validation; dual DB-name sources                                                     | Binding-driven routing and pool budgets                      | ARCH-006/009/010       |
+| Drain waits in-flight with routing gate (ARCH-016); re-ordered bounded shutdown (ARCH-017) | Disconnect/drain/SIGTERM drill, force-close after grace      | ARCH-018               |
+| SSH foundations; missing console relay                                                     | Relay and playback UI; no automatic RDP/VNC expansion        | AGENT-002/003          |
+| SLP/protocol skeleton and plugin runtime                                                   | Real-account login-level acceptance                          | PROBE-001–003          |
 
 ## Official references and version boundaries
 

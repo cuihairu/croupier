@@ -113,7 +113,7 @@ capture 加载位点→连接源→Poll→可选 journal/consume→AckCheckpoint
 
 [完整 SVG](/architecture/shutdown-zh.svg)
 
-SDK `ProviderDrain` 当前只日志和空 ACK，**未实现摘流/等待在途**。Server SIGTERM 后先 `tcpListener.Close()`（等待连接协程），再 HTTP Shutdown，再 rootCancel/ControlService.Stop/Router.Close，外层有 30s 总等待；因此长连接可能阻挡后续清理，不能描述为完整优雅排空。`ServiceContext.Close` 定义了执行日志冲刷/retention 等待，但 root 未调用它。sidecar Stop 依次停函数插件、本地监听、上行、遥测、Ops；不保证 TaskRunner 持久任务已排空。worker main 取消后仅睡 200ms，不等待 Run 最终 flush 完成。证据：`internal/agent/tcp_local_listener.go:handleDrain`、`cmd/server/root.go`、`internal/svc/service_context.go:Close`、`internal/app/agent/app.go:Stop`、`cmd/analytics-worker/main.go`。改进分别登记 ARCH-015–018、ARCH-011/012。
+SDK `ProviderDrain` 已实现（ARCH-016）：Agent 将 provider 会话标记 draining，新业务请求跳过它（drain 前已接受的 task 续接仍路由到其 provider），所有候选都 drain 时以显式 `provider <id> is draining` 拒绝，ACK 仅在在途归零或宽限到期后返回；Server 路由门停止向 draining 节点派发新请求，undrain 走 `reason=="__undrain__"` 哨兵（尚未有专门 proto 字段——系统 protoc 3.21.12 产出坏 gencode）。宽限到期后**不**强制关闭仍在跑的请求；长任务经 ARCH-015 `unknown`/终态路径收敛。Server SIGTERM 后按重排序列停机（ARCH-017）：停收新 Agent 连接（`StopAccepting`，非阻塞）→ drain 在途 HTTP → 取消根 context（解除活跃 agent 会话读阻塞）→ 停调度器与 ControlService → 有界等待连接协程（`WaitConnections`）→ 冲刷执行留痕并释放池（per-game Router、缓存、元库）并清包级模板重建器单例；外层总等待 30s。长连接不再阻塞 HTTP 停机或根取消，冲刷顺序保证在途审计/执行留痕在池仍开时落库。池关闭后才跑完的后台 goroutine 仅记错误、不阻塞停机。sidecar Stop 依次停函数插件、本地监听、上行、遥测、Ops；不保证 TaskRunner 持久任务已排空。worker main 取消后仅睡 200ms，不等待 Run 最终 flush 完成。证据：`agents/sidecar/provider_session.go`、`internal/agent/local_handler.go:DrainProviderSession`、`internal/server/tcp_listener.go:StopAccepting/WaitConnections`、`cmd/server/root.go`、`internal/svc/service_context.go:Close`、`internal/app/agent/app.go:Stop`、`cmd/analytics-worker/main.go`。改进分别登记 ARCH-018、ARCH-011/012。
 
 ## 部署方式与故障处理
 
@@ -126,15 +126,15 @@ SDK `ProviderDrain` 当前只日志和空 ACK，**未实现摘流/等待在途**
 
 ## 现状与目标分开
 
-| 已实现 / 限制                                   | 目标设计或待核实                   | TODO                   |
-| ----------------------------------------------- | ---------------------------------- | ---------------------- |
-| owner 单跳转发 / epoch；部分协调失败 standalone | 认证互联、集群 ready、失租约摘流   | ARCH-003–005           |
-| 内存审批；SQLStore 未装配                       | 跨实例持久审批、原子决定与执行领取 | ARCH-001/002           |
-| 页面/任务关系库存储；游戏副作用不由 UI 幂等覆盖 | 任务重放协议、真实游戏凭据         | ARCH-014/015、GAME-001 |
-| DB scope 校验；物理名双来源                     | 绑定作为路由真值、预算/池容量      | ARCH-006/009/010       |
-| SDK drain 空 ACK；停机顺序有阻塞窗口            | 摘流、截止时间与资源释放演练       | ARCH-016–018           |
-| devops SSH 基础；面板中继缺失                   | 中继/回放界面；不自动扩 RDP/VNC    | AGENT-002/003          |
-| SLP/私有协议骨架与插件宿主                      | Login 级真实账号验收               | PROBE-001–003          |
+| 已实现 / 限制                                                 | 目标设计或待核实                        | TODO                   |
+| ------------------------------------------------------------- | --------------------------------------- | ---------------------- |
+| owner 单跳转发 / epoch；部分协调失败 standalone               | 认证互联、集群 ready、失租约摘流        | ARCH-003–005           |
+| 内存审批；SQLStore 未装配                                     | 跨实例持久审批、原子决定与执行领取      | ARCH-001/002           |
+| 页面/任务关系库存储；游戏副作用不由 UI 幂等覆盖               | 任务重放协议、真实游戏凭据              | ARCH-014/015、GAME-001 |
+| DB scope 校验；物理名双来源                                   | 绑定作为路由真值、预算/池容量           | ARCH-006/009/010       |
+| drain 等待在途 + 路由门（ARCH-016）；重排有界停机（ARCH-017） | 断连/drain/SIGTERM 演练、宽限后强制关闭 | ARCH-018               |
+| devops SSH 基础；面板中继缺失                                 | 中继/回放界面；不自动扩 RDP/VNC         | AGENT-002/003          |
+| SLP/私有协议骨架与插件宿主                                    | Login 级真实账号验收                    | PROBE-001–003          |
 
 ## 外部资料与版本边界
 
