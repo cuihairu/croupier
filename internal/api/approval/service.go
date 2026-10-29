@@ -227,6 +227,16 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 
 	record, err := s.svcCtx.ApprovalsStore.Approve(strings.TrimSpace(req.ID), operator)
 	if err != nil {
+		if existing, ok := approvals.AsAlreadyReviewed(err); ok {
+			// ARCH-001 D2/D4：CAS 失败 = 本请求未赢得转换（重复/竞争）。
+			// 绝不触发续跑/审计/通知副作用，返回 409 + 当前终态。
+			return nil, errorx.NewConflictWithCode("approval_already_reviewed",
+				"审批已被处理，不能重复批准", map[string]any{
+					"state":      existing.State,
+					"approver":   existing.Approver,
+					"reviewedAt": existing.ReviewedAt,
+				})
+		}
 		return nil, err
 	}
 	// 审批决定即时落审计链（先于续跑：续跑失败也是「已批准」这一事实）。
@@ -298,6 +308,14 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 
 	record, err := s.svcCtx.ApprovalsStore.Reject(strings.TrimSpace(req.ID), strings.TrimSpace(req.Reason), operator)
 	if err != nil {
+		if existing, ok := approvals.AsAlreadyReviewed(err); ok {
+			return nil, errorx.NewConflictWithCode("approval_already_reviewed",
+				"审批已被处理，不能重复拒绝", map[string]any{
+					"state":      existing.State,
+					"approver":   existing.Approver,
+					"reviewedAt": existing.ReviewedAt,
+				})
+		}
 		return nil, err
 	}
 	s.recordApprovalAudit(ctx, audit.EventApprovalRejected, operator, record)

@@ -435,11 +435,28 @@ export function createPlayerManageDemoExecute(
   let requestSeq = 0;
   const nextRequestId = () => `demo-${++requestSeq}`;
 
+  // 投影后的 selection 行是对象数组（selector 按 /id 投影后为 {id}），
+  // 直接 map(String) 会得到 ['[object Object]']，无法匹配玩家 ID 却返回
+  // 成功；按 rowIdentity 同口径取行标识，兼容直调传裸 ID 的形态。
+  const selectionIds = (selection: JSONValue): string[] => {
+    if (!Array.isArray(selection)) return [];
+    return selection.map((item) => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const record = item as FormValues;
+        const identity = record.id ?? record.key;
+        return identity === undefined || identity === null
+          ? JSON.stringify(record)
+          : String(identity);
+      }
+      return String(item);
+    });
+  };
+
   return async (bindingId, context): Promise<PageExecutionResult> => {
     let players: GameOpsPlayer[] = store.players;
     const form = asRecord(context.form);
     const row = asRecord(context.row);
-    const selection = Array.isArray(context.selection) ? context.selection.map(String) : [];
+    const selection = selectionIds(context.selection ?? []);
 
     try {
       switch (bindingId) {

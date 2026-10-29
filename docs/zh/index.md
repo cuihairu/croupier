@@ -47,6 +47,8 @@ Web 经 HTTP/SSE 访问 Server；Agent 主动建立上行 TCP session，SDK 连�
 
 <ArchitectureDiagram lang="zh" />
 
+[Runtime connections and lifecycles / 逐条连接与生命周期](/zh/architecture/runtime-topology)
+
 [阅读当前架构、状态归属与已知边界 →](/zh/architecture/)
 
 > TLS 按配置启用，开发模板未开启。当前集群互联依赖可信网络隔离；审批的生产装配仍是内存存储。多实例路由能力不代表所有业务状态都已实现高可用。

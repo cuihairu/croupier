@@ -214,7 +214,14 @@ func (h *History) Clone() *History {
 	defer h.mu.RUnlock()
 	cp := NewHistory(h.less)
 	for table, vers := range h.tables {
-		cp.tables[table] = append([]Version(nil), vers...)
+		cpVers := make([]Version, len(vers))
+		for i, v := range vers {
+			// 深拷贝每版本的列型映射：Clone 注释承诺与并发 Record 隔离，
+			// 浅拷 Column 切片会让调用方与记录侧共享底层数组。
+			cpVers[i] = v
+			cpVers[i].Schema.Columns = append([]Column(nil), v.Schema.Columns...)
+		}
+		cp.tables[table] = cpVers
 	}
 	return cp
 }

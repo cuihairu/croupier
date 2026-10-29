@@ -62,23 +62,17 @@ export function summarizeTargets(
   };
 }
 
-/** D2 跨目标总量：perTarget 数量/金额 × 已选目标数。
- * perTarget 只接受非负整数（数字或纯数字字符串），目标数必须为正整数；
- * 任一不确定输入返回 undefined，不猜 0、不执行。 */
-export function summarizePerTargetTotal(
-  perTargetValue: number | string | undefined | null,
+/** 批量操作的每人数量 × 目标数 = 总量（D2 跨目标总量）。
+ * 每人数量必须是有限非负整数且目标数为正整数，否则返回 undefined——
+ * 不确定的量不能硬猜成 0，也不能静默给出小数总量。 */
+export function summarizeQuantityTotal(
+  perQuantity: number | string | undefined | null,
   targetCount: number,
 ): number | undefined {
-  const perTarget =
-    typeof perTargetValue === 'string' ? Number(perTargetValue.trim()) : perTargetValue;
-  if (
-    typeof perTarget !== 'number' ||
-    !Number.isFinite(perTarget) ||
-    !Number.isInteger(perTarget) ||
-    perTarget < 0
-  ) {
+  const per = typeof perQuantity === 'string' ? Number(perQuantity) : perQuantity;
+  if (typeof per !== 'number' || !Number.isFinite(per) || per < 0 || !Number.isInteger(per)) {
     return undefined;
   }
   if (!Number.isInteger(targetCount) || targetCount <= 0) return undefined;
-  return perTarget * targetCount;
+  return per * targetCount;
 }

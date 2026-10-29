@@ -44,7 +44,7 @@ Three consequences:
 
 ### Non-goals
 
-- We do not chase "connections never break" — when the process holding a connection dies, the TCP connection breaks; HA guarantees **contained impact + automatic fast recovery + no state loss** (isomorphic to the HA semantics of Kafka/etcd/Sentinel)
+- We do not chase "connections never break" — when the process holding a connection dies, the TCP connection breaks; HA guarantees **contained impact and reconnection**; memory approvals, in-flight tasks and events do not have complete recovery guarantees
 - No SaaS multi-tenant scaling; the fleet is expected at 2~5 instances
 - The Agent's outbound connection model does not change (the game-network "outbound only, no inbound" security constraint stays)
 
@@ -54,12 +54,12 @@ Three consequences:
 
 Multi-instance coordination needs a mechanism for "sharing state / reaching agreement across instances". Candidate routes:
 
-| Route                                              | New dependency | Assessment                                                                      |
-| --------------------------------------------------- | --------------- | --------------------------------------------------------------------------------- |
-| A. Reuse the existing DB (MySQL/PG) for the registry | None            | The passable baseline; heartbeat writes need rate reduction/batching              |
-| B. Redis for the registry                            | Redis           | The industry-standard approach; natural TTL/pub-sub; the repo's cache/MQ already have Redis implementations |
-| C. Embedded consensus (Raft/gossip)                  | None            | Hand-developing distributed logic costs too much; over-engineering for this project's scale |
-| D. L4 sticky routing + reconnect re-registration     | None            | Smallest change but unbalanced load and a failover gap; transition only           |
+| Route                                                | New dependency | Assessment                                                                                                  |
+| ---------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------- |
+| A. Reuse the existing DB (MySQL/PG) for the registry | None           | The passable baseline; heartbeat writes need rate reduction/batching                                        |
+| B. Redis for the registry                            | Redis          | The industry-standard approach; natural TTL/pub-sub; the repo's cache/MQ already have Redis implementations |
+| C. Embedded consensus (Raft/gossip)                  | None           | Hand-developing distributed logic costs too much; over-engineering for this project's scale                 |
+| D. L4 sticky routing + reconnect re-registration     | None           | Smallest change but unbalanced load and a failover gap; transition only                                     |
 
 **Conclusion**: the `RegistryStore` abstraction + multiple implementations, reusing the repo's existing pluggable-storage pattern (cache's local/redis/null, MQ's redis/kafka/noop, RateLimitStore).
 
@@ -108,16 +108,16 @@ Representatives: **frp, rathole**. The tunnel server is a single point, backstop
 
 **The five patterns compared**:
 
-| Dimension                        | ① Pitaya bus          | ② Agent connects to all | ③ Directory + forwarding | ④ Caller routing        | ⑤ Single point + fallback |
-| --------------------------------- | ---------------------- | ------------------------ | ------------------------- | ------------------------- | --------------------------- |
-| New infrastructure                | NATS + etcd            | None                     | None (reuses DB/Redis)    | A smart gateway           | None                        |
-| Agent change                      | None                   | Large (many connections) | None                      | None                      | None                        |
-| Server change                     | Split edge/logic layers | Small                   | Medium (forwarding protocol) | Small                   | None                        |
-| Business restart drops Agent connections | Never           | Partially                | Only that instance's      | Only that instance's      | All                         |
-| Call latency                      | +1 hop (the bus)       | Direct                   | Possibly +1 hop           | Direct                    | Direct                      |
-| Failure blast radius              | Bus failure = global   | 1/M                      | 1/M                       | 1/M                       | Global                      |
-| Scale ceiling                     | High                   | Low (connection storms)  | Medium-high               | Medium                    | —                           |
-| Industry validation               | Large-scale game-backend production | Abandoned by Teleport | Teleport's current design | Tailscale/K8s current | Small teams     |
+| Dimension                                | ① Pitaya bus                        | ② Agent connects to all  | ③ Directory + forwarding     | ④ Caller routing      | ⑤ Single point + fallback |
+| ---------------------------------------- | ----------------------------------- | ------------------------ | ---------------------------- | --------------------- | ------------------------- |
+| New infrastructure                       | NATS + etcd                         | None                     | None (reuses DB/Redis)       | A smart gateway       | None                      |
+| Agent change                             | None                                | Large (many connections) | None                         | None                  | None                      |
+| Server change                            | Split edge/logic layers             | Small                    | Medium (forwarding protocol) | Small                 | None                      |
+| Business restart drops Agent connections | Never                               | Partially                | Only that instance's         | Only that instance's  | All                       |
+| Call latency                             | +1 hop (the bus)                    | Direct                   | Possibly +1 hop              | Direct                | Direct                    |
+| Failure blast radius                     | Bus failure = global                | 1/M                      | 1/M                          | 1/M                   | Global                    |
+| Scale ceiling                            | High                                | Low (connection storms)  | Medium-high                  | Medium                | —                         |
+| Industry validation                      | Large-scale game-backend production | Abandoned by Teleport    | Teleport's current design    | Tailscale/K8s current | Small teams               |
 
 **Selection conclusion**:
 
@@ -167,8 +167,8 @@ graph TB
   SA <-->|心跳续租/目录读写| DIR
   SB <-->|心跳续租/目录读写| DIR
   SC <-->|心跳续租/目录读写| DIR
-  SA <-->|实例互联 mTLS| SB
-  SB <-->|实例互联 mTLS| SC
+  SA <-->|Current TCP / target mTLS| SB
+  SB <-->|Current TCP / target mTLS| SC
   AG1 -->|TCP session| LB
   AG2 -->|TCP session| LB
   AG3 -->|TCP session| LB
@@ -345,15 +345,15 @@ Fully transparent to the caller.
 
 The caller/owner division of responsibility for the three call paths:
 
-| Responsibility   | Caller instance (the HTTP entry)                       | Owner instance (holding the agent connection)                |
-| ----------------- | -------------------------------------------------------- | --------------------------------------------------------------- |
-| Candidate set     | The local registry; on empty, fall back to the ownership table | — (the forwarded request already names the agent)               |
-| Policy / approval | The full authorization chain (policy hit + approval creation) | **No re-check**, audit only                                      |
-| Sync invoke       | Failed calls retry with other candidates (failover)       | `InvokeRequestOnAgent` targeted delivery                        |
+| Responsibility    | Caller instance (the HTTP entry)                                                                                                                                                              | Owner instance (holding the agent connection)                                                            |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Candidate set     | The local registry; on empty, fall back to the ownership table                                                                                                                                | — (the forwarded request already names the agent)                                                        |
+| Policy / approval | The full authorization chain (policy hit + approval creation)                                                                                                                                 | **No re-check**, audit only                                                                              |
+| Sync invoke       | Failed calls retry with other candidates (failover)                                                                                                                                           | `InvokeRequestOnAgent` targeted delivery                                                                 |
 | async start_task  | Mint the server task ID + write the task_runs row + registerTask + return the task ID on success; failover identical to invoke (failures mark the attempt row failed, exhaustion maps to 503) | `StartTaskOnAgent` delivers only (metadata.taskId reuses the caller's ID; no row, no route registration) |
-| broadcast         | Candidate set local ∪ remote (deduped, local first); partial failures land in Failures (HTTP 200) | Forward-delivered per agent, same as invoke                      |
-| cancel_task       | On a task-routing miss, resolve the agent from the shared task_runs; unregisterTask after success | `CancelTaskOnAgent` delivers only; post-cancellation route cleanup happens on the caller |
-| Task events       | HTTP polling/SSE reads the shared store                   | Agent events land in the shared store (task_events)              |
+| broadcast         | Candidate set local ∪ remote (deduped, local first); partial failures land in Failures (HTTP 200)                                                                                             | Forward-delivered per agent, same as invoke                                                              |
+| cancel_task       | On a task-routing miss, resolve the agent from the shared task_runs; unregisterTask after success                                                                                             | `CancelTaskOnAgent` delivers only; post-cancellation route cleanup happens on the caller                 |
+| Task events       | HTTP polling/SSE reads the shared store                                                                                                                                                       | Agent events land in the shared store (task_events)                                                      |
 
 The candidate-set fallback (RemoteAgentSource): when the local candidate set is empty (or failover has exhausted local candidates), synchronously query the shared ownership table + the `agent_sessions` snapshot table (1s budget; degrade on error rather than amplify the failure) to backfill remote candidates; the chosen remote candidate executes via forwarding. The 30s periodic backfill of `refreshRemoteSnapshots` is thereby demoted from a correctness dependency to a performance-optimization layer.
 
@@ -391,11 +391,11 @@ Behind §6.2's timeline stands an explicit set of triggers, adjudications, and r
 
 **The three disconnection-detection entry points** (Agent side):
 
-| Entry point                                  | Trigger                                            | Latency                   |
-| --------------------------------------------- | ----------------------------------------------------- | ---------------------------- |
-| The heartbeat loop notices the connection is down | `Connected()=false` (RST/FIN breaks immediately)   | ≤1 heartbeat period          |
-| Two consecutive heartbeat failures             | Network half-open, server unresponsive                | ≈2 heartbeat periods         |
-| The background reconnect loop after a failed startup connect | The server is unreachable at process start        | Retrying every 5s            |
+| Entry point                                                  | Trigger                                          | Latency              |
+| ------------------------------------------------------------ | ------------------------------------------------ | -------------------- |
+| The heartbeat loop notices the connection is down            | `Connected()=false` (RST/FIN breaks immediately) | ≤1 heartbeat period  |
+| Two consecutive heartbeat failures                           | Network half-open, server unresponsive           | ≈2 heartbeat periods |
+| The background reconnect loop after a failed startup connect | The server is unreachable at process start       | Retrying every 5s    |
 
 The fuse: after heartbeats recover from failures, the Agent **re-registers once proactively**, ensuring session info is fresh (not depending on the disconnection event itself).
 
@@ -403,12 +403,12 @@ The fuse: after heartbeats recover from failures, the Agent **re-registers once 
 
 **Four layers of race protection at the switchover instant** (the old and new paths finishing concurrently):
 
-| Race                                                        | Defense                                                                                          | Implementation                  |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Old instance A's disconnect cleanup deletes B's new ownership row | `Release` deletes conditionally with `instance_id = self`                                        | 0 rows match once B has overwritten; no-op |
-| The Agent reconnects to the same instance: old-connection cleanup deletes the new session | Disconnect cleanup deletes precisely by `(agentID, sessionID)`                                | `RemoveSession`                    |
-| Disconnect cleanup deletes the in-memory entry just overwritten by the re-registration | The notAfter timestamp check (a new registration's LastSeen must be later than the disconnect moment) | `RemoveAgentIfStale`               |
-| A partition-recovered zombie owner keeps accepting forwards   | Fencing: the frame's `callerEpoch` ≠ the owner's local epoch → `not_owner`; the caller re-resolves and retries | `ServeForwardHandler`              |
+| Race                                                                                      | Defense                                                                                                        | Implementation                             |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Old instance A's disconnect cleanup deletes B's new ownership row                         | `Release` deletes conditionally with `instance_id = self`                                                      | 0 rows match once B has overwritten; no-op |
+| The Agent reconnects to the same instance: old-connection cleanup deletes the new session | Disconnect cleanup deletes precisely by `(agentID, sessionID)`                                                 | `RemoveSession`                            |
+| Disconnect cleanup deletes the in-memory entry just overwritten by the re-registration    | The notAfter timestamp check (a new registration's LastSeen must be later than the disconnect moment)          | `RemoveAgentIfStale`                       |
+| A partition-recovered zombie owner keeps accepting forwards                               | Fencing: the frame's `callerEpoch` ≠ the owner's local epoch → `not_owner`; the caller re-resolves and retries | `ServeForwardHandler`                      |
 
 **Self-healing fallbacks**:
 
@@ -417,11 +417,11 @@ The fuse: after heartbeats recover from failures, the Agent **re-registers once 
 
 **Caller semantics inside the switchover window**:
 
-| Scenario                                        | Behavior                                                                     | Recovery point             |
-| -------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------ |
-| The ownership row still points at A; A is dead     | `ResolveOwner` cross-validation against the member lease fails → no live agent     | Immediately after B Claims     |
-| The ownership row still points at A; A lives but the connection is broken | Forward to A → A has no local session → agent unreachable                   | Immediately after B Claims     |
-| B has Claimed; other instances' candidate sets not yet refreshed | Local candidates missing (the RemoteAgentSource sync fallback can backfill at once) | Instant via the sync fallback / ≤30s via the backfill |
+| Scenario                                                                  | Behavior                                                                            | Recovery point                                        |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| The ownership row still points at A; A is dead                            | `ResolveOwner` cross-validation against the member lease fails → no live agent      | Immediately after B Claims                            |
+| The ownership row still points at A; A lives but the connection is broken | Forward to A → A has no local session → agent unreachable                           | Immediately after B Claims                            |
+| B has Claimed; other instances' candidate sets not yet refreshed          | Local candidates missing (the RemoteAgentSource sync fallback can backfill at once) | Instant via the sync fallback / ≤30s via the backfill |
 
 ### 6.3 The engineering details that must be right
 
@@ -432,22 +432,22 @@ The fuse: after heartbeats recover from failures, the Agent **re-registers once 
 
 ### 6.4 Synergy with other features
 
-| Scenario           | Single instance                            | Multi-instance (implemented)                    |
-| ------------------- | --------------------------------------------- | --------------------------------------------------- |
-| Server crash        | 100% of capabilities unavailable, manual restart | 1/M of Agents interrupted for seconds, auto-recovery |
-| Upgrade/release     | Necessarily a whole-platform interruption     | Rolling restart instance by instance, available throughout |
-| Availability magnitude | ~99.9% (about 43 minutes of monthly downtime) | 99.99%+ (about 4 minutes of monthly downtime)       |
+| Scenario               | Single instance                                  | Multi-instance (implemented)                               |
+| ---------------------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| Server crash           | 100% of capabilities unavailable, manual restart | 1/M of Agents interrupted for seconds, auto-recovery       |
+| Upgrade/release        | Necessarily a whole-platform interruption        | Rolling restart instance by instance, available throughout |
+| Availability magnitude | ~99.9% (about 43 minutes of monthly downtime)    | 99.99%+ (about 4 minutes of monthly downtime)              |
 
 ## 7. Implementation breakdown
 
-| Component                                                    | Effort | Notes                                                |
-| -------------------------------------------------------------- | -------- | ------------------------------------------------------- |
-| The `instances` table + lease heartbeats                        | Small    | Copies the agent session's TTL management pattern      |
-| The `RegistryStore` abstraction + memory/db/redis implementations | Medium   | Translating the in-memory map semantics onto an interface |
-| The interconnect port + the `server` handshake role             | Small    | Reuses the session foundation                          |
-| `ForwardInvoke` + the one-hop limit + fencing                   | Medium   | The protocol is simple; the hard part is testing       |
-| In-flight task reconciliation                                   | Medium   | Reuses the task state machine's `timed_out`            |
-| Multi-instance chaos/integration tests (simulated partitions, crashes) | Large | Distributed bugs surface only through fault injection |
+| Component                                                              | Effort | Notes                                                     |
+| ---------------------------------------------------------------------- | ------ | --------------------------------------------------------- |
+| The `instances` table + lease heartbeats                               | Small  | Copies the agent session's TTL management pattern         |
+| The `RegistryStore` abstraction + memory/db/redis implementations      | Medium | Translating the in-memory map semantics onto an interface |
+| The interconnect port + the `server` handshake role                    | Small  | Reuses the session foundation                             |
+| `ForwardInvoke` + the one-hop limit + fencing                          | Medium | The protocol is simple; the hard part is testing          |
+| In-flight task reconciliation                                          | Medium | Reuses the task state machine's `timed_out`               |
+| Multi-instance chaos/integration tests (simulated partitions, crashes) | Large  | Distributed bugs surface only through fault injection     |
 
 ## 8. Prerequisites and scheduling
 

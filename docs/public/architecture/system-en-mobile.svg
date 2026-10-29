@@ -1,55 +1,205 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="1580" viewBox="0 0 640 1580" role="img" aria-labelledby="title desc">
-<title id="title">Croupier current architecture</title>
-<desc id="desc">Console to Server; four Agent roles connect outbound, SDKs connect to the sidecar. Relational state, optional cluster coordination and a separate Redis analytics pipeline.</desc>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#7c5260"/></marker></defs>
-<style>text{font-family:Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#292830} .heading{font-size:26px;font-weight:700} .label{font-size:20px;font-weight:700} .body{font-size:20px;fill:#55535e} .note{font-size:18px;fill:#6a6269} .line{fill:none;stroke:#7c5260;stroke-width:2;marker-end:url(#arrow)} .dash{stroke-dasharray:6 5}</style>
-<rect width="640" height="1580" rx="16" fill="#faf8f5"/>
-
-<text x="28" y="43" class="heading">CROUPIER / CURRENT ARCHITECTURE</text>
-<text x="28" y="73" class="note">Source review · 2026-10-28</text>
-<rect x="24" y="100" width="592" height="91" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="132" class="label">Operator console · HTTP API / SSE</text>
-<text x="44" y="163" class="body">React / Umi · Page Studio / Console</text>
-<path d="M320 191 V222" class="line"/>
-<rect x="24" y="222" width="592" height="116" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="254" class="label">Two optional ingress paths</text>
-<text x="44" y="285" class="body">L7 nginx → HTTP :18780</text>
-<text x="44" y="312" class="body">L4 HAProxy → Agent control :19090</text>
-<path d="M320 338 V370" class="line"/>
-<rect x="24" y="370" width="592" height="255" rx="12" fill="#f6e9ed" stroke="#b77a8b"/>
-<text x="44" y="402" class="label">SERVER · MODULAR CONTROL PLANE</text>
-<text x="44" y="433" class="body">Identity / scope / policy / contracts / pages</text>
-<text x="44" y="460" class="body">functioninvoke → dispatch → Agent session</text>
-<text x="44" y="487" class="body">Task state / SSE / SQL audit</text>
-<text x="44" y="514" class="body">Optional HA: owner forwarding + epoch fencing</text>
-<text x="44" y="541" class="body">Approvals in memory; plaintext interconnect</text>
-<text x="44" y="568" class="body">TLS configurable; off in development templates</text>
-<path d="M320 625 V657" class="line dash"/>
-<rect x="24" y="657" width="592" height="116" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="689" class="label">Persistent state and optional coordination</text>
-<text x="44" y="720" class="body">Relational DB: business / pages / tasks / audit</text>
-<text x="44" y="747" class="body">Shared DB or Redis: membership / owner leases</text>
-<text x="44" y="817" class="note">Agents dial L4 / control above; sessions are bidirectional</text>
-<rect x="24" y="838" width="592" height="200" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="870" class="label">Role-specific Agents</text>
-<text x="44" y="901" class="body">sidecar: SDK gateway / functions / tasks / plugins</text>
-<text x="44" y="928" class="body">capture: CDC / checkpoints / rules</text>
-<text x="44" y="955" class="body">synthetics: HTTP probes / probe plugins</text>
-<text x="44" y="982" class="body">devops: session foundations; console relay pending</text>
-<text x="44" y="1009" class="body">Each instance declares one gameId + env</text>
-<path d="M320 1068 V1038" class="line"/>
-<rect x="24" y="1068" width="592" height="90" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="1100" class="label">Game process + SDK → sidecar :19091</text>
-<text x="44" y="1131" class="body">SDK initiates a bidirectional provider session</text>
-<rect x="24" y="1185" width="592" height="116" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="1217" class="label">Shared core/ runtime · explicit role composition</text>
-<text x="44" y="1248" class="body">transport / register / backoff / configsync</text>
-<text x="44" y="1275" class="body">pluginhost / report / process / healthprobe</text>
-<rect x="24" y="1330" width="592" height="174" rx="12" fill="#ffffff" stroke="#d8d2d5"/>
-<text x="44" y="1362" class="label">Separate analytics pipeline</text>
-<text x="44" y="1393" class="body">ingest → Redis Streams</text>
-<text x="44" y="1420" class="body">→ analytics-worker → ClickHouse</text>
-<text x="44" y="1447" class="body">Built-in worker consumes Redis, not Kafka</text>
-<text x="44" y="1474" class="body">Separate from SDK function execution</text>
-<text x="24" y="1542" class="note">Arrows label connection or data flow; see text for limits</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="2310" viewBox="0 0 1200 2310" role="img" aria-labelledby="title desc"><title id="title">CROUPIER · CURRENT RUNTIME TOPOLOGY</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="2310" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">CROUPIER · CURRENT RUNTIME TOPOLOGY</text>
+<text x="30" y="77" class="small" text-anchor="start">2026-10-29 · Vertical overview · Text inside Server identifies modules</text>
+<g data-node="Operator clients"><rect x="365" y="110" width="470" height="100" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="381" y="140" class="head" text-anchor="start">Operator clients</text>
+<text x="381" y="168" class="" text-anchor="start">Web browser / Flutter mobile</text>
+<text x="381" y="193" class="" text-anchor="start">Pages, governed actions, task queries</text>
+</g>
+<path d="M600 210 V295" class="edge data" marker-end="url(#data)" marker-start="url(#data)"/>
+<text x="620" y="242" class="small" text-anchor="start">HTTP :18780 / JWT / SSE</text>
+<text x="620" y="266" class="small" text-anchor="start">Optional nginx L7 proxy</text>
+<g data-node="SERVER · One modular control plane"><rect x="310" y="295" width="580" height="300" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="326" y="325" class="head" text-anchor="start">SERVER · One modular control plane</text>
+<text x="326" y="353" class="" text-anchor="start">Identity / scope / policy / approvals / audit</text>
+<text x="326" y="378" class="" text-anchor="start">Contracts → publication → binding execution</text>
+<text x="326" y="403" class="" text-anchor="start">registry / functioninvoke / dispatch / Ops</text>
+<text x="326" y="428" class="" text-anchor="start">Task state and SSE / in-process scheduler</text>
+<text x="326" y="453" class="" text-anchor="start">Live sessions local; approvals currently in memory</text>
+<text x="326" y="478" class="" text-anchor="start">Local probes / outlets / telemetry bridge</text>
+<text x="326" y="503" class="" text-anchor="start">core/ packages are not separate services</text>
+</g>
+<g data-node="Other Server instances"><rect x="15" y="320" width="265" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="350" class="head" text-anchor="start">Other Server instances</text>
+<text x="31" y="378" class="" text-anchor="start">TCP interconnect</text>
+<text x="31" y="403" class="" text-anchor="start">One-hop forward / epoch</text>
+<text x="31" y="428" class="" text-anchor="start">Plain TCP; mTLS is a target</text>
+</g>
+<path d="M310 390 H280" class="edge control" marker-end="url(#control)" marker-start="url(#control)"/>
+<g data-node="Relational DB"><rect x="925" y="295" width="260" height="125" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="941" y="325" class="head" text-anchor="start">Relational DB</text>
+<text x="941" y="353" class="" text-anchor="start">Metadata / pages / tasks</text>
+<text x="941" y="378" class="" text-anchor="start">Contracts / audit / business</text>
+<text x="941" y="403" class="" text-anchor="start">Optional game DB routing</text>
+</g>
+<path d="M890 350 H925" class="edge data" marker-end="url(#data)" marker-start="url(#data)"/>
+<g data-node="Shared coordination"><rect x="925" y="465" width="260" height="105" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="941" y="495" class="head" text-anchor="start">Shared coordination</text>
+<text x="941" y="523" class="" text-anchor="start">DB or Redis: leases</text>
+<text x="941" y="548" class="" text-anchor="start">membership / owner</text>
+</g>
+<path d="M890 510 H925" class="edge control optional" marker-end="url(#control)" marker-start="url(#control)"/>
+<g data-node="Optional integrations"><rect x="15" y="485" width="265" height="110" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="31" y="515" class="head" text-anchor="start">Optional integrations</text>
+<text x="31" y="543" class="" text-anchor="start">Herald / OIDC / Vault</text>
+<text x="31" y="568" class="" text-anchor="start">Platform APIs / telemetry</text>
+</g>
+<path d="M310 540 H280" class="edge external optional" marker-end="url(#external)" marker-start="url(#external)"/>
+<path d="M600 765 V595" class="edge control" marker-end="url(#control)"/>
+<text x="620" y="638" class="small" text-anchor="start">Agents dial :19090 (optional HAProxy L4)</text>
+<text x="620" y="665" class="small" text-anchor="start">TCP + protobuf · configured TLS · bidirectional</text>
+<text x="620" y="692" class="small" text-anchor="start">Register / heartbeat / config / commands / reports</text>
+<text x="30" y="735" class="small" text-anchor="start">Four Agent roles</text>
+<text x="620" y="735" class="small" text-anchor="start">One gameId + env each; dots join the bus</text>
+<path d="M285 795 V620 H320 V595" class="edge control optional" marker-end="url(#control)"/>
+<text x="25" y="650" class="small" text-anchor="start">Optional HTTP extension pull</text>
+<text x="25" y="675" class="small" text-anchor="start">Auth wiring gap; see text</text>
+<path d="M150 795 V765 H1050 V795" class="edge control"/>
+<path d="M450 795 V765" class="edge control"/>
+<path d="M750 795 V765" class="edge control"/>
+<circle cx="150" cy="765" r="4" fill="#53658d"/>
+<circle cx="450" cy="765" r="4" fill="#53658d"/>
+<circle cx="600" cy="765" r="4" fill="#53658d"/>
+<circle cx="750" cy="765" r="4" fill="#53658d"/>
+<circle cx="1050" cy="765" r="4" fill="#53658d"/>
+<g data-node="sidecar"><rect x="15" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="825" class="head" text-anchor="start">sidecar</text>
+<text x="31" y="853" class="" text-anchor="start">SDK gateway / functions / tasks</text>
+<text x="31" y="878" class="" text-anchor="start">Managed processes / extensions</text>
+<text x="31" y="903" class="" text-anchor="start">Provider :19091</text>
+</g>
+<g data-node="capture"><rect x="315" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="331" y="825" class="head" text-anchor="start">capture</text>
+<text x="331" y="853" class="" text-anchor="start">CDC / checkpoints / rules</text>
+<text x="331" y="878" class="" text-anchor="start">Local spool / optional journal</text>
+<text x="331" y="903" class="" text-anchor="start">Alert requests have ACKs</text>
+</g>
+<g data-node="synthetics"><rect x="615" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="631" y="825" class="head" text-anchor="start">synthetics</text>
+<text x="631" y="853" class="" text-anchor="start">Target probes / result reports</text>
+<text x="631" y="878" class="" text-anchor="start">External probe plugin host</text>
+<text x="631" y="903" class="" text-anchor="start">Role-specific probe wiring</text>
+</g>
+<g data-node="devops"><rect x="915" y="795" width="270" height="145" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="931" y="825" class="head" text-anchor="start">devops</text>
+<text x="931" y="853" class="" text-anchor="start">Registration / allowlist sync</text>
+<text x="931" y="878" class="" text-anchor="start">SSH Broker / Hub foundations</text>
+<text x="931" y="903" class="" text-anchor="start">Console relay incomplete</text>
+</g>
+<g data-node="Game process + SDK"><rect x="15" y="1060" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="1090" class="head" text-anchor="start">Game process + SDK</text>
+<text x="31" y="1118" class="" text-anchor="start">Dials; bidirectional calls</text>
+<text x="31" y="1143" class="" text-anchor="start">Game owns authoritative data</text>
+<text x="31" y="1168" class="" text-anchor="start">Drain ACK does not drain</text>
+</g>
+<path d="M275 1060 V940" class="edge data" marker-end="url(#data)"/>
+<text x="25" y="990" class="small" text-anchor="start">TCP / protobuf :19091</text>
+<text x="25" y="1015" class="small" text-anchor="start">Connect / Invoke / result</text>
+<g data-node="Game source databases"><rect x="315" y="1060" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="331" y="1090" class="head" text-anchor="start">Game source databases</text>
+<text x="331" y="1118" class="" text-anchor="start">MySQL / MariaDB binlog</text>
+<text x="331" y="1143" class="" text-anchor="start">PostgreSQL pgoutput</text>
+<text x="331" y="1168" class="" text-anchor="start">MongoDB change stream</text>
+</g>
+<path d="M570 940 V1060" class="edge external" marker-end="url(#external)" marker-start="url(#external)"/>
+<text x="325" y="990" class="small" text-anchor="start">Replication / event stream</text>
+<text x="325" y="1015" class="small" text-anchor="start">Source credentials / bookmark</text>
+<g data-node="Probe targets"><rect x="615" y="1060" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="631" y="1090" class="head" text-anchor="start">Probe targets</text>
+<text x="631" y="1118" class="" text-anchor="start">HTTP / TCP / protocol</text>
+<text x="631" y="1143" class="" text-anchor="start">Configured targets / credentials</text>
+<text x="631" y="1168" class="" text-anchor="start">Server/sidecar can also probe</text>
+</g>
+<path d="M870 940 V1060" class="edge external" marker-end="url(#external)" marker-start="url(#external)"/>
+<text x="625" y="990" class="small" text-anchor="start">Poll / phase results</text>
+<g data-node="SSH hosts"><rect x="915" y="1060" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="931" y="1090" class="head" text-anchor="start">SSH hosts</text>
+<text x="931" y="1118" class="" text-anchor="start">Local Broker calls only</text>
+<text x="931" y="1143" class="" text-anchor="start">Credentials / known_hosts</text>
+<text x="931" y="1168" class="" text-anchor="start">RDP / VNC unavailable</text>
+</g>
+<path d="M1170 940 V1060" class="edge external" marker-end="url(#external)" marker-start="url(#external)"/>
+<text x="925" y="990" class="small" text-anchor="start">SSH / allowlist</text>
+<text x="925" y="1015" class="small" text-anchor="start">No wired console relay</text>
+<path d="M35 940 H5 V1370 H15" class="edge control optional" marker-end="url(#control)"/>
+<text x="25" y="1250" class="small" text-anchor="start">sidecar owns plugin lifecycle</text>
+<g data-node="Function plugin children"><rect x="15" y="1315" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="31" y="1345" class="head" text-anchor="start">Function plugin children</text>
+<text x="31" y="1373" class="" text-anchor="start">go-plugin / local gRPC</text>
+<text x="31" y="1398" class="" text-anchor="start">Host starts / invokes / kills</text>
+<text x="31" y="1423" class="" text-anchor="start">Optional; separate from SDK</text>
+</g>
+<g data-node="Managed processes"><rect x="315" y="1315" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="331" y="1345" class="head" text-anchor="start">Managed processes</text>
+<text x="331" y="1373" class="" text-anchor="start">sidecar Ops / local cron</text>
+<text x="331" y="1398" class="" text-anchor="start">start / stop / restart / update</text>
+<text x="331" y="1423" class="" text-anchor="start">Local files / desired state</text>
+</g>
+<path d="M270 940 H300 V1370 H315" class="edge control" marker-end="url(#control)"/>
+<g data-node="Probe plugin children"><rect x="615" y="1315" width="270" height="125" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="631" y="1345" class="head" text-anchor="start">Probe plugin children</text>
+<text x="631" y="1373" class="" text-anchor="start">go-plugin / local gRPC</text>
+<text x="631" y="1398" class="" text-anchor="start">Describe / Check</text>
+<text x="631" y="1423" class="" text-anchor="start">Timeout / backoff / breaker</text>
+</g>
+<path d="M865 940 H900 V1370 H885" class="edge control optional" marker-end="url(#control)"/>
+<path d="M880 595 V610 H1189 V1290 H880 V1185" class="edge external optional" marker-end="url(#external)"/>
+<path d="M280 940 H290 V1270 H800 V1185" class="edge external optional" marker-end="url(#external)"/>
+<text x="325" y="1260" class="small" text-anchor="start">sidecar / Server-local probes → external targets</text>
+<g data-node="External platform APIs"><rect x="915" y="1315" width="270" height="125" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="931" y="1345" class="head" text-anchor="start">External platform APIs</text>
+<text x="931" y="1373" class="" text-anchor="start">Server/sidecar extension paths</text>
+<text x="931" y="1398" class="" text-anchor="start">HTTP / platform credentials</text>
+<text x="931" y="1423" class="" text-anchor="start">Enabled by configuration</text>
+</g>
+<path d="M265 940 H295 V1220 H1193 V1375 H1185" class="edge external optional" marker-end="url(#external)"/>
+<text x="320" y="1208" class="small" text-anchor="start">Optional sidecar extension → platform (independent of devops)</text>
+<text x="30" y="1505" class="head" text-anchor="start">Separate analytics pipeline · raw CDC is not automatically published here</text>
+<g data-node="Event producers"><rect x="15" y="1550" width="270" height="100" rx="10" fill="#fff4e8" stroke="#aebdce"/>
+<text x="31" y="1580" class="head" text-anchor="start">Event producers</text>
+<text x="31" y="1608" class="" text-anchor="start">Event / payment JSON</text>
+<text x="31" y="1633" class="" text-anchor="start">Separate from SDK routing</text>
+</g>
+<g data-node="ingest · HTTP :8088"><rect x="375" y="1550" width="350" height="100" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="391" y="1580" class="head" text-anchor="start">ingest · HTTP :8088</text>
+<text x="391" y="1608" class="" text-anchor="start">HMAC / time window / limits</text>
+<text x="391" y="1633" class="" text-anchor="start">Signed intake / queue publish</text>
+</g>
+<path d="M285 1600 H375" class="edge data" marker-end="url(#data)"/>
+<text x="298" y="1585" class="small" text-anchor="start">HTTP</text>
+<g data-node="Redis Streams"><rect x="375" y="1740" width="350" height="100" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="391" y="1770" class="head" text-anchor="start">Redis Streams</text>
+<text x="391" y="1798" class="" text-anchor="start">Streams / consumer groups / PEL</text>
+<text x="391" y="1823" class="" text-anchor="start">Configured credentials / persistence</text>
+</g>
+<path d="M550 1650 V1740" class="edge data" marker-end="url(#data)"/>
+<text x="570" y="1703" class="small" text-anchor="start">XADD</text>
+<path d="M890 575 H1197 V1790 H725" class="edge data optional" marker-end="url(#data)"/>
+<text x="750" y="1688" class="small" text-anchor="start">Server telemetry bridge (optional)</text>
+<g data-node="analytics-worker"><rect x="375" y="1910" width="350" height="100" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="391" y="1940" class="head" text-anchor="start">analytics-worker</text>
+<text x="391" y="1968" class="" text-anchor="start">Redis consume / aggregate / batch</text>
+<text x="391" y="1993" class="" text-anchor="start">Built-in worker is not Kafka-based</text>
+</g>
+<path d="M550 1840 V1910" class="edge data" marker-end="url(#data)"/>
+<text x="570" y="1880" class="small" text-anchor="start">XREADGROUP / XACK</text>
+<g data-node="ClickHouse"><rect x="845" y="1910" width="340" height="100" rx="10" fill="#eaf5f1" stroke="#aebdce"/>
+<text x="861" y="1940" class="head" text-anchor="start">ClickHouse</text>
+<text x="861" y="1968" class="" text-anchor="start">Events / payments / aggregates</text>
+<text x="861" y="1993" class="" text-anchor="start">Batch / ACK durability gap</text>
+</g>
+<path d="M725 1960 H845" class="edge data" marker-end="url(#data)"/>
+<text x="735" y="1945" class="small" text-anchor="start">native SQL</text>
+<g data-node="Legend and current limitations"><rect x="15" y="2090" width="1170" height="160" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="31" y="2120" class="head" text-anchor="start">Legend and current limitations</text>
+<text x="31" y="2148" class="" text-anchor="start">Blue: control/session; green: data; brown: external dependency; dashed: optional.</text>
+<text x="31" y="2173" class="" text-anchor="start">Dots join edges; crossings without dots do not. Two heads show request/result, not two dialers.</text>
+<text x="31" y="2198" class="" text-anchor="start">Topology is current wiring, not deployment proof. See runtime-topology for trust and lifecycle evidence.</text>
+<text x="31" y="2223" class="" text-anchor="start">Redis coordination and analytics are distinct uses; shared placement needs failure/capacity checks.</text>
+</g>
 </svg>

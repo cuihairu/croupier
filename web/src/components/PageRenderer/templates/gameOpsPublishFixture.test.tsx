@@ -371,3 +371,36 @@ describe('C2 gameOps 发布链 fixture：提案→快照→控制台', () => {
     expect(executor).not.toHaveBeenCalled();
   });
 });
+
+describe('REVIEW-001：playerManage 批量充值 selection 归一化', () => {
+  it('对象行 selection 不 map 成 [object Object]，按玩家 ID 命中并回读 count', async () => {
+    const store = createGameOpsDemoStore();
+    const executor = createPlayerManageDemoExecute(store);
+    const before = new Map(store.players.map((p) => [p.id, p.balanceGold]));
+    // 真实渲染路径的 selection 是投影后的对象数组（{ id }），而非裸 ID 串
+    const selection = [{ id: '20001' }, { id: '20002' }];
+    const result = await executor('action.batchRecharge', {
+      form: { amount: '100' },
+      selection,
+    } as never);
+    expect(result.data).toMatchObject({ success: true, amount: 100, count: 2, total: 200 });
+    // 回读影响玩家：目标命中（p1/p2）而非 [object Object] 空匹配
+    const players = store.players;
+    const after = new Map(players.map((p) => [p.id, p.balanceGold]));
+    expect(after.get('20001')).toBe((before.get('20001') ?? 0) + 100);
+    expect(after.get('20002')).toBe((before.get('20002') ?? 0) + 100);
+    // 未选目标余额不变（旧实现 [object Object] 会全部不命中）
+    expect(after.get('20003')).toBe(before.get('20003'));
+    expect(players.filter((p) => p.balanceGold !== (before.get(p.id) ?? 0))).toHaveLength(2);
+  });
+
+  it('裸 ID 串 selection 兼容（直调形态）', async () => {
+    const store = createGameOpsDemoStore();
+    const executor = createPlayerManageDemoExecute(store);
+    const result = await executor('action.batchRecharge', {
+      form: { amount: '5' },
+      selection: ['20003'],
+    } as never);
+    expect(result.data).toMatchObject({ count: 1, total: 5 });
+  });
+});

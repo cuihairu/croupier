@@ -19,13 +19,13 @@ describe('extractApiErrorCode', () => {
     );
   });
 
-  it('data 优先于 response.data', () => {
+  it('response.data 优先于 data（与 utils/errors 同口径）', () => {
     expect(
       extractApiErrorCode({
         data: { error: 'from_data' },
         response: { data: { error: 'from_response' } },
       }),
-    ).toBe('from_data');
+    ).toBe('from_response');
   });
 
   it('data.error 为空串/非字符串时返回空串', () => {
