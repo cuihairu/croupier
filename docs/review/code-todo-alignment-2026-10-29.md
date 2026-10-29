@@ -52,6 +52,8 @@ lookup_error=true, enforced_policy_nil=true, enforced_error_nil=true
 
 这是政策故障被掩盖的可复现分支，不表示测试了线上数据库。任务：**ARCH-025**；先明确 fail-closed/已批准 last-good 规则，不把默认 YAML 存在当成当前代码已安全回退。
 
+**已收口（2026-10-30，ARCH-025，fail-closed 拒绝路线）。** 两个故障面都改为拒绝而非放行：(1) `EnforceFunctionPolicy`（`policy.go`）在 GetPolicy 返回错误时不再 `return nil, nil`——改为包装错误返回（`resolve effective policy for %s failed: %w`），调用方 `Invoke` 拒绝执行；并在入口加 nil 管理器守卫。(2) `Invoke`（`invoke.go`）对 `PolicyManager == nil`（初始化失败：malformed default-policies.yaml）不再整体跳过政策分支——改为拒绝执行（`policy manager unavailable`）；已批准续行（`approvalBypass=approved`）与页面快照治理（`pageGoverned`）两类上游已把关的调用保持豁免。**「无覆盖策略」与「存储故障」的区分**由 GetPolicy 既有语义承担：无行回落风险级默认策略（非 nil），SQL 故障返回错误——旧 `nil,nil` 只会在故障面出现，现在故障面一律 fail-closed。**last-good 未采用**：策略管理器为内存态（启动时读 YAML），初始化失败时无既有 last-good 可用，拒绝是唯一诚实选项（如实记录，不宣称有 last-good 回退）。验证：高风险函数 + 表缺失 → Invoke 拒绝且 agent 零调用（`TestFunctionInvoke_PolicyStorageFailureRefusesHighRisk`）；nil 管理器拒绝（`TestFunctionInvoke_NilPolicyManagerRefuses`）；已批准续行豁免（`TestFunctionInvoke_ApprovedContinuationExemptFromNilManager`）；旧 fail-open 断言用例已翻转为 fail-closed（`TestEnforceFunctionPolicy_GetPolicyError_V9`）。
+
 ### R03 · P0 · 定时任务先派发后抢唯一记录
 
 **VERIFIED — 源码与确定性双 Manager 诊断。** `internal/tasks/scheduler/manager.go:145` 查 HasRunLog，`:207` 调 StartTask，`:216` 才 CreateRunLog，且返回值/错误都忽略。`internal/model/task_schedule_model.go:163` 的唯一索引只保证最终日志写一条，不能撤销已发出的第二次执行；server-local 报表路径也在执行后写日志。
