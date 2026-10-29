@@ -353,7 +353,15 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	var auditSvc *audit.AuditService
 	if auditStore != nil {
 		auditSvc = audit.NewAuditService(auditStore, nil)
-		slog.Default().Info("AuditService initialized")
+		// ARCH-007 D4 write-failure policy: strict by default (fail-closed),
+		// best_effort only on explicit config. SetWriteFailurePolicy maps
+		// empty/unknown values back to strict, so an absent knob keeps the
+		// default.
+		if c.Audit.WriteFailurePolicy != "" {
+			auditSvc.SetWriteFailurePolicy(c.Audit.WriteFailurePolicy)
+		}
+		slog.Default().Info("AuditService initialized",
+			"writeFailurePolicy", auditSvc.WriteFailurePolicy())
 	}
 
 	// 执行留痕写入器（R1）：异步批量落库，失败不影响执行主路径

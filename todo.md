@@ -90,9 +90,9 @@
 - [x] **ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略**
   - 依赖：—。交付与验收：列出 scope/Changes/Action 等规范化哈希字段、旧版本兼容和写失败策略；外部签名是否需要单列决策。
   - 状态／条件：DONE（2026-10-29，证据 commit 见 git log）。决策已定：D1 规范化哈希字段集=全部语义字段（含 category/severity/action/changes/context/errorMessage/gameId+env/metadata），编码跨 DB 往返稳定（毫秒时间戳截断 + Details/Changes JSON 往返 + 键排序、无 omitempty），完整性=任意字段改动都被检测；D2 SHA-256 取代 DJB2（64 十六进制恰容于 chain_hash varchar(64)，无需改列宽）；D3 显式 chain_version 列（goose 0049，存量回填 1，绝不改写既有哈希，v1 行以旧算法保持可校验）；D4 写失败策略默认 strict（fail-closed），显式 opt-in best_effort（WARN+限速告警+带缺口标记返回），无静默 fail-open；D5 外部签名保持独立、可选、单独校验，不并入哈希字段集、不随算法版本重算。交付物 `docs/design/audit-chain-integrity-design.md` + 中文镜像同步。
-- [ ] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
+- [x] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
   - 依赖：ARCH-007。交付与验收：逐字段修改被检测、旧链可验证、多实例写入一致；审计库故障按已批准策略处理。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-29，证据 commit 见 git log）。按 ARCH-007 决策落地：`calculateHash` 按 `ChainInfo.ChainVersion` 分派（1=旧 DJB2 7 字段子集逐字保留、2=规范化 SHA-256 全记录），新记录经 `Log` 恒写版本 2；规范化输入覆盖全部语义字段（id/timestamp(ms)/event_type/category/severity/actor 全字段/action/resource 全字段含 gameId+env+metadata/outcome/error_message/changes/context/details/prev_hash/sequence），空值显式包含（字段集闭合）；往返稳定：时间戳毫秒截断 + `normalizeHashPayloadMap` 在哈希输入侧对 Details/Changes 做 JSON 往返（不改调用方记录、int64 与 float64 读回逐字节同构）；迁移 0049 `audit_records.chain_version`（幂等 HasColumn 补列、存量行 DEFAULT 1 回填、既有哈希绝不改写、缺表跳过，`MinimumRequiredVersion` 48→49 四处同步）；写失败策略默认 strict（fail-closed），`audit.writeFailurePolicy: best_effort` 显式 opt-in（WARN + notifier 限速告警 + 返回带 `ChainInfo.WriteFailed` 标记的记录）。验收：`chain_version_test.go` 逐字段篡改 17 例全部检测、SQL 真往返零假失配、存量 v1 行以旧算法可验证、DB 直改 action 被检出 hash_mismatch、strict 报错 / best_effort 返回记录且告警限速；`audit_chain_version_migration_test.go` 老形态建表（无 chain_version 列）补列回填 1 + 哈希原样 + 幂等 + 缺表跳过；多实例 sequence 冲突重试路径未动（既有 `chain_conflict_test.go` 绿）。设计文档状态行标注已落地（中英同步）。
 - [ ] **ARCH-009 · P2 · 实现 · 数据库首次打开的取消与预算**
   - 依赖：—。交付与验收：让 resolver/open/migrate 消费 context；取消等待及时返回、同库 singleflight、不同库隔离，暴露池数/首开耗时；与 ARCH-006 路由命名修复可并行，合并时核对绑定行为
   - 状态／条件：READY；不需要先获得生产数据库权限即可做确定性验证。
