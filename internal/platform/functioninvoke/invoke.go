@@ -3,6 +3,7 @@ package functioninvoke
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -241,7 +242,14 @@ func ValidateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *R
 		return nil
 	}
 	descs, err := svcCtx.FunctionModel.ListDescriptors(ctx, functionID)
-	if err != nil || len(descs) == 0 {
+	if err != nil {
+		// ARCH-027：契约读取故障不得当作「无 schema」跳过验证。只有旧函数
+		// 确无 descriptor（err==nil 且零行）才跳过；查询失败 fail-closed
+		// 拒绝（存储故障语义上是 500，而非把坏请求放进执行器）。
+		return fmt.Errorf("读取函数输入契约失败（fail-closed）: %w", err)
+	}
+	if len(descs) == 0 {
+		// 旧函数确无 schema：无契约可验，维持放行。
 		return nil
 	}
 	return functioncontract.ValidateInput(descs[0].Input, payload) // ListDescriptors 按版本倒序，取最新契约

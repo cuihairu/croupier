@@ -339,3 +339,58 @@ func TestEnforceFunctionPolicy_GetPolicyErrorDenies(t *testing.T) {
 	require.Nil(t, fp, "故障时不得返回空政策让调用方视为无限制放行")
 	assert.Contains(t, err.Error(), "查询函数策略失败")
 }
+
+// ── ARCH-027：输入契约读取失败的明确拒绝语义 ─────────────────────────
+// 契约查询失败必须与「旧函数确无 schema」区分：查询失败 fail-closed 拒绝
+// （不得作为跳过验证依据），确无 descriptor 才跳过。
+
+// 全链：function_descriptors 表被删（存储故障）→ Govern 拒绝、不建审批。
+func TestGovern_InputSchemaReadErrorDenies(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "alice", "operator")
+	require.NoError(t, db.Migrator().DropTable(&model.FunctionDescriptor{}))
+
+	_, err := Govern(humanCtx("alice"), svcCtx, governReq(), Subject{Kind: SubjectHuman})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "输入契约")
+
+	_, total, err := svcCtx.ApprovalsStore.List(approvals.Filter{}, approvals.Page{Page: 1, Size: 10})
+	require.NoError(t, err)
+	assert.Zero(t, total, "契约读取故障不得静默放行/建审批")
+}
+
+// 单元级：ValidateInvokeInput 在 ListDescriptors 故障时返回错误而非 nil。
+func TestValidateInvokeInput_SchemaReadErrorDenies(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	require.NoError(t, db.Migrator().DropTable(&model.FunctionDescriptor{}))
+
+	err := ValidateInvokeInput(context.Background(), svcCtx, governReq(), []byte(`{}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "读取函数输入契约失败")
+}
+
+// 版本漂移：多个 descriptor 版本时校验取最新（ListDescriptors 按 version
+// DESC，descs[0]=最新）。v1 无 required、v2 要求 playerId——校验 v2 才会报错，
+// 证明没有回退到旧版本契约。
+func TestValidateInvokeInput_UsesLatestDescriptorVersion(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	require.NoError(t, db.Create(&model.FunctionDescriptor{
+		FunctionID: "player.cleanup", Version: "1.0.0",
+		Input: datatypes.JSONMap{"type": "object", "properties": map[string]interface{}{}},
+	}).Error)
+	require.NoError(t, db.Create(&model.FunctionDescriptor{
+		FunctionID: "player.cleanup", Version: "2.0.0",
+		Input: datatypes.JSONMap{
+			"type":     "object",
+			"required": []interface{}{"playerId"},
+			"properties": map[string]interface{}{
+				"playerId": map[string]interface{}{"type": "string"},
+			},
+		},
+	}).Error)
+
+	// 按最新契约（v2）校验：缺 playerId 应报错；若误用 v1 则无错。
+	err := ValidateInvokeInput(context.Background(), svcCtx, governReq(), []byte(`{}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "playerId")
+}
