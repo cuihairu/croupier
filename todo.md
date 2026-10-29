@@ -209,9 +209,9 @@
   - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
   - 状态／条件：VERIFIED 装配缺口：task.Service.Start 只做部分 gate；schedule 和 svc.dispatcherAdapter 直连 Dispatcher。不可据统一 transport 宣称统一治理。已修复（d4d813e1）：新增 functioninvoke.Govern/GovernInvocability 统一准入链（禁用/分配/主体/政策审批/输入契约/审批判定），HTTP Invoke、/tasks Start、schedule Create/TriggerNow、自动触发（Manager govern 钩子）复用；Create 仅校验可调度性（不加载主体/不建审批），授权与政策审批逐次触发；自动化主体显式（SubjectAutomation 以调度创建者逐次重载当前角色），撤权后 Govern 拒绝不裸派发；批准快照由 CreateFunctionApproval 显式落库（函数/参数/scope/actor）。门禁：go build ./...、go test ./internal/... 全绿（60 pkg）、docs build 通过；边界：Kind=incident_report 进程内生成器不经函数治理（非注册函数派发），ARCH-025 政策查询失败仍静默放行未闭环。
 
-- [ ] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
+- [x] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
   - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败
-  - 状态／条件：VERIFIED 诊断：缺失 function_policies 表时 GetPolicy 返回错误，而 EnforceFunctionPolicy 返回 policy=nil/error=nil；初始化失败分支同样缺有效政策。高危失败策略须先明确再落地。
+  - 状态／条件：VERIFIED 诊断：缺失 function_policies 表时 GetPolicy 返回错误，而 EnforceFunctionPolicy 返回 policy=nil/error=nil；初始化失败分支同样缺有效政策。已修复（ac1027db）：EnforceFunctionPolicy 对 GetPolicy 错误 fail-closed 返回错误（不再 nil,nil 静默放行），govern 链/批准快照/审计不被绕过；svc 在策略配置损坏时以 NewManagerWithDefaults 回退内置默认档（high/danger 仍需审批），PolicyManager 绝不为 nil——初始化故障不静默禁用治理；「无覆盖策略」与「存储/配置故障」已区分（无覆盖=按风险档返回有效默认政策；存储故障=拒绝；配置故障=回退默认档并记录）。门禁：go build ./...、go test ./internal/... 全绿（164 pkg）、gofmt 干净。用例：TestGovern_PolicyLookupErrorDenies、TestEnforceFunctionPolicy_GetPolicyErrorDenies、TestNewManagerWithDefaults、TestNewServiceContext_PolicyAndCacheFallbacks（更新为断言非 nil+默认档）、TestEnforceFunctionPolicy_GetPolicyError_V9（更新为断言错误）。边界：PolicyManager 为 nil 仅存在于显式关闭策略的测试配置，非故障；生产路径永不 nil。
 
 - [ ] **ARCH-026 · P1 · 实现 · 任务主记录持久化失败时禁止派发**
   - 依赖：—。交付与验收：Dispatcher 在 CreateRunWithMeta 失败时返回可定位错误并不得发送 StartTask；验证 DB 失败时执行器计数为 0、无孤立事件/不可取消任务；不与 Agent 事件重放重复实现
