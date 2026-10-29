@@ -48,6 +48,15 @@ type Config struct {
 	// NameForGame maps (gameID, env) to a physical database name. When nil,
 	// DefaultGameDBName is used.
 	NameForGame func(gameID, env string) string
+	// ResolveDatabaseName returns the authoritative physical database name for
+	// (gameID, env). When set it is the SINGLE TRUTH for routing (ARCH-006):
+	// GameDB/Resolve open by the value it returns — normally the authorized
+	// game_envs.database_name binding — and never recompute from (gameID, env).
+	// This makes custom names, prefix changes and underscore collisions safe:
+	// an operator-set binding name always wins. Returning "" for an absent
+	// binding is an error (no silent fallback to NameForGame). When nil, the
+	// legacy NameForGame computation is used (unit tests, single-DB callers).
+	ResolveDatabaseName func(ctx context.Context, gameID, env string) (string, error)
 	// DSNForDatabase returns a DSN that points at the given database name,
 	// derived from the meta DSN. Required for non-sqlite drivers.
 	// For sqlite, it should return the file path for the given db name.
@@ -86,6 +95,16 @@ func DefaultGameDBName(gameID, env string) string {
 	return fmt.Sprintf("game_%s_%s", sanitize(gameID), sanitize(env))
 }
 
+// scopeKey identifies the (gameID, env) pair a cached connection belongs to.
+// The cache is keyed by physical database name, but Forget/ForgetGame must be
+// able to locate a connection by scope even after its game_envs binding row
+// has been deleted (EnvDelete removes the binding before calling Forget), so
+// the scope is remembered alongside the open connection.
+type scopeKey struct {
+	gameID string
+	env    string
+}
+
 // Router manages the meta DB and a cache of per-game DBs.
 type Router struct {
 	cfg    Config
@@ -93,7 +112,7 @@ type Router struct {
 
 	mu       sync.RWMutex
 	cache    map[string]*gorm.DB // keyed by physical database name
-	gameOfDB map[string]string   // dbName → gameID (for ForgetGame)
+	gameOfDB map[string]scopeKey // dbName → scope (for Forget/ForgetGame)
 
 	// inflight deduplicates concurrent first-open attempts per physical
 	// database name so that expensive I/O (create/migrate) runs once per db
@@ -111,7 +130,7 @@ func New(cfg Config, metaDB *gorm.DB) *Router {
 		cfg:      cfg,
 		metaDB:   metaDB,
 		cache:    make(map[string]*gorm.DB),
-		gameOfDB: make(map[string]string),
+		gameOfDB: make(map[string]scopeKey),
 	}
 }
 
@@ -126,14 +145,37 @@ func (r *Router) NameForGame(gameID, env string) string {
 	return r.cfg.NameForGame(gameID, env)
 }
 
+// resolveName returns the authoritative physical database name for the scope.
+// With ResolveDatabaseName wired (ARCH-006) it is the game_envs binding name —
+// the single routing truth. Absent binding is an error, never a silent
+// recompute. Without it (legacy/unit tests) the configured NameForGame is used.
+func (r *Router) resolveName(ctx context.Context, gameID, env string) (string, error) {
+	if r.cfg.ResolveDatabaseName != nil {
+		name, err := r.cfg.ResolveDatabaseName(ctx, gameID, env)
+		if err != nil {
+			return "", fmt.Errorf("router: resolve database name for game %q env %q: %w", gameID, env, err)
+		}
+		if name == "" {
+			return "", fmt.Errorf("router: no database binding for game %q env %q", gameID, env)
+		}
+		return name, nil
+	}
+	return r.cfg.NameForGame(gameID, env), nil
+}
+
 // GameDB returns the *gorm.DB for the given (gameID, env), opening and
-// migrating the physical database on first use. Concurrent calls for the
-// same scope are deduplicated by singleflight; different scopes open in
-// parallel. All I/O (create/migrate/open) runs OUTSIDE the cache mutex so a
-// slow first-open for one game never blocks reads on another game's cached
-// connection.
-func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error) {
-	dbName := r.cfg.NameForGame(gameID, env)
+// migrating the physical database on first use. The physical name comes from
+// resolveName — the authorized game_envs binding when wired — so a custom
+// binding name, a prefix change or an underscore collision never opens the
+// wrong or a duplicate database. Concurrent calls for the same scope are
+// deduplicated by singleflight; different scopes open in parallel. All I/O
+// (create/migrate/open) runs OUTSIDE the cache mutex so a slow first-open for
+// one game never blocks reads on another game's cached connection.
+func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, error) {
+	dbName, err := r.resolveName(ctx, gameID, env)
+	if err != nil {
+		return nil, err
+	}
 	if dbName == "" {
 		return nil, fmt.Errorf("router: empty database name for game %q env %q", gameID, env)
 	}
@@ -179,7 +221,7 @@ func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error)
 			return existing, nil
 		}
 		r.cache[dbName] = db
-		r.gameOfDB[dbName] = gameID
+		r.gameOfDB[dbName] = scopeKey{gameID: gameID, env: env}
 		r.mu.Unlock()
 		return db, nil
 	})
@@ -219,23 +261,28 @@ func (r *Router) Close() error {
 
 // Forget closes and removes the cached connection for a single (gameID, env)
 // pair. Use this when an environment is deleted to avoid leaking connections.
-// If the connection is not cached, it is a no-op. Subsequent GameDB calls for
-// the same scope will re-open the database.
+// The connection is located by the remembered scope, not by recomputing a name:
+// EnvDelete removes the game_envs binding row before calling Forget, so name
+// resolution would fail — and with ARCH-006 the binding name is the only truth
+// anyway. If the connection is not cached, it is a no-op. Subsequent GameDB
+// calls for the same scope will re-open the database.
 func (r *Router) Forget(gameID, env string) error {
-	dbName := r.cfg.NameForGame(gameID, env)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	db, ok := r.cache[dbName]
-	if !ok {
-		return nil
+	target := scopeKey{gameID: gameID, env: env}
+	for name, db := range r.cache {
+		if r.gameOfDB[name] != target {
+			continue
+		}
+		delete(r.cache, name)
+		delete(r.gameOfDB, name)
+		sqlDB, err := db.DB()
+		if err != nil {
+			return nil
+		}
+		return sqlDB.Close()
 	}
-	delete(r.cache, dbName)
-	delete(r.gameOfDB, dbName)
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil
-	}
-	return sqlDB.Close()
+	return nil
 }
 
 // ForgetGame closes and removes all cached connections belonging to the given
@@ -246,7 +293,7 @@ func (r *Router) ForgetGame(gameID string) error {
 	defer r.mu.Unlock()
 	var firstErr error
 	for name, gdb := range r.cache {
-		if r.gameOfDB[name] != gameID {
+		if r.gameOfDB[name].gameID != gameID {
 			continue
 		}
 		delete(r.cache, name)

@@ -42,7 +42,7 @@ func TestGameDB_InflightRecheckPrefersRepublishedEntry(t *testing.T) {
 		r.mu.Lock()
 		if _, dup := r.cache[dbName]; !dup {
 			r.cache[dbName] = published
-			r.gameOfDB[dbName] = "recheck"
+			r.gameOfDB[dbName] = scopeKey{gameID: "recheck", env: "prod"}
 		}
 		r.mu.Unlock()
 	}

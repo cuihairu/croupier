@@ -890,6 +890,12 @@ func newGameRouter(c config.Config, metaDB *gorm.DB, secrets vault.Resolver) *ro
 			return prefix + sanitizeGameDBComponent(gameID) + "_" + sanitizeGameDBComponent(env)
 		}
 	}
+	// ARCH-006: the authorized game_envs.database_name binding is the single
+	// routing truth. GameDB opens by the binding name, never by recomputing
+	// from (gameID, env) — so a custom binding name, a prefix change or an
+	// underscore collision can no longer open the wrong or a duplicate database.
+	// NameForGame remains only for creating/backfilling new bindings.
+	cfg.ResolveDatabaseName = model.NewGameModel(metaDB).LookupDatabaseName
 	return router.New(cfg, metaDB)
 }
 

@@ -84,9 +84,9 @@
 - [ ] **ARCH-005 · P1 · 故障验证 · 集群故障摘流与重连**
   - 依赖：ARCH-003, ARCH-004。交付与验收：双实例注入协调库断连、互联占端口、owner 退出、旧 epoch；逐例记录拒绝、摘流、恢复及副作用次数。
   - 状态／条件：NOT RUN：需隔离网络和双实例。
-- [ ] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
+- [x] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
   - 依赖：—。交付与验收：复用授权后的 binding.database_name，消除前缀重算；验收旧名/自定义名/前缀变更/下划线碰撞/并发首次开库，已有绑定有显式迁移。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-29，证据 commit 见 git log）。Router 开库名改由注入的 `ResolveDatabaseName`（生产接 `GameModel.LookupDatabaseName`，即 authorized `game_envs.database_name`）给出——单一路由真值，开库时绝不重算；绑定缺失即路由错误，不静默回退合成名。缓存按物理名键控并记录 scope（`gameOfDB` 改 `map[string]scopeKey`），`Forget`/`ForgetGame` 按 scope 定位连接，EnvDelete 先删绑定行再 Forget 亦不泄漏/错关。规范名推导（`DefaultGameDBName`/`gameDBPrefix` 形式）仅保留在绑定创建/回填（`EnvAdd`/`EnvUpdate`/`BackfillEnvBindings`/`game_seed`）。验收：`router_binding_test.go` 自定义名/旧名/前缀变更（binding 胜出）、下划线碰撞（`a_b`/`c` vs `a`/`b_c` 各开各库）、并发首次开库（singleflight 只开 1 次）、绑定缺失报错且零开库、`Forget` 删行后仍关闭；文档 `docs/architecture/game-environment-scope.md` §6.1 + 中文镜像同步。
 - [ ] **ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略**
   - 依赖：—。交付与验收：列出 scope/Changes/Action 等规范化哈希字段、旧版本兼容和写失败策略；外部签名是否需要单列决策。
   - 状态／条件：READY。

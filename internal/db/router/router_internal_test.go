@@ -43,6 +43,9 @@ func newTestRouter(t *testing.T, cfg Config) (*Router, *gorm.DB) {
 	if cfg.NameForGame != nil {
 		base.NameForGame = cfg.NameForGame
 	}
+	if cfg.ResolveDatabaseName != nil {
+		base.ResolveDatabaseName = cfg.ResolveDatabaseName
+	}
 	if cfg.EnsureDatabase != nil {
 		base.EnsureDatabase = cfg.EnsureDatabase
 	}
@@ -212,7 +215,7 @@ func TestClose_DummyDialectorDB(t *testing.T) {
 		t.Fatalf("open dummy: %v", err)
 	}
 	r.cache["game_dummy_prod"] = dummy
-	r.gameOfDB["game_dummy_prod"] = "dummy"
+	r.gameOfDB["game_dummy_prod"] = scopeKey{gameID: "dummy", env: "prod"}
 
 	if err := r.Close(); err != nil {
 		t.Fatalf("Close should swallow db.DB() errors, got %v", err)
@@ -240,7 +243,7 @@ func TestForget_DummyDialectorDB(t *testing.T) {
 		t.Fatalf("open dummy: %v", err)
 	}
 	r.cache["game_dummy_prod"] = dummy
-	r.gameOfDB["game_dummy_prod"] = "dummy"
+	r.gameOfDB["game_dummy_prod"] = scopeKey{gameID: "dummy", env: "prod"}
 
 	if err := r.Forget("dummy", "prod"); err != nil {
 		t.Fatalf("Forget should swallow db.DB() errors, got %v", err)
@@ -286,7 +289,7 @@ func TestForgetGame_DummyDialectorDB(t *testing.T) {
 		t.Fatalf("open dummy: %v", err)
 	}
 	r.cache["game_dummy_prod"] = dummy
-	r.gameOfDB["game_dummy_prod"] = "dummy"
+	r.gameOfDB["game_dummy_prod"] = scopeKey{gameID: "dummy", env: "prod"}
 
 	if err := r.ForgetGame("dummy"); err != nil {
 		t.Fatalf("ForgetGame should swallow db.DB() errors, got %v", err)

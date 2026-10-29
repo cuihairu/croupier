@@ -144,10 +144,12 @@ game_rpg_prod
 
 ```text
 scope_key = game_id + ":" + env
-database_name = "game_" + game_id + "_" + env
 ```
 
-但它应该是派生值，不应替代主模型。
+`scope_key` 是派生值，不应替代主模型。物理 `database_name` **不是重算的**：
+它是经过授权的 `game_envs.database_name` 绑定——唯一路由真值（见 §6.1）。
+规范形 `game_<game_id>_<env>`（或配置的 `gameDBPrefix` 形式）仅用于在环境
+创建/回填时**一次性**写入绑定的 `database_name`。
 
 ## 6. `env` 不等于部署位置
 
@@ -169,6 +171,25 @@ game_id = "demo", env = "prod" → database = "game_demo_prod"
 game_id = "demo", env = "staging" → database = "game_demo_staging"
 game_id = "rpg", env = "prod" → database = "game_rpg_prod"
 ```
+
+### 6.1 授权的绑定名是唯一路由真值（ARCH-006）
+
+`game_envs.database_name` 是 `(game_id, env)` 对应的权威物理数据库名。
+数据库分库路由按该绑定名开库，**开库时绝不重算**——绑定缺失是路由错误，
+绝不静默回退到合成名。
+
+这使三种原本危险的场景变安全：
+
+- **自定义名**——运维设置的非常规 `database_name` 即被精确使用，路由不会
+  打开另一个名字的库。
+- **前缀变更**——绑定已存在后改 `gameDBPrefix`（或规范形）不会使既有环境
+  失去指向或错误重定向：它们存储的绑定名仍生效。
+- **下划线碰撞**——净化后名字碰撞的 scope（如 `a_b`/`c` 与 `a`/`b_c` 都
+  规范化为 `game_a_b_c`）由各绑定自带的独立 `database_name` 区分。
+
+存量绑定无需数据迁移：它们存储的 `database_name` 本就是规范名，现在直接
+成为权威值。若需改绑定名（极端情况），是显式更新 `database_name`，绝非静默
+重算。规范名推导仅保留在绑定创建/回填时。
 
 ## 7. `scope` 与 `target` 分离
 

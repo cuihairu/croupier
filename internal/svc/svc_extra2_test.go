@@ -37,6 +37,12 @@ func TestNewGameRouter_WithPrefix(t *testing.T) {
 	r := newGameRouter(cfg, db, nil)
 	require.NotNil(t, r)
 
+	// ARCH-006: the authorized game_envs binding is the single routing truth.
+	// Seed one so GameDB opens by the binding name (not a recomputed prefix).
+	require.NoError(t, autoMigrate(db))
+	gm := model.NewGameModel(db)
+	require.NoError(t, gm.AddEnvBinding(context.Background(), "demo", "prod", "gp_demo_prod", "", ""))
+
 	gameDB, err := r.GameDB(context.Background(), "demo", "prod")
 	require.NoError(t, err)
 	require.NotNil(t, gameDB)

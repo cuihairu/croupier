@@ -79,7 +79,7 @@ func TestClose_PropagatesConnCloseError(t *testing.T) {
 
 	bad := openBadCloseDB(t)
 	r.cache["game_bad_prod"] = bad
-	r.gameOfDB["game_bad_prod"] = "bad"
+	r.gameOfDB["game_bad_prod"] = scopeKey{gameID: "bad", env: "prod"}
 
 	err := r.Close()
 	if err == nil {
@@ -99,7 +99,7 @@ func TestForgetGame_PropagatesConnCloseError(t *testing.T) {
 
 	bad := openBadCloseDB(t)
 	r.cache["game_bad_prod"] = bad
-	r.gameOfDB["game_bad_prod"] = "bad"
+	r.gameOfDB["game_bad_prod"] = scopeKey{gameID: "bad", env: "prod"}
 
 	err := r.ForgetGame("bad")
 	if err == nil {
