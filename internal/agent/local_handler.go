@@ -360,14 +360,25 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 		serviceID := metadata["serviceId"]
 		if serviceID != "" {
 			if session, ok := sessions.GetByServiceID(serviceID); ok && session.Conn() != nil {
+				// ARCH-016: a drained session must not receive new work. Fail
+				// fast instead of falling back to the same provider's address,
+				// which would bypass the drain.
+				if !session.BeginCall() {
+					return nil, fmt.Errorf("provider session is draining: %s", serviceID)
+				}
 				_, response, err := session.Conn().Call(ctx, msgID, data)
+				session.EndCall()
 				return response, err
 			}
 		}
 		for _, session := range sessions.List() {
+			if session.IsDraining() {
+				continue
+			}
 			for _, id := range session.FunctionIDs() {
-				if id == functionID && session.Conn() != nil {
+				if id == functionID && session.Conn() != nil && session.BeginCall() {
 					_, response, err := session.Conn().Call(ctx, msgID, data)
+					session.EndCall()
 					return response, err
 				}
 			}

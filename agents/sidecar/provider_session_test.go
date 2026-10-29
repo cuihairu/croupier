@@ -8,6 +8,7 @@ import (
 	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- Tests for ProviderSession ---
@@ -390,4 +391,66 @@ func TestNewProviderSessionBindsEstablishedConnection(t *testing.T) {
 	assert.Zero(t, sess.LastSeen.Load())
 	assert.NoError(t, sess.Close())
 	assert.True(t, conn.IsClosed())
+}
+
+// --- ARCH-016: provider drain state machine ---
+
+func TestProviderSessionBeginCallBeforeDrain(t *testing.T) {
+	sess := &ProviderSession{}
+	assert.True(t, sess.BeginCall())
+	assert.Equal(t, 1, sess.InflightCount())
+	sess.EndCall()
+	assert.Equal(t, 0, sess.InflightCount())
+	assert.False(t, sess.IsDraining())
+}
+
+// 已摘流后 BeginCall 拒绝新调用（停止新路由）。
+func TestProviderSessionDrainRejectsNewCalls(t *testing.T) {
+	sess := &ProviderSession{}
+	sess.StartDraining()
+	assert.True(t, sess.IsDraining())
+	assert.False(t, sess.BeginCall(), "draining session must reject new calls")
+	assert.Equal(t, 0, sess.InflightCount())
+}
+
+// 摘流等待在途：有在途调用时 StartDraining 不立即返回，EndCall 后解除。
+func TestProviderSessionDrainWaitsForInflight(t *testing.T) {
+	sess := &ProviderSession{}
+	require.True(t, sess.BeginCall())
+
+	ch := sess.StartDraining()
+	assert.False(t, sess.BeginCall(), "new calls rejected while draining")
+
+	select {
+	case <-ch:
+		t.Fatal("drain channel must not close while a call is in flight")
+	default:
+	}
+
+	sess.EndCall()
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("drain channel must close once inflight reaches zero")
+	}
+	require.True(t, sess.WaitDrained(time.Second), "already drained")
+}
+
+// 摘流超时退出：在途调用未在窗口内结束，WaitDrained 返回 false。
+func TestProviderSessionDrainTimeout(t *testing.T) {
+	sess := &ProviderSession{}
+	require.True(t, sess.BeginCall())
+
+	assert.False(t, sess.WaitDrained(20*time.Millisecond), "must time out with a call in flight")
+	// 超时后调用仍结束、仍被计数释放。
+	sess.EndCall()
+	assert.Equal(t, 0, sess.InflightCount())
+}
+
+// 无在途调用时摘流立即完成。
+func TestProviderSessionDrainImmediateWhenIdle(t *testing.T) {
+	sess := &ProviderSession{}
+	require.True(t, sess.WaitDrained(0), "idle session drains immediately")
+	assert.True(t, sess.IsDraining())
+	assert.False(t, sess.BeginCall())
 }

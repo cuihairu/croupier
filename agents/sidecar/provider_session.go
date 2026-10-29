@@ -49,6 +49,92 @@ type ProviderSession struct {
 	// see MergeUserProviderMetadata). Consumed by the onConnect registration
 	// path to enrich the agentlocal instance metadata.
 	Metadata map[string]string
+
+	// Drain state (ARCH-016). draining marks the session ineligible for new
+	// routing; inflight counts calls routed to this session that have not
+	// returned yet. A drain request stops new routing first, then waits for
+	// inflight to reach zero with a bounded timeout.
+	callMu   sync.Mutex
+	draining bool
+	inflight int
+	drainCh  chan struct{} // non-nil while a drain is waiting on inflight
+}
+
+// BeginCall attempts to start a call routed to this session. It returns false
+// (and does not count) when the session is draining, so callers skip the
+// session instead of sending new work to a provider that asked to be drained.
+func (s *ProviderSession) BeginCall() bool {
+	s.callMu.Lock()
+	defer s.callMu.Unlock()
+	if s.draining {
+		return false
+	}
+	s.inflight++
+	return true
+}
+
+// EndCall releases one in-flight call. When inflight reaches zero while a
+// drain is waiting, the drain is signaled.
+func (s *ProviderSession) EndCall() {
+	s.callMu.Lock()
+	defer s.callMu.Unlock()
+	if s.inflight > 0 {
+		s.inflight--
+	}
+	if s.inflight == 0 && s.drainCh != nil {
+		close(s.drainCh)
+		s.drainCh = nil
+	}
+}
+
+// IsDraining reports whether the session has been marked draining (no longer
+// eligible for new routing).
+func (s *ProviderSession) IsDraining() bool {
+	s.callMu.Lock()
+	defer s.callMu.Unlock()
+	return s.draining
+}
+
+// InflightCount returns the number of calls currently routed to this session.
+func (s *ProviderSession) InflightCount() int {
+	s.callMu.Lock()
+	defer s.callMu.Unlock()
+	return s.inflight
+}
+
+// StartDraining marks the session draining (new BeginCall calls fail from now
+// on) and returns a channel closed once inflight reaches zero. The channel is
+// already closed when no call is in flight.
+func (s *ProviderSession) StartDraining() <-chan struct{} {
+	s.callMu.Lock()
+	defer s.callMu.Unlock()
+	s.draining = true
+	if s.inflight == 0 {
+		ch := make(chan struct{})
+		close(ch)
+		return ch
+	}
+	s.drainCh = make(chan struct{})
+	return s.drainCh
+}
+
+// WaitDrained marks the session draining and waits for in-flight calls to
+// finish, bounded by timeout. It returns true when inflight reached zero and
+// false when the timeout expired with calls still in flight (the caller ACKs
+// anyway — the provider decides to force-disconnect; remaining calls fail on
+// the closed connection).
+func (s *ProviderSession) WaitDrained(timeout time.Duration) bool {
+	ch := s.StartDraining()
+	if timeout <= 0 {
+		<-ch
+		return true
+	}
+	select {
+	case <-ch:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
 }
 
 // NewProviderSession binds a Provider session to its established connection.

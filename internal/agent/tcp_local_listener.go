@@ -392,17 +392,55 @@ func (h *providerSessionHandler) handleHeartbeat(ctx context.Context, body []byt
 	return proto.Marshal(resp)
 }
 
+// drainWaitTimeout converts the provider's RetryAfterMs hint into a bounded
+// wait for in-flight calls. 0 (unset) falls back to the default; the bound
+// prevents a drain from blocking the session handler indefinitely.
+func drainWaitTimeout(retryAfterMs uint32) time.Duration {
+	if retryAfterMs == 0 {
+		return defaultDrainWaitTimeout
+	}
+	return time.Duration(retryAfterMs) * time.Millisecond
+}
+
+// defaultDrainWaitTimeout bounds the in-flight wait when the provider does not
+// set RetryAfterMs.
+const defaultDrainWaitTimeout = 10 * time.Second
+
 func (h *providerSessionHandler) handleDrain(ctx context.Context, body []byte) ([]byte, error) {
 	req := &sdkv1.ProviderDrainRequest{}
 	if err := proto.Unmarshal(body, req); err != nil {
 		return nil, fmt.Errorf("unmarshal ProviderDrainRequest: %w", err)
 	}
 
+	sess, ok := h.listener.sessionStore.GetBySessionID(req.SessionId)
+	if !ok {
+		return nil, fmt.Errorf("unknown provider session: %s", req.SessionId)
+	}
+
+	// ARCH-016: stop new routing to this session immediately, then wait for
+	// in-flight calls with a bounded timeout. The ACK is the "safe to
+	// disconnect now" signal; a timeout ACKs anyway and the provider force-
+	// closes, failing the still-running calls on the closed connection.
+	timeout := drainWaitTimeout(req.GetRetryAfterMs())
 	h.listener.logger.Info("Provider drain requested",
 		"session_id", req.SessionId,
 		"reason", req.Reason,
 		"retry_after_ms", req.RetryAfterMs,
+		"inflight", sess.InflightCount(),
+		"wait", timeout,
 	)
+	drained := sess.WaitDrained(timeout)
+	if !drained {
+		h.listener.logger.Warn("provider drain timed out with in-flight calls",
+			"session_id", req.SessionId,
+			"inflight", sess.InflightCount(),
+			"waited", timeout,
+		)
+	} else {
+		h.listener.logger.Info("Provider drain completed",
+			"session_id", req.SessionId,
+		)
+	}
 
 	resp := &sdkv1.ProviderDrainResponse{}
 	return proto.Marshal(resp)
