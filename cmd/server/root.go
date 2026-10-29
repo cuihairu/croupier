@@ -361,42 +361,24 @@ func runServer() error {
 	<-quit
 	fmt.Println("\nShutting down server...")
 
-	// 优雅停机，按顺序：停止接收新连接 → drain 在途请求 → 超时关闭会话与后台任务。
-	// 整体超时兜底，避免卡死。
+	// 优雅停机，按顺序（ARCH-017）：先取消根 context 排空 Agent 会话 → 停收
+	// 新连接 → drain 在途 HTTP 请求 → 冲刷执行日志留痕 → 停后台任务 → 关数据库
+	// 连接。整体超时兜底，避免卡死。
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 	shutdownDone := make(chan struct{})
 
+	var shutdownRes shutdownResources
+	if controlResources != nil {
+		shutdownRes.tcpListener = controlResources.tcpListener
+		shutdownRes.controlService = controlResources.controlService
+	}
+	shutdownRes.srv = srv
+	shutdownRes.svcCtx = svcCtx
+
 	go func() {
 		defer close(shutdownDone)
-
-		// 1. 停止接收新的 TCP Agent 连接并 drain 在途会话（Close 等待活跃连接结束）。
-		if controlResources != nil && controlResources.tcpListener != nil {
-			if err := controlResources.tcpListener.Close(); err != nil {
-				slog.Default().Error("Failed to close TCP listener", "error", err)
-			}
-		}
-
-		// 2. HTTP REST：停止接收新请求，drain 在途请求。
-		if err := srv.Shutdown(context.Background()); err != nil {
-			fmt.Fprintf(os.Stderr, "HTTP server forced to shutdown: %v\n", err)
-		}
-
-		// 3. 取消根 context，级联停止后台任务（ControlService 后台循环、
-		//    registry cleanup、session prune ticker）。
-		rootCancel()
-
-		// 4. 停止 ControlService 后台任务（DB 加载、metrics 清理、session 过期清理）。
-		if controlResources != nil && controlResources.controlService != nil {
-			controlResources.controlService.Stop()
-		}
-
-		// 5. 关闭 database-per-game Router 缓存的所有游戏数据库连接。
-		if svcCtx.Router != nil {
-			if err := svcCtx.Router.Close(); err != nil {
-				slog.Default().Error("Failed to close game database router", "error", err)
-			}
-		}
+		runGracefulShutdown(shutdownCtx, rootCancel, &shutdownRes)
 	}()
 
 	select {
@@ -406,6 +388,59 @@ func runServer() error {
 		fmt.Fprintln(os.Stderr, "Server shutdown timed out, forcing exit")
 	}
 	return nil
+}
+
+// shutdownResources bundles the runtime handles the graceful shutdown sequence
+// closes in order (ARCH-017). Extracted from runServer so the ordering and the
+// bounded cleanup are testable without booting a full server.
+type shutdownResources struct {
+	tcpListener    *server.TCPListener
+	controlService *server.ControlService
+	srv            *http.Server
+	svcCtx         *svc.ServiceContext
+}
+
+// runGracefulShutdown 执行 ARCH-017 停机收尾顺序。每个资源可为 nil（对应未
+// 启动组件）；调用方应传有界 ctx（否则 HTTP drain 无上限）。
+//
+// 顺序要点（修复 listener.Close 阻塞后续步骤的根因）：
+//  1. 先取消根 context——Agent 会话 goroutine（mux.Run 监听 ctx.Done）与后台
+//     循环因此退出；若把取消放在 listener.Close 之后，长连接会卡死 Close 的
+//     wg.Wait，后续 HTTP 停机/根取消被无限期推迟（旧顺序缺陷）。
+//  2. 停止接收新 TCP Agent 连接（会话已随取消排空，Close 有界返回）。
+//  3. HTTP REST：drain 在途请求，受 ctx 预算约束（有界）。
+//  4. ServiceContext.Close：冲刷执行日志留痕与保留期 sweep（旧 root 未调用，
+//     退出时丢留痕）。
+//  5. 停止 ControlService 后台任务（幂等，可重复调用）。
+//  6. 关闭 database-per-game Router 缓存连接（幂等）。
+func runGracefulShutdown(ctx context.Context, rootCancel context.CancelFunc, res *shutdownResources) {
+	rootCancel()
+
+	if res.tcpListener != nil {
+		if err := res.tcpListener.Close(); err != nil {
+			slog.Default().Error("Failed to close TCP listener", "error", err)
+		}
+	}
+
+	if res.srv != nil {
+		if err := res.srv.Shutdown(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "HTTP server forced to shutdown: %v\n", err)
+		}
+	}
+
+	if res.svcCtx != nil {
+		res.svcCtx.Close()
+	}
+
+	if res.controlService != nil {
+		res.controlService.Stop()
+	}
+
+	if res.svcCtx != nil && res.svcCtx.Router != nil {
+		if err := res.svcCtx.Router.Close(); err != nil {
+			slog.Default().Error("Failed to close game database router", "error", err)
+		}
+	}
 }
 
 // controlRuntime holds the resources started by startControlServer so the
