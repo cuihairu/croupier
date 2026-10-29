@@ -734,10 +734,12 @@ func TestEnforceFunctionPolicy_GetPolicyError_V9(t *testing.T) {
 	f := newInvokeFixture(t)
 	require.NoError(t, f.db.Migrator().DropTable("function_policies"))
 
-	// 策略读取失败不阻断调用：返回 (nil, nil)
+	// ARCH-025 fail-closed: 策略存储故障（function_policies 表缺失）必须返回
+	// 错误并拒绝调用，而不是返回 (nil, nil) 静默绕过审批/审计。
 	p, err := enforceFunctionPolicy(context.Background(), f.svcCtx, "any.fn", "", "", []string{"admin"})
-	require.NoError(t, err)
+	require.Error(t, err, "GetPolicy 存储故障必须 fail-closed，不得返回 (nil,nil)")
 	assert.Nil(t, p)
+	assert.Contains(t, err.Error(), "function_policies")
 }
 
 func TestEnforceFunctionPolicy_CasbinBranch_V9(t *testing.T) {

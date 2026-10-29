@@ -2,6 +2,7 @@ package functioninvoke
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -75,14 +76,24 @@ func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, function
 // EnforceFunctionPolicy checks if the user's roles are allowed to invoke the function
 // based on the effective policy for that function.
 // Returns the effective policy for auditing purposes.
+//
+// ARCH-025 fail-closed: policy storage/config failure is NOT "no policy". The
+// previous `return nil, nil` on GetPolicy error silently bypassed approval/audit
+// for high-risk functions (function_policies table missing, SQL failure, db
+// down). We now propagate the error so the caller refuses the invocation. The
+// "no coverage policy" case is distinct and handled inside GetPolicy: no rows
+// for the function falls back to the risk-level default policy (never nil),
+// so a nil policy here only ever accompanies a resolution error.
 func EnforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string, userRoles []string) (*policy.Policy, error) {
+	if svcCtx == nil || svcCtx.PolicyManager == nil {
+		return nil, fmt.Errorf("policy manager unavailable: cannot resolve effective policy for %s (config/init failure)", functionID)
+	}
 	riskLevel := resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 
 	// Get effective policy (for approval/audit settings)
 	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
 	if err != nil {
-		// Log error but don't block invocation if policy check fails
-		return nil, nil
+		return nil, fmt.Errorf("resolve effective policy for %s failed: %w", functionID, err)
 	}
 
 	// If no role restriction, allow

@@ -102,8 +102,17 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 	approvedContinuation := IsApprovedContinuation(req.Metadata)
 	pageSnapshotGoverned := IsPageSnapshotGoverned(req.Metadata)
 	var functionPolicy *policy.Policy
-	// Apply function policy checks
-	if svcCtx.PolicyManager != nil && !approvedContinuation && !pageSnapshotGoverned {
+	// Apply function policy checks. ARCH-025 fail-closed: a nil PolicyManager is
+	// a config/init failure (malformed default-policies.yaml), not "no policy" —
+	// refuse rather than silently bypass approval/audit. Approved continuations
+	// and page-snapshot-governed calls are already gated upstream and remain
+	// exempt (they never consult the manager here).
+	if !approvedContinuation && !pageSnapshotGoverned {
+		if svcCtx == nil || svcCtx.PolicyManager == nil {
+			err := fmt.Errorf("policy manager unavailable: refuse invocation of %s (config/init failure)", req.ID)
+			spanErr = err
+			return nil, err
+		}
 		roleNames := utils.RoleNamesFromModels(roles)
 		functionPolicy, err = EnforceFunctionPolicy(ctx, svcCtx, req.ID, strings.TrimSpace(req.GameID), strings.TrimSpace(req.Env), roleNames)
 		if err != nil {
