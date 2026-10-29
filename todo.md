@@ -109,9 +109,9 @@
 - [x] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
   - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。✅ 完成：`validateMQCombination` 拒绝 `ANALYTICS_MQ_TYPE=kafka` 无外部消费者确认；`TestValidateMQCombination` 7 用例；docs data-flow §7.4 en+zh。
   - 状态／条件：DONE（commit 43916f9d）。
-- [ ] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
-  - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。
-  - 状态／条件：READY。
+- [x] **ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议**
+  - 依赖：—。交付与验收：基于 sidecar TaskRunner 定义同 taskId 重复 Start、事件 ACK/持久重放及 Agent 重启后的结果未知语义；不把页面幂等等同游戏副作用去重。✅ 完成：`docs/design/task-retry-recovery-protocol.md`（+zh）定 D1 同 ID 重复 Start 在途幂等 no-op + 代际标记清理、D2 终态事件重试至 ACK（Server 响应即 ACK）、D3 会话丢失→`unknown` 软终态 + 看门狗 `timed_out`，重跑必须新 taskId；边界节钉死「页面幂等≠游戏副作用去重」；index + data-flow §5 指针。
+  - 状态／条件：DONE（commit 4829d020）。
 - [ ] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
   - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理
   - 状态／条件：READY；该能力尚未完整实现，并非只缺真实环境验收。

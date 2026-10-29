@@ -197,6 +197,8 @@ sequenceDiagram
 
 The operator-side TaskPage also goes through §1's binding execute: `task_status/task_events/task_result/task_cancel` each map to one binding; see the [Dashboard resource/page model](./dashboard-page-model.md) for the page model.
 
+Task retry and recovery semantics — duplicate Start, event ACK/replay, and the `unknown` / `timed_out` states after agent session loss — are specified in the [task retry/recovery protocol](../design/task-retry-recovery-protocol.md).
+
 ## 6. Managed processes and probing data flow (fed back by the three external reviews of 2026-10-14; live with R2-R4)
 
 The probing/managed-process conclusions have been merged into the finalized Agent health monitoring and recovery review (the authoritative source); this section records only the data-flow-level positions.

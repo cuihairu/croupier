@@ -197,6 +197,8 @@ sequenceDiagram
 
 运营侧的 TaskPage 也走第 1 节的 binding execute：`task_status/task_events/task_result/task_cancel` 各自对应一个 binding，页面模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。
 
+任务重试与恢复语义——重复 Start、事件 ACK/重放、以及 Agent 会话丢失后的 `unknown` / `timed_out` 状态——见[异步任务重试与终态恢复协议](../design/task-retry-recovery-protocol.md)。
+
 ## 6. 受管程序与探测数据流（2026-10-14 三份外部评审反哺，随 R2-R4 上线）
 
 探测/受管程序的结论已并入评审定稿 Agent 健康监控与恢复评审（权威出处），本节只登记数据流层面的口径。

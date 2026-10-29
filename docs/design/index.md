@@ -8,7 +8,7 @@ This index lists implemented design briefs that explain component boundaries, wo
 
 | Area                 | Document                                                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Agent runtime        | Agent core, agent inventory（本节仅有中文版）, supervisor（本节仅有中文版）.                                                   |
+| Agent runtime        | Agent core, agent inventory（本节仅有中文版）, supervisor（本节仅有中文版）, task retry/recovery protocol.                     |
 | Capture and CDC      | Capture agent（本节仅有中文版）, CDC filter policy（本节仅有中文版）.                                                          |
 | Operations workflows | Batch compensation（本节仅有中文版）, high-risk operations（本节仅有中文版）, incident reports（本节仅有中文版）.              |
 | Console and pages    | Dashboard composition（本节仅有中文版）, default menus, game-operations template demo data, menu management（本节仅有中文版）. |
