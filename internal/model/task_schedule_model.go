@@ -183,6 +183,30 @@ func (m *TaskScheduleModel) UpdateRunLog(ctx context.Context, scheduleID uint, s
 		}).Error
 }
 
+// ReclaimStaleRunLog 崩溃恢复：原子重领一个「孤儿领取」槽位。领取行先由
+// CreateRunLog 以 status='claimed' 占住唯一索引；若领取方在派发完成/回写
+// 前崩溃，该行永远停在 'claimed'（同槽重触发会被唯一索引挡住→跳过派发，
+// 触发丢失）。本方法做 CAS：仅当行仍是 status='claimed' 且 created_at 早于
+// olderThan（租约过期）时，把它重置为一次新的领取（created_at=now，清除
+// 上次 task_run_id/message）并返回 true——单条 UPDATE 原子完成，两个并发
+// 恢复者只有一个会命中（另一个的 WHERE 因 created_at 已被刷新而失配），
+// 避免同槽双恢复。返回 false 表示行不存在 / 已终态 / 租约未过期（他人持有
+// 或活领取）。
+func (m *TaskScheduleModel) ReclaimStaleRunLog(ctx context.Context, scheduleID uint, slot time.Time, olderThan time.Time) (bool, error) {
+	res := m.db.WithContext(ctx).Model(&TaskScheduleRunLog{}).
+		Where("schedule_id = ? AND slot = ? AND status = ? AND created_at < ?",
+			scheduleID, slot, "claimed", olderThan).
+		Updates(map[string]interface{}{
+			"task_run_id": "",
+			"message":     "recovered: stale claim reaped",
+			"created_at":  time.Now(),
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
 func isDuplicateKeyError(err error) bool {
 	if err == nil {
 		return false

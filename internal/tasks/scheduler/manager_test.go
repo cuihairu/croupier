@@ -102,6 +102,23 @@ func (f *fakeStore) LastRunStatus(ctx context.Context, taskRunID string) (string
 	return "", nil
 }
 
+// ReclaimStaleRunLog 复刻 model 的 CAS 语义：仅当行存在、status='claimed'
+// 且 CreatedAt 早于 olderThan 时原子重领（重置租约）并返回 true。
+func (f *fakeStore) ReclaimStaleRunLog(ctx context.Context, scheduleID uint, slot time.Time, olderThan time.Time) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	key := fmt.Sprintf("%d|%s", scheduleID, slot.Format(time.RFC3339))
+	l, ok := f.runLogs[key]
+	if !ok || l.Status != "claimed" || !l.CreatedAt.Before(olderThan) {
+		return false, nil
+	}
+	l.TaskRunID = ""
+	l.Message = "recovered: stale claim reaped"
+	l.CreatedAt = time.Now()
+	f.runLogs[key] = l
+	return true, nil
+}
+
 // fakeDispatcher 记录派发请求。
 type fakeDispatcher struct {
 	calls []string

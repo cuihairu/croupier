@@ -37,30 +37,39 @@ type ScheduleStore interface {
 	UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error
 	// LastRunResult 取某 TaskRun 的终态（"" = 未终态/不存在）。
 	LastRunStatus(ctx context.Context, taskRunID string) (string, error)
+	// ReclaimStaleRunLog 崩溃恢复：仅当 (schedule_id, slot) 的领取行仍是
+	// status='claimed' 且 created_at 早于 olderThan（租约过期、领取方已崩溃）
+	// 时原子重领并返回 true；否则返回 false（他人持有 / 已终态 / 租约未过）。
+	// 单条 UPDATE 的 CAS 语义保证并发恢复者仅一个命中。
+	ReclaimStaleRunLog(ctx context.Context, scheduleID uint, slot time.Time, olderThan time.Time) (bool, error)
 }
 
 // Manager 是调度循环。
 type Manager struct {
-	store     ScheduleStore
-	dispatch  Dispatcher
-	local     LocalRunner
-	interval  time.Duration
-	nowFn     func() time.Time
-	mu        sync.Mutex
-	started   bool
-	stopCh    chan struct{}
-	stoppedCh chan struct{}
+	store      ScheduleStore
+	dispatch   Dispatcher
+	local      LocalRunner
+	interval   time.Duration
+	claimLease time.Duration
+	nowFn      func() time.Time
+	mu         sync.Mutex
+	started    bool
+	stopCh     chan struct{}
+	stoppedCh  chan struct{}
 }
 
-// NewManager creates a scheduler manager. interval 为扫描周期（默认 30s）。
+// NewManager creates a scheduler manager. interval 为扫描周期（默认 30s）；
+// claimLease 为领取租约（默认 60s = 2×扫描周期）：领取行 created_at 早于
+// 租约窗口且仍 status='claimed' 视为孤儿（领取方崩溃），可被原子重领恢复。
 func NewManager(store ScheduleStore, dispatch Dispatcher) *Manager {
 	return &Manager{
-		store:     store,
-		dispatch:  dispatch,
-		interval:  30 * time.Second,
-		nowFn:     time.Now,
-		stopCh:    make(chan struct{}),
-		stoppedCh: make(chan struct{}),
+		store:      store,
+		dispatch:   dispatch,
+		interval:   30 * time.Second,
+		claimLease: 60 * time.Second,
+		nowFn:      time.Now,
+		stopCh:     make(chan struct{}),
+		stoppedCh:  make(chan struct{}),
 	}
 }
 
@@ -74,6 +83,11 @@ func (m *Manager) SetLocalRunner(r LocalRunner) {
 
 // SetInterval 覆盖扫描周期（测试用）。
 func (m *Manager) SetInterval(d time.Duration) { m.interval = d }
+
+// SetClaimLease 覆盖领取租约（测试用）。租约越短崩溃恢复越快，但越小越
+// 容易被一个仍在执行的长派发误判为孤儿（租约低估 → 双派发，游戏侧按
+// GAME-010 去重兜底）。
+func (m *Manager) SetClaimLease(d time.Duration) { m.claimLease = d }
 
 // SetNow 覆盖时钟（测试用）。
 func (m *Manager) SetNow(fn func() time.Time) { m.nowFn = fn }
@@ -144,9 +158,11 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 
 	slot := Slot(now)
 	// ARCH-023 先领取再派发：CreateRunLog 的 (schedule_id, slot) 唯一索引就是
-	// 领取令牌。唯一冲突（claimed==false）说明另一实例已领取本槽——只推进
-	// 下次触发时间、不派发。旧顺序（先 HasRunLog 判重→派发→后补记录且忽略
-	// 冲突返回）在双 Manager 下双方都通过判重、双双派发、仅 1 条唯一记录。
+	// 领取令牌。唯一冲突（claimed==false）说明本槽已被领取——此时区分两种
+	// 情况：活实例持有（租约未过 → 只推进不派发）与孤儿领取（领取方崩溃、
+	// 租约已过 → 原子重领后继续派发，崩溃恢复）。旧顺序（先 HasRunLog 判重
+	// →派发→后补记录且忽略冲突返回）在双 Manager 下双方都通过判重、双双
+	// 派发、仅 1 条唯一记录。
 	claimed, err := m.store.CreateRunLog(ctx, &model.TaskScheduleRunLog{
 		ScheduleID: s.ID, Slot: slot, Status: "claimed",
 	})
@@ -156,8 +172,23 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 		return
 	}
 	if !claimed {
-		m.advance(s, spec, now, nil)
-		return
+		// 领取冲突：尝试崩溃恢复重领。ReclaimStaleRunLog 是单条 UPDATE 的
+		// CAS——仅当行仍 status='claimed' 且 created_at 早于租约窗口时命中，
+		// 并把租约重置为 now。并发恢复者仅一个命中，其余因 created_at 已被
+		// 刷新而失配，不会同槽双恢复。
+		reclaimed, reclaimErr := m.store.ReclaimStaleRunLog(ctx, s.ID, slot, now.Add(-m.claimLease))
+		if reclaimErr != nil {
+			// 恢复判定失败：保守跳过（不冒双派发风险），下轮再试。
+			slog.Warn("scheduler: stale claim reap failed, skip dispatch", "schedule", s.ID, "error", reclaimErr)
+			return
+		}
+		if !reclaimed {
+			// 活领取或已终态：只推进下次触发时间，不派发。
+			m.advance(s, spec, now, nil)
+			return
+		}
+		// 重领成功：本实例接管该槽，落入下方派发路径（崩溃恢复派发）。
+		slog.Info("scheduler: recovered stale claim, redispatch slot", "schedule", s.ID, "slot", slot)
 	}
 
 	// 触发前回查上一次执行的终态，推进连续失败计数。

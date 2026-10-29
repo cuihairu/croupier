@@ -129,3 +129,60 @@ func TestTaskScheduleListDueAndRunLog(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "", st2)
 }
+
+// ARCH-023 崩溃恢复的模型侧 CAS：ReclaimStaleRunLog 仅在领取行仍为
+// status='claimed' 且 created_at 早于租约窗口（olderThan）时原子重领，
+// 否则返回 false。单条 UPDATE 保证并发恢复者仅一个命中。
+func TestTaskScheduleReclaimStaleRunLog(t *testing.T) {
+	db := setupTaskSchedDB(t)
+	m := NewTaskScheduleModel(db)
+	ctx := context.Background()
+
+	s, err := m.Create(ctx, CreateScheduleInput{
+		Name: "reclaim", CronExpr: "* * * * *", GameID: "demo", Env: "prod", FunctionID: "f",
+	})
+	require.NoError(t, err)
+	slot := time.Date(2026, 10, 30, 10, 30, 0, 0, time.UTC)
+	now := time.Now().UTC()
+
+	// 场景 1：孤儿领取（status='claimed' + 租约过期）→ 可重领，租约重置。
+	orphan := &TaskScheduleRunLog{ScheduleID: s.ID, Slot: slot, Status: "claimed"}
+	orphan.CreatedAt = now.Add(-2 * time.Minute)
+	created, err := m.CreateRunLog(ctx, orphan)
+	require.NoError(t, err)
+	assert.True(t, created)
+
+	reclaimed, err := m.ReclaimStaleRunLog(ctx, s.ID, slot, now.Add(-time.Minute))
+	require.NoError(t, err)
+	assert.True(t, reclaimed, "过期 claimed 行应可被原子重领")
+
+	var after TaskScheduleRunLog
+	require.NoError(t, db.Where("schedule_id = ? AND slot = ?", s.ID, slot).First(&after).Error)
+	assert.True(t, after.CreatedAt.After(now.Add(-5*time.Second)),
+		"重领必须重置租约（created_at 刷为现在），防止同槽双恢复")
+	assert.Equal(t, "claimed", after.Status)
+
+	// 场景 2：刚重领的行租约未过 → 再重领失败（并发恢复者只有一个命中）。
+	again, err := m.ReclaimStaleRunLog(ctx, s.ID, slot, now.Add(-time.Minute))
+	require.NoError(t, err)
+	assert.False(t, again, "租约未过的 claimed 行不可被并发者再重领")
+
+	// 场景 3：已终态（dispatched）行不可被当作孤儿重领。
+	slot2 := slot.Add(time.Hour)
+	created2, err2 := m.CreateRunLog(ctx, &TaskScheduleRunLog{
+		ScheduleID: s.ID, Slot: slot2, Status: "dispatched", TaskRunID: "run-x",
+	})
+	require.NoError(t, err2)
+	assert.True(t, created2)
+	// 把终态行的 created_at 拨到租约外，验证仅靠 created_at 不够——状态必须仍为 claimed。
+	require.NoError(t, db.Model(&TaskScheduleRunLog{}).Where("slot = ?", slot2).
+		Update("created_at", now.Add(-2*time.Minute)).Error)
+	terminal, err := m.ReclaimStaleRunLog(ctx, s.ID, slot2, now.Add(-time.Minute))
+	require.NoError(t, err)
+	assert.False(t, terminal, "终态行不可被当作孤儿重领")
+
+	// 场景 4：不存在的行 → false（非错误）。
+	missing, err := m.ReclaimStaleRunLog(ctx, s.ID, slot2.Add(time.Hour), now.Add(-time.Minute))
+	require.NoError(t, err)
+	assert.False(t, missing)
+}
