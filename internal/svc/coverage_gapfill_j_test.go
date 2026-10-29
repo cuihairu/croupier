@@ -33,19 +33,19 @@ func TestRemoveDBFromPostgresDSN_KeepsQueryParams(t *testing.T) {
 
 // L339-341: createMySQLDatabase 的 sql.Open DSN 解析失败。
 func TestCreateMySQLDatabase_BadDSN(t *testing.T) {
-	err := createMySQLDatabase("://bad-dsn", "db")
+	err := createMySQLDatabase(context.Background(), "://bad-dsn", "db")
 	require.Error(t, err)
 }
 
 // L396-398: createPostgresDatabase 的 sql.Open DSN 解析失败。
 func TestCreatePostgresDatabase_BadDSN(t *testing.T) {
-	err := createPostgresDatabase("://bad-dsn", "db")
+	err := createPostgresDatabase(context.Background(), "://bad-dsn", "db")
 	require.Error(t, err)
 }
 
 // L458-460: createSQLServerDatabase 的 sql.Open DSN 解析失败。
 func TestCreateSQLServerDatabase_BadDSN(t *testing.T) {
-	err := createSQLServerDatabase("://bad-dsn", "db")
+	err := createSQLServerDatabase(context.Background(), "://bad-dsn", "db")
 	require.Error(t, err)
 }
 

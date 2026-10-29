@@ -247,6 +247,12 @@ Croupier 通过 `database.multiGame` 配置项支持两种运行模式：
 - `svc.GameDBMiddleware` 从 `X-Game-ID` / `X-Env` 头解析游戏作用域，将 DB 注入到 request context
 - 游戏数据模型通过 `dbctx.Resolve(ctx, m.db)` 从 context 获取正确的 DB
 - 游戏表中的 `game_id` / `env` 列为冗余（同库内值恒定），保留是为了代码统一性
+- 首次打开（首开）语义（ARCH-009）：同一物理库的并发首开经 `singleflight` 去重
+  （同库一次、不同库并行），首开 I/O 消费路由生命周期 context（`Close` 时中断），
+  等待者按自身 `context` 取消即时返回而不打断共享首开；单次首开受
+  `FirstOpenTimeout`（默认 30s）预算约束，避免数据库服务器卡死时悬挂。
+  暴露面：`Router.PoolSize()`（当前打开的游戏库数）与
+  `Router.FirstOpenLatency(dbName)`（各库首开耗时）。
 
 ### `multiGame: false`（默认，开发/CI）
 

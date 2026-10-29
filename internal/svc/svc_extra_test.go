@@ -97,7 +97,7 @@ func TestOpenReadOnlyGorm_DSNRequired(t *testing.T) {
 
 func TestOpenGormForRouter_SQLite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "router.db")
-	db, err := OpenGormForRouter("sqlite", path)
+	db, err := OpenGormForRouter(context.Background(), "sqlite", path)
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	sqlDB, _ := db.DB()
@@ -105,39 +105,39 @@ func TestOpenGormForRouter_SQLite(t *testing.T) {
 }
 
 func TestEnsureGameDatabase_SQLite(t *testing.T) {
-	dsn, err := EnsureGameDatabase("sqlite", filepath.Join(t.TempDir(), "meta.db"), "game_demo_prod")
+	dsn, err := EnsureGameDatabase(context.Background(), "sqlite", filepath.Join(t.TempDir(), "meta.db"), "game_demo_prod")
 	require.NoError(t, err)
 	assert.Contains(t, dsn, "game_demo_prod.db")
 
-	dsn2, err := EnsureGameDatabase("sqlite3", ":memory:", "game_x")
+	dsn2, err := EnsureGameDatabase(context.Background(), "sqlite3", ":memory:", "game_x")
 	require.NoError(t, err)
 	assert.Contains(t, dsn2, "game_x")
 }
 
 func TestEnsureGameDatabase_UnreachableServers(t *testing.T) {
 	t.Run("postgres", func(t *testing.T) {
-		_, err := EnsureGameDatabase("postgres", "host=127.0.0.1 port=1 user=u dbname=meta", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "postgres", "host=127.0.0.1 port=1 user=u dbname=meta", "game_x")
 		require.Error(t, err)
 	})
 	t.Run("mysql", func(t *testing.T) {
-		_, err := EnsureGameDatabase("mysql", "u:p@tcp(127.0.0.1:1)/meta", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "mysql", "u:p@tcp(127.0.0.1:1)/meta", "game_x")
 		require.Error(t, err)
 	})
 	t.Run("sqlserver", func(t *testing.T) {
-		_, err := EnsureGameDatabase("sqlserver", "sqlserver://u:p@127.0.0.1:1?database=meta", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "sqlserver", "sqlserver://u:p@127.0.0.1:1?database=meta", "game_x")
 		require.Error(t, err)
 	})
 	t.Run("unsupported", func(t *testing.T) {
-		_, err := EnsureGameDatabase("oracle", "dsn", "db")
+		_, err := EnsureGameDatabase(context.Background(), "oracle", "dsn", "db")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported driver")
 	})
 }
 
 func TestCreateDatabases_Unreachable(t *testing.T) {
-	require.Error(t, createPostgresDatabase("host=127.0.0.1 port=1 user=u dbname=postgres", "game_x"))
-	require.Error(t, createMySQLDatabase("u:p@tcp(127.0.0.1:1)/mysql", "game_x"))
-	require.Error(t, createSQLServerDatabase("sqlserver://u:p@127.0.0.1:1?database=master", "game_x"))
+	require.Error(t, createPostgresDatabase(context.Background(), "host=127.0.0.1 port=1 user=u dbname=postgres", "game_x"))
+	require.Error(t, createMySQLDatabase(context.Background(), "u:p@tcp(127.0.0.1:1)/mysql", "game_x"))
+	require.Error(t, createSQLServerDatabase(context.Background(), "sqlserver://u:p@127.0.0.1:1?database=master", "game_x"))
 }
 
 func TestDSNForDatabase_DefaultBranch(t *testing.T) {

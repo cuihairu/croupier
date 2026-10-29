@@ -166,8 +166,10 @@ func TestRegistrationPipeline_ScopedDBGameRouterErrors(t *testing.T) {
 		MetaDSN:        filepath.Join(dir, "meta.db"),
 		NameForGame:    func(gameID, env string) string { return "game_" + gameID + "_" + env },
 		DSNForDatabase: func(_, dbName string) string { return filepath.Join(dir, dbName+".db") },
-		EnsureDatabase: func(_, _ string, dbName string) (string, error) { return filepath.Join(dir, dbName+".db"), nil },
-		Open: func(driver, dsn string) (*gorm.DB, error) {
+		EnsureDatabase: func(_ context.Context, _, _ string, dbName string) (string, error) {
+			return filepath.Join(dir, dbName+".db"), nil
+		},
+		Open: func(_ context.Context, driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
 	}, metaDB)
@@ -251,8 +253,10 @@ func TestRegistrationPipeline_FinalizeGuards(t *testing.T) {
 		MetaDSN:        filepath.Join(dir, "meta.db"),
 		NameForGame:    func(gameID, env string) string { return "game_x" },
 		DSNForDatabase: func(_, dbName string) string { return filepath.Join(dir, dbName+".db") },
-		EnsureDatabase: func(_, _ string, dbName string) (string, error) { return filepath.Join(dir, dbName+".db"), nil },
-		Open: func(driver, dsn string) (*gorm.DB, error) {
+		EnsureDatabase: func(_ context.Context, _, _ string, dbName string) (string, error) {
+			return filepath.Join(dir, dbName+".db"), nil
+		},
+		Open: func(_ context.Context, driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
 	}, metaDB)
@@ -320,7 +324,7 @@ func TestRegistrationPipeline_ScopedDBResolveErrors(t *testing.T) {
 	metaDB, err := gorm.Open(gsqlite.Open(filepath.Join(dir, "m1.db")), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, metaDB.AutoMigrate(&model.Game{}))
-	rt := newRouterFixture(t, dir, "m1.db", func(_, _ string, _ string) (string, error) { return "", nil })
+	rt := newRouterFixture(t, dir, "m1.db", func(_ context.Context, _, _ string, _ string) (string, error) { return "", nil })
 	p := &registrationContractPipeline{svcCtx: &svc.ServiceContext{
 		DB: metaDB, Router: rt, GameModel: model.NewGameModel(metaDB),
 	}}
@@ -334,7 +338,7 @@ func TestRegistrationPipeline_ScopedDBResolveErrors(t *testing.T) {
 	require.NoError(t, metaDB2.Create(&model.GameEnvBinding{
 		GameID: "demo", Env: "prod", DatabaseName: "game_demo_prod",
 	}).Error)
-	rt2 := newRouterFixture(t, dir, "m2.db", func(_, _ string, _ string) (string, error) {
+	rt2 := newRouterFixture(t, dir, "m2.db", func(_ context.Context, _, _ string, _ string) (string, error) {
 		return "", context.DeadlineExceeded
 	})
 	p2 := &registrationContractPipeline{svcCtx: &svc.ServiceContext{
@@ -358,7 +362,7 @@ func TestRegistrationPipeline_FinalizeMixedScopes(t *testing.T) {
 		require.NoError(t, metaDB.Create(&b).Error)
 	}
 	ensureCalls := 0
-	rt := newRouterFixture(t, dir, "meta.db", func(_, _ string, dbName string) (string, error) {
+	rt := newRouterFixture(t, dir, "meta.db", func(_ context.Context, _, _ string, dbName string) (string, error) {
 		ensureCalls++
 		if dbName == "game_bad_prod" {
 			return "", context.DeadlineExceeded
@@ -376,7 +380,7 @@ func TestRegistrationPipeline_FinalizeMixedScopes(t *testing.T) {
 }
 
 // newRouterFixture 造一个 sqlite 分库路由（open 回调直连文件；ensure 可注入错误）。
-func newRouterFixture(t *testing.T, dir, metaName string, ensure func(_, _ string, dbName string) (string, error)) *router.Router {
+func newRouterFixture(t *testing.T, dir, metaName string, ensure func(_ context.Context, _, _ string, dbName string) (string, error)) *router.Router {
 	t.Helper()
 	metaDB, err := gorm.Open(gsqlite.Open(filepath.Join(dir, metaName)), &gorm.Config{})
 	require.NoError(t, err)
@@ -386,7 +390,7 @@ func newRouterFixture(t *testing.T, dir, metaName string, ensure func(_, _ strin
 		NameForGame:    func(gameID, env string) string { return "game_" + gameID + "_" + env },
 		DSNForDatabase: func(_, dbName string) string { return filepath.Join(dir, dbName+".db") },
 		EnsureDatabase: ensure,
-		Open: func(driver, dsn string) (*gorm.DB, error) {
+		Open: func(_ context.Context, driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
 	}, metaDB)

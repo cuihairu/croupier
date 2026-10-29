@@ -91,7 +91,7 @@ func TestCoverageC_CreatePostgresDatabase_SqlOpenError(t *testing.T) {
 	sqlOpen = func(string, string) (*sql.DB, error) { return nil, errors.New("coverage: open refused") }
 	defer func() { sqlOpen = orig }()
 
-	err := createPostgresDatabase("postgres://u:p@127.0.0.1:1/postgres", "cov_c_missing_db")
+	err := createPostgresDatabase(context.Background(), "postgres://u:p@127.0.0.1:1/postgres", "cov_c_missing_db")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "coverage: open refused")
 }

@@ -877,8 +877,10 @@ func newGameRouter(c config.Config, metaDB *gorm.DB, secrets vault.Resolver) *ro
 		DSNForDatabase: dsnForDB,
 		EnsureDatabase: EnsureGameDatabase,
 		Open:           OpenGormForRouter,
-		MigrateGame: func(db *gorm.DB) error {
-			if _, err := migrate.EnsureUpToDate(context.Background(), db, migrate.ScopeGame, model.AutoMigrateGame); err != nil {
+		MigrateGame: func(ctx context.Context, db *gorm.DB) error {
+			// ARCH-009：首开迁移消费路由生命周期 ctx，受预算/取消约束
+			//（此前是 context.Background()，永不取消）。
+			if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeGame, model.AutoMigrateGame); err != nil {
 				return err
 			}
 			return nil

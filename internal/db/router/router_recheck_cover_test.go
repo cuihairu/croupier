@@ -32,7 +32,7 @@ func TestGameDB_InflightRecheckPrefersRepublishedEntry(t *testing.T) {
 	}()
 
 	var openCalls int32
-	r.cfg.Open = func(driverName, dsn string) (*gorm.DB, error) {
+	r.cfg.Open = func(_ context.Context, driverName, dsn string) (*gorm.DB, error) {
 		atomic.AddInt32(&openCalls, 1)
 		return openSQLiteDB(t, filepath.Join(tmp, "fresh.db")), nil
 	}

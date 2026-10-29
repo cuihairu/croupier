@@ -36,7 +36,7 @@ func fanoutConfig(t *testing.T, multiGame bool) config.Config {
 func seedEnvBinding(t *testing.T, cfg config.Config, gameID, env string) {
 	t.Helper()
 	driver, metaDSN, _ := resolveDriverAndDSN(cfg, nil)
-	metaDB, err := OpenGormForRouter(driver, metaDSN)
+	metaDB, err := OpenGormForRouter(context.Background(), driver, metaDSN)
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrateMeta(metaDB))
 	require.NoError(t, model.NewGameModel(metaDB).AddEnvBinding(context.Background(),

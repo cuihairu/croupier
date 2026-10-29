@@ -46,7 +46,7 @@ func TestScopeContextForBackgroundRegistration_RouterErrorFallsBack(t *testing.T
 		Router: router.New(router.Config{
 			Driver:      "sqlite",
 			NameForGame: func(string, string) string { return "" },
-			Open:        func(string, string) (*gorm.DB, error) { return nil, nil },
+			Open:        func(_ context.Context, _, _ string) (*gorm.DB, error) { return nil, nil },
 		}, metaDB),
 	}
 

@@ -123,7 +123,7 @@ func TestGameDB_PublishRacePrefersExistingEntry(t *testing.T) {
 	dbName := DefaultGameDBName("race", "prod")
 	existing := openSQLiteDB(t, filepath.Join(tmp, "existing.db"))
 
-	r.cfg.Open = func(driverName, dsn string) (*gorm.DB, error) {
+	r.cfg.Open = func(_ context.Context, driverName, dsn string) (*gorm.DB, error) {
 		// 模拟另一个 opener 在本次 open 期间发布了缓存条目。
 		r.mu.Lock()
 		r.cache[dbName] = existing

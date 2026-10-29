@@ -138,13 +138,13 @@ func TestGameDBMiddleware_RoutesByBindingDatabaseName(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(gameDir, dbName+".db")
 		},
-		EnsureDatabase: func(_, _, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, _, _, dbName string) (string, error) {
 			mu.Lock()
 			opened = append(opened, dbName)
 			mu.Unlock()
 			return filepath.Join(gameDir, dbName+".db"), nil
 		},
-		Open: func(_, dsn string) (*gorm.DB, error) {
+		Open: func(_ context.Context, _, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
 	}, svcCtx.DB)

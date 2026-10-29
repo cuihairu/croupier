@@ -37,16 +37,16 @@ func newArch006Router(t *testing.T, metaDB *gorm.DB, bindings []model.GameEnvBin
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(tmp, dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			a.openedMu.Lock()
 			a.opened = append(a.opened, dbName)
 			a.openedMu.Unlock()
 			return filepath.Join(tmp, dbName+".db"), nil
 		},
-		Open: func(driver, dsn string) (*gorm.DB, error) {
+		Open: func(_ context.Context, driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
-		MigrateGame: func(db *gorm.DB) error { return nil },
+		MigrateGame: func(_ context.Context, db *gorm.DB) error { return nil },
 	}
 	if nameForGame != nil {
 		cfg.NameForGame = nameForGame

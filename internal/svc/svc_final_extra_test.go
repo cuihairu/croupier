@@ -44,7 +44,7 @@ func init() {
 }
 
 func TestCreatePostgresDatabase_UsesRegisteredDriver(t *testing.T) {
-	err := createPostgresDatabase("host=127.0.0.1 port=1 user=postgres password=x sslmode=disable", "newdb")
+	err := createPostgresDatabase(context.Background(), "host=127.0.0.1 port=1 user=postgres password=x sslmode=disable", "newdb")
 	assert.Error(t, err)
 }
 
@@ -62,7 +62,7 @@ func TestEnsureGameDatabase_SQLiteDirFailure(t *testing.T) {
 	sub := filepath.Join(dir, "sub")
 	require.NoError(t, os.WriteFile(sub, []byte("x"), 0o644))
 
-	_, err := EnsureGameDatabase("sqlite", filepath.Join(sub, "meta.db"), "game_x")
+	_, err := EnsureGameDatabase(context.Background(), "sqlite", filepath.Join(sub, "meta.db"), "game_x")
 	assert.Error(t, err)
 }
 
@@ -190,8 +190,8 @@ func TestGameDBMiddleware_RouterFailureReturns400(t *testing.T) {
 	svcCtx.Router = router.New(router.Config{
 		Driver:         "sqlite",
 		DSNForDatabase: func(_, _ string) string { return "demo.db" },
-		EnsureDatabase: func(_, _, _ string) (string, error) { return "", nil },
-		Open:           func(string, string) (*gorm.DB, error) { return nil, errors.New("open failed") },
+		EnsureDatabase: func(_ context.Context, _, _, _ string) (string, error) { return "", nil },
+		Open:           func(_ context.Context, _, _ string) (*gorm.DB, error) { return nil, errors.New("open failed") },
 	}, svcCtx.DB)
 
 	gin.SetMode(gin.TestMode)

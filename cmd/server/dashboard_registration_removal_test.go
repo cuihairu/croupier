@@ -68,7 +68,7 @@ func TestDashboardRegistrationPipelineSweepsExpiredRemovalsPerGameDB(t *testing.
 	nameFor := func(gameID, env string) string { return "game_" + gameID + "_" + env }
 	dsnFor := func(dbName string) string { return filepath.Join(dir, dbName+".db") }
 	seen := map[string]*gorm.DB{}
-	open := func(driver, dsn string) (*gorm.DB, error) {
+	open := func(_ context.Context, driver, dsn string) (*gorm.DB, error) {
 		db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		if err == nil {
 			// 生产路径 game 库首用即全量迁移；清扫链会触达契约版本历史、
@@ -83,7 +83,7 @@ func TestDashboardRegistrationPipelineSweepsExpiredRemovalsPerGameDB(t *testing.
 		{"other-game", "production"},
 	}
 	for _, scope := range scopes {
-		_, err := open("sqlite", dsnFor(nameFor(scope.gameID, scope.env)))
+		_, err := open(context.Background(), "sqlite", dsnFor(nameFor(scope.gameID, scope.env)))
 		require.NoError(t, err)
 		require.NoError(t, metaDB.Create(&model.GameEnvBinding{
 			GameID: scope.gameID, Env: scope.env, DatabaseName: nameFor(scope.gameID, scope.env),
@@ -95,7 +95,7 @@ func TestDashboardRegistrationPipelineSweepsExpiredRemovalsPerGameDB(t *testing.
 		MetaDSN:        filepath.Join(dir, "meta.db"),
 		NameForGame:    nameFor,
 		DSNForDatabase: func(_, dbName string) string { return dsnFor(dbName) },
-		EnsureDatabase: func(_, _ string, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, _, _ string, dbName string) (string, error) {
 			return dsnFor(dbName), nil
 		},
 		Open: open,

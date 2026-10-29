@@ -247,6 +247,13 @@ Croupier supports two run modes via the `database.multiGame` configuration:
 - `svc.GameDBMiddleware` parses the game scope from the `X-Game-ID` / `X-Env` headers and injects the DB into the request context
 - Game data models obtain the correct DB from the context via `dbctx.Resolve(ctx, m.db)`
 - The `game_id` / `env` columns in game tables are redundant (constant within a database), kept for code uniformity
+- First-open semantics (ARCH-009): concurrent first-opens of the same physical DB are deduplicated
+  via `singleflight` (one per DB, different DBs in parallel); the first-open I/O consumes the
+  router lifecycle context (interrupted by `Close`), and waiters return promptly on their own
+  context cancellation without aborting the shared open; a single first-open is bounded by
+  `FirstOpenTimeout` (default 30s) so a wedged database server cannot hang it. Exposure surface:
+  `Router.PoolSize()` (currently open game databases) and `Router.FirstOpenLatency(dbName)`
+  (per-DB first-open duration).
 
 ### `multiGame: false` (default; development/CI)
 

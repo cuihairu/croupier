@@ -33,10 +33,10 @@ func newTestRouter(t *testing.T, cfg Config) (*Router, *gorm.DB) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
 		},
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
 		},
-		Open: func(driver, dsn string) (*gorm.DB, error) {
+		Open: func(_ context.Context, driver, dsn string) (*gorm.DB, error) {
 			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		},
 	}
@@ -86,7 +86,7 @@ func TestGameDB_EmptyDatabaseName(t *testing.T) {
 
 func TestGameDB_EnsureDatabaseError(t *testing.T) {
 	r, metaDB := newTestRouter(t, Config{
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return "", errors.New("ensure failed")
 		},
 	})
@@ -103,7 +103,7 @@ func TestGameDB_EnsureDatabaseError(t *testing.T) {
 
 func TestGameDB_OpenError(t *testing.T) {
 	r, metaDB := newTestRouter(t, Config{
-		Open: func(driver, dsn string) (*gorm.DB, error) {
+		Open: func(_ context.Context, driver, dsn string) (*gorm.DB, error) {
 			return nil, errors.New("open failed")
 		},
 	})
@@ -120,7 +120,7 @@ func TestGameDB_OpenError(t *testing.T) {
 
 func TestGameDB_MigrateError(t *testing.T) {
 	r, metaDB := newTestRouter(t, Config{
-		MigrateGame: func(db *gorm.DB) error {
+		MigrateGame: func(_ context.Context, db *gorm.DB) error {
 			return errors.New("migrate failed")
 		},
 	})
@@ -183,7 +183,7 @@ func TestGameDB_ConcurrentSameScope(t *testing.T) {
 
 func TestResolve_ErrorPath(t *testing.T) {
 	r, metaDB := newTestRouter(t, Config{
-		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+		EnsureDatabase: func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
 			return "", errors.New("ensure failed")
 		},
 	})

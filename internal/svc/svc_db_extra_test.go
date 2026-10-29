@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -94,17 +95,17 @@ func TestCreateDatabaseHelpers_UnreachableServers(t *testing.T) {
 	// Closed loopback ports fail fast with connection refused; no external
 	// network or server process is required.
 	t.Run("mysql", func(t *testing.T) {
-		err := createMySQLDatabase("root:pass@tcp(127.0.0.1:1)/?charset=utf8mb4", "newdb")
+		err := createMySQLDatabase(context.Background(), "root:pass@tcp(127.0.0.1:1)/?charset=utf8mb4", "newdb")
 		assert.Error(t, err)
 	})
 
 	t.Run("postgres", func(t *testing.T) {
-		err := createPostgresDatabase("host=127.0.0.1 port=1 user=postgres password=x sslmode=disable", "newdb")
+		err := createPostgresDatabase(context.Background(), "host=127.0.0.1 port=1 user=postgres password=x sslmode=disable", "newdb")
 		assert.Error(t, err)
 	})
 
 	t.Run("sqlserver", func(t *testing.T) {
-		err := createSQLServerDatabase("sqlserver://sa:pass@127.0.0.1:1?database=master", "newdb")
+		err := createSQLServerDatabase(context.Background(), "sqlserver://sa:pass@127.0.0.1:1?database=master", "newdb")
 		assert.Error(t, err)
 	})
 }
@@ -112,31 +113,31 @@ func TestCreateDatabaseHelpers_UnreachableServers(t *testing.T) {
 func TestEnsureGameDatabase_SQLiteAndUnsupported(t *testing.T) {
 	baseDir := t.TempDir()
 
-	gameDSN, err := EnsureGameDatabase("sqlite", filepath.Join(baseDir, "meta.db"), "game_demo_prod")
+	gameDSN, err := EnsureGameDatabase(context.Background(), "sqlite", filepath.Join(baseDir, "meta.db"), "game_demo_prod")
 	require.NoError(t, err)
 	assert.Contains(t, gameDSN, "game_demo_prod.db")
 
-	gameDSN, err = EnsureGameDatabase("sqlite3", "", "game_x")
+	gameDSN, err = EnsureGameDatabase(context.Background(), "sqlite3", "", "game_x")
 	require.NoError(t, err)
 	assert.NotEmpty(t, gameDSN)
 
-	_, err = EnsureGameDatabase("unknown-driver", "whatever", "game_x")
+	_, err = EnsureGameDatabase(context.Background(), "unknown-driver", "whatever", "game_x")
 	assert.Error(t, err)
 }
 
 func TestEnsureGameDatabase_ServerDriversFailFast(t *testing.T) {
 	t.Run("postgres invalid dsn", func(t *testing.T) {
-		_, err := EnsureGameDatabase("postgres", "not a valid postgres dsn", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "postgres", "not a valid postgres dsn", "game_x")
 		assert.Error(t, err)
 	})
 
 	t.Run("mysql invalid dsn", func(t *testing.T) {
-		_, err := EnsureGameDatabase("mysql", "invalid mysql dsn", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "mysql", "invalid mysql dsn", "game_x")
 		assert.Error(t, err)
 	})
 
 	t.Run("sqlserver invalid dsn", func(t *testing.T) {
-		_, err := EnsureGameDatabase("sqlserver", "not valid either", "game_x")
+		_, err := EnsureGameDatabase(context.Background(), "sqlserver", "not valid either", "game_x")
 		assert.Error(t, err)
 	})
 }

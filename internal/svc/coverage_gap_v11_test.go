@@ -12,6 +12,7 @@ package svc
 // 所有 fake 均自包含（不依赖其他测试文件的辅助函数），仅监听 loopback。
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -707,7 +708,7 @@ func TestEnsureGameDatabase_SQLServerCreateFails(t *testing.T) {
 		{batchErr: true},
 	})
 
-	_, err := EnsureGameDatabase("sqlserver", gap11SQLServerDSNWithDB(addr, "croupier_meta"), "game_demo_prod")
+	_, err := EnsureGameDatabase(context.Background(), "sqlserver", gap11SQLServerDSNWithDB(addr, "croupier_meta"), "game_demo_prod")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "create sqlserver database")
 }
@@ -719,14 +720,14 @@ func TestEnsureGameDatabase_SQLServerSuccess(t *testing.T) {
 		{},
 	})
 
-	gameDSN, err := EnsureGameDatabase("sqlserver", gap11SQLServerDSNWithDB(addr, "croupier_meta"), "game_demo_prod")
+	gameDSN, err := EnsureGameDatabase(context.Background(), "sqlserver", gap11SQLServerDSNWithDB(addr, "croupier_meta"), "game_demo_prod")
 	require.NoError(t, err)
 	assert.Contains(t, gameDSN, "game_demo_prod")
 }
 
 // L458-460: createSQLServerDatabase 的 DSN 解析失败（sqlserver DriverContext 急切解析）。
 func TestCreateSQLServerDatabase_InvalidDialTimeoutDSN(t *testing.T) {
-	err := createSQLServerDatabase("sqlserver://u:p@h?dial timeout=abc", "db")
+	err := createSQLServerDatabase(context.Background(), "sqlserver://u:p@h?dial timeout=abc", "db")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid dial timeout")
 }

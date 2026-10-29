@@ -50,7 +50,7 @@ func RunMigrationFanout(ctx context.Context, cfg config.Config, dryRun bool) ([]
 		return nil, fmt.Errorf("fanout: resolve meta database: %w", err)
 	}
 
-	metaDB, err := OpenGormForRouter(driver, metaDSN)
+	metaDB, err := OpenGormForRouter(ctx, driver, metaDSN)
 	if err != nil {
 		return nil, fmt.Errorf("fanout: open meta database: %w", err)
 	}
@@ -90,7 +90,7 @@ func RunMigrationFanout(ctx context.Context, cfg config.Config, dryRun bool) ([]
 		report.Database = gameDBNameFor(cfg, b.GameID, b.Env)
 		gameDSN := DSNForDatabase(driver, metaDSN, report.Database)
 
-		gameDB, err := OpenGormForRouter(driver, gameDSN)
+		gameDB, err := OpenGormForRouter(ctx, driver, gameDSN)
 		if err != nil {
 			// A registry row without a physical database is not fatal: the
 			// runtime creates game databases lazily on first access.

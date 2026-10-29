@@ -128,6 +128,17 @@ var setSQLiteQueryOnly = func(db *gorm.DB) error {
 // OpenConnector 不解析 DSN、对已注册驱动恒成功，论证见调用处注释）。
 var sqlOpen = sql.Open
 
+// closeGormQuietly closes a gorm.DB, swallowing the error. Used when an open
+// must be rolled back (e.g. a cancelled context after OpenGormForRouter).
+func closeGormQuietly(db *gorm.DB) {
+	if db == nil {
+		return
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		_ = sqlDB.Close()
+	}
+}
+
 func openGorm(driver, dsn string) (*gorm.DB, error) {
 
 	switch driver {
@@ -188,8 +199,10 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 				// 正则替换保留 scheme 前缀 / dbname= 等值替换）对非空输入
 				// 恒返回非空，而此处 dsn 已通过非空与库名提取检查。
 				dsnWithoutDB := removeDBFromPostgresDSN(dsn, "postgres")
-				// 创建数据库
-				if err := createPostgresDatabase(dsnWithoutDB, dbName); err != nil {
+				// 创建数据库。openGorm 无 ctx 形参：此路径是 meta 库 bootstrap
+				//（启动期一次，非每请求），用 Background——ARCH-009 的取消/
+				// 预算约束的是路由首开链路（EnsureGameDatabase/OpenGormForRouter）。
+				if err := createPostgresDatabase(context.Background(), dsnWithoutDB, dbName); err != nil {
 					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
 				}
 				// 重新连接
@@ -220,8 +233,8 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 				// 空串兜底已删：removeDBFromMySQLDSN 是 `/dbname?` → `/?`
 				// 的等长替换，不匹配时原样返回，对非空输入恒非空。
 				dsnWithoutDB := removeDBFromMySQLDSN(dsn)
-				// 创建数据库
-				if err := createMySQLDatabase(dsnWithoutDB, dbName); err != nil {
+				// 创建数据库（meta bootstrap，Background 见 postgres 分支注释）。
+				if err := createMySQLDatabase(context.Background(), dsnWithoutDB, dbName); err != nil {
 					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
 				}
 				// 重新连接
@@ -252,8 +265,8 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 				// 空串兜底已删：replaceDBInSQLServerDSN 是 database=X 的
 				// 等值替换，不匹配时原样返回，对非空输入恒非空。
 				dsnWithoutDB := replaceDBInSQLServerDSN(dsn, "master")
-				// 创建数据库
-				if err := createSQLServerDatabase(dsnWithoutDB, dbName); err != nil {
+				// 创建数据库（meta bootstrap，Background 见 postgres 分支注释）。
+				if err := createSQLServerDatabase(context.Background(), dsnWithoutDB, dbName); err != nil {
 					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
 				}
 				// 重新连接
@@ -387,8 +400,11 @@ func removeDBFromMySQLDSN(dsn string) string {
 	return re.ReplaceAllString(dsn, "/$1")
 }
 
-// createMySQLDatabase 创建 MySQL 数据库
-func createMySQLDatabase(dsn, dbName string) error {
+// createMySQLDatabase 创建 MySQL 数据库；CREATE 受 ctx 取消/预算约束（ARCH-009）。
+func createMySQLDatabase(ctx context.Context, dsn, dbName string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	// 使用标准 database/sql 包创建数据库
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -397,7 +413,7 @@ func createMySQLDatabase(dsn, dbName string) error {
 	defer func() { _ = db.Close() }()
 
 	// 创建数据库（如果不存在）
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", dbName))
+	_, err = db.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", dbName))
 	return err
 }
 
@@ -441,8 +457,12 @@ func removeDBFromPostgresDSN(dsn, replacementDB string) string {
 
 // createPostgresDatabase creates the PostgreSQL database. Concurrent creators
 // are tolerated: if CREATE DATABASE fails because another process already
-// created it, we verify existence and treat that as success.
-func createPostgresDatabase(dsn, dbName string) error {
+// created it, we verify existence and treat that as success. CREATE and the
+// existence probe run under ctx (ARCH-009 cancellation/budget).
+func createPostgresDatabase(ctx context.Context, dsn, dbName string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	// pgx stdlib registers the "pgx" driver name (there is no lib/pq here).
 	db, err := sqlOpen("pgx", dsn)
 	if err != nil {
@@ -460,12 +480,12 @@ func createPostgresDatabase(dsn, dbName string) error {
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(0)
 
-	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH ENCODING 'UTF8'", quotePostgresIdentifier(dbName))); err != nil {
+	if _, err := db.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %s WITH ENCODING 'UTF8'", quotePostgresIdentifier(dbName))); err != nil {
 		// Two processes may race on first open of the same game database;
 		// losing the race is fine as long as the database now exists.
 		var exists bool
 		probe := fmt.Sprintf("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = '%s')", strings.ReplaceAll(dbName, "'", "''"))
-		if probeErr := db.QueryRow(probe).Scan(&exists); probeErr == nil && exists {
+		if probeErr := db.QueryRowContext(ctx, probe).Scan(&exists); probeErr == nil && exists {
 			return nil
 		}
 		return err
@@ -509,8 +529,11 @@ func replaceDBInSQLServerDSN(dsn, replacementDB string) string {
 	return re.ReplaceAllString(dsn, "database="+replacementDB)
 }
 
-// createSQLServerDatabase 创建 SQL Server 数据库
-func createSQLServerDatabase(dsn, dbName string) error {
+// createSQLServerDatabase 创建 SQL Server 数据库；CREATE 受 ctx 取消/预算约束（ARCH-009）。
+func createSQLServerDatabase(ctx context.Context, dsn, dbName string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	db, err := sql.Open("sqlserver", dsn)
 	if err != nil {
 		return err
@@ -522,7 +545,7 @@ func createSQLServerDatabase(dsn, dbName string) error {
 	db.SetConnMaxLifetime(0)
 
 	// 创建数据库（如果不存在）
-	_, err = db.Exec(fmt.Sprintf("IF NOT EXISTS (SELECT name FROM sys.databases WHERE name='%s') CREATE DATABASE [%s]", dbName, dbName))
+	_, err = db.ExecContext(ctx, fmt.Sprintf("IF NOT EXISTS (SELECT name FROM sys.databases WHERE name='%s') CREATE DATABASE [%s]", dbName, dbName))
 	return err
 }
 
@@ -532,9 +555,22 @@ func createSQLServerDatabase(dsn, dbName string) error {
 
 // OpenGormForRouter is the DatabaseOpener callback for the router. It opens a
 // *gorm.DB for the given driver and DSN without auto-creating the database
-// (the router calls EnsureGameDatabase first).
-func OpenGormForRouter(driver, dsn string) (*gorm.DB, error) {
-	return openGorm(driver, dsn)
+// (the router calls EnsureGameDatabase first). The context bounds the open:
+// a shutdown/budget cancellation aborts before the connection is established
+// (ARCH-009).
+func OpenGormForRouter(ctx context.Context, driver, dsn string) (*gorm.DB, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	db, err := openGorm(driver, dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		closeGormQuietly(db)
+		return nil, err
+	}
+	return db, nil
 }
 
 // DSNForDatabase returns a DSN that points at the given physical database
@@ -560,20 +596,28 @@ func DSNForDatabase(driver, metaDSN, dbName string) string {
 // reachable from metaDSN, then returns the DSN pointing at it. For SQLite
 // this is a no-op (the file is created on open). For server-based drivers it
 // connects to an admin database and runs CREATE DATABASE IF NOT EXISTS.
-func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
+// The context bounds the ensure: cancellation is checked at every stage so a
+// shutdown/budget abort stops before the next connection attempt (ARCH-009).
+func EnsureGameDatabase(ctx context.Context, driver, metaDSN, dbName string) (string, error) {
 	gameDSN := DSNForDatabase(driver, metaDSN, dbName)
 	switch driver {
 	case "sqlite", "sqlite3":
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if err := ensureSQLiteDir(gameDSN); err != nil {
 			return "", err
 		}
 		return gameDSN, nil
 	case "postgres", "postgresql", "pg":
 		// Try connecting first; only create if missing.
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if _, err := gorm.Open(gpostgres.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
 			if strings.Contains(err.Error(), "database") && strings.Contains(err.Error(), "does not exist") {
 				adminDSN := removeDBFromPostgresDSN(metaDSN, "postgres")
-				if err := createPostgresDatabase(adminDSN, dbName); err != nil {
+				if err := createPostgresDatabase(ctx, adminDSN, dbName); err != nil {
 					return "", fmt.Errorf("create postgres database %s: %w", dbName, err)
 				}
 			} else {
@@ -582,10 +626,13 @@ func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
 		}
 		return gameDSN, nil
 	case "mysql":
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if _, err := gorm.Open(gmysql.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
 			if strings.Contains(err.Error(), "Unknown database") {
 				adminDSN := removeDBFromMySQLDSN(metaDSN)
-				if err := createMySQLDatabase(adminDSN, dbName); err != nil {
+				if err := createMySQLDatabase(ctx, adminDSN, dbName); err != nil {
 					return "", fmt.Errorf("create mysql database %s: %w", dbName, err)
 				}
 			} else {
@@ -594,10 +641,13 @@ func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
 		}
 		return gameDSN, nil
 	case "sqlserver":
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if _, err := gorm.Open(gsqlserver.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
 			if strings.Contains(err.Error(), "Could not locate database") || strings.Contains(err.Error(), "invalid database") {
 				adminDSN := replaceDBInSQLServerDSN(metaDSN, "master")
-				if err := createSQLServerDatabase(adminDSN, dbName); err != nil {
+				if err := createSQLServerDatabase(ctx, adminDSN, dbName); err != nil {
 					return "", fmt.Errorf("create sqlserver database %s: %w", dbName, err)
 				}
 			} else {
