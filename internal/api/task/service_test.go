@@ -26,6 +26,12 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	// 并发用例共享同一 :memory: 库：glebarez 的 :memory: 每个池化连接是
+	// 独立空库，负载下开第二条连接会拿到没有表的库（并发读即 500
+	// "no such table: task_runs"）。钉死单连接串行化访问。
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
 	require.NoError(t, model.AutoMigrate(db))
 	return db
 }
