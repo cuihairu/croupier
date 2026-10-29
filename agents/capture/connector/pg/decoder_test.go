@@ -534,3 +534,44 @@ func TestDecoderRelationWithOwnLSNOutsideTxn(t *testing.T) {
 		t.Fatalf("versions = %d, want 1", len(vers))
 	}
 }
+
+// 事务外且位点未知的结构变化 Relation 被跳过时，不得推进全局修订号/关系
+// 缓存：否则后续 DML 产出 SchemaVersion=2 而历史只覆盖 revision 1，恢复
+// 校验按事务时点解析不到该版本（fail-closed 契约被打破）。
+//
+// 场景：T1（Begin=100）内见 Relation（4 列）→ 记入 revision 1@100；
+// 事务外重发结构变化版 Relation（5 列，位点缺失）→ 跳过（不猜）；
+// T2 内再发 DML（4 列同 T1 结构）→ 必须仍产出 SchemaVersion=1（可解析）。
+func TestDecoderSkippedRelationDoesNotAdvanceRevision(t *testing.T) {
+	d := NewDecoder("s")
+
+	// T1：Begin(100) + Relation(4列) + Commit(100) → revision 1 @100。
+	mustFeedAt(t, d, "100", beginMsg(1))
+	mustFeedAt(t, d, "", itemsRelation('d'))
+	mustFeedAt(t, d, "100", commitMsg(10))
+	if _, _, found := d.SchemaHistory().At("game.items", "100"); !found {
+		t.Fatal("relation in txn must be recorded at begin LSN")
+	}
+
+	// 事务外结构变化 Relation（无 Begin、无位点）：跳过，不推进状态。
+	mustFeedAt(t, d, "", itemsRelationChanged('d'))
+
+	// 被跳过的结构变化不得推进修订号/关系缓存（fail-closed：不猜）。
+	if d.revision != 1 {
+		t.Fatalf("revision = %d, want 1 (skipped relation must not advance)", d.revision)
+	}
+	if ent := d.relations[itemsOID]; ent == nil || ent.revision != 1 {
+		t.Fatalf("cache revision = %+v, want 1 (skipped relation must not update cache)", ent)
+	}
+
+	// T2：结构仍按 T1 4 列解释，DML 必须产出可解析的 SchemaVersion=1。
+	mustFeedAt(t, d, "200", beginMsg(2))
+	mustFeedAt(t, d, "", insertMsg(textDatum("1"), textDatum("n"), textDatum("0"), nullDatum()))
+	ev := mustFeedAt(t, d, "300", commitMsg(300))
+	if len(ev) != 1 || ev[0].SchemaVersion != 1 {
+		t.Fatalf("event = %+v, want 1 event with SchemaVersion 1", ev)
+	}
+	if len(d.SchemaHistory().Versions("game.items")) != 1 {
+		t.Fatalf("versions = %d, want 1", len(d.SchemaHistory().Versions("game.items")))
+	}
+}
