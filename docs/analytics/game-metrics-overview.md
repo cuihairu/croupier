@@ -1,5 +1,7 @@
 # Game Metrics Panorama
 
+> This is a metric/scenario catalog, not an implemented-capability list. See [core versus external analytics](./core-and-external) for product scope and remaining gaps.
+
 This document provides the complete game data metrics system, covering every stage from user acquisition to long-term operations.
 
 ## Metrics Classification System

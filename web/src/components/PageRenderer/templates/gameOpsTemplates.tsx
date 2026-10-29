@@ -106,6 +106,7 @@ export const gameOpsTemplates: GameOpsTemplateEntry[] = [
       { id: 'player.ban', role: 'action' },
       { id: 'player.batchBan', role: 'action' },
       { id: 'player.batchUnban', role: 'action' },
+      { id: 'player.batchRecharge', role: 'action' },
       { id: 'player.mail', role: 'action' },
       { id: 'player.recharge', role: 'action' },
     ],

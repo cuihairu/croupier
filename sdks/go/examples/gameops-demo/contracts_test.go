@@ -14,8 +14,8 @@ import (
 func TestGameOpsContractsAreComplete(t *testing.T) {
 	store := newGameOpsStore()
 	defs := gameOpsFunctionDefinitions(store)
-	if len(defs) != 33 {
-		t.Fatalf("definitions = %d, want 33", len(defs))
+	if len(defs) != 34 {
+		t.Fatalf("definitions = %d, want 34", len(defs))
 	}
 	seen := map[string]bool{}
 	for _, def := range defs {
@@ -133,8 +133,8 @@ func TestRegisterGameOpsFunctions_Registration(t *testing.T) {
 	if err := registerGameOpsFunctions(client, newGameOpsStore()); err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	if len(client.registered) != 33 {
-		t.Fatalf("registered = %d, want 33", len(client.registered))
+	if len(client.registered) != 34 {
+		t.Fatalf("registered = %d, want 34", len(client.registered))
 	}
 	for _, desc := range client.registered {
 		if desc.Tags == nil || desc.Summary == "" || desc.Description == "" {

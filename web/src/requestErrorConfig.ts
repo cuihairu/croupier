@@ -178,6 +178,19 @@ function handleSessionOrScopeError(error: unknown): boolean {
     .trim()
     .toLowerCase();
 
+  // 认证入口接口（登录/注册/邮箱验证）自带 skipErrorHandler，由对应页面自管
+  // 错误展示（如 401+mfa_required 展示动态验证码），不得被全局清 token 跳转
+  // 劫持——跳过会话/scope 处理，完整交给调用方 catch。
+  if (
+    url &&
+    (url.includes(`${API_V1_PREFIX}/auth/login`) ||
+      url.includes(`${API_V1_PREFIX}/auth/register`) ||
+      url.includes(`${API_V1_PREFIX}/auth/verify-email`) ||
+      url.includes(`${API_V1_PREFIX}/auth/resend-verification`))
+  ) {
+    return false;
+  }
+
   // Scope 相关的 403：清除无效 scope，让 GameSelector 重新选择
   if (
     status === 403 &&
@@ -214,7 +227,7 @@ function handleSessionOrScopeError(error: unknown): boolean {
     return true;
   }
 
-  if (errorCode === 'unauthorized') {
+  if (status === 401 && errorCode === 'unauthorized') {
     try {
       localStorage.removeItem('token');
     } catch {}

@@ -64,6 +64,14 @@ describe('banManagement demo 执行器', () => {
       form: { current: 1, pageSize: 10, reason: 'cheating' },
     });
     expect(byReason.data).toMatchObject({ total: 3 });
+    const byServer = await run(execute, 'list', {
+      form: { current: 1, pageSize: 10, serverId: 's2' },
+    });
+    expect(byServer.data).toMatchObject({ total: 8 });
+    const serverRows = (byServer.data as { items: Array<{ serverId: string }> }).items;
+    for (const row of serverRows) {
+      expect(row.serverId).toBe('s2');
+    }
   });
 
   it('create：缺玩家 ID/非正时长报错，合法创建置顶', async () => {

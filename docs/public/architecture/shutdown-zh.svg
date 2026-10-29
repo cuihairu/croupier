@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1420" viewBox="0 0 1200 1420" role="img" aria-labelledby="title desc"><title id="title">当前排空与停机边界</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="1420" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">当前排空与停机边界</text>
+<text x="30" y="78" class="small" text-anchor="start">时间向下 ↓ · 虚线为生命线 · ALT 框内选一个分支 · 无圆点交叉不相连</text>
+<g data-node="游戏 SDK"><rect x="65" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="81" y="135" class="head" text-anchor="start">游戏 SDK</text>
+</g>
+<path d="M180 170 V1355" class="life"/>
+<g data-node="sidecar"><rect x="345" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="361" y="135" class="head" text-anchor="start">sidecar</text>
+</g>
+<path d="M460 170 V1355" class="life"/>
+<g data-node="Server / owner"><rect x="625" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="641" y="135" class="head" text-anchor="start">Server / owner</text>
+</g>
+<path d="M740 170 V1355" class="life"/>
+<g data-node="后台 / 数据库"><rect x="905" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="921" y="135" class="head" text-anchor="start">后台 / 数据库</text>
+</g>
+<path d="M1020 170 V1355" class="life"/>
+<g data-node="独立触发：SDK drain 与 Server SIGTERM 不是同一个协议"><rect x="50" y="195" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="225" class="head" text-anchor="start">独立触发：SDK drain 与 Server SIGTERM 不是同一个协议</text>
+<text x="66" y="253" class="" text-anchor="start">上半是 drain 请求，下半是信号停机，不暗示自动联动</text>
+</g>
+<text x="600" y="335" class="message" text-anchor="middle">02 · ProviderDrain(sessionId / reason / retryAfterMs)</text>
+<path d="M180 361 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="451" class="message" text-anchor="middle">03 · 当前仅日志 + 空 ACK；未摘流、未等待在途</text>
+<path d="M460 477 H180" class="edge control" marker-end="url(#control)"/>
+<g data-node="SDK drain 分支到此结束"><rect x="50" y="543" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="573" class="head" text-anchor="start">SDK drain 分支到此结束</text>
+<text x="66" y="601" class="" text-anchor="start">不能把 ACK 解释为游戏任务和资源已排空</text>
+</g>
+<text x="600" y="683" class="message" text-anchor="middle">05 · 独立 SIGTERM：启动 30s 外层截止等待</text>
+<path d="M740 701 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="799" class="message" text-anchor="middle">06 · 先 tcpListener.Close：停止 accept 后等待活跃连接协程</text>
+<path d="M740 817 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
+<rect x="40" y="883" width="1120" height="224" rx="12" fill="#faf5f5" stroke="#976a3d" stroke-width="2"/>
+<text x="600" y="998" class="small" text-anchor="middle">或 · 仅选一个分支</text>
+<g data-node="ALT · 连接结束，顺序收尾"><rect x="50" y="891" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="921" class="head" text-anchor="start">ALT · 连接结束，顺序收尾</text>
+<text x="66" y="949" class="" text-anchor="start">HTTP Shutdown → rootCancel → ControlService.Stop → Router.Close</text>
+</g>
+<g data-node="ALT · 连接未结束，截止先到"><rect x="50" y="1007" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1037" class="head" text-anchor="start">ALT · 连接未结束，截止先到</text>
+<text x="66" y="1065" class="" text-anchor="start">记录强制退出并返回，后续顺序清理不保证完成</text>
+</g>
+<text x="600" y="1147" class="message" text-anchor="middle">09 · 正常返回还运行 scheduler / cluster / telemetry defer；不是全局事务</text>
+<path d="M740 1173 H1020" class="edge control" marker-end="url(#control)"/>
+<g data-node="缺失保证"><rect x="50" y="1239" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="1269" class="head" text-anchor="start">缺失保证</text>
+<text x="66" y="1297" class="" text-anchor="start">root 未调用 ServiceContext.Close；任务重放/全局 drain 尚缺，见 ARCH-015–018</text>
+</g>
+<text x="30" y="1395" class="small" text-anchor="start">结束：仅代表图示边界，未承诺的恢复/排空能力见正文</text>
+</svg>

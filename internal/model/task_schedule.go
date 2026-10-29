@@ -60,7 +60,7 @@ type TaskScheduleRunLog struct {
 	ScheduleID uint      `gorm:"not null;uniqueIndex:uidx_schedule_run_slot,priority:1"`
 	Slot       time.Time `gorm:"not null;uniqueIndex:uidx_schedule_run_slot,priority:2"`
 	TaskRunID  string    `gorm:"size:64"`
-	Status     string    `gorm:"size:32"` // dispatched | skipped | failed
+	Status     string    `gorm:"size:32"` // claimed | dispatched | skipped | failed
 	Message    string    `gorm:"size:255"`
 	CreatedAt  time.Time
 }

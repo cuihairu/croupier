@@ -12,7 +12,9 @@ tag:
 
 # Data flow
 
-> **Status**: Current — the current implementation/specification, usable as an implementation reference.
+> **Game-operations re-review, 2026-10-29:** unified sessions do not imply unified governance. Raw task entry has partial gates; scheduled/manual-trigger execution goes directly to Dispatcher. Policy/schema lookup failures can skip checks, and writing the unique schedule log after dispatch does not prevent duplicate execution. ARCH-023–027 in the root TODO track these gaps; evidence is in `docs/review/code-todo-alignment-2026-10-29.md`. Production stability for high-risk game writes is not established.
+
+> **Status**: mixed main-path and target descriptions. See [source-reviewed runtime evidence](./runtime-topology). Older Mermaid diagrams are simplified, not complete topology/recovery guarantees.
 
 This document describes only the main call flows under the current target architecture; the historical `gRPC/legacy-transport callback` model is no longer used.
 
@@ -27,7 +29,7 @@ sequenceDiagram
     participant Admin as 管理员（Proposal Inbox / Page Studio）
     participant UI as Console 运行时
 
-    SDK->>Server: 注册 FunctionContract（无 UI 字段）
+    SDK->>Server: 经 sidecar 转发函数描述，Server 物化契约（简化）
     Server->>Server: 聚合 CapabilitySemantics、生成 PageProposal
     Admin->>Server: 预览 / accept-and-publish（冻结 BindingContractSnapshot）
     Server-->>UI: GET /api/v1/console/menu（菜单树 menu_items + 挂载的 active PublishedPageSpec）
@@ -104,11 +106,11 @@ sequenceDiagram
 
 Each process in `RegisterRequest.processes` self-reports `sdk_language`/`sdk_version`. The Server records the historical highest SDK version per `(game_id, env, sdk_language)` (a **high-water mark**, persisted in each game database's `sdk_version_highwatermarks` table, numbered migration 0028) and applies a three-way decision at registration (`internal/platform/registry/sdkversion`):
 
-| Decision       | Condition                             | Behavior                                                                                             |
-| -------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Allow          | version ≥ high-water mark              | After a successful registration, raise the high-water mark                                            |
-| Allow + warn   | Same major, behind by 1 minor          | The function registers as usual; a `sdk_version_behind` registration warning is written               |
-| Reject         | Behind by ≥2 minors or ≥1 major        | Functions exclusively declared by that process do not enter this registration (neither the session function set nor contracts materialize); a `sdk_version_floor_rejected` warning is written |
+| Decision     | Condition                       | Behavior                                                                                                                                                                                      |
+| ------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Allow        | version ≥ high-water mark       | After a successful registration, raise the high-water mark                                                                                                                                    |
+| Allow + warn | Same major, behind by 1 minor   | The function registers as usual; a `sdk_version_behind` registration warning is written                                                                                                       |
+| Reject       | Behind by ≥2 minors or ≥1 major | Functions exclusively declared by that process do not enter this registration (neither the session function set nor contracts materialize); a `sdk_version_floor_rejected` warning is written |
 
 Detailed semantics:
 

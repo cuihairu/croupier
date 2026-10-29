@@ -108,6 +108,34 @@ describe('errorConfig.errorHandler 会话/scope 分流', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it('登录接口 401+mfa_required 带 skipErrorHandler：不自管劫持（不清 token、不跳登录），完整交给调用方', () => {
+    const err = responseError(401, {
+      error: 'mfa_required',
+      message: '需要动态验证码',
+      url: '/api/v1/auth/login',
+    });
+
+    expect(() => errorConfig.errorConfig!.errorHandler!(err, { skipErrorHandler: true })).toThrow(
+      err,
+    );
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('非 401 但 body.error=unauthorized：不命中 unauthorized 分支（需 status 门控）', () => {
+    const err = responseError(403, {
+      error: 'unauthorized',
+      message: '业务码为 unauthorized 的 403',
+      url: '/api/v1/console/pages/player.manage/bindings/player.query/execute',
+    });
+
+    expect(() => errorConfig.errorConfig!.errorHandler!(err, { skipErrorHandler: true })).toThrow(
+      err,
+    );
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it('非 skipErrorHandler 的 scope 403 仍走全局清 scope（回归）', () => {
     const err = responseError(403, {
       error: 'invalid_game_scope',

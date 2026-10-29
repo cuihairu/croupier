@@ -177,7 +177,40 @@ export const playerManagePageSpec: PageSpec = {
           bindingId: 'action.batchUnban',
         },
         {
-          // D5 危险操作位置：danger 批量动作排到末尾，与恢复类动作明确分界。
+          // 批量充值：与单笔充值同为 warning 级资源动作，放恢复类之后、危险
+          // 封禁之前；D5 危险操作位置仅对 danger 动作强制置末。
+          key: 'action.batchRecharge',
+          title: { 'zh-CN': '批量充值', 'en-US': 'Batch Recharge' },
+          type: 'primary',
+          confirm: true,
+          confirmTitle: { 'zh-CN': '核对批量充值', 'en-US': 'Confirm Batch Recharge' },
+          confirmDescription: {
+            'zh-CN': '确认按每人数量为选中玩家充值？',
+            'en-US': 'Recharge each selected player by this amount?',
+          },
+          form: {
+            jsonSchema: {
+              type: 'object',
+              properties: {
+                amount: { type: 'integer', title: '每人数量（金）', minimum: 0 },
+              },
+              required: ['amount'],
+            },
+            fields: [
+              {
+                key: 'amount',
+                label: { 'zh-CN': '每人数量', 'en-US': 'Per-target amount' },
+                role: 'amount',
+                unit: { 'zh-CN': '金', 'en-US': 'gold' },
+                perTarget: true,
+              },
+            ],
+            layout: 'vertical',
+          },
+          bindingId: 'action.batchRecharge',
+        },
+        {
+          // D5 危险操作位置：danger 批量动作排到末尾，与恢复/资源类动作明确分界。
           key: 'batchBan',
           title: { 'zh-CN': '批量封禁', 'en-US': 'Batch Ban' },
           type: 'danger',
@@ -366,6 +399,21 @@ export const playerManagePageSpec: PageSpec = {
       },
       execution: { mode: 'sync', requireConfirm: true },
     },
+    {
+      id: 'action.batchRecharge',
+      functionId: 'player.batchRecharge',
+      usage: 'action',
+      selectors: {
+        input: {
+          assignments: [
+            { target: '/playerIds', source: { kind: 'selection', path: '/id' } },
+            { target: '/amount', source: { kind: 'form', path: '/amount' } },
+          ],
+        },
+        output: [{ stateKey: 'result', source: '', shape: 'object' }],
+      },
+      execution: { mode: 'sync', requireConfirm: true },
+    },
   ],
 };
 
@@ -387,11 +435,28 @@ export function createPlayerManageDemoExecute(
   let requestSeq = 0;
   const nextRequestId = () => `demo-${++requestSeq}`;
 
+  // 投影后的 selection 行是对象数组（selector 按 /id 投影后为 {id}），
+  // 直接 map(String) 会得到 ['[object Object]']，无法匹配玩家 ID 却返回
+  // 成功；按 rowIdentity 同口径取行标识，兼容直调传裸 ID 的形态。
+  const selectionIds = (selection: JSONValue): string[] => {
+    if (!Array.isArray(selection)) return [];
+    return selection.map((item) => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const record = item as FormValues;
+        const identity = record.id ?? record.key;
+        return identity === undefined || identity === null
+          ? JSON.stringify(record)
+          : String(identity);
+      }
+      return String(item);
+    });
+  };
+
   return async (bindingId, context): Promise<PageExecutionResult> => {
     let players: GameOpsPlayer[] = store.players;
     const form = asRecord(context.form);
     const row = asRecord(context.row);
-    const selection = Array.isArray(context.selection) ? context.selection.map(String) : [];
+    const selection = selectionIds(context.selection ?? []);
 
     try {
       switch (bindingId) {
@@ -490,6 +555,27 @@ export function createPlayerManageDemoExecute(
             kind: 'sync',
             requestId: nextRequestId(),
             data: { success: true, count: selection.length },
+          };
+        }
+        case 'action.batchRecharge': {
+          const amount = Number(form.amount);
+          if (!Number.isInteger(amount) || amount < 0) {
+            throw new Error('invalid_per_target_amount');
+          }
+          players = players.map((player) =>
+            selection.includes(player.id)
+              ? { ...player, balanceGold: player.balanceGold + amount }
+              : player,
+          );
+          return {
+            kind: 'sync',
+            requestId: nextRequestId(),
+            data: {
+              success: true,
+              amount,
+              count: selection.length,
+              total: amount * selection.length,
+            },
           };
         }
         default:

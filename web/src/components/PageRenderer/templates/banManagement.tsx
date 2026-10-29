@@ -361,6 +361,9 @@ export function createBanManagementDemoExecute(
           if (form.reason) {
             filtered = filtered.filter((ban) => ban.reason === form.reason);
           }
+          if (form.serverId) {
+            filtered = filtered.filter((ban) => ban.serverId === String(form.serverId));
+          }
           const start = (current - 1) * pageSize;
           return {
             kind: 'sync',

@@ -1,0 +1,18 @@
+{
+  "internal/tasks/scheduler/manager.go": "5c7167fbd47d1b9cc7772757d6cc208b61701136f92ea7185661a1d14f01f1ce",
+  "internal/api/task/service.go": "799ab8ab3c65bc88d828d56d3fe2fac40abc6b9226dbb672cd02949828995099",
+  "internal/api/schedule/service.go": "c36014f50ca8a262e93204401d2a6017b178b92e1ed8c84ab99be0aa213d6f69",
+  "internal/svc/scheduler.go": "41ac812bbe7b04a6b35d22ba1f7efe213afa6a3c9395cf72ea49298be3b78276",
+  "internal/platform/functioninvoke/invoke.go": "e953c4de1d3bc1f76eeea2b42de4551cb3cfe50eca52f7d756bde6f56bf76379",
+  "internal/platform/functioninvoke/policy.go": "be2af73ab233c5ae4aa03ee813e62acc655d2a94b9ad7a2372fb4299183abf96",
+  "internal/platform/dispatch/dispatcher.go": "27e91cbb51a2236f153edc682fe29b2ed97f665cf4c930065512e77640ba1da3",
+  "agents/synthetics/runner/runner.go": "2c2e7d78dd6933e0ecfdb36cb89b9a0a7ea723b2f6159a2ab2838e02ff3037b7",
+  "web/src/components/PageRenderer/ResourcePageRenderer.tsx": "c15c624e4cb20e065fc01841cea8b1b2a9e1def71f02f10d48046367326c09fe",
+  "web/src/components/PageRenderer/batchSelection.ts": "d3c73bfc7f7d380c25d66cb744c7e405f3999166486955d5e75ba65dc8793d65",
+  "web/src/components/PageRenderer/templates/playerManage.tsx": "16ac15d98ba783e5f82c4cfd0c85f22e2931bf35be89b34db5649fbdc106adf8",
+  "web/src/utils/apiError.ts": "0e891c269654df4e7b3ac260af4d9d4fe3d58416c18557cdbeee7433e185a81c",
+  "web/src/utils/__tests__/apiError.test.ts": "a5b9787b9b25524890ce959b7e9dabe73a4ca5ed48abd5382e455a65c6bbda7a",
+  "web/src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx": "31dc233402ca5c9367c8d333263c203fbbe80a7d7aa4c9e1df2256f8b61056c2",
+  "web/src/components/PageRenderer/__tests__/resourceBatchSelection.test.tsx": "816ca000feb4eb75b69fef799044de3cb680f802d04981a41547a6f92912248e",
+  "web/src/components/PageRenderer/templates/gameOpsPublishFixture.test.tsx": "2d62dd78795c2b13619606c30a5d56953e6dacc5d69099fd194d6b8d83dfc39d"
+}

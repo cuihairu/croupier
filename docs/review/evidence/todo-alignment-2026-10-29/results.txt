@@ -1,0 +1,85 @@
+2026-10-29 / source HEAD 0d64918c plus existing worktree
+
+=== /tmp/croupier-scheduler-double-dispatch.log ===
+same schedule+slot: dispatches=2, accepted_unique_logs=1
+
+=== /tmp/croupier-policy-failopen.log ===
+lookup_error=true, enforced_policy_nil=true, enforced_error_nil=true
+
+=== /tmp/croupier-batch-total-bounds.log ===
+{"value":1.7976931348623157e+308,"count":2,"result":"Infinity","safe":false}
+{"value":9007199254740991,"count":2,"result":"18014398509481982","safe":false}
+{"value":"","count":2,"result":"undefined","safe":false}
+
+=== /tmp/croupier-todo-review-go.log ===
+ok  	github.com/cuihairu/croupier/internal/platform/approvals	3.706s
+ok  	github.com/cuihairu/croupier/internal/db/router	1.587s
+ok  	github.com/cuihairu/croupier/core/register	0.062s
+ok  	github.com/cuihairu/croupier/agents/sidecar	1.284s
+ok  	github.com/cuihairu/croupier/internal/tasks/scheduler	0.193s
+ok  	github.com/cuihairu/croupier/internal/api/schedule	15.577s
+ok  	github.com/cuihairu/croupier/internal/api/task	23.696s
+ok  	github.com/cuihairu/croupier/internal/api/console	42.729s
+ok  	github.com/cuihairu/croupier/internal/api/approval	18.760s
+
+=== /tmp/croupier-todo-review-web.log ===
+$ jest --runInBand --silent --runTestsByPath src/utils/__tests__/apiError.test.ts src/components/PageRenderer/templates/playerManage.test.tsx src/components/PageRenderer/__tests__/resourceBatchSelection.test.tsx src/components/PageRenderer/__tests__/compositeBatchTotal.test.tsx src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx
+
+Test Suites: 5 passed, 5 total
+Tests:       111 passed, 111 total
+Snapshots:   0 total
+Time:        86.152 s
+
+=== Analytics focused tests (outside sandbox for local miniredis) ===
+ok  	github.com/cuihairu/croupier/internal/api/analytics	11.990s
+ok  	github.com/cuihairu/croupier/internal/analytics/worker	15.311s
+
+=== Latest Web test output (failure head + summary; large DOM omitted) ===
+$ jest --runInBand --silent --runTestsByPath src/utils/__tests__/apiError.test.ts src/components/PageRenderer/templates/playerManage.test.tsx src/components/PageRenderer/templates/gameOpsPublishFixture.test.tsx src/components/PageRenderer/__tests__/resourceBatchSelection.test.tsx src/components/PageRenderer/__tests__/compositeBatchTotal.test.tsx src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx
+FAIL src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx (22.922 s)
+  ● 工具栏与批量 › REVIEW-004：带表单批量动作确认文案可达（confirmTitle/Description/目标/总量），取消不执行
+
+    TestingLibraryElementError: Found multiple elements with the role "button" and name "Cancel"
+
+    Here are the matching elements:
+
+    Ignored nodes: comments, script, style
+    [36m<button[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mCancel[0m
+    [36m</button>[39m
+
+    Ignored nodes: comments, script, style
+    [36m<button[39m
+      [33mclass[39m=[32m"ant-btn css-dev-only-do-not-override-12q6fii css-var-root ant-btn-default ant-btn-color-default ant-btn-variant-outlined"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<span>[39m
+        [0mCancel[0m
+      [36m</span>[39m
+    [36m</button>[39m
+
+    (If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"css-dev-only-do-not-override-12q6fii ant-app css-var-root"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; flex-direction: column; gap: 16px;"[39m
+          [36m>[39m
+            [36m<div>[39m
+[DOM output omitted]
+      at node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:55:13
+      at node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+      at Object.<anonymous> (src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx:944:28)
+
+
+Test Suites: 1 failed, 5 passed, 6 total
+Tests:       1 failed, 116 passed, 117 total
+Snapshots:   0 total
+Time:        37.482 s, estimated 87 s
+[ELIFECYCLE] Test failed. See above for more details.

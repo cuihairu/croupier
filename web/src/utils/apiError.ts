@@ -3,15 +3,19 @@
  *
  * 响应契约：HTTP 状态表达错误类别（409=冲突），body.error 为前端分支
  * snake_case 稳定码，message 为用户可读文本。umi request 对非 2xx 抛
- * ResponseError（.data 即响应体），本函数从中取稳定码供渲染层分支。
+ * ResponseError（.data 即响应体，部分封装挂在 .response.data），本函数从中
+ * 取稳定码供渲染层分支，与 execFeedback.errorBody / utils/errors 同口径回退。
  */
 
-type ErrorLike = { data?: unknown };
+type ErrorLike = { data?: unknown; response?: { data?: unknown } };
 
 /** 提取稳定错误码（如 executor_unbound / binding_stale）；无结构化 body 时返回 ''。 */
 export function extractApiErrorCode(err: unknown): string {
   if (err && typeof err === 'object') {
-    const data = (err as ErrorLike).data;
+    const like = err as ErrorLike;
+    // 与 utils/errors 同口径：优先 .response.data（axios 1.x ResponseError
+    // 的真实响应体），再回退 .data（部分 umi 封装）；避免两处取到不同体。
+    const data = like.response?.data ?? like.data;
     if (data && typeof data === 'object') {
       const code = (data as { error?: unknown }).error;
       if (typeof code === 'string' && code) return code;
