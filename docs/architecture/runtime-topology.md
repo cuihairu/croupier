@@ -113,7 +113,7 @@ Host acquires a concurrency gate, starts a child on demand, handshakes/Dispenses
 
 [Full SVG](/architecture/shutdown-en.svg)
 
-ProviderDrain now stops new routing and waits for in-flight calls with a bounded timeout (ARCH-016): the session is marked draining so `callProvider` rejects new work instead of routing to a going-away provider, and `WaitDrained` waits up to `RetryAfterMs` (default 10s) before the agent ACKs. A timeout ACKs anyway and the provider force-disconnects; still-running calls fail on the closed connection. After SIGTERM, Server still first closes the TCP listener and waits for connection goroutines, then shuts HTTP, cancels root background work, stops ControlService and closes Router; the outer wait is 30s. Long sessions can still prevent later cleanup, so shutdown ordering is not complete graceful draining. ServiceContext.Close defines execution-log flushing and retention waiting but root does not call it. sidecar Stop orders function-plugin shutdown, local listener, upstream, telemetry and Ops; durable task draining is not established. worker main only sleeps 200ms after cancellation and does not join Run's final flush. Evidence: `internal/agent/tcp_local_listener.go:handleDrain`, `agents/sidecar/provider_session.go:WaitDrained`, `internal/agent/local_handler.go:callProvider`, `cmd/server/root.go`, `internal/svc/service_context.go:Close`, `internal/app/agent/app.go:Stop`, `cmd/analytics-worker/main.go`. Follow-up: ARCH-017–018 (shutdown order) and ARCH-012.
+ProviderDrain stops new routing and waits for in-flight calls with a bounded timeout (ARCH-016): the session is marked draining so `callProvider` rejects new work instead of routing to a going-away provider, and `WaitDrained` waits up to `RetryAfterMs` (default 10s) before the agent ACKs. A timeout ACKs anyway and the provider force-disconnects; still-running calls fail on the closed connection. After SIGTERM, Server cancels the root context first (draining Agent sessions and background loops), then closes the TCP listener, shuts HTTP with a bounded budget, flushes execution-log retention via ServiceContext.Close, stops ControlService and closes the Router; the whole sequence is bounded by a 30s outer wait (ARCH-017). Long-lived Agent sessions no longer block later cleanup because root cancellation precedes the listener close; execution-log flushing and retention waiting now run on shutdown instead of being dropped. sidecar Stop orders function-plugin shutdown, local listener, upstream, telemetry and Ops; durable task draining is not established. worker main only sleeps 200ms after cancellation and does not join Run's final flush. Evidence: `internal/agent/tcp_local_listener.go:handleDrain`, `agents/sidecar/provider_session.go:WaitDrained`, `internal/agent/local_handler.go:callProvider`, `cmd/server/root.go:runGracefulShutdown`, `internal/svc/service_context.go:Close`, `internal/app/agent/app.go:Stop`, `cmd/analytics-worker/main.go`. Follow-up: ARCH-018 (SIGTERM drill) and ARCH-012.
 
 ## Deployment and operational failure handling
 
@@ -126,15 +126,15 @@ ProviderDrain now stops new routing and waits for in-flight calls with a bounded
 
 ## Current behavior versus targets
 
-| Implemented / limitation                                          | Target or unverified work                                    | TODO                   |
-| ----------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------- |
-| One-hop owner routing / epochs; partial standalone fallback       | Authenticated interconnect, readiness and lease-loss removal | ARCH-003–005           |
-| Memory approvals; SQLStore not wired                              | Durable cross-instance decisions and execution claims        | ARCH-001/002           |
-| SQL page/task records; UI idempotency does not cover game effects | Task replay contract and real-game receipts                  | ARCH-014/015, GAME-001 |
-| Scope validation; dual DB-name sources                            | Binding-driven routing and pool budgets                      | ARCH-006/009/010       |
-| Drain stops new routing, waits in-flight; blocking shutdown order | Resource-release exercises over the drain and shutdown paths | ARCH-017–018           |
-| SSH foundations; missing console relay                            | Relay and playback UI; no automatic RDP/VNC expansion        | AGENT-002/003          |
-| SLP/protocol skeleton and plugin runtime                          | Real-account login-level acceptance                          | PROBE-001–003          |
+| Implemented / limitation                                          | Target or unverified work                                            | TODO                   |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------- |
+| One-hop owner routing / epochs; partial standalone fallback       | Authenticated interconnect, readiness and lease-loss removal         | ARCH-003–005           |
+| Memory approvals; SQLStore not wired                              | Durable cross-instance decisions and execution claims                | ARCH-001/002           |
+| SQL page/task records; UI idempotency does not cover game effects | Task replay contract and real-game receipts                          | ARCH-014/015, GAME-001 |
+| Scope validation; dual DB-name sources                            | Binding-driven routing and pool budgets                              | ARCH-006/009/010       |
+| Drain stops new routing, waits in-flight; shutdown bounded        | Resource-release and SIGTERM drill over the drain and shutdown paths | ARCH-018               |
+| SSH foundations; missing console relay                            | Relay and playback UI; no automatic RDP/VNC expansion                | AGENT-002/003          |
+| SLP/protocol skeleton and plugin runtime                          | Real-account login-level acceptance                                  | PROBE-001–003          |
 
 ## Official references and version boundaries
 
