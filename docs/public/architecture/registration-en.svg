@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1652" viewBox="0 0 1200 1652" role="img" aria-labelledby="title desc"><title id="title">Startup, registration and reconnect</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="1652" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">Startup, registration and reconnect</text>
+<text x="30" y="78" class="small" text-anchor="start">Time ↓ · Dashed lifelines · Choose one ALT branch · Crossings do not join</text>
+<g data-node="Game SDK"><rect x="65" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="81" y="135" class="head" text-anchor="start">Game SDK</text>
+</g>
+<path d="M180 170 V1587" class="life"/>
+<g data-node="Agent host"><rect x="345" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="361" y="135" class="head" text-anchor="start">Agent host</text>
+</g>
+<path d="M460 170 V1587" class="life"/>
+<g data-node="Server / owner"><rect x="625" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="641" y="135" class="head" text-anchor="start">Server / owner</text>
+</g>
+<path d="M740 170 V1587" class="life"/>
+<g data-node="DB / coordination"><rect x="905" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="921" y="135" class="head" text-anchor="start">DB / coordination</text>
+</g>
+<path d="M1020 170 V1587" class="life"/>
+<g data-node="Preconditions"><rect x="50" y="195" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="225" class="head" text-anchor="start">Preconditions</text>
+<text x="66" y="253" class="" text-anchor="start">Validate configuration/scope; Server wires DB/resolver/optional cluster before listeners</text>
+</g>
+<text x="600" y="335" class="message" text-anchor="middle">02 · Agent dials TCP/TLS → Register(scope / functions / Providers)</text>
+<path d="M460 361 H740" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="451" class="message" text-anchor="middle">03 · Validate session identity; update registry / agent_sessions / optional owner</text>
+<path d="M740 477 H1020" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="567" class="message" text-anchor="middle">04 · Register ACK(sessionId / owner); failure closes connection and retries</text>
+<path d="M740 593 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="683" class="message" text-anchor="middle">05 · SDK initiates Connect(serviceId / descriptors), possibly after Agent registration</text>
+<path d="M180 709 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="799" class="message" text-anchor="middle">06 · Connect ACK(sessionId); local Provider becomes routable</text>
+<path d="M460 825 H180" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="915" class="message" text-anchor="middle">07 · Snapshot changes → debounced Register update; not command replay</text>
+<path d="M460 941 H740" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="1031" class="message" text-anchor="middle">08 · Periodic Heartbeat(owner) → Server refreshes expiry and acknowledges</text>
+<path d="M460 1057 H740" class="edge control" marker-end="url(#control)"/>
+<rect x="40" y="1115" width="1120" height="224" rx="12" fill="#faf5f5" stroke="#976a3d" stroke-width="2"/>
+<text x="600" y="1230" class="small" text-anchor="middle">OR · choose one branch</text>
+<g data-node="ALT · Connection healthy"><rect x="50" y="1123" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1153" class="head" text-anchor="start">ALT · Connection healthy</text>
+<text x="66" y="1181" class="" text-anchor="start">Continue heartbeat/config sync; skip the reconnect branch</text>
+</g>
+<g data-node="ALT · Disconnect / repeated heartbeat failure"><rect x="50" y="1239" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1269" class="head" text-anchor="start">ALT · Disconnect / repeated heartbeat failure</text>
+<text x="66" y="1297" class="" text-anchor="start">Close old connection → reconnect/full registration; no in-flight command restoration</text>
+</g>
+<text x="600" y="1379" class="message" text-anchor="middle">11 · Disconnect branch only: remove old session conditionally by agentID + sessionID</text>
+<path d="M740 1397 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
+<g data-node="Termination"><rect x="50" y="1471" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="1501" class="head" text-anchor="start">Termination</text>
+<text x="66" y="1529" class="" text-anchor="start">Stop/context cancellation ends loops and closes connections; SDK recovery varies by language</text>
+</g>
+<text x="30" y="1627" class="small" text-anchor="start">End: guarantees stop at this boundary; see text for recovery/drain gaps</text>
+</svg>

@@ -47,6 +47,8 @@ The console uses HTTP/SSE. Agents establish outbound TCP sessions; SDKs connect 
 
 <ArchitectureDiagram lang="en" />
 
+[Runtime connections and lifecycles / 逐条连接与生命周期](/architecture/runtime-topology)
+
 [Explore the current architecture, state ownership and limitations →](/architecture/)
 
 > TLS is configuration-dependent and disabled in development templates. Cluster interconnect relies on trusted network isolation; production approval wiring still uses memory storage. HA routing does not imply HA for every business state.

@@ -12,6 +12,8 @@ tag:
 
 # Session 生命周期
 
+> **状态：目标生命周期模型，非完整实现保证（2026-10-29）**。ProviderDrain 当前仅日志与空 ACK，未摘流/等待在途；停机与任务重放仍有缺口。[运行证据与时序图](./runtime-topology) 区分现状与目标。
+
 本文档定义 Croupier `shared session runtime` 的最小生命周期模型，重点统一：
 
 - session 状态

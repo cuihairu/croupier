@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1420" viewBox="0 0 1200 1420" role="img" aria-labelledby="title desc"><title id="title">Governed synchronous invocation</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
+<marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
+<marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
+</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>
+<rect width="1200" height="1420" fill="#f8fafc"/>
+<text x="30" y="45" class="title" text-anchor="start">Governed synchronous invocation</text>
+<text x="30" y="78" class="small" text-anchor="start">Time ↓ · Dashed lifelines · Choose one ALT branch · Crossings do not join</text>
+<g data-node="Operator client"><rect x="65" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="81" y="135" class="head" text-anchor="start">Operator client</text>
+</g>
+<path d="M180 170 V1355" class="life"/>
+<g data-node="Server / governance"><rect x="345" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="361" y="135" class="head" text-anchor="start">Server / governance</text>
+</g>
+<path d="M460 170 V1355" class="life"/>
+<g data-node="sidecar"><rect x="625" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="641" y="135" class="head" text-anchor="start">sidecar</text>
+</g>
+<path d="M740 170 V1355" class="life"/>
+<g data-node="Game SDK"><rect x="905" y="105" width="230" height="65" rx="10" fill="#fff" stroke="#aebdce"/>
+<text x="921" y="135" class="head" text-anchor="start">Game SDK</text>
+</g>
+<path d="M1020 170 V1355" class="life"/>
+<g data-node="Preconditions"><rect x="50" y="195" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="225" class="head" text-anchor="start">Preconditions</text>
+<text x="66" y="253" class="" text-anchor="start">Authenticated scope and valid binding; Agent/Provider online</text>
+</g>
+<text x="600" y="335" class="message" text-anchor="middle">02 · HTTP binding execute → snapshot, input-contract, policy and authorization gates</text>
+<path d="M180 361 H460" class="edge control" marker-end="url(#control)"/>
+<rect x="40" y="419" width="1120" height="224" rx="12" fill="#faf5f5" stroke="#976a3d" stroke-width="2"/>
+<text x="600" y="534" class="small" text-anchor="middle">OR · choose one branch</text>
+<g data-node="ALT · Reject / approval required: request ends"><rect x="50" y="427" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="457" class="head" text-anchor="start">ALT · Reject / approval required: request ends</text>
+<text x="66" y="485" class="" text-anchor="start">Return rejection or approval ID, no dispatch; approval continuation revalidates</text>
+</g>
+<g data-node="ALT · Synchronous execution permitted"><rect x="50" y="543" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="573" class="head" text-anchor="start">ALT · Synchronous execution permitted</text>
+<text x="66" y="601" class="" text-anchor="start">Only the permitted branch continues; task mode has a separate sequence diagram</text>
+</g>
+<text x="600" y="683" class="message" text-anchor="middle">05 · Local session or one-hop owner → Invoke</text>
+<path d="M460 709 H740" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="799" class="message" text-anchor="middle">06 · Provider Invoke(JSON); plugin/built-in routes select their own executor</text>
+<path d="M740 825 H1020" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="915" class="message" text-anchor="middle">07 · Return result/error; timeout can mean unknown outcome</text>
+<path d="M1020 941 H740" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="1031" class="message" text-anchor="middle">08 · InvokeResponse / error returns over the existing session</text>
+<path d="M740 1057 H460" class="edge control" marker-end="url(#control)"/>
+<text x="600" y="1147" class="message" text-anchor="middle">09 · Path-dependent audit → HTTP result / error</text>
+<path d="M460 1173 H180" class="edge control" marker-end="url(#control)"/>
+<g data-node="Termination and idempotency"><rect x="50" y="1239" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
+<text x="66" y="1269" class="head" text-anchor="start">Termination and idempotency</text>
+<text x="66" y="1297" class="" text-anchor="start">HTTP completion does not imply safe side-effect retry; unknown outcomes require game receipts</text>
+</g>
+<text x="30" y="1395" class="small" text-anchor="start">End: guarantees stop at this boundary; see text for recovery/drain gaps</text>
+</svg>

@@ -102,7 +102,9 @@ If you encounter a type error, fix it by:
 
 ## Architecture Overview
 
-Croupier implements a **three-tier distributed GM backend system**:
+Source status reviewed 2026-10-29: [runtime evidence](docs/architecture/runtime-topology.md) distinguishes implemented wiring from targets. High-risk production readiness is not established: task/schedule governance, policy-failure handling and schedule pre-dispatch claims remain open (ARCH-023–027). See docs/review/code-todo-alignment-2026-10-29.md.
+
+These are logical concerns, not three deployed services:
 
 1. **Permission Control Layer** - RBAC/ABAC system independent of game logic
 2. **Game Control Layer** - Function registration-driven game operations
@@ -112,30 +114,33 @@ Croupier implements a **three-tier distributed GM backend system**:
 
 **Server** (`internal/server/`)
 
-- Central control plane with HTTP REST (18780) + self-built TCP transport (19090, agent/SDK connection entry); **gRPC is not used**, see docs/architecture/transport-no-grpc.md
-- Two main services: `ControlService` (agent registration) and `FunctionService` (invocation routing)
+- One modular Server with HTTP REST (18780) and Agent control TCP (19090). SDK Providers dial sidecar (19091). These links use custom TCP/protobuf; plugin children separately use local go-plugin gRPC.
+- ControlService handles registration; internal/platform/functioninvoke and dispatch govern/route execution inside Server. Approvals currently use MemStore; cluster interconnect is plaintext TCP, not mTLS.
 - Features: load balancing, RBAC, audit chain, approval workflows, multi-game scoping, HA multi-instance (cluster member table + owner forwarding)
 
-**Agent** (`internal/agent/`)
+**Agents** (`agents/`, `internal/app/agent`, `cmd/*-agent`)
 
 - Distributed proxy in game networks, outbound TCP connection (self-built transport/tcp, length-prefix framing + protobuf) to Server
-- Local TCP listener (19091) for game server function registration
+- sidecar-only local TCP listener (19091) for game server function registration
 - Bidirectional tunnel support for request/response multiplexing
-- Job execution with async streaming, idempotency, cancellation
+- sidecar task execution/cancellation exists; durable duplicate-Start protection and event replay are incomplete. ProviderDrain logs/ACKs without draining. capture/synthetics/devops are separate roles; devops console relay remains incomplete.
 
 ### Data Flow Pattern
 
 ```
-Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
+Web UI → optional nginx L7 → Server HTTP
+Agent → optional HAProxy L4 → Server control (Agent dials)
+Game process + SDK → sidecar provider (SDK dials)
+Server → Agent → SDK requests reuse these bidirectional sessions
 ```
 
 ## Key Development Patterns
 
 **Protocol-First Development:**
 
-- All APIs defined in `proto/` using Buf toolchain
+- Session messages are defined in proto/; REST handlers/contracts are implemented in internal/api/
 - Custom protoc plugin (`protoc-gen-croupier`) generates pack artifacts
-- Generated code in `gen/` (ignored in git)
+- Go protobuf output is committed under pkg/pb/; use scripts/gen-proto.sh
 
 **CRITICAL: Protobuf Code Generation**
 
@@ -158,15 +163,13 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 
 **Idempotency & Task Model:**
 
-- All operations support `idempotency-key` to prevent duplicate side effects
+- Page execution has DB idempotency records; this does not guarantee exactly-once game side effects or durable task replay. Game-side receipts/deduplication need a separate contract.
 - Async tasks with event streaming (progress/logs/done/error)
 - Task cancellation via `CancelTask` RPC
 
 **Build Tags for Features:**
 
-- `pg` tag: PostgreSQL support for approvals
-- `sqlite` tag: SQLite approvals store
-- Enables flexible deployment options
+- `no_go_plugin` trims local plugin hosting. SQLStore existence does not mean approvals are wired to durable storage; inspect ServiceContext and actual build constraints.
 
 ## Project Structure Essentials
 
@@ -177,13 +180,13 @@ internal/server/          # Server business logic (control, function, http, regi
 internal/agent/           # Agent logic (tunnel, local server, jobs)
 internal/security/          # RBAC, JWT, TOTP, identity providers (local/LDAP/OIDC)
 internal/api/               # REST API handlers (auth, admin, role, permission, approval, audit, ...)
-internal/function/          # Descriptor loading and validation
-internal/jobs/            # Job state machine and execution
-internal/loadbalancer/    # Load balancing strategies (RR, consistent hash, least conn)
+core/                     # Shared packages, explicitly composed by roles
+agents/sidecar/           # Provider sessions and task execution
+internal/platform/dispatch/ # Scoped selection, task routing and owner forwarding
 sdks/                     # Multi-language SDKs (go, python, java, js, cpp, csharp)
                           # Feature matrix: sdks/SDK_FEATURE_MATRIX.md (single source of truth)
                           # Wire protocol: docs/architecture/sdk-wire-protocol.md
-web/                      # Frontend submodule (Umi Max + Ant Design)
+web/ and mobile/          # Operator clients (Umi/React and Flutter)
 configs/                  # Configuration templates and examples
 examples/                 # Demo game servers and invokers
 ```
@@ -201,7 +204,7 @@ examples/                 # Demo game servers and invokers
 
 - Croupier is not a SaaS multi-tenant platform; it assumes one game company with multiple games
 - All operations are scoped by `game_id`/`env` for game/environment isolation
-- Registry indexed by `(game_id, function_id)` for function routing
+- Routing validates gameId + env and candidate sessions; DB snapshots do not replace live connections
 - HTTP headers `X-Game-ID`/`X-Env` propagated through call chain
 
 **Database-per-Game Architecture:**
@@ -212,7 +215,7 @@ examples/                 # Demo game servers and invokers
 - `internal/db/dbctx` carries the per-request DB override via `context.Context`; game-scoped models call `dbctx.Resolve(ctx, m.db)` to pick the right connection
 - `svc.GameDBMiddleware` resolves the game DB from `X-Game-ID`/`X-Env` headers and injects it into the request context
 - Game-scoped models (Player, Function, Ticket, Analytics, Task, ConfigVersion, etc.) live in per-game databases; meta models (Admin, Game, Role, Audit, Extension) stay in the meta DB
-- The `game_envs` table (`model.GameEnvBinding`) stores `(game_id, env, database_name)` routing records
+- The game_envs binding and calculated physical DB name currently have separate sources; legacy/custom mappings require verification (ARCH-006)
 - When `multiGame: false` (default for dev/CI), all tables coexist in a single database with `game_id` columns for row-level isolation
 
 **Load Balancing Abstraction:**
@@ -226,7 +229,7 @@ examples/                 # Demo game servers and invokers
 Unit tests focus on:
 
 - RBAC policy grant/deny logic (`internal/security/rbac/`)
-- Job executor state transitions and idempotency (`internal/agent/jobs/`)
+- Task states and cancellation (`agents/sidecar/task_runner.go`)
 - Sensitive field masking (`internal/api/` response helpers)
 - Pack import/export workflows
 - Registry agent session management

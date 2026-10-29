@@ -4,11 +4,13 @@ title: Current architecture
 
 # Current architecture
 
-Croupier is a game operations control plane for one company with multiple games and environments. The implementation combines a **modular Server, outbound Agents with distinct roles, and game SDKs**, plus a separate analytics pipeline. This overview follows source wiring reviewed on 2026-10-28; design goals are not implied runtime guarantees.
+> **Game-operations re-review, 2026-10-29:** unified sessions do not imply unified governance. Raw task entry has partial gates; scheduled/manual-trigger execution goes directly to Dispatcher. Policy/schema lookup failures can skip checks, and writing the unique schedule log after dispatch does not prevent duplicate execution. ARCH-023–027 in the root TODO track these gaps; evidence is in `docs/review/code-todo-alignment-2026-10-29.md`. Production stability for high-risk game writes is not established.
+
+Croupier is a game operations control plane for one company with multiple games and environments. The implementation combines a **modular Server, outbound Agents with distinct roles, and game SDKs**, plus a separate analytics pipeline. This overview follows source wiring reviewed on 2026-10-29; design goals are not implied runtime guarantees.
 
 ## System diagram
 
-Arrows identify the labeled flow or connection initiator. Agents dial the Server and SDKs dial the sidecar; established sessions carry requests and results in both directions. Dashed edges are optional cluster coordination. L7/L4 proxies are deployment options; a single instance may be reached directly.
+Arrows identify the labeled flow or connection initiator. Agents dial the Server and SDKs dial the sidecar; established sessions carry requests and results in both directions. Dashed edges are optional connections, including cluster coordination. L7/L4 proxies are deployment options; a single instance may be reached directly.
 
 <ArchitectureDiagram lang="en" />
 
@@ -20,7 +22,7 @@ Arrows identify the labeled flow or connection initiator. Agents dial the Server
 | Server                    | Gin API, identity, scope, policy, approvals, audit, contracts, pages, registry/dispatch and Ops | One modular deployment unit                                                                  |
 | sidecar-agent             | SDK provider sessions, game function dispatch, tasks and managed process/plugin wiring          | Built as croupier-agent; some wiring remains in internal/app/agent                           |
 | capture-agent             | Database change capture, checkpoints, filtering and rules                                       | Separate from SDK function routing                                                           |
-| synthetics-agent          | External HTTP probes, results and probe plugins                                                 | Role-specific application lifecycle                                                          |
+| synthetics-agent          | Role-specific probes, results and probe plugins                                                 | Role-specific application lifecycle                                                          |
 | devops-agent              | Registration, allowlist sync, Broker/Hub session foundations                                    | Console-to-Agent relay is incomplete; RDP/VNC unavailable                                    |
 | ingest / analytics-worker | Event publishing, consumption and ClickHouse aggregation                                        | Built-in worker consumes Redis Streams; Kafka publishing alone is not an end-to-end pipeline |
 
@@ -87,3 +89,7 @@ Single-database mode still validates scope. multiGame separates metadata from se
 - [Agent roles](../operations/agent-comparison)
 - [Analytics](../analytics/)
 - [Quick start](../guide/quick-start)
+
+## Runtime evidence and lifecycles
+
+[Process inventory, connection matrix, lifecycle SVGs, deployment failures and official-reference checks](./runtime-topology). Diagrams show current wiring; durable approvals, interconnect mTLS, Provider draining and reliable task replay remain follow-up work.

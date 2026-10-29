@@ -4,6 +4,8 @@ title: Analytics overview
 
 # Analytics overview
 
+> **Product boundary/status correction, 2026-10-29:** built-in shared core operations metrics, external professional analytics. Existing screens/models/pipelines are not end-to-end metric acceptance. Retention computation, source consistency and aggregate semantics still have gaps. See [scope, source evidence and delivery plan](./core-and-external). Metric groups below are a catalog, not a statement that all are implemented.
+
 The analytics stack supports game behavior, retention, revenue, and warehouse reporting. Queries converge in the Analytics console; ingestion and storage are intentionally separated from the control plane.
 
 ## Pipelines
