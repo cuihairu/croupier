@@ -153,6 +153,27 @@ describe('D2 跨目标总量（纯函数）', () => {
     expect(describeConfirmEntries(COIN_FORM, { coins: '' }, { targetCount: 3 })).toHaveLength(1);
     expect(describeConfirmEntries(COIN_FORM, { coins: 'abc' }, { targetCount: 3 })).toHaveLength(1);
   });
+
+  it('非整数每目标值：总量显示不用二进制浮点伪差', () => {
+    const entries = describeConfirmEntries(COIN_FORM, { coins: 0.1 }, { targetCount: 3 });
+    const total = entries.find((e) => e.key === 'coins__batchTotal')!;
+    expect(total.value).toBe('0.3');
+    expect(total.value).not.toBe('0.30000000000000004');
+  });
+
+  it('多 per-target 字段：总量紧跟各自字段，不统一追加尾部', () => {
+    const multi: FormPresentationSpec = {
+      jsonSchema: { type: 'object', properties: { a: { type: 'number' }, b: { type: 'number' } } },
+      fields: [
+        { key: 'a', label: { 'zh-CN': 'A' }, perTarget: true },
+        { key: 'b', label: { 'zh-CN': 'B' }, perTarget: true },
+      ],
+    };
+    const entries = describeConfirmEntries(multi, { a: 2, b: 3 }, { targetCount: 2 });
+    expect(entries.map((e) => e.key)).toEqual(['a', 'a__batchTotal', 'b', 'b__batchTotal']);
+    expect(entries.find((e) => e.key === 'a__batchTotal')!.value).toBe('4');
+    expect(entries.find((e) => e.key === 'b__batchTotal')!.value).toBe('6');
+  });
 });
 
 describe('D2 跨目标总量（批量确认闭环）', () => {

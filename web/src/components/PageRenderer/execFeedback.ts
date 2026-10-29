@@ -84,6 +84,7 @@ export function describePermissionReason(code: string, details: unknown): string
 export function describeExecFailure(err: unknown): ExecFailure {
   const body = errorBody(err);
   const code = extractApiErrorCode(err);
+  const reason = describePermissionReason(code, body?.details);
   const message =
     typeof body?.message === 'string' && body.message
       ? body.message
@@ -93,8 +94,8 @@ export function describeExecFailure(err: unknown): ExecFailure {
   return {
     code,
     message,
-    reason: describePermissionReason(code, body?.details),
-    fieldErrors: describePermissionReason(code, body?.details) ? [] : fieldErrorsOf(body?.details),
+    reason,
+    fieldErrors: reason ? [] : fieldErrorsOf(body?.details),
     // 传输层失败（超时/网络中断）结果未知：可能已在服务端执行，不能按
     // 「已失败」提示盲目重试（D4 只在幂等保证或确认未执行时安全重试）。
     outcome: isResultUnknownError(err) ? 'unknown' : 'failed',

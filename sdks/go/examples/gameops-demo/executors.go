@@ -477,6 +477,12 @@ func (s *gameOpsStore) reportGenerate(ctx context.Context, payload []byte) ([]by
 	}
 	// Delay first so a cancelled task never records a run (the observable
 	// result-unknown window is the time between StartTask and completion).
+	// Check cancellation up front: with delayMs=0 the timer is already ready and
+	// a select between ctx.Done() and timer.C is random, so a pre-cancelled
+	// context could otherwise take the timer branch and record a run.
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("report_generate_cancelled: %w", err)
+	}
 	timer := time.NewTimer(time.Duration(delayMs) * time.Millisecond)
 	select {
 	case <-ctx.Done():

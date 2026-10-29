@@ -92,13 +92,22 @@ function batchTotalEntry(
         ? Number(rawValue)
         : NaN;
   if (!Number.isFinite(num)) return null;
+  // Use decimal arithmetic for the displayed total: a JavaScript binary float
+  // can surface 0.30000000000000004 for 0.1 × 3 and leak into the UI.
+  const valueText = formatNumberForDisplay(num * targetCount);
   return {
     key: `${key}__batchTotal`,
     title: `${confirmFieldTitle(field, key)}${totalSuffix}`,
-    value: String(num * targetCount),
+    value: valueText,
     role: field.role,
     unit: field.unit,
   };
+}
+
+function formatNumberForDisplay(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  if (Number.isInteger(value)) return String(value);
+  return String(Number(value.toPrecision(12)));
 }
 
 /** 确认框条目：params 按表单字段声明序排列（未在表单声明的参数按原序追加）。
@@ -130,17 +139,17 @@ export function describeConfirmEntries(
         (order.get(b.key) ?? Number.MAX_SAFE_INTEGER),
     );
   }
-  if (targetCount > 1) {
-    for (const [key, value] of Object.entries(params ?? {})) {
-      const total = batchTotalEntry(
-        spec?.fields?.find((f) => f.key === key),
-        key,
-        value,
-        targetCount,
-        totalSuffix,
-      );
-      if (total) ordered = [...ordered, total];
-    }
-  }
+  // Keep each total adjacent to its source field instead of appending all
+  // totals after the sorted params (which breaks multi-field declaration order).
+  ordered = ordered.flatMap((entry) => {
+    const total = batchTotalEntry(
+      spec?.fields?.find((f) => f.key === entry.key),
+      entry.key,
+      params?.[entry.key],
+      targetCount,
+      totalSuffix,
+    );
+    return total ? [entry, total] : [entry];
+  });
   return ordered;
 }
