@@ -342,23 +342,26 @@ func TestEnsurePaymentBatch_NewBatch(t *testing.T) {
 func TestAppendEventRow_Normal(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 500
-	err := w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
+	err := w.appendEventRow(context.Background(), "m1", "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if w.eventBatchRows != 1 {
 		t.Errorf("expected eventBatchRows=1, got %d", w.eventBatchRows)
 	}
+	if len(w.eventPendingAck) != 1 || w.eventPendingAck[0] != "m1" {
+		t.Errorf("expected pendingAck=[m1], got %v", w.eventPendingAck)
+	}
 }
 
 func TestAppendEventRow_BatchFull(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 2
-	err := w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
+	err := w.appendEventRow(context.Background(), "m1", "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error on first row: %v", err)
 	}
-	err = w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u2", "s2", "evt2", "ch", "pl", "cn", "1.0", "eid2", "{}")
+	err = w.appendEventRow(context.Background(), "m2", "2025-01-01", "g1", "e1", "u2", "s2", "evt2", "ch", "pl", "cn", "1.0", "eid2", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error on second row: %v", err)
 	}
@@ -368,12 +371,15 @@ func TestAppendEventRow_BatchFull(t *testing.T) {
 	if w.eventBatchRows != 0 {
 		t.Errorf("expected eventBatchRows=0 after flush, got %d", w.eventBatchRows)
 	}
+	if len(w.eventPendingAck) != 0 {
+		t.Errorf("expected pendingAck empty after auto-flush, got %v", w.eventPendingAck)
+	}
 }
 
 func TestAppendEventRow_BatchSizeZero(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 0
-	err := w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
+	err := w.appendEventRow(context.Background(), "m1", "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -385,23 +391,26 @@ func TestAppendEventRow_BatchSizeZero(t *testing.T) {
 func TestAppendPaymentRow_Normal(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 500
-	err := w.appendPaymentRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
+	err := w.appendPaymentRow(context.Background(), "pm1", "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if w.paymentBatchRows != 1 {
 		t.Errorf("expected paymentBatchRows=1, got %d", w.paymentBatchRows)
 	}
+	if len(w.paymentPendingAck) != 1 || w.paymentPendingAck[0] != "pm1" {
+		t.Errorf("expected paymentPendingAck=[pm1], got %v", w.paymentPendingAck)
+	}
 }
 
 func TestAppendPaymentRow_BatchFull(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 2
-	err := w.appendPaymentRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
+	err := w.appendPaymentRow(context.Background(), "pm1", "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	err = w.appendPaymentRow(context.Background(), "2025-01-01", "g1", "e1", "u2", "o2", uint64(200), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
+	err = w.appendPaymentRow(context.Background(), "pm2", "2025-01-01", "g1", "e1", "u2", "o2", uint64(200), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -418,6 +427,7 @@ func TestFlushEventBatch_SendError(t *testing.T) {
 	mock := &mockBatch{sendErr: fmt.Errorf("send failed")}
 	w.eventBatch = mock
 	w.eventBatchRows = 1
+	w.eventPendingAck = []string{"m1"}
 
 	err := w.flushEventBatch(context.Background())
 	if err == nil {
@@ -426,9 +436,16 @@ func TestFlushEventBatch_SendError(t *testing.T) {
 	if err.Error() != "send failed" {
 		t.Errorf("unexpected error: %v", err)
 	}
-	// Batch is preserved on error for retry
-	if w.eventBatch == nil {
-		t.Error("expected eventBatch to be preserved after error for retry")
+	// Send 失败后 batch 不可复用，重置丢弃；消息留在 Redis PEL（未 ACK）
+	// 由 reclaim 重投——不再保留旧 batch（旧语义保留坏 batch 会重复/损坏）。
+	if w.eventBatch != nil {
+		t.Error("expected eventBatch to be reset after send error")
+	}
+	if w.eventBatchRows != 0 {
+		t.Errorf("expected eventBatchRows=0 after send error, got %d", w.eventBatchRows)
+	}
+	if len(w.eventPendingAck) != 0 {
+		t.Errorf("expected pendingAck cleared after send error, got %v", w.eventPendingAck)
 	}
 }
 
@@ -437,14 +454,18 @@ func TestFlushPaymentBatch_SendError(t *testing.T) {
 	mock := &mockBatch{sendErr: fmt.Errorf("send failed")}
 	w.paymentBatch = mock
 	w.paymentBatchRows = 1
+	w.paymentPendingAck = []string{"pm1"}
 
 	err := w.flushPaymentBatch(context.Background())
 	if err == nil {
 		t.Fatal("expected error from send")
 	}
-	// Batch is preserved on error for retry
-	if w.paymentBatch == nil {
-		t.Error("expected paymentBatch to be nil after error")
+	// 同事件侧：Send 失败重置 batch 与 pendingAck，消息留在 PEL 等重投。
+	if w.paymentBatch != nil {
+		t.Error("expected paymentBatch to be reset after send error")
+	}
+	if len(w.paymentPendingAck) != 0 {
+		t.Errorf("expected paymentPendingAck cleared after send error, got %v", w.paymentPendingAck)
 	}
 }
 
@@ -819,27 +840,41 @@ func TestProcessMessage_ValidEvent(t *testing.T) {
 	}
 	data, _ := json.Marshal(eventData)
 
-	id := w.rdb.XAdd(context.Background(), &redis.XAddArgs{
-		Stream: "analytics:events",
-		Values: map[string]any{"data": string(data)},
-	}).Val()
-
+	// 投递到 consumer（进入 PEL），使「未 ACK」可观测。
+	id := readIntoPending(t, w, "analytics:events", string(data))
 	msg := redis.XMessage{ID: id, Values: map[string]any{"data": data}}
 	err := w.processMessage(context.Background(), "analytics:events", msg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// ARCH-011 延迟 ACK：processMessage 成功后行在 batch 中尚未 Send，
+	// 消息必须仍 pending（未 ACK）——旧实现此处即 ACK，存在 Append 未
+	// Send 即 ACK 的丢失窗口。
 	pending, _ := w.rdb.XPendingExt(context.Background(), &redis.XPendingExtArgs{
 		Stream: "analytics:events", Group: "analytics-worker",
 		Start: "-", End: "+", Count: 100,
 	}).Result()
-	if len(pending) != 0 {
-		t.Errorf("expected 0 pending, got %d", len(pending))
+	if len(pending) != 1 {
+		t.Fatalf("expected 1 pending (deferred ack), got %d", len(pending))
+	}
+	if w.lastIDs["analytics:events"] == id {
+		t.Error("lastID must not advance before the batch is durably sent")
 	}
 
+	// flush 落库成功后统一 ACK，消息离开 PEL，检查点推进。
+	if err := w.flushBatches(context.Background()); err != nil {
+		t.Fatalf("unexpected flush error: %v", err)
+	}
+	pending, _ = w.rdb.XPendingExt(context.Background(), &redis.XPendingExtArgs{
+		Stream: "analytics:events", Group: "analytics-worker",
+		Start: "-", End: "+", Count: 100,
+	}).Result()
+	if len(pending) != 0 {
+		t.Errorf("expected 0 pending after flush, got %d", len(pending))
+	}
 	if w.lastIDs["analytics:events"] != id {
-		t.Errorf("expected lastID=%s, got %s", id, w.lastIDs["analytics:events"])
+		t.Errorf("expected lastID=%s after flush, got %s", id, w.lastIDs["analytics:events"])
 	}
 
 	if len(w.touchedDays) == 0 {
@@ -983,6 +1018,144 @@ func TestProcessMessage_PaymentMaxRetries(t *testing.T) {
 	dlLen := w.rdb.XLen(context.Background(), "analytics:payments:dead").Val()
 	if dlLen != 1 {
 		t.Errorf("expected 1 dead letter, got %d", dlLen)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ARCH-011 regression: 批量 Append 未 Send 即 ACK 的丢失窗口 + 重入队/死信错误未核对
+// ---------------------------------------------------------------------------
+
+// xaddFailClient 注入 XAdd 故障（用于覆盖「重入队 XAdd 失败不 ACK」路径）。
+type xaddFailClient struct {
+	redis.Cmdable
+}
+
+func (c *xaddFailClient) XAdd(ctx context.Context, a *redis.XAddArgs) *redis.StringCmd {
+	return redis.NewStringResult("", fmt.Errorf("injected xadd failure"))
+}
+
+// readIntoPending 投一条消息进流并让组投递到 consumer，使其进入 PEL（pending）。
+func readIntoPending(t *testing.T, w *Worker, stream, data string) string {
+	t.Helper()
+	w.rdb.XGroupCreateMkStream(context.Background(), stream, w.group, "$")
+	id := w.rdb.XAdd(context.Background(), &redis.XAddArgs{
+		Stream: stream, Values: map[string]any{"data": data},
+	}).Val()
+	res, err := w.rdb.XReadGroup(context.Background(), &redis.XReadGroupArgs{
+		Group: w.group, Consumer: w.consumer,
+		Streams: []string{stream, ">"}, Count: 1,
+	}).Result()
+	if err != nil || len(res) != 1 || len(res[0].Messages) != 1 {
+		t.Fatalf("read into pending failed: res=%v err=%v", res, err)
+	}
+	return id
+}
+
+func pendingCount(t *testing.T, w *Worker, stream string) int64 {
+	t.Helper()
+	pending, err := w.rdb.XPendingExt(context.Background(), &redis.XPendingExtArgs{
+		Stream: stream, Group: w.group, Start: "-", End: "+", Count: 100,
+	}).Result()
+	if err != nil {
+		t.Fatalf("xpending: %v", err)
+	}
+	return int64(len(pending))
+}
+
+// TestProcessMessage_AutoFlushAcksDeferredBatch：batch 满自动 Send 成功后，
+// 该批所有延迟 ACK 的消息统一 ACK（含触发自动 flush 的最后一条）。
+func TestProcessMessage_AutoFlushAcksDeferredBatch(t *testing.T) {
+	w, _ := testWorker(t)
+	w.clickBatchSize = 2
+
+	valid := func(uid string) []byte {
+		d, _ := json.Marshal(map[string]any{
+			"ts": "2025-06-15T10:30:00Z", "game_id": "g1", "env": "prod",
+			"user_id": uid, "event": "login",
+		})
+		return d
+	}
+	id1 := readIntoPending(t, w, "analytics:events", string(valid("u1")))
+	if err := w.processMessage(context.Background(), "analytics:events", redis.XMessage{ID: id1, Values: map[string]any{"data": valid("u1")}}); err != nil {
+		t.Fatalf("msg1: %v", err)
+	}
+	if got := pendingCount(t, w, "analytics:events"); got != 1 {
+		t.Fatalf("after msg1: want 1 pending (deferred), got %d", got)
+	}
+
+	// 第二条触发自动 flush（Send 成功）→ 两条一起 ACK。
+	id2 := readIntoPending(t, w, "analytics:events", string(valid("u2")))
+	if err := w.processMessage(context.Background(), "analytics:events", redis.XMessage{ID: id2, Values: map[string]any{"data": valid("u2")}}); err != nil {
+		t.Fatalf("msg2: %v", err)
+	}
+	if got := pendingCount(t, w, "analytics:events"); got != 0 {
+		t.Fatalf("after auto-flush: want 0 pending (both acked), got %d", got)
+	}
+	if w.lastIDs["analytics:events"] != id2 {
+		t.Errorf("lastID should advance to the flushed batch's last id, got %q", w.lastIDs["analytics:events"])
+	}
+}
+
+// TestProcessMessage_RequeueFailureNoAck：重入队 XAdd 失败时，原消息不得 ACK
+// （否则静默丢失）；必须留在 PEL 由 reclaim 重投。
+func TestProcessMessage_RequeueFailureNoAck(t *testing.T) {
+	w, _ := testWorker(t)
+	w.clickBatchSize = 1 // 每次行触发 flush，Send 失败走重入队路径
+	getMockConn(t, w).batch = &mockBatch{sendErr: fmt.Errorf("ch error")}
+
+	d, _ := json.Marshal(map[string]any{
+		"ts": "2025-06-15T10:30:00Z", "game_id": "g1", "env": "prod",
+		"user_id": "u1", "event": "login",
+	})
+	id := readIntoPending(t, w, "analytics:events", string(d))
+	// 只对 XAdd 注入故障：XAck/XPending 仍走真实 miniredis，可观测 pending。
+	w.rdb = &xaddFailClient{Cmdable: w.rdb}
+	err := w.processMessage(context.Background(), "analytics:events", redis.XMessage{ID: id, Values: map[string]any{"data": d}})
+	if err == nil {
+		t.Fatal("expected non-nil error when requeue XAdd fails")
+	}
+	if got := pendingCount(t, w, "analytics:events"); got != 1 {
+		t.Fatalf("want 1 pending (message must NOT be acked), got %d", got)
+	}
+}
+
+// TestProcessMessage_DeadLetterFailureNoAck：死信写入失败时，原消息不得 ACK；
+// 留在 PEL 由 reclaim 重投（重投后可能再入死信，但绝不静默丢失）。
+func TestProcessMessage_DeadLetterFailureNoAck(t *testing.T) {
+	w, _ := testWorker(t)
+	// 把死信流键预置为错误类型 → sendToDeadLetter 的 XAdd 失败（WRONGTYPE）。
+	if err := w.rdb.Set(context.Background(), "analytics:events:dead", "not-a-stream", 0).Err(); err != nil {
+		t.Fatalf("seed dead stream: %v", err)
+	}
+	id := readIntoPending(t, w, "analytics:events", "not-json")
+	err := w.processMessage(context.Background(), "analytics:events", redis.XMessage{ID: id, Values: map[string]any{"data": []byte("not-json")}})
+	if err == nil {
+		t.Fatal("expected non-nil error when dead-letter write fails")
+	}
+	if got := pendingCount(t, w, "analytics:events"); got != 1 {
+		t.Fatalf("want 1 pending (message must NOT be acked), got %d", got)
+	}
+}
+
+// TestProcessMessage_DeadLetterFailureMaxRetries：最大重试后死信写入失败也不 ACK。
+func TestProcessMessage_DeadLetterFailureMaxRetries(t *testing.T) {
+	w, _ := testWorker(t)
+	w.clickBatchSize = 1
+	getMockConn(t, w).batch = &mockBatch{sendErr: fmt.Errorf("ch error")}
+	if err := w.rdb.Set(context.Background(), "analytics:events:dead", "not-a-stream", 0).Err(); err != nil {
+		t.Fatalf("seed dead stream: %v", err)
+	}
+	d, _ := json.Marshal(map[string]any{
+		"ts": "2025-06-15T10:30:00Z", "game_id": "g1", "env": "prod",
+		"user_id": "u1", "event": "login", "retry_count": float64(maxPendingRetries),
+	})
+	id := readIntoPending(t, w, "analytics:events", string(d))
+	err := w.processMessage(context.Background(), "analytics:events", redis.XMessage{ID: id, Values: map[string]any{"data": d}})
+	if err == nil {
+		t.Fatal("expected non-nil error when max-retry dead-letter write fails")
+	}
+	if got := pendingCount(t, w, "analytics:events"); got != 1 {
+		t.Fatalf("want 1 pending (must NOT be acked on dead-letter failure), got %d", got)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
@@ -45,7 +46,9 @@ var pendingReclaimInterval = 30 * time.Second
 var runFlushInterval = 15 * time.Second
 
 type Worker struct {
-	rdb            *redis.Client
+	// rdb 声明为 Cmdable 接口而非 *redis.Client，供测试注入 XAdd 故障以覆盖
+	// 「重入队/死信写入失败」路径；生产侧赋值 *redis.Client 不变。
+	rdb            redis.Cmdable
 	ch             clickhouse.Conn
 	streamEvents   string
 	streamPayments string
@@ -56,11 +59,17 @@ type Worker struct {
 	touchedDays    map[string]struct{}
 	revAgg         map[string]*revRow
 	// batching
-	eventBatch       chdriver.Batch
-	eventBatchRows   int
-	paymentBatch     chdriver.Batch
-	paymentBatchRows int
-	clickBatchSize   int
+	// mu 串行化 batch/聚合/检查点状态的访问：主循环（processMessage 追加行）、
+	// 周期 flush（ticker 发送 batch、聚合回刷）与 reclaim goroutine（重投）并发
+	// 触碰同一批状态，缺少互斥会数据竞争。
+	mu                sync.Mutex
+	eventBatch        chdriver.Batch
+	eventBatchRows    int
+	eventPendingAck   []string // 已 Append 进 eventBatch、尚未随 Send 成功 ACK 的消息 ID
+	paymentBatch      chdriver.Batch
+	paymentBatchRows  int
+	paymentPendingAck []string // 已 Append 进 paymentBatch、尚未随 Send 成功 ACK 的消息 ID
+	clickBatchSize    int
 	// checkpoints
 	checkpointPrefix string
 	lastIDs          map[string]string
@@ -263,7 +272,7 @@ func normalizeTimestamp(raw string) string {
 	return trimmed
 }
 
-func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
+func (w *Worker) insertEvent(ctx context.Context, m map[string]any, msgID string) error {
 	// Minimal fields; props_json stays raw
 	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
@@ -282,10 +291,10 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
 		eid = uuid.NewString()
 	}
 	propsBytes, _ := json.Marshal(m["props"]) // may be nil
-	return w.appendEventRow(ctx, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
+	return w.appendEventRow(ctx, msgID, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
 }
 
-func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
+func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID string) error {
 	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
 	env := asString(m, "env")
@@ -301,7 +310,7 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
 	city := asString(m, "city")
 	product := asString(m, "product_id")
 	reason := asString(m, "reason")
-	return w.appendPaymentRow(ctx, ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason)
+	return w.appendPaymentRow(ctx, msgID, ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason)
 }
 
 func (w *Worker) ensureEventBatch(ctx context.Context) (chdriver.Batch, error) {
@@ -330,7 +339,16 @@ func (w *Worker) ensurePaymentBatch(ctx context.Context) (chdriver.Batch, error)
 	return batch, nil
 }
 
-func (w *Worker) appendEventRow(ctx context.Context, args ...any) error {
+// appendEventRow 追加一行事件到当前事件 batch（锁内）。
+// msgID 是来源 Redis 消息 ID：先记账（pendingAck），行随 batch Send 落库成功
+// 后才统一 ACK——Append 未 Send 期间消息留在 Redis PEL，进程崩溃不丢失。
+func (w *Worker) appendEventRow(ctx context.Context, msgID string, args ...any) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.appendEventRowLocked(ctx, msgID, args...)
+}
+
+func (w *Worker) appendEventRowLocked(ctx context.Context, msgID string, args ...any) error {
 	batch, err := w.ensureEventBatch(ctx)
 	if err != nil {
 		return err
@@ -339,13 +357,21 @@ func (w *Worker) appendEventRow(ctx context.Context, args ...any) error {
 		return err
 	}
 	w.eventBatchRows++
+	w.eventPendingAck = append(w.eventPendingAck, msgID)
 	if w.clickBatchSize > 0 && w.eventBatchRows >= w.clickBatchSize {
-		return w.flushEventBatch(ctx)
+		return w.flushEventBatchLocked(ctx)
 	}
 	return nil
 }
 
-func (w *Worker) appendPaymentRow(ctx context.Context, args ...any) error {
+// appendPaymentRow 同 appendEventRow，作用于支付 batch。
+func (w *Worker) appendPaymentRow(ctx context.Context, msgID string, args ...any) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.appendPaymentRowLocked(ctx, msgID, args...)
+}
+
+func (w *Worker) appendPaymentRowLocked(ctx context.Context, msgID string, args ...any) error {
 	batch, err := w.ensurePaymentBatch(ctx)
 	if err != nil {
 		return err
@@ -354,41 +380,89 @@ func (w *Worker) appendPaymentRow(ctx context.Context, args ...any) error {
 		return err
 	}
 	w.paymentBatchRows++
+	w.paymentPendingAck = append(w.paymentPendingAck, msgID)
 	if w.clickBatchSize > 0 && w.paymentBatchRows >= w.clickBatchSize {
-		return w.flushPaymentBatch(ctx)
+		return w.flushPaymentBatchLocked(ctx)
 	}
 	return nil
 }
 
 func (w *Worker) flushEventBatch(ctx context.Context) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.flushEventBatchLocked(ctx)
+}
+
+func (w *Worker) flushEventBatchLocked(ctx context.Context) error {
 	if w.eventBatch == nil || w.eventBatchRows == 0 {
 		return nil
 	}
 	if err := w.eventBatch.Send(); err != nil {
+		// Send 失败：batch 不可复用（clickhouse-go 语义），重置丢弃。
+		// 该批所有消息未被 ACK，留在 Redis PEL，由 reclaim 重投——
+		// 行丢失窗口消失，代价是 at-least-once 重复（去重策略见 ARCH-011 文档）。
+		w.eventBatch = nil
+		w.eventBatchRows = 0
+		w.eventPendingAck = nil
 		return err
 	}
+	ids := w.eventPendingAck
 	w.eventBatch = nil
 	w.eventBatchRows = 0
-	return nil
+	w.eventPendingAck = nil
+	return w.ackPendingLocked(ctx, w.streamEvents, ids)
 }
 
 func (w *Worker) flushPaymentBatch(ctx context.Context) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.flushPaymentBatchLocked(ctx)
+}
+
+func (w *Worker) flushPaymentBatchLocked(ctx context.Context) error {
 	if w.paymentBatch == nil || w.paymentBatchRows == 0 {
 		return nil
 	}
 	if err := w.paymentBatch.Send(); err != nil {
+		w.paymentBatch = nil
+		w.paymentBatchRows = 0
+		w.paymentPendingAck = nil
 		return err
 	}
+	ids := w.paymentPendingAck
 	w.paymentBatch = nil
 	w.paymentBatchRows = 0
+	w.paymentPendingAck = nil
+	return w.ackPendingLocked(ctx, w.streamPayments, ids)
+}
+
+// ackPendingLocked 在 batch Send 成功后统一 ACK 该批消息，并推进检查点到
+// 批内最后一条（检查点因此只覆盖已落库的消息，而非已消费的消息）。
+func (w *Worker) ackPendingLocked(ctx context.Context, stream string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if err := w.rdb.XAck(ctx, stream, w.group, ids...).Err(); err != nil {
+		slog.Warn("ack pending batch", "stream", stream, "ids", len(ids), "err", err)
+		return err
+	}
+	last := ids[len(ids)-1]
+	w.lastIDs[stream] = last
+	w.persistCheckpoint(ctx, stream, last)
 	return nil
 }
 
 func (w *Worker) flushBatches(ctx context.Context) error {
-	if err := w.flushEventBatch(ctx); err != nil {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.flushBatchesLocked(ctx)
+}
+
+func (w *Worker) flushBatchesLocked(ctx context.Context) error {
+	if err := w.flushEventBatchLocked(ctx); err != nil {
 		return err
 	}
-	if err := w.flushPaymentBatch(ctx); err != nil {
+	if err := w.flushPaymentBatchLocked(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -422,6 +496,12 @@ func normalizeAggEvent(raw string) string {
 }
 
 func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.touchAggLocked(ctx, m)
+}
+
+func (w *Worker) touchAggLocked(ctx context.Context, m map[string]any) {
 	ts := asString(m, "ts")
 	t, _ := time.Parse(time.RFC3339, ts)
 	if ts == "" || t.IsZero() {
@@ -463,6 +543,12 @@ func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 }
 
 func (w *Worker) touchRevenue(ctx context.Context, m map[string]any) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.touchRevenueLocked(ctx, m)
+}
+
+func (w *Worker) touchRevenueLocked(ctx context.Context, m map[string]any) {
 	ts := asString(m, "ts")
 	t, _ := time.Parse(time.RFC3339, ts)
 	if ts == "" || t.IsZero() {
@@ -493,7 +579,13 @@ func (w *Worker) touchRevenue(ctx context.Context, m map[string]any) {
 }
 
 func (w *Worker) flush(ctx context.Context) error {
-	if err := w.flushBatches(ctx); err != nil {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.flushLocked(ctx)
+}
+
+func (w *Worker) flushLocked(ctx context.Context) error {
+	if err := w.flushBatchesLocked(ctx); err != nil {
 		slog.Warn("flush batches", "err", err)
 	}
 	// key 内墙钟串已归一 UTC（touchAgg/touchRevenue），比较基准同步 UTC。
@@ -629,7 +721,12 @@ func (w *Worker) persistCheckpoint(ctx context.Context, stream, id string) {
 	}
 }
 
-// processMessage handles a single message with error handling and dead letter queue
+// processMessage handles a single message with error handling and dead letter queue.
+//
+// 成功路径不立即 ACK：行已 Append 进 batch（或已随 batch 满自动发送落库），
+// ACK 推迟到 batch Send 成功（flushEventBatch/flushPaymentBatch 内 ackPendingLocked）。
+// 这样「Append 未 Send 即 ACK」的静默丢失窗口被消除——Send 前崩溃，消息仍留在
+// Redis PEL，由 reclaim 重投（at-least-once，重复由 event_id/order_id 去重策略消化）。
 func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XMessage) error {
 	data := string(fmtAny(msg.Values["data"]))
 	if data == "" {
@@ -640,7 +737,10 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 	var m map[string]any
 	if err := json.Unmarshal([]byte(data), &m); err != nil {
 		// Invalid JSON, move to dead letter
-		w.sendToDeadLetter(ctx, stream, msg, "invalid_json", err.Error())
+		if dlErr := w.sendToDeadLetter(ctx, stream, msg, "invalid_json", err.Error()); dlErr != nil {
+			// 死信写入失败：不 ACK 原消息，留在 PEL 由 reclaim 重投，不静默丢失。
+			return dlErr
+		}
 		return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
 	}
 
@@ -654,45 +754,49 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 	case w.streamEvents:
 		// Update Redis HLL for minute online, DAU/new_users
 		w.touchAgg(ctx, m)
-		err = w.insertEvent(ctx, m)
+		err = w.insertEvent(ctx, m, msg.ID)
 	case w.streamPayments:
 		w.touchRevenue(ctx, m)
-		err = w.insertPayment(ctx, m)
+		err = w.insertPayment(ctx, m, msg.ID)
 	}
 
 	if err != nil {
 		retries := int(m["retry_count"].(float64))
 		if retries >= maxPendingRetries {
 			// Max retries exceeded, move to dead letter
-			w.sendToDeadLetter(ctx, stream, msg, "max_retries_exceeded", err.Error())
+			if dlErr := w.sendToDeadLetter(ctx, stream, msg, "max_retries_exceeded", err.Error()); dlErr != nil {
+				return dlErr
+			}
 			return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
 		}
 		// Increment retry count and re-queue
 		m["retry_count"] = retries + 1
 		retryData, _ := json.Marshal(m)
-		w.rdb.XAdd(ctx, &redis.XAddArgs{
+		if addErr := w.rdb.XAdd(ctx, &redis.XAddArgs{
 			Stream: stream,
 			MaxLen: 1000, // Keep retry queue bounded
 			Approx: true,
 			ID:     "*",
 			Values: map[string]interface{}{"data": string(retryData)},
-		})
+		}).Err(); addErr != nil {
+			// 重入队失败：不 ACK 原消息（否则丢失），留在 PEL 由 reclaim 重投。
+			slog.Warn("message requeue failed", "stream", stream, "id", msg.ID, "retries", retries+1, "err", addErr)
+			return addErr
+		}
 		slog.Warn("message processing failed, re-queued", "stream", stream, "id", msg.ID, "retries", retries+1, "err", err)
+		// 原消息已成功重入队，ACK 之（重入队副本持有原 payload，不丢失）。
+		return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
 	}
 
-	// Acknowledge successful processing
-	if ackErr := w.rdb.XAck(ctx, stream, w.group, msg.ID).Err(); ackErr != nil {
-		slog.Warn("ack failed", "stream", stream, "id", msg.ID, "err", ackErr)
-		return ackErr
-	}
-
-	w.lastIDs[stream] = msg.ID
-	w.persistCheckpoint(ctx, stream, msg.ID)
+	// 成功：行已记账到 batch（pendingAck），ACK 延迟到 Send 成功之后。
+	// 不在此处更新 lastIDs/检查点——它们只在 ackPendingLocked（真正落库后）推进。
 	return nil
 }
 
-// sendToDeadLetter sends a message to the dead letter stream
-func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.XMessage, reason, details string) {
+// sendToDeadLetter sends a message to the dead letter stream.
+// 返回 error：死信写入失败时调用方必须不 ACK 原消息（留给 reclaim 重投），
+// 否则「死信写入失败但仍 ACK」会静默丢弃消息。
+func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.XMessage, reason, details string) error {
 	deadStream := w.deadEventsStream
 	if stream == w.streamPayments {
 		deadStream = w.deadPaymentsStream
@@ -716,9 +820,10 @@ func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.
 		Values: deadEntry,
 	}).Err(); err != nil {
 		slog.Error("failed to send to dead letter", "stream", deadStream, "original_id", msg.ID, "err", err)
-	} else {
-		slog.Warn("message sent to dead letter", "stream", deadStream, "original_stream", stream, "original_id", msg.ID, "reason", reason)
+		return err
 	}
+	slog.Warn("message sent to dead letter", "stream", deadStream, "original_stream", stream, "original_id", msg.ID, "reason", reason)
+	return nil
 }
 
 // reclaimPendingMessages periodically reclaims pending messages that have been idle too long

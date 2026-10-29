@@ -88,7 +88,7 @@ func addPendingMessageV10(t *testing.T, w *Worker, mr *miniredis.Miniredis) {
 
 func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 	w, _ := testWorker(t)
-	w.rdb.AddHook(hookV10{failAck: true})
+	w.rdb.(*redis.Client).AddHook(hookV10{failAck: true})
 	ctx := context.Background()
 	w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, "0")
 	w.rdb.XGroupCreateMkStream(ctx, w.streamPayments, w.group, "0")
@@ -135,7 +135,7 @@ func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 
 func TestRestoreCheckpointSetIDSuccessV10(t *testing.T) {
 	w, _ := testWorker(t)
-	w.rdb.AddHook(hookV10{okSetID: true})
+	w.rdb.(*redis.Client).AddHook(hookV10{okSetID: true})
 	ctx := context.Background()
 	w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, "$")
 	w.rdb.Set(ctx, w.checkpointPrefix+":"+w.streamEvents, "5-1", 0)
@@ -152,7 +152,7 @@ func TestRestoreCheckpointSetIDSuccessV10(t *testing.T) {
 
 func TestReclaimPendingExtFailThenOrphanAckFailV10(t *testing.T) {
 	w, mr := testWorker(t)
-	w.rdb.AddHook(hookV10{failPending: true, failAck: true})
+	w.rdb.(*redis.Client).AddHook(hookV10{failPending: true, failAck: true})
 	addPendingMessageV10(t, w, mr)
 
 	w.reclaimPendingFromStream(context.Background(), w.streamEvents)
@@ -173,7 +173,7 @@ func TestReclaimPendingExtFailThenOrphanAckFailV10(t *testing.T) {
 
 func TestReclaimAutoClaimFailV10(t *testing.T) {
 	w, mr := testWorker(t)
-	w.rdb.AddHook(hookV10{failClaim: true})
+	w.rdb.(*redis.Client).AddHook(hookV10{failClaim: true})
 	addPendingMessageV10(t, w, mr)
 
 	w.reclaimPendingFromStream(context.Background(), w.streamEvents)
@@ -197,7 +197,7 @@ func TestReclaimAutoClaimFailV10(t *testing.T) {
 
 func TestReclaimClaimedProcessErrorV10(t *testing.T) {
 	w, mr := testWorker(t)
-	w.rdb.AddHook(hookV10{failAck: true})
+	w.rdb.(*redis.Client).AddHook(hookV10{failAck: true})
 	addPendingMessageV10(t, w, mr)
 
 	w.reclaimPendingFromStream(context.Background(), w.streamEvents)
@@ -217,7 +217,7 @@ func TestReclaimClaimedProcessErrorV10(t *testing.T) {
 
 func TestFlushNegativePFCountV10(t *testing.T) {
 	w, _ := testWorker(t)
-	w.rdb.AddHook(hookV10{pfCountNeg: true})
+	w.rdb.(*redis.Client).AddHook(hookV10{pfCountNeg: true})
 	k := pastMinuteKeyV9()
 	w.touchedMinutes[k] = struct{}{}
 

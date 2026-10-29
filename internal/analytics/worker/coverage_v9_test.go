@@ -98,6 +98,11 @@ func TestRunPreCanceledContextV9(t *testing.T) {
 func TestRunProcessesMessagesV9(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()
+	// ARCH-011 延迟 ACK：检查点只在 flush（Send 成功）后写入；默认 15s flush
+	// 周期超过本测试 5s deadline，缩到 50ms 让 ticker 在窗口内触发。
+	oldFlush := runFlushInterval
+	runFlushInterval = 50 * time.Millisecond
+	defer func() { runFlushInterval = oldFlush }()
 	// Groups created at "0" so messages added now are delivered by ">".
 	w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, "0")
 	w.rdb.XGroupCreateMkStream(ctx, w.streamPayments, w.group, "0")
@@ -400,9 +405,13 @@ func TestProcessMessageAckErrorV9(t *testing.T) {
 	msg := redis.XMessage{ID: "1-1", Values: map[string]any{
 		"data": `{"event":"click","game_id":"g1","env":"prod","user_id":"u1"}`,
 	}}
-	err := w.processMessage(ctx, w.streamEvents, msg)
-	if err == nil {
-		t.Fatal("processMessage: expected ack error")
+	// ARCH-011 延迟 ACK：processMessage 成功路径不再即时 XACK（行先入 batch），
+	// ACK 错误改在 flushBatches（Send 成功后统一 ACK）处浮出。
+	if err := w.processMessage(ctx, w.streamEvents, msg); err != nil {
+		t.Fatalf("processMessage: unexpected error before flush: %v", err)
+	}
+	if err := w.flushBatches(ctx); err == nil {
+		t.Fatal("flushBatches: expected ack error")
 	}
 }
 
@@ -434,6 +443,12 @@ func TestReclaimPendingIdleClaimV9(t *testing.T) {
 	mr.SetTime(time.Now().Add(10 * time.Minute))
 
 	w.reclaimPendingFromStream(ctx, w.streamEvents)
+
+	// ARCH-011 延迟 ACK：reclaim 处理后行在 batch 中，ACK/检查点推迟到
+	// flushBatches（Send 成功）才发生——先 flush 再断言 PEL 排空。
+	if err := w.flushBatches(ctx); err != nil {
+		t.Fatalf("flushBatches after reclaim: %v", err)
+	}
 
 	// The reclaimed message was processed: checkpoint persisted and PEL drained.
 	n, err := w.rdb.Exists(ctx, w.checkpointPrefix+":"+w.streamEvents).Result()

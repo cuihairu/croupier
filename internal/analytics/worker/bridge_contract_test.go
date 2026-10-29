@@ -40,7 +40,7 @@ func TestBridgePayloadIsWorkerCompatible(t *testing.T) {
 	}
 
 	// Detail insert must accept the payload (event_id absent → generated).
-	if err := w.insertEvent(context.Background(), m); err != nil {
+	if err := w.insertEvent(context.Background(), m, "bridge-test-msg"); err != nil {
 		t.Fatalf("worker insertEvent rejected bridge payload: %v", err)
 	}
 
