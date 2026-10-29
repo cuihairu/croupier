@@ -205,9 +205,9 @@
   - 依赖：—。交付与验收：复用 task_schedule_run_logs 唯一键，派发前原子领取 schedule+slot 并明确领取租约/崩溃恢复；多实例同槽仅一派发，记录失败不得执行；覆盖领取后/派发前和派发后/回写前中断，业务最终副作用去重仍由 GAME-010 承担
   - 状态／条件：VERIFIED 缺陷：manager.go 先 HasRunLog，再 StartTask，最后 CreateRunLog 且忽略冲突；双 Manager 诊断实际派发 2 次、仅 1 条唯一记录。已修复：领取（CreateRunLog 唯一索引）前移至派发前（6fffb0ea）；补领取租约崩溃恢复（2efbaa0d——租约过期 claimed 解析为 failed+推进、不重派发，覆盖领取后/派发前与派发后/回写前两类中断；活跃领取与已终态不误判）；并发恰一次派发与中断恢复四用例绿；业务最终副作用去重仍由 GAME-010 承担。
 
-- [ ] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
+- [x] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
   - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
-  - 状态／条件：VERIFIED 装配缺口：task.Service.Start 只做部分 gate；schedule 和 svc.dispatcherAdapter 直连 Dispatcher。不可据统一 transport 宣称统一治理。
+  - 状态／条件：VERIFIED 装配缺口：task.Service.Start 只做部分 gate；schedule 和 svc.dispatcherAdapter 直连 Dispatcher。不可据统一 transport 宣称统一治理。已修复（d4d813e1）：新增 functioninvoke.Govern/GovernInvocability 统一准入链（禁用/分配/主体/政策审批/输入契约/审批判定），HTTP Invoke、/tasks Start、schedule Create/TriggerNow、自动触发（Manager govern 钩子）复用；Create 仅校验可调度性（不加载主体/不建审批），授权与政策审批逐次触发；自动化主体显式（SubjectAutomation 以调度创建者逐次重载当前角色），撤权后 Govern 拒绝不裸派发；批准快照由 CreateFunctionApproval 显式落库（函数/参数/scope/actor）。门禁：go build ./...、go test ./internal/... 全绿（60 pkg）、docs build 通过；边界：Kind=incident_report 进程内生成器不经函数治理（非注册函数派发），ARCH-025 政策查询失败仍静默放行未闭环。
 
 - [ ] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
   - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败
