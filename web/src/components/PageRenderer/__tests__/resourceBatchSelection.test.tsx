@@ -363,6 +363,9 @@ describe('D2 纯逻辑：行标识与筛选指纹', () => {
     expect(summarizeQuantityTotal(0, 5)).toBe(0);
     expect(summarizeQuantityTotal(2.5, 3)).toBeUndefined();
     expect(summarizeQuantityTotal('2.5', 3)).toBeUndefined();
+    // 空串/全空白串 Number('')=0 会伪装成合法 0，必须拒绝（REVIEW-002）。
+    expect(summarizeQuantityTotal('', 3)).toBeUndefined();
+    expect(summarizeQuantityTotal('   ', 3)).toBeUndefined();
     expect(summarizeQuantityTotal(undefined, 3)).toBeUndefined();
     expect(summarizeQuantityTotal(null, 3)).toBeUndefined();
     expect(summarizeQuantityTotal(-1, 3)).toBeUndefined();

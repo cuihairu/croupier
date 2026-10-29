@@ -70,6 +70,11 @@ export function summarizeQuantityTotal(
   targetCount: number,
 ): number | undefined {
   const per = typeof perQuantity === 'string' ? Number(perQuantity) : perQuantity;
+  // 不确定输入不猜 0：空串/全空白串 Number('')=0 会伪装成合法 0，必须拒绝
+  //（REVIEW-002：空/空白金额不得确认并提交，与「不确定输入不猜 0、不执行」注释一致）。
+  if (typeof perQuantity === 'string' && perQuantity.trim() === '') {
+    return undefined;
+  }
   if (typeof per !== 'number' || !Number.isFinite(per) || per < 0 || !Number.isInteger(per)) {
     return undefined;
   }

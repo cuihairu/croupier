@@ -936,14 +936,18 @@ describe('工具栏与批量', () => {
     await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
     formMockState.values = { coins: 100, reason: '补偿' };
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
-    // 确认框展示动作级文案 + 目标 + 跨目标总量
-    await waitFor(() => expect(screen.getAllByText('批量充值确认').length).toBeGreaterThan(0));
-    expect(screen.getAllByText('将按所选玩家逐个充值').length).toBeGreaterThan(0);
+    // 第一确认：跨目标总量（每人数量 × 目标数）
+    await waitFor(() => expect(screen.getAllByText('核对跨目标总量').length).toBeGreaterThan(0));
     expect(screen.getAllByText('目标数量').length).toBeGreaterThan(0);
     expect(screen.getAllByText('总量').length).toBeGreaterThan(0);
     expect(screen.getAllByText('200 金币').length).toBeGreaterThan(0);
+    let confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
+    fireEvent.click(within(confirmBox).getByRole('button', { name: 'OK' }));
+    // 第二确认：动作级文案 + 目标
+    await waitFor(() => expect(screen.getAllByText('批量充值确认').length).toBeGreaterThan(0));
+    expect(screen.getAllByText('将按所选玩家逐个充值').length).toBeGreaterThan(0);
     // 取消：不调用执行器
-    const confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
+    confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
     fireEvent.click(within(confirmBox).getByRole('button', { name: 'Cancel' }));
     await waitFor(() =>
       expect(onExecute.mock.calls.filter(([id]) => id === 'b-batch')).toHaveLength(0),
@@ -990,8 +994,13 @@ describe('工具栏与批量', () => {
     await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
     formMockState.values = { coins: '100' };
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    // 第一确认：跨目标总量 → OK
+    await waitFor(() => expect(screen.getAllByText('核对跨目标总量').length).toBeGreaterThan(0));
+    let confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
+    fireEvent.click(within(confirmBox).getByRole('button', { name: 'OK' }));
+    // 第二确认：动作级确认 → OK 后提交
     await waitFor(() => expect(screen.getAllByText('批量充值确认').length).toBeGreaterThan(0));
-    const confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
+    confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
     fireEvent.click(within(confirmBox).getByRole('button', { name: 'OK' }));
     await waitFor(() =>
       expect(onExecute).toHaveBeenCalledWith('b-batch', {

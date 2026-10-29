@@ -585,9 +585,12 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
         return false;
       }
-      // D2 跨目标总量：批量操作的表单里声明了 quantity 语义字段时，在确认框
-      // 追加「总量 = 每人数量 × 目标数」条目，让确认内容覆盖实际提交范围。
-      const quantityField = action.form?.fields?.find((field) => field.role === 'quantity');
+      // D2 跨目标总量：批量操作的表单里声明了 quantity 语义字段（或显式
+      // perTarget——D2 规范标记，与 confirmContent.batchTotalEntry 同口径）时，
+      // 在确认框追加「总量 = 每人数量 × 目标数」条目，让确认内容覆盖实际提交范围。
+      const quantityField = action.form?.fields?.find(
+        (field) => field.role === 'quantity' || field.perTarget === true,
+      );
       if (selection && quantityField) {
         const perQuantity = values[quantityField.key];
         const total = summarizeQuantityTotal(
