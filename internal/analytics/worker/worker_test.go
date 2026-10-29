@@ -137,6 +137,44 @@ func TestEnvOrDefault(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// ARCH-013: NewWorker preflight — Kafka publisher + built-in Redis-only worker
+// ---------------------------------------------------------------------------
+
+func TestNewWorkerRefusesKafkaMQ(t *testing.T) {
+	t.Setenv("ANALYTICS_MQ_TYPE", "kafka")
+	_, err := NewWorker()
+	if err == nil {
+		t.Fatal("NewWorker must refuse to start when ANALYTICS_MQ_TYPE=kafka: the built-in worker consumes Redis Streams only")
+	}
+	if !strings.Contains(err.Error(), "Redis Streams only") || !strings.Contains(err.Error(), "kafka") {
+		t.Errorf("err = %v, want a Redis-only/kafka mismatch message", err)
+	}
+}
+
+func TestNewWorkerAllowsRedisMQ(t *testing.T) {
+	t.Setenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+	t.Setenv("CLICKHOUSE_DSN", "clickhouse://127.0.0.1:9000/analytics")
+
+	// Explicit redis constructs.
+	t.Setenv("ANALYTICS_MQ_TYPE", "redis")
+	if _, err := NewWorker(); err != nil {
+		t.Fatalf("NewWorker with ANALYTICS_MQ_TYPE=redis: %v", err)
+	}
+
+	// Deployment default (unset) constructs — the default chain is unaffected.
+	_ = os.Unsetenv("ANALYTICS_MQ_TYPE")
+	if _, err := NewWorker(); err != nil {
+		t.Fatalf("NewWorker with ANALYTICS_MQ_TYPE unset: %v", err)
+	}
+
+	// noop stays an explicit local-debug escape hatch: the worker is not blocked.
+	t.Setenv("ANALYTICS_MQ_TYPE", "noop")
+	if _, err := NewWorker(); err != nil {
+		t.Fatalf("NewWorker with ANALYTICS_MQ_TYPE=noop: %v", err)
+	}
+}
+
 func TestFmtAny(t *testing.T) {
 	tests := []struct {
 		name   string

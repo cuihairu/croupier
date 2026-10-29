@@ -79,6 +79,15 @@ type Worker struct {
 }
 
 func NewWorker() (*Worker, error) {
+	// ARCH-013 startup preflight: the built-in worker consumes Redis Streams
+	// only. A deployment declaring ANALYTICS_MQ_TYPE=kafka publishes to Kafka,
+	// which this worker cannot consume — refuse to start instead of idling while
+	// events are silently stranded (no Kafka consumer is built here). The
+	// default (unset or redis) chain is unaffected.
+	if t := strings.TrimSpace(os.Getenv("ANALYTICS_MQ_TYPE")); t == "kafka" {
+		return nil, fmt.Errorf("analytics worker consumes Redis Streams only, but ANALYTICS_MQ_TYPE=kafka publishes to Kafka: run an external Kafka consumer or set ANALYTICS_MQ_TYPE=redis")
+	}
+
 	// Redis
 	rurl := os.Getenv("REDIS_URL")
 	if rurl == "" {

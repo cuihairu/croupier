@@ -399,6 +399,10 @@ services:
     restart: unless-stopped
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Declared publisher type: the built-in worker only consumes Redis
+      # Streams, so ANALYTICS_MQ_TYPE=kafka makes the worker refuse to start
+      # (ARCH-013 preflight) instead of idling while events are stranded.
+      ANALYTICS_MQ_TYPE: ${ANALYTICS_MQ_TYPE:-redis}
       ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
       ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
       CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics}
