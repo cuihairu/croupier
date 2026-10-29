@@ -23,6 +23,29 @@ type TaskEventReporter interface {
 	ReportTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error
 }
 
+// taskSlot is an in-flight task registration. gen is the per-taskId generation:
+// each Start for a taskId claims a fresh generation, and the finishing
+// goroutine removes its slot only if the slot still carries its own generation.
+// This is the ARCH-014 D1 ownership guard: an old goroutine's cleanup cannot
+// delete the slot of a same-ID newer task (fixes the delete-on-finish
+// corruption where the first goroutine removed the second task's registration).
+type taskSlot struct {
+	cancel context.CancelFunc
+	gen    uint64
+}
+
+// eventRetryPolicy is the bounded-retry policy for upstream event delivery
+// (ARCH-014 D2). maxAttempts is the total number of delivery attempts (>=1);
+// baseBackoff is the initial delay between attempts, doubling per retry.
+type eventRetryPolicy struct {
+	maxAttempts int
+	baseBackoff time.Duration
+}
+
+func defaultEventRetryPolicy() eventRetryPolicy {
+	return eventRetryPolicy{maxAttempts: 3, baseBackoff: time.Second}
+}
+
 // TaskRunner owns the lifecycle of in-flight agent tasks: it tracks running
 // tasks by ID for cancellation, executes them via an injected TaskExecutor,
 // and reports started/completed/failed/cancelled events through a
@@ -33,8 +56,10 @@ type TaskRunner struct {
 	reporter TaskEventReporter
 	logger   *slog.Logger
 
-	mu    sync.RWMutex
-	tasks map[string]context.CancelFunc
+	mu         sync.RWMutex
+	tasks      map[string]*taskSlot
+	nextGen    uint64
+	eventRetry eventRetryPolicy
 }
 
 // NewTaskRunner creates a TaskRunner. executor must be non-nil; reporter and
@@ -47,10 +72,11 @@ func NewTaskRunner(executor TaskExecutor, reporter TaskEventReporter, logger *sl
 		logger = slog.Default()
 	}
 	return &TaskRunner{
-		executor: executor,
-		reporter: reporter,
-		logger:   logger,
-		tasks:    make(map[string]context.CancelFunc),
+		executor:   executor,
+		reporter:   reporter,
+		logger:     logger,
+		tasks:      make(map[string]*taskSlot),
+		eventRetry: defaultEventRetryPolicy(),
 	}
 }
 
@@ -64,15 +90,29 @@ func (r *TaskRunner) SetReporter(reporter TaskEventReporter) {
 // Start launches a task asynchronously and returns the resolved task ID. The
 // task ID is taken from req metadata (server-provided) when present, so events
 // flow back to the correct task_runs row; otherwise a local ID is generated.
+//
+// ARCH-014 D1: a duplicate Start for a taskId already running is an idempotent
+// no-op — it does not launch a second goroutine and does not overwrite the
+// existing cancel registration. The taskId is the platform-level task identity
+// (one taskId ⇒ one task_runs row ⇒ at most one intended execution), so a
+// duplicate is a dispatch/retry artifact, not a new task. A same-ID task can
+// only legitimately restart after Cancel removed its slot.
 func (r *TaskRunner) Start(req *sdkv1.InvokeRequest) string {
 	taskID := resolveTaskID(req)
 
-	taskCtx, cancel := context.WithCancel(context.Background())
 	r.mu.Lock()
-	r.tasks[taskID] = cancel
+	if _, ok := r.tasks[taskID]; ok {
+		r.mu.Unlock()
+		r.logger.Warn("duplicate task start ignored: task already in flight", "task_id", taskID)
+		return taskID
+	}
+	r.nextGen++
+	gen := r.nextGen
+	taskCtx, cancel := context.WithCancel(context.Background())
+	r.tasks[taskID] = &taskSlot{cancel: cancel, gen: gen}
 	r.mu.Unlock()
 
-	go r.run(taskCtx, taskID, cancel, req)
+	go r.run(taskCtx, taskID, gen, cancel, req)
 	return taskID
 }
 
@@ -83,14 +123,18 @@ func (r *TaskRunner) Start(req *sdkv1.InvokeRequest) string {
 // event cannot arrive late and overwrite that terminal state.
 func (r *TaskRunner) Cancel(taskID string) bool {
 	r.mu.RLock()
-	cancel, ok := r.tasks[taskID]
+	slot, ok := r.tasks[taskID]
 	r.mu.RUnlock()
 	if !ok {
 		return false
 	}
-	cancel()
+	slot.cancel()
 	r.mu.Lock()
-	delete(r.tasks, taskID)
+	// Remove only if the slot is still ours: a re-Start could have replaced it
+	// between the read and the write (same generation guard as run's cleanup).
+	if cur, ok := r.tasks[taskID]; ok && cur.gen == slot.gen {
+		delete(r.tasks, taskID)
+	}
 	r.mu.Unlock()
 	r.logger.Info("task cancel requested", "task_id", taskID)
 	return true
@@ -103,21 +147,36 @@ func (r *TaskRunner) Count() int {
 	return len(r.tasks)
 }
 
-func (r *TaskRunner) run(ctx context.Context, taskID string, cancel context.CancelFunc, req *sdkv1.InvokeRequest) {
+// SetEventRetryPolicy configures the bounded retry for upstream event delivery
+// (ARCH-014 D2). maxAttempts is clamped to >=1; a negative baseBackoff is
+// clamped to 0. Safe for concurrent use; applies to events reported after the
+// call returns.
+func (r *TaskRunner) SetEventRetryPolicy(maxAttempts int, baseBackoff time.Duration) {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	if baseBackoff < 0 {
+		baseBackoff = 0
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.eventRetry = eventRetryPolicy{maxAttempts: maxAttempts, baseBackoff: baseBackoff}
+}
+
+func (r *TaskRunner) run(ctx context.Context, taskID string, gen uint64, cancel context.CancelFunc, req *sdkv1.InvokeRequest) {
 	defer func() {
 		r.mu.Lock()
-		delete(r.tasks, taskID)
+		// Ownership guard (D1): a finishing goroutine removes only its own slot,
+		// so an old goroutine's cleanup cannot delete a same-ID newer task's
+		// registration (which would leak its slot and make it uncancellable).
+		if slot, ok := r.tasks[taskID]; ok && slot.gen == gen {
+			delete(r.tasks, taskID)
+		}
 		r.mu.Unlock()
 		cancel() // release the context to avoid leaks
 	}()
 
-	_ = r.report(context.Background(), &sdkv1.TaskEvent{
-		TaskId:   taskID,
-		Type:     "started",
-		Message:  "任务开始执行",
-		Progress: 0,
-		Payload:  []byte("null"),
-	})
+	r.reportEvent(taskID, "started", "任务开始执行", 0, []byte("null"))
 
 	result, err := r.executor(ctx, req)
 	if err != nil {
@@ -127,23 +186,58 @@ func (r *TaskRunner) run(ctx context.Context, taskID string, cancel context.Canc
 			eventType = "cancelled"
 			message = "任务已取消"
 		}
-		_ = r.report(context.Background(), &sdkv1.TaskEvent{
-			TaskId:   taskID,
-			Type:     eventType,
-			Message:  message,
-			Progress: 0,
-			Payload:  []byte("null"),
-		})
+		r.reportEvent(taskID, eventType, message, 0, []byte("null"))
 		return
 	}
 
-	_ = r.report(context.Background(), &sdkv1.TaskEvent{
+	r.reportEvent(taskID, "completed", "任务执行完成", 100, result)
+}
+
+// reportEvent delivers one lifecycle event with bounded retry (D2). A delivery
+// failure that exhausts the window is surfaced as a warning, never silently
+// dropped: the server reconciles the stuck row to unknown on agent restart
+// (D3), so a completed task is never left "running" with its result undelivered
+// and ignored.
+func (r *TaskRunner) reportEvent(taskID, eventType, message string, progress int32, payload []byte) {
+	event := &sdkv1.TaskEvent{
 		TaskId:   taskID,
-		Type:     "completed",
-		Message:  "任务执行完成",
-		Progress: 100,
-		Payload:  result,
-	})
+		Type:     eventType,
+		Message:  message,
+		Progress: progress,
+		Payload:  payload,
+	}
+	if err := r.reportWithRetry(context.Background(), event); err != nil {
+		r.logger.Warn("task event delivery failed after retries",
+			"task_id", taskID, "event", eventType, "error", err)
+	}
+}
+
+// reportWithRetry sends event via the reporter with bounded exponential
+// backoff. It returns nil on the first success, or the last error when the
+// retry window is exhausted. A nil reporter is a no-op success.
+func (r *TaskRunner) reportWithRetry(ctx context.Context, event *sdkv1.TaskEvent) error {
+	r.mu.RLock()
+	policy := r.eventRetry
+	r.mu.RUnlock()
+
+	var lastErr error
+	for attempt := 1; attempt <= policy.maxAttempts; attempt++ {
+		if err := r.report(ctx, event); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		if attempt == policy.maxAttempts {
+			break
+		}
+		delay := policy.baseBackoff * time.Duration(1<<(attempt-1))
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	return lastErr
 }
 
 func (r *TaskRunner) report(ctx context.Context, event *sdkv1.TaskEvent) error {

@@ -111,20 +111,22 @@ func (m *mockAgentSessionLoader) DeleteExpired(ctx context.Context) (int64, erro
 // --- Mock TaskStore ---
 
 type mockTaskStore struct {
-	updateRunErr    error
-	appendEventErr  error
-	updateAccepted  bool
-	updateRunCalled int
-	appendCalled    int
-	lastUpdates     map[string]interface{}
-	lastTaskID      string
-	lastEventType   tasks.EventType
+	updateRunErr        error
+	appendEventErr      error
+	updateAccepted      bool
+	updateRunCalled     int
+	appendCalled        int
+	lastUpdates         map[string]interface{}
+	lastTaskID          string
+	lastEventType       tasks.EventType
+	lastBlockedStatuses []string
 }
 
 func (m *mockTaskStore) UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error) {
 	m.updateRunCalled++
 	m.lastTaskID = taskID
 	m.lastUpdates = updates
+	m.lastBlockedStatuses = blockedStatuses
 	return m.updateAccepted, m.updateRunErr
 }
 
@@ -1158,6 +1160,69 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 		assert.Nil(t, resp)
 		assert.Equal(t, 1, mock.updateRunCalled)
 		assert.Equal(t, 0, mock.appendCalled)
+	})
+
+	// ARCH-014 D4: "取消不回退终态" — cancel is a request, not a guarantee.
+	// A completed event is not blocked by cancel_requested (the side effect may
+	// have applied before cancellation took effect), so the row can reach
+	// succeeded even after a cancel intent; and a cancel intent must never
+	// regress an already-terminal row (including unknown).
+	t.Run("completed is accepted over cancel_requested", func(t *testing.T) {
+		mock := &mockTaskStore{updateAccepted: true}
+		svc := newTestControlService()
+		svc.SetTaskStore(mock)
+
+		data, _ := proto.Marshal(&sdkv1.TaskEvent{
+			TaskId:  "task-complete-after-cancel",
+			Type:    string(tasks.EventCompleted),
+			Message: "side effect applied before cancel took effect",
+		})
+
+		resp, err := svc.handleTaskEvent(context.Background(), data)
+		assert.NoError(t, err)
+		assert.Nil(t, resp)
+		// The completed event must not be blocked by a pending cancel intent.
+		assert.NotContains(t, mock.lastBlockedStatuses, tasks.StatusCancelRequested)
+		assert.Equal(t, tasks.StatusSucceeded, mock.lastUpdates["status"])
+	})
+
+	t.Run("cancel intent is blocked over a terminal row", func(t *testing.T) {
+		mock := &mockTaskStore{updateAccepted: false}
+		svc := newTestControlService()
+		svc.SetTaskStore(mock)
+
+		data, _ := proto.Marshal(&sdkv1.TaskEvent{
+			TaskId:  "task-cancel-after-terminal",
+			Type:    string(tasks.EventCancelRequested),
+			Message: "late cancel",
+		})
+
+		_, err := svc.handleTaskEvent(context.Background(), data)
+		assert.NoError(t, err)
+		// Every terminal status, including unknown, blocks the cancel intent.
+		for _, s := range tasks.TerminalStatuses() {
+			assert.Contains(t, mock.lastBlockedStatuses, s, s)
+		}
+		assert.Contains(t, mock.lastBlockedStatuses, tasks.StatusCancelRequested)
+		assert.Equal(t, 0, mock.appendCalled)
+	})
+
+	t.Run("started is blocked over cancel_requested", func(t *testing.T) {
+		mock := &mockTaskStore{updateAccepted: false}
+		svc := newTestControlService()
+		svc.SetTaskStore(mock)
+
+		data, _ := proto.Marshal(&sdkv1.TaskEvent{
+			TaskId: "task-start-after-cancel",
+			Type:   string(tasks.EventStarted),
+		})
+
+		_, err := svc.handleTaskEvent(context.Background(), data)
+		assert.NoError(t, err)
+		// A cancel_requested row must not regress to running; unknown is
+		// terminal and blocks too.
+		assert.Contains(t, mock.lastBlockedStatuses, tasks.StatusCancelRequested)
+		assert.Contains(t, mock.lastBlockedStatuses, tasks.StatusUnknown)
 	})
 }
 

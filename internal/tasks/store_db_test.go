@@ -93,6 +93,27 @@ func TestStore_UpdateRunIfStatusNotIn(t *testing.T) {
 	assert.Equal(t, StatusSucceeded, got.Status, "terminal status must not be rolled back")
 }
 
+// ARCH-014 D4: "unknown" is terminal — a late event cannot regress it.
+func TestStore_UpdateRunIfStatusNotIn_UnknownIsTerminal(t *testing.T) {
+	store := setupTaskStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, store.CreateRun(ctx, newTaskRun("task-unknown")))
+	require.NoError(t, store.UpdateRun(ctx, "task-unknown", map[string]interface{}{
+		"status": StatusUnknown,
+	}))
+
+	applied, err := store.UpdateRunIfStatusNotIn(ctx, "task-unknown", TerminalStatuses(), map[string]interface{}{
+		"status": StatusSucceeded,
+	})
+	require.NoError(t, err)
+	assert.False(t, applied, "unknown is terminal: a late event must not overwrite it")
+
+	got, err := store.GetRun(ctx, "task-unknown")
+	require.NoError(t, err)
+	assert.Equal(t, StatusUnknown, got.Status, "unknown row must remain unknown")
+}
+
 func TestStore_UpdateRunIfStatusNotIn_MissingTask(t *testing.T) {
 	store := setupTaskStore(t)
 	ctx := context.Background()
@@ -210,19 +231,19 @@ func TestRuntime_ReportProgressAndLog(t *testing.T) {
 }
 
 func TestIsTerminalStatus(t *testing.T) {
-	for _, s := range []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut} {
+	for _, s := range []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut, StatusUnknown} {
 		assert.True(t, IsTerminalStatus(s), s)
 	}
-	for _, s := range []string{StatusQueued, StatusDispatching, StatusRunning, StatusCancelRequested, "", "unknown"} {
+	for _, s := range []string{StatusQueued, StatusDispatching, StatusRunning, StatusCancelRequested, ""} {
 		assert.False(t, IsTerminalStatus(s), s)
 	}
 }
 
 func TestTerminalStatuses(t *testing.T) {
 	statuses := TerminalStatuses()
-	assert.ElementsMatch(t, []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut}, statuses)
+	assert.ElementsMatch(t, []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut, StatusUnknown}, statuses)
 
 	// Mutating the returned slice must not corrupt shared state.
 	statuses[0] = "mutated"
-	assert.ElementsMatch(t, []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut}, TerminalStatuses())
+	assert.ElementsMatch(t, []string{StatusSucceeded, StatusFailed, StatusCancelled, StatusTimedOut, StatusUnknown}, TerminalStatuses())
 }

@@ -256,6 +256,10 @@ function normalizeTaskStatus(status?: string): TaskStatusResult['status'] {
       return 'completed';
     case 'failed':
     case 'timed_out':
+    // Terminal-adjacent ARCH-014 D3 state: the platform cannot determine
+    // whether the game side effect ran. Surfaces as a terminal failure for
+    // manual reconciliation — never as a pending/in-flight state.
+    case 'unknown':
       return 'failed';
     case 'cancel_requested':
     case 'cancelled':

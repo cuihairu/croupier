@@ -361,6 +361,7 @@ describe('轮询：statusBinding 路径', () => {
     ['completed', 'COMPLETED'],
     ['failed', 'FAILED'],
     ['timed_out', 'FAILED'],
+    ['unknown', 'FAILED'],
     ['cancel_requested', 'CANCELLED'],
     ['cancelled', 'CANCELLED'],
     ['weird-state', 'PENDING'],
