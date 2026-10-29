@@ -97,9 +97,9 @@
 - [x] **ARCH-008 · P2 · 实现 · 落地审计完整性规则**
   - 依赖：ARCH-007。交付与验收：逐字段修改被检测、旧链可验证、多实例写入一致；审计库故障按已批准策略处理。
   - 状态／条件：完成（2026-10-29）。提交 2e4635ef：v2 摘要升级 SHA-256 全载荷（action/category/severity/error_message/scope/changes/context/actor 全入哈希，JSON 列原始字节嵌入 + UseNumber 解码消除 >2^53 假 mismatch）、`hash_version` 列 + 版本分发（0/1 走冻结 legacyHash，2 走 sha256Canonical，旧链可验证）；迁移 0050 补列；篡改矩阵 9 字段 + 旧链 4 子测 + 混合版本链 + 大整数往返 + D6 写失败策略（失败开放计数/降级头中间件、失败关闭白名单 7 事件经 `LogOrDegrade` 咽喉点，MFA 启用/关闭改写前审计并中止）全绿；13 个调用点迁移 `LogOrDegrade`，`X-Audit-Degraded` 头挂路由中间件；`go test ./internal/... ./cmd/...` 全绿、guard PASSED、docs 构建通过。
-- [ ] **ARCH-009 · P2 · 实现 · 数据库首次打开的取消与预算**
+- [x] **ARCH-009 · P2 · 实现 · 数据库首次打开的取消与预算**
   - 依赖：—。交付与验收：让 resolver/open/migrate 消费 context；取消等待及时返回、同库 singleflight、不同库隔离，暴露池数/首开耗时；与 ARCH-006 路由命名修复可并行，合并时核对绑定行为
-  - 状态／条件：READY；不需要先获得生产数据库权限即可做确定性验证。
+  - 状态／条件：完成（2026-10-29）。提交 7bfc00b1：`DatabaseEnsurer`/`DatabaseOpener`/`MigrateGame` 改签名为消费 ctx（`EnsureGameDatabase`/`OpenGormForRouter` 各段检查 ctx.Err、建库 Exec/探针改 ExecContext/QueryRowContext、openGameDB 加 PingContext 纳入取消）；`openByPhysicalName` 用 `singleflight.DoChan`+`select` 让等待者按自身 ctx 取消即时返回（leader 工作不被单个等待者打断，结果入缓存）；首开 I/O 消费路由生命周期 ctx（`Close` 中断在飞首开）+ `FirstOpenTimeout`（默认 30s）预算；`EnsureUpToDate` 迁移改消费 ctx（原 Background）；暴露 `Router.PoolSize()`/`FirstOpenLatency`；6 个 ARCH-009 用例（等待者取消即时返回、关停打断在飞、预算超时中止、不同库隔离、池数/耗时、三段消费生命周期 ctx）+ 既有路由/服务/页面/server 用例全绿；guard PASSED、docs 构建通过、`docs/{architecture,zh/architecture}/game-environment-scope.md` 中英同步。
 
 - [ ] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
