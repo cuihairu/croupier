@@ -208,9 +208,9 @@
   - 依赖：—。交付与验收：复用 core/register，为 DialAndRegister/SyncOnce/SyncAttempts 明确一致的注册超时边界及调用者 deadline 优先级；核对心跳 tick 重拨与首拨退避差异，验证无注册响应时按预算退出、Stop 可释放连接与 goroutine，不引入重复并行重连。
   - 状态／条件：READY；无响应服务端故障验证 NOT RUN。证据：core/register/registration.go 的 SyncAttempts 才包 requestTimeout，loops.go 的 DialAndRegister 直接调用 registerOnce。
 
-- [ ] **ARCH-023 · P0 · 实现 · 定时触发先领取再派发**
+- [x] **ARCH-023 · P0 · 实现 · 定时触发先领取再派发**
   - 依赖：—。交付与验收：复用 task_schedule_run_logs 唯一键，派发前原子领取 schedule+slot 并明确领取租约/崩溃恢复；多实例同槽仅一派发，记录失败不得执行；覆盖领取后/派发前和派发后/回写前中断，业务最终副作用去重仍由 GAME-010 承担
-  - 状态／条件：VERIFIED 缺陷：manager.go 先 HasRunLog，再 StartTask，最后 CreateRunLog 且忽略冲突；双 Manager 诊断实际派发 2 次、仅 1 条唯一记录。
+  - DONE（2026-10-30）：claim-first 于 6fffb0ea 落地（CreateRunLog 唯一索引即领取令牌，冲突即跳过派发；记录失败不执行）；本次补领取租约与崩溃恢复——ReclaimStaleRunLog 单条 UPDATE CAS（仅 status='claimed' 且 created_at 早于租约窗口（默认 60s=2×扫描周期）时原子重领并重置租约），孤儿领取重派发（窗口一触发不丢失），窗口二按 at-least-once 重派发（领取行无 taskID 可查，业务副作用去重由 GAME-010 承担）；并发触发/并发恢复各恰好一次派发。证据 docs/review/arch023-schedule-claim-recovery-2026-10-30.md；用例 arch023_test.go（5 恢复用例）+ task_schedule_model_test.go（CAS 模型用例）；诚实边界：租约低估双派发由游戏去重兜底、真实多进程 postgres HA 演练随 GAME-010。
 
 - [ ] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
   - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
