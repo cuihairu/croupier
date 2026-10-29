@@ -22,6 +22,19 @@ func itemsRelation(identity byte) []byte {
 	))
 }
 
+// itemsRelationChanged 结构变化版（新增 level 列）：事务外重发的 Relation
+// 若结构未变，cacheRelation 经 relationEqual 提前返回，根本不会进入陈旧
+// Begin 位点的 Record 回退路径；用结构变化版才真正覆盖该缺陷路径。
+func itemsRelationChanged(identity byte) []byte {
+	return wireMessage('R', relPayload(itemsOID, "game", "items", identity,
+		relCol(FlagReplicaIdentity, "id", 23),
+		relCol(0, "name", 25),
+		relCol(0, "gold", 1700),
+		relCol(0, "blob", 25),
+		relCol(0, "level", 23),
+	))
+}
+
 func beginMsg(xid uint32) []byte { return wireMessage('B', beginPayload(xid)) }
 func commitMsg(lsn uint64) []byte {
 	// 2025-06-01T00:00:00Z 对应的 PG 纪元微秒（可读性优先，公式即断言）。
@@ -476,4 +489,89 @@ func imageColumnNames(image map[string]json.RawMessage) []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// 事务 Begin 位点生命周期：Commit 后必须清空，避免事务外且位点未知的
+// Relation 回退到「上一个事务」的陈旧 Begin 位点。
+//
+// 场景：事务 T1（Begin LSN=100）内先见 Relation（WALStart=0）→ 记入 T1 位点；
+// Commit 后，事务外再收到一条 Relation（WALStart=0/空）——它不代表任何已
+// 开始事务的 DDL，cacheRelation 应「跳过（不猜）」而非复用 T1 的 100。
+func TestDecoderBeginLSNResetAfterCommit(t *testing.T) {
+	d := NewDecoder("s")
+
+	// T1：Begin(100) + Relation(位点缺失) + Insert + Commit。
+	// Relation 在事务内，应记入 Begin 位点 100。
+	mustFeedAt(t, d, "100", beginMsg(1))
+	mustFeedAt(t, d, "", itemsRelation('d')) // 无位点 → 兜底事务 Begin
+	mustFeedAt(t, d, "", insertMsg(textDatum("1"), textDatum("n"), textDatum("0"), nullDatum()))
+	mustFeedAt(t, d, "100", commitMsg(10))
+	if _, _, found := d.SchemaHistory().At("game.items", "100"); !found {
+		t.Fatal("relation in txn must be recorded at begin LSN")
+	}
+	// 事务外 Relation（无 Begin，结构已变化）：位点未知 → 不猜，跳过记录。
+	// 结构不变的重发会经 relationEqual 提前返回，不触及陈旧 Begin 位点的
+	// Record 回退路径；用结构变化版才真实覆盖「Commit 未清空 curBeginLSN」
+	// 的回归（父提交在此会复现 revision 2 "not after" 断流）。
+	mustFeedAt(t, d, "", itemsRelationChanged('d'))
+	// 不新增版本：At 仍只有 100 一个版本。
+	vers := d.SchemaHistory().Versions("game.items")
+	if len(vers) != 1 {
+		t.Fatalf("versions = %d, want 1 (txn-outside relation must be skipped)", len(vers))
+	}
+}
+
+// 事务外 Relation 若携带真实 WAL 位点（非 0/空），仍应正常记录（不依赖
+// 事务 Begin 兜底），Commit 清空不应误伤。
+func TestDecoderRelationWithOwnLSNOutsideTxn(t *testing.T) {
+	d := NewDecoder("s")
+	// 无 Begin，直接带位点 200 的 Relation：正常记录到 200。
+	mustFeedAt(t, d, "200", itemsRelation('d'))
+	if _, _, found := d.SchemaHistory().At("game.items", "200"); !found {
+		t.Fatal("relation with own LSN must be recorded")
+	}
+	if vers := d.SchemaHistory().Versions("game.items"); len(vers) != 1 {
+		t.Fatalf("versions = %d, want 1", len(vers))
+	}
+}
+
+// 事务外且位点未知的结构变化 Relation 被跳过时，不得推进全局修订号/关系
+// 缓存：否则后续 DML 产出 SchemaVersion=2 而历史只覆盖 revision 1，恢复
+// 校验按事务时点解析不到该版本（fail-closed 契约被打破）。
+//
+// 场景：T1（Begin=100）内见 Relation（4 列）→ 记入 revision 1@100；
+// 事务外重发结构变化版 Relation（5 列，位点缺失）→ 跳过（不猜）；
+// T2 内再发 DML（4 列同 T1 结构）→ 必须仍产出 SchemaVersion=1（可解析）。
+func TestDecoderSkippedRelationDoesNotAdvanceRevision(t *testing.T) {
+	d := NewDecoder("s")
+
+	// T1：Begin(100) + Relation(4列) + Commit(100) → revision 1 @100。
+	mustFeedAt(t, d, "100", beginMsg(1))
+	mustFeedAt(t, d, "", itemsRelation('d'))
+	mustFeedAt(t, d, "100", commitMsg(10))
+	if _, _, found := d.SchemaHistory().At("game.items", "100"); !found {
+		t.Fatal("relation in txn must be recorded at begin LSN")
+	}
+
+	// 事务外结构变化 Relation（无 Begin、无位点）：跳过，不推进状态。
+	mustFeedAt(t, d, "", itemsRelationChanged('d'))
+
+	// 被跳过的结构变化不得推进修订号/关系缓存（fail-closed：不猜）。
+	if d.revision != 1 {
+		t.Fatalf("revision = %d, want 1 (skipped relation must not advance)", d.revision)
+	}
+	if ent := d.relations[itemsOID]; ent == nil || ent.revision != 1 {
+		t.Fatalf("cache revision = %+v, want 1 (skipped relation must not update cache)", ent)
+	}
+
+	// T2：结构仍按 T1 4 列解释，DML 必须产出可解析的 SchemaVersion=1。
+	mustFeedAt(t, d, "200", beginMsg(2))
+	mustFeedAt(t, d, "", insertMsg(textDatum("1"), textDatum("n"), textDatum("0"), nullDatum()))
+	ev := mustFeedAt(t, d, "300", commitMsg(300))
+	if len(ev) != 1 || ev[0].SchemaVersion != 1 {
+		t.Fatalf("event = %+v, want 1 event with SchemaVersion 1", ev)
+	}
+	if len(d.SchemaHistory().Versions("game.items")) != 1 {
+		t.Fatalf("versions = %d, want 1", len(d.SchemaHistory().Versions("game.items")))
+	}
 }

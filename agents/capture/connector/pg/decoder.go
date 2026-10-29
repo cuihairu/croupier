@@ -121,6 +121,12 @@ func (d *Decoder) Feed(payload []byte, msgLSN string) ([]connector.ChangeEvent, 
 		events := d.cur.events
 		d.cur = nil
 		d.curLSN = commit.EndLSN
+		// 事务结束：清空事务 Begin 位点。Relation 是 catalog 消息，不带自身
+		// WAL 位点，cacheRelation 用所在事务 Begin 位点兜底；若不清空，事务外
+		// 且位点未知的 Relation 会误回退到「上一个事务」的陈旧位点，把新
+		// schema 版本记到早于实际变更的位置（Record not-after 断流或恢复时点
+		// 误判列集）。事务外且无位点应走 cacheRelation 的「跳过（不猜）」。
+		d.curBeginLSN = ""
 		if len(events) > 0 {
 			events[len(events)-1].Tx.End = true
 		}
@@ -318,21 +324,23 @@ func datumJSON(typeOID uint32, raw []byte) (json.RawMessage, error) {
 // 全局修订号 +1（SchemaVersion 漂移信号），并按消息位点把该版本记入
 // schema 历史。pgoutput 的 Relation 是 catalog 消息，自身不带 WAL 位点
 // （WALStart=0）——用所在事务的 Begin 位点兜底定位（版本自该事务起生效，
-// 语义正确）；事务外且位点仍未知时跳过记录，恢复校验对该表该时点按
-// 「无版本」拒绝（fail-closed，不猜）。历史链不连续（乱序位点）按协议
-// 致命错误暴露，不静默丢版本。
+// 语义正确）；事务外且位点仍未知时整体跳过：不记历史、不推进修订号、
+// 不更新关系缓存（修订号与历史必须同进同退，否则后续 DML 产出历史解析
+// 不到的 SchemaVersion，恢复校验对该表该时点按「无版本」拒绝
+// （fail-closed，不猜））。历史链不连续（乱序位点）按协议致命错误暴露，
+// 不静默丢版本。
 func (d *Decoder) cacheRelation(rel *Relation, lsn string) error {
 	if cur, ok := d.relations[rel.OID]; ok && relationEqual(cur.rel, rel) {
 		return nil
 	}
-	d.revision++
-	d.relations[rel.OID] = &relationEntry{rel: rel, revision: d.revision}
 	if lsn == "" || lsn == "0" {
 		lsn = d.curBeginLSN // catalog 消息位点缺失 → 事务位点兜底
 	}
 	if lsn == "" || lsn == "0" {
-		return nil // 事务外且无位点：跳过（不猜）
+		return nil // 事务外且无位点：跳过（不猜）——不推进修订号、不更新关系缓存
 	}
+	d.revision++
+	d.relations[rel.OID] = &relationEntry{rel: rel, revision: d.revision}
 	if err := d.schemaHist.Record(rel.Schema+"."+rel.Name, d.revision, lsn, tableSchemaOf(rel)); err != nil {
 		return err
 	}
