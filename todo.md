@@ -213,9 +213,9 @@
   - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败
   - 状态／条件：VERIFIED 诊断：缺失 function_policies 表时 GetPolicy 返回错误，而 EnforceFunctionPolicy 返回 policy=nil/error=nil；初始化失败分支同样缺有效政策。已修复（ac1027db）：EnforceFunctionPolicy 对 GetPolicy 错误 fail-closed 返回错误（不再 nil,nil 静默放行），govern 链/批准快照/审计不被绕过；svc 在策略配置损坏时以 NewManagerWithDefaults 回退内置默认档（high/danger 仍需审批），PolicyManager 绝不为 nil——初始化故障不静默禁用治理；「无覆盖策略」与「存储/配置故障」已区分（无覆盖=按风险档返回有效默认政策；存储故障=拒绝；配置故障=回退默认档并记录）。门禁：go build ./...、go test ./internal/... 全绿（164 pkg）、gofmt 干净。用例：TestGovern_PolicyLookupErrorDenies、TestEnforceFunctionPolicy_GetPolicyErrorDenies、TestNewManagerWithDefaults、TestNewServiceContext_PolicyAndCacheFallbacks（更新为断言非 nil+默认档）、TestEnforceFunctionPolicy_GetPolicyError_V9（更新为断言错误）。边界：PolicyManager 为 nil 仅存在于显式关闭策略的测试配置，非故障；生产路径永不 nil。
 
-- [ ] **ARCH-026 · P1 · 实现 · 任务主记录持久化失败时禁止派发**
+- [x] **ARCH-026 · P1 · 实现 · 任务主记录持久化失败时禁止派发**
   - 依赖：—。交付与验收：Dispatcher 在 CreateRunWithMeta 失败时返回可定位错误并不得发送 StartTask；验证 DB 失败时执行器计数为 0、无孤立事件/不可取消任务；不与 Agent 事件重放重复实现
-  - 状态／条件：VERIFIED 代码：dispatcher.go:startTaskOnPickedAgent 忽略 CreateRunWithMeta 错误仍派发；现有文字“先写任务”不等于写成功才执行。
+  - 状态／条件：VERIFIED 代码：dispatcher.go:startTaskOnPickedAgent 忽略 CreateRunWithMeta 错误仍派发；现有文字“先写任务”不等于写成功才执行。已修复（c4792098）：CreateRunWithMeta 失败即返回可定位错误（含 task_id 的 “persist task_runs row for task %s before dispatch”），不再发送 StartTask——主记录先持久化成功才派发；错误非 errAgentUnreachable，不触发 failover 重试（DB 故障与 agent 无关），失败轮无 MarkRunFailed 动作（行未建成）。不与 Agent 事件重放重复实现（事件回流仍按 task_id 匹配，只是现在保证回流必有主记录可更新）。门禁：go build ./...、go test ./internal/... 全绿（164 pkg）、gofmt 干净。用例：TestDispatcher_StartTaskRequest_CreateRunFailureBlocksDispatch（StartTask 帧零调用、恰好一次写尝试、taskAgentID 查不到生成 ID=无不可取消孤儿）。附带：api/task 测试库钉死单连接（8422a63c）修 glebarez :memory: 并发拿空库的既有 flake（no such table: task_runs）。
 
 - [ ] **ARCH-027 · P1 · 实现 · 输入契约读取失败的明确拒绝语义**
   - 依赖：—。交付与验收：区分旧函数确无 schema 与 descriptor 查询失败；契约读取故障不得作为跳过验证依据；固定已批准快照/版本，覆盖 schema DB 失败、required 缺失和版本漂移；复用 ValidateInvokeInput
