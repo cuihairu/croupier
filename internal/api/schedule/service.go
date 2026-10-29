@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/svc"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 )
@@ -144,6 +145,19 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	if err != nil {
 		return nil, err
 	}
+	// 定义期准入（ARCH-024）：Create 只校验「函数当前可调度」（禁用/分配/
+	// 输入契约），不加载主体、不跑政策审批——授权与政策审批由每次触发
+	// 重新授权承担，避免定义期即制造审批噪音、也避免把创建者的瞬时权限
+	// 固化进调度。
+	if _, err := functioninvoke.GovernInvocability(ctx, s.svcCtx, &functioninvoke.Request{
+		ID:      req.FunctionID,
+		GameID:  scope.GameID,
+		Env:     scope.Env,
+		Mode:    "async",
+		Payload: []byte(req.Payload),
+	}); err != nil {
+		return nil, err
+	}
 	actor := currentActor(ctx)
 	created, err := m.Create(ctx, model.CreateScheduleInput{
 		Name:       req.Name,
@@ -210,9 +224,16 @@ func (s *Service) SetStatus(ctx context.Context, id uint, status string) (Schedu
 
 type TriggerNowResponse struct {
 	TaskRunID string `json:"taskRunId"`
+	// ApprovalID/ApprovalWorkflow：政策要求审批时返回（ARCH-024，与
+	// functionInvoke/task Start 的审批响应同构），任务未派发。
+	ApprovalID       string `json:"approvalId,omitempty"`
+	ApprovalWorkflow string `json:"approvalWorkflow,omitempty"`
 }
 
 // TriggerNow 立即触发一次（不计入触发槽幂等，走 dispatch 直发）。
+// 手动调度是一次执行入口（ARCH-024）：与 functionInvoke / /tasks Start
+// 共用同一条执行准入链——禁用/分配/主体/政策审批/输入契约逐次一致，
+// 不再绕过治理裸派发。
 func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse, error) {
 	m := s.model()
 	if m == nil || s.svcCtx.Dispatcher == nil {
@@ -225,11 +246,30 @@ func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse,
 	if err != nil {
 		return nil, err
 	}
+	// 执行准入（ARCH-024 统一治理）：与 functionInvoke、/tasks Start 共用
+	// Govern 链。Human 主体从 ctx 鉴权中间件解析；政策要求审批时返回待审
+	// 响应、不派发。
+	governed, err := functioninvoke.Govern(ctx, s.svcCtx, &functioninvoke.Request{
+		ID:      sch.FunctionID,
+		GameID:  sch.GameID,
+		Env:     sch.Env,
+		Mode:    "async",
+		Payload: []byte(sch.Payload.String()),
+	}, functioninvoke.Subject{Kind: functioninvoke.SubjectHuman})
+	if err != nil {
+		return nil, err
+	}
+	if governed.ApprovalRequired {
+		return &TriggerNowResponse{
+			ApprovalID:       governed.ApprovalID,
+			ApprovalWorkflow: governed.ApprovalWorkflow,
+		}, nil
+	}
 	meta := map[string]string{
 		"gameId":     sch.GameID,
 		"env":        sch.Env,
 		"scheduleId": strconv.FormatUint(uint64(sch.ID), 10),
-		"actor":      currentActor(ctx),
+		"actor":      governed.Admin.Username,
 	}
 	var extra map[string]string
 	if len(sch.Metadata) > 0 {

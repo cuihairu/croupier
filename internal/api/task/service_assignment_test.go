@@ -29,7 +29,8 @@ func TestServiceStartV9_UnassignedFunctionDenied(t *testing.T) {
 	writeTaskAssignments(t, svcCtx, `{"test-game|test-env":["player.ban"]}`)
 	rt := &fakeRuntimeV9{findFn: &model.FunctionContract{}}
 	taskSvc := &Service{svcCtx: svcCtx, runtime: rt}
-	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "test-game", Env: "test-env"})
+	// admin 主体：授权门先于分配门执行，需已认证调用者（ARCH-024 门序）。
+	ctx := svc.WithGameScope(seedAdminWithRole(t, svcCtx.DB, "op", "admin"), svc.GameScope{GameID: "test-game", Env: "test-env"})
 
 	_, err := taskSvc.Start(ctx, &StartRequest{FunctionID: "player.kick"})
 	require.Error(t, err)

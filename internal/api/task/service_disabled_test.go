@@ -23,7 +23,9 @@ func TestServiceStartV9_DisabledFunctionBlocked(t *testing.T) {
 	}))
 	rt := &fakeRuntimeV9{findFn: &model.FunctionContract{}}
 	taskSvc := &Service{svcCtx: svcCtx, runtime: rt}
-	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "test-game", Env: "test-env"})
+	// admin 主体：/tasks Start 授权门（LoadCurrentAdmin/scope/CheckInvokePermission）
+	// 先于禁用拦截执行，需提供已认证调用者才能触达禁用门（ARCH-024 门序）。
+	ctx := svc.WithGameScope(seedAdminWithRole(t, svcCtx.DB, "op", "admin"), svc.GameScope{GameID: "test-game", Env: "test-env"})
 
 	_, err := taskSvc.Start(ctx, &StartRequest{FunctionID: "player.ban"})
 	require.Error(t, err)

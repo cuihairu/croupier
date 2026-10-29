@@ -52,8 +52,11 @@ func newTestEnvWithDispatcher(t *testing.T, d *dispatch.Dispatcher) (*gin.Engine
 
 	svcCtx := &svc.ServiceContext{
 		TaskScheduleModel: model.NewTaskScheduleModel(db),
+		AdminModel:        model.NewAdminModel(db),
 		Dispatcher:        d,
 	}
+	// TriggerNow 经 ARCH-024 Govern 链加载调用者主体（username=tester）。
+	seedScheduleAdmin(t, db, "tester")
 	h := NewHandler(NewService(svcCtx))
 
 	gin.SetMode(gin.TestMode)

@@ -25,6 +25,26 @@ type LocalRunner interface {
 	Run(ctx context.Context, s *model.TaskSchedule) error
 }
 
+// GovernDecision 是执行治理回调的判定（ARCH-024）。
+type GovernDecision int
+
+const (
+	// GovernAllow 治理通过，继续派发。
+	GovernAllow GovernDecision = iota
+	// GovernApprovalRequired 政策要求审批：治理回调内已创建审批请求，
+	// 调度不派发、run-log 记 approval_required。
+	GovernApprovalRequired
+	// GovernDenied 治理拒绝（禁用/未分配/权限不足/撤权）：不派发、
+	// run-log 记 failed，err 携带拒绝原因。
+	GovernDenied
+)
+
+// GovernHook 是可注入的执行治理回调（ARCH-024）：自动触发在派发前调用，
+// 以调度创建者（s.Actor）为自动化主体逐次重新授权——撤权后不继续裸派发。
+// 由 svc/cmd 布线注入 functioninvoke.Govern 的实现；nil（未注入）= 向后
+// 兼容（不治理，行为与治理上线前一致）。
+type GovernHook func(ctx context.Context, s *model.TaskSchedule) (GovernDecision, error)
+
 // Store 依赖的最小模型接口。
 type ScheduleStore interface {
 	ListDue(ctx context.Context, now time.Time, limit int) ([]model.TaskSchedule, error)
@@ -47,6 +67,7 @@ type Manager struct {
 	store      ScheduleStore
 	dispatch   Dispatcher
 	local      LocalRunner
+	govern     GovernHook
 	interval   time.Duration
 	nowFn      func() time.Time
 	claimLease time.Duration // ARCH-023 领取租约：超过即视为领取者崩溃
@@ -75,6 +96,14 @@ func (m *Manager) SetLocalRunner(r LocalRunner) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.local = r
+}
+
+// SetGovernHook 注入执行治理回调（ARCH-024）。nil 清除 = 向后兼容
+// （不治理）。触发前读取，注入时序只须早于首个自动触发即可。
+func (m *Manager) SetGovernHook(h GovernHook) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.govern = h
 }
 
 // SetInterval 覆盖扫描周期（测试用）。
@@ -198,12 +227,43 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 
 	// server-local 路由：报告生成器进程内直接执行（不经 Dispatcher，
 	// 无 TaskRun）。Kind 不匹配或未注入 LocalRunner 时落既有派发链。
+	// Kind=incident_report 是进程内生成器（非注册函数派发），不适用函数级
+	// 执行治理——已在上分支返回。
 	m.mu.Lock()
 	local := m.local
 	m.mu.Unlock()
 	if s.Kind == model.ScheduleKindIncidentReport && local != nil {
 		m.triggerLocal(ctx, local, s, slot, spec, now, failures)
 		return
+	}
+
+	// 执行准入（ARCH-024 可注入治理服务）：自动触发以调度创建者
+	// （s.Actor）为自动化主体逐次重新授权——撤权后不继续裸派发。未注入
+	// 治理钩子（nil）向后兼容。Allow → 继续派发；ApprovalRequired /
+	// Denied → 不派发、run-log 记录并推进下次触发时间。
+	m.mu.Lock()
+	govern := m.govern
+	m.mu.Unlock()
+	if govern != nil {
+		decision, gerr := govern(ctx, s)
+		switch decision {
+		case GovernApprovalRequired:
+			// 政策要求审批：治理回调已创建审批请求，不派发。
+			slog.Info("scheduler: approval required, skip dispatch", "schedule", s.ID, "slot", slot.Format(time.RFC3339))
+			_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", "approval_required", "")
+			m.advance(s, spec, now, nil)
+			return
+		case GovernDenied:
+			msg := "governance denied"
+			if gerr != nil {
+				msg = "governance denied: " + gerr.Error()
+			}
+			slog.Warn("scheduler: governance denied, skip dispatch", "schedule", s.ID, "slot", slot.Format(time.RFC3339), "error", gerr)
+			_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", "failed", msg)
+			m.advance(s, spec, now, nil)
+			return
+		default: // GovernAllow 继续派发
+		}
 	}
 
 	// 派发 TaskRun（scope 经 metadata 传递，与 task.Start 同一约定）。

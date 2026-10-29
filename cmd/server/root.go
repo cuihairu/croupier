@@ -20,11 +20,13 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/tasks"
+	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -197,7 +199,29 @@ func runServer() error {
 	// 须在 cmd 层反向注入避免环）。
 	svcCtx.SetReportRunner(incident.NewService(svcCtx))
 	// cron 定时任务调度循环（Dispatcher 就绪后启动，含报表调度播种）。
-	svcCtx.StartScheduler()
+	mgr := svcCtx.StartScheduler()
+	if mgr != nil {
+		// 执行治理注入（ARCH-024）：自动触发以调度创建者（s.Actor）为
+		// 自动化主体逐次重新授权——撤权后不继续裸派发。与 functionInvoke、
+		// /tasks Start、手动调度共用同一条 Govern 链。函数级治理不适用于
+		// Kind=incident_report 的进程内生成器（不经函数派发链）。
+		mgr.SetGovernHook(func(ctx context.Context, s *model.TaskSchedule) (scheduler.GovernDecision, error) {
+			governed, err := functioninvoke.Govern(ctx, svcCtx, &functioninvoke.Request{
+				ID:      s.FunctionID,
+				GameID:  s.GameID,
+				Env:     s.Env,
+				Mode:    "async",
+				Payload: []byte(s.Payload),
+			}, functioninvoke.Subject{Kind: functioninvoke.SubjectAutomation, ActorUsername: s.Actor})
+			if err != nil {
+				return scheduler.GovernDenied, err
+			}
+			if governed.ApprovalRequired {
+				return scheduler.GovernApprovalRequired, nil
+			}
+			return scheduler.GovernAllow, nil
+		})
+	}
 	defer svcCtx.StopScheduler()
 	if telemetrySvc, err := svc.NewTelemetryService(c, svcCtx.Secrets, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)

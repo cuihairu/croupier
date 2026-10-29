@@ -113,4 +113,8 @@ type StartRequest struct {
 type StartResponse struct {
 	TaskID string `json:"taskId"`
 	Status string `json:"status"`
+	// ApprovalID/ApprovalWorkflow：政策要求审批时返回（ARCH-024，与
+	// functionInvoke 的 ApprovalRequired 响应同构），任务未派发。
+	ApprovalID       string `json:"approvalId,omitempty"`
+	ApprovalWorkflow string `json:"approvalWorkflow,omitempty"`
 }
