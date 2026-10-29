@@ -26,6 +26,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	// :memory: sqlite 的每个池化连接是独立空库；连接池轮转让后续查询拿到
+	// 未迁移的新连接（no such table: task_runs）。单连接强制共用同一份内存库。
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
 	require.NoError(t, model.AutoMigrate(db))
 	return db
 }
