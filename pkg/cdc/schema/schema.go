@@ -111,8 +111,8 @@ func (h *History) Record(qualified string, revision int64, from string, ts Table
 	if len(ts.Columns) == 0 {
 		return fmt.Errorf("schema: revision %d for %s has no columns", revision, qualified)
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	// 单锁在函数顶部取得（L94），此处不再重复加锁——sync.RWMutex 不可重入，
+	// 二次 Lock 会永久阻塞（merge 曾把两边的加锁拼成双锁导致 Record 死锁）。
 	vers := h.tables[qualified]
 	if len(vers) > 0 {
 		last := vers[len(vers)-1]
