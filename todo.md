@@ -216,9 +216,10 @@
   - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
   - 状态／条件：VERIFIED 装配缺口：task.Service.Start 只做部分 gate；schedule 和 svc.dispatcherAdapter 直连 Dispatcher。不可据统一 transport 宣称统一治理。
 
-- [ ] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
+- [x] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
   - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败
   - 状态／条件：VERIFIED 诊断：缺失 function_policies 表时 GetPolicy 返回错误，而 EnforceFunctionPolicy 返回 policy=nil/error=nil；初始化失败分支同样缺有效政策。高危失败策略须先明确再落地。
+  - DONE（2026-10-30）：fail-closed 落地——EnforceFunctionPolicy 在 GetPolicy 错误（表缺失/SQL/db down）时返回包装错误而非 nil,nil，PolicyManager 为 nil（配置/初始化失败）返回 policy manager unavailable；Invoke 两故障面均拒绝执行（高风险零派发），批准续行（approvalBypass=approved）与页面快照治理豁免保持豁免；「无覆盖策略」由 GetPolicy 回落风险级默认策略（非 nil），与故障面语义区分。不采用 last-good（管理器内存态、初始化失败无 last-good 可回退，如实记录）。证据 docs/review/arch025-policy-fail-closed-2026-10-30.md；用例 arch025_test.go（5 用例）+ coverage_v9_test.go 原 fail-open 断言翻转；诚实边界：故障面下低/中风险一并拒绝（无法确定 RequireApproval/RequireAudit 时无安全放行依据）、线上 postgres 故障注入未跑（缺失表确定性复现）。
 
 - [x] **ARCH-026 · P1 · 实现 · 任务主记录持久化失败时禁止派发**
   - 依赖：—。交付与验收：Dispatcher 在 CreateRunWithMeta 失败时返回可定位错误并不得发送 StartTask；验证 DB 失败时执行器计数为 0、无孤立事件/不可取消任务；不与 Agent 事件重放重复实现
