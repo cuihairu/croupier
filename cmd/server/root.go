@@ -24,6 +24,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/server"
+	"github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/tasks"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
@@ -385,7 +386,12 @@ func runServer() error {
 	<-quit
 	fmt.Println("\nShutting down server...")
 
-	// 优雅停机，按顺序：停止接收新连接 → drain 在途请求 → 超时关闭会话与后台任务。
+	// 优雅停机，按顺序（ARCH-017 重新排序）：停止接收新连接 → drain 在途
+	// HTTP 请求 → 取消根 context（解除活跃 agent 会话）→ 停后台循环 →
+	// 有界等待会话 goroutine 退出 → 冲刷留痕并释放连接池。
+	// 关键顺序不变量：rootCancel 必须先于 agent 会话等待——会话只会在取消
+	// 后结束，若先等（旧 Close 的 wg.Wait 语义）会死锁住后续所有步骤；
+	// HTTP drain 先于 rootCancel，保证在途 REST→agent 派发在会话仍活时完成。
 	// 整体超时兜底，避免卡死。
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
@@ -394,33 +400,49 @@ func runServer() error {
 	go func() {
 		defer close(shutdownDone)
 
-		// 1. 停止接收新的 TCP Agent 连接并 drain 在途会话（Close 等待活跃连接结束）。
+		// 1. 停止接收新的 TCP Agent 连接。不在此等待活跃会话：等待只会
+		//    阻塞后续步骤，且会话只会在步骤 3 的 rootCancel 后结束。
 		if controlResources != nil && controlResources.tcpListener != nil {
-			if err := controlResources.tcpListener.Close(); err != nil {
+			if err := controlResources.tcpListener.StopAccepting(); err != nil {
 				slog.Default().Error("Failed to close TCP listener", "error", err)
 			}
 		}
 
-		// 2. HTTP REST：停止接收新请求，drain 在途请求。
-		if err := srv.Shutdown(context.Background()); err != nil {
+		// 2. HTTP REST：停止接收新请求，drain 在途请求。在途 handler 的
+		//    审计/留痕写在池关闭（步骤 6）前同步完成——Close 的冲刷契约。
+		if err := srv.Shutdown(shutdownCtx); err != nil {
 			fmt.Fprintf(os.Stderr, "HTTP server forced to shutdown: %v\n", err)
 		}
 
 		// 3. 取消根 context，级联停止后台任务（ControlService 后台循环、
-		//    registry cleanup、session prune ticker）。
+		//    registry cleanup、session prune ticker），并解除所有活跃
+		//    agent 会话的读阻塞（MuxConn 的 ctx 观察设置 read deadline）。
 		rootCancel()
 
-		// 4. 停止 ControlService 后台任务（DB 加载、metrics 清理、session 过期清理）。
+		// 4. 停调度器（幂等；defer 兜底仍安全）与 ControlService 后台任务。
+		svcCtx.StopScheduler()
 		if controlResources != nil && controlResources.controlService != nil {
 			controlResources.controlService.Stop()
 		}
 
-		// 5. 关闭 database-per-game Router 缓存的所有游戏数据库连接。
-		if svcCtx.Router != nil {
-			if err := svcCtx.Router.Close(); err != nil {
-				slog.Default().Error("Failed to close game database router", "error", err)
+		// 5. 有界等待 agent 连接 goroutine 退出（socket/goroutine 释放）。
+		//    断连清理（RemoveSession/registry 移除/任务收割）此时仍在池活
+		//    状态下执行；预算用尽则记警告并继续关池，不无限阻塞。
+		if controlResources != nil && controlResources.tcpListener != nil {
+			if err := controlResources.tcpListener.WaitConnections(shutdownCtx); err != nil {
+				slog.Default().Warn("agent connections still draining at shutdown budget",
+					"error", err)
 			}
 		}
+
+		// 6. 冲刷留痕（执行留痕队列、retention）并释放连接池（per-game
+		//    Router、缓存、元库）。幂等。
+		svcCtx.Close()
+		// 7. 清包级模板重建器单例（RegisterHandlers 装配、闭包捕获本进程
+		//    svcCtx 的 DB）。池已关，置 nil 使迟到调用者走 no-op 而非打到
+		//    已关闭连接上——测试内多次 runServer boot 共享该单例，不停机
+		//    清理会让后续引用方拿到已关池的陈旧闭包。
+		service.SetContractTemplateRegenerator(nil)
 	}()
 
 	select {

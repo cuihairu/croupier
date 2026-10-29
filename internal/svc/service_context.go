@@ -191,6 +191,9 @@ type ServiceContext struct {
 	StartTime time.Time
 
 	Extensions *ExtensionServices
+
+	// closeOnce guards Close()（ARCH-017：冲刷 + 池释放幂等收口）。
+	closeOnce sync.Once
 }
 
 type ExtensionServices struct {
@@ -643,23 +646,52 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	return ctx
 }
 
-// Close 收停 NewServiceContext 起动的后台 goroutine：留痕写入器冲刷队列后
-// 退出，保留期清理 cancel 后等待在飞的一轮 sweep 结束。进程内多实例（测试、
-// 备件装配）teardown 临时目录前必须先 Close——后台 sweep 仍经 router 懒开
-// per-game sqlite 时 RemoveAll 会撞文件竞态。幂等，可安全重复调用。
+// Close 收停 NewServiceContext 起动的后台 goroutine 并释放连接池：
+// 留痕写入器冲刷队列后退出，保留期清理 cancel 后等待在飞的一轮 sweep 结束，
+// 随后按序关闭 per-game Router 连接、缓存与元库连接池（ARCH-017 有界清理）。
+// 进程内多实例（测试、备件装配）teardown 临时目录前必须先 Close——后台
+// sweep 仍经 router 懒开 per-game sqlite 时 RemoveAll 会撞文件竞态。
+//
+// 调用方契约：优雅停机必须在 drain 完在途 HTTP 请求之后调用 Close——审计
+// 与执行留痕的写路径是同步/队列式的，池一关就永远写不进了；顺序是
+// 「drain → 停后台 → Close」，Close 自身不再等待任何在飞请求。
+// 幂等，可安全重复调用。
 func (ctx *ServiceContext) Close() {
 	if ctx == nil {
 		return
 	}
-	if ctx.ExecutionLogWriter != nil {
-		ctx.ExecutionLogWriter.Stop()
-	}
-	if ctx.retentionCancel != nil {
-		ctx.retentionCancel()
-	}
-	if ctx.LogRetention != nil {
-		ctx.LogRetention.Wait()
-	}
+	ctx.closeOnce.Do(func() {
+		// 1. 执行留痕异步写入器：冲刷队列残余条目（写库须在池关闭前）。
+		if ctx.ExecutionLogWriter != nil {
+			ctx.ExecutionLogWriter.Stop()
+		}
+		// 2. 留痕保留期清理：cancel 后等在飞 sweep 收尾（同上依赖池）。
+		if ctx.retentionCancel != nil {
+			ctx.retentionCancel()
+		}
+		if ctx.LogRetention != nil {
+			ctx.LogRetention.Wait()
+		}
+		// 3. 释放连接池：per-game Router 先关，缓存次之，元库最后——
+		//    步骤 1/2 的落库路径直到此刻前都有活池可用。
+		if ctx.Router != nil {
+			if err := ctx.Router.Close(); err != nil {
+				slog.Default().Error("close game database router failed", "error", err)
+			}
+		}
+		if ctx.Cache != nil {
+			if err := ctx.Cache.Close(); err != nil {
+				slog.Default().Error("close cache failed", "error", err)
+			}
+		}
+		if ctx.DB != nil {
+			if sqlDB, err := ctx.DB.DB(); err == nil && sqlDB != nil {
+				if err := sqlDB.Close(); err != nil {
+					slog.Default().Error("close meta database pool failed", "error", err)
+				}
+			}
+		}
+	})
 }
 
 func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env string) context.Context {

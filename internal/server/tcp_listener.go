@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
@@ -61,7 +62,14 @@ type TCPListener struct {
 
 	wg      sync.WaitGroup
 	closing chan struct{}
-	once    sync.Once
+	// stopOnce guards the accept-loop teardown (StopAccepting). Close
+	// delegates to StopAccepting before waiting on wg, so the once must
+	// cover the shared teardown, not the connection wait.
+	stopOnce sync.Once
+	// activeConns counts live serveConn goroutines. Purely observational
+	// (shutdown orchestration waits on wg); tests poll it to know a dialed
+	// connection was actually accepted before exercising the wait paths.
+	activeConns atomic.Int64
 
 	// serveStarted/serveExited bracket the accept loop: Close drains the
 	// loop before waiting on wg so the WaitGroup contract (the first
@@ -180,8 +188,12 @@ func (l *TCPListener) Serve(ctx context.Context) error {
 		}
 
 		l.wg.Add(1)
+		l.activeConns.Add(1)
 		go func() {
-			defer l.wg.Done()
+			defer func() {
+				l.activeConns.Add(-1)
+				l.wg.Done()
+			}()
 			l.serveConn(ctx, conn)
 		}()
 	}
@@ -289,16 +301,18 @@ func (l *TCPListener) SessionStore() *AgentSessionStore {
 	return l.sessionStore
 }
 
-// Close stops accepting new connections and waits for active ones to finish.
+// StopAccepting closes the accept loop and waits for Serve to return, without
+// waiting for already-accepted connections (ARCH-017). The graceful-shutdown
+// path needs exactly this: waiting for active sessions before cancelling the
+// root context deadlocks, because sessions only end after the cancel.
 //
-// Ordering contract: the accept loop is drained first (its exit implies every
-// wg.Add already happened), and only then does Close wait on the WaitGroup.
-// Waiting concurrently with a first wg.Add (counter at zero) violates the
-// WaitGroup contract and is reported by the race detector via the
-// sync.WaitGroup annotations.
-func (l *TCPListener) Close() error {
+// Ordering contract: the accept loop is drained before anything may wait on
+// wg (its exit implies every wg.Add already happened). Waiting concurrently
+// with a first wg.Add (counter at zero) violates the WaitGroup contract and
+// is reported by the race detector via the sync.WaitGroup annotations.
+func (l *TCPListener) StopAccepting() error {
 	var closeErr error
-	l.once.Do(func() {
+	l.stopOnce.Do(func() {
 		close(l.closing)
 		closeErr = l.listener.Close()
 		select {
@@ -307,8 +321,44 @@ func (l *TCPListener) Close() error {
 		default:
 			// Serve was never started: no connection goroutines exist.
 		}
-		l.wg.Wait()
 	})
+	return closeErr
+}
+
+// WaitConnections waits for already-accepted connection goroutines to finish,
+// bounded by ctx (ARCH-017: shutdown cleanup must be bounded, not wait
+// forever on a stuck session). The caller must StopAccepting (or Close) first
+// so no new connection goroutines can be added while waiting. Returns
+// ctx.Err() when the bound expires before the connections drain.
+func (l *TCPListener) WaitConnections(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		l.wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// ActiveConnections reports the number of live connection goroutines
+// (observability and tests; shutdown waits on wg, not on this counter).
+func (l *TCPListener) ActiveConnections() int64 {
+	return l.activeConns.Load()
+}
+
+// Close stops accepting new connections and waits for active ones to finish.
+// Full-join semantics: StopAccepting followed by an unbounded wg wait. The
+// graceful-shutdown orchestration in cmd/server uses the split pair
+// (StopAccepting + WaitConnections) so HTTP shutdown and the root cancel are
+// not blocked by long-lived sessions; Close remains for callers that want a
+// fully drained listener (tests, fixtures).
+func (l *TCPListener) Close() error {
+	closeErr := l.StopAccepting()
+	l.wg.Wait()
 	return closeErr
 }
 

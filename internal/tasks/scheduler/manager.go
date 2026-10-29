@@ -73,6 +73,7 @@ type Manager struct {
 	claimLease time.Duration // ARCH-023 领取租约：超过即视为领取者崩溃
 	mu         sync.Mutex
 	started    bool
+	stopped    bool // Stop 已被调用（幂等守卫：二次调用不再 close stopCh）
 	stopCh     chan struct{}
 	stoppedCh  chan struct{}
 }
@@ -127,13 +128,20 @@ func (m *Manager) Start() {
 	go m.loop()
 }
 
-// Stop 停止调度循环并等待退出。
+// Stop 停止调度循环并等待退出。幂等（ARCH-017：优雅停机在关池前显式调用
+// StopScheduler，同时保留 runServer 的 defer 兜底——二次调用必须安全）。
 func (m *Manager) Stop() {
 	m.mu.Lock()
 	if !m.started {
 		m.mu.Unlock()
 		return
 	}
+	if m.stopped {
+		m.mu.Unlock()
+		<-m.stoppedCh // 等待首次调用者的循环真正退出（关闭后立即返回）
+		return
+	}
+	m.stopped = true
 	m.mu.Unlock()
 	close(m.stopCh)
 	<-m.stoppedCh
