@@ -948,6 +948,57 @@ describe('工具栏与批量', () => {
     );
   });
 
+  it('REVIEW-004 正向：confirm=true 表单批量确认后提交完整 selection 与表单值', async () => {
+    const formBatch: ActionSpec = {
+      key: 'batch-recharge',
+      title: { 'zh-CN': '批量充值' },
+      type: 'danger',
+      bindingId: 'b-batch',
+      confirm: true,
+      confirmTitle: { 'zh-CN': '批量充值确认' },
+      confirmDescription: { 'zh-CN': '将按所选玩家逐个充值' },
+      form: {
+        jsonSchema: {
+          type: 'object',
+          properties: { coins: { type: 'number' } },
+        },
+        fields: [
+          {
+            key: 'coins',
+            label: { 'zh-CN': '每人数量' },
+            role: 'amount',
+            unit: { 'zh-CN': '金币', 'en-US': 'coins' },
+            perTarget: true,
+          },
+        ],
+      },
+    };
+    const { onExecute } = await loadList({
+      spec: spec({
+        listView: { columns, batchActions: [formBatch], pagination: { enabled: true } },
+      }),
+      bindings: bindings(),
+    });
+    onExecute.mockResolvedValueOnce(ok({}));
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('row-check-0'));
+    fireEvent.click(screen.getByTestId('row-check-1'));
+    await waitFor(() => expect(screen.getByText('已选择 2 项')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /批量充值/ }));
+    await waitFor(() => expect(screen.getByTestId('drawer-form')).toBeInTheDocument());
+    formMockState.values = { coins: '100' };
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getAllByText('批量充值确认').length).toBeGreaterThan(0));
+    const confirmBox = document.querySelector('.ant-modal-confirm') as HTMLElement;
+    fireEvent.click(within(confirmBox).getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-batch', {
+        form: { coins: '100' },
+        selection: rows.slice(0, 2),
+      }),
+    );
+  });
+
   it('REVIEW-002：批量金额为空串/全空白不确认不提交，合法数字仍按语义执行', async () => {
     const formBatch: ActionSpec = {
       key: 'batch-recharge',

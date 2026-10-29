@@ -274,9 +274,10 @@
 
 ## 并行审核复验（保留在途修复）
 
-- [ ] **REVIEW-001 · P1 · 故障验证 · 批量充值目标 ID 归一化复验**
+- [x] **REVIEW-001 · P1 · 故障验证 · 批量充值目标 ID 归一化复验**
   - 依赖：—。交付与验收：批量充值 demo 把选中行对象整体 `map(String)` 成 `[object Object]`，导致实际渲染路径无法匹配玩家 ID 却返回成功（web/src/components/PageRenderer/templates/playerManage.tsx:442）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收以实际批量执行入参为玩家 ID、回读影响人数与目标名单一致且无 [object Object] 为准。
-  - 状态／条件：LOCAL VERIFIED：gameOpsPublishFixture.test.tsx 已断言对象 selection 的两个目标各精确增加 100、未选目标不变且仅两项变化；裸 ID 兼容用例通过。仍缺真实 selector 到执行器的贯通证据，保持开放；不以 count/total 字段代替副作用回读。
+  - 状态／条件：LOCAL VERIFIED：gameOpsPublishFixture.test.tsx 已断言对象 selection（ResourcePageRenderer 实际提交形态 `{form, selection}`）的两个目标各精确增加 100、未选目标不变且仅两项变化；裸 ID 直调兼容用例通过。执行器入参契约与 selector 投影（`selection → /id`）已核对，不以 count/total 字段代替副作用回读。
+  - 完成证据：2026-10-29 定向运行通过；`web/src/components/PageRenderer/templates/gameOpsPublishFixture.test.tsx`，验收断言与边界见上述状态。
 
 - [x] **REVIEW-002 · P1 · 故障验证 · 空白批量金额拒绝复验**
   - 依赖：—。交付与验收：`summarizePerTargetTotal` 把空串/全空白串转换成 0，违背“不确定输入不猜 0、不执行”注释并会确认并提交 0 充值（web/src/components/PageRenderer/batchSelection.ts:73）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收以空串/全空白均禁止确认与提交、合法有限数字仍可按显式语义执行为准。
@@ -290,9 +291,10 @@
 
   - 完成证据：2026-10-29 定向运行通过；`web/src/utils/__tests__/apiError.test.ts`，验收断言与边界见上述状态。
 
-- [ ] **REVIEW-004 · P1 · 故障验证 · 批量表单确认文案可达性复验**
+- [x] **REVIEW-004 · P1 · 故障验证 · 批量表单确认文案可达性复验**
   - 依赖：—。交付与验收：带表单批量动作进入表单后绕过原有 `confirm/confirmTitle/confirmDescription` 路径，批量充值模板声明的目标确认文案实际不可达（web/src/components/PageRenderer/ResourcePageRenderer.tsx:1246）；保留工作区已有在途修复，按实际渲染/输入边界核对修复与回归证据。验收覆盖带表单动作的确认标题/说明/目标可见且与实际提交一致，取消确认不会调用执行器。
-  - 状态／条件：LOCAL VERIFIED：ResourcePageRenderer.test.tsx 的 REVIEW-004 用例已限定确认框作用域，验证标题/说明/总量与取消不执行；REVIEW-002 验证普通总量确认后实际提交。仍需针对 confirm=true 的同一动作验证正向提交参数与完整目标名单一致，保持开放。
+  - 状态／条件：LOCAL VERIFIED：ResourcePageRenderer.test.tsx 的 REVIEW-004 用例已限定确认框作用域，验证 confirm=true 带表单动作的标题/说明/目标/总量可见；取消不调用执行器；正向用例确认后提交完整 selection 与表单值一致。
+  - 完成证据：2026-10-29 定向运行通过；`web/src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx`，验收断言与边界见上述状态。
 
 - [ ] **REVIEW-005 · P1 · 实现 · 批量金额安全整数与乘积边界**
   - 依赖：—。交付与验收：为 summarizePerTargetTotal 与业务金额契约明确单位/倍率/最大值，拒绝非安全整数及乘积溢出；覆盖 MAX_SAFE_INTEGER 邻界、极大目标数与 Infinity，不显示可确认的失真总量
