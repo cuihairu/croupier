@@ -100,9 +100,9 @@
 - [ ] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
   - 状态／条件：NOT RUN：需容量目标和独立数据库。
-- [ ] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
+- [x] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
   - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入队故障下每条消息可核对，说明允许重复与去重策略。
-  - 状态／条件：READY。
+  - 状态／条件：DONE（2026-10-29）。证据：`internal/analytics/worker/worker.go` 延迟 XACK（批次 Send 成功才 ACK，Send 失败丢弃批次+refs 留 PENDING 由 reclaim 重投；重入队/死信 XAdd 失败返回错误不 ACK）；checkpoint 经 `streamIDLess` 单调推进；`batchMu`/`lastMu` 修复 Run 与 flush ticker 并发竞态。新增 `arch011_test.go` 7 用例（ackRef 记录、flush 后 ACK、单调 checkpoint、重入队失败/死信失败不 ACK、重入队成功 ACK 原消息）；`TestRunProcessesMessagesV9` 收紧 flush 间隔、`TestProcessMessage_ValidEvent` 改为认领后断言 PENDING。`go test -race ./internal/analytics/worker/` 全绿；`go test ./internal/...` 全绿；guard PASSED；`docs && pnpm build` 通过；去重策略（event_id/order_id 消费端去重、raw 表无服务端去重）写入 `docs/architecture/data-flow.md` §7 与 `docs/zh/architecture/data-flow.md` §7。
 - [ ] **ARCH-012 · P1 · 故障验证 · 分析管道崩溃恢复**
   - 依赖：ARCH-011。交付与验收：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
   - 状态／条件：NOT RUN：需 Redis 与 ClickHouse 可控环境。

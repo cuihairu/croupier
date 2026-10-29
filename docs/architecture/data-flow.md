@@ -220,7 +220,37 @@ The four state classes must be kept distinct (a review position, adopted): **run
 - Healthy state: aggregation/sampling rides the existing MetricsReport batch surface (precedent for folding probe samplers: `upstream.go:622,645`).
 - Unhealthy state: failure details and window events go immediately over the SendAlertEvent event surface (the `probe.window`/`probe.detail` kinds); rate-limiting policy never affects the failure path.
 
-## 7. Core principles
+## 7. Analytics ingestion reliability (ARCH-011)
+
+The analytics worker consumes two Redis Streams (`analytics:events`, `analytics:payments`) through a consumer group with a pending-entries list (PEL); each batch of rows is written to ClickHouse. The ingestion contract is **at-least-once**: a message may be processed more than once, never silently dropped.
+
+### 7.1 Deferred XACK (batch durability ordering)
+
+Rows are appended to an in-memory ClickHouse batch and the source message is **not** acknowledged until that batch `Send()`s. The ordering is therefore:
+
+```
+XReadGroup (claim → PEL) → append row to batch → batch Send() → XACK → checkpoint
+```
+
+- **Send success**: the batch's deferred ACK refs are XACKed and the per-stream checkpoint advances.
+- **Send failure**: the batch and its ACK refs are **dropped** (not retried in place). The rows were never durably written, so the messages stay PENDING in the PEL and the reclaim path redelivers them; the message whose append triggered the flush takes the `processMessage` retry path (increment `retry_count` / dead-letter on max). This avoids double-writing a row that belonged to a batch whose `Send` failed.
+- **Re-queue XAdd failure** (after a row-level insert error): the message is **not** ACKed and the error is returned, so it stays PENDING for reclaim.
+- **Dead-letter XAdd failure**: same — no ACK, message stays PENDING.
+
+### 7.2 Allowed duplication and the dedup key
+
+Because ACK happens after `Send`, a crash (or a dropped PEL entry) between `Send` and `XACK` redelivers a message whose row is already in ClickHouse — **duplication is expected** at-least-once behavior, not a bug. The raw `analytics.events` / `analytics.payments` tables are plain `MergeTree` with **no server-side dedup**, so the dedup strategy is consumer-side on the natural key:
+
+- events → `event_id` (a UUID; producers that do not assign one still get a dedup-key-grade identifier at insert time)
+- payments → `order_id`
+
+Downstream aggregation/query code must dedup on that key (e.g. `GROUP BY event_id` / `ORDER BY order_id` semantics, or a `argMax`/uniq`-style collapse) rather than assuming one row per source message.
+
+### 7.3 Monotonic checkpoint
+
+The per-stream checkpoint is a high-water mark over stream IDs (`<ms>-<seq>`). A later message may be ACKed immediately (dead-letter / re-queue) while an earlier one still sits in an unsent batch; the mark therefore only moves forward (compared via `streamIDLess`) so a checkpoint regression can never re-read already-resolved messages after a restart.
+
+## 8. Core principles
 
 The current data flow follows these principles:
 

@@ -220,7 +220,37 @@ sequenceDiagram
 - 正常态：聚合/采样走既有 MetricsReport 批量面（probe 采样器折叠先例 `upstream.go:622,645`）。
 - 异常态：失败明细与窗口事件即时走 SendAlertEvent 事件面（`probe.window`/`probe.detail` 两 kind）；降频策略不影响失败路径。
 
-## 7. 核心原则
+## 7. 分析摄入可靠性（ARCH-011）
+
+分析 worker 通过消费组（含 pending-entries list / PEL）消费两条 Redis Stream（`analytics:events`、`analytics:payments`），每批行写入 ClickHouse。摄入契约为 **at-least-once**：消息可能被处理多次，但绝不静默丢失。
+
+### 7.1 延迟 XACK（批次持久化顺序）
+
+行先追加到内存 ClickHouse 批次，源消息在批次 `Send()` 成功之前**不确认**。顺序为：
+
+```
+XReadGroup（认领 → PEL）→ append 行到批次 → 批次 Send() → XACK → checkpoint
+```
+
+- **Send 成功**：批次的延迟 ACK refs 被 XACK，per-stream checkpoint 前移。
+- **Send 失败**：批次与其 ACK refs 一并**丢弃**（不原地重试）。行从未持久化，消息留在 PEL 的 PENDING 中由 reclaim 重投；触发 flush 的那条消息走 `processMessage` 重试路径（`retry_count` 递增 / 超限进死信）。这避免了把属于 Send 失败批次的行二次写入。
+- **重入队 XAdd 失败**（行级插入错误后）：消息**不** ACK，返回错误，留在 PENDING 供 reclaim。
+- **死信 XAdd 失败**：同样不 ACK，消息留在 PENDING。
+
+### 7.2 允许的重复与去重键
+
+因为 ACK 发生在 `Send` 之后，`Send` 与 `XACK` 之间的崩溃（或 PEL 条目丢失）会重投一条行已在 ClickHouse 的消息——**重复是预期的** at-least-once 行为，不是 bug。raw `analytics.events` / `analytics.payments` 表是普通 `MergeTree`，**无服务端去重**，去重策略在消费端、以自然键进行：
+
+- events → `event_id`（UUID；未分配的 producer 在插入时仍获得一个去重键级标识）
+- payments → `order_id`
+
+下游聚合/查询必须按该键去重（如 `GROUP BY event_id` / `ORDER BY order_id` 语义，或 `argMax`/`uniq` 式折叠），不能假定一条源消息恰有一行。
+
+### 7.3 单调 checkpoint
+
+per-stream checkpoint 是流 ID（`<ms>-<seq>`）上的高水位。较晚消息可能被立即 ACK（死信/重入队）而较早消息仍在未发送批次中；因此水位只前进（经 `streamIDLess` 比较），checkpoint 永不回退，避免重启后重读已解析消息。
+
+## 8. 核心原则
 
 当前数据流遵循以下原则：
 

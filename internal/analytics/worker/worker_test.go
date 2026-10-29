@@ -342,7 +342,7 @@ func TestEnsurePaymentBatch_NewBatch(t *testing.T) {
 func TestAppendEventRow_Normal(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 500
-	err := w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
+	err := w.appendEventRow(context.Background(), "1-1", "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -354,11 +354,11 @@ func TestAppendEventRow_Normal(t *testing.T) {
 func TestAppendEventRow_BatchFull(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 2
-	err := w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
+	err := w.appendEventRow(context.Background(), "1-1", "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error on first row: %v", err)
 	}
-	err = w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u2", "s2", "evt2", "ch", "pl", "cn", "1.0", "eid2", "{}")
+	err = w.appendEventRow(context.Background(), "1-1", "2025-01-01", "g1", "e1", "u2", "s2", "evt2", "ch", "pl", "cn", "1.0", "eid2", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error on second row: %v", err)
 	}
@@ -373,7 +373,7 @@ func TestAppendEventRow_BatchFull(t *testing.T) {
 func TestAppendEventRow_BatchSizeZero(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 0
-	err := w.appendEventRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
+	err := w.appendEventRow(context.Background(), "1-1", "2025-01-01", "g1", "e1", "u1", "s1", "evt", "ch", "pl", "cn", "1.0", "eid", "{}")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -385,7 +385,7 @@ func TestAppendEventRow_BatchSizeZero(t *testing.T) {
 func TestAppendPaymentRow_Normal(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 500
-	err := w.appendPaymentRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
+	err := w.appendPaymentRow(context.Background(), "1-1", "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -397,11 +397,11 @@ func TestAppendPaymentRow_Normal(t *testing.T) {
 func TestAppendPaymentRow_BatchFull(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 2
-	err := w.appendPaymentRow(context.Background(), "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
+	err := w.appendPaymentRow(context.Background(), "1-1", "2025-01-01", "g1", "e1", "u1", "o1", uint64(100), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	err = w.appendPaymentRow(context.Background(), "2025-01-01", "g1", "e1", "u2", "o2", uint64(200), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
+	err = w.appendPaymentRow(context.Background(), "1-1", "2025-01-01", "g1", "e1", "u2", "o2", uint64(200), "USD", "success", "ch", "pl", "cn", "r", "c", "p", "reason")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -418,6 +418,7 @@ func TestFlushEventBatch_SendError(t *testing.T) {
 	mock := &mockBatch{sendErr: fmt.Errorf("send failed")}
 	w.eventBatch = mock
 	w.eventBatchRows = 1
+	w.eventAcks = []ackRef{{stream: w.streamEvents, id: "1-1"}}
 
 	err := w.flushEventBatch(context.Background())
 	if err == nil {
@@ -426,9 +427,14 @@ func TestFlushEventBatch_SendError(t *testing.T) {
 	if err.Error() != "send failed" {
 		t.Errorf("unexpected error: %v", err)
 	}
-	// Batch is preserved on error for retry
-	if w.eventBatch == nil {
-		t.Error("expected eventBatch to be preserved after error for retry")
+	// ARCH-011: a failed Send drops the batch and its deferred ACK refs. The
+	// rows are not durably written and the messages stay PENDING in Redis, so
+	// reclaim redelivers them; the triggering message takes the retry path.
+	if w.eventBatch != nil {
+		t.Error("expected eventBatch to be dropped after send error")
+	}
+	if len(w.eventAcks) != 0 {
+		t.Errorf("expected eventAcks to be cleared after send error, got %d", len(w.eventAcks))
 	}
 }
 
@@ -437,14 +443,18 @@ func TestFlushPaymentBatch_SendError(t *testing.T) {
 	mock := &mockBatch{sendErr: fmt.Errorf("send failed")}
 	w.paymentBatch = mock
 	w.paymentBatchRows = 1
+	w.paymentAcks = []ackRef{{stream: w.streamPayments, id: "1-1"}}
 
 	err := w.flushPaymentBatch(context.Background())
 	if err == nil {
 		t.Fatal("expected error from send")
 	}
-	// Batch is preserved on error for retry
-	if w.paymentBatch == nil {
-		t.Error("expected paymentBatch to be nil after error")
+	// ARCH-011: a failed Send drops the batch and its deferred ACK refs.
+	if w.paymentBatch != nil {
+		t.Error("expected paymentBatch to be dropped after send error")
+	}
+	if len(w.paymentAcks) != 0 {
+		t.Errorf("expected paymentAcks to be cleared after send error, got %d", len(w.paymentAcks))
 	}
 }
 
@@ -819,27 +829,44 @@ func TestProcessMessage_ValidEvent(t *testing.T) {
 	}
 	data, _ := json.Marshal(eventData)
 
+	// Claim the message into the group's pending set first: processMessage
+	// does not XReadGroup itself, so without a claim the message is not
+	// pending and XPendingExt would read 0 regardless of the ack state.
 	id := w.rdb.XAdd(context.Background(), &redis.XAddArgs{
 		Stream: "analytics:events",
 		Values: map[string]any{"data": string(data)},
 	}).Val()
+	claimed, err := w.rdb.XReadGroup(context.Background(), &redis.XReadGroupArgs{
+		Group: "analytics-worker", Consumer: "analytics-worker",
+		Streams: []string{"analytics:events", ">"}, Count: 10,
+	}).Result()
+	if err != nil {
+		t.Fatalf("xreadgroup: %v", err)
+	}
+	if len(claimed) == 0 || len(claimed[0].Messages) == 0 {
+		t.Fatal("expected a claimed message")
+	}
+	msg := claimed[0].Messages[0]
+	if msg.ID != id {
+		t.Fatalf("claimed id %q, want %q", msg.ID, id)
+	}
 
-	msg := redis.XMessage{ID: id, Values: map[string]any{"data": data}}
-	err := w.processMessage(context.Background(), "analytics:events", msg)
+	err = w.processMessage(context.Background(), "analytics:events", msg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// ARCH-011: the row is appended to an unsent ClickHouse batch, so the
+	// message stays PENDING and the checkpoint does not advance yet.
 	pending, _ := w.rdb.XPendingExt(context.Background(), &redis.XPendingExtArgs{
 		Stream: "analytics:events", Group: "analytics-worker",
 		Start: "-", End: "+", Count: 100,
 	}).Result()
-	if len(pending) != 0 {
-		t.Errorf("expected 0 pending, got %d", len(pending))
+	if len(pending) != 1 {
+		t.Errorf("expected 1 pending (ack deferred until batch flush), got %d", len(pending))
 	}
-
-	if w.lastIDs["analytics:events"] != id {
-		t.Errorf("expected lastID=%s, got %s", id, w.lastIDs["analytics:events"])
+	if w.lastIDs["analytics:events"] != "" {
+		t.Errorf("expected lastID to stay empty before flush, got %s", w.lastIDs["analytics:events"])
 	}
 
 	if len(w.touchedDays) == 0 {
@@ -849,6 +876,21 @@ func TestProcessMessage_ValidEvent(t *testing.T) {
 	mc := getMockConn(t, w)
 	if mc.lastQuery != insertEventsSQL {
 		t.Errorf("expected events SQL, got %s", mc.lastQuery)
+	}
+
+	// Flushing the batch durably writes the row and ACKs the message.
+	if err := w.flushEventBatch(context.Background()); err != nil {
+		t.Fatalf("flush event batch: %v", err)
+	}
+	pending, _ = w.rdb.XPendingExt(context.Background(), &redis.XPendingExtArgs{
+		Stream: "analytics:events", Group: "analytics-worker",
+		Start: "-", End: "+", Count: 100,
+	}).Result()
+	if len(pending) != 0 {
+		t.Errorf("expected 0 pending after batch flush, got %d", len(pending))
+	}
+	if w.lastIDs["analytics:events"] != id {
+		t.Errorf("expected lastID=%s after flush, got %s", id, w.lastIDs["analytics:events"])
 	}
 }
 
