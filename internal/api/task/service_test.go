@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/registry"
+	policymgr "github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/tasks"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -42,10 +43,15 @@ func setupSvcCtx(t *testing.T) *svc.ServiceContext {
 	t.Helper()
 	db := setupTestDB(t)
 	regStore := registry.NewStore()
+	// ARCH-024 治理闸门要求 PolicyManager（fail-closed：nil 即拒绝）；测试
+	// 夹具用默认策略档（无配置文件时回退硬编码默认，medium 不要求审批）。
+	pm, err := policymgr.NewManager(db, "")
+	require.NoError(t, err)
 	return &svc.ServiceContext{
 		DB:            db,
 		FunctionModel: model.NewFunctionModel(db),
 		AdminModel:    model.NewAdminModel(db),
+		PolicyManager: pm,
 		RegistryStore: regStore,
 		Dispatcher:    dispatch.NewDispatcher(regStore),
 	}

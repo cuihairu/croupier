@@ -19,6 +19,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	policymgr "github.com/cuihairu/croupier/internal/policy"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
@@ -583,11 +584,15 @@ func newConsoleTestServiceWithAudit(t *testing.T, permissions ...string) (*Servi
 
 	auditStore := audit.NewInMemoryAuditStore()
 	nullCache := cache.NewNullCache()
+	policyManager, err := policymgr.NewManager(db, "")
+	require.NoError(t, err)
 	svcCtx := &svc.ServiceContext{
 		DB:                     db,
 		AdminModel:             model.NewAdminModel(db),
 		RoleModel:              model.NewRoleModel(db),
 		PermissionModel:        model.NewPermissionModel(db),
+		FunctionModel:          model.NewFunctionModel(db),
+		PolicyManager:          policyManager,
 		PageSpecModel:          model.NewPageSpecModel(db),
 		PublishedPageSpecModel: model.NewPublishedPageSpecModel(db),
 		PageVersionModel:       model.NewPageVersionModel(db),

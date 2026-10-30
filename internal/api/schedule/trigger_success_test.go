@@ -50,10 +50,9 @@ func newTestEnvWithDispatcher(t *testing.T, d *dispatch.Dispatcher) (*gin.Engine
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 
-	svcCtx := &svc.ServiceContext{
-		TaskScheduleModel: model.NewTaskScheduleModel(db),
-		Dispatcher:        d,
-	}
+	// ARCH-024：治理闸门要求 AdminModel/PolicyManager + username。
+	svcCtx := scheduleAdminSvcCtx(t, db, "tester")
+	svcCtx.Dispatcher = d
 	h := NewHandler(NewService(svcCtx))
 
 	gin.SetMode(gin.TestMode)

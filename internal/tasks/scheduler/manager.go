@@ -25,6 +25,17 @@ type LocalRunner interface {
 	Run(ctx context.Context, s *model.TaskSchedule) error
 }
 
+// Governance 是调度触发前的执行治理闸门（ARCH-024）：由 functioninvoke 的
+// 适配注入，cron 触发与 /tasks Start、TriggerNow 共用同一闸门，保证同一
+// 高危函数定时入口一致执行 禁用/分配/政策审批/输入契约。
+//
+// 返回 skip=true 表示不应派发（政策要求审批且无批准快照 / creator 角色被
+// 撤权 / 函数禁用或未分配）；err 非 nil 表示治理故障（fail-closed，同样
+// 不派发）。nil Governance 时跳过（旧测试/未注入——生产必须注入）。
+type Governance interface {
+	CheckGovernance(ctx context.Context, functionID, gameID, env string, payload []byte, metadata map[string]string, actor, automatedID string) (bool, error)
+}
+
 // Store 依赖的最小模型接口。
 type ScheduleStore interface {
 	ListDue(ctx context.Context, now time.Time, limit int) ([]model.TaskSchedule, error)
@@ -49,6 +60,7 @@ type Manager struct {
 	store      ScheduleStore
 	dispatch   Dispatcher
 	local      LocalRunner
+	governance Governance
 	interval   time.Duration
 	claimLease time.Duration
 	nowFn      func() time.Time
@@ -79,6 +91,14 @@ func (m *Manager) SetLocalRunner(r LocalRunner) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.local = r
+}
+
+// SetGovernance 注入触发前的执行治理闸门（ARCH-024）。生产必须注入；
+// nil 时跳过（仅测试/旧调用方）。并发读写由 mu 保护。
+func (m *Manager) SetGovernance(g Governance) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.governance = g
 }
 
 // SetInterval 覆盖扫描周期（测试用）。
@@ -241,6 +261,27 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 		FunctionId: s.FunctionID,
 		Payload:    []byte(s.Payload.String()),
 		Metadata:   meta,
+	}
+
+	// ARCH-024：统一治理闸门（禁用/分配/函数权限/政策审批/输入契约）。
+	// cron 触发者 = 自动化主体（schedule:<id>），creator 角色回载；批准快照
+	// 来自调度 metadata（approvalBypass=approved）。skip/fail-closed 均不派发
+	// （撤权后不继续裸派发），只记 skipped 并推进下次触发（不计数失败）。
+	if m.governance != nil {
+		skip, govErr := m.governance.CheckGovernance(ctx, s.FunctionID, s.GameID, s.Env,
+			req.Payload, meta, s.Actor, fmt.Sprintf("schedule:%d", s.ID))
+		if govErr != nil {
+			slog.Warn("scheduler: governance error, skip dispatch", "schedule", s.ID, "error", govErr)
+			_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", "skipped", "governance error: "+govErr.Error())
+			m.advance(s, spec, now, nil)
+			return
+		}
+		if skip {
+			slog.Info("scheduler: governance skipped dispatch", "schedule", s.ID, "slot", slot)
+			_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", "skipped", "governance: policy requires approval or creator revoked")
+			m.advance(s, spec, now, nil)
+			return
+		}
 	}
 
 	runID := ""

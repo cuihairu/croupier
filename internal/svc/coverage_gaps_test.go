@@ -28,11 +28,11 @@ func TestTruncateShortAndOverflow(t *testing.T) {
 
 func TestSchedulerNilGuards(t *testing.T) {
 	var nilCtx *ServiceContext
-	assert.Nil(t, nilCtx.StartScheduler())
+	assert.Nil(t, nilCtx.StartScheduler(nil))
 	nilCtx.StopScheduler() // 不 panic
 
 	ctx := &ServiceContext{}
-	assert.Nil(t, ctx.StartScheduler()) // 依赖缺失
+	assert.Nil(t, ctx.StartScheduler(nil)) // 依赖缺失
 	ctx.StopScheduler()
 }
 
@@ -45,10 +45,10 @@ func TestSchedulerStartStopWithDeps(t *testing.T) {
 		TaskScheduleModel: model.NewTaskScheduleModel(db),
 		Dispatcher:        dispatch.NewDispatcher(registry.NewStore()),
 	}
-	mgr := ctx.StartScheduler()
+	mgr := ctx.StartScheduler(nil)
 	require.NotNil(t, mgr)
 	// 幂等：重复启动返回同一实例
-	assert.Same(t, mgr, ctx.StartScheduler())
+	assert.Same(t, mgr, ctx.StartScheduler(nil))
 	ctx.StopScheduler()
 }
 

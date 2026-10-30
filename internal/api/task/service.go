@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/api/assignment"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/tasks"
 )
@@ -84,37 +84,6 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	if _, err := s.runtime.FindFunctionContract(ctx, scope.GameID, scope.Env, functionID); err != nil {
 		return nil, err
 	}
-	// 禁用拦截（E2）：与 functionInvoke 同一守卫，/tasks 不能绕过禁用
-	// 状态启动异步任务——同一语义与 CheckInvokePermission 双入口共享同理。
-	if err := utils.EnsureFunctionEnabled(ctx, s.svcCtx, functionID); err != nil {
-		return nil, err
-	}
-	// 分配闸门（BUG-032）：与 functionInvoke 同一守卫，/tasks 不能绕过
-	// 分配白名单（scope 有记录时未分配函数 403 function_not_assigned）。
-	if err := assignment.EnsureFunctionAssigned(ctx, s.svcCtx, functionID, scope.GameID, scope.Env); err != nil {
-		return nil, err
-	}
-
-	// Apply the same authorization as the function-invoke path so /tasks
-	// cannot be used to bypass function-level RBAC.
-	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
-	if err != nil {
-		return nil, err
-	}
-	roleNames := utils.RoleNamesFromModels(roles)
-	permIDs, err := utils.PermissionIDsFromRoles(ctx, s.svcCtx, roles)
-	if err != nil {
-		return nil, err
-	}
-
-	gameID := scope.GameID
-	env := scope.Env
-	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
-		return nil, err
-	}
-	if err := utils.CheckInvokePermission(ctx, s.svcCtx, roleNames, permIDs, functionID, gameID, env); err != nil {
-		return nil, err
-	}
 
 	payloadObj := req.Params
 	if payloadObj == nil {
@@ -123,6 +92,43 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	payload, err := json.Marshal(payloadObj)
 	if err != nil {
 		return nil, err
+	}
+
+	// 统一治理闸门（ARCH-024）：禁用/分配/函数权限/政策审批/输入契约。
+	// /tasks 不能再绕过任何函数级治理（旧实现只做 enable/assign/perm，
+	// 缺政策审批与输入契约）。
+	gate, err := functioninvoke.NewGovernance(s.svcCtx).Gate(ctx, functioninvoke.Subject{}, functioninvoke.GateInput{
+		FunctionID: functionID,
+		GameID:     scope.GameID,
+		Env:        scope.Env,
+		Payload:    payload,
+	})
+	if err != nil {
+		return nil, err
+	}
+	admin := gate.Admin
+
+	gameID := scope.GameID
+	env := scope.Env
+	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, gate.RoleNames, gameID, env); err != nil {
+		return nil, err
+	}
+
+	// 政策要求审批：创建审批请求而非直接派发（与普通 invoke 同一语义——
+	// 高危函数经 /tasks 也不能绕过审批）。
+	if gate.RequireApproval && s.svcCtx.ApprovalsStore != nil {
+		approvalID, err := functioninvoke.CreateFunctionApproval(ctx, s.svcCtx, &functioninvoke.Request{
+			ID:       functionID,
+			GameID:   gameID,
+			Env:      env,
+			Payload:  payload,
+			Mode:     "async",
+			Metadata: map[string]string{"approvalTarget": "task"},
+		}, payload, admin, gate.FunctionPolicy)
+		if err != nil {
+			return nil, err
+		}
+		return &StartResponse{ApprovalID: approvalID, ApprovalRequired: true, Status: tasks.StatusDispatching}, nil
 	}
 
 	metadata := map[string]string{}

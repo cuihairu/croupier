@@ -25,7 +25,9 @@ func (ctx *ServiceContext) SetReportRunner(r scheduler.LocalRunner) {
 // 触发链路复用异步任务派发，失败只记日志不影响主服务。
 // 启动前播种周期报表调度（incident-reports §6，幂等按 name）；注入了
 // ReportRunner 时 Kind=incident_report 的调度走 server-local 执行。
-func (ctx *ServiceContext) StartScheduler() *scheduler.Manager {
+// gate 为 ARCH-024 执行治理闸门（functioninvoke 适配，cmd/server 注入）；
+// nil 时 cron 触发不跑治理（仅测试——生产必须注入）。
+func (ctx *ServiceContext) StartScheduler(gate scheduler.Governance) *scheduler.Manager {
 	if ctx == nil || ctx.TaskScheduleModel == nil || ctx.Dispatcher == nil {
 		return nil
 	}
@@ -34,6 +36,9 @@ func (ctx *ServiceContext) StartScheduler() *scheduler.Manager {
 	}
 	ctx.seedIncidentReportSchedules()
 	mgr := scheduler.NewManager(ctx.TaskScheduleModel, dispatcherAdapter{d: ctx.Dispatcher})
+	if gate != nil {
+		mgr.SetGovernance(gate)
+	}
 	if ctx.ReportRunner != nil {
 		mgr.SetLocalRunner(ctx.ReportRunner)
 	}

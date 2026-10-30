@@ -21,6 +21,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/tasks/scheduler"
 )
 
 const officialApprovalID = "official.approval"
@@ -516,6 +517,13 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	if strings.TrimSpace(record.FunctionID) == "" {
 		return approvalContinuationResult{}, nil
 	}
+	// ARCH-024：调度激活审批——批准续跑激活调度（approvalTarget=schedule）。
+	// 调度在 Create 时因政策要求审批被创建为 paused，批准后激活并写入批准快照
+	// （approvalBypass=approved），cron 触发以快照作为站立授权（撤权后不继续裸
+	// 派发：禁用/分配/政策 live 回读）。
+	if strings.EqualFold(strings.TrimSpace(record.Metadata["approvalTarget"]), "schedule") {
+		return s.activateApprovedSchedule(ctx, record)
+	}
 	metadata := cloneApprovalMetadata(record.Metadata)
 	metadata["approvalBypass"] = "approved"
 	metadata["approvalId"] = strings.TrimSpace(record.ID)
@@ -549,6 +557,55 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	}
 	result.Result = resp.Result
 	return result, nil
+}
+
+// activateApprovedSchedule 激活待批准调度（ARCH-024）：把批准快照
+// （approvalBypass=approved + approvalId + approvalActor）写入调度 metadata
+// 并置 status=active，重算 next_triggered_at。cron 触发以快照作为站立授权。
+func (s *Service) activateApprovedSchedule(ctx context.Context, record *approvals.Approval) (approvalContinuationResult, error) {
+	scheduleIDStr := strings.TrimSpace(record.Metadata["scheduleId"])
+	if scheduleIDStr == "" {
+		return approvalContinuationResult{}, errors.New("schedule approval metadata is missing scheduleId")
+	}
+	id, err := strconv.ParseUint(scheduleIDStr, 10, 64)
+	if err != nil {
+		return approvalContinuationResult{}, fmt.Errorf("invalid scheduleId %q: %w", scheduleIDStr, err)
+	}
+	if s.svcCtx == nil || s.svcCtx.TaskScheduleModel == nil {
+		return approvalContinuationResult{}, errors.New("task schedule model unavailable")
+	}
+	sch, err := s.svcCtx.TaskScheduleModel.FindByID(ctx, uint(id))
+	if err != nil {
+		return approvalContinuationResult{}, fmt.Errorf("schedule %d not found: %w", id, err)
+	}
+	updates := map[string]interface{}{
+		"status":   model.ScheduleStatusActive,
+		"metadata": scheduleApprovalSnapshot(sch.Metadata, record),
+	}
+	if spec, err := scheduler.ParseCron(sch.CronExpr); err == nil {
+		next := spec.Next(time.Now())
+		updates["next_triggered_at"] = next
+	}
+	if err := s.svcCtx.TaskScheduleModel.UpdateSchedule(ctx, sch.ID, updates); err != nil {
+		return approvalContinuationResult{}, fmt.Errorf("activate schedule %d: %w", sch.ID, err)
+	}
+	return approvalContinuationResult{Triggered: true, Kind: "schedule"}, nil
+}
+
+// scheduleApprovalSnapshot 把批准快照合并进调度 metadata。
+func scheduleApprovalSnapshot(metadata model.JSON, record *approvals.Approval) model.JSON {
+	var m map[string]string
+	if len(metadata) > 0 {
+		_ = json.Unmarshal(metadata, &m)
+	}
+	if m == nil {
+		m = map[string]string{}
+	}
+	m["approvalBypass"] = "approved"
+	m["approvalId"] = strings.TrimSpace(record.ID)
+	m["approvalActor"] = strings.TrimSpace(record.Actor)
+	out, _ := json.Marshal(m)
+	return out
 }
 
 func (s *Service) ensurePageApprovalStillFresh(ctx context.Context, record *approvals.Approval, metadata map[string]string) error {

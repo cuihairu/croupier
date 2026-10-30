@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/svc"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 )
@@ -101,6 +102,9 @@ type CreateRequest struct {
 
 type CreateResponse struct {
 	Item ScheduleItem `json:"item"`
+	// ApprovalRequired 政策要求审批时返回（调度创建为 paused，批准续跑后激活）。
+	ApprovalRequired bool   `json:"approvalRequired,omitempty"`
+	ApprovalID       string `json:"approvalId,omitempty"`
 }
 
 type UpdateStatusRequest struct {
@@ -144,7 +148,34 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	if err != nil {
 		return nil, err
 	}
-	actor := currentActor(ctx)
+	// 人类操作员 + scope 授权。
+	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := utils.RoleNamesFromModels(roles)
+	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, scope.GameID, scope.Env); err != nil {
+		return nil, err
+	}
+	payload := []byte(req.Payload)
+
+	// 统一治理闸门（ARCH-024）：注册时验证函数可执行（禁用/分配/函数权限/政策/
+	// 输入契约）。政策要求审批 → 调度创建为 paused（待批准），批准续跑后激活
+	// （approvalBypass=approved 快照）。未要求审批 → 直接 active。
+	gate, err := functioninvoke.NewGovernance(s.svcCtx).Gate(ctx, functioninvoke.Subject{Admin: admin, Roles: roles}, functioninvoke.GateInput{
+		FunctionID: req.FunctionID,
+		GameID:     scope.GameID,
+		Env:        scope.Env,
+		Payload:    payload,
+	})
+	if err != nil {
+		return nil, err
+	}
+	status := model.ScheduleStatusActive
+	approvalID := ""
+	if gate.RequireApproval && s.svcCtx.ApprovalsStore != nil {
+		status = model.ScheduleStatusPaused
+	}
 	created, err := m.Create(ctx, model.CreateScheduleInput{
 		Name:       req.Name,
 		CronExpr:   req.CronExpr,
@@ -153,19 +184,44 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 		FunctionID: req.FunctionID,
 		Payload:    model.JSON(req.Payload),
 		MaxFailed:  req.MaxFailedRuns,
-		Actor:      actor,
+		Actor:      admin.Username,
+		Status:     status,
 	})
 	if err != nil {
 		return nil, err
 	}
-	// 立即计算下次触发时间。
+	// 立即计算下次触发时间（active 才触发）。
 	if spec, err := scheduler.ParseCron(created.CronExpr); err == nil {
 		next := spec.Next(time.Now())
 		if err := m.UpdateSchedule(ctx, created.ID, map[string]interface{}{"next_triggered_at": next}); err == nil {
 			created.NextTriggeredAt = &next
 		}
 	}
-	return &CreateResponse{Item: buildItem(created)}, nil
+	// 政策要求审批：创建审批请求（approvalTarget=schedule，续跑时激活调度），
+	// 调度保持 paused。审批创建失败 → 删除调度回滚（不留半截 paused 调度）。
+	if status == model.ScheduleStatusPaused {
+		approvalID, err = functioninvoke.CreateFunctionApproval(ctx, s.svcCtx, &functioninvoke.Request{
+			ID:       req.FunctionID,
+			GameID:   scope.GameID,
+			Env:      scope.Env,
+			Payload:  payload,
+			Mode:     "async",
+			Metadata: map[string]string{"approvalTarget": "schedule", "scheduleId": strconv.FormatUint(uint64(created.ID), 10)},
+		}, payload, admin, gate.FunctionPolicy)
+		if err != nil {
+			_ = m.Delete(ctx, created.ID)
+			return nil, err
+		}
+		// 记录待批准引用（approvalBypass 快照在批准续跑时写入）。
+		_ = m.UpdateSchedule(ctx, created.ID, map[string]interface{}{
+			"metadata": scheduleMetadataWithApproval(created.Metadata, approvalID),
+		})
+	}
+	return &CreateResponse{
+		Item:             buildItem(created),
+		ApprovalRequired: status == model.ScheduleStatusPaused,
+		ApprovalID:       approvalID,
+	}, nil
 }
 
 func (s *Service) SetStatus(ctx context.Context, id uint, status string) (ScheduleItem, error) {
@@ -209,10 +265,17 @@ func (s *Service) SetStatus(ctx context.Context, id uint, status string) (Schedu
 }
 
 type TriggerNowResponse struct {
-	TaskRunID string `json:"taskRunId"`
+	TaskRunID string `json:"taskRunId,omitempty"`
+	// ApprovalRequired 政策要求审批时返回（不派发，需先批准续跑）。
+	ApprovalRequired bool   `json:"approvalRequired,omitempty"`
+	ApprovalID       string `json:"approvalId,omitempty"`
 }
 
 // TriggerNow 立即触发一次（不计入触发槽幂等，走 dispatch 直发）。
+//
+// ARCH-024：与 /tasks Start 同一治理闸门——禁用/分配/函数权限/政策审批/输入契约
+// 一致执行。政策要求审批时创建审批请求而非派发（高危函数经手动调度也不能绕过
+// 审批）。
 func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse, error) {
 	m := s.model()
 	if m == nil || s.svcCtx.Dispatcher == nil {
@@ -225,11 +288,21 @@ func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse,
 	if err != nil {
 		return nil, err
 	}
+	// 人类操作员 + scope 授权。
+	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := utils.RoleNamesFromModels(roles)
+	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, sch.GameID, sch.Env); err != nil {
+		return nil, err
+	}
+	payload := []byte(sch.Payload.String())
 	meta := map[string]string{
 		"gameId":     sch.GameID,
 		"env":        sch.Env,
 		"scheduleId": strconv.FormatUint(uint64(sch.ID), 10),
-		"actor":      currentActor(ctx),
+		"actor":      admin.Username,
 	}
 	var extra map[string]string
 	if len(sch.Metadata) > 0 {
@@ -240,7 +313,35 @@ func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse,
 			meta[k] = v
 		}
 	}
-	req := utils.BuildInvokeRequest(sch.FunctionID, []byte(sch.Payload.String()), meta)
+
+	// 统一治理闸门（ARCH-024）：含调度携带的批准快照（approvalBypass）时豁免
+	// 政策闸（站立授权），enable/assign/perm/input 仍 live 执行。
+	gate, err := functioninvoke.NewGovernance(s.svcCtx).Gate(ctx, functioninvoke.Subject{Admin: admin, Roles: roles}, functioninvoke.GateInput{
+		FunctionID: sch.FunctionID,
+		GameID:     sch.GameID,
+		Env:        sch.Env,
+		Payload:    payload,
+		Metadata:   meta,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if gate.RequireApproval && s.svcCtx.ApprovalsStore != nil {
+		approvalID, err := functioninvoke.CreateFunctionApproval(ctx, s.svcCtx, &functioninvoke.Request{
+			ID:       sch.FunctionID,
+			GameID:   sch.GameID,
+			Env:      sch.Env,
+			Payload:  payload,
+			Mode:     "async",
+			Metadata: meta,
+		}, payload, admin, gate.FunctionPolicy)
+		if err != nil {
+			return nil, err
+		}
+		return &TriggerNowResponse{ApprovalID: approvalID, ApprovalRequired: true}, nil
+	}
+
+	req := utils.BuildInvokeRequest(sch.FunctionID, payload, meta)
 	resp, err := s.svcCtx.Dispatcher.StartTaskRequest(ctx, req)
 	if err != nil {
 		return nil, err
@@ -338,4 +439,19 @@ func currentActor(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// scheduleMetadataWithApproval 把待批准引用（approvalId）合并进调度 metadata，
+// 供批准续跑与 UI 展示（批准快照 approvalBypass 在续跑激活时写入）。
+func scheduleMetadataWithApproval(metadata model.JSON, approvalID string) model.JSON {
+	var m map[string]string
+	if len(metadata) > 0 {
+		_ = json.Unmarshal(metadata, &m)
+	}
+	if m == nil {
+		m = map[string]string{}
+	}
+	m["approvalId"] = approvalID
+	out, _ := json.Marshal(m)
+	return out
 }

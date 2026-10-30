@@ -3,6 +3,7 @@
 package schedule
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,8 +12,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
-	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
@@ -30,13 +29,16 @@ func newBareScheduleEnv(t *testing.T) (*gin.Engine, *gorm.DB, *svc.ServiceContex
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 
-	svcCtx := &svc.ServiceContext{
-		TaskScheduleModel: model.NewTaskScheduleModel(db),
-		Dispatcher:        dispatch.NewDispatcher(reg.NewStore()),
-	}
+	// ARCH-024：治理闸门要求 AdminModel/PolicyManager + username（LoadCurrentAdmin
+	// 无 username 直接报错）；调度机制夹具用 admin 角色用户短路权限/scope 检查。
+	svcCtx := scheduleAdminSvcCtx(t, db, "tester")
 	h := NewHandler(NewService(svcCtx))
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		ctx := context.WithValue(c.Request.Context(), "username", "tester")
+		c.Request = c.Request.WithContext(ctx)
+	})
 	g := r.Group("/api/v1/schedules")
 	g.POST("", h.Create)
 	g.GET("", h.List)
@@ -113,12 +115,14 @@ func TestCreateFallsBackToContextScope(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open("file:"+name+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
-	svcCtx := &svc.ServiceContext{TaskScheduleModel: model.NewTaskScheduleModel(db)}
+	// ARCH-024：治理闸门要求 AdminModel/PolicyManager + username。
+	svcCtx := scheduleAdminSvcCtx(t, db, "tester")
 	h := NewHandler(NewService(svcCtx))
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		ctx := svc.WithGameScope(c.Request.Context(), svc.GameScope{GameID: "demo", Env: "prod"})
+		ctx = context.WithValue(ctx, "username", "tester")
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})

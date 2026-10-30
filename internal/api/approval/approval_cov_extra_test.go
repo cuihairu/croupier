@@ -66,12 +66,23 @@ func covContinuationEnv(t *testing.T, mode string) (*Service, context.Context) {
 
 	adminModel := model.NewAdminModel(db)
 	roleModel := model.NewRoleModel(db)
+	funcModel := model.NewFunctionModel(db)
 
 	approver := &model.Admin{Username: "approver", Nickname: "Approver", Status: 1}
 	require.NoError(t, adminModel.Create(context.Background(), approver, "pw"))
 	role := &model.Role{Name: "operator"}
 	require.NoError(t, roleModel.Create(context.Background(), role))
 	require.NoError(t, adminModel.AssignRole(context.Background(), approver.ID, role.ID))
+	// ARCH-024：批准续跑经 Governance.Gate 的函数权限闸（CheckInvokePermission），
+	// 需 FunctionModel 就绪 + 授予 operator 角色 cov.echo 的 invoke 权限。
+	require.NoError(t, db.Create(&model.FunctionPermission{
+		FunctionID: "cov.echo",
+		GameID:     "covgame",
+		Env:        "prod",
+		Resource:   "cov.echo",
+		Actions:    model.JSON(`["invoke"]`),
+		Roles:      model.JSON(`["operator"]`),
+	}).Error)
 
 	store := reg.NewStore()
 	require.NoError(t, store.UpsertAgent(&reg.AgentSession{
@@ -89,6 +100,7 @@ func covContinuationEnv(t *testing.T, mode string) (*Service, context.Context) {
 		DB:             db,
 		AdminModel:     adminModel,
 		RoleModel:      roleModel,
+		FunctionModel:  funcModel,
 		RegistryStore:  store,
 		Dispatcher:     dispatcher,
 		ApprovalsStore: approvals.NewMemStore(),

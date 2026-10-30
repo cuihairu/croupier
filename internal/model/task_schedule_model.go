@@ -48,6 +48,9 @@ type CreateScheduleInput struct {
 	// Kind 触发形态（ScheduleKindFunction/ScheduleKindIncidentReport）；
 	// 空 = function（默认派发链）。
 	Kind string
+	// Status 初始状态；空 = active。ARCH-024：政策要求审批时创建为 paused
+	// （待批准），批准后经续跑激活。Status 列已存在，非 schema 变更。
+	Status string
 }
 
 func (m *TaskScheduleModel) Create(ctx context.Context, in CreateScheduleInput) (*TaskSchedule, error) {
@@ -58,6 +61,10 @@ func (m *TaskScheduleModel) Create(ctx context.Context, in CreateScheduleInput) 
 	if kind == "" {
 		kind = ScheduleKindFunction
 	}
+	status := strings.TrimSpace(in.Status)
+	if status == "" {
+		status = ScheduleStatusActive
+	}
 	s := &TaskSchedule{
 		Name:          strings.TrimSpace(in.Name),
 		CronExpr:      strings.TrimSpace(in.CronExpr),
@@ -66,7 +73,7 @@ func (m *TaskScheduleModel) Create(ctx context.Context, in CreateScheduleInput) 
 		FunctionID:    strings.TrimSpace(in.FunctionID),
 		Payload:       in.Payload,
 		Metadata:      in.Metadata,
-		Status:        ScheduleStatusActive,
+		Status:        status,
 		Kind:          kind,
 		MaxFailedRuns: in.MaxFailed,
 		Actor:         in.Actor,

@@ -140,8 +140,15 @@ func TestServiceStartV9_PermissionIDsError(t *testing.T) {
 
 func TestServiceStartV9_ScopeCheckerNotInitialized(t *testing.T) {
 	svcCtx := setupSvcCtx(t)
+	svcCtx.RoleModel = model.NewRoleModel(svcCtx.DB)
 	createTestFunction(t, svcCtx.DB, "player.ban", "Ban Player")
 	ctx := svc.WithGameScope(seedAdminWithRole(t, svcCtx.DB, "erin", "operator"), svc.GameScope{GameID: "test-game", Env: "test-env"})
+	// ARCH-024 闸门 CheckInvokePermission 在 RequireGameEnvScope 之前执行：
+	// operator 需先持有 function:invoke 权限 ID 通过治理闸门，才能命中
+	// scope checker 未初始化分支（否则先被权限拒绝，覆盖不到目标分支）。
+	var role model.Role
+	require.NoError(t, svcCtx.DB.Where("name = ?", "operator").First(&role).Error)
+	require.NoError(t, svcCtx.DB.Create(&model.RolePermission{RoleID: role.ID, PermissionID: "function:invoke"}).Error)
 
 	taskSvc := &Service{svcCtx: svcCtx, runtime: &fakeRuntimeV9{findFn: &model.FunctionContract{}}}
 	_, err := taskSvc.Start(ctx, &StartRequest{FunctionID: "player.ban"})

@@ -113,4 +113,8 @@ type StartRequest struct {
 type StartResponse struct {
 	TaskID string `json:"taskId"`
 	Status string `json:"status"`
+	// ApprovalRequired 政策要求审批时返回（不派发，需先批准续跑）。
+	// 前端据此提示走审批流程而非轮询任务。
+	ApprovalRequired bool   `json:"approvalRequired,omitempty"`
+	ApprovalID       string `json:"approvalId,omitempty"`
 }

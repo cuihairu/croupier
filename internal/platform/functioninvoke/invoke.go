@@ -8,14 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/api/assignment"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	"github.com/cuihairu/croupier/internal/platform/functioncontract"
-	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
@@ -40,18 +38,10 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 	if err := ValidateInvokeRoute(req); err != nil {
 		return nil, err
 	}
-	// 禁用拦截（E2）：dashboard 禁用按钮写 functions.status，但本路径从不
-	// 回读，禁用函数照常执行。守卫在遥测/审计/执行留痕之前——被拒的调用
-	// 不是一次执行，不产生失败执行记录污染成功率口径。
-	if err := utils.EnsureFunctionEnabled(ctx, svcCtx, strings.TrimSpace(req.ID)); err != nil {
-		return nil, err
-	}
-	// 分配闸门（BUG-032）：scope 存在分配记录时是执行白名单，未分配函数
-	// 403 function_not_assigned（无记录默认开放）。与 EnsureFunctionEnabled
-	// 同位、/tasks Start 共用，防止绕过。
-	if err := assignment.EnsureFunctionAssigned(ctx, svcCtx, strings.TrimSpace(req.ID), req.GameID, req.Env); err != nil {
-		return nil, err
-	}
+	// 禁用/分配/函数权限/政策审批/输入契约统一收敛到 Governance.Gate（ARCH-024）：
+	// 普通 invoke 与 /tasks Start、schedule Create/TriggerNow/自动触发共用同一闸门，
+	// 保证同一高危函数各入口行为一致。被拒的调用不是一次执行，不产生失败执行
+	// 记录污染成功率口径。
 	startedAt := time.Now()
 	var spanErr error
 	if svcCtx != nil && svcCtx.Telemetry != nil {
@@ -88,47 +78,26 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 		ctx = nextCtx
 	}
 
-	admin, roles, err := utils.LoadCurrentAdmin(ctx, svcCtx)
-	if err != nil {
-		spanErr = err
-		return nil, err
-	}
-	_, err = utils.PermissionIDsFromRoles(ctx, svcCtx, roles)
-	if err != nil {
-		spanErr = err
-		return nil, err
-	}
-
-	approvedContinuation := IsApprovedContinuation(req.Metadata)
-	pageSnapshotGoverned := IsPageSnapshotGoverned(req.Metadata)
-	var functionPolicy *policy.Policy
-	// Apply function policy checks. ARCH-025 fail-closed: a nil PolicyManager is
-	// a config/init failure (malformed default-policies.yaml), not "no policy" —
-	// refuse rather than silently bypass approval/audit. Approved continuations
-	// and page-snapshot-governed calls are already gated upstream and remain
-	// exempt (they never consult the manager here).
-	if !approvedContinuation && !pageSnapshotGoverned {
-		if svcCtx == nil || svcCtx.PolicyManager == nil {
-			err := fmt.Errorf("policy manager unavailable: refuse invocation of %s (config/init failure)", req.ID)
-			spanErr = err
-			return nil, err
-		}
-		roleNames := utils.RoleNamesFromModels(roles)
-		functionPolicy, err = EnforceFunctionPolicy(ctx, svcCtx, req.ID, strings.TrimSpace(req.GameID), strings.TrimSpace(req.Env), roleNames)
-		if err != nil {
-			spanErr = err
-			return nil, err
-		}
-	}
-
 	payload := InvokePayload(req)
 
-	// 输入契约前置校验：缺 required 参数属客户端错误，应在 dispatch 前
-	// 400 并指明缺失字段，而不是透传 agent 后以 5xx 路由错误收场。
-	if err := ValidateInvokeInput(ctx, svcCtx, req, payload); err != nil {
+	// 统一治理闸门（ARCH-024）：禁用/分配/函数权限/政策审批/输入契约。
+	// ARCH-025 fail-closed：政策存储/配置故障一律拒绝，不与「无覆盖策略」混淆。
+	// 批准续行（approvalBypass=approved）与页面快照治理（pageSnapshotGovernance）
+	// 由 Gate 按元数据豁免函数级政策闸（上游已把关）。
+	gate, err := NewGovernance(svcCtx).Gate(ctx, Subject{}, GateInput{
+		FunctionID: req.ID,
+		GameID:     req.GameID,
+		Env:        req.Env,
+		Payload:    payload,
+		Metadata:   req.Metadata,
+	})
+	if err != nil {
 		spanErr = err
 		return nil, err
 	}
+	admin := gate.Admin
+	roleNames := gate.RoleNames
+	functionPolicy := gate.FunctionPolicy
 
 	// Check if approval is required
 	if functionPolicy != nil && functionPolicy.RequireApproval && svcCtx.ApprovalsStore != nil {
@@ -141,7 +110,7 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 
 		// Log approval creation if audit is enabled
 		if svcCtx.AuditService != nil && functionPolicy.RequireAudit {
-			AuditApprovalCreated(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), approvalID, functionPolicy)
+			AuditApprovalCreated(ctx, svcCtx, req.ID, admin, roleNames, approvalID, functionPolicy)
 		}
 
 		// Return approval response
@@ -241,7 +210,7 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 	// Audit logging: log function invocation if policy requires audit
 	if svcCtx.AuditService != nil && functionPolicy != nil && functionPolicy.RequireAudit {
 		invokeDurationMs := time.Since(startedAt).Milliseconds()
-		AuditFunctionInvoke(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), functionPolicy, invokeErr, invokeDurationMs)
+		AuditFunctionInvoke(ctx, svcCtx, req.ID, admin, roleNames, functionPolicy, invokeErr, invokeDurationMs)
 	}
 
 	// 执行留痕（R1）：payload 级请求/响应异步落库（与 require_audit 解耦）；

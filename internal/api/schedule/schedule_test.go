@@ -14,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	policymgr "github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
@@ -24,6 +25,33 @@ import (
 
 var dbSeq uint64
 
+// scheduleAdminSvcCtx 构建 ARCH-024 治理闸门就绪的调度 svcCtx：AdminModel/
+// RoleModel/FunctionModel/PolicyManager 齐备，并播种 username 对应的 admin
+// 角色用户（admin 角色使 CheckInvokePermission/RequireGameEnvScope 短路，
+// 调度 CRUD 夹具只需验证调度机制本身，不重复测权限/scope 语义）。
+func scheduleAdminSvcCtx(t *testing.T, db *gorm.DB, username string) *svc.ServiceContext {
+	t.Helper()
+	adminModel := model.NewAdminModel(db)
+	roleModel := model.NewRoleModel(db)
+	pm, err := policymgr.NewManager(db, "")
+	require.NoError(t, err)
+
+	role := &model.Role{Name: "admin", Category: "test"}
+	require.NoError(t, roleModel.Create(context.Background(), role))
+	admin := &model.Admin{Username: username, Nickname: username, Status: 1}
+	require.NoError(t, adminModel.Create(context.Background(), admin, "pw"))
+	require.NoError(t, adminModel.AssignRole(context.Background(), admin.ID, role.ID))
+
+	return &svc.ServiceContext{
+		TaskScheduleModel: model.NewTaskScheduleModel(db),
+		Dispatcher:        dispatch.NewDispatcher(reg.NewStore()),
+		AdminModel:        adminModel,
+		RoleModel:         roleModel,
+		FunctionModel:     model.NewFunctionModel(db),
+		PolicyManager:     pm,
+	}
+}
+
 // newTestEnv 组装路由级测试环境：内存 sqlite + 空注册表的 dispatcher。
 // scoped 控制是否注入 GameScope（模拟 GameDBMiddleware）。
 func newTestEnv(t *testing.T, scoped bool) (*gin.Engine, *gorm.DB) {
@@ -33,10 +61,7 @@ func newTestEnv(t *testing.T, scoped bool) (*gin.Engine, *gorm.DB) {
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 
-	svcCtx := &svc.ServiceContext{
-		TaskScheduleModel: model.NewTaskScheduleModel(db),
-		Dispatcher:        dispatch.NewDispatcher(reg.NewStore()),
-	}
+	svcCtx := scheduleAdminSvcCtx(t, db, "tester")
 	h := NewHandler(NewService(svcCtx))
 
 	gin.SetMode(gin.TestMode)

@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/server"
@@ -196,8 +197,10 @@ func runServer() error {
 	// docs/design/incident-reports.md §6——internal/api/incident import svc，
 	// 须在 cmd 层反向注入避免环）。
 	svcCtx.SetReportRunner(incident.NewService(svcCtx))
-	// cron 定时任务调度循环（Dispatcher 就绪后启动，含报表调度播种）。
-	svcCtx.StartScheduler()
+	// ARCH-024：执行治理闸门（禁用/分配/函数权限/政策审批/输入契约）注入
+	// 调度器——functioninvoke import svc，同样须在 cmd 层反向注入避免环。
+	// cron 触发与 /tasks Start、TriggerNow 共用同一闸门。
+	svcCtx.StartScheduler(functioninvoke.NewGovernance(svcCtx))
 	defer svcCtx.StopScheduler()
 	if telemetrySvc, err := svc.NewTelemetryService(c, svcCtx.Secrets, "croupier-server", slog.Default()); err != nil {
 		return fmt.Errorf("初始化遥测服务失败: %w", err)
