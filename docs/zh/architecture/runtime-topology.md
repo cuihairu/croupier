@@ -4,9 +4,9 @@ title: 运行架构、连接与生命周期（源码现状）
 
 # 运行架构、连接与生命周期
 
-> **2026-10-30 游戏后台再审**：统一 session 不等于所有入口统一治理。执行治理已统一（ARCH-023/024/025）：`/tasks` Start、手动调度触发、定时自动触发与 HTTP/页面调用共用同一条 `functioninvoke.Govern` 链（禁用/分配/主体/政策/输入契约），并以显式自动化主体在每次触发时重载调度创建者的当前授权（撤权后不再派发）；调度 Create 仅校验可调度性。政策查询与初始化故障已 fail-closed（ARCH-025）：策略存储查询错误直接拒绝调用而非静默绕过审批/审计，配置文件损坏回退内置默认档且治理保持强制（绝不出现 nil 政策管理器）。任务派发前必须先持久化 `task_runs` 主记录（ARCH-026）：写失败返回可定位错误并阻止派发——无持久账本就无执行器副作用。输入契约读取失败已 fail-closed（ARCH-027）：descriptor 查询错误拒绝调用而非跳过校验；仅确无 schema（零行）才跳过。剩余缺口：重复 Start 的持久去重与游戏侧副作用收据未闭环（GAME-010）。证据：`docs/review/code-todo-alignment-2026-10-29.md`。当前不能宣称真实高危写操作已达到生产稳定性。
+> **2026-10-30 最新复审：CHANGES REQUIRED。** 调度已前置领取、多个入口已接入 Govern、主记录落库失败和 descriptor 读取失败会拒绝派发；但复现了函数 ACL 漏检、风险读取错误降低审批、跨槽 claimed 未恢复及终态事件部分写入。正常 drain/停机路径已有实现，已接收任务与总截止仍有缺口。详见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。真实高危写入不获上线批准。
 
-核查日 **2026-10-29**。这是源码与仓库部署模板的现状，不是线上盘点或生产认证。**已实现**表示可追踪到生产装配；**目标设计**表示尚有运行缺口；**待核实**表示需要真实配置、账号或环境。本轮不修改业务实现。历史审核见 仓库审核记录 `docs/review/architecture-audit-2026-10-28.md`。待办唯一入口为仓库根 `todo.md`。
+核查日 **2026-10-30**。这是源码与仓库部署模板的现状，不是线上盘点或生产认证。**已实现**表示可追踪到生产装配；**目标设计**表示尚有运行缺口；**待核实**表示需要真实配置、账号或环境。本轮不修改业务实现。历史审核见 仓库审核记录 `docs/review/architecture-audit-2026-10-28.md`。待办唯一入口为仓库根 `todo.md`。
 
 <ArchitectureDiagram lang="zh" />
 
@@ -63,7 +63,7 @@ OIDC 登录、Vault secret resolver、SMTP/对象存储、OTel/监控链接是�
 - **失效**：Server 注册 TTL 默认 5 分钟，心跳按默认 TTL 续期；live session 断链立即按 `(agentID, sessionID)` 清除，避免旧连接清除新连接。registry 定时清理到期记录及 Provider 投影；DB 锚点可作为最后已知身份，不能作为在线证明。证据：`internal/server/agent_session.go:RemoveSession`、`internal/server/tcp_listener.go`、`internal/platform/registry/agent_session_db.go`。
 - **路由**：`internal/platform/dispatch/dispatcher.go` 过滤 scope/函数/可用候选并按策略选择，优先本机 session，否则 owner 转发；sidecar 再选择 Provider、内建函数或插件。不是 Server 直接拨游戏进程。函数调用默认上限 15s，metadata budget 会在 1s–上限间钳制；失败重试取决于路径/错误，不可推导副作用安全重试。
 - **调度**：Server `internal/tasks/scheduler/manager.go` 消费任务定义，派发函数或执行 server-local 报表；sidecar `internal/app/agent/ops_schedule.go` 运行受管程序本地 cron。两者复用 `core/process` cron，但不是一个独立调度服务；本地分钟槽去重、不补跑不能外推为分布式 exactly-once。
-- **存储**：关系库保存任务/页面/契约/审计等；scope 是授权边界，multiGame 仅部分模型走 dbctx，不代表所有表都物理分库。数据库绑定与实际开库名仍有双来源风险。审批生产装配仍 `approvals.NewMemStore()`；SQLStore 存在不代表已启用。证据：`internal/svc/service_context.go`、`internal/svc/game_middleware.go`、`internal/db/router/router.go`。
+- **存储**：关系库保存任务/页面/契约/审计等；scope 是授权边界，multiGame 仅部分模型走 dbctx，不代表所有表都物理分库。生产开库已采用 binding.database_name 真值；首次开库 Open 阶段预算仍有缺口（ARCH-009）。审批生产装配仍 `approvals.NewMemStore()`；SQLStore 存在不代表已启用。证据：`internal/svc/service_context.go`、`internal/svc/game_middleware.go`、`internal/db/router/router.go`。
 
 ## 独立生命周期图与失败语义
 
@@ -89,9 +89,9 @@ Server 先创建 ServiceContext/数据库与注册物化、scheduler、session r
 
 [Task SVG](/architecture/task-zh.svg)
 
-HTTP 身份/scope → 页面快照 binding（或受控草稿）→ `functioninvoke` 门禁/输入契约/政策。拒绝、待审批与可执行互斥；审批决定后通过既有续跑入口重新验证，不能把 pending 当作已下发。任务 Start、手动调度触发与定时自动触发复用同一条链（`functioninvoke.Govern`，ARCH-024），主体显式——Human 由鉴权中间件解析，Automation 每次触发重载调度创建者的当前角色——撤权后不再裸派发；调度 Create 仅校验可调度性（禁用/分配/输入契约），授权与政策审批在每次触发时执行。政策查询失败 fail-closed（ARCH-025）：查询错误拒绝调用而非绕过审批/审计。dispatch 的任务路径先写 `task_runs` 主记录再 StartTask，且要求写成功（ARCH-026）：落库失败阻止派发（无持久账本就无执行器副作用）。输入契约读取失败 fail-closed（ARCH-027）：descriptor 查询错误拒绝调用而非跳过校验；仅确无 schema（零行）才跳过。返回 taskId 仅代表接收，最终结果看 task_events/查询/SSE。取消先记录意图，再按缓存/文件或 DB 的 agent 归属路由；Cancel ACK 不证明外部副作用撤销。
+HTTP 身份/scope → 页面快照 binding（或受控草稿）→ functioninvoke 的禁用/分配/输入契约/政策门。拒绝、待审批与执行互斥。任务与调度已接入 Govern，但函数 ACL 和风险来源故障仍有 R30-01/02 的复现，不能声明完全一致治理或撤权后必不派发。Create 只校验可调度性，每次触发再治理。生产 dispatch 注入 TaskRunWriter，task_runs 写失败禁止 StartTask（ARCH-026）；descriptor 查询错误拒绝，确无 schema 才跳过（ARCH-027）。返回 taskId 仅代表接收；取消先记意图再路由，Cancel ACK 不证明外部副作用撤销。
 
-**实现边界**：sidecar `TaskRunner.Start` 以 Background context 启动协程，map 用 taskId 保存 cancel；同 ID 再次 Start 没有持久去重保证，事件上报返回值被忽略。任务结束 defer 删除 map/cancel；这不是断线事件持久重放或进程崩溃恢复。页面数据库幂等不能覆盖游戏奖励/支付副作用；超时后可能结果未知，游戏方凭据与去重仍需协议。证据：`agents/sidecar/task_runner.go`、`internal/platform/dispatch/{dispatcher,task_routing_store}.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
+**实现边界**：TaskRunner 对在途同 ID Start 做内存去重、用 generation 清理并有限重试终态；跨进程重启无持久去重。Server 先更新终态再插事件的部分写入缺口已复现，不能保证重试补齐事件。页面幂等不替代游戏持久收据。证据：`agents/sidecar/task_runner.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
 
 ### CDC 告警与出口
 
@@ -113,7 +113,7 @@ capture 加载位点→连接源→Poll→可选 journal/consume→AckCheckpoint
 
 [完整 SVG](/architecture/shutdown-zh.svg)
 
-SDK `ProviderDrain` 已实现（ARCH-016）：Agent 将 provider 会话标记 draining，新业务请求跳过它（drain 前已接受的 task 续接仍路由到其 provider），所有候选都 drain 时以显式 `provider <id> is draining` 拒绝，ACK 仅在在途归零或宽限到期后返回；Server 路由门停止向 draining 节点派发新请求，undrain 走 `reason=="__undrain__"` 哨兵（尚未有专门 proto 字段——系统 protoc 3.21.12 产出坏 gencode）。宽限到期后**不**强制关闭仍在跑的请求；长任务经 ARCH-015 `unknown`/终态路径收敛。Server SIGTERM 后按重排序列停机（ARCH-017）：停收新 Agent 连接（`StopAccepting`，非阻塞）→ drain 在途 HTTP → 取消根 context（解除活跃 agent 会话读阻塞）→ 停调度器与 ControlService → 有界等待连接协程（`WaitConnections`）→ 冲刷执行留痕并释放池（per-game Router、缓存、元库）并清包级模板重建器单例；外层总等待 30s。长连接不再阻塞 HTTP 停机或根取消，冲刷顺序保证在途审计/执行留痕在池仍开时落库。池关闭后才跑完的后台 goroutine 仅记错误、不阻塞停机。sidecar Stop 依次停函数插件、本地监听、上行、遥测、Ops；不保证 TaskRunner 持久任务已排空。worker main 取消后仅睡 200ms，不等待 Run 最终 flush 完成。证据：`agents/sidecar/provider_session.go`、`internal/agent/local_handler.go:DrainProviderSession`、`internal/server/tcp_listener.go:StopAccepting/WaitConnections`、`cmd/server/root.go`、`internal/svc/service_context.go:Close`、`internal/app/agent/app.go:Stop`、`cmd/analytics-worker/main.go`。改进分别登记 ARCH-018、ARCH-011/012。
+Provider drain 已具会话 Draining、RPC 在途计数、路由拒绝与默认宽限等待，undrain 使用 reason 哨兵；但已接收而未进入 RPC 的任务会因注册先被摘除而失败（R30-09），ACK 不保证任务资源全排空。宽限到期不强制关仍在跑的请求。Server 正常停机顺序为 StopAccepting → HTTP drain → rootCancel → StopScheduler/ControlService.Stop → WaitConnections → ServiceContext.Close 冲刷并关池、清模板重建器。外层等待 30s，但最终 defer StopScheduler 未受其约束（R30-07），不能保证总退出时间。sidecar Stop 依次停插件、本地监听、上行、遥测和 Ops；worker main 取消后只等固定 200ms。证据：`internal/agent/local_handler.go`、`cmd/server/root.go`、`internal/svc/service_context.go`、`internal/app/agent/app.go`、`cmd/analytics-worker/main.go`。故障验收见 ARCH-015–018、DATA-015。
 
 ## 部署方式与故障处理
 
@@ -122,19 +122,19 @@ SDK `ProviderDrain` 已实现（ARCH-016）：Agent 将 provider 会话标记 dr
 - **HA 模板**：`docker/docker-compose.deploy.yml` 的双 Server/sidecar 与 HAProxy，dashboard nginx 走 HTTP，Agent 走 L4；成员/owner 后端共享，session 留各实例内存。模板/healthcheck 的存在不证明线上可故障切换。互联仍需可信网络隔离，mTLS 为目标设计。
 - **TLS/状态卷**：开发模板证书留空、insecure 开启；生产需核对终止点、CA/证书、数据库/Redis ACL。保留 Server data、capture bookmark/spool/journal、devops casts 与审计日志、sidecar desired_state/schedule_pause 文件和插件版本。数据库备份不覆盖内存审批与正在执行的任务。
 - **故障诊断顺序**：先核对 scope/当前配置与真实进程→注册 ACK→owner/session→函数/Provider 快照→受控执行拒绝原因→task event/凭据。Agent 离线不靠重写 DB 在线标志恢复；SDK 断线应观察 Provider 移除和重注册；执行超时先查询结果和游戏凭据，禁止据未知结果盲目重发高风险操作。
-- **分析可靠性**：worker 批量 Append 成功后可先 XACK，批量 Send 尚未发生；重入队 XADD 的错误也未检查，存在崩溃丢失窗口。这是源码推断，故障复现 **NOT RUN**。`XACK` 只是移出 PEL，并不证明 ClickHouse 已持久化。正式修复与杀进程验证见 ARCH-011/012。
+- **分析可靠性**：明细批次已改为 Send 后 ACK，重入队/死信 XADD 错误不确认原消息；聚合并发读写仍复现 race（DATA-014），worker 退出不等待全部后台协程（DATA-015）。真实崩溃/重放验收仍属 ARCH-012。
 
 ## 现状与目标分开
 
-| 已实现 / 限制                                                 | 目标设计或待核实                        | TODO                   |
-| ------------------------------------------------------------- | --------------------------------------- | ---------------------- |
-| owner 单跳转发 / epoch；部分协调失败 standalone               | 认证互联、集群 ready、失租约摘流        | ARCH-003–005           |
-| 内存审批；SQLStore 未装配                                     | 跨实例持久审批、原子决定与执行领取      | ARCH-001/002           |
-| 页面/任务关系库存储；游戏副作用不由 UI 幂等覆盖               | 任务重放协议、真实游戏凭据              | ARCH-014/015、GAME-001 |
-| DB scope 校验；物理名双来源                                   | 绑定作为路由真值、预算/池容量           | ARCH-006/009/010       |
-| drain 等待在途 + 路由门（ARCH-016）；重排有界停机（ARCH-017） | 断连/drain/SIGTERM 演练、宽限后强制关闭 | ARCH-018               |
-| devops SSH 基础；面板中继缺失                                 | 中继/回放界面；不自动扩 RDP/VNC         | AGENT-002/003          |
-| SLP/私有协议骨架与插件宿主                                    | Login 级真实账号验收                    | PROBE-001–003          |
+| 已实现 / 限制                                     | 目标设计或待核实                        | TODO                   |
+| ------------------------------------------------- | --------------------------------------- | ---------------------- |
+| owner 单跳转发 / epoch；部分协调失败 standalone   | 认证互联、集群 ready、失租约摘流        | ARCH-003–005           |
+| 内存审批；SQLStore 未装配                         | 跨实例持久审批、原子决定与执行领取      | ARCH-001/002           |
+| 页面/任务关系库存储；游戏副作用不由 UI 幂等覆盖   | 任务重放协议、真实游戏凭据              | ARCH-014/015、GAME-001 |
+| DB scope 校验；binding 驱动物理路由               | Open 预算、连接池容量                   | ARCH-006/009/010       |
+| drain/停机正常路径已接入；待发任务/总截止仍有缺口 | 断连/drain/SIGTERM 演练、宽限后强制关闭 | ARCH-018               |
+| devops SSH 基础；面板中继缺失                     | 中继/回放界面；不自动扩 RDP/VNC         | AGENT-002/003          |
+| SLP/私有协议骨架与插件宿主                        | Login 级真实账号验收                    | PROBE-001–003          |
 
 ## 外部资料与版本边界
 
@@ -150,3 +150,7 @@ SDK `ProviderDrain` 已实现（ARCH-016）：Agent 将 provider 会话标记 dr
 | Herald              | `v0.1.3-0.20261014084113-9875146dc50a` | 本仓 SDK 调用与 outlet 代码为证据，不宣称外部送达                                                                                 | trigger 配置、受众与真实收据               |
 
 MongoDB change stream、OIDC/Vault、第三方平台账号、镜像/许可证全矩阵专题本轮未开展，登记 DEPLOY-001 / PROBE-003；不得因接口存在勾选验证完成。
+
+## 2026-10-30 失败边界复核
+
+上文正常流程不构成完整故障保证。drain 前已接收但未进入 Provider RPC 的任务可能在 ACK 后因 pickInstance 注册已删除而失败；taskId 续接例外无法覆盖此前置查找。Server 的外层 30s 等待不覆盖最终无界 defer StopScheduler。task_runs 终态更新与 task_events 写入不是一个事务，第二步失败后重试会被直接 ACK。审计 Log 的 strict 错误仍被部分调用方吞掉。上述缺口已分别回填 ARCH-015/016/017/008；工作区 watchdog 属在途实现，不能代替 ARCH-018 演练。证据及具体复现见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。

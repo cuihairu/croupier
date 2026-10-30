@@ -4,9 +4,9 @@ title: Current architecture
 
 # Current architecture
 
-> **Game-operations re-review, 2026-10-29:** unified sessions do not imply unified governance. Raw task entry has partial gates; scheduled/manual-trigger execution goes directly to Dispatcher. Policy/schema lookup failures can skip checks, and writing the unique schedule log after dispatch does not prevent duplicate execution. ARCH-023–027 in the root TODO track these gaps; evidence is in `docs/review/code-todo-alignment-2026-10-29.md`. Production stability for high-risk game writes is not established.
+> **Latest review, 2026-10-30: CHANGES REQUIRED.** Schedule claims now precede dispatch and entry points use Govern; run-row and descriptor failures block dispatch. Reproduced gaps remain in function ACLs, risk lookup, expired claims across slots, and partially persisted terminal events. Drain/shutdown normal paths exist, but accepted-task and overall deadline guarantees remain incomplete. See the [latest review](../review/reliability-recheck-2026-10-30.md). High-risk production writes are not approved.
 
-Croupier is a game operations control plane for one company with multiple games and environments. The implementation combines a **modular Server, outbound Agents with distinct roles, and game SDKs**, plus a separate analytics pipeline. This overview follows source wiring reviewed on 2026-10-29; design goals are not implied runtime guarantees.
+Croupier is a game operations control plane for one company with multiple games and environments. The implementation combines a **modular Server, outbound Agents with distinct roles, and game SDKs**, plus a separate analytics pipeline. This overview follows source wiring reviewed on 2026-10-30; design goals are not implied runtime guarantees.
 
 ## System diagram
 

@@ -14,7 +14,7 @@ def topology(lang):
         return cn if zh else en
     s = SVG(1200, 1800, t('CROUPIER · 分析链路实际拓扑', 'CROUPIER · ANALYTICS RUNTIME TOPOLOGY'))
     # This overview has no sequence lifelines; override the shared description.
-    s.p[0] = s.p[0].replace('<svg ', '<svg data-check-edges="true" ', 1).replace('2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.', '2026-10-29 source review. Independent processes, in-process modules, stores and external clients. Arrows show writes or query requests, not a timeline. Crossings without dots do not join.')
+    s.p[0] = s.p[0].replace('<svg ', '<svg data-check-edges="true" ', 1).replace('2026-10-30 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.', '2026-10-30 source review. Independent processes, in-process modules, stores and external clients. Arrows show writes or query requests, not a timeline. Crossings without dots do not join.')
     s.text(30, 78, t('现状 · 默认 Redis 路径 · 箭头不代表时间顺序', 'Current implementation · Default Redis path · Arrows are not a timeline'), 'small')
     s.box(40, 115, 550, 100, t('外部事件生产方', 'External event producers'), [t('游戏服 / 受信采集端 · 事件与支付 JSON', 'Game servers / trusted collectors · event/payment JSON'), t('HMAC 密钥留在受信端，不分发到玩家客户端', 'Keep HMAC secrets on trusted producers')], 'external')
     s.edge('M315 215 V315', 'external')
@@ -28,7 +28,7 @@ def topology(lang):
     s.edge('M315 640 V745', 'data', both=True)
     s.text(340, 678, 'RESP / XREADGROUP + XACK', 'small')
     s.text(340, 706, t('worker 主动拉取；返回事件 / 支付', 'Worker polls; events / payments returned'), 'small')
-    s.box(40, 745, 550, 130, 'WORKER · cmd/analytics-worker', [t('独立进程 · 消费 / 规范化 / 批写 / 聚合', 'Process · consume / normalize / batch / aggregate'), t('pending 回收 / 失败重试 / 死信', 'Pending reclaim / retry / dead letters'), t('ACK 与批次持久化缺口：ARCH-011/012', 'ACK / batch durability gaps: ARCH-011/012')])
+    s.box(40, 745, 550, 130, 'WORKER · cmd/analytics-worker', [t('独立进程 · 消费 / 规范化 / 批写 / 聚合', 'Process · consume / normalize / batch / aggregate'), t('pending 回收 / 失败重试 / 死信', 'Pending reclaim / retry / dead letters'), t('Send 后 ACK；聚合并发待修 DATA-014', 'ACK after Send; aggregate race: DATA-014')])
     s.edge('M315 875 V995', 'data')
     s.text(340, 920, 'clickhouse-go / INSERT batches', 'small')
     s.text(340, 948, t('DSN 决定地址 / 认证 / TLS', 'DSN controls endpoint / credentials / TLS'), 'small')

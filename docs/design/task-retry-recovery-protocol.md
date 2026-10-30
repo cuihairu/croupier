@@ -4,6 +4,8 @@ title: Async task retry and terminal-state recovery protocol
 
 # Async task retry and terminal-state recovery protocol (ARCH-014)
 
+> Implementation recheck, 2026-10-30: In-flight Start deduplication and bounded terminal retries exist, but run-state and event persistence are not atomic; retries after an event write failure can be ACKed without the missing event. ARCH-015 is reopened. The watchdog is a worktree implementation; independent-process acceptance is NOT RUN.
+
 **Status:** decided (2026-10-30). Implementation is tracked by ARCH-015 (TaskRunner duplicate-Start constraint and event replay / terminal convergence) and ARCH-018 (execution-interruption drill).
 
 This brief defines the protocol semantics for asynchronous agent tasks that the current code only implements by accident. It does not change the wire contract: `task_runs` / `task_events` are reused as-is; no new table is required.

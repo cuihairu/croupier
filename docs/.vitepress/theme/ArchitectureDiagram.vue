@@ -37,8 +37,8 @@ const props = withDefaults(defineProps<{ lang?: "en" | "zh" }>(), {
     <figcaption>
       {{
         props.lang === "zh"
-          ? "2026-10-29 源码核对 · 点击打开完整 SVG"
-          : "Source review: 2026-10-29 · Open the full SVG"
+          ? "2026-10-30 源码核对 · 点击打开完整 SVG"
+          : "Source review: 2026-10-30 · Open the full SVG"
       }}
     </figcaption>
   </figure>

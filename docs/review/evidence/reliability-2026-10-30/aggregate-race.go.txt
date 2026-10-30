@@ -1,0 +1,36 @@
+package worker
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestReview20261030_RevenueFlushRace(t *testing.T) {
+	w, _ := testWorker(t)
+	getMockConn(t, w).batch.sendErr = errors.New("injected Send failure keeps aggregate")
+	ctx := context.Background()
+	p := map[string]any{"ts": time.Now().UTC().Format(time.RFC3339), "game_id": "review", "env": "test", "status": "success", "amount_cents": float64(1)}
+	w.touchRevenue(ctx, p)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	start := make(chan struct{})
+	go func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < 10000; i++ {
+			w.touchRevenue(ctx, p)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < 100; i++ {
+			_ = w.flush(ctx)
+		}
+	}()
+	close(start)
+	wg.Wait()
+}

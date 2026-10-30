@@ -7,7 +7,7 @@ OUT=Path(__file__).resolve().parents[2]/'docs/public/architecture'
 class SVG:
  def __init__(self,w,h,title):
   self.w,self.h=w,h
-  self.p=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>']
+  self.p=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">2026-10-30 source review. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>']
   for k,c in [('control','#53658d'),('data','#237b72'),('external','#976a3d')]:self.p.append(f'<marker id="{k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="{c}"/></marker>')
   self.p.append('''</defs><style>text{font:17px Arial,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;fill:#263344}.title{font-size:28px;font-weight:700}.head{font-size:21px;font-weight:700}.small{font-size:15px;fill:#526174}.edge{stroke-width:2;fill:none}.control{stroke:#53658d}.data{stroke:#237b72}.external{stroke:#976a3d}.optional{stroke-dasharray:7 5}.life{stroke:#bdc6d2;stroke-width:1.3;stroke-dasharray:5 6}.message{paint-order:stroke;stroke:#f8fafc;stroke-width:6px;stroke-linejoin:round}</style>''')
   self.p.append(f'<rect width="{w}" height="{h}" fill="#f8fafc"/>');self.text(30,45,title,'title')
@@ -23,7 +23,7 @@ def topology(lang):
  z=lang=='zh'
  def t(a,b):return a if z else b
  s=SVG(1200,2310,t('CROUPIER · 当前运行拓扑','CROUPIER · CURRENT RUNTIME TOPOLOGY'))
- s.text(30,77,t('2026-10-29 · 竖向总览 · Server 内文字是进程内模块','2026-10-29 · Vertical overview · Text inside Server identifies modules'),'small')
+ s.text(30,77,t('2026-10-30 · 竖向总览 · Server 内文字是进程内模块','2026-10-30 · Vertical overview · Text inside Server identifies modules'),'small')
  s.box(365,110,470,100,t('运营客户端','Operator clients'),[t('浏览器 Web / Flutter 移动端','Web browser / Flutter mobile'),t('页面、受控操作、任务查询','Pages, governed actions, task queries')])
  s.edge('M600 210 V295','data',both=True);s.text(620,242,'HTTP :18780 / JWT / SSE','small');s.text(620,266,t('可选 nginx L7 代理','Optional nginx L7 proxy'),'small')
  s.box(310,295,580,300,'SERVER · '+t('一个模块化控制面进程','One modular control plane'),[t('身份 / scope / 政策 / 审批 / 审计','Identity / scope / policy / approvals / audit'),t('契约 → 页面发布 → binding 执行','Contracts → publication → binding execution'),'registry / functioninvoke / dispatch / Ops',t('任务状态与 SSE / 进程内 scheduler','Task state and SSE / in-process scheduler'),t('活连接归本实例；审批当前为内存','Live sessions local; approvals currently in memory'),t('本机探针 / 通知出口 / telemetry bridge','Local probes / outlets / telemetry bridge'),t('core/ 是公共包，不是额外服务','core/ packages are not separate services')],'module')
@@ -38,7 +38,7 @@ def topology(lang):
  for x in (450,750):s.p.append(f'<path d="M{x} 795 V765" class="edge control"/>')
  for x in (150,450,600,750,1050):s.p.append(f'<circle cx="{x}" cy="765" r="4" fill="#53658d"/>')
  for x,name,lines in [(15,'sidecar',[t('SDK 网关 / 函数 / 任务','SDK gateway / functions / tasks'),t('受管程序 / 探针 / 扩展','Managed processes / extensions'),'Provider :19091']),(315,'capture',[t('CDC / 位点 / 过滤规则','CDC / checkpoints / rules'),t('本地 spool / 可选 journal','Local spool / optional journal'),t('告警请求有 ACK','Alert requests have ACKs')]),(615,'synthetics',[t('目标探测 / 结果上报','Target probes / result reports'),t('外部探测插件宿主','External probe plugin host'),t('按角色装配探测能力','Role-specific probe wiring')]),(915,'devops',[t('注册 / 白名单配置同步','Registration / allowlist sync'),t('SSH Broker / Hub 基础','SSH Broker / Hub foundations'),t('面板中继未接通','Console relay incomplete')])]:s.box(x,795,270,145,name,lines)
- s.box(15,1060,270,125,t('游戏进程 + SDK 库','Game process + SDK'),[t('主动建连；双向调用','Dials; bidirectional calls'),t('游戏权威数据在游戏侧','Game owns authoritative data'),t('排空 ACK 尚未摘流','Drain ACK does not drain')]);s.edge('M275 1060 V940','data');s.text(25,990,'TCP / protobuf :19091','small');s.text(25,1015,'Connect / Invoke / result','small')
+ s.box(15,1060,270,125,t('游戏进程 + SDK 库','Game process + SDK'),[t('主动建连；双向调用','Dials; bidirectional calls'),t('游戏权威数据在游戏侧','Game owns authoritative data'),t('摘流已接入；待发任务有缺口','Drain wired; queued-task gap')]);s.edge('M275 1060 V940','data');s.text(25,990,'TCP / protobuf :19091','small');s.text(25,1015,'Connect / Invoke / result','small')
  s.box(315,1060,270,125,t('游戏源数据库','Game source databases'),['MySQL / MariaDB binlog','PostgreSQL pgoutput','MongoDB change stream'],'external');s.edge('M570 940 V1060','external',both=True);s.text(325,990,t('复制连接 / 事件返回','Replication / event stream'),'small');s.text(325,1015,t('源凭据 / 本地位点','Source credentials / bookmark'),'small')
  s.box(615,1060,270,125,t('探测目标','Probe targets'),['HTTP / TCP / protocol',t('按配置的目标与凭据','Configured targets / credentials'),t('Server/sidecar 亦可探测','Server/sidecar can also probe')],'external');s.edge('M870 940 V1060','external',both=True);s.text(625,990,t('轮询请求 / 阶段结果','Poll / phase results'),'small')
  s.box(915,1060,270,125,t('SSH 主机','SSH hosts'),[t('本地 Broker 调用才进入','Local Broker calls only'),'Credentials / known_hosts',t('RDP / VNC 未实现','RDP / VNC unavailable')],'external');s.edge('M1170 940 V1060','external',both=True);s.text(925,990,'SSH / allowlist','small');s.text(925,1015,t('不是已通的面板链路','No wired console relay'),'small')
@@ -104,7 +104,7 @@ SCENARIOS={
 'task':(('异步任务接收、终态与取消','Asynchronous task acceptance, completion and cancellation'),[('运营客户端','Operator client'),('Server / DB','Server / DB'),('sidecar TaskRunner','sidecar TaskRunner'),G],[
  ('note',('前置条件','Preconditions'),('仅表示已治理的函数/页面 task 入口；裸任务/调度门禁仍有缺口','Governed function/page tasks only; raw task/schedule entry gates are incomplete')),
  ('msg',0,1,('HTTP 任务请求；Server 分配 taskId','HTTP task request; Server allocates taskId')),
- ('msg',1,1,('先尝试 CreateRun(task_runs)；当前忽略错误仍派发（ARCH-026）','Attempt CreateRun(task_runs); errors currently do not stop dispatch (ARCH-026)')),
+ ('msg',1,1,('CreateRun 成功才派发；写失败结束本次请求','Persist CreateRun before dispatch; write failure ends this request')),
  ('msg',1,2,('通过 session / owner 路由 StartTask(taskId / InvokeRequest)','Route StartTask(taskId / InvokeRequest) via session / owner')),
  ('msg',2,1,('StartTask ACK(taskId)：接收，不是执行完成','StartTask ACK(taskId): accepted, not completed')),
  ('msg',1,0,('HTTP taskId；随后查询 / SSE','HTTP taskId; client then queries / subscribes to SSE')),
@@ -114,7 +114,7 @@ SCENARIOS={
  ('alt',('用户取消，可与自然结束竞争','User cancellation may race with completion'),('先记意图 → CancelTask → cancel ctx；实际结果决定 cancelled，不是回滚','Persist intent → CancelTask → cancel context; actual outcome decides cancelled, without rollback')),
  ('msg',2,1,('终态事件 → task_events / task_runs；取消不回退已终态','Terminal event → task_events / task_runs; cancellation must not regress terminal state')),
  ('msg',1,0,('查询 / SSE 返回已存终态；正常观察结束','Query / SSE returns stored terminal state: normal observation ends')),
- ('note',('实际缺口','Current gap'),('上报错误被忽略，重复 Start 缺持久去重；重启后终态恢复不保证','Reporting errors discarded; no durable duplicate-Start protection or guaranteed restart recovery'))]),
+ ('note',('实际缺口','Current gap'),('终态有限重试；状态/事件部分写入缺口与跨重启去重尚待收口','Bounded terminal retry; partial-write and cross-restart dedup gaps remain'))]),
 'events':(('CDC 告警上报与通知出口','CDC alert reporting and notification outlets'),[('源数据库','Source DB'),('capture','capture'),S,('站内 / Herald','Station / Herald')],[
  ('note',('前置条件','Preconditions'),('源复制权限/bookmark 与已注册上行；Herald 按配置启用','Source replication permissions/bookmark and registered uplink; Herald is opt-in')),
  ('msg',1,0,('加载位点 → Open / Poll；源持续返回 ChangeEvent','Load bookmark → Open / Poll; source streams ChangeEvents back')),
@@ -142,14 +142,14 @@ SCENARIOS={
 'shutdown':(('当前排空与停机边界','Current drain and shutdown boundaries'),[G,('sidecar','sidecar'),S,('后台 / 数据库','Background / DB')],[
  ('note',('独立触发：SDK drain 与 Server SIGTERM 不是同一个协议','Independent triggers: SDK drain and Server SIGTERM are separate'),('上半是 drain 请求，下半是信号停机，不暗示自动联动','Top: drain request; bottom: signal shutdown. No automatic coordination implied')),
  ('msg',0,1,('ProviderDrain(sessionId / reason / retryAfterMs)','ProviderDrain(sessionId / reason / retryAfterMs)')),
- ('msg',1,0,('当前仅日志 + 空 ACK；未摘流、未等待在途','Currently log + empty ACK; no routing removal or in-flight wait')),
+ ('msg',1,0,('标记并摘路由；等待 RPC 在途归零或宽限到期后 ACK','Mark/remove routing; ACK when RPC in-flight is zero or grace expires')),
  ('note',('SDK drain 分支到此结束','SDK drain branch ends here'),('不能把 ACK 解释为游戏任务和资源已排空','ACK does not mean game tasks or resources have drained')),
  ('msg',2,2,('独立 SIGTERM：启动 30s 外层截止等待','Independent SIGTERM: start the outer 30s shutdown deadline')),
- ('msg',2,2,('先 tcpListener.Close：停止 accept 后等待活跃连接协程','First tcpListener.Close: stop accept, then wait for active connection goroutines')),
- ('alt',('连接结束，顺序收尾','Connections exit; sequential cleanup'),('HTTP Shutdown → rootCancel → ControlService.Stop → Router.Close','HTTP Shutdown → rootCancel → ControlService.Stop → Router.Close')),
- ('alt',('连接未结束，截止先到','Connections remain; deadline expires first'),('记录强制退出并返回，后续顺序清理不保证完成','Log forced exit and return; later sequential cleanup is not guaranteed to finish')),
+ ('msg',2,2,('StopAccepting → HTTP drain → rootCancel（不先等活跃会话）','StopAccepting → HTTP drain → rootCancel (do not wait for sessions first)')),
+ ('alt',('调度停止与会话等待在预算内结束','Scheduler/session waits finish within the budget'),('StopScheduler / ControlService.Stop → WaitConnections → ServiceContext.Close','StopScheduler / ControlService.Stop → WaitConnections → ServiceContext.Close')),
+ ('alt',('外层截止先到','Outer deadline expires first'),('记录超时；返回前 defer StopScheduler 仍可能无界等待（ARCH-017）','Log timeout; final deferred StopScheduler can still block (ARCH-017)')),
  ('msg',2,3,('正常返回还运行 scheduler / cluster / telemetry defer；不是全局事务','Normal return also runs scheduler/cluster/telemetry defers; not a global transaction')),
- ('note',('缺失保证','Missing guarantees'),('root 未调用 ServiceContext.Close；任务重放/全局 drain 尚缺，见 ARCH-015–018','root does not call ServiceContext.Close; task replay/global drain remain ARCH-015–018'))])}
+ ('note',('缺失保证','Missing guarantees'),('Close 已接入；待发任务 drain / 事件部分写入 / 总截止仍有缺口','Close is wired; queued-task drain, partial event writes and total deadline gaps remain'))])}
 if __name__=='__main__':
  OUT.mkdir(parents=True,exist_ok=True)
  for lang in ('zh','en'):

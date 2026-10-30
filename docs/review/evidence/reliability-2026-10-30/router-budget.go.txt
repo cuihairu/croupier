@@ -1,0 +1,29 @@
+package router_test
+
+import (
+	"context"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"testing"
+	"time"
+)
+
+func TestReview20261030_OpenIgnoresBudget(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	r := newArchRouter(t, archRouterOpts{openBudget: 5 * time.Millisecond, open: func(_ string, dsn string) (*gorm.DB, error) {
+		close(entered)
+		<-release
+		return openSQLite(t, dsn), nil
+	}})
+	done := make(chan error, 1)
+	go func() { _, err := r.GameDB(context.Background(), "review", "test"); done <- err }()
+	<-entered
+	select {
+	case err := <-done:
+		t.Fatalf("not reproduced: %v", err)
+	case <-time.After(40 * time.Millisecond):
+	}
+	close(release)
+	require.Error(t, <-done)
+	t.Log("CONFIRMED 5ms OpenBudget did not bound blocked Open; release required")
+}

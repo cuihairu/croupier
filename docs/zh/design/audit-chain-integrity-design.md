@@ -1,5 +1,7 @@
 # 版本化审计摘要与失败策略
 
+> 2026-10-30 实现复核：D1–D3 的摘要/兼容实现已有定向证据；D4 仍是目标约束：AuditFunctionInvoke/AuditApprovalCreated 仅打印错误，recordApprovalAudit 忽略错误，尚不能保证调用方返回 5xx 或阻断。ARCH-008 已重新打开。
+
 > ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略
 >
 > Scope：`internal/audit` 审计链——`calculateHash` / `hashBytes` /

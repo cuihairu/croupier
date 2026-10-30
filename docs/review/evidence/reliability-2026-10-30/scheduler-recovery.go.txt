@@ -1,0 +1,25 @@
+package scheduler
+
+import (
+	"context"
+	"github.com/cuihairu/croupier/internal/model"
+	"github.com/stretchr/testify/require"
+	"testing"
+	"time"
+)
+
+func TestReview20261030_ExpiredOldSlotNotReconciled(t *testing.T) {
+	now := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "* * * * *", "", 0, 5, now)}
+	ok, err := store.CreateRunLog(context.Background(), &model.TaskScheduleRunLog{ScheduleID: 1, Slot: Slot(now), Status: "claimed"})
+	require.NoError(t, err)
+	require.True(t, ok)
+	d := &fakeDispatcher{}
+	NewManager(store, d).tick(now.Add(2 * time.Minute))
+	old, err := store.GetRunLog(context.Background(), 1, Slot(now))
+	require.NoError(t, err)
+	require.Equal(t, "claimed", old.Status)
+	require.Len(t, d.calls, 1)
+	t.Log("CONFIRMED expired old slot remains claimed after cross-slot recovery")
+}

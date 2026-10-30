@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1420" viewBox="0 0 1200 1420" role="img" aria-labelledby="title desc"><title id="title">Current drain and shutdown boundaries</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1420" viewBox="0 0 1200 1420" role="img" aria-labelledby="title desc"><title id="title">Current drain and shutdown boundaries</title><desc id="desc">2026-10-30 source review. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
 <marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
 <marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
 <marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
@@ -28,7 +28,7 @@
 </g>
 <text x="600" y="335" class="message" text-anchor="middle">02 · ProviderDrain(sessionId / reason / retryAfterMs)</text>
 <path d="M180 361 H460" class="edge control" marker-end="url(#control)"/>
-<text x="600" y="451" class="message" text-anchor="middle">03 · Currently log + empty ACK; no routing removal or in-flight wait</text>
+<text x="600" y="451" class="message" text-anchor="middle">03 · Mark/remove routing; ACK when RPC in-flight is zero or grace expires</text>
 <path d="M460 477 H180" class="edge control" marker-end="url(#control)"/>
 <g data-node="SDK drain branch ends here"><rect x="50" y="543" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
 <text x="66" y="573" class="head" text-anchor="start">SDK drain branch ends here</text>
@@ -36,23 +36,23 @@
 </g>
 <text x="600" y="683" class="message" text-anchor="middle">05 · Independent SIGTERM: start the outer 30s shutdown deadline</text>
 <path d="M740 701 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
-<text x="600" y="799" class="message" text-anchor="middle">06 · First tcpListener.Close: stop accept, then wait for active connection goroutines</text>
+<text x="600" y="799" class="message" text-anchor="middle">06 · StopAccepting → HTTP drain → rootCancel (do not wait for sessions first)</text>
 <path d="M740 817 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
 <rect x="40" y="883" width="1120" height="224" rx="12" fill="#faf5f5" stroke="#976a3d" stroke-width="2"/>
 <text x="600" y="998" class="small" text-anchor="middle">OR · choose one branch</text>
-<g data-node="ALT · Connections exit; sequential cleanup"><rect x="50" y="891" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
-<text x="66" y="921" class="head" text-anchor="start">ALT · Connections exit; sequential cleanup</text>
-<text x="66" y="949" class="" text-anchor="start">HTTP Shutdown → rootCancel → ControlService.Stop → Router.Close</text>
+<g data-node="ALT · Scheduler/session waits finish within the budget"><rect x="50" y="891" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="921" class="head" text-anchor="start">ALT · Scheduler/session waits finish within the budget</text>
+<text x="66" y="949" class="" text-anchor="start">StopScheduler / ControlService.Stop → WaitConnections → ServiceContext.Close</text>
 </g>
-<g data-node="ALT · Connections remain; deadline expires first"><rect x="50" y="1007" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
-<text x="66" y="1037" class="head" text-anchor="start">ALT · Connections remain; deadline expires first</text>
-<text x="66" y="1065" class="" text-anchor="start">Log forced exit and return; later sequential cleanup is not guaranteed to finish</text>
+<g data-node="ALT · Outer deadline expires first"><rect x="50" y="1007" width="1100" height="85" rx="10" fill="#f6eeee" stroke="#aebdce"/>
+<text x="66" y="1037" class="head" text-anchor="start">ALT · Outer deadline expires first</text>
+<text x="66" y="1065" class="" text-anchor="start">Log timeout; final deferred StopScheduler can still block (ARCH-017)</text>
 </g>
 <text x="600" y="1147" class="message" text-anchor="middle">09 · Normal return also runs scheduler/cluster/telemetry defers; not a global transaction</text>
 <path d="M740 1173 H1020" class="edge control" marker-end="url(#control)"/>
 <g data-node="Missing guarantees"><rect x="50" y="1239" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
 <text x="66" y="1269" class="head" text-anchor="start">Missing guarantees</text>
-<text x="66" y="1297" class="" text-anchor="start">root does not call ServiceContext.Close; task replay/global drain remain ARCH-015–018</text>
+<text x="66" y="1297" class="" text-anchor="start">Close is wired; queued-task drain, partial event writes and total deadline gaps remain</text>
 </g>
 <text x="30" y="1395" class="small" text-anchor="start">End: guarantees stop at this boundary; see text for recovery/drain gaps</text>
 </svg>

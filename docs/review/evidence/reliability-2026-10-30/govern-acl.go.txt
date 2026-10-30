@@ -1,0 +1,41 @@
+package functioninvoke
+
+import (
+	"errors"
+	"github.com/cuihairu/croupier/internal/dbenum"
+	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/model"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"testing"
+)
+
+func TestReview20261030_GovernOmitsFunctionACL(t *testing.T) {
+	s, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "alice", "operator")
+	require.NoError(t, db.Create(&model.FunctionPermission{FunctionID: "player.cleanup", GameID: "test-game", Env: "test-env", Actions: model.JSON(`["invoke"]`), Roles: model.JSON(`["auditor"]`)}).Error)
+	require.Error(t, utils.CheckInvokePermission(humanCtx("alice"), s, []string{"operator"}, []string{"function:invoke"}, "player.cleanup", "test-game", "test-env"))
+	for _, sub := range []Subject{{Kind: SubjectHuman}, {Kind: SubjectAutomation, ActorUsername: "alice"}} {
+		r, err := Govern(humanCtx("alice"), s, governReq(), sub)
+		require.NoError(t, err)
+		require.False(t, r.ApprovalRequired)
+		t.Logf("CONFIRMED subject=%s explicit_acl=denied Govern=allowed", sub.Kind)
+	}
+}
+func TestReview20261030_RiskLookupFaultDowngradesApproval(t *testing.T) {
+	s, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "boss", "admin")
+	require.NoError(t, db.Create(&model.FunctionContract{GameID: "test-game", Env: "test-env", FunctionID: "player.cleanup", Version: "1.0.0", Enabled: true, Risk: dbenum.RiskHigh}).Error)
+	before, err := Govern(humanCtx("boss"), s, governReq(), Subject{Kind: SubjectHuman})
+	require.NoError(t, err)
+	require.True(t, before.ApprovalRequired)
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("review:risk-query-fault", func(tx *gorm.DB) {
+		if tx.Statement.Table == "function_contracts" {
+			tx.AddError(errors.New("injected contract risk lookup failure"))
+		}
+	}))
+	after, err := Govern(humanCtx("boss"), s, governReq(), Subject{Kind: SubjectHuman})
+	require.NoError(t, err)
+	require.False(t, after.ApprovalRequired)
+	t.Log("CONFIRMED high contract required approval; risk query fault allowed without approval")
+}

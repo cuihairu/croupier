@@ -1,5 +1,7 @@
 # Versioned Audit Digest & Write-Failure Policy
 
+> Implementation recheck, 2026-10-30: D1–D3 digest/compatibility changes have local evidence. D4 remains a target: AuditFunctionInvoke/AuditApprovalCreated print errors and recordApprovalAudit ignores them; caller-level 5xx/blocking is not established. ARCH-008 is reopened.
+
 > ARCH-007 · P2 · 方案决策 · 版本化审计摘要与失败策略
 >
 > Scope: the audit chain in `internal/audit` — `calculateHash` / `hashBytes` /
@@ -144,8 +146,7 @@ existing rows to `1`. New records are written with version `2`.
 The default remains **fail-closed** (`strict`): after the 3 chain-conflict
 retries, an audit write failure returns an error and the caller surfaces it
 (e.g. HTTP 5xx). Rationale: an audit system must not silently proceed past a
-trail gap; the operator must learn the trail broke. The current behavior is
-already this; D4 makes it a stated decision and adds a deliberate escape hatch.
+trail gap; the operator must learn the trail broke. This is a required caller contract; current callers do not all comply (2026-10-30 recheck).
 
 An explicit opt-in `best_effort` mode (config knob
 `audit.writeFailurePolicy: strict | best_effort`, default `strict`) changes only
@@ -176,15 +177,15 @@ hash — the deployer's choice, kept out of the algorithm path), and
 
 ## 3. Impact / review table
 
-| Aspect                                                                         | Before (current)                        | After (ARCH-007 decision)                                                  |
-| ------------------------------------------------------------------------------ | --------------------------------------- | -------------------------------------------------------------------------- |
-| Tamper on category/severity/action/changes/context/errorMessage/scope/metadata | not detected                            | detected (D1)                                                              |
-| Hash algorithm                                                                 | DJB2 32-bit non-crypto                  | SHA-256, 64-hex, fits `chain_hash varchar(64)` (D2)                        |
-| DB round-trip (timestamp precision, JSON number re-encode)                     | false `hash_mismatch`                   | byte-stable, no false mismatch (D1)                                        |
-| Algorithm / field-set evolution                                                | implicit, un-versioned, breaks old rows | explicit `chain_version`, v1 legacy path kept, hashes never rewritten (D3) |
-| Audit-store outage                                                             | implicit fail-closed (5xx)              | strict by default; best_effort opt-in with WARN + rate-limited alert (D4)  |
-| External signature                                                             | optional, independently verified        | unchanged; independent of hash version (D5)                                |
-| Old (v1) rows                                                                  | —                                       | still verifiable with legacy algorithm (D3)                                |
+| Aspect                                                                         | Before (current)                           | After (ARCH-007 decision)                                                  |
+| ------------------------------------------------------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------- |
+| Tamper on category/severity/action/changes/context/errorMessage/scope/metadata | not detected                               | detected (D1)                                                              |
+| Hash algorithm                                                                 | DJB2 32-bit non-crypto                     | SHA-256, 64-hex, fits `chain_hash varchar(64)` (D2)                        |
+| DB round-trip (timestamp precision, JSON number re-encode)                     | false `hash_mismatch`                      | byte-stable, no false mismatch (D1)                                        |
+| Algorithm / field-set evolution                                                | implicit, un-versioned, breaks old rows    | explicit `chain_version`, v1 legacy path kept, hashes never rewritten (D3) |
+| Audit-store outage                                                             | Log returns error; some callers discard it | strict by default; best_effort opt-in with WARN + rate-limited alert (D4)  |
+| External signature                                                             | optional, independently verified           | unchanged; independent of hash version (D5)                                |
+| Old (v1) rows                                                                  | —                                          | still verifiable with legacy algorithm (D3)                                |
 
 ## 4. Implementation notes for ARCH-008
 

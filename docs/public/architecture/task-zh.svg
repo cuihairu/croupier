@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1768" viewBox="0 0 1200 1768" role="img" aria-labelledby="title desc"><title id="title">异步任务接收、终态与取消</title><desc id="desc">2026-10-29 source wiring. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1768" viewBox="0 0 1200 1768" role="img" aria-labelledby="title desc"><title id="title">异步任务接收、终态与取消</title><desc id="desc">2026-10-30 source review. Time runs down sequence lifelines; ALT alternatives are exclusive. Crossings without dots do not join.</desc><defs>
 <marker id="control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#53658d"/></marker>
 <marker id="data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#237b72"/></marker>
 <marker id="external" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#976a3d"/></marker>
@@ -28,7 +28,7 @@
 </g>
 <text x="600" y="335" class="message" text-anchor="middle">02 · HTTP 任务请求；Server 分配 taskId</text>
 <path d="M180 361 H460" class="edge control" marker-end="url(#control)"/>
-<text x="600" y="451" class="message" text-anchor="middle">03 · 先尝试 CreateRun(task_runs)；当前忽略错误仍派发（ARCH-026）</text>
+<text x="600" y="451" class="message" text-anchor="middle">03 · CreateRun 成功才派发；写失败结束本次请求</text>
 <path d="M460 469 h55 v24 h-55" class="edge control" marker-end="url(#control)"/>
 <text x="600" y="567" class="message" text-anchor="middle">04 · 通过 session / owner 路由 StartTask(taskId / InvokeRequest)</text>
 <path d="M460 593 H740" class="edge control" marker-end="url(#control)"/>
@@ -58,7 +58,7 @@
 <path d="M460 1521 H180" class="edge control" marker-end="url(#control)"/>
 <g data-node="实际缺口"><rect x="50" y="1587" width="1100" height="85" rx="10" fill="#eef1fb" stroke="#aebdce"/>
 <text x="66" y="1617" class="head" text-anchor="start">实际缺口</text>
-<text x="66" y="1645" class="" text-anchor="start">上报错误被忽略，重复 Start 缺持久去重；重启后终态恢复不保证</text>
+<text x="66" y="1645" class="" text-anchor="start">终态有限重试；状态/事件部分写入缺口与跨重启去重尚待收口</text>
 </g>
 <text x="30" y="1743" class="small" text-anchor="start">结束：仅代表图示边界，未承诺的恢复/排空能力见正文</text>
 </svg>

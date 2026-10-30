@@ -1,0 +1,219 @@
+2026-10-30 reliability audit; defect confirmation is not product acceptance.
+
+### go
+# ./internal/platform/audit
+stat /home/cui/workspaces/croupier/internal/platform/audit: directory not found
+FAIL	./internal/platform/audit [setup failed]
+ok  	github.com/cuihairu/croupier/internal/platform/approvals	2.563s
+ok  	github.com/cuihairu/croupier/internal/api/approval	6.687s
+ok  	github.com/cuihairu/croupier/internal/platform/functioninvoke	2.752s
+ok  	github.com/cuihairu/croupier/internal/platform/dispatch	1.428s
+ok  	github.com/cuihairu/croupier/internal/tasks/scheduler	0.123s
+ok  	github.com/cuihairu/croupier/internal/api/task	7.175s
+ok  	github.com/cuihairu/croupier/internal/api/schedule	6.447s
+ok  	github.com/cuihairu/croupier/internal/analytics/worker	18.635s
+ok  	github.com/cuihairu/croupier/internal/db/router	0.544s
+ok  	github.com/cuihairu/croupier/internal/server	6.896s
+ok  	github.com/cuihairu/croupier/internal/model	52.833s
+ok  	github.com/cuihairu/croupier/agents/sidecar	1.302s
+ok  	github.com/cuihairu/croupier/cmd/server	24.050s
+ok  	github.com/cuihairu/croupier/cmd/ingest/cmd	1.335s
+FAIL
+
+
+### extra-go
+ok  	github.com/cuihairu/croupier/internal/audit	0.334s
+ok  	github.com/cuihairu/croupier/internal/cluster	6.663s
+ok  	github.com/cuihairu/croupier/internal/api/monitoring	0.063s
+ok  	github.com/cuihairu/croupier/internal/policy	0.061s
+ok  	github.com/cuihairu/croupier/internal/agent	8.074s
+ok  	github.com/cuihairu/croupier/internal/tasks	0.102s
+
+
+### web
+$ jest --runInBand --silent --runTestsByPath src/utils/__tests__/apiError.test.ts src/components/PageRenderer/templates/playerManage.test.tsx src/components/PageRenderer/templates/gameOpsPublishFixture.test.tsx src/components/PageRenderer/__tests__/resourceBatchSelection.test.tsx src/components/PageRenderer/__tests__/compositeBatchTotal.test.tsx src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx
+
+Test Suites: 6 passed, 6 total
+Tests:       124 passed, 124 total
+Snapshots:   0 total
+Time:        39.934 s, estimated 45 s
+
+
+### tsc
+$ tsc --noEmit
+
+
+### guard
+
+=== Summary ===
+[0;32mPASSED: Dashboard PageSpec guard passed[0m
+
+### replay-final
+=== RUN   TestReview20261030_GovernOmitsFunctionACL
+    review_20261030_test.go:22: CONFIRMED subject=human explicit_acl=denied Govern=allowed
+    review_20261030_test.go:22: CONFIRMED subject=automation explicit_acl=denied Govern=allowed
+--- PASS: TestReview20261030_GovernOmitsFunctionACL (0.16s)
+=== RUN   TestReview20261030_RiskLookupFaultDowngradesApproval
+    review_20261030_test.go:40: CONFIRMED high contract required approval; risk query fault allowed without approval
+--- PASS: TestReview20261030_RiskLookupFaultDowngradesApproval (0.14s)
+ok  	github.com/cuihairu/croupier/internal/platform/functioninvoke	0.346s
+=== RUN   TestReview20261030_TerminalRetrySkipsFailedAppend
+    review_20261030_test.go:41: CONFIRMED first append failed; retry ACKed without another append
+--- PASS: TestReview20261030_TerminalRetrySkipsFailedAppend (0.00s)
+ok  	github.com/cuihairu/croupier/internal/server	0.018s
+=== RUN   TestReview20261030_ExpiredOldSlotNotReconciled
+    review_20261030_test.go:24: CONFIRMED expired old slot remains claimed after cross-slot recovery
+--- PASS: TestReview20261030_ExpiredOldSlotNotReconciled (0.00s)
+ok  	github.com/cuihairu/croupier/internal/tasks/scheduler	0.013s
+=== RUN   TestReview20261030_OpenIgnoresBudget
+    review_20261030_test.go:28: CONFIRMED 5ms OpenBudget did not bound blocked Open; release required
+--- PASS: TestReview20261030_OpenIgnoresBudget (0.04s)
+ok  	github.com/cuihairu/croupier/internal/db/router	0.070s
+=== RUN   TestReview20261030_DrainLosesAcceptedQueuedTask
+    review_20261030_test.go:39: CONFIRMED accepted task failed after drain ACK: function 'fn.review' is not registered
+--- PASS: TestReview20261030_DrainLosesAcceptedQueuedTask (0.00s)
+ok  	github.com/cuihairu/croupier/internal/agent	0.014s
+
+### race
+eled"
+==================
+WARNING: DATA RACE
+Write at 0x000001762fc0 by goroutine 34:
+  github.com/cuihairu/croupier/internal/analytics/worker.TestRunProcessesMessagesV9()
+      /home/cui/workspaces/croupier/internal/analytics/worker/coverage_v9_test.go:104 +0x55
+  testing.tRunner()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2195 +0x21c
+  testing.(*T).Run.gowrap1()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2260 +0x38
+
+Previous read at 0x000001762fc0 by goroutine 21:
+  github.com/cuihairu/croupier/internal/analytics/worker.(*Worker).Run.func2()
+      /home/cui/workspaces/croupier/internal/analytics/worker/worker.go:179 +0x50
+
+Goroutine 34 (running) created at:
+  testing.(*T).Run()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2260 +0xb12
+  testing.runTests.func1()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2744 +0x84
+  testing.tRunner()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2195 +0x21c
+  testing.runTests()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2742 +0x9e9
+  testing.(*M).Run()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2602 +0xf44
+  main.main()
+      _testmain.go:284 +0x164
+
+Goroutine 21 (finished) created at:
+  github.com/cuihairu/croupier/internal/analytics/worker.(*Worker).Run()
+      /home/cui/workspaces/croupier/internal/analytics/worker/worker.go:178 +0x25c
+  github.com/cuihairu/croupier/internal/analytics/worker.TestRunProcessMessageErrorWarnV10.func1()
+      /home/cui/workspaces/croupier/internal/analytics/worker/coverage_v10_test.go:101 +0x4f
+==================
+2026/10/30 15:24:11 INFO stream name=analytics:events msgs=1
+2026/10/30 15:24:11 INFO stream name=analytics:payments msgs=1
+--- FAIL: TestRunProcessesMessagesV9 (2.01s)
+    testing.go:1867: race detected during execution of test
+2026/10/30 15:24:13 WARN xreadgroup err="NOGROUP No such key 'analytics:events' or consumer group 'analytics-worker' in XREADGROUP with GROUP option"
+2026/10/30 15:24:13 WARN xreadgroup err="NOGROUP No such key 'analytics:events' or consumer group 'analytics-worker' in XREADGROUP with GROUP option"
+2026/10/30 15:24:13 WARN xreadgroup err="NOGROUP No such key 'analytics:events' or consumer group 'analytics-worker' in XREADGROUP with GROUP option"
+2026/10/30 15:24:13 WARN xreadgroup err="NOGROUP No su
+...
+FAIL	github.com/cuihairu/croupier/internal/analytics/worker	8.393s
+ok  	github.com/cuihairu/croupier/internal/platform/approvals	1.174s
+ok  	github.com/cuihairu/croupier/agents/sidecar	1.047s
+ok  	github.com/cuihairu/croupier/internal/agent	1.296s
+FAIL
+
+### race-final
+hRace
+==================
+WARNING: DATA RACE
+Write at 0x00c0001e6420 by goroutine 12:
+  github.com/cuihairu/croupier/internal/analytics/worker.(*Worker).touchRevenue()
+      /home/cui/workspaces/croupier/internal/analytics/worker/worker.go:625 +0x804
+  github.com/cuihairu/croupier/internal/analytics/worker.TestReview20261030_RevenueFlushRace.func1()
+      /home/cui/workspaces/croupier/internal/analytics/worker/review_20261030_test.go:24 +0xfe
+
+Previous read at 0x00c0001e6420 by goroutine 13:
+  github.com/cuihairu/croupier/internal/analytics/worker.(*Worker).flush()
+      /home/cui/workspaces/croupier/internal/analytics/worker/worker.go:721 +0x24f6
+  github.com/cuihairu/croupier/internal/analytics/worker.TestReview20261030_RevenueFlushRace.func2()
+      /home/cui/workspaces/croupier/internal/analytics/worker/review_20261030_test.go:31 +0xd9
+
+Goroutine 12 (running) created at:
+  github.com/cuihairu/croupier/internal/analytics/worker.TestReview20261030_RevenueFlushRace()
+      /home/cui/workspaces/croupier/internal/analytics/worker/review_20261030_test.go:20 +0x5bc
+  testing.tRunner()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2195 +0x21c
+  testing.(*T).Run.gowrap1()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2260 +0x38
+
+Goroutine 13 (running) created at:
+  github.com/cuihairu/croupier/internal/analytics/worker.TestReview20261030_RevenueFlushRace()
+      /home/cui/workspaces/croupier/internal/analytics/worker/review_20261030_test.go:27 +0x6d9
+  testing.tRunner()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2195 +0x21c
+  testing.(*T).Run.gowrap1()
+      /home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2260 +0x38
+==================
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected Send failure keeps aggregate"
+2026/10/30 16:05:59 WARN daily_revenue send err="injected
+...
+    testing.go:1867: race detected during execution of test
+--- FAIL: TestReview20261030_RevenueFlushRace (0.10s)
+FAIL
+FAIL	github.com/cuihairu/croupier/internal/analytics/worker	0.123s
+FAIL
+
+### Documentation / assets
+Direct VitePress build: PASS (35.75s). pnpm script preparation failed before build; no dependency reinstall.
+analytics-en.svg: PASS
+analytics-zh.svg: PASS
+events-en.svg: PASS
+events-zh.svg: PASS
+execution-en.svg: PASS
+execution-zh.svg: PASS
+plugin-en.svg: PASS
+plugin-zh.svg: PASS
+registration-en.svg: PASS
+registration-zh.svg: PASS
+shutdown-en.svg: PASS
+shutdown-zh.svg: PASS
+system-en-mobile.svg: PASS
+system-en.svg: PASS
+system-zh-mobile.svg: PASS
+system-zh.svg: PASS
+task-en.svg: PASS
+task-zh.svg: PASS
+en 1440 home: page/image check
+en 1440 architecture/: page/image check
+en 1440 architecture/runtime-topology: page/image check
+en 390 home: page/image check
+en 390 architecture/: page/image check
+en 390 architecture/runtime-topology: page/image check
+zh 1440 home: page/image check
+zh 1440 architecture/: page/image check
+zh 1440 architecture/runtime-topology: page/image check
+zh 390 home: page/image check
+zh 390 architecture/: page/image check
+zh 390 architecture/runtime-topology: page/image check
+en 1440 analytics/: page check
+en 1440 analytics/core-and-external: page check
+en 390 analytics/: page check
+en 390 analytics/core-and-external: page check
+zh 1440 analytics/: page check
+zh 1440 analytics/core-and-external: page check
+zh 390 analytics/: page check
+zh 390 analytics/core-and-external: page check
+PASS: all architecture/analytics SVGs, 12 architecture pages and 8 analytics pages; screenshots: /tmp/croupier-architecture-review
+
+TODO: 78 unique IDs; 12 locally verified; acyclic dependencies; no legacy checkbox entries.
+Archive equals baseline TODO: true. Business source hash changes: none.
