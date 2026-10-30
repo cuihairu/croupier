@@ -447,6 +447,12 @@ func (w *Worker) flushPaymentBatchLocked(ctx context.Context) error {
 
 // ackPendingLocked 在 batch Send 成功后统一 ACK 该批消息，并推进检查点到
 // 批内最后一条（检查点因此只覆盖已落库的消息，而非已消费的消息）。
+//
+// 检查点单调（#6）：一次 XAck 失败后该批消息留在 PEL，由 reclaim 在超时后
+// 重投。若重投的旧消息（早于已推进的检查点）单独成批并被 ACK，无条件覆盖
+// lastIDs 会把检查点回退；重启时 restoreCheckpoints 以回退值 XGroupSetID
+// 回卷消费组位置，已 ACK 的消息被重读重插（重复放大）。因此仅当新批最后一条
+// 晚于当前检查点才推进；早于当前检查点的批（纯 reclaim 回填）只 ACK、不推进。
 func (w *Worker) ackPendingLocked(ctx context.Context, stream string, ids []string) error {
 	if len(ids) == 0 {
 		return nil
@@ -456,9 +462,42 @@ func (w *Worker) ackPendingLocked(ctx context.Context, stream string, ids []stri
 		return err
 	}
 	last := ids[len(ids)-1]
-	w.lastIDs[stream] = last
-	w.persistCheckpoint(ctx, stream, last)
+	if cur := w.lastIDs[stream]; cur == "" || compareStreamIDs(last, cur) > 0 {
+		w.lastIDs[stream] = last
+		w.persistCheckpoint(ctx, stream, last)
+	}
 	return nil
+}
+
+// compareStreamIDs 比较两条 Redis stream ID（"ms-seq"，十进制，非零填充），
+// 返回 -1/0/1。逐段按数值比较，不能按字典序（变宽毫秒段会错序，如 "999-0"
+// 字典序大于 "1000-0" 但数值更小）。缺失 seq 按 0 处理。
+func compareStreamIDs(a, b string) int {
+	ams, aseq := splitStreamID(a)
+	bms, bseq := splitStreamID(b)
+	switch {
+	case ams != bms:
+		if ams < bms {
+			return -1
+		}
+		return 1
+	case aseq != bseq:
+		if aseq < bseq {
+			return -1
+		}
+		return 1
+	}
+	return 0
+}
+
+func splitStreamID(id string) (uint64, uint64) {
+	msStr, seqStr := id, "0"
+	if i := strings.IndexByte(id, '-'); i >= 0 {
+		msStr, seqStr = id[:i], id[i+1:]
+	}
+	ms, _ := strconv.ParseUint(msStr, 10, 64)
+	seq, _ := strconv.ParseUint(seqStr, 10, 64)
+	return ms, seq
 }
 
 func (w *Worker) flushBatches(ctx context.Context) error {

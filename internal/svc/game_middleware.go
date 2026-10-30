@@ -76,11 +76,17 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 
 		// Persisted state is only a convenience. It must still be an existing
 		// binding the current user may access; otherwise use the normal default.
+		// bindingDBName 在此解析（而非下方重复查库）并仅在 scope 存活时复用——
+		// 校验一次即得物理库名，避免对同一 scope 二次 LookupDatabaseName（#2）。
+		var bindingDBName string
 		if usedPersistedScope && svcCtx != nil {
 			ctx := context.WithValue(c.Request.Context(), gameScopeCtxKey{}, GameScope{GameID: gameID, Env: env})
-			if _, scopeErr := validateGameScope(ctx, svcCtx, gameID, env); authorizeScope(ctx, svcCtx, c, gameID, env) != nil || scopeErr != nil {
+			var scopeErr error
+			bindingDBName, scopeErr = validateGameScope(ctx, svcCtx, gameID, env)
+			if authorizeScope(ctx, svcCtx, c, gameID, env) != nil || scopeErr != nil {
 				gameID = ""
 				env = ""
+				bindingDBName = ""
 			}
 		}
 
@@ -130,8 +136,9 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		// validateGameScope resolves the binding's physical database_name
 		// (ARCH-006: the authorized binding is the routing truth, not the
 		// recomputed "game_<gameID>_<env>" prefix).
-		var bindingDBName string
-		if svcCtx != nil && gameID != "" {
+		// bindingDBName 已在 persisted-scope 校验时解析（#2 复用）；仅当 scope
+		// 与 persisted 不同（回落 first-authorized）或未经 persisted 路径时重查。
+		if svcCtx != nil && gameID != "" && bindingDBName == "" {
 			var err error
 			bindingDBName, err = validateGameScope(ctx, svcCtx, gameID, env)
 			if err != nil {

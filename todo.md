@@ -470,3 +470,18 @@
 
 - [x] 审核发现：新增用例只断言历史版本数仍为 1，却未断言被跳过的结构变化 Relation 不会推进 `revision`/关系缓存；当前 `cacheRelation` 在 `Record` 前已把 revision 从 1 升到 2，后续 DML 将产出 `SchemaVersion=2` 而历史仍只覆盖 revision 1，测试无法发现这一恢复契约缺口（agents/capture/connector/pg/decoder_test.go:516-520）。属实并已修：`cacheRelation` 把「事务外且位点未知→跳过」判定移到 `revision++`/缓存更新**之前**，跳过即整体无状态变更（不记历史、不推进修订号、不更新缓存——修订号与历史同进同退，否则 DML 产出历史解析不到的 SchemaVersion，fail-closed 契约被打破）；doc 注释同步说明原子跳过。证据：新增 `TestDecoderSkippedRelationDoesNotAdvanceRevision`（T1 Begin=100+Relation4列→revision 1@100；事务外结构变化 5 列无位点→跳过；断言 `d.revision==1`、`d.relations[OID].revision==1`、T2 DML 仍产出 `SchemaVersion=1` 且历史仍 1 版本——修复前该用例按预期复现 `revision = 2, want 1`）；`go test ./agents/capture/connector/pg/ -race` 全绿、`go build ./...` + `go vet ./agents/capture/connector/pg/` 绿。
 - [x] 审核发现：`todo.md:93` 追加的 `BLOCKED` 与同条已有的「真实游戏接入部分 BLOCKED」重复登记同一组缺失依赖（真实游戏函数契约、玩家身份目标数据源、受控写/审批/幂等凭据与真实环境验收），造成同一状态的重复来源且后续解除时容易漏改一处（todo.md:93）。属实并已修：删除父条尾部重复的 `BLOCKED：缺真实游戏函数契约...` 子句，保留信息更完整的「真实游戏接入部分 BLOCKED：缺真实游戏函数契约、玩家身份目标数据源、受控写/审批/幂等凭据实现和对应真实环境验收；等游戏接入方提供函数与数据源，或用户拍板先接哪类参考游戏；不造假页面」，同组缺失依赖只在一处登记（解除时改一处即可）。证据：见本提交（git log）；该条目其余 BLOCKED 结构不变。
+
+## 审核记录 2026-10-30 (2f3f0d4f..HEAD)
+
+- [x] 不属实（GameDBMiddleware legacy 空库名路由）：`GameModel` 恒被装配（internal/svc/service_context.go:261,459），生产路径 `validateGameScope` 不会进入 `GameModel==nil` 分支返回空名；空名到达 `GameDBByPhysicalName` 的场景不可达。
+- [x] 属实已修（重复查库）：`validateGameScope` 在 persisted-scope 分支只取返回丢弃 `bindingDBName`、下方二次调用重查同一 scope。修：persisted-scope 校验时解析 `bindingDBName` 并在 scope 存活时复用（跳过二次 validateGameScope）。证据：internal/svc/game_middleware.go:81-91,139-152；`TestGameDBMiddleware_PersistedScopeRoutesByBindingDatabaseName` PASS（opened==["persisted_binding_db"]）。
+- [x] 不属实（自动化主体空角色）：actor 为空/`"system"` 时 `LoadCurrentAdmin` 本就无此用户（CurrentUsername/FindByUsername 均报错），回载必然失败、角色仍为空——调用与否结果相同；空角色过 `AllowedRoles` 被拒是 ARCH-025 fail-closed 预期（无角色自动化主体不得执行角色受限函数），非误判。
+- [x] 不属实（audit chainInfo sequence=0）：`noteWriteFailure` 已记 `eventType`+`err`（可定位上下文在），`sequence=0` 是真实值——`buildChainInfo` 仅在 `GetLatestRecord` 失败（链位未知）时先于 Sequence 赋值返回，如实呈现非缺上下文。
+- [x] 不属实（fail-closed 事件未生效）：`EventUserLock`/`EventUserUnlock` 全仓无生产调用点（仅白名单定义）；所引 internal/api/auth/service.go:1030-1036 实际用 `EventLogin`/`EventLoginFailed`（非 fail-closed 事件），前提不成立。
+- [x] 属实已修（检查点回退）：`XAck` 失败后消息留 PEL，reclaim 重投的旧消息单独成批并 ACK 成功时，无条件覆盖 `lastIDs` 使检查点回退，重启 `restoreCheckpoints` 以回退值 `XGroupSetID` 回卷组位置、重读已 ACK 消息（重复放大）。修：`ackPendingLocked` 单调守卫（仅新 ID 更晚才推进），新增 `compareStreamIDs` 按毫秒/序号数值比较（变宽毫秒段字典序会错序）。证据：internal/analytics/worker/worker.go:450-482；`TestCompareStreamIDs`、`TestAckPendingLocked_MonotonicCheckpoint` PASS。
+- [x] 不属实（Send 失败不回队）：Send 失败不 ACK、留 PEL 由 reclaim 重投即 ARCH-011 设计的 at-least-once 回收；检查点不推进是正确行为（未落库不检查点），无数据丢失；恢复期重复由 #6 单调检查点与既定去重策略消化。
+- [x] 不属实（事件顺序）：事件在同一 run goroutine 内严格串行投递（started→终态），`reportWithRetry` 用 background ctx 只影响投递时延不影响顺序；`cancelled` 仅在 executor 返回且 `ctx.Err()!=nil` 时发出（必在取消之后），无顺序破坏。
+- [x] 不属实（治理失败消费槽）：skip+advance 是每槽 at-most-once 的设计语义（与 skip=true 持久跳过路径一致，防同槽死循环重试）；瞬态治理失败丢一槽有界，且 `CreateRunLog` 错误路径（不推进）保留了下轮重试，属权衡非缺陷。
+- [x] 不属实（&now 共享指针）：同一批对账共享同一时刻正是预期语义（循环顺序、`now` 地址稳定）；原审核亦自认「无实质问题」，仅风格提示非缺陷。
+
+核实结论（2026-10-30）：10 条审核发现，属实 2 条（#2 重复查库、#6 检查点回退，均已修+新用例绿）、不属实 8 条（理由见各行行尾）。
