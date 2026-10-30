@@ -23,12 +23,12 @@ type ApprovalModel struct {
 	Route           string      `gorm:"type:varchar(500)" json:"route"`
 	TargetServiceID string      `gorm:"type:varchar(255);index" json:"targetServiceId"`
 	HashKey         string      `gorm:"type:varchar(255);index" json:"hashKey"`
-	Payload         []byte      `gorm:"type:blob" json:"payload"`
+	Payload         []byte      `json:"payload"`
 	MetadataJSON    dbtype.JSON `json:"metadataJson"`
 	Reason          string      `gorm:"type:text" json:"reason"`
 	ResultKind      string      `gorm:"type:varchar(50)" json:"resultKind"`
 	TaskID          string      `gorm:"type:varchar(255);index" json:"taskId"`
-	Result          []byte      `gorm:"type:blob" json:"result"`
+	Result          []byte      `json:"result"`
 	// ARCH-001 D7: durable dispatch intent for approved continuations.
 	// A row is claimed at most once; claim_token identifies the winner and is
 	// forwarded to the continuation for downstream fencing/deduplication.
