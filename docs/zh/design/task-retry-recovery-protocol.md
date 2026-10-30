@@ -44,7 +44,7 @@ title: 异步任务重试与终态恢复协议
 - **触发：** Agent 会话被移除（注销 / 心跳超时 / TCP 关闭）时，Server 将该 agent 的非终态 task_runs 批量转为 `unknown`（有界批量，消息「agent 会话丢失；执行状态未知」）。
 - **软终态：** `unknown` 停止派发侧活动集跟踪与 SSE 等待者，但**同 agent 重连会话的迟到终态事件仍可将行收敛到真实终态**（agent 可能扛过传输抖动；迟到事件是更多证据）。这与 `TerminalStatuses`（succeeded/failed/cancelled/timed_out，迟到事件丢弃）相区分。
 - **不自动重派 `unknown` 任务。** 重跑可能重复施加游戏副作用；重执行是运维决策（新任务 ID）。`unknown` 在 UI 中作为显式状态浮出，而非失败。
-- **看门狗兜底：** 与会话丢失无关，收割器把超过截止时间（`started_at`/`updated_at` 超出调用预算）仍无事件的任务转为 `timed_out`。`timed_out` 是终态且含义为*无进一步证据*，非*游戏失败*。（ARCH-015 决定首版是否落收割器或行由人工定界；此处钉住语义。）
+- **看门狗兜底：** 与会话丢失无关，收割器把超过截止时间（`started_at`/`updated_at` 超出调用预算）仍无事件的任务转为 `timed_out`。`timed_out` 是终态且含义为*无进一步证据*，非*游戏失败*。（ARCH-018 已随附；此处钉住语义。）
 
 ## 边界：页面幂等 ≠ 游戏副作用去重
 
@@ -56,17 +56,23 @@ title: 异步任务重试与终态恢复协议
 
 ## 实现映射（供 ARCH-015 / ARCH-018）
 
-| 协议点                         | 代码接缝                                                                                            |
-| ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| D1 代际标记跟踪、不急删 cancel | `agents/sidecar/task_runner.go`（`Start`、`Cancel`、`run` 清理、映射类型）                          |
-| D2 终态事件重试至 ACK          | `agents/sidecar/task_runner.go`（`run` 终态上报）；agent 上报器（`internal/app/agent/upstream.go`） |
-| D3 会话丢失 → `unknown` 收割   | server agent 会话移除路径；任务状态谓词（`internal/tasks/types.go`）                                |
-| D3 看门狗 → `timed_out`        | **ARCH-015 未随附**（延后）；行先由操作员人工定界，落地收割器后再切换（ARCH-018 演练覆盖）          |
-| 边界：重跑 = 新任务 ID         | 派发 / 任务创建路径（已是现状；保持）                                                               |
+| 协议点                         | 代码接缝                                                                                                                                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 代际标记跟踪、不急删 cancel | `agents/sidecar/task_runner.go`（`Start`、`Cancel`、`run` 清理、映射类型）                                                                                       |
+| D2 终态事件重试至 ACK          | `agents/sidecar/task_runner.go`（`run` 终态上报）；agent 上报器（`internal/app/agent/upstream.go`）                                                              |
+| D3 会话丢失 → `unknown` 收割   | server agent 会话移除路径；任务状态谓词（`internal/tasks/types.go`）                                                                                             |
+| D3 看门狗 → `timed_out`        | server ControlService 后台循环（`runTaskWatchdog`）；`TaskRunModel.ReapStale`；`tasks.Store.ReapStale`；预算 `taskLog.reaperTimeout`（默认 5m）——ARCH-018 已随附 |
+| 边界：重跑 = 新任务 ID         | 派发 / 任务创建路径（已是现状；保持）                                                                                                                            |
 
 ## 已知边界
 
 - 跨重启重复执行未防（D1）；agent 无持久本地日志（D2）。两者都是如实浮出的限制，不隐藏。
 - `unknown` 是新状态值；UI/类型面与任务查询已渲染之（ARCH-015 实现：TaskRunner D1/D2、server 会话丢失收割 D3、web `unknown` 状态）。
-- D3 看门狗 `timed_out` 收割器 **ARCH-015 未随附**；无事件超截止行先由操作员人工定界，直至落地收割器（ARCH-018 演练执行中断路径）。
+- D3 看门狗 `timed_out` 收割器 **ARCH-018 已随附**；无事件超截止行自动收敛 `timed_out`（预算 `taskLog.reaperTimeout`，默认 5m）。
 - 协议不确立游戏侧 exactly-once 语义；需游戏侧回执/载荷内幂等键（GAME-010 相邻，此处越界）。
+
+## 实现状态（ARCH-018，2026-10-30）
+
+- **看门狗 `timed_out` 收割器已随附。** `ControlService.runTaskWatchdog` 跑在后台 ticker（`budget/2` 钳位 1–30s），经 `tasks.Store.ReapStale` 调 `TaskRunModel.ReapStale`：`UPDATE task_runs SET status='timed_out', message='no event past watchdog budget; execution state unknown', finished_at=now WHERE status IN (queued,dispatching,running,cancel_requested) AND updated_at < now - budget`。预算为 `taskLog.reaperTimeout`（duration 字符串，默认 5m）；`timed_out` 是终态、不再被选。
+- **执行中断故障钻机**（`cmd/server/fault_drill_r27_test.go`，真实 `runServer` boot + `e2e-agent-probe` 子进程）逐项记录：断链（杀探针）→ running 收敛 `unknown` + 新请求 503；drain → 新请求 503 且在途任务完成，undrain 恢复派发；看门狗（`-hang` 探针：静默会话、无断连收割）→ 预算内 `timed_out` + `finished_at` 置位，新请求仍接受；SIGTERM → 优雅停机返回 nil、在途行 `unknown`、HTTP 监听释放。
+- **边界诚实：** 探针的任务/副作用计数是**测试 fixture，非游戏恢复凭据**。钻机只断言平台收敛（状态机终态/未知态/拒绝语义与资源释放），不断言游戏侧 exactly-once（GAME-010 仍 NOT RUN）。

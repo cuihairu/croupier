@@ -44,7 +44,7 @@ The shared trap is treating _page execution idempotency_ as _game side-effect de
 - **Trigger:** when an agent session is removed (deregister / heartbeat timeout / TCP close), the Server transitions that agent's non-terminal task_runs rows to `unknown` (bounded batch, message "agent session lost; execution state unknown").
 - **Soft-terminal:** `unknown` stops dispatch-side active-set tracking and SSE waiters, but a **late terminal event from the same agent's reconnected session may still converge the row** to its true terminal state (the agent may have survived a transport blip; the late event is strictly more evidence). This is distinct from `TerminalStatuses` (succeeded/failed/cancelled/timed_out), where late events are dropped.
 - **No automatic re-dispatch of `unknown` tasks.** Re-running may double-apply the game side effect; re-execute is an operator decision (new task ID). `unknown` is surfaced in the UI as an explicit state, not a failure.
-- **Watchdog backstop:** independent of session loss, a reaper transitions tasks that have produced no event past a deadline (`started_at`/`updated_at` beyond the invoke budget) to `timed_out`. `timed_out` is terminal and means _no further evidence_, not _failed at the game_. (ARCH-015 decides whether the reaper ships in the first pass or the row is manually bounded; the semantics are fixed here.)
+- **Watchdog backstop:** independent of session loss, a reaper transitions tasks that have produced no event past a deadline (`started_at`/`updated_at` beyond the invoke budget) to `timed_out`. `timed_out` is terminal and means _no further evidence_, not _failed at the game_. (Shipped in ARCH-018; the semantics are fixed here.)
 
 ## Boundary: page idempotency is not game side-effect dedup
 
@@ -56,17 +56,23 @@ The page-execution idempotency record dedupes **page execution on the control si
 
 ## Implementation mapping (for ARCH-015 / ARCH-018)
 
-| Protocol point                                        | Code seam                                                                                                              |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| D1 generation-tagged tracking, no eager cancel delete | `agents/sidecar/task_runner.go` (`Start`, `Cancel`, `run` cleanup, map type)                                           |
-| D2 terminal-event retry-until-ACK                     | `agents/sidecar/task_runner.go` (`run` terminal report); agent reporter (`internal/app/agent/upstream.go`)             |
-| D3 session-loss → `unknown` reaping                   | server agent-session removal path; task status predicates (`internal/tasks/types.go`)                                  |
-| D3 watchdog → `timed_out`                             | **not shipped in ARCH-015** (deferred); rows manually bounded by operator until a reaper lands (ARCH-018 exercises it) |
-| Boundary: re-run = new task ID                        | dispatch / task create path (already the case; keep it)                                                                |
+| Protocol point                                        | Code seam                                                                                                                                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 generation-tagged tracking, no eager cancel delete | `agents/sidecar/task_runner.go` (`Start`, `Cancel`, `run` cleanup, map type)                                                                                                    |
+| D2 terminal-event retry-until-ACK                     | `agents/sidecar/task_runner.go` (`run` terminal report); agent reporter (`internal/app/agent/upstream.go`)                                                                      |
+| D3 session-loss → `unknown` reaping                   | server agent-session removal path; task status predicates (`internal/tasks/types.go`)                                                                                           |
+| D3 watchdog → `timed_out`                             | server ControlService background loop (`runTaskWatchdog`); `TaskRunModel.ReapStale`; `tasks.Store.ReapStale`; budget `taskLog.reaperTimeout` (default 5m) — shipped in ARCH-018 |
+| Boundary: re-run = new task ID                        | dispatch / task create path (already the case; keep it)                                                                                                                         |
 
 ## Known boundaries
 
 - Cross-restart duplicate execution is not prevented (D1); the agent has no durable local journal (D2). Both are honest limitations surfaced to the operator, not hidden.
 - `unknown` is a new status value; UI/type surfaces and the task query render it (implemented in ARCH-015: TaskRunner D1/D2, server session-loss reaping D3, web `unknown` status).
-- The D3 watchdog `timed_out` reaper is **not shipped in ARCH-015**; no-event-past-deadline rows are bounded manually until a reaper lands (ARCH-018 exercises the interrupt path).
+- The D3 watchdog `timed_out` reaper **shipped in ARCH-018**; no-event-past-deadline rows converge to `timed_out` automatically (budget `taskLog.reaperTimeout`, default 5m).
 - The protocol does not establish game-side exactly-once semantics; that requires game-provided receipts / idempotency keys in the payload (GAME-010 adjacent, out of scope here).
+
+## Implementation status (ARCH-018, 2026-10-30)
+
+- **Watchdog `timed_out` reaper shipped.** `ControlService.runTaskWatchdog` runs on a background ticker (`budget/2` clamped to 1–30s) and calls `TaskRunModel.ReapStale` via `tasks.Store.ReapStale`: `UPDATE task_runs SET status='timed_out', message='no event past watchdog budget; execution state unknown', finished_at=now WHERE status IN (queued,dispatching,running,cancel_requested) AND updated_at < now - budget`. Budget is `taskLog.reaperTimeout` (duration string, default 5m); `timed_out` is terminal and never re-selected.
+- **Execution-interrupt fault drill** (`cmd/server/fault_drill_r27_test.go`, real `runServer` boot + `e2e-agent-probe` subprocess) records per interrupt: 断链 (probe killed) → running rows converge `unknown` + new requests 503; drain → new requests 503 while the in-flight task completes, undrain restores dispatch; watchdog (`-hang` probe: silent session, no disconnect reap) → `timed_out` within budget + `finished_at` set, new requests still accepted; SIGTERM → graceful shutdown returns nil, in-flight row `unknown`, HTTP listener released.
+- **Boundary honesty:** the probe's task/side-effect counts are a **test fixture, not game-recovery evidence**. The drill asserts platform convergence (state-machine terminal/unknown/rejection semantics and resource release) only — it does not assert game-side exactly-once (GAME-010 remains NOT RUN).

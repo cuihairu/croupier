@@ -137,7 +137,7 @@ disable 只改 functions 表 `status`（`model.StatusDisabled=0`），执行链�
 
 run 状态只能由 agent 事件推进；agent 掉线后 run 行永远停在 dispatching/running，`timed_out` 无写入方，前端 1.5s 轮询永不终止，调用统计按 status 聚合失真。
 
-**处置（需设计决策）**：看门狗的归属（server 端扫 task_runs 超时 vs agent 会话断连时批量标记 interrupted）与终态语义（`timed_out` vs `interrupted`）。建议随任务模型 v2 一并设计。
+**已在 ARCH-014/015/018 解决**（见 `docs/zh/design/task-retry-recovery-protocol.md`）：agent 会话移除时把该 agent 非终态行收敛 `unknown`（执行状态未确立，不自动重跑）；D3 看门狗收割器（ARCH-018）把超预算无事件行（`taskLog.reaperTimeout`，默认 5m）收敛为终态 `timed_out`——`timed_out` 现在有写入方。终态语义问题定为 `timed_out`（=「无进一步证据」，非「游戏失败」）；未引入 `interrupted`。执行中断故障钻机（`cmd/server/fault_drill_r27_test.go`）覆盖 断连/drain/SIGTERM/看门狗，只断言平台收敛（探针 fixture 非游戏恢复凭据）。
 
 ### E4 [取消传播只到 agent 传输层，到不了游戏函数（高]
 

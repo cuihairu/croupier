@@ -137,7 +137,7 @@ Disable only flips the functions table's `status` (`model.StatusDisabled=0`); no
 
 Run status advances only via agent events; after an agent disconnects, the run row stays at dispatching/running forever, `timed_out` has no writer, the frontend's 1.5s polling never terminates, and call statistics aggregated by status drift.
 
-**Disposition (needs a design decision)**: the watchdog's ownership (server-side scans of task_runs for timeouts vs. batch-marking interrupted when an agent session drops) and the terminal-state semantics (`timed_out` vs `interrupted`). Recommended to design together with the task model v2.
+**Resolved in ARCH-014/015/018** (see `docs/design/task-retry-recovery-protocol.md`): agent session removal now reaps that agent's non-terminal rows to `unknown` (execution state not established, no auto-rerun), and the D3 watchdog reaper (ARCH-018) transitions rows with no event past the budget (`taskLog.reaperTimeout`, default 5m) to terminal `timed_out` — `timed_out` now has a writer. The terminal-state semantics question was settled in favor of `timed_out` (= "no further evidence", not "failed at the game"); `interrupted` was not introduced. An execution-interrupt fault drill (`cmd/server/fault_drill_r27_test.go`) exercises disconnect / drain / SIGTERM / watchdog with platform-convergence assertions only (the probe fixture is not game-recovery evidence).
 
 ### E4 [Cancel propagation reaches only the agent transport layer, never the game function (high]
 
