@@ -585,91 +585,92 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
         return false;
       }
-      // D2 跨目标总量：批量操作的表单里声明了 quantity 语义字段（或显式
-      // perTarget——D2 规范标记，与 confirmContent.batchTotalEntry 同口径）时，
-      // 在确认框追加「总量 = 每人数量 × 目标数」条目，让确认内容覆盖实际提交范围。
+      // D2 批量确认（单次确认，避免双重确认框）：表单声明 quantity/per-target
+      // 语义字段时先核算「总量 = 每人数量 × 目标数」，非安全整数/溢出按
+      // summarizeQuantityTotal 拒绝；随后把总量条目与动作级确认文案/目标清单
+      // 合并进同一个确认框，让确认内容覆盖实际提交范围，用户只确认一次。
       const quantityField = action.form?.fields?.find(
         (field) => field.role === 'quantity' || field.perTarget === true,
       );
-      if (selection && quantityField) {
-        const perQuantity = values[quantityField.key];
-        const total = summarizeQuantityTotal(
-          perQuantity as number | string | undefined,
-          selection.length,
+      const perQuantity = quantityField ? values[quantityField.key] : undefined;
+      const total =
+        selection && quantityField
+          ? summarizeQuantityTotal(perQuantity as number | string | undefined, selection.length)
+          : undefined;
+      if (selection && quantityField && total === undefined) {
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.invalidQuantity',
+            defaultMessage: '每人数量必须是不小于 0 的整数',
+          }),
         );
-        if (total === undefined) {
-          message.error(
-            intl.formatMessage({
-              id: 'component.resourceRenderer.confirm.invalidQuantity',
-              defaultMessage: '每人数量必须是不小于 0 的整数',
-            }),
-          );
-          return false;
-        }
-        const unit = quantityField.unit ? localizedText(quantityField.unit, 'zh-CN', '') : '';
-        const ok = await new Promise<boolean>((resolve) => {
-          modal.confirm({
-            title: intl.formatMessage({
-              id: 'component.resourceRenderer.confirm.totalTitle',
-              defaultMessage: '核对跨目标总量',
-            }),
-            content: (
-              <Descriptions size="small" column={1} bordered>
-                <Descriptions.Item
-                  label={intl.formatMessage({
-                    id: 'component.resourceRenderer.confirm.perQuantity',
-                    defaultMessage: '每人数量',
-                  })}
-                >
-                  {String(perQuantity)}
-                  {unit ? ` ${unit}` : ''}
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={intl.formatMessage({
-                    id: 'component.resourceRenderer.confirm.targetCount',
-                    defaultMessage: '目标数量',
-                  })}
-                >
-                  {String(selection.length)}
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={intl.formatMessage({
-                    id: 'component.resourceRenderer.confirm.totalAmount',
-                    defaultMessage: '总量',
-                  })}
-                >
-                  {String(total)}
-                  {unit ? ` ${unit}` : ''}
-                </Descriptions.Item>
-              </Descriptions>
-            ),
-            onOk: () => resolve(true),
-            onCancel: () => resolve(false),
-          });
-        });
-        if (!ok) return false;
+        return false;
       }
-      if (selection && (action.confirm || binding.execution.requireConfirm)) {
+      const needsTotal = selection && quantityField && total !== undefined;
+      const needsActionConfirm = selection && (action.confirm || binding.execution.requireConfirm);
+      if (needsTotal || needsActionConfirm) {
+        const unit = quantityField?.unit ? localizedText(quantityField.unit, 'zh-CN', '') : '';
+        const actionText = localizedText(
+          action.confirmDescription,
+          'zh-CN',
+          intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.content',
+            defaultMessage: '确定要执行此操作吗？',
+          }),
+        );
+        const totalBlock = needsTotal ? (
+          <Descriptions size="small" column={1} bordered style={{ marginBottom: 12 }}>
+            <Descriptions.Item
+              label={intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.perQuantity',
+                defaultMessage: '每人数量',
+              })}
+            >
+              {String(perQuantity)}
+              {unit ? ` ${unit}` : ''}
+            </Descriptions.Item>
+            <Descriptions.Item
+              label={intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.targetCount',
+                defaultMessage: '目标数量',
+              })}
+            >
+              {String(selection.length)}
+            </Descriptions.Item>
+            <Descriptions.Item
+              label={intl.formatMessage({
+                id: 'component.resourceRenderer.confirm.totalAmount',
+                defaultMessage: '总量',
+              })}
+            >
+              {String(total)}
+              {unit ? ` ${unit}` : ''}
+            </Descriptions.Item>
+          </Descriptions>
+        ) : null;
+        const actionBlock = needsActionConfirm
+          ? confirmContentWithTargets(actionText, selection)
+          : null;
         const ok = await new Promise<boolean>((resolve) => {
           modal.confirm({
-            title: localizedText(
-              action.confirmTitle,
-              'zh-CN',
-              intl.formatMessage({
-                id: 'component.resourceRenderer.confirm.title',
-                defaultMessage: '确认操作',
-              }),
-            ),
-            content: confirmContentWithTargets(
-              localizedText(
-                action.confirmDescription,
-                'zh-CN',
-                intl.formatMessage({
-                  id: 'component.resourceRenderer.confirm.content',
-                  defaultMessage: '确定要执行此操作吗？',
+            title: needsActionConfirm
+              ? localizedText(
+                  action.confirmTitle,
+                  'zh-CN',
+                  intl.formatMessage({
+                    id: 'component.resourceRenderer.confirm.title',
+                    defaultMessage: '确认操作',
+                  }),
+                )
+              : intl.formatMessage({
+                  id: 'component.resourceRenderer.confirm.totalTitle',
+                  defaultMessage: '核对跨目标总量',
                 }),
-              ),
-              selection,
+            content: (
+              <div>
+                {totalBlock}
+                {actionBlock}
+              </div>
             ),
             onOk: () => resolve(true),
             onCancel: () => resolve(false),

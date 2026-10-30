@@ -4,7 +4,6 @@
 
 最新结论见 [可靠性复审](docs/review/reliability-recheck-2026-10-30.md)。之前的完成声明与回流旧任务完整保存在 [本轮整理前快照](docs/review/todo-import-2026-10-30.md)；更早原文见 [10 月 29 日历史](docs/review/todo-history-2026-10-29.md)。旧 C2/E2/D2/D5 分别复用 UI-001/002/003，不重开一套父子任务；其已交付历史不删除，只退出当前执行清单。
 
-执行顺序：先收口 ARCH-024 的函数 ACL 与 ARCH-025 的风险来源故障；再修 ARCH-015/016/023 的事件、排空与跨槽恢复，ARCH-009/017 的预算与停机总截止。高危真实游戏写入仍依赖 GAME-009/010。分析按 DATA-001 定义核心口径，同时修 DATA-014/015；专业平台调查只登记 DATA-010，不扩建 BI。
 
 ## 架构与可靠性
 
@@ -146,7 +145,7 @@
 
 - [ ] **UI-003 · P1 · 故障验证 · 批量确认与默认呈现实页验收（旧 D2/D5）**
   - 依赖：UI-002。交付与验收：复用 perTarget、字段语义和五模板；跨页选人、筛选变化、总量确认与实际提交一致，发布回读保留身份列/单位/时区/枚举；不重复规划已实现 UI。
-  - 状态／条件：NOT RUN：需发布态 demo 栈。
+  - 状态／条件：代码侧 2026-10-31 收口：合并确认框（总量+动作级目标同框）、MAX_SAFE_INTEGER/乘积溢出 fail-closed、players 补偿空目标 fail-closed；`resourceBatchSelection.test.tsx` 覆盖跨页选人/筛选变更/清除/翻页不误报/目标预填/确认内容与提交一致；仍需发布态 demo 栈实页验收。commit 0d74c456
 
 ## 真实游戏接入
 
@@ -352,12 +351,19 @@
   - 状态／条件：LOCAL VERIFIED：confirm=true 的标题/说明/目标/总量、取消零执行及正向提交参数测试通过。
   - 完成证据：2026-10-30 复审；`web/src/components/PageRenderer/__tests__/ResourcePageRenderer.test.tsx`；逐项判断及定向运行见 [复审报告](docs/review/reliability-recheck-2026-10-30.md)，不以文件存在或测试总数替代断言。
 
-- [ ] **REVIEW-005 · P1 · 实现 · 批量金额安全整数与乘积边界**
+- [x] **REVIEW-005 · P1 · 实现 · 批量金额安全整数与乘积边界**
   - 依赖：—。交付与验收：为 summarizeQuantityTotal 与业务金额契约明确单位/倍率/最大值，拒绝非安全整数及乘积溢出；覆盖 MAX_SAFE_INTEGER 邻界、极大目标数与 Infinity，不显示可确认的失真总量
-  - 状态／条件：VERIFIED：当前函数为 summarizeQuantityTotal；已拒绝空白与非整数，但仍未检查安全整数及最终乘积；MAX_SAFE_INTEGER/Infinity 验收未通过。
+  - 状态／条件：LOCAL VERIFIED：`summarizeQuantityTotal` 收口为「有限非负安全整数 × 正整数安全整数 = 安全整数」，`batchTotalEntry` 复用同契约且移除 `toPrecision(12)` 失真显示；非法输入不显示/不提交。证据：`resourceBatchSelection.test.tsx` 与 `compositeBatchTotal.test.tsx` 覆盖 MAX_SAFE_INTEGER 邻界、溢出、Infinity、非整数拒绝；commit 0d74c456
 
 ## 依赖安全证据复核
 
 - [ ] **SEC-001 · P1 · 资料调查 · 默认分支依赖告警适用性复核**
   - 依赖：—。交付与验收：获取 GitHub 默认分支未关闭告警的官方明细，映射 go.mod/go.sum、package.json/锁文件与 SDK/构建产物；区分运行时/开发/传递依赖、受影响版本与实际可达条件，逐项形成“需修复/不适用及依据/待验证”清单，再拆最小修复任务，不仅凭告警总数宣布存在可利用生产漏洞。
   - 状态／条件：NOT RUN；2026-10-29 推送 56c85dbb 的 GitHub 回执报告 19 条（1 high、10 moderate、8 low），仅回执已观察，告警详情/适用性尚未核实；读取详情可能需要仓库安全告警权限。
+
+## 审核发现
+
+- [x] 审核发现：`govern.go` 注释声称「门序（与 Invoke 既有顺序逐条对齐）」且将 `ValidateInvokeInput` 列为第 6 步（在 `EnforceFunctionPolicy` 之后），但实现实际在 `EnsureFunctionAssigned` 之后（第 3 步）即调用 `ValidateInvokeInput`（internal/platform/functioninvoke/govern.go:127），先于 `LoadCurrentAdmin`（:137）与 `EnforceFunctionPolicy`（:157）；同时注释称 `RequireGameEnvScope`「有意不在此链内」，实现却在 `SubjectAutomation` 分支内调用（internal/platform/functioninvoke/govern.go:149）。后果：原 `Invoke` 顺序为「政策审批→输入契约」，Govern 改为「输入契约→政策审批」，无权且载荷非法的调用方由 403（权限）变为 400（输入契约）——文档与实现、以及与原 `Invoke` 行为均不一致。属实并已修：full 阶段 `ValidateInvokeInput` 移回政策审批后（第 8 步），`phaseInvocability` 保持禁用/分配/契约；`RequireGameEnvScope` 注释改为「仅 SubjectAutomation 补复核（第 6 步）」，不再宣称入口 scope 有意不在此链。证据：`TestGovern_PolicyPrecedesInputContract` 断言无权+非法载荷仍 403；commit 0d74c456
+- [x] 审核发现：`ResourcePageRenderer.submitActionForm` 对带 `perTarget`/quantity 字段且 `action.confirm`/`requireConfirm` 的批量动作（如 `player.batchRecharge`）现在依次弹两个确认框——先「核对跨目标总量」再「确认操作」（web/src/components/PageRenderer/ResourcePageRenderer.tsx:607、web/src/components/PageRenderer/ResourcePageRenderer.tsx:664）；改动前仅弹总量确认框（且 total 未定义时静默跳过），改动后总量框不再可跳过且多出第二个动作确认框，形成双重确认 UI。属实并已修：合并为单次「确认操作」弹窗，总量条目（每人数量/目标数量/总量）与动作级确认文案+目标对象同框，取消即中止；无动作级确认时保留总量确认标题。证据：`resourceBatchSelection.test.tsx` 与 `ResourcePageRenderer.test.tsx` REVIEW-004 用例改断言单次确认框+总量+目标；commit 0d74c456
+- [x] 审核发现：`mailCompensation` 与 Go 端 `mailTaskCreate` 对 `receiverRange==='players'` 且目标数组为空时，`targetCount` 回退为 1、`targetPlayerIds=[]`、`targetPlayerId=null`，生成「声明 1 个目标但无任何目标标识」的任务（web/src/components/PageRenderer/templates/mailCompensation.tsx:435、sdks/go/examples/gameops-demo/executors.go:392）；表单 `required` 门仅部分缓解，空玩家级选择仍可能落成 targetCount=1 的失真快照。属实并已修：Web/Go 双端 fail-closed 拒绝 players 补偿无目标创建（明确错误），不落任务/操作记录/审批；原有 all/server 补偿默认 1 目标行为与 legacy 单值反填保持不变。证据：`mailCompensation.test.tsx` fail-closed 用例断言任务/操作记录零新增、`TestGameOpsMailTaskCreatePlayersWithoutIDsRejected`；commit 0d74c456
+- [x] 审核发现：新增 `batchTotalEntry`（web/src/components/PageRenderer/confirmContent.ts:80）与 `ResourcePageRenderer` 总量计算均以 JS 浮点直接 `num * targetCount`（web/src/components/PageRenderer/confirmContent.ts:97），未做安全整数/乘积溢出检查，仅用 `toPrecision(12)` 做显示收敛——与已挂起 REVIEW-005（拒绝非安全整数与乘积溢出）同类缺口，新的复合批量总量路径未覆盖该契约。属实并已修：`summarizeQuantityTotal` 收口为「有限非负安全整数 × 正整数安全整数 = 安全整数」单一契约，`batchTotalEntry` 复用同函数并移除 `toPrecision(12)` 失真显示；非法输入一律不显示可确认总量，ResourcePageRenderer 同口径阻断提交。证据：`compositeBatchTotal.test.tsx` 与 `resourceBatchSelection.test.tsx` 新增 MAX_SAFE_INTEGER 邻界/溢出/Infinity 用例；commit 0d74c456

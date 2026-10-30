@@ -24,7 +24,9 @@ func newTestReloader(t *testing.T, cfg *Config) *croupierHotReloader {
 	}
 	hrIface, err := NewHotReloader(cfg, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	require.NoError(t, err)
-	return hrIface.(*croupierHotReloader)
+	hr := hrIface.(*croupierHotReloader)
+	t.Cleanup(func() { _ = hr.Stop() })
+	return hr
 }
 
 func TestShouldHandleFile_Branches(t *testing.T) {
