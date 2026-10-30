@@ -288,6 +288,11 @@ func (d *Dispatcher) SetSessionResolver(resolver AgentSessionResolver) {
 	d.sessionResolver = resolver
 }
 
+// SessionResolver returns the configured TCP session resolver, or nil.
+func (d *Dispatcher) SessionResolver() AgentSessionResolver {
+	return d.sessionResolver
+}
+
 // SetRemoteForwarder wires the HA owner-forward path: local session miss
 // falls back to forwarding the invoke to the instance owning the agent.
 func (d *Dispatcher) SetRemoteForwarder(f RemoteForwarder) {

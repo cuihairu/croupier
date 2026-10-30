@@ -229,3 +229,137 @@ func TestMemStoreConcurrentApprovesExactlyOneWins(t *testing.T) {
 	assert.Equal(t, 1, winners)
 	assert.Equal(t, n-1, conflicts)
 }
+
+// ── ARCH-001 D7 / ARCH-002：批准续跑的持久执行领取 ───────────────────
+
+func TestClaimForDispatchExactlyOnce(t *testing.T) {
+	t.Run("sql claim persists and rejects repeat", func(t *testing.T) {
+		store, err := NewSQLStore(openSharedTestDB(t))
+		require.NoError(t, err)
+		seedPendingApproval(t, store, "claim-sql")
+		_, err = store.Approve("claim-sql", "op-a")
+		require.NoError(t, err)
+
+		digest := "digest-sql"
+		winner, err := store.ClaimForDispatch("claim-sql", "token-sql", digest)
+		require.NoError(t, err)
+		require.Equal(t, "claimed", winner.ClaimStatus)
+		require.Equal(t, "token-sql", winner.ClaimToken)
+		require.NotNil(t, winner.ClaimedAt)
+		require.Equal(t, digest, winner.PayloadDigest)
+
+		// New instance / reopened read sees the same durable intent.
+		reloaded, err := store.Get("claim-sql")
+		require.NoError(t, err)
+		require.Equal(t, "claimed", reloaded.ClaimStatus)
+		require.Equal(t, "token-sql", reloaded.ClaimToken)
+		require.Equal(t, digest, reloaded.PayloadDigest)
+
+		_, err = store.ClaimForDispatch("claim-sql", "token-next", digest)
+		conflict := assertConflict(t, err, "approved")
+		assert.Equal(t, "token-sql", conflict.ClaimToken)
+	})
+
+	t.Run("sql claim survives store reopen", func(t *testing.T) {
+		// 文件库模拟进程重启：写库、关闭连接、以全新 store/连接重开，读回
+		// 同一持久意图。这是 ARCH-002「重启后可查」的验收（B 项）。
+		dbPath := t.TempDir() + "/claim-reopen.db"
+		db, err := gorm.Open(gsqlite.Open(dbPath), &gorm.Config{})
+		require.NoError(t, err)
+		store, err := NewSQLStore(db)
+		require.NoError(t, err)
+		seedPendingApproval(t, store, "claim-reopen")
+		_, err = store.Approve("claim-reopen", "op-a")
+		require.NoError(t, err)
+		token, err := NewClaimToken()
+		require.NoError(t, err)
+		digest := PayloadDigest(&Approval{ID: "claim-reopen", FunctionID: "f.x", Actor: "requester"})
+		_, err = store.ClaimForDispatch("claim-reopen", token, digest)
+		require.NoError(t, err)
+
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		require.NoError(t, sqlDB.Close())
+
+		reopened, err := gorm.Open(gsqlite.Open(dbPath), &gorm.Config{})
+		require.NoError(t, err)
+		store2, err := NewSQLStore(reopened)
+		require.NoError(t, err)
+		got, err := store2.Get("claim-reopen")
+		require.NoError(t, err)
+		assert.Equal(t, "approved", got.State)
+		assert.Equal(t, "claimed", got.ClaimStatus)
+		assert.Equal(t, token, got.ClaimToken)
+		assert.Equal(t, digest, got.PayloadDigest)
+		require.NotNil(t, got.ClaimedAt)
+
+		// 新实例再次领取必须失败（持久意图只成立一次）。
+		_, err = store2.ClaimForDispatch("claim-reopen", "token-reopen-2", digest)
+		conflict := assertConflict(t, err, "approved")
+		assert.Equal(t, token, conflict.ClaimToken)
+	})
+
+	t.Run("sql concurrent claims exactly one wins", func(t *testing.T) {
+		store, err := NewSQLStore(openSharedTestDB(t))
+		require.NoError(t, err)
+		seedPendingApproval(t, store, "claim-sql-race")
+		_, err = store.Approve("claim-sql-race", "op-a")
+		require.NoError(t, err)
+
+		const n = 8
+		results := make(chan error, n)
+		var start sync.WaitGroup
+		start.Add(1)
+		var wg sync.WaitGroup
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				start.Wait()
+				_, err := store.ClaimForDispatch("claim-sql-race", fmt.Sprintf("token-%d", i), "digest")
+				results <- err
+			}(i)
+		}
+		start.Done()
+		wg.Wait()
+
+		winners, conflicts := 0, 0
+		for i := 0; i < n; i++ {
+			err := <-results
+			switch {
+			case err == nil:
+				winners++
+			case errors.Is(err, ErrAlreadyReviewed):
+				conflicts++
+			default:
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+		assert.Equal(t, 1, winners, "exactly one dispatch claim may win")
+		assert.Equal(t, n-1, conflicts, "all other claims must conflict")
+	})
+
+	t.Run("memory matches sql semantics", func(t *testing.T) {
+		store := NewMemStore()
+		seedPendingApproval(t, store, "claim-mem")
+		_, err := store.Approve("claim-mem", "op-a")
+		require.NoError(t, err)
+
+		winner, err := store.ClaimForDispatch("claim-mem", "token-mem", "digest")
+		require.NoError(t, err)
+		assert.Equal(t, "claimed", winner.ClaimStatus)
+		assert.Equal(t, "token-mem", winner.ClaimToken)
+
+		_, err = store.ClaimForDispatch("claim-mem", "token-next", "digest")
+		assertConflict(t, err, "approved")
+	})
+
+	t.Run("pending cannot claim", func(t *testing.T) {
+		store := NewMemStore()
+		seedPendingApproval(t, store, "claim-pending")
+		_, err := store.ClaimForDispatch("claim-pending", "token", "digest")
+		require.Error(t, err)
+		_, ok := AsAlreadyReviewed(err)
+		assert.False(t, ok)
+	})
+}

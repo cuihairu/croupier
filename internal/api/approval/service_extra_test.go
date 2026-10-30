@@ -130,6 +130,10 @@ func (s *errorApprovalsStore) Reject(id, reason, operator string) (*approvals.Ap
 	return nil, assert.AnError
 }
 
+func (s *errorApprovalsStore) ClaimForDispatch(id, token, payloadDigest string) (*approvals.Approval, error) {
+	return nil, assert.AnError
+}
+
 func TestBuildApprovalSummary_WithAllFields(t *testing.T) {
 	a := &approvals.Approval{
 		ID:              "test-1",

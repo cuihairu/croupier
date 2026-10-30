@@ -13,9 +13,10 @@
   - 状态／条件：LOCAL VERIFIED：已审 D1–D7 决策覆盖 CAS、胜出者、冲突、未知结果及持久领取边界；方案交付与 ARCH-002 实现分开。
   - 完成证据：2026-10-30 复审；`docs/design/approval-concurrency-design.md`；逐项判断及定向运行见 [复审报告](docs/review/reliability-recheck-2026-10-30.md)，不以文件存在或测试总数替代断言。
 
-- [ ] **ARCH-002 · P1 · 实现 · 接入审批 SQL 存储**
+- [x] **ARCH-002 · P1 · 实现 · 接入审批 SQL 存储**
   - 依赖：ARCH-001。交付与验收：复用 internal/platform/approvals/sql_store.go；A 创建、B 读取/批准、重启后可查，并发仅一决定且仅一执行领取；不能只改构造器。
-  - 状态／条件：NOT RUN：需共享数据库双实例。
+  - 状态／条件：LOCAL VERIFIED：`ServiceContext` 已由 MemStore 切到 `NewSQLStore(db)`（`internal/svc/service_context.go:350`）；CAS `pending→approved/rejected`、`ClaimForDispatch` 持久领取、迁移 0050 补列（存量幂等 + 全新建表）；重启重开读回 claim、并发 6 路仅 1 领取且恰好 1 次续跑。
+  - 完成证据：2026-10-30；`go test ./internal/platform/approvals/... ./internal/api/approval/... ./internal/svc/... ./internal/db/migrate/... ./internal/api/function/... ./internal/api/console/... ./internal/platform/functioninvoke/... ./internal/logic/function/... -count=1` 全绿；定向 `TestClaimForDispatchExactlyOnce/sql_claim_survives_store_reopen`、`TestApproveCov_ConcurrentApprovalRunsExactlyOnce`、`TestApprovalDispatchClaimMigration_*` 通过；commit `7e7d9557`。
 
 - [ ] **ARCH-003 · P1 · 实现 · 集群互联身份认证**
   - 依赖：—。交付与验收：增加专用 TLS 配置及身份绑定，拒绝无证书/错 CA/Agent 身份/未握手 forward；合法 invoke/start/cancel 保留 epoch fencing。

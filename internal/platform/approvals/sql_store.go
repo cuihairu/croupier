@@ -237,3 +237,43 @@ func (s *SQLStore) Update(approval *Approval) (*Approval, error) {
 
 	return model.ToApproval(), nil
 }
+
+// ClaimForDispatch claims the single approved continuation for an approval
+// (ARCH-001 D7). The conditional update persists dispatch intent before the
+// continuation runs. Existing claims never succeed again.
+func (s *SQLStore) ClaimForDispatch(id, token, payloadDigest string) (*Approval, error) {
+	if token == "" {
+		return nil, errors.New("claim token is required")
+	}
+	now := time.Now()
+	res := s.db.Model(&ApprovalModel{}).
+		Where("id = ? AND state = ? AND claim_token = ''", id, "approved").
+		Updates(map[string]any{
+			"claim_status":   "claimed",
+			"claim_token":    token,
+			"claimed_at":     now,
+			"payload_digest": payloadDigest,
+			"updated_at":     now,
+		})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		model, err := s.getByID(id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("not found")
+			}
+			return nil, err
+		}
+		if model.State != "approved" {
+			return nil, errors.New("approval is not approved")
+		}
+		return model.ToApproval(), wrapAlreadyReviewed(model.ToApproval())
+	}
+	model, err := s.getByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return model.ToApproval(), nil
+}

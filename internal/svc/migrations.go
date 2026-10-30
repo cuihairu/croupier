@@ -7,6 +7,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/approvals"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/pressly/goose/v3"
@@ -203,6 +204,7 @@ func registerSvcMigrations() {
 		probeEventTargetCategoryMigration(),
 		pageExecuteIdempotencyTableMigration(),
 		auditChainVersionMigration(),
+		approvalDispatchClaimColumnsMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1635,6 +1637,46 @@ func migrateAuditChainVersionColumn(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := migrator.AddColumn(&audit.AuditModel{}, "ChainVersion"); err != nil {
 		return fmt.Errorf("migrate: 0049 add audit_records.chain_version: %w", err)
+	}
+	return nil
+}
+
+// approvalDispatchClaimColumnsMigration creates the approvals table when it is
+// missing and adds the durable dispatch-claim columns used by ARCH-002. This
+// migration is included in both meta and game fan-out because the approvals
+// store is scoped by game_id/env on the same server database.
+func approvalDispatchClaimColumnsMigration() *goose.Migration {
+	return goose.NewGoMigration(50,
+		&goose.GoFunc{RunDB: migrateApprovalDispatchClaimColumns},
+		nil,
+	)
+}
+
+func migrateApprovalDispatchClaimColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&approvals.ApprovalModel{}) {
+		if err := migrator.CreateTable(&approvals.ApprovalModel{}); err != nil {
+			return fmt.Errorf("migrate: 0050 create approvals: %w", err)
+		}
+		return nil
+	}
+	columns := map[string]string{
+		"ClaimStatus":   "claim_status",
+		"ClaimToken":    "claim_token",
+		"ClaimedAt":     "claimed_at",
+		"PayloadDigest": "payload_digest",
+	}
+	for field, column := range columns {
+		if migrator.HasColumn(&approvals.ApprovalModel{}, column) {
+			continue
+		}
+		if err := migrator.AddColumn(&approvals.ApprovalModel{}, field); err != nil {
+			return fmt.Errorf("migrate: 0050 add approvals.%s: %w", column, err)
+		}
 	}
 	return nil
 }

@@ -1,7 +1,12 @@
 package approvals
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -36,8 +41,14 @@ type Approval struct {
 	ResultKind      string
 	TaskID          string
 	Result          []byte
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// Durable dispatch intent. ClaimStatus is claimed before continuation;
+	// ClaimToken identifies the winner and is forwarded to the continuation.
+	ClaimStatus   string
+	ClaimToken    string
+	ClaimedAt     *time.Time
+	PayloadDigest string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type Filter struct {
@@ -62,6 +73,7 @@ type Store interface {
 	Reject(id, reason, operator string) (*Approval, error)
 	Create(approval *Approval) (*Approval, error)
 	Update(approval *Approval) (*Approval, error)
+	ClaimForDispatch(id, token, payloadDigest string) (*Approval, error)
 }
 
 // ErrAlreadyReviewed 标记一次「pending → 终态」的 CAS 转换失败：记录已不在
@@ -69,6 +81,31 @@ type Store interface {
 // 供调用方映射为 409 approval_already_reviewed，且绝不再触发续跑/副作用。
 // 这是 ARCH-001 D1（原子转换）与 D4（重复请求规则）的存储层契约。
 var ErrAlreadyReviewed = errors.New("approval already reviewed")
+
+// NewClaimToken returns a random 256-bit dispatch claim token.
+func NewClaimToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return "", fmt.Errorf("read random claim token: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+// PayloadDigest fingerprints the fields that identify the continuation
+// operation. It includes immutable routing/input fields plus the durable claim
+// metadata so downstream fencing can distinguish repeated dispatch attempts.
+func PayloadDigest(a *Approval) string {
+	if a == nil {
+		return ""
+	}
+	fields := [][]byte{
+		[]byte(a.ID), []byte(a.FunctionID), []byte(a.GameID), []byte(a.Env),
+		[]byte(a.Actor), []byte(a.Mode), []byte(a.Route), []byte(a.TargetServiceID),
+		[]byte(a.HashKey), a.Payload, a.Result,
+	}
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%q", fields)))
+	return hex.EncodeToString(sum[:])
+}
 
 type alreadyReviewedError struct {
 	record *Approval
@@ -241,6 +278,37 @@ func (s *MemStore) Update(approval *Approval) (*Approval, error) {
 	newApproval.UpdatedAt = time.Now()
 	s.data[approval.ID] = &newApproval
 	return &newApproval, nil
+}
+
+// ClaimForDispatch durably claims the only approved continuation for an
+// approval. This method implements the D7 intent transition. Existing terminal
+// decisions without a claim remain claimable once; existing claims never
+// succeed again.
+func (s *MemStore) ClaimForDispatch(id, token, payloadDigest string) (*Approval, error) {
+	if token == "" {
+		return nil, errors.New("claim token is required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.data[id]
+	if a == nil {
+		return nil, errors.New("not found")
+	}
+	if a.State != "approved" {
+		return nil, errors.New("approval is not approved")
+	}
+	if a.ClaimStatus != "" || a.ClaimToken != "" {
+		return a, wrapAlreadyReviewed(a)
+	}
+	now := time.Now()
+	claimed := *a
+	claimed.ClaimStatus = "claimed"
+	claimed.ClaimToken = token
+	claimed.ClaimedAt = &now
+	claimed.PayloadDigest = payloadDigest
+	claimed.UpdatedAt = now
+	s.data[id] = &claimed
+	return &claimed, nil
 }
 
 // NewPGStore creates a PostgreSQL-backed approval store

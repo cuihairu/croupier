@@ -79,6 +79,9 @@ func (failingApprovalsStoreV9) Create(*approvals.Approval) (*approvals.Approval,
 func (failingApprovalsStoreV9) Update(*approvals.Approval) (*approvals.Approval, error) {
 	return nil, errors.New("approvals boom")
 }
+func (failingApprovalsStoreV9) ClaimForDispatch(string, string, string) (*approvals.Approval, error) {
+	return nil, errors.New("approvals boom")
+}
 
 // --- v9 fixtures ---
 

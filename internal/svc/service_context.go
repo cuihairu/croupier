@@ -347,7 +347,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		panic(fmt.Sprintf("Failed to initialize object store: %v", err))
 	}
 
-	approvalsStore := approvals.NewMemStore()
+	approvalsStore, err := approvals.NewSQLStore(db)
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize approvals SQL store: %v", err))
+	}
 
 	// 初始化审计服务。错误分支已删（原 if err != nil 降级为 nil）：
 	// NewSQLAuditStore 仅对 nil db 报错，而此处 db 来自 openDatabase，

@@ -246,6 +246,24 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	// （docs/BUGS.md BUG-024）。
 	s.recordApprovalAudit(ctx, audit.EventApprovalApproved, operator, record,
 		map[string]interface{}{"stepUp": stepUp})
+	claimToken, err := approvals.NewClaimToken()
+	if err != nil {
+		return nil, fmt.Errorf("generate approval claim token: %w", err)
+	}
+	payloadDigest := approvals.PayloadDigest(record)
+	record, err = s.svcCtx.ApprovalsStore.ClaimForDispatch(record.ID, claimToken, payloadDigest)
+	if err != nil {
+		if claimed, ok := approvals.AsAlreadyReviewed(err); ok {
+			return nil, errorx.NewConflictWithCode("approval_already_claimed",
+				"审批续跑已被领取，不能重复执行", map[string]any{
+					"state":       claimed.State,
+					"claimStatus": claimed.ClaimStatus,
+					"claimToken":  claimed.ClaimToken,
+					"claimedAt":   claimed.ClaimedAt,
+				})
+		}
+		return nil, err
+	}
 	continuation, err := s.continueApprovedFunction(ctx, record)
 	if err != nil {
 		record.Reason = "approved but continuation failed: " + err.Error()
@@ -520,6 +538,12 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	metadata["approvalBypass"] = "approved"
 	metadata["approvalId"] = strings.TrimSpace(record.ID)
 	metadata["approvalActor"] = strings.TrimSpace(record.Actor)
+	if record.ClaimToken != "" {
+		metadata["approvalClaimToken"] = strings.TrimSpace(record.ClaimToken)
+	}
+	if record.PayloadDigest != "" {
+		metadata["approvalPayloadDigest"] = strings.TrimSpace(record.PayloadDigest)
+	}
 	metadata["runtime_api"] = "approval.continue"
 	if err := s.ensurePageApprovalStillFresh(ctx, record, metadata); err != nil {
 		return approvalContinuationResult{}, err
