@@ -136,6 +136,25 @@ describe('mailCompensation demo 执行器', () => {
     expect(legacyTask?.totalAmount).toBe(100);
   });
 
+  it('create：players 补偿缺目标 fail-closed，不落失真快照', async () => {
+    const store = createGameOpsDemoStore();
+    const execute = createMailCompensationDemoExecute(store);
+    const before = store.tasks.length;
+    const beforeOps = store.opRecords.length;
+    await expect(
+      run(execute, 'create', {
+        form: {
+          type: 'compensation',
+          title: '无目标补偿',
+          perAmount: 100,
+          receiverRange: 'players',
+        },
+      }),
+    ).rejects.toThrow('指定玩家补偿必须选择至少一名玩家');
+    expect(store.tasks).toHaveLength(before);
+    expect(store.opRecords).toHaveLength(beforeOps);
+  });
+
   it('retryFailed：无失败目标报错，成功后失败清零', async () => {
     const execute = createMailCompensationDemoExecute();
     await expect(

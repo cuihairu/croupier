@@ -423,6 +423,9 @@ export function createMailCompensationDemoExecute(
               : 'all';
           // D2 批量补偿：指定玩家且提供 targetPlayerIds 数组时按唯一玩家数计算
           // 目标快照与补偿总量；否则回退单值 targetPlayerId（兼容单人路径）。
+          // 审核发现：players 范围但无任何目标标识（数组与单值皆空）时 fail-closed
+          // 拒绝创建——不允许落「声明 1 个目标但无目标标识」的失真快照（targetCount=1
+          // 且 targetPlayerIds=[]）；表单 required 门只部分缓解，这里作最后一道闸。
           const rawTargetIds = Array.isArray(form.targetPlayerIds)
             ? (form.targetPlayerIds as unknown[]).map(String)
             : [];
@@ -441,6 +444,13 @@ export function createMailCompensationDemoExecute(
                   ),
                 ]
               : [];
+          if (
+            type === 'compensation' &&
+            receiverRange === 'players' &&
+            targetPlayerIds.length === 0
+          ) {
+            throw new Error('指定玩家补偿必须选择至少一名玩家');
+          }
           let targetCount = type === 'mail' ? 26 : 1;
           if (
             type === 'compensation' &&

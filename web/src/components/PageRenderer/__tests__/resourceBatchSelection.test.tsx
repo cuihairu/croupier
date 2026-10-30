@@ -372,6 +372,12 @@ describe('D2 纯逻辑：行标识与筛选指纹', () => {
     expect(summarizeQuantityTotal('abc', 3)).toBeUndefined();
     expect(summarizeQuantityTotal(100, 0)).toBeUndefined();
     expect(summarizeQuantityTotal(100, 2.5)).toBeUndefined();
+    // REVIEW-005 安全整数/乘积溢出：非安全整数或乘积失真一律不给总量。
+    expect(summarizeQuantityTotal(Number.MAX_SAFE_INTEGER, 1)).toBe(Number.MAX_SAFE_INTEGER);
+    expect(summarizeQuantityTotal(Number.MAX_SAFE_INTEGER, 2)).toBeUndefined();
+    expect(summarizeQuantityTotal(Number.MAX_SAFE_INTEGER + 1, 1)).toBeUndefined();
+    expect(summarizeQuantityTotal(1e9, Number.MAX_SAFE_INTEGER)).toBeUndefined();
+    expect(summarizeQuantityTotal(Infinity, 2)).toBeUndefined();
   });
 });
 
@@ -441,21 +447,20 @@ describe('D2 确认内容与实际提交一致', () => {
       within(screen.getByTestId('proform-shell')).getByRole('button', { name: 'OK' }),
     );
 
-    // 总量确认弹窗
-    await waitFor(() => expect(screen.getAllByText('核对跨目标总量').length).toBeGreaterThan(0));
+    // 单次合并确认（审核发现：避免双重确认框）：总量条目与动作级目标清单同框。
+    await waitFor(() => expect(screen.getAllByText('确认操作').length).toBeGreaterThan(0));
     const confirm = inConfirm();
     expect(confirm.getByText('每人数量')).toBeInTheDocument();
     expect(confirm.getByText('100 金')).toBeInTheDocument();
-    expect(confirm.getByText('目标数量')).toBeInTheDocument();
-    expect(confirm.getByText('3')).toBeInTheDocument();
-    expect(confirm.getByText('总量')).toBeInTheDocument();
+    expect(confirm.getAllByText('目标数量').length).toBeGreaterThan(0);
+    expect(confirm.getAllByText('3').length).toBeGreaterThan(0);
+    expect(confirm.getAllByText('总量').length).toBeGreaterThan(0);
     expect(confirm.getByText('300 金')).toBeInTheDocument();
+    expect(confirm.getByText('目标对象')).toBeInTheDocument();
+    // 只有单次确认框（不再出现总量与动作两个独立弹窗）。
+    expect(screen.queryByText('核对跨目标总量')).not.toBeInTheDocument();
 
     fireEvent.click(confirm.getByRole('button', { name: 'OK' }));
-    await waitFor(() => expect(screen.getAllByText('确认操作').length).toBeGreaterThan(0));
-    const targetConfirm = inConfirm();
-    expect(targetConfirm.getByText('目标对象')).toBeInTheDocument();
-    fireEvent.click(targetConfirm.getByRole('button', { name: 'OK' }));
     await waitFor(() =>
       expect(onExecute).toHaveBeenCalledWith('b-batch', {
         form: { perAmount: 100 },

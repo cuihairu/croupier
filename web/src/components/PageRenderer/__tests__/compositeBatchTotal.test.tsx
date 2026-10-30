@@ -154,11 +154,26 @@ describe('D2 跨目标总量（纯函数）', () => {
     expect(describeConfirmEntries(COIN_FORM, { coins: 'abc' }, { targetCount: 3 })).toHaveLength(1);
   });
 
-  it('非整数每目标值：总量显示不用二进制浮点伪差', () => {
+  it('非整数每目标值：不显示失真总量（fail-closed，REVIEW-005 安全整数）', () => {
     const entries = describeConfirmEntries(COIN_FORM, { coins: 0.1 }, { targetCount: 3 });
-    const total = entries.find((e) => e.key === 'coins__batchTotal')!;
-    expect(total.value).toBe('0.3');
-    expect(total.value).not.toBe('0.30000000000000004');
+    expect(entries.find((e) => e.key === 'coins__batchTotal')).toBeUndefined();
+  });
+
+  it('安全整数/乘积溢出：非安全整数或失真总量不显示（REVIEW-005）', () => {
+    expect(
+      describeConfirmEntries(COIN_FORM, { coins: Number.MAX_SAFE_INTEGER }, { targetCount: 2 }),
+    ).toHaveLength(1);
+    expect(
+      describeConfirmEntries(COIN_FORM, { coins: Number.MAX_SAFE_INTEGER + 1 }, { targetCount: 1 }),
+    ).toHaveLength(1);
+    expect(
+      describeConfirmEntries(COIN_FORM, { coins: 1e9 }, { targetCount: Number.MAX_SAFE_INTEGER }),
+    ).toHaveLength(1);
+    expect(describeConfirmEntries(COIN_FORM, { coins: Infinity }, { targetCount: 2 })).toHaveLength(
+      1,
+    );
+    const ok = describeConfirmEntries(COIN_FORM, { coins: 100 }, { targetCount: 3 });
+    expect(ok.find((e) => e.key === 'coins__batchTotal')?.value).toBe('300');
   });
 
   it('多 per-target 字段：总量紧跟各自字段，不统一追加尾部', () => {

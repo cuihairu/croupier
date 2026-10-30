@@ -1,4 +1,5 @@
 import { localizedText } from '@/utils/localizedText';
+import { summarizeQuantityTotal } from './batchSelection';
 import type { FormFieldSpec, FormPresentationSpec, LocalizedText } from '@/types/dashboard';
 
 /** 确认框内容条目：title 为人工标题（字段展示 label > key 人性化），value 为
@@ -74,9 +75,11 @@ export function confirmPayloadChanged(
 }
 
 /** 批量总量条目（D2 跨目标总量）：字段声明 x-field-per-target（数量/金额按
- * 每个选中目标逐项计）且目标数 >1、值为有限数字时，追加一条「总量 = 值 ×
- * 目标数」条目——单位与语义强调复用该字段声明，不做语义猜测（未声明
- * per-target 的字段即使批量也不乘总量）。 */
+ * 每个选中目标逐项计）且目标数 >1、值为有限非负安全整数时，追加一条
+ * 「总量 = 值 × 目标数」条目——单位与语义强调复用该字段声明，不做语义猜测
+ *（未声明 per-target 的字段即使批量也不乘总量）。安全整数/乘积溢出契约与
+ * summarizeQuantityTotal 同口径（REVIEW-005）：非安全整数或乘积失真一律不显示
+ * 可确认总量。 */
 function batchTotalEntry(
   field: FormFieldSpec | undefined,
   key: string,
@@ -85,29 +88,15 @@ function batchTotalEntry(
   totalSuffix: string,
 ): ConfirmEntry | null {
   if (!field?.perTarget || targetCount <= 1) return null;
-  const num =
-    typeof rawValue === 'number'
-      ? rawValue
-      : typeof rawValue === 'string' && rawValue.trim() !== ''
-        ? Number(rawValue)
-        : NaN;
-  if (!Number.isFinite(num)) return null;
-  // Use decimal arithmetic for the displayed total: a JavaScript binary float
-  // can surface 0.30000000000000004 for 0.1 × 3 and leak into the UI.
-  const valueText = formatNumberForDisplay(num * targetCount);
+  const total = summarizeQuantityTotal(rawValue as number | string | undefined | null, targetCount);
+  if (total === undefined) return null;
   return {
     key: `${key}__batchTotal`,
     title: `${confirmFieldTitle(field, key)}${totalSuffix}`,
-    value: valueText,
+    value: String(total),
     role: field.role,
     unit: field.unit,
   };
-}
-
-function formatNumberForDisplay(value: number): string {
-  if (!Number.isFinite(value)) return String(value);
-  if (Number.isInteger(value)) return String(value);
-  return String(Number(value.toPrecision(12)));
 }
 
 /** 确认框条目：params 按表单字段声明序排列（未在表单声明的参数按原序追加）。

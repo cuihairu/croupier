@@ -90,6 +90,26 @@ func TestNewHotReloader(t *testing.T) {
 	_ = hr.Stop()
 }
 
+// TestNewHotReloader_StopWithoutStartClosesWatcher pins the fd cleanup
+// contract: NewHotReloader already owns a fsnotify watcher, so Stop must close
+// it even before StartWatching flips hr.running.
+func TestNewHotReloader_StopWithoutStartClosesWatcher(t *testing.T) {
+	hr, err := NewHotReloader(&Config{WatchDirs: []string{}}, discardLogger())
+	if err != nil {
+		t.Fatalf("NewHotReloader failed: %v", err)
+	}
+	impl := hr.(*croupierHotReloader)
+	if impl.watcher == nil {
+		t.Fatal("NewHotReloader did not create a watcher")
+	}
+	if err := impl.Stop(); err != nil {
+		t.Fatalf("Stop failed: %v", err)
+	}
+	if err := impl.watcher.Add(t.TempDir()); err == nil {
+		t.Fatal("Stop must release fsnotify resources before StartWatching")
+	}
+}
+
 // TestHotReloader_RegisterHandler 测试注册处理器
 func TestHotReloader_RegisterHandler(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))

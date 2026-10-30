@@ -63,8 +63,9 @@ export function summarizeTargets(
 }
 
 /** 批量操作的每人数量 × 目标数 = 总量（D2 跨目标总量）。
- * 每人数量必须是有限非负整数且目标数为正整数，否则返回 undefined——
- * 不确定的量不能硬猜成 0，也不能静默给出小数总量。 */
+ * 每人数量必须是有限非负安全整数且目标数为正整数安全整数，乘积必须是安全
+ * 整数，否则返回 undefined——不确定的量不能硬猜成 0，也不能静默给出小数或
+ * 失真（非安全整数/乘积溢出）总量（REVIEW-005 同契约）。 */
 export function summarizeQuantityTotal(
   perQuantity: number | string | undefined | null,
   targetCount: number,
@@ -75,9 +76,19 @@ export function summarizeQuantityTotal(
   if (typeof perQuantity === 'string' && perQuantity.trim() === '') {
     return undefined;
   }
-  if (typeof per !== 'number' || !Number.isFinite(per) || per < 0 || !Number.isInteger(per)) {
+  if (
+    typeof per !== 'number' ||
+    !Number.isFinite(per) ||
+    per < 0 ||
+    !Number.isInteger(per) ||
+    !Number.isSafeInteger(per)
+  ) {
     return undefined;
   }
-  if (!Number.isInteger(targetCount) || targetCount <= 0) return undefined;
-  return per * targetCount;
+  if (!Number.isInteger(targetCount) || targetCount <= 0 || !Number.isSafeInteger(targetCount)) {
+    return undefined;
+  }
+  const total = per * targetCount;
+  if (!Number.isSafeInteger(total)) return undefined;
+  return total;
 }

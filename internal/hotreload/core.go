@@ -505,7 +505,13 @@ func (hr *croupierHotReloader) Stop() error {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
 
+	// 审核发现：未启动的 reloader 也必须释放 fsnotify watcher。此前
+	// !running 直接返回，NewHotReloader→defer Stop 的测试路径每次泄漏一个
+	// inotify 实例；达到系统 max_user_instances 后后续测试报 too many open files。
 	if !hr.running {
+		if hr.watcher != nil {
+			_ = hr.watcher.Close()
+		}
 		return nil
 	}
 

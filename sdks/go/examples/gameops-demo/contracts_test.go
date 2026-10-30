@@ -242,13 +242,37 @@ func TestGameOpsMailTaskCreateSingleTargetCompat(t *testing.T) {
 	}
 }
 
+// TestGameOpsMailTaskCreatePlayersWithoutIDsRejected covers the audit finding:
+// a compensation scoped to players must fail closed when neither the batch
+// array nor the legacy single id supplies a target snapshot.
+func TestGameOpsMailTaskCreatePlayersWithoutIDsRejected(t *testing.T) {
+	store := newGameOpsStore()
+	err := invokeHandlerErr(t, store, "mail_task.create", map[string]any{
+		"type": "compensation", "title": "无目标补偿",
+		"receiverRange": "players", "perAmount": 100,
+	})
+	if err == nil || !strings.Contains(err.Error(), "指定玩家补偿必须选择至少一名玩家") {
+		t.Fatalf("players without ids: err=%v, want explicit target requirement", err)
+	}
+	if len(store.tasks) > 0 {
+		for _, task := range store.tasks {
+			if task.Type == "compensation" && task.Title == "无目标补偿" {
+				t.Fatalf("players without ids must not persist a task: %+v", task)
+			}
+		}
+	}
+}
+
 // TestGameOpsMailTaskCreateCompensationDefaultTargetCount pins the audit fix:
 // compensation tasks that are not an explicit multi-player batch default to a
 // single target (the web demo's per-target baseline) instead of inheriting the
 // mail all-server default of 26, which inflated targetCount and totalAmount.
+// players range is NOT in this loop: without a target id it now fail-closes
+// (see TestGameOpsMailTaskCreatePlayersWithoutIDsRejected) rather than
+// persisting a 1-target task with an empty target snapshot.
 func TestGameOpsMailTaskCreateCompensationDefaultTargetCount(t *testing.T) {
 	store := newGameOpsStore()
-	for _, rangeName := range []string{"all", "server", "players"} {
+	for _, rangeName := range []string{"all", "server"} {
 		payload := map[string]any{
 			"type": "compensation", "title": "默认口径", "perAmount": 100,
 			"receiverRange": rangeName,
@@ -263,11 +287,6 @@ func TestGameOpsMailTaskCreateCompensationDefaultTargetCount(t *testing.T) {
 		}
 		if task.TotalAmount == nil || *task.TotalAmount != 100 {
 			t.Fatalf("compensation %s: TotalAmount = %v, want 100 (perAmount × 1)", rangeName, task.TotalAmount)
-		}
-		// players range with no target id must not silently become a 26-target
-		// all-server task either.
-		if rangeName == "players" && len(task.TargetPlayerIDs) != 0 {
-			t.Fatalf("compensation players without ids: TargetPlayerIDs = %v, want empty", task.TargetPlayerIDs)
 		}
 	}
 }

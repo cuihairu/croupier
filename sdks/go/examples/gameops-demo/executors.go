@@ -394,7 +394,9 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 	}
 	// 指定玩家补偿支持多人目标（D2 批量补偿场景）：targetPlayerIds 为目标
 	// 快照数组，按唯一玩家数计算目标人数与补偿总量；单值 targetPlayerId 保留
-	// 兼容。邮件按既有口径 26（全服/区服），补偿默认单目标 1（Web demo 口径）。
+	// 兼容。审核发现：players 范围但无任何目标标识（数组与单值皆空）时
+	// fail-closed 拒绝——不允许落「声明 1 个目标但无目标标识」的失真快照。
+	// 邮件按既有口径 26（全服/区服），补偿默认单目标 1（Web demo 口径）。
 	targetPlayerIDs := make([]string, 0)
 	if taskType == "compensation" && receiverRange == "players" {
 		if ids := valueStringSlice(m, "targetPlayerIds"); len(ids) > 0 {
@@ -404,6 +406,9 @@ func (s *gameOpsStore) mailTaskCreate(_ context.Context, payload []byte) ([]byte
 		}
 		if len(targetPlayerIDs) > 0 {
 			targetCount = len(targetPlayerIDs)
+		}
+		if len(targetPlayerIDs) == 0 {
+			return nil, fmt.Errorf("指定玩家补偿必须选择至少一名玩家")
 		}
 	}
 	task := gameOpsTask{

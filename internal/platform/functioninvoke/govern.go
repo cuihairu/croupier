@@ -74,12 +74,10 @@ const (
 //     pageSnapshotGoverned 跳过二次审批，同 Invoke）；
 //  6. ValidateInvokeInput       —— 输入契约（缺 required 参数 400）；
 //  7. CreateFunctionApproval    —— RequireApproval 时创建审批、不派发。
+//     定义期 phaseInvocability 只走 1/2/6（禁用/分配/输入契约），不触达 3-5/7。
 //
-// 环境 scope（RequireGameEnvScope）有意不在此链内：HTTP 入口由鉴权中间件
-// 的 CurrentScope 前置授权，/tasks Start 由服务自身 RequireGameEnvScope
-// 承担，两处均已按入口独立处理，Govern 不重复加锁以避免双读与测试面
-// 漂移。仅 SubjectAutomation 补一次创建者 scope 复核（每次触发重新授权，
-// 撤权后不继续裸派发）。
+// 环境 scope 的 HTTP/tasks 入口由各自前置授权；Govern 内仅 SubjectAutomation
+// 补一次创建者 scope 复核（见第 6 步），每次触发重新授权，撤权后不继续裸派发。
 //
 // subject 语义：
 //   - SubjectHuman：admin/roles 从 ctx（鉴权中间件）解析，原样透传；
@@ -122,13 +120,13 @@ func govern(ctx context.Context, svcCtx *svc.ServiceContext, req *Request, sub S
 		return nil, err
 	}
 
-	// 4. 输入契约（禁用/分配之后、派发之前校验；缺 required 参数 400）。
 	payload := InvokePayload(req)
-	if err := ValidateInvokeInput(gctx, svcCtx, req, payload); err != nil {
-		return nil, err
-	}
 
 	if phase == phaseInvocability {
+		// 4. 输入契约（定义期只关心可调度性；禁用/分配之后校验）。
+		if err := ValidateInvokeInput(gctx, svcCtx, req, payload); err != nil {
+			return nil, err
+		}
 		// 定义期校验到此为止：不加载主体、不跑政策、不建审批。
 		return &GovernResult{}, nil
 	}
@@ -160,7 +158,12 @@ func govern(ctx context.Context, svcCtx *svc.ServiceContext, req *Request, sub S
 		}
 	}
 
-	// 8. 审批判定：RequireApproval 时创建审批请求、返回待审（不派发）。
+	// 8. 输入契约（政策审批之后、派发之前校验；缺 required 参数 400）。
+	if err := ValidateInvokeInput(gctx, svcCtx, req, payload); err != nil {
+		return nil, err
+	}
+
+	// 9. 审批判定：RequireApproval 时创建审批请求、返回待审（不派发）。
 	if functionPolicy != nil && functionPolicy.RequireApproval && svcCtx.ApprovalsStore != nil {
 		approvalID, err := CreateFunctionApproval(gctx, svcCtx, req, payload, admin, functionPolicy)
 		if err != nil {

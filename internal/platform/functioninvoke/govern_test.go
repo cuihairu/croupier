@@ -213,6 +213,36 @@ func TestGovern_InputContractValidation(t *testing.T) {
 	assert.Contains(t, err.Error(), "playerId")
 }
 
+// 审核发现：Govern 门序错位——ValidateInvokeInput 原先在主体/政策之前调用，
+// 使无权且载荷非法的调用方由 403（权限）变为 400（输入契约）。修复后政策审批
+// 先于输入契约（与 Invoke 既有顺序一致），无权者仍 403，不泄露契约细节。
+func TestGovern_PolicyPrecedesInputContract(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	// viewer 角色无 function:invoke 权限 → EnforceFunctionPolicy 403。
+	seedGovernAdmin(t, db, "bob", "viewer")
+	require.NoError(t, db.Exec("DELETE FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE name = ?)", "viewer").Error)
+	require.NoError(t, db.Create(&model.FunctionDescriptor{
+		FunctionID: "player.cleanup",
+		Version:    "1.0.0",
+		Input: datatypes.JSONMap{
+			"type":     "object",
+			"required": []interface{}{"playerId"},
+			"properties": map[string]interface{}{
+				"playerId": map[string]interface{}{"type": "string"},
+			},
+		},
+	}).Error)
+
+	req := governReq()
+	req.Payload = []byte(`{}`)
+	_, err := Govern(humanCtx("bob"), svcCtx, req, Subject{Kind: SubjectHuman})
+	require.Error(t, err)
+	var codeErr *errorx.CodeError
+	require.ErrorAs(t, err, &codeErr)
+	// 无权必须 403（权限），而非 400（输入契约）——政策先于契约。
+	assert.Equal(t, 403, codeErr.Code)
+}
+
 // Human 主体全链通过：角色 operator 满足默认 medium 政策（allowedRoles=
 // [operator]，无审批），返回主体与政策供派发/审计使用。
 func TestGovern_HumanPassesAllGates(t *testing.T) {
