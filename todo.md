@@ -83,9 +83,9 @@
   - 依赖：—。交付与验收：控制 listener.Close 等活跃会话时不阻塞后续 HTTP 停机/根取消；保证 ServiceContext.Close 冲刷留痕，设置有界清理并验证 socket/goroutine/池释放。
   - 状态／条件：R30-07 源码时序：停收→HTTP drain→rootCancel→等待→Close 的正常路径有回归通过；但外层 30s 返回后仍执行无界 defer StopScheduler，阻塞 tick 可令最终返回继续等待。完整阻塞调度/总截止/池释放故障验收 NOT RUN，不宣称一律有界。 详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
 
-- [ ] **ARCH-018 · P1 · 故障验证 · 执行中断与停机演练**
+- [x] **ARCH-018 · P1 · 故障验证 · 执行中断与停机演练**
   - 依赖：ARCH-015, ARCH-016, ARCH-017, ARCH-026。交付与验收：执行中注入断链、drain、SIGTERM；逐项记录新请求拒绝、终态/未知态、截止时间及资源释放；不把测试 fixture 的游戏副作用结果当真实游戏恢复凭据
-  - 状态／条件：NOT RUN：工作区有 watchdog/reaper 与探针在途修改，其局部单测已参与复审；独立进程中断/阻塞停机/重连/迟到终态及资源释放矩阵未完成，不能用源码存在或本地夹具替代。
+  - 状态／条件：DONE 2026-10-31。D3 看门狗收割器随附（7da8d2d2：`runTaskWatchdog` 后台循环 + `ReapStale`，预算 `taskLog.reaperTimeout` 默认 5m）；执行中断钻机（1a2be73a：`cmd/server/fault_drill_r27_test.go`，真实 runServer boot + e2e-agent-probe 子进程）四场景全绿：断链→unknown+新请求 503；drain→在途完成+新请求 503+undrain 恢复派发；`-hang` 看门狗→预算内 timed_out+finishedAt 置位+新请求仍 200（agent 存活，非断连所致）；SIGTERM→优雅停机返回 nil+在途 unknown+HTTP 监听释放。已知边界：探针副作用计数是测试 fixture 非游戏恢复凭据，不断言游戏 exactly-once（GAME-010 仍 NOT RUN）；重连/迟到终态 soft-terminal 收敛未在钻机断言（ARCH-014 D3 设计域）。
 
 - [ ] **ARCH-019 · P2 · 实现 · 执行领域依赖方向收敛**
   - 依赖：—。交付与验收：复用 assignment gate 下沉领域包，functioninvoke 不再 import internal/api；core/agents 的依赖边界检查可执行且原行为一致。
