@@ -856,6 +856,9 @@ func (c ExecutionLogConfig) EffectiveRetentionDays() int {
 type TaskLogConfig struct {
 	// RetentionDays 保留天数，未配置默认 7；显式置 0=永久保留。
 	RetentionDays *int `json:"retentionDays,omitempty" yaml:"retentionDays,omitempty"`
+	// ReaperTimeout 无事件任务转 timed_out 的看门狗预算（duration 字符串，
+	// 如 "5m"）。未配置/非法/≤0 默认 5m。ARCH-018 D3 看门狗收割器。
+	ReaperTimeout string `json:"reaperTimeout,omitempty" yaml:"reaperTimeout,omitempty"`
 }
 
 // EffectiveRetentionDays 未配置时默认 7 天；0=永久。
@@ -864,6 +867,18 @@ func (c TaskLogConfig) EffectiveRetentionDays() int {
 		return 7
 	}
 	return *c.RetentionDays
+}
+
+// EffectiveReaperTimeout 未配置或解析失败时默认 5 分钟。
+func (c TaskLogConfig) EffectiveReaperTimeout() time.Duration {
+	if strings.TrimSpace(c.ReaperTimeout) == "" {
+		return 5 * time.Minute
+	}
+	d, err := time.ParseDuration(strings.TrimSpace(c.ReaperTimeout))
+	if err != nil || d <= 0 {
+		return 5 * time.Minute
+	}
+	return d
 }
 
 // ApprovalConfig 审批流行为配置。

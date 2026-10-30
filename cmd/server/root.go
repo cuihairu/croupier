@@ -497,6 +497,9 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 		model.NewTaskEventModel(svcCtx.DB),
 	)
 	controlService.SetTaskStore(taskStore)
+	// ARCH-018 D3 看门狗：无事件超预算任务收敛到 timed_out（终态、无进一步
+	// 证据）。须在 StartBackgroundTasks 前注入，否则后台循环不启动。
+	controlService.SetTaskReaper(taskStore, c.TaskLog.EffectiveReaperTimeout())
 	controlService.SetMetricsDB(svcCtx.DB)
 	// capture 规则命中告警：落 alerts 表 + 出口分发（Manager 可为 nil）
 	controlService.SetAlertModel(svcCtx.AlertModel)

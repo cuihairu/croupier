@@ -63,6 +63,7 @@ func runMain(prog string, args []string, stdout, stderr io.Writer) int {
 	serveDuration := fs.Duration("serve-duration", 60*time.Second, "serve mode: max runtime")
 	exitAfterTasks := fs.Int("exit-after-tasks", 0, "serve mode: exit once this many StartTask requests are received (0 = only serve-duration)")
 	stepMs := fs.Int("step-ms", 60, "serve mode: milliseconds between progress events")
+	hang := fs.Bool("hang", false, "serve mode: report started then block forever (never terminal)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -93,6 +94,7 @@ func runMain(prog string, args []string, stdout, stderr io.Writer) int {
 	taskCh := make(chan struct{}, 64)
 	handler := &probeHandler{
 		stepMs:      *stepMs,
+		hang:        *hang,
 		cancelFuncs: make(map[string]context.CancelFunc),
 		onTask: func() {
 			select {
@@ -240,6 +242,7 @@ func call(mux *tcp.MuxConn, timeout time.Duration, msgID uint32, req proto.Messa
 // TaskEvents upstream via the shared MuxConn.
 type probeHandler struct {
 	stepMs         int
+	hang           bool
 	mu             sync.Mutex
 	tasksHandled   int
 	cancelsHandled int
@@ -323,6 +326,13 @@ func (h *probeHandler) runMockTask(taskID string) {
 	}()
 
 	h.sendEvent(taskID, "started", "mock task started", 0, nil)
+	if h.hang {
+		// ARCH-018 卡死 fixture：started 后永不发 progress/completed，会话
+		// 保持存活（服务端读超时仅 continue、不关连接），无断连收割，只等
+		// 取消/停机；服务端 D3 看门狗将其收割为 timed_out。
+		<-ctx.Done()
+		return
+	}
 	step := time.Duration(h.stepMs) * time.Millisecond
 	progress := 0
 	for progress < 100 {

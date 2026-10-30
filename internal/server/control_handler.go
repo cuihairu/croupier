@@ -104,6 +104,14 @@ type TaskStore interface {
 	AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error
 }
 
+// TaskReaper defines the D3 watchdog reaper entry (*tasks.Store satisfies it
+// structurally; nil = not wired, so the watchdog loop is a no-op). It sweeps
+// active task_runs rows with no event past a budget to a target status
+// (ARCH-018: timed_out).
+type TaskReaper interface {
+	ReapStale(ctx context.Context, budget time.Duration, status, message string) (int64, error)
+}
+
 // Handler handles control service requests.
 type Handler interface {
 	HandleRegister(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error)
@@ -121,6 +129,9 @@ type ControlService struct {
 	metricsStore      *reg.MetricsStore
 	systemInfoCache   *reg.SystemInfoCache
 	taskStore         TaskStore
+	taskReaper        TaskReaper
+	watchdogBudget    time.Duration
+	watchdogInterval  time.Duration
 	alertModel        *model.AlertModel
 	probeEventModel   *model.ProbeEventModel
 	// probeEvents 探测事件诊断环（§13.1 R2 接收侧：明细留证 + 窗口记日志）。
@@ -242,6 +253,16 @@ func (s *ControlService) SetTaskStore(store TaskStore) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.taskStore = store
+}
+
+// SetTaskReaper 注入 D3 看门狗收割器与无事件预算（budget 决定收割 tick
+// 间隔）。必须在 StartBackgroundTasks 之前调用，否则后台循环不启动。
+func (s *ControlService) SetTaskReaper(reaper TaskReaper, budget time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.taskReaper = reaper
+	s.watchdogBudget = budget
+	s.watchdogInterval = watchdogIntervalFor(budget)
 }
 
 // SetAlertModel sets the alert model for capture rule-hit persistence
@@ -393,6 +414,9 @@ func (s *ControlService) StartBackgroundTasks() {
 			go s.cleanupLoop()
 		}
 		go s.contractRemovalSweepLoop()
+		if s.taskReaper != nil {
+			go s.taskWatchdogLoop()
+		}
 	})
 }
 
@@ -1872,6 +1896,29 @@ func (s *ControlService) pruneMetricsOnce() {
 // 与历史行为一致。
 var backgroundLoopInterval = 5 * time.Minute
 
+// watchdogIntervalMin/Max 是 D3 看门狗收割 tick 间隔的钳位边界；Min 抽为
+// 包级变量仅为测试注入短间隔（生产默认 1s 起）。
+var (
+	watchdogIntervalMin = time.Second
+	watchdogIntervalMax = 30 * time.Second
+)
+
+// watchdogIntervalFor 由无事件预算推导看门狗收割 tick 间隔：budget/2，
+// 钳位到 [watchdogIntervalMin, watchdogIntervalMax]。短预算（测试）得短间隔。
+func watchdogIntervalFor(budget time.Duration) time.Duration {
+	if budget <= 0 {
+		return watchdogIntervalMax
+	}
+	half := budget / 2
+	if half < watchdogIntervalMin {
+		half = watchdogIntervalMin
+	}
+	if half > watchdogIntervalMax {
+		half = watchdogIntervalMax
+	}
+	return half
+}
+
 func (s *ControlService) pruneOldMetrics() {
 	ticker := time.NewTicker(backgroundLoopInterval)
 	defer ticker.Stop()
@@ -1932,6 +1979,41 @@ func (s *ControlService) contractRemovalSweepLoop() {
 			return
 		case <-ticker.C:
 			s.runContractRemovalSweep()
+		}
+	}
+}
+
+// runTaskWatchdog 执行一轮无事件任务收割（供循环调用与直接测试）。
+// ARCH-018 D3 看门狗：活动行 updated_at 早于预算 → timed_out（终态，
+// 含义是「无进一步证据」而非「游戏侧失败」）。
+func (s *ControlService) runTaskWatchdog() {
+	if s.taskReaper == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	reaped, err := s.taskReaper.ReapStale(ctx, s.watchdogBudget, tasks.StatusTimedOut,
+		"no event past watchdog budget; execution state unknown")
+	if err != nil {
+		s.logger.Error("failed to reap stale tasks", "error", err)
+	} else if reaped > 0 {
+		s.logger.Info("reaped stale tasks to timed_out", "count", reaped)
+	}
+}
+
+func (s *ControlService) taskWatchdogLoop() {
+	interval := s.watchdogInterval
+	if interval <= 0 {
+		interval = watchdogIntervalMax
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.runTaskWatchdog()
 		}
 	}
 }

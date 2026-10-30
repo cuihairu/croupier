@@ -106,6 +106,32 @@ func (m *TaskRunModel) ReapByAgent(ctx context.Context, agentID string, activeSt
 	return result.RowsAffected, nil
 }
 
+// ReapStale transitions every task_runs row still in one of the supplied
+// active statuses whose updated_at predates `since` to the target status
+// (ARCH-018 D3 watchdog: no event past the invoke budget → timed_out).
+// updated_at auto-advances on every lifecycle event via GORM, so a stale
+// updated_at genuinely means "no event since". Terminal, unknown, and fresh
+// rows are left untouched. Returns the number of rows updated.
+func (m *TaskRunModel) ReapStale(ctx context.Context, activeStatuses []string, since time.Time, targetStatus, message string) (int64, error) {
+	if len(activeStatuses) == 0 {
+		return 0, nil
+	}
+	now := time.Now()
+	result := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&TaskRun{}).
+		Where("status IN ?", activeStatuses).
+		Where("updated_at < ?", since).
+		Updates(map[string]interface{}{
+			"status":      targetStatus,
+			"message":     message,
+			"finished_at": &now,
+		})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return result.RowsAffected, nil
+}
+
 func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskRun, int64, error) {
 	opts.Normalize()
 

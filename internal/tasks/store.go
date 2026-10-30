@@ -68,6 +68,13 @@ func (s *Store) ReapAgentNonTerminal(ctx context.Context, agentID, status, messa
 	return s.runs.ReapByAgent(ctx, agentID, ReapableStatuses(), status, message)
 }
 
+// ReapStale 收割超过预算仍无事件的非终态任务到目标状态（ARCH-018 D3
+// 看门狗：updated_at 早于 now-budget 的活动行 → timed_out）。Rows already
+// terminal, unknown, or fresh are left untouched.
+func (s *Store) ReapStale(ctx context.Context, budget time.Duration, status, message string) (int64, error) {
+	return s.runs.ReapStale(ctx, ReapableStatuses(), time.Now().Add(-budget), status, message)
+}
+
 func (s *Store) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]model.TaskEvent, error) {
 	return s.events.ListByTaskID(ctx, taskID, afterSeq)
 }
