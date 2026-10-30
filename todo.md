@@ -212,9 +212,10 @@
   - 依赖：—。交付与验收：复用 task_schedule_run_logs 唯一键，派发前原子领取 schedule+slot 并明确领取租约/崩溃恢复；多实例同槽仅一派发，记录失败不得执行；覆盖领取后/派发前和派发后/回写前中断，业务最终副作用去重仍由 GAME-010 承担
   - DONE（2026-10-30）：claim-first 于 6fffb0ea 落地（CreateRunLog 唯一索引即领取令牌，冲突即跳过派发；记录失败不执行）；本次补领取租约与崩溃恢复——ReclaimStaleRunLog 单条 UPDATE CAS（仅 status='claimed' 且 created_at 早于租约窗口（默认 60s=2×扫描周期）时原子重领并重置租约），孤儿领取重派发（窗口一触发不丢失），窗口二按 at-least-once 重派发（领取行无 taskID 可查，业务副作用去重由 GAME-010 承担）；并发触发/并发恢复各恰好一次派发。证据 docs/review/arch023-schedule-claim-recovery-2026-10-30.md；用例 arch023_test.go（5 恢复用例）+ task_schedule_model_test.go（CAS 模型用例）；诚实边界：租约低估双派发由游戏去重兜底、真实多进程 postgres HA 演练随 GAME-010。
 
-- [ ] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
+- [x] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
   - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
   - 状态／条件：VERIFIED 装配缺口：task.Service.Start 只做部分 gate；schedule 和 svc.dispatcherAdapter 直连 Dispatcher。不可据统一 transport 宣称统一治理。
+  - DONE（2026-10-30）：统一治理闸门落地——functioninvoke.NewGovernance(svcCtx).Gate 链：validate ID→EnsureFunctionEnabled（E2）→EnsureFunctionAssigned（BUG-032）→CheckInvokePermission（人类主体）→EnforceFunctionPolicy（ARCH-025 fail-closed）→ValidateInvokeInput→RequireApproval=policy.RequireApproval&&!hasSnapshot；普通 invoke（functioninvoke.Invoke）、/tasks Start、schedule Create/TriggerNow、cron 自动触发四入口全部经此闸门（cmd/server 注入 scheduler，functioninvoke import svc 环在 cmd 层解开）。自动化主体 Subject{AutomatedID:"schedule:<id>"} 经 creator 回载角色（LoadCurrentAdmin username=schedule.Actor）供策略 AllowedRoles 判定；批准快照（approvalBypass=approved+approvalId+approvalActor）满足审批要求但禁用/分配/政策仍 live 回读（撤权后不继续裸派发）。schedule Create 政策要求审批→创建为 paused+审批请求（approvalTarget=schedule），批准续跑 activateApprovedSchedule 激活并写快照重算 next_triggered_at；TriggerNow 要求审批→创建审批不派发；cron 要求审批无快照→跳过派发（RunLog=skipped 不计数失败推进下次触发）。证据 docs/review/arch024-entry-governance-2026-10-30.md；用例 22 个：governance_test.go（11）+ manager_governance_test.go（5）+ task/approval_gate_test.go（2）+ schedule/approval_gate_test.go（3）+ approval/schedule_activation_test.go（1）；诚实边界：未注入治理维持派发（旧测试/未接线）、审批创建失败回滚调度、自动化主体无独立权限 ID（授权由 creator 角色经策略判定）、线上 postgres HA 多实例一致性随 GAME-010/ARCH-023 演练范围。
 
 - [x] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
   - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败
