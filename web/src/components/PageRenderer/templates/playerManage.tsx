@@ -254,8 +254,8 @@ export const playerManagePageSpec: PageSpec = {
         type: 'object',
         properties: {
           nickname: { type: 'string', title: '昵称' },
-          level: { type: 'number', title: '等级' },
-          vip: { type: 'number', title: 'VIP 等级' },
+          level: { type: 'integer', title: '等级' },
+          vip: { type: 'integer', title: 'VIP 等级' },
         },
         required: ['nickname'],
       },
@@ -266,8 +266,8 @@ export const playerManagePageSpec: PageSpec = {
         type: 'object',
         properties: {
           nickname: { type: 'string', title: '昵称' },
-          level: { type: 'number', title: '等级' },
-          vip: { type: 'number', title: 'VIP 等级' },
+          level: { type: 'integer', title: '等级' },
+          vip: { type: 'integer', title: 'VIP 等级' },
         },
         required: ['nickname'],
       },
@@ -313,18 +313,45 @@ export const playerManagePageSpec: PageSpec = {
       id: 'create',
       functionId: 'player.create',
       usage: 'action',
+      selectors: {
+        input: {
+          assignments: [
+            { target: '/nickname', source: { kind: 'form', path: '/nickname' } },
+            { target: '/level', source: { kind: 'form', path: '/level' } },
+            { target: '/vip', source: { kind: 'form', path: '/vip' } },
+          ],
+        },
+        output: [{ stateKey: 'result', source: '', shape: 'object' }],
+      },
       execution: { mode: 'sync' },
     },
     {
       id: 'update',
       functionId: 'player.update',
       usage: 'action',
+      selectors: {
+        input: {
+          assignments: [
+            { target: '/id', source: { kind: 'row', path: '/id' } },
+            { target: '/nickname', source: { kind: 'form', path: '/nickname' } },
+            { target: '/level', source: { kind: 'form', path: '/level' } },
+            { target: '/vip', source: { kind: 'form', path: '/vip' } },
+          ],
+        },
+        output: [{ stateKey: 'result', source: '', shape: 'object' }],
+      },
       execution: { mode: 'sync' },
     },
     {
       id: 'delete',
       functionId: 'player.delete',
       usage: 'action',
+      selectors: {
+        input: {
+          assignments: [{ target: '/id', source: { kind: 'row', path: '/id' } }],
+        },
+        output: [{ stateKey: 'result', source: '', shape: 'object' }],
+      },
       execution: { mode: 'sync' },
     },
     {
@@ -377,11 +404,16 @@ export const playerManagePageSpec: PageSpec = {
     },
     {
       id: 'action.batchBan',
-      functionId: 'player.batchBan',
+      functionId: 'player.batchban',
       usage: 'action',
       selectors: {
         input: {
-          assignments: [{ target: '/playerIds', source: { kind: 'selection', path: '/id' } }],
+          assignments: [
+            {
+              target: '/playerIds',
+              source: { kind: 'selection', path: '/id', transform: { type: 'pick' } },
+            },
+          ],
         },
         output: [{ stateKey: 'result', source: '', shape: 'object' }],
       },
@@ -389,11 +421,16 @@ export const playerManagePageSpec: PageSpec = {
     },
     {
       id: 'action.batchUnban',
-      functionId: 'player.batchUnban',
+      functionId: 'player.batchunban',
       usage: 'action',
       selectors: {
         input: {
-          assignments: [{ target: '/playerIds', source: { kind: 'selection', path: '/id' } }],
+          assignments: [
+            {
+              target: '/playerIds',
+              source: { kind: 'selection', path: '/id', transform: { type: 'pick' } },
+            },
+          ],
         },
         output: [{ stateKey: 'result', source: '', shape: 'object' }],
       },
@@ -401,12 +438,15 @@ export const playerManagePageSpec: PageSpec = {
     },
     {
       id: 'action.batchRecharge',
-      functionId: 'player.batchRecharge',
+      functionId: 'player.batchrecharge',
       usage: 'action',
       selectors: {
         input: {
           assignments: [
-            { target: '/playerIds', source: { kind: 'selection', path: '/id' } },
+            {
+              target: '/playerIds',
+              source: { kind: 'selection', path: '/id', transform: { type: 'pick' } },
+            },
             { target: '/amount', source: { kind: 'form', path: '/amount' } },
           ],
         },

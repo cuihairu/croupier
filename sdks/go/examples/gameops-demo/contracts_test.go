@@ -151,13 +151,13 @@ func TestRegisterGameOpsFunctions_ClientRejects(t *testing.T) {
 	}
 }
 
-func TestGameOpsDescriptorCamelCaseIDAccepted(t *testing.T) {
-	// E1 模板使用 player.batchBan / player.batchUnban（camelCase operation）。
-	// The upstream chain must accept them; validateGameOpsDescriptor models the
-	// same gate the registry applies (non-empty ID + valid schemas).
+func TestGameOpsDescriptorCanonicalIDsAccepted(t *testing.T) {
+	// 注册链把 function_id 归一为小写稳定键；模板 PageSpec 与 demo 契约必须
+	// 使用同一组小写 ID（player.batchban / player.batchunban / player.batchrecharge），
+	// 否则发布校验在 functions 精确匹配上失败。
 	store := newGameOpsStore()
 	for _, def := range gameOpsFunctionDefinitions(store) {
-		if def.desc.ID == "player.batchBan" || def.desc.ID == "player.batchUnban" {
+		if def.desc.ID == "player.batchban" || def.desc.ID == "player.batchunban" || def.desc.ID == "player.batchrecharge" {
 			if err := validateGameOpsDescriptor(def.desc); err != nil {
 				t.Fatalf("%s rejected: %v", def.desc.ID, err)
 			}

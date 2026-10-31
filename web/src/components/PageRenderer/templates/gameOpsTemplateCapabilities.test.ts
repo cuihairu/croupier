@@ -103,6 +103,18 @@ describe('业务模板函数绑定', () => {
       expect(entry.capabilitiesNote['en-US'].length).toBeGreaterThan(0);
     }
   });
+
+  it('绑定函数 id 均为小写稳定键（与注册链归一一致）', () => {
+    const stableKey = (id: string) => /^[a-z0-9][a-z0-9._-]*$/.test(id);
+    for (const entry of gameOpsTemplates) {
+      for (const fn of entry.functions) {
+        expect(stableKey(fn.id)).toBe(true);
+      }
+      for (const binding of entry.pageSpec.bindings) {
+        expect(stableKey(binding.functionId)).toBe(true);
+      }
+    }
+  });
 });
 
 // 共享 helper：模板列表列（D5/D1 能力断言共用）。
