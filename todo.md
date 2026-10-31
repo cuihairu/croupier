@@ -103,9 +103,10 @@
   - 状态／条件：LOCAL VERIFIED：DONE 2026-10-31。受限机器身份（X-Croupier-Agent-Token）已接入：中间件将机器 token 限定在扩展同步端点（其它路径 403），AgentSyncPayload 校验 agentID scope（跨 scope 403、无凭据走 RBAC 被拒）；合法 Agent 拉取生效（PullOnce 携带头、版本 payload 应用），坏版本 last-good 由 configsync 承担；签发命令 `croupier-server token agent-sync`（ResolveSecret+SignMachine round-trip 已验证）。
   - 完成证据：2026-10-31；`internal/security/jwtutil/machine_token.go`、`internal/svc/service_context.go`、`internal/api/extension/service.go`、`internal/app/agent/extension_sync_puller.go`、`cmd/server/token.go`、`internal/svc/machine_auth_test.go`、`internal/api/extension/machine_scope_test.go`、`internal/app/agent/extension_sync_puller_test.go`；定向运行 go test（jwtutil/svc/extension/agent/cmd-server）全绿，go build ./... 过。
 
-- [ ] **ARCH-022 · P2 · 实现 · 注册与重连的显式请求预算**
+- [x] **ARCH-022 · P2 · 实现 · 注册与重连的显式请求预算**
   - 依赖：—。交付与验收：复用 core/register，为 DialAndRegister/SyncOnce/SyncAttempts 明确一致的注册超时边界及调用者 deadline 优先级；核对心跳 tick 重拨与首拨退避差异，验证无注册响应时按预算退出、Stop 可释放连接与 goroutine，不引入重复并行重连。
-  - 状态／条件：READY；无响应服务端故障验证 NOT RUN。证据：core/register/registration.go 的 SyncAttempts 才包 requestTimeout，loops.go 的 DialAndRegister 直接调用 registerOnce。
+  - 状态／条件：LOCAL VERIFIED：DONE 2026-10-31。注册预算已统一：registerCtx 对每次注册调用（DialAndRegister/SyncOnce/SyncAttempts）应用 requestTimeout（默认 10s），调用方 deadline 更早时以调用方为准；挂起 Register 无响应按预算退出（测试锁定 ~60ms 预算返回）；心跳 tick 重拨与首拨退避差异核清——首拨失败走 RunReconnectLoop 指数退避 5→60s，心跳恢复在 tick 内直接重拨（已被心跳间隔限频，不再叠加退避），属有意设计。Stop 经 lifecycleCancel+lifecycleWG.Wait 释放连接与 goroutine；dialInflight CAS 防重复并行重连。
+  - 完成证据：2026-10-31；`core/register/registration.go`、`core/register/loops.go`、`core/register/register_budget_test.go`；定向运行 go test ./core/register/ ./internal/app/agent/ ./agents/capture/... -count=1 全绿，go build ./... 过。
 
 - [ ] **ARCH-023 · P0 · 实现 · 定时触发先领取再派发**
   - 依赖：—。交付与验收：复用 task_schedule_run_logs 唯一键，派发前原子领取 schedule+slot 并明确领取租约/崩溃恢复；多实例同槽仅一派发，记录失败不得执行；覆盖领取后/派发前和派发后/回写前中断，业务最终副作用去重仍由 GAME-010 承担
