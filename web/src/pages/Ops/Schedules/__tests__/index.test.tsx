@@ -425,6 +425,13 @@ describe('Ops/Schedules 行操作与弹窗流程', () => {
           taskRunId: 'tr-1',
           message: 'ok',
         },
+        {
+          id: 'r2',
+          slot: '2026-09-28T03:30:00Z',
+          status: 'indeterminate',
+          taskRunId: '',
+          message: 'claim lease expired; dispatch outcome unknown',
+        },
       ],
     });
     render(
@@ -438,6 +445,9 @@ describe('Ops/Schedules 行操作与弹窗流程', () => {
     await waitFor(() => expect(mockListScheduleRuns).toHaveBeenCalledWith(1, { pageSize: 50 }));
     expect(await screen.findByText('触发历史：nightly-cleanup')).toBeInTheDocument();
     expect(screen.getByText('tr-1')).toBeInTheDocument();
+    // ARCH-023：indeterminate 行渲染为橙色标签（派发结果未知，非确定失败）。
+    expect(screen.getByText('indeterminate')).toBeInTheDocument();
+    expect(document.querySelector('.ant-tag-orange')).toBeTruthy();
   });
 
   it('触发历史 drawer：拉取失败提示「加载触发历史失败」', async () => {

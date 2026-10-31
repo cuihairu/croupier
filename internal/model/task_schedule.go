@@ -53,6 +53,15 @@ const (
 	ScheduleKindIncidentReport = "incident_report"
 )
 
+// RunLog 触发记录状态常量（varchar 列，非 enum——取值演进无迁移）。
+const (
+	RunLogClaimed       = "claimed"       // 已领取（先领取再派发）
+	RunLogDispatched    = "dispatched"    // 已派发（含 TaskRunID 回填）
+	RunLogSkipped       = "skipped"       // 跳过（限流/死信等）
+	RunLogFailed        = "failed"        // 派发/执行确定失败
+	RunLogIndeterminate = "indeterminate" // 领取租约过期，派发结果未知（可能已派发但回写未落）
+)
+
 // TaskScheduleRunLog 是一次到期触发的审计记录（幂等窗口内不重复触发）。
 // schedule_id+slot 唯一索引是多实例并发触发的兜底防线。
 type TaskScheduleRunLog struct {
@@ -60,7 +69,7 @@ type TaskScheduleRunLog struct {
 	ScheduleID uint      `gorm:"not null;uniqueIndex:uidx_schedule_run_slot,priority:1"`
 	Slot       time.Time `gorm:"not null;uniqueIndex:uidx_schedule_run_slot,priority:2"`
 	TaskRunID  string    `gorm:"size:64"`
-	Status     string    `gorm:"size:32"` // claimed | dispatched | skipped | failed
+	Status     string    `gorm:"size:32"` // RunLog* 常量
 	Message    string    `gorm:"size:255"`
 	CreatedAt  time.Time
 }

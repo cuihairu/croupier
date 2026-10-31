@@ -4,7 +4,7 @@ title: 运行架构、连接与生命周期（源码现状）
 
 # 运行架构、连接与生命周期
 
-> **2026-10-30 最新复审：CHANGES REQUIRED。** 调度已前置领取、多个入口已接入 Govern、主记录落库失败和 descriptor 读取失败会拒绝派发；但复现了函数 ACL 漏检、风险读取错误降低审批、跨槽 claimed 未恢复及终态事件部分写入。正常 drain/停机路径已有实现，已接收任务与总截止仍有缺口。详见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。真实高危写入不获上线批准。
+> **2026-10-31（ARCH-023）最新复审：CHANGES REMAIN。** 调度已前置领取、多个入口已接入 Govern、主记录落库失败和 descriptor 读取失败会拒绝派发；跨槽过期 claimed 已由统一扫描解析为 `indeterminate`（ARCH-023）。仍复现函数 ACL 漏检（ARCH-024）、风险读取错误降低审批（ARCH-025）及终态事件部分写入（ARCH-015）。正常 drain/停机路径已有实现，已接收任务与总截止仍有缺口。详见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。真实高危写入不获上线批准。
 
 核查日 **2026-10-30**。这是源码与仓库部署模板的现状，不是线上盘点或生产认证。**已实现**表示可追踪到生产装配；**目标设计**表示尚有运行缺口；**待核实**表示需要真实配置、账号或环境。本轮不修改业务实现。历史审核见 仓库审核记录 `docs/review/architecture-audit-2026-10-28.md`。待办唯一入口为仓库根 `todo.md`。
 
@@ -62,7 +62,7 @@ OIDC 登录、Vault secret resolver、SMTP/对象存储、OTel/监控链接是�
 - **发现**：SDK Connect/Heartbeat/断开维护 sidecar LocalStore 与 ProviderSession；sidecar 将全量函数/进程快照注册上行，变更去抖后重注册。Server registry 保存 scope/函数/Provider/到期时间并持久化 `agent_sessions`，启动恢复快照；快照不是活连接。证据：`internal/app/agent/upstream.go:buildRegisterPayload/updateLoop`、`internal/platform/registry/store.go`、`internal/server/control_handler.go`。
 - **失效**：Server 注册 TTL 默认 5 分钟，心跳按默认 TTL 续期；live session 断链立即按 `(agentID, sessionID)` 清除，避免旧连接清除新连接。registry 定时清理到期记录及 Provider 投影；DB 锚点可作为最后已知身份，不能作为在线证明。证据：`internal/server/agent_session.go:RemoveSession`、`internal/server/tcp_listener.go`、`internal/platform/registry/agent_session_db.go`。
 - **路由**：`internal/platform/dispatch/dispatcher.go` 过滤 scope/函数/可用候选并按策略选择，优先本机 session，否则 owner 转发；sidecar 再选择 Provider、内建函数或插件。不是 Server 直接拨游戏进程。函数调用默认上限 15s，metadata budget 会在 1s–上限间钳制；失败重试取决于路径/错误，不可推导副作用安全重试。
-- **调度**：Server `internal/tasks/scheduler/manager.go` 消费任务定义，派发函数或执行 server-local 报表；sidecar `internal/app/agent/ops_schedule.go` 运行受管程序本地 cron。两者复用 `core/process` cron，但不是一个独立调度服务；本地分钟槽去重、不补跑不能外推为分布式 exactly-once。
+- **调度**：Server `internal/tasks/scheduler/manager.go` 消费任务定义，派发函数或执行 server-local 报表；sidecar `internal/app/agent/ops_schedule.go` 运行受管程序本地 cron。两者复用 `core/process` cron，但不是一个独立调度服务；本地分钟槽去重、不补跑不能外推为分布式 exactly-once；领取后崩溃的跨槽陈旧 claimed 由统一扫描解析为 `indeterminate`（ARCH-023），绝不重派发。
 - **存储**：关系库保存任务/页面/契约/审计等；scope 是授权边界，multiGame 仅部分模型走 dbctx，不代表所有表都物理分库。生产开库已采用 binding.database_name 真值；首次开库 Open 阶段预算仍有缺口（ARCH-009）。审批生产装配仍 `approvals.NewMemStore()`；SQLStore 存在不代表已启用。证据：`internal/svc/service_context.go`、`internal/svc/game_middleware.go`、`internal/db/router/router.go`。
 
 ## 独立生命周期图与失败语义

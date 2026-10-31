@@ -199,6 +199,21 @@ func (m *TaskScheduleModel) UpdateRunLog(ctx context.Context, scheduleID uint, s
 		}).Error
 }
 
+// ListStaleClaims 返回 created_at < before 且 status=claimed 的领取记录
+// （ARCH-023 R30-04 跨槽崩溃恢复）。领取者崩溃后遗留的旧槽位不在当前触发
+// 槽，triggerSchedule 的 resolveStaleClaim 只读当前槽，无法看到——由调度
+// 循环的统一扫描按租约窗口列出，再解析为 indeterminate。
+func (m *TaskScheduleModel) ListStaleClaims(ctx context.Context, before time.Time, limit int) ([]TaskScheduleRunLog, error) {
+	var out []TaskScheduleRunLog
+	q := m.db.WithContext(ctx).
+		Where("status = ? AND created_at < ?", RunLogClaimed, before)
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	err := q.Find(&out).Error
+	return out, err
+}
+
 func isDuplicateKeyError(err error) bool {
 	if err == nil {
 		return false

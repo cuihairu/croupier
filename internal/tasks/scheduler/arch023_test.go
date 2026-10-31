@@ -101,8 +101,8 @@ func TestManager_ConcurrentTriggerExactlyOneDispatch(t *testing.T) {
 // ── ARCH-023 崩溃恢复：领取租约 ────────────────────────────────────────
 
 // 领取后/派发前中断：领取者崩溃，槽位残留 claimed。租约过期后被下一实例
-// 解析为 failed（不重派发——无法区分是否已派发，副作用去重归 GAME-010），
-// 调度推进、审计链不再永久停在 claimed。
+// 解析为 indeterminate（不重派发——无法区分是否已派发，副作用去重归
+// GAME-010），调度推进、审计链不再永久停在 claimed。
 func TestManager_CrashAfterClaimBeforeDispatch_RecoversWithoutRedispatch(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	lease := 60 * time.Second
@@ -110,7 +110,7 @@ func TestManager_CrashAfterClaimBeforeDispatch_RecoversWithoutRedispatch(t *test
 	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
 	// 模拟崩溃领取者：claimed 且已过租约（CreatedAt = now - 2×lease）。
 	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
-		ScheduleID: 1, Slot: Slot(now), Status: "claimed",
+		ScheduleID: 1, Slot: Slot(now), Status: model.RunLogClaimed,
 		CreatedAt: now.Add(-2 * lease),
 	}
 
@@ -127,21 +127,24 @@ func TestManager_CrashAfterClaimBeforeDispatch_RecoversWithoutRedispatch(t *test
 		"ARCH-023: 陈旧领取恢复不重派发（重发=对派发后中断赌二次执行）")
 	require.Len(t, store.runLogs, 1)
 	rec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
-	assert.Equal(t, "failed", rec.Status, "租约过期的 claimed 必须解析为终态")
+	assert.Equal(t, model.RunLogIndeterminate, rec.Status,
+		"租约过期的 claimed 必须解析为 indeterminate（派发结果未知，不得臆断失败）")
 	assert.Contains(t, rec.Message, "lease expired")
+	assert.Empty(t, rec.TaskRunID, "恢复不得臆造 TaskRunID（回写未落，结果未知）")
 	// 调度推进：next_triggered_at 被更新（下一槽照常触发）。
 	assert.NotEmpty(t, store.updates[1], "崩溃恢复必须推进调度，不能卡死")
 }
 
 // 派发后/回写前中断：任务可能已派发（真正运行中）但回写未落，库面同样
-// 残留 claimed。恢复动作与上一类一致：终态 failed + 推进 + 绝不二次派发。
-func TestManager_CrashAfterDispatchBeforeWriteback_MarksFailedNoRedispatch(t *testing.T) {
+// 残留 claimed。恢复动作与上一类一致：终态 indeterminate + 推进 +
+// 绝不二次派发（R30-04：两类中断无法区分，indeterminate 是唯一诚实终态）。
+func TestManager_CrashAfterDispatchBeforeWriteback_MarksIndeterminateNoRedispatch(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	lease := 60 * time.Second
 	store := newFakeStore()
 	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
 	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
-		ScheduleID: 1, Slot: Slot(now), Status: "claimed",
+		ScheduleID: 1, Slot: Slot(now), Status: model.RunLogClaimed,
 		CreatedAt: now.Add(-10 * lease),
 	}
 
@@ -157,7 +160,7 @@ func TestManager_CrashAfterDispatchBeforeWriteback_MarksFailedNoRedispatch(t *te
 	assert.Equal(t, int32(0), atomic.LoadInt32(&dispatches),
 		"ARCH-023: 回写前中断的恢复不得重复派发（TaskRun 可能仍在运行）")
 	rec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
-	assert.Equal(t, "failed", rec.Status)
+	assert.Equal(t, model.RunLogIndeterminate, rec.Status)
 	assert.Empty(t, rec.TaskRunID, "回写未落，恢复不得臆造 TaskRunID")
 }
 
@@ -185,6 +188,76 @@ func TestManager_ActiveClaimWithinLease_NotEvicted(t *testing.T) {
 	assert.Equal(t, int32(0), atomic.LoadInt32(&dispatches))
 	rec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
 	assert.Equal(t, "claimed", rec.Status, "租约内的活跃领取不得被观察者改写")
+}
+
+// R30-04 跨槽恢复缺口：领取者崩溃后遗留的旧槽位不在当前触发槽（triggerSchedule
+// 的 resolveStaleClaim 只读 Slot(now)），此前从未被扫描——run-log 永久停在
+// claimed。修复后 tick 的统一扫描（reapStaleClaims）按租约窗口列出全部陈旧
+// 领取并解析为 indeterminate；当前槽照常派发一次，旧槽绝不重派发。
+func TestManager_CrossSlotStaleClaim_ReapedIndeterminate(t *testing.T) {
+	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
+	lease := 60 * time.Second
+	store := newFakeStore()
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	// 旧槽位（08:30 ≠ 当前槽 10:30）的崩溃领取者遗留：claimed 且过租约。
+	oldSlot := Slot(now.Add(-2 * time.Hour))
+	require.NotEqual(t, Slot(now), oldSlot, "旧槽必须与当前触发槽不同，才模拟跨槽缺口")
+	store.runLogs[fmt.Sprintf("1|%s", oldSlot.Format(time.RFC3339))] = model.TaskScheduleRunLog{
+		ScheduleID: 1, Slot: oldSlot, Status: model.RunLogClaimed,
+		CreatedAt: now.Add(-2 * lease),
+	}
+
+	var dispatches int32
+	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
+		atomic.AddInt32(&dispatches, 1)
+		return &sdkv1.StartTaskResponse{TaskId: "run-now"}, nil
+	})
+	m := NewManager(store, d)
+	m.SetClaimLease(lease)
+	m.tick(now)
+
+	// 当前槽照常恰好派发一次。
+	assert.Equal(t, int32(1), atomic.LoadInt32(&dispatches),
+		"当前槽必须照常派发（旧槽遗留不阻塞新触发）")
+	// 旧槽遗留被跨槽扫描解析为 indeterminate，且不重派发（dispatches 仍为 1）。
+	oldRec := store.runLogs[fmt.Sprintf("1|%s", oldSlot.Format(time.RFC3339))]
+	assert.Equal(t, model.RunLogIndeterminate, oldRec.Status,
+		"跨槽陈旧领取必须解析为 indeterminate，run-log 不得永久停在 claimed")
+	assert.Empty(t, oldRec.TaskRunID, "旧槽恢复不得臆造 TaskRunID")
+	// 当前槽回填 dispatched。
+	curRec := store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))]
+	assert.Equal(t, model.RunLogDispatched, curRec.Status)
+	assert.Equal(t, "run-now", curRec.TaskRunID)
+}
+
+// 跨槽扫描独立于到期循环：计划尚未到期（next_triggered_at 在未来）时，
+// reapStaleClaims 仍按租约窗口列出并解析其陈旧领取——不得因 ListDue 为空
+// 而漏扫（R30-04 缺口本质是「只有到期路径才看得到 claimed」）。
+func TestManager_ReapStaleClaims_NotDueSchedule(t *testing.T) {
+	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
+	lease := 60 * time.Second
+	store := newFakeStore()
+	// 计划 11:30 才到期（now=10:30 时不触发）。
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(time.Hour))}
+	oldSlot := Slot(now.Add(-2 * time.Hour))
+	store.runLogs[fmt.Sprintf("1|%s", oldSlot.Format(time.RFC3339))] = model.TaskScheduleRunLog{
+		ScheduleID: 1, Slot: oldSlot, Status: model.RunLogClaimed,
+		CreatedAt: now.Add(-2 * lease),
+	}
+
+	var dispatches int32
+	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
+		atomic.AddInt32(&dispatches, 1)
+		return &sdkv1.StartTaskResponse{TaskId: "run-x"}, nil
+	})
+	m := NewManager(store, d)
+	m.SetClaimLease(lease)
+	m.tick(now)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&dispatches), "未到期计划不得派发")
+	rec := store.runLogs[fmt.Sprintf("1|%s", oldSlot.Format(time.RFC3339))]
+	assert.Equal(t, model.RunLogIndeterminate, rec.Status,
+		"未到期计划的陈旧领取同样被跨槽扫描解析")
 }
 
 // 已终态记录不解析：回写完成但推进崩溃的槽位（dispatched + next_triggered_at

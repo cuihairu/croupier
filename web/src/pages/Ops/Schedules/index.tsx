@@ -69,6 +69,24 @@ function getStatusTagMeta(status: string, intl: IntlFormatter): { color: string;
   return { color: 'default', label: status };
 }
 
+/** 触发记录（run-log）状态配色。ARCH-023 新增 indeterminate（派发结果未知）。 */
+function runLogStatusColor(status: RunLogItem['status']): string {
+  switch (status) {
+    case 'dispatched':
+      return 'green';
+    case 'failed':
+      return 'red';
+    case 'indeterminate':
+      return 'orange'; // 派发结果未知：不得误读为确定失败
+    case 'approval_required':
+      return 'gold';
+    case 'claimed':
+      return 'processing';
+    default:
+      return 'default';
+  }
+}
+
 /** 调度表单值：payload 在表单中为 JSON 文本，提交前解析为对象 */
 type ScheduleFormValues = {
   name: string;
@@ -774,11 +792,7 @@ export default function SchedulesPage() {
               }),
               dataIndex: 'status',
               width: 100,
-              render: (v: RunLogItem['status']) => (
-                <Tag color={v === 'dispatched' ? 'green' : v === 'failed' ? 'red' : 'default'}>
-                  {v}
-                </Tag>
-              ),
+              render: (v: RunLogItem['status']) => <Tag color={runLogStatusColor(v)}>{v}</Tag>,
             },
             { title: 'TaskRun', dataIndex: 'taskRunId', render: (v?: string) => v || '-' },
             {

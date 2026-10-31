@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -100,6 +101,28 @@ func (f *fakeStore) UpdateRunLog(ctx context.Context, scheduleID uint, slot time
 		f.runLogs[key] = l
 	}
 	return nil
+}
+
+func (f *fakeStore) ListStaleClaims(ctx context.Context, before time.Time, limit int) ([]model.TaskScheduleRunLog, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []model.TaskScheduleRunLog
+	for _, l := range f.runLogs {
+		if l.Status == model.RunLogClaimed && l.CreatedAt.Before(before) {
+			out = append(out, l)
+		}
+	}
+	// 替身无稳定性保证，按 scheduleID+slot 排序保证断言确定。
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ScheduleID != out[j].ScheduleID {
+			return out[i].ScheduleID < out[j].ScheduleID
+		}
+		return out[i].Slot.Before(out[j].Slot)
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (f *fakeStore) LastRunStatus(ctx context.Context, taskRunID string) (string, error) {

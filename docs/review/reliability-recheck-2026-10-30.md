@@ -32,9 +32,9 @@
 
 ### R30-04 · P1 · 跨分钟恢复遗漏旧 claimed
 
-**CONFIRMED，ARCH-023 重新打开。** `internal/tasks/scheduler/manager.go:triggerSchedule` 领取 Slot(now)，resolveStaleClaim 仅在当前槽唯一冲突时读取该槽。诊断 t0 已领取后崩溃，t0+2m 恢复扫描，派发新槽一次但旧槽仍 claimed。
+**已修复（ARCH-023，2026-10-31）。** 原缺口：`internal/tasks/scheduler/manager.go:triggerSchedule` 领取 Slot(now)，resolveStaleClaim 仅在当前槽唯一冲突时读取该槽——t0 崩溃后的旧槽 claimed 永不被扫描。
 
-同槽唯一领取修复有效；陈旧同槽单测不等于跨槽恢复。需按已领取槽扫描/对账。派发后/回写前不确定状态也不能写成确定 `failed` 或 `claim lease expired before dispatch`，更不能据此盲目重发。
+修复：tick 每次周期统一调用 `reapStaleClaims`（`ListStaleClaims(created_at < now-claimLease, status=claimed)`）跨槽列出全部过期领取，解析为 `indeterminate`（run-log 不再永久停在 claimed）；绝不重派发（重发=对派发后中断赌二次执行，业务副作用去重归 GAME-010）。同槽 `resolveStaleClaim` 同样改为 `indeterminate`——R30-04 要求派发后/回写前的不确定状态不得写成确定 `failed` 或 `claim lease expired before dispatch`。证据：`internal/tasks/scheduler/arch023_test.go`（跨槽恢复、未到期计划独立扫描）、`internal/model/task_schedule_model.go:ListStaleClaims`。
 
 ### R30-05 · P1 · 分析聚合存在生产字段竞态
 

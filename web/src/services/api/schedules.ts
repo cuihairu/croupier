@@ -22,7 +22,9 @@ export type ScheduleItem = {
 export type RunLogItem = {
   id: number;
   taskRunId?: string;
-  status: 'dispatched' | 'skipped' | 'failed';
+  // ARCH-023：claimed=已领取；indeterminate=领取租约过期、派发结果未知。
+  // approval_required=政策要求审批未派发（Govern 入口写）。
+  status: 'claimed' | 'dispatched' | 'skipped' | 'failed' | 'indeterminate' | 'approval_required';
   message?: string;
   slot: string;
   createdAt: string;

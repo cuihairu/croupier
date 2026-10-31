@@ -58,6 +58,9 @@ type ScheduleStore interface {
 	GetRunLog(ctx context.Context, scheduleID uint, slot time.Time) (*model.TaskScheduleRunLog, error)
 	// UpdateRunLog 回填领取槽位后的派发结果（ARCH-023 先领取再派发）。
 	UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error
+	// ListStaleClaims 列出 created_at < before 的 claimed 领取记录（ARCH-023
+	// 跨槽崩溃恢复：旧槽遗留领取不在当前触发槽，由统一扫描解析）。
+	ListStaleClaims(ctx context.Context, before time.Time, limit int) ([]model.TaskScheduleRunLog, error)
 	// LastRunResult 取某 TaskRun 的终态（"" = 未终态/不存在）。
 	LastRunStatus(ctx context.Context, taskRunID string) (string, error)
 }
@@ -161,7 +164,7 @@ func (m *Manager) loop() {
 	}
 }
 
-// tick 处理一个扫描周期：到期触发 + 失败计数推进。
+// tick 处理一个扫描周期：到期触发 + 跨槽领取恢复（ARCH-023 R30-04）。
 func (m *Manager) tick(now time.Time) {
 	ctx := context.Background()
 	due, err := m.store.ListDue(ctx, now, 100)
@@ -171,6 +174,28 @@ func (m *Manager) tick(now time.Time) {
 	}
 	for i := range due {
 		m.triggerSchedule(ctx, &due[i], now)
+	}
+	m.reapStaleClaims(ctx, now)
+}
+
+// reapStaleClaims 跨槽扫描租约过期的 claimed（ARCH-023 R30-04 恢复缺口）：
+// 领取者崩溃后遗留的旧槽位不在当前触发槽（triggerSchedule 只解析当前槽），
+// 由这里按租约窗口统一列出并解析为 indeterminate——run-log 不再永久停在
+// claimed，审计保留「派发结果未知」。绝不重派发（重发=对派发后中断赌二次
+// 执行；业务最终副作用去重归 GAME-010）。活跃领取（租约内）不动。
+func (m *Manager) reapStaleClaims(ctx context.Context, now time.Time) {
+	stale, err := m.store.ListStaleClaims(ctx, now.Add(-m.claimLease), 100)
+	if err != nil {
+		slog.Warn("scheduler: list stale claims failed", "error", err)
+		return
+	}
+	for i := range stale {
+		rec := &stale[i]
+		slog.Warn("scheduler: stale claim lease expired, mark indeterminate",
+			"schedule", rec.ScheduleID, "slot", rec.Slot.Format(time.RFC3339),
+			"age", now.Sub(rec.CreatedAt).String())
+		_ = m.store.UpdateRunLog(ctx, rec.ScheduleID, rec.Slot, "",
+			model.RunLogIndeterminate, "claim lease expired; dispatch outcome unknown (crash before writeback)")
 	}
 }
 
@@ -202,7 +227,7 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 	}
 	if !claimed {
 		// 已被领取：他实例占住本槽，或领取者崩溃后的遗留。先解析陈旧领取
-		// （租约过期 → 终态 failed），再推进下次触发时间。
+		// （租约过期 → 终态 indeterminate，派发结果未知），再推进下次触发时间。
 		m.resolveStaleClaim(ctx, s, slot, now)
 		m.advance(s, spec, now, nil)
 		return
@@ -317,9 +342,11 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 
 // resolveStaleClaim 处理被占槽位的既有领取记录（ARCH-023 崩溃恢复）。
 // 领取后超过租约仍停在 claimed 的，视为领取者崩溃——覆盖两类中断：
-//   - 领取后/派发前中断：任务从未派发，槽位被解析为 failed 并推进；
-//   - 派发后/回写前中断：任务可能已派发但回写未落，同样解析为 failed
-//     （无法与上一类区分），调度恢复推进。
+//   - 领取后/派发前中断：任务从未派发，槽位被解析为 indeterminate 并推进；
+//   - 派发后/回写前中断：任务可能已派发但回写未落。
+//
+// 两类无法区分，R30-04 规定不得记为确定失败（failed）——indeterminate 是
+// 唯一诚实的终态：「派发结果未知」，审计保留人工核验入口。
 //
 // 关键约束：不重派发。重发会让「派发后崩溃」的槽位重复执行（业务最终
 // 副作用去重由 GAME-010 承担，执行层不赌二次运行）。活跃领取（未过租约，
@@ -331,16 +358,17 @@ func (m *Manager) resolveStaleClaim(ctx context.Context, s *model.TaskSchedule, 
 		slog.Warn("scheduler: read existing run log failed", "schedule", s.ID, "error", err)
 		return
 	}
-	if rec == nil || rec.Status != "claimed" {
+	if rec == nil || rec.Status != model.RunLogClaimed {
 		return
 	}
 	age := now.Sub(rec.CreatedAt)
 	if age <= m.claimLease {
 		return
 	}
-	slog.Warn("scheduler: claim lease expired, mark slot failed",
+	slog.Warn("scheduler: claim lease expired, mark indeterminate",
 		"schedule", s.ID, "slot", slot.Format(time.RFC3339), "age", age.String())
-	_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", "failed", "claim lease expired before dispatch")
+	_ = m.store.UpdateRunLog(ctx, s.ID, slot, "", model.RunLogIndeterminate,
+		"claim lease expired; dispatch outcome unknown (crash before writeback)")
 }
 
 // triggerLocal 执行 server-local 调度（Kind=incident_report）：同步调用

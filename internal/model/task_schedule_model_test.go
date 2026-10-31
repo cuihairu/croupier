@@ -129,3 +129,65 @@ func TestTaskScheduleListDueAndRunLog(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "", st2)
 }
+
+// ARCH-023 R30-04：跨槽陈旧领取扫描。ListStaleClaims 只返回
+// status=claimed 且 created_at < before 的记录——非 claimed（已终态）不返回，
+// 租约内（新近）不返回，limit 生效。
+func TestTaskScheduleModel_ListStaleClaims(t *testing.T) {
+	db := setupTaskSchedDB(t)
+	m := NewTaskScheduleModel(db)
+	ctx := context.Background()
+
+	s1, err := m.Create(ctx, CreateScheduleInput{
+		Name: "a", CronExpr: "* * * * *", GameID: "demo", Env: "prod", FunctionID: "f",
+	})
+	require.NoError(t, err)
+	s2, err := m.Create(ctx, CreateScheduleInput{
+		Name: "b", CronExpr: "* * * * *", GameID: "demo", Env: "prod", FunctionID: "f",
+	})
+	require.NoError(t, err)
+
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// 旧 claimed：s1 在 2 小时前领取，崩溃遗留。
+	oldSlot := now.Add(-2 * time.Hour).Truncate(time.Minute)
+	ok, err := m.CreateRunLog(ctx, &TaskScheduleRunLog{ScheduleID: s1.ID, Slot: oldSlot, Status: RunLogClaimed})
+	require.NoError(t, err)
+	require.True(t, ok)
+	// 手动把 created_at 拨老（CreateRunLog 填的是当前时间）。
+	require.NoError(t, db.Model(&TaskScheduleRunLog{}).Where("schedule_id = ? AND slot = ?", s1.ID, oldSlot).
+		Update("created_at", now.Add(-3*time.Hour)).Error)
+
+	// 新 claimed（租约内）：s2 刚领取，不得返回。
+	freshSlot := now.Truncate(time.Minute)
+	ok, err = m.CreateRunLog(ctx, &TaskScheduleRunLog{ScheduleID: s2.ID, Slot: freshSlot, Status: RunLogClaimed})
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	// 已终态（dispatched）旧记录：s1 的另一旧槽，不得返回（非 claimed）。
+	termSlot := now.Add(-4 * time.Hour).Truncate(time.Minute)
+	ok, err = m.CreateRunLog(ctx, &TaskScheduleRunLog{ScheduleID: s1.ID, Slot: termSlot, Status: RunLogDispatched})
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.NoError(t, db.Model(&TaskScheduleRunLog{}).Where("schedule_id = ? AND slot = ?", s1.ID, termSlot).
+		Update("created_at", now.Add(-5*time.Hour)).Error)
+
+	// 窗口 before = now - lease（lease=60s）：只命中 s1 的旧 claimed。
+	before := now.Add(-time.Minute)
+	stale, err := m.ListStaleClaims(ctx, before, 100)
+	require.NoError(t, err)
+	require.Len(t, stale, 1, "只返回 created_at<before 且 status=claimed 的记录")
+	assert.Equal(t, s1.ID, stale[0].ScheduleID)
+	assert.Equal(t, oldSlot.UTC(), stale[0].Slot.UTC())
+	assert.Equal(t, RunLogClaimed, stale[0].Status)
+
+	// limit=1 仍命中 1 条；limit=0 不限制（同 1 条）。
+	staleLimit, err := m.ListStaleClaims(ctx, before, 1)
+	require.NoError(t, err)
+	assert.Len(t, staleLimit, 1)
+
+	// 窗口收紧到 5 小时前：无陈旧领取 → 空。
+	none, err := m.ListStaleClaims(ctx, now.Add(-5*time.Hour), 100)
+	require.NoError(t, err)
+	assert.Len(t, none, 0)
+}
