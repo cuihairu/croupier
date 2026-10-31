@@ -85,3 +85,33 @@ func TestWatchdogIntervalFor_Clamps(t *testing.T) {
 	require.Equal(t, watchdogIntervalMax, watchdogIntervalFor(0))
 	require.Equal(t, watchdogIntervalMax, watchdogIntervalFor(-time.Second))
 }
+
+// 发现 7：SetTaskReaper 在写锁下写 watchdogBudget/watchdogInterval，而
+// runTaskWatchdog 与 taskWatchdogLoop 后台循环此前无锁读。虽因「须在
+// StartBackgroundTasks 前调用」靠 goroutine happens-before 免于现行 race，
+// 字段读写无同步契约。修复后读侧加 RLock，与写锁对齐（race 检测干净）。
+func TestControlService_WatchdogFields_RaceFreeRead(t *testing.T) {
+	svc := newTestControlService()
+	reaper := &mockTaskReaper{rows: 1}
+	svc.SetTaskReaper(reaper, 4*time.Second)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// 循环读（等价于后台 taskWatchdogLoop/runTaskWatchdog 的字段读）。
+		for i := 0; i < 1000; i++ {
+			svc.mu.RLock()
+			_ = svc.watchdogBudget
+			_ = svc.watchdogInterval
+			_ = svc.taskReaper
+			svc.mu.RUnlock()
+			svc.runTaskWatchdog()
+		}
+	}()
+	// 并发写（等价于 SetTaskReaper 在运行期被调用）。
+	for i := 0; i < 100; i++ {
+		svc.SetTaskReaper(reaper, time.Duration(i%10)*time.Second+time.Second)
+	}
+	<-done
+	require.EqualValues(t, 1000, atomic.LoadInt32(&reaper.calls))
+}

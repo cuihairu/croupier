@@ -2049,12 +2049,16 @@ func (s *ControlService) contractRemovalSweepLoop() {
 // ARCH-018 D3 看门狗：活动行 updated_at 早于预算 → timed_out（终态，
 // 含义是「无进一步证据」而非「游戏侧失败」）。
 func (s *ControlService) runTaskWatchdog() {
-	if s.taskReaper == nil {
+	s.mu.RLock()
+	reaper := s.taskReaper
+	budget := s.watchdogBudget
+	s.mu.RUnlock()
+	if reaper == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	reaped, err := s.taskReaper.ReapStale(ctx, s.watchdogBudget, tasks.StatusTimedOut,
+	reaped, err := reaper.ReapStale(ctx, budget, tasks.StatusTimedOut,
 		"no event past watchdog budget; execution state unknown")
 	if err != nil {
 		s.logger.Error("failed to reap stale tasks", "error", err)
@@ -2064,7 +2068,9 @@ func (s *ControlService) runTaskWatchdog() {
 }
 
 func (s *ControlService) taskWatchdogLoop() {
+	s.mu.RLock()
 	interval := s.watchdogInterval
+	s.mu.RUnlock()
 	if interval <= 0 {
 		interval = watchdogIntervalMax
 	}
