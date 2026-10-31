@@ -363,3 +363,27 @@ func TestClaimForDispatchExactlyOnce(t *testing.T) {
 		assert.False(t, ok)
 	})
 }
+
+// 发现 6：ClaimForDispatch 的 SQL WHERE 须与 MemStore 判重语义一致
+// （ClaimStatus!=”||ClaimToken!=” 均拒绝二次领取）。此前 SQL 只查
+// claim_token=”，历史/异常行若 claim_token 空而 claim_status 非空，可被
+// SQL 二次领取而 MemStore 拒绝。修复后两者一致。
+func TestClaimForDispatch_SQLRejectsClaimStatusOnly(t *testing.T) {
+	store, err := NewSQLStore(openSharedTestDB(t))
+	require.NoError(t, err)
+	seedPendingApproval(t, store, "claim-status-only")
+	_, err = store.Approve("claim-status-only", "op-a")
+	require.NoError(t, err)
+
+	// 构造历史/异常行：claim_token 为空但 claim_status 非空（此前能二次领取）。
+	db := store.db
+	require.NoError(t, db.Model(&ApprovalModel{}).Where("id = ?", "claim-status-only").
+		Updates(map[string]any{"claim_status": "claimed", "claim_token": ""}).Error)
+
+	_, err = store.ClaimForDispatch("claim-status-only", "token-reclaim", "digest")
+	require.Error(t, err, "claim_status 非空且 claim_token 空的行不得二次领取")
+	conflict, ok := AsAlreadyReviewed(err)
+	require.True(t, ok, "应为 ErrAlreadyReviewed 冲突")
+	assert.Equal(t, "approved", conflict.State)
+	assert.Equal(t, "claimed", conflict.ClaimStatus)
+}

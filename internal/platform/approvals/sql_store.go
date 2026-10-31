@@ -247,7 +247,7 @@ func (s *SQLStore) ClaimForDispatch(id, token, payloadDigest string) (*Approval,
 	}
 	now := time.Now()
 	res := s.db.Model(&ApprovalModel{}).
-		Where("id = ? AND state = ? AND claim_token = ''", id, "approved").
+		Where("id = ? AND state = ? AND claim_token = '' AND claim_status = ''", id, "approved").
 		Updates(map[string]any{
 			"claim_status":   "claimed",
 			"claim_token":    token,
