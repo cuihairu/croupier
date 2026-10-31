@@ -208,7 +208,7 @@
 
 - [ ] **AGENT-001 · P0 · 故障验证 · 四类 Agent 当前接口的 scope 隔离矩阵**
   - 依赖：—。交付与验收：按当前已支持的注册/配置/列表/统计/详情/动作/日志/离线读取逐项核对；复用非空 scope 和绑定测试，覆盖同 ID 冲突及跨 scope 指派；devops 未接通的会话/回放列 NOT IMPLEMENTED，不用假数据当验收
-  - 状态／条件：NOT RUN；本地模拟与四角色栈可以开展；未来 devops 会话隔离随 AGENT-002/003 验收，不把缺中继误写成只缺环境。
+  - 状态／条件：READY（2026-11-01）：本地模拟与四角色栈可以开展；已定位相关测试起点（`internal/platform/dispatch/routing_scope_test.go`、`internal/platform/registry/store_metadata_*_test.go`、`cmd/server/dashboard_registration_*_test.go`、`internal/api/approval/scope_filter_test.go`），仍需系统整理四类 Agent 注册/配置/列表/统计/详情/动作/日志/离线读取矩阵与同 ID 冲突/跨 scope 指派证据。未来 devops 会话隔离随 AGENT-002/003 验收，不把缺中继误写成只缺环境。非 BLOCKED，可继续本地推进。
 
 - [ ] **AGENT-002 · P1 · 实现 · devops 面板会话中继**
   - 依赖：—。交付与验收：接通已有 Broker/Hub 的创建/数据/窗口/关闭通道与 Server 授权、审计、背压；不新增 RDP/VNC；SSH 真目标端到端连接和断线清理可验。
