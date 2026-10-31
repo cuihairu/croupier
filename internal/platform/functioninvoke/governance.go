@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/api/assignment"
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	logicassignment "github.com/cuihairu/croupier/internal/logic/assignment"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/policy"
@@ -88,7 +88,7 @@ func (g *Governance) Gate(ctx context.Context, subject Subject, in GateInput) (*
 		return nil, err
 	}
 	// 2. 分配闸门（BUG-032）：scope 有分配记录时是执行白名单，未分配 403。
-	if err := assignment.EnsureFunctionAssigned(ctx, g.svcCtx, functionID, gameID, env); err != nil {
+	if err := logicassignment.EnsureFunctionAssigned(ctx, g.svcCtx, functionID, gameID, env); err != nil {
 		return nil, err
 	}
 

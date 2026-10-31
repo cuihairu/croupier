@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/fsutil"
+	logicassignment "github.com/cuihairu/croupier/internal/logic/assignment"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -27,19 +28,7 @@ type assignmentHistoryEntry struct {
 }
 
 func assignmentsPath(ctx *svc.ServiceContext) string {
-	if ctx == nil {
-		return filepath.Join("data", "assignments.json")
-	}
-	path := strings.TrimSpace(ctx.Config.Registry.AssignmentsPath)
-	if path == "" {
-		path = filepath.Join("data", "assignments.json")
-	}
-	if !filepath.IsAbs(path) {
-		if base := strings.TrimSpace(ctx.Config.BootstrapData.BaseDir); base != "" && filepath.IsAbs(base) {
-			path = filepath.Join(base, path)
-		}
-	}
-	return filepath.Clean(path)
+	return logicassignment.AssignmentsPath(ctx)
 }
 
 func assignmentHistoryPath(ctx *svc.ServiceContext) string {
