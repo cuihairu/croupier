@@ -26,6 +26,10 @@ type Config struct {
 	KeyFile            string
 	ServerName         string
 	InsecureSkipVerify bool
+	// VerifyConnection, when set, is invoked by both the TLS client and the
+	// TLS server after the standard verification. It lets role/identity
+	// checks run against the verified peer certificate (nil when Insecure).
+	VerifyConnection func(state tls.ConnectionState) error
 
 	ConnectTimeout time.Duration
 	RecvTimeout    time.Duration
@@ -202,6 +206,9 @@ func createClientTLSConfig(config *Config) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: config.InsecureSkipVerify,
+	}
+	if config.VerifyConnection != nil {
+		tlsConfig.VerifyConnection = config.VerifyConnection
 	}
 
 	if config.CAFile != "" {

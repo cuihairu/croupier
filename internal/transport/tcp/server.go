@@ -34,6 +34,75 @@ type Server struct {
 	conns map[net.Conn]struct{}
 }
 
+type connectionSessionContextKey struct{}
+
+// ConnectionHandshakeKey is the per-connection session key used by the
+// interconnect hello handshake to mark a connection as authenticated.
+const ConnectionHandshakeKey = "interconnect-handshake"
+
+// ConnectionSession carries per-connection state through Handler contexts.
+// Transport ownership keeps the state bounded by the accepted connection's
+// lifetime; no global registry is required.
+type ConnectionSession struct {
+	mu       sync.Mutex
+	metadata map[string]any
+}
+
+// NewConnectionSession creates a fresh per-connection session for tests and
+// callers that wire Handler contexts without an accepted net.Conn.
+func NewConnectionSession() *ConnectionSession { return &ConnectionSession{} }
+
+// WithConnectionSession attaches a session to a context (test/injection path).
+func WithConnectionSession(ctx context.Context, session *ConnectionSession) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, connectionSessionContextKey{}, session)
+}
+
+// HandshakeDone reports whether the interconnect hello handshake completed.
+func (s *ConnectionSession) HandshakeDone() bool {
+	if s == nil {
+		return false
+	}
+	done, _ := s.Get(ConnectionHandshakeKey)
+	value, _ := done.(bool)
+	return value
+}
+
+// Set stores a per-connection value.
+func (s *ConnectionSession) Set(key string, value any) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.metadata == nil {
+		s.metadata = make(map[string]any)
+	}
+	s.metadata[key] = value
+}
+
+// Get loads a per-connection value.
+func (s *ConnectionSession) Get(key string) (any, bool) {
+	if s == nil {
+		return nil, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	value, ok := s.metadata[key]
+	return value, ok
+}
+
+// ConnectionSessionFromContext returns the session attached to a connection.
+func ConnectionSessionFromContext(ctx context.Context) *ConnectionSession {
+	if ctx == nil {
+		return nil
+	}
+	session, _ := ctx.Value(connectionSessionContextKey{}).(*ConnectionSession)
+	return session
+}
+
 var _ transportcore.Server = (*Server)(nil)
 
 // NewServer creates a new TCP transport server.
@@ -99,6 +168,8 @@ func (s *Server) Serve(ctx context.Context) error {
 
 func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 	defer func() { _ = conn.Close() }()
+	session := &ConnectionSession{}
+	ctx = context.WithValue(ctx, connectionSessionContextKey{}, session)
 
 	for {
 		select {

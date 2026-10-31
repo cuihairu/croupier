@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"testing"
 	"time"
@@ -24,8 +23,7 @@ type interconnectServeHandler struct {
 func (h *interconnectServeHandler) Handle(ctx context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
 	switch msgID {
 	case protocol.MsgServerHelloRequest:
-		resp, _ := json.Marshal(helloResponse{InstanceID: "owner-inst", Epoch: h.epoch})
-		return resp, nil
+		return ServeHelloHandler(PeerInfo{InstanceID: "owner-inst"}, h.epoch)(ctx, body), nil
 	case protocol.MsgForwardInvokeReq:
 		forward := ServeForwardHandler(h.epoch, func(_ context.Context, req *ForwardedInvoke) (*ForwardedResult, error) {
 			return &ForwardedResult{OK: true, Payload: h.rawResult}, nil
@@ -115,8 +113,7 @@ type startTaskServeHandler struct {
 func (h *startTaskServeHandler) Handle(ctx context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
 	switch msgID {
 	case protocol.MsgServerHelloRequest:
-		resp, _ := json.Marshal(helloResponse{InstanceID: "owner-inst", Epoch: h.epoch})
-		return resp, nil
+		return ServeHelloHandler(PeerInfo{InstanceID: "owner-inst"}, h.epoch)(ctx, body), nil
 	case protocol.MsgForwardInvokeReq:
 		forward := ServeForwardHandler(h.epoch, func(_ context.Context, req *ForwardedInvoke) (*ForwardedResult, error) {
 			h.capture(req)

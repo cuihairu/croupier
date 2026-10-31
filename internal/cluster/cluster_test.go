@@ -6,11 +6,18 @@ import (
 	"testing"
 	"time"
 
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func handshakedCtx() context.Context {
+	ctx := internaltcp.WithConnectionSession(context.Background(), internaltcp.NewConnectionSession())
+	internaltcp.ConnectionSessionFromContext(ctx).Set(internaltcp.ConnectionHandshakeKey, true)
+	return ctx
+}
 
 func newDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -228,18 +235,18 @@ func TestServeForwardHandler_FencingAndFlags(t *testing.T) {
 
 	// epoch 不匹配（僵尸 owner）→ NotOwner，不执行本地。
 	var result ForwardedResult
-	require.NoError(t, json.Unmarshal(handler(context.Background(), mustJSON(t, &ForwardedInvoke{Forwarded: true, CallerEpoch: 41})), &result))
+	require.NoError(t, json.Unmarshal(handler(handshakedCtx(), mustJSON(t, &ForwardedInvoke{Forwarded: true, CallerEpoch: 41})), &result))
 	assert.False(t, result.OK)
 	assert.True(t, result.NotOwner)
 	assert.False(t, localCalled)
 
 	// 未标记 forwarded（异常调用）→ 拒绝。
-	require.NoError(t, json.Unmarshal(handler(context.Background(), mustJSON(t, &ForwardedInvoke{Forwarded: false, CallerEpoch: 42})), &result))
+	require.NoError(t, json.Unmarshal(handler(handshakedCtx(), mustJSON(t, &ForwardedInvoke{Forwarded: false, CallerEpoch: 42})), &result))
 	assert.False(t, result.OK)
 	assert.False(t, localCalled)
 
 	// 正常路径 → 本地执行。
-	require.NoError(t, json.Unmarshal(handler(context.Background(), mustJSON(t, &ForwardedInvoke{Forwarded: true, CallerEpoch: 42})), &result))
+	require.NoError(t, json.Unmarshal(handler(handshakedCtx(), mustJSON(t, &ForwardedInvoke{Forwarded: true, CallerEpoch: 42})), &result))
 	assert.True(t, result.OK)
 	assert.True(t, localCalled)
 }

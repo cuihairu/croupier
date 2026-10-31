@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -213,7 +214,8 @@ func TestRefreshPeers_NilMembershipAndErrorV9(t *testing.T) {
 }
 
 func TestServeForwardHandler_BadJSONAndInvokeErrorV9(t *testing.T) {
-	ctx := context.Background()
+	ctx := internaltcp.WithConnectionSession(context.Background(), internaltcp.NewConnectionSession())
+	internaltcp.ConnectionSessionFromContext(ctx).Set(internaltcp.ConnectionHandshakeKey, true)
 	handler := ServeForwardHandler(7, func(ctx context.Context, req *ForwardedInvoke) (*ForwardedResult, error) {
 		return nil, errors.New("v9: local invoke boom")
 	})

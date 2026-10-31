@@ -14,6 +14,36 @@ import (
 	"time"
 )
 
+func randomSerial() (*big.Int, error) {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	return rand.Int(rand.Reader, serialNumberLimit)
+}
+
+func loadCA(caCrtPath, caKeyPath string) (*x509.Certificate, *rsa.PrivateKey, error) {
+	caCrtBytes, err := os.ReadFile(caCrtPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	caKeyBytes, err := os.ReadFile(caKeyPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	caCrtBlock, _ := pem.Decode(caCrtBytes)
+	caKeyBlock, _ := pem.Decode(caKeyBytes)
+	if caCrtBlock == nil || caKeyBlock == nil {
+		return nil, nil, fmt.Errorf("invalid CA pem files")
+	}
+	caCert, err := x509.ParseCertificate(caCrtBlock.Bytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	caKey, err := x509.ParsePKCS1PrivateKey(caKeyBlock.Bytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return caCert, caKey, nil
+}
+
 // writeFile creates file with given mode if not exists; overwrites otherwise.
 func writeFile(path string, data []byte, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -186,6 +216,65 @@ func EnsureAgentCert(dir, caCrtPath, caKeyPath, commonName string) (crtPath, key
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
+	}
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return "", "", err
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, caCert, &key.PublicKey, caKey)
+	if err != nil {
+		return "", "", err
+	}
+	crtPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	if err := writeFile(crtPath, crtPEM, 0o644); err != nil {
+		return "", "", err
+	}
+	if err := writeFile(keyPath, keyPEM, 0o600); err != nil {
+		return "", "", err
+	}
+	return crtPath, keyPath, nil
+}
+
+// EnsureInterconnectCert ensures a dual-purpose server certificate for the
+// authenticated Server-to-Server interconnect. Both EKUs make the role
+// distinguishable from Agent client certificates; CommonName binds the
+// instance identity; hosts populate IP/DNS SANs (peers dial by IP).
+func EnsureInterconnectCert(dir, caCrtPath, caKeyPath, instanceID string, hosts []string) (crtPath, keyPath string, err error) {
+	crtPath = filepath.Join(dir, "interconnect.crt")
+	keyPath = filepath.Join(dir, "interconnect.key")
+	if _, e1 := os.Stat(crtPath); e1 == nil {
+		if _, e2 := os.Stat(keyPath); e2 == nil {
+			return crtPath, keyPath, nil
+		}
+	}
+
+	caCert, caKey, err := loadCA(caCrtPath, caKeyPath)
+	if err != nil {
+		return "", "", err
+	}
+	serialNumber, err := randomSerial()
+	if err != nil {
+		return "", "", err
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject:      pkix.Name{CommonName: instanceID},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().AddDate(1, 0, 0),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageServerAuth,
+			x509.ExtKeyUsageClientAuth,
+		},
+		BasicConstraintsValid: true,
+	}
+	for _, h := range hosts {
+		if ip := net.ParseIP(h); ip != nil {
+			tmpl.IPAddresses = append(tmpl.IPAddresses, ip)
+		} else {
+			tmpl.DNSNames = append(tmpl.DNSNames, h)
+		}
 	}
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

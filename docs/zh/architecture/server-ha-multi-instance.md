@@ -291,10 +291,11 @@ cluster:
 
 ### 5.3 互联安全
 
-设计目标（mTLS）与当前实现的差距：
+已实现（ARCH-003，2026-10-31）：
 
 - **设计**：复用既有 mTLS CA（devcert/tlsutil/证书监控），互联端口只接受 `role = server` 的对端证书，Agent 证书连接直接拒绝
-- **现状**：互联是**内网明文 TCP**（`Insecure: true`，ClusterConfig 尚无证书配置面），握手仅校验 hello 的 role 字符串，**无对端认证**。信任边界完全依赖网络隔离——互联端口（interconnectAddr）只允许集群内网可达，接 mTLS 前不得暴露公网
+- **实现**：`cluster.interconnectTls` 是专用证书面（`certFile`/`keyFile`/`caFile`/`serverName`）。证书三项齐备且 `insecureSkipTls` 为 false 时互联走 mTLS，`VerifyConnection` 钩子（`internal/cluster/identity.go`）拒绝任何叶证书缺双 `ServerAuth`+`ClientAuth` EKU（server 角色）或空 CommonName 的对端；Agent 证书（仅 ClientAuth）直接拒绝。`devcert.EnsureInterconnectCert` 签发双 EKU 证书。握手门禁（`ServeHelloHandler` 标记连接会话、`ServeForwardHandler` 拒绝未握手 forward）保证身份绑定先于任何动作；epoch fencing（铁律二）在同一连接上不变仍强制执行。证书字段不齐或 `insecureSkipTls` 为 true 时保持内网明文 TCP（向后兼容），就绪面记录降级。
+- **信任边界**：未配置证书面时互联端口（interconnectAddr）仍只允许集群内网可达，不得暴露公网。
 - **owner 不重查 policy/approval（实现决策，偏离早期设计）**：转发请求携带原始调用者上下文（username/roles/adminId/traceId），但 owner 只落审计、不重新执行权限校验。理由：caller 已走完完整鉴权链（policy 命中 + 审批通过后审批续跑的二次调用经转发到达 owner），owner 重查会因审批上下文不在本实例而卡死审批续跑。该决策的前提同样是「互联端口仅集群内网可达」——内网实例被视作可信方
 - owner 侧审计：每次转发投递（成功/失败）落一条 `function.invoke` 审计（actor 与 caller 侧审计同键，details 携 `forwarded: true` / `kind` / `agent_id`）。审计哈希链的 sequence 分配在多实例并发下会撞唯一约束（各实例 memCache 视角独立）——`AuditService.Log` 检测到链冲突即重查共享库真实链尾重算 sequence/prev/hash 后重试（≤3 次），唯一约束兜底保证只有与链尾正确衔接的行能落库，链完整性不因多实例分叉；重试耗尽留 Warn 日志
 

@@ -18,6 +18,13 @@ cluster:
   ownerTtl: 3m
   peerPollInterval: 10s
   insecureSkipTls: false
+  interconnectTls:
+    enabled: true
+    certFile: /etc/croupier/ic.crt
+    keyFile: /etc/croupier/ic.key
+    caFile: /etc/croupier/ic-ca.crt
+    serverName: cluster.internal
+    insecureSkipVerify: false
 `
 	var cfg Config
 	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
@@ -32,6 +39,11 @@ cluster:
 	}
 	if c.OwnerTTL != "3m" || c.PeerPollInterval != "10s" || c.InsecureSkipTLS {
 		t.Fatalf("extra fields mismatch: %+v", c)
+	}
+	if !c.InterconnectTLS.Enabled || c.InterconnectTLS.CertFile != "/etc/croupier/ic.crt" ||
+		c.InterconnectTLS.KeyFile != "/etc/croupier/ic.key" || c.InterconnectTLS.CAFile != "/etc/croupier/ic-ca.crt" ||
+		c.InterconnectTLS.ServerName != "cluster.internal" {
+		t.Fatalf("interconnectTLS mismatch: %+v", c.InterconnectTLS)
 	}
 }
 
