@@ -163,7 +163,7 @@ func govern(ctx context.Context, svcCtx *svc.ServiceContext, req *Request, sub S
 		}
 	}
 
-	// 7. 函数权限/政策审批（跳过续跑与页面快照治理的二次审批，同 Invoke）。
+	// 6. 函数权限/政策审批（跳过续跑与页面快照治理的二次审批，同 Invoke）。
 	var functionPolicy *policy.Policy
 	if svcCtx.PolicyManager != nil && !IsApprovedContinuation(req.Metadata) && !IsPageSnapshotGoverned(req.Metadata) {
 		functionPolicy, err = EnforceFunctionPolicy(gctx, svcCtx, functionID, gameID, env, roleNames)
