@@ -343,7 +343,12 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		panic(fmt.Sprintf("Failed to initialize object store: %v", err))
 	}
 
-	approvalsStore := approvals.NewMemStore()
+	// ARCH-002：审批接入共享 SQL 存储。复用同一 DB 连接（单库或 meta 库），
+	// 双实例并发/重启断言由 SQL 条件更新保证（CAS 与 D7 领取均落库）。
+	approvalsStore, err := approvals.NewSQLStore(db)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize approvals store: %v", err))
+	}
 
 	// 初始化审计服务。错误分支已删（原 if err != nil 降级为 nil）：
 	// NewSQLAuditStore 仅对 nil db 报错，而此处 db 来自 openDatabase，
@@ -827,7 +832,7 @@ func autoMigrate(db *gorm.DB) error {
 // on internal/model (audit, registry metrics). It runs as part of the
 // migration baseline only — constructors of these stores never run DDL.
 func migrateAuxModels(db *gorm.DB) error {
-	if err := db.AutoMigrate(&audit.AuditModel{}, &reg.AgentMetricsHistory{}); err != nil {
+	if err := db.AutoMigrate(&audit.AuditModel{}, &reg.AgentMetricsHistory{}, &approvals.ApprovalModel{}); err != nil {
 		return fmt.Errorf("failed to migrate aux models: %w", err)
 	}
 	return nil

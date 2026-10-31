@@ -10,28 +10,36 @@ import (
 
 // ApprovalModel is the GORM model for approvals table
 type ApprovalModel struct {
-	ID              string         `gorm:"primaryKey;type:varchar(255)" json:"id"`
-	State           string         `gorm:"type:varchar(50);not null;index" json:"state"`
-	FunctionID      string         `gorm:"type:varchar(255);not null;index" json:"functionId"`
-	GameID          string         `gorm:"type:varchar(255);not null;index" json:"gameId"`
-	Env             string         `gorm:"type:varchar(100);not null;index" json:"env"`
-	Actor           string         `gorm:"type:varchar(255);not null;index" json:"actor"`
-	Approver        string         `gorm:"type:varchar(255);index" json:"approver"`
-	ReviewedAt      *time.Time     `json:"reviewedAt"`
-	Mode            string         `gorm:"type:varchar(50);default:invoke" json:"mode"`
-	IdempotencyKey  string         `gorm:"type:varchar(255);index" json:"idempotencyKey"`
-	Route           string         `gorm:"type:varchar(500)" json:"route"`
-	TargetServiceID string         `gorm:"type:varchar(255);index" json:"targetServiceId"`
-	HashKey         string         `gorm:"type:varchar(255);index" json:"hashKey"`
-	Payload         []byte         `gorm:"type:blob" json:"payload"`
-	MetadataJSON    dbtype.JSON    `json:"metadataJson"`
-	Reason          string         `gorm:"type:text" json:"reason"`
-	ResultKind      string         `gorm:"type:varchar(50)" json:"resultKind"`
-	TaskID          string         `gorm:"type:varchar(255);index" json:"taskId"`
-	Result          []byte         `gorm:"type:blob" json:"result"`
-	CreatedAt       time.Time      `gorm:"not null;index" json:"createdAt"`
-	UpdatedAt       time.Time      `gorm:"not null" json:"updatedAt"`
-	DeletedAt       gorm.DeletedAt `gorm:"index" json:"deletedAt"`
+	ID              string      `gorm:"primaryKey;type:varchar(255)" json:"id"`
+	State           string      `gorm:"type:varchar(50);not null;index" json:"state"`
+	FunctionID      string      `gorm:"type:varchar(255);not null;index" json:"functionId"`
+	GameID          string      `gorm:"type:varchar(255);not null;index" json:"gameId"`
+	Env             string      `gorm:"type:varchar(100);not null;index" json:"env"`
+	Actor           string      `gorm:"type:varchar(255);not null;index" json:"actor"`
+	Approver        string      `gorm:"type:varchar(255);index" json:"approver"`
+	ReviewedAt      *time.Time  `json:"reviewedAt"`
+	Mode            string      `gorm:"type:varchar(50);default:invoke" json:"mode"`
+	IdempotencyKey  string      `gorm:"type:varchar(255);index" json:"idempotencyKey"`
+	Route           string      `gorm:"type:varchar(500)" json:"route"`
+	TargetServiceID string      `gorm:"type:varchar(255);index" json:"targetServiceId"`
+	HashKey         string      `gorm:"type:varchar(255);index" json:"hashKey"`
+	Payload         []byte      `gorm:"type:blob" json:"payload"`
+	MetadataJSON    dbtype.JSON `json:"metadataJson"`
+	Reason          string      `gorm:"type:text" json:"reason"`
+	ResultKind      string      `gorm:"type:varchar(50)" json:"resultKind"`
+	TaskID          string      `gorm:"type:varchar(255);index" json:"taskId"`
+	Result          []byte      `gorm:"type:blob" json:"result"`
+	// ARCH-002 D7：持久执行领取。claim_status ∈ {pending(空), claimed, dispatched}。
+	// 意图先行——胜出者在调用续跑前写 claimed + 单调递增 claim_token；仅持最新
+	// token 的意图写入者开放续跑入口，其余 409。dispatched 表示结果已回写。
+	ClaimStatus                string         `gorm:"type:varchar(20);index" json:"claimStatus"`
+	ClaimToken                 int64          `gorm:"index" json:"claimToken"`
+	ClaimedAt                  *time.Time     `json:"claimedAt"`
+	DispatchPayloadFingerprint string         `gorm:"type:varchar(128)" json:"dispatchPayloadFingerprint"`
+	DispatchedAt               *time.Time     `json:"dispatchedAt"`
+	CreatedAt                  time.Time      `gorm:"not null;index" json:"createdAt"`
+	UpdatedAt                  time.Time      `gorm:"not null" json:"updatedAt"`
+	DeletedAt                  gorm.DeletedAt `gorm:"index" json:"deletedAt"`
 }
 
 // TableName returns the table name for ApprovalModel
@@ -45,27 +53,32 @@ func (a *ApprovalModel) ToApproval() *Approval {
 		return nil
 	}
 	return &Approval{
-		ID:              a.ID,
-		State:           a.State,
-		FunctionID:      a.FunctionID,
-		GameID:          a.GameID,
-		Env:             a.Env,
-		Actor:           a.Actor,
-		Approver:        a.Approver,
-		ReviewedAt:      a.ReviewedAt,
-		Mode:            a.Mode,
-		IdempotencyKey:  a.IdempotencyKey,
-		Route:           a.Route,
-		TargetServiceID: a.TargetServiceID,
-		HashKey:         a.HashKey,
-		Payload:         a.Payload,
-		Metadata:        decodeMetadataJSON(a.MetadataJSON),
-		Reason:          a.Reason,
-		ResultKind:      a.ResultKind,
-		TaskID:          a.TaskID,
-		Result:          a.Result,
-		CreatedAt:       a.CreatedAt,
-		UpdatedAt:       a.UpdatedAt,
+		ID:                         a.ID,
+		State:                      a.State,
+		FunctionID:                 a.FunctionID,
+		GameID:                     a.GameID,
+		Env:                        a.Env,
+		Actor:                      a.Actor,
+		Approver:                   a.Approver,
+		ReviewedAt:                 a.ReviewedAt,
+		Mode:                       a.Mode,
+		IdempotencyKey:             a.IdempotencyKey,
+		Route:                      a.Route,
+		TargetServiceID:            a.TargetServiceID,
+		HashKey:                    a.HashKey,
+		Payload:                    a.Payload,
+		Metadata:                   decodeMetadataJSON(a.MetadataJSON),
+		Reason:                     a.Reason,
+		ResultKind:                 a.ResultKind,
+		TaskID:                     a.TaskID,
+		Result:                     a.Result,
+		ClaimStatus:                a.ClaimStatus,
+		ClaimToken:                 a.ClaimToken,
+		ClaimedAt:                  a.ClaimedAt,
+		DispatchPayloadFingerprint: a.DispatchPayloadFingerprint,
+		DispatchedAt:               a.DispatchedAt,
+		CreatedAt:                  a.CreatedAt,
+		UpdatedAt:                  a.UpdatedAt,
 	}
 }
 
@@ -76,27 +89,32 @@ func FromApproval(a *Approval) *ApprovalModel {
 	}
 	metadataJSON := encodeMetadataJSON(a.Metadata)
 	return &ApprovalModel{
-		ID:              a.ID,
-		State:           a.State,
-		FunctionID:      a.FunctionID,
-		GameID:          a.GameID,
-		Env:             a.Env,
-		Actor:           a.Actor,
-		Approver:        a.Approver,
-		ReviewedAt:      a.ReviewedAt,
-		Mode:            a.Mode,
-		IdempotencyKey:  a.IdempotencyKey,
-		Route:           a.Route,
-		TargetServiceID: a.TargetServiceID,
-		HashKey:         a.HashKey,
-		Payload:         a.Payload,
-		MetadataJSON:    metadataJSON,
-		Reason:          a.Reason,
-		ResultKind:      a.ResultKind,
-		TaskID:          a.TaskID,
-		Result:          a.Result,
-		CreatedAt:       a.CreatedAt,
-		UpdatedAt:       a.UpdatedAt,
+		ID:                         a.ID,
+		State:                      a.State,
+		FunctionID:                 a.FunctionID,
+		GameID:                     a.GameID,
+		Env:                        a.Env,
+		Actor:                      a.Actor,
+		Approver:                   a.Approver,
+		ReviewedAt:                 a.ReviewedAt,
+		Mode:                       a.Mode,
+		IdempotencyKey:             a.IdempotencyKey,
+		Route:                      a.Route,
+		TargetServiceID:            a.TargetServiceID,
+		HashKey:                    a.HashKey,
+		Payload:                    a.Payload,
+		MetadataJSON:               metadataJSON,
+		Reason:                     a.Reason,
+		ResultKind:                 a.ResultKind,
+		TaskID:                     a.TaskID,
+		Result:                     a.Result,
+		ClaimStatus:                a.ClaimStatus,
+		ClaimToken:                 a.ClaimToken,
+		ClaimedAt:                  a.ClaimedAt,
+		DispatchPayloadFingerprint: a.DispatchPayloadFingerprint,
+		DispatchedAt:               a.DispatchedAt,
+		CreatedAt:                  a.CreatedAt,
+		UpdatedAt:                  a.UpdatedAt,
 	}
 }
 

@@ -409,6 +409,12 @@ func (failingApprovalStore) Create(*approvals.Approval) (*approvals.Approval, er
 func (failingApprovalStore) Update(*approvals.Approval) (*approvals.Approval, error) {
 	return nil, nil
 }
+func (failingApprovalStore) ClaimDispatch(string, string) (*approvals.Approval, error) {
+	return nil, nil
+}
+func (failingApprovalStore) CompleteDispatch(string, int64, string, string, []byte) (*approvals.Approval, error) {
+	return nil, nil
+}
 
 func TestCreatePageApprovalSurfacesStoreFailure(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "function:invoke")

@@ -3,6 +3,8 @@ package approval
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -247,19 +249,35 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	// （docs/BUGS.md BUG-024）。
 	s.recordApprovalAudit(ctx, audit.EventApprovalApproved, operator, record,
 		map[string]interface{}{"stepUp": stepUp})
+	// ARCH-002 D7：意图先行。CAS 胜出者先原子领取（claim_status=claimed +
+	// 单调递增 claim_token），仅领取成功者进入续跑；其余请求 409 且不续跑。
+	claim, err := s.svcCtx.ApprovalsStore.ClaimDispatch(record.ID, approvalDispatchFingerprint(record))
+	if err != nil {
+		if existing, ok := approvals.AsAlreadyClaimed(err); ok {
+			return nil, errorx.NewConflictWithCode("approval_already_reviewed",
+				"审批已被处理，不能重复批准", map[string]any{
+					"state":      existing.State,
+					"approver":   existing.Approver,
+					"reviewedAt": existing.ReviewedAt,
+				})
+		}
+		return nil, err
+	}
+	record = claim
 	continuation, err := s.continueApprovedFunction(ctx, record)
 	if err != nil {
 		record.Reason = "approved but continuation failed: " + err.Error()
-		if updated, updateErr := s.svcCtx.ApprovalsStore.Update(record); updateErr == nil {
+		// 续跑失败仍按 token 回写 dispatched（决定终局、结果未知），不覆盖意图。
+		if updated, updateErr := s.svcCtx.ApprovalsStore.CompleteDispatch(record.ID, record.ClaimToken,
+			record.ResultKind, record.TaskID, record.Result); updateErr == nil {
 			record = updated
 		}
 		_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
 		return nil, err
 	}
-	record.ResultKind = continuation.Kind
-	record.TaskID = continuation.TaskID
-	record.Result = continuation.Result
-	if updated, updateErr := s.svcCtx.ApprovalsStore.Update(record); updateErr == nil {
+	// 续跑成功：按 token 条件回写结果与 dispatched（fencing：token 前进即拒绝）。
+	if updated, updateErr := s.svcCtx.ApprovalsStore.CompleteDispatch(record.ID, record.ClaimToken,
+		continuation.Kind, continuation.TaskID, continuation.Result); updateErr == nil {
 		record = updated
 	}
 	_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
@@ -503,6 +521,26 @@ func cloneApprovalMetadata(metadata map[string]string) map[string]string {
 	return out
 }
 
+// approvalDispatchFingerprint is the ARCH-002 D7 durable intent fingerprint.
+// It binds the payload and routing inputs to the claim, so recovery/replay can
+// identify the exact intended dispatch (not a new approval invocation).
+func approvalDispatchFingerprint(record *approvals.Approval) string {
+	if record == nil {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(strings.Join([]string{
+		strings.TrimSpace(record.FunctionID),
+		string(record.Payload),
+		strings.TrimSpace(record.GameID),
+		strings.TrimSpace(record.Env),
+		strings.TrimSpace(record.Mode),
+		strings.TrimSpace(record.Route),
+		strings.TrimSpace(record.TargetServiceID),
+		strings.TrimSpace(record.HashKey),
+	}, "\x1f")))
+	return hex.EncodeToString(sum[:])
+}
+
 type approvalContinuationResult struct {
 	Triggered bool
 	Kind      string
@@ -528,6 +566,9 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	metadata["approvalBypass"] = "approved"
 	metadata["approvalId"] = strings.TrimSpace(record.ID)
 	metadata["approvalActor"] = strings.TrimSpace(record.Actor)
+	if record.ClaimToken > 0 {
+		metadata["approvalClaimToken"] = strconv.FormatInt(record.ClaimToken, 10)
+	}
 	metadata["runtime_api"] = "approval.continue"
 	if err := s.ensurePageApprovalStillFresh(ctx, record, metadata); err != nil {
 		return approvalContinuationResult{}, err

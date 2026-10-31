@@ -36,8 +36,15 @@ type Approval struct {
 	ResultKind      string
 	TaskID          string
 	Result          []byte
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// ARCH-002 D7：持久执行领取（意图先行）。ClaimStatus ∈ {empty=pending,
+	// claimed, dispatched}；ClaimToken 单调递增；DispatchedAt 为结果回写时间。
+	ClaimStatus                string
+	ClaimToken                 int64
+	ClaimedAt                  *time.Time
+	DispatchPayloadFingerprint string
+	DispatchedAt               *time.Time
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
 }
 
 type Filter struct {
@@ -62,7 +69,18 @@ type Store interface {
 	Reject(id, reason, operator string) (*Approval, error)
 	Create(approval *Approval) (*Approval, error)
 	Update(approval *Approval) (*Approval, error)
+	// ClaimDispatch 是 ARCH-002 D7 的意图先行：CAS 胜出者、调用续跑前，在同一
+	// 记录上原子写 claim_status=claimed + 单调递增 claim_token + claimed_at +
+	// dispatch_payload_fingerprint。只对 RowsAffected==1 的写入者开放续跑入口，
+	// 其余（已领取/已回写/未知）返回 ErrAlreadyClaimed 携带当前记录。
+	ClaimDispatch(id, fingerprint string) (*Approval, error)
+	// CompleteDispatch 在续跑返回后按 claim_token 条件回写结果与
+	// claim_status=dispatched；token 已前进则拒绝（fencing）。
+	CompleteDispatch(id string, token int64, resultKind, taskID string, result []byte) (*Approval, error)
 }
+
+// ErrAlreadyClaimed 标记 D7 领取竞争失败：意图已由他人写入（或结果已回写）。
+var ErrAlreadyClaimed = errors.New("approval dispatch already claimed")
 
 // ErrAlreadyReviewed 标记一次「pending → 终态」的 CAS 转换失败：记录已不在
 // pending（被其他操作员批准/拒绝，或本请求重复点击）。携带当前记录，
@@ -95,6 +113,30 @@ func wrapAlreadyReviewed(record *Approval) error {
 	// Unwrap 指向 ErrAlreadyReviewed 哨兵：errors.Is(err, ErrAlreadyReviewed)
 	// 与 AsAlreadyReviewed 都能识别。
 	return &alreadyReviewedError{record: record, err: ErrAlreadyReviewed}
+}
+
+func wrapAlreadyClaimed(record *Approval) error {
+	return &alreadyClaimedError{record: record, err: ErrAlreadyClaimed}
+}
+
+type alreadyClaimedError struct {
+	record *Approval
+	err    error
+}
+
+func (e *alreadyClaimedError) Error() string { return e.err.Error() }
+func (e *alreadyClaimedError) Unwrap() error { return e.err }
+
+// AsAlreadyClaimed 从 err 中提取 ErrAlreadyClaimed 携带的当前记录。
+func AsAlreadyClaimed(err error) (*Approval, bool) {
+	if err == nil {
+		return nil, false
+	}
+	var ae *alreadyClaimedError
+	if errors.As(err, &ae) {
+		return ae.record, true
+	}
+	return nil, false
 }
 
 // MemStore is an in-memory approval store for tests/dev.
@@ -193,6 +235,51 @@ func (s *MemStore) Reject(id, reason, operator string) (*Approval, error) {
 	a.Approver = strings.TrimSpace(operator)
 	now := time.Now()
 	a.ReviewedAt = &now
+	a.UpdatedAt = now
+	return a, nil
+}
+
+// ClaimDispatch implements D7 intent-first claim on MemStore under the existing
+// lock. Only an untouched record (claim_status empty) can be claimed; the token
+// is monotonic (previous+1) so a stale claimant is fenced by token.
+func (s *MemStore) ClaimDispatch(id, fingerprint string) (*Approval, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.data[id]
+	if a == nil {
+		return nil, errors.New("not found")
+	}
+	if a.ClaimStatus != "" {
+		// 已领取/已回写：非本请求写入的意图，返回当前记录 + ErrAlreadyClaimed。
+		return a, wrapAlreadyClaimed(a)
+	}
+	now := time.Now()
+	a.ClaimStatus = "claimed"
+	a.ClaimToken = a.ClaimToken + 1
+	a.ClaimedAt = &now
+	a.DispatchPayloadFingerprint = strings.TrimSpace(fingerprint)
+	a.UpdatedAt = now
+	return a, nil
+}
+
+// CompleteDispatch implements result write-back with token fencing.
+func (s *MemStore) CompleteDispatch(id string, token int64, resultKind, taskID string, result []byte) (*Approval, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.data[id]
+	if a == nil {
+		return nil, errors.New("not found")
+	}
+	if a.ClaimToken != token {
+		// 令牌已前进：本请求的续跑结果属陈旧派发，不覆盖当前所有权（fencing）。
+		return a, wrapAlreadyClaimed(a)
+	}
+	now := time.Now()
+	a.ResultKind = resultKind
+	a.TaskID = taskID
+	a.Result = result
+	a.ClaimStatus = "dispatched"
+	a.DispatchedAt = &now
 	a.UpdatedAt = now
 	return a, nil
 }

@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/approvals"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/pressly/goose/v3"
@@ -208,6 +210,7 @@ func registerSvcMigrations() {
 		pageExecuteIdempotencyTableMigration(),
 		gameEnvBindingsDBNameBackfillMigration(),
 		auditHashVersionColumnMigration(),
+		approvalClaimColumnsMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1685,6 +1688,47 @@ func migrateAuditHashVersionColumn(ctx context.Context, sqlDB *sql.DB) error {
 	if !db.Migrator().HasColumn(&audit.AuditModel{}, "HashVersion") {
 		if err := db.Migrator().AddColumn(&audit.AuditModel{}, "HashVersion"); err != nil {
 			return fmt.Errorf("migrate: 0050 add audit_records.hash_version: %w", err)
+		}
+	}
+	return nil
+}
+
+// approvalClaimColumnsMigration 为 0051：ARCH-002 在 approvals 表补 D7 持久
+// 执行领取列（claim_status/claim_token/claimed_at/dispatch_payload_fingerprint/
+// dispatched_at）。审批此前是内存存储，首次接 SQL 时表在 baseline（migrateAuxModels
+// 已含 ApprovalModel）或 NewSQLStore.AutoMigrate 已建；既有部署若已有表但缺列
+// （滚动升级前旧列集），本迁移补列。幂等：HasColumn 检查，缺表跳过。
+func approvalClaimColumnsMigration() *goose.Migration {
+	return goose.NewGoMigration(51,
+		&goose.GoFunc{RunDB: migrateApprovalClaimColumns},
+		nil,
+	)
+}
+
+func migrateApprovalClaimColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&approvals.ApprovalModel{}) {
+		return nil // 无该表的库（fanout 重放）跳过
+	}
+	columns := []struct {
+		name string
+		col  func() interface{}
+	}{
+		{"ClaimStatus", func() interface{} { return &approvals.ApprovalModel{} }},
+		{"ClaimToken", func() interface{} { return &approvals.ApprovalModel{} }},
+		{"ClaimedAt", func() interface{} { return &approvals.ApprovalModel{} }},
+		{"DispatchPayloadFingerprint", func() interface{} { return &approvals.ApprovalModel{} }},
+		{"DispatchedAt", func() interface{} { return &approvals.ApprovalModel{} }},
+	}
+	for _, c := range columns {
+		if db.Migrator().HasColumn(c.col(), c.name) {
+			continue
+		}
+		if err := db.Migrator().AddColumn(c.col(), c.name); err != nil {
+			return fmt.Errorf("migrate: 0051 add approvals.%s: %w", strings.ToLower(c.name), err)
 		}
 	}
 	return nil

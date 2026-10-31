@@ -130,6 +130,14 @@ func (s *errorApprovalsStore) Reject(id, reason, operator string) (*approvals.Ap
 	return nil, assert.AnError
 }
 
+func (s *errorApprovalsStore) ClaimDispatch(id, fingerprint string) (*approvals.Approval, error) {
+	return nil, assert.AnError
+}
+
+func (s *errorApprovalsStore) CompleteDispatch(id string, token int64, resultKind, taskID string, result []byte) (*approvals.Approval, error) {
+	return nil, assert.AnError
+}
+
 func TestBuildApprovalSummary_WithAllFields(t *testing.T) {
 	a := &approvals.Approval{
 		ID:              "test-1",

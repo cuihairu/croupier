@@ -237,3 +237,67 @@ func (s *SQLStore) Update(approval *Approval) (*Approval, error) {
 
 	return model.ToApproval(), nil
 }
+
+// ClaimDispatch is the ARCH-002 D7 durable intent write. A single conditional
+// UPDATE claims an untouched approval and increments its fencing token.
+func (s *SQLStore) ClaimDispatch(id, fingerprint string) (*Approval, error) {
+	now := time.Now()
+	res := s.db.Model(&ApprovalModel{}).
+		Where("id = ? AND (claim_status IS NULL OR claim_status = '')", id).
+		Updates(map[string]any{
+			"claim_status":                 "claimed",
+			"claim_token":                  gorm.Expr("claim_token + 1"),
+			"claimed_at":                   now,
+			"dispatch_payload_fingerprint": strings.TrimSpace(fingerprint),
+			"updated_at":                   now,
+		})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, s.alreadyClaimedOrNotFound(id)
+	}
+	model, err := s.getByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return model.ToApproval(), nil
+}
+
+// CompleteDispatch conditionally writes the continuation result and advances
+// claim_status only when token still identifies the winning claimant.
+func (s *SQLStore) CompleteDispatch(id string, token int64, resultKind, taskID string, result []byte) (*Approval, error) {
+	now := time.Now()
+	res := s.db.Model(&ApprovalModel{}).
+		Where("id = ? AND claim_token = ?", id, token).
+		Updates(map[string]any{
+			"result_kind":   resultKind,
+			"task_id":       taskID,
+			"result":        result,
+			"claim_status":  "dispatched",
+			"dispatched_at": now,
+			"updated_at":    now,
+		})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, s.alreadyClaimedOrNotFound(id)
+	}
+	model, err := s.getByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return model.ToApproval(), nil
+}
+
+func (s *SQLStore) alreadyClaimedOrNotFound(id string) error {
+	model, err := s.getByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("not found")
+		}
+		return err
+	}
+	return wrapAlreadyClaimed(model.ToApproval())
+}
