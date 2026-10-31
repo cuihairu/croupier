@@ -520,6 +520,7 @@ func TestRunTickerAndCancelBranchesV9(t *testing.T) {
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- w.Run(ctx) }()
 
@@ -537,5 +538,70 @@ func TestRunTickerAndCancelBranchesV9(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("Run did not return after cancel")
+	}
+}
+
+// blockingFlushBatchV9 blocks Send until release is closed. It is used to
+// verify Run's bounded shutdown when a periodic refresh is genuinely stuck.
+type blockingFlushBatchV9 struct {
+	*mockBatch
+	started chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingFlushBatchV9) Send() error {
+	select {
+	case b.started <- struct{}{}:
+	default:
+	}
+	<-b.release
+	return b.sendErr
+}
+
+func TestRunShutdownWaitsForPeriodicFlushAndHonorsDeadlineV9(t *testing.T) {
+	origFlush, origShutdown, origFinalFlush := runFlushInterval, shutdownTimeout, finalFlushTimeout
+	runFlushInterval = 10 * time.Millisecond
+	shutdownTimeout = 30 * time.Millisecond
+	finalFlushTimeout = 10 * time.Millisecond
+	defer func() {
+		runFlushInterval = origFlush
+		shutdownTimeout = origShutdown
+		finalFlushTimeout = origFinalFlush
+	}()
+
+	w, _ := testWorker(t)
+	blocking := &blockingFlushBatchV9{
+		mockBatch: &mockBatch{},
+		started:   make(chan struct{}, 1),
+		release:   make(chan struct{}),
+	}
+	defer close(blocking.release)
+	w.ch = &stubConnV9{mockConn: getMockConn(t, w), retBatch: blocking}
+	// Put one event row into the batch so periodic flush reaches Send.
+	msg := redis.XMessage{ID: "1-1", Values: map[string]any{
+		"data": `{"event":"click","game_id":"g1","env":"prod","user_id":"u1","ts":"2025-06-15T10:00:00Z"}`,
+	}}
+	if err := w.processMessage(context.Background(), w.streamEvents, msg); err != nil {
+		t.Fatalf("processMessage: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- w.Run(ctx) }()
+
+	select {
+	case <-blocking.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("periodic flush did not start")
+	}
+	cancel()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Run = %v, want context.Canceled", err)
+		}
+	case <-time.After(4 * time.Second):
+		t.Fatal("Run exceeded bounded shutdown deadline while flush blocked")
 	}
 }

@@ -37,6 +37,14 @@ const (
 	maxPendingRetries  = 3
 )
 
+// shutdownTimeout / finalFlushTimeout 是 Run 退出序列的有界等待上限（默认
+// 与生产行为一致），作为可注入缝隙供测试缩短以覆盖阻塞刷新与最终 flush
+// 的截止分支（DATA-015）。
+var (
+	shutdownTimeout   = 5 * time.Second
+	finalFlushTimeout = 10 * time.Second
+)
+
 // pendingReclaimInterval 是回收循环的心跳间隔（默认与生产行为一致），
 // 作为可注入缝隙供测试缩短以覆盖 ticker 分支。
 var pendingReclaimInterval = 30 * time.Second
@@ -173,30 +181,37 @@ func (w *Worker) ensureGroups(ctx context.Context) {
 
 func (w *Worker) Run(ctx context.Context) error {
 	w.ensureGroups(ctx)
-	defer func() {
-		_ = w.flushBatches(context.Background())
-	}()
+	// workerCtx 派生自 WithoutCancel(ctx)：Run 返回后子协程仍可安全地完成
+	// 在途刷新/回收，随后由下面的等待顺序收束；父 ctx 取消只负责让主循环
+	// 停止读取新消息，不直接杀死仍在刷新 ClickHouse 的子协程。
+	workerCtx, stopWorkers := context.WithCancel(context.WithoutCancel(ctx))
+	defer stopWorkers()
 
-	// Start pending recovery goroutine
-	go w.reclaimPendingMessages(ctx)
-
-	// periodic flush
+	var flushWG sync.WaitGroup
+	flushWG.Add(1)
 	go func() {
-		tk := time.NewTicker(runFlushInterval)
+		defer flushWG.Done()
+		ticker := time.NewTicker(runFlushInterval)
+		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-workerCtx.Done():
 				return
-			case <-tk.C:
+			case <-ticker.C:
 				// flush 实现恒返回 nil（内部各失败路径均以 slog.Warn
-				// 记录后继续），err 分支不可达，已删除。
-				_ = w.flush(ctx)
+				// 记录后继续），err 分支不可达。
+				w.flush(workerCtx)
 			}
 		}
 	}()
+
+	var reclaimWG sync.WaitGroup
+	reclaimWG.Add(1)
+	go w.reclaimPendingMessages(workerCtx, &reclaimWG)
+
 	for {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			break
 		}
 		streams := []string{w.streamEvents, w.streamPayments}
 		streamIDs := make([]string, len(streams))
@@ -212,7 +227,7 @@ func (w *Worker) Run(ctx context.Context) error {
 		}).Result()
 		if err != nil {
 			if ctx.Err() != nil {
-				return ctx.Err()
+				break
 			}
 			if err != redis.Nil {
 				slog.Warn("xreadgroup", "err", err)
@@ -227,6 +242,49 @@ func (w *Worker) Run(ctx context.Context) error {
 				}
 			}
 		}
+	}
+
+	// 有界退出顺序（DATA-015）：先停子协程（stopWorkers），再以
+	// shutdownTimeout 上界等它们完成在途刷新/回收，最后以带截止的独立
+	// flush 把剩余 pending 批次与聚合状态落盘。不再读 worker/测试配置
+	// （runFlushInterval 已固定为当前值），且不在刷新未结束时关资源。
+	stopWorkers()
+	if !waitGroupBounded(&flushWG, shutdownTimeout) {
+		slog.Warn("flush goroutine exceeded shutdown timeout", "timeout", shutdownTimeout)
+	}
+	if !waitGroupBounded(&reclaimWG, shutdownTimeout) {
+		slog.Warn("reclaim goroutine exceeded shutdown timeout", "timeout", shutdownTimeout)
+	}
+
+	flushCtx, cancelFlush := context.WithTimeout(context.WithoutCancel(ctx), finalFlushTimeout)
+	defer cancelFlush()
+	flushDone := make(chan struct{})
+	go func() {
+		defer close(flushDone)
+		w.flush(flushCtx)
+	}()
+	select {
+	case <-flushDone:
+	case <-flushCtx.Done():
+		slog.Warn("final flush exceeded deadline", "timeout", finalFlushTimeout)
+	}
+	return ctx.Err()
+}
+
+// waitGroupBounded waits up to timeout for wg to finish. It returns true if
+// the group completed, false on timeout (the waiter goroutine is abandoned;
+// this is the bounded-exit cost when a refresh is genuinely stuck).
+func waitGroupBounded(wg *sync.WaitGroup, timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-time.After(timeout):
+		return false
 	}
 }
 
@@ -676,20 +734,48 @@ func (w *Worker) flush(ctx context.Context) error {
 	if err := w.flushBatches(ctx); err != nil {
 		slog.Warn("flush batches", "err", err)
 	}
+	// 快照/同步所有权（DATA-014）：在 aggMu 内把共享状态整段转移给本地
+	// 快照并清空共享 map，随即释放锁，再对快照做 ClickHouse I/O。写方
+	// （touchAgg/commitRevenue）不再被长持锁阻塞；I/O 失败时把该项合并
+	// 回共享 map（若写方已重建同 key，则累加而非覆盖），失败重试不丢
+	// 增量。快照转移后写方新值落在共享 map，不会被本次 flush 误删。
 	w.aggMu.Lock()
-	defer w.aggMu.Unlock()
-	// key 内墙钟串已归一 UTC（touchAgg/touchRevenue），比较基准同步 UTC。
+	minSnap := make(map[string]struct{}, len(w.touchedMinutes))
+	for k := range w.touchedMinutes {
+		minSnap[k] = struct{}{}
+	}
+	w.touchedMinutes = map[string]struct{}{}
+	daySnap := make(map[string]struct{}, len(w.touchedDays))
+	for k := range w.touchedDays {
+		daySnap[k] = struct{}{}
+	}
+	w.touchedDays = map[string]struct{}{}
+	revSnap := make(map[string]*revRow, len(w.revAgg))
+	for k, rv := range w.revAgg {
+		revSnap[k] = rv
+	}
+	w.revAgg = map[string]*revRow{}
+	w.aggMu.Unlock()
+
+	// key 内墙钟串已归一 UTC（touchAgg），比较基准同步 UTC。
 	nowMin := time.Now().UTC().Truncate(time.Minute)
 	// flush minute_online for minutes earlier than current minute
-	for k := range w.touchedMinutes {
+	for k := range minSnap {
 		parts := strings.Split(k, ":") // hll:online:game:env:YYYYMMDDHHmm
 		if len(parts) < 5 {
-			delete(w.touchedMinutes, k)
+			// 无法解析的 key 属垃圾数据：丢弃（共享 map 已清空，不重写回），
+			// 避免每次 flush 都失败重试。仅 I/O 失败才 remerge 保留。
 			continue
 		}
 		ts := parts[len(parts)-1]
 		t, err := time.Parse("200601021504", ts)
-		if err != nil || !t.Before(nowMin) {
+		if err != nil {
+			// 坏时间串：不属可 flush 范围，丢弃（原语义 delete）。
+			continue
+		}
+		if !t.Before(nowMin) {
+			// 当前/未来分钟：保留，等它成为过去后再 flush（原语义）。
+			w.remergeTouchedMinute(k)
 			continue
 		}
 		game := parts[2]
@@ -697,6 +783,7 @@ func (w *Worker) flush(ctx context.Context) error {
 		n, err := w.rdb.PFCount(ctx, k).Result()
 		if err != nil {
 			slog.Warn("pfcount", "key", k, "err", err)
+			w.remergeTouchedMinute(k)
 			continue
 		}
 		if n < 0 {
@@ -705,23 +792,25 @@ func (w *Worker) flush(ctx context.Context) error {
 		batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.minute_online (m, game_id, env, online)")
 		if err != nil {
 			slog.Warn("ch batch", "err", err)
+			w.remergeTouchedMinute(k)
 			continue
 		}
 		if err := batch.Append(t, game, env, uint32(n)); err != nil {
 			slog.Warn("batch append", "err", err)
+			w.remergeTouchedMinute(k)
 			continue
 		}
 		if err := batch.Send(); err != nil {
 			slog.Warn("batch send", "err", err)
+			w.remergeTouchedMinute(k)
 			continue
 		}
-		delete(w.touchedMinutes, k)
 	}
 	// flush daily_users
-	for dk := range w.touchedDays {
+	for dk := range daySnap {
 		sp := strings.Split(dk, "|")
 		if len(sp) != 3 {
-			delete(w.touchedDays, dk)
+			// 坏 key 丢弃（原语义）。
 			continue
 		}
 		day, game, env := sp[0], sp[1], sp[2]
@@ -734,22 +823,26 @@ func (w *Worker) flush(ctx context.Context) error {
 		batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.daily_users (d, game_id, env, dau, new_users, version)")
 		if err != nil {
 			slog.Warn("ch daily_users", "err", err)
+			w.remergeTouchedDay(dk)
 			continue
 		}
 		if err := batch.Append(d, game, env, uint64(max0(dau)), uint64(max0(neu)), ver); err != nil {
 			slog.Warn("daily_users append", "err", err)
+			w.remergeTouchedDay(dk)
 			continue
 		}
 		if err := batch.Send(); err != nil {
 			slog.Warn("daily_users send", "err", err)
+			w.remergeTouchedDay(dk)
 			continue
 		}
-		delete(w.touchedDays, dk)
 	}
 	// flush daily_revenue
-	for rk, rv := range w.revAgg {
+	for rk, rv := range revSnap {
 		sp := strings.Split(rk, "|")
 		if len(sp) != 3 {
+			// 坏 key 保留（原语义：continue 不 delete，重试可修复）。
+			w.remergeRev(rk, rv)
 			continue
 		}
 		day, game, env := sp[0], sp[1], sp[2]
@@ -758,19 +851,58 @@ func (w *Worker) flush(ctx context.Context) error {
 		batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.daily_revenue (d, game_id, env, revenue_cents, refunds_cents, failed, version)")
 		if err != nil {
 			slog.Warn("ch daily_revenue", "err", err)
+			w.remergeRev(rk, rv)
 			continue
 		}
 		if err := batch.Append(d, game, env, rv.revenue, rv.refunds, rv.failed, ver); err != nil {
 			slog.Warn("daily_revenue append", "err", err)
+			w.remergeRev(rk, rv)
 			continue
 		}
 		if err := batch.Send(); err != nil {
 			slog.Warn("daily_revenue send", "err", err)
+			w.remergeRev(rk, rv)
 			continue
 		}
-		delete(w.revAgg, rk)
 	}
 	return nil
+}
+
+// remergeTouchedMinute 把 flush 失败的 minute_online key 合并回共享 map；
+// 若写方已重建同 key，保留（新值由写方继续累积，快照项为旧值，不覆盖）。
+func (w *Worker) remergeTouchedMinute(k string) {
+	w.aggMu.Lock()
+	defer w.aggMu.Unlock()
+	if _, ok := w.touchedMinutes[k]; ok {
+		return
+	}
+	w.touchedMinutes[k] = struct{}{}
+}
+
+// remergeTouchedDay 把 flush 失败的 daily_users key 合并回共享 map（语义同
+// remergeTouchedMinute）。
+func (w *Worker) remergeTouchedDay(k string) {
+	w.aggMu.Lock()
+	defer w.aggMu.Unlock()
+	if _, ok := w.touchedDays[k]; ok {
+		return
+	}
+	w.touchedDays[k] = struct{}{}
+}
+
+// remergeRev 把 flush 失败的 daily_revenue 增量合并回共享 map；若写方已
+// 重建同 key，则累加（不覆盖），保证失败重试不丢增量。
+func (w *Worker) remergeRev(k string, rv *revRow) {
+	w.aggMu.Lock()
+	defer w.aggMu.Unlock()
+	cur := w.revAgg[k]
+	if cur == nil {
+		w.revAgg[k] = rv
+		return
+	}
+	cur.revenue += rv.revenue
+	cur.refunds += rv.refunds
+	cur.failed += rv.failed
 }
 
 func max0(n int64) int64 {
@@ -925,8 +1057,9 @@ func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.
 }
 
 // reclaimPendingMessages periodically reclaims pending messages that have been idle too long
-func (w *Worker) reclaimPendingMessages(ctx context.Context) {
+func (w *Worker) reclaimPendingMessages(ctx context.Context, wg *sync.WaitGroup) {
 	ticker := time.NewTicker(pendingReclaimInterval)
+	defer wg.Done()
 	defer ticker.Stop()
 
 	for {

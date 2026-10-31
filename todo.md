@@ -329,13 +329,15 @@
   - 依赖：DATA-012。交付与验收：核对跨 game/env、撤权、过期凭据、外部故障、超时和重复导出；未授权数据不可见，导出可追溯，外部平台不可用时内置核心指标与运营执行可继续
   - 状态／条件：NOT RUN；需真实外部分析环境和多 scope 测试身份。
 
-- [ ] **DATA-014 · P1 · 实现 · 分析聚合共享状态串行化**
+- [x] **DATA-014 · P1 · 实现 · 分析聚合共享状态串行化**
   - 依赖：—。交付与验收：复用 worker 的 touchedMinutes/touchedDays/revAgg；明确消费、pending 回收与 flush 的快照/同步所有权，失败重试不丢增量；收入并发写读及活跃桶增删在 race 下无竞争，固定样本核对总量，不仅给 ClickHouse batch 加锁
-  - 状态／条件：R30-05 CONFIRMED：独立 race 诊断命中 touchRevenue 写与 flush 读同一字段；本轮只登记，不改聚合程序。
+  - 状态／条件：LOCAL VERIFIED：flush 在 aggMu 内把 touchedMinutes/touchedDays/revAgg 整段快照转移并清空共享 map，随即释放锁再对快照做 ClickHouse I/O；失败项 remerge 回共享 map（写方已重建同 key 时 revAgg 累加而非覆盖），失败重试不丢增量。`TestSharedState_ConcurrentRevAggNoLoss` 固定样本核对已发送+剩余=总量，`-race` 无竞争。
+  - 完成证据：2026-11-01；`internal/analytics/worker/worker.go`（flush 快照转移 + remerge 助手）；`internal/analytics/worker/shared_state_test.go`（并发写读总量核对）；`go test ./internal/analytics/worker/ -race -count=1` PASS。
 
-- [ ] **DATA-015 · P2 · 实现 · 分析 worker 退出等待与刷新资源收尾**
+- [x] **DATA-015 · P2 · 实现 · 分析 worker 退出等待与刷新资源收尾**
   - 依赖：—。交付与验收：Run/main 对 pending 回收、定时 flush 和最终 flush 建立有界退出/等待顺序；退出后不再读写 worker/测试配置，不在刷新未结束时关资源；复现既有 runFlushInterval 跨用例竞态并验证消失，阻塞刷新仍遵守总截止
-  - 状态／条件：VERIFIED：既有 Run 定向 race 出现 runFlushInterval 写/迟到后台读取竞争；Run 不 join 子协程，main 仅等待固定 200ms。需区分测试夹具与真实生产生命周期证据。
+  - 状态／条件：LOCAL VERIFIED：Run 用 workerCtx（WithoutCancel 派生）管理定时 flush 与 pending 回收子协程，主循环退出后 stopWorkers 并分别以 shutdownTimeout 上界等待；最终 flush 用带 finalFlushTimeout 截止的独立 ctx 并 select 等待，阻塞刷新仍守总截止。main 改为等待 Run 完整返回，不再固定 200ms 猜测。测试夹具用 runFlushInterval/shutdownTimeout/finalFlushTimeout 注入缩短。
+  - 完成证据：2026-11-01；`internal/analytics/worker/worker.go`（Run 有界退出顺序 + waitGroupBounded）；`cmd/analytics-worker/main.go`（等待 runDone）；`internal/analytics/worker/coverage_v9_test.go`（`TestRunShutdownWaitsForPeriodicFlushAndHonorsDeadlineV9` 阻塞刷新有界退出）；`go test ./internal/analytics/worker/ -race -count=1` PASS。
 
 ## 前端审核复验
 

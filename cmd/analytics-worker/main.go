@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
 
 func main() {
@@ -18,12 +17,16 @@ func main() {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	runDone := make(chan struct{})
 	go func() {
+		defer close(runDone)
 		if err := w.Run(ctx); err != nil {
 			slog.Error("run", "err", err)
 		}
 	}()
 	slog.Info("analytics-worker started")
 	<-ctx.Done()
-	time.Sleep(200 * time.Millisecond)
+	// Run 内部已按 DATA-015 顺序停子协程并做带截止最终 flush；main 只需
+	// 等待 Run 完整返回，不再用固定 200ms 猜测刷新何时结束。
+	<-runDone
 }
