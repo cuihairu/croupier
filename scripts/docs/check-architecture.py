@@ -49,6 +49,8 @@ def visit(k,stack):
   else:visit(d,stack+[k])
  seen.add(k)
 for k in graph:visit(k,[])
-if len(re.findall(r'(?m)^\s*- \[[ x]\]',text))!=len(graph):errors.append('Unstructured checkbox')
+# 计数只数结构化任务项（`- [x] **ARCH-...`），与 graph 解析口径一致；非任务的
+# 子项 checkbox（如 审核发现： 行）是合法内容，不应破坏任务 DAG 计数。
+if len(re.findall(r'(?m)^\s*- \[[ x]\] \*\*',text))!=len(graph):errors.append('Unstructured checkbox')
 if errors:raise SystemExit('\n'.join(errors))
 print(f'PASS: SVG XML, scoped links/evidence, diagram references, {len(graph)} unique TODO IDs and acyclic dependencies')
