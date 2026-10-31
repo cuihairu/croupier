@@ -117,6 +117,24 @@ func (m *PeerTokenManager) Verify(token, expectedInstanceID string) (*PeerTokenC
 	if err != nil {
 		return nil, ErrTokenInvalid
 	}
+	// 先校验 header：固定算法/类型是令牌类型区分的一部分。只校验 claims
+	// 的 tokenType 会留下缺口——合法签名但 header 被改成 alg=none/typ=admin
+	// 的令牌仍能通过，类型区分仅依赖可被篡改前签名保护的 claims。这里在
+	// 签名验证前先解析 header，保证 header 的 alg/typ 本身不被绕过。
+	headerB, err := peerTokenB64Decode(parts[0])
+	if err != nil {
+		return nil, ErrTokenInvalid
+	}
+	var hdr peerTokenHeader
+	if err := json.Unmarshal(headerB, &hdr); err != nil {
+		return nil, ErrTokenInvalid
+	}
+	if hdr.Alg != "HS256" {
+		return nil, ErrTokenInvalid
+	}
+	if hdr.Typ != PeerTokenType {
+		return nil, ErrTokenTypeMismatch
+	}
 
 	m.mu.RLock()
 	current := append([]byte(nil), m.current...)

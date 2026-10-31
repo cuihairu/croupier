@@ -20,7 +20,9 @@ func TestPeerTokenManager_IssueVerifyRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPeerTokenManager: %v", err)
 	}
-	at := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	// 用当前可注入时钟作为签发时刻，避免硬编码绝对时间导致墙钟越过
+	// ExpiresAt 后测试变成时间炸弹（签发后立即 Verify 必定未过期）。
+	at := Now().UTC()
 	tok, err := m.Issue("server-a", 3, time.Hour, at)
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
@@ -158,6 +160,38 @@ func TestPeerTokenManager_RejectsNonPeerToken(t *testing.T) {
 	}
 	if _, err := m.Verify(tok, "server-a"); !errors.Is(err, ErrTokenTypeMismatch) {
 		t.Fatalf("non-peer type: got %v, want ErrTokenTypeMismatch", err)
+	}
+}
+
+// TestPeerTokenManager_RejectsTamperedHeader 只篡改 header 的 alg/typ（claims
+// 与签名仍合法、保持 tokenType=cluster-peer），Verify 必须拒绝。这覆盖
+// 「header 校验缺失」的审核缺口：类型区分不能只依赖 claims。
+func TestPeerTokenManager_RejectsTamperedHeader(t *testing.T) {
+	m, _ := NewPeerTokenManager("s")
+	tok, err := m.Issue("server-a", 1, time.Hour, Now().UTC())
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	parts := splitToken(tok)
+	if len(parts) != 3 {
+		t.Fatalf("bad token parts: %d", len(parts))
+	}
+	headerB, err := peerTokenB64Decode(parts[0])
+	if err != nil {
+		t.Fatalf("decode header: %v", err)
+	}
+	var hdr map[string]string
+	if err := json.Unmarshal(headerB, &hdr); err != nil {
+		t.Fatalf("unmarshal header: %v", err)
+	}
+	hdr["alg"] = "none"
+	hdr["typ"] = "admin"
+	newH, _ := json.Marshal(hdr)
+	// 只改 header 并重新签名（claims 与 secret 不变，签名仍合法）。
+	payload := peerTokenB64(newH) + "." + parts[1]
+	forged := payload + "." + peerTokenB64(peerTokenHMAC([]byte("s"), []byte(payload)))
+	if _, err := m.Verify(forged, "server-a"); !errors.Is(err, ErrTokenInvalid) && !errors.Is(err, ErrTokenTypeMismatch) {
+		t.Fatalf("tampered header: got %v, want ErrTokenInvalid or ErrTokenTypeMismatch", err)
 	}
 }
 
