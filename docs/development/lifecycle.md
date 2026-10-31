@@ -50,7 +50,7 @@ This page inventories four aspects of this repo's development lifecycle (branchi
 
 ### The Rest
 
-- Analytics E2E (`ci-analytics.yml:39`), Mobile (`ci-mobile.yml:24`, release APK manual only `:48-49`), docs checks (`docs-check.yml:44`/`:48` link and term guards).
+- Analytics E2E (`ci-analytics.yml:39`), Mobile (`ci-mobile.yml:24`, release APK manual only `:48-49`), docs checks (`docs-check.yml:49`/`:53` link and term guards; `:60` architecture-asset and todo DAG guard, ARCH-020).
 - **Local gates**: pre-commit hooks run BOM and gofmt checks (`scripts/git-hooks/pre-commit:29-43`, one section each); `make test-changed` is a local selective-testing tool, while CI gates stay full (`repository-guidelines.md:71`).
 
 ### Gaps (pre-release gates)
