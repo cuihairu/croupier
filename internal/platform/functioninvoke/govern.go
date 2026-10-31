@@ -155,8 +155,9 @@ func govern(ctx context.Context, svcCtx *svc.ServiceContext, req *Request, sub S
 		return nil, err
 	}
 
-	// 6. 自动化主体补 scope 复核：每次触发以创建者当前权限复核其对
-	// game/env 的访问，撤权后不再派发。Human 由入口中间件/服务承担。
+	// 自动化主体补 scope 复核（有意不在 full 链内，见顶部门序）：每次触发
+	// 以创建者当前权限复核其对 game/env 的访问，撤权后不再派发。Human
+	// 由入口中间件/服务承担。
 	if sub.Kind == SubjectAutomation {
 		if err := utils.RequireGameEnvScope(gctx, svcCtx, admin.ID, roleNames, gameID, env); err != nil {
 			return nil, err
