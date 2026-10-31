@@ -16,9 +16,9 @@ import (
 // Warehouse read-only API over the ClickHouse aggregate tables written by
 // the analytics worker (docs/analytics/repair-plan.md T16):
 //
-//	analytics.minute_online (m, game_id, env, online)            SummingMergeTree
-//	analytics.daily_users   (d, game_id, env, dau, new_users, …) ReplacingMergeTree
-//	analytics.daily_revenue (d, game_id, env, revenue_cents, …)  ReplacingMergeTree
+//	analytics.minute_online (m, game_id, env, online, version)   ReplacingMergeTree(version)
+//	analytics.daily_users   (d, game_id, env, dau, new_users, version) ReplacingMergeTree(version)
+//	analytics.daily_revenue (d, game_id, env, revenue_cents, …, version) ReplacingMergeTree(version)
 //
 // The server opens the connection lazily from CLICKHOUSE_DSN (the same
 // variable the worker uses). No DSN or unreachable ClickHouse maps to a
@@ -170,10 +170,11 @@ func (s *Service) WarehouseOnline(ctx context.Context, req *WarehouseOnlineReque
 	minutes := clampInt(req.Minutes, 60, 1, 1440)
 	since := time.Now().UTC().Add(-time.Duration(minutes) * time.Minute).Truncate(time.Minute)
 
-	// SummingMergeTree merges duplicate flushes lazily; SUM(online) is
-	// correct regardless of merge state.
+	// ReplacingMergeTree(version) keeps the latest snapshot for each
+	// (game, env, minute); FINAL dedupes before SUM across environments, so a
+	// replayed/re-flushed minute is not double counted.
 	rows, err := warehouseQuery(ctx, fmt.Sprintf(
-		"SELECT m, SUM(online) FROM analytics.minute_online WHERE m >= ?%s GROUP BY m ORDER BY m",
+		"SELECT m, SUM(online) FROM analytics.minute_online FINAL WHERE m >= ?%s GROUP BY m ORDER BY m",
 		warehouseScopeSuffix(req.GameId, req.Env),
 	), append([]any{since}, warehouseScopeArgs(req.GameId, req.Env)...)...)
 	if err != nil {

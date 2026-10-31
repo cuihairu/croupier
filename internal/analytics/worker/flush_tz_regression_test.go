@@ -55,3 +55,41 @@ func TestTouchAggFlushOffsetIndependentMinute(t *testing.T) {
 		t.Fatalf("minute_online m = %v, want %v (必须 UTC 分钟)", got, want)
 	}
 }
+
+// DATA-003: minute_online snapshots are replaced per minute key, not summed.
+// A replayed flush must carry a newer engine version column.
+func TestFlushMinuteOnlineReplacesSnapshot(t *testing.T) {
+	w, _ := testWorker(t)
+	key := pastMinuteKeyV9()
+	w.touchedMinutes[key] = struct{}{}
+	if err := w.flush(context.Background()); err != nil {
+		t.Fatalf("first flush: %v", err)
+	}
+	mc := getMockConn(t, w)
+	wantQuery := "INSERT INTO analytics.minute_online (m, game_id, env, online, version)"
+	if mc.lastQuery != wantQuery {
+		t.Fatalf("minute_online insert = %q, want %q", mc.lastQuery, wantQuery)
+	}
+	if len(mc.batch.rows) != 1 || len(mc.batch.rows[0].([]any)) != 5 {
+		t.Fatalf("minute_online rows/columns = %d/%d, want 1/5", len(mc.batch.rows),
+			func() int {
+				if len(mc.batch.rows) == 0 {
+					return -1
+				}
+				return len(mc.batch.rows[0].([]any))
+			}())
+	}
+	first := mc.batch.rows[0].([]any)
+	if ver := first[4].(uint64); ver == 0 {
+		t.Fatal("minute_online version must be a non-zero unix-second snapshot marker")
+	}
+
+	w.touchedMinutes[key] = struct{}{}
+	if err := w.flush(context.Background()); err != nil {
+		t.Fatalf("replayed flush: %v", err)
+	}
+	second := mc.batch.rows[1].([]any)
+	if ver := second[4].(uint64); ver < first[4].(uint64) {
+		t.Fatalf("replayed version %d must not be older than %d", ver, first[4].(uint64))
+	}
+}

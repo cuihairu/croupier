@@ -799,13 +799,14 @@ func (w *Worker) flush(ctx context.Context) error {
 		if n < 0 {
 			n = 0
 		}
-		batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.minute_online (m, game_id, env, online)")
+		ver := uint64(time.Now().Unix())
+		batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.minute_online (m, game_id, env, online, version)")
 		if err != nil {
 			slog.Warn("ch batch", "err", err)
 			w.remergeTouchedMinute(k)
 			continue
 		}
-		if err := batch.Append(t, game, env, uint32(n)); err != nil {
+		if err := batch.Append(t, game, env, uint32(n), ver); err != nil {
 			slog.Warn("batch append", "err", err)
 			w.remergeTouchedMinute(k)
 			continue
