@@ -45,9 +45,10 @@
   - 状态／条件：LOCAL VERIFIED：版本化哈希/v1 兼容/Log strict 与逐字段篡改检测/多实例链冲突解析已有测试；本项补齐 D4 调用方契约——副作用已执行后审计写失败一律经 `ReportWriteGap` 呈现（WARN + rate-limited 告警），不再 `fmt.Printf`/`_ =` 静默吞掉，也不返回 5xx（5xx 会误导「业务未执行」并引诱盲重试）。真实审计库故障注入 NOT RUN，不据此宣称生产链路已验证。
   - 完成证据：2026-10-31；`internal/audit/audit.go`（ReportWriteGap）、`internal/platform/functioninvoke/approval.go`、`internal/api/approval/service.go`、`internal/api/approval/stepup_otp.go`、`internal/api/alert/inbound.go`、`internal/api/configexplorer/service.go`、`internal/api/console/service.go`、`internal/api/openapi/service.go`、`internal/api/ops/helpers.go`、`internal/api/page/service.go`、`internal/api/resourcecatalog/service.go`、`internal/service/contract_service.go`、`internal/audit/chain_version_test.go`（TestReportWriteGap_SurfacesGapAndRateLimits）、`internal/platform/functioninvoke/audit_gap_test.go`（TestAuditFunctionInvoke_WriteGapSurfaced、TestAuditApprovalCreated_WriteGapSurfaced）；`go test ./internal/... ./core/... ./agents/... -count=1` 全绿，`go build ./...` 过，dashboard vnext/e2e guard PASSED，dependency boundary PASSED，web tsc 过，docs build 过。
 
-- [ ] **ARCH-009 · P1 · 实现 · 数据库首次打开的取消与预算**
+- [x] **ARCH-009 · P1 · 实现 · 数据库首次打开的取消与预算**
   - 依赖：—。交付与验收：让 resolver/open/migrate 消费 context；取消等待及时返回、同库 singleflight、不同库隔离，暴露池数/首开耗时；与 ARCH-006 路由命名修复可并行，合并时核对绑定行为
-  - 状态／条件：R30-06 CONFIRMED：取消等待、ensure/migrate context、singleflight 和统计已实现；5ms OpenBudget 下阻塞的 cfg.Open 在 40ms 后仍不返回，释放后才报超时。须约束实际 Open/驱动初始化，不能仅在后续 PingContext 补检查。 详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+  - 状态／条件：LOCAL VERIFIED：取消等待/ensure/migrate context/singleflight/统计沿用既有实现；本项补齐 R30-06——同步无 context 的 `cfg.Open`（gorm.Open 驱动初始化）改为经 `openWithContext` 在预算 context 内运行，预算到期即返回 deadline 错误，驱动迟到返回的连接被 `closeQuietly` 关闭而非泄漏；随后 PingContext/migrate 仍按预算检查。真实数据库驱动初始化故障注入 NOT RUN，不据此宣称生产链路已验证。
+  - 完成证据：2026-10-31；`internal/db/router/router.go`（openWithContext + GameDBCloseLateHook 测试接缝）、`internal/db/router/router_arch009_test.go`（TestGameDB_OpenBudgetBoundsBlockingOpen）；`go test ./internal/db/... ./internal/svc/... ./internal/api/page/... ./internal/api/console/... -count=1` 全绿，`go test -race ./internal/db/router/ -run 'TestGameDB_OpenBudgetBoundsBlockingOpen|TestGameDB_OpenBudgetExceeded|TestGameDB_LifecycleCancelAbortsInFlightOpen' -count=1` 过，`go build ./...` 过。
 
 - [ ] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。

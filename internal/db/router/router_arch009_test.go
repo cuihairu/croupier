@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -292,4 +293,67 @@ func TestGameDB_StatsAfterOpensAndFailure(t *testing.T) {
 	require.True(t, st.MaxLatency >= st.AvgLatency)
 	require.True(t, st.P95Latency > 0)
 	require.True(t, st.P95Latency >= st.AvgLatency)
+}
+
+// TestGameDB_OpenBudgetBoundsBlockingOpen verifies that a blocking cfg.Open
+// (simulating a hung driver init) returns promptly at the open-budget deadline
+// instead of waiting for the driver to release, and that any DB returned late
+// by the driver is closed rather than leaked (ARCH-009 re-open).
+func TestGameDB_OpenBudgetBoundsBlockingOpen(t *testing.T) {
+	release := make(chan struct{})
+	openEntered := make(chan struct{})
+	openOnce := sync.Once{}
+	closedOnce := sync.Once{}
+	closed := make(chan *gorm.DB, 1)
+
+	ensure := func(_ context.Context, driver, metaDSN, dbName string) (string, error) {
+		return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
+	}
+	open := func(_ string, _ string) (*gorm.DB, error) {
+		openOnce.Do(func() { close(openEntered) })
+		<-release // block until the test releases the hung driver
+		db := openSQLite(t, filepath.Join(t.TempDir(), "late.db"))
+		return db, nil
+	}
+	// ARCH-009 late-close seam: verify the late-returned handle is closed.
+	router.GameDBCloseLateHook = func(db *gorm.DB) error {
+		closedOnce.Do(func() { closed <- db })
+		return nil
+	}
+	t.Cleanup(func() { router.GameDBCloseLateHook = nil })
+
+	r := router.New(router.Config{
+		Driver:  "sqlite",
+		MetaDSN: filepath.Join(t.TempDir(), "meta.db"),
+		DSNForDatabase: func(metaDSN, dbName string) string {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
+		},
+		EnsureDatabase: ensure,
+		Open:           open,
+		OpenBudget:     30 * time.Millisecond,
+	}, nil)
+	t.Cleanup(func() { _ = r.Close() })
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := r.GameDB(context.Background(), "demo", "prod")
+		done <- err
+	}()
+	<-openEntered
+
+	select {
+	case err := <-done:
+		require.Error(t, err, "blocking Open must be bounded by the open budget")
+		require.ErrorIs(t, err, context.DeadlineExceeded, "budget expiry must surface as a deadline error")
+	case <-time.After(2 * time.Second):
+		t.Fatal("GameDB did not return within the open budget for a hung Open")
+	}
+
+	// Release the hung driver; the late DB must be closed, not leaked.
+	close(release)
+	select {
+	case <-closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("late-returned DB was not closed")
+	}
 }

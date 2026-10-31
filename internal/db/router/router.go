@@ -34,6 +34,11 @@ type DatabaseOpener func(driver, dsn string) (*gorm.DB, error)
 // 无挂起点，真实交错不可构造）。用后必须在 t.Cleanup 复位。
 var gameDBInflightHook func()
 
+// GameDBCloseLateHook is the test seam for the ARCH-009 late-Open close. Product
+// code is nil; tests set it to observe that a *gorm.DB returned after the open
+// budget expired is closed (not leaked). Reset in t.Cleanup.
+var GameDBCloseLateHook func(*gorm.DB) error
+
 // DatabaseEnsurer creates the physical database named dbName on the server
 // reachable via baseDSN (which points at an existing/admin database), then
 // returns the DSN to connect to the newly created database. If the database
@@ -473,7 +478,13 @@ func (r *Router) openGameDB(ctx context.Context, dbName string) (*gorm.DB, error
 	if err := check("open"); err != nil {
 		return nil, err
 	}
-	db, err := r.cfg.Open(r.cfg.Driver, dsn)
+	closeLate := closeQuietly
+	if GameDBCloseLateHook != nil {
+		closeLate = GameDBCloseLateHook
+	}
+	db, err := openWithContext(ctx, func() (*gorm.DB, error) {
+		return r.cfg.Open(r.cfg.Driver, dsn)
+	}, closeLate)
 	if err != nil {
 		return nil, fmt.Errorf("router: open database %q: %w", dbName, err)
 	}
@@ -496,6 +507,34 @@ func (r *Router) openGameDB(ctx context.Context, dbName string) (*gorm.DB, error
 		}
 	}
 	return db, nil
+}
+
+// openWithContext bounds the context-free gorm.Open call. If Open returns
+// after the budget has expired, the caller has already received a timeout and
+// this goroutine closes the late resource to avoid leaking a pool.
+func openWithContext(ctx context.Context, open func() (*gorm.DB, error), close func(*gorm.DB) error) (*gorm.DB, error) {
+	type openResult struct {
+		db  *gorm.DB
+		err error
+	}
+	ch := make(chan openResult, 1)
+	go func() {
+		db, err := open()
+		ch <- openResult{db: db, err: err}
+	}()
+
+	select {
+	case result := <-ch:
+		return result.db, result.err
+	case <-ctx.Done():
+		go func() {
+			result, ok := <-ch
+			if ok && result.err == nil {
+				_ = close(result.db)
+			}
+		}()
+		return nil, ctx.Err()
+	}
 }
 
 func closeQuietly(db *gorm.DB) error {
