@@ -336,6 +336,28 @@ form fieldset {
     margin-inline: 8px;
   }
 
+  /* 页头窄屏：标题独占一行、副标题换行，避免标题被截成 "Fun..."/"Res..." */
+  .ant-pro-page-container-warp-page-header .ant-page-header-heading {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .ant-pro-page-container-warp-page-header .ant-page-header-heading-left {
+    flex-direction: column;
+    align-items: flex-start;
+    row-gap: 4px;
+    min-width: 0;
+  }
+  .ant-pro-page-container-warp-page-header .ant-page-header-heading-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .ant-pro-page-container-warp-page-header .ant-page-header-heading-sub-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .ant-table {
     width: 100%;
     overflow-x: auto;
