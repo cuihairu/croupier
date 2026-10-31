@@ -578,18 +578,31 @@ const ResourceCatalogPage: React.FC = () => {
             id: 'pages.resourceCatalog.page.alert.title',
             defaultMessage: '资源目录只展示语义与候选，不承载页面 UI',
           })}
-          description={intl.formatMessage({
-            id: 'pages.resourceCatalog.page.alert.description',
-            defaultMessage:
-              '页面标题、菜单、表格列与按钮位置在 Page Studio 的 Proposal 中确定；确认资源语义后，请进入 Page Studio 生成或调整页面。',
-          })}
-          action={
-            <Button type="primary" onClick={() => history.push('/functions/pages')}>
-              <FormattedMessage
-                id="pages.resourceCatalog.page.button.openPageStudio"
-                defaultMessage="进入 Page Studio"
-              />
-            </Button>
+          description={
+            // 描述与按钮同置 description，用可换行 flex 而非 antd Alert 的
+            // action 插槽（action 固定右侧，窄屏把描述挤成一列，每词一行）。
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
+              }}
+            >
+              <span style={{ flex: '1 1 220px', minWidth: 0 }}>
+                {intl.formatMessage({
+                  id: 'pages.resourceCatalog.page.alert.description',
+                  defaultMessage:
+                    '页面标题、菜单、表格列与按钮位置在 Page Studio 的 Proposal 中确定；确认资源语义后，请进入 Page Studio 生成或调整页面。',
+                })}
+              </span>
+              <Button type="primary" onClick={() => history.push('/functions/pages')}>
+                <FormattedMessage
+                  id="pages.resourceCatalog.page.button.openPageStudio"
+                  defaultMessage="进入 Page Studio"
+                />
+              </Button>
+            </div>
           }
         />
 
