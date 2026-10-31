@@ -2082,6 +2082,8 @@ func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agen
 			continue
 		}
 		f.Id = fid
+		f.Resource = strings.TrimSpace(strings.ToLower(f.GetResource()))
+		f.Operation = strings.TrimSpace(strings.ToLower(f.GetOperation()))
 		if prev, ok := byID[fid]; ok {
 			compare := compareSemver(f.GetVersion(), prev.GetVersion())
 			if compare > 0 {
