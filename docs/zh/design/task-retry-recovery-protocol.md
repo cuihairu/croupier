@@ -4,7 +4,7 @@ title: 异步任务重试与终态恢复协议
 
 # 异步任务重试与终态恢复协议（ARCH-014）
 
-> 2026-10-30 实现复核：在途重复 Start 与终态有限重试已实现，但终态行更新与事件插入之间没有事务；事件写失败后重试可被直接 ACK，ARCH-015 已重新打开。watchdog 在当前工作区实现中，独立进程验收仍 NOT RUN。
+> 2026-10-31 实现复核：在途重复 Start（D1）、终态有限重试（D2）与会话丢失/`unknown` 收割（D3）均已实现。2026-10-30 重新打开 ARCH-015 的「行状态与事件持久化不原子」缺口已闭合：Server 以单一事务（`RecordTaskEvent`）持久化 guard 状态更新与事件追加，事件写失败整体回滚状态更新，来源恢复后重试收敛该行，而非缺失事件仍被 ACK。watchdog（`timed_out` 收割器）ARCH-018 已随附；独立进程验收仍 NOT RUN。
 
 **状态：** 已决策（2026-10-30）。实现由 ARCH-015（TaskRunner 重复 Start 约束与事件重放/终态收敛）与 ARCH-018（执行中断演练）承接。
 
@@ -32,7 +32,7 @@ title: 异步任务重试与终态恢复协议
 
 ### D2 — 事件投递：Server 响应即 ACK；终态事件带重试
 
-- **Server 的 `handleTaskEvent` 响应即 ACK。** Server 先持久化（`UpdateRunIfStatusNotIn` + `AppendEvent`）再响应；终态守卫丢弃（终态后的迟到事件）同样成功返回且不落记录——是刻意的 no-op，agent **不得**重试。此拆分已存在，本设计将其钉为契约。
+- **Server 的 `handleTaskEvent` 响应即 ACK。** Server 响应前经 `RecordTaskEvent` 持久化——guard 状态更新与事件追加跑在**单一事务**内，事件写失败整体回滚状态更新，任何部分 `task_runs`/`task_events` 状态都不会被 ACK（R30-03 / ARCH-015）。终态守卫丢弃（终态后的迟到事件）同样成功返回且不落记录——是刻意的 no-op，agent **不得**重试。此拆分已存在，本设计将其钉为契约。
 - **终态事件（completed/failed/cancelled）带重试直至 ACK**，有界（有界次数 + 有界内存），带退避。任务 `run` 协程阻塞在终态事件发送上，因此上游视角下任务直到 Server 持久化（或刻意丢弃）终态事件才算结束。
 - **非终态事件（started/progress/log）尽力而为**：传输压力下 progress 可合并、log 可丢弃。丢失不影响收敛——终态事件仍会落地（或 D3 收割器给行定界）。
 - 同一任务 ID 内事件由单个 `run` 协程顺序上报；Server 终态守卫保证 task_events 权威（终态后无事件）。
@@ -56,13 +56,13 @@ title: 异步任务重试与终态恢复协议
 
 ## 实现映射（供 ARCH-015 / ARCH-018）
 
-| 协议点                         | 代码接缝                                                                                                                                                         |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 代际标记跟踪、不急删 cancel | `agents/sidecar/task_runner.go`（`Start`、`Cancel`、`run` 清理、映射类型）                                                                                       |
-| D2 终态事件重试至 ACK          | `agents/sidecar/task_runner.go`（`run` 终态上报）；agent 上报器（`internal/app/agent/upstream.go`）                                                              |
-| D3 会话丢失 → `unknown` 收割   | server agent 会话移除路径；任务状态谓词（`internal/tasks/types.go`）                                                                                             |
-| D3 看门狗 → `timed_out`        | server ControlService 后台循环（`runTaskWatchdog`）；`TaskRunModel.ReapStale`；`tasks.Store.ReapStale`；预算 `taskLog.reaperTimeout`（默认 5m）——ARCH-018 已随附 |
-| 边界：重跑 = 新任务 ID         | 派发 / 任务创建路径（已是现状；保持）                                                                                                                            |
+| 协议点                         | 代码接缝                                                                                                                                                                                                          |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 代际标记跟踪、不急删 cancel | `agents/sidecar/task_runner.go`（`Start`、`Cancel`、`run` 清理、映射类型）                                                                                                                                        |
+| D2 终态事件重试至 ACK          | `agents/sidecar/task_runner.go`（`run` 终态上报）；agent 上报器（`internal/app/agent/upstream.go`）；server `TaskStore.RecordTaskEvent` + `TaskRunModel.RecordTaskEventTransactional`（单一事务持久化，ARCH-015） |
+| D3 会话丢失 → `unknown` 收割   | server agent 会话移除路径；任务状态谓词（`internal/tasks/types.go`）                                                                                                                                              |
+| D3 看门狗 → `timed_out`        | server ControlService 后台循环（`runTaskWatchdog`）；`TaskRunModel.ReapStale`；`tasks.Store.ReapStale`；预算 `taskLog.reaperTimeout`（默认 5m）——ARCH-018 已随附                                                  |
+| 边界：重跑 = 新任务 ID         | 派发 / 任务创建路径（已是现状；保持）                                                                                                                                                                             |
 
 ## 已知边界
 
@@ -70,6 +70,11 @@ title: 异步任务重试与终态恢复协议
 - `unknown` 是新状态值；UI/类型面与任务查询已渲染之（ARCH-015 实现：TaskRunner D1/D2、server 会话丢失收割 D3、web `unknown` 状态）。
 - D3 看门狗 `timed_out` 收割器 **ARCH-018 已随附**；无事件超截止行自动收敛 `timed_out`（预算 `taskLog.reaperTimeout`，默认 5m）。
 - 协议不确立游戏侧 exactly-once 语义；需游戏侧回执/载荷内幂等键（GAME-010 相邻，此处越界）。
+
+## 实现状态（ARCH-015，2026-10-31）
+
+- **行状态与事件持久化原子化已随附（R30-03）。** `handleTaskEvent` 不再走 `UpdateRunIfStatusNotIn` + `AppendEvent` 两段式；改为调用 `tasks.Store.RecordTaskEvent`，委托 `TaskRunModel.RecordTaskEventTransactional`：单一数据库事务内先执行带 guard 的 `task_runs` 更新，再计算 `task_events` 下一 seq 并追加事件。任一失败整体回滚——行不可能在事件行缺失时变成终态，来源恢复后重投的终态事件可收敛该行（真正迟到的终态后事件仍被 guard 拦截）。证据：`internal/server/control_handler_test.go` `TestControlService_HandleTaskEvent_RealStore_NoPartialWrite`（事件表被删 → 报错且行保持 `queued`；表恢复 → 重试补写 seq=1 并收敛 `failed`）、`internal/model/task_model_test.go` `TestTaskRunModel_RecordTaskEventTransactional` / `_RollsBackOnAppendFailure`。
+- 边界不变：guard 丢弃契约（终态后迟到事件 → ACK 且不落记录）保留；跨重启重复执行与游戏侧 exactly-once 仍越界（GAME-010）。
 
 ## 实现状态（ARCH-018，2026-10-30）
 

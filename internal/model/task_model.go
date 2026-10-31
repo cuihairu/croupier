@@ -79,6 +79,61 @@ func (m *TaskRunModel) UpdateByTaskIDIfStatusNotIn(ctx context.Context, taskID s
 	return result.RowsAffected > 0, nil
 }
 
+// RecordTaskEventTransactional 在单一数据库事务内执行带 guard 的状态更新与
+// 事件追加，保证 task_runs 与 task_events 持久一致（R30-03 / ARCH-015）：
+// 此前 handleTaskEvent 先更新 task_runs 再写 task_events、无共同事务，事件
+// 写失败后重试被终态 guard 直接 ACK，缺失事件永不补写。updated=false 表示
+// 终态 guard 拦截（同 UpdateByTaskIDIfStatusNotIn 语义，事务内不追加事件，
+// 整体提交空操作）。
+func (m *TaskRunModel) RecordTaskEventTransactional(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}, event *TaskEvent) (bool, error) {
+	taskID = strings.TrimSpace(taskID)
+	if taskID == "" {
+		return false, errors.New("task id required")
+	}
+	if event == nil {
+		return false, errors.New("task event required")
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now()
+	}
+	if len(event.Payload) == 0 {
+		event.Payload = []byte("null")
+	}
+	event.TaskID = taskID
+	updated := false
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&TaskRun{}).Where("task_id = ?", taskID)
+		if len(blockedStatuses) > 0 {
+			query = query.Where("(status IS NULL OR status NOT IN ?)", blockedStatuses)
+		}
+		result := query.Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return nil // 终态 guard 拦截：不追加事件
+		}
+		updated = true
+		// seq 计算与追加须与状态更新同事务（NextSeq 语义：MAX(seq)+1，
+		// 首条为 1）；失败随事务整体回滚，不产生部分写入。
+		var latest TaskEvent
+		err := tx.Where("task_id = ?", taskID).Order("seq DESC").First(&latest).Error
+		switch {
+		case err == nil:
+			event.Seq = latest.Seq + 1
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			event.Seq = 1
+		default:
+			return err
+		}
+		return tx.Create(event).Error
+	})
+	if err != nil {
+		return false, err
+	}
+	return updated, nil
+}
+
 // ReapByAgent transitions the given agent's task_runs rows that are still in
 // one of the supplied active statuses to the target status (ARCH-014 D3: agent
 // session loss → unknown). Rows already terminal or already unknown are left

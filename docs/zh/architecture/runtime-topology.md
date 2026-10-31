@@ -4,7 +4,7 @@ title: 运行架构、连接与生命周期（源码现状）
 
 # 运行架构、连接与生命周期
 
-> **2026-10-31（ARCH-025）最新复审：CHANGES REMAIN。** 调度已前置领取、多个入口已接入 Govern、主记录落库失败和 descriptor 读取失败会拒绝派发；跨槽过期 claimed 已由统一扫描解析为 `indeterminate`（ARCH-023），函数 ACL 漏检已闭合（Govern 全入口运行显式函数 ACL，ARCH-024），契约风险来源故障已 fail-closed（不再静默降档，ARCH-025）。仍复现终态事件部分写入（ARCH-015）。正常 drain/停机路径已有实现，已接收任务与总截止仍有缺口。详见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。真实高危写入不获上线批准。
+> **2026-10-31（ARCH-015）最新复审：CHANGES REMAIN。** 调度已前置领取、多个入口已接入 Govern、主记录落库失败和 descriptor 读取失败会拒绝派发；跨槽过期 claimed 已由统一扫描解析为 `indeterminate`（ARCH-023），函数 ACL 漏检已闭合（Govern 全入口运行显式函数 ACL，ARCH-024），契约风险来源故障已 fail-closed（不再静默降档，ARCH-025），终态事件持久化已原子化——guard 状态更新与事件追加跑在单一事务内，事件写失败整体回滚而非被 ACK 吞掉（ARCH-015）。正常 drain/停机路径已有实现，已接收任务与总截止仍有缺口。详见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。真实高危写入不获上线批准。
 
 核查日 **2026-10-30**。这是源码与仓库部署模板的现状，不是线上盘点或生产认证。**已实现**表示可追踪到生产装配；**目标设计**表示尚有运行缺口；**待核实**表示需要真实配置、账号或环境。本轮不修改业务实现。历史审核见 仓库审核记录 `docs/review/architecture-audit-2026-10-28.md`。待办唯一入口为仓库根 `todo.md`。
 
@@ -91,7 +91,7 @@ Server 先创建 ServiceContext/数据库与注册物化、scheduler、session r
 
 HTTP 身份/scope → 页面快照 binding（或受控草稿）→ functioninvoke 的禁用/分配/输入契约/政策门。拒绝、待审批与执行互斥。任务与调度已接入 Govern，且 Govern 在 /tasks Start 同一条链内运行显式函数 ACL（CheckInvokePermission）——普通、手动、自动入口共用一次授权（ARCH-024）。契约风险来源故障 fail-closed 拒绝，不再静默降档为 medium（ARCH-025）；GetPolicy 与 descriptor 查询错误同样拒绝。Create 只校验可调度性，每次触发再治理。生产 dispatch 注入 TaskRunWriter，task_runs 写失败禁止 StartTask（ARCH-026）；descriptor 查询错误拒绝，确无 schema 才跳过（ARCH-027）。返回 taskId 仅代表接收；取消先记意图再路由，Cancel ACK 不证明外部副作用撤销。
 
-**实现边界**：TaskRunner 对在途同 ID Start 做内存去重、用 generation 清理并有限重试终态；跨进程重启无持久去重。Server 先更新终态再插事件的部分写入缺口已复现，不能保证重试补齐事件。页面幂等不替代游戏持久收据。证据：`agents/sidecar/task_runner.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
+**实现边界**：TaskRunner 对在途同 ID Start 做内存去重、用 generation 清理并有限重试终态；跨进程重启无持久去重。Server 以单一事务（`RecordTaskEvent`）持久化 guard 状态更新与事件追加，事件写失败整体回滚、来源恢复后重试可收敛（ARCH-015 已闭合）。页面幂等不替代游戏持久收据。证据：`agents/sidecar/task_runner.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
 
 ### CDC 告警与出口
 
@@ -153,4 +153,4 @@ MongoDB change stream、OIDC/Vault、第三方平台账号、镜像/许可证全
 
 ## 2026-10-30 失败边界复核
 
-上文正常流程不构成完整故障保证。drain 前已接收但未进入 Provider RPC 的任务可能在 ACK 后因 pickInstance 注册已删除而失败；taskId 续接例外无法覆盖此前置查找。Server 的外层 30s 等待不覆盖最终无界 defer StopScheduler。task_runs 终态更新与 task_events 写入不是一个事务，第二步失败后重试会被直接 ACK。审计 Log 的 strict 错误仍被部分调用方吞掉。上述缺口已分别回填 ARCH-015/016/017/008；工作区 watchdog 属在途实现，不能代替 ARCH-018 演练。证据及具体复现见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。
+上文正常流程不构成完整故障保证。drain 前已接收但未进入 Provider RPC 的任务可能在 ACK 后因 pickInstance 注册已删除而失败；taskId 续接例外无法覆盖此前置查找。Server 的外层 30s 等待不覆盖最终无界 defer StopScheduler。终态持久化已原子化——`handleTaskEvent` 以单一事务持久化 guard 状态更新与事件追加，事件写失败整体回滚、来源恢复后重试收敛（ARCH-015）。审计 Log 的 strict 错误仍被部分调用方吞掉。上述缺口已分别回填 ARCH-016/017/008；工作区 watchdog 属在途实现，不能代替 ARCH-018 演练。证据及具体复现见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。

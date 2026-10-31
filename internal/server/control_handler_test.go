@@ -121,17 +121,22 @@ type mockTaskStore struct {
 	lastEventType   tasks.EventType
 }
 
-func (m *mockTaskStore) UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error) {
+// RecordTaskEvent 模拟单一事务的「guard 更新 + 事件追加」：updateRunErr 或
+// !updateAccepted 时不追加（对应终态 guard 拦截），否则追加并透传 appendEventErr
+// （对应事务内事件写失败整体回滚）。镜像真实 *tasks.Store.RecordTaskEvent。
+func (m *mockTaskStore) RecordTaskEvent(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}, eventType tasks.EventType, progress int32, message string, payload []byte) (bool, error) {
 	m.updateRunCalled++
 	m.lastTaskID = taskID
 	m.lastUpdates = updates
-	return m.updateAccepted, m.updateRunErr
-}
-
-func (m *mockTaskStore) AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error {
+	if m.updateRunErr != nil {
+		return false, m.updateRunErr
+	}
+	if !m.updateAccepted {
+		return false, nil
+	}
 	m.appendCalled++
 	m.lastEventType = eventType
-	return m.appendEventErr
+	return true, m.appendEventErr
 }
 
 // --- Tests for ParseListenAddr ---
@@ -1089,7 +1094,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 
 		_, err := svc.handleTaskEvent(context.Background(), data)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "update task run")
+		assert.Contains(t, err.Error(), "record task event")
 	})
 
 	t.Run("append event error", func(t *testing.T) {
@@ -1104,7 +1109,7 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 
 		_, err := svc.handleTaskEvent(context.Background(), data)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "append task event")
+		assert.Contains(t, err.Error(), "record task event")
 	})
 
 	t.Run("whitespace task ID trimmed", func(t *testing.T) {
@@ -1159,6 +1164,55 @@ func TestControlService_HandleTaskEvent(t *testing.T) {
 		assert.Equal(t, 1, mock.updateRunCalled)
 		assert.Equal(t, 0, mock.appendCalled)
 	})
+}
+
+// R30-03（ARCH-015）全链验证：真实 *tasks.Store 下事件写失败时状态更新整体
+// 回滚（不产生「task_runs 已终态但 task_events 缺失」的部分写入），来源恢复
+// 后重试补写事件并收敛终态——旧两段式写入在第一次失败后会把状态置为终态，
+// 重试被终态 guard 直接 ACK，缺失事件永不补写。
+func TestControlService_HandleTaskEvent_RealStore_NoPartialWrite(t *testing.T) {
+	db, err := gorm.Open(gosqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.TaskRun{}, &model.TaskEvent{}))
+	store := tasks.NewStore(model.NewTaskRunModel(db), model.NewTaskEventModel(db))
+	require.NoError(t, store.CreateRun(context.Background(), &model.TaskRun{
+		TaskID: "t-partial", FunctionID: "f", Status: "queued",
+	}))
+
+	svc := newTestControlService()
+	svc.SetTaskStore(store)
+
+	data, err := proto.Marshal(&sdkv1.TaskEvent{
+		TaskId: "t-partial", Type: string(tasks.EventFailed), Message: "boom",
+	})
+	require.NoError(t, err)
+
+	// 注入事件来源故障：task_events 表缺失 → 追加失败 → 事务回滚，
+	// task_runs 不得被置为 failed（无部分写入），错误向上返回（不静默 ACK）。
+	require.NoError(t, db.Migrator().DropTable(&model.TaskEvent{}))
+	_, err = svc.handleTaskEvent(context.Background(), data)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "record task event")
+	run, err := store.GetRun(context.Background(), "t-partial")
+	require.NoError(t, err)
+	require.Equal(t, "queued", run.Status, "事件写失败必须回滚状态更新")
+	require.Nil(t, run.FinishedAt)
+
+	// 来源恢复后重试：事件补写（seq=1）、状态收敛 failed。
+	require.NoError(t, db.AutoMigrate(&model.TaskEvent{}))
+	_, err = svc.handleTaskEvent(context.Background(), data)
+	require.NoError(t, err)
+	run, err = store.GetRun(context.Background(), "t-partial")
+	require.NoError(t, err)
+	require.Equal(t, "failed", run.Status)
+	require.NotNil(t, run.FinishedAt)
+	events, err := store.ListEvents(context.Background(), "t-partial", 0)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.Equal(t, string(tasks.EventFailed), events[0].Type)
+	require.EqualValues(t, 1, events[0].Seq)
 }
 
 // --- Tests for handleRequest ---

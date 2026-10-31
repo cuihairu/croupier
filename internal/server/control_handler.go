@@ -99,9 +99,11 @@ type AgentSessionLoader interface {
 }
 
 // TaskStore defines the interface for task run persistence used by handleTaskEvent.
+// RecordTaskEvent 在单一事务内完成带 guard 的状态更新与事件追加（R30-03 /
+// ARCH-015）：保证 task_runs 与 task_events 持久一致，事件写失败整体回滚，
+// 不再产生「状态已终态但事件缺失」的部分写入（旧两段式写入的缺口）。
 type TaskStore interface {
-	UpdateRunIfStatusNotIn(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}) (bool, error)
-	AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error
+	RecordTaskEvent(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}, eventType tasks.EventType, progress int32, message string, payload []byte) (bool, error)
 }
 
 // TaskReaper defines the D3 watchdog reaper entry (*tasks.Store satisfies it
@@ -990,18 +992,12 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 		updates["status"] = tasks.StatusRunning
 	}
 
-	updated, err := taskStore.UpdateRunIfStatusNotIn(ctx, taskID, blockedStatuses, updates)
-	if err != nil {
-		return nil, fmt.Errorf("update task run: %w", err)
-	}
-	if !updated {
-		// A terminal task must remain terminal. Do not append the late event
-		// either: task streams stop at a terminal event and must not expose a
-		// misleading event after that boundary.
-		return nil, nil
-	}
-	if err := taskStore.AppendEvent(ctx, taskID, tasks.EventType(req.GetType()), req.GetProgress(), req.GetMessage(), req.GetPayload()); err != nil {
-		return nil, fmt.Errorf("append task event: %w", err)
+	// R30-03（ARCH-015）：状态更新与事件追加在单一事务内完成（RecordTaskEvent），
+	// 任一失败整体回滚——不再有「task_runs 已终态但 task_events 缺失」的部分
+	// 写入被终态 guard 静默 ACK。终态 guard 拦截时（updated=false）不追加事件，
+	// 终态任务保持终态，任务流在终态事件后不再暴露误导性事件。
+	if _, err := taskStore.RecordTaskEvent(ctx, taskID, blockedStatuses, updates, tasks.EventType(req.GetType()), req.GetProgress(), req.GetMessage(), req.GetPayload()); err != nil {
+		return nil, fmt.Errorf("record task event: %w", err)
 	}
 	return nil, nil
 }

@@ -26,9 +26,9 @@
 
 ### R30-03 · P1 · 终态部分持久化后，重试 ACK 掩盖缺失事件
 
-**CONFIRMED，ARCH-015 重新打开。** `internal/server/control_handler.go:handleTaskEvent` 先 UpdateRunIfStatusNotIn 更新 task_runs，再 AppendEvent 写 task_events，无共同事务。第二步失败后，重试命中终态 !updated，直接成功返回而不补事件。
+**已修复（ARCH-015，2026-10-31）。** 原缺口：`internal/server/control_handler.go:handleTaskEvent` 先 UpdateRunIfStatusNotIn 更新 task_runs，再 AppendEvent 写 task_events，无共同事务。第二步失败后，重试命中终态 !updated，直接成功返回而不补事件——诊断第一次 append 失败、第二次 ACK，append 总次数仍为 1，有限重试未解决部分写入。
 
-诊断第一次 append 失败，第二次 ACK，append 总次数仍为 1。有限重试已实现但没有解决部分写入。复用事务或稳定事件身份保证状态/事件持久一致，不能把所有终态后请求直接丢弃等同可靠幂等。
+修复：`handleTaskEvent` 改调 `tasks.Store.RecordTaskEvent` → `TaskRunModel.RecordTaskEventTransactional`，在单一数据库事务内执行 guard 状态更新 + 事件 seq 计算 + 事件追加，任一失败整体回滚——行不可能在事件行缺失时变成终态，来源恢复后重投的终态事件收敛该行（guard 仍拦截真正迟到的终态后事件）。证据：`internal/server/control_handler_test.go` `TestControlService_HandleTaskEvent_RealStore_NoPartialWrite`（事件表缺失 → 报错且行保持 queued、无部分写入；表恢复 → 重试补写 seq=1 并收敛 failed）、`internal/model/task_model_test.go` `TestTaskRunModel_RecordTaskEventTransactional`/`_RollsBackOnAppendFailure`（seq 顺序、终态 guard 拦截、append 失败回滚状态）。
 
 ### R30-04 · P1 · 跨分钟恢复遗漏旧 claimed
 

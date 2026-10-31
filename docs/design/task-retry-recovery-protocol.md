@@ -4,7 +4,7 @@ title: Async task retry and terminal-state recovery protocol
 
 # Async task retry and terminal-state recovery protocol (ARCH-014)
 
-> Implementation recheck, 2026-10-30: In-flight Start deduplication and bounded terminal retries exist, but run-state and event persistence are not atomic; retries after an event write failure can be ACKed without the missing event. ARCH-015 is reopened. The watchdog is a worktree implementation; independent-process acceptance is NOT RUN.
+> Implementation recheck, 2026-10-31: In-flight Start deduplication (D1), bounded terminal retries (D2) and the session-loss/`unknown` reaping (D3) exist. The run-state + event persistence gap that reopened ARCH-015 on 2026-10-30 is now closed: the Server persists the guarded status update and the event append in a single transaction (`RecordTaskEvent`), so a failed event write rolls back the status update and a retry after source recovery converges the row instead of being ACKed without the missing event. The watchdog (`timed_out` reaper) shipped in ARCH-018; independent-process acceptance remains NOT RUN.
 
 **Status:** decided (2026-10-30). Implementation is tracked by ARCH-015 (TaskRunner duplicate-Start constraint and event replay / terminal convergence) and ARCH-018 (execution-interruption drill).
 
@@ -32,7 +32,7 @@ The shared trap is treating _page execution idempotency_ as _game side-effect de
 
 ### D2 — Event delivery: the Server response is the ACK; terminal events are retried
 
-- **The Server's `handleTaskEvent` response is the ACK.** The Server persists (`UpdateRunIfStatusNotIn` + `AppendEvent`) before responding; the terminal-guard drop (a late event after a terminal status) also responds success with no record — an intentional no-op that the agent must **not** retry. This split already exists; the design pins it as the contract.
+- **The Server's `handleTaskEvent` response is the ACK.** The Server persists before responding via `RecordTaskEvent` — the guarded status update and the event append run in a **single transaction**, so a failed event write rolls back the status update and no partial `task_runs`/`task_events` state is ever ACKed (R30-03 / ARCH-015). The terminal-guard drop (a late event after a terminal status) also responds success with no record — an intentional no-op that the agent must **not** retry. This split already exists; the design pins it as the contract.
 - **Terminal events (completed/failed/cancelled) are delivered with retry-until-ACK**, bounded (bounded attempts + bounded memory), with backoff. The task's `run` goroutine blocks on the terminal event send, so the task is not considered finished upstream until the Server has durably recorded (or intentionally dropped) the terminal event.
 - **Non-terminal events (started/progress/log) are best-effort** under transport pressure: progress may coalesce, logs may be dropped. Losing them does not affect convergence — the terminal event still lands (or D3's reaper bounds the row).
 - Within a task ID, events are reported sequentially by the single `run` goroutine; the Server's terminal guard keeps `task_events` authoritative (no event after terminal).
@@ -56,13 +56,13 @@ The page-execution idempotency record dedupes **page execution on the control si
 
 ## Implementation mapping (for ARCH-015 / ARCH-018)
 
-| Protocol point                                        | Code seam                                                                                                                                                                       |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 generation-tagged tracking, no eager cancel delete | `agents/sidecar/task_runner.go` (`Start`, `Cancel`, `run` cleanup, map type)                                                                                                    |
-| D2 terminal-event retry-until-ACK                     | `agents/sidecar/task_runner.go` (`run` terminal report); agent reporter (`internal/app/agent/upstream.go`)                                                                      |
-| D3 session-loss → `unknown` reaping                   | server agent-session removal path; task status predicates (`internal/tasks/types.go`)                                                                                           |
-| D3 watchdog → `timed_out`                             | server ControlService background loop (`runTaskWatchdog`); `TaskRunModel.ReapStale`; `tasks.Store.ReapStale`; budget `taskLog.reaperTimeout` (default 5m) — shipped in ARCH-018 |
-| Boundary: re-run = new task ID                        | dispatch / task create path (already the case; keep it)                                                                                                                         |
+| Protocol point                                        | Code seam                                                                                                                                                                                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 generation-tagged tracking, no eager cancel delete | `agents/sidecar/task_runner.go` (`Start`, `Cancel`, `run` cleanup, map type)                                                                                                                                                        |
+| D2 terminal-event retry-until-ACK                     | `agents/sidecar/task_runner.go` (`run` terminal report); agent reporter (`internal/app/agent/upstream.go`); server `TaskStore.RecordTaskEvent` + `TaskRunModel.RecordTaskEventTransactional` (single-transaction persist, ARCH-015) |
+| D3 session-loss → `unknown` reaping                   | server agent-session removal path; task status predicates (`internal/tasks/types.go`)                                                                                                                                               |
+| D3 watchdog → `timed_out`                             | server ControlService background loop (`runTaskWatchdog`); `TaskRunModel.ReapStale`; `tasks.Store.ReapStale`; budget `taskLog.reaperTimeout` (default 5m) — shipped in ARCH-018                                                     |
+| Boundary: re-run = new task ID                        | dispatch / task create path (already the case; keep it)                                                                                                                                                                             |
 
 ## Known boundaries
 
@@ -70,6 +70,11 @@ The page-execution idempotency record dedupes **page execution on the control si
 - `unknown` is a new status value; UI/type surfaces and the task query render it (implemented in ARCH-015: TaskRunner D1/D2, server session-loss reaping D3, web `unknown` status).
 - The D3 watchdog `timed_out` reaper **shipped in ARCH-018**; no-event-past-deadline rows converge to `timed_out` automatically (budget `taskLog.reaperTimeout`, default 5m).
 - The protocol does not establish game-side exactly-once semantics; that requires game-provided receipts / idempotency keys in the payload (GAME-010 adjacent, out of scope here).
+
+## Implementation status (ARCH-015, 2026-10-31)
+
+- **Atomic run-state + event persistence shipped (R30-03).** `handleTaskEvent` no longer performs a two-step `UpdateRunIfStatusNotIn` + `AppendEvent`; it calls `tasks.Store.RecordTaskEvent`, which delegates to `TaskRunModel.RecordTaskEventTransactional`: one database transaction runs the guarded `task_runs` update, then computes the next `task_events` seq and appends the event. Any failure rolls the whole transaction back — the row cannot become terminal while its event row is missing, and a re-delivered terminal event after source recovery converges the row (guard still blocks genuinely late events after a terminal status). Evidence: `internal/server/control_handler_test.go` `TestControlService_HandleTaskEvent_RealStore_NoPartialWrite` (event table dropped → error, run stays `queued`; table restored → retry appends seq=1 and converges `failed`), `internal/model/task_model_test.go` `TestTaskRunModel_RecordTaskEventTransactional` / `_RollsBackOnAppendFailure`.
+- Boundary unchanged: the guard-drop contract (late event after terminal → ACK without record) is preserved; cross-restart duplicate execution and game-side exactly-once remain out of scope (GAME-010).
 
 ## Implementation status (ARCH-018, 2026-10-30)
 

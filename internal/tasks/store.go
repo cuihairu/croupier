@@ -36,6 +36,19 @@ func (s *Store) UpdateRunIfStatusNotIn(ctx context.Context, taskID string, block
 	return s.runs.UpdateByTaskIDIfStatusNotIn(ctx, taskID, blockedStatuses, updates)
 }
 
+// RecordTaskEvent 在单一事务内完成带 guard 的状态更新与事件追加（R30-03 /
+// ARCH-015）：task_runs 与 task_events 持久一致，事件写失败整体回滚，不产生
+// 「状态已终态但事件缺失」的部分写入。updated=false 表示终态 guard 拦截，
+// 事件未追加（调用方按已收敛处理）。
+func (s *Store) RecordTaskEvent(ctx context.Context, taskID string, blockedStatuses []string, updates map[string]interface{}, eventType EventType, progress int32, message string, payload []byte) (bool, error) {
+	return s.runs.RecordTaskEventTransactional(ctx, taskID, blockedStatuses, updates, &model.TaskEvent{
+		Type:     string(eventType),
+		Progress: progress,
+		Message:  message,
+		Payload:  payload,
+	})
+}
+
 func (s *Store) ListRuns(ctx context.Context, opts model.ListTasksOptions) ([]model.TaskRun, int64, error) {
 	return s.runs.List(ctx, opts)
 }
