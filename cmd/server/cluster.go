@@ -144,7 +144,8 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	if icAddr == "" {
 		icAddr = cfg.AdvertiseAddr
 	}
-	useInterconnectTLS := !cfg.InsecureSkipTLS &&
+	useInterconnectTLS := cfg.InterconnectTLS.Enabled &&
+		!cfg.InsecureSkipTLS &&
 		!cfg.InterconnectTLS.InsecureSkipVerify &&
 		cfg.InterconnectTLS.CertFile != "" &&
 		cfg.InterconnectTLS.KeyFile != "" &&
