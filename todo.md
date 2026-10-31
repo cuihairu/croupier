@@ -234,9 +234,10 @@
 
 - [x] **PROBE-004 · P1 · 实现 · synthetics 目标及策略版本同步**
   - 依赖：—。交付与验收：按既有角色设计补齐静态配置到受控版本拉取/热生效，复用 core/configsync 并绑定 gameId/env；坏版本保留 last-good，重连后取最新，禁用/删除目标释放资源；不凭 sidecar 的 puller 宣称 synthetics 已拥有同能力
-  - 状态／条件：VERIFIED 未实现：synthetics Runner 仅遍历 cfg.Synthetics.Targets，不存在 configsync/中心策略拉取装配；可本地实施。
+  - 状态／条件：LOCAL VERIFIED（2026-11-01 复核）：policy/target 下行拉取均已落地（commit a10d4986），单测 policy_sync_test.go / targets_sync_test.go 通过；可本地实施项已实施。
   - 交付（policy sync）：probe.policy 下行拉取经 core/configsync 热生效，`agents/synthetics/runner/runner.go` 新增 `newPolicyPuller` + `intervalFor`（EffectiveIntervalFor 叠加策略），坏版本/拉取失败保留 last-good（`policy_sync_test.go`）；服务端 `internal/server/control_handler.go:725` handleProbePolicyConfig 读 config_versions probe.policy 按注册会话 gameId/env 下发。
   - 交付（target sync）：synthetics.targets 下行拉取经 core/configsync 热生效，`agents/synthetics/runner/runner.go` 新增 `newTargetsPuller` + `applyTargets`（验证后 diff 热替换，删除目标停 timer 释放资源），坏版本/校验失败保留 last-good，重连后 configsync 续拉取最新（`targets_sync_test.go`）；服务端 `internal/server/control_handler.go:789` handleSyntheticsTargetsConfig 读 config_versions synthetics.targets 按注册会话 gameId/env 下发（`control_handler_synthetics_targets_test.go`）；wire 新增 `MsgSyntheticsTargetsConfigRequest/Response`（0x040129/0x04012A，`proto/croupier/ops/v1/ops.proto`、`pkg/protocol/message.go`、`agents/controlconn/controlconn.go`）。
+  - 完成证据：`agents/synthetics/runner/runner.go`、`agents/synthetics/runner/policy_sync_test.go`、`agents/synthetics/runner/targets_sync_test.go`、`internal/server/control_handler.go`
 
 - [ ] **PROBE-005 · P1 · 方案决策 · 探测结果与故障恢复事件丢失语义**
   - 依赖：—。交付与验收：区分可丢的周期采样与必须可核对的故障/恢复跃迁；评审断链缓存/重传/新鲜度/缺测状态及容量预算，优先复用既有 report/告警机制，不默认持久化每条采样
