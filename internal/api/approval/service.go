@@ -139,7 +139,7 @@ func (s *Service) logSelfApprovalAudit(ctx context.Context, operator string, rec
 	if s.svcCtx == nil || s.svcCtx.AuditService == nil {
 		return
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.AuditEventType("approval.self_approval_blocked"),
+	_, auditErr := s.svcCtx.AuditService.Log(ctx, audit.AuditEventType("approval.self_approval_blocked"),
 		audit.WithActorID(operator, "admin", operator),
 		audit.WithResourceID("approval", record.ID),
 		audit.WithDetails(map[string]interface{}{
@@ -153,6 +153,9 @@ func (s *Service) logSelfApprovalAudit(ctx context.Context, operator string, rec
 			"env":        record.Env,
 		}),
 	)
+	if auditErr != nil {
+		s.svcCtx.AuditService.ReportWriteGap(ctx, audit.AuditEventType("approval.self_approval_blocked"), auditErr)
+	}
 }
 
 // Get retrieves details of a specific approval
@@ -386,12 +389,17 @@ func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.Audit
 	}
 	// WithResourceID 会整体替换 Resource，必须先于 WithGameID 调用，
 	// 否则 game_id/env 列被抹掉（scope 过滤将查不到该行）。
-	_, _ = s.svcCtx.AuditService.Log(ctx, eventType,
+	_, auditErr := s.svcCtx.AuditService.Log(ctx, eventType,
 		audit.WithActorID(operator, "admin", operator),
 		audit.WithResourceID("approval", record.ID),
 		audit.WithGameID(record.GameID, record.Env),
 		audit.WithDetails(details),
 	)
+	if auditErr != nil {
+		// 副作用已执行（审批终态已落地）：呈现缺口（WARN + rate-limited
+		// 告警），不能静默吞掉，也不能返回 5xx 暗示「审批未批准/拒绝」。
+		s.svcCtx.AuditService.ReportWriteGap(ctx, eventType, auditErr)
+	}
 }
 
 func currentApprovalScope(ctx context.Context) (svc.GameScope, error) {

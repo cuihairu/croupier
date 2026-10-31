@@ -2082,7 +2082,7 @@ func (s *Service) auditSourceEvent(ctx context.Context, eventType audit.AuditEve
 		audit.WithOutcome("success", ""),
 	)
 	if err != nil {
-		slog.ErrorContext(ctx, "failed to write OpenAPI source audit event", "event", eventType, "sourceID", sourceID, "error", err)
+		s.svcCtx.AuditService.ReportWriteGap(ctx, eventType, err)
 	}
 }
 

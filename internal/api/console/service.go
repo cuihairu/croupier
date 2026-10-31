@@ -1225,7 +1225,7 @@ func (s *Service) auditPageExecute(
 		audit.WithOutcome(outcome, errorMessage),
 	)
 	if err != nil {
-		slog.ErrorContext(ctx, "failed to write page execute audit event", "pageKey", page.PageKey, "bindingId", binding.ID, "error", err)
+		s.svcCtx.AuditService.ReportWriteGap(ctx, audit.EventPageExecute, err)
 	}
 }
 

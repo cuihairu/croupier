@@ -392,8 +392,8 @@ func (s *ContractService) logAutoBindingAudit(ctx context.Context, gameID, env, 
 		audit.WithActorID("system", "system", "Contract Rebuild"),
 		audit.WithDetails(details),
 	); err != nil {
-		slog.Warn("failed to write openapi_source.binding_auto audit",
-			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
+		// 副作用（契约绑定）已完成：呈现缺口而非静默，也不返回 5xx。
+		s.auditSvc.ReportWriteGap(ctx, audit.EventOpenAPISourceBindingAuto, err)
 	}
 }
 
@@ -427,8 +427,8 @@ func (s *ContractService) logContractUpdateAudit(
 		audit.WithActorID("system", "system", "Contract Rebuild"),
 		audit.WithDetails(details),
 	); err != nil {
-		slog.Warn("failed to write function.contract_updated audit",
-			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
+		// 副作用（契约更新）已完成：呈现缺口而非静默，也不返回 5xx。
+		s.auditSvc.ReportWriteGap(ctx, audit.EventFunctionContractUpdated, err)
 	}
 }
 

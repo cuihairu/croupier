@@ -81,11 +81,14 @@ func (s *Service) DeleteBinding(ctx context.Context, id uint) error {
 	if err := s.svcCtx.ConfigSourceBindingModel.Delete(ctx, id); err != nil {
 		return err
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.EventConfigSourceChange,
+	_, auditErr := s.svcCtx.AuditService.Log(ctx, audit.EventConfigSourceChange,
 		audit.WithDetails(map[string]interface{}{
 			"action": "delete", "gameId": binding.GameID, "env": binding.Env,
 			"name": binding.Name, "type": binding.Type,
 		}))
+	if auditErr != nil {
+		s.svcCtx.AuditService.ReportWriteGap(ctx, audit.EventConfigSourceChange, auditErr)
+	}
 	return nil
 }
 
@@ -168,7 +171,7 @@ func (s *Service) Write(ctx context.Context, req *WriteRequest, actor string) er
 	if err := ws.Write(ctx, req.Path, []byte(req.Content), req.Reason); err != nil {
 		return err
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.EventConfigEmergencyEdit,
+	_, auditErr := s.svcCtx.AuditService.Log(ctx, audit.EventConfigEmergencyEdit,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResourceID("config_source", fmt.Sprintf("%d", req.SourceID)),
 		audit.WithDetails(map[string]interface{}{
@@ -176,6 +179,9 @@ func (s *Service) Write(ctx context.Context, req *WriteRequest, actor string) er
 			"path": req.Path, "reason": req.Reason,
 			"size": len(req.Content),
 		}))
+	if auditErr != nil {
+		s.svcCtx.AuditService.ReportWriteGap(ctx, audit.EventConfigEmergencyEdit, auditErr)
+	}
 	return nil
 }
 
@@ -184,11 +190,14 @@ func (s *Service) auditBindingChange(ctx context.Context, isUpdate bool, b *mode
 	if isUpdate {
 		action = "update"
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.EventConfigSourceChange,
+	_, auditErr := s.svcCtx.AuditService.Log(ctx, audit.EventConfigSourceChange,
 		audit.WithDetails(map[string]interface{}{
 			"action": action, "gameId": b.GameID, "env": b.Env,
 			"name": b.Name, "type": b.Type,
 		}))
+	if auditErr != nil {
+		s.svcCtx.AuditService.ReportWriteGap(ctx, audit.EventConfigSourceChange, auditErr)
+	}
 }
 
 // mergeMaskedConfig 用提交的 config 覆盖旧值，但值为脱敏占位（******）的

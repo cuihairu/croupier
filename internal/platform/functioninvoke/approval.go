@@ -55,8 +55,9 @@ func AuditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functi
 		audit.WithIPAddress("", ""), // Could extract from request context if needed
 	)
 	if err != nil {
-		// Log error but don't fail the request
-		fmt.Printf("Failed to log audit event: %v\n", err)
+		// 副作用已执行（函数调用完成）：不能返回 5xx 暗示「业务未执行」
+		// 或引导盲重试。呈现缺口（WARN + rate-limited 告警），operator 可见。
+		svcCtx.AuditService.ReportWriteGap(ctx, audit.EventFunctionInvoke, err)
 	}
 }
 
@@ -191,6 +192,7 @@ func AuditApprovalCreated(ctx context.Context, svcCtx *svc.ServiceContext, funct
 		audit.WithOutcome("success", ""),
 	)
 	if err != nil {
-		fmt.Printf("Failed to log approval audit event: %v\n", err)
+		// 副作用已执行（审批请求已创建）：呈现缺口而非静默/5xx。
+		svcCtx.AuditService.ReportWriteGap(ctx, audit.EventApprovalCreated, err)
 	}
 }

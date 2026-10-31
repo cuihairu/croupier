@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -618,10 +617,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 				"semantic_version": semantics.Version,
 			}),
 		); err != nil {
-			slog.ErrorContext(ctx, "failed to write semantic update audit event",
-				"resourceKey", req.ResourceKey,
-				"error", err,
-			)
+			// 副作用（语义更新）已完成：呈现缺口而非静默，也不返回 5xx。
+			s.auditService.ReportWriteGap(ctx, audit.EventSemanticUpdate, err)
 		}
 	}
 
@@ -1782,11 +1779,8 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 				"reason":        req.Reason,
 			}),
 		); err != nil {
-			slog.ErrorContext(ctx, "failed to write semantic conflict resolve audit event",
-				"resourceKey", req.ResourceKey,
-				"field", req.Field,
-				"error", err,
-			)
+			// 副作用（冲突已解决）已完成：呈现缺口而非静默，也不返回 5xx。
+			s.auditService.ReportWriteGap(ctx, audit.EventSemanticConflictResolve, err)
 		}
 	}
 

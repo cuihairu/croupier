@@ -40,9 +40,10 @@
   - 状态／条件：LOCAL VERIFIED：保留版本化全字段摘要与写失败策略决策；D4 调用方落地尚缺，ARCH-008 已回退。
   - 完成证据：2026-10-30 复审；`docs/design/audit-chain-integrity-design.md`；逐项判断及定向运行见 [复审报告](docs/review/reliability-recheck-2026-10-30.md)，不以文件存在或测试总数替代断言。
 
-- [ ] **ARCH-008 · P1 · 实现 · 落地审计完整性规则**
+- [x] **ARCH-008 · P1 · 实现 · 落地审计完整性规则**
   - 依赖：ARCH-007。交付与验收：逐字段修改被检测、旧链可验证、多实例写入一致；审计库故障按已批准策略处理。
-  - 状态／条件：R30-08：版本化哈希/v1 兼容及 Log strict 已有测试，但 Invoke/审批调用方仍吞写入错误，设计 D4 的用户可见失败未实现。保留摘要与迁移代码；补关键入口审计故障验收，真实审计库故障 NOT RUN。 详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+  - 状态／条件：LOCAL VERIFIED：版本化哈希/v1 兼容/Log strict 与逐字段篡改检测/多实例链冲突解析已有测试；本项补齐 D4 调用方契约——副作用已执行后审计写失败一律经 `ReportWriteGap` 呈现（WARN + rate-limited 告警），不再 `fmt.Printf`/`_ =` 静默吞掉，也不返回 5xx（5xx 会误导「业务未执行」并引诱盲重试）。真实审计库故障注入 NOT RUN，不据此宣称生产链路已验证。
+  - 完成证据：2026-10-31；`internal/audit/audit.go`（ReportWriteGap）、`internal/platform/functioninvoke/approval.go`、`internal/api/approval/service.go`、`internal/api/approval/stepup_otp.go`、`internal/api/alert/inbound.go`、`internal/api/configexplorer/service.go`、`internal/api/console/service.go`、`internal/api/openapi/service.go`、`internal/api/ops/helpers.go`、`internal/api/page/service.go`、`internal/api/resourcecatalog/service.go`、`internal/service/contract_service.go`、`internal/audit/chain_version_test.go`（TestReportWriteGap_SurfacesGapAndRateLimits）、`internal/platform/functioninvoke/audit_gap_test.go`（TestAuditFunctionInvoke_WriteGapSurfaced、TestAuditApprovalCreated_WriteGapSurfaced）；`go test ./internal/... ./core/... ./agents/... -count=1` 全绿，`go build ./...` 过，dashboard vnext/e2e guard PASSED，dependency boundary PASSED，web tsc 过，docs build 过。
 
 - [ ] **ARCH-009 · P1 · 实现 · 数据库首次打开的取消与预算**
   - 依赖：—。交付与验收：让 resolver/open/migrate 消费 context；取消等待及时返回、同库 singleflight、不同库隔离，暴露池数/首开耗时；与 ARCH-006 路由命名修复可并行，合并时核对绑定行为

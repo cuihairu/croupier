@@ -152,7 +152,7 @@ func (s *Service) recordStepUpAudit(ctx context.Context, operator string, record
 	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil || record == nil {
 		return
 	}
-	_, _ = s.svcCtx.AuditService.Log(ctx, audit.EventApprovalStepUpFailed,
+	_, auditErr := s.svcCtx.AuditService.Log(ctx, audit.EventApprovalStepUpFailed,
 		audit.WithActorID(operator, "admin", operator),
 		audit.WithResourceID("approval", record.ID),
 		audit.WithGameID(record.GameID, record.Env),
@@ -164,4 +164,7 @@ func (s *Service) recordStepUpAudit(ctx context.Context, operator string, record
 			"outcome":    outcome,
 		}),
 	)
+	if auditErr != nil {
+		s.svcCtx.AuditService.ReportWriteGap(ctx, audit.EventApprovalStepUpFailed, auditErr)
+	}
 }

@@ -249,6 +249,20 @@ func TestSetWriteFailurePolicy_UnknownFallsBackToStrict(t *testing.T) {
 	assert.Equal(t, WritePolicyStrict, svc.WriteFailurePolicy())
 }
 
+func TestReportWriteGap_SurfacesGapAndRateLimits(t *testing.T) {
+	svc := NewAuditService(NewInMemoryAuditStore(), nil)
+	notifier := &countingNotifier{}
+	svc.SetNotifier(notifier)
+
+	// 副作用后审计写失败：呈现缺口（rate-limited 告警），不 panic、不返回 5xx。
+	svc.ReportWriteGap(context.Background(), EventFunctionInvoke, errors.New("audit db down"))
+	assert.Equal(t, 1, notifier.count, "first gap must alert")
+
+	// 窗口内再次失败：rate-limited，不再告警。
+	svc.ReportWriteGap(context.Background(), EventFunctionInvoke, errors.New("audit db down"))
+	assert.Equal(t, 1, notifier.count, "rate-limited alert must fire once per window")
+}
+
 func TestCanonicalHashInput_Deterministic(t *testing.T) {
 	a := sampleRecord()
 	b := sampleRecord()
