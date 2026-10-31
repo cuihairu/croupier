@@ -93,9 +93,10 @@
   - 状态／条件：LOCAL VERIFIED：DONE 2026-10-31。闸门下沉（72fa504f）：`EnsureFunctionAssigned` 自 `internal/api/assignment/gate.go` 迁至 `internal/logic/assignment/gate.go`（复用既有 `LoadAllAssignments`，语义不变；用例随迁 `gate_test.go` + `gate_error_r52_test.go` 全绿）；`functioninvoke/govern.go` 改 import `internal/logic/assignment`，执行链不再 import `internal/api`（仓内仅余 `internal/handler/routes.go` 的 API handler 注册合法引用）。依赖边界检查可执行：`scripts/check_dependency_boundary.sh`（core/agents 生产代码禁 import `internal/` + functioninvoke 禁 import `internal/api`，含扫描路径存在断言防静默 no-op）+ 合成违规自测 `scripts/check_dependency_boundary_test.sh`，已接线 ci.yml。原行为一致：`go build ./...` 过，三包测试全绿，dashboard guard PASSED，docs build 过。
   - 完成证据：2026-10-31；`internal/logic/assignment/gate.go`、`internal/logic/assignment/gate_test.go`、`internal/logic/assignment/gate_error_r52_test.go`、`scripts/check_dependency_boundary.sh`、`scripts/check_dependency_boundary_test.sh`、`.github/workflows/ci.yml`；`go build ./...` 过；dashboard guard PASSED。
 
-- [ ] **ARCH-020 · P2 · 实现 · 架构文档防漂移检查入 CI**
+- [x] **ARCH-020 · P2 · 实现 · 架构文档防漂移检查入 CI**
   - 依赖：—。交付与验收：复用 scripts/docs/check-architecture.py、check-architecture.cjs 与生成器，核对 SVG、路径、首页资源和 TODO DAG；新链接失败即报告，避免直接开启全站 strict 阻断旧页面。
-  - 状态／条件：READY。
+  - 状态／条件：LOCAL VERIFIED：DONE 2026-10-31。check-architecture.py 已接线 docs-check.yml（`:60` 步；触发路径补 `todo.md`+`scripts/docs/**`）；干净树 PASS（78 TODO ID 无环、SVG XML、作用域链接/证据路径、README 图引用）；计数规则改为只数结构化任务项（审核发现 等非任务 checkbox 不再误报）；新链接失败即报告、作用域限定未开全站 strict。边界诚实：check-architecture.cjs 为手动 Playwright 布局工具，需已构建 docs，未入 CI。
+  - 完成证据：2026-10-31；`scripts/docs/check-architecture.py`、`.github/workflows/docs-check.yml`、`docs/development/lifecycle.md`；`python3 scripts/docs/check-architecture.py` 干净树 PASS（78 TODO ID 无环）；docs build 过；dashboard guard PASSED。
 
 - [ ] **ARCH-021 · P1 · 实现 · 扩展同步身份与 scope 接入**
   - 依赖：—。交付与验收：复用现有 HTTP puller/版本 payload 与 protected 路由，为 Agent 建立受限机器身份及 scope 授权；无凭据/跨 scope 拒绝，合法 Agent 实际拉取生效且坏版本保持 last-good。证据：internal/app/agent/extension_sync_puller.go 未设认证头，internal/handler/routes.go 受 protected 保护，AgentSyncPayload 检查读取权限；不通过取消服务端授权绕过。
