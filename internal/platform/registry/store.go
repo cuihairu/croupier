@@ -1122,6 +1122,11 @@ func (s *Store) UpsertOpenAPI(functionID string, operation *openapi3.Operation) 
 	return nil
 }
 
+// ErrOpenAPINotFound 是 GetOpenAPI 对未注册 function ID 的可判别未命中错误
+// （区别于 clone 序列化失败等来源故障——调用方须据此区分「未声明」与「故障」，
+// 治理链对后者 fail-closed）。
+var ErrOpenAPINotFound = errors.New("openapi operation not found")
+
 // GetOpenAPI retrieves an OpenAPI operation by function ID.
 func (s *Store) GetOpenAPI(functionID string) (*openapi3.Operation, error) {
 	if functionID == "" {
@@ -1133,7 +1138,7 @@ func (s *Store) GetOpenAPI(functionID string) (*openapi3.Operation, error) {
 
 	op, exists := s.openapiOperations[functionID]
 	if !exists {
-		return nil, fmt.Errorf("operation not found: %s", functionID)
+		return nil, fmt.Errorf("%w: %s", ErrOpenAPINotFound, functionID)
 	}
 
 	return cloneOpenAPIOperation(op)

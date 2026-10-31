@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
@@ -49,14 +50,17 @@ func PolicyRiskFromContract(risk string) policy.RiskLevel {
 // high 契约会退回 medium 并取消审批（绕过审批/审计）。本函数区分「未声明风险」
 // 与「来源故障」：契约行不存在（ErrRecordNotFound）= 未声明，合法回落 medium；
 // 其他查询错误 = 来源故障，向上传播，由治理链 fail-closed 拒绝（与 GetPolicy
-// 查询错误的 fail-closed 同构）。RegistryStore 为内存查找，GetOpenAPI 的唯一
-// 错误是未命中（未声明），不是来源故障，保持回落。
+// 查询错误的 fail-closed 同构）。RegistryStore 为内存查找，GetOpenAPI 的
+// 错误有两类：未命中（registry.ErrOpenAPINotFound，= 未声明，合法回落
+// medium）与 clone 序列化失败（来源故障，向上传播 fail-closed）。
 func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) (policy.RiskLevel, error) {
 	if svcCtx.RegistryStore != nil {
 		if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil && op != nil {
 			if riskVal, ok := op.Extensions["x-risk"].(string); ok && strings.TrimSpace(riskVal) != "" {
 				return PolicyRiskFromContract(riskVal), nil
 			}
+		} else if err != nil && !errors.Is(err, registry.ErrOpenAPINotFound) {
+			return policy.RiskMedium, fmt.Errorf("读取函数 OpenAPI 风险失败（fail-closed）: %w", err)
 		}
 	}
 	if svcCtx.DB != nil {

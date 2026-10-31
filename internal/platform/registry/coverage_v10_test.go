@@ -166,3 +166,24 @@ func TestCloneOpenAPIOperationUnmarshalFailureV10(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+// ARCH-025：GetOpenAPI 必须区分未命中与 clone 来源故障。未命中返回
+// ErrOpenAPINotFound，clone 序列化失败返回普通错误（治理链据此 fail-closed）。
+func TestGetOpenAPI_DistinguishesNotFoundAndCloneFailure(t *testing.T) {
+	s := NewStore()
+
+	// 未命中：sentinel 可判别。
+	_, err := s.GetOpenAPI("missing")
+	require.ErrorIs(t, err, ErrOpenAPINotFound)
+
+	// 内部注入一个反序列化失败的 operation（tags=数字与 []string 冲突）：
+	// cloneOpenAPIOperation 返回普通错误，不得被误判为未命中。
+	op := &openapi3.Operation{Extensions: map[string]interface{}{"tags": 42}}
+	s.mu.Lock()
+	s.openapiOperations["bad"] = op
+	s.mu.Unlock()
+
+	_, err = s.GetOpenAPI("bad")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrOpenAPINotFound)
+}

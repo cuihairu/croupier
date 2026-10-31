@@ -522,3 +522,16 @@ func TestValidateInvokeInput_UsesLatestDescriptorVersion(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "playerId")
 }
+
+// ── ARCH-025：OpenAPI 风险来源故障不得静默降档 ─────────────────────────
+// resolvePolicyRisk 对 RegistryStore.GetOpenAPI 的错误分型：未命中
+// （ErrOpenAPINotFound，= 未声明风险）合法回落 medium；clone 序列化失败
+// （来源故障）向上传播 fail-closed，不得把声明 high 当未声明回落 medium。
+
+func TestResolvePolicyRisk_OpenAPINotFoundFallsBack(t *testing.T) {
+	svcCtx, _ := setupGovernSvc(t)
+	// 未注册 function ID → GetOpenAPI 返回 ErrOpenAPINotFound。
+	risk, err := ResolvePolicyRisk(context.Background(), svcCtx, "never.registered", "g", "prod")
+	require.NoError(t, err, "未命中是合法未声明，不得当故障")
+	assert.Equal(t, policy.RiskMedium, risk)
+}
