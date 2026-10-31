@@ -31,6 +31,10 @@ import (
 // （时序分支禁相位对齐，用注入点驱动循环体），生产语义 30s。
 var reconcileTickerInterval = 30 * time.Second
 
+// clusterInvokerOverride 是故障钻机的 owner 侧本地执行注入点：非 nil 时
+// startCluster 用它替代 dispatcher 装配的 localInvoker（测试计数替身）。
+var clusterInvokerOverride cluster.LocalInvoker
+
 func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceContext) (*cluster.Lifecycle, *internaltcp.Server) {
 	cfg := c.Cluster
 	if !cfg.Enabled {
@@ -240,7 +244,9 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	}
 
 	var invoker cluster.LocalInvoker
-	if svcCtx.Dispatcher != nil {
+	if clusterInvokerOverride != nil {
+		invoker = clusterInvokerOverride
+	} else if svcCtx.Dispatcher != nil {
 		invoker = localInvoker{dispatcher: svcCtx.Dispatcher, audit: svcCtx.AuditService}
 	}
 	handler := newInterconnectHandler(lifecycle, invoker)
