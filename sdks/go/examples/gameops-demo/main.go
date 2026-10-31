@@ -33,6 +33,7 @@ type runConfig struct {
 	timeoutSec   int
 	insecure     bool
 	registerOnly bool
+	stateFile    string
 }
 
 func main() {
@@ -52,7 +53,7 @@ func runMain(name string, args []string, output io.Writer) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	store := newGameOpsStore()
+	store := newGameOpsStore(cfg.stateFile)
 	client := croupier.NewClient(&croupier.ClientConfig{
 		AgentAddr:      cfg.agentAddr,
 		GameID:         cfg.gameID,
@@ -95,5 +96,6 @@ func newFlagSet(name string, output io.Writer) (*flag.FlagSet, *runConfig) {
 	fs.IntVar(&cfg.timeoutSec, "timeout", 30, "connection timeout seconds")
 	fs.BoolVar(&cfg.insecure, "insecure", true, "use insecure TCP (dev)")
 	fs.BoolVar(&cfg.registerOnly, "register-only", false, "register and exit without Serve (smoke/test)")
+	fs.StringVar(&cfg.stateFile, "state-file", "", "JSON file persisting reportRunSeq across restarts")
 	return fs, cfg
 }

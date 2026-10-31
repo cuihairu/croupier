@@ -549,6 +549,7 @@ func (s *gameOpsStore) reportGenerate(ctx context.Context, payload []byte) ([]by
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.reportRunSeq++
+	s.persistStateLocked()
 	if valueBool(m, "fail") {
 		return nil, fmt.Errorf("report_generate_failed: simulated failure for range %s", reportRange)
 	}

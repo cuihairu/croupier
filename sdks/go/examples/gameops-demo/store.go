@@ -7,7 +7,12 @@
 // subsequent reads (write-then-read), which is the E2 requirement.
 package main
 
-import "sync"
+import (
+	"encoding/json"
+	"log"
+	"os"
+	"sync"
+)
 
 // ---------------------------------------------------------------------------
 // Record types (JSON field names must stay aligned with the E1 web seed)
@@ -133,6 +138,12 @@ type gameOpsStore struct {
 	// invocation with the same key leaves this counter unchanged — the
 	// observable evidence for the E2 idempotent-retry scenario.
 	reportRunSeq int
+	// statePath, when non-empty, is a JSON file the demo uses to persist
+	// reportRunSeq across process restarts. The platform idempotency dedupe
+	// runs before the handler, but the handler's own run counter must survive
+	// a restart so a re-delivered report.generate does not re-emit a
+	// reportId that was already handed out (UI-002 process-restart evidence).
+	statePath string
 }
 
 var longNickname = "风起云涌一区无敌战神丶樱花漫天飞舞的超级无敌可爱小龙女本尊在此"
@@ -141,11 +152,51 @@ func strPtr(v string) *string { return &v }
 func int64Ptr(v int64) *int64 { return &v }
 
 // newGameOpsStore builds a fresh deterministic seed (matches E1 browser seed).
-func newGameOpsStore() *gameOpsStore {
+func newGameOpsStore(statePath ...string) *gameOpsStore {
 	s := &gameOpsStore{}
 	s.resetLocked()
 	s.opSeq = len(s.opRecords)
+	if len(statePath) > 0 && statePath[0] != "" {
+		s.statePath = statePath[0]
+		s.loadStateLocked()
+	}
 	return s
+}
+
+// loadStateLocked restores reportRunSeq from statePath if the file exists.
+// It runs before any concurrent access (construction time), so no lock is
+// taken for the load itself.
+func (s *gameOpsStore) loadStateLocked() {
+	data, err := os.ReadFile(s.statePath)
+	if err != nil {
+		return // first run or unreadable state: start from the seed
+	}
+	var st struct {
+		ReportRunSeq int `json:"reportRunSeq"`
+	}
+	if json.Unmarshal(data, &st) == nil && st.ReportRunSeq > s.reportRunSeq {
+		s.reportRunSeq = st.ReportRunSeq
+	}
+}
+
+// persistStateLocked writes the current reportRunSeq to statePath. Callers
+// must hold s.mu. A write failure is non-fatal: the demo keeps running and
+// the counter stays in memory (a restart after a failed persist may re-hand
+// out a reportId, which is the documented best-effort demo behavior).
+func (s *gameOpsStore) persistStateLocked() {
+	if s.statePath == "" {
+		return
+	}
+	st := struct {
+		ReportRunSeq int `json:"reportRunSeq"`
+	}{ReportRunSeq: s.reportRunSeq}
+	data, err := json.Marshal(st)
+	if err != nil {
+		return
+	}
+	if err := os.WriteFile(s.statePath, data, 0o600); err != nil {
+		log.Printf("persist report state failed: %v", err)
+	}
 }
 
 func (s *gameOpsStore) resetLocked() {

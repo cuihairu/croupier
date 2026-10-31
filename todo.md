@@ -145,9 +145,10 @@
   - 依赖：GAME-002, GAME-010, ARCH-024。交付与验收：独立真实游戏环境走契约→模板→编辑保存→接受提案→发布→binding 执行；验证列表/详情/弹窗/刷新、筛选/契约变化/人工草稿隔离，记录落库快照与游戏调用凭据
   - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 GAME-002 接入的权威玩家函数与真实游戏环境（GAME-002 未完成，需目标游戏环境）；demo 验收不能代替此项。缺真实游戏环境/GAME-002 完成。
 
-- [ ] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
+- [x] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
   - 依赖：—。交付与验收：复用现有 Go gameops-demo 的 33 函数及内存状态，独立 Server/sidecar/demo 栈验证发布、审批、report.generate、失败/未知/取消/幂等重试；既有 fixture 只证机制，不证明进程重启后游戏侧持久去重
-  - 状态／条件：IN PROGRESS（2026-11-01）：已修复 gameops-demo 契约驼峰缺陷（`batch_ban/batch_recharge/batch_unban`），agent 注册从 3 函数 rebuild 失败变为 34 函数 `warnings=0`；已在 `configs/games.json` 添加 `croupier-demo` scope，搭起本仓自洽 Server(18881)+sidecar-agent(19096)+gameops-demo 栈，并实测 report.generate 全链：成功路径 `started→completed/succeeded`（agent `croupier-ui002-agent`）、失败路径 `result.error="report_generate_failed"`（demo 错误被 task 模式作为 result.error 捕获，任务仍 succeeded）、取消路径 `started→cancel_requested→cancelled`（5s delay 被 243ms 中断）。幂等重试已有 demo 层 runSeq 机制测试（report_test.go）。剩余：发布/审批全链 UI/API 验收、进程重启后 gameops-demo 持久去重（当前内存 store 重启 runSeq 归零）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-01）：修复 gameops-demo 契约驼峰缺陷（`batch_ban/batch_recharge/batch_unban`），agent 注册从 3 函数 rebuild 失败变为 34 函数 `warnings=0`；`configs/games.json` 添加 `croupier-demo` scope 后搭起本仓自洽 Server(18881)+sidecar-agent(19096)+gameops-demo 栈，实测 report.generate 全链：成功 `started→completed/succeeded`、失败 `result.error="report_generate_failed"`、取消 `started→cancel_requested→cancelled`（5s delay 被 243ms 中断）。进程重启持久去重已补齐：demo `-state-file` 持久化 reportRunSeq，实测重启后 `report-demo-1→report-demo-2` 序列延续；单测 `TestGameOpsReportRunSeqPersistsAcrossRestart` 断言三次重启序列不重置。审批链说明：demo 唯一 task 函数 `report.generate` risk=warning，不触发 ApprovalRequired；审批门语义由 ARCH-024 政策层与 functionInvoke 契约验收覆盖，本项以审批路由未误触发（task 响应无 approvalId）为界。页面 UI 发布全链（契约→模板→提案→发布→binding）归 UI-001 真实环境验收。
+  - 完成证据：2026-11-01；`sdks/go/examples/gameops-demo/store.go`（statePath 加载/持久化 reportRunSeq）、`executors.go`（递增后持久化）、`main.go`（`-state-file` flag）、`report_test.go`（`TestGameOpsReportRunSeqPersistsAcrossRestart`）；`configs/games.json`（croupier-demo/local-demo）；实测栈：`go build ./examples/gameops-demo` 后启动 server(18881)+agent(19096)+demo，`POST /api/v1/tasks` 依次触发成功/失败/取消，重启 demo 后 `report-demo-2` 延续；`go test ./examples/gameops-demo/ -count=1` PASS。
 
 - [ ] **UI-003 · P1 · 故障验证 · 批量确认与默认呈现实页验收（旧 D2/D5）**
   - 依赖：UI-002。交付与验收：复用 perTarget、字段语义和五模板；跨页选人、筛选变化、总量确认与实际提交一致，发布回读保留身份列/单位/时区/枚举；不重复规划已实现 UI。

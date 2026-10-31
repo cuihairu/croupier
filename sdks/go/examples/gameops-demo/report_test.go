@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -130,4 +131,38 @@ func TestGameOpsReportGenerateIsTaskMode(t *testing.T) {
 		return
 	}
 	t.Fatal("report.generate not registered")
+}
+
+// TestGameOpsReportRunSeqPersistsAcrossRestart verifies UI-002's process-
+// restart evidence: a fresh store loading the same state file continues the
+// report run sequence, so a re-delivered report.generate does not re-emit a
+// reportId already handed out before the restart.
+func TestGameOpsReportRunSeqPersistsAcrossRestart(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "report-state.json")
+
+	first := newGameOpsStore(statePath)
+	run := func(s *gameOpsStore) string {
+		raw, err := s.reportGenerate(context.Background(), mustJSON(t, map[string]any{"range": "daily", "delayMs": 0}))
+		if err != nil {
+			t.Fatalf("report.generate: %v", err)
+		}
+		return listResult(t, raw)["reportId"].(string)
+	}
+	firstID := run(first)
+	if firstID != "report-demo-1" {
+		t.Fatalf("first reportId=%q, want report-demo-1", firstID)
+	}
+
+	// Simulate a process restart: a brand-new store loads the same state file.
+	second := newGameOpsStore(statePath)
+	secondID := run(second)
+	if secondID != "report-demo-2" {
+		t.Fatalf("post-restart reportId=%q, want report-demo-2 (sequence persisted)", secondID)
+	}
+
+	// A third restart again continues the sequence (no reset to 1).
+	third := newGameOpsStore(statePath)
+	if id := run(third); id != "report-demo-3" {
+		t.Fatalf("third reportId=%q, want report-demo-3", id)
+	}
 }
