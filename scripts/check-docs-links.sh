@@ -68,14 +68,18 @@ for f in "${FILES[@]}"; do
     [ -z "$target" ] && continue
 
     if [[ "$target" == /* ]]; then
-      # VitePress absolute path -> relative to docs/.
+      # VitePress absolute path -> relative to docs/; static assets under
+      # docs/public/ are served at the site root, so also try that prefix.
       cand="${DOCS_DIR}${target}"
+      public_cand="${DOCS_DIR}/public${target}"
     else
       cand="$dir/$target"
+      public_cand=""
     fi
 
     checked=$((checked + 1))
-    if [ -e "$cand" ] || [ -e "${cand}.md" ] || [ -e "${cand%/}/index.md" ]; then
+    if [ -e "$cand" ] || [ -e "${cand}.md" ] || [ -e "${cand%/}/index.md" ] \
+       || { [ -n "$public_cand" ] && { [ -e "$public_cand" ] || [ -e "${public_cand%/}/index.md" ]; }; }; then
       :
     else
       echo "DEAD LINK: $f -> $target"
