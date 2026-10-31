@@ -146,6 +146,13 @@ export default {
     '"{name}" updated — template content overwritten with the current canvas selection',
   'pages.pageStudio.subtitle':
     'Default pages are generated automatically once capabilities are registered; preview, publish, and run without creating pages manually',
+  'pages.pageStudio.filter.keyword': 'Search pages/titles/resources',
+  'pages.pageStudio.filter.status': 'Filter by status',
+  'pages.pageStudio.filter.resource': 'Filter by resource',
+  'pages.pageStudio.status.draft': 'Draft',
+  'pages.pageStudio.status.published': 'Published',
+  'pages.pageStudio.status.archived': 'Archived',
+  'pages.pageStudio.studio.column.resources': 'Resources',
   'pages.pageStudio.templates.action.addConstant': 'Add constant',
   'pages.pageStudio.templates.action.createComponent': 'New composite component',
   'pages.pageStudio.templates.action.createComposite': 'Create composite page',

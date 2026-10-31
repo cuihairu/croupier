@@ -54,6 +54,9 @@ export default {
   'pages.functionsDirectory.drawer.displayName': 'Display Name',
   'pages.functionsDirectory.drawer.tags': 'Tags',
   'pages.functionsDirectory.drawer.title': 'Function Detail',
+  'pages.functionsDirectory.empty.scopeTitle': 'No registered functions in the current game scope',
+  'pages.functionsDirectory.empty.scopeDescription':
+    'Current query scope: game {game} / env {env}. Functions are registered per game and environment; use the game switcher in the top bar to switch to a game with registered functions and query again.',
   'pages.functionsDirectory.error.detailLoadFailed': 'Failed to load details',
   'pages.functionsDirectory.error.loadFailed': 'Failed to load',
   'pages.functionsDirectory.floorSelect.cleared': 'Version floor cleared',
