@@ -113,9 +113,10 @@
   - 状态／条件：LOCAL VERIFIED：DONE 2026-10-31。跨槽陈旧领取已由调度周期统一扫描（reapStaleClaims → ListStaleClaims(created_at<now-claimLease, status=claimed)）解析为 indeterminate——run-log 不再永久停在 claimed；租约过期的 claimed 不再记确定 failed（派发后/回写前中断与派发前中断不可区分，indeterminate 是唯一诚实终态）；绝不重派发。同槽 resolveStaleClaim 同步改 indeterminate。web 运行记录状态集扩至 claimed/indeterminate/approval_required 并新增 orange 标签（派发结果未知不得误读为确定失败）。
   - 完成证据：2026-10-31；`internal/tasks/scheduler/manager.go`、`internal/model/task_schedule.go`、`internal/model/task_schedule_model.go`、`internal/tasks/scheduler/arch023_test.go`、`internal/model/task_schedule_model_test.go`、`web/src/pages/Ops/Schedules/index.tsx`、`web/src/services/api/schedules.ts`；定向运行 go test ./internal/tasks/... ./internal/model/ ./internal/svc/ ./internal/server/ ./internal/api/schedule/ -count=1 全绿，web tsc 过，dashboard guard PASSED，docs build 过。
 
-- [ ] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
+- [x] **ARCH-024 · P0 · 实现 · 任务及调度入口统一执行治理**
   - 依赖：—。交付与验收：让 /tasks Start、schedule Create/TriggerNow/自动触发复用可注入的执行治理服务；不把模块级 JWT/scope 误作函数政策。对同一高危函数，普通/页面/任务/手动调度/定时入口一致执行禁用/分配/函数权限/政策审批/输入契约；自动化主体和批准快照显式定义，撤权后不继续裸派发
-  - 状态／条件：R30-01 CONFIRMED：治理链已接入，但 Govern 未调用 CheckInvokePermission；相同 operator 被显式函数 ACL 拒绝时，human/automation Govern 均返回允许。补手动/自动调度与任务的 ACL 一致性、撤权及零派发验收。 详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+  - 状态／条件：LOCAL VERIFIED：DONE 2026-10-31。Govern 链在主体加载后统一调用 CheckInvokePermission（显式函数 ACL FunctionActionAllowed + function:invoke 兜底，HasAdminRole 旁路，nil FunctionModel fail-closed 拒绝）——普通/任务/手动/自动入口同一条链，ACL 拒绝 → 零派发、先于审批创建（不制造审批噪音）；与 /tasks Start 的显式 ACL 检查不再漂移。详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+  - 完成证据：2026-10-31；`internal/platform/functioninvoke/govern.go` 在主体加载后统一调用 `CheckInvokePermission`（显式函数 ACL `FunctionActionAllowed` + `function:invoke` 兜底，HasAdminRole 旁路；nil FunctionModel fail-closed 拒绝）——普通/任务/手动/自动入口同一条链，ACL 拒绝 → 零派发、先于审批创建（不制造审批噪音）。`go test ./internal/platform/functioninvoke/... ./internal/api/schedule/... ./internal/api/task/... ./internal/api/function/... ./internal/api/approval/... ./internal/api/console/... ./internal/logic/function/... -count=1` 全绿；新增 `TestGovern_ExplicitFunctionAclDenied`/`TestGovern_ExplicitFunctionAclAllowed`（operator 主体 + 显式 per-function 规则：仅 auditor 规则 → 403 零派发；operator 规则 → 放行）；入口测试 env 同步补 `FunctionModel` + 调用者权限（schedule/approval/console），使 TriggerNow/批准续跑/绑定执行能走到派发路径。
 
 - [ ] **ARCH-025 · P0 · 实现 · 策略查询和初始化故障禁止静默放行**
   - 依赖：—。交付与验收：区分无覆盖策略与策略存储/配置故障；高风险执行无法获得有效政策时拒绝或使用明确批准的 last-good，不返回 nil,nil 绕过审批/审计；覆盖 GetPolicy SQL 错误及 PolicyManager 初始化失败

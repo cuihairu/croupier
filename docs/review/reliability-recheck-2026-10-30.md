@@ -14,9 +14,9 @@
 
 ### R30-01 · P0 · 统一治理没有复用显式函数 ACL
 
-**CONFIRMED，ARCH-024 重新打开。** `internal/platform/functioninvoke/govern.go:govern` 加载 PermissionIDs 后丢弃结果，没有调用 `internal/logic/utils/function_helpers.go:CheckInvokePermission`。`internal/api/task/service.go:Start` 额外检查函数 ACL；`internal/api/schedule/service.go:TriggerNow`、`cmd/server/root.go` 自动治理钩子只调用 Govern。Invoke 也复用该链，不能仅因函数同名便宣布授权一致。
+**已修复（ARCH-024，2026-10-31）。** 原缺口：`internal/platform/functioninvoke/govern.go:govern` 加载 PermissionIDs 后丢弃结果，从未调用 `internal/logic/utils/function_helpers.go:CheckInvokePermission`——显式函数级 ACL 规则（`FunctionModel.ListPermissions` → `FunctionActionAllowed`，如「仅 auditor 可 invoke player.cleanup」）在普通/手动/自动入口从未生效，与 `/tasks Start` 的显式 ACL 检查漂移。`internal/api/task/service.go:Start` 额外检查函数 ACL；`internal/api/schedule/service.go:TriggerNow`、`cmd/server/root.go` 自动治理钩子只调用 Govern。Invoke 也复用该链，不能仅因函数同名便宣布授权一致。
 
-诊断为 operator/alice 配置仅 auditor 可 invoke 的规则：显式 CheckInvokePermission 拒绝，Govern 的 human/automation 均允许且无需审批。确认实际准入函数差异；真实 HTTP 越权/线上事故 NOT RUN。须以相同主体/函数覆盖普通、任务、手动与自动入口的 ACL/撤权/存储错误，拒绝时零派发。另已核对 FunctionInvokeRequest.Metadata 为 `json:"-"`，不能据内部绕过标记存在就断言外部 HTTP 可注入。
+修复：govern 链在主体加载后统一调用 `CheckInvokePermission(gctx, svcCtx, roleNames, permIDs, functionID, gameID, env)`（HasAdminRole 旁路；nil FunctionModel fail-closed 拒绝）——普通、任务、手动、自动入口同一条链，ACL 拒绝 → 零派发、先于审批创建（不制造审批噪音）。诊断覆盖：`internal/platform/functioninvoke/govern_test.go` 的 `TestGovern_ExplicitFunctionAclDenied`/`TestGovern_ExplicitFunctionAclAllowed`（operator 主体 + 仅 auditor 显式规则 → 403 零派发；operator 显式规则 → 放行）。
 
 ### R30-02 · P0 · 风险读取故障降低审批要求
 

@@ -70,16 +70,19 @@ const (
 //  2. EnsureFunctionAssigned    —— scope 分配白名单（BUG-032）；
 //  3. LoadCurrentAdmin          —— 主体加载（admin+roles）；
 //  4. PermissionIDsFromRoles    —— 权限装载错误面保持；
-//  5. EnforceFunctionPolicy     —— 政策审批（approvedContinuation /
+//  5. CheckInvokePermission     —— 显式函数 ACL（R30-01：per-function 规则
+//     FunctionActionAllowed + function:invoke 兜底，与 /tasks Start 同语义，
+//     先于审批创建拒绝）；
+//  6. EnforceFunctionPolicy     —— 政策审批（approvedContinuation /
 //     pageSnapshotGoverned 跳过二次审批，同 Invoke）；
-//  6. ValidateInvokeInput       —— 输入契约（缺 required 参数 400）；
-//  7. CreateFunctionApproval    —— RequireApproval 时创建审批、不派发。
+//  7. ValidateInvokeInput       —— 输入契约（缺 required 参数 400）；
+//  8. CreateFunctionApproval    —— RequireApproval 时创建审批、不派发。
 //
-// 环境 scope（RequireGameEnvScope）有意不在此链内：HTTP 入口由鉴权中间件
+// 环境 scope（RequireGameEnvScope）有意不在 full 链内：HTTP 入口由鉴权中间件
 // 的 CurrentScope 前置授权，/tasks Start 由服务自身 RequireGameEnvScope
-// 承担，两处均已按入口独立处理，Govern 不重复加锁以避免双读与测试面
-// 漂移。仅 SubjectAutomation 补一次创建者 scope 复核（每次触发重新授权，
-// 撤权后不继续裸派发）。
+// 承担，两处均已按入口独立处理，Govern 不重复加锁以避免双读与测试面漂移。
+// 仅 SubjectAutomation 补一次创建者 scope 复核（每次触发重新授权，撤权后
+// 不继续裸派发）。
 //
 // subject 语义：
 //   - SubjectHuman：admin/roles 从 ctx（鉴权中间件）解析，原样透传；
@@ -122,26 +125,35 @@ func govern(ctx context.Context, svcCtx *svc.ServiceContext, req *Request, sub S
 		return nil, err
 	}
 
-	// 4. 输入契约（禁用/分配之后、派发之前校验；缺 required 参数 400）。
-	payload := InvokePayload(req)
-	if err := ValidateInvokeInput(gctx, svcCtx, req, payload); err != nil {
-		return nil, err
-	}
-
 	if phase == phaseInvocability {
-		// 定义期校验到此为止：不加载主体、不跑政策、不建审批。
+		payload := InvokePayload(req)
+		if err := ValidateInvokeInput(gctx, svcCtx, req, payload); err != nil {
+			return nil, err
+		}
 		return &GovernResult{}, nil
 	}
 
-	// 5. 主体加载。
+	// 4. 主体加载。
 	admin, roles, err := utils.LoadCurrentAdmin(gctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := utils.PermissionIDsFromRoles(gctx, svcCtx, roles); err != nil {
+	permIDs, err := utils.PermissionIDsFromRoles(gctx, svcCtx, roles)
+	if err != nil {
 		return nil, err
 	}
 	roleNames := utils.RoleNamesFromModels(roles)
+
+	// 5. 显式函数 ACL（R30-01）：Govern 此前只跑政策审批（EnforceFunctionPolicy
+	// 的 RequireAnyPermission(function:invoke) + AllowedRoles），从未调用
+	// CheckInvokePermission——显式函数级权限规则（FunctionModel.ListPermissions
+	// → FunctionActionAllowed，如「仅 auditor 可 invoke player.cleanup」）在
+	// 普通/手动/自动入口从未生效，与 /tasks Start 的显式 ACL 检查漂移。统一
+	// 在此执行：所有入口同一条链，ACL 拒绝 → 零派发、先于审批创建（不制造
+	// 审批噪音）。
+	if err := utils.CheckInvokePermission(gctx, svcCtx, roleNames, permIDs, functionID, gameID, env); err != nil {
+		return nil, err
+	}
 
 	// 6. 自动化主体补 scope 复核：每次触发以创建者当前权限复核其对
 	// game/env 的访问，撤权后不再派发。Human 由入口中间件/服务承担。
@@ -158,6 +170,12 @@ func govern(ctx context.Context, svcCtx *svc.ServiceContext, req *Request, sub S
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// 7. 输入契约（禁用/分配之后、派发之前校验；缺 required 参数 400）。
+	payload := InvokePayload(req)
+	if err := ValidateInvokeInput(gctx, svcCtx, req, payload); err != nil {
+		return nil, err
 	}
 
 	// 8. 审批判定：RequireApproval 时创建审批请求、返回待审（不派发）。

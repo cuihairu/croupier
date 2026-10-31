@@ -597,6 +597,10 @@ func newConsoleTestServiceWithAudit(t *testing.T, permissions ...string) (*Servi
 		AuditService:           audit.NewAuditService(auditStore, nil),
 		Cache:                  nullCache,
 		CacheHelper:            cache.NewCacheHelper(nullCache),
+		// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission，nil
+		// FunctionModel 会 fail-closed 拒绝（403）。绑定执行（ExecuteBinding
+		// → Invoke → Govern）经此授权，调用者已 grant function:invoke。
+		FunctionModel: model.NewFunctionModel(db),
 	}
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
 	ctx = context.WithValue(ctx, "username", admin.Username)

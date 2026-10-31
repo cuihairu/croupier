@@ -53,7 +53,11 @@ func newTestEnvWithDispatcher(t *testing.T, d *dispatch.Dispatcher) (*gin.Engine
 	svcCtx := &svc.ServiceContext{
 		TaskScheduleModel: model.NewTaskScheduleModel(db),
 		AdminModel:        model.NewAdminModel(db),
-		Dispatcher:        d,
+		// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission 显式函数 ACL，
+		// nil FunctionModel 会 fail-closed 拒绝（403）。与 task 服务测试同构
+		// 注入 FunctionModel，使 TriggerNow 能走到派发路径。
+		FunctionModel: model.NewFunctionModel(db),
+		Dispatcher:    d,
 	}
 	// TriggerNow 经 ARCH-024 Govern 链加载调用者主体（username=tester）。
 	seedScheduleAdmin(t, db, "tester")

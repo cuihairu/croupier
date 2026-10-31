@@ -36,7 +36,11 @@ func newTestEnv(t *testing.T, scoped bool) (*gin.Engine, *gorm.DB) {
 	svcCtx := &svc.ServiceContext{
 		TaskScheduleModel: model.NewTaskScheduleModel(db),
 		AdminModel:        model.NewAdminModel(db),
-		Dispatcher:        dispatch.NewDispatcher(reg.NewStore()),
+		// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission 显式函数 ACL，
+		// nil FunctionModel 会 fail-closed 拒绝（403）。与 task 服务测试同构
+		// 注入 FunctionModel，使 TriggerNow 能走到派发路径。
+		FunctionModel: model.NewFunctionModel(db),
+		Dispatcher:    dispatch.NewDispatcher(reg.NewStore()),
 	}
 	// TriggerNow 经 ARCH-024 Govern 链加载调用者主体（username=tester），
 	// 需存在对应 Admin 行；其余入口不触达主体加载，种子只影响触发路径。
@@ -72,11 +76,17 @@ func doJSON(r *gin.Engine, method, target, body string) *httptest.ResponseRecord
 	return rec
 }
 
-// seedScheduleAdmin 为 TriggerNow 的 Govern 主体加载准备调用者 Admin 行
-// （无角色即可通过：PolicyManager 为 nil 时政策链整体跳过）。
+// seedScheduleAdmin 为 TriggerNow 的 Govern 主体加载准备调用者 Admin 行，
+// 并绑定 admin 角色（HasAdminRole 旁路 CheckInvokePermission）——ARCH-024
+// 起 Govern 跑显式函数 ACL，无角色 admin 会被 fail-closed 拒绝，无法测到
+// 派发路径。PolicyManager 为 nil 时政策链整体跳过，不受角色影响。
 func seedScheduleAdmin(t *testing.T, db *gorm.DB, username string) {
 	t.Helper()
-	require.NoError(t, db.Create(&model.Admin{Username: username, Nickname: username, Status: 1}).Error)
+	role := &model.Role{Name: "admin", Category: "test"}
+	require.NoError(t, db.Create(role).Error)
+	admin := &model.Admin{Username: username, Nickname: username, Status: 1}
+	require.NoError(t, db.Create(admin).Error)
+	require.NoError(t, db.Create(&model.AdminRole{AdminID: admin.ID, RoleID: role.ID}).Error)
 }
 
 func doReq(r *gin.Engine, method, target string) *httptest.ResponseRecorder {

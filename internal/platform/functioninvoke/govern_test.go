@@ -34,6 +34,29 @@ func setupGovernDB(t *testing.T) *gorm.DB {
 	return db
 }
 
+func TestGovernPolicyBeforeInputContract(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "alice", "operator")
+	require.NoError(t, db.Where("permission_id = ?", "function:invoke").Delete(&model.RolePermission{}).Error)
+	require.NoError(t, db.Create(&model.FunctionDescriptor{
+		FunctionID: "player.cleanup",
+		Version:    "1.0.0",
+		Input: datatypes.JSONMap{
+			"type":     "object",
+			"required": []interface{}{"playerId"},
+		},
+	}).Error)
+
+	req := governReq()
+	req.Payload = []byte(`{}`)
+	_, err := Govern(humanCtx("alice"), svcCtx, req, Subject{Kind: SubjectHuman})
+	require.Error(t, err)
+	var codeErr *errorx.CodeError
+	require.ErrorAs(t, err, &codeErr)
+	assert.Equal(t, 403, codeErr.Code)
+	assert.Contains(t, err.Error(), "无权调用该函数")
+}
+
 func setupGovernSvc(t *testing.T) (*svc.ServiceContext, *gorm.DB) {
 	t.Helper()
 	db := setupGovernDB(t)
@@ -86,6 +109,64 @@ func governReq() *Request {
 		Env:    "test-env",
 		Mode:   "async",
 	}
+}
+
+// R30-01：显式函数 ACL 必须在 Govern 生效。alice(operator) 全局有
+// function:invoke（seedGovernAdmin 注入），但 player.cleanup 的显式权限
+// 规则仅允许 auditor 调用——Govern 此前只跑 EnforceFunctionPolicy（默认
+// medium 政策无角色限制、Casbin function:invoke 通过），从不调用
+// CheckInvokePermission，operator 被放行。修复后 403 拒绝（零派发）。
+func TestGovern_ExplicitFunctionAclDenied(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "alice", "operator")
+	// 显式函数权限规则：仅 auditor 可 invoke player.cleanup（operator 被拒）。
+	require.NoError(t, db.Create(&model.FunctionPermission{
+		FunctionID: "player.cleanup",
+		GameID:     "test-game",
+		Env:        "test-env",
+		Resource:   "function",
+		Actions:    model.JSON([]byte(`["invoke"]`)),
+		Roles:      model.JSON([]byte(`["auditor"]`)),
+	}).Error)
+
+	// human 与 automation 都必须被 ACL 拒绝（R30-01：两者此前均被放行且
+	// 无需审批——政策默认 medium 无角色限制）。
+	for _, sub := range []Subject{
+		{Kind: SubjectHuman},
+		{Kind: SubjectAutomation, ActorUsername: "alice"},
+	} {
+		ctx := humanCtx("alice")
+		if sub.Kind == SubjectAutomation {
+			ctx = context.Background()
+		}
+		_, err := Govern(ctx, svcCtx, governReq(), sub)
+		require.Error(t, err, "subject %s must be denied by explicit function ACL", sub.Kind)
+		var codeErr *errorx.CodeError
+		require.ErrorAs(t, err, &codeErr)
+		assert.Equal(t, 403, codeErr.Code)
+		assert.Contains(t, err.Error(), "无权调用该函数")
+	}
+}
+
+// 正向对照：显式 ACL 规则包含 operator → 通过，不被新增检查过度拒绝。
+// operator 同时满足 medium 默认政策 AllowedRoles（=operator）。
+func TestGovern_ExplicitFunctionAclAllowed(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "alice", "operator")
+	require.NoError(t, db.Create(&model.FunctionPermission{
+		FunctionID: "player.cleanup",
+		GameID:     "test-game",
+		Env:        "test-env",
+		Resource:   "function",
+		Actions:    model.JSON([]byte(`["invoke"]`)),
+		Roles:      model.JSON([]byte(`["operator"]`)),
+	}).Error)
+
+	res, err := Govern(humanCtx("alice"), svcCtx, governReq(), Subject{Kind: SubjectHuman})
+	require.NoError(t, err)
+	require.NotNil(t, res.Admin)
+	assert.Equal(t, "alice", res.Admin.Username)
+	assert.False(t, res.ApprovalRequired)
 }
 
 // 禁用拦截：automation 与 human 同链拒绝（409 function_disabled）。

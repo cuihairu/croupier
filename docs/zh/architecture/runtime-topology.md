@@ -89,7 +89,7 @@ Server 先创建 ServiceContext/数据库与注册物化、scheduler、session r
 
 [Task SVG](/architecture/task-zh.svg)
 
-HTTP 身份/scope → 页面快照 binding（或受控草稿）→ functioninvoke 的禁用/分配/输入契约/政策门。拒绝、待审批与执行互斥。任务与调度已接入 Govern，但函数 ACL 和风险来源故障仍有 R30-01/02 的复现，不能声明完全一致治理或撤权后必不派发。Create 只校验可调度性，每次触发再治理。生产 dispatch 注入 TaskRunWriter，task_runs 写失败禁止 StartTask（ARCH-026）；descriptor 查询错误拒绝，确无 schema 才跳过（ARCH-027）。返回 taskId 仅代表接收；取消先记意图再路由，Cancel ACK 不证明外部副作用撤销。
+HTTP 身份/scope → 页面快照 binding（或受控草稿）→ functioninvoke 的禁用/分配/输入契约/政策门。拒绝、待审批与执行互斥。任务与调度已接入 Govern，且 Govern 在 /tasks Start 同一条链内运行显式函数 ACL（CheckInvokePermission）——普通、手动、自动入口共用一次授权（ARCH-024），风险来源故障仍未闭合（ARCH-025）。Create 只校验可调度性，每次触发再治理。生产 dispatch 注入 TaskRunWriter，task_runs 写失败禁止 StartTask（ARCH-026）；descriptor 查询错误拒绝，确无 schema 才跳过（ARCH-027）。返回 taskId 仅代表接收；取消先记意图再路由，Cancel ACK 不证明外部副作用撤销。
 
 **实现边界**：TaskRunner 对在途同 ID Start 做内存去重、用 generation 清理并有限重试终态；跨进程重启无持久去重。Server 先更新终态再插事件的部分写入缺口已复现，不能保证重试补齐事件。页面幂等不替代游戏持久收据。证据：`agents/sidecar/task_runner.go`、`internal/server/control_handler.go:handleTaskEvent`、`internal/api/approval/service.go`。
 

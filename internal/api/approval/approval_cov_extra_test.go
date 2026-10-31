@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -105,6 +106,11 @@ func covContinuationEnvSQL(t *testing.T, mode string, sqlStore bool) (*Service, 
 	require.NoError(t, err)
 	err = adminModel.AssignRole(context.Background(), approver.ID, role.ID)
 	require.NoError(t, err)
+	// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission，approver 须有
+	// function:invoke（operator 无 admin 旁路）。批准续跑以 approver 身份
+	// 重新授权，缺权限会 fail-closed 拒绝——补权限保留「operator 可批准并
+	// 续跑」的原测试意图。
+	grantApprovalPermission(t, db, role.ID, "function:invoke")
 
 	store := reg.NewStore()
 	err = store.UpsertAgent(&reg.AgentSession{
@@ -136,6 +142,10 @@ func covContinuationEnvSQL(t *testing.T, mode string, sqlStore bool) (*Service, 
 		RegistryStore:  store,
 		Dispatcher:     dispatcher,
 		ApprovalsStore: approvalsStore,
+		// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission，nil
+		// FunctionModel 会 fail-closed 拒绝（403）。与 task 服务测试同构
+		// 注入 FunctionModel，使批准续跑能走到派发路径。
+		FunctionModel: model.NewFunctionModel(db),
 	}
 	caller := &covSessionCaller{invokePayload: []byte(`{"echo":true}`), startTaskID: "task-cov-9"}
 	resolver.callers["agent-cov"] = caller
@@ -150,6 +160,31 @@ func covContinuationEnvSQL(t *testing.T, mode string, sqlStore bool) (*Service, 
 	ctx := context.WithValue(context.Background(), "username", "approver")
 	ctx = svc.WithGameScope(ctx, svc.GameScope{GameID: "covgame", Env: "prod"})
 	return NewService(svcCtx), ctx, caller
+}
+
+// grantApprovalPermission 给角色绑定权限 ID（先建 Permission 行再写
+// role_permissions），供 Govern 的 CheckInvokePermission 默认兜底
+// （function:invoke）命中。镜像 console 测试 grantConsolePermission。
+func grantApprovalPermission(t *testing.T, db *gorm.DB, roleID uint, permissionID string) {
+	t.Helper()
+	permissionID = strings.TrimSpace(permissionID)
+	if permissionID == "" {
+		return
+	}
+	parts := strings.SplitN(permissionID, ":", 2)
+	action := "*"
+	if len(parts) == 2 {
+		action = parts[1]
+	}
+	permission := model.Permission{
+		ID:       permissionID,
+		Name:     permissionID,
+		Resource: parts[0],
+		Action:   action,
+		Category: "dashboard",
+	}
+	require.NoError(t, db.Where("id = ?", permission.ID).FirstOrCreate(&permission).Error)
+	require.NoError(t, db.Create(&model.RolePermission{RoleID: roleID, PermissionID: permissionID}).Error)
 }
 
 // Approve 成功续跑（同步）：ResultKind=sync 且携带结果。
