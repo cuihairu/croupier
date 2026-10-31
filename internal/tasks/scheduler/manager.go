@@ -79,6 +79,12 @@ type Manager struct {
 	stopped    bool // Stop 已被调用（幂等守卫：二次调用不再 close stopCh）
 	stopCh     chan struct{}
 	stoppedCh  chan struct{}
+	// lifecycleCtx is cancelled by Stop so a blocked tick (store/dispatch on
+	// the lifecycle context) aborts instead of keeping the loop from exiting,
+	// which would make the runServer defer StopScheduler hang past the 30s
+	// shutdown budget (ARCH-017 R30-07).
+	lifecycleCtx    context.Context
+	lifecycleCancel context.CancelFunc
 }
 
 // NewManager creates a scheduler manager. interval 为扫描周期（默认 30s）。
@@ -127,6 +133,9 @@ func (m *Manager) Start() {
 		return
 	}
 	m.started = true
+	// Lifecycle context: canceled on Stop so an in-progress tick using it is
+	// aborted, keeping Stop bounded (ARCH-017 R30-07).
+	m.lifecycleCtx, m.lifecycleCancel = context.WithCancel(context.Background())
 	m.mu.Unlock()
 	go m.loop()
 }
@@ -145,6 +154,9 @@ func (m *Manager) Stop() {
 		return
 	}
 	m.stopped = true
+	if m.lifecycleCancel != nil {
+		m.lifecycleCancel()
+	}
 	m.mu.Unlock()
 	close(m.stopCh)
 	<-m.stoppedCh
@@ -166,7 +178,14 @@ func (m *Manager) loop() {
 
 // tick 处理一个扫描周期：到期触发 + 跨槽领取恢复（ARCH-023 R30-04）。
 func (m *Manager) tick(now time.Time) {
-	ctx := context.Background()
+	// 生命周期 context：Stop 会取消它，使卡住的 store/dispatch 调用中断，
+	// 而非在 context.Background() 上无限阻塞——后者会让 Stop 等待
+	// stoppedCh 无界，令 runServer 的 defer StopScheduler 在 30s 停机预算
+	// 外仍挂住（ARCH-017 R30-07）。
+	ctx := m.lifecycleCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	due, err := m.store.ListDue(ctx, now, 100)
 	if err != nil {
 		slog.Warn("scheduler: list due schedules failed", "error", err)

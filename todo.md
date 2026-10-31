@@ -82,9 +82,10 @@
   - 状态／条件：LOCAL VERIFIED：Draining/RPC 在途计数/路由门/宽限窗沿用既有实现；本项补齐 R30-09——(1) `handleInvoke` 对任务延续（taskId 存在且会话存储已装配）跳过读 agentlocal 的 `pickInstance`（drain 已摘除该表），改由 `callProvider` 按会话存储选路，draining 会话对延续放行、无命中明确失败，不再误报未注册；(2) `DrainProviderSession` 等待会话在途归零外，还等待 `TaskRunner.Count()==0`（覆盖「已 ACK 未进入 Provider RPC」窗口，该窗 Inflight=0 但任务仍在），宽限到点后不取消在途、留给 ARCH-015 D3 收敛。真实多实例原子准入竞争注入 NOT RUN。
   - 完成证据：2026-10-31；`internal/agent/local_handler.go`（handleInvoke 任务延续跳过 pickInstance、callProvider 无会话命中明确失败、DrainProviderSession 等待 TaskRunner.Count）、`internal/agent/provider_drain_test.go`（TestCallProvider_TaskContinuationAfterDrainNoAgentLocal、TestHandleInvoke_TaskContinuationSkipsPickInstanceAfterDrain、TestDrainProviderSession_WaitsForAcceptedTasks）；`go test ./internal/agent/... ./agents/sidecar/... ./internal/app/agent/... -count=1` 全绿，`go test -race ./internal/agent/ -run 'TestCallProvider_TaskContinuationAfterDrainNoAgentLocal|TestHandleInvoke_TaskContinuationSkipsPickInstanceAfterDrain|TestDrainProviderSession_WaitsForAcceptedTasks|TestCallProvider_InflightCountedAroundCall|TestDrainProviderSession_WaitsForInflightZero' -count=1` 过，`go build ./...` 过。
 
-- [ ] **ARCH-017 · P1 · 实现 · Server 停机收尾顺序**
+- [x] **ARCH-017 · P1 · 实现 · Server 停机收尾顺序**
   - 依赖：—。交付与验收：控制 listener.Close 等活跃会话时不阻塞后续 HTTP 停机/根取消；保证 ServiceContext.Close 冲刷留痕，设置有界清理并验证 socket/goroutine/池释放。
-  - 状态／条件：R30-07 源码时序：停收→HTTP drain→rootCancel→等待→Close 的正常路径有回归通过；但外层 30s 返回后仍执行无界 defer StopScheduler，阻塞 tick 可令最终返回继续等待。完整阻塞调度/总截止/池释放故障验收 NOT RUN，不宣称一律有界。 详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+  - 状态／条件：LOCAL VERIFIED：停收→HTTP drain→rootCancel→等待→Close 正常路径回归沿用既有；本项补齐 R30-07——`scheduler.Manager` 新增生命周期 context（Start 创建、Stop 取消），`tick` 由 `context.Background()` 改用该 context；阻塞的 store/dispatch 调用被 Stop 取消，循环及时退出，`Stop` 有界返回，runServer 的 defer StopScheduler 不再在 30s 停机预算外挂住。完整真实停机入口下阻塞调度/总截止/池释放故障注入 NOT RUN。
+  - 完成证据：2026-10-31；`internal/tasks/scheduler/manager.go`（lifecycleCtx/lifecycleCancel、tick 用 lifecycle ctx）、`internal/tasks/scheduler/manager_stop_test.go`（TestManagerStop_AbortsBlockedTick + blockingStore）；`go test ./internal/tasks/... ./internal/svc/... ./cmd/server/... -count=1` 全绿，`go build ./...` 过。
 
 - [x] **ARCH-018 · P1 · 故障验证 · 执行中断与停机演练**
   - 依赖：ARCH-015, ARCH-016, ARCH-017, ARCH-026。交付与验收：执行中注入断链、drain、SIGTERM；逐项记录新请求拒绝、终态/未知态、截止时间及资源释放；不把测试 fixture 的游戏副作用结果当真实游戏恢复凭据
