@@ -46,12 +46,12 @@
 
 | 项  | 问题                          | commit     |
 | --- | ----------------------------- | ---------- |
-| F3  | Games 管理 en-US 文案(33 键)  | `f9a0eaa8` |
-| F4  | Site Settings en-US 缺失 4 键 | `5de921a2` |
-| F6  | Game Environments 管理游戏键  | `d259c677` |
-| F7  | Page Studio/函数目录 9 键     | `4dd84188` |
-| F8  | 面包屑链接对比度 → AA         | `78592a76` |
-| F9  | 页标题窄屏截断 → 竖排         | `0f81aa1c` |
+| F3  | Games 管理 en-US 文案(33 键)  | `d89d233d` |
+| F4  | Site Settings en-US 缺失 4 键 | `7944d1c2` |
+| F6  | Game Environments 管理游戏键  | `14dc54f6` |
+| F7  | Page Studio/函数目录 9 键     | `65aee440` |
+| F8  | 面包屑链接对比度 → AA         | `53833985` |
+| F9  | 页标题窄屏截断 → 竖排         | `1e5e6783` |
 
 本波已修 6 项;F5(登录副标题)待用户提供真实英文品牌文案;F10(SettingDrawer)复核为 dev-only,非交付缺陷,不修。
 
@@ -61,13 +61,13 @@
 
 - **现象**:`/system/games` 页标题「游戏列表」、表头「图标/游戏标识/显示名称/环境数/状态/操作」、按钮「新增游戏/编辑/删除」全为中文,而菜单、面包屑、全局壳为英文。
 - **定位**:`web/src/pages/GamesManage/index.tsx` 全部使用 `pages.gamesManage.*` 键(共 **33** 个,而非报告初估 10 个),**en-US 语言包无任何 `pages.gamesManage.*` 条目**(en-US 无 gamesManage 字典文件),运行时全部回退中文 `defaultMessage`。
-- **修复**:新建 `web/src/locales/en-US/gamesManage.ts`(33 键英文文案)并接入 `en-US.ts`。**已提交** `f9a0eaa8`。
+- **修复**:新建 `web/src/locales/en-US/gamesManage.ts`(33 键英文文案)并接入 `en-US.ts`。**已提交** `d89d233d`。
 
 ### F4 · P2 · i18n 缺口:Site Settings 表单在英语界面部分中文 — ✅ 已修复
 
 - **现象**:`/system/site` 的「System Info」页签标题「系统设置」、表单「站点名称/站点 Logo 地址/保存」等为中文,页签名(Theme/Feature Flags/Authentication…)与说明为英文。
 - **定位**:`web/src/pages/System/SiteSettings/` 用 `pages.systemSiteSettings.*` 键,`en-US/systemSiteSettings.ts` 比 zh-CN 少 4 条(`auth.saved.github`/`auth.saved.local`/`auth.successUrlLabel`/`auth.successUrlTooltip`),缺失键回退中文。
-- **修复**:补齐上述 4 条 en-US 文案。**已提交** `5de921a2`。
+- **修复**:补齐上述 4 条 en-US 文案。**已提交** `7944d1c2`。
 
 ### F5 · P2 · i18n 缺口:登录副标题任何 locale 都显示中文 — ⏸ 待用户
 
@@ -80,25 +80,25 @@
 
 - **现象**:`/system/environments` 页头「管理游戏」按钮中文,同排「Add Env」英文。
 - **定位**:`web/src/pages/GamesEnvs/index.tsx:234`(`id="pages.gamesEnvs.action.manageGames"`),**en-US/gamesEnvs.ts 无该键**(仅有 `.add`/`.addGame`),回退中文。
-- **修复**:补 `'pages.gamesEnvs.action.manageGames': 'Manage Games'`。**已提交** `d259c677`。
+- **修复**:补 `'pages.gamesEnvs.action.manageGames': 'Manage Games'`。**已提交** `14dc54f6`。
 
 ### F7 · P2 · i18n 缺口:函数目录空态 / Page Studio 筛选与状态缺 en-US 键 — ✅ 已修复
 
 - **现象**:控制台逐条报 `[React Intl] Missing message: "pages.functionsDirectory.empty.scopeTitle" / "...scopeDescription"`(函数目录空态)与 `"pages.pageStudio.filter.keyword" / ".filter.status" / ".status.draft|published|archived" / ".filter.resource" / ".studio.column.resources"`(Page Studio 筛选/状态/列)。en-US 下这些位置回退中文默认文案。
 - **定位**:`web/src/pages/Functions/Directory/index.tsx:437`、`web/src/pages/PageStudio/index.tsx:1060+`;对应 en-US 语言包缺键。
-- **修复**:补上述 9 键 en-US 文案(空态标题/描述含 `{game}`/`{env}` 占位、筛选占位、状态标签、资源列)。**已提交** `4dd84188`。
+- **修复**:补上述 9 键 en-US 文案(空态标题/描述含 `{game}`/`{env}` 占位、筛选占位、状态标签、资源列)。**已提交** `65aee440`。
 
 ### F8 · P3 · 对比度:面包屑链接低于 WCAG AA — ✅ 已修复
 
 - **现象**:面包屑中间层链接(如「Functions & Pages」)`#1677ff` 对白底 **4.12:1**,低于 AA 常规文本 4.5:1(阈值差 0.38)。
 - **定位**:`web/src/global.less:157-162`(`.ant-breadcrumb a { color: var(--brand-2) }`,--brand-2=#1677ff)。
-- **修复**:仅对面包屑链接改用更深蓝 `var(--vp-c-brand-2)`(默认亮主题 = `#0958d9`,5.57:1),hover 加下划线保留反馈;**未动全局品牌蓝**(`#1677ff` 是近期刻意恢复的默认主题,见 `8278a5ba`)。**已提交** `78592a76`。
+- **修复**:仅对面包屑链接改用更深蓝 `var(--vp-c-brand-2)`(默认亮主题 = `#0958d9`,5.57:1),hover 加下划线保留反馈;**未动全局品牌蓝**(`#1677ff` 是近期刻意恢复的默认主题,见 `8278a5ba`)。**已提交** `53833985`。
 
 ### F9 · P3 · 响应式:页标题在窄屏截断 — ✅ 已修复
 
 - **现象**:窄屏(390px)页面标题被截为 `Fun...`/`Res...`,标题与副标题挤同一行且各自省略。
 - **定位**:ProLayout `PageContainer`/`ProPageHeader` 标题+副标题单行布局(`.ant-page-header-heading` 内 `-left` flex 行,`-title`/`-sub-title` 均带 `text-overflow: ellipsis`),`web/src/pages/Functions/Directory`、`ResourceCatalog` 等页头。
-- **修复**:`web/src/global.less` 的 `@media (max-width: 768px)` 内,令页头 heading `flex-wrap`、`-left` 改纵向堆叠、`-title`/`-sub-title` 允许换行(标题独占一行、副标题换行)。**已提交** `0f81aa1c`。
+- **修复**:`web/src/global.less` 的 `@media (max-width: 768px)` 内,令页头 heading `flex-wrap`、`-left` 改纵向堆叠、`-title`/`-sub-title` 允许换行(标题独占一行、副标题换行)。**已提交** `1e5e6783`。
 
 ### F10 · P3 · 仅 dev 现象:浮动设置齿轮在窄屏压内容 — ⏭ 不修(非缺陷)
 
