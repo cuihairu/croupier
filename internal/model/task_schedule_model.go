@@ -189,9 +189,14 @@ func (m *TaskScheduleModel) GetRunLog(ctx context.Context, scheduleID uint, slot
 
 // UpdateRunLog 回填领取槽位后的派发结果（ARCH-023 先领取再派发：领取行
 // 先占住唯一索引，派发完成后把 status/task_run_id/message 落为终值）。
+//
+// WHERE 带 status=claimed 再校验（R30-05）：领取→回填窗口内另一实例可能
+// 已完成派发并回写 dispatched（或本槽已终态），若只按 schedule_id+slot 更新
+// 会把真实终值覆写成 indeterminate。仅当行仍为 claimed 时才回填，否则 no-op
+// 保留已落终值。
 func (m *TaskScheduleModel) UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error {
 	return m.db.WithContext(ctx).Model(&TaskScheduleRunLog{}).
-		Where("schedule_id = ? AND slot = ?", scheduleID, slot).
+		Where("schedule_id = ? AND slot = ? AND status = ?", scheduleID, slot, RunLogClaimed).
 		Updates(map[string]interface{}{
 			"task_run_id": taskRunID,
 			"status":      status,

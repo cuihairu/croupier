@@ -191,3 +191,37 @@ func TestTaskScheduleModel_ListStaleClaims(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, none, 0)
 }
+
+// R30-05：UpdateRunLog 的 WHERE 带 status=claimed 再校验——领取→回填窗口内
+// 另一实例已回写 dispatched（或本槽已终态）后，陈旧 reclaim 的 indeterminate
+// 覆写必须 no-op，保留已落真实终值；claimed 行仍正常回填。
+func TestTaskScheduleModel_UpdateRunLog_GuardNonClaimed(t *testing.T) {
+	db := setupTaskSchedDB(t)
+	m := NewTaskScheduleModel(db)
+	ctx := context.Background()
+
+	s, err := m.Create(ctx, CreateScheduleInput{
+		Name: "c", CronExpr: "* * * * *", GameID: "demo", Env: "prod", FunctionID: "f",
+	})
+	require.NoError(t, err)
+	slot := time.Now().UTC().Truncate(time.Minute)
+
+	// 正常路径：claimed 行可回填（领取→派发）。
+	ok, err := m.CreateRunLog(ctx, &TaskScheduleRunLog{ScheduleID: s.ID, Slot: slot, Status: RunLogClaimed})
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.NoError(t, m.UpdateRunLog(ctx, s.ID, slot, "run-1", RunLogDispatched, "ok"))
+	got, err := m.GetRunLog(ctx, s.ID, slot)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, RunLogDispatched, got.Status)
+	assert.Equal(t, "run-1", got.TaskRunID)
+
+	// 竞态：已 dispatched（另一实例回填）后，陈旧 reclaim 覆写 indeterminate 必须 no-op。
+	require.NoError(t, m.UpdateRunLog(ctx, s.ID, slot, "", RunLogIndeterminate, "claim lease expired; dispatch outcome unknown"))
+	got2, err := m.GetRunLog(ctx, s.ID, slot)
+	require.NoError(t, err)
+	require.NotNil(t, got2)
+	assert.Equal(t, RunLogDispatched, got2.Status, "非 claimed 行不得被陈旧覆写")
+	assert.Equal(t, "run-1", got2.TaskRunID)
+}
