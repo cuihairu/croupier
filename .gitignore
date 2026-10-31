@@ -238,3 +238,6 @@ web/config/*.js
 web/config/*.js.map
 web/**/*.js.map
 web/**/*.jsx.map
+
+# 编译产物：gameops-demo 示例二进制（勿提交）
+sdks/go/examples/gameops-demo/gameops-demo
