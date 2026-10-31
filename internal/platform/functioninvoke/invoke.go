@@ -269,7 +269,13 @@ func ValidateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *R
 		return nil
 	}
 	descs, err := svcCtx.FunctionModel.ListDescriptors(ctx, functionID)
-	if err != nil || len(descs) == 0 {
+	if err != nil {
+		// ARCH-027 fail-closed：契约读取故障不得作为跳过验证依据。区分
+		// 「旧函数确无 schema」（透传）与「descriptor 查询失败」（拒绝）。
+		return errorx.NewInternalError("输入契约读取失败：无法确定函数 " + functionID + " 的输入契约")
+	}
+	if len(descs) == 0 {
+		// 旧函数/未登记 contract：无 schema 可校验，透传给游戏服兜底。
 		return nil
 	}
 	return functioncontract.ValidateInput(descs[0].Input, payload) // ListDescriptors 按版本倒序，取最新契约

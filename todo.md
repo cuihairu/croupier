@@ -230,9 +230,10 @@
   - 状态／条件：VERIFIED 代码：dispatcher.go:startTaskOnPickedAgent 忽略 CreateRunWithMeta 错误仍派发；现有文字“先写任务”不等于写成功才执行。
   - DONE（2026-10-30）：startTaskOnPickedAgent 改为 fail-closed——CreateRunWithMeta 失败返回 DATABASE_ERROR 可定位错误（含 taskId/agent/function，cause 可 Unwrap）且不发送 StartTask、注入的 taskId 从 metadata 撤回；用例 TestDispatcher_StartTaskRequest_CreateRunFails_NoDispatch 断言 executor 调用数为 0、无 task 注册。
 
-- [ ] **ARCH-027 · P1 · 实现 · 输入契约读取失败的明确拒绝语义**
+- [x] **ARCH-027 · P1 · 实现 · 输入契约读取失败的明确拒绝语义**
   - 依赖：—。交付与验收：区分旧函数确无 schema 与 descriptor 查询失败；契约读取故障不得作为跳过验证依据；固定已批准快照/版本，覆盖 schema DB 失败、required 缺失和版本漂移；复用 ValidateInvokeInput
-  - 状态／条件：VERIFIED 代码：functioninvoke.ValidateInvokeInput 在 ListDescriptors 出错时返回 nil，治理状态需先统一故障语义。
+  - 状态／条件：LOCAL VERIFIED（2026-10-31）：`ValidateInvokeInput` 改为 fail-closed——`ListDescriptors` 出错返回 `errorx.NewInternalError("输入契约读取失败...")`（500，不再 `nil` 透传），与「旧函数确无 descriptor 行」（透传，游戏服兜底）明确区分；`len(descs)==0` 保持透传（旧函数无 schema）；`ListDescriptors` 按版本倒序取最新契约（version drift 由最新版本拦截）；required 缺失仍 400 `required`。新增 `internal/platform/functioninvoke/invoke_contract_test.go` 4 用例：`DescriptorQueryFailsFailClosed`（表缺失→500 拒绝）、`LegacyNoDescriptorPassthrough`（无行→透传）、`RequiredMissingRejected`（缺 required→400 + 详情）、`LatestVersionWins`（v1 无 required / v2 有 required→v2 拦截，版本漂移被最新契约捕获）PASS。证据：`go test -count=1 ./internal/platform/functioninvoke ./internal/api/function ./internal/logic/function` 全绿、`go build ./...` + `go vet ./internal/platform/functioninvoke ./internal/api/function` 绿、`bash .github/scripts/architecture_guard.sh` 通过。
+  - 完成证据：2026-10-31 定向运行通过；`internal/platform/functioninvoke/invoke.go`、`internal/platform/functioninvoke/invoke_contract_test.go`，验收断言与边界见上述状态。
 
 ## 页面链验收
 
