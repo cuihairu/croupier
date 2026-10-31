@@ -25,6 +25,8 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // recordOpsAudit persists an ops audit event (node drain/restart, maintenance
@@ -825,7 +827,11 @@ func opsNodeDrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeC
 
 	// Send drain command to agent via TCP. ACK 由 agent 侧在在途归零或宽限
 	// 到点后返回（caller.Call 同步等待，至多一个宽限窗）。
-	_, _, err := caller.Call(ctx, protocol.MsgProviderDrainRequest, []byte(`{}`))
+	drainBody, err := proto.Marshal(&sdkv1.ProviderDrainRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ProviderDrainRequest: %w", err)
+	}
+	_, _, err = caller.Call(ctx, protocol.MsgProviderDrainRequest, drainBody)
 	if err != nil {
 		slog.Warn("failed to send drain command to agent", "agent_id", nodeID, "error", err)
 		// Continue anyway - record the drain state
@@ -967,8 +973,13 @@ func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 
 	// Send undrain command to agent via TCP (reason sentinel: agent clears its
 	// ProviderSession draining marks; see protocol.ProviderDrainReasonUndrain).
-	undrainPayload := fmt.Sprintf(`{"reason":%q}`, protocol.ProviderDrainReasonUndrain)
-	_, _, err := caller.Call(ctx, protocol.MsgProviderDrainRequest, []byte(undrainPayload))
+	undrainPayload, err := proto.Marshal(&sdkv1.ProviderDrainRequest{
+		Reason: protocol.ProviderDrainReasonUndrain,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ProviderDrainRequest: %w", err)
+	}
+	_, _, err = caller.Call(ctx, protocol.MsgProviderDrainRequest, undrainPayload)
 	if err != nil {
 		slog.Warn("failed to send undrain command to agent", "agent_id", nodeID, "error", err)
 		// Continue anyway - record the undrain

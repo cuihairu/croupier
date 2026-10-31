@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -146,7 +147,12 @@ func TestOpsNodeDrainRegistryGate(t *testing.T) {
 	regStore.Mu().RUnlock()
 	// drain 下行体为空 session_id（节点级 drain-all，agent 侧对全部会话生效）
 	require.Equal(t, 1, caller.callCount)
-	assert.JSONEq(t, `{}`, string(caller.lastBody[protocol.MsgProviderDrainRequest]))
+	{
+		req := &sdkv1.ProviderDrainRequest{}
+		require.NoError(t, proto.Unmarshal(caller.lastBody[protocol.MsgProviderDrainRequest], req))
+		assert.Empty(t, req.SessionId)
+		assert.Empty(t, req.Reason)
+	}
 
 	// undrain → registry Draining 清除，且下行携带 reason 哨兵
 	_, err = opsNodeUndrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
@@ -154,9 +160,11 @@ func TestOpsNodeDrainRegistryGate(t *testing.T) {
 	regStore.Mu().RLock()
 	assert.False(t, regStore.AgentsUnsafe()["node-1"].Draining)
 	regStore.Mu().RUnlock()
-	assert.JSONEq(t,
-		`{"reason":"`+protocol.ProviderDrainReasonUndrain+`"}`,
-		string(caller.lastBody[protocol.MsgProviderDrainRequest]))
+	{
+		req := &sdkv1.ProviderDrainRequest{}
+		require.NoError(t, proto.Unmarshal(caller.lastBody[protocol.MsgProviderDrainRequest], req))
+		assert.Equal(t, protocol.ProviderDrainReasonUndrain, req.Reason)
+	}
 }
 
 // ---- AgentService 进程命令（AgentOpsClient 真实编解码 + fake 会话） ----
