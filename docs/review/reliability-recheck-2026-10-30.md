@@ -20,9 +20,9 @@
 
 ### R30-02 · P0 · 风险读取故障降低审批要求
 
-**CONFIRMED，ARCH-025 重新打开。** `internal/platform/functioninvoke/policy.go:resolvePolicyRisk` 忽略 OpenAPI/FunctionContract 读取错误，回退 RiskMedium。GetPolicy 查询错误已有 fail-closed 修复，但风险输入本身仍可错误降档。
+**已修复（ARCH-025，2026-10-31）。** 原缺口：`internal/platform/functioninvoke/policy.go:resolvePolicyRisk` 忽略 OpenAPI/FunctionContract 读取错误，回退 RiskMedium。GetPolicy 查询错误已有 fail-closed 修复，但风险输入本身仍可错误降档。
 
-同一 high 契约，正常需要审批；仅注入 function_contracts 查询错误（其他查询正常）后，Govern 成功且 ApprovalRequired=false。须区分未声明风险与来源故障，明确拒绝/last-good 规则，不能把所有故障概称“政策已 fail-closed”。
+修复：`resolvePolicyRisk` 改为返回 `(policy.RiskLevel, error)`，区分「未声明风险」与「来源故障」——契约行不存在（ErrRecordNotFound）= 未声明，合法回落 medium；其他查询错误 = 来源故障，向上传播，由治理链 fail-closed 拒绝（与 GetPolicy 查询错误的 fail-closed 同构），绝不静默降档。`EnforceFunctionPolicy` 传播该错误；approval step-up 门槛（`approveStepUpRisk`）在来源故障时 fail-closed 视作高危（要求二次验证），不因读取失败放宽。证据：`internal/platform/functioninvoke/govern_test.go` `TestGovern_ContractRiskReadErrorDenies`（function_contracts 表删除 → Govern 拒绝、零审批）、`internal/api/function/coverage_v9_test.go` `TestResolvePolicyRisk_ContractSourceFailure_V9`、`internal/api/approval/stepup_otp_test.go` `TestApproveStepUpRisk_SourceFailureFailsClosed`。
 
 ### R30-03 · P1 · 终态部分持久化后，重试 ACK 掩盖缺失事件
 

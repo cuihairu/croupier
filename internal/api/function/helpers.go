@@ -936,14 +936,15 @@ func policyRiskFromContract(risk string) policy.RiskLevel {
 	return functioninvoke.PolicyRiskFromContract(risk)
 }
 
-func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
+func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) (policy.RiskLevel, error) {
 	return functioninvoke.ResolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 }
 
 // ResolvePolicyRisk exposes resolvePolicyRisk to the approve path
 // (internal/api/approval step-up gate, OPEN-ISSUES #75): 高危审批门槛必须与
-// 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。
-func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
+// 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。来源故障向上传播，
+// 调用侧按 fail-closed 处理（step-up 门槛视作高危）。
+func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) (policy.RiskLevel, error) {
 	return functioninvoke.ResolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 }
 

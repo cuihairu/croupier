@@ -421,6 +421,23 @@ func TestEnforceFunctionPolicy_GetPolicyErrorDenies(t *testing.T) {
 	assert.Contains(t, err.Error(), "查询函数策略失败")
 }
 
+// R30-02 全链验证：function_contracts 表被删（模拟契约风险来源故障）→
+// Govern 以错误拒绝、不建审批。此前 resolvePolicyRisk 忽略该读取错误并
+// 回落 medium，high 契约的审批被静默取消——修复后 fail-closed。
+func TestGovern_ContractRiskReadErrorDenies(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "alice", "operator")
+	require.NoError(t, db.Migrator().DropTable(&model.FunctionContract{}))
+
+	_, err := Govern(humanCtx("alice"), svcCtx, governReq(), Subject{Kind: SubjectHuman})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "查询函数契约风险失败")
+
+	_, total, err := svcCtx.ApprovalsStore.List(approvals.Filter{}, approvals.Page{Page: 1, Size: 10})
+	require.NoError(t, err)
+	assert.Zero(t, total, "契约风险来源故障不得静默建审批/放行")
+}
+
 // ── ARCH-027：输入契约读取失败的明确拒绝语义 ─────────────────────────
 // 契约查询失败必须与「旧函数确无 schema」区分：查询失败 fail-closed 拒绝
 // （不得作为跳过验证依据），确无 descriptor 才跳过。

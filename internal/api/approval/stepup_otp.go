@@ -59,11 +59,17 @@ func stepUpOTPEnforced() bool {
 }
 
 // approveStepUpRisk 与调用路径共用同一风险判定口径（OPEN-ISSUES #75）。
+// R30-02（ARCH-025）：风险来源故障时 fail-closed 视作高危（要求二次验证），
+// 不得因读取失败静默降档为中低危而放宽 step-up 门槛。
 func approveStepUpRisk(ctx context.Context, svcCtx *svc.ServiceContext, record *approvals.Approval) policymgr.RiskLevel {
 	if svcCtx == nil || record == nil {
 		return policymgr.RiskMedium
 	}
-	return function.ResolvePolicyRisk(ctx, svcCtx, record.FunctionID, record.GameID, record.Env)
+	risk, err := function.ResolvePolicyRisk(ctx, svcCtx, record.FunctionID, record.GameID, record.Env)
+	if err != nil {
+		return policymgr.RiskHigh
+	}
+	return risk
 }
 
 // lookupOperator 找不到（含 AdminModel 未注入的测试环境）返回 nil，

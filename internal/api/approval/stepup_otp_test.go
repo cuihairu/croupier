@@ -18,6 +18,7 @@ import (
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/settings"
+	policymgr "github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/security/otp"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -128,6 +129,31 @@ func (f *stepupOTPFixture) requireStillPending(t *testing.T, id string) {
 	rec, err := f.store.Get(id)
 	require.NoError(t, err)
 	assert.Equal(t, "pending", rec.State, "step-up 校验不过时审批必须保持 pending")
+}
+
+// R30-02（ARCH-025）：契约风险来源故障时 step-up 门槛 fail-closed 视作高危
+// （要求二次验证），不得因读取失败静默降档为中低危而放宽。
+func TestApproveStepUpRisk_SourceFailureFailsClosed(t *testing.T) {
+	// 空内存库无 function_contracts 表 → 契约风险查询报 "no such table"
+	// （来源故障，非 ErrRecordNotFound）。
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	svcCtx := &svc.ServiceContext{DB: db}
+
+	risk := approveStepUpRisk(context.Background(), svcCtx, &approvals.Approval{
+		FunctionID: "fn.high", GameID: "game-1", Env: "prod",
+	})
+	assert.Equal(t, policymgr.RiskHigh, risk, "风险来源故障不得放宽 step-up 门槛")
+
+	// 未声明风险（无契约行 → medium）仍不触发高危门槛，不是故障
+	goodDB, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(goodDB))
+	svcCtx2 := &svc.ServiceContext{DB: goodDB}
+	risk = approveStepUpRisk(context.Background(), svcCtx2, &approvals.Approval{
+		FunctionID: "fn.unseen", GameID: "game-1", Env: "prod",
+	})
+	assert.Equal(t, policymgr.RiskMedium, risk, "未声明风险应回落 medium")
 }
 
 func TestStepUp_HighRisk_CorrectOTP_Passes(t *testing.T) {

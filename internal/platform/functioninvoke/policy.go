@@ -2,6 +2,7 @@ package functioninvoke
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
+	"gorm.io/gorm"
 )
 
 // PolicyRiskFromContract maps a contract risk word (safe/warning/high/danger)
@@ -42,11 +44,18 @@ func PolicyRiskFromContract(risk string) policy.RiskLevel {
 //
 // 服务端治理覆盖入口是 PolicyManager 的 per-function DB override（SetOverride），
 // GetPolicy 优先命中 override，本函数只影响无 override 时的默认档位选择。
-func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
+//
+// R30-02（ARCH-025）：风险来源故障不得静默降档。契约风险读取错误若被忽略，
+// high 契约会退回 medium 并取消审批（绕过审批/审计）。本函数区分「未声明风险」
+// 与「来源故障」：契约行不存在（ErrRecordNotFound）= 未声明，合法回落 medium；
+// 其他查询错误 = 来源故障，向上传播，由治理链 fail-closed 拒绝（与 GetPolicy
+// 查询错误的 fail-closed 同构）。RegistryStore 为内存查找，GetOpenAPI 的唯一
+// 错误是未命中（未声明），不是来源故障，保持回落。
+func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) (policy.RiskLevel, error) {
 	if svcCtx.RegistryStore != nil {
 		if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil && op != nil {
 			if riskVal, ok := op.Extensions["x-risk"].(string); ok && strings.TrimSpace(riskVal) != "" {
-				return PolicyRiskFromContract(riskVal)
+				return PolicyRiskFromContract(riskVal), nil
 			}
 		}
 	}
@@ -55,21 +64,26 @@ func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, function
 		if gameID != "" && env != "" {
 			contract, err := model.NewFunctionContractModel(svcCtx.DB).
 				FindByScopeAndFunctionID(ctx, gameID, env, strings.TrimSpace(functionID))
-			if err == nil && contract != nil {
+			if err != nil {
+				if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return policy.RiskMedium, fmt.Errorf("查询函数契约风险失败（fail-closed）: %w", err)
+				}
+			} else if contract != nil {
 				switch contract.Risk {
 				case dbenum.RiskWarning, dbenum.RiskHigh, dbenum.RiskDanger:
-					return PolicyRiskFromContract(contract.Risk.String())
+					return PolicyRiskFromContract(contract.Risk.String()), nil
 				}
 			}
 		}
 	}
-	return policy.RiskMedium
+	return policy.RiskMedium, nil
 }
 
 // ResolvePolicyRisk exposes resolvePolicyRisk to the approve path
 // (internal/api/approval step-up gate, OPEN-ISSUES #75): 高危审批门槛必须与
-// 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。
-func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
+// 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。来源故障时向上传播，
+// 调用侧按 fail-closed 处理（step-up 门槛视作高危要求二次验证）。
+func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) (policy.RiskLevel, error) {
 	return resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 }
 
@@ -77,7 +91,12 @@ func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, function
 // based on the effective policy for that function.
 // Returns the effective policy for auditing purposes.
 func EnforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string, userRoles []string) (*policy.Policy, error) {
-	riskLevel := resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
+	riskLevel, err := resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
+	if err != nil {
+		// R30-02（ARCH-025）：风险来源故障不得静默降档绕过审批——与 GetPolicy
+		// 查询错误的 fail-closed 同构，向上传播由治理链判定为拒绝。
+		return nil, err
+	}
 
 	// Get effective policy (for approval/audit settings)
 	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)

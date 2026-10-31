@@ -21,8 +21,10 @@ import (
 	"github.com/cuihairu/croupier/internal/telemetry"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // --- failing stubs (V9) ---
@@ -713,7 +715,9 @@ func TestResolvePolicyRisk_ContractFallback_V9(t *testing.T) {
 		Version: "1.0.0", Risk: dbenum.RiskHigh,
 	}
 	require.NoError(t, f.db.Create(high).Error)
-	assert.Equal(t, policymgr.RiskHigh, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e"))
+	risk, err := resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e")
+	require.NoError(t, err)
+	assert.Equal(t, policymgr.RiskHigh, risk)
 
 	// 契约行 safe 与「未声明」同为零值，不可区分 → 不采信，保守回落 medium
 	safe := &model.FunctionContract{
@@ -721,16 +725,58 @@ func TestResolvePolicyRisk_ContractFallback_V9(t *testing.T) {
 		Version: "1.0.0", Risk: dbenum.RiskSafe,
 	}
 	require.NoError(t, f.db.Create(safe).Error)
-	assert.Equal(t, policymgr.RiskMedium, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.safe", "g-risk", "e"))
+	risk, err = resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.safe", "g-risk", "e")
+	require.NoError(t, err)
+	assert.Equal(t, policymgr.RiskMedium, risk)
 
 	// 内存显式声明优先于契约行（本次启动重新注册即最新事实）
 	op := openapi3.NewOperation()
 	op.Extensions = map[string]interface{}{"x-risk": "safe"}
 	require.NoError(t, f.store.UpsertOpenAPI("contract.risk.high", op))
-	assert.Equal(t, policymgr.RiskLow, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e"))
+	risk, err = resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e")
+	require.NoError(t, err)
+	assert.Equal(t, policymgr.RiskLow, risk)
 
 	// scope 缺失（game/env 空）→ 不做契约查询，回落 medium
-	assert.Equal(t, policymgr.RiskMedium, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.safe", "", ""))
+	risk, err = resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.safe", "", "")
+	require.NoError(t, err)
+	assert.Equal(t, policymgr.RiskMedium, risk)
+
+	// 契约行不存在（ErrRecordNotFound）= 未声明 → 合法回落 medium，不是故障
+	risk, err = resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.missing", "g-risk", "e")
+	require.NoError(t, err)
+	assert.Equal(t, policymgr.RiskMedium, risk)
+}
+
+// ARCH-025（R30-02）：契约风险来源故障不得静默降档——high 契约行存在但
+// function_contracts 查询报错时，必须向上传播（fail-closed），禁止退回 medium
+// 绕过审批。注入方式：改写 f.svcCtx.DB 为坏 DSN 同款不可用连接。
+func TestResolvePolicyRisk_ContractSourceFailure_V9(t *testing.T) {
+	f := newInvokeFixture(t)
+	ctx := context.Background()
+
+	high := &model.FunctionContract{
+		GameID: "g-risk", Env: "e", FunctionID: "contract.risk.high",
+		Version: "1.0.0", Risk: dbenum.RiskHigh,
+	}
+	require.NoError(t, f.db.Create(high).Error)
+
+	// 注入来源故障：空内存库没有 function_contracts 表，查询报
+	// "no such table"（非 ErrRecordNotFound）
+	badDB, err := gorm.Open(gsqlite.Open("file:arch025_missing_db?mode=memory"), &gorm.Config{})
+	require.NoError(t, err)
+	f.svcCtx.DB = badDB
+
+	_, err = resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "查询函数契约风险失败")
+
+	// EnforceFunctionPolicy 同链 fail-closed：风险解析失败 → 拒绝（不返回
+	// (nil, nil) 静默放行）
+	p, err := enforceFunctionPolicy(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e", []string{"admin"})
+	require.Error(t, err)
+	assert.Nil(t, p)
+	assert.Contains(t, err.Error(), "查询函数契约风险失败")
 }
 
 func TestEnforceFunctionPolicy_GetPolicyError_V9(t *testing.T) {
