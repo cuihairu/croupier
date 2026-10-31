@@ -446,13 +446,15 @@ func (w *Worker) flushPaymentBatchLocked(ctx context.Context) error {
 }
 
 // ackPendingLocked 在 batch Send 成功后统一 ACK 该批消息，并推进检查点到
-// 批内最后一条（检查点因此只覆盖已落库的消息，而非已消费的消息）。
+// 批内最大一条（检查点因此只覆盖已落库的消息，而非已消费的消息）。
 //
 // 检查点单调（#6）：一次 XAck 失败后该批消息留在 PEL，由 reclaim 在超时后
 // 重投。若重投的旧消息（早于已推进的检查点）单独成批并被 ACK，无条件覆盖
 // lastIDs 会把检查点回退；重启时 restoreCheckpoints 以回退值 XGroupSetID
 // 回卷消费组位置，已 ACK 的消息被重读重插（重复放大）。因此仅当新批最后一条
 // 晚于当前检查点才推进；早于当前检查点的批（纯 reclaim 回填）只 ACK、不推进。
+// Run 主循环与 reclaim goroutine 并发追加时，批内 append 顺序不保证按 Redis
+// stream ID 单调，因此不能取末位，必须显式取数值最大 ID。
 func (w *Worker) ackPendingLocked(ctx context.Context, stream string, ids []string) error {
 	if len(ids) == 0 {
 		return nil
@@ -461,7 +463,12 @@ func (w *Worker) ackPendingLocked(ctx context.Context, stream string, ids []stri
 		slog.Warn("ack pending batch", "stream", stream, "ids", len(ids), "err", err)
 		return err
 	}
-	last := ids[len(ids)-1]
+	last := ids[0]
+	for _, id := range ids[1:] {
+		if compareStreamIDs(id, last) > 0 {
+			last = id
+		}
+	}
 	if cur := w.lastIDs[stream]; cur == "" || compareStreamIDs(last, cur) > 0 {
 		w.lastIDs[stream] = last
 		w.persistCheckpoint(ctx, stream, last)

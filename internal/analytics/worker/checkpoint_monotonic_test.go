@@ -86,3 +86,22 @@ func TestAckPendingLocked_MonotonicCheckpoint(t *testing.T) {
 		t.Fatalf("ack empty: %v", err)
 	}
 }
+
+func TestAckPendingLocked_UnorderedBatchUsesMaximumID(t *testing.T) {
+	w, _ := testWorker(t)
+	stream := w.streamEvents
+	ctx := context.Background()
+
+	// Run 主循环与 reclaim goroutine 并发追加时，旧消息可能 append 在
+	// 新消息之后；批末不是最大 ID，检查点必须推进到已 ACK 的最大 ID。
+	ids := []string{"700-0", "500-0", "800-5", "600-0"}
+	if err := w.ackPendingLocked(ctx, stream, ids); err != nil {
+		t.Fatalf("ack unordered batch: %v", err)
+	}
+	if got := w.lastIDs[stream]; got != "800-5" {
+		t.Fatalf("checkpoint did not use maximum acknowledged id: got %q, want %q", got, "800-5")
+	}
+	if got := w.rdb.Get(ctx, "analytics:checkpoint:"+stream).Val(); got != "800-5" {
+		t.Fatalf("persisted checkpoint did not use maximum acknowledged id: got %q, want %q", got, "800-5")
+	}
+}
