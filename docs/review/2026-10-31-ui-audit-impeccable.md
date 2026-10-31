@@ -40,55 +40,71 @@
 - **修复**:改为 `'Password'`。**已提交**(见 commit 2)。
 - **验证**:`login-placeholder-before.png`(修复前,占位符含 `ant.design`)→ `login-placeholder-after.png`(修复后,`Password`)。用户名框占位符 `Username: admin or user` 保留(演示环境提示,属有意)。
 
-## 待办(未修,按严重度)
+## 修复波(2026-10-31 二轮,一问题一 commit)
 
-### F3 · P2 · i18n 缺口:Games 管理整页在英语界面显示中文
+按用户令对「待办」逐项修复;a11y/对比度优先。全部英文 commit、无 AI 痕迹、不动品牌色/不 bump 版本。验证:`pnpm --dir web run tsc` 通过;`max build` 通过;jest 全量并行跑出现 18 例失败(均为 20s 超时的异步用例,19 worker 满载所致,涉及套件与本波改动无关),隔离重跑本波涉及页面 12 套件(含此前超时的 `templateUsage`/`report-page-editor`)**168/168 全绿**,确认非本波回归。
+
+| 项  | 问题                          | commit     |
+| --- | ----------------------------- | ---------- |
+| F3  | Games 管理 en-US 文案(33 键)  | `f9a0eaa8` |
+| F4  | Site Settings en-US 缺失 4 键 | `5de921a2` |
+| F6  | Game Environments 管理游戏键  | `d259c677` |
+| F7  | Page Studio/函数目录 9 键     | `4dd84188` |
+| F8  | 面包屑链接对比度 → AA         | `78592a76` |
+| F9  | 页标题窄屏截断 → 竖排         | `0f81aa1c` |
+
+本波已修 6 项;F5(登录副标题)待用户提供真实英文品牌文案;F10(SettingDrawer)复核为 dev-only,非交付缺陷,不修。
+
+## 待办(按严重度;已修复项标注 commit,见「修复波」)
+
+### F3 · P2 · i18n 缺口:Games 管理整页在英语界面显示中文 — ✅ 已修复
 
 - **现象**:`/system/games` 页标题「游戏列表」、表头「图标/游戏标识/显示名称/环境数/状态/操作」、按钮「新增游戏/编辑/删除」全为中文,而菜单、面包屑、全局壳为英文。
-- **定位**:`web/src/pages/GamesManage/index.tsx` 全部使用 `pages.gamesManage.*` 键(共 10 个),**en-US 语言包无任何 `pages.gamesManage.*` 条目**(en-US 无 gamesManage 字典文件),运行时全部回退中文 `defaultMessage`。
-- **建议**:为 `pages.gamesManage.*` 补 en-US 文案(可新建 `web/src/locales/en-US/gamesManage.ts` 并在 `en-US.ts` 合并),同时核对 zh-CN 是否也缺(zh-CN 亦无该键,页面实际恒中文)。证据:`games-manage-zh.png`。
+- **定位**:`web/src/pages/GamesManage/index.tsx` 全部使用 `pages.gamesManage.*` 键(共 **33** 个,而非报告初估 10 个),**en-US 语言包无任何 `pages.gamesManage.*` 条目**(en-US 无 gamesManage 字典文件),运行时全部回退中文 `defaultMessage`。
+- **修复**:新建 `web/src/locales/en-US/gamesManage.ts`(33 键英文文案)并接入 `en-US.ts`。**已提交** `f9a0eaa8`。
 
-### F4 · P2 · i18n 缺口:Site Settings 表单在英语界面部分中文
+### F4 · P2 · i18n 缺口:Site Settings 表单在英语界面部分中文 — ✅ 已修复
 
 - **现象**:`/system/site` 的「System Info」页签标题「系统设置」、表单「站点名称/站点 Logo 地址/保存」等为中文,页签名(Theme/Feature Flags/Authentication…)与说明为英文。
-- **定位**:`web/src/pages/System/SiteSettings/` 用 `pages.systemSiteSettings.*` 键,`en-US/systemSiteSettings.ts`(371 条)比 zh-CN(375 条)少 4 条,缺失键回退中文。
-- **建议**:diff `en-US` 与 `zh-CN` 的 `systemSiteSettings.ts` 键集,补齐缺失 en-US 文案。证据:`site-settings-zh.png`。
+- **定位**:`web/src/pages/System/SiteSettings/` 用 `pages.systemSiteSettings.*` 键,`en-US/systemSiteSettings.ts` 比 zh-CN 少 4 条(`auth.saved.github`/`auth.saved.local`/`auth.successUrlLabel`/`auth.successUrlTooltip`),缺失键回退中文。
+- **修复**:补齐上述 4 条 en-US 文案。**已提交** `5de921a2`。
 
-### F5 · P2 · i18n 缺口:登录副标题任何 locale 都显示中文
+### F5 · P2 · i18n 缺口:登录副标题任何 locale 都显示中文 — ⏸ 待用户
 
 - **现象**:登录页副标题 `Croupier 是面向游戏运营的函数调度与审计平台`。
 - **定位**:`web/src/config/branding.ts:8`(`BRAND.subTitle` 写死中文),`web/src/pages/User/Login/index.tsx:349-352` 优先取 `BRAND.subTitle`。
-- **建议**:副标题改为按 locale 取(`pages.layouts.userLayout.title` 之类),`BRAND.subTitle` 仅作为 zh-CN 缺省;或拆成 `subTitleZh`/`subTitleEn`。属品牌文案,尊重用户决策,未擅动。
+- **建议**:副标题改为按 locale 取(`pages.layouts.userLayout.title` 之类),`BRAND.subTitle` 仅作为 zh-CN 缺省;或拆成 `subTitleZh`/`subTitleEn`。
+- **待用户原因**:en-US 的 `pages.layouts.userLayout.title` 目前是 antd 模板残留占位文案(`Ant Design is the most influential web design specification in Xihu district`),并非本产品真实 tagline;正确修复需要一条**真实的英文品牌副标题**(需用户提供/拍板)。未擅造品牌文案。
 
-### F6 · P2 · i18n 缺口:Game Environments「管理游戏」按钮中文
+### F6 · P2 · i18n 缺口:Game Environments「管理游戏」按钮中文 — ✅ 已修复
 
 - **现象**:`/system/environments` 页头「管理游戏」按钮中文,同排「Add Env」英文。
 - **定位**:`web/src/pages/GamesEnvs/index.tsx:234`(`id="pages.gamesEnvs.action.manageGames"`),**en-US/gamesEnvs.ts 无该键**(仅有 `.add`/`.addGame`),回退中文。
-- **建议**:补 `'pages.gamesEnvs.action.manageGames': 'Manage Games'`。证据:`games-envs-managegames-zh.png`。
+- **修复**:补 `'pages.gamesEnvs.action.manageGames': 'Manage Games'`。**已提交** `d259c677`。
 
-### F7 · P2 · i18n 缺口:函数目录空态 / Page Studio 筛选与状态缺 en-US 键
+### F7 · P2 · i18n 缺口:函数目录空态 / Page Studio 筛选与状态缺 en-US 键 — ✅ 已修复
 
 - **现象**:控制台逐条报 `[React Intl] Missing message: "pages.functionsDirectory.empty.scopeTitle" / "...scopeDescription"`(函数目录空态)与 `"pages.pageStudio.filter.keyword" / ".filter.status" / ".status.draft|published|archived" / ".filter.resource" / ".studio.column.resources"`(Page Studio 筛选/状态/列)。en-US 下这些位置回退中文默认文案。
 - **定位**:`web/src/pages/Functions/Directory/index.tsx:437`、`web/src/pages/PageStudio/index.tsx:1060+`;对应 en-US 语言包缺键。
-- **建议**:为上述键补 en-US 文案(空态标题/描述、筛选占位、状态标签、资源列)。
+- **修复**:补上述 9 键 en-US 文案(空态标题/描述含 `{game}`/`{env}` 占位、筛选占位、状态标签、资源列)。**已提交** `4dd84188`。
 
-### F8 · P3 · 对比度:面包屑链接低于 WCAG AA
+### F8 · P3 · 对比度:面包屑链接低于 WCAG AA — ✅ 已修复
 
 - **现象**:面包屑中间层链接(如「Functions & Pages」)`#1677ff` 对白底 **4.12:1**,低于 AA 常规文本 4.5:1(阈值差 0.38)。
 - **定位**:`web/src/global.less:157-162`(`.ant-breadcrumb a { color: var(--brand-2) }`,--brand-2=#1677ff)。
-- **建议**:仅对面包屑链接改用更深蓝 `#0958d9`(= `--vp-c-brand-2`,5.57:1),**不动全局品牌蓝**(`#1677ff` 是近期刻意恢复的默认主题,见 `8278a5ba`)。属品牌色决策,未擅改。
+- **修复**:仅对面包屑链接改用更深蓝 `var(--vp-c-brand-2)`(默认亮主题 = `#0958d9`,5.57:1),hover 加下划线保留反馈;**未动全局品牌蓝**(`#1677ff` 是近期刻意恢复的默认主题,见 `8278a5ba`)。**已提交** `78592a76`。
 
-### F9 · P3 · 响应式:页标题在窄屏截断
+### F9 · P3 · 响应式:页标题在窄屏截断 — ✅ 已修复
 
 - **现象**:窄屏(390px)页面标题被截为 `Fun...`/`Res...`,标题与副标题挤同一行且各自省略。
-- **定位**:ProLayout `PageContainer`/`ProPageHeader` 标题+副标题单行布局,`web/src/pages/Functions/Directory`、`ResourceCatalog` 等页头。
-- **建议**:页头在小屏改为标题独占一行、副标题换行(容器级 `@media` 或 PageHeader 响应式),避免标题不可读。
+- **定位**:ProLayout `PageContainer`/`ProPageHeader` 标题+副标题单行布局(`.ant-page-header-heading` 内 `-left` flex 行,`-title`/`-sub-title` 均带 `text-overflow: ellipsis`),`web/src/pages/Functions/Directory`、`ResourceCatalog` 等页头。
+- **修复**:`web/src/global.less` 的 `@media (max-width: 768px)` 内,令页头 heading `flex-wrap`、`-left` 改纵向堆叠、`-title`/`-sub-title` 允许换行(标题独占一行、副标题换行)。**已提交** `0f81aa1c`。
 
-### F10 · P3 · 仅 dev 现象:浮动设置齿轮在窄屏压内容(可不修)
+### F10 · P3 · 仅 dev 现象:浮动设置齿轮在窄屏压内容 — ⏭ 不修(非缺陷)
 
 - **现象**:`SettingDrawer` 的浮动齿轮按钮(右缘)在窄屏覆盖卡片标签/正文(如 Console「5 menus」标签、Dashboard 标题),桌面亦压住卡片右缘。
 - **定位**:`web/src/app.tsx:322`(`<SettingDrawer>`),仅 `isDev` 渲染。
-- **结论**:**不进生产**(`isDev` 门控),属开发期便利工具,建议仅低优先级处理(窄屏隐藏或改右上角),不计入交付缺陷。
+- **结论**:**不进生产**(`isDev` 门控),属开发期便利工具,不计入交付缺陷。本轮复核确认仍为 dev-only,不处理。
 
 ## 通过项(审核确认无问题,简述)
 
@@ -100,11 +116,17 @@
 
 ## 汇总
 
-| 仓       | 报告路径                                        | 问题数 | 已修数 | commit |
-| -------- | ----------------------------------------------- | ------ | ------ | ------ |
-| croupier | `docs/review/2026-10-31-ui-audit-impeccable.md` | 10     | 2      | 见下方 |
+| 仓       | 报告路径                                        | 问题数 | 已修数 | 待用户 | commit |
+| -------- | ----------------------------------------------- | ------ | ------ | ------ | ------ |
+| croupier | `docs/review/2026-10-31-ui-audit-impeccable.md` | 10     | 8      | 1      | 见下方 |
 
-提交(均为英文、无 AI 痕迹、仅涉 `web/` 两个源文件):
+提交(均为英文、无 AI 痕迹):
 
 1. `fix(ui): wrap resource catalog alert description on narrow screens` — F1
 2. `fix(ui): correct login password placeholder text` — F2
+3. `fix(ui): add en-US translations for games manage pages` — F3
+4. `fix(ui): add missing en-US site settings auth keys` — F4
+5. `fix(ui): add en-US manage games action key` — F6
+6. `fix(ui): add en-US page studio and function directory keys` — F7
+7. `fix(ui): raise breadcrumb link contrast to wcag aa` — F8
+8. `fix(ui): stack page header title on narrow screens` — F9
