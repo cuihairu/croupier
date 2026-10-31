@@ -206,9 +206,10 @@
   - 依赖：—。交付与验收：复用现有 HTTP puller/版本 payload 与 protected 路由，为 Agent 建立受限机器身份及 scope 授权；无凭据/跨 scope 拒绝，合法 Agent 实际拉取生效且坏版本保持 last-good。证据：internal/app/agent/extension_sync_puller.go 未设认证头，internal/handler/routes.go 受 protected 保护，AgentSyncPayload 检查读取权限；不通过取消服务端授权绕过。
   - 状态／条件：READY；真实接入验收 NOT RUN，需受控机器凭据与完整栈。
 
-- [ ] **ARCH-022 · P2 · 实现 · 注册与重连的显式请求预算**
+- [x] **ARCH-022 · P2 · 实现 · 注册与重连的显式请求预算**
   - 依赖：—。交付与验收：复用 core/register，为 DialAndRegister/SyncOnce/SyncAttempts 明确一致的注册超时边界及调用者 deadline 优先级；核对心跳 tick 重拨与首拨退避差异，验证无注册响应时按预算退出、Stop 可释放连接与 goroutine，不引入重复并行重连。
-  - 状态／条件：READY；无响应服务端故障验证 NOT RUN。证据：core/register/registration.go 的 SyncAttempts 才包 requestTimeout，loops.go 的 DialAndRegister 直接调用 registerOnce。
+  - 状态／条件：LOCAL VERIFIED（2026-10-31）：`core/register` 新增 `registerOnceWithBudget`（`context.WithTimeout(ctx, requestTimeout)`，调用者 deadline 更紧时优先——`WithTimeout` 不延长既有 deadline），三条注册入口统一经此包预算：`DialAndRegister`（loops.go 重连/首拨路径）、`SyncOnce`、`SyncAttempts`（每次尝试独立预算，不再各自包超时）；无注册响应时按预算退出（`Register` 被 ctx 截止），`Stop` 取消 lifecycle ctx 并等待注册 goroutine（既有 `TestStopCancelsInFlightRegister` 不变）。新增 `TestRegisterOnceAppliesRequestBudget`（register 阻塞，40ms 预算→同步退出）与 `TestRegisterOnceCallerDeadlineWins`（调用者 30ms deadline 优先于 5s 预算）PASS。证据：`go test -race -count=1 ./core/register/` 全绿、`go test -count=1 ./internal/app/agent/` 全绿、`go build ./...` + `go vet ./core/register/ ./internal/app/agent/` 绿。
+  - 完成证据：2026-10-31 定向运行通过；`core/register/registration.go`、`core/register/loops.go`、`core/register/register_test.go`，验收断言与边界见上述状态。
 
 - [x] **ARCH-023 · P0 · 实现 · 定时触发先领取再派发**
   - 依赖：—。交付与验收：复用 task_schedule_run_logs 唯一键，派发前原子领取 schedule+slot 并明确领取租约/崩溃恢复；多实例同槽仅一派发，记录失败不得执行；覆盖领取后/派发前和派发后/回写前中断，业务最终副作用去重仍由 GAME-010 承担

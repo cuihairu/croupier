@@ -311,3 +311,41 @@ func TestDefaultBackoffKnobs(t *testing.T) {
 	require.Equal(t, 200*time.Millisecond, s.InitialInterval)
 	require.Equal(t, 2*time.Second, s.MaxInterval)
 }
+
+func TestRegisterOnceAppliesRequestBudget(t *testing.T) {
+	// registerOnce must bound a stalled Register call by the configured request
+	// timeout, even when invoked via SyncOnce (no per-attempt wrapper).
+	conn := newFakeConn()
+	conn.registerRelease = make(chan struct{}) // never released → register blocks
+	s := &dialerScript{conns: []*fakeConn{conn}}
+	cfg := fastCfg(s, nil)
+	cfg.RequestTimeout = 40 * time.Millisecond
+	c := New(cfg)
+	c.setConn(conn)
+
+	start := time.Now()
+	err := c.SyncOnce(context.Background())
+	elapsed := time.Since(start)
+	require.Error(t, err, "stalled register must time out via budget")
+	assert.Less(t, elapsed, time.Second, "budget must bound the call")
+}
+
+func TestRegisterOnceCallerDeadlineWins(t *testing.T) {
+	// A caller deadline tighter than the request budget must take priority
+	// (WithTimeout never extends an existing deadline).
+	conn := newFakeConn()
+	conn.registerRelease = make(chan struct{})
+	s := &dialerScript{conns: []*fakeConn{conn}}
+	cfg := fastCfg(s, nil)
+	cfg.RequestTimeout = 5 * time.Second
+	c := New(cfg)
+	c.setConn(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := c.SyncOnce(ctx)
+	elapsed := time.Since(start)
+	require.Error(t, err)
+	assert.Less(t, elapsed, time.Second, "caller deadline must win")
+}

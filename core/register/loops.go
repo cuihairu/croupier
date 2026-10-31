@@ -67,7 +67,7 @@ func (c *Client) DialAndRegister(ctx context.Context) error {
 		return err
 	}
 	c.setConn(conn)
-	if err := c.registerOnce(ctx); err != nil {
+	if err := c.registerOnceWithBudget(ctx); err != nil {
 		_ = conn.Close()
 		c.setConn(nil)
 		return errors.Join(errors.New("register after connect"), err)

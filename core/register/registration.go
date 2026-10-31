@@ -56,7 +56,7 @@ func (c *Client) registerOnce(ctx context.Context) error {
 // SyncOnce 单次注册（不重试）：组装 payload→Register→记录 ownerInstance
 // 并触发 OnConnected。Start/重连路径内用；导出供测试与手动同步。
 func (c *Client) SyncOnce(ctx context.Context) error {
-	return c.registerOnce(ctx)
+	return c.registerOnceWithBudget(ctx)
 }
 
 // SyncAttempts 带退避重试注册（每次尝试独立超时，attempts<=0 按 1 次）。
@@ -70,9 +70,7 @@ func (c *Client) SyncAttempts(ctx context.Context, attempts int) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		syncCtx, cancel := context.WithTimeout(ctx, c.requestTimeout())
-		err := c.registerOnce(syncCtx)
-		cancel()
+		err := c.registerOnceWithBudget(ctx)
 		if err == nil {
 			return nil
 		}
@@ -85,6 +83,15 @@ func (c *Client) SyncAttempts(ctx context.Context, attempts int) error {
 		}
 	}
 	return lastErr
+}
+
+// registerOnceWithBudget applies the per-call request budget to a single
+// registration attempt. The caller deadline wins when it is already tighter
+// (context.WithTimeout never extends an existing deadline).
+func (c *Client) registerOnceWithBudget(ctx context.Context) error {
+	budgetCtx, cancel := context.WithTimeout(ctx, c.requestTimeout())
+	defer cancel()
+	return c.registerOnce(budgetCtx)
 }
 
 // Sync 立即重注册（3 次退避重试）。
