@@ -5,15 +5,21 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"reflect"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cuihairu/croupier/agents/controlconn"
 	"github.com/cuihairu/croupier/agents/synthetics/config"
 	"github.com/cuihairu/croupier/agents/synthetics/pluginhost"
 	"github.com/cuihairu/croupier/agents/synthetics/probe"
+	"github.com/cuihairu/croupier/core/configsync"
+	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/register"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -30,6 +36,61 @@ type Runner struct {
 	// nil when no plugin is declared: no plugin process is ever started
 	// and every target keeps the native HTTP probe.
 	plugins *pluginhost.Controller
+	policy  atomic.Pointer[healthprobe.ProbePolicy]
+
+	// targets is the active target set (local config plus server-pulled
+	// synthetics.targets). It is goroutine-safe: the target puller mutates
+	// it from its own goroutine while runTargets reads it in the select loop.
+	targets *targetSet
+	// wake nudges the runTargets select loop after the target set changes.
+	wake chan struct{}
+}
+
+// targetLoop is one active probe timer for a single target.
+type targetLoop struct {
+	target         config.Target
+	timer          *time.Ticker
+	targetInterval time.Duration
+}
+
+// targetSet is the goroutine-safe active target collection.
+type targetSet struct {
+	mu    sync.Mutex
+	loops map[string]*targetLoop
+}
+
+func newTargetSet() *targetSet {
+	return &targetSet{loops: map[string]*targetLoop{}}
+}
+
+// snapshot returns the current loops in deterministic (name-sorted) order.
+func (ts *targetSet) snapshot() []*targetLoop {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	names := make([]string, 0, len(ts.loops))
+	for name := range ts.loops {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]*targetLoop, 0, len(names))
+	for _, name := range names {
+		out = append(out, ts.loops[name])
+	}
+	return out
+}
+
+// has reports whether the loop pointer is still the active one for its target.
+func (ts *targetSet) has(loop *targetLoop) bool {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	return ts.loops[loop.target.Name] == loop
+}
+
+// get returns the loop for a target name, if present.
+func (ts *targetSet) get(name string) *targetLoop {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	return ts.loops[name]
 }
 
 // probeSender is the slice of the upstream control connection the probe
@@ -40,6 +101,8 @@ type Runner struct {
 type probeSender interface {
 	Connected() bool
 	SendProbeEvent(ctx context.Context, ev *opsv1.AlertEvent) error
+	PullProbePolicy(ctx context.Context, req *opsv1.ProbePolicyConfigRequest) (*opsv1.ProbePolicyConfigResponse, error)
+	PullSyntheticsTargets(ctx context.Context, req *opsv1.SyntheticsTargetsConfigRequest) (*opsv1.SyntheticsTargetsConfigResponse, error)
 }
 
 // upstream returns the current synchronized connection snapshot from the
@@ -79,29 +142,205 @@ func (r *Runner) Run(ctx context.Context) error {
 	r.reg = reg
 	reg.Start(ctx)
 	defer reg.Stop()
+
+	r.targets = newTargetSet()
+	r.wake = make(chan struct{}, 1)
+	for _, target := range r.cfg.Synthetics.Targets {
+		r.addTarget(target, true)
+	}
+	r.newPolicyPuller().Start(ctx)
+	r.newTargetsPuller().Start(ctx)
+
 	if r.plugins != nil {
 		defer r.plugins.Stop()
 	}
-	for _, target := range r.cfg.Synthetics.Targets {
-		r.execute(ctx, target)
+	return r.runTargets(ctx)
+}
+
+// addTarget installs a target loop. When immediate is true the probe is
+// executed once before the first tick. Called from Run before any puller
+// goroutine starts (single-threaded setup), so locking is defensive.
+func (r *Runner) addTarget(target config.Target, immediate bool) {
+	interval := r.intervalFor(target.Name, true)
+	loop := &targetLoop{target: target, timer: time.NewTicker(interval), targetInterval: interval}
+	r.targets.mu.Lock()
+	r.targets.loops[target.Name] = loop
+	r.targets.mu.Unlock()
+	if immediate {
+		r.execute(context.Background(), target)
 	}
-	t := time.NewTicker(r.cfg.Synthetics.Interval)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-t.C:
-			for _, target := range r.cfg.Synthetics.Targets {
-				if ctx.Err() != nil {
-					return nil
-				}
-				r.execute(ctx, target)
+	r.nudge()
+}
+
+// applyTargets replaces the active target set with a validated pulled list.
+// Targets no longer present stop their timers; new targets start probing.
+// Called only after the puller validated and parsed the payload, so a
+// bad version never mutates the running set.
+func (r *Runner) applyTargets(targets []config.Target) error {
+	// Validate against local plugin declarations before touching anything.
+	if err := r.cfg.Synthetics.ValidateTargets(targets); err != nil {
+		return err
+	}
+	want := make(map[string]config.Target, len(targets))
+	for _, t := range targets {
+		if t.Name == "" {
+			return fmt.Errorf("synthetics targets: empty target name")
+		}
+		want[t.Name] = t
+	}
+	r.targets.mu.Lock()
+	defer r.targets.mu.Unlock()
+	// Stop and remove loops that are no longer wanted.
+	for name, loop := range r.targets.loops {
+		if _, keep := want[name]; !keep {
+			loop.timer.Stop()
+			delete(r.targets.loops, name)
+			r.log.Info("synthetics target removed", "target", name)
+		}
+	}
+	// Add new loops and replace changed configurations. A changed target
+	// replaces the whole loop object (stop the old timer, drop the stale
+	// pointer) instead of mutating fields in place: runTargets may hold the
+	// old pointer in its select cases and read target/timer without the set
+	// lock, so loop objects are immutable after creation.
+	for name, t := range want {
+		if loop, ok := r.targets.loops[name]; ok {
+			if reflect.DeepEqual(loop.target, t) {
+				continue // unchanged: keep window state
 			}
+			loop.timer.Stop()
+			interval := r.intervalFor(name, true)
+			r.targets.loops[name] = &targetLoop{target: t, timer: time.NewTicker(interval), targetInterval: interval}
+			r.log.Info("synthetics target updated", "target", name)
+			continue
+		}
+		interval := r.intervalFor(name, true)
+		r.targets.loops[name] = &targetLoop{target: t, timer: time.NewTicker(interval), targetInterval: interval}
+		r.execute(context.Background(), t)
+		r.log.Info("synthetics target added", "target", name)
+	}
+	r.nudge()
+	return nil
+}
+
+func (r *Runner) nudge() {
+	if r.wake == nil {
+		return
+	}
+	select {
+	case r.wake <- struct{}{}:
+	default:
+	}
+}
+
+// startPolicyPuller wires the central probe.policy version puller. Fetch
+// failures and invalid payloads keep the last-good snapshot; the configsync
+// cursor also does not advance on apply errors.
+func (r *Runner) newPolicyPuller() *configsync.Puller[string] {
+	puller := configsync.New[string](r.cfg.Synthetics.Interval,
+		func(ctx context.Context) (*configsync.Versioned[string], error) {
+			conn := r.upstream()
+			if conn == nil || !conn.Connected() {
+				return nil, fmt.Errorf("probe policy pull: upstream session unavailable")
+			}
+			resp, err := conn.PullProbePolicy(ctx, &opsv1.ProbePolicyConfigRequest{AgentId: r.cfg.Agent.ID})
+			if err != nil {
+				return nil, err
+			}
+			if resp == nil || resp.Version == "" {
+				return nil, nil
+			}
+			return &configsync.Versioned[string]{Version: resp.Version, Payload: resp.PolicyJson}, nil
+		},
+		func(_ context.Context, payload string) error {
+			policy, err := healthprobe.ParseProbePolicy(payload)
+			if err != nil {
+				return err
+			}
+			r.policy.Store(policy)
+			return nil
+		},
+		configsync.WithOnError[string](func(err error) {
+			r.log.Warn("probe policy pull failed; keep last-good", "error", err)
+		}),
+		configsync.WithOnApply[string](func(version string) {
+			r.log.Info("probe sampling policy applied", "version", version)
+		}),
+	)
+	return puller
+}
+
+// runTargets drives the active probe loops until ctx is canceled. The set
+// mutates under r.targets (pulled targets) so the select loop rebuilds its
+// case list whenever the target set or a timer interval changes.
+func (r *Runner) runTargets(ctx context.Context) error {
+	for {
+		loops := r.targets.snapshot()
+		cases := make([]reflect.SelectCase, 0, len(loops)+2)
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(r.wake)})
+		for _, loop := range loops {
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(loop.timer.C)})
+		}
+		chosen, _, _ := reflect.Select(cases)
+		if chosen == 0 {
+			return nil
+		}
+		if chosen == 1 {
+			continue // target set changed: rebuild cases
+		}
+		loop := loops[chosen-2]
+		// The loop may have been removed/restarted while we waited. The
+		// timer.C is drained by restart; a stale case still selects, so
+		// verify the loop is still the active one before executing.
+		if !r.targets.has(loop) {
+			continue
+		}
+		ok := r.execute(ctx, loop.target)
+		interval := r.intervalFor(loop.target.Name, ok)
+		if interval != loop.targetInterval {
+			loop.timer.Reset(interval)
+			loop.targetInterval = interval
 		}
 	}
 }
-func (r *Runner) execute(ctx context.Context, t config.Target) {
+
+// newTargetsPuller wires the central synthetics.targets version puller.
+// Fetch failures, invalid payloads, and validation failures all keep the
+// last-good target set; the configsync cursor does not advance on apply
+// errors. Empty version = nothing published (keep local config targets).
+func (r *Runner) newTargetsPuller() *configsync.Puller[string] {
+	return configsync.New[string](r.cfg.Synthetics.Interval,
+		func(ctx context.Context) (*configsync.Versioned[string], error) {
+			conn := r.upstream()
+			if conn == nil || !conn.Connected() {
+				return nil, fmt.Errorf("synthetics targets pull: upstream session unavailable")
+			}
+			resp, err := conn.PullSyntheticsTargets(ctx, &opsv1.SyntheticsTargetsConfigRequest{AgentId: r.cfg.Agent.ID})
+			if err != nil {
+				return nil, err
+			}
+			if resp == nil || resp.Version == "" {
+				return nil, nil
+			}
+			return &configsync.Versioned[string]{Version: resp.Version, Payload: resp.TargetsJson}, nil
+		},
+		func(_ context.Context, payload string) error {
+			targets, err := config.ParseTargetsJSON(payload)
+			if err != nil {
+				return err
+			}
+			return r.applyTargets(targets)
+		},
+		configsync.WithOnError[string](func(err error) {
+			r.log.Warn("synthetics targets pull failed; keep last-good", "error", err)
+		}),
+		configsync.WithOnApply[string](func(version string) {
+			r.log.Info("synthetics targets applied", "version", version)
+		}),
+	)
+}
+func (r *Runner) execute(ctx context.Context, t config.Target) bool {
 	res, details := r.runProbe(ctx, t)
 	ev := buildProbeEvent(r.cfg, t, res, details)
 	// Synchronized snapshot: reconnect may swap the connection while this
@@ -109,7 +348,7 @@ func (r *Runner) execute(ctx context.Context, t config.Target) {
 	conn := r.upstream()
 	if conn == nil || !conn.Connected() {
 		r.log.Warn("probe result not reported: session unavailable", "target", t.Name)
-		return
+		return res.OK
 	}
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -117,6 +356,17 @@ func (r *Runner) execute(ctx context.Context, t config.Target) {
 		r.log.Warn("probe result report failed", "target", t.Name, "error", err)
 	}
 	r.log.Info("probe completed", "target", t.Name, "ok", res.OK, "status", res.Status, "latencyMs", res.Latency.Milliseconds(), "error", res.Error)
+	return res.OK
+}
+
+// intervalFor resolves the effective sampling interval for a target from the
+// last applied policy snapshot. unavailable=true (AutoBoost C#5) halves the
+// interval with a 5s floor. No policy snapshot keeps the configured interval.
+func (r *Runner) intervalFor(target string, unavailable bool) time.Duration {
+	if p := r.policy.Load(); p != nil {
+		return p.EffectiveIntervalFor(target, time.Now(), unavailable)
+	}
+	return r.cfg.Synthetics.Interval
 }
 
 // runProbe routes one target through its declared external plugin, falling

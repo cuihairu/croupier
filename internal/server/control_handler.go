@@ -464,6 +464,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleProbeDBTargets(ctx, data)
 	case protocol.MsgDevopsAllowlistConfigRequest:
 		return s.handleDevopsAllowlistConfig(ctx, data)
+	case protocol.MsgSyntheticsTargetsConfigRequest:
+		return s.handleSyntheticsTargetsConfig(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -771,6 +773,70 @@ func (s *ControlService) handleProbePolicyConfig(ctx context.Context, data []byt
 	return proto.Marshal(&opsv1.ProbePolicyConfigResponse{
 		Version:    strconv.Itoa(rec.Version),
 		PolicyJson: rec.Value,
+	})
+}
+
+// syntheticsTargetsConfigKey config_versions 里的 synthetics 目标键
+// （namespace=ops；与 agent 本地 synthetics.targets[] 同形状，面板发布侧
+// internal/api/ops 与 agent 拉取侧 agents/synthetics/runner 同键）。
+const syntheticsTargetsConfigKey = "synthetics.targets"
+
+// handleSyntheticsTargetsConfig 响应 agent 的 synthetics 目标下行拉取
+// （capture gates/probe policy/devops allowlist 同款通道语义）：从注册会话
+// 取 scope，读 config_versions 最新版本回给 agent。无记录/读失败/分库解析
+// 失败统一回空版本（agent 语义 = 保持现状，keep last-good）——拉取是周期
+// 轮询，单轮读异常不应放大为通道错误打断节奏。
+func (s *ControlService) handleSyntheticsTargetsConfig(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.SyntheticsTargetsConfigRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal SyntheticsTargetsConfigRequest: %w", err)
+	}
+
+	s.mu.RLock()
+	configModel := s.configModel
+	gameDBs := s.gameDBs
+	s.mu.RUnlock()
+	if configModel == nil {
+		return nil, fmt.Errorf("config model not configured")
+	}
+
+	agentID := strings.TrimSpace(req.GetAgentId())
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	s.registry.Mu().RLock()
+	sess := s.registry.AgentsUnsafe()[agentID]
+	s.registry.Mu().RUnlock()
+	if sess == nil {
+		return nil, fmt.Errorf("agent session not found: %s", agentID)
+	}
+	gameID, env := strings.TrimSpace(sess.GameID), strings.TrimSpace(sess.Env)
+	if gameID == "" || env == "" {
+		return nil, fmt.Errorf("agent %s missing game scope", agentID)
+	}
+
+	dbCtx := ctx
+	if gameDBs != nil {
+		resolved, _, err := gameDBs.Resolve(ctx, gameID, env)
+		if err != nil {
+			s.logger.Warn("synthetics targets: resolve game db failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+			return proto.Marshal(&opsv1.SyntheticsTargetsConfigResponse{})
+		}
+		dbCtx = resolved
+	}
+
+	rec, err := configModel.FindLatestByScope(dbCtx, syntheticsTargetsConfigKey, gameID, env)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("synthetics targets: read config_versions failed", "agent", agentID,
+				"gameId", gameID, "env", env, "error", err)
+		}
+		return proto.Marshal(&opsv1.SyntheticsTargetsConfigResponse{})
+	}
+	return proto.Marshal(&opsv1.SyntheticsTargetsConfigResponse{
+		Version:     strconv.Itoa(rec.Version),
+		TargetsJson: rec.Value,
 	})
 }
 

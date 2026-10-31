@@ -98,6 +98,25 @@ func (c *Conn) SendProbeEvent(ctx context.Context, req *opsv1.AlertEvent) error 
 	return c.notify(ctx, protocol.MsgAlertEvent, req)
 }
 
+// PullProbePolicy pulls the latest game/env-scoped probe sampling policy.
+func (c *Conn) PullProbePolicy(ctx context.Context, req *opsv1.ProbePolicyConfigRequest) (*opsv1.ProbePolicyConfigResponse, error) {
+	resp := &opsv1.ProbePolicyConfigResponse{}
+	if err := c.call(ctx, protocol.MsgProbePolicyRequest, req, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// PullSyntheticsTargets pulls the latest game/env-scoped synthetics
+// target list (config_versions synthetics.targets; configsync pull).
+func (c *Conn) PullSyntheticsTargets(ctx context.Context, req *opsv1.SyntheticsTargetsConfigRequest) (*opsv1.SyntheticsTargetsConfigResponse, error) {
+	resp := &opsv1.SyntheticsTargetsConfigResponse{}
+	if err := c.call(ctx, protocol.MsgSyntheticsTargetsConfigRequest, req, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // PullCaptureGates 拉取 capture 闸规则下行配置（服务端读 config_versions
 // 的 capture.gates，version 空串 = 未发布，agent 保持现状）。
 func (c *Conn) PullCaptureGates(ctx context.Context, req *opsv1.CaptureGatesConfigRequest) (*opsv1.CaptureGatesConfigResponse, error) {

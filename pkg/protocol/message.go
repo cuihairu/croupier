@@ -117,6 +117,11 @@ const (
 	MsgDevopsAllowlistConfigRequest  = 0x040127
 	MsgDevopsAllowlistConfigResponse = 0x040128
 
+	// Synthetics targets downlink (config_versions synthetics.targets;
+	// agent-side pull via core/configsync, hot-swaps the target set)
+	MsgSyntheticsTargetsConfigRequest  = 0x040129
+	MsgSyntheticsTargetsConfigResponse = 0x04012A
+
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
 	MsgProviderConnectResponse   = 0x050102
@@ -362,6 +367,10 @@ func MsgIDString(msgID uint32) string {
 		return "DevopsAllowlistConfigRequest"
 	case MsgDevopsAllowlistConfigResponse:
 		return "DevopsAllowlistConfigResponse"
+	case MsgSyntheticsTargetsConfigRequest:
+		return "SyntheticsTargetsConfigRequest"
+	case MsgSyntheticsTargetsConfigResponse:
+		return "SyntheticsTargetsConfigResponse"
 	case MsgAlertEvent:
 		return "AlertEvent"
 	default:

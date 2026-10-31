@@ -194,6 +194,10 @@ func TestMsgIDStringKnownTypes(t *testing.T) {
 		{MsgProviderHeartbeatResponse, "ProviderHeartbeatResponse"},
 		{MsgProviderDrainRequest, "ProviderDrainRequest"},
 		{MsgProviderDrainResponse, "ProviderDrainResponse"},
+		{MsgDevopsAllowlistConfigRequest, "DevopsAllowlistConfigRequest"},
+		{MsgDevopsAllowlistConfigResponse, "DevopsAllowlistConfigResponse"},
+		{MsgSyntheticsTargetsConfigRequest, "SyntheticsTargetsConfigRequest"},
+		{MsgSyntheticsTargetsConfigResponse, "SyntheticsTargetsConfigResponse"},
 	}
 	for _, tt := range cases {
 		if got := MsgIDString(tt.msgID); got != tt.want {

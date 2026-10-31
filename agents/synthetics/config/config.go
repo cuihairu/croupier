@@ -285,7 +285,6 @@ func (c Config) Validate() error {
 	if err := validatePluginBuild(c); err != nil {
 		return err
 	}
-	seen := map[string]bool{}
 	plugins := map[string]bool{}
 	for i, p := range c.Synthetics.Plugins {
 		if strings.TrimSpace(p.Name) == "" || strings.TrimSpace(p.Command) == "" {
@@ -299,7 +298,17 @@ func (c Config) Validate() error {
 			return fmt.Errorf("plugin %q requires positive timeout", p.Name)
 		}
 	}
-	for i, t := range c.Synthetics.Targets {
+	return validateTargets(c.Synthetics.Targets, plugins)
+}
+
+// validateTargets checks a target list with the same per-target rules as
+// Config.Validate (empty name/duplicate, ownership class, http/icmp shape,
+// timeout/method/expectedStatus, plugin ref, secretEnv, payloadJson). The
+// plugins map carries the declared plugin names; pulled targets reference
+// the same local plugin declarations.
+func validateTargets(targets []Target, plugins map[string]bool) error {
+	seen := map[string]bool{}
+	for i, t := range targets {
 		if strings.TrimSpace(t.Name) == "" {
 			return fmt.Errorf("synthetics.targets[%d] name is required", i)
 		}
@@ -329,10 +338,6 @@ func (c Config) Validate() error {
 		if t.Plugin != "" && !plugins[t.Plugin] {
 			return fmt.Errorf("target %q references undeclared plugin %q", t.Name, t.Plugin)
 		}
-		// Credential references (todo.md:36 凭证边界): only env var NAMES
-		// may appear in config — never values — and each target's list
-		// must be non-blank and duplicate-free so check-time resolution
-		// is unambiguous.
 		secretEnv := map[string]bool{}
 		for _, name := range t.SecretEnv {
 			if strings.TrimSpace(name) == "" {
@@ -357,4 +362,92 @@ func (c Config) Validate() error {
 		}
 	}
 	return nil
+}
+
+// ValidateTargets validates a pulled target list against the runner's local
+// plugin declarations. Pulled targets cannot add plugins: a target that
+// references a plugin name absent from the local declarations is rejected
+// wholesale (the caller keeps last-good and retries next round).
+func (s Synthetics) ValidateTargets(targets []Target) error {
+	plugins := map[string]bool{}
+	for _, p := range s.Plugins {
+		plugins[p.Name] = true
+	}
+	return validateTargets(targets, plugins)
+}
+
+// targetJSON is the wire JSON shape of one synthetics target (the
+// synthetics.targets[] config surface serialized for the config_versions
+// payload). Duration fields use string forms ("3s") matching YAML, so the
+// panel and the agent agree on the same human-readable shape.
+type targetJSON struct {
+	Name           string   `json:"name"`
+	URL            string   `json:"url,omitempty"`
+	Method         string   `json:"method,omitempty"`
+	Timeout        string   `json:"timeout,omitempty"`
+	ExpectedStatus int      `json:"expectedStatus,omitempty"`
+	BodyContains   string   `json:"bodyContains,omitempty"`
+	Plugin         string   `json:"plugin,omitempty"`
+	PayloadJSON    string   `json:"payloadJson,omitempty"`
+	Type           string   `json:"type,omitempty"`
+	Address        string   `json:"address,omitempty"`
+	Count          int      `json:"count,omitempty"`
+	TargetCategory string   `json:"targetCategory"`
+	SecretEnv      []string `json:"secretEnv,omitempty"`
+}
+
+// ParseTargetsJSON parses a synthetics.targets JSON payload (string
+// durations) into config.Target values. Validation is the caller's job
+// (ValidateTargets against local plugins).
+func ParseTargetsJSON(content string) ([]Target, error) {
+	if strings.TrimSpace(content) == "" {
+		return nil, fmt.Errorf("synthetics targets: empty payload")
+	}
+	var raw []targetJSON
+	if err := json.Unmarshal([]byte(content), &raw); err != nil {
+		return nil, fmt.Errorf("synthetics targets: parse json: %w", err)
+	}
+	out := make([]Target, 0, len(raw))
+	for i, r := range raw {
+		var timeout time.Duration
+		if r.Timeout != "" {
+			d, err := time.ParseDuration(r.Timeout)
+			if err != nil {
+				return nil, fmt.Errorf("synthetics targets[%d] timeout: %w", i, err)
+			}
+			timeout = d
+		}
+		out = append(out, Target{
+			Name: r.Name, URL: r.URL, Method: r.Method, Timeout: timeout,
+			ExpectedStatus: r.ExpectedStatus, BodyContains: r.BodyContains,
+			Plugin: r.Plugin, PayloadJSON: r.PayloadJSON, Type: r.Type,
+			Address: r.Address, Count: r.Count, TargetCategory: r.TargetCategory,
+			SecretEnv: r.SecretEnv,
+		})
+	}
+	return out, nil
+}
+
+// MarshalTargetsJSON serializes targets to the wire JSON shape (string
+// durations). Used by the panel publish pre-check and tests.
+func MarshalTargetsJSON(targets []Target) (string, error) {
+	raw := make([]targetJSON, 0, len(targets))
+	for _, t := range targets {
+		r := targetJSON{
+			Name: t.Name, URL: t.URL, Method: t.Method,
+			ExpectedStatus: t.ExpectedStatus, BodyContains: t.BodyContains,
+			Plugin: t.Plugin, PayloadJSON: t.PayloadJSON, Type: t.Type,
+			Address: t.Address, Count: t.Count, TargetCategory: t.TargetCategory,
+			SecretEnv: t.SecretEnv,
+		}
+		if t.Timeout > 0 {
+			r.Timeout = t.Timeout.String()
+		}
+		raw = append(raw, r)
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }

@@ -452,6 +452,25 @@ message DevopsAllowlistConfigResponse {
   string allowlist_json = 2; // devops.allowlist JSON block
 }
 
+// SyntheticsTargetsConfigRequest pulls the game/env-scoped synthetics
+// target list (config_versions key synthetics.targets, namespace=ops).
+// The agent-side puller hot-swaps the active target set; local file
+// config stays as the fallback when nothing was published.
+message SyntheticsTargetsConfigRequest {
+  string agent_id = 1; // Calling agent id (must match the session)
+}
+
+// SyntheticsTargetsConfigResponse carries the latest published targets.
+// Empty version = nothing published for this scope (agent keeps the
+// current set). targets_json is a JSON array of
+// agents/synthetics/config.Target (the same target declaration shape as
+// the local synthetics.targets[], with string durations), validated by
+// the agent on apply (ParseTargets + per-target checks).
+message SyntheticsTargetsConfigResponse {
+  string version = 1;
+  string targets_json = 2;
+}
+
 // ========== Probe uplink (agent probes → server; review §11/§13) ==========
 
 // AlertEvent is the one-way probe/alert event stream upload (new wire

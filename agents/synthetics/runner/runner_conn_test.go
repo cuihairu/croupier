@@ -48,6 +48,12 @@ func (c *fakeUpstreamConn) SendProbeEvent(_ context.Context, ev *opsv1.AlertEven
 	c.events = append(c.events, ev)
 	return nil
 }
+func (c *fakeUpstreamConn) PullProbePolicy(context.Context, *opsv1.ProbePolicyConfigRequest) (*opsv1.ProbePolicyConfigResponse, error) {
+	return &opsv1.ProbePolicyConfigResponse{}, nil
+}
+func (c *fakeUpstreamConn) PullSyntheticsTargets(context.Context, *opsv1.SyntheticsTargetsConfigRequest) (*opsv1.SyntheticsTargetsConfigResponse, error) {
+	return &opsv1.SyntheticsTargetsConfigResponse{}, nil
+}
 func (c *fakeUpstreamConn) eventCount() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -77,3 +77,56 @@ func TestValidatePluginDeclarationsAndTargetRefs(t *testing.T) {
 		t.Fatal("plugin without timeout accepted")
 	}
 }
+
+func TestParseTargetsJSON_RoundTrip(t *testing.T) {
+	json := `[{"name":"web","url":"http://127.0.0.1","method":"GET","timeout":"3s","expectedStatus":200,"targetCategory":"game","secretEnv":["TOKEN"]}]`
+	targets, err := ParseTargetsJSON(json)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("len = %d", len(targets))
+	}
+	if targets[0].Name != "web" || targets[0].Timeout != 3*time.Second || targets[0].TargetCategory != "game" || len(targets[0].SecretEnv) != 1 {
+		t.Fatalf("target = %+v", targets[0])
+	}
+	out, err := MarshalTargetsJSON(targets)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if out == "" {
+		t.Fatal("marshal returned empty")
+	}
+}
+
+func TestParseTargetsJSON_EmptyAndBad(t *testing.T) {
+	if _, err := ParseTargetsJSON(""); err == nil {
+		t.Fatal("empty payload must error")
+	}
+	if _, err := ParseTargetsJSON(`not-json`); err == nil {
+		t.Fatal("bad json must error")
+	}
+	if _, err := ParseTargetsJSON(`[{"name":"web","timeout":"bad"}]`); err == nil {
+		t.Fatal("bad duration must error")
+	}
+}
+
+func TestValidateTargets_RejectsBadPull(t *testing.T) {
+	cfg := Config{Synthetics: Synthetics{Interval: time.Second, Targets: []Target{{Name: "local", URL: "http://127.0.0.1", Method: "GET", Timeout: time.Second, ExpectedStatus: 200, TargetCategory: "game"}}}}
+	bad := []Target{{Name: "x", URL: "http://127.0.0.1", Method: "GET", Timeout: time.Second, ExpectedStatus: 200, TargetCategory: "bogus"}}
+	if err := cfg.Synthetics.ValidateTargets(bad); err == nil {
+		t.Fatal("bad category must be rejected")
+	}
+	dup := []Target{
+		{Name: "x", URL: "http://127.0.0.1", Method: "GET", Timeout: time.Second, ExpectedStatus: 200, TargetCategory: "game"},
+		{Name: "x", URL: "http://127.0.0.1", Method: "GET", Timeout: time.Second, ExpectedStatus: 200, TargetCategory: "game"},
+	}
+	if err := cfg.Synthetics.ValidateTargets(dup); err == nil {
+		t.Fatal("duplicate target must be rejected")
+	}
+	// Pulled target referencing an undeclared plugin is rejected.
+	refPlugin := []Target{{Name: "x", URL: "http://127.0.0.1", Method: "GET", Timeout: time.Second, ExpectedStatus: 200, TargetCategory: "game", Plugin: "nope"}}
+	if err := cfg.Synthetics.ValidateTargets(refPlugin); err == nil {
+		t.Fatal("undeclared plugin ref must be rejected")
+	}
+}
