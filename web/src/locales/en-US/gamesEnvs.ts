@@ -2,6 +2,7 @@
 export default {
   'pages.gamesEnvs.action.add': 'Add Env',
   'pages.gamesEnvs.action.addGame': 'Add Game',
+  'pages.gamesEnvs.action.manageGames': 'Manage Games',
   'pages.gamesEnvs.empty.noScope':
     'No game selected yet: pick a scope with the global game selector at the top.',
   'pages.gamesEnvs.empty.notAuthorized':
