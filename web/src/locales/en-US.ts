@@ -32,6 +32,7 @@ import functionsSdk from './en-US/functionsSdk';
 import functionsWarnings from './en-US/functionsWarnings';
 import gameSelector from './en-US/gameSelector';
 import gamesEnvs from './en-US/gamesEnvs';
+import gamesManage from './en-US/gamesManage';
 import globalHeader from './en-US/globalHeader';
 import menu from './en-US/menu';
 import menuManagement from './en-US/menuManagement';
@@ -126,6 +127,7 @@ export default {
   ...functionsWarnings,
   ...gameSelector,
   ...gamesEnvs,
+  ...gamesManage,
   ...globalHeader,
   ...menu,
   ...menuManagement,
