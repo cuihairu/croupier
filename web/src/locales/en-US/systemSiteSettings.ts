@@ -91,13 +91,18 @@ export default {
   'pages.systemSiteSettings.auth.provider.enabled': 'Enabled',
   'pages.systemSiteSettings.auth.saveAndTest.ldap': 'Save and Test Connection',
   'pages.systemSiteSettings.auth.saveAndTest.oidc': 'Save and Test Discovery Endpoint',
+  'pages.systemSiteSettings.auth.saved.github': 'GitHub configuration saved',
   'pages.systemSiteSettings.auth.saved.ldap': 'LDAP configuration saved',
+  'pages.systemSiteSettings.auth.saved.local': 'Local login configuration saved',
   'pages.systemSiteSettings.auth.saved.oidc': 'OIDC configuration saved',
   'pages.systemSiteSettings.auth.saved.register': 'Self-registration configuration saved',
   'pages.systemSiteSettings.auth.secretPlaceholderKeep': 'Leave blank to keep unchanged',
   'pages.systemSiteSettings.auth.secretPlaceholderUnset': 'Not set',
   'pages.systemSiteSettings.auth.secretSavedTooltip':
     'Saved: {masked}; leave blank to keep unchanged',
+  'pages.systemSiteSettings.auth.successUrlLabel': 'Login success redirect',
+  'pages.systemSiteSettings.auth.successUrlTooltip':
+    'Frontend URL to redirect to after the callback issues the token; leave empty to use /',
   'pages.systemSiteSettings.auth.sourceTag.configFile': 'Config File',
   'pages.systemSiteSettings.auth.sourceTag.default': 'Default',
   'pages.systemSiteSettings.auth.sourceTag.ui': 'UI',
