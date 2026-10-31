@@ -1,0 +1,18 @@
+ARCH-004 lacks completion evidence
+ARCH-004 lacks 状态／条件：
+ARCH-006 lacks completion evidence
+ARCH-008 lacks completion evidence
+ARCH-009 lacks completion evidence
+ARCH-011 lacks completion evidence
+ARCH-013 lacks completion evidence
+ARCH-014 lacks completion evidence
+ARCH-015 lacks completion evidence
+ARCH-016 lacks completion evidence
+ARCH-017 lacks completion evidence
+ARCH-018 lacks completion evidence
+ARCH-023 lacks completion evidence
+ARCH-023 lacks 状态／条件：
+ARCH-024 lacks completion evidence
+ARCH-025 lacks completion evidence
+ARCH-026 lacks completion evidence
+Unstructured checkbox
