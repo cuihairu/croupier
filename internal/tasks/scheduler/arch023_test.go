@@ -286,3 +286,35 @@ func TestManager_TerminalRunLog_NotRewritten(t *testing.T) {
 	assert.Equal(t, "dispatched", rec.Status, "终态记录不被租约解析改写")
 	assert.Equal(t, "run-done", rec.TaskRunID)
 }
+
+// R30-04 积压收敛：claim 速率高于清理速率时，旧实现每轮只清前 100 条且
+// 每条单条 UPDATE，无分页游标 → 积压长期滞留。修复后 reapStaleClaims 按
+// created_at 游标分页循环，>100 条陈旧 claim 单轮全部收敛为 indeterminate。
+func TestManager_ReapStaleClaims_DrainsOver100(t *testing.T) {
+	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
+	lease := 60 * time.Second
+	store := newFakeStore()
+	// 无到期计划：纯跨槽扫描路径。
+	store.schedules = nil
+
+	const n = 150
+	for i := 0; i < n; i++ {
+		oldSlot := Slot(now.Add(-time.Duration(2+i) * time.Hour))
+		store.runLogs[fmt.Sprintf("%d|%s", 1, oldSlot.Format(time.RFC3339))] = model.TaskScheduleRunLog{
+			ScheduleID: 1, Slot: oldSlot, Status: model.RunLogClaimed,
+			CreatedAt: now.Add(-time.Duration(2+i) * lease),
+		}
+	}
+
+	m := NewManager(store, nil)
+	m.SetClaimLease(lease)
+	m.tick(now)
+
+	count := 0
+	for _, l := range store.runLogs {
+		if l.Status == model.RunLogIndeterminate {
+			count++
+		}
+	}
+	assert.Equal(t, n, count, "超过 100 条陈旧 claim 必须单轮全部收敛（分页游标）")
+}

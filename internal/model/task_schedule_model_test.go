@@ -130,10 +130,10 @@ func TestTaskScheduleListDueAndRunLog(t *testing.T) {
 	assert.Equal(t, "", st2)
 }
 
-// ARCH-023 R30-04：跨槽陈旧领取扫描。ListStaleClaims 只返回
+// ARCH-023 R30-04：跨槽陈旧领取扫描。ListStaleClaimsAfter 只返回
 // status=claimed 且 created_at < before 的记录——非 claimed（已终态）不返回，
-// 租约内（新近）不返回，limit 生效。
-func TestTaskScheduleModel_ListStaleClaims(t *testing.T) {
+// 租约内（新近）不返回，limit 生效，cursor 游标分页生效。
+func TestTaskScheduleModel_ListStaleClaimsAfter(t *testing.T) {
 	db := setupTaskSchedDB(t)
 	m := NewTaskScheduleModel(db)
 	ctx := context.Background()
@@ -174,7 +174,7 @@ func TestTaskScheduleModel_ListStaleClaims(t *testing.T) {
 
 	// 窗口 before = now - lease（lease=60s）：只命中 s1 的旧 claimed。
 	before := now.Add(-time.Minute)
-	stale, err := m.ListStaleClaims(ctx, before, 100)
+	stale, err := m.ListStaleClaimsAfter(ctx, before, time.Time{}, 100)
 	require.NoError(t, err)
 	require.Len(t, stale, 1, "只返回 created_at<before 且 status=claimed 的记录")
 	assert.Equal(t, s1.ID, stale[0].ScheduleID)
@@ -182,14 +182,19 @@ func TestTaskScheduleModel_ListStaleClaims(t *testing.T) {
 	assert.Equal(t, RunLogClaimed, stale[0].Status)
 
 	// limit=1 仍命中 1 条；limit=0 不限制（同 1 条）。
-	staleLimit, err := m.ListStaleClaims(ctx, before, 1)
+	staleLimit, err := m.ListStaleClaimsAfter(ctx, before, time.Time{}, 1)
 	require.NoError(t, err)
 	assert.Len(t, staleLimit, 1)
 
 	// 窗口收紧到 5 小时前：无陈旧领取 → 空。
-	none, err := m.ListStaleClaims(ctx, now.Add(-5*time.Hour), 100)
+	none, err := m.ListStaleClaimsAfter(ctx, now.Add(-5*time.Hour), time.Time{}, 100)
 	require.NoError(t, err)
 	assert.Len(t, none, 0)
+
+	// cursor 分页：cursor=oldSlot 排除该条，命中空。
+	afterCursor, err := m.ListStaleClaimsAfter(ctx, before, oldSlot.UTC(), 100)
+	require.NoError(t, err)
+	assert.Len(t, afterCursor, 0, "cursor=oldSlot 应排除已处理页")
 }
 
 // R30-05：UpdateRunLog 的 WHERE 带 status=claimed 再校验——领取→回填窗口内

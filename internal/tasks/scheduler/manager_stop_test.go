@@ -97,7 +97,7 @@ func (b *blockingStore) GetRunLog(context.Context, uint, time.Time) (*model.Task
 func (b *blockingStore) UpdateRunLog(context.Context, uint, time.Time, string, string, string) error {
 	return nil
 }
-func (b *blockingStore) ListStaleClaims(context.Context, time.Time, int) ([]model.TaskScheduleRunLog, error) {
+func (b *blockingStore) ListStaleClaimsAfter(context.Context, time.Time, time.Time, int) ([]model.TaskScheduleRunLog, error) {
 	return nil, nil
 }
 func (b *blockingStore) LastRunStatus(context.Context, string) (string, error) { return "", nil }

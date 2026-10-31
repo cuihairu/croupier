@@ -103,22 +103,18 @@ func (f *fakeStore) UpdateRunLog(ctx context.Context, scheduleID uint, slot time
 	return nil
 }
 
-func (f *fakeStore) ListStaleClaims(ctx context.Context, before time.Time, limit int) ([]model.TaskScheduleRunLog, error) {
+func (f *fakeStore) ListStaleClaimsAfter(ctx context.Context, before, cursor time.Time, limit int) ([]model.TaskScheduleRunLog, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var out []model.TaskScheduleRunLog
 	for _, l := range f.runLogs {
-		if l.Status == model.RunLogClaimed && l.CreatedAt.Before(before) {
+		if l.Status == model.RunLogClaimed && l.CreatedAt.Before(before) &&
+			(cursor.IsZero() || !l.CreatedAt.Before(cursor)) {
 			out = append(out, l)
 		}
 	}
-	// 替身无稳定性保证，按 scheduleID+slot 排序保证断言确定。
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].ScheduleID != out[j].ScheduleID {
-			return out[i].ScheduleID < out[j].ScheduleID
-		}
-		return out[i].Slot.Before(out[j].Slot)
-	})
+	// 与 SQL 一致：按 created_at 升序（游标分页依赖）。
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	if limit > 0 && len(out) > limit {
 		out = out[:limit]
 	}

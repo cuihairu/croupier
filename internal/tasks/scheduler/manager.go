@@ -58,9 +58,11 @@ type ScheduleStore interface {
 	GetRunLog(ctx context.Context, scheduleID uint, slot time.Time) (*model.TaskScheduleRunLog, error)
 	// UpdateRunLog 回填领取槽位后的派发结果（ARCH-023 先领取再派发）。
 	UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error
-	// ListStaleClaims 列出 created_at < before 的 claimed 领取记录（ARCH-023
-	// 跨槽崩溃恢复：旧槽遗留领取不在当前触发槽，由统一扫描解析）。
-	ListStaleClaims(ctx context.Context, before time.Time, limit int) ([]model.TaskScheduleRunLog, error)
+	// ListStaleClaimsAfter 按游标分页列出 claimed 且 created_at < before 的
+	// 领取记录（ARCH-023 跨槽崩溃恢复：旧槽遗留领取不在当前触发槽，由统一
+	// 扫描解析；且 created_at >= cursor 排除已处理页，保证积压>100 也全部
+	// 收敛，而非每轮只清前 100 条）。cursor 为零值 = 从头。
+	ListStaleClaimsAfter(ctx context.Context, before, cursor time.Time, limit int) ([]model.TaskScheduleRunLog, error)
 	// LastRunResult 取某 TaskRun 的终态（"" = 未终态/不存在）。
 	LastRunStatus(ctx context.Context, taskRunID string) (string, error)
 }
@@ -259,18 +261,30 @@ func (m *Manager) tick(now time.Time) {
 // claimed，审计保留「派发结果未知」。绝不重派发（重发=对派发后中断赌二次
 // 执行；业务最终副作用去重归 GAME-010）。活跃领取（租约内）不动。
 func (m *Manager) reapStaleClaims(ctx context.Context, now time.Time) {
-	stale, err := m.store.ListStaleClaims(ctx, now.Add(-m.claimLease), 100)
-	if err != nil {
-		slog.Warn("scheduler: list stale claims failed", "error", err)
-		return
-	}
-	for i := range stale {
-		rec := &stale[i]
-		slog.Warn("scheduler: stale claim lease expired, mark indeterminate",
-			"schedule", rec.ScheduleID, "slot", rec.Slot.Format(time.RFC3339),
-			"age", now.Sub(rec.CreatedAt).String())
-		_ = m.store.UpdateRunLog(ctx, rec.ScheduleID, rec.Slot, "",
-			model.RunLogIndeterminate, "claim lease expired; dispatch outcome unknown (crash before writeback)")
+	const pageSize = 100
+	cursor := time.Time{}
+	for {
+		stale, err := m.store.ListStaleClaimsAfter(ctx, now.Add(-m.claimLease), cursor, pageSize)
+		if err != nil {
+			slog.Warn("scheduler: list stale claims failed", "error", err)
+			return
+		}
+		if len(stale) == 0 {
+			return
+		}
+		for i := range stale {
+			rec := &stale[i]
+			slog.Warn("scheduler: stale claim lease expired, mark indeterminate",
+				"schedule", rec.ScheduleID, "slot", rec.Slot.Format(time.RFC3339),
+				"age", now.Sub(rec.CreatedAt).String())
+			_ = m.store.UpdateRunLog(ctx, rec.ScheduleID, rec.Slot, "",
+				model.RunLogIndeterminate, "claim lease expired; dispatch outcome unknown (crash before writeback)")
+		}
+		last := stale[len(stale)-1]
+		cursor = last.CreatedAt
+		if len(stale) < pageSize {
+			return
+		}
 	}
 }
 
