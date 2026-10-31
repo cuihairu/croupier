@@ -55,8 +55,12 @@ func (c *Client) registerOnce(ctx context.Context) error {
 
 // SyncOnce 单次注册（不重试）：组装 payload→Register→记录 ownerInstance
 // 并触发 OnConnected。Start/重连路径内用；导出供测试与手动同步。
+// ARCH-022：与 SyncAttempts 一致，单次注册也应用 requestTimeout 边界，
+// 调用方 deadline 更早时以调用方为准（registerCtx 取较早者）。
 func (c *Client) SyncOnce(ctx context.Context) error {
-	return c.registerOnce(ctx)
+	syncCtx, cancel := c.registerCtx(ctx)
+	defer cancel()
+	return c.registerOnce(syncCtx)
 }
 
 // SyncAttempts 带退避重试注册（每次尝试独立超时，attempts<=0 按 1 次）。
@@ -70,7 +74,7 @@ func (c *Client) SyncAttempts(ctx context.Context, attempts int) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		syncCtx, cancel := context.WithTimeout(ctx, c.requestTimeout())
+		syncCtx, cancel := c.registerCtx(ctx)
 		err := c.registerOnce(syncCtx)
 		cancel()
 		if err == nil {
@@ -85,6 +89,14 @@ func (c *Client) SyncAttempts(ctx context.Context, attempts int) error {
 		}
 	}
 	return lastErr
+}
+
+// registerCtx 为一次注册调用建立超时边界：requestTimeout 与调用方
+// deadline 取较早者（context.WithTimeout 语义，调用方 deadline 优先）。
+// 无注册响应时按预算退出，避免重连/心跳路径被挂起的 Register 永久阻塞
+// （ARCH-022）。
+func (c *Client) registerCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, c.requestTimeout())
 }
 
 // Sync 立即重注册（3 次退避重试）。

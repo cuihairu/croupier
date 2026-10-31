@@ -77,7 +77,7 @@ OIDC 登录、Vault secret resolver、SMTP/对象存储、OTel/监控链接是�
 
 Server 先创建 ServiceContext/数据库与注册物化、scheduler、session resolver、可选集群，再启动 control 与 HTTP。DB Ping 失败可能只警告；集群初始化部分失败会返回 standalone，`healthz` 不是完整 readiness。Agent 启动时校验非空 scope、建立 TCP/TLS、Register，成功 ACK 后进入心跳；SDK 可以晚于上行接入，函数变化会重新注册。
 
-`core/register` 的 `SyncAttempts` 每次注册默认 10s、同步退避 200ms→2s；`DialAndRegister/SyncOnce` 不加该超时，继承调用方/传输预算。心跳每 3s/单次 3s、连续失败 2 次重建连接；首拨失败 RunReconnectLoop 退避 5→60s（×1.5），心跳恢复在 tick 内重拨，不共用该退避循环。相关默认值可配置，预算边界见 ARCH-022。连接替换前关闭旧连接，Stop/ctx 取消结束循环。新 Register 从当前业务快照组装，不是重放在途命令。SDK 重连策略依各语言；图不宣称所有语言都有持久恢复。证据：`core/register/{register,registration,loops}.go`、`internal/app/agent/upstream.go`。
+`core/register` 每次注册调用（DialAndRegister、SyncOnce 与 SyncAttempts，经 registerCtx）应用 10s 注册预算，调用方 deadline 更早时以调用方为准；挂起 Register 无响应即按预算退出，不阻塞重连。同步重试退避 200ms→2s。心跳每 3s/单次 3s、连续失败 2 次重建连接；首拨失败 RunReconnectLoop 退避 5→60s（×1.5），心跳恢复在 tick 内重拨（已被心跳间隔限频，不再叠加退避）。相关默认值可配置。连接替换前关闭旧连接，Stop/ctx 取消结束循环并释放 goroutine；dialInflight CAS 防重复并行重连。新 Register 从当前业务快照组装，不是重放在途命令。SDK 重连策略依各语言；图不宣称所有语言都有持久恢复。证据：`core/register/{register,registration,loops}.go`、`internal/app/agent/upstream.go`。
 
 ### 受控同步调用、审批与异步任务
 

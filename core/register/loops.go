@@ -67,7 +67,13 @@ func (c *Client) DialAndRegister(ctx context.Context) error {
 		return err
 	}
 	c.setConn(conn)
-	if err := c.registerOnce(ctx); err != nil {
+	// ARCH-022：注册调用也应用 requestTimeout 边界（与 SyncAttempts 一致），
+	// 避免无注册响应时 Register 永久阻塞重连/心跳路径；调用方 deadline 更早
+	// 时以调用方为准（registerCtx 取较早者）。Dial 本身沿用调用方预算。
+	regCtx, cancel := c.registerCtx(ctx)
+	err = c.registerOnce(regCtx)
+	cancel()
+	if err != nil {
 		_ = conn.Close()
 		c.setConn(nil)
 		return errors.Join(errors.New("register after connect"), err)
