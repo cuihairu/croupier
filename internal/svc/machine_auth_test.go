@@ -91,3 +91,31 @@ func TestAuthMiddleware_MachineToken_PathRestriction(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Contains(t, w.Body.String(), "missing authorization")
 }
+
+// TestAuthMiddleware_MachineTokenInBearerRejected 验证 ARCH-021 两型严格
+// 分流：机器 token 放进标准 Authorization: Bearer 头时，管理员 Parse 会以
+// 空 Username/AdminID=0 的 Claims 成功解析，中间件此前放行为「空用户名
+// 管理员」——现在 authenticate 显式拒绝退化 claims，机器 token 不能冒充
+// 管理员身份（401）。
+func TestAuthMiddleware_MachineTokenInBearerRejected(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	restore := jwtutil.ResetGlobalSecretForTesting("unit-test-machine-secret")
+	defer restore()
+
+	m := NewAuthMiddlewareImpl(&ServiceContext{})
+
+	token, err := jwtutil.SignMachine("unit-test-machine-secret", "agent-1", "demo", "prod", time.Hour, time.Now())
+	require.NoError(t, err)
+
+	r := gin.New()
+	r.Use(m.Handle)
+	r.GET("/api/v1/players", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	// 机器 token 放 Bearer 头 → 管理员路径拒绝，401。
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "authentication_failed")
+}

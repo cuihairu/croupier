@@ -1833,6 +1833,17 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		return "", nil, 0, fmt.Errorf("invalid token: %w", err)
 	}
 
+	// ARCH-021 两型严格分流：受限机器 token 与管理员 JWT 共用同一 HMAC
+	// secret，但管理员 Claims 无 tokenType 字段，golang-jwt/v4 反序列化
+	// 忽略未知字段——把机器 token 放进 Authorization: Bearer 时 Parse 会
+	// 以 admin Claims 成功解析（Username 空、AdminID=0），checkTokenVersion
+	// 又会在 AdminID==0 时跳过校验并放行，使机器 token 被当作「空用户名
+	// 管理员身份」通过认证。真实管理员 JWT 恒有非空 Username 与非零
+	// AdminID（issueLogin 从 admins 行签发），此处拒绝退化 claims。
+	if claims.AdminID == 0 || claims.Username == "" {
+		return "", nil, 0, errors.New("token missing admin identity")
+	}
+
 	// token 版本比对：改密码/禁用/登出后 admins.token_version 已递增，
 	// 旧 claims 版本落后即拒绝。版本查询走 30s 进程内缓存（见结构体注释）。
 	if err := m.checkTokenVersion(ctx, claims); err != nil {
