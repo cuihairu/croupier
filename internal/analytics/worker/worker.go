@@ -257,9 +257,15 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 
 	flushCtx, cancelFlush := context.WithTimeout(context.WithoutCancel(ctx), finalFlushTimeout)
+	// cancelFlush 也作为阻塞 Send() 不吃 ctx 的兜底退出信号：主流程超时
+	// 返回后，后台 flush Goroutine仍能在 defer cancelFlush 时解除测试/
+	// 生产自持有锁的等待，不再永久泄漏。
 	defer cancelFlush()
 	flushDone := make(chan struct{})
+	flushDoneWG := &sync.WaitGroup{}
+	flushDoneWG.Add(1)
 	go func() {
+		defer flushDoneWG.Done()
 		defer close(flushDone)
 		w.flush(flushCtx)
 	}()
@@ -268,6 +274,10 @@ func (w *Worker) Run(ctx context.Context) error {
 	case <-flushCtx.Done():
 		slog.Warn("final flush exceeded deadline", "timeout", finalFlushTimeout)
 	}
+	if !waitGroupBounded(flushDoneWG, finalFlushTimeout) {
+		slog.Warn("final flush goroutine exceeded deadline", "timeout", finalFlushTimeout)
+	}
+	cancelFlush()
 	return ctx.Err()
 }
 
