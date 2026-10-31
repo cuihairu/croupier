@@ -353,9 +353,9 @@
   - 依赖：DATA-001。交付与验收：复用 ingest/Server 事件入口/worker，提供游戏登录、注册、心跳、支付/退款的显式映射；每个指标声明权威来源、gameId/env/维度和新鲜度。统一 GORM 与 ClickHouse 读适配契约，不静默把平台 Player 数当游戏新增，不默认为两套库自动同步
   - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 的指标口径批准；缺方案批准。源码缺口保留：overview.go 读关系模型/Player，warehouse.go 读 ClickHouse；需接入样本。
 
-- [ ] **DATA-003 · P1 · 实现 · 活跃与在线聚合的版本和重放语义**
+- [x] **DATA-003 · P1 · 实现 · 活跃与在线聚合的版本和重放语义**
   - 依赖：DATA-001。交付与验收：修正 daily_users 的替换键/版本参数与分钟在线 HLL 快照重写策略，迁移已有表而不只改 initdb；同日多次 flush、迟到事件、重放和多 worker 的同一分钟结果可核对，不把全量 HLL 重写当增量相加
-  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 的聚合口径批准；缺方案批准。源码与官方语义证据保留：010_analytics.sql 把 version 放入 ORDER BY 且未作为 ReplacingMergeTree 参数；minute_online 用 SummingMergeTree 接收 HLL 全量快照；真实 ClickHouse 验证 NOT RUN。
+  - 状态／条件：DONE（2026-11-01）：010_analytics.sql 改 `ReplacingMergeTree(version)` 且 version 移出 ORDER BY；minute_online 由 SummingMergeTree 改 ReplacingMergeTree(version) 全量快照替换；worker.go 写 version；warehouse.go 查询加 FINAL。迁移脚本 scripts/clickhouse/011_fix_aggregate_tables.sql 重建已有表。证据：commit 5f1ba096；真实 ClickHouse `TestDrill_DATA003_AggregateReplacement`（data003_drill_test.go:26）FINAL 取 95/55/6/1200/20/2 不叠加，`go test ./internal/analytics/worker/... ./internal/api/analytics/...` 全绿。
 
 - [ ] **DATA-004 · P1 · 实现 · 付费聚合的币种、订单状态与累计口径**
   - 依赖：DATA-001。交付与验收：复用 payment 明细，按已批准币种/单位和订单唯一键处理重复成功、退款和状态变更；修复 revAgg flush 后删除而日表按替换读的增量/累计冲突，跨 flush/重启可回算，不能把不同币种原始金额直接相加
