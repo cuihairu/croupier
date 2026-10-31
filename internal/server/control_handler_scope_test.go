@@ -203,3 +203,51 @@ func TestHeartbeatStoresReportedOwner(t *testing.T) {
 		t.Fatalf("reportedOwner not stored: %+v", sess)
 	}
 }
+
+// AGENT-001 scope 隔离矩阵：同 AgentID 已绑定到某 (game_id, env) 后，
+// 再次以不同 scope 注册必须拒绝——防止同一 agent 身份跨 scope 指派导致
+// 路由/契约物化串扰（同 ID 冲突）。同 scope 重注册（agent 重启/重连）
+// 应正常通过。
+func TestHandleRegisterRequest_SameAgentIDCrossScopeRejected(t *testing.T) {
+	svc := newScopeTestService(t)
+
+	if _, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "demo-game", Env: "development",
+	}, "10.0.0.1:12345"); err != nil {
+		t.Fatalf("first register in scope A should succeed: %v", err)
+	}
+
+	// 同 ID 换 env → 拒绝。
+	if _, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "demo-game", Env: "production",
+	}, "10.0.0.1:12346"); err == nil {
+		t.Fatal("expected cross-env re-register to be rejected")
+	} else if !strings.Contains(err.Error(), "already bound to game_id") {
+		t.Fatalf("unexpected error = %v", err)
+	}
+
+	// 同 ID 换 game → 拒绝。
+	if _, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "other-game", Env: "development",
+	}, "10.0.0.1:12347"); err == nil {
+		t.Fatal("expected cross-game re-register to be rejected")
+	} else if !strings.Contains(err.Error(), "already bound to game_id") {
+		t.Fatalf("unexpected error = %v", err)
+	}
+
+	// 同 ID 同 scope（重连/重启）→ 通过。
+	if _, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "demo-game", Env: "development",
+	}, "10.0.0.1:12348"); err != nil {
+		t.Fatalf("same-scope re-register should succeed: %v", err)
+	}
+
+	// 原 scope 会话保留，未被跨 scope 尝试污染。
+	sess := svc.registry.AgentsUnsafe()["agent-1"]
+	if sess == nil {
+		t.Fatal("session missing")
+	}
+	if sess.GameID != "demo-game" || sess.Env != "development" {
+		t.Fatalf("session scope polluted = %+v", sess)
+	}
+}
