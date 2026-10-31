@@ -36,6 +36,19 @@
         { "env": "test", "description": "Testing", "color": "#722ed1" },
         { "env": "dev", "description": "Development", "color": "#1677ff" }
       ]
+    },
+    {
+      "gameId": "croupier-demo",
+      "aliasName": "Croupier Demo",
+      "description": "gameops-demo sample title used by the E2 abnormal-state stack (UI-002).",
+      "enabled": true,
+      "status": "dev",
+      "color": "#722ed1",
+      "gameType": "demo",
+      "genreCode": "GEN",
+      "envs": [
+        { "env": "local-demo", "description": "Local demo environment", "color": "#722ed1" }
+      ]
     }
   ]
 }
