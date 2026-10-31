@@ -22,6 +22,7 @@ import (
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
 )
@@ -1284,7 +1285,14 @@ func (s *Service) Events(ctx context.Context, id uint, req ExtensionEventListReq
 }
 
 func (s *Service) AgentSyncPayload(ctx context.Context, agentID string) (*ExtensionAgentSyncResponse, error) {
-	if err := s.requireReadPermission(ctx, "无权查看扩展同步数据"); err != nil {
+	// ARCH-021：受限机器身份走 scope 授权——机器 token 绑定单个 agentID，
+	// 请求其它 agent 的 payload 即 403（跨 scope 拒绝）；管理员身份仍走
+	// RBAC 读权限，服务端授权不因机器接入被取消。
+	if claims, ok := jwtutil.MachineIdentityFrom(ctx); ok {
+		if claims.AgentID != strings.TrimSpace(agentID) {
+			return nil, errorx.NewForbidden("agent scope mismatch")
+		}
+	} else if err := s.requireReadPermission(ctx, "无权查看扩展同步数据"); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(agentID) == "" {

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1631,6 +1632,11 @@ type AuthMiddleware struct {
 	// gate 查询（与 tokenVersions 同形同 TTL）；绑定确认后最多延迟一个
 	// TTL 生效。
 	otpEnabledCache sync.Map
+
+	// machinePathPattern 匹配受限机器 token（ARCH-021）允许访问的 Agent
+	// 同步端点：/api/v1/agents/<id>/extensions 与 .../extensions/sync。
+	// 机器 token 出现在其它任何路径即 403（受限身份不可用于管理面）。
+	machinePathPattern *regexp.Regexp
 }
 
 // tokenVersionCacheTTL 是 token 版本缓存的生存期。撤销生效延迟上界。
@@ -1675,12 +1681,36 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 	if svcCtx != nil && svcCtx.Config.Telemetry.Prometheus.Enabled {
 		m.allowPaths[svcCtx.Config.Telemetry.Prometheus.PrometheusPath()] = struct{}{}
 	}
+	// ARCH-021：受限机器 token 只放行 Agent 扩展同步端点（GET 与 POST sync）。
+	m.machinePathPattern = regexp.MustCompile(`^/api/v1/agents/[^/]+/extensions(/sync)?$`)
 	return m
 }
 
 // Handle 处理认证中间件（Gin 风格）
 func (m *AuthMiddleware) Handle(c *gin.Context) {
 	if m.shouldBypassGin(c) {
+		c.Next()
+		return
+	}
+
+	// ARCH-021：受限机器身份（X-Croupier-Agent-Token 专用头）。机器 token 与
+	// 管理员 Bearer JWT 分流：只放行扩展同步端点，路径不符即 403；解析失败
+	// 即 401。管理员仍走下方 Authorization 路径（服务端授权不因机器接入而
+	// 被取消）。
+	if machineToken := c.GetHeader(jwtutil.MachineTokenHeader); machineToken != "" {
+		if m.machinePathPattern == nil || !m.machinePathPattern.MatchString(c.Request.URL.Path) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "machine_token_forbidden", "message": "机器身份 token 仅限扩展同步端点"})
+			return
+		}
+		claims, err := jwtutil.ParseMachine(machineToken, jwtutil.GetGlobalSecret())
+		if err != nil {
+			slog.ErrorContext(c.Request.Context(), "machine token validation failed", "error", err)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "machine_token_invalid", "message": "机器身份认证失败"})
+			return
+		}
+		c.Request = c.Request.WithContext(jwtutil.WithMachineIdentity(c.Request.Context(), claims))
+		c.Set("machineIdentity", claims)
+		slog.InfoContext(c.Request.Context(), "Authenticated machine", "agentID", claims.AgentID, "gameID", claims.GameID, "env", claims.Env)
 		c.Next()
 		return
 	}

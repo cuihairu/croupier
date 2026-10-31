@@ -383,7 +383,7 @@ func TestExtensionSyncPuller_StartTickerFiresV9(t *testing.T) {
 		}
 	})
 	rt := NewExtensionRuntime()
-	p := NewExtensionSyncPuller(srv.URL, "agent-v9-tick", 50*time.Millisecond, rt)
+	p := NewExtensionSyncPuller(srv.URL, "agent-v9-tick", "", 50*time.Millisecond, rt)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -398,7 +398,7 @@ func TestExtensionSyncPuller_StartTickerFiresV9(t *testing.T) {
 }
 
 func TestExtensionSyncPuller_PullOnce_InvalidURLV9(t *testing.T) {
-	p := NewExtensionSyncPuller("://no-scheme-v9", "agent-v9-url", time.Second, NewExtensionRuntime())
+	p := NewExtensionSyncPuller("://no-scheme-v9", "agent-v9-url", "", time.Second, NewExtensionRuntime())
 	err := p.PullOnce(context.Background())
 	require.Error(t, err)
 }

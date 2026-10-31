@@ -285,7 +285,7 @@ func TestExtensionSyncPuller_PullOnceVariants(t *testing.T) {
 			http.Error(w, "boom", http.StatusInternalServerError)
 		}))
 		defer srv.Close()
-		p := NewExtensionSyncPuller(srv.URL, "agent-1", time.Second, runtime)
+		p := NewExtensionSyncPuller(srv.URL, "agent-1", "", time.Second, runtime)
 		err := p.PullOnce(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "status=500")
@@ -296,7 +296,7 @@ func TestExtensionSyncPuller_PullOnceVariants(t *testing.T) {
 			_, _ = w.Write([]byte("not json"))
 		}))
 		defer srv.Close()
-		p := NewExtensionSyncPuller(srv.URL, "agent-1", time.Second, runtime)
+		p := NewExtensionSyncPuller(srv.URL, "agent-1", "", time.Second, runtime)
 		require.Error(t, p.PullOnce(context.Background()))
 	})
 
@@ -305,7 +305,7 @@ func TestExtensionSyncPuller_PullOnceVariants(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "payload": nil})
 		}))
 		defer srv.Close()
-		p := NewExtensionSyncPuller(srv.URL, "agent-1", time.Second, runtime)
+		p := NewExtensionSyncPuller(srv.URL, "agent-1", "", time.Second, runtime)
 		require.NoError(t, p.PullOnce(context.Background()))
 	})
 
@@ -314,25 +314,25 @@ func TestExtensionSyncPuller_PullOnceVariants(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "payload": map[string]any{"installations": "not-a-list"}})
 		}))
 		defer srv.Close()
-		p := NewExtensionSyncPuller(srv.URL, "agent-1", time.Second, runtime)
+		p := NewExtensionSyncPuller(srv.URL, "agent-1", "", time.Second, runtime)
 		require.Error(t, p.PullOnce(context.Background()))
 	})
 
 	t.Run("connection error", func(t *testing.T) {
-		p := NewExtensionSyncPuller("http://127.0.0.1:1", "agent-1", time.Second, runtime)
+		p := NewExtensionSyncPuller("http://127.0.0.1:1", "agent-1", "", time.Second, runtime)
 		require.Error(t, p.PullOnce(context.Background()))
 	})
 }
 
 func TestExtensionSyncPuller_ConstructAndStartGuards(t *testing.T) {
-	p := NewExtensionSyncPuller(" http://x/ ", "  a1  ", 0, NewExtensionRuntime())
+	p := NewExtensionSyncPuller(" http://x/ ", "  a1  ", "", 0, NewExtensionRuntime())
 	assert.Equal(t, "http://x", p.baseURL)
 	assert.Equal(t, "a1", p.agentID)
 
 	var nilPuller *ExtensionSyncPuller
 	nilPuller.Start(context.Background()) // 不应 panic
 
-	p2 := NewExtensionSyncPuller("", "", time.Second, nil)
+	p2 := NewExtensionSyncPuller("", "", "", time.Second, nil)
 	p2.Start(context.Background()) // baseURL/runtime 缺失直接返回
 	require.Error(t, p2.PullOnce(context.Background()))
 }

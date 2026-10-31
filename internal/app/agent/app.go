@@ -465,7 +465,10 @@ func (a *App) startExtensionSync(ctx context.Context) {
 		return
 	}
 	interval := parseDurationEnv("CROUPIER_EXTENSION_SYNC_INTERVAL", 30*time.Second)
-	a.extensionPuller = NewExtensionSyncPuller(baseURL, a.agentID, interval, a.extensionRuntime)
+	// ARCH-021：受限机器身份 token（CROUPIER_EXTENSION_SYNC_TOKEN）；空=不
+	// 携带，服务端 401 拒绝（不静默降级为未认证访问）。
+	syncToken := strings.TrimSpace(os.Getenv("CROUPIER_EXTENSION_SYNC_TOKEN"))
+	a.extensionPuller = NewExtensionSyncPuller(baseURL, a.agentID, syncToken, interval, a.extensionRuntime)
 	a.extensionPuller.Start(ctx)
 }
 

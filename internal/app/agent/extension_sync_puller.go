@@ -12,6 +12,7 @@ import (
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 
 	"github.com/cuihairu/croupier/core/configsync"
+	"github.com/cuihairu/croupier/internal/security/jwtutil"
 )
 
 // ExtensionSyncPuller 扩展同步拉取器：轮询节奏、版本跳过与错误回调已上收
@@ -20,6 +21,9 @@ import (
 type ExtensionSyncPuller struct {
 	baseURL string
 	agentID string
+	// token 是受限机器身份 token（ARCH-021）：发送到 X-Croupier-Agent-Token
+	// 头，服务端校验身份与 scope；空=不携带（仍会被服务端 401 拒绝）。
+	token   string
 	runtime *ExtensionRuntime
 	puller  *configsync.Puller[*extensionsync.AgentSyncPayload]
 }
@@ -30,10 +34,11 @@ type extensionSyncAPIResponse struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
-func NewExtensionSyncPuller(baseURL, agentID string, interval time.Duration, runtime *ExtensionRuntime) *ExtensionSyncPuller {
+func NewExtensionSyncPuller(baseURL, agentID, token string, interval time.Duration, runtime *ExtensionRuntime) *ExtensionSyncPuller {
 	p := &ExtensionSyncPuller{
 		baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
 		agentID: strings.TrimSpace(agentID),
+		token:   strings.TrimSpace(token),
 		runtime: runtime,
 	}
 	p.puller = configsync.New[*extensionsync.AgentSyncPayload](interval,
@@ -82,6 +87,11 @@ func (p *ExtensionSyncPuller) fetch(ctx context.Context) (*extensionsync.AgentSy
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
+	}
+	// ARCH-021：携带受限机器身份。服务端走专用头校验身份 + scope（token
+	// 绑定 agentID），与管理员 Bearer JWT 分流。
+	if p.token != "" {
+		req.Header.Set(jwtutil.MachineTokenHeader, p.token)
 	}
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
