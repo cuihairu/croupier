@@ -54,13 +54,15 @@
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
   - 状态／条件：NOT RUN：需容量目标和独立数据库。
 
-- [ ] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
-  - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入队故障下每条消息可核对，说明允许重复与去重策略。
-  - 状态／条件：局部修复已验证：Send 成功后 ACK、失败保留 pending、重入队/死信 XADD 错误不 ACK。原验收中的真实杀进程/写库故障逐条核对尚未运行（ARCH-012），不据局部单测勾完整验收；聚合字段竞态另由 DATA-014 修复。 详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+- [x] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
+  - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入库故障下每条消息可核对，说明允许重复与去重策略。
+  - 状态／条件：LOCAL VERIFIED：Send 成功后 ACK、失败保留 pending、重入队/死信 XADD 错误不 ACK（代码修复 5b25eb6d）；真实杀进程/写库故障逐条核对由 ARCH-012 钻机完成（Append后/Send前、Send后/ACK前、重入队失败三故障点，源消息/PEL/死信/ClickHouse 行对账无静默丢失）。去重策略：raw 表无服务端去重，消费端以 event_id/order_id 为去重键；Send后/ACK前崩溃重投会产生重复行（允许，消费端去重），非静默丢失。聚合字段竞态另由 DATA-014 修复。
+  - 完成证据：2026-10-31；`internal/analytics/worker/worker.go`（deferred XACK：append 记录 ackRef、flush 后 ackSent；重入队/死信 XADD 错误不 ACK）、`internal/analytics/worker/arch011_test.go`（TestAppendEventRow_RecordsAckRef、TestFlushEventBatch_AcksRefsAfterSend、TestProcessMessage_RequeueFailureNoAck、TestProcessMessage_DeadLetterFailureNoAck、TestAdvanceCheckpoint_Monotonic）、`internal/analytics/worker/arch012_drill_test.go`（TestDrill_AppendThenCrash_BeforeSend_ReclaimNoLoss、TestDrill_SendThenCrash_BeforeAck_ReclaimNoLoss、TestDrill_RequeueFailure_MessageStaysPending）；`go test ./internal/analytics/... -count=1` 全绿，真实 Redis+ClickHouse 钻机全绿，`go build ./...` 过。
 
-- [ ] **ARCH-012 · P1 · 故障验证 · 分析管道崩溃恢复**
+- [x] **ARCH-012 · P1 · 故障验证 · 分析管道崩溃恢复**
   - 依赖：ARCH-011。交付与验收：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
-  - 状态／条件：NOT RUN：需 Redis 与 ClickHouse 可控环境。
+  - 状态／条件：LOCAL VERIFIED：真实 Redis（redis-server / ARCH012_REDIS_ADDR）+ 真实 ClickHouse（ARCH012_CLICKHOUSE_DSN，需 analytics 库与 001_init.sql 建出的 events/payments 表）三故障点钻机全绿——(1) Append 后/Send 前崩溃：消息保持 PEL，重启 reclaim 重投 → 重新 append → flush → ClickHouse 行 + ACK，无丢失；(2) Send 后/ACK 前崩溃：行已落库、消息仍 PEL，重启 reclaim 重投 → 重复行（允许，消费端 event_id 去重）→ ACK，无丢失；(3) 重入队失败：消息不被 ACK、保持 PEL 供 reclaim 重试，无死信无丢行。缺可控环境时 t.Skip（边界：需 Redis 与 ClickHouse 可控环境）；CI 经 ci-analytics.yml 的 arch012-drill job（compose redis+clickhouse）强制执行。
+  - 完成证据：2026-10-31；`internal/analytics/worker/arch012_drill_test.go`（TestDrill_AppendThenCrash_BeforeSend_ReclaimNoLoss、TestDrill_SendThenCrash_BeforeAck_ReclaimNoLoss、TestDrill_RequeueFailure_MessageStaysPending）、`.github/workflows/ci-analytics.yml`（arch012-drill job）；真实 Redis+ClickHouse 下 `go test ./internal/analytics/worker/ -run 'TestDrill_' -count=1` 全绿，`go build ./...` 过。
 
 - [x] **ARCH-013 · P2 · 实现 · 阻止不支持的分析组合**
   - 依赖：—。交付与验收：配置/启动预检识别 Kafka 发布配内置 Redis-only worker；默认 Redis 链不受影响，不扩建 Kafka consumer。
@@ -360,6 +362,7 @@
 - [x] **REVIEW-005 · P1 · 实现 · 批量金额安全整数与乘积边界**
   - 依赖：—。交付与验收：为 summarizeQuantityTotal 与业务金额契约明确单位/倍率/最大值，拒绝非安全整数及乘积溢出；覆盖 MAX_SAFE_INTEGER 邻界、极大目标数与 Infinity，不显示可确认的失真总量
   - 状态／条件：LOCAL VERIFIED：`summarizeQuantityTotal` 收口为「有限非负安全整数 × 正整数安全整数 = 安全整数」，`batchTotalEntry` 复用同契约且移除 `toPrecision(12)` 失真显示；非法输入不显示/不提交。证据：`resourceBatchSelection.test.tsx` 与 `compositeBatchTotal.test.tsx` 覆盖 MAX_SAFE_INTEGER 邻界、溢出、Infinity、非整数拒绝；commit 0d74c456
+  - 完成证据：2026-10-31；`web/src/components/PageRenderer/confirmContent.ts`（summarizeQuantityTotal 收口）、`web/src/components/PageRenderer/ResourcePageRenderer.tsx`（batchTotalEntry 复用同契约）、`web/src/components/PageRenderer/__tests__/compositeBatchTotal.test.tsx`、`web/src/components/PageRenderer/__tests__/resourceBatchSelection.test.tsx`（MAX_SAFE_INTEGER 邻界/溢出/Infinity/非整数拒绝用例）；`pnpm --dir web run tsc` 0 错误，`pnpm --dir web test -- compositeBatchTotal resourceBatchSelection` 绿；commit 0d74c456
 
 ## 依赖安全证据复核
 

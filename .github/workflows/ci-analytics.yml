@@ -37,3 +37,38 @@ jobs:
           go version
       - name: Run Analytics E2E
         run: bash scripts/e2e/analytics.sh
+  arch012-drill:
+    name: ARCH-012 crash-recovery drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: Normalize Go toolchain env
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          go version
+      - name: Start Redis + ClickHouse
+        run: docker compose -f docker/docker-compose.yml up -d --wait redis clickhouse
+      - name: Apply analytics schema
+        # The ClickHouse named volume persists across runs, so /docker-entrypoint-initdb.d
+        # auto-init only fires on an empty volume. Re-apply the DDL explicitly so the
+        # drill's events/payments tables exist regardless of volume state (same pattern
+        # as scripts/e2e/analytics.sh).
+        run: |
+          for ddl in configs/clickhouse/initdb/001_init.sql configs/clickhouse/initdb/010_analytics.sql; do
+            docker exec -i croupier-clickhouse clickhouse-client --multiquery < "$ddl"
+          done
+      - name: Run ARCH-012 drill
+        env:
+          ARCH012_REDIS_ADDR: "127.0.0.1:6379"
+          ARCH012_CLICKHOUSE_DSN: "clickhouse://default:@127.0.0.1:9000/analytics"
+        run: go test ./internal/analytics/worker/ -run 'TestDrill_' -count=1 -v
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down
