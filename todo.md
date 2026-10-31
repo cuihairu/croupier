@@ -71,9 +71,10 @@
   - 状态／条件：LOCAL VERIFIED：已定义在途重复 Start、有限终态重试、unknown 及游戏收据边界；运行时缺口见 ARCH-015/018。
   - 完成证据：2026-10-30 复审；`docs/design/task-retry-recovery-protocol.md`；逐项判断及定向运行见 [复审报告](docs/review/reliability-recheck-2026-10-30.md)，不以文件存在或测试总数替代断言。
 
-- [ ] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
+- [x] **ARCH-015 · P1 · 实现 · 任务可靠事件与重复启动约束**
   - 依赖：ARCH-014。交付与验收：按已评审协议收口 TaskRunner 重复 Start 和事件重放/终态收敛，复用 task_runs/task_events；验证旧协程清理不删除同 ID 新任务，取消不回退终态；派发前落库失败由 ARCH-026 单独处理。
-  - 状态／条件：R30-03 CONFIRMED：在途重复 Start 与有限终态重试已实现；task_runs 先更新终态、task_events 写失败后，重试被终态 guard 直接 ACK，缺失事件不再补写。须事务/稳定事件身份保证状态与事件一致；不另建任务体系。 详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+  - 状态／条件：LOCAL VERIFIED：DONE 2026-10-31。在途重复 Start（D1 generation 去重）、终态有限重试（D2）与会话丢失/`unknown` 收割（D3）已实现；R30-03 部分写入缺口闭合——`handleTaskEvent` 以单一事务（`RecordTaskEvent`）持久化 guard 状态更新与事件追加，事件写失败整体回滚、来源恢复后重试收敛，不另建任务体系。详见 [最新复审](docs/review/reliability-recheck-2026-10-30.md)。
+  - 完成证据：2026-10-31；`internal/model/task_model.go` 新增 `TaskRunModel.RecordTaskEventTransactional`（单一事务：guard 更新 + seq 计算 + 事件追加，任一失败整体回滚）；`internal/tasks/store.go` 新增 `Store.RecordTaskEvent`；`internal/server/control_handler.go` `handleTaskEvent` 改调 `RecordTaskEvent`（`TaskStore` 接口收敛为该方法）。`go test ./internal/... -count=1` 全绿；新增 `TestControlService_HandleTaskEvent_RealStore_NoPartialWrite`（事件表缺失 → 报错且行保持 queued、无部分写入；表恢复 → 重试补写 seq=1 并收敛 failed）、`TestTaskRunModel_RecordTaskEventTransactional`/`_RollsBackOnAppendFailure`。边界诚实：task API `/tasks/cancel` 的 UpdateRunIfStatusNotIn+AppendEvent 仍非单事务，但 cancel_requested 非终态、重试可收敛（至多重复意图事件，非缺失），未纳入本次修复。
 
 - [ ] **ARCH-016 · P1 · 实现 · Provider drain 真正摘流**
   - 依赖：—。交付与验收：当前 handleDrain 仅记录并回空 ACK；实现停止新路由、等待在途及超时退出语义，验证 ACK 语义与执行结束条件。
