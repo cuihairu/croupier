@@ -333,13 +333,29 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 		return out, err
 	}
 
-	// Regular function forwarding - need to dial game server
-	addr, err := h.pickInstance(functionID, req.GetMetadata())
-	if err != nil {
-		recordSpanResult(span, err)
-		return nil, err
+	// R30-09：任务延续（drain 前已 ACK 的 StartTask）不得被 drain 的
+	// agentlocal 摘除截断。drain 只清 agentlocal 实例表，不清会话存储；
+	// callProvider 会按会话存储选路。因此任务延续跳过 pickInstance
+	//（其读 agentlocal，drain 后必然报未注册），直接走会话路由。新业务
+	// 请求（无 taskId）仍走 pickInstance 的 agentlocal 快照。
+	addr := ""
+	isTaskContinuation := req.GetMetadata()["taskId"] != ""
+	h.mu.RLock()
+	haveSessions := h.providerSessions != nil
+	h.mu.RUnlock()
+	if isTaskContinuation && haveSessions {
+		// 路由交给 callProvider：它按 serviceId/函数匹配会话存储，任务
+		// 延续在 draining 会话上放行；无会话命中则回落 legacy 拨号
+		//（fallbackAddr 空 → 明确失败，不误报为未注册的 5xx）。
+	} else {
+		var err error
+		addr, err = h.pickInstance(functionID, req.GetMetadata())
+		if err != nil {
+			recordSpanResult(span, err)
+			return nil, err
+		}
+		span.SetAttributes(attribute.String("provider.addr", addr))
 	}
-	span.SetAttributes(attribute.String("provider.addr", addr))
 
 	callCtx, cancel := context.WithTimeout(ctx, h.providerCallDeadline(req.GetMetadata()))
 	defer cancel()
@@ -350,7 +366,11 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 
 	respBytes, err := h.callProvider(callCtx, functionID, req.GetMetadata(), addr, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
-		err = fmt.Errorf("invoke local provider at %s: %w", addr, err)
+		if addr != "" {
+			err = fmt.Errorf("invoke local provider at %s: %w", addr, err)
+		} else {
+			err = fmt.Errorf("invoke local provider: %w", err)
+		}
 		recordSpanResult(span, err)
 		return nil, err
 	}
@@ -404,6 +424,14 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 		}
 		if allDrainingService != "" {
 			return nil, providerDrainingError(allDrainingService)
+		}
+		// R30-09：任务延续在 drain 后已无会话/agentlocal 可选（会话存储
+		// 仍存在但无函数匹配，或 serviceId 未命中）。fallbackAddr 空即
+		// 任务延续路径跳过 pickInstance 后未选到地址——此时必须明确失败，
+		// 不能拿空地址去拨号。新业务请求若未命中会话，仍有 pickInstance
+		// 给的 addr 可回落。
+		if isTaskContinuation && fallbackAddr == "" {
+			return nil, fmt.Errorf("no provider session for task continuation of function %q", functionID)
 		}
 	}
 	return h.callLocalProvider(ctx, fallbackAddr, msgID, data)
@@ -1157,12 +1185,20 @@ func (h *LocalHandler) DrainProviderSession(ctx context.Context, sessionID strin
 
 	// 等待在途归零或宽限到点。不取消在途执行；超窗返回，让仍在跑的任务
 	// 经 ARCH-015 D3 收敛（unknown/终态事件），不因 drain 强杀。
+	// R30-09：除会话在途外，还须等待「已 ACK 但尚未进入 Provider RPC」的
+	// 任务（TaskRunner.Count()>0）。该窗口内在途计数为 0，drain 若只查
+	// inflight 会立即 ACK 并摘 agentlocal，随后 executeTask→handleInvoke
+	// 的 pickInstance 报未注册——任务被截断。等待 Count 归零（或宽限到点）
+	// 让已接受任务完成，且任务延续路径已绕过 pickInstance（见 handleInvoke）。
 	deadline := time.NewTimer(grace)
 	defer deadline.Stop()
 	ticker := time.NewTicker(drainPollInterval)
 	defer ticker.Stop()
 	for {
 		allZero := true
+		if h.tasks != nil && h.tasks.Count() > 0 {
+			allZero = false
+		}
 		for _, sess := range targets {
 			if sess.Inflight() > 0 {
 				allZero = false

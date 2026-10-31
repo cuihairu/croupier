@@ -286,3 +286,108 @@ func TestCallProvider_InflightCountedAroundCall(t *testing.T) {
 	<-callDone
 	assert.Equal(t, int64(0), sess.Inflight())
 }
+
+// --- R30-09：已接受但尚未进入 Provider RPC 的任务不得被 drain 截断 ---
+
+// TestCallProvider_TaskContinuationAfterDrainNoAgentLocal verifies that a
+// task continuation (taskId present) can still route to the provider session
+// even after DrainProviderSession has removed the agentlocal registration:
+// handleInvoke skips pickInstance for continuations and callProvider matches
+// the session directly (draining allowed for continuations).
+func TestCallProvider_TaskContinuationAfterDrainNoAgentLocal(t *testing.T) {
+	handler, store := newDrainTestHandler(t)
+	sess := newEchoSession(t, "r309-1", "svc-r309", "fn.r309", nil, nil)
+	registerDrainSession(t, handler, store, sess, "fn.r309")
+
+	n, err := handler.DrainProviderSession(context.Background(), "r309-1", false, 500*time.Millisecond)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n)
+	require.False(t, agentLocalHasProvider(handler.store, "fn.r309", "svc-r309"), "agentlocal entry must be removed by drain")
+
+	// 模拟 executeTask→handleInvoke：任务延续不读 agentlocal（否则必报未
+	// 注册），直接经 callProvider 命中会话（draining 放行）。
+	req := &sdkv1.InvokeRequest{
+		FunctionId: "fn.r309",
+		Metadata:   map[string]string{"taskId": "task-r309-1"},
+	}
+	reqBytes, err := proto.Marshal(req)
+	require.NoError(t, err)
+	resp, err := handler.handleInvoke(context.Background(), reqBytes)
+	require.NoError(t, err)
+	invokeResp := &sdkv1.InvokeResponse{}
+	require.NoError(t, proto.Unmarshal(resp, invokeResp))
+	assert.NotEmpty(t, invokeResp.GetPayload())
+}
+
+// TestHandleInvoke_TaskContinuationSkipsPickInstanceAfterDrain verifies that
+// handleInvoke does NOT fail with "function not registered" for a task
+// continuation when the agentlocal store has been drained but the provider
+// session is still present (R30-09 reproduction of the reported failure).
+func TestHandleInvoke_TaskContinuationSkipsPickInstanceAfterDrain(t *testing.T) {
+	handler, store := newDrainTestHandler(t)
+	sess := newEchoSession(t, "r309-2", "svc-r309b", "fn.r309b", nil, nil)
+	registerDrainSession(t, handler, store, sess, "fn.r309b")
+	_, err := handler.DrainProviderSession(context.Background(), "r309-2", false, 500*time.Millisecond)
+	require.NoError(t, err)
+
+	req := &sdkv1.InvokeRequest{
+		FunctionId: "fn.r309b",
+		Metadata:   map[string]string{"taskId": "task-r309b"},
+	}
+	data, err := proto.Marshal(req)
+	require.NoError(t, err)
+	resp, err := handler.handleInvoke(context.Background(), data)
+	require.NoError(t, err, "task continuation must not be truncated by drain-removed agentlocal entry")
+	require.NotNil(t, resp)
+}
+
+// TestDrainProviderSession_WaitsForAcceptedTasks verifies that drain waits
+// (until grace expires) when a task has been accepted via StartTask ACK but
+// the executor has not yet entered the provider call (Inflight==0, Count>0).
+// The accepted task then completes on the draining session rather than being
+// truncated by the agentlocal removal.
+func TestDrainProviderSession_WaitsForAcceptedTasks(t *testing.T) {
+	handler, store := newDrainTestHandler(t)
+	sess := newEchoSession(t, "r309-3", "svc-r309c", "fn.r309c", nil, nil)
+	registerDrainSession(t, handler, store, sess, "fn.r309c")
+
+	// 接受任务但不立即执行：executor 阻塞模拟「已 ACK、未到 provider」。
+	executorGate := make(chan struct{})
+	executorReleased := make(chan struct{})
+	handler.tasks = sidecar.NewTaskRunner(func(ctx context.Context, req *sdkv1.InvokeRequest) ([]byte, error) {
+		close(executorGate)
+		<-executorReleased
+		// 经 handleInvoke 走 provider（会话仍可用），验证延续不被截断。
+		data, _ := proto.Marshal(req)
+		resp, err := handler.handleInvoke(ctx, data)
+		if err != nil {
+			return nil, err
+		}
+		out := &sdkv1.InvokeResponse{}
+		if err := proto.Unmarshal(resp, out); err != nil {
+			return nil, err
+		}
+		return out.GetPayload(), nil
+	}, nil, nil)
+
+	startedReq := &sdkv1.InvokeRequest{
+		FunctionId: "fn.r309c",
+		Metadata:   map[string]string{"taskId": "task-r309c-1"},
+	}
+	taskID := handler.tasks.Start(startedReq)
+	assert.NotEmpty(t, taskID)
+	<-executorGate // executor entered but has not reached handleInvoke yet
+	// Inflight is still 0 here; drain must not return immediately.
+
+	go func() {
+		time.Sleep(80 * time.Millisecond)
+		close(executorReleased)
+	}()
+
+	start := time.Now()
+	n, err := handler.DrainProviderSession(context.Background(), "r309-3", false, 3*time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n)
+	assert.Greater(t, int64(time.Since(start)), int64(40*time.Millisecond), "drain must wait for the accepted task to finish")
+	assert.Equal(t, 0, handler.tasks.Count(), "accepted task must complete before drain returns")
+}
