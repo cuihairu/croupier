@@ -17,11 +17,9 @@ func TestFlushDailyAggregatesAttempted(t *testing.T) {
 		"game_id": "e2e-game", "env": "dev", "user_id": "u1",
 		"event": "login", "ts": now.Format(time.RFC3339),
 	})
-	w.touchRevenue(t.Context(), map[string]any{
-		"game_id": "e2e-game", "env": "dev", "user_id": "u1",
-		"order_id": "O1", "amount_cents": 100.0, "status": "success",
-		"ts": now.Format(time.RFC3339),
-	})
+	// touchRevenue 已移除（896de78e 后由 commitRevenue 在批 Send 成功时提交）；
+	// 这里直接填充 revAgg 以覆盖 flush 消费 daily_revenue 的路径。
+	w.revAgg[now.UTC().Format("2006-01-02")+"|e2e-game|dev"] = &revRow{revenue: 100}
 
 	if len(w.touchedDays) != 1 {
 		t.Fatalf("touchedDays = %v", w.touchedDays)

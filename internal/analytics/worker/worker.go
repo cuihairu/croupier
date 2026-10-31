@@ -672,38 +672,6 @@ func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 	}
 }
 
-func (w *Worker) touchRevenue(ctx context.Context, m map[string]any) {
-	w.aggMu.Lock()
-	defer w.aggMu.Unlock()
-	ts := asString(m, "ts")
-	t, _ := time.Parse(time.RFC3339, ts)
-	if ts == "" || t.IsZero() {
-		t = time.Now()
-	}
-	// 同 touchAgg：日桶 key 与 flush 侧 time.Parse 必须同一时区基准（UTC）。
-	t = t.UTC()
-	day := t.Format("2006-01-02")
-	game := asString(m, "game_id")
-	env := asString(m, "env")
-	status := strings.ToLower(asString(m, "status"))
-	amt := uint64(asFloat(m, "amount_cents"))
-	key := fmt.Sprintf("%s|%s|%s", day, game, env)
-	rv := w.revAgg[key]
-	if rv == nil {
-		rv = &revRow{}
-		w.revAgg[key] = rv
-	}
-	if status == "success" {
-		rv.revenue += amt
-	}
-	if status == "refunded" {
-		rv.refunds += amt
-	}
-	if status == "failed" {
-		rv.failed += 1
-	}
-}
-
 func (w *Worker) flush(ctx context.Context) error {
 	if err := w.flushBatches(ctx); err != nil {
 		slog.Warn("flush batches", "err", err)
