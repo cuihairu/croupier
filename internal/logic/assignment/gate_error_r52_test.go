@@ -1,12 +1,13 @@
 package assignment
 
-// R52 覆盖率补缺：gate.go 两翼（BUG-035 域 2026-09-27 收口后回避解除）
-//   - :34-35 EnsureFunctionAssigned 的 svcCtx==nil 守卫——nil 即默认开放，
-//     且守卫必须先于 LoadScopeAssignments（否则 assignmentsPath(nil) 之后
+// R52 覆盖率补缺随 ARCH-019 自 internal/api/assignment 随迁：gate 两翼
+//（BUG-035 域 2026-09-27 收口后回避解除）
+//   - EnsureFunctionAssigned 的 svcCtx==nil 守卫——nil 即默认开放，
+//     且守卫必须先于 LoadAllAssignments（否则 assignmentsPath(nil) 之后
 //     的真值读取无从谈起）。
-//   - :38-39 LoadScopeAssignments 读故障透传——坏 JSON 触发 loadAssignments
-//     的 Unmarshal 错误，闸门契约「不静默 fail-open」的直接断言（gate.go
-//     文件头注释承诺：文件读取失败按错误透传，与 List 真值表一致）。
+//   - 真值读取故障透传——坏 JSON 触发 loadAssignments 的 Unmarshal 错误，
+//     闸门契约「不静默 fail-open」的直接断言（gate.go 文件头注释承诺：
+//     文件读取失败按错误透传，与 List 真值表一致）。
 
 import (
 	"context"

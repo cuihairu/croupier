@@ -17,6 +17,8 @@ import (
 // 消费，执行链路从不读取——「未分配也能调用」。闸门语义：
 //   - scope（gameID|env）无分配记录 → 默认开放（向后兼容）
 //   - 有记录 → 白名单：函数必须列表内，否则 403 function_not_assigned
+//
+// ARCH-019：闸门自 internal/api/assignment 下沉，用例随迁语义不变。
 func writeAssignments(t *testing.T, svcCtx *svc.ServiceContext, data string) {
 	t.Helper()
 	path := assignmentsPath(svcCtx)

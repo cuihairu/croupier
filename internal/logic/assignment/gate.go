@@ -8,13 +8,6 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// LoadScopeAssignments 读取全量分配记录（scope key "gameID|env" → 函数列表）。
-// 供执行链路闸门复用，与 List/Update 共用同一份文件真值（此前 assignments
-// 只有页面 CRUD 消费，执行链路从不读取——BUG-032）。
-func LoadScopeAssignments(svcCtx *svc.ServiceContext) (map[string][]string, error) {
-	return loadAssignments(assignmentsPath(svcCtx))
-}
-
 // EnsureFunctionAssigned 实施分配闸门（OPEN-ISSUES #36 / BUG-032）：
 //   - scope（gameID|env）无分配记录 → 默认开放（向后兼容：未配置分配的
 //     部署行为与闸门上线前完全一致，存量 invoke 用例即隐式回归）
@@ -29,11 +22,15 @@ func LoadScopeAssignments(svcCtx *svc.ServiceContext) (map[string][]string, erro
 // 路径；SDK/agent 走 TCP 直连不经此闸门（transport 层鉴权独立）。
 // scope 匹配大小写不敏感（与 filterAssignments 一致）；函数 ID 精确匹配
 // （注册表标识符大小写敏感）。
+//
+// ARCH-019：闸门从 internal/api/assignment 下沉到领域包
+// internal/logic/assignment，执行链（functioninvoke）不再 import internal/api，
+// 只依赖领域包。真值读取复用本包 LoadAllAssignments。
 func EnsureFunctionAssigned(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) error {
 	if svcCtx == nil {
 		return nil
 	}
-	assignments, err := LoadScopeAssignments(svcCtx)
+	assignments, err := LoadAllAssignments(svcCtx)
 	if err != nil {
 		return err
 	}

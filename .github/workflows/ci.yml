@@ -61,6 +61,12 @@ jobs:
       - name: Demo contract baseline guard
         timeout-minutes: 5
         run: bash scripts/check-demo-contract-baseline.sh
+      - name: Dependency boundary guard
+        timeout-minutes: 5
+        run: bash scripts/check_dependency_boundary.sh
+      - name: Dependency boundary guard regression test
+        timeout-minutes: 5
+        run: bash scripts/check_dependency_boundary_test.sh
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash

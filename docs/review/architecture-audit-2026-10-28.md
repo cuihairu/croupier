@@ -84,6 +84,7 @@
 - **改法**：先把 assignment gate 下沉到不依赖 HTTP 的领域包；按 auth/scope、execution、pages、ops、analytics 分装配模块；给公共 core/agents 禁止 internal 依赖设置 CI 检查。保留现有部署拓扑。
 - **验收**：platform 执行链不 import api；公共包依赖检查可执行；原函数/页面/审批行为测试维持不变。
 - **投入**：中，分批；前置修复完成后再做。
+- **收口（ARCH-019，2026-10-31）**：assignment gate 下沉到 `internal/logic/assignment`（`gate.go`，复用既有 `LoadAllAssignments`，语义不变），`internal/platform/functioninvoke/govern.go` 改 import `internal/logic/assignment`，执行链不再 import `internal/api`；公共 core/agents 禁止 internal 依赖 + functioninvoke 禁止 internal/api 的 CI 检查落地为 `scripts/check_dependency_boundary.sh`（含路径存在断言与合成违规自测 `scripts/check_dependency_boundary_test.sh`，ci.yml 接线）。原行为不变：gate 用例随迁 `internal/logic/assignment/gate_test.go` + `gate_error_r52_test.go` 全绿。
 
 ## 文档与代码差异清单
 
