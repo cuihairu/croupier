@@ -29,7 +29,7 @@ The Croupier HA multi-instance architecture (Server Multi-Instance HA (this sect
 
 Known boundaries (read before switching to dual-active):
 
-- the mesh interconnect is plaintext intranet TCP with no peer authentication — the interconnect port must be reachable only from the cluster intranet
+- the mesh interconnect supports `cluster.interconnectTls` mTLS (peer-certificate identity: dual EKU server role, Agent certs rejected; unhandshaked forward rejected); when the certificate surface is unset it falls back to plaintext intranet TCP, so the interconnect port must be reachable only from the cluster intranet
 - hash routing (`route: hash`) gives no stable placement across instances: extend to remote candidates only when the local candidates are exhausted
 - async task events do not return over the mesh: events land in the shared DB via the owner (`task_events`), and the caller's HTTP polling/SSE reads from the shared DB (existing path unchanged)
 

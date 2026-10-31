@@ -16,6 +16,9 @@ import (
 // the caller).
 func ServerTLSConfig(config *Config) (*tls.Config, error) {
 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	if config.VerifyConnection != nil {
+		tlsConfig.VerifyConnection = config.VerifyConnection
+	}
 
 	if config.CertFile != "" && config.KeyFile != "" {
 		cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)

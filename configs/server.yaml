@@ -115,6 +115,16 @@ metrics:
 #   leaseTtl: 15s                      # 租约 TTL（3 倍心跳）
 #   ownerTtl: 3m                       # agent 归属记录存活窗口
 #   peerPollInterval: 10s              # 对端发现轮询
+#   # 互联身份认证（ARCH-003）：cert/key/ca 齐备时互联走 mTLS，对端证书
+#   # 必须是 server 角色（双 EKU），Agent 证书被拒；缺任一或
+#   # insecureSkipTls=true 时维持内网明文（就绪面记录降级）。
+#   insecureSkipTls: false
+#   interconnectTls:
+#     enabled: true
+#     certFile: /etc/croupier/ic.crt
+#     keyFile: /etc/croupier/ic.key
+#     caFile: /etc/croupier/ic-ca.crt
+#     serverName: ""                   # 空=按拨号地址校验证书 SAN
 #   allowStandaloneDegrade: false      # 显式允许协调库不可用时按单实例降级
 #                                      #（默认 false：要求集群 → /readyz 503）
 

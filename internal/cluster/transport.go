@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/core/transport/tcp"
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
@@ -66,13 +67,17 @@ func NewTCPDialer(cfg *tcp.Config) dialFunc {
 
 // ServeHelloHandler 返回互联端口的 MsgServerHelloRequest 处理：
 // 校验握手角色必须是 server（Agent 证书连入会被 mTLS 层拒绝，这里是
-// 应用层第二道防线），并回应自身身份。
+// 应用层第二道防线），记录握手完成到连接会话，并回应自身身份。
+// 未记录握手的连接不能执行 forward（ARCH-003 拒绝未握手 forward）。
 func ServeHelloHandler(self PeerInfo, epoch uint64) func(ctx context.Context, body []byte) []byte {
 	return func(ctx context.Context, body []byte) []byte {
 		var req helloRequest
 		if err := json.Unmarshal(body, &req); err != nil || req.Role != "server" {
 			resp, _ := json.Marshal(helloResponse{})
 			return resp
+		}
+		if session := internaltcp.ConnectionSessionFromContext(ctx); session != nil {
+			session.Set(internaltcp.ConnectionHandshakeKey, true)
 		}
 		resp, _ := json.Marshal(helloResponse{InstanceID: self.InstanceID, Epoch: epoch})
 		return resp

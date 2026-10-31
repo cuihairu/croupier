@@ -59,7 +59,7 @@ HA routing exists, but not every business module has shared state. Some cluster 
 - Custom TCP sessions use length-prefixed framing and protobuf platform messages; function payloads are typically UTF-8 JSON.
 - core/transport/tcp owns MuxConn. Roles explicitly compose registration, reconnect and configuration packages.
 - Agent-to-Server TLS is supported but **disabled in repository development templates**: Server cert/key are empty and Agent insecure=true. Configure certificates explicitly for production.
-- Server interconnect currently uses plaintext TCP and role-only hello messages. Keep it on a trusted isolated network; mTLS remains pending.
+- Server interconnect supports mTLS via `cluster.interconnectTls` (peer-certificate identity: dual EKU server role, Agent certs rejected; unhandshaked forward rejected). When the certificate surface is unset it falls back to plaintext TCP on a trusted isolated network.
 
 ## Scope and databases
 

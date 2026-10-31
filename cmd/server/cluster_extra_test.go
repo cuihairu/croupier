@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -139,6 +140,39 @@ func TestStartCluster_DBStore_InterconnectListenFailure(t *testing.T) {
 	stopCluster(t, lc, nil)
 }
 
+// TestStartCluster_InterconnectTLSWiring 验证 ARCH-003 配置面：证书齐备时
+// 互联走 mTLS 且监听成功；证书缺失时 NewServer 返回错误 → 就绪面记录
+// interconnect=false（不炸，降级为只留 lifecycle）。
+func TestStartCluster_InterconnectTLSWiring(t *testing.T) {
+	dir := t.TempDir()
+	caCrt, caKey, err := devcert.EnsureDevCA(dir)
+	require.NoError(t, err)
+	icCrt, icKey, err := devcert.EnsureInterconnectCert(filepath.Join(dir, "ic"), caCrt, caKey, "server-tls", []string{"127.0.0.1"})
+	require.NoError(t, err)
+
+	svcCtx := newClusterSvcCtx(t)
+	c := &config.Config{}
+	c.Cluster = config.ClusterConfig{
+		Enabled:       true,
+		InstanceID:    "server-tls",
+		Store:         "db",
+		AdvertiseAddr: "127.0.0.1:0",
+		InterconnectTLS: config.TLSClientConfig{
+			Enabled:  true,
+			CertFile: icCrt,
+			KeyFile:  icKey,
+			CAFile:   caCrt,
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	lc, srv := startCluster(ctx, c, svcCtx)
+	require.NotNil(t, lc)
+	require.NotNil(t, srv, "证书齐备应成功启动 mTLS 互联监听")
+	stopCluster(t, lc, srv)
+}
+
 // db 存储正常路径：成员/归属表自建、互联监听成功、Handle 消息路由。
 func TestStartCluster_DBStore_FullWiring(t *testing.T) {
 	svcCtx := newClusterSvcCtx(t)
@@ -163,9 +197,13 @@ func TestStartCluster_DBStore_FullWiring(t *testing.T) {
 	fake := &fakeLocalDispatcher{}
 	handler := newInterconnectHandler(lc, localInvoker{dispatcher: fake})
 	hctx := context.Background()
+	// 模拟真实互联连接：注入连接会话并完成 hello 握手（生产语义中
+	// serveConn 创建 session，hello 后标记握手；直接调 handler 的测试
+	// 需要显式构造以通过 ARCH-003 握手门禁）。
+	hctx = internaltcp.WithConnectionSession(hctx, internaltcp.NewConnectionSession())
 
 	// hello：回 JSON（SelfInfo + epoch）
-	helloBody, err := handler.Handle(hctx, protocol.MsgServerHelloRequest, 1, []byte(`{}`))
+	helloBody, err := handler.Handle(hctx, protocol.MsgServerHelloRequest, 1, []byte(`{"role":"server"}`))
 	require.NoError(t, err)
 	var helloInfo map[string]any
 	require.NoError(t, json.Unmarshal(helloBody, &helloInfo))
@@ -184,6 +222,7 @@ func TestStartCluster_DBStore_FullWiring(t *testing.T) {
 	require.NoError(t, err)
 	var fwd cluster.ForwardedResult
 	require.NoError(t, json.Unmarshal(fwdBody, &fwd))
+	t.Logf("forward debug: OK=%v Error=%q NotOwner=%v", fwd.OK, fwd.Error, fwd.NotOwner)
 	assert.True(t, fwd.OK)
 	assert.Equal(t, "invoke-resp", string(fwd.Payload))
 	require.Len(t, fake.invokeAgentIDs, 1)

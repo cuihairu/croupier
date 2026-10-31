@@ -132,19 +132,35 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		resolver = dbr
 	}
 
-	// 互联当前语义是内网明文：ClusterConfig 没有证书配置面，Insecure
-	// 必须置 true——否则 listen() 落入 TLS 分支，空 tls.Config 直接报
-	// "neither Certificates ... set"（线上双实例互联监听全挂根因）。
-	// dialer 与 server 必须同语义，共用同一 Config。
+	// 互联身份认证（ARCH-003）：专用证书面。cert/key/ca 三者齐备时启用
+	// mTLS——server 校验对端证书必须为 server 角色（双 EKU），Agent 证书
+	// 被拒；InsecureSkipTLS 或任一证书缺省时维持内网明文（向后兼容），
+	// 并在就绪面记录降级。dialer 与 server 必须同语义，共用同一 Config。
 	icAddr := cfg.InterconnectAddr
 	if icAddr == "" {
 		icAddr = cfg.AdvertiseAddr
 	}
+	useInterconnectTLS := !cfg.InsecureSkipTLS &&
+		!cfg.InterconnectTLS.InsecureSkipVerify &&
+		cfg.InterconnectTLS.CertFile != "" &&
+		cfg.InterconnectTLS.KeyFile != "" &&
+		cfg.InterconnectTLS.CAFile != ""
 	icCfg := &tcp.Config{
 		Address:     icAddr,
 		RecvTimeout: 90 * time.Second,
 		SendTimeout: 30 * time.Second,
-		Insecure:    true,
+		Insecure:    !useInterconnectTLS,
+	}
+	if useInterconnectTLS {
+		icCfg.CertFile = cfg.InterconnectTLS.CertFile
+		icCfg.KeyFile = cfg.InterconnectTLS.KeyFile
+		icCfg.CAFile = cfg.InterconnectTLS.CAFile
+		icCfg.ServerName = cfg.InterconnectTLS.ServerName
+		icCfg.InsecureSkipVerify = cfg.InterconnectTLS.InsecureSkipVerify
+		icCfg.VerifyConnection = cluster.VerifyInterconnectPeer
+	}
+	if cfg.Enabled && !useInterconnectTLS {
+		readiness.RecordDegrade("interconnect plaintext (no cert surface)")
 	}
 
 	lcCfg.Readiness = readiness

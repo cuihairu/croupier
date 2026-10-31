@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	internaltcp "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
@@ -193,6 +194,12 @@ func ServeForwardHandler(selfEpoch uint64, localInvoke func(ctx context.Context,
 		var req ForwardedInvoke
 		if err := json.Unmarshal(body, &req); err != nil {
 			return marshalResult(&ForwardedResult{OK: false, Error: "bad request"})
+		}
+		// ARCH-003：未完成 hello 握手的连接不得执行 forward。mTLS 已保证
+		// 对端证书身份，此门禁保证「身份绑定先于任何动作」——无证书链路
+		// （明文或握手失败后直发 forward）被拒绝。
+		if session := internaltcp.ConnectionSessionFromContext(ctx); session == nil || !session.HandshakeDone() {
+			return marshalResult(&ForwardedResult{OK: false, Error: "not handshaked"})
 		}
 		// 铁律一：到达 owner 的已转发请求不得再次转发（由调用方保证 Forwarded=true，
 		// owner 侧仅拒绝显式环路标记外的异常）。

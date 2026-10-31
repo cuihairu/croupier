@@ -115,7 +115,7 @@ These are logical concerns, not three deployed services:
 **Server** (`internal/server/`)
 
 - One modular Server with HTTP REST (18780) and Agent control TCP (19090). SDK Providers dial sidecar (19091). These links use custom TCP/protobuf; plugin children separately use local go-plugin gRPC.
-- ControlService handles registration; internal/platform/functioninvoke and dispatch govern/route execution inside Server. Approvals currently use MemStore; cluster interconnect is plaintext TCP, not mTLS.
+- ControlService handles registration; internal/platform/functioninvoke and dispatch govern/route execution inside Server. Approvals currently use MemStore; cluster interconnect uses mTLS when `cluster.interconnectTls` is configured (peer-certificate identity), falling back to plaintext TCP otherwise.
 - Features: load balancing, RBAC, audit chain, approval workflows, multi-game scoping, HA multi-instance (cluster member table + owner forwarding)
 
 **Agents** (`agents/`, `internal/app/agent`, `cmd/*-agent`)

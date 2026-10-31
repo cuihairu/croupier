@@ -558,6 +558,11 @@ type ClusterConfig struct {
 	PeerPollInterval string `json:"peerPollInterval,omitempty" yaml:"peerPollInterval,omitempty"`
 	// InsecureSkipTLS 互联 TLS 校验跳过（仅开发联调）。
 	InsecureSkipTLS bool `json:"insecureSkipTls,omitempty" yaml:"insecureSkipTls,omitempty"`
+	// InterconnectTLS 专用互联证书面（ARCH-003）：cert/key 提供本实例在
+	// 互联端口的服务器证书（双 EKU = server 角色），ca 提供对端证书链。
+	// 三者都配置时互联走 mTLS；任一项缺失或 InsecureSkipTLS=true 时维持
+	// 内网明文（向后兼容），并在就绪面记录降级。
+	InterconnectTLS TLSClientConfig `json:"interconnectTls,omitempty" yaml:"interconnectTls,omitempty"`
 	// AllowStandaloneDegrade 显式允许 standalone 降级（ARCH-004）：集群
 	// enabled 时协调库/成员注册/互联监听不可用，默认保持「要求集群」
 	// 语义（就绪探针 503，实例不可服务）直到故障排除重启；只有显式置
