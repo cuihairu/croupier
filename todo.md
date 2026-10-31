@@ -4,7 +4,6 @@
 
 最新结论见 [可靠性复审](docs/review/reliability-recheck-2026-10-30.md)。之前的完成声明与回流旧任务完整保存在 [本轮整理前快照](docs/review/todo-import-2026-10-30.md)；更早原文见 [10 月 29 日历史](docs/review/todo-history-2026-10-29.md)。旧 C2/E2/D2/D5 分别复用 UI-001/002/003，不重开一套父子任务；其已交付历史不删除，只退出当前执行清单。
 
-
 ## 架构与可靠性
 
 - [x] **ARCH-001 · P1 · 方案决策 · 审批并发与执行领取语义**
@@ -17,9 +16,10 @@
   - 状态／条件：LOCAL VERIFIED：`ServiceContext` 已由 MemStore 切到 `NewSQLStore(db)`（`internal/svc/service_context.go:350`）；CAS `pending→approved/rejected`、`ClaimForDispatch` 持久领取、迁移 0050 补列（存量幂等 + 全新建表）；重启重开读回 claim、并发 6 路仅 1 领取且恰好 1 次续跑。
   - 完成证据：2026-10-30；`internal/platform/approvals/sql_store.go`、`internal/svc/service_context.go`、`internal/db/migrate/migrations.go`；`go test ./internal/platform/approvals/... ./internal/api/approval/... ./internal/svc/... ./internal/db/migrate/... ./internal/api/function/... ./internal/api/console/... ./internal/platform/functioninvoke/... ./internal/logic/function/... -count=1` 全绿；定向 `TestClaimForDispatchExactlyOnce/sql_claim_survives_store_reopen`、`TestApproveCov_ConcurrentApprovalRunsExactlyOnce`、`TestApprovalDispatchClaimMigration_*` 通过；commit `7e7d9557`。
 
-- [ ] **ARCH-003 · P1 · 实现 · 集群互联身份认证**
+- [x] **ARCH-003 · P1 · 实现 · 集群互联身份认证**
   - 依赖：—。交付与验收：增加专用 TLS 配置及身份绑定，拒绝无证书/错 CA/Agent 身份/未握手 forward；合法 invoke/start/cancel 保留 epoch fencing。
-  - 状态／条件：NOT RUN：需测试 CA 与双实例。
+  - 状态／条件：LOCAL VERIFIED：`cluster.interconnectTls` 专用证书面（cert/key/ca 齐备且非 insecureSkipTls 时 mTLS）；`VerifyInterconnectPeer`（`internal/cluster/identity.go`）只接受双 EKU（ServerAuth+ClientAuth）server 角色证书、空 CommonName/Agent 证书（仅 ClientAuth）拒绝；`ServeHelloHandler` 标记连接会话、`ServeForwardHandler` 拒绝未握手 forward；合法 invoke/start/cancel 保留 epoch fencing（stale epoch 仍 NotOwner）。
+  - 完成证据：2026-10-31；`internal/cluster/identity.go`、`internal/cluster/transport.go`、`internal/cluster/interconnect.go`、`internal/config/config.go`、`cmd/server/cluster.go`、`internal/devcert/devcert.go`；`go test -count=1 ./internal/... ./core/... ./agents/...` 全绿；定向 `TestInterconnect_MTLSFullChain`（无证书/错 CA/Agent 身份拒绝 + 合法 invoke/start/cancel + epoch fencing）、`TestServeForwardHandler_RejectsUnhandshaked`、`TestServeForwardHandler_AcceptsHandshaked`、`TestVerifyInterconnectPeer_*`、`TestStartCluster_InterconnectTLSWiring` 通过；commit `9547afb8`。
 
 - [x] **ARCH-004 · P1 · 实现 · 集群就绪及失败降级语义**
   - 依赖：—。交付与验收：独立存活/就绪探针；配置要求集群时协调库、互联监听或租约不可用返回 ready=503，显式配置才允许 standalone 降级。
