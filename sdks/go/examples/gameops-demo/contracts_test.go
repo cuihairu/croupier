@@ -152,12 +152,12 @@ func TestRegisterGameOpsFunctions_ClientRejects(t *testing.T) {
 }
 
 func TestGameOpsDescriptorCamelCaseIDAccepted(t *testing.T) {
-	// E1 模板使用 player.batchBan / player.batchUnban（camelCase operation）。
+	// E1 模板使用 player.batchban / player.batchunban（lowercase operation）。
 	// The upstream chain must accept them; validateGameOpsDescriptor models the
 	// same gate the registry applies (non-empty ID + valid schemas).
 	store := newGameOpsStore()
 	for _, def := range gameOpsFunctionDefinitions(store) {
-		if def.desc.ID == "player.batchBan" || def.desc.ID == "player.batchUnban" {
+		if def.desc.ID == "player.batchban" || def.desc.ID == "player.batchunban" {
 			if err := validateGameOpsDescriptor(def.desc); err != nil {
 				t.Fatalf("%s rejected: %v", def.desc.ID, err)
 			}

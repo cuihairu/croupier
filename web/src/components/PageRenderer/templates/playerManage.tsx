@@ -377,7 +377,7 @@ export const playerManagePageSpec: PageSpec = {
     },
     {
       id: 'action.batchBan',
-      functionId: 'player.batchBan',
+      functionId: 'player.batchban',
       usage: 'action',
       selectors: {
         input: {
@@ -389,7 +389,7 @@ export const playerManagePageSpec: PageSpec = {
     },
     {
       id: 'action.batchUnban',
-      functionId: 'player.batchUnban',
+      functionId: 'player.batchunban',
       usage: 'action',
       selectors: {
         input: {
@@ -401,7 +401,7 @@ export const playerManagePageSpec: PageSpec = {
     },
     {
       id: 'action.batchRecharge',
-      functionId: 'player.batchRecharge',
+      functionId: 'player.batchrecharge',
       usage: 'action',
       selectors: {
         input: {
