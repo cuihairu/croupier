@@ -452,7 +452,9 @@ func TestServiceOpsNodeDrain(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	_ = store.UpsertAgent(&registry.AgentSession{AgentID: "node-1", GameID: "demo", Env: "prod"})
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
 	_, err := s.OpsNodeDrain(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
@@ -498,7 +500,9 @@ func TestServiceOpsNodeRestart(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	_ = store.UpsertAgent(&registry.AgentSession{AgentID: "node-1", GameID: "demo", Env: "prod"})
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
 	_, err := s.OpsNodeRestart(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
@@ -510,7 +514,9 @@ func TestServiceOpsNodeUndrain(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svcCtx := &svc.ServiceContext{}
+	store := registry.NewStore()
+	_ = store.UpsertAgent(&registry.AgentSession{AgentID: "node-1", GameID: "demo", Env: "prod"})
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
 	_, err := s.OpsNodeUndrain(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})

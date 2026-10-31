@@ -292,8 +292,13 @@ func TestGetClusterInfoMeshOfflineLBStatsV9(t *testing.T) {
 
 func TestRecordOpsAuditViaNodeDrainV9(t *testing.T) {
 	store := svc.NewOpsStateStore(t.TempDir())
+	regStore := registry.NewStore()
+	for _, id := range []string{"node-1", "node-err-restart", "node-err-undrain"} {
+		_ = regStore.UpsertAgent(&registry.AgentSession{AgentID: id, GameID: "demo", Env: "prod"})
+	}
 	svcCtx := &svc.ServiceContext{
 		OpsStateStore: store,
+		RegistryStore: regStore,
 		AuditService:  audit.NewAuditService(audit.NewInMemoryAuditStore(), nil),
 	}
 	caller := &fakeCaller{}
@@ -615,8 +620,11 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
 	t.Cleanup(func() { client.SetSessionResolver(nil) })
 
+	nodeRegStore := registry.NewStore()
+	require.NoError(t, nodeRegStore.UpsertAgent(&registry.AgentSession{AgentID: "node-1", GameID: "demo", Env: "prod"}))
 	nodeCtx := &svc.ServiceContext{
 		OpsStateStore:        svc.NewOpsStateStore(t.TempDir()),
+		RegistryStore:        nodeRegStore,
 		AgentSessionResolver: &fakeResolver{conns: map[string]transport.SessionCaller{"node-1": caller}},
 	}
 

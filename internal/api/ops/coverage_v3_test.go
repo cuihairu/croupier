@@ -65,7 +65,10 @@ func (r *fakeResolver) ResolveAgentConn(agentID string) (transport.SessionCaller
 func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {
 	ctx := context.Background()
 	store := svc.NewOpsStateStore(t.TempDir())
-	svcCtx := &svc.ServiceContext{OpsStateStore: store}
+	regStore := registry.NewStore()
+	_ = regStore.UpsertAgent(&registry.AgentSession{AgentID: "node-1", GameID: "demo", Env: "prod"})
+	_ = regStore.UpsertAgent(&registry.AgentSession{AgentID: "node-2", GameID: "demo", Env: "prod"})
+	svcCtx := &svc.ServiceContext{OpsStateStore: store, RegistryStore: regStore}
 	caller := &fakeCaller{}
 	resolver := &fakeResolver{conns: map[string]transport.SessionCaller{"node-1": caller}}
 	svcCtx.AgentSessionResolver = resolver

@@ -799,6 +799,12 @@ func opsNodeDrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeC
 	if nodeID == "" {
 		return nil, errorx.NewBadRequest("nodeId is required")
 	}
+	// 跨 scope 动作拒绝（AGENT-001）：drain 是节点级写动作，须与列表/详情
+	// 同一 scope 口径——节点不属于当前请求 scope（X-Game-ID/X-Env 注入）时
+	// fail-closed，禁止 A scope 管理员对 B scope 节点执行动作。
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, nodeID); err != nil {
+		return nil, err
+	}
 
 	// Verify node exists and get connection
 	if svcCtx.AgentSessionResolver == nil {
@@ -851,19 +857,33 @@ func opsNodeMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeMe
 	}
 
 	store.Mu().RLock()
-	defer store.Mu().RUnlock()
-
+	var found *registry.AgentSession
 	for _, sess := range store.AgentsUnsafe() {
 		if sess != nil && sess.AgentID == req.NodeID {
-			return &OpsNodeMetaResponse{
-				Labels: sess.Labels,
-			}, nil
+			found = sess
+			break
 		}
 	}
+	labels := map[string]string{}
+	if found != nil {
+		for k, v := range found.Labels {
+			labels[k] = v
+		}
+	}
+	store.Mu().RUnlock()
 
 	// 未命中按契约回 404（此前裸 errors.New 被 response.Error 映射成
 	// 500 internal_error，线上 /nodes/:id/meta 恒 500 的第二病灶）。
-	return nil, errorx.NewNotFound("node not found: " + req.NodeID)
+	if found == nil {
+		return nil, errorx.NewNotFound("node not found: " + req.NodeID)
+	}
+	// 跨 scope 读拒绝（AGENT-001）：meta 与列表/详情同 scope 口径，节点不属于
+	// 当前请求 scope 时 fail-closed（同 requireAgentScope 的 agent 端点口径）。
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.NodeID); err != nil {
+		return nil, err
+	}
+
+	return &OpsNodeMetaResponse{Labels: labels}, nil
 }
 
 // opsNodeDetail 单设备详情：与 GET /ops/nodes 列表同源同过滤（含 scope 头
@@ -887,6 +907,10 @@ func opsNodeRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 	nodeID := strings.TrimSpace(req.NodeId)
 	if nodeID == "" {
 		return nil, errorx.NewBadRequest("nodeId is required")
+	}
+	// 跨 scope 动作拒绝（AGENT-001）：restart 与 drain 同口径 fail-closed。
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, nodeID); err != nil {
+		return nil, err
 	}
 
 	// Verify node exists and get connection
@@ -918,6 +942,10 @@ func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 	nodeID := strings.TrimSpace(req.NodeId)
 	if nodeID == "" {
 		return nil, errorx.NewBadRequest("nodeId is required")
+	}
+	// 跨 scope 动作拒绝（AGENT-001）：undrain 与 drain 同口径 fail-closed。
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, nodeID); err != nil {
+		return nil, err
 	}
 
 	// Verify node exists and get connection
