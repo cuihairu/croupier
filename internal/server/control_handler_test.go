@@ -1510,14 +1510,18 @@ func TestValidateAndNormalizeFunctions(t *testing.T) {
 	t.Run("case normalization", func(t *testing.T) {
 		items := []*agentv1.FunctionDescriptor{
 			{
-				Id:      "Game.Player.Get",
-				Version: "1.0.0",
+				Id:        "Game.Player.Get",
+				Version:   "1.0.0",
+				Resource:  " Player ",
+				Operation: "BatchBan",
 			},
 		}
 
 		functions, warnings := validateAndNormalizeFunctions(items)
 		assert.Len(t, functions, 1)
 		assert.Equal(t, "game.player.get", functions[0].Id)
+		assert.Equal(t, "player", functions[0].Resource)
+		assert.Equal(t, "batchban", functions[0].Operation)
 		assert.Empty(t, warnings)
 	})
 
