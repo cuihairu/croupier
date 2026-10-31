@@ -222,7 +222,6 @@ func TestStartCluster_DBStore_FullWiring(t *testing.T) {
 	require.NoError(t, err)
 	var fwd cluster.ForwardedResult
 	require.NoError(t, json.Unmarshal(fwdBody, &fwd))
-	t.Logf("forward debug: OK=%v Error=%q NotOwner=%v", fwd.OK, fwd.Error, fwd.NotOwner)
 	assert.True(t, fwd.OK)
 	assert.Equal(t, "invoke-resp", string(fwd.Payload))
 	require.Len(t, fake.invokeAgentIDs, 1)
