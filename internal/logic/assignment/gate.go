@@ -2,9 +2,6 @@ package assignment
 
 import (
 	"context"
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -14,46 +11,12 @@ import (
 // LoadScopeAssignments reads all assignment records (scope key "gameID|env" → function list).
 // Shared by the execution gate and page CRUD, backed by the same file source of truth.
 func LoadScopeAssignments(svcCtx *svc.ServiceContext) (map[string][]string, error) {
-	data, err := os.ReadFile(AssignmentsPath(svcCtx))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return map[string][]string{}, nil
-		}
-		return nil, err
-	}
-	if len(data) == 0 {
-		return map[string][]string{}, nil
-	}
-	var assignments map[string][]string
-	if err := json.Unmarshal(data, &assignments); err != nil {
-		return nil, err
-	}
-	if assignments == nil {
-		assignments = map[string][]string{}
-	}
-	for key, fns := range assignments {
-		if fns == nil {
-			delete(assignments, key)
-		}
-	}
-	return assignments, nil
+	return loadAssignments(assignmentsPath(svcCtx))
 }
 
 // AssignmentsPath resolves the assignments file path from service config.
 func AssignmentsPath(svcCtx *svc.ServiceContext) string {
-	if svcCtx == nil {
-		return filepath.Join("data", "assignments.json")
-	}
-	path := strings.TrimSpace(svcCtx.Config.Registry.AssignmentsPath)
-	if path == "" {
-		path = filepath.Join("data", "assignments.json")
-	}
-	if !filepath.IsAbs(path) {
-		if base := strings.TrimSpace(svcCtx.Config.BootstrapData.BaseDir); base != "" && filepath.IsAbs(base) {
-			path = filepath.Join(base, path)
-		}
-	}
-	return filepath.Clean(path)
+	return assignmentsPath(svcCtx)
 }
 
 // EnsureFunctionAssigned implements the assignment gate (OPEN-ISSUES #36 / BUG-032).
@@ -86,13 +49,8 @@ func EnsureFunctionAssigned(ctx context.Context, svcCtx *svc.ServiceContext, fun
 
 func lookupScopeList(assignments map[string][]string, gameID, env string) ([]string, bool) {
 	for key, functions := range assignments {
-		parts := strings.SplitN(key, "|", 2)
-		g := strings.TrimSpace(parts[0])
-		e := ""
-		if len(parts) > 1 {
-			e = strings.TrimSpace(parts[1])
-		}
-		if strings.EqualFold(g, strings.TrimSpace(gameID)) && strings.EqualFold(e, strings.TrimSpace(env)) {
+		scopeGameID, scopeEnv := splitAssignmentKey(key)
+		if strings.EqualFold(scopeGameID, strings.TrimSpace(gameID)) && strings.EqualFold(scopeEnv, strings.TrimSpace(env)) {
 			return functions, true
 		}
 	}

@@ -23,10 +23,17 @@ cd "$(dirname "$0")/.." || exit 2
 export LC_ALL=C
 
 BASELINE="scripts/docs/architecture-check-baseline.txt"
+RAW="$(mktemp)"
 TMP="$(mktemp)"
-trap 'rm -f "$TMP"' EXIT
+trap 'rm -f "$RAW" "$TMP"' EXIT
 
-python3 scripts/docs/check-architecture.py 2>&1 | sort -u > "$TMP"
+python3 scripts/docs/check-architecture.py > /dev/null 2> "$RAW"
+checker_rc=$?
+if [ "$checker_rc" -ne 0 ] && [ ! -s "$RAW" ]; then
+  echo "FAIL: architecture checker exited $checker_rc without diagnostics."
+  exit 1
+fi
+sort -u "$RAW" -o "$TMP"
 
 if [ "${1:-}" = "--update" ]; then
   cp "$TMP" "$BASELINE"
