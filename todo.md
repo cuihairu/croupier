@@ -52,7 +52,7 @@
 
 - [ ] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
-  - 状态／条件：NOT RUN：需容量目标和独立数据库。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：需容量目标（业务拍板的连接配额/并发/P95 目标）与独立容量数据库；本沙箱仅单机 mysql/pg 测试容器，未定容量目标，无法产出「回收阈值与容量结论」。缺容量目标与隔离容量环境。复核证据：`docker ps` 仅 atlas-cov-mysql/pg 测试容器，无独立容量基线环境。
 
 - [x] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
   - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入库故障下每条消息可核对，说明允许重复与去重策略。
@@ -143,11 +143,11 @@
 
 - [ ] **UI-001 · P1 · 故障验证 · 真实游戏页面发布全链（旧 C2）**
   - 依赖：GAME-002, GAME-010, ARCH-024。交付与验收：独立真实游戏环境走契约→模板→编辑保存→接受提案→发布→binding 执行；验证列表/详情/弹窗/刷新、筛选/契约变化/人工草稿隔离，记录落库快照与游戏调用凭据
-  - 状态／条件：NOT RUN；需要 GAME-002 接入的权威玩家函数；demo 验收不能代替此项。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 GAME-002 接入的权威玩家函数与真实游戏环境（GAME-002 未完成，需目标游戏环境）；demo 验收不能代替此项。缺真实游戏环境/GAME-002 完成。
 
 - [ ] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
   - 依赖：—。交付与验收：复用现有 Go gameops-demo 的 33 函数及内存状态，独立 Server/sidecar/demo 栈验证发布、审批、report.generate、失败/未知/取消/幂等重试；既有 fixture 只证机制，不证明进程重启后游戏侧持久去重
-  - 状态／条件：NOT RUN；可用仓库样例在本地搭栈，不以缺真实游戏账号阻塞此项。
+  - 状态／条件：IN PROGRESS（2026-11-01）：定位并修复 gameops-demo 契约驼峰缺陷——`player.batchBan/batchRecharge/batchUnban` 的 Operation 为 camelCase，违反 server `operation` 稳定键 `[a-z0-9][a-z0-9._-]*`（internal/dashboard/normalizer/normalizer.go:415），导致 agent 注册 contract rebuild 失败、整个 session 断开；已改为 `batch_ban/batch_recharge/batch_unban`，实证 server 注册 34 函数 `warnings=0`（原 3 函数重建失败）。全链 E2E（发布/审批/report.generate/进程重启持久去重）仍需本仓自洽栈：本仓 configs/games.json 无 `croupier-demo`，且 gameops-demo 为内存 store 无持久化。缺：本仓自洽 server+sidecar+demo 栈、gameops-demo 进程重启持久去重实现。
 
 - [ ] **UI-003 · P1 · 故障验证 · 批量确认与默认呈现实页验收（旧 D2/D5）**
   - 依赖：UI-002。交付与验收：复用 perTarget、字段语义和五模板；跨页选人、筛选变化、总量确认与实际提交一致，发布回读保留身份列/单位/时区/枚举；不重复规划已实现 UI。
