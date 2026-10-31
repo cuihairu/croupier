@@ -53,6 +53,11 @@ var runFlushInterval = 15 * time.Second
 type ackRef struct {
 	stream string
 	id     string
+	// revKey/rev carry the payment's daily-revenue delta. It is committed to
+	// revAgg only after the ClickHouse batch Send succeeds; a dropped failed
+	// batch must not leave an additive aggregation delta behind for reclaim.
+	revKey string
+	rev    *revRow
 }
 
 type Worker struct {
@@ -63,6 +68,7 @@ type Worker struct {
 	group          string
 	consumer       string
 	// aggregation state
+	aggMu          sync.Mutex
 	touchedMinutes map[string]struct{}
 	touchedDays    map[string]struct{}
 	revAgg         map[string]*revRow
@@ -397,7 +403,12 @@ func (w *Worker) appendPaymentRow(ctx context.Context, msgID string, args ...any
 		return err
 	}
 	w.paymentBatchRows++
-	w.paymentAcks = append(w.paymentAcks, ackRef{stream: w.streamPayments, id: msgID})
+	ref := ackRef{stream: w.streamPayments, id: msgID}
+	if key, delta, ok := revenueDeltaFromPaymentArgs(args); ok {
+		ref.revKey = key
+		ref.rev = delta
+	}
+	w.paymentAcks = append(w.paymentAcks, ref)
 	if w.clickBatchSize > 0 && w.paymentBatchRows >= w.clickBatchSize {
 		return w.flushPaymentBatchLocked(ctx)
 	}
@@ -455,8 +466,65 @@ func (w *Worker) flushPaymentBatchLocked(ctx context.Context) error {
 	w.paymentBatchRows = 0
 	acks := w.paymentAcks
 	w.paymentAcks = nil
+	w.commitRevenue(acks)
 	w.ackSent(ctx, acks)
 	return nil
+}
+
+func revenueDeltaFromPaymentArgs(args []any) (string, *revRow, bool) {
+	if len(args) < 9 {
+		return "", nil, false
+	}
+	ts, ok := args[0].(string)
+	if !ok || len(ts) < 10 {
+		return "", nil, false
+	}
+	game, ok := args[1].(string)
+	if !ok {
+		return "", nil, false
+	}
+	env, ok := args[2].(string)
+	if !ok {
+		return "", nil, false
+	}
+	amount, ok := args[5].(uint64)
+	if !ok {
+		return "", nil, false
+	}
+	status, ok := args[7].(string)
+	if !ok {
+		return "", nil, false
+	}
+	delta := &revRow{}
+	switch strings.ToLower(status) {
+	case "success":
+		delta.revenue = amount
+	case "refunded":
+		delta.refunds = amount
+	case "failed":
+		delta.failed = 1
+	default:
+		return "", nil, false
+	}
+	return fmt.Sprintf("%s|%s|%s", ts[:10], game, env), delta, true
+}
+
+func (w *Worker) commitRevenue(acks []ackRef) {
+	w.aggMu.Lock()
+	defer w.aggMu.Unlock()
+	for _, ack := range acks {
+		if ack.rev == nil {
+			continue
+		}
+		current := w.revAgg[ack.revKey]
+		if current == nil {
+			current = &revRow{}
+			w.revAgg[ack.revKey] = current
+		}
+		current.revenue += ack.rev.revenue
+		current.refunds += ack.rev.refunds
+		current.failed += ack.rev.failed
+	}
 }
 
 func (w *Worker) flushBatches(ctx context.Context) error {
@@ -562,6 +630,8 @@ func normalizeAggEvent(raw string) string {
 }
 
 func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
+	w.aggMu.Lock()
+	defer w.aggMu.Unlock()
 	ts := asString(m, "ts")
 	t, _ := time.Parse(time.RFC3339, ts)
 	if ts == "" || t.IsZero() {
@@ -603,6 +673,8 @@ func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 }
 
 func (w *Worker) touchRevenue(ctx context.Context, m map[string]any) {
+	w.aggMu.Lock()
+	defer w.aggMu.Unlock()
 	ts := asString(m, "ts")
 	t, _ := time.Parse(time.RFC3339, ts)
 	if ts == "" || t.IsZero() {
@@ -636,6 +708,8 @@ func (w *Worker) flush(ctx context.Context) error {
 	if err := w.flushBatches(ctx); err != nil {
 		slog.Warn("flush batches", "err", err)
 	}
+	w.aggMu.Lock()
+	defer w.aggMu.Unlock()
 	// key 内墙钟串已归一 UTC（touchAgg/touchRevenue），比较基准同步 UTC。
 	nowMin := time.Now().UTC().Truncate(time.Minute)
 	// flush minute_online for minutes earlier than current minute
@@ -812,7 +886,6 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 		w.touchAgg(ctx, m)
 		err = w.insertEvent(ctx, m, msg.ID)
 	case w.streamPayments:
-		w.touchRevenue(ctx, m)
 		err = w.insertPayment(ctx, m, msg.ID)
 	}
 

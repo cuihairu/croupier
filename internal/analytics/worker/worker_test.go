@@ -23,6 +23,35 @@ type mockBatch struct {
 	sendErr error
 }
 
+func TestPaymentAggregationDefersUntilBatchSend(t *testing.T) {
+	w, _ := testWorker(t)
+	getMockConn(t, w).batch = &mockBatch{sendErr: fmt.Errorf("clickhouse down")}
+	w.clickBatchSize = 1
+
+	msg := redis.XMessage{ID: "1-1", Values: map[string]any{"data": []byte(`{"ts":"2025-06-15T10:30:00Z","game_id":"g1","env":"e1","status":"success","amount_cents":100}`)}}
+	err := w.processMessage(context.Background(), w.streamPayments, msg)
+	if err != nil {
+		t.Fatalf("processMessage requeued failed batch: unexpected error %v", err)
+	}
+	if len(w.revAgg) != 0 {
+		t.Fatalf("failed batch left revenue delta: %+v", w.revAgg)
+	}
+
+	getMockConn(t, w).batch = &mockBatch{}
+	err = w.processMessage(context.Background(), w.streamPayments, msg)
+	if err != nil {
+		t.Fatalf("process retried payment: %v", err)
+	}
+	if err := w.flushPaymentBatch(context.Background()); err != nil {
+		t.Fatalf("flush payment batch: %v", err)
+	}
+
+	rv := w.revAgg["2025-06-15|g1|e1"]
+	if rv == nil || rv.revenue != 100 {
+		t.Fatalf("successful batch did not commit revenue delta: %+v", rv)
+	}
+}
+
 func (b *mockBatch) Abort() error                  { return nil }
 func (b *mockBatch) Append(v ...any) error         { b.rows = append(b.rows, v); return nil }
 func (b *mockBatch) AppendStruct(v any) error      { return nil }
@@ -917,6 +946,9 @@ func TestProcessMessage_ValidPayment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if err := w.flushPaymentBatch(context.Background()); err != nil {
+		t.Fatalf("flush payment batch: %v", err)
+	}
 
 	key := "2025-06-15|g1|prod"
 	rv, ok := w.revAgg[key]
@@ -1564,6 +1596,10 @@ func TestProcessMessage_FullPaymentFlow(t *testing.T) {
 		Stream: "analytics:payments", Values: map[string]any{"data": string(data2)},
 	}).Val()
 	_ = w.processMessage(context.Background(), "analytics:payments", redis.XMessage{ID: id2, Values: map[string]any{"data": data2}})
+
+	if err := w.flushPaymentBatch(context.Background()); err != nil {
+		t.Fatalf("flush payment batch: %v", err)
+	}
 
 	key := "2025-06-15|g1|prod"
 	rv := w.revAgg[key]
