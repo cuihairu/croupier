@@ -40,7 +40,7 @@ export default {
   'pages.login.mfaSetupRequired': 'Two-factor auth is required by policy. Bind TOTP first.',
   'pages.login.username.placeholder': 'Username: admin or user',
   'pages.login.username.required': 'Please input your username!',
-  'pages.login.password.placeholder': 'Password: ant.design',
+  'pages.login.password.placeholder': 'Password',
   'pages.login.password.required': 'Please input your password!',
   'pages.login.phoneLogin.tab': 'Phone Login',
   'pages.login.phoneLogin.errorMessage': 'Verification Code Error',
