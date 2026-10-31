@@ -28,7 +28,7 @@
 
 - [ ] **ARCH-005 · P1 · 故障验证 · 集群故障摘流与重连**
   - 依赖：ARCH-003, ARCH-004。交付与验收：双实例注入协调库断连、互联占端口、owner 退出、旧 epoch；逐例记录拒绝、摘流、恢复及副作用次数。
-  - 状态／条件：BLOCKED：需双实例 + 隔离网络（本沙箱单实例，无法注入协调库断连/互联占端口/owner 退出/旧 epoch 的真实故障验证）；缺真实双实例环境。
+  - 状态／条件：BLOCKED（2026-11-01 复核仍成立）：需双实例 + 隔离网络（本沙箱单实例，无运行中的 croupier server 集群双实例，无法注入协调库断连/互联占端口/owner 退出/旧 epoch 的真实故障验证）；缺真实双实例环境。复核证据：`docker ps -a` 无 croupier server 集群实例，仅单机沙箱。
 
 - [x] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
   - 依赖：—。交付与验收：复用授权后的 binding.database_name，消除前缀重算；验收旧名/自定义名/前缀变更/下划线碰撞/并发首次开库，已有绑定有显式迁移。
@@ -382,4 +382,15 @@
   - 修复：`// 6.` 同步政策审批步号（原误标 `// 7.`）；`// 5.` ACL 与 `// 7.` 输入契约已一致，纯注释无功能行为变更。证据：2026-10-31；`go test ./internal/platform/functioninvoke/... -count=1` 全绿；`go build ./internal/platform/functioninvoke/` 过。
 - [x] 审核发现：`reapStaleClaims`（R30-04 跨槽恢复）与 `resolveStaleClaim` 均把租约过期 claimed 解析为 `indeterminate`，但 `UpdateRunLog` 的 WHERE 仅含 `schedule_id+slot`、不含 `status=claimed` 再校验（internal/model/task_schedule_model.go:192-200）：并发路径下另一实例恰已完成派发并回写 dispatched 后，跨槽扫描仍按 createdAt<before 把它覆写成 indeterminate，可能覆盖真实终值（internal/tasks/scheduler/manager.go:186-200）。
   - 修复：`UpdateRunLog` 的 WHERE 增加 `AND status=claimed` 再校验——仅当行仍为 claimed 时才回填终值，否则 no-op 保留已落 dispatched/终态，陈旧 reclaim 不再覆写真实派发结果。证据：2026-10-31；`go test ./internal/model/ -run TestTaskScheduleModel_UpdateRunLog_GuardNonClaimed -count=1` PASS；`go test ./internal/model/ ./internal/tasks/scheduler/ -count=1` 全绿；新增 `TestTaskScheduleModel_UpdateRunLog_GuardNonClaimed`（正常回填 + 已派发后陈旧 reclaim no-op）。
-- [ ] 审核发现：本轮 diff 其余方面（机器 token 鉴权路径白名单与 scope 校验、RecordTaskEvent 单事务、任务在途/延续路由、依赖边界与架构 DAG 守卫、前端窄屏与本地化键、文档复核、CI 接线、blob→无类型字段迁移）未复现功能性问题，相关测试包均通过。
+- [x] 审核发现：本轮 diff 其余方面（机器 token 鉴权路径白名单与 scope 校验、RecordTaskEvent 单事务、任务在途/延续路由、依赖边界与架构 DAG 守卫、前端窄屏与本地化键、文档复核、CI 接线、blob→无类型字段迁移）未复现功能性问题，相关测试包均通过。
+  - 证据：2026-11-01 复核属实——`go test ./internal/security/jwtutil/ -run 'TestSignMachine|TestParseMachine' -count=1`、`go test ./internal/model/ -run 'TestTaskRunModel_RecordTaskEvent' -count=1`、`go test ./internal/agent/ -run 'TestCallProvider_TaskContinuation|TestHandleInvoke_TaskContinuation|TestDrainProviderSession' -count=1`、`go test ./internal/svc/ -run 'TestAuthMiddleware_MachineToken_PathRestriction' -count=1`、`go test ./internal/svc/ -run 'TestMigrationsProbeEvents|TestApprovalDispatchClaimMigration' -count=1`、`go test ./internal/app/agent/ -run 'Test.*Boundary' -count=1` 均 PASS；未复现功能性问题，无需修复。
+- [x] 审核发现：工作树存在 0 字节空文件 `internal/cluster/arch005_drill_test.go`（git 未跟踪），使 `go build ./...` 及任何 import `internal/cluster` 的包（internal/server、internal/platform/functioninvoke 等）报 `expected 'package', found 'EOF'` 构建失败——遗留调试/半成品物（internal/cluster/arch005_drill_test.go:1）。
+  - 修复：删除该 0 字节空文件（未跟踪、无 git 变更可提交）；`go build ./...` 恢复 PASS。证据：2026-11-01；`internal/cluster/arch005_drill_test.go` 已不存在；`go build ./...` exit 0。
+- [x] 审核发现：`cmd/server/cluster_extra_test.go:225` 遗留调试输出 `t.Logf("forward debug: OK=%v Error=%q NotOwner=%v", ...)`，非断言性调试日志，应移除或改为断言上下文（cmd/server/cluster_extra_test.go:225）。
+  - 修复：移除该 `t.Logf`（原 :225，现删除后不再存在）。证据：2026-11-01；`go test ./cmd/server/... -count=1` PASS（556.7s）；commit `7412020a`。
+- [x] 审核发现：896de78e 移除 `processMessage` 中 `touchRevenue(ctx, m)` 调用后，`internal/analytics/worker/worker.go:675` 的 `touchRevenue` 仅剩测试引用，成为生产死代码（internal/analytics/worker/worker.go:675）。
+  - 修复：删除 `touchRevenue` 生产函数及对应纯内存测试（TestTouchRevenue_*）；`flush_agg_repro_test.go` 改用直接填充 `revAgg` 保持 flush 消费路径覆盖。证据：2026-11-01；`go test ./internal/analytics/worker/... -count=1` PASS（19.8s）；commit `55f79b82`。
+- [x] 审核发现：f8d12842 将政策审批注释从 `// 7.` 改为 `// 6.`，但 `RequireGameEnvScope` 的 SubjectAutomation 复核块同样标注 `// 6.`（internal/platform/functioninvoke/govern.go:158），与顶部「门序」注释（EnforceFunctionPolicy=第 6 步、RequireGameEnvScope 有意不在链内）冲突，内联注释仍有两处 `// 6.` 漂移（internal/platform/functioninvoke/govern.go:158、internal/platform/functioninvoke/govern.go:166）。
+  - 修复：`RequireGameEnvScope` 复核块改为「自动化主体补 scope 复核（有意不在 full 链内，见顶部门序）」标注，去掉 `// 6.` 编号，不再与链内 EnforceFunctionPolicy=第 6 步冲突；纯注释无功能变更。证据：2026-11-01；`go test ./internal/platform/functioninvoke/... -count=1` PASS（17.8s）；commit `aa1f74a3`。
+- [x] 审核发现：`configs/server.yaml` 与 `internal/config` 均声明 `cluster.interconnectTls.enabled`（TLSClientConfig.Enabled），但 `cmd/server/cluster.go:143-147` 的 `useInterconnectTLS` 只按 cert/key/ca 三路径判断、从不读取 `.Enabled`——`enabled:true` 但缺证书时静默走明文，`enabled:false` 但证书齐备时仍启用 mTLS，配置面与实际行为不一致（cmd/server/cluster.go:143）。
+  - 修复：`useInterconnectTLS` 增加 `cfg.InterconnectTLS.Enabled &&` 前置条件——仅 enabled 且 cert/key/ca 齐备才启用 mTLS，配置面与实际行为一致。证据：2026-11-01；`go test ./cmd/server/... -count=1` PASS（556.7s）；commit `2d9d5ba5`。
