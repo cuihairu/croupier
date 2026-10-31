@@ -39,11 +39,23 @@ func TestGameDBMiddleware_PersistedScopeRoutesByBindingDatabaseName(t *testing.T
 	require.NoError(t, svcCtx.DB.Model(admin).Updates(map[string]any{"last_game_id": "demo", "last_env": "prod"}).Error)
 
 	// Router 记录实际打开的物理库名。
+	// LookupDatabaseName 只查 meta 表、不打开物理库；要证明 #2 的复用，
+	// 必须单独统计 game_envs 查询次数（opened 只能证明最终路由）。
 	gameDir := t.TempDir()
 	var (
-		mu     sync.Mutex
-		opened []string
+		mu      sync.Mutex
+		opened  []string
+		lookups int
 	)
+	require.NoError(t, svcCtx.DB.Callback().Query().After("gorm:query").Register(
+		"test:count_binding_lookup", func(tx *gorm.DB) {
+			if tx.Error != nil || tx.Statement == nil || tx.Statement.Table != "game_envs" {
+				return
+			}
+			mu.Lock()
+			lookups++
+			mu.Unlock()
+		}))
 	svcCtx.Router = router.New(router.Config{
 		Driver: "sqlite",
 		DSNForDatabase: func(metaDSN, dbName string) string {
@@ -70,4 +82,8 @@ func TestGameDBMiddleware_PersistedScopeRoutesByBindingDatabaseName(t *testing.T
 	assert.False(t, c.IsAborted())
 	require.Len(t, opened, 1, "中间件应恰好打开一个物理库（bindingDBName 复用路径）")
 	assert.Equal(t, "persisted_binding_db", opened[0], "必须路由到 binding 自定义名，而非重算前缀")
+	mu.Lock()
+	lookupsCount := lookups
+	mu.Unlock()
+	assert.Equal(t, 1, lookupsCount, "persisted-scope 校验后必须复用 bindingDBName，不得二次 LookupDatabaseName")
 }
