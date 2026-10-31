@@ -101,3 +101,79 @@ func (b *blockingStore) ListStaleClaims(context.Context, time.Time, int) ([]mode
 	return nil, nil
 }
 func (b *blockingStore) LastRunStatus(context.Context, string) (string, error) { return "", nil }
+
+// ---- ARCH-017 / R30-07 补齐：不配合 lifecycle ctx 的卡死（硬界兜底）----
+
+// tickBlock 阻塞在 ch 上的 tick 钩子：模拟「调度 tick 卡死在既不观察
+// lifecycle ctx、也无截止的调用里」——lifecycle ctx 取消救不了它，Stop 的
+// 硬上限必须兜底。
+func tickBlock(ch <-chan struct{}) func() {
+	return func() { <-ch }
+}
+
+func TestManagerStopBoundedWhenTickStuck(t *testing.T) {
+	m := NewManager(newFakeStore(), &fakeDispatcher{})
+	block := make(chan struct{})
+	m.SetTickHook(tickBlock(block))
+	m.SetStopTimeout(200 * time.Millisecond)
+	m.SetInterval(time.Millisecond) // 首 tick 立即触发并卡死
+	m.Start()
+
+	done := make(chan struct{})
+	go func() { m.Stop(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Stop hung on a stuck tick (unbounded wait)")
+	}
+
+	// 循环此刻仍卡在钩子上；释放后必须自行退出（无泄漏）。
+	close(block)
+	select {
+	case <-m.stoppedCh:
+	case <-time.After(3 * time.Second):
+		t.Fatal("loop did not exit after unblocking the stuck tick")
+	}
+}
+
+func TestManagerStopSecondCallerBoundedWhenTickStuck(t *testing.T) {
+	m := NewManager(newFakeStore(), &fakeDispatcher{})
+	block := make(chan struct{})
+	m.SetTickHook(tickBlock(block))
+	m.SetStopTimeout(150 * time.Millisecond)
+	m.SetInterval(time.Millisecond)
+	m.Start()
+
+	// 模拟 runServer：优雅停机同步 Stop + defer 兜底二次 Stop，二者都须有界。
+	done := make(chan struct{})
+	go func() {
+		m.Stop() // 优雅停机同步调用（超时返回，停机继续推进）
+		m.Stop() // defer 兜底（不得二次无限等待）
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("second Stop hung on a stuck tick")
+	}
+	close(block)
+	select {
+	case <-m.stoppedCh:
+	case <-time.After(3 * time.Second):
+		t.Fatal("loop did not exit after unblocking")
+	}
+}
+
+func TestManagerStopUnblocksBeforeTimeoutWhenTickHealthy(t *testing.T) {
+	// 正常路径：tick 不被阻塞，Stop 应在停止上限内、且远早于上限返回
+	// （验证有界等待不把健康循环拖满 stopTimeout）。
+	m := NewManager(newFakeStore(), &fakeDispatcher{})
+	m.SetStopTimeout(5 * time.Second)
+	m.SetInterval(time.Hour) // 无 tick 干扰：循环在 select 上等 stopCh
+	m.Start()
+
+	start := time.Now()
+	m.Stop()
+	require.WithinDuration(t, start, time.Now(), 2*time.Second,
+		"Stop should return promptly when the loop is healthy")
+}

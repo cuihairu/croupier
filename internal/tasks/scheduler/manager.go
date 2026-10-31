@@ -85,6 +85,13 @@ type Manager struct {
 	// shutdown budget (ARCH-017 R30-07).
 	lifecycleCtx    context.Context
 	lifecycleCancel context.CancelFunc
+	// stopTimeout 是 Stop 等待循环退出的硬上限（0 = defaultStopTimeout）。
+	// lifecycle ctx 只中断配合取消的调用；不配合取消的卡死（如驱动忽略
+	// ctx 的库调用、钻机注入的 tick 钩子）仍会挡住 stoppedCh——Stop 必须
+	// 有硬界，否则同步调用与 defer 兜底都无限等待（ARCH-017 补齐）。
+	stopTimeout time.Duration
+	// tickHook 在每轮 tick 起点调用（停机钻机注入卡死点用；生产恒 nil）。
+	tickHook func()
 }
 
 // NewManager creates a scheduler manager. interval 为扫描周期（默认 30s）。
@@ -125,6 +132,24 @@ func (m *Manager) SetNow(fn func() time.Time) { m.nowFn = fn }
 // SetClaimLease 覆盖领取租约时长（测试用；缺省 60s）。
 func (m *Manager) SetClaimLease(d time.Duration) { m.claimLease = d }
 
+// SetStopTimeout 覆盖 Stop 等待循环退出的硬上限（测试用；缺省
+// defaultStopTimeout）。须在 Start 前调用（stopTimeout 在 Stop 时读取，
+// 晚于 Start 亦安全）。
+func (m *Manager) SetStopTimeout(d time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stopTimeout = d
+}
+
+// SetTickHook 注入每轮 tick 起点的前置钩子（停机钻机用；生产勿设）。
+// 钩子在锁外调用——阻塞它即模拟「tick 卡死在 context.Background 库调用」
+// 的 R30-07 场景（该卡死不观察 lifecycle ctx，靠 Stop 硬界兜底）。nil 清除。
+func (m *Manager) SetTickHook(h func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.tickHook = h
+}
+
 // Start 启动调度循环（非阻塞）。
 func (m *Manager) Start() {
 	m.mu.Lock()
@@ -140,17 +165,31 @@ func (m *Manager) Start() {
 	go m.loop()
 }
 
-// Stop 停止调度循环并等待退出。幂等（ARCH-017：优雅停机在关池前显式调用
-// StopScheduler，同时保留 runServer 的 defer 兜底——二次调用必须安全）。
+// defaultStopTimeout 是 Stop 等待循环退出的缺省硬上限。lifecycle ctx 让
+// 配合取消的调用及时中断；不配合取消的卡死（驱动忽略 ctx、钻机注入的
+// tick 钩子）仍需硬界，否则同步调用与 runServer 的 defer 兜底都会无限
+// 等待（ARCH-017 R30-07：外层 30s 返回后仍执行无界 defer StopScheduler）。
+const defaultStopTimeout = 5 * time.Second
+
+// Stop 停止调度循环并等待退出：先取消 lifecycle ctx（配合取消的阻塞调用
+// 立即中断），再至多等待 stopTimeout（缺省 defaultStopTimeout）等循环退出。
+// 幂等（ARCH-017：优雅停机在关池前显式调用 StopScheduler，同时保留 runServer
+// 的 defer 兜底——二次调用必须安全）。超时返回时循环可能仍卡死在 tick 里：
+// 停机继续推进（关池/冲刷由后续步骤完成），卡死 goroutine 随进程退出回收；
+// tick 一旦返回，循环仍会观察已关闭的 stopCh 自行退出。
 func (m *Manager) Stop() {
 	m.mu.Lock()
 	if !m.started {
 		m.mu.Unlock()
 		return
 	}
+	timeout := m.stopTimeout
+	if timeout <= 0 {
+		timeout = defaultStopTimeout
+	}
 	if m.stopped {
 		m.mu.Unlock()
-		<-m.stoppedCh // 等待首次调用者的循环真正退出（关闭后立即返回）
+		m.waitStopped(timeout)
 		return
 	}
 	m.stopped = true
@@ -159,7 +198,18 @@ func (m *Manager) Stop() {
 	}
 	m.mu.Unlock()
 	close(m.stopCh)
-	<-m.stoppedCh
+	m.waitStopped(timeout)
+}
+
+// waitStopped 有界等待循环退出：正常路径 stoppedCh 关闭即返回；卡死 tick 下
+// 到时返回（带日志），不阻塞调用方。
+func (m *Manager) waitStopped(timeout time.Duration) {
+	select {
+	case <-m.stoppedCh:
+	case <-time.After(timeout):
+		slog.Warn("scheduler: stop timed out; a stuck tick may still be running",
+			"timeout", timeout.String())
+	}
 }
 
 func (m *Manager) loop() {
@@ -178,6 +228,12 @@ func (m *Manager) loop() {
 
 // tick 处理一个扫描周期：到期触发 + 跨槽领取恢复（ARCH-023 R30-04）。
 func (m *Manager) tick(now time.Time) {
+	m.mu.Lock()
+	h := m.tickHook
+	m.mu.Unlock()
+	if h != nil {
+		h() // 锁外调用：钻机阻塞它即模拟不观察 lifecycle ctx 的卡死 tick
+	}
 	// 生命周期 context：Stop 会取消它，使卡住的 store/dispatch 调用中断，
 	// 而非在 context.Background() 上无限阻塞——后者会让 Stop 等待
 	// stoppedCh 无界，令 runServer 的 defer StopScheduler 在 30s 停机预算

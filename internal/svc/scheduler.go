@@ -19,11 +19,12 @@ func (ctx *ServiceContext) SetReportRunner(r scheduler.LocalRunner) {
 	ctx.ReportRunner = r
 }
 
-// StartScheduler 启动 cron 调度循环（幂等：重复调用无副作用）。
-//
-// 调度器依赖 TaskScheduleModel 与 Dispatcher，二者就绪后即可启动；
-// 触发链路复用异步任务派发，失败只记日志不影响主服务。
-// 启动前播种周期报表调度（incident-reports §6，幂等按 name）；注入了
+// StartScheduler 装配 cron 调度循环（幂等：重复调用返回同一实例），但
+// **不启动**循环——调用方在注入治理钩子（与停机钻机钩子）后自行
+// Start()，使钩子在首 tick 前就位（ARCH-017 停机钻机需在循环启动前
+// 注入卡死 tick 点）。依赖 TaskScheduleModel 与 Dispatcher，二者就绪后
+// 即可装配；触发链路复用异步任务派发，失败只记日志不影响主服务。
+// 装配前播种周期报表调度（incident-reports §6，幂等按 name）；注入了
 // ReportRunner 时 Kind=incident_report 的调度走 server-local 执行。
 func (ctx *ServiceContext) StartScheduler() *scheduler.Manager {
 	if ctx == nil || ctx.TaskScheduleModel == nil || ctx.Dispatcher == nil {
@@ -37,9 +38,8 @@ func (ctx *ServiceContext) StartScheduler() *scheduler.Manager {
 	if ctx.ReportRunner != nil {
 		mgr.SetLocalRunner(ctx.ReportRunner)
 	}
-	mgr.Start()
 	ctx.Scheduler = mgr
-	slog.Default().Info("task scheduler started", "interval", "30s")
+	slog.Default().Info("task scheduler created", "interval", "30s")
 	return mgr
 }
 

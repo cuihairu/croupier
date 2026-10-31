@@ -45,6 +45,12 @@ var (
 	host             string
 	logLevel         string
 	bootstrapDataDir string
+
+	// drillSchedulerHook 仅停机钻机（fault_drill_r28_test.go）使用：在
+	// StartScheduler 装配后、循环 Start 前注入，用于阻塞 tick / 缩短
+	// Stop 等待上限，模拟 R30-07「tick 卡死在 context.Background 库调用」
+	// 下的真实停机。生产恒为 nil。
+	drillSchedulerHook func(*scheduler.Manager)
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -199,9 +205,14 @@ func runServer() error {
 	// docs/design/incident-reports.md §6——internal/api/incident import svc，
 	// 须在 cmd 层反向注入避免环）。
 	svcCtx.SetReportRunner(incident.NewService(svcCtx))
-	// cron 定时任务调度循环（Dispatcher 就绪后启动，含报表调度播种）。
+	// cron 定时任务调度循环（Dispatcher 就绪后装配，含报表调度播种）。
 	mgr := svcCtx.StartScheduler()
 	if mgr != nil {
+		// 停机钻机钩子（生产 nil）：须在循环 Start 前注入，使卡死 tick 点
+		// 在首个扫描周期即就位（ARCH-017 / R30-07 故障钻机）。
+		if drillSchedulerHook != nil {
+			drillSchedulerHook(mgr)
+		}
 		// 执行治理注入（ARCH-024）：自动触发以调度创建者（s.Actor）为
 		// 自动化主体逐次重新授权——撤权后不继续裸派发。与 functionInvoke、
 		// /tasks Start、手动调度共用同一条 Govern 链。函数级治理不适用于
@@ -222,6 +233,8 @@ func runServer() error {
 			}
 			return scheduler.GovernAllow, nil
 		})
+		// 全部钩子就位后启动循环（StartScheduler 不再自动 Start）。
+		mgr.Start()
 	}
 	defer svcCtx.StopScheduler()
 	if telemetrySvc, err := svc.NewTelemetryService(c, svcCtx.Secrets, "croupier-server", slog.Default()); err != nil {

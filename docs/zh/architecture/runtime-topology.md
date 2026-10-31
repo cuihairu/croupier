@@ -4,7 +4,7 @@ title: 运行架构、连接与生命周期（源码现状）
 
 # 运行架构、连接与生命周期
 
-> **2026-10-31（ARCH-015）最新复审：CHANGES REMAIN。** 调度已前置领取、多个入口已接入 Govern、主记录落库失败和 descriptor 读取失败会拒绝派发；跨槽过期 claimed 已由统一扫描解析为 `indeterminate`（ARCH-023），函数 ACL 漏检已闭合（Govern 全入口运行显式函数 ACL，ARCH-024），契约风险来源故障已 fail-closed（不再静默降档，ARCH-025），终态事件持久化已原子化——guard 状态更新与事件追加跑在单一事务内，事件写失败整体回滚而非被 ACK 吞掉（ARCH-015）。正常 drain/停机路径已有实现，已接收任务与总截止仍有缺口。详见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。真实高危写入不获上线批准。
+> **2026-10-31（ARCH-015、ARCH-016、ARCH-017）最新复审：CHANGES REMAIN。** 调度已前置领取、多个入口已接入 Govern、主记录落库失败和 descriptor 读取失败会拒绝派发；跨槽过期 claimed 已由统一扫描解析为 `indeterminate`（ARCH-023），函数 ACL 漏检已闭合（Govern 全入口运行显式函数 ACL，ARCH-024），契约风险来源故障已 fail-closed（不再静默降档，ARCH-025），终态事件持久化已原子化——guard 状态更新与事件追加跑在单一事务内，事件写失败整体回滚而非被 ACK 吞掉（ARCH-015）。正常 drain/停机路径已有实现；ARCH-016 闭合已接收任务的 drain 缺口（续接改经 session store、drain 等 TaskRunner.Count()==0），ARCH-017 以硬停止上限 + 真实停机入口钻机约束最终 defer StopScheduler。总截止与游戏侧 exactly-once 仍有缺口（见 ARCH-018、GAME-010）。详见 [最新复审](../../review/reliability-recheck-2026-10-30.md)。真实高危写入不获上线批准。
 
 核查日 **2026-10-30**。这是源码与仓库部署模板的现状，不是线上盘点或生产认证。**已实现**表示可追踪到生产装配；**目标设计**表示尚有运行缺口；**待核实**表示需要真实配置、账号或环境。本轮不修改业务实现。历史审核见 仓库审核记录 `docs/review/architecture-audit-2026-10-28.md`。待办唯一入口为仓库根 `todo.md`。
 
@@ -113,7 +113,7 @@ capture 加载位点→连接源→Poll→可选 journal/consume→AckCheckpoint
 
 [完整 SVG](/architecture/shutdown-zh.svg)
 
-Provider drain 已具会话 Draining、RPC 在途计数、路由拒绝与默认宽限等待，undrain 使用 reason 哨兵；但已接收而未进入 RPC 的任务会因注册先被摘除而失败（R30-09），ACK 不保证任务资源全排空。宽限到期不强制关仍在跑的请求。Server 正常停机顺序为 StopAccepting → HTTP drain → rootCancel → StopScheduler/ControlService.Stop → WaitConnections → ServiceContext.Close 冲刷并关池、清模板重建器。外层等待 30s，但最终 defer StopScheduler 未受其约束（R30-07），不能保证总退出时间。sidecar Stop 依次停插件、本地监听、上行、遥测和 Ops；worker main 取消后只等固定 200ms。证据：`internal/agent/local_handler.go`、`cmd/server/root.go`、`internal/svc/service_context.go`、`internal/app/agent/app.go`、`cmd/analytics-worker/main.go`。故障验收见 ARCH-015–018、DATA-015。
+Provider drain 已具会话 Draining、RPC 在途计数、路由拒绝与默认宽限等待，undrain 使用 reason 哨兵；已接收而未进入 RPC 的任务改经 session store 路由（R30-09，ARCH-016），drain 等待 TaskRunner.Count()==0。宽限到期不强制关仍在跑的请求。Server 正常停机顺序为 StopAccepting → HTTP drain → rootCancel → StopScheduler/ControlService.Stop → WaitConnections → ServiceContext.Close 冲刷并关池、清模板重建器。最终 defer StopScheduler 受硬停止上限约束（R30-07，ARCH-017）：忽略 ctx 取消的卡死 tick 不能把停机拖过上限；解卡后循环仍自行退出。sidecar Stop 依次停插件、本地监听、上行、遥测和 Ops；worker main 取消后只等固定 200ms。证据：`internal/agent/local_handler.go`、`cmd/server/root.go`、`internal/svc/service_context.go`、`internal/app/agent/app.go`、`cmd/analytics-worker/main.go`。故障验收见 ARCH-015–018、DATA-015。
 
 ## 部署方式与故障处理
 

@@ -52,9 +52,12 @@
 
 ### R30-07 · P1 · 外层停机截止未覆盖最终 defer
 
-**VERIFIED — 源码时序；完整阻塞调度停机 NOT RUN。ARCH-017 重新打开。** `cmd/server/root.go` 既 defer StopScheduler，又在停机 goroutine 同步 StopScheduler；30s 外层到期只使函数返回，仍要执行 defer。`internal/tasks/scheduler/manager.go:Stop` 等待 stoppedCh，而 tick/派发用 context.Background，持续阻塞时最终返回仍可能无界。
+**已修复（2026-10-31，ARCH-017）。** `cmd/server/root.go` 既 defer StopScheduler，又在停机 goroutine 同步 StopScheduler；30s 外层到期只使函数返回，仍要执行 defer，而 `internal/tasks/scheduler/manager.go:Stop` 等待 stoppedCh，卡死的 tick 曾使最终返回无界。修复分两层：
 
-活跃 Agent 连接停机回归通过，只能证明旧 listener 顺序问题得到修复。须通过真实停机入口核对阻塞调度、总截止、defer 与关池顺序，不把单纯超时日志当作资源已释放。
+1. **lifecycle context**（aa02cb9d）：Start 创建 `lifecycleCtx`/`lifecycleCancel`，Stop 先 cancel 再等 stoppedCh；tick 用 lifecycle ctx（nil→Background 回退）。对观察 ctx 取消的卡死调用（如 DB 查询）立即中止。局限：调用不观察 ctx 取消时（硬卡死）无效。
+2. **硬停止上限 + 真实入口钻机**（ARCH-017 补）：`Manager.Stop` 对两条调用路径（优雅停机同步 + defer 兜底）统一 `waitStopped(stopTimeout)`，默认 5s（`SetStopTimeout` 可覆盖），超时记日志后返回，**不把「资源已释放」当超时**——循环退出仍由 stoppedCh 保证，阻塞 tick 解卡后自行退出无泄漏。`SetTickHook` 测试缝 + `StartScheduler` 不再自动 Start（root.go 注入治理/钻机钩子后显式 Start）。真实停机入口钻机 `TestDrill_BlockedScheduler_ShutdownBoundedAndCloseRuns`（SIGINT → 30s 内返回、HTTP/control listener 拒绝新连接）通过；`TestManagerStopBoundedWhenTickStuck`/`TestManagerStopSecondCallerBoundedWhenTickStuck` 覆盖「不观察 ctx 的硬卡死」两路径。
+
+活跃 Agent 连接停机回归通过，证明旧 listener 顺序问题得到修复；阻塞调度、总截止、defer 与关池顺序经真实停机入口核对（卡死 tick 有界返回，后续步骤继续执行，非单纯超时日志）。
 
 ### R30-08 · P1 · strict 审计错误未到达关键调用方
 
@@ -64,9 +67,9 @@ SHA-256、全字段规范化、v1 兼容和迁移单测通过，不应重做。�
 
 ### R30-09 · P1 · drain 遗漏已接收但尚未进入 Provider RPC 的任务
 
-**CONFIRMED，ARCH-016 重新打开。** 真实 TaskRunner→LocalHandler 诊断中，StartTask 已 ACK、executor 已进入但暂未调用 Provider。Inflight=0，DrainProviderSession 摘掉 agentlocal 注册后立即 ACK；释放 executor 后 executeTask→handleInvoke→pickInstance 报未注册，未到达 callProvider 的 taskId 例外。
+**已修复（2026-10-31，ARCH-016，3d5312fc）。** 真实 TaskRunner→LocalHandler 诊断中，StartTask 已 ACK、executor 已进入但暂未调用 Provider；Inflight=0 使 DrainProviderSession 摘掉 agentlocal 注册后立即 ACK，释放 executor 后 executeTask→handleInvoke→pickInstance 报未注册。修复：任务续接绕过被清空的 agentlocal，经 session store 固定已接收任务的 Provider 归属；drain 等待 TaskRunner.Count()==0 而非仅 Inflight。已接收但未进入 Provider RPC 的任务不再漏接。
 
-直接调用 callProvider 的续接单测不覆盖前置查找。须固定已接收任务的 Provider 归属、等待所有已接收工作。Draining 检查与 AddInflight 分离还有静态准入窗口，线性化故障验证 NOT RUN。
+线性化故障验证仍由 ARCH-016 单测/实现覆盖（`count accepted tasks and route continuations through drain`），真实 drain 断连与 Provider 归属的端到端钻机留待 ARCH-018（执行中断与停机演练）故障注入覆盖。
 
 ## 可保留的交付及边界
 
