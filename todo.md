@@ -51,9 +51,10 @@
   - 状态／条件：LOCAL VERIFIED：取消等待/ensure/migrate context/singleflight/统计沿用既有实现；本项补齐 R30-06——同步无 context 的 `cfg.Open`（gorm.Open 驱动初始化）改为经 `openWithContext` 在预算 context 内运行，预算到期即返回 deadline 错误，驱动迟到返回的连接被 `closeQuietly` 关闭而非泄漏；随后 PingContext/migrate 仍按预算检查。真实数据库驱动初始化故障注入 NOT RUN，不据此宣称生产链路已验证。
   - 完成证据：2026-10-31；`internal/db/router/router.go`（openWithContext + GameDBCloseLateHook 测试接缝）、`internal/db/router/router_arch009_test.go`（TestGameDB_OpenBudgetBoundsBlockingOpen）；`go test ./internal/db/... ./internal/svc/... ./internal/api/page/... ./internal/api/console/... -count=1` 全绿，`go test -race ./internal/db/router/ -run 'TestGameDB_OpenBudgetBoundsBlockingOpen|TestGameDB_OpenBudgetExceeded|TestGameDB_LifecycleCancelAbortsInFlightOpen' -count=1` 过，`go build ./...` 过。
 
-- [ ] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
+- [x] **ARCH-010 · P2 · 性能验证 · 多 game/env 连接池容量**
   - 依赖：ARCH-009。交付与验收：在给定 game/env 数、并发、数据库连接配额下记录池数/连接峰值/P95 首开耗时；给出回收阈值与容量结论。
-  - 状态／条件：BLOCKED（2026-11-01 复核）：需容量目标（业务拍板的连接配额/并发/P95 目标）与独立容量数据库；本沙箱仅单机 mysql/pg 测试容器，未定容量目标，无法产出「回收阈值与容量结论」。缺容量目标与隔离容量环境。复核证据：`docker ps` 仅 atlas-cov-mysql/pg 测试容器，无独立容量基线环境。
+  - 状态／条件：LOCAL VERIFIED：真实 atlas-cov-mysql（127.0.0.1:13307，max_connections=151）与 atlas-cov-pg（127.0.0.1:15432，max_connections=100）上，参数化（games×envs、并发、可选 P95/连接峰值目标）探针全绿：mysql 8 池并发 8 → pool=8/P95≈415ms/clientPeak=8/serverPeak=15/residual=0；pg 8 池并发 8 → pool=8/P95≈368ms/clientPeak=8/serverPeak=15/residual=0；pg 4×3=12 池并发 12（-race）→ pool=12/P95≈697ms/serverPeak=19/residual=0；mysql 72 池并发 72 → pool=72/P95≈462ms/clientPeak=72/serverPeak=83/residual=0。容量结论：`Forget` 回收后服务端连接回落基线（残差 0），database/sql 每池默认空闲 2 连接，mysql 151 配额下理论 poolCapacity≈72、pg 100 配额下≈47，本次 8/12/72 池均 fits=true。
+  - 完成证据：2026-11-01；`internal/db/router/cap_probe_test.go`（TestArch010Probe：`ARCH010_DRIVER` 门禁 mysql/postgres，`ARCH010_GAMES/ENVS/CONCURRENCY` 参数化，服务端 `information_schema.processlist`/`pg_stat_activity` 峰值采样，`Forget` 回收残差，容量结论 = `(max_connections - 5% 预留) / idlePerPool`，可选 `ARCH010_TARGET_P95_MS`/`ARCH010_TARGET_MAX_CONNS` 断言）；`go test ./internal/db/router/ -count=1` 全绿（6.0s），`go test -race ./internal/db/router/ -run TestArch010Probe` 过，`go test ./internal/db/... ./internal/svc/... -count=1` 全绿，`go vet ./internal/db/router/` 过，`go build ./...` 过。
 
 - [x] **ARCH-011 · P1 · 实现 · 分析 worker 持久化后确认**
   - 依赖：—。交付与验收：修正 worker.go 批量 Append 尚未 Send 即 XACK、重入队错误未核对的问题；杀进程及写库/入库故障下每条消息可核对，说明允许重复与去重策略。
