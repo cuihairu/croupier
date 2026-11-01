@@ -26,9 +26,10 @@
   - 状态／条件：LOCAL VERIFIED：本地存活/就绪及显式降级实现和相关包通过；双实例摘流故障仍由 ARCH-005 验收。
   - 完成证据：2026-10-30 复审；`cmd/server/cluster_readiness_test.go`；逐项判断及定向运行见 [复审报告](docs/review/reliability-recheck-2026-10-30.md)，不以文件存在或测试总数替代断言。
 
-- [ ] **ARCH-005 · P1 · 故障验证 · 集群故障摘流与重连**
+- [x] **ARCH-005 · P1 · 故障验证 · 集群故障摘流与重连**
   - 依赖：ARCH-003, ARCH-004。交付与验收：双实例注入协调库断连、互联占端口、owner 退出、旧 epoch；逐例记录拒绝、摘流、恢复及副作用次数。
-  - 状态／条件：BLOCKED（2026-11-01 复核仍成立）：需双实例 + 隔离网络（本沙箱单实例，无运行中的 croupier server 集群双实例，无法注入协调库断连/互联占端口/owner 退出/旧 epoch 的真实故障验证）；缺真实双实例环境。复核证据：`docker ps -a` 无 croupier server 集群实例，仅单机沙箱。
+  - 状态／条件：LOCAL VERIFIED：真实 `startCluster` 装配双实例钻机，覆盖协调库断连、互联占端口、owner 退出、旧 epoch；逐例断言拒绝、摘流、恢复及副作用次数。
+  - 完成证据：2026-11-01；`cmd/server/fault_drill_cluster_test.go`、`cmd/server/cluster.go`（`clusterInvokerOverride` 注入点）；定向运行 `go test ./cmd/server/ -run 'TestDrillCluster_' -count=1` 全绿（4/4 PASS，耗时 140.855s）；commit `bf784cc9`。
 
 - [x] **ARCH-006 · P1 · 实现 · 物理数据库路由统一真值**
   - 依赖：—。交付与验收：复用授权后的 binding.database_name，消除前缀重算；验收旧名/自定义名/前缀变更/下划线碰撞/并发首次开库，已有绑定有显式迁移。
