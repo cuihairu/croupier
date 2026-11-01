@@ -273,10 +273,10 @@
   - 状态／条件：TODO（未开始）。
   - 交付与验收：agents/capture、devops、sidecar、synthetics 复用服务端 telemetry SDK（otel v1.46 已在 go.mod）；config 增 telemetry.enabled（默认 false）+ OTLP endpoint；开启后 span/metric 上报可被服务端面板看到；关闭时零开销路径（noop provider）；每 agent 至少覆盖：启停、连接状态、事件/吞吐计数、错误率；测试用内存 exporter 断言。(2026-11-01 用户提议「agent 应支持 otel 可选开启」,已代决立项;eBPF 火焰图评估后暂缓:宿主机级 profiler 非本仓职责,待真实 profiling 需求再议)
 
-- [ ] **AGENT-001 · P0 · 故障验证 · 四类 Agent 当前接口的 scope 隔离矩阵**
+- [x] **AGENT-001 · P0 · 故障验证 · 四类 Agent 当前接口的 scope 隔离矩阵**
   - 依赖：—。交付与验收：按当前已支持的注册/配置/列表/统计/详情/动作/日志/离线读取逐项核对；复用非空 scope 和绑定测试，覆盖同 ID 冲突及跨 scope 指派；devops 未接通的会话/回放列 NOT IMPLEMENTED，不用假数据当验收
   - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-01）**：四类 Agent（capture/devops/sidecar/synthetics）× 注册/配置/列表/统计/详情/动作/日志/离线读取逐接口矩阵已落 `docs/review/2026-11-01-agent-scope-isolation-matrix.md`；每行标注 scope 来源 + fail-closed 与否 + 测试证据。核对中发现 live 缺口并已修复：`/ops/nodes/:id/{drain,undrain,restart,meta}` 此前只按 nodeId 解析（A scope 管理员可动 B scope 节点），本轮统一补 `requireAgentScope` fail-closed 门（`internal/api/ops/helpers.go`），`opsNodeMeta` 保持「不存在→404」契约；新增 3 个跨 scope 拒绝用例（`internal/api/ops/node_action_scope_test.go`：`TestOpsNodeDrain_CrossScopeRejected` / `TestOpsNodeRestartUndrain_CrossScopeRejected` / `TestOpsNodeMeta_CrossScopeRejected`）；6 个既有 drain/restart/undrain 用例补 RegistryStore 装配。同 ID 冲突证据 `TestHandleRegisterRequest_SameAgentIDCrossScopeRejected`（control_handler_scope_test.go:211，commit 3c5e44be）；跨 scope 指派拒绝 `TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment`（dispatcher_test.go:784）。边界诚实：synthetics 离线读取 query-scope 已知边界（§3.1，不改行为）、devops 会话/回放 NOT IMPLEMENTED 无假数据（§3.2）、`/api/v1/nodes` 无 scope 面 by design（§3.3）、`ops.NodeService` 死实现（§3.4）。
-  - 完成证据：矩阵文件 `docs/review/2026-11-01-agent-scope-isolation-matrix.md`；新测试 `internal/api/ops/node_action_scope_test.go`（3 用例）；修复 `internal/api/ops/helpers.go`（4 函数）；`go test ./internal/api/ops/ -count=1` 全绿、`internal/server` scope/注册用例全绿、`internal/platform/dispatch` 路由 scope 用例全绿；`gofmt` 干净；commit 见下。
+  - 完成证据：矩阵文件 `docs/review/2026-11-01-agent-scope-isolation-matrix.md`；新测试 `internal/api/ops/node_action_scope_test.go`（3 用例）；修复 `internal/api/ops/helpers.go`（4 函数）；`go test ./internal/api/ops/ -count=1` 全绿、`internal/server` scope/注册用例全绿、`internal/platform/dispatch` 路由 scope 用例全绿；`gofmt` 干净；commit `9485f3d2`。
 
 - [ ] **AGENT-002 · P1 · 实现 · devops 面板会话中继**
   - 依赖：—。交付与验收：接通已有 Broker/Hub 的创建/数据/窗口/关闭通道与 Server 授权、审计、背压；不新增 RDP/VNC；SSH 真目标端到端连接和断线清理可验。
