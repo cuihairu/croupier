@@ -86,7 +86,7 @@ async function ensurePlayersSourceAndPublish(
   });
   expect(createResp.status()).toBe(201);
   const sourceId = ((await createResp.json()) as { source: { sourceId: string } }).source.sourceId;
-  expect(sourceId).toBeTruthy();
+  expect(sourceId.length).toBeGreaterThan(0);
 
   // 绑定全部 REST 操作
   const ops = [

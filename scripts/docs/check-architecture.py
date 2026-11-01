@@ -29,11 +29,11 @@ for lang in ('en','zh'):
  if f'docs/public/architecture/system-{lang}.svg' not in readme.read_text():errors.append(str(readme)+': missing SVG')
 text=(R/'todo.md').read_text();parts=re.split(r'(?m)^- \[([ x])\] \*\*',text)[1:];graph={}
 for i in range(0,len(parts),2):
- state,body=parts[i:i+2];m=re.match(r'([A-Z]+-\d{3}) · P[012] · [^·]+ ·',body)
+ state,body=parts[i:i+2];m=re.match(r'([A-Z]+(?:-[A-Z]+)*-\d{3}) · P[0-3] · [^·]+ ·',body)
  if not m:errors.append('Task structure: '+body[:60]);continue
  key=m[1]
  if key in graph:errors.append('Duplicate '+key)
- d=re.search(r'依赖：([^。]+)',body);graph[key]=re.findall(r'[A-Z]+-\d{3}',d[1]) if d else []
+ d=re.search(r'依赖：([^。]+)',body);graph[key]=re.findall(r'[A-Z]+(?:-[A-Z]+)*-\d{3}',d[1]) if d else []
  for field in ('依赖：','交付与验收：','状态／条件：'):
   if field not in body:errors.append(key+' lacks '+field)
  if state=='x':
