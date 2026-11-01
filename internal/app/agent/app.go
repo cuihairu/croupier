@@ -1156,6 +1156,10 @@ func (w *opsServerWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 	return w.ops.ExecuteCommand(ctx, req)
 }
 
+func (w *opsServerWrapper) PushFile(ctx context.Context, req *opsv1.PushFileRequest) (*opsv1.PushFileResponse, error) {
+	return w.ops.PushFile(ctx, req)
+}
+
 func (w *opsServerWrapper) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {
 	return w.ops.GetSupervisorLog(ctx, req)
 }

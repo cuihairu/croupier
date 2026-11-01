@@ -244,6 +244,23 @@ func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 	return resp, nil
 }
 
+// PushFile delivers a configuration file to the agent (OPS-006 配置下发).
+func (w *OpsClientWrapper) PushFile(ctx context.Context, req *opsv1.PushFileRequest) (*opsv1.PushFileResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errorx.NewInternalError("marshal push file request failed")
+	}
+	_, respData, err := w.caller.Call(ctx, protocol.MsgPushFileRequest, data)
+	if err != nil {
+		return nil, err
+	}
+	resp := &opsv1.PushFileResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, errorx.NewInternalError("unmarshal push file response failed")
+	}
+	return resp, nil
+}
+
 // GetSupervisorLog pulls the supervisor event log (tail, size-capped) from
 // the agent via the ops tunnel.
 func (w *OpsClientWrapper) GetSupervisorLog(ctx context.Context, req *opsv1.GetSupervisorLogRequest) (*opsv1.GetSupervisorLogResponse, error) {

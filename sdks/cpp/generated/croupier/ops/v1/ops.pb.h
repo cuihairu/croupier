@@ -216,6 +216,14 @@ class ProcessMetrics;
 struct ProcessMetricsDefaultTypeInternal;
 extern ProcessMetricsDefaultTypeInternal _ProcessMetrics_default_instance_;
 extern const ::google::protobuf::internal::ClassDataFull ProcessMetrics_class_data_;
+class PushFileRequest;
+struct PushFileRequestDefaultTypeInternal;
+extern PushFileRequestDefaultTypeInternal _PushFileRequest_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull PushFileRequest_class_data_;
+class PushFileResponse;
+struct PushFileResponseDefaultTypeInternal;
+extern PushFileResponseDefaultTypeInternal _PushFileResponse_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull PushFileResponse_class_data_;
 class RestartProcessRequest;
 struct RestartProcessRequestDefaultTypeInternal;
 extern RestartProcessRequestDefaultTypeInternal _RestartProcessRequest_default_instance_;
@@ -896,7 +904,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SyntheticsTargetsConfigResponse fin
     return *reinterpret_cast<const SyntheticsTargetsConfigResponse*>(
         &_SyntheticsTargetsConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 48;
+  static constexpr int kIndexInFileMessages = 50;
   friend void swap(SyntheticsTargetsConfigResponse& a, SyntheticsTargetsConfigResponse& b) { a.Swap(&b); }
   inline void Swap(SyntheticsTargetsConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -1114,7 +1122,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SyntheticsTargetsConfigRequest fina
     return *reinterpret_cast<const SyntheticsTargetsConfigRequest*>(
         &_SyntheticsTargetsConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 47;
+  static constexpr int kIndexInFileMessages = 49;
   friend void swap(SyntheticsTargetsConfigRequest& a, SyntheticsTargetsConfigRequest& b) { a.Swap(&b); }
   inline void Swap(SyntheticsTargetsConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -1315,7 +1323,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisorEvent final : public ::go
     return *reinterpret_cast<const SupervisorEvent*>(
         &_SupervisorEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 23;
+  static constexpr int kIndexInFileMessages = 25;
   friend void swap(SupervisorEvent& a, SupervisorEvent& b) { a.Swap(&b); }
   inline void Swap(SupervisorEvent* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -1736,7 +1744,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SupervisedProcessSnapshot final : p
     return *reinterpret_cast<const SupervisedProcessSnapshot*>(
         &_SupervisedProcessSnapshot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 26;
+  static constexpr int kIndexInFileMessages = 28;
   friend void swap(SupervisedProcessSnapshot& a, SupervisedProcessSnapshot& b) { a.Swap(&b); }
   inline void Swap(SupervisedProcessSnapshot* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -3033,7 +3041,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ServiceInfo final : public ::google
     return *reinterpret_cast<const ServiceInfo*>(
         &_ServiceInfo_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 32;
+  static constexpr int kIndexInFileMessages = 34;
   friend void swap(ServiceInfo& a, ServiceInfo& b) { a.Swap(&b); }
   inline void Swap(ServiceInfo* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -3297,7 +3305,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SchedulePauseResponse final : publi
     return *reinterpret_cast<const SchedulePauseResponse*>(
         &_SchedulePauseResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 20;
+  static constexpr int kIndexInFileMessages = 22;
   friend void swap(SchedulePauseResponse& a, SchedulePauseResponse& b) { a.Swap(&b); }
   inline void Swap(SchedulePauseResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -3522,7 +3530,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SchedulePauseRequest final : public
     return *reinterpret_cast<const SchedulePauseRequest*>(
         &_SchedulePauseRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 19;
+  static constexpr int kIndexInFileMessages = 21;
   friend void swap(SchedulePauseRequest& a, SchedulePauseRequest& b) { a.Swap(&b); }
   inline void Swap(SchedulePauseRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4129,6 +4137,507 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED RestartProcessRequest final : publi
 extern const ::google::protobuf::internal::ClassDataFull RestartProcessRequest_class_data_;
 // -------------------------------------------------------------------
 
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED PushFileResponse final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.PushFileResponse) */ {
+ public:
+  inline PushFileResponse() : PushFileResponse(nullptr) {}
+  ~PushFileResponse() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(PushFileResponse* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(PushFileResponse));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr PushFileResponse(::google::protobuf::internal::ConstantInitialized);
+
+  inline PushFileResponse(const PushFileResponse& from) : PushFileResponse(nullptr, from) {}
+  inline PushFileResponse(PushFileResponse&& from) noexcept
+      : PushFileResponse(nullptr, ::std::move(from)) {}
+  inline PushFileResponse& operator=(const PushFileResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline PushFileResponse& operator=(PushFileResponse&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const PushFileResponse& default_instance() {
+    return *reinterpret_cast<const PushFileResponse*>(
+        &_PushFileResponse_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 20;
+  friend void swap(PushFileResponse& a, PushFileResponse& b) { a.Swap(&b); }
+  inline void Swap(PushFileResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(PushFileResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] PushFileResponse* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<PushFileResponse>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const PushFileResponse& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const PushFileResponse& from) { PushFileResponse::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(PushFileResponse* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.PushFileResponse"; }
+
+  explicit PushFileResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  PushFileResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const PushFileResponse& from);
+  PushFileResponse(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, PushFileResponse&& from) noexcept
+      : PushFileResponse(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kMessageFieldNumber = 2,
+    kSha256FieldNumber = 4,
+    kBytesWrittenFieldNumber = 3,
+    kSuccessFieldNumber = 1,
+  };
+  // string message = 2;
+  void clear_message() ;
+  [[nodiscard]] const ::std::string& message() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_message(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_message();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_message();
+  void set_allocated_message(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_message() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_message(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_message();
+
+  public:
+  // string sha256 = 4;
+  void clear_sha256() ;
+  [[nodiscard]] const ::std::string& sha256() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_sha256(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_sha256();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_sha256();
+  void set_allocated_sha256(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_sha256() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_sha256(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_sha256();
+
+  public:
+  // int64 bytes_written = 3;
+  void clear_bytes_written() ;
+  [[nodiscard]] ::int64_t bytes_written() const;
+  void set_bytes_written(::int64_t value);
+
+  private:
+  ::int64_t _internal_bytes_written() const;
+  void _internal_set_bytes_written(::int64_t value);
+
+  public:
+  // bool success = 1;
+  void clear_success() ;
+  [[nodiscard]] bool success() const;
+  void set_success(bool value);
+
+  private:
+  bool _internal_success() const;
+  void _internal_set_success(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.PushFileResponse)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<2, 4,
+                                   0, 54,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const PushFileResponse& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr message_;
+    ::google::protobuf::internal::ArenaStringPtr sha256_;
+    ::int64_t bytes_written_;
+    bool success_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull PushFileResponse_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED PushFileRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.PushFileRequest) */ {
+ public:
+  inline PushFileRequest() : PushFileRequest(nullptr) {}
+  ~PushFileRequest() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(PushFileRequest* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(PushFileRequest));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr PushFileRequest(::google::protobuf::internal::ConstantInitialized);
+
+  inline PushFileRequest(const PushFileRequest& from) : PushFileRequest(nullptr, from) {}
+  inline PushFileRequest(PushFileRequest&& from) noexcept
+      : PushFileRequest(nullptr, ::std::move(from)) {}
+  inline PushFileRequest& operator=(const PushFileRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline PushFileRequest& operator=(PushFileRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const PushFileRequest& default_instance() {
+    return *reinterpret_cast<const PushFileRequest*>(
+        &_PushFileRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 19;
+  friend void swap(PushFileRequest& a, PushFileRequest& b) { a.Swap(&b); }
+  inline void Swap(PushFileRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(PushFileRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] PushFileRequest* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<PushFileRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const PushFileRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const PushFileRequest& from) { PushFileRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(PushFileRequest* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.PushFileRequest"; }
+
+  explicit PushFileRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  PushFileRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const PushFileRequest& from);
+  PushFileRequest(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, PushFileRequest&& from) noexcept
+      : PushFileRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kPathFieldNumber = 1,
+    kContentFieldNumber = 2,
+    kExpectedSha256FieldNumber = 4,
+    kModeFieldNumber = 3,
+    kForceFieldNumber = 5,
+  };
+  // string path = 1;
+  void clear_path() ;
+  [[nodiscard]] const ::std::string& path() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_path(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_path();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_path();
+  void set_allocated_path(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_path() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_path(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_path();
+
+  public:
+  // bytes content = 2;
+  void clear_content() ;
+  [[nodiscard]] const ::std::string& content() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_content(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_content();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_content();
+  void set_allocated_content(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_content() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_content(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_content();
+
+  public:
+  // string expected_sha256 = 4;
+  void clear_expected_sha256() ;
+  [[nodiscard]] const ::std::string& expected_sha256() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_expected_sha256(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_expected_sha256();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_expected_sha256();
+  void set_allocated_expected_sha256(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_expected_sha256() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_expected_sha256(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_expected_sha256();
+
+  public:
+  // int32 mode = 3;
+  void clear_mode() ;
+  [[nodiscard]] ::int32_t mode() const;
+  void set_mode(::int32_t value);
+
+  private:
+  ::int32_t _internal_mode() const;
+  void _internal_set_mode(::int32_t value);
+
+  public:
+  // bool force = 5;
+  void clear_force() ;
+  [[nodiscard]] bool force() const;
+  void set_force(bool value);
+
+  private:
+  bool _internal_force() const;
+  void _internal_set_force(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.PushFileRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<3, 5,
+                                   0, 59,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const PushFileRequest& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr path_;
+    ::google::protobuf::internal::ArenaStringPtr content_;
+    ::google::protobuf::internal::ArenaStringPtr expected_sha256_;
+    ::int32_t mode_;
+    bool force_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull PushFileRequest_class_data_;
+// -------------------------------------------------------------------
+
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeWindow final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:croupier.ops.v1.ProbeWindow) */ {
  public:
@@ -4185,7 +4694,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeWindow final : public ::google
     return *reinterpret_cast<const ProbeWindow*>(
         &_ProbeWindow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 50;
+  static constexpr int kIndexInFileMessages = 52;
   friend void swap(ProbeWindow& a, ProbeWindow& b) { a.Swap(&b); }
   inline void Swap(ProbeWindow* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4490,7 +4999,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeStats final : public ::google:
     return *reinterpret_cast<const ProbeStats*>(
         &_ProbeStats_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 53;
+  static constexpr int kIndexInFileMessages = 55;
   friend void swap(ProbeStats& a, ProbeStats& b) { a.Swap(&b); }
   inline void Swap(ProbeStats* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4933,7 +5442,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbePolicyConfigResponse final : p
     return *reinterpret_cast<const ProbePolicyConfigResponse*>(
         &_ProbePolicyConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 42;
+  static constexpr int kIndexInFileMessages = 44;
   friend void swap(ProbePolicyConfigResponse& a, ProbePolicyConfigResponse& b) { a.Swap(&b); }
   inline void Swap(ProbePolicyConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5151,7 +5660,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbePolicyConfigRequest final : pu
     return *reinterpret_cast<const ProbePolicyConfigRequest*>(
         &_ProbePolicyConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 41;
+  static constexpr int kIndexInFileMessages = 43;
   friend void swap(ProbePolicyConfigRequest& a, ProbePolicyConfigRequest& b) { a.Swap(&b); }
   inline void Swap(ProbePolicyConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5391,7 +5900,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDBTargetsConfigResponse final 
     return *reinterpret_cast<const ProbeDBTargetsConfigResponse*>(
         &_ProbeDBTargetsConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 44;
+  static constexpr int kIndexInFileMessages = 46;
   friend void swap(ProbeDBTargetsConfigResponse& a, ProbeDBTargetsConfigResponse& b) { a.Swap(&b); }
   inline void Swap(ProbeDBTargetsConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -5609,7 +6118,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDBTargetsConfigRequest final :
     return *reinterpret_cast<const ProbeDBTargetsConfigRequest*>(
         &_ProbeDBTargetsConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 43;
+  static constexpr int kIndexInFileMessages = 45;
   friend void swap(ProbeDBTargetsConfigRequest& a, ProbeDBTargetsConfigRequest& b) { a.Swap(&b); }
   inline void Swap(ProbeDBTargetsConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -7191,7 +7700,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListServicesRequest final : public 
     return *reinterpret_cast<const ListServicesRequest*>(
         &_ListServicesRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 30;
+  static constexpr int kIndexInFileMessages = 32;
   friend void swap(ListServicesRequest& a, ListServicesRequest& b) { a.Swap(&b); }
   inline void Swap(ListServicesRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -7421,7 +7930,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetSupervisorLogResponse final : pu
     return *reinterpret_cast<const GetSupervisorLogResponse*>(
         &_GetSupervisorLogResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 25;
+  static constexpr int kIndexInFileMessages = 27;
   friend void swap(GetSupervisorLogResponse& a, GetSupervisorLogResponse& b) { a.Swap(&b); }
   inline void Swap(GetSupervisorLogResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -7651,7 +8160,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetSupervisorLogRequest final : pub
     return *reinterpret_cast<const GetSupervisorLogRequest*>(
         &_GetSupervisorLogRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 24;
+  static constexpr int kIndexInFileMessages = 26;
   friend void swap(GetSupervisorLogRequest& a, GetSupervisorLogRequest& b) { a.Swap(&b); }
   inline void Swap(GetSupervisorLogRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -7847,7 +8356,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetServiceStatusResponse final : pu
     return *reinterpret_cast<const GetServiceStatusResponse*>(
         &_GetServiceStatusResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 34;
+  static constexpr int kIndexInFileMessages = 36;
   friend void swap(GetServiceStatusResponse& a, GetServiceStatusResponse& b) { a.Swap(&b); }
   inline void Swap(GetServiceStatusResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -8145,7 +8654,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED GetServiceStatusRequest final : pub
     return *reinterpret_cast<const GetServiceStatusRequest*>(
         &_GetServiceStatusRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 33;
+  static constexpr int kIndexInFileMessages = 35;
   friend void swap(GetServiceStatusRequest& a, GetServiceStatusRequest& b) { a.Swap(&b); }
   inline void Swap(GetServiceStatusRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -8346,7 +8855,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ExecuteCommandResponse final : publ
     return *reinterpret_cast<const ExecuteCommandResponse*>(
         &_ExecuteCommandResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 29;
+  static constexpr int kIndexInFileMessages = 31;
   friend void swap(ExecuteCommandResponse& a, ExecuteCommandResponse& b) { a.Swap(&b); }
   inline void Swap(ExecuteCommandResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -8951,7 +9460,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsAllowlistConfigResponse final
     return *reinterpret_cast<const DevopsAllowlistConfigResponse*>(
         &_DevopsAllowlistConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 46;
+  static constexpr int kIndexInFileMessages = 48;
   friend void swap(DevopsAllowlistConfigResponse& a, DevopsAllowlistConfigResponse& b) { a.Swap(&b); }
   inline void Swap(DevopsAllowlistConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -9169,7 +9678,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsAllowlistConfigRequest final 
     return *reinterpret_cast<const DevopsAllowlistConfigRequest*>(
         &_DevopsAllowlistConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 45;
+  static constexpr int kIndexInFileMessages = 47;
   friend void swap(DevopsAllowlistConfigRequest& a, DevopsAllowlistConfigRequest& b) { a.Swap(&b); }
   inline void Swap(DevopsAllowlistConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -9370,7 +9879,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CronJob final : public ::google::pr
     return *reinterpret_cast<const CronJob*>(
         &_CronJob_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 36;
+  static constexpr int kIndexInFileMessages = 38;
   friend void swap(CronJob& a, CronJob& b) { a.Swap(&b); }
   inline void Swap(CronJob* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -9899,7 +10408,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureRuleHitReport final : public
     return *reinterpret_cast<const CaptureRuleHitReport*>(
         &_CaptureRuleHitReport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 37;
+  static constexpr int kIndexInFileMessages = 39;
   friend void swap(CaptureRuleHitReport& a, CaptureRuleHitReport& b) { a.Swap(&b); }
   inline void Swap(CaptureRuleHitReport* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -10265,7 +10774,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureRuleHitAck final : public ::
     return *reinterpret_cast<const CaptureRuleHitAck*>(
         &_CaptureRuleHitAck_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 38;
+  static constexpr int kIndexInFileMessages = 40;
   friend void swap(CaptureRuleHitAck& a, CaptureRuleHitAck& b) { a.Swap(&b); }
   inline void Swap(CaptureRuleHitAck* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -10473,7 +10982,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureGatesConfigResponse final : 
     return *reinterpret_cast<const CaptureGatesConfigResponse*>(
         &_CaptureGatesConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 40;
+  static constexpr int kIndexInFileMessages = 42;
   friend void swap(CaptureGatesConfigResponse& a, CaptureGatesConfigResponse& b) { a.Swap(&b); }
   inline void Swap(CaptureGatesConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -10691,7 +11200,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED CaptureGatesConfigRequest final : p
     return *reinterpret_cast<const CaptureGatesConfigRequest*>(
         &_CaptureGatesConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 39;
+  static constexpr int kIndexInFileMessages = 41;
   friend void swap(CaptureGatesConfigRequest& a, CaptureGatesConfigRequest& b) { a.Swap(&b); }
   inline void Swap(CaptureGatesConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -11561,7 +12070,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDetail final : public ::google
     return *reinterpret_cast<const ProbeDetail*>(
         &_ProbeDetail_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 52;
+  static constexpr int kIndexInFileMessages = 54;
   friend void swap(ProbeDetail& a, ProbeDetail& b) { a.Swap(&b); }
   inline void Swap(ProbeDetail* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -11891,7 +12400,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ManagedProcess final : public ::goo
     return *reinterpret_cast<const ManagedProcess*>(
         &_ManagedProcess_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 22;
+  static constexpr int kIndexInFileMessages = 24;
   friend void swap(ManagedProcess& a, ManagedProcess& b) { a.Swap(&b); }
   inline void Swap(ManagedProcess* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -12231,7 +12740,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListServicesResponse final : public
     return *reinterpret_cast<const ListServicesResponse*>(
         &_ListServicesResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 31;
+  static constexpr int kIndexInFileMessages = 33;
   friend void swap(ListServicesResponse& a, ListServicesResponse& b) { a.Swap(&b); }
   inline void Swap(ListServicesResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -12449,7 +12958,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListCronJobsResponse final : public
     return *reinterpret_cast<const ListCronJobsResponse*>(
         &_ListCronJobsResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 35;
+  static constexpr int kIndexInFileMessages = 37;
   friend void swap(ListCronJobsResponse& a, ListCronJobsResponse& b) { a.Swap(&b); }
   inline void Swap(ListCronJobsResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -12667,7 +13176,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ExecuteCommandRequest final : publi
     return *reinterpret_cast<const ExecuteCommandRequest*>(
         &_ExecuteCommandRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 28;
+  static constexpr int kIndexInFileMessages = 30;
   friend void swap(ExecuteCommandRequest& a, ExecuteCommandRequest& b) { a.Swap(&b); }
   inline void Swap(ExecuteCommandRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -13391,7 +13900,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ListProcessesResponse final : publi
     return *reinterpret_cast<const ListProcessesResponse*>(
         &_ListProcessesResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 21;
+  static constexpr int kIndexInFileMessages = 23;
   friend void swap(ListProcessesResponse& a, ListProcessesResponse& b) { a.Swap(&b); }
   inline void Swap(ListProcessesResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -13597,7 +14106,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AlertEvent final : public ::google:
     return *reinterpret_cast<const AlertEvent*>(
         &_AlertEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 49;
+  static constexpr int kIndexInFileMessages = 51;
   friend void swap(AlertEvent& a, AlertEvent& b) { a.Swap(&b); }
   inline void Swap(AlertEvent* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -18514,6 +19023,439 @@ inline bool UpdateProcessResponse::_internal_rolled_back() const {
 inline void UpdateProcessResponse::_internal_set_rolled_back(bool value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.rolled_back_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// PushFileRequest
+
+// string path = 1;
+inline void PushFileRequest::clear_path() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.path_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& PushFileRequest::path() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileRequest.path)
+  return _internal_path();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void PushFileRequest::set_path(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.path_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileRequest.path)
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileRequest::mutable_path()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_path();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.PushFileRequest.path)
+  return _s;
+}
+inline const ::std::string& PushFileRequest::_internal_path() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.path_.Get();
+}
+inline void PushFileRequest::_internal_set_path(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.path_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileRequest::_internal_mutable_path() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.path_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE PushFileRequest::release_path() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.PushFileRequest.path)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.path_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.path_.Set("", GetArena());
+  }
+  return released;
+}
+inline void PushFileRequest::set_allocated_path(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.path_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.path_.IsDefault()) {
+    _impl_.path_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.PushFileRequest.path)
+}
+
+// bytes content = 2;
+inline void PushFileRequest::clear_content() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.content_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& PushFileRequest::content() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileRequest.content)
+  return _internal_content();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void PushFileRequest::set_content(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.content_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileRequest.content)
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileRequest::mutable_content()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_content();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.PushFileRequest.content)
+  return _s;
+}
+inline const ::std::string& PushFileRequest::_internal_content() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.content_.Get();
+}
+inline void PushFileRequest::_internal_set_content(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.content_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileRequest::_internal_mutable_content() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.content_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE PushFileRequest::release_content() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.PushFileRequest.content)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.content_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.content_.Set("", GetArena());
+  }
+  return released;
+}
+inline void PushFileRequest::set_allocated_content(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.content_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.content_.IsDefault()) {
+    _impl_.content_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.PushFileRequest.content)
+}
+
+// int32 mode = 3;
+inline void PushFileRequest::clear_mode() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.mode_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline ::int32_t PushFileRequest::mode() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileRequest.mode)
+  return _internal_mode();
+}
+inline void PushFileRequest::set_mode(::int32_t value) {
+  _internal_set_mode(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileRequest.mode)
+}
+inline ::int32_t PushFileRequest::_internal_mode() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.mode_;
+}
+inline void PushFileRequest::_internal_set_mode(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.mode_ = value;
+}
+
+// string expected_sha256 = 4;
+inline void PushFileRequest::clear_expected_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.expected_sha256_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& PushFileRequest::expected_sha256() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileRequest.expected_sha256)
+  return _internal_expected_sha256();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void PushFileRequest::set_expected_sha256(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.expected_sha256_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileRequest.expected_sha256)
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileRequest::mutable_expected_sha256()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_expected_sha256();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.PushFileRequest.expected_sha256)
+  return _s;
+}
+inline const ::std::string& PushFileRequest::_internal_expected_sha256() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.expected_sha256_.Get();
+}
+inline void PushFileRequest::_internal_set_expected_sha256(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.expected_sha256_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileRequest::_internal_mutable_expected_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.expected_sha256_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE PushFileRequest::release_expected_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.PushFileRequest.expected_sha256)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.expected_sha256_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.expected_sha256_.Set("", GetArena());
+  }
+  return released;
+}
+inline void PushFileRequest::set_allocated_expected_sha256(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.expected_sha256_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.expected_sha256_.IsDefault()) {
+    _impl_.expected_sha256_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.PushFileRequest.expected_sha256)
+}
+
+// bool force = 5;
+inline void PushFileRequest::clear_force() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.force_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline bool PushFileRequest::force() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileRequest.force)
+  return _internal_force();
+}
+inline void PushFileRequest::set_force(bool value) {
+  _internal_set_force(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileRequest.force)
+}
+inline bool PushFileRequest::_internal_force() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.force_;
+}
+inline void PushFileRequest::_internal_set_force(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.force_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// PushFileResponse
+
+// bool success = 1;
+inline void PushFileResponse::clear_success() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.success_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline bool PushFileResponse::success() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileResponse.success)
+  return _internal_success();
+}
+inline void PushFileResponse::set_success(bool value) {
+  _internal_set_success(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileResponse.success)
+}
+inline bool PushFileResponse::_internal_success() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.success_;
+}
+inline void PushFileResponse::_internal_set_success(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.success_ = value;
+}
+
+// string message = 2;
+inline void PushFileResponse::clear_message() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.message_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& PushFileResponse::message() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileResponse.message)
+  return _internal_message();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void PushFileResponse::set_message(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.message_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileResponse.message)
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileResponse::mutable_message()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_message();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.PushFileResponse.message)
+  return _s;
+}
+inline const ::std::string& PushFileResponse::_internal_message() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.message_.Get();
+}
+inline void PushFileResponse::_internal_set_message(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.message_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileResponse::_internal_mutable_message() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.message_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE PushFileResponse::release_message() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.PushFileResponse.message)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.message_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.message_.Set("", GetArena());
+  }
+  return released;
+}
+inline void PushFileResponse::set_allocated_message(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.message_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.message_.IsDefault()) {
+    _impl_.message_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.PushFileResponse.message)
+}
+
+// int64 bytes_written = 3;
+inline void PushFileResponse::clear_bytes_written() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.bytes_written_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline ::int64_t PushFileResponse::bytes_written() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileResponse.bytes_written)
+  return _internal_bytes_written();
+}
+inline void PushFileResponse::set_bytes_written(::int64_t value) {
+  _internal_set_bytes_written(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileResponse.bytes_written)
+}
+inline ::int64_t PushFileResponse::_internal_bytes_written() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.bytes_written_;
+}
+inline void PushFileResponse::_internal_set_bytes_written(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.bytes_written_ = value;
+}
+
+// string sha256 = 4;
+inline void PushFileResponse::clear_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sha256_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& PushFileResponse::sha256() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.PushFileResponse.sha256)
+  return _internal_sha256();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void PushFileResponse::set_sha256(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.sha256_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.PushFileResponse.sha256)
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileResponse::mutable_sha256()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_sha256();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.PushFileResponse.sha256)
+  return _s;
+}
+inline const ::std::string& PushFileResponse::_internal_sha256() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.sha256_.Get();
+}
+inline void PushFileResponse::_internal_set_sha256(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.sha256_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL PushFileResponse::_internal_mutable_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.sha256_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE PushFileResponse::release_sha256() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.PushFileResponse.sha256)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.sha256_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.sha256_.Set("", GetArena());
+  }
+  return released;
+}
+inline void PushFileResponse::set_allocated_sha256(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.sha256_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.sha256_.IsDefault()) {
+    _impl_.sha256_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.PushFileResponse.sha256)
 }
 
 // -------------------------------------------------------------------

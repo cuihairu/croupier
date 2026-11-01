@@ -823,6 +823,17 @@ type AgentLogEntryView struct {
 	Seq        int64  `json:"seq"`
 }
 
+// BatchOpExecuteRequest POST /ops/batch/:id/execute. DryRun=true 只预览
+// 目标集，不实际下发。
+type BatchOpExecuteRequest struct {
+	DryRun bool `json:"dryRun"`
+}
+
+// BatchOpListRequest GET /ops/batch.
+type BatchOpListRequest struct {
+	Limit int `form:"limit,optional"`
+}
+
 // OpsNodeCommandsRequest is used to get node commands
 type OpsNodeCommandsRequest struct {
 	NodeId string `json:"nodeId" binding:"required"`

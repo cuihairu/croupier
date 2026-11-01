@@ -226,6 +226,25 @@ message UpdateProcessResponse {
   bool rolled_back = 5;          // true when the new binary failed to start and the old one was restored
 }
 
+// PushFileRequest delivers a configuration file to the agent (OPS-006 配置下发).
+// The agent writes the content only under PushBaseDir (fail-closed when the
+// target path escapes it, when the size exceeds the limit, or when the hash
+// does not match). The path is agent-local and must be absolute.
+message PushFileRequest {
+  string path = 1;            // Absolute target path under the allowed base dir.
+  bytes content = 2;          // File content (≤ MaxPushFileBytes, default 1 MiB).
+  int32 mode = 3;             // File mode bits (e.g. 0644). 0 = 0644.
+  string expected_sha256 = 4; // Content sha256 (hex, lowercase). Empty = skip hash check.
+  bool force = 5;             // Allow overwrite of an existing file. Default false.
+}
+
+message PushFileResponse {
+  bool success = 1;
+  string message = 2;
+  int64 bytes_written = 3;
+  string sha256 = 4;          // Content sha256 (hex, lowercase) as computed.
+}
+
 // SchedulePauseRequest suspends or resumes a managed process's declared
 // schedule firing (agent-supervisor-design §10.2 暂停与恢复，暂停对象=调度).
 // Suspension never touches the running process: cron actions simply stop firing

@@ -226,6 +226,7 @@ func registerSvcMigrations() {
 		provisionRunDestroyApprovalMigration(),
 		deployTablesMigration(),
 		agentLogTablesMigration(),
+		batchOpTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1873,6 +1874,27 @@ func migrateAgentLogTables(ctx context.Context, sqlDB *sql.DB) error {
 	if !db.Migrator().HasTable(&reg.AgentLogEntryRecord{}) {
 		if err := db.Migrator().CreateTable(&reg.AgentLogEntryRecord{}); err != nil {
 			return fmt.Errorf("migrate: 0056 create agent_log_entries: %w", err)
+		}
+	}
+	return nil
+}
+
+// batchOpTablesMigration creates the OPS-006 batch_ops table.
+func batchOpTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(57,
+		&goose.GoFunc{RunDB: migrateBatchOpTables},
+		nil,
+	)
+}
+
+func migrateBatchOpTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.BatchOp{}) {
+		if err := db.Migrator().CreateTable(&model.BatchOp{}); err != nil {
+			return fmt.Errorf("migrate: 0057 create batch_ops: %w", err)
 		}
 	}
 	return nil

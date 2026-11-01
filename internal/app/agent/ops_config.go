@@ -54,6 +54,14 @@ type OpsConfig struct {
 	// Default 500.
 	LogMaxLinesPerCycle int `json:"logMaxLinesPerCycle" yaml:"logMaxLinesPerCycle"`
 
+	// PushBaseDir is the directory under which OPS-006 config push may write
+	// files. Empty = config push is disabled (fail-closed). The agent rejects
+	// any target path that escapes this directory (symlink/.. traversal).
+	PushBaseDir string `json:"pushBaseDir" yaml:"pushBaseDir"`
+
+	// MaxPushFileBytes caps a pushed configuration file size. Default 1 MiB.
+	MaxPushFileBytes int64 `json:"maxPushFileBytes" yaml:"maxPushFileBytes"`
+
 	// ManagedProcesses defines processes that can be managed (restart/stop/start).
 	// Each entry maps a logical name to a process configuration.
 	ManagedProcesses map[string]ManagedProcessConfig `json:"managedProcesses" yaml:"managedProcesses"`
@@ -312,6 +320,7 @@ func DefaultOpsConfig() *OpsConfig {
 		MetricsEnabled:   true,
 		ManagedProcesses: make(map[string]ManagedProcessConfig),
 		ExecTimeout:      60 * time.Second,
+		MaxPushFileBytes: 1 << 20,
 	}
 }
 

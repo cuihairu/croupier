@@ -76,6 +76,10 @@ ops:
   #   - /var/log/game/server.log
   # logMaxLineBytes: 4096
   # logMaxLinesPerCycle: 500
+  # OPS-006 config push: directory under which batch config push may write.
+  # Empty = disabled (fail-closed). Never point this at the process tree root.
+  # pushBaseDir: /etc/croupier-push
+  # maxPushFileBytes: 1048576
   # 托管进程监管（supervisor）：每个条目以逻辑名为键。采样周期同 metricsInterval，
   # 超阈值只在面板打标记（mem_over_limit / cpu_over_limit），不自动杀进程。
   # 退避自动拉起：退出后按 restartBackoffInitial 起步、逐次倍增、封顶

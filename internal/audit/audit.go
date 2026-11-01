@@ -159,6 +159,11 @@ const (
 	EventProvisionProtect        AuditEventType = "provision.protect"
 	EventProvisionUnprotect      AuditEventType = "provision.unprotect"
 
+	// OPS-006 batch operation events (config push / restricted command)
+	EventBatchOpCreate  AuditEventType = "batch_op.create"
+	EventBatchOpDryRun  AuditEventType = "batch_op.dry_run"
+	EventBatchOpExecute AuditEventType = "batch_op.execute"
+
 	// Admin events
 	EventUserCreate AuditEventType = "admin.user_create"
 	EventUserUpdate AuditEventType = "admin.user_update"

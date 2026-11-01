@@ -52,6 +52,8 @@ type mockOpsServer struct {
 	startErr         error
 	executeResp      *opsv1.ExecuteCommandResponse
 	executeErr       error
+	pushFileResp     *opsv1.PushFileResponse
+	pushFileErr      error
 	servicesJSONResp []byte
 	servicesJSONErr  error
 	statusJSONResp   []byte
@@ -96,6 +98,13 @@ func (m *mockOpsServer) SetSchedulePause(ctx context.Context, req *opsv1.Schedul
 
 func (m *mockOpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	return m.executeResp, m.executeErr
+}
+
+func (m *mockOpsServer) PushFile(ctx context.Context, req *opsv1.PushFileRequest) (*opsv1.PushFileResponse, error) {
+	if m.pushFileErr != nil {
+		return nil, m.pushFileErr
+	}
+	return &opsv1.PushFileResponse{Success: true}, nil
 }
 
 func (m *mockOpsServer) ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error) {
@@ -476,6 +485,16 @@ func TestLocalHandler_HandleExecuteCommand(t *testing.T) {
 		handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
 
 		_, err := handler.handleExecuteCommand(context.Background(), []byte{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "ops server not configured")
+	})
+}
+
+func TestLocalHandler_HandlePushFile(t *testing.T) {
+	t.Run("with nil ops server", func(t *testing.T) {
+		store := agentlocal.NewLocalStore()
+		handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
+		_, err := handler.handlePushFile(context.Background(), []byte{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "ops server not configured")
 	})

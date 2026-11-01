@@ -555,6 +555,75 @@ struct RestartProcessRequestDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 RestartProcessRequestDefaultTypeInternal _RestartProcessRequest_default_instance_;
 
+inline constexpr PushFileResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        message_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        sha256_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        bytes_written_{::int64_t{0}},
+        success_{false} {}
+
+template <typename>
+constexpr PushFileResponse::PushFileResponse(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(PushFileResponse_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct PushFileResponseDefaultTypeInternal {
+  constexpr PushFileResponseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~PushFileResponseDefaultTypeInternal() {}
+  union {
+    PushFileResponse _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PushFileResponseDefaultTypeInternal _PushFileResponse_default_instance_;
+
+inline constexpr PushFileRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        path_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        content_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        expected_sha256_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        mode_{0},
+        force_{false} {}
+
+template <typename>
+constexpr PushFileRequest::PushFileRequest(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(PushFileRequest_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct PushFileRequestDefaultTypeInternal {
+  constexpr PushFileRequestDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~PushFileRequestDefaultTypeInternal() {}
+  union {
+    PushFileRequest _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PushFileRequestDefaultTypeInternal _PushFileRequest_default_instance_;
+
 inline constexpr ProbeWindow::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
@@ -2310,6 +2379,30 @@ const ::uint32_t
         2,
         4,
         0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileRequest, _impl_._has_bits_),
+        8, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileRequest, _impl_.path_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileRequest, _impl_.content_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileRequest, _impl_.mode_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileRequest, _impl_.expected_sha256_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileRequest, _impl_.force_),
+        0,
+        1,
+        3,
+        2,
+        4,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileResponse, _impl_._has_bits_),
+        7, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileResponse, _impl_.success_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileResponse, _impl_.message_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileResponse, _impl_.bytes_written_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::PushFileResponse, _impl_.sha256_),
+        3,
+        0,
+        2,
+        1,
+        0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::SchedulePauseRequest, _impl_._has_bits_),
         5, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::SchedulePauseRequest, _impl_.process_name_),
@@ -2761,41 +2854,43 @@ static const ::_pbi::MigrationSchema
         {232, sizeof(::croupier::ops::v1::StartProcessResponse)},
         {241, sizeof(::croupier::ops::v1::UpdateProcessRequest)},
         {250, sizeof(::croupier::ops::v1::UpdateProcessResponse)},
-        {263, sizeof(::croupier::ops::v1::SchedulePauseRequest)},
-        {270, sizeof(::croupier::ops::v1::SchedulePauseResponse)},
-        {279, sizeof(::croupier::ops::v1::ListProcessesResponse)},
-        {284, sizeof(::croupier::ops::v1::ManagedProcess)},
-        {307, sizeof(::croupier::ops::v1::SupervisorEvent)},
-        {342, sizeof(::croupier::ops::v1::GetSupervisorLogRequest)},
-        {347, sizeof(::croupier::ops::v1::GetSupervisorLogResponse)},
-        {356, sizeof(::croupier::ops::v1::SupervisedProcessSnapshot)},
-        {393, sizeof(::croupier::ops::v1::ExecuteCommandRequest_EnvEntry_DoNotUse)},
-        {400, sizeof(::croupier::ops::v1::ExecuteCommandRequest)},
-        {413, sizeof(::croupier::ops::v1::ExecuteCommandResponse)},
-        {426, sizeof(::croupier::ops::v1::ListServicesRequest)},
-        {435, sizeof(::croupier::ops::v1::ListServicesResponse)},
-        {442, sizeof(::croupier::ops::v1::ServiceInfo)},
-        {455, sizeof(::croupier::ops::v1::GetServiceStatusRequest)},
-        {460, sizeof(::croupier::ops::v1::GetServiceStatusResponse)},
-        {477, sizeof(::croupier::ops::v1::ListCronJobsResponse)},
-        {484, sizeof(::croupier::ops::v1::CronJob)},
-        {497, sizeof(::croupier::ops::v1::CaptureRuleHitReport)},
-        {522, sizeof(::croupier::ops::v1::CaptureRuleHitAck)},
-        {529, sizeof(::croupier::ops::v1::CaptureGatesConfigRequest)},
-        {534, sizeof(::croupier::ops::v1::CaptureGatesConfigResponse)},
-        {541, sizeof(::croupier::ops::v1::ProbePolicyConfigRequest)},
-        {546, sizeof(::croupier::ops::v1::ProbePolicyConfigResponse)},
-        {553, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigRequest)},
-        {558, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigResponse)},
-        {565, sizeof(::croupier::ops::v1::DevopsAllowlistConfigRequest)},
-        {570, sizeof(::croupier::ops::v1::DevopsAllowlistConfigResponse)},
-        {577, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigRequest)},
-        {582, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigResponse)},
-        {589, sizeof(::croupier::ops::v1::AlertEvent)},
-        {606, sizeof(::croupier::ops::v1::ProbeWindow)},
-        {625, sizeof(::croupier::ops::v1::ProbeDetail_DetailsEntry_DoNotUse)},
-        {632, sizeof(::croupier::ops::v1::ProbeDetail)},
-        {655, sizeof(::croupier::ops::v1::ProbeStats)},
+        {263, sizeof(::croupier::ops::v1::PushFileRequest)},
+        {276, sizeof(::croupier::ops::v1::PushFileResponse)},
+        {287, sizeof(::croupier::ops::v1::SchedulePauseRequest)},
+        {294, sizeof(::croupier::ops::v1::SchedulePauseResponse)},
+        {303, sizeof(::croupier::ops::v1::ListProcessesResponse)},
+        {308, sizeof(::croupier::ops::v1::ManagedProcess)},
+        {331, sizeof(::croupier::ops::v1::SupervisorEvent)},
+        {366, sizeof(::croupier::ops::v1::GetSupervisorLogRequest)},
+        {371, sizeof(::croupier::ops::v1::GetSupervisorLogResponse)},
+        {380, sizeof(::croupier::ops::v1::SupervisedProcessSnapshot)},
+        {417, sizeof(::croupier::ops::v1::ExecuteCommandRequest_EnvEntry_DoNotUse)},
+        {424, sizeof(::croupier::ops::v1::ExecuteCommandRequest)},
+        {437, sizeof(::croupier::ops::v1::ExecuteCommandResponse)},
+        {450, sizeof(::croupier::ops::v1::ListServicesRequest)},
+        {459, sizeof(::croupier::ops::v1::ListServicesResponse)},
+        {466, sizeof(::croupier::ops::v1::ServiceInfo)},
+        {479, sizeof(::croupier::ops::v1::GetServiceStatusRequest)},
+        {484, sizeof(::croupier::ops::v1::GetServiceStatusResponse)},
+        {501, sizeof(::croupier::ops::v1::ListCronJobsResponse)},
+        {508, sizeof(::croupier::ops::v1::CronJob)},
+        {521, sizeof(::croupier::ops::v1::CaptureRuleHitReport)},
+        {546, sizeof(::croupier::ops::v1::CaptureRuleHitAck)},
+        {553, sizeof(::croupier::ops::v1::CaptureGatesConfigRequest)},
+        {558, sizeof(::croupier::ops::v1::CaptureGatesConfigResponse)},
+        {565, sizeof(::croupier::ops::v1::ProbePolicyConfigRequest)},
+        {570, sizeof(::croupier::ops::v1::ProbePolicyConfigResponse)},
+        {577, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigRequest)},
+        {582, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigResponse)},
+        {589, sizeof(::croupier::ops::v1::DevopsAllowlistConfigRequest)},
+        {594, sizeof(::croupier::ops::v1::DevopsAllowlistConfigResponse)},
+        {601, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigRequest)},
+        {606, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigResponse)},
+        {613, sizeof(::croupier::ops::v1::AlertEvent)},
+        {630, sizeof(::croupier::ops::v1::ProbeWindow)},
+        {649, sizeof(::croupier::ops::v1::ProbeDetail_DetailsEntry_DoNotUse)},
+        {656, sizeof(::croupier::ops::v1::ProbeDetail)},
+        {679, sizeof(::croupier::ops::v1::ProbeStats)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_MetricsReport_CustomEntry_DoNotUse_default_instance_._instance,
@@ -2817,6 +2912,8 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_StartProcessResponse_default_instance_._instance,
     &::croupier::ops::v1::_UpdateProcessRequest_default_instance_._instance,
     &::croupier::ops::v1::_UpdateProcessResponse_default_instance_._instance,
+    &::croupier::ops::v1::_PushFileRequest_default_instance_._instance,
+    &::croupier::ops::v1::_PushFileResponse_default_instance_._instance,
     &::croupier::ops::v1::_SchedulePauseRequest_default_instance_._instance,
     &::croupier::ops::v1::_SchedulePauseResponse_default_instance_._instance,
     &::croupier::ops::v1::_ListProcessesResponse_default_instance_._instance,
@@ -2928,122 +3025,127 @@ const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_AT
     "\025UpdateProcessResponse\022\017\n\007success\030\001 \001(\010\022"
     "\017\n\007message\030\002 \001(\t\022\027\n\017old_fingerprint\030\003 \001("
     "\t\022\027\n\017new_fingerprint\030\004 \001(\t\022\023\n\013rolled_bac"
-    "k\030\005 \001(\010\"=\n\024SchedulePauseRequest\022\024\n\014proce"
-    "ss_name\030\001 \001(\t\022\017\n\007suspend\030\002 \001(\010\"L\n\025Schedu"
-    "lePauseResponse\022\017\n\007success\030\001 \001(\010\022\017\n\007mess"
-    "age\030\002 \001(\t\022\021\n\tsuspended\030\003 \001(\010\"K\n\025ListProc"
-    "essesResponse\0222\n\tprocesses\030\001 \003(\0132\037.croup"
-    "ier.ops.v1.ManagedProcess\"\213\002\n\016ManagedPro"
-    "cess\022\014\n\004name\030\001 \001(\t\022\017\n\007command\030\002 \001(\t\022\023\n\013w"
-    "orking_dir\030\003 \001(\t\022,\n\005state\030\004 \001(\0162\035.croupi"
-    "er.ops.v1.ProcessState\022\013\n\003pid\030\005 \001(\005\022\025\n\rr"
-    "estart_count\030\006 \001(\005\022.\n\nlast_start\030\007 \001(\0132\032"
-    ".google.protobuf.Timestamp\022\026\n\016uptime_sec"
-    "onds\030\010 \001(\003\022\r\n\005flags\030\t \003(\t\022\034\n\024next_restar"
-    "t_at_unix\030\n \001(\003\"\310\002\n\017SupervisorEvent\022\017\n\007t"
-    "s_unix\030\001 \001(\003\022\017\n\007process\030\002 \001(\t\022\r\n\005event\030\003"
-    " \001(\t\022\017\n\007old_pid\030\004 \001(\005\022\017\n\007new_pid\030\005 \001(\005\022\021"
-    "\n\texit_code\030\006 \001(\005\022\016\n\006signal\030\007 \001(\t\022\025\n\rres"
-    "tart_count\030\010 \001(\005\022\017\n\007message\030\t \001(\t\022\033\n\023las"
-    "t_heartbeat_unix\030\n \001(\003\022\022\n\nlast_error\030\013 \001"
-    "(\t\022\023\n\013oom_suspect\030\014 \001(\010\022\026\n\016last_rss_byte"
-    "s\030\r \001(\003\022\013\n\003seq\030\016 \001(\003\022\024\n\014snapshot_dir\030\017 \001"
-    "(\t\022\026\n\016snapshot_files\030\020 \003(\t\",\n\027GetSupervi"
-    "sorLogRequest\022\021\n\tmax_bytes\030\001 \001(\005\"Q\n\030GetS"
-    "upervisorLogResponse\022\017\n\007content\030\001 \001(\014\022\021\n"
-    "\tfile_name\030\002 \001(\t\022\021\n\ttruncated\030\003 \001(\010\"\253\003\n\031"
-    "SupervisedProcessSnapshot\022\014\n\004name\030\001 \001(\t\022"
-    "\013\n\003pid\030\002 \001(\005\022,\n\005state\030\003 \001(\0162\035.croupier.o"
-    "ps.v1.ProcessState\022\026\n\016uptime_seconds\030\004 \001"
-    "(\003\022\025\n\rrestart_count\030\005 \001(\005\022\021\n\trss_bytes\030\006"
-    " \001(\003\022\023\n\013cpu_percent\030\007 \001(\001\022\r\n\005flags\030\010 \003(\t"
-    "\022\027\n\017last_event_unix\030\t \001(\003\022\034\n\024next_restar"
-    "t_at_unix\030\n \001(\003\022\030\n\020snapshot_profile\030\013 \001("
-    "\t\022\014\n\004kind\030\014 \001(\t\022\022\n\nadapter_id\030\r \001(\t\022\035\n\025n"
-    "ext_schedule_at_unix\030\016 \001(\003\022\034\n\024next_sched"
-    "ule_action\030\017 \001(\t\022\023\n\013fingerprint\030\020 \001(\t\022\032\n"
-    "\022schedule_suspended\030\021 \001(\010\"\316\001\n\025ExecuteCom"
-    "mandRequest\022\017\n\007command\030\001 \001(\t\022\014\n\004args\030\002 \003"
-    "(\t\022\023\n\013working_dir\030\003 \001(\t\022<\n\003env\030\004 \003(\0132/.c"
-    "roupier.ops.v1.ExecuteCommandRequest.Env"
-    "Entry\022\027\n\017timeout_seconds\030\005 \001(\005\032*\n\010EnvEnt"
-    "ry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"m\n\026Ex"
-    "ecuteCommandResponse\022\017\n\007success\030\001 \001(\010\022\021\n"
-    "\texit_code\030\002 \001(\005\022\017\n\007std_out\030\003 \001(\t\022\017\n\007std"
-    "_err\030\004 \001(\t\022\r\n\005error\030\005 \001(\t\"I\n\023ListService"
-    "sRequest\022\r\n\005state\030\001 \001(\t\022\024\n\014name_pattern\030"
-    "\002 \001(\t\022\r\n\005limit\030\003 \001(\005\"U\n\024ListServicesResp"
-    "onse\022.\n\010services\030\001 \003(\0132\034.croupier.ops.v1"
-    ".ServiceInfo\022\r\n\005total\030\002 \001(\005\"i\n\013ServiceIn"
-    "fo\022\014\n\004name\030\001 \001(\t\022\024\n\014display_name\030\002 \001(\t\022\016"
-    "\n\006status\030\003 \001(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\npr"
-    "ocess_id\030\005 \001(\r\"\'\n\027GetServiceStatusReques"
-    "t\022\014\n\004name\030\001 \001(\t\"\240\001\n\030GetServiceStatusResp"
-    "onse\022\014\n\004name\030\001 \001(\t\022\024\n\014display_name\030\002 \001(\t"
-    "\022\016\n\006status\030\003 \001(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\n"
-    "process_id\030\005 \001(\r\022\023\n\013binary_path\030\006 \001(\t\022\023\n"
-    "\013description\030\007 \001(\t\"M\n\024ListCronJobsRespon"
-    "se\022&\n\004jobs\030\001 \003(\0132\030.croupier.ops.v1.CronJ"
-    "ob\022\r\n\005total\030\002 \001(\005\"`\n\007CronJob\022\020\n\010schedule"
-    "\030\001 \001(\t\022\017\n\007command\030\002 \001(\t\022\014\n\004user\030\003 \001(\t\022\023\n"
-    "\013source_file\030\004 \001(\t\022\017\n\007enabled\030\005 \001(\010\"\314\001\n\024"
-    "CaptureRuleHitReport\022\020\n\010agent_id\030\001 \001(\t\022\017"
-    "\n\007game_id\030\002 \001(\t\022\013\n\003env\030\003 \001(\t\022\014\n\004rule\030\004 \001"
-    "(\t\022\020\n\010severity\030\005 \001(\t\022\r\n\005table\030\006 \001(\t\022\013\n\003k"
-    "ey\030\007 \001(\t\022\016\n\006detail\030\010 \001(\t\022\014\n\004gtid\030\t \001(\t\022\020"
-    "\n\010event_op\030\n \001(\t\022\030\n\020event_ts_unix_ms\030\013 \001"
-    "(\003\"8\n\021CaptureRuleHitAck\022\020\n\010accepted\030\001 \001("
-    "\010\022\021\n\tduplicate\030\002 \001(\010\"-\n\031CaptureGatesConf"
-    "igRequest\022\020\n\010agent_id\030\001 \001(\t\"A\n\032CaptureGa"
-    "tesConfigResponse\022\017\n\007version\030\001 \001(\t\022\022\n\nga"
-    "tes_json\030\002 \001(\t\",\n\030ProbePolicyConfigReque"
-    "st\022\020\n\010agent_id\030\001 \001(\t\"A\n\031ProbePolicyConfi"
-    "gResponse\022\017\n\007version\030\001 \001(\t\022\023\n\013policy_jso"
-    "n\030\002 \001(\t\"/\n\033ProbeDBTargetsConfigRequest\022\020"
-    "\n\010agent_id\030\001 \001(\t\"E\n\034ProbeDBTargetsConfig"
-    "Response\022\017\n\007version\030\001 \001(\t\022\024\n\014targets_jso"
-    "n\030\002 \001(\t\"0\n\034DevopsAllowlistConfigRequest\022"
-    "\020\n\010agent_id\030\001 \001(\t\"H\n\035DevopsAllowlistConf"
-    "igResponse\022\017\n\007version\030\001 \001(\t\022\026\n\016allowlist"
-    "_json\030\002 \001(\t\"2\n\036SyntheticsTargetsConfigRe"
-    "quest\022\020\n\010agent_id\030\001 \001(\t\"H\n\037SyntheticsTar"
-    "getsConfigResponse\022\017\n\007version\030\001 \001(\t\022\024\n\014t"
-    "argets_json\030\002 \001(\t\"\277\001\n\nAlertEvent\022\014\n\004kind"
-    "\030\001 \001(\t\022\020\n\010agent_id\030\002 \001(\t\022\017\n\007game_id\030\003 \001("
-    "\t\022\013\n\003env\030\004 \001(\t\022,\n\006window\030\005 \001(\0132\034.croupie"
-    "r.ops.v1.ProbeWindow\022,\n\006detail\030\006 \001(\0132\034.c"
-    "roupier.ops.v1.ProbeDetail\022\027\n\017target_cat"
-    "egory\030\007 \001(\t\"\272\001\n\013ProbeWindow\022\016\n\006target\030\001 "
-    "\001(\t\022\021\n\tsemantics\030\002 \001(\t\022\023\n\013window_kind\030\003 "
-    "\001(\t\022\030\n\020start_ts_unix_ms\030\004 \001(\003\022\026\n\016end_ts_"
-    "unix_ms\030\005 \001(\003\022\023\n\013duration_ms\030\006 \001(\003\022\023\n\013la"
-    "st_reason\030\007 \001(\t\022\027\n\017target_category\030\010 \001(\t"
-    "\"\254\002\n\013ProbeDetail\022\016\n\006target\030\001 \001(\t\022\021\n\tsema"
-    "ntics\030\002 \001(\t\022\n\n\002ok\030\003 \001(\010\022\013\n\003err\030\004 \001(\t\022\025\n\r"
-    "at_ts_unix_ms\030\005 \001(\003\022\022\n\nlatency_ms\030\006 \001(\003\022"
-    "\034\n\024consecutive_failures\030\007 \001(\005\022\023\n\013window_"
-    "open\030\010 \001(\010\022:\n\007details\030\t \003(\0132).croupier.o"
-    "ps.v1.ProbeDetail.DetailsEntry\022\027\n\017target"
-    "_category\030\n \001(\t\032.\n\014DetailsEntry\022\013\n\003key\030\001"
-    " \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\345\002\n\nProbeStats\022\016"
-    "\n\006target\030\001 \001(\t\022\021\n\tsemantics\030\002 \001(\t\022\017\n\007gam"
-    "e_id\030\003 \001(\t\022\013\n\003env\030\004 \001(\t\022\017\n\007checked\030\005 \001(\003"
-    "\022\016\n\006failed\030\006 \001(\003\022\024\n\014success_rate\030\007 \001(\001\022\027"
-    "\n\017latency_buckets\030\010 \003(\003\022\023\n\013window_open\030\t"
-    " \001(\010\022\032\n\022window_duration_ms\030\n \001(\003\022\023\n\013last"
-    "_reason\030\013 \001(\t\022\027\n\017dropped_details\030\014 \001(\003\022\022"
-    "\n\nprobe_type\030\r \001(\t\022\020\n\010protocol\030\016 \001(\t\022\r\n\005"
-    "phase\030\017 \001(\t\022\031\n\021protocol_expected\030\020 \001(\010\022\027"
-    "\n\017target_category\030\021 \001(\t*\352\001\n\014ProcessState"
-    "\022\035\n\031PROCESS_STATE_UNSPECIFIED\020\000\022\031\n\025PROCE"
-    "SS_STATE_RUNNING\020\001\022\031\n\025PROCESS_STATE_STOP"
-    "PED\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032\n\026PROCE"
-    "SS_STATE_STARTING\020\004\022\032\n\026PROCESS_STATE_STO"
-    "PPING\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020\006\022\030\n\024PR"
-    "OCESS_STATE_BROKEN\020\007Bj\n\"io.github.cuihai"
-    "ru.croupier.ops.v1P\001Z0github.com/cuihair"
-    "u/croupier/pkg/pb/ops/v1;opsv1\252\002\017Croupie"
-    "r.Ops.V1b\006proto3"
+    "k\030\005 \001(\010\"f\n\017PushFileRequest\022\014\n\004path\030\001 \001(\t"
+    "\022\017\n\007content\030\002 \001(\014\022\014\n\004mode\030\003 \001(\005\022\027\n\017expec"
+    "ted_sha256\030\004 \001(\t\022\r\n\005force\030\005 \001(\010\"[\n\020PushF"
+    "ileResponse\022\017\n\007success\030\001 \001(\010\022\017\n\007message\030"
+    "\002 \001(\t\022\025\n\rbytes_written\030\003 \001(\003\022\016\n\006sha256\030\004"
+    " \001(\t\"=\n\024SchedulePauseRequest\022\024\n\014process_"
+    "name\030\001 \001(\t\022\017\n\007suspend\030\002 \001(\010\"L\n\025ScheduleP"
+    "auseResponse\022\017\n\007success\030\001 \001(\010\022\017\n\007message"
+    "\030\002 \001(\t\022\021\n\tsuspended\030\003 \001(\010\"K\n\025ListProcess"
+    "esResponse\0222\n\tprocesses\030\001 \003(\0132\037.croupier"
+    ".ops.v1.ManagedProcess\"\213\002\n\016ManagedProces"
+    "s\022\014\n\004name\030\001 \001(\t\022\017\n\007command\030\002 \001(\t\022\023\n\013work"
+    "ing_dir\030\003 \001(\t\022,\n\005state\030\004 \001(\0162\035.croupier."
+    "ops.v1.ProcessState\022\013\n\003pid\030\005 \001(\005\022\025\n\rrest"
+    "art_count\030\006 \001(\005\022.\n\nlast_start\030\007 \001(\0132\032.go"
+    "ogle.protobuf.Timestamp\022\026\n\016uptime_second"
+    "s\030\010 \001(\003\022\r\n\005flags\030\t \003(\t\022\034\n\024next_restart_a"
+    "t_unix\030\n \001(\003\"\310\002\n\017SupervisorEvent\022\017\n\007ts_u"
+    "nix\030\001 \001(\003\022\017\n\007process\030\002 \001(\t\022\r\n\005event\030\003 \001("
+    "\t\022\017\n\007old_pid\030\004 \001(\005\022\017\n\007new_pid\030\005 \001(\005\022\021\n\te"
+    "xit_code\030\006 \001(\005\022\016\n\006signal\030\007 \001(\t\022\025\n\rrestar"
+    "t_count\030\010 \001(\005\022\017\n\007message\030\t \001(\t\022\033\n\023last_h"
+    "eartbeat_unix\030\n \001(\003\022\022\n\nlast_error\030\013 \001(\t\022"
+    "\023\n\013oom_suspect\030\014 \001(\010\022\026\n\016last_rss_bytes\030\r"
+    " \001(\003\022\013\n\003seq\030\016 \001(\003\022\024\n\014snapshot_dir\030\017 \001(\t\022"
+    "\026\n\016snapshot_files\030\020 \003(\t\",\n\027GetSupervisor"
+    "LogRequest\022\021\n\tmax_bytes\030\001 \001(\005\"Q\n\030GetSupe"
+    "rvisorLogResponse\022\017\n\007content\030\001 \001(\014\022\021\n\tfi"
+    "le_name\030\002 \001(\t\022\021\n\ttruncated\030\003 \001(\010\"\253\003\n\031Sup"
+    "ervisedProcessSnapshot\022\014\n\004name\030\001 \001(\t\022\013\n\003"
+    "pid\030\002 \001(\005\022,\n\005state\030\003 \001(\0162\035.croupier.ops."
+    "v1.ProcessState\022\026\n\016uptime_seconds\030\004 \001(\003\022"
+    "\025\n\rrestart_count\030\005 \001(\005\022\021\n\trss_bytes\030\006 \001("
+    "\003\022\023\n\013cpu_percent\030\007 \001(\001\022\r\n\005flags\030\010 \003(\t\022\027\n"
+    "\017last_event_unix\030\t \001(\003\022\034\n\024next_restart_a"
+    "t_unix\030\n \001(\003\022\030\n\020snapshot_profile\030\013 \001(\t\022\014"
+    "\n\004kind\030\014 \001(\t\022\022\n\nadapter_id\030\r \001(\t\022\035\n\025next"
+    "_schedule_at_unix\030\016 \001(\003\022\034\n\024next_schedule"
+    "_action\030\017 \001(\t\022\023\n\013fingerprint\030\020 \001(\t\022\032\n\022sc"
+    "hedule_suspended\030\021 \001(\010\"\316\001\n\025ExecuteComman"
+    "dRequest\022\017\n\007command\030\001 \001(\t\022\014\n\004args\030\002 \003(\t\022"
+    "\023\n\013working_dir\030\003 \001(\t\022<\n\003env\030\004 \003(\0132/.crou"
+    "pier.ops.v1.ExecuteCommandRequest.EnvEnt"
+    "ry\022\027\n\017timeout_seconds\030\005 \001(\005\032*\n\010EnvEntry\022"
+    "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"m\n\026Execu"
+    "teCommandResponse\022\017\n\007success\030\001 \001(\010\022\021\n\tex"
+    "it_code\030\002 \001(\005\022\017\n\007std_out\030\003 \001(\t\022\017\n\007std_er"
+    "r\030\004 \001(\t\022\r\n\005error\030\005 \001(\t\"I\n\023ListServicesRe"
+    "quest\022\r\n\005state\030\001 \001(\t\022\024\n\014name_pattern\030\002 \001"
+    "(\t\022\r\n\005limit\030\003 \001(\005\"U\n\024ListServicesRespons"
+    "e\022.\n\010services\030\001 \003(\0132\034.croupier.ops.v1.Se"
+    "rviceInfo\022\r\n\005total\030\002 \001(\005\"i\n\013ServiceInfo\022"
+    "\014\n\004name\030\001 \001(\t\022\024\n\014display_name\030\002 \001(\t\022\016\n\006s"
+    "tatus\030\003 \001(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\nproce"
+    "ss_id\030\005 \001(\r\"\'\n\027GetServiceStatusRequest\022\014"
+    "\n\004name\030\001 \001(\t\"\240\001\n\030GetServiceStatusRespons"
+    "e\022\014\n\004name\030\001 \001(\t\022\024\n\014display_name\030\002 \001(\t\022\016\n"
+    "\006status\030\003 \001(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\npro"
+    "cess_id\030\005 \001(\r\022\023\n\013binary_path\030\006 \001(\t\022\023\n\013de"
+    "scription\030\007 \001(\t\"M\n\024ListCronJobsResponse\022"
+    "&\n\004jobs\030\001 \003(\0132\030.croupier.ops.v1.CronJob\022"
+    "\r\n\005total\030\002 \001(\005\"`\n\007CronJob\022\020\n\010schedule\030\001 "
+    "\001(\t\022\017\n\007command\030\002 \001(\t\022\014\n\004user\030\003 \001(\t\022\023\n\013so"
+    "urce_file\030\004 \001(\t\022\017\n\007enabled\030\005 \001(\010\"\314\001\n\024Cap"
+    "tureRuleHitReport\022\020\n\010agent_id\030\001 \001(\t\022\017\n\007g"
+    "ame_id\030\002 \001(\t\022\013\n\003env\030\003 \001(\t\022\014\n\004rule\030\004 \001(\t\022"
+    "\020\n\010severity\030\005 \001(\t\022\r\n\005table\030\006 \001(\t\022\013\n\003key\030"
+    "\007 \001(\t\022\016\n\006detail\030\010 \001(\t\022\014\n\004gtid\030\t \001(\t\022\020\n\010e"
+    "vent_op\030\n \001(\t\022\030\n\020event_ts_unix_ms\030\013 \001(\003\""
+    "8\n\021CaptureRuleHitAck\022\020\n\010accepted\030\001 \001(\010\022\021"
+    "\n\tduplicate\030\002 \001(\010\"-\n\031CaptureGatesConfigR"
+    "equest\022\020\n\010agent_id\030\001 \001(\t\"A\n\032CaptureGates"
+    "ConfigResponse\022\017\n\007version\030\001 \001(\t\022\022\n\ngates"
+    "_json\030\002 \001(\t\",\n\030ProbePolicyConfigRequest\022"
+    "\020\n\010agent_id\030\001 \001(\t\"A\n\031ProbePolicyConfigRe"
+    "sponse\022\017\n\007version\030\001 \001(\t\022\023\n\013policy_json\030\002"
+    " \001(\t\"/\n\033ProbeDBTargetsConfigRequest\022\020\n\010a"
+    "gent_id\030\001 \001(\t\"E\n\034ProbeDBTargetsConfigRes"
+    "ponse\022\017\n\007version\030\001 \001(\t\022\024\n\014targets_json\030\002"
+    " \001(\t\"0\n\034DevopsAllowlistConfigRequest\022\020\n\010"
+    "agent_id\030\001 \001(\t\"H\n\035DevopsAllowlistConfigR"
+    "esponse\022\017\n\007version\030\001 \001(\t\022\026\n\016allowlist_js"
+    "on\030\002 \001(\t\"2\n\036SyntheticsTargetsConfigReque"
+    "st\022\020\n\010agent_id\030\001 \001(\t\"H\n\037SyntheticsTarget"
+    "sConfigResponse\022\017\n\007version\030\001 \001(\t\022\024\n\014targ"
+    "ets_json\030\002 \001(\t\"\277\001\n\nAlertEvent\022\014\n\004kind\030\001 "
+    "\001(\t\022\020\n\010agent_id\030\002 \001(\t\022\017\n\007game_id\030\003 \001(\t\022\013"
+    "\n\003env\030\004 \001(\t\022,\n\006window\030\005 \001(\0132\034.croupier.o"
+    "ps.v1.ProbeWindow\022,\n\006detail\030\006 \001(\0132\034.crou"
+    "pier.ops.v1.ProbeDetail\022\027\n\017target_catego"
+    "ry\030\007 \001(\t\"\272\001\n\013ProbeWindow\022\016\n\006target\030\001 \001(\t"
+    "\022\021\n\tsemantics\030\002 \001(\t\022\023\n\013window_kind\030\003 \001(\t"
+    "\022\030\n\020start_ts_unix_ms\030\004 \001(\003\022\026\n\016end_ts_uni"
+    "x_ms\030\005 \001(\003\022\023\n\013duration_ms\030\006 \001(\003\022\023\n\013last_"
+    "reason\030\007 \001(\t\022\027\n\017target_category\030\010 \001(\t\"\254\002"
+    "\n\013ProbeDetail\022\016\n\006target\030\001 \001(\t\022\021\n\tsemanti"
+    "cs\030\002 \001(\t\022\n\n\002ok\030\003 \001(\010\022\013\n\003err\030\004 \001(\t\022\025\n\rat_"
+    "ts_unix_ms\030\005 \001(\003\022\022\n\nlatency_ms\030\006 \001(\003\022\034\n\024"
+    "consecutive_failures\030\007 \001(\005\022\023\n\013window_ope"
+    "n\030\010 \001(\010\022:\n\007details\030\t \003(\0132).croupier.ops."
+    "v1.ProbeDetail.DetailsEntry\022\027\n\017target_ca"
+    "tegory\030\n \001(\t\032.\n\014DetailsEntry\022\013\n\003key\030\001 \001("
+    "\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\345\002\n\nProbeStats\022\016\n\006t"
+    "arget\030\001 \001(\t\022\021\n\tsemantics\030\002 \001(\t\022\017\n\007game_i"
+    "d\030\003 \001(\t\022\013\n\003env\030\004 \001(\t\022\017\n\007checked\030\005 \001(\003\022\016\n"
+    "\006failed\030\006 \001(\003\022\024\n\014success_rate\030\007 \001(\001\022\027\n\017l"
+    "atency_buckets\030\010 \003(\003\022\023\n\013window_open\030\t \001("
+    "\010\022\032\n\022window_duration_ms\030\n \001(\003\022\023\n\013last_re"
+    "ason\030\013 \001(\t\022\027\n\017dropped_details\030\014 \001(\003\022\022\n\np"
+    "robe_type\030\r \001(\t\022\020\n\010protocol\030\016 \001(\t\022\r\n\005pha"
+    "se\030\017 \001(\t\022\031\n\021protocol_expected\030\020 \001(\010\022\027\n\017t"
+    "arget_category\030\021 \001(\t*\352\001\n\014ProcessState\022\035\n"
+    "\031PROCESS_STATE_UNSPECIFIED\020\000\022\031\n\025PROCESS_"
+    "STATE_RUNNING\020\001\022\031\n\025PROCESS_STATE_STOPPED"
+    "\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032\n\026PROCESS_"
+    "STATE_STARTING\020\004\022\032\n\026PROCESS_STATE_STOPPI"
+    "NG\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020\006\022\030\n\024PROCE"
+    "SS_STATE_BROKEN\020\007Bj\n\"io.github.cuihairu."
+    "croupier.ops.v1P\001Z0github.com/cuihairu/c"
+    "roupier/pkg/pb/ops/v1;opsv1\252\002\017Croupier.O"
+    "ps.V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps[1] = {
@@ -3053,13 +3155,13 @@ static ::absl::once_flag descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fops_2fv1_2fops_2eproto = {
     false,
     false,
-    7536,
+    7733,
     descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto,
     "croupier/ops/v1/ops.proto",
     &descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once,
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps,
     1,
-    54,
+    56,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fops_2fv1_2fops_2eproto::offsets,
@@ -11464,6 +11566,838 @@ void UpdateProcessResponse::InternalSwap(UpdateProcessResponse* PROTOBUF_RESTRIC
 }
 
 ::google::protobuf::Metadata UpdateProcessResponse::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class PushFileRequest::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<PushFileRequest>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_._has_bits_);
+};
+
+PushFileRequest::PushFileRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, PushFileRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.PushFileRequest)
+}
+PROTOBUF_NDEBUG_INLINE PushFileRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::PushFileRequest& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        path_(arena, from.path_),
+        content_(arena, from.content_),
+        expected_sha256_(arena, from.expected_sha256_) {}
+
+PushFileRequest::PushFileRequest(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const PushFileRequest& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, PushFileRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  PushFileRequest* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  ::memcpy(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, mode_),
+           reinterpret_cast<const char*>(&from._impl_) +
+               offsetof(Impl_, mode_),
+           offsetof(Impl_, force_) -
+               offsetof(Impl_, mode_) +
+               sizeof(Impl_::force_));
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.PushFileRequest)
+}
+PROTOBUF_NDEBUG_INLINE PushFileRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        path_(arena),
+        content_(arena),
+        expected_sha256_(arena) {}
+
+inline void PushFileRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, mode_),
+           0,
+           offsetof(Impl_, force_) -
+               offsetof(Impl_, mode_) +
+               sizeof(Impl_::force_));
+}
+PushFileRequest::~PushFileRequest() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.PushFileRequest)
+  SharedDtor(*this);
+}
+inline void PushFileRequest::SharedDtor(MessageLite& self) {
+  PushFileRequest& this_ = static_cast<PushFileRequest&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.path_.Destroy();
+  this_._impl_.content_.Destroy();
+  this_._impl_.expected_sha256_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL PushFileRequest::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) PushFileRequest(arena);
+}
+constexpr auto PushFileRequest::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(PushFileRequest),
+                                            alignof(PushFileRequest));
+}
+constexpr auto PushFileRequest::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_PushFileRequest_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &PushFileRequest::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<PushFileRequest>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &PushFileRequest::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<PushFileRequest>(), &PushFileRequest::ByteSizeLong,
+              &PushFileRequest::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_._cached_size_),
+          false,
+      },
+      &PushFileRequest::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull PushFileRequest_class_data_ =
+        PushFileRequest::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+PushFileRequest::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&PushFileRequest_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(PushFileRequest_class_data_.tc_table);
+  return PushFileRequest_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 0, 59, 2>
+PushFileRequest::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_._has_bits_),
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    PushFileRequest_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::PushFileRequest>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string path = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.path_)}},
+    // bytes content = 2;
+    {::_pbi::TcParser::FastBS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.content_)}},
+    // int32 mode = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(PushFileRequest, _impl_.mode_), 3>(),
+     {24, 3, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.mode_)}},
+    // string expected_sha256 = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 2, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.expected_sha256_)}},
+    // bool force = 5;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(PushFileRequest, _impl_.force_), 4>(),
+     {40, 4, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.force_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string path = 1;
+    {PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.path_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bytes content = 2;
+    {PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.content_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kBytes | ::_fl::kRepAString)},
+    // int32 mode = 3;
+    {PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.mode_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // string expected_sha256 = 4;
+    {PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.expected_sha256_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool force = 5;
+    {PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.force_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+  }},
+  // no aux_entries
+  {{
+    "\37\4\0\0\17\0\0\0"
+    "croupier.ops.v1.PushFileRequest"
+    "path"
+    "expected_sha256"
+  }},
+};
+PROTOBUF_NOINLINE void PushFileRequest::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.PushFileRequest)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      _impl_.path_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      _impl_.content_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      _impl_.expected_sha256_.ClearNonDefaultToEmpty();
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000018U)) {
+    ::memset(&_impl_.mode_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.force_) -
+        reinterpret_cast<char*>(&_impl_.mode_)) + sizeof(_impl_.force_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL PushFileRequest::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const PushFileRequest& this_ = static_cast<const PushFileRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL PushFileRequest::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const PushFileRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.PushFileRequest)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string path = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_path().empty()) {
+      const ::std::string& _s = this_._internal_path();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.PushFileRequest.path");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  // bytes content = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (!this_._internal_content().empty()) {
+      const ::std::string& _s = this_._internal_content();
+      target = stream->WriteBytesMaybeAliased(2, _s, target);
+    }
+  }
+
+  // int32 mode = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (this_._internal_mode() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<3>(
+              stream, this_._internal_mode(), target);
+    }
+  }
+
+  // string expected_sha256 = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (!this_._internal_expected_sha256().empty()) {
+      const ::std::string& _s = this_._internal_expected_sha256();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.PushFileRequest.expected_sha256");
+      target = stream->WriteStringMaybeAliased(4, _s, target);
+    }
+  }
+
+  // bool force = 5;
+  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+    if (this_._internal_force() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          5, this_._internal_force(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.PushFileRequest)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t PushFileRequest::ByteSizeLong(const MessageLite& base) {
+  const PushFileRequest& this_ = static_cast<const PushFileRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t PushFileRequest::ByteSizeLong() const {
+  const PushFileRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.PushFileRequest)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
+    // string path = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_path().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_path());
+      }
+    }
+    // bytes content = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!this_._internal_content().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::BytesSize(
+                                        this_._internal_content());
+      }
+    }
+    // string expected_sha256 = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!this_._internal_expected_sha256().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_expected_sha256());
+      }
+    }
+    // int32 mode = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (this_._internal_mode() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_mode());
+      }
+    }
+    // bool force = 5;
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (this_._internal_force() != 0) {
+        total_size += 2;
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void PushFileRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<PushFileRequest*>(&to_msg);
+  auto& from = static_cast<const PushFileRequest&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.PushFileRequest)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!from._internal_path().empty()) {
+        _this->_internal_set_path(from._internal_path());
+      } else {
+        if (_this->_impl_.path_.IsDefault()) {
+          _this->_internal_set_path("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!from._internal_content().empty()) {
+        _this->_internal_set_content(from._internal_content());
+      } else {
+        if (_this->_impl_.content_.IsDefault()) {
+          _this->_internal_set_content("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!from._internal_expected_sha256().empty()) {
+        _this->_internal_set_expected_sha256(from._internal_expected_sha256());
+      } else {
+        if (_this->_impl_.expected_sha256_.IsDefault()) {
+          _this->_internal_set_expected_sha256("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (from._internal_mode() != 0) {
+        _this->_impl_.mode_ = from._impl_.mode_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (from._internal_force() != 0) {
+        _this->_impl_.force_ = from._impl_.force_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void PushFileRequest::CopyFrom(const PushFileRequest& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.PushFileRequest)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void PushFileRequest::InternalSwap(PushFileRequest* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.path_, &other->_impl_.path_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.content_, &other->_impl_.content_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.expected_sha256_, &other->_impl_.expected_sha256_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.force_)
+      + sizeof(PushFileRequest::_impl_.force_)
+      - PROTOBUF_FIELD_OFFSET(PushFileRequest, _impl_.mode_)>(
+          reinterpret_cast<char*>(&_impl_.mode_),
+          reinterpret_cast<char*>(&other->_impl_.mode_));
+}
+
+::google::protobuf::Metadata PushFileRequest::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class PushFileResponse::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<PushFileResponse>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_._has_bits_);
+};
+
+PushFileResponse::PushFileResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, PushFileResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.PushFileResponse)
+}
+PROTOBUF_NDEBUG_INLINE PushFileResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::PushFileResponse& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        message_(arena, from.message_),
+        sha256_(arena, from.sha256_) {}
+
+PushFileResponse::PushFileResponse(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const PushFileResponse& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, PushFileResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  PushFileResponse* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  ::memcpy(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, bytes_written_),
+           reinterpret_cast<const char*>(&from._impl_) +
+               offsetof(Impl_, bytes_written_),
+           offsetof(Impl_, success_) -
+               offsetof(Impl_, bytes_written_) +
+               sizeof(Impl_::success_));
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.PushFileResponse)
+}
+PROTOBUF_NDEBUG_INLINE PushFileResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        message_(arena),
+        sha256_(arena) {}
+
+inline void PushFileResponse::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, bytes_written_),
+           0,
+           offsetof(Impl_, success_) -
+               offsetof(Impl_, bytes_written_) +
+               sizeof(Impl_::success_));
+}
+PushFileResponse::~PushFileResponse() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.PushFileResponse)
+  SharedDtor(*this);
+}
+inline void PushFileResponse::SharedDtor(MessageLite& self) {
+  PushFileResponse& this_ = static_cast<PushFileResponse&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.message_.Destroy();
+  this_._impl_.sha256_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL PushFileResponse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) PushFileResponse(arena);
+}
+constexpr auto PushFileResponse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(PushFileResponse),
+                                            alignof(PushFileResponse));
+}
+constexpr auto PushFileResponse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_PushFileResponse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &PushFileResponse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<PushFileResponse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &PushFileResponse::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<PushFileResponse>(), &PushFileResponse::ByteSizeLong,
+              &PushFileResponse::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_._cached_size_),
+          false,
+      },
+      &PushFileResponse::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull PushFileResponse_class_data_ =
+        PushFileResponse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+PushFileResponse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&PushFileResponse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(PushFileResponse_class_data_.tc_table);
+  return PushFileResponse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 0, 54, 2>
+PushFileResponse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_._has_bits_),
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    PushFileResponse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::PushFileResponse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string sha256 = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 1, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.sha256_)}},
+    // bool success = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(PushFileResponse, _impl_.success_), 3>(),
+     {8, 3, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.success_)}},
+    // string message = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 0, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.message_)}},
+    // int64 bytes_written = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(PushFileResponse, _impl_.bytes_written_), 2>(),
+     {24, 2, 0,
+      PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.bytes_written_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // bool success = 1;
+    {PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.success_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // string message = 2;
+    {PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.message_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int64 bytes_written = 3;
+    {PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.bytes_written_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+    // string sha256 = 4;
+    {PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.sha256_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\40\0\7\0\6\0\0\0"
+    "croupier.ops.v1.PushFileResponse"
+    "message"
+    "sha256"
+  }},
+};
+PROTOBUF_NOINLINE void PushFileResponse::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.PushFileResponse)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      _impl_.message_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      _impl_.sha256_.ClearNonDefaultToEmpty();
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000cU)) {
+    ::memset(&_impl_.bytes_written_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.success_) -
+        reinterpret_cast<char*>(&_impl_.bytes_written_)) + sizeof(_impl_.success_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL PushFileResponse::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const PushFileResponse& this_ = static_cast<const PushFileResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL PushFileResponse::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const PushFileResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.PushFileResponse)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // bool success = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (this_._internal_success() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          1, this_._internal_success(), target);
+    }
+  }
+
+  // string message = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_message().empty()) {
+      const ::std::string& _s = this_._internal_message();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.PushFileResponse.message");
+      target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
+  }
+
+  // int64 bytes_written = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (this_._internal_bytes_written() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<3>(
+              stream, this_._internal_bytes_written(), target);
+    }
+  }
+
+  // string sha256 = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (!this_._internal_sha256().empty()) {
+      const ::std::string& _s = this_._internal_sha256();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.PushFileResponse.sha256");
+      target = stream->WriteStringMaybeAliased(4, _s, target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.PushFileResponse)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t PushFileResponse::ByteSizeLong(const MessageLite& base) {
+  const PushFileResponse& this_ = static_cast<const PushFileResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t PushFileResponse::ByteSizeLong() const {
+  const PushFileResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.PushFileResponse)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
+    // string message = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_message().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_message());
+      }
+    }
+    // string sha256 = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!this_._internal_sha256().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_sha256());
+      }
+    }
+    // int64 bytes_written = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (this_._internal_bytes_written() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_bytes_written());
+      }
+    }
+    // bool success = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (this_._internal_success() != 0) {
+        total_size += 2;
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void PushFileResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<PushFileResponse*>(&to_msg);
+  auto& from = static_cast<const PushFileResponse&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.PushFileResponse)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!from._internal_message().empty()) {
+        _this->_internal_set_message(from._internal_message());
+      } else {
+        if (_this->_impl_.message_.IsDefault()) {
+          _this->_internal_set_message("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!from._internal_sha256().empty()) {
+        _this->_internal_set_sha256(from._internal_sha256());
+      } else {
+        if (_this->_impl_.sha256_.IsDefault()) {
+          _this->_internal_set_sha256("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (from._internal_bytes_written() != 0) {
+        _this->_impl_.bytes_written_ = from._impl_.bytes_written_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (from._internal_success() != 0) {
+        _this->_impl_.success_ = from._impl_.success_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void PushFileResponse::CopyFrom(const PushFileResponse& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.PushFileResponse)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void PushFileResponse::InternalSwap(PushFileResponse* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.message_, &other->_impl_.message_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sha256_, &other->_impl_.sha256_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.success_)
+      + sizeof(PushFileResponse::_impl_.success_)
+      - PROTOBUF_FIELD_OFFSET(PushFileResponse, _impl_.bytes_written_)>(
+          reinterpret_cast<char*>(&_impl_.bytes_written_),
+          reinterpret_cast<char*>(&other->_impl_.bytes_written_));
+}
+
+::google::protobuf::Metadata PushFileResponse::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // ===================================================================

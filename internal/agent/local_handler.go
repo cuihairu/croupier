@@ -74,6 +74,7 @@ type OpsServerWrapper interface {
 	UpdateProcess(ctx context.Context, req *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error)
 	SetSchedulePause(ctx context.Context, req *opsv1.SchedulePauseRequest) (*opsv1.SchedulePauseResponse, error)
 	ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error)
+	PushFile(ctx context.Context, req *opsv1.PushFileRequest) (*opsv1.PushFileResponse, error)
 
 	// System services (platform-specific, read-only)
 	// These use JSON request/response to avoid circular dependencies
@@ -260,6 +261,8 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleSchedulePause(ctx, data)
 	case protocol.MsgExecuteCommandRequest:
 		return h.handleExecuteCommand(ctx, data)
+	case protocol.MsgPushFileRequest:
+		return h.handlePushFile(ctx, data)
 	case protocol.MsgListServicesRequest:
 		return h.handleListServices(ctx, data)
 	case protocol.MsgGetServiceStatusRequest:
@@ -856,6 +859,27 @@ func (h *LocalHandler) handleExecuteCommand(ctx context.Context, data []byte) ([
 		return nil, fmt.Errorf("execute command: %w", err)
 	}
 
+	return proto.Marshal(resp)
+}
+
+// handlePushFile writes an OPS-006 configuration file delivered by the server.
+func (h *LocalHandler) handlePushFile(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.PushFileRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal PushFileRequest: %w", err)
+	}
+
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	resp, err := ops.PushFile(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("push file: %w", err)
+	}
 	return proto.Marshal(resp)
 }
 

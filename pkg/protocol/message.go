@@ -122,6 +122,10 @@ const (
 	MsgSyntheticsTargetsConfigRequest  = 0x040129
 	MsgSyntheticsTargetsConfigResponse = 0x04012A
 
+	// OPS-006 batch config push: deliver a configuration file to an agent.
+	MsgPushFileRequest  = 0x04012B
+	MsgPushFileResponse = 0x04012C
+
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
 	MsgProviderConnectResponse   = 0x050102
@@ -371,6 +375,10 @@ func MsgIDString(msgID uint32) string {
 		return "SyntheticsTargetsConfigRequest"
 	case MsgSyntheticsTargetsConfigResponse:
 		return "SyntheticsTargetsConfigResponse"
+	case MsgPushFileRequest:
+		return "PushFileRequest"
+	case MsgPushFileResponse:
+		return "PushFileResponse"
 	case MsgAlertEvent:
 		return "AlertEvent"
 	default:
