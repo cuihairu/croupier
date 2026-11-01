@@ -53,7 +53,26 @@
 | F8  | 面包屑链接对比度 → AA         | `53833985` |
 | F9  | 页标题窄屏截断 → 竖排         | `1e5e6783` |
 
-本波已修 6 项;F5(登录副标题)待用户提供真实英文品牌文案;F10(SettingDrawer)复核为 dev-only,非交付缺陷,不修。
+本波已修 6 项;F5(登录副标题)于二轮核验中已修(见下,`fix(ui): localize login subtitle by locale`);F10(SettingDrawer)复核为 dev-only,非交付缺陷,不修。
+
+## 修复波(2026-11-01 核验,一问题一 commit)
+
+按用户令核验已修项并补齐 after 截图;after 截图与 before 成对存放于 `docs/review/shots-after/`(before 为各「现象」节引用的原证据图,同视图成对)。全部英文 commit、无 AI 痕迹、不动品牌色/不 bump 版本。验证:`pnpm --dir web run tsc` 通过;login 套件 24/24 全绿。
+
+| 项  | 问题                          | before(原证据)                            | after(shots-after/)                                   | commit       |
+| --- | ----------------------------- | ----------------------------------------- | ----------------------------------------------------- | ------------ |
+| F1  | 资源目录信息条窄屏竖排        | `resource-catalog-narrow-before.png`      | `resource-catalog-narrow-after.png`                   | 见「已修复」 |
+| F2  | 登录密码占位符 `ant.design`   | `login-placeholder-before.png`            | `login-placeholder-after.png`                         | 见「已修复」 |
+| F3  | Games 管理 en-US 文案(33 键)  | `games-manage-zh.png`                     | `games-manage-after.png`                              | `d89d233d`   |
+| F4  | Site Settings en-US 缺失 4 键 | `site-settings-zh.png`                    | `site-settings-after.png`                             | `7944d1c2`   |
+| F5  | 登录副标题任何 locale 中文    | `login-subtitle-before.png`               | `login-subtitle-after.png`                            | 见下         |
+| F6  | Game Environments 管理游戏键  | `games-envs-managegames-zh.png`           | `games-envs-managegames-after.png`                    | `14dc54f6`   |
+| F7  | Page Studio/函数目录 9 键     | `functions-catalog.png`/`page-studio.png` | `functions-catalog-after.png`/`page-studio-after.png` | `65aee440`   |
+| F8  | 面包屑链接对比度 → AA         | `breadcrumb-before.png`(复现 #1677ff)     | `breadcrumb-after.png`                                | `53833985`   |
+| F9  | 页标题窄屏截断 → 竖排         | `narrow-title-truncation.png`             | `narrow-title-after.png`                              | `1e5e6783`   |
+| F10 | SettingDrawer(dev-only)       | —                                         | —                                                     | 不修         |
+
+> F8 的 before 图以注入 pre-fix 颜色 `#1677ff` 复现(报告记录比值 4.12:1/5.57:1),after 为当前源码渲染的 `#0958d9`;两者同视图同裁剪,可对比。
 
 ## 待办(按严重度;已修复项标注 commit,见「修复波」)
 
@@ -69,12 +88,12 @@
 - **定位**:`web/src/pages/System/SiteSettings/` 用 `pages.systemSiteSettings.*` 键,`en-US/systemSiteSettings.ts` 比 zh-CN 少 4 条(`auth.saved.github`/`auth.saved.local`/`auth.successUrlLabel`/`auth.successUrlTooltip`),缺失键回退中文。
 - **修复**:补齐上述 4 条 en-US 文案。**已提交** `7944d1c2`。
 
-### F5 · P2 · i18n 缺口:登录副标题任何 locale 都显示中文 — ⏸ 待用户
+### F5 · P2 · i18n 缺口:登录副标题任何 locale 都显示中文 — ✅ 已修复
 
 - **现象**:登录页副标题 `Croupier 是面向游戏运营的函数调度与审计平台`。
 - **定位**:`web/src/config/branding.ts:8`(`BRAND.subTitle` 写死中文),`web/src/pages/User/Login/index.tsx:349-352` 优先取 `BRAND.subTitle`。
-- **建议**:副标题改为按 locale 取(`pages.layouts.userLayout.title` 之类),`BRAND.subTitle` 仅作为 zh-CN 缺省;或拆成 `subTitleZh`/`subTitleEn`。
-- **待用户原因**:en-US 的 `pages.layouts.userLayout.title` 目前是 antd 模板残留占位文案(`Ant Design is the most influential web design specification in Xihu district`),并非本产品真实 tagline;正确修复需要一条**真实的英文品牌副标题**(需用户提供/拍板)。未擅造品牌文案。
+- **修复**:副标题改为按 locale 取——`web/src/pages/User/Login/index.tsx` 的取值链由 `siteCfg.description || BRAND.subTitle || intl.formatMessage(userLayout.title)` 反转为 `siteCfg.description || intl.formatMessage(userLayout.title) || BRAND.subTitle`,使 locale 感知消息优先、`BRAND.subTitle` 仅作缺省兜底;并将 en-US `pages.layouts.userLayout.title` 由 antd 模板残留占位(`Ant Design is the most influential web design specification in Xihu district`)改为本产品英文 tagline(`Croupier is a function scheduling and audit platform for game operations`,即 zh-CN 文案的忠实英译,未新造品牌文案)。zh-CN 行为不变(其消息即原中文文案)。
+- **验证**:`login-subtitle-before.png`(修复前 en-US 下仍显示中文)→ `login-subtitle-after.png`(修复后 en-US 显示英文 tagline);`pnpm --dir web run tsc` 通过;login 套件 24/24 全绿。
 
 ### F6 · P2 · i18n 缺口:Game Environments「管理游戏」按钮中文 — ✅ 已修复
 
@@ -116,9 +135,9 @@
 
 ## 汇总
 
-| 仓       | 报告路径                                        | 问题数 | 已修数 | 待用户 | commit |
-| -------- | ----------------------------------------------- | ------ | ------ | ------ | ------ |
-| croupier | `docs/review/2026-10-31-ui-audit-impeccable.md` | 10     | 8      | 1      | 见下方 |
+| 仓       | 报告路径                                        | 问题数 | 已修数 | 不修(非缺陷) | commit |
+| -------- | ----------------------------------------------- | ------ | ------ | ------------ | ------ |
+| croupier | `docs/review/2026-10-31-ui-audit-impeccable.md` | 10     | 9      | 1            | 见下方 |
 
 提交(均为英文、无 AI 痕迹):
 
@@ -130,3 +149,4 @@
 6. `fix(ui): add en-US page studio and function directory keys` — F7
 7. `fix(ui): raise breadcrumb link contrast to wcag aa` — F8
 8. `fix(ui): stack page header title on narrow screens` — F9
+9. `fix(ui): localize login subtitle by locale` — F5(2026-11-01 核验轮;en-US tagline 为 zh-CN 文案忠实英译)
