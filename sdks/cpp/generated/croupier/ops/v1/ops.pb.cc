@@ -963,6 +963,42 @@ struct MemoryMetricsDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 MemoryMetricsDefaultTypeInternal _MemoryMetrics_default_instance_;
 
+inline constexpr LogEntry::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        file_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        level_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        message_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        ts_unix_ms_{::int64_t{0}},
+        seq_{::int64_t{0}} {}
+
+template <typename>
+constexpr LogEntry::LogEntry(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(LogEntry_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+struct LogEntryDefaultTypeInternal {
+  constexpr LogEntryDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~LogEntryDefaultTypeInternal() {}
+  union {
+    LogEntry _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 LogEntryDefaultTypeInternal _LogEntry_default_instance_;
+
 inline constexpr ListServicesRequest::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
@@ -1880,6 +1916,15 @@ inline constexpr MetricsReport::Impl_::Impl_(
         ports_ {}
         #endif
         ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        logs_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::ops::v1::MetricsReport,
+            PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.logs_)>()
+        }
+        #else  // !PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        logs_ {}
+        #endif
+        ,
         agent_id_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
@@ -2010,7 +2055,7 @@ const ::uint32_t
         1,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_._has_bits_),
-        15, // hasbit index offset
+        16, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.agent_id_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.timestamp_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.cpu_),
@@ -2023,18 +2068,33 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.supervisor_events_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.probe_stats_),
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.ports_),
-        7,
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.logs_),
         8,
         9,
         10,
+        11,
         0,
         1,
         2,
-        11,
+        12,
         3,
         4,
         5,
         6,
+        7,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::LogEntry, _impl_._has_bits_),
+        8, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::LogEntry, _impl_.file_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::LogEntry, _impl_.level_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::LogEntry, _impl_.message_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::LogEntry, _impl_.ts_unix_ms_),
+        PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::LogEntry, _impl_.seq_),
+        0,
+        1,
+        2,
+        3,
+        4,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::CpuMetrics, _impl_._has_bits_),
         9, // hasbit index offset
@@ -2684,61 +2744,63 @@ static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::croupier::ops::v1::MetricsReport_CustomEntry_DoNotUse)},
         {7, sizeof(::croupier::ops::v1::MetricsReport)},
-        {34, sizeof(::croupier::ops::v1::CpuMetrics)},
-        {49, sizeof(::croupier::ops::v1::MemoryMetrics)},
-        {64, sizeof(::croupier::ops::v1::DiskMetrics)},
-        {85, sizeof(::croupier::ops::v1::NetworkMetrics)},
-        {110, sizeof(::croupier::ops::v1::ProcessMetrics)},
-        {129, sizeof(::croupier::ops::v1::PortMetrics)},
-        {142, sizeof(::croupier::ops::v1::SystemInfo)},
-        {167, sizeof(::croupier::ops::v1::OpsStatus)},
-        {178, sizeof(::croupier::ops::v1::RestartProcessRequest)},
-        {187, sizeof(::croupier::ops::v1::RestartProcessResponse)},
-        {196, sizeof(::croupier::ops::v1::StopProcessRequest)},
-        {205, sizeof(::croupier::ops::v1::StopProcessResponse)},
-        {212, sizeof(::croupier::ops::v1::StartProcessRequest)},
-        {217, sizeof(::croupier::ops::v1::StartProcessResponse)},
-        {226, sizeof(::croupier::ops::v1::UpdateProcessRequest)},
-        {235, sizeof(::croupier::ops::v1::UpdateProcessResponse)},
-        {248, sizeof(::croupier::ops::v1::SchedulePauseRequest)},
-        {255, sizeof(::croupier::ops::v1::SchedulePauseResponse)},
-        {264, sizeof(::croupier::ops::v1::ListProcessesResponse)},
-        {269, sizeof(::croupier::ops::v1::ManagedProcess)},
-        {292, sizeof(::croupier::ops::v1::SupervisorEvent)},
-        {327, sizeof(::croupier::ops::v1::GetSupervisorLogRequest)},
-        {332, sizeof(::croupier::ops::v1::GetSupervisorLogResponse)},
-        {341, sizeof(::croupier::ops::v1::SupervisedProcessSnapshot)},
-        {378, sizeof(::croupier::ops::v1::ExecuteCommandRequest_EnvEntry_DoNotUse)},
-        {385, sizeof(::croupier::ops::v1::ExecuteCommandRequest)},
-        {398, sizeof(::croupier::ops::v1::ExecuteCommandResponse)},
-        {411, sizeof(::croupier::ops::v1::ListServicesRequest)},
-        {420, sizeof(::croupier::ops::v1::ListServicesResponse)},
-        {427, sizeof(::croupier::ops::v1::ServiceInfo)},
-        {440, sizeof(::croupier::ops::v1::GetServiceStatusRequest)},
-        {445, sizeof(::croupier::ops::v1::GetServiceStatusResponse)},
-        {462, sizeof(::croupier::ops::v1::ListCronJobsResponse)},
-        {469, sizeof(::croupier::ops::v1::CronJob)},
-        {482, sizeof(::croupier::ops::v1::CaptureRuleHitReport)},
-        {507, sizeof(::croupier::ops::v1::CaptureRuleHitAck)},
-        {514, sizeof(::croupier::ops::v1::CaptureGatesConfigRequest)},
-        {519, sizeof(::croupier::ops::v1::CaptureGatesConfigResponse)},
-        {526, sizeof(::croupier::ops::v1::ProbePolicyConfigRequest)},
-        {531, sizeof(::croupier::ops::v1::ProbePolicyConfigResponse)},
-        {538, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigRequest)},
-        {543, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigResponse)},
-        {550, sizeof(::croupier::ops::v1::DevopsAllowlistConfigRequest)},
-        {555, sizeof(::croupier::ops::v1::DevopsAllowlistConfigResponse)},
-        {562, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigRequest)},
-        {567, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigResponse)},
-        {574, sizeof(::croupier::ops::v1::AlertEvent)},
-        {591, sizeof(::croupier::ops::v1::ProbeWindow)},
-        {610, sizeof(::croupier::ops::v1::ProbeDetail_DetailsEntry_DoNotUse)},
-        {617, sizeof(::croupier::ops::v1::ProbeDetail)},
-        {640, sizeof(::croupier::ops::v1::ProbeStats)},
+        {36, sizeof(::croupier::ops::v1::LogEntry)},
+        {49, sizeof(::croupier::ops::v1::CpuMetrics)},
+        {64, sizeof(::croupier::ops::v1::MemoryMetrics)},
+        {79, sizeof(::croupier::ops::v1::DiskMetrics)},
+        {100, sizeof(::croupier::ops::v1::NetworkMetrics)},
+        {125, sizeof(::croupier::ops::v1::ProcessMetrics)},
+        {144, sizeof(::croupier::ops::v1::PortMetrics)},
+        {157, sizeof(::croupier::ops::v1::SystemInfo)},
+        {182, sizeof(::croupier::ops::v1::OpsStatus)},
+        {193, sizeof(::croupier::ops::v1::RestartProcessRequest)},
+        {202, sizeof(::croupier::ops::v1::RestartProcessResponse)},
+        {211, sizeof(::croupier::ops::v1::StopProcessRequest)},
+        {220, sizeof(::croupier::ops::v1::StopProcessResponse)},
+        {227, sizeof(::croupier::ops::v1::StartProcessRequest)},
+        {232, sizeof(::croupier::ops::v1::StartProcessResponse)},
+        {241, sizeof(::croupier::ops::v1::UpdateProcessRequest)},
+        {250, sizeof(::croupier::ops::v1::UpdateProcessResponse)},
+        {263, sizeof(::croupier::ops::v1::SchedulePauseRequest)},
+        {270, sizeof(::croupier::ops::v1::SchedulePauseResponse)},
+        {279, sizeof(::croupier::ops::v1::ListProcessesResponse)},
+        {284, sizeof(::croupier::ops::v1::ManagedProcess)},
+        {307, sizeof(::croupier::ops::v1::SupervisorEvent)},
+        {342, sizeof(::croupier::ops::v1::GetSupervisorLogRequest)},
+        {347, sizeof(::croupier::ops::v1::GetSupervisorLogResponse)},
+        {356, sizeof(::croupier::ops::v1::SupervisedProcessSnapshot)},
+        {393, sizeof(::croupier::ops::v1::ExecuteCommandRequest_EnvEntry_DoNotUse)},
+        {400, sizeof(::croupier::ops::v1::ExecuteCommandRequest)},
+        {413, sizeof(::croupier::ops::v1::ExecuteCommandResponse)},
+        {426, sizeof(::croupier::ops::v1::ListServicesRequest)},
+        {435, sizeof(::croupier::ops::v1::ListServicesResponse)},
+        {442, sizeof(::croupier::ops::v1::ServiceInfo)},
+        {455, sizeof(::croupier::ops::v1::GetServiceStatusRequest)},
+        {460, sizeof(::croupier::ops::v1::GetServiceStatusResponse)},
+        {477, sizeof(::croupier::ops::v1::ListCronJobsResponse)},
+        {484, sizeof(::croupier::ops::v1::CronJob)},
+        {497, sizeof(::croupier::ops::v1::CaptureRuleHitReport)},
+        {522, sizeof(::croupier::ops::v1::CaptureRuleHitAck)},
+        {529, sizeof(::croupier::ops::v1::CaptureGatesConfigRequest)},
+        {534, sizeof(::croupier::ops::v1::CaptureGatesConfigResponse)},
+        {541, sizeof(::croupier::ops::v1::ProbePolicyConfigRequest)},
+        {546, sizeof(::croupier::ops::v1::ProbePolicyConfigResponse)},
+        {553, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigRequest)},
+        {558, sizeof(::croupier::ops::v1::ProbeDBTargetsConfigResponse)},
+        {565, sizeof(::croupier::ops::v1::DevopsAllowlistConfigRequest)},
+        {570, sizeof(::croupier::ops::v1::DevopsAllowlistConfigResponse)},
+        {577, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigRequest)},
+        {582, sizeof(::croupier::ops::v1::SyntheticsTargetsConfigResponse)},
+        {589, sizeof(::croupier::ops::v1::AlertEvent)},
+        {606, sizeof(::croupier::ops::v1::ProbeWindow)},
+        {625, sizeof(::croupier::ops::v1::ProbeDetail_DetailsEntry_DoNotUse)},
+        {632, sizeof(::croupier::ops::v1::ProbeDetail)},
+        {655, sizeof(::croupier::ops::v1::ProbeStats)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::ops::v1::_MetricsReport_CustomEntry_DoNotUse_default_instance_._instance,
     &::croupier::ops::v1::_MetricsReport_default_instance_._instance,
+    &::croupier::ops::v1::_LogEntry_default_instance_._instance,
     &::croupier::ops::v1::_CpuMetrics_default_instance_._instance,
     &::croupier::ops::v1::_MemoryMetrics_default_instance_._instance,
     &::croupier::ops::v1::_DiskMetrics_default_instance_._instance,
@@ -2794,7 +2856,7 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n\031croupier/ops/v1/ops.proto\022\017croupier.op"
-    "s.v1\032\037google/protobuf/timestamp.proto\"\217\005"
+    "s.v1\032\037google/protobuf/timestamp.proto\"\270\005"
     "\n\rMetricsReport\022\020\n\010agent_id\030\001 \001(\t\022-\n\ttim"
     "estamp\030\002 \001(\0132\032.google.protobuf.Timestamp"
     "\022(\n\003cpu\030\003 \001(\0132\033.croupier.ops.v1.CpuMetri"
@@ -2810,175 +2872,178 @@ const char descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto[] ABSL_AT
     " .croupier.ops.v1.SupervisorEvent\0220\n\013pro"
     "be_stats\030\013 \003(\0132\033.croupier.ops.v1.ProbeSt"
     "ats\022+\n\005ports\030\014 \003(\0132\034.croupier.ops.v1.Por"
-    "tMetrics\032-\n\013CustomEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005"
-    "value\030\002 \001(\001:\0028\001\"x\n\nCpuMetrics\022\025\n\rusage_p"
-    "ercent\030\001 \001(\001\022\r\n\005cores\030\002 \001(\005\022\020\n\010per_core\030"
-    "\003 \003(\001\022\017\n\007load_1m\030\004 \001(\001\022\017\n\007load_5m\030\005 \001(\001\022"
-    "\020\n\010load_15m\030\006 \001(\001\"\217\001\n\rMemoryMetrics\022\023\n\013t"
-    "otal_bytes\030\001 \001(\004\022\022\n\nused_bytes\030\002 \001(\004\022\027\n\017"
-    "available_bytes\030\003 \001(\004\022\025\n\rusage_percent\030\004"
-    " \001(\001\022\022\n\nswap_total\030\005 \001(\004\022\021\n\tswap_used\030\006 "
-    "\001(\004\"\305\001\n\013DiskMetrics\022\023\n\013mount_point\030\001 \001(\t"
-    "\022\016\n\006device\030\002 \001(\t\022\017\n\007fs_type\030\003 \001(\t\022\023\n\013tot"
-    "al_bytes\030\004 \001(\004\022\022\n\nused_bytes\030\005 \001(\004\022\027\n\017av"
-    "ailable_bytes\030\006 \001(\004\022\025\n\rusage_percent\030\007 \001"
-    "(\001\022\023\n\013inode_total\030\010 \001(\004\022\022\n\ninode_used\030\t "
-    "\001(\004\"\206\002\n\016NetworkMetrics\022\021\n\tinterface\030\001 \001("
-    "\t\022\022\n\nbytes_sent\030\002 \001(\004\022\022\n\nbytes_recv\030\003 \001("
-    "\004\022\024\n\014packets_sent\030\004 \001(\004\022\024\n\014packets_recv\030"
-    "\005 \001(\004\022\021\n\terrors_in\030\006 \001(\004\022\022\n\nerrors_out\030\007"
-    " \001(\004\022\027\n\017bytes_sent_rate\030\010 \001(\001\022\027\n\017bytes_r"
-    "ecv_rate\030\t \001(\001\022\031\n\021packets_sent_rate\030\n \001("
-    "\001\022\031\n\021packets_recv_rate\030\013 \001(\001\"\300\001\n\016Process"
-    "Metrics\022\013\n\003pid\030\001 \001(\005\022\014\n\004name\030\002 \001(\t\022\016\n\006st"
-    "atus\030\003 \001(\t\022\023\n\013cpu_percent\030\004 \001(\001\022\024\n\014memor"
-    "y_bytes\030\005 \001(\004\022\017\n\007threads\030\006 \001(\005\022.\n\nstart_"
-    "time\030\007 \001(\0132\032.google.protobuf.Timestamp\022\027"
-    "\n\017listening_ports\030\010 \003(\005\"_\n\013PortMetrics\022\014"
-    "\n\004port\030\001 \001(\005\022\020\n\010protocol\030\002 \001(\t\022\013\n\003pid\030\003 "
-    "\001(\005\022\024\n\014process_name\030\004 \001(\t\022\r\n\005state\030\005 \001(\t"
-    "\"\240\002\n\nSystemInfo\022\020\n\010hostname\030\001 \001(\t\022\n\n\002os\030"
-    "\002 \001(\t\022\022\n\nos_version\030\003 \001(\t\022\026\n\016kernel_vers"
-    "ion\030\004 \001(\t\022\014\n\004arch\030\005 \001(\t\022\021\n\tcpu_cores\030\006 \001"
-    "(\005\022\024\n\014total_memory\030\007 \001(\004\022-\n\tboot_time\030\010 "
-    "\001(\0132\032.google.protobuf.Timestamp\022\025\n\ragent"
-    "_version\030\t \001(\t\022\033\n\023agent_binary_sha256\030\013 "
-    "\001(\t\022.\n\nops_status\030\n \001(\0132\032.croupier.ops.v"
-    "1.OpsStatus\"b\n\tOpsStatus\022\017\n\007enabled\030\001 \001("
-    "\010\022\025\n\rallow_restart\030\002 \001(\010\022\022\n\nallow_exec\030\003"
-    " \001(\010\022\031\n\021managed_processes\030\004 \003(\t\"U\n\025Resta"
-    "rtProcessRequest\022\024\n\014process_name\030\001 \001(\t\022\r"
-    "\n\005force\030\002 \001(\010\022\027\n\017timeout_seconds\030\003 \001(\005\"K"
-    "\n\026RestartProcessResponse\022\017\n\007success\030\001 \001("
-    "\010\022\017\n\007message\030\002 \001(\t\022\017\n\007new_pid\030\003 \001(\005\"R\n\022S"
-    "topProcessRequest\022\024\n\014process_name\030\001 \001(\t\022"
-    "\r\n\005force\030\002 \001(\010\022\027\n\017timeout_seconds\030\003 \001(\005\""
-    "7\n\023StopProcessResponse\022\017\n\007success\030\001 \001(\010\022"
-    "\017\n\007message\030\002 \001(\t\"+\n\023StartProcessRequest\022"
-    "\024\n\014process_name\030\001 \001(\t\"E\n\024StartProcessRes"
-    "ponse\022\017\n\007success\030\001 \001(\010\022\017\n\007message\030\002 \001(\t\022"
-    "\013\n\003pid\030\003 \001(\005\"Z\n\024UpdateProcessRequest\022\024\n\014"
-    "process_name\030\001 \001(\t\022\023\n\013staged_path\030\002 \001(\t\022"
-    "\027\n\017expected_sha256\030\003 \001(\t\"\200\001\n\025UpdateProce"
-    "ssResponse\022\017\n\007success\030\001 \001(\010\022\017\n\007message\030\002"
-    " \001(\t\022\027\n\017old_fingerprint\030\003 \001(\t\022\027\n\017new_fin"
-    "gerprint\030\004 \001(\t\022\023\n\013rolled_back\030\005 \001(\010\"=\n\024S"
-    "chedulePauseRequest\022\024\n\014process_name\030\001 \001("
-    "\t\022\017\n\007suspend\030\002 \001(\010\"L\n\025SchedulePauseRespo"
-    "nse\022\017\n\007success\030\001 \001(\010\022\017\n\007message\030\002 \001(\t\022\021\n"
-    "\tsuspended\030\003 \001(\010\"K\n\025ListProcessesRespons"
-    "e\0222\n\tprocesses\030\001 \003(\0132\037.croupier.ops.v1.M"
-    "anagedProcess\"\213\002\n\016ManagedProcess\022\014\n\004name"
-    "\030\001 \001(\t\022\017\n\007command\030\002 \001(\t\022\023\n\013working_dir\030\003"
-    " \001(\t\022,\n\005state\030\004 \001(\0162\035.croupier.ops.v1.Pr"
-    "ocessState\022\013\n\003pid\030\005 \001(\005\022\025\n\rrestart_count"
-    "\030\006 \001(\005\022.\n\nlast_start\030\007 \001(\0132\032.google.prot"
-    "obuf.Timestamp\022\026\n\016uptime_seconds\030\010 \001(\003\022\r"
-    "\n\005flags\030\t \003(\t\022\034\n\024next_restart_at_unix\030\n "
-    "\001(\003\"\310\002\n\017SupervisorEvent\022\017\n\007ts_unix\030\001 \001(\003"
-    "\022\017\n\007process\030\002 \001(\t\022\r\n\005event\030\003 \001(\t\022\017\n\007old_"
-    "pid\030\004 \001(\005\022\017\n\007new_pid\030\005 \001(\005\022\021\n\texit_code\030"
-    "\006 \001(\005\022\016\n\006signal\030\007 \001(\t\022\025\n\rrestart_count\030\010"
-    " \001(\005\022\017\n\007message\030\t \001(\t\022\033\n\023last_heartbeat_"
-    "unix\030\n \001(\003\022\022\n\nlast_error\030\013 \001(\t\022\023\n\013oom_su"
-    "spect\030\014 \001(\010\022\026\n\016last_rss_bytes\030\r \001(\003\022\013\n\003s"
-    "eq\030\016 \001(\003\022\024\n\014snapshot_dir\030\017 \001(\t\022\026\n\016snapsh"
-    "ot_files\030\020 \003(\t\",\n\027GetSupervisorLogReques"
-    "t\022\021\n\tmax_bytes\030\001 \001(\005\"Q\n\030GetSupervisorLog"
-    "Response\022\017\n\007content\030\001 \001(\014\022\021\n\tfile_name\030\002"
-    " \001(\t\022\021\n\ttruncated\030\003 \001(\010\"\253\003\n\031SupervisedPr"
-    "ocessSnapshot\022\014\n\004name\030\001 \001(\t\022\013\n\003pid\030\002 \001(\005"
-    "\022,\n\005state\030\003 \001(\0162\035.croupier.ops.v1.Proces"
-    "sState\022\026\n\016uptime_seconds\030\004 \001(\003\022\025\n\rrestar"
-    "t_count\030\005 \001(\005\022\021\n\trss_bytes\030\006 \001(\003\022\023\n\013cpu_"
-    "percent\030\007 \001(\001\022\r\n\005flags\030\010 \003(\t\022\027\n\017last_eve"
-    "nt_unix\030\t \001(\003\022\034\n\024next_restart_at_unix\030\n "
-    "\001(\003\022\030\n\020snapshot_profile\030\013 \001(\t\022\014\n\004kind\030\014 "
-    "\001(\t\022\022\n\nadapter_id\030\r \001(\t\022\035\n\025next_schedule"
-    "_at_unix\030\016 \001(\003\022\034\n\024next_schedule_action\030\017"
-    " \001(\t\022\023\n\013fingerprint\030\020 \001(\t\022\032\n\022schedule_su"
-    "spended\030\021 \001(\010\"\316\001\n\025ExecuteCommandRequest\022"
-    "\017\n\007command\030\001 \001(\t\022\014\n\004args\030\002 \003(\t\022\023\n\013workin"
-    "g_dir\030\003 \001(\t\022<\n\003env\030\004 \003(\0132/.croupier.ops."
-    "v1.ExecuteCommandRequest.EnvEntry\022\027\n\017tim"
-    "eout_seconds\030\005 \001(\005\032*\n\010EnvEntry\022\013\n\003key\030\001 "
-    "\001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"m\n\026ExecuteCommand"
-    "Response\022\017\n\007success\030\001 \001(\010\022\021\n\texit_code\030\002"
-    " \001(\005\022\017\n\007std_out\030\003 \001(\t\022\017\n\007std_err\030\004 \001(\t\022\r"
-    "\n\005error\030\005 \001(\t\"I\n\023ListServicesRequest\022\r\n\005"
-    "state\030\001 \001(\t\022\024\n\014name_pattern\030\002 \001(\t\022\r\n\005lim"
-    "it\030\003 \001(\005\"U\n\024ListServicesResponse\022.\n\010serv"
-    "ices\030\001 \003(\0132\034.croupier.ops.v1.ServiceInfo"
-    "\022\r\n\005total\030\002 \001(\005\"i\n\013ServiceInfo\022\014\n\004name\030\001"
-    " \001(\t\022\024\n\014display_name\030\002 \001(\t\022\016\n\006status\030\003 \001"
-    "(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\nprocess_id\030\005 \001"
-    "(\r\"\'\n\027GetServiceStatusRequest\022\014\n\004name\030\001 "
-    "\001(\t\"\240\001\n\030GetServiceStatusResponse\022\014\n\004name"
-    "\030\001 \001(\t\022\024\n\014display_name\030\002 \001(\t\022\016\n\006status\030\003"
-    " \001(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\nprocess_id\030\005"
-    " \001(\r\022\023\n\013binary_path\030\006 \001(\t\022\023\n\013description"
-    "\030\007 \001(\t\"M\n\024ListCronJobsResponse\022&\n\004jobs\030\001"
-    " \003(\0132\030.croupier.ops.v1.CronJob\022\r\n\005total\030"
-    "\002 \001(\005\"`\n\007CronJob\022\020\n\010schedule\030\001 \001(\t\022\017\n\007co"
-    "mmand\030\002 \001(\t\022\014\n\004user\030\003 \001(\t\022\023\n\013source_file"
-    "\030\004 \001(\t\022\017\n\007enabled\030\005 \001(\010\"\314\001\n\024CaptureRuleH"
-    "itReport\022\020\n\010agent_id\030\001 \001(\t\022\017\n\007game_id\030\002 "
-    "\001(\t\022\013\n\003env\030\003 \001(\t\022\014\n\004rule\030\004 \001(\t\022\020\n\010severi"
-    "ty\030\005 \001(\t\022\r\n\005table\030\006 \001(\t\022\013\n\003key\030\007 \001(\t\022\016\n\006"
-    "detail\030\010 \001(\t\022\014\n\004gtid\030\t \001(\t\022\020\n\010event_op\030\n"
-    " \001(\t\022\030\n\020event_ts_unix_ms\030\013 \001(\003\"8\n\021Captur"
-    "eRuleHitAck\022\020\n\010accepted\030\001 \001(\010\022\021\n\tduplica"
-    "te\030\002 \001(\010\"-\n\031CaptureGatesConfigRequest\022\020\n"
-    "\010agent_id\030\001 \001(\t\"A\n\032CaptureGatesConfigRes"
-    "ponse\022\017\n\007version\030\001 \001(\t\022\022\n\ngates_json\030\002 \001"
-    "(\t\",\n\030ProbePolicyConfigRequest\022\020\n\010agent_"
-    "id\030\001 \001(\t\"A\n\031ProbePolicyConfigResponse\022\017\n"
-    "\007version\030\001 \001(\t\022\023\n\013policy_json\030\002 \001(\t\"/\n\033P"
-    "robeDBTargetsConfigRequest\022\020\n\010agent_id\030\001"
-    " \001(\t\"E\n\034ProbeDBTargetsConfigResponse\022\017\n\007"
-    "version\030\001 \001(\t\022\024\n\014targets_json\030\002 \001(\t\"0\n\034D"
-    "evopsAllowlistConfigRequest\022\020\n\010agent_id\030"
-    "\001 \001(\t\"H\n\035DevopsAllowlistConfigResponse\022\017"
-    "\n\007version\030\001 \001(\t\022\026\n\016allowlist_json\030\002 \001(\t\""
-    "2\n\036SyntheticsTargetsConfigRequest\022\020\n\010age"
-    "nt_id\030\001 \001(\t\"H\n\037SyntheticsTargetsConfigRe"
-    "sponse\022\017\n\007version\030\001 \001(\t\022\024\n\014targets_json\030"
-    "\002 \001(\t\"\277\001\n\nAlertEvent\022\014\n\004kind\030\001 \001(\t\022\020\n\010ag"
-    "ent_id\030\002 \001(\t\022\017\n\007game_id\030\003 \001(\t\022\013\n\003env\030\004 \001"
-    "(\t\022,\n\006window\030\005 \001(\0132\034.croupier.ops.v1.Pro"
-    "beWindow\022,\n\006detail\030\006 \001(\0132\034.croupier.ops."
-    "v1.ProbeDetail\022\027\n\017target_category\030\007 \001(\t\""
-    "\272\001\n\013ProbeWindow\022\016\n\006target\030\001 \001(\t\022\021\n\tseman"
-    "tics\030\002 \001(\t\022\023\n\013window_kind\030\003 \001(\t\022\030\n\020start"
-    "_ts_unix_ms\030\004 \001(\003\022\026\n\016end_ts_unix_ms\030\005 \001("
-    "\003\022\023\n\013duration_ms\030\006 \001(\003\022\023\n\013last_reason\030\007 "
-    "\001(\t\022\027\n\017target_category\030\010 \001(\t\"\254\002\n\013ProbeDe"
-    "tail\022\016\n\006target\030\001 \001(\t\022\021\n\tsemantics\030\002 \001(\t\022"
-    "\n\n\002ok\030\003 \001(\010\022\013\n\003err\030\004 \001(\t\022\025\n\rat_ts_unix_m"
-    "s\030\005 \001(\003\022\022\n\nlatency_ms\030\006 \001(\003\022\034\n\024consecuti"
-    "ve_failures\030\007 \001(\005\022\023\n\013window_open\030\010 \001(\010\022:"
-    "\n\007details\030\t \003(\0132).croupier.ops.v1.ProbeD"
-    "etail.DetailsEntry\022\027\n\017target_category\030\n "
-    "\001(\t\032.\n\014DetailsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005valu"
-    "e\030\002 \001(\t:\0028\001\"\345\002\n\nProbeStats\022\016\n\006target\030\001 \001"
-    "(\t\022\021\n\tsemantics\030\002 \001(\t\022\017\n\007game_id\030\003 \001(\t\022\013"
-    "\n\003env\030\004 \001(\t\022\017\n\007checked\030\005 \001(\003\022\016\n\006failed\030\006"
-    " \001(\003\022\024\n\014success_rate\030\007 \001(\001\022\027\n\017latency_bu"
-    "ckets\030\010 \003(\003\022\023\n\013window_open\030\t \001(\010\022\032\n\022wind"
-    "ow_duration_ms\030\n \001(\003\022\023\n\013last_reason\030\013 \001("
-    "\t\022\027\n\017dropped_details\030\014 \001(\003\022\022\n\nprobe_type"
-    "\030\r \001(\t\022\020\n\010protocol\030\016 \001(\t\022\r\n\005phase\030\017 \001(\t\022"
-    "\031\n\021protocol_expected\030\020 \001(\010\022\027\n\017target_cat"
-    "egory\030\021 \001(\t*\352\001\n\014ProcessState\022\035\n\031PROCESS_"
-    "STATE_UNSPECIFIED\020\000\022\031\n\025PROCESS_STATE_RUN"
-    "NING\020\001\022\031\n\025PROCESS_STATE_STOPPED\020\002\022\030\n\024PRO"
-    "CESS_STATE_FAILED\020\003\022\032\n\026PROCESS_STATE_STA"
-    "RTING\020\004\022\032\n\026PROCESS_STATE_STOPPING\020\005\022\031\n\025P"
-    "ROCESS_STATE_BACKOFF\020\006\022\030\n\024PROCESS_STATE_"
-    "BROKEN\020\007Bj\n\"io.github.cuihairu.croupier."
-    "ops.v1P\001Z0github.com/cuihairu/croupier/p"
-    "kg/pb/ops/v1;opsv1\252\002\017Croupier.Ops.V1b\006pr"
-    "oto3"
+    "tMetrics\022\'\n\004logs\030\r \003(\0132\031.croupier.ops.v1"
+    ".LogEntry\032-\n\013CustomEntry\022\013\n\003key\030\001 \001(\t\022\r\n"
+    "\005value\030\002 \001(\001:\0028\001\"Y\n\010LogEntry\022\014\n\004file\030\001 \001"
+    "(\t\022\r\n\005level\030\002 \001(\t\022\017\n\007message\030\003 \001(\t\022\022\n\nts"
+    "_unix_ms\030\004 \001(\003\022\013\n\003seq\030\005 \001(\003\"x\n\nCpuMetric"
+    "s\022\025\n\rusage_percent\030\001 \001(\001\022\r\n\005cores\030\002 \001(\005\022"
+    "\020\n\010per_core\030\003 \003(\001\022\017\n\007load_1m\030\004 \001(\001\022\017\n\007lo"
+    "ad_5m\030\005 \001(\001\022\020\n\010load_15m\030\006 \001(\001\"\217\001\n\rMemory"
+    "Metrics\022\023\n\013total_bytes\030\001 \001(\004\022\022\n\nused_byt"
+    "es\030\002 \001(\004\022\027\n\017available_bytes\030\003 \001(\004\022\025\n\rusa"
+    "ge_percent\030\004 \001(\001\022\022\n\nswap_total\030\005 \001(\004\022\021\n\t"
+    "swap_used\030\006 \001(\004\"\305\001\n\013DiskMetrics\022\023\n\013mount"
+    "_point\030\001 \001(\t\022\016\n\006device\030\002 \001(\t\022\017\n\007fs_type\030"
+    "\003 \001(\t\022\023\n\013total_bytes\030\004 \001(\004\022\022\n\nused_bytes"
+    "\030\005 \001(\004\022\027\n\017available_bytes\030\006 \001(\004\022\025\n\rusage"
+    "_percent\030\007 \001(\001\022\023\n\013inode_total\030\010 \001(\004\022\022\n\ni"
+    "node_used\030\t \001(\004\"\206\002\n\016NetworkMetrics\022\021\n\tin"
+    "terface\030\001 \001(\t\022\022\n\nbytes_sent\030\002 \001(\004\022\022\n\nbyt"
+    "es_recv\030\003 \001(\004\022\024\n\014packets_sent\030\004 \001(\004\022\024\n\014p"
+    "ackets_recv\030\005 \001(\004\022\021\n\terrors_in\030\006 \001(\004\022\022\n\n"
+    "errors_out\030\007 \001(\004\022\027\n\017bytes_sent_rate\030\010 \001("
+    "\001\022\027\n\017bytes_recv_rate\030\t \001(\001\022\031\n\021packets_se"
+    "nt_rate\030\n \001(\001\022\031\n\021packets_recv_rate\030\013 \001(\001"
+    "\"\300\001\n\016ProcessMetrics\022\013\n\003pid\030\001 \001(\005\022\014\n\004name"
+    "\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\023\n\013cpu_percent\030\004 "
+    "\001(\001\022\024\n\014memory_bytes\030\005 \001(\004\022\017\n\007threads\030\006 \001"
+    "(\005\022.\n\nstart_time\030\007 \001(\0132\032.google.protobuf"
+    ".Timestamp\022\027\n\017listening_ports\030\010 \003(\005\"_\n\013P"
+    "ortMetrics\022\014\n\004port\030\001 \001(\005\022\020\n\010protocol\030\002 \001"
+    "(\t\022\013\n\003pid\030\003 \001(\005\022\024\n\014process_name\030\004 \001(\t\022\r\n"
+    "\005state\030\005 \001(\t\"\240\002\n\nSystemInfo\022\020\n\010hostname\030"
+    "\001 \001(\t\022\n\n\002os\030\002 \001(\t\022\022\n\nos_version\030\003 \001(\t\022\026\n"
+    "\016kernel_version\030\004 \001(\t\022\014\n\004arch\030\005 \001(\t\022\021\n\tc"
+    "pu_cores\030\006 \001(\005\022\024\n\014total_memory\030\007 \001(\004\022-\n\t"
+    "boot_time\030\010 \001(\0132\032.google.protobuf.Timest"
+    "amp\022\025\n\ragent_version\030\t \001(\t\022\033\n\023agent_bina"
+    "ry_sha256\030\013 \001(\t\022.\n\nops_status\030\n \001(\0132\032.cr"
+    "oupier.ops.v1.OpsStatus\"b\n\tOpsStatus\022\017\n\007"
+    "enabled\030\001 \001(\010\022\025\n\rallow_restart\030\002 \001(\010\022\022\n\n"
+    "allow_exec\030\003 \001(\010\022\031\n\021managed_processes\030\004 "
+    "\003(\t\"U\n\025RestartProcessRequest\022\024\n\014process_"
+    "name\030\001 \001(\t\022\r\n\005force\030\002 \001(\010\022\027\n\017timeout_sec"
+    "onds\030\003 \001(\005\"K\n\026RestartProcessResponse\022\017\n\007"
+    "success\030\001 \001(\010\022\017\n\007message\030\002 \001(\t\022\017\n\007new_pi"
+    "d\030\003 \001(\005\"R\n\022StopProcessRequest\022\024\n\014process"
+    "_name\030\001 \001(\t\022\r\n\005force\030\002 \001(\010\022\027\n\017timeout_se"
+    "conds\030\003 \001(\005\"7\n\023StopProcessResponse\022\017\n\007su"
+    "ccess\030\001 \001(\010\022\017\n\007message\030\002 \001(\t\"+\n\023StartPro"
+    "cessRequest\022\024\n\014process_name\030\001 \001(\t\"E\n\024Sta"
+    "rtProcessResponse\022\017\n\007success\030\001 \001(\010\022\017\n\007me"
+    "ssage\030\002 \001(\t\022\013\n\003pid\030\003 \001(\005\"Z\n\024UpdateProces"
+    "sRequest\022\024\n\014process_name\030\001 \001(\t\022\023\n\013staged"
+    "_path\030\002 \001(\t\022\027\n\017expected_sha256\030\003 \001(\t\"\200\001\n"
+    "\025UpdateProcessResponse\022\017\n\007success\030\001 \001(\010\022"
+    "\017\n\007message\030\002 \001(\t\022\027\n\017old_fingerprint\030\003 \001("
+    "\t\022\027\n\017new_fingerprint\030\004 \001(\t\022\023\n\013rolled_bac"
+    "k\030\005 \001(\010\"=\n\024SchedulePauseRequest\022\024\n\014proce"
+    "ss_name\030\001 \001(\t\022\017\n\007suspend\030\002 \001(\010\"L\n\025Schedu"
+    "lePauseResponse\022\017\n\007success\030\001 \001(\010\022\017\n\007mess"
+    "age\030\002 \001(\t\022\021\n\tsuspended\030\003 \001(\010\"K\n\025ListProc"
+    "essesResponse\0222\n\tprocesses\030\001 \003(\0132\037.croup"
+    "ier.ops.v1.ManagedProcess\"\213\002\n\016ManagedPro"
+    "cess\022\014\n\004name\030\001 \001(\t\022\017\n\007command\030\002 \001(\t\022\023\n\013w"
+    "orking_dir\030\003 \001(\t\022,\n\005state\030\004 \001(\0162\035.croupi"
+    "er.ops.v1.ProcessState\022\013\n\003pid\030\005 \001(\005\022\025\n\rr"
+    "estart_count\030\006 \001(\005\022.\n\nlast_start\030\007 \001(\0132\032"
+    ".google.protobuf.Timestamp\022\026\n\016uptime_sec"
+    "onds\030\010 \001(\003\022\r\n\005flags\030\t \003(\t\022\034\n\024next_restar"
+    "t_at_unix\030\n \001(\003\"\310\002\n\017SupervisorEvent\022\017\n\007t"
+    "s_unix\030\001 \001(\003\022\017\n\007process\030\002 \001(\t\022\r\n\005event\030\003"
+    " \001(\t\022\017\n\007old_pid\030\004 \001(\005\022\017\n\007new_pid\030\005 \001(\005\022\021"
+    "\n\texit_code\030\006 \001(\005\022\016\n\006signal\030\007 \001(\t\022\025\n\rres"
+    "tart_count\030\010 \001(\005\022\017\n\007message\030\t \001(\t\022\033\n\023las"
+    "t_heartbeat_unix\030\n \001(\003\022\022\n\nlast_error\030\013 \001"
+    "(\t\022\023\n\013oom_suspect\030\014 \001(\010\022\026\n\016last_rss_byte"
+    "s\030\r \001(\003\022\013\n\003seq\030\016 \001(\003\022\024\n\014snapshot_dir\030\017 \001"
+    "(\t\022\026\n\016snapshot_files\030\020 \003(\t\",\n\027GetSupervi"
+    "sorLogRequest\022\021\n\tmax_bytes\030\001 \001(\005\"Q\n\030GetS"
+    "upervisorLogResponse\022\017\n\007content\030\001 \001(\014\022\021\n"
+    "\tfile_name\030\002 \001(\t\022\021\n\ttruncated\030\003 \001(\010\"\253\003\n\031"
+    "SupervisedProcessSnapshot\022\014\n\004name\030\001 \001(\t\022"
+    "\013\n\003pid\030\002 \001(\005\022,\n\005state\030\003 \001(\0162\035.croupier.o"
+    "ps.v1.ProcessState\022\026\n\016uptime_seconds\030\004 \001"
+    "(\003\022\025\n\rrestart_count\030\005 \001(\005\022\021\n\trss_bytes\030\006"
+    " \001(\003\022\023\n\013cpu_percent\030\007 \001(\001\022\r\n\005flags\030\010 \003(\t"
+    "\022\027\n\017last_event_unix\030\t \001(\003\022\034\n\024next_restar"
+    "t_at_unix\030\n \001(\003\022\030\n\020snapshot_profile\030\013 \001("
+    "\t\022\014\n\004kind\030\014 \001(\t\022\022\n\nadapter_id\030\r \001(\t\022\035\n\025n"
+    "ext_schedule_at_unix\030\016 \001(\003\022\034\n\024next_sched"
+    "ule_action\030\017 \001(\t\022\023\n\013fingerprint\030\020 \001(\t\022\032\n"
+    "\022schedule_suspended\030\021 \001(\010\"\316\001\n\025ExecuteCom"
+    "mandRequest\022\017\n\007command\030\001 \001(\t\022\014\n\004args\030\002 \003"
+    "(\t\022\023\n\013working_dir\030\003 \001(\t\022<\n\003env\030\004 \003(\0132/.c"
+    "roupier.ops.v1.ExecuteCommandRequest.Env"
+    "Entry\022\027\n\017timeout_seconds\030\005 \001(\005\032*\n\010EnvEnt"
+    "ry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"m\n\026Ex"
+    "ecuteCommandResponse\022\017\n\007success\030\001 \001(\010\022\021\n"
+    "\texit_code\030\002 \001(\005\022\017\n\007std_out\030\003 \001(\t\022\017\n\007std"
+    "_err\030\004 \001(\t\022\r\n\005error\030\005 \001(\t\"I\n\023ListService"
+    "sRequest\022\r\n\005state\030\001 \001(\t\022\024\n\014name_pattern\030"
+    "\002 \001(\t\022\r\n\005limit\030\003 \001(\005\"U\n\024ListServicesResp"
+    "onse\022.\n\010services\030\001 \003(\0132\034.croupier.ops.v1"
+    ".ServiceInfo\022\r\n\005total\030\002 \001(\005\"i\n\013ServiceIn"
+    "fo\022\014\n\004name\030\001 \001(\t\022\024\n\014display_name\030\002 \001(\t\022\016"
+    "\n\006status\030\003 \001(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\npr"
+    "ocess_id\030\005 \001(\r\"\'\n\027GetServiceStatusReques"
+    "t\022\014\n\004name\030\001 \001(\t\"\240\001\n\030GetServiceStatusResp"
+    "onse\022\014\n\004name\030\001 \001(\t\022\024\n\014display_name\030\002 \001(\t"
+    "\022\016\n\006status\030\003 \001(\t\022\022\n\nstart_type\030\004 \001(\t\022\022\n\n"
+    "process_id\030\005 \001(\r\022\023\n\013binary_path\030\006 \001(\t\022\023\n"
+    "\013description\030\007 \001(\t\"M\n\024ListCronJobsRespon"
+    "se\022&\n\004jobs\030\001 \003(\0132\030.croupier.ops.v1.CronJ"
+    "ob\022\r\n\005total\030\002 \001(\005\"`\n\007CronJob\022\020\n\010schedule"
+    "\030\001 \001(\t\022\017\n\007command\030\002 \001(\t\022\014\n\004user\030\003 \001(\t\022\023\n"
+    "\013source_file\030\004 \001(\t\022\017\n\007enabled\030\005 \001(\010\"\314\001\n\024"
+    "CaptureRuleHitReport\022\020\n\010agent_id\030\001 \001(\t\022\017"
+    "\n\007game_id\030\002 \001(\t\022\013\n\003env\030\003 \001(\t\022\014\n\004rule\030\004 \001"
+    "(\t\022\020\n\010severity\030\005 \001(\t\022\r\n\005table\030\006 \001(\t\022\013\n\003k"
+    "ey\030\007 \001(\t\022\016\n\006detail\030\010 \001(\t\022\014\n\004gtid\030\t \001(\t\022\020"
+    "\n\010event_op\030\n \001(\t\022\030\n\020event_ts_unix_ms\030\013 \001"
+    "(\003\"8\n\021CaptureRuleHitAck\022\020\n\010accepted\030\001 \001("
+    "\010\022\021\n\tduplicate\030\002 \001(\010\"-\n\031CaptureGatesConf"
+    "igRequest\022\020\n\010agent_id\030\001 \001(\t\"A\n\032CaptureGa"
+    "tesConfigResponse\022\017\n\007version\030\001 \001(\t\022\022\n\nga"
+    "tes_json\030\002 \001(\t\",\n\030ProbePolicyConfigReque"
+    "st\022\020\n\010agent_id\030\001 \001(\t\"A\n\031ProbePolicyConfi"
+    "gResponse\022\017\n\007version\030\001 \001(\t\022\023\n\013policy_jso"
+    "n\030\002 \001(\t\"/\n\033ProbeDBTargetsConfigRequest\022\020"
+    "\n\010agent_id\030\001 \001(\t\"E\n\034ProbeDBTargetsConfig"
+    "Response\022\017\n\007version\030\001 \001(\t\022\024\n\014targets_jso"
+    "n\030\002 \001(\t\"0\n\034DevopsAllowlistConfigRequest\022"
+    "\020\n\010agent_id\030\001 \001(\t\"H\n\035DevopsAllowlistConf"
+    "igResponse\022\017\n\007version\030\001 \001(\t\022\026\n\016allowlist"
+    "_json\030\002 \001(\t\"2\n\036SyntheticsTargetsConfigRe"
+    "quest\022\020\n\010agent_id\030\001 \001(\t\"H\n\037SyntheticsTar"
+    "getsConfigResponse\022\017\n\007version\030\001 \001(\t\022\024\n\014t"
+    "argets_json\030\002 \001(\t\"\277\001\n\nAlertEvent\022\014\n\004kind"
+    "\030\001 \001(\t\022\020\n\010agent_id\030\002 \001(\t\022\017\n\007game_id\030\003 \001("
+    "\t\022\013\n\003env\030\004 \001(\t\022,\n\006window\030\005 \001(\0132\034.croupie"
+    "r.ops.v1.ProbeWindow\022,\n\006detail\030\006 \001(\0132\034.c"
+    "roupier.ops.v1.ProbeDetail\022\027\n\017target_cat"
+    "egory\030\007 \001(\t\"\272\001\n\013ProbeWindow\022\016\n\006target\030\001 "
+    "\001(\t\022\021\n\tsemantics\030\002 \001(\t\022\023\n\013window_kind\030\003 "
+    "\001(\t\022\030\n\020start_ts_unix_ms\030\004 \001(\003\022\026\n\016end_ts_"
+    "unix_ms\030\005 \001(\003\022\023\n\013duration_ms\030\006 \001(\003\022\023\n\013la"
+    "st_reason\030\007 \001(\t\022\027\n\017target_category\030\010 \001(\t"
+    "\"\254\002\n\013ProbeDetail\022\016\n\006target\030\001 \001(\t\022\021\n\tsema"
+    "ntics\030\002 \001(\t\022\n\n\002ok\030\003 \001(\010\022\013\n\003err\030\004 \001(\t\022\025\n\r"
+    "at_ts_unix_ms\030\005 \001(\003\022\022\n\nlatency_ms\030\006 \001(\003\022"
+    "\034\n\024consecutive_failures\030\007 \001(\005\022\023\n\013window_"
+    "open\030\010 \001(\010\022:\n\007details\030\t \003(\0132).croupier.o"
+    "ps.v1.ProbeDetail.DetailsEntry\022\027\n\017target"
+    "_category\030\n \001(\t\032.\n\014DetailsEntry\022\013\n\003key\030\001"
+    " \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\345\002\n\nProbeStats\022\016"
+    "\n\006target\030\001 \001(\t\022\021\n\tsemantics\030\002 \001(\t\022\017\n\007gam"
+    "e_id\030\003 \001(\t\022\013\n\003env\030\004 \001(\t\022\017\n\007checked\030\005 \001(\003"
+    "\022\016\n\006failed\030\006 \001(\003\022\024\n\014success_rate\030\007 \001(\001\022\027"
+    "\n\017latency_buckets\030\010 \003(\003\022\023\n\013window_open\030\t"
+    " \001(\010\022\032\n\022window_duration_ms\030\n \001(\003\022\023\n\013last"
+    "_reason\030\013 \001(\t\022\027\n\017dropped_details\030\014 \001(\003\022\022"
+    "\n\nprobe_type\030\r \001(\t\022\020\n\010protocol\030\016 \001(\t\022\r\n\005"
+    "phase\030\017 \001(\t\022\031\n\021protocol_expected\030\020 \001(\010\022\027"
+    "\n\017target_category\030\021 \001(\t*\352\001\n\014ProcessState"
+    "\022\035\n\031PROCESS_STATE_UNSPECIFIED\020\000\022\031\n\025PROCE"
+    "SS_STATE_RUNNING\020\001\022\031\n\025PROCESS_STATE_STOP"
+    "PED\020\002\022\030\n\024PROCESS_STATE_FAILED\020\003\022\032\n\026PROCE"
+    "SS_STATE_STARTING\020\004\022\032\n\026PROCESS_STATE_STO"
+    "PPING\020\005\022\031\n\025PROCESS_STATE_BACKOFF\020\006\022\030\n\024PR"
+    "OCESS_STATE_BROKEN\020\007Bj\n\"io.github.cuihai"
+    "ru.croupier.ops.v1P\001Z0github.com/cuihair"
+    "u/croupier/pkg/pb/ops/v1;opsv1\252\002\017Croupie"
+    "r.Ops.V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps[1] = {
@@ -2988,13 +3053,13 @@ static ::absl::once_flag descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fops_2fv1_2fops_2eproto = {
     false,
     false,
-    7404,
+    7536,
     descriptor_table_protodef_croupier_2fops_2fv1_2fops_2eproto,
     "croupier/ops/v1/ops.proto",
     &descriptor_table_croupier_2fops_2fv1_2fops_2eproto_once,
     descriptor_table_croupier_2fops_2fv1_2fops_2eproto_deps,
     1,
-    53,
+    54,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fops_2fv1_2fops_2eproto::offsets,
@@ -3121,7 +3186,7 @@ void MetricsReport::clear_timestamp() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (_impl_.timestamp_ != nullptr) _impl_.timestamp_->Clear();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00000200U);
 }
 MetricsReport::MetricsReport(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
@@ -3201,6 +3266,15 @@ PROTOBUF_NDEBUG_INLINE MetricsReport::Impl_::Impl_(
         ports_ { visibility, arena, from.ports_ }
         #endif
         ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        logs_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::ops::v1::MetricsReport,
+            PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.logs_)>()
+        , from.logs_}
+        #else
+        logs_ { visibility, arena, from.logs_ }
+        #endif
+        ,
         agent_id_(arena, from.agent_id_),
         #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_MAP_FIELD
         custom_{visibility, ::_pbi::InternalMetadataOffset::Build<
@@ -3226,13 +3300,13 @@ MetricsReport::MetricsReport(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
   ::uint32_t cached_has_bits = _impl_._has_bits_[0];
-  _impl_.timestamp_ = (CheckHasBit(cached_has_bits, 0x00000100U))
+  _impl_.timestamp_ = (CheckHasBit(cached_has_bits, 0x00000200U))
                 ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.timestamp_)
                 : nullptr;
-  _impl_.cpu_ = (CheckHasBit(cached_has_bits, 0x00000200U))
+  _impl_.cpu_ = (CheckHasBit(cached_has_bits, 0x00000400U))
                 ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.cpu_)
                 : nullptr;
-  _impl_.memory_ = (CheckHasBit(cached_has_bits, 0x00000400U))
+  _impl_.memory_ = (CheckHasBit(cached_has_bits, 0x00000800U))
                 ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.memory_)
                 : nullptr;
 
@@ -3303,6 +3377,15 @@ PROTOBUF_NDEBUG_INLINE MetricsReport::Impl_::Impl_(
         }
         #else
         ports_ { visibility, arena }
+        #endif
+        ,
+        #ifdef PROTOBUF_INTERNAL_REMOVE_ARENA_PTRS_REPEATED_PTR_FIELD
+        logs_{visibility, ::_pbi::InternalMetadataOffset::Build<
+            ::croupier::ops::v1::MetricsReport,
+            PROTOBUF_FIELD_OFFSET(::croupier::ops::v1::MetricsReport, _impl_.logs_)>()
+        }
+        #else
+        logs_ { visibility, arena }
         #endif
         ,
         agent_id_(arena),
@@ -3388,6 +3471,10 @@ constexpr auto MetricsReport::InternalNewImpl_() {
           decltype(MetricsReport::_impl_.ports_)::
               InternalGetArenaOffset(
                   ::google::protobuf::Message::internal_visibility()),
+      PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.logs_) +
+          decltype(MetricsReport::_impl_.logs_)::
+              InternalGetArenaOffset(
+                  ::google::protobuf::Message::internal_visibility()),
   });
   if (arena_bits.has_value()) {
     return ::google::protobuf::internal::MessageCreator::CopyInit(
@@ -3432,17 +3519,17 @@ MetricsReport::GetClassData() const {
   return MetricsReport_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 12, 11, 60, 2>
+const ::_pbi::TcParseTable<4, 13, 12, 60, 2>
 MetricsReport::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_._has_bits_),
     0, // no _extensions_
-    12, 120,  // max_field_number, fast_idx_mask
+    13, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294963200,  // skipmap
+    4294959104,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    12,  // num_field_entries
-    11,  // num_aux_entries
+    13,  // num_field_entries
+    12,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     MetricsReport_class_data_.base(),
     nullptr,  // post_loop_handler
@@ -3454,19 +3541,19 @@ MetricsReport::_table_ = {
     {::_pbi::TcParser::MiniParse, {}},
     // string agent_id = 1;
     {::_pbi::TcParser::FastUS1,
-     {10, 7, 0,
+     {10, 8, 0,
       PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.agent_id_)}},
     // .google.protobuf.Timestamp timestamp = 2;
     {::_pbi::TcParser::FastMtS1,
-     {18, 8, 0,
+     {18, 9, 0,
       PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.timestamp_)}},
     // .croupier.ops.v1.CpuMetrics cpu = 3;
     {::_pbi::TcParser::FastMtS1,
-     {26, 9, 1,
+     {26, 10, 1,
       PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.cpu_)}},
     // .croupier.ops.v1.MemoryMetrics memory = 4;
     {::_pbi::TcParser::FastMtS1,
-     {34, 10, 2,
+     {34, 11, 2,
       PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.memory_)}},
     // repeated .croupier.ops.v1.DiskMetrics disks = 5;
     {::_pbi::TcParser::FastMtR1,
@@ -3497,20 +3584,23 @@ MetricsReport::_table_ = {
     {::_pbi::TcParser::FastMtR1,
      {98, 6, 9,
       PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.ports_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // repeated .croupier.ops.v1.LogEntry logs = 13;
+    {::_pbi::TcParser::FastMtR1,
+     {106, 7, 10,
+      PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.logs_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
     // string agent_id = 1;
-    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.agent_id_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.agent_id_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // .google.protobuf.Timestamp timestamp = 2;
-    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.timestamp_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.timestamp_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // .croupier.ops.v1.CpuMetrics cpu = 3;
-    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.cpu_), _Internal::kHasBitsOffset + 9, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.cpu_), _Internal::kHasBitsOffset + 10, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // .croupier.ops.v1.MemoryMetrics memory = 4;
-    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.memory_), _Internal::kHasBitsOffset + 10, 2, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.memory_), _Internal::kHasBitsOffset + 11, 2, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // repeated .croupier.ops.v1.DiskMetrics disks = 5;
     {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.disks_), _Internal::kHasBitsOffset + 0, 3, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
     // repeated .croupier.ops.v1.NetworkMetrics networks = 6;
@@ -3518,7 +3608,7 @@ MetricsReport::_table_ = {
     // repeated .croupier.ops.v1.ProcessMetrics processes = 7;
     {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.processes_), _Internal::kHasBitsOffset + 2, 5, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
     // map<string, double> custom = 8;
-    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.custom_), _Internal::kHasBitsOffset + 11, 10, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
+    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.custom_), _Internal::kHasBitsOffset + 12, 11, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
     // repeated .croupier.ops.v1.SupervisedProcessSnapshot supervised_processes = 9;
     {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.supervised_processes_), _Internal::kHasBitsOffset + 3, 6, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
     // repeated .croupier.ops.v1.SupervisorEvent supervisor_events = 10;
@@ -3527,6 +3617,8 @@ MetricsReport::_table_ = {
     {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.probe_stats_), _Internal::kHasBitsOffset + 5, 8, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
     // repeated .croupier.ops.v1.PortMetrics ports = 12;
     {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.ports_), _Internal::kHasBitsOffset + 6, 9, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .croupier.ops.v1.LogEntry logs = 13;
+    {PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.logs_), _Internal::kHasBitsOffset + 7, 10, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
   }},
   {{
       {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
@@ -3539,6 +3631,7 @@ MetricsReport::_table_ = {
       {::_pbi::TcParser::GetTable<::croupier::ops::v1::SupervisorEvent>()},
       {::_pbi::TcParser::GetTable<::croupier::ops::v1::ProbeStats>()},
       {::_pbi::TcParser::GetTable<::croupier::ops::v1::PortMetrics>()},
+      {::_pbi::TcParser::GetTable<::croupier::ops::v1::LogEntry>()},
       {::_pbi::TcParser::GetMapAuxInfo(
           1, 0, 9, 1, 0)},
   }},
@@ -3579,24 +3672,27 @@ PROTOBUF_NOINLINE void MetricsReport::Clear() {
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000040U)) {
       _impl_.ports_.Clear();
     }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
-      _impl_.agent_id_.ClearNonDefaultToEmpty();
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000080U)) {
+      _impl_.logs_.Clear();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00001f00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      _impl_.agent_id_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
       ABSL_DCHECK(_impl_.timestamp_ != nullptr);
       _impl_.timestamp_->Clear();
     }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
       ABSL_DCHECK(_impl_.cpu_ != nullptr);
       _impl_.cpu_->Clear();
     }
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       ABSL_DCHECK(_impl_.memory_ != nullptr);
       _impl_.memory_->Clear();
     }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00001000U)) {
       _impl_.custom_.Clear();
     }
   }
@@ -3624,7 +3720,7 @@ PROTOBUF_NOINLINE void MetricsReport::Clear() {
 
   cached_has_bits = this_._impl_._has_bits_[0];
   // string agent_id = 1;
-  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
     if (!this_._internal_agent_id().empty()) {
       const ::std::string& _s = this_._internal_agent_id();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -3634,21 +3730,21 @@ PROTOBUF_NOINLINE void MetricsReport::Clear() {
   }
 
   // .google.protobuf.Timestamp timestamp = 2;
-  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         2, *this_._impl_.timestamp_, this_._impl_.timestamp_->GetCachedSize(), target,
         stream);
   }
 
   // .croupier.ops.v1.CpuMetrics cpu = 3;
-  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         3, *this_._impl_.cpu_, this_._impl_.cpu_->GetCachedSize(), target,
         stream);
   }
 
   // .croupier.ops.v1.MemoryMetrics memory = 4;
-  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000800U)) {
     target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
         4, *this_._impl_.memory_, this_._impl_.memory_->GetCachedSize(), target,
         stream);
@@ -3694,7 +3790,7 @@ PROTOBUF_NOINLINE void MetricsReport::Clear() {
   }
 
   // map<string, double> custom = 8;
-  if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00001000U)) {
     if (!this_._internal_custom().empty()) {
       using MapType = ::google::protobuf::Map<::std::string, double>;
       using WireHelper = _pbi::MapEntryFuncs<::std::string, double,
@@ -3774,6 +3870,19 @@ PROTOBUF_NOINLINE void MetricsReport::Clear() {
     }
   }
 
+  // repeated .croupier.ops.v1.LogEntry logs = 13;
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00000080U)) {
+    for (unsigned i = 0, n = static_cast<unsigned>(
+                             this_._internal_logs_size());
+         i < n; i++) {
+      const auto& repfield = this_._internal_logs().Get(i);
+      target =
+          ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+              13, repfield, repfield.GetCachedSize(),
+              target, stream);
+    }
+  }
+
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -3849,32 +3958,39 @@ PROTOBUF_NOINLINE void MetricsReport::Clear() {
         total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
       }
     }
+    // repeated .croupier.ops.v1.LogEntry logs = 13;
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000080U)) {
+      total_size += 1UL * this_._internal_logs_size();
+      for (const auto& msg : this_._internal_logs()) {
+        total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00001f00U)) {
     // string agent_id = 1;
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!this_._internal_agent_id().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_agent_id());
       }
     }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
     // .google.protobuf.Timestamp timestamp = 2;
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
       total_size += 1 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.timestamp_);
     }
     // .croupier.ops.v1.CpuMetrics cpu = 3;
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
       total_size += 1 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.cpu_);
     }
     // .croupier.ops.v1.MemoryMetrics memory = 4;
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       total_size += 1 +
                     ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.memory_);
     }
     // map<string, double> custom = 8;
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00001000U)) {
       total_size +=
           1 * ::google::protobuf::internal::FromIntSize(this_._internal_custom_size());
       for (const auto& entry : this_._internal_custom()) {
@@ -3939,7 +4055,14 @@ void MetricsReport::MergeImpl(::google::protobuf::MessageLite& to_msg,
           ::google::protobuf::MessageLite::internal_visibility(), arena,
           from._internal_ports());
     }
-    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000080U)) {
+      _this->_internal_mutable_logs()->InternalMergeFromWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), arena,
+          from._internal_logs());
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00001f00U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (!from._internal_agent_id().empty()) {
         _this->_internal_set_agent_id(from._internal_agent_id());
       } else {
@@ -3948,9 +4071,7 @@ void MetricsReport::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
-    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
       ABSL_DCHECK(from._impl_.timestamp_ != nullptr);
       if (_this->_impl_.timestamp_ == nullptr) {
         _this->_impl_.timestamp_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.timestamp_);
@@ -3958,7 +4079,7 @@ void MetricsReport::MergeImpl(::google::protobuf::MessageLite& to_msg,
         _this->_impl_.timestamp_->MergeFrom(*from._impl_.timestamp_);
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
       ABSL_DCHECK(from._impl_.cpu_ != nullptr);
       if (_this->_impl_.cpu_ == nullptr) {
         _this->_impl_.cpu_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.cpu_);
@@ -3966,7 +4087,7 @@ void MetricsReport::MergeImpl(::google::protobuf::MessageLite& to_msg,
         _this->_impl_.cpu_->MergeFrom(*from._impl_.cpu_);
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
       ABSL_DCHECK(from._impl_.memory_ != nullptr);
       if (_this->_impl_.memory_ == nullptr) {
         _this->_impl_.memory_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.memory_);
@@ -3974,7 +4095,7 @@ void MetricsReport::MergeImpl(::google::protobuf::MessageLite& to_msg,
         _this->_impl_.memory_->MergeFrom(*from._impl_.memory_);
       }
     }
-    if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00001000U)) {
       _this->_impl_.custom_.MergeFrom(from._impl_.custom_);
     }
   }
@@ -4004,6 +4125,7 @@ void MetricsReport::InternalSwap(MetricsReport* PROTOBUF_RESTRICT PROTOBUF_NONNU
   _impl_.supervisor_events_.InternalSwap(&other->_impl_.supervisor_events_);
   _impl_.probe_stats_.InternalSwap(&other->_impl_.probe_stats_);
   _impl_.ports_.InternalSwap(&other->_impl_.ports_);
+  _impl_.logs_.InternalSwap(&other->_impl_.logs_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.agent_id_, &other->_impl_.agent_id_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(MetricsReport, _impl_.memory_)
@@ -4015,6 +4137,446 @@ void MetricsReport::InternalSwap(MetricsReport* PROTOBUF_RESTRICT PROTOBUF_NONNU
 }
 
 ::google::protobuf::Metadata MetricsReport::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class LogEntry::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<LogEntry>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(LogEntry, _impl_._has_bits_);
+};
+
+LogEntry::LogEntry(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, LogEntry_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.ops.v1.LogEntry)
+}
+PROTOBUF_NDEBUG_INLINE LogEntry::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::ops::v1::LogEntry& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        file_(arena, from.file_),
+        level_(arena, from.level_),
+        message_(arena, from.message_) {}
+
+LogEntry::LogEntry(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const LogEntry& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, LogEntry_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  LogEntry* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  ::memcpy(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, ts_unix_ms_),
+           reinterpret_cast<const char*>(&from._impl_) +
+               offsetof(Impl_, ts_unix_ms_),
+           offsetof(Impl_, seq_) -
+               offsetof(Impl_, ts_unix_ms_) +
+               sizeof(Impl_::seq_));
+
+  // @@protoc_insertion_point(copy_constructor:croupier.ops.v1.LogEntry)
+}
+PROTOBUF_NDEBUG_INLINE LogEntry::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        file_(arena),
+        level_(arena),
+        message_(arena) {}
+
+inline void LogEntry::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, ts_unix_ms_),
+           0,
+           offsetof(Impl_, seq_) -
+               offsetof(Impl_, ts_unix_ms_) +
+               sizeof(Impl_::seq_));
+}
+LogEntry::~LogEntry() {
+  // @@protoc_insertion_point(destructor:croupier.ops.v1.LogEntry)
+  SharedDtor(*this);
+}
+inline void LogEntry::SharedDtor(MessageLite& self) {
+  LogEntry& this_ = static_cast<LogEntry&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.file_.Destroy();
+  this_._impl_.level_.Destroy();
+  this_._impl_.message_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL LogEntry::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) LogEntry(arena);
+}
+constexpr auto LogEntry::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(LogEntry),
+                                            alignof(LogEntry));
+}
+constexpr auto LogEntry::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_LogEntry_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // IsInitialized
+          &LogEntry::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<LogEntry>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &LogEntry::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<LogEntry>(), &LogEntry::ByteSizeLong,
+              &LogEntry::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(LogEntry, _impl_._cached_size_),
+          false,
+      },
+      &LogEntry::kDescriptorMethods,
+      &descriptor_table_croupier_2fops_2fv1_2fops_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull LogEntry_class_data_ =
+        LogEntry::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+LogEntry::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&LogEntry_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(LogEntry_class_data_.tc_table);
+  return LogEntry_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 0, 49, 2>
+LogEntry::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(LogEntry, _impl_._has_bits_),
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    LogEntry_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::ops::v1::LogEntry>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string file = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.file_)}},
+    // string level = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.level_)}},
+    // string message = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 2, 0,
+      PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.message_)}},
+    // int64 ts_unix_ms = 4;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(LogEntry, _impl_.ts_unix_ms_), 3>(),
+     {32, 3, 0,
+      PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.ts_unix_ms_)}},
+    // int64 seq = 5;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(LogEntry, _impl_.seq_), 4>(),
+     {40, 4, 0,
+      PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.seq_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string file = 1;
+    {PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.file_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string level = 2;
+    {PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.level_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string message = 3;
+    {PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.message_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int64 ts_unix_ms = 4;
+    {PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.ts_unix_ms_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+    // int64 seq = 5;
+    {PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.seq_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+  }},
+  // no aux_entries
+  {{
+    "\30\4\5\7\0\0\0\0"
+    "croupier.ops.v1.LogEntry"
+    "file"
+    "level"
+    "message"
+  }},
+};
+PROTOBUF_NOINLINE void LogEntry::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.ops.v1.LogEntry)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      _impl_.file_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      _impl_.level_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      _impl_.message_.ClearNonDefaultToEmpty();
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000018U)) {
+    ::memset(&_impl_.ts_unix_ms_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.seq_) -
+        reinterpret_cast<char*>(&_impl_.ts_unix_ms_)) + sizeof(_impl_.seq_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL LogEntry::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const LogEntry& this_ = static_cast<const LogEntry&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL LogEntry::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const LogEntry& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.ops.v1.LogEntry)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string file = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_file().empty()) {
+      const ::std::string& _s = this_._internal_file();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.LogEntry.file");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  // string level = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (!this_._internal_level().empty()) {
+      const ::std::string& _s = this_._internal_level();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.LogEntry.level");
+      target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
+  }
+
+  // string message = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (!this_._internal_message().empty()) {
+      const ::std::string& _s = this_._internal_message();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.ops.v1.LogEntry.message");
+      target = stream->WriteStringMaybeAliased(3, _s, target);
+    }
+  }
+
+  // int64 ts_unix_ms = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (this_._internal_ts_unix_ms() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<4>(
+              stream, this_._internal_ts_unix_ms(), target);
+    }
+  }
+
+  // int64 seq = 5;
+  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+    if (this_._internal_seq() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<5>(
+              stream, this_._internal_seq(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.ops.v1.LogEntry)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t LogEntry::ByteSizeLong(const MessageLite& base) {
+  const LogEntry& this_ = static_cast<const LogEntry&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t LogEntry::ByteSizeLong() const {
+  const LogEntry& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.ops.v1.LogEntry)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
+    // string file = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_file().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_file());
+      }
+    }
+    // string level = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!this_._internal_level().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_level());
+      }
+    }
+    // string message = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!this_._internal_message().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_message());
+      }
+    }
+    // int64 ts_unix_ms = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (this_._internal_ts_unix_ms() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_ts_unix_ms());
+      }
+    }
+    // int64 seq = 5;
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (this_._internal_seq() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_seq());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void LogEntry::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<LogEntry*>(&to_msg);
+  auto& from = static_cast<const LogEntry&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.ops.v1.LogEntry)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!from._internal_file().empty()) {
+        _this->_internal_set_file(from._internal_file());
+      } else {
+        if (_this->_impl_.file_.IsDefault()) {
+          _this->_internal_set_file("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!from._internal_level().empty()) {
+        _this->_internal_set_level(from._internal_level());
+      } else {
+        if (_this->_impl_.level_.IsDefault()) {
+          _this->_internal_set_level("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!from._internal_message().empty()) {
+        _this->_internal_set_message(from._internal_message());
+      } else {
+        if (_this->_impl_.message_.IsDefault()) {
+          _this->_internal_set_message("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (from._internal_ts_unix_ms() != 0) {
+        _this->_impl_.ts_unix_ms_ = from._impl_.ts_unix_ms_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (from._internal_seq() != 0) {
+        _this->_impl_.seq_ = from._impl_.seq_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void LogEntry::CopyFrom(const LogEntry& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.ops.v1.LogEntry)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void LogEntry::InternalSwap(LogEntry* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.file_, &other->_impl_.file_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.level_, &other->_impl_.level_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.message_, &other->_impl_.message_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.seq_)
+      + sizeof(LogEntry::_impl_.seq_)
+      - PROTOBUF_FIELD_OFFSET(LogEntry, _impl_.ts_unix_ms_)>(
+          reinterpret_cast<char*>(&_impl_.ts_unix_ms_),
+          reinterpret_cast<char*>(&other->_impl_.ts_unix_ms_));
+}
+
+::google::protobuf::Metadata LogEntry::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // ===================================================================

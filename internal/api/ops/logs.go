@@ -14,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/model"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -313,4 +314,42 @@ func buildLogTableViews(svcCtx *svc.ServiceContext) []LogTableView {
 		views = append(views, view)
 	}
 	return views
+}
+
+// agentLogSearch queries persisted agent application log entries (OPS-005).
+// The agent must be in the caller's scope; the query is scoped to that agent.
+func agentLogSearch(ctx context.Context, svcCtx *svc.ServiceContext, req *AgentLogSearchRequest) (*AgentLogSearchResponse, error) {
+	if err := NewAgentService(svcCtx).requireAgentScope(ctx, req.AgentID); err != nil {
+		return nil, err
+	}
+	if svcCtx == nil || svcCtx.LogStore == nil {
+		return &AgentLogSearchResponse{AgentID: req.AgentID}, nil
+	}
+	q := reg.LogSearchQuery{AgentID: req.AgentID, File: req.File, Level: req.Level, Limit: req.Limit, Offset: req.Offset}
+	if req.Since != "" {
+		if t, err := time.Parse(time.RFC3339, req.Since); err == nil {
+			q.Since = t
+		}
+	}
+	if req.Until != "" {
+		if t, err := time.Parse(time.RFC3339, req.Until); err == nil {
+			q.Until = t
+		}
+	}
+	rows, err := svcCtx.LogStore.Search(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	resp := &AgentLogSearchResponse{AgentID: req.AgentID, Items: make([]AgentLogEntryView, len(rows))}
+	for i, r := range rows {
+		resp.Items[i] = AgentLogEntryView{
+			File:       r.File,
+			Level:      r.Level,
+			Message:    r.Message,
+			TsUnixMs:   r.TsUnixMs,
+			ReceivedAt: r.ReceivedAt.UTC().Format(time.RFC3339),
+			Seq:        r.Seq,
+		}
+	}
+	return resp, nil
 }

@@ -751,6 +751,20 @@ func (h *Handler) AgentMetricsHistory(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+func (h *Handler) AgentLogSearch(c *gin.Context) {
+	var req AgentLogSearchRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.AgentLogSearch(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) AgentProcesses(c *gin.Context) {
 	h.OpsAgentProcesses(c)
 }

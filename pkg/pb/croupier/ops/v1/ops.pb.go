@@ -115,7 +115,10 @@ type MetricsReport struct {
 	// Node-wide listening port list (OPS-010 端口列表). Same source as
 	// ProcessMetrics.listening_ports — the listener scan is done once per
 	// report and both faces derive from it.
-	Ports         []*PortMetrics `protobuf:"bytes,12,rep,name=ports,proto3" json:"ports,omitempty"`
+	Ports []*PortMetrics `protobuf:"bytes,12,rep,name=ports,proto3" json:"ports,omitempty"`
+	// Application log lines tailed since the previous report (OPS-005 日志采集).
+	// Empty when log tailing is disabled or no new lines were produced.
+	Logs          []*LogEntry `protobuf:"bytes,13,rep,name=logs,proto3" json:"logs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -234,6 +237,101 @@ func (x *MetricsReport) GetPorts() []*PortMetrics {
 	return nil
 }
 
+func (x *MetricsReport) GetLogs() []*LogEntry {
+	if x != nil {
+		return x.Logs
+	}
+	return nil
+}
+
+// LogEntry is one application log line tailed by the agent (OPS-005 日志采集).
+// It rides the MetricsReport batch lane (logs field) so it shares the existing
+// periodic uplink, server-side persistence and retention machinery.
+type LogEntry struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// File is the tailed log file path as configured on the agent.
+	File string `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
+	// Level is the parsed log level (debug|info|warn|error|fatal); "" when the
+	// level could not be determined from the line.
+	Level string `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
+	// Message is the raw log line (up to MaxLogLineBytes, truncated safely).
+	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// TsUnixMs is the log line's own timestamp in Unix milliseconds (0 when the
+	// line carries no parseable timestamp; the server uses received_at).
+	TsUnixMs int64 `protobuf:"varint,4,opt,name=ts_unix_ms,json=tsUnixMs,proto3" json:"ts_unix_ms,omitempty"`
+	// Seq is the agent-side monotonic per-file sequence (starts at 1). Used for
+	// dedup on the server: a seq not newer than the last persisted one for the
+	// same (agent, file) is dropped as a retransmit.
+	Seq           int64 `protobuf:"varint,5,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogEntry) Reset() {
+	*x = LogEntry{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogEntry) ProtoMessage() {}
+
+func (x *LogEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
+func (*LogEntry) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *LogEntry) GetFile() string {
+	if x != nil {
+		return x.File
+	}
+	return ""
+}
+
+func (x *LogEntry) GetLevel() string {
+	if x != nil {
+		return x.Level
+	}
+	return ""
+}
+
+func (x *LogEntry) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *LogEntry) GetTsUnixMs() int64 {
+	if x != nil {
+		return x.TsUnixMs
+	}
+	return 0
+}
+
+func (x *LogEntry) GetSeq() int64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
 type CpuMetrics struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UsagePercent  float64                `protobuf:"fixed64,1,opt,name=usage_percent,json=usagePercent,proto3" json:"usage_percent,omitempty"` // Overall CPU usage percentage (0-100)
@@ -248,7 +346,7 @@ type CpuMetrics struct {
 
 func (x *CpuMetrics) Reset() {
 	*x = CpuMetrics{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[1]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -260,7 +358,7 @@ func (x *CpuMetrics) String() string {
 func (*CpuMetrics) ProtoMessage() {}
 
 func (x *CpuMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[1]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -273,7 +371,7 @@ func (x *CpuMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CpuMetrics.ProtoReflect.Descriptor instead.
 func (*CpuMetrics) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{1}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CpuMetrics) GetUsagePercent() float64 {
@@ -332,7 +430,7 @@ type MemoryMetrics struct {
 
 func (x *MemoryMetrics) Reset() {
 	*x = MemoryMetrics{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[2]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -344,7 +442,7 @@ func (x *MemoryMetrics) String() string {
 func (*MemoryMetrics) ProtoMessage() {}
 
 func (x *MemoryMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[2]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -357,7 +455,7 @@ func (x *MemoryMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryMetrics.ProtoReflect.Descriptor instead.
 func (*MemoryMetrics) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{2}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *MemoryMetrics) GetTotalBytes() uint64 {
@@ -419,7 +517,7 @@ type DiskMetrics struct {
 
 func (x *DiskMetrics) Reset() {
 	*x = DiskMetrics{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[3]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -431,7 +529,7 @@ func (x *DiskMetrics) String() string {
 func (*DiskMetrics) ProtoMessage() {}
 
 func (x *DiskMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[3]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -444,7 +542,7 @@ func (x *DiskMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiskMetrics.ProtoReflect.Descriptor instead.
 func (*DiskMetrics) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{3}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DiskMetrics) GetMountPoint() string {
@@ -532,7 +630,7 @@ type NetworkMetrics struct {
 
 func (x *NetworkMetrics) Reset() {
 	*x = NetworkMetrics{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[4]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +642,7 @@ func (x *NetworkMetrics) String() string {
 func (*NetworkMetrics) ProtoMessage() {}
 
 func (x *NetworkMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[4]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +655,7 @@ func (x *NetworkMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkMetrics.ProtoReflect.Descriptor instead.
 func (*NetworkMetrics) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{4}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *NetworkMetrics) GetInterface() string {
@@ -655,7 +753,7 @@ type ProcessMetrics struct {
 
 func (x *ProcessMetrics) Reset() {
 	*x = ProcessMetrics{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[5]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -667,7 +765,7 @@ func (x *ProcessMetrics) String() string {
 func (*ProcessMetrics) ProtoMessage() {}
 
 func (x *ProcessMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[5]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -680,7 +778,7 @@ func (x *ProcessMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessMetrics.ProtoReflect.Descriptor instead.
 func (*ProcessMetrics) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{5}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ProcessMetrics) GetPid() int32 {
@@ -753,7 +851,7 @@ type PortMetrics struct {
 
 func (x *PortMetrics) Reset() {
 	*x = PortMetrics{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[6]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -765,7 +863,7 @@ func (x *PortMetrics) String() string {
 func (*PortMetrics) ProtoMessage() {}
 
 func (x *PortMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[6]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -778,7 +876,7 @@ func (x *PortMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PortMetrics.ProtoReflect.Descriptor instead.
 func (*PortMetrics) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{6}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PortMetrics) GetPort() int32 {
@@ -839,7 +937,7 @@ type SystemInfo struct {
 
 func (x *SystemInfo) Reset() {
 	*x = SystemInfo{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[7]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -851,7 +949,7 @@ func (x *SystemInfo) String() string {
 func (*SystemInfo) ProtoMessage() {}
 
 func (x *SystemInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[7]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -864,7 +962,7 @@ func (x *SystemInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemInfo.ProtoReflect.Descriptor instead.
 func (*SystemInfo) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{7}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SystemInfo) GetHostname() string {
@@ -956,7 +1054,7 @@ type OpsStatus struct {
 
 func (x *OpsStatus) Reset() {
 	*x = OpsStatus{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[8]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -968,7 +1066,7 @@ func (x *OpsStatus) String() string {
 func (*OpsStatus) ProtoMessage() {}
 
 func (x *OpsStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[8]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -981,7 +1079,7 @@ func (x *OpsStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpsStatus.ProtoReflect.Descriptor instead.
 func (*OpsStatus) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{8}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *OpsStatus) GetEnabled() bool {
@@ -1024,7 +1122,7 @@ type RestartProcessRequest struct {
 
 func (x *RestartProcessRequest) Reset() {
 	*x = RestartProcessRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[9]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1036,7 +1134,7 @@ func (x *RestartProcessRequest) String() string {
 func (*RestartProcessRequest) ProtoMessage() {}
 
 func (x *RestartProcessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[9]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1049,7 +1147,7 @@ func (x *RestartProcessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestartProcessRequest.ProtoReflect.Descriptor instead.
 func (*RestartProcessRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{9}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RestartProcessRequest) GetProcessName() string {
@@ -1084,7 +1182,7 @@ type RestartProcessResponse struct {
 
 func (x *RestartProcessResponse) Reset() {
 	*x = RestartProcessResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[10]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1096,7 +1194,7 @@ func (x *RestartProcessResponse) String() string {
 func (*RestartProcessResponse) ProtoMessage() {}
 
 func (x *RestartProcessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[10]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1109,7 +1207,7 @@ func (x *RestartProcessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestartProcessResponse.ProtoReflect.Descriptor instead.
 func (*RestartProcessResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{10}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RestartProcessResponse) GetSuccess() bool {
@@ -1145,7 +1243,7 @@ type StopProcessRequest struct {
 
 func (x *StopProcessRequest) Reset() {
 	*x = StopProcessRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[11]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1157,7 +1255,7 @@ func (x *StopProcessRequest) String() string {
 func (*StopProcessRequest) ProtoMessage() {}
 
 func (x *StopProcessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[11]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1170,7 +1268,7 @@ func (x *StopProcessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopProcessRequest.ProtoReflect.Descriptor instead.
 func (*StopProcessRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{11}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *StopProcessRequest) GetProcessName() string {
@@ -1204,7 +1302,7 @@ type StopProcessResponse struct {
 
 func (x *StopProcessResponse) Reset() {
 	*x = StopProcessResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[12]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1216,7 +1314,7 @@ func (x *StopProcessResponse) String() string {
 func (*StopProcessResponse) ProtoMessage() {}
 
 func (x *StopProcessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[12]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1229,7 +1327,7 @@ func (x *StopProcessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopProcessResponse.ProtoReflect.Descriptor instead.
 func (*StopProcessResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{12}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *StopProcessResponse) GetSuccess() bool {
@@ -1256,7 +1354,7 @@ type StartProcessRequest struct {
 
 func (x *StartProcessRequest) Reset() {
 	*x = StartProcessRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[13]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1268,7 +1366,7 @@ func (x *StartProcessRequest) String() string {
 func (*StartProcessRequest) ProtoMessage() {}
 
 func (x *StartProcessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[13]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1281,7 +1379,7 @@ func (x *StartProcessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartProcessRequest.ProtoReflect.Descriptor instead.
 func (*StartProcessRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{13}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StartProcessRequest) GetProcessName() string {
@@ -1302,7 +1400,7 @@ type StartProcessResponse struct {
 
 func (x *StartProcessResponse) Reset() {
 	*x = StartProcessResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[14]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1314,7 +1412,7 @@ func (x *StartProcessResponse) String() string {
 func (*StartProcessResponse) ProtoMessage() {}
 
 func (x *StartProcessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[14]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1327,7 +1425,7 @@ func (x *StartProcessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartProcessResponse.ProtoReflect.Descriptor instead.
 func (*StartProcessResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{14}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *StartProcessResponse) GetSuccess() bool {
@@ -1366,7 +1464,7 @@ type UpdateProcessRequest struct {
 
 func (x *UpdateProcessRequest) Reset() {
 	*x = UpdateProcessRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[15]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1378,7 +1476,7 @@ func (x *UpdateProcessRequest) String() string {
 func (*UpdateProcessRequest) ProtoMessage() {}
 
 func (x *UpdateProcessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[15]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1391,7 +1489,7 @@ func (x *UpdateProcessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProcessRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProcessRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{15}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UpdateProcessRequest) GetProcessName() string {
@@ -1428,7 +1526,7 @@ type UpdateProcessResponse struct {
 
 func (x *UpdateProcessResponse) Reset() {
 	*x = UpdateProcessResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1440,7 +1538,7 @@ func (x *UpdateProcessResponse) String() string {
 func (*UpdateProcessResponse) ProtoMessage() {}
 
 func (x *UpdateProcessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[16]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1453,7 +1551,7 @@ func (x *UpdateProcessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProcessResponse.ProtoReflect.Descriptor instead.
 func (*UpdateProcessResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{16}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *UpdateProcessResponse) GetSuccess() bool {
@@ -1505,7 +1603,7 @@ type SchedulePauseRequest struct {
 
 func (x *SchedulePauseRequest) Reset() {
 	*x = SchedulePauseRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1517,7 +1615,7 @@ func (x *SchedulePauseRequest) String() string {
 func (*SchedulePauseRequest) ProtoMessage() {}
 
 func (x *SchedulePauseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[17]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1530,7 +1628,7 @@ func (x *SchedulePauseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchedulePauseRequest.ProtoReflect.Descriptor instead.
 func (*SchedulePauseRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{17}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SchedulePauseRequest) GetProcessName() string {
@@ -1558,7 +1656,7 @@ type SchedulePauseResponse struct {
 
 func (x *SchedulePauseResponse) Reset() {
 	*x = SchedulePauseResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1570,7 +1668,7 @@ func (x *SchedulePauseResponse) String() string {
 func (*SchedulePauseResponse) ProtoMessage() {}
 
 func (x *SchedulePauseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[18]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1583,7 +1681,7 @@ func (x *SchedulePauseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchedulePauseResponse.ProtoReflect.Descriptor instead.
 func (*SchedulePauseResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{18}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SchedulePauseResponse) GetSuccess() bool {
@@ -1617,7 +1715,7 @@ type ListProcessesResponse struct {
 
 func (x *ListProcessesResponse) Reset() {
 	*x = ListProcessesResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1629,7 +1727,7 @@ func (x *ListProcessesResponse) String() string {
 func (*ListProcessesResponse) ProtoMessage() {}
 
 func (x *ListProcessesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[19]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1642,7 +1740,7 @@ func (x *ListProcessesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProcessesResponse.ProtoReflect.Descriptor instead.
 func (*ListProcessesResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{19}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListProcessesResponse) GetProcesses() []*ManagedProcess {
@@ -1670,7 +1768,7 @@ type ManagedProcess struct {
 
 func (x *ManagedProcess) Reset() {
 	*x = ManagedProcess{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1682,7 +1780,7 @@ func (x *ManagedProcess) String() string {
 func (*ManagedProcess) ProtoMessage() {}
 
 func (x *ManagedProcess) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[20]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1695,7 +1793,7 @@ func (x *ManagedProcess) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ManagedProcess.ProtoReflect.Descriptor instead.
 func (*ManagedProcess) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{20}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ManagedProcess) GetName() string {
@@ -1798,7 +1896,7 @@ type SupervisorEvent struct {
 
 func (x *SupervisorEvent) Reset() {
 	*x = SupervisorEvent{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1810,7 +1908,7 @@ func (x *SupervisorEvent) String() string {
 func (*SupervisorEvent) ProtoMessage() {}
 
 func (x *SupervisorEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[21]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1823,7 +1921,7 @@ func (x *SupervisorEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SupervisorEvent.ProtoReflect.Descriptor instead.
 func (*SupervisorEvent) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{21}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SupervisorEvent) GetTsUnix() int64 {
@@ -1948,7 +2046,7 @@ type GetSupervisorLogRequest struct {
 
 func (x *GetSupervisorLogRequest) Reset() {
 	*x = GetSupervisorLogRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1960,7 +2058,7 @@ func (x *GetSupervisorLogRequest) String() string {
 func (*GetSupervisorLogRequest) ProtoMessage() {}
 
 func (x *GetSupervisorLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[22]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1973,7 +2071,7 @@ func (x *GetSupervisorLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSupervisorLogRequest.ProtoReflect.Descriptor instead.
 func (*GetSupervisorLogRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{22}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetSupervisorLogRequest) GetMaxBytes() int32 {
@@ -1995,7 +2093,7 @@ type GetSupervisorLogResponse struct {
 
 func (x *GetSupervisorLogResponse) Reset() {
 	*x = GetSupervisorLogResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2007,7 +2105,7 @@ func (x *GetSupervisorLogResponse) String() string {
 func (*GetSupervisorLogResponse) ProtoMessage() {}
 
 func (x *GetSupervisorLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[23]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2020,7 +2118,7 @@ func (x *GetSupervisorLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSupervisorLogResponse.ProtoReflect.Descriptor instead.
 func (*GetSupervisorLogResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{23}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetSupervisorLogResponse) GetContent() []byte {
@@ -2072,7 +2170,7 @@ type SupervisedProcessSnapshot struct {
 
 func (x *SupervisedProcessSnapshot) Reset() {
 	*x = SupervisedProcessSnapshot{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2084,7 +2182,7 @@ func (x *SupervisedProcessSnapshot) String() string {
 func (*SupervisedProcessSnapshot) ProtoMessage() {}
 
 func (x *SupervisedProcessSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[24]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2097,7 +2195,7 @@ func (x *SupervisedProcessSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SupervisedProcessSnapshot.ProtoReflect.Descriptor instead.
 func (*SupervisedProcessSnapshot) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{24}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SupervisedProcessSnapshot) GetName() string {
@@ -2234,7 +2332,7 @@ type ExecuteCommandRequest struct {
 
 func (x *ExecuteCommandRequest) Reset() {
 	*x = ExecuteCommandRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2246,7 +2344,7 @@ func (x *ExecuteCommandRequest) String() string {
 func (*ExecuteCommandRequest) ProtoMessage() {}
 
 func (x *ExecuteCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[25]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2259,7 +2357,7 @@ func (x *ExecuteCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteCommandRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteCommandRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{25}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ExecuteCommandRequest) GetCommand() string {
@@ -2310,7 +2408,7 @@ type ExecuteCommandResponse struct {
 
 func (x *ExecuteCommandResponse) Reset() {
 	*x = ExecuteCommandResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[26]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2322,7 +2420,7 @@ func (x *ExecuteCommandResponse) String() string {
 func (*ExecuteCommandResponse) ProtoMessage() {}
 
 func (x *ExecuteCommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[26]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2335,7 +2433,7 @@ func (x *ExecuteCommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteCommandResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteCommandResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{26}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ExecuteCommandResponse) GetSuccess() bool {
@@ -2385,7 +2483,7 @@ type ListServicesRequest struct {
 
 func (x *ListServicesRequest) Reset() {
 	*x = ListServicesRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[27]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2397,7 +2495,7 @@ func (x *ListServicesRequest) String() string {
 func (*ListServicesRequest) ProtoMessage() {}
 
 func (x *ListServicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[27]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2410,7 +2508,7 @@ func (x *ListServicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServicesRequest.ProtoReflect.Descriptor instead.
 func (*ListServicesRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{27}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListServicesRequest) GetState() string {
@@ -2445,7 +2543,7 @@ type ListServicesResponse struct {
 
 func (x *ListServicesResponse) Reset() {
 	*x = ListServicesResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[28]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2457,7 +2555,7 @@ func (x *ListServicesResponse) String() string {
 func (*ListServicesResponse) ProtoMessage() {}
 
 func (x *ListServicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[28]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2470,7 +2568,7 @@ func (x *ListServicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServicesResponse.ProtoReflect.Descriptor instead.
 func (*ListServicesResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{28}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListServicesResponse) GetServices() []*ServiceInfo {
@@ -2501,7 +2599,7 @@ type ServiceInfo struct {
 
 func (x *ServiceInfo) Reset() {
 	*x = ServiceInfo{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[29]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2513,7 +2611,7 @@ func (x *ServiceInfo) String() string {
 func (*ServiceInfo) ProtoMessage() {}
 
 func (x *ServiceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[29]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2526,7 +2624,7 @@ func (x *ServiceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceInfo.ProtoReflect.Descriptor instead.
 func (*ServiceInfo) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{29}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ServiceInfo) GetName() string {
@@ -2574,7 +2672,7 @@ type GetServiceStatusRequest struct {
 
 func (x *GetServiceStatusRequest) Reset() {
 	*x = GetServiceStatusRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[30]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2586,7 +2684,7 @@ func (x *GetServiceStatusRequest) String() string {
 func (*GetServiceStatusRequest) ProtoMessage() {}
 
 func (x *GetServiceStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[30]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2599,7 +2697,7 @@ func (x *GetServiceStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServiceStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetServiceStatusRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{30}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetServiceStatusRequest) GetName() string {
@@ -2625,7 +2723,7 @@ type GetServiceStatusResponse struct {
 
 func (x *GetServiceStatusResponse) Reset() {
 	*x = GetServiceStatusResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[31]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2637,7 +2735,7 @@ func (x *GetServiceStatusResponse) String() string {
 func (*GetServiceStatusResponse) ProtoMessage() {}
 
 func (x *GetServiceStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[31]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2650,7 +2748,7 @@ func (x *GetServiceStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServiceStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetServiceStatusResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{31}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetServiceStatusResponse) GetName() string {
@@ -2713,7 +2811,7 @@ type ListCronJobsResponse struct {
 
 func (x *ListCronJobsResponse) Reset() {
 	*x = ListCronJobsResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[32]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2725,7 +2823,7 @@ func (x *ListCronJobsResponse) String() string {
 func (*ListCronJobsResponse) ProtoMessage() {}
 
 func (x *ListCronJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[32]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2738,7 +2836,7 @@ func (x *ListCronJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCronJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListCronJobsResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{32}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListCronJobsResponse) GetJobs() []*CronJob {
@@ -2769,7 +2867,7 @@ type CronJob struct {
 
 func (x *CronJob) Reset() {
 	*x = CronJob{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[33]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2781,7 +2879,7 @@ func (x *CronJob) String() string {
 func (*CronJob) ProtoMessage() {}
 
 func (x *CronJob) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[33]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2794,7 +2892,7 @@ func (x *CronJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CronJob.ProtoReflect.Descriptor instead.
 func (*CronJob) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{33}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *CronJob) GetSchedule() string {
@@ -2854,7 +2952,7 @@ type CaptureRuleHitReport struct {
 
 func (x *CaptureRuleHitReport) Reset() {
 	*x = CaptureRuleHitReport{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[34]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2866,7 +2964,7 @@ func (x *CaptureRuleHitReport) String() string {
 func (*CaptureRuleHitReport) ProtoMessage() {}
 
 func (x *CaptureRuleHitReport) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[34]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2879,7 +2977,7 @@ func (x *CaptureRuleHitReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureRuleHitReport.ProtoReflect.Descriptor instead.
 func (*CaptureRuleHitReport) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{34}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *CaptureRuleHitReport) GetAgentId() string {
@@ -2970,7 +3068,7 @@ type CaptureRuleHitAck struct {
 
 func (x *CaptureRuleHitAck) Reset() {
 	*x = CaptureRuleHitAck{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2982,7 +3080,7 @@ func (x *CaptureRuleHitAck) String() string {
 func (*CaptureRuleHitAck) ProtoMessage() {}
 
 func (x *CaptureRuleHitAck) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[35]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2995,7 +3093,7 @@ func (x *CaptureRuleHitAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureRuleHitAck.ProtoReflect.Descriptor instead.
 func (*CaptureRuleHitAck) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{35}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CaptureRuleHitAck) GetAccepted() bool {
@@ -3024,7 +3122,7 @@ type CaptureGatesConfigRequest struct {
 
 func (x *CaptureGatesConfigRequest) Reset() {
 	*x = CaptureGatesConfigRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3036,7 +3134,7 @@ func (x *CaptureGatesConfigRequest) String() string {
 func (*CaptureGatesConfigRequest) ProtoMessage() {}
 
 func (x *CaptureGatesConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[36]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3049,7 +3147,7 @@ func (x *CaptureGatesConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureGatesConfigRequest.ProtoReflect.Descriptor instead.
 func (*CaptureGatesConfigRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{36}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CaptureGatesConfigRequest) GetAgentId() string {
@@ -3073,7 +3171,7 @@ type CaptureGatesConfigResponse struct {
 
 func (x *CaptureGatesConfigResponse) Reset() {
 	*x = CaptureGatesConfigResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3085,7 +3183,7 @@ func (x *CaptureGatesConfigResponse) String() string {
 func (*CaptureGatesConfigResponse) ProtoMessage() {}
 
 func (x *CaptureGatesConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[37]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3098,7 +3196,7 @@ func (x *CaptureGatesConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureGatesConfigResponse.ProtoReflect.Descriptor instead.
 func (*CaptureGatesConfigResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{37}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CaptureGatesConfigResponse) GetVersion() string {
@@ -3127,7 +3225,7 @@ type ProbePolicyConfigRequest struct {
 
 func (x *ProbePolicyConfigRequest) Reset() {
 	*x = ProbePolicyConfigRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3139,7 +3237,7 @@ func (x *ProbePolicyConfigRequest) String() string {
 func (*ProbePolicyConfigRequest) ProtoMessage() {}
 
 func (x *ProbePolicyConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[38]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3152,7 +3250,7 @@ func (x *ProbePolicyConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbePolicyConfigRequest.ProtoReflect.Descriptor instead.
 func (*ProbePolicyConfigRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{38}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ProbePolicyConfigRequest) GetAgentId() string {
@@ -3176,7 +3274,7 @@ type ProbePolicyConfigResponse struct {
 
 func (x *ProbePolicyConfigResponse) Reset() {
 	*x = ProbePolicyConfigResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[39]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3188,7 +3286,7 @@ func (x *ProbePolicyConfigResponse) String() string {
 func (*ProbePolicyConfigResponse) ProtoMessage() {}
 
 func (x *ProbePolicyConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[39]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3201,7 +3299,7 @@ func (x *ProbePolicyConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbePolicyConfigResponse.ProtoReflect.Descriptor instead.
 func (*ProbePolicyConfigResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{39}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ProbePolicyConfigResponse) GetVersion() string {
@@ -3231,7 +3329,7 @@ type ProbeDBTargetsConfigRequest struct {
 
 func (x *ProbeDBTargetsConfigRequest) Reset() {
 	*x = ProbeDBTargetsConfigRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[40]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3243,7 +3341,7 @@ func (x *ProbeDBTargetsConfigRequest) String() string {
 func (*ProbeDBTargetsConfigRequest) ProtoMessage() {}
 
 func (x *ProbeDBTargetsConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[40]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3256,7 +3354,7 @@ func (x *ProbeDBTargetsConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeDBTargetsConfigRequest.ProtoReflect.Descriptor instead.
 func (*ProbeDBTargetsConfigRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{40}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ProbeDBTargetsConfigRequest) GetAgentId() string {
@@ -3283,7 +3381,7 @@ type ProbeDBTargetsConfigResponse struct {
 
 func (x *ProbeDBTargetsConfigResponse) Reset() {
 	*x = ProbeDBTargetsConfigResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[41]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3295,7 +3393,7 @@ func (x *ProbeDBTargetsConfigResponse) String() string {
 func (*ProbeDBTargetsConfigResponse) ProtoMessage() {}
 
 func (x *ProbeDBTargetsConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[41]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3308,7 +3406,7 @@ func (x *ProbeDBTargetsConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeDBTargetsConfigResponse.ProtoReflect.Descriptor instead.
 func (*ProbeDBTargetsConfigResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{41}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ProbeDBTargetsConfigResponse) GetVersion() string {
@@ -3338,7 +3436,7 @@ type DevopsAllowlistConfigRequest struct {
 
 func (x *DevopsAllowlistConfigRequest) Reset() {
 	*x = DevopsAllowlistConfigRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[42]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3350,7 +3448,7 @@ func (x *DevopsAllowlistConfigRequest) String() string {
 func (*DevopsAllowlistConfigRequest) ProtoMessage() {}
 
 func (x *DevopsAllowlistConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[42]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3363,7 +3461,7 @@ func (x *DevopsAllowlistConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DevopsAllowlistConfigRequest.ProtoReflect.Descriptor instead.
 func (*DevopsAllowlistConfigRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{42}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *DevopsAllowlistConfigRequest) GetAgentId() string {
@@ -3388,7 +3486,7 @@ type DevopsAllowlistConfigResponse struct {
 
 func (x *DevopsAllowlistConfigResponse) Reset() {
 	*x = DevopsAllowlistConfigResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[43]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3400,7 +3498,7 @@ func (x *DevopsAllowlistConfigResponse) String() string {
 func (*DevopsAllowlistConfigResponse) ProtoMessage() {}
 
 func (x *DevopsAllowlistConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[43]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3413,7 +3511,7 @@ func (x *DevopsAllowlistConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DevopsAllowlistConfigResponse.ProtoReflect.Descriptor instead.
 func (*DevopsAllowlistConfigResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{43}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *DevopsAllowlistConfigResponse) GetVersion() string {
@@ -3443,7 +3541,7 @@ type SyntheticsTargetsConfigRequest struct {
 
 func (x *SyntheticsTargetsConfigRequest) Reset() {
 	*x = SyntheticsTargetsConfigRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[44]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3455,7 +3553,7 @@ func (x *SyntheticsTargetsConfigRequest) String() string {
 func (*SyntheticsTargetsConfigRequest) ProtoMessage() {}
 
 func (x *SyntheticsTargetsConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[44]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3468,7 +3566,7 @@ func (x *SyntheticsTargetsConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyntheticsTargetsConfigRequest.ProtoReflect.Descriptor instead.
 func (*SyntheticsTargetsConfigRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{44}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *SyntheticsTargetsConfigRequest) GetAgentId() string {
@@ -3494,7 +3592,7 @@ type SyntheticsTargetsConfigResponse struct {
 
 func (x *SyntheticsTargetsConfigResponse) Reset() {
 	*x = SyntheticsTargetsConfigResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[45]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3506,7 +3604,7 @@ func (x *SyntheticsTargetsConfigResponse) String() string {
 func (*SyntheticsTargetsConfigResponse) ProtoMessage() {}
 
 func (x *SyntheticsTargetsConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[45]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3519,7 +3617,7 @@ func (x *SyntheticsTargetsConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyntheticsTargetsConfigResponse.ProtoReflect.Descriptor instead.
 func (*SyntheticsTargetsConfigResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{45}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *SyntheticsTargetsConfigResponse) GetVersion() string {
@@ -3558,7 +3656,7 @@ type AlertEvent struct {
 
 func (x *AlertEvent) Reset() {
 	*x = AlertEvent{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[46]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3570,7 +3668,7 @@ func (x *AlertEvent) String() string {
 func (*AlertEvent) ProtoMessage() {}
 
 func (x *AlertEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[46]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3583,7 +3681,7 @@ func (x *AlertEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertEvent.ProtoReflect.Descriptor instead.
 func (*AlertEvent) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{46}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *AlertEvent) GetKind() string {
@@ -3652,7 +3750,7 @@ type ProbeWindow struct {
 
 func (x *ProbeWindow) Reset() {
 	*x = ProbeWindow{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3664,7 +3762,7 @@ func (x *ProbeWindow) String() string {
 func (*ProbeWindow) ProtoMessage() {}
 
 func (x *ProbeWindow) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3677,7 +3775,7 @@ func (x *ProbeWindow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeWindow.ProtoReflect.Descriptor instead.
 func (*ProbeWindow) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{47}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ProbeWindow) GetTarget() string {
@@ -3756,7 +3854,7 @@ type ProbeDetail struct {
 
 func (x *ProbeDetail) Reset() {
 	*x = ProbeDetail{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3768,7 +3866,7 @@ func (x *ProbeDetail) String() string {
 func (*ProbeDetail) ProtoMessage() {}
 
 func (x *ProbeDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3781,7 +3879,7 @@ func (x *ProbeDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeDetail.ProtoReflect.Descriptor instead.
 func (*ProbeDetail) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{48}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ProbeDetail) GetTarget() string {
@@ -3882,7 +3980,7 @@ type ProbeStats struct {
 
 func (x *ProbeStats) Reset() {
 	*x = ProbeStats{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3894,7 +3992,7 @@ func (x *ProbeStats) String() string {
 func (*ProbeStats) ProtoMessage() {}
 
 func (x *ProbeStats) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3907,7 +4005,7 @@ func (x *ProbeStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeStats.ProtoReflect.Descriptor instead.
 func (*ProbeStats) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{49}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ProbeStats) GetTarget() string {
@@ -4033,7 +4131,7 @@ var File_croupier_ops_v1_ops_proto protoreflect.FileDescriptor
 
 const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\n" +
-	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9a\x06\n" +
+	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc9\x06\n" +
 	"\rMetricsReport\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12-\n" +
@@ -4048,10 +4146,18 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	" \x03(\v2 .croupier.ops.v1.SupervisorEventR\x10supervisorEvents\x12<\n" +
 	"\vprobe_stats\x18\v \x03(\v2\x1b.croupier.ops.v1.ProbeStatsR\n" +
 	"probeStats\x122\n" +
-	"\x05ports\x18\f \x03(\v2\x1c.croupier.ops.v1.PortMetricsR\x05ports\x1a9\n" +
+	"\x05ports\x18\f \x03(\v2\x1c.croupier.ops.v1.PortMetricsR\x05ports\x12-\n" +
+	"\x04logs\x18\r \x03(\v2\x19.croupier.ops.v1.LogEntryR\x04logs\x1a9\n" +
 	"\vCustomEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xaf\x01\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"~\n" +
+	"\bLogEntry\x12\x12\n" +
+	"\x04file\x18\x01 \x01(\tR\x04file\x12\x14\n" +
+	"\x05level\x18\x02 \x01(\tR\x05level\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1c\n" +
+	"\n" +
+	"ts_unix_ms\x18\x04 \x01(\x03R\btsUnixMs\x12\x10\n" +
+	"\x03seq\x18\x05 \x01(\x03R\x03seq\"\xaf\x01\n" +
 	"\n" +
 	"CpuMetrics\x12#\n" +
 	"\rusage_percent\x18\x01 \x01(\x01R\fusagePercent\x12\x14\n" +
@@ -4426,94 +4532,96 @@ func file_croupier_ops_v1_ops_proto_rawDescGZIP() []byte {
 }
 
 var file_croupier_ops_v1_ops_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
 var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(ProcessState)(0),                       // 0: croupier.ops.v1.ProcessState
 	(*MetricsReport)(nil),                   // 1: croupier.ops.v1.MetricsReport
-	(*CpuMetrics)(nil),                      // 2: croupier.ops.v1.CpuMetrics
-	(*MemoryMetrics)(nil),                   // 3: croupier.ops.v1.MemoryMetrics
-	(*DiskMetrics)(nil),                     // 4: croupier.ops.v1.DiskMetrics
-	(*NetworkMetrics)(nil),                  // 5: croupier.ops.v1.NetworkMetrics
-	(*ProcessMetrics)(nil),                  // 6: croupier.ops.v1.ProcessMetrics
-	(*PortMetrics)(nil),                     // 7: croupier.ops.v1.PortMetrics
-	(*SystemInfo)(nil),                      // 8: croupier.ops.v1.SystemInfo
-	(*OpsStatus)(nil),                       // 9: croupier.ops.v1.OpsStatus
-	(*RestartProcessRequest)(nil),           // 10: croupier.ops.v1.RestartProcessRequest
-	(*RestartProcessResponse)(nil),          // 11: croupier.ops.v1.RestartProcessResponse
-	(*StopProcessRequest)(nil),              // 12: croupier.ops.v1.StopProcessRequest
-	(*StopProcessResponse)(nil),             // 13: croupier.ops.v1.StopProcessResponse
-	(*StartProcessRequest)(nil),             // 14: croupier.ops.v1.StartProcessRequest
-	(*StartProcessResponse)(nil),            // 15: croupier.ops.v1.StartProcessResponse
-	(*UpdateProcessRequest)(nil),            // 16: croupier.ops.v1.UpdateProcessRequest
-	(*UpdateProcessResponse)(nil),           // 17: croupier.ops.v1.UpdateProcessResponse
-	(*SchedulePauseRequest)(nil),            // 18: croupier.ops.v1.SchedulePauseRequest
-	(*SchedulePauseResponse)(nil),           // 19: croupier.ops.v1.SchedulePauseResponse
-	(*ListProcessesResponse)(nil),           // 20: croupier.ops.v1.ListProcessesResponse
-	(*ManagedProcess)(nil),                  // 21: croupier.ops.v1.ManagedProcess
-	(*SupervisorEvent)(nil),                 // 22: croupier.ops.v1.SupervisorEvent
-	(*GetSupervisorLogRequest)(nil),         // 23: croupier.ops.v1.GetSupervisorLogRequest
-	(*GetSupervisorLogResponse)(nil),        // 24: croupier.ops.v1.GetSupervisorLogResponse
-	(*SupervisedProcessSnapshot)(nil),       // 25: croupier.ops.v1.SupervisedProcessSnapshot
-	(*ExecuteCommandRequest)(nil),           // 26: croupier.ops.v1.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil),          // 27: croupier.ops.v1.ExecuteCommandResponse
-	(*ListServicesRequest)(nil),             // 28: croupier.ops.v1.ListServicesRequest
-	(*ListServicesResponse)(nil),            // 29: croupier.ops.v1.ListServicesResponse
-	(*ServiceInfo)(nil),                     // 30: croupier.ops.v1.ServiceInfo
-	(*GetServiceStatusRequest)(nil),         // 31: croupier.ops.v1.GetServiceStatusRequest
-	(*GetServiceStatusResponse)(nil),        // 32: croupier.ops.v1.GetServiceStatusResponse
-	(*ListCronJobsResponse)(nil),            // 33: croupier.ops.v1.ListCronJobsResponse
-	(*CronJob)(nil),                         // 34: croupier.ops.v1.CronJob
-	(*CaptureRuleHitReport)(nil),            // 35: croupier.ops.v1.CaptureRuleHitReport
-	(*CaptureRuleHitAck)(nil),               // 36: croupier.ops.v1.CaptureRuleHitAck
-	(*CaptureGatesConfigRequest)(nil),       // 37: croupier.ops.v1.CaptureGatesConfigRequest
-	(*CaptureGatesConfigResponse)(nil),      // 38: croupier.ops.v1.CaptureGatesConfigResponse
-	(*ProbePolicyConfigRequest)(nil),        // 39: croupier.ops.v1.ProbePolicyConfigRequest
-	(*ProbePolicyConfigResponse)(nil),       // 40: croupier.ops.v1.ProbePolicyConfigResponse
-	(*ProbeDBTargetsConfigRequest)(nil),     // 41: croupier.ops.v1.ProbeDBTargetsConfigRequest
-	(*ProbeDBTargetsConfigResponse)(nil),    // 42: croupier.ops.v1.ProbeDBTargetsConfigResponse
-	(*DevopsAllowlistConfigRequest)(nil),    // 43: croupier.ops.v1.DevopsAllowlistConfigRequest
-	(*DevopsAllowlistConfigResponse)(nil),   // 44: croupier.ops.v1.DevopsAllowlistConfigResponse
-	(*SyntheticsTargetsConfigRequest)(nil),  // 45: croupier.ops.v1.SyntheticsTargetsConfigRequest
-	(*SyntheticsTargetsConfigResponse)(nil), // 46: croupier.ops.v1.SyntheticsTargetsConfigResponse
-	(*AlertEvent)(nil),                      // 47: croupier.ops.v1.AlertEvent
-	(*ProbeWindow)(nil),                     // 48: croupier.ops.v1.ProbeWindow
-	(*ProbeDetail)(nil),                     // 49: croupier.ops.v1.ProbeDetail
-	(*ProbeStats)(nil),                      // 50: croupier.ops.v1.ProbeStats
-	nil,                                     // 51: croupier.ops.v1.MetricsReport.CustomEntry
-	nil,                                     // 52: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	nil,                                     // 53: croupier.ops.v1.ProbeDetail.DetailsEntry
-	(*timestamppb.Timestamp)(nil),           // 54: google.protobuf.Timestamp
+	(*LogEntry)(nil),                        // 2: croupier.ops.v1.LogEntry
+	(*CpuMetrics)(nil),                      // 3: croupier.ops.v1.CpuMetrics
+	(*MemoryMetrics)(nil),                   // 4: croupier.ops.v1.MemoryMetrics
+	(*DiskMetrics)(nil),                     // 5: croupier.ops.v1.DiskMetrics
+	(*NetworkMetrics)(nil),                  // 6: croupier.ops.v1.NetworkMetrics
+	(*ProcessMetrics)(nil),                  // 7: croupier.ops.v1.ProcessMetrics
+	(*PortMetrics)(nil),                     // 8: croupier.ops.v1.PortMetrics
+	(*SystemInfo)(nil),                      // 9: croupier.ops.v1.SystemInfo
+	(*OpsStatus)(nil),                       // 10: croupier.ops.v1.OpsStatus
+	(*RestartProcessRequest)(nil),           // 11: croupier.ops.v1.RestartProcessRequest
+	(*RestartProcessResponse)(nil),          // 12: croupier.ops.v1.RestartProcessResponse
+	(*StopProcessRequest)(nil),              // 13: croupier.ops.v1.StopProcessRequest
+	(*StopProcessResponse)(nil),             // 14: croupier.ops.v1.StopProcessResponse
+	(*StartProcessRequest)(nil),             // 15: croupier.ops.v1.StartProcessRequest
+	(*StartProcessResponse)(nil),            // 16: croupier.ops.v1.StartProcessResponse
+	(*UpdateProcessRequest)(nil),            // 17: croupier.ops.v1.UpdateProcessRequest
+	(*UpdateProcessResponse)(nil),           // 18: croupier.ops.v1.UpdateProcessResponse
+	(*SchedulePauseRequest)(nil),            // 19: croupier.ops.v1.SchedulePauseRequest
+	(*SchedulePauseResponse)(nil),           // 20: croupier.ops.v1.SchedulePauseResponse
+	(*ListProcessesResponse)(nil),           // 21: croupier.ops.v1.ListProcessesResponse
+	(*ManagedProcess)(nil),                  // 22: croupier.ops.v1.ManagedProcess
+	(*SupervisorEvent)(nil),                 // 23: croupier.ops.v1.SupervisorEvent
+	(*GetSupervisorLogRequest)(nil),         // 24: croupier.ops.v1.GetSupervisorLogRequest
+	(*GetSupervisorLogResponse)(nil),        // 25: croupier.ops.v1.GetSupervisorLogResponse
+	(*SupervisedProcessSnapshot)(nil),       // 26: croupier.ops.v1.SupervisedProcessSnapshot
+	(*ExecuteCommandRequest)(nil),           // 27: croupier.ops.v1.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil),          // 28: croupier.ops.v1.ExecuteCommandResponse
+	(*ListServicesRequest)(nil),             // 29: croupier.ops.v1.ListServicesRequest
+	(*ListServicesResponse)(nil),            // 30: croupier.ops.v1.ListServicesResponse
+	(*ServiceInfo)(nil),                     // 31: croupier.ops.v1.ServiceInfo
+	(*GetServiceStatusRequest)(nil),         // 32: croupier.ops.v1.GetServiceStatusRequest
+	(*GetServiceStatusResponse)(nil),        // 33: croupier.ops.v1.GetServiceStatusResponse
+	(*ListCronJobsResponse)(nil),            // 34: croupier.ops.v1.ListCronJobsResponse
+	(*CronJob)(nil),                         // 35: croupier.ops.v1.CronJob
+	(*CaptureRuleHitReport)(nil),            // 36: croupier.ops.v1.CaptureRuleHitReport
+	(*CaptureRuleHitAck)(nil),               // 37: croupier.ops.v1.CaptureRuleHitAck
+	(*CaptureGatesConfigRequest)(nil),       // 38: croupier.ops.v1.CaptureGatesConfigRequest
+	(*CaptureGatesConfigResponse)(nil),      // 39: croupier.ops.v1.CaptureGatesConfigResponse
+	(*ProbePolicyConfigRequest)(nil),        // 40: croupier.ops.v1.ProbePolicyConfigRequest
+	(*ProbePolicyConfigResponse)(nil),       // 41: croupier.ops.v1.ProbePolicyConfigResponse
+	(*ProbeDBTargetsConfigRequest)(nil),     // 42: croupier.ops.v1.ProbeDBTargetsConfigRequest
+	(*ProbeDBTargetsConfigResponse)(nil),    // 43: croupier.ops.v1.ProbeDBTargetsConfigResponse
+	(*DevopsAllowlistConfigRequest)(nil),    // 44: croupier.ops.v1.DevopsAllowlistConfigRequest
+	(*DevopsAllowlistConfigResponse)(nil),   // 45: croupier.ops.v1.DevopsAllowlistConfigResponse
+	(*SyntheticsTargetsConfigRequest)(nil),  // 46: croupier.ops.v1.SyntheticsTargetsConfigRequest
+	(*SyntheticsTargetsConfigResponse)(nil), // 47: croupier.ops.v1.SyntheticsTargetsConfigResponse
+	(*AlertEvent)(nil),                      // 48: croupier.ops.v1.AlertEvent
+	(*ProbeWindow)(nil),                     // 49: croupier.ops.v1.ProbeWindow
+	(*ProbeDetail)(nil),                     // 50: croupier.ops.v1.ProbeDetail
+	(*ProbeStats)(nil),                      // 51: croupier.ops.v1.ProbeStats
+	nil,                                     // 52: croupier.ops.v1.MetricsReport.CustomEntry
+	nil,                                     // 53: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	nil,                                     // 54: croupier.ops.v1.ProbeDetail.DetailsEntry
+	(*timestamppb.Timestamp)(nil),           // 55: google.protobuf.Timestamp
 }
 var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
-	54, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
-	2,  // 1: croupier.ops.v1.MetricsReport.cpu:type_name -> croupier.ops.v1.CpuMetrics
-	3,  // 2: croupier.ops.v1.MetricsReport.memory:type_name -> croupier.ops.v1.MemoryMetrics
-	4,  // 3: croupier.ops.v1.MetricsReport.disks:type_name -> croupier.ops.v1.DiskMetrics
-	5,  // 4: croupier.ops.v1.MetricsReport.networks:type_name -> croupier.ops.v1.NetworkMetrics
-	6,  // 5: croupier.ops.v1.MetricsReport.processes:type_name -> croupier.ops.v1.ProcessMetrics
-	51, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
-	25, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
-	22, // 8: croupier.ops.v1.MetricsReport.supervisor_events:type_name -> croupier.ops.v1.SupervisorEvent
-	50, // 9: croupier.ops.v1.MetricsReport.probe_stats:type_name -> croupier.ops.v1.ProbeStats
-	7,  // 10: croupier.ops.v1.MetricsReport.ports:type_name -> croupier.ops.v1.PortMetrics
-	54, // 11: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
-	54, // 12: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
-	9,  // 13: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
-	21, // 14: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
-	0,  // 15: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
-	54, // 16: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
-	0,  // 17: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
-	52, // 18: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	30, // 19: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
-	34, // 20: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
-	48, // 21: croupier.ops.v1.AlertEvent.window:type_name -> croupier.ops.v1.ProbeWindow
-	49, // 22: croupier.ops.v1.AlertEvent.detail:type_name -> croupier.ops.v1.ProbeDetail
-	53, // 23: croupier.ops.v1.ProbeDetail.details:type_name -> croupier.ops.v1.ProbeDetail.DetailsEntry
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	55, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
+	3,  // 1: croupier.ops.v1.MetricsReport.cpu:type_name -> croupier.ops.v1.CpuMetrics
+	4,  // 2: croupier.ops.v1.MetricsReport.memory:type_name -> croupier.ops.v1.MemoryMetrics
+	5,  // 3: croupier.ops.v1.MetricsReport.disks:type_name -> croupier.ops.v1.DiskMetrics
+	6,  // 4: croupier.ops.v1.MetricsReport.networks:type_name -> croupier.ops.v1.NetworkMetrics
+	7,  // 5: croupier.ops.v1.MetricsReport.processes:type_name -> croupier.ops.v1.ProcessMetrics
+	52, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
+	26, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
+	23, // 8: croupier.ops.v1.MetricsReport.supervisor_events:type_name -> croupier.ops.v1.SupervisorEvent
+	51, // 9: croupier.ops.v1.MetricsReport.probe_stats:type_name -> croupier.ops.v1.ProbeStats
+	8,  // 10: croupier.ops.v1.MetricsReport.ports:type_name -> croupier.ops.v1.PortMetrics
+	2,  // 11: croupier.ops.v1.MetricsReport.logs:type_name -> croupier.ops.v1.LogEntry
+	55, // 12: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
+	55, // 13: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
+	10, // 14: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
+	22, // 15: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
+	0,  // 16: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
+	55, // 17: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
+	0,  // 18: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
+	53, // 19: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	31, // 20: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
+	35, // 21: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
+	49, // 22: croupier.ops.v1.AlertEvent.window:type_name -> croupier.ops.v1.ProbeWindow
+	50, // 23: croupier.ops.v1.AlertEvent.detail:type_name -> croupier.ops.v1.ProbeDetail
+	54, // 24: croupier.ops.v1.ProbeDetail.details:type_name -> croupier.ops.v1.ProbeDetail.DetailsEntry
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_croupier_ops_v1_ops_proto_init() }
@@ -4527,7 +4635,7 @@ func file_croupier_ops_v1_ops_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_ops_v1_ops_proto_rawDesc), len(file_croupier_ops_v1_ops_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   53,
+			NumMessages:   54,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

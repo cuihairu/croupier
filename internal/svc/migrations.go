@@ -225,6 +225,7 @@ func registerSvcMigrations() {
 		provisionRunDestroyProtectionMigration(),
 		provisionRunDestroyApprovalMigration(),
 		deployTablesMigration(),
+		agentLogTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1849,6 +1850,29 @@ func migrateDeployTables(ctx context.Context, sqlDB *sql.DB) error {
 	if !db.Migrator().HasTable(&model.Deployment{}) {
 		if err := db.Migrator().CreateTable(&model.Deployment{}); err != nil {
 			return fmt.Errorf("migrate: 0055 create deployments: %w", err)
+		}
+	}
+	return nil
+}
+
+// agentLogTablesMigration creates the OPS-005 agent_log_entries table.
+// New table CreateTable: indexes are created with the table (no legacy name
+// drift). Missing-table skip follows the deploy pattern.
+func agentLogTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(56,
+		&goose.GoFunc{RunDB: migrateAgentLogTables},
+		nil,
+	)
+}
+
+func migrateAgentLogTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&reg.AgentLogEntryRecord{}) {
+		if err := db.Migrator().CreateTable(&reg.AgentLogEntryRecord{}); err != nil {
+			return fmt.Errorf("migrate: 0056 create agent_log_entries: %w", err)
 		}
 	}
 	return nil

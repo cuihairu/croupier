@@ -70,6 +70,12 @@ ops:
   allowUpdate: false
   metricsInterval: 30s
   metricsEnabled: true
+  # OPS-005 application log tailing. Lines from the listed files ride the
+  # periodic metrics report and are searchable from the node detail panel.
+  # logFiles:
+  #   - /var/log/game/server.log
+  # logMaxLineBytes: 4096
+  # logMaxLinesPerCycle: 500
   # 托管进程监管（supervisor）：每个条目以逻辑名为键。采样周期同 metricsInterval，
   # 超阈值只在面板打标记（mem_over_limit / cpu_over_limit），不自动杀进程。
   # 退避自动拉起：退出后按 restartBackoffInitial 起步、逐次倍增、封顶

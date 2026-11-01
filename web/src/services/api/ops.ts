@@ -826,6 +826,41 @@ export async function getAgentMetricsHistory(
   return response?.entries || [];
 }
 
+export type AgentLogEntry = {
+  file: string;
+  level: string;
+  message: string;
+  tsUnixMs: number;
+  receivedAt: string;
+  seq: number;
+};
+
+export async function searchAgentLogs(
+  agentId: string,
+  options?: {
+    file?: string;
+    level?: string;
+    since?: string;
+    until?: string;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<AgentLogEntry[]> {
+  const params = new URLSearchParams();
+  if (agentId) params.set('agentId', agentId);
+  if (options?.file) params.set('file', options.file);
+  if (options?.level) params.set('level', options.level);
+  if (options?.since) params.set('since', options.since);
+  if (options?.until) params.set('until', options.until);
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+
+  const response = await request<{ items?: AgentLogEntry[] }>(
+    `/api/v1/ops/logs/search?${params.toString()}`,
+  );
+  return response?.items || [];
+}
+
 // ---- 告警规则（阈值评估，/alerts/rules） ----
 
 export type AlertRuleItem = {

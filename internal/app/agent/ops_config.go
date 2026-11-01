@@ -42,6 +42,18 @@ type OpsConfig struct {
 	// Default: true (when Enabled=true)
 	MetricsEnabled bool `json:"metricsEnabled" yaml:"metricsEnabled"`
 
+	// LogFiles lists application log files to tail (OPS-005 日志采集). Each
+	// entry is a path (glob NOT expanded; use explicit paths). Lines are
+	// batched into the metrics uplink. Default: none (disabled).
+	LogFiles []string `json:"logFiles" yaml:"logFiles"`
+
+	// LogMaxLineBytes caps a single log line before truncation. Default 4096.
+	LogMaxLineBytes int `json:"logMaxLineBytes" yaml:"logMaxLineBytes"`
+
+	// LogMaxLinesPerCycle caps the lines emitted per file per reporting cycle.
+	// Default 500.
+	LogMaxLinesPerCycle int `json:"logMaxLinesPerCycle" yaml:"logMaxLinesPerCycle"`
+
 	// ManagedProcesses defines processes that can be managed (restart/stop/start).
 	// Each entry maps a logical name to a process configuration.
 	ManagedProcesses map[string]ManagedProcessConfig `json:"managedProcesses" yaml:"managedProcesses"`

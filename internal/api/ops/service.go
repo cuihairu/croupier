@@ -36,6 +36,7 @@ var (
 	opsFunctionsFn        = opsFunctions
 	opsMQFn               = opsMQ
 	agentMetricsHistoryFn = agentMetricsHistory
+	agentLogSearchFn      = agentLogSearch
 )
 
 // Agent operations methods
@@ -54,6 +55,10 @@ func (s *Service) OpsAgentMetrics(ctx context.Context, req *OpsAgentMetricsReque
 
 func (s *Service) AgentMetricsHistory(ctx context.Context, req *AgentMetricsHistoryRequest) (*AgentMetricsHistoryResponse, error) {
 	return agentMetricsHistoryFn(ctx, s.svcCtx, req)
+}
+
+func (s *Service) AgentLogSearch(ctx context.Context, req *AgentLogSearchRequest) (*AgentLogSearchResponse, error) {
+	return agentLogSearchFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsAgentProcesses(ctx context.Context, req *OpsAgentProcessesRequest) (*OpsAgentProcessesResponse, error) {

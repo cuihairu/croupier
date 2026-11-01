@@ -92,6 +92,7 @@ type ServiceContext struct {
 
 	// Agent Ops support
 	MetricsStore         *reg.MetricsStore
+	LogStore             *reg.LogStore
 	SystemInfoCache      *reg.SystemInfoCache
 	AgentSessionResolver dispatch.AgentSessionResolver
 

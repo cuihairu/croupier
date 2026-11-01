@@ -129,6 +129,7 @@ type ControlService struct {
 
 	defaultSessionTTL time.Duration
 	metricsStore      *reg.MetricsStore
+	logStore          *reg.LogStore
 	systemInfoCache   *reg.SystemInfoCache
 	taskStore         TaskStore
 	taskReaper        TaskReaper
@@ -215,6 +216,7 @@ func NewControlService(registry *reg.Store, loader AgentSessionLoader) *ControlS
 		registry:           registry,
 		agentSessionLoader: loader,
 		metricsStore:       reg.NewMetricsStore(),
+		logStore:           reg.NewLogStore(),
 		systemInfoCache:    reg.NewSystemInfoCache(),
 		probeEvents:        newProbeEventSink(),
 		defaultSessionTTL:  5 * time.Minute,
@@ -327,11 +329,18 @@ func (s *ControlService) Store() *reg.Store { return s.registry }
 // MetricsStore returns the metrics store.
 func (s *ControlService) MetricsStore() *reg.MetricsStore { return s.metricsStore }
 
+// LogStore returns the OPS-005 application log store.
+func (s *ControlService) LogStore() *reg.LogStore { return s.logStore }
+
 // SetMetricsDB sets the database for metrics persistence.
 func (s *ControlService) SetMetricsDB(db *gorm.DB) {
 	if s.metricsStore != nil {
 		s.metricsStore.SetDB(db)
 		s.metricsStore.StartCleanupRoutine(s.ctx, 1*time.Hour)
+	}
+	if s.logStore != nil {
+		s.logStore.SetDB(db)
+		s.logStore.StartCleanupRoutine(s.ctx, 1*time.Hour)
 	}
 }
 
@@ -1251,6 +1260,9 @@ func (s *ControlService) handleMetricEvent(ctx context.Context, data []byte) ([]
 	// Store metrics for later retrieval
 	if s.metricsStore != nil {
 		s.metricsStore.Add(agentID, req)
+	}
+	if s.logStore != nil {
+		s.logStore.Ingest(agentID, req.GetLogs())
 	}
 
 	if s.logger != nil {

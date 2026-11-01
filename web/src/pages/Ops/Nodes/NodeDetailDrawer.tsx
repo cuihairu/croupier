@@ -18,13 +18,29 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   getAgentMetricsHistory,
   fetchAgentSystemInfo,
+  searchAgentLogs,
   type MetricsHistoryEntry,
+  type AgentLogEntry,
   type AgentSystemInfo,
 } from '@/services/api/ops';
 import { formatBytes } from '@/utils/format';
 import type { NodeRow } from './shared';
 
 const { Text } = Typography;
+
+function levelColor(level: string): string {
+  switch (level.toLowerCase()) {
+    case 'fatal':
+    case 'error':
+      return 'red';
+    case 'warn':
+      return 'orange';
+    case 'debug':
+      return 'blue';
+    default:
+      return 'green';
+  }
+}
 
 /** 节点详情抽屉：基本信息 + 当前系统指标 + 历史指标趋势（时间窗切换）。
  * 指标历史拉取小闭环内聚在抽屉内；下线/恢复/重启动作经回调上抛给页面。 */
@@ -48,6 +64,8 @@ export default function NodeDetailDrawer({
   // §10.5 agent 自身二进制指纹锚点：server 侧四级降级链（缓存→live RPC→
   // 注册标签→DB 最后已知），失联且会话过期后仍可读到最后一次注册自报值。
   const [systemInfo, setSystemInfo] = useState<AgentSystemInfo | null>(null);
+  const [agentLogs, setAgentLogs] = useState<AgentLogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   // Load metrics history when detail node changes
   const loadMetricsHistory = useCallback(
@@ -79,6 +97,30 @@ export default function NodeDetailDrawer({
       setMetricsHistory([]);
     }
   }, [node?.agentId, loadMetricsHistory]);
+
+  // OPS-005：应用日志（tail 上报后检索）。按最新 100 条渲染。
+  useEffect(() => {
+    if (!node?.agentId) {
+      setAgentLogs([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setLogsLoading(true);
+    (async () => {
+      try {
+        const logs = await searchAgentLogs(node.agentId as string, { limit: 100 });
+        if (!cancelled) setAgentLogs(logs || []);
+      } catch (error) {
+        console.error('Failed to load agent logs:', error);
+        if (!cancelled) setAgentLogs([]);
+      } finally {
+        if (!cancelled) setLogsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [node?.agentId]);
 
   // 拉取 agent 系统信息（含 §10.5 二进制指纹）。失败按空态渲染——排查面
   // 不该因为一个读不到的字段整体报错；agent 切走时清空避免串号显示。
@@ -489,6 +531,74 @@ export default function NodeDetailDrawer({
           </div>
 
           <Divider />
+
+          {/* 应用日志（OPS-005）：agent tail 上报落库后检索，最新在前 */}
+          <div>
+            <Text strong style={{ fontSize: 16, display: 'block', marginBottom: 12 }}>
+              <FormattedMessage id="pages.opsNodes.detail.logs.title" defaultMessage="应用日志" />
+            </Text>
+            {logsLoading ? (
+              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                <Spin size="small" />
+              </div>
+            ) : agentLogs.length > 0 ? (
+              <Table
+                size="small"
+                rowKey={(r) => `${r.file}:${r.seq}`}
+                pagination={{ pageSize: 10, showSizeChanger: false }}
+                dataSource={agentLogs}
+                columns={[
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.opsNodes.detail.logs.time',
+                      defaultMessage: '时间',
+                    }),
+                    dataIndex: 'receivedAt',
+                    width: 170,
+                    render: (v: string) => new Date(v).toLocaleString(),
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.opsNodes.detail.logs.level',
+                      defaultMessage: '级别',
+                    }),
+                    dataIndex: 'level',
+                    width: 90,
+                    render: (v: string) =>
+                      v ? (
+                        <Tag color={levelColor(v)}>{v.toUpperCase()}</Tag>
+                      ) : (
+                        <Text type="secondary">-</Text>
+                      ),
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.opsNodes.detail.logs.file',
+                      defaultMessage: '文件',
+                    }),
+                    dataIndex: 'file',
+                    width: 220,
+                    ellipsis: true,
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.opsNodes.detail.logs.message',
+                      defaultMessage: '内容',
+                    }),
+                    dataIndex: 'message',
+                    ellipsis: true,
+                  },
+                ]}
+              />
+            ) : (
+              <Text type="secondary">
+                <FormattedMessage
+                  id="pages.opsNodes.detail.logs.empty"
+                  defaultMessage="暂无应用日志（需配置 logFiles 并开启采集）"
+                />
+              </Text>
+            )}
+          </div>
 
           {/* 历史指标趋势图 */}
           <div>

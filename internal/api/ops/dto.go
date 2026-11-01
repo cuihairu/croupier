@@ -794,6 +794,35 @@ type PortHistoryMetrics struct {
 	State       string `json:"state,omitempty"`
 }
 
+// AgentLogSearchRequest is used to query agent application log entries
+// (OPS-005 日志检索). AgentID is required for scope isolation.
+type AgentLogSearchRequest struct {
+	AgentID string `json:"agentId" binding:"required"`
+	File    string `json:"file"`
+	Level   string `json:"level"`
+	Since   string `json:"since"` // ISO 8601, inclusive
+	Until   string `json:"until"` // ISO 8601, inclusive
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
+}
+
+// AgentLogSearchResponse is the response for a log search.
+type AgentLogSearchResponse struct {
+	AgentID string              `json:"agentId"`
+	Items   []AgentLogEntryView `json:"items"`
+	Total   int64               `json:"total"`
+}
+
+// AgentLogEntryView is one search result row.
+type AgentLogEntryView struct {
+	File       string `json:"file"`
+	Level      string `json:"level"`
+	Message    string `json:"message"`
+	TsUnixMs   int64  `json:"tsUnixMs"`
+	ReceivedAt string `json:"receivedAt"`
+	Seq        int64  `json:"seq"`
+}
+
 // OpsNodeCommandsRequest is used to get node commands
 type OpsNodeCommandsRequest struct {
 	NodeId string `json:"nodeId" binding:"required"`

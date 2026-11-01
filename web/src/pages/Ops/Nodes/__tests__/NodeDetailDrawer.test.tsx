@@ -17,6 +17,7 @@ configure({ asyncUtilTimeout: 5000 });
 jest.mock('@/services/api/ops', () => ({
   getAgentMetricsHistory: jest.fn(),
   fetchAgentSystemInfo: jest.fn(),
+  searchAgentLogs: jest.fn(),
 }));
 jest.mock('@umijs/max', () => ({
   FormattedMessage: ({ defaultMessage }: { id: string; defaultMessage?: string }) => (
@@ -39,9 +40,12 @@ jest.mock('@ant-design/charts', () => ({
   ),
 }));
 
-const { getAgentMetricsHistory, fetchAgentSystemInfo } = jest.requireMock('@/services/api/ops') as {
+const { getAgentMetricsHistory, fetchAgentSystemInfo, searchAgentLogs } = jest.requireMock(
+  '@/services/api/ops',
+) as {
   getAgentMetricsHistory: jest.Mock;
   fetchAgentSystemInfo: jest.Mock;
+  searchAgentLogs: jest.Mock;
 };
 
 const HISTORY = [
@@ -100,6 +104,46 @@ beforeEach(() => {
     getAgentMetricsHistory.mockResolvedValue(HISTORY);
     // 默认「四级数据面都没命中」，空态渲染；指纹用例各自覆盖。
     fetchAgentSystemInfo.mockResolvedValue(null);
+    searchAgentLogs.mockResolvedValue([]);
+  });
+});
+
+describe('应用日志', () => {
+  test('加载并渲染日志列表', async () => {
+    searchAgentLogs.mockResolvedValue([
+      {
+        file: '/var/log/app.log',
+        level: 'error',
+        message: 'boom',
+        tsUnixMs: 0,
+        receivedAt: '2026-11-02T10:00:00Z',
+        seq: 2,
+      },
+      {
+        file: '/var/log/app.log',
+        level: 'info',
+        message: 'ok',
+        tsUnixMs: 0,
+        receivedAt: '2026-11-02T09:59:59Z',
+        seq: 1,
+      },
+    ]);
+    renderDrawer(makeNode());
+
+    await waitFor(() => expect(searchAgentLogs).toHaveBeenCalledWith('agent-42', { limit: 100 }));
+    expect(await screen.findByText('boom')).toBeInTheDocument();
+    expect(screen.getByText('ok')).toBeInTheDocument();
+    expect(screen.getByText('ERROR')).toBeInTheDocument();
+    expect(screen.getByText('INFO')).toBeInTheDocument();
+  });
+
+  test('空日志渲染占位', async () => {
+    searchAgentLogs.mockResolvedValue([]);
+    renderDrawer(makeNode());
+    await waitFor(() => expect(searchAgentLogs).toHaveBeenCalled());
+    expect(
+      await screen.findByText('暂无应用日志（需配置 logFiles 并开启采集）'),
+    ).toBeInTheDocument();
   });
 });
 

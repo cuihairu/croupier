@@ -50,6 +50,30 @@ message MetricsReport {
   // ProcessMetrics.listening_ports — the listener scan is done once per
   // report and both faces derive from it.
   repeated PortMetrics ports = 12;
+
+  // Application log lines tailed since the previous report (OPS-005 日志采集).
+  // Empty when log tailing is disabled or no new lines were produced.
+  repeated LogEntry logs = 13;
+}
+
+// LogEntry is one application log line tailed by the agent (OPS-005 日志采集).
+// It rides the MetricsReport batch lane (logs field) so it shares the existing
+// periodic uplink, server-side persistence and retention machinery.
+message LogEntry {
+  // File is the tailed log file path as configured on the agent.
+  string file = 1;
+  // Level is the parsed log level (debug|info|warn|error|fatal); "" when the
+  // level could not be determined from the line.
+  string level = 2;
+  // Message is the raw log line (up to MaxLogLineBytes, truncated safely).
+  string message = 3;
+  // TsUnixMs is the log line's own timestamp in Unix milliseconds (0 when the
+  // line carries no parseable timestamp; the server uses received_at).
+  int64 ts_unix_ms = 4;
+  // Seq is the agent-side monotonic per-file sequence (starts at 1). Used for
+  // dedup on the server: a seq not newer than the last persisted one for the
+  // same (agent, file) is dropped as a retransmit.
+  int64 seq = 5;
 }
 
 message CpuMetrics {

@@ -16,6 +16,7 @@ import (
 	"github.com/cuihairu/croupier/agents/sidecar"
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin"
 	"github.com/cuihairu/croupier/core/configsync"
+	corelogs "github.com/cuihairu/croupier/core/logs"
 	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/agent"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
@@ -176,6 +177,16 @@ func (a *App) StartLocalServer() error {
 	a.localHandler.SetOpsServer(opsWrapper)
 	// 托管进程快照随 metrics 上报捎带（supervisor S1）
 	a.upstream.WithSupervisorSampler(opsServer)
+
+	// OPS-005 日志采集：配置了 logFiles 则装配 tailer，折入 metrics 上报。
+	if a.opsConfig != nil && len(a.opsConfig.LogFiles) > 0 {
+		tailer := corelogs.NewTailer(
+			a.opsConfig.LogFiles,
+			a.opsConfig.LogMaxLineBytes,
+			a.opsConfig.LogMaxLinesPerCycle,
+		)
+		a.upstream.WithLogTailer(tailer)
+	}
 
 	// Keep each SDK Provider's established TCP session so invocations can be
 	// forwarded over that session instead of dialing a provider-supplied address.

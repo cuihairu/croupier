@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	corelogs "github.com/cuihairu/croupier/core/logs"
 	"github.com/cuihairu/croupier/core/register"
 	"github.com/cuihairu/croupier/core/report"
 	transportcore "github.com/cuihairu/croupier/core/transport"
@@ -57,6 +58,9 @@ type UpstreamClient struct {
 	// probeSampler 由装配阶段经 WithProbeSampler 注入（探测统计正常态聚合
 	// 面，§13.1）；与 supervisorSampler 分开——无受管进程的 agent 也能报。
 	probeSampler ProbeStatsSampler
+	// logTailer 由装配阶段经 WithLogTailer 注入（OPS-005 日志采集）。Drain
+	// 每次上报窗口折入 MetricsReport.logs；nil = 未开启。
+	logTailer *corelogs.Tailer
 
 	// Connection callbacks
 	onConnected    func()      // Called when successfully connected to server
@@ -751,6 +755,18 @@ func (c *UpstreamClient) WithProbeSampler(s ProbeStatsSampler) {
 	}
 }
 
+// WithLogTailer attaches an application log tailer (OPS-005). Call during
+// assembly, before the reporting loop starts. The tailer's Drain output is
+// folded into every metrics report's logs field.
+func (c *UpstreamClient) WithLogTailer(t *corelogs.Tailer) {
+	if c == nil {
+		return
+	}
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+	c.logTailer = t
+}
+
 // reportMetrics collects a single snapshot and pushes it upstream. Errors
 // are logged but not returned because this runs from the periodic ticker
 // loop where a single failed cycle should not stop reporting.
@@ -764,6 +780,15 @@ func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 	})
 
 	report := c.metricsCollector.Collect(ctx)
+	// OPS-005：应用日志 tail 折入同一上报批次（无新行则为空，不落列）。
+	c.metricsMu.Lock()
+	tailer := c.logTailer
+	c.metricsMu.Unlock()
+	if tailer != nil {
+		if entries := tailer.Drain(); len(entries) > 0 {
+			report.Logs = entries
+		}
+	}
 	if err := c.SendMetricEvent(ctx, report); err != nil {
 		slog.Debug("metrics report failed", "agent_id", c.agentID, "err", err)
 	}
