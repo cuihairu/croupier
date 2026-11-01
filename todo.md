@@ -145,7 +145,7 @@
 
 - [ ] **UI-001 · P1 · 故障验证 · 真实游戏页面发布全链（旧 C2）**
   - 依赖：GAME-002, GAME-010, ARCH-024。交付与验收：独立真实游戏环境走契约→模板→编辑保存→接受提案→发布→binding 执行；验证列表/详情/弹窗/刷新、筛选/契约变化/人工草稿隔离，记录落库快照与游戏调用凭据
-  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 GAME-002 接入的权威玩家函数与真实游戏环境（GAME-002 未完成，需目标游戏环境）；demo 验收不能代替此项。缺真实游戏环境/GAME-002 完成。
+  - 状态／条件：BLOCKED（2026-11-01 复核，pull c8e30407 后复验）：仍无真实游戏环境（configs/games.json 仅 default/tower_defense/croupier-demo 演示占位）；GAME-002、GAME-010 仍 BLOCKED（需真实游戏权威玩家函数/游戏侧持久凭据与受控写环境），ARCH-024 已完成。demo 验收不能代替此项。缺真实游戏环境/GAME-002 完成。
 
 - [x] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
   - 依赖：—。交付与验收：复用现有 Go gameops-demo 的 33 函数及内存状态，独立 Server/sidecar/demo 栈验证发布、审批、report.generate、失败/未知/取消/幂等重试；既有 fixture 只证机制，不证明进程重启后游戏侧持久去重
@@ -221,11 +221,12 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-01，边界见 [交付报告](docs/review/2026-11-01-ops-010-node-metrics.md) §5）：采集面（CPU/内存/磁盘/网络收发速率 + 进程清单 + 端口列表，gopsutil v4 无外部依赖）、入库（原始 7 天 + 迁移 0051 建 `agent_metrics_hourly` 小时聚合 90 天 + RollupHourly/PruneHourly）、history API `window=raw|hourly`、面板网络速率曲线 + 进程/端口清单表全部落地；`MetricsEnabled=false` 零上报由上报循环不启动保证；默认间隔 30s→15s；字段命名与 OBS-AGENT-001 OTel 语义对齐（usage_percent/bytes_sent_rate 单一命名）。**真机抽样对账（Linux+Windows 各一台、与 top/任务管理器 <10%）本环境不可运行，登记为部署后人工验收项**；Windows 采样未实测；每进程 CPU% 为 gopsutil 启动以来平均语义。
   - 完成证据：2026-11-01；`core/metrics/processes.go`、`core/metrics/disknet.go`、`core/metrics/processes_test.go`（TestCounterRate/CollectProcessAndPortFaces/NetworkRateNonNegative）、`internal/platform/registry/metrics.go`（三面持久化 + RollupHourly 幂等 + PruneHourly）、`internal/platform/registry/metrics_hourly_test.go`、`internal/platform/registry/metrics_enrichment_test.go`、迁移 0051 三处同步（`internal/svc/migrations.go` + `internal/db/migrate/migrate.go` MinimumRequiredVersion=51 + `internal/db/migrate/migrate_test.go`）、`internal/svc/migrations_metrics_enrichment_test.go`（存量形态/缺表跳过/列集 round-trip）、`internal/api/ops/metrics_history.go` + `metrics_history_window_test.go`（raw 重建三面/hourly/越权 fail-closed）、`internal/app/agent/ops_config.go`、`proto/croupier/ops/v1/ops.proto`（PortMetrics/rates/listening_ports，四 SDK gencode 同步）、`web/src/pages/Ops/Nodes/NodeDetailDrawer.tsx`、[交付报告](docs/review/2026-11-01-ops-010-node-metrics.md)；`go build ./...` 过，`go test ./core/metrics/... ./internal/platform/registry/... ./internal/api/ops/... ./internal/svc/... ./internal/db/migrate/... ./internal/app/agent/... -count=1` 全绿，web tsc 0 错误，NodeDetailDrawer jest 29/29，dashboard guard PASSED，docs build 过；commit `42c3ca76`。
 
-- [ ] **OPS-001 · P1 · 实现 · 云资源供给引擎（集成 Terraform/OpenTofu，不自写云适配器）**
+- [x] **OPS-001 · P1 · 实现 · 云资源供给引擎（集成 Terraform/OpenTofu，不自写云适配器）**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-01，边界见 [交付报告](docs/review/2026-11-01-ops-001-provision-engine.md) §4）：`internal/ops/provision` 用 hashicorp terraform-exec 驱动 tofu/terraform；provider 模板（阿里云/腾讯云/AWS/Hetzner 起步）；一键扩容闭环=选厂商/地域/规格 → create → cloud-init 注入 croupier agent（bootstrap token+hub 地址）→ 自注册 → 按网络审批策略（个人直通/团队工单）→ 纳管；HTTP 面 `/ops/provision*` 五端点（提交/列表/详情/续行/销毁）落地，`provision.enabled=false` 时如实报 503 不假装已开启；迁移 0052 建 `provision_runs`。**真实 provider 集成（mock cloud + 真实 provider 各一）本环境不可运行（需云凭据 + tofu 二进制），登记为部署后人工验收项**——本环境以模板渲染真值面 + FakeRunner 全链 + `-race` 覆盖编排正确性；cloud-resource-requests.md 的目录/申请单三角色流（catalog/requests 表 + `cloud.request.*` 权限 + 执行回执）未随附（设计纸保持未实现状态，见其「Implementation status」）。
   - 理由：各云适配已有成熟项目（Terraform provider 全覆盖），自写=重复造轮子；croupier 只做策略与编排。
   - 交付与验收：`internal/ops/provision` 用 hashicorp terraform-exec 驱动 tofu/terraform；provider 模板（阿里云/腾讯云/AWS/Hetzner 起步）；一键扩容闭环=选厂商/地域/规格 → create → cloud-init 注入 croupier agent（bootstrap token+hub 地址）→ 自注册 → 按网络审批策略（个人直通/团队工单）→ 纳管；集成测试用 mock cloud + 真实 provider 各一。
+  - 完成证据：2026-11-01；`internal/ops/provision/`（types/runner/template/orchestrator + orchestrator_test/template_test）、`internal/model/provision_model.go`、迁移 0052 三处同步（`internal/svc/migrations.go` + `internal/db/migrate/migrate.go` MinimumRequiredVersion=52 + `internal/db/migrate/migrate_test.go`）、`internal/svc/migrations_provision_test.go`（建表/幂等/round-trip + 注册表含 0052）、`internal/svc/provision_wiring.go`（DBStore/ApprovalGate/AgentRegistry 适配）、`internal/svc/service_context.go`（enabled 装配）、`internal/api/ops/provision.go` + `provision_test.go`（503/422/404/409/202/200 映射）、`internal/handler/routes.go`（`/ops/provision*` 五路由）、[交付报告](docs/review/2026-11-01-ops-001-provision-engine.md)；`go build ./...` 过，`go test ./internal/ops/provision/... ./internal/api/ops/... ./internal/svc/... ./internal/model/... ./internal/db/migrate/... ./internal/handler/... -count=1` 全绿（provision 包含 `-race`），`go vet` 过，docs build 过。
 - [ ] **OPS-002 · P1 · 实现 · 缩容与排水（drain → destroy）**
   - 依赖：OPS-001。
   - 状态／条件：TODO（未开始）。

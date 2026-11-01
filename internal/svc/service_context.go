@@ -29,6 +29,7 @@ import (
 	"github.com/cuihairu/croupier/internal/db/migrate"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/ops/provision"
 	alertrule "github.com/cuihairu/croupier/internal/platform/alertrule"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/configsource"
@@ -96,6 +97,10 @@ type ServiceContext struct {
 	// ServerProbes server 本机探针面（R3 server 侧内核装配）：空段不装配
 	//（nil），手动诊断端点据此如实报「探测面未配置」。
 	ServerProbes *ServerProbeManager
+
+	// Provision 是云资源供给引擎（OPS-001）：provision.enabled=false 时不
+	// 装配（nil），/ops/provision 端点据此如实报 503 provision_not_configured。
+	Provision *provision.Orchestrator
 
 	AdminModel             *model.AdminModel
 	AdminOTPRecoveryModel  *model.AdminOTPRecoveryCodeModel
@@ -626,6 +631,27 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	ctx.Secrets = secrets
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
+	}
+
+	// 云资源供给引擎（OPS-001）：provision.enabled=false 不装配（端点如实报
+	// 未配置）。RegistryStore/ApprovalsStore 已在上面就位；bootstrap token
+	// 不入库、启动时不读取——提交请求时经 BootstrapTokenEnv 环境变量读取
+	//（可轮换；env 缺失时该请求被拒，见 api/ops/provision.go 503 语义）。
+	if ctx.Config.Provision.Enabled {
+		runModel := model.NewProvisionRunModel(ctx.DB)
+		orch := &provision.Orchestrator{
+			Runner:     provision.NewTfexecRunner(ctx.Config.Provision.EffectiveBinaryPath()),
+			Registry:   newProvisionAgentRegistry(ctx.RegistryStore),
+			Approval:   newProvisionApprovalGate(ctx.ApprovalsStore),
+			Store:      newProvisionDBStore(runModel),
+			WorkDir:    ctx.Config.Provision.EffectiveWorkDir(),
+			InstallURL: ctx.Config.Provision.AgentInstallURL,
+		}
+		if t := ctx.Config.Provision.EffectiveRegisterTimeout(); t > 0 {
+			orch.RegisterTimeout = t
+		}
+		ctx.Provision = orch
+		slog.Default().Info("provision engine enabled", "binary", ctx.Config.Provision.EffectiveBinaryPath(), "workDir", ctx.Config.Provision.EffectiveWorkDir())
 	}
 
 	// 初始化 JWT 密钥（从配置文件读取）。值内支持 vault:// 引用（todo 4251）。

@@ -668,6 +668,15 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// 目标即时探一次（与周期探测共用同一探针实例与状态机）
 	g.POST("/probe/diagnose", opsHandler.ProbeDiagnoseHandler)
 
+	// 云资源供给引擎（OPS-001）：provision.enabled=false 时各端点如实报
+	// 503 provision_not_configured（不假装已开启）。提交/续行不阻塞（后台
+	// apply），销毁同步（terraform destroy 原语，无等注册段）。
+	g.POST("/provision", opsHandler.ProvisionSubmit)
+	g.GET("/provision", opsHandler.ProvisionList)
+	g.GET("/provision/:runId", opsHandler.ProvisionGet)
+	g.POST("/provision/:runId/resume", opsHandler.ProvisionResume)
+	g.DELETE("/provision/:runId", opsHandler.ProvisionDestroy)
+
 	// probe 在线汇总（评审简档 §13.2）：状态矩阵 + 证据，不出合成分。
 	// scope 走 X-Game-ID/X-Env 头（与告警列表同口径）。在线趋势列在 SDK
 	// metric 入口接入前为「未接入」一等状态。

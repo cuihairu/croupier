@@ -150,6 +150,10 @@ import (
 //               网络收发速率/进程清单/监听端口清单三面落原始表，另建
 //               90 天小时聚合表；加列 0025 模式、建表 0027/0038 模式；
 //               存量行不回填——历史窗口无这三面数据，诚实留空）
+//   0052 (Go)   provision_runs 建表（OPS-001 云资源供给引擎运行记录：
+//               provider/region/规格/状态/输出/agent id 快照；新表无存量
+//               约束名漂移，HasTable 检查后 CreateTable，0027/0038 模式；
+//               敏感字段（bootstrap token）不入库——只落非敏感快照）
 
 func init() {
 	registerSvcMigrations()
@@ -211,6 +215,7 @@ func registerSvcMigrations() {
 		auditChainVersionMigration(),
 		approvalDispatchClaimColumnsMigration(),
 		agentMetricsHistoryEnrichmentMigration(),
+		provisionRunsTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1726,6 +1731,28 @@ func migrateAgentMetricsHistoryEnrichment(ctx context.Context, sqlDB *sql.DB) er
 	if !migrator.HasTable(&reg.AgentMetricsHourly{}) {
 		if err := migrator.CreateTable(&reg.AgentMetricsHourly{}); err != nil {
 			return fmt.Errorf("migrate: 0051 create agent_metrics_hourly: %w", err)
+		}
+	}
+	return nil
+}
+
+func provisionRunsTableMigration() *goose.Migration {
+	return goose.NewGoMigration(52,
+		&goose.GoFunc{RunDB: migrateProvisionRunsTable},
+		nil,
+	)
+}
+
+func migrateProvisionRunsTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	// 新表 CreateTable：索引随建表一次建出，无存量约束名漂移（0023 教训）。
+	// 缺表跳过（fanout 重放到无该特性的库不报错、不建空壳）。
+	if !db.Migrator().HasTable(&model.ProvisionRun{}) {
+		if err := db.Migrator().CreateTable(&model.ProvisionRun{}); err != nil {
+			return fmt.Errorf("migrate: 0052 create provision_runs: %w", err)
 		}
 	}
 	return nil
