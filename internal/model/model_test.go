@@ -70,6 +70,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&FunctionPolicy{},
 		&Descriptor{},
 		&GameEnvBinding{},
+		&DeployPackage{},
+		&Deployment{},
 	)
 	require.NoError(t, err)
 
@@ -6216,4 +6218,29 @@ func TestMustJSON(t *testing.T) {
 	// slice
 	result = MustJSON([]int{1, 2, 3})
 	assert.Contains(t, string(result), "1")
+}
+
+// TestDeploymentModelCRUD 覆盖 OPS-004 部署包/发版单模型 CRUD 与表名。
+func TestDeploymentModelCRUD(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&DeployPackage{}, &Deployment{}))
+
+	pkgModel := NewDeployPackageModel(db)
+	pkg := &DeployPackage{PackageID: "pkg-x", Name: "game", Version: "1.0.0", ObjectKey: "deploy/game/1.0.0.bin", Checksum: "abc", Role: "game-server"}
+	require.NoError(t, pkgModel.Create(context.Background(), pkg))
+	got, err := pkgModel.FindByID(context.Background(), "pkg-x")
+	require.NoError(t, err)
+	require.Equal(t, "pkg-x", got.PackageID)
+	require.Equal(t, "deploy_packages", DeployPackage{}.TableName())
+
+	depModel := NewDeploymentModel(db)
+	dep := &Deployment{DeploymentID: "dep-x", PackageID: "pkg-x", ProcessName: "game", BatchPercent: 100, BatchCount: 1, State: DeploymentStateDraft, TargetsJSON: JSON([]byte(`[{"agentId":"a","batch":1,"state":"pending"}]`))}
+	require.NoError(t, depModel.Create(context.Background(), dep))
+	gotDep, err := depModel.FindByID(context.Background(), "dep-x")
+	require.NoError(t, err)
+	require.Equal(t, "dep-x", gotDep.DeploymentID)
+	require.Equal(t, "deployments", Deployment{}.TableName())
 }

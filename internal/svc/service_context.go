@@ -29,6 +29,7 @@ import (
 	"github.com/cuihairu/croupier/internal/db/migrate"
 	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/ops/deploy"
 	"github.com/cuihairu/croupier/internal/ops/provision"
 	alertrule "github.com/cuihairu/croupier/internal/platform/alertrule"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
@@ -101,6 +102,12 @@ type ServiceContext struct {
 	// Provision 是云资源供给引擎（OPS-001）：provision.enabled=false 时不
 	// 装配（nil），/ops/provision 端点据此如实报 503 provision_not_configured。
 	Provision *provision.Orchestrator
+
+	// Deployments 是运维部署发版编排（OPS-004）：包仓库登记 + 发版单分批 + 健康门禁 + 回滚。
+	// 装配于 DB 与 ObjectStore 就绪后；nil 时 /ops/deploy 端点如实报 503。
+	Deployments        *deploy.Orchestrator
+	DeployPackageModel *model.DeployPackageModel
+	DeploymentModel    *model.DeploymentModel
 
 	AdminModel             *model.AdminModel
 	AdminOTPRecoveryModel  *model.AdminOTPRecoveryCodeModel
@@ -294,6 +301,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 配置浏览器的 croupier 数据源适配器复用共享 ConfigVersionModel
 	configsource.SetCroupierVersionModel(configVersionModel)
 	taskScheduleModel := model.NewTaskScheduleModel(db)
+	deployPackageModel := model.NewDeployPackageModel(db)
+	deploymentModel := model.NewDeploymentModel(db)
 
 	// game_envs is the authoritative scope and routing registry. Older
 	// deployments stored environments only in games.envs JSON, so backfill
@@ -508,6 +517,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ConfigVersionModel:        configVersionModel,
 		ConfigSourceBindingModel:  configSourceBindingModel,
 		TaskScheduleModel:         taskScheduleModel,
+		DeployPackageModel:        deployPackageModel,
+		DeploymentModel:           deploymentModel,
 		PageSpecModel:             pageSpecModel,
 		PublishedPageSpecModel:    publishedPageSpecModel,
 		PageVersionModel:          pageVersionModel,

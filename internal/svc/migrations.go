@@ -224,6 +224,7 @@ func registerSvcMigrations() {
 		provisionRunsTableMigration(),
 		provisionRunDestroyProtectionMigration(),
 		provisionRunDestroyApprovalMigration(),
+		deployTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1820,6 +1821,35 @@ func migrateProvisionRunDestroyApproval(ctx context.Context, sqlDB *sql.DB) erro
 	}
 	if err := db.Migrator().AddColumn(&model.ProvisionRun{}, "DestroyApprovalID"); err != nil {
 		return fmt.Errorf("migrate: 0054 add provision_runs.destroy_approval_id: %w", err)
+	}
+	return nil
+}
+
+// deployTablesMigration creates the OPS-004 deploy_packages + deployments tables
+// (包仓库 + 发版单 + 目标分批快照). 新表 CreateTable：索引随建表一次建出，无
+// 存量约束名漂移（0023 教训）。缺表跳过（fanout 重放到无该特性的库不报错、
+// 不建空壳）。
+func deployTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(55,
+		&goose.GoFunc{RunDB: migrateDeployTables},
+		nil,
+	)
+}
+
+func migrateDeployTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.DeployPackage{}) {
+		if err := db.Migrator().CreateTable(&model.DeployPackage{}); err != nil {
+			return fmt.Errorf("migrate: 0055 create deploy_packages: %w", err)
+		}
+	}
+	if !db.Migrator().HasTable(&model.Deployment{}) {
+		if err := db.Migrator().CreateTable(&model.Deployment{}); err != nil {
+			return fmt.Errorf("migrate: 0055 create deployments: %w", err)
+		}
 	}
 	return nil
 }

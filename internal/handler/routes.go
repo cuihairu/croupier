@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/api/admin"
 	"github.com/cuihairu/croupier/internal/api/agent"
@@ -70,6 +71,7 @@ import (
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/ops/deploy"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
 	settings "github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
@@ -559,6 +561,14 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	opsSvc := ops.NewService(ctx)
 	opsHandler := ops.NewHandler(opsSvc)
 
+	// OPS-004 部署发版编排（DB 与 ObjectStore 就绪即装配；nil 时端点 503）。
+	if ctx.DB != nil && ctx.ObjectStore != nil {
+		agent := ops.NewDeployAgent(ctx)
+		ctx.Deployments = deploy.New(ctx.DeploymentModel, agent)
+		ctx.Deployments.HealthRetry = 5 * time.Second
+		ctx.Deployments.HealthRetries = 3
+	}
+
 	// Agent Ops
 	g.GET("/agents", opsHandler.AgentsList)
 	g.GET("/agents/metrics", opsHandler.AgentMetrics)
@@ -678,6 +688,16 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/provision/:runId/destroy", opsHandler.ProvisionDestroyResume)
 	g.PUT("/provision/:runId/protection", opsHandler.ProvisionProtection)
 	g.DELETE("/provision/:runId", opsHandler.ProvisionDestroy)
+
+	// OPS-004 运维部署发版：包仓库 + 发版单分批 + 健康门禁 + 回滚。
+	// 编排未装配（DB/对象存储缺）时各端点如实报 503 deploy_not_configured。
+	g.POST("/deploy/packages", opsHandler.DeployPackageUpload)
+	g.GET("/deploy/packages", opsHandler.DeployPackageList)
+	g.POST("/deployments", opsHandler.DeploymentCreate)
+	g.GET("/deployments", opsHandler.DeploymentList)
+	g.GET("/deployments/:id", opsHandler.DeploymentGet)
+	g.POST("/deployments/:id/start", opsHandler.DeploymentStart)
+	g.POST("/deployments/:id/rollback", opsHandler.DeploymentRollback)
 
 	// probe 在线汇总（评审简档 §13.2）：状态矩阵 + 证据，不出合成分。
 	// scope 走 X-Game-ID/X-Env 头（与告警列表同口径）。在线趋势列在 SDK
