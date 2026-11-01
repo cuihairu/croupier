@@ -153,6 +153,11 @@ const (
 	EventJobStart    AuditEventType = "job.start"
 	EventJobCancel   AuditEventType = "job.cancel"
 
+	// Provision events (OPS-002 缩容与排水：销毁/护栏动作留痕)
+	EventProvisionDestroy   AuditEventType = "provision.destroy"
+	EventProvisionProtect   AuditEventType = "provision.protect"
+	EventProvisionUnprotect AuditEventType = "provision.unprotect"
+
 	// Admin events
 	EventUserCreate AuditEventType = "admin.user_create"
 	EventUserUpdate AuditEventType = "admin.user_update"

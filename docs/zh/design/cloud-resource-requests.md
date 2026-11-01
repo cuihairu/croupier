@@ -9,6 +9,7 @@ title: 云资源申请与开通设计（申请-审批-执行-回收闭环）
 - **设计单（用户 2026-10-15，先落档不写码）**。本轮只交付本设计文档，实现未动；实现随立项走编号迁移 + RBAC 权限点 + 面板三页的独立批次。
 - 用户原话：「运维可以控制各个云服务商创建服务器，开发需要发起申请，许可之后运维去执行」「可以申请的资源也需要列出来」。
 - 与既有能力的衔接以本仓实况 file:line 标注（§7），不另起一套资源管理。
+- **实现状态（2026-11-02，OPS-001 + OPS-002）**：**引擎子集已交付**——`internal/ops/provision`（terraform-exec 驱动 tofu/terraform，四 provider 模板，cloud-init 注入 agent，自注册标签关联，direct/ticket 审批策略，HTTP `/ops/provision*`，迁移 0052 `provision_runs`；见[交付报告](review/2026-11-01-ops-001-provision-engine.md)）。**OPS-002 缩容与排水随附**：销毁前置三闸（数据盘护栏 `destroy_protected` 持久化标记禁止自动销毁 / 排空门要求运行名下在线 agent 全部 drain / 无在途任务才允许销毁）+ `PUT /ops/provision/:runId/protection` + 迁移 0053 补列（见[交付报告](review/2026-11-02-ops-002-drain-destroy.md)）。**本设计纸的目录/申请单流未交付**：`cloud_resource_catalog`/`cloud_resource_requests` 表、`cloud.request.*` 四权限点、执行回执（receipt）模型与 expiry→recycle 长尾均未实现——§8.7 的「v1 manual receipts、automation 另项目」与本引擎的关系是：本引擎即 §8.7 的「cloud API automation」雏形（由 terraform 驱动云 API），但走的是直连提交（todo OPS-001 一键扩容闭环），非本设计纸的「developer 申请 → approver 审批 → ops 执行回执」三角色文档流；该三角色目录/申请单流保持未实现（对应 todo 中未建的目录/申请单子面）。
 
 ## 0. 三类角色与硬边界
 

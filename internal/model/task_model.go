@@ -187,6 +187,24 @@ func (m *TaskRunModel) ReapStale(ctx context.Context, activeStatuses []string, s
 	return result.RowsAffected, nil
 }
 
+// CountActiveByAgents counts task_runs rows for the given agent ids that are
+// still in one of the supplied active statuses. OPS-002 destroy guard: 目标机
+// 在途任务未归零（无负载才允许销毁）。空 agentIDs 或空 activeStatuses →
+// 0（无纳管 agent 的运行无负载，不触库）。经 dbctx.Resolve 解析 per-game
+// DB（destroy 守卫按运行作用域查 task_runs）。
+func (m *TaskRunModel) CountActiveByAgents(ctx context.Context, agentIDs []string, activeStatuses []string) (int64, error) {
+	if len(agentIDs) == 0 || len(activeStatuses) == 0 {
+		return 0, nil
+	}
+	var count int64
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&TaskRun{}).
+		Where("agent_id IN ?", agentIDs).
+		Where("status IN ?", activeStatuses).
+		Count(&count).Error
+	return count, err
+}
+
 func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskRun, int64, error) {
 	opts.Normalize()
 

@@ -9,12 +9,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/ops/provision"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -275,4 +278,190 @@ func TestProvisionDestroy_Sync_Transitions(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"state":"destroyed"`)
+}
+
+// ---------------------------------------------------------------------------
+// OPS-002 缩容与排水守卫（数据盘护栏 / 在途任务闸 / 排空门）与护栏端点。
+// ---------------------------------------------------------------------------
+
+// newProvisionServiceGuarded 构造带可注入 DB（task_runs）与 registry（agent
+// 会话）的 Service，供销毁守卫三闸测试。seedDB 为 nil 则无 DB（空 AgentIDs
+// 的运行不触库）；agents 为 nil 则无 registry（排空门恒过）。
+func newProvisionServiceGuarded(t *testing.T, store *memStore, seedDB func(*gorm.DB), agents map[string]*reg.AgentSession) *Service {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		Provision: config.ProvisionConfig{
+			Enabled:            true,
+			HubAddr:            "hub:19090",
+			BootstrapTokenEnv:  "CROUPIER_PROVISION_TEST_TOKEN",
+			RegisterTimeoutSec: 1,
+		},
+	}
+	ctx := &svc.ServiceContext{Config: cfg}
+	if seedDB != nil {
+		db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&model.TaskRun{}))
+		seedDB(db)
+		ctx.DB = db
+	}
+	if agents != nil {
+		rs := reg.NewStore()
+		for _, sess := range agents {
+			require.NoError(t, rs.UpsertAgent(sess))
+		}
+		ctx.RegistryStore = rs
+	}
+	ctx.Provision = &provision.Orchestrator{
+		Runner:          inertRunner{},
+		Registry:        emptyRegistry{},
+		Approval:        &fixedApproval{approved: false},
+		Store:           store,
+		WorkDir:         t.TempDir(),
+		InstallURL:      cfg.Provision.AgentInstallURL,
+		RegisterTimeout: time.Second,
+	}
+	return NewService(ctx)
+}
+
+// seedProvisionWorkdir 准备运行的工作目录 + main.tf（真实 Destroy 前置检查）。
+func seedProvisionWorkdir(t *testing.T, svc *Service, runID string) {
+	t.Helper()
+	workDir := svc.svcCtx.Provision.WorkDir
+	require.NoError(t, os.MkdirAll(workDir+"/"+runID, 0o755))
+	require.NoError(t, os.WriteFile(workDir+"/"+runID+"/main.tf", []byte("# stub"), 0o600))
+}
+
+func TestProvisionDestroy_Protected_409(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-p", State: provision.StateAdopted, DestroyProtected: true, CreatedAt: time.Now(),
+	})
+	h := NewHandler(newProvisionServiceGuarded(t, store, nil, nil))
+
+	ctx, rec := newOpsTestContext(http.MethodDelete, "/api/v1/ops/provision/prov-p", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-p"}}
+	h.ProvisionDestroy(ctx)
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "provision_destroy_protected")
+}
+
+func TestProvisionDestroy_InflightTasks_409(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-i", State: provision.StateAdopted, CreatedAt: time.Now(),
+		AgentIDs: []string{"agent-a"},
+		Request: provision.Request{
+			Provider: provision.ProviderAWS, GameID: "demo", Env: "prod",
+		},
+	})
+	// 目标机 agent-a 有一个 running 在途任务（未排水）。
+	seedDB := func(db *gorm.DB) {
+		require.NoError(t, model.NewTaskRunModel(db).Create(context.Background(), &model.TaskRun{
+			TaskID: "t-inflight", AgentID: "agent-a", GameID: "demo", Env: "prod", Status: "running",
+		}))
+	}
+	h := NewHandler(newProvisionServiceGuarded(t, store, seedDB, nil))
+
+	ctx, rec := newOpsTestContext(http.MethodDelete, "/api/v1/ops/provision/prov-i", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-i"}}
+	h.ProvisionDestroy(ctx)
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "provision_tasks_inflight")
+}
+
+func TestProvisionDestroy_NotDrained_409(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-n", State: provision.StateAdopted, CreatedAt: time.Now(),
+		AgentIDs: []string{"agent-a"},
+		Request: provision.Request{
+			Provider: provision.ProviderAWS, GameID: "demo", Env: "prod",
+		},
+	})
+	// agent-a 在线但未 drain（无在途任务，但排空门未过）。
+	agents := map[string]*reg.AgentSession{
+		"agent-a": {AgentID: "agent-a", GameID: "demo", Env: "prod", Draining: false},
+	}
+	h := NewHandler(newProvisionServiceGuarded(t, store, nil, agents))
+
+	ctx, rec := newOpsTestContext(http.MethodDelete, "/api/v1/ops/provision/prov-n", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-n"}}
+	h.ProvisionDestroy(ctx)
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "provision_agents_not_drained")
+}
+
+func TestProvisionDestroy_DrainedClean_200(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-ok", State: provision.StateAdopted, CreatedAt: time.Now(),
+		AgentIDs: []string{"agent-a"},
+		Request: provision.Request{
+			Provider: provision.ProviderAWS, GameID: "demo", Env: "prod",
+		},
+	})
+	// agent-a 已 drain、无在途任务（空 task_runs 表）→ 三闸全过，销毁推进
+	// destroyed。
+	agents := map[string]*reg.AgentSession{
+		"agent-a": {AgentID: "agent-a", GameID: "demo", Env: "prod", Draining: true},
+	}
+	svc := newProvisionServiceGuarded(t, store, func(*gorm.DB) {}, agents)
+	seedProvisionWorkdir(t, svc, "prov-ok")
+	h := NewHandler(svc)
+
+	ctx, rec := newOpsTestContext(http.MethodDelete, "/api/v1/ops/provision/prov-ok", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-ok"}}
+	h.ProvisionDestroy(ctx)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"state":"destroyed"`)
+}
+
+func TestProvisionProtection_Toggle(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-t", State: provision.StateAdopted, CreatedAt: time.Now(),
+		Request: provision.Request{Provider: provision.ProviderAWS, GameID: "demo", Env: "prod"},
+	})
+	h := NewHandler(newProvisionServiceGuarded(t, store, nil, nil))
+
+	// 开护栏：true。
+	ctx, rec := newOpsTestContext(http.MethodPut, "/api/v1/ops/provision/prov-t/protection", `{"destroyProtected":true}`)
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-t"}}
+	h.ProvisionProtection(ctx)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"destroyProtected":true`)
+
+	// 关护栏：false。
+	ctx, rec = newOpsTestContext(http.MethodPut, "/api/v1/ops/provision/prov-t/protection", `{"destroyProtected":false}`)
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-t"}}
+	h.ProvisionProtection(ctx)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"destroyProtected":false`)
+
+	// 持久化读回：store 中状态与响应一致。
+	got, err := store.Get(context.Background(), "prov-t")
+	require.NoError(t, err)
+	assert.False(t, got.DestroyProtected)
+}
+
+func TestProvisionProtection_NonAdopted_409(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	// destroyed 状态不允许再改护栏。
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-x", State: provision.StateDestroyed, CreatedAt: time.Now(),
+	})
+	h := NewHandler(newProvisionServiceGuarded(t, store, nil, nil))
+
+	ctx, rec := newOpsTestContext(http.MethodPut, "/api/v1/ops/provision/prov-x/protection", `{"destroyProtected":true}`)
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-x"}}
+	h.ProvisionProtection(ctx)
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "provision_state_conflict")
 }

@@ -26,8 +26,11 @@ type ProvisionRun struct {
 	LabelsJSON   JSON   `gorm:"type:json"`
 	ErrorMsg     string `gorm:"type:text"`
 	RequestedBy  string `gorm:"size:64"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// DestroyProtected 是数据盘护栏（OPS-002）：true 时拒绝自动销毁（迁移
+	// 0053 补列，存量行默认 false=未护栏，行为与现状一致）。
+	DestroyProtected bool `gorm:"default:false"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // TableName 表名。

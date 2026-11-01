@@ -75,6 +75,63 @@ func TestTaskRunModel_ReapStale(t *testing.T) {
 	require.Zero(t, n)
 }
 
+// TestTaskRunModel_CountActiveByAgents（OPS-002 销毁守卫）：按 agent 集合与
+// 活跃状态集计数在途任务——terminal/unknown 不计、跨 agent 累计、空输入
+// no-op（无纳管 agent 的运行无负载）。
+func TestTaskRunModel_CountActiveByAgents(t *testing.T) {
+	db := newModelTestDB(t, &TaskRun{})
+	m := NewTaskRunModel(db)
+	ctx := context.Background()
+
+	seed := func(taskID, agentID, status string) {
+		run := &TaskRun{
+			TaskID:     taskID,
+			FunctionID: "f",
+			AgentID:    agentID,
+			GameID:     "g",
+			Env:        "e",
+			Status:     status,
+		}
+		require.NoError(t, m.Create(ctx, run))
+	}
+
+	seed("c-active-a", "agent-a", "running")
+	seed("c-active-b", "agent-a", "queued")
+	seed("c-active-c", "agent-b", "running")
+	seed("c-done", "agent-a", "succeeded")
+	seed("c-unknown", "agent-a", "unknown")
+
+	active := []string{"queued", "dispatching", "running", "cancel_requested"}
+
+	// 跨 agent 累计活跃（agent-a:2 + agent-b:1；succeeded/unknown 不计）。
+	n, err := m.CountActiveByAgents(ctx, []string{"agent-a", "agent-b"}, active)
+	require.NoError(t, err)
+	require.EqualValues(t, 3, n)
+
+	// 单 agent。
+	n, err = m.CountActiveByAgents(ctx, []string{"agent-b"}, active)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+
+	// 无活跃 agent（全部 terminal）→ 0。
+	n, err = m.CountActiveByAgents(ctx, []string{"agent-none"}, active)
+	require.NoError(t, err)
+	require.Zero(t, n)
+
+	// 空 agentIDs no-op（不触库，返回 0）。
+	n, err = m.CountActiveByAgents(ctx, nil, active)
+	require.NoError(t, err)
+	require.Zero(t, n)
+	n, err = m.CountActiveByAgents(ctx, []string{}, active)
+	require.NoError(t, err)
+	require.Zero(t, n)
+
+	// 空活跃状态集 no-op。
+	n, err = m.CountActiveByAgents(ctx, []string{"agent-a"}, nil)
+	require.NoError(t, err)
+	require.Zero(t, n)
+}
+
 // R30-03（ARCH-015）：RecordTaskEventTransactional 在单一事务内完成 guard 状态
 // 更新与事件追加，成功路径事件按序落库，终态 guard 拦截时不追加事件。
 func TestTaskRunModel_RecordTaskEventTransactional(t *testing.T) {

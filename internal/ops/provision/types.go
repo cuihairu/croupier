@@ -113,6 +113,9 @@ type Run struct {
 	AgentIDs []string `json:"agentIDs,omitempty"`
 	// ApprovalID 是 ticket 模式创建的审批记录 id。
 	ApprovalID string `json:"approvalID,omitempty"`
+	// DestroyProtected 是数据盘护栏（OPS-002）：true 时拒绝自动销毁
+	// （数据盘不可再自动回收）。经 PUT /ops/provision/:runId/protection 设置。
+	DestroyProtected bool `json:"destroyProtected"`
 	// Error 是失败原因（State=Failed 时）。
 	Error string `json:"error,omitempty"`
 	// CreatedAt/UpdatedAt 时间戳。

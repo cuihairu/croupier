@@ -724,6 +724,13 @@ func (ctx *ServiceContext) Close() {
 	})
 }
 
+// GameScopeContext 解析 (gameId, env) 的游戏作用域 context（含 per-game DB
+// 覆盖）。ops 供给销毁守卫按运行作用域查 task_runs（在途任务闸）经此取
+// game 库连接。
+func (ctx *ServiceContext) GameScopeContext(gameID, env string) context.Context {
+	return ctx.scopeContextForBackgroundRegistration(gameID, env)
+}
+
 func (ctx *ServiceContext) scopeContextForBackgroundRegistration(gameID, env string) context.Context {
 	base := WithGameScope(context.Background(), GameScope{
 		GameID: strings.TrimSpace(gameID),

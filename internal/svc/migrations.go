@@ -154,6 +154,9 @@ import (
 //               provider/region/规格/状态/输出/agent id 快照；新表无存量
 //               约束名漂移，HasTable 检查后 CreateTable，0027/0038 模式；
 //               敏感字段（bootstrap token）不入库——只落非敏感快照）
+//   0053 (Go)   provision_runs.destroy_protected 列（OPS-002 数据盘护栏：
+//               true 时拒绝自动销毁；加列 0025 模式；缺表跳过（fanout
+//               重放到无该特性的库不报错、不建空壳）；存量行默认 false）
 
 func init() {
 	registerSvcMigrations()
@@ -216,6 +219,7 @@ func registerSvcMigrations() {
 		approvalDispatchClaimColumnsMigration(),
 		agentMetricsHistoryEnrichmentMigration(),
 		provisionRunsTableMigration(),
+		provisionRunDestroyProtectionMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1754,6 +1758,35 @@ func migrateProvisionRunsTable(ctx context.Context, sqlDB *sql.DB) error {
 		if err := db.Migrator().CreateTable(&model.ProvisionRun{}); err != nil {
 			return fmt.Errorf("migrate: 0052 create provision_runs: %w", err)
 		}
+	}
+	return nil
+}
+
+// provisionRunDestroyProtectionMigration adds the OPS-002 data-disk guard
+// column to provision_runs: destroy_protected=true rejects automatic destroy.
+// AddColumn 补列模式（0025/0043/0044/0049/0051）；缺表跳过（fanout 重放到
+// 无该表的库不报错、不建空壳）；存量行默认 false=未护栏，行为与现状一致。
+func provisionRunDestroyProtectionMigration() *goose.Migration {
+	return goose.NewGoMigration(53,
+		&goose.GoFunc{RunDB: migrateProvisionRunDestroyProtection},
+		nil,
+	)
+}
+
+func migrateProvisionRunDestroyProtection(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	// 供给特性不在此库（fanout 重放到无该表的库）：不报错、不建空壳。
+	if !db.Migrator().HasTable(&model.ProvisionRun{}) {
+		return nil
+	}
+	if db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_protected") {
+		return nil
+	}
+	if err := db.Migrator().AddColumn(&model.ProvisionRun{}, "DestroyProtected"); err != nil {
+		return fmt.Errorf("migrate: 0053 add provision_runs.destroy_protected: %w", err)
 	}
 	return nil
 }

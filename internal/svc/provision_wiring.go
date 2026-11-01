@@ -57,19 +57,20 @@ func marshalJSON(v any) model.JSON {
 
 func runToModel(r *provision.Run) *model.ProvisionRun {
 	row := &model.ProvisionRun{
-		RunID:       r.ID,
-		Provider:    string(r.Request.Provider),
-		Region:      r.Request.Region,
-		GameID:      r.Request.GameID,
-		Env:         r.Request.Env,
-		Policy:      string(r.Request.Policy),
-		Count:       r.Request.Count,
-		State:       string(r.State),
-		ApprovalID:  r.ApprovalID,
-		ErrorMsg:    r.Error,
-		RequestedBy: r.Request.RequestedBy,
-		CreatedAt:   r.CreatedAt,
-		UpdatedAt:   r.UpdatedAt,
+		RunID:            r.ID,
+		Provider:         string(r.Request.Provider),
+		Region:           r.Request.Region,
+		GameID:           r.Request.GameID,
+		Env:              r.Request.Env,
+		Policy:           string(r.Request.Policy),
+		Count:            r.Request.Count,
+		State:            string(r.State),
+		ApprovalID:       r.ApprovalID,
+		ErrorMsg:         r.Error,
+		RequestedBy:      r.Request.RequestedBy,
+		DestroyProtected: r.DestroyProtected,
+		CreatedAt:        r.CreatedAt,
+		UpdatedAt:        r.UpdatedAt,
 	}
 	row.SpecJSON = marshalJSON(map[string]any{
 		"instanceType": r.Request.Spec.InstanceType,
@@ -90,12 +91,13 @@ func runToModel(r *provision.Run) *model.ProvisionRun {
 
 func runFromModel(row *model.ProvisionRun) *provision.Run {
 	r := &provision.Run{
-		ID:         row.RunID,
-		State:      provision.State(row.State),
-		ApprovalID: row.ApprovalID,
-		Error:      row.ErrorMsg,
-		CreatedAt:  row.CreatedAt,
-		UpdatedAt:  row.UpdatedAt,
+		ID:               row.RunID,
+		State:            provision.State(row.State),
+		ApprovalID:       row.ApprovalID,
+		Error:            row.ErrorMsg,
+		DestroyProtected: row.DestroyProtected,
+		CreatedAt:        row.CreatedAt,
+		UpdatedAt:        row.UpdatedAt,
 	}
 	spec := map[string]any{}
 	_ = json.Unmarshal(row.SpecJSON, &spec)

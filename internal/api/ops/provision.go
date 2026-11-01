@@ -3,13 +3,18 @@ package ops
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/ops/provision"
+	"github.com/cuihairu/croupier/internal/tasks"
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,6 +69,13 @@ var (
 	errProvisionNotConfigured    = &errorx.CodeError{Code: http.StatusServiceUnavailable, Message: "供给引擎未配置", StableCode: "provision_not_configured"}
 	errProvisionTokenMissing     = &errorx.CodeError{Code: http.StatusServiceUnavailable, Message: "供给引擎缺少 bootstrap token（未设置环境变量）", StableCode: "provision_token_not_configured"}
 	errProvisionHubNotConfigured = &errorx.CodeError{Code: http.StatusServiceUnavailable, Message: "供给引擎缺少 hub 地址（provision.hubAddr 未配置）", StableCode: "provision_hub_not_configured"}
+	// errProvisionDestroyProtected / errProvisionTasksInflight /
+	// errProvisionAgentsNotDrained 是销毁守卫拒绝（OPS-002 缩容与排水
+	// 保守版）：资源状态冲突 409，非客户端输入错误。
+	errProvisionDestroyProtected = &errorx.CodeError{Code: http.StatusConflict, Message: "供给运行已开启数据盘护栏，禁止自动销毁", StableCode: "provision_destroy_protected"}
+	errProvisionTasksInflight    = &errorx.CodeError{Code: http.StatusConflict, Message: "目标机仍有在途任务，须先排水", StableCode: "provision_tasks_inflight"}
+	errProvisionAgentsNotDrained = &errorx.CodeError{Code: http.StatusConflict, Message: "目标机 agent 未排空，禁止销毁", StableCode: "provision_agents_not_drained"}
+	errProvisionLoadUnverifiable = &errorx.CodeError{Code: http.StatusInternalServerError, Message: "无法校验目标机负载（数据源未就绪）", StableCode: "provision_load_unverifiable"}
 )
 
 // provisionOrchestrator 返回装配的引擎；未装配返回 503 哨兵错误。
@@ -170,15 +182,119 @@ func (s *Service) OpsProvisionList(ctx context.Context, limit int) ([]*provision
 
 // OpsProvisionDestroy 销毁运行资源（同步 terraform destroy 原语；无后续
 // 等注册段，时长通常分钟级内，不走异步）。
+//
+// OPS-002 缩容与排水守卫（先行保守版）：销毁前置三闸——
+//  1. 数据盘护栏：run.DestroyProtected=true 时拒绝（持久化标记禁止自动销毁）；
+//  2. 无负载才允许销毁：运行名下目标机在途任务未归零时拒绝（先排水）；
+//  3. 排空门：运行名下所有在线 agent 会话必须已 drain（否则新任务仍可路由
+//     到目标机，与销毁竞态；离线会话无路由、不计）。
+//
+// 销毁走同一 Terraform 状态（Orchestrator.Destroy 复用 WorkDir/main.tf），
+// 防漂移。成功落 audit provision.destroy。
 func (s *Service) OpsProvisionDestroy(ctx context.Context, runID string) (*provision.Run, error) {
 	orch, err := s.provisionOrchestrator()
 	if err != nil {
 		return nil, err
 	}
-	if err := orch.Destroy(ctx, strings.TrimSpace(runID)); err != nil {
+	runID = strings.TrimSpace(runID)
+	run, err := orch.Store.Get(ctx, runID)
+	if err != nil {
 		return nil, err
 	}
-	return orch.Store.Get(ctx, strings.TrimSpace(runID))
+	if err := s.provisionDestroyGuards(ctx, run); err != nil {
+		return nil, err
+	}
+	if err := orch.Destroy(ctx, runID); err != nil {
+		return nil, err
+	}
+	recordOpsAudit(ctx, s.svcCtx, audit.EventProvisionDestroy, runID, "success", map[string]interface{}{
+		"provider":  string(run.Request.Provider),
+		"agents":    run.AgentIDs,
+		"protected": run.DestroyProtected,
+	})
+	return orch.Store.Get(ctx, runID)
+}
+
+// provisionDestroyGuards 是销毁前置三闸（见 OpsProvisionDestroy）。顺序即
+// 运维处置顺序：护栏 → 排空（内存门，停新路由）→ 在途任务（等在途归零）。
+// 在途任务计数经 game scope context 解析到 per-game DB（task_runs 在 game
+// 库）；RegistryStore 为空时无在线会话可校验（排空门恒过，负载闸仍生效）。
+func (s *Service) provisionDestroyGuards(ctx context.Context, run *provision.Run) error {
+	if run.DestroyProtected {
+		return errProvisionDestroyProtected
+	}
+	// 排空门（先于在途检查：未排空的机新任务仍在进来，等在途归零无意义）。
+	if s.svcCtx != nil && s.svcCtx.RegistryStore != nil && len(run.AgentIDs) > 0 {
+		store := s.svcCtx.RegistryStore
+		store.Mu().RLock()
+		sessions := store.AgentsUnsafe()
+		for _, id := range run.AgentIDs {
+			if sess, ok := sessions[id]; ok && sess != nil && !sess.Draining {
+				store.Mu().RUnlock()
+				return &errorx.CodeError{
+					Code:       http.StatusConflict,
+					Message:    fmt.Sprintf("目标机 agent %s 未排空，禁止销毁", id),
+					StableCode: "provision_agents_not_drained",
+				}
+			}
+		}
+		store.Mu().RUnlock()
+	}
+	// 无负载才允许销毁（保守版 drain）：目标机在途任务未归零时拒绝。
+	if len(run.AgentIDs) > 0 {
+		if s.svcCtx == nil || s.svcCtx.DB == nil {
+			return errProvisionLoadUnverifiable
+		}
+		taskCtx := s.svcCtx.GameScopeContext(run.Request.GameID, run.Request.Env)
+		active, err := model.NewTaskRunModel(s.svcCtx.DB).CountActiveByAgents(taskCtx, run.AgentIDs, tasks.ReapableStatuses())
+		if err != nil {
+			return errProvisionLoadUnverifiable
+		}
+		if active > 0 {
+			return &errorx.CodeError{
+				Code:       http.StatusConflict,
+				Message:    fmt.Sprintf("目标机仍有 %d 个在途任务，须先排水", active),
+				StableCode: "provision_tasks_inflight",
+			}
+		}
+	}
+	return nil
+}
+
+// OpsProvisionProtection 设置/清除供给运行的数据盘护栏（OPS-002 持久化
+// 标记禁止自动销毁）。仅 adopted 状态可护栏（销毁/失败/销毁后不可再改）；
+// 成功落 audit provision.protect / provision.unprotect。
+func (s *Service) OpsProvisionProtection(ctx context.Context, runID string, protected bool) (*provision.Run, error) {
+	orch, err := s.provisionOrchestrator()
+	if err != nil {
+		return nil, err
+	}
+	runID = strings.TrimSpace(runID)
+	run, err := orch.Store.Get(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	if run.State != provision.StateAdopted {
+		return nil, &errorx.CodeError{
+			Code:       http.StatusConflict,
+			Message:    fmt.Sprintf("供给运行状态 %s 不允许修改护栏", run.State),
+			StableCode: "provision_state_conflict",
+		}
+	}
+	run.DestroyProtected = protected
+	run.UpdatedAt = time.Now()
+	if err := orch.Store.Update(ctx, run); err != nil {
+		return nil, err
+	}
+	event := audit.EventProvisionUnprotect
+	if protected {
+		event = audit.EventProvisionProtect
+	}
+	recordOpsAudit(ctx, s.svcCtx, event, runID, "success", map[string]interface{}{
+		"provider":  string(run.Request.Provider),
+		"protected": protected,
+	})
+	return run, nil
 }
 
 // ============================================================================
@@ -238,6 +354,28 @@ func (h *Handler) ProvisionList(c *gin.Context) {
 // ProvisionDestroy DELETE /ops/provision/:runId。
 func (h *Handler) ProvisionDestroy(c *gin.Context) {
 	run, err := h.service.OpsProvisionDestroy(c.Request.Context(), c.Param("runId"))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, OpsProvisionRunResponse{Run: run})
+}
+
+// OpsProvisionProtectionRequest PUT /ops/provision/:runId/protection 入参。
+type OpsProvisionProtectionRequest struct {
+	// DestroyProtected true=开启数据盘护栏（禁止自动销毁），false=清除。
+	DestroyProtected bool `json:"destroyProtected"`
+}
+
+// ProvisionProtection PUT /ops/provision/:runId/protection（OPS-002 数据盘
+// 护栏：持久化标记禁止自动销毁）。
+func (h *Handler) ProvisionProtection(c *gin.Context) {
+	var req OpsProvisionProtectionRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	run, err := h.service.OpsProvisionProtection(c.Request.Context(), c.Param("runId"), req.DestroyProtected)
 	if err != nil {
 		response.Error(c, err)
 		return

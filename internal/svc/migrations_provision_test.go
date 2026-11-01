@@ -63,3 +63,66 @@ func TestRegisterSvcMigrations_ContainsProvisionRuns(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "version 52 already registered")
 }
+
+// 0053 加 destroy_protected 列（OPS-002 数据盘护栏）：补列 0025 模式、
+// 幂等、缺表跳过（fanout 重放到无该表的库不报错、不建空壳）；存量行默认
+// false=未护栏。
+func TestProvisionRunDestroyProtectionMigration_AddsColumnIdempotent(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	// 缺表跳过：无该表时不报错、不建空壳。
+	require.NoError(t, migrateProvisionRunDestroyProtection(ctx, sqlDB))
+	assert.False(t, db.Migrator().HasTable(&model.ProvisionRun{}))
+
+	// 先跑 0052 建表，再跑 0053 补列。0052 的 CreateTable 用当前模型（已含
+	// destroy_protected 字段）会一并建出该列；为复刻「0052 时代老表（无该
+	// 列）」，先 DROP 掉该列再跑 0053——这才是存量库真实形态（迁移契约：
+	// 回归用例须复刻存量形态，非 AutoMigrate 新表）。
+	require.NoError(t, migrateProvisionRunsTable(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_protected"))
+	require.NoError(t, db.Migrator().DropColumn(&model.ProvisionRun{}, "DestroyProtected"))
+	assert.False(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_protected"))
+	require.NoError(t, migrateProvisionRunDestroyProtection(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_protected"))
+
+	// 幂等：再跑不报错。
+	require.NoError(t, migrateProvisionRunDestroyProtection(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_protected"))
+
+	// 存量行默认 false：插入不含 DestroyProtected 显式值 → 读回 false。
+	m := model.NewProvisionRunModel(db)
+	run := &model.ProvisionRun{
+		RunID:    "prov-prot",
+		Provider: "aws",
+		Region:   "us-east-1",
+		GameID:   "demo",
+		Env:      "prod",
+		Policy:   "direct",
+		Count:    1,
+		State:    "adopted",
+	}
+	require.NoError(t, m.Create(ctx, run))
+	got, err := m.FindByRunID(ctx, "prov-prot")
+	require.NoError(t, err)
+	assert.False(t, got.DestroyProtected)
+
+	// 写 true 回读 true（round-trip）。
+	got.DestroyProtected = true
+	require.NoError(t, m.Update(ctx, got))
+	got2, err := m.FindByRunID(ctx, "prov-prot")
+	require.NoError(t, err)
+	assert.True(t, got2.DestroyProtected)
+}
+
+// 迁移注册表必须含 0053（防 registerSvcMigrations 漏配）。
+func TestRegisterSvcMigrations_ContainsProvisionDestroyProtection(t *testing.T) {
+	goose.ResetGlobalMigrations()
+	registerSvcMigrations()
+	err := goose.SetGlobalMigrations(provisionRunDestroyProtectionMigration())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version 53 already registered")
+}

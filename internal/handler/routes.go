@@ -675,6 +675,7 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/provision", opsHandler.ProvisionList)
 	g.GET("/provision/:runId", opsHandler.ProvisionGet)
 	g.POST("/provision/:runId/resume", opsHandler.ProvisionResume)
+	g.PUT("/provision/:runId/protection", opsHandler.ProvisionProtection)
 	g.DELETE("/provision/:runId", opsHandler.ProvisionDestroy)
 
 	// probe 在线汇总（评审简档 §13.2）：状态矩阵 + 证据，不出合成分。
