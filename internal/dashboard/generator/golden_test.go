@@ -215,7 +215,7 @@ func TestGenerateResourcePageInlineActions(t *testing.T) {
 	}
 	selectionAction := &model.FunctionContract{
 		Model: gormModelWithID(403), FunctionID: "player.notice", ResourceKey: "player", OperationKey: "notice", Capability: dbenum.CapabilityAction, Enabled: true,
-		InputSchema: model.JSON(`{"type":"object","properties":{"ids":{"type":"array","items":{"type":"string"}}},"required":["ids"]}`),
+		InputSchema: model.JSON(`{"type":"object","properties":{"ids":{"type":"array","items":{"type":"string"}},"amount":{"type":"integer","x-label":"每人数量","x-field-role":"quantity","x-field-unit":"金","x-field-per-target":true}},"required":["ids"]}`),
 	}
 	toolbarAction := &model.FunctionContract{
 		Model: gormModelWithID(404), FunctionID: "player.refresh", ResourceKey: "player", OperationKey: "refresh", Capability: dbenum.CapabilityAction, Enabled: true,
@@ -248,10 +248,25 @@ func TestGenerateResourcePageInlineActions(t *testing.T) {
 	assert.Equal(t, spec.SourceRow, bindings["action.ban"].Selectors.Input.Assignments[0].Source.Kind)
 	assert.Equal(t, "/id", bindings["action.ban"].Selectors.Input.Assignments[0].Source.Path)
 	require.NotNil(t, bindings["action.notice"].Selectors)
-	selectionSource := bindings["action.notice"].Selectors.Input.Assignments[0].Source
+	selectionSource := spec.ValueSource{}
+	for _, assignment := range bindings["action.notice"].Selectors.Input.Assignments {
+		if assignment.Target == "/ids" {
+			selectionSource = assignment.Source
+		}
+	}
 	assert.Equal(t, spec.SourceSelection, selectionSource.Kind)
 	require.NotNil(t, selectionSource.Transform)
 	assert.Equal(t, spec.TransformPick, selectionSource.Transform.Type)
+
+	// D2 batch 表单：selection action 的必填数组 identity 被剥离，剩余可选
+	// 字段（本例 ids 为唯一字段 → 表单为空 schema）交给批量确认。
+	batchAction := generated.Resource.ListView.BatchActions[0]
+	require.NotNil(t, batchAction.Form, "batch action must carry a form for per-target fields")
+	assert.NotContains(t, string(batchAction.Form.JSONSchema), "\"ids\"")
+	assert.Contains(t, string(batchAction.Form.JSONSchema), "\"amount\"")
+	require.Len(t, batchAction.Form.Fields, 1)
+	assert.Equal(t, "quantity", batchAction.Form.Fields[0].Role)
+	assert.True(t, batchAction.Form.Fields[0].PerTarget)
 }
 
 func TestGenerateResourcePageUnsafeActionStaysStandalone(t *testing.T) {

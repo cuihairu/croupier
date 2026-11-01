@@ -125,6 +125,43 @@ func TestPlayersProviderHandlerCRUD(t *testing.T) {
 	assert.Equal(t, float64(2), list["total"])
 }
 
+// TestPlayersProviderBatchRecharge covers the D2 batch-selection contract:
+// playerIds (required array) + optional per-target amount; the provider
+// credits each selected player and returns the affected count.
+func TestPlayersProviderBatchRecharge(t *testing.T) {
+	p := newPlayersProvider()
+	h := p.handler()
+
+	// openapi 文档携带 D2/D5 字段语义（unit/enum/per-target/identity）
+	code, doc := doJSON(t, h, http.MethodGet, "/openapi.json", "")
+	require.Equal(t, http.StatusOK, code)
+	raw, _ := json.Marshal(doc)
+	assert.Contains(t, string(raw), "balanceGold")
+	assert.Contains(t, string(raw), "x-field-unit")
+	assert.Contains(t, string(raw), "x-enum-options")
+	assert.Contains(t, string(raw), "x-field-per-target")
+	assert.Contains(t, string(raw), "player.batchRecharge")
+
+	// 批量充值：两目标 + 每人 50 → 各 +50
+	code, out := doJSON(t, h, http.MethodPost, "/players/batch-recharge", `{"playerIds":["p-001","p-002"],"amount":50}`)
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, true, out["success"])
+	assert.Equal(t, float64(2), out["affected"])
+	_, one := doJSON(t, h, http.MethodGet, "/players/p-001", "")
+	assert.Equal(t, float64(150), one["balanceGold"])
+	_, two := doJSON(t, h, http.MethodGet, "/players/p-002", "")
+	assert.Equal(t, float64(250), two["balanceGold"])
+
+	// 空目标拒绝
+	code, _ = doJSON(t, h, http.MethodPost, "/players/batch-recharge", `{"playerIds":[]}`)
+	assert.Equal(t, http.StatusBadRequest, code)
+
+	// 未知目标只计命中数
+	code, out = doJSON(t, h, http.MethodPost, "/players/batch-recharge", `{"playerIds":["p-001","nope"]}`)
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, float64(1), out["affected"])
+}
+
 func TestReadBody(t *testing.T) {
 	// 空 body → json decode EOF 报错
 	raw, err := readBody(httptest.NewRequest(http.MethodPost, "/x", nil))

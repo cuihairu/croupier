@@ -11,9 +11,13 @@ import (
 
 // fixturePlayer is one deterministic record served by the /players provider.
 type fixturePlayer struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Level int    `json:"level"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Level       int    `json:"level"`
+	Status      string `json:"status"`
+	BalanceGold int    `json:"balanceGold"`
+	LastLoginAt string `json:"lastLoginAt"`
+	Timezone    string `json:"timezone"`
 }
 
 // providerCall records one HTTP call received by the /players provider so E2E
@@ -45,8 +49,8 @@ func (p *playersProvider) reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.players = map[string]*fixturePlayer{
-		"p-001": {ID: "p-001", Name: "Ada", Level: 10},
-		"p-002": {ID: "p-002", Name: "Ben", Level: 20},
+		"p-001": {ID: "p-001", Name: "Ada", Level: 10, Status: "active", BalanceGold: 100, LastLoginAt: "2026-10-31T08:30:00Z", Timezone: "Asia/Shanghai"},
+		"p-002": {ID: "p-002", Name: "Ben", Level: 20, Status: "banned", BalanceGold: 200, LastLoginAt: "2026-10-30T20:15:00Z", Timezone: "UTC"},
 	}
 	p.order = []string{"p-001", "p-002"}
 	p.nextID = 3
@@ -82,6 +86,13 @@ func (p *playersProvider) handler() http.Handler {
 		default:
 			writeFixtureJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
 		}
+	})
+	mux.HandleFunc("/players/batch-recharge", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeFixtureJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
+			return
+		}
+		p.batchRechargePlayers(w, r)
 	})
 	mux.HandleFunc("/players/", func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(r.URL.Path, "/players/")
@@ -232,6 +243,32 @@ func (p *playersProvider) kickPlayer(w http.ResponseWriter, r *http.Request, id 
 	writeFixtureJSON(w, http.StatusOK, map[string]interface{}{"success": true, "playerId": id})
 }
 
+// batchRechargePlayers is the D2 batch-selection contract exercised by the
+// UI-003 real-page acceptance. It takes playerIds (required array) plus an
+// optional per-target amount and returns the number of affected players.
+func (p *playersProvider) batchRechargePlayers(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PlayerIds []string `json:"playerIds"`
+		Amount    int      `json:"amount"`
+	}
+	body, _ := readBody(r)
+	p.recordCall(http.MethodPost, "/players/batch-recharge", body)
+	if err := json.Unmarshal(body, &req); err != nil || len(req.PlayerIds) == 0 {
+		writeFixtureJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request", "message": "playerIds is required"})
+		return
+	}
+	p.mu.Lock()
+	affected := 0
+	for _, id := range req.PlayerIds {
+		if player, ok := p.players[id]; ok {
+			player.BalanceGold += req.Amount
+			affected++
+		}
+	}
+	p.mu.Unlock()
+	writeFixtureJSON(w, http.StatusOK, map[string]interface{}{"success": true, "affected": affected})
+}
+
 func readBody(r *http.Request) (json.RawMessage, error) {
 	if r.Body == nil {
 		return nil, nil
@@ -251,9 +288,20 @@ func playersOpenAPIDoc() []byte {
 	playerSchema := map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"id":    map[string]interface{}{"type": "string"},
-			"name":  map[string]interface{}{"type": "string"},
-			"level": map[string]interface{}{"type": "integer"},
+			"id":    map[string]interface{}{"type": "string", "x-field-role": "identity", "x-label": map[string]interface{}{"zh-CN": "玩家 ID", "en-US": "Player ID"}},
+			"name":  map[string]interface{}{"type": "string", "x-label": map[string]interface{}{"zh-CN": "昵称", "en-US": "Nickname"}},
+			"level": map[string]interface{}{"type": "integer", "x-label": map[string]interface{}{"zh-CN": "等级", "en-US": "Level"}},
+			"status": map[string]interface{}{
+				"type": "string", "x-label": map[string]interface{}{"zh-CN": "状态", "en-US": "Status"},
+				"enum": []string{"active", "banned"},
+				"x-enum-options": []map[string]interface{}{
+					{"value": "active", "label": map[string]interface{}{"zh-CN": "正常", "en-US": "Active"}, "color": "green"},
+					{"value": "banned", "label": map[string]interface{}{"zh-CN": "已封禁", "en-US": "Banned"}, "color": "red"},
+				},
+			},
+			"balanceGold": map[string]interface{}{"type": "integer", "x-label": map[string]interface{}{"zh-CN": "金币余额", "en-US": "Gold Balance"}, "x-field-unit": map[string]interface{}{"zh-CN": "金", "en-US": "gold"}},
+			"lastLoginAt": map[string]interface{}{"type": "string", "format": "date-time", "x-label": map[string]interface{}{"zh-CN": "最近登录", "en-US": "Last Login"}},
+			"timezone":    map[string]interface{}{"type": "string", "x-label": map[string]interface{}{"zh-CN": "时区", "en-US": "Timezone"}},
 		},
 		"required": []string{"id", "name"},
 	}
@@ -350,6 +398,38 @@ func playersOpenAPIDoc() []byte {
 								"properties": map[string]interface{}{
 									"success":  map[string]interface{}{"type": "boolean"},
 									"playerId": map[string]interface{}{"type": "string"},
+								},
+							}),
+						},
+					},
+				},
+			},
+			"/players/batch-recharge": map[string]interface{}{
+				"post": map[string]interface{}{
+					"operationId": "player.batchRecharge",
+					"summary":     "Batch recharge players",
+					"requestBody": map[string]interface{}{
+						"required": true,
+						"content": jsonContent(map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"playerIds": map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+								"amount": map[string]interface{}{
+									"type": "integer", "x-label": map[string]interface{}{"zh-CN": "每人数量", "en-US": "Per-target amount"},
+									"x-field-role": "quantity", "x-field-unit": map[string]interface{}{"zh-CN": "金", "en-US": "gold"}, "x-field-per-target": true,
+								},
+							},
+							"required": []string{"playerIds"},
+						}),
+					},
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "OK",
+							"content": jsonContent(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"success":  map[string]interface{}{"type": "boolean"},
+									"affected": map[string]interface{}{"type": "integer"},
 								},
 							}),
 						},

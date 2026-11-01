@@ -48,6 +48,10 @@ export async function login(page: Page, username = 'admin', password = 'admin123
   await gotoWithRetry(page, '/user/login');
   await page.waitForLoadState('domcontentloaded');
 
+  // MFSU 冷启动首跳可能长时间停留在 Bundling overlay。等待它消失再找
+  // 登录表单，避免 CI/本地首个 real-dashboard 用例在 60s 内误报登录失败。
+  await page.locator('text=Bundling...').waitFor({ state: 'hidden', timeout: 120000 });
+
   // umi dev overlay iframe 偶发拦截点击：移除所有 overlay iframe
   await page.evaluate(() => {
     document.querySelectorAll('iframe').forEach((el) => {

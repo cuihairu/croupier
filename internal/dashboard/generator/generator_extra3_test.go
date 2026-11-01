@@ -136,7 +136,7 @@ func TestExtraBuildListViewFromContract(t *testing.T) {
 
 // TestColumnFieldSemanticsInference：D5 输出侧 x-* hints 机械派生列呈现。
 // identity 坍缩固定左列+复制、x-enum-options 坍缩枚举标签、x-field-unit 提供
-// 单位后缀；无 hints 列零变化；非法 role 静默忽略。
+// 单位后缀、x-label 提供本地化列题；无 hints 列零变化；非法 role 静默忽略。
 func TestColumnFieldSemanticsInference(t *testing.T) {
 	semantics := &model.CapabilitySemantics{
 		IdentityField:     "",
@@ -152,10 +152,10 @@ func TestColumnFieldSemanticsInference(t *testing.T) {
 			"type":"object",
 			"properties":{
 				"items":{"type":"array","items":{"type":"object","properties":{
-					"player_id":{"type":"string","x-field-role":"identity"},
-					"status":{"type":"string","x-field-role":"status","x-enum-options":[
+					"player_id":{"type":"string","x-field-role":"identity","x-label":"玩家ID"},
+					"status":{"type":"string","x-field-role":"status","x-label":{"zh-CN":"状态","en-US":"Status"},"x-enum-options":[
 						{"value":"active","label":"在线"},{"value":"offline","label":{"en-US":"Offline"}}]},
-					"coins":{"type":"number","x-field-role":"amount","x-field-unit":"金币"},
+					"coins":{"type":"number","x-field-role":"amount","x-label":"金币余额","x-field-unit":"金币"},
 					"expire_at":{"type":"string","format":"date-time","x-field-role":"expiry"},
 					"plain":{"type":"string"},
 					"bad_role":{"type":"string","x-field-role":"not-a-role"}
@@ -173,16 +173,21 @@ func TestColumnFieldSemanticsInference(t *testing.T) {
 	// identity → Fixed left + Render copy
 	assert.Equal(t, "left", byKey["player_id"].Fixed)
 	assert.Equal(t, "copy", byKey["player_id"].Render)
+	assert.Equal(t, "玩家ID", byKey["player_id"].Title["zh-CN"])
+	assert.Equal(t, "玩家ID", byKey["player_id"].Title["en-US"])
 
 	// x-enum-options → Enum + Render tag
 	status := byKey["status"]
 	assert.Equal(t, "tag", status.Render)
+	assert.Equal(t, "状态", status.Title["zh-CN"])
+	assert.Equal(t, "Status", status.Title["en-US"])
 	require.Len(t, status.Enum, 2)
 	assert.Equal(t, "在线", status.Enum[0].Label["zh-CN"])
 	assert.Equal(t, "Offline", status.Enum[1].Label["en-US"])
 
 	// x-field-unit → Unit 双语后缀
 	coins := byKey["coins"]
+	assert.Equal(t, "金币余额", coins.Title["zh-CN"])
 	assert.Equal(t, "金币", coins.Unit["zh-CN"])
 	assert.Equal(t, "金币", coins.Unit["en-US"])
 

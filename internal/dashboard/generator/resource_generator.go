@@ -315,13 +315,14 @@ func buildActionFormPresentation(contract *model.FunctionContract, semantics *mo
 	// action.IdentityInput 是 selector 实际映射的字段；若与 semantics
 	// identity 不同，同样剥离
 	target := strings.TrimSpace(action.IdentityInput)
-	if target != "" && (semantics == nil || target != strings.TrimSpace(semantics.IdentityField)) {
-		form.JSONSchema = removeTopLevelSchemaField(form.JSONSchema, target)
+	targetKey := topLevelPointerToken(target)
+	if targetKey != "" && (semantics == nil || targetKey != strings.TrimSpace(semantics.IdentityField)) {
+		form.JSONSchema = removeTopLevelSchemaField(form.JSONSchema, targetKey)
 	}
 	if form.Fields != nil {
 		remaining := make([]spec.FormFieldSpec, 0, len(form.Fields))
 		for _, f := range form.Fields {
-			if f.Key == target {
+			if f.Key == target || f.Key == targetKey {
 				continue
 			}
 			if semantics != nil && f.Key == strings.TrimSpace(semantics.IdentityField) {
@@ -429,6 +430,9 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 		// identity 坍缩为固定左列 + 可复制；x-enum-options 坍缩为枚举标签；
 		// x-field-unit 提供单位后缀。
 		if hints := parseJSONObject(prop); len(hints) > 0 {
+			if label := hintLocalized(hints["x-label"]); label != nil {
+				col.Title = label
+			}
 			if hintFieldRole(rawString(hints["x-field-role"])) == "identity" {
 				col.Fixed = "left"
 				col.Render = "copy"
@@ -552,7 +556,7 @@ func buildInlineResourceAction(
 		}
 	}
 	actionForm := (*spec.FormPresentationSpec)(nil)
-	if placement == "row-form" {
+	if placement == "row-form" || placement == "batch" {
 		actionForm = buildActionFormPresentation(contract, semantics, action)
 	}
 	return spec.ActionSpec{
