@@ -486,6 +486,7 @@ func TestStoreOpenAPIEdgeCasesV9(t *testing.T) {
 	require.Error(t, s.UpsertOpenAPI("fn-nil", nil))
 	_, err := s.GetOpenAPI("")
 	require.Error(t, err)
+	require.ErrorIs(t, err, ErrOpenAPINotFound, "空 ID 等同未声明，须可判别为未命中而非来源故障")
 	_, err = s.GetOpenAPIProvider("")
 	require.Error(t, err)
 

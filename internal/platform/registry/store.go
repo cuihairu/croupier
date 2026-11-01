@@ -1128,9 +1128,12 @@ func (s *Store) UpsertOpenAPI(functionID string, operation *openapi3.Operation) 
 var ErrOpenAPINotFound = errors.New("openapi operation not found")
 
 // GetOpenAPI retrieves an OpenAPI operation by function ID.
+// 空 functionID 语义上等同「未注册/未声明」（没有可查询的 OpenAPI 声明），
+// 返回可判别的 ErrOpenAPINotFound，调用方据此合法回落（治理链不得把
+// 未声明风险当作来源故障 fail-closed）。
 func (s *Store) GetOpenAPI(functionID string) (*openapi3.Operation, error) {
 	if functionID == "" {
-		return nil, fmt.Errorf("function ID is required")
+		return nil, fmt.Errorf("%w: function ID is required", ErrOpenAPINotFound)
 	}
 
 	s.mu.RLock()
