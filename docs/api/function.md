@@ -33,7 +33,7 @@ type FunctionsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
 	GameId string `form:"gameId,optional"`
-	Category string `form:"category,optional"`
+	Resource string `form:"resource,optional"`
 	Status int `form:"status,optional"`
 }
 ```
@@ -73,11 +73,15 @@ type FunctionDetailResponse struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
 	Description string `json:"description"`
-	Category string `json:"category"`
+	Resource string `json:"resource"`
 	GameId string `json:"gameId"`
 	Status int `json:"status"`
 	Version string `json:"version"`
 	Instances int `json:"instances"`
+	SpecFormat string `json:"specFormat"`
+	Tags []string `json:"tags,omitempty"`
+	Summary map[string]string `json:"summary,omitempty"`
+	OpenAPISpec json.RawMessage `json:"openapiSpec,omitempty"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
 	Descriptor FunctionDescriptor `json:"descriptor"`
@@ -87,11 +91,15 @@ type Function struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
 	Description string `json:"description"`
-	Category string `json:"category"`
+	Resource string `json:"resource"`
 	GameId string `json:"gameId"`
 	Status int `json:"status"`
 	Version string `json:"version"`
 	Instances int `json:"instances"`
+	SpecFormat string `json:"specFormat"`
+	Tags []string `json:"tags,omitempty"`
+	Summary map[string]string `json:"summary,omitempty"`
+	OpenAPISpec json.RawMessage `json:"openapiSpec,omitempty"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
 }
@@ -244,6 +252,7 @@ type FunctionInvokeRequest struct {
 	Route string `json:"route,optional"`
 	TargetServiceID string `json:"targetServiceId,optional"`
 	HashKey string `json:"hashKey,optional"`
+	TimeoutMs int `json:"timeoutMs,omitempty"` // sync-only timeout budget in ms ([1000,60000], clamped)
 }
 ```
 
@@ -253,9 +262,11 @@ type FunctionInvokeRequest struct {
 type FunctionInvokeResponse struct {
 	TaskId           string      `json:"taskId"`
 	Result           JSONValue   `json:"result,omitempty"`
-	ApprovalID       string      `json:"approval_id,omitempty"`       // approval request ID (returned when approval is required)
-	ApprovalRequired bool        `json:"approval_required,omitempty"` // whether approval is required
-	ApprovalWorkflow string      `json:"approval_workflow,omitempty"` // approval workflow type (single_admin/two_person)
+	ApprovalID       string      `json:"approvalId,omitempty"`       // approval request ID (returned when approval is required)
+	ApprovalRequired bool        `json:"approvalRequired,omitempty"` // whether approval is required
+	ApprovalWorkflow string      `json:"approvalWorkflow,omitempty"` // approval workflow type (single_admin/two_person)
+	TraceID          string      `json:"traceId,omitempty"`          // OTel trace ID for Jaeger/Grafana jump
+	Broadcast        *BroadcastResult `json:"broadcast,omitempty"`   // per-agent outcomes when route=broadcast
 }
 ```
 
@@ -369,7 +380,7 @@ type FunctionPublishResponse struct {
 
 ```go
 type BatchCopyFunctionsRequest struct {
-	FunctionIds []string `json:"function_ids"`
+	Functions []FunctionCopyRequest `json:"functions"`
 }
 ```
 
@@ -377,9 +388,7 @@ type BatchCopyFunctionsRequest struct {
 
 ```go
 type BatchCopyFunctionsResponse struct {
-	Updated int `json:"updated"`
-	Failed []string `json:"failed"`
-	Copied []string `json:"copied"` // list of newly copied function IDs
+	Results []FunctionCopyResponse `json:"results"`
 }
 ```
 
@@ -396,7 +405,7 @@ type BatchCopyFunctionsResponse struct {
 
 ```go
 type BatchDeleteFunctionsRequest struct {
-	FunctionIds []string `json:"function_ids"`
+	FunctionIds []string `json:"functionIds"`
 }
 ```
 
@@ -404,8 +413,8 @@ type BatchDeleteFunctionsRequest struct {
 
 ```go
 type BatchDeleteFunctionsResponse struct {
-	Updated int `json:"updated"`
-	Failed []string `json:"failed"`
+	Deleted []string `json:"deleted"`
+	Failed  []string `json:"failed"`
 }
 ```
 
@@ -422,7 +431,7 @@ type BatchDeleteFunctionsResponse struct {
 
 ```go
 type BatchUpdateFunctionsRequest struct {
-	FunctionIds []string `json:"function_ids"`
+	FunctionIds []string `json:"functionIds"`
 	Enabled bool `json:"enabled"`
 }
 ```
@@ -663,12 +672,19 @@ The function policy (`GET/PUT/DELETE /api/v1/functions/:function_id/policy`) and
 The following registered endpoints are part of the function domain's canonical set:
 
 ```http
-GET /api/v1/functions/{id}/analytics   # function invocation analytics
-GET /api/v1/functions/instances        # all function instances
-GET /api/v1/functions/warnings         # registration warning list
-GET /api/v1/functions/version-floors   # all function version floors
-GET /api/v1/functions/version-history  # function version history index (floor dropdown options, #26)
-GET /api/v1/functions/:id/openapi      # function OpenAPI spec (public)
-POST /api/v1/functions/_openapi-batch  # batch-fetch OpenAPI specs (public)
-GET /api/v1/openapi/spec               # global OpenAPI document (public)
+GET /api/v1/functions/{id}/analytics     # function invocation analytics
+GET /api/v1/functions/{id}/history       # function change history (paginated, newest-first)
+GET /api/v1/functions/{id}/version-floor # single-function version floor (GET/PUT/DELETE)
+GET /api/v1/functions/instances          # all function instances
+GET /api/v1/functions/warnings           # registration warning list
+GET /api/v1/functions/warnings/filter-options # warning filter dropdown options (#34)
+DELETE /api/v1/functions/warnings/{key}  # dismiss one warning
+POST /api/v1/functions/warnings/read/{key}     # mark one warning read
+POST /api/v1/functions/warnings/read-all       # mark all warnings read
+DELETE /api/v1/functions/warnings        # clear all warnings
+GET /api/v1/functions/version-floors     # all function version floors
+GET /api/v1/functions/version-history    # function version history index (floor dropdown options, #26)
+GET /api/v1/functions/:id/openapi        # function OpenAPI spec (public)
+POST /api/v1/functions/_openapi-batch    # batch-fetch OpenAPI specs (public)
+GET /api/v1/openapi/spec                 # global OpenAPI document (public)
 ```

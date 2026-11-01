@@ -22,7 +22,7 @@ The Java SDK targets JVM services and provides the core capabilities for connect
 <dependency>
   <groupId>io.github.cuihairu.croupier</groupId>
   <artifactId>croupier-java-sdk</artifactId>
-  <version>0.1.1</version>
+  <version>0.1.4</version>
 </dependency>
 ```
 

@@ -36,7 +36,9 @@ python -m pip install -e ./sdks/python
 ## Quick Start
 
 ```python
-from croupier import CroupierClient, ClientConfig
+import json
+
+from croupier import CroupierClient, ClientConfig, FunctionDescriptor
 
 client = CroupierClient(
     ClientConfig(
@@ -48,7 +50,7 @@ client = CroupierClient(
 
 client.register_function(
     FunctionDescriptor(id="hello.world", version="1"),
-    handler=lambda ctx, payload: {"message": "hello"},
+    handler=lambda ctx, payload: json.dumps({"message": "hello"}),
 )
 
 client.connect()

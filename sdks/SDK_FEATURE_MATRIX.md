@@ -50,7 +50,7 @@
 | OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
 | JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅ `JsonSchemaValidator` |
 | 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
-| 文件下发接收（`enableFileTransfer`，暂存区落盘，hotpatch P1 传输层）   | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| 文件下发接收（`enableFileTransfer`，暂存区落盘，hotpatch P1 传输层）   | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ⚠️ 待对齐                |
 
 ### L3 Invoker（invoke / startTask / getTaskStatus / streamTask / cancelTask）
 

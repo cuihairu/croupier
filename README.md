@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier//"><img src="https://img.shields.io/badge/docs-blue" alt="docs"></a>
+  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier/"><img src="https://img.shields.io/badge/docs-blue" alt="docs"></a>
 </p>
 
 <h1 align="center">Croupier</h1>

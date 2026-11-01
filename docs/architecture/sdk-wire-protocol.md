@@ -355,7 +355,6 @@ Typical protobuf fields:
 - `gameId`
 - `env`
 - `timeoutMs`
-- `priority`
 - capability-negotiation, rate-limiting, retry, and audit-related fields
 
 Typical JSON payload fields:

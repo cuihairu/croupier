@@ -22,7 +22,7 @@ Java SDK 面向 JVM 服务，提供连接 Agent、注册函数与处理调用的
 <dependency>
   <groupId>io.github.cuihairu.croupier</groupId>
   <artifactId>croupier-java-sdk</artifactId>
-  <version>0.1.1</version>
+  <version>0.1.4</version>
 </dependency>
 ```
 

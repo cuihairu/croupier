@@ -22,6 +22,7 @@ Note the division between the two prefixes: `/api/v1/resource-catalog` is the se
 
 ```http
 GET /api/v1/resource-catalog
+GET /api/v1/resource-catalog/categories
 GET /api/v1/resource-catalog/{resourceKey}
 ```
 

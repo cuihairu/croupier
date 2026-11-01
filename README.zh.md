@@ -1,7 +1,7 @@
 <p align="center">
 
 > [English](README.md) | **中文**
-> <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier/zh//"><img src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3-blue" alt="docs"></a>
+> <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier/zh/"><img src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3-blue" alt="docs"></a>
 
 </p>
 
