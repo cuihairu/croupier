@@ -782,16 +782,43 @@ export type MetricsHistoryEntry = {
     availableBytes: number;
     usagePercent: number;
   }>;
+  // OPS-010 三面：网络收发速率、进程清单、监听端口清单。
+  // 小时聚合面（window=hourly）仅 networks（速率均值）与 cpu/memory/disks 投影。
+  networks?: Array<{
+    interface: string;
+    bytesSent: number;
+    bytesRecv: number;
+    bytesSentRate: number;
+    bytesRecvRate: number;
+  }>;
+  processes?: Array<{
+    pid: number;
+    name: string;
+    status?: string;
+    cpuPercent?: number;
+    memoryBytes: number;
+    threads?: number;
+    startTime?: string;
+    listeningPorts?: number[];
+  }>;
+  ports?: Array<{
+    port: number;
+    protocol: string;
+    pid?: number;
+    processName?: string;
+    state?: string;
+  }>;
 };
 
 export async function getAgentMetricsHistory(
   agentId: string,
-  options?: { since?: string; limit?: number },
+  options?: { since?: string; limit?: number; window?: 'raw' | 'hourly' },
 ): Promise<MetricsHistoryEntry[]> {
   const params = new URLSearchParams();
   if (agentId) params.set('agentId', agentId);
   if (options?.since) params.set('since', options.since);
   if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.window) params.set('window', options.window);
 
   const response = await request<{ entries?: MetricsHistoryEntry[] }>(
     `/api/v1/ops/agent/metrics/history?${params.toString()}`,

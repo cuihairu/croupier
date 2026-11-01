@@ -499,6 +499,80 @@ describe('历史指标趋势', () => {
   });
 });
 
+describe('OPS-010 进程/端口/网络面', () => {
+  const OPS010_HISTORY = [
+    {
+      timestamp: '2026-11-01T10:00:00Z',
+      cpu: { usagePercent: 10 },
+      memory: { usagePercent: 30 },
+      disks: [{ mountPoint: '/', usagePercent: 55.75 }],
+      networks: [
+        { interface: 'eth0', bytesSent: 1, bytesRecv: 2, bytesSentRate: 120.5, bytesRecvRate: 80 },
+      ],
+      processes: [
+        {
+          pid: 123,
+          name: 'gameserver',
+          memoryBytes: 4096,
+          cpuPercent: 12.5,
+          listeningPorts: [8080, 8081],
+        },
+      ],
+      ports: [
+        { port: 8080, protocol: 'tcp', pid: 123, processName: 'gameserver', state: 'LISTEN' },
+        { port: 9090, protocol: 'tcp6', pid: 0, processName: '', state: 'LISTEN' },
+      ],
+    },
+    {
+      timestamp: '2026-11-01T10:01:00Z',
+      cpu: { usagePercent: 20 },
+      memory: { usagePercent: 35 },
+      disks: [{ mountPoint: '/', usagePercent: 55.8 }],
+      networks: [
+        { interface: 'eth0', bytesSent: 3, bytesRecv: 4, bytesSentRate: 60.5, bytesRecvRate: 40 },
+      ],
+    },
+  ];
+
+  test('网络速率曲线 + 进程清单 + 端口列表全量渲染', async () => {
+    act(() => {
+      getAgentMetricsHistory.mockResolvedValue(OPS010_HISTORY);
+    });
+    renderDrawer(makeNode());
+
+    expect(await screen.findByText('网络收发速率趋势')).toBeInTheDocument();
+    // 全量渲染：CPU/内存/磁盘各 2 点（2 entries × 1 面），网络 2×1×TX/RX=4 点。
+    const lines = await screen.findAllByTestId('mock-line-chart');
+    expect(lines).toHaveLength(4);
+    expect(lines[0]).toHaveAttribute('data-points', '2');
+    expect(lines[1]).toHaveAttribute('data-points', '2');
+    expect(lines[2]).toHaveAttribute('data-points', '2');
+    expect(lines[3]).toHaveAttribute('data-points', '4');
+
+    // 进程清单：名称/内存（formatBytes 4 KiB）/监听端口标签。
+    expect(screen.getByText('进程清单')).toBeInTheDocument();
+    // gameserver/8080 各跨两表出现（进程清单 + 端口列表 8080 的 processName/port）。
+    expect(screen.getAllByText('gameserver')).toHaveLength(2);
+    expect(screen.getByText('4.00 KB')).toBeInTheDocument();
+    expect(screen.getAllByText('8080')).toHaveLength(2);
+    expect(screen.getByText('8081')).toBeInTheDocument();
+
+    // 端口列表：端口/协议/进程。
+    expect(screen.getByText('端口列表')).toBeInTheDocument();
+    expect(screen.getByText('9090')).toBeInTheDocument();
+    expect(screen.getByText('tcp6')).toBeInTheDocument();
+  });
+
+  test('无三面数据：三节不渲染（旧 agent 兼容空态）', async () => {
+    renderDrawer(makeNode());
+    await waitFor(() => expect(getAgentMetricsHistory).toHaveBeenCalled());
+    await screen.findAllByTestId('mock-line-chart');
+    expect(screen.queryByText('网络收发速率趋势')).not.toBeInTheDocument();
+    expect(screen.queryByText('进程清单')).not.toBeInTheDocument();
+    expect(screen.queryByText('端口列表')).not.toBeInTheDocument();
+  });
+});
+
 describe('动作与关闭', () => {
   test('下线/恢复/重启按钮回调透传 agentId', async () => {
     const handlers: Handlers = {

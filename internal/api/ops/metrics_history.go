@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
@@ -30,7 +31,14 @@ func agentMetricsHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *A
 		limit = 100
 	}
 
-	entries := svcCtx.MetricsStore.GetHistory(req.AgentID, since, limit)
+	// OPS-010 聚合面（90 天小时聚合）：window=hourly 走 agent_metrics_hourly，
+	// 否则原始 7 天面 agent_metrics_history。
+	var entries []reg.MetricsEntry
+	if req.Window == "hourly" {
+		entries = svcCtx.MetricsStore.GetHourlyHistory(req.AgentID, since, limit)
+	} else {
+		entries = svcCtx.MetricsStore.GetHistory(req.AgentID, since, limit)
+	}
 
 	resp := &AgentMetricsHistoryResponse{
 		AgentID: req.AgentID,
@@ -51,6 +59,15 @@ func agentMetricsHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *A
 			}
 			if len(entry.Report.GetDisks()) > 0 {
 				historyEntry.Disks = convertDiskMetrics(entry.Report.GetDisks())
+			}
+			if len(entry.Report.GetNetworks()) > 0 {
+				historyEntry.Networks = convertNetworkMetrics(entry.Report.GetNetworks())
+			}
+			if len(entry.Report.GetProcesses()) > 0 {
+				historyEntry.Processes = convertProcessMetrics(entry.Report.GetProcesses())
+			}
+			if len(entry.Report.GetPorts()) > 0 {
+				historyEntry.Ports = convertPortMetrics(entry.Report.GetPorts())
 			}
 		}
 
@@ -99,6 +116,54 @@ func convertDiskMetrics(disks []*opsv1.DiskMetrics) []DiskMetrics {
 			UsedBytes:      disk.GetUsedBytes(),
 			AvailableBytes: disk.GetAvailableBytes(),
 			UsagePercent:   disk.GetUsagePercent(),
+		}
+	}
+	return result
+}
+
+func convertNetworkMetrics(networks []*opsv1.NetworkMetrics) []NetworkHistoryMetrics {
+	result := make([]NetworkHistoryMetrics, len(networks))
+	for i, n := range networks {
+		result[i] = NetworkHistoryMetrics{
+			Interface:     n.GetInterface(),
+			BytesSent:     n.GetBytesSent(),
+			BytesRecv:     n.GetBytesRecv(),
+			BytesSentRate: n.GetBytesSentRate(),
+			BytesRecvRate: n.GetBytesRecvRate(),
+		}
+	}
+	return result
+}
+
+func convertProcessMetrics(processes []*opsv1.ProcessMetrics) []ProcessHistoryMetrics {
+	result := make([]ProcessHistoryMetrics, len(processes))
+	for i, p := range processes {
+		entry := ProcessHistoryMetrics{
+			Pid:            p.GetPid(),
+			Name:           p.GetName(),
+			Status:         p.GetStatus(),
+			CpuPercent:     p.GetCpuPercent(),
+			MemoryBytes:    p.GetMemoryBytes(),
+			Threads:        p.GetThreads(),
+			ListeningPorts: p.GetListeningPorts(),
+		}
+		if st := p.GetStartTime(); st != nil {
+			entry.StartTime = time.Unix(st.Seconds, int64(st.Nanos)).UTC().Format(time.RFC3339)
+		}
+		result[i] = entry
+	}
+	return result
+}
+
+func convertPortMetrics(ports []*opsv1.PortMetrics) []PortHistoryMetrics {
+	result := make([]PortHistoryMetrics, len(ports))
+	for i, p := range ports {
+		result[i] = PortHistoryMetrics{
+			Port:        p.GetPort(),
+			Protocol:    p.GetProtocol(),
+			Pid:         p.GetPid(),
+			ProcessName: p.GetProcessName(),
+			State:       p.GetState(),
 		}
 	}
 	return result

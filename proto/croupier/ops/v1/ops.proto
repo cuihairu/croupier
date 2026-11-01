@@ -45,6 +45,11 @@ message MetricsReport {
   // target per reporting window: success samples count only, failure
   // details ride the AlertEvent channel.
   repeated ProbeStats probe_stats = 11;
+
+  // Node-wide listening port list (OPS-010 端口列表). Same source as
+  // ProcessMetrics.listening_ports — the listener scan is done once per
+  // report and both faces derive from it.
+  repeated PortMetrics ports = 12;
 }
 
 message CpuMetrics {
@@ -79,12 +84,19 @@ message DiskMetrics {
 
 message NetworkMetrics {
   string interface = 1;          // Network interface name
-  uint64 bytes_sent = 2;         // Total bytes sent
-  uint64 bytes_recv = 3;         // Total bytes received
+  uint64 bytes_sent = 2;         // Total bytes sent (cumulative since boot)
+  uint64 bytes_recv = 3;         // Total bytes received (cumulative since boot)
   uint64 packets_sent = 4;       // Total packets sent
   uint64 packets_recv = 5;       // Total packets received
   uint64 errors_in = 6;          // Input errors
   uint64 errors_out = 7;         // Output errors
+  // Per-report-window rates (bytes/packets per second), derived agent-side
+  // from the delta between consecutive scans (OPS-010 网络收发速率). Zero on
+  // the first report after agent start (no prior sample).
+  double bytes_sent_rate = 8;    // Bytes sent per second
+  double bytes_recv_rate = 9;    // Bytes received per second
+  double packets_sent_rate = 10; // Packets sent per second
+  double packets_recv_rate = 11; // Packets received per second
 }
 
 message ProcessMetrics {
@@ -95,6 +107,18 @@ message ProcessMetrics {
   uint64 memory_bytes = 5;       // Memory usage in bytes
   int32 threads = 6;             // Number of threads
   google.protobuf.Timestamp start_time = 7;  // Process start time
+  // Ports this process is listening on (OPS-010 进程清单). Derived from the
+  // same listener scan as MetricsReport.ports, keyed by pid.
+  repeated int32 listening_ports = 8;
+}
+
+// PortMetrics is one listening port on the node (OPS-010 端口列表 face).
+message PortMetrics {
+  int32 port = 1;                // Listening port number
+  string protocol = 2;           // tcp / tcp6 / udp / udp6
+  int32 pid = 3;                 // Owning process pid (0 = not attributable)
+  string process_name = 4;       // Owning process name ("" when pid unattributable)
+  string state = 5;              // Socket state (typically "listen")
 }
 
 // SystemInfo contains detailed system information.

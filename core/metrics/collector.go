@@ -41,6 +41,11 @@ type Collector struct {
 	// 即时上报可能并发触发一次，游标读写加锁。
 	supEventSeq   int64
 	supEventSeqMu sync.Mutex
+	// netPrevMu/netPrev 保存上次扫描的网卡累计计数器，用于推导收发速率
+	// （OPS-010 网络收发速率）。Collect 单 goroutine 但即时上报可能并发，
+	// 加锁。
+	netPrevMu sync.Mutex
+	netPrev   map[string]netCounterSample
 }
 
 // NewCollector creates a new metrics collector.
@@ -96,6 +101,10 @@ func (c *Collector) Collect(ctx context.Context) *opsv1.MetricsReport {
 		Networks:  c.collectNetworks(),
 		Custom:    make(map[string]float64),
 	}
+	// OPS-010 进程清单 + 端口列表：同一轮扫描派生两面（top-N 进程各带
+	// 监听端口 + 全节点监听端口表）。无枚举权限时两面均为空（诚实缺面，
+	// 不造列表）。
+	report.Processes, report.Ports = c.collectProcesses()
 	if c.sampler != nil {
 		report.SupervisedProcesses = c.sampler.SampleSupervisedProcesses()
 		if evs := c.sampler.SupervisorEventsSince(c.lastSamplerSeq()); len(evs) > 0 {

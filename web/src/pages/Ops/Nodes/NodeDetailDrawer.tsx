@@ -8,6 +8,7 @@ import {
   Progress,
   Space,
   Spin,
+  Table,
   Tag,
   Tooltip,
   Typography,
@@ -652,6 +653,169 @@ export default function NodeDetailDrawer({
                         max: 100,
                         label: { formatter: (v: number) => `${v}%` },
                       }}
+                    />
+                  </Card>
+                )}
+
+                {/* 网络收发速率趋势（OPS-010）：各接口 TX/RX 字节每秒 */}
+                {metricsHistory.some((e) => (e.networks || []).length > 0) && (
+                  <Card
+                    title={intl.formatMessage({
+                      id: 'pages.opsNodes.detail.trend.network',
+                      defaultMessage: '网络收发速率趋势',
+                    })}
+                    size="small"
+                  >
+                    <Line
+                      data={metricsHistory.flatMap((entry) => {
+                        const t = new Date(entry.timestamp).toLocaleTimeString();
+                        return (entry.networks || []).flatMap((n) => [
+                          { time: t, value: n.bytesSentRate, series: `${n.interface} TX` },
+                          { time: t, value: n.bytesRecvRate, series: `${n.interface} RX` },
+                        ]);
+                      })}
+                      xField="time"
+                      yField="value"
+                      seriesField="series"
+                      smooth
+                      point={false}
+                      height={200}
+                      yAxis={{
+                        min: 0,
+                        label: { formatter: (v: number) => `${formatBytes(v)}/s` },
+                      }}
+                    />
+                  </Card>
+                )}
+
+                {/* 进程清单（OPS-010）：最新一报的 top-N 进程（名称/pid/内存/监听端口） */}
+                {metricsHistory[0]?.processes && metricsHistory[0].processes.length > 0 && (
+                  <Card
+                    title={intl.formatMessage({
+                      id: 'pages.opsNodes.detail.trend.processes',
+                      defaultMessage: '进程清单',
+                    })}
+                    size="small"
+                  >
+                    <Table
+                      size="small"
+                      rowKey="pid"
+                      pagination={false}
+                      dataSource={metricsHistory[0].processes}
+                      columns={[
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.process.pid',
+                            defaultMessage: 'PID',
+                          }),
+                          dataIndex: 'pid',
+                          width: 80,
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.process.name',
+                            defaultMessage: '名称',
+                          }),
+                          dataIndex: 'name',
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.process.memory',
+                            defaultMessage: '内存',
+                          }),
+                          dataIndex: 'memoryBytes',
+                          width: 110,
+                          render: (v: number) => formatBytes(v),
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.process.cpu',
+                            defaultMessage: 'CPU%',
+                          }),
+                          dataIndex: 'cpuPercent',
+                          width: 90,
+                          render: (v?: number) =>
+                            v === undefined || v === null ? '-' : `${v.toFixed(1)}%`,
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.process.ports',
+                            defaultMessage: '监听端口',
+                          }),
+                          dataIndex: 'listeningPorts',
+                          render: (ports?: number[]) =>
+                            ports && ports.length > 0 ? (
+                              <Space size={4} wrap>
+                                {ports.map((p) => (
+                                  <Tag key={p} color="blue">
+                                    {p}
+                                  </Tag>
+                                ))}
+                              </Space>
+                            ) : (
+                              <Text type="secondary">-</Text>
+                            ),
+                        },
+                      ]}
+                    />
+                  </Card>
+                )}
+
+                {/* 端口列表（OPS-010）：最新一报的全节点监听端口 */}
+                {metricsHistory[0]?.ports && metricsHistory[0].ports.length > 0 && (
+                  <Card
+                    title={intl.formatMessage({
+                      id: 'pages.opsNodes.detail.trend.ports',
+                      defaultMessage: '端口列表',
+                    })}
+                    size="small"
+                  >
+                    <Table
+                      size="small"
+                      rowKey={(r) => `${r.protocol}:${r.port}`}
+                      pagination={false}
+                      dataSource={metricsHistory[0].ports}
+                      columns={[
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.port.number',
+                            defaultMessage: '端口',
+                          }),
+                          dataIndex: 'port',
+                          width: 100,
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.port.protocol',
+                            defaultMessage: '协议',
+                          }),
+                          dataIndex: 'protocol',
+                          width: 90,
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.port.pid',
+                            defaultMessage: 'PID',
+                          }),
+                          dataIndex: 'pid',
+                          width: 80,
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.port.process',
+                            defaultMessage: '进程',
+                          }),
+                          dataIndex: 'processName',
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: 'pages.opsNodes.detail.port.state',
+                            defaultMessage: '状态',
+                          }),
+                          dataIndex: 'state',
+                          width: 100,
+                        },
+                      ]}
                     />
                   </Card>
                 )}

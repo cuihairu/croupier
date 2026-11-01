@@ -740,6 +740,9 @@ type AgentMetricsHistoryRequest struct {
 	AgentID string `json:"agentId" binding:"required"`
 	Since   string `json:"since"` // ISO 8601 timestamp
 	Limit   int    `json:"limit"` // Max entries to return (default: 100)
+	// Window selects the storage face: ""|"raw" = agent_metrics_history
+	// (7 天), "hourly" = agent_metrics_hourly (90 天聚合）。
+	Window string `json:"window"`
 }
 
 // AgentMetricsHistoryResponse is the response for historical metrics
@@ -754,6 +757,41 @@ type MetricsHistoryEntry struct {
 	CPU       *CpuMetrics    `json:"cpu,omitempty"`
 	Memory    *MemoryMetrics `json:"memory,omitempty"`
 	Disks     []DiskMetrics  `json:"disks,omitempty"`
+	// OPS-010 三面：网络收发速率、进程清单、监听端口清单。原始面在
+	// agent_metrics_history 落列；小时聚合面仅 Networks（速率均值）重建。
+	Networks  []NetworkHistoryMetrics `json:"networks,omitempty"`
+	Processes []ProcessHistoryMetrics `json:"processes,omitempty"`
+	Ports     []PortHistoryMetrics    `json:"ports,omitempty"`
+}
+
+// NetworkHistoryMetrics is the per-interface network face of one entry.
+type NetworkHistoryMetrics struct {
+	Interface     string  `json:"interface"`
+	BytesSent     uint64  `json:"bytesSent"`
+	BytesRecv     uint64  `json:"bytesRecv"`
+	BytesSentRate float64 `json:"bytesSentRate"`
+	BytesRecvRate float64 `json:"bytesRecvRate"`
+}
+
+// ProcessHistoryMetrics is one process in the top-N process list face.
+type ProcessHistoryMetrics struct {
+	Pid            int32   `json:"pid"`
+	Name           string  `json:"name"`
+	Status         string  `json:"status,omitempty"`
+	CpuPercent     float64 `json:"cpuPercent,omitempty"`
+	MemoryBytes    uint64  `json:"memoryBytes"`
+	Threads        int32   `json:"threads,omitempty"`
+	StartTime      string  `json:"startTime,omitempty"`
+	ListeningPorts []int32 `json:"listeningPorts,omitempty"`
+}
+
+// PortHistoryMetrics is one listener in the port list face.
+type PortHistoryMetrics struct {
+	Port        int32  `json:"port"`
+	Protocol    string `json:"protocol"`
+	Pid         int32  `json:"pid,omitempty"`
+	ProcessName string `json:"processName,omitempty"`
+	State       string `json:"state,omitempty"`
 }
 
 // OpsNodeCommandsRequest is used to get node commands

@@ -145,6 +145,11 @@ import (
 //               与字段集——1=旧 DJB2 7 字段子集、2=规范化 SHA-256 全记录；
 //               存量行经列 DEFAULT 回填 1，既有哈希绝不改写；AddColumn
 //               补列模式，0015/0016/0021/0025/0027）
+//   0051 (Go)   agent_metrics_history.networks/processes/ports 列 +
+//               agent_metrics_hourly 建表（OPS-010 节点资源指标持久化：
+//               网络收发速率/进程清单/监听端口清单三面落原始表，另建
+//               90 天小时聚合表；加列 0025 模式、建表 0027/0038 模式；
+//               存量行不回填——历史窗口无这三面数据，诚实留空）
 
 func init() {
 	registerSvcMigrations()
@@ -205,6 +210,7 @@ func registerSvcMigrations() {
 		pageExecuteIdempotencyTableMigration(),
 		auditChainVersionMigration(),
 		approvalDispatchClaimColumnsMigration(),
+		agentMetricsHistoryEnrichmentMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1676,6 +1682,50 @@ func migrateApprovalDispatchClaimColumns(ctx context.Context, sqlDB *sql.DB) err
 		}
 		if err := migrator.AddColumn(&approvals.ApprovalModel{}, field); err != nil {
 			return fmt.Errorf("migrate: 0050 add approvals.%s: %w", column, err)
+		}
+	}
+	return nil
+}
+
+// agentMetricsHistoryEnrichmentMigration adds the OPS-010 faces to the raw
+// metrics history table and creates the 90-day hourly rollup table. Included
+// in meta scope only — agent_metrics_history lives in the meta database.
+func agentMetricsHistoryEnrichmentMigration() *goose.Migration {
+	return goose.NewGoMigration(51,
+		&goose.GoFunc{RunDB: migrateAgentMetricsHistoryEnrichment},
+		nil,
+	)
+}
+
+func migrateAgentMetricsHistoryEnrichment(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+
+	// 指标特性不在此库（fanout 重放到无该表的库）：不报错、不建空壳。
+	if !migrator.HasTable(&reg.AgentMetricsHistory{}) {
+		return nil
+	}
+
+	columns := map[string]string{
+		"NetworksJSON":  "networks_json",
+		"ProcessesJSON": "processes_json",
+		"PortsJSON":     "ports_json",
+	}
+	for field, column := range columns {
+		if migrator.HasColumn(&reg.AgentMetricsHistory{}, column) {
+			continue
+		}
+		if err := migrator.AddColumn(&reg.AgentMetricsHistory{}, field); err != nil {
+			return fmt.Errorf("migrate: 0051 add agent_metrics_history.%s: %w", column, err)
+		}
+	}
+
+	if !migrator.HasTable(&reg.AgentMetricsHourly{}) {
+		if err := migrator.CreateTable(&reg.AgentMetricsHourly{}); err != nil {
+			return fmt.Errorf("migrate: 0051 create agent_metrics_hourly: %w", err)
 		}
 	}
 	return nil

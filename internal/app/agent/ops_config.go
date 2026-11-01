@@ -33,8 +33,9 @@ type OpsConfig struct {
 	// Requires Enabled=true. Default: false
 	AllowUpdate bool `json:"allowUpdate" yaml:"allowUpdate"`
 
-	// MetricsInterval defines how often to collect and report metrics.
-	// Default: 30s
+	// MetricsInterval defines how often to collect and report metrics
+	// (OPS-010 默认 15s，可配，最小 3s）。
+	// Default: 15s
 	MetricsInterval time.Duration `json:"metricsInterval" yaml:"metricsInterval"`
 
 	// MetricsEnabled controls whether metrics collection is active.
@@ -295,7 +296,7 @@ func DefaultOpsConfig() *OpsConfig {
 		Enabled:          false,
 		AllowRestart:     false,
 		AllowExec:        false,
-		MetricsInterval:  30 * time.Second,
+		MetricsInterval:  15 * time.Second,
 		MetricsEnabled:   true,
 		ManagedProcesses: make(map[string]ManagedProcessConfig),
 		ExecTimeout:      60 * time.Second,
