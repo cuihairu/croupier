@@ -1,4 +1,6 @@
-<p align="center"><a href="https://croupier.cuihairu.sitehttps://croupier.cuihairu.site/"><img src="https://img.shields.io/badge/docs-docs-blue" alt="docs"></a> <a href="https://croupier.cuihairu.site/"><img src="https://img.shields.io/badge/docs-docs-blue" alt="docs"></a></p>
+<p align="center">
+  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier//"><img src="https://img.shields.io/badge/docs-blue" alt="docs"></a>
+</p>
 
 <h1 align="center">Croupier</h1>
 

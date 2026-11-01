@@ -1,4 +1,9 @@
-<p align="center"><a href="https://croupier.cuihairu.site/zhhttps://croupier.cuihairu.site/"><img src="https://img.shields.io/badge/docs-文档-blue" alt="docs"></a> <a href="https://croupier.cuihairu.site/zh/"><img src="https://img.shields.io/badge/docs-文档-blue" alt="docs"></a></p>
+<p align="center">
+
+> [English](README.md) | **中文**
+> <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier/zh//"><img src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3-blue" alt="docs"></a>
+
+</p>
 
 <h1 align="center">Croupier</h1>
 
