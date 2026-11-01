@@ -288,51 +288,51 @@
 
 - [ ] **DATA-002 · P1 · 实现 · 共用事件接入与指标数据来源归一**
   - 依赖：DATA-001。交付与验收：复用 ingest/Server 事件入口/worker，提供游戏登录、注册、心跳、支付/退款的显式映射；每个指标声明权威来源、gameId/env/维度和新鲜度。统一 GORM 与 ClickHouse 读适配契约，不静默把平台 Player 数当游戏新增，不默认为两套库自动同步
-  - 状态／条件：VERIFIED 缺口：overview.go 读关系模型/Player，warehouse.go 读 ClickHouse；需接入样本，代码可先本地实施。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 的指标口径批准；缺方案批准。源码缺口保留：overview.go 读关系模型/Player，warehouse.go 读 ClickHouse；需接入样本。
 
 - [ ] **DATA-003 · P1 · 实现 · 活跃与在线聚合的版本和重放语义**
   - 依赖：DATA-001。交付与验收：修正 daily_users 的替换键/版本参数与分钟在线 HLL 快照重写策略，迁移已有表而不只改 initdb；同日多次 flush、迟到事件、重放和多 worker 的同一分钟结果可核对，不把全量 HLL 重写当增量相加
-  - 状态／条件：VERIFIED 源码与官方语义：010_analytics.sql 把 version 放入 ORDER BY 且未作为 ReplacingMergeTree 参数；minute_online 用 SummingMergeTree 接收 HLL 全量快照。真实 ClickHouse 验证 NOT RUN。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 的聚合口径批准；缺方案批准。源码与官方语义证据保留：010_analytics.sql 把 version 放入 ORDER BY 且未作为 ReplacingMergeTree 参数；minute_online 用 SummingMergeTree 接收 HLL 全量快照；真实 ClickHouse 验证 NOT RUN。
 
 - [ ] **DATA-004 · P1 · 实现 · 付费聚合的币种、订单状态与累计口径**
   - 依赖：DATA-001。交付与验收：复用 payment 明细，按已批准币种/单位和订单唯一键处理重复成功、退款和状态变更；修复 revAgg flush 后删除而日表按替换读的增量/累计冲突，跨 flush/重启可回算，不能把不同币种原始金额直接相加
-  - 状态／条件：VERIFIED 代码 touchRevenue 按 day/game/env 分组，未含 currency/order 去重，flush 后清空；真实金额样本与 ClickHouse 验证 NOT RUN。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 的币种/单位与订单状态口径批准；缺方案批准。源码缺口保留：touchRevenue 按 day/game/env 分组，未含 currency/order 去重，flush 后清空；真实金额样本与 ClickHouse 验证 NOT RUN。
 
 - [ ] **DATA-005 · P1 · 实现 · 基础 cohort 留存的生产计算链**
   - 依赖：DATA-001, DATA-002。交付与验收：复用 RetentionModel，补齐注册 cohort 与回访事件的受控计算/回算任务；D1/D7/D30 明确分母、业务日、观察窗成熟与迟到更正；未成熟/缺数据返回不可用，不能伪造 0；用逻辑时钟和回放样本验算，无需等真实运行 30 天才写机制测试
-  - 状态／条件：VERIFIED 缺口：生产路径只有 ListCohorts，未找到 UpsertCohort 的生产调用；前端概览 d1/d7/d30 固定 null。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 的 cohort/回访口径批准与 DATA-002 事件映射；缺方案批准。源码缺口保留：生产路径只有 ListCohorts，未找到 UpsertCohort 的生产调用；前端概览 d1/d7/d30 固定 null。
 
 - [ ] **DATA-006 · P1 · 实现 · 统一核心指标查询响应与 scope**
   - 依赖：DATA-002, DATA-003, DATA-004, DATA-005。交付与验收：复用现有 Analytics API/warehouse 查询，统一核心指标的窗口、维度、分母、source/freshness/approximation、币种和不可用原因；读取已有授权 scope，不让查询参数改到其它 game/env；缺配置/延迟/查询失败不能伪装零值
-  - 状态／条件：READY；依赖有效聚合口径后交付，复用既有函数不建第二套同名 API。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-002~005 的有效聚合口径；缺上游方案与实现。
 
 - [ ] **DATA-007 · P1 · 实现 · 运营核心分析页的真实数据闭环**
   - 依赖：DATA-006。交付与验收：复用 Overview/Realtime/Retention/Payments/Warehouse 组件，收敛为同口径核心视图；过滤条件/日期/时区/单位保持一致，展示延迟、缺测、未成熟和未启用状态，真实零值可区分；已有专业页不删除也不以硬编码值补齐
-  - 状态／条件：READY；现有页面/API 是可复用资产，当前不宣称完整产品闭环。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-006 统一查询契约；缺上游实现。
 
 - [ ] **DATA-008 · P1 · 故障验证 · 核心指标可核对样本与端到端验收**
   - 依赖：ARCH-011, DATA-007。交付与验收：以固定多 game/env/跨日/多币种/重复乱序/退款样本，从接入→Redis→worker→查询→页面逐指标对账；验证重启/迟到/跨 scope 拒绝与不可用状态，记录原始样本、期望、实际、版本和数据新鲜度
-  - 状态／条件：NOT RUN；可先本地构建样本栈，真实游戏以脱敏事件和支付对账样本补验；不以现有单测总数代替。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-007 端到端视图；真实游戏仍需脱敏事件和支付对账样本；缺上游实现/验收样本。
 
 - [ ] **DATA-009 · P2 · 性能验证 · 核心分析吞吐与查询容量**
   - 依赖：DATA-006。交付与验收：给定事件速率、保留量、查询并发与新鲜度预算，测写入/聚合/查询 P95、积压和回算对控制面的影响；复用现有独立分析管道，不自动引入新的流处理服务
-  - 状态／条件：NOT RUN；需业务量级和隔离 Redis/ClickHouse 环境。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-006；需业务量级（用户拍板）和隔离 Redis/ClickHouse 环境。
 
 - [ ] **DATA-010 · P1 · 资料调查 · 专业分析外部产品接入核查**
   - 依赖：—。交付与验收：按实际专业需求收集外部分析平台官方版本/许可、数据输入、授权 scope、身份/嵌入/深链、数据回流与成本限制；交付对接矩阵与单个首接目标，不在本轮选型或虚构任何供应商集成已完成
-  - 状态／条件：NOT RUN；需专业场景与候选外部环境，优先官方资料，记录核查日期。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：需用户确定专业场景与候选外部产品；缺业务拍板/候选环境。
 
 - [ ] **DATA-011 · P1 · 方案决策 · 外部专业分析的受控集成契约**
   - 依赖：DATA-001, DATA-010。交付与验收：复用 extensions 与既有数据出口，评审指标/事件/只读数据集的输出契约和来源、scope、字段映射、时间窗、版本、短期凭据/SSO/深链及审计；外部查询必须被服务端或受限数据集约束，不把浏览器过滤器当隔离，不泄露仓库凭据
-  - 状态／条件：READY；方案依首接产品能力核对，不新增通用 BI/任意 SQL 平台。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 指标边界与 DATA-010 首接产品；缺业务拍板/候选环境。
 
 - [ ] **DATA-012 · P1 · 实现 · 首个专业分析平台适配与入口**
   - 依赖：DATA-011。交付与验收：按批准契约实现一个真实外部平台的配置/连接验证、受控数据输出和当前 scope 的报告入口；复用扩展安装/开关/审计，失联有明确降级信息，不阻塞 Croupier 核心运营与内置指标
-  - 状态／条件：NOT RUN；需首接平台测试实例及最小权限凭据。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-011 批准契约；缺首接平台测试实例及最小权限凭据。
 
 - [ ] **DATA-013 · P1 · 故障验证 · 外部分析授权与故障隔离验收**
   - 依赖：DATA-012。交付与验收：核对跨 game/env、撤权、过期凭据、外部故障、超时和重复导出；未授权数据不可见，导出可追溯，外部平台不可用时内置核心指标与运营执行可继续
-  - 状态／条件：NOT RUN；需真实外部分析环境和多 scope 测试身份。
+  - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-012 适配实现；缺真实外部分析环境和多 scope 测试身份。
 
 - [x] **DATA-014 · P1 · 实现 · 分析聚合共享状态串行化**
   - 依赖：—。交付与验收：复用 worker 的 touchedMinutes/touchedDays/revAgg；明确消费、pending 回收与 flush 的快照/同步所有权，失败重试不丢增量；收入并发写读及活跃桶增删在 race 下无竞争，固定样本核对总量，不仅给 ClickHouse batch 加锁
