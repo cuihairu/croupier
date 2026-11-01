@@ -366,7 +366,7 @@ func (h *Handler) ProvisionSubmit(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusAccepted, OpsProvisionRunResponse{Run: run})
+	response.Accepted(c, OpsProvisionRunResponse{Run: run})
 }
 
 // ProvisionResume POST /ops/provision/:runId/resume。
@@ -376,7 +376,7 @@ func (h *Handler) ProvisionResume(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusAccepted, OpsProvisionRunResponse{Run: run})
+	response.Accepted(c, OpsProvisionRunResponse{Run: run})
 }
 
 // ProvisionGet GET /ops/provision/:runId。

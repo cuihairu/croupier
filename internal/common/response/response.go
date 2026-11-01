@@ -23,6 +23,11 @@ func Created(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusCreated, data)
 }
 
+// Accepted 以 202 Accepted 返回异步任务受理结果。
+func Accepted(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusAccepted, data)
+}
+
 func NoContent(c *gin.Context) {
 	c.AbortWithStatus(http.StatusNoContent)
 }
