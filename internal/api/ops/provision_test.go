@@ -47,6 +47,9 @@ type fixedApproval struct{ approved bool }
 func (f *fixedApproval) CreateApproval(context.Context, *provision.Request, string) (string, error) {
 	return "approval-t", nil
 }
+func (f *fixedApproval) CreateDestroyApproval(context.Context, *provision.Run) (string, error) {
+	return "destroy-approval-t", nil
+}
 func (f *fixedApproval) Approved(context.Context, string) (bool, error) { return f.approved, nil }
 
 // memStore 是 map 背书的 RunStore（测试副本，隔离于 provision 包内同类）。
@@ -464,4 +467,135 @@ func TestProvisionProtection_NonAdopted_409(t *testing.T) {
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
 	assert.Contains(t, rec.Body.String(), "provision_state_conflict")
+}
+
+// ---------------------------------------------------------------------------
+// OPS-003 审批双模式（workflow）：提交强制 ticket、销毁走申请单、
+// 批准后执行（POST /provision/:runId/destroy）。
+// ---------------------------------------------------------------------------
+
+// newProvisionServiceWorkflow 构造 workflow 模式 Service（网络级审批双模式：
+// 扩容/销毁均走申请单）。approved 控制审批记录批准状态。
+func newProvisionServiceWorkflow(t *testing.T, approved bool, store *memStore) *Service {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{
+		Provision: config.ProvisionConfig{
+			Enabled:            true,
+			Approval:           config.ProvisionApprovalWorkflow,
+			HubAddr:            "hub:19090",
+			BootstrapTokenEnv:  "CROUPIER_PROVISION_TEST_TOKEN",
+			AgentInstallURL:    "https://dl.example.com/agent.sh",
+			RegisterTimeoutSec: 1,
+		},
+	}
+	ctx := &svc.ServiceContext{Config: cfg}
+	if store == nil {
+		store = &memStore{runs: map[string]*provision.Run{}}
+	}
+	ctx.Provision = &provision.Orchestrator{
+		Runner:          inertRunner{},
+		Registry:        emptyRegistry{},
+		Approval:        &fixedApproval{approved: approved},
+		Store:           store,
+		WorkDir:         t.TempDir(),
+		InstallURL:      cfg.Provision.AgentInstallURL,
+		RegisterTimeout: time.Second,
+	}
+	return NewService(ctx)
+}
+
+// TestProvisionSubmit_Workflow_ForcesTicket 校验：workflow 模式客户端即使传
+// direct 也被强制为 ticket（不得绕过审批），响应 pending 且带 approval id。
+func TestProvisionSubmit_Workflow_ForcesTicket(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	h := NewHandler(newProvisionServiceWorkflow(t, false, store))
+	t.Setenv("CROUPIER_PROVISION_TEST_TOKEN", "tok-1")
+
+	// policy=direct 被 workflow 覆盖为 ticket。
+	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/provision", validSubmitBody())
+	h.ProvisionSubmit(ctx)
+
+	assert.Equal(t, http.StatusAccepted, rec.Code)
+	require.Contains(t, rec.Body.String(), `"state":"pending"`)
+	require.Contains(t, rec.Body.String(), `"policy":"ticket"`)
+	require.Contains(t, rec.Body.String(), `"approvalID":"approval-t"`)
+}
+
+// TestProvisionDestroy_Workflow_RequestsPending 校验：workflow 模式 DELETE
+// 销毁走申请单：run 推进 destroy_pending，资源未销毁。
+func TestProvisionDestroy_Workflow_RequestsPending(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-w", State: provision.StateAdopted, CreatedAt: time.Now(),
+		Request: provision.Request{Provider: provision.ProviderAWS, GameID: "demo", Env: "prod"},
+	})
+	h := NewHandler(newProvisionServiceWorkflow(t, false, store))
+
+	ctx, rec := newOpsTestContext(http.MethodDelete, "/api/v1/ops/provision/prov-w", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-w"}}
+	h.ProvisionDestroy(ctx)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), `"state":"destroy_pending"`)
+	require.Contains(t, rec.Body.String(), `"destroyApprovalID":"destroy-approval-t"`)
+}
+
+// TestProvisionDestroyResume_NotApproved_409 校验：workflow 销毁申请未批准
+// 时 POST /destroy 返回 409 provision_state_conflict。
+func TestProvisionDestroyResume_NotApproved_409(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-wr", State: provision.StateAdopted, CreatedAt: time.Now(),
+		Request: provision.Request{Provider: provision.ProviderAWS, GameID: "demo", Env: "prod"},
+	})
+	h := NewHandler(newProvisionServiceWorkflow(t, false, store)) // approved=false
+
+	// 先受理销毁申请。
+	reqCtx, reqRec := newOpsTestContext(http.MethodDelete, "/api/v1/ops/provision/prov-wr", "")
+	reqCtx.Params = gin.Params{{Key: "runId", Value: "prov-wr"}}
+	h.ProvisionDestroy(reqCtx)
+	require.Equal(t, http.StatusOK, reqRec.Code)
+
+	// 未批准：destroy resume → 409。
+	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/provision/prov-wr/destroy", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-wr"}}
+	h.ProvisionDestroyResume(ctx)
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "provision_state_conflict")
+}
+
+// TestProvisionDestroyResume_Approved_200 校验：workflow 销毁申请批准后
+// POST /destroy 执行 terraform destroy 原语并推进 destroyed。
+func TestProvisionDestroyResume_Approved_200(t *testing.T) {
+	store := &memStore{runs: map[string]*provision.Run{}}
+	_ = store.Create(context.Background(), &provision.Run{
+		ID: "prov-da", State: provision.StateAdopted, CreatedAt: time.Now(),
+		Request: provision.Request{Provider: provision.ProviderAWS, GameID: "demo", Env: "prod"},
+	})
+	svc := newProvisionServiceWorkflow(t, true, store) // approved=true
+	seedProvisionWorkdir(t, svc, "prov-da")
+	h := NewHandler(svc)
+
+	reqCtx, reqRec := newOpsTestContext(http.MethodDelete, "/api/v1/ops/provision/prov-da", "")
+	reqCtx.Params = gin.Params{{Key: "runId", Value: "prov-da"}}
+	h.ProvisionDestroy(reqCtx)
+	require.Equal(t, http.StatusOK, reqRec.Code)
+
+	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/provision/prov-da/destroy", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-da"}}
+	h.ProvisionDestroyResume(ctx)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"state":"destroyed"`)
+}
+
+// TestProvisionDestroyResume_NotConfigured_503 校验：未装配引擎时 destroy
+// resume 如实报 503（不假装已开启）。
+func TestProvisionDestroyResume_NotConfigured_503(t *testing.T) {
+	h := NewHandler(newProvisionService(t, false, false, nil))
+	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/provision/prov-x/destroy", "")
+	ctx.Params = gin.Params{{Key: "runId", Value: "prov-x"}}
+	h.ProvisionDestroyResume(ctx)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Contains(t, rec.Body.String(), "provision_not_configured")
 }

@@ -126,3 +126,63 @@ func TestRegisterSvcMigrations_ContainsProvisionDestroyProtection(t *testing.T) 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "version 53 already registered")
 }
+
+// 0054 加 destroy_approval_id 列（OPS-003 审批双模式 workflow）：补列 0025
+// 模式、幂等、缺表跳过（fanout 重放到无该表的库不报错、不建空壳）；存量行
+// 空=未申请销毁审批。
+func TestProvisionRunDestroyApprovalMigration_AddsColumnIdempotent(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	// 缺表跳过：无该表时不报错、不建空壳。
+	require.NoError(t, migrateProvisionRunDestroyApproval(ctx, sqlDB))
+	assert.False(t, db.Migrator().HasTable(&model.ProvisionRun{}))
+
+	// 先跑 0052 建表，再 DROP 掉 0054 列复刻存量形态，然后跑 0054 补列。
+	require.NoError(t, migrateProvisionRunsTable(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_approval_id"))
+	require.NoError(t, db.Migrator().DropColumn(&model.ProvisionRun{}, "DestroyApprovalID"))
+	assert.False(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_approval_id"))
+	require.NoError(t, migrateProvisionRunDestroyApproval(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_approval_id"))
+
+	// 幂等：再跑不报错。
+	require.NoError(t, migrateProvisionRunDestroyApproval(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_approval_id"))
+
+	// 存量行空：插入不显式赋值 → 读回空。
+	m := model.NewProvisionRunModel(db)
+	run := &model.ProvisionRun{
+		RunID:    "prov-appr",
+		Provider: "aws",
+		Region:   "us-east-1",
+		GameID:   "demo",
+		Env:      "prod",
+		Policy:   "ticket",
+		Count:    1,
+		State:    "destroy_pending",
+	}
+	require.NoError(t, m.Create(ctx, run))
+	got, err := m.FindByRunID(ctx, "prov-appr")
+	require.NoError(t, err)
+	assert.Empty(t, got.DestroyApprovalID)
+
+	// 写审批 id 回读一致（round-trip）。
+	got.DestroyApprovalID = "appr-1"
+	require.NoError(t, m.Update(ctx, got))
+	got2, err := m.FindByRunID(ctx, "prov-appr")
+	require.NoError(t, err)
+	assert.Equal(t, "appr-1", got2.DestroyApprovalID)
+}
+
+// 迁移注册表必须含 0054（防 registerSvcMigrations 漏配）。
+func TestRegisterSvcMigrations_ContainsProvisionDestroyApproval(t *testing.T) {
+	goose.ResetGlobalMigrations()
+	registerSvcMigrations()
+	err := goose.SetGlobalMigrations(provisionRunDestroyApprovalMigration())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version 54 already registered")
+}

@@ -59,6 +59,8 @@ const (
 	StateFailed State = "failed"
 	// StateDestroyed 已销毁（OPS-002 drain→destroy 复用同一状态）。
 	StateDestroyed State = "destroyed"
+	// StateDestroyPending 已受理销毁申请单，等待审批通过（workflow 模式）。
+	StateDestroyPending State = "destroy_pending"
 )
 
 // Spec 是实例规格（跨 provider 归一化；provider 模板映射到各自 instance_type）。
@@ -113,6 +115,8 @@ type Run struct {
 	AgentIDs []string `json:"agentIDs,omitempty"`
 	// ApprovalID 是 ticket 模式创建的审批记录 id。
 	ApprovalID string `json:"approvalID,omitempty"`
+	// DestroyApprovalID 是 workflow 模式销毁申请单的审批记录 id。
+	DestroyApprovalID string `json:"destroyApprovalID,omitempty"`
 	// DestroyProtected 是数据盘护栏（OPS-002）：true 时拒绝自动销毁
 	// （数据盘不可再自动回收）。经 PUT /ops/provision/:runId/protection 设置。
 	DestroyProtected bool `json:"destroyProtected"`

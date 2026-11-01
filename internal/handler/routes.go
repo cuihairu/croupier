@@ -675,6 +675,7 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/provision", opsHandler.ProvisionList)
 	g.GET("/provision/:runId", opsHandler.ProvisionGet)
 	g.POST("/provision/:runId/resume", opsHandler.ProvisionResume)
+	g.POST("/provision/:runId/destroy", opsHandler.ProvisionDestroyResume)
 	g.PUT("/provision/:runId/protection", opsHandler.ProvisionProtection)
 	g.DELETE("/provision/:runId", opsHandler.ProvisionDestroy)
 

@@ -57,20 +57,21 @@ func marshalJSON(v any) model.JSON {
 
 func runToModel(r *provision.Run) *model.ProvisionRun {
 	row := &model.ProvisionRun{
-		RunID:            r.ID,
-		Provider:         string(r.Request.Provider),
-		Region:           r.Request.Region,
-		GameID:           r.Request.GameID,
-		Env:              r.Request.Env,
-		Policy:           string(r.Request.Policy),
-		Count:            r.Request.Count,
-		State:            string(r.State),
-		ApprovalID:       r.ApprovalID,
-		ErrorMsg:         r.Error,
-		RequestedBy:      r.Request.RequestedBy,
-		DestroyProtected: r.DestroyProtected,
-		CreatedAt:        r.CreatedAt,
-		UpdatedAt:        r.UpdatedAt,
+		RunID:             r.ID,
+		Provider:          string(r.Request.Provider),
+		Region:            r.Request.Region,
+		GameID:            r.Request.GameID,
+		Env:               r.Request.Env,
+		Policy:            string(r.Request.Policy),
+		Count:             r.Request.Count,
+		State:             string(r.State),
+		ApprovalID:        r.ApprovalID,
+		DestroyApprovalID: r.DestroyApprovalID,
+		ErrorMsg:          r.Error,
+		RequestedBy:       r.Request.RequestedBy,
+		DestroyProtected:  r.DestroyProtected,
+		CreatedAt:         r.CreatedAt,
+		UpdatedAt:         r.UpdatedAt,
 	}
 	row.SpecJSON = marshalJSON(map[string]any{
 		"instanceType": r.Request.Spec.InstanceType,
@@ -91,13 +92,14 @@ func runToModel(r *provision.Run) *model.ProvisionRun {
 
 func runFromModel(row *model.ProvisionRun) *provision.Run {
 	r := &provision.Run{
-		ID:               row.RunID,
-		State:            provision.State(row.State),
-		ApprovalID:       row.ApprovalID,
-		Error:            row.ErrorMsg,
-		DestroyProtected: row.DestroyProtected,
-		CreatedAt:        row.CreatedAt,
-		UpdatedAt:        row.UpdatedAt,
+		ID:                row.RunID,
+		State:             provision.State(row.State),
+		ApprovalID:        row.ApprovalID,
+		DestroyApprovalID: row.DestroyApprovalID,
+		Error:             row.ErrorMsg,
+		DestroyProtected:  row.DestroyProtected,
+		CreatedAt:         row.CreatedAt,
+		UpdatedAt:         row.UpdatedAt,
 	}
 	spec := map[string]any{}
 	_ = json.Unmarshal(row.SpecJSON, &spec)
@@ -140,6 +142,23 @@ func (g *provisionApprovalGate) CreateApproval(ctx context.Context, req *provisi
 		Mode:       "provision",
 		Route:      "/ops/provision",
 		Metadata:   map[string]string{"provisionRunId": runID},
+	})
+	if err != nil {
+		return "", err
+	}
+	return a.ID, nil
+}
+
+// CreateDestroyApproval 创建销毁申请单的审批记录（关联 runID），返回 approval id。
+func (g *provisionApprovalGate) CreateDestroyApproval(ctx context.Context, run *provision.Run) (string, error) {
+	a, err := g.store.Create(&approvals.Approval{
+		FunctionID: "ops.provision.destroy",
+		GameID:     run.Request.GameID,
+		Env:        run.Request.Env,
+		Actor:      run.Request.RequestedBy,
+		Mode:       "provision.destroy",
+		Route:      "/ops/provision",
+		Metadata:   map[string]string{"provisionRunId": run.ID, "action": "destroy"},
 	})
 	if err != nil {
 		return "", err

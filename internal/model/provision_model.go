@@ -23,9 +23,12 @@ type ProvisionRun struct {
 	OutputsJSON  JSON   `gorm:"type:json"`
 	AgentIDsJSON JSON   `gorm:"type:json"`
 	ApprovalID   string `gorm:"size:64"`
-	LabelsJSON   JSON   `gorm:"type:json"`
-	ErrorMsg     string `gorm:"type:text"`
-	RequestedBy  string `gorm:"size:64"`
+	// DestroyApprovalID 是 workflow 模式销毁申请单的审批记录 id（OPS-003
+	// 迁移 0054 补列；存量行空=未申请销毁审批，行为与现状一致）。
+	DestroyApprovalID string `gorm:"size:64"`
+	LabelsJSON        JSON   `gorm:"type:json"`
+	ErrorMsg          string `gorm:"type:text"`
+	RequestedBy       string `gorm:"size:64"`
 	// DestroyProtected 是数据盘护栏（OPS-002）：true 时拒绝自动销毁（迁移
 	// 0053 补列，存量行默认 false=未护栏，行为与现状一致）。
 	DestroyProtected bool `gorm:"default:false"`

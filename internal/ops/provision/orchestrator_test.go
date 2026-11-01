@@ -83,6 +83,10 @@ func (f *fakeApproval) CreateApproval(_ context.Context, req *Request, runID str
 	return "approval-1", nil
 }
 
+func (f *fakeApproval) CreateDestroyApproval(_ context.Context, run *Run) (string, error) {
+	return "destroy-approval-1", nil
+}
+
 func (f *fakeApproval) Approved(_ context.Context, _ string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -353,4 +357,125 @@ func TestResumeAsync_DoubleResume_SecondRejected(t *testing.T) {
 	adopted := waitState(t, st, run.ID, StateAdopted, 2*time.Second)
 	assert.Equal(t, 1, runner.applied)
 	assert.Equal(t, StateAdopted, adopted.State)
+}
+
+// ---------------------------------------------------------------------------
+// OPS-003 审批双模式：销毁申请单（RequestDestroy → DestroyResume）路径。
+// ---------------------------------------------------------------------------
+
+// TestRequestDestroy_TransitionsToDestroyPending 校验：adopted 运行受理销毁
+// 申请后创建销毁审批记录并推进 destroy_pending，且未执行 terraform destroy。
+func TestRequestDestroy_TransitionsToDestroyPending(t *testing.T) {
+	runner := &fakeRunner{}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	require.Equal(t, StateAdopted, run.State)
+
+	req, err := o.RequestDestroy(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyPending, req.State)
+	assert.Equal(t, "destroy-approval-1", req.DestroyApprovalID)
+	assert.Equal(t, 0, runner.destroy) // 申请单不销毁资源
+
+	// 持久化读回一致。
+	got, err := st.Get(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyPending, got.State)
+	assert.Equal(t, "destroy-approval-1", got.DestroyApprovalID)
+}
+
+// TestRequestDestroy_NonAdopted_Rejected 校验：非 adopted 运行受理销毁申请
+// 被拒（状态闸），含 destroyed 后重复申请。
+func TestRequestDestroy_NonAdopted_Rejected(t *testing.T) {
+	st := newFakeStore()
+	o := newOrchestrator(t, &fakeRunner{}, &fakeRegistry{ids: []string{`"i-x"`}}, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	require.NoError(t, o.Destroy(context.Background(), run.ID)) // → destroyed
+
+	_, err = o.RequestDestroy(context.Background(), run.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not destroy pending")
+}
+
+// TestRequestDestroy_DoubleRequest_Rejected 校验：已受理销毁申请（已含
+// destroy_approval_id）再申请被拒，防重复创建审批记录。
+func TestRequestDestroy_DoubleRequest_Rejected(t *testing.T) {
+	st := newFakeStore()
+	o := newOrchestrator(t, &fakeRunner{}, &fakeRegistry{ids: []string{`"i-x"`}}, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	_, err = o.RequestDestroy(context.Background(), run.ID)
+	require.NoError(t, err)
+
+	_, err = o.RequestDestroy(context.Background(), run.ID)
+	require.Error(t, err)
+	// run 已是 destroy_pending（非 adopted）——状态闸先拒绝。
+	assert.Contains(t, err.Error(), "not destroy pending")
+}
+
+// TestDestroyResume_NotApproved_Rejected 校验：未批准时销毁续行被拒，且
+// 资源未销毁。
+func TestDestroyResume_NotApproved_Rejected(t *testing.T) {
+	runner := &fakeRunner{}
+	app := &fakeApproval{} // 未批准
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, app, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	_, err = o.RequestDestroy(context.Background(), run.ID)
+	require.NoError(t, err)
+
+	_, err = o.DestroyResume(context.Background(), run.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not yet approved")
+	assert.Equal(t, 0, runner.destroy)
+}
+
+// TestDestroyResume_Approved_Transitions 校验：批准后销毁续行执行 terraform
+// destroy 原语并推进 destroyed。
+func TestDestroyResume_Approved_Transitions(t *testing.T) {
+	runner := &fakeRunner{}
+	app := &fakeApproval{approved: true}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, app, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	_, err = o.RequestDestroy(context.Background(), run.ID)
+	require.NoError(t, err)
+
+	got, err := o.DestroyResume(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyed, got.State)
+	assert.Equal(t, 1, runner.destroy)
+}
+
+// TestDestroyResume_DoubleResume_SecondRejected 校验：批准后双续行，第二个
+// 读到已非 destroy_pending 被拒（防双跑 terraform destroy）。
+func TestDestroyResume_DoubleResume_SecondRejected(t *testing.T) {
+	runner := &fakeRunner{}
+	app := &fakeApproval{approved: true}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, app, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	_, err = o.RequestDestroy(context.Background(), run.ID)
+	require.NoError(t, err)
+
+	first, err := o.DestroyResume(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyed, first.State)
+
+	_, err = o.DestroyResume(context.Background(), run.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not destroy pending")
+	assert.Equal(t, 1, runner.destroy)
 }

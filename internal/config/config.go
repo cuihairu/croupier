@@ -107,6 +107,9 @@ type HeraldConfig struct {
 type ProvisionConfig struct {
 	// Enabled 缺省 false：不装配供给引擎。
 	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// Approval 网络级审批模式（OPS-003 审批双模式）：auto=个人直通（缺省），
+	// workflow=团队扩容/销毁申请单（创建→审批→执行，审计留痕）。
+	Approval string `json:"approval,omitempty" yaml:"approval,omitempty"`
 	// BinaryPath tofu/terraform 二进制路径（默认 tofu）。
 	BinaryPath string `json:"binaryPath,omitempty" yaml:"binaryPath,omitempty"`
 	// WorkDir 各供给运行的 terraform 工作目录根（默认 data/provision）。
@@ -120,6 +123,23 @@ type ProvisionConfig struct {
 	AgentInstallURL string `json:"agentInstallUrl,omitempty" yaml:"agentInstallUrl,omitempty"`
 	// RegisterTimeoutSec 等待自注册超时（秒，默认 300）。
 	RegisterTimeoutSec int `json:"registerTimeoutSec,omitempty" yaml:"registerTimeoutSec,omitempty"`
+}
+
+// ProvisionApprovalAuto / ProvisionApprovalWorkflow 是供给网络级审批模式取值。
+const (
+	// ProvisionApprovalAuto 个人直通：扩容/销毁直接执行（缺省）。
+	ProvisionApprovalAuto = "auto"
+	// ProvisionApprovalWorkflow 团队申请单：扩容/销毁创建审批记录，
+	// 批准后执行。
+	ProvisionApprovalWorkflow = "workflow"
+)
+
+// EffectiveApproval 返回网络级审批模式，空用默认 auto。
+func (c ProvisionConfig) EffectiveApproval() string {
+	if c.Approval == ProvisionApprovalWorkflow {
+		return ProvisionApprovalWorkflow
+	}
+	return ProvisionApprovalAuto
 }
 
 // EffectiveBinaryPath 返回二进制路径，空用默认 tofu。

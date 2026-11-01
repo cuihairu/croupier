@@ -247,6 +247,8 @@ metrics:
 # 报告 §4 已知边界）。
 # provision:
 #   enabled: true
+#   approval: auto            # 审批双模式：auto=个人直通（缺省），
+#                              # workflow=团队扩容/销毁申请单（创建→审批→执行）
 #   binaryPath: tofu          # tofu/terraform 二进制路径（缺省 tofu）
 #   workDir: data/provision   # 各供给运行的 terraform 工作目录根（缺省 data/provision）
 #   hubAddr: "server.example.com:19090"  # agent 拨入地址（必填，注入 cloud-init）

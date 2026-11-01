@@ -157,6 +157,9 @@ import (
 //   0053 (Go)   provision_runs.destroy_protected 列（OPS-002 数据盘护栏：
 //               true 时拒绝自动销毁；加列 0025 模式；缺表跳过（fanout
 //               重放到无该特性的库不报错、不建空壳）；存量行默认 false）
+//   0054 (Go)   provision_runs.destroy_approval_id 列（OPS-003 审批双模式
+//               workflow：销毁申请单的审批记录 id；加列 0025 模式；缺表
+//               跳过；存量行空=未申请销毁审批，行为与现状一致）
 
 func init() {
 	registerSvcMigrations()
@@ -220,6 +223,7 @@ func registerSvcMigrations() {
 		agentMetricsHistoryEnrichmentMigration(),
 		provisionRunsTableMigration(),
 		provisionRunDestroyProtectionMigration(),
+		provisionRunDestroyApprovalMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1787,6 +1791,35 @@ func migrateProvisionRunDestroyProtection(ctx context.Context, sqlDB *sql.DB) er
 	}
 	if err := db.Migrator().AddColumn(&model.ProvisionRun{}, "DestroyProtected"); err != nil {
 		return fmt.Errorf("migrate: 0053 add provision_runs.destroy_protected: %w", err)
+	}
+	return nil
+}
+
+// provisionRunDestroyApprovalMigration adds the OPS-003 destroy-approval link
+// column to provision_runs: destroy_approval_id links the workflow-mode destroy
+// ticket. AddColumn 补列模式（0025/0043/0044/0049/0051）；缺表跳过（fanout
+// 重放到无该表的库不报错、不建空壳）；存量行空=未申请销毁审批，行为与现状一致。
+func provisionRunDestroyApprovalMigration() *goose.Migration {
+	return goose.NewGoMigration(54,
+		&goose.GoFunc{RunDB: migrateProvisionRunDestroyApproval},
+		nil,
+	)
+}
+
+func migrateProvisionRunDestroyApproval(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	// 供给特性不在此库（fanout 重放到无该表的库）：不报错、不建空壳。
+	if !db.Migrator().HasTable(&model.ProvisionRun{}) {
+		return nil
+	}
+	if db.Migrator().HasColumn(&model.ProvisionRun{}, "destroy_approval_id") {
+		return nil
+	}
+	if err := db.Migrator().AddColumn(&model.ProvisionRun{}, "DestroyApprovalID"); err != nil {
+		return fmt.Errorf("migrate: 0054 add provision_runs.destroy_approval_id: %w", err)
 	}
 	return nil
 }

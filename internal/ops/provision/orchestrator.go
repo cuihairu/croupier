@@ -26,6 +26,8 @@ type AgentRegistry interface {
 type ApprovalGate interface {
 	// CreateApproval 创建审批记录（关联 runID），返回 approval id。
 	CreateApproval(ctx context.Context, req *Request, runID string) (string, error)
+	// CreateDestroyApproval 创建销毁申请单的审批记录（关联 runID），返回 approval id。
+	CreateDestroyApproval(ctx context.Context, run *Run) (string, error)
 	// Approved 返回审批是否已批准（false 且 err==nil 表示仍待审/未批）。
 	Approved(ctx context.Context, approvalID string) (bool, error)
 }
@@ -69,6 +71,8 @@ var (
 	ErrRunNotPending = errors.New("provision: run not pending")
 	// ErrRunNotApproved 审批未通过（ticket 续行前置检查拒绝）。
 	ErrRunNotApproved = errors.New("provision: run not yet approved")
+	// ErrRunNotDestroyPending 销毁续行时运行已非 destroy_pending（状态闸拒绝）。
+	ErrRunNotDestroyPending = errors.New("provision: run not destroy pending")
 )
 
 const (
@@ -373,9 +377,67 @@ func (o *Orchestrator) Destroy(ctx context.Context, runID string) error {
 	if err != nil {
 		return err
 	}
+	return o.runDestroy(ctx, run)
+}
+
+// RequestDestroy 是销毁申请单入口（workflow 模式）：run 须为 adopted，
+// 创建审批记录并推进 destroy_pending（销毁须经批准后执行）。
+func (o *Orchestrator) RequestDestroy(ctx context.Context, runID string) (*Run, error) {
+	run, err := o.Store.Get(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	if run.State != StateAdopted {
+		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyPending, runID, run.State)
+	}
+	if run.DestroyApprovalID != "" {
+		return nil, fmt.Errorf("provision: destroy approval already requested for %s", runID)
+	}
+	approvalID, err := o.Approval.CreateDestroyApproval(ctx, run)
+	if err != nil {
+		return nil, fmt.Errorf("provision: create destroy approval: %w", err)
+	}
+	run.DestroyApprovalID = approvalID
+	run.State = StateDestroyPending
+	run.UpdatedAt = time.Now()
+	if err := o.Store.Update(ctx, run); err != nil {
+		return nil, fmt.Errorf("provision: persist destroy approval: %w", err)
+	}
+	return run, nil
+}
+
+// DestroyResume 在销毁审批通过后执行 terraform destroy 原语。同步阻塞直到
+// 销毁完成（与 Destroy 同路径，HTTP 入口不阻塞时经后台 goroutine）。
+func (o *Orchestrator) DestroyResume(ctx context.Context, runID string) (*Run, error) {
+	run, err := o.Store.Get(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	if run.State != StateDestroyPending {
+		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyPending, runID, run.State)
+	}
+	if run.DestroyApprovalID == "" {
+		return nil, fmt.Errorf("provision: destroy approval not requested for %s", runID)
+	}
+	ok, err := o.Approval.Approved(ctx, run.DestroyApprovalID)
+	if err != nil {
+		return nil, fmt.Errorf("provision: check destroy approval: %w", err)
+	}
+	if !ok {
+		return nil, fmt.Errorf("%w: run %s", ErrRunNotApproved, runID)
+	}
+	// 批准后执行 terraform destroy 原语（状态闸已过，防双跑）。
+	if err := o.runDestroy(ctx, run); err != nil {
+		return nil, err
+	}
+	return run, nil
+}
+
+// runDestroy 执行 terraform destroy 原语并落 destroyed（共用段）。
+func (o *Orchestrator) runDestroy(ctx context.Context, run *Run) error {
 	dir := filepath.Join(o.WorkDir, run.ID)
 	if _, err := os.Stat(filepath.Join(dir, "main.tf")); err != nil {
-		return fmt.Errorf("provision: workdir for %s not found: %w", runID, err)
+		return fmt.Errorf("provision: workdir for %s not found: %w", run.ID, err)
 	}
 	if err := o.Runner.Destroy(ctx, dir); err != nil {
 		return fmt.Errorf("provision destroy: %w", err)

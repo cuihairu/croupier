@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/ops/provision"
 	"github.com/cuihairu/croupier/internal/tasks"
@@ -130,6 +131,11 @@ func (s *Service) OpsProvisionSubmit(ctx context.Context, req *OpsProvisionSubmi
 			DiskSizeGB:   req.Spec.DiskSizeGB,
 		}
 	}
+	// 网络级审批双模式（OPS-003）：workflow 强制 ticket（客户端不得以
+	// direct 绕过审批）；auto 时客户端可显式选择 ticket 或默认 direct。
+	if s.svcCtx.Config.Provision.EffectiveApproval() == config.ProvisionApprovalWorkflow {
+		p.Policy = provision.PolicyTicket
+	}
 	if err := s.provisionServerParams(p); err != nil {
 		return nil, err
 	}
@@ -201,6 +207,11 @@ func (s *Service) OpsProvisionDestroy(ctx context.Context, runID string) (*provi
 	if err != nil {
 		return nil, err
 	}
+	// 网络级审批双模式（OPS-003）：workflow 时销毁走申请单（创建→审批→
+	// 执行），此端点返回 destroy_pending（不立即销毁）；auto 时直接执行。
+	if s.svcCtx.Config.Provision.EffectiveApproval() == config.ProvisionApprovalWorkflow {
+		return s.requestDestroy(ctx, orch, run)
+	}
 	if err := s.provisionDestroyGuards(ctx, run); err != nil {
 		return nil, err
 	}
@@ -213,6 +224,48 @@ func (s *Service) OpsProvisionDestroy(ctx context.Context, runID string) (*provi
 		"protected": run.DestroyProtected,
 	})
 	return orch.Store.Get(ctx, runID)
+}
+
+// requestDestroy 是 workflow 模式销毁申请单入口：run 须为 adopted，创建
+// 审批记录并推进 destroy_pending（销毁须经批准后执行）。
+func (s *Service) requestDestroy(ctx context.Context, orch *provision.Orchestrator, run *provision.Run) (*provision.Run, error) {
+	// 前置闸：护栏/排空/在途任务在申请时校验（批准后执行时不再重复）。
+	if err := s.provisionDestroyGuards(ctx, run); err != nil {
+		return nil, err
+	}
+	requested, err := orch.RequestDestroy(ctx, run.ID)
+	if err != nil {
+		if errors.Is(err, provision.ErrRunNotDestroyPending) {
+			return nil, errorx.NewConflictWithCode("provision_state_conflict", err.Error(), nil)
+		}
+		return nil, err
+	}
+	recordOpsAudit(ctx, s.svcCtx, audit.EventProvisionDestroyRequest, run.ID, "success", map[string]interface{}{
+		"provider": string(run.Request.Provider),
+		"agents":   run.AgentIDs,
+	})
+	return requested, nil
+}
+
+// OpsProvisionDestroyResume 是 workflow 模式销毁审批通过后的执行（同步
+// terraform destroy 原语；未批准/非 destroy_pending 返回 409）。
+func (s *Service) OpsProvisionDestroyResume(ctx context.Context, runID string) (*provision.Run, error) {
+	orch, err := s.provisionOrchestrator()
+	if err != nil {
+		return nil, err
+	}
+	run, err := orch.DestroyResume(ctx, strings.TrimSpace(runID))
+	if err != nil {
+		if errors.Is(err, provision.ErrRunNotDestroyPending) || errors.Is(err, provision.ErrRunNotApproved) {
+			return nil, errorx.NewConflictWithCode("provision_state_conflict", err.Error(), nil)
+		}
+		return nil, err
+	}
+	recordOpsAudit(ctx, s.svcCtx, audit.EventProvisionDestroy, run.ID, "success", map[string]interface{}{
+		"provider": string(run.Request.Provider),
+		"agents":   run.AgentIDs,
+	})
+	return run, nil
 }
 
 // provisionDestroyGuards 是销毁前置三闸（见 OpsProvisionDestroy）。顺序即
@@ -354,6 +407,17 @@ func (h *Handler) ProvisionList(c *gin.Context) {
 // ProvisionDestroy DELETE /ops/provision/:runId。
 func (h *Handler) ProvisionDestroy(c *gin.Context) {
 	run, err := h.service.OpsProvisionDestroy(c.Request.Context(), c.Param("runId"))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, OpsProvisionRunResponse{Run: run})
+}
+
+// ProvisionDestroyResume POST /ops/provision/:runId/destroy（OPS-003 审批
+// 双模式 workflow：销毁审批通过后执行 terraform destroy 原语）。
+func (h *Handler) ProvisionDestroyResume(c *gin.Context) {
+	run, err := h.service.OpsProvisionDestroyResume(c.Request.Context(), c.Param("runId"))
 	if err != nil {
 		response.Error(c, err)
 		return
