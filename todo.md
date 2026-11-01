@@ -210,6 +210,12 @@
 
 ## 运维分栏（OPS 系列，2026-11-01 用户令立项：游戏运维平台扩展；供给引擎不自研，集成现成项目）
 
+- [ ] **OPS-010 · P1 · 实现 · 节点资源指标与进程清单采集（OPS 系列前置，2026-11-01 盘点确认缺失）**
+  - 现状盘点：agent 采集对游戏数据足够深（CDC/函数观测/拨测），但无 CPU/内存/磁盘/网络指标、无进程与端口清单、心跳无资源读数——调度（OPS-001/003）与健康门禁（OPS-004）的数据前提不存在。
+  - 交付：agent 周期采集（默认 15s，可配）节点指标（CPU%、内存 used/total、磁盘各挂载点 used/total、网络收发速率）+ 进程清单（名称/pid/内存/监听端口）+ 端口列表；随心跳或独立批量上报；服务端入库（保留策略：原始 7 天、聚合 90 天）；面板出节点资源曲线。
+  - 实现约束：跨平台无外部依赖（gopsutil 或等价）；采集关闭时可配；指标字段与 OBS-AGENT-001 的 OTel 语义对齐（避免两套字段名）。
+  - 验收：Linux+Windows 真机各一台指标上报；数值与 top/任务管理器抽样对账误差 <10%；关闭采集后零上报流量。
+
 - [ ] **OPS-001 · P1 · 实现 · 云资源供给引擎（集成 Terraform/OpenTofu，不自写云适配器）**
   - 理由：各云适配已有成熟项目（Terraform provider 全覆盖），自写=重复造轮子；croupier 只做策略与编排。
   - 交付：`internal/ops/provision` 用 hashicorp terraform-exec 驱动 tofu/terraform；provider 模板（阿里云/腾讯云/AWS/Hetzner 起步）；一键扩容闭环=选厂商/地域/规格 → create → cloud-init 注入 croupier agent（bootstrap token+hub 地址）→ 自注册 → 按网络审批策略（个人直通/团队工单）→ 纳管；集成测试用 mock cloud + 真实 provider 各一。
