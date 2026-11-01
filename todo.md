@@ -208,7 +208,32 @@
 
 ## Agent 与隔离
 
-- [x] **AGENT-001 · P0 · 故障验证 · 四类 Agent 当前接口的 scope 隔离矩阵**
+## 运维分栏（OPS 系列，2026-11-01 用户令立项：游戏运维平台扩展；供给引擎不自研，集成现成项目）
+
+- [ ] **OPS-001 · P1 · 实现 · 云资源供给引擎（集成 Terraform/OpenTofu，不自写云适配器）**
+  - 理由：各云适配已有成熟项目（Terraform provider 全覆盖），自写=重复造轮子；croupier 只做策略与编排。
+  - 交付：`internal/ops/provision` 用 hashicorp terraform-exec 驱动 tofu/terraform；provider 模板（阿里云/腾讯云/AWS/Hetzner 起步）；一键扩容闭环=选厂商/地域/规格 → create → cloud-init 注入 croupier agent（bootstrap token+hub 地址）→ 自注册 → 按网络审批策略（个人直通/团队工单）→ 纳管；集成测试用 mock cloud + 真实 provider 各一。
+- [ ] **OPS-002 · P1 · 实现 · 缩容与排水（drain → destroy）**
+  - 交付：drain=把目标机账号负载迁移走（依赖调度编排，先行用「无负载才允许销毁」保守版）；数据盘护栏（持久化标记禁止自动销毁）；销毁走同一 Terraform 状态，防漂移。
+- [ ] **OPS-003 · P2 · 实现 · 审批双模式**
+  - 交付：网络级配置 `provision.approval=auto|workflow`；个人=直通，团队=扩容/销毁申请单（创建→审批→执行，审计留痕）；复用现有 scope 隔离与审计。
+- [ ] **OPS-004 · P1 · 实现 · 部署发版（包仓库+灰度+回滚）**
+  - 交付：构建产物登记到内置包仓库（对象存储复用 rustfs 或文件服务）；发版单=选包+选目标机集合+分批策略（1/10/50/100%）；每批健康门禁（探针不过自动暂停）；回滚=指回上一版本重放。
+- [ ] **OPS-005 · P2 · 实现 · 日志采集与检索**
+  - 理由：croupier agent 已有基础数据采集能力，本项只做「日志类」扩展与存储查询面。
+  - 交付：agent 采集应用日志 tail 上报；服务端落库（按机/应用/级别/时间检索）；面板日志视图；采集开关与采样可配。
+- [ ] **OPS-006 · P2 · 实现 · 配置下发与批操作**
+  - 交付：按 scope/标签圈选机器集合下发配置文件或执行受限命令模板；dry-run 预览；结果聚合报表；全部进审计。
+- [ ] **OPS-007 · P2 · 实现 · 成本控制**
+  - 交付：创建前规格×时长估算；机器成本标签与面板；闲置回收（无负载 N 小时提醒/自动销毁，可配）；预算告警走通知渠道。
+- [ ] **OPS-008 · P3 · 实现 · 数据面备份恢复**
+  - 交付：游戏库定期备份策略（经 capture 所见的数据源登记）、恢复演练模式、备份清单与校验。
+- [ ] **OPS-009 · P3 · 实现 · 运维 runbook 自动化**
+  - 交付：常用操作固化为 runbook（参数化步骤序列，可引用 OPS-004/006 能力）；一键执行+审计。
+- [ ] **OBS-AGENT-001 · P2 · 实现 · 四类 Agent 接入 OTel 打点（配置开关默认关）**
+  - 交付与验收：agents/capture、devops、sidecar、synthetics 复用服务端 telemetry SDK（otel v1.46 已在 go.mod）；config 增 telemetry.enabled（默认 false）+ OTLP endpoint；开启后 span/metric 上报可被服务端面板看到；关闭时零开销路径（noop provider）；每 agent 至少覆盖：启停、连接状态、事件/吞吐计数、错误率；测试用内存 exporter 断言。(2026-11-01 用户提议「agent 应支持 otel 可选开启」,已代决立项;eBPF 火焰图评估后暂缓:宿主机级 profiler 非本仓职责,待真实 profiling 需求再议)
+
+- [ ] **AGENT-001 · P0 · 故障验证 · 四类 Agent 当前接口的 scope 隔离矩阵**
   - 依赖：—。交付与验收：按当前已支持的注册/配置/列表/统计/详情/动作/日志/离线读取逐项核对；复用非空 scope 和绑定测试，覆盖同 ID 冲突及跨 scope 指派；devops 未接通的会话/回放列 NOT IMPLEMENTED，不用假数据当验收
   - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-01）**：四类 Agent（capture/devops/sidecar/synthetics）× 注册/配置/列表/统计/详情/动作/日志/离线读取逐接口矩阵已落 `docs/review/2026-11-01-agent-scope-isolation-matrix.md`；每行标注 scope 来源 + fail-closed 与否 + 测试证据。核对中发现 live 缺口并已修复：`/ops/nodes/:id/{drain,undrain,restart,meta}` 此前只按 nodeId 解析（A scope 管理员可动 B scope 节点），本轮统一补 `requireAgentScope` fail-closed 门（`internal/api/ops/helpers.go`），`opsNodeMeta` 保持「不存在→404」契约；新增 3 个跨 scope 拒绝用例（`internal/api/ops/node_action_scope_test.go`：`TestOpsNodeDrain_CrossScopeRejected` / `TestOpsNodeRestartUndrain_CrossScopeRejected` / `TestOpsNodeMeta_CrossScopeRejected`）；6 个既有 drain/restart/undrain 用例补 RegistryStore 装配。同 ID 冲突证据 `TestHandleRegisterRequest_SameAgentIDCrossScopeRejected`（control_handler_scope_test.go:211，commit 3c5e44be）；跨 scope 指派拒绝 `TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment`（dispatcher_test.go:784）。边界诚实：synthetics 离线读取 query-scope 已知边界（§3.1，不改行为）、devops 会话/回放 NOT IMPLEMENTED 无假数据（§3.2）、`/api/v1/nodes` 无 scope 面 by design（§3.3）、`ops.NodeService` 死实现（§3.4）。
   - 完成证据：矩阵文件 `docs/review/2026-11-01-agent-scope-isolation-matrix.md`；新测试 `internal/api/ops/node_action_scope_test.go`（3 用例）；修复 `internal/api/ops/helpers.go`（4 函数）；`go test ./internal/api/ops/ -count=1` 全绿、`internal/server` scope/注册用例全绿、`internal/platform/dispatch` 路由 scope 用例全绿；`gofmt` 干净；commit 见下。
