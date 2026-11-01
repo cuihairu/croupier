@@ -348,8 +348,8 @@ const Login: React.FC = () => {
           title={siteCfg?.siteName || BRAND.title || 'Croupier'}
           subTitle={
             siteCfg?.description ||
-            BRAND.subTitle ||
-            intl.formatMessage({ id: 'pages.layouts.userLayout.title' })
+            intl.formatMessage({ id: 'pages.layouts.userLayout.title' }) ||
+            BRAND.subTitle
           }
           initialValues={{
             autoLogin: true,
