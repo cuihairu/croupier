@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
-</p>
+<p align="center"><img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://croupier.cuihairu.site/"><img src="https://img.shields.io/badge/docs-docs-blue" alt="docs"></a></p>
 
 <h1 align="center">Croupier</h1>
 
