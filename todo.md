@@ -211,14 +211,15 @@
 
 ## 运维分栏（OPS 系列，2026-11-01 用户令立项：游戏运维平台扩展；供给引擎不自研，集成现成项目）
 
-- [ ] **OPS-010 · P1 · 实现 · 节点资源指标与进程清单采集（OPS 系列前置，2026-11-01 盘点确认缺失）**
+- [x] **OPS-010 · P1 · 实现 · 节点资源指标与进程清单采集（OPS 系列前置，2026-11-01 盘点确认缺失）**
   - 依赖：—（OPS 系列前置项）。
   - 现状盘点：agent 采集对游戏数据足够深（CDC/函数观测/拨测），但无 CPU/内存/磁盘/网络指标、无进程与端口清单、心跳无资源读数——调度（OPS-001/003）与健康门禁（OPS-004）的数据前提不存在。
   - 交付与验收：agent 周期采集（默认 15s，可配）节点指标（CPU%、内存 used/total、磁盘各挂载点 used/total、网络收发速率）+ 进程清单（名称/pid/内存/监听端口）+ 端口列表；随心跳或独立批量上报；服务端入库（保留策略：原始 7 天、聚合 90 天）；面板出节点资源曲线。
   - 实现约束：跨平台无外部依赖（gopsutil 或等价）；采集关闭时可配；指标字段与 OBS-AGENT-001 的 OTel 语义对齐（避免两套字段名）。
   - 落位：实现为共享采集库，优先挂在 devops agent（运维角色，其会话执行记录/execlog/回放统计是现成的操作面数据，与资源指标互补成完整运维数据集）；capture/sidecar/synthetics 后续按需接入同一库。（2026-11-01 用户确认 devops agent 已有基础数据收集：会话记录+execlog+回放统计=审计与 runbook 输入；缺的资源指标由本项补齐）
   - 验收：Linux+Windows 真机各一台指标上报；数值与 top/任务管理器抽样对账误差 <10%；关闭采集后零上报流量。
-  - 状态／条件：TODO（未开始）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-01，边界见 [交付报告](docs/review/2026-11-01-ops-010-node-metrics.md) §5）：采集面（CPU/内存/磁盘/网络收发速率 + 进程清单 + 端口列表，gopsutil v4 无外部依赖）、入库（原始 7 天 + 迁移 0051 建 `agent_metrics_hourly` 小时聚合 90 天 + RollupHourly/PruneHourly）、history API `window=raw|hourly`、面板网络速率曲线 + 进程/端口清单表全部落地；`MetricsEnabled=false` 零上报由上报循环不启动保证；默认间隔 30s→15s；字段命名与 OBS-AGENT-001 OTel 语义对齐（usage_percent/bytes_sent_rate 单一命名）。**真机抽样对账（Linux+Windows 各一台、与 top/任务管理器 <10%）本环境不可运行，登记为部署后人工验收项**；Windows 采样未实测；每进程 CPU% 为 gopsutil 启动以来平均语义。
+  - 完成证据：2026-11-01；`core/metrics/processes.go`、`core/metrics/disknet.go`、`core/metrics/processes_test.go`（TestCounterRate/CollectProcessAndPortFaces/NetworkRateNonNegative）、`internal/platform/registry/metrics.go`（三面持久化 + RollupHourly 幂等 + PruneHourly）、`internal/platform/registry/metrics_hourly_test.go`、`internal/platform/registry/metrics_enrichment_test.go`、迁移 0051 三处同步（`internal/svc/migrations.go` + `internal/db/migrate/migrate.go` MinimumRequiredVersion=51 + `internal/db/migrate/migrate_test.go`）、`internal/svc/migrations_metrics_enrichment_test.go`（存量形态/缺表跳过/列集 round-trip）、`internal/api/ops/metrics_history.go` + `metrics_history_window_test.go`（raw 重建三面/hourly/越权 fail-closed）、`internal/app/agent/ops_config.go`、`proto/croupier/ops/v1/ops.proto`（PortMetrics/rates/listening_ports，四 SDK gencode 同步）、`web/src/pages/Ops/Nodes/NodeDetailDrawer.tsx`、[交付报告](docs/review/2026-11-01-ops-010-node-metrics.md)；`go build ./...` 过，`go test ./core/metrics/... ./internal/platform/registry/... ./internal/api/ops/... ./internal/svc/... ./internal/db/migrate/... ./internal/app/agent/... -count=1` 全绿，web tsc 0 错误，NodeDetailDrawer jest 29/29，dashboard guard PASSED，docs build 过；commit `42c3ca76`。
 
 - [ ] **OPS-001 · P1 · 实现 · 云资源供给引擎（集成 Terraform/OpenTofu，不自写云适配器）**
   - 依赖：—。
