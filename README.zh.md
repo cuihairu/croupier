@@ -1,8 +1,5 @@
 <p align="center">
-
-> [English](README.md) | **中文**
-> <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier/zh/"><img src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3-blue" alt="docs"></a>
-
+  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> <a href="https://cuihairu.github.io/croupier/zh/"><img src="https://img.shields.io/badge/%E6%96%87%E6%A1%A3-blue" alt="docs"></a>
 </p>
 
 <h1 align="center">Croupier</h1>
@@ -11,11 +8,11 @@
 <img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/> <img src="https://github.com/cuihairu/croupier/actions/workflows/nightly.yml/badge.svg" alt="Nightly Build"/> <img src="https://github.com/cuihairu/croupier/actions/workflows/docs-pages.yml/badge.svg" alt="Docs"/> <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/> <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/> <img src="https://img.shields.io/badge/go-1.27.3+-green.svg" alt="Go Version"/> <img src="https://img.shields.io/badge/SDK-Go-00ADD8?logo=go&logoColor=white" alt="SDK Go"/> <img src="https://img.shields.io/badge/SDK-C%23-239120?logo=csharp&logoColor=white" alt="SDK C#"/> <img src="https://img.shields.io/badge/SDK-C%2B%2B-00599C?logo=cplusplus&logoColor=white" alt="SDK C++"/> <img src="https://img.shields.io/badge/SDK-Java-b07219?logo=openjdk&logoColor=white" alt="SDK Java"/> <img src="https://img.shields.io/badge/SDK-JavaScript-F7DF1E?logo=javascript&logoColor=black" alt="SDK JavaScript"/> <img src="https://img.shields.io/badge/SDK-Python-3776AB?logo=python&logoColor=white" alt="SDK Python"/>
 </p>
 
-[English](README.md) | [中文](README.zh.md)
+<p align="center"><a href="README.md">English</a> | <a href="README.zh.md">中文</a></p>
 
 Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
 
-- `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
+- `Agent <-> Server`：默认采用 `TCP session`；`TLS` 为可选开启——服务端经 `server.toAgentTLS`、agent 侧经 `server` + `outboundTLS` 配置，随附开发模板默认为明文
 - `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
 - 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
 
@@ -47,16 +44,16 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 | PostgreSQL | `gorm.io/driver/postgres`  | 生产环境             |
 | SQL Server | `gorm.io/driver/sqlserver` | 企业环境             |
 
-各库 DSN 配置示例见[服务端配置说明](docs/operations/config-server.md)。
+各库 DSN 配置示例见[服务端配置说明](docs/zh/operations/config-server.md)。
 
 ## Agent 职能与下载
 
-| 类型       | 职能                                      | 当前交付                                                                             |
-| ---------- | ----------------------------------------- | ------------------------------------------------------------------------------------ |
-| sidecar    | 游戏函数注册/调用、任务转发与游戏旁挂观测 | `croupier-agent`，监管接线/调度与更新生命周期/函数插件已交付                         |
-| devops     | 内网白名单远程会话与审计                  | `devops-agent`，SSH 会话与回放存档已交付；RDP/VNC 待接                               |
-| capture    | 数据库 CDC、过滤/规则与告警               | `capture-agent`，MySQL/Mongo/PG 连接器与位点/告警可靠性已交付；源 schema 历史待做    |
-| synthetics | 游戏及第三方外部探测、多语言插件宿主      | `synthetics-agent`，HTTP/TCP 探测与 Go/Python/JS 插件 SDK、凭证边界已交付；ICMP 待做 |
+| 类型       | 职能                                      | 当前交付                                                                          |
+| ---------- | ----------------------------------------- | --------------------------------------------------------------------------------- |
+| sidecar    | 游戏函数注册/调用、任务转发与游戏旁挂观测 | `croupier-agent`，监管接线/调度与更新生命周期/函数插件已交付                      |
+| devops     | 内网白名单远程会话与审计                  | `devops-agent`，SSH 会话与回放存档已交付；RDP/VNC 待接                            |
+| capture    | 数据库 CDC、过滤/规则与告警               | `capture-agent`，MySQL/Mongo/PG 连接器与位点/告警可靠性已交付；源 schema 历史待做 |
+| synthetics | 游戏及第三方外部探测、多语言插件宿主      | `synthetics-agent`，HTTP/TCP/ICMP 探测与 Go/Python/JS 插件 SDK、凭证边界已交付    |
 
 各实例显式配置 `gameId/env`。角色选型、部署与 nightly 独立包见 [Agent 指南](docs/zh/operations/agent-comparison.md)，公共能力和源码归位见 [目录边界](docs/zh/development/agent-runtime-layout.md)。新增独立包需发布工作流成功运行后可下载；ARMv7 只提供 sidecar/devops。
 
@@ -92,7 +89,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 主执行链：控制台（Web）→ Server（控制面，可多实例 HA）→ Agent（游戏 VPC 代理）→ Game Server / SDK。
 入口按受众分离：Web 控制台走 L7（HTTP API / SSE），Agent 走内网 L4（TCP 长连接）。
 
-详见 [系统架构总览](docs/zh/architecture/index.md)与[负载均衡选型](docs/operations/load-balancing.md)。
+详见 [系统架构总览](docs/zh/architecture/index.md)与[负载均衡选型](docs/zh/operations/load-balancing.md)。
 
 ## 底座来源
 
@@ -137,9 +134,9 @@ Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
 
 ## 文档入口
 
-- 架构总览：[docs/architecture/index.md](docs/architecture/index.md)
-- 统一 SDK 文档：[docs/sdks/index.md](docs/sdks/index.md)
-- SDK 能力矩阵：[docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
+- 架构总览：[docs/zh/architecture/index.md](docs/zh/architecture/index.md)
+- 统一 SDK 文档：[docs/zh/sdks/index.md](docs/zh/sdks/index.md)
+- SDK 能力矩阵：[docs/zh/sdks/sdk-parity-matrix.md](docs/zh/sdks/sdk-parity-matrix.md)
 - SDK 代码入口：[sdks/README.md](sdks/README.md)
 
 ## 发布约定
@@ -187,7 +184,7 @@ Windows（PowerShell 5.1+，x64）：
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/install.ps1)))
 ```
 
-默认装最新稳定版；`--version nightly` 装每日构建、`--with-service` 注册开机自启（systemd / launchd / Windows 服务）、`--uninstall` 卸载。完整用法见 [Agent 一键安装](docs/operations/agent-install.md)。
+默认装最新稳定版；`--version nightly` 装每日构建、`--with-service` 注册开机自启（systemd / launchd / Windows 服务）、`--uninstall` 卸载。完整用法见 [Agent 一键安装](docs/zh/operations/agent-install.md)。
 
 ## Docker Compose 部署
 

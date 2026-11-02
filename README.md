@@ -12,7 +12,7 @@
 
 Croupier is a Server / Agent / SDK platform for game operations and control, intended by default for multiple games and multiple environments within a single game company. The architecture has converged on a unified session transport:
 
-- `Agent <-> Server`: TCP session by default, with TLS enabled by default
+- `Agent <-> Server`: TCP session by default; TLS is opt-in via `server.toAgentTLS` (server side) / `server` + `outboundTLS` (agent side), and the bundled development templates default to plaintext
 - `SDK <-> Agent`: TCP session by default, TLS off by default and enabled on demand
 - Both links share the same session transport foundation and differ only in the first handshake message and business semantics
 
@@ -23,9 +23,9 @@ Croupier is a Server / Agent / SDK platform for game operations and control, int
 | sidecar | Game function gateway, task forwarding and game-side observation | `croupier-agent`; supervisor wiring, schedule/update lifecycle and function plugins shipped |
 | devops | Allowlisted internal remote access with audit | `devops-agent`; SSH sessions with replay archive shipped; RDP/VNC pending |
 | capture | Database CDC, change rules and alerts | `capture-agent`; MySQL/Mongo/PostgreSQL connectors and checkpoint/alert reliability shipped; source schema history pending |
-| synthetics | External game/service checks with developer plugins | `synthetics-agent`; HTTP/TCP probes with Go/Python/JS plugin SDKs and credential boundary shipped; ICMP pending |
+| synthetics | External game/service checks with developer plugins | `synthetics-agent`; HTTP/TCP/ICMP probes with Go/Python/JS plugin SDKs and credential boundary shipped |
 
-Each instance explicitly belongs to one `gameId/env`. See the [Agent guide（本节仅有中文版）](docs/zh/operations/agent-comparison.md) for roles, deployment and individual nightly packages, and [runtime layout（本节仅有中文版）](docs/zh/development/agent-runtime-layout.md) for shared code and remaining migrations. New assets require a successful release run; ARMv7 supports sidecar/devops only.
+Each instance explicitly belongs to one `gameId/env`. See the [Agent guide](docs/operations/agent-comparison.md) for roles, deployment and individual nightly packages, and [runtime layout](docs/development/agent-runtime-layout.md) for shared code and remaining migrations. New assets require a successful release run; ARMv7 supports sidecar/devops only.
 
 ## Online Demo
 
@@ -99,7 +99,7 @@ Croupier is not a fork. It is a control-plane business layer, and everything und
 - Observability: [OpenTelemetry](https://opentelemetry.io) Go SDK with OTLP HTTP exporter
 - Console: built on [Umi Max](https://umijs.org) and [Ant Design](https://ant.design) / ProComponents; JSON Schema forms are driven by [RJSF](https://rjsf.github.io/react-jsonschema-form/), and the editor is [Monaco](https://microsoft.github.io/monaco-editor/)
 - Protocol and tooling: [protobuf](https://protobuf.dev) (fully local protoc generation) + [buf](https://buf.build) lint
-- The six SDKs (go / js / python / java / csharp / cpp) are built on each language's standard library; the wire contract is in [sdk-wire-protocol.md](docs/zh/architecture/sdk-wire-protocol.md)
+- The six SDKs (go / js / python / java / csharp / cpp) are built on each language's standard library; the wire contract is in [sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
 
 ## Session Model
 
@@ -134,12 +134,12 @@ Croupier does not adopt a SaaS multi-tenant abstraction. The standard business s
 ## Documentation
 
 - Architecture overview: [docs/architecture/index.md](docs/architecture/index.md)
-- Game and environment scope: [docs/architecture/game-environment-scope.md（本节仅有中文版）](docs/zh/architecture/game-environment-scope.md)
-- SDK-Agent design: [docs/architecture/sdk-agent-transport-redesign.md（本节仅有中文版）](docs/zh/architecture/sdk-agent-transport-redesign.md)
-- Agent-Server design: [docs/architecture/agent-server-session-transport-redesign.md（本节仅有中文版）](docs/zh/architecture/agent-server-session-transport-redesign.md)
-- Wire protocol: [docs/architecture/sdk-wire-protocol.md](docs/zh/architecture/sdk-wire-protocol.md)
+- Game and environment scope: [docs/architecture/game-environment-scope.md](docs/architecture/game-environment-scope.md)
+- SDK-Agent design: [docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
+- Agent-Server design: [docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
+- Wire protocol: [docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
 - Unified SDK documentation: [docs/sdks/index.md](docs/sdks/index.md)
-- SDK capability matrix: [docs/sdks/sdk-parity-matrix.md（本节仅有中文版）](docs/zh/sdks/sdk-parity-matrix.md)
+- SDK capability matrix: [docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
 - SDK code entry point: [sdks/README.md](sdks/README.md)
 
 ## Release Conventions
@@ -210,9 +210,9 @@ docker compose -f docker-compose.quickstart.yml down -v          # ⚠️ wipe d
 
 Optional components (six-language SDK examples / analytics pipeline) are started with `--profile` and are not part of the default stack; secrets, ports, multi-game vs. single-database switching, and the pitfall that "a `--profile` pull cascades into rebuilding the full stack" are described in the header comments of
 [docker-compose.quickstart.yml](docker/docker-compose.quickstart.yml)
-and the [Docker deployment guide（本节仅有中文版）](docs/zh/operations/deploy-docker.md).
+and the [Docker deployment guide](docs/operations/deploy-docker.md).
 
-The source-build stack (`docker/docker-compose.yml`, used for local development) also runs a `capture-agent` service by default for CDC capture: it registers against `server:19090` and subscribes to the local postgres logical replication stream. Disable it with `CAPTURE_AGENT_REPLICAS=0 docker compose up -d capture-agent`; prerequisites (`wal_level=logical`, a pre-created publication) and the verification steps are in the [Docker deployment guide（本节仅有中文版）](docs/zh/operations/deploy-docker.md).
+The source-build stack (`docker/docker-compose.yml`, used for local development) also runs a `capture-agent` service by default for CDC capture: it registers against `server:19090` and subscribes to the local postgres logical replication stream. Disable it with `CAPTURE_AGENT_REPLICAS=0 docker compose up -d capture-agent`; prerequisites (`wal_level=logical`, a pre-created publication) and the verification steps are in the [Docker deployment guide](docs/operations/deploy-docker.md).
 
 ## Quick Start
 
