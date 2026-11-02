@@ -348,7 +348,7 @@ services:
 
   # Kafka (KRaft 模式，免 Zookeeper)
   kafka:
-    image: ${KAFKA_IMAGE:-bitnami/kafka:3.6}
+    image: ${KAFKA_IMAGE:-soldevelo/kafka:3.6}
     container_name: croupier-kafka
     restart: unless-stopped
     environment:
