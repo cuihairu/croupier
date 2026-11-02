@@ -365,8 +365,9 @@
   - 状态／条件：BLOCKED（2026-11-01 复核）：依赖 DATA-001 的指标口径批准；缺方案批准。源码缺口保留：overview.go 读关系模型/Player，warehouse.go 读 ClickHouse；需接入样本。
 
 - [x] **DATA-003 · P1 · 实现 · 活跃与在线聚合的版本和重放语义**
-  - 依赖：DATA-001。交付与验收：修正 daily_users 的替换键/版本参数与分钟在线 HLL 快照重写策略，迁移已有表而不只改 initdb；同日多次 flush、迟到事件、重放和多 worker 的同一分钟结果可核对，不把全量 HLL 重写当增量相加
-  - 状态／条件：DONE（2026-11-01）：010_analytics.sql 改 `ReplacingMergeTree(version)` 且 version 移出 ORDER BY；minute_online 由 SummingMergeTree 改 ReplacingMergeTree(version) 全量快照替换；worker.go 写 version；warehouse.go 查询加 FINAL。迁移脚本 scripts/clickhouse/011_fix_aggregate_tables.sql 重建已有表。证据：commit 5f1ba096；真实 ClickHouse `TestDrill_DATA003_AggregateReplacement`（data003_drill_test.go:26）FINAL 取 95/55/6/1200/20/2 不叠加，`go test ./internal/analytics/worker/... ./internal/api/analytics/...` 全绿。
+  - 依赖：DATA-001。交付与验收：修正 daily_users 的替换键/版本参数与分钟在线 HLL 快照重写策略，迁移已有表而不只改 initdb；同日多次 flush、迟到事件、重放和多 worker 的同一分钟结果可核对，不把全量 HLL 重写当增量相加。
+  - 状态／条件：LOCAL VERIFIED（2026-11-01）：010_analytics.sql 改 `ReplacingMergeTree(version)` 且 version 移出 ORDER BY；minute_online 由 SummingMergeTree 改 ReplacingMergeTree(version) 全量快照替换；worker.go 写 version；warehouse 查询加 FINAL；迁移脚本 scripts/clickhouse/011_fix_aggregate_tables.sql 重建已有表；真实 ClickHouse `TestDrill_DATA003_AggregateReplacement`（data003_drill_test.go:26）FINAL 取 95/55/6/1200/20/2 不叠加。
+  - 完成证据：2026-11-01；`internal/analytics/worker/data003_drill_test.go`、`scripts/clickhouse/011_fix_aggregate_tables.sql`、`internal/analytics/worker/worker.go`；`go test ./internal/analytics/worker/... ./internal/api/analytics/...` 全绿；commit `5f1ba096`。
 
 - [ ] **DATA-004 · P1 · 实现 · 付费聚合的币种、订单状态与累计口径**
   - 依赖：DATA-001。交付与验收：复用 payment 明细，按已批准币种/单位和订单唯一键处理重复成功、退款和状态变更；修复 revAgg flush 后删除而日表按替换读的增量/累计冲突，跨 flush/重启可回算，不能把不同币种原始金额直接相加
@@ -484,8 +485,7 @@
 - [x] 审核发现：ClaimForDispatch 的 SQL WHERE 仅 `state='approved' AND claim_token=''`（internal/platform/approvals/sql_store.go:246-248），未含 `claim_status=''`；MemStore 判重用 `ClaimStatus!=''||ClaimToken!=''`（internal/platform/approvals/store.go:294-296），两者语义不一致——历史/异常行若 claim_token 空而 claim_status 非空，SQL 可二次领取而 MemStore 拒绝。 属实并已修：SQL WHERE 增加 `AND claim_status = ''`（internal/platform/approvals/sql_store.go:250），与 MemStore 判重语义一致；新增 `TestClaimForDispatch_SQLRejectsClaimStatusOnly`（internal/platform/approvals/cas_concurrency_test.go）验证二次领取被拒；`go test ./internal/platform/approvals -count=1` 全绿；证据 commit `e20ec075`。
 - [x] 审核发现：SetTaskReaper 在 `s.mu.Lock()` 下写 watchdogBudget/watchdogInterval（internal/server/control_handler.go:258-264），而 runTaskWatchdog 在后台循环无锁读 `s.watchdogBudget`（internal/server/control_handler.go:1990-2000）；仅因文档规定「须在 StartBackgroundTasks 前调用」而靠 goroutine 建立 happens-before 免于现行 race，但字段读写无同步契约，属潜在数据竞争隐患。 属实并已修：`runTaskWatchdog` 在 `s.mu.RLock()` 下快照 taskReaper/watchdogBudget 后调用（internal/server/control_handler.go:2051-2060），`taskWatchdogLoop` 同样加读锁快照 interval（internal/server/control_handler.go:2066-2070）；新增 `TestControlService_WatchdogFields_RaceFreeRead`（internal/server/watchdog_test.go）；`go test -race ./internal/server -run Watchdog -count=1` 与 `go test ./internal/server -count=1` 全绿；证据 commit `e19e1dcb`。
 
-- [ ] **DOC-GIF · P2 · 文档 · 配置开关效果动态图(每个开关 off→on 对比+GIF)**
-  - 交付:枚举本仓全部「开启后有效果」的开关/配置项;自动流水线生成证据——GUI 类用 @vscode/test-electron 或应用截图(off 一张/on 一张+切换过程录屏),CLI 类用终端录屏(asciinema→GIF 或 ffmpeg);ffmpeg 缝合动态 GIF。
-  - 文档:docs「配置效果」页(双语)逐开关嵌入:说明+off 图+on 图+GIF。
-  - 验收:清单内每个开关都有 off/on+GIF;流水线可重跑(配置变更随时再生成);兼作配置效果回归测试。
-  - 参考:kode todo C-24 同款流水线模式(2026-11-01 用户令全舰队推广)。
+- [ ] **DOC-001 · P2 · 文档 · 配置开关效果动态图**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。参考 kode todo C-24 同款流水线模式（2026-11-01 用户令全舰队推广）。
+  - 交付与验收：枚举本仓全部「开启后有效果」的开关/配置项，自动流水线生成证据——GUI 类用 @vscode/test-electron 或应用截图（off 一张/on 一张+切换过程录屏），CLI 类用终端录屏（asciinema→GIF 或 ffmpeg），ffmpeg 缝合动态 GIF；docs「配置效果」页（双语）逐开关嵌入说明+off 图+on 图+GIF。验收：清单内每个开关都有 off/on+GIF；流水线可重跑（配置变更随时再生成）；兼作配置效果回归测试。
