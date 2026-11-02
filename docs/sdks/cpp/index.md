@@ -126,4 +126,4 @@ Concrete API names, build scripts, release artifacts, and example code are owned
 ## Related Documents
 
 - [SDK Documentation](../../sdks/)
-- [SDK Wire Protocol](../../zh/architecture/sdk-wire-protocol.md)
+- [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)

@@ -4,7 +4,7 @@ title: SDK Capability Matrix
 
 # SDK Capability Matrix
 
-This page defines the cross-language unified baseline. For implementation status and language mapping, see the root-level `sdks/SDK_FEATURE_MATRIX.md`; for protocol details, see [SDK Wire Protocol](../zh/architecture/sdk-wire-protocol.md).
+This page defines the cross-language unified baseline. For implementation status and language mapping, see the root-level `sdks/SDK_FEATURE_MATRIX.md`; for protocol details, see [SDK Wire Protocol](../architecture/sdk-wire-protocol.md).
 
 ## Layers
 

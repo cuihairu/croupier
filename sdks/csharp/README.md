@@ -96,13 +96,13 @@ Provider 通过 **单条 TCP session**（`sdk-agent subprotocol`）与 Agent 通
 
 - 单条 TCP session 客户端（`sdk-agent subprotocol`），不监听本地端口
 - 自动心跳与重连（`AutoReconnect` / `ReconnectIntervalSeconds` / `ReconnectMaxAttempts`）
-- 异步 / 同步 handler，签名 `Func<string, string, Task<string>>`
+- 异步 / 同步 handler，签名 `FunctionHandlerDelegate(FunctionContext context, string payload)`（同步等价物 `string Handle(FunctionContext, string)`）
 - 多游戏多环境作用域（`GameId` / `Env` / `ServiceId`）
 
 **L2 Provider 扩展（可选）**
 
 - TLS（`CertFile` / `KeyFile` / `CaFile` / `ServerName`）
-- 文件传输（`EnableFileTransfer=true`，受 `MaxFileSize` 约束）
+- 文件传输（`EnableFileTransfer=true`，受 `MaxFileSize` 约束；⚠️ 当前仅配置面就绪，传输实现待对齐，见功能矩阵 L2）
 - 灵活配置：环境变量、JSON 文件、内存配置
 - 日志抽象（`ICroupierLogger`，可接 `ILogger`）
 

@@ -17,6 +17,8 @@ A high-performance Go SDK for connecting to the Croupier Agent, registering func
 - Well suited to high-concurrency server-side integration
 
 ```go
+import "github.com/cuihairu/croupier/sdks/go/function"
+
 metadata, _ := function.NewMetadataBuilder().
     SetID("player.ban").
     SetInputSchema(`{"type":"object","properties":{"id":{"type":"string"}}}`).

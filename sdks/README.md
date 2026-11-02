@@ -31,8 +31,8 @@
 | [Python](./python/) | TCP session | ✅          | TLS / Reconnect / File / Drain            | ✅         | —                                                 |
 | [Java](./java/)     | TCP session | ✅          | TLS / Reconnect / Manifest / Retry / File | ✅         | Spring Boot starter                               |
 | [JS/TS](./js/)      | TCP session | ✅          | TLS / Reconnect / Manifest / File         | ✅         | —                                                 |
-| [C++](./cpp/)       | TCP session | ✅          | TLS / Reconnect / Manifest / File         | ✅         | VirtualObject / Component / Lua / Plugin / Skynet |
-| [C#](./csharp/)     | TCP session | ✅          | TLS / Reconnect / File                    | ✅         | DI / Unity                                        |
+| [C++](./cpp/)       | TCP session | ✅          | TLS / Reconnect / Manifest / File         | ✅         | Skynet（其余为规划项，本仓未实现）                 |
+| [C#](./csharp/)     | TCP session | ✅          | TLS / Reconnect / File ⚠️（配置面）        | ✅         | DI / Unity                                        |
 
 ## CI 状态
 

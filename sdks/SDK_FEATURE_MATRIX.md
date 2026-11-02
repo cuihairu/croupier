@@ -31,15 +31,17 @@
 
 ### L1 Core Provider
 
-| 能力                                                | Go  | Python | Java                              | JS/TS | C++ | C#  |
-| --------------------------------------------------- | --- | ------ | --------------------------------- | ----- | --- | --- |
-| 构造 / 注册 / 会话 / 服务循环 / 停止（L1 API 表面） | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
-| 多路复用（RequestID 配对）                          | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
-| 心跳（默认 60s，可配置）                            | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
-| 自动重连（指数退避 + jitter）                       | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
-| TLS（`insecure=false`，ca/cert/key）                | ✅  | ✅     | ✅ TlsSocketFactory + SAN/CN 校验 | ✅    | ✅  | ✅  |
-| 鉴权（`auth_token` → Bearer 握手 metadata）         | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
-| 平台 drain 处理（`ProviderDrainRequest`）           | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
+| 能力                                                | Go       | Python   | Java                              | JS/TS | C++ | C#  |
+| --------------------------------------------------- | -------- | -------- | --------------------------------- | ----- | --- | --- |
+| 构造 / 注册 / 会话 / 服务循环 / 停止（L1 API 表面） | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
+| 多路复用（RequestID 配对）                          | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
+| 心跳（默认 60s，可配置）                            | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
+| 自动重连（指数退避 + jitter）                       | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
+| TLS（`insecure=false`，ca/cert/key）                | ✅       | ✅       | ✅ TlsSocketFactory + SAN/CN 校验 | ✅    | ✅  | ✅  |
+| 鉴权（`auth_token` → Bearer 握手 metadata）         | ⚠️ 仅 L3 | ⚠️ 仅 L3 | ⚠️ 仅 L3                          | ✅    | ✅  | ✅  |
+| 平台 drain 处理（`ProviderDrainRequest`）           | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
+
+> 鉴权行：Go / Python / Java 的 `auth_token` 目前只接在 L3 Invoker（Server HTTP API）上，**未**注入 Provider 握手 metadata；JS / C++ / C# 已注入握手 metadata。
 
 ### L2 Provider 扩展
 
@@ -119,14 +121,14 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 各语言本地化形态：
 
-| 语言   | handler 签名                                                         |
-| ------ | -------------------------------------------------------------------- |
-| Go     | `func(ctx context.Context, payload []byte) ([]byte, error)`          |
-| Python | `Callable[[str, bytes], str \| bytes]`                               |
-| Java   | `FunctionHandler.handle(context: String, payload: byte[]) -> String` |
-| JS/TS  | `(context: string, payload: string) => Promise<string> \| string`    |
-| C++    | `std::function<std::string(const std::string&, const std::string&)>` |
-| C#     | `Func<string, string, Task<string>>` 或同步等价物                    |
+| 语言   | handler 签名                                                                       |
+| ------ | ---------------------------------------------------------------------------------- |
+| Go     | `func(ctx context.Context, payload []byte) ([]byte, error)`                        |
+| Python | `Callable[[str, bytes], str \| bytes]`                                             |
+| Java   | `FunctionHandler.handle(context: String, payload: String) -> String`               |
+| JS/TS  | `(context: string, payload: string) => Promise<string> \| string`                  |
+| C++    | `std::function<std::string(const std::string&, const std::string&)>`               |
+| C#     | `FunctionHandlerDelegate(FunctionContext context, string payload)`（含同步等价物） |
 
 ### 2.5 ClientConfig（核心字段）
 
@@ -160,14 +162,14 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 当前 Descriptor v2 / OpenAPI helper 实现状态：
 
-| SDK    | Descriptor v2 字段                        | `RegisterFromOpenAPI` 等价 helper        | 备注                                                      |
-| ------ | ----------------------------------------- | ---------------------------------------- | --------------------------------------------------------- |
-| Go     | ✅ builder + OpenAPI helper 全字段        | ✅ `function.RegisterFromOpenAPI`        | 基准实现；helper 解析 x-capability/x-execution/x-approval |
-| JS/TS  | ✅ 示例已用 capability/execution/approval | ✅ `registerFromOpenAPI`                 | jest 全绿；helper 支持 v2 词表 + continueOnError          |
-| Python | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `register_from_openapi`               | pytest 全绿；risk 别名 medium/low 已收敛为 canonical 词表 |
-| Java   | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `OpenAPIImporter`                     | gradle test 全绿；ImportOptions builder                   |
-| C++    | ✅ 示例 18 个 descriptor 已用 v2 字段     | ✅ `RegisterFromOpenAPI` 重载            | ctest 全绿；nlohmann_json 解析，无新增依赖                |
-| C#     | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `OpenAPIImporter.RegisterFromOpenAPI` | dotnet test 全绿；System.Text.Json，禁 dynamic            |
+| SDK    | Descriptor v2 字段                        | `RegisterFromOpenAPI` 等价 helper          | 备注                                                      |
+| ------ | ----------------------------------------- | ------------------------------------------ | --------------------------------------------------------- |
+| Go     | ✅ builder + OpenAPI helper 全字段        | ✅ `function.Registry.RegisterFromOpenAPI` | 基准实现；helper 解析 x-capability/x-execution/x-approval |
+| JS/TS  | ✅ 示例已用 capability/execution/approval | ✅ `registerFromOpenAPI`                   | jest 全绿；helper 支持 v2 词表 + continueOnError          |
+| Python | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `register_from_openapi`                 | pytest 全绿；risk 别名 medium/low 已收敛为 canonical 词表 |
+| Java   | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `OpenAPIImporter`                       | gradle test 全绿；ImportOptions builder                   |
+| C++    | ✅ 示例 18 个 descriptor 已用 v2 字段     | ✅ `RegisterFromOpenAPI` 重载              | ctest 全绿；nlohmann_json 解析，无新增依赖                |
+| C#     | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `OpenAPIImporter.RegisterFromOpenAPI`   | dotnet test 全绿；System.Text.Json，禁 dynamic            |
 
 六语言 helper 均为**纯本地解析**（不连 server）：operation → descriptor，扩展键 `x-resource`/`x-operation`/`x-permission`/`x-capability`/`x-execution`/`x-risk`/`x-approval`，`ImportOptions{resourcePrefix, tagPrefix, defaultTimeoutMs, continueOnError}` 语义一致（`defaultTimeoutMs` 仅 Go/C++ 有 timeout 字段可写入，其余语言为对齐保留位，见各语言文档）。Server 侧 OpenAPI Source 上传是控制台能力，与 SDK 本地 helper 互补。
 
@@ -204,16 +206,16 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 仅在所属 SDK 内文档化，不进入跨语言一致性矩阵：
 
-| SDK  | 扩展能力            | 入口                                          |
-| ---- | ------------------- | --------------------------------------------- |
-| C++  | VirtualObject 注册  | `RegisterVirtualObject`                       |
-| C++  | Component 注册      | `RegisterComponent` / `LoadComponentFromFile` |
-| C++  | 动态插件            | `plugin/dynamic_loader`                       |
-| C++  | Lua / Sol2 绑定     | `bindings/lua_binding_sol2`                   |
-| C++  | Skynet 集成         | `skynet/`                                     |
-| C#   | DI 集成             | `Extensions/ServiceCollectionExtensions`      |
-| C#   | Unity 适配          | `Unity/CroupierUnityBehaviour`                |
-| Java | Spring Boot starter | `spring-boot-starter/`                        |
+| SDK  | 扩展能力            | 入口                                                                   |
+| ---- | ------------------- | ---------------------------------------------------------------------- |
+| C++  | VirtualObject 注册  | 未实现（规划项；本仓无 `RegisterVirtualObject`）                       |
+| C++  | Component 注册      | 未实现（规划项；本仓无 `RegisterComponent` / `LoadComponentFromFile`） |
+| C++  | 动态插件            | 未实现（规划项；本仓无 `plugin/dynamic_loader`）                       |
+| C++  | Lua / Sol2 绑定     | 未实现（规划项；本仓无 `bindings/lua_binding_sol2`）                   |
+| C++  | Skynet 集成         | `skynet/`                                                              |
+| C#   | DI 集成             | `Extensions/ServiceCollectionExtensions`                               |
+| C#   | Unity 适配          | `Unity/CroupierUnityBehaviour`                                         |
+| Java | Spring Boot starter | `spring-boot-starter/`                                                 |
 
 ---
 

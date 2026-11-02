@@ -179,9 +179,9 @@ func main() {
         Enabled:   true,
     }
 
-    handler := func(ctx context.Context, payload string) (string, error) {
+    handler := func(ctx context.Context, payload []byte) ([]byte, error) {
         // 处理函数调用
-        return `{"status":"success"}`, nil
+        return []byte(`{"status":"success"}`), nil
     }
 
     if err := client.RegisterFunction(desc, handler); err != nil {
@@ -289,22 +289,43 @@ CI 流水线会在构建前运行 `make proto`，从主仓库 `proto/` 重新生
 ```go
 type ClientConfig struct {
     // 连接配置
-    AgentAddr      string // Agent TCP session 地址（sdk-agent subprotocol）
-    LocalListen    string // 兼容字段，新版本不再监听本地端口
-    TimeoutSeconds int    // 连接超时
-    Insecure       bool   // 是否跳过 TLS
+    AgentAddr    string // Agent local SDK gateway（sdk-agent subprotocol），如 "localhost:19091" 或 "ipc://croupier-agent,localhost:19091"
+    AgentIPCAddr string // 本地高性能连接 IPC 地址（可选，如 "ipc://croupier-agent"）
 
     // 多游戏多环境作用域
-    GameID         string // 游戏标识符
-    Env            string // 逻辑环境（dev/staging/prod）
-    ServiceID      string // 服务标识符
-    ServiceVersion string // 服务版本
-    AgentID        string // Agent 标识符
+    GameID          string            // 游戏标识符
+    Env             string            // 逻辑环境（development/staging/production）
+    ServiceID       string            // 服务标识符
+    ServiceVersion  string            // 服务版本
+    AgentID         string            // Agent 标识符（负载均衡）
+    InstanceMetadata map[string]string // 实例元数据（仅观测，不参与路由）
+
+    // 控制面 / 连接
+    ControlAddr       string // manifest 上传控制面地址（可选）
+    TimeoutSeconds    int    // 连接超时（秒）
+    HeartbeatInterval int    // 心跳间隔（秒）
+    Insecure          bool   // 是否跳过 TLS（开发用）
 
     // TLS（非 insecure 模式）
-    CAFile   string // CA 证书
-    CertFile string // 客户端证书
-    KeyFile  string // 私钥
+    CAFile             string // CA 证书
+    CertFile           string // 客户端证书
+    KeyFile            string // 私钥
+    ServerName         string // TLS SNI/校验名覆盖
+    InsecureSkipVerify bool   // 跳过证书校验（不建议）
+
+    // 鉴权
+    AuthToken string            // Bearer token（L3 Invoker / Server API）
+    Headers   map[string]string // 附加 header
+
+    // 文件传输
+    EnableFileTransfer bool   // 文件下发接收
+    MaxFileSize        int    // 单文件上限（字节）
+    FileStagingDir     string // 暂存目录（默认 ./croupier-staging）
+
+    // 重连 / 重试 / 校验
+    Reconnect             *ReconnectConfig // 重连配置
+    Retry                 *RetryConfig     // 重试配置
+    ValidateInputPayloads bool             // 入站 payload JSON Schema 校验
 }
 ```
 

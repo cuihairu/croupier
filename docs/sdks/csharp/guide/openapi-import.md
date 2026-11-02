@@ -62,4 +62,4 @@ Without `ContinueOnError`, a missing handler throws `InvalidOperationException` 
 
 `x-approval` is orthogonal to `execution`: `execution: "task"` + `approval.required: true` means the task is created only after approval passes; approval is not a third `execution` enum value.
 
-For the full contract, see [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md).
+For the full contract, see [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md).

@@ -48,7 +48,7 @@ opts := &function.ImportOptions{
 | `x-risk`          | risk                | `safe/warning/high/danger` (normalized by `parseRiskLevel`) |
 
 Without annotated extensions, defaults apply (GET→query, everything else→operation;
-see the [Descriptor v2 specification](../../../zh/architecture/openapi-sdk-descriptor-v2.md) for details).
+see the [Descriptor v2 specification](../../../architecture/openapi-sdk-descriptor-v2.md) for details).
 
 ## Reference Implementation
 

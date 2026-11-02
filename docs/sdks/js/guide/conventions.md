@@ -92,4 +92,4 @@ Conversion rules:
 - `x-approval: { required, policyKey }` maps to `approvalRequired` / `approvalPolicyKey`.
 - The `risk` vocabulary is `safe|warning|high|danger` (legacy aliases like `low`/`medium` are normalized); `capability` and `execution` are controlled enums — invalid values throw and can be skipped with `continueOnError`.
 
-For the full contract, see [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md).
+For the full contract, see [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md).

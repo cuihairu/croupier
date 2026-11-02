@@ -49,4 +49,4 @@ Handlers are looked up by operationId (or a path-derived fallback ID); you can a
 
 See `sdks/python/examples/game_demo.py` and `sdks/python/tests/test_openapi.py`.
 
-For the full contract, see [OpenAPI / SDK Descriptor v2](../../../zh/architecture/openapi-sdk-descriptor-v2.md).
+For the full contract, see [OpenAPI / SDK Descriptor v2](../../../architecture/openapi-sdk-descriptor-v2.md).
