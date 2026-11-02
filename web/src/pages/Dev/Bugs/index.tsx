@@ -62,6 +62,7 @@ import {
 } from '@/services/api/bugs';
 import { listAdmins, type AdminRecord } from '@/services/api/permissions';
 import { extractErrorMessage } from '@/utils/errors';
+import { safeExternalHref } from '@/utils/safeUrl';
 
 const { Paragraph, Text } = Typography;
 
@@ -176,8 +177,16 @@ export default function DevBugsPage() {
   };
 
   const addLink = () => {
-    const url = linkDraft.url.trim();
-    if (!url) return;
+    const url = safeExternalHref(linkDraft.url);
+    if (!url) {
+      message.error(
+        intl.formatMessage({
+          id: 'pages.devBugs.form.invalidLink',
+          defaultMessage: '链接必须是 http/https 绝对地址',
+        }),
+      );
+      return;
+    }
     setPendingLinks((prev) => [
       ...prev,
       { url, kind: linkDraft.kind, title: deriveBugLinkTitle(url, linkDraft.kind) },
@@ -330,13 +339,20 @@ export default function DevBugsPage() {
       render: (_: unknown, bug: BugItem) => (
         <Space>
           <a onClick={() => openDetail(bug)}>{bug.title}</a>
-          {(bug.links || []).slice(0, 3).map((l) => (
-            <Tooltip key={l.url} title={l.title || l.url}>
-              <a href={l.url} target="_blank" rel="noreferrer">
-                {linkIcon(l.kind)}
-              </a>
-            </Tooltip>
-          ))}
+          {(bug.links || []).slice(0, 3).map((l) => {
+            const href = safeExternalHref(l.url);
+            return (
+              <Tooltip key={l.url} title={l.title || l.url}>
+                {href ? (
+                  <a href={href} target="_blank" rel="noreferrer">
+                    {linkIcon(l.kind)}
+                  </a>
+                ) : (
+                  linkIcon(l.kind)
+                )}
+              </Tooltip>
+            );
+          })}
           {(bug.links || []).length > 3 ? (
             <Tooltip
               title={intl.formatMessage(
@@ -1009,17 +1025,21 @@ export default function DevBugsPage() {
                   <FormattedMessage id="pages.devBugs.detail.links" defaultMessage="外部链接" />
                 </Text>
                 <Space wrap>
-                  {currentLinks.map((l) => (
-                    <Button
-                      key={l.url}
-                      size="small"
-                      icon={linkIcon(l.kind)}
-                      href={l.url}
-                      target="_blank"
-                    >
-                      {l.title || l.url}
-                    </Button>
-                  ))}
+                  {currentLinks.map((l) => {
+                    const href = safeExternalHref(l.url);
+                    return (
+                      <Button
+                        key={l.url}
+                        size="small"
+                        icon={linkIcon(l.kind)}
+                        href={href || undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {l.title || l.url}
+                      </Button>
+                    );
+                  })}
                 </Space>
               </>
             ) : null}
