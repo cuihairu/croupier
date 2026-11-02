@@ -202,6 +202,11 @@ func (l *TCPLocalListener) serveConn(ctx context.Context, conn net.Conn) {
 	if err := mux.Run(ctx); err != nil {
 		l.logger.Debug("Provider MuxConn ended", "remote", remoteAddr, "error", err)
 	}
+	// Join lane workers before reading handler state: registration (handleConnect)
+	// runs on a worker goroutine, and without this wait its writes to
+	// handler.sessionID/serviceID race the disconnect cleanup below. Mirrors
+	// internal/server/tcp_listener.go (same MuxConn lane model).
+	mux.Wait()
 
 	// Clean up session on disconnect
 	if handler.sessionID != "" {
