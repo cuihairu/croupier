@@ -126,6 +126,10 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 		// 归属表读取失败退回本地视图
 	}
 
+	// AgentsUnsafe 契约要求持 Mu().RLock——注册/心跳/清理在写锁下改这张
+	// map，无锁迭代在写并发时直接 fatal（concurrent map iteration and map
+	// write）。上面 :80-87 的锁只覆盖 local 快照，本回退路径原漏锁。
+	store.Mu().RLock()
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
 			continue
@@ -154,6 +158,7 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 			Functions: functions,
 		})
 	}
+	store.Mu().RUnlock()
 
 	attachSupervisorSummaries(svcCtx, agents)
 	return &OpsAgentsListResponse{
