@@ -159,6 +159,7 @@ func MetaModels() []interface{} {
 		&DeployPackage{},
 		&Deployment{},
 		&BatchOp{},
+		&CostBudget{},
 	}
 }
 

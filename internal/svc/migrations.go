@@ -227,6 +227,7 @@ func registerSvcMigrations() {
 		deployTablesMigration(),
 		agentLogTablesMigration(),
 		batchOpTablesMigration(),
+		costBudgetTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1895,6 +1896,27 @@ func migrateBatchOpTables(ctx context.Context, sqlDB *sql.DB) error {
 	if !db.Migrator().HasTable(&model.BatchOp{}) {
 		if err := db.Migrator().CreateTable(&model.BatchOp{}); err != nil {
 			return fmt.Errorf("migrate: 0057 create batch_ops: %w", err)
+		}
+	}
+	return nil
+}
+
+// costBudgetTablesMigration creates the OPS-007 cost_budgets table.
+func costBudgetTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(58,
+		&goose.GoFunc{RunDB: migrateCostBudgetTables},
+		nil,
+	)
+}
+
+func migrateCostBudgetTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.CostBudget{}) {
+		if err := db.Migrator().CreateTable(&model.CostBudget{}); err != nil {
+			return fmt.Errorf("migrate: 0058 create cost_budgets: %w", err)
 		}
 	}
 	return nil

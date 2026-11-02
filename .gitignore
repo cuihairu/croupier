@@ -238,3 +238,6 @@ web/config/*.js
 web/config/*.js.map
 web/**/*.js.map
 web/**/*.jsx.map
+
+# agent supervisor runtime (log/state written at runtime, source in ops_supervisor_*.go)
+internal/app/agent/logs/
