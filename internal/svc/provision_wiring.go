@@ -189,11 +189,16 @@ func (g *provisionAgentRegistry) WaitRegistered(ctx context.Context, labelKey, l
 	defer ticker.Stop()
 	for {
 		var ids []string
+		// AgentsUnsafe 契约要求持 Mu().RLock——供给等待期间 agent 注册/心跳
+		// 在写锁下改这张 map，无锁迭代并发写会直接 fatal（concurrent map
+		// iteration and map write）。
+		g.store.Mu().RLock()
 		for id, s := range g.store.AgentsUnsafe() {
 			if s.Labels != nil && s.Labels[labelKey] == labelValue {
 				ids = append(ids, id)
 			}
 		}
+		g.store.Mu().RUnlock()
 		if len(ids) > 0 {
 			return ids, nil
 		}
