@@ -252,14 +252,14 @@ The current `0x05xx LocalControlService` is historical semantics; future impleme
 
 The recommendation keeps the `0x05xx` group but redefines it:
 
-|      MsgID | Suggested name              | Notes                              |
-| ---------: | ---------------------------- | ----------------------------------- |
-| `0x050101` | `ProviderConnectRequest`    | The SDK establishes a provider session |
+|      MsgID | Suggested name              | Notes                                                    |
+| ---------: | --------------------------- | -------------------------------------------------------- |
+| `0x050101` | `ProviderConnectRequest`    | The SDK establishes a provider session                   |
 | `0x050102` | `ProviderConnectResponse`   | Returns `session_id` / the capability negotiation result |
-| `0x050103` | `ProviderHeartbeatRequest`  | SDK heartbeat                        |
-| `0x050104` | `ProviderHeartbeatResponse` | The Agent's heartbeat response       |
-| `0x050105` | `ProviderDrainRequest`      | The Agent asks the SDK to stop taking new requests |
-| `0x050106` | `ProviderDrainResponse`     | The SDK acknowledges the drain state |
+| `0x050103` | `ProviderHeartbeatRequest`  | SDK heartbeat                                            |
+| `0x050104` | `ProviderHeartbeatResponse` | The Agent's heartbeat response                           |
+| `0x050105` | `ProviderDrainRequest`      | The Agent asks the SDK to stop taking new requests       |
+| `0x050106` | `ProviderDrainResponse`     | The SDK acknowledges the drain state                     |
 
 Notes:
 
@@ -394,7 +394,7 @@ Fields that belong in protobuf / header / metadata:
 - `game_id`
 - `env`
 - `timeoutMs` (a metadata key)
-- platform governance fields such as `retry` / `priority`
+- platform governance fields such as `retry_after_ms` (drain grace / retry timing)
 
 Fields that stay in the JSON payload:
 
@@ -580,20 +580,20 @@ On receiving these signals the SDK may:
 
 All SDKs should converge on the following field semantics:
 
-| Field                         | Notes                    |
-| ------------------------------ | -------------------------- |
-| `transport.kind`               | Fixed preference `tcp`     |
-| `transport.address`            | The Agent address          |
-| `transport.connectTimeoutMs`   | The connection timeout     |
-| `transport.requestTimeoutMs`   | The request timeout        |
-| `transport.tls`                | TLS configuration          |
-| `reconnect.enabled`            | Auto-reconnect on/off      |
-| `reconnect.initialDelayMs`     | The initial backoff        |
-| `reconnect.maxDelayMs`         | The maximum backoff        |
-| `reconnect.backoffMultiplier`  | The exponential backoff multiplier |
-| `reconnect.jitterFactor`       | The jitter factor          |
-| `backpressure.maxConcurrency`  | The local concurrency cap  |
-| `backpressure.max_queue_size`  | The local queue cap        |
+| Field                         | Notes                              |
+| ----------------------------- | ---------------------------------- |
+| `transport.kind`              | Fixed preference `tcp`             |
+| `transport.address`           | The Agent address                  |
+| `transport.connectTimeoutMs`  | The connection timeout             |
+| `transport.requestTimeoutMs`  | The request timeout                |
+| `transport.tls`               | TLS configuration                  |
+| `reconnect.enabled`           | Auto-reconnect on/off              |
+| `reconnect.initialDelayMs`    | The initial backoff                |
+| `reconnect.maxDelayMs`        | The maximum backoff                |
+| `reconnect.backoffMultiplier` | The exponential backoff multiplier |
+| `reconnect.jitterFactor`      | The jitter factor                  |
+| `backpressure.maxConcurrency` | The local concurrency cap          |
+| `backpressure.max_queue_size` | The local queue cap                |
 
 ### Deprecated fields
 

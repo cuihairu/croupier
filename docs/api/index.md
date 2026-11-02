@@ -37,16 +37,34 @@ The effective route registration is the source of truth for endpoint existence. 
 
 When a registered endpoint family does not yet have a standalone page, document its handler path in this overview and use the handler as the implementation reference.
 
+### Endpoint families without a standalone page
+
+The route table in `internal/handler/routes.go` is the source of truth. The families below are registered but do not yet have their own API page; the route line is the implementation reference.
+
+| Family              | Registered routes                                                                                                                                                                                                                    | Purpose                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Ops - provision     | `POST/GET /api/v1/ops/provision`, `GET /api/v1/ops/provision/:runId`, `POST /api/v1/ops/provision/:runId/{resume,destroy}`, `PUT /api/v1/ops/provision/:runId/protection`, `DELETE /api/v1/ops/provision/:runId` (routes.go:691-697) | Provision-engine run lifecycle (terraform/tofu) |
+| Ops - deployments   | `POST/GET /api/v1/ops/deployments`, `GET /api/v1/ops/deployments/:id`, `POST /api/v1/ops/deployments/:id/{start,rollback}` (routes.go:703-707)                                                                                       | Deployment engine                               |
+| Ops - agent logs    | `GET /api/v1/ops/agents/:agentId/logs/search` (routes.go:629)                                                                                                                                                                        | Agent log tailing/search                        |
+| Ops - agent metrics | `GET /api/v1/ops/agents/:agentId/metrics/history` (routes.go:654)                                                                                                                                                                    | Agent metrics history                           |
+| Ops - supervisor    | `GET /api/v1/ops/agents/:agentId/supervisor`, `.../supervisor/events`, `.../supervisor/logs` (routes.go:576-579)                                                                                                                     | Managed-process supervision                     |
+| Ops - alerts        | `GET /api/v1/ops/alerts`, `POST /api/v1/ops/alerts/silence`, `POST /api/v1/ops/alerts/:id/handle` (routes.go:592-595)                                                                                                                | Alert list / silence / handle                   |
+| Ops - capture gates | `GET/PUT /api/v1/ops/capture/gates`, `GET /api/v1/ops/capture/gates/versions`, `POST /api/v1/ops/capture/gates/{rollback,validate}` (routes.go:659-664)                                                                              | CDC capture policy gates                        |
+| Approvals           | `registerApprovalRoutes` (routes.go:232); list filters `state`/`functionId`/`gameId`/`env`/`page`/`pageSize` (internal/api/approval/dto.go:41-45)                                                                                    | Two-person-rule approval                        |
+| Audit               | `GET/POST /api/v1/audit`, `GET /api/v1/audit/export`, `GET /api/v1/audit/chain/verify` (routes.go:745-748)                                                                                                                           | Audit chain query / export / integrity verify   |
+
 ## Discovery examples
 
 ```http
 GET /healthz
+GET /readyz
 GET /api/v1
 GET /api/v1/monitoring/healthz
 GET /api/v1/monitoring/metrics
+GET /api/v1/monitoring/status
 ```
 
-Health and version endpoints are useful smoke checks. Monitoring metrics require authentication.
+Health, readiness, and version endpoints are useful smoke checks. Monitoring metrics and status require authentication.
 
 ## Related pages
 

@@ -161,12 +161,12 @@ danger:
 **Reloading configuration:**
 
 ```bash
-# Via API
-POST /api/v1/policies/reload
-
 # Restarting the service loads automatically
 ./bin/croupier-server --config configs/server.yaml
 ```
+
+> There is no dedicated `POST /api/v1/policies/reload` route in the current server; reload happens on restart (the
+> `ReloadConfig` handler is not wired into the route table).
 
 ## Configuration Validation
 
@@ -193,7 +193,7 @@ STORAGE_ACCESS_KEY=your-access-key       # Object storage AK (internal/platform/
 STORAGE_SECRET_KEY=your-secret-key       # Object storage SK (same as above)
 ```
 
-The JWT secret does not use an environment variable; use the config key `auth.jwtSecret` (or `auth.jwtSecretFile`).
+The JWT secret uses the config key `auth.jwtSecret`; config values are environment-expanded at load, so an environment variable can supply it via `auth.jwtSecret: ${JWT_SECRET}` (there is no separate `jwtSecretFile` key).
 
 ### Vault
 
@@ -227,5 +227,6 @@ This page covers the commonly used keys. The following effective configuration d
 - `executionLog`, `taskLog`, `approval`, `cluster`, `registry.sdkVersionMinimums`
 - `telemetry`, `sse`, `metrics`, `cache`, `pages`, `openapi`, `featureFlags`
 - `herald`, `alertInbound`, `externalAPI`, `serverStatus`
+- `provision` (provision engine: `enabled`/`approval`/`binaryPath`/`workDir`/`hubAddr`/`bootstrapTokenEnv`/`agentInstallUrl`/`registerTimeoutSec`), `deploy` (deployment engine), `ops` (operations config)
 
 ## Next Steps

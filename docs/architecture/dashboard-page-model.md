@@ -145,7 +145,7 @@ interface FunctionContractVersion {
 
 - **The write criterion is exactly the same as `UpsertContract`'s "skip the write when content is unchanged"** (the same `contractSemanticallyEqual`): heartbeat-style re-registrations produce no history; `RemoveFunctionContract` writes a `removed` event.
 - **Retention policy (decided with the user)**: a per-function cap of 50 entries (`FunctionContractVersionRetention`), evicting oldest beyond that.
-- **Failure semantics**: history is derived audit data (same tier as proposal/template rebuilds); a write failure degrades to a warning and never blocks registration; the table's existence is guaranteed at startup by `MinimumRequiredVersion=42`.
+- **Failure semantics**: history is derived audit data (same tier as proposal/template rebuilds); a write failure degrades to a warning and never blocks registration; the table's existence is guaranteed at startup by `MinimumRequiredVersion=58`.
 - **Consumers**: the function detail page's "change history" tab (list / snapshot Drawer / two-version compare); REST in [the function API §22-24](https://cuihairu.github.io/croupier/zh/api/function).
 - The history table never enters the contract digest nor stale determination; the contract row remains the sole authoritative source of truth.
 

@@ -24,12 +24,16 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token string `json:"token"`
 	User UserInfo `json:"user"`
+	LastGameID string `json:"lastGameId,omitempty"`
+	LastEnv string `json:"lastEnv,omitempty"`
+	MustChangePassword bool `json:"mustChangePassword,omitempty"`
+	MFASetupRequired bool `json:"mfaSetupRequired,omitempty"`
 }
 
 type UserInfo struct {
 	Username string `json:"username"`
 	Roles []string `json:"roles"`
-	Nickname string `json:"nickname,omitempty"`
+	Nickname string `json:"nickname"`
 }
 ```
 
@@ -172,7 +176,7 @@ The following endpoints become available when `auth.providers` is enabled; when 
 
 ### MFA (TOTP; authentication required)
 
-The server enforces two steps: before confirmation, login returns `403 mfa_required`.
+The server enforces two steps: before confirmation, login returns `401 mfa_required`.
 
 - `GET /api/v1/auth/mfa/status` — whether MFA is enabled
 - `POST /api/v1/auth/mfa/setup` — generate a TOTP secret and otpauth URL

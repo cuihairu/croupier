@@ -72,8 +72,8 @@ Download the installer from the [Go website](https://go.dev/dl/) and run it.
 ```bash
 # Install Node.js using fnm (recommended)
 curl -fsSL https://fnm.vercel.app/install | bash
-fnm install 22
-fnm use 22
+fnm install 24
+fnm use 24
 
 # Install pnpm
 npm install -g pnpm
@@ -150,7 +150,7 @@ Download the binaries for your platform from the [Release page](https://github.c
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
 
-# Build the binaries (server / agent / devops-agent / capture-agent / worker / ingest / tools)
+# Build the binaries (server / agent / devops-agent / capture-agent / synthetics-agent / worker / ingest / tools)
 make build
 
 # The binaries are located in the bin/ directory
@@ -254,8 +254,8 @@ outboundTLS:
 # Server health check
 curl http://localhost:18780/healthz
 
-# Expected output (ok / timestamp / uptimeSeconds / components)
-{"ok":true,"timestamp":"2026-10-13T00:00:00Z","uptimeSeconds":3600,"components":{"database":"ok","registry":"ok","ops":"ok"}}
+# Expected output (ok / timestamp / uptimeSeconds / components; each component is an object with an "ok" boolean)
+{"ok":true,"timestamp":"2026-10-13T00:00:00Z","uptimeSeconds":3600,"components":{"database":{"ok":true,"driver":"sqlite","latencyMs":1},"registry":{"ok":true,"agentsTotal":1,"agentsHealthy":1,"functionsRegistered":8},"ops":{"ok":true}}}
 ```
 
 ### Functional Testing

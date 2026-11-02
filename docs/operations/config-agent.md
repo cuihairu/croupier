@@ -11,7 +11,7 @@ tag:
 
 # Agent Configuration Guide
 
-Corresponds to `configs/agent.yaml` (template in the repository). This binary has **no environment-variable expansion layer**: configuration is read only from YAML; runtime environment variables are limited to `CROUPIER_CONFIG_DIR` / `CROUPIER_AGENTLOCAL_*` etc. (see the environment variable table in agent-config.md), and the only CLI parameter is `--config` for the config file path.
+Corresponds to `configs/agent.yaml` (template in the repository). This binary has **no environment-variable expansion layer**: configuration is read only from YAML; runtime environment variables are limited to `CROUPIER_CONFIG_DIR` / `CROUPIER_AGENTLOCAL_*` etc. (see the environment variable table in agent-config.md), and the only configuration CLI parameter is `--config` for the config file path (there are also `--mode`/`-m` for the run mode and `--debug`/`-d` for debug logging).
 
 ## Complete Key Reference
 
@@ -26,16 +26,16 @@ Corresponds to `configs/agent.yaml` (template in the repository). This binary ha
 
 ### agent (identity and reachability)
 
-| Key                          | Default                                      | Description                                                                                                                                                    |
-| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent.id`                   | `""`                                         | Auto-generated when left empty; specifying it explicitly is recommended for multi-agent deployments (readability on the topology page)                         |
-| `agent.gameId` / `agent.env` | required                                     | Scope binding; startup fails when empty (one agent per game+env)                                                                                               |
-| `agent.localAddr`            | empty → host:port fallback, then `0.0.0.0:0` | Local TCP listener (entry point for game-server function registration)                                                                                         |
-| `agent.httpAddr`             | required                                     | **Server→Agent callback address**; must be reachable from the Server's point of view (service name in container networks, IP on bare metal)                    |
-| `agent.labels`               | `{}`                                         | Custom labels (datacenter/machine type etc., used for filtering on the node page)                                                                              |
-| `agent.invokeTimeoutMs`      | `15000`                                      | Default budget (ms) for Agent→game-server synchronous calls; when a request's `metadata["timeoutMs"]` declares a smaller value the smaller one wins; cap 60000 |
+| Key                          | Default                                      | Description                                                                                                                                                                |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent.id`                   | `""`                                         | Auto-generated when left empty; specifying it explicitly is recommended for multi-agent deployments (readability on the topology page)                                     |
+| `agent.gameId` / `agent.env` | required                                     | Scope binding; startup fails when empty (one agent per game+env)                                                                                                           |
+| `agent.localAddr`            | empty → host:port fallback, then `0.0.0.0:0` | Local TCP listener (entry point for game-server function registration)                                                                                                     |
+| `agent.httpAddr`             | empty                                        | **DEAD (behavior surface)**: only echoed into one startup log line; the callback address is the local listener's, not this field (see the agent-config.md Dead fields row) |
+| `agent.labels`               | `{}`                                         | Custom labels (datacenter/machine type etc., used for filtering on the node page)                                                                                          |
+| `agent.invokeTimeoutMs`      | `15000`                                      | Default budget (ms) for Agent→game-server synchronous calls; when a request's `metadata["timeoutMs"]` declares a smaller value the smaller one wins; cap 60000             |
 
-> `httpAddr` is the most common deployment mistake: writing `0.0.0.0` or `localhost` breaks Server callbacks — job dispatch/file transfer will not go through.
+> `httpAddr` is inert in the current design (only echoed into a startup log line); do not rely on it for callback reachability — the callback path uses the local listener address.
 >
 > Registration labels include the agent's self-reported system labels (`os`/`arch`/`hostname`/`ip` etc.) and the running-binary fingerprint `agentBinarySha256` (agent-supervisor-design §10.5 persistence anchor: self-reported at every registration, persisted together with the registration labels; after the agent goes offline, system-info uses it to answer "last known fingerprint"). The fingerprint is injected after config/dynamic label merging — explicitly writing the same key in `agent.labels` has no effect (computed facts cannot be overridden).
 
@@ -58,11 +58,14 @@ Client TLS for the Agent's outbound calls to game-side Providers (dialed by the 
 
 ### ops (metrics reporting and process supervision)
 
-| Key                   | Default                                                         | Description                                                            |
-| --------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `ops.enabled`         | `false`                                                         | System metrics collection and reporting (must be enabled explicitly)   |
-| `ops.metricsInterval` | `30s`                                                           | Collection interval (also the sampling interval for managed processes) |
-| `ops.metricsEnabled`  | `false` (YAML default is false; must be set to true explicitly) | Metrics switch (stops collection but keeps the reporting channel)      |
+| Key                       | Default                                                        | Description                                                            |
+| ------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ops.enabled`             | `false`                                                        | System metrics collection and reporting (must be enabled explicitly)   |
+| `ops.metricsInterval`     | `15s`                                                          | Collection interval (also the sampling interval for managed processes) |
+| `ops.metricsEnabled`      | `true` (omitted key = enabled; set `false` to stop collection) | Metrics switch (stops collection but keeps the reporting channel)      |
+| `ops.logFiles`            | empty                                                          | Application log files to tail (OPS-005 log collection)                 |
+| `ops.logMaxLineBytes`     | `4096`                                                         | Cap on a single log line before truncation                             |
+| `ops.logMaxLinesPerCycle` | —                                                              | Cap on lines emitted per file per reporting cycle                      |
 
 > Note: older deployments used the snake_case legacy keys `ops.metrics_interval` / `ops.metrics_enabled`, which are still parsed for compatibility; new configurations must use the lowerCamelCase keys in the table above.
 > The remaining `ops` keys (`allowRestart` / `allowExec` / `allowUpdate`, `managedProcesses`,
@@ -199,16 +202,16 @@ Multiple agents on one host (multiple games or multiple environments): the only 
 
 This binary has no "env overrides YAML" layer — the table below lists runtime environment variables (not mapped to configuration keys):
 
-| Variable                                                           | Default                    | Description                                                                |
-| ------------------------------------------------------------------ | -------------------------- | -------------------------------------------------------------------------- |
-| `CROUPIER_CONFIG_DIR`                                              | —                          | Configuration directory (takes priority over the `--config` path)          |
-| `CROUPIER_AGENT_LOCAL_ADDR`                                        | empty → host:port fallback | Local TCP listener address (overrides the `agent.localAddr` fallback path) |
-| `CROUPIER_AGENT_VERSION`                                           | —                          | Version override (for registration/reporting)                              |
-| `CROUPIER_AGENTLOCAL_PROBE_INTERVAL`                               | 5s                         | Provider keepalive probe interval                                          |
-| `CROUPIER_AGENTLOCAL_PRUNE_INTERVAL`                               | 30s                        | Session pruning interval                                                   |
-| `CROUPIER_AGENTLOCAL_MAX_AGE`                                      | 2m                         | Maximum session lifetime                                                   |
-| `CROUPIER_AGENTLOCAL_TASKRESULT_MAX_AGE`                           | 10m                        | Task-result retention                                                      |
-| `CROUPIER_EXTENSION_SYNC_API` / `CROUPIER_EXTENSION_SYNC_INTERVAL` | 30s                        | Extension sync address and interval                                        |
+| Variable                                                           | Default                   | Description                                                                |
+| ------------------------------------------------------------------ | ------------------------- | -------------------------------------------------------------------------- |
+| `CROUPIER_CONFIG_DIR`                                              | —                         | Configuration directory (takes priority over the `--config` path)          |
+| `CROUPIER_AGENT_LOCAL_ADDR`                                        | empty → `127.0.0.1:19091` | Local TCP listener address (overrides the `agent.localAddr` fallback path) |
+| `CROUPIER_AGENT_VERSION`                                           | —                         | Version override (for registration/reporting)                              |
+| `CROUPIER_AGENTLOCAL_PROBE_INTERVAL`                               | 5s                        | Provider keepalive probe interval                                          |
+| `CROUPIER_AGENTLOCAL_PRUNE_INTERVAL`                               | 30s                       | Session pruning interval                                                   |
+| `CROUPIER_AGENTLOCAL_MAX_AGE`                                      | 2m                        | Maximum session lifetime                                                   |
+| `CROUPIER_AGENTLOCAL_TASKRESULT_MAX_AGE`                           | 10m                       | Task-result retention                                                      |
+| `CROUPIER_EXTENSION_SYNC_API` / `CROUPIER_EXTENSION_SYNC_INTERVAL` | 30s                       | Extension sync address and interval                                        |
 
 ## Verification
 

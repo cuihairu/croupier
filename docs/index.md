@@ -105,8 +105,8 @@ make build
 # Start the Server
 ./bin/croupier-server --config configs/server.yaml
 
-# Start the Agent
-./bin/croupier-agent --config configs/agent.yaml
+# Start the Agent (local dev: connect to localhost; docker-compose deployments use configs/agent.yaml instead)
+./bin/croupier-agent --config configs/agent.local.yaml
 ```
 
 ### Verify the installation
