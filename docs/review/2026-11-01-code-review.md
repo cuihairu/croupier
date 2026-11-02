@@ -22,12 +22,14 @@
 
 ### 测试基线
 
-| 组            | 命令                     | 结果                                   |
-| ------------- | ------------------------ | -------------------------------------- |
-| internal 全量 | `go test ./internal/...` | 首次 run 1 包 FAIL（见下）；重跑定位中 |
-| web 单测      | `pnpm --dir web test`    | 见下方「基线补充」                     |
+| 组                            | 命令                                                            | 结果                                                                                                                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| internal 全量（基线，修复前） | `go test ./internal/...`                                        | 1 包 FAIL：`internal/app/agent` 的 `TestMetricsCollector_StartReporting`（5.77s 超时）——隔离 5.575s 过 / 全包重跑 53s 过，负载诱发 flake                                                                  |
+| internal 全量（修复后复核）   | `go test ./internal/...`                                        | 除 `internal/app/agent` 外全部 ok；该包 `TestUpstreamMetricsLoop_DefaultInterval`/`_ReportsImmediately` 失败（66.3s）——隔离单跑 42.3s ok，与基线同包同族的负载 flake（本审改动未触 `internal/app/agent`） |
+| 修复受影响包                  | `go test ./internal/api/ops/ ./internal/svc/ ./internal/agent/` | 全绿（20.8s / 53.1s / 9.9s）                                                                                                                                                                              |
+| web 单测（P1 修复面）         | `npx jest --testPathPatterns="safeUrl\|Dev/Bugs"`               | 3 套件 27 用例全绿；tsc 0 错误                                                                                                                                                                            |
 
-> 基线补充：`internal` 首次全量 run 在 49 个包 `ok` 后 1 包失败，完整捕获定位为 `internal/app/agent` 的 `TestMetricsCollector_StartReporting`（5.77s 超时断言失败，见 `/tmp/gotest_fail.txt`）。**复跑定性为负载诱发 flake**：隔离单跑 5.575s 过、全包重跑 53s 过。非回归、非迁移相关（并行会话 costcontrol WIP 在 `internal/db/migrate`、`internal/svc`、`internal/model`、`internal/ops/costcontrol`，与本失败包无涉）。按「测试门禁不带 -race」记忆：`make test`/CI 门禁均无 `-race`，本次全量未带 `-race`。web 基线见 CI Dashboard（jest 全量，本报告执行时不重复全量跑）。
+> 基线补充：`internal` 全量两轮（修复前/后）均在同一包 `internal/app/agent` 出现**负载诱发 flake**（基线轮 `TestMetricsCollector_StartReporting`，复核轮 `TestUpstreamMetricsLoop_*`），该包计时敏感用例在饱和负载下超时、隔离单跑均过——定性为环境性 flake 非回归（本审改动未触该包）。非迁移相关（并行会话 costcontrol WIP 在 `internal/db/migrate`、`internal/svc`、`internal/model`、`internal/ops/costcontrol`，与本失败包无涉）。按「测试门禁不带 -race」记忆：`make test`/CI 门禁均无 `-race`，本次全量未带 `-race`。web 全量基线见 CI Dashboard（本报告只重跑了 P1 修复面 jest）。
 
 ## 发现清单
 
