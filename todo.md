@@ -489,3 +489,145 @@
   - 依赖：—。
   - 状态／条件：TODO（未开始）。参考 kode todo C-24 同款流水线模式（2026-11-01 用户令全舰队推广）。
   - 交付与验收：枚举本仓全部「开启后有效果」的开关/配置项，自动流水线生成证据——GUI 类用 @vscode/test-electron 或应用截图（off 一张/on 一张+切换过程录屏），CLI 类用终端录屏（asciinema→GIF 或 ffmpeg），ffmpeg 缝合动态 GIF；docs「配置效果」页（双语）逐开关嵌入说明+off 图+on 图+GIF。验收：清单内每个开关都有 off/on+GIF；流水线可重跑（配置变更随时再生成）；兼作配置效果回归测试。
+
+## 全仓代码深审（2026-11-02）——P2/P3 待办
+
+- [ ] **C-002 · P2 · 安全 · cloud-init runcmd 注入（root RCE）**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-002），修复方向 source-wins。
+  - 交付与验收：template.go 的 renderCloudInit 不再把 CloudInitExtra 原样拼入 runcmd——改为经 allow-list 校验（仅白名单命令）或拒绝含 shell 元字符的行；新增单测覆盖 Extra 含 `$(...)`/`;`/`|` 被拒；provision Validate 校验 CloudInitExtra 非空时格式；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-003 · P2 · SDK · JS SDK 畸形帧对端挂死（违 BUG-038 应答契约）**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-003），修复方向 source-wins。
+  - 交付与验收：sdks/js 的 decodeInvokeRequest/handleInboundStartTask/handleInboundCancelTask 把 protobuf decode 移入 try/catch，解析失败时按契约回错误帧而非静默；与 Go/Py/C++ 行为一致；新增畸形帧单测断言对端收到错误响应而非挂起；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-004 · P2 · 安全 · SSE token 入 query param**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-004），修复方向 source-wins。
+  - 交付与验收：createEventSource 不再把 JWT 拼进 ?token= query（改走 EventSource 无法带 header 的替代方案：短效 stream token 或经 Authorization 的 fetch-stream）；token 不出现在 URL/日志/Referer；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-005 · P2 · 安全 · JWT 存 localStorage**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-005），修复方向 source-wins。
+  - 交付与验收：Login 改用 httpOnly+Secure cookie 或等效安全存储承载会话；localStorage 不再落 token；跨页面鉴权路径同步更新；新增单测断言 token 未写入 localStorage；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-006 · P2 · 安全 · 附件 URL 无 scheme 白名单**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-006），修复方向 source-wins。
+  - 交付与验收：Support/Tickets/Detail.tsx 附件 img src/a href/window.open 全部走 safeExternalHref（http/https 白名单）；非 http/https 渲染为无链接文本；新增单测覆盖 javascript:/data: 拒绝；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-007 · P2 · 安全 · 告警/图表 URL 无 scheme 白名单**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-007），修复方向 source-wins。
+  - 交付与验收：Ops/Alerts 的 grafanaExploreUrl/alertmanagerUrl/runbook_url window.open 全部走 safeExternalHref；非法 scheme 不弹窗；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-025 · P2 · 正确性 · openapi provider 读已关 body 丢真实错误**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-025），修复方向 source-wins。
+  - 交付与验收：provider.go 重试循环末次 5xx 后不提前关 resp.Body（延迟到 defer 或关前判 err）；新增单测：全 5xx 重试后返回真实 HTTP 状态/错误体而非 read-on-closed；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-026 · P2 · 正确性 · SlidingWindowLimiter.GetStats 越界 panic**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-026），修复方向 source-wins。
+  - 交付与验收：advanced.go GetStats 对空 timestamps 加 len>0 守卫返回空/零值；新增单测：空窗口（超限建空/prune 到 0）调 GetStats 不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-008 · P3 · 安全 · agent exec 白名单仅匹配命令不匹配参数/环境**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-008），修复方向 source-wins。
+  - 交付与验收：ops_server exec 白名单校验扩展到 req.Args/req.WorkingDir/req.Env（PATH、LD_PRELOAD 等敏感键拒绝或白名单化）；新增单测：带 LD_PRELOAD/PATH 覆盖的请求被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-009 · P3 · 安全 · DDL 拼接 dbName 仅反引号/方括号包裹**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-009），修复方向 source-wins。
+  - 交付与验收：db.go 建库 DDL 的 dbName 改经严格标识符校验（仅 [a-z0-9_-] 白名单）而非仅包裹符；SQL Server 遇 `]` 不再断；新增单测非法 dbName 被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-010 · P3 · 安全 · asciicast sessionID 路径穿越（潜伏）**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-010），修复方向 source-wins。
+  - 交付与验收：asciicast.go 写 .cast 前校验 sessionID 仅 [A-Za-z0-9_-] 或经 filepath.Base；新增单测 sessionID 含 `../`/`/` 被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-011 · P3 · 安全 · Java TlsSocketFactory 硬编码 keystore 口令**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-011），修复方向 source-wins。
+  - 交付与验收：TlsSocketFactory keystore 密码改从配置/环境读取，移除字面量 "croupier"；无默认口令；新增单测无配置时启动失败而非静默用硬编码；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-012 · P3 · 正确性 · Python SDK varint 解码无边界检查**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-012），修复方向 source-wins。
+  - 交付与验收：croupier/**init**.py varint 解码与切片加长度/边界校验，越界返回错误而非静默截断；新增畸形字节串单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-013 · P3 · 健壮性 · Go SDK 写错误丢弃**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-013），修复方向 source-wins。
+  - 交付与验收：tcp_client.go Write 错误不再丢弃（回传调用方或断连）；新增单测写失败可感知；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-014 · P3 · 健壮性 · C++ SDK send best-effort**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-014），修复方向 source-wins。
+  - 交付与验收：tcp_transport.cpp send 返回值/异常不再整体吞掉（至少日志）；移除 (void)send 裸调用；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-015 · P3 · 健壮性 · Java ServerHttpInvoker 吞 IllegalArgumentException**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-015），修复方向 source-wins。
+  - 交付与验收：捕获后记录日志/上抛，不再 ignored 静默；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-016 · P3 · 安全 · hostdriver 硬编码测试探针 token**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-016），修复方向 source-wins。
+  - 交付与验收：hostdriver 探针 secret 改从环境/配置注入，移除字面量 "hd-t0k3n-9f8e7d"；非测试路径不得含固定凭据；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-017 · P3 · 安全 · Dev/Tools tool.url 无 scheme 白名单**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-017），修复方向 source-wins。
+  - 交付与验收：Dev/Tools window.open/a href 走 safeExternalHref；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-018 · P3 · 安全 · compositeRuntime navigate window.open 缺 noopener**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-018），修复方向 source-wins。
+  - 交付与验收：compositeRuntime navigate 加 noopener 与 scheme 白名单（safeExternalHref）；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-019 · P3 · 安全 · Ops/Alerts 配置 URL 无 scheme 白名单**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-019），修复方向 source-wins。
+  - 交付与验收：配置 URL window.open 走 safeExternalHref；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-020 · P3 · 健壮性 · useRealtimeStream try/finally 无 catch**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-020），修复方向 source-wins。
+  - 交付与验收：JSON.parse/推送加 catch 处理并上报，finally 仅收尾不吞错；新增单测畸形消息不抛未捕获异常；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-021 · P3 · 测试 · TestMetricsCollector_StartReporting 负载 flake**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-021），修复方向 source-wins。
+  - 交付与验收：复跑稳定或加 t.Parallel 隔离/放宽超时归因环境性；记录到 CI 基线说明（非回归，勿当红豁免）；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-027 · P3 · 正确性 · devops hub 写超时 goroutine 泄漏**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-027），修复方向 source-wins。
+  - 交付与验收：hub.go write 超时路径取消/关闭阻塞写 goroutine（或改用带超时写原语）；done 通道超时路径读取；新增单测超时后 goroutine 数不增长；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-028 · P3 · 正确性 · mysql_pump flush 无 ctx.Done 阻塞**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-028），修复方向 source-wins。
+  - 交付与验收：mysql_pump out<- 加 select ctx.Done()（对齐 PG pump）；新增单测消费者停止后 Close 可解除阻塞；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-029 · P3 · 正确性 · server/agent 跨 lane handler 字段竞态（低概率）**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-029），修复方向 source-wins。
+  - 交付与验收：tcp_listener.go 与 tcp_local_listener.go 的 Handle 对 registered/agentID/sessionID 读改走 lane 内同步（或经 mux 保证 happens-before）；`go test -race` 相关用例绿；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-030 · P3 · 正确性 · externalplatform cache.Close 双关 panic**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-030），修复方向 source-wins。
+  - 交付与验收：cache.Close 加 sync.Once/closeOnce 幂等；新增双调 Close 单测不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-031 · P3 · 健壮性 · telemetry 每 exporter 每 span 无界 goroutine**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-031），修复方向 source-wins。
+  - 交付与验收：telemetry ExportSpans fan-out 加有界（semaphore/WaitGroup 上限）并处理错误；新增高 span 速率下 goroutine 有界单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+- [ ] **C-032 · P3 · 正确性 · mysql syncer.Close 错误丢弃**
+  - 依赖：—。
+  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-032），修复方向 source-wins。
+  - 交付与验收：mysql.go StartSyncGTID 失败与 Close 路径记录 syncer.Close 错误；新增单测 close 失败可见；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
