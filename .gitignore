@@ -241,3 +241,6 @@ web/**/*.jsx.map
 
 # agent supervisor runtime (log/state written at runtime, source in ops_supervisor_*.go)
 internal/app/agent/logs/
+
+# 编译产物：gameops-demo 示例二进制（勿提交）
+sdks/go/examples/gameops-demo/gameops-demo

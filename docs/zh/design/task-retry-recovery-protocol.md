@@ -1,83 +1,164 @@
----
-title: 异步任务重试与终态恢复协议
----
+# 异步任务重试与终态恢复协议
 
-# 异步任务重试与终态恢复协议（ARCH-014）
+> ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议
+>
+> 范围：sidecar 在途任务生命周期（`agents/sidecar/task_runner.go`
+> `TaskRunner`）、agent 上行事件传输（`internal/app/agent/upstream.go`
+> `ReportTaskEvent`）与服务端任务持久化（`internal/server/control_handler.go`
+> `handleTaskEvent`、`internal/tasks` `UpdateRunIfStatusNotIn`/`AppendEvent`、
+> `internal/model/task.go` `task_runs`/`task_events`）。定时任务触发路径
+> （`internal/tasks/scheduler`）与派发前落库失败（ARCH-026）不在本协议范围。
+>
+> 状态：**DECIDED**（2026-10-30）。D1–D5 已定：同 taskId 重复 Start 为幂等
+> no-op（不启动第二次执行）、事件投递为落库后 ACK 且有界重试、Agent 重启
+> 产出显式 **unknown** 结果态（绝不静默、非幂等函数绝不自动重试）、终态单调
+> （迟到事件不可回退）、平台幂等显式不等同游戏副作用去重。驱动 ARCH-015
+> （收口 TaskRunner 重复 Start 与事件重放/终态收敛）、ARCH-018（执行中断与
+> 停机演练）、ARCH-026。本文档不建立生产就绪。
+> 前置：ARCH-015、ARCH-018。
 
-> 2026-10-31 实现复核：在途重复 Start（D1）、终态有限重试（D2）与会话丢失/`unknown` 收割（D3）均已实现。2026-10-30 重新打开 ARCH-015 的「行状态与事件持久化不原子」缺口已闭合：Server 以单一事务（`RecordTaskEvent`）持久化 guard 状态更新与事件追加，事件写失败整体回滚状态更新，来源恢复后重试收敛该行，而非缺失事件仍被 ACK。watchdog（`timed_out` 收割器）ARCH-018 已随附；独立进程验收仍 NOT RUN。
+## 1. 问题
 
-**状态：** 已决策（2026-10-30）。实现由 ARCH-015（TaskRunner 重复 Start 约束与事件重放/终态收敛）与 ARCH-018（执行中断演练）承接。
+异步任务路径在故障后目前无法回答三个问题，且有一个概念混淆未被点明。证据在
+当前代码中。
 
-本简档定义异步 Agent 任务的协议语义——现状代码仅「碰巧」如此，并非有意实现。它不改动 wire 契约：复用 `task_runs` / `task_events`，不新增表。
+### 1.1 同 taskId 重复 Start 破坏在途表
 
-## 问题
+`TaskRunner.Start`（`agents/sidecar/task_runner.go:67`）无条件写
+`r.tasks[taskID] = cancel`。同一 `taskId` 两次并发 `Start` 因此会：
 
-围绕在途 Agent 任务的三处缺口会让 task_runs 行的状态与游戏真实结果矛盾，或让同一任务 ID 的两个执行交错：
+- **覆盖**：第二次注册替换第一次任务的 `cancel` 函数，第一次任务不可取消。
+- **完成即删**：每个 goroutine 的 `defer`（`task_runner.go:108`）执行
+  `delete(r.tasks, taskID)`。_第一个_ goroutine 结束时删掉的是现在属于
+  *第二个*任务的表项，使第二个任务不可取消并泄漏其槽位（它自己的完成
+  `delete` 变成 no-op）。
+- **竞写同一行**：两个任务为同一 `task_runs` 行上报事件，一个任务的终态事件
+  会经 `UpdateRunIfStatusNotIn`（`control_handler.go:969`）挡住另一个任务的
+  `started`。
 
-1. **重复 Start 无约束。** `TaskRunner.Start`（agents/sidecar/task_runner.go）无条件写 `taskID → cancel` 映射项。对已在途 ID 的第二次 Start 覆盖旧项，先结束协程的 deferred `delete` 会删掉第二次执行的跟踪。更糟的是 `Cancel` 在执行器尚未退出时即急删映射项，其后同 ID 的 Start 插入新项，又被旧协程清理删除（即「旧清理不得删除同 ID 新任务」风险）。后果：任务不可取消、计数失真，最坏同 ID 两个执行并发。
-2. **事件 fire-and-forget。** `run` 经 `ReportTaskEvent` 上报 started/completed/failed/cancelled 并忽略返回错误（`_ = r.report(...)`）。传输失败静默丢失终态事件，行永远停在 `running`。
-3. **Agent 会话丢失让行搁浅。** Agent 会话被移除（internal/server/agent_session.go）时无人清理该 agent 的非终态 task_runs；行可无限停在 `running` / `cancel_requested`，而游戏侧效果可能已发生或未发生。
+没有任何任务身份守卫：无法区分合法新任务与同一 `taskId` 的重复派发。
 
-共同陷阱是**把页面执行幂等当成游戏副作用去重**。页面幂等记录只证明控制侧页面执行过一次，不证明游戏自身函数调用完成。任务恢复因此必须把「结果未知」作为独立、可运维解析的状态浮出，且不得静默重跑。
+### 1.2 事件投递是 fire-and-forget
 
-## 决策
+`TaskRunner.run` 上报事件时丢弃错误（`_ = r.report(...)`，
+`task_runner.go:114/130/140`）。发送失败（agent→server 传输断开）静默丢事件。
+最坏情况：任务**已完成**，`completed` 事件发送失败，`task_runs` 行永远停在
+`running`——已完成任务带永久未知结果且无恢复。
 
-### D1 — 同 taskId 重复 Start：在途时幂等 no-op
+### 1.3 Agent 重启令运行中任务卡死
 
-- 对本 agent **已在途** 的任务 ID 的 Start：确认（返回既有任务 ID），不启动第二次执行，不重复上报 `started`。同一任务 ID 永不产生交错事件流。
-- 任务跟踪改为**代际标记**：映射存 `taskID → {generation, cancel}`。`run` 的 deferred 清理**仅在存储代际仍等于自身**时删项，因此旧协程收尾永不删除同 ID 新任务的项。
-- `Cancel` **不再急删映射项**；项存活到执行器真正返回（清理是唯一删除点，且带代际校验）。取消收尾期到达的 Start 视为在途 no-op——正确，因为旧执行未退出时的第二次执行会重复施加副作用。
-- 理由：Server 是任务 ID 的唯一合法来源（派发先持久化 task_runs——ARCH-026——再发 StartTask）。重复 Start 要么是传输重投、要么是运维强制重派；两种情况「旧执行跑一次、确认重复」是副作用安全答案。重跑任务用**新任务 ID** 表达（运维重执行创建新行），绝不同 ID 重启。
-- 跨重启重复不在 agent 内存作用域内：重启清空映射，重启后重投的 Start 会执行。这是如实浮出的限制，不是游戏侧去重的声明。
+重启后内存 `tasks` 表丢失。留在 `running` 的 `task_runs` 行永远收不到终态
+事件，卡死且无法知道游戏副作用是否执行。无任何对账。
 
-### D2 — 事件投递：Server 响应即 ACK；终态事件带重试
+### 1.4 页面幂等不是游戏副作用去重
 
-- **Server 的 `handleTaskEvent` 响应即 ACK。** Server 响应前经 `RecordTaskEvent` 持久化——guard 状态更新与事件追加跑在**单一事务**内，事件写失败整体回滚状态更新，任何部分 `task_runs`/`task_events` 状态都不会被 ACK（R30-03 / ARCH-015）。终态守卫丢弃（终态后的迟到事件）同样成功返回且不落记录——是刻意的 no-op，agent **不得**重试。此拆分已存在，本设计将其钉为契约。
-- **终态事件（completed/failed/cancelled）带重试直至 ACK**，有界（有界次数 + 有界内存），带退避。任务 `run` 协程阻塞在终态事件发送上，因此上游视角下任务直到 Server 持久化（或刻意丢弃）终态事件才算结束。
-- **非终态事件（started/progress/log）尽力而为**：传输压力下 progress 可合并、log 可丢弃。丢失不影响收敛——终态事件仍会落地（或 D3 收割器给行定界）。
-- 同一任务 ID 内事件由单个 `run` 协程顺序上报；Server 终态守卫保证 task_events 权威（终态后无事件）。
-- **明确非目标：** 本迭代不做 agent 侧持久事件日志与跨重启重放。跨重启恢复是 D3 的未知态收敛，不是重放到终态。
+UI/API 的 `idempotency-key` 只在平台层去重任务*记录*创建。它不说明游戏函数
+副作用是否执行过一次——游戏已应用效果但平台尚未记录完成时崩溃，与「从未
+执行」在没有游戏侧键的情况下不可区分。
 
-### D3 — Agent 会话丢失 / 静默运行 → `unknown`；不自动重试
+## 2. 决策
 
-- 新增任务状态 **`unknown`**（既有 `task_runs.status` 的新字符串值；无 schema 变更）。含义：_执行可能已完成、失败或从未开始；游戏侧结果未确立。_
-- **触发：** Agent 会话被移除（注销 / 心跳超时 / TCP 关闭）时，Server 将该 agent 的非终态 task_runs 批量转为 `unknown`（有界批量，消息「agent 会话丢失；执行状态未知」）。
-- **软终态：** `unknown` 停止派发侧活动集跟踪与 SSE 等待者，但**同 agent 重连会话的迟到终态事件仍可将行收敛到真实终态**（agent 可能扛过传输抖动；迟到事件是更多证据）。这与 `TerminalStatuses`（succeeded/failed/cancelled/timed_out，迟到事件丢弃）相区分。
-- **不自动重派 `unknown` 任务。** 重跑可能重复施加游戏副作用；重执行是运维决策（新任务 ID）。`unknown` 在 UI 中作为显式状态浮出，而非失败。
-- **看门狗兜底：** 与会话丢失无关，收割器把超过截止时间（`started_at`/`updated_at` 超出调用预算）仍无事件的任务转为 `timed_out`。`timed_out` 是终态且含义为*无进一步证据*，非*游戏失败*。（ARCH-018 已随附；此处钉住语义。）
+### D1 · 同 taskId 重复 Start 为幂等 no-op
 
-## 边界：页面幂等 ≠ 游戏副作用去重
+- **任务身份**：`taskId` 是平台级任务身份。服务端生成它并在**派发前**创建
+  `task_runs` 行（`task_id` 唯一索引，`internal/model/task.go:10`）。一个
+  `taskId` ⇒ 一行 `task_runs` ⇒ 至多一次预期执行。
+- **重复 Start**（对已在运行的 `taskId` 再次 `Start`）：**不启动第二个
+  goroutine、不覆盖 `cancel` 注册。** 调用返回既有注册（幂等 no-op）并记
+  warning。重复是派发/重试产物（或重注册竞争），不是新任务。
+- **所有权守卫**（供 ARCH-015）：每个在途表项恰好由一个 goroutine 拥有。
+  结束的 goroutine 只删除*自己的*表项，绝不删除同名新任务的——用每 taskId
+  代数/引用校验实现，使旧 goroutine 清理不能删掉同名新任务的槽位（修复
+  §1.1 的完成即删）。
 
-页面执行幂等记录去重的是**控制侧页面执行**。它**不是**游戏函数恰好执行一次的凭据。任务恢复因此：
+### D2 · 事件投递为落库后 ACK 且有界重试
 
-- 绝不引用页面幂等记录作为自动重跑任务的依据；
-- 把 `unknown` / `timed_out` 作为运维可解析状态浮出——重跑前须经游戏侧证据（任务状态查询、游戏侧回执或人工核查）确立游戏结果；
-- 任何重跑用**新任务 ID**，使每次重跑都是独立 task_runs 行与独立事件流。
+- **持久化点**：服务端仅在事件落库（`handleTaskEvent` → 状态更新 +
+  `AppendEvent` 到 `task_events`）后才 ACK。sidecar 视服务端 ACK 成功为已投递。
+- **发送失败**：sidecar 不得静默丢弃（§1.2）。有界退避重试；窗口内无法投递则
+  转恢复路径（D3）并上报失败。已完成任务的完成事件绝不处于「未投递且被忽略」。
+- **重放/排序**：事件带每 taskId 单调 `seq`（`task_events` `(task_id, seq)`
+  索引）。已投递事件 `seq` ≤ 最后持久化 `seq` 则幂等跳过；按 `seq` 顺序应用。
 
-## 实现映射（供 ARCH-015 / ARCH-018）
+### D3 · Agent 重启产出显式 "unknown" 结果，绝不静默
 
-| 协议点                         | 代码接缝                                                                                                                                                                                                          |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 代际标记跟踪、不急删 cancel | `agents/sidecar/task_runner.go`（`Start`、`Cancel`、`run` 清理、映射类型）                                                                                                                                        |
-| D2 终态事件重试至 ACK          | `agents/sidecar/task_runner.go`（`run` 终态上报）；agent 上报器（`internal/app/agent/upstream.go`）；server `TaskStore.RecordTaskEvent` + `TaskRunModel.RecordTaskEventTransactional`（单一事务持久化，ARCH-015） |
-| D3 会话丢失 → `unknown` 收割   | server agent 会话移除路径；任务状态谓词（`internal/tasks/types.go`）                                                                                                                                              |
-| D3 看门狗 → `timed_out`        | server ControlService 后台循环（`runTaskWatchdog`）；`TaskRunModel.ReapStale`；`tasks.Store.ReapStale`；预算 `taskLog.reaperTimeout`（默认 5m）——ARCH-018 已随附                                                  |
-| 边界：重跑 = 新任务 ID         | 派发 / 任务创建路径（已是现状；保持）                                                                                                                                                                             |
+- Agent（重）启动后在途表丢失；平台无法知道 `running` 任务的游戏副作用是否
+  执行。**平台不静默重试、也不把行留在卡死态。**
+- **恢复**：agent 重注册时，服务端把仍 `running` 的 `task_runs` 对账为一级
+  **`unknown`** 态（独立、终态邻近的状态，意为「平台无法判定游戏副作用是否
+  执行」）并追加恢复事件。这是暴露给人工对账，不是隐藏。
+- **非幂等函数不自动重试**：自动重派可能重复执行一个可能已生效的游戏副作用。
+  仅对游戏显式声明可安全重跑的函数允许自动重试（D5）。
 
-## 已知边界
+### D4 · 终态单调；取消不回退终态
 
-- 跨重启重复执行未防（D1）；agent 无持久本地日志（D2）。两者都是如实浮出的限制，不隐藏。
-- `unknown` 是新状态值；UI/类型面与任务查询已渲染之（ARCH-015 实现：TaskRunner D1/D2、server 会话丢失收割 D3、web `unknown` 状态）。
-- D3 看门狗 `timed_out` 收割器 **ARCH-018 已随附**；无事件超截止行自动收敛 `timed_out`（预算 `taskLog.reaperTimeout`，默认 5m）。
-- 协议不确立游戏侧 exactly-once 语义；需游戏侧回执/载荷内幂等键（GAME-010 相邻，此处越界）。
+- 终态（`succeeded`/`failed`/`cancelled`/`timed_out`/`unknown`）不可再变。迟到
+  或重复事件（重启后旧 goroutine、重放）不可回退——现有
+  `UpdateRunIfStatusNotIn` 守卫扩展到含 `unknown`。
+- **取消是请求，不是保证**：`cancel_requested` 不是终态。已执行副作用的任务
+  在取消请求后仍可上报 `completed`（副作用在取消生效前已应用）；服务端接受
+  该 `completed` 且不回退成 `cancelled`。「取消不回退终态」：取消绝不改写
+  已终态的行。
 
-## 实现状态（ARCH-015，2026-10-31）
+### D5 · 平台幂等不等同游戏副作用去重
 
-- **行状态与事件持久化原子化已随附（R30-03）。** `handleTaskEvent` 不再走 `UpdateRunIfStatusNotIn` + `AppendEvent` 两段式；改为调用 `tasks.Store.RecordTaskEvent`，委托 `TaskRunModel.RecordTaskEventTransactional`：单一数据库事务内先执行带 guard 的 `task_runs` 更新，再计算 `task_events` 下一 seq 并追加事件。任一失败整体回滚——行不可能在事件行缺失时变成终态，来源恢复后重投的终态事件可收敛该行（真正迟到的终态后事件仍被 guard 拦截）。证据：`internal/server/control_handler_test.go` `TestControlService_HandleTaskEvent_RealStore_NoPartialWrite`（事件表被删 → 报错且行保持 `queued`；表恢复 → 重试补写 seq=1 并收敛 `failed`）、`internal/model/task_model_test.go` `TestTaskRunModel_RecordTaskEventTransactional` / `_RollsBackOnAppendFailure`。
-- 边界不变：guard 丢弃契约（终态后迟到事件 → ACK 且不落记录）保留；跨重启重复执行与游戏侧 exactly-once 仍越界（GAME-010）。
+- 平台 `idempotency-key` 在 API/页面层去重 **task_runs 记录创建**（每键至多一
+  行）。它**不是**游戏副作用执行一次的保证。
+- 平台绝不把自己的幂等键注入游戏函数自身的去重机制，也绝不从它推导游戏语义。
+  必须防重复应用的函数由游戏实现**自己的**幂等（游戏自定义唯一键/订单号）；
+  平台透传调用方键但不执行游戏去重。
+- 恢复因此必须保守：仅对游戏声明为幂等的函数自动重试；否则暴露 `unknown` 供
+  人工解决（D3）。
 
-## 实现状态（ARCH-018，2026-10-30）
+## 3. 评审表
 
-- **看门狗 `timed_out` 收割器已随附。** `ControlService.runTaskWatchdog` 跑在后台 ticker（`budget/2` 钳位 1–30s），经 `tasks.Store.ReapStale` 调 `TaskRunModel.ReapStale`：`UPDATE task_runs SET status='timed_out', message='no event past watchdog budget; execution state unknown', finished_at=now WHERE status IN (queued,dispatching,running,cancel_requested) AND updated_at < now - budget`。预算为 `taskLog.reaperTimeout`（duration 字符串，默认 5m）；`timed_out` 是终态、不再被选。
-- **执行中断故障钻机**（`cmd/server/fault_drill_r27_test.go`，真实 `runServer` boot + `e2e-agent-probe` 子进程）逐项记录：断链（杀探针）→ running 收敛 `unknown` + 新请求 503；drain → 新请求 503 且在途任务完成，undrain 恢复派发；看门狗（`-hang` 探针：静默会话、无断连收割）→ 预算内 `timed_out` + `finished_at` 置位，新请求仍接受；SIGTERM → 优雅停机返回 nil、在途行 `unknown`、HTTP 监听释放。
-- **边界诚实：** 探针的任务/副作用计数是**测试 fixture，非游戏恢复凭据**。钻机只断言平台收敛（状态机终态/未知态/拒绝语义与资源释放），不断言游戏侧 exactly-once（GAME-010 仍 NOT RUN）。
+| #   | 场景（当前代码）                           | 采用 D1–D5 后                                                                  |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------ |
+| 1   | 同一 `taskId` 两次 `Start`                 | 第二次为幂等 no-op；无第二 goroutine；cancel 注册保留（D1）                    |
+| 2   | 第一个 goroutine 结束而同名任务仍在运行    | 旧清理只删自己的表项；新任务保持可取消（D1）                                   |
+| 3   | `completed` 事件发送失败                   | 有界重试；仍无法投递则转恢复路径（D3）；行不静默卡死（D2）                     |
+| 4   | 任务中途 Agent 重启                        | `task_runs` `running` → 重注册时 `unknown`，追加恢复事件，暴露供人工复核（D3） |
+| 5   | 终态事件后迟到/重复事件                    | 按 `seq` 幂等跳过；终态不回退（D2/D4）                                         |
+| 6   | 对副作用已生效的任务发取消请求             | 接受 `completed`；不回退 `cancelled`；`cancel_requested` 非终态（D4）          |
+| 7   | 同一 `idempotency-key` 提交两次（UI 双击） | 至多一行 `task_runs`；除非游戏幂等否则副作用可能双应用（D5）                   |
+
+## 4. 边界诚实
+
+- **unknown 是诚实，不是谎言**：agent 崩溃后平台确实无法判定游戏副作用是否
+  执行。`unknown` 如实陈述；它不是隐藏重试或伪造结果。
+- **每 agent，非跨 agent**：`taskId` 属于收到它的 agent；任务无跨 agent 对账，
+  也无跨 agent 交接的 at-least-once/exactly-once 保证（那需要游戏级幂等，D5）。
+- **服务端持久化是耐久下限**：服务端 DB 宕机时任务事件无法落库/ACK；该路径与
+  派发前落库失败为 ARCH-026，不在本协议。
+- **重试/重派有界且人工**：协议定义任务*如何*恢复（unknown + 暴露），不定义
+  *自动*重派。非幂等函数的重派是产品决策（游戏声明幂等，D5）。
+- 不声称生产就绪：协议是 ARCH-015 实现、ARCH-018 故障演练的契约；演练跑
+  fixture 而非真实游戏（真实游戏验证为 GAME-010）。
+
+## 5. 实现状态（ARCH-015）
+
+ARCH-015 已实现 D1、D2（sidecar）与 D4（服务端）：
+
+- **D1**：`TaskRunner.Start` 对已在运行的 `taskId` 为幂等 no-op（不启第二
+  goroutine、不覆盖 cancel 注册）；在途表项携带每 `taskId` 代数
+  （`taskSlot.gen`），结束的 goroutine 只删除自己的表项，旧协程清理不能删除
+  同名新任务的槽位。
+- **D2**：`TaskRunner` 以有界指数退避投递生命周期事件
+  （`SetEventRetryPolicy`）；窗口耗尽以 warning 暴露，绝不静默丢弃。ACK 仍在
+  服务端落库之后。
+- **D4**：`StatusUnknown` 为 `internal/tasks/types.go` 的终态
+  （`IsTerminalStatus`/`TerminalStatuses`），`unknown` 行由此获得与其它终态
+  相同的 `UpdateRunIfStatusNotIn` 迟到事件守卫。`cancel_requested` 保持非终
+  态：待取消行上的 `completed` 事件不被拦（「取消不回退终态」）。
+
+**D3 的触发已落地（ARCH-018，2026-10-30）**，无需 wire 改动：agent 进程启动
+随机生成一次 `bootId`，经既有 `RegisterRequest.labels` map 上报
+（`internal/common/labels.BootID`）。server 在重注册时比较上次会话与本次的
+`bootId`：同值 = 断线重连（不对账存活任务）；不同值且两侧非空 = 进程重启
+（把该 agent 在途 `dispatching`/`running` 的 `task_runs` 对账为 `unknown` 并
+追加 `recovery` 事件）；任一侧为空 = 未声明重启身份（不对账，诚实边界——
+绝不误标重连 agent 的存活任务）。
+
+故障演练证据：`docs/review/arch018-fault-drill-2026-10-30.md`（断链+重启 →
+`unknown` 走真实 TCP 帧、重连保持 `running`、终态守卫、drain/SIGTERM 结果、
+仅 fixture 的边界）。

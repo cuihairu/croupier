@@ -1,83 +1,201 @@
----
-title: Async task retry and terminal-state recovery protocol
----
+# Async Task Retry & Terminal-State Recovery Protocol
 
-# Async task retry and terminal-state recovery protocol (ARCH-014)
+> ARCH-014 · P1 · 方案决策 · 异步任务重试与终态恢复协议
+>
+> Scope: the sidecar in-flight task lifecycle (`agents/sidecar/task_runner.go`
+> `TaskRunner`), the agent upstream event transport
+> (`internal/app/agent/upstream.go` `ReportTaskEvent`), and the server-side task
+> persistence (`internal/server/control_handler.go` `handleTaskEvent`,
+> `internal/tasks` `UpdateRunIfStatusNotIn`/`AppendEvent`, `internal/model/task.go`
+> `task_runs`/`task_events`). The scheduled-task trigger path
+> (`internal/tasks/scheduler`) and the pre-dispatch persist failure (ARCH-026)
+> are out of scope here.
+>
+> Status: **DECIDED** (2026-10-30). D1–D5 settled: same-taskId duplicate Start is
+> an idempotent no-op (not a second execution), event delivery is ACK-after-persist
+> with bounded retry, agent restart yields an explicit **unknown** result state
+> (never silent, never auto-retried for non-idempotent functions), terminal state
+> is monotonic (late events cannot regress it), and platform idempotency is
+> explicitly not game side-effect deduplication. Drives ARCH-015 (收口 TaskRunner
+> 重复 Start 与事件重放/终态收敛), ARCH-018 (执行中断与停机演练), ARCH-026.
+> This document does not establish production readiness.
+> Prerequisite for: ARCH-015, ARCH-018.
 
-> Implementation recheck, 2026-10-31: In-flight Start deduplication (D1), bounded terminal retries (D2) and the session-loss/`unknown` reaping (D3) exist. The run-state + event persistence gap that reopened ARCH-015 on 2026-10-30 is now closed: the Server persists the guarded status update and the event append in a single transaction (`RecordTaskEvent`), so a failed event write rolls back the status update and a retry after source recovery converges the row instead of being ACKed without the missing event. The watchdog (`timed_out` reaper) shipped in ARCH-018; independent-process acceptance remains NOT RUN.
+## 1. Problem
 
-**Status:** decided (2026-10-30). Implementation is tracked by ARCH-015 (TaskRunner duplicate-Start constraint and event replay / terminal convergence) and ARCH-018 (execution-interruption drill).
+The async task path currently cannot answer three questions after a fault, and
+one conceptual confusion is unstated. Evidence is in the current code.
 
-This brief defines the protocol semantics for asynchronous agent tasks that the current code only implements by accident. It does not change the wire contract: `task_runs` / `task_events` are reused as-is; no new table is required.
+### 1.1 Same taskId repeated Start corrupts the in-flight map
 
-## Problem
+`TaskRunner.Start` (`agents/sidecar/task_runner.go:67`) writes
+`r.tasks[taskID] = cancel` unconditionally. Two concurrent `Start` calls with the
+same `taskId` therefore:
 
-Three gaps around in-flight agent tasks leave the task_runs row in a state that contradicts the game's real outcome, or let two executions of one task ID interleave:
+- **Overwrite**: the second registration replaces the first task's `cancel`
+  function in the map, so the first task becomes uncancellable.
+- **Delete-on-finish**: each goroutine's `defer` (`task_runner.go:108`) runs
+  `delete(r.tasks, taskID)`. When the _first_ goroutine finishes it deletes the
+  map entry that now belongs to the _second_ task, making the second task
+  uncancellable and leaking its slot (its own finish `delete` is then a no-op).
+- **Races the same row**: both tasks report events for the same `task_runs`
+  row, so a terminal event from one can block the other's `started` via
+  `UpdateRunIfStatusNotIn` (`control_handler.go:969`).
 
-1. **Duplicate Start is unchecked.** `TaskRunner.Start` (agents/sidecar/task_runner.go) stores a `taskID → cancel` map entry unconditionally. A second Start for an ID that is already in-flight overwrites the entry, and the first finisher's deferred `delete` removes the second execution's tracking. Worse, `Cancel` deletes the entry eagerly while the executor is still winding down, so a subsequent same-ID Start inserts a new entry that the old goroutine's cleanup then deletes (the "old cleanup must not delete a new same-ID task" hazard). The result is un-cancellable, uncounted tasks and, in the worst case, two concurrent executions of one task ID.
-2. **Events are fire-and-forget.** `run` reports started/completed/failed/cancelled through `ReportTaskEvent` and ignores the returned error (`_ = r.report(...)`). A transport failure silently drops the terminal event, leaving the row at `running` forever.
-3. **Agent session loss strands the row.** When an agent session is removed (internal/server/agent_session.go), nothing reaps that agent's non-terminal task_runs; a row can sit in `running` / `cancel_requested` indefinitely, with the game-side effect either applied or not.
+There is no task-identity guard: nothing distinguishes a legitimate new task
+from a duplicate dispatch of the same `taskId`.
 
-The shared trap is treating _page execution idempotency_ as _game side-effect deduplication_. A page idempotency record proves the page ran once on the control side; it says nothing about whether the game's own function call completed. Task recovery must therefore surface "result unknown" as a distinct, operator-resolvable state and must not silently re-run.
+### 1.2 Event delivery is fire-and-forget
 
-## Decisions
+`TaskRunner.run` reports events with the error discarded
+(`_ = r.report(...)`, `task_runner.go:114/130/140`). A send failure (agent→server
+transport down) silently drops the event. The worst case: the task **completed**,
+the `completed` event failed to send, and the `task_runs` row stays `running`
+forever — a completed task with a permanently unknown result and no recovery.
 
-### D1 — Same taskId duplicate Start: idempotent no-op while in-flight
+### 1.3 Agent restart leaves running tasks stuck
 
-- A Start for a task ID that is **already in-flight at this agent** is acknowledged (the existing task ID is returned) without launching a second execution and without reporting a second `started` event. No interleaved event stream is ever produced for one task ID.
-- Task tracking becomes **generation-tagged**: the map stores `taskID → {generation, cancel}`. `run`'s deferred cleanup deletes the entry **only if the stored generation still matches its own**, so an old goroutine winding down can never delete a newer same-ID task's entry.
-- `Cancel` **stops deleting the entry eagerly**; the entry lives until the executor actually returns (cleanup is the single deletion point, generation-checked). A Start arriving during the cancel wind-down sees the ID as still in-flight and is a no-op — correct, because a second execution while the first has not exited would double-apply side effects.
-- Rationale: the Server is the sole legitimate source of task IDs (dispatch persists a `task_runs` row — ARCH-026 — then sends StartTask). A duplicate Start is either transport re-delivery or an operator-initiated re-dispatch; in both cases running the old execution once and acknowledging the duplicate is the side-effect-safe answer. Re-running a task is expressed with a **new task ID** (operator re-execute creates a new row), never a same-ID restart.
-- Cross-restart duplicates are explicitly out of agent-memory scope: a restart clears the map, so a re-delivered Start after restart will execute. This is a honest limitation surfaced to the operator, not a claim of game-side dedup.
+The in-memory `tasks` map is lost on restart. A `task_runs` row left in `running`
+never receives a terminal event, so it is stuck with no way to know whether the
+game side effect executed. Nothing reconciles it.
 
-### D2 — Event delivery: the Server response is the ACK; terminal events are retried
+### 1.4 Page idempotency is not game side-effect deduplication
 
-- **The Server's `handleTaskEvent` response is the ACK.** The Server persists before responding via `RecordTaskEvent` — the guarded status update and the event append run in a **single transaction**, so a failed event write rolls back the status update and no partial `task_runs`/`task_events` state is ever ACKed (R30-03 / ARCH-015). The terminal-guard drop (a late event after a terminal status) also responds success with no record — an intentional no-op that the agent must **not** retry. This split already exists; the design pins it as the contract.
-- **Terminal events (completed/failed/cancelled) are delivered with retry-until-ACK**, bounded (bounded attempts + bounded memory), with backoff. The task's `run` goroutine blocks on the terminal event send, so the task is not considered finished upstream until the Server has durably recorded (or intentionally dropped) the terminal event.
-- **Non-terminal events (started/progress/log) are best-effort** under transport pressure: progress may coalesce, logs may be dropped. Losing them does not affect convergence — the terminal event still lands (or D3's reaper bounds the row).
-- Within a task ID, events are reported sequentially by the single `run` goroutine; the Server's terminal guard keeps `task_events` authoritative (no event after terminal).
-- **Explicit non-goal:** no durable agent-side event journal and no cross-restart replay in this iteration. Cross-restart recovery is D3's unknown-state convergence, not replay-to-terminal.
+The UI/API `idempotency-key` dedups task-_record_ creation at the platform
+layer. It says nothing about whether the game function's side effect ran once —
+a crash after the game applied the effect but before the platform recorded
+completion is indistinguishable from "never ran" without a game-side key.
 
-### D3 — Agent session loss / silent run → `unknown`; no auto-retry
+## 2. Decisions
 
-- Add a task status **`unknown`** (a new string value on the existing `task_runs.status`; no schema change). It means: _the execution may have completed, failed, or never started; the game-side outcome is not established._
-- **Trigger:** when an agent session is removed (deregister / heartbeat timeout / TCP close), the Server transitions that agent's non-terminal task_runs rows to `unknown` (bounded batch, message "agent session lost; execution state unknown").
-- **Soft-terminal:** `unknown` stops dispatch-side active-set tracking and SSE waiters, but a **late terminal event from the same agent's reconnected session may still converge the row** to its true terminal state (the agent may have survived a transport blip; the late event is strictly more evidence). This is distinct from `TerminalStatuses` (succeeded/failed/cancelled/timed_out), where late events are dropped.
-- **No automatic re-dispatch of `unknown` tasks.** Re-running may double-apply the game side effect; re-execute is an operator decision (new task ID). `unknown` is surfaced in the UI as an explicit state, not a failure.
-- **Watchdog backstop:** independent of session loss, a reaper transitions tasks that have produced no event past a deadline (`started_at`/`updated_at` beyond the invoke budget) to `timed_out`. `timed_out` is terminal and means _no further evidence_, not _failed at the game_. (Shipped in ARCH-018; the semantics are fixed here.)
+### D1 · Same taskId duplicate Start is an idempotent no-op
 
-## Boundary: page idempotency is not game side-effect dedup
+- **Task identity**: `taskId` is the platform-level task identity. The server
+  generates it and creates the `task_runs` row (unique index on `task_id`,
+  `internal/model/task.go:10`) **before** dispatch. One `taskId` ⇒ one
+  `task_runs` row ⇒ at most one intended execution.
+- **Duplicate Start** (a second `Start` for a `taskId` already running): **do not
+  start a second goroutine and do not overwrite the `cancel` registration.** The
+  call returns the existing registration (idempotent no-op) and logs a warning.
+  A duplicate is a dispatch/retry artifact (or a re-registration race), not a new
+  task.
+- **Ownership guard** (for ARCH-015): each in-flight entry is owned by exactly
+  one goroutine. A finishing goroutine removes only its _own_ entry, never a
+  replacement's — implement with a per-taskId generation/reference check so the
+  old goroutine's cleanup cannot delete a same-ID newer task's slot (fixes
+  §1.1's delete-on-finish).
 
-The page-execution idempotency record dedupes **page execution on the control side**. It is **not** evidence that the game function ran exactly once. Task recovery therefore:
+### D2 · Event delivery is ACK-after-persist with bounded retry
 
-- never cites the page idempotency record as justification to auto-rerun a task;
-- surfaces `unknown` / `timed_out` as operator-resolvable states where the game outcome must be established via game-side evidence (a task-status query, a game-side receipt, or a manual check) before any re-run;
-- requires a **new task ID** for any re-run, so each re-run is a distinct `task_runs` row and a distinct event stream.
+- **Durability point**: the server ACKs a task event only after it is persisted
+  (`handleTaskEvent` → status update + `AppendEvent` to `task_events`). The
+  sidecar treats a successful server ACK as delivered.
+- **Send failure**: the sidecar must not silently drop (§1.2). It retries with
+  bounded backoff; if it cannot deliver within the window it transitions to the
+  recovery path (D3) and reports the failure. A task that completed is never left
+  with its completion undelivered and ignored.
+- **Replay/ordering**: events carry a monotonic `seq` per `taskId`
+  (`task_events` `(task_id, seq)` index). A delivered event with `seq` ≤ the
+  last persisted `seq` is idempotent-skipped; events are applied in `seq` order.
 
-## Implementation mapping (for ARCH-015 / ARCH-018)
+### D3 · Agent restart yields an explicit "unknown" result, never silent
 
-| Protocol point                                        | Code seam                                                                                                                                                                                                                           |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 generation-tagged tracking, no eager cancel delete | `agents/sidecar/task_runner.go` (`Start`, `Cancel`, `run` cleanup, map type)                                                                                                                                                        |
-| D2 terminal-event retry-until-ACK                     | `agents/sidecar/task_runner.go` (`run` terminal report); agent reporter (`internal/app/agent/upstream.go`); server `TaskStore.RecordTaskEvent` + `TaskRunModel.RecordTaskEventTransactional` (single-transaction persist, ARCH-015) |
-| D3 session-loss → `unknown` reaping                   | server agent-session removal path; task status predicates (`internal/tasks/types.go`)                                                                                                                                               |
-| D3 watchdog → `timed_out`                             | server ControlService background loop (`runTaskWatchdog`); `TaskRunModel.ReapStale`; `tasks.Store.ReapStale`; budget `taskLog.reaperTimeout` (default 5m) — shipped in ARCH-018                                                     |
-| Boundary: re-run = new task ID                        | dispatch / task create path (already the case; keep it)                                                                                                                                                                             |
+- On agent (re)start the in-flight map is lost; the platform cannot know whether
+  a `running` task's game side effect executed. **The platform does not silently
+  retry or leave the row stuck.**
+- **Recovery**: on agent re-registration, the server reconciles `task_runs` still
+  `running` for that agent into a first-class **`unknown`** state (a distinct,
+  terminal-adjacent status meaning "the platform cannot determine whether the
+  game side effect ran") and appends a recovery event. This is surfaced for
+  manual reconciliation, not hidden.
+- **No auto-retry** for non-idempotent functions: auto-redispatch could duplicate
+  a game side effect that may already have executed. Auto-retry is allowed only
+  for functions the game explicitly declares safe to re-run (D5).
 
-## Known boundaries
+### D4 · Terminal state is monotonic; cancel does not regress it
 
-- Cross-restart duplicate execution is not prevented (D1); the agent has no durable local journal (D2). Both are honest limitations surfaced to the operator, not hidden.
-- `unknown` is a new status value; UI/type surfaces and the task query render it (implemented in ARCH-015: TaskRunner D1/D2, server session-loss reaping D3, web `unknown` status).
-- The D3 watchdog `timed_out` reaper **shipped in ARCH-018**; no-event-past-deadline rows converge to `timed_out` automatically (budget `taskLog.reaperTimeout`, default 5m).
-- The protocol does not establish game-side exactly-once semantics; that requires game-provided receipts / idempotency keys in the payload (GAME-010 adjacent, out of scope here).
+- A terminal status (`succeeded`/`failed`/`cancelled`/`timed_out`/`unknown`) is
+  final. A late or duplicate event (old goroutine after restart, replay) must not
+  regress it — the existing `UpdateRunIfStatusNotIn` guard extends to include
+  `unknown`.
+- **Cancel is a request, not a guarantee**: `cancel_requested` is not terminal. A
+  task that already executed its side effect may still report `completed` after a
+  cancel request (the game applied the effect before cancellation took effect);
+  the server accepts that `completed` event and does not revert it to `cancelled`.
+  "取消不回退终态": cancellation never rewrites an already-terminal row.
 
-## Implementation status (ARCH-015, 2026-10-31)
+### D5 · Platform idempotency is not game side-effect deduplication
 
-- **Atomic run-state + event persistence shipped (R30-03).** `handleTaskEvent` no longer performs a two-step `UpdateRunIfStatusNotIn` + `AppendEvent`; it calls `tasks.Store.RecordTaskEvent`, which delegates to `TaskRunModel.RecordTaskEventTransactional`: one database transaction runs the guarded `task_runs` update, then computes the next `task_events` seq and appends the event. Any failure rolls the whole transaction back — the row cannot become terminal while its event row is missing, and a re-delivered terminal event after source recovery converges the row (guard still blocks genuinely late events after a terminal status). Evidence: `internal/server/control_handler_test.go` `TestControlService_HandleTaskEvent_RealStore_NoPartialWrite` (event table dropped → error, run stays `queued`; table restored → retry appends seq=1 and converges `failed`), `internal/model/task_model_test.go` `TestTaskRunModel_RecordTaskEventTransactional` / `_RollsBackOnAppendFailure`.
-- Boundary unchanged: the guard-drop contract (late event after terminal → ACK without record) is preserved; cross-restart duplicate execution and game-side exactly-once remain out of scope (GAME-010).
+- The platform `idempotency-key` dedups **task_runs record creation** at the
+  API/page layer (at most one row per key). It is **not** a guarantee the game
+  side effect ran once.
+- The platform never injects its idempotency key into the game function's own
+  dedup mechanism, and never derives game semantics from it. A game function that
+  must not double-apply implements its **own** idempotency (game-defined unique
+  key / order id); the platform passes the caller's key through but does not
+  enforce game dedup.
+- Recovery must therefore be conservative: auto-retry only for functions the game
+  declares idempotent; otherwise surface `unknown` for manual resolution (D3).
 
-## Implementation status (ARCH-018, 2026-10-30)
+## 3. Review table
 
-- **Watchdog `timed_out` reaper shipped.** `ControlService.runTaskWatchdog` runs on a background ticker (`budget/2` clamped to 1–30s) and calls `TaskRunModel.ReapStale` via `tasks.Store.ReapStale`: `UPDATE task_runs SET status='timed_out', message='no event past watchdog budget; execution state unknown', finished_at=now WHERE status IN (queued,dispatching,running,cancel_requested) AND updated_at < now - budget`. Budget is `taskLog.reaperTimeout` (duration string, default 5m); `timed_out` is terminal and never re-selected.
-- **Execution-interrupt fault drill** (`cmd/server/fault_drill_r27_test.go`, real `runServer` boot + `e2e-agent-probe` subprocess) records per interrupt: 断链 (probe killed) → running rows converge `unknown` + new requests 503; drain → new requests 503 while the in-flight task completes, undrain restores dispatch; watchdog (`-hang` probe: silent session, no disconnect reap) → `timed_out` within budget + `finished_at` set, new requests still accepted; SIGTERM → graceful shutdown returns nil, in-flight row `unknown`, HTTP listener released.
-- **Boundary honesty:** the probe's task/side-effect counts are a **test fixture, not game-recovery evidence**. The drill asserts platform convergence (state-machine terminal/unknown/rejection semantics and resource release) only — it does not assert game-side exactly-once (GAME-010 remains NOT RUN).
+| #   | Scenario (current code)                                  | With D1–D5                                                                                                     |
+| --- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | Two `Start` with the same `taskId`                       | Second is an idempotent no-op; no second goroutine; cancel registration preserved (D1)                         |
+| 2   | First goroutine finishes while a same-ID task is running | Old cleanup removes only its own entry; new task stays cancellable (D1)                                        |
+| 3   | `completed` event send fails                             | Bounded retry; if undelivered → recovery path (D3); row never silently stuck (D2)                              |
+| 4   | Agent restarts mid-task                                  | `task_runs` `running` → `unknown` on re-registration, recovery event appended, surfaced for manual review (D3) |
+| 5   | Late/duplicate event after a terminal event              | Idempotent-skip by `seq`; terminal status not regressed (D2/D4)                                                |
+| 6   | Cancel request on a task whose side effect already ran   | `completed` accepted; not reverted to `cancelled`; cancel_requested is not terminal (D4)                       |
+| 7   | Same `idempotency-key` submitted twice (UI double-click) | At most one `task_runs` row; game side effect may still double-apply unless game is idempotent (D5)            |
+
+## 4. Honest limits (边界诚实)
+
+- **Unknown is honest, not a lie**: after an agent crash the platform genuinely
+  cannot tell whether the game side effect ran. `unknown` states this; it is not
+  a hidden retry or a fabricated result.
+- **Per-agent, not cross-agent**: a `taskId` belongs to the agent that received
+  it; there is no cross-agent reconciliation for a task, and no
+  at-least-once/exactly-once guarantee across an agent handover (that would need
+  game-level idempotency, D5).
+- **Server persistence is the durability floor**: if the server DB is down, a
+  task event cannot be persisted/ACKed; that path (and the pre-dispatch persist
+  failure) is ARCH-026, not settled here.
+- **Retry/redispatch is bounded and manual**: the protocol defines _how_ a task
+  recovers (unknown + surfaced), not _that_ it auto-redispatches. Redispatch of a
+  non-idempotent function is a product decision (game declares idempotency, D5).
+- No production readiness is claimed: the protocol is a contract for ARCH-015 to
+  implement and ARCH-018 to fault-drill; the drill runs against fixtures, not a
+  real game (real-game verification is GAME-010).
+
+## 5. Implementation status (ARCH-015)
+
+ARCH-015 implements D1, D2 (sidecar) and D4 (server):
+
+- **D1**: `TaskRunner.Start` is an idempotent no-op for an already-running
+  `taskId` (no second goroutine, no overwritten cancel registration); in-flight
+  entries carry a per-`taskId` generation (`taskSlot.gen`), and a finishing
+  goroutine removes only its own entry, so an old goroutine's cleanup cannot
+  delete a same-ID replacement's slot.
+- **D2**: `TaskRunner` delivers lifecycle events with bounded exponential
+  backoff (`SetEventRetryPolicy`); an exhausted window is surfaced as a warning,
+  never silently dropped. ACK remains server-side after persist.
+- **D4**: `StatusUnknown` is a terminal status in `internal/tasks/types.go`
+  (`IsTerminalStatus`/`TerminalStatuses`), so an `unknown` row is protected
+  from a late event by the same `UpdateRunIfStatusNotIn` guard.
+  `cancel_requested` stays non-terminal: a `completed` event is not blocked by
+  a pending cancel intent ("cancel never regresses a terminal state").
+
+**D3's trigger is implemented (ARCH-018, 2026-10-30)** without a wire change:
+the agent generates a `bootId` (random, once per process boot) and reports it
+via the existing `RegisterRequest.labels` map (`internal/common/labels.BootID`).
+The server compares the previous session's `bootId` with the incoming one on
+re-registration: same value = reconnect (live tasks are NOT reconciled);
+different non-empty values = restart (in-flight `dispatching`/`running`
+`task_runs` for that agent are reconciled to `unknown` and a `recovery` event
+is appended). Either side empty = undeclared restart identity (no reconcile,
+honest boundary — never mislabels a reconnected agent's live tasks).
+
+Fault drill evidence: `docs/review/arch018-fault-drill-2026-10-30.md` (link
+break + restart → `unknown` over real TCP frames, reconnect keeps `running`,
+terminal guard, drain/SIGTERM outcomes, fixture-only limits).
