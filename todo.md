@@ -259,8 +259,12 @@
   - 完成证据：2026-11-02；`internal/ops/batchop/batchop.go` + `selector.go` + `id.go` + `batchop_test.go`（创建校验/exec 聚合/失败统计/config push/dry-run 不派发）；`internal/app/agent/ops_pushfile.go` + `ops_pushfile_test.go`（写入/越界拒绝/未配置禁用/hash 不匹配/覆盖需 force）；`internal/agent/local_handler_test.go`（handlePushFile 未装配拒绝）；`internal/logic/ops/agent_ops_client.go`（PushFile）；`internal/api/ops/batchops.go` + `batchops_test.go`（创建校验/未知 kind）；`internal/svc/migrations_batchop_test.go`（0057 幂等）；`internal/db/migrate/migrate_test.go`（合成 0057）；`internal/model/batch_op_model.go`；`internal/handler/routes.go`；`configs/agent.yaml`（pushBaseDir 示例）。`go build ./...` 过、`go test ./internal/ops/batchop/... ./internal/app/agent/... ./internal/agent/... ./internal/logic/ops/... ./internal/api/ops/... ./internal/model/... ./internal/svc/... ./internal/db/migrate/... ./internal/handler/... ./pkg/protocol/... -p 1 -count=1` 全绿、`go vet` 定向包过、`cd sdks/go && go build ./...` 过、`python compileall` 过。
 - [ ] **OPS-007 · P2 · 实现 · 成本控制**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。
+  - 文档缺口（2026-11-03 G2 审计）：代码已落（`internal/ops/costcontrol/costcontrol.go` + `cost_budgets` 迁移 0058），文档缺——README / docs 尚未记录 `/ops/cost` 面板与四个 HTTP 端点，待补。
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，边界见下文）：创建前规格×时长估算（内置价格目录，未知规格不计价不伪造价）；机器成本标签与面板（/ops/cost 页面：估算 + 成本总览 + 预算）；闲置回收评估（CPU 低于阈值持续 >= N 小时判定，默认只提醒不销毁，AutoDestroy 需显式 Enabled+AutoDestroy）；预算告警走通知渠道（超 80% 触发 notify 分发）。
   - 交付与验收：创建前规格×时长估算；机器成本标签与面板；闲置回收（无负载 N 小时提醒/自动销毁，可配）；预算告警走通知渠道。
+  - 实现要点：`internal/ops/costcontrol`（`ComputeEstimate`/`BuildSummary`/`IdleEvaluator`/`BudgetEvaluator`）；迁移 0058 建 `cost_budgets`；HTTP `/ops/cost/{estimate,summary,idle,budget}`；web `/ops/cost` 面板。
+  - 边界诚实：价格目录为内置参考价（生产价需接入真实账单/价格 API，估算精度登记为部署后对账）；闲置判定依赖 agent 资源指标（OPS-010），无近期样本视为未知不误判；自动销毁默认关闭（只提醒）；本环境无真实云/多机栈，端到端真实云成本对账与自动销毁登记为部署后人工验收项。
+  - 完成证据：2026-11-03；`internal/ops/costcontrol/costcontrol.go` + `idle.go` + `costcontrol_test.go`（估算/汇总/闲置/预算/聚合）；`internal/model/cost_budget_model.go` + `cost_budget_model_test.go`；`internal/api/ops/costcontrol.go` + `costcontrol_test.go`（估算/预算/汇总 scope 隔离）；`internal/svc/migrations_costbudget_test.go`（0058 幂等）；`internal/handler/routes.go`（/ops/cost/*）；`web/src/services/api/ops.ts` + `web/src/pages/Ops/Cost/index.tsx` + `web/config/routes.ts`。`go build ./...` 过、`go test ./internal/ops/costcontrol/... ./internal/api/ops/... ./internal/model/... ./internal/svc/... ./internal/db/migrate/... -count=1` 全绿、`go vet` 定向包过、`cd sdks/go && go build ./...` 过、`cd web && npx tsc --noEmit` 0 错误、`npx jest config/routes.test.ts src/pages/routes-resolution.test.tsx src/utils/api.test.ts src/services/api` 全绿、`bash scripts/dashboard_vnext_guard.sh` PASSED。
 - [ ] **OPS-011 · P2 · 实现 · 运维大屏（舰队健康总览，运维台独立页面）**
   - 依赖：OPS-010。
   - 状态／条件：TODO（未开始）。
@@ -631,3 +635,38 @@
   - 依赖：—。
   - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-032），修复方向 source-wins。
   - 交付与验收：mysql.go StartSyncGTID 失败与 Close 路径记录 syncer.Close 错误；新增单测 close 失败可见；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+
+## 审核发现（ed541f6ed11ff1df5038d90fda9daa9711fa2cf9..HEAD，2026-11-02 只审不改）
+
+- [ ] 审核发现：供给 cloud-init 的 CloudInitExtra（POST /ops/provision body 用户可控）逐行原样写入 runcmd，作为 root 在新建实例执行，可注入任意命令（RCE）。（internal/ops/provision/template.go:47-52）
+- [ ] 审核发现：deploy 投递暂存路径 /tmp/croupier-deploy-<pid>-<version> 由未净化的用户 version 拼接，version 含 ../ 可致 curl -o 在 agent 主机任意路径写文件（任意文件写/代码执行）。（internal/api/ops/deploy_agent.go:43）
+- [ ] 审核发现：供给提交直接采用 body 的 gameId/env，未与已认证 X-Game-ID/X-Env scope 比对，作用域受限用户可向越权游戏/环境供给云资源（scope 绕过）。（internal/api/ops/provision.go:120-121）
+- [ ] 审核发现：batchop 创建在 body 提供 gameId/env 时覆盖中间件解析的授权 scope，可越权创建/派发到未授权游戏环境。（internal/api/ops/handler.go:956-961）
+- [ ] 审核发现：analytics daily_users 刷新对 Redis PFCount 错误置 0 后直接以新 version 写入 ReplacingMergeTree(version)，0 行永久覆盖当日真实 DAU/NAU（与 minute_online 的 remerge 兜底路径不一致）。（internal/analytics/worker/worker.go:830-831）
+- [ ] 审核发现：供给 ticket 模式续行丢失 HubAddr/BootstrapToken/CloudInitExtra——runFromModel 未恢复（json:"-" 不持久化）、ResumeAsync 不再注入 server 参数，续行渲染出空 hubAddr/token 的 cloud-init，agent 引导必然失败。（internal/svc/provision_wiring.go:93-126；internal/api/ops/provision.go:155）
+- [ ] 审核发现：供给 user_data（多行 cloud-init YAML）经 tfexec.Var("-var user_data=<值>") 传入，terraform/tofu 按 HCL 表达式解析（#cloud-config 起始为注释）致真实 apply 失败；FakeRunner 测试掩盖该路径（测试缺口）。（internal/ops/provision/runner.go:52-53）
+- [ ] 审核发现：logstore Ingest 写库前先推进内存 lastSeq（:91）且忽略 db.Create 错误（:104），写库失败批次被重传当作重复丢弃、persisted 虚报——单进程内该批日志永久丢失。（internal/platform/registry/logstore.go:91,104）
+- [ ] 审核发现：供给异步 apply（spawnApply）在 Init/Apply 失败时只记日志不落 failed（apply 仅等注册分支置 failed），run 永久停在 applying 不可重试。（internal/ops/provision/orchestrator.go:194-255,362-369）
+- [ ] 审核发现：供给 beginResume 为 Get→pending 检查→置 applying→Update 非原子读改写，并发 ResumeAsync 均可通过 pending 检查触发双 apply（applyMu 在 beginResume 之后才锁）。（internal/ops/provision/orchestrator.go:336-357）
+- [ ] 审核发现：供给 DestroyResume 未先推进状态即执行 runDestroy（并发双销毁），且 Destroy/runDestroy 不持 applyMu、不校验 run 状态，可直接与在途 apply 对同一 workdir 竞态（terraform state 破坏）。（internal/ops/provision/orchestrator.go:375,411,437）
+- [ ] 审核发现：供给请求 Count 无上限（仅校验 <1），可一次性创建海量云实例造成失控成本/资源。（internal/ops/provision/orchestrator.go:111-113）
+- [ ] 审核发现：batchop Execute 无状态闸，已完成/运行中批次可被重复派发；且在请求 ctx 上执行、UpdateStatus 错误全被 `_ =` 丢弃，断开后批次停 Running 且终态不落库。（internal/ops/batchop/batchop.go:187,196,243）
+- [ ] 审核发现：deploy Start 状态闸在调用方载入副本上非原子判断（:126），并发 Start 均可通过并双跑首批；且 Rollback 在 stage/apply 失败时仍标记 RolledBack 上报成功（假成功）。（internal/ops/deploy/deploy.go:126,229-242）
+- [ ] 审核发现：deploy 编排在 HTTP 请求 ctx 上同步执行（deployments.go:195），客户端断开即取消整个发版；Advance 递归携带已取消 ctx 中途终止，且健康门禁 Healthy 错误被忽略。（internal/api/ops/deployments.go:195；internal/ops/deploy/deploy.go:216,271）
+- [ ] 审核发现：deploy 包上传 io.ReadAll 无大小上限，可无界读入内存耗尽。（internal/api/ops/deployments.go:136）
+- [ ] 审核发现：metrics 小时聚合磁盘 usage_percent 累加未除样本数（:657 累加、:713 直接 round2），可超 100% 且非均值，与 CPU/MEM/net（除 n）语义不一致。（internal/platform/registry/metrics.go:657,713）
+- [ ] 审核发现：metrics SetDB 写 s.db 未持 s.mu，与 Add/persistToDB/getFromDB/RollupHourly 读侧数据竞态（LogStore.SetDB 有锁，此处不一致）。（internal/platform/registry/metrics.go:186-188）
+- [ ] 审核发现：analytics processMessage 对 retry_count 做未检查类型断言（:1004），外部流消息若为非 float64 类型则 panic 崩 worker（Run 循环无 recover）。（internal/analytics/worker/worker.go:1004）
+- [ ] 审核发现：scheduler reapStaleClaims 游标按非唯一 created_at 分页（task_schedule_model.go 用 >= cursor）且 UpdateRunLog 错误被 `_ =` 丢弃（manager.go:280），边界同时间戳+持续更新失败时可反复取同页空转。（internal/tasks/scheduler/manager.go:280-288）
+- [ ] 审核发现：cluster 互联 TLS 现需 InterconnectTLS.Enabled=true 才启用（cluster.go:147），既有证书已配置但未显式 enabled 的部署会静默降级为明文互联（就绪面有降级记录，属行为变更需人工确认）。（cmd/server/cluster.go:147）
+- [ ] 审核发现：供给 cloud-init 的 AgentInstallURL 未做 shell 引号（template.go:45），含 ;/|/$() 元字符可注入；该值来自 server 配置 provision.agentInstallUrl（配置级，非直接远端输入）。（internal/ops/provision/template.go:45）
+- [ ] 审核发现：deploy 对象存储 key 由未净化的 role/name/version 拼接（deployments.go:245），../ 可逃逸 deploy/ 前缀写入任意对象键。（internal/api/ops/deployments.go:245）
+- [ ] 审核发现：deploy 包上传的 bytesReader 每次 Read/Seek 都新建 bytes.Reader（不保持游标），Read 永不返回 EOF——objstore 各驱动 Put（file/s3/cos/oss 均 io.Copy 直到 EOF）将死循环，写无限增长（fileStore 撑爆磁盘 / S3 超大对象），且上传请求永久挂起。（internal/api/ops/deployments.go:250,424-429）
+- [ ] 审核发现：deploy 包上传无对应 objstore.Put 集成测试（仅测了 model CRUD），bytesReader 死循环在测试面完全未覆盖。（internal/model/model_test.go:6222-6247；internal/api/ops/deployments.go:250）
+- [ ] 审核发现：agent_metrics_hourly 表只建了非唯一复合索引 idx_agent_hour（迁移 0051 CreateTable），RollupHourly 的 find-or-create 非原子（metrics.go:612-617）——多 server 实例或清理 tick 与手动触发并发时同 (agent_id, hour_start) 会插重复行，90 天聚合被污染。（internal/platform/registry/metrics.go:56-57,612-617；internal/svc/migrations.go:1735-1737）
+- [ ] 审核发现：RollupHourly 无并发测试（metrics_hourly_test.go 单线程），find-or-create 竞态与重复行未覆盖。（internal/platform/registry/metrics.go:572）
+- [ ] 审核发现：PushFile 仅校验目标路径的父目录符号链接（EvalSymlinks(filepath.Dir)），未解析目标本身——预置符号链接于目标路径可让 os.WriteFile 写到 PushBaseDir 之外（写入前 exists/force 检查与写入间亦有 TOCTOU）。（internal/app/agent/ops_pushfile.go:68-73,75-79,97）
+- [ ] 审核发现：batchop/agent exec 白名单仅按命令名精确匹配（ops_server.go:384-395），args 不受限；经 OPS-006 /ops/batch exec 类型，白名单内命令（如 curl）可携带任意参数（写文件/外联），白名单边界弱于「命令+参数」双约束。（internal/app/agent/ops_server.go:384-395；internal/ops/batchop/batchop.go:270-275）
+- [ ] 审核发现：deploy 包同 (role,name,version) 重复上传覆盖同一对象键（deployments.go:245），历史 DeployPackage 记录仍引用该键但 checksum 与对象内容不再匹配——ApplyUpdate 以旧记录 Checksum 校验必失败，或（若跳过校验）旧记录被新内容静默替换，供应链完整性受损。（internal/api/ops/deployments.go:245,263-267）
+- [ ] 审核发现：worker Run 退出序列在周期性 flush 协程超时（shutdownTimeout）未结束时仍启动最终 flush（worker.go:251-277），两个 flush 并发执行——I/O 段在 aggMu 外，同 key 双写 ClickHouse 产生重复/竞态。（internal/analytics/worker/worker.go:251-277）
+- [ ] 审核覆盖：本轮（ed541f6e..HEAD，217 文件）逐文件审查已完成——重点覆盖 provision 引擎（runner/template/orchestrator/types）、deploy/costcontrol/batchop 编排、agent ops（pushfile/exec/log tailer）、registry metrics/logstore、analytics worker、tasks scheduler、api/ops（provision/deployments/logs/batchops/helpers）、svc wiring/migrations、前端 safeUrl/Bugs/NodeDetailDrawer、objstore（file/s3/cos/oss）。生成代码（pkg/pb、sdks/_/generated、ops.pb._）与纯文档/图片/测试文件（仅 model CRUD 类）未逐行审；结论见上方本轮与既有发现。未 commit、未 push、未改代码。

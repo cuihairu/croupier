@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/> 
+  <img src="docs/public/logo.png" alt="Croupier Logo" width="64"/>
 </p>
 
 <h1 align="center">Croupier</h1>
@@ -103,7 +103,7 @@ Croupier 不是 fork，是一层控制面业务系统，底层全部站在开源
 
 ## Session 模型
 
-Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量的应用层 session：
+Croupier 当前的核心传输抽象是轻量的应用层 session，不采用`历史消息模式`：
 
 - 一条可靠长连接
 - 首条消息完成身份与能力协商
@@ -121,7 +121,7 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
     - `sdk-agent subprotocol`
     - `agent-server subprotocol`
 
-`subprotocol` 不是“个性化配置”，而是“共享同一套 session 运行时，但握手消息、注册内容和路由语义不同的应用层协议变体”。
+`subprotocol` 是应用层协议变体：与前者共享同一套 session 运行时，只有握手消息、注册内容和路由语义不同。
 
 ## Scope 模型
 

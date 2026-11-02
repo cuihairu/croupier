@@ -218,9 +218,9 @@ dev 模式每次进页面刷 `Warning: [antd: X] \`p\` is deprecated. Please use
 antd 6 对这批属性**只打告警、不改行为**，所以 `tsc` 全绿、页面也正常，废弃用法可以
 无限期潜伏。真正的风险是 v7 移除后集中断裂，以及告警淹没控制台后真问题被埋掉。
 
-清单不是照文档手抄的，而是从 `node_modules/antd/es/**/*.js` 里的
-`devUseWarning('<Component>')` **运行时告警表**反推——antd 实际有三种写法，
-抽取器三种都认（否则会漏）：
+清单从 `node_modules/antd/es/**/*.js` 里的
+`devUseWarning('<Component>')` **运行时告警表**反推得出，照文档手抄会漏——antd 实际有三种写法，
+抽取器三种都认：
 
 1. 对照表 + `forEach`：`[['message', 'title']].forEach(...)`（多数组件）
 2. 直接调用：`warning.deprecated(!tip, 'tip', 'description')`（`Spin`）
