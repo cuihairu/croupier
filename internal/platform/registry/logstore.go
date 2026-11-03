@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -78,7 +79,11 @@ func (s *LogStore) Ingest(agentID string, entries []*opsv1.LogEntry) int {
 	}
 	now := time.Now()
 	var rows []AgentLogEntryRecord
-	persisted := 0
+	type pendingSeq struct {
+		key string
+		seq int64
+	}
+	var pending []pendingSeq
 	for _, e := range entries {
 		if e == nil {
 			continue
@@ -88,7 +93,6 @@ func (s *LogStore) Ingest(agentID string, entries []*opsv1.LogEntry) int {
 			// Retransmit: drop.
 			continue
 		}
-		s.lastSeq[key] = e.Seq
 		rows = append(rows, AgentLogEntryRecord{
 			AgentID:    agentID,
 			File:       e.File,
@@ -98,10 +102,21 @@ func (s *LogStore) Ingest(agentID string, entries []*opsv1.LogEntry) int {
 			TsUnixMs:   e.TsUnixMs,
 			ReceivedAt: now,
 		})
-		persisted++
+		pending = append(pending, pendingSeq{key: key, seq: e.Seq})
 	}
+	persisted := 0
 	if len(rows) > 0 {
-		s.db.Create(&rows)
+		if err := s.db.Create(&rows).Error; err != nil {
+			// 写库失败：不得推进 lastSeq，否则该批日志被重传当作重复丢弃、
+			// persisted 虚报——单进程内该批日志永久丢失（#659）。仅日志记录；
+			// 调用方（agent push）会重传，届时 seq 仍 > lastSeq 得以重写。
+			slog.Warn("logstore: create failed; not advancing lastSeq", "agent", agentID, "rows", len(rows), "err", err)
+			return 0
+		}
+		for _, p := range pending {
+			s.lastSeq[p.key] = p.seq
+		}
+		persisted = len(pending)
 	}
 	return persisted
 }

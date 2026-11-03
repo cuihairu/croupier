@@ -670,7 +670,9 @@
 - [x] 审核发现：供给 user_data（多行 cloud-init YAML）经 tfexec.Var("-var user_data=<值>") 传入，terraform/tofu 按 HCL 表达式解析（#cloud-config 起始为注释）致真实 apply 失败；FakeRunner 测试掩盖该路径（测试缺口）。（internal/ops/provision/runner.go:52-53）
   - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`TfexecRunner.Apply` 经 `tfVarAssignment` 生成 `-var` 赋值：字符串变量（user_data/region/instance_type/image/name_prefix）用 `strconv.Quote` 编码为 HCL 字符串字面量，多行 YAML/`#` 注释不再被 HCL 解析；数字变量（count/disk_size）保持裸 number；非数字值报错。
   - 完成证据：`TestTfVarAssignment`（user_data 多行含 `#` 编码为合法 HCL string、count/disk_size 裸 number、region 编码、非数字报错）；`go test ./internal/ops/provision/` 全绿、`go build ./...`+`go vet` 通过。
-- [ ] 审核发现：logstore Ingest 写库前先推进内存 lastSeq（:91）且忽略 db.Create 错误（:104），写库失败批次被重传当作重复丢弃、persisted 虚报——单进程内该批日志永久丢失。（internal/platform/registry/logstore.go:91,104）
+- [x] 审核发现：logstore Ingest 写库前先推进内存 lastSeq（:91）且忽略 db.Create 错误（:104），写库失败批次被重传当作重复丢弃、persisted 虚报——单进程内该批日志永久丢失。（internal/platform/registry/logstore.go:91,104）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`Ingest` 先收集待写行，`db.Create` 失败即 `slog.Warn` 并返回 0（不推进 lastSeq），成功后才推进并返回实写数；重传同 seq 因仍 > lastSeq 得以重写。
+  - 完成证据：`TestLogStore_IngestCreateFailureDoesNotAdvanceLastSeq`（断连后 seq=2 返回 0，重连重传 seq=2 重写成功）；`go test ./internal/platform/registry/ -count=1` 全绿（6s）。
 - [ ] 审核发现：供给异步 apply（spawnApply）在 Init/Apply 失败时只记日志不落 failed（apply 仅等注册分支置 failed），run 永久停在 applying 不可重试。（internal/ops/provision/orchestrator.go:194-255,362-369）
 - [ ] 审核发现：供给 beginResume 为 Get→pending 检查→置 applying→Update 非原子读改写，并发 ResumeAsync 均可通过 pending 检查触发双 apply（applyMu 在 beginResume 之后才锁）。（internal/ops/provision/orchestrator.go:336-357）
 - [ ] 审核发现：供给 DestroyResume 未先推进状态即执行 runDestroy（并发双销毁），且 Destroy/runDestroy 不持 applyMu、不校验 run 状态，可直接与在途 apply 对同一 workdir 竞态（terraform state 破坏）。（internal/ops/provision/orchestrator.go:375,411,437）

@@ -98,3 +98,34 @@ func TestLogStore_Prune(t *testing.T) {
 	deleted := s.Prune(7 * 24 * time.Hour)
 	assert.Equal(t, int64(1), deleted)
 }
+
+// #659：Ingest 写库失败不得推进 lastSeq，否则该批日志被重传当作重复丢弃、
+// persisted 虚报——单进程内该批日志永久丢失。失败后重传同 seq 必须能重写。
+func TestLogStore_IngestCreateFailureDoesNotAdvanceLastSeq(t *testing.T) {
+	db := newLogStoreDB(t)
+	s := NewLogStore()
+	s.SetDB(db)
+
+	// 先正常写入一条，让 lastSeq 有基线。
+	assert.Equal(t, 1, s.Ingest("a", []*opsv1.LogEntry{{File: "f", Seq: 1, Message: "one"}}))
+
+	// 断开 DB 模拟写库失败（db 置 nil 则 Ingest 早退；改用触发约束错误）。
+	// 这里直接关闭底层连接使 Create 失败。
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+
+	persisted := s.Ingest("a", []*opsv1.LogEntry{{File: "f", Seq: 2, Message: "two"}})
+	assert.Equal(t, 0, persisted)
+
+	// 重新打开同一文件数据库（关闭连接会破坏文件句柄，此处用新内存库重演：
+	// 关键是失败后 lastSeq 不推进，重传 seq=2 仍 > lastSeq=1 得以重写）。
+	// 重新连上（sqlite 内存库随连接关闭丢失，故用新库验证 lastSeq 语义）。
+	db2 := newLogStoreDB(t)
+	s.SetDB(db2)
+	persisted = s.Ingest("a", []*opsv1.LogEntry{{File: "f", Seq: 2, Message: "two"}})
+	assert.Equal(t, 1, persisted)
+	rows, _ := s.Search(context.Background(), LogSearchQuery{AgentID: "a", Limit: 10})
+	assert.Len(t, rows, 1)
+	assert.Equal(t, "two", rows[0].Message)
+}
