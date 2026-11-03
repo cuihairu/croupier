@@ -47,8 +47,14 @@ public final class TlsSocketFactory {
      * Creates a socket factory from PEM files. At least {@code caFile} must
      * be provided and readable; mutual TLS is enabled only when both
      * {@code certFile} and {@code keyFile} are present.
+     *
+     * <p>C-011：keystore 口令不再硬编码。{@code keyStorePassword} 用于保护
+     * mTLS 客户端私钥条目，必须由调用方从配置/环境提供（无默认口令）；
+     * 当 {@code certFile} 与 {@code keyFile} 均配置而口令缺失时 fail-closed
+     * 抛 {@link IOException}，不静默回退到任何字面量。</p>
      */
-    public static SSLSocketFactory create(String caFile, String certFile, String keyFile)
+    public static SSLSocketFactory create(String caFile, String certFile, String keyFile,
+                                          char[] keyStorePassword)
             throws IOException, GeneralSecurityException {
         if (caFile == null || caFile.isBlank()) {
             throw new IOException("TLS enabled but caFile is not configured");
@@ -63,7 +69,6 @@ public final class TlsSocketFactory {
         if (cas.isEmpty()) {
             throw new IOException("no certificates found in caFile: " + caFile);
         }
-        char[] password = "croupier".toCharArray();
         int alias = 0;
         for (Certificate ca : cas) {
             trustStore.setCertificateEntry("ca-" + (alias++), ca);
@@ -72,15 +77,20 @@ public final class TlsSocketFactory {
         tmf.init(trustStore);
 
         // Key store：mTLS 客户端证书（可选）
+        boolean mtls = certFile != null && !certFile.isBlank()
+                && keyFile != null && !keyFile.isBlank();
         KeyManager[] keyManagers = null;
-        if (certFile != null && !certFile.isBlank() && keyFile != null && !keyFile.isBlank()) {
+        if (mtls) {
+            if (keyStorePassword == null || keyStorePassword.length == 0) {
+                throw new IOException("mutual TLS requires keyStorePassword when certFile and keyFile are configured");
+            }
             List<Certificate> clientChain = readCertificates(certFile, certFactory);
             PrivateKey privateKey = readPrivateKey(keyFile);
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
             keyStore.load(null, null);
-            keyStore.setKeyEntry("client", privateKey, password, clientChain.toArray(new Certificate[0]));
+            keyStore.setKeyEntry("client", privateKey, keyStorePassword, clientChain.toArray(new Certificate[0]));
             KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            kmf.init(keyStore, password);
+            kmf.init(keyStore, keyStorePassword);
             keyManagers = kmf.getKeyManagers();
         }
 

@@ -133,7 +133,7 @@ class TCPTransportBranchTest {
                 return null;
             });
 
-            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null);
+            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null, null);
             TCPTransport transport = new TCPTransport("localhost", serverSocket.getLocalPort(),
                 5000, factory, "   ");
             transport.connect();
@@ -171,7 +171,7 @@ class TCPTransportBranchTest {
                 return null;
             });
 
-            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null);
+            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null, null);
             TCPTransport transport = new TCPTransport("localhost", serverSocket.getLocalPort(),
                 5000, factory, "localhost");
             transport.connect();

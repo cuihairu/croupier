@@ -95,7 +95,7 @@ class BranchFillFinalTest {
         Path dir = Files.createTempDirectory("croupier-tls-blankkey");
         Path cert = exportCa(dir);
         // certFile present + keyFile non-null but blank -> CA-only context
-        SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), cert.toString(), "   ");
+        SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), cert.toString(), "   ", null);
         assertNotNull(factory);
     }
 

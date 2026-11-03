@@ -81,7 +81,7 @@ class TlsSocketFactoryEdgeTest {
         }
 
         javax.net.ssl.SSLSocketFactory factory =
-            TlsSocketFactory.create(cert.toString(), null, null);
+            TlsSocketFactory.create(cert.toString(), null, null, null);
 
         TCPTransport transport = new TCPTransport("localhost", port, 5000, factory, "localhost");
         transport.connect();
@@ -96,6 +96,48 @@ class TlsSocketFactoryEdgeTest {
 
         serverSocket.close();
         pool.shutdownNow();
+    }
+
+    @Test
+    @Timeout(30)
+    @DisplayName("C-011：mTLS 缺 keystore 口令 fail-closed；提供口令可构造")
+    void keyStorePasswordRequiredForMutualTls() throws Exception {
+        Path dir = Files.createTempDirectory("croupier-tls-c11");
+        Path ks = dir.resolve("ca.jks");
+        Process gen = new ProcessBuilder(
+            "keytool", "-genkeypair", "-alias", "ca", "-keyalg", "RSA", "-keysize", "2048",
+            "-dname", "CN=localhost", "-validity", "1",
+            "-keystore", ks.toString(), "-storetype", "JKS",
+            "-storepass", "changeit", "-keypass", "changeit").start();
+        if (!gen.waitFor(30, TimeUnit.SECONDS) || gen.exitValue() != 0) {
+            throw new IllegalStateException("keytool genkeypair failed");
+        }
+        Path caCert = dir.resolve("ca.pem");
+        Process export = new ProcessBuilder(
+            "keytool", "-exportcert", "-alias", "ca", "-keystore", ks.toString(),
+            "-storetype", "JKS", "-storepass", "changeit", "-rfc", "-file", caCert.toString()).start();
+        if (!export.waitFor(30, TimeUnit.SECONDS) || export.exitValue() != 0) {
+            throw new IllegalStateException("keytool exportcert failed");
+        }
+
+        // mTLS 已配置（cert+key 均非空）但口令缺失 → fail-closed，不静默用硬编码。
+        // 口令检查先于读 cert/key 文件，故此处用不存在路径即可触发。
+        IOException missing = assertThrows(IOException.class, () ->
+            TlsSocketFactory.create(caCert.toString(), dir.resolve("cert.pem").toString(),
+                dir.resolve("key.pem").toString(), null));
+        assertTrue(missing.getMessage().contains("keyStorePassword"), missing.getMessage());
+
+        // mTLS + 显式口令仍可构造（私钥条目被口令保护；证书/密钥不匹配不阻断
+        // KeyStore 装载，仅握手才校验——本用例只验证工厂可构建）。
+        java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("EC");
+        kpg.initialize(256);
+        Path ecKey = dir.resolve("client.p8");
+        Files.writeString(ecKey, "-----BEGIN PRIVATE KEY-----\n"
+            + java.util.Base64.getMimeEncoder().encodeToString(kpg.generateKeyPair().getPrivate().getEncoded())
+            + "\n-----END PRIVATE KEY-----\n");
+        javax.net.ssl.SSLSocketFactory factory = TlsSocketFactory.create(
+            caCert.toString(), caCert.toString(), ecKey.toString(), "sdk-pass".toCharArray());
+        assertNotNull(factory);
     }
 
     @Test

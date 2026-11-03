@@ -554,9 +554,9 @@
   - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`asciicast.go` 加 `validCastSessionID`（`^[A-Za-z0-9_-]+$`），`OpenCast` 在 `filepath.Join` 前 fail-closed 校验；新增 `asciicast_test.go` 四例（合法 id 落 dir、非法 id 全拒且 dir 外无文件、白名单独立断言、合法 id header 行落盘）；`go test ./agents/devops/session/` 全绿（0.011s）；docs/review/2026-11-01-code-review.md C-010 行已改已修（2026-11-03），汇总已修 13→14、余 19→18。
   - 交付与验收：asciicast.go 写 .cast 前校验 sessionID 仅 [A-Za-z0-9_-] 或经 filepath.Base；新增单测 sessionID 含 `../`/`/` 被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-011 · P3 · 安全 · Java TlsSocketFactory 硬编码 keystore 口令**
+- [x] **C-011 · P3 · 安全 · Java TlsSocketFactory 硬编码 keystore 口令**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-011），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`TlsSocketFactory.create` 签名加 `char[] keyStorePassword`（移除字面量 `"croupier"`），口令由调用方提供（无默认）；mTLS 配置而口令缺失 fail-closed 抛 `IOException`；全仓 6 个 TLS 测试类改用 4 参形式；新增 `TlsSocketFactoryEdgeTest.keyStorePasswordRequiredForMutualTls`（缺口令抛错+显式口令可构造）；`./gradlew test` 全绿（6 个 TLS 测试类 + 全量，BUILD SUCCESSFUL）；docs/review/2026-11-01-code-review.md C-011 行已改已修（2026-11-03），汇总已修 14→15、余 18→17。
   - 交付与验收：TlsSocketFactory keystore 密码改从配置/环境读取，移除字面量 "croupier"；无默认口令；新增单测无配置时启动失败而非静默用硬编码；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-012 · P3 · 正确性 · Python SDK varint 解码无边界检查**

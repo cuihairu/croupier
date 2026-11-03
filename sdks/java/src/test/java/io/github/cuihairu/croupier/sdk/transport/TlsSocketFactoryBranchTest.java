@@ -41,19 +41,19 @@ class TlsSocketFactoryBranchTest {
         Path dir = Files.createTempDirectory("croupier-tls-guards");
         Path ca = exportCa(dir);
 
-        // certFile present + keyFile blank -> CA-only context
-        SSLSocketFactory certOnly = TlsSocketFactory.create(ca.toString(), ca.toString(), null);
+        // certFile present + keyFile blank -> CA-only context (password unused)
+        SSLSocketFactory certOnly = TlsSocketFactory.create(ca.toString(), ca.toString(), null, null);
         assertNotNull(certOnly);
 
         // certFile blank + keyFile present -> CA-only context (cert guard short-circuits)
-        SSLSocketFactory keyOnly = TlsSocketFactory.create(ca.toString(), null, "/tmp/whatever.key");
+        SSLSocketFactory keyOnly = TlsSocketFactory.create(ca.toString(), null, "/tmp/whatever.key", null);
         assertNotNull(keyOnly);
 
         // blank certFile value also short-circuits
-        SSLSocketFactory blankCert = TlsSocketFactory.create(ca.toString(), "  ", "/tmp/whatever.key");
+        SSLSocketFactory blankCert = TlsSocketFactory.create(ca.toString(), "  ", "/tmp/whatever.key", null);
         assertNotNull(blankCert);
 
         // missing CA still fails fast
-        assertThrows(Exception.class, () -> TlsSocketFactory.create(null, null, null));
+        assertThrows(Exception.class, () -> TlsSocketFactory.create(null, null, null, null));
     }
 }

@@ -97,7 +97,7 @@ class TlsTransportTest {
 
         // 客户端：caFile = 服务器自签证书（作为信任锚），serverName=localhost
         // TLS 握手成功即证明 CA 校验 + 端点名校验通过
-        SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null);
+        SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null, null);
         TCPTransport transport = new TCPTransport("localhost", port, 5000, factory, "localhost");
         transport.connect();
         assertTrue(transport.isConnected());
@@ -132,14 +132,14 @@ class TlsTransportTest {
 
         // 缺 caFile → IOException
         assertThrows(java.io.IOException.class,
-            () -> TlsSocketFactory.create(null, null, null));
+            () -> TlsSocketFactory.create(null, null, null, null));
         assertThrows(java.io.IOException.class,
-            () -> TlsSocketFactory.create("  ", null, null));
+            () -> TlsSocketFactory.create("  ", null, null, null));
 
         // 坏 CA 内容（非 PEM）→ 无证书可解析
         Path badCa = dir.resolve("bad-ca.pem");
         Files.writeString(badCa, "not a pem document");
-        assertThrows(Exception.class, () -> TlsSocketFactory.create(badCa.toString(), null, null));
+        assertThrows(Exception.class, () -> TlsSocketFactory.create(badCa.toString(), null, null, null));
 
         // mTLS：程序化生成客户端 RSA 私钥（PKCS#8 PEM）+ 复用服务端证书作链
         java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
@@ -152,16 +152,17 @@ class TlsTransportTest {
         Files.writeString(clientKey, pkcs8Pem);
 
         // certFile 存在但 keyFile 为空 → 不启用 mTLS，仅 CA 校验
-        assertNotNull(TlsSocketFactory.create(cert.toString(), cert.toString(), null));
+        assertNotNull(TlsSocketFactory.create(cert.toString(), cert.toString(), null, null));
 
-        // keyFile 内容坏 → 私钥解析失败
+        // keyFile 内容坏 → 私钥解析失败（提供口令以到达解析分支）
         Path badKey = dir.resolve("bad.key");
         Files.writeString(badKey, "-----BEGIN PRIVATE KEY-----\nbm90IGEga2V5\n-----END PRIVATE KEY-----\n");
         assertThrows(Exception.class,
-            () -> TlsSocketFactory.create(cert.toString(), cert.toString(), badKey.toString()));
+            () -> TlsSocketFactory.create(cert.toString(), cert.toString(), badKey.toString(), "sdk-pass".toCharArray()));
 
-        // 完整 mTLS 上下文构建成功
-        SSLSocketFactory mtlsFactory = TlsSocketFactory.create(cert.toString(), cert.toString(), clientKey.toString());
+        // 完整 mTLS 上下文构建成功（口令保护私钥条目）
+        SSLSocketFactory mtlsFactory = TlsSocketFactory.create(
+            cert.toString(), cert.toString(), clientKey.toString(), "sdk-pass".toCharArray());
         assertNotNull(mtlsFactory);
     }
     @Test

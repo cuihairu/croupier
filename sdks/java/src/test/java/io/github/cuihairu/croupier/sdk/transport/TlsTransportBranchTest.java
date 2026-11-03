@@ -77,7 +77,7 @@ class TlsTransportBranchTest {
                 return null;
             });
             // null serverName: the `serverName != null` guard short-circuits
-            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null);
+            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null, null);
             TCPTransport transport = new TCPTransport("localhost", serverSocket.getLocalPort(),
                 5000, factory, null);
             transport.connect();
@@ -104,7 +104,7 @@ class TlsTransportBranchTest {
                 }
                 return null;
             });
-            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null);
+            SSLSocketFactory factory = TlsSocketFactory.create(cert.toString(), null, null, null);
             TCPTransport transport = new TCPTransport("localhost", serverSocket.getLocalPort(),
                 5000, factory, "localhost");
             assertDoesNotThrow(transport::connect);
