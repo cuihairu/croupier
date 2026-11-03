@@ -203,6 +203,16 @@ describe('useRealtimeStream 补充分支', () => {
     expect(result.current.data.online).toBe(0);
   });
 
+  it('畸形 JSON 帧不抛未捕获异常、不更新数据、不置 loading', async () => {
+    const { result } = renderHook(() => useRealtimeStream());
+    await waitFor(() => expect(FakeEventSource.instances.length).toBe(2));
+    const active = FakeEventSource.instances[1];
+
+    expect(() => act(() => active.emitRawMessage('{bad json'))).not.toThrow();
+    expect(result.current.data).toEqual({});
+    expect(result.current.loading).toBe(false);
+  });
+
   it('connected 事件监听同样进入 connected 态并复位 loading', async () => {
     const { result } = renderHook(() => useRealtimeStream());
     await waitFor(() => expect(FakeEventSource.instances.length).toBe(2));

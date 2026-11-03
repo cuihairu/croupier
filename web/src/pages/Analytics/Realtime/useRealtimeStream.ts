@@ -162,6 +162,10 @@ export function useRealtimeStream() {
               esRef.current = null;
             }
           }
+        } catch (err) {
+          // C-020：畸形消息不再以未捕获异常冒泡出事件处理器——记录上报；
+          // 不重置 stale timer（无效帧不代表流健康）。finally 仅收尾。
+          console.error('[realtime] failed to process SSE message', err);
         } finally {
           setLoading(false);
         }

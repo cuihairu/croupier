@@ -604,9 +604,9 @@
   - 完成证据：与 C-007 同源——`6a45166e`（C-007）已把全部 5 处 window.open 走 `safeExternalHref`（grafana/alertmanager/runbook/深链）；复证当前工作树：5/5 sink 均先 `const u = safeExternalHref(...)` 再 `if (u) window.open(u, '_blank')`，文件内无裸 `<a href=`。用例 `Ops/Alerts/__tests__/index.test.tsx` `告警中心 外链白名单（C-007）`（javascript: 的 grafana/alertmanager/runbook 一律不弹窗）。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03，C-007 覆盖）。
   - 交付与验收：配置 URL window.open 走 safeExternalHref；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-020 · P3 · 健壮性 · useRealtimeStream try/finally 无 catch**
+- [x] **C-020 · P3 · 健壮性 · useRealtimeStream try/finally 无 catch**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-020），修复方向 source-wins。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：message 监听补 catch 记录畸形帧错误，不重置 stale timer；finally 仅收尾；新增畸形 JSON 帧不抛未捕获、不更新数据、不置 loading 单测；`useRealtimeStream.test.tsx` 18 例全绿、`pnpm exec tsc --noEmit` 过；docs/review/2026-11-01-code-review.md C-020 已改已修。
   - 交付与验收：JSON.parse/推送加 catch 处理并上报，finally 仅收尾不吞错；新增单测畸形消息不抛未捕获异常；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-021 · P3 · 测试 · TestMetricsCollector_StartReporting 负载 flake**
