@@ -574,9 +574,10 @@
   - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`WriteResponseOnSocket` 移除裸 `(void)send`，捕获返回值——`sent < 0` 时 `std::cerr` 记录（errno/WSAGetLastError）；`catch(...)` 拆为 `catch(std::exception)` + `catch(...)` 均记录；新增 `test_coverage_boost4.cpp` `WriteResponseOnClosedSocketDoesNotThrow`（关闭 fd → send EBADF，不抛异常）。验证：`g++ -fsyntax-only src/tcp_transport.cpp` 干净；test 文件因既有 protobuf 版本约束（gencode protoc 34.x vs 本机 runtime 3.21.12/33.4.0 不兼容，非本变更）本地无法编译，用例仅用文件既有符号；docs/review/2026-11-01-code-review.md C-014 行已改已修（2026-11-03），汇总已修 17→18、余 15→14。
   - 交付与验收：tcp_transport.cpp send 返回值/异常不再整体吞掉（至少日志）；移除 (void)send 裸调用；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-015 · P3 · 健壮性 · Java ServerHttpInvoker 吞 IllegalArgumentException**
+- [x] **C-015 · P3 · 健壮性 · Java ServerHttpInvoker 吞 IllegalArgumentException**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-015），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-015），修复方向 source-wins。
+  - 完成证据：`serverErrorMessage` 的 catch 由 `catch (IllegalArgumentException ignored) {}` 改为 `catch (IllegalArgumentException parseError) { logger.warn(...) }`（slf4j `logger` 字段新增，对齐 InvokerImpl 模式），仍回退原始 body 不抛异常；新增用例 `sdks/java/.../ServerHttpInvokerServerErrorTest`（5 例：取 message / 空 message 取 error / 无二者回退原始 / 不可解析回退原始且不抛 / 空或 null 回退占位）；`./gradlew test` 全绿。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：捕获后记录日志/上抛，不再 ignored 静默；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-016 · P3 · 安全 · hostdriver 硬编码测试探针 token**

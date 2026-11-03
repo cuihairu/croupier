@@ -3,6 +3,8 @@ package io.github.cuihairu.croupier.sdk.invoker;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -30,6 +32,8 @@ import static io.github.cuihairu.croupier.sdk.invoker.InvokerException.ErrorCode
  * scope, audit, routing and task persistence therefore remain authoritative.</p>
  */
 public final class ServerHttpInvoker implements TaskStatusInvoker {
+    private static final Logger logger = LoggerFactory.getLogger(ServerHttpInvoker.class);
+
     public static final String DEFAULT_SERVER_API_URL = "http://127.0.0.1:18780/api/v1";
 
     private final InvokerConfig config;
@@ -269,7 +273,7 @@ public final class ServerHttpInvoker implements TaskStatusInvoker {
     private static Integer integerValue(Object value) { return value instanceof Number number ? number.intValue() : null; }
     private static String defaultValue(String value, String fallback) { return value == null || value.isBlank() ? fallback : value; }
     private static String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20"); }
-    private static String serverErrorMessage(String body) { try { Object value = Json.parse(body); if (value instanceof Map<?, ?> map) { String message = stringValue(map.get("message")); if (message != null && !message.isBlank()) return message; String error = stringValue(map.get("error")); if (error != null && !error.isBlank()) return error; } } catch (IllegalArgumentException ignored) {} return body == null || body.isBlank() ? "empty response body" : body; }
+    private static String serverErrorMessage(String body) { try { Object value = Json.parse(body); if (value instanceof Map<?, ?> map) { String message = stringValue(map.get("message")); if (message != null && !message.isBlank()) return message; String error = stringValue(map.get("error")); if (error != null && !error.isBlank()) return error; } } catch (IllegalArgumentException parseError) { logger.warn("server error body is not parseable JSON: {}", parseError.toString()); } return body == null || body.isBlank() ? "empty response body" : body; }
 
     private enum NoopSubscription implements Subscription { INSTANCE; public void request(long ignored) {} public void cancel() {} }
 
