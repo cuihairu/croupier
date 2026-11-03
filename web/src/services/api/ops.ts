@@ -755,6 +755,70 @@ export async function restartOpsNode(id: string) {
   });
 }
 
+export type CostEstimate = {
+  provider: string;
+  instanceType: string;
+  count: number;
+  hours: number;
+  ratePerHour: number;
+  diskPerHour: number;
+  totalUsd: number;
+  knownRate: boolean;
+};
+
+export type CostNode = {
+  agentId: string;
+  provider: string;
+  instanceType: string;
+  region: string;
+  uptimeHours: number;
+  ratePerHour: number;
+  costUsd: number;
+  idle: boolean;
+  idleHours: number;
+};
+
+export type CostSummary = {
+  totalNodes: number;
+  totalUsd: number;
+  perProvider: Record<string, number>;
+  idleCount: number;
+  nodes: CostNode[];
+};
+
+export type CostBudget = {
+  gameId: string;
+  env: string;
+  monthlyUsd: number;
+  notifyChannels: string[];
+  updatedBy?: string;
+};
+
+export async function estimateCost(input: {
+  provider: string;
+  instanceType: string;
+  count: number;
+  hours?: number;
+  diskSizeGB?: number;
+}): Promise<CostEstimate> {
+  return request<CostEstimate>('/api/v1/ops/cost/estimate', { method: 'POST', data: input });
+}
+
+export async function getCostSummary(): Promise<CostSummary> {
+  return request<CostSummary>('/api/v1/ops/cost/summary');
+}
+
+export async function getCostBudget(): Promise<CostBudget | null> {
+  return request<CostBudget | null>('/api/v1/ops/cost/budget');
+}
+
+export async function saveCostBudget(input: {
+  monthlyUsd: number;
+  notifyChannels: string[];
+}): Promise<CostBudget> {
+  return request<CostBudget>('/api/v1/ops/cost/budget', { method: 'PUT', data: input });
+}
+
 // Historical metrics
 export type MetricsHistoryEntry = {
   timestamp: string;

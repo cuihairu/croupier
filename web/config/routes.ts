@@ -475,6 +475,12 @@ export default [
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       {
+        path: '/ops/cost',
+        name: 'Cost',
+        access: 'canOpsManage',
+        component: './Ops/Cost',
+      },
+      {
         path: '/ops/agents/sidecar',
         name: 'SidecarAgents',
         access: 'canOpsRead',
