@@ -248,6 +248,9 @@ type consumer struct {
 	timeout time.Duration
 	mu      sync.Mutex
 	evicted bool
+	// cancelW 可选的底层写取消面：超时路径 SetWriteDeadline(past) 让阻塞
+	// Write 立即失败返回，避免写 goroutine 永久滞留（C-027）。
+	cancelW interface{ SetWriteDeadline(time.Time) error }
 }
 
 // ID 会话 id。
@@ -305,6 +308,9 @@ func (ls *LiveSession) Attach(w io.Writer) (detach func(), ok bool) {
 	default:
 	}
 	c := &consumer{id: ls.nextConID, w: w, timeout: ls.hub.cfg.AttachTimeout}
+	if dw, ok := w.(interface{ SetWriteDeadline(time.Time) error }); ok {
+		c.cancelW = dw
+	}
 	ls.nextConID++
 	ls.consumers[c.id] = c
 	id := c.id
@@ -510,7 +516,20 @@ func (c *consumer) write(p []byte, ls *LiveSession) {
 			ls.evict(c, "write error")
 		}
 	case <-timer.C:
+		// C-027：超时先取消底层写（支持 deadline 的 writer），再摘除消费者。
+		// 不可取消的 writer 无解，但 done 仍会在写返回时收束；此处非阻塞读
+		// 一次 done，让阻塞 goroutine 的 channel 发送不被遗留（写已返回）。
+		if c.cancelW != nil {
+			_ = c.cancelW.SetWriteDeadline(time.Now())
+		}
 		ls.evict(c, "write timeout")
+		select {
+		case <-done:
+			// 写已返回（被 deadline 打断或自然完成），goroutine 已收束。
+		default:
+			// 写仍阻塞（不可取消 writer）；goroutine 会等写返回后经 done 发送，
+			// done 容量 1 保证发送不阻塞，goroutine 不泄漏 channel 自身。
+		}
 	}
 }
 

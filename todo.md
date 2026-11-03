@@ -614,9 +614,9 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-04）：`internal/app/agent` 与 `core/metrics` 同源用例的 3s 边界放宽到 10s（首帧前 `Collect` 需扫描 CPU/进程/网络，饱和负载临界超时）；隔离复跑 5 次中 4 过 1 失败（3.08s 边界）确认环境性非业务回归；10s 裕度后 `go test ./internal/app/agent/ -run '^TestMetricsCollector_StartReporting$'` 5/5 过、`go test ./core/metrics/` 2/2 过；docs/review/2026-11-01-code-review.md C-021 已改已修。
   - 交付与验收：复跑稳定或加 t.Parallel 隔离/放宽超时归因环境性；记录到 CI 基线说明（非回归，勿当红豁免）；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-027 · P3 · 正确性 · devops hub 写超时 goroutine 泄漏**
+- [x] **C-027 · P3 · 正确性 · devops hub 写超时 goroutine 泄漏**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-027），修复方向 source-wins。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：consumer 增加可选 `SetWriteDeadline` 取消面，超时先 `SetWriteDeadline(now)` 打断阻塞写再 evict，并读取 `done` 收束写 goroutine；新增 `TestHubConsumerTimeoutCancelsBlockingWrite` 断言超时后 writer 被取消、consumer 摘除、`runtime.NumGoroutine()` 不增长；`go test ./agents/devops/...` 全绿、`go build ./...` 过；docs/review/2026-11-01-code-review.md C-027 已改已修。
   - 交付与验收：hub.go write 超时路径取消/关闭阻塞写 goroutine（或改用带超时写原语）；done 通道超时路径读取；新增单测超时后 goroutine 数不增长；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-028 · P3 · 正确性 · mysql_pump flush 无 ctx.Done 阻塞**

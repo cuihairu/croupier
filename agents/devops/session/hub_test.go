@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -474,6 +475,60 @@ func TestHubConsumerEvictionOnTimeout(t *testing.T) {
 		t.Fatal("pump blocked after consumer eviction")
 	}
 	_ = term.stdoutW.Close()
+}
+
+func TestHubConsumerTimeoutCancelsBlockingWrite(t *testing.T) {
+	term := newFakeTerminal("s-cancel")
+	env := newHubEnv(t, term, HubConfig{AttachTimeout: 50 * time.Millisecond})
+	ls, err := env.hub.Open(context.Background(), hubRequest())
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = env.hub.Close() }()
+
+	before := runtime.NumGoroutine()
+	cancellable := &deadlineBlockingWriter{release: make(chan struct{})}
+	_, ok := ls.Attach(cancellable)
+	if !ok {
+		t.Fatal("attach failed")
+	}
+	defer cancellable.once.Do(func() { close(cancellable.release) })
+
+	if _, err := term.stdoutW.Write([]byte("out")); err != nil {
+		t.Fatal(err)
+	}
+	// 超时后 writer 被 deadline 取消：写返回且消费者被摘除，写 goroutine 收束。
+	waitFor(t, func() bool { return ls.consumerCount() == 0 })
+	waitFor(t, func() bool { return cancellable.cancelled() })
+
+	// C-027：超时取消后写 goroutine 已收束，goroutine 总数不得增长。
+	waitFor(t, func() bool { return runtime.NumGoroutine() <= before })
+}
+
+type deadlineBlockingWriter struct {
+	mu           sync.Mutex
+	wasCancelled bool
+	release      chan struct{}
+	once         sync.Once
+}
+
+func (w *deadlineBlockingWriter) Write(p []byte) (int, error) {
+	<-w.release // 阻塞直到测试放行或被 deadline 取消
+	return len(p), nil
+}
+
+func (w *deadlineBlockingWriter) SetWriteDeadline(_ time.Time) error {
+	w.mu.Lock()
+	w.wasCancelled = true
+	w.once.Do(func() { close(w.release) })
+	w.mu.Unlock()
+	return nil
+}
+
+func (w *deadlineBlockingWriter) cancelled() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.wasCancelled
 }
 
 func TestHubMaxSessionsRefusal(t *testing.T) {
