@@ -47,6 +47,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -231,6 +233,23 @@ func runFuncBench(ctx context.Context, scenario, command string, pluginArgs []st
 
 // failf is the scenario assertion helper: a non-nil error fails the
 // scenario with the failing fact in the message.
+// resolveProbeSecret returns the credential value that seeds
+// HOSTDRIVER_PROBE_TOKEN for the probe-credentials boundary check. It is
+// injected via HOSTDRIVER_PROBE_SECRET when the operator provides one;
+// otherwise a per-run random value is generated so no fixed credential
+// ever lives in the binary (C-016). The value is only a probe fixture,
+// never a production credential.
+func resolveProbeSecret() (string, error) {
+	if injected := os.Getenv("HOSTDRIVER_PROBE_SECRET"); injected != "" {
+		return injected, nil
+	}
+	buf := make([]byte, 24)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
+}
+
 func failf(format string, args ...any) error {
 	return fmt.Errorf(format, args...)
 }
@@ -494,8 +513,13 @@ func runProbeScenario(scenario, command string, pluginArgs []string) error {
 		// and reach the plugin on the Check call; anything the plugin
 		// echoes back is scrubbed; missing references degrade before
 		// launch. The reference plugins (Go echoprobe / Python / JS
-		// probe_echo) mirror the cred/leak target semantics.
-		const secret = "hd-t0k3n-9f8e7d"
+		// probe_echo) mirror the cred/leak target semantics. The probe
+		// secret is injected via HOSTDRIVER_PROBE_SECRET (or generated
+		// per run) so no fixed credential lives in the binary (C-016).
+		secret, err := resolveProbeSecret()
+		if err != nil {
+			return fmt.Errorf("resolve probe secret: %w", err)
+		}
 		if err := os.Setenv("HOSTDRIVER_PROBE_TOKEN", secret); err != nil {
 			return fmt.Errorf("set credential env: %w", err)
 		}

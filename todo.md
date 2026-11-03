@@ -580,9 +580,10 @@
   - 完成证据：`serverErrorMessage` 的 catch 由 `catch (IllegalArgumentException ignored) {}` 改为 `catch (IllegalArgumentException parseError) { logger.warn(...) }`（slf4j `logger` 字段新增，对齐 InvokerImpl 模式），仍回退原始 body 不抛异常；新增用例 `sdks/java/.../ServerHttpInvokerServerErrorTest`（5 例：取 message / 空 message 取 error / 无二者回退原始 / 不可解析回退原始且不抛 / 空或 null 回退占位）；`./gradlew test` 全绿。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：捕获后记录日志/上抛，不再 ignored 静默；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-016 · P3 · 安全 · hostdriver 硬编码测试探针 token**
+- [x] **C-016 · P3 · 安全 · hostdriver 硬编码测试探针 token**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-016），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-016），修复方向 source-wins。
+  - 完成证据：`probe-credentials` 的 `const secret = "hd-t0k3n-9f8e7d"` 移除，改为 `resolveProbeSecret()`——`HOSTDRIVER_PROBE_SECRET` 注入时透传，否则 `crypto/rand` 生成 24 字节（48 hex）每运行随机值；非测试路径不再含固定凭据。新增用例 `sdks/plugins/hostdriver/main_test.go` `TestResolveProbeSecret_Injected` / `TestResolveProbeSecret_RandomWhenUnset`（注入透传；未注入随机、非空、两调不撞、非旧字面量、48 hex 形态）；`go build ./sdks/plugins/hostdriver/` 过 + `go test` 绿 + `go vet` 干净。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：hostdriver 探针 secret 改从环境/配置注入，移除字面量 "hd-t0k3n-9f8e7d"；非测试路径不得含固定凭据；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-017 · P3 · 安全 · Dev/Tools tool.url 无 scheme 白名单**
