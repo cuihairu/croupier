@@ -509,3 +509,42 @@ func searchSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+// C-009：建库 DDL 的 dbName 必须过严格标识符白名单（[A-Za-z0-9_-]），
+// 仅引号包裹（反引号/双引号/方括号）不是转义——各方言各有断句字符。
+func TestValidateDBName_Allowlist(t *testing.T) {
+	valid := []string{"game_demo_prod", "croupier", "Game-1", "a_1-Z", "x", "demo_prod_2026",
+		// 纯字母/连字符不是注入（无断句字符），仅属保留字/连字符形态——放行。
+		"SELECT", "a--b"}
+	for _, name := range valid {
+		if err := validateDBName(name); err != nil {
+			t.Errorf("validateDBName(%q) should pass, got %v", name, err)
+		}
+	}
+
+	invalid := []string{
+		"", "a`b", "a'b", "a]b", "a[b", "a\"b", "a;b", "a b", "a.b",
+		"a/b", "a\\b", "..", "a..b", "a\nb", "a\tb", "a%b", "a=b", "a?b",
+	}
+	for _, name := range invalid {
+		if err := validateDBName(name); err == nil {
+			t.Errorf("validateDBName(%q) should be rejected", name)
+		}
+	}
+}
+
+// C-009：create 函数在触碰 DSN/连接前先拒非法 dbName——用坏 DSN + 恶意
+// 名，返回须是校验错误而非 DSN 错误，证明校验先于一切 DDL/连接。
+func TestCreateDatabase_RejectsInvalidDBNameBeforeDSN(t *testing.T) {
+	bad := "game`db" // 反引号：MySQL 反引号包裹下可断句
+	cases := map[string]func(string, string) error{
+		"mysql":     createMySQLDatabase,
+		"postgres":  createPostgresDatabase,
+		"sqlserver": createSQLServerDatabase,
+	}
+	for driver, fn := range cases {
+		err := fn("://bad-dsn", bad)
+		require.Error(t, err, driver)
+		assert.Contains(t, err.Error(), "invalid characters", driver)
+	}
+}

@@ -387,8 +387,30 @@ func removeDBFromMySQLDSN(dsn string) string {
 	return re.ReplaceAllString(dsn, "/$1")
 }
 
+// validDBNamePattern 是建库 DDL 中数据库名的严格白名单（C-009）。仅
+// [A-Za-z0-9_-]：不含引号/反引号/方括号/分号/空白，任何方言 DDL 都
+// 无法断句。DefaultGameDBName 的 sanitize 是缓解（C-009 前），此处是
+// 修复——DDL 面 fail-closed，不依赖各方言引号包裹（反引号/双引号/
+// 方括号各有断句字符，包裹不是转义）。
+var validDBNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// validateDBName 校验数据库名仅含白名单字符。非法名（含注入字符）在
+// 进入 CREATE DATABASE DDL 前拒绝；命中即 fail-closed。
+func validateDBName(dbName string) error {
+	if dbName == "" {
+		return fmt.Errorf("database name must not be empty")
+	}
+	if !validDBNamePattern.MatchString(dbName) {
+		return fmt.Errorf("database name '%s' contains invalid characters (only [A-Za-z0-9_-] allowed)", dbName)
+	}
+	return nil
+}
+
 // createMySQLDatabase 创建 MySQL 数据库
 func createMySQLDatabase(dsn, dbName string) error {
+	if err := validateDBName(dbName); err != nil {
+		return err
+	}
 	// 使用标准 database/sql 包创建数据库
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -443,6 +465,9 @@ func removeDBFromPostgresDSN(dsn, replacementDB string) string {
 // are tolerated: if CREATE DATABASE fails because another process already
 // created it, we verify existence and treat that as success.
 func createPostgresDatabase(dsn, dbName string) error {
+	if err := validateDBName(dbName); err != nil {
+		return err
+	}
 	// pgx stdlib registers the "pgx" driver name (there is no lib/pq here).
 	db, err := sqlOpen("pgx", dsn)
 	if err != nil {
@@ -511,6 +536,9 @@ func replaceDBInSQLServerDSN(dsn, replacementDB string) string {
 
 // createSQLServerDatabase 创建 SQL Server 数据库
 func createSQLServerDatabase(dsn, dbName string) error {
+	if err := validateDBName(dbName); err != nil {
+		return err
+	}
 	db, err := sql.Open("sqlserver", dsn)
 	if err != nil {
 		return err
