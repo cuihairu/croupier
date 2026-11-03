@@ -25,11 +25,87 @@ type CloudInitOptions struct {
 	Extra string
 }
 
+// shellMetachars 是 cloud-init runcmd 注入原语：命令替换（$()/反引号）、命令
+// 分隔（;）、管道（|）、串联/后台（&）、重定向（<>）、子 shell（()）。cloud-init
+// 对字符串形式的 runcmd 条目以 sh -c 求值，这些字符会让条目变成任意 shell，
+// 故逐行拒绝（C-002）。列表形式 [ cmd, arg ] 不经 shell，仅受命令白名单约束。
+const shellMetachars = "`$;|&<>()"
+
+// shellInterpTokens 是会被当作解释器求值的命令：以 -c/-e 求值字符串即注入
+// 载体（列表 [ sh, -c, '...' ] 或字符串 sh -c '...' 都绕过元字符检查）。
+var shellInterpTokens = map[string]bool{
+	"sh": true, "bash": true, "dash": true, "zsh": true, "ksh": true,
+	"csh": true, "ash": true, "python": true, "python2": true, "python3": true,
+	"perl": true, "php": true, "ruby": true, "node": true, "nodejs": true,
+}
+
+// evalFlags 是解释器「把下一个参数当脚本求值」的开关（-c/-e 及组合）。
+func hasEvalFlag(line string) bool {
+	for _, tok := range strings.Fields(line) {
+		tok = strings.TrimRight(tok, ",]")
+		switch tok {
+		case "-c", "-e", "-ec", "-ce", "-lc", "-cl", "--command":
+			return true
+		}
+	}
+	return false
+}
+
+// firstCommand 取 runcmd 条目的命令 token：列表形式 [ cmd, args ] 取首个元素，
+// 字符串形式取首个空白分隔字段。
+func firstCommand(line string) string {
+	line = strings.TrimSpace(line)
+	if strings.HasPrefix(line, "[") {
+		inner := strings.TrimSpace(strings.TrimPrefix(line, "["))
+		if idx := strings.Index(inner, ","); idx >= 0 {
+			return strings.TrimSpace(inner[:idx])
+		}
+		return inner
+	}
+	if fields := strings.Fields(line); len(fields) > 0 {
+		return fields[0]
+	}
+	return ""
+}
+
+// validateCloudInitExtraLine 校验单行 runcmd 条目。空行跳过；含 shell 元字符、
+// 以 '-' 开头（YAML 嵌套）、或「解释器 + eval 标志」注入的条目被拒。
+func validateCloudInitExtraLine(line string) error {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return nil
+	}
+	if strings.HasPrefix(line, "-") {
+		return fmt.Errorf("provision: cloudInitExtra line must not start with '-': %q", line)
+	}
+	if strings.ContainsAny(line, shellMetachars) {
+		return fmt.Errorf("provision: cloudInitExtra line contains shell metacharacters: %q", line)
+	}
+	if shellInterpTokens[firstCommand(line)] && hasEvalFlag(line) {
+		return fmt.Errorf("provision: cloudInitExtra line invokes shell interpreter with eval flag: %q", line)
+	}
+	return nil
+}
+
+// validateCloudInitExtra 校验整个 CloudInitExtra（逐行）。
+func validateCloudInitExtra(extra string) error {
+	for _, line := range strings.Split(extra, "\n") {
+		if err := validateCloudInitExtraLine(line); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // renderCloudInit 渲染 cloud-config 文本：写 /etc/croupier/agent.yaml（hub 地址 +
 // bootstrap token + 供给标签），下载安装 agent，启用服务。cloud-init 经
 // base64encode 注入 user_data，内容不落 terraform state（敏感 token 只出现
-// 在实例用户数据，不入 provision_runs 表）。
-func renderCloudInit(o CloudInitOptions) string {
+// 在实例用户数据，不入 provision_runs 表）。Extra 逐行经 shell 注入校验
+// （C-002），非法返回 error（Validate 边界已拦，此处防御纵深）。
+func renderCloudInit(o CloudInitOptions) (string, error) {
+	if err := validateCloudInitExtra(o.Extra); err != nil {
+		return "", err
+	}
 	var b strings.Builder
 	b.WriteString("#cloud-config\n")
 	b.WriteString("write_files:\n")
@@ -52,7 +128,7 @@ func renderCloudInit(o CloudInitOptions) string {
 			}
 		}
 	}
-	return b.String()
+	return b.String(), nil
 }
 
 // TemplateVars 是 provider 模板的公共变量（HCL 内以 var.xxx 引用）。

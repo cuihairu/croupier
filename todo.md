@@ -497,10 +497,11 @@
 
 ## 全仓代码深审（2026-11-02）——P2/P3 待办
 
-- [ ] **C-002 · P2 · 安全 · cloud-init runcmd 注入（root RCE）**
+- [x] **C-002 · P2 · 安全 · cloud-init runcmd 注入（root RCE）**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-002），修复方向 source-wins。
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`internal/ops/provision/template.go` 新增 `validateCloudInitExtra`/`validateCloudInitExtraLine`（逐行拒绝 shell 元字符 `$`/反引号/`;`/`|`/`&`/`<>`/`()`、`-` 前缀 YAML 嵌套、「解释器 + eval 标志」（`sh -c`/`bash -e`/列表 `[ sh, -c, ... ]` 绕过））；`renderCloudInit` 改返回 `(string, error)`（防御纵深，Extra 非法即拒渲染）；`orchestrator.go` `Validate` 边界拒绝非法 `CloudInitExtra`；`apply` 处理渲染 error。
   - 交付与验收：template.go 的 renderCloudInit 不再把 CloudInitExtra 原样拼入 runcmd——改为经 allow-list 校验（仅白名单命令）或拒绝含 shell 元字符的行；新增单测覆盖 Extra 含 `$(...)`/`;`/`|` 被拒；provision Validate 校验 CloudInitExtra 非空时格式；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+  - 完成证据：`TestValidateCloudInitExtra_RejectsInjection`（11 类注入全拒：`$()`/反引号/`|`/`;`/`&&`/`>`/`()`/`[ sh, -c, ... ]`/`sh -c`/`bash -e`/`- `前缀 + 多行一行非法即拒）、`TestValidateCloudInitExtra_AllowsSafe`（列表 `[ systemctl, ... ]`/curl/bash 脚本/空行放行）、`TestRenderCloudInit_RejectsInjectionExtra`、`TestValidate_Matrix` 注入/放行子用例；`go test ./internal/ops/provision/` + `./internal/api/ops/` 全绿、`go build ./...` + `go vet` 通过；review 文档 C-002 行改「已修（2026-11-03）」。
 
 - [ ] **C-003 · P2 · SDK · JS SDK 畸形帧对端挂死（违 BUG-038 应答契约）**
   - 依赖：—。

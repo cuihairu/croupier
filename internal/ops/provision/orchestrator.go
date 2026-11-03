@@ -129,6 +129,11 @@ func Validate(req *Request) (*Request, error) {
 	if req.Spec.DiskSizeGB <= 0 {
 		req.Spec.DiskSizeGB = defaultDiskGB
 	}
+	if req.CloudInitExtra != "" {
+		if err := validateCloudInitExtra(req.CloudInitExtra); err != nil {
+			return nil, err
+		}
+	}
 	return req, nil
 }
 
@@ -199,13 +204,16 @@ func (o *Orchestrator) apply(ctx context.Context, run *Run) error {
 	if err := o.Runner.Init(ctx, workDir); err != nil {
 		return fmt.Errorf("provision init: %w", err)
 	}
-	cloudInit := renderCloudInit(CloudInitOptions{
+	cloudInit, err := renderCloudInit(CloudInitOptions{
 		HubAddr:         run.Request.HubAddr,
 		BootstrapToken:  run.Request.BootstrapToken,
 		AgentInstallURL: o.InstallURL,
 		RunID:           run.ID,
 		Extra:           run.Request.CloudInitExtra,
 	})
+	if err != nil {
+		return fmt.Errorf("provision render cloud-init: %w", err)
+	}
 	vars := map[string]string{
 		"region":        run.Request.Region,
 		"instance_type": run.Request.Spec.InstanceType,

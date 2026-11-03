@@ -9,12 +9,13 @@ import (
 )
 
 func TestRenderCloudInit_ContainsTokenAndHub(t *testing.T) {
-	out := renderCloudInit(CloudInitOptions{
+	out, err := renderCloudInit(CloudInitOptions{
 		HubAddr:         "hub.example.com:19090",
 		BootstrapToken:  "secret-token-abc",
 		AgentInstallURL: "https://dl.example.com/agent.sh",
 		Extra:           "[ systemctl, enable, --now, croupier-agent ]",
 	})
+	require.NoError(t, err)
 	assert.Contains(t, out, "#cloud-config")
 	assert.Contains(t, out, "hubAddr: hub.example.com:19090")
 	assert.Contains(t, out, "bootstrapToken: secret-token-abc")
@@ -23,9 +24,63 @@ func TestRenderCloudInit_ContainsTokenAndHub(t *testing.T) {
 }
 
 func TestRenderCloudInit_NoInstallURLSkipsDownload(t *testing.T) {
-	out := renderCloudInit(CloudInitOptions{HubAddr: "h:1", BootstrapToken: "t"})
+	out, err := renderCloudInit(CloudInitOptions{HubAddr: "h:1", BootstrapToken: "t"})
+	require.NoError(t, err)
 	assert.NotContains(t, out, "curl")
 	assert.Contains(t, out, "bootstrapToken: t")
+}
+
+// C-002：CloudInitExtra 注入面校验。元字符（$()/;/|/&/重定向/子 shell）与
+// 「解释器 + eval 标志」注入逐行拒绝；合法单条命令与安全列表形式放行。
+func TestValidateCloudInitExtra_RejectsInjection(t *testing.T) {
+	cases := []string{
+		"$(rm -rf /)",             // 命令替换
+		"`rm -rf /`",              // 反引号替换
+		"curl x | bash",           // 管道
+		"curl x; rm -rf /",        // 命令分隔
+		"curl x && rm -rf /",      // 串联
+		"curl x > /etc/passwd",    // 重定向
+		"(rm -rf /)",              // 子 shell
+		"[ sh, -c, 'rm -rf /' ]",  // 列表形式解释器求值
+		"sh -c 'rm -rf /'",        // 字符串形式解释器求值
+		"bash -e 'curl x | bash'", // 解释器 eval
+		"- rm -rf /",              // YAML 嵌套
+	}
+	for _, c := range cases {
+		t.Run(c, func(t *testing.T) {
+			err := validateCloudInitExtra(c)
+			require.Error(t, err, "should reject: %s", c)
+		})
+	}
+	// 逐行校验：多行中一行非法即拒。
+	err := validateCloudInitExtra("curl x -o /tmp/y\n; rm -rf /\n")
+	require.Error(t, err)
+}
+
+func TestValidateCloudInitExtra_AllowsSafe(t *testing.T) {
+	cases := []string{
+		"[ systemctl, enable, --now, croupier-agent ]",
+		"curl -fsSL https://dl.example.com/agent.sh -o /tmp/a.sh",
+		"bash /tmp/croupier-agent-install.sh",
+		"systemctl enable --now croupier-agent",
+		"mkdir -p /etc/croupier",
+		"",       // 空行跳过
+		"  \n  ", // 空白行跳过
+	}
+	for _, c := range cases {
+		t.Run(c, func(t *testing.T) {
+			require.NoError(t, validateCloudInitExtra(c), "should allow: %q", c)
+		})
+	}
+}
+
+func TestRenderCloudInit_RejectsInjectionExtra(t *testing.T) {
+	_, err := renderCloudInit(CloudInitOptions{
+		HubAddr:        "h:1",
+		BootstrapToken: "t",
+		Extra:          "curl x; rm -rf /",
+	})
+	require.Error(t, err)
 }
 
 // 各 provider 模板必须：含 provider 块、含对应 resource、含 user_data 注入、
@@ -140,6 +195,18 @@ func TestValidate_Matrix(t *testing.T) {
 		r.Policy = "chaos"
 		_, err := Validate(r)
 		require.Error(t, err)
+	})
+	t.Run("cloudInitExtra injection rejected", func(t *testing.T) {
+		r := base()
+		r.CloudInitExtra = "curl x; rm -rf /"
+		_, err := Validate(r)
+		require.Error(t, err)
+	})
+	t.Run("cloudInitExtra safe allowed", func(t *testing.T) {
+		r := base()
+		r.CloudInitExtra = "[ systemctl, enable, --now, croupier-agent ]"
+		_, err := Validate(r)
+		require.NoError(t, err)
 	})
 }
 
