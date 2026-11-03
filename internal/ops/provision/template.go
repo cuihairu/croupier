@@ -2,6 +2,7 @@ package provision
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"text/template"
 )
@@ -97,6 +98,32 @@ func validateCloudInitExtra(extra string) error {
 	return nil
 }
 
+// validateAgentInstallURL 校验 agent 安装脚本 URL。要求非空时是 http(s) URL
+// 且不含空白/控制字符（换行会破坏 cloud-init YAML、空白会拆 shell 词）。
+// shell 元字符（;|&$`() 等）本身经 shellSingleQuote 在渲染边界加引号中和，
+// 故不在此拒绝；仅做 URL 形态约束（#673）。
+func validateAgentInstallURL(raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	if strings.IndexFunc(raw, func(r rune) bool {
+		return r <= ' ' || r == 0x7f
+	}) >= 0 {
+		return fmt.Errorf("provision: agentInstallUrl must not contain whitespace or control chars: %q", raw)
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("provision: agentInstallUrl must be an http(s) URL: %q", raw)
+	}
+	return nil
+}
+
+// shellSingleQuote 把字符串包装为单引号 shell 字面量（'...'），内嵌单引号
+// 以 '\” 转义。用于把 URL 作为单一参数传入 sh -c 脚本，防命令注入。
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // renderCloudInit 渲染 cloud-config 文本：写 /etc/croupier/agent.yaml（hub 地址 +
 // bootstrap token + 供给标签），下载安装 agent，启用服务。cloud-init 经
 // base64encode 注入 user_data，内容不落 terraform state（敏感 token 只出现
@@ -104,6 +131,9 @@ func validateCloudInitExtra(extra string) error {
 // （C-002），非法返回 error（Validate 边界已拦，此处防御纵深）。
 func renderCloudInit(o CloudInitOptions) (string, error) {
 	if err := validateCloudInitExtra(o.Extra); err != nil {
+		return "", err
+	}
+	if err := validateAgentInstallURL(o.AgentInstallURL); err != nil {
 		return "", err
 	}
 	var b strings.Builder
@@ -118,7 +148,8 @@ func renderCloudInit(o CloudInitOptions) (string, error) {
 	}
 	b.WriteString("runcmd:\n")
 	if o.AgentInstallURL != "" {
-		fmt.Fprintf(&b, "  - [ sh, -c, 'curl -fsSL %s -o /tmp/croupier-agent-install.sh && bash /tmp/croupier-agent-install.sh' ]\n", o.AgentInstallURL)
+		fmt.Fprintf(&b, "  - [ sh, -c, 'curl -fsSL %s -o /tmp/croupier-agent-install.sh && bash /tmp/croupier-agent-install.sh' ]\n",
+			shellSingleQuote(o.AgentInstallURL))
 	}
 	if o.Extra != "" {
 		for _, line := range strings.Split(o.Extra, "\n") {

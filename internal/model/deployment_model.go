@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -67,12 +68,13 @@ type DeploymentTarget struct {
 
 // Deployment 状态机。
 const (
-	DeploymentStateDraft      = "draft"
-	DeploymentStateDeploying  = "deploying"
-	DeploymentStatePaused     = "paused"
-	DeploymentStateComplete   = "complete"
-	DeploymentStateFailed     = "failed"
-	DeploymentStateRolledBack = "rolled_back"
+	DeploymentStateDraft          = "draft"
+	DeploymentStateDeploying      = "deploying"
+	DeploymentStatePaused         = "paused"
+	DeploymentStateComplete       = "complete"
+	DeploymentStateFailed         = "failed"
+	DeploymentStateRolledBack     = "rolled_back"
+	DeploymentStateRollbackFailed = "rollback_failed"
 )
 
 // DeploymentTarget 状态机。
@@ -103,6 +105,36 @@ func (m *DeploymentModel) Create(ctx context.Context, d *Deployment) error {
 // Update 全字段写回。
 func (m *DeploymentModel) Update(ctx context.Context, d *Deployment) error {
 	return m.db.WithContext(ctx).Save(d).Error
+}
+
+// CompareAndSwapState 仅当当前 state == from 时原子更新为 to（含整行写回）。
+// 返回 (成功, 当前行)。用于 Start 的 draft→deploying 非原子读改写并发防护。
+func (m *DeploymentModel) CompareAndSwapState(ctx context.Context, id, from, to string) (bool, *Deployment, error) {
+	var d Deployment
+	err := m.db.WithContext(ctx).Where("deployment_id = ? AND state = ?", id, from).First(&d).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil, nil
+	}
+	if err != nil {
+		return false, nil, err
+	}
+	d.State = to
+	d.UpdatedAt = time.Now()
+	res := m.db.WithContext(ctx).Model(&d).Where("deployment_id = ? AND state = ?", id, from).
+		Update("state", to)
+	if res.Error != nil {
+		return false, nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		// 并发 Start 已把 state 改走：CAS 失败，无整行可回读。
+		return false, nil, nil
+	}
+	// 回读整行（含 targets 等）供编排继续。
+	row, err := m.FindByID(ctx, id)
+	if err != nil {
+		return false, nil, err
+	}
+	return true, row, nil
 }
 
 // FindByID 按 deployment id 查询。

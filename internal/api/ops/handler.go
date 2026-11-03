@@ -960,6 +960,12 @@ func (h *Handler) BatchOpCreateHandler(c *gin.Context) {
 	if req.Env == "" {
 		req.Env = scope.Env
 	}
+	// body 携带非空 gameId/env 时必须与认证 scope 一致，防止作用域受限
+	// 用户向未授权游戏/环境创建/派发批次（fail-closed）。
+	if err := enforceRequestScope(c.Request.Context(), req.GameID, req.Env); err != nil {
+		response.Error(c, err)
+		return
+	}
 	if username, err := utils.CurrentUsername(c.Request.Context()); err == nil {
 		req.CreatedBy = username
 	}

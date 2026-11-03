@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
@@ -133,9 +134,15 @@ func (h *Handler) DeployPackageUpload(c *gin.Context) {
 		return
 	}
 	defer f.Close()
-	payload, err := io.ReadAll(f)
+	// 上传包大小上限（500 MiB）：io.ReadAll 无上限可无界读入内存耗尽。
+	const maxUploadSize = 500 << 20
+	payload, err := io.ReadAll(io.LimitReader(f, maxUploadSize+1))
 	if err != nil {
 		response.Error(c, errorx.NewInternalError("读取上传内容失败"))
+		return
+	}
+	if len(payload) > maxUploadSize {
+		response.Error(c, errorx.NewBadRequest("上传包超过 500 MiB 上限"))
 		return
 	}
 	req := &DeployPackageCreateRequest{
@@ -234,6 +241,23 @@ func (s *Service) DeployPackageUpload(ctx context.Context, req *DeployPackageCre
 	if role == "" {
 		role = "agent"
 	}
+	// role/name/version 拼接对象键与 agent 暂存路径，须拒绝路径分隔符与
+	// 遍历序列（防任意对象键写 / 任意路径写）。
+	if n, err := safeObjectPathPart(name); err != nil {
+		return nil, errorx.NewBadRequest("name: " + err.Error())
+	} else {
+		name = n
+	}
+	if v, err := safeObjectPathPart(version); err != nil {
+		return nil, errorx.NewBadRequest("version: " + err.Error())
+	} else {
+		version = v
+	}
+	if r, err := safeObjectPathPart(role); err != nil {
+		return nil, errorx.NewBadRequest("role: " + err.Error())
+	} else {
+		role = r
+	}
 	contentType := strings.TrimSpace(req.ContentType)
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -247,7 +271,7 @@ func (s *Service) DeployPackageUpload(ctx context.Context, req *DeployPackageCre
 	hasher.Write(payload)
 	checksum := hex.EncodeToString(hasher.Sum(nil))
 	size := int64(len(payload))
-	reader := &bytesReader{data: payload}
+	reader := newBytesReader(payload)
 	if err := s.svcCtx.ObjectStore.Put(ctx, key, reader, size, contentType); err != nil {
 		return nil, errorx.NewInternalError("上传对象存储失败: " + err.Error())
 	}
@@ -420,12 +444,29 @@ func buildDeploymentView(d *model.Deployment) DeploymentView {
 	}
 }
 
-// bytesReader 是 io.ReadSeeker 的 bytes.Reader 别名。
-type bytesReader struct{ data []byte }
+// bytesReader 是 io.ReadSeeker 的 bytes.Reader 持久游标封装。
+// 旧实现每次 Read/Seek 都新建 bytes.Reader（不保持游标），Read 永不返回
+// EOF——objstore 各驱动 Put（io.Copy 直到 EOF）会死循环写无限增长。改为
+// 持有单一 reader，Read/Seek 推进同一游标。
+type bytesReader struct {
+	mu     sync.Mutex
+	reader *bytes.Reader
+}
 
-func (b *bytesReader) Read(p []byte) (int, error) { return bytes.NewReader(b.data).Read(p) }
+func newBytesReader(data []byte) *bytesReader {
+	return &bytesReader{reader: bytes.NewReader(data)}
+}
+
+func (b *bytesReader) Read(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.reader.Read(p)
+}
+
 func (b *bytesReader) Seek(off int64, whence int) (int64, error) {
-	return bytes.NewReader(b.data).Seek(off, whence)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.reader.Seek(off, whence)
 }
 
 // currentUsername 取认证上下文用户名（与既有 helpers 一致；此处独立兜底）。

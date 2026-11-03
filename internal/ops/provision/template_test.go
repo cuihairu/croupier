@@ -83,6 +83,69 @@ func TestRenderCloudInit_RejectsInjectionExtra(t *testing.T) {
 	require.Error(t, err)
 }
 
+// #673：AgentInstallURL 校验——空白/控制字符与非法 scheme 拒；shell 元字符
+// 本身经渲染边界单引号中和（见 TestRenderCloudInit_SingleQuotesInstallURL）。
+func TestValidateAgentInstallURL_RejectsBad(t *testing.T) {
+	cases := []string{
+		"https://dl.example.com/agent.sh; rm -rf /", // 空白拆词
+		"https://dl.example.com/agent.sh  --extra",  // 空白拆词
+		"https://dl.example.com/agent.sh # comment", // 空白+注释
+		"https://dl.example.com/agent.sh\nrm -rf /", // 换行破坏 YAML
+		"file:///etc/passwd",
+		"ftp://dl.example.com/agent.sh",
+		"javascript:alert(1)",
+	}
+	for _, c := range cases {
+		t.Run(c, func(t *testing.T) {
+			err := validateAgentInstallURL(c)
+			require.Error(t, err, "should reject: %q", c)
+		})
+	}
+}
+
+func TestValidateAgentInstallURL_AllowsSafe(t *testing.T) {
+	cases := []string{
+		"",
+		"   ",
+		"https://dl.example.com/agent.sh",
+		"http://10.0.0.5:8080/install",
+		"https://dl.example.com/install?token=abc-123&x=1",
+		"https://dl.example.com/agent.sh?ver=1.2.3&src=croupier",
+		"https://dl.example.com/agent.sh;echo%20pwned", // 元字符将由渲染引号中和
+		"https://dl.example.com/$(id).sh",
+		"https://dl.example.com/agent.sh`id`",
+		"https://dl.example.com/agent.sh|bash",
+		"https://dl.example.com/agent.sh'x",
+	}
+	for _, c := range cases {
+		t.Run(c, func(t *testing.T) {
+			require.NoError(t, validateAgentInstallURL(c), "should allow: %q", c)
+		})
+	}
+}
+
+func TestRenderCloudInit_RejectsInjectionInstallURL(t *testing.T) {
+	_, err := renderCloudInit(CloudInitOptions{
+		HubAddr:         "h:1",
+		BootstrapToken:  "t",
+		AgentInstallURL: "https://dl.example.com/agent.sh rm -rf /", // 空白拒
+	})
+	require.Error(t, err)
+}
+
+// #673：渲染输出把 URL 包为单引号 shell 字面量（内嵌 ' 以 '\” 转义），
+// 元字符成为字面量，不改变 sh -c 脚本解析。
+func TestRenderCloudInit_SingleQuotesInstallURL(t *testing.T) {
+	out, err := renderCloudInit(CloudInitOptions{
+		HubAddr:         "h:1",
+		BootstrapToken:  "t",
+		AgentInstallURL: "https://dl.example.com/agent.sh;echo%20pwned",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "curl -fsSL 'https://dl.example.com/agent.sh;echo%20pwned' -o /tmp/croupier-agent-install.sh")
+	assert.NotContains(t, out, "';echo%20pwned' &&")
+}
+
 // 各 provider 模板必须：含 provider 块、含对应 resource、含 user_data 注入、
 // 含 instance_id 输出。这是模板渲染正确性的真值面（无云凭据不可 apply，
 // 真实 apply 验证登记为部署后人工项）。

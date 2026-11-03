@@ -30,6 +30,9 @@ type Store interface {
 	Update(ctx context.Context, d *model.Deployment) error
 	FindByID(ctx context.Context, id string) (*model.Deployment, error)
 	List(ctx context.Context, limit int) ([]model.Deployment, error)
+	// CompareAndSwapState 原子地仅当当前 state == from 时更新为 to（并回读
+	// 整行）。返回 ok=false 表示 state 已被其它并发 Start 改走。
+	CompareAndSwapState(ctx context.Context, id, from, to string) (bool, *model.Deployment, error)
 }
 
 // Orchestrator 编排发版单。
@@ -129,12 +132,15 @@ func (o *Orchestrator) Start(ctx context.Context, d *model.Deployment, pkg *mode
 	if pkg == nil || pkg.ObjectKey == "" {
 		return d, errors.New("deploy: package must have objectKey")
 	}
-	d.State = model.DeploymentStateDeploying
-	d.UpdatedAt = time.Now()
-	if err := o.store.Update(ctx, d); err != nil {
+	// 原子 draft→deploying CAS：并发 Start 只有一个能通过。
+	ok, row, err := o.store.CompareAndSwapState(ctx, d.DeploymentID, model.DeploymentStateDraft, model.DeploymentStateDeploying)
+	if err != nil {
 		return d, err
 	}
-	return o.Advance(ctx, d, pkg)
+	if !ok {
+		return d, fmt.Errorf("deploy: cannot start from state %s", d.State)
+	}
+	return o.Advance(ctx, row, pkg)
 }
 
 // Advance 执行当前批次（分批推进 + 健康门禁 + 自动暂停）。
@@ -220,6 +226,7 @@ func (o *Orchestrator) Advance(ctx context.Context, d *model.Deployment, pkg *mo
 // 包），本编排只标记回滚状态并逐机调用 ApplyUpdate。
 func (o *Orchestrator) Rollback(ctx context.Context, d *model.Deployment, pkg *model.DeployPackage) (*model.Deployment, error) {
 	targets := decodeTargets(d.TargetsJSON)
+	var rollbackErr error
 	for i := range targets {
 		t := &targets[i]
 		if t.State != model.DeploymentTargetHealthy && t.State != model.DeploymentTargetFailed {
@@ -227,25 +234,37 @@ func (o *Orchestrator) Rollback(ctx context.Context, d *model.Deployment, pkg *m
 		}
 		staged, err := o.agent.StagePackage(ctx, t.AgentID, pkg)
 		if err != nil {
-			t.State = model.DeploymentTargetRolledBack
 			t.Message = "rollback stage: " + err.Error()
+			if rollbackErr == nil {
+				rollbackErr = fmt.Errorf("deploy: rollback stage agent %s: %w", t.AgentID, err)
+			}
 			continue
 		}
 		_, err = o.agent.ApplyUpdate(ctx, t.AgentID, d.ProcessName, staged, pkg.Checksum)
 		if err != nil {
-			t.State = model.DeploymentTargetRolledBack
 			t.Message = "rollback apply: " + err.Error()
+			if rollbackErr == nil {
+				rollbackErr = fmt.Errorf("deploy: rollback apply agent %s: %w", t.AgentID, err)
+			}
 			continue
 		}
 		t.State = model.DeploymentTargetRolledBack
 		t.Message = "rolled back to " + pkg.Version
 		t.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	}
-	d.State = model.DeploymentStateRolledBack
+	if rollbackErr != nil {
+		// 部分/全部目标回滚失败：不得虚报整体 RolledBack。
+		d.State = model.DeploymentStateRollbackFailed
+	} else {
+		d.State = model.DeploymentStateRolledBack
+	}
 	d.UpdatedAt = time.Now()
 	_ = saveTargets(d, targets)
 	if err := o.store.Update(ctx, d); err != nil {
 		return d, err
+	}
+	if rollbackErr != nil {
+		return d, rollbackErr
 	}
 	return d, nil
 }

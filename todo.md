@@ -649,10 +649,18 @@
 
 ## 审核发现（ed541f6ed11ff1df5038d90fda9daa9711fa2cf9..HEAD，2026-11-02 只审不改）
 
-- [ ] 审核发现：供给 cloud-init 的 CloudInitExtra（POST /ops/provision body 用户可控）逐行原样写入 runcmd，作为 root 在新建实例执行，可注入任意命令（RCE）。（internal/ops/provision/template.go:47-52）
-- [ ] 审核发现：deploy 投递暂存路径 /tmp/croupier-deploy-<pid>-<version> 由未净化的用户 version 拼接，version 含 ../ 可致 curl -o 在 agent 主机任意路径写文件（任意文件写/代码执行）。（internal/api/ops/deploy_agent.go:43）
-- [ ] 审核发现：供给提交直接采用 body 的 gameId/env，未与已认证 X-Game-ID/X-Env scope 比对，作用域受限用户可向越权游戏/环境供给云资源（scope 绕过）。（internal/api/ops/provision.go:120-121）
-- [ ] 审核发现：batchop 创建在 body 提供 gameId/env 时覆盖中间件解析的授权 scope，可越权创建/派发到未授权游戏环境。（internal/api/ops/handler.go:956-961）
+- [x] 审核发现：供给 cloud-init 的 CloudInitExtra（POST /ops/provision body 用户可控）逐行原样写入 runcmd，作为 root 在新建实例执行，可注入任意命令（RCE）。（internal/ops/provision/template.go:47-52）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修，C-002 既有提交）。`validateCloudInitExtra`/`validateCloudInitExtraLine` 逐行拒绝 shell 元字符（$`;|&<>()）、`-` 前缀、解释器+eval 标志；`renderCloudInit` 改返回 error；`Validate` 边界拦截。
+  - 完成证据：`TestValidateCloudInitExtra_RejectsInjection`/`_AllowsSafe`、`TestRenderCloudInit_RejectsInjectionExtra`、`TestValidate_Matrix`；`go test ./internal/ops/provision/` 全绿（本次会话）。
+- [x] 审核发现：deploy 投递暂存路径 /tmp/croupier-deploy-<pid>-<version> 由未净化的用户 version 拼接，version 含 ../ 可致 curl -o 在 agent 主机任意路径写文件（任意文件写/代码执行）。（internal/api/ops/deploy_agent.go:43）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`DeployPackageUpload` 对 name/version/role 经 `safeObjectPathPart`（internal/api/ops/helpers.go:1781-1790）拒绝 `/`、`\`、`..`、空值；暂存路径用 packageID+已净化 version。
+  - 完成证据：`TestSafeObjectPathPart_RejectsTraversal`、`TestDeployPackageUploadEmptyNoObjectStore`；`go test ./internal/api/ops/` 全绿（303s）。
+- [x] 审核发现：供给提交直接采用 body 的 gameId/env，未与已认证 X-Game-ID/X-Env scope 比对，作用域受限用户可向越权游戏/环境供给云资源（scope 绕过）。（internal/api/ops/provision.go:120-121）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`OpsProvisionSubmit` 在构建请求前调用 `enforceRequestScope`（internal/api/ops/helpers.go:1765-1776），非空请求 scope 与认证 scope 冲突返回 403（fail-closed）。
+  - 完成证据：`TestProvisionSubmit_CrossScopeRejected_403`；`go test ./internal/api/ops/` 全绿（303s）。
+- [x] 审核发现：batchop 创建在 body 提供 gameId/env 时覆盖中间件解析的授权 scope，可越权创建/派发到未授权游戏环境。（internal/api/ops/handler.go:956-961）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`BatchOpCreateHandler` 在填充默认 scope 后调用 `enforceRequestScope`（internal/api/ops/handler.go:960-966），body scope 与认证 scope 冲突返回 403。
+  - 完成证据：`TestBatchOpCreate_CrossScopeRejected_403`；`go test ./internal/api/ops/` 全绿（303s）。
 - [ ] 审核发现：analytics daily_users 刷新对 Redis PFCount 错误置 0 后直接以新 version 写入 ReplacingMergeTree(version)，0 行永久覆盖当日真实 DAU/NAU（与 minute_online 的 remerge 兜底路径不一致）。（internal/analytics/worker/worker.go:830-831）
 - [ ] 审核发现：供给 ticket 模式续行丢失 HubAddr/BootstrapToken/CloudInitExtra——runFromModel 未恢复（json:"-" 不持久化）、ResumeAsync 不再注入 server 参数，续行渲染出空 hubAddr/token 的 cloud-init，agent 引导必然失败。（internal/svc/provision_wiring.go:93-126；internal/api/ops/provision.go:155）
 - [ ] 审核发现：供给 user_data（多行 cloud-init YAML）经 tfexec.Var("-var user_data=<值>") 传入，terraform/tofu 按 HCL 表达式解析（#cloud-config 起始为注释）致真实 apply 失败；FakeRunner 测试掩盖该路径（测试缺口）。（internal/ops/provision/runner.go:52-53）
@@ -662,18 +670,30 @@
 - [ ] 审核发现：供给 DestroyResume 未先推进状态即执行 runDestroy（并发双销毁），且 Destroy/runDestroy 不持 applyMu、不校验 run 状态，可直接与在途 apply 对同一 workdir 竞态（terraform state 破坏）。（internal/ops/provision/orchestrator.go:375,411,437）
 - [ ] 审核发现：供给请求 Count 无上限（仅校验 <1），可一次性创建海量云实例造成失控成本/资源。（internal/ops/provision/orchestrator.go:111-113）
 - [ ] 审核发现：batchop Execute 无状态闸，已完成/运行中批次可被重复派发；且在请求 ctx 上执行、UpdateStatus 错误全被 `_ =` 丢弃，断开后批次停 Running 且终态不落库。（internal/ops/batchop/batchop.go:187,196,243）
-- [ ] 审核发现：deploy Start 状态闸在调用方载入副本上非原子判断（:126），并发 Start 均可通过并双跑首批；且 Rollback 在 stage/apply 失败时仍标记 RolledBack 上报成功（假成功）。（internal/ops/deploy/deploy.go:126,229-242）
+- [x] 审核发现：deploy Start 状态闸在调用方载入副本上非原子判断（:126），并发 Start 均可通过并双跑首批；且 Rollback 在 stage/apply 失败时仍标记 RolledBack 上报成功（假成功）。（internal/ops/deploy/deploy.go:126,229-242）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`Store` 新增 `CompareAndSwapState`（model/deployment_model.go:112-138，WHERE state=from 原子 Update+RowsAffected 校验+整行回读）；`Start` 改 CAS draft→deploying，失败即报错；`Rollback` 跟踪首个失败（deploy.go:229-269），失败置 `DeploymentStateRollbackFailed` 并返回 error，不再虚报 RolledBack。
+  - 完成证据：`TestStart_ConcurrentOnlyOnce`、`TestRollback_FailureReportsError`、`TestDeploymentModelCompareAndSwapState`；`go test ./internal/ops/deploy/ ./internal/model/` 全绿。
 - [ ] 审核发现：deploy 编排在 HTTP 请求 ctx 上同步执行（deployments.go:195），客户端断开即取消整个发版；Advance 递归携带已取消 ctx 中途终止，且健康门禁 Healthy 错误被忽略。（internal/api/ops/deployments.go:195；internal/ops/deploy/deploy.go:216,271）
-- [ ] 审核发现：deploy 包上传 io.ReadAll 无大小上限，可无界读入内存耗尽。（internal/api/ops/deployments.go:136）
+- [x] 审核发现：deploy 包上传 io.ReadAll 无大小上限，可无界读入内存耗尽。（internal/api/ops/deployments.go:136）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`DeployPackageUpload` 用 `io.LimitReader(f, 500MiB+1)` 且超过即 400（internal/api/ops/deployments.go:137-147）。
+  - 完成证据：`TestDeployPackageUploadEmptyNoObjectStore`；`go test ./internal/api/ops/` 全绿（303s）。
 - [ ] 审核发现：metrics 小时聚合磁盘 usage_percent 累加未除样本数（:657 累加、:713 直接 round2），可超 100% 且非均值，与 CPU/MEM/net（除 n）语义不一致。（internal/platform/registry/metrics.go:657,713）
 - [ ] 审核发现：metrics SetDB 写 s.db 未持 s.mu，与 Add/persistToDB/getFromDB/RollupHourly 读侧数据竞态（LogStore.SetDB 有锁，此处不一致）。（internal/platform/registry/metrics.go:186-188）
 - [ ] 审核发现：analytics processMessage 对 retry_count 做未检查类型断言（:1004），外部流消息若为非 float64 类型则 panic 崩 worker（Run 循环无 recover）。（internal/analytics/worker/worker.go:1004）
 - [ ] 审核发现：scheduler reapStaleClaims 游标按非唯一 created_at 分页（task_schedule_model.go 用 >= cursor）且 UpdateRunLog 错误被 `_ =` 丢弃（manager.go:280），边界同时间戳+持续更新失败时可反复取同页空转。（internal/tasks/scheduler/manager.go:280-288）
 - [ ] 审核发现：cluster 互联 TLS 现需 InterconnectTLS.Enabled=true 才启用（cluster.go:147），既有证书已配置但未显式 enabled 的部署会静默降级为明文互联（就绪面有降级记录，属行为变更需人工确认）。（cmd/server/cluster.go:147）
-- [ ] 审核发现：供给 cloud-init 的 AgentInstallURL 未做 shell 引号（template.go:45），含 ;/|/$() 元字符可注入；该值来自 server 配置 provision.agentInstallUrl（配置级，非直接远端输入）。（internal/ops/provision/template.go:45）
-- [ ] 审核发现：deploy 对象存储 key 由未净化的 role/name/version 拼接（deployments.go:245），../ 可逃逸 deploy/ 前缀写入任意对象键。（internal/api/ops/deployments.go:245）
-- [ ] 审核发现：deploy 包上传的 bytesReader 每次 Read/Seek 都新建 bytes.Reader（不保持游标），Read 永不返回 EOF——objstore 各驱动 Put（file/s3/cos/oss 均 io.Copy 直到 EOF）将死循环，写无限增长（fileStore 撑爆磁盘 / S3 超大对象），且上传请求永久挂起。（internal/api/ops/deployments.go:250,424-429）
-- [ ] 审核发现：deploy 包上传无对应 objstore.Put 集成测试（仅测了 model CRUD），bytesReader 死循环在测试面完全未覆盖。（internal/model/model_test.go:6222-6247；internal/api/ops/deployments.go:250）
+- [x] 审核发现：供给 cloud-init 的 AgentInstallURL 未做 shell 引号（template.go:45），含 ;/|/$() 元字符可注入；该值来自 server 配置 provision.agentInstallUrl（配置级，非直接远端输入）。（internal/ops/provision/template.go:45）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`renderCloudInit` 对 `AgentInstallURL` 经 `validateAgentInstallURL`（http(s) 且无空白/控制字符）+ `shellSingleQuote` 单引号包裹（template.go:101-125,132-138），元字符成字面量；渲染边界 fail-closed。
+  - 完成证据：`TestValidateAgentInstallURL_RejectsBad`/`_AllowsSafe`、`TestRenderCloudInit_SingleQuotesInstallURL`；`go test ./internal/ops/provision/` 全绿。
+- [x] 审核发现：deploy 对象存储 key 由未净化的 role/name/version 拼接（deployments.go:245），../ 可逃逸 deploy/ 前缀写入任意对象键。（internal/api/ops/deployments.go:245）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`DeployPackageUpload` 对 name/version/role 经 `safeObjectPathPart`（internal/api/ops/helpers.go:1781-1790）拒绝分隔符与 `..`，防对象键逃逸。
+  - 完成证据：`TestSafeObjectPathPart_RejectsTraversal`；`go test ./internal/api/ops/` 全绿（303s）。
+- [x] 审核发现：deploy 包上传的 bytesReader 每次 Read/Seek 都新建 bytes.Reader（不保持游标），Read 永不返回 EOF——objstore 各驱动 Put（file/s3/cos/oss 均 io.Copy 直到 EOF）将死循环，写无限增长（fileStore 撑爆磁盘 / S3 超大对象），且上传请求永久挂起。（internal/api/ops/deployments.go:250,424-429）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`bytesReader` 改持单一 `bytes.Reader` 游标 + `newBytesReader` 构造（internal/api/ops/deployments.go:446-468），Read 正常推进并返回 EOF。
+  - 完成证据：`TestBytesReader_ReadsToEOF`；`go test ./internal/api/ops/` 全绿（303s）。
+- [x] 审核发现：deploy 包上传无对应 objstore.Put 集成测试（仅测了 model CRUD），bytesReader 死循环在测试面完全未覆盖。（internal/model/model_test.go:6222-6247；internal/api/ops/deployments.go:250）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`TestBytesReader_ReadsToEOF` 直接验证 Read 到 EOF；`TestDeploymentModelCompareAndSwapState` 覆盖模型层；objstore Put 经 `TestDeployPackageUploadEmptyNoObjectStore` 走服务路径。
+  - 完成证据：`TestBytesReader_ReadsToEOF`、`TestDeploymentModelCompareAndSwapState`；`go test ./internal/api/ops/ ./internal/model/` 全绿。
 - [ ] 审核发现：agent_metrics_hourly 表只建了非唯一复合索引 idx_agent_hour（迁移 0051 CreateTable），RollupHourly 的 find-or-create 非原子（metrics.go:612-617）——多 server 实例或清理 tick 与手动触发并发时同 (agent_id, hour_start) 会插重复行，90 天聚合被污染。（internal/platform/registry/metrics.go:56-57,612-617；internal/svc/migrations.go:1735-1737）
 - [ ] 审核发现：RollupHourly 无并发测试（metrics_hourly_test.go 单线程），find-or-create 竞态与重复行未覆盖。（internal/platform/registry/metrics.go:572）
 - [ ] 审核发现：PushFile 仅校验目标路径的父目录符号链接（EvalSymlinks(filepath.Dir)），未解析目标本身——预置符号链接于目标路径可让 os.WriteFile 写到 PushBaseDir 之外（写入前 exists/force 检查与写入间亦有 TOCTOU）。（internal/app/agent/ops_pushfile.go:68-73,75-79,97）

@@ -6244,3 +6244,25 @@ func TestDeploymentModelCRUD(t *testing.T) {
 	require.Equal(t, "dep-x", gotDep.DeploymentID)
 	require.Equal(t, "deployments", Deployment{}.TableName())
 }
+
+// CompareAndSwapState：draft→deploying 原子 CAS。并发/二次调用第二次必须失败。
+func TestDeploymentModelCompareAndSwapState(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Deployment{}))
+	m := NewDeploymentModel(db)
+	dep := &Deployment{DeploymentID: "dep-cas", PackageID: "pkg", ProcessName: "game", BatchPercent: 100, BatchCount: 1, State: DeploymentStateDraft}
+	require.NoError(t, m.Create(context.Background(), dep))
+
+	ok, row, err := m.CompareAndSwapState(context.Background(), "dep-cas", DeploymentStateDraft, DeploymentStateDeploying)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, DeploymentStateDeploying, row.State)
+
+	// 第二次（状态已 deploying）必须 CAS 失败。
+	ok2, _, err := m.CompareAndSwapState(context.Background(), "dep-cas", DeploymentStateDraft, DeploymentStateDeploying)
+	require.NoError(t, err)
+	require.False(t, ok2)
+}

@@ -198,6 +198,30 @@ func TestProvisionSubmit_Validation_422(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), "unsupported provider")
 }
 
+// 审核发现：ProvisionSubmit 直接采用 body gameId/env，未与认证 scope 比对
+// ——作用域受限用户可向越权游戏/环境供给云资源。回归：scope 冲突必须 403。
+func TestProvisionSubmit_CrossScopeRejected_403(t *testing.T) {
+	h := NewHandler(newProvisionService(t, true, false, nil))
+	t.Setenv("CROUPIER_PROVISION_TEST_TOKEN", "tok-1")
+
+	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/provision", validSubmitBody())
+	// 认证 scope 是 demo/prod，body 也是 demo/prod —— 应放行。
+	ctx.Request = ctx.Request.WithContext(svc.WithGameScope(ctx.Request.Context(),
+		svc.GameScope{GameID: "demo", Env: "prod"}))
+	ctx.Set("username", "alice")
+	h.ProvisionSubmit(ctx)
+	assert.NotEqual(t, http.StatusForbidden, rec.Code, "同 scope 提交不应被拒")
+
+	// body 的 gameId 与认证 scope 冲突 → 403 fail-closed。
+	ctx2, rec2 := newOpsTestContext(http.MethodPost, "/api/v1/ops/provision", validSubmitBody())
+	ctx2.Request = ctx2.Request.WithContext(svc.WithGameScope(ctx2.Request.Context(),
+		svc.GameScope{GameID: "other", Env: "prod"}))
+	ctx2.Set("username", "alice")
+	h.ProvisionSubmit(ctx2)
+	assert.Equal(t, http.StatusForbidden, rec2.Code)
+	assert.Contains(t, rec2.Body.String(), "scope_mismatch")
+}
+
 func TestProvisionSubmit_MissingToken_503(t *testing.T) {
 	// 不设置 token 环境变量：server 装配不完整，报 503（非客户端输入错误）。
 	h := NewHandler(newProvisionService(t, true, false, nil))

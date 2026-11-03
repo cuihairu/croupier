@@ -113,6 +113,11 @@ func (s *Service) OpsProvisionSubmit(ctx context.Context, req *OpsProvisionSubmi
 	if err != nil {
 		return nil, err
 	}
+	// 作用域受限用户不得向越权游戏/环境供给云资源（body 的 gameId/env 与
+	// 已认证 scope 比对，fail-closed）。
+	if err := enforceRequestScope(ctx, req.GameID, req.Env); err != nil {
+		return nil, err
+	}
 	p := &provision.Request{
 		Provider:       provision.Provider(strings.TrimSpace(req.Provider)),
 		Region:         strings.TrimSpace(req.Region),

@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"testing"
 
@@ -52,3 +53,35 @@ func TestDeployPackageUploadEmptyNoObjectStore(t *testing.T) {
 }
 
 var _ = context.Background
+
+// 审核发现：bytesReader 每次 Read/Seek 新建 bytes.Reader，Read 永不返回 EOF
+// ——objstore Put 的 io.Copy 死循环。回归：单 reader 持久游标，读尽返回 EOF。
+func TestBytesReader_ReadsToEOF(t *testing.T) {
+	r := newBytesReader([]byte("hello"))
+	buf := make([]byte, 3)
+	n, err := r.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, 3, n)
+	require.Equal(t, "hel", string(buf[:n]))
+	n, err = r.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, 2, n)
+	require.Equal(t, "lo", string(buf[:n]))
+	n, err = r.Read(buf)
+	require.Equal(t, 0, n)
+	require.ErrorIs(t, err, io.EOF, "读尽必须返回 EOF（旧实现永不 EOF 致 io.Copy 死循环）")
+}
+
+// 审核发现：role/name/version 未净化即拼接对象键与 agent 暂存路径。回归：
+// 含路径分隔符/遍历序列被拒。
+func TestSafeObjectPathPart_RejectsTraversal(t *testing.T) {
+	for _, bad := range []string{"../x", "a/b", "a\\b", "..", ".", "", "v1/../x"} {
+		_, err := safeObjectPathPart(bad)
+		require.Error(t, err, "must reject %q", bad)
+	}
+	for _, good := range []string{"agent", "v1.2.3", "game-server"} {
+		got, err := safeObjectPathPart(good)
+		require.NoError(t, err)
+		require.Equal(t, good, got)
+	}
+}

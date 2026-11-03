@@ -41,6 +41,16 @@ func (f *fakeStore) List(_ context.Context, _ int) ([]model.Deployment, error) {
 	return out, nil
 }
 
+func (f *fakeStore) CompareAndSwapState(_ context.Context, id, from, to string) (bool, *model.Deployment, error) {
+	d, ok := f.items[id]
+	if !ok || d.State != from {
+		return false, d, nil
+	}
+	d.State = to
+	d.UpdatedAt = time.Now()
+	return true, d, nil
+}
+
 // fakeAgent 可注入投递/换包/健康行为。
 type fakeAgent struct {
 	stageErr   map[string]error
@@ -200,6 +210,53 @@ func TestRollback(t *testing.T) {
 		require.Equal(t, model.DeploymentTargetRolledBack, tg.State)
 	}
 	require.Len(t, agent.applied, 4) // 2 apply + 2 rollback
+}
+
+// 审核发现：Rollback 在 stage/apply 失败时仍标记 RolledBack 并上报成功。
+// 回归：任何目标回滚失败必须返回错误且状态为 rollback_failed。
+func TestRollback_FailureReportsError(t *testing.T) {
+	store := newFakeStore()
+	agent := newFakeAgent()
+	agent.healthy["a"] = true
+	agent.healthy["b"] = true
+	o := New(store, agent)
+	o.HealthRetry = time.Millisecond
+	o.HealthRetries = 1
+
+	d, err := NewDeployment("pkg-1", "d1", "g1", "prod", "game-server", "game", 100, []string{"a", "b"}, "admin")
+	require.NoError(t, err)
+	require.NoError(t, store.Create(context.Background(), d))
+	started, err := o.Start(context.Background(), d, pkg())
+	require.NoError(t, err)
+	// 首次部署成功后，回滚时让 b 的 StagePackage 失败。
+	agent.stageErr["b"] = errors.New("stage boom")
+
+	rbPkg := &model.DeployPackage{PackageID: "pkg-0", Version: "1.0.0", ObjectKey: "deploy/p/0.bin", Checksum: "999999999999"}
+	rolled, err := o.Rollback(context.Background(), started, rbPkg)
+	require.Error(t, err, "目标 a 回滚失败必须上抛，不得虚报成功")
+	require.Equal(t, model.DeploymentStateRollbackFailed, rolled.State)
+}
+
+// 审核发现：Start 状态闸在调用方载入副本上非原子判断，并发 Start 均可通过。
+// 回归：CAS 保证仅一次 draft→deploying 成功，第二次被拒。
+func TestStart_ConcurrentOnlyOnce(t *testing.T) {
+	store := newFakeStore()
+	agent := newFakeAgent()
+	agent.healthy["a"] = true
+	o := New(store, agent)
+	o.HealthRetry = time.Millisecond
+	o.HealthRetries = 1
+
+	d, err := NewDeployment("pkg-1", "d1", "g1", "prod", "game-server", "game", 100, []string{"a"}, "admin")
+	require.NoError(t, err)
+	require.NoError(t, store.Create(context.Background(), d))
+
+	started, err := o.Start(context.Background(), d, pkg())
+	require.NoError(t, err)
+	// 第二次 Start（同一副本）必须被 CAS 拒绝（state 已非 draft）。
+	_, err = o.Start(context.Background(), d, pkg())
+	require.Error(t, err)
+	_ = started
 }
 
 func TestInvalidDeployment(t *testing.T) {
