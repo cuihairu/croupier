@@ -3,6 +3,7 @@ package provision
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/terraform-exec/tfexec"
 )
@@ -50,7 +51,11 @@ func (r *TfexecRunner) Apply(ctx context.Context, workDir string, vars map[strin
 	}
 	opts := make([]tfexec.ApplyOption, 0, len(vars))
 	for k, v := range vars {
-		opts = append(opts, tfexec.Var(fmt.Sprintf("%s=%s", k, v)))
+		assignment, err := tfVarAssignment(k, v)
+		if err != nil {
+			return nil, fmt.Errorf("provision: var %s: %w", k, err)
+		}
+		opts = append(opts, tfexec.Var(assignment))
 	}
 	if err := tf.Apply(ctx, opts...); err != nil {
 		return nil, fmt.Errorf("provision: apply in %s: %w", workDir, err)
@@ -64,6 +69,27 @@ func (r *TfexecRunner) Apply(ctx context.Context, workDir string, vars map[strin
 		res[k] = string(v.Value)
 	}
 	return res, nil
+}
+
+// numericTFVars 是模板中声明为 number 的变量；其余变量均为 string。Terraform
+// CLI 对 -var 值按 HCL 解析：裸字符串遇 # 注释/换行/冒号会解析失败或变成
+// 无效 HCL（#658）。数字变量保持裸数字，字符串变量统一编码为 HCL 字符串。
+var numericTFVars = map[string]bool{
+	"count":     true,
+	"disk_size": true,
+}
+
+// tfVarAssignment 生成 -var 赋值。数字变量必须是裸 HCL number；字符串变量
+// 必须是 HCL string（strconv.Quote 生成带引号/转义的表达式，多行 YAML/# 注
+// 释不改变 HCL 解析）。
+func tfVarAssignment(key, value string) (string, error) {
+	if numericTFVars[key] {
+		if _, err := strconv.ParseFloat(value, 64); err != nil {
+			return "", fmt.Errorf("must be a number, got %q", value)
+		}
+		return key + "=" + value, nil
+	}
+	return key + "=" + strconv.Quote(value), nil
 }
 
 // Destroy 实现 Runner。

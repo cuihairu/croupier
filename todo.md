@@ -499,19 +499,19 @@
 
 - [x] **C-002 · P2 · 安全 · cloud-init runcmd 注入（root RCE）**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`internal/ops/provision/template.go` 新增 `validateCloudInitExtra`/`validateCloudInitExtraLine`（逐行拒绝 shell 元字符 `$`/反引号/`;`/`|`/`&`/`<>`/`()`、`-` 前缀 YAML 嵌套、「解释器 + eval 标志」（`sh -c`/`bash -e`/列表 `[ sh, -c, ... ]` 绕过））；`renderCloudInit` 改返回 `(string, error)`（防御纵深，Extra 非法即拒渲染）；`orchestrator.go` `Validate` 边界拒绝非法 `CloudInitExtra`；`apply` 处理渲染 error。
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`internal/ops/provision/template.go` 新增 `validateCloudInitExtra`/`validateCloudInitExtraLine`（逐行拒绝 shell 元字符 `$`/反引号/`;`/`|`/`&`/`<>`/`()`、`-` 前缀 YAML 嵌套、「解释器 + eval 标志」（`sh -c`/`bash -e`/列表 `[ sh, -c, ... ]` 绕过））；`renderCloudInit` 改返回 `(string, error)`（防御纵深，Extra 非法即拒渲染）；`orchestrator.go` `Validate` 边界拒绝非法 `CloudInitExtra`；`apply` 处理渲染 error。（commit `16713cbd`）
   - 交付与验收：template.go 的 renderCloudInit 不再把 CloudInitExtra 原样拼入 runcmd——改为经 allow-list 校验（仅白名单命令）或拒绝含 shell 元字符的行；新增单测覆盖 Extra 含 `$(...)`/`;`/`|` 被拒；provision Validate 校验 CloudInitExtra 非空时格式；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
   - 完成证据：`TestValidateCloudInitExtra_RejectsInjection`（11 类注入全拒：`$()`/反引号/`|`/`;`/`&&`/`>`/`()`/`[ sh, -c, ... ]`/`sh -c`/`bash -e`/`- `前缀 + 多行一行非法即拒）、`TestValidateCloudInitExtra_AllowsSafe`（列表 `[ systemctl, ... ]`/curl/bash 脚本/空行放行）、`TestRenderCloudInit_RejectsInjectionExtra`、`TestValidate_Matrix` 注入/放行子用例；`go test ./internal/ops/provision/` + `./internal/api/ops/` 全绿、`go build ./...` + `go vet` 通过；review 文档 C-002 行改「已修（2026-11-03）」。
 
 - [x] **C-003 · P2 · SDK · JS SDK 畸形帧对端挂死（违 BUG-038 应答契约）**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`sdks/js/src/index.ts`：`decodeInvokeRequest` 包 try/catch（protobuf decode 失败抛「malformed invoke request」）；`invokeInbound` 捕错回 `{error}` payload 帧；`handleInboundStartTask` 捕错回空 `taskId`（Agent 侧按失败处理）；`handleInboundCancelTask` 捕错回空响应。新增模块级 `InvokeRequestDecoded` 类型别名。与 Go/Py/C++ 行为一致（解析失败回错误帧而非静默挂死）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`sdks/js/src/index.ts`：`decodeInvokeRequest` 包 try/catch（protobuf decode 失败抛「malformed invoke request」）；`invokeInbound` 捕错回 `{error}` payload 帧；`handleInboundStartTask` 捕错回空 `taskId`（Agent 侧按失败处理）；`handleInboundCancelTask` 捕错回空响应。新增模块级 `InvokeRequestDecoded` 类型别名。与 Go/Py/C++ 行为一致（解析失败回错误帧而非静默挂死）。（commit `f640276c`）
   - 交付与验收：sdks/js 的 decodeInvokeRequest/handleInboundStartTask/handleInboundCancelTask 把 protobuf decode 移入 try/catch，解析失败时按契约回错误帧而非静默；与 Go/Py/C++ 行为一致；新增畸形帧单测断言对端收到错误响应而非挂起；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
   - 完成证据：`inbound_client.test.ts` 新增 `describe("BasicClient malformed inbound frames (C-003)")`——非法 wire type 帧（`[0x0f]`）对 Invoke/StartTask/CancelTask 三型均回帧不挂死（invoke 回 `{error: /malformed invoke request/}`、start 回空 taskId、cancel 回空响应）；`npx tsc --noEmit` 0 错误；`npx jest` 全量 438 过/7 跳（含 inbound_client 10/10）；review 文档 C-003 行改「已修（2026-11-03）」。
 
 - [x] **C-004 · P2 · 安全 · SSE token 入 query param**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03）。`createEventSource` 改返回 fetch 实现 `SSEStream`（Authorization: Bearer 头 + SSE 帧解析 event/data/retry + 断连自动重连 + 非200 致命），JWT 不再进 URL；`useRealtimeStream` ref 类型改 `SSEStream`。LOCAL VERIFIED：`pnpm --dir web run tsc` 0 错误；`npx jest src/services/core/http.test.ts src/services/core/__tests__/http.node.test.ts src/pages/Analytics/Realtime src/services/api/messages.test.ts src/services/api/analytics.test.ts` 全绿（http 19/19 + Realtime 9 套件 95/95）；无其它 EventSource/token query 残留（grep 仅剩 2 个 createEventSource 调用点）。
+  - 状态／条件：DONE（2026-11-03）。`createEventSource` 改返回 fetch 实现 `SSEStream`（Authorization: Bearer 头 + SSE 帧解析 event/data/retry + 断连自动重连 + 非200 致命），JWT 不再进 URL；`useRealtimeStream` ref 类型改 `SSEStream`。LOCAL VERIFIED：`pnpm --dir web run tsc` 0 错误；`npx jest src/services/core/http.test.ts src/services/core/__tests__/http.node.test.ts src/pages/Analytics/Realtime src/services/api/messages.test.ts src/services/api/analytics.test.ts` 全绿（http 19/19 + Realtime 9 套件 95/95）；无其它 EventSource/token query 残留（grep 仅剩 2 个 createEventSource 调用点）。（commit `4b138c94`）
   - 交付与验收：createEventSource 不再把 JWT 拼进 ?token= query（改走 EventSource 无法带 header 的替代方案：短效 stream token 或经 Authorization 的 fetch-stream）；token 不出现在 URL/日志/Referer；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-005 · P2 · 安全 · JWT 存 localStorage**
@@ -521,80 +521,80 @@
 
 - [x] **C-006 · P2 · 安全 · 附件 URL 无 scheme 白名单**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03）。`Detail.tsx` 附件 `a.url` 经 `safeExternalHref`（http/https 白名单）后才进 `<img src>` / `<a href>` / `window.open`；非法 scheme（javascript:/data:）渲染为 `<span>` 无链接文本；新增 C-006 用例断言 evil-js/evil-data 为 SPAN、无 `a[href^=javascript:]`/`a[href^=data:]`/`img[src^=data:]`、合法 http 仍链接、window.open 未调用。LOCAL VERIFIED：`npx jest src/pages/Support/Tickets/__tests__/Detail.test.tsx` 44/44 过（95s）+ `pnpm --dir web run tsc` 0 错误；review 文档 C-006 行改「已修（2026-11-03）」。
+  - 状态／条件：DONE（2026-11-03）。`Detail.tsx` 附件 `a.url` 经 `safeExternalHref`（http/https 白名单）后才进 `<img src>` / `<a href>` / `window.open`；非法 scheme（javascript:/data:）渲染为 `<span>` 无链接文本；新增 C-006 用例断言 evil-js/evil-data 为 SPAN、无 `a[href^=javascript:]`/`a[href^=data:]`/`img[src^=data:]`、合法 http 仍链接、window.open 未调用。LOCAL VERIFIED：`npx jest src/pages/Support/Tickets/__tests__/Detail.test.tsx` 44/44 过（95s）+ `pnpm --dir web run tsc` 0 错误；review 文档 C-006 行改「已修（2026-11-03）」。（commit `aada026a`）
   - 交付与验收：Support/Tickets/Detail.tsx 附件 img src/a href/window.open 全部走 safeExternalHref（http/https 白名单）；非 http/https 渲染为无链接文本；新增单测覆盖 javascript:/data: 拒绝；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-007 · P2 · 安全 · 告警/图表 URL 无 scheme 白名单**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03）。`Ops/Alerts/index.tsx` 5 处 `window.open`（grafana explore / AM `/#/alerts` / silences 深链 / drawer runbook / drawer grafana）全部先经 `safeExternalHref`（http/https 白名单），空结果不弹窗；alertmanagerUrl 缺省时 silences 深链不再向当前 origin 导航（此前打开不存在哈希路由）。LOCAL VERIFIED：`npx jest src/pages/Ops/Alerts/__tests__/index.test.tsx` 33/33 过（93s）+ `pnpm --dir web run tsc` 0 错误；review 文档 C-007 行改「已修（2026-11-03）」。
+  - 状态／条件：DONE（2026-11-03）。`Ops/Alerts/index.tsx` 5 处 `window.open`（grafana explore / AM `/#/alerts` / silences 深链 / drawer runbook / drawer grafana）全部先经 `safeExternalHref`（http/https 白名单），空结果不弹窗；alertmanagerUrl 缺省时 silences 深链不再向当前 origin 导航（此前打开不存在哈希路由）。LOCAL VERIFIED：`npx jest src/pages/Ops/Alerts/__tests__/index.test.tsx` 33/33 过（93s）+ `pnpm --dir web run tsc` 0 错误；review 文档 C-007 行改「已修（2026-11-03）」。（commit `6a45166e`）
   - 交付与验收：Ops/Alerts 的 grafanaExploreUrl/alertmanagerUrl/runbook_url window.open 全部走 safeExternalHref；非法 scheme 不弹窗；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-025 · P2 · 正确性 · openapi provider 读已关 body 丢真实错误**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03）。`provider.go:890` 关 body 仅在实际重试时（`i < RetryCount`），末次 5xx 留给 defer+ReadAll；`TestProviderCall_All5xxRetriesReturnRealError` 断言 3 次 5xx 后返回含 `500` 与真实响应体的 `API error`（非 read-on-closed），mutation 验证旧码必红。LOCAL VERIFIED：`go test ./internal/drivers/openapi/ -count=1` 绿（6.3s）+ `go build ./...` 过。
+  - 状态／条件：DONE（2026-11-03）。`provider.go:890` 关 body 仅在实际重试时（`i < RetryCount`），末次 5xx 留给 defer+ReadAll；`TestProviderCall_All5xxRetriesReturnRealError` 断言 3 次 5xx 后返回含 `500` 与真实响应体的 `API error`（非 read-on-closed），mutation 验证旧码必红。LOCAL VERIFIED：`go test ./internal/drivers/openapi/ -count=1` 绿（6.3s）+ `go build ./...` 过。（commit `23dfaaea`）
   - 交付与验收：provider.go 重试循环末次 5xx 后不提前关 resp.Body（延迟到 defer 或关前判 err）；新增单测：全 5xx 重试后返回真实 HTTP 状态/错误体而非 read-on-closed；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-026 · P2 · 正确性 · SlidingWindowLimiter.GetStats 越界 panic**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03）。`advanced.go` GetStats 对空 `timestamps` 加 `len>0` 守卫返回零值 `LastRequest`；`TestSlidingWindowGetStats_EmptyWindow`（maxRequests=1、n=2 超限建空窗口后 GetStats 不 panic），mutation 验证旧码必红（advanced.go:230 index out of range）。LOCAL VERIFIED：`go test ./internal/platform/ratelimit/ -count=1` 绿（3.2s）+ `go build ./...` 过。
+  - 状态／条件：DONE（2026-11-03）。`advanced.go` GetStats 对空 `timestamps` 加 `len>0` 守卫返回零值 `LastRequest`；`TestSlidingWindowGetStats_EmptyWindow`（maxRequests=1、n=2 超限建空窗口后 GetStats 不 panic），mutation 验证旧码必红（advanced.go:230 index out of range）。LOCAL VERIFIED：`go test ./internal/platform/ratelimit/ -count=1` 绿（3.2s）+ `go build ./...` 过。（commit `cdb3c315`）
   - 交付与验收：advanced.go GetStats 对空 timestamps 加 len>0 守卫返回空/零值；新增单测：空窗口（超限建空/prune 到 0）调 GetStats 不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-008 · P3 · 安全 · agent exec 白名单仅匹配命令不匹配参数/环境**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03）。`ops_server.go` 新增 `validateExecBoundary`（ExecuteCommand 内白名单命中后调用，fail-closed）：敏感环境键拒绝（`LD_PRELOAD`/`LD_LIBRARY_PATH`/`LD_AUDIT`/`DYLD_*`/`PATH`/`CDPATH`/`PYTHON*`/`BASH_ENV`/`ENV`/`SHELLOPTS`/`BASHOPTS`/`IFS`/`GIT_*`/`PERL*`/`NODE_OPTIONS`/`RUBY*`/`RUSTC_BOOTSTRAP`）；解释器（sh/bash/zsh/dash/ksh/fish/csh/tcsh/cmd/powershell/python/perl/ruby/node/php/lua）+ 内联代码开关（-c/-i/-p/-e/-r）拒绝；workingDir 必须绝对且不含 `..` 段。LOCAL VERIFIED：`go test ./internal/app/agent/ -run 'TestOpsServer_ExecuteCommand' -count=1` 全绿（含 C-008 三子例）+ 全包 `go test ./internal/app/agent/ -count=1` 绿（51s，首跑 79s FAIL 为已知 metrics 负载 flake 族，隔离全绿）+ `go build ./internal/app/agent/` 过；docs/operations/config-agent.md（en+zh）allowExec 节补第 4 条边界加固。
+  - 状态／条件：DONE（2026-11-03）。`ops_server.go` 新增 `validateExecBoundary`（ExecuteCommand 内白名单命中后调用，fail-closed）：敏感环境键拒绝（`LD_PRELOAD`/`LD_LIBRARY_PATH`/`LD_AUDIT`/`DYLD_*`/`PATH`/`CDPATH`/`PYTHON*`/`BASH_ENV`/`ENV`/`SHELLOPTS`/`BASHOPTS`/`IFS`/`GIT_*`/`PERL*`/`NODE_OPTIONS`/`RUBY*`/`RUSTC_BOOTSTRAP`）；解释器（sh/bash/zsh/dash/ksh/fish/csh/tcsh/cmd/powershell/python/perl/ruby/node/php/lua）+ 内联代码开关（-c/-i/-p/-e/-r）拒绝；workingDir 必须绝对且不含 `..` 段。LOCAL VERIFIED：`go test ./internal/app/agent/ -run 'TestOpsServer_ExecuteCommand' -count=1` 全绿（含 C-008 三子例）+ 全包 `go test ./internal/app/agent/ -count=1` 绿（51s，首跑 79s FAIL 为已知 metrics 负载 flake 族，隔离全绿）+ `go build ./internal/app/agent/` 过；docs/operations/config-agent.md（en+zh）allowExec 节补第 4 条边界加固。（commit `9140512f`）
   - 交付与验收：ops_server exec 白名单校验扩展到 req.Args/req.WorkingDir/req.Env（PATH、LD_PRELOAD 等敏感键拒绝或白名单化）；新增单测：带 LD_PRELOAD/PATH 覆盖的请求被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-009 · P3 · 安全 · DDL 拼接 dbName 仅反引号/方括号包裹**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03）。`db.go` 新增 `validateDBName`（`^[A-Za-z0-9_-]+$` 严格白名单），`createMySQLDatabase`/`createPostgresDatabase`/`createSQLServerDatabase` 三者入口先校验再触碰 DSN/连接（fail-closed）；各方言断句字符（反引号/单引号/双引号/方括号/分号/空白）一律拒，不再依赖仅包裹符。LOCAL VERIFIED：`go test ./internal/svc/ -run 'TestValidateDBName_Allowlist|TestCreateDatabase_RejectsInvalidDBNameBeforeDSN' -count=1` 绿 + 全包 `go test ./internal/svc/ -count=1` 绿（50s，含既有 BadDSN 三例不破）+ `go build ./...` 过。
+  - 状态／条件：DONE（2026-11-03）。`db.go` 新增 `validateDBName`（`^[A-Za-z0-9_-]+$` 严格白名单），`createMySQLDatabase`/`createPostgresDatabase`/`createSQLServerDatabase` 三者入口先校验再触碰 DSN/连接（fail-closed）；各方言断句字符（反引号/单引号/双引号/方括号/分号/空白）一律拒，不再依赖仅包裹符。LOCAL VERIFIED：`go test ./internal/svc/ -run 'TestValidateDBName_Allowlist|TestCreateDatabase_RejectsInvalidDBNameBeforeDSN' -count=1` 绿 + 全包 `go test ./internal/svc/ -count=1` 绿（50s，含既有 BadDSN 三例不破）+ `go build ./...` 过。（commit `ffb9658e`）
   - 交付与验收：db.go 建库 DDL 的 dbName 改经严格标识符校验（仅 [a-z0-9_-] 白名单）而非仅包裹符；SQL Server 遇 `]` 不再断；新增单测非法 dbName 被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-010 · P3 · 安全 · asciicast sessionID 路径穿越（潜伏）**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`asciicast.go` 加 `validCastSessionID`（`^[A-Za-z0-9_-]+$`），`OpenCast` 在 `filepath.Join` 前 fail-closed 校验；新增 `asciicast_test.go` 四例（合法 id 落 dir、非法 id 全拒且 dir 外无文件、白名单独立断言、合法 id header 行落盘）；`go test ./agents/devops/session/` 全绿（0.011s）；docs/review/2026-11-01-code-review.md C-010 行已改已修（2026-11-03），汇总已修 13→14、余 19→18。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`asciicast.go` 加 `validCastSessionID`（`^[A-Za-z0-9_-]+$`），`OpenCast` 在 `filepath.Join` 前 fail-closed 校验；新增 `asciicast_test.go` 四例（合法 id 落 dir、非法 id 全拒且 dir 外无文件、白名单独立断言、合法 id header 行落盘）；`go test ./agents/devops/session/` 全绿（0.011s）；docs/review/2026-11-01-code-review.md C-010 行已改已修（2026-11-03），汇总已修 13→14、余 19→18。（commit `9c638b95`）
   - 交付与验收：asciicast.go 写 .cast 前校验 sessionID 仅 [A-Za-z0-9_-] 或经 filepath.Base；新增单测 sessionID 含 `../`/`/` 被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-011 · P3 · 安全 · Java TlsSocketFactory 硬编码 keystore 口令**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`TlsSocketFactory.create` 签名加 `char[] keyStorePassword`（移除字面量 `"croupier"`），口令由调用方提供（无默认）；mTLS 配置而口令缺失 fail-closed 抛 `IOException`；全仓 6 个 TLS 测试类改用 4 参形式；新增 `TlsSocketFactoryEdgeTest.keyStorePasswordRequiredForMutualTls`（缺口令抛错+显式口令可构造）；`./gradlew test` 全绿（6 个 TLS 测试类 + 全量，BUILD SUCCESSFUL）；docs/review/2026-11-01-code-review.md C-011 行已改已修（2026-11-03），汇总已修 14→15、余 18→17。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`TlsSocketFactory.create` 签名加 `char[] keyStorePassword`（移除字面量 `"croupier"`），口令由调用方提供（无默认）；mTLS 配置而口令缺失 fail-closed 抛 `IOException`；全仓 6 个 TLS 测试类改用 4 参形式；新增 `TlsSocketFactoryEdgeTest.keyStorePasswordRequiredForMutualTls`（缺口令抛错+显式口令可构造）；`./gradlew test` 全绿（6 个 TLS 测试类 + 全量，BUILD SUCCESSFUL）；docs/review/2026-11-01-code-review.md C-011 行已改已修（2026-11-03），汇总已修 14→15、余 18→17。（commit `b2523cd0`）
   - 交付与验收：TlsSocketFactory keystore 密码改从配置/环境读取，移除字面量 "croupier"；无默认口令；新增单测无配置时启动失败而非静默用硬编码；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-012 · P3 · 正确性 · Python SDK varint 解码无边界检查**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`_decode_file_push_request` 三重 fail-closed——varint 解码前查 `idx >= n`（截断抛 `ValueError` 非 `IndexError`）、varint 超 10 字节抛 `ValueError`、length-delimited 长度超出 body 抛 `ValueError`（不再静默截断）；新增 `test_coverage_final.py` C-012 四例（截断 varint/varint 溢出/长度超 body/合法请求照常解码）；`pytest tests/` 全绿 551 passed；docs/review/2026-11-01-code-review.md C-012 行已改已修（2026-11-03），汇总已修 15→16、余 17→16。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`_decode_file_push_request` 三重 fail-closed——varint 解码前查 `idx >= n`（截断抛 `ValueError` 非 `IndexError`）、varint 超 10 字节抛 `ValueError`、length-delimited 长度超出 body 抛 `ValueError`（不再静默截断）；新增 `test_coverage_final.py` C-012 四例（截断 varint/varint 溢出/长度超 body/合法请求照常解码）；`pytest tests/` 全绿 551 passed；docs/review/2026-11-01-code-review.md C-012 行已改已修（2026-11-03），汇总已修 15→16、余 17→16。（commit `5a29c576`）
   - 交付与验收：croupier/**init**.py varint 解码与切片加长度/边界校验，越界返回错误而非静默截断；新增畸形字节串单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-013 · P3 · 健壮性 · Go SDK 写错误丢弃**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`writeResponseFrame` 改返回 `error`，写失败即 `failAllPending()`（dead=true，在途 `Call` 即刻以 `errConnectionClosed` 失败）并回传错误；3 处调用方 `slog.Warn` 记录；新增 `tcp_client_whitebox_test.go` `TestWriteResponseFrameFailureFailsPending`；`go test ./pkg/croupier/...` 全绿；docs/review/2026-11-01-code-review.md C-013 行已改已修（2026-11-03），汇总已修 16→17、余 16→15。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`writeResponseFrame` 改返回 `error`，写失败即 `failAllPending()`（dead=true，在途 `Call` 即刻以 `errConnectionClosed` 失败）并回传错误；3 处调用方 `slog.Warn` 记录；新增 `tcp_client_whitebox_test.go` `TestWriteResponseFrameFailureFailsPending`；`go test ./pkg/croupier/...` 全绿；docs/review/2026-11-01-code-review.md C-013 行已改已修（2026-11-03），汇总已修 16→17、余 16→15。（commit `57193ea8`）
   - 交付与验收：tcp_client.go Write 错误不再丢弃（回传调用方或断连）；新增单测写失败可感知；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-014 · P3 · 健壮性 · C++ SDK send best-effort**
   - 依赖：—。
-  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`WriteResponseOnSocket` 移除裸 `(void)send`，捕获返回值——`sent < 0` 时 `std::cerr` 记录（errno/WSAGetLastError）；`catch(...)` 拆为 `catch(std::exception)` + `catch(...)` 均记录；新增 `test_coverage_boost4.cpp` `WriteResponseOnClosedSocketDoesNotThrow`（关闭 fd → send EBADF，不抛异常）。验证：`g++ -fsyntax-only src/tcp_transport.cpp` 干净；test 文件因既有 protobuf 版本约束（gencode protoc 34.x vs 本机 runtime 3.21.12/33.4.0 不兼容，非本变更）本地无法编译，用例仅用文件既有符号；docs/review/2026-11-01-code-review.md C-014 行已改已修（2026-11-03），汇总已修 17→18、余 15→14。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`WriteResponseOnSocket` 移除裸 `(void)send`，捕获返回值——`sent < 0` 时 `std::cerr` 记录（errno/WSAGetLastError）；`catch(...)` 拆为 `catch(std::exception)` + `catch(...)` 均记录；新增 `test_coverage_boost4.cpp` `WriteResponseOnClosedSocketDoesNotThrow`（关闭 fd → send EBADF，不抛异常）。验证：`g++ -fsyntax-only src/tcp_transport.cpp` 干净；test 文件因既有 protobuf 版本约束（gencode protoc 34.x vs 本机 runtime 3.21.12/33.4.0 不兼容，非本变更）本地无法编译，用例仅用文件既有符号；docs/review/2026-11-01-code-review.md C-014 行已改已修（2026-11-03），汇总已修 17→18、余 15→14。（commit `0f05e5ad`）
   - 交付与验收：tcp_transport.cpp send 返回值/异常不再整体吞掉（至少日志）；移除 (void)send 裸调用；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-015 · P3 · 健壮性 · Java ServerHttpInvoker 吞 IllegalArgumentException**
   - 依赖：—。
-  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-015），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-015），修复方向 source-wins。（commit `e3d78ce7`）
   - 完成证据：`serverErrorMessage` 的 catch 由 `catch (IllegalArgumentException ignored) {}` 改为 `catch (IllegalArgumentException parseError) { logger.warn(...) }`（slf4j `logger` 字段新增，对齐 InvokerImpl 模式），仍回退原始 body 不抛异常；新增用例 `sdks/java/.../ServerHttpInvokerServerErrorTest`（5 例：取 message / 空 message 取 error / 无二者回退原始 / 不可解析回退原始且不抛 / 空或 null 回退占位）；`./gradlew test` 全绿。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：捕获后记录日志/上抛，不再 ignored 静默；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-016 · P3 · 安全 · hostdriver 硬编码测试探针 token**
   - 依赖：—。
-  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-016），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-016），修复方向 source-wins。（commit `5c1c90ce`）
   - 完成证据：`probe-credentials` 的 `const secret = "hd-t0k3n-9f8e7d"` 移除，改为 `resolveProbeSecret()`——`HOSTDRIVER_PROBE_SECRET` 注入时透传，否则 `crypto/rand` 生成 24 字节（48 hex）每运行随机值；非测试路径不再含固定凭据。新增用例 `sdks/plugins/hostdriver/main_test.go` `TestResolveProbeSecret_Injected` / `TestResolveProbeSecret_RandomWhenUnset`（注入透传；未注入随机、非空、两调不撞、非旧字面量、48 hex 形态）；`go build ./sdks/plugins/hostdriver/` 过 + `go test` 绿 + `go vet` 干净。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：hostdriver 探针 secret 改从环境/配置注入，移除字面量 "hd-t0k3n-9f8e7d"；非测试路径不得含固定凭据；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-017 · P3 · 安全 · Dev/Tools tool.url 无 scheme 白名单**
   - 依赖：—。
-  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-017），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-017），修复方向 source-wins。（commit `a0121549`）
   - 完成证据：`web/src/pages/Dev/Tools/index.tsx` 卡片 map 内 `const safeUrl = safeExternalHref(tool.url)`（http/https 白名单）；export 图标改 `if (safeUrl) window.open(safeUrl, '_blank', 'noreferrer')`；标题锚改 `safeUrl ? <a href={safeUrl}> : <span>`（非法 scheme 渲染为无链接文本）。新增用例 `Dev/Tools/__tests__/index.test.tsx` `C-017 非法 scheme 工具链接`（javascript:/data: 两工具：标题无 `<a>`、export 点击不 `window.open`）；`pnpm tsc` 0 错误 + `pnpm test -- --testPathPatterns pages/Dev/Tools` 14 passed。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：Dev/Tools window.open/a href 走 safeExternalHref；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-018 · P3 · 安全 · compositeRuntime navigate window.open 缺 noopener**
   - 依赖：—。
-  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-018），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-018），修复方向 source-wins。（commit `34ee2a46`）
   - 完成证据：`web/src/components/PageRenderer/compositeRuntime.tsx` navigate 分支改 `const safeUrl = safeExternalHref(step.params?.url)`；`if (safeUrl) window.open(safeUrl, '_blank', 'noopener')`——非法 scheme（javascript:/data: 等）不开窗，新窗口不反向控制 opener。用例 `compositeRuntime.test.tsx`（更新既有断言加 noopener；新增 `C-018 navigate 非法 scheme：不开窗`——javascript:/data: 两步均被拦截、window.open 不触发）；`pnpm tsc` 0 错误 + `pnpm test -- --testPathPatterns PageRenderer/__tests__/compositeRuntime` 12 passed。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：compositeRuntime navigate 加 noopener 与 scheme 白名单（safeExternalHref）；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
@@ -606,38 +606,38 @@
 
 - [x] **C-020 · P3 · 健壮性 · useRealtimeStream try/finally 无 catch**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）：message 监听补 catch 记录畸形帧错误，不重置 stale timer；finally 仅收尾；新增畸形 JSON 帧不抛未捕获、不更新数据、不置 loading 单测；`useRealtimeStream.test.tsx` 18 例全绿、`pnpm exec tsc --noEmit` 过；docs/review/2026-11-01-code-review.md C-020 已改已修。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：message 监听补 catch 记录畸形帧错误，不重置 stale timer；finally 仅收尾；新增畸形 JSON 帧不抛未捕获、不更新数据、不置 loading 单测；`useRealtimeStream.test.tsx` 18 例全绿、`pnpm exec tsc --noEmit` 过；docs/review/2026-11-01-code-review.md C-020 已改已修。（commit `f4321629`）
   - 交付与验收：JSON.parse/推送加 catch 处理并上报，finally 仅收尾不吞错；新增单测畸形消息不抛未捕获异常；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-021 · P3 · 测试 · TestMetricsCollector_StartReporting 负载 flake**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`internal/app/agent` 与 `core/metrics` 同源用例的 3s 边界放宽到 10s（首帧前 `Collect` 需扫描 CPU/进程/网络，饱和负载临界超时）；隔离复跑 5 次中 4 过 1 失败（3.08s 边界）确认环境性非业务回归；10s 裕度后 `go test ./internal/app/agent/ -run '^TestMetricsCollector_StartReporting$'` 与 `go test ./core/metrics/` 稳定绿；docs/review/2026-11-01-code-review.md C-021 已改已修。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`internal/app/agent` 与 `core/metrics` 同源用例的 3s 边界放宽到 10s（首帧前 `Collect` 需扫描 CPU/进程/网络，饱和负载临界超时）；隔离复跑 5 次中 4 过 1 失败（3.08s 边界）确认环境性非业务回归；10s 裕度后 `go test ./internal/app/agent/ -run '^TestMetricsCollector_StartReporting$'` 与 `go test ./core/metrics/` 稳定绿；docs/review/2026-11-01-code-review.md C-021 已改已修。（commit `3822b17a`）
   - 交付与验收：复跑稳定或加 t.Parallel 隔离/放宽超时归因环境性；记录到 CI 基线说明（非回归，勿当红豁免）；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-027 · P3 · 正确性 · devops hub 写超时 goroutine 泄漏**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）：consumer 增加可选 `SetWriteDeadline` 取消面，超时先 `SetWriteDeadline(now)` 打断阻塞写再 evict，并读取 `done` 收束写 goroutine；新增 `TestHubConsumerTimeoutCancelsBlockingWrite` 断言超时后 writer 被取消、consumer 摘除、`runtime.NumGoroutine()` 不增长；`go test ./agents/devops/...` 全绿、`go build ./...` 过；docs/review/2026-11-01-code-review.md C-027 已改已修。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：consumer 增加可选 `SetWriteDeadline` 取消面，超时先 `SetWriteDeadline(now)` 打断阻塞写再 evict，并读取 `done` 收束写 goroutine；新增 `TestHubConsumerTimeoutCancelsBlockingWrite` 断言超时后 writer 被取消、consumer 摘除、`runtime.NumGoroutine()` 不增长；`go test ./agents/devops/...` 全绿、`go build ./...` 过；docs/review/2026-11-01-code-review.md C-027 已改已修。（commit `8bc06186`）
   - 交付与验收：hub.go write 超时路径取消/关闭阻塞写 goroutine（或改用带超时写原语）；done 通道超时路径读取；新增单测超时后 goroutine 数不增长；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-028 · P3 · 正确性 · mysql_pump flush 无 ctx.Done 阻塞**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`flush` 的 `out<-` 加 `select ctx.Done()`（对齐 PG pump）；新增 `TestPumpCtxCancelUnblocksBlockedSend` 断言无缓冲 out + 不读消费者阻塞后取消 ctx，pump 2s 内退出；`go test ./agents/capture/...` 全绿、`go build ./...` 过；docs/review/2026-11-01-code-review.md C-028 已改已修。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`flush` 的 `out<-` 加 `select ctx.Done()`（对齐 PG pump）；新增 `TestPumpCtxCancelUnblocksBlockedSend` 断言无缓冲 out + 不读消费者阻塞后取消 ctx，pump 2s 内退出；`go test ./agents/capture/...` 全绿、`go build ./...` 过；docs/review/2026-11-01-code-review.md C-028 已改已修。（commit `44a814c3`）
   - 交付与验收：mysql_pump out<- 加 select ctx.Done()（对齐 PG pump）；新增单测消费者停止后 Close 可解除阻塞；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-029 · P3 · 正确性 · server/agent 跨 lane handler 字段竞态（低概率）**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`agentSessionHandler`/`providerSessionHandler` 加 `sync.Mutex`，`Handle` 读与 `handleRegister/handleConnect` 写走同锁（state/markRegistered）；`go test -race ./internal/server/ ./internal/agent/` 全绿、普通测试与 `go build ./...` 过；docs/review/2026-11-01-code-review.md C-029 已改已修。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`agentSessionHandler`/`providerSessionHandler` 加 `sync.Mutex`，`Handle` 读与 `handleRegister/handleConnect` 写走同锁（state/markRegistered）；`go test -race ./internal/server/ ./internal/agent/` 全绿、普通测试与 `go build ./...` 过；docs/review/2026-11-01-code-review.md C-029 已改已修。（commit `2d712e75`）
   - 交付与验收：tcp_listener.go 与 tcp_local_listener.go 的 Handle 对 registered/agentID/sessionID 读改走 lane 内同步（或经 mux 保证 happens-before）；`go test -race` 相关用例绿；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-030 · P3 · 正确性 · externalplatform cache.Close 双关 panic**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）。`cache.Close` 加 `sync.Once`（`closeOnce.Do`）幂等，双调 `Close` 与 `Client.Close` 双调均不 panic；新增 `TestCache_Close_Idempotent`（双调 `cache.Close` + 双调 `Client.Close` 断言无 panic/无错误）；`go test ./internal/extensions/official/externalplatform/ -run TestCache_Close -count=1` 2/2 PASS、`go test ./internal/extensions/official/externalplatform/ -count=1` 全绿、`go vet` 过。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）。`cache.Close` 加 `sync.Once`（`closeOnce.Do`）幂等，双调 `Close` 与 `Client.Close` 双调均不 panic；新增 `TestCache_Close_Idempotent`（双调 `cache.Close` + 双调 `Client.Close` 断言无 panic/无错误）；`go test ./internal/extensions/official/externalplatform/ -run TestCache_Close -count=1` 2/2 PASS、`go test ./internal/extensions/official/externalplatform/ -count=1` 全绿、`go vet` 过。（commit `b3979ce6`）
   - 交付与验收：cache.Close 加 sync.Once/closeOnce 幂等；新增双调 Close 单测不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
   - 完成证据：`internal/extensions/official/externalplatform/client.go`（`closeOnce sync.Once`、`Close` 经 `closeOnce.Do`）；`internal/extensions/official/externalplatform/cache_test.go`（`TestCache_Close_Idempotent`）；`go test ./internal/extensions/official/externalplatform/ -count=1` 全绿；commit 待填。
 
 - [x] **C-031 · P3 · 健壮性 · telemetry 每 exporter 每 span 无界 goroutine**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）。`TracerProvider` 增加有界信号量 `exportTokens`（默认 cap=8）与 `exportCap`；`EndSpan` 每 exporter 先获取 token（全占时阻塞调用方而非无界起 goroutine），`ExportSpans` 错误经 `slog.Warn` 记录而非 `_ =` 丢弃；新增 `TestTracerProvider_EndSpan_BoundedFanout`（20 并发 EndSpan，在途 exporter 数峰值 ≤ exportCap）与 `TestTracerProvider_EndSpan_ExporterErrorLogged`；`go test ./internal/telemetry/ -run TestTracerProvider_EndSpan -count=1` 4/4 PASS、`go test ./internal/telemetry/ -count=1` 全绿、`go test -race ./internal/telemetry/ -run TestTracerProvider_EndSpan -count=1` PASS、`go vet` 过、`go build ./...` 过。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）。`TracerProvider` 增加有界信号量 `exportTokens`（默认 cap=8）与 `exportCap`；`EndSpan` 每 exporter 先获取 token（全占时阻塞调用方而非无界起 goroutine），`ExportSpans` 错误经 `slog.Warn` 记录而非 `_ =` 丢弃；新增 `TestTracerProvider_EndSpan_BoundedFanout`（20 并发 EndSpan，在途 exporter 数峰值 ≤ exportCap）与 `TestTracerProvider_EndSpan_ExporterErrorLogged`；`go test ./internal/telemetry/ -run TestTracerProvider_EndSpan -count=1` 4/4 PASS、`go test ./internal/telemetry/ -count=1` 全绿、`go test -race ./internal/telemetry/ -run TestTracerProvider_EndSpan -count=1` PASS、`go vet` 过、`go build ./...` 过。（commit `f6b556d2`）
   - 交付与验收：telemetry ExportSpans fan-out 加有界（semaphore/WaitGroup 上限）并处理错误；新增高 span 速率下 goroutine 有界单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
   - 完成证据：`internal/telemetry/telemetry.go`（`TracerProvider.exportTokens/exportCap`、`EndSpan` token 获取 + `slog.Warn` 错误记录）；`internal/telemetry/tracer_extra_test.go`（`TestTracerProvider_EndSpan_BoundedFanout`、`TestTracerProvider_EndSpan_ExporterErrorLogged`）；`go test ./internal/telemetry/ -count=1` 全绿；commit 待填。
 
@@ -667,7 +667,9 @@
 - [x] 审核发现：供给 ticket 模式续行丢失 HubAddr/BootstrapToken/CloudInitExtra——runFromModel 未恢复（json:"-" 不持久化）、ResumeAsync 不再注入 server 参数，续行渲染出空 hubAddr/token 的 cloud-init，agent 引导必然失败。（internal/svc/provision_wiring.go:93-126；internal/api/ops/provision.go:155）
   - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。迁移 0059 为 `provision_runs.cloud_init_extra` 补列，`runToModel/runFromModel` 恢复非敏感片段；`Orchestrator.InjectResumeParams` 在 `beginResume` 时从 server 配置/环境重新注入 HubAddr/BootstrapToken（敏感 token 仍不入库，支持轮换）。
   - 完成证据：`TestResume_ReinjectsServerParams`、`TestProvisionRunCloudInitExtraMigration_AddsColumnIdempotent`、`TestRegisterSvcMigrations_ContainsProvisionCloudInitExtra`；`go test ./internal/ops/provision/ ./internal/svc/ ./internal/model/ ./internal/db/migrate/ -count=1` 全绿（svc 367s/model 300s）。
-- [ ] 审核发现：供给 user_data（多行 cloud-init YAML）经 tfexec.Var("-var user_data=<值>") 传入，terraform/tofu 按 HCL 表达式解析（#cloud-config 起始为注释）致真实 apply 失败；FakeRunner 测试掩盖该路径（测试缺口）。（internal/ops/provision/runner.go:52-53）
+- [x] 审核发现：供给 user_data（多行 cloud-init YAML）经 tfexec.Var("-var user_data=<值>") 传入，terraform/tofu 按 HCL 表达式解析（#cloud-config 起始为注释）致真实 apply 失败；FakeRunner 测试掩盖该路径（测试缺口）。（internal/ops/provision/runner.go:52-53）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`TfexecRunner.Apply` 经 `tfVarAssignment` 生成 `-var` 赋值：字符串变量（user_data/region/instance_type/image/name_prefix）用 `strconv.Quote` 编码为 HCL 字符串字面量，多行 YAML/`#` 注释不再被 HCL 解析；数字变量（count/disk_size）保持裸 number；非数字值报错。
+  - 完成证据：`TestTfVarAssignment`（user_data 多行含 `#` 编码为合法 HCL string、count/disk_size 裸 number、region 编码、非数字报错）；`go test ./internal/ops/provision/` 全绿、`go build ./...`+`go vet` 通过。
 - [ ] 审核发现：logstore Ingest 写库前先推进内存 lastSeq（:91）且忽略 db.Create 错误（:104），写库失败批次被重传当作重复丢弃、persisted 虚报——单进程内该批日志永久丢失。（internal/platform/registry/logstore.go:91,104）
 - [ ] 审核发现：供给异步 apply（spawnApply）在 Init/Apply 失败时只记日志不落 failed（apply 仅等注册分支置 failed），run 永久停在 applying 不可重试。（internal/ops/provision/orchestrator.go:194-255,362-369）
 - [ ] 审核发现：供给 beginResume 为 Get→pending 检查→置 applying→Update 非原子读改写，并发 ResumeAsync 均可通过 pending 检查触发双 apply（applyMu 在 beginResume 之后才锁）。（internal/ops/provision/orchestrator.go:336-357）

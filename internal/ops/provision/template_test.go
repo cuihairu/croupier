@@ -1,6 +1,7 @@
 package provision
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -144,6 +145,34 @@ func TestRenderCloudInit_SingleQuotesInstallURL(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "curl -fsSL 'https://dl.example.com/agent.sh;echo%20pwned' -o /tmp/croupier-agent-install.sh")
 	assert.NotContains(t, out, "';echo%20pwned' &&")
+}
+
+// #658：tfVarAssignment 把字符串变量编码为 HCL 字符串（strconv.Quote），
+// 多行 cloud-init YAML/#cloud-config 注释不再被 terraform 当作 HCL 解析；
+// 数字变量（count/disk_size）保持裸 number；非数字值报错。
+func TestTfVarAssignment(t *testing.T) {
+	// user_data（多行，含 # 注释）必须编码为合法 HCL string。
+	ud := "#cloud-config\nwrite_files:\n  - path: /etc/x\n"
+	got, err := tfVarAssignment("user_data", ud)
+	require.NoError(t, err)
+	require.Equal(t, "user_data="+strconv.Quote(ud), got)
+
+	// 数字变量保持裸 number。
+	got, err = tfVarAssignment("count", "2")
+	require.NoError(t, err)
+	require.Equal(t, "count=2", got)
+	got, err = tfVarAssignment("disk_size", "40")
+	require.NoError(t, err)
+	require.Equal(t, "disk_size=40", got)
+
+	// 普通字符串变量也编码（region 无特殊字符也不受影响）。
+	got, err = tfVarAssignment("region", "us-east-1")
+	require.NoError(t, err)
+	require.Equal(t, `region="us-east-1"`, got)
+
+	// 数字变量传非数字报错。
+	_, err = tfVarAssignment("count", "abc")
+	require.Error(t, err)
 }
 
 // 各 provider 模板必须：含 provider 块、含对应 resource、含 user_data 注入、
