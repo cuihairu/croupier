@@ -31,6 +31,7 @@ import {
 } from '@/services/api/ops';
 import AlertRulesTab from './AlertRulesTab';
 import ConvertToIncidentModal, { type ConvertPrefill } from '@/components/ConvertToIncidentModal';
+import { safeExternalHref } from '@/utils/safeUrl';
 
 export default function OpsAlertsPage() {
   const { message, modal } = App.useApp();
@@ -514,7 +515,13 @@ export default function OpsAlertsPage() {
                         style={{ width: 160 }}
                       />
                       {cfg?.grafanaExploreUrl && (
-                        <Button onClick={() => window.open(cfg.grafanaExploreUrl, '_blank')}>
+                        <Button
+                          onClick={() => {
+                            // C-007：外链走 http/https 白名单，非法 scheme 不弹窗。
+                            const u = safeExternalHref(cfg.grafanaExploreUrl);
+                            if (u) window.open(u, '_blank');
+                          }}
+                        >
                           <FormattedMessage
                             id="pages.opsAlerts.action.openGrafana"
                             defaultMessage="打开 Grafana"
@@ -523,7 +530,10 @@ export default function OpsAlertsPage() {
                       )}
                       {cfg?.alertmanagerUrl && (
                         <Button
-                          onClick={() => window.open(cfg.alertmanagerUrl + '/#/alerts', '_blank')}
+                          onClick={() => {
+                            const u = safeExternalHref(cfg.alertmanagerUrl + '/#/alerts');
+                            if (u) window.open(u, '_blank');
+                          }}
                         >
                           <FormattedMessage
                             id="pages.opsAlerts.action.openAlertmanager"
@@ -612,13 +622,14 @@ export default function OpsAlertsPage() {
                           <Space>
                             <Button
                               size="small"
-                              onClick={() =>
-                                window.open(
+                              onClick={() => {
+                                // C-007：AM 深链走白名单；无合法基址（相对/非法 scheme）不弹窗。
+                                const u = safeExternalHref(
                                   (cfg?.alertmanagerUrl || '').replace(/\/$/, '') +
                                     `/#/silences/${encodeURIComponent(r.id)}`,
-                                  '_blank',
-                                )
-                              }
+                                );
+                                if (u) window.open(u, '_blank');
+                              }}
                             >
                               <FormattedMessage
                                 id="pages.opsAlerts.silenceCard.action.view"
@@ -926,9 +937,11 @@ export default function OpsAlertsPage() {
               )}
               {typeof (detail.annotations || {}).runbook_url === 'string' && (
                 <Button
-                  onClick={() =>
-                    window.open((detail.annotations || {}).runbook_url as string, '_blank')
-                  }
+                  onClick={() => {
+                    // C-007：runbook 外链走白名单；javascript:/data: 等不弹窗。
+                    const u = safeExternalHref((detail.annotations || {}).runbook_url as string);
+                    if (u) window.open(u, '_blank');
+                  }}
                 >
                   <FormattedMessage
                     id="pages.opsAlerts.action.openRunbook"
@@ -937,7 +950,12 @@ export default function OpsAlertsPage() {
                 </Button>
               )}
               {cfg.grafanaExploreUrl && (
-                <Button onClick={() => window.open(cfg.grafanaExploreUrl!, '_blank')}>
+                <Button
+                  onClick={() => {
+                    const u = safeExternalHref(cfg.grafanaExploreUrl!);
+                    if (u) window.open(u, '_blank');
+                  }}
+                >
                   <FormattedMessage
                     id="pages.opsAlerts.action.openGrafana"
                     defaultMessage="打开 Grafana"

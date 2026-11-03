@@ -524,9 +524,9 @@
   - 状态／条件：DONE（2026-11-03）。`Detail.tsx` 附件 `a.url` 经 `safeExternalHref`（http/https 白名单）后才进 `<img src>` / `<a href>` / `window.open`；非法 scheme（javascript:/data:）渲染为 `<span>` 无链接文本；新增 C-006 用例断言 evil-js/evil-data 为 SPAN、无 `a[href^=javascript:]`/`a[href^=data:]`/`img[src^=data:]`、合法 http 仍链接、window.open 未调用。LOCAL VERIFIED：`npx jest src/pages/Support/Tickets/__tests__/Detail.test.tsx` 44/44 过（95s）+ `pnpm --dir web run tsc` 0 错误；review 文档 C-006 行改「已修（2026-11-03）」。
   - 交付与验收：Support/Tickets/Detail.tsx 附件 img src/a href/window.open 全部走 safeExternalHref（http/https 白名单）；非 http/https 渲染为无链接文本；新增单测覆盖 javascript:/data: 拒绝；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-007 · P2 · 安全 · 告警/图表 URL 无 scheme 白名单**
+- [x] **C-007 · P2 · 安全 · 告警/图表 URL 无 scheme 白名单**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-007），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03）。`Ops/Alerts/index.tsx` 5 处 `window.open`（grafana explore / AM `/#/alerts` / silences 深链 / drawer runbook / drawer grafana）全部先经 `safeExternalHref`（http/https 白名单），空结果不弹窗；alertmanagerUrl 缺省时 silences 深链不再向当前 origin 导航（此前打开不存在哈希路由）。LOCAL VERIFIED：`npx jest src/pages/Ops/Alerts/__tests__/index.test.tsx` 33/33 过（93s）+ `pnpm --dir web run tsc` 0 错误；review 文档 C-007 行改「已修（2026-11-03）」。
   - 交付与验收：Ops/Alerts 的 grafanaExploreUrl/alertmanagerUrl/runbook_url window.open 全部走 safeExternalHref；非法 scheme 不弹窗；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-025 · P2 · 正确性 · openapi provider 读已关 body 丢真实错误**

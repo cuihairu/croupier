@@ -296,7 +296,7 @@ describe('告警中心 初始渲染', () => {
     expect(screen.getByText('->')).toBeInTheDocument();
   });
 
-  it('cfg 缺省（undefined → {}）：两个外链按钮不渲染；查看仍可点（URL 前缀空串）', async () => {
+  it('cfg 缺省（undefined → {}）：两个外链按钮不渲染；查看仍可点但不弹窗（无合法基址）', async () => {
     mConfig.mockResolvedValue(undefined as never);
     renderPage();
     await waitLoad();
@@ -305,7 +305,9 @@ describe('告警中心 初始渲染', () => {
     expect(screen.queryByRole('button', { name: '打开 AM' })).not.toBeInTheDocument();
 
     fireEvent.click(within(silenceRow('sil-1')).getByRole('button', { name: '查看' }));
-    expect(window.open).toHaveBeenCalledWith('/#/silences/sil-1', '_blank');
+    // C-007：alertmanagerUrl 缺省时深链为相对 URL（/#/silences/...），
+    // 不满足 http/https 白名单 → 不弹窗（此前会向当前 origin 导航到不存在的哈希路由）。
+    expect(window.open).not.toHaveBeenCalled();
   });
 });
 
@@ -837,6 +839,54 @@ describe('告警中心 详情抽屉', () => {
     expect(
       within(drawerEl()).queryByRole('button', { name: '打开 Grafana' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('告警中心 外链白名单（C-007）', () => {
+  it('非法 scheme（javascript:）的 grafana/alertmanager/runbook 一律不弹窗', async () => {
+    mConfig.mockResolvedValue({
+      grafanaExploreUrl: 'javascript:alert(document.cookie)',
+      alertmanagerUrl: 'javascript:alert(document.cookie)',
+    });
+    mAlerts.mockResolvedValue({
+      alerts: [
+        { ...alert1, annotations: { runbook_url: 'javascript:alert(document.cookie)' } },
+        alert2,
+        alert3,
+        alert4,
+        alert5,
+      ],
+    });
+    renderPage();
+    await waitLoad();
+
+    // 工具栏：打开 Grafana / 打开 AM（cfg 键 truthy 故按钮仍渲染，但点击不弹窗）
+    fireEvent.click(screen.getByRole('button', { name: '打开 Grafana' }));
+    fireEvent.click(screen.getByRole('button', { name: '打开 AM' }));
+    expect(window.open).not.toHaveBeenCalled();
+
+    // 静默行 查看：javascript: 前缀拼接后仍非 http/https → 拒绝
+    fireEvent.click(within(silenceRow('sil-1')).getByRole('button', { name: '查看' }));
+    expect(window.open).not.toHaveBeenCalled();
+
+    // 抽屉 runbook / grafana：同样拒绝
+    fireEvent.click(rowOf('CPU high'));
+    expect(await screen.findByText('告警详情')).toBeInTheDocument();
+    fireEvent.click(within(drawerEl()).getByRole('button', { name: '打开 Runbook' }));
+    fireEvent.click(within(drawerEl()).getByRole('button', { name: '打开 Grafana' }));
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('data: 形态（grafanaExploreUrl）不弹窗', async () => {
+    mConfig.mockResolvedValue({
+      grafanaExploreUrl: 'data:text/html,<script>alert(1)</script>',
+      alertmanagerUrl: 'https://am.example',
+    });
+    renderPage();
+    await waitLoad();
+
+    fireEvent.click(screen.getByRole('button', { name: '打开 Grafana' }));
+    expect(window.open).not.toHaveBeenCalled();
   });
 });
 
