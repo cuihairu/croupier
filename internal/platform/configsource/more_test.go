@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"testing"
 
@@ -174,6 +175,117 @@ func TestNacosSourceAccessTokenFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "tok-1", tok)
 	assert.Equal(t, 1, logins)
+}
+
+func TestNacosSourcePathDataIDMapping(t *testing.T) {
+	assert.Equal(t, "flat.yaml", pathToNacosDataID("flat.yaml"))
+	assert.Equal(t, "croupier:runtime:switch.yaml", pathToNacosDataID("runtime/switch.yaml"))
+	assert.Equal(t, "flat.yaml", nacosDataIDToPath("flat.yaml"))
+	assert.Equal(t, "runtime/switch.yaml", nacosDataIDToPath("croupier:runtime:switch.yaml"))
+	assert.Equal(t, "legacy:still-flat.yaml", nacosDataIDToPath("legacy:still-flat.yaml"))
+}
+
+func TestNacosSourceDirectoryTraversalUsesEncodedDataID(t *testing.T) {
+	var gotReadDataID string
+	var gotWriteDataID string
+	s := newNacosFake(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet:
+			gotReadDataID = r.URL.Query().Get("dataId")
+			_, _ = w.Write([]byte(`{"enabled":true}`))
+		case r.Method == http.MethodPost:
+			require.NoError(t, r.ParseForm())
+			gotWriteDataID = r.Form.Get("dataId")
+			_, _ = w.Write([]byte("true"))
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
+	ctx := context.Background()
+
+	body, err := s.Read(ctx, "runtime/switch.yaml")
+	require.NoError(t, err)
+	assert.Equal(t, `{"enabled":true}`, string(body))
+	assert.Equal(t, "croupier:runtime:switch.yaml", gotReadDataID)
+
+	require.NoError(t, s.Write(ctx, "runtime/switch.yaml", []byte(`{"enabled":false}`), "test"))
+	assert.Equal(t, "croupier:runtime:switch.yaml", gotWriteDataID)
+}
+
+func TestNacosSourceListMapsEncodedDataIDs(t *testing.T) {
+	s := newNacosFake(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/nacos/v1/cs/configs", r.URL.Path)
+		if r.URL.Query().Get("pageNo") == "1" {
+			_ = writeNacosItemsV9(w, []nacosConfigItem{
+				{DataID: "flat.yaml", Group: "DEFAULT_GROUP"},
+				{DataID: "croupier:runtime:switch.yaml", Group: "DEFAULT_GROUP"},
+				{DataID: "croupier:runtime:mail:a.yaml", Group: "DEFAULT_GROUP"},
+				{DataID: "croupier:billing:rate.yaml", Group: "DEFAULT_GROUP"},
+			})
+		}
+	})
+
+	root, err := s.List(context.Background(), "")
+	require.NoError(t, err)
+	require.Len(t, root, 3)
+	assert.ElementsMatch(t, []string{
+		"flat.yaml", "runtime", "billing",
+	}, entriesToNames(root))
+	runtimeDir := findEntryByName(root, "runtime")
+	require.NotNil(t, runtimeDir)
+	assert.True(t, runtimeDir.Dir)
+
+	sub, err := s.List(context.Background(), "runtime")
+	require.NoError(t, err)
+	require.Len(t, sub, 2)
+	assert.ElementsMatch(t, []string{"switch.yaml", "mail"}, entriesToNames(sub))
+}
+
+// TestNacosSource_EndToEndEncodedPath exercises the real Nacos protocol
+// constraint (dataId must not contain '/') against a live Nacos server.
+// Skipped unless CROUPIER_NACOS_TEST_ENDPOINT is set.
+func TestNacosSource_EndToEndEncodedPath(t *testing.T) {
+	endpoint := os.Getenv("CROUPIER_NACOS_TEST_ENDPOINT")
+	if endpoint == "" {
+		t.Skip("CROUPIER_NACOS_TEST_ENDPOINT not set; skipping live Nacos e2e")
+	}
+	group := "DEFAULT_GROUP"
+	src, err := newNacosSource(map[string]interface{}{
+		"endpoint": endpoint, "group": group,
+	})
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	require.NoError(t, src.(WritableSource).Write(ctx, "runtime/switch.yaml", []byte("on: true"), "e2e"))
+	t.Cleanup(func() { _ = src.(WritableSource).Write(ctx, "runtime/switch.yaml", []byte(""), "e2e-cleanup") })
+
+	body, err := src.Read(ctx, "runtime/switch.yaml")
+	require.NoError(t, err)
+	assert.Equal(t, "on: true", string(body))
+
+	root, err := src.List(ctx, "")
+	require.NoError(t, err)
+	require.NotNil(t, findEntryByName(root, "runtime"))
+	sub, err := src.List(ctx, "runtime")
+	require.NoError(t, err)
+	require.NotNil(t, findEntryByName(sub, "switch.yaml"))
+}
+
+func entriesToNames(entries []Entry) []string {
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.Name)
+	}
+	return out
+}
+
+func findEntryByName(entries []Entry, name string) *Entry {
+	for i := range entries {
+		if entries[i].Name == name {
+			return &entries[i]
+		}
+	}
+	return nil
 }
 
 func TestNacosSourceLoginFailures(t *testing.T) {

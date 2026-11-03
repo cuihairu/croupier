@@ -12,8 +12,9 @@ import (
 	"time"
 )
 
-// nacosSource browses a Nacos config center via its OpenAPI. dataId 即路径
-// （dataId 中的 '/' 视作目录分隔）；group 固定为一个绑定值。
+// nacosSource browses a Nacos config center via its OpenAPI. Nacos rejects
+// '/' in dataId, so directory paths are encoded with a reserved "croupier:"
+// prefix and ':' separators. Existing flat dataIds are displayed unchanged.
 // 可写：应急编辑 = publish 回 Nacos（游戏服长轮询消费方式不变）。
 //
 // Config: {"endpoint", "namespaceId", "group", "username", "password"}.
@@ -46,6 +47,22 @@ func newNacosSource(cfg map[string]interface{}) (Source, error) {
 }
 
 func (s *nacosSource) Type() string { return "nacos" }
+
+const nacosPathPrefix = "croupier:"
+
+func pathToNacosDataID(path string) string {
+	if !strings.Contains(path, "/") {
+		return path
+	}
+	return nacosPathPrefix + strings.ReplaceAll(path, "/", ":")
+}
+
+func nacosDataIDToPath(dataID string) string {
+	if !strings.HasPrefix(dataID, nacosPathPrefix) {
+		return dataID
+	}
+	return strings.ReplaceAll(strings.TrimPrefix(dataID, nacosPathPrefix), ":", "/")
+}
 
 // accessToken logs in when credentials are configured (Nacos 开启鉴权时)。
 func (s *nacosSource) accessToken(ctx context.Context) (string, error) {
@@ -158,8 +175,9 @@ func (s *nacosSource) List(ctx context.Context, dir string) ([]Entry, error) {
 	dirs := map[string]struct{}{}
 	files := map[string]struct{}{}
 	for _, item := range items {
-		rest := strings.TrimPrefix(item.DataID, prefix)
-		if rest == item.DataID && prefix != "" {
+		logicalPath := nacosDataIDToPath(item.DataID)
+		rest := strings.TrimPrefix(logicalPath, prefix)
+		if rest == logicalPath && prefix != "" {
 			continue
 		}
 		if rest == "" {
@@ -195,7 +213,7 @@ func (s *nacosSource) Read(ctx context.Context, path string) ([]byte, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path required")
 	}
-	q := url.Values{"dataId": {path}, "group": {s.group}}
+	q := url.Values{"dataId": {pathToNacosDataID(path)}, "group": {s.group}}
 	if err := s.withAuth(ctx, q); err != nil {
 		return nil, err
 	}
@@ -232,7 +250,7 @@ func (s *nacosSource) Write(ctx context.Context, path string, content []byte, _ 
 		return fmt.Errorf("content too large (>8MiB)")
 	}
 	form := url.Values{
-		"dataId":  {path},
+		"dataId":  {pathToNacosDataID(path)},
 		"group":   {s.group},
 		"content": {string(content)},
 	}

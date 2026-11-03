@@ -122,9 +122,9 @@ func TestRedisSource_ListReadWrite(t *testing.T) {
 
 func TestNacosSource_ListReadWrite(t *testing.T) {
 	items := []nacosConfigItem{
-		{DataID: "gameplay/item.json", Group: "DEFAULT_GROUP"},
-		{DataID: "gameplay/hero.json", Group: "DEFAULT_GROUP"},
-		{DataID: "runtime/switch.yaml", Group: "DEFAULT_GROUP"},
+		{DataID: "croupier:gameplay:item.json", Group: "DEFAULT_GROUP"},
+		{DataID: "croupier:gameplay:hero.json", Group: "DEFAULT_GROUP"},
+		{DataID: "croupier:runtime:switch.yaml", Group: "DEFAULT_GROUP"},
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -139,7 +139,7 @@ func TestNacosSource_ListReadWrite(t *testing.T) {
 				w.WriteHeader(400)
 				return
 			}
-			if r.Form.Get("dataId") == "runtime/switch.yaml" && r.Form.Get("content") != "" {
+			if r.Form.Get("dataId") == "croupier:runtime:switch.yaml" && r.Form.Get("content") != "" {
 				_, _ = w.Write([]byte("true"))
 				return
 			}
