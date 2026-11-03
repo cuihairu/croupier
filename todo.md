@@ -264,13 +264,15 @@
   - 实现要点：`internal/ops/costcontrol`（`ComputeEstimate`/`BuildSummary`/`IdleEvaluator`/`BudgetEvaluator`）；迁移 0058 建 `cost_budgets`；HTTP `/ops/cost/{estimate,summary,idle,budget}`；web `/ops/cost` 面板。
   - 边界诚实：价格目录为内置参考价（生产价需接入真实账单/价格 API，估算精度登记为部署后对账）；闲置判定依赖 agent 资源指标（OPS-010），无近期样本视为未知不误判；自动销毁默认关闭（只提醒）；本环境无真实云/多机栈，端到端真实云成本对账与自动销毁登记为部署后人工验收项。
   - 完成证据：2026-11-03；`internal/ops/costcontrol/costcontrol.go` + `idle.go` + `costcontrol_test.go`（估算/汇总/闲置/预算/聚合）；`internal/model/cost_budget_model.go` + `cost_budget_model_test.go`；`internal/api/ops/costcontrol.go` + `costcontrol_test.go`（估算/预算/汇总 scope 隔离）；`internal/svc/migrations_costbudget_test.go`（0058 幂等）；`internal/handler/routes.go`（/ops/cost/*）；`web/src/services/api/ops.ts` + `web/src/pages/Ops/Cost/index.tsx` + `web/config/routes.ts`；`docs/api/index.md`（Ops - cost control 端点族）+ `docs/operations/cost-control.md` + `docs/operations/index.md` + `docs/.vitepress/config.mjs`（docs 导航）。`go build ./...` 过、`go test ./internal/ops/costcontrol/... ./internal/api/ops/... ./internal/model/... ./internal/svc/... ./internal/db/migrate/... -count=1` 全绿、`go vet` 定向包过、`cd sdks/go && go build ./...` 过、`cd web && npx tsc --noEmit` 0 错误、`npx jest config/routes.test.ts src/pages/routes-resolution.test.tsx src/utils/api.test.ts src/services/api` 全绿、`bash scripts/dashboard_vnext_guard.sh` PASSED、`cd docs && CI=true pnpm build` 过。
-- [ ] **OPS-011 · P2 · 实现 · 运维大屏（舰队健康总览，运维台独立页面）**
+- [x] **OPS-011 · P2 · 实现 · 运维大屏（舰队健康总览，运维台独立页面）**
   - 依赖：OPS-010。
-  - 状态／条件：TODO（未开始）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，交付完成）。前端独立大屏页 `web/src/pages/Ops/Dashboard/`（`index.tsx` 组件 + `health.ts` 纯逻辑）；五源 best-effort 轮询（listOpsNodes/fetchOpsAlerts/listOpsProvisionRuns/listSyntheticsResults + getAgentMetricsHistory，Promise.allSettled 单源失败不整体挂）；三色健康档（默认 60/85，HealthThresholds 可配）+ 防抖（连续 3 周期越界才变色，normal/offline/unknown 立即恢复）；离线灰态置底；聚合带（全网节点/在线率/平均 CPU·内存/今日扩缩容/活动告警 + 各档位计数）；告警滚动条（剔除已静默）；点击节点卡下钻（hourly 近 48 点资源曲线 + 进程/端口摘要）；`?agentId=` 深链预选下钻；断流 30s → 顶部「数据过期」横幅（不展示旧值为当前）。
   - 交付与验收：ops 前端独立大屏页——①节点卡片墙：每节点一枚卡片（名称/大区/角色/在线状态），三色健康态=正常（CPU+内存 <60%）/压力（60-85%）/过载（>85% 或探针失败），离线灰态置底；②聚合带：全网节点数、在线率、总负载、今日扩缩容次数、活动告警数；③账号负载视图：各节点承载账号数 vs 容量上限（依赖调度编排的账号分布数据）；④告警滚动条（实时事件流）；⑤点击节点卡下钻到该节点详情（资源曲线/进程/最近操作）。
   - 数据源：OPS-010 资源指标 + synthetics 探针 + 审计事件流；轮询或 SSE 推送（≤5s 延迟）。
   - 阈值：三色阈值可配（网络级）；状态判定防抖（连续 3 个周期越界才变色）。
   - 验收：模拟 20 节点（含 1 离线 2 过载）状态正确着色；断流 30s 后显示「数据过期」而非旧值；1080p 与 4K 电视墙两档布局。
+  - 完成证据：commit `b6ee4114`（10 文件/1340 行）已推送 origin/main；验收对照：20 节点模拟（1 离线 2 过载 1 压力）计数与着色正确（`__tests__/index.test.tsx`：正常 16/压力 1/过载 2/离线 1，离线置底 DOM 末位）；断流 → 「数据过期」横幅（`isStale` + 横幅用例）；tsc 0 错误、`npx jest src/pages/Ops/Dashboard` 33/33、routes+ops service 47/47、`dashboard_vnext_guard.sh` PASSED、docs build 通过。
+  - 边界诚实：账号负载视图为「待接入」占位（OPS-002 边界：当前无账号分布数据源，不伪造数字）；阈值当前取默认常量（网络级可配登记为后续工作）；大屏只读（探针失败为信号非强制执行）；1080p/4K 两档——页面用 `auto-fill minmax(240px,1fr)` 响应式网格，未设专用电视墙断点（登记为已知边界）。
 
 - [ ] **OPS-008 · P3 · 实现 · 数据面备份恢复**
   - 依赖：—。
