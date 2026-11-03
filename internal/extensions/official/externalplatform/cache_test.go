@@ -89,6 +89,25 @@ func TestCache_Close(t *testing.T) {
 	c.Close()
 }
 
+// C-030: cache.Close 双调用不得 panic（closeOnce 幂等）。
+func TestCache_Close_Idempotent(t *testing.T) {
+	c := newCache(5 * time.Minute)
+	c.Set("key1", &Response{Status: true})
+
+	// 双调用：修复前第二次 close(done) 会 panic "close of closed channel"。
+	c.Close()
+	c.Close()
+
+	// Close 后再 Close 仍应安全（Client.Close 路径可能被多次调用）。
+	cl := &Client{cache: c}
+	if err := cl.Close(); err != nil {
+		t.Fatalf("first client close returned error: %v", err)
+	}
+	if err := cl.Close(); err != nil {
+		t.Fatalf("second client close returned error: %v", err)
+	}
+}
+
 func TestCache_Cleanup(t *testing.T) {
 	// Use a short TTL so items expire quickly
 	c := newCache(50 * time.Millisecond)

@@ -426,10 +426,11 @@ func (rl *rateLimiter) Wait(ctx context.Context) error {
 
 // cache is a simple in-memory cache with TTL.
 type cache struct {
-	mu    sync.RWMutex
-	items map[string]*cacheItem
-	ttl   time.Duration
-	done  chan struct{}
+	mu        sync.RWMutex
+	items     map[string]*cacheItem
+	ttl       time.Duration
+	done      chan struct{}
+	closeOnce sync.Once
 	// cleanupInterval 后台清理循环的 ticker 周期；生产默认 1 分钟，
 	// 仅测试可缩短以触达 ticker 分支（<=0 视为默认值）。
 	cleanupInterval time.Duration
@@ -479,7 +480,9 @@ func (c *cache) Delete(key string) {
 }
 
 func (c *cache) Close() {
-	close(c.done)
+	c.closeOnce.Do(func() {
+		close(c.done)
+	})
 }
 
 func (c *cache) cleanup() {

@@ -611,7 +611,7 @@
 
 - [x] **C-021 · P3 · 测试 · TestMetricsCollector_StartReporting 负载 flake**
   - 依赖：—。
-  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`internal/app/agent` 与 `core/metrics` 同源用例的 3s 边界放宽到 10s（首帧前 `Collect` 需扫描 CPU/进程/网络，饱和负载临界超时）；隔离复跑 5 次中 4 过 1 失败（3.08s 边界）确认环境性非业务回归；10s 裕度后 `go test ./internal/app/agent/ -run '^TestMetricsCollector_StartReporting$'` 5/5 过、`go test ./core/metrics/` 2/2 过；docs/review/2026-11-01-code-review.md C-021 已改已修。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`internal/app/agent` 与 `core/metrics` 同源用例的 3s 边界放宽到 10s（首帧前 `Collect` 需扫描 CPU/进程/网络，饱和负载临界超时）；隔离复跑 5 次中 4 过 1 失败（3.08s 边界）确认环境性非业务回归；10s 裕度后 `go test ./internal/app/agent/ -run '^TestMetricsCollector_StartReporting$'` 与 `go test ./core/metrics/` 稳定绿；docs/review/2026-11-01-code-review.md C-021 已改已修。
   - 交付与验收：复跑稳定或加 t.Parallel 隔离/放宽超时归因环境性；记录到 CI 基线说明（非回归，勿当红豁免）；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-027 · P3 · 正确性 · devops hub 写超时 goroutine 泄漏**
@@ -629,10 +629,11 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-04）：`agentSessionHandler`/`providerSessionHandler` 加 `sync.Mutex`，`Handle` 读与 `handleRegister/handleConnect` 写走同锁（state/markRegistered）；`go test -race ./internal/server/ ./internal/agent/` 全绿、普通测试与 `go build ./...` 过；docs/review/2026-11-01-code-review.md C-029 已改已修。
   - 交付与验收：tcp_listener.go 与 tcp_local_listener.go 的 Handle 对 registered/agentID/sessionID 读改走 lane 内同步（或经 mux 保证 happens-before）；`go test -race` 相关用例绿；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-030 · P3 · 正确性 · externalplatform cache.Close 双关 panic**
+- [x] **C-030 · P3 · 正确性 · externalplatform cache.Close 双关 panic**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-030），修复方向 source-wins。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）。`cache.Close` 加 `sync.Once`（`closeOnce.Do`）幂等，双调 `Close` 与 `Client.Close` 双调均不 panic；新增 `TestCache_Close_Idempotent`（双调 `cache.Close` + 双调 `Client.Close` 断言无 panic/无错误）；`go test ./internal/extensions/official/externalplatform/ -run TestCache_Close -count=1` 2/2 PASS、`go test ./internal/extensions/official/externalplatform/ -count=1` 全绿、`go vet` 过。
   - 交付与验收：cache.Close 加 sync.Once/closeOnce 幂等；新增双调 Close 单测不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+  - 完成证据：`internal/extensions/official/externalplatform/client.go`（`closeOnce sync.Once`、`Close` 经 `closeOnce.Do`）；`internal/extensions/official/externalplatform/cache_test.go`（`TestCache_Close_Idempotent`）；`go test ./internal/extensions/official/externalplatform/ -count=1` 全绿；commit 待填。
 
 - [ ] **C-031 · P3 · 健壮性 · telemetry 每 exporter 每 span 无界 goroutine**
   - 依赖：—。
@@ -682,3 +683,14 @@
 ## 漏洞扫描遗留（2026-11-03 全舰队扫描，源 scratch/vuln-scan-*.md）
 
 - [ ] VULN-CROUPIER-001 [高危×3·dependabot（npm 生态）] 25 条 dependabot 中 3 条 high 未处理：follow-redirects 1.16.1→≥1.16.2（web/）、decode-uri-component 0.5.0→≥0.5.1（web/）、vite 5.4.21→≥6.4.4（docs/，【跨大版本 5→6】）；验收：dependabot 3 条 high 关闭 + pnpm audit --audit-level=high（web、docs）三包不再命中 + 相关测试绿
+
+## 审核（f9b1610f..HEAD，只审不改）
+
+- [ ] 审核发现：CostSummary 先 runModel.List(limit=200)（SQL 按 created_at DESC 截断）再在内存按 game/env/adopted 过滤（:105-127），目标 scope 的较早运行若落在最新 200 条之外会被静默漏统计，成本/闲置率偏低。（internal/api/ops/costcontrol.go:99,105-127）
+- [ ] 审核发现：BudgetEvaluator.Evaluate 把 Store.Get 的任意错误都当「未配置预算」返回 nil（:112-114），真实 DB 故障时预算告警静默失效、无日志无痕迹。（internal/ops/costcontrol/idle.go:111-114）
+- [ ] 审核发现：BudgetEvaluator 解析预算 NotifyChannels 后 `_ = channels` 丢弃，Dispatch 未按渠道路由——配置的告警渠道实际不生效（前端 saveCostBudget 仍保存并回显 channels，属功能死代码）。（internal/ops/costcontrol/idle.go:128-131）
+- [ ] 审核发现：CostBudgetGet 以 strings.Contains(err.Error(), "not found") 判定「未配置」（:178-180），任何消息含 "not found" 的 DB 错误（如表/库不存在、gorm 其它错误文案变化）都会误判为无预算并返回 nil，掩盖真实故障；应改用 errors.Is(gorm.ErrRecordNotFound)。（internal/api/ops/costcontrol.go:176-181）
+- [ ] 审核发现：buildFleetSummary 注释称「平均负载只计有指标且在线节点」（:127），但实现只判 hasMetrics(n) 未排除 offline 节点（:147-150），离线节点的陈旧 cpu/mem 仍计入 avgCpu/avgMem，平均值被污染（测试未覆盖 offline+有指标场景）。（web/src/pages/Ops/Dashboard/health.ts:127,147-150）
+- [ ] 审核发现：大屏 poll 对 tiersRef 只增不删（:154-155），节点下线/销毁后其 id 的防抖状态永久驻留，agentId 复用/重现时沿用旧 tier 与 streak（延迟变色或误档），长期运行 map 无界增长。（web/src/pages/Ops/Dashboard/index.tsx:154-155）
+- [ ] 审核发现：FetchSSEStream 分帧正则仅匹配纯 \r\n\r\n / \n\n / \r\r（:177），且 dispatchFrame 只按 \n 切行（:186）——服务端混用行尾（如 \r\n\n）或纯 \r 时事件会延迟/粘连/漏解析；现有 http.test 未覆盖混合行尾。（web/src/services/core/http.ts:177,186）
+- [ ] 审核覆盖：本轮（f9b1610f..HEAD，91 commits / 78 文件，+4695/-466）逐文件审查已完成——重点覆盖安全修复 C-001..C-026（cloudInit 注入 C-002 / 帧解码 C-003 / SSE header C-004 / 附件·告警·devtools·navigate scheme 白名单 C-006/C-007/C-017/C-018 / exec 边界 C-008 / DB 名白名单 C-009 / asciicast id C-010 / mTLS 口令 C-011 / varint 越界 C-012 / 响应帧写失败 C-013/C-014/C-015 / 探针口令 C-016 / openapi 5xx body C-025 / ratelimit 空窗 C-026）、OPS-007 成本控制（api/ops/costcontrol、idle、model、routes）、OPS-011 大屏（health.ts、Dashboard/index.tsx）、FetchSSEStream、costcontrol/模板/db/asciicast/template 等测试与各 SDK（go/cpp/java/js/python）。文档、图片、纯测试文件未逐行审。结论见上 7 条发现；未见高危及注入/越界/泄漏类新问题。未 commit、未 push、未改代码。
