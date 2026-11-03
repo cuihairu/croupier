@@ -182,19 +182,29 @@ func (c *TCPClient) inboundWorker() {
 				respBody = nil
 			}
 		}
-		c.writeResponseFrame(task.msgID, task.reqID, respBody)
+		if werr := c.writeResponseFrame(task.msgID, task.reqID, respBody); werr != nil {
+			slog.Warn("write response frame failed", "msg_id", protocol.MsgIDString(task.msgID), "error", werr)
+		}
 	}
 }
 
 // writeResponseFrame 以写锁保护回写响应帧（worker 并发安全）。
-func (c *TCPClient) writeResponseFrame(msgID uint32, reqID uint32, respBody []byte) {
+// C-013：写错误不再丢弃——写失败意味着对端已断连，立即 failAllPending
+// 令在途 Call 以 errConnectionClosed 失败（读循环侧迟早也会触发，此处提前），
+// 并把错误回传调用方记录。
+func (c *TCPClient) writeResponseFrame(msgID uint32, reqID uint32, respBody []byte) error {
 	frameBody := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
 	frame := make([]byte, frameHeaderBytes+len(frameBody))
 	binary.BigEndian.PutUint32(frame[:frameHeaderBytes], uint32(len(frameBody)))
 	copy(frame[frameHeaderBytes:], frameBody)
 	c.writeMu.Lock()
-	_, _ = c.conn.Write(frame)
+	_, err := c.conn.Write(frame)
 	c.writeMu.Unlock()
+	if err != nil {
+		c.failAllPending()
+		return fmt.Errorf("write response frame: %w", err)
+	}
+	return nil
 }
 
 // parseHostPort parses a host:port string.
@@ -411,7 +421,9 @@ func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte
 				respBody = marshaled
 			}
 		}
-		c.writeResponseFrame(msgID, reqID, respBody)
+		if werr := c.writeResponseFrame(msgID, reqID, respBody); werr != nil {
+			slog.Warn("write response frame failed", "msg_id", protocol.MsgIDString(msgID), "error", werr)
+		}
 	}
 }
 
@@ -425,7 +437,9 @@ func (c *TCPClient) ctrlWorker() {
 			// 失败也要答对端：否则 Agent 心跳判定超时且无诊断。
 			slog.Warn("control handler error", "msg_id", protocol.MsgIDString(task.msgID), "error", err)
 		}
-		c.writeResponseFrame(task.msgID, task.reqID, respBody)
+		if werr := c.writeResponseFrame(task.msgID, task.reqID, respBody); werr != nil {
+			slog.Warn("write response frame failed", "msg_id", protocol.MsgIDString(task.msgID), "error", werr)
+		}
 	}
 }
 

@@ -64,6 +64,43 @@ func TestCallWriteFailureReturnsSendError(t *testing.T) {
 	}
 }
 
+// C-013：writeResponseFrame 写失败不再静默丢弃——回传错误并 failAllPending
+// （dead=true，在途 Call 以 errConnectionClosed 失败）。
+func TestWriteResponseFrameFailureFailsPending(t *testing.T) {
+	respCh := make(chan responseTuple, 1)
+	c := &TCPClient{
+		conn:      newErrorConn(),
+		config:    &Config{},
+		pending:   map[uint32]chan responseTuple{42: respCh},
+		nextReqID: 1,
+		closing:   make(chan struct{}),
+	}
+
+	err := c.writeResponseFrame(protocol.MsgInvokeRequest, 42, []byte(`{}`))
+	if err == nil {
+		t.Fatal("expected write response frame error")
+	}
+	if want := "write response frame:"; len(err.Error()) < len(want) || err.Error()[:len(want)] != want {
+		t.Fatalf("error should wrap write failure, got %v", err)
+	}
+
+	c.mu.RLock()
+	dead := c.dead
+	c.mu.RUnlock()
+	if !dead {
+		t.Fatal("write failure must mark connection dead (failAllPending)")
+	}
+
+	select {
+	case resp := <-respCh:
+		if !errors.Is(resp.err, errConnectionClosed) {
+			t.Fatalf("pending call should fail with errConnectionClosed, got %v", resp.err)
+		}
+	default:
+		t.Fatal("pending call was not failed after write failure")
+	}
+}
+
 // receiveLoop 在响应无处投递（pending 通道无接收方）时应让位于 closing 并退出。
 func TestReceiveLoopBlockedDeliveryStopsOnClosing(t *testing.T) {
 	serverSide, clientSide := net.Pipe()

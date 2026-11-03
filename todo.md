@@ -564,9 +564,9 @@
   - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`_decode_file_push_request` 三重 fail-closed——varint 解码前查 `idx >= n`（截断抛 `ValueError` 非 `IndexError`）、varint 超 10 字节抛 `ValueError`、length-delimited 长度超出 body 抛 `ValueError`（不再静默截断）；新增 `test_coverage_final.py` C-012 四例（截断 varint/varint 溢出/长度超 body/合法请求照常解码）；`pytest tests/` 全绿 551 passed；docs/review/2026-11-01-code-review.md C-012 行已改已修（2026-11-03），汇总已修 15→16、余 17→16。
   - 交付与验收：croupier/**init**.py varint 解码与切片加长度/边界校验，越界返回错误而非静默截断；新增畸形字节串单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-013 · P3 · 健壮性 · Go SDK 写错误丢弃**
+- [x] **C-013 · P3 · 健壮性 · Go SDK 写错误丢弃**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-013），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`writeResponseFrame` 改返回 `error`，写失败即 `failAllPending()`（dead=true，在途 `Call` 即刻以 `errConnectionClosed` 失败）并回传错误；3 处调用方 `slog.Warn` 记录；新增 `tcp_client_whitebox_test.go` `TestWriteResponseFrameFailureFailsPending`；`go test ./pkg/croupier/...` 全绿；docs/review/2026-11-01-code-review.md C-013 行已改已修（2026-11-03），汇总已修 16→17、余 16→15。
   - 交付与验收：tcp_client.go Write 错误不再丢弃（回传调用方或断连）；新增单测写失败可感知；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-014 · P3 · 健壮性 · C++ SDK send best-effort**
