@@ -598,9 +598,10 @@
   - 完成证据：`web/src/components/PageRenderer/compositeRuntime.tsx` navigate 分支改 `const safeUrl = safeExternalHref(step.params?.url)`；`if (safeUrl) window.open(safeUrl, '_blank', 'noopener')`——非法 scheme（javascript:/data: 等）不开窗，新窗口不反向控制 opener。用例 `compositeRuntime.test.tsx`（更新既有断言加 noopener；新增 `C-018 navigate 非法 scheme：不开窗`——javascript:/data: 两步均被拦截、window.open 不触发）；`pnpm tsc` 0 错误 + `pnpm test -- --testPathPatterns PageRenderer/__tests__/compositeRuntime` 12 passed。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：compositeRuntime navigate 加 noopener 与 scheme 白名单（safeExternalHref）；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-019 · P3 · 安全 · Ops/Alerts 配置 URL 无 scheme 白名单**
+- [x] **C-019 · P3 · 安全 · Ops/Alerts 配置 URL 无 scheme 白名单**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-019），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-019），修复方向 source-wins。
+  - 完成证据：与 C-007 同源——`6a45166e`（C-007）已把全部 5 处 window.open 走 `safeExternalHref`（grafana/alertmanager/runbook/深链）；复证当前工作树：5/5 sink 均先 `const u = safeExternalHref(...)` 再 `if (u) window.open(u, '_blank')`，文件内无裸 `<a href=`。用例 `Ops/Alerts/__tests__/index.test.tsx` `告警中心 外链白名单（C-007）`（javascript: 的 grafana/alertmanager/runbook 一律不弹窗）。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03，C-007 覆盖）。
   - 交付与验收：配置 URL window.open 走 safeExternalHref；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-020 · P3 · 健壮性 · useRealtimeStream try/finally 无 catch**
