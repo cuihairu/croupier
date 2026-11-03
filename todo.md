@@ -145,7 +145,7 @@
 
 - [ ] **UI-001 · P1 · 故障验证 · 真实游戏页面发布全链（旧 C2）**
   - 依赖：GAME-002, GAME-010, ARCH-024。交付与验收：独立真实游戏环境走契约→模板→编辑保存→接受提案→发布→binding 执行；验证列表/详情/弹窗/刷新、筛选/契约变化/人工草稿隔离，记录落库快照与游戏调用凭据
-  - 状态／条件：BLOCKED（2026-11-02 复核，HEAD 806b67c3 后复验）：仍无真实游戏环境（configs/games.json 仅 default/tower_defense/croupier-demo 演示占位，见 configs/games.json:10/26/41）；本机唯一真实游戏栈 Atlas（docker 容器 atlas-demo-mmorpg-atlas-1）为游戏基础设施控制面而非游戏后端，明确不拥有权威角色/战斗/经济/账号数据（/home/cui/workspaces/atlas/README.md:51/53/59），不能充当权威游戏环境；GAME-002、GAME-010 仍 BLOCKED（todo.md:166/198，需真实游戏权威玩家函数/游戏侧持久凭据与受控写环境），ARCH-024 已完成（todo.md:124）。demo 验收不能代替此项；本项复验仅确认机制侧门禁绿（web gameOpsPublishFixture/gameOpsCrudFixture 2 套件 7 用例 PASS、web tsc PASS、dashboard_vnext_guard PASSED、go test 定向包 PASS），不构成全链验收。缺真实游戏环境/GAME-002 完成。
+  - 状态／条件：BLOCKED（2026-11-04 两条路径≤30 分钟评估后已代决：路径 A 本机 game-* 栈替代真实接入方不可行，`spawn` 是游戏社区/目录平台，`game-infinite-clash` 有账号/角色/奖励 Lua 服务但需 shield/openresty/MySQL/Redis 运行面且无 OpenAPI/SDK 契约、GAME-001/007/009 仍缺接入方契约与用户拍板；路径 B Nacos/SQL 搭建面可行性更高并推进，`cs-nacos`（nacos-server 1.4.2）重启后 health `OK`，schema/configsource 已存在，实测暴露 Nacos 拒绝 dataId 含 `/` 导致目录路径 `invalid dataId`，已修复为 `croupier:runtime:switch.yaml` 编码并验证 write/read/list/delete 均 200，commit `312017c2`。UI-001 页面发布全链仍 BLOCKED：GAME-002/GAME-010 未完成，缺真实游戏权威函数、持久凭据、受控写环境与 GAME-007/009 方案批准；demo/Nacos 配置面不能替代全链验收）。
 
 - [x] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
   - 依赖：—。交付与验收：复用现有 Go gameops-demo 的 33 函数及内存状态，独立 Server/sidecar/demo 栈验证发布、审批、report.generate、失败/未知/取消/幂等重试；既有 fixture 只证机制，不证明进程重启后游戏侧持久去重
