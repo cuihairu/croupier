@@ -884,7 +884,10 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 		if err == nil && resp.StatusCode < 500 {
 			break
 		}
-		if resp != nil {
+		// C-025：仅在实际重试时提前关 body（此时响应体作废）。末次（i ==
+		// RetryCount）不关——留给下方 defer + io.ReadAll，保留真实 HTTP
+		// 状态与错误体；否则读已关 body 会以 read-on-closed 掩盖真实错误。
+		if resp != nil && i < p.openapiConfig.RetryCount {
 			_ = resp.Body.Close()
 		}
 		if i < p.openapiConfig.RetryCount {

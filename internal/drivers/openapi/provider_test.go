@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -869,6 +871,58 @@ func TestGetOpenAPIDoc(t *testing.T) {
 	doc := p.GetOpenAPIDoc()
 	if doc != nil {
 		t.Error("GetOpenAPIDoc() should return nil before Init")
+	}
+}
+
+// C-025：全 5xx 重试后必须返回真实 HTTP 状态与错误体，而非读已关 body 的
+// read-on-closed 错误。回归：重试循环在末次 5xx 也提前 close(resp.Body)，
+// 随后的 io.ReadAll 读到关闭流，真实 500 状态与错误体被掩盖。
+func TestProviderCall_All5xxRetriesReturnRealError(t *testing.T) {
+	var hits int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"upstream_broken","message":"backend exploded"}`))
+	}))
+	defer server.Close()
+
+	p := NewProvider()
+	err := p.Init(context.Background(), provider.ProviderConfig{
+		Enabled: true,
+		Type:    "openapi",
+		Config: map[string]interface{}{
+			"baseUrl":    server.URL,
+			"retryCount": 2, // 3 attempts total
+			"methods": []interface{}{
+				map[string]interface{}{
+					"name":   "boom",
+					"path":   "/boom",
+					"method": "GET",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+
+	_, err = p.Call(context.Background(), "boom", nil)
+	if err == nil {
+		t.Fatal("Call() should return error for all-5xx")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "500") {
+		t.Errorf("error should carry real HTTP status, got: %v", err)
+	}
+	if !strings.Contains(msg, "backend exploded") {
+		t.Errorf("error should carry real response body, got: %v", err)
+	}
+	if strings.Contains(msg, "read on closed") {
+		t.Errorf("error must not be a read-on-closed artifact, got: %v", err)
+	}
+	if got := atomic.LoadInt32(&hits); got != 3 {
+		t.Errorf("expected 3 attempts (retryCount=2), got %d", got)
 	}
 }
 
