@@ -86,6 +86,7 @@ Agent 出站调用游戏侧 Provider（本地网关 `callLocalProvider` 拨号�
 1. **双闸**（既有基线）：`ops.enabled: true` + `allowExec: true` 两者默认 false，必须一起显式打开。
 2. **Allowlist fail-closed**：`execAllowedCommands` 必须非空——空列表拒绝一切命令，**不再等价于「全放行」**（2026-10-15 物化之前是 fail-open，已修正）。`OpsConfig.Validate()` 在配置面同步拦截。
 3. **审计**：每次尝试（成功 / 业务失败 / 客户端不可用）写 `execution_logs`（`source=agent_exec`）；操作者、命令、参数、退出码、耗时进入审计载荷；审计面缺失不阻塞主执行路径（fail-open）。
+4. **边界加固（C-008，2026-11-03）**：白名单只锁命令名——`args` / `env` / `workingDir` 在执行前校验，不得用于改写白名单命令行为。全部 fail-closed：(a) 敏感环境键拒绝（`LD_PRELOAD`、`LD_LIBRARY_PATH`、`LD_AUDIT`、`DYLD_*`、`PATH`、`CDPATH`、`PYTHONPATH`/`PYTHONSTARTUP`/`PYTHONHOME`/`PYTHONINSPECT`、`BASH_ENV`、`ENV`、`SHELLOPTS`、`BASHOPTS`、`IFS`、`GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE`/`GIT_OBJECT_DIRECTORY`、`PERL5LIB`/`PERL5OPT`、`NODE_OPTIONS`、`RUBYOPT`/`RUBYLIB`、`RUSTC_BOOTSTRAP`）；(b) 解释器二进制（`sh`/`bash`/`zsh`/`dash`/`ksh`/`fish`/`csh`/`tcsh`/`cmd`/`powershell`/`python`/`perl`/`ruby`/`node`/`php`/`lua`）携带内联代码开关（`-c`/`-i`/`-p`/`-e`/`-r`）拒绝（参数即代码，白名单失去意义）；(c) `workingDir` 必须绝对路径且不含 `..` 段（防逃逸任意目录）。白名单内的普通二进制（`ls`、`echo`、`pwd` 等）带普通参数/环境仍放行。
 
 > 注意：面板没有通用 Shell 入口——程序操作一律走受管进程的显式动作（start/stop/restart）；这就是 §10.7「程序操作 = 显式授权动作」的既有基线。
 

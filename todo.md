@@ -516,7 +516,7 @@
 
 - [ ] **C-005 · P2 · 安全 · JWT 存 localStorage**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-005），修复方向 source-wins。
+  - 状态／条件：TODO（未开始）。**DEFERRED（2026-11-03）——架构级鉴权门改造，设计需用户签字**：修复必须 httpOnly cookie 迁移（localStorage 是唯一让 XSS 读走 token 的载体，等效安全存储只能是 cookie）；但改动横穿登录状态机（密码→MFA→mustChangePassword）、OAuth 回调 `?token=` 重定向交付（handler.go:320 经 oidcSuccessURL）、Logout 吊销、auth 中间件（service_context.go:1763 读 Authorization/?token=），外加 web 侧 Login/index.tsx / http.ts getToken / app.tsx / requestErrorConfig.ts 与各自测试。鉴权门是全站入口，cookie 属性（Secure/SameSite/CSRF 模型）与 OAuth 回调 token 交付方式属设计决策，须用户确认方向后再动（自治无人复核下改错即整站登录挂）。非静默丢弃——P2 优先级保留，待设计确认后回到本项。
   - 交付与验收：Login 改用 httpOnly+Secure cookie 或等效安全存储承载会话；localStorage 不再落 token；跨页面鉴权路径同步更新；新增单测断言 token 未写入 localStorage；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [x] **C-006 · P2 · 安全 · 附件 URL 无 scheme 白名单**
@@ -539,9 +539,9 @@
   - 状态／条件：DONE（2026-11-03）。`advanced.go` GetStats 对空 `timestamps` 加 `len>0` 守卫返回零值 `LastRequest`；`TestSlidingWindowGetStats_EmptyWindow`（maxRequests=1、n=2 超限建空窗口后 GetStats 不 panic），mutation 验证旧码必红（advanced.go:230 index out of range）。LOCAL VERIFIED：`go test ./internal/platform/ratelimit/ -count=1` 绿（3.2s）+ `go build ./...` 过。
   - 交付与验收：advanced.go GetStats 对空 timestamps 加 len>0 守卫返回空/零值；新增单测：空窗口（超限建空/prune 到 0）调 GetStats 不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-008 · P3 · 安全 · agent exec 白名单仅匹配命令不匹配参数/环境**
+- [x] **C-008 · P3 · 安全 · agent exec 白名单仅匹配命令不匹配参数/环境**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-008），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03）。`ops_server.go` 新增 `validateExecBoundary`（ExecuteCommand 内白名单命中后调用，fail-closed）：敏感环境键拒绝（LD_PRELOAD/LD_LIBRARY_PATH/LD_AUDIT/DYLD__/PATH/CDPATH/PYTHON_/BASH_ENV/ENV/SHELLOPTS/BASHOPTS/IFS/GIT__/PERL_/NODE_OPTIONS/RUBY*/RUSTC_BOOTSTRAP）；解释器（sh/bash/zsh/dash/ksh/fish/csh/tcsh/cmd/powershell/python/perl/ruby/node/php/lua）+ 内联代码开关（-c/-i/-p/-e/-r）拒绝；workingDir 必须绝对且不含 `..` 段。LOCAL VERIFIED：`go test ./internal/app/agent/ -run 'TestOpsServer_ExecuteCommand' -count=1` 全绿（含 C-008 三子例）+ 全包 `go test ./internal/app/agent/ -count=1` 绿（51s，首跑 79s FAIL 为已知 metrics 负载 flake 族，隔离全绿）+ `go build ./internal/app/agent/` 过；docs/operations/config-agent.md（en+zh）allowExec 节补第 4 条边界加固。
   - 交付与验收：ops_server exec 白名单校验扩展到 req.Args/req.WorkingDir/req.Env（PATH、LD_PRELOAD 等敏感键拒绝或白名单化）；新增单测：带 LD_PRELOAD/PATH 覆盖的请求被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-009 · P3 · 安全 · DDL 拼接 dbName 仅反引号/方括号包裹**

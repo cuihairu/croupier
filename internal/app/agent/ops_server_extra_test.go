@@ -143,7 +143,7 @@ func TestOpsServer_ExecuteCommand(t *testing.T) {
 		cfg.Enabled = true
 		cfg.AllowExec = true
 		// 白名单前置（§10.7）：空列表不再等价「放行一切」，显式声明被测命令。
-		cfg.ExecAllowedCommands = []string{"echo", "sh", "sleep", "/nonexistent/cmd-xyz"}
+		cfg.ExecAllowedCommands = []string{"echo", "sh", "bash", "python3", "node", "sleep", "false", "pwd", "printenv", "/nonexistent/cmd-xyz"}
 		cfg.ExecTimeout = 10 * time.Second
 		if mutate != nil {
 			mutate(cfg)
@@ -178,13 +178,13 @@ func TestOpsServer_ExecuteCommand(t *testing.T) {
 	})
 
 	t.Run("nonzero exit code", func(t *testing.T) {
+		// C-008：shell -c 已拒（任意执行），非零退出路径改用非解释器命令 false。
 		s := newServer(nil)
 		resp, err := s.ExecuteCommand(ctx, &opsv1.ExecuteCommandRequest{
-			Command: "sh",
-			Args:    []string{"-c", "exit 3"},
+			Command: "false",
 		})
 		require.NoError(t, err)
-		assert.Equal(t, int32(3), resp.ExitCode)
+		assert.Equal(t, int32(1), resp.ExitCode)
 	})
 
 	t.Run("command not found", func(t *testing.T) {
@@ -195,18 +195,70 @@ func TestOpsServer_ExecuteCommand(t *testing.T) {
 	})
 
 	t.Run("env and working dir", func(t *testing.T) {
+		// C-008：env/工作目录校验不误伤合法非解释器命令（pwd 反映 WorkingDir，
+		// printenv 反映 Env 透传）。
 		dir := t.TempDir()
 		s := newServer(nil)
 		resp, err := s.ExecuteCommand(ctx, &opsv1.ExecuteCommandRequest{
-			Command:    "sh",
-			Args:       []string{"-c", "echo $MY_VAR > out.txt && pwd >> out.txt && cat out.txt"},
+			Command:    "pwd",
 			WorkingDir: dir,
-			Env:        map[string]string{"MY_VAR": "env-ok"},
+		})
+		require.NoError(t, err)
+		assert.Zero(t, resp.ExitCode)
+		assert.Contains(t, resp.StdOut, dir)
+
+		resp, err = s.ExecuteCommand(ctx, &opsv1.ExecuteCommandRequest{
+			Command: "printenv",
+			Args:    []string{"MY_VAR"},
+			Env:     map[string]string{"MY_VAR": "env-ok"},
 		})
 		require.NoError(t, err)
 		assert.Zero(t, resp.ExitCode)
 		assert.Contains(t, resp.StdOut, "env-ok")
-		assert.Contains(t, resp.StdOut, dir)
+	})
+
+	t.Run("C-008 sensitive env rejected", func(t *testing.T) {
+		s := newServer(nil)
+		for _, key := range []string{"LD_PRELOAD", "PATH", "LD_LIBRARY_PATH", "PYTHONPATH"} {
+			_, err := s.ExecuteCommand(ctx, &opsv1.ExecuteCommandRequest{
+				Command: "echo",
+				Args:    []string{"hi"},
+				Env:     map[string]string{key: "/tmp/x"},
+			})
+			require.Error(t, err, "env %s should be rejected", key)
+			assert.Contains(t, err.Error(), key)
+		}
+	})
+
+	t.Run("C-008 interpreter inline code rejected", func(t *testing.T) {
+		s := newServer(nil)
+		for _, cmd := range []string{"sh", "bash", "python3", "node"} {
+			_, err := s.ExecuteCommand(ctx, &opsv1.ExecuteCommandRequest{
+				Command: cmd,
+				Args:    []string{"-c", "echo hi"},
+			})
+			require.Error(t, err, "interpreter %s -c should be rejected", cmd)
+			assert.Contains(t, err.Error(), "interpreter")
+		}
+	})
+
+	t.Run("C-008 working dir traversal rejected", func(t *testing.T) {
+		s := newServer(nil)
+		_, err := s.ExecuteCommand(ctx, &opsv1.ExecuteCommandRequest{
+			Command:    "echo",
+			Args:       []string{"hi"},
+			WorkingDir: "/tmp/../../etc",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "..")
+
+		_, err = s.ExecuteCommand(ctx, &opsv1.ExecuteCommandRequest{
+			Command:    "echo",
+			Args:       []string{"hi"},
+			WorkingDir: "relative/dir",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "absolute")
 	})
 
 	t.Run("timeout kills long command", func(t *testing.T) {
