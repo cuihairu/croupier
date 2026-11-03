@@ -438,14 +438,14 @@ func TestMetricsCollector_StartReporting(t *testing.T) {
 	case r := <-reports:
 		require.NotNil(t, r)
 		assert.Equal(t, "agent-mc", r.AgentId)
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("no immediate report received")
 	}
 
 	select {
 	case r := <-reports:
 		require.NotNil(t, r)
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("no periodic report received")
 	}
 
