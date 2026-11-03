@@ -678,3 +678,7 @@
 - [ ] 审核发现：deploy 包同 (role,name,version) 重复上传覆盖同一对象键（deployments.go:245），历史 DeployPackage 记录仍引用该键但 checksum 与对象内容不再匹配——ApplyUpdate 以旧记录 Checksum 校验必失败，或（若跳过校验）旧记录被新内容静默替换，供应链完整性受损。（internal/api/ops/deployments.go:245,263-267）
 - [ ] 审核发现：worker Run 退出序列在周期性 flush 协程超时（shutdownTimeout）未结束时仍启动最终 flush（worker.go:251-277），两个 flush 并发执行——I/O 段在 aggMu 外，同 key 双写 ClickHouse 产生重复/竞态。（internal/analytics/worker/worker.go:251-277）
 - [ ] 审核覆盖：本轮（ed541f6e..HEAD，217 文件）逐文件审查已完成——重点覆盖 provision 引擎（runner/template/orchestrator/types）、deploy/costcontrol/batchop 编排、agent ops（pushfile/exec/log tailer）、registry metrics/logstore、analytics worker、tasks scheduler、api/ops（provision/deployments/logs/batchops/helpers）、svc wiring/migrations、前端 safeUrl/Bugs/NodeDetailDrawer、objstore（file/s3/cos/oss）。生成代码（pkg/pb、sdks/_/generated、ops.pb._）与纯文档/图片/测试文件（仅 model CRUD 类）未逐行审；结论见上方本轮与既有发现。未 commit、未 push、未改代码。
+
+## 漏洞扫描遗留（2026-11-03 全舰队扫描，源 scratch/vuln-scan-*.md）
+
+- [ ] VULN-CROUPIER-001 [高危×3·dependabot（npm 生态）] 25 条 dependabot 中 3 条 high 未处理：follow-redirects 1.16.1→≥1.16.2（web/）、decode-uri-component 0.5.0→≥0.5.1（web/）、vite 5.4.21→≥6.4.4（docs/，【跨大版本 5→6】）；验收：dependabot 3 条 high 关闭 + pnpm audit --audit-level=high（web、docs）三包不再命中 + 相关测试绿
