@@ -23,6 +23,7 @@ import { FormattedMessage, useIntl, useParams, history, useModel } from '@umijs/
 import { uploadAsset } from '@/services/api/storage';
 import { getMessage } from '@/utils/antdApp';
 import { formatDateTime } from '@/utils/format';
+import { safeExternalHref } from '@/utils/safeUrl';
 import {
   updateTicket,
   deleteTicket,
@@ -700,12 +701,15 @@ export default function TicketDetailPage() {
                         <div>
                           {attachments.map((a: Attachment, idx: number) => {
                             const url = a.url as string;
+                            // C-006：附件 URL 走 http/https 白名单，
+                            // 非法 scheme（javascript:/data: 等）渲染为无链接文本。
+                            const safeUrl = safeExternalHref(url);
                             const isImg = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
                             return (
                               <div key={idx} style={{ marginBottom: 6 }}>
-                                {isImg ? (
+                                {isImg && safeUrl ? (
                                   <img
-                                    src={url}
+                                    src={safeUrl}
                                     alt={a.name || ''}
                                     style={{
                                       maxWidth: 160,
@@ -714,12 +718,14 @@ export default function TicketDetailPage() {
                                       border: '1px solid #eee',
                                       padding: 2,
                                     }}
-                                    onClick={() => window.open(url, '_blank')}
+                                    onClick={() => window.open(safeUrl, '_blank')}
                                   />
-                                ) : (
-                                  <a href={url} target="_blank" rel="noreferrer">
+                                ) : safeUrl ? (
+                                  <a href={safeUrl} target="_blank" rel="noreferrer">
                                     {a.name || url}
                                   </a>
+                                ) : (
+                                  <span>{a.name || url}</span>
                                 )}
                               </div>
                             );

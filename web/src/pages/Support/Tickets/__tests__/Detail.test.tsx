@@ -221,6 +221,39 @@ describe('Support/Tickets/Detail', () => {
       fireEvent.click(img as HTMLElement);
       expect(window.open).toHaveBeenCalledWith('http://x/a.png', '_blank');
     });
+
+    it('C-006：非法 scheme 附件（javascript:/data:）渲染为无链接文本且不弹窗', async () => {
+      mockedListTicketComments.mockResolvedValue({
+        comments: [
+          {
+            id: 1,
+            content: '恶意附件',
+            author: 'alice',
+            createdAt: '2024-01-03T00:00:00Z',
+            attach: JSON.stringify([
+              { name: 'evil-js', url: 'javascript:alert(document.cookie)' },
+              { name: 'evil-data', url: 'data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+' },
+              { name: 'ok-pdf', url: 'https://cdn.example.com/report.pdf' },
+            ]),
+          },
+        ],
+      });
+      const { container } = renderDetail();
+      await screen.findByText('恶意附件');
+      // javascript:/data: 渲染为纯文本（无 <a>/<img> 链接面）
+      expect(screen.getByText('evil-js').tagName).toBe('SPAN');
+      expect(screen.getByText('evil-data').tagName).toBe('SPAN');
+      expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
+      expect(container.querySelector('a[href^="data:"]')).toBeNull();
+      expect(container.querySelector('img[src^="data:"]')).toBeNull();
+      // 合法 http 仍可链接
+      expect(screen.getByText('ok-pdf')).toHaveAttribute(
+        'href',
+        'https://cdn.example.com/report.pdf',
+      );
+      // 无弹窗触发
+      expect(window.open).not.toHaveBeenCalled();
+    });
   });
 
   describe('提交评论（回归点）', () => {
