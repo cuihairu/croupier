@@ -467,11 +467,17 @@ export default [
     icon: 'tool',
     access: 'canOpsRead',
     routes: [
-      { path: '/ops', redirect: '/ops/nodes' },
+      { path: '/ops', redirect: '/ops/dashboard' },
       {
         path: '/ops/servers',
         redirect: '/ops/nodes',
         hideInMenu: true,
+      },
+      {
+        path: '/ops/dashboard',
+        name: 'Dashboard',
+        access: 'canOpsRead',
+        component: './Ops/Dashboard',
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       {

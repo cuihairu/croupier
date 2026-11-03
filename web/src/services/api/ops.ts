@@ -794,6 +794,20 @@ export type CostBudget = {
   updatedBy?: string;
 };
 
+export type ProvisionRunSummary = {
+  id: string;
+  state: string;
+  createdAt: string;
+};
+
+/** 供给运行列表（OPS-001 端点）：大屏「今日扩缩容次数」据此按 createdAt 计数。 */
+export async function listOpsProvisionRuns(limit = 100): Promise<ProvisionRunSummary[]> {
+  const response = await request<{ runs?: ProvisionRunSummary[] }>(
+    `/api/v1/ops/provision?limit=${limit}`,
+  );
+  return response?.runs || [];
+}
+
 export async function estimateCost(input: {
   provider: string;
   instanceType: string;
