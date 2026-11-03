@@ -224,10 +224,16 @@ func (sw *SlidingWindowLimiter) GetStats(key string) *RateLimitStats {
 	window.mu.Lock()
 	defer window.mu.Unlock()
 
+	// C-026：窗口可空（AllowN 超限建空 / prune 到 0 / cleanup 删空窗口前），
+	// 无 len>0 守卫时 len-1 = -1 → index out of range panic。空窗口返回零值。
+	var lastRequest time.Time
+	if len(window.timestamps) > 0 {
+		lastRequest = window.timestamps[len(window.timestamps)-1]
+	}
 	return &RateLimitStats{
 		Key:           key,
 		CurrentTokens: sw.maxRequests - len(window.timestamps),
-		LastRequest:   window.timestamps[len(window.timestamps)-1],
+		LastRequest:   lastRequest,
 	}
 }
 

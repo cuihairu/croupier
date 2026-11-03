@@ -534,9 +534,9 @@
   - 状态／条件：DONE（2026-11-03）。`provider.go:890` 关 body 仅在实际重试时（`i < RetryCount`），末次 5xx 留给 defer+ReadAll；`TestProviderCall_All5xxRetriesReturnRealError` 断言 3 次 5xx 后返回含 `500` 与真实响应体的 `API error`（非 read-on-closed），mutation 验证旧码必红。LOCAL VERIFIED：`go test ./internal/drivers/openapi/ -count=1` 绿（6.3s）+ `go build ./...` 过。
   - 交付与验收：provider.go 重试循环末次 5xx 后不提前关 resp.Body（延迟到 defer 或关前判 err）；新增单测：全 5xx 重试后返回真实 HTTP 状态/错误体而非 read-on-closed；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-026 · P2 · 正确性 · SlidingWindowLimiter.GetStats 越界 panic**
+- [x] **C-026 · P2 · 正确性 · SlidingWindowLimiter.GetStats 越界 panic**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-026），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03）。`advanced.go` GetStats 对空 `timestamps` 加 `len>0` 守卫返回零值 `LastRequest`；`TestSlidingWindowGetStats_EmptyWindow`（maxRequests=1、n=2 超限建空窗口后 GetStats 不 panic），mutation 验证旧码必红（advanced.go:230 index out of range）。LOCAL VERIFIED：`go test ./internal/platform/ratelimit/ -count=1` 绿（3.2s）+ `go build ./...` 过。
   - 交付与验收：advanced.go GetStats 对空 timestamps 加 len>0 守卫返回空/零值；新增单测：空窗口（超限建空/prune 到 0）调 GetStats 不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-008 · P3 · 安全 · agent exec 白名单仅匹配命令不匹配参数/环境**
