@@ -827,8 +827,20 @@ func (w *Worker) flush(ctx context.Context) error {
 		day, game, env := sp[0], sp[1], sp[2]
 		kdau := fmt.Sprintf("hll:dau:%s:%s:%s", game, env, day)
 		knew := fmt.Sprintf("hll:new:%s:%s:%s", game, env, day)
-		dau, _ := w.rdb.PFCount(ctx, kdau).Result()
-		neu, _ := w.rdb.PFCount(ctx, knew).Result()
+		dau, err := w.rdb.PFCount(ctx, kdau).Result()
+		if err != nil {
+			// PFCount 失败不得以 0 覆写当日真实 DAU（ReplacingMergeTree 按
+			// version 取代）；合并回共享 map 下次重试（语义同 minute_online）。
+			slog.Warn("pfcount dau", "key", kdau, "err", err)
+			w.remergeTouchedDay(dk)
+			continue
+		}
+		neu, err := w.rdb.PFCount(ctx, knew).Result()
+		if err != nil {
+			slog.Warn("pfcount new", "key", knew, "err", err)
+			w.remergeTouchedDay(dk)
+			continue
+		}
 		d, _ := time.Parse("2006-01-02", day)
 		ver := uint64(time.Now().Unix())
 		batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.daily_users (d, game_id, env, dau, new_users, version)")

@@ -661,7 +661,9 @@
 - [x] 审核发现：batchop 创建在 body 提供 gameId/env 时覆盖中间件解析的授权 scope，可越权创建/派发到未授权游戏环境。（internal/api/ops/handler.go:956-961）
   - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`BatchOpCreateHandler` 在填充默认 scope 后调用 `enforceRequestScope`（internal/api/ops/handler.go:960-966），body scope 与认证 scope 冲突返回 403。
   - 完成证据：`TestBatchOpCreate_CrossScopeRejected_403`；`go test ./internal/api/ops/` 全绿（303s）。
-- [ ] 审核发现：analytics daily_users 刷新对 Redis PFCount 错误置 0 后直接以新 version 写入 ReplacingMergeTree(version)，0 行永久覆盖当日真实 DAU/NAU（与 minute_online 的 remerge 兜底路径不一致）。（internal/analytics/worker/worker.go:830-831）
+- [x] 审核发现：analytics daily_users 刷新对 Redis PFCount 错误置 0 后直接以新 version 写入 ReplacingMergeTree(version)，0 行永久覆盖当日真实 DAU/NAU（与 minute_online 的 remerge 兜底路径不一致）。（internal/analytics/worker/worker.go:830-831）
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`flush` 的 daily_users 分支对 dau/neu 的 `PFCount` 分别检查 err，失败即 `remergeTouchedDay`（worker.go:830-849），不写 0 行（语义与 minute_online 一致）；成功路径照常写。
+  - 完成证据：`TestFlush_DailyUsersPFCntErrorRemerges`（Redis 不可达时 daily key 被合并回共享 map 重试）；`go test ./internal/analytics/worker/` 全绿（21s）。
 - [ ] 审核发现：供给 ticket 模式续行丢失 HubAddr/BootstrapToken/CloudInitExtra——runFromModel 未恢复（json:"-" 不持久化）、ResumeAsync 不再注入 server 参数，续行渲染出空 hubAddr/token 的 cloud-init，agent 引导必然失败。（internal/svc/provision_wiring.go:93-126；internal/api/ops/provision.go:155）
 - [ ] 审核发现：供给 user_data（多行 cloud-init YAML）经 tfexec.Var("-var user_data=<值>") 传入，terraform/tofu 按 HCL 表达式解析（#cloud-config 起始为注释）致真实 apply 失败；FakeRunner 测试掩盖该路径（测试缺口）。（internal/ops/provision/runner.go:52-53）
 - [ ] 审核发现：logstore Ingest 写库前先推进内存 lastSeq（:91）且忽略 db.Create 错误（:104），写库失败批次被重传当作重复丢弃、persisted 虚报——单进程内该批日志永久丢失。（internal/platform/registry/logstore.go:91,104）

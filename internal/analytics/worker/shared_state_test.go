@@ -153,6 +153,41 @@ func TestSharedState_ConcurrentRevAggNoLoss(t *testing.T) {
 	}
 }
 
+// #656：flush daily_users 时 Redis PFCount 出错不得以 0 覆写当日真实 DAU
+// （ReplacingMergeTree 按 version 取代）；应把该 day 合并回共享 map 下次重试。
+func TestFlush_DailyUsersPFCntErrorRemerges(t *testing.T) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("miniredis: %v", err)
+	}
+	t.Cleanup(mr.Close)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	rec := &recordingConn{}
+	w := &Worker{
+		rdb:            rdb,
+		ch:             rec,
+		touchedMinutes: map[string]struct{}{},
+		touchedDays:    map[string]struct{}{"2025-06-15|g1|e1": {}},
+		revAgg:         map[string]*revRow{},
+		clickBatchSize: 500,
+	}
+	// 模拟 PFCount 失败（miniredis 无该 key 时 PFCount 返回 0；改以 Close 使
+	// Redis 不可达，触发错误路径）。构造一个已关闭的客户端模拟 Redis 错误。
+	bad := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	_ = bad.Close()
+	w.rdb = bad
+
+	_ = w.flush(context.Background())
+
+	// 失败路径应把 day 合并回共享 map（不丢、不写 0 行）。
+	w.aggMu.Lock()
+	_, remerged := w.touchedDays["2025-06-15|g1|e1"]
+	w.aggMu.Unlock()
+	if !remerged {
+		t.Fatalf("expected daily key to be remerged for retry, but touchedDays is empty")
+	}
+}
+
 func newTestRedisClient(t *testing.T) *redis.Client {
 	t.Helper()
 	mr, err := miniredis.Run()
