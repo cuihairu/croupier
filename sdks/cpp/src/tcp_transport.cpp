@@ -1057,10 +1057,25 @@ void TCPTransport::WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, ui
         wrapped[2] = static_cast<uint8_t>((frame.size() >> 8) & 0xFF);
         wrapped[3] = static_cast<uint8_t>(frame.size() & 0xFF);
         std::memcpy(wrapped.data() + 4, frame.data(), frame.size());
-        (void)send(sock, reinterpret_cast<const char*>(wrapped.data()),
-                   static_cast<int>(wrapped.size()), 0);
+        // C-014：send 返回值/异常不再整体吞掉——失败至少记录日志（fd 已
+        // 关闭仍返回 EBADF 且不影响调用方，但错误不再不可见；不再裸
+        // (void)send）。
+        int sent = send(sock, reinterpret_cast<const char*>(wrapped.data()),
+                        static_cast<int>(wrapped.size()), 0);
+        if (sent < 0) {
+#ifdef _WIN32
+            std::cerr << "[WARN] TCPTransport: write response frame failed req_id=" << req_id
+                      << " err=" << WSAGetLastError() << '\n';
+#else
+            std::cerr << "[WARN] TCPTransport: write response frame failed req_id=" << req_id
+                      << " err=" << errno << '\n';
+#endif
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[WARN] TCPTransport: write response frame exception req_id=" << req_id
+                  << " what=" << e.what() << '\n';
     } catch (...) {
-        // best-effort
+        std::cerr << "[WARN] TCPTransport: write response frame unknown exception req_id=" << req_id << '\n';
     }
 }
 

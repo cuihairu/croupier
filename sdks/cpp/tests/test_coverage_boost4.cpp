@@ -2330,6 +2330,19 @@ TEST(TCPTransportBoost4Test, WriteResponseOnInvalidSocketIsNoop) {
                                                         protocol::MSG_INVOKE_RESPONSE, 1, {}));
 }
 
+TEST(TCPTransportBoost4Test, WriteResponseOnClosedSocketDoesNotThrow) {
+    // C-014：send 失败（fd 已关闭 → EBADF）不再静默吞掉——至少记录日志且
+    // 不抛异常（best-effort 语义保留，错误可见）。
+#ifdef _WIN32
+    GTEST_SKIP() << "closed-socket probe is Linux-specific";
+#else
+    raw_socket_t fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    ASSERT_GE(fd, 0);
+    ::close(fd);  // send() 此后返回 EBADF
+    EXPECT_NO_THROW(TCPTransport::WriteResponseOnSocket(fd, protocol::MSG_INVOKE_RESPONSE, 1, {}));
+#endif
+}
+
 TEST(TCPTransportBoost4Test, ConnectFailsImmediatelyOnBroadcastAddress) {
     // A non-blocking connect() to a broadcast address fails without going
     // through the select() wait on Linux.
