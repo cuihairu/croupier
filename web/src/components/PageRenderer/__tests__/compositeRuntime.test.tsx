@@ -195,7 +195,7 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
     expect(screen.getByText('yes')).toBeInTheDocument();
     // 点击 fields 区块 → navigate
     fireEvent.click(screen.getByText('bob'));
-    expect(openSpy).toHaveBeenCalledWith('http://game.example/player', '_blank');
+    expect(openSpy).toHaveBeenCalledWith('http://game.example/player', '_blank', 'noopener');
   });
 
   it('refreshOn 联动：上游产出后自动重跑下游，上游 data 同名字段并入下游输入', async () => {
@@ -381,9 +381,46 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '提示并跳转' }));
     await waitFor(() => expect(infoSpy).toHaveBeenCalledWith('hello-chain'));
-    // navigate 打开一次；缺 url 的步骤不重复开窗
+    // navigate 打开一次（noopener）；缺 url 的步骤不重复开窗
     expect(openSpy).toHaveBeenCalledTimes(1);
-    expect(openSpy).toHaveBeenCalledWith('http://docs.example', '_blank');
+    expect(openSpy).toHaveBeenCalledWith('http://docs.example', '_blank', 'noopener');
+  });
+
+  it('C-018 navigate 非法 scheme：不开窗（scheme 白名单）', async () => {
+    const sections: CompositeSection[] = [
+      {
+        key: 'opBar',
+        bindingId: 'b-tb',
+        view: 'toolbar',
+        title: { 'zh-CN': '操作区' },
+        toolbar: {
+          actions: [
+            {
+              label: { 'zh-CN': '危险跳转' },
+              chain: [
+                {
+                  kind: 'navigate',
+                  target: '',
+                  params: { url: 'javascript:alert(document.cookie)' },
+                },
+                {
+                  kind: 'navigate',
+                  target: '',
+                  params: { url: 'data:text/html,<script>alert(1)</script>' },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ];
+    const { app } = renderComposite(sections, jest.fn());
+    const openSpy = jest.fn();
+    window.open = openSpy as unknown as typeof window.open;
+
+    fireEvent.click(screen.getByRole('button', { name: '危险跳转' }));
+    // 两个非法 scheme 步骤均被 safeExternalHref 拦截，window.open 不触发
+    expect(openSpy).not.toHaveBeenCalled();
   });
 
   it('栅格 span 边界：合法 span 生效，非法值回落 24；非 autoRun 区块卡片头渲染「执行」按钮', async () => {

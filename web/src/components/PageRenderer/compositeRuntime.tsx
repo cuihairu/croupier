@@ -4,6 +4,7 @@ import { App, Descriptions, Typography } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import { localizedText } from '@/utils/localizedText';
+import { safeExternalHref } from '@/utils/safeUrl';
 import { extractApiErrorCode } from '@/utils/apiError';
 import { resolveStepParams } from './runtime';
 import { describeExecFailure, describeExecOutcome, isErrorExecResult } from './execFeedback';
@@ -919,8 +920,10 @@ export function useCompositeRuntime<T extends RuntimeSection>(
           continue;
         }
         if (step.kind === 'navigate') {
-          const url = step.params?.url;
-          if (url) window.open(url, '_blank');
+          // C-018：navigate 走 scheme 白名单 + noopener——非法 scheme
+          // （javascript:/data: 等）不开窗，新窗口不反向控制 opener。
+          const safeUrl = safeExternalHref(step.params?.url);
+          if (safeUrl) window.open(safeUrl, '_blank', 'noopener');
           continue;
         }
         if (step.kind === 'showMessage') {

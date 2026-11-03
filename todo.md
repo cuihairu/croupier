@@ -592,9 +592,10 @@
   - 完成证据：`web/src/pages/Dev/Tools/index.tsx` 卡片 map 内 `const safeUrl = safeExternalHref(tool.url)`（http/https 白名单）；export 图标改 `if (safeUrl) window.open(safeUrl, '_blank', 'noreferrer')`；标题锚改 `safeUrl ? <a href={safeUrl}> : <span>`（非法 scheme 渲染为无链接文本）。新增用例 `Dev/Tools/__tests__/index.test.tsx` `C-017 非法 scheme 工具链接`（javascript:/data: 两工具：标题无 `<a>`、export 点击不 `window.open`）；`pnpm tsc` 0 错误 + `pnpm test -- --testPathPatterns pages/Dev/Tools` 14 passed。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：Dev/Tools window.open/a href 走 safeExternalHref；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-018 · P3 · 安全 · compositeRuntime navigate window.open 缺 noopener**
+- [x] **C-018 · P3 · 安全 · compositeRuntime navigate window.open 缺 noopener**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-018），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-018），修复方向 source-wins。
+  - 完成证据：`web/src/components/PageRenderer/compositeRuntime.tsx` navigate 分支改 `const safeUrl = safeExternalHref(step.params?.url)`；`if (safeUrl) window.open(safeUrl, '_blank', 'noopener')`——非法 scheme（javascript:/data: 等）不开窗，新窗口不反向控制 opener。用例 `compositeRuntime.test.tsx`（更新既有断言加 noopener；新增 `C-018 navigate 非法 scheme：不开窗`——javascript:/data: 两步均被拦截、window.open 不触发）；`pnpm tsc` 0 错误 + `pnpm test -- --testPathPatterns PageRenderer/__tests__/compositeRuntime` 12 passed。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：compositeRuntime navigate 加 noopener 与 scheme 白名单（safeExternalHref）；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-019 · P3 · 安全 · Ops/Alerts 配置 URL 无 scheme 白名单**
