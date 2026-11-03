@@ -549,9 +549,9 @@
   - 状态／条件：DONE（2026-11-03）。`db.go` 新增 `validateDBName`（`^[A-Za-z0-9_-]+$` 严格白名单），`createMySQLDatabase`/`createPostgresDatabase`/`createSQLServerDatabase` 三者入口先校验再触碰 DSN/连接（fail-closed）；各方言断句字符（反引号/单引号/双引号/方括号/分号/空白）一律拒，不再依赖仅包裹符。LOCAL VERIFIED：`go test ./internal/svc/ -run 'TestValidateDBName_Allowlist|TestCreateDatabase_RejectsInvalidDBNameBeforeDSN' -count=1` 绿 + 全包 `go test ./internal/svc/ -count=1` 绿（50s，含既有 BadDSN 三例不破）+ `go build ./...` 过。
   - 交付与验收：db.go 建库 DDL 的 dbName 改经严格标识符校验（仅 [a-z0-9_-] 白名单）而非仅包裹符；SQL Server 遇 `]` 不再断；新增单测非法 dbName 被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-010 · P3 · 安全 · asciicast sessionID 路径穿越（潜伏）**
+- [x] **C-010 · P3 · 安全 · asciicast sessionID 路径穿越（潜伏）**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-010），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`asciicast.go` 加 `validCastSessionID`（`^[A-Za-z0-9_-]+$`），`OpenCast` 在 `filepath.Join` 前 fail-closed 校验；新增 `asciicast_test.go` 四例（合法 id 落 dir、非法 id 全拒且 dir 外无文件、白名单独立断言、合法 id header 行落盘）；`go test ./agents/devops/session/` 全绿（0.011s）；docs/review/2026-11-01-code-review.md C-010 行已改已修（2026-11-03），汇总已修 13→14、余 19→18。
   - 交付与验收：asciicast.go 写 .cast 前校验 sessionID 仅 [A-Za-z0-9_-] 或经 filepath.Base；新增单测 sessionID 含 `../`/`/` 被拒；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-011 · P3 · 安全 · Java TlsSocketFactory 硬编码 keystore 口令**

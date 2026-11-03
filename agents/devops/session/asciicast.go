@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 )
@@ -51,6 +52,11 @@ type CastWriter struct {
 	err   error // sticky：首次写失败后全部 no-op，会话面按「存档断」处理
 }
 
+// validCastSessionID 是会话 id 的白名单（C-010）。仅 [A-Za-z0-9_-]：newSessionID
+// 产 hex（[0-9a-f]），客户端可透传 req.SessionID——白名单外的 ../、/、\
+// 等会让 filepath.Join 逃逸 cast 目录写任意路径。fail-closed。
+var validCastSessionID = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
 // castFileName 会话 id → 存档文件名。
 func castFileName(sessionID string) string { return sessionID + ".cast" }
 
@@ -61,6 +67,11 @@ func OpenCast(dir, sessionID string, header CastHeader, now time.Time) (*CastWri
 	}
 	if sessionID == "" {
 		return nil, fmt.Errorf("session: cast session id is required")
+	}
+	// C-010：路径穿越（潜伏）。sessionID 进 filepath.Join 前先过白名单，
+	// 含 ../、/、\ 等即拒——不再把客户端可控字符串拼进存档路径。
+	if !validCastSessionID.MatchString(sessionID) {
+		return nil, fmt.Errorf("session: cast session id %q contains invalid characters (only [A-Za-z0-9_-] allowed)", sessionID)
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("session: create cast dir: %w", err)
