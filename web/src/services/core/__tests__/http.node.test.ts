@@ -35,7 +35,31 @@ describe('services/core/http（SSR：无 window 守卫分支）', () => {
     expect(url).toBe('http://localhost/api/v1/exports/logs?page=2');
   });
 
-  it('createEventSource：origin 回退后因 EventSource 缺失抛错（分支已评估）', () => {
-    expect(() => createEventSource('/events')).toThrow();
+  it('createEventSource：无 fetch 时同步抛错（SSR 守卫，C-004）', () => {
+    const original = globalThis.fetch;
+    Reflect.deleteProperty(globalThis, 'fetch');
+    try {
+      expect(() => createEventSource('/api/stream')).toThrow(/fetch is not available/);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('createEventSource：fetch 可用时返回 SSEStream，origin 回退且 URL 不含 token', () => {
+    globalThis.fetch = jest.fn(
+      (_url: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+    ) as unknown as typeof fetch;
+
+    const stream = createEventSource('/api/stream');
+    const fetchMock = globalThis.fetch as jest.Mock;
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toMatch(/^http:\/\/localhost\/api\/v1\/stream/);
+    expect(new URL(url).searchParams.has('token')).toBe(false);
+    expect(typeof stream.addEventListener).toBe('function');
+    expect(typeof stream.close).toBe('function');
+    stream.close();
   });
 });

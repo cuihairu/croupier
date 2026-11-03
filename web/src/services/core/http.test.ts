@@ -1,3 +1,4 @@
+import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'util';
 import { applyScopeHeaders, needsResolvedScope, waitForResolvedScope } from './scope';
 import { buildDownloadUrl, createEventSource, fetchJSON } from './http';
 
@@ -10,18 +11,6 @@ jest.mock('./scope', () => ({
 const mockedNeedsScope = needsResolvedScope as jest.MockedFunction<typeof needsResolvedScope>;
 const mockedWaitFor = waitForResolvedScope as jest.MockedFunction<typeof waitForResolvedScope>;
 const mockedApply = applyScopeHeaders as jest.MockedFunction<typeof applyScopeHeaders>;
-
-// EventSource 在 jsdom 不存在：以可断言的假类补齐
-type ESState = { url: string };
-const created: ESState[] = [];
-
-class FakeEventSource {
-  url: string;
-  constructor(url: string) {
-    this.url = url;
-    created.push({ url });
-  }
-}
 
 const jsonResponse = (body: unknown, status = 200) =>
   ({
@@ -154,28 +143,122 @@ describe('fetchJSON', () => {
 });
 
 describe('createEventSource', () => {
+  let sseFetchSpy: jest.SpyInstance;
+
   beforeAll(() => {
-    Object.defineProperty(global, 'EventSource', { value: FakeEventSource, writable: true });
+    // jsdom 无 global.fetch：SSE 流走 fetch，先补占位实现再 spy
+    if (typeof global.fetch !== 'function') {
+      Object.defineProperty(global, 'fetch', { value: async () => ({}), writable: true });
+    }
+    // jsdom 未实现 TextEncoder/TextDecoder（帧解析依赖）：以 Node util 补齐
+    if (typeof global.TextDecoder === 'undefined') {
+      Object.defineProperty(global, 'TextDecoder', { value: NodeTextDecoder, writable: true });
+    }
+    if (typeof global.TextEncoder === 'undefined') {
+      Object.defineProperty(global, 'TextEncoder', { value: NodeTextEncoder, writable: true });
+    }
   });
 
-  it('appends params and the token query for SSE', () => {
-    createEventSource('/api/v1/stream', { params: { gameId: 'demo', env: undefined, page: 2 } });
-
-    expect(created).toHaveLength(1);
-    const url = new URL(created[0].url);
-    expect(url.pathname).toBe('/api/v1/stream');
-    expect(url.searchParams.get('gameId')).toBe('demo');
-    expect(url.searchParams.get('page')).toBe('2');
-    expect(url.searchParams.has('env')).toBe(false);
-    expect(url.searchParams.get('token')).toBe('tok-http');
+  beforeEach(() => {
+    sseFetchSpy = jest.spyOn(global, 'fetch');
+    (localStorage.getItem as unknown as jest.Mock).mockReturnValue('tok-http');
   });
 
-  it('omits the token with attachToken=false and upgrades legacy paths', () => {
-    createEventSource('/api/stream', { attachToken: false });
+  afterEach(() => {
+    sseFetchSpy?.mockRestore();
+  });
 
-    const url = new URL(created[1].url);
-    expect(url.pathname).toBe('/api/v1/stream');
-    expect(url.searchParams.has('token')).toBe(false);
+  // C-004：token 走 Authorization 头，绝不进 URL/日志/Referer。
+  const pendingFetch = () => (_url: unknown, init?: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+    });
+
+  it('sends the bearer header instead of a token query param', () => {
+    sseFetchSpy.mockImplementationOnce(pendingFetch());
+
+    const stream = createEventSource('/api/v1/stream', {
+      params: { gameId: 'demo', env: undefined, page: 2 },
+    });
+
+    const [url, init] = sseFetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+    expect(parsed.pathname).toBe('/api/v1/stream');
+    expect(parsed.searchParams.get('gameId')).toBe('demo');
+    expect(parsed.searchParams.get('page')).toBe('2');
+    expect(parsed.searchParams.has('env')).toBe(false);
+    expect(parsed.searchParams.has('token')).toBe(false);
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer tok-http');
+    stream.close();
+  });
+
+  it('omits the Authorization header with attachToken=false and upgrades legacy paths', () => {
+    sseFetchSpy.mockImplementationOnce(pendingFetch());
+
+    const stream = createEventSource('/api/stream', { attachToken: false });
+
+    const [url, init] = sseFetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+    expect(parsed.pathname).toBe('/api/v1/stream');
+    expect(new Headers(init.headers).get('Authorization')).toBeNull();
+    stream.close();
+  });
+
+  it('parses SSE frames and dispatches named events', async () => {
+    const chunks = [
+      'event: connected\ndata: {"status":"connected"}\n\n',
+      'event: message\ndata: {"online":1}\n\n',
+    ];
+    let idx = 0;
+    let finish: (() => void) | undefined;
+    const reader = {
+      read: async (): Promise<{ done: boolean; value?: Uint8Array }> => {
+        if (idx < chunks.length) {
+          const value = new TextEncoder().encode(chunks[idx]);
+          idx += 1;
+          return { done: false, value };
+        }
+        await new Promise<void>((r) => {
+          finish = r;
+        });
+        return { done: true };
+      },
+    };
+    sseFetchSpy.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: { getReader: () => reader },
+    } as unknown as Response);
+
+    const stream = createEventSource('/api/v1/stream');
+    const seen: Array<{ type: string; data: string }> = [];
+    stream.addEventListener('connected', (e) => seen.push({ type: 'connected', data: e.data }));
+    stream.addEventListener('message', (e) => seen.push({ type: 'message', data: e.data }));
+    const opened = jest.fn();
+    stream.onopen = opened;
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(opened).toHaveBeenCalled();
+    expect(seen).toEqual([
+      { type: 'connected', data: '{"status":"connected"}' },
+      { type: 'message', data: '{"online":1}' },
+    ]);
+    finish?.();
+    stream.close();
+  });
+
+  it('stops without reconnecting on non-200 (fatal, EventSource semantics)', async () => {
+    sseFetchSpy.mockResolvedValueOnce({ ok: false, status: 401 } as unknown as Response);
+
+    const stream = createEventSource('/api/v1/stream');
+    const onerror = jest.fn();
+    stream.onerror = onerror;
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onerror).toHaveBeenCalledTimes(1);
+    stream.close();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sseFetchSpy).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -509,9 +509,9 @@
   - 交付与验收：sdks/js 的 decodeInvokeRequest/handleInboundStartTask/handleInboundCancelTask 把 protobuf decode 移入 try/catch，解析失败时按契约回错误帧而非静默；与 Go/Py/C++ 行为一致；新增畸形帧单测断言对端收到错误响应而非挂起；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
   - 完成证据：`inbound_client.test.ts` 新增 `describe("BasicClient malformed inbound frames (C-003)")`——非法 wire type 帧（`[0x0f]`）对 Invoke/StartTask/CancelTask 三型均回帧不挂死（invoke 回 `{error: /malformed invoke request/}`、start 回空 taskId、cancel 回空响应）；`npx tsc --noEmit` 0 错误；`npx jest` 全量 438 过/7 跳（含 inbound_client 10/10）；review 文档 C-003 行改「已修（2026-11-03）」。
 
-- [ ] **C-004 · P2 · 安全 · SSE token 入 query param**
+- [x] **C-004 · P2 · 安全 · SSE token 入 query param**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-004），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03）。`createEventSource` 改返回 fetch 实现 `SSEStream`（Authorization: Bearer 头 + SSE 帧解析 event/data/retry + 断连自动重连 + 非200 致命），JWT 不再进 URL；`useRealtimeStream` ref 类型改 `SSEStream`。LOCAL VERIFIED：`pnpm --dir web run tsc` 0 错误；`npx jest src/services/core/http.test.ts src/services/core/__tests__/http.node.test.ts src/pages/Analytics/Realtime src/services/api/messages.test.ts src/services/api/analytics.test.ts` 全绿（http 19/19 + Realtime 9 套件 95/95）；无其它 EventSource/token query 残留（grep 仅剩 2 个 createEventSource 调用点）。
   - 交付与验收：createEventSource 不再把 JWT 拼进 ?token= query（改走 EventSource 无法带 header 的替代方案：短效 stream token 或经 Authorization 的 fetch-stream）；token 不出现在 URL/日志/Referer；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-005 · P2 · 安全 · JWT 存 localStorage**

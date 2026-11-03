@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { openAnalyticsRealtimeEventSource } from '@/services/api/analytics';
+import type { SSEStream } from '@/services/core/http';
 import { STALE_AFTER_MS, type RealtimeData, type StreamStatus } from './types';
 
 /** 实时大屏 SSE 流 hook：连接管理（stale 判定）、指标归一化、
@@ -17,7 +18,7 @@ export function useRealtimeStream() {
   const [ptsRev5, setPtsRev5] = useState<[number, number][]>([]);
   const [thrOnline, setThrOnline] = useState<number>(0);
   const [thrA5, setThrA5] = useState<number>(0);
-  const esRef = useRef<EventSource | null>(null);
+  const esRef = useRef<SSEStream | null>(null);
   const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 最新序列快照：tryPersist 的回退值读 ref 而非闭包 state，避免
   // state 变化→tryPersist→pushRealtime→connect 引用链每帧重建，
