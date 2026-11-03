@@ -684,10 +684,18 @@ class CroupierClient:
 
     @staticmethod
     def _decode_file_push_request(body: bytes):
-        """手写 protobuf wire 解码：FilePushRequest 四字段（长度限定）。"""
+        """手写 protobuf wire 解码：FilePushRequest 四字段（长度限定）。
+
+        C-012：畸形字节串不再崩溃或静默截断——varint 解码先查边界（截断
+        抛 ValueError 而非 IndexError），超过 64 位 varint 上限（10 字节）抛
+        ValueError；length-delimited 字段长度超出剩余 body 抛 ValueError 而
+        非静默截断（此前 `body[idx:idx+length]` 越界被 Python 静默截短，
+        下游 checksum 比对会基于被截短内容误判）。
+        """
         idx = 0
         fields: dict = {}
-        while idx < len(body):
+        n = len(body)
+        while idx < n:
             tag = body[idx]
             idx += 1
             field_number = tag >> 3
@@ -696,13 +704,19 @@ class CroupierClient:
                 raise ValueError(f"unsupported wire type {wire_type}")
             length = 0
             shift = 0
-            while True:
+            for _ in range(10):  # 64-bit varint 至多 10 字节
+                if idx >= n:
+                    raise ValueError("truncated varint length")
                 byte = body[idx]
                 idx += 1
                 length |= (byte & 0x7F) << shift
                 if not byte & 0x80:
                     break
                 shift += 7
+            else:
+                raise ValueError("varint length overflows 64 bits")
+            if idx + length > n:
+                raise ValueError(f"field {field_number} length {length} exceeds body")
             value = body[idx : idx + length]
             idx += length
             fields.setdefault(field_number, value)

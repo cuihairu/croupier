@@ -559,9 +559,9 @@
   - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`TlsSocketFactory.create` 签名加 `char[] keyStorePassword`（移除字面量 `"croupier"`），口令由调用方提供（无默认）；mTLS 配置而口令缺失 fail-closed 抛 `IOException`；全仓 6 个 TLS 测试类改用 4 参形式；新增 `TlsSocketFactoryEdgeTest.keyStorePasswordRequiredForMutualTls`（缺口令抛错+显式口令可构造）；`./gradlew test` 全绿（6 个 TLS 测试类 + 全量，BUILD SUCCESSFUL）；docs/review/2026-11-01-code-review.md C-011 行已改已修（2026-11-03），汇总已修 14→15、余 18→17。
   - 交付与验收：TlsSocketFactory keystore 密码改从配置/环境读取，移除字面量 "croupier"；无默认口令；新增单测无配置时启动失败而非静默用硬编码；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-012 · P3 · 正确性 · Python SDK varint 解码无边界检查**
+- [x] **C-012 · P3 · 正确性 · Python SDK varint 解码无边界检查**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-012），修复方向 source-wins。
+  - 状态／条件：DONE（2026-11-03，LOCAL VERIFIED）。修复：`_decode_file_push_request` 三重 fail-closed——varint 解码前查 `idx >= n`（截断抛 `ValueError` 非 `IndexError`）、varint 超 10 字节抛 `ValueError`、length-delimited 长度超出 body 抛 `ValueError`（不再静默截断）；新增 `test_coverage_final.py` C-012 四例（截断 varint/varint 溢出/长度超 body/合法请求照常解码）；`pytest tests/` 全绿 551 passed；docs/review/2026-11-01-code-review.md C-012 行已改已修（2026-11-03），汇总已修 15→16、余 17→16。
   - 交付与验收：croupier/**init**.py varint 解码与切片加长度/边界校验，越界返回错误而非静默截断；新增畸形字节串单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-013 · P3 · 健壮性 · Go SDK 写错误丢弃**

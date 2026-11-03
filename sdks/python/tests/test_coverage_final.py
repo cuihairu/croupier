@@ -272,6 +272,57 @@ def test_decode_file_push_request_rejects_non_length_wire_type():
         CroupierClient._decode_file_push_request(b"\x08")  # field 1, varint wire
 
 
+def _decode_varint(value: int) -> bytes:
+    """长度 varint 编码（与 test_file_push.encode_file_push 同形）。"""
+    out = b""
+    while value >= 0x80:
+        out += bytes([(value & 0x7F) | 0x80])
+        value >>= 7
+    return out + bytes([value])
+
+
+def _field(field_number: int, value: bytes) -> bytes:
+    return bytes([(field_number << 3) | 2]) + _decode_varint(len(value)) + value
+
+
+def test_decode_file_push_request_truncated_varint_rejected():
+    """C-012：长度 varint 截断 → ValueError，而非 IndexError 崩溃。"""
+    # field 1 标记后跟 0x80（MSB 置位表示续字节），body 即结束
+    with pytest.raises(ValueError, match="truncated varint length"):
+        CroupierClient._decode_file_push_request(b"\x0a\x80")
+
+
+def test_decode_file_push_request_varint_overflow_rejected():
+    """C-012：超过 10 字节（64 位上限）的 varint → ValueError。"""
+    body = b"\x0a" + b"\x80" * 10  # 11 个续字节，无终止
+    with pytest.raises(ValueError, match="varint length overflows 64 bits"):
+        CroupierClient._decode_file_push_request(body)
+
+
+def test_decode_file_push_request_length_exceeds_body_rejected():
+    """C-012：声明长度超出剩余 body → ValueError，不再静默截断。"""
+    # field 1，声明 100 字节，但 body 只剩 5 字节 → 必须抛错
+    body = b"\x0a" + _decode_varint(100) + b"hello"
+    with pytest.raises(ValueError, match="exceeds body"):
+        CroupierClient._decode_file_push_request(body)
+
+
+def test_decode_file_push_request_valid_still_decodes():
+    """C-012 回归：合法请求照常解码（不因新校验破坏正常路径）。"""
+    sha = "ab" * 32
+    body = (
+        _field(1, b"t-12")
+        + _field(2, b"a.lua")
+        + _field(3, sha.encode())
+        + _field(4, b"payload")
+    )
+    result = CroupierClient._decode_file_push_request(body)
+    assert result[0] == "t-12"
+    assert result[1] == "a.lua"
+    assert result[2] == sha
+    assert result[3] == b"payload"
+
+
 def test_encode_file_push_response_multibyte_varint():
     """长度 ≥ 0x80 的字段值应编码为多字节 varint。"""
     transfer_id = "t" * 300
