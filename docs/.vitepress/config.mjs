@@ -100,6 +100,7 @@ export default withMermaid(
                     text: "External service probing",
                     link: "/operations/external-service-probing",
                   },
+                  { text: "Cost control", link: "/operations/cost-control" },
                   { text: "Risk control", link: "/operations/risk-control" },
                 ],
               },
