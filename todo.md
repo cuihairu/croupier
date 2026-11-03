@@ -635,15 +635,17 @@
   - 交付与验收：cache.Close 加 sync.Once/closeOnce 幂等；新增双调 Close 单测不 panic；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
   - 完成证据：`internal/extensions/official/externalplatform/client.go`（`closeOnce sync.Once`、`Close` 经 `closeOnce.Do`）；`internal/extensions/official/externalplatform/cache_test.go`（`TestCache_Close_Idempotent`）；`go test ./internal/extensions/official/externalplatform/ -count=1` 全绿；commit 待填。
 
-- [ ] **C-031 · P3 · 健壮性 · telemetry 每 exporter 每 span 无界 goroutine**
+- [x] **C-031 · P3 · 健壮性 · telemetry 每 exporter 每 span 无界 goroutine**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-031），修复方向 source-wins。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）。`TracerProvider` 增加有界信号量 `exportTokens`（默认 cap=8）与 `exportCap`；`EndSpan` 每 exporter 先获取 token（全占时阻塞调用方而非无界起 goroutine），`ExportSpans` 错误经 `slog.Warn` 记录而非 `_ =` 丢弃；新增 `TestTracerProvider_EndSpan_BoundedFanout`（20 并发 EndSpan，在途 exporter 数峰值 ≤ exportCap）与 `TestTracerProvider_EndSpan_ExporterErrorLogged`；`go test ./internal/telemetry/ -run TestTracerProvider_EndSpan -count=1` 4/4 PASS、`go test ./internal/telemetry/ -count=1` 全绿、`go test -race ./internal/telemetry/ -run TestTracerProvider_EndSpan -count=1` PASS、`go vet` 过、`go build ./...` 过。
   - 交付与验收：telemetry ExportSpans fan-out 加有界（semaphore/WaitGroup 上限）并处理错误；新增高 span 速率下 goroutine 有界单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+  - 完成证据：`internal/telemetry/telemetry.go`（`TracerProvider.exportTokens/exportCap`、`EndSpan` token 获取 + `slog.Warn` 错误记录）；`internal/telemetry/tracer_extra_test.go`（`TestTracerProvider_EndSpan_BoundedFanout`、`TestTracerProvider_EndSpan_ExporterErrorLogged`）；`go test ./internal/telemetry/ -count=1` 全绿；commit 待填。
 
-- [ ] **C-032 · P3 · 正确性 · mysql syncer.Close 错误丢弃**
+- [x] **C-032 · P3 · 正确性 · mysql syncer.Close 错误丢弃**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-032），修复方向 source-wins。
+  - 状态／条件：NOT APPLICABLE（2026-11-04 复核）。`agents/capture/source/mysql.go:148/:168` 调用的 `s.syncer` 是 `github.com/go-mysql-org/go-mysql` 的 `*replication.BinlogSyncer`；该依赖在 go.mod 固定为 `v1.9.1`，其 `Close()` 签名是 `func (b *BinlogSyncer) Close()`（无返回值，见模块源码 `replication/binlogsyncer.go:202`），不存在「syncer.Close 错误」可丢弃——前提不成立，无错误面需修复。`StartSyncGTID` 失败路径已 `s.syncer.Close()` 后置 `s.syncer=nil` 防泄漏（mysql.go:147-149）；`Close()` 幂等置 nil（mysql.go:166-170）。`go test ./agents/capture/source/ -count=1` 全绿（含 `TestOpenWithFakeProbeConnectFailsFast` 断言失败路径不泄漏 syncer）。
   - 交付与验收：mysql.go StartSyncGTID 失败与 Close 路径记录 syncer.Close 错误；新增单测 close 失败可见；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+  - 完成证据：`go.mod:22`（`github.com/go-mysql-org/go-mysql v1.9.1`）；`$(go env GOPATH)/pkg/mod/github.com/go-mysql-org/go-mysql@v1.9.1/replication/binlogsyncer.go:202`（`Close()` 无返回值）；`agents/capture/source/mysql.go:147-149,166-170`；`go test ./agents/capture/source/ -count=1` 全绿。前提不成立，无需代码改动。
 
 ## 审核发现（ed541f6ed11ff1df5038d90fda9daa9711fa2cf9..HEAD，2026-11-02 只审不改）
 

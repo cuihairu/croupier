@@ -2,6 +2,9 @@ package telemetry
 
 import (
 	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -118,6 +121,60 @@ func TestTracerProvider_EndSpan_WithExporter(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("EndSpan 未在超时内把 span 交付给已注册的 exporter")
 	}
+}
+
+// C-031: EndSpan 不得产生无界 goroutine fan-out——高 span 速率下并发
+// exporter 数被 exportCap 有界，且 exporter 错误被记日志而非静默丢弃。
+func TestTracerProvider_EndSpan_BoundedFanout(t *testing.T) {
+	provider := NewTracerProvider()
+	provider.exportCap = 2
+	provider.exportTokens = make(chan struct{}, 2)
+
+	var inFlight, peak int32
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	exporter := exporterFunc(func(_ context.Context, _ []*Span) error {
+		cur := atomic.AddInt32(&inFlight, 1)
+		mu.Lock()
+		if cur > atomic.LoadInt32(&peak) {
+			atomic.StoreInt32(&peak, cur)
+		}
+		mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		atomic.AddInt32(&inFlight, -1)
+		return nil
+	})
+	provider.RegisterExporter(exporter)
+
+	// 并发 goroutine 各自 EndSpan 同一 exporter，验证在途 exporter 数不超 exportCap。
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx := context.Background()
+			span, _ := provider.StartSpan(ctx, "span")
+			provider.EndSpan(span)
+		}()
+	}
+	wg.Wait()
+
+	assert.LessOrEqual(t, int(atomic.LoadInt32(&peak)), 2, "并发 exporter goroutine 数必须被 exportCap 有界")
+}
+
+// C-031: exporter 错误应被记录而非静默丢弃（slog 输出，不 panic）。
+func TestTracerProvider_EndSpan_ExporterErrorLogged(t *testing.T) {
+	provider := NewTracerProvider()
+	provider.exportCap = 2
+	provider.exportTokens = make(chan struct{}, 2)
+
+	exporter := exporterFunc(func(_ context.Context, _ []*Span) error {
+		return errors.New("boom")
+	})
+	provider.RegisterExporter(exporter)
+
+	ctx := context.Background()
+	span, _ := provider.StartSpan(ctx, "span")
+	provider.EndSpan(span)
 }
 
 // --- NewJSONSpanExporter ---

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -540,6 +541,11 @@ type TracerProvider struct {
 	exporters []SpanExporter
 	mu        sync.RWMutex
 	spans     map[string]*Span
+	// exportTokens bounds concurrent exporter goroutines. A nil channel is
+	// valid for zero capacity and makes receive/send on it block forever;
+	// EndSpan therefore constructs the semaphore lazily under mu.
+	exportTokens chan struct{}
+	exportCap    int
 }
 
 // SpanExporter interface for exporting spans
@@ -550,7 +556,9 @@ type SpanExporter interface {
 // NewTracerProvider creates a new tracer provider
 func NewTracerProvider() *TracerProvider {
 	return &TracerProvider{
-		spans: make(map[string]*Span),
+		spans:        make(map[string]*Span),
+		exportCap:    8,
+		exportTokens: make(chan struct{}, 8),
 	}
 }
 
@@ -599,14 +607,47 @@ func (p *TracerProvider) EndSpan(span *Span) {
 	span.EndTime = &now
 	span.Duration = now.Sub(span.StartTime)
 
-	// Export span
+	// Export span. The semaphore bounds the number of concurrently pending
+	// exporter goroutines; register/export races cannot create an unbounded
+	// goroutine fan-out. A token is acquired per exporter in this caller so
+	// overload back-pressure is visible at span end rather than leaking
+	// silently into an unbounded set of goroutines.
 	p.mu.RLock()
 	exporters := p.exporters
+	exportTokens := p.exportTokens
+	exportCap := p.exportCap
 	p.mu.RUnlock()
 
+	if len(exporters) == 0 {
+		return
+	}
+	if exportTokens == nil && exportCap > 0 {
+		p.mu.Lock()
+		if p.exportTokens == nil {
+			p.exportTokens = make(chan struct{}, exportCap)
+		}
+		exportTokens = p.exportTokens
+		p.mu.Unlock()
+	}
+	if exportTokens == nil || exportCap <= 0 {
+		// No bounded semaphore configured: fall back to synchronous export so
+		// spans are not silently dropped under unbounded fan-out.
+		for _, exporter := range exporters {
+			if err := exporter.ExportSpans(context.Background(), []*Span{span}); err != nil {
+				slog.Warn("telemetry: span export failed", "error", err)
+			}
+		}
+		return
+	}
 	for _, exporter := range exporters {
+		// Acquire a token; if all are held, block the caller briefly so we
+		// never spawn more than exportCap in-flight exporter goroutines.
+		exportTokens <- struct{}{}
 		go func(e SpanExporter) {
-			_ = e.ExportSpans(context.Background(), []*Span{span})
+			defer func() { <-exportTokens }()
+			if err := e.ExportSpans(context.Background(), []*Span{span}); err != nil {
+				slog.Warn("telemetry: span export failed", "error", err)
+			}
 		}(exporter)
 	}
 }
