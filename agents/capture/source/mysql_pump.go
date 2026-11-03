@@ -34,7 +34,13 @@ func (s *MySQLSource) pump(ctx context.Context, streamer binlogEventStream, out 
 				pending[index].GTID = gtid
 			}
 			for _, event := range annotateTx(pending, currentTxID) {
-				out <- event
+				// C-028：发送加 ctx.Done 分支，消费者停止后 Close 不再永久
+				// 阻塞在 out<-（对齐 PG pump 的 ctx 收敛）。
+				select {
+				case out <- event:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
 		pending = pending[:0]

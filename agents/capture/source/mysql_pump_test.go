@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -161,6 +162,44 @@ func TestPumpDoesNotAdvanceBookmarkOnBegin(t *testing.T) {
 	}
 	assert.Empty(t, events, "uncommitted rows must not be emitted")
 	assert.Empty(t, s.Bookmark().Position, "BEGIN must not advance the recovery position")
+}
+
+func TestPumpCtxCancelUnblocksBlockedSend(t *testing.T) {
+	const gtidText = "3e11fa47-71ca-11e1-9e33-c80aa9429562:1-5"
+	gset, err := mysql.ParseGTIDSet("mysql", gtidText)
+	require.NoError(t, err)
+	sid, err := uuid.Parse("3E11FA47-71CA-11E1-9E33-C80AA9429562")
+	require.NoError(t, err)
+
+	// 消费者不读 out（容量 0），提交边界 out<- 会阻塞；取消 ctx 后 pump 必须退出。
+	stream := &scriptedEventStream{events: []*replication.BinlogEvent{
+		binlogEvent(replication.GTID_EVENT, &replication.GTIDEvent{SID: sid[:], GNO: 5}),
+		binlogEvent(replication.QUERY_EVENT, &replication.QueryEvent{Query: []byte("BEGIN"), GSet: gset}),
+		binlogEvent(replication.WRITE_ROWS_EVENTv2, rowsEvent([][]interface{}{{int64(42), "sword"}})),
+		binlogEvent(replication.XID_EVENT, &replication.XIDEvent{GSet: gset}),
+	}}
+	s := newTestSource(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	out := make(chan ChangeEvent) // 无缓冲，消费者停止 = 永久阻塞
+	done := make(chan struct{})
+	go func() {
+		s.pump(ctx, stream, out)
+		close(done)
+	}()
+
+	// 让 pump 推进到提交边界并阻塞在 out<-，再取消 ctx。
+	select {
+	case <-done:
+		t.Fatal("pump exited before ctx cancel")
+	case <-time.After(50 * time.Millisecond):
+	}
+	cancel()
+	select {
+	case <-done:
+		// C-028：ctx 取消解除 out<- 阻塞，pump 正常退出。
+	case <-time.After(2 * time.Second):
+		t.Fatal("pump did not exit after ctx cancel (blocked send)")
+	}
 }
 
 func TestIsTransactionBegin(t *testing.T) {
