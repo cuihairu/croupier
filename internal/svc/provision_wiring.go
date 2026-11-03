@@ -87,6 +87,7 @@ func runToModel(r *provision.Run) *model.ProvisionRun {
 	if r.Request.Labels != nil {
 		row.LabelsJSON = marshalJSON(r.Request.Labels)
 	}
+	row.CloudInitExtra = r.Request.CloudInitExtra
 	return row
 }
 
@@ -122,6 +123,7 @@ func runFromModel(row *model.ProvisionRun) *provision.Run {
 	_ = json.Unmarshal(row.OutputsJSON, &r.Outputs)
 	_ = json.Unmarshal(row.AgentIDsJSON, &r.AgentIDs)
 	_ = json.Unmarshal(row.LabelsJSON, &r.Request.Labels)
+	r.Request.CloudInitExtra = row.CloudInitExtra
 	return r
 }
 

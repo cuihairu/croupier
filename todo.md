@@ -664,7 +664,9 @@
 - [x] 审核发现：analytics daily_users 刷新对 Redis PFCount 错误置 0 后直接以新 version 写入 ReplacingMergeTree(version)，0 行永久覆盖当日真实 DAU/NAU（与 minute_online 的 remerge 兜底路径不一致）。（internal/analytics/worker/worker.go:830-831）
   - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`flush` 的 daily_users 分支对 dau/neu 的 `PFCount` 分别检查 err，失败即 `remergeTouchedDay`（worker.go:830-849），不写 0 行（语义与 minute_online 一致）；成功路径照常写。
   - 完成证据：`TestFlush_DailyUsersPFCntErrorRemerges`（Redis 不可达时 daily key 被合并回共享 map 重试）；`go test ./internal/analytics/worker/` 全绿（21s）。
-- [ ] 审核发现：供给 ticket 模式续行丢失 HubAddr/BootstrapToken/CloudInitExtra——runFromModel 未恢复（json:"-" 不持久化）、ResumeAsync 不再注入 server 参数，续行渲染出空 hubAddr/token 的 cloud-init，agent 引导必然失败。（internal/svc/provision_wiring.go:93-126；internal/api/ops/provision.go:155）
+- [x] 审核发现：供给 ticket 模式续行丢失 HubAddr/BootstrapToken/CloudInitExtra——runFromModel 未恢复（json:"-" 不持久化）、ResumeAsync 不再注入 server 参数，续行渲染出空 hubAddr/token 的 cloud-init，agent 引导必然失败。（internal/svc/provision_wiring.go:93-126；internal/api/ops/provision.go:155）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。迁移 0059 为 `provision_runs.cloud_init_extra` 补列，`runToModel/runFromModel` 恢复非敏感片段；`Orchestrator.InjectResumeParams` 在 `beginResume` 时从 server 配置/环境重新注入 HubAddr/BootstrapToken（敏感 token 仍不入库，支持轮换）。
+  - 完成证据：`TestResume_ReinjectsServerParams`、`TestProvisionRunCloudInitExtraMigration_AddsColumnIdempotent`、`TestRegisterSvcMigrations_ContainsProvisionCloudInitExtra`；`go test ./internal/ops/provision/ ./internal/svc/ ./internal/model/ ./internal/db/migrate/ -count=1` 全绿（svc 367s/model 300s）。
 - [ ] 审核发现：供给 user_data（多行 cloud-init YAML）经 tfexec.Var("-var user_data=<值>") 传入，terraform/tofu 按 HCL 表达式解析（#cloud-config 起始为注释）致真实 apply 失败；FakeRunner 测试掩盖该路径（测试缺口）。（internal/ops/provision/runner.go:52-53）
 - [ ] 审核发现：logstore Ingest 写库前先推进内存 lastSeq（:91）且忽略 db.Create 错误（:104），写库失败批次被重传当作重复丢弃、persisted 虚报——单进程内该批日志永久丢失。（internal/platform/registry/logstore.go:91,104）
 - [ ] 审核发现：供给异步 apply（spawnApply）在 Init/Apply 失败时只记日志不落 failed（apply 仅等注册分支置 failed），run 永久停在 applying 不可重试。（internal/ops/provision/orchestrator.go:194-255,362-369）

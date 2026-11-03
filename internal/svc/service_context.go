@@ -658,6 +658,20 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 			Store:      newProvisionDBStore(runModel),
 			WorkDir:    ctx.Config.Provision.EffectiveWorkDir(),
 			InstallURL: ctx.Config.Provision.AgentInstallURL,
+			// #657：ticket 续行时 HubAddr/BootstrapToken 不入库（json:"-"），
+			// 须从 server 配置/环境重新注入（token 可轮换），否则渲染出空
+			// hubAddr/token 的 cloud-init，agent 引导必然失败。
+			InjectResumeParams: func(req *provision.Request) error {
+				req.HubAddr = strings.TrimSpace(ctx.Config.Provision.HubAddr)
+				if req.HubAddr == "" {
+					return fmt.Errorf("provision: hub address not configured")
+				}
+				req.BootstrapToken = strings.TrimSpace(os.Getenv(ctx.Config.Provision.EffectiveBootstrapTokenEnv()))
+				if req.BootstrapToken == "" {
+					return fmt.Errorf("provision: bootstrap token not configured")
+				}
+				return nil
+			},
 		}
 		if t := ctx.Config.Provision.EffectiveRegisterTimeout(); t > 0 {
 			orch.RegisterTimeout = t

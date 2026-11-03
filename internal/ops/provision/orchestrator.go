@@ -49,6 +49,11 @@ type Orchestrator struct {
 	Store      RunStore
 	WorkDir    string // 各运行的工作目录前缀
 	InstallURL string // agent 安装脚本 URL（注入 cloud-init）
+	// InjectResumeParams 在审批续行（beginResume）时把 server 侧敏感/拓扑
+	// 参数（HubAddr/BootstrapToken）注入已持久化的 Request。这些字段不入库
+	// （json:"-"），ticket 模式等待审批期间 server 配置可轮换 token；续行
+	// 时必须重新注入，否则渲染出空 hubAddr/token（#657）。nil 表示不注入。
+	InjectResumeParams func(*Request) error
 
 	RegisterTimeout time.Duration // 默认 5m
 	DefaultDiskGB   int           // 模板默认盘大小（0 用模板 default）
@@ -348,6 +353,11 @@ func (o *Orchestrator) beginResume(ctx context.Context, runID string) (*Run, err
 	}
 	if run.State != StatePending {
 		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotPending, runID, run.State)
+	}
+	if o.InjectResumeParams != nil {
+		if err := o.InjectResumeParams(&run.Request); err != nil {
+			return nil, fmt.Errorf("provision: inject resume params: %w", err)
+		}
 	}
 	ok, err := o.Approval.Approved(ctx, run.ApprovalID)
 	if err != nil {

@@ -160,6 +160,9 @@ import (
 //   0054 (Go)   provision_runs.destroy_approval_id 列（OPS-003 审批双模式
 //               workflow：销毁申请单的审批记录 id；加列 0025 模式；缺表
 //               跳过；存量行空=未申请销毁审批，行为与现状一致）
+//   0059 (Go)   provision_runs.cloud_init_extra 列（ed541f6e 审计 #657：
+//               ticket 续行丢失非敏感 cloud-init 自定义片段；加列 0025 模式；
+//               缺表跳过；存量行空=未提供，行为与现状一致）
 
 func init() {
 	registerSvcMigrations()
@@ -224,6 +227,7 @@ func registerSvcMigrations() {
 		provisionRunsTableMigration(),
 		provisionRunDestroyProtectionMigration(),
 		provisionRunDestroyApprovalMigration(),
+		provisionRunCloudInitExtraMigration(),
 		deployTablesMigration(),
 		agentLogTablesMigration(),
 		batchOpTablesMigration(),
@@ -1810,6 +1814,17 @@ func provisionRunDestroyApprovalMigration() *goose.Migration {
 	)
 }
 
+// provisionRunCloudInitExtraMigration adds the non-sensitive cloud-init extra
+// snapshot column so ticket-mode runs can resume with the submitted fragment.
+// AddColumn 补列模式（0025/0053/0054）；缺表跳过（fanout 重放到无该特性的库
+// 不报错、不建空壳）；存量行空=未提供，行为与现状一致。
+func provisionRunCloudInitExtraMigration() *goose.Migration {
+	return goose.NewGoMigration(59,
+		&goose.GoFunc{RunDB: migrateProvisionRunCloudInitExtra},
+		nil,
+	)
+}
+
 func migrateProvisionRunDestroyApproval(ctx context.Context, sqlDB *sql.DB) error {
 	db, err := wrapGorm(sqlDB)
 	if err != nil {
@@ -1824,6 +1839,23 @@ func migrateProvisionRunDestroyApproval(ctx context.Context, sqlDB *sql.DB) erro
 	}
 	if err := db.Migrator().AddColumn(&model.ProvisionRun{}, "DestroyApprovalID"); err != nil {
 		return fmt.Errorf("migrate: 0054 add provision_runs.destroy_approval_id: %w", err)
+	}
+	return nil
+}
+
+func migrateProvisionRunCloudInitExtra(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.ProvisionRun{}) {
+		return nil
+	}
+	if db.Migrator().HasColumn(&model.ProvisionRun{}, "cloud_init_extra") {
+		return nil
+	}
+	if err := db.Migrator().AddColumn(&model.ProvisionRun{}, "CloudInitExtra"); err != nil {
+		return fmt.Errorf("migrate: 0059 add provision_runs.cloud_init_extra: %w", err)
 	}
 	return nil
 }

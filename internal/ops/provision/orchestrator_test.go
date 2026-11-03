@@ -226,6 +226,43 @@ func TestSubmit_Ticket_PendingThenResumeAdopts(t *testing.T) {
 	assert.Equal(t, 1, runner.applied)
 }
 
+// #657：ticket 续行时 HubAddr/BootstrapToken 不入库（json:"-"），须经
+// InjectResumeParams 重新注入（server 配置可轮换 token），否则渲染出空
+// hubAddr/token 的 cloud-init，agent 引导失败。
+func TestResume_ReinjectsServerParams(t *testing.T) {
+	runner := &fakeRunner{outputs: map[string]string{"instance_id": `"i-9"`}}
+	reg := &fakeRegistry{ids: []string{`"i-9"`}}
+	app := &fakeApproval{}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, reg, app, st)
+	// 模拟 API 层装配：续行时从 server 配置重新注入 hub/token。
+	o.InjectResumeParams = func(req *Request) error {
+		req.HubAddr = "hub-reinjected:19090"
+		req.BootstrapToken = "tok-reinjected"
+		return nil
+	}
+
+	req := baseRequest()
+	req.Policy = PolicyTicket
+	run, err := o.Submit(context.Background(), req)
+	require.NoError(t, err)
+	// 持久化层不落敏感字段：Store.Get 返回的 Request 中 HubAddr/BootstrapToken
+	// 为空（fakeStore 直接拷贝，此处显式清空模拟 json:"-" 语义）。
+	st.mu.Lock()
+	persisted := st.runs[run.ID]
+	persisted.Request.HubAddr = ""
+	persisted.Request.BootstrapToken = ""
+	st.mu.Unlock()
+
+	app.approved = true
+	run2, err := o.Resume(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateAdopted, run2.State)
+	// 渲染的 cloud-init 必须含重新注入的 hub/token。
+	assert.Contains(t, runner.lastVars["user_data"], "hubAddr: hub-reinjected:19090")
+	assert.Contains(t, runner.lastVars["user_data"], "bootstrapToken: tok-reinjected")
+}
+
 func TestCreate_ApplyFailure_StateFailed(t *testing.T) {
 	runner := &fakeRunner{applyErr: os.ErrInvalid}
 	reg := &fakeRegistry{}

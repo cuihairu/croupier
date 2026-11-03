@@ -27,8 +27,11 @@ type ProvisionRun struct {
 	// 迁移 0054 补列；存量行空=未申请销毁审批，行为与现状一致）。
 	DestroyApprovalID string `gorm:"size:64"`
 	LabelsJSON        JSON   `gorm:"type:json"`
-	ErrorMsg          string `gorm:"type:text"`
-	RequestedBy       string `gorm:"size:64"`
+	// CloudInitExtra 是追加到 cloud-init 的自定义片段（迁移 0055 补列；
+	// 存量行空=未提供，行为与现状一致）。非敏感，可下库。
+	CloudInitExtra string `gorm:"type:text"`
+	ErrorMsg       string `gorm:"type:text"`
+	RequestedBy    string `gorm:"size:64"`
 	// DestroyProtected 是数据盘护栏（OPS-002）：true 时拒绝自动销毁（迁移
 	// 0053 补列，存量行默认 false=未护栏，行为与现状一致）。
 	DestroyProtected bool `gorm:"default:false"`

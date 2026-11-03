@@ -186,3 +186,56 @@ func TestRegisterSvcMigrations_ContainsProvisionDestroyApproval(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "version 54 already registered")
 }
+
+// 0059 加 cloud_init_extra 列（#657 ticket 续行保留非敏感自定义片段）：
+// 补列 0025 模式、幂等、缺表跳过；存量行空=未提供；round-trip 一致。
+func TestProvisionRunCloudInitExtraMigration_AddsColumnIdempotent(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	// 缺表跳过：无该表时不报错、不建空壳。
+	require.NoError(t, migrateProvisionRunCloudInitExtra(ctx, sqlDB))
+	assert.False(t, db.Migrator().HasTable(&model.ProvisionRun{}))
+
+	// 先跑 0052 建表，再 DROP 掉 0059 列复刻存量形态，然后跑 0059 补列。
+	require.NoError(t, migrateProvisionRunsTable(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "cloud_init_extra"))
+	require.NoError(t, db.Migrator().DropColumn(&model.ProvisionRun{}, "CloudInitExtra"))
+	assert.False(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "cloud_init_extra"))
+	require.NoError(t, migrateProvisionRunCloudInitExtra(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "cloud_init_extra"))
+
+	// 幂等：再跑不报错。
+	require.NoError(t, migrateProvisionRunCloudInitExtra(ctx, sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.ProvisionRun{}, "cloud_init_extra"))
+
+	// round-trip：写片段读回一致；存量行空=未提供。
+	m := model.NewProvisionRunModel(db)
+	run := &model.ProvisionRun{
+		RunID:          "prov-cix",
+		Provider:       "aws",
+		Region:         "us-east-1",
+		GameID:         "demo",
+		Env:            "prod",
+		Policy:         "ticket",
+		Count:          1,
+		State:          "pending",
+		CloudInitExtra: "[ systemctl, enable, --now, croupier-agent ]",
+	}
+	require.NoError(t, m.Create(ctx, run))
+	got, err := m.FindByRunID(ctx, "prov-cix")
+	require.NoError(t, err)
+	assert.Equal(t, "[ systemctl, enable, --now, croupier-agent ]", got.CloudInitExtra)
+}
+
+// 迁移注册表必须含 0059（防 registerSvcMigrations 漏配）。
+func TestRegisterSvcMigrations_ContainsProvisionCloudInitExtra(t *testing.T) {
+	goose.ResetGlobalMigrations()
+	registerSvcMigrations()
+	err := goose.SetGlobalMigrations(provisionRunCloudInitExtraMigration())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version 59 already registered")
+}
