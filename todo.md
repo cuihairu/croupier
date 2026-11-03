@@ -503,10 +503,11 @@
   - 交付与验收：template.go 的 renderCloudInit 不再把 CloudInitExtra 原样拼入 runcmd——改为经 allow-list 校验（仅白名单命令）或拒绝含 shell 元字符的行；新增单测覆盖 Extra 含 `$(...)`/`;`/`|` 被拒；provision Validate 校验 CloudInitExtra 非空时格式；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
   - 完成证据：`TestValidateCloudInitExtra_RejectsInjection`（11 类注入全拒：`$()`/反引号/`|`/`;`/`&&`/`>`/`()`/`[ sh, -c, ... ]`/`sh -c`/`bash -e`/`- `前缀 + 多行一行非法即拒）、`TestValidateCloudInitExtra_AllowsSafe`（列表 `[ systemctl, ... ]`/curl/bash 脚本/空行放行）、`TestRenderCloudInit_RejectsInjectionExtra`、`TestValidate_Matrix` 注入/放行子用例；`go test ./internal/ops/provision/` + `./internal/api/ops/` 全绿、`go build ./...` + `go vet` 通过；review 文档 C-002 行改「已修（2026-11-03）」。
 
-- [ ] **C-003 · P2 · SDK · JS SDK 畸形帧对端挂死（违 BUG-038 应答契约）**
+- [x] **C-003 · P2 · SDK · JS SDK 畸形帧对端挂死（违 BUG-038 应答契约）**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-003），修复方向 source-wins。
+  - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`sdks/js/src/index.ts`：`decodeInvokeRequest` 包 try/catch（protobuf decode 失败抛「malformed invoke request」）；`invokeInbound` 捕错回 `{error}` payload 帧；`handleInboundStartTask` 捕错回空 `taskId`（Agent 侧按失败处理）；`handleInboundCancelTask` 捕错回空响应。新增模块级 `InvokeRequestDecoded` 类型别名。与 Go/Py/C++ 行为一致（解析失败回错误帧而非静默挂死）。
   - 交付与验收：sdks/js 的 decodeInvokeRequest/handleInboundStartTask/handleInboundCancelTask 把 protobuf decode 移入 try/catch，解析失败时按契约回错误帧而非静默；与 Go/Py/C++ 行为一致；新增畸形帧单测断言对端收到错误响应而非挂起；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
+  - 完成证据：`inbound_client.test.ts` 新增 `describe("BasicClient malformed inbound frames (C-003)")`——非法 wire type 帧（`[0x0f]`）对 Invoke/StartTask/CancelTask 三型均回帧不挂死（invoke 回 `{error: /malformed invoke request/}`、start 回空 taskId、cancel 回空响应）；`npx tsc --noEmit` 0 错误；`npx jest` 全量 438 过/7 跳（含 inbound_client 10/10）；review 文档 C-003 行改「已修（2026-11-03）」。
 
 - [ ] **C-004 · P2 · 安全 · SSE token 入 query param**
   - 依赖：—。

@@ -432,3 +432,67 @@ describe("BasicClient inbound dispatch", () => {
     }
   });
 });
+
+// C-003：畸形帧（非法 wire type）不得让 transport 静默吞掉导致对端挂死；
+// 应回契约错误帧/空响应。
+describe("BasicClient malformed inbound frames (C-003)", () => {
+  let agent: FakeAgent;
+  let client: CroupierClient;
+  // 字段 1、wire type 7（无效）→ protobufjs decode 抛错。
+  const MALFORMED = Buffer.from([0x0f]);
+
+  beforeEach(async () => {
+    agent = new FakeAgent();
+    const address = await agent.start();
+    client = createClient({
+      agentAddr: `tcp://${address}`,
+      insecure: true,
+      disableLogging: true,
+      heartbeatIntervalSeconds: 3600,
+    });
+  });
+
+  afterEach(async () => {
+    await client.disconnect();
+    await agent.close();
+  });
+
+  it("answers a malformed InvokeRequest with an error payload instead of hanging", async () => {
+    client.registerFunction({ id: "echo", version: "1.0.0" }, () => "ok");
+    await client.connect();
+    agent.send(MSG_INVOKE_REQUEST, 51, MALFORMED);
+    const resp = await agent.waitFrame(
+      (f) => f.msgId === MSG_INVOKE_RESPONSE,
+    );
+    expect(resp.reqId).toBe(51);
+    const parsed = JSON.parse(decodeInvokeResponse(resp.body)) as {
+      error?: string;
+    };
+    expect(parsed.error).toMatch(/malformed invoke request/);
+  });
+
+  it("answers a malformed StartTaskRequest with empty task id instead of hanging", async () => {
+    client.registerFunction({ id: "echo", version: "1.0.0" }, () => "ok");
+    await client.connect();
+    agent.send(MSG_START_TASK_REQUEST, 52, MALFORMED);
+    const resp = await agent.waitFrame(
+      (f) => f.msgId === MSG_START_TASK_RESPONSE,
+    );
+    expect(resp.reqId).toBe(52);
+    const decoded = StartTaskResponseMessage.toObject(
+      StartTaskResponseMessage.decode(resp.body),
+      { defaults: true },
+    ) as { taskId?: string };
+    expect(decoded.taskId ?? "").toBe("");
+  });
+
+  it("answers a malformed CancelTaskRequest with a response instead of hanging", async () => {
+    client.registerFunction({ id: "echo", version: "1.0.0" }, () => "ok");
+    await client.connect();
+    agent.send(MSG_CANCEL_TASK_REQUEST, 53, MALFORMED);
+    const resp = await agent.waitFrame(
+      (f) => f.msgId === MSG_CANCEL_TASK_RESPONSE,
+    );
+    expect(resp.reqId).toBe(53);
+  });
+});

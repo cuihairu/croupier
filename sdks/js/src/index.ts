@@ -35,6 +35,14 @@ import {
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
+/** 入站 invoke 请求解码结果（decodeInvokeRequest 返回）。 */
+type InvokeRequestDecoded = {
+  functionId: string;
+  idempotencyKey: string;
+  payload: string;
+  metadata: Record<string, string>;
+};
 const PROVIDER_PROTO = `
 syntax = "proto3";
 package croupier.sdk.v1;
@@ -1567,21 +1575,24 @@ export class BasicClient implements CroupierClient {
     }
   }
 
-  private decodeInvokeRequest(body: Buffer): {
-    functionId: string;
-    idempotencyKey: string;
-    payload: string;
-    metadata: Record<string, string>;
-  } {
-    const decoded = InvokeRequestMessage.toObject(
-      InvokeRequestMessage.decode(body),
-      { defaults: true },
-    ) as {
+  private decodeInvokeRequest(body: Buffer): InvokeRequestDecoded {
+    let decoded: {
       functionId?: string;
       idempotencyKey?: string;
       payload?: Uint8Array;
       metadata?: Record<string, string>;
     };
+    try {
+      decoded = InvokeRequestMessage.toObject(
+        InvokeRequestMessage.decode(body),
+        { defaults: true },
+      ) as typeof decoded;
+    } catch (error) {
+      // C-003：畸形帧按契约回错误帧而非让 transport 静默吞掉（对端挂死）。
+      throw new Error(
+        `malformed invoke request: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     // istanbul ignore next -- protobufjs defaults:true 恒填默认值（空
     // bytes / 空 map），?? 仅为防御 protobufjs 行为变化
     const payloadBytes = decoded.payload ?? new Uint8Array();
@@ -1662,7 +1673,22 @@ export class BasicClient implements CroupierClient {
   }
 
   private async invokeInbound(body: Buffer): Promise<Buffer> {
-    const req = this.decodeInvokeRequest(body);
+    let req: InvokeRequestDecoded;
+    try {
+      req = this.decodeInvokeRequest(body);
+    } catch (error) {
+      // C-003：畸形帧回错误帧，避免对端挂死等待响应。
+      return this.encodeInvokeResponse(
+        encoder.encode(
+          JSON.stringify({
+            error:
+              error instanceof Error
+                ? error.message
+                : "malformed invoke request",
+          }),
+        ),
+      );
+    }
     const handler = this.handlers.get(req.functionId);
     if (!handler) {
       // 未注册函数：回空 payload，Agent 侧按失败处理并 failover。
@@ -1693,7 +1719,17 @@ export class BasicClient implements CroupierClient {
   }
 
   private handleInboundStartTask(body: Buffer): Buffer {
-    const req = this.decodeInvokeRequest(body);
+    let req: InvokeRequestDecoded;
+    try {
+      req = this.decodeInvokeRequest(body);
+    } catch {
+      // C-003：畸形帧回空 task_id（Agent 侧按失败处理），避免对端挂死。
+      return Buffer.from(
+        StartTaskResponseMessage.encode(
+          StartTaskResponseMessage.create({ taskId: "" }),
+        ).finish(),
+      );
+    }
     let taskId = "";
     const validationError = this.validateInboundPayload(
       req.functionId,
@@ -1715,10 +1751,16 @@ export class BasicClient implements CroupierClient {
   }
 
   private handleInboundCancelTask(body: Buffer): Buffer {
-    const decoded = CancelTaskRequestMessage.toObject(
-      CancelTaskRequestMessage.decode(body),
-      { defaults: true },
-    ) as { taskId?: string };
+    let decoded: { taskId?: string };
+    try {
+      decoded = CancelTaskRequestMessage.toObject(
+        CancelTaskRequestMessage.decode(body),
+        { defaults: true },
+      ) as { taskId?: string };
+    } catch {
+      // C-003：畸形帧回空响应（cancel 幂等，无 side effect），避免对端挂死。
+      return this.encodeInvokeResponse(new Uint8Array());
+    }
     if (decoded.taskId) {
       this.cancelTask(decoded.taskId);
     }
