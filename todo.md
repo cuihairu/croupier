@@ -688,11 +688,25 @@
 
 ## 审核（f9b1610f..HEAD，只审不改）
 
-- [ ] 审核发现：CostSummary 先 runModel.List(limit=200)（SQL 按 created_at DESC 截断）再在内存按 game/env/adopted 过滤（:105-127），目标 scope 的较早运行若落在最新 200 条之外会被静默漏统计，成本/闲置率偏低。（internal/api/ops/costcontrol.go:99,105-127）
-- [ ] 审核发现：BudgetEvaluator.Evaluate 把 Store.Get 的任意错误都当「未配置预算」返回 nil（:112-114），真实 DB 故障时预算告警静默失效、无日志无痕迹。（internal/ops/costcontrol/idle.go:111-114）
-- [ ] 审核发现：BudgetEvaluator 解析预算 NotifyChannels 后 `_ = channels` 丢弃，Dispatch 未按渠道路由——配置的告警渠道实际不生效（前端 saveCostBudget 仍保存并回显 channels，属功能死代码）。（internal/ops/costcontrol/idle.go:128-131）
-- [ ] 审核发现：CostBudgetGet 以 strings.Contains(err.Error(), "not found") 判定「未配置」（:178-180），任何消息含 "not found" 的 DB 错误（如表/库不存在、gorm 其它错误文案变化）都会误判为无预算并返回 nil，掩盖真实故障；应改用 errors.Is(gorm.ErrRecordNotFound)。（internal/api/ops/costcontrol.go:176-181）
-- [ ] 审核发现：buildFleetSummary 注释称「平均负载只计有指标且在线节点」（:127），但实现只判 hasMetrics(n) 未排除 offline 节点（:147-150），离线节点的陈旧 cpu/mem 仍计入 avgCpu/avgMem，平均值被污染（测试未覆盖 offline+有指标场景）。（web/src/pages/Ops/Dashboard/health.ts:127,147-150）
-- [ ] 审核发现：大屏 poll 对 tiersRef 只增不删（:154-155），节点下线/销毁后其 id 的防抖状态永久驻留，agentId 复用/重现时沿用旧 tier 与 streak（延迟变色或误档），长期运行 map 无界增长。（web/src/pages/Ops/Dashboard/index.tsx:154-155）
-- [ ] 审核发现：FetchSSEStream 分帧正则仅匹配纯 \r\n\r\n / \n\n / \r\r（:177），且 dispatchFrame 只按 \n 切行（:186）——服务端混用行尾（如 \r\n\n）或纯 \r 时事件会延迟/粘连/漏解析；现有 http.test 未覆盖混合行尾。（web/src/services/core/http.ts:177,186）
-- [ ] 审核覆盖：本轮（f9b1610f..HEAD，91 commits / 78 文件，+4695/-466）逐文件审查已完成——重点覆盖安全修复 C-001..C-026（cloudInit 注入 C-002 / 帧解码 C-003 / SSE header C-004 / 附件·告警·devtools·navigate scheme 白名单 C-006/C-007/C-017/C-018 / exec 边界 C-008 / DB 名白名单 C-009 / asciicast id C-010 / mTLS 口令 C-011 / varint 越界 C-012 / 响应帧写失败 C-013/C-014/C-015 / 探针口令 C-016 / openapi 5xx body C-025 / ratelimit 空窗 C-026）、OPS-007 成本控制（api/ops/costcontrol、idle、model、routes）、OPS-011 大屏（health.ts、Dashboard/index.tsx）、FetchSSEStream、costcontrol/模板/db/asciicast/template 等测试与各 SDK（go/cpp/java/js/python）。文档、图片、纯测试文件未逐行审。结论见上 7 条发现；未见高危及注入/越界/泄漏类新问题。未 commit、未 push、未改代码。
+- [x] 审核发现：CostSummary 先 runModel.List(limit=200)（SQL 按 created_at DESC 截断）再在内存按 game/env/adopted 过滤（:105-127），目标 scope 的较早运行若落在最新 200 条之外会被静默漏统计，成本/闲置率偏低。（internal/api/ops/costcontrol.go:99,105-127）
+  - 修复：新增 `ProvisionRunModel.ListAdoptedScope`（game_id/env/state 下推 SQL 后再 LIMIT）；CostSummary 改用它；新增 `TestCostSummary_ScopeFilterPushedDown`（limit=1 时目标 scope 旧运行仍被统计）。
+  - 证据：2026-11-04；`go test ./internal/api/ops/ -run TestCostSummary -count=1` PASS（含新回归）；`go test ./internal/api/ops/ ./internal/model/ -count=1` 全绿；`go build ./...` + `go vet` 过。
+- [x] 审核发现：BudgetEvaluator.Evaluate 把 Store.Get 的任意错误都当「未配置预算」返回 nil（:112-114），真实 DB 故障时预算告警静默失效、无日志无痕迹。（internal/ops/costcontrol/idle.go:111-114）
+  - 修复：`errors.Is(err, gorm.ErrRecordNotFound)` 才视为未配置；其它错误包装上抛（`cost budget get: %w`）；新增 `TestBudgetEvaluator_DBErrorPropagates`（关闭 DB 后 Evaluate 必须报错）。
+  - 证据：2026-11-04；`go test ./internal/ops/costcontrol/ -run TestBudgetEvaluator -count=1` 5/5 PASS；`go test ./internal/ops/costcontrol/ ./internal/api/ops/ -count=1` 全绿。
+- [x] 审核发现：BudgetEvaluator 解析预算 NotifyChannels 后 `_ = channels` 丢弃，Dispatch 未按渠道路由——配置的告警渠道实际不生效（前端 saveCostBudget 仍保存并回显 channels，属功能死代码）。（internal/ops/costcontrol/idle.go:128-131）
+  - 修复：`notify.Event` 增加 `Channels []string` 白名单（空=不限制）；`BudgetEvaluator` 把预算配置的渠道传入事件；notify 各渠道发送前按别名匹配过滤（dingtalk/ding、wecom/企业微信、feishu/飞书、webhook、email/邮件、in_app/站内）；新增 `TestDispatch_ChannelRoutingFilter`（Events 指定 dingtalk+in_app 时钉钉/站内收到、webhook 不收到）。
+  - 证据：2026-11-04；`go test ./internal/service/notify/ -run TestDispatch_ChannelRoutingFilter -count=1` PASS；`go test ./internal/service/notify/ ./internal/ops/costcontrol/ -count=1` 全绿；前端 `saveCostBudget` 回显通道语义不再死代码。
+- [x] 审核发现：CostBudgetGet 以 strings.Contains(err.Error(), "not found") 判定「未配置」（:178-180），任何消息含 "not found" 的 DB 错误（如表/库不存在、gorm 其它错误文案变化）都会误判为无预算并返回 nil，掩盖真实故障；应改用 errors.Is(gorm.ErrRecordNotFound)。（internal/api/ops/costcontrol.go:176-181）
+  - 修复：改用 `errors.Is(err, gorm.ErrRecordNotFound)`；新增 `TestCostBudgetGet_DBErrorPropagates`（关闭 DB 后必须报错）。
+  - 证据：2026-11-04；`go test ./internal/api/ops/ -run TestCostBudgetGet -count=1` PASS；`go test ./internal/api/ops/ -count=1` 全绿。
+- [x] 审核发现：buildFleetSummary 注释称「平均负载只计有指标且在线节点」（:127），但实现只判 hasMetrics(n) 未排除 offline 节点（:147-150），离线节点的陈旧 cpu/mem 仍计入 avgCpu/avgMem，平均值被污染（测试未覆盖 offline+有指标场景）。（web/src/pages/Ops/Dashboard/health.ts:127,147-150）
+  - 修复：`tier !== 'offline' && hasMetrics(n)` 才计入；新增 `offline 节点有陈旧指标 → 不计入 avgCpu/avgMem` 回归（offline(99/99)+online(40/50) → avg 40/50，不再 (40+99)/2）。
+  - 证据：2026-11-04；`npx jest src/pages/Ops/Dashboard/health.test.ts` 27/27 PASS；`npx tsc --noEmit` 0 错误。
+- [x] 审核发现：大屏 poll 对 tiersRef 只增不删（:154-155），节点下线/销毁后其 id 的防抖状态永久驻留，agentId 复用/重现时沿用旧 tier 与 streak（延迟变色或误档），长期运行 map 无界增长。（web/src/pages/Ops/Dashboard/index.tsx:154-155）
+  - 修复：每轮 poll 在防抖推进前按当前节点集合裁剪 `tiersRef`（`aliveIds.has(id)` 反向删除）；组件测试 7/7 PASS（含节点列表变更路径）。
+  - 证据：2026-11-04；`npx jest src/pages/Ops/Dashboard/__tests__/index.test.tsx` 7/7 PASS；`npx tsc --noEmit` 0 错误。
+- [x] 审核发现：FetchSSEStream 分帧正则仅匹配纯 \r\n\r\n / \n\n / \r\r（:177），且 dispatchFrame 只按 \n 切行（:186）——服务端混用行尾（如 \r\n\n）或纯 \r 时事件会延迟/粘连/漏解析；现有 http.test 未覆盖混合行尾。（web/src/services/core/http.ts:177,186）
+  - 修复：readStream 先归一化行尾（CRLF→LF、CR→LF）再按 `\n\n` 分帧；dispatchFrame 不再做 CR 后处理；新增 `parses SSE frames with mixed line endings (CRLF/LF/CR)` 回归（\r\n\n 与 \r\r 混用均正确分帧）。
+  - 证据：2026-11-04；`npx jest src/services/core/http.test.ts` 15/15 PASS；`npx tsc --noEmit` 0 错误。
+- [x] 审核覆盖：本轮（f9b1610f..HEAD，91 commits / 78 文件，+4695/-466）逐文件审查已完成——重点覆盖安全修复 C-001..C-026（cloudInit 注入 C-002 / 帧解码 C-003 / SSE header C-004 / 附件·告警·devtools·navigate scheme 白名单 C-006/C-007/C-017/C-018 / exec 边界 C-008 / DB 名白名单 C-009 / asciicast id C-010 / mTLS 口令 C-011 / varint 越界 C-012 / 响应帧写失败 C-013/C-014/C-015 / 探针口令 C-016 / openapi 5xx body C-025 / ratelimit 空窗 C-026）、OPS-007 成本控制（api/ops/costcontrol、idle、model、routes）、OPS-011 大屏（health.ts、Dashboard/index.tsx）、FetchSSEStream、costcontrol/模板/db/asciicast/template 等测试与各 SDK（go/cpp/java/js/python）。文档、图片、纯测试文件未逐行审。结论见上 7 条发现并已全部修复（2026-11-04）；未见高危及注入/越界/泄漏类新问题。

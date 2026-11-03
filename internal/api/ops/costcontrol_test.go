@@ -59,6 +59,20 @@ func TestCostBudgetGet_Missing(t *testing.T) {
 	assert.Nil(t, got)
 }
 
+// 审核发现：旧实现以 strings.Contains(err.Error(), "not found") 判定未配置，
+// 任何消息含 "not found" 的 DB 错误（如表/库不存在）都会被误判为无预算。
+// 回归：真实 DB 故障必须上抛，只有 RecordNotFound 返回 nil。
+func TestCostBudgetGet_DBErrorPropagates(t *testing.T) {
+	s := &Service{svcCtx: costTestSvcCtx(t)}
+	sqlDB, err := s.svcCtx.DB.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+
+	got, err := s.CostBudgetGet(context.Background(), "g", "e")
+	require.Error(t, err, "真实 DB 故障不得被误判为未配置预算")
+	assert.Nil(t, got)
+}
+
 func TestCostSummary_ScopedAndIdle(t *testing.T) {
 	ctx := context.Background()
 	s := &Service{svcCtx: costTestSvcCtx(t)}
@@ -93,6 +107,37 @@ func TestCostSummary_NoDB(t *testing.T) {
 	s := &Service{svcCtx: &svc.ServiceContext{}}
 	_, err := s.CostSummary(context.Background(), "g", "e", 10)
 	assert.Error(t, err)
+}
+
+// 审核发现：旧实现先全局 limit 截断再内存过滤，目标 scope 的较早 adopted
+// 运行若落在最新 200 条之外会被静默漏计。回归：scope/state 过滤下推 SQL，
+// 目标 scope 的旧运行仍被统计。
+func TestCostSummary_ScopeFilterPushedDown(t *testing.T) {
+	ctx := context.Background()
+	s := &Service{svcCtx: costTestSvcCtx(t)}
+	db := s.svcCtx.DB
+	runModel := model.NewProvisionRunModel(db)
+	now := time.Now()
+
+	// 先造一个其它 scope 的较新 adopted 运行（占掉全局 limit 前排）。
+	require.NoError(t, runModel.Create(ctx, &model.ProvisionRun{
+		RunID: "prov-new", Provider: "aws", Region: "us", GameID: "other", Env: "e",
+		State: "adopted", Count: 1, CreatedAt: now.Add(-1 * time.Hour),
+		SpecJSON: model.JSON(`{"instanceType":"t3.micro"}`), AgentIDsJSON: model.JSON(`["a2"]`),
+	}))
+	// 目标 scope 的较旧 adopted 运行（时间在其它 scope 之前，但仍在目标内）。
+	require.NoError(t, runModel.Create(ctx, &model.ProvisionRun{
+		RunID: "prov-old", Provider: "hetzner", Region: "eu", GameID: "g", Env: "e",
+		State: "adopted", Count: 1, CreatedAt: now.Add(-48 * time.Hour),
+		SpecJSON: model.JSON(`{"instanceType":"cx21"}`), AgentIDsJSON: model.JSON(`["a1"]`),
+	}))
+
+	// limit=1：旧实现全局取最新 1 条（other scope），过滤后空 → TotalNodes=0；
+	// 修复后 scope 下推仍取到目标 scope 的旧运行。
+	sum, err := s.CostSummary(ctx, "g", "e", 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, sum.TotalNodes, "目标 scope 的旧运行不得因全局 limit 被漏计")
+	assert.InDelta(t, 48*0.006, sum.TotalUSD, 1e-6)
 }
 
 var _ = costcontrol.DefaultIdlePolicy

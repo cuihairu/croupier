@@ -14,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/internal/ops/costcontrol"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CostEstimateRequest POST /ops/cost/estimate 入参。
@@ -96,24 +97,13 @@ func (s *Service) CostSummary(ctx context.Context, gameID, env string, limit int
 	}
 	runModel := model.NewProvisionRunModel(s.svcCtx.DB)
 	limit = normalizeLimit(limit, 200)
-	runs, err := runModel.List(ctx, limit)
+	// scope/state 过滤必须下推 SQL：若先按全局 limit 截断再内存过滤，
+	// 目标 scope 的较早 adopted 运行落在最新 200 条之外会被静默漏计。
+	runs, err := runModel.ListAdoptedScope(ctx, gameID, env, limit)
 	if err != nil {
 		return nil, err
 	}
-	// scope 过滤：仅当前 game/env 的 adopted 运行。
-	var scoped []model.ProvisionRun
-	for _, r := range runs {
-		if gameID != "" && r.GameID != gameID {
-			continue
-		}
-		if env != "" && r.Env != env {
-			continue
-		}
-		if r.State != "adopted" {
-			continue
-		}
-		scoped = append(scoped, r)
-	}
+	scoped := runs
 	now := time.Now()
 	eval, _, err := s.costOrchestrator()
 	if err != nil {
@@ -175,7 +165,9 @@ func (s *Service) CostBudgetGet(ctx context.Context, gameID, env string) (*costc
 	}
 	b, err := budgetModel.Get(ctx, gameID, env)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		// 仅「未配置」返回 nil；任何其它 DB 错误（含文案含 "not found" 的
+		// 真实故障）必须上抛，不得误判为无预算而掩盖故障。
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

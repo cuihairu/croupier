@@ -109,6 +109,23 @@ func TestBudgetEvaluator_NoConfig(t *testing.T) {
 	assert.Nil(t, alert)
 }
 
+// 审核发现：Evaluate 把 Store.Get 的任意错误当「未配置预算」返回 nil——真实
+// DB 故障时预算告警静默失效。回归：非 RecordNotFound 错误必须上抛。
+func TestBudgetEvaluator_DBErrorPropagates(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.CostBudget{}))
+	// 关闭底层 DB，令 Get 返回非 RecordNotFound 的真实错误。
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+
+	eval := &BudgetEvaluator{Store: model.NewCostBudgetModel(db)}
+	alert, err := eval.Evaluate(context.Background(), "g", "e", 10)
+	require.Error(t, err, "真实 DB 故障不得被当作未配置预算")
+	assert.Nil(t, alert)
+}
+
 func TestBudgetEvaluator_UnderThreshold(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)

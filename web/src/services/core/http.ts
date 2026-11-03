@@ -174,7 +174,11 @@ class FetchSSEStream implements SSEStream {
       const { done, value } = await reader.read();
       if (done) return;
       buffer += decoder.decode(value, { stream: true });
-      const frames = buffer.split(/\r\n\r\n|\n\n|\r\r/);
+      // 归一化行尾：SSE 规范允许 CRLF / LF / CR 三种行分隔。服务端可能
+      // 混用（如 \r\n\n 或纯 \r），统一折成 \n 后按空行 \n\n 分帧，避免
+      // 事件延迟/粘连/漏解析。
+      buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const frames = buffer.split('\n\n');
       buffer = frames.pop() ?? '';
       for (const frame of frames) this.dispatchFrame(frame);
     }
@@ -183,8 +187,7 @@ class FetchSSEStream implements SSEStream {
   private dispatchFrame(frame: string): void {
     let event = 'message';
     const data: string[] = [];
-    for (const raw of frame.split('\n')) {
-      const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    for (const line of frame.split('\n')) {
       if (!line || line.startsWith(':')) continue; // 空行 / 注释心跳
       const colon = line.indexOf(':');
       const field = colon === -1 ? line : line.slice(0, colon);

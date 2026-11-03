@@ -232,6 +232,33 @@ describe('buildFleetSummary 聚合带', () => {
     const s = buildFleetSummary([], () => 'normal', 0, 0);
     expect(s).toMatchObject({ totalNodes: 0, onlineRate: 0, avgCpu: null, avgMem: null });
   });
+
+  // 审核发现：旧实现只判 hasMetrics 未排除 offline——离线节点的陈旧 cpu/mem
+  // 污染平均负载。回归：offline 节点有指标也不计入均值。
+  it('offline 节点有陈旧指标 → 不计入 avgCpu/avgMem', () => {
+    const nodes: OpsNode[] = [
+      node({
+        id: 'live',
+        hostname: 'h-live',
+        status: 'online',
+        cpu: { usagePercent: 40 },
+        memory: { usagePercent: 50 },
+      }),
+      node({
+        id: 'stale-offline',
+        hostname: 'h-stale',
+        status: 'offline',
+        cpu: { usagePercent: 99 },
+        memory: { usagePercent: 99 },
+      }),
+    ];
+    const s = buildFleetSummary(nodes, (n) => tierOfNode(n), 0, 0);
+    expect(s.totalNodes).toBe(2);
+    expect(s.offlineCount).toBe(1);
+    // 旧实现会得 (40+99)/2=69.5；修复后只用在线节点 40/50。
+    expect(s.avgCpu).toBe(40);
+    expect(s.avgMem).toBe(50);
+  });
 });
 
 describe('isStale 数据过期', () => {

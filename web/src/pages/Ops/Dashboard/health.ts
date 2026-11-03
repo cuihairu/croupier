@@ -144,7 +144,7 @@ export function buildFleetSummary(
     else online += 1;
     if (tier === 'pressure') pressure += 1;
     if (tier === 'overload') overload += 1;
-    if (hasMetrics(n)) {
+    if (tier !== 'offline' && hasMetrics(n)) {
       cpuSum += n.cpu?.usagePercent ?? 0;
       memSum += n.memory?.usagePercent ?? 0;
       metrified += 1;

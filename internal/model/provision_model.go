@@ -80,3 +80,25 @@ func (m *ProvisionRunModel) List(ctx context.Context, limit int) ([]ProvisionRun
 	}
 	return runs, nil
 }
+
+// ListAdoptedScope 列出指定 scope 的 adopted 运行（按 CreatedAt 倒序）。
+// scope 条件必须下推 SQL，避免先全表/全局 limit 再内存过滤导致较早目标记录被漏计。
+func (m *ProvisionRunModel) ListAdoptedScope(ctx context.Context, gameID, env string, limit int) ([]ProvisionRun, error) {
+	var runs []ProvisionRun
+	q := m.db.WithContext(ctx).
+		Where("state = ?", "adopted").
+		Order("created_at DESC")
+	if gameID != "" {
+		q = q.Where("game_id = ?", gameID)
+	}
+	if env != "" {
+		q = q.Where("env = ?", env)
+	}
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	if err := q.Find(&runs).Error; err != nil {
+		return nil, err
+	}
+	return runs, nil
+}

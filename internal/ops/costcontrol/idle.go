@@ -3,11 +3,13 @@ package costcontrol
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
+	"gorm.io/gorm"
 )
 
 // IdleEvaluator 评估单机闲置状态（低负载判定）。
@@ -110,6 +112,10 @@ func (e *BudgetEvaluator) Evaluate(ctx context.Context, gameID, env string, spen
 	}
 	b, err := e.Store.Get(ctx, gameID, env)
 	if err != nil {
+		// 仅「未配置」返回 nil；真实 DB 故障必须上抛，否则预算告警静默失效。
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("cost budget get: %w", err)
+		}
 		return nil, nil
 	}
 	if b == nil || b.MonthlyUSD <= 0 {
@@ -127,12 +133,12 @@ func (e *BudgetEvaluator) Evaluate(ctx context.Context, gameID, env string, spen
 	if alert.OverThreshold && e.Notify != nil {
 		var channels []string
 		_ = json.Unmarshal([]byte(b.NotifyChannelsJSON), &channels)
-		_ = channels
 		e.Notify.Dispatch(ctx, notify.Event{
 			Type:     "cost.budget",
 			Title:    "[预算告警] " + gameID + "/" + env,
 			Message:  fmt.Sprintf("本月已用 $%.2f / 预算 $%.2f (%.0f%%)", spentUSD, b.MonthlyUSD, pct),
 			Priority: "warning",
+			Channels: channels,
 			Data: map[string]interface{}{
 				"gameId": gameID, "env": env, "spentUsd": spentUSD,
 				"monthlyUsd": b.MonthlyUSD, "pct": pct,

@@ -97,6 +97,33 @@ func TestDispatch_DingTalkAndWebhook(t *testing.T) {
 	assert.Equal(t, int64(2), count)
 }
 
+// 审核发现：BudgetEvaluator 解析预算 NotifyChannels 后丢弃，Dispatch 未按
+// 渠道路由。回归：Event.Channels 非空时只发名单内渠道。
+func TestDispatch_ChannelRoutingFilter(t *testing.T) {
+	svc, db := setupNotify(t)
+	cs := newCapturedServer(http.StatusOK)
+	defer cs.srv.Close()
+
+	setNotifySetting(t, db, settings.KeyNotifyDingtalkURL, `"`+cs.srv.URL+`/ding"`)
+	setNotifySetting(t, db, settings.KeyNotifyWebhookURL, `"`+cs.srv.URL+`/hook"`)
+
+	// 只选钉钉：webhook 不应收到，钉钉应收到；站内信（in_app 别名）仍发。
+	svc.Dispatch(context.Background(), notifyservice.Event{
+		Type:       "cost.budget",
+		Title:      "[预算告警]",
+		Message:    "本月已超",
+		Recipients: []string{"alice"},
+		Priority:   "warning",
+		Channels:   []string{"dingtalk", "in_app"},
+	})
+
+	assert.Len(t, cs.body("/ding"), 1, "钉钉应收到预算告警")
+	assert.Len(t, cs.body("/hook"), 0, "未选 webhook 渠道不应收到")
+	var count int64
+	require.NoError(t, db.Model(&model.Message{}).Count(&count).Error)
+	assert.Equal(t, int64(1), count, "站内信（in_app）仍应送达")
+}
+
 func TestDispatch_ExternalSendFailureLogsOnly(t *testing.T) {
 	svc, db := setupNotify(t)
 	// 服务端返回 500：钉钉 sender 判定失败，Dispatch 只记日志不 panic。

@@ -15,6 +15,7 @@ package notify
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
@@ -43,6 +44,10 @@ type Event struct {
 	Recipients []string
 	Priority   string
 	Data       map[string]interface{}
+	// Channels 是调用方指定的事件→渠道路由白名单（渠道标识，见
+	// channelAllowed）。为空表示不限制（发往所有已启用渠道）；非空时仅
+	// 发往名单内且已配置启用的渠道。用于预算告警等按事件挑选渠道。
+	Channels []string
 }
 
 // Dispatch 把事件发往所有已启用渠道。错误只记日志。
@@ -54,8 +59,29 @@ func (s *Service) Dispatch(ctx context.Context, ev Event) {
 	s.dispatchExternal(ctx, ev)
 }
 
+// channelAllowed 判断渠道标识是否在事件名单内。空名单=不限制。
+// 支持别名：in_app/站内 → 站内信；dingtalk/ding → 钉钉；wecom/企业微信；
+// feishu/飞书；webhook；email/邮件。
+func channelAllowed(channels []string, names ...string) bool {
+	if len(channels) == 0 {
+		return true
+	}
+	for _, want := range channels {
+		w := strings.ToLower(strings.TrimSpace(want))
+		for _, n := range names {
+			if w == n {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (s *Service) dispatchInApp(ctx context.Context, ev Event) {
 	if s.messageModel == nil {
+		return
+	}
+	if !channelAllowed(ev.Channels, "in_app", "站内") {
 		return
 	}
 	if s.layered != nil && !s.layered.GetBool(settings.KeyNotifyInAppEnabled, true) {
@@ -101,31 +127,31 @@ func (s *Service) dispatchExternal(ctx context.Context, ev Event) {
 		Data:     ev.Data,
 	}
 
-	if ch.DingtalkURL != "" {
+	if ch.DingtalkURL != "" && channelAllowed(ev.Channels, "dingtalk", "ding") {
 		sender := approvals.NewDingTalkSender(ch.DingtalkURL, ch.DingtalkSecret)
 		if err := sender.Send(ctx, "", approvalEvent); err != nil {
 			slog.WarnContext(ctx, "notify: dingtalk send failed", "error", err)
 		}
 	}
-	if ch.WecomURL != "" {
+	if ch.WecomURL != "" && channelAllowed(ev.Channels, "wecom", "企业微信") {
 		sender := approvals.NewWecomSender(ch.WecomURL)
 		if err := sender.Send(ctx, "", approvalEvent); err != nil {
 			slog.WarnContext(ctx, "notify: wecom send failed", "error", err)
 		}
 	}
-	if ch.FeishuURL != "" {
+	if ch.FeishuURL != "" && channelAllowed(ev.Channels, "feishu", "飞书") {
 		sender := approvals.NewFeishuSender(ch.FeishuURL, ch.FeishuSecret)
 		if err := sender.Send(ctx, "", approvalEvent); err != nil {
 			slog.WarnContext(ctx, "notify: feishu send failed", "error", err)
 		}
 	}
-	if ch.WebhookURL != "" {
+	if ch.WebhookURL != "" && channelAllowed(ev.Channels, "webhook") {
 		sender := approvals.NewWebhookSender(ch.WebhookURL, ch.WebhookSecret, "croupier")
 		if err := sender.Send(ctx, joinRecipients(ev.Recipients), approvalEvent); err != nil {
 			slog.WarnContext(ctx, "notify: webhook send failed", "error", err)
 		}
 	}
-	if ch.EmailEnabled {
+	if ch.EmailEnabled && channelAllowed(ev.Channels, "email", "邮件") {
 		if smtp := s.layered.NotifySMTP(); smtp.Host != "" {
 			sender := approvals.NewEmailSender(smtp.Host, smtp.Port, smtp.User, smtp.Password, smtp.From).
 				WithTransport(smtp.Encryption, smtp.AuthType, smtp.InsecureSkipVerify)

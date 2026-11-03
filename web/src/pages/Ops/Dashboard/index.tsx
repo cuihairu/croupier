@@ -149,6 +149,12 @@ export default function OpsDashboardPage() {
         probeFailRef.current = failed;
 
         // 防抖推进 + 触发重渲。
+        // 节点下线/销毁后其防抖状态不得永久驻留（agentId 复用会沿用旧
+        // tier/streak）；每轮按当前节点集合裁剪，避免 map 无界增长。
+        const aliveIds = new Set(nextNodes.map((n) => n.id));
+        for (const id of Object.keys(tiersRef.current)) {
+          if (!aliveIds.has(id)) delete tiersRef.current[id];
+        }
         for (const n of nextNodes) {
           const raw = tierOfNode(n, failed.has(n.id), DEFAULT_HEALTH_THRESHOLDS);
           const prev = tiersRef.current[n.id] ?? { tier: tierOfNode(n), streak: 0 };

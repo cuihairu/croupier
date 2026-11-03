@@ -260,6 +260,48 @@ describe('createEventSource', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(sseFetchSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('parses SSE frames with mixed line endings (CRLF/LF/CR)', async () => {
+    // 服务端混用行尾：\r\n\n（CRLF+LF）与纯 \r\r（CR）都应正常分帧，
+    // 不得延迟/粘连/漏解析。
+    const chunks = [
+      'event: connected\r\ndata: {"status":"connected"}\r\n\n',
+      'event: message\rdata: {"online":1}\r\r',
+    ];
+    let idx = 0;
+    let finish: (() => void) | undefined;
+    const reader = {
+      read: async (): Promise<{ done: boolean; value?: Uint8Array }> => {
+        if (idx < chunks.length) {
+          const value = new TextEncoder().encode(chunks[idx]);
+          idx += 1;
+          return { done: false, value };
+        }
+        await new Promise<void>((r) => {
+          finish = r;
+        });
+        return { done: true };
+      },
+    };
+    sseFetchSpy.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: { getReader: () => reader },
+    } as unknown as Response);
+
+    const stream = createEventSource('/api/v1/stream');
+    const seen: Array<{ type: string; data: string }> = [];
+    stream.addEventListener('connected', (e) => seen.push({ type: 'connected', data: e.data }));
+    stream.addEventListener('message', (e) => seen.push({ type: 'message', data: e.data }));
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen).toEqual([
+      { type: 'connected', data: '{"status":"connected"}' },
+      { type: 'message', data: '{"online":1}' },
+    ]);
+    finish?.();
+    stream.close();
+  });
 });
 
 describe('buildDownloadUrl', () => {
