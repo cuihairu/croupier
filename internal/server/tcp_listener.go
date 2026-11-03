@@ -378,9 +378,22 @@ func (l *TCPListener) IsClosed() bool {
 type agentSessionHandler struct {
 	listener   *TCPListener
 	conn       *tcptr.MuxConn
+	mu         sync.Mutex
 	registered bool
 	agentID    string
 	sessionID  string // assigned on successful registration
+}
+
+func (h *agentSessionHandler) state() (registered bool, agentID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.registered, h.agentID
+}
+
+func (h *agentSessionHandler) markRegistered(agentID, sessionID string) {
+	h.mu.Lock()
+	h.agentID, h.sessionID, h.registered = agentID, sessionID, true
+	h.mu.Unlock()
 }
 
 // Handle processes inbound requests on an Agent TCP session.
@@ -389,9 +402,10 @@ type agentSessionHandler struct {
 //   - After registration: MsgRegisterRequest is rejected (duplicate registration)
 //   - After registration: Heartbeat must carry the same agent_id as the session
 func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+	registered, agentID := h.state()
 	// Enforce handshake state machine:
 	// 1. Before registration, only RegisterRequest is allowed.
-	if !h.registered && msgID != protocol.MsgRegisterRequest {
+	if !registered && msgID != protocol.MsgRegisterRequest {
 		return nil, fmt.Errorf("protocol violation: must register first before sending %s", protocol.MsgIDString(msgID))
 	}
 
@@ -399,21 +413,21 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 	// Agent sends a full RegisterRequest on every function change (e.g. 0 then
 	// 19 as SDK providers register). Treat same-agent re-register as an
 	// idempotent upsert; reject if agent_id changes (anti-spoofing).
-	if h.registered && msgID == protocol.MsgRegisterRequest {
+	if registered && msgID == protocol.MsgRegisterRequest {
 		req := &agentv1.RegisterRequest{}
 		if err := proto.Unmarshal(body, req); err != nil {
 			return nil, fmt.Errorf("unmarshal RegisterRequest: %w", err)
 		}
-		if req.AgentId != h.agentID {
+		if req.AgentId != agentID {
 			return nil, fmt.Errorf("protocol violation: re-register agent_id=%q does not match registered %q",
-				req.AgentId, h.agentID)
+				req.AgentId, agentID)
 		}
 		// Same agent: allow — fall through to handleRegister via the switch below.
 	}
 
 	// 3. After registration, Heartbeat must carry the same agent_id as the
 	//    session-bound ID, preventing cross-agent ID spoofing on a live conn.
-	if h.registered && msgID == protocol.MsgHeartbeatRequest {
+	if registered && msgID == protocol.MsgHeartbeatRequest {
 		if err := h.validateHeartbeatAgentID(body); err != nil {
 			return nil, err
 		}
@@ -427,8 +441,8 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 	default:
 		// Delegate to the control service if available
 		if h.listener.handler != nil {
-			identity := &AgentIdentity{AgentID: h.agentID}
-			if sess, ok := h.listener.sessionStore.Get(h.agentID); ok {
+			identity := &AgentIdentity{AgentID: agentID}
+			if sess, ok := h.listener.sessionStore.Get(agentID); ok {
 				identity.GameID = sess.GameID
 				identity.Env = sess.Env
 			}
@@ -446,7 +460,8 @@ func (h *agentSessionHandler) validateHeartbeatAgentID(body []byte) error {
 		// Let handleHeartbeat surface the unmarshal error; do not block here.
 		return nil
 	}
-	if req.AgentId != h.agentID {
+	_, agentID := h.state()
+	if req.AgentId != agentID {
 		return fmt.Errorf("protocol violation: heartbeat agent_id=%q does not match registered agent_id=%q",
 			req.AgentId, h.agentID)
 	}
@@ -494,9 +509,7 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	if err := h.listener.sessionStore.Upsert(sess); err != nil {
 		return nil, fmt.Errorf("bind agent session: %w", err)
 	}
-	h.agentID = req.AgentId
-	h.sessionID = sess.SessionID
-	h.registered = true
+	h.markRegistered(req.AgentId, sess.SessionID)
 
 	// Register declared functions into the dispatcher registry. The session
 	// store above carries the live connection; the registry carries the

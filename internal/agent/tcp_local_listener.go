@@ -265,9 +265,22 @@ func (l *TCPLocalListener) IsClosed() bool {
 type providerSessionHandler struct {
 	listener   *TCPLocalListener
 	conn       *tcptr.MuxConn
+	mu         sync.Mutex
 	registered bool
 	sessionID  string
 	serviceID  string
+}
+
+func (h *providerSessionHandler) state() (registered bool, sessionID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.registered, h.sessionID
+}
+
+func (h *providerSessionHandler) markRegistered(sessionID, serviceID string) {
+	h.mu.Lock()
+	h.sessionID, h.serviceID, h.registered = sessionID, serviceID, true
+	h.mu.Unlock()
 }
 
 // Handle processes inbound requests on a Provider TCP session.
@@ -278,12 +291,13 @@ type providerSessionHandler struct {
 //   - After registration: MsgProviderConnectRequest is rejected (duplicate).
 //   - After registration: Heartbeat must reference the session-bound session_id.
 func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+	registered, sessionID := h.state()
 	// Enforce handshake: first frame must be ProviderConnectRequest.
 	// InvokeRequest is NOT a valid first frame — it is only valid as an
 	// outbound Agent→Provider message on an established session, not as an
 	// inbound client→Agent message before connect. Rejecting it here closes
 	// the gap where an Invoker could bypass the Provider handshake.
-	if !h.registered && msgID != protocol.MsgProviderConnectRequest {
+	if !registered && msgID != protocol.MsgProviderConnectRequest {
 		return nil, tcptr.NewProtocolError(fmt.Errorf(
 			"protocol violation: first frame must be %s, got %s",
 			protocol.MsgIDString(protocol.MsgProviderConnectRequest),
@@ -291,9 +305,9 @@ func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID
 	}
 
 	// After registration, reject duplicate connect.
-	if h.registered && msgID == protocol.MsgProviderConnectRequest {
+	if registered && msgID == protocol.MsgProviderConnectRequest {
 		return nil, tcptr.NewProtocolError(fmt.Errorf(
-			"protocol violation: session already connected as %s", h.sessionID))
+			"protocol violation: session already connected as %s", sessionID))
 	}
 
 	switch msgID {
@@ -346,9 +360,7 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 	sess.UpdateLastSeen()
 
 	h.listener.sessionStore.Upsert(sess)
-	h.sessionID = sessionID
-	h.serviceID = req.ServiceId
-	h.registered = true
+	h.markRegistered(sessionID, req.ServiceId)
 
 	h.listener.logger.Info("Provider connected via TCP session",
 		"service_id", req.ServiceId,
@@ -407,7 +419,8 @@ func (h *providerSessionHandler) handleDrain(ctx context.Context, body []byte) (
 	// 自己），此时回退到握手绑定的会话 id。
 	targetSession := req.SessionId
 	if targetSession == "" {
-		targetSession = h.sessionID
+		_, sessionID := h.state()
+		targetSession = sessionID
 	}
 	undrain := req.Reason == protocol.ProviderDrainReasonUndrain
 	grace := defaultDrainGrace

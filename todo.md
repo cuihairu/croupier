@@ -624,9 +624,9 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-04）：`flush` 的 `out<-` 加 `select ctx.Done()`（对齐 PG pump）；新增 `TestPumpCtxCancelUnblocksBlockedSend` 断言无缓冲 out + 不读消费者阻塞后取消 ctx，pump 2s 内退出；`go test ./agents/capture/...` 全绿、`go build ./...` 过；docs/review/2026-11-01-code-review.md C-028 已改已修。
   - 交付与验收：mysql_pump out<- 加 select ctx.Done()（对齐 PG pump）；新增单测消费者停止后 Close 可解除阻塞；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-029 · P3 · 正确性 · server/agent 跨 lane handler 字段竞态（低概率）**
+- [x] **C-029 · P3 · 正确性 · server/agent 跨 lane handler 字段竞态（低概率）**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-029），修复方向 source-wins。
+  - 状态／条件：LOCAL VERIFIED（2026-11-04）：`agentSessionHandler`/`providerSessionHandler` 加 `sync.Mutex`，`Handle` 读与 `handleRegister/handleConnect` 写走同锁（state/markRegistered）；`go test -race ./internal/server/ ./internal/agent/` 全绿、普通测试与 `go build ./...` 过；docs/review/2026-11-01-code-review.md C-029 已改已修。
   - 交付与验收：tcp_listener.go 与 tcp_local_listener.go 的 Handle 对 registered/agentID/sessionID 读改走 lane 内同步（或经 mux 保证 happens-before）；`go test -race` 相关用例绿；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-030 · P3 · 正确性 · externalplatform cache.Close 双关 panic**
