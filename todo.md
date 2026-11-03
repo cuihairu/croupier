@@ -586,9 +586,10 @@
   - 完成证据：`probe-credentials` 的 `const secret = "hd-t0k3n-9f8e7d"` 移除，改为 `resolveProbeSecret()`——`HOSTDRIVER_PROBE_SECRET` 注入时透传，否则 `crypto/rand` 生成 24 字节（48 hex）每运行随机值；非测试路径不再含固定凭据。新增用例 `sdks/plugins/hostdriver/main_test.go` `TestResolveProbeSecret_Injected` / `TestResolveProbeSecret_RandomWhenUnset`（注入透传；未注入随机、非空、两调不撞、非旧字面量、48 hex 形态）；`go build ./sdks/plugins/hostdriver/` 过 + `go test` 绿 + `go vet` 干净。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：hostdriver 探针 secret 改从环境/配置注入，移除字面量 "hd-t0k3n-9f8e7d"；非测试路径不得含固定凭据；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
-- [ ] **C-017 · P3 · 安全 · Dev/Tools tool.url 无 scheme 白名单**
+- [x] **C-017 · P3 · 安全 · Dev/Tools tool.url 无 scheme 白名单**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。2026-11-02 全仓代码深审发现（C-017），修复方向 source-wins。
+  - 状态／条件：DONE · LOCAL VERIFIED。2026-11-02 全仓代码深审发现（C-017），修复方向 source-wins。
+  - 完成证据：`web/src/pages/Dev/Tools/index.tsx` 卡片 map 内 `const safeUrl = safeExternalHref(tool.url)`（http/https 白名单）；export 图标改 `if (safeUrl) window.open(safeUrl, '_blank', 'noreferrer')`；标题锚改 `safeUrl ? <a href={safeUrl}> : <span>`（非法 scheme 渲染为无链接文本）。新增用例 `Dev/Tools/__tests__/index.test.tsx` `C-017 非法 scheme 工具链接`（javascript:/data: 两工具：标题无 `<a>`、export 点击不 `window.open`）；`pnpm tsc` 0 错误 + `pnpm test -- --testPathPatterns pages/Dev/Tools` 14 passed。记入 docs/review/2026-11-01-code-review.md 对应行（已修，2026-11-03）。
   - 交付与验收：Dev/Tools window.open/a href 走 safeExternalHref；新增单测；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-018 · P3 · 安全 · compositeRuntime navigate window.open 缺 noopener**

@@ -41,6 +41,7 @@ import {
   type ToolItem,
 } from '@/services/api/tools';
 import { extractErrorMessage } from '@/utils/errors';
+import { safeExternalHref } from '@/utils/safeUrl';
 import { getScope, type Scope } from '@/stores/scope';
 
 const { Paragraph, Text } = Typography;
@@ -324,82 +325,93 @@ export default function DevToolsPage() {
                   <Tag>{items.length}</Tag>
                 </Space>
                 <Row gutter={[12, 12]}>
-                  {items.map((tool) => (
-                    <Col xs={24} sm={12} md={8} lg={6} key={tool.id}>
-                      <Card
-                        size="small"
-                        hoverable
-                        actions={
-                          canManage
-                            ? [
-                                <ExportOutlined
-                                  key="open"
-                                  onClick={() => window.open(tool.url, '_blank', 'noreferrer')}
-                                />,
-                                <SettingOutlined key="edit" onClick={() => openEdit(tool)} />,
-                                <Popconfirm
-                                  key="del"
-                                  title={intl.formatMessage(
-                                    {
-                                      id: 'pages.devTools.confirm.delete',
-                                      defaultMessage: `删除工具「${tool.name}」？`,
-                                    },
-                                    { name: tool.name },
-                                  )}
-                                  onConfirm={() => remove(tool)}
-                                >
-                                  <Button type="text" size="small" danger>
-                                    <FormattedMessage
-                                      id="pages.devTools.action.delete"
-                                      defaultMessage="删除"
-                                    />
-                                  </Button>
-                                </Popconfirm>,
-                              ]
-                            : undefined
-                        }
-                      >
-                        <Card.Meta
-                          avatar={categoryIcon(tool.category)}
-                          title={
-                            <a href={tool.url} target="_blank" rel="noreferrer">
-                              {tool.name} <ExportOutlined />
-                            </a>
+                  {items.map((tool) => {
+                    const safeUrl = safeExternalHref(tool.url);
+                    return (
+                      <Col xs={24} sm={12} md={8} lg={6} key={tool.id}>
+                        <Card
+                          size="small"
+                          hoverable
+                          actions={
+                            canManage
+                              ? [
+                                  <ExportOutlined
+                                    key="open"
+                                    onClick={() => {
+                                      if (safeUrl) window.open(safeUrl, '_blank', 'noreferrer');
+                                    }}
+                                  />,
+                                  <SettingOutlined key="edit" onClick={() => openEdit(tool)} />,
+                                  <Popconfirm
+                                    key="del"
+                                    title={intl.formatMessage(
+                                      {
+                                        id: 'pages.devTools.confirm.delete',
+                                        defaultMessage: `删除工具「${tool.name}」？`,
+                                      },
+                                      { name: tool.name },
+                                    )}
+                                    onConfirm={() => remove(tool)}
+                                  >
+                                    <Button type="text" size="small" danger>
+                                      <FormattedMessage
+                                        id="pages.devTools.action.delete"
+                                        defaultMessage="删除"
+                                      />
+                                    </Button>
+                                  </Popconfirm>,
+                                ]
+                              : undefined
                           }
-                          description={
-                            <Space orientation="vertical" size={4}>
-                              {tool.description ? (
-                                <Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>
-                                  {tool.description}
-                                </Paragraph>
-                              ) : null}
-                              <Space size={4} wrap>
-                                {tool.gameId ? (
-                                  <Tag color="blue">
-                                    {tool.gameId}/{tool.env}
-                                  </Tag>
-                                ) : (
-                                  <Tag>
-                                    <FormattedMessage
-                                      id="pages.devTools.scope.globalTag"
-                                      defaultMessage="全局"
-                                    />
-                                  </Tag>
-                                )}
-                                {canManage ? (
-                                  <Switch
-                                    size="small"
-                                    checked={tool.enabled}
-                                    onChange={(v) => toggleEnabled(tool, v)}
-                                  />
+                        >
+                          <Card.Meta
+                            avatar={categoryIcon(tool.category)}
+                            title={
+                              safeUrl ? (
+                                <a href={safeUrl} target="_blank" rel="noreferrer">
+                                  {tool.name} <ExportOutlined />
+                                </a>
+                              ) : (
+                                <span>
+                                  {tool.name} <ExportOutlined />
+                                </span>
+                              )
+                            }
+                            description={
+                              <Space orientation="vertical" size={4}>
+                                {tool.description ? (
+                                  <Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>
+                                    {tool.description}
+                                  </Paragraph>
                                 ) : null}
+                                <Space size={4} wrap>
+                                  {tool.gameId ? (
+                                    <Tag color="blue">
+                                      {tool.gameId}/{tool.env}
+                                    </Tag>
+                                  ) : (
+                                    <Tag>
+                                      <FormattedMessage
+                                        id="pages.devTools.scope.globalTag"
+                                        defaultMessage="全局"
+                                      />
+                                    </Tag>
+                                  )}
+                                  {canManage ? (
+                                    <Switch
+                                      size="small"
+                                      checked={tool.enabled}
+                                      onChange={(v) => toggleEnabled(tool, v)}
+                                    />
+                                  ) : null}
+                                </Space>
                               </Space>
-                            </Space>
-                          }
-                        />
-                      </Card>
-                    </Col>
-                  ))}
+                            }
+                          />
+                        </Card>
+                      </Col>
+                    );
+                  })}
                 </Row>
               </div>
             ))}

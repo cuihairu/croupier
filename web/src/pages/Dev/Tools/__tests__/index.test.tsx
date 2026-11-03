@@ -318,6 +318,36 @@ describe('工具箱 初始渲染', () => {
     expect(window.open).toHaveBeenCalledWith('https://t.example.com', '_blank', 'noreferrer');
   });
 
+  it('C-017 非法 scheme 工具链接：不渲染外链、开窗不触发', async () => {
+    const evilJs = mk({
+      id: 98,
+      name: 'EvilJs',
+      category: 'other',
+      url: 'javascript:alert(document.cookie)',
+    });
+    const evilData = mk({
+      id: 99,
+      name: 'EvilData',
+      category: 'other',
+      url: 'data:text/html,<script>alert(1)</script>',
+    });
+    mList.mockResolvedValue({ items: [evilJs, evilData] });
+    renderPage();
+    expect(await screen.findByText('EvilJs')).toBeInTheDocument();
+    expect(await screen.findByText('EvilData')).toBeInTheDocument();
+
+    for (const name of ['EvilJs', 'EvilData']) {
+      // 不安全 URL 走 safeExternalHref → ''：标题渲染为无链接文本，无 href
+      expect(screen.getByText(name).closest('a')).toBeNull();
+      // export 图标点击同样被守卫：window.open 不触发
+      const exportAction = cardOf(name).querySelector(
+        '.ant-card-actions span[aria-label="export"]',
+      ) as HTMLElement;
+      fireEvent.click(exportAction);
+    }
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
   it('刷新重拉', async () => {
     renderPage();
     await waitLoad();
