@@ -673,7 +673,9 @@
 - [x] 审核发现：logstore Ingest 写库前先推进内存 lastSeq（:91）且忽略 db.Create 错误（:104），写库失败批次被重传当作重复丢弃、persisted 虚报——单进程内该批日志永久丢失。（internal/platform/registry/logstore.go:91,104）
   - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`Ingest` 先收集待写行，`db.Create` 失败即 `slog.Warn` 并返回 0（不推进 lastSeq），成功后才推进并返回实写数；重传同 seq 因仍 > lastSeq 得以重写。
   - 完成证据：`TestLogStore_IngestCreateFailureDoesNotAdvanceLastSeq`（断连后 seq=2 返回 0，重连重传 seq=2 重写成功）；`go test ./internal/platform/registry/ -count=1` 全绿（6s）。
-- [ ] 审核发现：供给异步 apply（spawnApply）在 Init/Apply 失败时只记日志不落 failed（apply 仅等注册分支置 failed），run 永久停在 applying 不可重试。（internal/ops/provision/orchestrator.go:194-255,362-369）
+- [x] 审核发现：供给异步 apply（spawnApply）在 Init/Apply 失败时只记日志不落 failed（apply 仅等注册分支置 failed），run 永久停在 applying 不可重试。（internal/ops/provision/orchestrator.go:194-255,362-369）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`apply` 新增 `fail` 闭包：writeWorkDir/Init/render/Apply/等注册/持久化任何失败都置 `StateFailed`+`Error` 并 `Store.Update`，返回原错误；`spawnApply` 日志仅兜底；`Create` 不再重复更新。
+  - 完成证据：`TestSubmitAsync_ApplyFailureMarksRunFailed`（applyErr 触发异步 run 落 failed 且 Error 含 provision apply）；`TestCreate_ApplyFailure`、`TestCreate_NoRegister`；`go test ./internal/ops/provision/ -count=1` 全绿、`go vet` 通过。
 - [ ] 审核发现：供给 beginResume 为 Get→pending 检查→置 applying→Update 非原子读改写，并发 ResumeAsync 均可通过 pending 检查触发双 apply（applyMu 在 beginResume 之后才锁）。（internal/ops/provision/orchestrator.go:336-357）
 - [ ] 审核发现：供给 DestroyResume 未先推进状态即执行 runDestroy（并发双销毁），且 Destroy/runDestroy 不持 applyMu、不校验 run 状态，可直接与在途 apply 对同一 workdir 竞态（terraform state 破坏）。（internal/ops/provision/orchestrator.go:375,411,437）
 - [ ] 审核发现：供给请求 Count 无上限（仅校验 <1），可一次性创建海量云实例造成失控成本/资源。（internal/ops/provision/orchestrator.go:111-113）

@@ -356,6 +356,23 @@ func TestSubmitAsync_Ticket_ReturnsPendingNoApply(t *testing.T) {
 	assert.Equal(t, "approval-1", run.ApprovalID)
 }
 
+// #660：异步 apply（spawnApply）在 Init/Apply 失败时不得只记日志——run 须
+// 落 StateFailed（此前 apply 仅等注册分支置 failed，run 永久停在 applying）。
+func TestSubmitAsync_ApplyFailureMarksRunFailed(t *testing.T) {
+	runner := &fakeRunner{applyErr: os.ErrInvalid}
+	reg := &fakeRegistry{}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, reg, &fakeApproval{}, st)
+
+	run, err := o.SubmitAsync(context.Background(), baseRequest())
+	require.NoError(t, err)
+	assert.Equal(t, StateApplying, run.State)
+
+	failed := waitState(t, st, run.ID, StateFailed, 2*time.Second)
+	assert.Contains(t, failed.Error, "provision apply")
+	assert.Contains(t, failed.Error, "invalid argument")
+}
+
 func TestResumeAsync_NotApproved_Rejected(t *testing.T) {
 	runner := &fakeRunner{}
 	app := &fakeApproval{} // 未批准

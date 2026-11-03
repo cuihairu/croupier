@@ -191,10 +191,6 @@ func (o *Orchestrator) Create(ctx context.Context, req *Request) (*Run, error) {
 		return nil, fmt.Errorf("provision: persist run: %w", err)
 	}
 	if err := o.apply(ctx, run); err != nil {
-		run.State = StateFailed
-		run.Error = err.Error()
-		run.UpdatedAt = time.Now()
-		_ = o.Store.Update(ctx, run)
 		return run, err
 	}
 	return run, nil
@@ -202,12 +198,21 @@ func (o *Orchestrator) Create(ctx context.Context, req *Request) (*Run, error) {
 
 // apply 是 Create 的核心执行段（含状态推进）。
 func (o *Orchestrator) apply(ctx context.Context, run *Run) error {
-	workDir, err := o.writeWorkDir(run)
-	if err != nil {
+	fail := func(err error) error {
+		run.State = StateFailed
+		run.Error = err.Error()
+		run.UpdatedAt = time.Now()
+		if updateErr := o.Store.Update(ctx, run); updateErr != nil {
+			return fmt.Errorf("provision: persist failed state: %w (apply error: %v)", updateErr, err)
+		}
 		return err
 	}
+	workDir, err := o.writeWorkDir(run)
+	if err != nil {
+		return fail(err)
+	}
 	if err := o.Runner.Init(ctx, workDir); err != nil {
-		return fmt.Errorf("provision init: %w", err)
+		return fail(fmt.Errorf("provision init: %w", err))
 	}
 	cloudInit, err := renderCloudInit(CloudInitOptions{
 		HubAddr:         run.Request.HubAddr,
@@ -217,7 +222,7 @@ func (o *Orchestrator) apply(ctx context.Context, run *Run) error {
 		Extra:           run.Request.CloudInitExtra,
 	})
 	if err != nil {
-		return fmt.Errorf("provision render cloud-init: %w", err)
+		return fail(fmt.Errorf("provision render cloud-init: %w", err))
 	}
 	vars := map[string]string{
 		"region":        run.Request.Region,
@@ -232,13 +237,13 @@ func (o *Orchestrator) apply(ctx context.Context, run *Run) error {
 	}
 	outputs, err := o.Runner.Apply(ctx, workDir, vars)
 	if err != nil {
-		return fmt.Errorf("provision apply: %w", err)
+		return fail(fmt.Errorf("provision apply: %w", err))
 	}
 	run.Outputs = outputs
 	run.State = StateWaitingRegister
 	run.UpdatedAt = time.Now()
 	if err := o.Store.Update(ctx, run); err != nil {
-		return fmt.Errorf("provision persist after apply: %w", err)
+		return fail(fmt.Errorf("provision persist after apply: %w", err))
 	}
 
 	timeout := o.RegisterTimeout
@@ -247,26 +252,18 @@ func (o *Orchestrator) apply(ctx context.Context, run *Run) error {
 	}
 	reg, err := o.Registry.WaitRegistered(ctx, ProvisionLabelKey, run.ID, timeout)
 	if err != nil {
-		run.State = StateFailed
-		run.Error = fmt.Sprintf("wait register: %v", err)
-		run.UpdatedAt = time.Now()
-		_ = o.Store.Update(ctx, run)
-		return err
+		return fail(fmt.Errorf("wait register: %w", err))
 	}
 	if len(reg) == 0 {
 		// 空注册 = 超时无 agent 拨入：纳管前提（注册成功）不成立，判失败而非空纳管。
 		err := fmt.Errorf("wait register: no agent registered within %s", timeout)
-		run.State = StateFailed
-		run.Error = err.Error()
-		run.UpdatedAt = time.Now()
-		_ = o.Store.Update(ctx, run)
-		return err
+		return fail(err)
 	}
 	run.AgentIDs = reg
 	run.State = StateAdopted
 	run.UpdatedAt = time.Now()
 	if err := o.Store.Update(ctx, run); err != nil {
-		return fmt.Errorf("provision persist after adopt: %w", err)
+		return fail(fmt.Errorf("provision persist after adopt: %w", err))
 	}
 	return nil
 }
