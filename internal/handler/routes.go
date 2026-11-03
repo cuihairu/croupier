@@ -696,6 +696,15 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/provision/:runId/protection", opsHandler.ProvisionProtection)
 	g.DELETE("/provision/:runId", opsHandler.ProvisionDestroy)
 
+	// OPS-007 成本控制：创建前估算 + 节点成本标签/闲置回收（可配）+ 预算告警。
+	// 成本目录为内置参考价（生产价需接入真实账单/价格 API，估算精度登记为
+	// 部署后对账）；budget 为按 scope 配置，告警走通知渠道。
+	g.POST("/cost/estimate", opsHandler.CostEstimateHandler)
+	g.GET("/cost/summary", opsHandler.CostSummaryHandler)
+	g.GET("/cost/idle", opsHandler.CostIdleHandler)
+	g.GET("/cost/budget", opsHandler.CostBudgetGetHandler)
+	g.PUT("/cost/budget", opsHandler.CostBudgetPutHandler)
+
 	// OPS-004 运维部署发版：包仓库 + 发版单分批 + 健康门禁 + 回滚。
 	// 编排未装配（DB/对象存储缺）时各端点如实报 503 deploy_not_configured。
 	g.POST("/deploy/packages", opsHandler.DeployPackageUpload)
