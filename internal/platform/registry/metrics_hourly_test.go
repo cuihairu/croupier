@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 
@@ -180,4 +181,45 @@ func TestAggregateHourly_DiskUsagePercentAverage(t *testing.T) {
 	if disks[0].UsagePercent != 75 {
 		t.Fatalf("usage_percent = %v, want 75 (average of 50 and 100)", disks[0].UsagePercent)
 	}
+}
+
+// TestMetricsStore_SetDBConcurrentNoRace verifies #668: SetDB must not data-
+// race with concurrent readers (persistToDB / RollupHourly / GetHistory). Run
+// under -race to catch unsynchronized s.db access.
+func TestMetricsStore_SetDBConcurrentNoRace(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := db.AutoMigrate(&AgentMetricsHistory{}, &AgentMetricsHourly{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	store := NewMetricsStore()
+	store.SetDB(db)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Reader path touching s.db.Load() and DB ops.
+			store.Add("a1", &opsv1.MetricsReport{Cpu: &opsv1.CpuMetrics{UsagePercent: 50}})
+			store.GetHistory("a1", time.Time{}, 10)
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			store.RollupHourly(context.Background())
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			store.SetDB(db)
+		}()
+	}
+	wg.Wait()
+
+	// After SetDB(nil), readers must not panic or write to a closed DB.
+	store.SetDB(nil)
 }

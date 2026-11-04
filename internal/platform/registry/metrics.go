@@ -3,8 +3,10 @@ package registry
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/cuihairu/croupier/internal/common/dbtype"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -118,8 +120,8 @@ const supervisorEventRingSize = 500
 
 // MetricsStore stores metrics with memory + database hybrid approach.
 type MetricsStore struct {
+	db      atomic.Pointer[gorm.DB]
 	mu      sync.RWMutex
-	db      *gorm.DB
 	config  MetricsStoreConfig
 	entries []MetricsEntry
 	byAgent map[string][]int
@@ -184,7 +186,7 @@ func NewMetricsStoreWithConfig(config MetricsStoreConfig) *MetricsStore {
 
 // SetDB sets the database connection for persistence.
 func (s *MetricsStore) SetDB(db *gorm.DB) {
-	s.db = db
+	s.db.Store(db)
 }
 
 // Add adds a metrics report to the store.
@@ -248,7 +250,8 @@ func (s *MetricsStore) Add(agentID string, report *opsv1.MetricsReport) {
 
 // persistToDB saves metrics to database.
 func (s *MetricsStore) persistToDB(agentID string, report *opsv1.MetricsReport) {
-	if s.db == nil {
+	db := s.db.Load()
+	if db == nil {
 		return
 	}
 
@@ -295,7 +298,7 @@ func (s *MetricsStore) persistToDB(agentID string, report *opsv1.MetricsReport) 
 		PortsJSON:     portsJSON,
 	}
 
-	s.db.Create(&entry)
+	db.Create(&entry)
 }
 
 // ingestSupervisorEventsLocked merges piggybacked supervisor events into the
@@ -406,7 +409,7 @@ func (s *MetricsStore) GetHistory(agentID string, since time.Time, limit int) []
 	}
 
 	// Fall back to database
-	if s.db != nil {
+	if s.db.Load() != nil {
 		return s.getFromDB(agentID, since, limit)
 	}
 
@@ -450,8 +453,9 @@ func (s *MetricsStore) getFromMemory(agentID string, since time.Time, limit int)
 
 // getFromDB retrieves metrics from database.
 func (s *MetricsStore) getFromDB(agentID string, since time.Time, limit int) []MetricsEntry {
+	db := s.db.Load()
 	var records []AgentMetricsHistory
-	query := s.db.Where("agent_id = ? AND timestamp >= ?", agentID, since).
+	query := db.Where("agent_id = ? AND timestamp >= ?", agentID, since).
 		Order("timestamp DESC")
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -535,8 +539,8 @@ func (s *MetricsStore) Prune(olderThan time.Duration) {
 	s.mu.Unlock()
 
 	// Prune database
-	if s.db != nil {
-		s.db.Where("timestamp < ?", cutoff).Delete(&AgentMetricsHistory{})
+	if db := s.db.Load(); db != nil {
+		db.Where("timestamp < ?", cutoff).Delete(&AgentMetricsHistory{})
 	}
 }
 
@@ -555,7 +559,7 @@ func (s *MetricsStore) StartCleanupRoutine(ctx context.Context, interval time.Du
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if s.db != nil {
+				if s.db.Load() != nil {
 					s.RollupHourly(ctx)
 					s.PruneHourly(MetricsHourlyRetention)
 				}
@@ -570,7 +574,8 @@ func (s *MetricsStore) StartCleanupRoutine(ctx context.Context, interval time.Du
 // re-rolling the same hour overwrites the row. Raw rows older than
 // MetricsRetention are left to Prune.
 func (s *MetricsStore) RollupHourly(ctx context.Context) {
-	if s.db == nil {
+	db := s.db.Load()
+	if db == nil {
 		return
 	}
 	now := time.Now()
@@ -579,7 +584,7 @@ func (s *MetricsStore) RollupHourly(ctx context.Context) {
 	hourEnd := hourStart.Add(time.Hour)
 
 	var rows []AgentMetricsHistory
-	if err := s.db.WithContext(ctx).
+	if err := db.WithContext(ctx).
 		Where("timestamp >= ? AND timestamp < ?", hourStart, hourEnd).
 		Find(&rows).Error; err != nil {
 		return
@@ -607,18 +612,18 @@ func (s *MetricsStore) RollupHourly(ctx context.Context) {
 		// key would be ideal; use find-or-create to stay portable across
 		// sqlite/pg/mysql (no dialect-specific ON CONFLICT).
 		var existing AgentMetricsHourly
-		err := s.db.WithContext(ctx).
+		err := db.WithContext(ctx).
 			Where("agent_id = ? AND hour_start = ?", agentID, hourStart).
 			First(&existing).Error
 		if err != nil {
 			// No row yet — create.
-			if e := s.db.WithContext(ctx).Create(&agg).Error; e != nil {
+			if e := db.WithContext(ctx).Create(&agg).Error; e != nil {
 				continue
 			}
 			continue
 		}
 		agg.ID = existing.ID
-		s.db.WithContext(ctx).Save(&agg)
+		db.WithContext(ctx).Save(&agg)
 	}
 }
 
@@ -762,11 +767,12 @@ func round2(v float64) float64 {
 // PruneHourly removes hourly aggregate rows older than the given duration
 // (OPS-010 聚合 90 天）。
 func (s *MetricsStore) PruneHourly(olderThan time.Duration) {
-	if olderThan <= 0 || s.db == nil {
+	db := s.db.Load()
+	if olderThan <= 0 || db == nil {
 		return
 	}
 	cutoff := time.Now().Add(-olderThan)
-	s.db.Where("hour_start < ?", cutoff).Delete(&AgentMetricsHourly{})
+	db.Where("hour_start < ?", cutoff).Delete(&AgentMetricsHourly{})
 }
 
 // GetHourlyHistory returns hourly aggregate history for an agent, oldest
@@ -774,11 +780,12 @@ func (s *MetricsStore) PruneHourly(olderThan time.Duration) {
 // reports (CPU/Memory averages + a Disks/Networks projection) so the panel
 // can render 90-day curves through the same entry shape.
 func (s *MetricsStore) GetHourlyHistory(agentID string, since time.Time, limit int) []MetricsEntry {
-	if agentID == "" || s.db == nil {
+	db := s.db.Load()
+	if agentID == "" || db == nil {
 		return nil
 	}
 	var rows []AgentMetricsHourly
-	q := s.db.Where("agent_id = ?", agentID)
+	q := db.Where("agent_id = ?", agentID)
 	if !since.IsZero() {
 		q = q.Where("hour_start >= ?", since)
 	}

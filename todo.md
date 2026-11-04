@@ -700,7 +700,9 @@
 - [x] 审核发现：metrics 小时聚合磁盘 usage_percent 累加未除样本数（:657 累加、:713 直接 round2），可超 100% 且非均值，与 CPU/MEM/net（除 n）语义不一致。（internal/platform/registry/metrics.go:657,713）
   - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`aggregateHourly` 按挂载点改用 `diskAccum{usage,n}` 累加并求均值（`avg = usage / n` 后 `round2`），与 CPU/MEM/net 语义一致，不再可超 100%。
   - 完成证据：`TestAggregateHourly_DiskUsagePercentAverage`（50+100 → 75）；`go test ./internal/platform/registry/ -count=1` 全绿（2.7s）。
-- [ ] 审核发现：metrics SetDB 写 s.db 未持 s.mu，与 Add/persistToDB/getFromDB/RollupHourly 读侧数据竞态（LogStore.SetDB 有锁，此处不一致）。（internal/platform/registry/metrics.go:186-188）
+- [x] 审核发现：metrics SetDB 写 s.db 未持 s.mu，与 Add/persistToDB/getFromDB/RollupHourly 读侧数据竞态（LogStore.SetDB 有锁，此处不一致）。（internal/platform/registry/metrics.go:186-188）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`MetricsStore.db` 改 `atomic.Pointer[gorm.DB]`；`SetDB` 经 `Store`，全部读侧（persistToDB/getFromDB/Prune/RollupHourly/PruneHourly/GetHourlyHistory/StartCleanupRoutine）经 `Load()`，读写在无锁下原子且无竞态（与 LogStore 锁方案等价但更贴近异步路径）。
+  - 完成证据：`TestMetricsStore_SetDBConcurrentNoRace`（20 组 Add/GetHistory/RollupHourly 与 SetDB 并发）；`go test -race ./internal/platform/registry/ -run TestMetricsStore_SetDBConcurrentNoRace` PASS；`go test ./internal/platform/registry/ -count=1` 全绿（1.8s）。
 - [ ] 审核发现：analytics processMessage 对 retry_count 做未检查类型断言（:1004），外部流消息若为非 float64 类型则 panic 崩 worker（Run 循环无 recover）。（internal/analytics/worker/worker.go:1004）
 - [ ] 审核发现：scheduler reapStaleClaims 游标按非唯一 created_at 分页（task_schedule_model.go 用 >= cursor）且 UpdateRunLog 错误被 `_ =` 丢弃（manager.go:280），边界同时间戳+持续更新失败时可反复取同页空转。（internal/tasks/scheduler/manager.go:280-288）
 - [ ] 审核发现：cluster 互联 TLS 现需 InterconnectTLS.Enabled=true 才启用（cluster.go:147），既有证书已配置但未显式 enabled 的部署会静默降级为明文互联（就绪面有降级记录，属行为变更需人工确认）。（cmd/server/cluster.go:147）

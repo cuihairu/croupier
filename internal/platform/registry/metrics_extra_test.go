@@ -85,7 +85,7 @@ func TestMetricsStore_SetDB_PersistsAndFallsBackToDB(t *testing.T) {
 func TestMetricsStore_SetDB_NilDisablesPersistence(t *testing.T) {
 	store := NewMetricsStore()
 	store.SetDB(nil)
-	assert.Nil(t, store.db)
+	assert.Nil(t, store.db.Load())
 
 	store.Add("agent-nodb", &opsv1.MetricsReport{})
 	assert.True(t, len(store.ListAgents()) == 1)
