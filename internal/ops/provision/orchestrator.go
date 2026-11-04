@@ -88,6 +88,9 @@ var (
 const (
 	defaultRegisterTimeout = 5 * time.Minute
 	defaultDiskGB          = 40
+	// maxCountPerRequest 单次供给请求实例数上限：防止一次性创建海量云实例
+	// 造成失控成本/资源（#663）。批量扩容应由多条请求分次提交。
+	maxCountPerRequest = 100
 )
 
 // NewRunID 生成运行 id（12 字节 hex 前缀）。
@@ -120,6 +123,9 @@ func Validate(req *Request) (*Request, error) {
 	}
 	if req.Count < 1 {
 		return nil, fmt.Errorf("provision: count must be >= 1")
+	}
+	if req.Count > maxCountPerRequest {
+		return nil, fmt.Errorf("provision: count must be <= %d", maxCountPerRequest)
 	}
 	if req.Spec.InstanceType == "" {
 		return nil, fmt.Errorf("provision: spec.instanceType required")

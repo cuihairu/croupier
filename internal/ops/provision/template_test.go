@@ -270,6 +270,19 @@ func TestValidate_Matrix(t *testing.T) {
 		_, err := Validate(r)
 		require.Error(t, err)
 	})
+	t.Run("count over cap", func(t *testing.T) {
+		r := base()
+		r.Count = maxCountPerRequest + 1
+		_, err := Validate(r)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "count must be <=")
+	})
+	t.Run("count at cap", func(t *testing.T) {
+		r := base()
+		r.Count = maxCountPerRequest
+		_, err := Validate(r)
+		require.NoError(t, err)
+	})
 	t.Run("missing instance type", func(t *testing.T) {
 		r := base()
 		r.Spec.InstanceType = ""
