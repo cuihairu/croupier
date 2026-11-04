@@ -276,7 +276,8 @@
 
 - [ ] **OPS-008 · P3 · 实现 · 数据面备份恢复**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。
+  - 状态／条件：IN PROGRESS（2026-11-04）。数据面执行已接通（Stage A+B）：backups 归属四列（game_id/env/source_id/source_name，迁移 0060）+ ops 创建按请求 scope 解析注册数据源并真实执行 dump→sha256→上传→succeeded（不再悬挂 pending；未注册源→404 拒绝、存储未配置→500 拒绝）+ 清单按 scope 过滤并带 gameId/env/sourceName/checksum。剩余非本批交付：恢复演练模式（Stage C，需 objstore 读路径 + 恢复执行器）、备份校验（Stage D，需 Store.Get 读回重算 sha256 对照存储值）、定期备份调度（Stage E，config 开关默认关）。
+  - 完成证据：2026-11-04；模型层 `38a270a5`（ListBackupsOptions scope 过滤 + DBSourceModel.FindByScope）、ops API `f0d244f1`（createBackupForScope 真实执行 + buildOpsBackupItems + 新用例 TestBackupServiceCreateScoped_NoSourceRejected/NoStorageRejected/Executes 端到端 sqlite dump→file store→succeeded、TestBackupServiceListWithRealModel 改按 scope 语义）、迁移 0060 `2467bc8b` + 回归 `23c8996e`；`go test ./internal/api/ops/ ./internal/model/ ./internal/api/backup/ ./internal/svc/ -count=1` 全绿、`go build ./...` 过、gofmt/vet 干净。
   - 交付与验收：游戏库定期备份策略（经 capture 所见的数据源登记）、恢复演练模式、备份清单与校验。
 - [ ] **OPS-009 · P3 · 实现 · 运维 runbook 自动化**
   - 依赖：OPS-004, OPS-006。
