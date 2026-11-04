@@ -167,7 +167,21 @@ func (s *fakeStore) List(_ context.Context, _ int) ([]*Run, error) {
 	return out, nil
 }
 
-func newOrchestrator(t *testing.T, r *fakeRunner, reg *fakeRegistry, app *fakeApproval, st *fakeStore) *Orchestrator {
+// ctxAwareStore 模拟真实 DB 的 ctx 行为：ctx 已取消时 Update 直接失败（gorm
+// 会随 ctx 中止 UPDATE）。用于回归「客户端断开后 destroy_failed/destroyed 仍
+// 可靠落库」——base fakeStore 忽略 ctx，测不出旧缺陷。
+type ctxAwareStore struct {
+	*fakeStore
+}
+
+func (s *ctxAwareStore) Update(ctx context.Context, r *Run) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return s.fakeStore.Update(ctx, r)
+}
+
+func newOrchestrator(t *testing.T, r *fakeRunner, reg *fakeRegistry, app *fakeApproval, st RunStore) *Orchestrator {
 	t.Helper()
 	o := &Orchestrator{
 		Runner:          r,
@@ -645,6 +659,68 @@ func TestDestroy_FailureFallsBackToDestroyFailed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, StateDestroyed, got.State)
 	assert.Equal(t, 2, runner.destroy)
+}
+
+// 回归（todo.md 审核发现 orchestrator.go:509,512,527）：客户端断开（HTTP 请求
+// ctx 已取消）后销毁仍必须落库终态，不得复用已取消 ctx 写库（真实 gorm 会随
+// ctx 中止 UPDATE，run 永久卡 destroying）。runDestroy 成功面：Store.Update 经
+// context.WithoutCancel 派生上下文，destroyed 仍落库。
+func TestRunDestroy_PersistsDestroyed_AfterCtxCancelled(t *testing.T) {
+	runner := &fakeRunner{} // destroy 成功
+	st := &ctxAwareStore{fakeStore: newFakeStore()}
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	run.State = StateDestroying
+	run.UpdatedAt = time.Now()
+	require.NoError(t, st.Update(context.Background(), run))
+
+	// runDestroy 需 workdir/main.tf 存在才走到 Runner.Destroy。
+	dir := filepath.Join(o.WorkDir, run.ID)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0o644))
+
+	// 客户端断开：请求 ctx 已取消。
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	require.NoError(t, o.runDestroy(ctx, run))
+
+	got, err := st.Get(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyed, got.State)
+}
+
+// 同回归的失败面：runner.Destroy 返回错误 + 请求 ctx 已取消，failDestroy 仍
+// 必须把 destroy_failed 落库（而非让 Update 随取消 ctx 中止、状态悬空），
+// Destroy/DestroyResume 才能重试。
+func TestFailDestroy_PersistsDestroyFailed_AfterCtxCancelled(t *testing.T) {
+	runner := &fakeRunner{destroyErr: errors.New("destroy failed")}
+	st := &ctxAwareStore{fakeStore: newFakeStore()}
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	run.State = StateDestroying
+	run.UpdatedAt = time.Now()
+	require.NoError(t, st.Update(context.Background(), run))
+
+	dir := filepath.Join(o.WorkDir, run.ID)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0o644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = o.runDestroy(ctx, run)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "destroy failed")
+
+	got, err := st.Get(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyFailed, got.State)
+	assert.Contains(t, got.Error, "destroy failed")
 }
 
 // 回归：RequestDestroy 的 Get→检查→Create 审批→Update 非原子读改写，并发

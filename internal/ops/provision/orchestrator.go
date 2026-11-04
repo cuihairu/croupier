@@ -500,6 +500,13 @@ func (o *Orchestrator) DestroyResume(ctx context.Context, runID string) (*Run, e
 	return current, nil
 }
 
+// persistCtx 派生独立于请求 ctx 的落库上下文（WithoutCancel + 超时）。客户端
+// 断开（HTTP ctx 已取消）后 destroy_failed/destroyed 仍必须可靠落库，否则
+// run 永久卡 destroying；复用已取消的 ctx 会让真实 DB 随 ctx 中止 UPDATE。
+func persistCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+}
+
 // runDestroy 执行 terraform destroy 原语并落 destroyed（共用段）。
 func (o *Orchestrator) runDestroy(ctx context.Context, run *Run) error {
 	// 已由 CAS/校验把 state 推进 destroying（或 adopted→destroying），
@@ -514,7 +521,9 @@ func (o *Orchestrator) runDestroy(ctx context.Context, run *Run) error {
 	run.State = StateDestroyed
 	run.Error = ""
 	run.UpdatedAt = time.Now()
-	return o.Store.Update(ctx, run)
+	pctx, cancel := persistCtx(ctx)
+	defer cancel()
+	return o.Store.Update(pctx, run)
 }
 
 // failDestroy 把销毁失败持久化为 destroy_failed（而非卡在 destroying），
@@ -524,7 +533,9 @@ func (o *Orchestrator) failDestroy(ctx context.Context, run *Run, err error) err
 	run.State = StateDestroyFailed
 	run.Error = err.Error()
 	run.UpdatedAt = time.Now()
-	if updateErr := o.Store.Update(ctx, run); updateErr != nil {
+	pctx, cancel := persistCtx(ctx)
+	defer cancel()
+	if updateErr := o.Store.Update(pctx, run); updateErr != nil {
 		return fmt.Errorf("provision: persist destroy failed state: %w (destroy error: %v)", updateErr, err)
 	}
 	return err
