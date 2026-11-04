@@ -685,7 +685,9 @@
 - [x] 审核发现：供给请求 Count 无上限（仅校验 <1），可一次性创建海量云实例造成失控成本/资源。（internal/ops/provision/orchestrator.go:111-113）
   - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`Validate` 增加 `maxCountPerRequest=100` 上限（orchestrator.go:74-76,123-126），`count > 100` 返回 error；`OpsProvisionSubmit` 经 `Validate` 同样拒绝（提交边界）。
   - 完成证据：`TestValidate_Matrix` 子用例 `count over cap`/`count at cap`；`go test ./internal/ops/provision/ -count=1` 全绿。
-- [ ] 审核发现：batchop Execute 无状态闸，已完成/运行中批次可被重复派发；且在请求 ctx 上执行、UpdateStatus 错误全被 `_ =` 丢弃，断开后批次停 Running 且终态不落库。（internal/ops/batchop/batchop.go:187,196,243）
+- [x] 审核发现：batchop Execute 无状态闸，已完成/运行中批次可被重复派发；且在请求 ctx 上执行、UpdateStatus 错误全被 `_ =` 丢弃，断开后批次停 Running 且终态不落库。（internal/ops/batchop/batchop.go:187,196,243）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`BatchStore` 新增 `CompareAndSwapStatus`（model/batch_op_model.go:112-142，原子 status CAS + 回读）；`Execute` 仅允许 draft→running（重复执行返回 error 并报 current status）；decode/select 失败落 failed；三处 `UpdateStatus` 错误均返回（dry-run/running/终态）；API `BatchOpExecute` 非 dry-run 改用后台 ctx 完成派发，断开不取消批次。
+  - 完成证据：`TestExecute_CompletedBatchRejected`（二次执行 rejected、exec 只派发一次）、`TestBatchOpModel_CompareAndSwapStatus`；`go test ./internal/ops/batchop/ ./internal/model/ ./internal/api/ops/ -count=1` 全绿。
 - [x] 审核发现：deploy Start 状态闸在调用方载入副本上非原子判断（:126），并发 Start 均可通过并双跑首批；且 Rollback 在 stage/apply 失败时仍标记 RolledBack 上报成功（假成功）。（internal/ops/deploy/deploy.go:126,229-242）
   - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`Store` 新增 `CompareAndSwapState`（model/deployment_model.go:112-138，WHERE state=from 原子 Update+RowsAffected 校验+整行回读）；`Start` 改 CAS draft→deploying，失败即报错；`Rollback` 跟踪首个失败（deploy.go:229-269），失败置 `DeploymentStateRollbackFailed` 并返回 error，不再虚报 RolledBack。
   - 完成证据：`TestStart_ConcurrentOnlyOnce`、`TestRollback_FailureReportsError`、`TestDeploymentModelCompareAndSwapState`；`go test ./internal/ops/deploy/ ./internal/model/` 全绿。

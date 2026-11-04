@@ -64,7 +64,14 @@ func (s *Service) BatchOpExecute(ctx context.Context, gameID, env, batchID strin
 	if err != nil {
 		return nil, err
 	}
-	return o.Execute(ctx, gameID, env, batchID, dryRun)
+	if dryRun {
+		return o.Execute(ctx, gameID, env, batchID, true)
+	}
+	// 非 dry-run：在请求 ctx 上执行会在客户端断开时取消整个批次（#664），
+	// 改用后台 context 完成派发并落终态，避免批次停 Running 且终态不落库。
+	bg, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return o.Execute(bg, gameID, env, batchID, false)
 }
 
 func (s *Service) BatchOpGet(ctx context.Context, gameID, env, batchID string) (*model.BatchOp, error) {

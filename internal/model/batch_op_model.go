@@ -96,3 +96,28 @@ func (m *BatchOpModel) UpdateStatus(ctx context.Context, id uint, status string,
 	}
 	return tx.Updates(map[string]any{"status": status, "updated_at": time.Now().UTC()}).Error
 }
+
+// CompareAndSwapStatus 仅当当前 status == from 时原子更新为 to（含回读行）。
+// 返回 (成功, 当前行)；ok=false 表示并发已把状态改走（#664 状态闸）。
+func (m *BatchOpModel) CompareAndSwapStatus(ctx context.Context, id uint, from, to string) (bool, *BatchOp, error) {
+	res := m.db.WithContext(ctx).Model(&BatchOp{}).Where("id=? AND status=?", id, from).
+		Updates(map[string]any{"status": to, "updated_at": time.Now().UTC()})
+	if res.Error != nil {
+		return false, nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		var cur BatchOp
+		if err := m.db.WithContext(ctx).Where("id=?", id).First(&cur).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return false, nil, nil
+			}
+			return false, nil, err
+		}
+		return false, &cur, nil
+	}
+	var cur BatchOp
+	if err := m.db.WithContext(ctx).Where("id=?", id).First(&cur).Error; err != nil {
+		return false, nil, err
+	}
+	return true, &cur, nil
+}

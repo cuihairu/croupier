@@ -104,6 +104,20 @@ func (f *fakeStore) UpdateStatus(ctx context.Context, id uint, status string, fi
 	return nil
 }
 
+func (f *fakeStore) CompareAndSwapStatus(ctx context.Context, id uint, from, to string) (bool, *model.BatchOp, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	op := f.byID[id]
+	if op == nil {
+		return false, nil, errors.New("not found")
+	}
+	if op.Status != from {
+		return false, op, nil
+	}
+	op.Status = to
+	return true, op, nil
+}
+
 func TestCreate_ValidatesPayload(t *testing.T) {
 	o := New(&fakeSelector{}, &fakeExecutor{}, newFakeStore(), nil)
 	_, err := o.Create(context.Background(), &CreateRequest{GameID: "g", Env: "e", Kind: "config", AgentIDs: []string{"a"}})
@@ -167,4 +181,24 @@ func TestExecute_DryRunDoesNotDispatch(t *testing.T) {
 	for _, it := range res.Items {
 		assert.Equal(t, "dry_run", it.Status)
 	}
+}
+
+// #664：已执行（completed/failed）批次不得重复派发——draft→running CAS 状态闸。
+func TestExecute_CompletedBatchRejected(t *testing.T) {
+	store := newFakeStore()
+	exec := &fakeExecutor{}
+	o := New(&fakeSelector{agents: []string{"agent-1"}}, exec, store, nil)
+	op, err := o.Create(context.Background(), &CreateRequest{
+		GameID: "g", Env: "e", Kind: "exec", AgentIDs: []string{"agent-1"},
+		Exec: &ExecPayload{Command: "echo"},
+	})
+	require.NoError(t, err)
+	_, err = o.Execute(context.Background(), "g", "e", op.BatchID, false)
+	require.NoError(t, err)
+
+	// 第二次执行：批次已 completed，状态闸拒绝，不再派发。
+	_, err = o.Execute(context.Background(), "g", "e", op.BatchID, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already completed")
+	assert.Len(t, exec.exec, 1)
 }

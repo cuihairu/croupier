@@ -37,6 +37,9 @@ type BatchStore interface {
 	Find(ctx context.Context, gameID, env, batchID string) (*model.BatchOp, error)
 	List(ctx context.Context, gameID, env string, limit int) ([]model.BatchOp, error)
 	UpdateStatus(ctx context.Context, id uint, status string, fields map[string]any) error
+	// CompareAndSwapStatus 仅当当前 status == from 时原子更新为 to（含回读行）。
+	// 返回 (成功, 当前行)；ok=false 表示并发已把状态改走（状态闸）。
+	CompareAndSwapStatus(ctx context.Context, id uint, from, to string) (bool, *model.BatchOp, error)
 }
 
 // Orchestrator runs a batch operation.
@@ -173,18 +176,31 @@ func (o *Orchestrator) Execute(ctx context.Context, gameID, env, batchID string,
 	if err != nil {
 		return nil, err
 	}
+	// 状态闸：仅 draft 可进入 running（已完成/运行中/失败不得重复派发）。
+	ok, current, err := o.store.CompareAndSwapStatus(ctx, op.ID, model.BatchOpStatusDraft, model.BatchOpStatusRunning)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("batchop: execute rejected: batch %s already %s", batchID, current.Status)
+	}
+	op = current
 	labels, agentIDs, err := decodeSelectors(op)
 	if err != nil {
+		_ = o.store.UpdateStatus(ctx, op.ID, model.BatchOpStatusFailed, map[string]any{"results_json": "{\"error\":\"decode selectors\"}"})
 		return nil, err
 	}
 	targets, err := o.selector.Select(ctx, gameID, env, labels, agentIDs)
 	if err != nil {
+		_ = o.store.UpdateStatus(ctx, op.ID, model.BatchOpStatusFailed, map[string]any{"results_json": "{\"error\":\"select agents\"}"})
 		return nil, err
 	}
 	sort.Strings(targets)
 
 	op.Targets = len(targets)
-	_ = o.store.UpdateStatus(ctx, op.ID, model.BatchOpStatusRunning, map[string]any{"targets": len(targets)})
+	if err := o.store.UpdateStatus(ctx, op.ID, model.BatchOpStatusRunning, map[string]any{"targets": len(targets)}); err != nil {
+		return nil, err
+	}
 
 	// Dry-run: never dispatch.
 	if op.DryRun || dryRun {
@@ -193,7 +209,9 @@ func (o *Orchestrator) Execute(ctx context.Context, gameID, env, batchID string,
 			items[i] = TargetResult{AgentID: a, Status: "dry_run", Message: "preview"}
 		}
 		res := &Result{BatchID: batchID, Status: model.BatchOpStatusDryRun, Targets: len(targets), Items: items}
-		_ = o.store.UpdateStatus(ctx, op.ID, model.BatchOpStatusDryRun, map[string]any{"targets": len(targets)})
+		if err := o.store.UpdateStatus(ctx, op.ID, model.BatchOpStatusDryRun, map[string]any{"targets": len(targets)}); err != nil {
+			return nil, err
+		}
 		if o.auditFn != nil {
 			o.auditFn(ctx, gameID, env, string(audit.EventBatchOpDryRun), batchID, "success", map[string]any{"targets": len(targets)})
 		}
@@ -240,10 +258,12 @@ func (o *Orchestrator) Execute(ctx context.Context, gameID, env, batchID string,
 		status = model.BatchOpStatusFailed
 	}
 	res.Status = status
-	_ = o.store.UpdateStatus(ctx, op.ID, status, map[string]any{
+	if err := o.store.UpdateStatus(ctx, op.ID, status, map[string]any{
 		"succeeded": res.Succeeded, "failed": res.Failed, "skipped": res.Skipped,
 		"targets": res.Targets, "results_json": string(resJSON),
-	})
+	}); err != nil {
+		return res, err
+	}
 	if o.auditFn != nil {
 		o.auditFn(ctx, gameID, env, string(audit.EventBatchOpExecute), batchID, status, map[string]any{"succeeded": res.Succeeded, "failed": res.Failed})
 	}
