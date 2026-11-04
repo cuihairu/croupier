@@ -38,6 +38,9 @@ type RunStore interface {
 	Update(ctx context.Context, r *Run) error
 	Get(ctx context.Context, id string) (*Run, error)
 	List(ctx context.Context, limit int) ([]*Run, error)
+	// CompareAndSwapState 仅当当前 state == from 时原子更新为 to（含整行回读）。
+	// 返回 (成功, 当前行)；ok=false 表示并发已把 state 改走（状态闸）。
+	CompareAndSwapState(ctx context.Context, id, from, to string) (bool, *Run, error)
 }
 
 // Orchestrator 执行供给闭环：validate → render → apply → waitRegister → adopt。
@@ -363,12 +366,20 @@ func (o *Orchestrator) beginResume(ctx context.Context, runID string) (*Run, err
 	if !ok {
 		return nil, fmt.Errorf("%w: run %s", ErrRunNotApproved, runID)
 	}
-	run.State = StateApplying
-	run.UpdatedAt = time.Now()
-	if err := o.Store.Update(ctx, run); err != nil {
-		return nil, fmt.Errorf("provision: persist applying: %w", err)
+	// 原子 pending→applying CAS：并发 ResumeAsync 只有第一个通过，第二个
+	// 读到已非 pending（#661，此前为 Get→检查→Update 非原子读改写）。
+	ok, current, err := o.Store.CompareAndSwapState(ctx, runID, string(StatePending), string(StateApplying))
+	if err != nil {
+		return nil, fmt.Errorf("provision: cas applying: %w", err)
 	}
-	return run, nil
+	if !ok {
+		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotPending, runID, current.State)
+	}
+	// CAS 回读的 current 不含注入的敏感/拓扑参数（不入库），须把已校验的
+	// HubAddr/BootstrapToken 覆盖到 current，供 apply 渲染（#657）。
+	current.Request.HubAddr = run.Request.HubAddr
+	current.Request.BootstrapToken = run.Request.BootstrapToken
+	return current, nil
 }
 
 // spawnApply 在后台 goroutine 执行 apply 全闭环。用独立 context（async

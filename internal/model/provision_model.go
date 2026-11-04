@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -60,6 +61,33 @@ func (m *ProvisionRunModel) Create(ctx context.Context, run *ProvisionRun) error
 // Update 更新运行记录（全字段写回）。
 func (m *ProvisionRunModel) Update(ctx context.Context, run *ProvisionRun) error {
 	return m.db.WithContext(ctx).Save(run).Error
+}
+
+// CompareAndSwapState 仅当当前 state == from 时原子更新为 to（含整行回读）。
+// 返回 (成功, 当前行)。用于 pending→applying 状态闸（#661）。
+func (m *ProvisionRunModel) CompareAndSwapState(ctx context.Context, runID, from, to string) (bool, *ProvisionRun, error) {
+	res := m.db.WithContext(ctx).Model(&ProvisionRun{}).
+		Where("run_id = ? AND state = ?", runID, from).
+		Update("state", to)
+	if res.Error != nil {
+		return false, nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		// 并发已把 state 改走：回读当前行供调用方判定/报错（含最新 state）。
+		cur, err := m.FindByRunID(ctx, runID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return false, nil, nil
+			}
+			return false, nil, err
+		}
+		return false, cur, nil
+	}
+	run, err := m.FindByRunID(ctx, runID)
+	if err != nil {
+		return false, nil, err
+	}
+	return true, run, nil
 }
 
 // FindByRunID 按 run id 查询。

@@ -676,7 +676,9 @@
 - [x] 审核发现：供给异步 apply（spawnApply）在 Init/Apply 失败时只记日志不落 failed（apply 仅等注册分支置 failed），run 永久停在 applying 不可重试。（internal/ops/provision/orchestrator.go:194-255,362-369）
   - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`apply` 新增 `fail` 闭包：writeWorkDir/Init/render/Apply/等注册/持久化任何失败都置 `StateFailed`+`Error` 并 `Store.Update`，返回原错误；`spawnApply` 日志仅兜底；`Create` 不再重复更新。
   - 完成证据：`TestSubmitAsync_ApplyFailureMarksRunFailed`（applyErr 触发异步 run 落 failed 且 Error 含 provision apply）；`TestCreate_ApplyFailure`、`TestCreate_NoRegister`；`go test ./internal/ops/provision/ -count=1` 全绿、`go vet` 通过。
-- [ ] 审核发现：供给 beginResume 为 Get→pending 检查→置 applying→Update 非原子读改写，并发 ResumeAsync 均可通过 pending 检查触发双 apply（applyMu 在 beginResume 之后才锁）。（internal/ops/provision/orchestrator.go:336-357）
+- [x] 审核发现：供给 beginResume 为 Get→pending 检查→置 applying→Update 非原子读改写，并发 ResumeAsync 均可通过 pending 检查触发双 apply（applyMu 在 beginResume 之后才锁）。（internal/ops/provision/orchestrator.go:336-357）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`RunStore` 新增 `CompareAndSwapState`（model/provision_model.go:75-100，`WHERE run_id AND state=from` 原子 Update + RowsAffected 校验 + 整行回读）；`beginResume` 改用 CAS pending→applying，并发第二个 `ErrRunNotPending`；DB 适配 `provisionDBStore.CompareAndSwapState`。
+  - 完成证据：`TestProvisionRunModel_CompareAndSwapState`（首次 CAS 成功、二次 ok=false、不存在 run 返回 ok=false 无错误）、`TestResumeAsync_DoubleResume_SecondRejected`；`go test ./internal/ops/provision/ ./internal/model/ -count=1` 全绿。
 - [ ] 审核发现：供给 DestroyResume 未先推进状态即执行 runDestroy（并发双销毁），且 Destroy/runDestroy 不持 applyMu、不校验 run 状态，可直接与在途 apply 对同一 workdir 竞态（terraform state 破坏）。（internal/ops/provision/orchestrator.go:375,411,437）
 - [ ] 审核发现：供给请求 Count 无上限（仅校验 <1），可一次性创建海量云实例造成失控成本/资源。（internal/ops/provision/orchestrator.go:111-113）
 - [ ] 审核发现：batchop Execute 无状态闸，已完成/运行中批次可被重复派发；且在请求 ctx 上执行、UpdateStatus 错误全被 `_ =` 丢弃，断开后批次停 Running 且终态不落库。（internal/ops/batchop/batchop.go:187,196,243）

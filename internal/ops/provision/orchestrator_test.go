@@ -117,6 +117,24 @@ func (s *fakeStore) Update(_ context.Context, r *Run) error {
 	return nil
 }
 
+// CompareAndSwapState 仅当当前 state == from 时更新为 to（fake 与 DB 语义一致：
+// 并发续行只有第一个通过 pending→applying 闸）。
+func (s *fakeStore) CompareAndSwapState(_ context.Context, id, from, to string) (bool, *Run, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.runs[id]
+	if !ok {
+		return false, nil, os.ErrNotExist
+	}
+	if r.State != State(from) {
+		return false, r, nil
+	}
+	r.State = State(to)
+	r.UpdatedAt = time.Now()
+	cp := *r
+	return true, &cp, nil
+}
+
 func (s *fakeStore) Get(_ context.Context, id string) (*Run, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

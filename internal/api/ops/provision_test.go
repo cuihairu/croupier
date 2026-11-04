@@ -73,6 +73,21 @@ func (m *memStore) Update(_ context.Context, r *provision.Run) error {
 	m.runs[r.ID] = &cp
 	return nil
 }
+func (m *memStore) CompareAndSwapState(_ context.Context, id, from, to string) (bool, *provision.Run, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	r, ok := m.runs[id]
+	if !ok {
+		return false, nil, gorm.ErrRecordNotFound
+	}
+	if r.State != provision.State(from) {
+		return false, r, nil
+	}
+	r.State = provision.State(to)
+	r.UpdatedAt = time.Now()
+	cp := *r
+	return true, &cp, nil
+}
 func (m *memStore) Get(_ context.Context, id string) (*provision.Run, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

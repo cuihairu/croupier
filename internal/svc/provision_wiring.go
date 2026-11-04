@@ -27,6 +27,14 @@ func (s *provisionDBStore) Update(ctx context.Context, r *provision.Run) error {
 	return s.m.Update(ctx, runToModel(r))
 }
 
+func (s *provisionDBStore) CompareAndSwapState(ctx context.Context, id, from, to string) (bool, *provision.Run, error) {
+	ok, row, err := s.m.CompareAndSwapState(ctx, id, from, to)
+	if err != nil || !ok {
+		return ok, nil, err
+	}
+	return true, runFromModel(row), nil
+}
+
 func (s *provisionDBStore) Get(ctx context.Context, id string) (*provision.Run, error) {
 	row, err := s.m.FindByRunID(ctx, id)
 	if err != nil {
