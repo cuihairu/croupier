@@ -3,7 +3,7 @@ allowBuilds:
 
 # 2026-08-02 安全补丁：修复 Dependabot 报告的可修复漏洞
 overrides:
-  vite@<=5.4.20: ">=5.4.21 <6.0.0"
+  vite@<=6.4.3: ">=6.4.4 <7.0.0" # 2026-11-04 VULN-CROUPIER-001：GHSA-587h-7wmj-h5pm patched 6.4.4（跨 5→6，vitepress 1.6.4 声明 vite ^5，需实测构建）
   esbuild@<=0.24.2: "~0.25.0"
   postcss@<=8.5.17: ">=8.5.18"
   dompurify@<3.4.17: ">=3.4.17 <4.0.0" # 2026-10-23 抬（critical DOM XSS 后续修复，patched 3.4.17；含并此前 <=3.4.11/<3.4.16 两条）
@@ -13,7 +13,3 @@ overrides:
   "@vue/server-renderer": ">=3.5.42 <4.0.0"
   source-map-js: ">=1.2.2 <2.0.0"
   immutable@>=5.0.0-beta.1 <5.1.8: ">=5.1.8"
-  # 保留不修复（2026-08-15 评估）：
-  # - vite <=6.4.2（#50/#151/#152）：补丁仅在 6.4.3+，vitepress 1.6.4 依赖 vite ^5，
-  #   强制 6.x 构建失败（ERR_MODULE_NOT_FOUND）；需 vitepress 2.x 升级后一并处理。
-  #   仅文档站构建期依赖，不随产品发布。
