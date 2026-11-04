@@ -632,6 +632,14 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/batch", opsHandler.BatchOpListHandler)
 	g.GET("/batch/:id", opsHandler.BatchOpGetHandler)
 	g.POST("/batch/:id/execute", opsHandler.BatchOpExecuteHandler)
+	// OPS-009 运维 runbook 自动化（参数化步骤序列引用 OPS-004/006 能力）
+	g.POST("/runbooks", opsHandler.RunbookCreateHandler)
+	g.GET("/runbooks", opsHandler.RunbookListHandler)
+	g.GET("/runbooks/:id", opsHandler.RunbookGetHandler)
+	g.DELETE("/runbooks/:id", opsHandler.RunbookDeleteHandler)
+	g.POST("/runbooks/:id/run", opsHandler.RunbookRunHandler)
+	g.GET("/runbook-runs", opsHandler.RunbookRunListHandler)
+	g.GET("/runbook-runs/:runId", opsHandler.RunbookRunGetHandler)
 	// 第三方服务健康探针（OPEN-ISSUES #57）：webhook 四渠道/更新源/SMTP
 	g.POST("/probes/:channel", opsHandler.ThirdPartyProbe)
 	g.GET("/metrics", opsHandler.Metrics)

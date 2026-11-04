@@ -164,6 +164,12 @@ const (
 	EventBatchOpDryRun  AuditEventType = "batch_op.dry_run"
 	EventBatchOpExecute AuditEventType = "batch_op.execute"
 
+	// OPS-009 runbook automation events (parameterized step sequences
+	// referencing OPS-004 deploy / OPS-006 batch capabilities)
+	EventRunbookCreate AuditEventType = "runbook.create"
+	EventRunbookDelete AuditEventType = "runbook.delete"
+	EventRunbookRun    AuditEventType = "runbook.run"
+
 	// Admin events
 	EventUserCreate AuditEventType = "admin.user_create"
 	EventUserUpdate AuditEventType = "admin.user_update"

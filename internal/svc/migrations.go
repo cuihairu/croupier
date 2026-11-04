@@ -167,6 +167,9 @@ import (
 //               备份恢复：游戏库备份归属经 capture 所见数据源登记；加列 0025
 //               模式 + idx_backup_scope 复合索引；缺表跳过；存量行三列空=
 //               平台级备份，行为与现状一致）
+//   0062 (Go)   runbooks + runbook_runs 表（OPS-009 运维 runbook：参数化步骤
+//               序列引用 OPS-004 部署/OPS-006 批处理能力；新表 CreateTable，
+//               无存量约束名漂移问题）
 
 func init() {
 	registerSvcMigrations()
@@ -238,6 +241,7 @@ func registerSvcMigrations() {
 		costBudgetTablesMigration(),
 		backupScopeColumnsMigration(),
 		agentMetricsHourlyUniqueIndexMigration(),
+		runbookTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -2041,6 +2045,34 @@ WHERE id NOT IN (
 	if !migrator.HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
 		if err := migrator.CreateIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"); err != nil {
 			return fmt.Errorf("migrate: 0061 create uidx_agent_hour: %w", err)
+		}
+	}
+	return nil
+}
+
+// runbookTablesMigration creates the OPS-009 runbooks + runbook_runs tables
+// (参数化步骤序列引用 OPS-004 部署 / OPS-006 批处理能力). 新表 CreateTable：
+// 索引随建表一次建出，无存量约束名漂移问题（0019 announcements 先例）。
+func runbookTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(62,
+		&goose.GoFunc{RunDB: migrateRunbookTables},
+		nil,
+	)
+}
+
+func migrateRunbookTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.Runbook{}) {
+		if err := db.Migrator().CreateTable(&model.Runbook{}); err != nil {
+			return fmt.Errorf("migrate: 0062 create runbooks: %w", err)
+		}
+	}
+	if !db.Migrator().HasTable(&model.RunbookRun{}) {
+		if err := db.Migrator().CreateTable(&model.RunbookRun{}); err != nil {
+			return fmt.Errorf("migrate: 0062 create runbook_runs: %w", err)
 		}
 	}
 	return nil

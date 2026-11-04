@@ -839,6 +839,23 @@ type BatchOpListRequest struct {
 	Limit int `form:"limit,optional"`
 }
 
+// RunbookListRequest GET /ops/runbooks.
+type RunbookListRequest struct {
+	Limit int `form:"limit,optional"`
+}
+
+// RunbookRunRequest POST /ops/runbooks/:id/run. Params provide the {{param}}
+// substitutions for parameterized steps.
+type RunbookRunRequest struct {
+	Params map[string]string `json:"params"`
+}
+
+// RunbookRunListRequest GET /ops/runbook-runs.
+type RunbookRunListRequest struct {
+	RunbookID string `form:"runbookId,optional"`
+	Limit     int    `form:"limit,optional"`
+}
+
 // OpsNodeCommandsRequest is used to get node commands
 type OpsNodeCommandsRequest struct {
 	NodeId string `json:"nodeId" binding:"required"`
