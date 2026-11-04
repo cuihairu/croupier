@@ -4,7 +4,7 @@
   "description": "Node.js plugin SDK for Croupier go-plugin hosts (synthetics probe plugins; sidecar function adapters follow the same handshake)",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "cuihairu <chuihairu@gmail.com>",
   "repository": {
     "type": "git",

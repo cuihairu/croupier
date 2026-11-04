@@ -10,7 +10,7 @@
     "transport"
   ],
   "author": "Croupier Team <dev@croupier.io>",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cuihairu/croupier-sdk-js.git"
