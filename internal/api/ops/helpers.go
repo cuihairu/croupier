@@ -11,7 +11,6 @@ import (
 	"time"
 
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
-	"github.com/google/uuid"
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -550,39 +549,28 @@ func opsAgentProcessSchedulePause(ctx context.Context, svcCtx *svc.ServiceContex
 // Backup operations implementations
 
 func opsBackupsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBackupsListRequest) (*OpsBackupsListResponse, error) {
+	// OPS-008：按请求 scope 过滤（游戏域控制台只看本 scope 的备份；平台级
+	// 调用无 scope 时全量，与旧行为兼容）。
+	scope := svc.GameScopeFromContext(ctx)
 	opts := model.ListBackupsOptions{
 		PaginationOptions: model.NewPagination(1, 1000),
+		GameID:            scope.GameID,
+		Env:               scope.Env,
 	}
 	backups, _, err := svcCtx.BackupModel.List(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]Backup, 0, len(backups))
-	for _, b := range backups {
-		items = append(items, Backup{
-			Id:        fmt.Sprintf("%d", b.ID),
-			Name:      b.Name,
-			Type:      b.Type,
-			Status:    b.Status,
-			Size:      b.Size,
-			CreatedAt: utils.FormatTimestamp(b.CreatedAt),
-		})
-	}
-
 	return &OpsBackupsListResponse{
-		Backups: items,
+		Backups: buildOpsBackupItems(backups),
 	}, nil
 }
 
 func opsBackupCreate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBackupCreateRequest) (*OpsBackupCreateResponse, error) {
-	backup := &model.Backup{
-		BackupID: uuid.New().String(),
-		Name:     req.Name,
-		Type:     "manual",
-		Status:   "pending",
-	}
-	if err := svcCtx.BackupModel.Create(ctx, backup); err != nil {
+	scope := svc.GameScopeFromContext(ctx)
+	backup, err := createBackupForScope(ctx, svcCtx, scope, req.Name, req.Type, 0)
+	if err != nil {
 		return nil, err
 	}
 

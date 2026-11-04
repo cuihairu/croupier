@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -72,25 +74,56 @@ func TestBackupServiceListWithRealModel(t *testing.T) {
 	err = db.AutoMigrate(&model.Backup{})
 	require.NoError(t, err)
 
-	// Create test backup
-	backup := &model.Backup{
-		BackupID: fmt.Sprintf("backup-%d", time.Now().UnixNano()),
-		Name:     "backup1",
+	// 本 scope 的游戏备份 + 平台级（空归属）备份 + 他 scope 备份各一。
+	now := time.Now().UnixNano()
+	game := &model.Backup{
+		BackupID:   fmt.Sprintf("backup-game-%d", now),
+		Name:       "backup1",
+		Type:       "full",
+		Status:     "completed",
+		Size:       2048,
+		GameID:     "game1",
+		Env:        "prod",
+		SourceName: "game1-prod-db",
+		Checksum:   "abc123",
+	}
+	platform := &model.Backup{
+		BackupID: fmt.Sprintf("backup-platform-%d", now),
+		Name:     "backup-platform",
 		Type:     "full",
 		Status:   "completed",
-		Size:     2048,
 	}
-	require.NoError(t, db.Create(backup).Error)
+	other := &model.Backup{
+		BackupID: fmt.Sprintf("backup-other-%d", now),
+		Name:     "backup-other",
+		Type:     "full",
+		Status:   "completed",
+		GameID:   "game2",
+		Env:      "staging",
+	}
+	require.NoError(t, db.Create(&game).Error)
+	require.NoError(t, db.Create(&platform).Error)
+	require.NoError(t, db.Create(&other).Error)
 
 	ctx := context.Background()
 	backupModel := model.NewBackupModel(db)
 	svcCtx := &svc.ServiceContext{BackupModel: backupModel}
 	s := NewBackupService(svcCtx)
 
+	// 游戏域清单只含本 scope 备份，排除平台级与他 scope。
 	backups, err := s.List(ctx, "game1", "prod")
 	require.NoError(t, err)
 	assert.Len(t, backups, 1)
 	assert.Equal(t, "backup1", backups[0].Name)
+	assert.Equal(t, "game1", backups[0].GameId)
+	assert.Equal(t, "prod", backups[0].Env)
+	assert.Equal(t, "game1-prod-db", backups[0].SourceName)
+	assert.Equal(t, "abc123", backups[0].Checksum)
+
+	// 平台级清单（空 scope）不设过滤，含全部备份（与旧行为兼容）。
+	all, err := s.List(ctx, "", "")
+	require.NoError(t, err)
+	assert.Len(t, all, 3)
 }
 
 func TestBackupServiceListNilModel(t *testing.T) {
@@ -118,7 +151,8 @@ func TestBackupServiceCreateWithRealModel(t *testing.T) {
 	svcCtx := &svc.ServiceContext{BackupModel: backupModel}
 	s := NewBackupService(svcCtx)
 
-	backupID, err := s.Create(ctx, "game1", "prod", "full", 3600)
+	// 平台级（无 scope）创建退化为记录模式：与旧行为兼容，不要求数据源/存储。
+	backupID, err := s.Create(ctx, "", "", "full", 3600)
 	require.NoError(t, err)
 	assert.NotEmpty(t, backupID)
 }
@@ -133,6 +167,103 @@ func TestBackupServiceCreateNilModel(t *testing.T) {
 	_, err := s.Create(ctx, "game1", "prod", "full", 3600)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unavailable")
+}
+
+func TestBackupServiceCreateScoped_NoSourceRejected(t *testing.T) {
+	t.Parallel()
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Backup{}, &model.DBSource{}))
+
+	ctx := context.Background()
+	svcCtx := &svc.ServiceContext{
+		BackupModel:   model.NewBackupModel(db),
+		DBSourceModel: model.NewDBSourceModel(db),
+	}
+	s := NewBackupService(svcCtx)
+
+	// 该 scope 未注册数据源 → 拒绝，不落记录（不再产生悬挂 pending）。
+	_, err = s.Create(ctx, "game1", "prod", "full", 3600)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no db source registered")
+
+	var count int64
+	require.NoError(t, db.Model(&model.Backup{}).Count(&count).Error)
+	assert.Zero(t, count, "被拒绝的创建不应留下备份记录")
+}
+
+func TestBackupServiceCreateScoped_NoStorageRejected(t *testing.T) {
+	t.Parallel()
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Backup{}, &model.DBSource{}))
+	require.NoError(t, db.Create(&model.DBSource{
+		Name: "g1-prod-db", Driver: "postgres", Kind: "self",
+		DSN: "host=db user=mon", GameID: "game1", Env: "prod", Enabled: true,
+	}).Error)
+
+	ctx := context.Background()
+	svcCtx := &svc.ServiceContext{
+		BackupModel:   model.NewBackupModel(db),
+		DBSourceModel: model.NewDBSourceModel(db),
+		// ObjectStore nil
+	}
+	s := NewBackupService(svcCtx)
+
+	_, err = s.Create(ctx, "game1", "prod", "full", 3600)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "backup storage not configured")
+}
+
+// TestBackupServiceCreateScoped_Executes 端到端：真实 sqlite 数据源文件 +
+// 真实 file 对象存储 → 创建后异步 dump→上传→更新为 succeeded（证明不再
+// 悬挂 pending）。DBSource 用 sqlite 驱动直插（绕过登记校验，仅表级）。
+func TestBackupServiceCreateScoped_Executes(t *testing.T) {
+	t.Parallel()
+
+	// 元库用文件而非 :memory:（异步 goroutine 可能取到不同池连接，
+	// :memory: 按连接隔离会看到空库）。
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "meta.db")), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Backup{}, &model.DBSource{}))
+
+	srcPath := filepath.Join(t.TempDir(), "src.db")
+	srcDB, err := gorm.Open(gsqlite.Open(srcPath), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, srcDB.Exec("CREATE TABLE t (id integer)").Error)
+	require.NoError(t, srcDB.Exec("INSERT INTO t VALUES (1)").Error)
+
+	ctx := context.Background()
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+	require.NoError(t, err)
+	require.NoError(t, db.Create(&model.DBSource{
+		Name: "g1-prod-db", Driver: "sqlite", Kind: "self",
+		DSN: srcPath, GameID: "game1", Env: "prod", Enabled: true,
+	}).Error)
+
+	svcCtx := &svc.ServiceContext{
+		BackupModel:   model.NewBackupModel(db),
+		DBSourceModel: model.NewDBSourceModel(db),
+		ObjectStore:   store,
+	}
+	s := NewBackupService(svcCtx)
+
+	backupID, err := s.Create(ctx, "game1", "prod", "full", 60)
+	require.NoError(t, err)
+	require.NotEmpty(t, backupID)
+
+	rec, err := svcCtx.BackupModel.FindByBackupID(ctx, backupID)
+	require.NoError(t, err)
+	assert.Equal(t, "game1", rec.GameID)
+	assert.Equal(t, "prod", rec.Env)
+	assert.NotEmpty(t, rec.SourceName)
+
+	require.Eventually(t, func() bool {
+		r, err := svcCtx.BackupModel.FindByBackupID(context.Background(), backupID)
+		return err == nil && r.Status == "succeeded"
+	}, 10*time.Second, 200*time.Millisecond)
 }
 
 func TestBackupServiceDeleteWithRealModel(t *testing.T) {

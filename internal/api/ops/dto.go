@@ -240,12 +240,16 @@ type OpsAlertsResponse struct {
 // Backup operations DTOs
 
 type Backup struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	Size      int64  `json:"size"`
-	Type      string `json:"type"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"createdAt"`
+	Id         string `json:"id"`
+	Name       string `json:"name"`
+	Size       int64  `json:"size"`
+	Type       string `json:"type"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"createdAt"`
+	GameId     string `json:"gameId,omitempty"`
+	Env        string `json:"env,omitempty"`
+	SourceName string `json:"sourceName,omitempty"`
+	Checksum   string `json:"checksum,omitempty"`
 }
 
 type BackupCreateRequest struct {
@@ -280,6 +284,7 @@ type BackupsListResponse struct {
 
 type OpsBackupCreateRequest struct {
 	Name string `json:"name"`
+	Type string `json:"type"` // full, incremental（空=full）
 }
 
 type OpsBackupCreateResponse struct {
