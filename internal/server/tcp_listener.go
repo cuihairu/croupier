@@ -463,7 +463,7 @@ func (h *agentSessionHandler) validateHeartbeatAgentID(body []byte) error {
 	_, agentID := h.state()
 	if req.AgentId != agentID {
 		return fmt.Errorf("protocol violation: heartbeat agent_id=%q does not match registered agent_id=%q",
-			req.AgentId, h.agentID)
+			req.AgentId, agentID)
 	}
 	return nil
 }

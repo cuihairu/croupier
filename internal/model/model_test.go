@@ -6260,6 +6260,13 @@ func TestDeploymentModelCompareAndSwapState(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, DeploymentStateDeploying, row.State)
+	// CAS 成功后 updated_at 必须持久化（此前仅 Update("state", to) 不动时间戳）。
+	require.False(t, row.UpdatedAt.IsZero(), "CAS 必须写 updated_at")
+	require.True(t, row.UpdatedAt.After(dep.CreatedAt), "CAS updated_at 应晚于创建时间")
+	// 回读确认落库。
+	persisted, err := m.FindByID(context.Background(), "dep-cas")
+	require.NoError(t, err)
+	require.Equal(t, row.UpdatedAt.Unix(), persisted.UpdatedAt.Unix(), "updated_at 必须随 CAS 持久化")
 
 	// 第二次（状态已 deploying）必须 CAS 失败。
 	ok2, _, err := m.CompareAndSwapState(context.Background(), "dep-cas", DeploymentStateDraft, DeploymentStateDeploying)

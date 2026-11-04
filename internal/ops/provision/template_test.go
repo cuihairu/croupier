@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestRenderCloudInit_ContainsTokenAndHub(t *testing.T) {
@@ -143,8 +144,48 @@ func TestRenderCloudInit_SingleQuotesInstallURL(t *testing.T) {
 		AgentInstallURL: "https://dl.example.com/agent.sh;echo%20pwned",
 	})
 	require.NoError(t, err)
-	assert.Contains(t, out, "curl -fsSL 'https://dl.example.com/agent.sh;echo%20pwned' -o /tmp/croupier-agent-install.sh")
-	assert.NotContains(t, out, "';echo%20pwned' &&")
+	// YAML 单引号字符串内嵌的单引号必须转义为 ''（否则 cloud-config 非法）。
+	assert.Contains(t, out, "[ sh, -c, 'curl -fsSL '")
+	assert.Contains(t, out, "''https://dl.example.com/agent.sh;echo%20pwned''")
+	assert.Contains(t, out, "-o /tmp/croupier-agent-install.sh && bash /tmp/croupier-agent-install.sh' ]")
+}
+
+// 回归：YAML 单引号内嵌套单引号会产出非法 cloud-config（runcmd 整段丢失）。
+// 现把 shell 脚本先经 shellSingleQuote 组装为一条字符串，再以 YAML 单引号
+// 转义（”）整体嵌入 [ sh, -c, ... ]——生成的 cloud-config 必须可被 YAML
+// 解析，且解析回读的 shell 命令与渲染前一致（内嵌 ' 语义保持）。
+func TestRenderCloudInit_InstallURLCmdIsValidYAML(t *testing.T) {
+	cases := []string{
+		"https://dl.example.com/agent.sh",
+		"https://dl.example.com/agent.sh;echo%20pwned",
+		"https://dl.example.com/agent.sh'x",
+		"https://dl.example.com/$(id).sh",
+		"https://dl.example.com/agent.sh`id`",
+		"https://dl.example.com/agent.sh|bash",
+	}
+	for _, url := range cases {
+		t.Run(url, func(t *testing.T) {
+			out, err := renderCloudInit(CloudInitOptions{
+				HubAddr:         "h:1",
+				BootstrapToken:  "t",
+				AgentInstallURL: url,
+			})
+			require.NoError(t, err)
+
+			var doc struct {
+				Runcmd [][]string `yaml:"runcmd"`
+			}
+			require.NoError(t, yaml.Unmarshal([]byte(out), &doc), "cloud-config must be valid YAML")
+			require.Len(t, doc.Runcmd, 1)
+			require.Len(t, doc.Runcmd[0], 3)
+			require.Equal(t, "sh", doc.Runcmd[0][0])
+			require.Equal(t, "-c", doc.Runcmd[0][1])
+			require.Equal(t,
+				"curl -fsSL "+shellSingleQuote(url)+" -o /tmp/croupier-agent-install.sh && bash /tmp/croupier-agent-install.sh",
+				doc.Runcmd[0][2],
+			)
+		})
+	}
 }
 
 // #658：tfVarAssignment 把字符串变量编码为 HCL 字符串（strconv.Quote），

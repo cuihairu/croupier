@@ -63,6 +63,10 @@ const (
 	StateDestroyPending State = "destroy_pending"
 	// StateDestroying 销毁执行中（并发销毁闸；防双 destroy 与在途 apply 竞态）。
 	StateDestroying State = "destroying"
+	// StateDestroyFailed 销毁执行失败（terraform destroy 报错）；run 从
+	// destroying 回退落库为 destroy_failed，使销毁可重试（DestroyResume
+	// 以 destroy_failed 为入口重新执行，Destroy 以 failed 同理不再永久卡死）。
+	StateDestroyFailed State = "destroy_failed"
 )
 
 // Spec 是实例规格（跨 provider 归一化；provider 模板映射到各自 instance_type）。

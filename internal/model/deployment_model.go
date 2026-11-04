@@ -121,7 +121,7 @@ func (m *DeploymentModel) CompareAndSwapState(ctx context.Context, id, from, to 
 	d.State = to
 	d.UpdatedAt = time.Now()
 	res := m.db.WithContext(ctx).Model(&d).Where("deployment_id = ? AND state = ?", id, from).
-		Update("state", to)
+		Updates(map[string]any{"state": to, "updated_at": d.UpdatedAt})
 	if res.Error != nil {
 		return false, nil, res.Error
 	}

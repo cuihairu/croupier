@@ -148,8 +148,12 @@ func renderCloudInit(o CloudInitOptions) (string, error) {
 	}
 	b.WriteString("runcmd:\n")
 	if o.AgentInstallURL != "" {
-		fmt.Fprintf(&b, "  - [ sh, -c, 'curl -fsSL %s -o /tmp/croupier-agent-install.sh && bash /tmp/croupier-agent-install.sh' ]\n",
-			shellSingleQuote(o.AgentInstallURL))
+		installCmd := fmt.Sprintf(
+			"curl -fsSL %s -o /tmp/croupier-agent-install.sh && bash /tmp/croupier-agent-install.sh",
+			shellSingleQuote(o.AgentInstallURL),
+		)
+		fmt.Fprintf(&b, "  - [ sh, -c, '%s' ]\n",
+			strings.ReplaceAll(installCmd, "'", "''"))
 	}
 	if o.Extra != "" {
 		for _, line := range strings.Split(o.Extra, "\n") {

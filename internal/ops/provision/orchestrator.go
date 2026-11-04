@@ -67,6 +67,13 @@ type Orchestrator struct {
 	// 引用同一工作目录会互相干扰——供给引擎仅应在单一 server 实例启用
 	// （见 docs/review 已知边界）。
 	applyMu sync.Mutex
+
+	// destroyMu 串行化销毁申请单（RequestDestroy）的 Get→检查→Create 审批→
+	// Update 读改写（#661 同类 TOCTOU 防重）：并发重复销毁申请只有第一个能
+	// 通过检查并创建审批，其余读到已含 DestroyApprovalID/非 adopted 被拒，
+	// 不再产生孤儿销毁审批记录。销毁申请仅走单一 server 实例（同 applyMu
+	// 边界）；本锁与 applyMu 独立，避免与在途 apply 互斥放大。
+	destroyMu sync.Mutex
 }
 
 // asyncApplyBudget 是异步 apply 全闭环的时间上限：terraform apply 自身无
@@ -411,10 +418,11 @@ func (o *Orchestrator) Destroy(ctx context.Context, runID string) error {
 	if err != nil {
 		return err
 	}
-	if run.State != StateAdopted {
+	if run.State != StateAdopted && run.State != StateDestroyFailed {
 		return fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyable, runID, run.State)
 	}
-	ok, current, err := o.Store.CompareAndSwapState(ctx, runID, string(StateAdopted), string(StateDestroying))
+	from := string(run.State)
+	ok, current, err := o.Store.CompareAndSwapState(ctx, runID, from, string(StateDestroying))
 	if err != nil {
 		return fmt.Errorf("provision: cas destroying: %w", err)
 	}
@@ -429,6 +437,9 @@ func (o *Orchestrator) Destroy(ctx context.Context, runID string) error {
 // RequestDestroy 是销毁申请单入口（workflow 模式）：run 须为 adopted，
 // 创建审批记录并推进 destroy_pending（销毁须经批准后执行）。
 func (o *Orchestrator) RequestDestroy(ctx context.Context, runID string) (*Run, error) {
+	o.destroyMu.Lock()
+	defer o.destroyMu.Unlock()
+
 	run, err := o.Store.Get(ctx, runID)
 	if err != nil {
 		return nil, err
@@ -459,7 +470,7 @@ func (o *Orchestrator) DestroyResume(ctx context.Context, runID string) (*Run, e
 	if err != nil {
 		return nil, err
 	}
-	if run.State != StateDestroyPending {
+	if run.State != StateDestroyPending && run.State != StateDestroyFailed {
 		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyPending, runID, run.State)
 	}
 	if run.DestroyApprovalID == "" {
@@ -474,7 +485,7 @@ func (o *Orchestrator) DestroyResume(ctx context.Context, runID string) (*Run, e
 	}
 	// 原子 destroy_pending→destroying CAS + applyMu：并发双销毁只有一个通过，
 	// 且与在途 apply 互斥（同一 workdir terraform state 不竞态）。
-	ok, current, err := o.Store.CompareAndSwapState(ctx, runID, string(StateDestroyPending), string(StateDestroying))
+	ok, current, err := o.Store.CompareAndSwapState(ctx, runID, string(run.State), string(StateDestroying))
 	if err != nil {
 		return nil, fmt.Errorf("provision: cas destroying: %w", err)
 	}
@@ -495,12 +506,26 @@ func (o *Orchestrator) runDestroy(ctx context.Context, run *Run) error {
 	// 此处只做 I/O + 落 destroyed。
 	dir := filepath.Join(o.WorkDir, run.ID)
 	if _, err := os.Stat(filepath.Join(dir, "main.tf")); err != nil {
-		return fmt.Errorf("provision: workdir for %s not found: %w", run.ID, err)
+		return o.failDestroy(ctx, run, fmt.Errorf("provision: workdir for %s not found: %w", run.ID, err))
 	}
 	if err := o.Runner.Destroy(ctx, dir); err != nil {
-		return fmt.Errorf("provision destroy: %w", err)
+		return o.failDestroy(ctx, run, fmt.Errorf("provision destroy: %w", err))
 	}
 	run.State = StateDestroyed
+	run.Error = ""
 	run.UpdatedAt = time.Now()
 	return o.Store.Update(ctx, run)
+}
+
+// failDestroy 把销毁失败持久化为 destroy_failed（而非卡在 destroying），
+// 使 Destroy（需 adopted/destroy_failed）与 DestroyResume（需
+// destroy_pending/destroy_failed）都能重试。落库失败也上抛（调用方可见）。
+func (o *Orchestrator) failDestroy(ctx context.Context, run *Run, err error) error {
+	run.State = StateDestroyFailed
+	run.Error = err.Error()
+	run.UpdatedAt = time.Now()
+	if updateErr := o.Store.Update(ctx, run); updateErr != nil {
+		return fmt.Errorf("provision: persist destroy failed state: %w (destroy error: %v)", updateErr, err)
+	}
+	return err
 }

@@ -819,3 +819,21 @@
   - [ ] CR-FIX-33（P3-33）建 `scripts/contract/` 跨 SDK golden 帧测试脚本入口（与 CR-FIX-05 配套）。
   - [ ] CR-FIX-34（P3-34）样式系统边界文档：antd token + antd-style + Tailwind 4 + global.less 的适用边界成文。
   - [ ] CR-FIX-35（P3-35）pnpm workspace 与 Go module 版本策略文档化。
+
+## 代码审核：0a5046c6226678a46243bee576a96c1de4a45a89..HEAD（2026-11-04，异模型口径，只审不改）
+
+- [x] 审核发现：renderCloudInit 把 shellSingleQuote(agentInstallUrl) 的结果直接嵌入 YAML 单引号字符串，非空 agentInstallUrl 会生成 `'curl -fsSL '<url>' -o ...'` 的非法 cloud-config（YAML 解析错误，agent 安装 runcmd 整段丢失）；TestRenderCloudInit_SingleQuotesInstallURL 仅断言子串掩盖该问题（internal/ops/provision/template.go:151-152）
+  - 修复：runcmd 的 shell 脚本先经 shellSingleQuote 组装为单条字符串，再以 YAML 单引号转义（`'`→`''`）整体嵌入 `[ sh, -c, ... ]`；新增 `TestRenderCloudInit_InstallURLCmdIsValidYAML`（6 种 URL 全量 YAML 解析 + shell 命令回读一致）。
+  - 证据：2026-11-04；`go test ./internal/ops/provision/ -count=1 -race` PASS（含新回归）；`go vet ./internal/ops/provision/` 过；`go build ./...` 过。
+- [x] 审核发现：runDestroy 失败后运行永久卡在 destroying 状态（无任何回退/失败落库），Destroy（需 adopted）与 DestroyResume（需 destroy_pending）入口均被状态闸拒绝，销毁失败后无法重试（internal/ops/provision/orchestrator.go:477-489,500-505）
+  - 修复：新增 `StateDestroyFailed`（destroy_failed）；runDestroy 失败经 `failDestroy` 落库回退为 destroy_failed 并写 Error；Destroy/DestroyResume 均接受 destroy_failed 作为重试入口；成功销毁清 Error。
+  - 证据：2026-11-04；`go test ./internal/ops/provision/ -run 'TestDestroy' -count=1 -race` PASS（新增失败回退 + 重试回归各 1 项）；`go test ./internal/ops/provision/ -count=1 -race` 全绿。
+- [x] 审核发现：validateHeartbeatAgentID 的错误格式化无锁读取 h.agentID，与 markRegistered 并发写同一字段构成 data race，应改用已取出的 agentID（internal/server/tcp_listener.go:466）
+  - 修复：错误格式化改用 `h.state()` 已取出的局部 `agentID`，不再二次无锁读字段。
+  - 证据：2026-11-04；`go test ./internal/server/ -run 'TestAgentSessionHandler' -count=1 -race` PASS；`go vet ./internal/server/` 过。
+- [x] 审核发现：RequestDestroy 的 Get→检查 DestroyApprovalID→Create 审批→Update 为非原子读改写，并发重复请求可创建孤儿销毁审批记录（TOCTOU，与已修复的 #661 同类但此路径未覆盖）（internal/ops/provision/orchestrator.go:431-452）
+  - 修复：Orchestrator 增加 `destroyMu`，`RequestDestroy` 全程持锁串行化读改写；新增 `TestRequestDestroy_ConcurrentNoOrphanApproval`（钩子放大 Create 窗口，并发双请求只创建 1 个审批）。
+  - 证据：2026-11-04；`go test ./internal/ops/provision/ -run 'TestRequestDestroy' -count=1 -race` PASS（含并发回归）；`go test ./internal/ops/provision/ -count=1 -race` 全绿。
+- [x] 审核发现：deployment_model 的 CompareAndSwapState 仅 `Update("state", to)` 更新 state 列，updated_at 未持久化，CAS 成功后行时间戳滞后（internal/model/deployment_model.go:124）
+  - 修复：CAS 更新改 `Updates(map[string]any{"state": to, "updated_at": d.UpdatedAt})`，时间戳随状态一并持久化；`TestDeploymentModelCompareAndSwapState` 增补 updated_at 非零 + 回读一致断言。
+  - 证据：2026-11-04；`go test ./internal/model/ -run 'TestDeploymentModelCompareAndSwapState' -count=1` PASS（含 updated_at 回归）；`go vet ./internal/model/` 过。

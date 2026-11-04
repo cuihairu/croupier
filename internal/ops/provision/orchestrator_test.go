@@ -2,6 +2,7 @@ package provision
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -14,13 +15,14 @@ import (
 
 // fakeRunner 记录调用并返回预设输出；Init/Apply/Destroy 全部走 Fake 路径。
 type fakeRunner struct {
-	mu       sync.Mutex
-	applied  int
-	inited   int
-	destroy  int
-	outputs  map[string]string
-	applyErr error
-	lastVars map[string]string
+	mu         sync.Mutex
+	applied    int
+	inited     int
+	destroy    int
+	outputs    map[string]string
+	applyErr   error
+	destroyErr error
+	lastVars   map[string]string
 }
 
 func (f *fakeRunner) Init(_ context.Context, _ string) error {
@@ -45,7 +47,7 @@ func (f *fakeRunner) Destroy(_ context.Context, _ string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.destroy++
-	return nil
+	return f.destroyErr
 }
 
 // fakeRegistry 返回注册结果（空=超时）。记录等待的标签键值。
@@ -69,10 +71,12 @@ func (f *fakeRegistry) WaitRegistered(_ context.Context, labelKey, labelValue st
 
 // fakeApproval 记录创建并返回批准状态。
 type fakeApproval struct {
-	mu        sync.Mutex
-	created   []*Request
-	createdID string
-	approved  bool
+	mu                  sync.Mutex
+	created             []*Request
+	createdID           string
+	approved            bool
+	destroyCreated      int
+	destroyApprovalHook func()
 }
 
 func (f *fakeApproval) CreateApproval(_ context.Context, req *Request, runID string) (string, error) {
@@ -84,6 +88,12 @@ func (f *fakeApproval) CreateApproval(_ context.Context, req *Request, runID str
 }
 
 func (f *fakeApproval) CreateDestroyApproval(_ context.Context, run *Run) (string, error) {
+	if f.destroyApprovalHook != nil {
+		f.destroyApprovalHook()
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.destroyCreated++
 	return "destroy-approval-1", nil
 }
 
@@ -584,4 +594,106 @@ func TestDestroyResume_DoubleResume_SecondRejected(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not destroy pending")
 	assert.Equal(t, 1, runner.destroy)
+}
+
+func TestDestroyResume_FailureFallsBackToDestroyFailed(t *testing.T) {
+	runner := &fakeRunner{destroyErr: errors.New("terraform destroy: boom")}
+	app := &fakeApproval{approved: true}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, app, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	_, err = o.RequestDestroy(context.Background(), run.ID)
+	require.NoError(t, err)
+
+	got, err := o.DestroyResume(context.Background(), run.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "terraform destroy: boom")
+	require.NotNil(t, got)
+	assert.Equal(t, StateDestroyFailed, got.State)
+	assert.Contains(t, got.Error, "terraform destroy: boom")
+
+	runner.destroyErr = nil
+	retried, err := o.DestroyResume(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyed, retried.State)
+	assert.Equal(t, "", retried.Error)
+	assert.Equal(t, 2, runner.destroy)
+}
+
+func TestDestroy_FailureFallsBackToDestroyFailed(t *testing.T) {
+	runner := &fakeRunner{destroyErr: errors.New("destroy failed")}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	require.Equal(t, StateAdopted, run.State)
+
+	err = o.Destroy(context.Background(), run.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "destroy failed")
+
+	got, err := st.Get(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyFailed, got.State)
+
+	runner.destroyErr = nil
+	require.NoError(t, o.Destroy(context.Background(), run.ID))
+	got, err = st.Get(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyed, got.State)
+	assert.Equal(t, 2, runner.destroy)
+}
+
+// 回归：RequestDestroy 的 Get→检查→Create 审批→Update 非原子读改写，并发
+// 重复请求会在两个 goroutine 都通过 adopted 检查后各自创建审批（孤儿审批
+// 记录，TOCTOU）。destroyMu 串行化后第二个必须看到已含 DestroyApprovalID/
+// 非 adopted 而被拒——只创建一个销毁审批。
+func TestRequestDestroy_ConcurrentNoOrphanApproval(t *testing.T) {
+	started := make(chan struct{}, 1)
+	release := make(chan struct{})
+	app := &fakeApproval{
+		destroyApprovalHook: func() {
+			select {
+			case started <- struct{}{}:
+			default:
+			}
+			<-release
+		},
+	}
+	st := newFakeStore()
+	o := newOrchestrator(t, &fakeRunner{}, &fakeRegistry{ids: []string{`"i-x"`}}, app, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	require.Equal(t, StateAdopted, run.State)
+
+	results := make(chan error, 2)
+	go func() {
+		_, err := o.RequestDestroy(context.Background(), run.ID)
+		results <- err
+	}()
+	<-started
+	go func() {
+		_, err := o.RequestDestroy(context.Background(), run.ID)
+		results <- err
+	}()
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+
+	err1, err2 := <-results, <-results
+	succeeded := 0
+	for _, err := range []error{err1, err2} {
+		if err == nil {
+			succeeded++
+		}
+	}
+	assert.Equal(t, 1, succeeded)
+	assert.Equal(t, 1, app.destroyCreated)
+
+	got, err := st.Get(context.Background(), run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, StateDestroyPending, got.State)
 }
