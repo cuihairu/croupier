@@ -56,6 +56,7 @@ type fakeAgent struct {
 	stageErr   map[string]error
 	applyErr   map[string]error
 	healthy    map[string]bool
+	healthyMsg map[string]string
 	applied    []string
 	stageCount map[string]int
 }
@@ -65,6 +66,7 @@ func newFakeAgent() *fakeAgent {
 		stageErr:   map[string]error{},
 		applyErr:   map[string]error{},
 		healthy:    map[string]bool{},
+		healthyMsg: map[string]string{},
 		applied:    []string{},
 		stageCount: map[string]int{},
 	}
@@ -85,7 +87,7 @@ func (f *fakeAgent) ApplyUpdate(_ context.Context, agentID, _, _, fp string) (st
 	return "fp-" + fp[:8], nil
 }
 func (f *fakeAgent) Healthy(_ context.Context, agentID string) (bool, string) {
-	return f.healthy[agentID], ""
+	return f.healthy[agentID], f.healthyMsg[agentID]
 }
 
 func pkg() *model.DeployPackage {
@@ -145,6 +147,7 @@ func TestHealthGatePausesBatch(t *testing.T) {
 	}
 	// 第二批第一机 c 不健康。
 	agent.healthy["c"] = false
+	agent.healthyMsg["c"] = "probe failed: /health"
 	o := New(store, agent)
 	o.HealthRetry = time.Millisecond
 	o.HealthRetries = 1
@@ -162,6 +165,7 @@ func TestHealthGatePausesBatch(t *testing.T) {
 	require.Equal(t, model.DeploymentTargetHealthy, targets[0].State)
 	require.Equal(t, model.DeploymentTargetHealthy, targets[1].State)
 	require.Equal(t, model.DeploymentTargetFailed, targets[2].State)
+	require.Contains(t, targets[2].Message, "probe failed: /health")
 	require.Equal(t, model.DeploymentTargetPending, targets[3].State)
 }
 

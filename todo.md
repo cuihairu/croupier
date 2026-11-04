@@ -691,7 +691,9 @@
 - [x] 审核发现：deploy Start 状态闸在调用方载入副本上非原子判断（:126），并发 Start 均可通过并双跑首批；且 Rollback 在 stage/apply 失败时仍标记 RolledBack 上报成功（假成功）。（internal/ops/deploy/deploy.go:126,229-242）
   - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`Store` 新增 `CompareAndSwapState`（model/deployment_model.go:112-138，WHERE state=from 原子 Update+RowsAffected 校验+整行回读）；`Start` 改 CAS draft→deploying，失败即报错；`Rollback` 跟踪首个失败（deploy.go:229-269），失败置 `DeploymentStateRollbackFailed` 并返回 error，不再虚报 RolledBack。
   - 完成证据：`TestStart_ConcurrentOnlyOnce`、`TestRollback_FailureReportsError`、`TestDeploymentModelCompareAndSwapState`；`go test ./internal/ops/deploy/ ./internal/model/` 全绿。
-- [ ] 审核发现：deploy 编排在 HTTP 请求 ctx 上同步执行（deployments.go:195），客户端断开即取消整个发版；Advance 递归携带已取消 ctx 中途终止，且健康门禁 Healthy 错误被忽略。（internal/api/ops/deployments.go:195；internal/ops/deploy/deploy.go:216,271）
+- [x] 审核发现：deploy 编排在 HTTP 请求 ctx 上同步执行（deployments.go:195），客户端断开即取消整个发版；Advance 递归携带已取消 ctx 中途终止，且健康门禁 Healthy 错误被忽略。（internal/api/ops/deployments.go:195；internal/ops/deploy/deploy.go:216,271）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`DeploymentStart`/`DeploymentRollback` 改用后台 ctx 完成发版/回滚（不挂请求 ctx，断开不取消）；`healthGate` 改为返回 (healthy, reason)，`Advance` 把 reason 记入 `t.Message`（不再固定字符串），`ctx.Done` 返回 "cancelled"。
+  - 完成证据：`TestHealthGatePausesBatch` 新增断言（不健康原因 "probe failed: /health" 记入 target Message）；`go test ./internal/ops/deploy/ -count=1` 全绿、`go build ./...` 通过。
 - [x] 审核发现：deploy 包上传 io.ReadAll 无大小上限，可无界读入内存耗尽。（internal/api/ops/deployments.go:136）
   - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`DeployPackageUpload` 用 `io.LimitReader(f, 500MiB+1)` 且超过即 400（internal/api/ops/deployments.go:137-147）。
   - 完成证据：`TestDeployPackageUploadEmptyNoObjectStore`；`go test ./internal/api/ops/` 全绿（303s）。

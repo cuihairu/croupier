@@ -373,7 +373,11 @@ func (s *Service) DeploymentStart(ctx context.Context, id string) (*DeploymentAc
 	if err != nil {
 		return nil, errorx.NewNotFound("包不存在")
 	}
-	started, err := s.svcCtx.Deployments.Start(ctx, d, pkg)
+	// 发版全链（分批推进 + 健康门禁）可持续数分钟，挂在 HTTP 请求 ctx 上会
+	// 在客户端断开时取消整个发版（#666）；改用后台 ctx 完成发版并落终态。
+	bg, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started, err := s.svcCtx.Deployments.Start(bg, d, pkg)
 	if err != nil {
 		return &DeploymentActionResponse{Deployment: buildDeploymentView(started)}, err
 	}
@@ -395,7 +399,9 @@ func (s *Service) DeploymentRollback(ctx context.Context, id string, req *Deploy
 	if err != nil {
 		return nil, errorx.NewNotFound("回滚包不存在")
 	}
-	rolled, err := s.svcCtx.Deployments.Rollback(ctx, d, rbPkg)
+	bg, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rolled, err := s.svcCtx.Deployments.Rollback(bg, d, rbPkg)
 	if err != nil {
 		return nil, err
 	}

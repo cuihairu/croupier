@@ -190,10 +190,13 @@ func (o *Orchestrator) Advance(ctx context.Context, d *model.Deployment, pkg *mo
 		}
 		t.NewFingerprint = fp
 
-		// 健康门禁：确认成功才标 healthy。
-		if !o.healthGate(ctx, t.AgentID) {
+		// 健康门禁：确认成功才标 healthy；false 时记录原因（不再忽略）。
+		if healthy, reason := o.healthGate(ctx, t.AgentID); !healthy {
 			t.State = model.DeploymentTargetFailed
-			t.Message = "health gate failed"
+			if reason == "" {
+				reason = "health gate failed"
+			}
+			t.Message = "health gate failed: " + reason
 			t.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 			d.State = model.DeploymentStatePaused
 			d.PausedReason = "target " + t.AgentID + " health gate failed; batch paused"
@@ -269,8 +272,8 @@ func (o *Orchestrator) Rollback(ctx context.Context, d *model.Deployment, pkg *m
 	return d, nil
 }
 
-// healthGate 等待目标机健康确认。
-func (o *Orchestrator) healthGate(ctx context.Context, agentID string) bool {
+// healthGate 等待目标机健康确认；返回 (是否健康, 最近一次不健康原因)。
+func (o *Orchestrator) healthGate(ctx context.Context, agentID string) (bool, string) {
 	retries := o.HealthRetries
 	if retries <= 0 {
 		retries = 3
@@ -279,20 +282,22 @@ func (o *Orchestrator) healthGate(ctx context.Context, agentID string) bool {
 	if delay <= 0 {
 		delay = 30 * time.Second
 	}
+	var lastReason string
 	for i := 0; i < retries; i++ {
 		if i > 0 {
 			select {
 			case <-ctx.Done():
-				return false
+				return false, "cancelled"
 			case <-time.After(delay):
 			}
 		}
-		ok, _ := o.agent.Healthy(ctx, agentID)
+		ok, reason := o.agent.Healthy(ctx, agentID)
 		if ok {
-			return true
+			return true, ""
 		}
+		lastReason = reason
 	}
-	return false
+	return false, lastReason
 }
 
 // nextBatch 返回下一待执行批号；0=全部完成。
