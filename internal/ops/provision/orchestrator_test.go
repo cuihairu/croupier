@@ -319,6 +319,40 @@ func TestDestroy_Transitions(t *testing.T) {
 	assert.Equal(t, 1, runner.destroy)
 }
 
+// #662：并发双销毁只有一个通过（adopted→destroying CAS + applyMu 互斥），
+// 另一个被状态闸拒绝；terraform destroy 只执行一次。
+func TestDestroy_ConcurrentOnlyOnce(t *testing.T) {
+	runner := &fakeRunner{outputs: map[string]string{"instance_id": `"i-5"`}}
+	reg := &fakeRegistry{ids: []string{`"i-5"`}}
+	st := newFakeStore()
+	o := newOrchestrator(t, runner, reg, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errs []error
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := o.Destroy(context.Background(), run.ID)
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	assert.Len(t, errs, 1, "exactly one destroy must be rejected")
+	assert.Contains(t, errs[0].Error(), "not destroyable")
+	assert.Equal(t, 1, runner.destroy)
+	got, _ := st.Get(context.Background(), run.ID)
+	assert.Equal(t, StateDestroyed, got.State)
+}
+
 func TestValidate_Nil(t *testing.T) {
 	_, err := Validate(nil)
 	require.Error(t, err)

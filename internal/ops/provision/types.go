@@ -61,6 +61,8 @@ const (
 	StateDestroyed State = "destroyed"
 	// StateDestroyPending 已受理销毁申请单，等待审批通过（workflow 模式）。
 	StateDestroyPending State = "destroy_pending"
+	// StateDestroying 销毁执行中（并发销毁闸；防双 destroy 与在途 apply 竞态）。
+	StateDestroying State = "destroying"
 )
 
 // Spec 是实例规格（跨 provider 归一化；provider 模板映射到各自 instance_type）。

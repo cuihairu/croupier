@@ -679,7 +679,9 @@
 - [x] 审核发现：供给 beginResume 为 Get→pending 检查→置 applying→Update 非原子读改写，并发 ResumeAsync 均可通过 pending 检查触发双 apply（applyMu 在 beginResume 之后才锁）。（internal/ops/provision/orchestrator.go:336-357）
   - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`RunStore` 新增 `CompareAndSwapState`（model/provision_model.go:75-100，`WHERE run_id AND state=from` 原子 Update + RowsAffected 校验 + 整行回读）；`beginResume` 改用 CAS pending→applying，并发第二个 `ErrRunNotPending`；DB 适配 `provisionDBStore.CompareAndSwapState`。
   - 完成证据：`TestProvisionRunModel_CompareAndSwapState`（首次 CAS 成功、二次 ok=false、不存在 run 返回 ok=false 无错误）、`TestResumeAsync_DoubleResume_SecondRejected`；`go test ./internal/ops/provision/ ./internal/model/ -count=1` 全绿。
-- [ ] 审核发现：供给 DestroyResume 未先推进状态即执行 runDestroy（并发双销毁），且 Destroy/runDestroy 不持 applyMu、不校验 run 状态，可直接与在途 apply 对同一 workdir 竞态（terraform state 破坏）。（internal/ops/provision/orchestrator.go:375,411,437）
+- [x] 审核发现：供给 DestroyResume 未先推进状态即执行 runDestroy（并发双销毁），且 Destroy/runDestroy 不持 applyMu、不校验 run 状态，可直接与在途 apply 对同一 workdir 竞态（terraform state 破坏）。（internal/ops/provision/orchestrator.go:375,411,437）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。新增 `StateDestroying`；`Destroy` 校验 adopted 后原子 CAS adopted→destroying，`DestroyResume` 原子 CAS destroy_pending→destroying（第二个返回 `ErrRunNotDestroyPending`）；两者均持 `applyMu` 与在途 apply 互斥（同一 workdir terraform state 不竞态）。
+  - 完成证据：`TestDestroy_ConcurrentOnlyOnce`（双并发仅一个通过、destroy 只执行一次、终态 destroyed）、`TestDestroy_Transitions`、`TestDestroyResume_Approved_Transitions`；`go test ./internal/ops/provision/ ./internal/api/ops/ -count=1` 全绿。
 - [ ] 审核发现：供给请求 Count 无上限（仅校验 <1），可一次性创建海量云实例造成失控成本/资源。（internal/ops/provision/orchestrator.go:111-113）
 - [ ] 审核发现：batchop Execute 无状态闸，已完成/运行中批次可被重复派发；且在请求 ctx 上执行、UpdateStatus 错误全被 `_ =` 丢弃，断开后批次停 Running 且终态不落库。（internal/ops/batchop/batchop.go:187,196,243）
 - [x] 审核发现：deploy Start 状态闸在调用方载入副本上非原子判断（:126），并发 Start 均可通过并双跑首批；且 Rollback 在 stage/apply 失败时仍标记 RolledBack 上报成功（假成功）。（internal/ops/deploy/deploy.go:126,229-242）
