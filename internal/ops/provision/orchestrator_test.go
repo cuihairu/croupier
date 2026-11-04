@@ -15,14 +15,16 @@ import (
 
 // fakeRunner 记录调用并返回预设输出；Init/Apply/Destroy 全部走 Fake 路径。
 type fakeRunner struct {
-	mu         sync.Mutex
-	applied    int
-	inited     int
-	destroy    int
-	outputs    map[string]string
-	applyErr   error
-	destroyErr error
-	lastVars   map[string]string
+	mu               sync.Mutex
+	applied          int
+	inited           int
+	destroy          int
+	destroyCtx       context.Context
+	destroyErrAtCall error
+	outputs          map[string]string
+	applyErr         error
+	destroyErr       error
+	lastVars         map[string]string
 }
 
 func (f *fakeRunner) Init(_ context.Context, _ string) error {
@@ -43,9 +45,11 @@ func (f *fakeRunner) Apply(_ context.Context, _ string, vars map[string]string) 
 	return f.outputs, nil
 }
 
-func (f *fakeRunner) Destroy(_ context.Context, _ string) error {
+func (f *fakeRunner) Destroy(ctx context.Context, _ string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.destroyCtx = ctx
+	f.destroyErrAtCall = ctx.Err()
 	f.destroy++
 	return f.destroyErr
 }
@@ -721,6 +725,36 @@ func TestFailDestroy_PersistsDestroyFailed_AfterCtxCancelled(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, StateDestroyFailed, got.State)
 	assert.Contains(t, got.Error, "destroy failed")
+}
+
+// 回归（todo.md 审核发现 orchestrator.go:509,512,527）：客户端断开后
+// terraform destroy 必须用独立于请求 ctx 的上下文执行——若仍复用已取消的
+// ctx，Runner.Destroy 立即 context.Canceled，真实销毁中止且失败面靠
+// failDestroy 补救（但已取消 ctx 下 Runner.Destroy 永远失败，销毁不可达）。
+func TestRunDestroy_UsesIndependentCtxForRunner(t *testing.T) {
+	runner := &fakeRunner{}
+	st := &ctxAwareStore{fakeStore: newFakeStore()}
+	o := newOrchestrator(t, runner, &fakeRegistry{ids: []string{`"i-x"`}}, &fakeApproval{}, st)
+
+	run, err := o.Create(context.Background(), baseRequest())
+	require.NoError(t, err)
+	run.State = StateDestroying
+	run.UpdatedAt = time.Now()
+	require.NoError(t, st.Update(context.Background(), run))
+
+	dir := filepath.Join(o.WorkDir, run.ID)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0o644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	require.NoError(t, o.runDestroy(ctx, run))
+
+	runner.mu.Lock()
+	destroyErrAtCall := runner.destroyErrAtCall
+	runner.mu.Unlock()
+	assert.NoError(t, destroyErrAtCall, "Runner.Destroy ctx must not be cancelled by client disconnect at call time")
 }
 
 // 回归：RequestDestroy 的 Get→检查→Create 审批→Update 非原子读改写，并发

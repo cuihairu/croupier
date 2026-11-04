@@ -515,7 +515,9 @@ func (o *Orchestrator) runDestroy(ctx context.Context, run *Run) error {
 	if _, err := os.Stat(filepath.Join(dir, "main.tf")); err != nil {
 		return o.failDestroy(ctx, run, fmt.Errorf("provision: workdir for %s not found: %w", run.ID, err))
 	}
-	if err := o.Runner.Destroy(ctx, dir); err != nil {
+	dctx, dcancel := context.WithTimeout(context.WithoutCancel(ctx), asyncApplyBudget)
+	defer dcancel()
+	if err := o.Runner.Destroy(dctx, dir); err != nil {
 		return o.failDestroy(ctx, run, fmt.Errorf("provision destroy: %w", err))
 	}
 	run.State = StateDestroyed
