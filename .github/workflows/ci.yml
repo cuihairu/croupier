@@ -24,6 +24,19 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  version-guard:
+    name: Version guard (VERSION == all SDK manifests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # 需要完整 tag 列表做 VERSION vs 最新 tag 比对
+      - name: Check version consistency
+        timeout-minutes: 2
+        run: bash scripts/check-version-sync.sh
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

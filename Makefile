@@ -1,5 +1,9 @@
 BINDIR := bin
-VERSION := $(shell cat VERSION 2>/dev/null || echo "0.1.0")
+# 版本单一真源：VERSION 文件。缺失时直接失败，禁止静默回退（曾致 v0.1.5 二进制自报 0.1.4）。
+ifeq ($(strip $(shell cat VERSION 2>/dev/null)),)
+$(error VERSION file missing or empty at repo root — refuse to inject a stale fallback version)
+endif
+VERSION := $(shell cat VERSION)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell git diff --quiet || echo "-dirty")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
@@ -15,40 +19,11 @@ LDFLAGS := -X main.Version=$(FULL_VERSION) -X main.BuildTime=$(BUILD_TIME) -X ma
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
 .PHONY: version version-sync
-.PHONY: clone-sdks clone-dashboard clone-all
 
 # Build all components (server + sdks + web)
 all: build build-sdks build-web
 
-# ========== Clone External Dependencies ==========
-# Clone SDK repositories (used instead of git submodules)
-SDK_REPOS := croupier-sdk-cpp croupier-sdk-go croupier-sdk-java croupier-sdk-js croupier-sdk-python croupier-sdk-csharp
-SDK_BASE_URL := git@github.com:cuihairu
-
-clone-sdks:
-	@echo "[clone] cloning SDK repositories..."
-	@for repo in $(SDK_REPOS); do \
-		if [ ! -d "sdks/$$repo" ]; then \
-			echo "[clone] $$repo"; \
-			git clone --depth 1 $(SDK_BASE_URL)/$$repo.git sdks/$$repo; \
-		else \
-			echo "[skip] $$repo already exists"; \
-		fi \
-	done
-
-# Clone dashboard repository
-clone-dashboard:
-	@echo "[clone] cloning dashboard..."
-	@if [ ! -d "dashboard" ]; then \
-		echo "[clone] croupier-dashboard"; \
-		git clone --depth 1 $(SDK_BASE_URL)/croupier-dashboard.git dashboard; \
-	else \
-		echo "[skip] dashboard already exists"; \
-	fi
-
-# Clone all external dependencies
-clone-all: clone-sdks clone-dashboard
-	@echo "[done] all dependencies cloned"
+# (注：SDK 与 dashboard 已并入本仓库，原 clone-sdks/clone-dashboard/clone-all 外部仓步骤已移除)
 
 # Sync proto files from remote
 sync-proto:
@@ -158,8 +133,8 @@ ingest:
 
 .PHONY: analytics-spec
 analytics-spec:
-	@echo "[analytics] exporting analytics spec JSON to dashboard/public/analytics-spec.json"
-	@GOFLAGS=-mod=mod go run ./cmd/analytics-export --configs configs/analytics --out dashboard/public/analytics-spec.json
+	@echo "[analytics] exporting analytics spec JSON to web/public/analytics-spec.json"
+	@GOFLAGS=-mod=mod go run ./cmd/analytics-export --configs configs/analytics --out web/public/analytics-spec.json
 
 # ========== SDK Build Targets ==========
 build-sdks: build-sdks-cpp build-sdks-go
@@ -236,7 +211,7 @@ clean-sdks:
 
 clean-web:
 	@echo "[clean] cleaning web and docs build artifacts..."
-	@rm -rf dashboard/dist dashboard/node_modules
+	@rm -rf web/dist web/node_modules
 	@rm -rf docs/.vuepress/dist docs/.vuepress/.cache docs/.vuepress/.temp docs/node_modules
 
 # ========== Version Management ==========
@@ -247,8 +222,8 @@ version:
 	@echo "SDK Versions:"
 	@echo "  JS:     $$(grep '"version"' sdks/js/package.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')"
 	@echo "  Python: $$(grep '^version' sdks/python/pyproject.toml | sed 's/.*"\(.*\)".*/\1/')"
-	@echo "  Java:   $$(grep '^version' sdks/java/build.gradle | sed "s/.*'\(.*\)'.*/\1/")"
-	@echo "  C++:    $$(grep -A1 '^project' sdks/cpp/CMakeLists.txt | grep 'VERSION' | awk '{print $$2}')"
+	@echo "  Java:   $$(grep 'baseVersion = ' sdks/java/build.gradle | head -1 | sed "s/.*'\(.*\)'.*/\1/")"
+	@echo "  C++:    $$(MAJOR=$$(sed -n 's/^set(CROUPIER_SDK_VERSION_MAJOR \([0-9]*\))$$/\1/p' sdks/cpp/VERSION.cmake); MINOR=$$(sed -n 's/^set(CROUPIER_SDK_VERSION_MINOR \([0-9]*\))$$/\1/p' sdks/cpp/VERSION.cmake); PATCH=$$(sed -n 's/^set(CROUPIER_SDK_VERSION_PATCH \([0-9]*\))$$/\1/p' sdks/cpp/VERSION.cmake); echo $$MAJOR.$$MINOR.$$PATCH)"
 	@echo "  Go:     $$(grep 'const Version' sdks/go/version.go 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' || echo 'N/A')"
 	@echo "  C#:     $$(grep '<Version>' sdks/csharp/src/Croupier.Sdk/Croupier.Sdk.csproj | sed 's/.*<Version>\(.*\)<\/Version>.*/\1/')"
 
