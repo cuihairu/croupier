@@ -163,6 +163,10 @@ import (
 //   0059 (Go)   provision_runs.cloud_init_extra 列（ed541f6e 审计 #657：
 //               ticket 续行丢失非敏感 cloud-init 自定义片段；加列 0025 模式；
 //               缺表跳过；存量行空=未提供，行为与现状一致）
+//   0060 (Go)   backups.game_id/env/source_id/source_name 列（OPS-008 数据面
+//               备份恢复：游戏库备份归属经 capture 所见数据源登记；加列 0025
+//               模式 + idx_backup_scope 复合索引；缺表跳过；存量行三列空=
+//               平台级备份，行为与现状一致）
 
 func init() {
 	registerSvcMigrations()
@@ -232,6 +236,7 @@ func registerSvcMigrations() {
 		agentLogTablesMigration(),
 		batchOpTablesMigration(),
 		costBudgetTablesMigration(),
+		backupScopeColumnsMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1856,6 +1861,51 @@ func migrateProvisionRunCloudInitExtra(ctx context.Context, sqlDB *sql.DB) error
 	}
 	if err := db.Migrator().AddColumn(&model.ProvisionRun{}, "CloudInitExtra"); err != nil {
 		return fmt.Errorf("migrate: 0059 add provision_runs.cloud_init_extra: %w", err)
+	}
+	return nil
+}
+
+// backupScopeColumnsMigration adds game/env/source ownership columns to backups
+// (OPS-008). 游戏库备份（ops/backups）归属经 capture 所见数据源登记；平台级
+// 备份（meta DB）三列空。AddColumn 补列模式（0025/0053/0054/0059）；缺表跳过
+// （fanout 重放到无该表的库不报错、不建空壳）；存量行三列空=平台级备份，
+// 行为与现状一致。复合索引经 HasIndex 守卫后 CreateIndex。
+func backupScopeColumnsMigration() *goose.Migration {
+	return goose.NewGoMigration(60,
+		&goose.GoFunc{RunDB: migrateBackupScopeColumns},
+		nil,
+	)
+}
+
+func migrateBackupScopeColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.Backup{}) {
+		return nil
+	}
+	cols := []struct {
+		column string
+		field  string
+	}{
+		{column: "game_id", field: "GameID"},
+		{column: "env", field: "Env"},
+		{column: "source_id", field: "SourceID"},
+		{column: "source_name", field: "SourceName"},
+	}
+	for _, c := range cols {
+		if db.Migrator().HasColumn(&model.Backup{}, c.column) {
+			continue
+		}
+		if err := db.Migrator().AddColumn(&model.Backup{}, c.field); err != nil {
+			return fmt.Errorf("migrate: 0060 add backups.%s: %w", c.column, err)
+		}
+	}
+	if !db.Migrator().HasIndex(&model.Backup{}, "idx_backup_scope") {
+		if err := db.Migrator().CreateIndex(&model.Backup{}, "idx_backup_scope"); err != nil {
+			return fmt.Errorf("migrate: 0060 add backups.idx_backup_scope: %w", err)
+		}
 	}
 	return nil
 }
