@@ -697,7 +697,9 @@
 - [x] 审核发现：deploy 包上传 io.ReadAll 无大小上限，可无界读入内存耗尽。（internal/api/ops/deployments.go:136）
   - 状态／条件：LOCAL VERIFIED（2026-11-03，已修）。`DeployPackageUpload` 用 `io.LimitReader(f, 500MiB+1)` 且超过即 400（internal/api/ops/deployments.go:137-147）。
   - 完成证据：`TestDeployPackageUploadEmptyNoObjectStore`；`go test ./internal/api/ops/` 全绿（303s）。
-- [ ] 审核发现：metrics 小时聚合磁盘 usage_percent 累加未除样本数（:657 累加、:713 直接 round2），可超 100% 且非均值，与 CPU/MEM/net（除 n）语义不一致。（internal/platform/registry/metrics.go:657,713）
+- [x] 审核发现：metrics 小时聚合磁盘 usage_percent 累加未除样本数（:657 累加、:713 直接 round2），可超 100% 且非均值，与 CPU/MEM/net（除 n）语义不一致。（internal/platform/registry/metrics.go:657,713）
+  - 状态／条件：LOCAL VERIFIED（2026-11-04，已修）。`aggregateHourly` 按挂载点改用 `diskAccum{usage,n}` 累加并求均值（`avg = usage / n` 后 `round2`），与 CPU/MEM/net 语义一致，不再可超 100%。
+  - 完成证据：`TestAggregateHourly_DiskUsagePercentAverage`（50+100 → 75）；`go test ./internal/platform/registry/ -count=1` 全绿（2.7s）。
 - [ ] 审核发现：metrics SetDB 写 s.db 未持 s.mu，与 Add/persistToDB/getFromDB/RollupHourly 读侧数据竞态（LogStore.SetDB 有锁，此处不一致）。（internal/platform/registry/metrics.go:186-188）
 - [ ] 审核发现：analytics processMessage 对 retry_count 做未检查类型断言（:1004），外部流消息若为非 float64 类型则 panic 崩 worker（Run 循环无 recover）。（internal/analytics/worker/worker.go:1004）
 - [ ] 审核发现：scheduler reapStaleClaims 游标按非唯一 created_at 分页（task_schedule_model.go 用 >= cursor）且 UpdateRunLog 错误被 `_ =` 丢弃（manager.go:280），边界同时间戳+持续更新失败时可反复取同页空转。（internal/tasks/scheduler/manager.go:280-288）

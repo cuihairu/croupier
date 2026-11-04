@@ -147,3 +147,37 @@ func seedRaw(t *testing.T, db *gorm.DB, agentID string, ts time.Time, cpu, mem f
 		t.Fatalf("seed: %v", err)
 	}
 }
+
+// TestAggregateHourly_DiskUsagePercentAverage verifies #667: the hourly rollup
+// averages per-mount usage_percent over samples instead of summing them, so two
+// samples at 50% and 100% produce 75% (not 150%).
+func TestAggregateHourly_DiskUsagePercentAverage(t *testing.T) {
+	mk := func(usage float64) []byte {
+		b, _ := json.Marshal([]*opsv1.DiskMetrics{{MountPoint: "/data", UsagePercent: usage}})
+		return b
+	}
+	rows := []AgentMetricsHistory{
+		{AgentID: "a1", DisksJSON: mk(50)},
+		{AgentID: "a1", DisksJSON: mk(100)},
+	}
+	agg := aggregateHourly(rows)
+	if len(agg.DisksJSON) == 0 {
+		t.Fatalf("disks json empty, want one mount point")
+	}
+	var disks []struct {
+		MountPoint   string  `json:"mount_point"`
+		UsagePercent float64 `json:"usage_percent"`
+	}
+	if err := json.Unmarshal(agg.DisksJSON, &disks); err != nil {
+		t.Fatalf("unmarshal disks: %v", err)
+	}
+	if len(disks) != 1 {
+		t.Fatalf("disks = %d, want 1", len(disks))
+	}
+	if disks[0].MountPoint != "/data" {
+		t.Fatalf("mount = %q, want /data", disks[0].MountPoint)
+	}
+	if disks[0].UsagePercent != 75 {
+		t.Fatalf("usage_percent = %v, want 75 (average of 50 and 100)", disks[0].UsagePercent)
+	}
+}

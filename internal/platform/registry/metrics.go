@@ -626,7 +626,7 @@ func (s *MetricsStore) RollupHourly(ctx context.Context) {
 func aggregateHourly(rows []AgentMetricsHistory) AgentMetricsHourly {
 	var cpuSum, memSum, procSum, portSum float64
 	var cpuN, memN, procN, portN int
-	diskByMount := make(map[string]*float64)
+	diskByMount := make(map[string]*diskAccum)
 	netByIface := make(map[string]*netRateAccum)
 
 	for _, r := range rows {
@@ -650,11 +650,11 @@ func aggregateHourly(rows []AgentMetricsHistory) AgentMetricsHourly {
 				for _, d := range disks {
 					acc := diskByMount[d.GetMountPoint()]
 					if acc == nil {
-						v := 0.0
-						acc = &v
+						acc = &diskAccum{}
 						diskByMount[d.GetMountPoint()] = acc
 					}
-					*acc += d.GetUsagePercent()
+					acc.usage += d.GetUsagePercent()
+					acc.n++
 				}
 			}
 		}
@@ -710,7 +710,11 @@ func aggregateHourly(rows []AgentMetricsHistory) AgentMetricsHourly {
 		}
 		out := make([]diskAvg, 0, len(diskByMount))
 		for mount, acc := range diskByMount {
-			out = append(out, diskAvg{MountPoint: mount, UsagePercent: round2(*acc)})
+			avg := 0.0
+			if acc.n > 0 {
+				avg = acc.usage / float64(acc.n)
+			}
+			out = append(out, diskAvg{MountPoint: mount, UsagePercent: round2(avg)})
 		}
 		if raw, err := json.Marshal(out); err == nil {
 			agg.DisksJSON = dbtype.JSON(raw)
@@ -743,6 +747,11 @@ type netRateAccum struct {
 	sent float64
 	recv float64
 	n    int
+}
+
+type diskAccum struct {
+	usage float64
+	n     int
 }
 
 // round2 rounds to two decimals (percent/rate display precision).
