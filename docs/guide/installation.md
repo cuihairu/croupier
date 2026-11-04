@@ -255,7 +255,27 @@ outboundTLS:
 curl http://localhost:18780/healthz
 
 # Expected output (ok / timestamp / uptimeSeconds / components; each component is an object with an "ok" boolean)
-{"ok":true,"timestamp":"2026-10-13T00:00:00Z","uptimeSeconds":3600,"components":{"database":{"ok":true,"driver":"sqlite","latencyMs":1},"registry":{"ok":true,"agentsTotal":1,"agentsHealthy":1,"functionsRegistered":8},"ops":{"ok":true}}}
+{
+  "ok": true,
+  "timestamp": "2026-10-13T00:00:00Z",
+  "uptimeSeconds": 3600,
+  "components": {
+    "database": {
+      "ok": true,
+      "driver": "sqlite",
+      "latencyMs": 1
+    },
+    "registry": {
+      "ok": true,
+      "agentsTotal": 1,
+      "agentsHealthy": 1,
+      "functionsRegistered": 8
+    },
+    "ops": {
+      "ok": true
+    }
+  }
+}
 ```
 
 ### Functional Testing

@@ -114,7 +114,13 @@ serverStatus:
 
 ```bash
 # 源侧：GET http://ops-status.internal:9100/status?agentId=agent-1 返回
-{"frozen": true, "ok": false, "since": "2026-10-12T00:00:00Z", "until": "2026-10-13T00:00:00Z", "why": "发版"}
+{
+  "frozen": true,
+  "ok": false,
+  "since": "2026-10-12T00:00:00Z",
+  "until": "2026-10-13T00:00:00Z",
+  "why": "发版"
+}
 ```
 
 ```yaml
