@@ -276,9 +276,9 @@
 
 - [ ] **OPS-008 · P3 · 实现 · 数据面备份恢复**
   - 依赖：—。
-  - 状态／条件：IN PROGRESS（2026-11-04）。数据面执行已接通（Stage A+B）：backups 归属四列（game_id/env/source_id/source_name，迁移 0060）+ ops 创建按请求 scope 解析注册数据源并真实执行 dump→sha256→上传→succeeded（不再悬挂 pending；未注册源→404 拒绝、存储未配置→500 拒绝）+ 清单按 scope 过滤并带 gameId/env/sourceName/checksum。剩余非本批交付：恢复演练模式（Stage C，需 objstore 读路径 + 恢复执行器）、备份校验（Stage D，需 Store.Get 读回重算 sha256 对照存储值）、定期备份调度（Stage E，config 开关默认关）。
-  - 完成证据：2026-11-04；模型层 `38a270a5`（ListBackupsOptions scope 过滤 + DBSourceModel.FindByScope）、ops API `f0d244f1`（createBackupForScope 真实执行 + buildOpsBackupItems + 新用例 TestBackupServiceCreateScoped_NoSourceRejected/NoStorageRejected/Executes 端到端 sqlite dump→file store→succeeded、TestBackupServiceListWithRealModel 改按 scope 语义）、迁移 0060 `2467bc8b` + 回归 `23c8996e`；`go test ./internal/api/ops/ ./internal/model/ ./internal/api/backup/ ./internal/svc/ -count=1` 全绿、`go build ./...` 过、gofmt/vet 干净。
-  - 交付与验收：游戏库定期备份策略（经 capture 所见的数据源登记）、恢复演练模式、备份清单与校验。
+  - 状态／条件：IN PROGRESS（2026-11-04）。数据面执行已接通（Stage A+B）：backups 归属四列（game_id/env/source_id/source_name，迁移 0060）+ ops 创建按请求 scope 解析注册数据源并真实执行 dump→sha256→上传→succeeded（不再悬挂 pending；未注册源→404 拒绝、存储未配置→500 拒绝）+ 清单按 scope 过滤并带 gameId/env/sourceName/checksum。校验读路径（Stage D）：objstore.Store.Get 读回（file/s3/cos/oss 四驱动 + 逐驱动用例）+ backupexec.VerifyChecksum 重算 sha256 对照存储值 + ops BackupService.Verify。定期备份调度（Stage E）：config backup.schedule.enabled 缺省 false 必须显式 + 后台循环（backupexec.Scheduler 枚举注册启用数据源触发真实备份，在途防重，root.go 按开关装配）。剩余非本批交付：恢复演练模式（Stage C，需恢复执行器，演练目标机制未定形——暂缓，不盲建）。
+  - 完成证据：2026-11-04；模型层 `38a270a5`（ListBackupsOptions scope 过滤 + DBSourceModel.FindByScope）、ops API `f0d244f1`（createBackupForScope 真实执行 + buildOpsBackupItems + 新用例 TestBackupServiceCreateScoped_NoSourceRejected/NoStorageRejected/Executes 端到端 sqlite dump→file store→succeeded、TestBackupServiceListWithRealModel 改按 scope 语义）、迁移 0060 `2467bc8b` + 回归 `23c8996e`；Stage D `2c6e1e31`（objstore.Get + 四驱动 + 逐驱动用例 Test*Store_Get_RoundTrip/NotFound + VerifyChecksum/BackupService.Verify 用例）、Stage E `4eba5cc0`（backup.schedule 配置 + Scheduler 用例 + root.go 装配）；`go test ./internal/api/ops/ ./internal/model/ ./internal/api/backup/ ./internal/svc/ ./internal/platform/objstore/ ./internal/platform/backupexec/ ./internal/config/ -count=1` 全绿、`go build ./...` 过、`go vet ./internal/...` 干净、gofmt 干净。
+  - 交付与验收：游戏库定期备份策略（经 capture 所见的数据源登记）、恢复演练模式、备份清单与校验。已完成：备份清单（scope 过滤 + 归属列）、备份校验（Get 读回重算 sha256）、定期备份调度（config 开关默认关显式启用）。待定：恢复演练模式（Stage C，演练目标机制未定形，暂缓）。
 - [ ] **OPS-009 · P3 · 实现 · 运维 runbook 自动化**
   - 依赖：OPS-004, OPS-006。
   - 状态／条件：TODO（未开始）。
