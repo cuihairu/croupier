@@ -756,3 +756,50 @@
   - 修复：readStream 先归一化行尾（CRLF→LF、CR→LF）再按 `\n\n` 分帧；dispatchFrame 不再做 CR 后处理；新增 `parses SSE frames with mixed line endings (CRLF/LF/CR)` 回归（\r\n\n 与 \r\r 混用均正确分帧）。
   - 证据：2026-11-04；`npx jest src/services/core/http.test.ts` 15/15 PASS；`npx tsc --noEmit` 0 错误。
 - [x] 审核覆盖：本轮（f9b1610f..HEAD，91 commits / 78 文件，+4695/-466）逐文件审查已完成——重点覆盖安全修复 C-001..C-026（cloudInit 注入 C-002 / 帧解码 C-003 / SSE header C-004 / 附件·告警·devtools·navigate scheme 白名单 C-006/C-007/C-017/C-018 / exec 边界 C-008 / DB 名白名单 C-009 / asciicast id C-010 / mTLS 口令 C-011 / varint 越界 C-012 / 响应帧写失败 C-013/C-014/C-015 / 探针口令 C-016 / openapi 5xx body C-025 / ratelimit 空窗 C-026）、OPS-007 成本控制（api/ops/costcontrol、idle、model、routes）、OPS-011 大屏（health.ts、Dashboard/index.tsx）、FetchSSEStream、costcontrol/模板/db/asciicast/template 等测试与各 SDK（go/cpp/java/js/python）。文档、图片、纯测试文件未逐行审。结论见上 7 条发现并已全部修复（2026-11-04）；未见高危及注入/越界/泄漏类新问题。
+
+## 外部深度审核落地（2026-11-04，CR-FIX-01..35）
+
+- 来源：[外部深度审核 35 条](docs/review/external-deep-audit-2026-11-04.md)。评审代码快照 `a4bcfe4b1`，核验与落地 HEAD `8ed22de0`：**属实 29 / 部分属实 6 / 不属实 0**（行号漂移 2 处 P0-3、P1-9 已在对照表更新现行位置）。外部建议非仓内事实；「部分属实」条目（P1-10/11/18/20、P2-28、P3-32）按对照表裁剪后的剩余缺口推进，已完成子项不重做。
+- 推进顺序（评审附录 B 五批次，逐批次门禁：该批次全部验收口径通过才勾对应 CR-FIX）：
+  1. 第 1 批（1 天）许可证统一、版本守卫接 CI、仓库卫生 → CR-FIX-01、02、20
+  2. 第 2 批（3 天）TLS fail-closed、发布测试门禁 + 校验和签名 → CR-FIX-03、04、12
+  3. 第 3 批（1 周）跨 SDK golden 向量、proto 变更触发 SDK CI、buf breaking → CR-FIX-05、23
+  4. 第 4 批（2 周）双通道补齐 3 语言、握手鉴权、读循环解耦、投递语义矩阵 → CR-FIX-08、09、10、11
+  5. 第 5 批（并行）治理文件、文档纠偏、a11y、注册中心矩阵发布 → CR-FIX-13、16、17、18、19
+  - P2/P3 其余条目（CR-FIX-06/07/14/15/21/22/24/25/26/27/28/29/30/31/32/33/34/35）随批次并行消化，不设硬顺序。
+- 跟踪清单（CR-FIX 编号 → 原评审编号；验收口径来自评审原文并在核验后确认仍适用）：
+  - [ ] CR-FIX-01（P0-1）许可证双口径统一为 Apache-2.0：改 `sdks/python/pyproject.toml` license/classifier、`sdks/js/package.json` license；补全 `LICENSE` 版权行（现 :189 占位符）；按需新增 NOTICE。验收：`grep -r '"license"' sdks/*/package.json` 与 python pyproject 的 license 结果唯一且为 Apache-2.0；LICENSE 无 `[yyyy]` 占位符。
+  - [ ] CR-FIX-02（P0-2）版本单一真源 + CI 守卫：确立 VERSION 为唯一源，CI 加 version-guard（VERSION == 最新 tag 去 v == 6 个 SDK manifest）；release.yml 加 verify-version job；移除 `git describe` 重注（现 release.yml:59-61）并修 make build 注入。验收：故意改坏任一 manifest CI 必红；`croupier-server --version` 与 tag 一致。
+  - [ ] CR-FIX-03（P0-3）集群互联 TLS fail-closed：`cluster.enabled: true` 且证书面缺失时拒绝启动（或强制显式二次确认开关）；就绪探针 503；文档同步。现场情报：fail-open 注释现行位置 `internal/config/config.go:670-676`、`configs/server.yaml:54-55,120`。验收：漏配证书时启动失败并明示原因；显式开关开启时放行且就绪面记录降级。
+  - [ ] CR-FIX-04（P0-4）发布门禁与产物完整性：release job 串跑 `go test ./...` + e2e + 契约守卫；全产物 SHA256SUMS；cosign sign-blob（keyless）或 GitHub artifact attestation；nightly 改不可变 `nightly-YYYYMMDD` tag（现 nightly.yml:814-815 强推）。验收：CI 红则不出包；下载物可校验；历史 nightly 可按 tag 找回。
+  - [ ] CR-FIX-05（P0-5）跨 SDK 行为级契约验证：`proto/` 旁放语言中立 golden 向量（握手帧、Register 编解码、task 事件、错误码映射），6 SDK round-trip 同一文件，CI matrix 扇出；补 `buf breaking --against '.git#branch=main'`；ci-sdk-*.yml paths 纳入 `proto/**`。验收：改 proto 任一 breaking 变更至少一个 SDK CI 红；golden 向量 6 语言全绿。
+  - [ ] CR-FIX-06（P1-6）架构状态表纠偏（反向偏差，文档滞后）：更正 `docs/architecture/index.md:49` 审批 store 行为 SQLStore 实况；把关键行做成可执行断言（启动打印实际 store 类型或 CI 校验表与 wiring 一致）。验收：文档表格与 `internal/svc/service_context.go:366,543` 实况一致且有同步机制。
+  - [ ] CR-FIX-07（P1-7）协议版本协商：握手增加能力协商与最低版本窗口；"不支持版本"降级为拒绝该请求、保留会话；给出 N-1 兼容期与废止时间表。现场情报：`sdk-wire-protocol.md:103,381-383`。验收：新版本服务端与旧版本 SDK 会话存活、不兼容请求被拒且会话保留。
+  - [ ] CR-FIX-08（P1-8）双通道补齐 Java/C++/C#：三语言补 control 队列/线程池并与 Go/JS/Python 同一 golden 场景验证（业务饱和下心跳延迟上界）。验收：业务洪峰压测下三语言心跳延迟有界、连接不雪崩。
+  - [ ] CR-FIX-09（P1-9）读循环与执行解耦：`internal/transport/tcp/server.go` serveConn（现 :200 同步 `handler.Handle`）改 worker pool + 有界队列，实现 `max_inflight_requests` 与逐请求 deadline；补"慢 handler 不影响控制帧"回归。现场情报：`internal/transport/` grep inflight 零命中；mux_conn 双车道为另一链路、未覆盖此处。验收：注入慢 handler 时同连接心跳/取消不受阻塞；in-flight 有上界不无界增长。
+  - [ ] CR-FIX-10（P1-10）投递语义矩阵：每类消息 at-most-once / at-least-once + 幂等键；Ops 类默认 at-most-once + 人工确认，禁止 busy 自动 failover。现场情报：`sdk-wire-protocol.md:147,166` busy→peer failover 仍在；评审引证的 ARCH-018 已完成，与其无关。验收：文档矩阵落地且非幂等 Ops 命令在 busy 时不会换实例自动重试（回归测试证明）。
+  - [ ] CR-FIX-11（P1-11）SDK→Agent 握手鉴权：握手元数据统一携带 `auth_token`（6 语言；Go 已有 `types.go:137,246` AuthToken 基础可复用），Agent 侧可配置 `require_provider_auth`。验收：开启强制后无 token 握手被拒；6 语言注册全链通过。
+  - [ ] CR-FIX-12（P1-12）nightly 不可变 tag 与产物校验：同 CR-FIX-04 第 2、3 条。验收：`git tag -f nightly` 强推路径移除；产物可校验。
+  - [ ] CR-FIX-13（P1-13）SDK 注册中心矩阵发布：合并为一个 tag 触发的 reusable workflow 矩阵（npm/PyPI/Maven/NuGet/Go proxy/vcpkg），任一失败 release 转 draft 并告警。验收：单 tag 触发 6 发布；人为失败注入时 release 变 draft。
+  - [ ] CR-FIX-14（P1-14）测试范围补齐：ci.yml 纳入 `./pkg/...`、`./cmd/...`（或至少显式点名 `./cmd/server` drill 测试）；codecov.yml 8 处 informational（:53..:102）去掉并设 SDK 绝对下限（如 85%）。验收：pkg/cmd 单测在 CI 执行；SDK 覆盖率跌破下限 CI 红。
+  - [ ] CR-FIX-15（P1-15）SQLite 删列改原生 SQL：`internal/platform/registry/agent_session_db.go:85` 弃用 GORM DropColumn，改 `ALTER TABLE ... DROP COLUMN`（仓内 `migration_term_dictionary.go:82-93` 已有范式）；回填/回滚路径写入迁移文档。验收：SQLite 下迁移后 `rpc_addr` 列实际不存在；DropColumn 错误不再被吞。
+  - [ ] CR-FIX-16（P1-16）治理文件：补 CONTRIBUTING / CoC / CHANGELOG / NOTICE / CODEOWNERS / issue+PR 模板；SECURITY 支持表改 `0.1.x + main` 并写 backport 政策；补安全邮箱与 PGP 指纹。验收：文件齐备且 SECURITY 支持表覆盖已发版本。
+  - [ ] CR-FIX-17（P1-17）文档站死链治理：`docs/.vitepress/config.mjs:12` ignoreDeadLinks 改白名单过渡；CI 加 locale parity 检查（en/zh 页面集合 + sidebar diff）；补齐 SDK 中文页。验收：build 对未知坏链报错；zh SDK 页不再整体回指英文。
+  - [ ] CR-FIX-18（P1-18）传输决策 ADR 与 README 纠偏：写 `docs/architecture/adr/0001-transport.md`（gRPC 逐项对比与否决理由、go-plugin 豁免边界）；修正 README:98 对归档 legacy 文档的权威背书；README 链接可点 CI 检查。验收：现行 ADR 存在且 README 引用全部可解析。
+  - [ ] CR-FIX-19（P1-19）可访问性工程化：`eslint-plugin-jsx-a11y` 入 web lint 链；Playwright real-dashboard project 接 `@axe-core/playwright` 扫关键页；两套主题 × 明暗 4 组 WCAG AA 对比度检查。验收：a11y 违例进 CI；对比度检查有报告与阈值。
+  - [ ] CR-FIX-20（P1-20）仓库卫生收尾（对照表裁剪后剩余项）：`git rm --cached test-results/.last-run.json`；清理 `Makefile:18,25,40,50,161-162,239` 的 clone-dashboard/dashboard//croupier-sdk-* 引用。验收：`git ls-files` 无 test-results；按 Makefile 目标执行不再指向已并入 monorepo 的旧仓。（.gitignore 的 *.out/*.exe/web/test-results 已补，本项不再包含）
+  - [ ] CR-FIX-21（P2-21）internal 分层收敛：定四层（transport/core/platform/api）并以 depguard 强制 import 方向；先合并 svc→service、api→handler。验收：depguard 规则进 CI 且现有代码过闸。
+  - [ ] CR-FIX-22（P2-22）技术债消化：`context.Background()`（internal/api+handler 非测试 20 处）改从入参派生；panic 限定 init/不可恢复路径并加注释；TODO 按目录分批。验收：api/handler 无新增裸 context.Background；panic 清单有注释豁免。
+  - [ ] CR-FIX-23（P2-23）buf breaking 门禁：同 CR-FIX-05 第 3 条。验收：proto breaking 变更 CI 红。
+  - [ ] CR-FIX-24（P2-24）性能门禁：test-performance.sh 改 k6/vegeta 并发压测 + P95 断言 + benchstat 基线，放 nightly；解锁 PERF-001..003（现 BLOCKED 待容量目标）。验收：nightly 有并发压测与 P95 阈值（阈值需先由用户拍板容量目标）。
+  - [ ] CR-FIX-25（P2-25）nightly 测试增强：新增 nightly-test job（全量 `-race -shuffle=on`、`-count=3` flaky 探测、10 分钟 fuzz）。验收：nightly 运行含上述三件套且有产物。
+  - [ ] CR-FIX-26（P2-26）移动端质量：mobile/ 补 coverage 与 golden test；产出移动端独立威胁模型。验收：CI 报告 mobile 覆盖率；威胁模型文档入库。
+  - [ ] CR-FIX-27（P2-27）默认凭据治理：初始化脚本现场生成随机口令并打印一次；README 明确 admin/admin123 仅 demo 环境。验收：新装实例无固定默认口令；README 有明示。
+  - [ ] CR-FIX-28（P2-28）SDK 能力对齐或版本解耦：基于既有 `sdks/SDK_FEATURE_MATRIX.md` 发布"能力 × 版本"矩阵；要么能力对齐后统一版本，要么 per-package 版本（changesets/release-please）。验收：矩阵文档与 manifest 版本策略二选一落地并公开。
+  - [ ] CR-FIX-29（P2-29）文档语言与术语规范：统一命名文件语种约定；L1/L2/L3、subprotocol 等术语在用户文档入口给解释（与 CR-FIX-32 术语表联动）。验收：入口文档有术语解释链接。
+  - [ ] CR-FIX-30（P2-30）截图资产治理：docs/screenshots/ui 压缩/WebP 化（01-login.png 现 1.04MB）；建立截图重生成机制；主题对比度声明（与 CR-FIX-19 联动）。验收：ui 目录体积显著下降且有重生成脚本。
+  - [ ] CR-FIX-31（P3-31）新增面向用户的 ROADMAP.md（与内部 todo.md 台账分离）。
+  - [ ] CR-FIX-32（P3-32）补传输层术语表：session runtime/subprotocol/L1-L3 进 glossary（现有 docs/zh/architecture/dashboard-glossary.md 为 Dashboard 术语表，需扩展或另立传输术语页）。
+  - [ ] CR-FIX-33（P3-33）建 `scripts/contract/` 跨 SDK golden 帧测试脚本入口（与 CR-FIX-05 配套）。
+  - [ ] CR-FIX-34（P3-34）样式系统边界文档：antd token + antd-style + Tailwind 4 + global.less 的适用边界成文。
+  - [ ] CR-FIX-35（P3-35）pnpm workspace 与 Go module 版本策略文档化。
