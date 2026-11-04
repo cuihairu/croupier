@@ -81,6 +81,8 @@ var (
 	ErrRunNotApproved = errors.New("provision: run not yet approved")
 	// ErrRunNotDestroyPending 销毁续行时运行已非 destroy_pending（状态闸拒绝）。
 	ErrRunNotDestroyPending = errors.New("provision: run not destroy pending")
+	// ErrRunNotDestroyable 直接销毁时运行已非 adopted（非纳管/已销毁/在途）。
+	ErrRunNotDestroyable = errors.New("provision: run not destroyable")
 )
 
 const (
@@ -403,7 +405,19 @@ func (o *Orchestrator) Destroy(ctx context.Context, runID string) error {
 	if err != nil {
 		return err
 	}
-	return o.runDestroy(ctx, run)
+	if run.State != StateAdopted {
+		return fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyable, runID, run.State)
+	}
+	ok, current, err := o.Store.CompareAndSwapState(ctx, runID, string(StateAdopted), string(StateDestroying))
+	if err != nil {
+		return fmt.Errorf("provision: cas destroying: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyable, runID, current.State)
+	}
+	o.applyMu.Lock()
+	defer o.applyMu.Unlock()
+	return o.runDestroy(ctx, current)
 }
 
 // RequestDestroy 是销毁申请单入口（workflow 模式）：run 须为 adopted，
@@ -452,15 +466,27 @@ func (o *Orchestrator) DestroyResume(ctx context.Context, runID string) (*Run, e
 	if !ok {
 		return nil, fmt.Errorf("%w: run %s", ErrRunNotApproved, runID)
 	}
-	// 批准后执行 terraform destroy 原语（状态闸已过，防双跑）。
-	if err := o.runDestroy(ctx, run); err != nil {
-		return nil, err
+	// 原子 destroy_pending→destroying CAS + applyMu：并发双销毁只有一个通过，
+	// 且与在途 apply 互斥（同一 workdir terraform state 不竞态）。
+	ok, current, err := o.Store.CompareAndSwapState(ctx, runID, string(StateDestroyPending), string(StateDestroying))
+	if err != nil {
+		return nil, fmt.Errorf("provision: cas destroying: %w", err)
 	}
-	return run, nil
+	if !ok {
+		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyPending, runID, current.State)
+	}
+	o.applyMu.Lock()
+	defer o.applyMu.Unlock()
+	if err := o.runDestroy(ctx, current); err != nil {
+		return current, err
+	}
+	return current, nil
 }
 
 // runDestroy 执行 terraform destroy 原语并落 destroyed（共用段）。
 func (o *Orchestrator) runDestroy(ctx context.Context, run *Run) error {
+	// 已由 CAS/校验把 state 推进 destroying（或 adopted→destroying），
+	// 此处只做 I/O + 落 destroyed。
 	dir := filepath.Join(o.WorkDir, run.ID)
 	if _, err := os.Stat(filepath.Join(dir, "main.tf")); err != nil {
 		return fmt.Errorf("provision: workdir for %s not found: %w", run.ID, err)
