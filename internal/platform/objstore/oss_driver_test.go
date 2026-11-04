@@ -21,7 +21,8 @@ type fakeOSSServer struct {
 	t        *testing.T
 	mu       sync.Mutex
 	objects  map[string]string // key -> contentType
-	failOps  map[string]bool   // "PUT"|"DELETE"|"LIST"|"COPY" -> fail
+	bodies   map[string][]byte // key -> content（GET 读路径用）
+	failOps  map[string]bool   // "PUT"|"DELETE"|"LIST"|"COPY"|"GET" -> fail
 	srv      *httptest.Server
 	bucket   string
 	copyFrom string // 最近一次 CopyObject 的源
@@ -32,6 +33,7 @@ func newFakeOSSServer(t *testing.T) *fakeOSSServer {
 	f := &fakeOSSServer{
 		t:       t,
 		objects: map[string]string{},
+		bodies:  map[string][]byte{},
 		failOps: map[string]bool{},
 		bucket:  "mybucket",
 	}
@@ -64,7 +66,7 @@ func (f *fakeOSSServer) handle(w http.ResponseWriter, r *http.Request) {
 	key := f.key(r)
 	switch r.Method {
 	case http.MethodPut:
-		_, _ = io.Copy(io.Discard, r.Body)
+		data, _ := io.ReadAll(r.Body)
 		if f.failOps["PUT"] {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -87,17 +89,32 @@ func (f *fakeOSSServer) handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			f.objects[key] = f.objects[srcKey]
+			f.bodies[key] = f.bodies[srcKey]
 			_, _ = fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?><CopyObjectResult><LastModified>2024-01-01T00:00:00Z</LastModified><ETag>"abc"</ETag></CopyObjectResult>`)
 			return
 		}
 		f.objects[key] = r.Header.Get("Content-Type")
+		f.bodies[key] = data
 		w.WriteHeader(http.StatusOK)
+	case http.MethodGet:
+		if f.failOps["GET"] {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if data, ok := f.bodies[key]; ok {
+			w.Header().Set("Content-Type", f.objects[key])
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(data)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
 	case http.MethodDelete:
 		if f.failOps["DELETE"] {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		delete(f.objects, key)
+		delete(f.bodies, key)
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusNotFound)
@@ -355,4 +372,35 @@ func TestOSSStore_RenamePrefixErrors(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to delete old object")
 	})
+}
+
+// TestOSSStore_Get_RoundTrip 验证 Get 读路径返回 Put 写入的原始内容。
+func TestOSSStore_Get_RoundTrip(t *testing.T) {
+	st, _ := newOSSStore(t)
+	ctx := context.Background()
+	payload := []byte("SELECT 1;\n-- oss round-trip\n")
+
+	require.NoError(t, st.Put(ctx, "backups/demo.sql", strings.NewReader(string(payload)), int64(len(payload)), "application/sql"))
+
+	r, err := st.Get(ctx, "backups/demo.sql")
+	require.NoError(t, err)
+	defer r.Close()
+	got, err := io.ReadAll(r)
+	require.NoError(t, err)
+	assert.Equal(t, payload, got)
+}
+
+// TestOSSStore_Get_NotFound 验证不存在的对象返回错误（SDK 侧 404）。
+func TestOSSStore_Get_NotFound(t *testing.T) {
+	st, _ := newOSSStore(t)
+	_, err := st.Get(context.Background(), "missing.sql")
+	require.Error(t, err)
+}
+
+// TestOSSStore_Get_FailOps 验证 Get 失败分支（服务端 500）。
+func TestOSSStore_Get_FailOps(t *testing.T) {
+	st, f := newOSSStore(t)
+	f.failOps["GET"] = true
+	_, err := st.Get(context.Background(), "x.txt")
+	require.Error(t, err)
 }

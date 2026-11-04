@@ -6,6 +6,7 @@ package backupexec
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,6 +29,7 @@ import (
 type fakeObjStore struct {
 	mu       sync.Mutex
 	putErr   error
+	getErr   error
 	putKeys  []string
 	putSizes []int64
 }
@@ -42,6 +44,13 @@ func (f *fakeObjStore) Put(ctx context.Context, key string, r objstore.ReadSeeke
 	f.putKeys = append(f.putKeys, key)
 	f.putSizes = append(f.putSizes, size)
 	return f.putErr
+}
+
+func (f *fakeObjStore) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
+	return io.NopCloser(strings.NewReader("")), nil
 }
 
 func (f *fakeObjStore) SignedURL(ctx context.Context, key string, method string, expiry time.Duration) (string, error) {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -39,6 +40,9 @@ func (errStore) Put(context.Context, string, objstore.ReadSeeker, int64, string)
 }
 func (errStore) SignedURL(context.Context, string, string, time.Duration) (string, error) {
 	return "", errors.New("sign failed")
+}
+func (errStore) Get(context.Context, string) (io.ReadCloser, error) {
+	return nil, errors.New("not implemented")
 }
 func (errStore) Delete(context.Context, string) error { return errors.New("not implemented") }
 func (errStore) List(context.Context, string, string, string, int) (objstore.ListResult, error) {

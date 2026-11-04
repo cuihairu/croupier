@@ -3,6 +3,7 @@ package objstore
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -211,3 +212,26 @@ type failingReadSeeker struct {
 
 func (f *failingReadSeeker) Read([]byte) (int, error)       { return 0, f.err }
 func (f *failingReadSeeker) Seek(int64, int) (int64, error) { return 0, nil }
+
+// TestS3Store_Get_RoundTrip 验证 Get 读路径（memblob 内存桶）返回 Put 写入的原始内容。
+func TestS3Store_Get_RoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s := newMemS3Store(t)
+	payload := []byte("SELECT 1;\n-- s3 round-trip\n")
+
+	require.NoError(t, s.Put(ctx, "backups/demo.sql", strings.NewReader(string(payload)), int64(len(payload)), "application/sql"))
+
+	r, err := s.Get(ctx, "backups/demo.sql")
+	require.NoError(t, err)
+	defer r.Close()
+	got, err := io.ReadAll(r)
+	require.NoError(t, err)
+	assert.Equal(t, payload, got)
+}
+
+// TestS3Store_Get_NotFound 验证不存在的对象返回错误。
+func TestS3Store_Get_NotFound(t *testing.T) {
+	s := newMemS3Store(t)
+	_, err := s.Get(context.Background(), "missing.sql")
+	require.Error(t, err)
+}

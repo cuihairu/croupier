@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,6 +14,9 @@ import (
 
 type Store interface {
 	Put(ctx context.Context, key string, r ReadSeeker, size int64, contentType string) error
+	// Get 返回对象内容读取流（调用方负责 Close）。对象不存在时返回驱动特定
+	// 的 not-found 错误（file → os.ErrNotExist；s3/oss/cos → SDK 错误）。
+	Get(ctx context.Context, key string) (io.ReadCloser, error)
 	SignedURL(ctx context.Context, key string, method string, expiry time.Duration) (string, error)
 	Delete(ctx context.Context, key string) error
 	List(ctx context.Context, prefix, marker, delimiter string, limit int) (ListResult, error)

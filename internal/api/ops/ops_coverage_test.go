@@ -2,9 +2,12 @@ package ops
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -2004,4 +2007,101 @@ func TestBackupServiceGetDownloadURLUnknownID(t *testing.T) {
 
 	_, _, err = s.GetDownloadURL(ctx, "does-not-exist")
 	require.Error(t, err)
+}
+
+func TestBackupServiceVerify_Matched(t *testing.T) {
+	t.Parallel()
+
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "meta.db")), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Backup{}))
+
+	ctx := context.Background()
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+	require.NoError(t, err)
+
+	payload := []byte("SELECT 1;\n-- ops verify\n")
+	key := "backups/verify.sql"
+	require.NoError(t, store.Put(ctx, key, strings.NewReader(string(payload)), int64(len(payload)), "application/sql"))
+	sum := sha256.Sum256(payload)
+	require.NoError(t, db.Create(&model.Backup{
+		BackupID: "verify-matched", Name: "v", Type: "full", Status: "succeeded",
+		Location: key, Checksum: hex.EncodeToString(sum[:]),
+	}).Error)
+
+	svcCtx := &svc.ServiceContext{BackupModel: model.NewBackupModel(db), ObjectStore: store}
+	s := NewBackupService(svcCtx)
+
+	matched, err := s.Verify(ctx, "verify-matched")
+	require.NoError(t, err)
+	assert.True(t, matched)
+}
+
+func TestBackupServiceVerify_Mismatch(t *testing.T) {
+	t.Parallel()
+
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "meta.db")), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Backup{}))
+
+	ctx := context.Background()
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+	require.NoError(t, err)
+
+	payload := []byte("SELECT 1;\n-- ops verify\n")
+	key := "backups/verify.sql"
+	require.NoError(t, store.Put(ctx, key, strings.NewReader(string(payload)), int64(len(payload)), "application/sql"))
+	require.NoError(t, db.Create(&model.Backup{
+		BackupID: "verify-mismatch", Name: "v", Type: "full", Status: "succeeded",
+		Location: key, Checksum: "beef",
+	}).Error)
+
+	svcCtx := &svc.ServiceContext{BackupModel: model.NewBackupModel(db), ObjectStore: store}
+	s := NewBackupService(svcCtx)
+
+	matched, err := s.Verify(ctx, "verify-mismatch")
+	require.NoError(t, err)
+	assert.False(t, matched)
+}
+
+func TestBackupServiceVerify_Errors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil model", func(t *testing.T) {
+		s := NewBackupService(&svc.ServiceContext{})
+		_, err := s.Verify(context.Background(), "any")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unavailable")
+	})
+	t.Run("nil store", func(t *testing.T) {
+		db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&model.Backup{}))
+		s := NewBackupService(&svc.ServiceContext{BackupModel: model.NewBackupModel(db)})
+		_, err = s.Verify(context.Background(), "any")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "object store unavailable")
+	})
+	t.Run("missing record", func(t *testing.T) {
+		db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "meta.db")), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&model.Backup{}))
+		store, err := objstore.OpenFile(context.Background(), objstore.Config{BaseDir: t.TempDir()})
+		require.NoError(t, err)
+		s := NewBackupService(&svc.ServiceContext{BackupModel: model.NewBackupModel(db), ObjectStore: store})
+		_, err = s.Verify(context.Background(), "missing")
+		require.Error(t, err)
+	})
+	t.Run("no location", func(t *testing.T) {
+		db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "meta.db")), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&model.Backup{}))
+		require.NoError(t, db.Create(&model.Backup{BackupID: "nloc", Name: "v", Type: "full", Status: "succeeded"}).Error)
+		store, err := objstore.OpenFile(context.Background(), objstore.Config{BaseDir: t.TempDir()})
+		require.NoError(t, err)
+		s := NewBackupService(&svc.ServiceContext{BackupModel: model.NewBackupModel(db), ObjectStore: store})
+		_, err = s.Verify(context.Background(), "nloc")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no stored object location")
+	})
 }

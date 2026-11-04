@@ -63,6 +63,18 @@ func (s *fileStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, _ 
 	return nil
 }
 
+// Get 打开对象文件返回读取流。对象不存在时返回包装 os.ErrNotExist 的错误。
+func (s *fileStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
+	key = sanitizeKey(key)
+	rawPath := filepath.Join(s.base, filepath.FromSlash(key))
+	// 确保路径在 base 目录内，防止路径遍历攻击（与 Put/Delete 同一道闸）
+	safePath, err := s.validateAndCleanPath(rawPath)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(safePath)
+}
+
 func (s *fileStore) SignedURL(_ context.Context, key string, method string, _ time.Duration) (string, error) {
 	if method == "DELETE" {
 		return "", fmt.Errorf("not supported")

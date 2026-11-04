@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	oss "github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"io"
 	"strings"
 	"time"
 )
@@ -56,6 +57,11 @@ func (s *ossStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, con
 		opts = append(opts, oss.ContentType(contentType))
 	}
 	return s.bk.PutObject(key, r, opts...)
+}
+
+// Get 返回对象内容读取流（OSS SDK GetObject 直通）。对象不存在时返回 SDK 错误。
+func (s *ossStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
+	return s.bk.GetObject(sanitizeKey(key))
 }
 
 func (s *ossStore) SignedURL(_ context.Context, key string, method string, expiry time.Duration) (string, error) {

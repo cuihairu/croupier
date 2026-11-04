@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -42,6 +43,10 @@ func (f *failingStore) SignedURL(_ context.Context, key, _ string, _ time.Durati
 		return "", f.signedURLErr
 	}
 	return "https://signed/" + key, nil
+}
+
+func (f *failingStore) Get(_ context.Context, _ string) (io.ReadCloser, error) {
+	return nil, errors.New("get not implemented")
 }
 
 func (f *failingStore) Delete(_ context.Context, key string) error {

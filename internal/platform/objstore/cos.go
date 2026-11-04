@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	cos "github.com/tencentyun/cos-go-sdk-v5"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -78,6 +79,19 @@ func (s *cosStore) Put(ctx context.Context, key string, r ReadSeeker, _ int64, c
 	}
 	_, err := s.cli.Object.Put(ctx, key, r, opt)
 	return err
+}
+
+// Get 返回对象内容读取流（COS SDK Object.Get → resp.Body）。对象不存在时返回 SDK 错误。
+func (s *cosStore) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	resp, err := s.cli.Object.Get(ctx, sanitizeKey(key), nil)
+	if err != nil {
+		// 失败路径也要关闭 body，避免连接泄漏
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return nil, err
+	}
+	return resp.Body, nil
 }
 
 func (s *cosStore) SignedURL(ctx context.Context, key string, method string, expiry time.Duration) (string, error) {

@@ -20,8 +20,9 @@ import (
 type fakeCOSServer struct {
 	t       *testing.T
 	mu      sync.Mutex
-	objects map[string]string
-	failOps map[string]bool // "PUT"|"DELETE"|"LIST"|"COPY"
+	objects map[string]string // key -> contentType
+	bodies  map[string][]byte // key -> content（GET 读路径用）
+	failOps map[string]bool   // "PUT"|"DELETE"|"LIST"|"COPY"|"GET"
 	srv     *httptest.Server
 	copied  [][2]string // copy (src,dst) 记录
 }
@@ -31,6 +32,7 @@ func newFakeCOSServer(t *testing.T) *fakeCOSServer {
 	f := &fakeCOSServer{
 		t:       t,
 		objects: map[string]string{},
+		bodies:  map[string][]byte{},
 		failOps: map[string]bool{},
 	}
 	mux := http.NewServeMux()
@@ -63,7 +65,7 @@ func (f *fakeCOSServer) handle(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodPut:
-		_, _ = io.Copy(io.Discard, r.Body)
+		data, _ := io.ReadAll(r.Body)
 		if f.failOps["PUT"] {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -74,18 +76,34 @@ func (f *fakeCOSServer) handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			f.copied = append(f.copied, [2]string{src, key})
-			f.objects[key] = f.objects[strings.TrimPrefix(src, "/")]
+			srcKey := strings.TrimPrefix(src, "/")
+			f.objects[key] = f.objects[srcKey]
+			f.bodies[key] = f.bodies[srcKey]
 			_, _ = fmt.Fprint(w, `<?xml version="1.0" encoding="UTF-8"?><CopyObjectResult><ETag>abc</ETag><LastModified>2024-01-01T07:23:42.000Z</LastModified></CopyObjectResult>`)
 			return
 		}
 		f.objects[key] = r.Header.Get("Content-Type")
+		f.bodies[key] = data
 		w.WriteHeader(http.StatusOK)
+	case http.MethodGet:
+		if f.failOps["GET"] {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if data, ok := f.bodies[key]; ok {
+			w.Header().Set("Content-Type", f.objects[key])
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(data)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
 	case http.MethodDelete:
 		if f.failOps["DELETE"] {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		delete(f.objects, key)
+		delete(f.bodies, key)
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusNotFound)
@@ -346,6 +364,37 @@ func TestCOSStore_RenamePrefixErrors(t *testing.T) {
 
 // 确保 cosStore 实现了 Store 接口
 var _ Store = (*cosStore)(nil)
+
+// TestCOSStore_Get_RoundTrip 验证 Get 读路径返回 Put 写入的原始内容。
+func TestCOSStore_Get_RoundTrip(t *testing.T) {
+	st, _ := newCOSStore(t)
+	ctx := context.Background()
+	payload := []byte("SELECT 1;\n-- cos round-trip\n")
+
+	require.NoError(t, st.Put(ctx, "backups/demo.sql", strings.NewReader(string(payload)), int64(len(payload)), "application/sql"))
+
+	r, err := st.Get(ctx, "backups/demo.sql")
+	require.NoError(t, err)
+	defer r.Close()
+	got, err := io.ReadAll(r)
+	require.NoError(t, err)
+	assert.Equal(t, payload, got)
+}
+
+// TestCOSStore_Get_NotFound 验证不存在的对象返回错误（SDK 侧 404）。
+func TestCOSStore_Get_NotFound(t *testing.T) {
+	st, _ := newCOSStore(t)
+	_, err := st.Get(context.Background(), "missing.sql")
+	require.Error(t, err)
+}
+
+// TestCOSStore_Get_FailOps 验证 Get 失败分支（服务端 500）。
+func TestCOSStore_Get_FailOps(t *testing.T) {
+	st, f := newCOSStore(t)
+	f.failOps["GET"] = true
+	_, err := st.Get(context.Background(), "x.txt")
+	require.Error(t, err)
+}
 
 // 防止未使用导入（cos 仅在类型断言上下文使用）
 var _ = cos.AuthorizationTransport{}

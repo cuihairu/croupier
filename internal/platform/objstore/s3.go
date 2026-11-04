@@ -64,6 +64,12 @@ func (s *s3Store) Put(ctx context.Context, key string, r ReadSeeker, _ int64, co
 	return w.Close()
 }
 
+// Get 返回对象内容读取流（gocloud Reader，含 ContentType/Size 元数据能力）。
+// 对象不存在时返回 gcerrors.NotFound 类错误。
+func (s *s3Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	return s.bk.NewReader(ctx, sanitizeKey(key), nil)
+}
+
 func (s *s3Store) SignedURL(ctx context.Context, key string, method string, expiry time.Duration) (string, error) {
 	key = sanitizeKey(key)
 

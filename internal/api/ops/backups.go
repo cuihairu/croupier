@@ -104,6 +104,22 @@ func (s *BackupService) GetDownloadURL(ctx context.Context, backupId string) (st
 	return url, utils.FormatTimestamp(time.Now().Add(24 * time.Hour)), nil
 }
 
+// Verify 重算备份对象 sha256 并与记录校验值比对（OPS-008 校验读路径）。
+// 返回 matched 表示校验一致；读取/哈希失败返回错误。
+func (s *BackupService) Verify(ctx context.Context, backupId string) (bool, error) {
+	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
+		return false, errors.New("backup model unavailable")
+	}
+	if s.svcCtx.ObjectStore == nil {
+		return false, errors.New("object store unavailable")
+	}
+	backup, err := s.svcCtx.BackupModel.FindByBackupID(ctx, strings.TrimSpace(backupId))
+	if err != nil {
+		return false, err
+	}
+	return backupexec.VerifyChecksum(ctx, s.svcCtx.ObjectStore, backup)
+}
+
 // createBackupForScope 创建一条备份记录并按需真实执行（OPS-008 数据面备份）。
 //
 //   - scope 非空（游戏域控制台）：必须解析到该游戏环境注册的启用数据源

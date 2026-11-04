@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http/httptest"
 	"net/textproto"
@@ -127,6 +128,9 @@ type failStoreV9 struct{}
 
 func (failStoreV9) Put(context.Context, string, objstore.ReadSeeker, int64, string) error {
 	return errors.New("v9 put boom")
+}
+func (failStoreV9) Get(context.Context, string) (io.ReadCloser, error) {
+	return nil, errors.New("v9 get boom")
 }
 func (failStoreV9) SignedURL(context.Context, string, string, time.Duration) (string, error) {
 	return "", errors.New("v9 url boom")

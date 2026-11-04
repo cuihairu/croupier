@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -47,6 +48,34 @@ type Executor struct {
 // New creates an executor.
 func New(driver, dsn string, backups *model.BackupModel, store objstore.Store, prefix string) *Executor {
 	return &Executor{driver: driver, dsn: dsn, backups: backups, store: store, prefix: prefix}
+}
+
+// VerifyChecksum 重新读取备份对象（objstore.Get 读路径）并重算 sha256，
+// 与记录中的 Checksum 比对，返回是否一致。这是备份校验（OPS-008 校验）
+// 的读侧原语：读取失败返回错误；校验不一致返回 (false, nil)。
+func VerifyChecksum(ctx context.Context, store objstore.Store, backup *model.Backup) (bool, error) {
+	if store == nil {
+		return false, fmt.Errorf("object store required for verification")
+	}
+	if backup == nil {
+		return false, fmt.Errorf("backup record required for verification")
+	}
+	if strings.TrimSpace(backup.Location) == "" {
+		return false, fmt.Errorf("backup %s has no stored object location", backup.BackupID)
+	}
+	if strings.TrimSpace(backup.Checksum) == "" {
+		return false, fmt.Errorf("backup %s has no recorded checksum", backup.BackupID)
+	}
+	r, err := store.Get(ctx, backup.Location)
+	if err != nil {
+		return false, fmt.Errorf("read backup object: %w", err)
+	}
+	defer r.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, r); err != nil {
+		return false, fmt.Errorf("hash backup object: %w", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)) == backup.Checksum, nil
 }
 
 // RunBackup 立即执行一次备份并落库。

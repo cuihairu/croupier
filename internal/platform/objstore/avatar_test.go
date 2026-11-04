@@ -3,6 +3,7 @@ package objstore
 import (
 	"context"
 	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -172,6 +173,9 @@ type countingStore struct {
 }
 
 func (s *countingStore) Put(context.Context, string, ReadSeeker, int64, string) error { return nil }
+func (s *countingStore) Get(context.Context, string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
+}
 func (s *countingStore) SignedURL(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
 	s.calls++
 	if s.err != nil {

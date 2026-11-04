@@ -7,6 +7,7 @@ package backup
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,9 @@ type execObjStoreStub struct {
 
 func (s *execObjStoreStub) Put(ctx context.Context, key string, r objstore.ReadSeeker, size int64, contentType string) error {
 	return s.putErr
+}
+func (s *execObjStoreStub) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
 }
 func (s *execObjStoreStub) SignedURL(ctx context.Context, key string, method string, expiry time.Duration) (string, error) {
 	return "", nil
