@@ -19,6 +19,7 @@ import (
 	"github.com/cuihairu/croupier/internal/handler"
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/backupexec"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/platform/settings"
@@ -290,6 +291,13 @@ func runServer() error {
 	// registry cleanup）都派生自它，确保收到停机信号时能级联取消。
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	defer rootCancel()
+
+	// 定期备份调度（OPS-008 Stage E）：config backup.schedule.enabled 缺省
+	// false=不装配；显式 true 才派生后台循环（枚举注册启用的数据源触发备份）。
+	if c.Backup.Schedule.Enabled {
+		go backupexec.NewScheduler(svcCtx.BackupModel, svcCtx.DBSourceModel, svcCtx.ObjectStore).
+			Loop(rootCtx, c.Backup.Schedule.EffectiveInterval())
+	}
 
 	// 数据管道健康监控：ClickHouse 断连/事件断流/骤降/死信与 MQ 积压 → 告警中心
 	startPipelineMonitor(rootCtx, svcCtx)
