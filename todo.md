@@ -729,7 +729,8 @@
 
 ## 漏洞扫描遗留（2026-11-03 全舰队扫描，源 scratch/vuln-scan-*.md）
 
-- [ ] VULN-CROUPIER-001 [高危×3·dependabot（npm 生态）] 25 条 dependabot 中 3 条 high 未处理：follow-redirects 1.16.1→≥1.16.2（web/）、decode-uri-component 0.5.0→≥0.5.1（web/）、vite 5.4.21→≥6.4.4（docs/，【跨大版本 5→6】）；验收：dependabot 3 条 high 关闭 + pnpm audit --audit-level=high（web、docs）三包不再命中 + 相关测试绿
+- [x] VULN-CROUPIER-001 [高危×3·dependabot（npm 生态）] 25 条 dependabot 中 3 条 high 未处理：follow-redirects 1.16.1→≥1.16.2（web/）、decode-uri-component 0.5.0→≥0.5.1（web/）、vite 5.4.21→≥6.4.4（docs/，【跨大版本 5→6】）；验收：dependabot 3 条 high 关闭 + pnpm audit --audit-level=high（web、docs）三包不再命中 + 相关测试绿
+  - 证据：commit `46c93eec`（follow-redirects 1.16.1→1.16.2，`web/pnpm-workspace.yaml:40`、`web/pnpm-lock.yaml:6039`）、`8ed22de0`（decode-uri-component 0.5.0→0.5.1，`web/pnpm-workspace.yaml:133`、`web/pnpm-lock.yaml:5219`）、`2977a05c`（vite 5.4.21→6.4.5，`docs/pnpm-workspace.yaml:6`、`docs/pnpm-lock.yaml:1551`）；验收：`cd web && pnpm audit --audit-level=high` → follow-redirects/decode-uri-component 不再命中（高 5→3，剩余 probe-image-size/zod/body-parser 非本单）；`cd docs && pnpm audit --audit-level=high` → vite 不再命中（高 2→0，剩余 1 low）；`cd docs && pnpm build` rc=0（vitepress build . 成功，跨 5→6 实测通过，仅需 Vite 6 新增传递依赖 fdir/tinyglobby/picomatch 自动解析）；`cd web && npm run build` rc=0；`cd web && npx jest` 457/458 suite、5415/5417 测试通过，仅 2 例失败于既有 `tests/antd6Deprecations.test.ts`（antd6 废弃守卫，本单未触碰，非回归）。
 
 ## 审核（f9b1610f..HEAD，只审不改）
 
