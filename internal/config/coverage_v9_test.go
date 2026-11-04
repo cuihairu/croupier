@@ -170,7 +170,7 @@ func TestTLSClientConfigUnmarshalYAMLCompatV9(t *testing.T) {
 	t.Run("canonical full", func(t *testing.T) {
 		var cfg TLSClientConfig
 		mustUnmarshalV9(t, "enabled: true\ncertFile: c.pem\nkeyFile: k.pem\ncaFile: ca.pem\nserverName: svc\ninsecureSkipVerify: true\n", &cfg)
-		if !cfg.Enabled || cfg.CertFile != "c.pem" || cfg.KeyFile != "k.pem" || cfg.CAFile != "ca.pem" || cfg.ServerName != "svc" || !cfg.InsecureSkipVerify {
+		if !cfg.EffectiveEnabled() || cfg.CertFile != "c.pem" || cfg.KeyFile != "k.pem" || cfg.CAFile != "ca.pem" || cfg.ServerName != "svc" || !cfg.InsecureSkipVerify {
 			t.Fatalf("canonical decode failed: %+v", cfg)
 		}
 	})

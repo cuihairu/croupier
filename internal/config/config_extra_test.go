@@ -257,7 +257,7 @@ InsecureSkipVerify: true
 	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if !cfg.Enabled {
+	if !cfg.EffectiveEnabled() {
 		t.Error("Enabled should be true")
 	}
 	if cfg.CertFile != "/path/to/cert.pem" {

@@ -110,7 +110,7 @@ sse:
 	if cfg.AgentDispatch.TaskRoutingDir != "data" {
 		t.Fatalf("AgentDispatch.TaskRoutingDir = %q, want data", cfg.AgentDispatch.TaskRoutingDir)
 	}
-	if !cfg.AgentDispatch.ToAgentTLS.Enabled {
+	if !cfg.AgentDispatch.ToAgentTLS.EffectiveEnabled() {
 		t.Fatalf("AgentDispatch.ToAgentTLS.Enabled = false, want true")
 	}
 	if cfg.BootstrapData.BaseDir != "configs" {

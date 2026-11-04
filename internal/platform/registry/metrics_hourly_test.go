@@ -223,3 +223,43 @@ func TestMetricsStore_SetDBConcurrentNoRace(t *testing.T) {
 	// After SetDB(nil), readers must not panic or write to a closed DB.
 	store.SetDB(nil)
 }
+
+// TestMetricsStore_RollupHourly_ConcurrentNoDuplicateRows verifies the
+// find-or-create race guard: multiple concurrent RollupHourly calls over the
+// same (agent, hour) must collapse to exactly one row (the unique index
+// rejects duplicates; the loser retries onto the winner). Run under -race.
+func TestMetricsStore_RollupHourly_ConcurrentNoDuplicateRows(t *testing.T) {
+	// 并发协程各自持连接：sqlite `:memory:` 每连接独立库，会看不到表。
+	// 用临时文件共享同一物理库（GLEBAREZ SQLITE 也走 file 语义）。
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/rollup-race.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := db.AutoMigrate(&AgentMetricsHistory{}, &AgentMetricsHourly{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	hourStart := time.Now().Add(-time.Hour).Truncate(time.Hour)
+	seedRaw(t, db, "a1", hourStart.Add(5*time.Minute), 30, 10, 3, 2, 100)
+
+	store := NewMetricsStore()
+	store.SetDB(db)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			store.RollupHourly(context.Background())
+		}()
+	}
+	wg.Wait()
+
+	var rows []AgentMetricsHourly
+	if err := db.Where("agent_id = ? AND hour_start = ?", "a1", hourStart).Find(&rows).Error; err != nil {
+		t.Fatalf("query hourly: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("concurrent rollup rows = %d, want exactly 1 (unique index + race retry)", len(rows))
+	}
+}

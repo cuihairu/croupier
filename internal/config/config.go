@@ -763,7 +763,11 @@ func (c *AgentDispatchConfig) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type TLSClientConfig struct {
-	Enabled            bool   `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// Enabled 是三态开关（nil=未配置）。nil 时「证书面齐备」默认启用
+	// （ARCH-003 设计语义：cert/key/ca 全配 + 非 insecureSkip 即 mTLS），
+	// 显式 false 才可降级明文；ToAgentTLS/InterconnectTLS 共用同一开关
+	// 语义。
+	Enabled            *bool  `json:"enabled,omitempty" yaml:"enabled,omitempty"`
 	CertFile           string `json:"certFile,omitempty" yaml:"certFile,omitempty"`
 	KeyFile            string `json:"keyFile,omitempty" yaml:"keyFile,omitempty"`
 	CAFile             string `json:"caFile,omitempty" yaml:"caFile,omitempty"`
@@ -790,8 +794,9 @@ func (c *TLSClientConfig) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 
-	if !decoded.Enabled && compat.Enabled != nil {
-		decoded.Enabled = *compat.Enabled
+	if decoded.Enabled == nil && compat.Enabled != nil {
+		v := *compat.Enabled
+		decoded.Enabled = &v
 	}
 	if decoded.CertFile == "" {
 		decoded.CertFile = compat.CertFile
@@ -811,6 +816,18 @@ func (c *TLSClientConfig) UnmarshalYAML(value *yaml.Node) error {
 
 	*c = TLSClientConfig(decoded)
 	return nil
+}
+
+// EffectiveEnabled returns whether TLS should be activated. Unset (nil)
+// defaults to true when any certificate path is configured — the ARCH-003
+// contract is "certs present → mTLS unless explicitly disabled". This
+// restores backwards compatibility for deployments that predate the explicit
+// `enabled` knob while keeping an explicit opt-out available.
+func (c *TLSClientConfig) EffectiveEnabled() bool {
+	if c.Enabled != nil {
+		return *c.Enabled
+	}
+	return c.CertFile != "" || c.KeyFile != "" || c.CAFile != ""
 }
 
 // HealthCheckConfig configures health check behavior for agent dispatch

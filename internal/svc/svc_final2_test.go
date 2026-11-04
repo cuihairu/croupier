@@ -26,7 +26,8 @@ func TestNewServiceContext_PolicyAndCacheFallbacks(t *testing.T) {
 
 	cfg.Cache = config.CacheConfig{Enabled: true, Type: "bogus-cache"}
 	cfg.AgentDispatch.TaskRoutingTTL = "1h"
-	cfg.AgentDispatch.ToAgentTLS.Enabled = true
+	enabled := true
+	cfg.AgentDispatch.ToAgentTLS.Enabled = &enabled
 
 	ctx := NewServiceContext(cfg)
 	require.NotNil(t, ctx)

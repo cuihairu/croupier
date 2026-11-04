@@ -73,3 +73,26 @@ func TestPushFile_NoOverwriteWithoutForce(t *testing.T) {
 	data, _ := os.ReadFile(p)
 	assert.Equal(t, "new", string(data))
 }
+
+func TestPushFile_RejectsTargetSymlinkEscape(t *testing.T) {
+	base := t.TempDir()
+	outside := t.TempDir()
+	outsideFile := filepath.Join(outside, "escaped.txt")
+	require.NoError(t, os.WriteFile(outsideFile, []byte("outside"), 0o644))
+
+	// Pre-plant a symlink at the target path; it points outside the base.
+	target := filepath.Join(base, "linked.yaml")
+	require.NoError(t, os.Symlink(outsideFile, target))
+
+	s := newPushServer(base)
+	_, err := s.PushFile(context.Background(), &opsv1.PushFileRequest{
+		Path: target, Content: []byte("evil"), Force: true, Mode: 0o644,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outside")
+
+	// The outside file must not be overwritten.
+	data, err := os.ReadFile(outsideFile)
+	require.NoError(t, err)
+	assert.Equal(t, "outside", string(data))
+}

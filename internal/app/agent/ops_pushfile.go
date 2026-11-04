@@ -71,6 +71,16 @@ func (s *OpsServer) PushFile(ctx context.Context, req *opsv1.PushFileRequest) (*
 			return nil, fmt.Errorf("push target parent escapes allowed base dir")
 		}
 	}
+	// Target itself may be a pre-existing symlink (审核发现 724)：os.WriteFile
+	// 会跟随目标符号链接写到 PushBaseDir 之外。解析目标本身并校验其真实
+	// 路径仍在 base 内；同时后续写用 O_NOFOLLOW，阻止「检查→写」窗口内的
+	// TOCTOU（换入符号链接）。
+	if realTarget, err := filepath.EvalSymlinks(absTarget); err == nil {
+		relT, errT := filepath.Rel(realBase, realTarget)
+		if errT != nil || relT == ".." || strings.HasPrefix(relT, ".."+string(filepath.Separator)) {
+			return nil, fmt.Errorf("push target itself resolves outside allowed base dir")
+		}
+	}
 
 	if !req.GetForce() {
 		if _, err := os.Stat(absTarget); err == nil {
@@ -94,7 +104,7 @@ func (s *OpsServer) PushFile(ctx context.Context, req *opsv1.PushFileRequest) (*
 	if err := os.MkdirAll(filepath.Dir(absTarget), 0o755); err != nil {
 		return nil, fmt.Errorf("create target dir: %w", err)
 	}
-	if err := os.WriteFile(absTarget, req.GetContent(), mode); err != nil {
+	if err := writeFileNoFollow(absTarget, req.GetContent(), mode); err != nil {
 		return nil, fmt.Errorf("write push target: %w", err)
 	}
 

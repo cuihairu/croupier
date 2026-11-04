@@ -902,6 +902,31 @@ func TestProcessMessage_RetryRequeue(t *testing.T) {
 	}
 }
 
+func TestProcessMessage_RetryCountNonFloatDoesNotPanic(t *testing.T) {
+	w, _ := testWorker(t)
+	w.clickBatchSize = 1 // flush after each row so sendErr is triggered
+	getMockConn(t, w).batch = &mockBatch{sendErr: fmt.Errorf("ch error")}
+	w.rdb.XGroupCreateMkStream(context.Background(), "analytics:events", "analytics-worker", "$")
+
+	// Simulate a malicious/external producer: retry_count is a string.
+	eventData := map[string]any{
+		"ts": "2025-06-15T10:30:00Z", "game_id": "g1", "env": "prod",
+		"user_id": "u1", "event": "login", "retry_count": "5",
+	}
+	data, _ := json.Marshal(eventData)
+	id := w.rdb.XAdd(context.Background(), &redis.XAddArgs{
+		Stream: "analytics:events",
+		Values: map[string]any{"data": string(data)},
+	}).Val()
+	msg := redis.XMessage{ID: id, Values: map[string]any{"data": data}}
+
+	// Before the fix this call panicked on .(float64) and killed the worker.
+	err := w.processMessage(context.Background(), "analytics:events", msg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestProcessMessage_PaymentMaxRetries(t *testing.T) {
 	w, _ := testWorker(t)
 	w.clickBatchSize = 1 // flush after each row so sendErr is triggered

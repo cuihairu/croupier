@@ -249,11 +249,22 @@ func (w *Worker) Run(ctx context.Context) error {
 	// flush 把剩余 pending 批次与聚合状态落盘。不再读 worker/测试配置
 	// （runFlushInterval 已固定为当前值），且不在刷新未结束时关资源。
 	stopWorkers()
+	skipFinalFlush := false
 	if !waitGroupBounded(&flushWG, shutdownTimeout) {
 		slog.Warn("flush goroutine exceeded shutdown timeout", "timeout", shutdownTimeout)
+		// 审核发现 727：周期 flush 仍在执行时，如果此时再启动最终 flush，
+		// 两个 flush 会并发执行——aggMu 只保护共享状态转移，ClickHouse I/O
+		// 在锁外，同 key 双写会产生重复/竞态。正确做法：最终 flush 只在
+		// 周期 flush goroutine 已完全退出后才执行；如果它卡死超时，宁可
+		// 放弃本次最终 flush（剩余数据仍留在 Redis stream pending，由重启
+		// 后的 worker 继续处理），也不能并发双写。
+		skipFinalFlush = true
 	}
 	if !waitGroupBounded(&reclaimWG, shutdownTimeout) {
 		slog.Warn("reclaim goroutine exceeded shutdown timeout", "timeout", shutdownTimeout)
+	}
+	if skipFinalFlush {
+		return ctx.Err()
 	}
 
 	flushCtx, cancelFlush := context.WithTimeout(context.WithoutCancel(ctx), finalFlushTimeout)
@@ -327,6 +338,29 @@ func asFloat(m map[string]any, k string) float64 {
 			return t
 		case int:
 			return float64(t)
+		}
+	}
+	return 0
+}
+
+// asRetryCount 读取消息的 retry_count 字段为 int。外部流消息的 retry_count
+// 是生产方可控字段：合法值应是从 JSON 数字解析的 float64，但非 float64 类型
+// （字符串/布尔/对象等）会令 .(float64) 断言 panic——worker Run 循环无
+// recover，单条坏消息会崩掉整个 worker。此处 fail-closed：非数值类型视为
+// 0（不 panic），让插入失败后按 0 次重试入队；若消息本身已带坏类型，重试
+// 计数不推进也不会死循环（每次重试都按 0 处理，仍会在 maxPendingRetries
+// 内进入死信——需在 retry 路径同时做类型归一，见 processMessage）。
+func asRetryCount(m map[string]any) int {
+	if v, ok := m["retry_count"]; ok {
+		switch t := v.(type) {
+		case float64:
+			return int(t)
+		case int:
+			return t
+		case json.Number:
+			if n, err := t.Int64(); err == nil {
+				return int(n)
+			}
 		}
 	}
 	return 0
@@ -1013,7 +1047,7 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 	}
 
 	if err != nil {
-		retries := int(m["retry_count"].(float64))
+		retries := asRetryCount(m)
 		if retries >= maxPendingRetries {
 			// Max retries exceeded, move to dead letter
 			if derr := w.sendToDeadLetter(ctx, stream, msg, "max_retries_exceeded", err.Error()); derr != nil {
@@ -1022,7 +1056,10 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 			return w.ackImmediate(ctx, stream, msg)
 		}
 		// Increment retry count and re-queue
-		m["retry_count"] = retries + 1
+		// 归一化：无论原值类型，重试计数都写为 float64（JSON 数字），避免
+		// 下一次 processMessage 再走非 float64 分支（asRetryCount 已兜底，
+		// 但保持消息自洽，重试计数真实推进）。
+		m["retry_count"] = float64(retries + 1)
 		retryData, _ := json.Marshal(m)
 		if rerr := w.rdb.XAdd(ctx, &redis.XAddArgs{
 			Stream: stream,

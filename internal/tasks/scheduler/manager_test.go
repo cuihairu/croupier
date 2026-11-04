@@ -22,6 +22,7 @@ type fakeStore struct {
 	schedules []model.TaskSchedule
 	runLogs   map[string]model.TaskScheduleRunLog // key: scheduleID|slot
 	updates   map[uint][]map[string]interface{}
+	nextID    uint // gorm 主键自增替身（游标分页依赖 id）
 }
 
 func newFakeStore(schedules ...model.TaskSchedule) *fakeStore {
@@ -77,6 +78,10 @@ func (f *fakeStore) CreateRunLog(ctx context.Context, log *model.TaskScheduleRun
 	if log.CreatedAt.IsZero() {
 		log.CreatedAt = time.Now()
 	}
+	if log.ID == 0 {
+		f.nextID++
+		log.ID = f.nextID
+	}
 	f.runLogs[key] = *log
 	return true, nil
 }
@@ -103,18 +108,30 @@ func (f *fakeStore) UpdateRunLog(ctx context.Context, scheduleID uint, slot time
 	return nil
 }
 
-func (f *fakeStore) ListStaleClaimsAfter(ctx context.Context, before, cursor time.Time, limit int) ([]model.TaskScheduleRunLog, error) {
+// seedRunLog 直接把一条 run-log 写入替身（模拟崩溃遗留的 claimed 行），
+// 并分配主键 id（gorm 自增替身）——游标分页依赖 id，直插必须带 id。
+func (f *fakeStore) seedRunLog(l model.TaskScheduleRunLog) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if l.ID == 0 {
+		f.nextID++
+		l.ID = f.nextID
+	}
+	f.runLogs[fmt.Sprintf("%d|%s", l.ScheduleID, l.Slot.Format(time.RFC3339))] = l
+}
+
+func (f *fakeStore) ListStaleClaimsAfter(ctx context.Context, before time.Time, cursor uint, limit int) ([]model.TaskScheduleRunLog, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var out []model.TaskScheduleRunLog
 	for _, l := range f.runLogs {
 		if l.Status == model.RunLogClaimed && l.CreatedAt.Before(before) &&
-			(cursor.IsZero() || !l.CreatedAt.Before(cursor)) {
+			l.ID > cursor {
 			out = append(out, l)
 		}
 	}
-	// 与 SQL 一致：按 created_at 升序（游标分页依赖）。
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	// 与 SQL 一致：按 id 升序（游标分页依赖）。
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	if limit > 0 && len(out) > limit {
 		out = out[:limit]
 	}

@@ -109,10 +109,10 @@ func TestManager_CrashAfterClaimBeforeDispatch_RecoversWithoutRedispatch(t *test
 	store := newFakeStore()
 	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
 	// 模拟崩溃领取者：claimed 且已过租约（CreatedAt = now - 2×lease）。
-	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: model.RunLogClaimed,
 		CreatedAt: now.Add(-2 * lease),
-	}
+	})
 
 	var dispatches int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -143,10 +143,10 @@ func TestManager_CrashAfterDispatchBeforeWriteback_MarksIndeterminateNoRedispatc
 	lease := 60 * time.Second
 	store := newFakeStore()
 	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
-	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: model.RunLogClaimed,
 		CreatedAt: now.Add(-10 * lease),
-	}
+	})
 
 	var dispatches int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -171,10 +171,10 @@ func TestManager_ActiveClaimWithinLease_NotEvicted(t *testing.T) {
 	lease := 60 * time.Second
 	store := newFakeStore()
 	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
-	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: "claimed",
 		CreatedAt: now.Add(-lease / 2),
-	}
+	})
 
 	var dispatches int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -202,10 +202,10 @@ func TestManager_CrossSlotStaleClaim_ReapedIndeterminate(t *testing.T) {
 	// 旧槽位（08:30 ≠ 当前槽 10:30）的崩溃领取者遗留：claimed 且过租约。
 	oldSlot := Slot(now.Add(-2 * time.Hour))
 	require.NotEqual(t, Slot(now), oldSlot, "旧槽必须与当前触发槽不同，才模拟跨槽缺口")
-	store.runLogs[fmt.Sprintf("1|%s", oldSlot.Format(time.RFC3339))] = model.TaskScheduleRunLog{
+	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: oldSlot, Status: model.RunLogClaimed,
 		CreatedAt: now.Add(-2 * lease),
-	}
+	})
 
 	var dispatches int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -240,10 +240,10 @@ func TestManager_ReapStaleClaims_NotDueSchedule(t *testing.T) {
 	// 计划 11:30 才到期（now=10:30 时不触发）。
 	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(time.Hour))}
 	oldSlot := Slot(now.Add(-2 * time.Hour))
-	store.runLogs[fmt.Sprintf("1|%s", oldSlot.Format(time.RFC3339))] = model.TaskScheduleRunLog{
+	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: oldSlot, Status: model.RunLogClaimed,
 		CreatedAt: now.Add(-2 * lease),
-	}
+	})
 
 	var dispatches int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -267,10 +267,10 @@ func TestManager_TerminalRunLog_NotRewritten(t *testing.T) {
 	lease := 60 * time.Second
 	store := newFakeStore()
 	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
-	store.runLogs[fmt.Sprintf("1|%s", Slot(now).Format(time.RFC3339))] = model.TaskScheduleRunLog{
+	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: "dispatched", TaskRunID: "run-done",
 		CreatedAt: now.Add(-10 * lease),
-	}
+	})
 
 	var dispatches int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -300,10 +300,10 @@ func TestManager_ReapStaleClaims_DrainsOver100(t *testing.T) {
 	const n = 150
 	for i := 0; i < n; i++ {
 		oldSlot := Slot(now.Add(-time.Duration(2+i) * time.Hour))
-		store.runLogs[fmt.Sprintf("%d|%s", 1, oldSlot.Format(time.RFC3339))] = model.TaskScheduleRunLog{
+		store.seedRunLog(model.TaskScheduleRunLog{
 			ScheduleID: 1, Slot: oldSlot, Status: model.RunLogClaimed,
 			CreatedAt: now.Add(-time.Duration(2+i) * lease),
-		}
+		})
 	}
 
 	m := NewManager(store, nil)

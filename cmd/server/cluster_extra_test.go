@@ -158,7 +158,7 @@ func TestStartCluster_InterconnectTLSWiring(t *testing.T) {
 		Store:         "db",
 		AdvertiseAddr: "127.0.0.1:0",
 		InterconnectTLS: config.TLSClientConfig{
-			Enabled:  true,
+			Enabled:  boolPtr(true),
 			CertFile: icCrt,
 			KeyFile:  icKey,
 			CAFile:   caCrt,
@@ -641,3 +641,5 @@ func TestWireClusterHooks_WithTCPListener(t *testing.T) {
 	require.NoError(t, rt.tcpListener.Close())
 	rt.controlService.Stop()
 }
+
+func boolPtr(b bool) *bool { return &b }

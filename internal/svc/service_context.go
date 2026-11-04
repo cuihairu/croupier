@@ -591,7 +591,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 			}
 		}
 
-		if ctx.Config.AgentDispatch.ToAgentTLS.Enabled {
+		if ctx.Config.AgentDispatch.ToAgentTLS.EffectiveEnabled() {
 			ctx.Dispatcher.SetTLSConfig(&tlsutil.ClientTLSConfig{
 				CertFile:           strings.TrimSpace(ctx.Config.AgentDispatch.ToAgentTLS.CertFile),
 				KeyFile:            strings.TrimSpace(ctx.Config.AgentDispatch.ToAgentTLS.KeyFile),

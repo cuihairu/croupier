@@ -7,8 +7,13 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/objstore"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestDeploymentDTOBuild(t *testing.T) {
@@ -84,4 +89,37 @@ func TestSafeObjectPathPart_RejectsTraversal(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, good, got)
 	}
+}
+
+// 审核发现 726：同 (role,name,version) 重复上传曾覆盖同一对象键，历史记录
+// Checksum 与对象内容不再匹配。回归：对象键含唯一 packageID，两次上传不同
+// 内容互不覆盖，各自 Checksum 与对象内容一致。
+func TestDeployPackageUpload_SameTripleDoesNotOverwrite(t *testing.T) {
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/deploy.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.DeployPackage{}))
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+	require.NoError(t, err)
+	svcCtx := &svc.ServiceContext{
+		DeployPackageModel: model.NewDeployPackageModel(db),
+		ObjectStore:        store,
+	}
+	s := NewService(svcCtx)
+
+	req := &DeployPackageCreateRequest{Name: "game", Version: "1.0.0", Role: "game-server"}
+	first, err := s.DeployPackageUpload(ctx, req, []byte("version-one"))
+	require.NoError(t, err)
+	second, err := s.DeployPackageUpload(ctx, req, []byte("version-two"))
+	require.NoError(t, err)
+
+	assert.NotEqual(t, first.Package.ObjectKey, second.Package.ObjectKey,
+		"同 (role,name,version) 上传必须写入不同对象键，不得覆盖")
+	// 旧对象内容仍可读回，且 Checksum 与内容一致。
+	r, err := store.Get(ctx, first.Package.ObjectKey)
+	require.NoError(t, err)
+	buf := make([]byte, 32)
+	n, _ := io.ReadFull(r, buf)
+	_ = r.Close()
+	require.Equal(t, "version-one", string(buf[:n]))
 }

@@ -60,9 +60,10 @@ type ScheduleStore interface {
 	UpdateRunLog(ctx context.Context, scheduleID uint, slot time.Time, taskRunID, status, message string) error
 	// ListStaleClaimsAfter 按游标分页列出 claimed 且 created_at < before 的
 	// 领取记录（ARCH-023 跨槽崩溃恢复：旧槽遗留领取不在当前触发槽，由统一
-	// 扫描解析；且 created_at >= cursor 排除已处理页，保证积压>100 也全部
-	// 收敛，而非每轮只清前 100 条）。cursor 为零值 = 从头。
-	ListStaleClaimsAfter(ctx context.Context, before, cursor time.Time, limit int) ([]model.TaskScheduleRunLog, error)
+	// 扫描解析；且 id > cursor 排除已处理页——游标用主键 id 而非 created_at，
+	// 因为 created_at 非唯一，同时间戳多行会让「>= cursor」反复取同页空转。
+	// cursor 为 0 = 从头。按 id ASC 排序保证全量收敛。
+	ListStaleClaimsAfter(ctx context.Context, before time.Time, cursor uint, limit int) ([]model.TaskScheduleRunLog, error)
 	// LastRunResult 取某 TaskRun 的终态（"" = 未终态/不存在）。
 	LastRunStatus(ctx context.Context, taskRunID string) (string, error)
 }
@@ -262,7 +263,7 @@ func (m *Manager) tick(now time.Time) {
 // 执行；业务最终副作用去重归 GAME-010）。活跃领取（租约内）不动。
 func (m *Manager) reapStaleClaims(ctx context.Context, now time.Time) {
 	const pageSize = 100
-	cursor := time.Time{}
+	var cursor uint
 	for {
 		stale, err := m.store.ListStaleClaimsAfter(ctx, now.Add(-m.claimLease), cursor, pageSize)
 		if err != nil {
@@ -277,11 +278,15 @@ func (m *Manager) reapStaleClaims(ctx context.Context, now time.Time) {
 			slog.Warn("scheduler: stale claim lease expired, mark indeterminate",
 				"schedule", rec.ScheduleID, "slot", rec.Slot.Format(time.RFC3339),
 				"age", now.Sub(rec.CreatedAt).String())
-			_ = m.store.UpdateRunLog(ctx, rec.ScheduleID, rec.Slot, "",
-				model.RunLogIndeterminate, "claim lease expired; dispatch outcome unknown (crash before writeback)")
+			if err := m.store.UpdateRunLog(ctx, rec.ScheduleID, rec.Slot, "",
+				model.RunLogIndeterminate, "claim lease expired; dispatch outcome unknown (crash before writeback)"); err != nil {
+				slog.Warn("scheduler: resolve stale claim failed",
+					"schedule", rec.ScheduleID, "slot", rec.Slot.Format(time.RFC3339), "error", err)
+				return
+			}
 		}
 		last := stale[len(stale)-1]
-		cursor = last.CreatedAt
+		cursor = last.ID
 		if len(stale) < pageSize {
 			return
 		}

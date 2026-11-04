@@ -237,6 +237,7 @@ func registerSvcMigrations() {
 		batchOpTablesMigration(),
 		costBudgetTablesMigration(),
 		backupScopeColumnsMigration(),
+		agentMetricsHourlyUniqueIndexMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1999,6 +2000,47 @@ func migrateCostBudgetTables(ctx context.Context, sqlDB *sql.DB) error {
 	if !db.Migrator().HasTable(&model.CostBudget{}) {
 		if err := db.Migrator().CreateTable(&model.CostBudget{}); err != nil {
 			return fmt.Errorf("migrate: 0058 create cost_budgets: %w", err)
+		}
+	}
+	return nil
+}
+
+// agentMetricsHourlyUniqueIndexMigration converts the OPS-010 hourly rollup's
+// (agent_id, hour_start) index from non-unique to unique. RollupHourly
+// previously used non-atomic find-or-create; concurrent servers could insert
+// duplicate rows and corrupt 90-day aggregates. Existing duplicate rows are
+// collapsed deterministically before the unique index is created.
+func agentMetricsHourlyUniqueIndexMigration() *goose.Migration {
+	return goose.NewGoMigration(61,
+		&goose.GoFunc{RunDB: migrateAgentMetricsHourlyUniqueIndex},
+		nil,
+	)
+}
+
+func migrateAgentMetricsHourlyUniqueIndex(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&reg.AgentMetricsHourly{}) {
+		return nil
+	}
+	if err := db.WithContext(ctx).Exec(`
+DELETE FROM agent_metrics_hourly
+WHERE id NOT IN (
+  SELECT MIN(id) FROM agent_metrics_hourly GROUP BY agent_id, hour_start
+)`).Error; err != nil {
+		return fmt.Errorf("migrate: 0061 dedupe agent_metrics_hourly: %w", err)
+	}
+	if migrator.HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
+		if err := migrator.DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"); err != nil {
+			return fmt.Errorf("migrate: 0061 drop idx_agent_hour: %w", err)
+		}
+	}
+	if !migrator.HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
+		if err := migrator.CreateIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"); err != nil {
+			return fmt.Errorf("migrate: 0061 create uidx_agent_hour: %w", err)
 		}
 	}
 	return nil

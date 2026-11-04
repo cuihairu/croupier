@@ -61,7 +61,7 @@ func setupTestServiceContext(t *testing.T) *ServiceContext {
 			TaskRoutingDir: "",
 			TaskRoutingTTL: "",
 			ToAgentTLS: config.TLSClientConfig{
-				Enabled: false,
+				Enabled: boolPtr(false),
 			},
 		},
 	}

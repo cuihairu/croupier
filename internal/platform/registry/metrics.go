@@ -55,8 +55,8 @@ type AgentMetricsHistory struct {
 // rows are pruned at 7 days while this table survives to 90.
 type AgentMetricsHourly struct {
 	ID        uint      `gorm:"primaryKey"`
-	AgentID   string    `gorm:"index:idx_agent_hour,not null"`
-	HourStart time.Time `gorm:"index:idx_agent_hour,not null"`
+	AgentID   string    `gorm:"uniqueIndex:uidx_agent_hour,not null"`
+	HourStart time.Time `gorm:"uniqueIndex:uidx_agent_hour,not null"`
 	// CPUUsageAvg 窗口平均 CPU 使用率（0-100）。
 	CPUUsageAvg float64
 	// MemUsageAvg 窗口平均内存使用率（0-100）。
@@ -608,9 +608,12 @@ func (s *MetricsStore) RollupHourly(ctx context.Context) {
 		}
 		agg.AgentID = agentID
 		agg.HourStart = hourStart
-		// Upsert: one row per (agent, hour). Conflict on a compound unique
-		// key would be ideal; use find-or-create to stay portable across
-		// sqlite/pg/mysql (no dialect-specific ON CONFLICT).
+		// Upsert: one row per (agent, hour). The compound unique index
+		// (uidx_agent_hour) is the invariant; find-or-create stays portable
+		// across sqlite/pg/mysql (no dialect-specific ON CONFLICT). When two
+		// servers (or a cleanup tick and a manual trigger) race, the losing
+		// Create hits the unique constraint and retries once: re-read the
+		// winner and Save onto it — no duplicate row, no lost aggregate.
 		var existing AgentMetricsHourly
 		err := db.WithContext(ctx).
 			Where("agent_id = ? AND hour_start = ?", agentID, hourStart).
@@ -618,6 +621,17 @@ func (s *MetricsStore) RollupHourly(ctx context.Context) {
 		if err != nil {
 			// No row yet — create.
 			if e := db.WithContext(ctx).Create(&agg).Error; e != nil {
+				// 竞态：他协程/实例已插入同一 (agent_id, hour_start)，唯一
+				// 约束拒绝本次 Create。重读胜者行并更新，保证不重复且不丢
+				// 聚合。
+				var winner AgentMetricsHourly
+				if rerr := db.WithContext(ctx).
+					Where("agent_id = ? AND hour_start = ?", agentID, hourStart).
+					First(&winner).Error; rerr != nil {
+					continue
+				}
+				agg.ID = winner.ID
+				db.WithContext(ctx).Save(&agg)
 				continue
 			}
 			continue

@@ -205,22 +205,22 @@ func (m *TaskScheduleModel) UpdateRunLog(ctx context.Context, scheduleID uint, s
 }
 
 // ListStaleClaimsAfter 返回 created_at < before、status=claimed 且
-// created_at >= cursor 的领取记录（ARCH-023 R30-04 跨槽崩溃恢复）。领取者
-// 崩溃后遗留的旧槽位不在当前触发槽，triggerSchedule 的 resolveStaleClaim
-// 只读当前槽，无法看到——由调度循环的统一扫描按租约窗口列出，再解析为
-// indeterminate。cursor 用于游标分页（按 created_at 升序），避免每轮只清
-// 前 limit 条而让积压长期滞留。
-func (m *TaskScheduleModel) ListStaleClaimsAfter(ctx context.Context, before, cursor time.Time, limit int) ([]TaskScheduleRunLog, error) {
+// id > cursor 的领取记录（ARCH-023 R30-04 跨槽崩溃恢复）。领取者崩溃后
+// 遗留的旧槽位不在当前触发槽，triggerSchedule 的 resolveStaleClaim 只读
+// 当前槽，无法看到——由调度循环的统一扫描按租约窗口列出，再解析为
+// indeterminate。cursor 分页锚点用主键 id 而非 created_at：created_at 非
+// 唯一，同时间戳多行 + 「>= cursor」会反复取同页；按 id ASC 保证全量收敛。
+func (m *TaskScheduleModel) ListStaleClaimsAfter(ctx context.Context, before time.Time, cursor uint, limit int) ([]TaskScheduleRunLog, error) {
 	var out []TaskScheduleRunLog
 	q := m.db.WithContext(ctx).
 		Where("status = ? AND created_at < ?", RunLogClaimed, before)
-	if !cursor.IsZero() {
-		q = q.Where("created_at >= ?", cursor)
+	if cursor > 0 {
+		q = q.Where("id > ?", cursor)
 	}
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
-	q = q.Order("created_at ASC")
+	q = q.Order("id ASC")
 	err := q.Find(&out).Error
 	return out, err
 }

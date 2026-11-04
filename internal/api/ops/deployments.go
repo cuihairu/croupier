@@ -266,7 +266,10 @@ func (s *Service) DeployPackageUpload(ctx context.Context, req *DeployPackageCre
 		return nil, errorx.NewBadRequest("file 内容为空")
 	}
 	pid := newPackageID()
-	key := fmt.Sprintf("deploy/%s/%s-%s.bin", role, name, version)
+	// 审核发现 726：对象键包含唯一 packageID，同 (role,name,version) 重复
+	// 上传不再覆盖旧对象。历史 DeployPackage 记录的 Checksum 与 ObjectKey
+	// 指向的对象内容保持一致，供应链完整性不被后续上传破坏。
+	key := fmt.Sprintf("deploy/%s/%s-%s-%s.bin", role, name, version, pid)
 	hasher := sha256.New()
 	hasher.Write(payload)
 	checksum := hex.EncodeToString(hasher.Sum(nil))
