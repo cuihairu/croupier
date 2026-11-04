@@ -18,10 +18,13 @@ func NewBackupModel(db *gorm.DB) *BackupModel {
 	return &BackupModel{db: db}
 }
 
-// ListBackupsOptions controls list filtering.
+// ListBackupsOptions controls list filtering. GameID/Env 非空时按 OPS-008
+// 归属列过滤（游戏域控制台只看本 scope 的备份；平台级清单不带 scope 全量）。
 type ListBackupsOptions struct {
 	PaginationOptions
-	Type string
+	Type   string
+	GameID string
+	Env    string
 }
 
 // Create inserts a new backup entry.
@@ -89,6 +92,12 @@ func (m *BackupModel) List(ctx context.Context, opts ListBackupsOptions) ([]Back
 	query := m.db.WithContext(ctx).Model(&Backup{})
 	if opts.Type != "" {
 		query = query.Where("type = ?", opts.Type)
+	}
+	if opts.GameID != "" {
+		query = query.Where("game_id = ?", opts.GameID)
+	}
+	if opts.Env != "" {
+		query = query.Where("env = ?", opts.Env)
 	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err

@@ -142,6 +142,20 @@ func (m *DBSourceModel) ListByOwnerAndScope(ctx context.Context, ownerAgentID, g
 	return items, err
 }
 
+// FindByScope returns the first enabled source registered for one explicit
+// game environment (OPS-008 备份目标解析：一个游戏环境对应一个注册数据源，
+// 取首个启用的；无则返回 gorm.ErrRecordNotFound)。
+func (m *DBSourceModel) FindByScope(ctx context.Context, gameID, env string) (*DBSource, error) {
+	var src DBSource
+	err := m.db.WithContext(ctx).
+		Where("game_id = ? AND env = ? AND enabled = ?", gameID, env, true).
+		Order("id ASC").First(&src).Error
+	if err != nil {
+		return nil, err
+	}
+	return &src, nil
+}
+
 // FindOne returns a source by id.
 func (m *DBSourceModel) FindOne(ctx context.Context, id uint) (*DBSource, error) {
 	var src DBSource
