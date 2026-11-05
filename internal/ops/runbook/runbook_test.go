@@ -407,6 +407,37 @@ func TestRun_TerminalPersistRetries(t *testing.T) {
 	assert.Equal(t, model.RunbookRunStatusSucceeded, res.Status)
 }
 
+// TestRun_TerminalPersistHandsOffToBackground（审核发现 884）：终态写库 3 次
+// 内联重试全失败（数据库短暂故障超过重试窗口）时，不得把 run 永久留在
+// running——persistTerminal 交后台恢复循环继续写，Run 照常返回已执行结果
+// （不返回错误把结果当 500 丢掉），行随后在后台收敛到终态。
+func TestRun_TerminalPersistHandsOffToBackground(t *testing.T) {
+	store := newFakeStore()
+	// 恰好等于内联重试次数（persistTerminalAttempts=3）：3 次内联全失败，
+	// 后台恢复循环首次重试即成功。
+	store.updateRunStatusErrFails = 3
+	o := runbook.New(store, &fakeBatch{}, nil, nil)
+	rb, err := o.Define(context.Background(), &runbook.DefineRequest{
+		Name: "r", GameID: "g", Env: "e",
+		Steps: []runbook.StepSpec{{Name: "s", Kind: model.RunbookStepBatchExec,
+			Exec: &batchop.ExecPayload{Command: "x"}, Labels: map[string]string{"role": "game"}}},
+	})
+	require.NoError(t, err)
+
+	// 运行结果照常返回：persistTerminal 不再把「写库失败」当错误上抛丢结果。
+	res, err := o.Run(context.Background(), "g", "e", rb.RunbookID, nil, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, model.RunbookRunStatusSucceeded, res.Status)
+
+	// 后台恢复循环在退避后把行收敛到终态（1s 起步退避，5s 内应完成）。
+	require.Eventually(t, func() bool {
+		store.mu.Lock()
+		defer store.mu.Unlock()
+		run := store.runs[res.RunID]
+		return run != nil && run.Status == model.RunbookRunStatusSucceeded
+	}, 5*time.Second, 50*time.Millisecond, "runbook_runs 必须在后台收敛到终态，不得永久停留 running")
+}
+
 // TestRun_ParamSubstitution 步骤串字段 {{param}} 在运行前替换。
 func TestRun_ParamSubstitution(t *testing.T) {
 	store := newFakeStore()

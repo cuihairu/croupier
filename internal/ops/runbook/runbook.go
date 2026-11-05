@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -292,7 +293,10 @@ func (o *Orchestrator) Run(ctx context.Context, gameID, env, runbookID string, p
 }
 
 // persistTerminal 用独立于请求 ctx 的有界上下文写终态，失败重试最多
-// persistTerminalAttempts 次（每次有界超时），保证 running 不会悬空。
+// persistTerminalAttempts 次（每次有界超时）。重试窗口内仍未写成的，交由
+// 后台恢复循环（detached goroutine + 指数退避）继续写，避免数据库短暂故
+// 障超过重试窗口时 runbook_runs 永久停留 running；运行结果照常返回，行在
+// 后台收敛，不因终态写库失败丢掉已执行的结果。
 func (o *Orchestrator) persistTerminal(parent context.Context, runID uint, result *RunResult) error {
 	stepsJSON, _ := json.Marshal(result.Steps)
 	var lastErr error
@@ -305,7 +309,34 @@ func (o *Orchestrator) persistTerminal(parent context.Context, runID uint, resul
 		}
 		lastErr = err
 	}
-	return lastErr
+	slog.Warn("runbook: terminal state not persisted after retries; handing off to background recovery",
+		"run_id", runID, "status", result.Status, "error", lastErr)
+	o.recoverTerminal(runID, result.Status, result.CurrentStep, string(stepsJSON), result.Error)
+	return nil
+}
+
+// recoverTerminal 在后台以指数退避重写终态，直到成功或进程退出。退避封顶
+// persistTerminalBackoffMax，数据库长期不可用时不会忙循环；每次退避至多
+// 一次写，goroutine 生命周期以进程为界，无泄漏/风暴风险。终态写入是幂等
+// 的（UpdateRunStatus 直接置终态），迟到覆盖不会产生旧值回退。
+func (o *Orchestrator) recoverTerminal(runID uint, status string, currentStep int, stepsJSON, errMsg string) {
+	go func() {
+		backoff := persistTerminalBackoffMin
+		for {
+			time.Sleep(backoff)
+			pctx, cancel := context.WithTimeout(context.Background(), persistTerminalTimeout)
+			err := o.store.UpdateRunStatus(pctx, runID, status, currentStep, stepsJSON, errMsg)
+			cancel()
+			if err == nil {
+				slog.Info("runbook: terminal state recovered in background", "run_id", runID, "status", status)
+				return
+			}
+			backoff *= 2
+			if backoff > persistTerminalBackoffMax {
+				backoff = persistTerminalBackoffMax
+			}
+		}
+	}()
 }
 
 const (
@@ -313,6 +344,10 @@ const (
 	persistTerminalTimeout = 5 * time.Second
 	// persistTerminalAttempts 终态写库重试次数（含首次）。
 	persistTerminalAttempts = 3
+	// persistTerminalBackoffMin 后台恢复循环首次重试前等待。
+	persistTerminalBackoffMin = 1 * time.Second
+	// persistTerminalBackoffMax 后台恢复循环退避封顶。
+	persistTerminalBackoffMax = 30 * time.Second
 )
 
 func (o *Orchestrator) executeStep(ctx context.Context, gameID, env string, step *StepSpec) error {
