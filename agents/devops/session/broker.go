@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/agents/devops/config"
@@ -48,6 +49,10 @@ type Broker struct {
 	gameID    string
 	env       string
 	now       func() time.Time // 测试注入
+
+	// onSession 会话观测回调（OBS-AGENT-001：open/end 成败计数；nil=不打点）。
+	mu        sync.Mutex
+	onSession func(event string, success bool)
 }
 
 // NewBroker 装配会话建立链。
@@ -63,6 +68,23 @@ func NewBroker(allow *Allowlist, audit Audit, provider Target, rec *Recorder,
 		gameID:    gameID,
 		env:       env,
 		now:       time.Now,
+	}
+}
+
+// SetSessionObserver 装配会话观测回调（OBS-AGENT-001：event="open"/"end"，
+// success=成败；nil=不打点）。观测失败不阻断会话链。
+func (b *Broker) SetSessionObserver(fn func(event string, success bool)) {
+	b.mu.Lock()
+	b.onSession = fn
+	b.mu.Unlock()
+}
+
+func (b *Broker) observe(event string, success bool) {
+	b.mu.Lock()
+	fn := b.onSession
+	b.mu.Unlock()
+	if fn != nil {
+		fn(event, success)
 	}
 }
 
@@ -89,6 +111,7 @@ func (b *Broker) OpenSession(ctx context.Context, req SessionRequest) (Session, 
 	// 1) 白名单前置（白名单外拒绝也要留痕：谁试图进哪台）。
 	if err := b.allow.Check(req.Host, req.Port, req.Protocol); err != nil {
 		b.result(req, execlog.StatusFailure, err.Error(), 0)
+		b.observe("open", false)
 		return nil, err
 	}
 
@@ -120,9 +143,11 @@ func (b *Broker) OpenSession(ctx context.Context, req SessionRequest) (Session, 
 	elapsed := b.now().Sub(started).Milliseconds()
 	if err != nil {
 		b.result(req, execlog.StatusFailure, err.Error(), elapsed)
+		b.observe("open", false)
 		return nil, err
 	}
 	b.result(req, execlog.StatusSuccess, "", elapsed)
+	b.observe("open", true)
 
 	// 4) 会话存档（起止元数据）。交互终端通道（SSH 等）的生命周期由 Hub
 	// 收束——结束存档（EndStats 带回放档统计）与会话结束审计在 cleanup
@@ -202,6 +227,7 @@ func (b *Broker) RecordEnd(sessionID, operator, outcome string, elapsedMs int64)
 	if outcome == "error" || outcome == "cast-broken" {
 		status = execlog.StatusFailure
 	}
+	b.observe("end", status == execlog.StatusSuccess)
 	_ = b.audit.Record(&execlog.Record{
 		TaskID:        sessionID,
 		Operator:      operator,

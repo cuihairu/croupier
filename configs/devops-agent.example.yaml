@@ -42,3 +42,13 @@ devops:
   execlogDir: data/devops/execlog
   # guacd（Guacamole 协议网关）地址——预留字段，协议通道批启用。
   guacdAddr: ""
+
+# ---------------------------------------------------------------------------
+# OTel 观测面（OBS-AGENT-001）：缺省关闭（总开关收口在运行时，编译含 SDK）。
+# 开启后 agent 打点（启停/连接状态/会话事件吞吐/错误率）经 OTLP HTTP 上报，
+# 可被服务端面板看到；关闭时不建 exporter/周期导出任务（零开销 noop）。
+# telemetry:
+#   enabled: false
+#   otlpEndpoint: http://collector:4318
+#   insecure: true
+#   serviceName: croupier-devops

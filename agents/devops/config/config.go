@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/core/agentscope"
+	"github.com/cuihairu/croupier/core/otelrec"
 
 	"gopkg.in/yaml.v3"
 )
@@ -97,9 +98,10 @@ type Devops struct {
 
 // Config devops-agent 全量配置。
 type Config struct {
-	Agent       Agent       `yaml:"agent" json:"agent"`
-	OutboundTLS OutboundTLS `yaml:"outboundTLS" json:"outboundTLS"`
-	Devops      Devops      `yaml:"devops" json:"devops"`
+	Agent       Agent                   `yaml:"agent" json:"agent"`
+	OutboundTLS OutboundTLS             `yaml:"outboundTLS" json:"outboundTLS"`
+	Devops      Devops                  `yaml:"devops" json:"devops"`
+	Telemetry   otelrec.TelemetryConfig `yaml:"telemetry" json:"telemetry"`
 }
 
 // Load 读入并校验 YAML 配置。

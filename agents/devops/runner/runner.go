@@ -30,6 +30,7 @@ import (
 	"github.com/cuihairu/croupier/agents/devops/session"
 	"github.com/cuihairu/croupier/core/configsync"
 	"github.com/cuihairu/croupier/core/execlog"
+	"github.com/cuihairu/croupier/core/otelrec"
 	"github.com/cuihairu/croupier/core/register"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -52,6 +53,7 @@ var (
 type Runner struct {
 	cfg    config.Config
 	log    *slog.Logger
+	rec    otelrec.Recorder
 	broker *session.Broker
 	hub    *session.Hub
 
@@ -68,7 +70,7 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 	if log == nil {
 		log = slog.Default()
 	}
-	r := &Runner{cfg: cfg, log: log}
+	r := &Runner{cfg: cfg, log: log, rec: otelrec.Discard()}
 	r.fetchAllowlist = func(ctx context.Context) (*configsync.Versioned[[]byte], error) {
 		c := r.conn.Load()
 		if c == nil || !c.Connected() {
@@ -87,6 +89,14 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 	return r
 }
 
+// SetRecorder 装配 OTel 观测面（nil=noop；必须在 Run 前调用）。
+func (r *Runner) SetRecorder(rec otelrec.Recorder) {
+	if rec == nil {
+		rec = otelrec.Discard()
+	}
+	r.rec = rec
+}
+
 // Broker 会话建立链句柄（测试观察）。
 func (r *Runner) Broker() *session.Broker { return r.broker }
 
@@ -95,6 +105,8 @@ func (r *Runner) Hub() *session.Hub { return r.hub }
 
 // Run 是 supervisable.RunFunc：注册上线 + 审计/会话面装配，ctx 取消即收尾。
 func (r *Runner) Run(ctx context.Context) error {
+	r.rec.Start(ctx, map[string]string{"agent": r.cfg.Agent.ID, "role": "devops"})
+	defer func() { r.rec.Stop(ctx, ctx.Err()) }()
 	reg := register.New(register.Config{
 		AgentID: r.cfg.Agent.ID,
 		Dial: func(context.Context) (register.Conn, error) {
@@ -107,6 +119,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		Payload: r.buildPayload,
 		Logger:  r.log,
 		OnConnected: func() {
+			r.rec.Connected(ctx)
 			r.log.Info("registered upstream", "agent", r.cfg.Agent.ID, "gameId", r.cfg.Agent.GameID, "env", r.cfg.Agent.Env)
 		},
 	})
@@ -151,6 +164,13 @@ func (r *Runner) Run(ctx context.Context) error {
 		recorder,
 		"devops", r.cfg.Agent.ID, r.cfg.Agent.GameID, r.cfg.Agent.Env,
 	)
+	r.broker.SetSessionObserver(func(event string, success bool) {
+		outcome := "ok"
+		if !success {
+			outcome = "fail"
+		}
+		r.rec.Count(ctx, "session", 1, map[string]string{"event": event, "outcome": outcome})
+	})
 	castDir := filepath.Join(r.cfg.SessionDir(), "casts")
 	r.hub = session.NewHub(r.broker, recorder, castDir, session.HubConfig{}, r.log)
 	defer func() { _ = r.hub.Close() }()
@@ -158,6 +178,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	// 白名单 configsync 下发（capture gates/probe policy 同款通道语义：
 	// 周期拉取 → 版本比对 → 校验 → 整体热换；坏版本 keep last-good）。
 	r.newAllowlistPuller().Start(ctx)
+	r.rec.Count(ctx, "allowlist_apply", 1, map[string]string{"outcome": "ready"})
 
 	r.log.Info("devops session plane enabled",
 		"allowlist", allow.Len(), "channel", target.Name(),
@@ -180,18 +201,21 @@ func (r *Runner) newAllowlistPuller() *configsync.Puller[[]byte] {
 
 // applyAllowlistCenter 校验后整体热换白名单（面板发布预检与 agent apply
 // 同一校验真值；任一条非法即整体拒绝，保持 last-good）。
-func (r *Runner) applyAllowlistCenter(_ context.Context, payload []byte) error {
+func (r *Runner) applyAllowlistCenter(ctx context.Context, payload []byte) error {
 	entries, err := config.ParseAllowlistJSON(payload)
 	if err != nil {
+		r.rec.Count(ctx, "errors", 1, map[string]string{"kind": "allowlist_parse"})
 		return err
 	}
 	if err := config.ValidateAllowlist(entries); err != nil {
+		r.rec.Count(ctx, "errors", 1, map[string]string{"kind": "allowlist_validate"})
 		return err
 	}
 	if r.broker == nil {
 		return errors.New("broker not wired")
 	}
 	prev, cur := r.broker.SwapAllowlist(entries)
+	r.rec.Count(ctx, "allowlist_apply", 1, map[string]string{"outcome": "ok"})
 	r.log.Info("devops allowlist swapped", "previous", prev, "current", cur)
 	return nil
 }

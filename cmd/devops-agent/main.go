@@ -3,9 +3,13 @@
 // 装配：config.Load（devops.enabled 缺省关，注册上线不受影响）→ runner
 // （注册/心跳 + execlog 审计真值 + 会话建立链 Broker）→ supervisable.Main
 // （信号纪律/心跳打点/退出码契约）。协议通道（guacd/SSH）另批。
+// OTel 观测面（OBS-AGENT-001）：telemetry.enabled=false（缺省）不建
+// exporter/周期导出任务（runner 走 NoopRecorder 零开销）；true 时经
+// agentrec.Build 装配 OTLP 导出并在 run 收尾 Shutdown 冲刷。
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -14,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/agents/devops/config"
 	"github.com/cuihairu/croupier/agents/devops/runner"
 	"github.com/cuihairu/croupier/core/supervisable"
+	"github.com/cuihairu/croupier/internal/telemetry/agentrec"
 )
 
 func main() {
@@ -34,6 +39,17 @@ func main() {
 		os.Exit(2)
 	}
 
-	os.Exit(supervisable.Main("devops-agent", runner.New(cfg, slog.Default()).Run,
-		supervisable.WithHeartbeat(cfg.Agent.HeartbeatFile, 0)))
+	r := runner.New(cfg, slog.Default())
+	rec, err := agentrec.Build(context.Background(), cfg.Telemetry, slog.Default())
+	if err != nil {
+		// fail-closed：telemetry.enabled=true 但 no_otel 裁剪构建时不静默无导出。
+		slog.Error("telemetry setup failed", "error", err)
+		os.Exit(2)
+	}
+	r.SetRecorder(rec)
+
+	os.Exit(supervisable.Main("devops-agent", func(ctx context.Context) error {
+		defer func() { _ = rec.Shutdown(context.Background()) }()
+		return r.Run(ctx)
+	}, supervisable.WithHeartbeat(cfg.Agent.HeartbeatFile, 0)))
 }

@@ -90,6 +90,56 @@ func baseRequest() SessionRequest {
 	}
 }
 
+func TestBrokerSessionObserver(t *testing.T) {
+	audit := &fakeAudit{}
+	target := &stubTarget{name: "stub", session: &stubSession{}}
+	b, _ := testBroker(t, audit, target)
+
+	var mu sync.Mutex
+	var events []string
+	b.SetSessionObserver(func(event string, success bool) {
+		mu.Lock()
+		defer mu.Unlock()
+		events = append(events, event+":"+boolStr(success))
+	})
+
+	// 允许名单内 → open 成功。
+	sess, err := b.OpenSession(context.Background(), baseRequest())
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	_ = sess.Close()
+
+	// 允许名单外 → open 失败（whitelist 前置拒绝）。
+	rej := baseRequest()
+	rej.Host = "10.0.1.99"
+	if _, err := b.OpenSession(context.Background(), rej); err == nil {
+		t.Fatal("expected allowlist reject")
+	}
+
+	// 会话结束 → end 事件。
+	b.RecordEnd("s1", "ops", "closed", 10)
+
+	mu.Lock()
+	defer mu.Unlock()
+	want := []string{"open:true", "open:false", "end:true"}
+	if len(events) != len(want) {
+		t.Fatalf("observer events = %v, want %v", events, want)
+	}
+	for i := range want {
+		if events[i] != want[i] {
+			t.Fatalf("observer events = %v, want %v", events, want)
+		}
+	}
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
 func TestBrokerHappyPathChain(t *testing.T) {
 	audit := &fakeAudit{}
 	target := &stubTarget{name: "stub", session: &stubSession{}}

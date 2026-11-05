@@ -60,6 +60,35 @@ func TestLoadOverridesDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadTelemetryDefaultsOffAndBlockParses(t *testing.T) {
+	// 缺省：telemetry.enabled=false（总开关收口，零开销 noop 路径）。
+	cfg, err := Load(writeCfg(t, validBody))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.Telemetry.Enabled {
+		t.Fatal("telemetry.enabled must default to false")
+	}
+
+	// 显式开启 + OTLP endpoint（lowerCamelCase 契约键）。
+	on, err := Load(writeCfg(t, validBody+`
+telemetry:
+  enabled: true
+  otlpEndpoint: http://collector:4318
+  insecure: true
+  serviceName: croupier-devops
+`))
+	if err != nil {
+		t.Fatalf("load telemetry: %v", err)
+	}
+	if !on.Telemetry.Enabled || on.Telemetry.OTLPEndpoint != "http://collector:4318" {
+		t.Fatalf("telemetry = %+v", on.Telemetry)
+	}
+	if !on.Telemetry.Insecure || on.Telemetry.ServiceName != "croupier-devops" {
+		t.Fatalf("telemetry insecure/serviceName = %+v", on.Telemetry)
+	}
+}
+
 func TestValidateRequired(t *testing.T) {
 	base := Config{Agent: Agent{ID: "a", ServerAddr: "s", GameID: "g", Env: "prod"}}
 	if err := base.Validate(); err != nil {
