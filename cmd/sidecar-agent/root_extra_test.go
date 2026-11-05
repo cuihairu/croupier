@@ -190,7 +190,7 @@ ops:
 	mode = "test"
 	debug = true
 
-	core, _, runErr, err := startAgentCore(context.Background(), parseAgentConfig(t, cfgData), filepath.Dir(cfgPath), nil)
+	core, _, runErr, err := startAgentCore(context.Background(), parseAgentConfig(t, cfgData), filepath.Dir(cfgPath), nil, "test-agent")
 	require.NoError(t, err)
 	t.Cleanup(core.Stop)
 
@@ -322,7 +322,7 @@ func parseAgentConfig(t *testing.T, data string) *AgentConfig {
 }
 
 func TestStartAgentCore_NilConfig(t *testing.T) {
-	_, _, _, err := startAgentCore(context.Background(), nil, "", nil)
+	_, _, _, err := startAgentCore(context.Background(), nil, "", nil, "")
 	assert.EqualError(t, err, "missing config")
 }
 
@@ -404,7 +404,7 @@ func TestStartAgentCore_Wiring(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			core, localAddr, _, err := startAgentCore(context.Background(), &tc.cfg, dir, nil)
+			core, localAddr, _, err := startAgentCore(context.Background(), &tc.cfg, dir, nil, "test-agent")
 			require.NoError(t, err)
 			require.NotNil(t, core)
 			assert.Equal(t, tc.wantLocal, localAddr)
@@ -424,7 +424,7 @@ func TestStartAgentCore_DevCertGeneration(t *testing.T) {
 		Server: AgentServerConfig{Insecure: false, CAFile: filepath.Join(dir, "no-such-ca.crt")},
 		Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0"},
 	}
-	core, _, runErr, err := startAgentCore(context.Background(), cfg, dir, nil)
+	core, _, runErr, err := startAgentCore(context.Background(), cfg, dir, nil, "test-agent")
 	_ = runErr
 	require.NoError(t, err)
 	core.Stop()
@@ -443,9 +443,30 @@ func TestStartAgentCore_DevCertGeneration(t *testing.T) {
 			Server: AgentServerConfig{Insecure: false, CAFile: filepath.Join(dir2, "missing.crt")},
 			Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0"},
 		}
-		_, _, _, err = startAgentCore(context.Background(), cfg2, dir2, nil)
+		_, _, _, err = startAgentCore(context.Background(), cfg2, dir2, nil, "test-agent")
 		assert.ErrorContains(t, err, "failed to generate CA cert")
 	}
+}
+
+// TestStartAgentCore_UsesPassedAgentID（审核发现 885）：startAgentCore 必须
+// 使用调用方解析一次传入的 agent id，而不是从配置重新 resolveAgentID。此前
+// runAgent 与 startAgentCore 各自解析，未配置 id 时兜底 host-<Unix秒> 跨秒
+// 会产生不同 id，recorder base 与 core 注册不一致。观测面走 App.AgentID()
+// 读回：传入与配置不同的 id，若 core 用了配置值（旧行为）则断言失败。
+func TestStartAgentCore_UsesPassedAgentID(t *testing.T) {
+	saveRootGlobals(t)
+	dir := t.TempDir()
+	cfgFile = filepath.Join(dir, "agent.yaml")
+	cfg := &AgentConfig{
+		// server addr 留空让 Run 不发起上游连接（对齐 TestStartAgentCore_Wiring）。
+		Server: AgentServerConfig{Insecure: true},
+		Agent:  AgentInfoConfig{ID: "config-id", GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0"},
+	}
+	core, _, _, err := startAgentCore(context.Background(), cfg, dir, nil, "resolved-once-id")
+	require.NoError(t, err)
+	t.Cleanup(core.Stop)
+	assert.Equal(t, "resolved-once-id", core.AgentID(),
+		"startAgentCore 必须使用调用方传入的 agent id，不得从配置重新解析")
 }
 
 // ---- YAML 兼容解析矩阵：legacy PascalCase ↔ canonical 小驼峰 ----

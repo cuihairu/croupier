@@ -691,6 +691,16 @@ func (a *App) WithVersion(version string) {
 	a.version = version
 }
 
+// AgentID returns the agent id the caller resolved once and passed into
+// NewWithConfigDir (test/diagnostic accessor; 同一 id 供 recorder base 与
+// core 注册共用，读回用于验证装配一致性)。
+func (a *App) AgentID() string {
+	if a == nil {
+		return ""
+	}
+	return a.agentID
+}
+
 // OpsServer returns the ops server instance (for testing or direct access).
 func (a *App) OpsServer() *OpsServer {
 	if a == nil {

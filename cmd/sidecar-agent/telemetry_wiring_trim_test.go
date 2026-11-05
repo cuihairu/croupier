@@ -22,7 +22,7 @@ func TestStartAgentCore_TelemetryTrimBuildFailsClosed(t *testing.T) {
 	cfg := sidecarTelemetryBaseline()
 	cfg.Telemetry.Enabled = true
 
-	_, _, _, err := startAgentCore(context.Background(), cfg, dir, nil)
+	_, _, _, err := startAgentCore(context.Background(), cfg, dir, nil, "test-agent")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no_otel")
 	assert.Contains(t, err.Error(), "built without OTel support")
@@ -35,7 +35,7 @@ func TestStartAgentCore_TelemetryTrimBuildMasterOffRunsLightweight(t *testing.T)
 	dir := t.TempDir()
 	cfgFile = filepath.Join(dir, "agent.yaml")
 
-	core, _, _, err := startAgentCore(context.Background(), sidecarTelemetryBaseline(), dir, nil)
+	core, _, _, err := startAgentCore(context.Background(), sidecarTelemetryBaseline(), dir, nil, "test-agent")
 	require.NoError(t, err)
 	t.Cleanup(core.Stop)
 	assert.Nil(t, core.TelemetryService())

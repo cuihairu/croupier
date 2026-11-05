@@ -25,7 +25,7 @@ func TestStartAgentCore_TelemetryMasterOnWiresService(t *testing.T) {
 	cfg.Telemetry.EnableTracing = true
 	cfg.Telemetry.EnableMetrics = true
 
-	core, _, _, err := startAgentCore(context.Background(), cfg, dir, nil)
+	core, _, _, err := startAgentCore(context.Background(), cfg, dir, nil, "test-agent")
 	require.NoError(t, err)
 	t.Cleanup(core.Stop)
 

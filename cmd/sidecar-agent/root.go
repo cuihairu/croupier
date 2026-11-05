@@ -523,8 +523,12 @@ func runAgent() (retErr error) {
 	// 回调经 armRecorderChaining 打到 recorder，若 Start 晚于启动 goroutine，
 	// 首个连接事件会丢 role/agent 维度且 start/connected 乱序（审核发现 863）。
 	// 与其他 agent 一致，base 同时携带 agent id 与 role。
-	rec.Start(runCtx, map[string]string{"agent": resolveAgentID(strings.TrimSpace(c.Agent.ID)), "role": "sidecar"})
-	core, localAddr, runErr, err := startAgentCore(runCtx, &c, configDir, rec)
+	// agent id 只解析一次：未配置 id 时兜底是 host-<Unix秒>，两处独立解析
+	// 跨秒会得到不同 id（recorder base 与 core 注册不一致）。解析结果同时
+	// 供 recorder base 与 startAgentCore 使用。
+	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))
+	rec.Start(runCtx, map[string]string{"agent": agentID, "role": "sidecar"})
+	core, localAddr, runErr, err := startAgentCore(runCtx, &c, configDir, rec, agentID)
 	if err != nil {
 		// Start 已打点：装配失败也必须收尾（否则 lifecycle=start 无对应 stop）。
 		rec.Stop(runCtx, err)
@@ -558,7 +562,7 @@ func runAgent() (retErr error) {
 	}
 }
 
-func startAgentCore(ctx context.Context, c *AgentConfig, configDir string, rec otelrec.Recorder) (*agentcore.App, string, <-chan error, error) {
+func startAgentCore(ctx context.Context, c *AgentConfig, configDir string, rec otelrec.Recorder, agentID string) (*agentcore.App, string, <-chan error, error) {
 	if c == nil {
 		return nil, "", nil, fmt.Errorf("missing config")
 	}
@@ -578,8 +582,6 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string, rec o
 	}
 	localListenAddr = strings.TrimPrefix(localListenAddr, "tcp://")
 	localAddr := localListenAddr
-
-	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))
 
 	// 收集系统标签
 	labels := collectSystemLabels()
