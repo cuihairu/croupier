@@ -495,7 +495,8 @@
 
 - [ ] **DOC-001 · P2 · 文档 · 配置开关效果动态图**
   - 依赖：—。
-  - 状态／条件：TODO（未开始）。参考 kode todo C-24 同款流水线模式（2026-11-01 用户令全舰队推广）。
+  - 状态／条件：IN PROGRESS（2026-11-05）。参考 kode todo C-24 同款流水线模式（2026-11-01 用户令全舰队推广）。**增量 1 已交付：全量开关枚举落 docs「配置效果」页（双语）**——5 个 featureFlags（dev/support/analytics/ops/extensions，缺省=启用、显式 false 裁剪控制面域）+ 36 个 server 配置开关（含遥测 5、认证提供者 9、集群/HA/TLS 11 等，全路径自 Config 根 struct 遍历生成）+ 8 个 agent 侧开关（ops_config 5 + 三 agent telemetry），每项含默认值来源（example/code）与 off/on 可观察效果；已知边界记录 telemetry 块历史 snake_case 兼容面。**待做**：off/on 截图 + GIF 证据流水线（GUI 类应用截图/录屏、CLI 类终端录屏→GIF）、docs 页逐开关嵌证据、流水线可重跑与配置效果回归。
+  - 完成证据：`docs/operations/config-effects.md` + `docs/zh/operations/config-effects.md`（双语枚举页，含 featureFlags/server/telemetry/auth/agent 五段表格与已知边界）；`docs/.vitepress/config.mjs`（en+zh 侧边栏注册 Config switch effects/配置开关效果）；`bash scripts/check-docs-links.sh` OK（698 链接 0 死链）、`bash scripts/check-docs-terms.sh` OK（83 基线）、`CI=true pnpm build`（docs）通过（193s）。
   - 交付与验收：枚举本仓全部「开启后有效果」的开关/配置项，自动流水线生成证据——GUI 类用 @vscode/test-electron 或应用截图（off 一张/on 一张+切换过程录屏），CLI 类用终端录屏（asciinema→GIF 或 ffmpeg），ffmpeg 缝合动态 GIF；docs「配置效果」页（双语）逐开关嵌入说明+off 图+on 图+GIF。验收：清单内每个开关都有 off/on+GIF；流水线可重跑（配置变更随时再生成）；兼作配置效果回归测试。
 
 ## 全仓代码深审（2026-11-02）——P2/P3 待办
