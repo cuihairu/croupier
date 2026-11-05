@@ -2048,7 +2048,7 @@ func ensureAgentMetricsHourlyConverged(ctx context.Context, db *gorm.DB) error {
 	// 库（0051 CreateTable 按 size:64 建 VARCHAR(64)）schema 分叉；且 MySQL 下
 	// TEXT 无前缀不能建索引，0061 建 uidx_agent_hour 会在存量库失败。统一回填
 	// 为 VARCHAR(64)：先列类型迁移（幂等），再建唯一索引。
-	if err := migrator.AlterColumn(&reg.AgentMetricsHourly{}, "AgentID"); err != nil {
+	if err := alterAgentMetricsHourlyAgentID(ctx, db); err != nil {
 		return fmt.Errorf("migrate: agent_metrics_hourly alter agent_id: %w", err)
 	}
 	if err := db.WithContext(ctx).Exec(`
@@ -2071,6 +2071,64 @@ WHERE id NOT IN (
 		}
 	}
 	return nil
+}
+
+// alterAgentMetricsHourlyAgentID converges agent_metrics_hourly.agent_id to
+// VARCHAR(64) (the schema tag) unless existing rows already contain longer
+// values: narrowing past the longest value would fail on strict databases
+// (PostgreSQL) and prevent startup. In that case it widens to fit the longest
+// value instead, preserving legacy data; new registrations are capped at 64 by
+// the register handler, so the column never grows further.
+func alterAgentMetricsHourlyAgentID(ctx context.Context, db *gorm.DB) error {
+	var maxLen sql.NullInt64
+	lengthFn := "CHAR_LENGTH"
+	if db.Dialector.Name() == "sqlite" {
+		lengthFn = "LENGTH"
+	}
+	if err := db.WithContext(ctx).Raw(
+		"SELECT MAX(" + lengthFn + "(agent_id)) FROM agent_metrics_hourly",
+	).Scan(&maxLen).Error; err != nil {
+		return fmt.Errorf("probe agent_metrics_hourly max agent_id length: %w", err)
+	}
+	required := int64(64)
+	if maxLen.Valid && maxLen.Int64 > required {
+		required = maxLen.Int64
+	}
+
+	migrator := db.Migrator()
+	columnTypes, err := migrator.ColumnTypes(&reg.AgentMetricsHourly{})
+	if err != nil {
+		return fmt.Errorf("read agent_metrics_hourly column types: %w", err)
+	}
+	for _, col := range columnTypes {
+		if col.Name() != "agent_id" {
+			continue
+		}
+		currentLen, _ := col.Length()
+		if currentLen >= required {
+			return nil
+		}
+		if required > 64 {
+			switch db.Dialector.Name() {
+			case "mysql":
+				err = db.WithContext(ctx).Exec(
+					"ALTER TABLE agent_metrics_hourly MODIFY agent_id VARCHAR(?) NOT NULL",
+					required,
+				).Error
+			case "postgres":
+				err = db.WithContext(ctx).Exec(
+					"ALTER TABLE agent_metrics_hourly ALTER COLUMN agent_id TYPE VARCHAR(?)",
+					required,
+				).Error
+			default:
+				// SQLite 等不强制 VARCHAR 长度的引擎：缩窄到 size:64 不会因
+				// 存量超长行失败（长度不校验），走常规 AlterColumn 即可。
+				return migrator.AlterColumn(&reg.AgentMetricsHourly{}, "AgentID")
+			}
+			return err
+		}
+	}
+	return migrator.AlterColumn(&reg.AgentMetricsHourly{}, "AgentID")
 }
 
 // runbookTablesMigration creates the OPS-009 runbooks + runbook_runs tables

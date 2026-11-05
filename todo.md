@@ -887,5 +887,9 @@
 - [x] 审核发现：未配置 agent ID 时观测记录与实际 core 分别调用基于秒级时间的 resolveAgentID，若两次调用跨秒会产生不同 ID，导致遥测无法关联实际 agent。（cmd/sidecar-agent/root.go:526）
   - 修复：`runAgent` 只解析一次 agentID，同一值供 recorder base 与 `startAgentCore`（签名改为显式传入 agentID，去掉内部再解析）；`startAgentCore` 不再调用 resolveAgentID，杜绝跨秒分歧。
   - 证据：2026-11-05；`cmd/sidecar-agent/root.go`（runAgent 单次解析 + startAgentCore 传参）、`internal/app/agent/app.go`（AgentID 读回访问器）、`cmd/sidecar-agent/root_extra_test.go`（TestStartAgentCore_UsesPassedAgentID）；`go test ./cmd/sidecar-agent/ -count=1` PASS。
-- [ ] 审核发现：0063 将已有 agent_id 无条件缩窄至 64 字符，而注册入口未限制 ID 长度，PostgreSQL 等严格数据库中已有超长 ID 的实例会在迁移时报错并无法启动，后续超长 ID 的小时聚合也无法写入。（internal/svc/migrations.go:2123）
+- [x] 审核发现：0063 将已有 agent_id 无条件缩窄至 64 字符，而注册入口未限制 ID 长度，PostgreSQL 等严格数据库中已有超长 ID 的实例会在迁移时报错并无法启动，后续超长 ID 的小时聚合也无法写入。（internal/svc/migrations.go:2123）
+  - 修复：注册入口 `handleRegisterRequest` 按 rune 数上限 64（VARCHAR(64) 字符语义）拒绝超长 agent_id（`maxAgentIDLen`，`internal/server/control_handler.go`），从源头杜绝超长 ID 进入任何 store；迁移收敛改为 `alterAgentMetricsHourlyAgentID`——先探存量最大 `agent_id` 字符长度，若超 64 则在 MySQL/PostgreSQL 上按需放宽列宽（不因存量超长行报错阻止启动），SQLite 等不强制长度的引擎走常规路径，超长行保留不再新增。
+  - 证据：2026-11-05；`internal/server/control_handler.go`（maxAgentIDLen + handleRegisterRequest 拒绝超长）、`internal/server/control_handler_scope_test.go`（TestHandleRegisterRequest_OverlongAgentIDRejected）、`internal/svc/migrations.go`（alterAgentMetricsHourlyAgentID）、`internal/svc/migrations_metrics_hourly_agentid_size_test.go`（TestAgentMetricsHourlyAgentIDSizeMigration_OverlongExistingRowsSurvive）；`go test ./internal/server/ -count=1` 全绿、`go test ./internal/svc/ -count=1` 全绿、`go test ./internal/db/migrate/ ./internal/platform/registry/ -count=1` 全绿、`go build ./...` 过、`go vet ./internal/server/ ./internal/svc/` 过。
 - [ ] 审核发现：0063 在 SQLite 上调用 AlterColumn 会重建表并删除原有唯一索引，去重和重建索引又在独立事务中执行，期间崩溃或建索引失败会使已有实例的小时聚合失去唯一约束，并发写入可产生重复数据。（internal/svc/migrations.go:2123）
+- [ ] 审核发现：终态只保存在进程内的后台重试任务中，数据库恢复前进程重启会丢失结果且没有启动恢复机制，已返回成功的 run 仍会永久停留 running。（internal/ops/runbook/runbook.go:314）
+- [ ] 审核发现：每次终态持久化失败都会创建无限重试的独立 goroutine，持续性更新错误下运行次数越多就会累积越多任务并周期性冲击数据库，耗尽服务资源。（internal/ops/runbook/runbook.go:323）

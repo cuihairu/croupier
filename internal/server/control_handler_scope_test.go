@@ -251,3 +251,28 @@ func TestHandleRegisterRequest_SameAgentIDCrossScopeRejected(t *testing.T) {
 		t.Fatalf("session scope polluted = %+v", sess)
 	}
 }
+
+// 0063 审核发现：注册入口未限制 agent_id 长度，而 agent_id 列均按
+// size:64 建表，PostgreSQL 等严格库会在写入/迁移时拒绝超长 ID。注册
+// 必须在入口拒绝超 64 字节的 agent_id，确保任何 store 与 0063 迁移
+// 不会遇到不可收敛的超长行。
+func TestHandleRegisterRequest_OverlongAgentIDRejected(t *testing.T) {
+	svc := newScopeTestService(t)
+
+	long := strings.Repeat("a", maxAgentIDLen+1)
+	if _, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: long, GameId: "g", Env: "e",
+	}, "10.0.0.1:12345"); err == nil {
+		t.Fatal("expected over-long agent_id registration to be rejected")
+	} else if !strings.Contains(err.Error(), "agent_id too long") {
+		t.Fatalf("unexpected error = %v", err)
+	}
+
+	// 恰好 64 字节边界允许。
+	boundary := strings.Repeat("a", maxAgentIDLen)
+	if _, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: boundary, GameId: "g", Env: "e",
+	}, "10.0.0.1:12346"); err != nil {
+		t.Fatalf("boundary-length agent_id should register: %v", err)
+	}
+}

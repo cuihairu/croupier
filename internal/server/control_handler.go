@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cuihairu/croupier/core/healthprobe"
 	"github.com/cuihairu/croupier/core/report"
@@ -45,6 +46,15 @@ import (
 var (
 	functionIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\.[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
 )
+
+// maxAgentIDLen bounds the agent identifier to the agent_id columns' schema
+// size (VARCHAR(64), matching agent_sessions/agent_metrics_hourly/etc.).
+// VARCHAR(64) limits characters, not bytes, so the guard uses rune count.
+// Registration accepts arbitrary-length IDs, but the agent_id columns are
+// size:64, so a strict database (PostgreSQL) rejects an over-long ID at write
+// or migration time. Rejecting at the register entry keeps over-long IDs out
+// of every store and keeps migration 0063 from failing on existing rows.
+const maxAgentIDLen = 64
 
 type registerWarning struct {
 	Code       string
@@ -1314,6 +1324,9 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	env := strings.TrimSpace(req.GetEnv())
 	if agentID == "" || gameID == "" || env == "" {
 		return nil, fmt.Errorf("agent_id, game_id and env are required")
+	}
+	if utf8.RuneCountInString(agentID) > maxAgentIDLen {
+		return nil, fmt.Errorf("agent_id too long: max %d chars, got %d", maxAgentIDLen, utf8.RuneCountInString(agentID))
 	}
 	if previous := s.registry.PreviousAgentSession(agentID); previous != nil {
 		if previous.GameID != gameID || previous.Env != env {

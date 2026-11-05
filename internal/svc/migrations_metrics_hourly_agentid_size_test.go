@@ -6,6 +6,7 @@ package svc
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,4 +75,27 @@ func TestAgentMetricsHourlyAgentIDSizeMigration_MissingTableSkips(t *testing.T) 
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	require.NoError(t, migrateAgentMetricsHourlyAgentIDSize(context.Background(), sqlDB))
+}
+
+// 0063 审核发现：注册入口未限制 agent_id 长度时，严格库（PostgreSQL）上
+// 既有超 64 字节的 agent_id 会让缩窄 ALTER 报错并阻止启动。迁移必须不
+// 因存量超长行而失败，且超长行保留（注册入口限长后不再新增）。
+func TestAgentMetricsHourlyAgentIDSizeMigration_OverlongExistingRowsSurvive(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/m63long.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&reg.AgentMetricsHourly{}))
+
+	hour := time.Now().UTC().Truncate(time.Hour)
+	longID := strings.Repeat("x", 100)
+	require.NoError(t, db.Create(&reg.AgentMetricsHourly{AgentID: longID, HourStart: hour, SampleCount: 1}).Error)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	// 迁移不得因存量超长 agent_id 报错。
+	require.NoError(t, migrateAgentMetricsHourlyAgentIDSize(context.Background(), sqlDB))
+
+	var rows []reg.AgentMetricsHourly
+	require.NoError(t, db.Find(&rows).Error)
+	require.Len(t, rows, 1)
+	require.Equal(t, longID, rows[0].AgentID, "超长 agent_id 行必须保留")
 }
