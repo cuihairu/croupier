@@ -127,6 +127,18 @@ func (s *fakeStore) UpdateRunStatus(_ context.Context, id uint, status string, c
 	return errors.New("run not found")
 }
 
+func (s *fakeStore) ListRunning(_ context.Context, olderThan time.Time) ([]*model.RunbookRun, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []*model.RunbookRun
+	for _, run := range s.runs {
+		if run.Status == model.RunbookRunStatusRunning && run.StartedAt.Before(olderThan) {
+			out = append(out, run)
+		}
+	}
+	return out, nil
+}
+
 // fakeBatch 记录收到的 CreateRequest，可注入失败/错误。
 type fakeBatch struct {
 	mu   sync.Mutex
@@ -535,4 +547,45 @@ func TestRun_StoreNil(t *testing.T) {
 	_, err := o.Run(context.Background(), "g", "e", "rb", nil, "admin")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not initialized")
+}
+
+// TestRun_RecoverStaleRuns（审核发现 895）：终态只保存在进程内的后台重试任务中，
+// 数据库恢复前进程重启会丢失结果且没有启动恢复机制，已返回成功的 run 会永久
+// 停留 running。启动恢复必须把遗留 running 行收敛为 failed（终态结果已随进程
+// 丢失，无法诚实重建），且只收敛足够旧的行（HA 不误伤在途运行）。
+func TestRun_RecoverStaleRuns(t *testing.T) {
+	store := newFakeStore()
+	o := runbook.New(store, &fakeBatch{}, nil, nil)
+	rb, err := o.Define(context.Background(), &runbook.DefineRequest{
+		Name: "r", GameID: "g", Env: "e",
+		Steps: []runbook.StepSpec{{Name: "s", Kind: model.RunbookStepBatchExec,
+			Exec: &batchop.ExecPayload{Command: "x"}, Labels: map[string]string{"role": "game"}}},
+	})
+	require.NoError(t, err)
+
+	// 模拟：运行开始（running），终态持久化从未成功，进程重启。
+	run := &model.RunbookRun{
+		RunID: "run-stale", RunbookID: rb.RunbookID, GameID: "g", Env: "e",
+		Status: model.RunbookRunStatusRunning, StartedAt: time.Now().UTC().Add(-48 * time.Hour),
+	}
+	require.NoError(t, store.CreateRun(context.Background(), run))
+
+	// 另一实例仍「在途」：足够新，不得被误收敛。
+	fresh := &model.RunbookRun{
+		RunID: "run-fresh", RunbookID: rb.RunbookID, GameID: "g", Env: "e",
+		Status: model.RunbookRunStatusRunning, StartedAt: time.Now().UTC(),
+	}
+	require.NoError(t, store.CreateRun(context.Background(), fresh))
+
+	// 启动恢复：只收敛 started_at < now-24h 的遗留行。
+	n, err := o.RecoverStaleRuns(context.Background(), time.Now().UTC().Add(-24*time.Hour))
+	require.NoError(t, err)
+	require.Equal(t, 1, n, "只收敛足够旧的遗留运行")
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	require.Equal(t, model.RunbookRunStatusFailed, store.runs["run-stale"].Status, "遗留运行必须收敛为 failed")
+	require.Contains(t, store.runs["run-stale"].Error, "interrupted by process restart")
+	require.NotNil(t, store.runs["run-stale"].FinishedAt, "收敛必须写 finished_at")
+	require.Equal(t, model.RunbookRunStatusRunning, store.runs["run-fresh"].Status, "在途运行不得被误收敛")
 }

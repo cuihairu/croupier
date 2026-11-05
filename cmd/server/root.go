@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/api/incident"
+	apiops "github.com/cuihairu/croupier/internal/api/ops"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/handler"
@@ -291,6 +292,21 @@ func runServer() error {
 	// registry cleanup）都派生自它，确保收到停机信号时能级联取消。
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	defer rootCancel()
+
+	// runbook 启动恢复（审核发现：终态只保存在进程内的后台重试任务中，数据库
+	// 恢复前进程重启会丢失结果且没有启动恢复机制，已返回成功的 run 会永久停留
+	// running）。只收敛 started_at 早于宽限且仍 running 的行——终态结果已随原
+	// 进程丢失，无法诚实重建，收敛为 failed 并记录原因；宽限避免多实例 HA 下
+	// 误伤另一实例仍在执行的运行。失败不阻断启动（记录告警，后续运行照常）。
+	if svcCtx.DB != nil {
+		recoverCtx, recoverCancel := context.WithTimeout(rootCtx, 30*time.Second)
+		if n, err := apiops.RecoverStaleRunbookRuns(recoverCtx, svcCtx, time.Now().UTC().Add(-apiops.RunbookStaleRunGrace)); err != nil {
+			slog.Default().Warn("runbook stale-run recovery failed", "error", err)
+		} else if n > 0 {
+			slog.Default().Info("runbook stale-run recovery converged", "recovered", n)
+		}
+		recoverCancel()
+	}
 
 	// 定期备份调度（OPS-008 Stage E）：config backup.schedule.enabled 缺省
 	// false=不装配；显式 true 才派生后台循环（枚举注册启用的数据源触发备份）。

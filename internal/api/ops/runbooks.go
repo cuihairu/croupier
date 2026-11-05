@@ -3,10 +3,12 @@ package ops
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/ops/batchop"
 	"github.com/cuihairu/croupier/internal/ops/runbook"
+	"github.com/cuihairu/croupier/internal/svc"
 )
 
 // runbookStore adapts the two model helpers into the engine Store interface.
@@ -38,6 +40,18 @@ func (s *runbookStore) ListRuns(ctx context.Context, gameID, env, runbookID stri
 }
 func (s *runbookStore) UpdateRunStatus(ctx context.Context, id uint, status string, currentStep int, stepsResultJSON, errMsg string) error {
 	return s.runs.UpdateStatus(ctx, id, status, currentStep, stepsResultJSON, errMsg)
+}
+
+func (s *runbookStore) ListRunning(ctx context.Context, olderThan time.Time) ([]*model.RunbookRun, error) {
+	rows, err := s.runs.ListRunning(ctx, olderThan)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.RunbookRun, 0, len(rows))
+	for i := range rows {
+		out = append(out, &rows[i])
+	}
+	return out, nil
 }
 
 // runbookBatchRunner executes an inline batch step by reusing the OPS-006
@@ -136,6 +150,27 @@ func (s *Service) RunbookRunGet(ctx context.Context, gameID, env, runID string) 
 		return nil, err
 	}
 	return o.GetRun(ctx, gameID, env, runID)
+}
+
+// RunbookStaleRunGrace 启动恢复宽限：仅收敛 started_at 早于 now-该宽限且仍
+// running 的行。runbook 为短时编排（步骤秒级），宽限远大于正常时长；多实例 HA
+// 下避免把另一实例仍在执行的运行误判为遗留。若单个 runbook 合法运行超过该宽限，
+// 不应依赖自动启动恢复（属策略决策，需人工处置）。
+const RunbookStaleRunGrace = 24 * time.Hour
+
+// RecoverStaleRunbookRuns 是服务器启动时的一次性恢复：把前次进程重启前未及
+// 持久化终态、遗留 running 的 runbook 运行收敛为 failed（终态结果已随进程丢失，
+// 无法诚实重建）。返回收敛行数。DB 不可用时如实报错（启动方记录告警即可）。
+func RecoverStaleRunbookRuns(ctx context.Context, svcCtx *svc.ServiceContext, olderThan time.Time) (int, error) {
+	if svcCtx == nil || svcCtx.DB == nil {
+		return 0, errors.New("runbook store unavailable")
+	}
+	store := &runbookStore{
+		runbooks: model.NewRunbookModel(svcCtx.DB),
+		runs:     model.NewRunbookRunModel(svcCtx.DB),
+	}
+	o := runbook.New(store, nil, nil, nil)
+	return o.RecoverStaleRuns(ctx, olderThan)
 }
 
 func (s *Service) RunbookRunList(ctx context.Context, gameID, env, runbookID string, limit int) ([]model.RunbookRun, error) {

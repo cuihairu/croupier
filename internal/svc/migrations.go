@@ -2044,34 +2044,57 @@ func ensureAgentMetricsHourlyConverged(ctx context.Context, db *gorm.DB) error {
 	if !migrator.HasTable(&reg.AgentMetricsHourly{}) {
 		return nil
 	}
-	// 存量库（已跑 0051 建表）的 agent_id 无尺寸（默认为数据库默认），与新建
-	// 库（0051 CreateTable 按 size:64 建 VARCHAR(64)）schema 分叉；且 MySQL 下
-	// TEXT 无前缀不能建索引，0061 建 uidx_agent_hour 会在存量库失败。统一回填
-	// 为 VARCHAR(64)：先列类型迁移（幂等），再建唯一索引。
-	if err := alterAgentMetricsHourlyAgentID(ctx, db); err != nil {
-		return fmt.Errorf("migrate: agent_metrics_hourly alter agent_id: %w", err)
-	}
-	if err := db.WithContext(ctx).Exec(`
+	// 收敛（列回填 + 去重 + 索引重建）必须在单个事务内完成：SQLite 的
+	// AlterColumn 会重建表并删除原有索引，去重和重建索引若在独立事务中执行，
+	// 期间崩溃或建索引失败会使已有实例的小时聚合失去唯一约束，并发写入可
+	// 产生重复数据（审核发现）。包裹成单事务后，任何一步失败整体回滚，原有
+	// 唯一索引与数据保持不变。
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 存量库（已跑 0051 建表）的 agent_id 无尺寸（默认为数据库默认），与新建
+		// 库（0051 CreateTable 按 size:64 建 VARCHAR(64)）schema 分叉；且 MySQL 下
+		// TEXT 无前缀不能建索引，0061 建 uidx_agent_hour 会在存量库失败。统一回填
+		// 为 VARCHAR(64)：先列类型迁移（幂等），再建唯一索引。
+		if err := alterAgentMetricsHourlyAgentID(ctx, tx); err != nil {
+			return fmt.Errorf("migrate: agent_metrics_hourly alter agent_id: %w", err)
+		}
+		if err := tx.Exec(`
 DELETE FROM agent_metrics_hourly
 WHERE id NOT IN (
   SELECT keep_id FROM (
     SELECT MIN(id) AS keep_id FROM agent_metrics_hourly GROUP BY agent_id, hour_start
   ) AS keep_rows
 )`).Error; err != nil {
-		return fmt.Errorf("migrate: agent_metrics_hourly dedupe: %w", err)
-	}
-	if migrator.HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
-		if err := migrator.DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"); err != nil {
-			return fmt.Errorf("migrate: agent_metrics_hourly drop idx_agent_hour: %w", err)
+			return fmt.Errorf("migrate: agent_metrics_hourly dedupe: %w", err)
 		}
-	}
-	if !migrator.HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
-		if err := migrator.CreateIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"); err != nil {
-			return fmt.Errorf("migrate: agent_metrics_hourly create uidx_agent_hour: %w", err)
+		// 审核发现注入点：去重后、索引重建前模拟崩溃/失败，验证整体回滚。
+		if agentMetricsHourlyConvergeAfterDedupe != nil {
+			if err := agentMetricsHourlyConvergeAfterDedupe(); err != nil {
+				return err
+			}
 		}
+		txMigrator := tx.Migrator()
+		if txMigrator.HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
+			if err := txMigrator.DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"); err != nil {
+				return fmt.Errorf("migrate: agent_metrics_hourly drop idx_agent_hour: %w", err)
+			}
+		}
+		if !txMigrator.HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
+			if err := txMigrator.CreateIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"); err != nil {
+				return fmt.Errorf("migrate: agent_metrics_hourly create uidx_agent_hour: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }
+
+// agentMetricsHourlyConvergeAfterDedupe 测试注入点：在去重之后、索引重建之前
+// 被调用。测试用它模拟「表已重建、唯一索引已丢、建索引前崩溃」的窗口，断言
+// 整个收敛在单事务内回滚，原有唯一索引与数据不丢失。生产恒为 nil。
+var agentMetricsHourlyConvergeAfterDedupe func() error
 
 // alterAgentMetricsHourlyAgentID converges agent_metrics_hourly.agent_id to
 // VARCHAR(64) (the schema tag) unless existing rows already contain longer

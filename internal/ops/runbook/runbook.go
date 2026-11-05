@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
@@ -42,6 +43,9 @@ type Store interface {
 	FindRun(ctx context.Context, gameID, env, runID string) (*model.RunbookRun, error)
 	ListRuns(ctx context.Context, gameID, env, runbookID string, limit int) ([]model.RunbookRun, error)
 	UpdateRunStatus(ctx context.Context, id uint, status string, currentStep int, stepsResultJSON, errMsg string) error
+	// ListRunning 返回 started_at 早于 olderThan 且仍为 running 的运行行（启动
+	// 恢复用：只取足够旧的，避免误伤另一实例仍在执行的运行）。
+	ListRunning(ctx context.Context, olderThan time.Time) ([]*model.RunbookRun, error)
 }
 
 // StepSpec is one runbook step. Batch steps (kind batch_exec/batch_push)
@@ -100,12 +104,16 @@ type Orchestrator struct {
 	batch   BatchRunner
 	deploy  DeployRunner
 	auditFn func(ctx context.Context, gameID, env, event, ref, status string, detail map[string]any)
+	// recovery 是单一后台恢复循环（审核发现：每次终态持久化失败都创建无限
+	// 重试的独立 goroutine，持续错误下会累积任务并周期性冲击数据库——改为
+	// 一个共享有界循环，无论多少运行只占一个 goroutine）。
+	recovery *recoveryLoop
 }
 
 // New builds an orchestrator. batch/deploy may be nil (steps of that kind then
 // fail honestly at run time); auditFn nil skips audit.
 func New(store Store, batch BatchRunner, deploy DeployRunner, auditFn func(ctx context.Context, gameID, env, event, ref, status string, detail map[string]any)) *Orchestrator {
-	return &Orchestrator{store: store, batch: batch, deploy: deploy, auditFn: auditFn}
+	return &Orchestrator{store: store, batch: batch, deploy: deploy, auditFn: auditFn, recovery: newRecoveryLoop(store)}
 }
 
 // Define validates and persists a runbook.
@@ -311,32 +319,131 @@ func (o *Orchestrator) persistTerminal(parent context.Context, runID uint, resul
 	}
 	slog.Warn("runbook: terminal state not persisted after retries; handing off to background recovery",
 		"run_id", runID, "status", result.Status, "error", lastErr)
-	o.recoverTerminal(runID, result.Status, result.CurrentStep, string(stepsJSON), result.Error)
+	o.recovery.enqueue(&pendingTerminal{
+		runID:       runID,
+		status:      result.Status,
+		currentStep: result.CurrentStep,
+		stepsJSON:   string(stepsJSON),
+		errMsg:      result.Error,
+	})
 	return nil
 }
 
-// recoverTerminal 在后台以指数退避重写终态，直到成功或进程退出。退避封顶
-// persistTerminalBackoffMax，数据库长期不可用时不会忙循环；每次退避至多
-// 一次写，goroutine 生命周期以进程为界，无泄漏/风暴风险。终态写入是幂等
-// 的（UpdateRunStatus 直接置终态），迟到覆盖不会产生旧值回退。
-func (o *Orchestrator) recoverTerminal(runID uint, status string, currentStep int, stepsJSON, errMsg string) {
-	go func() {
-		backoff := persistTerminalBackoffMin
-		for {
-			time.Sleep(backoff)
+// RecoverStaleRuns 是启动恢复（审核发现：终态只保存在进程内的后台重试任务中，
+// 数据库恢复前进程重启会丢失结果且没有启动恢复机制，已返回成功的 run 仍会永久
+// 停留 running）。对启动前已遗留的 running 行——其终态结果已随原进程丢失，
+// 无法诚实重建——收敛为 failed 并记录原因，使行不再永久 running。调用方须传
+// olderThan 界（通常 now-宽限窗口），避免 HA 下误标记另一实例仍在执行的运行。
+// 返回本次收敛的行数。
+func (o *Orchestrator) RecoverStaleRuns(ctx context.Context, olderThan time.Time) (int, error) {
+	if o.store == nil {
+		return 0, errors.New("runbook: store not initialized")
+	}
+	stale, err := o.store.ListRunning(ctx, olderThan)
+	if err != nil {
+		return 0, fmt.Errorf("runbook: list stale runs: %w", err)
+	}
+	recovered := 0
+	for _, run := range stale {
+		msg := "runbook: run interrupted by process restart before terminal state was persisted; converged to failed on startup recovery"
+		if err := o.store.UpdateRunStatus(ctx, run.ID, model.RunbookRunStatusFailed, run.CurrentStep, run.StepsResultJSON, msg); err != nil {
+			return recovered, fmt.Errorf("runbook: recover stale run %d: %w", run.ID, err)
+		}
+		slog.Info("runbook: stale run converged to failed", "run_id", run.RunID, "id", run.ID)
+		recovered++
+	}
+	return recovered, nil
+}
+
+// pendingTerminal 是一次待后台收敛的终态写。
+type pendingTerminal struct {
+	runID       uint
+	status      string
+	currentStep int
+	stepsJSON   string
+	errMsg      string
+}
+
+// recoveryLoop 是共享的、有界的终态后台恢复循环：无论累积多少待收敛运行，
+// 只占一个 goroutine，按批次顺序写库，指数退避封顶，无泄漏/风暴风险。
+type recoveryLoop struct {
+	store   Store
+	mu      sync.Mutex
+	pending map[uint]*pendingTerminal
+	wake    chan struct{}
+	once    sync.Once
+}
+
+func newRecoveryLoop(store Store) *recoveryLoop {
+	return &recoveryLoop{
+		store:   store,
+		pending: map[uint]*pendingTerminal{},
+		wake:    make(chan struct{}, 1),
+	}
+}
+
+// enqueue 记录一次待收敛终态（同 runID 取最新，去重），并确保循环已启动。
+func (r *recoveryLoop) enqueue(t *pendingTerminal) {
+	r.mu.Lock()
+	r.pending[t.runID] = t
+	r.mu.Unlock()
+	r.once.Do(func() { go r.loop() })
+	select {
+	case r.wake <- struct{}{}:
+	default:
+	}
+}
+
+func (r *recoveryLoop) loop() {
+	backoff := persistTerminalBackoffMin
+	for {
+		r.mu.Lock()
+		if len(r.pending) == 0 {
+			r.mu.Unlock()
+			<-r.wake
+			backoff = persistTerminalBackoffMin
+			continue
+		}
+		items := make([]*pendingTerminal, 0, len(r.pending))
+		for _, t := range r.pending {
+			items = append(items, t)
+		}
+		r.mu.Unlock()
+
+		allOK := true
+		for _, t := range items {
 			pctx, cancel := context.WithTimeout(context.Background(), persistTerminalTimeout)
-			err := o.store.UpdateRunStatus(pctx, runID, status, currentStep, stepsJSON, errMsg)
+			err := r.store.UpdateRunStatus(pctx, t.runID, t.status, t.currentStep, t.stepsJSON, t.errMsg)
 			cancel()
-			if err == nil {
-				slog.Info("runbook: terminal state recovered in background", "run_id", runID, "status", status)
-				return
+			if err != nil {
+				allOK = false
+				continue
 			}
+			r.mu.Lock()
+			delete(r.pending, t.runID)
+			r.mu.Unlock()
+			slog.Info("runbook: terminal state recovered in background", "run_id", t.runID, "status", t.status)
+		}
+
+		r.mu.Lock()
+		more := len(r.pending) > 0
+		r.mu.Unlock()
+		if !more {
+			backoff = persistTerminalBackoffMin
+			<-r.wake
+			continue
+		}
+		if allOK {
+			backoff = persistTerminalBackoffMin
+		}
+		time.Sleep(backoff)
+		if backoff < persistTerminalBackoffMax {
 			backoff *= 2
 			if backoff > persistTerminalBackoffMax {
 				backoff = persistTerminalBackoffMax
 			}
 		}
-	}()
+	}
 }
 
 const (

@@ -131,6 +131,18 @@ func (m *RunbookRunModel) ListByRunbook(ctx context.Context, gameID, env, runboo
 	return out, err
 }
 
+// ListRunning 返回 started_at 早于 olderThan 且仍为 running 的运行行。启动恢复
+// 用：进程重启前遗留的终态持久化失败行。限定 olderThan 避免多实例下把另一实例
+// 仍在执行的运行误判为遗留。
+func (m *RunbookRunModel) ListRunning(ctx context.Context, olderThan time.Time) ([]RunbookRun, error) {
+	var out []RunbookRun
+	err := m.db.WithContext(ctx).
+		Where("status = ? AND started_at < ?", RunbookRunStatusRunning, olderThan).
+		Order("started_at ASC").
+		Find(&out).Error
+	return out, err
+}
+
 // UpdateStatus 终态写回：status/currentStep/stepsResult/error/finishedAt。
 func (m *RunbookRunModel) UpdateStatus(ctx context.Context, id uint, status string, currentStep int, stepsResultJSON, errMsg string) error {
 	if id == 0 {

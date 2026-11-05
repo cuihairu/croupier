@@ -6,6 +6,7 @@ package svc
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -98,4 +99,43 @@ func TestAgentMetricsHourlyAgentIDSizeMigration_OverlongExistingRowsSurvive(t *t
 	require.NoError(t, db.Find(&rows).Error)
 	require.Len(t, rows, 1)
 	require.Equal(t, longID, rows[0].AgentID, "超长 agent_id 行必须保留")
+}
+
+// 0063 审核发现（SQLite）：AlterColumn 重建表会删除原有唯一索引，去重和重建
+// 索引在独立事务中执行——期间崩溃或建索引失败会使已有实例的小时聚合失去唯一
+// 约束，并发写入可产生重复数据。修复后整个收敛在单事务内：任一步失败整体回滚，
+// 原有索引与数据不变。
+func TestAgentMetricsHourlyAgentIDSizeMigration_CrashAfterDedupeRollsBack(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/m63crash.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&reg.AgentMetricsHourly{}))
+	// 复刻存量形态：去掉唯一索引，换上旧非唯一索引，写入重复行。
+	if db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
+		require.NoError(t, db.Migrator().DropIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"))
+	}
+	if db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
+		require.NoError(t, db.Migrator().DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"))
+	}
+	require.NoError(t, db.Exec(`CREATE INDEX idx_agent_hour ON agent_metrics_hourly (agent_id, hour_start)`).Error)
+
+	hour := time.Now().UTC().Truncate(time.Hour)
+	require.NoError(t, db.Create(&reg.AgentMetricsHourly{AgentID: "a1", HourStart: hour, SampleCount: 1}).Error)
+	require.NoError(t, db.Create(&reg.AgentMetricsHourly{AgentID: "a1", HourStart: hour, SampleCount: 2}).Error)
+
+	// 注入「表已重建、唯一索引已丢、建索引前崩溃」窗口。
+	agentMetricsHourlyConvergeAfterDedupe = func() error { return errors.New("simulated crash after dedupe") }
+	t.Cleanup(func() { agentMetricsHourlyConvergeAfterDedupe = nil })
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	err = ensureAgentMetricsHourlyConverged(context.Background(), db)
+	require.Error(t, err)
+	_ = sqlDB
+
+	// 整体回滚：原有非唯一索引仍在、唯一索引未被创建、重复行未丢失。
+	require.True(t, db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"), "崩溃后必须回滚，保留原 idx_agent_hour")
+	require.False(t, db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"), "崩溃后不得留下半成品 uidx_agent_hour")
+	var rows []reg.AgentMetricsHourly
+	require.NoError(t, db.Where("agent_id = ? AND hour_start = ?", "a1", hour).Find(&rows).Error)
+	require.Len(t, rows, 2, "崩溃后重复行必须保留（去重未提交）")
 }
