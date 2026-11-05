@@ -2030,10 +2030,19 @@ func migrateAgentMetricsHourlyUniqueIndex(ctx context.Context, sqlDB *sql.DB) er
 	if !migrator.HasTable(&reg.AgentMetricsHourly{}) {
 		return nil
 	}
+	// 存量库（已跑 0051 建表）的 agent_id 无尺寸（默认为数据库默认），与新建
+	// 库（0051 CreateTable 按 size:64 建 VARCHAR(64)）schema 分叉；且 MySQL 下
+	// TEXT 无前缀不能建索引，0061 建 uidx_agent_hour 会在存量库失败。统一回填
+	// 为 VARCHAR(64)：先列类型迁移（幂等），再建唯一索引。
+	if err := migrator.AlterColumn(&reg.AgentMetricsHourly{}, "AgentID"); err != nil {
+		return fmt.Errorf("migrate: 0061 alter agent_metrics_hourly.agent_id: %w", err)
+	}
 	if err := db.WithContext(ctx).Exec(`
 DELETE FROM agent_metrics_hourly
 WHERE id NOT IN (
-  SELECT MIN(id) FROM agent_metrics_hourly GROUP BY agent_id, hour_start
+  SELECT keep_id FROM (
+    SELECT MIN(id) AS keep_id FROM agent_metrics_hourly GROUP BY agent_id, hour_start
+  ) AS keep_rows
 )`).Error; err != nil {
 		return fmt.Errorf("migrate: 0061 dedupe agent_metrics_hourly: %w", err)
 	}

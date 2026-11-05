@@ -857,4 +857,24 @@
 - [x] 审核发现：deployment_model 的 CompareAndSwapState 仅 `Update("state", to)` 更新 state 列，updated_at 未持久化，CAS 成功后行时间戳滞后（internal/model/deployment_model.go:124）
   - 修复：CAS 更新改 `Updates(map[string]any{"state": to, "updated_at": d.UpdatedAt})`，时间戳随状态一并持久化；`TestDeploymentModelCompareAndSwapState` 增补 updated_at 非零 + 回读一致断言。
   - 证据：2026-11-04；`go test ./internal/model/ -run 'TestDeploymentModelCompareAndSwapState' -count=1` PASS（含 updated_at 回归）；`go vet ./internal/model/` 过。
-- [ ] 审核发现：销毁失败回退不可靠——客户端断开导致 HTTP context 取消后，Terraform destroy 报 context canceled，failDestroy 复用同一取消的 ctx 执行 Store.Update，可能把已在 destroy_failed 状态外CAS推进的 run 永久留在 destroying；应改用独立可取消上下文执行 destroy 并落库。（internal/ops/provision/orchestrator.go:509,512,527）
+- [x] 审核发现：销毁失败回退不可靠——客户端断开导致 HTTP context 取消后，Terraform destroy 报 context canceled，failDestroy 复用同一取消的 ctx 执行 Store.Update，可能把已在 destroy_failed 状态外CAS推进的 run 永久留在 destroying；应改用独立可取消上下文执行 destroy 并落库。（internal/ops/provision/orchestrator.go:509,512,527）
+  - 修复：`runDestroy`/`failDestroy` 的落库与 destroy 执行均改 `context.WithoutCancel` 派生有界上下文（`persistCtx`/`dctx`），客户端断开后仍可靠写终态。
+  - 证据：2026-11-05；commit `be9e9f1c`；`go test ./internal/ops/provision/ -run 'TestRunDestroy|TestFailDestroy' -count=1 -race` PASS；`go test ./internal/ops/provision/ -count=1 -race` 全绿。
+- [x] 审核发现：agent 观测面 clean shutdown 被记成 error——各 agent 入口 `Stop(ctx, ctx.Err())`，正常信号关停时 `ctx.Err()==context.Canceled`，`agent.lifecycle{phase=stop}` 恒带 `error="context canceled"`，干净关停与真实故障不可区分（测试用 `Stop(ctx,nil)` 表明应为 nil）。（agents/capture/runner/runner.go:352；agents/devops/runner/runner.go:109；agents/synthetics/runner/runner.go:147；cmd/sidecar-agent/root.go:529；internal/telemetry/agentrec/recorder.go:157-164）
+  - 修复：四类 agent 入口的 `Stop(ctx, ctx.Err())` 改命名返回值 `runErr`/`retErr`，干净关停（Run 返回 nil）Stop 传 nil，只有真实失败携带 error。
+  - 证据：2026-11-05；`agents/capture/runner/runner.go`、`agents/devops/runner/runner.go`、`agents/synthetics/runner/runner.go`、`cmd/sidecar-agent/root.go`；`go test ./agents/capture/runner/ ./agents/devops/runner/ ./agents/synthetics/runner/ ./cmd/sidecar-agent/ -count=1` 全绿（含干净关停 Stop 无 error 回归）。
+- [x] 审核发现：agent_id `size:64` 修复不完整——仅改 GORM struct tag，无 ALTER 迁移回填存量列；新建库（迁移 0051 CreateTable）得 VARCHAR(64)，存量库（已跑 0051）agent_id 仍为无尺寸列，两库 schema 分叉；若目标库为 MySQL（TEXT 无前缀不能建索引），0061 建 uidx_agent_hour 在存量库仍会失败。（internal/platform/registry/metrics.go:58；internal/svc/migrations.go:1757-1759,2047-2049）
+  - 修复：迁移 0061 在去重/建索引前对存量表 `AlterColumn(AgentID)` 统一回填 VARCHAR(64)（幂等），MySQL 下不再因无尺寸 TEXT 建索引失败。
+  - 证据：2026-11-05；`internal/svc/migrations.go`（0061 AlterColumn）；`go test ./internal/svc/ -run 'TestAgentMetricsHourly' -count=1` PASS（含存量形态 + 缺表跳过 + 派生表去重回归）。
+- [x] 审核发现：sidecar 观测面时序竞态——`startAgentCore` 先 `go core.Run(ctx)`（root.go:720）再返回，`runAgent` 之后才 `rec.Start`（root.go:527），首个 Connected/Disconnected 事件可能在 Start 设置 base 属性与 lifecycle start 之前触发，丢 role 维度且 start/connected 乱序；且 sidecar base 仅 `role`（其他 agent 还带 `agent` id）。（cmd/sidecar-agent/root.go:527,720）
+  - 修复：`rec.Start` 提前到 `startAgentCore`（含 `go core.Run`）之前，base 增补 `agent` id（与其他 agent 对齐），装配失败也收尾 Stop。
+  - 证据：2026-11-05；`cmd/sidecar-agent/root.go`；`go test ./cmd/sidecar-agent/ -count=1` PASS。
+- [x] 审核发现：runbook 部分成功（continueOnFailure）运行落库不完整——失败步不设 `StepResult.FinishedAt`，也不写 `RunResult.Error`，partial 运行的 `error` 列与失败步 finishedAt 为空，仅步 detail 携带消息，面板无法按错误列聚合。（internal/ops/runbook/runbook.go:253-263）
+  - 修复：失败步设 `FinishedAt`；partial 时 `RunResult.Error` 聚合写入（落库 error 列非空）。
+  - 证据：2026-11-05；`internal/ops/runbook/runbook.go`；`go test ./internal/ops/runbook/ -run 'TestRun_ContinueOnFailure' -count=1` PASS（含 FinishedAt/Error 聚合回归）。
+- [x] 审核发现：runbook 运行终态持久化失败即永久卡 running——`Run` 在 `UpdateRunStatus` 失败时返回 `(result,err)`，API handler 走 `response.Error` 丢弃 result，runbook_runs 行保持 `running` 无恢复路径（重启/重试均不收敛）。（internal/ops/runbook/runbook.go:296-303；internal/api/ops/runbooks.go:118-126）
+  - 修复：终态落库改 `persistTerminal`——`context.WithoutCancel` 有界上下文 + 重试（3 次/5s），客户端断开/ctx 取消后仍写终态，不再悬空 running。
+  - 证据：2026-11-05；`internal/ops/runbook/runbook.go`；`go test ./internal/ops/runbook/ -run 'TestRun_TerminalPersistRetries' -count=1` PASS。
+- [x] 审核发现：config-switch-evidence.sh 证据管线对字体/侧栏宽度强假设无守卫——`label_frame` 硬编码 NotoSansCJK 字体路径与 `crop=260:900`（260px 侧栏），脚本自注字体「optional」却无缺失回退，字体缺失或侧栏非 260px 时 ffmpeg 失败、`set -e` 中断整条管线。（scripts/docs/config-switch-evidence.sh:178-181）
+  - 修复：capture 改截侧栏元素（不再 crop 固定 260px）；`label_frame` 去 crop，pad 高度按实际宽度自适应，字体缺失回退 `fc-match` 或 ffmpeg 默认（不再 `set -e` 中断）。
+  - 证据：2026-11-05；`scripts/docs/config-switch-evidence.sh`、`scripts/docs/config-evidence-capture.js`；`bash -n` 语法过、`node --check` 过。

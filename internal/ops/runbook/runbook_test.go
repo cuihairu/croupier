@@ -25,6 +25,8 @@ type fakeStore struct {
 	runs     map[string]*model.RunbookRun
 	nextID   uint
 	audited  []string
+	// updateRunStatusErrFails 终态写库前 N 次失败（审核发现 865 重试回归）。
+	updateRunStatusErrFails int
 }
 
 func newFakeStore() *fakeStore {
@@ -107,6 +109,10 @@ func (s *fakeStore) ListRuns(_ context.Context, gameID, env, runbookID string, l
 func (s *fakeStore) UpdateRunStatus(_ context.Context, id uint, status string, currentStep int, stepsResultJSON, errMsg string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.updateRunStatusErrFails > 0 {
+		s.updateRunStatusErrFails--
+		return errors.New("db down")
+	}
 	for _, run := range s.runs {
 		if run.ID == id {
 			run.Status = status
@@ -349,6 +355,56 @@ func TestRun_ContinueOnFailure(t *testing.T) {
 	assert.Equal(t, "failed", res.Steps[0].Status)
 	assert.Equal(t, "success", res.Steps[1].Status)
 	require.Len(t, deploy.starts, 1)
+}
+
+// TestRun_ContinueOnFailure_PersistsErrorAndFinishedAt（审核发现 864）：
+// partial 运行必须把失败信息写入 RunResult.Error 并给失败步设 FinishedAt，
+// 面板才能按 error 列聚合（此前仅步 detail 携带消息）。
+func TestRun_ContinueOnFailure_PersistsErrorAndFinishedAt(t *testing.T) {
+	store := newFakeStore()
+	o := runbook.New(store, &fakeBatch{fail: true}, nil, nil)
+	rb, err := o.Define(context.Background(), &runbook.DefineRequest{
+		Name: "r", GameID: "g", Env: "e",
+		Steps: []runbook.StepSpec{
+			{Name: "restart", Kind: model.RunbookStepBatchExec, ContinueOnFailure: true,
+				Exec: &batchop.ExecPayload{Command: "x"}, Labels: map[string]string{"role": "game"}},
+		},
+	})
+	require.NoError(t, err)
+	res, err := o.Run(context.Background(), "g", "e", rb.RunbookID, nil, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, model.RunbookRunStatusPartial, res.Status)
+	require.Len(t, res.Steps, 1)
+	assert.Equal(t, "failed", res.Steps[0].Status)
+	assert.NotEmpty(t, res.Steps[0].FinishedAt, "失败步必须写 FinishedAt")
+	assert.NotEmpty(t, res.Error, "partial 必须写 RunResult.Error")
+	store.mu.Lock()
+	run := store.runs[res.RunID]
+	store.mu.Unlock()
+	require.NotNil(t, run)
+	assert.Equal(t, model.RunbookRunStatusPartial, run.Status)
+	assert.NotEmpty(t, run.Error, "落库 error 列非空")
+}
+
+// TestRun_TerminalPersistRetries（审核发现 865）：终态落库失败（如客户端
+// 断开后 ctx 已取消）必须重试而非把 run 永久留在 running；成功重试后
+// status 终态、不返回错误。
+func TestRun_TerminalPersistRetries(t *testing.T) {
+	store := newFakeStore()
+	store.updateRunStatusErrFails = 1
+	o := runbook.New(store, &fakeBatch{}, nil, nil)
+	rb, err := o.Define(context.Background(), &runbook.DefineRequest{
+		Name: "r", GameID: "g", Env: "e",
+		Steps: []runbook.StepSpec{{Name: "s", Kind: model.RunbookStepBatchExec,
+			Exec: &batchop.ExecPayload{Command: "x"}, Labels: map[string]string{"role": "game"}}},
+	})
+	require.NoError(t, err)
+	// 客户端断开：请求 ctx 已取消，终态仍须落库成功。
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	res, err := o.Run(ctx, "g", "e", rb.RunbookID, nil, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, model.RunbookRunStatusSucceeded, res.Status)
 }
 
 // TestRun_ParamSubstitution 步骤串字段 {{param}} 在运行前替换。

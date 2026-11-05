@@ -172,12 +172,35 @@ stop_server() {
 }
 
 capture() { # $1 = out png
-  NODE_PATH="$WEB/node_modules" node "$SCRIPT_DIR/config-evidence-capture.js" "$1" --full
+  # 直接截取侧栏元素（而非全页再 crop）：不依赖侧栏宽度假设，侧栏非 260px
+  # 时也不会裁错/裁断。--full 只影响 JS 内截图方式（元素 vs 全页）。
+  NODE_PATH="$WEB/node_modules" node "$SCRIPT_DIR/config-evidence-capture.js" "$1"
+}
+
+resolve_font() { # echo 可用字体路径或空（缺省 ffmpeg 默认）
+  if [[ -f "$FONT" ]]; then
+    echo "$FONT"
+    return
+  fi
+  local f
+  f="$(fc-match -f '%{file}' 'Noto Sans CJK' 2>/dev/null | head -1)"
+  if [[ -n "$f" && -f "$f" ]]; then
+    echo "$f"
+    return
+  fi
+  echo ""
 }
 
 label_frame() { # $1 = in png, $2 = out png, $3 = label text, $4 = color
+  local font="$(resolve_font)"
+  local fontopt=""
+  if [[ -n "$font" ]]; then
+    fontopt="fontfile=$font:"
+  else
+    log "warning: CJK font not found ($FONT); label may render with fallback glyphs"
+  fi
   ffmpeg -y -loglevel error -i "$1" \
-    -vf "crop=260:900:0:0,pad=260:952:0:52:color=white,drawtext=fontfile=$FONT:text='$3':x=14:y=18:fontsize=16:fontcolor=$4" \
+    -vf "pad=ceil(iw/2)*2:ih+52:0:52:color=white,drawtext=${fontopt}text='$3':x=14:y=18:fontsize=16:fontcolor=$4" \
     "$2"
 }
 

@@ -104,9 +104,11 @@ func (r *Runner) Broker() *session.Broker { return r.broker }
 func (r *Runner) Hub() *session.Hub { return r.hub }
 
 // Run 是 supervisable.RunFunc：注册上线 + 审计/会话面装配，ctx 取消即收尾。
-func (r *Runner) Run(ctx context.Context) error {
+func (r *Runner) Run(ctx context.Context) (runErr error) {
 	r.rec.Start(ctx, map[string]string{"agent": r.cfg.Agent.ID, "role": "devops"})
-	defer func() { r.rec.Stop(ctx, ctx.Err()) }()
+	// 干净关停（ctx 取消且 Run 返回 nil）时 Stop 不带 error；只有真实失败
+	// 才携带（命名返回值让 defer 看到实际退出原因，而非 ctx.Err()）。
+	defer func() { r.rec.Stop(ctx, runErr) }()
 	reg := register.New(register.Config{
 		AgentID: r.cfg.Agent.ID,
 		Dial: func(context.Context) (register.Conn, error) {

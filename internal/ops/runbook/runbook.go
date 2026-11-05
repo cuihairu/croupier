@@ -242,6 +242,7 @@ func (o *Orchestrator) Run(ctx context.Context, gameID, env, runbookID string, p
 		sr := StepResult{Name: step.Name, Kind: step.Kind, StartedAt: time.Now().UTC().Format(time.RFC3339)}
 		if err := substituteStep(step, params); err != nil {
 			sr.Status = "failed"
+			sr.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 			sr.Detail = err.Error()
 			result.Status = model.RunbookRunStatusFailed
 			result.Error = err.Error()
@@ -250,10 +251,18 @@ func (o *Orchestrator) Run(ctx context.Context, gameID, env, runbookID string, p
 		}
 		if err := o.executeStep(ctx, gameID, env, step); err != nil {
 			sr.Status = "failed"
+			sr.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 			sr.Detail = err.Error()
 			result.Steps = append(result.Steps, sr)
 			if step.ContinueOnFailure {
 				result.Status = model.RunbookRunStatusPartial
+				// 部分成功也把失败信息写入 RunResult.Error（错误列聚合面），
+				// 逐步 FinishedAt 已设，面板可按 error 列聚合失败步。
+				if result.Error == "" {
+					result.Error = err.Error()
+				} else {
+					result.Error = result.Error + "; " + err.Error()
+				}
 				continue
 			}
 			result.Status = model.RunbookRunStatusFailed
@@ -267,9 +276,12 @@ func (o *Orchestrator) Run(ctx context.Context, gameID, env, runbookID string, p
 	if result.Status == model.RunbookRunStatusRunning {
 		result.Status = model.RunbookRunStatusSucceeded
 	}
-	stepsJSON, _ := json.Marshal(result.Steps)
-	if err := o.store.UpdateRunStatus(ctx, run.ID, result.Status, result.CurrentStep, string(stepsJSON), result.Error); err != nil {
-		return result, err
+	// 终态落库必须可靠：若复用已取消/出错的 ctx（客户端断开、executeStep
+	// 取消），UpdateRunStatus 失败会把 runbook_runs 永久留在 running（重启/
+	// 重试均不收敛）。用独立于请求 ctx 的有界上下文重试落库，避免 DB 随
+	// ctx 中止。
+	if err := o.persistTerminal(ctx, run.ID, result); err != nil {
+		return result, fmt.Errorf("runbook: persist terminal state: %w", err)
 	}
 	if o.auditFn != nil {
 		o.auditFn(ctx, gameID, env, string(audit.EventRunbookRun), runbookID, result.Status, map[string]any{
@@ -278,6 +290,30 @@ func (o *Orchestrator) Run(ctx context.Context, gameID, env, runbookID string, p
 	}
 	return result, nil
 }
+
+// persistTerminal 用独立于请求 ctx 的有界上下文写终态，失败重试最多
+// persistTerminalAttempts 次（每次有界超时），保证 running 不会悬空。
+func (o *Orchestrator) persistTerminal(parent context.Context, runID uint, result *RunResult) error {
+	stepsJSON, _ := json.Marshal(result.Steps)
+	var lastErr error
+	for attempt := 0; attempt < persistTerminalAttempts; attempt++ {
+		pctx, cancel := context.WithTimeout(context.WithoutCancel(parent), persistTerminalTimeout)
+		err := o.store.UpdateRunStatus(pctx, runID, result.Status, result.CurrentStep, string(stepsJSON), result.Error)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+	}
+	return lastErr
+}
+
+const (
+	// persistTerminalTimeout 单次终态写库超时。
+	persistTerminalTimeout = 5 * time.Second
+	// persistTerminalAttempts 终态写库重试次数（含首次）。
+	persistTerminalAttempts = 3
+)
 
 func (o *Orchestrator) executeStep(ctx context.Context, gameID, env string, step *StepSpec) error {
 	switch step.Kind {

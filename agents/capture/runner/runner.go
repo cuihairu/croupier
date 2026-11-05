@@ -347,9 +347,12 @@ func (r *Runner) Stats() Stats {
 }
 
 // Run 是 supervisable.RunFunc：注册上线 + capture 循环，ctx 取消即收尾。
-func (r *Runner) Run(ctx context.Context) error {
+func (r *Runner) Run(ctx context.Context) (runErr error) {
 	r.rec.Start(ctx, map[string]string{"agent": r.cfg.Agent.ID, "role": "capture"})
-	defer func() { r.rec.Stop(ctx, ctx.Err()) }()
+	// 干净关停（ctx 取消且 Run 返回 nil）时 Stop 必须不带 error；只有真实
+	// 失败才携带。用命名返回值让 defer 看到实际退出原因，而非 ctx.Err()
+	// （正常信号关停恒等于 context.Canceled，会把干净关停误记为 error）。
+	defer func() { r.rec.Stop(ctx, runErr) }()
 	reg := register.New(register.Config{
 		AgentID: r.cfg.Agent.ID,
 		Dial: func(context.Context) (register.Conn, error) {

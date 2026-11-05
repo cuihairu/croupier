@@ -63,7 +63,10 @@ func TestSetRecorder_LifecycleStartStopObserved(t *testing.T) {
 	select {
 	case err := <-done:
 		require.NoError(t, err)
-	case <-rec.stopped:
+	case stopErr := <-rec.stopped:
+		// 干净关停（ctx 取消且 Run 返回 nil）Stop 必须不带 error（审核发现
+		// 861）：正常信号关停恒等于 context.Canceled，不得记为 error。
+		require.Nil(t, stopErr, "clean shutdown Stop must not carry error")
 		// Stop 先于 Run 返回触发（defer 序），等 done 兜底即可。
 		<-done
 	case <-time.After(5 * time.Second):

@@ -456,7 +456,7 @@ func applyAgentConfigDefaults(cfg *AgentConfig) {
 	}
 }
 
-func runAgent() error {
+func runAgent() (retErr error) {
 	if cfgFile == "" {
 		return fmt.Errorf("配置文件是必需的")
 	}
@@ -519,14 +519,23 @@ func runAgent() error {
 	if err != nil {
 		return err
 	}
+	// 观测面 base 必须在 go core.Run 之前设置：core.Run 的 Connected/Disconnected
+	// 回调经 armRecorderChaining 打到 recorder，若 Start 晚于启动 goroutine，
+	// 首个连接事件会丢 role/agent 维度且 start/connected 乱序（审核发现 863）。
+	// 与其他 agent 一致，base 同时携带 agent id 与 role。
+	rec.Start(runCtx, map[string]string{"agent": resolveAgentID(strings.TrimSpace(c.Agent.ID)), "role": "sidecar"})
 	core, localAddr, runErr, err := startAgentCore(runCtx, &c, configDir, rec)
 	if err != nil {
+		// Start 已打点：装配失败也必须收尾（否则 lifecycle=start 无对应 stop）。
+		rec.Stop(runCtx, err)
+		_ = rec.Shutdown(context.Background())
 		return err
 	}
 
-	rec.Start(runCtx, map[string]string{"role": "sidecar"})
 	defer func() {
-		rec.Stop(runCtx, runCtx.Err())
+		// 干净关停（runCtx 取消且 retErr==nil）Stop 不带 error；只有真实失败
+		// 才携带（命名返回值让 defer 看到实际退出原因，而非 runCtx.Err()）。
+		rec.Stop(runCtx, retErr)
 		_ = rec.Shutdown(context.Background())
 	}()
 	defer func() {

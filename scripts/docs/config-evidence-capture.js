@@ -5,7 +5,7 @@
 // so the off/on difference of a feature flag (a top-level menu appearing or
 // disappearing) is visible.
 //
-// Usage: node config-evidence-capture.js <outPng> [--full]
+// Usage: node config-evidence-capture.js <outPng>
 // Env:   BASE (default http://localhost:8001), USER_NAME, PASS
 //
 // Requires @playwright/test resolvable (the caller sets NODE_PATH to
@@ -13,7 +13,6 @@
 const { chromium } = require('@playwright/test');
 
 const out = process.argv[2];
-const full = process.argv.includes('--full');
 const BASE = process.env.BASE || 'http://localhost:8001';
 const USER = process.env.USER_NAME || 'admin';
 const PASS = process.env.PASS || 'admin123';
@@ -59,12 +58,9 @@ const PASS = process.env.PASS || 'admin123';
       .first()
       .waitFor({ state: 'visible', timeout: 40000 });
     await page.waitForTimeout(1500);
-    if (full) {
-      await page.screenshot({ path: out, fullPage: false });
-    } else {
-      const sider = page.locator('.ant-layout-sider, aside').first();
-      await sider.screenshot({ path: out });
-    }
+    // 截取侧栏元素本身：label_frame 据此加标签条，不依赖固定侧栏宽度。
+    const sider = page.locator('.ant-layout-sider, aside').first();
+    await sider.screenshot({ path: out });
     const labels = await page
       .locator(
         '.ant-layout-sider li, .ant-layout-sider .ant-menu-item, .ant-layout-sider .ant-menu-submenu-title',
