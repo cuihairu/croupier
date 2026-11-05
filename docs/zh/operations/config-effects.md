@@ -12,8 +12,9 @@ tag:
 # 配置开关效果
 
 本页枚举本仓所有「开启后有效果」的配置开关——DOC-001 证据清单。每个开关的
-表格记录配置键、默认状态、以及关闭/开启之间的可观察变化。对应截图 / GIF
-证据（off/on）是 [DOC-001](../../../todo.md) 的交付物，生成后从每行链接。
+表格记录配置键、默认状态、以及关闭/开启之间的可观察变化。GUI 可见的功能标志
+已生成 off/on 截图 + GIF 证据（见下方）；server/agent 侧开关为配置级证据
+（效果见表格行），因无操作控制台可视化变化。
 
 约定：
 
@@ -28,13 +29,53 @@ tag:
 这些是最用户可见的开关：每个开关切换运维控制台某产品域的菜单项，以及其
 API 路由的注册。
 
-| 键                        | 默认         | 关闭效果                     | 开启效果                          |
-| ------------------------- | ------------ | ---------------------------- | --------------------------------- |
-| `featureFlags.dev`        | 启用（缺省） | `dev` 域菜单隐藏；路由不注册 | `dev` 域（缺陷追踪/任务安排）可见 |
-| `featureFlags.support`    | 启用（缺省） | `support` 域菜单隐藏         | `support` 域（工单/FAQ/反馈）可见 |
-| `featureFlags.analytics`  | 启用（缺省） | `analytics` 域菜单隐藏       | `analytics` 域（数据分析）可见    |
-| `featureFlags.ops`        | 启用（缺省） | `ops` 域菜单隐藏             | `ops` 域（运维中心）可见          |
-| `featureFlags.extensions` | 启用（缺省） | `extensions` 域菜单隐藏      | `extensions` 域（扩展中心）可见   |
+| 键                        | 默认         | 关闭效果                                                         | 开启效果                            |
+| ------------------------- | ------------ | ---------------------------------------------------------------- | ----------------------------------- |
+| `featureFlags.dev`        | 启用（缺省） | `dev` 菜单（研发）隐藏；路由不注册                               | `dev` 域（缺陷追踪/任务安排）可见   |
+| `featureFlags.support`    | 启用（缺省） | `support` 菜单（客服系统）隐藏                                   | `support` 域（工单/FAQ/反馈）可见   |
+| `featureFlags.analytics`  | 启用（缺省） | `analytics` 菜单（分析中心）隐藏                                 | `analytics` 域（数据分析）可见      |
+| `featureFlags.ops`        | 启用（缺省） | `ops` 菜单（运维中心 + 风控）隐藏                                | `ops` 域（运维中心）可见            |
+| `featureFlags.extensions` | 启用（缺省） | `extensions` 路由不注册；**菜单无变化**（扩展页均 `hideInMenu`） | `extensions` 域（扩展中心）路由注册 |
+
+### 功能标志证据（关 → 开）
+
+每个开关在一次性本地服务器上翻转，两个状态下用
+`scripts/docs/config-switch-evidence.sh` 截取控制台侧边栏（无头 Chromium
+登录 → 截图 → 加标签对比图 + 交叉淡化 GIF）。产物在
+`docs/public/evidence/config-effects/<flag>/`。
+
+**`featureFlags.ops`** — 运维中心与风控同时消失（两组路由同受 `canOpsRead`
+访问键门控）：
+
+![featureFlags.ops 关 vs 开](/evidence/config-effects/featureFlags.ops/ops-compare.png)
+
+[切换 GIF](/evidence/config-effects/featureFlags.ops/ops.gif) ·
+[关](/evidence/config-effects/featureFlags.ops/ops-off.png) ·
+[开](/evidence/config-effects/featureFlags.ops/ops-on.png)
+
+**`featureFlags.support`** — 客服系统菜单：
+
+![featureFlags.support 关 vs 开](/evidence/config-effects/featureFlags.support/support-compare.png)
+
+[切换 GIF](/evidence/config-effects/featureFlags.support/support.gif) ·
+[关](/evidence/config-effects/featureFlags.support/support-off.png) ·
+[开](/evidence/config-effects/featureFlags.support/support-on.png)
+
+**`featureFlags.analytics`** — 分析中心菜单：
+
+![featureFlags.analytics 关 vs 开](/evidence/config-effects/featureFlags.analytics/analytics-compare.png)
+
+[切换 GIF](/evidence/config-effects/featureFlags.analytics/analytics.gif) ·
+[关](/evidence/config-effects/featureFlags.analytics/analytics-off.png) ·
+[开](/evidence/config-effects/featureFlags.analytics/analytics-on.png)
+
+**`featureFlags.dev`** — 研发菜单：
+
+![featureFlags.dev 关 vs 开](/evidence/config-effects/featureFlags.dev/dev-compare.png)
+
+[切换 GIF](/evidence/config-effects/featureFlags.dev/dev.gif) ·
+[关](/evidence/config-effects/featureFlags.dev/dev-off.png) ·
+[开](/evidence/config-effects/featureFlags.dev/dev-on.png)
 
 ## 服务端配置开关
 
@@ -116,5 +157,13 @@ API 路由的注册。
 - 开关键遵循 canonical `lowerCamelCase` 配置契约；共享分析 `telemetry` 块
   保留其历史 `snake_case` 键（`enable_tracing`、`enable_metrics`、`use_tls`、
   `collector_url`、`service_name`）作为兼容面。
-- 每个开关的 off/on 证据（截图 + GIF）是 DOC-001 交付物，证据流水线生成后
-  从上面每行链接。
+- `featureFlags.extensions` **仅影响路由**：扩展页全部 `hideInMenu`，切换它
+  不改变任何侧边栏条目（实测验证——关/开菜单标签完全一致），只注册/注销
+  扩展 API 路由。与其余四个各隐藏一个顶级菜单的标志不同。
+- `featureFlags.ops` 同时隐藏运维中心与风控：`/risk/*` 路由与 `/ops/*` 同受
+  `canOpsRead` 访问键门控，关闭 `ops` 会移除两个菜单。
+- 上方 off/on 截图 + GIF 由 `scripts/docs/config-switch-evidence.sh` 对一次性
+  本地 SQLite 服务器生成；流水线可对任意 `featureFlags.<name>` 重跑，产物写入
+  `docs/public/evidence/config-effects/<flag>/`。
+- 清单其余开关属 server/agent 侧，无操作控制台可视化变化；其证据是配置级
+  （开关效果见表格行），非截图。

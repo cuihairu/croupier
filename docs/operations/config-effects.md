@@ -14,8 +14,10 @@ tag:
 This page enumerates every configuration switch in the repository that has a
 **visible effect when toggled** — the DOC-001 evidence inventory. For each
 switch the table records the config key, the default state, and what changes
-between off and on. The matching screenshots / GIF evidence (off/on) is the
-deliverable of [DOC-001](../../todo.md) and is linked from each row once generated.
+between off and on. The GUI-visible feature flags carry generated off/on
+screenshots + GIF evidence (see below); the server/agent switches are
+config-level (their effect is described in the row) since they have no
+operator-console visual change.
 
 Conventions:
 
@@ -31,13 +33,54 @@ Conventions:
 These are the most user-visible switches: each toggles a product domain's
 menu entries in the operator console and the registration of its API routes.
 
-| Key                       | Default          | Off effect                                      | On effect                                                |
-| ------------------------- | ---------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| `featureFlags.dev`        | enabled (absent) | `dev` domain menu hidden; routes not registered | `dev` domain (defect tracking / task scheduling) visible |
-| `featureFlags.support`    | enabled (absent) | `support` domain menu hidden                    | `support` domain (tickets / FAQ / feedback) visible      |
-| `featureFlags.analytics`  | enabled (absent) | `analytics` domain menu hidden                  | `analytics` domain (data analysis) visible               |
-| `featureFlags.ops`        | enabled (absent) | `ops` domain menu hidden                        | `ops` domain (operations center) visible                 |
-| `featureFlags.extensions` | enabled (absent) | `extensions` domain menu hidden                 | `extensions` domain (extension center) visible           |
+| Key                       | Default          | Off effect                                                                                  | On effect                                                |
+| ------------------------- | ---------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `featureFlags.dev`        | enabled (absent) | `dev` menu (Dev) hidden; routes not registered                                              | `dev` domain (defect tracking / task scheduling) visible |
+| `featureFlags.support`    | enabled (absent) | `support` menu (Support) hidden                                                             | `support` domain (tickets / FAQ / feedback) visible      |
+| `featureFlags.analytics`  | enabled (absent) | `analytics` menu (Analytics) hidden                                                         | `analytics` domain (data analysis) visible               |
+| `featureFlags.ops`        | enabled (absent) | `ops` menus (Operations Center + Risk Control) hidden                                       | `ops` domain (operations center) visible                 |
+| `featureFlags.extensions` | enabled (absent) | `extensions` routes unregistered; **no menu change** (all extension pages are `hideInMenu`) | `extensions` domain (extension center) routes registered |
+
+### Feature flag evidence (off → on)
+
+Each flag was toggled on a throwaway local server and the console sidebar
+captured in both states by
+`scripts/docs/config-switch-evidence.sh` (headless Chromium login →
+screenshot → labeled comparison + crossfade GIF). Artifacts live under
+`docs/public/evidence/config-effects/<flag>/`.
+
+**`featureFlags.ops`** — Operations Center and Risk Control disappear together
+(both route groups are gated by the same `canOpsRead` access key):
+
+![featureFlags.ops off vs on](/evidence/config-effects/featureFlags.ops/ops-compare.png)
+
+[Toggle GIF](/evidence/config-effects/featureFlags.ops/ops.gif) ·
+[off](/evidence/config-effects/featureFlags.ops/ops-off.png) ·
+[on](/evidence/config-effects/featureFlags.ops/ops-on.png)
+
+**`featureFlags.support`** — Support menu (客服系统):
+
+![featureFlags.support off vs on](/evidence/config-effects/featureFlags.support/support-compare.png)
+
+[Toggle GIF](/evidence/config-effects/featureFlags.support/support.gif) ·
+[off](/evidence/config-effects/featureFlags.support/support-off.png) ·
+[on](/evidence/config-effects/featureFlags.support/support-on.png)
+
+**`featureFlags.analytics`** — Analytics menu (分析中心):
+
+![featureFlags.analytics off vs on](/evidence/config-effects/featureFlags.analytics/analytics-compare.png)
+
+[Toggle GIF](/evidence/config-effects/featureFlags.analytics/analytics.gif) ·
+[off](/evidence/config-effects/featureFlags.analytics/analytics-off.png) ·
+[on](/evidence/config-effects/featureFlags.analytics/analytics-on.png)
+
+**`featureFlags.dev`** — Dev menu (研发):
+
+![featureFlags.dev off vs on](/evidence/config-effects/featureFlags.dev/dev-compare.png)
+
+[Toggle GIF](/evidence/config-effects/featureFlags.dev/dev.gif) ·
+[off](/evidence/config-effects/featureFlags.dev/dev-off.png) ·
+[on](/evidence/config-effects/featureFlags.dev/dev-on.png)
 
 ## Server Configuration Switches
 
@@ -122,5 +165,18 @@ These live in the agent / sidecar / capture / devops / synthetics configs
   analytics `telemetry` block retains its historical `snake_case` keys
   (`enable_tracing`, `enable_metrics`, `use_tls`, `collector_url`,
   `service_name`) as a compatibility surface.
-- Off/on evidence (screenshots + GIF) per switch is the DOC-001 deliverable
-  and is linked from each row above once generated by the evidence pipeline.
+- `featureFlags.extensions` is **route-only**: all extension pages are
+  `hideInMenu`, so toggling it changes no sidebar entry (verified empirically
+  — the off/on menu labels are identical). It only registers/unregisters the
+  extension API routes. This differs from the other four flags, which each
+  hide a top-level menu.
+- `featureFlags.ops` hides both Operations Center and Risk Control: the
+  `/risk/*` routes are gated by the same `canOpsRead` access key as `/ops/*`,
+  so disabling `ops` removes both menus.
+- The off/on screenshots + GIFs above are generated by
+  `scripts/docs/config-switch-evidence.sh` against a throwaway local SQLite
+  server; the pipeline is re-runnable for any `featureFlags.<name>` and writes
+  artifacts to `docs/public/evidence/config-effects/<flag>/`.
+- The remaining switches in this inventory are server/agent-side and have no
+  operator-console visual change; their evidence is config-level (the switch's
+  effect is described in the row), not a screenshot.
