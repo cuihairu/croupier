@@ -16,12 +16,14 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/core/healthprobe"
+	"github.com/cuihairu/croupier/core/otelrec"
 	"github.com/cuihairu/croupier/core/transport/tcp"
 	agentcore "github.com/cuihairu/croupier/internal/app/agent"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/telemetry"
+	"github.com/cuihairu/croupier/internal/telemetry/agentrec"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -510,11 +512,23 @@ func runAgent() error {
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	core, localAddr, runErr, err := startAgentCore(runCtx, &c, configDir)
+	// Agent 观测面（OBS-AGENT-001）：复用同一 telemetry 总开关/采集端
+	// （enable_metrics 子开关关时不打点）；disabled 返回零开销 noop，开启则
+	// fail-closed（no_otel 裁剪构建 + enabled=true 时报错，不静默无导出）。
+	rec, err := agentrec.Build(runCtx, buildAgentRecorderConfig(buildAgentTelemetryConfig(&c)), slog.Default())
+	if err != nil {
+		return err
+	}
+	core, localAddr, runErr, err := startAgentCore(runCtx, &c, configDir, rec)
 	if err != nil {
 		return err
 	}
 
+	rec.Start(runCtx, map[string]string{"role": "sidecar"})
+	defer func() {
+		rec.Stop(runCtx, runCtx.Err())
+		_ = rec.Shutdown(context.Background())
+	}()
 	defer func() {
 		if core != nil {
 			core.Stop()
@@ -535,7 +549,7 @@ func runAgent() error {
 	}
 }
 
-func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*agentcore.App, string, <-chan error, error) {
+func startAgentCore(ctx context.Context, c *AgentConfig, configDir string, rec otelrec.Recorder) (*agentcore.App, string, <-chan error, error) {
 	if c == nil {
 		return nil, "", nil, fmt.Errorf("missing config")
 	}
@@ -570,6 +584,9 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
 	core.SetLocalAddr(localAddr)
 	core.SetUpstreamTransportKind(strings.TrimSpace(c.Server.Transport))
+	// 观测面（OBS-AGENT-001）：必须在 App.Run（go core.Run）前装配，保证
+	// Run 内的连接/事件回调读到已设置的 recorder。rec==nil 回退 noop。
+	core.SetRecorder(rec)
 
 	// OTel 遥测面接线（todo.md:31）：与 server 同一 TelemetryConfig/总开关
 	// 语义。关闭=不建服务（App 生命周期内零 exporter/零周期导出任务）；
@@ -717,6 +734,23 @@ func buildAgentTelemetryConfig(c *AgentConfig) telemetry.TelemetryConfig {
 		cfg.ServiceName = "croupier-agent"
 	}
 	return telemetry.MergeEnv(cfg)
+}
+
+// buildAgentRecorderConfig 把既有 telemetry 块（游戏遥测/分析，todo.md:31）
+// 映射为 agent 观测面 recorder 配置（OBS-AGENT-001）。同一总开关同一采集端：
+// enable_metrics 关时不打点（计数/直方图属指标面）；use_tls 决定 exporter 走
+// https 还是 http。
+func buildAgentRecorderConfig(tc telemetry.TelemetryConfig) otelrec.TelemetryConfig {
+	serviceName := tc.ServiceName
+	if strings.TrimSpace(serviceName) == "" {
+		serviceName = "croupier-agent"
+	}
+	return otelrec.TelemetryConfig{
+		Enabled:      tc.Enabled && tc.EnableMetrics,
+		OTLPEndpoint: tc.CollectorURL,
+		Insecure:     !tc.UseTLS,
+		ServiceName:  serviceName,
+	}
 }
 
 func resolveAgentID(configured string) string {

@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/agents/sidecar/funcplugin"
 	"github.com/cuihairu/croupier/core/configsync"
 	corelogs "github.com/cuihairu/croupier/core/logs"
+	"github.com/cuihairu/croupier/core/otelrec"
 	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/agent"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
@@ -45,7 +46,12 @@ type App struct {
 	providerManager  *ProviderManager
 	providerSessions *sidecar.ProviderSessionStore
 	telemetry        *telemetry.GameTelemetryService
-	configDir        string
+	// rec 是 agent 观测面（OBS-AGENT-001）：启停/连接状态/事件计数。缺省
+	// noop（零开销）；cmd 入口经 SetRecorder 注入真实 OTel 装配。
+	rec                otelrec.Recorder
+	userOnConnected    func()
+	userOnDisconnected func(error)
+	configDir          string
 
 	// TCP local server
 	localHandler *agent.LocalHandler
@@ -95,6 +101,40 @@ func (a *App) TelemetryService() *telemetry.GameTelemetryService {
 	return a.telemetry
 }
 
+// SetRecorder 装配 agent 观测面（OBS-AGENT-001）：nil=noop（默认关闭零开销
+// 路径）；真实 OTel 实现由 cmd 入口注入。必须在 Run 前调用（装配链在
+// armRecorderChaining 里把 recorder 与用户连接回调串成一条上游链）。
+func (a *App) SetRecorder(rec otelrec.Recorder) {
+	if a == nil {
+		return
+	}
+	if rec == nil {
+		rec = otelrec.Discard()
+	}
+	a.rec = rec
+	a.armRecorderChaining()
+}
+
+// armRecorderChaining 把上游连接/断开事件接到 recorder（再透传用户回调）。
+// 幂等：重复调用只是重写同一个上游槽位（闭包读当前 a.rec/a.userOn*）。
+func (a *App) armRecorderChaining() {
+	if a == nil || a.upstream == nil {
+		return
+	}
+	a.upstream.OnConnected(func() {
+		a.rec.Connected(context.Background())
+		if a.userOnConnected != nil {
+			a.userOnConnected()
+		}
+	})
+	a.upstream.OnDisconnected(func(err error) {
+		a.rec.Disconnected(context.Background(), err)
+		if a.userOnDisconnected != nil {
+			a.userOnDisconnected(err)
+		}
+	})
+}
+
 func New(serverAddr, agentID string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{
@@ -107,6 +147,7 @@ func New(serverAddr, agentID string) *App {
 		configDir:        getConfigDir(),
 		agentID:          agentID,
 		localAddr:        ":19091",
+		rec:              otelrec.Discard(),
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
@@ -124,6 +165,7 @@ func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 		configDir:        configDir,
 		agentID:          agentID,
 		localAddr:        ":19091",
+		rec:              otelrec.Discard(),
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
@@ -215,6 +257,9 @@ func (a *App) StartLocalServer() error {
 		go probe.Run(context.Background())
 	}
 	tcpServer.SetOnConnect(func(session *sidecar.ProviderSession) {
+		// 事件/吞吐计数面（OBS-AGENT-001）：provider 注册是 SDK 侧可用性
+		// 的原子事件，按 service 维度计数。
+		a.rec.Count(context.Background(), "events", 1, map[string]string{"op": "provider_register", "service": session.ServiceID})
 		addr := session.Conn().RemoteAddr()
 		// 平台固定键 + 会话携带的用户实例元数据（保留键已在帧解析时剥离，
 		// 见 agent.MergeUserProviderMetadata）。
@@ -222,6 +267,7 @@ func (a *App) StartLocalServer() error {
 			agent.MergeProviderInstanceMetadata(session, a.upstream.GameID(), a.upstream.Env()))
 	})
 	tcpServer.SetOnDisconnect(func(session *sidecar.ProviderSession) {
+		a.rec.Count(context.Background(), "events", 1, map[string]string{"op": "provider_unregister", "service": session.ServiceID})
 		a.store.RemoveProvider(session.SessionID)
 	})
 	a.localServerMu.Lock()
@@ -561,19 +607,25 @@ func (a *App) SetUpstreamTransportKind(kind string) {
 }
 
 // OnConnected sets a callback to be invoked when the agent successfully connects to the server.
-// The callback is called after successful registration.
+// The callback is called after successful registration. The recorder (if
+// armed) fires Connected first; the user callback still runs.
 func (a *App) OnConnected(callback func()) {
-	if a != nil && a.upstream != nil {
-		a.upstream.OnConnected(callback)
+	if a == nil {
+		return
 	}
+	a.userOnConnected = callback
+	a.armRecorderChaining()
 }
 
 // OnDisconnected sets a callback to be invoked when the agent disconnects from the server.
-// The callback is called with the error that caused the disconnection.
+// The callback is called with the error that caused the disconnection. The
+// recorder (if armed) fires Disconnected first.
 func (a *App) OnDisconnected(callback func(error)) {
-	if a != nil && a.upstream != nil {
-		a.upstream.OnDisconnected(callback)
+	if a == nil {
+		return
 	}
+	a.userOnDisconnected = callback
+	a.armRecorderChaining()
 }
 
 func (a *App) WithOutboundTLSConfig(cfg *tlsutil.ClientTLSConfig) {

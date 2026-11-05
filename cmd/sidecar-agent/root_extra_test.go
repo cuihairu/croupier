@@ -190,7 +190,7 @@ ops:
 	mode = "test"
 	debug = true
 
-	core, _, runErr, err := startAgentCore(context.Background(), parseAgentConfig(t, cfgData), filepath.Dir(cfgPath))
+	core, _, runErr, err := startAgentCore(context.Background(), parseAgentConfig(t, cfgData), filepath.Dir(cfgPath), nil)
 	require.NoError(t, err)
 	t.Cleanup(core.Stop)
 
@@ -322,7 +322,7 @@ func parseAgentConfig(t *testing.T, data string) *AgentConfig {
 }
 
 func TestStartAgentCore_NilConfig(t *testing.T) {
-	_, _, _, err := startAgentCore(context.Background(), nil, "")
+	_, _, _, err := startAgentCore(context.Background(), nil, "", nil)
 	assert.EqualError(t, err, "missing config")
 }
 
@@ -404,7 +404,7 @@ func TestStartAgentCore_Wiring(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			core, localAddr, _, err := startAgentCore(context.Background(), &tc.cfg, dir)
+			core, localAddr, _, err := startAgentCore(context.Background(), &tc.cfg, dir, nil)
 			require.NoError(t, err)
 			require.NotNil(t, core)
 			assert.Equal(t, tc.wantLocal, localAddr)
@@ -424,7 +424,7 @@ func TestStartAgentCore_DevCertGeneration(t *testing.T) {
 		Server: AgentServerConfig{Insecure: false, CAFile: filepath.Join(dir, "no-such-ca.crt")},
 		Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0"},
 	}
-	core, _, runErr, err := startAgentCore(context.Background(), cfg, dir)
+	core, _, runErr, err := startAgentCore(context.Background(), cfg, dir, nil)
 	_ = runErr
 	require.NoError(t, err)
 	core.Stop()
@@ -443,7 +443,7 @@ func TestStartAgentCore_DevCertGeneration(t *testing.T) {
 			Server: AgentServerConfig{Insecure: false, CAFile: filepath.Join(dir2, "missing.crt")},
 			Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0"},
 		}
-		_, _, _, err = startAgentCore(context.Background(), cfg2, dir2)
+		_, _, _, err = startAgentCore(context.Background(), cfg2, dir2, nil)
 		assert.ErrorContains(t, err, "failed to generate CA cert")
 	}
 }

@@ -42,7 +42,7 @@ func TestStartAgentCore_TelemetryMasterOffByDefault(t *testing.T) {
 	dir := t.TempDir()
 	cfgFile = filepath.Join(dir, "agent.yaml")
 
-	core, _, _, err := startAgentCore(context.Background(), sidecarTelemetryBaseline(), dir)
+	core, _, _, err := startAgentCore(context.Background(), sidecarTelemetryBaseline(), dir, nil)
 	require.NoError(t, err)
 	t.Cleanup(core.Stop)
 	assert.Nil(t, core.TelemetryService(), "master off must not wire a telemetry service")
