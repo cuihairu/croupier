@@ -51,3 +51,11 @@ synthetics:
   #   timeout: 2s
   #   count: 1
   #   targetCategory: third_party
+# OTel 观测面（OBS-AGENT-001）：缺省关闭（总开关收口在运行时，编译含 SDK）。
+# 开启后 agent 打点（启停/连接状态/探测吞吐与延迟/上报失败）经 OTLP HTTP
+# 上报，可被服务端面板看到；关闭时不建 exporter/周期导出任务（零开销 noop）。
+# telemetry:
+#   enabled: false
+#   otlpEndpoint: http://collector:4318
+#   insecure: true
+#   serviceName: croupier-synthetics

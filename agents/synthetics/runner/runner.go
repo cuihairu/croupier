@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/agents/synthetics/probe"
 	"github.com/cuihairu/croupier/core/configsync"
 	"github.com/cuihairu/croupier/core/healthprobe"
+	"github.com/cuihairu/croupier/core/otelrec"
 	"github.com/cuihairu/croupier/core/register"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -31,6 +32,7 @@ var GitCommit, BuildTime = "unknown", "unknown"
 type Runner struct {
 	cfg config.Config
 	log *slog.Logger
+	rec otelrec.Recorder
 	reg *register.Client
 	// plugins hosts external probe plugins (go-plugin local gRPC).
 	// nil when no plugin is declared: no plugin process is ever started
@@ -116,11 +118,19 @@ func (r *Runner) upstream() probeSender {
 	return conn
 }
 
+// SetRecorder 装配 OTel 观测面（nil=noop；必须在 Run 前调用）。
+func (r *Runner) SetRecorder(rec otelrec.Recorder) {
+	if rec == nil {
+		rec = otelrec.Discard()
+	}
+	r.rec = rec
+}
+
 func New(cfg config.Config, log *slog.Logger) *Runner {
 	if log == nil {
 		log = slog.Default()
 	}
-	r := &Runner{cfg: cfg, log: log}
+	r := &Runner{cfg: cfg, log: log, rec: otelrec.Discard()}
 	// Runtime master switch (todo.md:36 第二片): pluginsEnabled: false
 	// runs pure native HTTP probing; no plugin controller is built and
 	// no plugin process is ever started. In the default build the
@@ -133,12 +143,16 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 	return r
 }
 func (r *Runner) Run(ctx context.Context) error {
+	r.rec.Start(ctx, map[string]string{"agent": r.cfg.Agent.ID, "role": "synthetics"})
+	defer func() { r.rec.Stop(ctx, ctx.Err()) }()
 	reg := register.New(register.Config{AgentID: r.cfg.Agent.ID, Dial: func(context.Context) (register.Conn, error) {
 		// No Runner-owned alias: the client stores the dialed connection
 		// under its own lock and reconnect swaps it there; probes read it
 		// back through upstream().
 		return controlconn.Dial(r.cfg.Agent.ServerAddr, tlsFromCfg(r.cfg))
-	}, Payload: r.buildPayload, Logger: r.log})
+	}, Payload: r.buildPayload, Logger: r.log, OnConnected: func() {
+		r.rec.Connected(ctx)
+	}})
 	r.reg = reg
 	reg.Start(ctx)
 	defer reg.Stop()
@@ -343,16 +357,22 @@ func (r *Runner) newTargetsPuller() *configsync.Puller[string] {
 func (r *Runner) execute(ctx context.Context, t config.Target) bool {
 	res, details := r.runProbe(ctx, t)
 	ev := buildProbeEvent(r.cfg, t, res, details)
+	r.rec.Count(ctx, "probe", 1, map[string]string{
+		"target": t.Name, "ok": strconv.FormatBool(res.OK), "status": strconv.Itoa(res.Status),
+	})
+	r.rec.Observe(ctx, "probe_latency", float64(res.Latency.Milliseconds()), map[string]string{"target": t.Name})
 	// Synchronized snapshot: reconnect may swap the connection while this
 	// probe loop runs; a stale snapshot at worst reports a closed session.
 	conn := r.upstream()
 	if conn == nil || !conn.Connected() {
+		r.rec.Count(ctx, "errors", 1, map[string]string{"kind": "session_unavailable", "target": t.Name})
 		r.log.Warn("probe result not reported: session unavailable", "target", t.Name)
 		return res.OK
 	}
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := conn.SendProbeEvent(sendCtx, ev); err != nil {
+		r.rec.Count(ctx, "errors", 1, map[string]string{"kind": "report_failed", "target": t.Name})
 		r.log.Warn("probe result report failed", "target", t.Name, "error", err)
 	}
 	r.log.Info("probe completed", "target", t.Name, "ok", res.OK, "status", res.Status, "latencyMs", res.Latency.Milliseconds(), "error", res.Error)

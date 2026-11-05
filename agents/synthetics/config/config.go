@@ -10,14 +10,16 @@ import (
 
 	"github.com/cuihairu/croupier/core/agentscope"
 	corehealthprobe "github.com/cuihairu/croupier/core/healthprobe"
+	"github.com/cuihairu/croupier/core/otelrec"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Agent       Agent      `yaml:"agent"`
-	OutboundTLS TLS        `yaml:"outboundTLS"`
-	Synthetics  Synthetics `yaml:"synthetics"`
+	Agent       Agent                   `yaml:"agent" json:"agent"`
+	OutboundTLS TLS                     `yaml:"outboundTLS" json:"outboundTLS"`
+	Synthetics  Synthetics              `yaml:"synthetics" json:"synthetics"`
+	Telemetry   otelrec.TelemetryConfig `yaml:"telemetry" json:"telemetry"`
 }
 
 const (
