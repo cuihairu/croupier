@@ -90,6 +90,52 @@ agent:
 	}
 }
 
+func TestLoadTelemetryDefaultsOffAndBlockParses(t *testing.T) {
+	// 缺省：telemetry.enabled=false（总开关收口，零开销 noop 路径）。
+	cfg, err := Load(writeCfg(t, `
+agent:
+  id: capture-01
+  serverAddr: 127.0.0.1:19090
+  gameId: demo
+  env: prod
+`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Telemetry.Enabled {
+		t.Fatal("telemetry.enabled must default to false")
+	}
+
+	// 显式开启 + OTLP endpoint（lowerCamelCase 契约键）。
+	on, err := Load(writeCfg(t, `
+agent:
+  id: capture-01
+  serverAddr: 127.0.0.1:19090
+  gameId: demo
+  env: prod
+telemetry:
+  enabled: true
+  otlpEndpoint: http://collector:4318
+  insecure: true
+  serviceName: croupier-capture
+`))
+	if err != nil {
+		t.Fatalf("Load telemetry: %v", err)
+	}
+	if !on.Telemetry.Enabled {
+		t.Fatal("telemetry.enabled must parse true")
+	}
+	if on.Telemetry.OTLPEndpoint != "http://collector:4318" {
+		t.Fatalf("otlpEndpoint = %q", on.Telemetry.OTLPEndpoint)
+	}
+	if !on.Telemetry.Insecure {
+		t.Fatal("insecure must parse true")
+	}
+	if on.Telemetry.ServiceName != "croupier-capture" {
+		t.Fatalf("serviceName = %q", on.Telemetry.ServiceName)
+	}
+}
+
 func TestLoadFlushIntervalOverride(t *testing.T) {
 	cfg, err := Load(writeCfg(t, `
 agent: {id: a, serverAddr: s:1, gameId: g, env: prod}

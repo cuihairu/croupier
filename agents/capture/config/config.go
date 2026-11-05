@@ -14,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/agents/capture/gate"
 	"github.com/cuihairu/croupier/agents/capture/source"
 	"github.com/cuihairu/croupier/core/agentscope"
+	"github.com/cuihairu/croupier/core/otelrec"
 	"github.com/cuihairu/croupier/pkg/cdc"
 	cdcfilter "github.com/cuihairu/croupier/pkg/cdc/filter"
 	"gopkg.in/yaml.v3"
@@ -202,9 +203,10 @@ func (c Capture) JournalPath() string {
 
 // Config capture-agent 全量配置。
 type Config struct {
-	Agent       Agent       `yaml:"agent" json:"agent"`
-	OutboundTLS OutboundTLS `yaml:"outboundTLS" json:"outboundTLS"`
-	Capture     Capture     `yaml:"capture" json:"capture"`
+	Agent       Agent                   `yaml:"agent" json:"agent"`
+	OutboundTLS OutboundTLS             `yaml:"outboundTLS" json:"outboundTLS"`
+	Capture     Capture                 `yaml:"capture" json:"capture"`
+	Telemetry   otelrec.TelemetryConfig `yaml:"telemetry" json:"telemetry"`
 }
 
 // Load 读入并校验 YAML 配置。
