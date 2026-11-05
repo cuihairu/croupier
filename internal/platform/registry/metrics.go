@@ -55,7 +55,7 @@ type AgentMetricsHistory struct {
 // rows are pruned at 7 days while this table survives to 90.
 type AgentMetricsHourly struct {
 	ID        uint      `gorm:"primaryKey"`
-	AgentID   string    `gorm:"uniqueIndex:uidx_agent_hour,not null"`
+	AgentID   string    `gorm:"size:64;uniqueIndex:uidx_agent_hour,not null"`
 	HourStart time.Time `gorm:"uniqueIndex:uidx_agent_hour,not null"`
 	// CPUUsageAvg 窗口平均 CPU 使用率（0-100）。
 	CPUUsageAvg float64
