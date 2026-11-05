@@ -25,9 +25,11 @@ type countingStore struct {
 	calls         int32
 	fail          bool
 	done          map[uint]bool
+	// 记录每次写库的 status，用于验证「同 runID 取最新终态」语义。
+	lastStatuses map[uint]string
 }
 
-func (s *countingStore) UpdateRunStatus(_ context.Context, id uint, _ string, _ int, _, _ string) error {
+func (s *countingStore) UpdateRunStatus(_ context.Context, id uint, status string, _ int, _, _ string) error {
 	s.mu.Lock()
 	s.curConcurrent++
 	if s.curConcurrent > s.maxConcurrent {
@@ -49,6 +51,10 @@ func (s *countingStore) UpdateRunStatus(_ context.Context, id uint, _ string, _ 
 		s.done = map[uint]bool{}
 	}
 	s.done[id] = true
+	if s.lastStatuses == nil {
+		s.lastStatuses = map[uint]string{}
+	}
+	s.lastStatuses[id] = status
 	s.mu.Unlock()
 	return nil
 }
@@ -133,4 +139,31 @@ func TestRecoveryLoop_DedupesSameRun(t *testing.T) {
 		"同 run 去重后仍收敛")
 	// 两次入队同 run：最终只写一次成功（去重后单条）。
 	require.LessOrEqual(t, store.totalCalls(), int32(2), "同 run 重复入队不得重复写库")
+}
+
+// 审核发现（白盒竞态回归）：快照 items 与写库成功后的按 runID 删除之间，
+// 若有同一 runID 的新终态入队，直接按 runID delete 会把新条目一并删掉使其
+// 永不写库。修复后仅当 pending 仍指向本次快照的同一 *pendingTerminal 时才
+// 删除；新终态保留并由下一轮收敛，最终以最新状态为准。这里通过真实 enqueue
+// 路径在首轮写库成功后立即重新入队（可能在删除前或删除后到达，两种时序都必须
+// 收敛到最新状态）。
+func TestRecoveryLoop_ReenqueueDuringSnapshotWritesLatest(t *testing.T) {
+	store := &countingStore{}
+	loop := newRecoveryLoop(store)
+	loop.enqueue(&pendingTerminal{runID: 1, status: "succeeded"})
+
+	// 等循环启动并完成首轮写库（首个终态已成功）。此后循环可能在「删除 pending」
+	// 前或后，两种时序都必须让重新入队的新终态最终写库。
+	require.Eventually(t, func() bool { return store.finished(1) }, 3*time.Second, 20*time.Millisecond,
+		"首个终态必须先收敛")
+
+	// 立即重新入队同一 runID 的新终态（真实 API 路径，会发唤醒信号）。
+	loop.enqueue(&pendingTerminal{runID: 1, status: "failed"})
+
+	// 循环必须收敛到最新状态（failed），不得因误删新条目而永远不写。
+	require.Eventually(t, func() bool {
+		store.mu.Lock()
+		defer store.mu.Unlock()
+		return store.lastStatuses[1] == "failed"
+	}, 5*time.Second, 20*time.Millisecond, "快照窗口内重新入队的新终态必须收敛为最新状态")
 }

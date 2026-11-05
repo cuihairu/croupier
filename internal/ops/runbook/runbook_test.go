@@ -29,6 +29,22 @@ type fakeStore struct {
 	updateRunStatusErrFails int
 }
 
+// selectiveFailStore 包装 fakeStore，仅对指定 ID 的 UpdateRunStatus 返回一次
+// 错误，其余委托原实现。用于验证 RecoverStaleRuns 单行失败不中断整体收敛。
+type selectiveFailStore struct {
+	*fakeStore
+	failID uint
+	failed bool
+}
+
+func (s *selectiveFailStore) UpdateRunStatus(ctx context.Context, id uint, status string, currentStep int, stepsResultJSON, errMsg string) error {
+	if id == s.failID && !s.failed {
+		s.failed = true
+		return errors.New("db down for this run")
+	}
+	return s.fakeStore.UpdateRunStatus(ctx, id, status, currentStep, stepsResultJSON, errMsg)
+}
+
 func newFakeStore() *fakeStore {
 	return &fakeStore{runbooks: map[string]*model.Runbook{}, runs: map[string]*model.RunbookRun{}}
 }
@@ -588,4 +604,54 @@ func TestRun_RecoverStaleRuns(t *testing.T) {
 	require.Contains(t, store.runs["run-stale"].Error, "interrupted by process restart")
 	require.NotNil(t, store.runs["run-stale"].FinishedAt, "收敛必须写 finished_at")
 	require.Equal(t, model.RunbookRunStatusRunning, store.runs["run-fresh"].Status, "在途运行不得被误收敛")
+}
+
+// 审核发现 904（回归）：RecoverStaleRuns 在任一行 UpdateRunStatus 失败时立即
+// return，后续遗留 running 行不再收敛、保持 running 直到下次重启——部分收敛
+// 而非继续处理并聚合错误。修复后单行失败不中断整体：其余行仍收敛为 failed，
+// 返回已收敛计数并聚合错误（调用方可告警，但不再留下永久 running 行）。
+func TestRun_RecoverStaleRuns_PartialFailureStillConvergesRest(t *testing.T) {
+	store := newFakeStore()
+	o := runbook.New(store, &fakeBatch{}, nil, nil)
+	rb, err := o.Define(context.Background(), &runbook.DefineRequest{
+		Name: "r", GameID: "g", Env: "e",
+		Steps: []runbook.StepSpec{{Name: "s", Kind: model.RunbookStepBatchExec,
+			Exec: &batchop.ExecPayload{Command: "x"}, Labels: map[string]string{"role": "game"}}},
+	})
+	require.NoError(t, err)
+
+	// 三个足够旧的遗留 running 行。
+	for _, id := range []string{"run-stale-1", "run-stale-2", "run-stale-3"} {
+		run := &model.RunbookRun{
+			RunID: id, RunbookID: rb.RunbookID, GameID: "g", Env: "e",
+			Status: model.RunbookRunStatusRunning, StartedAt: time.Now().UTC().Add(-48 * time.Hour),
+		}
+		require.NoError(t, store.CreateRun(context.Background(), run))
+	}
+
+	// 取 run-stale-2 的数据库 ID，让包装 store 只对该行写库失败。
+	store.mu.Lock()
+	var failID uint
+	for _, run := range store.runs {
+		if run.RunID == "run-stale-2" {
+			failID = run.ID
+		}
+	}
+	store.mu.Unlock()
+	require.NotZero(t, failID)
+
+	// 通过包装 store 精确定位 run-stale-2 失败，其余仍收敛。
+	failStore := &selectiveFailStore{fakeStore: store, failID: failID}
+	o2 := runbook.New(failStore, &fakeBatch{}, nil, nil)
+
+	n, err := o2.RecoverStaleRuns(context.Background(), time.Now().UTC().Add(-24*time.Hour))
+	require.Error(t, err, "必须聚合上报失败，而非静默忽略")
+	require.Contains(t, err.Error(), "db down for this run", "聚合错误必须包含失败原因")
+	require.Equal(t, 2, n, "失败行之外的其余行仍须收敛")
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	require.Equal(t, model.RunbookRunStatusFailed, store.runs["run-stale-1"].Status, "失败行之前行须收敛")
+	require.Equal(t, model.RunbookRunStatusFailed, store.runs["run-stale-3"].Status, "失败行之后行仍须收敛，不得提前 return")
+	require.Equal(t, model.RunbookRunStatusRunning, store.runs["run-stale-2"].Status, "失败行保持 running，但不得阻塞其余行")
 }

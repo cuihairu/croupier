@@ -115,9 +115,11 @@ metrics:
 #   leaseTtl: 15s                      # 租约 TTL（3 倍心跳）
 #   ownerTtl: 3m                       # agent 归属记录存活窗口
 #   peerPollInterval: 10s              # 对端发现轮询
-#   # 互联身份认证（ARCH-003）：cert/key/ca 齐备时互联走 mTLS，对端证书
-#   # 必须是 server 角色（双 EKU），Agent 证书被拒；缺任一或
-#   # insecureSkipTls=true 时维持内网明文（就绪面记录降级）。
+#   # 互联身份认证（ARCH-003 + CR-FIX-03）：cert/key/ca 齐备且非
+#   # insecureSkipTls 时互联走 mTLS，对端证书必须是 server 角色（双 EKU），
+#   # Agent 证书被拒。集群启用但证书面缺失/跳过校验时默认拒绝启动
+#   # （fail-closed），必须显式 allowPlaintextInterconnect=true（仅受信隔离
+#   # 内网）才放行明文，并在就绪面记录降级。
 #   insecureSkipTls: false
 #   interconnectTls:
 #     enabled: true
@@ -125,6 +127,7 @@ metrics:
 #     keyFile: /etc/croupier/ic.key
 #     caFile: /etc/croupier/ic-ca.crt
 #     serverName: ""                   # 空=按拨号地址校验证书 SAN
+#   allowPlaintextInterconnect: false  # 显式二次确认：仅受信隔离内网可开
 #   allowStandaloneDegrade: false      # 显式允许协调库不可用时按单实例降级
 #                                      #（默认 false：要求集群 → /readyz 503）
 

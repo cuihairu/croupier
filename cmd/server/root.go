@@ -191,6 +191,13 @@ func runServer() error {
 
 	applyRuntimeDefaults(&c)
 
+	// CR-FIX-03（P0-3）fail-closed：集群启用但互联证书面缺失/跳过校验时拒绝
+	// 启动并明示原因，除非显式 allowPlaintextInterconnect=true（仅受信隔离内网，
+	// 就绪面记录降级）。放在昂贵装配前 fail-fast，避免静默降级明文。
+	if err := c.Cluster.ValidateInterconnectTLS(); err != nil {
+		return err
+	}
+
 	// 创建服务上下文
 	svcCtx := svc.NewServiceContext(c)
 	wireDashboardRegistrationPipeline(svcCtx)

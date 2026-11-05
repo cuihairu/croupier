@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -671,9 +672,15 @@ type ClusterConfig struct {
 	InsecureSkipTLS bool `json:"insecureSkipTls,omitempty" yaml:"insecureSkipTls,omitempty"`
 	// InterconnectTLS 专用互联证书面（ARCH-003）：cert/key 提供本实例在
 	// 互联端口的服务器证书（双 EKU = server 角色），ca 提供对端证书链。
-	// 三者都配置时互联走 mTLS；任一项缺失或 InsecureSkipTLS=true 时维持
-	// 内网明文（向后兼容），并在就绪面记录降级。
+	// 三者都配置且非 insecureSkipTls 时互联走 mTLS；CR-FIX-03（P0-3）起
+	// 集群启用但证书面不完整或 insecureSkipTls=true 时默认拒绝启动（fail-
+	// closed），只有显式 AllowPlaintextInterconnect=true 才放行内网明文并在
+	// 就绪面记录降级——不再静默降级明文。
 	InterconnectTLS TLSClientConfig `json:"interconnectTls,omitempty" yaml:"interconnectTls,omitempty"`
+	// AllowPlaintextInterconnect 显式二次确认（CR-FIX-03）：集群启用且证书
+	// 面缺失/跳过校验时，只有置 true 才允许以明文互联启动（就绪面记录
+	// 降级）；缺省 false = fail-closed，漏配证书时拒绝启动并明示原因。
+	AllowPlaintextInterconnect bool `json:"allowPlaintextInterconnect,omitempty" yaml:"allowPlaintextInterconnect,omitempty"`
 	// AllowStandaloneDegrade 显式允许 standalone 降级（ARCH-004）：集群
 	// enabled 时协调库/成员注册/互联监听不可用，默认保持「要求集群」
 	// 语义（就绪探针 503，实例不可服务）直到故障排除重启；只有显式置
@@ -1573,4 +1580,42 @@ func (c legacyLogConfig) toCommon() common.LogConfig {
 		MaxAge:     c.MaxAge,
 		Compress:   c.Compress,
 	}
+}
+
+// InterconnectTLSComplete reports whether the dedicated interconnect mTLS
+// certificate surface is fully configured and not skipped (CR-FIX-03).
+func (c *ClusterConfig) InterconnectTLSComplete() bool {
+	return c.InterconnectTLS.EffectiveEnabled() &&
+		!c.InsecureSkipTLS &&
+		!c.InterconnectTLS.InsecureSkipVerify &&
+		c.InterconnectTLS.CertFile != "" &&
+		c.InterconnectTLS.KeyFile != "" &&
+		c.InterconnectTLS.CAFile != ""
+}
+
+// ValidateInterconnectTLS implements CR-FIX-03 (P0-3) fail-closed: when the
+// cluster is enabled but the interconnect certificate surface is incomplete or
+// TLS verification is skipped, startup must be refused with a clear reason
+// unless the operator explicitly confirms plaintext via
+// AllowPlaintextInterconnect. This closes the silent plaintext fallback that
+// previously left the mesh on an unauthenticated intranet path. Returns nil
+// when the cluster is disabled, TLS is complete, or plaintext is explicitly
+// allowed.
+func (c *ClusterConfig) ValidateInterconnectTLS() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.InterconnectTLSComplete() {
+		return nil
+	}
+	if c.AllowPlaintextInterconnect {
+		return nil
+	}
+	reason := "cluster interconnect TLS certificate surface incomplete or skipped"
+	if c.InterconnectTLS.EffectiveEnabled() {
+		reason += " (certFile/keyFile/caFile must all be set and insecureSkipTls/insecureSkipVerify false)"
+	} else {
+		reason += " (interconnectTls.enabled false or no certificate paths configured)"
+	}
+	return fmt.Errorf("cluster.enabled=true but %s; set cluster.allowPlaintextInterconnect=true only on a trusted isolated intranet to run plaintext (degraded), or configure the certificate surface for mTLS", reason)
 }

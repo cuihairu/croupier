@@ -84,30 +84,31 @@ screenshot → labeled comparison + crossfade GIF). Artifacts live under
 
 ## Server Configuration Switches
 
-| Key                                              | Default           | Off effect                                         | On effect                                            |
-| ------------------------------------------------ | ----------------- | -------------------------------------------------- | ---------------------------------------------------- |
-| `database.multiGame`                             | `false` (code)    | Single database; row-level isolation via `game_id` | Each `(game_id, env)` gets its own physical database |
-| `cache.enabled`                                  | `false` (code)    | Cache disabled; direct store access                | Cache layer active                                   |
-| `cluster.enabled`                                | `false` (code)    | Cluster features off; standalone operation         | Cluster membership / owner forwarding active         |
-| `cluster.insecureSkipTls`                        | `false` (code)    | Peer TLS verified                                  | Peer TLS verification skipped                        |
-| `cluster.allowStandaloneDegrade`                 | `false` (code)    | Cluster required; standalone refused               | Standalone degrade allowed when cluster unavailable  |
-| `cluster.interconnectTls.enabled`                | `false` (code)    | Plaintext interconnect                             | mTLS interconnect (peer-certificate identity)        |
-| `cluster.interconnectTls.insecureSkipVerify`     | `false` (code)    | Peer cert verified                                 | Peer cert verification skipped                       |
-| `agentDispatch.enableHA`                         | `false` (code)    | HA features off                                    | HA multi-instance dispatch features active           |
-| `agentDispatch.reconnection.enableAutoReconnect` | `false` (code)    | No auto-reconnect                                  | Agent auto-reconnect on drop                         |
-| `agentDispatch.toAgentTLS.enabled`               | `false` (code)    | Plaintext to agent                                 | TLS to agent                                         |
-| `agentDispatch.toAgentTLS.insecureSkipVerify`    | `false` (code)    | Agent cert verified                                | Agent cert verification skipped                      |
-| `approval.allowSelfApprove`                      | `false` (example) | Self-approval rejected                             | Operator may approve their own request               |
-| `executionLog.enabled`                           | `false` (code)    | Execution log not written                          | Execution log written per execution                  |
-| `descriptors.schemaDiffWarn`                     | `false` (code)    | Schema drift silent                                | Schema drift logged as warning                       |
-| `storage.forcePathStyle`                         | `false` (code)    | Virtual-host style (S3)                            | Path-style object URLs                               |
-| `metrics.perFunction`                            | `true` (example)  | Aggregated metrics only                            | Per-function metrics emitted                         |
-| `metrics.perGameDenies`                          | `false` (example) | Per-game metrics not denied                        | Per-game metrics denied (off by scope)               |
-| `serverStatus.enabled`                           | `false` (code)    | Maintenance gate bypassed                          | Agent-probe maintenance window gate active           |
-| `herald.enabled`                                 | `false` (code)    | Pure croupier alert page                           | Alerts delivered via herald channels                 |
-| `provision.enabled`                              | `false` (code)    | Provisioning off                                   | Provision / destroy workflows active                 |
-| `backup.schedule.enabled`                        | `false` (code)    | No scheduled backups                               | Scheduled backups for registered sources             |
-| `vault.enabled`                                  | `false` (code)    | Secrets inline in config                           | Sensitive credentials via vault provider             |
+| Key                                              | Default           | Off effect                                                   | On effect                                                                      |
+| ------------------------------------------------ | ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `database.multiGame`                             | `false` (code)    | Single database; row-level isolation via `game_id`           | Each `(game_id, env)` gets its own physical database                           |
+| `cache.enabled`                                  | `false` (code)    | Cache disabled; direct store access                          | Cache layer active                                                             |
+| `cluster.enabled`                                | `false` (code)    | Cluster features off; standalone operation                   | Cluster membership / owner forwarding active                                   |
+| `cluster.insecureSkipTls`                        | `false` (code)    | Peer TLS verified                                            | Peer TLS verification skipped                                                  |
+| `cluster.allowStandaloneDegrade`                 | `false` (code)    | Cluster required; standalone refused                         | Standalone degrade allowed when cluster unavailable                            |
+| `cluster.allowPlaintextInterconnect`             | `false` (code)    | Interconnect TLS fail-closed (refuses boot if certs missing) | Explicitly permit plaintext interconnect (trusted isolated intranet; degraded) |
+| `cluster.interconnectTls.enabled`                | `false` (code)    | Plaintext interconnect                                       | mTLS interconnect (peer-certificate identity)                                  |
+| `cluster.interconnectTls.insecureSkipVerify`     | `false` (code)    | Peer cert verified                                           | Peer cert verification skipped                                                 |
+| `agentDispatch.enableHA`                         | `false` (code)    | HA features off                                              | HA multi-instance dispatch features active                                     |
+| `agentDispatch.reconnection.enableAutoReconnect` | `false` (code)    | No auto-reconnect                                            | Agent auto-reconnect on drop                                                   |
+| `agentDispatch.toAgentTLS.enabled`               | `false` (code)    | Plaintext to agent                                           | TLS to agent                                                                   |
+| `agentDispatch.toAgentTLS.insecureSkipVerify`    | `false` (code)    | Agent cert verified                                          | Agent cert verification skipped                                                |
+| `approval.allowSelfApprove`                      | `false` (example) | Self-approval rejected                                       | Operator may approve their own request                                         |
+| `executionLog.enabled`                           | `false` (code)    | Execution log not written                                    | Execution log written per execution                                            |
+| `descriptors.schemaDiffWarn`                     | `false` (code)    | Schema drift silent                                          | Schema drift logged as warning                                                 |
+| `storage.forcePathStyle`                         | `false` (code)    | Virtual-host style (S3)                                      | Path-style object URLs                                                         |
+| `metrics.perFunction`                            | `true` (example)  | Aggregated metrics only                                      | Per-function metrics emitted                                                   |
+| `metrics.perGameDenies`                          | `false` (example) | Per-game metrics not denied                                  | Per-game metrics denied (off by scope)                                         |
+| `serverStatus.enabled`                           | `false` (code)    | Maintenance gate bypassed                                    | Agent-probe maintenance window gate active                                     |
+| `herald.enabled`                                 | `false` (code)    | Pure croupier alert page                                     | Alerts delivered via herald channels                                           |
+| `provision.enabled`                              | `false` (code)    | Provisioning off                                             | Provision / destroy workflows active                                           |
+| `backup.schedule.enabled`                        | `false` (code)    | No scheduled backups                                         | Scheduled backups for registered sources                                       |
+| `vault.enabled`                                  | `false` (code)    | Secrets inline in config                                     | Sensitive credentials via vault provider                                       |
 
 ## Telemetry Switches
 

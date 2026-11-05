@@ -139,3 +139,36 @@ func TestAgentMetricsHourlyAgentIDSizeMigration_CrashAfterDedupeRollsBack(t *tes
 	require.NoError(t, db.Where("agent_id = ? AND hour_start = ?", "a1", hour).Find(&rows).Error)
 	require.Len(t, rows, 2, "崩溃后重复行必须保留（去重未提交）")
 }
+
+// 0063 新增审核发现（MySQL/PostgreSQL DDL 隐式提交）：单事务声明「整体回滚」
+// 只对 SQLite 成立；MySQL/PostgreSQL 的 ALTER/CREATE/DROP INDEX 会隐式提交。
+// 修复后按「先建 uidx_agent_hour，再删 idx_agent_hour」顺序执行：任一时刻
+// (agent_id, hour_start) 上都有索引；若唯一索引创建失败，旧索引仍保留。
+// 本测试用 SQLite 验证最终收敛形态：idx_agent_hour 已删、uidx_agent_hour 存在。
+func TestAgentMetricsHourlyAgentIDSizeMigration_IndexOrderRemovesLegacyOnlyAfterUniqueExists(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/m63order.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&reg.AgentMetricsHourly{}))
+
+	// 复刻存量形态：去掉唯一索引，换上旧非唯一索引。
+	if db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
+		require.NoError(t, db.Migrator().DropIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"))
+	}
+	if db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
+		require.NoError(t, db.Migrator().DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"))
+	}
+	require.NoError(t, db.Exec(`CREATE INDEX idx_agent_hour ON agent_metrics_hourly (agent_id, hour_start)`).Error)
+
+	hour := time.Now().UTC().Truncate(time.Hour)
+	require.NoError(t, db.Create(&reg.AgentMetricsHourly{AgentID: "a1", HourStart: hour, SampleCount: 1}).Error)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateAgentMetricsHourlyAgentIDSize(context.Background(), sqlDB))
+
+	// 收敛完成后必须只剩唯一索引，旧非唯一索引已删除。
+	require.True(t, db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"),
+		"收敛后唯一索引必须存在")
+	require.False(t, db.Migrator().HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"),
+		"唯一索引就绪后旧非唯一索引必须删除")
+}

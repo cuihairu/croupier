@@ -2044,11 +2044,13 @@ func ensureAgentMetricsHourlyConverged(ctx context.Context, db *gorm.DB) error {
 	if !migrator.HasTable(&reg.AgentMetricsHourly{}) {
 		return nil
 	}
-	// 收敛（列回填 + 去重 + 索引重建）必须在单个事务内完成：SQLite 的
-	// AlterColumn 会重建表并删除原有索引，去重和重建索引若在独立事务中执行，
-	// 期间崩溃或建索引失败会使已有实例的小时聚合失去唯一约束，并发写入可
-	// 产生重复数据（审核发现）。包裹成单事务后，任何一步失败整体回滚，原有
-	// 唯一索引与数据保持不变。
+	// 收敛（列回填 + 去重 + 索引重建）须避免「去重已生效但唯一索引已丢」的
+	// 窗口：先建唯一索引 uidx_agent_hour，再删旧非唯一索引 idx_agent_hour，
+	// 任一时刻 (agent_id, hour_start) 上都有索引。SQLite 的 AlterColumn 会重建
+	// 表并删除原有索引，故整体包裹单事务，任一步失败回滚，原索引与数据不变；
+	// MySQL/PostgreSQL 的 DDL（ALTER/CREATE/DROP INDEX）会隐式提交、事务对 DDL
+	// 不具原子性，此时依赖「先建后删」顺序 + 失败上抛（迁移失败即启动失败，
+	// 不静默留下无唯一约束状态）来保证安全。
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 存量库（已跑 0051 建表）的 agent_id 无尺寸（默认为数据库默认），与新建
 		// 库（0051 CreateTable 按 size:64 建 VARCHAR(64)）schema 分叉；且 MySQL 下
@@ -2073,14 +2075,16 @@ WHERE id NOT IN (
 			}
 		}
 		txMigrator := tx.Migrator()
-		if txMigrator.HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
-			if err := txMigrator.DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"); err != nil {
-				return fmt.Errorf("migrate: agent_metrics_hourly drop idx_agent_hour: %w", err)
-			}
-		}
+		// 先建唯一索引（若失败，旧 idx_agent_hour 仍在，无无索引窗口）。
 		if !txMigrator.HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
 			if err := txMigrator.CreateIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"); err != nil {
 				return fmt.Errorf("migrate: agent_metrics_hourly create uidx_agent_hour: %w", err)
+			}
+		}
+		// 唯一索引就绪后再删旧非唯一索引。
+		if txMigrator.HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
+			if err := txMigrator.DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"); err != nil {
+				return fmt.Errorf("migrate: agent_metrics_hourly drop idx_agent_hour: %w", err)
 			}
 		}
 		return nil

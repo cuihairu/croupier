@@ -344,13 +344,21 @@ func (o *Orchestrator) RecoverStaleRuns(ctx context.Context, olderThan time.Time
 		return 0, fmt.Errorf("runbook: list stale runs: %w", err)
 	}
 	recovered := 0
+	var errs []string
 	for _, run := range stale {
 		msg := "runbook: run interrupted by process restart before terminal state was persisted; converged to failed on startup recovery"
 		if err := o.store.UpdateRunStatus(ctx, run.ID, model.RunbookRunStatusFailed, run.CurrentStep, run.StepsResultJSON, msg); err != nil {
-			return recovered, fmt.Errorf("runbook: recover stale run %d: %w", run.ID, err)
+			// 审核发现：单行失败不中断整体恢复——继续收敛其余遗留行，最后聚合
+			// 错误上报，避免「部分收敛 + 调用方仅记告警」留下永久 running 行。
+			errs = append(errs, fmt.Sprintf("run %d: %v", run.ID, err))
+			slog.Warn("runbook: stale run recovery failed", "run_id", run.RunID, "id", run.ID, "error", err)
+			continue
 		}
 		slog.Info("runbook: stale run converged to failed", "run_id", run.RunID, "id", run.ID)
 		recovered++
+	}
+	if len(errs) > 0 {
+		return recovered, fmt.Errorf("runbook: recover stale runs: %s", strings.Join(errs, "; "))
 	}
 	return recovered, nil
 }
@@ -420,7 +428,13 @@ func (r *recoveryLoop) loop() {
 				continue
 			}
 			r.mu.Lock()
-			delete(r.pending, t.runID)
+			// 审核发现：快照 items 与这里之间若有同一 runID 的新终态入队，
+			// 直接按 runID delete 会把新条目一并删掉使其永不写库。仅当 pending
+			// 仍指向本次快照的同一 *pendingTerminal（未被替换）才删除；否则保留
+			// 新条目由下一轮收敛。
+			if cur, ok := r.pending[t.runID]; ok && cur == t {
+				delete(r.pending, t.runID)
+			}
 			r.mu.Unlock()
 			slog.Info("runbook: terminal state recovered in background", "run_id", t.runID, "status", t.status)
 		}

@@ -158,6 +158,7 @@ func TestRunServer_FullBootMatrix(t *testing.T) {
 		"control:\n  addr: 127.0.0.1:0\n"+
 		"cluster:\n  enabled: true\n  instanceId: server-r24-fullboot\n"+
 		"  store: db\n  advertiseAddr: 127.0.0.1:0\n  heartbeatInterval: 500ms\n"+
+		"  allowPlaintextInterconnect: true\n"+
 		"telemetry:\n  enabled: true\n")
 
 	// 预选空闲 HTTP 端口（boot C 的全局 port 覆盖翼需要确定端口）
