@@ -126,6 +126,7 @@ sdks/python/htmlcov/
 sdks/python/uv.lock
 
 # Plugin SDKs (shared Go hostdriver has no build artifacts)
+/hostdriver
 sdks/plugins/python/__pycache__/
 sdks/plugins/python/*/__pycache__/
 sdks/plugins/python/.venv/
