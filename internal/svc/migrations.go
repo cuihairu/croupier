@@ -170,6 +170,10 @@ import (
 //   0062 (Go)   runbooks + runbook_runs 表（OPS-009 运维 runbook：参数化步骤
 //               序列引用 OPS-004 部署/OPS-006 批处理能力；新表 CreateTable，
 //               无存量约束名漂移问题）
+//   0063 (Go)   agent_metrics_hourly.agent_id 统一 VARCHAR(64)（审核发现：修改
+//               已存在的 0061 迁移不会在已执行过 0061 的库上重跑，存量库
+//               agent_id 仍为无尺寸列与新建库 schema 分叉；新增版本迁移对
+//               存量表 AlterColumn 回填，幂等；缺表跳过）
 
 func init() {
 	registerSvcMigrations()
@@ -242,6 +246,7 @@ func registerSvcMigrations() {
 		backupScopeColumnsMigration(),
 		agentMetricsHourlyUniqueIndexMigration(),
 		runbookTablesMigration(),
+		agentMetricsHourlyAgentIDSizeMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -2026,6 +2031,15 @@ func migrateAgentMetricsHourlyUniqueIndex(ctx context.Context, sqlDB *sql.DB) er
 	if err != nil {
 		return err
 	}
+	return ensureAgentMetricsHourlyConverged(ctx, db)
+}
+
+// ensureAgentMetricsHourlyConverged converges an existing agent_metrics_hourly
+// table to the current schema: backfills agent_id to VARCHAR(64), collapses
+// duplicate (agent_id, hour_start) rows, and ensures the unique index exists.
+// Shared by 0061 (new install) and 0063 (already-upgraded instances, where
+// editing 0061 in place never re-runs). Idempotent and skips a missing table.
+func ensureAgentMetricsHourlyConverged(ctx context.Context, db *gorm.DB) error {
 	migrator := db.Migrator()
 	if !migrator.HasTable(&reg.AgentMetricsHourly{}) {
 		return nil
@@ -2035,7 +2049,7 @@ func migrateAgentMetricsHourlyUniqueIndex(ctx context.Context, sqlDB *sql.DB) er
 	// TEXT 无前缀不能建索引，0061 建 uidx_agent_hour 会在存量库失败。统一回填
 	// 为 VARCHAR(64)：先列类型迁移（幂等），再建唯一索引。
 	if err := migrator.AlterColumn(&reg.AgentMetricsHourly{}, "AgentID"); err != nil {
-		return fmt.Errorf("migrate: 0061 alter agent_metrics_hourly.agent_id: %w", err)
+		return fmt.Errorf("migrate: agent_metrics_hourly alter agent_id: %w", err)
 	}
 	if err := db.WithContext(ctx).Exec(`
 DELETE FROM agent_metrics_hourly
@@ -2044,16 +2058,16 @@ WHERE id NOT IN (
     SELECT MIN(id) AS keep_id FROM agent_metrics_hourly GROUP BY agent_id, hour_start
   ) AS keep_rows
 )`).Error; err != nil {
-		return fmt.Errorf("migrate: 0061 dedupe agent_metrics_hourly: %w", err)
+		return fmt.Errorf("migrate: agent_metrics_hourly dedupe: %w", err)
 	}
 	if migrator.HasIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour") {
 		if err := migrator.DropIndex(&reg.AgentMetricsHourly{}, "idx_agent_hour"); err != nil {
-			return fmt.Errorf("migrate: 0061 drop idx_agent_hour: %w", err)
+			return fmt.Errorf("migrate: agent_metrics_hourly drop idx_agent_hour: %w", err)
 		}
 	}
 	if !migrator.HasIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour") {
 		if err := migrator.CreateIndex(&reg.AgentMetricsHourly{}, "uidx_agent_hour"); err != nil {
-			return fmt.Errorf("migrate: 0061 create uidx_agent_hour: %w", err)
+			return fmt.Errorf("migrate: agent_metrics_hourly create uidx_agent_hour: %w", err)
 		}
 	}
 	return nil
@@ -2085,4 +2099,26 @@ func migrateRunbookTables(ctx context.Context, sqlDB *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+// agentMetricsHourlyAgentIDSizeMigration backfills agent_metrics_hourly.agent_id
+// to VARCHAR(64) on databases that already ran migration 0061. The original
+// 0061 added the AlterColumn inside the existing migration, which never re-runs
+// on upgraded instances: their agent_id remains an unsized column, diverging
+// from fresh databases created after 0051 (which already used size:64), and
+// breaking the MySQL unique index creation. A new version migration covers
+// those already-upgraded instances (idempotent, skips missing table).
+func agentMetricsHourlyAgentIDSizeMigration() *goose.Migration {
+	return goose.NewGoMigration(63,
+		&goose.GoFunc{RunDB: migrateAgentMetricsHourlyAgentIDSize},
+		nil,
+	)
+}
+
+func migrateAgentMetricsHourlyAgentIDSize(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	return ensureAgentMetricsHourlyConverged(ctx, db)
 }

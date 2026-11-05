@@ -878,3 +878,8 @@
 - [x] 审核发现：config-switch-evidence.sh 证据管线对字体/侧栏宽度强假设无守卫——`label_frame` 硬编码 NotoSansCJK 字体路径与 `crop=260:900`（260px 侧栏），脚本自注字体「optional」却无缺失回退，字体缺失或侧栏非 260px 时 ffmpeg 失败、`set -e` 中断整条管线。（scripts/docs/config-switch-evidence.sh:178-181）
   - 修复：capture 改截侧栏元素（不再 crop 固定 260px）；`label_frame` 去 crop，pad 高度按实际宽度自适应，字体缺失回退 `fc-match` 或 ffmpeg 默认（不再 `set -e` 中断）。
   - 证据：2026-11-05；`scripts/docs/config-switch-evidence.sh`、`scripts/docs/config-evidence-capture.js`；`bash -n` 语法过、`node --check` 过。
+- [x] 审核发现：修改已存在的 0061 迁移不会在已经执行过 0061 的数据库上重跑，存量 agent_id 列仍无法统一为 VARCHAR(64)，需要新增版本迁移覆盖已升级实例。（internal/svc/migrations.go:2037）
+  - 修复：新增迁移 0063 `agentMetricsHourlyAgentIDSizeMigration` 覆盖已升级实例，与 0061 共用 `ensureAgentMetricsHourlyConverged`（AlterColumn 回填 VARCHAR(64) + 去重 + 唯一索引，幂等，缺表跳过）；`MinimumRequiredVersion` 62→63。
+  - 证据：2026-11-05；`internal/svc/migrations.go`（0063 + ensureAgentMetricsHourlyConverged）、`internal/db/migrate/migrate.go`（MinimumRequiredVersion=63）、`internal/svc/migrations_metrics_hourly_agentid_size_test.go`；`go test ./internal/svc/ -run 'TestAgentMetricsHourlyAgentIDSize' -count=1` PASS（已收敛幂等/去重/缺表跳过）、`go test ./internal/svc/ -count=1` 全绿、`go test ./internal/db/migrate/ -count=1` 全绿。
+- [ ] 审核发现：终态写入连续三次失败后仍直接返回且没有后续恢复机制，数据库短暂故障超过重试窗口时 runbook 运行仍永久停留在 running。（internal/ops/runbook/runbook.go:299）
+- [ ] 审核发现：未配置 agent ID 时观测记录与实际 core 分别调用基于秒级时间的 resolveAgentID，若两次调用跨秒会产生不同 ID，导致遥测无法关联实际 agent。（cmd/sidecar-agent/root.go:526）
