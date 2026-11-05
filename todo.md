@@ -881,5 +881,11 @@
 - [x] 审核发现：修改已存在的 0061 迁移不会在已经执行过 0061 的数据库上重跑，存量 agent_id 列仍无法统一为 VARCHAR(64)，需要新增版本迁移覆盖已升级实例。（internal/svc/migrations.go:2037）
   - 修复：新增迁移 0063 `agentMetricsHourlyAgentIDSizeMigration` 覆盖已升级实例，与 0061 共用 `ensureAgentMetricsHourlyConverged`（AlterColumn 回填 VARCHAR(64) + 去重 + 唯一索引，幂等，缺表跳过）；`MinimumRequiredVersion` 62→63。
   - 证据：2026-11-05；`internal/svc/migrations.go`（0063 + ensureAgentMetricsHourlyConverged）、`internal/db/migrate/migrate.go`（MinimumRequiredVersion=63）、`internal/svc/migrations_metrics_hourly_agentid_size_test.go`；`go test ./internal/svc/ -run 'TestAgentMetricsHourlyAgentIDSize' -count=1` PASS（已收敛幂等/去重/缺表跳过）、`go test ./internal/svc/ -count=1` 全绿、`go test ./internal/db/migrate/ -count=1` 全绿。
-- [ ] 审核发现：终态写入连续三次失败后仍直接返回且没有后续恢复机制，数据库短暂故障超过重试窗口时 runbook 运行仍永久停留在 running。（internal/ops/runbook/runbook.go:299）
-- [ ] 审核发现：未配置 agent ID 时观测记录与实际 core 分别调用基于秒级时间的 resolveAgentID，若两次调用跨秒会产生不同 ID，导致遥测无法关联实际 agent。（cmd/sidecar-agent/root.go:526）
+- [x] 审核发现：终态写入连续三次失败后仍直接返回且没有后续恢复机制，数据库短暂故障超过重试窗口时 runbook 运行仍永久停留在 running。（internal/ops/runbook/runbook.go:299）
+  - 修复：3 次内联重试全失败后交后台恢复循环（detached goroutine + 指数退避 1s→30s 封顶）继续写终态，不再直接返回错误把已执行结果当 500 丢掉；`persistTerminal` 照常返回 nil，行在后台收敛，运行结果不悬空。
+  - 证据：2026-11-05；`internal/ops/runbook/runbook.go`（persistTerminal + recoverTerminal + backoff 常量）、`internal/ops/runbook/runbook_test.go`（TestRun_TerminalPersistHandsOffToBackground）；`go test ./internal/ops/runbook/ -run 'TestRun_TerminalPersist' -count=1` PASS（重试回归 + 后台收敛两用例）。
+- [x] 审核发现：未配置 agent ID 时观测记录与实际 core 分别调用基于秒级时间的 resolveAgentID，若两次调用跨秒会产生不同 ID，导致遥测无法关联实际 agent。（cmd/sidecar-agent/root.go:526）
+  - 修复：`runAgent` 只解析一次 agentID，同一值供 recorder base 与 `startAgentCore`（签名改为显式传入 agentID，去掉内部再解析）；`startAgentCore` 不再调用 resolveAgentID，杜绝跨秒分歧。
+  - 证据：2026-11-05；`cmd/sidecar-agent/root.go`（runAgent 单次解析 + startAgentCore 传参）、`internal/app/agent/app.go`（AgentID 读回访问器）、`cmd/sidecar-agent/root_extra_test.go`（TestStartAgentCore_UsesPassedAgentID）；`go test ./cmd/sidecar-agent/ -count=1` PASS。
+- [ ] 审核发现：0063 将已有 agent_id 无条件缩窄至 64 字符，而注册入口未限制 ID 长度，PostgreSQL 等严格数据库中已有超长 ID 的实例会在迁移时报错并无法启动，后续超长 ID 的小时聚合也无法写入。（internal/svc/migrations.go:2123）
+- [ ] 审核发现：0063 在 SQLite 上调用 AlterColumn 会重建表并删除原有唯一索引，去重和重建索引又在独立事务中执行，期间崩溃或建索引失败会使已有实例的小时聚合失去唯一约束，并发写入可产生重复数据。（internal/svc/migrations.go:2123）
