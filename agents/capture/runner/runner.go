@@ -31,6 +31,7 @@ import (
 	"github.com/cuihairu/croupier/core/backoff"
 	"github.com/cuihairu/croupier/core/configsync"
 	"github.com/cuihairu/croupier/core/healthprobe"
+	"github.com/cuihairu/croupier/core/otelrec"
 	"github.com/cuihairu/croupier/core/register"
 	cdcfilter "github.com/cuihairu/croupier/pkg/cdc/filter"
 	cdjournal "github.com/cuihairu/croupier/pkg/cdc/journal"
@@ -103,6 +104,7 @@ type Runner struct {
 	cfg   config.Config
 	log   *slog.Logger
 	store *source.Store
+	rec   otelrec.Recorder
 
 	newConnector func() connector.SourceConnector
 
@@ -148,6 +150,7 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 	r := &Runner{
 		cfg:              cfg,
 		log:              log,
+		rec:              otelrec.Discard(),
 		store:            source.NewStore(cfg.BookmarkPath()),
 		backoffInitial:   time.Second,
 		backoffMax:       30 * time.Second,
@@ -213,6 +216,14 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		"cepBurst", len(cfg.Capture.Gates.CEP.Burst), "cepProbing", len(cfg.Capture.Gates.CEP.Probing),
 		"lineage", len(cfg.Capture.Gates.Lineage.Rules))
 	return r
+}
+
+// SetRecorder 装配 OTel 观测面（nil=noop；必须在 Run 前调用）。
+func (r *Runner) SetRecorder(rec otelrec.Recorder) {
+	if rec == nil {
+		rec = otelrec.Discard()
+	}
+	r.rec = rec
 }
 
 // buildGateSet 由规则集构建闸层快照：先全量校验（config.ValidateGates，
@@ -337,6 +348,8 @@ func (r *Runner) Stats() Stats {
 
 // Run 是 supervisable.RunFunc：注册上线 + capture 循环，ctx 取消即收尾。
 func (r *Runner) Run(ctx context.Context) error {
+	r.rec.Start(ctx, map[string]string{"agent": r.cfg.Agent.ID, "role": "capture"})
+	defer func() { r.rec.Stop(ctx, ctx.Err()) }()
 	reg := register.New(register.Config{
 		AgentID: r.cfg.Agent.ID,
 		Dial: func(context.Context) (register.Conn, error) {
@@ -350,6 +363,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		Payload: r.buildPayload,
 		Logger:  r.log,
 		OnConnected: func() {
+			r.rec.Connected(ctx)
 			r.log.Info("registered upstream", "agent", r.cfg.Agent.ID, "gameId", r.cfg.Agent.GameID, "env", r.cfg.Agent.Env)
 		},
 	})
@@ -374,6 +388,9 @@ func (r *Runner) Run(ctx context.Context) error {
 	bo := backoff.Exponential(r.backoffInitial, r.backoffMax, 1.5)
 	for {
 		err := r.runSourceOnce(ctx)
+		if err != nil {
+			r.rec.Disconnected(ctx, err)
+		}
 		if err == nil || ctx.Err() != nil {
 			r.log.Info("capture loop stopped", "stats", r.Stats())
 			return nil
@@ -493,6 +510,7 @@ func (r *Runner) consume(ev connector.ChangeEvent) {
 	now := time.Now().UnixMilli()
 	atomic.StoreInt64(&r.stats.LastEventUnixMs, now)
 	atomic.AddInt64(&r.stats.Total, 1)
+	r.rec.Count(context.Background(), "events", 1, map[string]string{"op": string(ev.Operation)})
 	switch ev.Operation {
 	case connector.OpInsert:
 		atomic.AddInt64(&r.stats.Insert, 1)
