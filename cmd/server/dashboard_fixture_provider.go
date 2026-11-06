@@ -173,7 +173,9 @@ func (p *playersProvider) createPlayer(w http.ResponseWriter, r *http.Request) {
 	p.mu.Lock()
 	id := fmt.Sprintf("p-%03d", p.nextID)
 	p.nextID++
-	player := &fixturePlayer{ID: id, Name: req.Name, Level: req.Level}
+	// 自身发布的 OpenAPI 契约把 status 限定为 active|banned 枚举，创建态
+	// 必须落回合法枚举值；空字符串会触发服务端响应 schema 校验失败。
+	player := &fixturePlayer{ID: id, Name: req.Name, Level: req.Level, Status: "active"}
 	p.players[id] = player
 	p.order = append(p.order, id)
 	p.mu.Unlock()

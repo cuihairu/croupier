@@ -14,6 +14,11 @@ import {
   expectDrawerVisible,
 } from './helpers';
 
+/** 绑定/断言使用的运行时 functionId（运行时注册恒小写折叠）。 */
+function boundFunctionId(operation: { operationId: string }): string {
+  return `players.${operation.operationId.toLowerCase()}`;
+}
+
 test.describe('OpenAPI Source', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -163,6 +168,13 @@ const expectedPlayersOperations = [
     operation: 'update',
     capability: 'update',
   },
+  {
+    operationId: 'player.batchRecharge',
+    method: 'POST',
+    path: '/players/batch-recharge',
+    operation: 'batch-recharge',
+    capability: 'action',
+  },
 ];
 
 async function authenticatedHeaders(request: APIRequestContext): Promise<Record<string, string>> {
@@ -214,7 +226,7 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
     const created = ((await createResponse.json()) as OpenAPISourceDetail).source;
     expect(created.sourceId).toMatch(/\S/);
     expect(created.revision).toBe(1);
-    expect(created.operationCount).toBe(6);
+    expect(created.operationCount).toBe(7);
     expect((created.operations ?? []).map((op) => op.operationId).sort()).toEqual(
       expectedPlayersOperations.map((op) => op.operationId).sort(),
     );
@@ -252,7 +264,7 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
     expect(rejectedBody.error).toMatch(/\S/);
     expect(rejectedBody.message).toMatch(/\S/);
 
-    // 绑定全部 6 个 operation；collection_query 首个绑定的响应同步返回物化的 proposal。
+    // 绑定全部 7 个 operation；collection_query 首个绑定的响应同步返回物化的 proposal。
     const bindOrder = [
       ...expectedPlayersOperations.filter((op) => op.operationId === 'player.list'),
       ...expectedPlayersOperations.filter((op) => op.operationId !== 'player.list'),
@@ -265,7 +277,7 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
           data: {
             operationId: expected.operationId,
             kind: 'provider',
-            functionId: `players.${expected.operationId}`,
+            functionId: boundFunctionId(expected),
           },
         },
       );
@@ -281,7 +293,7 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
         bindingId: expected.operationId,
         operationId: expected.operationId,
         kind: 'provider',
-        functionId: `players.${expected.operationId}`,
+        functionId: boundFunctionId(expected),
       });
       if (expected.operationId === 'player.list') {
         expect(body.proposal).toMatchObject({
@@ -300,14 +312,14 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
     expect(detailResponse.status()).toBe(200);
     const detail = ((await detailResponse.json()) as OpenAPISourceDetail).source;
     expect(detail.operations?.every((op) => op.bound)).toBe(true);
-    expect(detail.bindings).toHaveLength(6);
+    expect(detail.bindings).toHaveLength(7);
     expect(detail.bindings).toEqual(
       expect.arrayContaining(
         expectedPlayersOperations.map((expected) =>
           expect.objectContaining({
             operationId: expected.operationId,
             kind: 'provider',
-            functionId: `players.${expected.operationId}`,
+            functionId: boundFunctionId(expected),
           }),
         ),
       ),
@@ -347,7 +359,7 @@ test.describe('真实 OpenAPI Source 导入与绑定链路', () => {
       expect.arrayContaining(
         expectedPlayersOperations.map((expected) =>
           expect.objectContaining({
-            functionId: `players.${expected.operationId}`,
+            functionId: boundFunctionId(expected),
             capability: expected.capability,
             source: 'openapi',
           }),

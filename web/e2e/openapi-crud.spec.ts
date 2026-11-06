@@ -16,7 +16,9 @@ import {
   ensurePlayersSourceBound,
   ensurePlayersResourcePublished,
   openapiAuthenticatedHeaders,
+  playersAllOperations,
   playersOperations,
+  boundFunctionId,
 } from './helpers/openapiPlayers';
 import {
   login,
@@ -309,7 +311,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(published.page?.pageKey).toBe('resource--players');
     const contracts = published.page?.bindingContracts ?? [];
     expect(contracts.map((item) => item.functionId).sort()).toEqual(
-      playersOperations.map((op) => `players.${op.operationId}`).sort(),
+      playersAllOperations.map((op) => boundFunctionId(op)).sort(),
     );
     for (const contract of contracts) {
       expect(contract.rendererSchemaVersion).toBe('page-spec:1');

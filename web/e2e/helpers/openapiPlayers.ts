@@ -63,6 +63,30 @@ export const playersOperations: OpenAPIPlayersOperation[] = [
   },
 ];
 
+/**
+ * provider 文档中的批量动作（camelCase operationId）。运行时注册的
+ * functionId 恒小写（control_handler 折叠），绑定与断言侧统一经
+ * boundFunctionId 归一。
+ */
+export const playersBatchRechargeOperation: OpenAPIPlayersOperation = {
+  operationId: 'player.batchRecharge',
+  method: 'POST',
+  path: '/players/batch-recharge',
+  operation: 'batch-recharge',
+  capability: 'action',
+};
+
+/** provider 文档的全部 operation（CRUD/kick + batchRecharge 批量动作）。 */
+export const playersAllOperations: OpenAPIPlayersOperation[] = [
+  ...playersOperations,
+  playersBatchRechargeOperation,
+];
+
+/** 绑定/断言使用的运行时 functionId（恒小写折叠）。 */
+export function boundFunctionId(operation: OpenAPIPlayersOperation): string {
+  return `players.${operation.operationId.toLowerCase()}`;
+}
+
 export async function openapiAuthenticatedHeaders(
   request: APIRequestContext,
 ): Promise<Record<string, string>> {
@@ -100,8 +124,8 @@ export async function importAndBindPlayersSource(
   expect(sourceId).toBeTruthy();
 
   const bindOrder = [
-    ...playersOperations.filter((op) => op.operationId === 'player.list'),
-    ...playersOperations.filter((op) => op.operationId !== 'player.list'),
+    ...playersAllOperations.filter((op) => op.operationId === 'player.list'),
+    ...playersAllOperations.filter((op) => op.operationId !== 'player.list'),
   ];
   for (const expected of bindOrder) {
     const bindResponse = await request.post(
@@ -111,7 +135,7 @@ export async function importAndBindPlayersSource(
         data: {
           operationId: expected.operationId,
           kind: 'provider',
-          functionId: `players.${expected.operationId}`,
+          functionId: boundFunctionId(expected),
         },
       },
     );
@@ -163,9 +187,7 @@ export async function ensurePlayersSourceBound(
         (item.pageSpec?.bindings ?? []).map((binding) => binding.functionId),
       ),
     );
-    const allBound = playersOperations.every((op) =>
-      boundFunctionIds.has(`players.${op.operationId}`),
-    );
+    const allBound = playersAllOperations.every((op) => boundFunctionIds.has(boundFunctionId(op)));
     if (allBound && resource.length > 0) {
       return candidates[0].sourceId;
     }

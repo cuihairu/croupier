@@ -842,6 +842,18 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 
 	p.mu.RLock()
 	apiMethod, exists := p.methodMap[method]
+	if !exists {
+		// 运行时 function ID 注册与调用侧统一折叠为小写（control_handler 折叠），
+		// 而 methodMap 以 OpenAPI operationId 原样（可能含驼峰）为键。先精确命中，
+		// 未命中再按大小写不敏感解析，保证 camelCase operationId 经折叠调用后
+		// 仍可路由。
+		for name, candidate := range p.methodMap {
+			if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(method)) {
+				apiMethod, exists = candidate, true
+				break
+			}
+		}
+	}
 	p.mu.RUnlock()
 
 	if !exists {
