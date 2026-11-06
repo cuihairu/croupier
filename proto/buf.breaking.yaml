@@ -1,0 +1,14 @@
+# CR-FIX-05：buf breaking 门禁专用配置（repo 根视角把 proto/ 作为模块）。
+# 与 proto/buf.yaml 内容等价，仅 module path 由 "." 改为 "proto"，
+# 使 `buf breaking proto` 能直接以本仓根目录为工作区执行。
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+    # RPC_* 规则保留启用（无 except）：本仓库 proto 只定义 message，
+    # 禁止 service/rpc 定义，杜绝 gRPC 代码生成的前提（docs/grpc-investigation.md）。
+breaking:
+  use:
+    - FILE

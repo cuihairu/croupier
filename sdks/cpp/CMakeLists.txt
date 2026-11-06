@@ -705,6 +705,7 @@ if(BUILD_TESTS)
             tests/test_tcp_transport_errors.cpp
             tests/test_plugin_manager.cpp
             tests/test_protocol.cpp
+            tests/test_golden_vectors.cpp
             tests/test_logger.cpp
             tests/test_http_transport.cpp
             tests/test_client_provider.cpp
@@ -779,6 +780,9 @@ if(BUILD_TESTS)
         if(tcp_ENABLED)
             target_compile_definitions(croupier-sdk-tests PRIVATE CROUPIER_SDK_HAS_TCP)
         endif()
+
+        target_compile_definitions(croupier-sdk-tests PRIVATE
+            CROUPIER_GOLDEN_VECTORS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../contracts/golden_vectors.json")
 
         if(UNIX)
             add_dependencies(croupier-sdk-tests croupier-sample-plugin croupier-failing-init-plugin

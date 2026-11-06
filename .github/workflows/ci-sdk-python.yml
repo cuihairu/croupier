@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["sdks/python/**"]
+    paths: ["sdks/python/**", "proto/**"]
   pull_request:
     branches: [main]
-    paths: ["sdks/python/**"]
+    paths: ["sdks/python/**", "proto/**"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

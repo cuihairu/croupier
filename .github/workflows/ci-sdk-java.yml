@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["sdks/java/**"]
+    paths: ["sdks/java/**", "proto/**"]
   pull_request:
     branches: [main]
-    paths: ["sdks/java/**"]
+    paths: ["sdks/java/**", "proto/**"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

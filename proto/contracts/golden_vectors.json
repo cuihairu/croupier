@@ -1,0 +1,27 @@
+{
+  "$comment": "CR-FIX-05 跨 SDK 行为级契约 golden 向量（语言中立，字节级）。生成源：pkg/protocol.NewMessageBody + proto.Marshal（Go）。所有 6 个 SDK 必须能按此字节序列编/解码同一 wire 消息；任一 SDK 漂移即 CI 红。字段命名遵循 wire 语义（version/msgId/reqId/body 十六进制）。",
+  "version": 1,
+  "vectors": {
+    "register_request": {
+      "description": "RegisterRequest (agent-golden, version 1.2.3, game demo, env dev, 1 function player.ban, ttl 300)",
+      "msgId": "010101",
+      "reqId": "0000002a",
+      "body": "0a0c6167656e742d676f6c64656e1205312e322e331a360a0a706c617965722e62616e1205312e302e301a06706c61796572220362616e2a046869676838014206616374696f6e4a0473796e632a0464656d6f320364657640ac02",
+      "frame": "010101010000002a0a0c6167656e742d676f6c64656e1205312e322e331a360a0a706c617965722e62616e1205312e302e301a06706c61796572220362616e2a046869676838014206616374696f6e4a0473796e632a0464656d6f320364657640ac02"
+    },
+    "heartbeat_request": {
+      "description": "HeartbeatRequest (empty body)",
+      "msgId": "010103",
+      "reqId": "00000007",
+      "body": "",
+      "frame": "0101010300000007"
+    },
+    "task_event": {
+      "description": "TaskEvent (task-123, completed)",
+      "msgId": "030106",
+      "reqId": "00000063",
+      "body": "0a087461736b2d3132331209636f6d706c65746564",
+      "frame": "01030106000000630a087461736b2d3132331209636f6d706c65746564"
+    }
+  }
+}

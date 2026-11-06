@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["sdks/cpp/**", ".github/workflows/ci-sdk-cpp.yml"]
+    paths: ["sdks/cpp/**", "proto/**", ".github/workflows/ci-sdk-cpp.yml"]
   pull_request:
     branches: [main]
-    paths: ["sdks/cpp/**", ".github/workflows/ci-sdk-cpp.yml"]
+    paths: ["sdks/cpp/**", "proto/**", ".github/workflows/ci-sdk-cpp.yml"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
