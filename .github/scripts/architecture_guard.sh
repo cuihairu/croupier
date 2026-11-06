@@ -34,6 +34,19 @@ if rg -n "PlatformLoader|initPlatformLoader" internal --glob '!**/*_test.go' >/d
   fail "legacy platform loader symbols are still referenced in internal/"
 fi
 
+# Keep the architecture state table synchronized with production wiring. The
+# ServiceContext must initialize approvals through the persistent SQL store;
+# falling back to MemStore would silently remove restart/cross-instance state.
+if ! rg -n 'approvalsStore, err := approvals\.NewSQLStore\(db\)' internal/svc/service_context.go >/dev/null; then
+  fail "ServiceContext approval wiring must initialize approvals.NewSQLStore"
+fi
+if ! rg -n 'ApprovalsStore:\s+approvalsStore' internal/svc/service_context.go >/dev/null; then
+  fail "ServiceContext must assign the initialized SQL approval store"
+fi
+if rg -n 'Function approvals\s*\|\s*MemStore in current ServiceContext wiring' docs/architecture/index.md; then
+  fail "architecture state table still claims approval wiring uses MemStore"
+fi
+
 if rg -n "/out/packs|/app/packs" docker >/dev/null 2>&1; then
   fail "docker images must not depend on removed packs path"
 fi

@@ -39,16 +39,16 @@ Publication follows **registration/OpenAPI → FunctionContract → resource sem
 
 ## State and availability
 
-| State                                            | Current location                                            | Implication                                                             |
-| ------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Live Agent/SDK connections                       | Owning process memory                                       | Access through owner forwarding, not shared net.Conn                    |
-| Registry                                         | Local registry and database agent_sessions snapshots        | Discovery snapshots do not replace live sessions                        |
-| Membership and owner leases                      | Shared relational database or configured Redis              | One-hop forwarding and epoch fencing                                    |
-| Business data, pages, tasks and page idempotency | Relational database; some game models support dbctx routing | Verify scope behavior for each model                                    |
-| Task routing                                     | Local cache/file with task_runs lookup fallback             | Cross-instance cancellation has a database fallback                     |
-| Function approvals                               | MemStore in current ServiceContext wiring                   | SQLStore exists but is not wired for restart/cross-instance persistence |
-| Audit                                            | SQLAuditStore and AuditService                              | Hash-chain validation; no signer wired by default                       |
-| Analytics                                        | Redis Streams → worker → ClickHouse                         | Separate from the control database                                      |
+| State                                            | Current location                                            | Implication                                                     |
+| ------------------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| Live Agent/SDK connections                       | Owning process memory                                       | Access through owner forwarding, not shared net.Conn            |
+| Registry                                         | Local registry and database agent_sessions snapshots        | Discovery snapshots do not replace live sessions                |
+| Membership and owner leases                      | Shared relational database or configured Redis              | One-hop forwarding and epoch fencing                            |
+| Business data, pages, tasks and page idempotency | Relational database; some game models support dbctx routing | Verify scope behavior for each model                            |
+| Task routing                                     | Local cache/file with task_runs lookup fallback             | Cross-instance cancellation has a database fallback             |
+| Function approvals                               | ApprovalsStore backed by SQLStore                           | Approval state survives restarts and is shared across instances |
+| Audit                                            | SQLAuditStore and AuditService                              | Hash-chain validation; no signer wired by default               |
+| Analytics                                        | Redis Streams → worker → ClickHouse                         | Separate from the control database                              |
 
 HA routing exists, but not every business module has shared state. Some cluster initialization failures fall back to standalone; healthz does not fully represent cluster readiness.
 
