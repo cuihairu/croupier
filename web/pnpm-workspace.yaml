@@ -20,7 +20,7 @@ overrides:
   # 2026-10-10 安全批次（Dependabot #432/#433/#434 critical/medium：handlebars
   # AST 类型混淆/属性检查绕过/内联嵌入注入，patched 4.7.10；umi 模板链引入）
   handlebars@<4.7.10: '>=4.7.10 <5.0.0'
-  minimatch: '>=5.0.0'
+  minimatch: '>=11.0.1' # 2026-11-07 抬（Dependabot #496/#497，GHSA-g3hv-75wg-m249 globparts amplification，patched 11.0.1）
   eslint: '>=9.26.0'
   '@babel/runtime': '>=7.26.10 <8.0.0' # umi 依赖 7.x，8.0.0 移除了 ./helpers/esm/* 导出
   '@octokit/plugin-paginate-rest@>=1.0.0 <9.2.2': '>=9.2.2'
@@ -66,7 +66,7 @@ overrides:
   # crashed ProLayout menu matching on every route (regression fixed here).
   path-to-regexp@>=1.0.0 <1.9.0: '1.9.0'
   postcss@<8.4.31: '>=8.4.31'
-  qs@<6.14.1: '>=6.16.0' # 2026-09-30 抬（array-limit bypass 等，patched 6.16.0）
+  qs@<6.14.1: '>=6.16.1' # 2026-09-30 抬（array-limit bypass 等）；2026-11-07 抬至 6.16.1（GHSA-6pq8-jhm2-2vcw）
   qs@>=6.7.0 <6.7.3: '>=6.7.3'
   # 2026-08-19 安全补丁：react-router 6.30.6 为官方 6.x 安全回移（open redirect 修复，
   # @remix-run/router 1.23.4 修复 double slash normalization），兼容 umi 4.x
@@ -92,7 +92,7 @@ overrides:
   # registry 未发布（latest 6.6.1），沿用 2026-08-15 评估：保留不修复）：
   brace-expansion@>=4.0.0 <5.0.12: '>=5.0.12'
   moment@>=2.29.2 <2.31.0: '>=2.31.0'
-  qs: '>=6.16.0'
+  qs: '>=6.16.1' # 2026-11-07 抬（Dependabot #486，GHSA-6pq8-jhm2-2vcw stringify comma DoS，patched 6.16.1）
   vite@>=4.0.0 <4.5.4: '>=4.5.4'
   vite@>=4.0.0 <=4.5.2: '>=4.5.3'
   vite@>=4.0.0 <=4.5.3: '>=4.5.4'
@@ -116,7 +116,7 @@ overrides:
   multer@<2.2.0: '>=2.2.0'
   piscina@<4.9.3: '>=4.9.3'
   piscina@>=5.0.0 <5.3.2: '>=5.3.2' # 2026-10-02 抬（Dependabot #414 critical：ThreadPool options 原型污染 RCE gadget；umi/mako 构建链引入）
-  qs@<6.15.2: '>=6.16.0' # 2026-09-30 抬（同上，统一 6.16.0 下限）
+  qs@<6.15.2: '>=6.16.1' # 2026-09-30 抬（同上，统一 6.x 下限）；2026-11-07 抬至 6.16.1
   shell-quote@<1.11.0: '>=1.11.0' # 2026-10-07 抬（原 <1.8.4 线被本条覆盖；Dependabot security_update_not_possible：react-dev-utils 精确钳 1.10.0，修复版需 ≥1.11.0）
   # 2026-10-07 安全批次（Dependabot #423/#424/#425；修复版均已在 npm 发布、母版
   # range 允许（^1.7.4 / ^2.0.7 / ^1.2.1），锁刷新即闭合 alert；裸键+版本线限定）
@@ -129,7 +129,9 @@ overrides:
   # 2026-09-04 安全补丁：fast-uri SSRF/host confusion（patched 4.1.3）、
   # decode-uri-component DoS（patched 0.5.0）；2026-09-30 抬至 4.1.5
   # （inconsistent host parsing，两条 moderate）
-  fast-uri: '>=4.1.5 <5.0.0'
+  fast-uri: '>=4.2.3 <5.0.0' # 2026-11-07 抬（Dependabot #477-#480 四条，GHSA-333x/-w74x/-xhq7/-wjr9，patched 4.2.3）
+  postcss-selector-parser@<6.1.5: '>=6.1.5 <7.0.0' # 2026-11-07 抬（Dependabot #485，GHSA-rj75-hqrm-r3gf quadratic parsing，6.x 线 patched 6.1.5）
+  postcss-selector-parser@>=7.0.0 <7.1.6: '>=7.1.6 <8.0.0' # 2026-11-07 抬（Dependabot #484，同上 7.x 线，patched 7.1.6）
   decode-uri-component: '>=0.5.1 <1.0.0' # 2026-11-04 VULN-CROUPIER-001：GHSA-qr28-fpjm-wq7f patched 0.5.1
   immutable: '>=4.3.9 <5.0.0'
   js-yaml: '>=5.4.1 <6.0.0' # 2026-09-30 抬至 5.4.1（maxTotalMergeKeys 限制）
@@ -142,7 +144,10 @@ overrides:
   svgo@>=1.0.0 <2.8.3: '>=2.8.3 <3.0.0'
   # 保留不修复（2026-08-02 评估）：
   # - react-router/react-router-dom 6.x → 已于 2026-08-19 修复：官方发布 6.30.6 安全回移，见上方 overrides
-  # - @hono/node-server 2.x：@hono/node-ws@1.3.0 peer 约束 ^1.19.2，强制升级会破坏 utoopack dev server（medium，仅构建时依赖）
+  # - @hono/node-server 2.x：@hono/node-ws@1.3.1 peer 约束 ^1.19.11，强制升级会破坏 utoopack dev server（medium，仅构建时依赖）
+  #   （2026-11-07 复核：Dependabot #491 GHSA-rmxm-3fg6-px4f patched 2.1.3，node-ws peer 仍 ^1.19.11，维持不修复）
+  # - deepmerge（2026-11-07 评估，Dependabot #482/#483/#487，GHSA-gcqx-w48m-w2h4 prototype poisoning）：
+  #   上游无补丁版本（npm latest 4.3.1 即 last_affected，5.x 未发布），Dependabot security_update_not_possible，等待上游修复
   # 保留不修复（2026-08-15 评估）：
   # - elliptic <=6.6.1（#77，low）：上游无补丁版本（所有已发布版本均在受影响范围），
   #   仅经 umi bundler 的 node-libs-browser crypto polyfill 引入，构建期浏览器 polyfill，不处理服务端密钥。
