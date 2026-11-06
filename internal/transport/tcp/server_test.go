@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"net"
 	"strings"
 	"testing"
 	"time"
 
+	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // serveAndStop 在独立 goroutine 启动 srv.Serve，返回的 stop 依次 cancel →
@@ -25,6 +29,66 @@ func serveAndStop(srv *Server) func() {
 		cancel() // Serve 在下一个 Accept 周期（≤1s）内自然退出
 		<-done
 		_ = srv.Close()
+	}
+}
+
+func TestServer_UnsupportedVersionRejectsRequestAndKeepsSession(t *testing.T) {
+	handler := transportcore.HandlerFunc(func(context.Context, uint32, uint32, []byte) ([]byte, error) {
+		return []byte("ok"), nil
+	})
+	srv, err := NewServer(&Config{
+		Address:  "127.0.0.1:0",
+		Insecure: true,
+	}, handler)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+	defer serveAndStop(srv)()
+
+	conn, err := net.DialTimeout("tcp", srv.Addr(), time.Second)
+	if err != nil {
+		t.Fatalf("dial server: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	unsupported := protocol.NewMessageBody(protocol.MsgInvokeRequest, 0x11111111, nil)
+	unsupported[0] = protocol.Version1 + 1
+	if err := tcptr.WriteFrame(conn, unsupported); err != nil {
+		t.Fatalf("write unsupported frame: %v", err)
+	}
+	frame, err := tcptr.ReadFrame(conn)
+	if err != nil {
+		t.Fatalf("read rejection frame: %v", err)
+	}
+	version, msgID, reqID, body, err := protocol.ParseMessageFromBody(frame)
+	if err != nil {
+		t.Fatalf("parse rejection: %v", err)
+	}
+	if version != protocol.Version1 || msgID != protocol.MsgInvokeResponse || reqID != 0x11111111 {
+		t.Fatalf("rejection header = version %d, msg %s, req %d", version, protocol.MsgIDString(msgID), reqID)
+	}
+	var rejection sdkv1.InvokeResponse
+	if err := proto.Unmarshal(body, &rejection); err != nil {
+		t.Fatalf("unmarshal rejection: %v", err)
+	}
+	if want := `{"error":"unsupported protocol version: 2","supportedVersions":[1]}`; string(rejection.GetPayload()) != want {
+		t.Fatalf("rejection body = %q, want %q", body, want)
+	}
+	supportedReqID := uint32(0x22222222)
+	supported := protocol.NewMessageBody(protocol.MsgInvokeRequest, supportedReqID, []byte("next"))
+	if err := tcptr.WriteFrame(conn, supported); err != nil {
+		t.Fatalf("write supported frame: %v", err)
+	}
+	frame, err = tcptr.ReadFrame(conn)
+	if err != nil {
+		t.Fatalf("read supported response after rejection: %v", err)
+	}
+	version, msgID, reqID, body, err = protocol.ParseMessageFromBody(frame)
+	if err != nil {
+		t.Fatalf("parse supported response: %v", err)
+	}
+	if version != protocol.Version1 || msgID != protocol.MsgInvokeResponse || reqID != supportedReqID || string(body) != "ok" {
+		t.Fatalf("supported response = version %d, msg %s, req %d, body %q", version, protocol.MsgIDString(msgID), reqID, body)
 	}
 }
 

@@ -24,9 +24,28 @@ const (
 	// Version1 is the current protocol version.
 	Version1 = 0x01
 
+	// MinSupportedVersion is the oldest wire protocol version this build
+	// accepts. Versions below it are rejected per-request (session kept).
+	// N-1 compatibility: bump Version1 and keep the previous version here
+	// during the transition window, then remove it after deprecation.
+	MinSupportedVersion = Version1
+
 	// HeaderSize is the fixed size of the message header in bytes.
 	HeaderSize = 8 // Version(1) + MsgID(3) + RequestID(4)
 )
+
+// SupportedVersions returns the sorted list of wire protocol versions this
+// build accepts. It is used to populate rejection payloads so a peer can
+// report a precise supported range instead of a bare failure.
+func SupportedVersions() []int {
+	return []int{int(Version1)}
+}
+
+// IsSupportedVersion reports whether a wire protocol version is within the
+// accepted window [MinSupportedVersion, Version1].
+func IsSupportedVersion(version uint8) bool {
+	return version >= MinSupportedVersion && version <= Version1
+}
 
 // Message type constants (24 bits).
 const (

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -192,9 +193,22 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 			return
 		}
 
-		_, msgID, reqID, body, err := protocol.ParseMessageFromBody(frame)
+		version, msgID, reqID, body, err := protocol.ParseMessageFromBody(frame)
 		if err != nil {
 			return
+		}
+		if !protocol.IsSupportedVersion(version) {
+			resp := &sdkv1.InvokeResponse{
+				Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
+			}
+			rejection, _ := proto.Marshal(resp)
+			respFrame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, rejection)
+			if s.config.SendTimeout > 0 {
+				_ = conn.SetWriteDeadline(time.Now().Add(s.config.SendTimeout))
+			}
+			_ = writeFrame(conn, respFrame)
+			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
+			continue
 		}
 
 		respBody, handleErr := s.handler.Handle(ctx, msgID, reqID, body)
@@ -223,6 +237,15 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 			return
 		}
 	}
+}
+
+func supportedVersionsJSON() string {
+	versions := protocol.SupportedVersions()
+	values := make([]string, len(versions))
+	for i, version := range versions {
+		values[i] = strconv.Itoa(version)
+	}
+	return "[" + strings.Join(values, ",") + "]"
 }
 
 // trackConn registers an accepted connection for Close-time shutdown.

@@ -100,10 +100,43 @@ The current unified 8-byte header:
 
 Constraints:
 
-- `Version`: currently fixed at `0x01`
+- `Version`: currently `0x01` (the accepted window is `[MinSupportedVersion, Version1]`; see Version policy below)
 - `MsgID`: 24-bit unsigned, big-endian
 - `RequestID`: 32-bit unsigned, big-endian
 - `Body`: protobuf-encoded
+
+## Version policy
+
+The wire protocol uses a version window rather than a single fixed byte, so a
+server upgrade does not force every long-running game process to redeploy at
+the same moment.
+
+- Current version: `0x01` (`protocol.Version1`).
+- Oldest accepted version: `0x01` (`protocol.MinSupportedVersion`). This is the
+  N-1 compatibility floor; when `Version1` is bumped, keep the previous value
+  here during the transition window.
+- A frame whose `Version` is outside `[MinSupportedVersion, Version1]` is
+  **rejected per-request**: the receiver answers with an
+  `InvokeResponse` whose payload is
+  `{"error":"unsupported protocol version: N","supportedVersions":[...]}`
+  and keeps the session alive. It does **not** disconnect the whole connection.
+- Only request frames (`IsRequest`) get a rejection response; unsupported
+  response/event frames are skipped because there is no request to answer.
+- `protocol.IsSupportedVersion` / `protocol.SupportedVersions` expose the
+  window to both `internal/transport/tcp` (Agent/Server inbound) and the Go SDK
+  transport, keeping both sides on the same rule.
+
+### N-1 compatibility and deprecation schedule
+
+The compatibility window is deliberately narrow but real: a peer running the
+previous wire version (N-1) keeps working while the platform deploys N.
+
+| Transition                  | Policy                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Version1` bump to `N`      | Set `MinSupportedVersion = N-1`; keep the old version accepted for one release cycle                                                             |
+| During the N-1 window       | Unsupported frames are rejected per-request; session stays alive; `supportedVersions` tells the peer the exact window                            |
+| Deprecation (end of window) | Remove the old version from the window; peers on it then receive per-request rejections                                                          |
+| Deprecation schedule        | Current: no deprecation yet (`MinSupportedVersion == Version1`); N-1 policy applies to the next version bump and is documented here at that time |
 
 ## Request-response rules
 
@@ -378,7 +411,7 @@ Rules:
 
 ## Compatibility rules
 
-- An unsupported `Version` disconnects immediately
+- An unsupported `Version` is rejected per-request and the session is kept alive (see Version policy)
 - A first frame that does not fit the `subprotocol` disconnects immediately
 - An undecodable protobuf body disconnects immediately
 - Once disconnected, the old `session_id` must invalidate immediately

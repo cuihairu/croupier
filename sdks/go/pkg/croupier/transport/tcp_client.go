@@ -207,6 +207,15 @@ func (c *TCPClient) writeResponseFrame(msgID uint32, reqID uint32, respBody []by
 	return nil
 }
 
+func supportedVersionsJSON() string {
+	versions := protocol.SupportedVersions()
+	values := make([]string, len(versions))
+	for i, version := range versions {
+		values[i] = strconv.Itoa(version)
+	}
+	return "[" + strings.Join(values, ",") + "]"
+}
+
 // parseHostPort parses a host:port string.
 func parseHostPort(addr string) (string, int, error) {
 	// Simple parsing for "host:port" format
@@ -359,7 +368,22 @@ func (c *TCPClient) receiveLoop() {
 		}
 
 		version := payload[0]
-		if version != protocol.Version1 {
+		if !protocol.IsSupportedVersion(version) {
+			// N-1 兼容：不兼容版本拒绝该请求并保留会话，而非硬断开。
+			// 只有请求帧回错误响应；响应/事件帧无法回，跳过。
+			msgID := protocol.GetMsgID(payload[1:4])
+			reqID := binary.BigEndian.Uint32(payload[4:8])
+			if protocol.IsRequest(msgID) {
+				errResp := &sdkv1.InvokeResponse{
+					Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
+				}
+				if marshaled, marshalErr := proto.Marshal(errResp); marshalErr == nil {
+					if werr := c.writeResponseFrame(msgID, reqID, marshaled); werr != nil {
+						slog.Warn("write unsupported-version rejection failed", "version", version, "msg_id", protocol.MsgIDString(msgID), "error", werr)
+					}
+				}
+			}
+			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
 			continue
 		}
 

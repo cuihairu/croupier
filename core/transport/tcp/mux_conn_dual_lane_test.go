@@ -12,7 +12,9 @@ import (
 	"time"
 
 	transportcore "github.com/cuihairu/croupier/core/transport"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // 双车道派发测试：业务车道饱和时（fail-fast busy），控制车道（心跳等）
@@ -124,6 +126,52 @@ func TestMuxConn_DualLane_BusinessSaturation(t *testing.T) {
 		if time.Now().After(deadline) {
 			t.Fatal("timed out draining business responses")
 		}
+	}
+}
+
+func TestMuxConn_UnsupportedVersionRejectsRequestAndKeepsSession(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer func() { _ = c2.Close() }()
+	mc := NewMuxConn(c1, nil, transportcore.HandlerFunc(func(_ context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
+		return body, nil
+	}))
+	defer func() { _ = mc.Close() }()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- mc.Run(context.Background()) }()
+	peer := &muxTestPeer{conn: c2, t: t}
+
+	// Unsupported version: request is rejected with an error frame, session kept.
+	unsupported := protocol.NewMessageBody(protocol.MsgInvokeRequest, 0x11111111, []byte(`{}`))
+	unsupported[0] = protocol.Version1 + 1
+	frame := make([]byte, 4+len(unsupported))
+	binary.BigEndian.PutUint32(frame, uint32(len(unsupported)))
+	copy(frame[4:], unsupported)
+	if _, err := c2.Write(frame); err != nil {
+		t.Fatalf("write unsupported frame: %v", err)
+	}
+	msgID, reqID, body := peer.readFrame()
+	if msgID != protocol.MsgInvokeResponse || reqID != 0x11111111 {
+		t.Fatalf("rejection = msg %s req %d, want InvokeResponse/0x11111111", protocol.MsgIDString(msgID), reqID)
+	}
+	var rejection sdkv1.InvokeResponse
+	if err := proto.Unmarshal(body, &rejection); err != nil {
+		t.Fatalf("unmarshal rejection: %v", err)
+	}
+	if !bytes.Contains(rejection.GetPayload(), []byte("unsupported protocol version: 2")) {
+		t.Fatalf("rejection payload = %q", rejection.GetPayload())
+	}
+
+	// Session still alive: a supported heartbeat gets a response.
+	peer.sendRequest(protocol.MsgHeartbeatRequest, 0x22222222, nil)
+	msgID, reqID, _ = peer.readFrame()
+	if msgID != protocol.MsgHeartbeatResponse || reqID != 0x22222222 {
+		t.Fatalf("heartbeat = msg %s req %d, want HeartbeatResponse/0x22222222", protocol.MsgIDString(msgID), reqID)
+	}
+	select {
+	case err := <-errCh:
+		t.Fatalf("Run exited unexpectedly: %v", err)
+	default:
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -224,8 +226,20 @@ func (c *MuxConn) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if version != protocol.Version1 {
-			return NewProtocolError(fmt.Errorf("unsupported protocol version: %d", version))
+		if !protocol.IsSupportedVersion(version) {
+			// Reject the request with an explicit error frame and keep the
+			// session alive: a peer running an unsupported wire version must
+			// not silently kill the whole connection (N-1 compatibility).
+			if protocol.IsRequest(msgID) {
+				respBody, _ := proto.Marshal(&sdkv1.InvokeResponse{
+					Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
+				})
+				if err := c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody); err != nil {
+					return err
+				}
+			}
+			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
+			continue
 		}
 
 		if protocol.IsResponse(msgID) {
@@ -369,6 +383,15 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 	}
 
 	return c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody)
+}
+
+func supportedVersionsJSON() string {
+	versions := protocol.SupportedVersions()
+	values := make([]string, len(versions))
+	for i, version := range versions {
+		values[i] = strconv.Itoa(version)
+	}
+	return "[" + strings.Join(values, ",") + "]"
 }
 
 func (c *MuxConn) writeFrame(reqID uint32, msgID uint32, body []byte) error {

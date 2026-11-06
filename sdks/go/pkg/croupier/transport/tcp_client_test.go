@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol"
+	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestNewTCPClient_Success tests successful TCP client creation
@@ -676,6 +679,124 @@ func TestTCPClient_ProtocolVersion(t *testing.T) {
 
 	if !server.versionValid {
 		t.Error("Protocol version was not valid")
+	}
+}
+
+// unsupportedVersionServer sends an unsupported-version InvokeRequest to the
+// SDK client, then expects the rejection response, then verifies a normal
+// heartbeat still gets a response (session kept).
+func TestTCPClient_RejectsUnsupportedVersionAndKeepsSession(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer func() { _ = listener.Close() }()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		// 1) Send unsupported-version InvokeRequest.
+		unsupported := protocol.NewMessageBody(protocol.MsgInvokeRequest, 0x11111111, []byte(`{}`))
+		unsupported[0] = protocol.Version1 + 1
+		frame := make([]byte, 4+len(unsupported))
+		binary.BigEndian.PutUint32(frame, uint32(len(unsupported)))
+		copy(frame[4:], unsupported)
+		if _, err := conn.Write(frame); err != nil {
+			serverErr <- err
+			return
+		}
+
+		// 2) Expect rejection response.
+		hdr := make([]byte, 4)
+		if _, err := io.ReadFull(conn, hdr); err != nil {
+			serverErr <- err
+			return
+		}
+		n := binary.BigEndian.Uint32(hdr)
+		payload := make([]byte, n)
+		if _, err := io.ReadFull(conn, payload); err != nil {
+			serverErr <- err
+			return
+		}
+		version, msgID, reqID, body, err := protocol.ParseMessageFromBody(payload)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		if version != protocol.Version1 || msgID != protocol.MsgInvokeResponse || reqID != 0x11111111 {
+			serverErr <- fmt.Errorf("rejection = version %d msg %s req %d", version, protocol.MsgIDString(msgID), reqID)
+			return
+		}
+		var rejection sdkv1.InvokeResponse
+		if err := proto.Unmarshal(body, &rejection); err != nil {
+			serverErr <- err
+			return
+		}
+		if !bytes.Contains(rejection.GetPayload(), []byte("unsupported protocol version: 2")) {
+			serverErr <- fmt.Errorf("rejection payload = %q", rejection.GetPayload())
+			return
+		}
+
+		// 3) Send supported heartbeat; expect response (session alive).
+		heartbeat := protocol.NewMessageBody(protocol.MsgHeartbeatRequest, 0x22222222, nil)
+		frame = make([]byte, 4+len(heartbeat))
+		binary.BigEndian.PutUint32(frame, uint32(len(heartbeat)))
+		copy(frame[4:], heartbeat)
+		if _, err := conn.Write(frame); err != nil {
+			serverErr <- err
+			return
+		}
+		if _, err := io.ReadFull(conn, hdr); err != nil {
+			serverErr <- err
+			return
+		}
+		n = binary.BigEndian.Uint32(hdr)
+		payload = make([]byte, n)
+		if _, err := io.ReadFull(conn, payload); err != nil {
+			serverErr <- err
+			return
+		}
+		_, msgID, reqID, _, err = protocol.ParseMessageFromBody(payload)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		if msgID != protocol.MsgHeartbeatResponse || reqID != 0x22222222 {
+			serverErr <- fmt.Errorf("heartbeat = msg %s req %d", protocol.MsgIDString(msgID), reqID)
+			return
+		}
+		serverErr <- nil
+	}()
+
+	config := &Config{
+		Address:     listener.Addr().String(),
+		Insecure:    true,
+		DialTimeout: 5 * time.Second,
+		InboundHandler: func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+			return body, nil
+		},
+	}
+	client, err := NewTCPClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			t.Fatalf("server assertion failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for server assertions")
 	}
 }
 

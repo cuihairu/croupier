@@ -100,10 +100,36 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 
 约束：
 
-- `Version`：当前固定 `0x01`
+- `Version`：当前 `0x01`（接受窗口为 `[MinSupportedVersion, Version1]`，见下方版本策略）
 - `MsgID`：24-bit 无符号，大端
 - `RequestID`：32-bit 无符号，大端
 - `Body`：protobuf 编码
+
+## 版本策略
+
+线路协议使用版本窗口而非单一固定字节，服务端升级不强迫每个长运行游戏进程同时发版。
+
+- 当前版本：`0x01`（`protocol.Version1`）。
+- 最旧接受版本：`0x01`（`protocol.MinSupportedVersion`）。这是 N-1 兼容下限；
+  当 `Version1` 升版时，在过渡窗口内保留旧版本值。
+- `Version` 在 `[MinSupportedVersion, Version1]` 之外时**逐请求拒绝**：接收方
+  以 `InvokeResponse` 应答，payload 为
+  `{"error":"unsupported protocol version: N","supportedVersions":[...]}`，
+  并**保留会话**；不整体断开连接。
+- 仅请求帧（`IsRequest`）得到拒绝响应；不兼容的响应/事件帧被跳过（没有可应答的请求）。
+- `protocol.IsSupportedVersion` / `protocol.SupportedVersions` 向
+  `internal/transport/tcp`（Agent/Server 入站）与 Go SDK 传输层暴露同一窗口。
+
+### N-1 兼容与废止时间表
+
+兼容窗口刻意窄但真实：平台部署 N 期间，跑上一版本线路协议（N-1）的对端继续工作。
+
+| 阶段                | 策略                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `Version1` 升到 `N` | 设 `MinSupportedVersion = N-1`，在一个发布周期内继续接受旧版本                          |
+| N-1 窗口期间        | 不兼容帧逐请求拒绝、会话存活；`supportedVersions` 告知对端精确窗口                      |
+| 废止（窗口结束）    | 从窗口移除旧版本；旧对端此后收到逐请求拒绝                                              |
+| 废止时间表          | 当前无废止（`MinSupportedVersion == Version1`）；N-1 策略适用于下一次升版，届时在此记录 |
 
 ## 请求响应规则
 
@@ -379,7 +405,7 @@ v1 默认规则：
 
 ## 兼容性规则
 
-- `Version` 不受支持时，直接断开连接
+- `Version` 不受支持时逐请求拒绝并保留会话（见版本策略）
 - 首帧不符合对应 `subprotocol` 时，直接断开连接
 - protobuf body 不可解码时，直接断开连接
 - 连接断开后旧 `session_id` 必须立即失效
