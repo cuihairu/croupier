@@ -782,7 +782,7 @@ if(BUILD_TESTS)
         endif()
 
         target_compile_definitions(croupier-sdk-tests PRIVATE
-            CROUPIER_GOLDEN_VECTORS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../contracts/golden_vectors.json")
+            CROUPIER_GOLDEN_VECTORS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../../proto/contracts/golden_vectors.json")
 
         if(UNIX)
             add_dependencies(croupier-sdk-tests croupier-sample-plugin croupier-failing-init-plugin
