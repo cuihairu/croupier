@@ -64,6 +64,19 @@ function Get-LatestTag {
     }
 }
 
+# CR-FIX-04：nightly 改为不可变 nightly-YYYYMMDD tag 后，-Version nightly
+# 需解析为最新 nightly-* prerelease tag。
+function Get-LatestNightlyTag {
+    try {
+        $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=20" -UseBasicParsing
+        $nightly = $rels | Where-Object { $_.tag_name -match '^nightly-\d{8}$' } | Select-Object -First 1
+        if ($nightly) { return $nightly.tag_name }
+        Die "无法解析最新 nightly tag（无 nightly 发布）。可显式指定 -Version nightly-YYYYMMDD 或 vX.Y.Z"
+    } catch {
+        Die "无法解析最新 nightly tag（$($_.Exception.Message)）。可显式指定 -Version nightly-YYYYMMDD 或 vX.Y.Z"
+    }
+}
+
 function Test-IsAdmin {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -135,6 +148,9 @@ switch ($arch) {
 if ($Version -eq 'latest') {
     $tag = Get-LatestTag
     Write-Info "最新稳定版: $tag"
+} elseif ($Version -eq 'nightly') {
+    $tag = Get-LatestNightlyTag
+    Write-Info "最新 nightly: $tag"
 } else {
     $tag = $Version
 }

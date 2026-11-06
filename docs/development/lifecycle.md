@@ -15,7 +15,7 @@ This page inventories four aspects of this repo's development lifecycle (branchi
 
 ## Release Cadence
 
-- **Nightly daily build**: `schedule` triggers `cron: "0 2 * * *"` (daily 02:00 UTC, `.github/workflows/nightly.yml:5`), with `workflow_dispatch` manual trigger (`:6`); `concurrency.group: nightly-release` without canceling in-flight runs (`:14-16`). Each build job checks out main (`:53` etc.); the release job collects artifacts, rolls the `nightly` tag (`:814` force push), and publishes a prerelease (`:817-829`, `tag_name: nightly`, `prerelease: true`).
+- **Nightly daily build**: `schedule` triggers `cron: "0 2 * * *"` (daily 02:00 UTC, `.github/workflows/nightly.yml:5`), with `workflow_dispatch` manual trigger (`:6`); `concurrency.group: nightly-release` without canceling in-flight runs (`:14-16`). Each build job checks out main (`:53` etc.); a `quality-gate` job runs full tests + e2e + contracts before release (`:18-46`); the release job collects artifacts, computes `SHA256SUMS`, signs it via cosign keyless, tags an immutable `nightly-YYYYMMDD` (`:830+`, no force push), and publishes a prerelease at that tag.
 - **Gap (change detection)**: nightly builds unconditionally every day; there is no "only release if something changed in 48 hours" change-detection logic (no hits across `nightly.yml` and full history greps); that claim is process convention only.
 - **Stable releases**: the only effective entry is a manually pushed `v*` tag — `release.yml:4-6` (`push: tags: ["v*"]`); `workflow_dispatch` exists (`:7`) but all three jobs guard with `if: startsWith(github.ref, 'refs/tags/v')` (`:22`/`:151`/`:201`), so a manual run is a no-op. `docker.yml:4-6` responds to `v*` tags too (plus push main).
 - **SDK releases**: one standalone manual workflow per language, `workflow_dispatch` only, never auto-triggered (`:3` comment in each `release-sdk-*.yml`; in `release-sdk-go.yml:5-11` an empty `version` input falls back to the latest release tag, logic at `:24-34`).
@@ -55,7 +55,7 @@ This page inventories four aspects of this repo's development lifecycle (branchi
 
 ### Gaps (pre-release gates)
 
-- Neither `release.yml` nor `nightly.yml` has any test/gate job (`release.yml`'s `build-go` `:20`, `build-sdk-sources` `:150`, `release` `:189` only build and package); the six SDK release workflows publish directly with no tests either. "Gates must pass before release" currently relies on human discipline (confirming CI green before tagging); no in-repo enforcement — honestly labeled.
+- **Enforced since 2026-11-06 (CR-FIX-04)**: `release.yml` and `nightly.yml` each gain a `quality-gate` job (`scripts/release-quality-gate.sh`) that runs `go test ./...`, contract guards, and e2e before any packaging/publishing; `release`/`release` jobs declare `needs: [.., quality-gate]` so CI red blocks packaging. The six SDK release workflows still publish directly with no tests — honestly labeled.
 
 ## Known Gaps Summary
 
@@ -63,6 +63,6 @@ This page inventories four aspects of this repo's development lifecycle (branchi
 | ------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Branch protection              | Not in repo               | A GitHub repository setting; no citable evidence inside files                                          |
 | Nightly change detection       | None                      | Unconditional daily build; "release only on change" is process convention                              |
-| Pre-release gates              | Not enforced              | release/nightly/SDK workflows have no test jobs; human confirmation of green CI                        |
+| Pre-release gates              | Enforced (core)           | release/nightly core gate via `quality-gate` job; SDK workflows still publish directly                 |
 | Manually given version numbers | Convention, not mechanism | Mechanically the only entry is a manual `v*` tag; no in-repo enforcement                               |
 | SDK tag convention             | Drifted                   | Current submodule tags (`sdks/go/vX.Y.Z`); `repository-guidelines.md`'s `sdk-go-v*` is the old wording |

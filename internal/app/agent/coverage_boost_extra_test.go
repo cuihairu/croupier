@@ -74,7 +74,7 @@ func TestUpstreamMetricsLoop_ReportsImmediately(t *testing.T) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		return f.metricEvents >= 1
-	}, 3*time.Second, 50*time.Millisecond)
+	}, 10*time.Second, 50*time.Millisecond)
 }
 
 func TestUpstreamUpdateLoop_SyncsOnStoreChange(t *testing.T) {

@@ -179,6 +179,21 @@ resolve_latest_tag() {
   fi
 }
 
+# CR-FIX-04：nightly 改为不可变 nightly-YYYYMMDD tag 后，--version nightly
+# 需解析为最新 nightly-* prerelease tag（按发布时间排序取首个）。
+resolve_latest_nightly_tag() {
+  local tag
+  # 最新 nightly-YYYYMMDD prerelease tag：GitHub API 返回时间倒序，取首个匹配。
+  if have curl; then
+    tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=20" 2>/dev/null \
+      | grep '"tag_name"' | grep -o 'nightly-[0-9]\{8\}' | head -1)" || true
+  elif have wget; then
+    tag="$(wget -qO- "https://api.github.com/repos/${REPO}/releases?per_page=20" 2>/dev/null \
+      | grep '"tag_name"' | grep -o 'nightly-[0-9]\{8\}' | head -1)" || true
+  fi
+  echo "$tag"
+}
+
 # ---- Server 地址（--server 静默 / TTY 交互提示） ---------------------------
 # 目标：安装完成即可连上，不必二次手改配置；--silent 或非 TTY（curl|bash 管道）
 # 下不交互——管道里 read 会读到脚本自身 stdin，必须防。
@@ -433,6 +448,11 @@ else
     TAG="$(resolve_latest_tag)"
     [ -n "$TAG" ] || die "无法解析最新稳定版 tag（网络问题或仓库无正式 release），可显式指定 --version nightly 或 --version vX.Y.Z"
     info "最新稳定版: $TAG"
+  elif [ "$VERSION" = "nightly" ]; then
+    # CR-FIX-04：解析最新 nightly-YYYYMMDD tag。
+    TAG="$(resolve_latest_nightly_tag)"
+    [ -n "$TAG" ] || die "无法解析最新 nightly tag（网络问题或无 nightly 发布），可显式指定 --version nightly-YYYYMMDD 或 vX.Y.Z"
+    info "最新 nightly: $TAG"
   else
     TAG="$VERSION"
   fi

@@ -16,6 +16,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality-gate:
+    # CR-FIX-04 (P0-4)：nightly 出包前强制质量门禁（全量测试 + e2e + 契约守卫）。
+    # nightly 由 cron 触发、不经 ci.yml，故须自行串跑，CI 红则不出包。
+    name: Quality gate (tests + e2e + contracts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - timeout-minutes: 5
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+      - name: Install ripgrep
+        timeout-minutes: 2
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+          rg --version
+      - name: Run release quality gate
+        timeout-minutes: 50
+        run: bash scripts/release-quality-gate.sh
+
   build-binaries:
     name: Build Binaries (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
@@ -678,9 +713,11 @@ jobs:
         build-other-sdks,
         build-cpp-sdk,
         build-dashboard,
+        quality-gate,
       ]
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Checkout
         timeout-minutes: 3
@@ -808,18 +845,32 @@ jobs:
           # 引号 heredoc 不会展开 $(...)，故以占位符 + sed 回填（原写法是字面量，恒显示 $(date)）
           sed -i "s/__BUILD_TIME__/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/; s/__COMMIT__/$(git rev-parse --short HEAD)/" release-notes.md
 
-      - name: Update nightly tag
+      - name: Compute immutable nightly tag
+        id: nightly
         timeout-minutes: 5
         run: |
-          git tag -f nightly
-          git push origin nightly --force
+          # CR-FIX-04：nightly 改不可变 nightly-YYYYMMDD tag。历史产物可按 tag
+          # 找回，不再 `git tag -f` + force push 覆盖。同一天多次触发只允许一次
+          # 发布（tag 已存在则跳过本次，不覆盖历史）。
+          TAG="nightly-$(date -u +%Y%m%d)"
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::warning::tag ${TAG} already exists; skipping publish for this run"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Create/Update Release
+        if: steps.nightly.outputs.skip != 'true'
         timeout-minutes: 10
         uses: softprops/action-gh-release@v3.0.3
         with:
-          tag_name: nightly
-          name: Nightly
+          tag_name: ${{ steps.nightly.outputs.tag }}
+          name: Nightly ${{ steps.nightly.outputs.tag }}
           body_path: release-notes.md
           files: release-assets/*
           prerelease: true
@@ -827,3 +878,26 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate SHA256SUMS for all nightly assets
+        if: steps.nightly.outputs.skip != 'true'
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          # 汇总全部 nightly 产物摘要（CR-FIX-04）：下载物可校验。
+          find release-assets -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.json' -o -name '*.sha256' \) \
+            -print0 | xargs -0 sha256sum | sed 's#  release-assets/#  #' > SHA256SUMS
+          ls -la SHA256SUMS
+      - name: Sign nightly artifacts with cosign (keyless)
+        if: steps.nightly.outputs.skip != 'true'
+        timeout-minutes: 10
+        uses: sigstore/cosign-installer@v4.1.2
+      - name: cosign sign-blob SHA256SUMS
+        if: steps.nightly.outputs.skip != 'true'
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes SHA256SUMS > SHA256SUMS.sig
+          gh release upload "${{ steps.nightly.outputs.tag }}" SHA256SUMS SHA256SUMS.sig --clobber || \
+            echo "::warning::签名/清单上传失败（可在资产页手动上传）"

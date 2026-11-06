@@ -17,6 +17,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality-gate:
+    # CR-FIX-04 (P0-4)：发布前强制质量门禁。CI 只在 push/PR 触发，tag push
+    # 不重跑 ci.yml，故发布工作流须自行串跑全量测试 + e2e + 契约守卫；任一
+    # 失败即拒绝出包（CI 红不出包）。
+    name: Quality gate (tests + e2e + contracts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - timeout-minutes: 5
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+      - name: Install ripgrep
+        timeout-minutes: 2
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+          rg --version
+      - name: Run release quality gate
+        timeout-minutes: 50
+        run: bash scripts/release-quality-gate.sh
+
   verify-version:
     name: Verify version consistency (refuse to publish on mismatch)
     runs-on: ubuntu-latest
@@ -203,13 +238,25 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-go, build-sdk-sources]
+    needs: [build-go, build-sdk-sources, quality-gate]
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Download artifacts
         timeout-minutes: 3
         uses: actions/download-artifact@v8.0.2
         with:
           path: artifacts
+      - name: Generate SHA256SUMS for all artifacts
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          # 汇总所有发布产物摘要（CR-FIX-04）：下载物可校验，不再裸出包。
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.json' -o -name '*.sha256' \) \
+            -print0 | xargs -0 sha256sum | sed 's#  artifacts/#  #' > SHA256SUMS
+          # 校验和清单本身也纳入签名，但清单不含自身（避免自引用）。
+          ls -la SHA256SUMS
       - name: Create Tag Release
         if: startsWith(github.ref, 'refs/tags/v')
         timeout-minutes: 10
@@ -220,5 +267,25 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/**/*
+            SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sign release artifacts with cosign (keyless)
+        if: startsWith(github.ref, 'refs/tags/v')
+        timeout-minutes: 10
+        uses: sigstore/cosign-installer@v4.1.2
+      - name: cosign sign-blob SHA256SUMS
+        if: startsWith(github.ref, 'refs/tags/v')
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # keyless OIDC：身份来自 job 的 id-token: write。签名 SHA256SUMS 清单
+          # 即代表整批产物（每个文件摘要已列于清单内）。
+          cosign sign-blob --yes SHA256SUMS > SHA256SUMS.sig
+          echo "Signed:"
+          ls -la SHA256SUMS.sig
+          # 把签名上传为 release 附件（软 props 只跑一次，已创建 release）。
+          gh release upload "${{ github.ref_name }}" SHA256SUMS.sig --clobber || \
+            echo "::warning::签名上传失败（release 已创建，可在资产页手动上传）"

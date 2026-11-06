@@ -286,7 +286,7 @@ func TestUpstreamMetricsLoop_DefaultInterval(t *testing.T) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		return f.metricEvents >= 1
-	}, 3*time.Second, 50*time.Millisecond)
+	}, 10*time.Second, 50*time.Millisecond)
 }
 
 func TestBuildProviders_AddrVersionBackfill(t *testing.T) {

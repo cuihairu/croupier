@@ -636,7 +636,17 @@ func (c *UpstreamClient) metricsLoop(ctx context.Context) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// Report immediately on start
+	// 首报等待连接就绪（reg.Start 异步：立即上报会与建连竞争，未连上时
+	// SendMetricEvent 静默失败，指标在连接建立前丢失）。有界等待，连接
+	// 未就绪则回落 ticker 循环按周期重试；ctx 取消即退出。
+	deadline := time.Now().Add(interval)
+	for !c.Connected() && time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
 	c.reportMetrics(ctx)
 
 	for {

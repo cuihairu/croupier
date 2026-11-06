@@ -15,7 +15,7 @@ title: 开发周期与发布说明
 
 ## 发布节奏
 
-- **nightly 每日构建**：`schedule` 触发 `cron: "0 2 * * *"`（每日 02:00 UTC，`.github/workflows/nightly.yml:5`），支持 `workflow_dispatch` 手动触发（`:6`）；`concurrency.group: nightly-release` 且不取消在途（`:14-16`）。各 build job 固定 checkout main（`:53` 等），release job 汇总产物后滚动更新 `nightly` tag（`:814` force push）并发布 prerelease（`:817-829`，`tag_name: nightly`、`prerelease: true`）。
+- **nightly 每日构建**：`schedule` 触发 `cron: "0 2 * * *"`（每日 02:00 UTC，`.github/workflows/nightly.yml:5`），支持 `workflow_dispatch` 手动触发（`:6`）；`concurrency.group: nightly-release` 且不取消在途（`:14-16`）。各 build job 固定 checkout main（`:53` 等），新增 `quality-gate` job（`:18-46`）串跑全量测试 + e2e + 契约守卫；release job 汇总产物后计算 `SHA256SUMS`、cosign keyless 签名、打不可变 `nightly-YYYYMMDD` tag（`:830+`，无 force push）并发布该 tag 的 prerelease。
 - **缺失项（变更检测）**：nightly 是无条件每日构建，仓库内没有「48 小时有更新才发」之类的变更检测逻辑（`nightly.yml` 全文与全历史 grep 均无命中）；该口径属流程约定。
 - **稳定版发布**：唯一有效入口是人工 push `v*` tag —— `release.yml:4-6`（`push: tags: ["v*"]`）；`workflow_dispatch` 存在（`:7`）但三个 job 均有 `if: startsWith(github.ref, 'refs/tags/v')`（`:22`/`:151`/`:201`），手动运行等于空跑。`docker.yml:4-6` 同样响应 `v*` tag（另加 push main）。
 - **SDK 发布**：每语言一个独立手动 workflow，仅 `workflow_dispatch` 绝不自动触发（`release-sdk-*.yml` 各文件 `:3` 注释；`release-sdk-go.yml:5-11` 的 `version` 输入留空则取最新 release tag，逻辑在 `:24-34`）。
@@ -55,14 +55,14 @@ title: 开发周期与发布说明
 
 ### 缺失项（发布前置门禁）
 
-- `release.yml` 与 `nightly.yml` 均无任何测试/门禁 job（`release.yml` 的 `build-go` `:20`、`build-sdk-sources` `:150`、`release` `:189` 只构建打包）；六个 SDK 发布 workflow 也无测试直接发布。「发布前必须过门禁」目前依赖人工纪律（打 tag 前确认 CI 全绿），仓库内无强制机制——如实标注。
+- **2026-11-06（CR-FIX-04）起已强制**：`release.yml` 与 `nightly.yml` 各加 `quality-gate` job（`scripts/release-quality-gate.sh`）串跑 `go test ./...` + 契约守卫 + e2e 再打包发布；`release`/`release` job 声明 `needs: [.., quality-gate]`，CI 红即不出包。六个 SDK 发布 workflow 仍无测试直接发布——如实标注。
 
 ## 已知缺失汇总
 
-| 面向             | 状态       | 说明                                                                                   |
-| ---------------- | ---------- | -------------------------------------------------------------------------------------- |
-| 分支保护         | 仓库内无   | 属 GitHub 仓库设置，文件内无可引用证据                                                 |
-| nightly 变更检测 | 无         | 无条件每日构建，「有更新才发」是流程约定                                               |
-| 发布前置门禁     | 无强制     | release/nightly/SDK workflow 均无测试 job；靠人工确认 CI 绿                            |
-| 版本号人工给定   | 约定非机制 | 机制上唯一入口是人工打 `v*` tag；无仓库内强制校验                                      |
-| SDK tag 口径     | 漂移       | 现行子模块 tag（`sdks/go/vX.Y.Z`），`repository-guidelines.md` 的 `sdk-go-v*` 为旧口径 |
+| 面向             | 状态           | 说明                                                                                   |
+| ---------------- | -------------- | -------------------------------------------------------------------------------------- |
+| 分支保护         | 仓库内无       | 属 GitHub 仓库设置，文件内无可引用证据                                                 |
+| nightly 变更检测 | 无             | 无条件每日构建，「有更新才发」是流程约定                                               |
+| 发布前置门禁     | 已强制（核心） | release/nightly 经 `quality-gate` job 门禁；SDK workflow 仍直接发布                    |
+| 版本号人工给定   | 约定非机制     | 机制上唯一入口是人工打 `v*` tag；无仓库内强制校验                                      |
+| SDK tag 口径     | 漂移           | 现行子模块 tag（`sdks/go/vX.Y.Z`），`repository-guidelines.md` 的 `sdk-go-v*` 为旧口径 |

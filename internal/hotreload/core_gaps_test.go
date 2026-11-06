@@ -234,7 +234,11 @@ func buildTestPlugin(t *testing.T) string {
 		[]byte("package main\n"), 0o644))
 
 	out := filepath.Join(dir, "plug.so")
-	args := []string{"build", "-buildmode=plugin", "-o", out}
+	// The plugin module lives in a temp directory outside this git checkout.
+	// Disable VCS stamping there; otherwise `go build` attempts to inspect the
+	// enclosing repository and can fail with exit 128 under Git permission or
+	// ownership restrictions unrelated to plugin behavior.
+	args := []string{"build", "-buildvcs=false", "-buildmode=plugin", "-o", out}
 	if testBinaryRaceEnabled {
 		// 测试二进制带 -race 时插件必须同参数编译，否则 plugin.Open 报
 		// "built with a different version of package internal/runtime/sys"。
