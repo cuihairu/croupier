@@ -135,8 +135,8 @@ export default function OpsCostPage() {
 
   return (
     <PageContainer>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Card title="创建前估算" bordered={false}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+        <Card title="创建前估算" variant="borderless">
           <Form
             form={form}
             layout="inline"
@@ -188,7 +188,7 @@ export default function OpsCostPage() {
           )}
         </Card>
 
-        <Card title="成本总览" bordered={false} loading={loadingSummary}>
+        <Card title="成本总览" variant="borderless" loading={loadingSummary}>
           <Row gutter={16}>
             <Col span={6}>
               <Statistic title="节点数" value={summary?.totalNodes ?? 0} />
@@ -221,7 +221,7 @@ export default function OpsCostPage() {
           />
         </Card>
 
-        <Card title="月度预算" bordered={false}>
+        <Card title="月度预算" variant="borderless">
           <Form
             form={budgetForm}
             layout="inline"

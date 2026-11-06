@@ -73,7 +73,7 @@ test.describe('UI-003 批量确认实页', () => {
     expect(resp.status()).toBe(200);
     const payload = resp.request().postDataJSON();
     const selection = payload?.context?.selection ?? [];
-    expect(Array.isArray(selection)).toBeTruthy();
+    expect(Array.isArray(selection)).toBe(true);
     expect(selection.length).toBe(3);
     expect(payload?.context?.form?.amount).toBe(5);
     const ids = selection.map((s: { id: string }) => s.id);

@@ -246,12 +246,12 @@ export default function OpsDashboardPage() {
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message="数据过期：超过 30s 未收到节点指标刷新，以下为最近一次快照（不视为当前状态）。"
+          title="数据过期：超过 30s 未收到节点指标刷新，以下为最近一次快照（不视为当前状态）。"
         />
       )}
 
       {/* 聚合带 */}
-      <Card bordered={false} style={{ marginBottom: 16 }}>
+      <Card variant="borderless" style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
           <Col xs={12} sm={8} md={4}>
             <Statistic title="全网节点" value={summary.totalNodes} />
@@ -280,7 +280,7 @@ export default function OpsDashboardPage() {
             <Statistic
               title="活动告警"
               value={summary.activeAlerts}
-              valueStyle={{ color: summary.activeAlerts > 0 ? '#f5222d' : undefined }}
+              styles={{ content: { color: summary.activeAlerts > 0 ? '#f5222d' : undefined } }}
             />
           </Col>
         </Row>
@@ -296,7 +296,7 @@ export default function OpsDashboardPage() {
 
       {/* 告警滚动条（实时事件流） */}
       <Card
-        bordered={false}
+        variant="borderless"
         style={{ marginBottom: 16 }}
         title={
           <Space>
@@ -352,7 +352,7 @@ export default function OpsDashboardPage() {
       </Card>
 
       {/* 节点卡片墙 */}
-      <Card bordered={false} title="节点健康" loading={loading && nodes.length === 0}>
+      <Card variant="borderless" title="节点健康" loading={loading && nodes.length === 0}>
         <div
           style={{
             display: 'grid',
@@ -413,11 +413,11 @@ export default function OpsDashboardPage() {
       </Card>
 
       {/* 账号负载（OPS-002 边界：无账号分布数据源，待接入） */}
-      <Card bordered={false} title="账号负载视图" style={{ marginTop: 16 }}>
+      <Card variant="borderless" title="账号负载视图" style={{ marginTop: 16 }}>
         <Alert
           type="info"
           showIcon
-          message="账号负载分布依赖调度编排的账号分布数据（OPS-002 边界：当前无账号分布数据源）。本视图待账号分布数据接入后展示「各节点承载账号数 vs 容量上限」。"
+          title="账号负载分布依赖调度编排的账号分布数据（OPS-002 边界：当前无账号分布数据源）。本视图待账号分布数据接入后展示「各节点承载账号数 vs 容量上限」。"
         />
       </Card>
 

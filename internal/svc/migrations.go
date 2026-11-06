@@ -2109,8 +2109,12 @@ var agentMetricsHourlyConvergeAfterDedupe func() error
 func alterAgentMetricsHourlyAgentID(ctx context.Context, db *gorm.DB) error {
 	var maxLen sql.NullInt64
 	lengthFn := "CHAR_LENGTH"
-	if db.Dialector.Name() == "sqlite" {
+	switch db.Dialector.Name() {
+	case "sqlite":
 		lengthFn = "LENGTH"
+	case "sqlserver":
+		// SQL Server 没有 CHAR_LENGTH，字符串长度函数是 LEN。
+		lengthFn = "LEN"
 	}
 	if err := db.WithContext(ctx).Raw(
 		"SELECT MAX(" + lengthFn + "(agent_id)) FROM agent_metrics_hourly",
