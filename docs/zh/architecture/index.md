@@ -65,7 +65,7 @@ Server 保留契约、页面快照与发布历史。正式 Console 使用发布�
 - session 使用长度前缀分帧与 protobuf 平台消息，函数业务 payload 通常是 UTF-8 JSON。
 - 公共 `core/transport/tcp` 提供 MuxConn；注册、重连、配置同步等由角色组合公共包，不是只引入 transport 就自动拥有完整生命周期。
 - Agent↔Server 支持 TLS，**仓库开发模板未启用**：Server cert/key 为空，Agent insecure=true。生产应显式配置证书，不能依赖“默认 TLS”表述。
-- Server↔Server 互联已支持 `cluster.interconnectTls` mTLS（对端证书身份：双 EKU server 角色，Agent 证书拒绝；未握手 forward 拒绝）。未配置证书面时回退内网明文 TCP，互联端口须保持可信网络隔离。
+- Server↔Server 互联已支持 `cluster.interconnectTls` mTLS（对端证书身份：双 EKU server 角色，Agent 证书拒绝；未握手 forward 拒绝）。集群启用但证书面缺失/跳过校验时默认拒绝启动（fail-closed）；只有显式 `cluster.allowPlaintextInterconnect: true` 才回退内网明文 TCP（降级并在就绪面记录），互联端口须保持可信网络隔离。
 
 ## 业务 scope 与存储
 

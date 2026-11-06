@@ -155,6 +155,56 @@ func TestValidateInterconnectTLS_InsecureSkipFailsClosed(t *testing.T) {
 	}
 }
 
+// 显式 interconnectTls.enabled=false 是「不走 mTLS」的 opt-out，但按
+// CR-FIX-03 仍需 allowPlaintextInterconnect 二次确认；诊断须指出真实原因。
+func TestValidateInterconnectTLS_ExplicitDisabledDiagnostic(t *testing.T) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(`
+cluster:
+  enabled: true
+  interconnectTls:
+    enabled: false
+    certFile: /etc/croupier/ic.crt
+    keyFile: /etc/croupier/ic.key
+    caFile: /etc/croupier/ic-ca.crt
+`), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	err := cfg.Cluster.ValidateInterconnectTLS()
+	if err == nil {
+		t.Fatal("explicit enabled=false without allowPlaintextInterconnect must fail closed")
+	}
+	if !contains(err.Error(), "interconnectTls.enabled=false") {
+		t.Fatalf("diagnostic must name the disabled switch, got: %v", err)
+	}
+}
+
+// 证书齐备、仅跳过校验时，诊断必须指向 skip 开关而不是误报缺证书。
+func TestValidateInterconnectTLS_SkipWithCompleteCertsDiagnostic(t *testing.T) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(`
+cluster:
+  enabled: true
+  insecureSkipTls: true
+  interconnectTls:
+    certFile: /etc/croupier/ic.crt
+    keyFile: /etc/croupier/ic.key
+    caFile: /etc/croupier/ic-ca.crt
+`), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	err := cfg.Cluster.ValidateInterconnectTLS()
+	if err == nil {
+		t.Fatal("insecureSkipTls=true must fail closed")
+	}
+	if !contains(err.Error(), "insecureSkipTls=true") {
+		t.Fatalf("diagnostic must name insecureSkipTls, got: %v", err)
+	}
+	if contains(err.Error(), "missing certFile") || contains(err.Error(), "missing keyFile") || contains(err.Error(), "missing caFile") {
+		t.Fatalf("diagnostic must not claim missing certs when all are set, got: %v", err)
+	}
+}
+
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

@@ -1611,11 +1611,29 @@ func (c *ClusterConfig) ValidateInterconnectTLS() error {
 	if c.AllowPlaintextInterconnect {
 		return nil
 	}
-	reason := "cluster interconnect TLS certificate surface incomplete or skipped"
-	if c.InterconnectTLS.EffectiveEnabled() {
-		reason += " (certFile/keyFile/caFile must all be set and insecureSkipTls/insecureSkipVerify false)"
+	var causes []string
+	if !c.InterconnectTLS.EffectiveEnabled() {
+		causes = append(causes, "interconnectTls.enabled=false")
 	} else {
-		reason += " (interconnectTls.enabled false or no certificate paths configured)"
+		var missing []string
+		if c.InterconnectTLS.CertFile == "" {
+			missing = append(missing, "certFile")
+		}
+		if c.InterconnectTLS.KeyFile == "" {
+			missing = append(missing, "keyFile")
+		}
+		if c.InterconnectTLS.CAFile == "" {
+			missing = append(missing, "caFile")
+		}
+		if len(missing) > 0 {
+			causes = append(causes, "missing "+strings.Join(missing, "/"))
+		}
 	}
-	return fmt.Errorf("cluster.enabled=true but %s; set cluster.allowPlaintextInterconnect=true only on a trusted isolated intranet to run plaintext (degraded), or configure the certificate surface for mTLS", reason)
+	if c.InsecureSkipTLS {
+		causes = append(causes, "insecureSkipTls=true")
+	}
+	if c.InterconnectTLS.InsecureSkipVerify {
+		causes = append(causes, "interconnectTls.insecureSkipVerify=true")
+	}
+	return fmt.Errorf("cluster.enabled=true but interconnect mTLS is not usable (%s); set cluster.allowPlaintextInterconnect=true only on a trusted isolated intranet to run plaintext (degraded), or configure the certificate surface for mTLS", strings.Join(causes, ", "))
 }

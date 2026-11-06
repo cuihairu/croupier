@@ -16,17 +16,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve-commit:
+    name: Resolve nightly commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Checkout main
+        timeout-minutes: 3
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Pin commit and nightly tag
+        id: resolve
+        timeout-minutes: 2
+        run: |
+          # 同一天的重跑必须复用已存在的 nightly tag 指向的提交，才能补齐
+          # 上次失败/不完整的发布；首次运行则固定当前 main HEAD，供质量门禁、
+          # 所有构建与发布任务使用同一 SHA（避免运行期间 main 漂移）。
+          TAG="nightly-$(date -u +%Y%m%d)"
+          SHA="$(git rev-parse HEAD)"
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+            echo "::notice::reusing existing tag ${TAG} at ${SHA} for recovery"
+          fi
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
   quality-gate:
     # CR-FIX-04 (P0-4)：nightly 出包前强制质量门禁（全量测试 + e2e + 契约守卫）。
     # nightly 由 cron 触发、不经 ci.yml，故须自行串跑，CI 红则不出包。
     name: Quality gate (tests + e2e + contracts)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: resolve-commit
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.resolve-commit.outputs.sha }}
           fetch-depth: 0
       - timeout-minutes: 5
         uses: actions/setup-go@v7.0.0
@@ -55,6 +86,7 @@ jobs:
     name: Build Binaries (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    needs: resolve-commit
     strategy:
       fail-fast: false
       # 前 3 项为原生构建（未设 goos/goarch 时走 make build / 原生 go build）；
@@ -85,7 +117,7 @@ jobs:
         timeout-minutes: 3
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.resolve-commit.outputs.sha }}
           submodules: false
 
       - name: Setup Go
@@ -241,6 +273,7 @@ jobs:
     name: Build Go SDK (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
+    needs: resolve-commit
     strategy:
       fail-fast: false
       matrix:
@@ -265,7 +298,7 @@ jobs:
         timeout-minutes: 3
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.resolve-commit.outputs.sha }}
 
       - name: Setup Go
         timeout-minutes: 5
@@ -315,12 +348,13 @@ jobs:
     name: Build Other SDKs
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: resolve-commit
     steps:
       - name: Checkout
         timeout-minutes: 3
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.resolve-commit.outputs.sha }}
           submodules: false
 
       - name: Setup Node.js
@@ -418,6 +452,7 @@ jobs:
     name: Build C++ SDK (${{ matrix.display_name }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    needs: resolve-commit
     strategy:
       fail-fast: false
       matrix:
@@ -454,7 +489,7 @@ jobs:
         timeout-minutes: 3
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.resolve-commit.outputs.sha }}
           submodules: recursive
 
       - name: Setup Windows Environment
@@ -657,12 +692,13 @@ jobs:
     name: Build Dashboard
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: resolve-commit
     steps:
       - name: Checkout
         timeout-minutes: 3
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.resolve-commit.outputs.sha }}
 
       - name: Setup pnpm
         timeout-minutes: 5
@@ -708,6 +744,7 @@ jobs:
     timeout-minutes: 30
     needs:
       [
+        resolve-commit,
         build-binaries,
         build-go-sdk,
         build-other-sdks,
@@ -723,7 +760,7 @@ jobs:
         timeout-minutes: 3
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.resolve-commit.outputs.sha }}
           fetch-depth: 0
 
       - name: Download all artifacts
@@ -845,59 +882,61 @@ jobs:
           # 引号 heredoc 不会展开 $(...)，故以占位符 + sed 回填（原写法是字面量，恒显示 $(date)）
           sed -i "s/__BUILD_TIME__/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/; s/__COMMIT__/$(git rev-parse --short HEAD)/" release-notes.md
 
-      - name: Compute immutable nightly tag
-        id: nightly
-        timeout-minutes: 5
-        run: |
-          # CR-FIX-04：nightly 改不可变 nightly-YYYYMMDD tag。历史产物可按 tag
-          # 找回，不再 `git tag -f` + force push 覆盖。同一天多次触发只允许一次
-          # 发布（tag 已存在则跳过本次，不覆盖历史）。
-          TAG="nightly-$(date -u +%Y%m%d)"
-          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "::warning::tag ${TAG} already exists; skipping publish for this run"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Create/Update Release
-        if: steps.nightly.outputs.skip != 'true'
-        timeout-minutes: 10
-        uses: softprops/action-gh-release@v3.0.3
-        with:
-          tag_name: ${{ steps.nightly.outputs.tag }}
-          name: Nightly ${{ steps.nightly.outputs.tag }}
-          body_path: release-notes.md
-          files: release-assets/*
-          prerelease: true
-          generate_release_notes: false
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Generate SHA256SUMS for all nightly assets
-        if: steps.nightly.outputs.skip != 'true'
         timeout-minutes: 5
         run: |
           set -euo pipefail
           # 汇总全部 nightly 产物摘要（CR-FIX-04）：下载物可校验。
+          # 附件平铺，清单只保留 basename，下载后可直接 sha256sum -c。
           find release-assets -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.json' -o -name '*.sha256' \) \
-            -print0 | xargs -0 sha256sum | sed 's#  release-assets/#  #' > SHA256SUMS
+            -print0 | xargs -0 sha256sum | awk '{ n = split($2, p, "/"); print $1 "  " p[n] }' > SHA256SUMS
           ls -la SHA256SUMS
+
+      - name: Create/Update immutable nightly tag
+        timeout-minutes: 5
+        run: |
+          # CR-FIX-04：nightly 使用不可变 nightly-YYYYMMDD tag。同日重跑时
+          # 复用已有 tag（resolve-commit 已固定该 tag 的提交），不移动 tag，
+          # 继续补齐失败/不完整的 Release。
+          TAG="${{ needs.resolve-commit.outputs.tag }}"
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "tag ${TAG} already exists; reusing it for release recovery"
+          else
+            git tag "$TAG" "${{ needs.resolve-commit.outputs.sha }}"
+            git push origin "$TAG"
+          fi
+
+      - name: Create/Update Release (draft)
+        timeout-minutes: 10
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: ${{ needs.resolve-commit.outputs.tag }}
+          target_commitish: ${{ needs.resolve-commit.outputs.sha }}
+          name: Nightly ${{ needs.resolve-commit.outputs.tag }}
+          body_path: release-notes.md
+          files: |
+            release-assets/*
+            SHA256SUMS
+          prerelease: true
+          draft: true
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Sign nightly artifacts with cosign (keyless)
-        if: steps.nightly.outputs.skip != 'true'
         timeout-minutes: 10
         uses: sigstore/cosign-installer@v4.1.2
       - name: cosign sign-blob SHA256SUMS
-        if: steps.nightly.outputs.skip != 'true'
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           cosign sign-blob --yes SHA256SUMS > SHA256SUMS.sig
-          gh release upload "${{ steps.nightly.outputs.tag }}" SHA256SUMS SHA256SUMS.sig --clobber || \
-            echo "::warning::签名/清单上传失败（可在资产页手动上传）"
+          # 草稿阶段上传签名；失败即让工作流失败，不公开未签名产物。
+          gh release upload "${{ needs.resolve-commit.outputs.tag }}" SHA256SUMS SHA256SUMS.sig --clobber
+      - name: Publish signed nightly release
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ needs.resolve-commit.outputs.tag }}" --draft=false --prerelease

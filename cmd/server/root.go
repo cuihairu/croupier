@@ -308,7 +308,7 @@ func runServer() error {
 	if svcCtx.DB != nil {
 		recoverCtx, recoverCancel := context.WithTimeout(rootCtx, 30*time.Second)
 		if n, err := apiops.RecoverStaleRunbookRuns(recoverCtx, svcCtx, time.Now().UTC().Add(-apiops.RunbookStaleRunGrace)); err != nil {
-			slog.Default().Warn("runbook stale-run recovery failed", "error", err)
+			slog.Default().Warn("runbook stale-run recovery partially failed", "error", err, "recovered", n)
 		} else if n > 0 {
 			slog.Default().Info("runbook stale-run recovery converged", "recovered", n)
 		}

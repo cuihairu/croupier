@@ -79,31 +79,31 @@ API 路由的注册。
 
 ## 服务端配置开关
 
-| 键                                               | 默认               | 关闭效果                                   | 开启效果                                 |
-| ------------------------------------------------ | ------------------ | ------------------------------------------ | ---------------------------------------- |
-| `database.multiGame`                             | `false`（code）    | 单库；`game_id` 行级隔离                   | 每个 `(game_id, env)` 独立物理库         |
-| `cache.enabled`                                  | `false`（code）    | 缓存关闭；直连存储                         | 缓存层生效                               |
-| `cluster.enabled`                                | `false`（code）    | 集群特性关；单机运行                       | 集群成员表 / owner 转发生效              |
-| `cluster.insecureSkipTls`                        | `false`（code）    | 对等 TLS 校验                              | 对等 TLS 校验跳过                        |
-| `cluster.allowStandaloneDegrade`                 | `false`（code）    | 集群必须；单机拒绝                         | 集群不可用时允许单机降级                 |
-| `cluster.allowPlaintextInterconnect`             | `false`（code）    | 互联 TLS fail-closed（证书缺失则拒绝启动） | 显式允许明文互联（仅受信隔离内网；降级） |
-| `cluster.interconnectTls.enabled`                | `false`（code）    | 明文互联                                   | mTLS 互联（对等证书身份）                |
-| `cluster.interconnectTls.insecureSkipVerify`     | `false`（code）    | 对等证书校验                               | 对等证书校验跳过                         |
-| `agentDispatch.enableHA`                         | `false`（code）    | HA 特性关                                  | HA 多实例调度特性生效                    |
-| `agentDispatch.reconnection.enableAutoReconnect` | `false`（code）    | 不自动重连                                 | 掉线自动重连                             |
-| `agentDispatch.toAgentTLS.enabled`               | `false`（code）    | 明文到 agent                               | TLS 到 agent                             |
-| `agentDispatch.toAgentTLS.insecureSkipVerify`    | `false`（code）    | agent 证书校验                             | agent 证书校验跳过                       |
-| `approval.allowSelfApprove`                      | `false`（example） | 拒绝自批                                   | 允许审批人批自己的请求                   |
-| `executionLog.enabled`                           | `false`（code）    | 不写执行日志                               | 每次执行写执行日志                       |
-| `descriptors.schemaDiffWarn`                     | `false`（code）    | schema 漂移静默                            | schema 漂移记 warning                    |
-| `storage.forcePathStyle`                         | `false`（code）    | 虚拟主机风格（S3）                         | path-style 对象 URL                      |
-| `metrics.perFunction`                            | `true`（example）  | 仅聚合指标                                 | 逐函数指标输出                           |
-| `metrics.perGameDenies`                          | `false`（example） | 不拒绝逐游戏指标                           | 逐游戏指标按 scope 拒绝                  |
-| `serverStatus.enabled`                           | `false`（code）    | 维护窗口 gate 旁路                         | agent 探活异常维护窗口 gate 生效         |
-| `herald.enabled`                                 | `false`（code）    | 纯 croupier 告警页                         | 告警经 herald 渠道投递                   |
-| `provision.enabled`                              | `false`（code）    | 供给关闭                                   | 供给/销毁工作流生效                      |
-| `backup.schedule.enabled`                        | `false`（code）    | 无定时备份                                 | 已注册数据源定时备份                     |
-| `vault.enabled`                                  | `false`（code）    | 密钥内联在配置                             | 敏感凭据经 vault 提供者                  |
+| 键                                               | 默认               | 关闭效果                                                         | 开启效果                                 |
+| ------------------------------------------------ | ------------------ | ---------------------------------------------------------------- | ---------------------------------------- |
+| `database.multiGame`                             | `false`（code）    | 单库；`game_id` 行级隔离                                         | 每个 `(game_id, env)` 独立物理库         |
+| `cache.enabled`                                  | `false`（code）    | 缓存关闭；直连存储                                               | 缓存层生效                               |
+| `cluster.enabled`                                | `false`（code）    | 集群特性关；单机运行                                             | 集群成员表 / owner 转发生效              |
+| `cluster.insecureSkipTls`                        | `false`（code）    | 对等 TLS 校验                                                    | 对等 TLS 校验跳过                        |
+| `cluster.allowStandaloneDegrade`                 | `false`（code）    | 集群必须；单机拒绝                                               | 集群不可用时允许单机降级                 |
+| `cluster.allowPlaintextInterconnect`             | `false`（code）    | 互联 TLS fail-closed（证书缺失则拒绝启动）                       | 显式允许明文互联（仅受信隔离内网；降级） |
+| `cluster.interconnectTls.enabled`                | `false`（code）    | 仅在 `allowPlaintextInterconnect: true` 时明文互联；否则拒绝启动 | mTLS 互联（对等证书身份）                |
+| `cluster.interconnectTls.insecureSkipVerify`     | `false`（code）    | 对等证书校验                                                     | 对等证书校验跳过                         |
+| `agentDispatch.enableHA`                         | `false`（code）    | HA 特性关                                                        | HA 多实例调度特性生效                    |
+| `agentDispatch.reconnection.enableAutoReconnect` | `false`（code）    | 不自动重连                                                       | 掉线自动重连                             |
+| `agentDispatch.toAgentTLS.enabled`               | `false`（code）    | 明文到 agent                                                     | TLS 到 agent                             |
+| `agentDispatch.toAgentTLS.insecureSkipVerify`    | `false`（code）    | agent 证书校验                                                   | agent 证书校验跳过                       |
+| `approval.allowSelfApprove`                      | `false`（example） | 拒绝自批                                                         | 允许审批人批自己的请求                   |
+| `executionLog.enabled`                           | `false`（code）    | 不写执行日志                                                     | 每次执行写执行日志                       |
+| `descriptors.schemaDiffWarn`                     | `false`（code）    | schema 漂移静默                                                  | schema 漂移记 warning                    |
+| `storage.forcePathStyle`                         | `false`（code）    | 虚拟主机风格（S3）                                               | path-style 对象 URL                      |
+| `metrics.perFunction`                            | `true`（example）  | 仅聚合指标                                                       | 逐函数指标输出                           |
+| `metrics.perGameDenies`                          | `false`（example） | 不拒绝逐游戏指标                                                 | 逐游戏指标按 scope 拒绝                  |
+| `serverStatus.enabled`                           | `false`（code）    | 维护窗口 gate 旁路                                               | agent 探活异常维护窗口 gate 生效         |
+| `herald.enabled`                                 | `false`（code）    | 纯 croupier 告警页                                               | 告警经 herald 渠道投递                   |
+| `provision.enabled`                              | `false`（code）    | 供给关闭                                                         | 供给/销毁工作流生效                      |
+| `backup.schedule.enabled`                        | `false`（code）    | 无定时备份                                                       | 已注册数据源定时备份                     |
+| `vault.enabled`                                  | `false`（code）    | 密钥内联在配置                                                   | 敏感凭据经 vault 提供者                  |
 
 ## 遥测开关
 

@@ -18,7 +18,9 @@ for attempt in 1 2 3; do
     all_green=1
     break
   fi
-  echo "==> 第 ${attempt} 次有失败；对失败包做隔离重跑（区分负载诱发 flake 与真实回归）"
+  # 只允许「整轮全量测试」重跑通过，绝不把失败包隔离重跑通过当成放行：
+  # 并发/共享资源触发的真实回归在隔离环境可能消失，隔离通过不能证明发布
+  # 候选没有回归。全量失败即阻止发布，除非下一次完整全量运行全绿。
   failed_pkgs=$(grep -E '^FAIL\s+' "$TEST_LOG" | awk '{print $2}' | sort -u || true)
   if [ -z "$failed_pkgs" ]; then
     # 无 FAIL 行但管道失败（如超时/编译错）：真实失败，不放行。
@@ -26,28 +28,11 @@ for attempt in 1 2 3; do
     rm -f "$TEST_LOG"
     exit 1
   fi
-  # 对本次失败包做一次隔离重跑：通过者视为负载诱发 flake（非回归）。
-  still_failing=""
-  for p in $failed_pkgs; do
-    if go test -count=1 "$p" >/tmp/qg_iso_$$.log 2>&1; then
-      echo "==> 隔离通过（负载诱发 flake，非回归）: $p"
-    else
-      echo "==> 隔离仍失败: $p"; tail -10 /tmp/qg_iso_$$.log
-      still_failing="$still_failing $p"
-    fi
-  done
-  if [ -z "$still_failing" ]; then
-    echo "==> 本轮失败包均通过隔离重跑（负载诱发 flake，非回归）；视为通过"
-    all_green=1
-    break
-  fi
-  echo "::error::发布门禁失败，以下包隔离重跑仍失败:$still_failing"
-  rm -f "$TEST_LOG"
-  exit 1
+  echo "::warning::第 ${attempt} 次全量测试失败包: $(echo "$failed_pkgs" | tr '\n' ' ')"
 done
 rm -f "$TEST_LOG"
 if [ "$all_green" -ne 1 ]; then
-  echo "::error::全量测试 3 次均未全绿且隔离重跑仍有失败（持续 flake 或回归）"
+  echo "::error::全量测试 3 次均未全绿（持续 flake 或回归），拒绝发布"
   exit 1
 fi
 echo "==> 全量测试全绿"

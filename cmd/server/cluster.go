@@ -144,12 +144,9 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	if icAddr == "" {
 		icAddr = cfg.AdvertiseAddr
 	}
-	useInterconnectTLS := cfg.InterconnectTLS.EffectiveEnabled() &&
-		!cfg.InsecureSkipTLS &&
-		!cfg.InterconnectTLS.InsecureSkipVerify &&
-		cfg.InterconnectTLS.CertFile != "" &&
-		cfg.InterconnectTLS.KeyFile != "" &&
-		cfg.InterconnectTLS.CAFile != ""
+	// 与 ValidateInterconnectTLS 共用同一谓词：fail-closed 校验与运行时
+	// 选择必须同源，避免两处条件漂移导致「校验拒绝/运行时明文」。
+	useInterconnectTLS := cfg.InterconnectTLSComplete()
 	icCfg := &tcp.Config{
 		Address:     icAddr,
 		RecvTimeout: 90 * time.Second,
