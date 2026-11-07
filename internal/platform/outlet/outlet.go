@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -206,7 +207,13 @@ func (m *Manager) applyGate(ctx context.Context, ev AlertEvent) (AlertEvent, boo
 		return ev, suppress
 	}
 	out := ev
-	out.Metadata = make(map[string]string, len(ev.Metadata)+len(meta))
+	base := len(ev.Metadata)
+	extra := len(meta)
+	capHint := base
+	if base <= math.MaxInt-extra {
+		capHint = base + extra
+	}
+	out.Metadata = make(map[string]string, capHint)
 	for k, v := range ev.Metadata {
 		out.Metadata[k] = v
 	}
