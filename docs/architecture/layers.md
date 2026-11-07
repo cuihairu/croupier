@@ -4,53 +4,102 @@ title: Layers
 
 # Layers
 
-Croupier separates control-plane concerns from game-process integration. Each layer has an explicit owner and contract.
+This is the implementation layer model reviewed at commit `eec3592912d9c0156574495bb090caf3fd78c794` on 2026-11-07. A layer is a runtime responsibility, not a directory. The boundaries below explain what owns state, which channel it uses, where configuration enters, and how a unit starts and stops.
 
-## Component layers
+## Layer map
 
-| Layer               | Owner        | Responsibility                                                                                              |
-| ------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| Console and API     | Server       | Authentication, RBAC, audit, proposals, publishing, monitoring, and operator-facing execution.              |
-| Registry and policy | Server       | Function contracts, resource semantics, snapshots, approvals, and execution policy.                         |
-| Agent session       | Agent        | One outbound Server session with heartbeats, reconnection and request multiplexing; draining is incomplete. |
-| Provider gateway    | Agent        | Local sessions for embedded SDKs and game processes, plus routing to healthy provider instances.            |
-| Embedded SDK        | Game process | Registers functions, invokes local handlers, and reports process/provider metadata.                         |
+| #   | Layer                       | Responsibility                                                                                                            | Representative implementation                                                                                |
+| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 1   | Web console                 | Authenticate the operator, keep scope and token in the browser, render pages and emit REST/SSE calls.                     | `web/src/app.tsx:113`; `web/src/services/core/http.ts:40`                                                    |
+| 2   | Server HTTP API             | Validate identity and scope, route REST requests to application services, and own the HTTP process lifecycle.             | `cmd/server/root.go:402`; `internal/handler/routes.go:89`                                                    |
+| 3   | Server application services | Execute authorization, approvals, audit, contracts, pages, registry operations and dispatch use cases.                    | `internal/svc/service_context.go:221`; `internal/platform/functioninvoke/govern.go:63`                       |
+| 4   | Storage and coordination    | Own durable records, cache, analytics storage, owner election and file-backed task routing.                               | `internal/svc/migrations.go:186`; `internal/cache/helper.go:15`; `internal/cluster/owner_store.go:8`         |
+| 5   | Agent runtimes              | Dial the Server, keep registration and heartbeat alive, execute capture, probes, host operations and managed processes.   | `internal/app/agent/app.go:184`; `agents/capture/runner/runner.go:201`; `agents/devops/session/broker.go:92` |
+| 6   | Session transport           | Frame and multiplex outbound agent sessions and define request IDs for control, invocation, task and operations messages. | `core/transport/tcp/framing.go:25`; `pkg/protocol/message.go:51`                                             |
+| 7   | Provider sessions           | Terminate SDK provider connections locally, route to healthy instances, invoke handlers and adapt plugin protocols.       | `internal/agent/local_handler.go:91`; `agents/sidecar/funcplugin/protocol/funcplugin.proto:24`               |
+| 8   | Page/dashboard DSL          | Model drafts, published pages, menus and selector bindings, then execute only the bindings frozen at publish time.        | `internal/dashboard/spec/types.go:537`; `internal/api/console/service.go:313`                                |
 
-## Technical boundaries
+## Glossary
 
-```text
-Operator UI
-  -> Server HTTP/API
-    -> Server registry and policy
-      -> Agent/Server session
-        -> Agent local gateway
-          -> SDK provider session
-            -> game handler
-```
+| Term                   | English                | Definition                                                                                                            | Evidence                                                                                                                   |
+| ---------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Operator scope         | Operator scope         | The current game/environment selection used by web requests.                                                          | `web/src/services/core/scope.ts:56`                                                                                        |
+| Provider token         | Provider token         | The browser-held authentication token used after sign-in.                                                             | `web/src/app.tsx:113`                                                                                                      |
+| Scoped route           | Scoped route           | A REST route group whose game database is selected by `GameDBMiddleware`.                                             | `internal/handler/routes.go:150`                                                                                           |
+| HTTP lifecycle         | HTTP lifecycle         | The SIGINT/SIGTERM-driven REST server start, drain, background-stop and pool-close sequence.                          | `cmd/server/root.go:417`; `cmd/server/root.go:440`                                                                         |
+| Service context        | Service context        | The Server's composition root for databases, cache, registries, approvals, audit and background jobs.                 | `internal/svc/service_context.go:221`                                                                                      |
+| Execution governance   | Execution governance   | The shared disable, assignment, subject, ACL, policy, input and approval chain used by HTTP, tasks and schedules.     | `internal/platform/functioninvoke/govern.go:63`                                                                            |
+| Function contract      | Function contract      | The durable metadata for invocation, schema, risk, permission and approval.                                           | `internal/model/function_contract.go:15`                                                                                   |
+| Task run               | Task run               | The persisted state machine for an asynchronous function run.                                                         | `internal/platform/dispatch/dispatcher.go:54`                                                                              |
+| Dispatch               | Dispatch               | The server-side selection of an agent session and creation of a durable run before an agent request.                  | `internal/platform/dispatch/dispatcher.go:336`; `internal/platform/dispatch/dispatcher.go:775`                             |
+| Relational model store | Relational model store | The MySQL/PostgreSQL/SQLite model layer defined by GORM models and migrations.                                        | `internal/svc/migrations.go:186`; `internal/model/task.go:8`                                                               |
+| Cache store            | Cache store            | The Redis or in-process cache selected from configuration.                                                            | `internal/cache/helper.go:15`; `internal/cache/helper.go:41`                                                               |
+| Analytics sink         | Analytics sink         | The ClickHouse batch sink behind the analytics worker.                                                                | `internal/analytics/worker/worker.go:394`; `internal/analytics/worker/worker.go:435`                                       |
+| Cluster owner          | Cluster owner          | The shared-database or Redis resolver that assigns scope ownership to one server instance.                            | `internal/cluster/owner_store.go:8`; `internal/cluster/owner_redis.go:27`                                                  |
+| File task routing      | File task routing      | The JSON-file or in-memory adapter that maps task IDs to agents.                                                      | `internal/platform/dispatch/task_routing_store.go:28`; `internal/platform/dispatch/task_routing_store.go:162`              |
+| Agent runtime          | Agent runtime          | The outbound process containing registration, heartbeat, local services and role-specific runners.                    | `internal/app/agent/app.go:138`; `internal/app/agent/app.go:184`                                                           |
+| Agent session          | Agent session          | The agent-initiated Server TCP session carrying control and execution traffic.                                        | `internal/app/agent/app.go:190`; `internal/server/control_handler.go:128`                                                  |
+| Capture gate           | Capture gate           | The capture-runtime policy for sources, filters and durable delivery.                                                 | `agents/capture/runner/runner.go:201`; `agents/capture/runner/runner.go:272`                                               |
+| DevOps admission       | DevOps admission       | The audit-and-admit check that must pass before a host session opens.                                                 | `agents/devops/session/broker.go:92`; `agents/devops/session/broker.go:126`                                                |
+| Wire frame             | Wire frame             | The 4-byte big-endian length-prefix framing shared by transport peers.                                                | `core/transport/tcp/framing.go:25`                                                                                         |
+| Message ID             | Message ID             | The 24-bit wire operation identifier for registration, invocation, task and operations families.                      | `pkg/protocol/message.go:51`; `pkg/protocol/message.go:71`                                                                 |
+| Provider manager       | Provider manager       | The sidecar-side registry and health window for SDK provider sessions.                                                | `internal/agent/local_handler.go:52`; `internal/agent/local_handler.go:34`                                                 |
+| Provider invocation    | Provider invocation    | The local request that selects a healthy provider and invokes its registered handler.                                 | `internal/agent/local_handler.go:290`; `internal/agent/tcp_local_listener.go:28`                                           |
+| Function plugin        | Function plugin        | The sidecar gRPC plugin contract for describing and invoking plugin functions.                                        | `agents/sidecar/funcplugin/protocol/funcplugin.proto:24`; `agents/sidecar/funcplugin/protocol/funcplugin.proto:62`         |
+| Probe plugin           | Probe plugin           | The synthetics go-plugin gRPC contract for describing and running probes.                                             | `agents/synthetics/pluginhost/protocol/probeplugin.proto:18`; `agents/synthetics/pluginhost/protocol/probeplugin.proto:30` |
+| PageSpec               | PageSpec               | The typed draft page model, including layout, localized text and bindings.                                            | `internal/dashboard/spec/types.go:537`; `internal/dashboard/spec/types.go:18`                                              |
+| Published page         | Published page         | The immutable snapshot that freezes scope, version, bindings and contract digests.                                    | `internal/dashboard/spec/types.go:797`; `internal/dashboard/spec/types.go:823`                                             |
+| Console menu           | Console menu           | The runtime navigation model generated from published pages and menu records.                                         | `internal/dashboard/spec/types.go:850`; `internal/api/console/service.go:62`                                               |
+| Binding execution      | Binding execution      | The published-snapshot execution path that maps inputs, invokes functions and wraps only the approved response shape. | `internal/api/console/service.go:313`; `internal/api/console/service.go:413`                                               |
 
-- The Server never dials back into an Agent. Agents own the outbound session.
-- The Agent never dials back into an SDK provider. Providers own the local session.
-- Requests reuse the established session in both directions.
-- protobuf carries platform envelopes; JSON carries business payloads.
+## Layer details
 
-## Data and page layers
+### 1. Web console
 
-| Boundary            | Model                                          |
-| ------------------- | ---------------------------------------------- |
-| Executable unit     | `FunctionContract`                             |
-| Business capability | `ResourceCapability` and `CapabilitySemantics` |
-| Editable page       | `PageProposal` and `PageSpec`                  |
-| Runtime page        | `PublishedPageSpec`                            |
-| Navigation          | `ConsoleMenuSpec`                              |
+The browser layer owns sign-in, the operator-selected `gameId + env`, and REST/SSE access. It does not open Agent sessions. The UI runtime reads a token from browser storage (`web/src/app.tsx:113`) and the HTTP service injects scope headers (`web/src/services/core/scope.ts:64`; `web/src/services/core/http.ts:40`). Configuration comes from Umi environment/config builds; process routes are declared in `web/config/routes.ts`. State is browser-local and transient.
 
-This prevents a single function descriptor from becoming an implicit page, menu, permission, or deployment boundary.
+### 2. Server HTTP API
 
-## Placement boundaries
+`runServer` loads YAML and CLI overrides, validates cluster TLS, builds the service context, registers routes, starts the scheduler and REST/TCP processes, then performs an ordered shutdown (`cmd/server/root.go:124`; `cmd/server/root.go:202`; `cmd/server/root.go:440`). `RegisterHandlers` is the route table (`internal/handler/routes.go:89`), while scoped groups attach `GameDBMiddleware` (`internal/handler/routes.go:150`). REST requests call application services synchronously; SSE uses the long-write HTTP server (`cmd/server/root.go:409`). Its schema is `internal/config/config.go:13`, with seed examples under `configs/`.
 
-`gameId + env` identifies business scope. It does not identify a database, host, or cluster. Physical placement is represented by targets, agents, and nodes so that logical environments can span or map to infrastructure independently.
+### 3. Server application services
+
+`NewServiceContext` composes relational models, cache, registry, approvals, audit, scheduler and role-specific services (`internal/svc/service_context.go:221`; approvals at `internal/svc/service_context.go:366`; audit at `internal/svc/service_context.go:374`). The unified invocation path runs `functioninvoke.Invoke` (`internal/platform/functioninvoke/invoke.go:26`), whose `Govern` chain is shared by HTTP, task start, page bindings and schedules (`internal/platform/functioninvoke/govern.go:63`). Domain state is relational except for short-lived execution queues and cache. Configuration is layered at boot (`cmd/server/root.go:205`) and backed by `internal/platform/settings/layered.go:187`.
+
+### 4. Storage and coordination
+
+This layer separates authoritative relational state, optional cache, analytics, coordination and file adapters. GORM migrations define relational schemas (`internal/svc/migrations.go:186`). Cache selection is configuration-driven (`internal/cache/helper.go:15`). ClickHouse writes are batched by the analytics worker (`internal/analytics/worker/worker.go:435`); its process reads environment inputs at `internal/analytics/worker/worker.go:106` and ingest validation is in `cmd/ingest/cmd/root.go:152`. Owner state can use the shared relational database or Redis (`internal/cluster/owner_store.go:8`; `internal/cluster/owner_redis.go:27`). Task routing can use a JSON file or memory (`internal/platform/dispatch/task_routing_store.go:34`; `internal/platform/dispatch/task_routing_store.go:162`).
+
+### 5. Agent runtimes
+
+The sidecar runtime creates the Server connection and starts the local provider listener (`internal/app/agent/app.go:184`; `internal/app/agent/app.go:190`). Capture builds gates, applies them, reads sources, consumes durable records and records hits (`agents/capture/runner/runner.go:201`; `agents/capture/runner/runner.go:423`; `agents/capture/runner/runner.go:565`). Synthetics uses its own runner and plugin host; DevOps requires audit admission before opening a host session (`agents/devops/session/broker.go:126`; session limits are enforced at `agents/devops/session/hub.go:98`). YAML examples live in `configs/agent.yaml`, `configs/capture-agent.example.yaml`, `configs/synthetics-agent.example.yaml` and `configs/devops-agent.example.yaml`.
+
+### 6. Session transport
+
+Transport peers share length-prefix framing (`core/transport/tcp/framing.go:25`), request multiplexing in `core/transport/tcp/mux_conn.go`, and a fixed message header (`pkg/protocol/message.go:33`). Message families are enumerated in `pkg/protocol/message.go:51`, with invocation/task IDs at `pkg/protocol/message.go:71`. Protobuf contracts live under `proto/croupier/`, including `proto/croupier/sdk/v1/provider.proto`, `proto/croupier/agent/v1/register.proto`, `proto/croupier/agent/v1/task.proto`, `proto/croupier/ops/v1/ops.proto` and `proto/croupier/function/v1/metadata.proto`. There is no separate copy-based protocol schema under `configs/`.
+
+### 7. Provider sessions
+
+SDK providers dial the sidecar; the sidecar terminates and stores local sessions, selects healthy instances and invokes handlers (`internal/agent/tcp_local_listener.go:28`; `internal/agent/local_handler.go:290`). Plugin backends use separate contracts: function plugins under `agents/sidecar/funcplugin/protocol/funcplugin.proto:24` and probe plugins under `agents/synthetics/pluginhost/protocol/probeplugin.proto:18`. Provider descriptors and heartbeat/drain behavior are defined in `proto/croupier/sdk/v1/provider.proto:11` and `proto/croupier/sdk/v1/provider.proto:69`. Session state is process-local unless explicitly exported through the registry.
+
+### 8. Page/dashboard DSL
+
+`PageSpec` is the typed draft, and `PublishedPageSpec` freezes publish facts and binding contracts (`internal/dashboard/spec/types.go:537`; `internal/dashboard/spec/types.go:797`). Draft persistence and publishing are application use cases (`internal/api/page/service.go:319`; `internal/api/page/service.go:924`). Runtime menu generation and binding execution consume only published state (`internal/api/console/service.go:62`; `internal/api/console/service.go:313`), with idempotent binding execution at `internal/api/console/service.go:413`. UI copy is not a separate bundle inside this DSL: `LocalizedText` maps locale keys to strings (`internal/dashboard/spec/types.go:18`); the generator consumes `configs/term_dictionary.json` through `internal/dashboard/generator/generator.go:29`.
+
+## Why these are separate layers
+
+1. **Browser is a trust and session boundary.** Token and scope live in the browser and are attached to HTTP (`web/src/app.tsx:113`; `web/src/services/core/scope.ts:64`), while the server independently authenticates and applies scoped database middleware (`internal/handler/routes.go:150`).
+2. **HTTP routing is narrower than domain execution.** The route layer registers endpoints and middleware (`internal/handler/routes.go:89`), but a single shared governance chain is deliberately reused by HTTP, tasks, schedules and pages (`internal/platform/functioninvoke/govern.go:63`); collapsing them would fork the approval and authorization rules.
+3. **Application state and execution are not one concern.** Dispatch creates the durable task run before sending to an agent (`internal/platform/dispatch/dispatcher.go:775`), while the service context owns cache and relational lifecycle (`internal/svc/service_context.go:221`). Keeping this boundary makes persistence and retries independent of route or protocol choice.
+4. **Durable, cache, analytics and coordination stores have different consistency models.** GORM migrations own relational schemas (`internal/svc/migrations.go:186`), cache is swappable (`internal/cache/helper.go:15`), ClickHouse is batch-oriented (`internal/analytics/worker/worker.go:435`), and owner leases use TTL semantics (`internal/cluster/owner_redis.go:27`). A single "storage layer" would hide those incompatibilities.
+5. **Agents are independent failure domains.** Capture gates, probe plugins and audited DevOps sessions run in separate processes and can fail without taking down REST serving (`agents/capture/runner/runner.go:201`; `agents/synthetics/pluginhost/protocol/probeplugin.proto:18`; `agents/devops/session/broker.go:126`).
+6. **Transport is a shared mechanism, not a domain service.** Agent frames and request IDs are reused across registration, invocation, task and operations traffic (`core/transport/tcp/framing.go:25`; `pkg/protocol/message.go:51`), so the Server domain does not need to encode framing in every handler.
+7. **Provider connectivity is local and health-scoped.** The provider listener owns the local connection and healthy-instance window (`internal/agent/tcp_local_listener.go:28`; `internal/agent/local_handler.go:34`), while plugin protocols differ by SDK and synthetics role (`agents/sidecar/funcplugin/protocol/funcplugin.proto:24`; `agents/synthetics/pluginhost/protocol/probeplugin.proto:18`).
+8. **Draft pages and executable pages have different guarantees.** `PageSpec` supports editing and validation, while `PublishedPageSpec` freezes version, publish facts and binding contracts (`internal/dashboard/spec/types.go:537`; `internal/dashboard/spec/types.go:797`); runtime execution refuses stale bindings against a frozen digest (`internal/dashboard/spec/types.go:823`).
+9. **Localized copy belongs to page data, not renderer code.** `LocalizedText` is part of the page model (`internal/dashboard/spec/types.go:18`) and generation can seed copy from a term dictionary (`internal/dashboard/generator/generator.go:29`), so a language change is data, not a renderer deployment.
 
 ## Related pages
 
 - [Architecture overview](/architecture/)
-
-[Runtime evidence / 运行依据](./runtime-topology)。
+- [Runtime topology](/architecture/runtime-topology)
+- [Terms and layering](/architecture/terms-and-layering)

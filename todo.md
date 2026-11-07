@@ -919,3 +919,67 @@
 - [ ] 审核发现：main 分支的 push 运行将 buf breaking 的比较基线设为当前 main 自身，绕过 PR 直接推送的破坏性 proto 变更会与自身比较而通过（.github/workflows/ci.yml:113）。
 - [ ] 审核发现：C++ 测试被编译为读取 sdks/contracts/golden_vectors.json，但向量实际位于 proto/contracts，导致两个新增测试在正常仓库及 CI 中因文件不存在而失败（sdks/cpp/CMakeLists.txt:785）。
 - [ ] 审核发现：跨 SDK golden 测试仅将预先编码的 body 当作不透明字节包装和拆包，未验证 Register 或 task 消息的 protobuf 编解码，也缺少握手及错误码向量，相关协议漂移仍可全部通过（sdks/go/pkg/croupier/protocol/golden_vectors_test.go:56）。
+- [ ] 审核发现：版本窗口只校验入站帧，握手未协商版本且所有出站帧仍使用本端 Version1，升级到 N 后旧版 SDK 无法识别新服务端的响应，N-1 会话无法正常工作（pkg/protocol/message.go:31）。
+- [ ] 审核发现：所有不兼容请求都以 InvokeResponse 编码错误，但心跳、注册等响应使用不同的 protobuf 类型，客户端会忽略错误或将其误读为正常响应；调用类客户端也将该错误 payload 当作成功结果返回（core/transport/tcp/mux_conn.go:234）。
+- [ ] 审核发现：服务端对不兼容版本的响应帧和单向事件也无条件发送响应，可能生成错误 MsgID 或与对端形成响应循环，违背仅拒绝请求帧的协议规则（internal/transport/tcp/server.go:200）。
+- [ ] 审核发现：收到不兼容版本的响应时直接丢弃而不通知对应 pending 请求，调用会一直等待至上下文超时甚至无限等待，且无法获知版本错误（sdks/go/pkg/croupier/transport/tcp_client.go:371）。
+- [ ] 审核发现：SupportedVersions 固定只返回当前版本，按文档开启 N-1 窗口后拒绝响应仍漏报实际支持的旧版本，两份 Go 协议实现均存在此问题（pkg/protocol/message.go:40）。
+
+## 源码分层分析 2026-11-07
+
+### 抽象层清单
+
+- Web 控制台：认证、保存浏览器范围/令牌并经 REST/SSE 调用 Server（web/src/app.tsx:113；web/src/services/core/http.ts:40）。
+- Server HTTP API：路由 REST、应用身份与 scope 中间件，并管理 HTTP 启停（internal/handler/routes.go:89；cmd/server/root.go:417）。
+- Server 应用服务：执行治理、审批、审计、契约、注册表和派发用例（internal/svc/service_context.go:221；internal/platform/functioninvoke/govern.go:63）。
+- 存储与协调：区分关系库、缓存、ClickHouse、集群 Owner 租约和文件/内存适配器（internal/svc/migrations.go:186；internal/cache/helper.go:15）。
+- Agent 运行时：外向连接 Server，执行注册、心跳、capture、synthetics、DevOps 和托管进程（internal/app/agent/app.go:184；agents/capture/runner/runner.go:201）。
+- 会话传输：共享帧、多路复用和线上消息 ID（core/transport/tcp/framing.go:25；pkg/protocol/message.go:51）。
+- Provider 会话：本地终结 SDK 连接、按健康实例路由并适配插件协议（internal/agent/local_handler.go:91；internal/agent/local_handler.go:290）。
+- 页面/控制台 DSL：建模草稿、发布快照、菜单与绑定，并只执行冻结契约（internal/dashboard/spec/types.go:537；internal/api/console/service.go:313）。
+
+### 超大文件候选
+
+- [ ] LAY-001 [P1] 拆分 internal/api/page/service.go（2695 行）——草稿查询、校验、发布、版本与快照转换混在一个 Service 中，发布事务和查询映射可分文件收敛（internal/api/page/service.go:49）。
+- [ ] LAY-002 [P1] 拆分 internal/service/versioning/service.go（2400 行）——发布版本、回滚、校验、钩子和领域转换同处一个服务，状态迁移路径难以独立审查（internal/service/versioning/service.go:33）。
+- [ ] LAY-003 [P1] 拆分 sdks/cpp/src/croupier_client.cpp（2356 行）——同一文件包含客户端、两个 invoker 实现、HTTP 与 JSON 辅助逻辑，应按 public API、transport adapter 和 schema validation 拆分（sdks/cpp/src/croupier_client.cpp:334）。
+- [ ] LAY-004 [P1] 拆分 internal/server/control_handler.go（2298 行）——注册、心跳、任务、调用、运维与流控处理集中在一个 handler 中，可按协议族拆成独立 decoder/handler（internal/server/control_handler.go:128）。
+- [ ] LAY-005 [P1] 拆分 internal/service/contract_service.go（2286 行）——契约创建、重建、版本化、告警和审计持久化混在一个事务服务中，生命周期与映射逻辑可分层（internal/service/contract_service.go:55）。
+- [ ] LAY-006 [P1] 拆分 internal/api/extension/service.go（2268 行）——目录、发布、安装、配置与状态查询共享一个 Service，扩展包校验和持久化可拆开（internal/api/extension/service.go:30）。
+- [ ] LAY-007 [P1] 拆分 internal/svc/migrations.go（2213 行）——所有领域迁移注册在一个文件中，按迁移主题拆分可减少变更冲突（internal/svc/migrations.go:186）。
+- [ ] LAY-008 [P1] 拆分 internal/api/openapi/service.go（2208 行）——OpenAPI source CRUD、解析、校验和展示映射集中在一个服务中，解析器与 API 编排应分离（internal/api/openapi/service.go:42）。
+- [ ] LAY-009 [P1] 拆分 sdks/js/src/index.ts（2089 行）——BasicClient 同时实现协议、任务状态、文件、字段提示和客户端工厂，可按 client/task/file/hints 拆模块（sdks/js/src/index.ts:598）。
+- [ ] LAY-010 [P1] 拆分 internal/svc/service_context.go（1983 行）——组合根、后台生命周期、扩展装配和 outlet 适配集中一处，基础设施依赖与领域装配应分开（internal/svc/service_context.go:221）。
+- [ ] LAY-011 [P1] 拆分 internal/api/resourcecatalog/service.go（1950 行）——目录查询、语义映射、诊断、分页与缓存同文件，DSL 映射可独立维护（internal/api/resourcecatalog/service.go:27）。
+- [ ] LAY-012 [P1] 拆分 sdks/js/src/index.test.ts（1920 行）——连接、任务、文件和配置测试混在一个 1920 行文件中，按被测边界拆分可降低局部失败的影响（sdks/js/src/index.test.ts:85）。
+- [ ] LAY-013 [P1] 拆分 internal/api/ops/helpers.go（1778 行）——Agent 列表、元数据、进程、命令、审计和 DTO 转换集中在一起，可按命令族拆分（internal/api/ops/helpers.go:35）。
+- [ ] LAY-014 [P1] 拆分 internal/handler/routes.go（1658 行）——40 多个路由域的注册函数共用一个文件，路线分组和装配可按业务域拆分（internal/handler/routes.go:89）。
+- [ ] LAY-015 [P1] 拆分 internal/config/config.go（1639 行）——Server、Agent、存储、集群、认证、备份与遥测 schema 共用一个 Config 树，可按部署单元拆包（internal/config/config.go:13）。
+- [ ] LAY-016 [P1] 拆分 internal/platform/registry/store.go（1604 行）——Agent、provider、function、警告与快照状态共存一个 Store，写入路径可按资源拆分（internal/platform/registry/store.go:159）。
+- [ ] LAY-017 [P1] 拆分 internal/platform/dispatch/dispatcher.go（1591 行）——同步调用、任务创建、路由、HA 转发、事件持久化和收割集中在一个 Dispatcher（internal/platform/dispatch/dispatcher.go:86）。
+- [ ] LAY-018 [P1] 拆分 internal/api/console/service.go（1510 行）——菜单、页面、绑定执行和快照治理在同一 Service，执行协议映射可独立（internal/api/console/service.go:50）。
+- [ ] LAY-019 [P1] 拆分 internal/dashboard/generator/generator.go（1455 行）——操作页、任务页、表单和文案生成交织，可用按页面 kind 的生成器拆分（internal/dashboard/generator/generator.go:52）。
+- [ ] LAY-020 [P1] 拆分 internal/service/proposal_service.go（1381 行）——提案校验、权限、发布钩子和状态转换集中于一个服务，验收与持久化应分开（internal/service/proposal_service.go:25）。
+- [ ] LAY-021 [P1] 拆分 internal/dashboard/generator/resource_generator.go（1355 行）——CRUD、action、task 页面和 selector/form 生成交织，可按语义族拆分（internal/dashboard/generator/resource_generator.go:22）。
+- [ ] LAY-022 [P1] 拆分 internal/platform/settings/layered.go（1305 行）——有效键、类型、加密、分层读取和默认值集中在一个文件，schema 与分层读取可拆开（internal/platform/settings/layered.go:187）。
+- [ ] LAY-023 [P1] 拆分 internal/app/agent/app.go（1265 行）——应用生命周期、本地 server、连接建立和插件装配共享一个 App，可按 boot/session/plugin 拆分（internal/app/agent/app.go:35）。
+- [ ] LAY-024 [P1] 拆分 internal/agent/local_handler.go（1243 行）——provider 注册、调用路由、健康、drain 和插件调用集中在一个 handler（internal/agent/local_handler.go:91）。
+- [ ] LAY-025 [P1] 拆分 internal/dashboard/spec/selector_ast.go（1225 行）——AST、值来源、转换、赋值和类型收窄混合，AST 与 execution mapping 可拆分（internal/dashboard/spec/selector_ast.go:9）。
+- [ ] LAY-026 [P1] 拆分 internal/analytics/worker/worker.go（1212 行）——消费、批量写、聚合、checkpoint、重放和死信同文件，ingest 与 ClickHouse writer 应分离（internal/analytics/worker/worker.go:71）。
+- [ ] LAY-027 [P1] 拆分 internal/drivers/openapi/provider.go（1178 行）——OpenAPI provider 的请求、认证、重试和 schema 解析集中在一个 Provider（internal/drivers/openapi/provider.go:71）。
+- [ ] LAY-028 [P1] 拆分 internal/audit/audit.go（1173 行）——事件类型、记录构造、校验、异步队列和失败策略集中在一起，schema 与写入管线可分离（internal/audit/audit.go:203）。
+- [ ] LAY-029 [P1] 拆分 internal/api/ops/handler.go（1136 行）——运维 HTTP handler 覆盖命令、进程、指标、会话和报告，可按 operations protocol 拆分（internal/api/ops/handler.go:31）。
+- [ ] LAY-030 [P1] 拆分 internal/api/incident/report.go（1091 行）——报告指标、对比、趋势、导出和落库转换集中在一个文件，分析计算与 API DTO 应分开（internal/api/incident/report.go:40）。
+- [ ] LAY-031 [P1] 拆分 internal/audit/store.go（1089 行）——hash chain、SQL 持久化、retention 和模型转换混在一个 store，链校验和存储适配应分离（internal/audit/store.go:248）。
+- [ ] LAY-032 [P1] 拆分 sdks/cpp/src/tcp_transport.cpp（1085 行）——TCP client、server、dispatch、read loop 和响应工具同文件，client/server 可独立（sdks/cpp/src/tcp_transport.cpp:38）。
+- [ ] LAY-033 [P1] 拆分 internal/api/auth/service.go（1085 行）——登录、OTP、邮箱验证、游戏范围、审计和 session 管理集中在一个 Service（internal/api/auth/service.go:42）。
+- [ ] LAY-034 [P1] 拆分 internal/app/agent/ops_server.go（1054 行）——托管进程、指标、命令执行、supervisor 事件和重启策略集中在一个 OpsServer（internal/app/agent/ops_server.go:34）。
+- [ ] LAY-035 [P1] 拆分 internal/api/function/helpers.go（1051 行）——函数列表、详情、分析、复制、启停和关系映射集中在一个 helpers 文件，API 编排可按用例拆分（internal/api/function/helpers.go:25）。
+- [ ] LAY-036 [P1] 拆分 internal/platform/registry/metrics.go（1019 行）——指标模型、采集、每小时聚合、清理和查询共享一个 MetricsStore，写入与查询应分离（internal/platform/registry/metrics.go:122）。
+- [ ] LAY-037 [P1] 拆分 internal/platform/approvals/notification.go（1010 行）——通知事件、渠道、模板、重试和发送器注册集中在一起，路由与投递可拆分（internal/platform/approvals/notification.go:78）。
+
+### 目录/分类问题
+
+- [ ] internal/model/task.go 定义 `TaskRun`，而执行状态机在 internal/platform/dispatch/dispatcher.go；同一任务域的运行模型、派发器和事件查询分散在三处（internal/model/task.go:8；internal/platform/dispatch/dispatcher.go:54）。
+- [ ] internal/api/ops 与 internal/app/agent/ops_server.go 都是运维面，但前者是 Server REST DTO/编排，后者是 Agent gRPC 实现；同名领域缺少共享接口说明（internal/api/ops/handler.go:31；internal/app/agent/ops_server.go:34）。
+- [ ] internal/service/contract_service.go 与 internal/platform/registry/store.go 都维护函数契约状态；service 侧负责版本转换，registry 侧负责运行快照，当前命名不能直接显示这一边界（internal/service/contract_service.go:55；internal/platform/registry/store.go:159）。
