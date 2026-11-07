@@ -108,9 +108,15 @@ jobs:
         run: buf lint proto
       - name: Proto breaking gate (CR-FIX-05)
         # CR-FIX-05：proto 破坏性变更必须在 core CI 阶段变红。full checkout
-        # 使 `.git#branch=main,subdir=proto` 可解析本地 main。
+        # 使 `.git#branch=main,subdir=proto` 可解析本地 main。PR merge-checkout
+        # 没有本地 refs/heads/main（buf 需本地分支可 clone），故先显式建出；
+        # push-to-main 运行已有 checked-out main，跳过即可（main vs main 无 diff）。
         timeout-minutes: 10
-        run: buf breaking proto --config proto/buf.breaking.yaml --against '.git#branch=main,subdir=proto' --against-config proto/buf.breaking.yaml
+        run: |
+          if ! git rev-parse --verify -q refs/heads/main >/dev/null; then
+            git fetch --no-tags origin main:main
+          fi
+          buf breaking proto --config proto/buf.breaking.yaml --against '.git#branch=main,subdir=proto' --against-config proto/buf.breaking.yaml
       - name: Go mod download
         timeout-minutes: 5
         run: |
