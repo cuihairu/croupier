@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"gorm.io/gorm"
@@ -86,6 +87,9 @@ func (m *BatchOpModel) UpdateStatus(ctx context.Context, id uint, status string,
 	}
 	tx := m.db.WithContext(ctx).Model(&BatchOp{}).Where("id=?", id)
 	if len(fields) > 0 {
+		if len(fields) > math.MaxInt-1 {
+			return errors.New("too many update fields")
+		}
 		updates := make(map[string]any, len(fields)+1)
 		for k, v := range fields {
 			updates[k] = v
