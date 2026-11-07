@@ -32,7 +32,7 @@ title: 术语与分层
 | 消息 ID           | Message ID             | 覆盖注册、调用、任务和运维族的 24 位操作 ID。                 | `pkg/protocol/message.go:51`; `pkg/protocol/message.go:71`                                     |
 | Provider manager  | Provider manager       | sidecar 保存 SDK provider 会话和健康窗口的注册表。            | `internal/agent/local_handler.go:52`                                                           |
 | Provider 调用     | Provider invocation    | 先选择健康 provider，再调用其处理器。                         | `internal/agent/local_handler.go:290`                                                          |
-| Function plugin   | Function plugin        | sidecar 的 gRPC 契约，用于描述和调用插件函数。                | `agents/sidecar/funcplugin/protocol/funcplugin.proto:24`                                       |
+| Function plugin   | Function plugin        | sidecar 的插件契约，用于描述和调用插件函数。                  | `agents/sidecar/funcplugin/protocol/funcplugin.proto:24`                                       |
 | Probe plugin      | Probe plugin           | synthetics 的 go-plugin 契约，用于描述和运行探测。            | `agents/synthetics/pluginhost/protocol/probeplugin.proto:18`                                   |
 | PageSpec          | PageSpec               | 强类型页面草稿模型，包含布局、本地化文案和绑定。              | `internal/dashboard/spec/types.go:537`; `internal/dashboard/spec/types.go:18`                  |
 | Published page    | Published page         | 冻结范围、版本、绑定和契约摘要的不可变快照。                  | `internal/dashboard/spec/types.go:797`; `internal/dashboard/spec/types.go:823`                 |
