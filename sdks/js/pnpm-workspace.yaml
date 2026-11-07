@@ -26,3 +26,6 @@ overrides:
   # 是 v7 专有子路径，require 直接 Cannot find module（2388c30 引入、CI-JS-SDK
   # 9-30 起爆）。版本线限定：仅 6.x 线消费者抬 6.3.1，7.x 消费者自然解析。
   semver@<7.0.0: ">=6.3.1 <7.0.0"
+  # 保留不修复（2026-11-07 评估，Dependabot #482，GHSA-gcqx-w48m-w2h4 deepmerge
+  # prototype poisoning）：上游无补丁版本（npm latest 4.3.1 即 last_affected，
+  # 5.x 未发布），无可钳目标，等待上游修复；完整处置见 web/pnpm-workspace.yaml 同日备注

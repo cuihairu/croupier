@@ -2,3 +2,7 @@ allowBuilds:
   # protobufjs's postinstall only writes an optional install-check marker;
   # the SDK uses it as a plain library, so no build script is needed.
   protobufjs: false
+
+# 2026-11-07 Dependabot #483（GHSA-gcqx-w48m-w2h4 deepmerge prototype poisoning，low）：
+# 上游无补丁版本（npm latest 4.3.1 即 last_affected，5.x 未发布），无可钳目标，
+# 不设 override，等待上游修复；完整处置见 web/pnpm-workspace.yaml 同日备注
