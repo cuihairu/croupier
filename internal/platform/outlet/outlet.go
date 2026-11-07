@@ -206,7 +206,9 @@ func (m *Manager) applyGate(ctx context.Context, ev AlertEvent) (AlertEvent, boo
 		return ev, suppress
 	}
 	out := ev
-	out.Metadata = make(map[string]string, len(ev.Metadata)+len(meta))
+	// 容量只取 len(ev.Metadata)：避免 len+len 相加溢出的告警面，额外
+	// meta 项由 map 自增长补足（meta 通常仅数项，重排代价可忽略）。
+	out.Metadata = make(map[string]string, len(ev.Metadata))
 	for k, v := range ev.Metadata {
 		out.Metadata[k] = v
 	}
