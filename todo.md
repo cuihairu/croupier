@@ -1084,3 +1084,26 @@ api/incident 由 410 条压至 ~118 条（余为 DB 错误传播防御分支 + �
    误判为 `network: ICMP echo reply code 0`，即 **IPv6 ICMP 探活永远失败**。
    修复方向（replyType 直接用 ipv6.ICMPType）待用户定夺；v4 路径不受影响
    （TestICMPCheckerLoopbackSuccessWithRawCapability 只测 v4，故此前未暴露）。
+
+### 续批 18-23（2026-11-09 续，internal/api/ops 收尾 + capture runner 补测）
+
+| commit   | 说明                                                                                                                                                                             | 本批度量                                    |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 5a05bbca | capture runner 闸门/拉取拨号/命中上报分支（gates/pull dial/hit sender）                                                                                                          | agents/capture/runner 补测                  |
+| fdf9688e | devops 白名单面板与 batch ops executor 分支                                                                                                                                      | internal/api/ops 补测                       |
+| f739a46d | cost control 与 probe policy handler 分支                                                                                                                                        | internal/api/ops 补测                       |
+| 7265e855 | deploy agent 三败点全链/rollback、runbook 引擎、supervisor 日志下载、probe diagnose、synthetics、provision 销毁/护栏/审批工作流                                                  | internal/api/ops 全量实测 88.3%（批 21 后） |
+| fab6018f | handler 批次五端点（scope 注入/实名/dry-run）、runbook 八端点（ContinueOnFailure→partial 仍 200）、deploy handler 往返、capture gates 事实交集、helpers 审计留痕/越域/alert 流转 | internal/api/ops 88.3% → 95.9%              |
+| b7ee697c | 隧道错误两态（supervisor 族/进程更新/GetSystemInfo 两态/StartProcess）、GetMeta 集群 ghost 未命中、batch op 与 runbook 编排器未装配错误面、deploy 未装配/表缺失/回滚错误分支     | internal/api/ops 95.9% → 97.0%              |
+
+internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。余 16 个零
+覆盖块全部为已记录的不可达分支（各 *_extra_test.go 文件头诚实跳过清单）：
+
+- handler.go 7 块：GET 侧 bind 错误——请求字段无 `binding:"required"` 且
+  BindQueryCompat 吞掉 ShouldBindQuery 错误（#59 同款），GET 侧不可触发。
+- agents.go :119 / helpers.go :174/:335 / supervisor.go :196：自身 nil-store
+  守卫在 requireAgentScope 之后——requireAgentScope 在 store nil 时已先报
+  "registry store unavailable"，分支体不可达。
+- helpers.go :825/:973：proto.Marshal 对空请求体不可触发。
+- deployments.go 133/141/145：multipart 内部结构失败需伪造 fileHeader、
+  内存 multipart 读取不失败、超 500 MiB 载荷需真实分配半 GB 内存。
