@@ -200,8 +200,12 @@ func TestExportJSONLAndCSVWithRange(t *testing.T) {
 	}
 	require.NoError(t, w.Close())
 
-	// 伪造一个轮转文件（lumberjack 命名形态）验证 glob 并集
-	rotated := filepath.Join(dir, "exec-2026-10-09T00-00-00.000.log")
+	// 伪造一个轮转文件（lumberjack 命名形态）验证 glob 并集。文件名日期取
+	// 24h 前：writer 的 lumberjack mill 会按「文件名时间戳超 MaxAge（默认
+	// 30 天）」异步清过期备份——固定日期 2026-10-09 在 11-08 跨过 30 天线
+	// 后被 mill 删掉，CI 随机红（glob 命中与否取决于清理 goroutine 是否
+	// 抢在测试建文件之前跑完）。
+	rotated := filepath.Join(dir, "exec-"+time.Now().Add(-24*time.Hour).Format("2006-01-02T15-04-05.000")+".log")
 	old := sampleRec(StatusSuccess)
 	old.TsUnixMs = 500
 	require.NoError(t, os.WriteFile(rotated, []byte(mustJSON(old)+"\n"), 0o644))
