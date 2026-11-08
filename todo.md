@@ -1040,3 +1040,30 @@ capture/connector/mongo（106）是集成门（需要真实 postgres/mongo），
 2. 集成门包（capture pg/mongo/runner/source，约 840 条）需真实 postgres/mongo/实跑，本地未起三方言容器矩阵。
 3. 大 REST 面（api/ops + api/incident，1128 条）需按 handler 逐个建 httptest + DB fixture，单包即需数百行 fixture。
 4. 防御分支（vault persist I/O、runbook substituteStep、registry 空循环等）无外部注入点，改生产代码才能覆盖——违反「只加测试」纪律。
+
+### 续批 6-13（2026-11-09，继续按「诚实覆盖」压降）
+
+98% 结论维持不变；本日续批收口原清单中的大头（api/incident、capture/runner、devops/session、
+svc wiring、provision runner）：
+
+| commit   | 说明                                                                              | 本批度量                                              |
+| -------- | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 641f5ec9 | external 入站面（Bearer/限流/幂等/令牌 CRUD/admin 守卫）                          | external.go 83.1% / external_handler.go 86.8%         |
+| 220410ad | 类别 upsert/唯一冲突、登记校验闭集、更新扫掠、状态流转、报表路由                  | service.go 92.7% / handler.go 82.6%                   |
+| aa56db29 | 桶键/趋势缺省窗/dataEpoch/W53 同比缺失/生成器 sink 失败与聚合截断                 | report.go 91.9% / report_generator.go 89.8%           |
+| 198bf3f4 | capture spool legacy 恢复/键跳过/原子写失败注入 + 连接器按型选取                  | alert_spool.go 剩 4 条（Marshal 死分支 + 磁盘故障面） |
+| 1bf7c1a8 | runSourceOnce 生命周期（位点损坏/Open/Poll/journal/流结束/取消终刷）+ probeTarget | capture/runner 83.6% → 88.4%                          |
+| 82955956 | devops 会话守卫（broker 白名单热替换/recorder/cast 坏形）+ SSH 生命周期           | devops/session 81.5% → 89.5%                          |
+| c27cb959 | provision TfexecRunner 错误路径（newTF 早退/变量装配先于执行）                    | ops/provision 78.9% → 84.5%                           |
+| （在途） | provision wiring 适配层（Run↔模型映射/CAS/审批门/注册等待）                       | internal/svc 92.6% → 95.3%（全量 262s 核验通过）      |
+
+api/incident 由 410 条压至 ~118 条（余为 DB 错误传播防御分支 + 已识别死兜底，测试注释标注）。
+
+### 续批发现的生产缺陷（纪律=只加测试，未改行为；测试注释已标注）
+
+1. `internal/api/incident/service.go` UpdateIncident：`updates["details"] = req.Details` 以
+   map 更新绕过 GORM JSON 序列化器，三方言均报 unsupported type —— details 字段更新必炸。
+2. `internal/svc/provision_wiring.go` provisionDBStore.Update：`runToModel` 不回填数值主键
+   （provision.Run 无 PK 字段），`Save(ID=0)` 退化为再插入 → run_id 唯一键冲突。
+
+两条待用户确认修复方向后另行处理；同族首例为 incident Details map 序列化。
