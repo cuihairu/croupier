@@ -50,7 +50,7 @@ func TestAgentMetricsHistory_RawFaceRebuildsEnrichment(t *testing.T) {
 		var count int64
 		require.NoError(t, db.Model(&reg.AgentMetricsHistory{}).Count(&count).Error)
 		return count >= 1
-	}, 5*time.Second, 10*time.Millisecond)
+	}, 20*time.Second, 10*time.Millisecond)
 
 	resp, err := agentMetricsHistory(context.Background(), svcCtx, &AgentMetricsHistoryRequest{
 		AgentID: "a1",

@@ -216,7 +216,8 @@ func TestProvisionSubmit_Validation_422(t *testing.T) {
 // 审核发现：ProvisionSubmit 直接采用 body gameId/env，未与认证 scope 比对
 // ——作用域受限用户可向越权游戏/环境供给云资源。回归：scope 冲突必须 403。
 func TestProvisionSubmit_CrossScopeRejected_403(t *testing.T) {
-	h := NewHandler(newProvisionService(t, true, false, nil))
+	store := &memStore{runs: map[string]*provision.Run{}}
+	h := NewHandler(newProvisionService(t, true, false, store))
 	t.Setenv("CROUPIER_PROVISION_TEST_TOKEN", "tok-1")
 
 	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/provision", validSubmitBody())
@@ -235,6 +236,19 @@ func TestProvisionSubmit_CrossScopeRejected_403(t *testing.T) {
 	h.ProvisionSubmit(ctx2)
 	assert.Equal(t, http.StatusForbidden, rec2.Code)
 	assert.Contains(t, rec2.Body.String(), "scope_mismatch")
+
+	// 首次提交（direct）已 spawn 异步 apply：写 WorkDir（t.TempDir）后等注册
+	// ~1s 才落终态。等终态再返回，避免 TempDir 清理与后台落盘互踩
+	// （TestMainHeartbeatLoop 同族清理竞态，CI 两连红）。
+	require.Eventually(t, func() bool {
+		runs, _ := store.List(context.Background(), 10)
+		for _, r := range runs {
+			if r.State != provision.StateFailed {
+				return false
+			}
+		}
+		return len(runs) >= 1
+	}, 5*time.Second, 20*time.Millisecond)
 }
 
 func TestProvisionSubmit_MissingToken_503(t *testing.T) {
