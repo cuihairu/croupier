@@ -363,3 +363,21 @@ func TestRoundTripMessage(t *testing.T) {
 		}
 	}
 }
+
+// 线协议版本窗口：SDK 只接受 [MinSupportedVersion, Version1]，
+// SupportedVersions 是对外的握手协商面。
+func TestSupportedVersionsAndWindow(t *testing.T) {
+	versions := SupportedVersions()
+	if len(versions) != 1 || versions[0] != int(Version1) {
+		t.Fatalf("SupportedVersions() = %v, want [%d]", versions, Version1)
+	}
+	if !IsSupportedVersion(Version1) {
+		t.Fatalf("IsSupportedVersion(%d) = false, want true", Version1)
+	}
+	if IsSupportedVersion(Version1 + 1) {
+		t.Fatalf("IsSupportedVersion(%d) = true, want false", Version1+1)
+	}
+	if IsSupportedVersion(MinSupportedVersion - 1) {
+		t.Fatalf("IsSupportedVersion(%d) = true, want false", MinSupportedVersion-1)
+	}
+}

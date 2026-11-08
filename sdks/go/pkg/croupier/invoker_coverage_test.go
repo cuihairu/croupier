@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -631,6 +632,32 @@ func TestTCPInvoker_ReconnectDuringInvoke(t *testing.T) {
 	// Wait for the scheduled reconnect goroutine to settle.
 	time.Sleep(100 * time.Millisecond)
 	_ = inv.Close()
+}
+
+// 两个字段同时违反 schema 时，validatePayload 必须走 ValidationError
+// Causes 聚合分支：错误信息逐条以 "; " 拼接，而非单条顶层消息。
+func TestTCPInvoker_ValidatePayloadJoinsCauses(t *testing.T) {
+	t.Parallel()
+
+	inv := newTCPInvokerForTest(t, "127.0.0.1:1")
+	schema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"name": map[string]interface{}{"type": "string"},
+			"age":  map[string]interface{}{"type": "integer"},
+		},
+	}
+	err := inv.validatePayload(`{"name":1,"age":"old"}`, schema)
+	if err == nil {
+		t.Fatal("two violating fields must fail validation")
+	}
+	msg := err.Error()
+	if !strings.HasPrefix(msg, "payload validation failed: ") {
+		t.Fatalf("error = %q, want causes-joined prefix", msg)
+	}
+	if !strings.Contains(msg, "; ") {
+		t.Fatalf("error = %q, want multiple causes joined by '; '", msg)
+	}
 }
 
 var _ = net.JoinHostPort
