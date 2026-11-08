@@ -22,6 +22,12 @@ func newHistorySvcCtx(t *testing.T) (*svc.ServiceContext, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	// :memory: 每个池连接是独立空库——不钉 1 连接的话，Add 起的异步
+	// persistToDB 与轮询 Count 会各拿一条连接（建表库 vs 空库），负载下
+	// 表现成「行永远不出现 / no such table」随机红。单连接强制同一库。
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
 	require.NoError(t, db.AutoMigrate(&reg.AgentMetricsHistory{}, &reg.AgentMetricsHourly{}))
 
 	store := reg.NewMetricsStore()
