@@ -983,3 +983,60 @@
 - [ ] internal/model/task.go 定义 `TaskRun`，而执行状态机在 internal/platform/dispatch/dispatcher.go；同一任务域的运行模型、派发器和事件查询分散在三处（internal/model/task.go:8；internal/platform/dispatch/dispatcher.go:54）。
 - [ ] internal/api/ops 与 internal/app/agent/ops_server.go 都是运维面，但前者是 Server REST DTO/编排，后者是 Agent gRPC 实现；同名领域缺少共享接口说明（internal/api/ops/handler.go:31；internal/app/agent/ops_server.go:34）。
 - [ ] internal/service/contract_service.go 与 internal/platform/registry/store.go 都维护函数契约状态；service 侧负责版本转换，registry 侧负责运行快照，当前命名不能直接显示这一边界（internal/service/contract_service.go:55；internal/platform/registry/store.go:159）。
+
+## 覆盖率补测 2026-11-08（巡检单 2026-10-20）
+
+### 结论
+
+**98% 目标未达成，如实记录**。最终实测（2026-11-08 全量 server 覆盖跑，已剔除生成
+protobuf 与 demo main）：
+
+- 聚合 **92.53%（67316/72747 语句）**——**下界**：跑测时负载 94/14，`internal/api/ops`
+  600s 超时、`internal/app/agent` 与 `core/metrics` 指标测试失败（三者均为记忆库记载的
+  负载 flake 族，隔离全绿，非回归），故该 profile 对这三包欠覆盖。
+- 剔除这三包后，**干净子集实测 94.74%（62385/65852）**——这是本次可信的实测值。
+- 三包真实覆盖（批次 3 基线实测）：api/ops ≈79.3%（(3473-718)/3473，当时其测试跑完）、
+  app/agent ≈93%、core/metrics ≈97%；仅会把聚合抬升，故 **server 真实覆盖 ≥92.53%，
+  干净子集 ≈94.7%，仍远未达 98%**。
+
+本批 6 个 commit 共新增约 400 条语句覆盖（functioninvoke +26.6pt、model +4.7pt、
+tcp/vault/batchop 错误路径）；但离 98% 仍需 ~3000 条语句，其中 api/ops（718）、
+api/incident（410）需大量 httptest+DB fixture，capture/connector/pg（404）与
+capture/connector/mongo（106）是集成门（需要真实 postgres/mongo），非本会话可达。
+详见下方「未覆盖清单与原因」。
+
+### 每批提交（均英文 commit、无 AI 痕迹、单批单 push）
+
+| commit   | 说明                                                                      | 本批度量                                                              |
+| -------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1ba866da | go-sdk 过滤非库入口 + 补 protocol/invoker 测试                            | go-sdk 库 98.48% stmt（此前 codecov 显示 90.56% 为陈旧 carryforward） |
+| dc5e42d5 | server CI 过滤生成代码与 demo 入口                                        | server 真实 93.39%（剔除 340 条 .pb.go + 150 条 demo main）           |
+| 62cc3e32 | functioninvoke 派发链端到端（Govern→Dispatcher，stub 会话）               | functioninvoke 52.66% → 79.27%                                        |
+| 9f91ea79 | ops 面 model CRUD/查询补测（9 个用例）                                    | internal/model 91.60% → 96.32%（+182 条）                             |
+| 5bcbb1a0 | tcp Send 拒绝 / MuxConn handler 错误回包 / TLS 坏证书 / ConnectionSession | core+internal tcp 错误路径                                            |
+| 3485df81 | vault 落盘失败回滚 / batchop selector 守卫与解码失败                      | vault persist 回滚 + batchop 失败态                                   |
+
+### 未覆盖清单与原因（server 口径，按未覆盖语句数降序）
+
+- internal/api/ops（718）：REST handler/helper 面，需 httptest + 服务上下文 + DB fixture。
+- internal/api/incident（410）：报告/趋势/导出，同需 httptest + DB fixture。
+- agents/capture/connector/pg（404）：集成门，需真实 postgres（本地三方言容器矩阵未起）。
+- internal/app/agent（279）：进程托管/ops server，负载敏感，本会话隔离跑全绿但全量超时属已知 flake 族。
+- agents/capture/source（228）：采集源解析，依赖 pg/文件系统集成。
+- internal/svc（221）：组合根与 wiring，多为启动装配分支。
+- agents/sidecar/funcplugin/protocol（205）、agents/synthetics/pluginhost/protocol（135）：**生成 protobuf**，按巡检单步骤 1 剔除。
+- agents/capture/connector/mongo（106）、agents/capture/runner（101）、capture/gate（64）：集成门（mongo/实跑）。
+- core/healthprobe（107）、agents/synthetics/probe（66）：ICMP 探测，需真实网络/raw socket 权限。
+- internal/server（76）、internal/agent（65）、agents/controlconn（~50）：连接/控制面，部分需真实 TCP 端到端。
+- internal/ops/provision（72）、batchop（62）、runbook（45）：部分已补（batchop selector/解码失败、vault 回滚），余为部署/审批链 fixture。
+- internal/service/versioning（52）：散点 1 语句分支约 40 处，低 ROI。
+- internal/platform/vault（43）：**本批已补** persist 落盘失败回滚；write/flush/close/rename 故障需真实 I/O 注入（防御分支）。
+- internal/ops/runbook substituteStep（253-259）：对纯字符串 StepSpec 的 json.Marshal/Unmarshal 不可能失败，属防御分支，无法以测试触达。
+- 其余长尾：单文件 <50 条，多为错误早退/启动装配，需针对性 fixture。
+
+### 为什么 98% 本会话不可达
+
+1. 生成 protobuf（funcplugin/protocol 205 + pluginhost/protocol 135 = 340 条）按巡检单「排除生成代码」剔除，但 codecov 口径若不剔除会拉低；剔除后剩余缺口仍 ~3000 条。
+2. 集成门包（capture pg/mongo/runner/source，约 840 条）需真实 postgres/mongo/实跑，本地未起三方言容器矩阵。
+3. 大 REST 面（api/ops + api/incident，1128 条）需按 handler 逐个建 httptest + DB fixture，单包即需数百行 fixture。
+4. 防御分支（vault persist I/O、runbook substituteStep、registry 空循环等）无外部注入点，改生产代码才能覆盖——违反「只加测试」纪律。
