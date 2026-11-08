@@ -241,6 +241,15 @@ jobs:
         run: |
           go test -race -count=1 ./core/register ./agents/devops/... ./agents/capture/runner ./cmd/sidecar-agent
 
+      - name: Filter generated code and demo entrypoints from coverage
+        # 覆盖率口径排除不可测代码：生成的 protobuf（*.pb.go / *_grpc.pb.go）
+        # 与 pluginhost/funcplugin demo 的 main() 入口。与 go-sdk 上传过滤
+        # 同思路；过滤只删 profile 行，不影响测试本身。
+        timeout-minutes: 2
+        run: |
+          grep -vE '\.pb\.go:|/examples/' coverage.out > coverage.filtered.out
+          mv coverage.filtered.out coverage.out
+
       - name: Upload coverage to Codecov
         timeout-minutes: 3
         uses: codecov/codecov-action@v7.1.1
