@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -378,4 +379,87 @@ func TestDeployHandlersRoundTrip(t *testing.T) {
 		`{"rollbackPackageId":"p1"}`, gin.Param{Key: "id", Value: depID})
 	h.DeploymentRollback(c)
 	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestDeployServiceNotConfiguredBranches(t *testing.T) {
+	// svcCtx/模型未装配 → errDeployNotConfigured（233/340/355）
+	s := NewService(&svc.ServiceContext{})
+	_, err := s.DeployPackageUpload(context.Background(), &DeployPackageCreateRequest{Name: "game", Version: "v1"}, []byte("x"))
+	require.ErrorIs(t, err, errDeployNotConfigured)
+	_, err = s.DeploymentList(context.Background())
+	require.ErrorIs(t, err, errDeployNotConfigured)
+	_, err = s.DeploymentGet(context.Background(), "d1")
+	require.ErrorIs(t, err, errDeployNotConfigured)
+}
+
+func TestDeployHandlerErrorBranches(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// 表结构在册但物理表缺失 → handler service 错误分支（163/186/195/218）
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/dep_hb.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Deployment{}, &model.DeployPackage{}))
+	require.NoError(t, db.Migrator().DropTable("deploy_packages", "deployments"))
+	h := NewHandler(NewService(&svc.ServiceContext{
+		DB:                 db,
+		DeployPackageModel: model.NewDeployPackageModel(db),
+		DeploymentModel:    model.NewDeploymentModel(db),
+	}))
+
+	c, w := deployCtx(http.MethodGet, "/api/v1/ops/deploy/packages", "")
+	h.DeployPackageList(c)
+	require.NotEqual(t, http.StatusOK, w.Code)
+
+	c, w = deployCtx(http.MethodGet, "/api/v1/ops/deployments", "")
+	h.DeploymentList(c)
+	require.NotEqual(t, http.StatusOK, w.Code)
+
+	c, w = deployCtx(http.MethodGet, "/api/v1/ops/deployments/ghost", "",
+		gin.Param{Key: "id", Value: "ghost"})
+	h.DeploymentGet(c)
+	require.NotEqual(t, http.StatusOK, w.Code)
+
+	c, w = deployCtx(http.MethodPost, "/api/v1/ops/deployments/ghost/start", "",
+		gin.Param{Key: "id", Value: "ghost"})
+	h.DeploymentStart(c)
+	require.NotEqual(t, http.StatusOK, w.Code)
+
+	// 回滚 service 错误分支（218）
+	c, w = deployCtx(http.MethodPost, "/api/v1/ops/deployments/ghost/rollback",
+		`{"rollbackPackageId":"p1"}`, gin.Param{Key: "id", Value: "ghost"})
+	h.DeploymentRollback(c)
+	require.NotEqual(t, http.StatusOK, w.Code)
+}
+
+func TestDeployCreateStoreErrorAndViewDefaults(t *testing.T) {
+	ctx := context.Background()
+	agent := &fakeDeployAgent{}
+	s := deployFixture(t, agent)
+	seedPackage(t, s, "p1", "deploy/game.bin")
+
+	// deployments 表缺失 → 创建落库失败（333）
+	require.NoError(t, s.svcCtx.DB.Migrator().DropTable("deployments"))
+	_, err := s.DeploymentCreate(ctx, &DeploymentCreateRequest{PackageID: "p1", ProcessName: "game", Targets: []string{"a1"}})
+	require.ErrorContains(t, err, "创建发版单失败")
+
+	// TargetsJSON 非法（null）→ 视图兜底空切片（435）
+	view := buildDeploymentView(&model.Deployment{DeploymentID: "d9", TargetsJSON: model.JSON([]byte("null"))})
+	require.NotNil(t, view.Targets)
+	require.Empty(t, view.Targets)
+}
+
+func TestBytesReaderRoundTrip(t *testing.T) {
+	// mu 保护的 ReadSeeker 包装（476/481）：Read/Seek 行为与底层 reader 一致
+	br := newBytesReader([]byte("hello"))
+	buf := make([]byte, 3)
+	n, err := br.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, 3, n)
+	require.Equal(t, "hel", string(buf))
+
+	off, err := br.Seek(1, io.SeekStart)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), off)
+	rest, err := io.ReadAll(br)
+	require.NoError(t, err)
+	require.Equal(t, "ello", string(rest))
 }

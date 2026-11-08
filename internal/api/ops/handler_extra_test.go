@@ -6,7 +6,14 @@ package ops
 // alert 流转 handler 往返、metrics history/log search 的空 store 成功与
 // bind 错误、batch op 五端点（创建带 scope 注入与实名、执行 dry-run、详情、
 // 列表、错误分支）、runbook 八端点（定义带 scope/实名、列表、详情、删除
-// 204、运行（ContinueOnFailure 步 → partial 仍 200）、运行详情与列表）。
+// 204、运行（ContinueOnFailure 步 → partial 仍 200）、运行详情与列表）、
+// service 错误分支（隧道不可达的 supervisor/进程更新、ghost agent、
+// 编排器未装配的 batch op 与 runbook）。
+//
+// 诚实跳过（不可达）：GET 侧 handler 的 bind 错误分支——supervisor 三端点
+// （110/129/150）、OpsNodeDetail（493）、BatchOpList（1013）、RunbookList
+// （1059）、RunbookRunList（1127）。请求字段均无 binding:required，且
+// BindQueryCompat 吞掉 ShouldBindQuery 错误（#59 同款），GET 侧不可触发。
 
 import (
 	"context"
@@ -369,4 +376,78 @@ func TestOpsHandlerRunbookFamily(t *testing.T) {
 	h.RunbookRunListHandler(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), runRes.RunID)
+}
+
+func TestOpsHandlerServiceErrorBranches(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+
+	// registry 有会话但 ops 隧道不可达（无解析器）→ supervisor 族 service
+	// 错误分支（110/129/150）
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	for _, tc := range []struct {
+		name string
+		call func(*gin.Context)
+	}{
+		{"supervisor", h.OpsAgentSupervisor},
+		{"supervisor-events", h.OpsAgentSupervisorEvents},
+		{"supervisor-log", h.OpsAgentSupervisorLog},
+	} {
+		ctx, w := newOpsTestContext(http.MethodGet, "/api/v1/ops/x?agentId=a1", "")
+		tc.call(ctx)
+		require.NotEqual(t, http.StatusOK, w.Code, tc.name)
+	}
+
+	// ghost agent → requireAgentScope "agent not found" → metrics history
+	// 与 log search 的 service 错误分支（493/766）
+	hGhost := NewHandler(NewService(&svc.ServiceContext{RegistryStore: registry.NewStore()}))
+	ctx, w := newOpsTestContext(http.MethodGet, "/api/v1/ops/x?agentId=ghost", "")
+	hGhost.AgentMetricsHistory(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+	ctx, w = newOpsTestContext(http.MethodGet, "/api/v1/ops/logs?agentId=ghost", "")
+	hGhost.AgentLogSearch(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+
+	// 编排器未装配 → batch op 创建/执行/列表 service 错误分支（975/1013/1018）
+	hBatch := NewHandler(NewService(&svc.ServiceContext{}))
+	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/batch",
+		`{"kind":"config","agentIds":["a1"],"config":{"path":"/x","contentBase64":"djE=","mode":644}}`, "alice")
+	hBatch.BatchOpCreateHandler(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/batch/b1/execute", `{"dryRun":true}`, "alice",
+		gin.Param{Key: "id", Value: "b1"})
+	hBatch.BatchOpExecuteHandler(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/batch", "", "alice")
+	hBatch.BatchOpListHandler(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+
+	// meta DB 未装配 → runbook 创建/列表/运行列表 service 错误分支
+	// （1059/1064/1132）
+	hRb := NewHandler(NewService(&svc.ServiceContext{}))
+	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/runbooks",
+		`{"name":"rb","steps":[]}`, "alice")
+	hRb.RunbookCreateHandler(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/runbooks", "", "alice")
+	hRb.RunbookListHandler(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/runbook-runs", "", "alice")
+	hRb.RunbookRunListHandler(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
+}
+
+func TestOpsHandlerProcessUpdateServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+
+	// 会话在册但隧道不可达（无解析器）→ service 错误分支（254）
+	ctx, w := scopedOpsCtx(http.MethodPost, "/api/v1/ops/agents/a1/processes/game/update",
+		`{"stagedPath":"/tmp/staged","expectedSha256":"sha"}`, "alice",
+		gin.Param{Key: "agentId", Value: "a1"}, gin.Param{Key: "name", Value: "game"})
+	h.OpsAgentProcessUpdate(ctx)
+	require.NotEqual(t, http.StatusOK, w.Code)
 }

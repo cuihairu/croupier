@@ -1,16 +1,20 @@
 package ops
 
-// helpers.go 补测：scope 过滤回退路径（本地视图 game/env 不匹配 continue）、
+// helpers.go 补测：scope 过滤回退路径（本地视图 game/env 不匹配两条 continue）、
 // metrics/processes 的 store 缺失与快照缺项守卫、systemInfo/meta 的集群
 // 归属放行后内存未命中 404、exec/update 审计留痕的 actor 取名分支、
 // alert 流转的存在性/越域/落库错误分支、drain/restart/undrain 无连接 404、
-// enforceRequestScope 越域 403、recordOpsAudit 落库失败 write-gap。
+// enforceRequestScope 越域 403、recordOpsAudit 落库失败 write-gap、
+// 进程更新 svcCtx nil 守卫；agents.go 服务面的 GetMeta 未命中、
+// GetSystemInfo/StartProcess 隧道错误两态。
 //
 // 诚实跳过（不可达，头部记录）：helpers.go:174（opsAgentMeta 的
-// RegistryStore nil 分支）与 :335（opsAgentSystemInfo 的 store nil 透传）——
-// 两者前置的 requireAgentScope 在 RegistryStore 为 nil 时已先报
+// RegistryStore nil 分支）、:335（opsAgentSystemInfo 的 store nil 透传）、
+// agents.go:119（GetMeta 自身 store nil 分支）——三者前置的
+// requireAgentScope 在 RegistryStore 为 nil 时已先报
 // "registry store unavailable"，分支体不可达。:825/:973 的 proto.Marshal
-// 错误分支对空请求体不可触发。
+// 错误分支对空请求体不可触发。supervisor.go:196（svcCtx nil）同理被
+// requireAgentScope 前置拦截。
 
 import (
 	"context"
@@ -26,6 +30,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -90,6 +95,8 @@ func TestOpsAgentsListScopeFilterFallback(t *testing.T) {
 	store := registry.NewStore()
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a2", GameID: "other", Env: "dev"}))
+	// 同 game 不同 env：命中 env 不匹配的 continue 分支
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a3", GameID: "demo", Env: "dev"}))
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
@@ -254,4 +261,70 @@ func TestEnforceRequestScopeBranches(t *testing.T) {
 	require.NoError(t, enforceRequestScope(ctx, "demo", "prod"))
 	// 平台级 scope 不限制
 	require.NoError(t, enforceRequestScope(context.Background(), "any", "any"))
+}
+
+func TestOpsAgentProcessUpdateNilServiceContext(t *testing.T) {
+	// helpers.go:429 — svcCtx nil 守卫
+	_, err := opsAgentProcessUpdate(context.Background(), nil,
+		&OpsProcessUpdateRequest{AgentID: "a1", Name: "game"})
+	require.ErrorContains(t, err, "service context is required")
+}
+
+func TestAgentServiceGetMetaRegistryMiss(t *testing.T) {
+	// agents.go:135 — GetMeta registry 遍历未命中（:119 的 store nil 分支
+	// 被 requireAgentScope 前置拦截，见文件头诚实跳过清单）
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID: "a1", GameID: "demo", Env: "prod", Labels: map[string]string{"os": "linux"},
+	}))
+	agentSvc := NewAgentService(&svc.ServiceContext{RegistryStore: store})
+	_, err := agentSvc.GetMeta(context.Background(), "ghost")
+	require.EqualError(t, err, `agent "ghost" not found`)
+
+	// 命中 → 元数据视图带标签
+	meta, err := agentSvc.GetMeta(context.Background(), "a1")
+	require.NoError(t, err)
+	require.Equal(t, "linux", meta.OS)
+}
+
+func TestAgentServiceTunnelErrorBranches(t *testing.T) {
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
+	agentSvc := NewAgentService(&svc.ServiceContext{RegistryStore: store})
+
+	// ghost → requireAgentScope 错误透传（agents.go:182）
+	_, err := agentSvc.GetSystemInfo(context.Background(), "ghost")
+	require.ErrorContains(t, err, "not found")
+
+	// 解析器未装配 → ops client unavailable
+	_, err = agentSvc.GetSystemInfo(context.Background(), "a1")
+	require.ErrorContains(t, err, "ops client unavailable")
+
+	// 隧道调用失败 → get system info 包装错误（agents.go:192）
+	caller := &fakeCaller{errOn: map[uint32]error{
+		uint32(protocol.MsgGetSystemInfoRequest): errors.New("dial refused"),
+	}}
+	setupOpsResolver(t, caller)
+	_, err = agentSvc.GetSystemInfo(context.Background(), "a1")
+	require.ErrorContains(t, err, "get system info: dial refused")
+
+	// StartProcess 隧道失败（agents.go:242）
+	caller.errOn[uint32(protocol.MsgStartProcessRequest)] = errors.New("spawn failed")
+	_, err = agentSvc.StartProcess(context.Background(), "a1", "game", nil, nil, "")
+	require.ErrorContains(t, err, "spawn failed")
+}
+
+func TestAgentServiceGetMetaClusterGhost(t *testing.T) {
+	// agents.go:135 — 集群归属放行 ghost 后 GetMeta 自身 registry 遍历
+	// 才真正未命中（requireAgentScope 经 cluster FindOwner 放行）
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
+	owners := &ownerResolverStub{owners: map[string]cluster.AgentOwnerRecord{
+		"ghost": {AgentID: "ghost", GameID: "demo", Env: "prod", LastSeenAt: time.Now()},
+	}}
+	agentSvc := NewAgentService(&svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+		Cluster:       &svc.ClusterRuntime{Resolver: owners},
+	})
+	_, err := agentSvc.GetMeta(ctx, "ghost")
+	require.EqualError(t, err, "agent not found")
 }
