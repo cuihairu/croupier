@@ -1067,3 +1067,20 @@ api/incident 由 410 条压至 ~118 条（余为 DB 错误传播防御分支 + �
    （provision.Run 无 PK 字段），`Save(ID=0)` 退化为再插入 → run_id 唯一键冲突。
 
 两条待用户确认修复方向后另行处理；同族首例为 incident Details map 序列化。
+
+### 续批 15-17（2026-11-09 续）
+
+| commit   | 说明                                                                                                                                                           | 本批度量                          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| 041ac177 | controlconn 请求包装往返（告警上报/探针策略/synthetics/capture 闸门/devops 白名单帧级应答、probe 单向事件、TLS 打明文端口失败）                                | agents/controlconn 46.2% → 93.8%  |
+| 4c46463b | devops runner 装配面（fetchAllowlist 全分支/applyAllowlistCenter 校验热换/Run 审计·存档·SSH 早退/注册存 conn/observer 打点/tlsFromCfg）                        | agents/devops/runner 65.2% → 100% |
+| b2ace92d | healthprobe ICMP 生命周期（open seam 注入 fake PacketConn：v4 回声成功/错配逐跳跳过/写读失败/超时重试/CAP_NET_RAW 分类）+ checker/policy/manager/protocol 分支 | core/healthprobe 84.3% → 99.3%    |
+
+### 续批发现的生产缺陷（补，纪律=只加测试，未改行为；icmp_extra_test.go 注释已标注）
+
+3. `core/healthprobe/icmp.go` pingOnce：IPv6 分支的 replyType 为
+   `ipv4.ICMPType(ipv6.ICMPTypeEchoReply)`，而 `icmp.ParseMessage(proto 58)`
+   产出 `ipv6.ICMPType` 动态类型——接口比较恒不等，正确的 IPv6 回声应答被
+   误判为 `network: ICMP echo reply code 0`，即 **IPv6 ICMP 探活永远失败**。
+   修复方向（replyType 直接用 ipv6.ICMPType）待用户定夺；v4 路径不受影响
+   （TestICMPCheckerLoopbackSuccessWithRawCapability 只测 v4，故此前未暴露）。
