@@ -52,9 +52,14 @@ func TestMainContextCancelledOnSignal(t *testing.T) {
 func TestMainHeartbeatLoop(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "run", "hb")
 	ctx, cancel := context.WithCancel(context.Background())
-	go beatLoop(ctx, path, 10*time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		beatLoop(ctx, path, 10*time.Millisecond)
+	}()
 	time.Sleep(40 * time.Millisecond)
 	cancel()
+	<-done // beat 退出后再让 TempDir 清理，避免 RemoveAll 与打点互踩
 
 	info, err := os.Stat(path)
 	require.NoError(t, err)
