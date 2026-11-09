@@ -13,10 +13,13 @@ package mysql
 // 经公有入口不可达）；hashEvents 的 json.Marshal 错误臂（ChangeEvent
 // 全字段可序列化）与「语法坏值」的 applyEvent 解码臂（hashEvents 的
 // jsontext 校验先行拒绝同一语法闭集——事务内解码失败臂用「语法合法
-// 但数值越界」的 1e999 触达）；result==nil / RowsAffected 错误臂（驱
-// 动控制，sqlmock 无法注入）；Auditor Append 的 json.Marshal 错误臂
+// 但数值越界」的 1e999 触达）；Auditor Append 的 json.Marshal 错误臂
 // （EventIDs/TableNames 是 []string，恒可编码）；Open 的 EnsureSchema
-// 成功臂需真库（integration 标签集成测试覆盖，不进单测覆盖率口径）。
+// 成功臂需真库（integration 标签集成测试覆盖，不进单测覆盖率口径）；
+// result==nil 臂（207）sqlmock 不可注入（WillReturnResult(nil) 被当作
+// 「未设置」令 Exec 直接报错，不返回 (nil, nil)），维持诚实跳过。
+// RowsAffected 错误臂（211）已由 TestApplyTransactionReserveResultArms
+// 经 NewErrorResult 直测。
 
 import (
 	"context"
@@ -267,6 +270,29 @@ func TestApplyTransactionReserveArms(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"event_count", "event_hash"}).AddRow(int64(1), hash))
 	mock.ExpectCommit()
 	require.NoError(t, a.ApplyTransaction(ctx, "req", "tx", good))
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+// RowsAffected 错误臂（211）：sqlmock 的 NewErrorResult 使 result 非空但
+// RowsAffected 恒错，可直测注入。result==nil 臂（207）sqlmock 无法注入
+// ——WillReturnResult(nil) 被 sqlmock 视为「未设置」而令 Exec 直接报错，
+// 不会返回 (nil, nil)，此臂维持诚实跳过。
+func TestApplyTransactionReserveResultArms(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	a := &Applier{db: db}
+	good := []cdc.ChangeEvent{validInsert("e-ok")}
+
+	// 记账成功但 RowsAffected 读取失败 → 驱动错误透传
+	expectColsExist(mock, 2, 2)
+	mock.ExpectBegin()
+	mock.ExpectExec("INSERT IGNORE").
+		WillReturnResult(sqlmock.NewErrorResult(errors.New("rows broken")))
+	require.ErrorContains(t, a.ApplyTransaction(ctx, "req", "tx", good),
+		"read reserve result")
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
