@@ -149,6 +149,27 @@ public final class Protocol {
     /**
      * Check if the MsgID indicates a request message.
      */
+    /**
+     * Check if the MsgID is a control-plane message (heartbeat / register /
+     * drain / connect). Control messages are dispatched to a dedicated
+     * single-worker lane so a saturated business lane never starves them.
+     */
+    public static boolean isControlRequest(int msgId) {
+        switch (msgId) {
+            case MSG_REGISTER_REQUEST:
+            case MSG_HEARTBEAT_REQUEST:
+            case MSG_REGISTER_CAPABILITIES_REQ:
+            case MSG_REGISTER_CLIENT_REQUEST:
+            case MSG_CLIENT_HEARTBEAT_REQUEST:
+            case MSG_PROVIDER_CONNECT_REQUEST:
+            case MSG_PROVIDER_HEARTBEAT_REQUEST:
+            case MSG_PROVIDER_DRAIN_REQUEST:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public static boolean isRequest(int msgId) {
         return msgId % 2 == 1 && msgId != MSG_TASK_EVENT;
     }

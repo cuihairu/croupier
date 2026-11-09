@@ -84,6 +84,14 @@ export default withMermaid(
                     text: "SDK wire protocol",
                     link: "/architecture/sdk-wire-protocol",
                   },
+                  {
+                    text: "Composition model",
+                    link: "/architecture/composition-model",
+                  },
+                  {
+                    text: "Dashboard glossary",
+                    link: "/architecture/dashboard-glossary",
+                  },
                 ],
               },
             ],
@@ -110,7 +118,12 @@ export default withMermaid(
             "/api/": [
               {
                 text: "API",
-                items: [{ text: "Overview", link: "/api/" }],
+                items: [
+                  { text: "Overview", link: "/api/" },
+                  { text: "Authentication API", link: "/api/auth" },
+                  { text: "Function API", link: "/api/function" },
+                  { text: "Resource API", link: "/api/resource" },
+                ],
               },
             ],
             "/analytics/": [
@@ -121,6 +134,10 @@ export default withMermaid(
                   {
                     text: "Core and external analytics",
                     link: "/analytics/core-and-external",
+                  },
+                  {
+                    text: "Game metrics panorama",
+                    link: "/analytics/game-metrics-overview",
                   },
                 ],
               },
@@ -198,6 +215,26 @@ export default withMermaid(
                   {
                     text: "SDK Wire 协议",
                     link: "/zh/architecture/sdk-wire-protocol",
+                  },
+                  {
+                    text: "看板术语表",
+                    link: "/zh/architecture/dashboard-glossary",
+                  },
+                  {
+                    text: "数据库迁移策略",
+                    link: "/zh/architecture/database-migration-strategy",
+                  },
+                  {
+                    text: "函数流水线阻塞项",
+                    link: "/zh/architecture/function-pipeline-blockers",
+                  },
+                  {
+                    text: "LocalizedText 契约",
+                    link: "/zh/architecture/localized-text-contract",
+                  },
+                  {
+                    text: "会话运行时全景",
+                    link: "/zh/architecture/session-runtime-landscape",
                   },
                 ],
               },

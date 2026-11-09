@@ -160,6 +160,20 @@ func TestOpsProvisionDestroyResumeNonConflict(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestOpsProvisionDestroyRequestStoreError(t *testing.T) {
+	// workflow 销毁申请落库失败（非冲突错误）→ 246 原样透传
+	store := &failStore{memStore: &memStore{runs: map[string]*provision.Run{
+		"d4": {ID: "d4", State: provision.StateAdopted, Request: provision.Request{GameID: "g", Env: "e"}},
+	}}, updateErr: errors.New("db locked")}
+	orch := &provision.Orchestrator{
+		Runner: inertRunner{}, Registry: emptyRegistry{}, Approval: &fixedApproval{approved: true},
+		Store: store, WorkDir: t.TempDir(), InstallURL: "https://x/agent.sh", RegisterTimeout: time.Second,
+	}
+	s := provisionService(t, config.ProvisionApprovalWorkflow, orch)
+	_, err := s.OpsProvisionDestroy(context.Background(), "d4")
+	require.ErrorContains(t, err, "persist destroy approval")
+}
+
 func TestOpsProvisionProtectionBranches(t *testing.T) {
 	ctx := context.Background()
 

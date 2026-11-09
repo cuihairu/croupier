@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -68,6 +67,7 @@ public class TCPTransport implements TransportClient {
 
     private volatile InboundListener inboundListener;
     private volatile ExecutorService inboundPool;
+    private volatile ExecutorService controlPool;
     private final AtomicInteger inboundQueued = new AtomicInteger();
 
     /** Sets the inbound request listener; inbound dispatch is enabled only when set. */
@@ -432,6 +432,11 @@ public class TCPTransport implements TransportClient {
             pool.shutdownNow();
             this.inboundPool = null;
         }
+        ExecutorService cpool = this.controlPool;
+        if (cpool != null) {
+            cpool.shutdownNow();
+            this.controlPool = null;
+        }
 
     }
 
@@ -439,6 +444,27 @@ public class TCPTransport implements TransportClient {
         InboundListener listener = inboundListener;
         if (listener == null) {
             LOG.debug("No inbound listener for msgId {}", Integer.toHexString(msgId));
+            return;
+        }
+        // 控制消息（心跳/注册/drain）走独立单 worker 车道，永不 fail-fast：
+        // 业务队列打满（快速失败）不得饿死控制帧，否则 Agent 误判会话死亡
+        // 导致过载升级为连接雪崩（双车道，见 sdk-wire-protocol.md）。
+        if (Protocol.isControlRequest(msgId)) {
+            ExecutorService cpool = controlPool();
+            cpool.execute(() -> {
+                try {
+                    byte[] resp;
+                    try {
+                        resp = listener.onRequest(msgId, reqId, body);
+                    } catch (Exception e) {
+                        LOG.error("Control handler failed: {}", e.getMessage(), e);
+                        resp = new byte[0];
+                    }
+                    writeResponseSilently(Protocol.getResponseMsgID(msgId), reqId, resp);
+                } catch (RejectedExecutionException rejected) {
+                    LOG.error("Control lane rejected reqId={}", reqId, rejected);
+                }
+            });
             return;
         }
         ExecutorService pool = inboundPool();
@@ -477,6 +503,31 @@ public class TCPTransport implements TransportClient {
         return Math.max(2, Runtime.getRuntime().availableProcessors());
     }
 
+    private ExecutorService controlPool() {
+        ExecutorService pool = this.controlPool;
+        if (pool == null) {
+            synchronized (this) {
+                pool = this.controlPool;
+                if (pool == null) {
+                    // 控制车道：单 worker + 无界队列，控制帧永不内联/拒绝。
+                    // 与 JS/Python 控制队列语义一致——业务饱和时心跳仍入队
+                    // 并由独立 worker 处理，读循环只投递不被阻塞。
+                    pool = new ThreadPoolExecutor(
+                        1, 1, 60L, TimeUnit.SECONDS,
+                        new java.util.concurrent.LinkedBlockingQueue<>(),
+                        r -> {
+                            Thread t = new Thread(r, "croupier-control");
+                            t.setDaemon(true);
+                            return t;
+                        },
+                        new ThreadPoolExecutor.AbortPolicy());
+                    this.controlPool = pool;
+                }
+            }
+        }
+        return pool;
+    }
+
     private ExecutorService inboundPool() {
         ExecutorService pool = this.inboundPool;
         if (pool == null) {
@@ -484,15 +535,20 @@ public class TCPTransport implements TransportClient {
                 pool = this.inboundPool;
                 if (pool == null) {
                     int workers = inboundWorkerCount();
+                    // 有界队列（容量 = workers * 4，与 dispatchInbound 的
+                    // 快速失败阈值一致）+ AbortPolicy：读循环只投递，绝不
+                    // 在调用线程内联执行 handler——否则单个慢业务 handler
+                    // 会阻塞读循环，控制帧（心跳）无法被读到。队列满时
+                    // execute 抛 RejectedExecutionException → 快速失败回空。
                     pool = new ThreadPoolExecutor(
                         workers, workers, 60L, TimeUnit.SECONDS,
-                        new SynchronousQueue<>(),
+                        new java.util.concurrent.ArrayBlockingQueue<>(workers * 4),
                         r -> {
                             Thread t = new Thread(r, "croupier-inbound");
                             t.setDaemon(true);
                             return t;
                         },
-                        new ThreadPoolExecutor.CallerRunsPolicy());
+                        new ThreadPoolExecutor.AbortPolicy());
                     this.inboundPool = pool;
                 }
             }
