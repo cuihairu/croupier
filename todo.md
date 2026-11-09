@@ -467,6 +467,7 @@
     - #491 `@hono/node-server@1.19.17`（medium，GHSA-rmxm-3fg6-px4f，serveStatic 路径二次解码绕过中间件）——web/pnpm-lock.yaml，**开发期传递依赖**：umi → @umijs/preset-umi → @umijs/bundler-utoopack → @utoo/pack → @hono/node-ws（声明 `^1.19.11`）→ 本包；漏洞路径是静态文件服务器，本仓仅 umi dev/构建工具链触达，web 生产形态是静态产物由 nginx 服务，运行面不含此包——**不适用为生产漏洞**。范围内无修复版（漏洞区间 ≥1.19.10 <2.1.3 覆盖整个 ^1.x，修复版 2.1.3 跨主版本、违背父链 ^1.19.11 声明）——**待验证**：上游 @utoo/pack / @hono/node-ws 支持 2.x 后随依赖链升级，不做 workspace override 强跨主版本（对应 pnpm override 事故先例）。
     - #487/#483/#482 `deepmerge@4.3.1`（low，GHSA-gcqx-w48m-w2h4，mergeObject 原型污染）——三份 pnpm-lock.yaml 均**开发期依赖**：web 侧依赖方为 @svgr/core + umi bundler 链（构建期配置合并），sdks/js 与 sdks/plugins/js 侧为 jest-config/jest-util 测试链；原型污染需对抗性 merge 输入，本仓 merge 输入均为仓内受控构建/测试内容——**不适用**。上游无修复版本（漏洞区间封顶 4.3.1 即当前最新版）——**待验证**：上游发布 >4.3.1 修复版后升级三处锁文件。
   - 最小修复任务拆解结论：无「需修复」项；两条「待验证」跟随项已登记于上，无需新增修复任务。证据：`gh api repos/cuihairu/croupier/dependabot/alerts?state=open`（4 条明细）、web/pnpm-lock.yaml（deepmerge@1.5.2+4.3.1、@hono/node-server@1.19.17 依赖块）、sdks/js/pnpm-lock.yaml、sdks/plugins/js/pnpm-lock.yaml（jest 链）。
+  - 完成证据：2026-11-09；`web/pnpm-lock.yaml`、`sdks/js/pnpm-lock.yaml`、`sdks/plugins/js/pnpm-lock.yaml`（3 份锁文件逐条映射告警条目）、`go.mod`；`gh api repos/cuihairu/croupier/dependabot/alerts?state=open` 4 条明细逐项判定；commit df2d5025
 
 ## 审核发现
 
