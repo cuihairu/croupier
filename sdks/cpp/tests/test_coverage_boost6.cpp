@@ -73,6 +73,7 @@ using raw_socket_t = int;
 #undef private
 
 #include "src/croupier_client.cpp"
+#include "src/croupier_invoker.cpp"
 #include "src/config/client_config_loader.cpp"
 #include "src/plugin/dynamic_loader.cpp"
 #include "src/openapi_importer.cpp"

@@ -302,6 +302,7 @@ endif()
 # SDK source and header files
 set(SDK_SOURCES
     src/croupier_client.cpp
+    src/croupier_invoker.cpp
     src/http_transport.cpp
     src/tcp_transport.cpp
     src/openapi_importer.cpp
