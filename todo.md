@@ -148,6 +148,7 @@
   - 状态／条件：BLOCKED（2026-11-04 两条路径≤30 分钟评估后已代决：路径 A 本机 game-* 栈替代真实接入方不可行，`spawn` 是游戏社区/目录平台，`game-infinite-clash` 有账号/角色/奖励 Lua 服务但需 shield/openresty/MySQL/Redis 运行面且无 OpenAPI/SDK 契约、GAME-001/007/009 仍缺接入方契约与用户拍板；路径 B Nacos/SQL 搭建面可行性更高并推进，`cs-nacos`（nacos-server 1.4.2）重启后 health `OK`，schema/configsource 已存在，实测暴露 Nacos 拒绝 dataId 含 `/` 导致目录路径 `invalid dataId`，已修复为 `croupier:runtime:switch.yaml` 编码并验证 write/read/list/delete 均 200，commit `312017c2`。UI-001 页面发布全链仍 BLOCKED：GAME-002/GAME-010 未完成，缺真实游戏权威函数、持久凭据、受控写环境与 GAME-007/009 方案批准；demo/Nacos 配置面不能替代全链验收）。复核（2026-11-04）：仍 BLOCKED——GAME-002/GAME-010 未完成（权威玩家函数/持久凭据/受控写环境/游戏方持久去重缺失），GAME-001/007/009 仍缺接入方契约与用户拍板；`game-infinite-clash` 仅 proto 内部协议、无 OpenAPI/SDK 契约且需 shield/openresty/MySQL/Redis 运行面，不满足「真实接入方」验收。
     复核（2026-11-06）：仍 BLOCKED——依赖 GAME-002/GAME-010/ARCH-024 中 GAME-002、GAME-010 仍未完成（平台侧无持久执行凭据存储与收据查询模型，`internal/` 无 Credential/Receipt/operationId 持久去重实现，仅 `sdks/go/examples/gameops-demo` 内存/state-file 演示）。本次补充评估此前未覆盖的真实游戏候选 `game-civilization`（`/home/cui/workspaces/game-civilization`，真实 GM 玩家/封禁/邮件/充值 API，`gm/src/main/java/net/game/gm/module/server/controller/PlayerController.java` 等）：其有 Java 21 + Maven （`mvnw`/`/home/cui/tools/apache-maven-3.9.9`）且本地曾有 MariaDB+Redis+Nacos 可跑通 68 例基线，但默认依赖为内网 `192.168.5.157:8848`（Nacos）/`192.168.5.143:3306`（MySQL）/`.143:6379`（Redis），当前均 `No route to host` 不可达；本机 `doggo-mysql`（13306）与 `cs-nacos`（8848）为无关实例（Nacos `v1/ns/service/list` 返回 `{"doms":[],"count":0}`，无 civilization 服务注册），项目无 `target/*.jar` 编译产物。即便修正配置可启动，其 GM 执行链（RSocket 经 Nacos 到 ServerService）无平台所需操作凭据/收据查询语义，且 GAME-002/GAME-010 平台能力缺失，不能满足「契约→模板→编辑保存→接受提案→发布→binding 执行」独立真实环境全链验收；门禁基线绿仅记录机制侧（`go test ./internal/platform/functioninvoke/... ./internal/drivers/openapi/... ./internal/api/game/... -count=1` PASS、`pnpm --dir web run tsc` 0 错误），不构成全链验收。缺 GAME-002/GAME-010 完成 + 真实接入方权威函数/持久凭据/受控写环境。
 
+    复核（2026-11-09）：仍 BLOCKED——依赖未变：GAME-002/GAME-010 未完成（internal/ 无 Credential/Receipt/operationId 持久去重实现面），GAME-001/007/009 仍缺接入方契约与用户拍板；本会话未获得新增真实游戏环境/受控写环境，无可用推进面。
 - [x] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
   - 依赖：—。交付与验收：复用现有 Go gameops-demo 的 33 函数及内存状态，独立 Server/sidecar/demo 栈验证发布、审批、report.generate、失败/未知/取消/幂等重试；既有 fixture 只证机制，不证明进程重启后游戏侧持久去重
   - 状态／条件：LOCAL VERIFIED（2026-11-01）：修复 gameops-demo 契约驼峰缺陷（`batch_ban/batch_recharge/batch_unban`），agent 注册从 3 函数 rebuild 失败变为 34 函数 `warnings=0`；`configs/games.json` 添加 `croupier-demo` scope 后搭起本仓自洽 Server(18881)+sidecar-agent(19096)+gameops-demo 栈，实测 report.generate 全链：成功 `started→completed/succeeded`、失败 `result.error="report_generate_failed"`、取消 `started→cancel_requested→cancelled`（5s delay 被 243ms 中断）。进程重启持久去重已补齐：demo `-state-file` 持久化 reportRunSeq，实测重启后 `report-demo-1→report-demo-2` 序列延续；单测 `TestGameOpsReportRunSeqPersistsAcrossRestart` 断言三次重启序列不重置。审批链说明：demo 唯一 task 函数 `report.generate` risk=warning，不触发 ApprovalRequired；审批门语义由 ARCH-024 政策层与 functionInvoke 契约验收覆盖，本项以审批路由未误触发（task 响应无 approvalId）为界。页面 UI 发布全链（契约→模板→提案→发布→binding）归 UI-001 真实环境验收。
@@ -459,9 +460,12 @@
 
 ## 依赖安全证据复核
 
-- [ ] **SEC-001 · P1 · 资料调查 · 默认分支依赖告警适用性复核**
+- [x] **SEC-001 · P1 · 资料调查 · 默认分支依赖告警适用性复核**
   - 依赖：—。交付与验收：获取 GitHub 默认分支未关闭告警的官方明细，映射 go.mod/go.sum、package.json/锁文件与 SDK/构建产物；区分运行时/开发/传递依赖、受影响版本与实际可达条件，逐项形成“需修复/不适用及依据/待验证”清单，再拆最小修复任务，不仅凭告警总数宣布存在可利用生产漏洞。
-  - 状态／条件：BLOCKED（2026-11-01 复核）：读取 GitHub Dependabot 告警官方明细需要仓库 security_events 权限（API 或凭据/插件）；本沙箱无 GitHub 凭据。缺 GitHub 安全告警读取权限。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-09 复核解阻并完成：2026-11-01 记录的「无 security_events 权限」已失效，当前 `gh api repos/cuihairu/croupier/dependabot/alerts` 可读）。默认分支未关闭告警共 4 条，逐项判定（无「需修复」项）：
+    - #491 `@hono/node-server@1.19.17`（medium，GHSA-rmxm-3fg6-px4f，serveStatic 路径二次解码绕过中间件）——web/pnpm-lock.yaml，**开发期传递依赖**：umi → @umijs/preset-umi → @umijs/bundler-utoopack → @utoo/pack → @hono/node-ws（声明 `^1.19.11`）→ 本包；漏洞路径是静态文件服务器，本仓仅 umi dev/构建工具链触达，web 生产形态是静态产物由 nginx 服务，运行面不含此包——**不适用为生产漏洞**。范围内无修复版（漏洞区间 ≥1.19.10 <2.1.3 覆盖整个 ^1.x，修复版 2.1.3 跨主版本、违背父链 ^1.19.11 声明）——**待验证**：上游 @utoo/pack / @hono/node-ws 支持 2.x 后随依赖链升级，不做 workspace override 强跨主版本（对应 pnpm override 事故先例）。
+    - #487/#483/#482 `deepmerge@4.3.1`（low，GHSA-gcqx-w48m-w2h4，mergeObject 原型污染）——三份 pnpm-lock.yaml 均**开发期依赖**：web 侧依赖方为 @svgr/core + umi bundler 链（构建期配置合并），sdks/js 与 sdks/plugins/js 侧为 jest-config/jest-util 测试链；原型污染需对抗性 merge 输入，本仓 merge 输入均为仓内受控构建/测试内容——**不适用**。上游无修复版本（漏洞区间封顶 4.3.1 即当前最新版）——**待验证**：上游发布 >4.3.1 修复版后升级三处锁文件。
+  - 最小修复任务拆解结论：无「需修复」项；两条「待验证」跟随项已登记于上，无需新增修复任务。证据：`gh api repos/cuihairu/croupier/dependabot/alerts?state=open`（4 条明细）、web/pnpm-lock.yaml（deepmerge@1.5.2+4.3.1、@hono/node-server@1.19.17 依赖块）、sdks/js/pnpm-lock.yaml、sdks/plugins/js/pnpm-lock.yaml（jest 链）。
 
 ## 审核发现
 
@@ -1107,3 +1111,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - helpers.go :825/:973：proto.Marshal 对空请求体不可触发。
 - deployments.go 133/141/145：multipart 内部结构失败需伪造 fileHeader、
   内存 multipart 读取不失败、超 500 MiB 载荷需真实分配半 GB 内存。
+
+- [ ] 审核发现：状态上报测试仅等待固定 300ms 就断言异步服务端已收到消息，调度较慢时即使实现正确也会间歇失败（agents/capture/connector/pg/fakepg_test.go:493）。
+- [ ] 审核发现：取消发送测试依赖固定休眠且不确认缓冲已满，过早取消或排空时仍可通过，无法保证测到阻塞发送的取消分支（agents/capture/connector/pg/fakepg_test.go:920）。
+- [ ] 审核发现：两个取消发送测试返回前未关闭 connector，而假服务器清理只关闭监听器，导致已有连接及服务端 goroutine 在测试结束后泄漏（agents/capture/connector/pg/fakepg_test.go:931）。
+- [ ] 审核发现：lint 任务使用默认单提交浅检出，push 时通常不存在推送前的 commit，版本破坏性检查因而回退到当前 main 与自身比较，直推的破坏性 proto 变更仍会漏检（.github/workflows/ci.yml:125）。
+- [ ] 审核发现：不兼容响应向容量为 1 的 pending 通道阻塞发送，重复响应与调用取消交错时可使接收循环永久卡住，导致同连接后续请求均无法收到响应（sdks/go/pkg/croupier/transport/tcp_client.go:393）。
