@@ -8,14 +8,15 @@ package pg
 // fail-closed / 位点形态 / 未记录与命中）、AckCheckpoint 守卫、Close 的
 // 关闭守卫与 pump join 收尾。
 //
-// 诚实跳过（需真实 PG，由 TEST_PG_DSN 集成测试覆盖）：Discover 与
-// tableMetadata/snapshotTable 的信息模式行集解析、临时 slot 快照事务、
-// pump 接收循环、slotConfirmedLSN 的槽查询与创建。诚实跳过（结构性不可
-// 达）：Snapshot 的 rand.Read 失败与生成 slot 名超长校验分支（时间戳+
-// 随机后缀恒在 63 字符内）；rowImage/snapshotDatumJSON 的 json.Marshal
-// 失败分支（string 序列化恒成功）；Close 直关 repl/conn 分支——
-// pgconn.PgConn 零值 Close 会 panic（cleanupDone 未初始化），连接体只能
-// 来自真实建连。
+// 网络路径（Discover 行集解析、临时 slot 快照事务、pump 接收循环、
+// slotConfirmedLSN 的槽查询与创建、Close 的 repl/conn 直关）由
+// fakepg_test.go 的进程内假 PG wire 服务器覆盖。
+//
+// 诚实跳过（结构性不可达 / 需流内故障注入，见 fakepg_test.go 文件头）：
+// Snapshot 的 rand.Read 失败与生成 slot 名超长校验分支（时间戳+随机后缀
+// 恒在 63 字符内）；rowImage/snapshotDatumJSON 的 json.Marshal 失败分支
+// （string 序列化恒成功）；快照读连接拨号失败（与 repl 同 DSN，repl 先
+// 失败）。
 
 import (
 	"context"
