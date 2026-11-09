@@ -19,6 +19,12 @@ func setupService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
+	// :memory: 每个连接都是独立空库，必须钉住单连接（否则多连接查询撞 no such table）
+	if sqlDB, err := db.DB(); err != nil {
+		t.Fatalf("sql db: %v", err)
+	} else {
+		sqlDB.SetMaxOpenConns(1)
+	}
 	if err := db.AutoMigrate(&model.IncidentCategory{}, &model.Incident{}, &model.Bug{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
