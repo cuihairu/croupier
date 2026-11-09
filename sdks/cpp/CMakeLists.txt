@@ -305,6 +305,8 @@ set(SDK_SOURCES
     src/croupier_invoker.cpp
     src/http_transport.cpp
     src/tcp_transport.cpp
+    src/tcp_transport_server.cpp
+    src/tcp_transport_inbound.cpp
     src/openapi_importer.cpp
     src/utils/json_utils.cpp
     src/utils/file_utils.cpp
