@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -797,6 +798,102 @@ func TestTCPClient_RejectsUnsupportedVersionAndKeepsSession(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for server assertions")
+	}
+}
+
+// 不兼容版本的响应帧不得静默丢弃：等待中的 Call 必须被显式唤醒并拿到
+// 版本错误，而不是干等上下文超时且无从得知版本问题。
+func TestTCPClient_UnsupportedVersionResponseFailsPendingCall(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer func() { _ = listener.Close() }()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		// 1) 读客户端请求，取其 reqID。
+		hdr := make([]byte, 4)
+		if _, err := io.ReadFull(conn, hdr); err != nil {
+			serverErr <- err
+			return
+		}
+		payload := make([]byte, binary.BigEndian.Uint32(hdr))
+		if _, err := io.ReadFull(conn, payload); err != nil {
+			serverErr <- err
+			return
+		}
+		_, _, reqID, _, err := protocol.ParseMessageFromBody(payload)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+
+		// 2) 回一个不兼容版本的响应帧（version 2）。
+		bad := protocol.NewMessageBody(protocol.MsgHeartbeatResponse, reqID, nil)
+		bad[0] = protocol.Version1 + 1
+		frame := make([]byte, 4+len(bad))
+		binary.BigEndian.PutUint32(frame, uint32(len(bad)))
+		copy(frame[4:], bad)
+		if _, err := conn.Write(frame); err != nil {
+			serverErr <- err
+			return
+		}
+
+		// 3) 等待客户端在错误路径上主动断开（Call 失败后测试收尾）。
+		serverErr <- nil
+	}()
+
+	config := &Config{
+		Address:     listener.Addr().String(),
+		Insecure:    true,
+		DialTimeout: 5 * time.Second,
+	}
+	client, err := NewTCPClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	callErr := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_, _, err := client.Call(ctx, protocol.MsgHeartbeatRequest, nil)
+		callErr <- err
+	}()
+
+	select {
+	case err := <-callErr:
+		if err == nil {
+			t.Fatal("call succeeded, want unsupported-version error")
+		}
+		if strings.Contains(err.Error(), "context deadline exceeded") {
+			t.Fatalf("call hung until ctx deadline instead of explicit version error: %v", err)
+		}
+		if !strings.Contains(err.Error(), "unsupported protocol version 2") {
+			t.Fatalf("call error = %v, want unsupported protocol version", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("call did not return after unsupported-version response")
+	}
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			t.Fatalf("server assertion failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		// 服务端断言已无阻塞点，超时仅收尾。
 	}
 }
 

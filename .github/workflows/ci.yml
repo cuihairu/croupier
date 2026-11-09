@@ -109,14 +109,24 @@ jobs:
       - name: Proto breaking gate (CR-FIX-05)
         # CR-FIX-05：proto 破坏性变更必须在 core CI 阶段变红。full checkout
         # 使 `.git#branch=main,subdir=proto` 可解析本地 main。PR merge-checkout
-        # 没有本地 refs/heads/main（buf 需本地分支可 clone），故先显式建出；
-        # push-to-main 运行已有 checked-out main，跳过即可（main vs main 无 diff）。
+        # 没有本地 refs/heads/main（buf 需本地分支可 clone），故先显式建出。
+        # push-to-main 运行本地 main 就是本次推送提交，main-vs-main 恒无
+        # diff、闸门空转——改用推送前基线（github.event.before）比较，使
+        # 绕过 PR 的直推破坏性 proto 变更同样变红；force push 后 before 不在
+        # 本地（或新分支 before 全零）时回退 refs/heads/main，不误报。
         timeout-minutes: 10
         run: |
           if ! git rev-parse --verify -q refs/heads/main >/dev/null; then
             git fetch --no-tags origin main:main
           fi
-          buf breaking proto --config proto/buf.breaking.yaml --against '.git#branch=main,subdir=proto' --against-config proto/buf.breaking.yaml
+          BASE_REF="refs/heads/main"
+          BEFORE="${{ github.event.before }}"
+          if [[ "${{ github.event_name }}" == "push" && -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] \
+            && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            BASE_REF="$BEFORE"
+          fi
+          echo "proto breaking baseline: $BASE_REF"
+          buf breaking proto --config proto/buf.breaking.yaml --against ".git#ref=${BASE_REF},subdir=proto" --against-config proto/buf.breaking.yaml
       - name: Go mod download
         timeout-minutes: 5
         run: |

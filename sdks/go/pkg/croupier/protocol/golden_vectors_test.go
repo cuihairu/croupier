@@ -11,6 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	agentv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1"
+	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type goldenVec struct {
@@ -97,4 +101,83 @@ func msgIDFromVec(t *testing.T, vec goldenVec) (uint32, uint32) {
 	msgID := uint32(mid[0])<<16 | uint32(mid[1])<<8 | uint32(mid[2])
 	rid := uint32(reqID[0])<<24 | uint32(reqID[1])<<16 | uint32(reqID[2])<<8 | uint32(reqID[3])
 	return msgID, rid
+}
+
+// 向量 body 不是不透明字节：必须按消息类型解码出声明的语义字段，再编码回
+// 逐字节一致——protobuf schema 漂移（字段号/类型/语义）即失败。
+func TestGoldenVectors_TypedBodies(t *testing.T) {
+	gf := loadGolden(t)
+
+	t.Run("register_request", func(t *testing.T) {
+		vec, ok := gf.Vectors["register_request"]
+		if !ok {
+			t.Fatal("register_request vector missing")
+		}
+		body := decodeHex(t, vec.Body)
+		var req agentv1.RegisterRequest
+		if err := proto.Unmarshal(body, &req); err != nil {
+			t.Fatalf("unmarshal RegisterRequest: %v", err)
+		}
+		if req.GetAgentId() != "agent-golden" || req.GetVersion() != "1.2.3" ||
+			req.GetGameId() != "demo" || req.GetEnv() != "dev" || req.GetTtlSeconds() != 300 {
+			t.Fatalf("register fields = %q %q %q %q ttl %d",
+				req.GetAgentId(), req.GetVersion(), req.GetGameId(), req.GetEnv(), req.GetTtlSeconds())
+		}
+		if len(req.GetFunctions()) != 1 {
+			t.Fatalf("functions = %d, want 1", len(req.GetFunctions()))
+		}
+		fn := req.GetFunctions()[0]
+		if fn.GetId() != "player.ban" || fn.GetVersion() != "1.0.0" || fn.GetResource() != "player" ||
+			fn.GetOperation() != "ban" || fn.GetRisk() != "high" || !fn.GetEnabled() ||
+			fn.GetCapability() != "action" || fn.GetExecution() != "sync" {
+			t.Fatalf("function descriptor = %+v", fn)
+		}
+		reEnc, err := proto.Marshal(&req)
+		if err != nil {
+			t.Fatalf("re-marshal: %v", err)
+		}
+		if string(reEnc) != string(body) {
+			t.Errorf("re-marshal mismatch:\n got %s\nwant %s", hex.EncodeToString(reEnc), vec.Body)
+		}
+	})
+
+	t.Run("heartbeat_request", func(t *testing.T) {
+		vec, ok := gf.Vectors["heartbeat_request"]
+		if !ok {
+			t.Fatal("heartbeat_request vector missing")
+		}
+		var hb agentv1.HeartbeatRequest
+		if err := proto.Unmarshal(decodeHex(t, vec.Body), &hb); err != nil {
+			t.Fatalf("unmarshal HeartbeatRequest: %v", err)
+		}
+		reEnc, err := proto.Marshal(&hb)
+		if err != nil {
+			t.Fatalf("re-marshal: %v", err)
+		}
+		if len(reEnc) != 0 {
+			t.Errorf("empty heartbeat re-marshal = %x, want empty", reEnc)
+		}
+	})
+
+	t.Run("task_event", func(t *testing.T) {
+		vec, ok := gf.Vectors["task_event"]
+		if !ok {
+			t.Fatal("task_event vector missing")
+		}
+		body := decodeHex(t, vec.Body)
+		var evt sdkv1.TaskEvent
+		if err := proto.Unmarshal(body, &evt); err != nil {
+			t.Fatalf("unmarshal TaskEvent: %v", err)
+		}
+		if evt.GetTaskId() != "task-123" || evt.GetType() != "completed" {
+			t.Fatalf("task event = %q %q", evt.GetTaskId(), evt.GetType())
+		}
+		reEnc, err := proto.Marshal(&evt)
+		if err != nil {
+			t.Fatalf("re-marshal: %v", err)
+		}
+		if string(reEnc) != string(body) {
+			t.Errorf("re-marshal mismatch:\n got %s\nwant %s", hex.EncodeToString(reEnc), vec.Body)
+		}
+	})
 }

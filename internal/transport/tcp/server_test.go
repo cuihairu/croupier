@@ -92,6 +92,60 @@ func TestServer_UnsupportedVersionRejectsRequestAndKeepsSession(t *testing.T) {
 	}
 }
 
+// 不兼容版本的响应帧/单向事件帧只丢弃、不回写（与 core mux、SDK 客户端
+// 同规则）：对响应帧回写会伪造对端未发出的请求响应，对事件回写可能形成
+// 响应循环。会话保持存活，后续合法请求仍被正常服务。
+func TestServer_UnsupportedVersionResponseAndEventFramesDropped(t *testing.T) {
+	handler := transportcore.HandlerFunc(func(context.Context, uint32, uint32, []byte) ([]byte, error) {
+		return []byte("ok"), nil
+	})
+	srv, err := NewServer(&Config{
+		Address:  "127.0.0.1:0",
+		Insecure: true,
+	}, handler)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+	defer serveAndStop(srv)()
+
+	conn, err := net.DialTimeout("tcp", srv.Addr(), time.Second)
+	if err != nil {
+		t.Fatalf("dial server: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	// 响应帧（HeartbeatResponse）与事件帧（TaskEvent）带不兼容版本 → 静默丢弃
+	respFrame := protocol.NewMessageBody(protocol.MsgHeartbeatResponse, 0x33333333, nil)
+	respFrame[0] = protocol.Version1 + 1
+	if err := tcptr.WriteFrame(conn, respFrame); err != nil {
+		t.Fatalf("write unsupported response frame: %v", err)
+	}
+	eventFrame := protocol.NewMessageBody(protocol.MsgTaskEvent, 0x00000064, []byte("evt"))
+	eventFrame[0] = protocol.Version1 + 1
+	if err := tcptr.WriteFrame(conn, eventFrame); err != nil {
+		t.Fatalf("write unsupported event frame: %v", err)
+	}
+
+	// 唯一应读到的帧是合法 invoke 的响应；若服务器对坏帧回写过，此帧的
+	// msgID/reqID 会对不上而失败。
+	supportedReqID := uint32(0x44444444)
+	supported := protocol.NewMessageBody(protocol.MsgInvokeRequest, supportedReqID, []byte("next"))
+	if err := tcptr.WriteFrame(conn, supported); err != nil {
+		t.Fatalf("write supported frame: %v", err)
+	}
+	frame, err := tcptr.ReadFrame(conn)
+	if err != nil {
+		t.Fatalf("read response after dropped frames: %v", err)
+	}
+	version, msgID, reqID, body, err := protocol.ParseMessageFromBody(frame)
+	if err != nil {
+		t.Fatalf("parse response: %v", err)
+	}
+	if version != protocol.Version1 || msgID != protocol.MsgInvokeResponse || reqID != supportedReqID || string(body) != "ok" {
+		t.Fatalf("response after drops = version %d, msg %s, req %d, body %q", version, protocol.MsgIDString(msgID), reqID, body)
+	}
+}
+
 func TestNewServer_NilHandler(t *testing.T) {
 	_, err := NewServer(&Config{Address: "127.0.0.1:0", Insecure: true}, nil)
 	if err == nil {

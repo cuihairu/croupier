@@ -371,6 +371,15 @@ func TestSupportedVersionsAndWindow(t *testing.T) {
 	if len(versions) != 1 || versions[0] != int(Version1) {
 		t.Fatalf("SupportedVersions() = %v, want [%d]", versions, Version1)
 	}
+	// 派生性质：清单降序且全部落在接受窗口内（N-1 窗口开启后同样成立）。
+	for i, v := range versions {
+		if !IsSupportedVersion(uint8(v)) {
+			t.Fatalf("SupportedVersions() item %d outside window", v)
+		}
+		if i > 0 && v >= versions[i-1] {
+			t.Fatalf("SupportedVersions() not sorted descending: %v", versions)
+		}
+	}
 	if !IsSupportedVersion(Version1) {
 		t.Fatalf("IsSupportedVersion(%d) = false, want true", Version1)
 	}

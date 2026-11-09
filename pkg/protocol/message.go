@@ -37,8 +37,16 @@ const (
 // SupportedVersions returns the sorted list of wire protocol versions this
 // build accepts. It is used to populate rejection payloads so a peer can
 // report a precise supported range instead of a bare failure.
+//
+// The list is derived from the accepted window, so when the N-1 floor is
+// opened (MinSupportedVersion < Version1) rejection payloads report the old
+// versions too, instead of under-reporting as current-only.
 func SupportedVersions() []int {
-	return []int{int(Version1)}
+	versions := make([]int, 0, int(Version1)-int(MinSupportedVersion)+1)
+	for v := int(Version1); v >= int(MinSupportedVersion); v-- {
+		versions = append(versions, v)
+	}
+	return versions
 }
 
 // IsSupportedVersion reports whether a wire protocol version is within the

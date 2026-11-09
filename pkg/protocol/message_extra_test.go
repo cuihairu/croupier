@@ -13,7 +13,18 @@ import (
 )
 
 func TestSupportedVersionsWindow(t *testing.T) {
-	require.Equal(t, []int{int(Version1)}, SupportedVersions())
+	versions := SupportedVersions()
+	// 当前窗口退化为 [1,1]，清单恰为 [Version1]；窗口开启（N-1）后派生
+	// 逻辑必须报告全部受支持版本而非只报当前版。
+	require.Equal(t, []int{int(Version1)}, versions)
+	// 派生性质：降序、每个版本都落在接受窗口内。
+	require.Greater(t, len(versions), 0)
+	for i, v := range versions {
+		require.True(t, IsSupportedVersion(uint8(v)), "version %d not in window", v)
+		if i > 0 {
+			require.Less(t, versions[i], versions[i-1], "versions must be sorted descending")
+		}
+	}
 	require.True(t, IsSupportedVersion(Version1))
 	require.True(t, IsSupportedVersion(MinSupportedVersion))
 	require.False(t, IsSupportedVersion(0))

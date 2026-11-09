@@ -370,7 +370,7 @@ func (c *TCPClient) receiveLoop() {
 		version := payload[0]
 		if !protocol.IsSupportedVersion(version) {
 			// N-1 兼容：不兼容版本拒绝该请求并保留会话，而非硬断开。
-			// 只有请求帧回错误响应；响应/事件帧无法回，跳过。
+			// 只有请求帧回错误响应；响应/事件帧无法回。
 			msgID := protocol.GetMsgID(payload[1:4])
 			reqID := binary.BigEndian.Uint32(payload[4:8])
 			if protocol.IsRequest(msgID) {
@@ -380,6 +380,20 @@ func (c *TCPClient) receiveLoop() {
 				if marshaled, marshalErr := proto.Marshal(errResp); marshalErr == nil {
 					if werr := c.writeResponseFrame(msgID, reqID, marshaled); werr != nil {
 						slog.Warn("write unsupported-version rejection failed", "version", version, "msg_id", protocol.MsgIDString(msgID), "error", werr)
+					}
+				}
+			} else if protocol.IsResponse(msgID) {
+				// 不兼容版本的响应帧不能静默丢弃——否则等待中的 Call 只能干等
+				// 上下文超时且无从得知版本问题。显式唤醒等待方报版本错误。
+				c.mu.RLock()
+				ch, ok := c.pending[reqID]
+				c.mu.RUnlock()
+				if ok {
+					vErr := fmt.Errorf("peer sent unsupported protocol version %d (supported: %s)", version, supportedVersionsJSON())
+					select {
+					case ch <- responseTuple{err: vErr}:
+					case <-c.closing:
+						return
 					}
 				}
 			}

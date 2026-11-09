@@ -198,15 +198,19 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 			return
 		}
 		if !protocol.IsSupportedVersion(version) {
-			resp := &sdkv1.InvokeResponse{
-				Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
+			// 仅拒绝请求帧（与 core mux/sdks 客户端同规则）：对响应帧回写会
+			// 伪造对端从未发出的请求响应，对单向事件回写则可能形成响应循环。
+			if protocol.IsRequest(msgID) {
+				resp := &sdkv1.InvokeResponse{
+					Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
+				}
+				rejection, _ := proto.Marshal(resp)
+				respFrame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, rejection)
+				if s.config.SendTimeout > 0 {
+					_ = conn.SetWriteDeadline(time.Now().Add(s.config.SendTimeout))
+				}
+				_ = writeFrame(conn, respFrame)
 			}
-			rejection, _ := proto.Marshal(resp)
-			respFrame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, rejection)
-			if s.config.SendTimeout > 0 {
-				_ = conn.SetWriteDeadline(time.Now().Add(s.config.SendTimeout))
-			}
-			_ = writeFrame(conn, respFrame)
 			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
 			continue
 		}
