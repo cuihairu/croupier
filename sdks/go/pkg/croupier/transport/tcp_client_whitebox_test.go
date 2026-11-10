@@ -101,48 +101,89 @@ func TestWriteResponseFrameFailureFailsPending(t *testing.T) {
 	}
 }
 
-// receiveLoop 在响应无处投递（pending 通道无接收方）时应让位于 closing 并退出。
-func TestReceiveLoopBlockedDeliveryStopsOnClosing(t *testing.T) {
+// 响应无处投递（pending 通道满且无读者——等待方已取消/超时）时，
+// receiveLoop 必须丢弃该响应并继续处理后续帧，不得阻塞投递把整条
+// 连接的接收循环卡死（否则同连接后续请求全部无响应）。
+func TestReceiveLoopDropsUndeliverableResponseAndContinues(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer func() { _ = serverSide.Close() }()
 	defer func() { _ = clientSide.Close() }()
 
-	blocked := make(chan responseTuple) // 无缓冲、无接收方
+	respMsgID := protocol.GetResponseMsgID(protocol.MsgInvokeRequest)
+	makeNormalFrame := func(reqID uint32) []byte {
+		body := protocol.NewMessageBody(respMsgID, reqID, []byte(`{}`))
+		frame := make([]byte, 4+len(body))
+		binary.BigEndian.PutUint32(frame[:4], uint32(len(body)))
+		copy(frame[4:], body)
+		return frame
+	}
+	// 不兼容版本（0x7F）的响应帧：手写 payload 头（8 字节 header + 1 字节数据）。
+	makeBadVersionFrame := func(reqID uint32) []byte {
+		body := make([]byte, protocol.HeaderSize+1)
+		body[0] = 0x7F
+		protocol.PutMsgID(body[1:4], respMsgID)
+		binary.BigEndian.PutUint32(body[4:8], reqID)
+		body[protocol.HeaderSize] = '{'
+		frame := make([]byte, 4+len(body))
+		binary.BigEndian.PutUint32(frame[:4], uint32(len(body)))
+		copy(frame[4:], body)
+		return frame
+	}
+	writeFrame := func(frame []byte, label string) {
+		t.Helper()
+		writeDone := make(chan error, 1)
+		go func() {
+			_, err := serverSide.Write(frame)
+			writeDone <- err
+		}()
+		select {
+		case err := <-writeDone:
+			if err != nil {
+				t.Fatalf("write %s frame: %v", label, err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("write of %s frame timed out: receiveLoop stalled on delivery", label)
+		}
+	}
+
+	// reqID=7：等待方已取消，容量为 1 的 pending 通道被陈旧响应占满
+	// 且无读者——复现取消与重复响应交错的真实形态。
+	stale := make(chan responseTuple, 1)
+	stale <- responseTuple{msgID: respMsgID, body: []byte(`stale`)}
+	// reqID=8：存活中的等待方。
+	live := make(chan responseTuple, 1)
 	c := &TCPClient{
 		conn:      clientSide,
 		config:    &Config{},
-		pending:   map[uint32]chan responseTuple{7: blocked},
-		nextReqID: 8,
+		pending:   map[uint32]chan responseTuple{7: stale, 8: live},
+		nextReqID: 9,
 		closing:   make(chan struct{}),
 	}
 	c.readLoopWg.Add(1)
 	go c.receiveLoop()
 
-	// 写入一条 reqID=7 的响应帧；receiveLoop 解析后阻塞在通道投递上。
-	respMsgID := protocol.GetResponseMsgID(protocol.MsgInvokeRequest)
-	body := protocol.NewMessageBody(respMsgID, 7, []byte(`{}`))
-	frame := make([]byte, 4+len(body))
-	binary.BigEndian.PutUint32(frame[:4], uint32(len(body)))
-	copy(frame[4:], body)
-	writeDone := make(chan error, 1)
-	go func() {
-		_, err := serverSide.Write(frame)
-		writeDone <- err
-	}()
+	// 两条无处投递的响应（不兼容版本 + 正常版本重复帧）都必须被丢弃。
+	writeFrame(makeBadVersionFrame(7), "bad-version reqID=7")
+	writeFrame(makeNormalFrame(7), "duplicate reqID=7")
+	// 随后存活请求的响应必须照常送达——证明接收循环未被前两条卡死。
+	writeFrame(makeNormalFrame(8), "live reqID=8")
 
 	select {
-	case err := <-writeDone:
-		if err != nil {
-			t.Fatalf("write frame: %v", err)
+	case resp := <-live:
+		if resp.msgID != respMsgID {
+			t.Fatalf("live call got unexpected msgID %d, want %d", resp.msgID, respMsgID)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("frame write timed out")
+		t.Fatal("receiveLoop stalled: live call never received response")
 	}
 
-	// 等待投递阻塞生效，再关闭 closing 让 receiveLoop 退出。
-	time.Sleep(100 * time.Millisecond)
-	close(c.closing)
+	// 两条废弃响应均被丢弃而非入队：reqID=7 通道仍只有陈旧那条。
+	if len(stale) != 1 {
+		t.Fatalf("stale channel should hold exactly 1 tuple after drops, got %d", len(stale))
+	}
 
+	// 收尾：连接断开后读循环退出、不悬挂。
+	_ = clientSide.Close()
 	done := make(chan struct{})
 	go func() {
 		c.readLoopWg.Wait()
@@ -151,6 +192,6 @@ func TestReceiveLoopBlockedDeliveryStopsOnClosing(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(3 * time.Second):
-		t.Fatal("receiveLoop did not exit after closing")
+		t.Fatal("receiveLoop did not exit after conn close")
 	}
 }

@@ -394,6 +394,10 @@ func (c *TCPClient) receiveLoop() {
 					case ch <- responseTuple{err: vErr}:
 					case <-c.closing:
 						return
+					default:
+						// 等待方已取消/超时（通道满、无读者）：丢弃而非阻塞。
+						// 否则重复响应与调用取消交错可卡死接收循环，同连接
+						// 后续请求永远收不到响应。
 					}
 				}
 			}
@@ -421,6 +425,10 @@ func (c *TCPClient) receiveLoop() {
 				// Delivered to waiting goroutine
 			case <-c.closing:
 				return
+			default:
+				// 等待方已取消/超时（通道满、无读者）：丢弃而非阻塞。
+				// 重复响应与调用取消交错时阻塞会把接收循环永久卡住，
+				// 同连接后续所有请求都无法收到响应。
 			}
 		}
 	}

@@ -121,9 +121,16 @@ jobs:
           fi
           BASE_REF="refs/heads/main"
           BEFORE="${{ github.event.before }}"
-          if [[ "${{ github.event_name }}" == "push" && -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] \
-            && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            BASE_REF="$BEFORE"
+          if [[ "${{ github.event_name }}" == "push" && -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]]; then
+            # 浅检出（lint 任务默认 depth 1）本地无推送前 commit：显式取回，
+            # 否则 cat-file 失败回退 refs/heads/main（=本次推送提交），与自身
+            # 比较恒无 diff、闸门空转，直推破坏性 proto 变更漏检。
+            if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth 1 origin "$BEFORE" 2>/dev/null || true
+            fi
+            if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              BASE_REF="$BEFORE"
+            fi
           fi
           echo "proto breaking baseline: $BASE_REF"
           buf breaking proto --config proto/buf.breaking.yaml --against ".git#ref=${BASE_REF},subdir=proto" --against-config proto/buf.breaking.yaml

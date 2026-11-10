@@ -490,10 +490,7 @@ func TestPumpErrorArms(t *testing.T) {
 			}
 			return sendCopy(be, keepaliveFrame(0x1000, true)) // reply → 状态上报证明存活
 		}, &gotStatus)
-		time.Sleep(300 * time.Millisecond)
-		if !gotStatus.Load() {
-			t.Fatal("pump did not survive unknown copydata type")
-		}
+		waitStatus(t, &gotStatus)
 		_ = c.Close(context.Background())
 		waitClosed(t, ev)
 	})
@@ -917,7 +914,7 @@ func TestSnapshotSendArms(t *testing.T) {
 		if err != nil {
 			t.Fatalf("snapshot: %v", err)
 		}
-		time.Sleep(150 * time.Millisecond) // 让 goroutine 填满缓冲后阻塞在发送
+		waitBuffered(t, events, 64) // 缓冲满 → 发送 goroutine 阻塞在 out<- 后取消
 		cancel()
 		// 收敛形态：排空缓冲内已排队事件后通道关闭（≤80 行）。
 		n := 0
@@ -928,6 +925,7 @@ func TestSnapshotSendArms(t *testing.T) {
 					if n > 80 {
 						t.Fatalf("drained %d events, exceeds row count", n)
 					}
+					_ = c.Close(context.Background())
 					return
 				}
 				n++
@@ -1002,6 +1000,32 @@ func recvEvent(t *testing.T, events <-chan connector.ChangeEvent) connector.Chan
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for event")
 		return connector.ChangeEvent{}
+	}
+}
+
+// waitStatus 轮询等待 gotStatus 置位（5s 超时），避免固定休眠在慢调度下假失败。
+func waitStatus(t *testing.T, gotStatus *atomic.Bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !gotStatus.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for standby status update")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// waitBuffered 轮询等事件通道缓冲达到 n（5s 超时）。缓冲满即发送 goroutine
+// 已阻塞在 out<-（无读者，第 n+1 个事件进不了通道），取消时必命中
+// ctx.Done 分支，避免固定休眠在慢调度下过早 cancel 漏测阻塞发送分支。
+func waitBuffered(t *testing.T, events <-chan connector.ChangeEvent, n int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for len(events) < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %d buffered events (have %d)", n, len(events))
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 
@@ -1397,7 +1421,7 @@ func TestPollPumpSendCancel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("poll: %v", err)
 	}
-	time.Sleep(150 * time.Millisecond) // 让 pump 填满缓冲后阻塞在发送
+	waitBuffered(t, events, 64) // 缓冲满 → pump 阻塞在 out<- 后取消
 	cancel()
 	n := 0
 	for {
@@ -1407,6 +1431,7 @@ func TestPollPumpSendCancel(t *testing.T) {
 				if n > 70 || n == 0 {
 					t.Fatalf("drained %d events, want 1..70", n)
 				}
+				_ = c.Close(context.Background())
 				return
 			}
 			n++
