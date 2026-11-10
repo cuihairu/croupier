@@ -189,6 +189,30 @@ public static class Protocol
     }
 
     /// <summary>
+    /// 控制消息（心跳/注册/drain）：双车道派发的控制车道成员，与
+    /// Go/JS/Java/Python 同一清单。控制帧走独立车道永不 fail-fast——
+    /// 业务队列打满不得饿死心跳，否则 Agent 误判会话死亡、过载升级
+    /// 为连接雪崩。
+    /// </summary>
+    public static bool IsControlRequest(int msgId)
+    {
+        switch (msgId)
+        {
+            case MsgRegisterRequest:
+            case MsgHeartbeatRequest:
+            case MsgRegisterCapabilitiesReq:
+            case MsgRegisterClientRequest:
+            case MsgClientHeartbeatRequest:
+            case MsgProviderConnectRequest:
+            case MsgProviderHeartbeatRequest:
+            case MsgProviderDrainRequest:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
     /// Get human-readable string for MsgID.
     /// </summary>
     public static string MsgIdString(int msgId)

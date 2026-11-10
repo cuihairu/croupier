@@ -253,6 +253,25 @@ inline std::string MsgIDString(uint32_t msg_id) {
     }
 }
 
+// 控制消息集合（心跳/注册/drain）：双车道派发的控制车道成员，与
+// Go/JS/Python 同一清单。控制帧走独立车道永不 fail-fast——业务队列
+// 打满不得饿死心跳，否则 Agent 误判会话死亡、过载升级为连接雪崩。
+inline bool IsControlRequest(uint32_t msg_id) {
+    switch (msg_id) {
+        case MSG_REGISTER_REQUEST:
+        case MSG_HEARTBEAT_REQUEST:
+        case MSG_REGISTER_CAPABILITIES_REQ:
+        case MSG_REGISTER_CLIENT_REQUEST:
+        case MSG_CLIENT_HEARTBEAT_REQUEST:
+        case MSG_PROVIDER_CONNECT_REQUEST:
+        case MSG_PROVIDER_HEARTBEAT_REQUEST:
+        case MSG_PROVIDER_DRAIN_REQUEST:
+            return true;
+        default:
+            return false;
+    }
+}
+
 }  // namespace protocol
 }  // namespace sdk
 }  // namespace croupier

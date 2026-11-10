@@ -517,6 +517,10 @@ if(BUILD_STATIC_LIBS)
             protobuf::libprotobuf
     )
 
+    # Link zlib for control-plane manifest gzip（与 shared 目标同款；
+    # 缺失时静态链接的测试可执行文件报 inflateEnd DSO missing）
+    target_link_libraries(croupier-sdk-static PUBLIC ZLIB::ZLIB)
+
     if(JSON_LIBRARY)
         target_link_libraries(croupier-sdk-static
             PUBLIC
@@ -722,6 +726,7 @@ if(BUILD_TESTS)
             tests/test_coverage_boost3.cpp
             tests/test_coverage_boost4.cpp
             tests/test_provider_inbound.cpp
+            tests/test_dual_lane.cpp
             tests/test_sigpipe_guard.cpp
             tests/test_coverage_boost5.cpp
             tests/test_coverage_boost6.cpp

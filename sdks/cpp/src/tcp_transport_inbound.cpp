@@ -57,50 +57,81 @@ void TCPTransport::SetInboundHandler(InboundHandler handler) {
         std::lock_guard<std::mutex> lock(inbound_pool_->mu);
         inbound_pool_->handler = inbound_handler_;
     }
+    if (control_pool_) {
+        std::lock_guard<std::mutex> lock(control_pool_->mu);
+        control_pool_->handler = inbound_handler_;
+    }
+}
+
+void TCPTransport::StartPoolWorkers(const std::shared_ptr<InboundPool>& pool, int workers) {
+    // worker 捕获 pool 的 shared_ptr（不捕获 this）：Close/析构置 stopping
+    // 后 worker 自行退出，pool 状态由最后一个引用负责释放——修复
+    // 「worker for(;;) 永不退出、析构销毁被等待中的 mutex/cv」挂起。
+    for (int i = 0; i < workers; ++i) {
+        auto owned = pool;
+        pool->threads.emplace_back([owned] {
+            for (;;) {
+                std::tuple<uint32_t, uint32_t, std::vector<uint8_t>> task;
+                {
+                    std::unique_lock<std::mutex> lock(owned->mu);
+                    owned->cv.wait(lock, [&owned] { return !owned->queue.empty() || owned->stopping; });
+                    if (owned->queue.empty()) {
+                        return;  // stopping 且无积压：退出
+                    }
+                    task = std::move(owned->queue.front());
+                    owned->queue.pop();
+                }
+                auto [mid, rid, tbody] = std::move(task);
+                std::vector<uint8_t> resp;
+                try {
+                    if (owned->handler) {
+                        resp = owned->handler(mid, rid, tbody);
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "[ERROR] inbound handler: " << e.what() << '\n';
+                    resp.clear();
+                }
+                WriteResponseOnSocket(owned->sock, protocol::GetResponseMsgID(mid), rid, resp);
+                owned->queued.fetch_sub(1);
+            }
+        });
+    }
+}
+
+void TCPTransport::EnqueueOnPool(const std::shared_ptr<InboundPool>& pool, uint32_t msg_id,
+                                 uint32_t req_id, std::vector<uint8_t>&& body) {
+    pool->queued.fetch_add(1);
+    {
+        std::lock_guard<std::mutex> lock(pool->mu);
+        pool->queue.emplace(msg_id, req_id, std::move(body));
+    }
+    pool->cv.notify_one();
 }
 
 void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body) {
     if (!inbound_handler_) {
         return;
     }
-    // 惰性启动固定 worker 池（默认 = 硬件并发数）。
-    // worker 捕获 pool 的 shared_ptr（不捕获 this）：Close/析构置 stopping
-    // 后 worker 自行退出，pool 状态由最后一个引用负责释放——修复
-    // 「worker for(;;) 永不退出、析构销毁被等待中的 mutex/cv」挂起。
+    // 双车道（CR-FIX-08）：控制消息（心跳/注册/drain）走独立单 worker
+    // 车道，永不 fail-fast——业务队列打满（快速失败）不得饿死控制帧，
+    // 否则 Agent 误判会话死亡，过载升级为连接雪崩。与 Go/JS/Java/
+    // Python 同规则（protocol::IsControlRequest 同一清单）。
+    if (protocol::IsControlRequest(msg_id)) {
+        if (!control_pool_) {
+            control_pool_ = std::make_shared<InboundPool>();
+            control_pool_->handler = inbound_handler_;
+            control_pool_->sock = socket_;
+            StartPoolWorkers(control_pool_, 1);
+        }
+        EnqueueOnPool(control_pool_, msg_id, req_id, std::move(body));
+        return;
+    }
+    // 业务车道：惰性启动固定 worker 池（默认 = 硬件并发数）。
     if (!inbound_pool_) {
         inbound_pool_ = std::make_shared<InboundPool>();
         inbound_pool_->handler = inbound_handler_;
         inbound_pool_->sock = socket_;
-        const int workers = InboundWorkerCount();
-        for (int i = 0; i < workers; ++i) {
-            auto pool = inbound_pool_;
-            inbound_pool_->threads.emplace_back([pool] {
-                for (;;) {
-                    std::tuple<uint32_t, uint32_t, std::vector<uint8_t>> task;
-                    {
-                        std::unique_lock<std::mutex> lock(pool->mu);
-                        pool->cv.wait(lock, [&pool] { return !pool->queue.empty() || pool->stopping; });
-                        if (pool->queue.empty()) {
-                            return;  // stopping 且无积压：退出
-                        }
-                        task = std::move(pool->queue.front());
-                        pool->queue.pop();
-                    }
-                    auto [mid, rid, tbody] = std::move(task);
-                    std::vector<uint8_t> resp;
-                    try {
-                        if (pool->handler) {
-                            resp = pool->handler(mid, rid, tbody);
-                        }
-                    } catch (const std::exception& e) {
-                        std::cerr << "[ERROR] inbound handler: " << e.what() << '\n';
-                        resp.clear();
-                    }
-                    WriteResponseOnSocket(pool->sock, protocol::GetResponseMsgID(mid), rid, resp);
-                    pool->queued.fetch_sub(1);
-                }
-            });
-        }
+        StartPoolWorkers(inbound_pool_, InboundWorkerCount());
     }
     const int workers = InboundWorkerCount();
     if (inbound_pool_->queued.load() >= workers * 4) {
@@ -109,12 +140,7 @@ void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector
         WriteResponseOnSocket(socket_, protocol::GetResponseMsgID(msg_id), req_id, {});
         return;
     }
-    inbound_pool_->queued.fetch_add(1);
-    {
-        std::lock_guard<std::mutex> lock(inbound_pool_->mu);
-        inbound_pool_->queue.emplace(msg_id, req_id, std::move(body));
-    }
-    inbound_pool_->cv.notify_one();
+    EnqueueOnPool(inbound_pool_, msg_id, req_id, std::move(body));
 }
 
 // WriteResponseOnSocket 向指定 fd 尽力写一帧（fd 已关闭时仅返回 EBADF，

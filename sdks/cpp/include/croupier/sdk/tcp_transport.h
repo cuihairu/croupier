@@ -198,6 +198,18 @@ private:
     std::thread read_thread_;
     InboundHandler inbound_handler_;
     std::shared_ptr<InboundPool> inbound_pool_;
+    // 控制车道（心跳/注册/drain）：单 worker 独立队列，永不 fail-fast。
+    // 业务队列打满时控制帧照常处理——否则 Agent 误判会话死亡，过载
+    // 升级为连接雪崩（双车道，与 Go/JS/Java/Python 同规则）。
+    std::shared_ptr<InboundPool> control_pool_;
+
+    // 双车道公共件：worker 启动与入队（业务/控制车道共用同一池结构）。
+    static void StartPoolWorkers(const std::shared_ptr<InboundPool>& pool, int workers);
+    static void EnqueueOnPool(const std::shared_ptr<InboundPool>& pool, uint32_t msg_id,
+                              uint32_t req_id, std::vector<uint8_t>&& body);
+    // 停机：置 stopping + 置空 handler/sock + detach 全部 worker（Go
+    // MuxConn 同款语义：不等待业务排空）。业务/控制车道共用。
+    static void DetachPool(std::shared_ptr<InboundPool>& pool);
 
     static constexpr size_t FRAME_HEADER_BYTES = 4;
     static constexpr size_t PROTOCOL_HEADER_SIZE = 8;

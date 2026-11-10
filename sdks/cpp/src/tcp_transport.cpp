@@ -72,7 +72,8 @@ TCPTransport::TCPTransport(TCPTransport&& other) noexcept
       next_req_id_(other.next_req_id_.load()),
       pending_responses_(std::move(other.pending_responses_)),
       read_thread_(std::move(other.read_thread_)),
-      inbound_pool_(std::move(other.inbound_pool_)) {
+      inbound_pool_(std::move(other.inbound_pool_)),
+      control_pool_(std::move(other.control_pool_)) {
     // 接管方的 close_called_ 必须复位：否则其析构被幂等守卫跳过，
     // 被 move 进来的 read_thread_/pool 永不回收 → terminate。
     close_called_ = other.close_called_;
@@ -96,6 +97,7 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
         pending_responses_ = std::move(other.pending_responses_);
         read_thread_ = std::move(other.read_thread_);
         inbound_pool_ = std::move(other.inbound_pool_);
+        control_pool_ = std::move(other.control_pool_);
 
         // 目标接管存活连接：close_called_ 复位，析构可正常回收线程；
         // 源已掏空，置 true 让其析构 Close 直通 no-op。
@@ -288,6 +290,30 @@ void TCPTransport::Connect() {
     read_thread_ = std::thread(&TCPTransport::ReadLoop, this);
 }
 
+void TCPTransport::DetachPool(std::shared_ptr<InboundPool>& pool) {
+    if (!pool) {
+        return;
+    }
+    // worker 引用 shared_ptr<InboundPool>，detach 后即使仍有 handler 在途，
+    // pool 状态与 socket fd（值拷贝，send 仅得 EBADF）都保持有效——
+    // 不会因 ~TCPTransport 而悬空。join 会阻塞在用户 handler 上，
+    // 这里选择 detach（Go MuxConn 同款语义：不等待业务排空）。
+    {
+        std::lock_guard<std::mutex> lock(pool->mu);
+        pool->stopping = true;
+        pool->sock = INVALID_SOCKET_VALUE;
+        pool->handler = nullptr;
+    }
+    pool->cv.notify_all();
+    for (auto& t : pool->threads) {
+        if (t.joinable()) {
+            t.detach();
+        }
+    }
+    pool->threads.clear();
+    pool.reset();
+}
+
 void TCPTransport::Close() {
     // 幂等：显式 Close 与析构 Close 双跑防护（曾出现 socket/线程被
     // 二次关闭与 join 的未定义行为）。
@@ -337,22 +363,9 @@ void TCPTransport::Close() {
     // pool 状态与 socket fd（值拷贝，send 仅得 EBADF）都保持有效——
     // 不会因 ~TCPTransport 而悬空。join 会阻塞在用户 handler 上，
     // 这里选择 detach（Go MuxConn 同款语义：不等待业务排空）。
-    if (inbound_pool_) {
-        {
-            std::lock_guard<std::mutex> lock(inbound_pool_->mu);
-            inbound_pool_->stopping = true;
-            inbound_pool_->sock = INVALID_SOCKET_VALUE;
-            inbound_pool_->handler = nullptr;
-        }
-        inbound_pool_->cv.notify_all();
-        for (auto& t : inbound_pool_->threads) {
-            if (t.joinable()) {
-                t.detach();
-            }
-        }
-        inbound_pool_->threads.clear();
-        inbound_pool_.reset();
-    }
+    // 业务/控制两条车道同款收编（DetachPool）。
+    DetachPool(inbound_pool_);
+    DetachPool(control_pool_);
 
     // Clear any remaining responses (should be none after signaling)
     std::lock_guard<std::mutex> lock(pending_mutex_);

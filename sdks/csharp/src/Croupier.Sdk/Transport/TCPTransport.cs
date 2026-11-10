@@ -63,6 +63,10 @@ public sealed class TCPTransport : IClientTransport
         Math.Max(2, Environment.ProcessorCount), Math.Max(2, Environment.ProcessorCount));
     private int _inboundQueued;
 
+    // 控制车道限流器：单 worker 串行处理控制帧（心跳/注册/drain），
+    // 永不 reject——业务队列打满时控制帧照常可达。
+    private readonly SemaphoreSlim _controlLimiter = new(1, 1);
+
     // 帧写串行化锁（多 handler 并发回写交错会损坏帧）。
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
@@ -387,6 +391,38 @@ public sealed class TCPTransport : IClientTransport
 
     private void DispatchInbound(int msgId, int reqId, byte[] body, CancellationToken cancellationToken)
     {
+        // 双车道（CR-FIX-08）：控制消息（心跳/注册/drain）走独立单 worker
+        // 车道，永不 fail-fast——业务队列打满（快速失败）不得饿死控制帧，
+        // 否则 Agent 误判会话死亡，过载升级为连接雪崩。与 Go/JS/Java/
+        // Python 同规则（Protocol.IsControlRequest 同一清单）。
+        if (Protocol.IsControlRequest(msgId))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _controlLimiter.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        await HandleInboundRequest(msgId, reqId, body, cancellationToken).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        _ = _controlLimiter.Release();
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    // Normal shutdown.
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("TCPTransport", $"Control lane request failed: {ex.Message}", ex);
+                }
+            });
+            return;
+        }
+
         int capacity = Math.Max(2, Environment.ProcessorCount) * 4;
         if (Interlocked.CompareExchange(ref _inboundQueued, 0, 0) >= capacity)
         {
