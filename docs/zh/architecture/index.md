@@ -92,6 +92,7 @@ Server 保留契约、页面快照与发布历史。正式 Console 使用发布�
 
 ## 阅读路径
 
+- [ADR 0001: 传输选型](./adr/0001-transport)
 - [SDK wire 协议](./sdk-wire-protocol)
 - [会话生命周期](./session-lifecycle)
 - [多实例 HA 与当前限制](./server-ha-multi-instance)

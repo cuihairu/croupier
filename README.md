@@ -95,7 +95,7 @@ See the [architecture overview](docs/architecture/index.md) and the [load balanc
 Croupier is not a fork. It is a control-plane business layer, and everything underneath is built on open-source components (versions as pinned in `go.mod` / `web/package.json`):
 
 - Server: Go 1.27, [Gin](https://github.com/gin-gonic/gin) for HTTP, [GORM](https://gorm.io) as the ORM (MySQL / PostgreSQL / SQL Server / glebarez SQLite drivers), [Casbin](https://casbin.org) for authorization decisions, goose for numbered migrations
-- Transport: the TCP session for Agent↔Server and SDK↔Agent is implemented on the Go standard library `net` + `crypto/tls` (length-prefix framing, protobuf envelope). These links do not use gRPC; plugin children separately use local go-plugin gRPC. The transport rationale is in [transport-no-grpc.md](docs/archive/legacy-en/architecture/transport-no-grpc.md)
+- Transport: the TCP session for Agent↔Server and SDK↔Agent is implemented on the Go standard library `net` + `crypto/tls` (length-prefix framing, protobuf envelope). These links do not use gRPC; plugin children separately use local go-plugin gRPC. The transport decision record is in [adr/0001-transport.md](docs/architecture/adr/0001-transport.md)
 - Observability: [OpenTelemetry](https://opentelemetry.io) Go SDK with OTLP HTTP exporter
 - Console: built on [Umi Max](https://umijs.org) and [Ant Design](https://ant.design) / ProComponents; JSON Schema forms are driven by [RJSF](https://rjsf.github.io/react-jsonschema-form/), and the editor is [Monaco](https://microsoft.github.io/monaco-editor/)
 - Protocol and tooling: [protobuf](https://protobuf.dev) (fully local protoc generation) + [buf](https://buf.build) lint

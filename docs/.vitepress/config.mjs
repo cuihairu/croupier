@@ -10,9 +10,10 @@ export default withMermaid(
   defineConfig({
     title: "Croupier",
     // CR-FIX-17: dead links fail the build again; only links into the
-    // srcExclude'd review/ tree are whitelisted (those pages are review
-    // material, deliberately not published). An unknown dead link = red build.
-    ignoreDeadLinks: [/\/review\//],
+    // srcExclude'd review/ and archive/ trees are whitelisted (those pages
+    // are deliberately not published, but stay reachable in the repo). An
+    // unknown dead link = red build.
+    ignoreDeadLinks: [/\/review\//, /\/archive\//],
     // 2026-10-20 用户令：英文内页必须上线，撤除 srcExclude（review/archive 仍藏）
     srcExclude: ["archive/**", "review/**", "zh/review/**"],
     head: sharedHead,
