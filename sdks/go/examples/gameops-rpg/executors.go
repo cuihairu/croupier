@@ -90,7 +90,7 @@ func (s *rpgStore) playerGet(_ context.Context, payload []byte) ([]byte, error) 
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	p := s.playerByIDLocked(valueString(m, "id"))
+	p := s.playerByIDLocked(valueString(m, "playerId"))
 	if p == nil {
 		return []byte("null"), nil
 	}

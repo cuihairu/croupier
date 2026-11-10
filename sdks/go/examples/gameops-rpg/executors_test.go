@@ -169,6 +169,24 @@ func TestTaskClaimViaHandler(t *testing.T) {
 	}
 }
 
+func TestPlayerGetViaHandler(t *testing.T) {
+	s := testStore(t)
+	raw, err := s.playerGet(contextTODO(), mustJSON(t, map[string]any{"playerId": "10001"}))
+	if err != nil {
+		t.Fatalf("playerGet: %v", err)
+	}
+	if got := mapResult(t, raw)["id"].(string); got != "10001" {
+		t.Fatalf("playerGet id=%s want 10001", got)
+	}
+	raw, err = s.playerGet(contextTODO(), mustJSON(t, map[string]any{"playerId": "nope"}))
+	if err != nil {
+		t.Fatalf("playerGet missing: %v", err)
+	}
+	if raw2 := string(raw); raw2 != "null" {
+		t.Fatalf("missing player=%s want null", raw2)
+	}
+}
+
 func TestEconomySnapshotAndAuditViaHandlers(t *testing.T) {
 	s := testStore(t)
 	if _, err := s.economySnapshot(contextTODO(), mustJSON(t, map[string]any{})); err != nil {
