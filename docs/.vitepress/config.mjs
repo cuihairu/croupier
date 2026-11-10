@@ -126,6 +126,21 @@ export default withMermaid(
                 ],
               },
             ],
+            "/development/": [
+              {
+                text: "Development",
+                items: [
+                  {
+                    text: "Development lifecycle",
+                    link: "/development/lifecycle",
+                  },
+                  {
+                    text: "Versioning and dependency policy",
+                    link: "/development/versioning",
+                  },
+                ],
+              },
+            ],
             "/api/": [
               {
                 text: "API",
@@ -265,6 +280,10 @@ export default withMermaid(
                   {
                     text: "开发周期与发布说明",
                     link: "/zh/development/lifecycle",
+                  },
+                  {
+                    text: "版本与依赖策略",
+                    link: "/zh/development/versioning",
                   },
                 ],
               },

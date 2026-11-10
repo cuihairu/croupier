@@ -27,7 +27,7 @@ title: 开发周期与发布说明
 - **注入点**：server 走 `cmd/server/root.go:34` 的 `Version` 变量与 `internal/svc/version.go:6` 的 `ServerVersion`（`Makefile:89` 完整导入路径注入）；devops/capture/synthetics 注入 `agents/*/runner.Version`（`Makefile:117`/`:122`/`:128`）。
 - **发布时点重注**：VERSION 文件值在发布切 tag 时可能滞后（`release.yml:58-60` 注释记录 v0.1.5 实证恒 0.1.4），发布面统一以 `git describe` 重注（`release.yml:61`）；nightly 面统一以 `nightly-YYYYMMDD` 重注（`nightly.yml:81`，二进制 `--version` 必含 `nightly-` 的校验在 `:190`）。
 - **SDK 版本同步**：根 VERSION bump 后运行 `make version-sync`（`scripts/sync-sdk-versions.sh:2-16`）。
-- **版本漂移现场（如实记录）**：根 `VERSION`（0.1.6）> 最新 tag（`v0.1.5`，`git ls-remote --tags` 实测）> SDK 清单（`sdks/go/version.go:5`、`sdks/js/package.json:3`、`sdks/python/pyproject.toml:7` 均 0.1.4）三层并存，是「VERSION 先行、发布滞后」的直接证据。
+- **版本漂移现场（如实记录）**：2026-10-20 盘点时为根 `VERSION`（0.1.6）> 最新 tag（`v0.1.5`）> SDK 清单（均 0.1.4）三层并存。2026-11-10 复核：SDK 清单层已在 `check-version-sync.sh` 门禁下重新对齐（六处清单现均 0.1.6），现状为 `VERSION（0.1.6）= SDK 清单（0.1.6）> 最新 tag（v0.1.5）`——守卫语义中两次发版之间的正常状态。依赖升级与 override 策略：见[版本与依赖策略](./versioning)。
 - **tag 命名**：Server/Agent 用 `v*`，SDK 用子模块 tag（`docs/operations/sdk-release.md:96`：`sdks/go/vX.Y.Z`；`release-sdk-go.yml:40-46` 实际执行）。`repository-guidelines.md:104-110` 的 `sdk-go-v*` 旧口径与现行实现已漂移，以子模块 tag 为准。
 - **约定边界（非机制）**：「版本号只由用户给定并手动触发」目前是流程约定——机制上成立（发版唯一入口是人工 push `v*` tag），但仓库内没有任何工作流或代码强制校验该约定，任何有 push 权限者理论上可直接打 tag 触发发布。如实标注为约定而非仓库内强制机制。
 
