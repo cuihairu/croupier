@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible defect
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a bug. Please redact any secrets (tokens, keys, passwords) from logs and configs before submitting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Observed behavior vs expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps to reproduce — config snippets, SDK calls, or an example diff.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - server (HTTP API / dispatch)
+        - agent / sidecar
+        - dashboard (web)
+        - SDK (Go / Python / JS / Java / C++ / C#)
+        - docs
+        - build / CI / release
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: "`croupier-server --version`, image tag, or commit SHA."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: shell
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, deployment mode (docker compose / self-hosted), database driver, TLS on/off.

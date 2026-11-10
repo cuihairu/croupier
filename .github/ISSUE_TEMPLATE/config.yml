@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/cuihairu/croupier/security/advisories/new
+    about: Please report security issues privately via a GitHub Security Advisory (see SECURITY.md) — do not open a public issue.
+  - name: Questions / usage help
+    url: https://github.com/cuihairu/croupier/discussions
+    about: Ask usage and deployment questions in Discussions instead of filing an issue.

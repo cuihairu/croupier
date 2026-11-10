@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose an enhancement or new capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What are you trying to do, and what blocks you today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The behavior you expect, at the level of user-visible outcomes.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - server (HTTP API / dispatch)
+        - agent / sidecar
+        - dashboard (web)
+        - SDK (Go / Python / JS / Java / C++ / C#)
+        - docs
+        - build / CI / release
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope acknowledgment
+      options:
+        - label: I understand Croupier is single-company (multi-game), not a SaaS multi-tenant platform, and this request fits that model.

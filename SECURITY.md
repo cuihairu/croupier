@@ -2,19 +2,30 @@
 
 ## Supported Versions
 
-当前 Croupier Server 以下版本获得安全更新支持：
+1.0 之前采用单支持线策略：**最新发布的 0.1.x 次版本线 + main**。
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 0.1.x   | :white_check_mark: |
 | main    | :white_check_mark: |
+| < 0.1   | :x:                |
+
+### Backport Policy
+
+- 安全修复一律先落 main，经全量质量门禁后发布。
+- 已发布的正式版本（版本号 tag 对应的 release）获得 backport：修复 cherry-pick
+  到该版本线的补丁分支，随补丁版本发布（如 0.1.x -> 0.1.x+1）。
+- nightly / 滚动构建不单独 backport——滚动升级即取修复。
+- 预 1.0 阶段只维护**最新一条** 0.1.x 线；更早的版本线随新次版本发布即停收。
 
 ## Reporting a Vulnerability
 
 如果您发现安全漏洞，请通过以下方式负责任地披露：
 
 1. **请勿** 在公开的 GitHub Issues 中报告安全漏洞
-2. 发送邮件至项目维护者，或通过 [GitHub Security Advisories](https://github.com/cuihairu/croupier/security/advisories/new) 提交报告
-3. 请在报告中包含：
+2. 通过 [GitHub Security Advisories](https://github.com/cuihairu/croupier/security/advisories/new) 提交报告，或发送邮件至安全邮箱 **chuihairu@gmail.com**（标题请带 `[security]` 前缀）
+3. 加密投递：项目 PGP 指纹发布后将在此处列出（当前未配置，明文邮件请勿附带机密细节，细节走 Security Advisories 的私有通道）
+4. 请在报告中包含：
    - 漏洞描述
    - 复现步骤
    - 潜在影响
