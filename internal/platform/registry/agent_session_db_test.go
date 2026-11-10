@@ -1,7 +1,9 @@
 package registry
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -253,4 +255,97 @@ func TestToDBSession(t *testing.T) {
 		assert.Equal(t, "{}", dbSess.Functions)
 		assert.Equal(t, "[]", dbSess.Providers)
 	})
+}
+
+// createLegacyAgentSessions builds the pre-drop table shape (rpc_addr still
+// present, Addr column absent) so migration tests exercise the real catch-up
+// path instead of an AutoMigrate-fresh table.
+func createLegacyAgentSessions(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	// NOT NULL 列（last_seen）必须带默认值：AutoMigrate 补列走 ALTER ADD，
+	// sqlite 不允许「无默认值的 NOT NULL 新列」加在非空表上。
+	require.NoError(t, db.Exec(`CREATE TABLE agent_sessions (
+		id INTEGER PRIMARY KEY,
+		agent_id TEXT NOT NULL,
+		game_id TEXT,
+		env TEXT,
+		rpc_addr TEXT,
+		expire_at DATETIME NOT NULL,
+		last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO agent_sessions
+		(agent_id, game_id, env, rpc_addr, expire_at, last_seen)
+		VALUES ('legacy-1', 'demo', 'prod', '10.0.0.1:19091', '2030-01-01 00:00:00', CURRENT_TIMESTAMP)`).Error)
+}
+
+func sqliteColumns(t *testing.T, db *gorm.DB, table string) map[string]bool {
+	t.Helper()
+	rows, err := db.Raw("PRAGMA table_info(" + table + ")").Rows()
+	require.NoError(t, err)
+	defer func() { require.NoError(t, rows.Close()) }()
+	cols := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notNull int
+		var dflt interface{}
+		var pk int
+		require.NoError(t, rows.Scan(&cid, &name, &ctype, &notNull, &dflt, &pk))
+		cols[name] = true
+	}
+	require.NoError(t, rows.Err())
+	return cols
+}
+
+// CR-FIX-15：迁移后 rpc_addr 必须实际不存在（原生 DROP COLUMN，不走 GORM
+// sqlite 的建新表-拷贝-改名重建路径），且存量数据原样保留。
+// （与 extra_test 的同名旧用例互补：那边只断言迁移不报错，这边断言列真没了。）
+func TestMigrateAgentSessions_NativeDropActuallyRemovesRPCAddr(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
+	require.NoError(t, err)
+	createLegacyAgentSessions(t, db)
+
+	require.NoError(t, MigrateAgentSessions(db))
+
+	cols := sqliteColumns(t, db, "agent_sessions")
+	assert.NotContains(t, cols, "rpc_addr", "legacy rpc_addr column must actually be gone")
+	assert.Contains(t, cols, "addr", "migration must add the live-session Addr column")
+
+	// addr 是 AutoMigrate 追加列，存量行为 NULL——只断言行与映射列数据仍在。
+	var agentID, gameID string
+	require.NoError(t, db.Raw("SELECT agent_id, game_id FROM agent_sessions WHERE agent_id = 'legacy-1'").
+		Row().Scan(&agentID, &gameID))
+	assert.Equal(t, "legacy-1", agentID)
+	assert.Equal(t, "demo", gameID)
+	var rows int64
+	require.NoError(t, db.Raw("SELECT COUNT(*) FROM agent_sessions").Row().Scan(&rows))
+	assert.EqualValues(t, 1, rows)
+}
+
+// CR-FIX-15：删列失败不得被吞——引用 rpc_addr 的视图会让 SQLite 拒绝
+// DROP COLUMN；迁移必须照常返回（未映射的遗留列保留无害，下次启动重试）
+// 但 WARN 日志必须点名 rpc_addr。
+func TestMigrateAgentSessions_DropFailureIsLoggedNotSwallowed(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
+	require.NoError(t, err)
+	// 先把表迁到当前模型形态（此时无 rpc_addr，AutoMigrate 干净完成），
+	// 再把 rpc_addr 加回去并立视图挡删：AutoMigrate 不删模型外列，
+	// 于是 migration 只剩我们的原生 DROP——视图让它失败，进入告警分支。
+	// （直接在 legacy 形态上立视图会先炸 AutoMigrate 的建新表-拷贝-改名
+	// 重建路径——那正是 CR-FIX-15 要绕开的坑，不属于本用例靶点。）
+	require.NoError(t, MigrateAgentSessions(db))
+	require.NoError(t, db.Exec("ALTER TABLE agent_sessions ADD COLUMN rpc_addr TEXT").Error)
+	require.True(t, db.Migrator().HasColumn(&AgentSessionDB{}, "rpc_addr"))
+	require.NoError(t, db.Exec("CREATE VIEW agent_sessions_v AS SELECT rpc_addr FROM agent_sessions").Error)
+
+	var logBuf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	require.NoError(t, MigrateAgentSessions(db), "drop failure must not fail the whole migration")
+
+	assert.Contains(t, logBuf.String(), "rpc_addr", "drop failure must be logged, not swallowed")
+	assert.Contains(t, sqliteColumns(t, db, "agent_sessions"), "rpc_addr",
+		"blocked drop keeps the legacy column in place")
 }

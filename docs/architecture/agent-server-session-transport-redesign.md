@@ -320,8 +320,13 @@ The `drain` here is session-level graceful traffic removal, not an immediate dis
 The legacy-model cleanup of `agent/v1/register.proto` is partially complete:
 
 - `rpc_addr` is reserved (the proto field is deleted), and the registry has executed the DB column drop
-  (`internal/platform/registry/agent_session_db.go` DropColumn); only
+  (`internal/platform/registry/agent_session_db.go`, native `ALTER TABLE ... DROP COLUMN` per CR-FIX-15 —
+  not `migrator.DropColumn`, whose SQLite rebuild path has historically wiped serializer columns); only
   `internal/logic/utils/registry_helpers.go` keeps a compatibility alias
+- Migration semantics (CR-FIX-15): **no backfill** — the old self-published addresses are retired, the
+  reachable address now comes from the live TCP session `RemoteAddr`; **no rollback data** — if the drop
+  fails (e.g. blocked by a legacy view/trigger), the error is logged (WARN, never swallowed) and the
+  unmapped legacy column stays in place harmlessly, with the drop retried on next boot
 - `RegisterRequest`'s semantics have converged from "control-plane registration" to "session establishment +
   registration in one" (see the message families in `sdk-wire-protocol.md`)
 

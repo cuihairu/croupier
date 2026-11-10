@@ -320,8 +320,14 @@
 `agent/v1/register.proto` 的旧模型清理已部分完成：
 
 - `rpc_addr` 已 reserved（proto 字段删除），registry 已执行 DB 列删除
-  （`internal/platform/registry/agent_session_db.go` DropColumn），仅
+  （`internal/platform/registry/agent_session_db.go`，CR-FIX-15 起为原生
+  `ALTER TABLE ... DROP COLUMN`——不再走 `migrator.DropColumn`，其 SQLite
+  建新表-拷贝-改名重建路径历史上会清空 serializer 列），仅
   `internal/logic/utils/registry_helpers.go` 留兼容别名
+- 迁移语义（CR-FIX-15）：**无回填**——旧自发布地址整体退役，可达地址改由
+  活 TCP 会话 `RemoteAddr` 提供；**无回滚数据**——删列失败时（如被遗留
+  视图/触发器挡住）记 WARN 日志（绝不吞错），未映射的遗留列原样保留、
+  无运行时危害，下次启动重试删除
 - `RegisterRequest` 的语义已从「控制面注册」收敛为「session 建立 +
   注册合一」（见 `sdk-wire-protocol.md` 消息族）
 

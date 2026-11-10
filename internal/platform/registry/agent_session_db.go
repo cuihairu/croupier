@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -81,8 +82,21 @@ func MigrateAgentSessions(db *gorm.DB) error {
 	}
 	// Drop the legacy rpc_addr column. The agent's reachable address now comes
 	// from the live TCP session RemoteAddr, not a self-published string.
+	//
+	// Native ALTER TABLE instead of migrator.DropColumn: GORM's sqlite migrator
+	// takes the create-copy-rename rebuild path, which has historically wiped
+	// serializer columns on migration (same ruling as
+	// internal/model/migration_term_dictionary.go). Drop failures are logged,
+	// never swallowed: the unmapped legacy column staying put is operationally
+	// harmless and the drop retries on next boot.
 	if db.Migrator().HasColumn(&AgentSessionDB{}, "rpc_addr") {
-		_ = db.Migrator().DropColumn(&AgentSessionDB{}, "rpc_addr")
+		stmt := "ALTER TABLE agent_sessions DROP COLUMN rpc_addr"
+		if db.Name() == "postgres" {
+			stmt = "ALTER TABLE agent_sessions DROP COLUMN IF EXISTS rpc_addr"
+		}
+		if err := db.Exec(stmt).Error; err != nil {
+			slog.Warn("agent_sessions: drop legacy column rpc_addr failed, keeping it", "error", err)
+		}
 	}
 	return nil
 }

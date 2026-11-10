@@ -16,9 +16,9 @@ func TestMigrateAgentSessions_DropsLegacyRPCAddrColumn(t *testing.T) {
 	require.NoError(t, db.Exec("ALTER TABLE agent_sessions ADD COLUMN rpc_addr TEXT").Error)
 	require.True(t, db.Migrator().HasColumn(&AgentSessionDB{}, "rpc_addr"))
 
-	// The migration tolerates the legacy column (best-effort drop; SQLite's
-	// migrator cannot drop columns missing from the model, so only verify the
-	// migration itself still succeeds).
+	// CR-FIX-15: the migration drops the legacy column via native ALTER TABLE
+	// and stays idempotent — the second run must not error on the already-
+	// dropped column.
 	require.NoError(t, MigrateAgentSessions(db))
 	require.NoError(t, MigrateAgentSessions(db))
 }
