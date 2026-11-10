@@ -844,7 +844,7 @@
   - [ ] CR-FIX-28（P2-28）SDK 能力对齐或版本解耦：基于既有 `sdks/SDK_FEATURE_MATRIX.md` 发布"能力 × 版本"矩阵；要么能力对齐后统一版本，要么 per-package 版本（changesets/release-please）。验收：矩阵文档与 manifest 版本策略二选一落地并公开。
   - [ ] CR-FIX-29（P2-29）文档语言与术语规范：统一命名文件语种约定；L1/L2/L3、subprotocol 等术语在用户文档入口给解释（与 CR-FIX-32 术语表联动）。验收：入口文档有术语解释链接。
   - [ ] CR-FIX-30（P2-30）截图资产治理：docs/screenshots/ui 压缩/WebP 化（01-login.png 现 1.04MB）；建立截图重生成机制；主题对比度声明（与 CR-FIX-19 联动）。验收：ui 目录体积显著下降且有重生成脚本。
-  - [ ] CR-FIX-31（P3-31）新增面向用户的 ROADMAP.md（与内部 todo.md 台账分离）。
+  - [x] CR-FIX-31（P3-31）新增面向用户的 ROADMAP.md（与内部 todo.md 台账分离）。状态/条件：LOCAL VERIFIED。已完成（2026-11-10）：新建根目录 ROADMAP.md（EN，用户/集成方视角，与内部台账完全分离——不引用 todo.md、不带 P2/P3/CR-FIX 编号、不带日期承诺）：五节——today（已交付能力六条：控制面/agent/会话传输、函数注册驱动、权限三件套、game/env 作用域、Web 控制台+Flutter 移动端、六语言 SDK）、Working on now（凭据卫生/nightly 深度/移动端质量/SDK 能力矩阵/可访问性/文档打磨六主题）、Next up（内部分层强制/跨 SDK golden 帧契约/技术债消化）、Not planned（SaaS 多租户=单公司设计边界、gRPC 替换自研传输→链 ADR 0001，与既有架构决策一致）、Feedback（issue 渠道 + CONTRIBUTING 链接）。README Documentation 节首行挂 Roadmap 链接。验证：check-docs-links.sh 752 链接/482 文件全部可解析（含新增 ROADMAP.md 与其内链）。已知边界：ROADMAP 为主题级路线不承诺 ETA；「Next up」条目完成时须手工同步本文件（无自动联动）。完成证据：ROADMAP.md、README.md；证据 commit 本行所在提交。
   - [ ] CR-FIX-32（P3-32）补传输层术语表：session runtime/subprotocol/L1-L3 进 glossary（现有 docs/zh/architecture/dashboard-glossary.md 为 Dashboard 术语表，需扩展或另立传输术语页）。
   - [ ] CR-FIX-33（P3-33）建 `scripts/contract/` 跨 SDK golden 帧测试脚本入口（与 CR-FIX-05 配套）。
   - [ ] CR-FIX-34（P3-34）样式系统边界文档：antd token + antd-style + Tailwind 4 + global.less 的适用边界成文。

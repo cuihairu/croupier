@@ -133,6 +133,7 @@ Croupier does not adopt a SaaS multi-tenant abstraction. The standard business s
 
 ## Documentation
 
+- Roadmap: [ROADMAP.md](ROADMAP.md)
 - Architecture overview: [docs/architecture/index.md](docs/architecture/index.md)
 - Game and environment scope: [docs/architecture/game-environment-scope.md](docs/architecture/game-environment-scope.md)
 - SDK-Agent design: [docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
