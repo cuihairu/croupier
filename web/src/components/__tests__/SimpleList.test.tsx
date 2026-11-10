@@ -1,5 +1,5 @@
 /**
- * SimpleList（antd 6 废弃 List 的内部替身，docs/BUGS.md BUG-014）组件行为测试。
+ * SimpleList（antd 6 废弃 List 的内部替身，docs/BUGS.md BUG-015）组件行为测试。
  *
  * 覆盖六个迁移调用方用到的全部 API 面：
  * dataSource/renderItem/rowKey/locale.emptyText/loading/pagination、

@@ -3,7 +3,7 @@ import { createStyles } from 'antd-style';
 import type { ReactNode } from 'react';
 import React from 'react';
 
-// antd 6 整体废弃了 List 组件（v7 移除，运行时告警见 docs/BUGS.md BUG-014）。
+// antd 6 整体废弃了 List 组件（v7 移除，运行时告警见 docs/BUGS.md BUG-015）。
 // 本仓库对列表的全部用法都是「只读条目 + Meta + 少量操作」，用这个内部替身承载，
 // 视觉契约对齐 antd List 默认形态（分隔线 / 标题 / 次要描述 / 底部分页）。
 // 迁移完成后由 web/tests/antd6Deprecations.test.ts 的组件级守卫禁止再引入 antd List。

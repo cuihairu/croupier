@@ -138,6 +138,10 @@ export default withMermaid(
                     text: "Versioning and dependency policy",
                     link: "/development/versioning",
                   },
+                  {
+                    text: "Frontend style boundaries",
+                    link: "/development/frontend-styles",
+                  },
                 ],
               },
             ],
@@ -284,6 +288,10 @@ export default withMermaid(
                   {
                     text: "版本与依赖策略",
                     link: "/zh/development/versioning",
+                  },
+                  {
+                    text: "前端样式系统边界",
+                    link: "/zh/development/frontend-styles",
                   },
                 ],
               },

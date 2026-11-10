@@ -365,7 +365,7 @@ describe('antd 6 废弃属性守卫', () => {
     expect(offenders).toEqual([]);
   });
 
-  // BUG-014（docs/BUGS.md）：antd 6 整体废弃了 List 组件（v7 移除）。
+  // BUG-015（docs/BUGS.md）：antd 6 整体废弃了 List 组件（v7 移除）。
   // 这是**组件级**废弃——运行时告警是 `warning(false, 'deprecated', ...)`，不挂在
   // 任何属性上，上面的属性级抽取器天然扫不到，必须单独守卫。
   // 现有用法已全部迁到内部替身 `src/components/SimpleList`（视觉契约对齐），
