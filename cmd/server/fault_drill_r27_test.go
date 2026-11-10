@@ -163,6 +163,20 @@ func drillBoot(t *testing.T) *drillServer {
 	jwtRestore := jwtutil.ResetGlobalSecretForTesting(drillJWTSecret)
 	t.Cleanup(jwtRestore)
 
+	// DB env 覆盖清场（CROP-REAP-001）：CI Test 步骤注入 DATABASE_URL=:memory:
+	// （svc.resolveDriverAndDSN 里 env 无条件压过配置 dataSource），drill 的
+	// runServer 会因此跑在进程内存库上——停机即失，末尾 drillReadStatusDB 读
+	// 配置文件库的落库断言永不成立（实测：文件根本不会被创建）。这里为
+	// runServer 清掉 DB_DRIVER/DATABASE_URL，让其用上方配置的 dbPath（独立
+	// TempDir，仍然 hermetic）；其余 env（STORAGE_*）不冲突，保留。
+	oldDBDriver, oldDBURL := os.Getenv("DB_DRIVER"), os.Getenv("DATABASE_URL")
+	require.NoError(t, os.Unsetenv("DB_DRIVER"))
+	require.NoError(t, os.Unsetenv("DATABASE_URL"))
+	t.Cleanup(func() {
+		require.NoError(t, os.Setenv("DB_DRIVER", oldDBDriver))
+		require.NoError(t, os.Setenv("DATABASE_URL", oldDBURL))
+	})
+
 	done := make(chan error, 1)
 	go func() { done <- runServer() }()
 
@@ -428,8 +442,9 @@ func drillSeedFunction(t *testing.T, dbPath string) {
 }
 
 // drillReadStatusDB 在停机（连接池已关）后以独立连接读任务终值。
-// task_runs 由 taskStore 写入 svcCtx.DB（meta 库），与 drillSeedFunction 的
-// game 库不同——故这里直接读 dbPath（meta 库），不要派生 game DSN。
+// drill 配置为单库（无 multiGame → 无 router）：task_runs 就在 svcCtx.DB
+// （即 dbPath 文件，ScopeSingle 基线含 GameModels）；drillSeedFunction 另建
+// 的独立 game 库只承载 functions 表——故这里直接读 dbPath，不要派生 game DSN。
 func drillReadStatusDB(t *testing.T, dbPath, taskID string) model.TaskRun {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(dbPath+"?_pragma=busy_timeout(5000)"), &gorm.Config{
@@ -562,15 +577,15 @@ func TestDrill_Sigterm_InFlightUnknown_ResourcesReleased(t *testing.T) {
 
 	// 停机路径断连收割已落库：在途任务 → unknown（独立连接读终值，池已关）。
 	//
-	// 已知缺陷（2026-11-10 本轮 CI 暴露）：taskStore 绑定 svcCtx.DB（meta 库），
-	// 而 task_runs 表只在 game 库（model.GameModels）——root.go SetAgentDisconnectReaper
-	// 的 ReapAgentNonTerminal 因此在 meta 库报 no such table: task_runs，收割
-	// 写库静默失败（只记日志），DB 层面从未落过终值。断言本身表达的是正确
-	// 期望，故不改断言、不写弱化为 API 的替代（API 读 runtime 内存态，前 3 个
-	// 场景就是这样掩盖了 DB 未落库）。修法是让收割按 agent 归属的 game 库
-	// 路由（Router.GameDB），属架构改动，待单独处理。todo.md 已记录。
+	// 历史缺陷（2026-11-10 CI 暴露，CROP-REAP-001 已修）：taskStore 曾只绑定
+	// svcCtx.DB（meta 库），而 task_runs 表只在 game 库（model.GameModels），
+	// multi-game 下收割报 no such table: task_runs、DB 终值从未落库。修法：
+	// tasks.Store 经 SetScopeResolver 按 Router.OpenScopes 逐 game 库 fan-out
+	// （dbctx 注入，cmd/server routerTaskScopes 适配器），单库（本 drill 的
+	// 配置形态）保持原路径直接落 svcCtx.DB。env 门作为回归开关保留，
+	// CI 的 Test 步骤已设 CROUPIER_DRILL_DB_FIXED=1 启用本断言。
 	if os.Getenv("CROUPIER_DRILL_DB_FIXED") != "1" {
-		t.Skip("已知缺陷：断连/停机收割写 meta 库（无 task_runs 表）失败，DB 终值未落库；见 todo.md。设 CROUPIER_DRILL_DB_FIXED=1 在修复后启用本断言。")
+		t.Skip("断连收割 DB 落库断言默认跳过（历史缺陷回归门）；设 CROUPIER_DRILL_DB_FIXED=1 启用（CI Test 步骤已设）。")
 	}
 	run := drillReadStatusDB(t, s.dbPath, taskID)
 	require.Equal(t, tasks.StatusUnknown, run.Status)

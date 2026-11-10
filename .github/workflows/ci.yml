@@ -267,6 +267,9 @@ jobs:
           DATABASE_URL: ":memory:"
           STORAGE_DRIVER: file
           STORAGE_BASE_DIR: data/uploads
+          # CROP-REAP-001：启用 drill 断连收割 DB 落库断言（曾因收割写 meta 库
+          # 报 no such table 而默认 SKIP；修复后作为回归门常开）。
+          CROUPIER_DRILL_DB_FIXED: "1"
         run: |
           # Server/sidecar, shared Agent runtime, standalone Agent roles,
           # wire protocol/cdc packages, and CLI entrypoints.
