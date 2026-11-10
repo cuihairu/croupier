@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -167,14 +168,101 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 }
 
+// inboundTask 是一条已解析、等待执行的请求。
+type inboundTask struct {
+	msgID uint32
+	reqID uint32
+	body  []byte
+	ctx   context.Context
+	// cancel 仅在配置了 RequestTimeout 时非空，响应写出后释放定时器。
+	cancel context.CancelFunc
+}
+
+// connWriter 串行化单连接上的响应帧写（读循环 busy 内联回帧 + 执行
+// worker 并发回帧共用一把连接级写锁）。
+type connWriter struct {
+	mu      sync.Mutex
+	conn    net.Conn
+	timeout time.Duration
+}
+
+func (w *connWriter) writeResponse(msgID uint32, reqID uint32, body []byte) error {
+	frame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, body)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.timeout > 0 {
+		_ = w.conn.SetWriteDeadline(time.Now().Add(w.timeout))
+	}
+	return writeFrame(w.conn, frame)
+}
+
+const (
+	// defaultMaxInflightRequests 单连接业务执行管线上界（排队+执行中）。
+	defaultMaxInflightRequests = 64
+	// controlQueueLen 控制车道队列容量（控制 handler 廉价，永不 reject；
+	// 与 sdks 客户端 ctrlInbox 同容量）。
+	controlQueueLen = 64
+)
+
+// dispatchLanes 解出业务车道 worker 数与队列容量：queue+workers ≤
+// maxInflight（max_inflight_requests 上界），且队列容量 ≥ 1——否则前几个
+// 请求依赖 worker goroutine 的调度时序，低负载下可能出现伪 busy。
+func (s *Server) dispatchLanes() (workers, queueLen int) {
+	maxInflight := s.config.MaxInflightRequests
+	if maxInflight <= 0 {
+		maxInflight = defaultMaxInflightRequests
+	}
+	workers = s.config.HandlerWorkers
+	if workers <= 0 {
+		workers = runtime.NumCPU()
+		if workers < 2 {
+			workers = 2
+		}
+	}
+	if workers > maxInflight-1 {
+		workers = maxInflight - 1
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	return workers, maxInflight - workers
+}
+
 func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
-	defer func() { _ = conn.Close() }()
 	session := &ConnectionSession{}
-	ctx = context.WithValue(ctx, connectionSessionContextKey{}, session)
+	connCtx, cancelConn := context.WithCancel(context.WithValue(ctx, connectionSessionContextKey{}, session))
+
+	writer := &connWriter{conn: conn, timeout: s.config.SendTimeout}
+	workers, queueLen := s.dispatchLanes()
+	business := make(chan inboundTask, queueLen)
+	control := make(chan inboundTask, controlQueueLen)
+	var execWg sync.WaitGroup
+	execWg.Add(workers + 1)
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer execWg.Done()
+			s.executionWorker(writer, business)
+		}()
+	}
+	go func() {
+		defer execWg.Done()
+		s.executionWorker(writer, control)
+	}()
+
+	// 收编顺序即退出安全性：先断连接（写阻塞的 worker 立即解阻）、
+	// 再取消排队/执行中请求的 ctx（尊重 ctx 的 handler 快速返回）、
+	// 最后关闭队列让 worker 排空缓冲后退出并 join。
+	defer func() {
+		_ = conn.Close()
+		cancelConn()
+		close(business)
+		close(control)
+		execWg.Wait()
+	}()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-connCtx.Done():
 			return
 		case <-s.closing:
 			return
@@ -205,24 +293,59 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 					Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
 				}
 				rejection, _ := proto.Marshal(resp)
-				respFrame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, rejection)
-				if s.config.SendTimeout > 0 {
-					_ = conn.SetWriteDeadline(time.Now().Add(s.config.SendTimeout))
-				}
-				_ = writeFrame(conn, respFrame)
+				_ = writer.writeResponse(msgID, reqID, rejection)
 			}
 			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
 			continue
 		}
 
-		respBody, handleErr := s.handler.Handle(ctx, msgID, reqID, body)
+		// 执行解耦（CR-FIX-09）：读循环永不执行 handler——同步 Handle 会让
+		// 慢 handler 卡死整条连接（心跳/取消等控制帧全部饿死）。双车道
+		// （与 core mux/sdks 客户端同规则）：控制请求走专用车道永不
+		// reject；业务队列满时立即回 busy 错误帧，读循环不阻塞、内存
+		// 不积累，in-flight 恒 ≤ queue+workers。
+		task := inboundTask{msgID: msgID, reqID: reqID, body: body}
+		if s.config.RequestTimeout > 0 {
+			task.ctx, task.cancel = context.WithTimeout(connCtx, s.config.RequestTimeout)
+		} else {
+			task.ctx = connCtx
+		}
+		if protocol.IsControlRequest(msgID) {
+			select {
+			case control <- task:
+			case <-connCtx.Done():
+				if task.cancel != nil {
+					task.cancel()
+				}
+				return
+			}
+			continue
+		}
+		select {
+		case business <- task:
+		default:
+			if task.cancel != nil {
+				task.cancel()
+			}
+			slog.Warn("inbound queue full, answering busy", "msg_id", protocol.MsgIDString(msgID), "req_id", reqID, "max_inflight", queueLen+workers)
+			_ = writer.writeResponse(msgID, reqID, busyResponseBody(msgID))
+		}
+	}
+}
+
+// executionWorker 消费指定车道：执行 handler 并回写响应帧（可乱序，
+// 协议按 reqID 配对）。handler 错误仍回错误响应（原同步版语义，不吞
+// 错误，真实错误进日志可诊断）。
+func (s *Server) executionWorker(w *connWriter, queue <-chan inboundTask) {
+	for task := range queue {
+		respBody, handleErr := s.handler.Handle(task.ctx, task.msgID, task.reqID, task.body)
 		if handleErr != nil {
 			// Log the real error so it is diagnosable. Previously this was
 			// silently JSON-encoded and sent back; a JSON body is not valid
 			// proto, so the client failed with "proto: cannot parse invalid
 			// wire-format data", masking the actual error.
-			slog.Error("rpc handler error", "msg_id", protocol.MsgIDString(msgID), "error", handleErr)
-			if msgID == protocol.MsgInvokeRequest {
+			slog.Error("rpc handler error", "msg_id", protocol.MsgIDString(task.msgID), "error", handleErr)
+			if task.msgID == protocol.MsgInvokeRequest {
 				// InvokeRequest: return InvokeResponse with error payload (proto).
 				resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"` + handleErr.Error() + `"}`)}
 				respBody, _ = proto.Marshal(resp)
@@ -232,15 +355,24 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 				respBody = nil
 			}
 		}
-
-		respFrame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
-		if s.config.SendTimeout > 0 {
-			_ = conn.SetWriteDeadline(time.Now().Add(s.config.SendTimeout))
-		}
-		if err := writeFrame(conn, respFrame); err != nil {
-			return
+		_ = w.writeResponse(task.msgID, task.reqID, respBody)
+		if task.cancel != nil {
+			task.cancel()
 		}
 	}
+}
+
+// busyResponseBody 是业务队列打满时的即时拒绝响应体。
+func busyResponseBody(msgID uint32) []byte {
+	if msgID != protocol.MsgInvokeRequest {
+		return nil
+	}
+	resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"inbound queue full, retry on another instance"}`)}
+	body, err := proto.Marshal(resp)
+	if err != nil {
+		return nil
+	}
+	return body
 }
 
 func supportedVersionsJSON() string {

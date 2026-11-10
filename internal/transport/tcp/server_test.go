@@ -617,3 +617,211 @@ func TestServer_DefaultAddress(t *testing.T) {
 		t.Logf("Server addr: %s (may not use default if port is in use)", srv.Addr())
 	}
 }
+
+// writeRequestFrame / readResponseFrame 是执行解耦回归用的裸帧收发 helper
+// （与 wire_compat 的 echo server 无关，不复用其 helper 名）。
+func writeRequestFrame(t *testing.T, conn net.Conn, msgID uint32, reqID uint32, body []byte) {
+	t.Helper()
+	if err := tcptr.WriteFrame(conn, protocol.NewMessageBody(msgID, reqID, body)); err != nil {
+		t.Fatalf("write request frame: %v", err)
+	}
+}
+
+func readResponseFrame(t *testing.T, conn net.Conn, timeout time.Duration) (uint32, uint32, []byte) {
+	t.Helper()
+	_ = conn.SetReadDeadline(time.Now().Add(timeout))
+	frame, err := tcptr.ReadFrame(conn)
+	if err != nil {
+		t.Fatalf("read response frame: %v", err)
+	}
+	_, msgID, reqID, body, err := protocol.ParseMessageFromBody(frame)
+	if err != nil {
+		t.Fatalf("parse response frame: %v", err)
+	}
+	return msgID, reqID, body
+}
+
+// CR-FIX-09 回归 1：业务 handler 被门闩卡住时，同连接心跳（控制车道）
+// 仍即时应答，读循环不被慢 handler 阻塞。
+func TestServer_SlowHandlerDoesNotBlockControlFrames(t *testing.T) {
+	gate := make(chan struct{})
+	entered := make(chan struct{}, 4)
+	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+		if msgID == protocol.MsgInvokeRequest {
+			select {
+			case entered <- struct{}{}:
+			default:
+			}
+			<-gate
+			return []byte("ok"), nil
+		}
+		return []byte("hb"), nil
+	})
+	srv, err := NewServer(&Config{
+		Address:             "127.0.0.1:0",
+		Insecure:            true,
+		MaxInflightRequests: 4,
+		HandlerWorkers:      1,
+		RequestTimeout:      30 * time.Second,
+	}, handler)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+	defer serveAndStop(srv)()
+
+	conn, err := net.DialTimeout("tcp", srv.Addr(), time.Second)
+	if err != nil {
+		t.Fatalf("dial server: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	writeRequestFrame(t, conn, protocol.MsgInvokeRequest, 1, []byte("slow"))
+	select {
+	case <-entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("slow handler never entered")
+	}
+
+	// 业务请求仍被卡住时，心跳必须即时得到应答（控制车道不被阻塞）。
+	writeRequestFrame(t, conn, protocol.MsgHeartbeatRequest, 2, nil)
+	msgID, reqID, body := readResponseFrame(t, conn, 3*time.Second)
+	if msgID != protocol.MsgHeartbeatResponse || reqID != 2 || string(body) != "hb" {
+		t.Fatalf("heartbeat response = msg %s req %d body %q, want heartbeat req 2 %q", protocol.MsgIDString(msgID), reqID, body, "hb")
+	}
+
+	// 释放门闩后，被卡的业务请求正常完成。
+	close(gate)
+	msgID, reqID, body = readResponseFrame(t, conn, 3*time.Second)
+	if msgID != protocol.MsgInvokeResponse || reqID != 1 || string(body) != "ok" {
+		t.Fatalf("invoke response = msg %s req %d body %q, want invoke req 1 %q", protocol.MsgIDString(msgID), reqID, body, "ok")
+	}
+}
+
+// CR-FIX-09 回归 2：业务队列有上界（queue+workers = MaxInflightRequests），
+// 打满后读循环立即回 busy，不阻塞、不无界增长。
+func TestServer_MaxInflightBoundsBusinessQueue(t *testing.T) {
+	gate := make(chan struct{})
+	entered := make(chan struct{}, 8)
+	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+		select {
+		case entered <- struct{}{}:
+		default:
+		}
+		<-gate
+		return []byte("done"), nil
+	})
+	srv, err := NewServer(&Config{
+		Address:             "127.0.0.1:0",
+		Insecure:            true,
+		MaxInflightRequests: 4,
+		HandlerWorkers:      1,
+		RequestTimeout:      30 * time.Second,
+	}, handler)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+	defer serveAndStop(srv)()
+
+	conn, err := net.DialTimeout("tcp", srv.Addr(), time.Second)
+	if err != nil {
+		t.Fatalf("dial server: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	// req1 被 worker 取走并卡在 handler（确认 entered 后再灌队列）；
+	// req2-4 填满容量 3 的队列；req5-6 时队列已满 → busy。
+	writeRequestFrame(t, conn, protocol.MsgInvokeRequest, 1, nil)
+	select {
+	case <-entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("handler never entered")
+	}
+	for _, reqID := range []uint32{2, 3, 4, 5, 6} {
+		writeRequestFrame(t, conn, protocol.MsgInvokeRequest, reqID, nil)
+	}
+
+	// 先到的两条响应必是 busy（req1-4 在门闩后不可能完成）。
+	busy := map[uint32]bool{}
+	for i := 0; i < 2; i++ {
+		msgID, reqID, body := readResponseFrame(t, conn, 3*time.Second)
+		if msgID != protocol.MsgInvokeResponse {
+			t.Fatalf("response %d msg = %s, want invoke response", i, protocol.MsgIDString(msgID))
+		}
+		var rejection sdkv1.InvokeResponse
+		if err := proto.Unmarshal(body, &rejection); err != nil {
+			t.Fatalf("unmarshal busy response: %v", err)
+		}
+		if !strings.Contains(string(rejection.GetPayload()), "inbound queue full") {
+			t.Fatalf("response %d payload = %q, want busy rejection", i, rejection.GetPayload())
+		}
+		busy[reqID] = true
+	}
+	if !busy[5] || !busy[6] || busy[1] || busy[2] || busy[3] || busy[4] {
+		t.Fatalf("busy set = %v, want exactly {5,6}", busy)
+	}
+
+	// 释放门闩：在界的 4 个请求全部完成，上界即 queue(3)+workers(1)。
+	close(gate)
+	done := map[uint32]bool{}
+	for i := 0; i < 4; i++ {
+		_, reqID, body := readResponseFrame(t, conn, 3*time.Second)
+		if string(body) != "done" {
+			t.Fatalf("response req %d body = %q, want done", reqID, body)
+		}
+		done[reqID] = true
+	}
+	if len(done) != 4 || !done[1] || !done[2] || !done[3] || !done[4] {
+		t.Fatalf("done set = %v, want exactly {1,2,3,4}", done)
+	}
+}
+
+// CR-FIX-09 回归 3：逐请求 deadline——handler 收到的 ctx 在
+// RequestTimeout 后到期并报错，且到期不影响同连接后续请求。
+func TestServer_RequestTimeoutExpiresHandlerContext(t *testing.T) {
+	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+		if msgID == protocol.MsgInvokeRequest {
+			<-ctx.Done() // 仅尊重 deadline 的 handler；无 deadline 则此处悬挂
+			return nil, ctx.Err()
+		}
+		return []byte("hb"), nil
+	})
+	srv, err := NewServer(&Config{
+		Address:        "127.0.0.1:0",
+		Insecure:       true,
+		RequestTimeout: 100 * time.Millisecond,
+	}, handler)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+	defer serveAndStop(srv)()
+
+	conn, err := net.DialTimeout("tcp", srv.Addr(), time.Second)
+	if err != nil {
+		t.Fatalf("dial server: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	start := time.Now()
+	writeRequestFrame(t, conn, protocol.MsgInvokeRequest, 7, nil)
+	msgID, reqID, body := readResponseFrame(t, conn, 3*time.Second)
+	if msgID != protocol.MsgInvokeResponse || reqID != 7 {
+		t.Fatalf("response = msg %s req %d, want invoke response req 7", protocol.MsgIDString(msgID), reqID)
+	}
+	var rejection sdkv1.InvokeResponse
+	if err := proto.Unmarshal(body, &rejection); err != nil {
+		t.Fatalf("unmarshal error response: %v", err)
+	}
+	if want := `{"error":"context deadline exceeded"}`; string(rejection.GetPayload()) != want {
+		t.Fatalf("payload = %q, want %q", rejection.GetPayload(), want)
+	}
+	if elapsed := time.Since(start); elapsed < 90*time.Millisecond {
+		t.Fatalf("response arrived after %v, deadline did not reach handler", elapsed)
+	}
+
+	// deadline 到期后连接与会话仍存活：后续心跳照常应答。
+	writeRequestFrame(t, conn, protocol.MsgHeartbeatRequest, 8, nil)
+	msgID, reqID, body = readResponseFrame(t, conn, 3*time.Second)
+	if msgID != protocol.MsgHeartbeatResponse || reqID != 8 || string(body) != "hb" {
+		t.Fatalf("post-timeout heartbeat = msg %s req %d body %q", protocol.MsgIDString(msgID), reqID, body)
+	}
+}

@@ -43,6 +43,18 @@ type Config struct {
 	DispatchWorkers int
 	BusinessQLen    int
 	ControlQLen     int
+
+	// Server-side execution decoupling knobs (CR-FIX-09; zero values use
+	// defaults). MaxInflightRequests bounds per-connection concurrent
+	// handler executions (queued + running); a saturated business queue
+	// answers busy inline instead of stalling the read loop. HandlerWorkers
+	// overrides the business worker count (default NumCPU, min 2, capped by
+	// MaxInflightRequests-1 so the queue never runs empty). RequestTimeout
+	// gives each request's handler context a per-request deadline (0 = no
+	// deadline; RecvTimeout still bounds idle reads on the connection).
+	MaxInflightRequests int
+	HandlerWorkers      int
+	RequestTimeout      time.Duration
 }
 
 // Client implements a plain TCP request-response transport.
