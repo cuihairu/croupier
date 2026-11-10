@@ -51,6 +51,8 @@ func (c *platformCollector) Describe(ch chan<- *prometheus.Desc) {
 var collectDBStatusFn = checkDatabaseHealth
 
 func (c *platformCollector) Collect(ch chan<- prometheus.Metric) {
+	// bare-background-ok: prometheus.Collector 接口签名固定无 ctx 入参，
+	// 抓取侧无请求 ctx 可派生；自限 5s 超时（CR-FIX-22 豁免清单）。
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

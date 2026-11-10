@@ -172,5 +172,5 @@ func (s *ExternalService) scopeMap(token *model.ExternalToken) map[string]bool {
 
 // SendLifecycleWebhook 推一条生命周期事件到外部出口链（§9.3）。
 func (s *ExternalService) SendLifecycleWebhook(ctx context.Context, row *model.Incident, kind IncidentLifecycleKind) {
-	DispatchLifecycle(s.svcCtx, row, kind)
+	DispatchLifecycle(ctx, s.svcCtx, row, kind)
 }

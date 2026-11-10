@@ -131,7 +131,7 @@ func (s *Service) externalOAuthCallback(ctx context.Context, p identity.OAuthPro
 		return nil, errors.New(label + " 登录未启用")
 	}
 	if !s.verifyOIDCState(state) {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, "invalid_state", kind)
+		s.recordLoginAudit(ctx, "", "auth.login_failed", "failed", req, "invalid_state", kind)
 		return nil, errors.New("登录状态校验失败，请重新发起登录")
 	}
 	if strings.TrimSpace(code) == "" {
@@ -140,13 +140,13 @@ func (s *Service) externalOAuthCallback(ctx context.Context, p identity.OAuthPro
 
 	ident, err := p.Exchange(ctx, code)
 	if err != nil {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, kind+"_exchange_failed", kind)
+		s.recordLoginAudit(ctx, "", "auth.login_failed", "failed", req, kind+"_exchange_failed", kind)
 		return nil, errors.New(label + " 登录失败")
 	}
 
 	admin, err := s.resolveAdminForIdentity(ctx, ident)
 	if err != nil {
-		s.recordLoginAudit(ident.Username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
+		s.recordLoginAudit(ctx, ident.Username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
 		return nil, errors.New("登录失败")
 	}
 	return s.issueLogin(ctx, admin, ident, req)

@@ -40,5 +40,7 @@ func RegisterDraftRoutes(group *gin.RouterGroup, svcCtx *svc.ServiceContext) {
 	// 契约漂移后的 stale 自动愈合循环（2026-09 自动化收口）：能自动适配的
 	// 页面由系统同步+发布恢复，修不了的留在编辑器告警。多实例并发由草稿
 	// 乐观锁与幂等护栏（无变化不落库）兜底。
+	// bare-background-ok: 进程级启动循环，生命周期与 server 进程一致，
+	// 无请求 ctx 可派生（CR-FIX-22 豁免清单）。
 	go NewService(svcCtx).StartStaleHealLoop(context.Background(), 5*time.Minute, healStaleOptions{})
 }

@@ -80,6 +80,12 @@ jobs:
       - name: Dependency boundary guard regression test
         timeout-minutes: 5
         run: bash scripts/check_dependency_boundary_test.sh
+      - name: Context and panic hygiene guard (CR-FIX-22)
+        timeout-minutes: 5
+        run: bash scripts/check_context_panic_hygiene.sh
+      - name: Context and panic hygiene guard regression test
+        timeout-minutes: 5
+        run: bash scripts/check_context_panic_hygiene_test.sh
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash

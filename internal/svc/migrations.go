@@ -236,6 +236,8 @@ func registerSvcMigrations() {
 		runbookTablesMigration(),
 		agentMetricsHourlyAgentIDSizeMigration(),
 	); err != nil {
+		// panic-ok: init 期迁移注册表组装失败属开发期错误（迁移函数
+		// 引用漂移），进程不可安全启动（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
 }

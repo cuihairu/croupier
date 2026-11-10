@@ -10,6 +10,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"os"
 	"path/filepath"
@@ -110,7 +111,7 @@ func TestRecordLoginAudit_IPRegionFromSyntheticDB(t *testing.T) {
 		"secret",
 	))
 
-	svc.recordLoginAudit("region-user", "auth.login", "success", &LoginRequest{
+	svc.recordLoginAudit(context.Background(), "region-user", "auth.login", "success", &LoginRequest{
 		ClientIP:  "1.2.3.4",
 		UserAgent: "ua-region",
 	}, "", "")

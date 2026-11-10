@@ -179,7 +179,7 @@ func (h *Handler) List(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	staleSet := h.computeStaleKeys(c.GetHeader("X-Game-ID"), c.GetHeader("X-Env"), items)
+	staleSet := h.computeStaleKeys(c.Request.Context(), c.GetHeader("X-Game-ID"), c.GetHeader("X-Env"), items)
 	response.Success(c, gin.H{
 		"items": mapFn(items, func(t model.ComponentTemplate) TemplateDTO {
 			dto := toDTO(&t)
@@ -190,18 +190,18 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
-func (h *Handler) listContractsByScope(gameID, env string) ([]*model.FunctionContract, error) {
+func (h *Handler) listContractsByScope(ctx context.Context, gameID, env string) ([]*model.FunctionContract, error) {
 	if h.contractMdl == nil {
 		return nil, nil
 	}
-	return h.contractMdl.ListByScope(context.Background(), gameID, env)
+	return h.contractMdl.ListByScope(ctx, gameID, env)
 }
 
 // computeStaleKeys 对 builtin 模板做 stale 检测：按当前 scope 契约在内存中
 // 重算同类模板（单函数/查询/CRUD），Tree 不一致即 stale。仅 builtin 参与；
 // 契约不可用或无契约时返回空集（不误标）。
-func (h *Handler) computeStaleKeys(gameID, env string, items []model.ComponentTemplate) map[string]bool {
-	contracts, err := h.listContractsByScope(gameID, env)
+func (h *Handler) computeStaleKeys(ctx context.Context, gameID, env string, items []model.ComponentTemplate) map[string]bool {
+	contracts, err := h.listContractsByScope(ctx, gameID, env)
 	if err != nil || len(contracts) == 0 {
 		return nil
 	}

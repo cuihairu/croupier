@@ -86,7 +86,7 @@ func TestListMarksStaleBuiltinTemplates(t *testing.T) {
 	require.NoError(t, h.GenerateQueryTemplate(context.Background(), contract))
 
 	// 契约未变化 → 不 stale
-	stale := h.computeStaleKeys("demo", "dev", []model.ComponentTemplate{*storedBuiltin(t, db, "fn--player.list")})
+	stale := h.computeStaleKeys(context.Background(), "demo", "dev", []model.ComponentTemplate{*storedBuiltin(t, db, "fn--player.list")})
 	assert.Empty(t, stale, "fresh template must not be stale")
 
 	// 契约能力变化（collection_query → action，落库）：
@@ -97,7 +97,7 @@ func TestListMarksStaleBuiltinTemplates(t *testing.T) {
 		*storedBuiltin(t, db, "fn--player.list"),
 		*storedBuiltin(t, db, "query--player.list"),
 	}
-	stale = h.computeStaleKeys("demo", "dev", items)
+	stale = h.computeStaleKeys(context.Background(), "demo", "dev", items)
 	assert.True(t, stale["fn--player.list"], "视图推导变化必须标记 stale")
 	assert.True(t, stale["query--player.list"], "生成条件消失必须标记 stale")
 

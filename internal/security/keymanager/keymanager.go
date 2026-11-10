@@ -112,6 +112,8 @@ type KeyManager struct {
 // NewKeyManager creates a new key manager
 func NewKeyManager(store KeyStore, masterKey []byte) *KeyManager {
 	if len(masterKey) < 32 {
+		// panic-ok: 构造期密钥强度不变量，弱密钥继续运行比拒绝启动危险
+		//（CR-FIX-22 豁免清单）。
 		panic("master key must be at least 32 bytes")
 	}
 

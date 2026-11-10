@@ -106,14 +106,16 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 	if exec := s.executor(); exec != nil {
 		backupID, name, backupType := backup.BackupID, backup.Name, backup.Type
 		go func() {
-			bg, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			// WithoutCancel 从入参派生：备份异步执行与请求生命周期解绑
+			// （客户端断开不中断），保留 ctx 值（game DB 路由等）（CR-FIX-22）。
+			bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Minute)
 			defer cancel()
 			if err := exec.RunBackup(bg, backupID, name, backupType); err != nil {
-				_ = s.recordBackupEvent(context.Background(), "backups_run_failed",
+				_ = s.recordBackupEvent(bg, "backups_run_failed",
 					"backup execution failed",
 					fmt.Sprintf(`{"backup_id":"%s","error":%q}`, backupID, err.Error()))
 			} else {
-				_ = s.recordBackupEvent(context.Background(), "backups_run_succeeded",
+				_ = s.recordBackupEvent(bg, "backups_run_succeeded",
 					"backup execution succeeded",
 					fmt.Sprintf(`{"backup_id":"%s"}`, backupID))
 			}

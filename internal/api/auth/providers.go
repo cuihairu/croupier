@@ -79,6 +79,8 @@ func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders,
 		if oc.Issuer == "" || oc.ClientID == "" || oc.RedirectURL == "" {
 			return nil, errors.New("auth.providers.oidc: issuer/clientId/redirectUrl 未配置")
 		}
+		// bare-background-ok: BuildIdentityProviders 在启动装配期执行（无
+		// 请求 ctx），10s 超时只覆盖 OIDC discovery（CR-FIX-22 豁免清单）。
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		oidcProvider, err := identity.NewOIDCProvider(ctx, identity.OIDCConfig{

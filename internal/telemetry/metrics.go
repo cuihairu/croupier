@@ -327,13 +327,16 @@ func setMetricField[T any](m *GameMetrics, name string, value T) {
 	rv := reflect.ValueOf(m).Elem()
 	f := rv.FieldByName(name)
 	if !f.IsValid() || !f.CanSet() {
+		// panic-ok: 规格表与结构体声明漂移属开发期错误，快速失败
+		//（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("telemetry: unknown GameMetrics field %q", name))
 	}
 	vt := reflect.ValueOf(value)
 	// GameMetrics 全部字段均为 metric 接口类型，而 reflect 语义上接口目标类型的
 	// AssignableTo 与 Implements 恒等价，"不可直接赋值但实现接口"的组合不存在
 	// （原 Convert 分支为死代码），收敛为单一可赋值性检查：规格表与结构体声明
-	// 漂移属开发期错误，直接 panic。
+	// 漂移属开发期错误，直接 panic。panic-ok: init 期规格表不变量
+	//（CR-FIX-22 豁免清单）。
 	if !vt.Type().AssignableTo(f.Type()) {
 		panic(fmt.Sprintf("telemetry: value for field %s does not implement %s", name, f.Type()))
 	}

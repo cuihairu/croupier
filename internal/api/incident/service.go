@@ -231,7 +231,7 @@ func (s *Service) CreateIncident(ctx context.Context, req *IncidentCreateRequest
 		return nil, false, err
 	}
 	dto := s.toIncidentDTO(ctx, row)
-	DispatchLifecycle(s.svcCtx, row, LifecycleIncidentCreated)
+	DispatchLifecycle(ctx, s.svcCtx, row, LifecycleIncidentCreated)
 	return &dto, true, nil
 }
 
@@ -343,7 +343,7 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 		return nil, err
 	}
 	if escalated {
-		DispatchLifecycle(s.svcCtx, row, LifecycleIncidentEscalated)
+		DispatchLifecycle(ctx, s.svcCtx, row, LifecycleIncidentEscalated)
 	}
 	dto := s.toIncidentDTO(ctx, row)
 	return &dto, nil
@@ -382,7 +382,7 @@ func (s *Service) TransitionIncident(ctx context.Context, id uint, req *Incident
 		return nil, err
 	}
 	if req.Status == model.IncidentStatusResolved {
-		DispatchLifecycle(s.svcCtx, row, LifecycleIncidentResolved)
+		DispatchLifecycle(ctx, s.svcCtx, row, LifecycleIncidentResolved)
 	}
 	dto := s.toIncidentDTO(ctx, row)
 	return &dto, nil

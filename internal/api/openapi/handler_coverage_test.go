@@ -511,16 +511,16 @@ func TestRegisteredFunctionMetaInScopeFallbacks(t *testing.T) {
 	svcCtx := service.svcCtx
 
 	// Registry hit.
-	meta, ok := registeredFunctionMetaInScope(svcCtx, "demo-game", "development", "player.get")
+	meta, ok := registeredFunctionMetaInScope(context.Background(), svcCtx, "demo-game", "development", "player.get")
 	require.True(t, ok)
 	assert.Equal(t, "1.0.0", meta.Version)
 
 	// Wrong env scope misses.
-	_, ok = registeredFunctionMetaInScope(svcCtx, "demo-game", "production", "player.get")
+	_, ok = registeredFunctionMetaInScope(context.Background(), svcCtx, "demo-game", "production", "player.get")
 	assert.False(t, ok)
 
 	// Empty inputs miss.
-	_, ok = registeredFunctionMetaInScope(svcCtx, "", "", "")
+	_, ok = registeredFunctionMetaInScope(context.Background(), svcCtx, "", "", "")
 	assert.False(t, ok)
 
 	// FunctionModel fallback for functions known only through the database.
@@ -533,13 +533,13 @@ func TestRegisteredFunctionMetaInScopeFallbacks(t *testing.T) {
 		Resource:   "player",
 	}
 	require.NoError(t, svcCtx.DB.Create(fn).Error)
-	meta, ok = registeredFunctionMetaInScope(svcCtx, "demo-game", "development", "db.only.fn")
+	meta, ok = registeredFunctionMetaInScope(context.Background(), svcCtx, "demo-game", "development", "db.only.fn")
 	require.True(t, ok)
 	assert.Equal(t, "2.0.0", meta.Version)
 	assert.Equal(t, "player", meta.Resource)
 
 	// Game mismatch in DB row rejects the lookup.
-	_, ok = registeredFunctionMetaInScope(svcCtx, "other-game", "development", "db.only.fn")
+	_, ok = registeredFunctionMetaInScope(context.Background(), svcCtx, "other-game", "development", "db.only.fn")
 	assert.False(t, ok)
 }
 
@@ -808,16 +808,16 @@ func TestScopedTransactionRequiresDatabase(t *testing.T) {
 }
 
 func TestHasRegisteredFunctionFallbacks(t *testing.T) {
-	assert.False(t, hasRegisteredFunction(nil, "x"))
+	assert.False(t, hasRegisteredFunction(context.Background(), nil, "x"))
 	service, _ := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read")
 	svcCtx := service.svcCtx
-	assert.False(t, hasRegisteredFunction(svcCtx, ""))
-	assert.True(t, hasRegisteredFunction(svcCtx, "player.list"))
-	assert.False(t, hasRegisteredFunction(svcCtx, "missing.fn"))
+	assert.False(t, hasRegisteredFunction(context.Background(), svcCtx, ""))
+	assert.True(t, hasRegisteredFunction(context.Background(), svcCtx, "player.list"))
+	assert.False(t, hasRegisteredFunction(context.Background(), svcCtx, "missing.fn"))
 
 	fn := &model.Function{FunctionID: "db.fn", GameID: "demo-game", Status: 1}
 	require.NoError(t, svcCtx.DB.Create(fn).Error)
-	assert.True(t, hasRegisteredFunction(svcCtx, "db.fn"))
+	assert.True(t, hasRegisteredFunction(context.Background(), svcCtx, "db.fn"))
 }
 
 func TestNormalizeOpenAPIDocPatchesResponses(t *testing.T) {

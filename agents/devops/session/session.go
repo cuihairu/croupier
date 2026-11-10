@@ -69,6 +69,7 @@ func newSessionID() string {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		// crypto/rand 失败极罕见（系统熵源故障）；拒绝生成比可预测 id 安全。
+		// panic-ok: 熵源故障不可恢复，可预测 id 属安全缺陷（CR-FIX-22）。
 		panic(fmt.Errorf("session: generate id: %w", err))
 	}
 	return hex.EncodeToString(b[:])

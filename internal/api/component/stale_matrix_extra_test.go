@@ -87,7 +87,7 @@ func TestComputeStaleKeysFullMatrix(t *testing.T) {
 	require.Positive(t, total)
 
 	// 新鲜生成 → 不应有 stale
-	stale := h.computeStaleKeys("demo", "dev", items)
+	stale := h.computeStaleKeys(context.Background(), "demo", "dev", items)
 	assert.Empty(t, stale, "刚生成的 builtin 模板不应 stale")
 
 	// 篡改一个 builtin 模板 tree → stale
@@ -98,7 +98,7 @@ func TestComputeStaleKeysFullMatrix(t *testing.T) {
 		PaginationOptions: model.PaginationOptions{Page: 1, PageSize: 100},
 	})
 	require.NoError(t, err)
-	stale2 := h.computeStaleKeys("demo", "dev", items2)
+	stale2 := h.computeStaleKeys(context.Background(), "demo", "dev", items2)
 	assert.True(t, stale2[tampered.Key], "被篡改的模板应标记 stale")
 }
 

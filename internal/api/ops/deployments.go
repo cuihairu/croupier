@@ -377,8 +377,9 @@ func (s *Service) DeploymentStart(ctx context.Context, id string) (*DeploymentAc
 		return nil, errorx.NewNotFound("包不存在")
 	}
 	// 发版全链（分批推进 + 健康门禁）可持续数分钟，挂在 HTTP 请求 ctx 上会
-	// 在客户端断开时取消整个发版（#666）；改用后台 ctx 完成发版并落终态。
-	bg, cancel := context.WithCancel(context.Background())
+	// 在客户端断开时取消整个发版（#666）；WithoutCancel 从入参派生后台
+	// ctx（保留 game DB 路由等值，断开不取消）完成发版并落终态（CR-FIX-22）。
+	bg, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancel()
 	started, err := s.svcCtx.Deployments.Start(bg, d, pkg)
 	if err != nil {
@@ -402,7 +403,8 @@ func (s *Service) DeploymentRollback(ctx context.Context, id string, req *Deploy
 	if err != nil {
 		return nil, errorx.NewNotFound("回滚包不存在")
 	}
-	bg, cancel := context.WithCancel(context.Background())
+	// 回滚同发版语义：WithoutCancel 派生，断开不取消（CR-FIX-22）。
+	bg, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancel()
 	rolled, err := s.svcCtx.Deployments.Rollback(bg, d, rbPkg)
 	if err != nil {

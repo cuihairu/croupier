@@ -315,7 +315,8 @@ var (
 )
 
 // RegisterGameProtocol 注册游戏协议适配器（层 3 接入点）。重复注册=装配错误，
-// 直接 panic（database/sql driver 注册同口径）。
+// 直接 panic（database/sql driver 注册同口径）。panic-ok: init 期
+// 注册不变量（CR-FIX-22 豁免清单）。
 func RegisterGameProtocol(name string, maker GameProtocolMaker) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
@@ -327,6 +328,8 @@ func RegisterGameProtocol(name string, maker GameProtocolMaker) {
 	gameProtocolMu.Lock()
 	defer gameProtocolMu.Unlock()
 	if _, dup := gameProtocolMakers[name]; dup {
+		// panic-ok: 重复注册=装配错误，database/sql driver 注册同口径
+		//（CR-FIX-22 豁免清单）。
 		panic("healthprobe: RegisterGameProtocol called twice for " + name)
 	}
 	gameProtocolMakers[name] = maker

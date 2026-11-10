@@ -181,6 +181,8 @@ func (c *UpstreamClient) SetTransportKind(kind string) {
 	if kind == "" {
 		kind = "tcp" // default to tcp if empty
 	}
+	// panic-ok: 构造期配置校验，仅支持 tcp；坏配置启动即失败优于半初始化
+	// upstream（CR-FIX-22 豁免清单）。
 	if kind != "tcp" {
 		panic(fmt.Sprintf("unsupported transport kind: %q (only 'tcp' is supported)", kind))
 	}

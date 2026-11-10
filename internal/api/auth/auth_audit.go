@@ -45,7 +45,7 @@ func (s *Service) validLastScope(ctx context.Context, adminID uint, roles []stri
 // AuditService (hash-chained, survives restarts). The legacy in-memory
 // OpsStateStore audit trail was removed: audit history must outlive the
 // process, and the ops store is for transient state only.
-func (s *Service) recordLoginAudit(username, action, result string, req *LoginRequest, reason string, provider string) {
+func (s *Service) recordLoginAudit(ctx context.Context, username, action, result string, req *LoginRequest, reason string, provider string) {
 	if s == nil || s.auditSvc == nil {
 		return
 	}
@@ -78,7 +78,9 @@ func (s *Service) recordLoginAudit(username, action, result string, req *LoginRe
 		eventType = audit.EventLoginFailed
 		outcome = "failure"
 	}
-	_, _ = s.auditSvc.Log(context.Background(), eventType,
+	// 审计必须与请求生命周期解绑（客户端断开不丢登录审计），
+	// WithoutCancel 从入参派生并保留值（CR-FIX-22）。
+	_, _ = s.auditSvc.Log(context.WithoutCancel(ctx), eventType,
 		audit.WithActorID(strings.TrimSpace(username), "user", strings.TrimSpace(username)),
 		audit.WithIPAddress(ip, ua),
 		audit.WithDetails(metadata),

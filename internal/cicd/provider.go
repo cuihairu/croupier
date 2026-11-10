@@ -105,6 +105,8 @@ var ErrUnknownKind = errors.New("unknown cicd provider kind")
 func Register(kind string, f Factory) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
+	// panic-ok: init 期注册不变量（同 internal/drivers 口径），开发期
+	// 装配错误快速失败（CR-FIX-22 豁免清单）。
 	if kind == "" || f == nil {
 		panic("cicd: Register requires kind and factory")
 	}

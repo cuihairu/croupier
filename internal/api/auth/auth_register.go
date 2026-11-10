@@ -77,7 +77,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 	}
 	if err := s.adminModel.Create(ctx, admin, req.Password); err != nil {
 		// 并发重名：唯一索引兜底为失败
-		s.recordLoginAudit(username, "auth.register_failed", "failed",
+		s.recordLoginAudit(ctx, username, "auth.register_failed", "failed",
 			&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "create_failed", "")
 		return nil, fmt.Errorf("注册失败：用户名可能已存在")
 	}
@@ -85,7 +85,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 	// #51c 第二批：required 开启且填了邮箱 → 签发验证令牌并发信。失败仅
 	// 日志（令牌已落库，用户可走重发端点），不影响注册结果。
 	s.maybeSendVerificationOnRegister(ctx, admin)
-	s.recordLoginAudit(username, "auth.register", "success",
+	s.recordLoginAudit(ctx, username, "auth.register", "success",
 		&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "", "")
 	slog.Default().Info("self-registered admin account", "username", username)
 	return admin, nil

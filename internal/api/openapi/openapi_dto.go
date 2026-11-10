@@ -186,7 +186,7 @@ func findSourceOperation(operations []OpenAPISourceOperation, operationID string
 	return OpenAPISourceOperation{}, false
 }
 
-func registeredFunctionMetaInScope(svcCtx *svc.ServiceContext, gameID, env, functionID string) (reg.FunctionMeta, bool) {
+func registeredFunctionMetaInScope(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, functionID string) (reg.FunctionMeta, bool) {
 	functionID = strings.TrimSpace(functionID)
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
@@ -213,7 +213,7 @@ func registeredFunctionMetaInScope(svcCtx *svc.ServiceContext, gameID, env, func
 		}
 	}
 	if svcCtx.FunctionModel != nil {
-		fn, err := svcCtx.FunctionModel.FindByFunctionID(context.Background(), functionID)
+		fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, functionID)
 		if err == nil && fn != nil {
 			if gameID != "" && strings.TrimSpace(fn.GameID) != "" && strings.TrimSpace(fn.GameID) != gameID {
 				return reg.FunctionMeta{}, false
@@ -257,7 +257,7 @@ func sanitizeBindingID(value string) string {
 	return out
 }
 
-func hasRegisteredFunction(svcCtx *svc.ServiceContext, functionID string) bool {
+func hasRegisteredFunction(ctx context.Context, svcCtx *svc.ServiceContext, functionID string) bool {
 	functionID = strings.TrimSpace(functionID)
 	if functionID == "" {
 		return false
@@ -278,7 +278,7 @@ func hasRegisteredFunction(svcCtx *svc.ServiceContext, functionID string) bool {
 		}
 	}
 	if svcCtx.FunctionModel != nil {
-		if _, err := svcCtx.FunctionModel.FindByFunctionID(context.Background(), functionID); err == nil {
+		if _, err := svcCtx.FunctionModel.FindByFunctionID(ctx, functionID); err == nil {
 			return true
 		}
 	}

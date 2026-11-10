@@ -6,6 +6,7 @@ package openapi
 // 随机可能在命中前早退，覆盖率不稳定）。
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -31,7 +32,7 @@ func TestV10RegisteredFunctionMeta_SkipsNilSessionViaDBFallback(t *testing.T) {
 	store.AgentsUnsafe()["nil-agent-v10c"] = nil
 	store.Mu().Unlock()
 
-	meta, ok := registeredFunctionMetaInScope(service.svcCtx, "demo-game", "development", "db.only.fn.v10")
+	meta, ok := registeredFunctionMetaInScope(context.Background(), service.svcCtx, "demo-game", "development", "db.only.fn.v10")
 	require.True(t, ok, "DB fallback must resolve the function after scanning all agents")
 	assert.True(t, meta.Enabled)
 	assert.Equal(t, "1.0.0", meta.Version)
@@ -46,7 +47,7 @@ func TestV10HasRegisteredFunction_SkipsNilSessionDeterministically(t *testing.T)
 
 	// functionID 在任何 agent 与 functions 表都不存在：两个数据源都
 	// 必须被完整遍历（nil 会话条目被跳过），最终返回 false。
-	assert.False(t, hasRegisteredFunction(service.svcCtx, "definitely.missing.fn.v10"))
+	assert.False(t, hasRegisteredFunction(context.Background(), service.svcCtx, "definitely.missing.fn.v10"))
 
 	// 缩回去，不影响其他用例的共享 store（每个用例独立 service，
 	// 此处仅为语义完整）。
@@ -63,5 +64,5 @@ func TestV10HasRegisteredFunction_RegisteredStillFound(t *testing.T) {
 	store.AgentsUnsafe()["nil-agent-v10b"] = nil
 	store.Mu().Unlock()
 
-	require.True(t, hasRegisteredFunction(service.svcCtx, "player.list"))
+	require.True(t, hasRegisteredFunction(context.Background(), service.svcCtx, "player.list"))
 }

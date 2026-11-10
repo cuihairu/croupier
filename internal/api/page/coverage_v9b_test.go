@@ -169,7 +169,7 @@ func TestV9B_SeedRegistrationWarnings_NilStore(t *testing.T) {
 	service.svcCtx.RegistryStore = nil
 
 	seeder := newDemoDataSeeder(service, "demo-game", "development")
-	assert.NotPanics(t, func() { seeder.seedRegistrationWarnings() })
+	assert.NotPanics(t, func() { seeder.seedRegistrationWarnings(context.Background()) })
 }
 
 // newDemoDataSeeder 保存 scope 字段。

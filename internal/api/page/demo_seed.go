@@ -73,7 +73,7 @@ func (s *demoDataSeeder) seed(ctx context.Context) (map[string]interface{}, erro
 	summary["publishFailed"] = bulk.Failed
 
 	// 3. 演示注册警告（registry 内存存储，重启即失——演示用途）
-	s.seedRegistrationWarnings()
+	s.seedRegistrationWarnings(ctx)
 
 	summary["registrationWarnings"] = len(demoWarnings)
 	return summary, nil
@@ -90,13 +90,13 @@ func (s *demoDataSeeder) upsertTerm(ctx context.Context, domain, key, word strin
 }
 
 // seedRegistrationWarnings 通过 registry store 写入演示警告。
-func (s *demoDataSeeder) seedRegistrationWarnings() {
+func (s *demoDataSeeder) seedRegistrationWarnings(ctx context.Context) {
 	if s.svc.svcCtx.RegistryStore == nil {
 		return
 	}
 	now := time.Now()
 	for _, w := range demoWarnings {
-		s.svc.svcCtx.RegistryStore.UpsertRegistrationWarning(context.Background(), registry.FunctionRegistrationWarning{
+		s.svc.svcCtx.RegistryStore.UpsertRegistrationWarning(ctx, registry.FunctionRegistrationWarning{
 			GameID:     s.gameID,
 			Env:        s.env,
 			AgentID:    w.AgentID,

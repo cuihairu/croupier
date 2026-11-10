@@ -228,6 +228,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 	db, err := openDatabase(c, secrets)
 	if err != nil {
+		// panic-ok: NewServiceContext 启动装配期，DB 连不上属不可恢复
+		// 启动失败（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("Failed to connect to database: %v", err))
 	}
 	slog.Default().Info("Database connected successfully")
@@ -238,10 +240,12 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	migrateCtx := context.Background()
 	if multiGame {
 		if _, err := migrateMeta(migrateCtx, db); err != nil {
+			// panic-ok: 启动期迁移失败，库停旧版语义，不可恢复（CR-FIX-22）。
 			panic(fmt.Sprintf("Failed to migrate meta database: %v", err))
 		}
 	} else {
 		if _, err := migrate.EnsureUpToDate(migrateCtx, db, migrate.ScopeSingle, autoMigrate); err != nil {
+			// panic-ok: 启动期迁移失败，库停旧版语义，不可恢复（CR-FIX-22）。
 			panic(fmt.Sprintf("Failed to migrate database: %v", err))
 		}
 	}
@@ -306,6 +310,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		databaseNameFor = dbRouter.NameForGame
 	}
 	if created, err := gameModel.BackfillEnvBindings(context.Background(), databaseNameFor); err != nil {
+		// panic-ok: 启动期回填失败意味着 game/env 绑定层不完整，带病启动
+		// 会放大成路由错库（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("failed to backfill game environment bindings: %v", err))
 	} else if created > 0 {
 		slog.Default().Info("backfilled game environment bindings", "created", created)
@@ -353,11 +359,15 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	objectStore, err := initObjectStore(context.Background(), c.Storage, secrets)
 	if err != nil {
+		// panic-ok: 启动装配期对象存储初始化失败，属不可恢复配置错误
+		//（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("Failed to initialize object store: %v", err))
 	}
 
 	approvalsStore, err := approvals.NewSQLStore(db)
 	if err != nil {
+		// panic-ok: 启动装配期 approvals 存储初始化失败，审批面不可用
+		// 不可恢复（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("failed to initialize approvals SQL store: %v", err))
 	}
 
@@ -684,6 +694,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	secret, err := resolveJWTSecret(ctx.Config, secrets)
 	if err != nil {
 		// JWT secret 未配置/引用不可解析且不在开发模式，这是一个严重配置错误
+		// panic-ok: 启动期安全配置缺失，拒绝启动优于降级无签名 token
+		//（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("JWT secret not configured: %v", err))
 	}
 	ctx.Config.Auth.JWTSecret = secret

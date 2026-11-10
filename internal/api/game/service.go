@@ -244,13 +244,13 @@ func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
 }
 
 // enrichedEnvs returns env items with databaseName merged from GameEnvBinding.
-func (s *Service) enrichedEnvs(game *model.Game) []GameEnvItem {
+func (s *Service) enrichedEnvs(ctx context.Context, game *model.Game) []GameEnvItem {
 	envs, err := game.GetEnvs()
 	if err != nil {
 		return []GameEnvItem{}
 	}
 	items := convertGameEnvs(envs)
-	bindings, err := s.svcCtx.GameModel.ListEnvBindings(context.Background(), game.GameID)
+	bindings, err := s.svcCtx.GameModel.ListEnvBindings(ctx, game.GameID)
 	if err != nil {
 		return items
 	}
@@ -273,7 +273,7 @@ func (s *Service) EnvsList(ctx context.Context, req *GameEnvsListRequest) (*Game
 		return nil, gameLookupErr(req.ID, err)
 	}
 
-	envItems := s.enrichedEnvs(game)
+	envItems := s.enrichedEnvs(ctx, game)
 	allowed, isAdmin, err := s.gameEnvScopes(ctx, id)
 	if err != nil {
 		return nil, err
@@ -347,7 +347,7 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 	s.svcCtx.InvalidateGameCache(ctx, id)
 
 	return &GameEnvAddResponse{
-		Envs: s.enrichedEnvs(game),
+		Envs: s.enrichedEnvs(ctx, game),
 	}, nil
 }
 
@@ -428,7 +428,7 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 	s.svcCtx.InvalidateGameCache(ctx, id)
 
 	return &GameEnvUpdateResponse{
-		Envs: s.enrichedEnvs(game),
+		Envs: s.enrichedEnvs(ctx, game),
 	}, nil
 }
 
@@ -485,6 +485,6 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 	s.svcCtx.InvalidateGameCache(ctx, id)
 
 	return &GameEnvDeleteResponse{
-		Envs: s.enrichedEnvs(game),
+		Envs: s.enrichedEnvs(ctx, game),
 	}, nil
 }

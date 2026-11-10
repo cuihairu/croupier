@@ -48,6 +48,8 @@ type SystemCheckUpdateResponse struct {
 // 可注入缝隙（同 Service 顶部函数变量化口径）：更新源读取与远端拉取。
 var (
 	systemUpdateCheckURLFn = func() string {
+		// bare-background-ok: 零参注入缝隙（同 Service 顶部函数变量化口径），
+		// settings 读取不经请求 ctx（CR-FIX-22 豁免清单）。
 		v, _, ok := settings.Current().GetString(context.Background(), settings.KeySystemUpdateCheckURL)
 		if !ok {
 			return ""

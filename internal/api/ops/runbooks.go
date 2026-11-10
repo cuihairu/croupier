@@ -63,8 +63,10 @@ func (r *runbookBatchRunner) RunBatch(ctx context.Context, gameID, env string, r
 	if err != nil {
 		return nil, err
 	}
-	// 非 dry-run 在后台 ctx 上执行（客户端断开不取消整批，与 BatchOpExecute 一致）。
-	bg, cancel := context.WithCancel(context.Background())
+	// 非 dry-run 在后台 ctx 上执行（客户端断开不取消整批，与 BatchOpExecute
+	// 一致）。WithoutCancel 从入参派生：保留 ctx 携带的值（game DB 路由等）
+	// 但与请求生命周期解绑（CR-FIX-22）。
+	bg, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancel()
 	return r.service.BatchOpExecute(bg, gameID, env, op.BatchID, req.DryRun)
 }
@@ -139,7 +141,9 @@ func (s *Service) RunbookRun(ctx context.Context, gameID, env, runbookID string,
 	if err != nil {
 		return nil, err
 	}
-	bg, cancel := context.WithCancel(context.Background())
+	// WithoutCancel 从入参派生：断开不取消运行，同时保留 ctx 值
+	//（game DB 路由等）（CR-FIX-22）。
+	bg, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancel()
 	return o.Run(bg, gameID, env, runbookID, params, operator)
 }

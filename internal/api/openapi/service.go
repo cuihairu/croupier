@@ -38,7 +38,7 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 func (s *Service) GetSpec(ctx context.Context, req *GetSpecRequest) (*GetSpecResponse, error) {
 	spec, err := s.svcCtx.RegistryStore.GetOpenAPI(req.ID)
 	if err != nil {
-		if hasRegisteredFunction(s.svcCtx, req.ID) {
+		if hasRegisteredFunction(ctx, s.svcCtx, req.ID) {
 			spec = logicfunction.BuildFallbackOpenAPIOperation(req.ID)
 		} else {
 			return nil, err
@@ -408,7 +408,7 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		spanErr = err
 		return nil, err
 	}
-	runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, functionID)
+	runtimeMeta, ok := registeredFunctionMetaInScope(ctx, s.svcCtx, gameID, env, functionID)
 	if !ok {
 		err := errorx.NewBadRequest("functionId is not registered in current game/env runtime")
 		spanErr = err
@@ -581,7 +581,7 @@ func (s *Service) BatchGetSpec(ctx context.Context, req *BatchGetSpecRequest) Ba
 		}
 		spec, err := s.svcCtx.RegistryStore.GetOpenAPI(functionID)
 		if err != nil {
-			if hasRegisteredFunction(s.svcCtx, functionID) {
+			if hasRegisteredFunction(ctx, s.svcCtx, functionID) {
 				resp[functionID] = mustMarshalRaw(logicfunction.BuildFallbackOpenAPIOperation(functionID))
 				continue
 			}

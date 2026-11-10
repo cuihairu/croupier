@@ -25,7 +25,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	password := strings.TrimSpace(req.Password)
 	if password == "" {
-		s.recordLoginAudit(username, "auth.login_failed", "failed", req, "password_required", "")
+		s.recordLoginAudit(ctx, username, "auth.login_failed", "failed", req, "password_required", "")
 		return nil, errors.New("密码不能为空")
 	}
 
@@ -35,7 +35,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	// 防止账号枚举）。
 	if admin, err := s.adminModel.FindByUsername(ctx, username); err == nil && admin != nil {
 		if admin.LockedUntil != nil && admin.LockedUntil.After(time.Now()) {
-			s.recordLoginAudit(username, "auth.login_locked", "failed", req, "account_locked", identity.KindLocal)
+			s.recordLoginAudit(ctx, username, "auth.login_locked", "failed", req, "account_locked", identity.KindLocal)
 			return nil, fmt.Errorf("账号已锁定，请 %d 分钟后重试", int(time.Until(*admin.LockedUntil).Minutes())+1)
 		}
 	}
@@ -48,7 +48,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 			reason = "provider_error"
 			msg = "认证服务暂时不可用，请稍后重试"
 		}
-		s.recordLoginAudit(username, "auth.login_failed", "failed", req, reason, "")
+		s.recordLoginAudit(ctx, username, "auth.login_failed", "failed", req, reason, "")
 		// 仅 local provider 计入失败次数：外部身份源的失败发生在 IdP
 		// 侧，其锁定策略由 IdP 自己负责。infraErr 非空时本地库可能
 		// 不可用，跳过计数以免误锁。
@@ -60,7 +60,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	admin, err := s.resolveAdminForIdentity(ctx, ident)
 	if err != nil {
-		s.recordLoginAudit(username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
+		s.recordLoginAudit(ctx, username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
 		return nil, errors.New("登录失败")
 	}
 
@@ -68,7 +68,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	// 邮箱且未验证。密码通过后、MFA 之前——邮箱所有权是账号激活的前置，
 	// 二次验证是登录的第二因子，顺序先激活后验真。
 	if ident.Provider == identity.KindLocal && emailVerificationRequired() && emailVerificationBlocksLogin(admin) {
-		s.recordLoginAudit(username, "auth.login_blocked", "failed", req, "email_not_verified", ident.Provider)
+		s.recordLoginAudit(ctx, username, "auth.login_blocked", "failed", req, "email_not_verified", ident.Provider)
 		return nil, ErrEmailNotVerified
 	}
 
@@ -81,10 +81,10 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 			// 通过：TOTP 码或恢复码任一有效即可
 		} else {
 			if strings.TrimSpace(req.TOTPCode) == "" {
-				s.recordLoginAudit(username, "auth.mfa_required", "failed", req, "totp_required", ident.Provider)
+				s.recordLoginAudit(ctx, username, "auth.mfa_required", "failed", req, "totp_required", ident.Provider)
 				return nil, ErrMFARequired
 			}
-			s.recordLoginAudit(username, "auth.mfa_failed", "failed", req, "invalid_totp", ident.Provider)
+			s.recordLoginAudit(ctx, username, "auth.mfa_failed", "failed", req, "invalid_totp", ident.Provider)
 			return nil, errors.New("二次验证码错误")
 		}
 	}
@@ -113,7 +113,7 @@ func (s *Service) recordLocalLoginFailure(ctx context.Context, username string, 
 		return
 	}
 	if lockedUntil != nil {
-		s.recordLoginAudit(username, "auth.login_locked", "failed", req, "threshold_reached", identity.KindLocal)
+		s.recordLoginAudit(ctx, username, "auth.login_locked", "failed", req, "threshold_reached", identity.KindLocal)
 	}
 }
 
@@ -245,7 +245,7 @@ func (s *Service) findRoleByName(ctx context.Context, name string) (*model.Role,
 func (s *Service) issueLogin(ctx context.Context, admin *model.Admin, ident *identity.Identity, req *LoginRequest) (*LoginResponse, error) {
 	roleModels, err := s.adminModel.GetAdminRoles(ctx, admin.ID)
 	if err != nil {
-		s.recordLoginAudit(admin.Username, "auth.login_failed", "failed", req, "load_roles_failed", ident.Provider)
+		s.recordLoginAudit(ctx, admin.Username, "auth.login_failed", "failed", req, "load_roles_failed", ident.Provider)
 		return nil, errors.New("获取用户角色失败")
 	}
 
@@ -256,11 +256,11 @@ func (s *Service) issueLogin(ctx context.Context, admin *model.Admin, ident *ide
 
 	token, err := jwtutil.Sign(s.jwtSecret, admin.Username, roles, admin.ID, admin.TokenVersion, time.Now())
 	if err != nil {
-		s.recordLoginAudit(admin.Username, "auth.login_failed", "failed", req, "token_generation_failed", ident.Provider)
+		s.recordLoginAudit(ctx, admin.Username, "auth.login_failed", "failed", req, "token_generation_failed", ident.Provider)
 		return nil, errors.New("生成 token 失败")
 	}
 
-	s.recordLoginAudit(admin.Username, "auth.login", "success", req, "", ident.Provider)
+	s.recordLoginAudit(ctx, admin.Username, "auth.login", "success", req, "", ident.Provider)
 
 	lastGameID, lastEnv := s.validLastScope(ctx, admin.ID, roles, admin.LastGameID, admin.LastEnv)
 

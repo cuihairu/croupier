@@ -115,6 +115,8 @@ func main() {
 	flag.Parse()
 
 	if err := runExport(*dir, *out); err != nil {
+		// panic-ok: CLI main 的导出失败无恢复路径，非零退出即进程语义
+		//（CR-FIX-22 豁免清单）。
 		panic(err)
 	}
 }

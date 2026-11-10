@@ -29,7 +29,7 @@ type IncidentLifecycleEvent struct {
 
 // DispatchLifecycle 异步推一条生命周期事件到外部出口链（§9.3）。
 // OutletManager 未布线时静默跳过；失败仅记日志不抛错。
-func DispatchLifecycle(svcCtx *svc.ServiceContext, row *model.Incident, kind IncidentLifecycleKind) {
+func DispatchLifecycle(ctx context.Context, svcCtx *svc.ServiceContext, row *model.Incident, kind IncidentLifecycleKind) {
 	if svcCtx == nil || svcCtx.OutletManager == nil || row == nil {
 		return
 	}
@@ -37,8 +37,10 @@ func DispatchLifecycle(svcCtx *svc.ServiceContext, row *model.Incident, kind Inc
 	if ev == nil {
 		return
 	}
+	// WithoutCancel 从入参派生：推送与请求生命周期解绑（客户端断开不
+	// 取消外发），保留 ctx 值（game DB 路由等）（CR-FIX-22）。
 	go func() {
-		ctx := context.Background()
+		dctx := context.WithoutCancel(ctx)
 		evOut := outlet.AlertEvent{
 			Kind: "incident-lifecycle",
 			// 严重度直传：model 与 outlet 的取值同为 info/warning/critical
@@ -49,7 +51,7 @@ func DispatchLifecycle(svcCtx *svc.ServiceContext, row *model.Incident, kind Inc
 			Body:             ev.Body,
 			OccurredAtUnixMs: time.Now().UnixMilli(),
 		}
-		_, _ = svcCtx.OutletManager.DispatchExternal(ctx, evOut)
+		_, _ = svcCtx.OutletManager.DispatchExternal(dctx, evOut)
 	}()
 }
 

@@ -34,7 +34,7 @@ func (s *Service) rebuildContractsForSourceBindings(
 		if !ok {
 			continue
 		}
-		runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, binding.FunctionID)
+		runtimeMeta, ok := registeredFunctionMetaInScope(ctx, s.svcCtx, gameID, env, binding.FunctionID)
 		if !ok {
 			return errorx.NewBadRequest("bound functionId is not registered in current game/env runtime: " + strings.TrimSpace(binding.FunctionID))
 		}
@@ -293,7 +293,7 @@ func (s *Service) reconcileContractAfterBindingDelete(ctx context.Context, gameI
 		return s.rebuildContractFromRemainingBinding(ctx, gameID, env, remaining[0])
 	}
 	contractService := dashboardservice.NewContractService(s.svcCtx.DB)
-	if runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, functionID); ok {
+	if runtimeMeta, ok := registeredFunctionMetaInScope(ctx, s.svcCtx, gameID, env, functionID); ok {
 		previous, err := contractService.GetContract(ctx, gameID, env, functionID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("load SDK fallback contract %s: %w", functionID, err)
@@ -376,7 +376,7 @@ func (s *Service) rebuildContractFromRemainingBinding(ctx context.Context, gameI
 	if !ok {
 		return fmt.Errorf("remaining binding operation %s is missing from source %s", binding.OperationID, binding.SourceID)
 	}
-	runtimeMeta, ok := registeredFunctionMetaInScope(s.svcCtx, gameID, env, binding.FunctionID)
+	runtimeMeta, ok := registeredFunctionMetaInScope(ctx, s.svcCtx, gameID, env, binding.FunctionID)
 	if !ok {
 		return fmt.Errorf("remaining binding function %s is not registered in current runtime", binding.FunctionID)
 	}

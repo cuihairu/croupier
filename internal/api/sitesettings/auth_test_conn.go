@@ -40,7 +40,7 @@ func (h *Handler) TestAuthConnection(c *gin.Context) {
 			response.Error(c, fmt.Errorf("ldap 未启用（先保存 enabled=true 再测试）"))
 			return
 		}
-		if err := testLDAPConnect(cfg.LDAP); err != nil {
+		if err := testLDAPConnect(c.Request.Context(), cfg.LDAP); err != nil {
 			response.Success(c, gin.H{"ok": false, "message": err.Error()})
 			return
 		}
@@ -60,14 +60,15 @@ func (h *Handler) TestAuthConnection(c *gin.Context) {
 	}
 }
 
-// testLDAPConnect 拨号 + 匿名/bind 验证目录可达。
-func testLDAPConnect(cfg config.LDAPProviderConfig) error {
+// testLDAPConnect 拨号 + 匿名/bind 验证目录可达。ctx 取自请求
+// （客户端放弃等待即取消探测）。
+func testLDAPConnect(ctx context.Context, cfg config.LDAPProviderConfig) error {
 	addr := strings.TrimSpace(cfg.Addr)
 	if addr == "" {
 		return fmt.Errorf("addr 未配置")
 	}
 	d := &net.Dialer{Timeout: 5 * time.Second}
-	conn, err := d.DialContext(context.Background(), "tcp", addr)
+	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("连接 %s 失败: %w", addr, err)
 	}

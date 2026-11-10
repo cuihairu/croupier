@@ -25,6 +25,8 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 		return []Node{}
 	}
 	if ctx == nil {
+		// bare-background-ok: 入参 ctx 的防御性 nil 兜底（主路径恒由调用方
+		// 传入请求 ctx），非裸起新 context（CR-FIX-22 豁免清单）。
 		ctx = context.Background()
 	}
 

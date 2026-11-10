@@ -74,6 +74,8 @@ type TaskRunner struct {
 // logger are optional (events are dropped when reporter is nil).
 func NewTaskRunner(executor TaskExecutor, reporter TaskEventReporter, logger *slog.Logger) *TaskRunner {
 	if executor == nil {
+		// panic-ok: 构造期不变量（doc 已声明 executor must be non-nil），
+		// nil executor 的 runner 无法安全工作（CR-FIX-22 豁免清单）。
 		panic("TaskRunner requires a non-nil executor")
 	}
 	if logger == nil {

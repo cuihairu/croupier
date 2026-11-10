@@ -320,11 +320,11 @@ func TestRegisteredFunctionMetaSkipsNilSessionV9(t *testing.T) {
 	store.AgentsUnsafe()["nil-agent-v9"] = nil
 	store.Mu().Unlock()
 
-	meta, ok := registeredFunctionMetaInScope(service.svcCtx, "demo-game", "development", "player.list")
+	meta, ok := registeredFunctionMetaInScope(context.Background(), service.svcCtx, "demo-game", "development", "player.list")
 	require.True(t, ok)
 	assert.True(t, meta.Enabled)
 
-	assert.True(t, hasRegisteredFunction(service.svcCtx, "player.list"))
+	assert.True(t, hasRegisteredFunction(context.Background(), service.svcCtx, "player.list"))
 }
 
 func TestMergePathLevelParametersSkipsNilOpParamV9(t *testing.T) {

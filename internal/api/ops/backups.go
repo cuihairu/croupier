@@ -186,7 +186,9 @@ func createBackupForScope(ctx context.Context, svcCtx *svc.ServiceContext, scope
 	if exec != nil {
 		backupID, bname, btype := backup.BackupID, backup.Name, backup.Type
 		go func() {
-			bg, cancel := context.WithTimeout(context.Background(), backupTimeout(timeoutSec))
+			// WithoutCancel 从入参派生：断开不取消备份执行，保留 ctx 值
+			//（game DB 路由等）（CR-FIX-22）。
+			bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), backupTimeout(timeoutSec))
 			defer cancel()
 			if err := exec.RunBackup(bg, backupID, bname, btype); err != nil {
 				slog.Error("ops backup run failed", "backupID", backupID, "error", err)

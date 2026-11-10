@@ -84,6 +84,8 @@ func Register(kind string, f Factory) {
 func RegisterContext(kind string, f ContextFactory) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
+	// panic-ok: init 期注册不变量（空 kind/空工厂、重复注册），属开发期
+	// 装配错误，进程带病运行比快速失败更危险（CR-FIX-22 豁免清单）。
 	if kind == "" || f == nil {
 		panic("drivers: Register requires kind and factory")
 	}

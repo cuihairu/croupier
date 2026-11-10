@@ -77,6 +77,7 @@ func newGameRouter(c config.Config, metaDB *gorm.DB, secrets vault.Resolver) *ro
 	if err != nil {
 		// 不可达论证（C 类）：metaDB 已用同一 resolver 展开同一 DSN 成功，
 		// 此处重复解析无新增失败输入；err 为签名契约必须处理，保留 panic。
+		// panic-ok: 不可达防御分支（CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("resolve game router DSN: %v", err))
 	}
 	dsnForDB := func(metaDSN, dbName string) string {

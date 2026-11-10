@@ -68,6 +68,8 @@ func (r *Registry) MustRegister(msgID uint32, factory func() proto.Message) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.factory[msgID]; exists {
+		// panic-ok: MustRegister 契约即 init 期重复注册快速失败
+		//（database/sql 同口径；CR-FIX-22 豁免清单）。
 		panic(fmt.Sprintf("message type 0x%06X already registered", msgID))
 	}
 	r.factory[msgID] = factory
