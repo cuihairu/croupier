@@ -162,6 +162,10 @@ import (
 //               已存在的 0061 迁移不会在已执行过 0061 的库上重跑，存量库
 //               agent_id 仍为无尺寸列与新建库 schema 分叉；新增版本迁移对
 //               存量表 AlterColumn 回填，幂等；缺表跳过）
+//   0064 (Go)   power_requests + power_request_targets 表（OPS 电源管理：
+//               审批门控的电源请求头（状态机 pending→executing→verifying→
+//               done/partial/failed/rejected）+ 逐机结果行；新表 CreateTable，
+//               索引随建表一次建出，无存量约束名漂移；缺表跳过）
 
 func init() {
 	registerSvcMigrations()
@@ -235,6 +239,7 @@ func registerSvcMigrations() {
 		agentMetricsHourlyUniqueIndexMigration(),
 		runbookTablesMigration(),
 		agentMetricsHourlyAgentIDSizeMigration(),
+		powerRequestTablesMigration(),
 	); err != nil {
 		// panic-ok: init 期迁移注册表组装失败属开发期错误（迁移函数
 		// 引用漂移），进程不可安全启动（CR-FIX-22 豁免清单）。

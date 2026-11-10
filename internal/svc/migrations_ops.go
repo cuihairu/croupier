@@ -425,3 +425,35 @@ func migrateRunbookTables(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	return nil
 }
+
+// powerRequestTablesMigration creates the OPS power management tables:
+// power_requests (approval-gated request header with state machine) +
+// power_request_targets (per-machine outcome rows). 新表 CreateTable：
+// 索引随建表一次建出，无存量约束名漂移问题（0019 announcements 先例）。
+// 缺表跳过（fanout 重放到无该特性的库不报错、不建空壳）——本表与
+// provision_runs 同族属可选特性，直建即可（无存量库携带该表）。
+func powerRequestTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(64,
+		&goose.GoFunc{RunDB: migratePowerRequestTables},
+		nil,
+	)
+}
+
+func migratePowerRequestTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.PowerRequest{}) {
+		if err := m.CreateTable(&model.PowerRequest{}); err != nil {
+			return fmt.Errorf("migrate: 0064 create power_requests: %w", err)
+		}
+	}
+	if !m.HasTable(&model.PowerRequestTarget{}) {
+		if err := m.CreateTable(&model.PowerRequestTarget{}); err != nil {
+			return fmt.Errorf("migrate: 0064 create power_request_targets: %w", err)
+		}
+	}
+	return nil
+}
