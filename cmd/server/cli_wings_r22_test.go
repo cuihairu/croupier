@@ -182,6 +182,12 @@ func runDbFanoutR22(t *testing.T) (string, error) {
 }
 
 func TestDbFanoutCmd_RunE_Paths(t *testing.T) {
+	// CI Unit 步骤带 DB_DRIVER/DATABASE_URL=:memory:（多数包需要），但
+	// resolveDriverAndDSN 让 env 覆盖配置 DSN——那样本用例的目录 DSN 会被
+	// 内存库顶掉，"meta 库打不开"路径永不触发（cmd/server 2026-11-10 起
+	// 才纳入 PR CI，与该 env 的冲突随之暴露）。清空 env 恢复配置语义。
+	t.Setenv("DB_DRIVER", "")
+	t.Setenv("DATABASE_URL", "")
 	// dry-run：合法 sqlite meta 库 → 报告表格打印（含 (meta) 行）、无错误
 	cfg := writeCfgR22(t, "server:\n  host: 127.0.0.1\n  port: 18780\n"+
 		"database:\n  driver: sqlite\n  dataSource: "+filepath.Join(t.TempDir(), "meta.db")+"\n")

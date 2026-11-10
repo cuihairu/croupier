@@ -167,6 +167,11 @@ func TestApplyRuntimeDefaults_FileStorageDefaultDir(t *testing.T) {
 }
 
 func TestApplyRuntimeDefaults_FileStoragePreservesDir(t *testing.T) {
+	// CI Unit 步骤带 STORAGE_DRIVER/STORAGE_BASE_DIR=file/data/uploads（多数包
+	// 需要），但 applyStorageEnvironmentOverrides 让 env 覆盖配置——那样本用例
+	// 预设的 /custom/path 被顶掉，"保留已配置目录"路径永不触发。清空 env。
+	t.Setenv("STORAGE_DRIVER", "")
+	t.Setenv("STORAGE_BASE_DIR", "")
 	c := &config.Config{}
 	c.Storage.Driver = "file"
 	c.Storage.BaseDir = "/custom/path"
@@ -175,6 +180,8 @@ func TestApplyRuntimeDefaults_FileStoragePreservesDir(t *testing.T) {
 }
 
 func TestApplyRuntimeDefaults_NonFileStorage(t *testing.T) {
+	t.Setenv("STORAGE_DRIVER", "")
+	t.Setenv("STORAGE_BASE_DIR", "")
 	c := &config.Config{}
 	c.Storage.Driver = "s3"
 	applyRuntimeDefaults(c)
