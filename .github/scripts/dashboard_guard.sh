@@ -59,13 +59,16 @@ if rg -n "WorkspaceConfig|WorkspaceRenderer|workspaceConfig|/api/v1/workspaces|c
   fail "legacy Workspace/PageGenerator symbols are still referenced in dashboard frontend"
 fi
 
-if rg -n 'PackConverter|PackManifest|PackEntity|PackEntityOperation|ValidateEntityDefinition|validateUIConfig|validateOperations' \
+# \b anchors: ExtensionPackManifest (extensions domain) must not match legacy PackManifest
+if rg -n '\bPackConverter\b|\bPackManifest\b|\bPackEntity\b|\bPackEntityOperation\b|\bValidateEntityDefinition\b|\bvalidateUIConfig\b|\bvalidateOperations\b' \
   internal/function internal/validation internal/api internal/model \
   --glob "*.go" >/dev/null 2>&1; then
   fail "legacy Pack manifest or entity definition validators must not be restored"
 fi
 
-if rg -n "FunctionFormRenderer|XUISchema|X_UI_SCHEMA|FUNCTION_FORM_RENDERER|FunctionUIDesigner|FunctionUIManager|@/components/FunctionUIManager|ui-designer|函数 UI 设计器|已废弃|deprecated wrapper" \
+# generic words (已废弃/deprecated wrapper) dropped: they false-positive on
+# legitimate "antd 6 已废弃 X" migration comments; identifiers above carry the intent
+if rg -n "FunctionFormRenderer|XUISchema|X_UI_SCHEMA|FUNCTION_FORM_RENDERER|FunctionUIDesigner|FunctionUIManager|@/components/FunctionUIManager|ui-designer|函数 UI 设计器" \
   web/src web/tests web/config \
   --glob "*.ts" --glob "*.tsx" >/dev/null 2>&1; then
   fail "removed function UI compatibility wrappers or legacy UI designer routes are still referenced in dashboard frontend"
@@ -116,9 +119,11 @@ if rg -n "object-workspace|/api/workspace|/api/entity|对象工作台|实体管�
   fail "VitePress sidebar must not expose legacy Workspace/Entity dashboard entries"
 fi
 
+# releases.ts exempted: Release.objectKey mirrors internal/api/release/dto.go
+# (artifact storage key), unrelated to the legacy workspace objectKey
 if rg -n "objectKey" \
   web/src/pages/Console web/src/services web/tests internal/api/page internal/api/console \
-  --glob "*.ts" --glob "*.tsx" --glob "*.go" >/dev/null 2>&1; then
+  --glob "*.ts" --glob "*.tsx" --glob "*.go" --glob "!web/src/services/api/releases.ts" >/dev/null 2>&1; then
   fail "objectKey must not be used in Page/Console runtime"
 fi
 
@@ -153,7 +158,9 @@ if rg -n "category_display|entity_display|operation_display|operation_kind|page_
   --glob "*.proto" --glob "*.go" --glob "*.ts" --glob "*.tsx" --glob "*.py" --glob "*.java" --glob "*.cs" --glob "*.h" --glob "*.cpp" \
   --glob "!**/test/**" --glob "!**/tests/**" --glob "!**/*Test.java" --glob "!**/*.test.ts" \
   --glob "!**/build/**" --glob "!**/obj/**" --glob "!**/bin/**" \
-  --glob "!internal/function/registrationguard/reject.go" >/dev/null 2>&1; then
+  --glob "!**/*_test.go" \
+  --glob "!internal/function/registrationguard/reject.go" \
+  --glob "!internal/model/migration_legacy_cleanup.go" >/dev/null 2>&1; then
   fail "SDK/OpenAPI registration sources still contain forbidden page/display fields"
 fi
 
@@ -161,6 +168,7 @@ if rg -n '"domain"\s*:\s*"entity"|domain=entity|Domain:\s*"entity"' \
   configs internal web/src \
   --glob "*.json" --glob "*.go" --glob "*.ts" --glob "*.tsx" \
   --glob "!internal/api/terms/handler_test.go" \
+  --glob "!internal/api/terms/service_test.go" \
   --glob "!internal/model/model_test.go" \
   --glob "!internal/svc/service_context_test.go" >/dev/null 2>&1; then
   fail "term dictionary domain must not use entity in runtime config"
@@ -202,8 +210,10 @@ if rg -n "interface\\{\\}|map\\[string\\]interface\\{" \
   fail "dashboard core DTO/model packages must not expose Go interface{} maps"
 fi
 
+# freshness exempted: canonical JSON digest walks arbitrary decoder output
+# trees (interface{} is the required shape there); the ban targets Page/Console DTO boundaries
 if rg -n "interface\\{\\}|map\\[string\\]interface\\{|map\\[string\\]any|\\bany\\(" \
-  internal/dashboard --glob "*.go" --glob "!*_test.go" >/dev/null 2>&1; then
+  internal/dashboard --glob "*.go" --glob "!*_test.go" --glob "!internal/dashboard/freshness/**" >/dev/null 2>&1; then
   fail "internal/dashboard must keep JSON boundaries typed as json.RawMessage or explicit structs"
 fi
 

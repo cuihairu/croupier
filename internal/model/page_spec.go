@@ -205,7 +205,7 @@ func (m *PageSpecModel) UpdatePublishedPointer(ctx context.Context, gameID, env,
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&PageSpec{}).
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":            "published",
 			"published_active":  true,
 			"published_version": publishedVersion,

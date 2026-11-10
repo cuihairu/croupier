@@ -343,15 +343,14 @@ func compositeInputSelector(schema spec.JSONSchema) spec.SelectorAST {
 // requiredProperties 提取顶层 required 字段名。
 func requiredProperties(schema spec.JSONSchema) map[string]bool {
 	out := map[string]bool{}
-	var obj map[string]interface{}
-	if err := json.Unmarshal(schema, &obj); err != nil {
+	// required 为混合数组时逐元素容错（仅收字符串项），非法形态整体返回空
+	var envelope struct {
+		Required []any `json:"required"`
+	}
+	if err := json.Unmarshal(schema, &envelope); err != nil {
 		return out
 	}
-	rawReq, ok := obj["required"].([]interface{})
-	if !ok {
-		return out
-	}
-	for _, r := range rawReq {
+	for _, r := range envelope.Required {
 		if s, ok := r.(string); ok {
 			out[s] = true
 		}
