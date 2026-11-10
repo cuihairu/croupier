@@ -17,6 +17,7 @@ import (
 	apiops "github.com/cuihairu/croupier/internal/api/ops"
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/handler"
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
@@ -540,6 +541,13 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 		model.NewTaskRunModel(svcCtx.DB),
 		model.NewTaskEventModel(svcCtx.DB),
 	)
+	// multiGame 分库：task_runs 只在 game 库（model.GameModels），meta 库无此
+	// 表——断连收割与看门狗收割按 router 已打开的 game 库逐库扫、合计
+	// RowsAffected（CROP-REAP-001）；单库（router nil）保持原路径，
+	// ScopeSingle 基线已建 task_runs。
+	if svcCtx.Router != nil {
+		taskStore.SetScopeResolver(routerTaskScopes{router: svcCtx.Router})
+	}
 	controlService.SetTaskStore(taskStore)
 	// ARCH-018 D3 看门狗：无事件超预算任务收敛到 timed_out（终态、无进一步
 	// 证据）。须在 StartBackgroundTasks 前注入，否则后台循环不启动。
@@ -778,4 +786,25 @@ func validateAndAdjustTimeout(c *config.Config) {
 		fmt.Printf("   - SSE KeepAliveInterval: %d 秒\n", keepAliveInterval)
 		fmt.Printf("   - 安全系数: %.1fx (超时 / KeepAlive)\n", float64(currentTimeoutSec)/float64(keepAliveInterval))
 	}
+}
+
+// routerTaskScopes adapts the per-game database router to the task store's
+// reap fan-out (multiGame: task_runs live in per-game databases, not in the
+// meta database the store's models are bound to).
+type routerTaskScopes struct {
+	router *router.Router
+}
+
+func (a routerTaskScopes) OpenScopes() []tasks.TaskScope {
+	scopes := a.router.OpenScopes()
+	out := make([]tasks.TaskScope, 0, len(scopes))
+	for _, sc := range scopes {
+		out = append(out, tasks.TaskScope{GameID: sc.GameID, Env: sc.Env})
+	}
+	return out
+}
+
+func (a routerTaskScopes) ScopeContext(ctx context.Context, gameID, env string) (context.Context, error) {
+	scopedCtx, _, err := a.router.Resolve(ctx, gameID, env)
+	return scopedCtx, err
 }

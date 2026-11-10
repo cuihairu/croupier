@@ -3,6 +3,8 @@ package tasks
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,10 +14,40 @@ import (
 type Store struct {
 	runs   *model.TaskRunModel
 	events *model.TaskEventModel
+	scopes ScopeResolver
 }
 
 func NewStore(runs *model.TaskRunModel, events *model.TaskEventModel) *Store {
 	return &Store{runs: runs, events: events}
+}
+
+// TaskScope names one (game, env) scope whose per-game database holds that
+// scope's task_runs rows (model.GameModels — the meta database has no
+// task_runs table in multi-game mode).
+type TaskScope struct {
+	GameID string
+	Env    string
+}
+
+// ScopeResolver fans reap sweeps out across per-game databases in multi-game
+// mode. It mirrors the router's scope resolution (Router.Resolve injects the
+// dbctx override) without importing internal/db/router.
+type ScopeResolver interface {
+	// OpenScopes lists scopes whose physical database is currently open in
+	// this process. A scope never opened cannot hold task_runs rows written
+	// by this process, so sweeps skip it — enumerating dormant registered
+	// games would needlessly trigger per-game first-open side effects.
+	OpenScopes() []TaskScope
+	// ScopeContext returns ctx carrying the scope's per-game DB override so
+	// game-scoped model calls route to that database.
+	ScopeContext(ctx context.Context, gameID, env string) (context.Context, error)
+}
+
+// SetScopeResolver wires the multi-game reap fan-out. Nil (default) keeps
+// the single-database behavior: one sweep on the store's own DB, where the
+// ScopeSingle migration baseline creates task_runs.
+func (s *Store) SetScopeResolver(r ScopeResolver) {
+	s.scopes = r
 }
 
 func (s *Store) CreateRun(ctx context.Context, run *model.TaskRun) error {
@@ -78,14 +110,48 @@ func (s *Store) AppendEvent(ctx context.Context, taskID string, eventType EventT
 // terminal and unknown rows are left untouched. Returns the number of rows
 // updated.
 func (s *Store) ReapAgentNonTerminal(ctx context.Context, agentID, status, message string) (int64, error) {
-	return s.runs.ReapByAgent(ctx, agentID, ReapableStatuses(), status, message)
+	return s.reapAcrossScopes(ctx, func(ctx context.Context) (int64, error) {
+		return s.runs.ReapByAgent(ctx, agentID, ReapableStatuses(), status, message)
+	})
 }
 
 // ReapStale 收割超过预算仍无事件的非终态任务到目标状态（ARCH-018 D3
 // 看门狗：updated_at 早于 now-budget 的活动行 → timed_out）。Rows already
 // terminal, unknown, or fresh are left untouched.
 func (s *Store) ReapStale(ctx context.Context, budget time.Duration, status, message string) (int64, error) {
-	return s.runs.ReapStale(ctx, ReapableStatuses(), time.Now().Add(-budget), status, message)
+	return s.reapAcrossScopes(ctx, func(ctx context.Context) (int64, error) {
+		return s.runs.ReapStale(ctx, ReapableStatuses(), time.Now().Add(-budget), status, message)
+	})
+}
+
+// reapAcrossScopes runs one reap sweep per open game database and sums the
+// updated-row counts. Multi-game: task_runs lives in per-game databases
+// (model.GameModels) while the store's own DB is the meta database without
+// that table — sweeping it would fail with "no such table". Single-database
+// (nil resolver): one sweep on the store's own DB, unchanged. A failing
+// scope neither aborts the other scopes' sweeps nor is silently dropped:
+// failures are aggregated into the returned error (best-effort reap keeps
+// the disconnect path non-blocking, per root.go's reaper contract).
+func (s *Store) reapAcrossScopes(ctx context.Context, sweep func(context.Context) (int64, error)) (int64, error) {
+	if s.scopes == nil {
+		return sweep(ctx)
+	}
+	total := int64(0)
+	var errs []error
+	for _, sc := range s.scopes.OpenScopes() {
+		scopedCtx, err := s.scopes.ScopeContext(ctx, sc.GameID, sc.Env)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("reap scope %s/%s: %w", sc.GameID, sc.Env, err))
+			continue
+		}
+		n, err := sweep(scopedCtx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("reap scope %s/%s: %w", sc.GameID, sc.Env, err))
+			continue
+		}
+		total += n
+	}
+	return total, errors.Join(errs...)
 }
 
 func (s *Store) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]model.TaskEvent, error) {

@@ -372,6 +372,34 @@ func (r *Router) Resolve(ctx context.Context, gameID, env string) (context.Conte
 	return dbctx.WithDB(ctx, db), db, nil
 }
 
+// Scope names one (gameID, env) pair behind a cached game-database
+// connection.
+type Scope struct {
+	GameID string
+	Env    string
+}
+
+// OpenScopes lists the (gameID, env) scopes whose physical database is
+// currently cached (opened) by this router. A scope never opened in this
+// process cannot hold rows written by this process, so background sweeps
+// (e.g. task reap fan-out) only need to visit open scopes — enumerating
+// registered-but-never-used games here would needlessly trigger first-open
+// (create + migrate) side effects for dormant scopes.
+func (r *Router) OpenScopes() []Scope {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	seen := make(map[scopeKey]struct{}, len(r.gameOfDB))
+	out := make([]Scope, 0, len(r.gameOfDB))
+	for _, sc := range r.gameOfDB {
+		if _, dup := seen[sc]; dup {
+			continue
+		}
+		seen[sc] = struct{}{}
+		out = append(out, Scope{GameID: sc.gameID, Env: sc.env})
+	}
+	return out
+}
+
 // Close cancels the router lifecycle (aborting any in-flight first-open)
 // and closes every cached game DB. The meta DB is owned by the caller and
 // is NOT closed here.
