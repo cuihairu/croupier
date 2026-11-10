@@ -11,17 +11,28 @@ tag:
 
 # SDK Package Release
 
-The six-language SDKs are published to each language's official package registry. **One standalone manual workflow per language** (`.github/workflows/release-sdk-<lang>.yml`, `workflow_dispatch` only, not auto-triggered on push) — a failed run can be re-sent independently without affecting the others; just re-run that one alone.
+The six-language SDKs are published to each language's official package registry, orchestrated by **one reusable matrix workflow** (`.github/workflows/release-sdk-matrix.yml`, CR-FIX-13). The formal entry point is the `Release` workflow on a version tag: `push` of a `v*` tag → `quality-gate` (full tests + e2e + contract guards) → `sdk-matrix` (all six registries in parallel) → `publish-release` flips the GitHub Release from draft to published **only after every SDK lane is green**. If any lane fails, the release stays/gets reverted to draft and the failure is alerted (`::error` annotation, step summary, release comment).
+
+Each language also keeps a standalone workflow (`.github/workflows/release-sdk-<lang>.yml`, `workflow_dispatch` only, never auto-triggered on push) so a single lane can be re-sent independently after a fix:
 
 ```text
 Actions → Release SDK — Python / JS / Go / Java / C# / C++ → Run workflow
 ```
 
-## 1. Workflow Inputs (identical across the six workflows)
+## 1. Workflow Inputs (matrix and the six standalone workflows)
 
-| Input     | Type | Description                                                                                                                                                   |
-| --------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version` | Text | Release version. **Empty = latest release tag** (e.g. `v0.1.1`); can be specified explicitly, `v0.2.0` and `0.2.0` are equivalent spellings (auto-normalized) |
+| Input         | Type    | Description                                                                                                                                                   |
+| ------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version`     | Text    | Release version. **Empty = latest release tag** (e.g. `v0.1.1`); can be specified explicitly, `v0.2.0` and `0.2.0` are equivalent spellings (auto-normalized) |
+| `dry_run`     | Boolean | Rehearsal mode: every lane builds as usual but never publishes (no `npm publish` / `twine upload` / tag push / NuGet push / Release upload)                   |
+| `fail_inject` | Boolean | Acceptance switch on the matrix only: injects a fake lane failure (and forces `dry_run`) to verify the draft gate and alert path — never really publishes     |
+
+### Draft gate and alert (matrix `finalize` job)
+
+The matrix's `finalize` job runs `if: always()` after all lanes plus an injection canary:
+
+- All green → exit 0; `release.yml`'s `publish-release` job (needs `[release, sdk-matrix]`) publishes the signed draft release.
+- Any lane not `success` → the release is edited back to `draft` (a release comment records the failed lanes), `::error` + step summary alert, and the job fails — `publish-release` is skipped, so the release cannot go out half-published. Two layers protect this: the finalize `--draft=true` edit, and the `publish-release` needs-gate; either alone is sufficient.
 
 | Workflow             | Target                                   | Required Secrets                                  |
 | -------------------- | ---------------------------------------- | ------------------------------------------------- |

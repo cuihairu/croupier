@@ -1,0 +1,186 @@
+name: Release SDK Matrix
+
+# 六注册中心 SDK 矩阵发布（CR-FIX-13）：npm / PyPI / GitHub Packages(Maven) /
+# NuGet / Go proxy / vcpkg·预编译源码包，统一由本 reusable workflow 编排。
+#
+# 唯一正式入口：release.yml 的 sdk-matrix job（tag push v* 触发，且须过
+# quality-gate）。正式 Release 的公开（--draft=false）被 release.yml 的
+# publish-release job 门禁在矩阵全绿之后——任一车道失败，release 保持或
+# 转回 draft 并告警，绝不带伤发布。
+#
+# 本文件自身不挂 push/tag 触发（避免与 release.yml 平行竞速、抢在门禁
+# 之外发布）。手动 workflow_dispatch 仅用于两种受控场景：
+# - dry_run：演练——六车道照常构建但不发版；
+# - fail_inject：验收——注入假失败（自动强制 dry_run），验证 draft 门禁
+#   与告警路径，绝不真实发布。
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "发布版本（如 v0.2.0）"
+        required: true
+        type: string
+      dry_run:
+        description: "演练模式：六车道只构建不发版"
+        required: false
+        type: boolean
+        default: false
+      fail_inject:
+        description: "注入假失败（验收 draft 门禁；自动强制 dry_run）"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        description: "发布版本（如 v0.2.0）"
+        required: true
+        type: string
+      dry_run:
+        description: "演练模式：六车道只构建不发版"
+        required: false
+        type: boolean
+        default: false
+      fail_inject:
+        description: "注入假失败（验收 draft 门禁；自动强制 dry_run）"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  js:
+    name: npm
+    uses: ./.github/workflows/release-sdk-js.yml
+    with:
+      version: ${{ inputs.version }}
+      dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
+    secrets: inherit
+
+  python:
+    name: PyPI
+    uses: ./.github/workflows/release-sdk-python.yml
+    with:
+      version: ${{ inputs.version }}
+      dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
+    secrets: inherit
+
+  java:
+    name: Maven (GitHub Packages)
+    uses: ./.github/workflows/release-sdk-java.yml
+    with:
+      version: ${{ inputs.version }}
+      dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
+    secrets: inherit
+
+  csharp:
+    name: NuGet
+    uses: ./.github/workflows/release-sdk-csharp.yml
+    with:
+      version: ${{ inputs.version }}
+      dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
+    secrets: inherit
+
+  go:
+    name: Go proxy (submodule tag)
+    uses: ./.github/workflows/release-sdk-go.yml
+    with:
+      version: ${{ inputs.version }}
+      dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
+    secrets: inherit
+
+  cpp:
+    name: vcpkg / prebuilt (GitHub Release)
+    uses: ./.github/workflows/release-sdk-cpp.yml
+    with:
+      version: ${{ inputs.version }}
+      dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
+    secrets: inherit
+
+  injection-canary:
+    name: Failure injection canary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Injected lane failure
+        if: ${{ inputs.fail_inject }}
+        run: |
+          echo "::error::injected lane failure (fail_inject acceptance run)"
+          exit 1
+      - name: Canary pass
+        if: ${{ ! inputs.fail_inject }}
+        run: echo "no injection configured; canary green"
+
+  finalize:
+    name: Draft gate & alert
+    needs: [js, python, java, csharp, go, cpp, injection-canary]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Enforce draft & alert on any failed lane
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+          RES_JS: ${{ needs.js.result }}
+          RES_PYTHON: ${{ needs.python.result }}
+          RES_JAVA: ${{ needs.java.result }}
+          RES_CSHARP: ${{ needs.csharp.result }}
+          RES_GO: ${{ needs.go.result }}
+          RES_CPP: ${{ needs.cpp.result }}
+          RES_CANARY: ${{ needs.injection-canary.result }}
+        run: |
+          set -euo pipefail
+          V="$INPUT_VERSION"
+          case "$V" in
+            v*) TAG="$V" ;;
+            *)  TAG="v$V" ;;
+          esac
+
+          result_of() {
+            case "$1" in
+              js) echo "$RES_JS" ;;
+              python) echo "$RES_PYTHON" ;;
+              java) echo "$RES_JAVA" ;;
+              csharp) echo "$RES_CSHARP" ;;
+              go) echo "$RES_GO" ;;
+              cpp) echo "$RES_CPP" ;;
+              injection-canary) echo "$RES_CANARY" ;;
+            esac
+          }
+
+          FAILED=""
+          for lane in js python java csharp go cpp injection-canary; do
+            R=$(result_of "$lane")
+            if [ "$R" != "success" ]; then
+              FAILED="$FAILED $lane=$R"
+            fi
+          done
+
+          if [ -z "$FAILED" ]; then
+            echo "All registry lanes green for $TAG; publish gate may proceed."
+            exit 0
+          fi
+
+          echo "::error::SDK matrix failed lanes:$FAILED — release $TAG stays draft"
+          {
+            echo "## SDK matrix failed for $TAG"
+            echo ""
+            echo "Failed lanes:$FAILED"
+            echo ""
+            echo "Release \`$TAG\` stays draft; do not publish until all lanes are green."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # 任一车道失败：release 转回 draft。release 不存在时（本 workflow
+          # 独立 dispatch 演练，或 release.yml 的 release job 尚未建草稿）
+          # 编辑会失败——按告警处理即可，release.yml 的 publish-release 门禁
+          # 同样会把它按在 draft 上，两层保护互为冗余。
+          if gh release edit "$TAG" --draft=true --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG converted back to draft"
+            gh release comment "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --body "SDK matrix failure detected:$FAILED — this release was reverted to draft." \
+              >/dev/null 2>&1 || true
+          else
+            echo "::warning::release $TAG not found yet; publish-release gate keeps it draft"
+          fi
+          exit 1

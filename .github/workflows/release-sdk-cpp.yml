@@ -1,7 +1,10 @@
 name: Release SDK — C++
 
-# C++ SDK 发布到 GitHub Release 源码包。仅手动执行（workflow_dispatch），绝不自动触发。
+# C++ SDK 发布到 GitHub Release 源码包与预编译产物。入口：
+# release-sdk-matrix.yml（workflow_call，正式 tag 发布链）或手动 dispatch；
+# 本文件自身绝不因 push/tag 自动触发。
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+# dry_run：演练模式——只解析版本，不建/不上传 Release，预编译 job 跳过。
 on:
   workflow_dispatch:
     inputs:
@@ -9,12 +12,28 @@ on:
         description: "发布版本（留空=最新 release tag）"
         required: false
         default: ""
+      dry_run:
+        description: "演练模式：只解析版本不上传"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        description: "发布版本（留空=最新 release tag）"
+        required: false
+        type: string
+      dry_run:
+        description: "演练模式：只解析版本不上传"
+        required: false
+        type: boolean
+        default: false
 
-permissions:
-  contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       tag: ${{ steps.ver.outputs.tag }}
       version: ${{ steps.ver.outputs.version }}
@@ -39,6 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Attach C++ SDK source to release
+        if: ${{ ! inputs.dry_run }}
         run: |
           TAG="${{ steps.ver.outputs.tag }}"
           mkdir -p /tmp/pkg
@@ -53,6 +73,7 @@ jobs:
     # 游戏服使用方解包即可链接，无需自装 vcpkg（依赖需按 vcpkg.json
     # 清单自备 protobuf/curl/zlib/openssl/nlohmann-json）。
     needs: release
+    if: ${{ ! inputs.dry_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -96,8 +117,8 @@ jobs:
           PKG="croupier-cpp-sdk-${VER}-linux-x64"
           mkdir -p "/tmp/${PKG}/include/croupier/sdk"
           cp -r "${{ github.workspace }}/sdks/cpp/include/croupier/sdk/."                 "/tmp/${PKG}/include/croupier/sdk/"
-          find build -name "libcroupier-sdk-*.a" -o -name "libcroupier-sdk-*.so*" |
-            xargs -I{} cp {} "/tmp/${PKG}/"
+          find build \( -name "libcroupier-sdk-*.a" -o -name "libcroupier-sdk-*.so*" \) -print0 |
+            xargs -0 -I{} cp {} "/tmp/${PKG}/"
           cp "${{ github.workspace }}/sdks/cpp/vcpkg.json" "/tmp/${PKG}/"
           cp "${{ github.workspace }}/LICENSE" "/tmp/${PKG}/" 2>/dev/null || true
           tar -czf "/tmp/${PKG}.tar.gz" -C "/tmp" "${PKG}"

@@ -1,7 +1,10 @@
 name: Release SDK — Go
 
-# Go SDK 发布到 Go module（tag sdks/go/vX.Y.Z）。仅手动执行（workflow_dispatch），绝不自动触发。
+# Go SDK 发布到 Go module（tag sdks/go/vX.Y.Z）。入口：
+# release-sdk-matrix.yml（workflow_call，正式 tag 发布链）或手动 dispatch；
+# 本文件自身绝不因 push/tag 自动触发。
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+# dry_run：演练模式——只解析版本，绝不推送子模块 tag。
 on:
   workflow_dispatch:
     inputs:
@@ -9,12 +12,28 @@ on:
         description: "发布版本（留空=最新 release tag）"
         required: false
         default: ""
+      dry_run:
+        description: "演练模式：只解析版本不发 tag"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        description: "发布版本（留空=最新 release tag）"
+        required: false
+        type: string
+      dry_run:
+        description: "演练模式：只解析版本不发 tag"
+        required: false
+        type: boolean
+        default: false
 
-permissions:
-  contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -36,6 +55,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Tag Go submodule
+        if: ${{ ! inputs.dry_run }}
         run: |
           TAG="sdks/go/${{ steps.ver.outputs.tag }}"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then

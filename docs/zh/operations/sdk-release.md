@@ -11,17 +11,28 @@ tag:
 
 # SDK 包发布
 
-六语言 SDK 发布到各语言官方包仓库。**每种语言一条独立的手动 workflow**（`.github/workflows/release-sdk-<lang>.yml`，仅 `workflow_dispatch`，不随 push 自动触发）——某条失败可单独重发、互不影响；单独重跑那一条即可。
+六语言 SDK 发布到各语言官方包仓库，由**一个 reusable 矩阵 workflow** 统一编排（`.github/workflows/release-sdk-matrix.yml`，CR-FIX-13）。正式入口是版本 tag 触发的 `Release` workflow：`push` `v*` tag → `quality-gate`（全量测试 + e2e + 契约守卫）→ `sdk-matrix`（六注册中心并行）→ `publish-release` 只在**六车道全绿后**才把 GitHub Release 从 draft 转正式发布。任一车道失败，release 保持/转回 draft 并告警（`::error` 注解、step summary、release 评论）。
+
+每种语言仍保留独立 workflow（`.github/workflows/release-sdk-<lang>.yml`，仅 `workflow_dispatch`，不随 push 自动触发）——修复后可单独重发某一条、互不影响：
 
 ```text
 Actions → Release SDK — Python / JS / Go / Java / C# / C++ → Run workflow
 ```
 
-## 1. Workflow 输入（六条 workflow 一致）
+## 1. Workflow 输入（矩阵与六条独立 workflow）
 
-| 输入      | 类型 | 说明                                                                                                       |
-| --------- | ---- | ---------------------------------------------------------------------------------------------------------- |
-| `version` | 文本 | 发布版本。**留空 = 最新 release tag**（如 `v0.1.1`）；也可显式指定，`v0.2.0` 与 `0.2.0` 等价（自动归一化） |
+| 输入          | 类型 | 说明                                                                                                                |
+| ------------- | ---- | ------------------------------------------------------------------------------------------------------------------- |
+| `version`     | 文本 | 发布版本。**留空 = 最新 release tag**（如 `v0.1.1`）；也可显式指定，`v0.2.0` 与 `0.2.0` 等价（自动归一化）          |
+| `dry_run`     | 布尔 | 演练模式：六车道照常构建但绝不发版（不 `npm publish` / `twine upload` / 不推 tag / 不 nuget push / 不上传 Release） |
+| `fail_inject` | 布尔 | 仅矩阵上的验收开关：注入一条假失败（并自动强制 `dry_run`），验证 draft 门禁与告警路径——绝不真实发布                 |
+
+### Draft 门禁与告警（矩阵 `finalize` job）
+
+矩阵的 `finalize` job 在全部车道加注入金丝雀之后 `if: always()` 运行：
+
+- 全绿 → exit 0；`release.yml` 的 `publish-release` job（`needs: [release, sdk-matrix]`）把已签名的草稿 release 转正式发布。
+- 任一车道非 `success` → release 被编辑回 `draft`（release 评论记录失败车道）、`::error` + step summary 告警、job 失败——`publish-release` 被跳过，release 绝不带伤见公众。这里有两层互为冗余的保护：finalize 的 `--draft=true` 显式转换，以及 `publish-release` 的 needs 门禁；任一层单独成立即可挡住发布。
 
 ## 2. 发布目标与所需 Secrets
 

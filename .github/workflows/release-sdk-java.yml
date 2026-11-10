@@ -1,7 +1,10 @@
 name: Release SDK — Java
 
-# Java SDK 发布到 GitHub Packages（可选 Maven Central）。仅手动执行（workflow_dispatch），绝不自动触发。
+# Java SDK 发布到 GitHub Packages（可选 Maven Central）。入口：
+# release-sdk-matrix.yml（workflow_call，正式 tag 发布链）或手动 dispatch；
+# 本文件自身绝不因 push/tag 自动触发。
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+# dry_run：演练模式——照常注入版本号并构建，但绝不 publish。
 on:
   workflow_dispatch:
     inputs:
@@ -9,12 +12,28 @@ on:
         description: "发布版本（留空=最新 release tag）"
         required: false
         default: ""
+      dry_run:
+        description: "演练模式：只构建不发版"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        description: "发布版本（留空=最新 release tag）"
+        required: false
+        type: string
+      dry_run:
+        description: "演练模式：只构建不发版"
+        required: false
+        type: boolean
+        default: false
 
-permissions:
-  packages: write
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-java@v6.1.0
@@ -38,7 +57,13 @@ jobs:
           echo "Resolved: tag=$TAG version=$NUM"
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: Stamp version
+        run: |
+          cd sdks/java
+          sed -i 's/^    public static final String VERSION = ".*";/    public static final String VERSION = "${{ steps.ver.outputs.version }}";/' \
+            src/main/java/io/github/cuihairu/croupier/sdk/SdkInfo.java
       - name: Publish (GitHub Packages；可选同步 Maven Central)
+        if: ${{ ! inputs.dry_run }}
         run: |
           cd sdks/java
           EXTRA=""
@@ -46,8 +71,6 @@ jobs:
             EXTRA="-PforceRelease"
             echo "已配置 Maven Central 凭据，同步发布 Central"
           fi
-          sed -i 's/^    public static final String VERSION = ".*";/    public static final String VERSION = "${{ steps.ver.outputs.version }}";/' \
-            src/main/java/io/github/cuihairu/croupier/sdk/SdkInfo.java
           # shellcheck disable=SC2086
           ./gradlew publish -PoverrideVersion=${{ steps.ver.outputs.version }} $EXTRA
         env:

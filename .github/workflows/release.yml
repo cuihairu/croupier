@@ -290,11 +290,39 @@ jobs:
           cosign sign-blob --yes SHA256SUMS > SHA256SUMS.sig
           echo "Signed:"
           ls -la SHA256SUMS.sig
-          # 签名/清单上传失败必须让发布失败；成功后把草稿公开。
+          # 签名/清单上传失败必须让发布失败；成功后草稿保留——公开被
+          # publish-release job 门禁在 SDK 矩阵全绿之后（CR-FIX-13）。
           gh release upload "${{ github.ref_name }}" SHA256SUMS SHA256SUMS.sig --clobber
+
+  # 六注册中心 SDK 矩阵（npm/PyPI/Maven/NuGet/Go/vcpkg）。必须等 quality-gate
+  # 绿灯：测试红的代码不允许上注册中心。正式 Release 的公开在
+  # publish-release job，被本 job 的结果门禁。
+  sdk-matrix:
+    name: SDK registries matrix (npm/PyPI/Maven/NuGet/Go/vcpkg)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [verify-version, quality-gate]
+    uses: ./.github/workflows/release-sdk-matrix.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets: inherit
+
+  # 发布最后一关：签名产物已上传、SDK 六车道全绿才把草稿公开。任一 SDK
+  # 车道失败 → 本 job 跳过，release 保持 draft（matrix 的 finalize 还会
+  # 显式 --draft=true 兜底并告警）。
+  publish-release:
+    name: Publish release (gated on SDK matrix green)
+    if: >-
+      always() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.release.result == 'success' &&
+      needs.sdk-matrix.result == 'success'
+    needs: [release, sdk-matrix]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
       - name: Publish signed release
-        if: startsWith(github.ref, 'refs/tags/v')
-        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "${{ github.ref_name }}" --draft=false
