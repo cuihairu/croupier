@@ -184,16 +184,16 @@ natural min semantics of a Go context deadline):
 
 Layered by connection role, the current implementation status (the dual lanes have landed; see next section):
 
-| Path                                                                    | Mechanism                                                                                                                                                              | Backpressure semantics                                                                                                                                                                                          |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Server → Agent/Provider (`transport/tcp/server.go`)                     | The read loop invokes the handler synchronously                                                                                                                        | Natural backpressure: a slow handler stalls reads, the TCP window tightens, pressure backs up end to end                                                                                                        |
-| SDK → Agent (per-language SDK inbound; the Go baseline `tcp_client.go`) | A bounded worker pool (default `NumCPU`, queue `workers×4`) + a Go control lane                                                                                        | Fail-fast: when the business queue is full, an `inbound queue full, retry on another instance` error frame returns immediately and the Agent side fails over to another instance; nothing accumulates in memory |
-| Agent↔Server, Agent↔Provider (`transport/tcp/mux_conn.go`)              | **Dual-lane bounded dispatch** (`dispatchInbound`): a dedicated system-lane queue (64) + one worker; the business lane gets NumCPU workers + a bounded workers×4 queue | When the business lane fills, a busy error frame returns inline (peer failover); the control lane never rejects (when full it blocks the read loop = natural control-plane backpressure)                        |
+| Path                                                                    | Mechanism                                                                                                                                                              | Backpressure semantics                                                                                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server → Agent/Provider (`transport/tcp/server.go`)                     | Dual-lane bounded dispatch (CR-FIX-09): business lane = bounded worker pool capped by `MaxInflightRequests`, control lane = dedicated queue + one worker               | Fail-fast: a full business queue answers an inline busy error frame (Invoke only); control frames are never rejected; the per-request deadline bounds slow handlers                                                                                                                           |
+| SDK → Agent (per-language SDK inbound; the Go baseline `tcp_client.go`) | A bounded worker pool (default `NumCPU`, queue `workers×4`) + a Go control lane                                                                                        | Fail-fast: when the business queue is full, an `inbound queue full, retry on another instance` error frame returns immediately returned to the caller verbatim; nothing accumulates in memory. Busy is terminal — no automatic cross-instance retry (see the delivery-semantics matrix below) |
+| Agent↔Server, Agent↔Provider (`transport/tcp/mux_conn.go`)              | **Dual-lane bounded dispatch** (`dispatchInbound`): a dedicated system-lane queue (64) + one worker; the business lane gets NumCPU workers + a bounded workers×4 queue | When the business lane fills, a busy error frame returns inline (peer failover); the control lane never rejects (when full it blocks the read loop = natural control-plane backpressure)                                                                                                      |
 
 Known boundaries:
 
 - Explicit overload signal fields like `overloaded` / `retry_after_ms` / `too_many_inflight` have no wire messages yet; the only overload signal today is the error payload text when the business queue is full
-- The dual lanes have landed: Go (`MuxConn` + the Go SDK), Python (`transport/tcp.py`, a control-lane single worker that never rejects), JS (`tcp_transport.ts`, a control queue + a single-concurrency loop). Java/C++/C# inbound is still a single-queue bounded worker pool (heartbeats share the queue with business) pending migration to the Go baseline
+- The dual lanes have landed: Go (`MuxConn` + the Go SDK), Python (`transport/tcp.py`, a control-lane single worker that never rejects), JS (`tcp_transport.ts`, a control queue + a single-concurrency loop). Java (`controlPool`), C++ (`control_pool_`) and C# (`_controlLimiter`) landed the same never-reject control lane (2026-11), so all six SDKs now classify inbound into control/business lanes
 
 ### The dual lanes: control-message priority
 
@@ -204,11 +204,11 @@ overload escalates into a connection avalanche; a drain signal gets buried → g
 Inbound dispatch is therefore classified into two lanes by explicit MsgID (`protocol.IsControlRequest()`,
 an explicit set rather than a raw byte prefix — within the 0x06 cluster family, Hello is control and ForwardInvoke is business):
 
-| Lane             | Messages                                                                                                 | Queue semantics                                                              |
-| ---------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| System (control) | `0x01xx` Register/Heartbeat, `0x05xx` Provider session control (including Drain), `0x060101` ServerHello | A small dedicated queue, **never rejected**                                  |
-| Business         | `0x03xx` Invoke/Task, `0x04xx` Ops/Metrics, `0x060103` ForwardInvoke                                     | A bounded queue; when full, fail-fast returns an error frame (peer failover) |
-| Events           | One-way frames like `TaskEvent`/`MetricEvent`                                                            | Inline in the read loop, not queued (status quo kept)                        |
+| Lane             | Messages                                                                                                 | Queue semantics                                                                                                 |
+| ---------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| System (control) | `0x01xx` Register/Heartbeat, `0x05xx` Provider session control (including Drain), `0x060101` ServerHello | A small dedicated queue, **never rejected**                                                                     |
+| Business         | `0x03xx` Invoke/Task, `0x04xx` Ops/Metrics, `0x060103` ForwardInvoke                                     | A bounded queue; when full, fail-fast returns an error frame to the caller (never an automatic instance switch) |
+| Events           | One-way frames like `TaskEvent`/`MetricEvent`                                                            | Inline in the read loop, not queued (status quo kept)                                                           |
 
 Behavioral guarantees:
 
@@ -220,6 +220,39 @@ Implementation locations: `MuxConn.dispatchInbound` (`internal/transport/tcp/mux
 Config `DispatchWorkers`/`BusinessQLen`/`ControlQLen`, defaults NumCPU / workers×4 / 64)
 and the Go SDK's `handleInboundRequest` (`sdks/go/pkg/croupier/transport/tcp_client.go`,
 `ctrlInbox` capacity 64 + one worker). Tests: `mux_conn_dual_lane_test.go`, `dual_lane_test.go`.
+
+## Delivery semantics matrix
+
+Per message class: the delivery guarantee the platform makes today, the idempotency key, and what happens under backpressure.
+The dispatch layer (`internal/platform/dispatch`) is the only place that decides whether a failure may be retried on another instance,
+and its rule is deliberate and narrow: **failover only on `errAgentUnreachable`** — delivery provably did not reach the previous
+candidate (no session, forward also failed). Any response that completed a protocol round trip — including busy rejections and
+application error payloads — is returned to the caller verbatim, with **no automatic cross-instance retry**.
+
+The reason is non-idempotency safety: a busy rejection after delivery ("this instance is saturated") is not the same event as
+"the instance is unreachable". Silently re-sending a mutating Ops command to the next candidate would be an implicit-duplicate
+execution entry point — the command may already have started on the first instance. Whether a retry is safe is therefore the
+caller's decision, made with the caller's own idempotency story. The busy text `retry on another instance` is advice to that
+caller, not a description of platform behavior.
+
+| Message class           | Wire messages                                                                     | Delivery semantics                                                                                                                                                                               | Idempotency key                                                                                                                          | Under business-queue saturation                                                    |
+| ----------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Control (session)       | Register / Heartbeat / ProviderConnect / Drain, ServerHello                       | Idempotent by design; periodic re-send is the mechanism (at-least-once safe)                                                                                                                     | Peer identity + message kind; no user payload                                                                                            | Never rejected — dedicated control lane                                            |
+| Function invoke         | `InvokeRequest`                                                                   | At-most-once per dispatch attempt; no automatic cross-instance retry                                                                                                                             | Caller-supplied `metadata["idempotencyKey"]` is propagated end to end; the platform does not dedupe — contract authors own replay safety | Busy error frame returned verbatim to the caller                                   |
+| Async task start        | `StartTaskRequest`                                                                | At-most-once delivery per candidate (failover only when delivery provably did not reach the previous candidate); each attempt gets its own `task_runs` row and failed attempts are marked failed | Server-generated `taskId` per attempt; a caller `metadata["taskId"]` marks a drain-safe continuation                                     | Empty-body response frame returned verbatim; no cross-instance retry               |
+| Task cancel             | `CancelTaskRequest`                                                               | Best-effort at-most-once, routed to the owning agent only (never re-picked)                                                                                                                      | `taskId`                                                                                                                                 | Empty-body response frame; the outcome is authoritative from the owning agent only |
+| Task events             | `TaskEvent`                                                                       | At-least-once reads: the server event store assigns per-task ordering; consumers replay via `StreamTaskAfterSeq` and dedupe by it                                                                | Server-side per-task sequence (`afterSeq`), not a wire field                                                                             | n/a (server-side event store, not an inbound queue)                                |
+| Ops / mutating commands | Ops-role functions dispatched as invoke/task requests (capture/synthetics/devops) | Default at-most-once; high-risk operations additionally pass the platform approval workflow (two-person rule) before dispatch is reached                                                         | Approval record + `taskId`                                                                                                               | Same as invoke/task: busy never auto-fails over                                    |
+
+Known boundaries (stated, not hidden):
+
+- The wire has no platform-level dedup: `metadata["idempotencyKey"]` is a propagation convention. Exactly-once business effects
+  still require game-side receipts/deduplication as a separate contract
+- `TaskEvent` ordering is a server-side store sequence, not a wire field; the one-way frame carries no `seq`, so event consumers
+  must rely on `StreamTaskAfterSeq` replay rather than in-frame ordering
+- Busy responses for non-Invoke business messages are empty-body frames (no error payload); the caller distinguishes them by
+  response completeness, not by an overload flag — explicit `overloaded` / `retry_after_ms` wire fields remain undefined
+- Regression tests pinning the busy-never-fails-over rule: `internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
 ## drain semantics
 

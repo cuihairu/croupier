@@ -173,16 +173,16 @@ context deadline 的天然 min 语义）：
 
 按连接角色分层，当前实现状态如下（双车道已落地，见下节）：
 
-| 路径                                                        | 机制                                                                                                                 | 背压语义                                                                                                                 |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Server → Agent/Provider（`transport/tcp/server.go`）        | 读循环同步调 handler                                                                                                 | 天然背压：handler 慢则读停，TCP 窗口收紧端到端反压                                                                       |
-| SDK → Agent（各语言 SDK 入站，Go 基准 `tcp_client.go`）     | 有界 worker 池（默认 `NumCPU`，队列 `workers×4`）+ Go 控制车道                                                       | fail-fast：业务队列满立即回 `inbound queue full, retry on another instance` 错误帧，Agent 侧 failover 换实例；内存不积累 |
-| Agent↔Server、Agent↔Provider（`transport/tcp/mux_conn.go`） | **双车道有界派发**（`dispatchInbound`）：系统车道专用队列(64)+单 worker；业务车道 NumCPU worker + workers×4 有界队列 | 业务车道满则内联回 busy 错误帧（对端 failover）；控制车道永不 reject（满则阻塞读循环=自然控制面反压）                    |
+| 路径                                                        | 机制                                                                                                                             | 背压语义                                                                                                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server → Agent/Provider（`transport/tcp/server.go`）        | 双车道有界派发（CR-FIX-09）：业务车道=有界 worker 池（`MaxInflightRequests` 封顶），控制车道=专用队列+单 worker，逐请求 deadline | Fail-fast：业务队列满立即内联回 busy 错误帧（仅 Invoke）；控制帧永不拒绝；逐请求 deadline 约束慢 handler                                                            |
+| SDK → Agent（各语言 SDK 入站，Go 基准 `tcp_client.go`）     | 有界 worker 池（默认 `NumCPU`，队列 `workers×4`）+ Go 控制车道                                                                   | fail-fast：业务队列满立即回 `inbound queue full, retry on another instance` 错误帧，原样回给调用方；内存不积累。busy 是终态——不自动换实例重试（见下方投递语义矩阵） |
+| Agent↔Server、Agent↔Provider（`transport/tcp/mux_conn.go`） | **双车道有界派发**（`dispatchInbound`）：系统车道专用队列(64)+单 worker；业务车道 NumCPU worker + workers×4 有界队列             | 业务车道满则内联回 busy 错误帧（原样回给调用方，不自动换实例）；控制车道永不 reject（满则阻塞读循环=自然控制面反压）                                                |
 
 已知边界：
 
 - `overloaded` / `retry_after_ms` / `too_many_inflight` 等显式过载信号字段尚未定义 wire 消息；当前唯一过载信号是业务队列满时的错误 payload 文案
-- 双车道已落地：Go（`MuxConn` + Go SDK）、Python（`transport/tcp.py` 控制车道单 worker，永不拒绝）、JS（`tcp_transport.ts` 控制队列 + 单并发 loop）。Java/C++/C# 的入站仍为单队列有界 worker 池（心跳与业务共队列），待按 Go 基准迁移
+- 双车道已落地：Go（`MuxConn` + Go SDK）、Python（`transport/tcp.py` 控制车道单 worker，永不拒绝）、JS（`tcp_transport.ts` 控制队列 + 单并发 loop）。Java（`controlPool`）、C++（`control_pool_`）、C#（`_controlLimiter`）已于 2026-11 落地同款永不拒绝控制车道，六语言入站均按控制/业务车道分类
 
 ### 双车道：控制消息优先级
 
@@ -193,11 +193,11 @@ context deadline 的天然 min 语义）：
 因此入站派发按 MsgID 显式分类为双车道（`protocol.IsControlRequest()`，
 显式集合而非裸字节前缀——0x06 集群族中 Hello 是控制、ForwardInvoke 是业务）：
 
-| 车道         | 消息                                                                                        | 队列语义                                         |
-| ------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 系统（控制） | `0x01xx` Register/Heartbeat、`0x05xx` Provider 会话控制（含 Drain）、`0x060101` ServerHello | 小专用队列，**永不 reject**                      |
-| 业务         | `0x03xx` Invoke/Task、`0x04xx` Ops/Metrics、`0x060103` ForwardInvoke                        | 有界队列，满则 fail-fast 回错帧（对端 failover） |
-| 事件         | `TaskEvent`/`MetricEvent` 等单向帧                                                          | 读循环内联，不排队（现状保持）                   |
+| 车道         | 消息                                                                                        | 队列语义                                                |
+| ------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 系统（控制） | `0x01xx` Register/Heartbeat、`0x05xx` Provider 会话控制（含 Drain）、`0x060101` ServerHello | 小专用队列，**永不 reject**                             |
+| 业务         | `0x03xx` Invoke/Task、`0x04xx` Ops/Metrics、`0x060103` ForwardInvoke                        | 有界队列，满则 fail-fast 回错帧给调用方（不自动换实例） |
+| 事件         | `TaskEvent`/`MetricEvent` 等单向帧                                                          | 读循环内联，不排队（现状保持）                          |
 
 行为保证：
 
@@ -209,6 +209,35 @@ context deadline 的天然 min 语义）：
 Config `DispatchWorkers`/`BusinessQLen`/`ControlQLen`，默认 NumCPU / workers×4 / 64）
 与 Go SDK `handleInboundRequest`（`sdks/go/pkg/croupier/transport/tcp_client.go`，
 `ctrlInbox` 容量 64 + 单 worker）。测试：`mux_conn_dual_lane_test.go`、`dual_lane_test.go`。
+
+## 投递语义矩阵
+
+按消息类别给出平台当前的投递保证、幂等键与背压行为。dispatch 层
+（`internal/platform/dispatch`）是唯一决定「失败能否换实例重试」的地方，
+其规则刻意收窄：**仅 `errAgentUnreachable` 才 failover**——即投递可证明
+未到达上一候选（无会话、转发亦失败）。凡完成了一次协议往返的响应——包括
+busy 拒绝与应用层错误 payload——都原样回给调用方，**绝不自动换实例重试**。
+
+原因是非幂等安全：「实例已饱和」的 busy 拒绝与「实例不可达」不是同一事件。
+把一条变更型 Ops 命令静默重发给下一候选，等于打开隐式重复执行入口——命令
+可能已在第一个实例上开始执行。重试是否安全由调用方依据自身的幂等方案决定，
+busy 文案 `retry on another instance` 是给调用方的建议，不是平台行为的描述。
+
+| 消息类别         | wire 消息                                                           | 投递语义                                                                                                        | 幂等键                                                                             | 业务队列饱和时                            |
+| ---------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------- |
+| 控制（会话）     | Register / Heartbeat / ProviderConnect / Drain、ServerHello         | 天然幂等；周期性重发即机制（at-least-once 安全）                                                                | 对端身份 + 消息类别；无业务 payload                                                | 永不拒绝——专用控制车道                    |
+| 函数调用         | `InvokeRequest`                                                     | 每次派发尝试 at-most-once；不自动换实例重试                                                                     | 调用方 `metadata["idempotencyKey"]` 端到端透传；平台不去重——重放安全由契约作者负责 | busy 错误帧原样回给调用方                 |
+| 异步任务启动     | `StartTaskRequest`                                                  | 每候选 at-most-once 投递（仅投递可证明未达上一候选才 failover）；每次尝试独立 `task_runs` 行，失败尝试标 failed | 服务端逐尝试生成 `taskId`；调用方 `metadata["taskId"]` 标记 drain 安全的任务延续   | 空 body 响应帧原样返回；不换实例          |
+| 任务取消         | `CancelTaskRequest`                                                 | best-effort at-most-once，仅路由到归属 agent（不重选）                                                          | `taskId`                                                                           | 空 body 响应帧；结果仅以归属 agent 为权威 |
+| 任务事件         | `TaskEvent`                                                         | at-least-once 读取：服务端事件存储赋每任务序号；消费方经 `StreamTaskAfterSeq` 重放并按其去重                    | 服务端每任务序号（`afterSeq`），非 wire 字段                                       | n/a（服务端事件存储，非入站队列）         |
+| Ops / 变更型命令 | 以 invoke/task 请求派发到 Ops 角色函数（capture/synthetics/devops） | 默认 at-most-once；高风险操作在到达 dispatch 前另过平台 approval workflow（双人规则）门                         | approval 记录 + `taskId`                                                           | 与 invoke/task 相同：busy 绝不自动换实例  |
+
+已知边界（明示而非隐藏）：
+
+- wire 层无平台级去重：`metadata["idempotencyKey"]` 只是透传约定；业务侧 exactly-once 副作用仍需游戏方回执/去重作为独立契约
+- `TaskEvent` 的排序是服务端存储序号，不是 wire 字段；单向帧本身不带 `seq`，事件消费方必须依赖 `StreamTaskAfterSeq` 重放而非帧内排序
+- 非Invoke 业务消息的 busy 响应是空 body 帧（无错误 payload）；调用方只能凭响应完整性区分，而非过载标志位——显式 `overloaded` / `retry_after_ms` wire 字段仍未定义
+- 钉住 busy-never-fails-over 规则的回归测试：`internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
 ## drain 语义
 

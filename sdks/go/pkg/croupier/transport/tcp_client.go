@@ -456,8 +456,9 @@ func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte
 	select {
 	case c.inbox <- task:
 	default:
-		// 队列满：回 busy 错误响应（handler 错误同款格式），Agent 侧
-		// failover 换实例重试。
+		// 队列满：回 busy 错误响应（handler 错误同款格式）。busy 是原样
+		// 回给调用方的终态——dispatch 层不因 busy 换实例自动重试（非幂等
+		// 命令防隐式重复执行），是否重试由调用方自行决定（CR-FIX-10）。
 		var respBody []byte
 		if msgID == protocol.MsgInvokeRequest {
 			errResp := &sdkv1.InvokeResponse{
