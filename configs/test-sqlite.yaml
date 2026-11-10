@@ -14,6 +14,8 @@ auth:
   rbacConfig: "configs/rbac.json"
   usersConfig: "configs/users.json"
   gamesConfig: "configs/games.json"
+  # demo/e2e exemption: seed the factory default password admin123 as-is
+  allowDefaultCredentials: true
 
 bootstrapData:
   baseDir: "configs"

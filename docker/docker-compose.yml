@@ -98,6 +98,10 @@ services:
       # 数据库配置
       DATABASE_URL: postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable
       REDIS_URL: redis://redis:6379/0
+      # demo/e2e 栈豁免：引导管理员 admin/admin123 按原样落库（CR-FIX-27）。
+      # 生产部署栈（deploy.yml）不加此变量——新装实例首启会现场生成随机口令
+      # 并在启动日志打印一次
+      CROUPIER_BOOTSTRAP_ALLOW_DEFAULT: "1"
       # GeoIP (可选，已内置 configs 下的 LITE BIN 文件，默认启用)
       IP2LOCATION_BIN_PATH: /app/configs/IP2LOCATION-LITE-DB3.BIN
       IP2LOCATION_BIN_PATH_V6: /app/configs/IP2LOCATION-LITE-DB3.IPV6.BIN

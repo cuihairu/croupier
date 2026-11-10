@@ -11,6 +11,11 @@ type AuthConfig struct {
 	RBACConfig  string `json:"rbacConfig,omitempty" yaml:"rbacConfig,omitempty"`
 	UsersConfig string `json:"usersConfig,omitempty" yaml:"usersConfig,omitempty"`
 	GamesConfig string `json:"gamesConfig,omitempty" yaml:"gamesConfig,omitempty"`
+	// AllowDefaultCredentials 允许引导配置里的出厂默认明文口令（admin123）
+	// 按原样落库，仅供 demo/联调用测试配置显式打开。默认 false：新装实例
+	// 首次播种检测到出厂默认口令时现场生成随机口令替换，并在启动日志打印
+	// 一次（CR-FIX-27）。
+	AllowDefaultCredentials bool `json:"allowDefaultCredentials,omitempty" yaml:"allowDefaultCredentials,omitempty"`
 	// LoginLockout 配置本地账号连续密码失败后的临时锁定策略。
 	// 仅对 local provider 生效；LDAP/OIDC 的失败计数由外部身份源负责。
 	LoginLockout LoginLockoutConfig `json:"loginLockout,omitempty" yaml:"loginLockout,omitempty"`

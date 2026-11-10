@@ -121,6 +121,9 @@ services:
       # 分析归流桥：默认关。启用 analytics profile 时置 true
       # （见文件尾「可选组件」），事件才会写入 Redis 分析流
       ANALYTICS_BRIDGE_ENABLED: ${ANALYTICS_BRIDGE_ENABLED:-false}
+      # demo 栈豁免：引导管理员 admin/admin123 按原样落库（CR-FIX-27）。
+      # 生产新装实例不加此变量——首启现场生成随机口令并在启动日志打印一次
+      CROUPIER_BOOTSTRAP_ALLOW_DEFAULT: "1"
     command: ["server", "--config", "/app/configs/server.yaml"]
     ports:
       # transport（agent/SDK 连接）：容器内监听 19090，宿主沿用 8443 端口名。

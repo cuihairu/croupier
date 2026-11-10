@@ -37,6 +37,15 @@ URL: https://croupier.cuihairu.site/
 
 > [Demo environment: all data is fake and is reset from time to time. Do not enter any real information.]
 
+> The `admin` / `admin123` credentials above are for the hosted demo only
+> (the demo compose stack opts in via `CROUPIER_BOOTSTRAP_ALLOW_DEFAULT=1`).
+> On a self-installed instance the server never seeds the factory default
+> password: on first bootstrap it generates a random password for accounts
+> configured with `admin123`, prints it once in the startup log, and you
+> should change it after signing in. To provision fresh credentials before
+> first start, run `scripts/gen-bootstrap-auth.sh <config-dir>`; the demo/e2e
+> configs opt back in via `auth.allowDefaultCredentials: true`.
+
 ## Highlights
 
 - Single-company, multi-game, multi-environment scope model: the standard business boundary is `gameId + env`

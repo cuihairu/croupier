@@ -20,6 +20,7 @@ title: 权限控制说明（RBAC、鉴权、敏感操作与堡垒机现状）
 ### 种子数据与外部身份
 
 - **种子角色/权限**：`configs/roles.json` 41 个角色、`configs/permissions.json` 39 条权限（2026-10-20 实测 JSON 条目数），启动时由 `seedBootstrapRoles`（`internal/svc/service_context.go:1100`，调用点 `:576`）落库。
+- **引导凭据轮换（CR-FIX-27）**：随发行物打包的 `configs/admins.json` / `users.json` 携带出厂默认明文 `admin123`。**新装**实例首播时 `seedBootstrapAdmins`（`internal/svc/service_context_seed.go`）拒绝把该默认口令原样落库：现场生成 32 字符 base64url 随机口令、存其 bcrypt，并在启动日志**打印一次**（`BOOTSTRAP ADMIN PASSWORD (shown once)`）；生成失败则放弃该账号创建，而不是回退到默认口令。仅首播（`record not found`）路径轮换——存量部署的账号不受影响。demo/e2e 环境经 `auth.allowDefaultCredentials: true`（配置）或 `CROUPIER_BOOTSTRAP_ALLOW_DEFAULT=1`（环境变量，demo compose 栈使用）显式豁免。首启前预置凭据可跑 `scripts/gen-bootstrap-auth.sh <config-dir>`（随机口令、`0600`、打印一次）。登录校验是 DB-only（`AdminModel.ValidatePassword`），播种时轮换即足够——不存在内存兜底路径。
 - **身份提供方抽象**：`internal/security/identity/provider.go:1-9` 写明边界——Provider 只负责「证明你是谁」（`KindLocal`/`KindLDAP`/`KindOIDC`/`KindGitHub` 常量 `:19-22`），「你能做什么」始终由本地 RBAC（admins/roles 表）裁决；外部身份登录按需 JIT 落库为本地影子账号（`internal/api/auth/service.go:506` 的 `assignDefaultRoles`，`:513` 实现）。
 - **缺失项（模型未接线）**：`internal/security/rbac/` 下还存在 `rbac.go`（文件策略）、`casbin.go`（Casbin enforcer 封装）、`unified.go`（UnifiedPolicyEngine）、`enhanced.go`（ABAC 表达式引擎）——这些引擎**没有生产调用方**：文件策略引擎唯一的非测试入口是 CLI 配置校验 `internal/cli/common/validate.go:86-89`（校验 `rbac_config` 文件可读），运行时鉴权不经过它们。文档若出现「ABAC 策略引擎」相关能力描述，均为未接线状态。
 

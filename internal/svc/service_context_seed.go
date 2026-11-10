@@ -2,6 +2,8 @@ package svc
 
 import (
 	"context"
+	crand "crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +20,32 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/vault"
 	"gorm.io/gorm"
 )
+
+// defaultBootstrapPassword 是随发行物打包的出厂默认明文口令
+// （configs/admins.json / users.json）。新装实例首次播种时若检测到它且未
+// 显式豁免（auth.allowDefaultCredentials 或 CROUPIER_BOOTSTRAP_ALLOW_DEFAULT），
+// 会现场生成随机口令替换并在启动日志打印一次（CR-FIX-27）。
+const defaultBootstrapPassword = "admin123"
+
+// allowDefaultCredentials 裁决出厂默认口令是否按原样落库：配置字段为主，
+// 环境变量为辅（compose/e2e 不改配置文件即可豁免）。
+func allowDefaultCredentials(cfg config.Config) bool {
+	if cfg.Auth.AllowDefaultCredentials {
+		return true
+	}
+	return os.Getenv("CROUPIER_BOOTSTRAP_ALLOW_DEFAULT") == "1"
+}
+
+// generateBootstrapPassword 生成 32 字符 base64url 随机口令（192 bit 熵）。
+// crypto/rand 失败在此环境不可恢复（src/crypto/rand 文档：Go 1.24 起
+// Read 恒成功），错误仅作为防御分支透传。
+func generateBootstrapPassword() (string, error) {
+	buf := make([]byte, 24)
+	if _, err := crand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
 
 func seedBootstrapAdmins(ctx *ServiceContext) error {
 	if ctx == nil || ctx.AdminManager == nil || ctx.AdminModel == nil {
@@ -54,6 +82,23 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 			First(&dbAdmin).Error
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 新装实例口令治理：出厂默认明文口令不得原样落库（CR-FIX-27）。
+			// 仅拦新装首播；存量部署的已有账号走上方 existing 分支不受影响。
+			seedPassword := admin.Password
+			if !admin.IsHashedPassword() && strings.TrimSpace(admin.Password) == defaultBootstrapPassword && !allowDefaultCredentials(ctx.Config) {
+				generated, genErr := generateBootstrapPassword()
+				if genErr != nil {
+					slog.Default().Error("生成引导管理员随机口令失败，拒绝以出厂默认口令建号", "username", username, "error", genErr)
+					continue
+				}
+				seedPassword = generated
+				slog.Default().Warn(
+					"BOOTSTRAP ADMIN PASSWORD (shown once): bootstrap config carries the factory default password; generated a random password for first login - change it after signing in",
+					"username", username,
+					"password", generated,
+				)
+			}
+
 			newAdmin := &model.Admin{
 				Username: username,
 				Nickname: strings.TrimSpace(admin.Nickname),
@@ -62,7 +107,7 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 				Status:   bootstrapStatus,
 			}
 
-			if err := ctx.AdminModel.Create(bg, newAdmin, admin.Password); err != nil {
+			if err := ctx.AdminModel.Create(bg, newAdmin, seedPassword); err != nil {
 				slog.Default().Error("创建引导管理员失败", "username", username, "error", err)
 				continue
 			}
