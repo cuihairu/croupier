@@ -1,4 +1,5 @@
 docs/OPEN-ISSUES.md|gRPC
+docs/architecture/adr/0001-transport.md|gRPC
 docs/architecture/agent-server-session-transport-redesign.md|REQ/REP
 docs/architecture/agent-server-session-transport-redesign.md|rpc_addr
 docs/architecture/data-flow.md|gRPC
@@ -42,6 +43,7 @@ docs/sdks/cpp/index.md|rpc_addr
 docs/sdks/cpp/integration.md|gRPC
 docs/sdks/index.md|rpc_addr
 docs/zh/OPEN-ISSUES.md|gRPC
+docs/zh/architecture/adr/0001-transport.md|gRPC
 docs/zh/architecture/agent-server-session-transport-redesign.md|REQ/REP
 docs/zh/architecture/agent-server-session-transport-redesign.md|rpc_addr
 docs/zh/architecture/data-flow.md|gRPC
