@@ -50,6 +50,10 @@ Before requesting review, make sure:
    wire changes update `docs/architecture/pagespec-protocol.md` /
    `sdk-wire-protocol.md`, user-facing behavior updates the matching
    operations page — English and the `docs/zh/**` mirror together.
+   Documentation language convention: `docs/**` (outside `docs/zh/`) is the
+   English canonical tree; every page there must have a mirrored
+   `docs/zh/**` copy with the same relative path (both trees stay in sync;
+   the docs CI checks page-set and sidebar parity).
 
 A reviewer (see `.github/CODEOWNERS`) must approve before merge. CI must be
 green; environment-flake reds are re-run, not waived silently.

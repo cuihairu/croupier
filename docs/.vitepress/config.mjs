@@ -96,6 +96,10 @@ export default withMermaid(
                     text: "Dashboard glossary",
                     link: "/architecture/dashboard-glossary",
                   },
+                  {
+                    text: "Transport glossary",
+                    link: "/architecture/transport-glossary",
+                  },
                 ],
               },
             ],
@@ -230,6 +234,10 @@ export default withMermaid(
                   {
                     text: "看板术语表",
                     link: "/zh/architecture/dashboard-glossary",
+                  },
+                  {
+                    text: "传输术语表",
+                    link: "/zh/architecture/transport-glossary",
                   },
                   {
                     text: "数据库迁移策略",

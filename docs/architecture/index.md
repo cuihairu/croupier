@@ -85,6 +85,7 @@ Single-database mode still validates scope. multiGame separates metadata from se
 
 - [ADR 0001: Transport selection](./adr/0001-transport)
 - [SDK wire protocol](./sdk-wire-protocol)
+- [Transport glossary](./transport-glossary)
 - [Session lifecycle](./session-lifecycle)
 - [Multi-instance HA and limitations](./server-ha-multi-instance)
 - [Agent roles](../operations/agent-comparison)

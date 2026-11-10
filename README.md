@@ -122,6 +122,8 @@ This is why two terms appear in the documentation:
 
 A `subprotocol` is not "custom configuration"; it is an application-layer protocol variant that shares the same session runtime but differs in handshake message, registration content, and routing semantics.
 
+See the [transport glossary](docs/architecture/transport-glossary.md) for the full term set (session runtime, subprotocols, frames, handshake, and the L1–L4 SDK capability layers).
+
 ## Scope Model
 
 Croupier does not adopt a SaaS multi-tenant abstraction. The standard business scope is:
