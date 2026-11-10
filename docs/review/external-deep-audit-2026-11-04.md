@@ -41,7 +41,7 @@
 | P2-27 | 演示/默认凭据暴露 | **属实** | `internal/logic/utils/password_helpers.go:27` `"admin123": true` 弱口令黑名单；`README.md:36` demo 凭据 `admin/admin123` |
 | P2-28 | SDK 版本强行同一、能力不同步 | **部分属实** | 版本同为 0.1.4、能力差异主体成立：`instance_metadata` 为 Go+JS 双实现（`sdks/go/pkg/croupier/types.go`、`tcp_manager.go:269,560`；`sdks/js/src/index.ts:403` `instanceMetadata`），Java/Python/C++/C# 无；auth_token Python 最全、Go 有 Server API AuthToken。注：`sdks/SDK_FEATURE_MATRIX.md` 能力矩阵文档已存在，评审建议的「能力 × 版本」矩阵部分在案 |
 | P2-29 | 文档语言与术语混杂 | **属实** | `docs/zh/审计-文档一致性.md` 等中文命名文件在案；docs 中英混排 |
-| P2-30 | 可视化资产与文档呈现 | **属实** | `docs/screenshots/ui/` 共 4.3M；`01-login.png` 1,086,608 字节；webp 数量 0 |
+| P2-30 | 可视化资产与文档呈现 | **属实** | `docs/screenshots/ui/` 共 4.3M；`01-login.png` 1,086,608 字节；webp 数量 0。**已修复（2026-11-10）**：全量 WebP 化（4.0M→1.0M），`web/scripts/capture-interface-preview.mjs` 重生成 + `scripts/optimize-screenshots.sh` 转换闭环，guide 与首页轮播引用切至 `.webp` |
 | P3-31 | 缺面向用户的 ROADMAP.md | **属实** | 仓库根无 `ROADMAP.md` |
 | P3-32 | 缺术语表 | **部分属实** | `docs/zh/architecture/dashboard-glossary.md`（Dashboard 术语表）已存在；但 session runtime / subprotocol / L1-L3 传输术语无术语表条目，评审指向的缺口部分成立 |
 | P3-33 | 无跨 SDK 字节级 golden 帧测试入口 | **属实** | 无 `scripts/contract/` 目录 |

@@ -10,16 +10,16 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useData } from 'vitepress';
 
-import shot01 from '../../screenshots/ui/01-login.png';
-import shot02 from '../../screenshots/ui/02-console-home.png';
-import shot03 from '../../screenshots/ui/03-functions.png';
-import shot04a from '../../screenshots/ui/04a-invoke-form.png';
-import shot04c from '../../screenshots/ui/04c-invoke-result.png';
-import shot05 from '../../screenshots/ui/05-invoke-approval-required.png';
-import shot06 from '../../screenshots/ui/06-approvals.png';
-import shot07 from '../../screenshots/ui/07-approval-detail.png';
-import shot08 from '../../screenshots/ui/08-ops-nodes.png';
-import shot10 from '../../screenshots/ui/10-execution-logs.png';
+import shot01 from '../../screenshots/ui/01-login.webp';
+import shot02 from '../../screenshots/ui/02-console-home.webp';
+import shot03 from '../../screenshots/ui/03-functions.webp';
+import shot04a from '../../screenshots/ui/04a-invoke-form.webp';
+import shot04c from '../../screenshots/ui/04c-invoke-result.webp';
+import shot05 from '../../screenshots/ui/05-invoke-approval-required.webp';
+import shot06 from '../../screenshots/ui/06-approvals.webp';
+import shot07 from '../../screenshots/ui/07-approval-detail.webp';
+import shot08 from '../../screenshots/ui/08-ops-nodes.webp';
+import shot10 from '../../screenshots/ui/10-execution-logs.webp';
 
 interface Slide {
   src: string;
