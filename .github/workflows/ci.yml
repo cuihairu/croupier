@@ -80,6 +80,12 @@ jobs:
       - name: Dependency boundary guard regression test
         timeout-minutes: 5
         run: bash scripts/check_dependency_boundary_test.sh
+      - name: Layer dependency guard (CR-FIX-21)
+        timeout-minutes: 5
+        run: bash scripts/check_layer_dependency.sh
+      - name: Layer dependency guard regression test
+        timeout-minutes: 5
+        run: bash scripts/check_layer_dependency_test.sh
       - name: Context and panic hygiene guard (CR-FIX-22)
         timeout-minutes: 5
         run: bash scripts/check_context_panic_hygiene.sh
