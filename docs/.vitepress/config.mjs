@@ -123,6 +123,14 @@ export default withMermaid(
                     link: "/operations/config-effects",
                   },
                   { text: "Risk control", link: "/operations/risk-control" },
+                  {
+                    text: "Security configuration",
+                    link: "/operations/security",
+                  },
+                  {
+                    text: "Mobile threat model",
+                    link: "/operations/mobile-threat-model",
+                  },
                 ],
               },
             ],
@@ -321,6 +329,8 @@ export default withMermaid(
                     link: "/zh/operations/config-effects",
                   },
                   { text: "风控说明", link: "/zh/operations/risk-control" },
+                  { text: "安全配置", link: "/zh/operations/security" },
+                  { text: "移动端威胁模型", link: "/zh/operations/mobile-threat-model" },
                 ],
               },
             ],

@@ -37,7 +37,35 @@ jobs:
       - run: flutter pub get
       - run: dart format --set-exit-if-changed --output=none .
       - run: flutter analyze
-      - run: flutter test
+      - run: flutter test --coverage
+      # 覆盖率门禁（CR-FIX-26）：低于阈值即失败，防止移动端质量倒退。
+      # 阈值随测试补充缓慢抬升；初值 80% 基于 2026-11-10 实测基线 89.0%。
+      - name: Coverage gate
+        run: |
+          python3 - <<'PYEOF'
+          import re
+          with open("coverage/lcov.info", encoding="utf-8") as f:
+              data = f.read()
+          total = hit = 0
+          for block in data.split("end_of_record"):
+              for line in block.splitlines():
+                  if line.startswith("LF:"):
+                      total += int(line[3:])
+                  elif line.startswith("LH:"):
+                      hit += int(line[3:])
+          pct = hit / total * 100 if total else 0.0
+          print(f"mobile coverage: {hit}/{total} lines = {pct:.1f}%")
+          threshold = float("${COVERAGE_THRESHOLD:-80}")
+          if pct < threshold:
+              raise SystemExit(f"coverage {pct:.1f}% below threshold {threshold}%")
+          PYEOF
+      # 上传覆盖率报告（CR-FIX-26）：CI 页面可见趋势。
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: mobile-coverage-lcov
+          path: mobile/coverage/lcov.info
+          retention-days: 14
+          if-no-files-found: error
       # 构建烟测：验证 android/ 工程与原生依赖可编译（不产 artifact）。
       - run: flutter build apk --debug
 
