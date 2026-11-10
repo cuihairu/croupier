@@ -24,10 +24,13 @@ func bindAnalyticsRequest(c *gin.Context, req interface{}) error {
 type Handler struct {
 	service *Service
 	sse     config.SSEConfig
+	// facade 是聚合查询门面（MOB-ANA-001）：随 handler 一并装配，分域
+	// handler 路由不受影响。
+	facade *Facade
 }
 
 func NewHandler(service *Service, sse config.SSEConfig) *Handler {
-	return &Handler{service: service, sse: sse}
+	return &Handler{service: service, sse: sse, facade: NewFacade(service)}
 }
 
 // Behavior analytics handlers

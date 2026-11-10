@@ -370,13 +370,6 @@ type LevelsMapsResponse struct {
 type AnalyticsFiltersQuery struct {
 }
 
-type AnalyticsQuery struct {
-	GameId    string `form:"gameId"`
-	Env       string `form:"env"`
-	StartDate string `form:"startDate"`
-	EndDate   string `form:"endDate"`
-}
-
 // Analytics filters helper functions (moved from logic/utils to avoid import cycle)
 
 type analyticsFiltersDocument struct {

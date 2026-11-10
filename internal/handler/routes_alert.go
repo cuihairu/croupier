@@ -116,6 +116,11 @@ func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/levels", analyticsHandler.Levels)
 	g.GET("/levels/episodes", analyticsHandler.LevelsEpisodes)
 	g.GET("/levels/maps", analyticsHandler.LevelsMaps)
+
+	// Facade 聚合门面（MOB-ANA-001）：移动端 dashboard 一次拉全部域摘要 +
+	// 统一查询路由；分域 handler/路由保留不动（加法）。
+	g.GET("/facade/summary", analyticsHandler.FacadeSummary)
+	g.POST("/facade/query", analyticsHandler.FacadeQuery)
 }
 
 // registerAlertInboundRoute 挂告警入站 webhook 端点（第三方告警系统无法
