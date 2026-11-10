@@ -94,10 +94,10 @@ check_js() {
     "registerFunction|index.ts|register"
     "connect\\(\\): Promise<void>|index.ts|connect"
     "disconnect\\(\\): Promise<void>|index.ts|stop/close"
-    "agentAddr\\?: string|index.ts|config.agent_addr"
-    "serviceId\\?: string|index.ts|config.service_id"
-    "gameId\\?: string|index.ts|config.game_id"
-    "insecure\\?: boolean|index.ts|config.insecure"
+    "agentAddr\\?: string|types.ts|config.agent_addr"
+    "serviceId\\?: string|types.ts|config.service_id"
+    "gameId\\?: string|types.ts|config.game_id"
+    "insecure\\?: boolean|types.ts|config.insecure"
   )
   run_checks "js" "$root" entries
 }
@@ -148,7 +148,7 @@ check_l3_server_http_contract() {
     "python|sdks/python/croupier/invoker.py|sdks/python/tests/test_invoker.py|class InvokerConfig|\(\"functions\", function_id, \"invoke\"\)|\(\"tasks\",\)|\(\"tasks\", task_id\)|\(\"tasks\", task_id, \"events\"\)|\(\"tasks\", task_id, \"cancel\"\)|MockServer"
     "java|sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/invoker/ServerHttpInvoker.java|sdks/java/src/test/java/io/github/cuihairu/croupier/sdk/invoker/ServerHttpInvokerTest.java|InvokerConfig config|\"functions\", functionId, \"invoke\"|List\.of\(\"tasks\"\)|List\.of\(\"tasks\", taskId\)|\"tasks\", taskId, \"events\"|\"tasks\", taskId, \"cancel\"|MockServer"
     "js|sdks/js/src/invoker.ts|sdks/js/src/invoker.test.ts|interface InvokerConfig|functions/.+encodeURIComponent\(functionId\).+/invoke|baseUrl\}/tasks|tasks/.+encodeURIComponent\(taskId\)|tasks/.+encodeURIComponent\(taskId\).+/events|tasks/.+encodeURIComponent\(taskId\).+/cancel|mockFetch"
-    "cpp|sdks/cpp/src/croupier_client.cpp|sdks/cpp/tests/test_invoker.cpp|InvokerConfig config_|\{\"functions\", function_id, \"invoke\"\}|\{\"tasks\"\}|\{\"tasks\", task_id\}|\{\"tasks\", task_id, \"events\"\}|\{\"tasks\", task_id, \"cancel\"\}|MockHTTPTransport"
+    "cpp|sdks/cpp/src/croupier_invoker.cpp|sdks/cpp/tests/test_invoker.cpp|InvokerConfig config_|\{\"functions\", function_id, \"invoke\"\}|\{\"tasks\"\}|\{\"tasks\", task_id\}|\{\"tasks\", task_id, \"events\"\}|\{\"tasks\", task_id, \"cancel\"\}|MockHTTPTransport"
     "csharp|sdks/csharp/src/Croupier.Sdk/CroupierInvoker.cs|sdks/csharp/src/Croupier.Sdk.Tests/CroupierInvokerTests.cs|InvokerConfig _config|functions/\{Uri\.EscapeDataString\(functionId\)\}/invoke|BuildUri\(\"tasks\"\)|tasks/\{Uri\.EscapeDataString\(taskId\)\}|/events\?after_seq=|/cancel|RecordingHandler"
   )
 
