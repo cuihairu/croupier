@@ -33,9 +33,14 @@ type App struct {
 	extensionPuller  *ExtensionSyncPuller
 	outTLS           *tlsutil.ClientTLSConfig
 	localTLS         *tls.Config
-	providerManager  *ProviderManager
-	providerSessions *sidecar.ProviderSessionStore
-	telemetry        *telemetry.GameTelemetryService
+	// Provider 握手鉴权（CR-FIX-11）：cmd 配置经 SetProviderAuth 注入，
+	// startLocalServerSafely 建监听时透传 TCPLocalListenerConfig，与
+	// LocalHandler.SetProviderAuth 同源。
+	providerAuthRequire bool
+	providerAuthToken   string
+	providerManager     *ProviderManager
+	providerSessions    *sidecar.ProviderSessionStore
+	telemetry           *telemetry.GameTelemetryService
 	// rec 是 agent 观测面（OBS-AGENT-001）：启停/连接状态/事件计数。缺省
 	// noop（零开销）；cmd 入口经 SetRecorder 注入真实 OTel 装配。
 	rec                otelrec.Recorder
@@ -234,6 +239,9 @@ func (a *App) StartLocalServer() error {
 		RecvTimeout: 2 * time.Minute,
 		SendTimeout: 30 * time.Second,
 		TLSConfig:   a.localTLS,
+
+		RequireProviderAuth: a.providerAuthRequire,
+		ProviderAuthToken:   a.providerAuthToken,
 	}, providerSessions, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
@@ -315,6 +323,20 @@ func (a *App) SetLocalAddr(addr string) {
 		return
 	}
 	a.localAddr = addr
+}
+
+// SetProviderAuth 配置 Provider 握手鉴权（CR-FIX-11）：require=true 且
+// token 为空视为配置错误（fail-closed：所有握手被拒）；调用方应在配置
+// 校验阶段拦截此组合。
+func (a *App) SetProviderAuth(require bool, token string) {
+	if a == nil {
+		return
+	}
+	a.providerAuthRequire = require
+	a.providerAuthToken = token
+	if a.localHandler != nil {
+		a.localHandler.SetProviderAuth(require, token)
+	}
 }
 
 // Run starts the agent's background processes (upstream sync and local server).

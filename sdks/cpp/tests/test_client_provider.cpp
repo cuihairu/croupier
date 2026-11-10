@@ -44,6 +44,12 @@ public:
                 (void)request.ParseFromArray(body.data(), static_cast<int>(body.size()));
                 last_service_id_ = request.service_id();
                 last_function_count_ = static_cast<int>(request.functions_size());
+                // CR-FIX-11：捕获握手 metadata["authToken"]（平台保留键）。
+                if (request.metadata().count("authToken") > 0) {
+                    last_auth_token_ = request.metadata().at("authToken");
+                } else {
+                    last_auth_token_.clear();
+                }
 
                 if (mode_ == AgentMode::kJsonError) {
                     const std::string json_error = R"({"error":"rejected"})";
@@ -81,6 +87,7 @@ public:
     const std::string& last_service_id() const { return last_service_id_; }
     const std::string& last_heartbeat_session() const { return last_heartbeat_session_; }
     int last_function_count() const { return last_function_count_; }
+    const std::string& last_auth_token() const { return last_auth_token_; }
 
     void stop() { server_.Stop(); }
     void restart() { server_.Start(); }
@@ -93,6 +100,7 @@ private:
     std::string last_service_id_;
     std::string last_heartbeat_session_;
     std::atomic<int> last_function_count_{0};
+    std::string last_auth_token_;
 };
 
 ClientConfig ProviderConfig(const std::string& agent_addr, int heartbeat_interval = 1) {
@@ -134,6 +142,32 @@ TEST(ProviderLifecycleTest, ConnectRegistersFunctionsAndReceivesSession) {
     client.Stop();
     EXPECT_FALSE(client.IsConnected());
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
+}
+
+TEST(ProviderLifecycleTest, ConnectCarriesAuthTokenInMetadata) {
+    // CR-FIX-11：authToken 注入握手 metadata["authToken"]（平台保留键，
+    // agent 校验后丢弃）；未配置时不携带该键。
+    FakeAgent agent;
+    ClientConfig config = ProviderConfig(agent.address(), /*heartbeat_interval=*/60);
+    config.auth_token = "  secret  ";
+    CroupierClient client(config);
+    RegisterSampleFunction(client);
+
+    ASSERT_TRUE(client.Connect());
+    ASSERT_EQ(1, agent.connect_requests());
+    EXPECT_EQ("secret", agent.last_auth_token()) << "token must be trimmed";
+    client.Stop();
+}
+
+TEST(ProviderLifecycleTest, ConnectOmitsAuthTokenWhenNotConfigured) {
+    FakeAgent agent;
+    CroupierClient client(ProviderConfig(agent.address(), /*heartbeat_interval=*/60));
+    RegisterSampleFunction(client);
+
+    ASSERT_TRUE(client.Connect());
+    ASSERT_EQ(1, agent.connect_requests());
+    EXPECT_TRUE(agent.last_auth_token().empty());
+    client.Stop();
 }
 
 TEST(ProviderLifecycleTest, ConnectWithoutRegisteredFunctionsFails) {

@@ -91,5 +91,10 @@ type LocalHandler struct {
 	// 请求 metadata["timeoutMs"] 声明更小值时取更小者（Go deadline
 	// min 语义）。此前硬编码 10s 与 Server 派发层 15s 倒挂。
 	providerCallTimeout time.Duration
-	mu                  sync.RWMutex
+	// Provider 握手鉴权（CR-FIX-11）：requireProviderAuth=true 时
+	// ProviderConnectRequest.metadata["authToken"] 必须等于
+	// providerAuthToken，否则拒绝握手（两条连接路径共用）。
+	providerAuthRequired bool
+	providerAuthToken    string
+	mu                   sync.RWMutex
 }

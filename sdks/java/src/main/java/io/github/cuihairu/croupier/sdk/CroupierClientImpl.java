@@ -353,11 +353,23 @@ public class CroupierClientImpl implements CroupierClient {
         List<SdkWireMessages.ProviderFunctionDescriptor> functions = descriptors.values().stream()
             .map(this::toWireDescriptor)
             .collect(Collectors.toList());
+        // 握手鉴权（CR-FIX-11）：authToken 是平台保留键，agent 校验后丢弃，
+        // 绝不入会话元数据。未配置 token 时不携带该键。
+        Map<String, String> metadata = Map.of();
+        String authToken = config.getAuthToken();
+        if (authToken != null && !authToken.isBlank()) {
+            metadata = Map.of("authToken", authToken.strip());
+        }
         return new SdkWireMessages.ProviderConnectRequest(
             config.getServiceId(),
             config.getServiceVersion(),
             "",
-            functions
+            functions,
+            "java",
+            SdkInfo.VERSION,
+            "croupier-java-sdk",
+            "1.0.0",
+            metadata
         );
     }
 

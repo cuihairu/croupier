@@ -239,6 +239,24 @@ busy 文案 `retry on another instance` 是给调用方的建议，不是平台�
 - 非Invoke 业务消息的 busy 响应是空 body 帧（无错误 payload）；调用方只能凭响应完整性区分，而非过载标志位——显式 `overloaded` / `retry_after_ms` wire 字段仍未定义
 - 钉住 busy-never-fails-over 规则的回归测试：`internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
+## Provider 握手鉴权
+
+SDK → Agent 的 `ProviderConnectRequest` 在 `metadata` map 中以平台保留键
+`authToken` 携带握手鉴权令牌。该键由 Agent 消费用于握手校验，绝不入会话
+元数据（不可能泄漏到 SDK 分发页）；用户声明的同名键按保留键丢弃。
+
+- SDK 侧：各语言 client 配置均有 `authToken` 字段；配置后连接帧携带
+  `metadata["authToken"]`（trim 后）。六语言行为一致。
+- Agent 侧：agent 配置 `agent.providerAuth.require` + `agent.providerAuth.token`。
+  `require=false`（默认）完全忽略 token——握手行为与从前一致；`require=true`
+  时缺 token 或 token 不匹配的握手被拒：连接关闭、不注册会话（fail-closed）。
+  `require=true` 且 token 为空属无效配置，启动即报错——否则所有握手都会被拒。
+- token 比较为常量时间比较；校验在两条连接路径（TCP 本地网关与 mux 路径
+  handler）上都生效，且都在会话注册之前。
+
+测试：agent 强制侧 `internal/agent/provider_auth_test.go`；各 SDK 发送侧
+用例在各语言测试套件内。
+
 ## drain 语义
 
 `drain` 是会话级的优雅摘流语义，不是立即断连语义。

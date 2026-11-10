@@ -19,6 +19,12 @@ agent:
   localAddr: "0.0.0.0:19091"
   httpAddr: "agent:19091"
   labels: {}
+  # Provider 握手鉴权（CR-FIX-11）：require=true 时 SDK Provider 握手必须
+  # 携带 metadata["authToken"]=token，否则连接被拒（fail-closed：require
+  # 开启而 token 为空属无效配置，启动即报错）。
+  # providerAuth:
+  #   require: true
+  #   token: "change-me"
 
 upstream:
   heartbeatInterval: 30

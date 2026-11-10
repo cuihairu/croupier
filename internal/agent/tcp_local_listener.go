@@ -35,6 +35,13 @@ type TCPLocalListenerConfig struct {
 	// the accept loop keeps serving (plaintext probes must not kill the
 	// gateway, hence per-conn wrapping instead of tls.NewListener).
 	TLSConfig *tls.Config
+
+	// Provider 握手鉴权（CR-FIX-11）：Require=true 时 ProviderConnectRequest
+	// 的 metadata["authToken"] 必须等于 Token，否则握手被拒（连接关闭，
+	// 不注册会话）。与 LocalHandler.SetProviderAuth 同源配置（同一启动
+	// 参数两路注入），校验逻辑共用 checkProviderAuth。
+	RequireProviderAuth bool
+	ProviderAuthToken   string
 }
 
 // tlsHandshakeTimeout bounds the server-side TLS handshake of an accepted
@@ -336,10 +343,22 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 		return nil, fmt.Errorf("service_id is required")
 	}
 
+	// 握手鉴权（CR-FIX-11）：在会话注册之前校验；拒绝返回 ProtocolError
+	// 由 MuxConn 关闭连接（fail-closed，不产生半注册会话）。token 提取
+	// 必须在元数据合并之前——合并会丢弃保留键（含 authToken）。
+	if require, token := h.listener.config.RequireProviderAuth, h.listener.config.ProviderAuthToken; require {
+		if err := checkProviderAuth(require, token, extractProviderAuthToken(req)); err != nil {
+			h.listener.logger.Warn("provider handshake auth rejected",
+				"service_id", req.ServiceId, "remote", h.conn.RemoteAddr(), "error", err)
+			return nil, tcptr.NewProtocolError(err)
+		}
+	}
+
 	sessionID := fmt.Sprintf("ps-%d", time.Now().UnixNano())
 
 	// 用户实例元数据随连接进入会话（保留键丢弃+告警，语义与 local_handler 路径
 	// 一致）；onConnect 注册时经 MergeProviderInstanceMetadata 并入实例元数据。
+	// authToken 已入保留键，不会进入会话元数据（防泄漏到 SDK 分发页）。
 	metadata, metaWarnings := MergeUserProviderMetadata(map[string]string{}, req.GetMetadata())
 	for _, warning := range metaWarnings {
 		h.listener.logger.Warn("provider metadata reserved key dropped",

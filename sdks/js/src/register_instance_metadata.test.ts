@@ -58,6 +58,49 @@ describe("provider instance metadata protobuf round-trip", () => {
     expect(decoded.metadata).toEqual({ serverId: "s1", pod: "game-7c4d" });
   });
 
+  it("carries authToken in metadata when configured (CR-FIX-11)", () => {
+    // 握手鉴权：authToken 是平台保留键，agent 校验后丢弃，绝不入会话
+    // 元数据；token 注入前 trim，且与用户 instanceMetadata 共存。
+    const client = new BasicClient({
+      insecure: true,
+      serviceId: "game-demo",
+      authToken: " secret ",
+      instanceMetadata: { serverId: "s1" },
+    });
+
+    const serializer = client as unknown as {
+      serializeProviderConnectProtobufRequest: (req: unknown) => Buffer;
+    };
+    const buf = serializer.serializeProviderConnectProtobufRequest(
+      client.getRegisterRequest(),
+    );
+
+    const decoded = ConnectRequest.toObject(ConnectRequest.decode(buf), {
+      defaults: true,
+    }) as DecodedRequest;
+    expect(decoded.metadata).toEqual({ serverId: "s1", authToken: "secret" });
+  });
+
+  it("omits authToken key when not configured", () => {
+    const client = new BasicClient({
+      insecure: true,
+      serviceId: "game-demo",
+      instanceMetadata: { serverId: "s1" },
+    });
+
+    const serializer = client as unknown as {
+      serializeProviderConnectProtobufRequest: (req: unknown) => Buffer;
+    };
+    const buf = serializer.serializeProviderConnectProtobufRequest(
+      client.getRegisterRequest(),
+    );
+
+    const decoded = ConnectRequest.toObject(ConnectRequest.decode(buf), {
+      defaults: true,
+    }) as DecodedRequest;
+    expect(decoded.metadata).toEqual({ serverId: "s1" });
+  });
+
   it("omits metadata when instanceMetadata is not configured", () => {
     const client = new BasicClient({ insecure: true });
 

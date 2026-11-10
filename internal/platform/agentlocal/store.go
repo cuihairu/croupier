@@ -22,6 +22,10 @@ var ReservedMetadataKeys = map[string]struct{}{
 	"protocol_version": {},
 	"gameId":           {},
 	"env":              {},
+	// authToken 是 ProviderConnect 握手鉴权键（CR-FIX-11）：由 agent
+	// 在鉴权时读取，绝不入会话元数据（防泄漏到 SDK 分发页），用户
+	// 声明同名键一律丢弃。
+	"authToken": {},
 }
 
 // UserMetadata 返回 metadata 中非平台保留键的子集（即用户自定义实例元数据）。

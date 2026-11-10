@@ -742,6 +742,37 @@ def test_get_provider_connect_request():
     assert req.functions[0].id == "f1"
 
 
+def test_provider_connect_request_carries_auth_token():
+    """CR-FIX-11：authToken 注入握手 metadata["authToken"]（平台保留键，
+    agent 校验后丢弃）。未配置 token 时不携带该键。"""
+    config = croupier.ClientConfig(
+        service_id="auth-svc", service_version="1.0.0", auth_token=" secret "
+    )
+    client = croupier.CroupierClient(config)
+    client.register_function(
+        croupier.FunctionDescriptor(id="f1", version="1.0.0"),
+        lambda ctx, payload: "ok",  # noqa: E731
+    )
+
+    req = client.get_provider_connect_request()
+    assert req.metadata["authToken"] == "secret", "token must be trimmed"
+
+
+def test_provider_connect_request_omits_blank_auth_token():
+    """未配置 / 空白 token：metadata 不携带 authToken 键。"""
+    for token in (None, "   "):
+        config = croupier.ClientConfig(
+            service_id="auth-svc", service_version="1.0.0", auth_token=token
+        )
+        client = croupier.CroupierClient(config)
+        client.register_function(
+            croupier.FunctionDescriptor(id="f1", version="1.0.0"),
+            lambda ctx, payload: "ok",  # noqa: E731
+        )
+        req = client.get_provider_connect_request()
+        assert "authToken" not in req.metadata
+
+
 def test_start_task_with_metadata():
     """Test start_task with metadata."""
     client = croupier.CroupierClient()

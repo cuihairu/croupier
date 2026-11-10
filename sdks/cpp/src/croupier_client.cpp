@@ -775,6 +775,17 @@ public:
         request.set_protocol_version("1.0.0");
         request.set_transport_security_mode(config_.insecure ? "plaintext" : "tls");
         request.add_supported_transports("tcp");
+        // 握手鉴权（CR-FIX-11）：authToken 是平台保留键，agent 校验后丢弃，
+        // 绝不入会话元数据。未配置 token 时不携带该键。
+        {
+            std::string token = config_.auth_token;
+            const auto first = token.find_first_not_of(" \t\r\n");
+            if (first != std::string::npos) {
+                const auto last = token.find_last_not_of(" \t\r\n");
+                token = token.substr(first, last - first + 1);
+                (*request.mutable_metadata())["authToken"] = token;
+            }
+        }
 
         for (const auto& [function_id, desc] : descriptors_) {
             auto* fn = request.add_functions();

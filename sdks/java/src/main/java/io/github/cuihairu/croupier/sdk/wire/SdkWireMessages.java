@@ -202,6 +202,9 @@ public final class SdkWireMessages {
             writeString(out, 5, message.sdkVersion);
             writeString(out, 6, message.sdkName);
             writeString(out, 7, message.protocolVersion);
+            for (Map.Entry<String, String> entry : message.metadata.entrySet()) {
+                writeMessage(out, 13, encodeMapEntry(entry.getKey(), entry.getValue()));
+            }
         });
     }
 
@@ -213,6 +216,7 @@ public final class SdkWireMessages {
         String sdkVersion = "";
         String sdkName = "";
         String protocolVersion = "";
+        Map<String, String> metadata = new LinkedHashMap<>();
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -228,13 +232,14 @@ public final class SdkWireMessages {
                     case 5 -> sdkVersion = input.readString();
                     case 6 -> sdkName = input.readString();
                     case 7 -> protocolVersion = input.readString();
+                    case 13 -> readMapEntry(input.readByteArray(), metadata);
                     default -> input.skipField(tag);
                 }
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to decode ProviderConnectRequest", e);
         }
-        return new ProviderConnectRequest(serviceId, version, "", functions, sdkLanguage, sdkVersion, sdkName, protocolVersion);
+        return new ProviderConnectRequest(serviceId, version, "", functions, sdkLanguage, sdkVersion, sdkName, protocolVersion, metadata);
     }
 
     public static byte[] encodeProviderConnectResponse(ProviderConnectResponse message) {
@@ -791,6 +796,9 @@ public final class SdkWireMessages {
         public final String sdkVersion;
         public final String sdkName;
         public final String protocolVersion;
+        // CR-FIX-11：握手元数据（含平台保留键 authToken——agent 校验后丢弃，
+        // 绝不入会话元数据）。字段 13，与 proto ProviderConnectRequest.metadata 对齐。
+        public final Map<String, String> metadata;
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
                                     java.util.List<ProviderFunctionDescriptor> functions) {
@@ -800,6 +808,13 @@ public final class SdkWireMessages {
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
                                     java.util.List<ProviderFunctionDescriptor> functions,
                                     String sdkLanguage, String sdkVersion, String sdkName, String protocolVersion) {
+            this(serviceId, version, rpcAddr, functions, sdkLanguage, sdkVersion, sdkName, protocolVersion, Map.of());
+        }
+
+        public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
+                                    java.util.List<ProviderFunctionDescriptor> functions,
+                                    String sdkLanguage, String sdkVersion, String sdkName, String protocolVersion,
+                                    Map<String, String> metadata) {
             this.serviceId = serviceId == null ? "" : serviceId;
             this.version = version == null ? "" : version;
             this.rpcAddr = rpcAddr == null ? "" : rpcAddr;
@@ -808,6 +823,7 @@ public final class SdkWireMessages {
             this.sdkVersion = sdkVersion == null ? "" : sdkVersion;
             this.sdkName = sdkName == null ? "" : sdkName;
             this.protocolVersion = protocolVersion == null ? "" : protocolVersion;
+            this.metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
         }
     }
 

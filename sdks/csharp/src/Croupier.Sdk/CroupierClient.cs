@@ -723,6 +723,14 @@ public partial class CroupierClient : IDisposable
             ProtocolVersion = "v1"
         };
 
+        // 握手鉴权（CR-FIX-11）：authToken 是平台保留键，agent 校验后丢弃，
+        // 绝不入会话元数据。未配置 token 时不携带该键。
+        var authToken = _config.AuthToken?.Trim();
+        if (!string.IsNullOrEmpty(authToken))
+        {
+            request.Metadata["authToken"] = authToken;
+        }
+
         foreach (var descriptor in _descriptors.Values)
         {
             var function = new ProviderFunctionDescriptor

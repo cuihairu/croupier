@@ -354,6 +354,11 @@ class CroupierClient:
 
     def get_provider_connect_request(self) -> provider_pb2.ProviderConnectRequest:  # type: ignore[name-defined]
         """Build a provider connect request for the agent."""
+        # 握手鉴权（CR-FIX-11）：authToken 是平台保留键，agent 校验后
+        # 丢弃——绝不入会话元数据。未配置 token 时不携带该键。
+        metadata: dict = {}
+        if self._config.auth_token and self._config.auth_token.strip():
+            metadata["authToken"] = self._config.auth_token.strip()
         return provider_pb2.ProviderConnectRequest(
             service_id=self._config.service_id,
             version=self._config.service_version,
@@ -362,6 +367,7 @@ class CroupierClient:
             sdk_version=__version__,
             sdk_name="croupier-python-sdk",
             protocol_version="1.0.0",
+            metadata=metadata,
         )
 
     def _validate_inbound_payload(self, function_id: str, payload: bytes) -> None:

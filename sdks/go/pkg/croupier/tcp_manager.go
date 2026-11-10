@@ -266,7 +266,7 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,
-		Metadata:    m.config.InstanceMetadata,
+		Metadata:    m.connectMetadata(),
 	}
 
 	reqBody, err := proto.Marshal(req)
@@ -557,7 +557,7 @@ func (m *TCPManager) Reconnect(ctx context.Context) error {
 		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,
-		Metadata:    m.config.InstanceMetadata,
+		Metadata:    m.connectMetadata(),
 	}
 	reqBody, err := proto.Marshal(req)
 	if err != nil {
@@ -862,4 +862,19 @@ func (h *tcpRPCHandler) streamTask(ctx context.Context, msgID uint32, reqID uint
 		Payload: eventBytes,
 	}
 	return proto.Marshal(resp)
+}
+
+// connectMetadata merges user instance metadata with the handshake auth
+// token (CR-FIX-11). Returns a fresh map — the user's InstanceMetadata is
+// never mutated. authToken is a platform reserved key consumed by the agent
+// for ProviderConnect handshake auth; it is never stored in session metadata.
+func (m *TCPManager) connectMetadata() map[string]string {
+	meta := make(map[string]string, len(m.config.InstanceMetadata)+1)
+	for k, v := range m.config.InstanceMetadata {
+		meta[k] = v
+	}
+	if token := strings.TrimSpace(m.config.AuthToken); token != "" {
+		meta["authToken"] = token
+	}
+	return meta
 }

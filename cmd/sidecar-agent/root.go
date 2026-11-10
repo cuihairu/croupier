@@ -301,6 +301,20 @@ type AgentInfoConfig struct {
 	// 请求 metadata["timeout_ms"] 声明更小值时取更小者；默认 15000
 	// （对齐 Server 派发层）；上限 60000。
 	InvokeTimeoutMs int `json:"invokeTimeoutMs,omitempty" yaml:"invokeTimeoutMs,omitempty"`
+	// ProviderAuth 控制 SDK Provider 握手鉴权（CR-FIX-11）：Require=true
+	// 时 ProviderConnectRequest.metadata["authToken"] 必须等于 Token，
+	// 否则握手被拒（连接关闭、不注册会话）。
+	ProviderAuth AgentProviderAuthConfig `json:"providerAuth,omitempty" yaml:"providerAuth,omitempty"`
+}
+
+// AgentProviderAuthConfig 是 agent.providerAuth 配置块。
+type AgentProviderAuthConfig struct {
+	// Require 开启强制握手鉴权；开启时 Token 必须非空（启动校验拦截，
+	// fail-closed 不允许裸奔配置）。
+	Require bool `json:"require,omitempty" yaml:"require,omitempty"`
+	// Token 是握手共享令牌；SDK Provider 侧经各语言 config 的 authToken
+	// 字段注入 ProviderConnectRequest.metadata["authToken"]。
+	Token string `json:"token,omitempty" yaml:"token,omitempty"`
 }
 
 func (c *AgentInfoConfig) UnmarshalYAML(value *yaml.Node) error {
@@ -620,6 +634,17 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string, rec o
 
 	// Agent → Provider 同步调用预算（默认 15s，可经 agent.invokeTimeoutMs 配置）
 	core.SetProviderCallTimeout(time.Duration(c.Agent.InvokeTimeoutMs) * time.Millisecond)
+
+	// Provider 握手鉴权（CR-FIX-11，可经 agent.providerAuth 配置）：
+	// require=true 且 token 为空是无效配置——fail-closed 语义下所有握手
+	// 都会被拒，等于自断 SDK 注册链路，启动即报错而非静默裸奔。
+	providerAuth := c.Agent.ProviderAuth
+	providerAuth.Token = strings.TrimSpace(providerAuth.Token)
+	if providerAuth.Require && providerAuth.Token == "" {
+		return nil, "", nil, fmt.Errorf(
+			"agent.providerAuth.require=true but providerAuth.token is empty: every provider handshake would be rejected (fail-closed); configure a token or disable require")
+	}
+	core.SetProviderAuth(providerAuth.Require, providerAuth.Token)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
 		GameID:            strings.TrimSpace(c.Agent.GameID),
 		Env:               strings.TrimSpace(c.Agent.Env),

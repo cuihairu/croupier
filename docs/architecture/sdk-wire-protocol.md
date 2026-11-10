@@ -254,6 +254,30 @@ Known boundaries (stated, not hidden):
   response completeness, not by an overload flag — explicit `overloaded` / `retry_after_ms` wire fields remain undefined
 - Regression tests pinning the busy-never-fails-over rule: `internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
+## Provider handshake auth
+
+The SDK → Agent `ProviderConnectRequest` carries an auth token in its
+`metadata` map under the reserved key `authToken`. The Agent consumes the key
+for handshake auth and never stores it in session metadata (it cannot leak
+onto the SDK distribution page); user-declared `authToken` entries are dropped
+as reserved keys.
+
+- SDK side: every language's client config exposes `authToken`; when set, the
+  connect frame carries `metadata["authToken"]` (trimmed). All six SDKs do
+  this identically.
+- Agent side: `agent.providerAuth.require` + `agent.providerAuth.token` in the
+  agent config. `require=false` (the default) ignores the token entirely —
+  handshakes behave exactly as before. `require=true` rejects handshakes with
+  a missing or mismatched token: the connection is closed and no session is
+  registered (fail-closed). `require=true` with an empty token is invalid
+  config and fails at startup — otherwise every handshake would be rejected.
+- The token comparison is constant-time, and enforcement runs on both connect
+  paths (the TCP local gateway and the mux-path handler), before any session
+  registration.
+
+Tests: agent enforcement in `internal/agent/provider_auth_test.go`; per-SDK
+send-side tests in each SDK's suite.
+
 ## drain semantics
 
 `drain` is session-level graceful traffic removal, not an immediate-disconnect semantic.

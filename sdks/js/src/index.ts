@@ -1588,7 +1588,14 @@ export class BasicClient implements CroupierClient {
       sdkName: "croupier-js-sdk",
       protocolVersion: "1.0.0",
       transportSecurityMode: this.config.insecure ? "plaintext" : "tls",
-      metadata: this.config.instanceMetadata,
+      // 握手鉴权（CR-FIX-11）：authToken 是平台保留键，agent 校验后丢弃，
+      // 绝不入会话元数据。与用户 instanceMetadata 合并，token 优先。
+      metadata: {
+        ...(this.config.instanceMetadata ?? {}),
+        ...(this.config.authToken?.trim()
+          ? { authToken: this.config.authToken.trim() }
+          : {}),
+      },
     });
 
     return Buffer.from(ProviderConnectRequestMessage.encode(payload).finish());

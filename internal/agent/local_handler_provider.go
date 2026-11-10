@@ -23,6 +23,18 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		return nil, fmt.Errorf("service_id is required")
 	}
 
+	// 握手鉴权（CR-FIX-11）：在会话注册之前校验，拒绝即返回错误不注册
+	// 会话（fail-closed）。token 提取必须在元数据合并之前——合并会丢弃
+	// 保留键（含 authToken）。require=false 时 token 完全忽略。
+	h.mu.RLock()
+	authRequire := h.providerAuthRequired
+	authToken := h.providerAuthToken
+	h.mu.RUnlock()
+	if err := checkProviderAuth(authRequire, authToken, extractProviderAuthToken(req)); err != nil {
+		h.logger.Warn("provider handshake auth rejected", "service_id", req.ServiceId, "error", err)
+		return nil, err
+	}
+
 	// 校验 SDK 的 game_id/env 是否与 Agent 配置一致（作用域规范 §14：
 	// provider 必须上报 scope 且与 agent 一致——无空值兼容，空值即
 	// mismatch；agent 侧 scope 由启动校验保证非空）。

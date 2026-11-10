@@ -77,6 +77,20 @@ public sealed class CroupierClientLifecycleTests : IDisposable
     }
 
     [Fact]
+    public async Task ConnectAsync_SendsAuthTokenInHandshakeMetadata()
+    {
+        // CR-FIX-11：authToken 注入握手 metadata["authToken"]（平台保留键，
+        // agent 校验后丢弃，绝不入会话元数据）。
+        using var client = new CroupierClient(CreateConfig(c => c.AuthToken = "secret-token"));
+        client.RegisterFunction(Descriptor("fn.auth"), (ctx, payload) => Task.FromResult("{}"));
+
+        await client.ConnectAsync();
+
+        var connect = _agent.ConnectRequests.Should().ContainSingle().Subject;
+        connect.Metadata["authToken"].Should().Be("secret-token");
+    }
+
+    [Fact]
     public async Task ConnectAsync_WithTcpSchemePrefix_StripsPrefix()
     {
         using var client = new CroupierClient(CreateConfig(config => config.AgentAddr = $"tcp://{_agent.Address}"));
