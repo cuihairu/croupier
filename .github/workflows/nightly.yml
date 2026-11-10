@@ -82,6 +82,91 @@ jobs:
         timeout-minutes: 50
         run: bash scripts/release-quality-gate.sh
 
+  nightly-test:
+    # CR-FIX-25 (P2-25)：深度测试面。CI/质量门禁为合并速度不带 -race、不做
+    # 重复执行、不跑 fuzz，这里按天补齐三件套：全量 -race + -shuffle=on、
+    # -count=3 flaky 探测、fuzz 引擎 ≥10 分钟。纯报告性质：不进 release
+    # needs，本 job 红不影响出包判定；日志与 fuzz 语料作为产物留存。
+    name: Nightly deep test (race + flaky probe + fuzz)
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    needs: resolve-commit
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.resolve-commit.outputs.sha }}
+          fetch-depth: 0
+      - name: Setup Go
+        timeout-minutes: 5
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+      - name: Full suite with race detector and shuffled order
+        timeout-minutes: 45
+        run: |
+          set -o pipefail
+          # -shuffle=on 随机包内用例序（种子见日志，可用 -shuffle=<seed> 复现）；
+          # -race 全量在 CI 口径（internal/core/agents/pkg/cmd）上首启
+          go test -race -shuffle=on -count=1 \
+            ./internal/... ./core/... ./agents/... ./pkg/... ./cmd/... \
+            2>&1 | tee race-test.log
+      - name: Flaky probe (count=3)
+        timeout-minutes: 45
+        run: |
+          set -o pipefail
+          # 无 -race 重复执行三遍暴露挂钟/异步时序类 flake（含已知 TempDir
+          # 清理竞态族——本探测的目的就是让它们以稳定签名现身）
+          go test -count=3 \
+            ./internal/... ./core/... ./agents/... ./pkg/... ./cmd/... \
+            2>&1 | tee flaky-test.log
+      - name: Fuzz (12.5 minutes across three targets)
+        timeout-minutes: 30
+        run: |
+          set -o pipefail
+          # 三个种子语料目标共 12.5 分钟（协议解析 ×2、Dashboard schema 解析 ×1）；
+          # crasher 会落 testdata/fuzz/ 并使本步失败
+          go test -run '^$' -fuzz '^FuzzParseMessageFromBody$' -fuzztime 5m \
+            ./pkg/protocol 2>&1 | tee fuzz-parse.log
+          go test -run '^$' -fuzz '^FuzzMessageBodyRoundTrip$' -fuzztime 2m30s \
+            ./pkg/protocol 2>&1 | tee fuzz-roundtrip.log
+          go test -run '^$' -fuzz '^FuzzRequiredProperties$' -fuzztime 5m \
+            ./internal/dashboard/generator 2>&1 | tee fuzz-schema.log
+      - name: Upload test logs
+        if: always()
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: nightly-test-logs
+          path: |
+            race-test.log
+            flaky-test.log
+            fuzz-*.log
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Upload fuzz crasher corpus
+        if: always()
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: nightly-fuzz-corpus
+          path: |
+            pkg/protocol/testdata/fuzz/
+            internal/dashboard/generator/testdata/fuzz/
+          retention-days: 7
+          if-no-files-found: ignore
+
   build-binaries:
     name: Build Binaries (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
