@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../devices/devices_page.dart';
 import '../alerts/alerts_page.dart';
+import '../analytics/analytics_dashboard_page.dart';
 import '../audit/audit_page.dart';
 import '../functions/functions_page.dart';
 import 'monitoring_controller.dart';
@@ -222,6 +223,18 @@ class _EntriesCard extends StatelessWidget {
             enabled: true,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (context) => const AuditPage()),
+            ),
+          ),
+          ListTile(
+            key: const ValueKey('monitor-entry-analytics'),
+            leading: const Icon(Icons.insights_outlined),
+            title: const Text('数据分析'),
+            subtitle: const Text('八域摘要 / 分域明细 / 待建域占位'),
+            enabled: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const AnalyticsDashboardPage(),
+              ),
             ),
           ),
           const ListTile(
