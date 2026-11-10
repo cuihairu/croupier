@@ -622,15 +622,15 @@ const Login: React.FC = () => {
               <span style={{ float: 'right' }}>
                 {providers?.register && (
                   <>
-                    <a onClick={() => setRegisterOpen(true)}>
+                    <Button type="link" onClick={() => setRegisterOpen(true)}>
                       <FormattedMessage id="pages.login.register.entry" defaultMessage="注册账号" />
-                    </a>
+                    </Button>
                     <span style={{ margin: '0 8px', color: 'rgba(0,0,0,0.15)' }}>|</span>
                   </>
                 )}
-                <a onClick={() => setForgotOpen(true)}>
+                <Button type="link" onClick={() => setForgotOpen(true)}>
                   <FormattedMessage id="pages.login.forgotPassword" defaultMessage="忘记密码" />
-                </a>
+                </Button>
               </span>
             </div>
           )}
@@ -660,14 +660,14 @@ const Login: React.FC = () => {
                 </a>
               )}
               {siteCfg?.userAgreement && (
-                <a onClick={() => setAgreementView('user')}>
+                <Button type="link" onClick={() => setAgreementView('user')}>
                   <FormattedMessage id="pages.login.userAgreement" defaultMessage="用户协议" />
-                </a>
+                </Button>
               )}
               {siteCfg?.privacyPolicy && (
-                <a onClick={() => setAgreementView('privacy')}>
+                <Button type="link" onClick={() => setAgreementView('privacy')}>
                   <FormattedMessage id="pages.login.privacyPolicy" defaultMessage="隐私政策" />
-                </a>
+                </Button>
               )}
             </Space>
           </div>

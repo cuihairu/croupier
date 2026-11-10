@@ -89,15 +89,16 @@ export default function TermsPage() {
         valueType: 'option',
         width: 140,
         render: (_, row) => [
-          <a
+          <Button
             key="edit"
+            type="link"
             onClick={() => {
               setEditing(row);
               setOpen(true);
             }}
           >
             <FormattedMessage id="pages.opsTerms.action.edit" defaultMessage="编辑" />
-          </a>,
+          </Button>,
           <Popconfirm
             key="del"
             title={intl.formatMessage({
@@ -115,9 +116,9 @@ export default function TermsPage() {
               load();
             }}
           >
-            <a>
+            <Button type="link" danger>
               <FormattedMessage id="pages.opsTerms.action.delete" defaultMessage="删除" />
-            </a>
+            </Button>
           </Popconfirm>,
         ],
       },

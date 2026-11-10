@@ -79,8 +79,9 @@ beforeEach(() => {
 const clickDelete = async (name: string) => {
   const row = await screen.findByText(name);
   const rowEl = row.closest('tr');
-  const anchors = rowEl!.querySelectorAll('a');
-  fireEvent.click(anchors[anchors.length - 1]);
+  // 行操作已改为可聚焦语义控件（a/Button link），取最后一个可点击元素
+  const actions = rowEl!.querySelectorAll('a, button');
+  fireEvent.click(actions[actions.length - 1]);
 };
 
 /** 静态 Modal 跨用例残留会叠多个确认框——按钮查询限定最后一个 */

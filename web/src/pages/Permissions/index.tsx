@@ -8,7 +8,7 @@ import {
   ProFormText,
   ProFormGroup,
 } from '@ant-design/pro-components';
-import { App, Space, Tag } from 'antd';
+import { App, Button, Space, Tag } from 'antd';
 import { useIntl } from '@umijs/max';
 import { getAdminFunctionPermissions, setAdminFunctionPermissions } from '@/services/api/admin';
 import { getFunctionSummary } from '@/services/api/functions-enhanced';
@@ -101,8 +101,9 @@ const PermissionsPage: React.FC = () => {
         title: intl.formatMessage({ id: 'pages.permissions.actions' }),
         valueType: 'option',
         render: (_, r) => [
-          <a
+          <Button
             key="edit"
+            type="link"
             onClick={async () => {
               // 先取权限再开窗：permDraft 与 editing 同批落 state，弹窗内容以
               // 最新 draft 挂载。若先 setEditing，ModalForm 字段会在旧 draft
@@ -116,7 +117,7 @@ const PermissionsPage: React.FC = () => {
             }}
           >
             {intl.formatMessage({ id: 'pages.permissions.edit.button' })}
-          </a>,
+          </Button>,
         ],
       },
     ],

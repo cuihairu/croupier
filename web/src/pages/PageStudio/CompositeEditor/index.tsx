@@ -1065,12 +1065,16 @@ export default function CompositeEditorPage() {
                 {editingModal && (
                   <div style={{ marginBottom: 8 }}>
                     <Space size={8}>
-                      <a onClick={() => setEditingModalId(null)} style={{ fontSize: 12 }}>
+                      <Button
+                        type="link"
+                        onClick={() => setEditingModalId(null)}
+                        style={{ fontSize: 12 }}
+                      >
                         <FormattedMessage
                           id="pages.pageStudio.editor.breadcrumb.page"
                           defaultMessage="页面"
                         />
-                      </a>
+                      </Button>
                       <span style={{ fontSize: 12 }}>/</span>
                       <Text strong style={{ fontSize: 12 }}>
                         {String(
@@ -1182,6 +1186,9 @@ export default function CompositeEditorPage() {
                               }}
                             >
                               {n.type === 'modal' ? (
+                                // 纯事件冒泡护栏：内部内容自含交互元素，本层
+                                // 不是交互面，按 no-op 包装豁免两条 a11y 告警
+                                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
                                 <div onClick={(e) => e.stopPropagation()}>
                                   <ModalPlaceholder
                                     modal={n}

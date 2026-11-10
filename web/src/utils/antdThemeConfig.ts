@@ -19,6 +19,19 @@ export const blueLightAntdTheme: ThemeConfig = {
   algorithm: [antdTheme.defaultAlgorithm],
   token: {
     colorPrimary: '#1677ff',
+    // antd 默认 #8c8c8c 打白底 3.3:1，不达 14px 正文 4.5:1（axe
+    // color-contrast serious）；提到 gray-7 后 ≥7:1。antd 6 的
+    // Typography.Text secondary / Empty description 吃的是
+    // colorTextDescription（默认 rgba(0,0,0,0.45)≈#8c8c8c），同批提档
+    colorTextSecondary: '#595959',
+    colorTextDescription: '#595959',
+  },
+  components: {
+    Menu: {
+      // 展开子菜单标题默认 colorPrimary（#1677ff 打 #e7edf4 仅 3.5:1），
+      // 菜单项文字由 ProLayout sider token 接管，这里只补 submenu 标题缺口
+      subMenuItemSelectedColor: '#0f172a',
+    },
   },
 };
 
@@ -26,6 +39,15 @@ export const blueDarkAntdTheme: ThemeConfig = {
   algorithm: [antdTheme.darkAlgorithm],
   token: {
     colorPrimary: '#1677ff',
+    // antd 默认暗色 secondary rgba(235,235,245,0.58) 打暗色卡片 ~4:1；
+    // 提到 0.72 后 ≥7.5:1（colorTextDescription 同因同批提档）
+    colorTextSecondary: 'rgba(255, 255, 255, 0.72)',
+    colorTextDescription: 'rgba(255, 255, 255, 0.72)',
+  },
+  components: {
+    Menu: {
+      subMenuItemSelectedColor: 'rgba(255, 255, 255, 0.92)',
+    },
   },
 };
 
@@ -37,10 +59,17 @@ export const inkPinkLightAntdTheme: ThemeConfig = {
     colorPrimaryActive: '#7a2b3e',
     colorPrimaryTextHover: '#b8556b',
     colorText: '#262626',
-    colorTextSecondary: 'rgba(38, 38, 38, 0.65)',
+    colorTextSecondary: '#595959',
+    colorTextDescription: '#595959',
     colorBgLayout: '#f3f5f7',
     colorBgContainer: 'rgba(255, 255, 255, 0.9)',
     colorBorder: '#e6eaf0',
+  },
+  components: {
+    Menu: {
+      // 与 global.less --menu-selected-text 同源：粉底上深档墨粉可达 7:1
+      subMenuItemSelectedColor: '#7a2b3e',
+    },
   },
 };
 
@@ -52,10 +81,16 @@ export const inkPinkDarkAntdTheme: ThemeConfig = {
     colorPrimaryActive: '#b8556b',
     colorPrimaryTextHover: '#e58aa0',
     colorText: 'rgba(255, 255, 255, 0.87)',
-    colorTextSecondary: 'rgba(235, 235, 245, 0.6)',
+    colorTextSecondary: 'rgba(255, 255, 255, 0.72)',
+    colorTextDescription: 'rgba(255, 255, 255, 0.72)',
     colorBgLayout: '#1a1a2e',
     colorBgContainer: 'rgba(30, 30, 50, 0.92)',
     colorBorder: 'rgba(255, 255, 255, 0.14)',
+  },
+  components: {
+    Menu: {
+      subMenuItemSelectedColor: 'rgba(255, 255, 255, 0.92)',
+    },
   },
 };
 

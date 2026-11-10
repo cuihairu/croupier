@@ -15,7 +15,7 @@ import { SettingDrawer } from '@ant-design/pro-components';
 import type { RunTimeLayoutConfig } from '@umijs/max';
 import { FormattedMessage, getLocale, history, Link } from '@umijs/max';
 import GameSelector from '@/components/GameSelector';
-import defaultSettings from '../config/defaultSettings';
+import defaultSettings, { layoutTokenFor } from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 import { fetchCurrentUser, getMyPermissions } from '@/services/api';
 import React, { useEffect } from 'react';
@@ -108,6 +108,11 @@ function normalizePermissionIDs(perms: PermissionResponse | undefined): string[]
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
  * */
 export async function getInitialState(): Promise<InitialState> {
+  // <html lang> 与生效 locale 同步（axe html-has-lang）：locale 切换经
+  // umi_locale 整页重载，引导期此处重设即可覆盖所有切换路径。
+  if (typeof getLocale === 'function') {
+    document.documentElement.lang = getLocale();
+  }
   const fetchUserInfo = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -162,12 +167,16 @@ export async function getInitialState(): Promise<InitialState> {
       siteConfig = undefined;
     }
 
+    // 壳层 token 跟启动期主题：defaultSettings 是静态亮色，暗色偏好用户
+    // 首帧就得拿到暗色 sider/header token（layoutTokenFor 见 defaultSettings）
+    const bootTheme = initThemeAttr();
     return {
       fetchUserInfo,
       ...authedState,
       scope: getScope(),
       settings: {
         ...(defaultSettings as Partial<LayoutSettings>),
+        ...layoutTokenFor(readThemePreset(), bootTheme),
         ...(siteConfig?.siteName ? { title: siteConfig.siteName } : {}),
       },
       siteConfig,

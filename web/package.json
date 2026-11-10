@@ -78,6 +78,7 @@
   },
   "devDependencies": {
     "@ant-design/cli": "^6.4.3",
+    "@axe-core/playwright": "^4.14.0",
     "@babel/core": "^8.0.1",
     "@babel/plugin-transform-modules-commonjs": "^7.28.6",
     "@biomejs/biome": "^2.4.13",
@@ -102,6 +103,7 @@
     "baseline-browser-mapping": "^2.9.11",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.0.1",
     "express": "^5.2.1",
     "gh-pages": "^6.3.0",

@@ -79,6 +79,18 @@ describe('GameSelector：加载与守卫', () => {
     await waitFor(() => expect(screen.getAllByRole('combobox').length).toBe(2));
   });
 
+  it('双 Select 内层搜索 input 带 aria-label（axe label critical 回归：rc-select 经 pickAttrs 转发）', async () => {
+    mockedList.mockResolvedValue({ games: [{ name: 'g1', envs: ['prod'] }] });
+    render(<GameSelector />);
+    await waitFor(() => expect(screen.getAllByRole('combobox').length).toBe(2));
+
+    const inputs = document.querySelectorAll<HTMLInputElement>('input.ant-select-input');
+    expect(inputs.length).toBe(2);
+    const labels = Array.from(inputs).map((el) => el.getAttribute('aria-label'));
+    expect(labels).toContain('游戏');
+    expect(labels).toContain('环境');
+  });
+
   it('games:changed 事件触发重载；卸载后不再响应', async () => {
     mockedList.mockResolvedValue({ games: [{ name: 'g1', envs: ['prod'] }] });
     const { unmount } = render(<GameSelector />);

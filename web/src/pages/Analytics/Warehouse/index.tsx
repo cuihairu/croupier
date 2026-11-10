@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Card, Col, Row, Space } from 'antd';
+import { Alert, Button, Card, Col, Row, Space } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { Line, Column } from '@ant-design/charts';
 import { useIntl } from '@umijs/max';
@@ -90,9 +90,9 @@ export default function AnalyticsWarehousePage() {
           showIcon
           title={intl.formatMessage({ id: 'pages.analytics.warehouse.error.title' })}
           action={
-            <a onClick={load} href="#">
+            <Button type="link" onClick={load}>
               {intl.formatMessage({ id: 'pages.analytics.warehouse.retry' })}
-            </a>
+            </Button>
           }
         />
       </PageContainer>

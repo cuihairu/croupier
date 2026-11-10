@@ -328,9 +328,9 @@ export default function AlertRulesTab() {
       key: 'actions',
       width: 120,
       render: (_: unknown, row: AlertRuleItem) => [
-        <a key="edit" onClick={() => openEdit(row)}>
+        <Button key="edit" type="link" onClick={() => openEdit(row)}>
           <FormattedMessage id="pages.opsAlerts.rules.action.edit" defaultMessage="编辑" />
-        </a>,
+        </Button>,
         <Popconfirm
           key="del"
           title={intl.formatMessage({
@@ -360,9 +360,9 @@ export default function AlertRulesTab() {
             }
           }}
         >
-          <a style={{ color: '#cf1322' }}>
+          <Button type="link" danger>
             <FormattedMessage id="pages.opsAlerts.rules.action.delete" defaultMessage="删除" />
-          </a>
+          </Button>
         </Popconfirm>,
       ],
     },

@@ -851,7 +851,7 @@ describe('U8 参数映射缺省值（transform default）编译 round-trip', () 
     expect(assignments.find((a) => a.param === 'count')?.defaultValue).toBe(0);
   });
 
-  it('无 defaultValue 不产 transform（wire 向后兼容）', () => {
+  it('无 defaultValue 不产 transform（wire 兼容缺省）', () => {
     const table = fn('fnTable', 'player.list', { autoRun: true });
     const form = fn('fnForm', 'mail.send', {
       inputAssignments: [
@@ -882,7 +882,7 @@ describe('compileTree U9：refreshOn 级联失败策略（cascadePolicy）', () 
     );
   });
 
-  it('非白名单值不编译（wire 向后兼容：空=缺省 pause）', () => {
+  it('非白名单值不编译（wire 兼容：空=缺省 pause）', () => {
     const table = fn('fnTable', 'player.list', {
       autoRun: true,
       cascadePolicy: 'bogus',

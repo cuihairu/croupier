@@ -40,6 +40,8 @@ html[data-preset='blue'] {
   --menu-selected-text: #0f172a;
   --menu-hover-bg: #eef2f6;
   --menu-hover-text: #4b5563;
+  /* 行内代码文字：brand-1 亮色偏浅打 soft 底仅 ~2.6:1，用 brand-3 深档 */
+  --code-text: #0958d9;
   --vp-c-brand-1: #1677ff;
   --vp-c-brand-2: #0958d9;
   --vp-c-brand-3: #4096ff;
@@ -60,9 +62,11 @@ html[data-preset='inkpink'] {
   --rose-3: #7a2b3e;
   --text-meng: #262626;
   --menu-selected-bg: rgba(184, 85, 107, 0.15);
-  --menu-selected-text: #b8556b;
+  /* 选中/悬停文字取深两档 brand：#b8556b 打粉底仅 3.7:1，深档 ≥6:1 */
+  --menu-selected-text: #7a2b3e;
   --menu-hover-bg: rgba(184, 85, 107, 0.08);
-  --menu-hover-text: #b8556b;
+  --menu-hover-text: #93394d;
+  --code-text: #7a2b3e;
   --vp-c-brand-1: #b8556b;
   --vp-c-brand-2: #93394d;
   --vp-c-brand-3: #7a2b3e;
@@ -83,6 +87,8 @@ html[data-theme='dark'] {
   --menu-selected-text: rgba(255, 255, 255, 0.92);
   --menu-hover-bg: rgba(255, 255, 255, 0.06);
   --menu-hover-text: rgba(255, 255, 255, 0.88);
+  /* 暗色代码文字由各主题套的品牌提亮档给出（下方两块） */
+  --code-text: #91caff;
 }
 
 /* ---------- blue · 暗色：品牌强调提亮一档 ---------- */
@@ -95,6 +101,7 @@ html[data-preset='blue'][data-theme='dark'] {
   --rose-1: #91caff;
   --rose-2: #69b1ff;
   --rose-3: #3c89e8;
+  --code-text: #91caff;
   --vp-c-brand-1: #69b1ff;
   --vp-c-brand-2: #3c89e8;
   --vp-c-brand-3: #1668dc;
@@ -111,6 +118,7 @@ html[data-preset='inkpink'][data-theme='dark'] {
   --rose-1: #ffb3c6;
   --rose-2: #e58aa0;
   --rose-3: #cf6a82;
+  --code-text: #ffb3c6;
   --vp-c-brand-1: #e58aa0;
   --vp-c-brand-2: #cf6a82;
   --vp-c-brand-3: #b8556b;
@@ -170,9 +178,9 @@ html[data-preset] {
   color: var(--brand-1) !important;
 }
 
-/* 行内代码品牌色 */
+/* 行内代码品牌色（--code-text 按 主题套×明暗 给达标深/浅档，见变量块注释） */
 code:not(.ant-btn):not([class*='monaco']) {
-  color: var(--brand-1);
+  color: var(--code-text);
   background: var(--vp-c-brand-soft);
   padding: 0.1em 0.35em;
   border-radius: 4px;
@@ -395,6 +403,12 @@ html[data-theme='dark'] {
   .ant-pro-sider,
   .ant-pro-sider .ant-layout-sider-children {
     background: #1f1f33 !important;
+  }
+
+  /* antd Spin 整节 color=colorPrimary（暗色算法下 #165bbe 打暗底仅 2.7:1），
+     Spin 无 description 级组件 token，按暗色描述字色覆盖 */
+  .ant-spin .ant-spin-description {
+    color: rgba(255, 255, 255, 0.72);
   }
 
   .ant-pro-page-container-warp {

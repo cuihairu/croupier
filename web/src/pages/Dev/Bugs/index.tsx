@@ -329,7 +329,6 @@ export default function DevBugsPage() {
       .then((bug) => openDetail(bug))
       .catch(() => undefined);
     // 仅按挂载时的 query 定位一次；openDetail 稳定引用闭包内的 setState
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
   const columns: ProColumns<BugItem>[] = [
@@ -338,7 +337,9 @@ export default function DevBugsPage() {
       dataIndex: 'title',
       render: (_: unknown, bug: BugItem) => (
         <Space>
-          <a onClick={() => openDetail(bug)}>{bug.title}</a>
+          <Button type="link" onClick={() => openDetail(bug)}>
+            {bug.title}
+          </Button>
           {(bug.links || []).slice(0, 3).map((l) => {
             const href = safeExternalHref(l.url);
             return (
@@ -1059,7 +1060,13 @@ export default function DevBugsPage() {
               <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                 {detailTickets.map((t) => (
                   <Space key={t.id} wrap style={{ width: '100%' }}>
-                    <a onClick={() => history.push(`/support/tickets/${t.id}`)}>
+                    <a
+                      href={`/support/tickets/${t.id}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        history.push(`/support/tickets/${t.id}`);
+                      }}
+                    >
                       #{t.id} {t.title}
                     </a>
                     <Tag color={linkedTicketStatusColors[t.status] || 'default'}>

@@ -43,7 +43,7 @@ jest.mock('@/services/api/games', () => ({
 
 jest.mock('@/components/GameIcon', () => ({
   __esModule: true,
-  default: () => <img data-testid="game-icon-preview" />,
+  default: () => <img alt="" data-testid="game-icon-preview" />,
   GAME_ICON_SIZE: { sm: 24, md: 32 },
 }));
 

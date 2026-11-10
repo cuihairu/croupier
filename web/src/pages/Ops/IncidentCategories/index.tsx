@@ -201,12 +201,12 @@ export default function IncidentCategoriesPage() {
       valueType: 'option',
       width: 120,
       render: (_, row) => [
-        <a key="edit" onClick={() => openEdit(row)}>
+        <Button key="edit" type="link" onClick={() => openEdit(row)}>
           <EditOutlined /> {text('pages.incidentCategories.action.edit', '编辑')}
-        </a>,
-        <a key="del" onClick={() => handleDelete(row)}>
+        </Button>,
+        <Button key="del" type="link" onClick={() => handleDelete(row)}>
           <DeleteOutlined /> {text('pages.incidentCategories.action.delete', '删除')}
-        </a>,
+        </Button>,
       ],
     },
   ];

@@ -300,25 +300,25 @@ export default function SchedulesPage() {
       key: 'actions',
       width: 260,
       render: (_: unknown, row: ScheduleItem) => [
-        <a key="trigger" onClick={() => doTrigger(row)}>
+        <Button key="trigger" type="link" onClick={() => doTrigger(row)}>
           <FormattedMessage id="pages.opsSchedules.action.triggerNow" defaultMessage="立即触发" />
-        </a>,
+        </Button>,
         row.status === 'active' ? (
-          <a key="pause" onClick={() => doStatus(row, 'paused')}>
+          <Button key="pause" type="link" onClick={() => doStatus(row, 'paused')}>
             <FormattedMessage id="pages.opsSchedules.action.pause" defaultMessage="暂停" />
-          </a>
+          </Button>
         ) : (
-          <a key="resume" onClick={() => doStatus(row, 'active')}>
+          <Button key="resume" type="link" onClick={() => doStatus(row, 'active')}>
             {row.status === 'dead_letter' ? (
               <FormattedMessage id="pages.opsSchedules.action.resume" defaultMessage="恢复" />
             ) : (
               <FormattedMessage id="pages.opsSchedules.action.enable" defaultMessage="启用" />
             )}
-          </a>
+          </Button>
         ),
-        <a key="runs" onClick={() => openRuns(row)}>
+        <Button key="runs" type="link" onClick={() => openRuns(row)}>
           <FormattedMessage id="pages.opsSchedules.action.history" defaultMessage="历史" />
-        </a>,
+        </Button>,
         <Popconfirm
           key="del"
           title={intl.formatMessage({
@@ -348,9 +348,9 @@ export default function SchedulesPage() {
             }
           }}
         >
-          <a style={{ color: '#cf1322' }}>
+          <Button type="link" danger>
             <FormattedMessage id="pages.opsSchedules.action.delete" defaultMessage="删除" />
-          </a>
+          </Button>
         </Popconfirm>,
       ],
     },

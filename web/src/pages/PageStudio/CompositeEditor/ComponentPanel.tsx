@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Empty, Input, Space, Tag, Tooltip, Typography } from 'antd';
+import { Button, Empty, Input, Space, Tag, Tooltip, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import { Tree } from 'antd';
@@ -97,8 +97,9 @@ function ScopeGuide({ onReload }: { onReload: () => void }) {
           {scopes
             .filter((s) => s.gameId !== current.gameId || s.env !== current.env)
             .map((s) => (
-              <a
+              <Button
                 key={`${s.gameId}/${s.env}`}
+                type="link"
                 onClick={() => {
                   setScope({ gameId: s.gameId, env: s.env });
                   onReload();
@@ -112,7 +113,7 @@ function ScopeGuide({ onReload }: { onReload: () => void }) {
                   },
                   { gameId: s.gameId, env: s.env, count: s.count },
                 )}
-              </a>
+              </Button>
             ))}
         </Space>
       )}
@@ -249,8 +250,9 @@ export default function ComponentPanel({
       </Title>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 16 }}>
         {basics.map((c) => (
-          <a
+          <button
             key={c.type}
+            type="button"
             onClick={() => onAddBasic(c.type as 'button' | 'modal' | 'container' | 'tabs' | 'text')}
             style={{
               border: '1px solid #f0f0f0',
@@ -259,10 +261,11 @@ export default function ComponentPanel({
               fontSize: 12,
               textAlign: 'center',
               background: '#fff',
+              cursor: 'pointer',
             }}
           >
             {c.icon} {c.name}
-          </a>
+          </button>
         ))}
       </div>
 
@@ -346,6 +349,10 @@ function PanelDraggable({
     data,
   });
   return (
+    // dnd-kit 的 attributes/listeners 自带 role="button"、tabIndex 与键盘
+    // 监听（拖拽把手即键盘入口），jsx-a11y 静态分析看不进展开的 listener
+    // 对象，此处按已可键盘交互豁免两条告警。
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={setNodeRef}
       {...attributes}

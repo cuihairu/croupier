@@ -623,7 +623,13 @@ export default function TicketDetailPage() {
               ) : (
                 bugs.map((b) => (
                   <Space key={b.id} wrap>
-                    <a onClick={() => history.push(`/dev/bugs?bugId=${b.id}`)}>
+                    <a
+                      href={`/dev/bugs?bugId=${b.id}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        history.push(`/dev/bugs?bugId=${b.id}`);
+                      }}
+                    >
                       #{b.id} {b.title}
                     </a>
                     {b.severity ? (
@@ -708,18 +714,29 @@ export default function TicketDetailPage() {
                             return (
                               <div key={idx} style={{ marginBottom: 6 }}>
                                 {isImg && safeUrl ? (
-                                  <img
-                                    src={safeUrl}
-                                    alt={a.name || ''}
+                                  <button
+                                    type="button"
+                                    title={a.name || url}
                                     style={{
-                                      maxWidth: 160,
-                                      maxHeight: 120,
+                                      padding: 0,
+                                      border: 'none',
+                                      background: 'none',
                                       cursor: 'pointer',
-                                      border: '1px solid #eee',
-                                      padding: 2,
+                                      lineHeight: 0,
                                     }}
                                     onClick={() => window.open(safeUrl, '_blank')}
-                                  />
+                                  >
+                                    <img
+                                      src={safeUrl}
+                                      alt={a.name || ''}
+                                      style={{
+                                        maxWidth: 160,
+                                        maxHeight: 120,
+                                        border: '1px solid #eee',
+                                        padding: 2,
+                                      }}
+                                    />
+                                  </button>
                                 ) : safeUrl ? (
                                   <a href={safeUrl} target="_blank" rel="noreferrer">
                                     {a.name || url}

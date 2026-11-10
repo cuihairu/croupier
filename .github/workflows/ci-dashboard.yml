@@ -333,7 +333,7 @@ jobs:
         timeout-minutes: 25
         run: >-
           pnpm exec playwright test --project=real-dashboard --retries=0 --reporter=list
-          --grep '@sdk-|@openapi-|@schema-change|@governance-change|@stale-|@safe-|@identity-|@republish-'
+          --grep '@sdk-|@openapi-|@schema-change|@governance-change|@stale-|@safe-|@identity-|@republish-|@a11y-'
         env:
           CI: true
           REAL_DASHBOARD_FIXTURE: "1"

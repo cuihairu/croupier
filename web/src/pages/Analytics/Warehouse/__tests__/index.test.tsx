@@ -246,7 +246,8 @@ describe('数据仓库 形态与失败', () => {
     expect(await screen.findByText('数据仓库查询失败')).toBeInTheDocument();
 
     resolveAll(); // 重试后恢复
-    fireEvent.click(screen.getByRole('link', { name: /重试/ }));
+    // 重试操作已从 <a> 改为语义化 link button（CR-FIX-19 a11y），角色随元素变为 button
+    fireEvent.click(screen.getByRole('button', { name: /重试/ }));
     await waitFor(() => expect(mDAU).toHaveBeenCalledTimes(2));
     expect(await screen.findAllByTestId('mock-line')).toHaveLength(2);
     expect(document.querySelector('.ant-alert-error')).toBeNull();

@@ -4,7 +4,10 @@
  * - useAntdConfigSetter 推送 algorithm/token —— ConfigProvider 树内的组件
  *   （表格/表单/弹窗/按钮……）即时换肤；
  * - ConfigProvider.config 同步静态方法（message/notification/Modal.confirm
- *   不在 React 树内，吃的是全局静态配置）。
+ *   不在 React 树内，吃的是全局静态配置）；
+ * - setInitialState 推送 layout 运行时配置里的壳层 token —— ProLayout 的
+ *   sider/header/bgLayout 不归 ConfigProvider 管（defaultSettings 静态亮色
+ *   token），暗色偏好用户切换时不推会漏亮壳（axe color-contrast 家族）。
  *
  * 挂载点：app.tsx innerProvider —— 位于 plugin-antd rootContainer 的
  * ConfigProvider 之内、路由之外，登录页（layout:false）同样被覆盖。
@@ -12,13 +15,15 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { ConfigProvider, type ThemeConfig } from 'antd';
-import { useAntdConfigSetter } from '@umijs/max';
+import { useAntdConfigSetter, useModel } from '@umijs/max';
 import { usePresetAndResolvedTheme } from '@/hooks/useThemePref';
 import { getAntdThemeConfig } from '@/utils/antdThemeConfig';
+import { layoutTokenFor } from '../../../config/defaultSettings';
 
 export const ThemeSync: React.FC = () => {
   const { preset, resolved } = usePresetAndResolvedTheme();
   const setAntdConfig = useAntdConfigSetter();
+  const { setInitialState } = useModel('@@initialState');
   // umi 模板的 setter 每次渲染都是新引用（AntdProvider 内联创建，未 memo）：
   // 直接进 effect 依赖会「推配置 → AntdProvider 重渲染 → setter 换引用 →
   // effect 再推」死循环，React 抛 Maximum update depth 后整树卸载（线上
@@ -26,6 +31,8 @@ export const ThemeSync: React.FC = () => {
   // setter，effect 依赖只剩语义值（主题套 × 明暗）。
   const setterRef = useRef(setAntdConfig);
   setterRef.current = setAntdConfig;
+  const setStateRef = useRef(setInitialState);
+  setStateRef.current = setInitialState;
 
   useEffect(() => {
     const theme: ThemeConfig = getAntdThemeConfig(preset, resolved);
@@ -39,6 +46,15 @@ export const ThemeSync: React.FC = () => {
       },
     }));
     ConfigProvider.config({ theme });
+    // ProLayout 壳层 token（sider/header/bgLayout）随主题套 × 明暗整体替换；
+    // settings 其余字段（title 等）保留
+    setStateRef.current((prev) => ({
+      ...prev,
+      settings: {
+        ...(prev?.settings ?? {}),
+        ...layoutTokenFor(preset, resolved),
+      },
+    }));
   }, [preset, resolved]);
 
   return null;

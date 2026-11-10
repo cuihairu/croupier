@@ -14,7 +14,11 @@ gofmt -w .        # Format all Go files before committing
 ```
 
 Frontend (dashboard): `pnpm --dir web run tsc` must pass with 0 errors and
-`pnpm --dir web test` must be green. Documentation site: `cd docs && pnpm build`.
+`pnpm --dir web test` must be green. Accessibility: `eslint-plugin-jsx-a11y`
+runs in the web lint chain (markup-level a11y defects fail lint), and
+`web/e2e/a11y-dashboard.spec.ts` scans key pages with axe-core — critical or
+serious violations, including a two-theme × light/dark color-contrast sweep,
+fail CI. Documentation site: `cd docs && pnpm build`.
 
 Integration examples live in `examples/`; config templates in `configs/`.
 

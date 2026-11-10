@@ -128,7 +128,11 @@ export default function IncidentsPage() {
       title: text('pages.incidents.col.title', '标题'),
       dataIndex: 'title',
       ellipsis: true,
-      render: (_, row) => <a onClick={() => setDetail(row)}>{row.title}</a>,
+      render: (_, row) => (
+        <Button type="link" onClick={() => setDetail(row)}>
+          {row.title}
+        </Button>
+      ),
     },
     {
       title: text('pages.incidents.col.category', '类别'),

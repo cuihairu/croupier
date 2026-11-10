@@ -3,13 +3,16 @@
  * 变化时，把对应 algorithm/token 推给 useAntdConfigSetter（antd 组件换肤）
  * 并同步静态方法配置（ConfigProvider.config —— message/notification/
  * Modal.confirm 不在 React 树内）。algorithm 恒传满长数组，来回切换不
- * 残留旧算法。
+ * 残留旧算法。同时把 ProLayout 壳层 token（navTheme/sider/header/bgLayout）
+ * 经 setInitialState 推进 layout 运行时配置（defaultSettings 静态亮色，
+ * 暗色不推会漏亮壳）。
  */
 import React from 'react';
 import { act, render } from '@testing-library/react';
 import { theme as antdTheme } from 'antd';
 
 const setAntdConfig = jest.fn();
+const setInitialState = jest.fn();
 // 复刻 umi 模板形态：useAntdConfigSetter 每次渲染返回**新引用**的包装函数
 // （AntdProvider 内联创建，未 memo）。默认转发到共享 spy；回归用例把实现
 // 指到「推送即触发上层重渲染」的形态（见无限循环用例）。
@@ -20,6 +23,7 @@ jest.mock('@umijs/max', () => ({
     () =>
     (...args: unknown[]) =>
       setterImpl(...args),
+  useModel: () => ({ setInitialState }),
 }));
 
 import { ConfigProvider } from 'antd';
@@ -46,6 +50,7 @@ beforeEach(() => {
   document.documentElement.removeAttribute('data-theme');
   document.documentElement.removeAttribute('data-preset');
   setAntdConfig.mockClear();
+  setInitialState.mockClear();
   staticConfigSpy.mockClear();
   setterImpl = (...args: unknown[]) =>
     void setAntdConfig(...(args as Parameters<typeof setAntdConfig>));
@@ -54,6 +59,13 @@ beforeEach(() => {
 /** 取 setter 最近一次收到的 updater，应用在给定 prev 上看结果 */
 function applyLastUpdate(prev: Record<string, unknown>) {
   const last = setAntdConfig.mock.calls[setAntdConfig.mock.calls.length - 1];
+  const updater = last[0] as (p: Record<string, unknown>) => Record<string, unknown>;
+  return updater(prev);
+}
+
+/** 取 setInitialState 最近一次收到的 updater，应用在给定 prev 上看结果 */
+function applyLastStateUpdate(prev: Record<string, unknown>) {
+  const last = setInitialState.mock.calls[setInitialState.mock.calls.length - 1];
   const updater = last[0] as (p: Record<string, unknown>) => Record<string, unknown>;
   return updater(prev);
 }
@@ -108,6 +120,58 @@ describe('ThemeSync', () => {
     expect(applyLastUpdate({ theme: {} }).theme.token.colorPrimary).toBe('#1677ff');
     const merged = applyLastUpdate({ theme: { token: { borderRadius: 8 } } });
     expect(merged.theme.algorithm).toEqual([antdTheme.defaultAlgorithm]);
+  });
+
+  it('壳层 token 随明暗切换推进 initialState.settings（ProLayout 暗色不漏亮壳）', () => {
+    render(<ThemeSync />);
+    // 默认 blue 亮色：settings 拿亮色壳，title 等既有字段保留
+    let settings = applyLastStateUpdate({
+      settings: { title: 'Croupier', token: { legacy: true } },
+    }).settings as Record<string, unknown>;
+    expect(settings.navTheme).toBe('light');
+    expect(settings.title).toBe('Croupier');
+    let token = settings.token as Record<string, unknown>;
+    expect(token.bgLayout).toBe('#f3f5f7');
+    expect((token.sider as Record<string, unknown>).colorTextMenu).toBe('#4b5563');
+
+    act(() => {
+      setThemePref('dark');
+    });
+    settings = applyLastStateUpdate({
+      settings: { title: 'Croupier', token: { legacy: true } },
+    }).settings as Record<string, unknown>;
+    expect(settings.navTheme).toBe('realDark');
+    token = settings.token as Record<string, unknown>;
+    expect(token.bgLayout).toBe('#1a1a2e');
+    // 旧 token 字段不残留：整体替换，不做深合并
+    expect((token.sider as Record<string, unknown>).colorTextMenu).toBe(
+      'rgba(255, 255, 255, 0.65)',
+    );
+    expect(token.legacy).toBeUndefined();
+
+    act(() => {
+      setThemePref('light');
+    });
+    settings = applyLastStateUpdate({ settings: {} }).settings as Record<string, unknown>;
+    expect(settings.navTheme).toBe('light');
+    expect(
+      ((settings.token as Record<string, unknown>).sider as Record<string, unknown>).colorTextMenu,
+    ).toBe('#4b5563');
+  });
+
+  it('墨粉套亮色壳层 colorPrimary 换 #93394d，暗色换 #cf6a82', () => {
+    render(<ThemeSync />);
+    act(() => {
+      setThemePreset('inkpink');
+    });
+    let settings = applyLastStateUpdate({ settings: {} }).settings as Record<string, unknown>;
+    expect(settings.colorPrimary).toBe('#93394d');
+    act(() => {
+      setThemePref('dark');
+    });
+    settings = applyLastStateUpdate({ settings: {} }).settings as Record<string, unknown>;
+    expect(settings.colorPrimary).toBe('#cf6a82');
+    expect(settings.navTheme).toBe('realDark');
   });
 
   it('setter 引用不稳定且推送触发上层重渲染：不陷入无限循环（线上白屏回归）', () => {

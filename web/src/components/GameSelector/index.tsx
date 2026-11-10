@@ -320,6 +320,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         ) : (
           <Select
             data-testid="game-selector"
+            aria-label={intl.formatMessage({
+              id: 'component.gameSelector.gameLabel',
+              defaultMessage: '游戏',
+            })}
             className={styles.gameSelect}
             value={gameState}
             placeholder={intl.formatMessage({
@@ -351,6 +355,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         ) : (
           <Select
             data-testid="env-selector"
+            aria-label={intl.formatMessage({
+              id: 'component.gameSelector.envLabel',
+              defaultMessage: '环境',
+            })}
             className={styles.envSelect}
             value={currentEnv}
             placeholder={intl.formatMessage({
