@@ -31,6 +31,9 @@ var (
 	ErrRequestNotPending   = errors.New("powerops: request is not pending")
 	ErrRequestNotApproved  = errors.New("powerops: approval not granted")
 	ErrApprovalLinkMissing = errors.New("powerops: request has no approval record")
+	// ErrInvalidSubmit 是提交校验失败族（动作缺失/目标为空/机器未注册/
+	// (机器,动作) 不支持）的 wrap 根；API 层据此映射 422。
+	ErrInvalidSubmit = errors.New("powerops: invalid request")
 )
 
 // RequestStore persists power requests and their per-machine targets.
@@ -116,10 +119,10 @@ type SubmitInput struct {
 // never gets created for a request that cannot execute.
 func (o *Orchestrator) Submit(ctx context.Context, resolver MachineResolver, in SubmitInput) (*model.PowerRequest, error) {
 	if in.Action == "" {
-		return nil, fmt.Errorf("powerops: action is required")
+		return nil, fmt.Errorf("%w: action is required", ErrInvalidSubmit)
 	}
 	if in.Action != ActionStatus && len(in.NodeIDs) == 0 {
-		return nil, fmt.Errorf("powerops: at least one target machine is required")
+		return nil, fmt.Errorf("%w: at least one target machine is required", ErrInvalidSubmit)
 	}
 	seen := make(map[string]bool, len(in.NodeIDs))
 	machines := make([]Machine, 0, len(in.NodeIDs))
@@ -131,15 +134,15 @@ func (o *Orchestrator) Submit(ctx context.Context, resolver MachineResolver, in 
 		seen[id] = true
 		m, ok := resolver.Resolve(id)
 		if !ok {
-			return nil, fmt.Errorf("powerops: machine %s not registered", id)
+			return nil, fmt.Errorf("%w: machine %s not registered", ErrInvalidSubmit, id)
 		}
 		if !Supports(m.Provider, in.Action) {
-			return nil, fmt.Errorf("powerops: machine %s (provider %s) does not support %s", id, m.Provider, in.Action)
+			return nil, fmt.Errorf("%w: machine %s (provider %s) does not support %s", ErrInvalidSubmit, id, m.Provider, in.Action)
 		}
 		machines = append(machines, m)
 	}
 	if len(machines) == 0 {
-		return nil, fmt.Errorf("powerops: at least one target machine is required")
+		return nil, fmt.Errorf("%w: at least one target machine is required", ErrInvalidSubmit)
 	}
 
 	now := o.now()

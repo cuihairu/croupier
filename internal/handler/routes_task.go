@@ -212,6 +212,16 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/provision/:runId/protection", opsHandler.ProvisionProtection)
 	g.DELETE("/provision/:runId", opsHandler.ProvisionDestroy)
 
+	// 远程电源管理（OPS 电源管理）：powerops.enabled=false 时各端点如实报
+	// 503 powerops_not_configured。提交/续行不阻塞（后台执行+状态确认）；
+	// 机器清单挂 nodes.meta.power（PUT power-config 写入，无新表）。
+	g.POST("/power", opsHandler.PowerSubmit)
+	g.GET("/power", opsHandler.PowerList)
+	g.GET("/power/:requestId", opsHandler.PowerGet)
+	g.POST("/power/:requestId/resume", opsHandler.PowerResume)
+	g.POST("/power/:requestId/reject", opsHandler.PowerReject)
+	g.PUT("/nodes/:nodeId/power-config", opsHandler.PowerConfigPut)
+
 	// OPS-007 成本控制：创建前估算 + 节点成本标签/闲置回收（可配）+ 预算告警。
 	// 成本目录为内置参考价（生产价需接入真实账单/价格 API，估算精度登记为
 	// 部署后对账）；budget 为按 scope 配置，告警走通知渠道。

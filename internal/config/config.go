@@ -68,6 +68,9 @@ type Config struct {
 	// Backup 数据面备份（OPS-008）域配置。schedule.enabled 缺省 false=
 	// 不装配（仅显式 true 才启动定期备份后台循环）；interval 缺省 6h。
 	Backup BackupConfig `json:"backup,omitempty" yaml:"backup,omitempty"`
+	// Powerops 远程电源管理（OPS 电源管理）：enabled 缺省 false=不装配，
+	// /ops/power 端点如实报 503 powerops_not_configured。
+	Powerops PoweropsConfig `json:"powerops,omitempty" yaml:"powerops,omitempty"`
 	// Server metadata for registration
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`

@@ -39,6 +39,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/internal/platform/vault"
 	policymgr "github.com/cuihairu/croupier/internal/policy"
+	"github.com/cuihairu/croupier/internal/powerops"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	jwtutil "github.com/cuihairu/croupier/internal/security/jwtutil"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
@@ -96,6 +97,11 @@ type ServiceContext struct {
 	// Provision 是云资源供给引擎（OPS-001）：provision.enabled=false 时不
 	// 装配（nil），/ops/provision 端点据此如实报 503 provision_not_configured。
 	Provision *provision.Orchestrator
+
+	// Powerops 是远程电源管理编排（OPS 电源管理，docs/design/ops-power-management.md）：
+	// powerops.enabled=false 时不装配（nil），/ops/power 端点据此如实报
+	// 503 powerops_not_configured。
+	Powerops *powerops.Orchestrator
 
 	// Deployments 是运维部署发版编排（OPS-004）：包仓库登记 + 发版单分批 + 健康门禁 + 回滚。
 	// 装配于 DB 与 ObjectStore 就绪后；nil 时 /ops/deploy 端点如实报 503。
@@ -681,6 +687,15 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		}
 		ctx.Provision = orch
 		slog.Default().Info("provision engine enabled", "binary", ctx.Config.Provision.EffectiveBinaryPath(), "workDir", ctx.Config.Provision.EffectiveWorkDir())
+	}
+
+	// 远程电源管理（OPS 电源管理）：powerops.enabled=false 不装配（端点如实
+	// 报未配置）。provider 构建失败（如 ipmitool 缺失）只记日志跳过该 kind，
+	// 提交时按 provider 缺失诚实失败；ops.power.* 风险声明注入 registry
+	//（force_off 走 high+OTP step-up）。
+	if ctx.Config.Powerops.Enabled {
+		ctx.Powerops = newPoweropsOrchestrator(ctx)
+		slog.Default().Info("powerops engine enabled", "verifyTimeoutMs", ctx.Config.Powerops.EffectiveVerifyTimeout(), "verifyIntervalMs", ctx.Config.Powerops.EffectiveVerifyInterval())
 	}
 
 	// 初始化 JWT 密钥（从配置文件读取）。值内支持 vault:// 引用（todo 4251）。

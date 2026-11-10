@@ -159,6 +159,11 @@ const (
 	EventBatchOpDryRun  AuditEventType = "batch_op.dry_run"
 	EventBatchOpExecute AuditEventType = "batch_op.execute"
 
+	// Remote power management events (OPS 电源管理: request/reject/config 留痕)
+	EventPowerRequest      AuditEventType = "power.request"
+	EventPowerReject       AuditEventType = "power.reject"
+	EventPowerConfigUpdate AuditEventType = "power.config_update"
+
 	// OPS-009 runbook automation events (parameterized step sequences
 	// referencing OPS-004 deploy / OPS-006 batch capabilities)
 	EventRunbookCreate AuditEventType = "runbook.create"
