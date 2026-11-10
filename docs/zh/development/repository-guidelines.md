@@ -86,7 +86,7 @@ title: 仓库规范
 
 全量门禁 = `gofmt` + `go build ./...` + `go test -short ./...` + web tsc + web jest + docs 构建 + `dashboard_vnext_guard` + `pnpm format:check`。
 
-> Go 测试**不带 `-race`**：与 `make test`（`go test -v -short ./...`）和 CI（`go test ./internal/... ./agents/...`）口径一致，本仓现有门禁均不以 `-race` 执行。已知边界（2026-10-14 实测，均为存量问题、与 CI 无关）：`-race` 全量下 `pkg/protocol` 溢出用例触发 `checkptr` fatal、`internal/server` 等测试代码存在 atomic 写/裸读混用、`internal/hotreload` 插件用例未透传 `-race` 导致 `.so` ABI 不匹配；修好这些前 `-race` 全量不可绿，属独立质量工程项。
+> Go 测试**不带 `-race`**：与 `make test`（`go test -v -short ./...`）和 CI（`go test ./internal/... ./core/... ./agents/... ./pkg/... ./cmd/...`）口径一致，本仓现有门禁均不以 `-race` 执行。已知边界（2026-10-14 实测，均为存量问题、与 CI 无关）：`-race` 全量下 `pkg/protocol` 溢出用例触发 `checkptr` fatal、`internal/server` 等测试代码存在 atomic 写/裸读混用、`internal/hotreload` 插件用例未透传 `-race` 导致 `.so` ABI 不匹配；修好这些前 `-race` 全量不可绿，属独立质量工程项。
 
 什么时候全量：`go.mod`/CI/构建系统改动、共享层改动、发布前收尾门禁。什么时候增量：日常功能、文档、单包修复提交。
 

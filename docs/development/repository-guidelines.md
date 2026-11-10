@@ -86,7 +86,7 @@ Classification rules:
 
 Full gate = `gofmt` + `go build ./...` + `go test -short ./...` + web tsc + web jest + docs build + `dashboard_vnext_guard` + `pnpm format:check`.
 
-> Go tests run **without `-race`**: consistent with `make test` (`go test -v -short ./...`) and CI (`go test ./internal/... ./agents/...`); none of this repo's existing gates run with `-race`. Known limits (measured 2026-10-14, all pre-existing and unrelated to CI): under full `-race`, the `pkg/protocol` overflow case triggers a `checkptr` fatal, `internal/server` and others mix atomic writes with bare reads in test code, and `internal/hotreload` plugin cases do not pass `-race` through, causing `.so` ABI mismatch; until these are fixed, a full `-race` run cannot go green — a separate quality-engineering item.
+> Go tests run **without `-race`**: consistent with `make test` (`go test -v -short ./...`) and CI (`go test ./internal/... ./core/... ./agents/... ./pkg/... ./cmd/...`); none of this repo's existing gates run with `-race`. Known limits (measured 2026-10-14, all pre-existing and unrelated to CI): under full `-race`, the `pkg/protocol` overflow case triggers a `checkptr` fatal, `internal/server` and others mix atomic writes with bare reads in test code, and `internal/hotreload` plugin cases do not pass `-race` through, causing `.so` ABI mismatch; until these are fixed, a full `-race` run cannot go green — a separate quality-engineering item.
 
 When to run full: `go.mod`/CI/build-system changes, shared-layer changes, pre-release wrap-up gates. When incremental: day-to-day features, docs, single-package fix commits.
 

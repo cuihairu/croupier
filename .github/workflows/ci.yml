@@ -208,7 +208,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 2026-11-10 30→40（CR-FIX-14）：unit 步骤纳入 pkg/cmd（cmd/server 单包
+    # 本地实测 258s），为 unit 25m + race 10m + 装载步骤留出作业级余量。
+    timeout-minutes: 40
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v7.0.1
@@ -244,15 +246,19 @@ jobs:
         # 2026-10-01 10→20：套件经 50+ 覆盖率轮次增长，CI 实测 10m12s 才跑到
         # api/task（已执行包全绿）即被步骤超时掐断——结构性超线而非用例失败，
         # 对齐 dashboard 侧「15 分钟 step 超时」同族处置；作业级 30 分钟不变。
-        timeout-minutes: 20
+        # 2026-11-10 纳入 ./pkg/... ./cmd/...（CR-FIX-14）：protocol/cdc 与
+        # cmd/server drill 等此前只在 release quality gate（仅 tag）跑，PR CI
+        # 漏测；与 internal/core/agents 同口径计入覆盖率。
+        timeout-minutes: 25
         env:
           DB_DRIVER: sqlite
           DATABASE_URL: ":memory:"
           STORAGE_DRIVER: file
           STORAGE_BASE_DIR: data/uploads
         run: |
-          # Server/sidecar, shared Agent runtime, and standalone Agent roles.
-          go test -count=1 -coverprofile=coverage.out -covermode=atomic ./internal/... ./core/... ./agents/...
+          # Server/sidecar, shared Agent runtime, standalone Agent roles,
+          # wire protocol/cdc packages, and CLI entrypoints.
+          go test -count=1 -coverprofile=coverage.out -covermode=atomic ./internal/... ./core/... ./agents/... ./pkg/... ./cmd/...
       - name: Agent lifecycle race tests
         timeout-minutes: 10
         run: |

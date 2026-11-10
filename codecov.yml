@@ -1,3 +1,9 @@
+# CR-FIX-14: SDK flags enforce an absolute floor (target: 85, tolerance 1%)
+# so a coverage collapse fails CI instead of silently drifting. server and
+# web-dashboard stay on target:auto (relative to base) with the same 1%
+# tolerance; the informational markers were removed so every project check
+# gates. if_not_found: success keeps flags without fresh reports green
+# (carryforward covers untested SDKs on unrelated PRs).
 # Carryforward flags: when only some SDKs are tested,
 # use previous coverage data for untested flags
 flags:
@@ -47,59 +53,51 @@ coverage:
       go-sdk:
         flags:
           - go-sdk
-        target: auto
+        target: 85
         threshold: 1%
         if_not_found: success
-        informational: true # Don't fail PR
       js-sdk:
         flags:
           - js-sdk
-        target: auto
+        target: 85
         threshold: 1%
         if_not_found: success
-        informational: true
       cpp-sdk:
         flags:
           - cpp-sdk
-        target: auto
+        target: 85
         threshold: 1%
         if_not_found: success
-        informational: true
       python-sdk:
         flags:
           - python-sdk
-        target: auto
+        target: 85
         threshold: 1%
         if_not_found: success
-        informational: true
       java-sdk:
         flags:
           - java-sdk
-        target: auto
+        target: 85
         threshold: 1%
         if_not_found: success
-        informational: true
       csharp-sdk:
         flags:
           - csharp-sdk
-        target: auto
+        target: 85
         threshold: 1%
         if_not_found: success
-        informational: true
       server:
         flags:
           - server
         target: auto
         threshold: 1%
         if_not_found: success
-        informational: true
       web-dashboard:
         flags:
           - web-dashboard
         target: auto
         threshold: 1%
         if_not_found: success
-        informational: true
     patch:
       default:
         target: auto
