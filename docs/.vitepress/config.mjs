@@ -9,7 +9,10 @@ const sharedHead = [
 export default withMermaid(
   defineConfig({
     title: "Croupier",
-    ignoreDeadLinks: true,
+    // CR-FIX-17: dead links fail the build again; only links into the
+    // srcExclude'd review/ tree are whitelisted (those pages are review
+    // material, deliberately not published). An unknown dead link = red build.
+    ignoreDeadLinks: [/\/review\//],
     // 2026-10-20 用户令：英文内页必须上线，撤除 srcExclude（review/archive 仍藏）
     srcExclude: ["archive/**", "review/**", "zh/review/**"],
     head: sharedHead,
@@ -110,7 +113,10 @@ export default withMermaid(
                   },
                   { text: "Cost control", link: "/operations/cost-control" },
                   { text: "Ops dashboard", link: "/operations/ops-dashboard" },
-                  { text: "Config switch effects", link: "/operations/config-effects" },
+                  {
+                    text: "Config switch effects",
+                    link: "/operations/config-effects",
+                  },
                   { text: "Risk control", link: "/operations/risk-control" },
                 ],
               },
@@ -217,6 +223,10 @@ export default withMermaid(
                     link: "/zh/architecture/sdk-wire-protocol",
                   },
                   {
+                    text: "组合模型",
+                    link: "/zh/architecture/composition-model",
+                  },
+                  {
                     text: "看板术语表",
                     link: "/zh/architecture/dashboard-glossary",
                   },
@@ -268,8 +278,12 @@ export default withMermaid(
                     text: "外部服务探测",
                     link: "/zh/operations/external-service-probing",
                   },
+                  { text: "成本控制", link: "/zh/operations/cost-control" },
                   { text: "运维大屏", link: "/zh/operations/ops-dashboard" },
-                  { text: "配置开关效果", link: "/zh/operations/config-effects" },
+                  {
+                    text: "配置开关效果",
+                    link: "/zh/operations/config-effects",
+                  },
                   { text: "风控说明", link: "/zh/operations/risk-control" },
                 ],
               },
@@ -277,7 +291,12 @@ export default withMermaid(
             "/zh/api/": [
               {
                 text: "API",
-                items: [{ text: "概述", link: "/zh/api/" }],
+                items: [
+                  { text: "概述", link: "/zh/api/" },
+                  { text: "认证 API", link: "/zh/api/auth" },
+                  { text: "函数 API", link: "/zh/api/function" },
+                  { text: "资源 API", link: "/zh/api/resource" },
+                ],
               },
             ],
             "/zh/analytics/": [
@@ -288,6 +307,10 @@ export default withMermaid(
                   {
                     text: "核心指标与外部分析",
                     link: "/zh/analytics/core-and-external",
+                  },
+                  {
+                    text: "游戏指标全景",
+                    link: "/zh/analytics/game-metrics-overview",
                   },
                 ],
               },

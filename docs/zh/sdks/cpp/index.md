@@ -118,16 +118,14 @@ provider.serve();
 
 ## 文档入口
 
-中文版当前只覆盖以下两页：
+中文版覆盖以下板块：
 
-- [指南 · 线程与并发](./guide/threading.md)
-- [指南 · 资源与操作](./guide/resources-and-operations.md)
-
-API、配置、示例等板块暂无中文版，见英文版：
-
-- [API（英文）](/sdks/cpp/api/)
-- [配置（英文）](/sdks/cpp/configuration/)
-- [示例（英文）](/sdks/cpp/examples/)
+- [指南](./guide/index.md)——快速开始、安装、构建、函数、资源与操作、线程、插件、测试等
+- [API](./api/index.md)
+- [配置](./configuration/index.md)
+- [示例](./examples/index.md)
+- [约定](./conventions.md)
+- [集成](./integration.md)
 
 ## 相关文档
 

@@ -1,10 +1,10 @@
 name: Docs Check
 
 # Lightweight docs gates that run independently of the VitePress build/deploy
-# (docs-pages.yml): internal-link integrity, deprecated-term regression and
+# (docs-pages.yml): internal-link integrity, deprecated-term regression,
 # architecture-asset drift (SVG XML, scoped links/evidence, README diagram
-# refs, todo.md task DAG). All checks are pure stdlib scripts, so this job
-# needs no Node/pnpm install and finishes in seconds.
+# refs, todo.md task DAG) and EN/zh locale parity. All checks are pure stdlib
+# scripts, so this job needs no Node/pnpm install and finishes in seconds.
 
 on:
   workflow_dispatch:
@@ -72,3 +72,10 @@ jobs:
       - name: Check architecture assets and TODO DAG
         timeout-minutes: 3
         run: python3 scripts/docs/check-architecture.py
+
+      # CR-FIX-17: locale parity — the zh tree mirrors the EN tree page-for-page
+      # (modulo srcExclude'd archive/review), zh sidebar carries every EN link's
+      # /zh counterpart, and all sidebar links resolve. Pure stdlib, seconds.
+      - name: Check locale parity (EN/zh)
+        timeout-minutes: 3
+        run: python3 scripts/docs/check-locale-parity.py
