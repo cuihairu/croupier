@@ -47,7 +47,10 @@ type healStaleOptions struct {
 //     page_versions，已存在的同内容提案不再重建（尊重人工接受/拒绝）；
 //   - 单轮全程 ctx 超时 60s；错误只记日志（与 proposal 重建同档降级）。
 func (s *Service) StartStaleHealLoop(ctx context.Context, interval time.Duration, options healStaleOptions) {
-	if s == nil || s.svcCtx == nil {
+	// DB 未装配（测试用零值 ServiceContext 注册路由）时循环不能进 ticker：
+	// 5 分钟后首拍会在 healScopes 对 nil *gorm.DB 调 WithContext 直接 panic
+	//（且包内后续用例仍在跑，panic 炸掉整个测试二进制）。
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
 		return
 	}
 	if interval <= 0 {
@@ -102,6 +105,9 @@ func (s *Service) healScopes(ctx context.Context, metaDB *gorm.DB) ([]healScope,
 
 // healStalePublishedPagesOnce 执行一轮扫描（导出仅包内，测试直调）。
 func (s *Service) healStalePublishedPagesOnce(ctx context.Context, options healStaleOptions) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
+		return
+	}
 	loopCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	loopCtx = context.WithValue(loopCtx, "username", staleHealActor)
 	defer cancel()
