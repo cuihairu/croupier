@@ -49,8 +49,12 @@ jobs:
         with:
           go-version-file: "go.mod"
       - name: Install ripgrep
-        timeout-minutes: 2
+        timeout-minutes: 5
         run: |
+          if command -v rg >/dev/null 2>&1; then
+            rg --version
+            exit 0
+          fi
           sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
           rg --version
       - name: Architecture guard
