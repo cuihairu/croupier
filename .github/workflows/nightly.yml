@@ -93,7 +93,10 @@ jobs:
     # needs，本 job 红不影响出包判定；日志与 fuzz 语料作为产物留存。
     name: Nightly deep test (race + flaky probe + fuzz)
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    # -race 全树在 2 核 hosted runner 上实测需 ~70-90min（2026-11-11 实证：
+    # 60min step 上限在 auth/svc 量级包仍飞行时被杀）。job 上限必须容下
+    # race(120)+flaky(60)+fuzz(30)+upload(3)。
+    timeout-minutes: 240
     needs: resolve-commit
     steps:
       - name: Checkout
@@ -118,7 +121,9 @@ jobs:
           echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
           go version
       - name: Full suite with race detector and shuffled order
-        timeout-minutes: 60
+        # 2 核 runner 上 -race 全树 ~70-90min；60min 上限在 2026-11-11 实证被
+        # 大包（auth/svc 量级）仍在飞行时杀步。给足余量再交给包级 25m 兜底。
+        timeout-minutes: 120
         run: |
           set -o pipefail
           # -shuffle=on 随机包内用例序（种子见日志，可用 -shuffle=<seed> 复现）；
