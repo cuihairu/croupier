@@ -283,6 +283,12 @@ func TestGlobalHelpers_NotInitialized(t *testing.T) {
 }
 
 func TestGlobalLifecycle(t *testing.T) {
+	// InitGlobal 装配包级 globalHotReloader，Stop 不清空它；-shuffle 下本用例
+	// 先于 TestGlobalHelpers_NotInitialized 跑时会把「未初始化」前置条件毒化
+	// （RegisterGlobalHandler 拿 nil error）。清理把全局拨回未装配态。
+	prev := globalHotReloader
+	t.Cleanup(func() { globalHotReloader = prev })
+
 	require.NoError(t, InitGlobal(&Config{WatchDirs: []string{}}, slog.Default()))
 	require.NoError(t, RegisterGlobalHandler("*.json", func(context.Context, ReloadEvent) error { return nil }))
 	require.NoError(t, StartGlobalWatching(context.Background()))

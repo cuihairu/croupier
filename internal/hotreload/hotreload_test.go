@@ -487,6 +487,12 @@ func TestHotReloader_IgnorePatterns(t *testing.T) {
 
 // TestInitGlobal 测试全局实例
 func TestInitGlobal(t *testing.T) {
+	// InitGlobal 装配包级 globalHotReloader，Stop 不清空它；-shuffle 下本
+	// 用例先于 TestGlobalHelpers_NotInitialized 跑时会毒化其前置条件。
+	// 清理把全局拨回未装配态。
+	prev := globalHotReloader
+	t.Cleanup(func() { globalHotReloader = prev })
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// 初始化全局实例
