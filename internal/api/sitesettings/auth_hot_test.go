@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -16,10 +15,13 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 )
 
-var authTestOnce sync.Once
-
-// newAuthTestHandler 用测试 store 初始化全局 Layered（once 保证单例
-// 装配语义与生产一致：Handler 引用的必须是同一 Layered）。
+// newAuthTestHandler 用测试 store 初始化全局 Layered。每次调用都走
+// InitLayered 而非 once 守卫：包内其他测试文件（putkey/testemail/
+// handler_extra）会 ResetForTest 清掉全局单例，once 版本此后拿到 nil
+// Layered——put 落在 per-test store 而 Reload 被 nil 守卫静默吞掉，
+// auth.* 键全部退回默认值（shuffle 下按序随机红，OIDC Discovery 系列
+// 实证）。InitLayered 自身是 sync.Once 语义，未重置时重复调用 no-op，
+// 生产「只装配一次」的约束不变。
 func newAuthTestHandler(t *testing.T) *Handler {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/site.db"), &gorm.Config{})
@@ -30,9 +32,7 @@ func newAuthTestHandler(t *testing.T) *Handler {
 		t.Fatal(err)
 	}
 	store := model.NewPlatformSettingModel(db)
-	authTestOnce.Do(func() {
-		settings.InitLayered(context.Background(), &settings.ConfigInput{}, store)
-	})
+	settings.InitLayered(context.Background(), &settings.ConfigInput{}, store)
 	return NewHandler(settings.Current(), store)
 }
 
