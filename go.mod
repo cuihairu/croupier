@@ -1,6 +1,6 @@
 module github.com/cuihairu/croupier
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
