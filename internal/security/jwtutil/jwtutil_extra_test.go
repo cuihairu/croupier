@@ -1,7 +1,6 @@
 package jwtutil
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -32,8 +31,10 @@ func TestResetGlobalSecretForTesting(t *testing.T) {
 
 	t.Run("reset allows InitGlobalSecret to work again", func(t *testing.T) {
 		// Reset global state
+		secretMu.Lock()
 		globalSecret = ""
-		secretOnce = sync.Once{}
+		secretInited = false
+		secretMu.Unlock()
 
 		// Now InitGlobalSecret should work
 		InitGlobalSecret("first-secret")
@@ -43,11 +44,8 @@ func TestResetGlobalSecretForTesting(t *testing.T) {
 		restore := ResetGlobalSecretForTesting("second-secret")
 		assert.Equal(t, "second-secret", GetGlobalSecret())
 
-		// InitGlobalSecret should work after reset
+		// InitGlobalSecret should work inside the reset window
 		InitGlobalSecret("third-secret")
-		// sync.Once was reset, so this should NOT take effect
-		// Wait - ResetGlobalSecretForTesting resets secretOnce,
-		// so InitGlobalSecret WILL work after it
 		assert.Equal(t, "third-secret", GetGlobalSecret())
 
 		restore()
@@ -55,8 +53,10 @@ func TestResetGlobalSecretForTesting(t *testing.T) {
 
 	t.Run("restore function restores original state", func(t *testing.T) {
 		// Set a known state
+		secretMu.Lock()
 		globalSecret = "known-state"
-		secretOnce = sync.Once{}
+		secretInited = false
+		secretMu.Unlock()
 
 		// Reset
 		restore := ResetGlobalSecretForTesting("reset-state")
@@ -65,6 +65,20 @@ func TestResetGlobalSecretForTesting(t *testing.T) {
 		// Restore
 		restore()
 		assert.Equal(t, "known-state", GetGlobalSecret())
+	})
+
+	// restore 后必须回到「已初始化、Init 幂等」的状态：否则后续任何测试里的
+	// InitGlobalSecret（如 middleware TestInitJWTSecret）会静默改掉密钥，
+	// 令签名用例在 -shuffle=on 下按执行序随机红。
+	t.Run("restore locks initialization again", func(t *testing.T) {
+		InitGlobalSecret("base-secret")
+		assert.Equal(t, "base-secret", GetGlobalSecret())
+
+		restore := ResetGlobalSecretForTesting("temp-secret")
+		restore()
+
+		InitGlobalSecret("poison-secret")
+		assert.Equal(t, "base-secret", GetGlobalSecret())
 	})
 }
 

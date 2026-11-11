@@ -2,7 +2,6 @@ package jwtutil
 
 import (
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -14,8 +13,10 @@ import (
 // TestMain handles global state setup
 func TestMain(m *testing.M) {
 	// Reset global state before running tests
+	secretMu.Lock()
 	globalSecret = ""
-	secretOnce = sync.Once{}
+	secretInited = false
+	secretMu.Unlock()
 	m.Run()
 }
 

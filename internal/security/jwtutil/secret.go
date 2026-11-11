@@ -12,22 +12,29 @@ import (
 const devSecret = "croupier-dev-secret"
 
 var (
+	secretMu     sync.RWMutex
 	globalSecret string
-	secretOnce   sync.Once
+	secretInited bool
 )
 
 // InitGlobalSecret initializes the global JWT secret.
 // This is called during service initialization and must be called before
 // any middleware or service that needs to verify JWT tokens.
+// First caller wins: later calls are no-ops so the key cannot rotate at runtime.
 func InitGlobalSecret(secret string) {
-	secretOnce.Do(func() {
+	secretMu.Lock()
+	defer secretMu.Unlock()
+	if !secretInited {
 		globalSecret = secret
-	})
+		secretInited = true
+	}
 }
 
 // GetGlobalSecret returns the globally initialized JWT secret.
 // Returns empty string if InitGlobalSecret was not called.
 func GetGlobalSecret() string {
+	secretMu.RLock()
+	defer secretMu.RUnlock()
 	return globalSecret
 }
 
@@ -72,24 +79,28 @@ func DevSecret() string {
 }
 
 // ResetGlobalSecretForTesting re-keys the global JWT secret and returns a
-// restore function. Production code must never call this: InitGlobalSecret
-// is a sync.Once precisely so the key cannot change at runtime. Tests that
-// share a process need it because whichever test initializes first wins and
-// later InitGlobalSecret calls silently no-op, causing order-dependent
+// restore function. Production code must never call this: the global secret
+// is first-init-wins precisely so the key cannot change at runtime. Tests
+// that share a process need it because whichever test initializes first wins
+// and later InitGlobalSecret calls silently no-op, causing order-dependent
 // signature failures.
+//
+// The reset window is re-armed: InitGlobalSecret takes effect again until
+// restore runs. restore() puts back the previous value AND the previous
+// initialized state, so first-init-wins holds again afterwards. Leaving the
+// window armed past restore would let a later test's InitGlobalSecret
+// (e.g. middleware TestInitJWTSecret under -shuffle=on) silently re-key the
+// secret and poison every downstream token-signing test.
 //
 // Usage: defer jwtutil.ResetGlobalSecretForTesting(secret)()
 func ResetGlobalSecretForTesting(secret string) (restore func()) {
-	prevSecret := globalSecret
-	prevInitialized := globalSecret != ""
-	secretOnce = sync.Once{}
-	globalSecret = secret
+	secretMu.Lock()
+	prevSecret, prevInited := globalSecret, secretInited
+	globalSecret, secretInited = secret, false
+	secretMu.Unlock()
 	return func() {
-		// 不能拷贝 sync.Once；用全新实例并按需回放原值。
-		secretOnce = sync.Once{}
-		globalSecret = prevSecret
-		if !prevInitialized {
-			globalSecret = ""
-		}
+		secretMu.Lock()
+		defer secretMu.Unlock()
+		globalSecret, secretInited = prevSecret, prevInited
 	}
 }
