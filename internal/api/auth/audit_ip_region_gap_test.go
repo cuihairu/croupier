@@ -1,11 +1,12 @@
 // 覆盖目标：Service.recordLoginAudit 的 ipRegion 分支——req.ClientIP 非空且
 // ipgeo.Region 命中时，把归属地写入 metadata["ipRegion"]（service.go:580）。
 //
-// ipgeo 按 sync.Once 惰性初始化，环境变量只在进程内第一次 Region 调用时
-// 读取一次。本文件名以 audit_ 开头，按文件名排序先于包内其余测试文件
-// 编译执行，保证这里的合成 IP2Location BIN 是 once 初始化时唯一可见的
-// 数据库。其余测试使用的 IP（127.0.0.1/10.0.0.1/192.168.1.1）落在哨兵
-// 记录上，Region 仍返回空串，既有断言不受影响。
+// ipgeo 按 sync.Once 惰性初始化，环境变量只在第一次 Region 调用时读取一次；
+// -shuffle=on 下用例序不定，文件名排序保证不了「本测试的 BIN 是 once 初见
+// 的那份」（曾实证：其他用例先消费 once 后本测试拿空 region）。故设完 env
+// 即调 ipgeo.ResetForTesting 重放 initDB，cleanup 恢复 env 后再重置一次，
+// 让其余用例按各自环境重新惰性初始化。其余测试使用的 IP
+// （127.0.0.1/10.0.0.1/192.168.1.1）落在哨兵记录上，Region 仍返回空串。
 package auth
 
 import (
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/ipgeo"
 	"github.com/cuihairu/croupier/internal/model"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/stretchr/testify/assert"
@@ -96,12 +98,16 @@ func writeIPRegionSyntheticBIN(t *testing.T) string {
 func TestRecordLoginAudit_IPRegionFromSyntheticDB(t *testing.T) {
 	prev, hadPrev := os.LookupEnv("IP2LOCATION_BIN_PATH")
 	require.NoError(t, os.Setenv("IP2LOCATION_BIN_PATH", writeIPRegionSyntheticBIN(t)))
+	// once 可能已被包内其他用例（shuffle 序在前）以默认环境消费过：重放
+	// initDB 保证合成 BIN 生效。
+	ipgeo.ResetForTesting()
 	t.Cleanup(func() {
 		if hadPrev {
 			_ = os.Setenv("IP2LOCATION_BIN_PATH", prev)
 		} else {
 			_ = os.Unsetenv("IP2LOCATION_BIN_PATH")
 		}
+		ipgeo.ResetForTesting()
 	})
 
 	db := setupTestDB(t)

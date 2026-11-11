@@ -97,3 +97,15 @@ func Region(ip string) string {
 	}
 	return strings.Join(parts, "/")
 }
+
+// ResetForTesting drops the lazily initialized BIN handles and re-arms the
+// init-once gate, so a test can re-point IP2LOCATION_BIN_PATH and replay
+// initDB deterministically. Call it after changing the env and again in
+// cleanup after restoring the env (save/restore of the previous handles is
+// the caller's job). Production code must never call this: init-once is
+// precisely so the DB handle cannot change at runtime.
+func ResetForTesting() {
+	once = sync.Once{}
+	db4 = nil
+	db6 = nil
+}
