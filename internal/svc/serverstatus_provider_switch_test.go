@@ -102,13 +102,15 @@ func TestProviderSwitchDefaultAtlasRunningDelivers(t *testing.T) {
 // 切 http 源（只改 provider 键 + providers.http 段）：简易状态 JSON
 // （自定义字段名 + fieldMapping + bool 维护位）→ 在维护 → 整链静默。
 func TestProviderSwitchHTTPSuppresses(t *testing.T) {
-	var gotMatch string
+	// handler goroutine 写、测试 goroutine 读：atomic 消除数据竞态
+	//（-race 全量三连红由本测试引发）。
+	var gotMatch atomic.Value
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/status.json" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		gotMatch = r.URL.Query().Get("agentId")
+		gotMatch.Store(r.URL.Query().Get("agentId"))
 		_, _ = w.Write([]byte(`{"frozen": true}`))
 	}))
 	defer ts.Close()
@@ -118,8 +120,8 @@ func TestProviderSwitchHTTPSuppresses(t *testing.T) {
 		s.FieldMapping = map[string]string{"inMaintenance": "frozen"}
 	})
 	dispatchExpect(t, cfg, true, false)
-	if gotMatch != "agent-1" {
-		t.Fatalf("http source match param = %q, want agent-1", gotMatch)
+	if v, _ := gotMatch.Load().(string); v != "agent-1" {
+		t.Fatalf("http source match param = %q, want agent-1", v)
 	}
 }
 
