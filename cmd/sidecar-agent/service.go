@@ -109,6 +109,9 @@ type croupierAgentService struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	cfgFile string
+	// done 在 Start 的后台 runner goroutine 全部收尾后关闭（runAgent 返回、
+	// 其 defer 拆除完毕、启动/失败日志落定）；Stop 以此等待后台 runner 静默。
+	done chan struct{}
 }
 
 func newAgentService(cfgFile string) *croupierAgentService {
@@ -117,6 +120,7 @@ func newAgentService(cfgFile string) *croupierAgentService {
 		ctx:     ctx,
 		cancel:  cancel,
 		cfgFile: cfgFile,
+		done:    make(chan struct{}),
 	}
 }
 
@@ -133,13 +137,18 @@ func (s *croupierAgentService) Start(svc service.Service) error {
 	// 副本：测试对 runAgentFunc 的注入/还原不与后台 goroutine 竞争。
 	runFn := runAgentFunc
 	go func() {
-		if err := runFn(); err != nil {
+		err := runFn()
+		if err != nil {
 			s.logger("error", fmt.Sprintf("Agent 启动失败: %v", err))
+			// 先关 done 再触发 Stop：svc.Stop 会等待 done，若不先行关闭，
+			// 本 goroutine 内发起的 Stop 会与自身互等（15s 兜底也救不了语义）。
+			close(s.done)
 			// 启动失败，停止服务
 			_ = svc.Stop()
-		} else {
-			s.logger("info", "Croupier Agent 服务已启动")
+			return
 		}
+		s.logger("info", "Croupier Agent 服务已启动")
+		close(s.done)
 	}()
 
 	// 等待上下文取消
@@ -155,6 +164,14 @@ func (s *croupierAgentService) Start(svc service.Service) error {
 func (s *croupierAgentService) Stop(svc service.Service) error {
 	s.logger("info", "Croupier Agent 服务停止中...")
 	s.cancel()
+	// 等后台 runner 静默（含 runAgent 的 defer 拆除与最终日志）后再返回：
+	// 否则 runner 残段会在 Stop 之后继续写 stdout / 拆 App（-race 全量实证，
+	// 与后续用例换装 os.Stdout 或读本地监听构成数据竞争）。15s 兜底防卡死；
+	// 失败分支由 runner 自身发起 Stop，done 已先行关闭，不会互等。
+	select {
+	case <-s.done:
+	case <-time.After(15 * time.Second):
+	}
 	return nil
 }
 
