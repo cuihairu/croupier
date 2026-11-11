@@ -84,6 +84,10 @@ auth:
   rbacConfig: configs/rbac.json
   usersConfig: configs/users.json
   gamesConfig: configs/games.json
+  # e2e 豁免：允许出厂默认口令 admin123 原样落库（与 configs/test-sqlite.yaml
+  # 同语义）。缺它时新装首播会把 admin 口令轮换成随机值（CR-FIX-27），
+  # happy-path 以 admin/admin123 登录即 401。
+  allowDefaultCredentials: true
 bootstrapData:
   baseDir: configs
 cache:
