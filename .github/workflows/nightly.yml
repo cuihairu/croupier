@@ -1024,9 +1024,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          cosign sign-blob --yes SHA256SUMS > SHA256SUMS.sig
+          # cosign v3 默认 Sigstore bundle 格式，未给 --bundle 时会因空 bundle
+          # 路径直接报 "create bundle file: open : no such file or directory"。
+          cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
           # 草稿阶段上传签名；失败即让工作流失败，不公开未签名产物。
-          gh release upload "${{ needs.resolve-commit.outputs.tag }}" SHA256SUMS SHA256SUMS.sig --clobber
+          gh release upload "${{ needs.resolve-commit.outputs.tag }}" SHA256SUMS SHA256SUMS.sigstore.json --clobber
       - name: Publish signed nightly release
         timeout-minutes: 5
         env:

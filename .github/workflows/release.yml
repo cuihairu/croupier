@@ -291,12 +291,14 @@ jobs:
           set -euo pipefail
           # keyless OIDC：身份来自 job 的 id-token: write。签名 SHA256SUMS 清单
           # 即代表整批产物（每个文件摘要已列于清单内）。
-          cosign sign-blob --yes SHA256SUMS > SHA256SUMS.sig
+          # cosign v3 默认 Sigstore bundle 格式，未给 --bundle 时会因空 bundle
+          # 路径直接报 "create bundle file: open : no such file or directory"。
+          cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
           echo "Signed:"
-          ls -la SHA256SUMS.sig
+          ls -la SHA256SUMS.sigstore.json
           # 签名/清单上传失败必须让发布失败；成功后草稿保留——公开被
           # publish-release job 门禁在 SDK 矩阵全绿之后（CR-FIX-13）。
-          gh release upload "${{ github.ref_name }}" SHA256SUMS SHA256SUMS.sig --clobber
+          gh release upload "${{ github.ref_name }}" SHA256SUMS SHA256SUMS.sigstore.json --clobber
 
   # 六注册中心 SDK 矩阵（npm/PyPI/Maven/NuGet/Go/vcpkg）。必须等 quality-gate
   # 绿灯：测试红的代码不允许上注册中心。正式 Release 的公开在
