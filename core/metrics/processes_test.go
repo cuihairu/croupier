@@ -2,8 +2,11 @@ package metrics
 
 import (
 	"context"
+	"syscall"
 	"testing"
 	"time"
+
+	"github.com/shirou/gopsutil/v4/net"
 )
 
 // TestCounterRate covers the delta-per-second rate derivation, including the
@@ -82,6 +85,45 @@ func TestCollector_NetworkRateNonNegative(t *testing.T) {
 	for _, n := range second.GetNetworks() {
 		if n.GetBytesSentRate() < 0 || n.GetBytesRecvRate() < 0 {
 			t.Fatalf("second scan network rate negative on %s", n.GetInterface())
+		}
+	}
+}
+
+// TestListenerKind pins the (family, type) → protocol label mapping the port
+// face depends on since the single "inet" connections call (the per-protocol
+// loop used to label sockets from the loop variable; now the label is
+// derived per socket). Non-inet sockets must be dropped, never mislabeled.
+func TestListenerKind(t *testing.T) {
+	cases := []struct {
+		name string
+		cn   net.ConnectionStat
+		want string
+		ok   bool
+	}{
+		{"tcp", net.ConnectionStat{Family: syscall.AF_INET, Type: syscall.SOCK_STREAM}, "tcp", true},
+		{"tcp6", net.ConnectionStat{Family: syscall.AF_INET6, Type: syscall.SOCK_STREAM}, "tcp6", true},
+		{"udp", net.ConnectionStat{Family: syscall.AF_INET, Type: syscall.SOCK_DGRAM}, "udp", true},
+		{"udp6", net.ConnectionStat{Family: syscall.AF_INET6, Type: syscall.SOCK_DGRAM}, "udp6", true},
+		{"unix dropped", net.ConnectionStat{Family: syscall.AF_UNIX, Type: syscall.SOCK_STREAM}, "", false},
+		{"raw dropped", net.ConnectionStat{Family: syscall.AF_INET, Type: syscall.SOCK_RAW}, "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := listenerKind(tc.cn)
+			if got != tc.want || ok != tc.ok {
+				t.Fatalf("listenerKind(%v) = (%q, %v), want (%q, %v)", tc.cn, got, ok, tc.want, tc.ok)
+			}
+		})
+	}
+}
+
+// TestListenerConnectionsInetOnly pins the single-call contract: every socket
+// the shared fetch returns must be classifiable as an inet port-face protocol
+// (no unix sockets leaking into the port face through the "inet" path).
+func TestListenerConnectionsInetOnly(t *testing.T) {
+	for _, cn := range listenerConnections() {
+		if _, ok := listenerKind(cn); !ok {
+			t.Fatalf("listenerConnections returned non-inet socket family=%d type=%d", cn.Family, cn.Type)
 		}
 	}
 }
