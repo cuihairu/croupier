@@ -3486,8 +3486,11 @@ func TestTicketModel_List(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// List all
-	_, total, err := model.List(ctx, TicketQueryOptions{})
+	// List all：Status 零值恰为 TicketStatusOpen(0)，List 把 >=0 当作启用
+	// 过滤（-1 才是无过滤哨兵，注释见 TicketQueryOptions）；裸查询会在干净
+	// 库上只剩 2 条 open（Ticket3 是 closed），此前靠同包共享库残留行凑够
+	// 断言，-shuffle=on 下先跑即挂（CI 实证 2026-11-12）。
+	_, total, err := model.List(ctx, TicketQueryOptions{Status: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(3))
 
@@ -3497,13 +3500,13 @@ func TestTicketModel_List(t *testing.T) {
 	assert.GreaterOrEqual(t, total, int64(2))
 	_ = items // items is used for verification
 
-	// Filter by category
-	_, total, err = model.List(ctx, TicketQueryOptions{Category: "bug"})
+	// Filter by category（无 status 过滤，closed 的 Ticket3 也计入）
+	_, total, err = model.List(ctx, TicketQueryOptions{Category: "bug", Status: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
-	// Filter by assignee
-	_, total, err = model.List(ctx, TicketQueryOptions{Assignee: "admin"})
+	// Filter by assignee（同上，跨状态计数）
+	_, total, err = model.List(ctx, TicketQueryOptions{Assignee: "admin", Status: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 }
