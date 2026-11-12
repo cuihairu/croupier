@@ -634,6 +634,13 @@ const ResourceCatalogPage: React.FC = () => {
                 id: 'pages.resourceCatalog.list.search.categoryPlaceholder',
                 defaultMessage: '选择分类',
               })}
+              // antd6 Select 内层 combobox input 不继承 placeholder 文本，
+              // axe label 规则（critical）要求可访问命名；顶栏 game/env
+              // 选择器同款做法（GameSelector aria-label）
+              aria-label={intl.formatMessage({
+                id: 'pages.resourceCatalog.list.search.categoryPlaceholder',
+                defaultMessage: '选择分类',
+              })}
               value={category || undefined}
               onChange={(value) => setCategory((value as string | undefined) || '')}
               allowClear

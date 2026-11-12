@@ -60,25 +60,22 @@ interface AxeViolation {
  * 报告数据支撑（.a11y-reports/），并在注释中写清不接受修复的原因。
  */
 const ACCEPTED: Record<string, Array<{ pattern: string; reason: string }>> = {
+  'scrollable-region-focusable': [
+    {
+      // antd6 always renders the table scroll container (.ant-table-content,
+      // overflow:auto) even for empty-state tables; with zero rows nothing
+      // can scroll and there is no focusable descendant, so axe flags the
+      // region (in-app default-theme scan, resource-catalog empty table —
+      // e2e/.a11y-reports/, CI run 43153342945 real-dashboard-e2e). The
+      // container is antd-internal and cannot take tabindex without DOM
+      // patching; once rows exist the row action buttons satisfy
+      // focusable-content, so the flag is empty-state-only.
+      pattern: '.ant-table-content',
+      reason:
+        'antd6 empty-state table scroll container: nothing scrollable, no focusable descendant, antd-internal div',
+    },
+  ],
   'color-contrast': [
-    {
-      // Ant Design primary-button signature: white text on the solid brand
-      // fill (#1677ff blue / #b35d72 inkpink-dark composite). The pair
-      // measures 4.1:1 / 4.4:1 — above the 3:1 AA threshold for large and
-      // UI text, below the 4.5:1 threshold for small text. This is antd's
-      // own shipping default for every primary action; overriding it would
-      // deviate from the design system across the whole console for a
-      // fraction-of-a-point gain. Re-evaluate if the brand seed color ever
-      // changes.
-      pattern: '.ant-btn-primary > span',
-      reason: 'antd primary button: white-on-brand is the design-system default (>=3:1 AA large)',
-    },
-    {
-      // Icon-then-text solid action button (console home hero): white text
-      // span on the same antd brand fill as the entry above; same rationale.
-      pattern: '.ant-btn > span:nth-child(2)',
-      reason: 'solid brand-fill button text span, same antd white-on-brand default as primary',
-    },
     {
       // Ant Design semantic success Tag preset (green-7 on green-1,
       // 3.37:1). Preset tag pairs are generated from colorSuccess seed by
@@ -158,6 +155,19 @@ async function scanRoute(page: Page, route: string, tags: string[]): Promise<Axe
   await page.goto(route);
   await page.waitForLoadState('domcontentloaded');
   await assertPageMounted(page, route);
+  // 冻结动画/过渡后再采样，保证 axe 取到的是落地后的静态样式而非挂载
+  // 过渡中间值；断言本身不变。安装版 @axe-core/playwright 4.14 没有
+  // disableAnimations API（4.15+ 才有），手动注入等效冻结样式并等两帧
+  // 让样式重算落地。
+  await page.addStyleTag({
+    content: '*, *::before, *::after { animation: none !important; transition: none !important; }',
+  });
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   const results = await new AxeBuilderCore({ page }).withTags(tags).analyze();
   return results.violations as AxeViolation[];
 }

@@ -98,7 +98,8 @@ describe('ThemeSync', () => {
     });
     let merged = applyLastUpdate({ theme: {} });
     expect(merged.theme.algorithm).toEqual([antdTheme.darkAlgorithm]);
-    expect(merged.theme.token.colorPrimary).toBe('#cf6a82');
+    // 暗色主色降档到 #b8556b：原 #cf6a82 实心按钮白字 4.44:1 不达 AA
+    expect(merged.theme.token.colorPrimary).toBe('#b8556b');
 
     act(() => {
       setThemePref('light');
@@ -159,7 +160,7 @@ describe('ThemeSync', () => {
     ).toBe('#4b5563');
   });
 
-  it('墨粉套亮色壳层 colorPrimary 换 #93394d，暗色换 #cf6a82', () => {
+  it('墨粉套亮色壳层 colorPrimary 换 #93394d，暗色换 #b8556b', () => {
     render(<ThemeSync />);
     act(() => {
       setThemePreset('inkpink');
@@ -170,7 +171,7 @@ describe('ThemeSync', () => {
       setThemePref('dark');
     });
     settings = applyLastStateUpdate({ settings: {} }).settings as Record<string, unknown>;
-    expect(settings.colorPrimary).toBe('#cf6a82');
+    expect(settings.colorPrimary).toBe('#b8556b');
     expect(settings.navTheme).toBe('realDark');
   });
 

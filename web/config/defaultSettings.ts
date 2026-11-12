@@ -49,8 +49,10 @@ export function layoutTokenFor(
     return {
       // ProLayout navTheme 取值为 light | realDark（无 'dark'）
       navTheme: 'realDark',
-      // 与 antd 侧（antdThemeConfig）同源：暗色主色提亮一档
-      colorPrimary: preset === 'inkpink' ? '#cf6a82' : '#1668dc',
+      // 与 antd 侧（antdThemeConfig）同源：暗色主色 #b8556b（原 #cf6a82
+      // 经 ProLayout 注入内容域 ConfigProvider，实心按钮白字合成 4.44:1
+      // 不达 AA，2026-11-12 与 antd token 同步降档）
+      colorPrimary: preset === 'inkpink' ? '#b8556b' : '#1668dc',
       token: {
         bgLayout: '#1a1a2e',
         sider: {
