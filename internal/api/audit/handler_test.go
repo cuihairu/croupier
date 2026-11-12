@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,9 +23,14 @@ import (
 // setupAuditHandlerTest builds the handler against a real persistent
 // audit_records table (in-memory SQLite). The legacy OpsStateStore-backed
 // in-memory trail was removed.
+// auditTestDBSeq 给每次调用发互不重名的内存库。按 t.Name() 命名不够：
+// -count=3 让同一用例名跑三遍，而 file: 内存库只要还有一条连接开着就存活
+// （上一遍的连接池没关尽），于是这一遍会读到上一遍残留的审计行。
+var auditTestDBSeq int64
+
 func setupAuditHandlerTest(t *testing.T) *Handler {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:audit_handler_%d?mode=memory&cache=shared", atomic.AddInt64(&auditTestDBSeq, 1))), &gorm.Config{})
 	require.NoError(t, err)
 	// Schema is normally created by the migration baseline; tests own their
 	// fixtures.

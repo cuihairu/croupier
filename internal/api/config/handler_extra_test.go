@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"net/http"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -11,9 +13,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// configHandlerDBSeq 给每次调用发互不重名的内存库。匿名 file::memory:?cache=shared
+// 全进程共用一个实例：-count=3 下上一遍的连接关尽即销毁、下一遍重建空库，
+// 上一遍遗留的 watch 轮询在新库迁移完成前查询 → no such table: config_versions。
+var configHandlerDBSeq uint64
+
 func setupConfigTestDB(t *testing.T) (*Handler, *Service) {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	name := fmt.Sprintf("cfg_handler_%d", atomic.AddUint64(&configHandlerDBSeq, 1))
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", name)), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

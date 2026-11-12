@@ -3,7 +3,6 @@ package analytics
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ import (
 // creates the audit table (which also creates the promoted columns).
 func setupInvocationsTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", analyticsTestDBName("analytics_invocations"))
 	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	// Schema is normally created by the migration baseline; tests own their

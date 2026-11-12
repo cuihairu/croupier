@@ -41,7 +41,7 @@ func (c *stubConn) Query(_ context.Context, q string, _ ...any) (warehouseRows, 
 
 func newMonitorTestSink(t *testing.T) *model.AlertModel {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{
+	db, err := gorm.Open(gsqlite.Open("file:"+analyticsTestDBName("analytics_monitor")+"?mode=memory&cache=shared"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)

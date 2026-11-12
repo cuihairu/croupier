@@ -6,7 +6,6 @@ package approval
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	gsqlite "github.com/glebarez/sqlite"
@@ -24,7 +23,7 @@ import (
 // version 为空则不写入契约行（模拟函数消失）。
 func newDraftApprovalEnv(t *testing.T, version string) *svc.ServiceContext {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:approval_draft_%d?mode=memory&cache=shared", covSharedDBSeq.Add(1))), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 	if version != "" {

@@ -6,7 +6,6 @@ package approval
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -21,7 +20,7 @@ import (
 
 func newNotifyTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	name := strings.ReplaceAll(t.Name(), "/", "_")
+	name := fmt.Sprintf("approval_notify_%d", covSharedDBSeq.Add(1))
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", name)), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))

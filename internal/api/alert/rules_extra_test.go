@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,9 +21,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// alertRulesDBSeq 给每次调用发互不重名的内存库。按 t.Name() 命名不够：
+// -count=3 让同一用例名跑三遍，而 file: 内存库只要还有一条连接开着就存活
+// （上一遍的连接池没关尽），于是这一遍会读到上一遍残留的规则/告警行
+// —— 签名是列表长度翻倍（should have 2 items, but has 4/6）。
+var alertRulesDBSeq int64
+
 func newAlertRulesEnv(t *testing.T) (*gin.Engine, *Service, *gorm.DB) {
 	t.Helper()
-	name := fmt.Sprintf("alert_rules_%s", strings.ReplaceAll(t.Name(), "/", "_"))
+	name := fmt.Sprintf("alert_rules_%d", atomic.AddInt64(&alertRulesDBSeq, 1))
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", name)), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))

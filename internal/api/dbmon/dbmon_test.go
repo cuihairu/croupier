@@ -3,7 +3,7 @@ package dbmon
 import (
 	"context"
 	"fmt"
-	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -14,9 +14,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// dbmonTestDBSeq 给每次 fixture 调用发互不重名的内存库。按 t.Name() 命名不够：
+// -count=3 让同一用例名跑三遍，而 file: 内存库只要还有一条连接开着就存活
+// （上一遍的连接池没关尽），于是这一遍会读到上一遍残留的 source/alert 行——
+// 签名是列表长度翻倍（ProbeAllDegradedOnUnreachable 断言 2 实得 4/6）。
+var dbmonTestDBSeq int64
+
 func newDBMonFixture(t *testing.T) (*Service, *model.DBSourceModel, *model.AlertModel) {
 	t.Helper()
-	name := fmt.Sprintf("dbmon_%s", strings.ReplaceAll(t.Name(), "/", "_"))
+	name := fmt.Sprintf("dbmon_%d", atomic.AddInt64(&dbmonTestDBSeq, 1))
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", name)), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))

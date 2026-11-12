@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ import (
 
 func newAuditExtraDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	name := fmt.Sprintf("audit_extra_%s", strings.ReplaceAll(t.Name(), "/", "_"))
+	name := fmt.Sprintf("audit_extra_%d", atomic.AddInt64(&auditTestDBSeq, 1))
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", name)), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))

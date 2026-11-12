@@ -2,10 +2,12 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -1421,7 +1423,7 @@ func TestConfigIntegration_UpsertAndList(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	// Setup in-memory database
-	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:cfg_it_%d?mode=memory&cache=shared", atomic.AddUint64(&configHandlerDBSeq, 1))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
@@ -1460,7 +1462,7 @@ func TestConfigIntegration_GetVersion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	// Setup in-memory database
-	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:cfg_it_%d?mode=memory&cache=shared", atomic.AddUint64(&configHandlerDBSeq, 1))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
@@ -1495,7 +1497,7 @@ func TestConfigIntegration_MultipleVersions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	// Setup in-memory database
-	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:cfg_it_%d?mode=memory&cache=shared", atomic.AddUint64(&configHandlerDBSeq, 1))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}

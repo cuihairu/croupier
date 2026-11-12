@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -27,7 +26,7 @@ import (
 // analytics schema so query-failure injection does not disturb shared fixtures.
 func newFinalCoverageDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", analyticsTestDBName("analytics_final"))
 	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
@@ -139,7 +138,7 @@ func TestPaymentsSummary_DailyRevenueQueryFails(t *testing.T) {
 
 // invocationsSummary：audit 表缺失 → totals 聚合 Scan 失败。
 func TestInvocationsSummary_TotalsScanFails(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", analyticsTestDBName("analytics_final"))), &gorm.Config{})
 	require.NoError(t, err)
 	svcCtx := &svc.ServiceContext{DB: db}
 	_, err = invocationsSummary(context.Background(), svcCtx, &InvocationsSummaryRequest{})
@@ -284,7 +283,7 @@ func TestAggregateBy_EmptyKeyFallsBackToDate(t *testing.T) {
 // filtersUpdate：扩展来源保存时 UpdateConfig 失败（事件表被删除导致 appendEvent
 // 失败）→ 透传错误。
 func TestFiltersUpdate_ExtensionSaveFails(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", analyticsTestDBName("analytics_final"))), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionRuntimeBinding{}, &model.ExtensionEvent{}))
 	repos := extensiongorm.NewBundle(db)

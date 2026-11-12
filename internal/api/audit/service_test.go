@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	auditcore "github.com/cuihairu/croupier/internal/audit"
@@ -19,7 +20,7 @@ import (
 // in-memory trail was removed; tests now seed via the audit core service.
 func setupTableBackedService(t *testing.T, svcCtxExtra func(*svc.ServiceContext)) (*Service, *gorm.DB) {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:audit_service_%d?mode=memory&cache=shared", atomic.AddInt64(&auditTestDBSeq, 1))), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 	// Schema is normally created by the migration baseline; tests own their

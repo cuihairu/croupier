@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -53,7 +52,7 @@ type approvalPageEnv struct {
 // mutate 可改写 page/contracts/published 或向 db 追加契约记录。
 func newApprovalPageEnv(t *testing.T, mutate func(page *spec.PageSpec, contracts *[]spec.BindingContractSnapshot, published *model.PublishedPageSpec, db *gorm.DB)) *approvalPageEnv {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:approval_page_%d?mode=memory&cache=shared", covSharedDBSeq.Add(1))), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 
@@ -304,7 +303,7 @@ func TestLoadApprovalFunctionSpecs(t *testing.T) {
 	_, err = loadApprovalFunctionSpecs(ctx, &svc.ServiceContext{DB: nil}, record)
 	require.Error(t, err)
 
-	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:approval_specs_%d?mode=memory&cache=shared", covSharedDBSeq.Add(1))), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 	_, err = loadApprovalFunctionSpecs(ctx, &svc.ServiceContext{DB: db}, nil)
