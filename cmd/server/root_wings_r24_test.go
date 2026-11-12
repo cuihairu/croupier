@@ -108,7 +108,9 @@ func runServerBootR24(t *testing.T) {
 		os.Stdout = oldStdout
 		t.Fatal("runServer 未在期限内打出就绪行")
 	}
-	time.Sleep(200 * time.Millisecond) // 同步打印与 signal.Notify 之间的窗口
+	// runServer 已把 signal.Notify 提前到就绪行之前，同步打印与监听注册之间
+	// 的窗口不复存在；保留短暂等待仅为让 SIGINT 稳定落在监听注册之后。
+	time.Sleep(200 * time.Millisecond)
 
 	// os.Stdout 必须等 runServer 返回后才换回原值：就绪行由 HTTP goroutine
 	// 打印，管道数据不构成 race detector 的 happens-before 边，就绪后立即赋值

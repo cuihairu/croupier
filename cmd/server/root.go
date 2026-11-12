@@ -415,6 +415,14 @@ func runServer() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
+	// 中断信号监听必须先于就绪行（Starting Croupier Server at …）安装：
+	// 就绪行之后编排器即视为「可发 SIGTERM」，而监听注册前到达的信号不会
+	// 进入本通道（测试里被预注册通道收走、生产直接走默认处置），runServer
+	// 将永远停在 <-quit，停机预算整段耗尽（deep-test 停机钻机实证：
+	// SIGINT 落在就绪行与 Notify 之间时 fault_drill_r28_test.go:63 超时）。
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
 	// 启动 HTTP 服务（在 goroutine 中）
 	go func() {
 		fmt.Printf("Starting Croupier Server at %s (mode: %s, debug: %v)...\n",
@@ -425,9 +433,6 @@ func runServer() error {
 		}
 	}()
 
-	// 等待中断信号（SIGINT / SIGTERM）
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	fmt.Println("\nShutting down server...")
 
