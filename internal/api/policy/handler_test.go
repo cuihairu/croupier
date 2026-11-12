@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -18,8 +20,15 @@ import (
 	"gorm.io/gorm"
 )
 
+var memDBSeq int64
+
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	// 每个用例独立内存库：原来的 "file::memory:?cache=shared" 全进程共用一个库，
+	// 上个用例 defer 关连接即摧毁库、下个连接重建空库 → 表/行凭空消失
+	// （no such table: function_policies，IsOverride 假断言），-count=3 稳定复现。
+	// 名字仍需 cache=shared：同名 file: 内存库要靠它让连接池共用同一实例。
+	n := atomic.AddInt64(&memDBSeq, 1)
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:policy_memdb_%d?mode=memory&cache=shared", n)), &gorm.Config{})
 	require.NoError(t, err)
 
 	// Migrate the FunctionPolicy model
