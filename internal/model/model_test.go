@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,11 +19,20 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// modelTestDBSeq 给每次调用发互不重名的内存库。匿名 file::memory:?cache=shared
+// 全进程共用一个实例：-count=3 下上一遍连接关尽即销毁，但同包其他用例的池仍开着
+// 时会命中上一遍残留数据（admins.username 唯一约束冲突）。
+var modelTestDBSeq atomic.Int64
+
+func modelTestDBName() string {
+	return fmt.Sprintf("file:model_%d?mode=memory&cache=shared", modelTestDBSeq.Add(1))
+}
+
 // setupTestDB creates an in-memory SQLite database for testing
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -2595,7 +2605,7 @@ func TestNowUTC(t *testing.T) {
 
 func setupAlertTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -3161,7 +3171,7 @@ func TestEncodeData(t *testing.T) {
 
 func setupNodeTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -3359,7 +3369,7 @@ func TestNodeModel_UpsertCommand(t *testing.T) {
 
 func setupTicketTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -3569,7 +3579,7 @@ func TestTicketModel_ListComments(t *testing.T) {
 
 func setupFeedbackTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -3753,7 +3763,7 @@ func TestFeedbackModel_Stats(t *testing.T) {
 
 func setupFAQTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -3962,7 +3972,7 @@ func TestFAQModel_ListCategories(t *testing.T) {
 
 func setupProfileTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -4077,7 +4087,7 @@ func TestProfileModel_ListGames(t *testing.T) {
 
 func setupRateLimitTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -4258,7 +4268,7 @@ func TestRateLimitModel_List(t *testing.T) {
 
 func setupBackupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -4445,7 +4455,7 @@ func TestBackupModel_List(t *testing.T) {
 
 func setupCertificateTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -4742,7 +4752,7 @@ func TestCertificateModel_List(t *testing.T) {
 
 func setupConfigVersionTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -4963,7 +4973,7 @@ func TestConfigVersionModel_FindLatest(t *testing.T) {
 
 func setupTermDictionaryTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -5115,7 +5125,7 @@ func TestTermDictionaryModel_DeleteByAlias(t *testing.T) {
 
 func setupAgentSessionTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -6225,7 +6235,7 @@ func TestMustJSON(t *testing.T) {
 
 // TestDeploymentModelCRUD 覆盖 OPS-004 部署包/发版单模型 CRUD 与表名。
 func TestDeploymentModelCRUD(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
@@ -6250,7 +6260,7 @@ func TestDeploymentModelCRUD(t *testing.T) {
 
 // CompareAndSwapState：draft→deploying 原子 CAS。并发/二次调用第二次必须失败。
 func TestDeploymentModelCompareAndSwapState(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)

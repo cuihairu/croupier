@@ -22,8 +22,26 @@ func factoryFor(kind string) Factory {
 	return func(Config) (Driver, error) { return &stubDriver{kind: kind}, nil }
 }
 
+// registerTest 登记前先清掉同名条目。注册表是包级全局、跨 -count 迭代存活，
+// 直接 Register 在 -count=3 的第二遍就会撞「driver registered twice」panic。
+func registerTest(t *testing.T, kind string, f Factory) {
+	t.Helper()
+	registerContextTest(t, kind, func(_ context.Context, cfg Config) (Driver, error) {
+		return f(cfg)
+	})
+}
+
+// registerContextTest 直接写注册表：先清掉同名条目再写入。
+func registerContextTest(t *testing.T, kind string, f ContextFactory) {
+	t.Helper()
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	delete(registry, kind)
+	registry[kind] = f
+}
+
 func TestRegisterAndNew(t *testing.T) {
-	Register("openapi-test", factoryFor("openapi-test"))
+	registerTest(t, "openapi-test", factoryFor("openapi-test"))
 	d, err := New("openapi-test", Config{Endpoint: "https://x.example"})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -43,7 +61,7 @@ func TestNewUnknownKind(t *testing.T) {
 }
 
 func TestNewWithContextCreatesRegisteredDriver(t *testing.T) {
-	Register("context-openapi-test", func(Config) (Driver, error) {
+	registerTest(t, "context-openapi-test", func(Config) (Driver, error) {
 		return &stubDriver{kind: "context-openapi-test"}, nil
 	})
 	driver, err := NewWithContext(context.Background(), "context-openapi-test", Config{})
@@ -56,7 +74,7 @@ func TestNewWithContextCreatesRegisteredDriver(t *testing.T) {
 }
 
 func TestRegisterDuplicatePanics(t *testing.T) {
-	Register("dup-kind", factoryFor("dup-kind"))
+	registerTest(t, "dup-kind", factoryFor("dup-kind"))
 	defer func() {
 		r := recover()
 		if r == nil || !strings.Contains(fmt.Sprint(r), "registered twice") {
@@ -84,8 +102,8 @@ func TestRegisterInvalidArgsPanic(t *testing.T) {
 }
 
 func TestKindsSortedStable(t *testing.T) {
-	Register("zzz-kind", factoryFor("zzz-kind"))
-	Register("aaa-kind", factoryFor("aaa-kind"))
+	registerTest(t, "zzz-kind", factoryFor("zzz-kind"))
+	registerTest(t, "aaa-kind", factoryFor("aaa-kind"))
 	ks := Kinds()
 	for i := 1; i < len(ks); i++ {
 		if ks[i-1] > ks[i] {
@@ -121,7 +139,7 @@ func TestRegisterConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			Register(fmt.Sprintf("race-kind-%d", i), factoryFor("race"))
+			registerTest(t, fmt.Sprintf("race-kind-%d", i), factoryFor("race"))
 		}(i)
 	}
 	wg.Wait()

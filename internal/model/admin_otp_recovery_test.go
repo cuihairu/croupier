@@ -148,7 +148,7 @@ func TestOTPRecoveryReplaceErrorBranches(t *testing.T) {
 
 	t.Run("delete error in transaction", func(t *testing.T) {
 		// Use a DB with a trigger to block DELETE
-		db, err := gorm.Open(sqlite.Open("file:otp_err_delete?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 		require.NoError(t, err)
 		require.NoError(t, db.AutoMigrate(&AdminOTPRecoveryCode{}))
 		// Pre-insert a row so DELETE has something to act on
@@ -163,7 +163,7 @@ func TestOTPRecoveryReplaceErrorBranches(t *testing.T) {
 
 	t.Run("create error in transaction", func(t *testing.T) {
 		// Use a DB with a trigger to block INSERT
-		db, err := gorm.Open(sqlite.Open("file:otp_err_create?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 		require.NoError(t, err)
 		require.NoError(t, db.AutoMigrate(&AdminOTPRecoveryCode{}))
 		// Trigger blocks INSERT after Delete succeeds
@@ -183,7 +183,7 @@ func TestOTPRecoveryReplaceErrorBranches(t *testing.T) {
 func TestOTPRecoveryConsumeErrorBranch(t *testing.T) {
 	ctx := context.Background()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 	sqlDB, _ := db.DB()
 	require.NoError(t, sqlDB.Close())

@@ -14,7 +14,7 @@ import (
 )
 
 func TestCostBudgetModelCRUD(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	db, err := gorm.Open(sqlite.Open(modelTestDBName()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&CostBudget{}))
 	m := NewCostBudgetModel(db)
