@@ -22,18 +22,24 @@ func TestMain(m *testing.M) {
 
 func TestInitGlobalSecret(t *testing.T) {
 	t.Run("initializes global secret", func(t *testing.T) {
-		// Each test needs to be run in isolation
-		// We can't reset sync.Once, so we test the behavior once
+		// 重开首初始化窗口：-shuffle=on 下其他用例可能已把全局密钥初始化成
+		// 任意值（如 TestGetGlobalSecret 的 "my-secret"），InitGlobalSecret
+		// 会静默 no-op，断言拿到别人的值（CI 实证 2026-11-12 seed
+		// 1794452643160985036：expected test-secret, got my-secret）。
+		restore := ResetGlobalSecretForTesting("")
+		defer restore()
 		InitGlobalSecret("test-secret")
 		assert.Equal(t, "test-secret", GetGlobalSecret())
 	})
 
 	t.Run("only initializes once due to sync.Once", func(t *testing.T) {
-		// After first call, subsequent calls are ignored
-		// The secret should still be "test-secret" from above
+		// 同上重开窗口后先建立已初始化状态，再验证第二次调用被忽略：
+		// 首初始化胜出，后续密钥不被改写。
+		restore := ResetGlobalSecretForTesting("")
+		defer restore()
+		InitGlobalSecret("test-secret")
 		InitGlobalSecret("another-secret")
-		// Should still be the first value set in this test run
-		assert.NotEmpty(t, GetGlobalSecret())
+		assert.Equal(t, "test-secret", GetGlobalSecret())
 	})
 }
 
