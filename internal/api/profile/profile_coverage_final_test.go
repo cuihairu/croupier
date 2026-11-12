@@ -28,7 +28,11 @@ func TestGetProfile_LastLoginAtEmptyWithoutAuditRecords(t *testing.T) {
 	createTestAdminWithRole(t, db, "nologin-user", "pw123456", "admin")
 	// 空结果集时 MAX(timestamp) 为 NULL，Scan 报错走 err 分支；这里补一条
 	// timestamp 为空串的原始行，让 MAX 返回 '' 且扫描成功，覆盖 last==""
-	// 分支（sqlite 动态类型允许 datetime 列存 ''）。
+	// 分支（sqlite 动态类型允许 datetime 列存 ''）。audit_records 是全包共享
+	// 库且不被 setupTestDB 清表，其他用例的 seedAuditLogin 会留下
+	// chain_sequence=1 的行；-shuffle=on 下本用例可能后跑，必须先清表否则
+	// UNIQUE(chain_sequence) 冲突（CI 实证 2026-11-12）。
+	db.Exec("DELETE FROM audit_records")
 	require.NoError(t, db.Exec(`INSERT INTO audit_records
 		(event_type, category, severity, outcome, actor_id, chain_hash, chain_sequence, created_at, timestamp)
 		VALUES ('auth.login', 'auth', 'info', 'success', 'nologin-user', 'hash-x', 1, CURRENT_TIMESTAMP, '')`).Error)
