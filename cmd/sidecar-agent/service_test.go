@@ -117,6 +117,16 @@ func TestAgentServiceStart_ContextCancel(t *testing.T) {
 	require.NoError(t, svc.Start(fake))
 	svc.cancel()
 	waitStopped(t, fake.stopped)
+	// ctx.Done 分支的 svc.Stop() 是 fakeService 即时报（不等 done）；Start.func1
+	// 成功路径在 close(done) 之前还写「服务已启动」到 stdout。若用例在
+	// waitStopped 后即返回，Start.func1 残段会在下一用例换装 os.Stdout 时
+	// 继续写 stdout（-race 实证 2026-11-12，shuffle 下 TestPrintVersionInfo
+	// 的 captureAgentStdout 与残段读 os.Stdout 竞争）。等 done 收口。
+	select {
+	case <-svc.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for Start.func1 to finish")
+	}
 }
 
 // writeAgentConfigForStart 播种一份能真正起监听的 agent 配置（空上游地址）。
