@@ -89,8 +89,12 @@ func TestHandler_GetPolicy(t *testing.T) {
 		checkBody      func(t *testing.T, body []byte)
 	}{
 		{
-			name:           "获取默认medium风险策略",
-			functionID:     "test.function",
+			name: "获取默认medium风险策略",
+			// 专用 function_id：共享 cache=shared 库不清表，TestHandler_SetPolicy
+			// 会给 test.function 写 requireApproval=true 的 manual override；
+			// -shuffle=on 下 SetPolicy 先跑时默认策略断言会被覆盖行污染
+			// （CI 实证 2026-11-12：requireApproval expected false got true）。
+			functionID:     "test.getpolicy.medium",
 			riskLevel:      "medium",
 			setupOverride:  false,
 			expectedStatus: http.StatusOK,
