@@ -32,6 +32,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -40,6 +41,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -57,6 +59,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+// r26TestDBSeq 给每次调用发互不重名的内存库名。命名 file:<x>?mode=memory&
+// cache=shared 的库只要还有连接开着就继续存活：-count=3 下上一遍未关尽的
+// 连接池会让下一遍命中上一遍残留数据（审计表非空 → 期望 404 却返回 200）。
+var r26TestDBSeq atomic.Uint64
+
+func r26TestDBName(prefix string) string {
+	return fmt.Sprintf("file:%s_%d?mode=memory&cache=shared", prefix, r26TestDBSeq.Add(1))
+}
 
 func TestFixtureAddrWithPort_Matrix(t *testing.T) {
 	// 空串 → 环回随机端口
@@ -243,7 +254,7 @@ func TestFixture_LifecycleCheapWings(t *testing.T) {
 // ensureUIScope 的底层错误透传翼（335-336）：手工装配 svcCtx（games 表
 // 缺失）→ FindByGameIDString 报错 → Create 兜底也报错 → 包装上抛。
 func TestEnsureUIScope_QueryErrorWing(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:r26scope?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(r26TestDBName("r26scope")), &gorm.Config{})
 	require.NoError(t, err)
 	f := &DashboardFixture{
 		GameID: "r26-g",
@@ -264,7 +275,7 @@ func TestFixtureAPI_Endpoints(t *testing.T) {
 	require.NoError(t, err)
 	base := "http://127.0.0.1:" + strconv.Itoa(port)
 
-	db, err := gorm.Open(sqlite.Open("file:r26fixture?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(r26TestDBName("r26fixture")), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&audit.AuditModel{}))
 
@@ -502,7 +513,7 @@ func TestStartSDK_SearchAndBuildWings(t *testing.T) {
 func TestEnsureUIScope_EscalationWings(t *testing.T) {
 	ctx := context.Background()
 	newDB := func(name string) *gorm.DB {
-		db, err := gorm.Open(sqlite.Open("file:"+name+"?mode=memory&cache=shared"), &gorm.Config{})
+		db, err := gorm.Open(sqlite.Open(r26TestDBName(name)), &gorm.Config{})
 		require.NoError(t, err)
 		return db
 	}
@@ -553,7 +564,7 @@ func TestEnsureUIScope_EscalationWings(t *testing.T) {
 // ready 走完函数核对后在 DB 为 nil 处判未就绪；空 store 的 ready 直接
 // 走 agent 缺席翼。
 func TestFixtureAPI_HealthAndReady_WithAgent(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:r26agent?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(r26TestDBName("r26agent")), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, registry.MigrateAgentSessions(db))
 	store := registry.NewStoreWithDB(db)
@@ -597,7 +608,7 @@ func TestFixtureAPI_HealthAndReady_WithAgent(t *testing.T) {
 
 	assert.False(t, f.ready(), "函数齐备但 DB 为 nil → 仍未就绪")
 
-	emptyDB, err := gorm.Open(sqlite.Open("file:r26empty?mode=memory&cache=shared"), &gorm.Config{})
+	emptyDB, err := gorm.Open(sqlite.Open(r26TestDBName("r26empty")), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, registry.MigrateAgentSessions(emptyDB))
 	empty := &DashboardFixture{
@@ -609,7 +620,7 @@ func TestFixtureAPI_HealthAndReady_WithAgent(t *testing.T) {
 	assert.False(t, empty.ready(), "无 agent 会话 → 未就绪")
 
 	// 函数缺失翼（668）：agent 会话在但少一个 sdkFn → 核对 break 判未就绪
-	partialDB, err := gorm.Open(sqlite.Open("file:r26partial?mode=memory&cache=shared"), &gorm.Config{})
+	partialDB, err := gorm.Open(sqlite.Open(r26TestDBName("r26partial")), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, registry.MigrateAgentSessions(partialDB))
 	partialMap := map[string]registry.FunctionMeta{}
@@ -635,7 +646,7 @@ func TestFixtureAPI_HealthAndReady_WithAgent(t *testing.T) {
 
 	// 契约计数翼（668）：agent 函数齐备 + DB 非 nil 但 function_contracts
 	// 缺表 → 契约核对报错判未就绪（须在函数核对通过之后才触达）
-	missingDB, err := gorm.Open(sqlite.Open("file:r26nocontract?mode=memory&cache=shared"), &gorm.Config{})
+	missingDB, err := gorm.Open(sqlite.Open(r26TestDBName("r26nocontract")), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, registry.MigrateAgentSessions(missingDB))
 	fullStore := registry.NewStoreWithDB(missingDB)
@@ -659,7 +670,7 @@ func TestFixtureAPI_HealthAndReady_WithAgent(t *testing.T) {
 // fixture API 的 audit 查询失败翼（880-881）：DB 非 nil 但 audit_records
 // 缺表 → 500 audit_query_failed。
 func TestFixtureAPI_AuditQueryFailedWing(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:r26noaudit?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(r26TestDBName("r26noaudit")), &gorm.Config{})
 	require.NoError(t, err)
 
 	port, err := fixtureFreePort()
@@ -724,7 +735,7 @@ func TestClose_PopulatedRuntimeWings(t *testing.T) {
 func TestCleanupScope_EscalationWings(t *testing.T) {
 	ctx := context.Background()
 	newDB := func(name string) *gorm.DB {
-		db, err := gorm.Open(sqlite.Open("file:"+name+"?mode=memory&cache=shared"), &gorm.Config{})
+		db, err := gorm.Open(sqlite.Open(r26TestDBName(name)), &gorm.Config{})
 		require.NoError(t, err)
 		return db
 	}

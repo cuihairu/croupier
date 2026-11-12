@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -218,6 +219,9 @@ func TestRemoteSyncLoopLogsCheckErrors(t *testing.T) {
 
 // --- GoPluginHandler: successful plugin load and existing-slot branch ---
 
+// hotreloadTestPluginSeq 给每次构建的插件发互不重名的 module 路径。
+var hotreloadTestPluginSeq uint64
+
 // buildTestPlugin compiles a minimal, dependency-free Go plugin with
 // -buildmode=plugin using the same toolchain as the test binary.
 func buildTestPlugin(t *testing.T) string {
@@ -228,8 +232,12 @@ func buildTestPlugin(t *testing.T) string {
 	dir := t.TempDir()
 	plugdir := filepath.Join(dir, "src")
 	require.NoError(t, os.MkdirAll(plugdir, 0o755))
+	// 模块路径必须互不重名：Go 按 module 路径给已加载的 plugin 模块打标记，
+	// 同一测试进程内复用固定 module 名会让 -count=3 的第二遍起 plugin.Open
+	// 报「plugin already loaded」（与 .so 文件路径无关，实测路径不同仍冲突）。
 	require.NoError(t, os.WriteFile(filepath.Join(plugdir, "go.mod"),
-		[]byte("module example.com/hotreloadtestplugin\n\ngo 1.26\n"), 0o644))
+		fmt.Appendf(nil, "module example.com/hotreloadtestplugin_%d\n\ngo 1.26\n",
+			atomic.AddUint64(&hotreloadTestPluginSeq, 1)), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(plugdir, "main.go"),
 		[]byte("package main\n"), 0o644))
 
