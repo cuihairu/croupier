@@ -183,15 +183,39 @@ func (o *Orchestrator) Submit(ctx context.Context, resolver MachineResolver, in 
 
 // ResumeAsync proceeds after approval: re-checks approved state (fail-closed,
 // provision resume precedent), marks executing and runs the request on a
-// disconnect-proof background context. It returns the executing snapshot.
+// disconnect-proof background context. It returns the executing snapshot —
+// never the live record, which executeRequest keeps mutating in its own
+// goroutine (State/UpdatedAt per phase). Handing the caller that pointer is a
+// data race: the HTTP handler marshals the response off the same field the
+// background goroutine writes (-race 实证：PowerResume 响应序列化撞
+// executeRequest 的 verifying 落库写，2026-11-12 nightly deep-test 捕获)。
 func (o *Orchestrator) ResumeAsync(ctx context.Context, requestID string) (*model.PowerRequest, error) {
 	req, err := o.BeginResume(ctx, requestID)
 	if err != nil {
 		return nil, err
 	}
+	snapshot := copyPowerRequest(req)
 	bg := context.WithoutCancel(ctx)
 	go o.executeRequest(bg, req)
-	return req, nil
+	return snapshot, nil
+}
+
+// copyPowerRequest 返回可安全跨 goroutine 共享的副本。结构体浅拷后补拷
+// 三个时间指针（指针目标本身不可变，但字段赋值是竞态面，副本须自带字段）。
+func copyPowerRequest(src *model.PowerRequest) *model.PowerRequest {
+	if src == nil {
+		return nil
+	}
+	dst := *src
+	if src.StartedAt != nil {
+		v := *src.StartedAt
+		dst.StartedAt = &v
+	}
+	if src.DoneAt != nil {
+		v := *src.DoneAt
+		dst.DoneAt = &v
+	}
+	return &dst
 }
 
 // BeginResume is the synchronous half of resume: state checks + pending →
