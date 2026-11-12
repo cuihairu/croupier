@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,19 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// The e2e suite signs in with the factory default bootstrap credentials
+	// (web/e2e globalSetup + every spec). The fixture must exempt them from
+	// first-install password rotation (auth.allowDefaultCredentials), or every
+	// login 401s and the whole real-dashboard project fails.
+	resp, err = http.Post(fmt.Sprintf("http://%s/api/v1/auth/login", fixture.HTTPAddr),
+		"application/json", strings.NewReader(`{"username":"admin","password":"admin123"}`))
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode,
+		"fixture must keep factory default credentials valid for e2e login")
 
 	// The /players provider serves the deterministic seed records.
 	resp, err = http.Get(fmt.Sprintf("http://%s/players", fixture.ProviderAddr))

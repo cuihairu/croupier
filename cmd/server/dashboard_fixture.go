@@ -311,6 +311,11 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 	cfg.Database.DataSource = filepath.Join(f.BaseDir, "croupier-server.db")
 	cfg.Control.Addr = f.ControlAddr
 	cfg.Auth.JWTSecret = "real-dashboard-fixture-secret"
+	// demo/e2e 豁免（与 configs/server-test.yaml、release-quality-gate.sh 同一
+	// 约定）：real-dashboard 套件以出厂默认口令 admin/admin123 登录（web/e2e
+	// 各 spec 与 globalSetup）。不豁免会被 CR-FIX-27 的新装口令轮换换成随机
+	// 口令，登录全部 401（CI 实证：real-dashboard-e2e 26 连败，2026-11-10 起）。
+	cfg.Auth.AllowDefaultCredentials = true
 	cfg.BootstrapData.BaseDir = bootstrapDir
 	cfg.Storage.Driver = "file"
 	cfg.Storage.BaseDir = filepath.Join(f.BaseDir, "uploads")
