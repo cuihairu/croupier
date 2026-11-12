@@ -341,6 +341,13 @@ func ensureSQLiteDir(dsn string) error {
 }
 
 func ensureSQLiteFileExists(dsn string) error {
+	// 空 DSN 表示「未配置」，不是「配置了 data/croupier.db 但不存在」。
+	// sqliteFilePath 会对空串回退到约定默认路径，若在此直接 Stat 该默认路径，
+	// 未配置数据源就会被误报成「数据库不存在」——而 openReadOnlyGorm 在调用前
+	// 已完成默认值代入，这里只需与 ensureSQLiteDir 一样把空串视为无操作。
+	if dsn == "" {
+		return nil
+	}
 	path := sqliteFilePath(dsn)
 	if path == "" || path == ":memory:" {
 		return nil
