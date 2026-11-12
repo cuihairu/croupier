@@ -215,7 +215,7 @@
 - [x] **GAME-DEMO-001 · P1 · 实现 · 复杂游戏模拟 demo（gameops-rpg，巡检单 2026-10-20）**
   - 依赖：无（刻意不依赖 GAME-002~010 真实接入方）。交付与验收：`sdks/go/examples/gameops-rpg/` 模拟 RPG 世界（玩家等级/金币/钻石/背包、任务每日刷新、邮件附件领取=补偿流核心、订单幂等发货、封禁联动），SDK→Agent 注册 17 函数（`player.*` `mail.*` `task.*` `order.*` `economy.*` `report.generate`），tick 驱动玩法循环 + JSON 快照持久化；demo 编译、单测覆盖发货幂等/封禁拒领/余额 fail-closed/邮件过期、平台注册可见、经平台全链路（mail.send 附件→落库→领取→入背包→report.generate 审批通过执行）与异常链路（重复发货拒绝、封禁拒领）
   - 状态／条件：LOCAL VERIFIED（2026-11-11，本机隔离栈 28080/29090/29091 + sqlite，避让 quickstart python demo 的 default/dev 契约槽）。编译/`go vet` 通过；单测 28 用例全绿（world 13 + store 3 + contracts 4 + executors 8）；平台注册 17 契约落库（health + functions API + sqlite function_contracts 复核）；补偿链：mail.send（附件 potion×5+gem×1）→ mail-9004 落库 → mail.claim → 背包 potion+5/gem+2；审批链：report.generate（risk=high）invoke 返回 approvalRequired → 第二账号 TOTP 批准 → `state:approved, continuation:true` → 执行 `report-rpg-1, runSeq:1, success:true`；异常链：重复 order.ship 续跑返回 `already_shipped` 且钻石只入账一次（+6）；封禁玩家 10007 mail.claim 返回 `player_banned` 且背包不变；快照重启恢复复验（shipped 状态持久）。已知边界：内存态模拟，不能替代 GAME-002~010 的真实接入方验收；审批需第二账号（self_approval_forbidden 两人规则），demo 侧管理员已在隔离栈注册 TOTP（仅本地测试凭据）
-  - 完成证据：commit c7018a8c（实体 store）/ b5c98c5f（tick 循环与经济规则）/ 78111562（17 函数契约与执行器+README）/ 82d0ec98（28 用例测试）/ 03cb67de（player.get 入参键统一 playerId）；`go test ./examples/gameops-rpg/...` → `ok ... 28 PASS`；e2e 过程记录见本会话（隔离栈配置 /tmp/gameops-rpg-e2e/，验证后进程已清理）
+  - 完成证据：commit c7018a8c（实体 store）/ b5c98c5f（tick 循环与经济规则）/ 78111562（17 函数契约与执行器+README）/ 82d0ec98（28 用例测试）/ 03cb67de（player.get 入参键统一 playerId）；go test ./examples/gameops-rpg/... → ok ... 28 PASS；e2e 过程记录见本会话（隔离栈配置 /tmp/gameops-rpg-e2e/，验证后进程已清理）
 
 ## Agent 与隔离
 
@@ -298,12 +298,12 @@
   - 依赖：—（复用既有 approval 链与 agent-ops TCP 通道）。
   - 状态／条件：DONE + LOCAL VERIFIED（2026-11-11；go build OK、相关包 go test 全绿、go vet 过、guard PASSED）。能力矩阵与审批策略矩阵落 `docs/design/ops-power-management.md`（+docs/zh 镜像）：物理机 IPMI/BMC（ipmitool chassis power）、WOL 唤醒（仅 power_on、不可验证）、云实例命令模板层（`{instanceRef}` 占位）、agent 所在机带内 graceful reboot/power_off（force_off 拒绝——带内关机前无带外手段拉起）；风险分级 power_on/status=low（x-risk safe）、power_off/reboot=medium（warning）、force_off=high（high，批准走 OTP step-up）。请求状态机 pending→executing→verifying→done/partial/failed，pending→rejected；批准范围快照（targetsJSON）提交即冻结；批量=单审批多目标、失败逐机回填（partial 聚合）；审批拒绝（两宽规则）由审批服务把关、请求侧 GET 惰性同步 rejected。
   - 交付与验收：internal/powerops 新包（Provider 接口 + ipmi/wol/cloud/agent 四实现）；POST /ops/power（提交→审批单→批准后 resume 执行→逐机状态回填）、GET /ops/power/:id（请求+逐机 targets）、GET /ops/power（列表）、POST /ops/power/:id/{resume,reject}、PUT /ops/nodes/:nodeId/power-config（机器清单挂现有 nodes.meta.power 子对象，无新库存表）；powerops.enabled 缺省 false 不装配（端点如实 503 powerops_not_configured）。
-  - 完成证据：5 个提交——`2b5e9c59`（docs: add ops power management design）、`79df4dda`（feat: add powerops provider package）、`78d0e215`（feat: add power request models and migration，goose 0064 幂等建表 power_requests/power_request_targets，migrate.go 64 对齐 + 合成迁移清单同步）、`1a918bfa`（feat: add powerops request orchestrator）、`87c57a63`（feat: add ops power api and wiring，含 ops.power.* x-risk 声明注入 registry 即 resolvePolicyRisk 认可缝隙）。测试：`go test ./internal/powerops/ -count=1` 18 用例全绿（假 ipmitool 脚本测命令拼装与 -H/-p/-U/-P/-I lanplus 断言、WOL 102 字节魔术包回环收包、云模板序列、agent 带内 refuse、审批拒绝零 provider 调用、部分失败聚合 partial、状态确认轮询 off→on、超时保持 unverified 诚实 failed、WOL 永不 verified、校验失败零落库、审批门失败 pending 无链、fail-closed 查询错误拒绝执行）；`go test ./internal/api/ops/ -run TestPower -count=1` 9 子用例全绿（未配置 503 六端点、提交 202 pending+审批记录 mode=powerops、校验 422 不落库、未批准 resume 409 power_state_conflict、批准后全链 done+verified、拒绝零 provider 调用、GET 惰性同步 rejected 落库、power-config 登记后可提交+404/422 契约、列表）；`go test ./internal/api/ops/ ./internal/audit/ ./internal/handler/ ./internal/svc/ ./internal/db/migrate/ ./internal/config/ ./internal/model/ -count=1` 全绿；`go build ./...` OK；`go vet ./internal/...` 干净；`bash scripts/dashboard_vnext_guard.sh` PASSED。边界诚实：真实 BMC/WOL/云 API 不在本机验证（无硬件）——mock 全覆盖，真机验证待环境；agent 带内 force_off 拒绝、WOL 仅唤醒不可验证为设计边界（设计 §3/§9）。
+  - 完成证据：5 个提交——2b5e9c59（docs: add ops power management design）、79df4dda（feat: add powerops provider package）、78d0e215（feat: add power request models and migration，goose 0064 幂等建表 power_requests/power_request_targets，migrate.go 64 对齐 + 合成迁移清单同步）、1a918bfa（feat: add powerops request orchestrator）、87c57a63（feat: add ops power api and wiring，含 ops.power.* x-risk 声明注入 registry 即 resolvePolicyRisk 认可缝隙）。测试：go test ./internal/powerops/ -count=1 18 用例全绿（假 ipmitool 脚本测命令拼装与 -H/-p/-U/-P/-I lanplus 断言、WOL 102 字节魔术包回环收包、云模板序列、agent 带内 refuse、审批拒绝零 provider 调用、部分失败聚合 partial、状态确认轮询 off→on、超时保持 unverified 诚实 failed、WOL 永不 verified、校验失败零落库、审批门失败 pending 无链、fail-closed 查询错误拒绝执行）；go test ./internal/api/ops/ -run TestPower -count=1 9 子用例全绿（未配置 503 六端点、提交 202 pending+审批记录 mode=powerops、校验 422 不落库、未批准 resume 409 power_state_conflict、批准后全链 done+verified、拒绝零 provider 调用、GET 惰性同步 rejected 落库、power-config 登记后可提交+404/422 契约、列表）；go test ./internal/api/ops/ ./internal/audit/ ./internal/handler/ ./internal/svc/ ./internal/db/migrate/ ./internal/config/ ./internal/model/ -count=1 全绿；go build ./... OK；go vet ./internal/... 干净；bash scripts/dashboard_vnext_guard.sh PASSED。边界诚实：真实 BMC/WOL/云 API 不在本机验证（无硬件）——mock 全覆盖，真机验证待环境；agent 带内 force_off 拒绝、WOL 仅唤醒不可验证为设计边界（设计 §3/§9）。
 - [x] **MOB-ANA-001 · P2 · 实现 · 移动端数据分析闭环（巡检单 2026-10-20）**
   - 依赖：—（复用既有 analytics 分域接口与 approvals OTP 链）。
   - 状态／条件：DONE + LOCAL VERIFIED（2026-11-11；flutter analyze 0 错、mobile 全量 flutter test 全绿、go build OK、analytics 包 go test 全绿）。分析需求盘点落 `docs/design/game-analytics-requirements.md`（+docs/zh 镜像）：十域逐域 ✅/⚠️/❌ 结论（宏观大盘/玩家行为/游戏进度/实时监控=✅ 已有接口；经济系统/社交/稳定性/反作弊/运营活动=❌ 数据源待建；商业化⚠️ 缺 LTV/首充，P1），验证先行（先核 internal/api/analytics 现有实现再下判，未凭空假设缺口）。
   - 交付与验收：服务端新增 analytics 聚合门面（internal/api/analytics/facade.go，加法不改造分域 handler）——GET /analytics/facade/summary 一次拉 8 已建域摘要卡（逐域 goroutine 错误隔离，单域失败标 unavailable 其余照常；未建 5 域如实标 pending_data_source 不伪造数字；装配缺欠显式 unavailable 不静默丢卡）+ POST /analytics/facade/query 统一分域查询路由（未知域 422、待建域 422 domain_pending）；移动端 mobile/lib/features/analytics/ 四文件（service fail-fast 解析 / controller riverpod scope 联动 / dashboard 13 卡三态齐全 ok 渲染指标·unavailable 描错·pending「数据源待建」/ 分域详情页：已建域 query 拉数通用渲染、待建域占位不发请求）+ 监控页新增「数据分析」入口；approvals 移动端 OTP step-up 闭环为既有交付（高危审批 otp_required→弹码→otp_invalid 重试→otp_not_enrolled 提示，approval_detail_page_test.dart 全链用例），本单核验通过未重复实现。
-  - 完成证据：3 个提交——`1b866d0b`（docs: add game analytics requirements，中英双树）、`5584a661`（feat: add analytics facade query entry，facade.go 498 行 + facade_test.go 13 卡聚合/逐域故障隔离/nil 域显式 unavailable/分域路由透传/handler 7 断言全绿）、`f7d5a980`（feat: add mobile analytics dashboard，service+controller+dashboard+detail 四文件 + 监控页入口 + 10 用例：summary 坏形态 StateError/scope 头注入/query body 契约/缺 data 键 fail-fast/三类卡片渲染/空态/错误重试恢复/ok 卡进详情拉数/待建卡占位零请求）。测试：`flutter analyze` 0 issues；`flutter test` 全量 235 用例全绿（含 approvals OTP 闭环既有用例 = 验收项「approvals OTP 闭环（模拟 OTP 测试）」证据）；`go test ./internal/api/analytics/ -count=1` 全绿；`go build ./...` OK。边界诚实：❌ 域仅占位声明（数据源待建，等数仓/ETL 接入后在 facade 加一行注册即亮卡）；分域详情为通用键值/列表渲染，非逐域定制图表；WAU/会话时长/LTV 等缺口指标登记在设计文档 §3 未实现。
+  - 完成证据：3 个提交——1b866d0b（docs: add game analytics requirements，中英双树）、5584a661（feat: add analytics facade query entry，facade.go 498 行 + facade_test.go 13 卡聚合/逐域故障隔离/nil 域显式 unavailable/分域路由透传/handler 7 断言全绿）、f7d5a980（feat: add mobile analytics dashboard，service+controller+dashboard+detail 四文件 + 监控页入口 + 10 用例：summary 坏形态 StateError/scope 头注入/query body 契约/缺 data 键 fail-fast/三类卡片渲染/空态/错误重试恢复/ok 卡进详情拉数/待建卡占位零请求）。测试：flutter analyze 0 issues；flutter test 全量 235 用例全绿（含 approvals OTP 闭环既有用例 = 验收项「approvals OTP 闭环（模拟 OTP 测试）」证据）；go test ./internal/api/analytics/ -count=1 全绿；go build ./... OK。边界诚实：❌ 域仅占位声明（数据源待建，等数仓/ETL 接入后在 facade 加一行注册即亮卡）；分域详情为通用键值/列表渲染，非逐域定制图表；WAU/会话时长/LTV 等缺口指标登记在设计文档 §3 未实现。
 - [x] **OBS-AGENT-001 · P2 · 实现 · 四类 Agent 接入 OTel 打点（配置开关默认关）**
   - 依赖：—。
   - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-05）**：四类 Agent（capture/devops/sidecar/synthetics）全部接入 `core/otelrec.Recorder` 缝 + `internal/telemetry/agentrec` 真实 OTel SDK 适配（otel v1.46 已复用，构建标签 `!no_otel`/`no_otel`）；config 复用既有 `telemetry.enabled`（默认 false）+ `enable_metrics` + `collectorUrl` + `useTls` + `serviceName` 键；开启后上报可被服务端面板看到（每 agent 经 Start/Stop/Connected/Disconnected/Count/Observe 覆盖启停、连接状态、事件/吞吐计数、错误率）；关闭时零开销路径（noop `Discard()`，各构造器默认装配）；测试用内存/内存 exporter 断言（每 agent 各带专用 otelrec 用例）。边界诚实：`no_otel` 构建为 fail-closed（recorder_trim.go 编译期剔除，不产生上报）；OTLP exporter 直连不在本仓内联验证（依赖外部 collector，登记为部署后人工验收项）。
@@ -1200,4 +1200,108 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 ## 已知缺陷（2026-11-10 发现，未修）
 
-- [x] **断连/停机收割 DB 落库失效**：`taskStore`（cmd/server/root.go:539）绑定 `svcCtx.DB`（meta 库），但 `task_runs` 表只在 game 库（internal/model/migration.go:202 GameModels）。`SetAgentDisconnectReaper`（root.go:610）的 `ReapAgentNonTerminal` 收割在 meta 库报 `no such table: task_runs`，失败静默（只记日志，root.go:609 注释），DB 层面 task 终值从未落库。前 3 个 drill 场景经 API 读 runtime 内存态掩盖了此问题（API 收敛正确，DB 未落库）。状态：已修（CROP-REAP-001，2026-11-10，LOCAL VERIFIED）。改动点：(1) internal/tasks/store.go 增 `TaskScope`/`ScopeResolver`/`SetScopeResolver`，`ReapAgentNonTerminal`/`ReapStale` 经 `reapAcrossScopes` 逐 game 库 fan-out、RowsAffected 合计、`errors.Join` 聚合失败库（不静默丢弃，健康库照常收割；nil resolver=单库原路径不变）；(2) internal/db/router/router.go 增 `OpenScopes()`——只列本进程已打开缓存库，休眠注册 game 不触发首开副作用；(3) cmd/server/root.go `svcCtx.Router != nil` 时注入 `routerTaskScopes` 适配器（复用 `Router.Resolve` 的 dbctx 注入，非新机制）。drill 真因补记：CI env `DATABASE_URL=:memory:` 在 svc/db.go `resolveDriverAndDSN` 无条件压过配置 dataSource，drill 的 runServer 跑在进程内存库上（配置文件库根本不创建），停机后 `drillReadStatusDB` 读文件库的落库断言永不成立——fault_drill_r27_test.go `drillBoot` 为 runServer 清 `DB_DRIVER`/`DATABASE_URL`（cleanup 还原，TempDir 仍 hermetic），CI Test 步骤设 `CROUPIER_DRILL_DB_FIXED: "1"` 常开断言。完成证据：commit eca487cf（fan-out + OpenScopes + wiring + 单测 5 例：双库收割/终态他人行不触/失败库聚合/nil 单库/router OpenScopes；变异验证 nil resolver 于无 task_runs meta fixture 复现 `no such table: task_runs`）、ee40c0f3（drill env 清场 + CI gate）。测试：`TestDrill_` 5/5 PASS（Sigterm 含 DB 落库断言）、cmd/server 全量 ok 467.99s、internal/tasks + internal/db/router + internal/db/dbctx 全绿、`go vet ./...` 0 错、actionlint 通过、scripts/check_layer_dependency.sh PASSED。
+> 已修复备注（收割 DB 落库失效）：`taskStore`（cmd/server/root.go:539）绑定 `svcCtx.DB`（meta 库），但 `task_runs` 表只在 game 库（internal/model/migration.go:202 GameModels）。`SetAgentDisconnectReaper`（root.go:610）的 `ReapAgentNonTerminal` 收割在 meta 库报 `no such table: task_runs`，失败静默（只记日志，root.go:609 注释），DB 层面 task 终值从未落库。前 3 个 drill 场景经 API 读 runtime 内存态掩盖了此问题（API 收敛正确，DB 未落库）。状态：已修（CROP-REAP-001，2026-11-10，LOCAL VERIFIED）。改动点：(1) internal/tasks/store.go 增 `TaskScope`/`ScopeResolver`/`SetScopeResolver`，`ReapAgentNonTerminal`/`ReapStale` 经 `reapAcrossScopes` 逐 game 库 fan-out、RowsAffected 合计、`errors.Join` 聚合失败库（不静默丢弃，健康库照常收割；nil resolver=单库原路径不变）；(2) internal/db/router/router.go 增 `OpenScopes()`——只列本进程已打开缓存库，休眠注册 game 不触发首开副作用；(3) cmd/server/root.go `svcCtx.Router != nil` 时注入 `routerTaskScopes` 适配器（复用 `Router.Resolve` 的 dbctx 注入，非新机制）。drill 真因补记：CI env `DATABASE_URL=:memory:` 在 svc/db.go `resolveDriverAndDSN` 无条件压过配置 dataSource，drill 的 runServer 跑在进程内存库上（配置文件库根本不创建），停机后 `drillReadStatusDB` 读文件库的落库断言永不成立——fault_drill_r27_test.go `drillBoot` 为 runServer 清 `DB_DRIVER`/`DATABASE_URL`（cleanup 还原，TempDir 仍 hermetic），CI Test 步骤设 `CROUPIER_DRILL_DB_FIXED: "1"` 常开断言。完成证据：commit eca487cf（fan-out + OpenScopes + wiring + 单测 5 例：双库收割/终态他人行不触/失败库聚合/nil 单库/router OpenScopes；变异验证 nil resolver 于无 task_runs meta fixture 复现 `no such table: task_runs`）、ee40c0f3（drill env 清场 + CI gate）。测试：`TestDrill_` 5/5 PASS（Sigterm 含 DB 落库断言）、cmd/server 全量 ok 467.99s、internal/tasks + internal/db/router + internal/db/dbctx 全绿、`go vet ./...` 0 错、actionlint 通过、scripts/check_layer_dependency.sh PASSED。
+
+## PowerOps 审核待办（2026-11-12）
+
+- [ ] **PWR-001 · P1 · 修复 · 审批后续行必须原子领取，避免重复执行**
+  - 依赖：—。交付与验收：把 pending→executing 改成数据库条件更新/CAS；仅一个并发 resume 能领取并启动 provider，其他请求收到稳定冲突；覆盖批准与 reject 竞争、并发 force_off/reboot 续行，断言副作用调用次数严格为 1。
+  - 状态／条件：静态审核已确认 `BeginResume` 存在 Get→状态检查→无条件 Save 的竞态（`internal/powerops/request.go:200-229`）；尚未实现、未运行复现测试。
+
+- [ ] **PWR-002 · P1 · 修复 · Provider 动作增加独立超时和有界执行上下文**
+  - 依赖：—。交付与验收：后台执行继续不受 HTTP 断连影响，但为每次电源动作及整体请求设置可配置上限；验证超时从实际动作结束后开始；用永不返回的 Provider/Runner 证明请求在上限内落为可观察失败，goroutine 不永久滞留。
+  - 状态／条件：静态审核已确认 `context.WithoutCancel` 去除调用方 deadline 后直接传入动作，验证 deadline 尚未覆盖 Provider 调用（`internal/powerops/request.go:187-194,274-285,325-348`）；尚未实现、未运行复现测试。
+
+- [ ] **PWR-003 · P1 · 修复 · 逐目标持久化执行进度并恢复崩溃中的请求**
+  - 依赖：PWR-001。交付与验收：每台机器动作前后独立落库；定义进程重启后 executing/verifying 请求的恢复与不确定结果处理，不对结果未知的破坏性操作盲目重放；注入批次中途崩溃，重启后保留已完成目标且请求可收敛，后续目标不会丢失。
+  - 状态／条件：静态审核已确认执行循环结束前才首次写入 targets，且当前续行只接受 pending（`internal/powerops/request.go:271-319,200-210`）；实现注释声称逐台持久化与实际行为不符；尚未实现、未运行故障恢复验证。
+
+- [ ] **PWR-004 · P1 · 修复 · 请求计数与验证终态采用同一成功定义**
+  - 依赖：—。交付与验收：明确并分别表达“动作已发出”和“目标状态已验证”的计数；终态聚合、请求头计数及逐目标字段一致；覆盖验证超时、部分验证成功、provider 不支持验证三种情形，禁止出现 `state=failed` 且 `failed=0`。
+  - 状态／条件：静态审核已确认终态按验证结果聚合，而 `finish` 按动作调用成功计数（`internal/powerops/request.go:373-409`）；现有 `TestVerifyTimeoutKeepsUnverifiedHonest` 未断言计数；尚未修复。
+
+- [ ] **PWR-005 · P1 · 修复 · 将 status 查询从审批和变更执行状态机分离**
+  - 依赖：—。交付与验收：status 请求按设计仅需身份与目标权限，不创建审批单、不进入 executing/verifying；直接返回一次状态查询及逐目标结果；测试确认查询延迟不随 `verifyTimeout` 增长，并覆盖 IPMI/cloud/agent 查询失败与未知状态。
+  - 状态／条件：静态审核已确认当前 Submit 对 status 也创建审批；执行后 `expectedState(status)==""`，验证循环会持续至默认超时（`internal/powerops/request.go:166-181,252-261,313-367`）；与设计 `docs/design/ops-power-management.md:62` 不符；尚未实现。
+
+- [ ] **PWR-006 · P2 · 修复 · WOL 结果区分数据包发送与机器上线确认**
+  - 依赖：PWR-004。交付与验收：WOL 发送成功只记为已派发，不直接让未验证目标呈现为完成；若配置关联 Agent，则等待 Agent 重连并记录验证结果，否则明确返回 pending/unverified 等诚实状态；测试分别覆盖 Agent 重连、未重连和未配置 Agent。
+  - 状态／条件：静态审核已确认 WOL provider 不参与验证，但当前聚合把不可验证 provider 的动作成功算为 done（`internal/powerops/request.go:264-269,373-390`；测试 `internal/powerops/request_test.go:387-413` 固化了该行为）；与设计中的“Agent 重连确认”表述不一致；尚未实现。
+
+## 全仓深度审核待办（2026-11-12，第一轮确认项）
+
+> 审核边界：本节记录本轮静态复核当前 HEAD 后确认的问题。仓库已有 `docs/review/2026-11-01-code-review.md`、`docs/review/external-deep-audit-2026-11-04.md` 等历史审计；历史结论需逐项按当前代码重验，不能视作本轮已覆盖。后续按 Go 服务/存储、Agent/协议与六语言 SDK、Web、移动端、部署/CI 分区继续审核，并把新证据增补在此处。
+
+### 审核覆盖进度
+
+- [ ] **AUD-COV-001 · 复核 · Go API/业务服务/权限与游戏、环境作用域边界**：按路由入口追踪身份、scope 中间件、数据查询/写入和错误响应；覆盖 internal/api、internal/handler、internal/platform、internal/policy。
+- [ ] **AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性**：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
+- [ ] **AUD-COV-003 · 复核 · Agent 与消息传输/协议**：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
+- [ ] **AUD-COV-004 · 复核 · 六语言 SDK 与插件**：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
+- [ ] **AUD-COV-005 · 复核 · Web Console 与 API 客户端**：沿页面→状态管理→请求→服务端授权检查作用域切换、陈旧数据、错误/加载状态、输入校验、XSS 和关键管理操作；覆盖 web/src。
+- [ ] **AUD-COV-006 · 复核 · Mobile 客户端**：检查登录/会话、作用域、token 存储、请求生命周期、旧数据清理、错误/离线表现与 Android/iOS 配置；覆盖 mobile/lib 和原生工程。
+- [ ] **AUD-COV-007 · 复核 · 构建/发布/部署/运维与文档契约**：检查 CI 触发路径、质量门禁、发布版本一致性、镜像/Compose 默认值、密钥暴露、备份恢复和用户文档与实现漂移；覆盖 .github、docker、configs、scripts、Makefile 与 docs。
+- [ ] **AUD-COV-008 · 汇总 · 回归历史审计并形成总报告**：把 11 月 1–10 日历史审计结论按当前 HEAD 逐条标成仍存在/已修/无法复核；合并重复项、给出严重级别和证据；未覆盖区域明确标注，不能用扫描器无告警替代人工复核。
+
+- [ ] **AUD-001 · P1 · 修复 · Provider 握手令牌启用时强制保护明文链路**
+  - 依赖：—。交付与验收：当 `providerAuth.require=true` 且本地 listener 绑定非 loopback 地址时，拒绝 `tls.enabled=false` 的配置，或提供明确且不可忽略的启动阻断；保持 loopback 开发配置可用；加入启动配置组合验证与部署文档说明。
+  - 状态／条件：静态审核确认 Provider `authToken` 由 SDK 放入握手 metadata，Agent 可启用 token 校验，但样例 listener 默认 `0.0.0.0:19091`、TLS 默认关闭，配置校验只检查 token 非空（`configs/agent.yaml:19,25-27,40-45`、`cmd/sidecar-agent/root.go:638-647`）。若生产照此配置，握手凭据可被同网段监听并重放；需要把认证与传输保密绑定，不能只依赖注释提醒。
+
+- [ ] **AUD-002 · P1 · 修复 · 传输层以结构化协议表达 RPC handler 错误**
+  - 依赖：—。交付与验收：统一 `internal/transport/tcp/server.go` 与 `core/transport/tcp/mux_conn.go` 的错误响应编码；JSON 错误文本必须使用标准编码器转义；非 Invoke RPC 必须返回客户端可识别的失败状态，不能以空 protobuf 伪装零值成功；每种消息验证引号、反斜杠、换行错误和客户端可观测结果。
+  - 状态／条件：静态审核确认两处均通过字符串拼接生成 `{"error":"..."}`，任意引号/反斜杠/换行会破坏 JSON；`internal/transport/tcp/server.go:352-355` 对其他 RPC 错误回空 body，而 protobuf 空 body 可被解码成零值响应，错误只留在服务端日志。当前 Invoke SDK 只解 protobuf 并把 Payload 原样作为成功字符串返回（`sdks/go/pkg/croupier/invoker.go:237-248`），调用方无法稳定识别传输错误。
+
+- [ ] **AUD-003 · P1 · 修复 · 移动端分析请求按作用域清理旧数据并丢弃过期响应**
+  - 依赖：—。交付与验收：游戏/环境作用域变化时先清空或明确标记旧摘要；为 refresh 引入请求序号或取消机制，只有当前作用域的最新请求可写状态；失败时显示错误与重试入口，不把旧作用域卡片留作当前结果；覆盖切换后失败及响应乱序场景。
+  - 状态／条件：静态审核确认 `AnalyticsState.copyWith` 无法清除非空 summary，`refresh` 没有请求序号/取消保护且失败分支保留旧 summary（`mobile/lib/features/analytics/analytics_controller.dart:23-34,69-80`）；页面仅在 `error != null && summary == null` 时展示错误，因此切换作用域后请求失败会继续展示旧摘要，乱序响应也能覆盖新作用域（`mobile/lib/features/analytics/analytics_dashboard_page.dart:57-82`）。
+
+- [ ] **AUD-004 · P2 · 修复 · Agent Stop 超时必须向服务管理器报告未完成**
+  - 依赖：—。交付与验收：达到停止等待上限仍未收到 `done` 时返回可识别错误/超时，并记录 runner 未退出；区分正常退出、runner 错误退出和超时；覆盖 runner 卡住、正常完成及重复 Stop。
+  - 状态／条件：静态审核确认 `Stop` 等待 15 秒后无条件返回 nil（`cmd/sidecar-agent/service.go:163-175`），可能让服务管理器认定已停而后台 runner 仍继续运行；注释虽称兜底防卡死，但超时没有传播。
+
+- [ ] **AUD-005 · P2 · 修复 · 同步六语言 Provider 鉴权能力矩阵与实现**
+  - 依赖：—。交付与验收：复核六种官方 SDK 实际握手 metadata 注入与回归覆盖，更新单一事实矩阵及中英文引用页面；确保鉴权行不把已实现能力标成未实现，并补齐任何缺失语言实现。
+  - 状态／条件：静态审核确认矩阵仍称 Go/Python/Java 仅支持 L3 Bearer，且下方说明写明未注入 Provider 握手 metadata（`sdks/SDK_FEATURE_MATRIX.md:41-44`），但当前 Go/Python/Java 源码已分别在握手 metadata 注入 `authToken`（`sdks/go/pkg/croupier/tcp_manager.go:869-877`、`sdks/python/croupier/__init__.py:357-361`、`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:356-361`），形成直接文档漂移。
+
+- [ ] **AUD-006 · P2 · 修复 · 锁定移动端依赖与 CI Dart SDK 的可复现兼容范围**
+  - 依赖：—。交付与验收：在 Flutter 3.35.1 / 对应 Dart 工具链下生成并提交一致 lockfile；若依赖确需 Dart 3.11，显式升级 CI Flutter 并同步 `pubspec.yaml` SDK 下界；增加不会静默重写锁文件的 CI 检查。
+  - 状态／条件：当前工作区 lockfile（用户未提交修改）声明 Dart `>=3.11.0-0`，而 CI 固定 Flutter 3.35.1（Dart 3.9 系）且 `pubspec.yaml` 声明 `^3.9.0`。这造成工具链/锁文件不一致风险；需在提交该用户工作区改动前用固定 CI 工具链确认依赖解析，当前尚未执行 Flutter 验证，不能断言流水线已失败。
+
+## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
+
+<!-- 34 条原子 todo 由 codex 深审产出，原分级：6 Critical（JWT 回退密钥/TLS 形同虚设/权限缺失/JSON 注入/SQLite 备份不一致/PowerOps CAS）+ 22 Major + 5 Minor（含 C++/C#/Python SDK 同型残留）-->
+
+- [ ] 为 ProvisionRun Update 增加主键条件写入（`internal/model/provision_model.go:61-63`）—— 防止 Save 因主键问题重复插入。
+- [ ] 将 PowerOps pending→executing 改为数据库 CAS（`internal/powerops/request.go:200-229`）—— 防止续行重复执行破坏性动作。
+- [ ] 为全局备份路由增加服务层权限与 403 测试（`internal/handler/routes_business.go:66-75`）—— 阻止零权限读取/删除备份。
+- [ ] 接入 C++ 默认 TLS transport 或安全模式拒绝连接（`sdks/cpp/src/croupier_client.cpp:417-592`）—— 防止 TLS 配置形同虚设。
+- [ ] 为 Provider 动作增加独立有界 timeout（`internal/powerops/request.go:187-198,306-308`）—— 避免卡住命令永久滞留。
+- [ ] 修复 Mobile CI 覆盖率阈值解析（`.github/workflows/ci-mobile.yml:43-61`）—— 让质量门禁真实生效。
+- [ ] 定义结构化 RPC 错误帧并替换空 protobuf（`internal/transport/tcp/server.go:339-362`）—— 让客户端可靠区分失败与零值成功。
+- [ ] 统一 Python reader 异常退出收口逻辑（`sdks/python/croupier/transport/tcp.py:298-340`）—— 防止死连接保留可用状态。
+- [ ] 让 Agent Stop 超时返回错误（`cmd/sidecar-agent/service.go:163-175`）—— 向服务管理器如实报告未停止。
+- [ ] 为 C++ socket 写实现 write-all 和连接写锁（`sdks/cpp/src/tcp_transport_inbound.cpp:148-180`）—— 修复短写与并发帧交错。
+- [ ] 优化 listener fallback 的空结果处理（`core/metrics/processes.go:49-62`）—— 避免空 socket 结果重复四次全表扫描。
+- [ ] 区分软删除账号与存储故障的 token 版本查询（`internal/svc/service_context_auth.go:304-316`）—— 保证删除账号立即吊销旧 JWT。
+- [ ] 统一 PowerOps 发送与验证成功计数（`internal/powerops/request.go:397-432`）—— 消除终态与头部计数矛盾。
+- [ ] 实现逐目标持久化和重启恢复策略（`internal/powerops/request.go:271-321`）—— 不对不确定动作盲目重放。
+- [ ] 将 WOL 结果改为派发/确认两阶段（`internal/powerops/request.go:264-269,397-409`）—— 不把包发送误报为上线完成。
+- [ ] 用注入时钟替换备份 3.5 秒 sleep（相关测试，commit `d790d6258`）—— 降低测试耗时和慢 CI 抖动。
+- [ ] 实现冷启动任务收割的有界持久巡检（`internal/tasks/store.go:135-156`）—— 覆盖未打开游戏库中的陈旧任务。
+- [ ] 将 status 查询移出审批与变更验证状态机（`internal/powerops/request.go:222-223,349-391`）—— 避免状态查询等待满验证超时。
+- [ ] 更新六语言鉴权/TLS 能力矩阵（`sdks/SDK_FEATURE_MATRIX.md:40-44`）—— 使文档与当前实现一致。
+- [ ] 序列化 Incident Details 后写入 updates（`internal/api/incident/service.go:331-333`）—— 修复事故详情更新路径。
+- [ ] 同步修改 `core/transport/tcp/mux_conn.go` 的错误编码（`core/transport/tcp/mux_conn.go:370-386`）—— 消除同型 JSON 注入残留。
+- [ ] 为对象存储上传链路加权限与保留前缀保护（`internal/api/storage/service.go:122-163`）—— 阻止低权限覆写共享备份对象。
+- [ ] 为全局 PowerOps 配置端点加平台硬件权限（`internal/handler/routes_task.go:218-223`）—— 隔离游戏作用域与全局节点管理。
+- [ ] 将 fixture 的 signal 监听提前到 ready 前（`cmd/server/dashboard_fixture_cmd.go:51-55`）—— 修补 `76f057be9` 同型残留。
+- [ ] 固定 Mobile Dart/Flutter 工具链与 lockfile（`.github/workflows/ci-mobile.yml:40-64`）—— 消除依赖解析漂移。
+- [ ] 重写生产 JWT 密钥判定并补配置矩阵测试（`internal/security/jwtutil/secret.go:44-72`）—— 消除公开开发密钥回退。
+- [ ] 非 loopback Provider token 强制绑定 TLS（`cmd/sidecar-agent/root.go:638-647`）—— 防止握手 token 明文外泄。
+- [ ] 为移动端 refresh 加请求令牌并清理旧作用域（`mobile/lib/features/analytics/analytics_controller.dart:54-80`）—— 修复失败旧数据和乱序覆盖。
+- [ ] 接入 C# 默认 TLS transport 或安全模式拒绝连接（`sdks/csharp/src/Croupier.Sdk/CroupierClient.cs:681-774`）—— 同步消除同型 TLS 漂移。
+- [ ] 修正 IPv6 ICMP 类型比较（`core/healthprobe/icmp.go:96-101`）—— 让 IPv6 echo reply 能被识别。
+- [ ] 校验 TCP 插件 path 并补协议注入测试（`agents/sidecar/funcplugin/examples/tcp/main.go:177-205`）—— 阻止 CR/LF 注入多行命令。
+- [ ] 将 SQLite dump 改为一致性快照并验证恢复数据（`internal/platform/backupexec/executor.go:227-243`）—— 保证 WAL 已提交事务进入备份。
+- [ ] 为 metrics 采集全链路接入 context 并补停止测试（`core/metrics/processes.go:139-200`）—— 防止采集关闭后 goroutine 泄漏。
+- [ ] 将 AUD-007..018 追加到 todo 台账（`todo.md:1231-1266`）—— 避免已确认审计项遗漏跟踪。
