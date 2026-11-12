@@ -93,6 +93,11 @@ func TestHandler_ListOverrides_ErrorPath(t *testing.T) {
 	// Create handler with minimal setup
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
+	// cache=shared 让整个包共享同一内存库，表结构由先跑的用例 AutoMigrate
+	// 建立；-shuffle=on 下本用例可能首跑，必须先建 function_policies 表，
+	// 否则 ListOverrides 查询 "no such table" → 500（CI 实证 2026-11-12）。
+	err = db.AutoMigrate(&model.FunctionPolicy{})
+	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
 	tmpFile := tmpDir + "/default-policies.yaml"
