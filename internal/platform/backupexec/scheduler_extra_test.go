@@ -149,4 +149,13 @@ func TestScheduler_Loop_TickFires(t *testing.T) {
 	}, 5*time.Second, 20*time.Millisecond)
 
 	cancel()
+	// 备份行落库（pending）时 pass goroutine 还在往 TempDir 写快照文件——
+	// 测试此刻返回会让 t.TempDir 的 RemoveAll 与其竞态（CI 实证
+	// 「directory not empty」假红）。等在途 pass 排空（pass 结束才 end），
+	// Loop 已随 cancel 停止派发，排空即全部落盘完成。
+	require.Eventually(t, func() bool {
+		sched.mu.Lock()
+		defer sched.mu.Unlock()
+		return len(sched.inflight) == 0
+	}, 10*time.Second, 5*time.Millisecond)
 }
