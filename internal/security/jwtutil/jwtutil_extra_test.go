@@ -70,7 +70,16 @@ func TestResetGlobalSecretForTesting(t *testing.T) {
 	// restore 后必须回到「已初始化、Init 幂等」的状态：否则后续任何测试里的
 	// InitGlobalSecret（如 middleware TestInitJWTSecret）会静默改掉密钥，
 	// 令签名用例在 -shuffle=on 下按执行序随机红。
+	//
+	// 自包含：外层开窗捕获进入时的（value, inited）原状，t.Cleanup 归还；
+	// 窗内 Init 确定性建立「已初始化」前提，再验证内层 Reset+restore 后
+	// Init 重新幂等。不依赖前序用例留下的初始化态，也不向包外泄漏
+	// （初版无 Cleanup，jwtutil_test.go 的 TestInitGlobalSecret 在文件序
+	// 下吃到 base-secret 泄漏，QG 实证）。
 	t.Run("restore locks initialization again", func(t *testing.T) {
+		outer := ResetGlobalSecretForTesting("")
+		t.Cleanup(outer)
+
 		InitGlobalSecret("base-secret")
 		assert.Equal(t, "base-secret", GetGlobalSecret())
 
