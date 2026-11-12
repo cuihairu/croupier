@@ -3,8 +3,10 @@ package platform
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,6 +21,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
 )
+
+// platformTestDBSeq 给每次调用发互不重名的内存库（-count=3 残留行会撞 UNIQUE）。
+var platformTestDBSeq atomic.Int64
 
 func TestBuildExternalFunctionID(t *testing.T) {
 	got := buildExternalFunctionID("One Panel", "Install/App")
@@ -6124,7 +6129,7 @@ func TestDiscoverExternalPlatforms_WithDisabledFunction(t *testing.T) {
 // TestDiscoverExternalPlatforms_WithInstallationDB tests the installation bindings discovery path
 func TestDiscoverExternalPlatforms_WithInstallationDB(t *testing.T) {
 	// Create in-memory SQLite database
-	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:platform_it_%d?mode=memory&cache=shared", platformTestDBSeq.Add(1))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

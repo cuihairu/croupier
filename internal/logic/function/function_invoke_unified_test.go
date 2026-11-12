@@ -2,7 +2,8 @@ package function_test
 
 import (
 	"context"
-	"strings"
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -86,9 +87,13 @@ type unifiedFixture struct {
 	approvl *approvals.MemStore
 }
 
+// unifiedDBSeq 给每次调用发互不重名的内存库。t.Name()+cache=shared 的命名库
+// 在 -count=3 下会被上一遍未关尽的连接池复活，残留数据污染下一遍。
+var unifiedDBSeq atomic.Int64
+
 func newUnifiedFixture(t *testing.T) *unifiedFixture {
 	t.Helper()
-	dsn := "file:unified_invoke_" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
+	dsn := fmt.Sprintf("file:unified_invoke_%d?mode=memory&cache=shared", unifiedDBSeq.Add(1))
 	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})

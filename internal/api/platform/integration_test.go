@@ -4,6 +4,8 @@ package platform
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,7 +20,7 @@ import (
 // TestDiscoverExternalPlatforms_WithInstallationDB tests the installation bindings path with a real database
 func TestDiscoverExternalPlatforms_WithInstallationDB_Integration(t *testing.T) {
 	// Create in-memory SQLite database
-	db, err := gorm.Open(gsqlite.Open("file:integration-external-platform?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:platform_it_%d?mode=memory&cache=shared", platformTestDBSeq.Add(1))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
@@ -106,7 +108,7 @@ func TestDiscoverExternalPlatforms_WithInstallationDB_Integration(t *testing.T) 
 
 // TestDiscoverExternalPlatforms_SkipsUninstalledWithDB tests that uninstalled extensions are skipped
 func TestDiscoverExternalPlatforms_SkipsUninstalledWithDB(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:platform_it_%d?mode=memory&cache=shared", platformTestDBSeq.Add(1))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

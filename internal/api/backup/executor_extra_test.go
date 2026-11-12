@@ -7,10 +7,12 @@ package backup
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,11 +52,16 @@ func (s *execObjStoreStub) RenamePrefix(ctx context.Context, oldPrefix, newPrefi
 	return nil
 }
 
+// backupExecEnvSeq 给每次调用发互不重名的内存库。按 t.Name() 命名不够：
+// -count=3 让同一用例名跑三遍，上一遍的连接池未关尽时同名库仍存活，
+// 本遍插入同一 BackupID 会撞 UNIQUE 约束（backups.backup_id 2067）。
+var backupExecEnvSeq atomic.Int64
+
 // newExecTestEnv 建独立内存库 env（不共享 backupFlowDB），driver/dataSource
 // 可控以驱动 executor 分支。
 func newExecTestEnv(t *testing.T, driver, dataSource string, store objstore.Store) *backupFlowEnv {
 	t.Helper()
-	dbName := "execenv_" + strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	dbName := fmt.Sprintf("execenv_%d", backupExecEnvSeq.Add(1))
 	db, err := gorm.Open(gsqlite.Open("file:"+dbName+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))

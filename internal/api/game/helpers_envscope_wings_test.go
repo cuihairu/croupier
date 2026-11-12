@@ -8,7 +8,9 @@ package game
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -18,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+var gameWingsDBSeq atomic.Int64
 
 func TestGameEnvScopes_ErrorWings(t *testing.T) {
 	db := setupTestDB(t)
@@ -32,7 +36,7 @@ func TestGameEnvScopes_ErrorWings(t *testing.T) {
 	// GetAdminEnvScopes 存储错误翼：授权表缺表 → 包装为内部错误。
 	// setupTestDB 是 cache=shared 进程级共享库（DropTable 会毒化他用例），
 	// 缺表注入须用独立库。
-	iso, err := gorm.Open(gsqlite.Open("file:game_envscope_wings?mode=memory&cache=shared"), &gorm.Config{})
+	iso, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:game_envscope_wings_%d?mode=memory&cache=shared", gameWingsDBSeq.Add(1))), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(iso))
 	seedTestPermissions(t, iso)
