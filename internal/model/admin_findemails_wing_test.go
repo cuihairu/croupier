@@ -6,14 +6,28 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestAdminModel_FindEmailsByDomain(t *testing.T) {
-	db := setupTestDB(t)
+	// 用例断言某域的邮箱全集；共享 cache=shared 库会被其他用例留下的
+	// @example.com 行污染（setupTestDB 不清表）。用每用例隔离内存库，保证
+	// 断言只看到本用例数据（-shuffle=on 下 CI 实证 elements differ，
+	// 2026-11-12）。
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf(
+		"file:findemails_%s_%d.db?mode=memory&cache=shared", t.Name(), time.Now().UnixNano())),
+		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Admin{}))
+
 	m := NewAdminModel(db)
 	ctx := context.Background()
 
