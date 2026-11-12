@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,10 +14,18 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
+// memDBSeq 给每次 setupTestDB 调用发互不重名的内存库。只按用例名命名不够：
+// -count=3 让同一用例名跑三遍，而 file: 内存库只要还有一条连接开着就存活
+// （上一遍的连接池没关尽），于是这一遍会读到上一遍的残留行——
+// TestDeleteOverride 断言行数不符、TestGetPolicy_DefaultRowScanError
+// 的非法行在上遍已被消费。原子计数器保证每次调用都开一个全新库。
+var memDBSeq int64
+
 func setupTestDB(t *testing.T) *gorm.DB {
-	// Use unique in-memory DB per test to avoid cross-test contamination
+	// Use a unique in-memory DB per call to avoid cross-test contamination
 	// when cache=shared is used process-wide.
-	dbName := fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
+	n := atomic.AddInt64(&memDBSeq, 1)
+	dbName := fmt.Sprintf("file:policy_%d?mode=memory&cache=shared", n)
 	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	require.NoError(t, err)
 	err = db.AutoMigrate(&model.FunctionPolicy{})
