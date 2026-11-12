@@ -75,6 +75,13 @@ type TCPLocalListener struct {
 	closing chan struct{}
 	closeMu sync.Mutex // 守护 closed/listener.Close/wg.Wait 的幂等收口（见 Close）
 	closed  bool
+	// serveStarted/serveDone 让 Close 收口到 Accept 循环自身退出：Close 关闭
+	// 监听器后 Accept 解除阻塞、循环读到 closing 返回，serveDone 关闭，Close
+	// 等它才返回。否则 Serve goroutine 会在 Close 返回后继续读 l.listener /
+	// l.closing，与 Close 的写构成数据竞争（-race 实证：App.Stop 与
+	// StartLocalServer 启动的 serve goroutine，2026-11-12 全包 shuffle）。
+	serveStarted bool
+	serveDone    chan struct{}
 
 	logger *slog.Logger
 }
@@ -113,6 +120,7 @@ func NewTCPLocalListener(config *TCPLocalListenerConfig, sessionStore *ProviderS
 		listener:     ln,
 		sessionStore: sessionStore,
 		closing:      make(chan struct{}),
+		serveDone:    make(chan struct{}),
 		logger:       logger,
 	}, nil
 }
@@ -134,15 +142,37 @@ func (l *TCPLocalListener) SetLocalHandler(h transportcore.Handler) {
 
 // Serve accepts connections until ctx is done or the listener is closed.
 func (l *TCPLocalListener) Serve(ctx context.Context) error {
+	// 标记循环已启动并登记退出信号（Close 借此等待 Accept 循环自身退场，
+	// 见 serveStarted/serveDone 注释）。
+	l.closeMu.Lock()
+	l.serveStarted = true
+	l.closeMu.Unlock()
+	defer close(l.serveDone)
+
 	for {
-		if tcpln, ok := l.listener.(*net.TCPListener); ok {
+		// listener/closing/closed 快照必须在 closeMu 下读取：Close 全程持有
+		// closeMu 写 closed/close(closing)/listener.Close()，Serve 若裸读这些
+		// 字段则与 Close 的写构成数据竞争（-race 实证：App.Stop 与
+		// StartLocalServer 启动的 serve goroutine，2026-11-12 全包 shuffle，
+		// 竞争点在 Serve 首轮循环读 l.listener/l.closing 与 Close 头部写）。
+		// closeMu 让两面对这些字段的访问串行化并建立 happens-before。
+		l.closeMu.Lock()
+		ln := l.listener
+		closing := l.closing
+		closed := l.closed
+		l.closeMu.Unlock()
+		if closed {
+			return nil
+		}
+
+		if tcpln, ok := ln.(*net.TCPListener); ok {
 			_ = tcpln.SetDeadline(time.Now().Add(time.Second))
 		}
 
-		conn, err := l.listener.Accept()
+		conn, err := ln.Accept()
 		if err != nil {
 			select {
-			case <-l.closing:
+			case <-closing:
 				return nil
 			default:
 			}
@@ -247,14 +277,23 @@ func (l *TCPLocalListener) SessionStore() *ProviderSessionStore {
 // 重叠时被 race detector 标记）。
 func (l *TCPLocalListener) Close() error {
 	l.closeMu.Lock()
-	defer l.closeMu.Unlock()
 	if l.closed {
+		l.closeMu.Unlock()
 		return nil
 	}
 	l.closed = true
 	close(l.closing)
 	closeErr := l.listener.Close()
 	l.wg.Wait()
+	// serveStarted 必须在 closeMu 下读（Serve 在锁下写它）；但等待
+	// serveDone 必须放锁外——否则 Serve 末轮拿不到 closeMu 读 closed 而退出，
+	// Close 又抱着锁等 serveDone，互相死锁。放锁后 Serve 拿到 closeMu 读到
+	// closed=true 即退出并 close(serveDone)，Close 等它返回即可。
+	serveStarted := l.serveStarted
+	l.closeMu.Unlock()
+	if serveStarted {
+		<-l.serveDone
+	}
 	return closeErr
 }
 
