@@ -40,9 +40,11 @@ describe('layoutTokenFor', () => {
     }
   });
 
-  it('暗色 colorPrimary 与 antd 侧同源（blue #1668dc / inkpink #cf6a82）', () => {
+  it('暗色 colorPrimary 与 antd 侧同源（blue #1668dc / inkpink #b8556b）', () => {
     expect(layoutTokenFor('blue', 'dark').colorPrimary).toBe('#1668dc');
-    expect(layoutTokenFor('inkpink', 'dark').colorPrimary).toBe('#cf6a82');
+    // inkpink 暗色随 antd 侧同批 AA 降档：#cf6a82 经 ProLayout 注入内容域
+    // 后实心按钮白字合成 4.44:1 不达 AA，2026-11-12 换 #b8556b
+    expect(layoutTokenFor('inkpink', 'dark').colorPrimary).toBe('#b8556b');
   });
 
   it('暗色 token 不残留亮色档（整体替换语义）', () => {
