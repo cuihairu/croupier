@@ -252,14 +252,23 @@ func (p *tcpPlugin) fail(out funcplugin.InvokeOutput, code, msg string) (funcplu
 	return out, nil
 }
 
+// socketGrace arms the socket slightly past the caller's deadline so the
+// caller's timer strictly owns the expiry. Arming both at the same instant
+// makes the kernel read timer race the host's context timer, and whichever
+// the scheduler notices first wins — turning caller-deadline semantics into
+// a target_unavailable (CI 实证). The grace keeps the socket deadline a
+// backstop for the lost-host case instead of a co-equal enforcer.
+const socketGrace = 250 * time.Millisecond
+
 // socketDeadline bounds the dial+write+read by the earliest of the
-// adapter's own target timeout and the caller's remaining deadline, so a
-// slow game interface degrades as a business target_unavailable while a
-// cancelled or deadline-expired call is still bounded by the caller.
+// adapter's own target timeout and the caller's remaining deadline (plus a
+// small backstop grace), so a slow game interface degrades as a business
+// target_unavailable while a cancelled or deadline-expired call is still
+// bounded — by the caller first, the socket a moment later at the latest.
 func socketDeadline(ctx context.Context, callTimeout, targetTimeout time.Duration) time.Time {
 	deadline := time.Now().Add(targetTimeout)
-	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
-		deadline = ctxDeadline
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Add(socketGrace).Before(deadline) {
+		deadline = ctxDeadline.Add(socketGrace)
 	} else if !ok && callTimeout > 0 {
 		if callDeadline := time.Now().Add(callTimeout); callDeadline.Before(deadline) {
 			deadline = callDeadline
