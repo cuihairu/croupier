@@ -284,6 +284,16 @@ func (c *MuxSession) Send(ctx context.Context, msgID uint32, msg proto.Message) 
 	return c.mux.Send(ctx, msgID, data)
 }
 
+// PullDevopsAllowlist 拉取 devops 会话白名单下行配置（服务端读 config_versions
+// 的 devops.allowlist，version 空串 = 未发布，agent 保持现状）。
+func (c *MuxSession) PullDevopsAllowlist(ctx context.Context, req *opsv1.DevopsAllowlistConfigRequest) (*opsv1.DevopsAllowlistConfigResponse, error) {
+	resp := &opsv1.DevopsAllowlistConfigResponse{}
+	if err := c.call(ctx, protocol.MsgDevopsAllowlistConfigRequest, req, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *MuxSession) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.mux == nil {
 		return fmt.Errorf("control conn not initialized")

@@ -106,7 +106,7 @@ func TestFetchAllowlistLiveConnBranches(t *testing.T) {
 	cfg.Agent.ServerAddr = addr
 	r := New(cfg, nil)
 
-	conn, err := controlconn.Dial(addr, nil)
+	conn, err := controlconn.DialMux(addr, nil, nil)
 	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
 	r.conn.Store(conn)

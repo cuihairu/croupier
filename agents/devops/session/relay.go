@@ -30,20 +30,46 @@ type Relay struct {
 	// 报错——消费者被 Attach 超时摘除，会话与存档不受影响）。
 	sendMu sync.RWMutex
 	send   func(ctx context.Context, msgID uint32, msg proto.Message) error
+
+	// hubMu 保护 hub 的装配期换绑（注册先行、hub 后建）。
+	hubMu sync.RWMutex
 }
 
-// NewRelay 装配中继并挂会话收束回调（end 事件上行）。
+// NewRelay 装配中继并挂会话收束回调（end 事件上行）。hub 可为 nil（runner
+// 注册期装配：会话面未启用时 open 如实回「会话面关闭」），随后 SetHub 接通。
 func NewRelay(hub *Hub, log *slog.Logger) *Relay {
 	if log == nil {
 		log = slog.Default()
 	}
 	r := &Relay{hub: hub, log: log}
 	if hub != nil {
-		hub.SetEndCallback(func(sessionID, outcome string) {
-			r.sendEvent(&opsv1.DevopsSessionEvent{SessionId: sessionID, Kind: "end", Outcome: outcome})
-		})
+		r.bindHub(hub)
 	}
 	return r
+}
+
+// SetHub 接通会话面（runner 在 Hub 装配后调用；nil = 摘除，open 拒绝）。
+func (r *Relay) SetHub(hub *Hub) {
+	r.hubMu.Lock()
+	r.hub = hub
+	r.hubMu.Unlock()
+	if hub != nil {
+		r.bindHub(hub)
+	}
+}
+
+// hubSnapshot 当前会话面（Handle 车道 worker 并发读、SetHub 装配线程写）。
+func (r *Relay) hubSnapshot() *Hub {
+	r.hubMu.RLock()
+	defer r.hubMu.RUnlock()
+	return r.hub
+}
+
+// bindHub 挂会话收束回调（end 事件上行）。仅装配线程调用（Run 装配段）。
+func (r *Relay) bindHub(hub *Hub) {
+	hub.SetEndCallback(func(sessionID, outcome string) {
+		r.sendEvent(&opsv1.DevopsSessionEvent{SessionId: sessionID, Kind: "end", Outcome: outcome})
+	})
 }
 
 // SetSender 换绑上行通道（重连后由 runner 调；nil = 断连）。
@@ -111,10 +137,11 @@ func (r *Relay) Handle(ctx context.Context, msgID uint32, reqID uint32, body []b
 // open 走完整建立链（校验→白名单→审计前置→通道 Open→存档+数据泵），并把
 // 输出消费者挂到上行事件流。
 func (r *Relay) open(ctx context.Context, req *opsv1.DevopsSessionOpenRequest) *opsv1.DevopsSessionOpenResponse {
-	if r.hub == nil {
+	hub := r.hubSnapshot()
+	if hub == nil {
 		return &opsv1.DevopsSessionOpenResponse{Ok: false, Error: "devops session plane disabled"}
 	}
-	sess, err := r.hub.Open(ctx, SessionRequest{
+	sess, err := hub.Open(ctx, SessionRequest{
 		SessionID: req.GetSessionId(),
 		Protocol:  Protocol(req.GetProtocol()),
 		Host:      req.GetHost(),
@@ -142,7 +169,7 @@ func (r *Relay) open(ctx context.Context, req *opsv1.DevopsSessionOpenRequest) *
 
 // input 键盘数据入有界队列（满载超时回 busy——背压原样透传给 server/面板）。
 func (r *Relay) input(req *opsv1.DevopsSessionInputRequest) *opsv1.DevopsSessionInputResponse {
-	ls, ok := r.hub.Get(req.GetSessionId())
+	ls, ok := r.hubSnapshot().Get(req.GetSessionId())
 	if !ok {
 		return &opsv1.DevopsSessionInputResponse{Ok: false, Error: "session not found"}
 	}
@@ -154,7 +181,7 @@ func (r *Relay) input(req *opsv1.DevopsSessionInputRequest) *opsv1.DevopsSession
 
 // resize 调整远端 pty 窗口并存档事件（回放跟随）。
 func (r *Relay) resize(req *opsv1.DevopsSessionResizeRequest) *opsv1.DevopsSessionResizeResponse {
-	ls, ok := r.hub.Get(req.GetSessionId())
+	ls, ok := r.hubSnapshot().Get(req.GetSessionId())
 	if !ok {
 		return &opsv1.DevopsSessionResizeResponse{Ok: false, Error: "session not found"}
 	}
@@ -166,7 +193,7 @@ func (r *Relay) resize(req *opsv1.DevopsSessionResizeRequest) *opsv1.DevopsSessi
 
 // close 主动断开并触发完整断线清理链（end 事件经收束回调上行）。
 func (r *Relay) close(req *opsv1.DevopsSessionCloseRequest) *opsv1.DevopsSessionCloseResponse {
-	ls, ok := r.hub.Get(req.GetSessionId())
+	ls, ok := r.hubSnapshot().Get(req.GetSessionId())
 	if !ok {
 		return &opsv1.DevopsSessionCloseResponse{Ok: false, Error: "session not found"}
 	}
@@ -179,10 +206,11 @@ func (r *Relay) close(req *opsv1.DevopsSessionCloseRequest) *opsv1.DevopsSession
 // OnConnClosed 控制面丢失收束：关闭全部活跃会话（清理链含结束审计与 end
 // 事件上行尽力而为）。server 重连后须重新开会话。
 func (r *Relay) OnConnClosed() {
-	if r.hub == nil {
+	hub := r.hubSnapshot()
+	if hub == nil {
 		return
 	}
-	if err := r.hub.Close(); err != nil {
+	if err := hub.Close(); err != nil {
 		r.log.Warn("devops relay closed sessions on control loss", "error", err.Error())
 	}
 }

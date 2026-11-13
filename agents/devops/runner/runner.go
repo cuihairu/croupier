@@ -34,6 +34,7 @@ import (
 	"github.com/cuihairu/croupier/core/register"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // devopsAllowlistConfigKey config_versions 里的白名单键（server 拉取侧
@@ -56,9 +57,12 @@ type Runner struct {
 	rec    otelrec.Recorder
 	broker *session.Broker
 	hub    *session.Hub
+	// relay 会话中继面（AGENT-002）：注册期即装配（hub 未建时 open 如实
+	// 回「会话面关闭」），Run 内 hub 装配后 SetHub 接通。
+	relay *session.Relay
 
 	// conn 最近一次 Dial 成产出的上行连接（白名单拉取跟随重连换新）。
-	conn atomic.Pointer[controlconn.Conn]
+	conn atomic.Pointer[controlconn.MuxSession]
 	// fetchAllowlist 拉取 seam（测试注入；生产经 conn.PullDevopsAllowlist）。
 	fetchAllowlist func(ctx context.Context) (*configsync.Versioned[[]byte], error)
 	// applyAllowlist 热生效 seam（测试断言；生产为校验+Swap+日志）。
@@ -71,6 +75,7 @@ func New(cfg config.Config, log *slog.Logger) *Runner {
 		log = slog.Default()
 	}
 	r := &Runner{cfg: cfg, log: log, rec: otelrec.Discard()}
+	r.relay = session.NewRelay(nil, r.log)
 	r.fetchAllowlist = func(ctx context.Context) (*configsync.Versioned[[]byte], error) {
 		c := r.conn.Load()
 		if c == nil || !c.Connected() {
@@ -112,9 +117,18 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 	reg := register.New(register.Config{
 		AgentID: r.cfg.Agent.ID,
 		Dial: func(context.Context) (register.Conn, error) {
-			c, err := controlconn.Dial(r.cfg.Agent.ServerAddr, tlsFromCfg(r.cfg))
+			// 极早期断连丢回调窗口的兜底扫（SetOnClosed 竞态见 controlconn
+			// 注释）：旧连接已死但回调未及挂上时，显式收束会话面。
+			if old := r.conn.Load(); old != nil && !old.Connected() {
+				r.relay.OnConnClosed()
+			}
+			c, err := controlconn.DialMux(r.cfg.Agent.ServerAddr, tlsFromCfg(r.cfg), r.relay)
 			if err == nil {
 				r.conn.Store(c)
+				c.SetOnClosed(r.relay.OnConnClosed)
+				r.relay.SetSender(func(ctx context.Context, msgID uint32, msg proto.Message) error {
+					return c.Send(ctx, msgID, msg)
+				})
 			}
 			return c, err
 		},
@@ -176,6 +190,9 @@ func (r *Runner) Run(ctx context.Context) (runErr error) {
 	castDir := filepath.Join(r.cfg.SessionDir(), "casts")
 	r.hub = session.NewHub(r.broker, recorder, castDir, session.HubConfig{}, r.log)
 	defer func() { _ = r.hub.Close() }()
+	// 会话中继接通：hub 装配后，server 下行的 open/input/resize/close 落
+	// 到 Broker/Hub 链，输出/结束经上行事件流回传（AGENT-002）。
+	r.relay.SetHub(r.hub)
 
 	// 白名单 configsync 下发（capture gates/probe policy 同款通道语义：
 	// 周期拉取 → 版本比对 → 校验 → 整体热换；坏版本 keep last-good）。
