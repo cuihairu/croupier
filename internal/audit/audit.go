@@ -170,6 +170,12 @@ const (
 	EventRunbookDelete AuditEventType = "runbook.delete"
 	EventRunbookRun    AuditEventType = "runbook.run"
 
+	// Devops session relay events (AGENT-002: panel opens/closes proxied
+	// SSH sessions through a devops agent; open/close only — data-plane
+	// keystrokes/output audit lives in the agent-side execlog chain)
+	EventDevopsSessionOpen  AuditEventType = "devops.session_open"
+	EventDevopsSessionClose AuditEventType = "devops.session_close"
+
 	// Admin events
 	EventUserCreate AuditEventType = "admin.user_create"
 	EventUserUpdate AuditEventType = "admin.user_update"

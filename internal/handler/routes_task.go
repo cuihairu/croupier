@@ -197,6 +197,16 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/devops/allowlist/rollback", opsHandler.DevopsAllowlistRollback)
 	g.POST("/devops/allowlist/validate", opsHandler.DevopsAllowlistValidate)
 
+	// devops 会话中继（AGENT-002）：面板经 server 代理开/输入/调整/关 SSH
+	// 会话，输出经 SSE 流回面板。relay 未接线时端点如实报 503
+	// devops_relay_not_configured（白名单/审计真值在 agent 侧）。
+	g.POST("/devops/sessions", opsHandler.DevopsSessionOpen)
+	g.GET("/devops/sessions", opsHandler.DevopsSessionsList)
+	g.GET("/devops/sessions/:sessionId/stream", opsHandler.DevopsSessionStream)
+	g.POST("/devops/sessions/:sessionId/input", opsHandler.DevopsSessionInput)
+	g.POST("/devops/sessions/:sessionId/resize", opsHandler.DevopsSessionResize)
+	g.DELETE("/devops/sessions/:sessionId", opsHandler.DevopsSessionClose)
+
 	// server 手动诊断探针（评审简档 §4.2/§4.3）：对 server 探针面已配置的
 	// 目标即时探一次（与周期探测共用同一探针实例与状态机）
 	g.POST("/probe/diagnose", opsHandler.ProbeDiagnoseHandler)

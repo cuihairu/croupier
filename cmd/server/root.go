@@ -22,6 +22,7 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/backupexec"
+	"github.com/cuihairu/croupier/internal/platform/devopssessions"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/functioninvoke"
 	"github.com/cuihairu/croupier/internal/platform/settings"
@@ -525,6 +526,12 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 
 	// 创建 ControlService
 	controlService := server.NewControlService(svcCtx.RegistryStore, svcCtx.AgentSessionModel)
+	// devops 会话中继运营面（AGENT-002）：面板代理会话的路由态 + agent 上行
+	// 事件扇出。装配到 ControlService（事件派发）与 TCPListener（断连收束）；
+	// svcCtx 供 REST 面板端点使用。
+	devopsHub := devopssessions.NewHub(slog.Default())
+	svcCtx.DevopsSessions = devopsHub
+	controlService.SetDevopsSessions(devopsHub)
 	// F12：注册时 schema 兼容性告警开关（descriptors.schemaDiffWarn，默认开）
 	controlService.SetSchemaDiffWarnEnabled(svcCtx.Config.Descriptors.SchemaDiffWarnEnabled())
 	// 最低 SDK 版本门槛（registry.sdkVersionMinimums，按语言配置的绝对
@@ -617,6 +624,9 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 
 	// 设置 control handler
 	tcpListener.SetHandler(controlService)
+	// AGENT-002：agent 上行会话事件派发 + 断连收束代理会话。
+	controlService.SetDevopsSessions(devopsHub)
+	tcpListener.SetDevopsSessions(devopsHub)
 
 	// ARCH-014 D3：agent 会话被移除时收敛其非终态任务到 unknown（执行状态
 	// 未确立，不得自动重跑）。断连清理不得阻塞——收割失败仅记日志。

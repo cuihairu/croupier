@@ -12,12 +12,15 @@ import (
 
 	transportcore "github.com/cuihairu/croupier/core/transport"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/devopssessions"
 	"github.com/cuihairu/croupier/internal/platform/outlet"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/getkin/kin-openapi/openapi3"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -131,6 +134,11 @@ type ControlService struct {
 	// clusterInstanceID 本实例的集群身份（注册响应回传给 agent 做三方
 	// 对账；单实例/未启用时为空）。
 	clusterInstanceID string
+
+	// devopsSessions devops 会话中继运营面（AGENT-002）：agent 上行的
+	// DevopsSessionEvent 经此扇出给面板 SSE 消费者。nil = 未装配，事件
+	// 静默丢弃（事件面不是审计真值，丢失不影响 agent 侧存档）。
+	devopsSessions *devopssessions.Hub
 
 	mu     sync.RWMutex
 	ctx    context.Context
@@ -331,6 +339,13 @@ func (s *ControlService) SetClusterInstanceID(id string) {
 	s.clusterInstanceID = id
 }
 
+// SetDevopsSessions 注入 devops 会话中继运营面（AGENT-002；nil=未装配）。
+func (s *ControlService) SetDevopsSessions(h *devopssessions.Hub) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.devopsSessions = h
+}
+
 // SetHeartbeatOwnerLookup 注入共享归属表回读能力（心跳自愈用）。
 func (s *ControlService) SetHeartbeatOwnerLookup(l interface {
 	SelfOwnerScope(ctx context.Context, agentID string) (gameID, env string, ok bool)
@@ -422,6 +437,19 @@ func (s *ControlService) handleRequestAsAgent(ctx context.Context, msgID uint32,
 		return s.handleAlertEventAsAgent(ctx, data, identity)
 	case protocol.MsgAlertEvent:
 		return s.handleProbeEventAsAgent(ctx, data, identity)
+	case protocol.MsgDevopsSessionEvent:
+		// 单向事件帧（agent → server，MuxConn 事件路径丢弃返回值）：
+		// 路由到中继运营面扇出给面板消费者；未知会话/未装配静默丢弃。
+		s.mu.RLock()
+		hub := s.devopsSessions
+		s.mu.RUnlock()
+		if hub != nil {
+			ev := &opsv1.DevopsSessionEvent{}
+			if err := proto.Unmarshal(data, ev); err == nil {
+				hub.RouteEvent(identity.AgentID, ev)
+			}
+		}
+		return nil, nil
 	default:
 		return s.handleRequest(ctx, msgID, data)
 	}

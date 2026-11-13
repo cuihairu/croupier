@@ -30,6 +30,7 @@ import (
 	alertrule "github.com/cuihairu/croupier/internal/platform/alertrule"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/configsource"
+	devopssessions "github.com/cuihairu/croupier/internal/platform/devopssessions"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
@@ -89,6 +90,11 @@ type ServiceContext struct {
 	LogStore             *reg.LogStore
 	SystemInfoCache      *reg.SystemInfoCache
 	AgentSessionResolver dispatch.AgentSessionResolver
+
+	// DevopsSessions devops 会话中继运营面（AGENT-002）：面板经 server
+	// 代理开/输入/关 SSH 会话（REST 入口），nil = 未装配（端点如实报 503
+	// devops_relay_not_configured）。
+	DevopsSessions *devopssessions.Hub
 
 	// ServerProbes server 本机探针面（R3 server 侧内核装配）：空段不装配
 	//（nil），手动诊断端点据此如实报「探测面未配置」。

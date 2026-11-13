@@ -14,6 +14,7 @@ import (
 	"time"
 
 	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
+	"github.com/cuihairu/croupier/internal/platform/devopssessions"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -57,8 +58,11 @@ type TCPListener struct {
 	// 非终态 task_runs 到 unknown。nil = 未装配（任务行不被收割）。装配期由
 	// cmd/server 注入具体 task store 的闭包。
 	agentDisconnectReaper func(ctx context.Context, agentID string) error
-	registry              *reg.Store
-	handler               *ControlService // control-plane service
+	// devopsSessions devops 会话中继运营面（AGENT-002）：会话被真正移除时
+	// 收束该 agent 的全部代理会话（控制面丢失 = 会话面关闭）。nil = 未装配。
+	devopsSessions *devopssessions.Hub
+	registry       *reg.Store
+	handler        *ControlService // control-plane service
 
 	wg      sync.WaitGroup
 	closing chan struct{}
@@ -266,6 +270,11 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 						"agent_id", handler.agentID, "error", err)
 				}
 			}
+			// AGENT-002：控制面丢失 = 会话面关闭——收束该 agent 的全部代理
+			// 会话（与 agent 侧 OnConnClosed 对称；重连后面板须重新开会话）。
+			if l.devopsSessions != nil {
+				l.devopsSessions.CloseAgentSessions(handler.agentID, "agent disconnected")
+			}
 		} else {
 			l.logger.Debug("Agent session already replaced, skipping removal",
 				"agent_id", handler.agentID,
@@ -286,6 +295,12 @@ func (l *TCPListener) SetClusterHooks(h interface {
 // 关闭收割。
 func (l *TCPListener) SetAgentDisconnectReaper(reap func(ctx context.Context, agentID string) error) {
 	l.agentDisconnectReaper = reap
+}
+
+// SetDevopsSessions 注入 devops 会话中继运营面（AGENT-002）。会话被真正
+// 移除（非重连替换竞态）时收束该 agent 的全部代理会话。
+func (l *TCPListener) SetDevopsSessions(h *devopssessions.Hub) {
+	l.devopsSessions = h
 }
 
 // Addr returns the bound listener address.
