@@ -215,7 +215,7 @@
 - [x] **GAME-DEMO-001 · P1 · 实现 · 复杂游戏模拟 demo（gameops-rpg，巡检单 2026-10-20）**
   - 依赖：无（刻意不依赖 GAME-002~010 真实接入方）。交付与验收：`sdks/go/examples/gameops-rpg/` 模拟 RPG 世界（玩家等级/金币/钻石/背包、任务每日刷新、邮件附件领取=补偿流核心、订单幂等发货、封禁联动），SDK→Agent 注册 17 函数（`player.*` `mail.*` `task.*` `order.*` `economy.*` `report.generate`），tick 驱动玩法循环 + JSON 快照持久化；demo 编译、单测覆盖发货幂等/封禁拒领/余额 fail-closed/邮件过期、平台注册可见、经平台全链路（mail.send 附件→落库→领取→入背包→report.generate 审批通过执行）与异常链路（重复发货拒绝、封禁拒领）
   - 状态／条件：LOCAL VERIFIED（2026-11-11，本机隔离栈 28080/29090/29091 + sqlite，避让 quickstart python demo 的 default/dev 契约槽）。编译/`go vet` 通过；单测 28 用例全绿（world 13 + store 3 + contracts 4 + executors 8）；平台注册 17 契约落库（health + functions API + sqlite function_contracts 复核）；补偿链：mail.send（附件 potion×5+gem×1）→ mail-9004 落库 → mail.claim → 背包 potion+5/gem+2；审批链：report.generate（risk=high）invoke 返回 approvalRequired → 第二账号 TOTP 批准 → `state:approved, continuation:true` → 执行 `report-rpg-1, runSeq:1, success:true`；异常链：重复 order.ship 续跑返回 `already_shipped` 且钻石只入账一次（+6）；封禁玩家 10007 mail.claim 返回 `player_banned` 且背包不变；快照重启恢复复验（shipped 状态持久）。已知边界：内存态模拟，不能替代 GAME-002~010 的真实接入方验收；审批需第二账号（self_approval_forbidden 两人规则），demo 侧管理员已在隔离栈注册 TOTP（仅本地测试凭据）
-  - 完成证据：commit c7018a8c（实体 store）/ b5c98c5f（tick 循环与经济规则）/ 78111562（17 函数契约与执行器+README）/ 82d0ec98（28 用例测试）/ 03cb67de（player.get 入参键统一 playerId）；go test ./examples/gameops-rpg/... → ok ... 28 PASS；e2e 过程记录见本会话（隔离栈配置 /tmp/gameops-rpg-e2e/，验证后进程已清理）
+  - 完成证据：commit c7018a8c（实体 store）/ b5c98c5f（tick 循环与经济规则）/ 78111562（17 函数契约与执行器+README）/ 82d0ec98（28 用例测试）/ 03cb67de（player.get 入参键统一 playerId）；`go test ./examples/gameops-rpg/...` → `ok ... 28 PASS`（demo 源 `sdks/go/examples/gameops-rpg/`）；e2e 过程记录见本会话（隔离栈配置 /tmp/gameops-rpg-e2e/，验证后进程已清理）
 
 ## Agent 与隔离
 
@@ -298,12 +298,12 @@
   - 依赖：—（复用既有 approval 链与 agent-ops TCP 通道）。
   - 状态／条件：DONE + LOCAL VERIFIED（2026-11-11；go build OK、相关包 go test 全绿、go vet 过、guard PASSED）。能力矩阵与审批策略矩阵落 `docs/design/ops-power-management.md`（+docs/zh 镜像）：物理机 IPMI/BMC（ipmitool chassis power）、WOL 唤醒（仅 power_on、不可验证）、云实例命令模板层（`{instanceRef}` 占位）、agent 所在机带内 graceful reboot/power_off（force_off 拒绝——带内关机前无带外手段拉起）；风险分级 power_on/status=low（x-risk safe）、power_off/reboot=medium（warning）、force_off=high（high，批准走 OTP step-up）。请求状态机 pending→executing→verifying→done/partial/failed，pending→rejected；批准范围快照（targetsJSON）提交即冻结；批量=单审批多目标、失败逐机回填（partial 聚合）；审批拒绝（两宽规则）由审批服务把关、请求侧 GET 惰性同步 rejected。
   - 交付与验收：internal/powerops 新包（Provider 接口 + ipmi/wol/cloud/agent 四实现）；POST /ops/power（提交→审批单→批准后 resume 执行→逐机状态回填）、GET /ops/power/:id（请求+逐机 targets）、GET /ops/power（列表）、POST /ops/power/:id/{resume,reject}、PUT /ops/nodes/:nodeId/power-config（机器清单挂现有 nodes.meta.power 子对象，无新库存表）；powerops.enabled 缺省 false 不装配（端点如实 503 powerops_not_configured）。
-  - 完成证据：5 个提交——2b5e9c59（docs: add ops power management design）、79df4dda（feat: add powerops provider package）、78d0e215（feat: add power request models and migration，goose 0064 幂等建表 power_requests/power_request_targets，migrate.go 64 对齐 + 合成迁移清单同步）、1a918bfa（feat: add powerops request orchestrator）、87c57a63（feat: add ops power api and wiring，含 ops.power.* x-risk 声明注入 registry 即 resolvePolicyRisk 认可缝隙）。测试：go test ./internal/powerops/ -count=1 18 用例全绿（假 ipmitool 脚本测命令拼装与 -H/-p/-U/-P/-I lanplus 断言、WOL 102 字节魔术包回环收包、云模板序列、agent 带内 refuse、审批拒绝零 provider 调用、部分失败聚合 partial、状态确认轮询 off→on、超时保持 unverified 诚实 failed、WOL 永不 verified、校验失败零落库、审批门失败 pending 无链、fail-closed 查询错误拒绝执行）；go test ./internal/api/ops/ -run TestPower -count=1 9 子用例全绿（未配置 503 六端点、提交 202 pending+审批记录 mode=powerops、校验 422 不落库、未批准 resume 409 power_state_conflict、批准后全链 done+verified、拒绝零 provider 调用、GET 惰性同步 rejected 落库、power-config 登记后可提交+404/422 契约、列表）；go test ./internal/api/ops/ ./internal/audit/ ./internal/handler/ ./internal/svc/ ./internal/db/migrate/ ./internal/config/ ./internal/model/ -count=1 全绿；go build ./... OK；go vet ./internal/... 干净；bash scripts/dashboard_vnext_guard.sh PASSED。边界诚实：真实 BMC/WOL/云 API 不在本机验证（无硬件）——mock 全覆盖，真机验证待环境；agent 带内 force_off 拒绝、WOL 仅唤醒不可验证为设计边界（设计 §3/§9）。
+  - 完成证据：5 个提交——2b5e9c59（docs: add ops power management design）、79df4dda（feat: add powerops provider package）、78d0e215（feat: add power request models and migration，goose 0064 幂等建表 power_requests/power_request_targets，migrate.go 64 对齐 + 合成迁移清单同步）、1a918bfa（feat: add powerops request orchestrator）、87c57a63（feat: add ops power api and wiring，含 ops.power.* x-risk 声明注入 registry 即 resolvePolicyRisk 认可缝隙）。测试：go test ./internal/powerops/ -count=1 18 用例全绿（假 ipmitool 脚本测命令拼装与 -H/-p/-U/-P/-I lanplus 断言、WOL 102 字节魔术包回环收包、云模板序列、agent 带内 refuse、审批拒绝零 provider 调用、部分失败聚合 partial、状态确认轮询 off→on、超时保持 unverified 诚实 failed、WOL 永不 verified、校验失败零落库、审批门失败 pending 无链、fail-closed 查询错误拒绝执行）；go test ./internal/api/ops/ -run TestPower -count=1 9 子用例全绿（未配置 503 六端点、提交 202 pending+审批记录 mode=powerops、校验 422 不落库、未批准 resume 409 power_state_conflict、批准后全链 done+verified、拒绝零 provider 调用、GET 惰性同步 rejected 落库、power-config 登记后可提交+404/422 契约、列表）；go test ./internal/api/ops/ ./internal/audit/ ./internal/handler/ ./internal/svc/ ./internal/db/migrate/ ./internal/config/ ./internal/model/ -count=1 全绿；go build ./... OK；go vet ./internal/... 干净；bash scripts/dashboard_vnext_guard.sh PASSED。边界诚实：真实 BMC/WOL/云 API 不在本机验证（无硬件）——mock 全覆盖，真机验证待环境；agent 带内 force_off 拒绝、WOL 仅唤醒不可验证为设计边界（设计 `docs/design/ops-power-management.md` §3/§9；实现 `internal/powerops/`）。
 - [x] **MOB-ANA-001 · P2 · 实现 · 移动端数据分析闭环（巡检单 2026-10-20）**
   - 依赖：—（复用既有 analytics 分域接口与 approvals OTP 链）。
   - 状态／条件：DONE + LOCAL VERIFIED（2026-11-11；flutter analyze 0 错、mobile 全量 flutter test 全绿、go build OK、analytics 包 go test 全绿）。分析需求盘点落 `docs/design/game-analytics-requirements.md`（+docs/zh 镜像）：十域逐域 ✅/⚠️/❌ 结论（宏观大盘/玩家行为/游戏进度/实时监控=✅ 已有接口；经济系统/社交/稳定性/反作弊/运营活动=❌ 数据源待建；商业化⚠️ 缺 LTV/首充，P1），验证先行（先核 internal/api/analytics 现有实现再下判，未凭空假设缺口）。
   - 交付与验收：服务端新增 analytics 聚合门面（internal/api/analytics/facade.go，加法不改造分域 handler）——GET /analytics/facade/summary 一次拉 8 已建域摘要卡（逐域 goroutine 错误隔离，单域失败标 unavailable 其余照常；未建 5 域如实标 pending_data_source 不伪造数字；装配缺欠显式 unavailable 不静默丢卡）+ POST /analytics/facade/query 统一分域查询路由（未知域 422、待建域 422 domain_pending）；移动端 mobile/lib/features/analytics/ 四文件（service fail-fast 解析 / controller riverpod scope 联动 / dashboard 13 卡三态齐全 ok 渲染指标·unavailable 描错·pending「数据源待建」/ 分域详情页：已建域 query 拉数通用渲染、待建域占位不发请求）+ 监控页新增「数据分析」入口；approvals 移动端 OTP step-up 闭环为既有交付（高危审批 otp_required→弹码→otp_invalid 重试→otp_not_enrolled 提示，approval_detail_page_test.dart 全链用例），本单核验通过未重复实现。
-  - 完成证据：3 个提交——1b866d0b（docs: add game analytics requirements，中英双树）、5584a661（feat: add analytics facade query entry，facade.go 498 行 + facade_test.go 13 卡聚合/逐域故障隔离/nil 域显式 unavailable/分域路由透传/handler 7 断言全绿）、f7d5a980（feat: add mobile analytics dashboard，service+controller+dashboard+detail 四文件 + 监控页入口 + 10 用例：summary 坏形态 StateError/scope 头注入/query body 契约/缺 data 键 fail-fast/三类卡片渲染/空态/错误重试恢复/ok 卡进详情拉数/待建卡占位零请求）。测试：flutter analyze 0 issues；flutter test 全量 235 用例全绿（含 approvals OTP 闭环既有用例 = 验收项「approvals OTP 闭环（模拟 OTP 测试）」证据）；go test ./internal/api/analytics/ -count=1 全绿；go build ./... OK。边界诚实：❌ 域仅占位声明（数据源待建，等数仓/ETL 接入后在 facade 加一行注册即亮卡）；分域详情为通用键值/列表渲染，非逐域定制图表；WAU/会话时长/LTV 等缺口指标登记在设计文档 §3 未实现。
+  - 完成证据：3 个提交——1b866d0b（docs: add game analytics requirements，中英双树）、5584a661（feat: add analytics facade query entry，facade.go 498 行 + facade_test.go 13 卡聚合/逐域故障隔离/nil 域显式 unavailable/分域路由透传/handler 7 断言全绿）、f7d5a980（feat: add mobile analytics dashboard，service+controller+dashboard+detail 四文件 + 监控页入口 + 10 用例：summary 坏形态 StateError/scope 头注入/query body 契约/缺 data 键 fail-fast/三类卡片渲染/空态/错误重试恢复/ok 卡进详情拉数/待建卡占位零请求）。测试：flutter analyze 0 issues；flutter test 全量 235 用例全绿（含 approvals OTP 闭环既有用例 = 验收项「approvals OTP 闭环（模拟 OTP 测试）」证据）；go test ./internal/api/analytics/ -count=1 全绿；go build ./... OK。边界诚实：❌ 域仅占位声明（数据源待建，等数仓/ETL 接入后在 facade 加一行注册即亮卡）；分域详情为通用键值/列表渲染，非逐域定制图表；WAU/会话时长/LTV 等缺口指标登记在 `docs/design/game-analytics-requirements.md` §3 未实现；移动端实现 `mobile/lib/features/analytics/`。
 - [x] **OBS-AGENT-001 · P2 · 实现 · 四类 Agent 接入 OTel 打点（配置开关默认关）**
   - 依赖：—。
   - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-05）**：四类 Agent（capture/devops/sidecar/synthetics）全部接入 `core/otelrec.Recorder` 缝 + `internal/telemetry/agentrec` 真实 OTel SDK 适配（otel v1.46 已复用，构建标签 `!no_otel`/`no_otel`）；config 复用既有 `telemetry.enabled`（默认 false）+ `enable_metrics` + `collectorUrl` + `useTls` + `serviceName` 键；开启后上报可被服务端面板看到（每 agent 经 Start/Stop/Connected/Disconnected/Count/Observe 覆盖启停、连接状态、事件/吞吐计数、错误率）；关闭时零开销路径（noop `Discard()`，各构造器默认装配）；测试用内存/内存 exporter 断言（每 agent 各带专用 otelrec 用例）。边界诚实：`no_otel` 构建为 fail-closed（recorder_trim.go 编译期剔除，不产生上报）；OTLP exporter 直连不在本仓内联验证（依赖外部 collector，登记为部署后人工验收项）。
@@ -544,6 +544,7 @@
   - 交付与验收：createEventSource 不再把 JWT 拼进 ?token= query（改走 EventSource 无法带 header 的替代方案：短效 stream token 或经 Authorization 的 fetch-stream）；token 不出现在 URL/日志/Referer；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
 
 - [ ] **C-005 · P2 · 安全 · JWT 存 localStorage**
+- [ ] **MCP-001 · P1 · 实现 · croupier MCP server（2026-11-13 用户令）**——Go 官方 `modelcontextprotocol/go-sdk` stdio server（`croupier mcp` 子命令），把控制面能力暴露给 AI agent：`list_sessions`/`query_jobs`（只读面直通既有查询）、`invoke_function`（走既有函数注册调用链，不重写分发）、风险工具（封禁/补偿/订单类写操作）**必须**等 GAME-009/010 凭据协议落地后才准出——未落地前 MCP 只暴露只读工具。验收：`go test ./...` 全绿 + stdio e2e（initialize/tools list/只读 call）+ README 双语入口行。
   - 依赖：—。
   - 状态／条件：BLOCKED（2026-11-06）。**DEFERRED（2026-11-03）——架构级鉴权门改造，设计需用户签字**：修复必须 httpOnly cookie 迁移（localStorage 是唯一让 XSS 读走 token 的载体，等效安全存储只能是 cookie）；但改动横穿登录状态机（密码→MFA→mustChangePassword）、OAuth 回调 `?token=` 重定向交付（handler.go:320 经 oidcSuccessURL）、Logout 吊销、auth 中间件（service_context.go:1763 读 Authorization/?token=），外加 web 侧 Login/index.tsx / http.ts getToken / app.tsx / requestErrorConfig.ts 与各自测试。鉴权门是全站入口，cookie 属性（Secure/SameSite/CSRF 模型）与 OAuth 回调 token 交付方式属设计决策，须用户确认方向后再动（自治无人复核下改错即整站登录挂）。非静默丢弃——P2 优先级保留，待设计确认后回到本项。缺：用户对鉴权门改造方向的签字批准。
   - 交付与验收：Login 改用 httpOnly+Secure cookie 或等效安全存储承载会话；localStorage 不再落 token；跨页面鉴权路径同步更新；新增单测断言 token 未写入 localStorage；修复后 `go test` 相关包全绿 + `go build ./...` 过；记入 docs/review/2026-11-01-code-review.md 对应行（改为已修）。
@@ -1206,7 +1207,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 - [ ] **PWR-001 · P1 · 修复 · 审批后续行必须原子领取，避免重复执行**
   - 依赖：—。交付与验收：把 pending→executing 改成数据库条件更新/CAS；仅一个并发 resume 能领取并启动 provider，其他请求收到稳定冲突；覆盖批准与 reject 竞争、并发 force_off/reboot 续行，断言副作用调用次数严格为 1。
-  - 状态／条件：静态审核已确认 `BeginResume` 存在 Get→状态检查→无条件 Save 的竞态（`internal/powerops/request.go:200-229`）；尚未实现、未运行复现测试。
+  - 状态／条件：已确认 `BeginResume` 存在 Get→状态检查→无条件 Save 的竞态（现 `internal/powerops/request.go:224-253`）；11-12 的真实 GormStore + 审批屏障测试已复现两次并发领取均成功；尚未修复。
 
 - [ ] **PWR-002 · P1 · 修复 · Provider 动作增加独立超时和有界执行上下文**
   - 依赖：—。交付与验收：后台执行继续不受 HTTP 断连影响，但为每次电源动作及整体请求设置可配置上限；验证超时从实际动作结束后开始；用永不返回的 Provider/Runner 证明请求在上限内落为可观察失败，goroutine 不永久滞留。
@@ -1218,7 +1219,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 - [ ] **PWR-004 · P1 · 修复 · 请求计数与验证终态采用同一成功定义**
   - 依赖：—。交付与验收：明确并分别表达“动作已发出”和“目标状态已验证”的计数；终态聚合、请求头计数及逐目标字段一致；覆盖验证超时、部分验证成功、provider 不支持验证三种情形，禁止出现 `state=failed` 且 `failed=0`。
-  - 状态／条件：静态审核已确认终态按验证结果聚合，而 `finish` 按动作调用成功计数（`internal/powerops/request.go:373-409`）；现有 `TestVerifyTimeoutKeepsUnverifiedHonest` 未断言计数；尚未修复。
+  - 状态／条件：静态审核已确认终态按验证结果聚合，而 `finish` 按动作调用成功计数（`internal/powerops/request.go:373-409`）；现有 `TestVerifyTimeoutKeepsUnverifiedHonest` 未断言计数；11-12 已动态复现单目标 state=failed/succeeded=1/failed=0；尚未修复。
 
 - [ ] **PWR-005 · P1 · 修复 · 将 status 查询从审批和变更执行状态机分离**
   - 依赖：—。交付与验收：status 请求按设计仅需身份与目标权限，不创建审批单、不进入 executing/verifying；直接返回一次状态查询及逐目标结果；测试确认查询延迟不随 `verifyTimeout` 增长，并覆盖 IPMI/cloud/agent 查询失败与未知状态。
@@ -1230,9 +1231,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 ## 全仓深度审核待办（2026-11-12，第一轮确认项）
 
-> 审核边界：本节记录本轮静态复核当前 HEAD 后确认的问题。仓库已有 `docs/review/2026-11-01-code-review.md`、`docs/review/external-deep-audit-2026-11-04.md` 等历史审计；历史结论需逐项按当前代码重验，不能视作本轮已覆盖。后续按 Go 服务/存储、Agent/协议与六语言 SDK、Web、移动端、部署/CI 分区继续审核，并把新证据增补在此处。
+> 审核边界：本节记录分区源码复核及正常业务回归后确认的问题。仓库已有 `docs/review/2026-11-01-code-review.md`、`docs/review/external-deep-audit-2026-11-04.md` 等历史审计；历史结论需逐项按当前代码重验，不能视作本轮已覆盖。后续按 Go 服务/存储、Agent/协议与六语言 SDK、Web、移动端、部署/CI 分区继续审核，并把新证据增补在此处。
 
 ### 审核覆盖进度
+
+> 2026-11-13 续审进度：第一轮 [风险路径报告](docs/review/deep-audit-2026-11-12.md) 已落盘；按用户要求转入 [代码逻辑续审](docs/review/code-logic-review-2026-11-13.md)，深入供给适配器、发版/回滚、事故更新、定时调度、ICMP 与插件/Runbook 生命周期。新增 8 个正常业务回归断言均暴露现有问题，原有相关测试通过；未修改业务实现。下列覆盖任务仍未全部完成，不因已有报告而整体勾选。
 
 - [ ] **AUD-COV-001 · 复核 · Go API/业务服务/权限与游戏、环境作用域边界**：按路由入口追踪身份、scope 中间件、数据查询/写入和错误响应；覆盖 internal/api、internal/handler、internal/platform、internal/policy。
 - [ ] **AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性**：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
@@ -1267,41 +1270,135 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：在 Flutter 3.35.1 / 对应 Dart 工具链下生成并提交一致 lockfile；若依赖确需 Dart 3.11，显式升级 CI Flutter 并同步 `pubspec.yaml` SDK 下界；增加不会静默重写锁文件的 CI 检查。
   - 状态／条件：当前工作区 lockfile（用户未提交修改）声明 Dart `>=3.11.0-0`，而 CI 固定 Flutter 3.35.1（Dart 3.9 系）且 `pubspec.yaml` 声明 `^3.9.0`。这造成工具链/锁文件不一致风险；需在提交该用户工作区改动前用固定 CI 工具链确认依赖解析，当前尚未执行 Flutter 验证，不能断言流水线已失败。
 
+### 续审确认项（AUD-007..028）
+
+> 11 月 12 日第一轮报告与 11 月 13 日代码逻辑续审均为待修发现；动态证据不等于修复完成。历史导入清单中同一问题以本编号跟踪，避免重复计数。
+
+- [ ] **AUD-007 · P1 · 修复 · 全局备份接口补齐操作授权**
+  - 交付与验收：按现有平台权限规则覆盖列表、创建、下载、删除；低权限请求返回 403 且无副作用。
+  - 状态／证据：沿真实 AuthMiddleware 验证：零角色账号可列出、下载和删除临时备份。证据 internal/handler/routes_business.go:66-74、internal/api/backup/service.go:37/177；11-12 报告及 go-probes.log。
+
+- [ ] **AUD-008 · P1 · 修复 · 明确生产模式时拒绝公开 JWT 开发密钥回退**
+  - 交付与验收：覆盖配置模式与环境变量组合，生产模式空密钥必须启动失败。
+  - 状态／证据：secret.go:57-80 没有把 server.mode=prod/production/release 判成非开发；三种配置均复现回退 DevSecret。
+
+- [ ] **AUD-009 · P1 · 修复 · SQLite 备份使用一致性快照并核对恢复内容**
+  - 交付与验收：在 WAL 和并发写入下恢复备份，确认包含已提交事务；checksum 不能替代恢复核对。
+  - 状态／证据：executor.go:227-242 直接复制主文件；真实 SQLite WAL 测试源库 1 行、成功备份 0 行。
+
+- [ ] **AUD-010 · P1 · 修复 · 账号不存在时拒绝旧 JWT 认证**
+  - 交付与验收：区分账号删除、禁用、令牌版本不匹配与数据库故障；覆盖无缓存的新中间件。
+  - 状态／证据：service_context_auth.go:304-316 把 RecordNotFound 也放行；软删除账号后新中间件仍接受旧 JWT。
+
+- [ ] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**
+  - 交付与验收：100% 覆盖率通过，低于阈值和无有效覆盖数据拒绝。
+  - 状态／证据：ci-mobile.yml:58 的 shell 参数表达式位于单引号 heredoc，Python float 收到字面量；实际 workflow 片段在 100% lcov 下仍 ValueError。
+
+- [ ] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**
+  - 交付与验收：同一事件字节无论网络如何分块，事件名和多行 data 必须一致。
+  - 状态／证据：web/src/services/core/http.ts:180 提前归一化 chunk 尾 CR；实际源码解析 update/hello 事件在 CRLF 分块后变成 message/hello。
+
+- [ ] **AUD-013 · P1 · 修复 · C++ transport 完整写帧并串行化连接写入**
+  - 交付与验收：统一 Call/响应 writer 的连接级锁、write-all 和失败收口；覆盖合法短写。
+  - 状态／证据：tcp_transport_inbound.cpp:164 单次 send 仅判断负数；注入 140 字节帧只写 5 字节后静默返回。并发帧交错为静态风险，未做拥塞网络实验。
+
+- [ ] **AUD-014 · P1 · 修复 · 将 C++ 和 C# Provider TLS 配置接入默认 transport**
+  - 交付与验收：真正实现 TLS 或请求安全模式时明确拒绝连接；与真实 TLS listener 对接并同步矩阵。
+  - 状态／证据：C++ client.cpp:417/592 只传地址和 timeout，C# Client.cs:681/774 默认 factory 同样不接 TLS，TCPTransport.cs:202 使用 NetworkStream；本轮为静态调用链确认。
+
+- [ ] **AUD-015 · P2 · 修复 · 多游戏冷启动任务恢复不能只枚举已打开库**
+  - 交付与验收：提供有界持久巡检或等效恢复保障，未被用户访问的游戏库也能收敛陈旧任务。
+  - 状态／证据：tasks/store.go:135 仅遍历 Router.OpenScopes；文件库测试中冷启动空集合收割 0 行，加入 scope 后同一任务才收敛。
+
+- [ ] **AUD-016 · P1 · 修复 · 对象存储写入补齐权限和保留前缀边界**
+  - 交付与验收：按现有权限定义控制上传、覆盖、删除、目录变更与签名访问，保护备份/发布对象。
+  - 状态／证据：storage/service.go:122-175 直接用输入 path 写全局存储；临时夹具确认只有登录身份即可覆盖 backups/ 对象。
+
+- [ ] **AUD-017 · P1 · 修复 · 全局电源配置操作补齐平台权限检查**
+  - 交付与验收：合法游戏/环境作用域不等同硬件管理权限；覆盖 power-config 写入及其他 PowerOps 操作入口。
+  - 状态／证据：ops/powerops.go:221-263 更新全局节点不检查操作权限；真实 Auth+GameDBMiddleware 下零角色、合法单游戏 scope 账号可修改全局节点 BMC 配置。
+
+- [ ] **AUD-018 · P2 · 修复 · Python reader 所有退出路径统一清理连接和 pending**
+  - 交付与验收：异常退出后连接立即不可用，在途调用及时失败，重连不被虚假 connected 阻断。
+  - 状态／证据：sdks/python/croupier/transport/tcp.py:336 通用异常只日志后退出；超长帧后 connected/running 仍 true 且 pending 未收到错误。
+
+- [ ] **AUD-019 · P1 · 修复 · 供给运行的数据库适配器按业务键更新既有记录**
+  - 交付与验收：Create→Update→Get 必须成功且只保留一行；覆盖 ticket 审批关联和 apply 后各状态持久化。
+  - 状态／证据：provision_wiring.go:26/67 每次重新转换得到 ID=0；provision_model.go:63 Save 实际 INSERT 并触发 run_id 唯一键冲突。正常更新回归用例已失败，见 11-13 代码审核报告。
+
+- [ ] **AUD-020 · P1 · 修复 · 事故详情更新使用数据库可序列化的 JSON 类型**
+  - 交付与验收：正常提交 details 对象可保存并读回，兼容空对象与嵌套值。
+  - 状态／证据：incident/service.go:331-333 把裸 map 放进 Updates；普通详情更新返回 sql unsupported type map[string]interface{}。创建路径的 datatypes.JSONMap 不存在该问题。
+
+- [ ] **AUD-021 · P2 · 修复 · IPv6 ICMP 请求和响应使用正确的类型**
+  - 交付与验收：合法 IPv6 echo reply 的 ID/序号/载荷匹配时通过，与 IPv4 分支分别验证。
+  - 状态／证据：core/healthprobe/icmp.go:100 将 IPv6 类型强转为 ipv4.ICMPType；解析返回 ipv6.ICMPType，接口比较始终不相等。正常应答回归用例失败。
+
+- [ ] **AUD-022 · P2 · 修复 · 部署编排在可取消等待前持久化已完成目标**
+  - 交付与验收：编排器被取消时保留已换包/已健康的目标事实，不能退回 pending；明确中断后的收敛策略。
+  - 状态／证据：deploy.go:213-220 在 BatchWait 后才 saveTargets；直接调用编排器，在完成换包后取消，存储仍为 pending。该等待选项默认关闭；不能将此测试宣称为默认 HTTP 断连路径。
+
+- [ ] **AUD-023 · P1 · 修复 · 回滚与正在执行的发版互斥并核验实际回滚目标**
+  - 交付与验收：正在发版时拒绝或协调回滚；不得在零目标操作时把活跃发版单标为 rolled_back。
+  - 状态／证据：deploy.go:230 Rollback 无状态领取；当 DB 中尚为 deploying/pending 时遍历跳过全部目标，返回 nil 并写 rolled_back。正常并行操作场景的回归用例失败。
+
+- [ ] **AUD-024 · P2 · 修复 · Runbook 后台恢复循环按服务生命周期共享并关闭**
+  - 交付与验收：终态写入失败重试不应每请求遗留一个后台 worker；写入恢复和服务退出后可正确释放。
+  - 状态／证据：ops/runbooks.go:90-101 每请求 runbook.New，runbook.go:398 启动各自 recoveryLoop，405-447 永久等待 wake；所谓共享仅在单个临时编排器内成立。静态跨文件确认，未声称有实际内存泄漏测量。
+
+- [ ] **AUD-025 · P2 · 修复 · Runbook 启动宽限内的遗留运行需要后续恢复机会**
+  - 交付与验收：重启时不足 24 小时的遗留 running 行，超过宽限后仍能巡检收敛；不能误收另一实例的活跃运行。
+  - 状态／证据：cmd/server/root.go:309-317 仅启动时恢复一次；RunbookStaleRunGrace=24h，之后没有重扫调用。短时宕机的遗留行被跳过后，当前进程不再自动处理。静态确认。
+
+- [ ] **AUD-026 · P2 · 修复 · 插件启动不能阻塞其他调用的 deadline**
+  - 交付与验收：启动/Describe 的慢插件不应持全控制器状态锁阻塞所有调用；队列等待和启动预算应遵守调用方上下文。
+  - 状态／证据：pluginhost/engine.go:267-350 在全局 mutex 内启动与 Describe；Call 开头 isStopped 也取该锁。真实测试插件慢启动时，另一个 10ms deadline 调用在 100ms 后仍未返回。
+
+- [ ] **AUD-027 · P1 · 修复 · 供给 CAS 竞争失败返回稳定冲突而不是 panic**
+  - 交付与验收：统一 RunStore 的 CAS 返回契约；Resume/Destroy/DestroyResume 的失败分支安全处理 nil current。
+  - 状态／证据：provision_wiring.go:30-34 在 ok=false 时丢弃当前行，orchestrator.go:391/430/493 却读取 current.State；通过真实数据库适配器模拟另一调用先领取，ResumeAsync 发生 nil pointer panic。
+
+- [ ] **AUD-028 · P1 · 修复 · 定时任务按同一计划发生时间领取而不是当前分钟**
+  - 交付与验收：两个实例已读取同一条到期记录，即使跨分钟继续处理，也只能派发一次；保留既有过期领取与未知结果语义。
+  - 状态／证据：scheduler/manager.go:309 用 Slot(now) 生成唯一领取键；同一每日任务的两份到期快照在 10:30:59 和 10:31:00 处理时派发两次。普通回归用例已失败。
+
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
+
+> 本节保留导入原文及其来源；已对照到 AUD/PWR 的条目不重复设复选框。未映射条目仍待逐项审核。原始分级不是本轮代码核验结论。
 
 <!-- 34 条原子 todo 由 codex 深审产出，原分级：6 Critical（JWT 回退密钥/TLS 形同虚设/权限缺失/JSON 注入/SQLite 备份不一致/PowerOps CAS）+ 22 Major + 5 Minor（含 C++/C#/Python SDK 同型残留）-->
 
-- [ ] 为 ProvisionRun Update 增加主键条件写入（`internal/model/provision_model.go:61-63`）—— 防止 Save 因主键问题重复插入。
-- [ ] 将 PowerOps pending→executing 改为数据库 CAS（`internal/powerops/request.go:200-229`）—— 防止续行重复执行破坏性动作。
-- [ ] 为全局备份路由增加服务层权限与 403 测试（`internal/handler/routes_business.go:66-75`）—— 阻止零权限读取/删除备份。
-- [ ] 接入 C++ 默认 TLS transport 或安全模式拒绝连接（`sdks/cpp/src/croupier_client.cpp:417-592`）—— 防止 TLS 配置形同虚设。
-- [ ] 为 Provider 动作增加独立有界 timeout（`internal/powerops/request.go:187-198,306-308`）—— 避免卡住命令永久滞留。
-- [ ] 修复 Mobile CI 覆盖率阈值解析（`.github/workflows/ci-mobile.yml:43-61`）—— 让质量门禁真实生效。
-- [ ] 定义结构化 RPC 错误帧并替换空 protobuf（`internal/transport/tcp/server.go:339-362`）—— 让客户端可靠区分失败与零值成功。
-- [ ] 统一 Python reader 异常退出收口逻辑（`sdks/python/croupier/transport/tcp.py:298-340`）—— 防止死连接保留可用状态。
-- [ ] 让 Agent Stop 超时返回错误（`cmd/sidecar-agent/service.go:163-175`）—— 向服务管理器如实报告未停止。
-- [ ] 为 C++ socket 写实现 write-all 和连接写锁（`sdks/cpp/src/tcp_transport_inbound.cpp:148-180`）—— 修复短写与并发帧交错。
+- **对照 AUD-019，不重复计数**：为 ProvisionRun Update 增加主键条件写入（`internal/model/provision_model.go:61-63`）—— 防止 Save 因主键问题重复插入。
+- **对照 PWR-001，不重复计数**：将 PowerOps pending→executing 改为数据库 CAS（`internal/powerops/request.go:200-229`）—— 防止续行重复执行破坏性动作。
+- **对照 AUD-007，不重复计数**：为全局备份路由增加服务层权限与 403 测试（`internal/handler/routes_business.go:66-75`）—— 阻止零权限读取/删除备份。
+- **对照 AUD-014，不重复计数**：接入 C++ 默认 TLS transport 或安全模式拒绝连接（`sdks/cpp/src/croupier_client.cpp:417-592`）—— 防止 TLS 配置形同虚设。
+- **对照 PWR-002，不重复计数**：为 Provider 动作增加独立有界 timeout（`internal/powerops/request.go:187-198,306-308`）—— 避免卡住命令永久滞留。
+- **对照 AUD-011，不重复计数**：修复 Mobile CI 覆盖率阈值解析（`.github/workflows/ci-mobile.yml:43-61`）—— 让质量门禁真实生效。
+- **对照 AUD-002，不重复计数**：定义结构化 RPC 错误帧并替换空 protobuf（`internal/transport/tcp/server.go:339-362`）—— 让客户端可靠区分失败与零值成功。
+- **对照 AUD-018，不重复计数**：统一 Python reader 异常退出收口逻辑（`sdks/python/croupier/transport/tcp.py:298-340`）—— 防止死连接保留可用状态。
+- **对照 AUD-004，不重复计数**：让 Agent Stop 超时返回错误（`cmd/sidecar-agent/service.go:163-175`）—— 向服务管理器如实报告未停止。
+- **对照 AUD-013，不重复计数**：为 C++ socket 写实现 write-all 和连接写锁（`sdks/cpp/src/tcp_transport_inbound.cpp:148-180`）—— 修复短写与并发帧交错。
 - [ ] 优化 listener fallback 的空结果处理（`core/metrics/processes.go:49-62`）—— 避免空 socket 结果重复四次全表扫描。
-- [ ] 区分软删除账号与存储故障的 token 版本查询（`internal/svc/service_context_auth.go:304-316`）—— 保证删除账号立即吊销旧 JWT。
-- [ ] 统一 PowerOps 发送与验证成功计数（`internal/powerops/request.go:397-432`）—— 消除终态与头部计数矛盾。
-- [ ] 实现逐目标持久化和重启恢复策略（`internal/powerops/request.go:271-321`）—— 不对不确定动作盲目重放。
-- [ ] 将 WOL 结果改为派发/确认两阶段（`internal/powerops/request.go:264-269,397-409`）—— 不把包发送误报为上线完成。
+- **对照 AUD-010，不重复计数**：区分软删除账号与存储故障的 token 版本查询（`internal/svc/service_context_auth.go:304-316`）—— 保证删除账号立即吊销旧 JWT。
+- **对照 PWR-004，不重复计数**：统一 PowerOps 发送与验证成功计数（`internal/powerops/request.go:397-432`）—— 消除终态与头部计数矛盾。
+- **对照 PWR-003，不重复计数**：实现逐目标持久化和重启恢复策略（`internal/powerops/request.go:271-321`）—— 不对不确定动作盲目重放。
+- **对照 PWR-006，不重复计数**：将 WOL 结果改为派发/确认两阶段（`internal/powerops/request.go:264-269,397-409`）—— 不把包发送误报为上线完成。
 - [ ] 用注入时钟替换备份 3.5 秒 sleep（相关测试，commit `d790d6258`）—— 降低测试耗时和慢 CI 抖动。
-- [ ] 实现冷启动任务收割的有界持久巡检（`internal/tasks/store.go:135-156`）—— 覆盖未打开游戏库中的陈旧任务。
-- [ ] 将 status 查询移出审批与变更验证状态机（`internal/powerops/request.go:222-223,349-391`）—— 避免状态查询等待满验证超时。
-- [ ] 更新六语言鉴权/TLS 能力矩阵（`sdks/SDK_FEATURE_MATRIX.md:40-44`）—— 使文档与当前实现一致。
-- [ ] 序列化 Incident Details 后写入 updates（`internal/api/incident/service.go:331-333`）—— 修复事故详情更新路径。
-- [ ] 同步修改 `core/transport/tcp/mux_conn.go` 的错误编码（`core/transport/tcp/mux_conn.go:370-386`）—— 消除同型 JSON 注入残留。
-- [ ] 为对象存储上传链路加权限与保留前缀保护（`internal/api/storage/service.go:122-163`）—— 阻止低权限覆写共享备份对象。
-- [ ] 为全局 PowerOps 配置端点加平台硬件权限（`internal/handler/routes_task.go:218-223`）—— 隔离游戏作用域与全局节点管理。
+- **对照 AUD-015，不重复计数**：实现冷启动任务收割的有界持久巡检（`internal/tasks/store.go:135-156`）—— 覆盖未打开游戏库中的陈旧任务。
+- **对照 PWR-005，不重复计数**：将 status 查询移出审批与变更验证状态机（`internal/powerops/request.go:222-223,349-391`）—— 避免状态查询等待满验证超时。
+- **对照 AUD-005，不重复计数**：更新六语言鉴权/TLS 能力矩阵（`sdks/SDK_FEATURE_MATRIX.md:40-44`）—— 使文档与当前实现一致。
+- **对照 AUD-020，不重复计数**：序列化 Incident Details 后写入 updates（`internal/api/incident/service.go:331-333`）—— 修复事故详情更新路径。
+- **对照 AUD-002，不重复计数**：同步修改 `core/transport/tcp/mux_conn.go` 的错误编码（`core/transport/tcp/mux_conn.go:370-386`）—— 消除同型 JSON 注入残留。
+- **对照 AUD-016，不重复计数**：为对象存储上传链路加权限与保留前缀保护（`internal/api/storage/service.go:122-163`）—— 阻止低权限覆写共享备份对象。
+- **对照 AUD-017，不重复计数**：为全局 PowerOps 配置端点加平台硬件权限（`internal/handler/routes_task.go:218-223`）—— 隔离游戏作用域与全局节点管理。
 - [ ] 将 fixture 的 signal 监听提前到 ready 前（`cmd/server/dashboard_fixture_cmd.go:51-55`）—— 修补 `76f057be9` 同型残留。
-- [ ] 固定 Mobile Dart/Flutter 工具链与 lockfile（`.github/workflows/ci-mobile.yml:40-64`）—— 消除依赖解析漂移。
-- [ ] 重写生产 JWT 密钥判定并补配置矩阵测试（`internal/security/jwtutil/secret.go:44-72`）—— 消除公开开发密钥回退。
-- [ ] 非 loopback Provider token 强制绑定 TLS（`cmd/sidecar-agent/root.go:638-647`）—— 防止握手 token 明文外泄。
-- [ ] 为移动端 refresh 加请求令牌并清理旧作用域（`mobile/lib/features/analytics/analytics_controller.dart:54-80`）—— 修复失败旧数据和乱序覆盖。
-- [ ] 接入 C# 默认 TLS transport 或安全模式拒绝连接（`sdks/csharp/src/Croupier.Sdk/CroupierClient.cs:681-774`）—— 同步消除同型 TLS 漂移。
-- [ ] 修正 IPv6 ICMP 类型比较（`core/healthprobe/icmp.go:96-101`）—— 让 IPv6 echo reply 能被识别。
+- **对照 AUD-006，不重复计数**：固定 Mobile Dart/Flutter 工具链与 lockfile（`.github/workflows/ci-mobile.yml:40-64`）—— 消除依赖解析漂移。
+- **对照 AUD-008，不重复计数**：重写生产 JWT 密钥判定并补配置矩阵测试（`internal/security/jwtutil/secret.go:44-72`）—— 消除公开开发密钥回退。
+- **对照 AUD-001，不重复计数**：非 loopback Provider token 强制绑定 TLS（`cmd/sidecar-agent/root.go:638-647`）—— 防止握手 token 明文外泄。
+- **对照 AUD-003，不重复计数**：为移动端 refresh 加请求令牌并清理旧作用域（`mobile/lib/features/analytics/analytics_controller.dart:54-80`）—— 修复失败旧数据和乱序覆盖。
+- **对照 AUD-014，不重复计数**：接入 C# 默认 TLS transport 或安全模式拒绝连接（`sdks/csharp/src/Croupier.Sdk/CroupierClient.cs:681-774`）—— 同步消除同型 TLS 漂移。
+- **对照 AUD-021，不重复计数**：修正 IPv6 ICMP 类型比较（`core/healthprobe/icmp.go:96-101`）—— 让 IPv6 echo reply 能被识别。
 - [ ] 校验 TCP 插件 path 并补协议注入测试（`agents/sidecar/funcplugin/examples/tcp/main.go:177-205`）—— 阻止 CR/LF 注入多行命令。
-- [ ] 将 SQLite dump 改为一致性快照并验证恢复数据（`internal/platform/backupexec/executor.go:227-243`）—— 保证 WAL 已提交事务进入备份。
+- **对照 AUD-009，不重复计数**：将 SQLite dump 改为一致性快照并验证恢复数据（`internal/platform/backupexec/executor.go:227-243`）—— 保证 WAL 已提交事务进入备份。
 - [ ] 为 metrics 采集全链路接入 context 并补停止测试（`core/metrics/processes.go:139-200`）—— 防止采集关闭后 goroutine 泄漏。
-- [ ] 将 AUD-007..018 追加到 todo 台账（`todo.md:1231-1266`）—— 避免已确认审计项遗漏跟踪。
+- [x] 将 AUD-007..018 追加到 todo 台账（`todo.md:1231-1266`）—— 避免已确认审计项遗漏跟踪。（2026-11-13 已补齐至 AUD-028）
