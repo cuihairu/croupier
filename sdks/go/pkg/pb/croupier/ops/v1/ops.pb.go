@@ -3676,6 +3676,571 @@ func (x *DevopsAllowlistConfigResponse) GetAllowlistJson() string {
 	return ""
 }
 
+// DevopsSessionOpenRequest opens one interactive devops session on the agent
+// (AGENT-002): server → agent, processed by the agent's session Broker/Hub
+// chain (request validation → allowlist → audit-first admit → channel Open).
+// operator is the server-authenticated actor (never a client-supplied alias).
+type DevopsSessionOpenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // server-assigned id (audit + relay correlation); "" = agent generates
+	Operator      string                 `protobuf:"bytes,2,opt,name=operator,proto3" json:"operator,omitempty"`                    // authenticated actor (audit "who")
+	Protocol      string                 `protobuf:"bytes,3,opt,name=protocol,proto3" json:"protocol,omitempty"`                    // closed set: ssh (rdp/vnc refuse until the guacd channel lands)
+	Host          string                 `protobuf:"bytes,4,opt,name=host,proto3" json:"host,omitempty"`                            // allowlist exact match
+	Port          int32                  `protobuf:"varint,5,opt,name=port,proto3" json:"port,omitempty"`
+	Cols          int32                  `protobuf:"varint,6,opt,name=cols,proto3" json:"cols,omitempty"` // initial pty window; <=0 = agent default
+	Rows          int32                  `protobuf:"varint,7,opt,name=rows,proto3" json:"rows,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionOpenRequest) Reset() {
+	*x = DevopsSessionOpenRequest{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionOpenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionOpenRequest) ProtoMessage() {}
+
+func (x *DevopsSessionOpenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionOpenRequest.ProtoReflect.Descriptor instead.
+func (*DevopsSessionOpenRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *DevopsSessionOpenRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *DevopsSessionOpenRequest) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
+}
+
+func (x *DevopsSessionOpenRequest) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *DevopsSessionOpenRequest) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
+}
+
+func (x *DevopsSessionOpenRequest) GetPort() int32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *DevopsSessionOpenRequest) GetCols() int32 {
+	if x != nil {
+		return x.Cols
+	}
+	return 0
+}
+
+func (x *DevopsSessionOpenRequest) GetRows() int32 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+type DevopsSessionOpenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"` // false = refused (validation/allowlist/audit/limit/dial); error carries the reason
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	SessionId     string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // effective id (agent fills when the request left it empty)
+	Channel       string                 `protobuf:"bytes,4,opt,name=channel,proto3" json:"channel,omitempty"`                      // provider name (audit/log discriminator)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionOpenResponse) Reset() {
+	*x = DevopsSessionOpenResponse{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionOpenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionOpenResponse) ProtoMessage() {}
+
+func (x *DevopsSessionOpenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionOpenResponse.ProtoReflect.Descriptor instead.
+func (*DevopsSessionOpenResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *DevopsSessionOpenResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *DevopsSessionOpenResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *DevopsSessionOpenResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *DevopsSessionOpenResponse) GetChannel() string {
+	if x != nil {
+		return x.Channel
+	}
+	return ""
+}
+
+// DevopsSessionInputRequest carries terminal input (keyboard data) into the
+// session's bounded input queue. ok=false with error="busy" is backpressure
+// (queue full past the wait budget): the panel retries, data is never
+// silently dropped.
+type DevopsSessionInputRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Data          []byte                 `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionInputRequest) Reset() {
+	*x = DevopsSessionInputRequest{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionInputRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionInputRequest) ProtoMessage() {}
+
+func (x *DevopsSessionInputRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionInputRequest.ProtoReflect.Descriptor instead.
+func (*DevopsSessionInputRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *DevopsSessionInputRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *DevopsSessionInputRequest) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type DevopsSessionInputResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionInputResponse) Reset() {
+	*x = DevopsSessionInputResponse{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionInputResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionInputResponse) ProtoMessage() {}
+
+func (x *DevopsSessionInputResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionInputResponse.ProtoReflect.Descriptor instead.
+func (*DevopsSessionInputResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *DevopsSessionInputResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *DevopsSessionInputResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// DevopsSessionResizeRequest adjusts the remote pty window; the session
+// replay archive records a resize event so playback follows.
+type DevopsSessionResizeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Cols          int32                  `protobuf:"varint,2,opt,name=cols,proto3" json:"cols,omitempty"`
+	Rows          int32                  `protobuf:"varint,3,opt,name=rows,proto3" json:"rows,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionResizeRequest) Reset() {
+	*x = DevopsSessionResizeRequest{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionResizeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionResizeRequest) ProtoMessage() {}
+
+func (x *DevopsSessionResizeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionResizeRequest.ProtoReflect.Descriptor instead.
+func (*DevopsSessionResizeRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *DevopsSessionResizeRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *DevopsSessionResizeRequest) GetCols() int32 {
+	if x != nil {
+		return x.Cols
+	}
+	return 0
+}
+
+func (x *DevopsSessionResizeRequest) GetRows() int32 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+type DevopsSessionResizeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionResizeResponse) Reset() {
+	*x = DevopsSessionResizeResponse{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionResizeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionResizeResponse) ProtoMessage() {}
+
+func (x *DevopsSessionResizeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionResizeResponse.ProtoReflect.Descriptor instead.
+func (*DevopsSessionResizeResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *DevopsSessionResizeResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *DevopsSessionResizeResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// DevopsSessionCloseRequest closes the session actively (operator or panel
+// action); the agent runs the full disconnect-cleanup chain (hub deregister,
+// archive finalize, session-end audit) and reports the end event afterwards.
+type DevopsSessionCloseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionCloseRequest) Reset() {
+	*x = DevopsSessionCloseRequest{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionCloseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionCloseRequest) ProtoMessage() {}
+
+func (x *DevopsSessionCloseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionCloseRequest.ProtoReflect.Descriptor instead.
+func (*DevopsSessionCloseRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *DevopsSessionCloseRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *DevopsSessionCloseRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type DevopsSessionCloseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionCloseResponse) Reset() {
+	*x = DevopsSessionCloseResponse{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionCloseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionCloseResponse) ProtoMessage() {}
+
+func (x *DevopsSessionCloseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionCloseResponse.ProtoReflect.Descriptor instead.
+func (*DevopsSessionCloseResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *DevopsSessionCloseResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *DevopsSessionCloseResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// DevopsSessionEvent is the one-way agent → server session stream (output
+// chunks and terminal-state notices). kind=output carries terminal bytes in
+// data; kind=end carries the cleanup outcome in outcome
+// (closed|eof|error|cast-broken|no-terminal-channel|...).
+type DevopsSessionEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`       // output | end
+	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`       // output chunk (kind=output)
+	Outcome       string                 `protobuf:"bytes,4,opt,name=outcome,proto3" json:"outcome,omitempty"` // end outcome (kind=end)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DevopsSessionEvent) Reset() {
+	*x = DevopsSessionEvent{}
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DevopsSessionEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DevopsSessionEvent) ProtoMessage() {}
+
+func (x *DevopsSessionEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DevopsSessionEvent.ProtoReflect.Descriptor instead.
+func (*DevopsSessionEvent) Descriptor() ([]byte, []int) {
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *DevopsSessionEvent) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *DevopsSessionEvent) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *DevopsSessionEvent) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *DevopsSessionEvent) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
 // SyntheticsTargetsConfigRequest pulls the game/env-scoped synthetics
 // target list (config_versions key synthetics.targets, namespace=ops).
 // The agent-side puller hot-swaps the active target set; local file
@@ -3689,7 +4254,7 @@ type SyntheticsTargetsConfigRequest struct {
 
 func (x *SyntheticsTargetsConfigRequest) Reset() {
 	*x = SyntheticsTargetsConfigRequest{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3701,7 +4266,7 @@ func (x *SyntheticsTargetsConfigRequest) String() string {
 func (*SyntheticsTargetsConfigRequest) ProtoMessage() {}
 
 func (x *SyntheticsTargetsConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[47]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3714,7 +4279,7 @@ func (x *SyntheticsTargetsConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyntheticsTargetsConfigRequest.ProtoReflect.Descriptor instead.
 func (*SyntheticsTargetsConfigRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{47}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *SyntheticsTargetsConfigRequest) GetAgentId() string {
@@ -3740,7 +4305,7 @@ type SyntheticsTargetsConfigResponse struct {
 
 func (x *SyntheticsTargetsConfigResponse) Reset() {
 	*x = SyntheticsTargetsConfigResponse{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3752,7 +4317,7 @@ func (x *SyntheticsTargetsConfigResponse) String() string {
 func (*SyntheticsTargetsConfigResponse) ProtoMessage() {}
 
 func (x *SyntheticsTargetsConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[48]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3765,7 +4330,7 @@ func (x *SyntheticsTargetsConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyntheticsTargetsConfigResponse.ProtoReflect.Descriptor instead.
 func (*SyntheticsTargetsConfigResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{48}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SyntheticsTargetsConfigResponse) GetVersion() string {
@@ -3804,7 +4369,7 @@ type AlertEvent struct {
 
 func (x *AlertEvent) Reset() {
 	*x = AlertEvent{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3816,7 +4381,7 @@ func (x *AlertEvent) String() string {
 func (*AlertEvent) ProtoMessage() {}
 
 func (x *AlertEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[49]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3829,7 +4394,7 @@ func (x *AlertEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertEvent.ProtoReflect.Descriptor instead.
 func (*AlertEvent) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{49}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *AlertEvent) GetKind() string {
@@ -3898,7 +4463,7 @@ type ProbeWindow struct {
 
 func (x *ProbeWindow) Reset() {
 	*x = ProbeWindow{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[50]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3910,7 +4475,7 @@ func (x *ProbeWindow) String() string {
 func (*ProbeWindow) ProtoMessage() {}
 
 func (x *ProbeWindow) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[50]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3923,7 +4488,7 @@ func (x *ProbeWindow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeWindow.ProtoReflect.Descriptor instead.
 func (*ProbeWindow) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{50}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ProbeWindow) GetTarget() string {
@@ -4002,7 +4567,7 @@ type ProbeDetail struct {
 
 func (x *ProbeDetail) Reset() {
 	*x = ProbeDetail{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[51]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4014,7 +4579,7 @@ func (x *ProbeDetail) String() string {
 func (*ProbeDetail) ProtoMessage() {}
 
 func (x *ProbeDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[51]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4027,7 +4592,7 @@ func (x *ProbeDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeDetail.ProtoReflect.Descriptor instead.
 func (*ProbeDetail) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{51}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ProbeDetail) GetTarget() string {
@@ -4128,7 +4693,7 @@ type ProbeStats struct {
 
 func (x *ProbeStats) Reset() {
 	*x = ProbeStats{}
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[52]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4140,7 +4705,7 @@ func (x *ProbeStats) String() string {
 func (*ProbeStats) ProtoMessage() {}
 
 func (x *ProbeStats) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_ops_v1_ops_proto_msgTypes[52]
+	mi := &file_croupier_ops_v1_ops_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4153,7 +4718,7 @@ func (x *ProbeStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeStats.ProtoReflect.Descriptor instead.
 func (*ProbeStats) Descriptor() ([]byte, []int) {
-	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{52}
+	return file_croupier_ops_v1_ops_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ProbeStats) GetTarget() string {
@@ -4599,7 +5164,50 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\"`\n" +
 	"\x1dDevopsAllowlistConfigResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12%\n" +
-	"\x0eallowlist_json\x18\x02 \x01(\tR\rallowlistJson\";\n" +
+	"\x0eallowlist_json\x18\x02 \x01(\tR\rallowlistJson\"\xc1\x01\n" +
+	"\x18DevopsSessionOpenRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1a\n" +
+	"\boperator\x18\x02 \x01(\tR\boperator\x12\x1a\n" +
+	"\bprotocol\x18\x03 \x01(\tR\bprotocol\x12\x12\n" +
+	"\x04host\x18\x04 \x01(\tR\x04host\x12\x12\n" +
+	"\x04port\x18\x05 \x01(\x05R\x04port\x12\x12\n" +
+	"\x04cols\x18\x06 \x01(\x05R\x04cols\x12\x12\n" +
+	"\x04rows\x18\a \x01(\x05R\x04rows\"z\n" +
+	"\x19DevopsSessionOpenResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x03 \x01(\tR\tsessionId\x12\x18\n" +
+	"\achannel\x18\x04 \x01(\tR\achannel\"N\n" +
+	"\x19DevopsSessionInputRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\"B\n" +
+	"\x1aDevopsSessionInputResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"c\n" +
+	"\x1aDevopsSessionResizeRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
+	"\x04cols\x18\x02 \x01(\x05R\x04cols\x12\x12\n" +
+	"\x04rows\x18\x03 \x01(\x05R\x04rows\"C\n" +
+	"\x1bDevopsSessionResizeResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"R\n" +
+	"\x19DevopsSessionCloseRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"B\n" +
+	"\x1aDevopsSessionCloseResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"u\n" +
+	"\x12DevopsSessionEvent\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04data\x18\x03 \x01(\fR\x04data\x12\x18\n" +
+	"\aoutcome\x18\x04 \x01(\tR\aoutcome\";\n" +
 	"\x1eSyntheticsTargetsConfigRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\"^\n" +
 	"\x1fSyntheticsTargetsConfigResponse\x12\x18\n" +
@@ -4691,7 +5299,7 @@ func file_croupier_ops_v1_ops_proto_rawDescGZIP() []byte {
 }
 
 var file_croupier_ops_v1_ops_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 56)
+var file_croupier_ops_v1_ops_proto_msgTypes = make([]protoimpl.MessageInfo, 65)
 var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(ProcessState)(0),                       // 0: croupier.ops.v1.ProcessState
 	(*MetricsReport)(nil),                   // 1: croupier.ops.v1.MetricsReport
@@ -4741,43 +5349,52 @@ var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	(*ProbeDBTargetsConfigResponse)(nil),    // 45: croupier.ops.v1.ProbeDBTargetsConfigResponse
 	(*DevopsAllowlistConfigRequest)(nil),    // 46: croupier.ops.v1.DevopsAllowlistConfigRequest
 	(*DevopsAllowlistConfigResponse)(nil),   // 47: croupier.ops.v1.DevopsAllowlistConfigResponse
-	(*SyntheticsTargetsConfigRequest)(nil),  // 48: croupier.ops.v1.SyntheticsTargetsConfigRequest
-	(*SyntheticsTargetsConfigResponse)(nil), // 49: croupier.ops.v1.SyntheticsTargetsConfigResponse
-	(*AlertEvent)(nil),                      // 50: croupier.ops.v1.AlertEvent
-	(*ProbeWindow)(nil),                     // 51: croupier.ops.v1.ProbeWindow
-	(*ProbeDetail)(nil),                     // 52: croupier.ops.v1.ProbeDetail
-	(*ProbeStats)(nil),                      // 53: croupier.ops.v1.ProbeStats
-	nil,                                     // 54: croupier.ops.v1.MetricsReport.CustomEntry
-	nil,                                     // 55: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
-	nil,                                     // 56: croupier.ops.v1.ProbeDetail.DetailsEntry
-	(*timestamppb.Timestamp)(nil),           // 57: google.protobuf.Timestamp
+	(*DevopsSessionOpenRequest)(nil),        // 48: croupier.ops.v1.DevopsSessionOpenRequest
+	(*DevopsSessionOpenResponse)(nil),       // 49: croupier.ops.v1.DevopsSessionOpenResponse
+	(*DevopsSessionInputRequest)(nil),       // 50: croupier.ops.v1.DevopsSessionInputRequest
+	(*DevopsSessionInputResponse)(nil),      // 51: croupier.ops.v1.DevopsSessionInputResponse
+	(*DevopsSessionResizeRequest)(nil),      // 52: croupier.ops.v1.DevopsSessionResizeRequest
+	(*DevopsSessionResizeResponse)(nil),     // 53: croupier.ops.v1.DevopsSessionResizeResponse
+	(*DevopsSessionCloseRequest)(nil),       // 54: croupier.ops.v1.DevopsSessionCloseRequest
+	(*DevopsSessionCloseResponse)(nil),      // 55: croupier.ops.v1.DevopsSessionCloseResponse
+	(*DevopsSessionEvent)(nil),              // 56: croupier.ops.v1.DevopsSessionEvent
+	(*SyntheticsTargetsConfigRequest)(nil),  // 57: croupier.ops.v1.SyntheticsTargetsConfigRequest
+	(*SyntheticsTargetsConfigResponse)(nil), // 58: croupier.ops.v1.SyntheticsTargetsConfigResponse
+	(*AlertEvent)(nil),                      // 59: croupier.ops.v1.AlertEvent
+	(*ProbeWindow)(nil),                     // 60: croupier.ops.v1.ProbeWindow
+	(*ProbeDetail)(nil),                     // 61: croupier.ops.v1.ProbeDetail
+	(*ProbeStats)(nil),                      // 62: croupier.ops.v1.ProbeStats
+	nil,                                     // 63: croupier.ops.v1.MetricsReport.CustomEntry
+	nil,                                     // 64: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	nil,                                     // 65: croupier.ops.v1.ProbeDetail.DetailsEntry
+	(*timestamppb.Timestamp)(nil),           // 66: google.protobuf.Timestamp
 }
 var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
-	57, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
+	66, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
 	3,  // 1: croupier.ops.v1.MetricsReport.cpu:type_name -> croupier.ops.v1.CpuMetrics
 	4,  // 2: croupier.ops.v1.MetricsReport.memory:type_name -> croupier.ops.v1.MemoryMetrics
 	5,  // 3: croupier.ops.v1.MetricsReport.disks:type_name -> croupier.ops.v1.DiskMetrics
 	6,  // 4: croupier.ops.v1.MetricsReport.networks:type_name -> croupier.ops.v1.NetworkMetrics
 	7,  // 5: croupier.ops.v1.MetricsReport.processes:type_name -> croupier.ops.v1.ProcessMetrics
-	54, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
+	63, // 6: croupier.ops.v1.MetricsReport.custom:type_name -> croupier.ops.v1.MetricsReport.CustomEntry
 	28, // 7: croupier.ops.v1.MetricsReport.supervised_processes:type_name -> croupier.ops.v1.SupervisedProcessSnapshot
 	25, // 8: croupier.ops.v1.MetricsReport.supervisor_events:type_name -> croupier.ops.v1.SupervisorEvent
-	53, // 9: croupier.ops.v1.MetricsReport.probe_stats:type_name -> croupier.ops.v1.ProbeStats
+	62, // 9: croupier.ops.v1.MetricsReport.probe_stats:type_name -> croupier.ops.v1.ProbeStats
 	8,  // 10: croupier.ops.v1.MetricsReport.ports:type_name -> croupier.ops.v1.PortMetrics
 	2,  // 11: croupier.ops.v1.MetricsReport.logs:type_name -> croupier.ops.v1.LogEntry
-	57, // 12: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
-	57, // 13: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
+	66, // 12: croupier.ops.v1.ProcessMetrics.start_time:type_name -> google.protobuf.Timestamp
+	66, // 13: croupier.ops.v1.SystemInfo.boot_time:type_name -> google.protobuf.Timestamp
 	10, // 14: croupier.ops.v1.SystemInfo.ops_status:type_name -> croupier.ops.v1.OpsStatus
 	24, // 15: croupier.ops.v1.ListProcessesResponse.processes:type_name -> croupier.ops.v1.ManagedProcess
 	0,  // 16: croupier.ops.v1.ManagedProcess.state:type_name -> croupier.ops.v1.ProcessState
-	57, // 17: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
+	66, // 17: croupier.ops.v1.ManagedProcess.last_start:type_name -> google.protobuf.Timestamp
 	0,  // 18: croupier.ops.v1.SupervisedProcessSnapshot.state:type_name -> croupier.ops.v1.ProcessState
-	55, // 19: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
+	64, // 19: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
 	33, // 20: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
 	37, // 21: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
-	51, // 22: croupier.ops.v1.AlertEvent.window:type_name -> croupier.ops.v1.ProbeWindow
-	52, // 23: croupier.ops.v1.AlertEvent.detail:type_name -> croupier.ops.v1.ProbeDetail
-	56, // 24: croupier.ops.v1.ProbeDetail.details:type_name -> croupier.ops.v1.ProbeDetail.DetailsEntry
+	60, // 22: croupier.ops.v1.AlertEvent.window:type_name -> croupier.ops.v1.ProbeWindow
+	61, // 23: croupier.ops.v1.AlertEvent.detail:type_name -> croupier.ops.v1.ProbeDetail
+	65, // 24: croupier.ops.v1.ProbeDetail.details:type_name -> croupier.ops.v1.ProbeDetail.DetailsEntry
 	25, // [25:25] is the sub-list for method output_type
 	25, // [25:25] is the sub-list for method input_type
 	25, // [25:25] is the sub-list for extension type_name
@@ -4796,7 +5413,7 @@ func file_croupier_ops_v1_ops_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_ops_v1_ops_proto_rawDesc), len(file_croupier_ops_v1_ops_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   56,
+			NumMessages:   65,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

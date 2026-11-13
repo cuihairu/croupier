@@ -200,6 +200,15 @@ func TestMsgIDStringKnownTypes(t *testing.T) {
 		{MsgSyntheticsTargetsConfigResponse, "SyntheticsTargetsConfigResponse"},
 		{MsgPushFileRequest, "PushFileRequest"},
 		{MsgPushFileResponse, "PushFileResponse"},
+		{MsgDevopsSessionOpenRequest, "DevopsSessionOpenRequest"},
+		{MsgDevopsSessionOpenResponse, "DevopsSessionOpenResponse"},
+		{MsgDevopsSessionInputRequest, "DevopsSessionInputRequest"},
+		{MsgDevopsSessionInputResponse, "DevopsSessionInputResponse"},
+		{MsgDevopsSessionResizeRequest, "DevopsSessionResizeRequest"},
+		{MsgDevopsSessionResizeResponse, "DevopsSessionResizeResponse"},
+		{MsgDevopsSessionCloseRequest, "DevopsSessionCloseRequest"},
+		{MsgDevopsSessionCloseResponse, "DevopsSessionCloseResponse"},
+		{MsgDevopsSessionEvent, "DevopsSessionEvent"},
 	}
 	for _, tt := range cases {
 		if got := MsgIDString(tt.msgID); got != tt.want {

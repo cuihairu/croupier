@@ -100,6 +100,42 @@ class DevopsAllowlistConfigResponse;
 struct DevopsAllowlistConfigResponseDefaultTypeInternal;
 extern DevopsAllowlistConfigResponseDefaultTypeInternal _DevopsAllowlistConfigResponse_default_instance_;
 extern const ::google::protobuf::internal::ClassDataFull DevopsAllowlistConfigResponse_class_data_;
+class DevopsSessionCloseRequest;
+struct DevopsSessionCloseRequestDefaultTypeInternal;
+extern DevopsSessionCloseRequestDefaultTypeInternal _DevopsSessionCloseRequest_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionCloseRequest_class_data_;
+class DevopsSessionCloseResponse;
+struct DevopsSessionCloseResponseDefaultTypeInternal;
+extern DevopsSessionCloseResponseDefaultTypeInternal _DevopsSessionCloseResponse_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionCloseResponse_class_data_;
+class DevopsSessionEvent;
+struct DevopsSessionEventDefaultTypeInternal;
+extern DevopsSessionEventDefaultTypeInternal _DevopsSessionEvent_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionEvent_class_data_;
+class DevopsSessionInputRequest;
+struct DevopsSessionInputRequestDefaultTypeInternal;
+extern DevopsSessionInputRequestDefaultTypeInternal _DevopsSessionInputRequest_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionInputRequest_class_data_;
+class DevopsSessionInputResponse;
+struct DevopsSessionInputResponseDefaultTypeInternal;
+extern DevopsSessionInputResponseDefaultTypeInternal _DevopsSessionInputResponse_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionInputResponse_class_data_;
+class DevopsSessionOpenRequest;
+struct DevopsSessionOpenRequestDefaultTypeInternal;
+extern DevopsSessionOpenRequestDefaultTypeInternal _DevopsSessionOpenRequest_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionOpenRequest_class_data_;
+class DevopsSessionOpenResponse;
+struct DevopsSessionOpenResponseDefaultTypeInternal;
+extern DevopsSessionOpenResponseDefaultTypeInternal _DevopsSessionOpenResponse_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionOpenResponse_class_data_;
+class DevopsSessionResizeRequest;
+struct DevopsSessionResizeRequestDefaultTypeInternal;
+extern DevopsSessionResizeRequestDefaultTypeInternal _DevopsSessionResizeRequest_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionResizeRequest_class_data_;
+class DevopsSessionResizeResponse;
+struct DevopsSessionResizeResponseDefaultTypeInternal;
+extern DevopsSessionResizeResponseDefaultTypeInternal _DevopsSessionResizeResponse_default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionResizeResponse_class_data_;
 class DiskMetrics;
 struct DiskMetricsDefaultTypeInternal;
 extern DiskMetricsDefaultTypeInternal _DiskMetrics_default_instance_;
@@ -904,7 +940,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SyntheticsTargetsConfigResponse fin
     return *reinterpret_cast<const SyntheticsTargetsConfigResponse*>(
         &_SyntheticsTargetsConfigResponse_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 50;
+  static constexpr int kIndexInFileMessages = 59;
   friend void swap(SyntheticsTargetsConfigResponse& a, SyntheticsTargetsConfigResponse& b) { a.Swap(&b); }
   inline void Swap(SyntheticsTargetsConfigResponse* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -1122,7 +1158,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SyntheticsTargetsConfigRequest fina
     return *reinterpret_cast<const SyntheticsTargetsConfigRequest*>(
         &_SyntheticsTargetsConfigRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 49;
+  static constexpr int kIndexInFileMessages = 58;
   friend void swap(SyntheticsTargetsConfigRequest& a, SyntheticsTargetsConfigRequest& b) { a.Swap(&b); }
   inline void Swap(SyntheticsTargetsConfigRequest* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4694,7 +4730,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeWindow final : public ::google
     return *reinterpret_cast<const ProbeWindow*>(
         &_ProbeWindow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 52;
+  static constexpr int kIndexInFileMessages = 61;
   friend void swap(ProbeWindow& a, ProbeWindow& b) { a.Swap(&b); }
   inline void Swap(ProbeWindow* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -4999,7 +5035,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeStats final : public ::google:
     return *reinterpret_cast<const ProbeStats*>(
         &_ProbeStats_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 55;
+  static constexpr int kIndexInFileMessages = 64;
   friend void swap(ProbeStats& a, ProbeStats& b) { a.Swap(&b); }
   inline void Swap(ProbeStats* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -9404,6 +9440,2093 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DiskMetrics final : public ::google
 extern const ::google::protobuf::internal::ClassDataFull DiskMetrics_class_data_;
 // -------------------------------------------------------------------
 
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionResizeResponse final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionResizeResponse) */ {
+ public:
+  inline DevopsSessionResizeResponse() : DevopsSessionResizeResponse(nullptr) {}
+  ~DevopsSessionResizeResponse() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionResizeResponse* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionResizeResponse));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionResizeResponse(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionResizeResponse(const DevopsSessionResizeResponse& from) : DevopsSessionResizeResponse(nullptr, from) {}
+  inline DevopsSessionResizeResponse(DevopsSessionResizeResponse&& from) noexcept
+      : DevopsSessionResizeResponse(nullptr, ::std::move(from)) {}
+  inline DevopsSessionResizeResponse& operator=(const DevopsSessionResizeResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionResizeResponse& operator=(DevopsSessionResizeResponse&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionResizeResponse& default_instance() {
+    return *reinterpret_cast<const DevopsSessionResizeResponse*>(
+        &_DevopsSessionResizeResponse_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 54;
+  friend void swap(DevopsSessionResizeResponse& a, DevopsSessionResizeResponse& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionResizeResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionResizeResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionResizeResponse* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionResizeResponse>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionResizeResponse& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionResizeResponse& from) { DevopsSessionResizeResponse::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionResizeResponse* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionResizeResponse"; }
+
+  explicit DevopsSessionResizeResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionResizeResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionResizeResponse& from);
+  DevopsSessionResizeResponse(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionResizeResponse&& from) noexcept
+      : DevopsSessionResizeResponse(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kErrorFieldNumber = 2,
+    kOkFieldNumber = 1,
+  };
+  // string error = 2;
+  void clear_error() ;
+  [[nodiscard]] const ::std::string& error() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_error(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_error();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_error();
+  void set_allocated_error(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_error() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_error(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_error();
+
+  public:
+  // bool ok = 1;
+  void clear_ok() ;
+  [[nodiscard]] bool ok() const;
+  void set_ok(bool value);
+
+  private:
+  bool _internal_ok() const;
+  void _internal_set_ok(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionResizeResponse)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<1, 2,
+                                   0, 57,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionResizeResponse& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr error_;
+    bool ok_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionResizeResponse_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionResizeRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionResizeRequest) */ {
+ public:
+  inline DevopsSessionResizeRequest() : DevopsSessionResizeRequest(nullptr) {}
+  ~DevopsSessionResizeRequest() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionResizeRequest* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionResizeRequest));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionResizeRequest(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionResizeRequest(const DevopsSessionResizeRequest& from) : DevopsSessionResizeRequest(nullptr, from) {}
+  inline DevopsSessionResizeRequest(DevopsSessionResizeRequest&& from) noexcept
+      : DevopsSessionResizeRequest(nullptr, ::std::move(from)) {}
+  inline DevopsSessionResizeRequest& operator=(const DevopsSessionResizeRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionResizeRequest& operator=(DevopsSessionResizeRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionResizeRequest& default_instance() {
+    return *reinterpret_cast<const DevopsSessionResizeRequest*>(
+        &_DevopsSessionResizeRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 53;
+  friend void swap(DevopsSessionResizeRequest& a, DevopsSessionResizeRequest& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionResizeRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionResizeRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionResizeRequest* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionResizeRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionResizeRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionResizeRequest& from) { DevopsSessionResizeRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionResizeRequest* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionResizeRequest"; }
+
+  explicit DevopsSessionResizeRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionResizeRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionResizeRequest& from);
+  DevopsSessionResizeRequest(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionResizeRequest&& from) noexcept
+      : DevopsSessionResizeRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kSessionIdFieldNumber = 1,
+    kColsFieldNumber = 2,
+    kRowsFieldNumber = 3,
+  };
+  // string session_id = 1;
+  void clear_session_id() ;
+  [[nodiscard]] const ::std::string& session_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_session_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_session_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_session_id();
+  void set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_session_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_session_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_session_id();
+
+  public:
+  // int32 cols = 2;
+  void clear_cols() ;
+  [[nodiscard]] ::int32_t cols() const;
+  void set_cols(::int32_t value);
+
+  private:
+  ::int32_t _internal_cols() const;
+  void _internal_set_cols(::int32_t value);
+
+  public:
+  // int32 rows = 3;
+  void clear_rows() ;
+  [[nodiscard]] ::int32_t rows() const;
+  void set_rows(::int32_t value);
+
+  private:
+  ::int32_t _internal_rows() const;
+  void _internal_set_rows(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionResizeRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<2, 3,
+                                   0, 61,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionResizeRequest& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr session_id_;
+    ::int32_t cols_;
+    ::int32_t rows_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionResizeRequest_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionOpenResponse final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionOpenResponse) */ {
+ public:
+  inline DevopsSessionOpenResponse() : DevopsSessionOpenResponse(nullptr) {}
+  ~DevopsSessionOpenResponse() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionOpenResponse* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionOpenResponse));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionOpenResponse(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionOpenResponse(const DevopsSessionOpenResponse& from) : DevopsSessionOpenResponse(nullptr, from) {}
+  inline DevopsSessionOpenResponse(DevopsSessionOpenResponse&& from) noexcept
+      : DevopsSessionOpenResponse(nullptr, ::std::move(from)) {}
+  inline DevopsSessionOpenResponse& operator=(const DevopsSessionOpenResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionOpenResponse& operator=(DevopsSessionOpenResponse&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionOpenResponse& default_instance() {
+    return *reinterpret_cast<const DevopsSessionOpenResponse*>(
+        &_DevopsSessionOpenResponse_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 50;
+  friend void swap(DevopsSessionOpenResponse& a, DevopsSessionOpenResponse& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionOpenResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionOpenResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionOpenResponse* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionOpenResponse>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionOpenResponse& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionOpenResponse& from) { DevopsSessionOpenResponse::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionOpenResponse* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionOpenResponse"; }
+
+  explicit DevopsSessionOpenResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionOpenResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionOpenResponse& from);
+  DevopsSessionOpenResponse(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionOpenResponse&& from) noexcept
+      : DevopsSessionOpenResponse(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kErrorFieldNumber = 2,
+    kSessionIdFieldNumber = 3,
+    kChannelFieldNumber = 4,
+    kOkFieldNumber = 1,
+  };
+  // string error = 2;
+  void clear_error() ;
+  [[nodiscard]] const ::std::string& error() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_error(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_error();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_error();
+  void set_allocated_error(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_error() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_error(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_error();
+
+  public:
+  // string session_id = 3;
+  void clear_session_id() ;
+  [[nodiscard]] const ::std::string& session_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_session_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_session_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_session_id();
+  void set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_session_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_session_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_session_id();
+
+  public:
+  // string channel = 4;
+  void clear_channel() ;
+  [[nodiscard]] const ::std::string& channel() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_channel(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_channel();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_channel();
+  void set_allocated_channel(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_channel() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_channel(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_channel();
+
+  public:
+  // bool ok = 1;
+  void clear_ok() ;
+  [[nodiscard]] bool ok() const;
+  void set_ok(bool value);
+
+  private:
+  bool _internal_ok() const;
+  void _internal_set_ok(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionOpenResponse)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<2, 4,
+                                   0, 72,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionOpenResponse& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr error_;
+    ::google::protobuf::internal::ArenaStringPtr session_id_;
+    ::google::protobuf::internal::ArenaStringPtr channel_;
+    bool ok_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionOpenResponse_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionOpenRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionOpenRequest) */ {
+ public:
+  inline DevopsSessionOpenRequest() : DevopsSessionOpenRequest(nullptr) {}
+  ~DevopsSessionOpenRequest() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionOpenRequest* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionOpenRequest));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionOpenRequest(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionOpenRequest(const DevopsSessionOpenRequest& from) : DevopsSessionOpenRequest(nullptr, from) {}
+  inline DevopsSessionOpenRequest(DevopsSessionOpenRequest&& from) noexcept
+      : DevopsSessionOpenRequest(nullptr, ::std::move(from)) {}
+  inline DevopsSessionOpenRequest& operator=(const DevopsSessionOpenRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionOpenRequest& operator=(DevopsSessionOpenRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionOpenRequest& default_instance() {
+    return *reinterpret_cast<const DevopsSessionOpenRequest*>(
+        &_DevopsSessionOpenRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 49;
+  friend void swap(DevopsSessionOpenRequest& a, DevopsSessionOpenRequest& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionOpenRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionOpenRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionOpenRequest* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionOpenRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionOpenRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionOpenRequest& from) { DevopsSessionOpenRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionOpenRequest* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionOpenRequest"; }
+
+  explicit DevopsSessionOpenRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionOpenRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionOpenRequest& from);
+  DevopsSessionOpenRequest(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionOpenRequest&& from) noexcept
+      : DevopsSessionOpenRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kSessionIdFieldNumber = 1,
+    kOperatorFieldNumber = 2,
+    kProtocolFieldNumber = 3,
+    kHostFieldNumber = 4,
+    kPortFieldNumber = 5,
+    kColsFieldNumber = 6,
+    kRowsFieldNumber = 7,
+  };
+  // string session_id = 1;
+  void clear_session_id() ;
+  [[nodiscard]] const ::std::string& session_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_session_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_session_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_session_id();
+  void set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_session_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_session_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_session_id();
+
+  public:
+  // string operator = 2;
+  void clear_operator_() ;
+  [[nodiscard]] const ::std::string& operator_() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_operator_(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_operator_();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_operator_();
+  void set_allocated_operator_(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_operator_() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_operator_(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_operator_();
+
+  public:
+  // string protocol = 3;
+  void clear_protocol() ;
+  [[nodiscard]] const ::std::string& protocol() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_protocol(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_protocol();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_protocol();
+  void set_allocated_protocol(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_protocol() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_protocol(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_protocol();
+
+  public:
+  // string host = 4;
+  void clear_host() ;
+  [[nodiscard]] const ::std::string& host() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_host(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_host();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_host();
+  void set_allocated_host(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_host() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_host(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_host();
+
+  public:
+  // int32 port = 5;
+  void clear_port() ;
+  [[nodiscard]] ::int32_t port() const;
+  void set_port(::int32_t value);
+
+  private:
+  ::int32_t _internal_port() const;
+  void _internal_set_port(::int32_t value);
+
+  public:
+  // int32 cols = 6;
+  void clear_cols() ;
+  [[nodiscard]] ::int32_t cols() const;
+  void set_cols(::int32_t value);
+
+  private:
+  ::int32_t _internal_cols() const;
+  void _internal_set_cols(::int32_t value);
+
+  public:
+  // int32 rows = 7;
+  void clear_rows() ;
+  [[nodiscard]] ::int32_t rows() const;
+  void set_rows(::int32_t value);
+
+  private:
+  ::int32_t _internal_rows() const;
+  void _internal_set_rows(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionOpenRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<3, 7,
+                                   0, 79,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionOpenRequest& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr session_id_;
+    ::google::protobuf::internal::ArenaStringPtr operator__;
+    ::google::protobuf::internal::ArenaStringPtr protocol_;
+    ::google::protobuf::internal::ArenaStringPtr host_;
+    ::int32_t port_;
+    ::int32_t cols_;
+    ::int32_t rows_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionOpenRequest_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionInputResponse final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionInputResponse) */ {
+ public:
+  inline DevopsSessionInputResponse() : DevopsSessionInputResponse(nullptr) {}
+  ~DevopsSessionInputResponse() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionInputResponse* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionInputResponse));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionInputResponse(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionInputResponse(const DevopsSessionInputResponse& from) : DevopsSessionInputResponse(nullptr, from) {}
+  inline DevopsSessionInputResponse(DevopsSessionInputResponse&& from) noexcept
+      : DevopsSessionInputResponse(nullptr, ::std::move(from)) {}
+  inline DevopsSessionInputResponse& operator=(const DevopsSessionInputResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionInputResponse& operator=(DevopsSessionInputResponse&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionInputResponse& default_instance() {
+    return *reinterpret_cast<const DevopsSessionInputResponse*>(
+        &_DevopsSessionInputResponse_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 52;
+  friend void swap(DevopsSessionInputResponse& a, DevopsSessionInputResponse& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionInputResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionInputResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionInputResponse* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionInputResponse>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionInputResponse& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionInputResponse& from) { DevopsSessionInputResponse::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionInputResponse* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionInputResponse"; }
+
+  explicit DevopsSessionInputResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionInputResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionInputResponse& from);
+  DevopsSessionInputResponse(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionInputResponse&& from) noexcept
+      : DevopsSessionInputResponse(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kErrorFieldNumber = 2,
+    kOkFieldNumber = 1,
+  };
+  // string error = 2;
+  void clear_error() ;
+  [[nodiscard]] const ::std::string& error() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_error(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_error();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_error();
+  void set_allocated_error(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_error() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_error(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_error();
+
+  public:
+  // bool ok = 1;
+  void clear_ok() ;
+  [[nodiscard]] bool ok() const;
+  void set_ok(bool value);
+
+  private:
+  bool _internal_ok() const;
+  void _internal_set_ok(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionInputResponse)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<1, 2,
+                                   0, 56,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionInputResponse& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr error_;
+    bool ok_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionInputResponse_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionInputRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionInputRequest) */ {
+ public:
+  inline DevopsSessionInputRequest() : DevopsSessionInputRequest(nullptr) {}
+  ~DevopsSessionInputRequest() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionInputRequest* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionInputRequest));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionInputRequest(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionInputRequest(const DevopsSessionInputRequest& from) : DevopsSessionInputRequest(nullptr, from) {}
+  inline DevopsSessionInputRequest(DevopsSessionInputRequest&& from) noexcept
+      : DevopsSessionInputRequest(nullptr, ::std::move(from)) {}
+  inline DevopsSessionInputRequest& operator=(const DevopsSessionInputRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionInputRequest& operator=(DevopsSessionInputRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionInputRequest& default_instance() {
+    return *reinterpret_cast<const DevopsSessionInputRequest*>(
+        &_DevopsSessionInputRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 51;
+  friend void swap(DevopsSessionInputRequest& a, DevopsSessionInputRequest& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionInputRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionInputRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionInputRequest* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionInputRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionInputRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionInputRequest& from) { DevopsSessionInputRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionInputRequest* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionInputRequest"; }
+
+  explicit DevopsSessionInputRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionInputRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionInputRequest& from);
+  DevopsSessionInputRequest(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionInputRequest&& from) noexcept
+      : DevopsSessionInputRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kSessionIdFieldNumber = 1,
+    kDataFieldNumber = 2,
+  };
+  // string session_id = 1;
+  void clear_session_id() ;
+  [[nodiscard]] const ::std::string& session_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_session_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_session_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_session_id();
+  void set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_session_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_session_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_session_id();
+
+  public:
+  // bytes data = 2;
+  void clear_data() ;
+  [[nodiscard]] const ::std::string& data() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_data(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_data();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_data();
+  void set_allocated_data(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_data() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_data(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_data();
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionInputRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<1, 2,
+                                   0, 60,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionInputRequest& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr session_id_;
+    ::google::protobuf::internal::ArenaStringPtr data_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionInputRequest_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionEvent final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionEvent) */ {
+ public:
+  inline DevopsSessionEvent() : DevopsSessionEvent(nullptr) {}
+  ~DevopsSessionEvent() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionEvent* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionEvent));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionEvent(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionEvent(const DevopsSessionEvent& from) : DevopsSessionEvent(nullptr, from) {}
+  inline DevopsSessionEvent(DevopsSessionEvent&& from) noexcept
+      : DevopsSessionEvent(nullptr, ::std::move(from)) {}
+  inline DevopsSessionEvent& operator=(const DevopsSessionEvent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionEvent& operator=(DevopsSessionEvent&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionEvent& default_instance() {
+    return *reinterpret_cast<const DevopsSessionEvent*>(
+        &_DevopsSessionEvent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 57;
+  friend void swap(DevopsSessionEvent& a, DevopsSessionEvent& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionEvent* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionEvent* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionEvent* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionEvent>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionEvent& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionEvent& from) { DevopsSessionEvent::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionEvent* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionEvent"; }
+
+  explicit DevopsSessionEvent(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionEvent(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionEvent& from);
+  DevopsSessionEvent(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionEvent&& from) noexcept
+      : DevopsSessionEvent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kSessionIdFieldNumber = 1,
+    kKindFieldNumber = 2,
+    kDataFieldNumber = 3,
+    kOutcomeFieldNumber = 4,
+  };
+  // string session_id = 1;
+  void clear_session_id() ;
+  [[nodiscard]] const ::std::string& session_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_session_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_session_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_session_id();
+  void set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_session_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_session_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_session_id();
+
+  public:
+  // string kind = 2;
+  void clear_kind() ;
+  [[nodiscard]] const ::std::string& kind() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_kind(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_kind();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_kind();
+  void set_allocated_kind(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_kind() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_kind(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_kind();
+
+  public:
+  // bytes data = 3;
+  void clear_data() ;
+  [[nodiscard]] const ::std::string& data() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_data(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_data();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_data();
+  void set_allocated_data(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_data() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_data(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_data();
+
+  public:
+  // string outcome = 4;
+  void clear_outcome() ;
+  [[nodiscard]] const ::std::string& outcome() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_outcome(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_outcome();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_outcome();
+  void set_allocated_outcome(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_outcome() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_outcome(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_outcome();
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionEvent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<2, 4,
+                                   0, 64,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionEvent& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr session_id_;
+    ::google::protobuf::internal::ArenaStringPtr kind_;
+    ::google::protobuf::internal::ArenaStringPtr data_;
+    ::google::protobuf::internal::ArenaStringPtr outcome_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionEvent_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionCloseResponse final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionCloseResponse) */ {
+ public:
+  inline DevopsSessionCloseResponse() : DevopsSessionCloseResponse(nullptr) {}
+  ~DevopsSessionCloseResponse() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionCloseResponse* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionCloseResponse));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionCloseResponse(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionCloseResponse(const DevopsSessionCloseResponse& from) : DevopsSessionCloseResponse(nullptr, from) {}
+  inline DevopsSessionCloseResponse(DevopsSessionCloseResponse&& from) noexcept
+      : DevopsSessionCloseResponse(nullptr, ::std::move(from)) {}
+  inline DevopsSessionCloseResponse& operator=(const DevopsSessionCloseResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionCloseResponse& operator=(DevopsSessionCloseResponse&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionCloseResponse& default_instance() {
+    return *reinterpret_cast<const DevopsSessionCloseResponse*>(
+        &_DevopsSessionCloseResponse_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 56;
+  friend void swap(DevopsSessionCloseResponse& a, DevopsSessionCloseResponse& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionCloseResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionCloseResponse* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionCloseResponse* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionCloseResponse>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionCloseResponse& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionCloseResponse& from) { DevopsSessionCloseResponse::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionCloseResponse* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionCloseResponse"; }
+
+  explicit DevopsSessionCloseResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionCloseResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionCloseResponse& from);
+  DevopsSessionCloseResponse(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionCloseResponse&& from) noexcept
+      : DevopsSessionCloseResponse(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kErrorFieldNumber = 2,
+    kOkFieldNumber = 1,
+  };
+  // string error = 2;
+  void clear_error() ;
+  [[nodiscard]] const ::std::string& error() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_error(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_error();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_error();
+  void set_allocated_error(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_error() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_error(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_error();
+
+  public:
+  // bool ok = 1;
+  void clear_ok() ;
+  [[nodiscard]] bool ok() const;
+  void set_ok(bool value);
+
+  private:
+  bool _internal_ok() const;
+  void _internal_set_ok(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionCloseResponse)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<1, 2,
+                                   0, 56,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionCloseResponse& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr error_;
+    bool ok_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionCloseResponse_class_data_;
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsSessionCloseRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsSessionCloseRequest) */ {
+ public:
+  inline DevopsSessionCloseRequest() : DevopsSessionCloseRequest(nullptr) {}
+  ~DevopsSessionCloseRequest() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(DevopsSessionCloseRequest* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(DevopsSessionCloseRequest));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr DevopsSessionCloseRequest(::google::protobuf::internal::ConstantInitialized);
+
+  inline DevopsSessionCloseRequest(const DevopsSessionCloseRequest& from) : DevopsSessionCloseRequest(nullptr, from) {}
+  inline DevopsSessionCloseRequest(DevopsSessionCloseRequest&& from) noexcept
+      : DevopsSessionCloseRequest(nullptr, ::std::move(from)) {}
+  inline DevopsSessionCloseRequest& operator=(const DevopsSessionCloseRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DevopsSessionCloseRequest& operator=(DevopsSessionCloseRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  [[nodiscard]] inline ::google::protobuf::UnknownFieldSet* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL descriptor() {
+    return GetDescriptor();
+  }
+  [[nodiscard]] static const ::google::protobuf::Descriptor* PROTOBUF_NONNULL
+  GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  [[nodiscard]] static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  [[nodiscard]] static const DevopsSessionCloseRequest& default_instance() {
+    return *reinterpret_cast<const DevopsSessionCloseRequest*>(
+        &_DevopsSessionCloseRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 55;
+  friend void swap(DevopsSessionCloseRequest& a, DevopsSessionCloseRequest& b) { a.Swap(&b); }
+  inline void Swap(DevopsSessionCloseRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DevopsSessionCloseRequest* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] DevopsSessionCloseRequest* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::Message::DefaultConstruct<DevopsSessionCloseRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const DevopsSessionCloseRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const DevopsSessionCloseRequest& from) { DevopsSessionCloseRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(DevopsSessionCloseRequest* PROTOBUF_NONNULL other);
+ private:
+  template <typename T>
+  friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
+  static ::absl::string_view FullMessageName() { return "croupier.ops.v1.DevopsSessionCloseRequest"; }
+
+  explicit DevopsSessionCloseRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  DevopsSessionCloseRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const DevopsSessionCloseRequest& from);
+  DevopsSessionCloseRequest(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, DevopsSessionCloseRequest&& from) noexcept
+      : DevopsSessionCloseRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_();
+
+  [[nodiscard]] ::google::protobuf::Metadata GetMetadata() const;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kSessionIdFieldNumber = 1,
+    kReasonFieldNumber = 2,
+  };
+  // string session_id = 1;
+  void clear_session_id() ;
+  [[nodiscard]] const ::std::string& session_id() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_session_id(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_session_id();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_session_id();
+  void set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_session_id() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_session_id(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_session_id();
+
+  public:
+  // string reason = 2;
+  void clear_reason() ;
+  [[nodiscard]] const ::std::string& reason() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_reason(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_reason();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_reason();
+  void set_allocated_reason(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_reason() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_reason(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_reason();
+
+  public:
+  // @@protoc_insertion_point(class_scope:croupier.ops.v1.DevopsSessionCloseRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<1, 2,
+                                   0, 66,
+                                   2>
+      _table_;
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const DevopsSessionCloseRequest& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr session_id_;
+    ::google::protobuf::internal::ArenaStringPtr reason_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_croupier_2fops_2fv1_2fops_2eproto;
+};
+
+extern const ::google::protobuf::internal::ClassDataFull DevopsSessionCloseRequest_class_data_;
+// -------------------------------------------------------------------
+
 class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DevopsAllowlistConfigResponse final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:croupier.ops.v1.DevopsAllowlistConfigResponse) */ {
  public:
@@ -12070,7 +14193,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProbeDetail final : public ::google
     return *reinterpret_cast<const ProbeDetail*>(
         &_ProbeDetail_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 54;
+  static constexpr int kIndexInFileMessages = 63;
   friend void swap(ProbeDetail& a, ProbeDetail& b) { a.Swap(&b); }
   inline void Swap(ProbeDetail* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -14106,7 +16229,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED AlertEvent final : public ::google:
     return *reinterpret_cast<const AlertEvent*>(
         &_AlertEvent_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 51;
+  static constexpr int kIndexInFileMessages = 60;
   friend void swap(AlertEvent& a, AlertEvent& b) { a.Swap(&b); }
   inline void Swap(AlertEvent* PROTOBUF_NONNULL other) {
     if (other == this) return;
@@ -25267,6 +27390,1502 @@ inline void DevopsAllowlistConfigResponse::set_allocated_allowlist_json(::std::s
     _impl_.allowlist_json_.Set("", GetArena());
   }
   // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsAllowlistConfigResponse.allowlist_json)
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionOpenRequest
+
+// string session_id = 1;
+inline void DevopsSessionOpenRequest::clear_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionOpenRequest::session_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenRequest.session_id)
+  return _internal_session_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionOpenRequest::set_session_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.session_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenRequest.session_id)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::mutable_session_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_session_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionOpenRequest.session_id)
+  return _s;
+}
+inline const ::std::string& DevopsSessionOpenRequest::_internal_session_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.session_id_.Get();
+}
+inline void DevopsSessionOpenRequest::_internal_set_session_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::_internal_mutable_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.session_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionOpenRequest::release_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionOpenRequest.session_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.session_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionOpenRequest::set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.session_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.session_id_.IsDefault()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionOpenRequest.session_id)
+}
+
+// string operator = 2;
+inline void DevopsSessionOpenRequest::clear_operator_() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.operator__.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& DevopsSessionOpenRequest::operator_() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenRequest.operator)
+  return _internal_operator_();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionOpenRequest::set_operator_(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.operator__.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenRequest.operator)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::mutable_operator_()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_operator_();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionOpenRequest.operator)
+  return _s;
+}
+inline const ::std::string& DevopsSessionOpenRequest::_internal_operator_() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.operator__.Get();
+}
+inline void DevopsSessionOpenRequest::_internal_set_operator_(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.operator__.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::_internal_mutable_operator_() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.operator__.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionOpenRequest::release_operator_() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionOpenRequest.operator)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.operator__.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.operator__.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionOpenRequest::set_allocated_operator_(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.operator__.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.operator__.IsDefault()) {
+    _impl_.operator__.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionOpenRequest.operator)
+}
+
+// string protocol = 3;
+inline void DevopsSessionOpenRequest::clear_protocol() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.protocol_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& DevopsSessionOpenRequest::protocol() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenRequest.protocol)
+  return _internal_protocol();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionOpenRequest::set_protocol(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.protocol_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenRequest.protocol)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::mutable_protocol()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_protocol();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionOpenRequest.protocol)
+  return _s;
+}
+inline const ::std::string& DevopsSessionOpenRequest::_internal_protocol() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.protocol_.Get();
+}
+inline void DevopsSessionOpenRequest::_internal_set_protocol(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.protocol_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::_internal_mutable_protocol() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.protocol_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionOpenRequest::release_protocol() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionOpenRequest.protocol)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.protocol_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.protocol_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionOpenRequest::set_allocated_protocol(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.protocol_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.protocol_.IsDefault()) {
+    _impl_.protocol_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionOpenRequest.protocol)
+}
+
+// string host = 4;
+inline void DevopsSessionOpenRequest::clear_host() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.host_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline const ::std::string& DevopsSessionOpenRequest::host() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenRequest.host)
+  return _internal_host();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionOpenRequest::set_host(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  _impl_.host_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenRequest.host)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::mutable_host()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ::std::string* _s = _internal_mutable_host();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionOpenRequest.host)
+  return _s;
+}
+inline const ::std::string& DevopsSessionOpenRequest::_internal_host() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.host_.Get();
+}
+inline void DevopsSessionOpenRequest::_internal_set_host(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.host_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenRequest::_internal_mutable_host() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.host_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionOpenRequest::release_host() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionOpenRequest.host)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  auto* released = _impl_.host_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.host_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionOpenRequest::set_allocated_host(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  }
+  _impl_.host_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.host_.IsDefault()) {
+    _impl_.host_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionOpenRequest.host)
+}
+
+// int32 port = 5;
+inline void DevopsSessionOpenRequest::clear_port() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.port_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000010U);
+}
+inline ::int32_t DevopsSessionOpenRequest::port() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenRequest.port)
+  return _internal_port();
+}
+inline void DevopsSessionOpenRequest::set_port(::int32_t value) {
+  _internal_set_port(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenRequest.port)
+}
+inline ::int32_t DevopsSessionOpenRequest::_internal_port() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.port_;
+}
+inline void DevopsSessionOpenRequest::_internal_set_port(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.port_ = value;
+}
+
+// int32 cols = 6;
+inline void DevopsSessionOpenRequest::clear_cols() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cols_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000020U);
+}
+inline ::int32_t DevopsSessionOpenRequest::cols() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenRequest.cols)
+  return _internal_cols();
+}
+inline void DevopsSessionOpenRequest::set_cols(::int32_t value) {
+  _internal_set_cols(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenRequest.cols)
+}
+inline ::int32_t DevopsSessionOpenRequest::_internal_cols() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.cols_;
+}
+inline void DevopsSessionOpenRequest::_internal_set_cols(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cols_ = value;
+}
+
+// int32 rows = 7;
+inline void DevopsSessionOpenRequest::clear_rows() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.rows_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+inline ::int32_t DevopsSessionOpenRequest::rows() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenRequest.rows)
+  return _internal_rows();
+}
+inline void DevopsSessionOpenRequest::set_rows(::int32_t value) {
+  _internal_set_rows(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenRequest.rows)
+}
+inline ::int32_t DevopsSessionOpenRequest::_internal_rows() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.rows_;
+}
+inline void DevopsSessionOpenRequest::_internal_set_rows(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.rows_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionOpenResponse
+
+// bool ok = 1;
+inline void DevopsSessionOpenResponse::clear_ok() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline bool DevopsSessionOpenResponse::ok() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenResponse.ok)
+  return _internal_ok();
+}
+inline void DevopsSessionOpenResponse::set_ok(bool value) {
+  _internal_set_ok(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenResponse.ok)
+}
+inline bool DevopsSessionOpenResponse::_internal_ok() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.ok_;
+}
+inline void DevopsSessionOpenResponse::_internal_set_ok(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = value;
+}
+
+// string error = 2;
+inline void DevopsSessionOpenResponse::clear_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionOpenResponse::error() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenResponse.error)
+  return _internal_error();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionOpenResponse::set_error(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenResponse.error)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenResponse::mutable_error()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_error();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionOpenResponse.error)
+  return _s;
+}
+inline const ::std::string& DevopsSessionOpenResponse::_internal_error() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.error_.Get();
+}
+inline void DevopsSessionOpenResponse::_internal_set_error(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenResponse::_internal_mutable_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.error_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionOpenResponse::release_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionOpenResponse.error)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.error_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionOpenResponse::set_allocated_error(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.error_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.error_.IsDefault()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionOpenResponse.error)
+}
+
+// string session_id = 3;
+inline void DevopsSessionOpenResponse::clear_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& DevopsSessionOpenResponse::session_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenResponse.session_id)
+  return _internal_session_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionOpenResponse::set_session_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.session_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenResponse.session_id)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenResponse::mutable_session_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_session_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionOpenResponse.session_id)
+  return _s;
+}
+inline const ::std::string& DevopsSessionOpenResponse::_internal_session_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.session_id_.Get();
+}
+inline void DevopsSessionOpenResponse::_internal_set_session_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenResponse::_internal_mutable_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.session_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionOpenResponse::release_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionOpenResponse.session_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.session_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionOpenResponse::set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.session_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.session_id_.IsDefault()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionOpenResponse.session_id)
+}
+
+// string channel = 4;
+inline void DevopsSessionOpenResponse::clear_channel() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.channel_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& DevopsSessionOpenResponse::channel() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionOpenResponse.channel)
+  return _internal_channel();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionOpenResponse::set_channel(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.channel_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionOpenResponse.channel)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenResponse::mutable_channel()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_channel();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionOpenResponse.channel)
+  return _s;
+}
+inline const ::std::string& DevopsSessionOpenResponse::_internal_channel() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.channel_.Get();
+}
+inline void DevopsSessionOpenResponse::_internal_set_channel(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.channel_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionOpenResponse::_internal_mutable_channel() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.channel_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionOpenResponse::release_channel() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionOpenResponse.channel)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.channel_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.channel_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionOpenResponse::set_allocated_channel(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.channel_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.channel_.IsDefault()) {
+    _impl_.channel_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionOpenResponse.channel)
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionInputRequest
+
+// string session_id = 1;
+inline void DevopsSessionInputRequest::clear_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionInputRequest::session_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionInputRequest.session_id)
+  return _internal_session_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionInputRequest::set_session_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.session_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionInputRequest.session_id)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionInputRequest::mutable_session_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_session_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionInputRequest.session_id)
+  return _s;
+}
+inline const ::std::string& DevopsSessionInputRequest::_internal_session_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.session_id_.Get();
+}
+inline void DevopsSessionInputRequest::_internal_set_session_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionInputRequest::_internal_mutable_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.session_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionInputRequest::release_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionInputRequest.session_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.session_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionInputRequest::set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.session_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.session_id_.IsDefault()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionInputRequest.session_id)
+}
+
+// bytes data = 2;
+inline void DevopsSessionInputRequest::clear_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.data_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& DevopsSessionInputRequest::data() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionInputRequest.data)
+  return _internal_data();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionInputRequest::set_data(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.data_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionInputRequest.data)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionInputRequest::mutable_data()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_data();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionInputRequest.data)
+  return _s;
+}
+inline const ::std::string& DevopsSessionInputRequest::_internal_data() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.data_.Get();
+}
+inline void DevopsSessionInputRequest::_internal_set_data(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.data_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionInputRequest::_internal_mutable_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.data_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionInputRequest::release_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionInputRequest.data)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.data_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.data_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionInputRequest::set_allocated_data(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.data_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.data_.IsDefault()) {
+    _impl_.data_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionInputRequest.data)
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionInputResponse
+
+// bool ok = 1;
+inline void DevopsSessionInputResponse::clear_ok() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline bool DevopsSessionInputResponse::ok() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionInputResponse.ok)
+  return _internal_ok();
+}
+inline void DevopsSessionInputResponse::set_ok(bool value) {
+  _internal_set_ok(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionInputResponse.ok)
+}
+inline bool DevopsSessionInputResponse::_internal_ok() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.ok_;
+}
+inline void DevopsSessionInputResponse::_internal_set_ok(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = value;
+}
+
+// string error = 2;
+inline void DevopsSessionInputResponse::clear_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionInputResponse::error() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionInputResponse.error)
+  return _internal_error();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionInputResponse::set_error(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionInputResponse.error)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionInputResponse::mutable_error()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_error();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionInputResponse.error)
+  return _s;
+}
+inline const ::std::string& DevopsSessionInputResponse::_internal_error() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.error_.Get();
+}
+inline void DevopsSessionInputResponse::_internal_set_error(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionInputResponse::_internal_mutable_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.error_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionInputResponse::release_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionInputResponse.error)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.error_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionInputResponse::set_allocated_error(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.error_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.error_.IsDefault()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionInputResponse.error)
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionResizeRequest
+
+// string session_id = 1;
+inline void DevopsSessionResizeRequest::clear_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionResizeRequest::session_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionResizeRequest.session_id)
+  return _internal_session_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionResizeRequest::set_session_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.session_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionResizeRequest.session_id)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionResizeRequest::mutable_session_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_session_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionResizeRequest.session_id)
+  return _s;
+}
+inline const ::std::string& DevopsSessionResizeRequest::_internal_session_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.session_id_.Get();
+}
+inline void DevopsSessionResizeRequest::_internal_set_session_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionResizeRequest::_internal_mutable_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.session_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionResizeRequest::release_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionResizeRequest.session_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.session_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionResizeRequest::set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.session_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.session_id_.IsDefault()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionResizeRequest.session_id)
+}
+
+// int32 cols = 2;
+inline void DevopsSessionResizeRequest::clear_cols() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cols_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline ::int32_t DevopsSessionResizeRequest::cols() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionResizeRequest.cols)
+  return _internal_cols();
+}
+inline void DevopsSessionResizeRequest::set_cols(::int32_t value) {
+  _internal_set_cols(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionResizeRequest.cols)
+}
+inline ::int32_t DevopsSessionResizeRequest::_internal_cols() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.cols_;
+}
+inline void DevopsSessionResizeRequest::_internal_set_cols(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.cols_ = value;
+}
+
+// int32 rows = 3;
+inline void DevopsSessionResizeRequest::clear_rows() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.rows_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline ::int32_t DevopsSessionResizeRequest::rows() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionResizeRequest.rows)
+  return _internal_rows();
+}
+inline void DevopsSessionResizeRequest::set_rows(::int32_t value) {
+  _internal_set_rows(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionResizeRequest.rows)
+}
+inline ::int32_t DevopsSessionResizeRequest::_internal_rows() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.rows_;
+}
+inline void DevopsSessionResizeRequest::_internal_set_rows(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.rows_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionResizeResponse
+
+// bool ok = 1;
+inline void DevopsSessionResizeResponse::clear_ok() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline bool DevopsSessionResizeResponse::ok() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionResizeResponse.ok)
+  return _internal_ok();
+}
+inline void DevopsSessionResizeResponse::set_ok(bool value) {
+  _internal_set_ok(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionResizeResponse.ok)
+}
+inline bool DevopsSessionResizeResponse::_internal_ok() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.ok_;
+}
+inline void DevopsSessionResizeResponse::_internal_set_ok(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = value;
+}
+
+// string error = 2;
+inline void DevopsSessionResizeResponse::clear_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionResizeResponse::error() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionResizeResponse.error)
+  return _internal_error();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionResizeResponse::set_error(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionResizeResponse.error)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionResizeResponse::mutable_error()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_error();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionResizeResponse.error)
+  return _s;
+}
+inline const ::std::string& DevopsSessionResizeResponse::_internal_error() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.error_.Get();
+}
+inline void DevopsSessionResizeResponse::_internal_set_error(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionResizeResponse::_internal_mutable_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.error_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionResizeResponse::release_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionResizeResponse.error)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.error_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionResizeResponse::set_allocated_error(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.error_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.error_.IsDefault()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionResizeResponse.error)
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionCloseRequest
+
+// string session_id = 1;
+inline void DevopsSessionCloseRequest::clear_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionCloseRequest::session_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionCloseRequest.session_id)
+  return _internal_session_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionCloseRequest::set_session_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.session_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionCloseRequest.session_id)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionCloseRequest::mutable_session_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_session_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionCloseRequest.session_id)
+  return _s;
+}
+inline const ::std::string& DevopsSessionCloseRequest::_internal_session_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.session_id_.Get();
+}
+inline void DevopsSessionCloseRequest::_internal_set_session_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionCloseRequest::_internal_mutable_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.session_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionCloseRequest::release_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionCloseRequest.session_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.session_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionCloseRequest::set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.session_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.session_id_.IsDefault()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionCloseRequest.session_id)
+}
+
+// string reason = 2;
+inline void DevopsSessionCloseRequest::clear_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.reason_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& DevopsSessionCloseRequest::reason() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionCloseRequest.reason)
+  return _internal_reason();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionCloseRequest::set_reason(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionCloseRequest.reason)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionCloseRequest::mutable_reason()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_reason();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionCloseRequest.reason)
+  return _s;
+}
+inline const ::std::string& DevopsSessionCloseRequest::_internal_reason() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.reason_.Get();
+}
+inline void DevopsSessionCloseRequest::_internal_set_reason(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.reason_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionCloseRequest::_internal_mutable_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.reason_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionCloseRequest::release_reason() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionCloseRequest.reason)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.reason_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.reason_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionCloseRequest::set_allocated_reason(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.reason_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.reason_.IsDefault()) {
+    _impl_.reason_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionCloseRequest.reason)
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionCloseResponse
+
+// bool ok = 1;
+inline void DevopsSessionCloseResponse::clear_ok() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = false;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline bool DevopsSessionCloseResponse::ok() const {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionCloseResponse.ok)
+  return _internal_ok();
+}
+inline void DevopsSessionCloseResponse::set_ok(bool value) {
+  _internal_set_ok(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionCloseResponse.ok)
+}
+inline bool DevopsSessionCloseResponse::_internal_ok() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.ok_;
+}
+inline void DevopsSessionCloseResponse::_internal_set_ok(bool value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.ok_ = value;
+}
+
+// string error = 2;
+inline void DevopsSessionCloseResponse::clear_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionCloseResponse::error() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionCloseResponse.error)
+  return _internal_error();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionCloseResponse::set_error(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.error_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionCloseResponse.error)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionCloseResponse::mutable_error()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_error();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionCloseResponse.error)
+  return _s;
+}
+inline const ::std::string& DevopsSessionCloseResponse::_internal_error() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.error_.Get();
+}
+inline void DevopsSessionCloseResponse::_internal_set_error(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.error_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionCloseResponse::_internal_mutable_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.error_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionCloseResponse::release_error() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionCloseResponse.error)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.error_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionCloseResponse::set_allocated_error(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.error_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.error_.IsDefault()) {
+    _impl_.error_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionCloseResponse.error)
+}
+
+// -------------------------------------------------------------------
+
+// DevopsSessionEvent
+
+// string session_id = 1;
+inline void DevopsSessionEvent::clear_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline const ::std::string& DevopsSessionEvent::session_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionEvent.session_id)
+  return _internal_session_id();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionEvent::set_session_id(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.session_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionEvent.session_id)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::mutable_session_id()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ::std::string* _s = _internal_mutable_session_id();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionEvent.session_id)
+  return _s;
+}
+inline const ::std::string& DevopsSessionEvent::_internal_session_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.session_id_.Get();
+}
+inline void DevopsSessionEvent::_internal_set_session_id(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.session_id_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::_internal_mutable_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.session_id_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionEvent::release_session_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionEvent.session_id)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  auto* released = _impl_.session_id_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionEvent::set_allocated_session_id(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  }
+  _impl_.session_id_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.session_id_.IsDefault()) {
+    _impl_.session_id_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionEvent.session_id)
+}
+
+// string kind = 2;
+inline void DevopsSessionEvent::clear_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.kind_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000002U);
+}
+inline const ::std::string& DevopsSessionEvent::kind() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionEvent.kind)
+  return _internal_kind();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionEvent::set_kind(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  _impl_.kind_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionEvent.kind)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::mutable_kind()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ::std::string* _s = _internal_mutable_kind();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionEvent.kind)
+  return _s;
+}
+inline const ::std::string& DevopsSessionEvent::_internal_kind() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.kind_.Get();
+}
+inline void DevopsSessionEvent::_internal_set_kind(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.kind_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::_internal_mutable_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.kind_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionEvent::release_kind() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionEvent.kind)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  auto* released = _impl_.kind_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.kind_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionEvent::set_allocated_kind(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  }
+  _impl_.kind_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.kind_.IsDefault()) {
+    _impl_.kind_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionEvent.kind)
+}
+
+// bytes data = 3;
+inline void DevopsSessionEvent::clear_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.data_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000004U);
+}
+inline const ::std::string& DevopsSessionEvent::data() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionEvent.data)
+  return _internal_data();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionEvent::set_data(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  _impl_.data_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionEvent.data)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::mutable_data()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ::std::string* _s = _internal_mutable_data();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionEvent.data)
+  return _s;
+}
+inline const ::std::string& DevopsSessionEvent::_internal_data() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.data_.Get();
+}
+inline void DevopsSessionEvent::_internal_set_data(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.data_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::_internal_mutable_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.data_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionEvent::release_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionEvent.data)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  auto* released = _impl_.data_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.data_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionEvent::set_allocated_data(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  }
+  _impl_.data_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.data_.IsDefault()) {
+    _impl_.data_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionEvent.data)
+}
+
+// string outcome = 4;
+inline void DevopsSessionEvent::clear_outcome() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.outcome_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline const ::std::string& DevopsSessionEvent::outcome() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.ops.v1.DevopsSessionEvent.outcome)
+  return _internal_outcome();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void DevopsSessionEvent::set_outcome(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  _impl_.outcome_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.ops.v1.DevopsSessionEvent.outcome)
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::mutable_outcome()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ::std::string* _s = _internal_mutable_outcome();
+  // @@protoc_insertion_point(field_mutable:croupier.ops.v1.DevopsSessionEvent.outcome)
+  return _s;
+}
+inline const ::std::string& DevopsSessionEvent::_internal_outcome() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.outcome_.Get();
+}
+inline void DevopsSessionEvent::_internal_set_outcome(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.outcome_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL DevopsSessionEvent::_internal_mutable_outcome() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.outcome_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE DevopsSessionEvent::release_outcome() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.ops.v1.DevopsSessionEvent.outcome)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  auto* released = _impl_.outcome_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.outcome_.Set("", GetArena());
+  }
+  return released;
+}
+inline void DevopsSessionEvent::set_allocated_outcome(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  }
+  _impl_.outcome_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.outcome_.IsDefault()) {
+    _impl_.outcome_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.ops.v1.DevopsSessionEvent.outcome)
 }
 
 // -------------------------------------------------------------------

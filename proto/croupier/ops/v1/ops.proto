@@ -519,6 +519,78 @@ message DevopsAllowlistConfigResponse {
   string allowlist_json = 2; // devops.allowlist JSON block
 }
 
+// DevopsSessionOpenRequest opens one interactive devops session on the agent
+// (AGENT-002): server → agent, processed by the agent's session Broker/Hub
+// chain (request validation → allowlist → audit-first admit → channel Open).
+// operator is the server-authenticated actor (never a client-supplied alias).
+message DevopsSessionOpenRequest {
+  string session_id = 1; // server-assigned id (audit + relay correlation); "" = agent generates
+  string operator = 2;   // authenticated actor (audit "who")
+  string protocol = 3;   // closed set: ssh (rdp/vnc refuse until the guacd channel lands)
+  string host = 4;       // allowlist exact match
+  int32 port = 5;
+  int32 cols = 6;        // initial pty window; <=0 = agent default
+  int32 rows = 7;
+}
+
+message DevopsSessionOpenResponse {
+  bool ok = 1;        // false = refused (validation/allowlist/audit/limit/dial); error carries the reason
+  string error = 2;
+  string session_id = 3; // effective id (agent fills when the request left it empty)
+  string channel = 4;    // provider name (audit/log discriminator)
+}
+
+// DevopsSessionInputRequest carries terminal input (keyboard data) into the
+// session's bounded input queue. ok=false with error="busy" is backpressure
+// (queue full past the wait budget): the panel retries, data is never
+// silently dropped.
+message DevopsSessionInputRequest {
+  string session_id = 1;
+  bytes data = 2;
+}
+
+message DevopsSessionInputResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+// DevopsSessionResizeRequest adjusts the remote pty window; the session
+// replay archive records a resize event so playback follows.
+message DevopsSessionResizeRequest {
+  string session_id = 1;
+  int32 cols = 2;
+  int32 rows = 3;
+}
+
+message DevopsSessionResizeResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+// DevopsSessionCloseRequest closes the session actively (operator or panel
+// action); the agent runs the full disconnect-cleanup chain (hub deregister,
+// archive finalize, session-end audit) and reports the end event afterwards.
+message DevopsSessionCloseRequest {
+  string session_id = 1;
+  string reason = 2;
+}
+
+message DevopsSessionCloseResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+// DevopsSessionEvent is the one-way agent → server session stream (output
+// chunks and terminal-state notices). kind=output carries terminal bytes in
+// data; kind=end carries the cleanup outcome in outcome
+// (closed|eof|error|cast-broken|no-terminal-channel|...).
+message DevopsSessionEvent {
+  string session_id = 1;
+  string kind = 2;    // output | end
+  bytes data = 3;     // output chunk (kind=output)
+  string outcome = 4; // end outcome (kind=end)
+}
+
 // SyntheticsTargetsConfigRequest pulls the game/env-scoped synthetics
 // target list (config_versions key synthetics.targets, namespace=ops).
 // The agent-side puller hot-swaps the active target set; local file

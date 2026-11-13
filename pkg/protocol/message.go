@@ -153,6 +153,20 @@ const (
 	MsgPushFileRequest  = 0x04012B
 	MsgPushFileResponse = 0x04012C
 
+	// Devops interactive session relay (AGENT-002): server-initiated session
+	// control over the agent's Broker/Hub chain (open/input/resize/close) plus
+	// the one-way output/end event stream back. Server → agent requests ride
+	// the business lane; the agent pushes DevopsSessionEvent frames up.
+	MsgDevopsSessionOpenRequest    = 0x04012D
+	MsgDevopsSessionOpenResponse   = 0x04012E
+	MsgDevopsSessionInputRequest   = 0x04012F
+	MsgDevopsSessionInputResponse  = 0x040130
+	MsgDevopsSessionResizeRequest  = 0x040131
+	MsgDevopsSessionResizeResponse = 0x040132
+	MsgDevopsSessionCloseRequest   = 0x040133
+	MsgDevopsSessionCloseResponse  = 0x040134
+	MsgDevopsSessionEvent          = 0x040135
+
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101
 	MsgProviderConnectResponse   = 0x050102
@@ -199,7 +213,8 @@ func IsResponse(msgID uint32) bool {
 
 // IsEvent returns true if the MsgID is a one-way event frame.
 func IsEvent(msgID uint32) bool {
-	return msgID == MsgTaskEvent || msgID == MsgMetricEvent || msgID == MsgAlertEvent
+	return msgID == MsgTaskEvent || msgID == MsgMetricEvent || msgID == MsgAlertEvent ||
+		msgID == MsgDevopsSessionEvent
 }
 
 // controlRequests is the explicit set of session/transport control requests.
@@ -406,6 +421,24 @@ func MsgIDString(msgID uint32) string {
 		return "PushFileRequest"
 	case MsgPushFileResponse:
 		return "PushFileResponse"
+	case MsgDevopsSessionOpenRequest:
+		return "DevopsSessionOpenRequest"
+	case MsgDevopsSessionOpenResponse:
+		return "DevopsSessionOpenResponse"
+	case MsgDevopsSessionInputRequest:
+		return "DevopsSessionInputRequest"
+	case MsgDevopsSessionInputResponse:
+		return "DevopsSessionInputResponse"
+	case MsgDevopsSessionResizeRequest:
+		return "DevopsSessionResizeRequest"
+	case MsgDevopsSessionResizeResponse:
+		return "DevopsSessionResizeResponse"
+	case MsgDevopsSessionCloseRequest:
+		return "DevopsSessionCloseRequest"
+	case MsgDevopsSessionCloseResponse:
+		return "DevopsSessionCloseResponse"
+	case MsgDevopsSessionEvent:
+		return "DevopsSessionEvent"
 	case MsgAlertEvent:
 		return "AlertEvent"
 	default:
