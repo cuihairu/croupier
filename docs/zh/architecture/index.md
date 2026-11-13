@@ -93,6 +93,7 @@ Server 保留契约、页面快照与发布历史。正式 Console 使用发布�
 ## 阅读路径
 
 - [ADR 0001: 传输选型](./adr/0001-transport)
+- [ADR 0002: 游戏数据权威归属与统一目标引用](./adr/0002-game-authority-target-ref)
 - [SDK wire 协议](./sdk-wire-protocol)
 - [传输术语表](./transport-glossary)
 - [会话生命周期](./session-lifecycle)

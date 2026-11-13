@@ -190,7 +190,7 @@
 
 - [ ] **GAME-007 · P1 · 方案决策 · 评审游戏权威归属与统一目标引用**
   - 依赖：GAME-001。交付与验收：复用已有 game-authority-ownership 和 player-identity-target-model 设计，决定本地 Player/Balance 的演示/副本定位以及账号/角色/区服/渠道/合服映射来源；交付批准的映射与迁移边界，禁止另建平台游戏经济真值
-  - 状态／条件：BLOCKED（2026-11-01 复核）：既有设计仍待评审（用户拍板批准）；不能把文档已完成当业务已实现。缺评审批准。
+  - 状态／条件：BLOCKED（2026-11-13 复核）：决策记录已落 docs——ADR 0002（docs/architecture/adr/0002-game-authority-target-ref.md，Proposed 2026-11-13，D1-D8 + 签核清单；中文镜像 docs/zh/architecture/adr/0002-*.md；双索引已挂；docs `CI=true pnpm build` 过）。LOCAL VERIFIED。仍待用户拍板（签核清单 3 项）翻 Accepted。缺用户签核批准。
 
 - [ ] **GAME-008 · P1 · 实现 · 统一游戏目标引用与歧义阻断**
   - 依赖：GAME-007。交付与验收：实现已批准的 TargetRef 解析并供页面/审批/任务/审计复用；同角色 ID 多区服、账号多角色、合服旧引用明确解析，歧义拒绝，不以 gameId/env 或主机代替业务区服

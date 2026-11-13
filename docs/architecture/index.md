@@ -84,6 +84,7 @@ Single-database mode still validates scope. multiGame separates metadata from se
 ## Reading path
 
 - [ADR 0001: Transport selection](./adr/0001-transport)
+- [ADR 0002: Game data authority and the unified target reference](./adr/0002-game-authority-target-ref)
 - [SDK wire protocol](./sdk-wire-protocol)
 - [Transport glossary](./transport-glossary)
 - [Session lifecycle](./session-lifecycle)
