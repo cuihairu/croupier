@@ -396,6 +396,41 @@ sdk-stats 实例明细（`SdkInstanceItem`）同时透出 `firstSeenUnix`（注�
 - provider 回应 `ProviderDrainResponse` 仅表示“已接受 drain 状态”
 - 真正关闭连接应发生在排空完成或宽限时间结束之后
 
+### `0x04012D..0x040135` Devops 会话中继（AGENT-002）
+
+面向面板的交互式 devops 终端会话（当前为 SSH），链路为 面板 → Server → devops
+agent。下行请求走 agent 双向控制连接（`MuxConn`）；上行输出/收束帧是
+**单向事件帧**（`IsEvent` 置位，reqID 为 0 —— 不回响应帧）：
+
+|      MsgID | 名称                          | 方向         | 说明                                                       |
+| ---------: | ----------------------------- | ------------ | ---------------------------------------------------------- |
+| `0x04012D` | `DevopsSessionOpenRequest`    | server→agent | `operator` 为 server 鉴权后的身份（审计真值）              |
+| `0x04012E` | `DevopsSessionOpenResponse`   | agent→server | `ok=false` + `error` 携带真实拒绝原因                      |
+| `0x04012F` | `DevopsSessionInputRequest`   | server→agent | 键入；拒绝 `busy` = agent 输入队列已满                     |
+| `0x040130` | `DevopsSessionInputResponse`  | agent→server | `ok=false` + `error="busy"` 映射为 REST `429 session_busy` |
+| `0x040131` | `DevopsSessionResizeRequest`  | server→agent | pty 窗口变更（cols × rows）                                |
+| `0x040132` | `DevopsSessionResizeResponse` | agent→server | —                                                          |
+| `0x040133` | `DevopsSessionCloseRequest`   | server→agent | 面板主动关闭，`reason` 入审计                              |
+| `0x040134` | `DevopsSessionCloseResponse`  | agent→server | —                                                          |
+| `0x040135` | `DevopsSessionEvent`          | agent→server | 单向事件：`kind=output` 数据块（≤ CastChunk）或 `kind=end` |
+
+契约不变量：
+
+- **真值在 agent 侧**：白名单准入、审计先行门、asciicast 归档、输入背压
+  全部在 agent 侧 Broker/Hub 链完成；中继不引入第二真值。open 请求中的
+  `operator` 由 server 依据其鉴权会话填写，agent 审计链按原样落账 ——
+  客户端永远不自我上报身份
+- **`kind=end` 的 outcome 取值**：`closed`（正常关闭）、`eof`/`error`
+  （通道拆除）、`cast-broken`（归档失败 —— 会话本身已运行）、以及
+  `agent_disconnected`（控制面丢失时由 server 侧合成）
+- **控制面丢失 = 会话面关闭**：控制连接断开时，agent 关闭全部在途会话
+  （`OnConnClosed`），server 侧对称收束该 agent 的全部代理会话 ——
+  失去可审计通道的面板不能继续持有交互式会话。重连后面板必须重新开会话；
+  会话绝不跨连接存活
+- **server 侧扇出有界**：回放环（最近 256 条事件）+ 每消费者有界队列；
+  消费者跟不上即被摘除（流以 `overflow` end 帧收束）—— 会话本身、其归档
+  与其他消费者均不受影响
+
 ## 业务 payload 规则
 
 需要明确区分两层：

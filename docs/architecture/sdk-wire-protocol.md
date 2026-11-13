@@ -417,6 +417,45 @@ The semantics of `ProviderDrainRequest / Response` should unify as:
 - the provider's `ProviderDrainResponse` means only "the drain state was accepted"
 - the actual connection close happens after the drain completes or the grace expires
 
+### `0x04012D..0x040135` Devops session relay (AGENT-002)
+
+Interactive devops terminal sessions (SSH today) proxied panel → server → devops
+agent. Downlink requests travel the agent's bidirectional control connection
+(`MuxConn`); uplink output/end frames are **one-way event frames** (`IsEvent`
+set, reqID 0 — no response frame):
+
+|      MsgID | Name                          | Direction    | Notes                                                           |
+| ---------: | ----------------------------- | ------------ | --------------------------------------------------------------- |
+| `0x04012D` | `DevopsSessionOpenRequest`    | server→agent | `operator` is the server-authenticated identity (audit truth)   |
+| `0x04012E` | `DevopsSessionOpenResponse`   | agent→server | `ok=false` + `error` carries the honest refusal reason          |
+| `0x04012F` | `DevopsSessionInputRequest`   | server→agent | keystrokes; refusal `busy` = agent input queue full             |
+| `0x040130` | `DevopsSessionInputResponse`  | agent→server | `ok=false` + `error="busy"` maps to REST `429 session_busy`     |
+| `0x040131` | `DevopsSessionResizeRequest`  | server→agent | pty window change (cols × rows)                                 |
+| `0x040132` | `DevopsSessionResizeResponse` | agent→server | —                                                               |
+| `0x040133` | `DevopsSessionCloseRequest`   | server→agent | panel-initiated close, `reason` is audit-recorded               |
+| `0x040134` | `DevopsSessionCloseResponse`  | agent→server | —                                                               |
+| `0x040135` | `DevopsSessionEvent`          | agent→server | one-way event: `kind=output` chunks (≤ CastChunk) or `kind=end` |
+
+Contract invariants:
+
+- **Truth stays on the agent**: allowlist admission, audit-first gate,
+  asciicast archiving, and input backpressure all run in the agent-side
+  Broker/Hub chain; the relay adds no second source of truth. `operator` in the
+  open request is filled by the server from its authenticated session and the
+  agent audit chain records it verbatim — clients never self-report identity
+- **`kind=end` outcomes**: `closed` (clean close), `eof`/`error` (channel
+  teardown), `cast-broken` (archive failure — the session still ran), and
+  `agent_disconnected` (synthesized server-side on control-plane loss)
+- **Control loss = session-plane down**: when the control connection drops,
+  the agent closes all live sessions (`OnConnClosed`) and the server collapses
+  that agent's proxied sessions symmetrically — a panel without an auditable
+  channel does not keep interactive sessions alive. After a reconnect the panel
+  must open a fresh session; sessions never survive across connections
+- **Server-side fanout is bounded**: a replay ring (last 256 events) plus
+  per-consumer bounded queues; a consumer that cannot keep up is evicted
+  (stream ends with an `overflow` end frame) — the session, its archive, and
+  other consumers are unaffected
+
 ## Business payload rules
 
 Two layers must be clearly distinguished:
