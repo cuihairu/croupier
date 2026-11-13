@@ -68,6 +68,10 @@ type Hub struct {
 
 	mu   sync.Mutex
 	live map[string]*LiveSession
+
+	// endFn 会话收束回调（AGENT-002 中继面：end 事件上行 server；在
+	// cleanup 单点触发、恰发一次；nil = 不回调）。
+	endFn func(sessionID, outcome string)
 }
 
 // NewHub 装配会话面。broker 走完整建立链（白名单→审计前置→Open）；castDir
@@ -181,6 +185,33 @@ func (h *Hub) Get(sessionID string) (*LiveSession, bool) {
 	defer h.mu.Unlock()
 	ls, ok := h.live[sessionID]
 	return ls, ok
+}
+
+// List 活跃会话快照（中继面重连后重挂输出用；返回顺序不保证）。
+func (h *Hub) List() []*LiveSession {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]*LiveSession, 0, len(h.live))
+	for _, ls := range h.live {
+		out = append(out, ls)
+	}
+	return out
+}
+
+// SetEndCallback 装配会话收束回调（AGENT-002 中继面：sessionID/outcome；
+// cleanup 单点恰发一次；nil = 不回调）。回调失败不影响清理链。
+func (h *Hub) SetEndCallback(fn func(sessionID, outcome string)) {
+	h.mu.Lock()
+	h.endFn = fn
+	h.mu.Unlock()
+}
+
+// endCallback 收束回调快照读取。
+func (h *Hub) endCallback() func(sessionID, outcome string) {
+	h.mu.Lock()
+	fn := h.endFn
+	h.mu.Unlock()
+	return fn
 }
 
 // Count 活跃会话数。
@@ -411,6 +442,9 @@ func (ls *LiveSession) cleanup(outcome string, cause error) error {
 		}
 		elapsed := ls.hub.now().Sub(ls.started).Milliseconds()
 		ls.hub.broker.RecordEnd(ls.meta.SessionID, ls.meta.Operator, final, elapsed)
+		if fn := ls.hub.endCallback(); fn != nil {
+			fn(ls.meta.SessionID, final)
+		}
 		ls.hub.log.Info("devops session ended", "sessionId", ls.meta.SessionID,
 			"operator", ls.meta.Operator, "outcome", final,
 			"durationMs", elapsed, "castEvents", ls.cast.Events(),
