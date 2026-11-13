@@ -64,6 +64,19 @@ export default withMermaid(
                   { text: "Permissions", link: "/guide/concepts/permissions" },
                 ],
               },
+              {
+                text: "Integrations",
+                items: [
+                  {
+                    text: "Agent providers",
+                    link: "/guide/integrations/agent-providers",
+                  },
+                  {
+                    text: "MCP server",
+                    link: "/guide/integrations/mcp-server",
+                  },
+                ],
+              },
             ],
             "/architecture/": [
               {
@@ -228,6 +241,19 @@ export default withMermaid(
                     link: "/zh/guide/concepts/function-management",
                   },
                   { text: "权限控制", link: "/zh/guide/concepts/permissions" },
+                ],
+              },
+              {
+                text: "集成",
+                items: [
+                  {
+                    text: "Agent providers",
+                    link: "/zh/guide/integrations/agent-providers",
+                  },
+                  {
+                    text: "MCP server",
+                    link: "/zh/guide/integrations/mcp-server",
+                  },
                 ],
               },
             ],

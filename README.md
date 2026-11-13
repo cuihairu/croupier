@@ -85,6 +85,11 @@ All official SDKs are maintained together in the `sdks/` directory of this monor
 | Module    | Directory | Build                                                                                                                                                                  | Coverage                                                                                                                                       |
 | --------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Dashboard | `web/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=web-dashboard)](https://codecov.io/gh/cuihairu/croupier) |
+
+### MCP Server (AI Agent Tools)
+
+`croupier-server mcp` exposes the control plane to AI agents over the Model Context Protocol (stdio): read-only `list_sessions` / `query_jobs` plus sync `invoke_function`, scoped to one game and audited under the operator's identity. Game-side write tools (bans/compensation/orders) are deliberately absent until the GAME-009/010 credential protocol lands. See [MCP server guide](docs/guide/integrations/mcp-server.md).
+
 ## Architecture
 
 > Current game-operations readiness: high-risk production writes are not approved. [Code/TODO review](docs/review/code-todo-alignment-2026-10-29.md) records governance, policy-failure, duplicate-scheduling and receipt gaps.

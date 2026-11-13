@@ -78,6 +78,10 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 | --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Dashboard | `web/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=web-dashboard)](https://codecov.io/gh/cuihairu/croupier) |
 
+### MCP Server（AI Agent 工具）
+
+`croupier-server mcp` 经 Model Context Protocol（stdio）把控制面开放给 AI agent：只读 `list_sessions` / `query_jobs` 加同步 `invoke_function`，scope 钉死单游戏、操作者身份下全程审计。游戏侧写工具（封禁/补偿/订单）等 GAME-009/010 凭据协议落地前有意缺位。见 [MCP server 指南](docs/zh/guide/integrations/mcp-server.md)。
+
 ## 架构
 
 > 游戏后台当前成熟度：真实高风险写操作尚未达到可批准的生产稳定性。[代码与 TODO 复审](docs/review/code-todo-alignment-2026-10-29.md)记录多入口治理、策略故障、重复调度及游戏执行凭据缺口。
