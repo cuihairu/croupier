@@ -1408,3 +1408,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - **对照 AUD-009，不重复计数**：将 SQLite dump 改为一致性快照并验证恢复数据（`internal/platform/backupexec/executor.go:227-243`）—— 保证 WAL 已提交事务进入备份。
 - [ ] 为 metrics 采集全链路接入 context 并补停止测试（`core/metrics/processes.go:139-200`）—— 防止采集关闭后 goroutine 泄漏。
 - [x] 将 AUD-007..018 追加到 todo 台账（`todo.md:1231-1266`）—— 避免已确认审计项遗漏跟踪。（2026-11-13 已补齐至 AUD-028）
+
+## 文档站语言自动切换（G2-LANG-001）
+
+- [ ] G2-LANG-001 [P2] 文档站浏览器语言自动识别：文档站当前仅手动切换（导航栏语言菜单 + 显式 `//` ↔ `/zh/` 链接），无 `navigator.language` 探测跳转、无显式选择记忆。来源：2026-11-15 舰队文档一致性+语言切换审计 G2 轮，台账见 `docs/审计-文档一致性.md`「面2 语言」与「三桶计数（G2）」节。处置：作为增强项挂起，是否全舰队推行自动切换待用户拍板，本轮不实现。
