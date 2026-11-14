@@ -37,7 +37,7 @@ jobs:
           # 同一天的重跑必须复用已存在的 nightly tag 指向的提交，才能补齐
           # 上次失败/不完整的发布；首次运行则固定当前 main HEAD，供质量门禁、
           # 所有构建与发布任务使用同一 SHA（避免运行期间 main 漂移）。
-          TAG="nightly-$(date -u +%Y%m%d)"
+          TAG="nightly"
           SHA="$(git rev-parse HEAD)"
           if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
             SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
@@ -242,7 +242,7 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 15
         run: |
-          VERSION="nightly-$(date -u +%Y%m%d)"
+          VERSION="nightly"
           BUILD_TIME=$(date -u +"%Y-%m-%d_%H:%M:%S")
           GIT_COMMIT=$(git rev-parse --short HEAD)
           LDFLAGS="-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT -s -w"
