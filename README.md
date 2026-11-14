@@ -7,7 +7,7 @@
 <p align="center"><a href="README.md">English</a> | <a href="README.zh.md">中文</a></p>
 
 <p align="center">
-<img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/> <img src="https://github.com/cuihairu/croupier/actions/workflows/nightly.yml/badge.svg" alt="Nightly Build"/> <img src="https://github.com/cuihairu/croupier/actions/workflows/docs-pages.yml/badge.svg" alt="Docs"/> <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/> <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/> <img src="https://img.shields.io/badge/go-1.27.3+-green.svg" alt="Go Version"/> <img src="https://img.shields.io/badge/SDK-Go-00ADD8?logo=go&logoColor=white" alt="SDK Go"/> <img src="https://img.shields.io/badge/SDK-C%23-239120?logo=csharp&logoColor=white" alt="SDK C#"/> <img src="https://img.shields.io/badge/SDK-C%2B%2B-00599C?logo=cplusplus&logoColor=white" alt="SDK C++"/> <img src="https://img.shields.io/badge/SDK-Java-b07219?logo=openjdk&logoColor=white" alt="SDK Java"/> <img src="https://img.shields.io/badge/SDK-JavaScript-F7DF1E?logo=javascript&logoColor=black" alt="SDK JavaScript"/> <img src="https://img.shields.io/badge/SDK-Python-3776AB?logo=python&logoColor=white" alt="SDK Python"/> <a href="https://cuihairu.github.io/croupier/"><img src="https://img.shields.io/badge/docs-blue" alt="docs"></a>
+<img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/> <img src="https://github.com/cuihairu/croupier/actions/workflows/nightly.yml/badge.svg" alt="Nightly Build"/> <img src="https://github.com/cuihairu/croupier/actions/workflows/docs-pages.yml/badge.svg" alt="Docs"/> <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/> <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/> <img src="https://img.shields.io/badge/go-1.27.4+-green.svg" alt="Go Version"/> <img src="https://img.shields.io/badge/SDK-Go-00ADD8?logo=go&logoColor=white" alt="SDK Go"/> <img src="https://img.shields.io/badge/SDK-C%23-239120?logo=csharp&logoColor=white" alt="SDK C#"/> <img src="https://img.shields.io/badge/SDK-C%2B%2B-00599C?logo=cplusplus&logoColor=white" alt="SDK C++"/> <img src="https://img.shields.io/badge/SDK-Java-b07219?logo=openjdk&logoColor=white" alt="SDK Java"/> <img src="https://img.shields.io/badge/SDK-JavaScript-F7DF1E?logo=javascript&logoColor=black" alt="SDK JavaScript"/> <img src="https://img.shields.io/badge/SDK-Python-3776AB?logo=python&logoColor=white" alt="SDK Python"/> <a href="https://cuihairu.github.io/croupier/"><img src="https://img.shields.io/badge/docs-blue" alt="docs"></a>
 </p>
 
 Croupier is a Server / Agent / SDK platform for game operations and control, intended by default for multiple games and multiple environments within a single game company. The architecture has converged on a unified session transport:
@@ -242,7 +242,7 @@ cd croupier
 
 2. Install the toolchain
 
-- Go 1.27.3+
+- Go 1.27.4+
 - Node.js 24+ / pnpm
 - `buf`
 - `protoc`

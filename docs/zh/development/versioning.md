@@ -52,7 +52,7 @@ manifest 必须与它严格相等：
 - **漏洞门禁**：Security Scan job 跑 `govulncheck`。扫描红通过升级受影响
   依赖（stdlib 命中则抬 `go` 指令）修复——不豁免检查。注意 `go get` 可能
   按本机 `GOTOOLCHAIN` 静默抬升 `go` 指令，依赖变更后必须核对 diff。
-- 两个 module 当前使用相同 `go` 指令（`1.27.3`）；升级时保持两侧对齐。
+- 根 module 为 `go 1.27.4`，`sdks/go` 为 `1.27.3`（2026-11-14 现状）；升级时保持两侧对齐。
 
 ## pnpm Workspaces
 

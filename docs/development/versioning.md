@@ -59,8 +59,8 @@ Dependency rules:
   stdlib findings) — never by waiving the check. Note `go get` may silently
   raise the `go` directive using the local `GOTOOLCHAIN`; verify the diff
   after dependency work.
-- Both modules currently pin the same `go` directive (`1.27.3`); keep them
-  aligned when bumping.
+- Root module pins `go 1.27.4`, `sdks/go` pins `1.27.3` (as of 2026-11-14);
+  keep them aligned when bumping.
 
 ## pnpm Workspaces
 
