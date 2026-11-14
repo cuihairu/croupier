@@ -15,7 +15,7 @@ title: 开发周期与发布说明
 
 ## 发布节奏
 
-- **nightly 每日构建**：`schedule` 触发 `cron: "0 2 * * *"`（每日 02:00 UTC，`.github/workflows/nightly.yml:5`），支持 `workflow_dispatch` 手动触发（`:6`）；`concurrency.group: nightly-release` 且不取消在途（`:14-16`）。各 build job 固定 checkout main（`:53` 等），新增 `quality-gate` job（`:18-46`）串跑全量测试 + e2e + 契约守卫；release job 汇总产物后计算 `SHA256SUMS`、cosign keyless 签名、打不可变 `nightly-YYYYMMDD` tag（`:830+`，无 force push）并发布该 tag 的 prerelease。
+- **nightly 每日构建**：`schedule` 触发 `cron: "0 2 * * *"`（每日 02:00 UTC，`.github/workflows/nightly.yml:5`），支持 `workflow_dispatch` 手动触发（`:6`）；`concurrency.group: nightly-release` 且不取消在途（`:14-16`）。各 build job checkout `resolve-commit` 钉住的 SHA（`:60` 等），`quality-gate` job（`:49-84`）串跑全量测试 + e2e + 契约守卫；release job 汇总产物后计算 `SHA256SUMS`（`:982`）、cosign keyless 签名（`:1023`）、复用或新建固定滚动 `nightly` tag（`:992-1004`，无 force push），并把唯一一条滚动 `nightly` prerelease 原地更新为最新一次构建（`:1006-1041`，仅保留最新）。
 - **缺失项（变更检测）**：nightly 是无条件每日构建，仓库内没有「48 小时有更新才发」之类的变更检测逻辑（`nightly.yml` 全文与全历史 grep 均无命中）；该口径属流程约定。
 - **稳定版发布**：唯一有效入口是人工 push `v*` tag —— `release.yml:4-6`（`push: tags: ["v*"]`）；`workflow_dispatch` 存在（`:7`）但三个 job 均有 `if: startsWith(github.ref, 'refs/tags/v')`（`:22`/`:151`/`:201`），手动运行等于空跑。`docker.yml:4-6` 同样响应 `v*` tag（另加 push main）。
 - **SDK 发布**：每语言一个独立手动 workflow，仅 `workflow_dispatch` 绝不自动触发（`release-sdk-*.yml` 各文件 `:3` 注释；`release-sdk-go.yml:5-11` 的 `version` 输入留空则取最新 release tag，逻辑在 `:24-34`）。
@@ -25,7 +25,7 @@ title: 开发周期与发布说明
 
 - **根 `VERSION` 文件是唯一版本真源**（当前内容 `0.1.6`）：`Makefile:2` `VERSION := $(shell cat VERSION ...)`；`:10` 组装 `LDFLAGS := -X main.Version=$(FULL_VERSION) ...`。
 - **注入点**：server 走 `cmd/server/root.go:34` 的 `Version` 变量与 `internal/svc/version.go:6` 的 `ServerVersion`（`Makefile:89` 完整导入路径注入）；devops/capture/synthetics 注入 `agents/*/runner.Version`（`Makefile:117`/`:122`/`:128`）。
-- **发布时点重注**：VERSION 文件值在发布切 tag 时可能滞后（`release.yml:58-60` 注释记录 v0.1.5 实证恒 0.1.4），发布面统一以 `git describe` 重注（`release.yml:61`）；nightly 面统一以 `nightly-YYYYMMDD` 重注（`nightly.yml:81`，二进制 `--version` 必含 `nightly-` 的校验在 `:190`）。
+- **发布时点重注**：VERSION 文件值在发布切 tag 时可能滞后（`release.yml:58-60` 注释记录 v0.1.5 实证恒 0.1.4），发布面统一以 `git describe` 重注（`release.yml:61`）；nightly 面在 Linux/macOS 统一重注为 `nightly`（`nightly.yml:245`，版本断言在 `:354`）——Windows 分支仍拼日期 `nightly-YYYYMMDD`（`:290`），属已登记的不一致（见 `docs/审计-文档一致性.md` G2 节）。
 - **SDK 版本同步**：根 VERSION bump 后运行 `make version-sync`（`scripts/sync-sdk-versions.sh:2-16`）。
 - **版本漂移现场（如实记录）**：2026-10-20 盘点时为根 `VERSION`（0.1.6）> 最新 tag（`v0.1.5`）> SDK 清单（均 0.1.4）三层并存。2026-11-10 复核：SDK 清单层已在 `check-version-sync.sh` 门禁下重新对齐（六处清单现均 0.1.6），现状为 `VERSION（0.1.6）= SDK 清单（0.1.6）> 最新 tag（v0.1.5）`——守卫语义中两次发版之间的正常状态。依赖升级与 override 策略：见[版本与依赖策略](./versioning)。
 - **tag 命名**：Server/Agent 用 `v*`，SDK 用子模块 tag（`docs/operations/sdk-release.md:96`：`sdks/go/vX.Y.Z`；`release-sdk-go.yml:40-46` 实际执行）。`repository-guidelines.md:104-110` 的 `sdk-go-v*` 旧口径与现行实现已漂移，以子模块 tag 为准。

@@ -33,8 +33,8 @@ The root `VERSION` file is the single source of truth for the platform version
   (`scripts/sync-sdk-versions.sh`) — do not hand-edit six manifests; the guard
   failure message says the same.
 - **Who bumps**: version numbers and release tags are maintainer-manual.
-  Nightly builds produce a rolling `nightly-YYYYMMDD` tag and a prerelease
-  draft, never a numbered version (see
+  Nightly builds publish a single rolling `nightly` prerelease that keeps
+  only the latest build, never a numbered version (see
   [Development lifecycle](./lifecycle) for the release cadence).
 - **Java snapshot behavior**: on main the Java SDK builds as
   `X.Y.Z-SNAPSHOT`; exact versions are used only when built for a `v*` tag.

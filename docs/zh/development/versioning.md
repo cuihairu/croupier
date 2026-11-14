@@ -30,8 +30,8 @@ manifest 必须与它严格相等：
 - **同步**：改完 `VERSION` 后跑 `make version-sync`
   （`scripts/sync-sdk-versions.sh`）——禁止手工改六处 manifest；守卫失败
   信息同样如此提示。
-- **谁改版本**：版本号与发版 tag 由维护者手动给出。每日构建产出滚动
-  `nightly-YYYYMMDD` tag 与 prerelease 草稿，永远不产生带版本号的正式发布
+- **谁改版本**：版本号与发版 tag 由维护者手动给出。每日构建只产出唯一一条滚动 `nightly` prerelease
+  （仅保留最新一次构建），永远不产生带版本号的正式发布
   （发布节奏见[开发周期与发布说明](./lifecycle)）。
 - **Java snapshot 行为**：main 上 Java SDK 以 `X.Y.Z-SNAPSHOT` 构建；精确
   版本仅在 `v*` tag 构建时使用。

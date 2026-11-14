@@ -80,11 +80,11 @@ When piping remotely makes passing arguments inconvenient, use environment varia
 
 Nightly is updated solely by `nightly.yml`; for standalone Agent archives, checksums, platform coverage, and capability maturity see Roles and Build Artifacts (Chinese-only section). A release-chain change may only make new standalone packages downloadable from a Release after it is merged and runs successfully; the original installer keeps selecting roles from the monolithic package. ARMv7 supports only sidecar/devops; capture requires amd64/arm64, and a missing capture archive must not be treated as a supported platform.
 
-| Option                       | Meaning                                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------- |
-| Default (`--version latest`) | Latest **stable release** (GitHub `releases/latest`, prereleases excluded)                    |
-| `--version nightly`          | Daily build (auto-produced at 02:00 UTC, all-platform artifacts uniformly `nightly-YYYYMMDD`) |
-| `--version v0.1.5`           | Pin a specific version, suitable for canary/rollback                                          |
+| Option                       | Meaning                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| Default (`--version latest`) | Latest **stable release** (GitHub `releases/latest`, prereleases excluded)                       |
+| `--version nightly`          | Daily build (auto-produced at 02:00 UTC; single rolling `nightly` prerelease, latest build only) |
+| `--version v0.1.5`           | Pin a specific version, suitable for canary/rollback                                             |
 
 ```bash
 # Install the daily build

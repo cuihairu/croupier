@@ -80,11 +80,11 @@ curl -fsSL https://raw.githubusercontent.com/cuihairu/croupier/main/scripts/inst
 
 Nightly 只由 `nightly.yml` 更新；单 Agent 归档、checksum、平台覆盖与能力成熟度见角色与构建产物（仅中文小节）。release 链路的变更必须合并且运行成功后，新的独立包才会出现在 Release 可下载；原安装脚本继续从单体包选择角色。ARMv7 只支持 sidecar/devops；capture 要求 amd64/arm64，capture 归档缺失不得视为受支持平台。
 
-| 选项                       | 含义                                                              |
-| -------------------------- | ----------------------------------------------------------------- |
-| 默认（`--version latest`） | 最新**正式 release**（GitHub `releases/latest`，不含 prerelease） |
-| `--version nightly`        | 每日构建（02:00 UTC 自动产出，全平台产物统一 `nightly-YYYYMMDD`） |
-| `--version v0.1.5`         | 钉住特定版本，适合金丝雀/回滚                                     |
+| 选项                       | 含义                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| 默认（`--version latest`） | 最新**正式 release**（GitHub `releases/latest`，不含 prerelease）             |
+| `--version nightly`        | 每日构建（02:00 UTC 自动产出；唯一滚动 `nightly` prerelease，仅保留最新一次） |
+| `--version v0.1.5`         | 钉住特定版本，适合金丝雀/回滚                                                 |
 
 ```bash
 # Install the daily build
