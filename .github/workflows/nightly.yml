@@ -34,9 +34,10 @@ jobs:
         id: resolve
         timeout-minutes: 2
         run: |
-          # 同一天的重跑必须复用已存在的 nightly tag 指向的提交，才能补齐
-          # 上次失败/不完整的发布；首次运行则固定当前 main HEAD，供质量门禁、
-          # 所有构建与发布任务使用同一 SHA（避免运行期间 main 漂移）。
+          # 重跑须复用已存在的 nightly tag 指向的提交以补齐失败/不完整的发布；
+          # 首次运行则固定当前 main HEAD，供质量门禁、所有构建与发布任务
+          # 使用同一 SHA（避免运行期间 main 漂移）。注意：tag 已存在时本流程
+          # 不会前进到新 HEAD，滚动前进机制待修（G2 审计 2026-11-14）。
           TAG="nightly"
           SHA="$(git rev-parse HEAD)"
           if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
@@ -273,7 +274,7 @@ jobs:
           else
             make build
             # make build 注入的是 VERSION 文件值（发布时点可能滞后，v0.1.5 实证恒 0.1.4）——
-            # nightly 发布面统一以 nightly-YYYYMMDD 重注（与上方交叉编译条目一致）
+            # nightly 发布面统一以 nightly 重注（与上方交叉编译条目一致）
             GOFLAGS=-mod=mod go build -ldflags "$SRV_LDFLAGS" -o bin/croupier-server ./cmd/server
             GOFLAGS=-mod=mod go build -ldflags "$LDFLAGS" -o bin/croupier-agent ./cmd/sidecar-agent
             GOFLAGS=-mod=mod go build -ldflags "$DEV_LDFLAGS" -o bin/devops-agent ./cmd/devops-agent
@@ -915,7 +916,7 @@ jobs:
           ### Individual Agent Packages
           Each package contains the binary, its config template, AGENTS.md and INSTALL.md.
           - `croupier-agent-<os>-<arch>.tar.gz` - sidecar: SDK function gateway and game-side operations
-          - `devops-agent-<os>-<arch>.tar.gz` - devops: remote-access skeleton (SSH/RDP/VNC channels pending)
+          - `devops-agent-<os>-<arch>.tar.gz` - devops: SSH sessions and replay archives delivered; RDP/VNC pending
           - `capture-agent-<os>-<arch>.tar.gz` - capture: CDC and change-rule alerts (64-bit targets only)
           - `synthetics-agent-<os>-<arch>.tar.gz` - synthetics: external HTTP probes and optional probe plugins (64-bit targets only)
           - Windows packages use `.zip`; `agents-<os>-<arch>.json` and `.sha256` record contents and checksums.
@@ -992,9 +993,10 @@ jobs:
       - name: Create/Update immutable nightly tag
         timeout-minutes: 5
         run: |
-          # CR-FIX-04：nightly 使用不可变 nightly-YYYYMMDD tag。同日重跑时
-          # 复用已有 tag（resolve-commit 已固定该 tag 的提交），不移动 tag，
-          # 继续补齐失败/不完整的 Release。
+          # nightly 使用固定滚动 tag。已存在时复用该 tag 指向的提交补齐
+          # 失败/不完整的 Release（resolve-commit 亦钉住该提交）。当前实现
+          # 从不移动 tag，nightly 因此停在首次建 tag 的提交上，前进机制待修
+          # （G2 审计 2026-11-14 登记）。
           TAG="${{ needs.resolve-commit.outputs.tag }}"
           if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
             echo "tag ${TAG} already exists; reusing it for release recovery"
