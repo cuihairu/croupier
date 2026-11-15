@@ -1243,14 +1243,14 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 > 2026-11-13 续审进度：第一轮 [风险路径报告](docs/review/deep-audit-2026-11-12.md) 已落盘；按用户要求转入 [代码逻辑续审](docs/review/code-logic-review-2026-11-13.md)，深入供给适配器、发版/回滚、事故更新、定时调度、ICMP 与插件/Runbook 生命周期。新增 8 个正常业务回归断言均暴露现有问题，原有相关测试通过；未修改业务实现。下列覆盖任务仍未全部完成，不因已有报告而整体勾选。
 
-- [ ] **AUD-COV-001 · 复核 · Go API/业务服务/权限与游戏、环境作用域边界**：按路由入口追踪身份、scope 中间件、数据查询/写入和错误响应；覆盖 internal/api、internal/handler、internal/platform、internal/policy。
-- [ ] **AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性**：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
-- [ ] **AUD-COV-003 · 复核 · Agent 与消息传输/协议**：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
-- [ ] **AUD-COV-004 · 复核 · 六语言 SDK 与插件**：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
-- [ ] **AUD-COV-005 · 复核 · Web Console 与 API 客户端**：沿页面→状态管理→请求→服务端授权检查作用域切换、陈旧数据、错误/加载状态、输入校验、XSS 和关键管理操作；覆盖 web/src。
-- [ ] **AUD-COV-006 · 复核 · Mobile 客户端**：检查登录/会话、作用域、token 存储、请求生命周期、旧数据清理、错误/离线表现与 Android/iOS 配置；覆盖 mobile/lib 和原生工程。
-- [ ] **AUD-COV-007 · 复核 · 构建/发布/部署/运维与文档契约**：检查 CI 触发路径、质量门禁、发布版本一致性、镜像/Compose 默认值、密钥暴露、备份恢复和用户文档与实现漂移；覆盖 .github、docker、configs、scripts、Makefile 与 docs。
-- [ ] **AUD-COV-008 · 汇总 · 回归历史审计并形成总报告**：把 11 月 1–10 日历史审计结论按当前 HEAD 逐条标成仍存在/已修/无法复核；合并重复项、给出严重级别和证据；未覆盖区域明确标注，不能用扫描器无告警替代人工复核。
+- [ ] AUD-COV-001 · 复核 · Go API/业务服务/权限与游戏、环境作用域边界：按路由入口追踪身份、scope 中间件、数据查询/写入和错误响应；覆盖 internal/api、internal/handler、internal/platform、internal/policy。
+- [ ] AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
+- [ ] AUD-COV-003 · 复核 · Agent 与消息传输/协议：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
+- [ ] AUD-COV-004 · 复核 · 六语言 SDK 与插件：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
+- [ ] AUD-COV-005 · 复核 · Web Console 与 API 客户端：沿页面→状态管理→请求→服务端授权检查作用域切换、陈旧数据、错误/加载状态、输入校验、XSS 和关键管理操作；覆盖 web/src。
+- [ ] AUD-COV-006 · 复核 · Mobile 客户端：检查登录/会话、作用域、token 存储、请求生命周期、旧数据清理、错误/离线表现与 Android/iOS 配置；覆盖 mobile/lib 和原生工程。
+- [ ] AUD-COV-007 · 复核 · 构建/发布/部署/运维与文档契约：检查 CI 触发路径、质量门禁、发布版本一致性、镜像/Compose 默认值、密钥暴露、备份恢复和用户文档与实现漂移；覆盖 .github、docker、configs、scripts、Makefile 与 docs。
+- [ ] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告：把 11 月 1–10 日历史审计结论按当前 HEAD 逐条标成仍存在/已修/无法复核；合并重复项、给出严重级别和证据；未覆盖区域明确标注，不能用扫描器无告警替代人工复核。
 
 - [ ] **AUD-001 · P1 · 修复 · Provider 握手令牌启用时强制保护明文链路**
   - 依赖：—。交付与验收：当 `providerAuth.require=true` 且本地 listener 绑定非 loopback 地址时，拒绝 `tls.enabled=false` 的配置，或提供明确且不可忽略的启动阻断；保持 loopback 开发配置可用；加入启动配置组合验证与部署文档说明。
