@@ -64,6 +64,8 @@
     "@rjsf/utils": "^6.7.1",
     "@rjsf/validator-ajv8": "^6.7.1",
     "@umijs/route-utils": "^2.2.2",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "antd": "^6.4.3",
     "antd-style": "^4.1.0",
     "classnames": "^2.5.1",

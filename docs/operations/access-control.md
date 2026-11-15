@@ -66,16 +66,18 @@ For security and operations roles: an inventory of this repo's real permission-c
 - **Honest boundary 3 (approval storage defaults to memory)**: the approval store defaults to `approvals.NewMemStore()` (`internal/svc/service_context.go:342`) — **approval tickets are lost on restart**; a SQL store implementation exists but is not wired at this assembly point.
 - **Honest boundary 4 (signer is nil)**: production wiring is `audit.NewAuditService(auditStore, nil)` (`:350`) — the audit outbound signer is nil; records are stored but not signed.
 
-## Bastion/Jump Access (not implemented, skeleton)
+## Bastion/Jump Access (SSH session relay, wired 2026-11-14)
 
-The remote session channel of `agents/devops` (devops-agent) is **not implemented**; the current state is a skeleton batch:
+The remote session channel of `agents/devops` (devops-agent) is **wired (AGENT-002, 2026-11-14)**, SSH only; the console panel followed on 2026-11-15 (AGENT-003):
 
-- **Evidence**: `agents/devops/session/session.go:64-73` `noopTarget` — a skeleton placeholder Provider whose `Open` always returns `session channel %s not implemented yet (skeleton)` (`:72`); the assembly point `agents/devops/runner/runner.go:92` is exactly `session.NewNoopTarget()`. The whole directory has no `x/crypto/ssh` and no guacamole dependency; `guacdAddr` at `config.go:64-66` is a **reserved field whose comment states the skeleton batch does not wire it**.
-- **What has landed** (reusable once a channel exists):
-  - **Allowlist**: `Check(host, port, protocol)` at `agents/devops/session/allowlist.go:31` — a host/port/protocol triple not on the allowlist is rejected; config validation requires the allowlist to be non-empty and host/ports set when `devops.enabled=true` (`agents/devops/config/config.go:98-118`).
-  - **Broker orchestration**: `OpenSession` at `agents/devops/session/broker.go:63` — allowlist first, audit first (failures leave a record too), then the Provider.
-  - **Metadata-level recording**: `SessionMeta` at `agents/devops/session/recorder.go:16-27` — session start/end, protocol, target, and operator written to disk as JSONL (no screen content).
-- **Plan pointer**: the real session channel (guacd main channel + local SSH fallback) belongs to the devops real-session entry in `todo.md`; design background in `docs/zh/design/agent-core-design.md`. **Until then, this repo has no usable bastion/jump capability, and any claim of "jumping to intranet hosts through Croupier" is false.**
+- **Agent side**: a real SSH target `agents/devops/session/sshtarget.go:127` (dials `host:port` over `golang.org/x/crypto/ssh`, handshake bounded by ctx/`ConnectTimeout`); assembly `agents/devops/runner/runner.go:191` (hub + asciicast recorder) and `:78` (relay onto the control connection). The broker order is unchanged: allowlist → **audit-first** (record persisted before the channel opens, `agents/devops/session/broker.go:126-138`) → provider; non-SSH protocols are rejected (`broker.go:102`).
+- **Server side**: six REST/SSE endpoints (`internal/handler/routes_task.go:203-208`: open/list/stream/input/resize/close); the server hub keeps a 256-event replay ring per session (`internal/platform/devopssessions/hub.go:40`, snapshot attached on subscribe `:236`). Relay not configured → `503 devops_relay_not_configured`; agent backpressure → `429 session_busy` (`internal/api/ops/devops_sessions.go`). Open/close write audit events `devops.session_open`/`devops.session_close`.
+- **Console**: `/ops/agents/devops` (`web/src/pages/Ops/Agents/devops.tsx`) — scope-scoped session list, open dialog (online devops agents only), xterm attach over fetch-SSE (`DevopsTerminal.tsx`), input/resize forwarding, explicit close with confirm.
+- **Allowlist** (unchanged gate): `Check(host, port, protocol)` at `agents/devops/session/allowlist.go:59`; the server publishes a versioned allowlist and agents pull it for hot reload (`PullDevopsAllowlist`, `agents/devops/runner/runner.go`).
+- **Boundaries (honest)**:
+  - **SSH only**: RDP/VNC targets are explicitly rejected (`broker.go:102`, `sshtarget.go:129-131`); the guacd channel has not landed, and the console does not offer those options.
+  - **No historical replay**: asciicast archives are written on the agent disk (`agents/devops/session/asciicast.go`); there is no server-side retrieval endpoint, so past sessions cannot be replayed from the console — attach only receives the last-screen replay ring.
+  - **Detach ≠ close**: closing the drawer only detaches the local view; the remote session lives until the explicit close action (audited `devops.session_close`).
 
 ## Known Doc-vs-Code Discrepancies
 
@@ -84,6 +86,6 @@ The remote session channel of `agents/devops` (devops-agent) is **not implemente
 | `game:{gameId}:{permission}` permission format   | Listed as a permission naming form in `docs/zh/guide/concepts/permissions.md:132` | No implementation of any `game:`-prefixed permission string (a repo-wide grep only hits an unrelated telemetry topic prefix); game isolation actually goes through the `admin_game_scopes` table |
 | ABAC / UnifiedPolicyEngine / risk policy engines | The concept docs describe these capabilities                                      | The engine code sits in `internal/security/rbac/` but has no production caller (see "model not wired" above)                                                                                     |
 | Where the two-person rule lives                  | Often understood as an RBAC capability                                            | Implemented in the approval service's `rejectSelfApproval` (`internal/api/approval/service.go:117`); the RBAC layer only decides roles/permissions/scopes                                        |
-| Bastion remote sessions                          | Some design docs describe a guacd/SSH scheme                                      | Skeleton only (`noopTarget` always rejects); the scheme has not landed                                                                                                                           |
+| Bastion remote sessions                          | Some design docs describe a guacd/SSH scheme                                      | SSH relay is wired (2026-11-14, `sshtarget.go` + server hub + REST/SSE); guacd RDP/VNC channel has not landed                                                                                    |
 
 ## Related pages

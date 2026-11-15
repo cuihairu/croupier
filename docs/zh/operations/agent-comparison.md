@@ -8,12 +8,12 @@ Croupier 规划四类 Agent，目前有三个可执行入口；synthetics 仍待
 
 ## 1. 选型总表
 
-| 类型       | 核心职责                                             | 部署位置                                      | 当前入口 / 二进制                      | 当前实现边界                                                                                  |
-| ---------- | ---------------------------------------------------- | --------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
-| sidecar    | 游戏 SDK 函数注册、调用/任务转发、游戏旁路监管与观测 | 游戏服务器本机或可访问游戏服务的网段          | `cmd/sidecar-agent` / `croupier-agent` | SDK 会话与调用主体已有；进程监管等模块实现与 CLI 配置/启动接线仍有差距                        |
-| devops     | 授权人员从后台进入内网机器操作，白名单与审计前置     | 可访问受控主机的内网运维节点                  | `cmd/devops-agent` / `devops-agent`    | 注册、心跳、Broker、白名单、审计与会话元数据已有；SSH/RDP/VNC、下行会话与内容回放未接通       |
-| capture    | CDC 捕获业务库变更、过滤及对账/CEP/血缘检测、告警    | 可访问源库复制日志的旁路节点                  | `cmd/capture-agent` / `capture-agent`  | MySQL/MariaDB、PostgreSQL、MongoDB 与规则链已有；位点确认、规则窗口恢复和告警可靠投递仍需收口 |
-| synthetics | 游戏外部及第三方服务主动探测，拉起开发者多语言插件   | 代表玩家或服务消费方的网络位置，可多地域/网段 | 待实现，无入口/二进制/包               | 独立载体、go-plugin 运行时和对应页面待实现，内置 Checker 不等于该 Agent 已完成                |
+| 类型       | 核心职责                                             | 部署位置                                      | 当前入口 / 二进制                      | 当前实现边界                                                                                                                                       |
+| ---------- | ---------------------------------------------------- | --------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| sidecar    | 游戏 SDK 函数注册、调用/任务转发、游戏旁路监管与观测 | 游戏服务器本机或可访问游戏服务的网段          | `cmd/sidecar-agent` / `croupier-agent` | SDK 会话与调用主体已有；进程监管等模块实现与 CLI 配置/启动接线仍有差距                                                                             |
+| devops     | 授权人员从后台进入内网机器操作，白名单与审计前置     | 可访问受控主机的内网运维节点                  | `cmd/devops-agent` / `devops-agent`    | 注册、心跳、Broker、白名单、审计先行、SSH 会话中继与服务端回放环已接通（2026-11-14）；后台面板已交付（2026-11-15）；RDP/VNC 与服务端存档取回未交付 |
+| capture    | CDC 捕获业务库变更、过滤及对账/CEP/血缘检测、告警    | 可访问源库复制日志的旁路节点                  | `cmd/capture-agent` / `capture-agent`  | MySQL/MariaDB、PostgreSQL、MongoDB 与规则链已有；位点确认、规则窗口恢复和告警可靠投递仍需收口                                                      |
+| synthetics | 游戏外部及第三方服务主动探测，拉起开发者多语言插件   | 代表玩家或服务消费方的网络位置，可多地域/网段 | 待实现，无入口/二进制/包               | 独立载体、go-plugin 运行时和对应页面待实现，内置 Checker 不等于该 Agent 已完成                                                                     |
 
 `connector-agent` 只是外部系统事件接入路线图占位，不算第五个已实现 Agent。完整职责及页面规划见 [Agent 清单](../design/agents-inventory.md)、[四类后台页面](../design/agent-dashboard-design.md)。
 
@@ -32,10 +32,11 @@ Croupier 规划四类 Agent，目前有三个可执行入口；synthetics 仍待
 
 用于研发/运维访问白名单机器，例如排查内网构建机；它不承担游戏函数注册或数据库变更采集。目标必须按 host+port+protocol 明确列入白名单，会话建立需先持久记录审计，缺审计时拒绝放行。
 
-当前 `devops.enabled=false` 时只注册上线；即使设 true，生产装配仍为 noop Target，不能建立真实 SSH/RDP/VNC 会话。现有会话开始/结束元数据不是终端录像或可回放内容，后台入口随真实通道交付。
+2026-11-14 起 SSH 会话通道已接通：真实 SSH Target（`agents/devops/session/sshtarget.go:127`）挂在白名单与审计先行 Broker 之后（`agents/devops/session/broker.go:126-138`，非 SSH 协议在 `:102` 拒绝）；服务端提供 open/list/stream/input/resize/close（`internal/handler/routes_task.go:203-208`）与 256 条事件回放环（`internal/platform/devopssessions/hub.go:40`）。后台面板 `/ops/agents/devops` 于 2026-11-15 交付。RDP/VNC（guacd）显式拒绝而非静默丢弃；会话录制是元数据加 agent 本机 asciicast 存档，服务端无取回面。
 
-- 输入：白名单与会话配置；后续接入受授权的会话请求。
-- 输出：在线身份、会话审计与元数据；真实终端/桌面流待实现。
+- 输入：服务端发布的版本化白名单与后台发起的受授权会话请求。
+- 输出：在线身份、会话审计（`devops.session_open`/`devops.session_close`）、中继的终端字节流，以及 agent 本机 asciicast 存档（暂无服务端取回）。
+- 后台面板：会话列表按 `X-Game-ID`/`X-Env` 作用域过滤；开会话需在线 devops agent；接入走 fetch-SSE 拉 xterm（先补最近一屏回放），输入与窗口调整转发；关闭是显式且留审计的动作。关闭抽屉只断开本地视图——远端会话持续到显式关闭。
 - 配置示例：`configs/devops-agent.example.yaml`；安装后配置名为 `devops-agent.yaml`。
 
 ## 4. capture：CDC 与业务变更检查
@@ -87,10 +88,10 @@ Windows 使用 `.zip` 和 `.exe`，同样附配置与说明。支持目标：
 
 | 平台                      | sidecar | devops         | capture                     | Server 总包    |
 | ------------------------- | ------- | -------------- | --------------------------- | -------------- |
-| Linux amd64/arm64         | 有      | 有（会话骨架） | 有                          | 有             |
-| Linux ARMv7（包名 armv7） | 有      | 有（会话骨架） | 无，32 位 CDC parser 不兼容 | 无，同依赖限制 |
-| macOS amd64/arm64         | 有      | 有（会话骨架） | 有                          | 有             |
-| Windows amd64             | 有      | 有（会话骨架） | 有                          | 有             |
+| Linux amd64/arm64         | 有      | 有（SSH 中继） | 有                          | 有             |
+| Linux ARMv7（包名 armv7） | 有      | 有（SSH 中继） | 无，32 位 CDC parser 不兼容 | 无，同依赖限制 |
+| macOS amd64/arm64         | 有      | 有（SSH 中继） | 有                          | 有             |
+| Windows amd64             | 有      | 有（SSH 中继） | 有                          | 有             |
 
 `nightly.yml` 是唯一每日发布入口，`release.yml` 仅发布 v* tag；工作流修改需合并并成功运行后才会出现在 GitHub Release，本文不宣称已发布新资产。跨平台构建成功不等于完成真实环境功能验收。
 

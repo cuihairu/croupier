@@ -66,16 +66,18 @@ title: 权限控制说明（RBAC、鉴权、敏感操作与堡垒机现状）
 - **诚实边界 3（审批存储默认内存）**：审批存储默认 `approvals.NewMemStore()`（`internal/svc/service_context.go:342`）——**重启丢审批工单**；SQL 存储实现存在但该装配点未切换。
 - **诚实边界 4（签名器为空）**：生产装配 `audit.NewAuditService(auditStore, nil)`（`:350`）——审计外发签名器为 nil，只落库不签名。
 
-## 堡垒机/跳板接入能力（未实现，骨架）
+## 堡垒机/跳板接入能力（SSH 会话中继，2026-11-14 接通）
 
-`agents/devops`（devops-agent）的远程会话通道**尚未实现**，当前为骨架批次：
+`agents/devops`（devops-agent）的远程会话通道**已接通（AGENT-002，2026-11-14）**，仅 SSH；后台面板随后交付（AGENT-003，2026-11-15）：
 
-- **判定证据**：`agents/devops/session/session.go:64-73` `noopTarget`——骨架占位 Provider，`Open` 一律返回 `session channel %s not implemented yet (skeleton)`（`:72`）；装配点 `agents/devops/runner/runner.go:92` 就是 `session.NewNoopTarget()`。全目录无 `x/crypto/ssh`、无 guacamole 依赖；`config.go:64-66` 的 `guacdAddr` 是**预留字段，注释明示骨架批次不接**。
-- **已落地部分**（通道到位即可复用）：
-  - **白名单**：`agents/devops/session/allowlist.go:31` `Check(host, port, protocol)`——host/port/protocol 三元组不在白名单即拒绝；配置校验要求 `devops.enabled=true` 时 allowlist 非空、host/ports 必填（`agents/devops/config/config.go:98-118`）。
-  - **Broker 编排**：`agents/devops/session/broker.go:63` `OpenSession`——白名单先决，审计先行（失败也留痕），再进 Provider。
-  - **元数据级录制**：`agents/devops/session/recorder.go:16-27` `SessionMeta`——会话起止/协议/目标/操作者以 JSONL 落盘（不含屏幕内容）。
-- **计划指针**：真实会话通道（guacd 主通道 + 本地 SSH 兜底）属 `todo.md` 的 devops 真实会话条目；设计背景见 `docs/zh/design/agent-core-design.md`。**在那之前，本仓不存在可用的堡垒机/跳板能力，任何「通过 Croupier 跳转内网主机」的表述均为不实。**
+- **Agent 侧**：真实 SSH Target `agents/devops/session/sshtarget.go:127`（经 `golang.org/x/crypto/ssh` 拨 `host:port`，握手挂在 ctx 与 `ConnectTimeout` 较早者上）；装配点 `agents/devops/runner/runner.go:191`（hub + asciicast 录制）与 `:78`（relay 挂控制连接）。Broker 顺序未变：白名单 → **审计先行**（通道打开前记录已落盘，`agents/devops/session/broker.go:126-138`）→ Provider；非 SSH 协议显式拒绝（`broker.go:102`）。
+- **Server 侧**：六个 REST/SSE 端点（`internal/handler/routes_task.go:203-208`：open/list/stream/input/resize/close）；hub 每会话保留 256 条事件的回放环（`internal/platform/devopssessions/hub.go:40`，订阅时附快照 `:236`）。relay 未装配 → `503 devops_relay_not_configured`；agent 背压 → `429 session_busy`（`internal/api/ops/devops_sessions.go`）。开/关会话写审计 `devops.session_open`/`devops.session_close`。
+- **后台面板**：`/ops/agents/devops`（`web/src/pages/Ops/Agents/devops.tsx`）——scope 作用域内会话列表、开会话（仅在线 devops agent）、xterm 经 fetch-SSE 接入（`DevopsTerminal.tsx`）、输入与窗口调整转发、显式关闭带确认。
+- **白名单**（未变的闸）：`agents/devops/session/allowlist.go:59` `Check(host, port, protocol)`；服务端发布版本化白名单，agent 拉取热生效（`PullDevopsAllowlist`，`agents/devops/runner/runner.go`）。
+- **边界（如实）**：
+  - **仅 SSH**：RDP/VNC 目标显式拒绝（`broker.go:102`、`sshtarget.go:129-131`）；guacd 通道未落地，面板不提供这两个选项。
+  - **无历史回放**：asciicast 存档写在 agent 本机磁盘（`agents/devops/session/asciicast.go`）；服务端无取回端点，因此后台无法回放历史会话——接入只补「最近一屏」回放环。
+  - **断开 ≠ 关闭**：关闭抽屉只断开本地视图；远端会话持续到显式关闭（审计 `devops.session_close`）。
 
 ## 已知口径差异（文档 vs 代码）
 
@@ -84,6 +86,6 @@ title: 权限控制说明（RBAC、鉴权、敏感操作与堡垒机现状）
 | `game:{gameId}:{permission}` 权限格式     | `docs/zh/guide/concepts/permissions.md:132` 列为权限命名形态 | 代码无任何 `game:` 前缀权限串实现（全仓 grep 仅命中无关的遥测 topic 前缀）；游戏隔离实际走 `admin_game_scopes` 表判定 |
 | ABAC / UnifiedPolicyEngine / 风险策略引擎 | 概念文档有相关能力描述                                       | 引擎代码在 `internal/security/rbac/` 但无生产调用方（见上「模型未接线」）                                             |
 | 两人规则归属                              | 常被理解为 RBAC 能力                                         | 实现在审批服务 `rejectSelfApproval`（`internal/api/approval/service.go:117`），RBAC 层只有角色/权限/作用域判定        |
-| 堡垒机远程会话                            | 部分设计文档描述了 guacd/SSH 方案                            | 仅骨架（`noopTarget` 恒拒），方案未落地                                                                               |
+| 堡垒机远程会话                            | 部分设计文档描述了 guacd/SSH 方案                            | SSH 中继已接通（2026-11-14，`sshtarget.go` + 服务端 hub + REST/SSE）；guacd RDP/VNC 通道未落地                        |
 
 ## 相关页面

@@ -8,12 +8,12 @@ Croupier plans four agent roles; three have executable entry points today, and s
 
 ## 1. Selection Summary
 
-| Type       | Core responsibility                                                                                  | Deployment location                                                                               | Current entry / binary                           | Current implementation boundary                                                                                                                              |
-| ---------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| sidecar    | Game SDK function registration, invocation/task forwarding, game-side supervision and observability  | On the game server host or a network segment that can reach the game services                     | `cmd/sidecar-agent` / `croupier-agent`           | The SDK session and invocation core exist; the supervision modules' implementation and CLI config/startup wiring still lag                                   |
-| devops     | Authorized personnel operate intranet machines from the console, with allowlist and audit up front   | An intranet ops node that can reach the controlled hosts                                          | `cmd/devops-agent` / `devops-agent`              | Registration, heartbeat, broker, allowlist, audit, and session metadata exist; SSH/RDP/VNC, downstream sessions, and content replay are not wired            |
-| capture    | CDC capture of business database changes, filtering, reconciliation/CEP/lineage detection, alerting  | A bypass node that can read the source database's replication log                                 | `cmd/capture-agent` / `capture-agent`            | MySQL/MariaDB, PostgreSQL, MongoDB, and the rule chain exist; position confirmation, rule-window recovery, and reliable alert delivery still need tightening |
-| synthetics | Active probing of game-external and third-party services, launching developer multi-language plugins | A network position representing players or service consumers, possibly multi-region/multi-segment | To be implemented; no entry point/binary/package | Standalone carrier, go-plugin runtime, and the corresponding pages are to be implemented; the built-in Checker does not mean this Agent is done              |
+| Type       | Core responsibility                                                                                  | Deployment location                                                                               | Current entry / binary                           | Current implementation boundary                                                                                                                                                                                                |
+| ---------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| sidecar    | Game SDK function registration, invocation/task forwarding, game-side supervision and observability  | On the game server host or a network segment that can reach the game services                     | `cmd/sidecar-agent` / `croupier-agent`           | The SDK session and invocation core exist; the supervision modules' implementation and CLI config/startup wiring still lag                                                                                                     |
+| devops     | Authorized personnel operate intranet machines from the console, with allowlist and audit up front   | An intranet ops node that can reach the controlled hosts                                          | `cmd/devops-agent` / `devops-agent`              | Registration, heartbeat, broker, allowlist, audit-first, SSH session relay, and the server replay ring are wired (2026-11-14); console panel shipped (2026-11-15); RDP/VNC and server-side archive retrieval are not delivered |
+| capture    | CDC capture of business database changes, filtering, reconciliation/CEP/lineage detection, alerting  | A bypass node that can read the source database's replication log                                 | `cmd/capture-agent` / `capture-agent`            | MySQL/MariaDB, PostgreSQL, MongoDB, and the rule chain exist; position confirmation, rule-window recovery, and reliable alert delivery still need tightening                                                                   |
+| synthetics | Active probing of game-external and third-party services, launching developer multi-language plugins | A network position representing players or service consumers, possibly multi-region/multi-segment | To be implemented; no entry point/binary/package | Standalone carrier, go-plugin runtime, and the corresponding pages are to be implemented; the built-in Checker does not mean this Agent is done                                                                                |
 
 `connector-agent` is only a placeholder on the external-system event-ingest roadmap and does not count as a fifth implemented Agent. For full responsibilities and page planning see the [Agent inventory](../design/agents-inventory.md) and the [Four console page sets](../design/agent-dashboard-design.md).
 
@@ -32,10 +32,11 @@ The supervision module covers start/stop/restart, backoff circuit breaking, desi
 
 For development/ops staff to access allowlisted machines, e.g. troubleshooting an intranet build machine; it does not do game function registration or database change capture. Targets must be explicitly allowlisted by host+port+protocol, a session requires an audit record persisted first, and setup is refused when the audit record is missing.
 
-Currently with `devops.enabled=false` it only registers and comes online; even when set to true, production wiring is still a noop Target and cannot establish real SSH/RDP/VNC sessions. The existing session start/end metadata is not terminal recording or replayable content, and the console entry ships with the real channel.
+As of 2026-11-14 the SSH session channel is wired: a real SSH target (`agents/devops/session/sshtarget.go:127`) sits behind the allowlist and audit-first broker (`agents/devops/session/broker.go:126-138`, non-SSH protocols rejected at `:102`); the server exposes open/list/stream/input/resize/close (`internal/handler/routes_task.go:203-208`) with a 256-event replay ring (`internal/platform/devopssessions/hub.go:40`). The console panel (`/ops/agents/devops`) shipped 2026-11-15. RDP/VNC (guacd) is explicitly rejected rather than silently dropped; session recording is metadata plus asciicast on the agent disk, with no server-side retrieval.
 
-- Inputs: the allowlist and session config; later, authorized session requests.
-- Outputs: online identity, session audit and metadata; real terminal/desktop streams are to be implemented.
+- Inputs: the versioned allowlist published by the server and authorized session requests from the console.
+- Outputs: online identity, session audit (`devops.session_open`/`devops.session_close`), relayed terminal byte streams, and asciicast archives on the agent disk (no server retrieval yet).
+- Console panel: the session list is scoped by the `X-Game-ID`/`X-Env` headers; open requires an online devops agent; attach opens an xterm terminal over fetch-SSE (last-screen replay first); input and resize are forwarded; close is an explicit, audited action. Closing the drawer only detaches the local view — the remote session lives until the explicit close.
 - Config example: `configs/devops-agent.example.yaml`; after installation the config is named `devops-agent.yaml`.
 
 ## 4. capture: CDC and business-change inspection
@@ -85,12 +86,12 @@ After the release chain adjustment, the bundle `croupier-bin-<os>-<arch>.tar.gz`
 
 Windows uses `.zip` and `.exe`, also with configs and docs. Supported targets:
 
-| Platform                         | sidecar | devops                 | capture                             | Server bundle             |
-| -------------------------------- | ------- | ---------------------- | ----------------------------------- | ------------------------- |
-| Linux amd64/arm64                | yes     | yes (session skeleton) | yes                                 | yes                       |
-| Linux ARMv7 (package name armv7) | yes     | yes (session skeleton) | no, 32-bit CDC parsers incompatible | no, same dependency limit |
-| macOS amd64/arm64                | yes     | yes (session skeleton) | yes                                 | yes                       |
-| Windows amd64                    | yes     | yes (session skeleton) | yes                                 | yes                       |
+| Platform                         | sidecar | devops          | capture                             | Server bundle             |
+| -------------------------------- | ------- | --------------- | ----------------------------------- | ------------------------- |
+| Linux amd64/arm64                | yes     | yes (SSH relay) | yes                                 | yes                       |
+| Linux ARMv7 (package name armv7) | yes     | yes (SSH relay) | no, 32-bit CDC parsers incompatible | no, same dependency limit |
+| macOS amd64/arm64                | yes     | yes (SSH relay) | yes                                 | yes                       |
+| Windows amd64                    | yes     | yes (SSH relay) | yes                                 | yes                       |
 
 `nightly.yml` is the only daily release entry; `release.yml` only publishes v* tags; workflow changes must merge and run successfully before they appear on GitHub Releases — this page does not claim new assets are published. Cross-platform build success is not functional acceptance in a real environment.
 
