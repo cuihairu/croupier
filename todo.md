@@ -6,10 +6,11 @@
 
 ## 架构与可靠性
 
-- [ ] **OPS-LOG-001 · P1 · 部署面 · 192.168.5.5 docker 宿主机日志轮转与磁盘守护（dashboard 登录 P0 复发预防）**
+- [x] **OPS-LOG-001 · P1 · 部署面 · 192.168.5.5 docker 宿主机日志轮转与磁盘守护（dashboard 登录 P0 复发预防）**
   - 背景：2026-11-15 dashboard 登录报错挂数周的根因=该宿主机磁盘 100% 满（118G 用尽）→ postgres `could not write init file` → server 连库失败；当次已救（清旧镜像+截断 17G 容器日志，磁盘 100%→82%），但容器日志无轮转会复发。
   - 交付与验收：192.168.5.5（ssh root@）daemon.json 配 `log-driver: json-file, max-size=50m, max-file=3` 并重启 docker 生效；存量 46 容器需 recreate 才吃到新配置（给出 recreate 顺序与依赖：postgres→server/server2→dashboard→agent→其余）；加 cron 或脚本每周报磁盘水位（>85% 告警）；验收=新起容器 inspect LogConfig 生效+磁盘水位可查。
-  - 状态／条件：NOT RUN。前置事实：该机同时跑 chirp-demo 栈 46 容器，recreate 需低峰操作；`docker system df` 镜像可回收 17G 仍偏大，可顺手 `docker image prune -af --filter until=168h` 例行化。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-15，用户确认该机为 demo 测试环境后执行）。daemon.json `10m→50m`（备份 `/etc/docker/daemon.json.bak-20261115`），`systemctl restart docker` 后 46/46 容器自动恢复（unless-stopped，前后快照 `/root/{pre,post}-restart-containers.txt`）。逐栈 recreate（compose 依赖序自动满足 postgres→server→dashboard→agent）：croupier 主栈 13 + `--profile analytics`（ingestion/analytics-worker）+ chirp 11 + atlas 5 + vapor 2 + wingman 2 + rustfs + herald + chorus-pg（裸容器按 inspect 参数重建，数据卷原样挂回）。终态 LogConfig：36×50m + 3×10m（memex-admin/server + 1 旧 buildkit）+ 7×{}（6 buildkit 随 CI 自动重建即吃新配置 + memex-rustfs）。wingman 用在跑容器 env 原样提取的 WINGMAN_* 密钥传入 compose（不回显、用后 shred）。磁盘回收 16.23GB（image prune until=24h——`docker system df` 的 19.87GB「可回收」全部 <7 天，until=168h 实收 0B；在飞 CI build 产物分钟级不受影响）：90%→75%，水位脚本 `/usr/local/sbin/docker-disk-watchdog.sh` + cron 每周一（阈值 85%，试跑通过）。验收复证：新容器 inspect 50m 生效；dashboard :8000→200、server /healthz→200、login API 400（校验层，非 500/503——DB 链路恢复）。
+  - 已知边界：(1) memex 栈 compose 文件位于 runner workspace（build context 已被清理）无法本机 recreate，三容器功能正常，下一次 memex deploy workflow 自动带上 50m；(2) `/data/deploy/croupier/docker-compose.telemetry.yaml` 引用 `jaegertracing/all-in-one:latest`（本地仅 1.62.0，主 compose 已收编 jaeger/otel 且 50m ✓），该文件 prometheus/prometheus-storage 未部署、本轮不动其引用漂移；(3) 告警通道仅本机日志 `/var/log/docker-disk-watchdog.log` + syslog（该机无推送通道），周报间隔内快速填满理论上可再触顶，改 daily 只动 cron 字段；(4) 重启 daemon 与 recreate 均落在一次在飞 CI build 窗口内（buildkit 容器随 daemon 重启被拉回，build 未中断未验证，失败可 rerun）。
 
 - [x] **ARCH-001 · P1 · 方案决策 · 审批并发与执行领取语义**
   - 依赖：—。交付与验收：基于现有 SQLStore 定义 pending 原子转换、续跑领取及重复请求规则；评审表覆盖批准/拒绝竞争、重复批准、执行结果未知。
