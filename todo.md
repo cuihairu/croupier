@@ -6,6 +6,11 @@
 
 ## 架构与可靠性
 
+- [ ] **OPS-LOG-001 · P1 · 部署面 · 192.168.5.5 docker 宿主机日志轮转与磁盘守护（dashboard 登录 P0 复发预防）**
+  - 背景：2026-11-15 dashboard 登录报错挂数周的根因=该宿主机磁盘 100% 满（118G 用尽）→ postgres `could not write init file` → server 连库失败；当次已救（清旧镜像+截断 17G 容器日志，磁盘 100%→82%），但容器日志无轮转会复发。
+  - 交付与验收：192.168.5.5（ssh root@）daemon.json 配 `log-driver: json-file, max-size=50m, max-file=3` 并重启 docker 生效；存量 46 容器需 recreate 才吃到新配置（给出 recreate 顺序与依赖：postgres→server/server2→dashboard→agent→其余）；加 cron 或脚本每周报磁盘水位（>85% 告警）；验收=新起容器 inspect LogConfig 生效+磁盘水位可查。
+  - 状态／条件：NOT RUN。前置事实：该机同时跑 chirp-demo 栈 46 容器，recreate 需低峰操作；`docker system df` 镜像可回收 17G 仍偏大，可顺手 `docker image prune -af --filter until=168h` 例行化。
+
 - [x] **ARCH-001 · P1 · 方案决策 · 审批并发与执行领取语义**
   - 依赖：—。交付与验收：基于现有 SQLStore 定义 pending 原子转换、续跑领取及重复请求规则；评审表覆盖批准/拒绝竞争、重复批准、执行结果未知。
   - 状态／条件：LOCAL VERIFIED：已审 D1–D7 决策覆盖 CAS、胜出者、冲突、未知结果及持久领取边界；方案交付与 ARCH-002 实现分开。
