@@ -215,7 +215,7 @@
 - [x] **GAME-DEMO-001 · P1 · 实现 · 复杂游戏模拟 demo（gameops-rpg，巡检单 2026-10-20）**
   - 依赖：无（刻意不依赖 GAME-002~010 真实接入方）。交付与验收：`sdks/go/examples/gameops-rpg/` 模拟 RPG 世界（玩家等级/金币/钻石/背包、任务每日刷新、邮件附件领取=补偿流核心、订单幂等发货、封禁联动），SDK→Agent 注册 17 函数（`player.*` `mail.*` `task.*` `order.*` `economy.*` `report.generate`），tick 驱动玩法循环 + JSON 快照持久化；demo 编译、单测覆盖发货幂等/封禁拒领/余额 fail-closed/邮件过期、平台注册可见、经平台全链路（mail.send 附件→落库→领取→入背包→report.generate 审批通过执行）与异常链路（重复发货拒绝、封禁拒领）
   - 状态／条件：LOCAL VERIFIED（2026-11-11，本机隔离栈 28080/29090/29091 + sqlite，避让 quickstart python demo 的 default/dev 契约槽）。编译/`go vet` 通过；单测 28 用例全绿（world 13 + store 3 + contracts 4 + executors 8）；平台注册 17 契约落库（health + functions API + sqlite function_contracts 复核）；补偿链：mail.send（附件 potion×5+gem×1）→ mail-9004 落库 → mail.claim → 背包 potion+5/gem+2；审批链：report.generate（risk=high）invoke 返回 approvalRequired → 第二账号 TOTP 批准 → `state:approved, continuation:true` → 执行 `report-rpg-1, runSeq:1, success:true`；异常链：重复 order.ship 续跑返回 `already_shipped` 且钻石只入账一次（+6）；封禁玩家 10007 mail.claim 返回 `player_banned` 且背包不变；快照重启恢复复验（shipped 状态持久）。已知边界：内存态模拟，不能替代 GAME-002~010 的真实接入方验收；审批需第二账号（self_approval_forbidden 两人规则），demo 侧管理员已在隔离栈注册 TOTP（仅本地测试凭据）
-  - 完成证据：commit c7018a8c（实体 store）/ b5c98c5f（tick 循环与经济规则）/ 78111562（17 函数契约与执行器+README）/ 82d0ec98（28 用例测试）/ 03cb67de（player.get 入参键统一 playerId）；`go test ./examples/gameops-rpg/...` → `ok ... 28 PASS`（demo 源 `sdks/go/examples/gameops-rpg/`）；e2e 过程记录见本会话（隔离栈配置 /tmp/gameops-rpg-e2e/，验证后进程已清理）
+  - 完成证据：commit c7018a8c（实体 store）/ b5c98c5f（tick 循环与经济规则）/ 78111562（17 函数契约与执行器+README）/ 82d0ec98（28 用例测试）/ 03cb67de（player.get 入参键统一 playerId）；`go test ./examples/gameops-rpg/...` → `ok ... 28 PASS`（demo 源 `sdks/go/examples/gameops-rpg/main.go`）；e2e 过程记录见本会话（隔离栈配置 /tmp/gameops-rpg-e2e/，验证后进程已清理）
 
 ## Agent 与隔离
 
@@ -1281,92 +1281,92 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 > 11 月 12 日第一轮报告与 11 月 13 日代码逻辑续审均为待修发现；动态证据不等于修复完成。历史导入清单中同一问题以本编号跟踪，避免重复计数。
 
 - [ ] **AUD-007 · P1 · 修复 · 全局备份接口补齐操作授权**
-  - 交付与验收：按现有平台权限规则覆盖列表、创建、下载、删除；低权限请求返回 403 且无副作用。
-  - 状态／证据：沿真实 AuthMiddleware 验证：零角色账号可列出、下载和删除临时备份。证据 internal/handler/routes_business.go:66-74、internal/api/backup/service.go:37/177；11-12 报告及 go-probes.log。
+  - 依赖：—。交付与验收：按现有平台权限规则覆盖列表、创建、下载、删除；低权限请求返回 403 且无副作用。
+  - 状态／条件：沿真实 AuthMiddleware 验证：零角色账号可列出、下载和删除临时备份。证据 internal/handler/routes_business.go:66-74、internal/api/backup/service.go:37/177；11-12 报告及 go-probes.log。
 
 - [ ] **AUD-008 · P1 · 修复 · 明确生产模式时拒绝公开 JWT 开发密钥回退**
-  - 交付与验收：覆盖配置模式与环境变量组合，生产模式空密钥必须启动失败。
-  - 状态／证据：secret.go:57-80 没有把 server.mode=prod/production/release 判成非开发；三种配置均复现回退 DevSecret。
+  - 依赖：—。交付与验收：覆盖配置模式与环境变量组合，生产模式空密钥必须启动失败。
+  - 状态／条件：secret.go:57-80 没有把 server.mode=prod/production/release 判成非开发；三种配置均复现回退 DevSecret。
 
 - [ ] **AUD-009 · P1 · 修复 · SQLite 备份使用一致性快照并核对恢复内容**
-  - 交付与验收：在 WAL 和并发写入下恢复备份，确认包含已提交事务；checksum 不能替代恢复核对。
-  - 状态／证据：executor.go:227-242 直接复制主文件；真实 SQLite WAL 测试源库 1 行、成功备份 0 行。
+  - 依赖：—。交付与验收：在 WAL 和并发写入下恢复备份，确认包含已提交事务；checksum 不能替代恢复核对。
+  - 状态／条件：executor.go:227-242 直接复制主文件；真实 SQLite WAL 测试源库 1 行、成功备份 0 行。
 
 - [ ] **AUD-010 · P1 · 修复 · 账号不存在时拒绝旧 JWT 认证**
-  - 交付与验收：区分账号删除、禁用、令牌版本不匹配与数据库故障；覆盖无缓存的新中间件。
-  - 状态／证据：service_context_auth.go:304-316 把 RecordNotFound 也放行；软删除账号后新中间件仍接受旧 JWT。
+  - 依赖：—。交付与验收：区分账号删除、禁用、令牌版本不匹配与数据库故障；覆盖无缓存的新中间件。
+  - 状态／条件：service_context_auth.go:304-316 把 RecordNotFound 也放行；软删除账号后新中间件仍接受旧 JWT。
 
 - [ ] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**
-  - 交付与验收：100% 覆盖率通过，低于阈值和无有效覆盖数据拒绝。
-  - 状态／证据：ci-mobile.yml:58 的 shell 参数表达式位于单引号 heredoc，Python float 收到字面量；实际 workflow 片段在 100% lcov 下仍 ValueError。
+  - 依赖：—。交付与验收：100% 覆盖率通过，低于阈值和无有效覆盖数据拒绝。
+  - 状态／条件：ci-mobile.yml:58 的 shell 参数表达式位于单引号 heredoc，Python float 收到字面量；实际 workflow 片段在 100% lcov 下仍 ValueError。
 
 - [ ] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**
-  - 交付与验收：同一事件字节无论网络如何分块，事件名和多行 data 必须一致。
-  - 状态／证据：web/src/services/core/http.ts:180 提前归一化 chunk 尾 CR；实际源码解析 update/hello 事件在 CRLF 分块后变成 message/hello。
+  - 依赖：—。交付与验收：同一事件字节无论网络如何分块，事件名和多行 data 必须一致。
+  - 状态／条件：web/src/services/core/http.ts:180 提前归一化 chunk 尾 CR；实际源码解析 update/hello 事件在 CRLF 分块后变成 message/hello。
 
 - [ ] **AUD-013 · P1 · 修复 · C++ transport 完整写帧并串行化连接写入**
-  - 交付与验收：统一 Call/响应 writer 的连接级锁、write-all 和失败收口；覆盖合法短写。
-  - 状态／证据：tcp_transport_inbound.cpp:164 单次 send 仅判断负数；注入 140 字节帧只写 5 字节后静默返回。并发帧交错为静态风险，未做拥塞网络实验。
+  - 依赖：—。交付与验收：统一 Call/响应 writer 的连接级锁、write-all 和失败收口；覆盖合法短写。
+  - 状态／条件：tcp_transport_inbound.cpp:164 单次 send 仅判断负数；注入 140 字节帧只写 5 字节后静默返回。并发帧交错为静态风险，未做拥塞网络实验。
 
 - [ ] **AUD-014 · P1 · 修复 · 将 C++ 和 C# Provider TLS 配置接入默认 transport**
-  - 交付与验收：真正实现 TLS 或请求安全模式时明确拒绝连接；与真实 TLS listener 对接并同步矩阵。
-  - 状态／证据：C++ client.cpp:417/592 只传地址和 timeout，C# Client.cs:681/774 默认 factory 同样不接 TLS，TCPTransport.cs:202 使用 NetworkStream；本轮为静态调用链确认。
+  - 依赖：—。交付与验收：真正实现 TLS 或请求安全模式时明确拒绝连接；与真实 TLS listener 对接并同步矩阵。
+  - 状态／条件：C++ client.cpp:417/592 只传地址和 timeout，C# Client.cs:681/774 默认 factory 同样不接 TLS，TCPTransport.cs:202 使用 NetworkStream；本轮为静态调用链确认。
 
 - [ ] **AUD-015 · P2 · 修复 · 多游戏冷启动任务恢复不能只枚举已打开库**
-  - 交付与验收：提供有界持久巡检或等效恢复保障，未被用户访问的游戏库也能收敛陈旧任务。
-  - 状态／证据：tasks/store.go:135 仅遍历 Router.OpenScopes；文件库测试中冷启动空集合收割 0 行，加入 scope 后同一任务才收敛。
+  - 依赖：—。交付与验收：提供有界持久巡检或等效恢复保障，未被用户访问的游戏库也能收敛陈旧任务。
+  - 状态／条件：tasks/store.go:135 仅遍历 Router.OpenScopes；文件库测试中冷启动空集合收割 0 行，加入 scope 后同一任务才收敛。
 
 - [ ] **AUD-016 · P1 · 修复 · 对象存储写入补齐权限和保留前缀边界**
-  - 交付与验收：按现有权限定义控制上传、覆盖、删除、目录变更与签名访问，保护备份/发布对象。
-  - 状态／证据：storage/service.go:122-175 直接用输入 path 写全局存储；临时夹具确认只有登录身份即可覆盖 backups/ 对象。
+  - 依赖：—。交付与验收：按现有权限定义控制上传、覆盖、删除、目录变更与签名访问，保护备份/发布对象。
+  - 状态／条件：storage/service.go:122-175 直接用输入 path 写全局存储；临时夹具确认只有登录身份即可覆盖 backups/ 对象。
 
 - [ ] **AUD-017 · P1 · 修复 · 全局电源配置操作补齐平台权限检查**
-  - 交付与验收：合法游戏/环境作用域不等同硬件管理权限；覆盖 power-config 写入及其他 PowerOps 操作入口。
-  - 状态／证据：ops/powerops.go:221-263 更新全局节点不检查操作权限；真实 Auth+GameDBMiddleware 下零角色、合法单游戏 scope 账号可修改全局节点 BMC 配置。
+  - 依赖：—。交付与验收：合法游戏/环境作用域不等同硬件管理权限；覆盖 power-config 写入及其他 PowerOps 操作入口。
+  - 状态／条件：ops/powerops.go:221-263 更新全局节点不检查操作权限；真实 Auth+GameDBMiddleware 下零角色、合法单游戏 scope 账号可修改全局节点 BMC 配置。
 
 - [ ] **AUD-018 · P2 · 修复 · Python reader 所有退出路径统一清理连接和 pending**
-  - 交付与验收：异常退出后连接立即不可用，在途调用及时失败，重连不被虚假 connected 阻断。
-  - 状态／证据：sdks/python/croupier/transport/tcp.py:336 通用异常只日志后退出；超长帧后 connected/running 仍 true 且 pending 未收到错误。
+  - 依赖：—。交付与验收：异常退出后连接立即不可用，在途调用及时失败，重连不被虚假 connected 阻断。
+  - 状态／条件：sdks/python/croupier/transport/tcp.py:336 通用异常只日志后退出；超长帧后 connected/running 仍 true 且 pending 未收到错误。
 
 - [ ] **AUD-019 · P1 · 修复 · 供给运行的数据库适配器按业务键更新既有记录**
-  - 交付与验收：Create→Update→Get 必须成功且只保留一行；覆盖 ticket 审批关联和 apply 后各状态持久化。
-  - 状态／证据：provision_wiring.go:26/67 每次重新转换得到 ID=0；provision_model.go:63 Save 实际 INSERT 并触发 run_id 唯一键冲突。正常更新回归用例已失败，见 11-13 代码审核报告。
+  - 依赖：—。交付与验收：Create→Update→Get 必须成功且只保留一行；覆盖 ticket 审批关联和 apply 后各状态持久化。
+  - 状态／条件：provision_wiring.go:26/67 每次重新转换得到 ID=0；provision_model.go:63 Save 实际 INSERT 并触发 run_id 唯一键冲突。正常更新回归用例已失败，见 11-13 代码审核报告。
 
 - [ ] **AUD-020 · P1 · 修复 · 事故详情更新使用数据库可序列化的 JSON 类型**
-  - 交付与验收：正常提交 details 对象可保存并读回，兼容空对象与嵌套值。
-  - 状态／证据：incident/service.go:331-333 把裸 map 放进 Updates；普通详情更新返回 sql unsupported type map[string]interface{}。创建路径的 datatypes.JSONMap 不存在该问题。
+  - 依赖：—。交付与验收：正常提交 details 对象可保存并读回，兼容空对象与嵌套值。
+  - 状态／条件：incident/service.go:331-333 把裸 map 放进 Updates；普通详情更新返回 sql unsupported type map[string]interface{}。创建路径的 datatypes.JSONMap 不存在该问题。
 
 - [ ] **AUD-021 · P2 · 修复 · IPv6 ICMP 请求和响应使用正确的类型**
-  - 交付与验收：合法 IPv6 echo reply 的 ID/序号/载荷匹配时通过，与 IPv4 分支分别验证。
-  - 状态／证据：core/healthprobe/icmp.go:100 将 IPv6 类型强转为 ipv4.ICMPType；解析返回 ipv6.ICMPType，接口比较始终不相等。正常应答回归用例失败。
+  - 依赖：—。交付与验收：合法 IPv6 echo reply 的 ID/序号/载荷匹配时通过，与 IPv4 分支分别验证。
+  - 状态／条件：core/healthprobe/icmp.go:100 将 IPv6 类型强转为 ipv4.ICMPType；解析返回 ipv6.ICMPType，接口比较始终不相等。正常应答回归用例失败。
 
 - [ ] **AUD-022 · P2 · 修复 · 部署编排在可取消等待前持久化已完成目标**
-  - 交付与验收：编排器被取消时保留已换包/已健康的目标事实，不能退回 pending；明确中断后的收敛策略。
-  - 状态／证据：deploy.go:213-220 在 BatchWait 后才 saveTargets；直接调用编排器，在完成换包后取消，存储仍为 pending。该等待选项默认关闭；不能将此测试宣称为默认 HTTP 断连路径。
+  - 依赖：—。交付与验收：编排器被取消时保留已换包/已健康的目标事实，不能退回 pending；明确中断后的收敛策略。
+  - 状态／条件：deploy.go:213-220 在 BatchWait 后才 saveTargets；直接调用编排器，在完成换包后取消，存储仍为 pending。该等待选项默认关闭；不能将此测试宣称为默认 HTTP 断连路径。
 
 - [ ] **AUD-023 · P1 · 修复 · 回滚与正在执行的发版互斥并核验实际回滚目标**
-  - 交付与验收：正在发版时拒绝或协调回滚；不得在零目标操作时把活跃发版单标为 rolled_back。
-  - 状态／证据：deploy.go:230 Rollback 无状态领取；当 DB 中尚为 deploying/pending 时遍历跳过全部目标，返回 nil 并写 rolled_back。正常并行操作场景的回归用例失败。
+  - 依赖：—。交付与验收：正在发版时拒绝或协调回滚；不得在零目标操作时把活跃发版单标为 rolled_back。
+  - 状态／条件：deploy.go:230 Rollback 无状态领取；当 DB 中尚为 deploying/pending 时遍历跳过全部目标，返回 nil 并写 rolled_back。正常并行操作场景的回归用例失败。
 
 - [ ] **AUD-024 · P2 · 修复 · Runbook 后台恢复循环按服务生命周期共享并关闭**
-  - 交付与验收：终态写入失败重试不应每请求遗留一个后台 worker；写入恢复和服务退出后可正确释放。
-  - 状态／证据：ops/runbooks.go:90-101 每请求 runbook.New，runbook.go:398 启动各自 recoveryLoop，405-447 永久等待 wake；所谓共享仅在单个临时编排器内成立。静态跨文件确认，未声称有实际内存泄漏测量。
+  - 依赖：—。交付与验收：终态写入失败重试不应每请求遗留一个后台 worker；写入恢复和服务退出后可正确释放。
+  - 状态／条件：ops/runbooks.go:90-101 每请求 runbook.New，runbook.go:398 启动各自 recoveryLoop，405-447 永久等待 wake；所谓共享仅在单个临时编排器内成立。静态跨文件确认，未声称有实际内存泄漏测量。
 
 - [ ] **AUD-025 · P2 · 修复 · Runbook 启动宽限内的遗留运行需要后续恢复机会**
-  - 交付与验收：重启时不足 24 小时的遗留 running 行，超过宽限后仍能巡检收敛；不能误收另一实例的活跃运行。
-  - 状态／证据：cmd/server/root.go:309-317 仅启动时恢复一次；RunbookStaleRunGrace=24h，之后没有重扫调用。短时宕机的遗留行被跳过后，当前进程不再自动处理。静态确认。
+  - 依赖：—。交付与验收：重启时不足 24 小时的遗留 running 行，超过宽限后仍能巡检收敛；不能误收另一实例的活跃运行。
+  - 状态／条件：cmd/server/root.go:309-317 仅启动时恢复一次；RunbookStaleRunGrace=24h，之后没有重扫调用。短时宕机的遗留行被跳过后，当前进程不再自动处理。静态确认。
 
 - [ ] **AUD-026 · P2 · 修复 · 插件启动不能阻塞其他调用的 deadline**
-  - 交付与验收：启动/Describe 的慢插件不应持全控制器状态锁阻塞所有调用；队列等待和启动预算应遵守调用方上下文。
-  - 状态／证据：pluginhost/engine.go:267-350 在全局 mutex 内启动与 Describe；Call 开头 isStopped 也取该锁。真实测试插件慢启动时，另一个 10ms deadline 调用在 100ms 后仍未返回。
+  - 依赖：—。交付与验收：启动/Describe 的慢插件不应持全控制器状态锁阻塞所有调用；队列等待和启动预算应遵守调用方上下文。
+  - 状态／条件：pluginhost/engine.go:267-350 在全局 mutex 内启动与 Describe；Call 开头 isStopped 也取该锁。真实测试插件慢启动时，另一个 10ms deadline 调用在 100ms 后仍未返回。
 
 - [ ] **AUD-027 · P1 · 修复 · 供给 CAS 竞争失败返回稳定冲突而不是 panic**
-  - 交付与验收：统一 RunStore 的 CAS 返回契约；Resume/Destroy/DestroyResume 的失败分支安全处理 nil current。
-  - 状态／证据：provision_wiring.go:30-34 在 ok=false 时丢弃当前行，orchestrator.go:391/430/493 却读取 current.State；通过真实数据库适配器模拟另一调用先领取，ResumeAsync 发生 nil pointer panic。
+  - 依赖：—。交付与验收：统一 RunStore 的 CAS 返回契约；Resume/Destroy/DestroyResume 的失败分支安全处理 nil current。
+  - 状态／条件：provision_wiring.go:30-34 在 ok=false 时丢弃当前行，orchestrator.go:391/430/493 却读取 current.State；通过真实数据库适配器模拟另一调用先领取，ResumeAsync 发生 nil pointer panic。
 
 - [ ] **AUD-028 · P1 · 修复 · 定时任务按同一计划发生时间领取而不是当前分钟**
-  - 交付与验收：两个实例已读取同一条到期记录，即使跨分钟继续处理，也只能派发一次；保留既有过期领取与未知结果语义。
-  - 状态／证据：scheduler/manager.go:309 用 Slot(now) 生成唯一领取键；同一每日任务的两份到期快照在 10:30:59 和 10:31:00 处理时派发两次。普通回归用例已失败。
+  - 依赖：—。交付与验收：两个实例已读取同一条到期记录，即使跨分钟继续处理，也只能派发一次；保留既有过期领取与未知结果语义。
+  - 状态／条件：scheduler/manager.go:309 用 Slot(now) 生成唯一领取键；同一每日任务的两份到期快照在 10:30:59 和 10:31:00 处理时派发两次。普通回归用例已失败。
 
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
 
