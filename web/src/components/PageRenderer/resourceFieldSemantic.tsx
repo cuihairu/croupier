@@ -6,6 +6,10 @@
  * → 单位后缀、render:'copy' → 可复制文本。详情抽屉按 key 命中列表列复用
  * 其语义元数据（enum/unit/datetime/render），避免两处描述漂移。
  *
+ * 未知与无效显式标注（GUX-005/006）：未声明的枚举值不伪装成普通文本，
+ * 无效时间不输出 Invalid Date 拼时区；枚举文案与单位跟随当前界面 locale
+ * （GUX-007），不再固定 zh-CN。
+ *
  * 无匹配返回 undefined，调用方走各自默认渲染（ProTable valueEnum /
  * renderJSONValueSummary）。
  *
@@ -42,20 +46,35 @@ export function renderFieldSemantic(
     return '-';
   }
 
+  const intl = getIntl();
+  // umi 只部署 zh-CN / en-US 两套文案；其余 locale 按默认 zh 兜底。
+  const locale = intl.locale === 'en-US' ? 'en-US' : 'zh-CN';
   const stringValue = String(value);
-  const unitText = field.unit ? localizedText(field.unit, 'zh-CN', '') : '';
+  const unitText = field.unit ? localizedText(field.unit, locale, '') : '';
 
   if (field.enum?.length) {
     const opt = field.enum.find((e) => e.value === stringValue);
     if (opt) {
+      const label = localizedText(opt.label, locale, stringValue);
       if (field.render !== 'tag') {
-        return <Typography.Text>{localizedText(opt.label, 'zh-CN', stringValue)}</Typography.Text>;
+        return <Typography.Text>{label}</Typography.Text>;
       }
-      return (
-        <Tag color={opt.color || 'default'}>{localizedText(opt.label, 'zh-CN', stringValue)}</Tag>
-      );
+      return <Tag color={opt.color || 'default'}>{label}</Tag>;
     }
-    return stringValue;
+    // GUX-005：枚举集合外的值显式标注未知——文案保留原始值便于排查，
+    // 且不只依赖颜色（Tag 与文字两种渲染都带完整「未知」字样）。
+    const label = intl.formatMessage(
+      {
+        id: 'component.pageRenderer.fieldSemantic.unknownEnumValue',
+        defaultMessage: '未知（{value}）',
+      },
+      { value: stringValue },
+    );
+    return field.render === 'tag' ? (
+      <Tag color="default">{label}</Tag>
+    ) : (
+      <Typography.Text type="warning">{label}</Typography.Text>
+    );
   }
 
   if (field.render === 'copy') {
@@ -63,7 +82,6 @@ export function renderFieldSemantic(
   }
 
   if (field.dataType === 'boolean') {
-    const intl = getIntl();
     return value ? (
       <Tag color="success">
         {intl.formatMessage({
@@ -82,10 +100,24 @@ export function renderFieldSemantic(
   }
 
   if (field.dataType === 'datetime' || field.dataType === 'date') {
+    // GUX-006：无效值显式标注（new Date 不抛错，NaN 时间会漏成
+    // "Invalid Date (UTC±xx)" 拼接），空值已在入口统一 '-'。
+    if (Number.isNaN(new Date(stringValue).getTime())) {
+      const label = intl.formatMessage(
+        {
+          id: 'component.pageRenderer.fieldSemantic.invalidDateTime',
+          defaultMessage: '无效时间（{value}）',
+        },
+        { value: stringValue },
+      );
+      return <Typography.Text type="warning">{label}</Typography.Text>;
+    }
     return formatDateTime(stringValue, true);
   }
 
   if (field.dataType === 'number' && unitText) {
+    // GUX-007：资产/数量单位跟随当前界面 locale；单位是声明侧给的展示
+    // 语义（不做换算），未声明 unit 的 number 走默认渲染不加单位。
     return `${stringValue} ${unitText}`;
   }
 

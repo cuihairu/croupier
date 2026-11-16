@@ -114,6 +114,8 @@ export default {
   'component.pageRenderer.reportPage.warning.semanticsTitle': '报表语义未完成',
   'component.pageRenderer.resultView.booleanFalse': '否',
   'component.pageRenderer.resultView.booleanTrue': '是',
+  'component.pageRenderer.fieldSemantic.unknownEnumValue': '未知（{value}）',
+  'component.pageRenderer.fieldSemantic.invalidDateTime': '无效时间（{value}）',
   'component.pageRenderer.resultView.emptyObject': '空对象',
   'component.pageRenderer.resultView.emptyTitleFallback': '结果视图未配置',
   'component.pageRenderer.resultView.fieldsMissingDescription':

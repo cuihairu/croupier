@@ -88,6 +88,9 @@ export function formatDateTime(dateStr: string, withTz = false): string {
   if (!dateStr) return '-';
   try {
     const date = new Date(dateStr);
+    // 无效值原样返回（GUX-006）：new Date 不抛错，NaN 时间会在下方漏成
+    // "Invalid Date (UTC±xx)" 拼接；调用方需要显式标注时用语义层渲染。
+    if (Number.isNaN(date.getTime())) return dateStr;
     const formatted = date.toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',

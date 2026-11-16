@@ -122,6 +122,8 @@ export default {
   'component.pageRenderer.reportPage.warning.semanticsTitle': 'Report semantics incomplete',
   'component.pageRenderer.resultView.booleanFalse': 'No',
   'component.pageRenderer.resultView.booleanTrue': 'Yes',
+  'component.pageRenderer.fieldSemantic.unknownEnumValue': 'Unknown ({value})',
+  'component.pageRenderer.fieldSemantic.invalidDateTime': 'Invalid datetime ({value})',
   'component.pageRenderer.resultView.emptyObject': 'Empty object',
   'component.pageRenderer.resultView.emptyTitleFallback': 'Result view not configured',
   'component.pageRenderer.resultView.fieldsMissingDescription':

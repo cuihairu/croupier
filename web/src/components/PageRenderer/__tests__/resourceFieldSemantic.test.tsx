@@ -4,6 +4,9 @@
  * copy → 可复制、boolean → 是/否 Tag、number+unit → 单位后缀、datetime/date →
  * 带时区标签；详情项显式声明优先、未声明回落列表列；无匹配返回 undefined 由
  * 默认渲染兜底；空值统一 '-'。
+ *
+ * GUX-005/006/007：未声明枚举值显式标注「未知（原值）」（tag 与非 tag 两种
+ * 渲染）、无效时间显式标注、枚举文案与单位跟随当前 locale（不固定 zh-CN）。
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
@@ -16,9 +19,15 @@ jest.mock('@/utils/format', () => ({
   formatDateTime: jest.fn(() => '2026/01/01 10:00:00 (UTC+08:00)'),
 }));
 void formatDateTime;
+
+let mockLocale = 'zh-CN';
 jest.mock('@umijs/max', () => ({
   getIntl: () => ({
-    formatMessage: ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
+    locale: mockLocale,
+    formatMessage: (
+      { defaultMessage }: { defaultMessage: string },
+      values?: Record<string, unknown>,
+    ) => defaultMessage.replace(/\{(\w+)\}/g, (_, k: string) => String(values?.[k] ?? '')),
   }),
 }));
 
@@ -40,7 +49,7 @@ describe('renderFieldSemantic', () => {
     expect(tag?.textContent).toBe('正常');
   });
 
-  it('enum（非 tag）渲染本地化文案，未知值回退原值', () => {
+  it('enum（非 tag）渲染本地化文案', () => {
     renderNode(
       renderFieldSemantic(
         { dataType: 'enum', enum: [{ value: 'a', label: { 'zh-CN': '甲' } }] },
@@ -48,13 +57,48 @@ describe('renderFieldSemantic', () => {
       ),
     );
     expect(screen.getByText('甲')).toBeInTheDocument();
+  });
+
+  it('GUX-005: 未声明枚举值 tag 渲染显式未知标注（保留原值、非仅颜色）', () => {
+    renderNode(
+      renderFieldSemantic(
+        { dataType: 'enum', render: 'tag', enum: [{ value: 'a', label: { 'zh-CN': '甲' } }] },
+        'weird',
+      ),
+    );
+    const tag = document.querySelector('.ant-tag');
+    expect(tag?.textContent).toBe('未知（weird）');
+  });
+
+  it('GUX-005: 未声明枚举值非 tag 渲染警告文案', () => {
     renderNode(
       renderFieldSemantic(
         { dataType: 'enum', enum: [{ value: 'a', label: { 'zh-CN': '甲' } }] },
-        'unknown',
+        'weird',
       ),
     );
-    expect(screen.getAllByText('unknown').length).toBeGreaterThan(0);
+    expect(screen.getByText('未知（weird）')).toBeInTheDocument();
+  });
+
+  it('GUX-007: 枚举文案跟随 locale（en-US 优先取 en-US 标签）', () => {
+    mockLocale = 'en-US';
+    try {
+      renderNode(
+        renderFieldSemantic(
+          {
+            dataType: 'enum',
+            render: 'tag',
+            enum: [
+              { value: 'active', label: { 'zh-CN': '正常', 'en-US': 'Active' }, color: 'green' },
+            ],
+          },
+          'active',
+        ),
+      );
+      expect(document.querySelector('.ant-tag')?.textContent).toBe('Active');
+    } finally {
+      mockLocale = 'zh-CN';
+    }
   });
 
   it('render:copy 渲染可复制文本', () => {
@@ -69,9 +113,21 @@ describe('renderFieldSemantic', () => {
     expect(document.querySelector('.ant-tag')?.textContent).toBe('是');
   });
 
-  it('number + unit 渲染单位后缀', () => {
+  it('number + unit 渲染单位后缀（zh-CN）', () => {
     renderNode(renderFieldSemantic({ dataType: 'number', unit: { 'zh-CN': '金' } }, 100));
     expect(screen.getByText('100 金')).toBeInTheDocument();
+  });
+
+  it('GUX-007: number + unit 单位跟随 locale（en-US 取 en-US 单位）', () => {
+    mockLocale = 'en-US';
+    try {
+      renderNode(
+        renderFieldSemantic({ dataType: 'number', unit: { 'zh-CN': '金', 'en-US': 'gold' } }, 100),
+      );
+      expect(screen.getByText('100 gold')).toBeInTheDocument();
+    } finally {
+      mockLocale = 'zh-CN';
+    }
   });
 
   it('datetime 带时区标签（列表与详情同构）', () => {
@@ -79,9 +135,22 @@ describe('renderFieldSemantic', () => {
     expect(screen.getByText('2026/01/01 10:00:00 (UTC+08:00)')).toBeInTheDocument();
   });
 
+  it('GUX-006: 无效时间显式标注，不输出 Invalid Date 拼时区', () => {
+    renderNode(renderFieldSemantic({ dataType: 'datetime' }, 'not-a-date'));
+    expect(screen.getByText('无效时间（not-a-date）')).toBeInTheDocument();
+  });
+
   it('空值统一 -, 无匹配返回 undefined（默认渲染兜底）', () => {
     expect(renderFieldSemantic({ dataType: 'string' }, null)).toBe('-');
     expect(renderFieldSemantic({ dataType: 'string', render: 'text' }, 'x')).toBeUndefined();
+  });
+});
+
+describe('formatDateTime 无效值守卫（GUX-006）', () => {
+  it('无效输入原样返回，不产生 Invalid Date 拼接', () => {
+    const guarded = jest.requireActual('@/utils/format') as typeof import('@/utils/format');
+    expect(guarded.formatDateTime('not-a-date', true)).toBe('not-a-date');
+    expect(guarded.formatDateTime('', true)).toBe('-');
   });
 });
 

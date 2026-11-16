@@ -296,7 +296,11 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
   `identity` 之外的 role 不
   改变列布局（status/reason/expiry 只驱动确认强调与未来缺省呈现）；时区标签为浏览器本地偏移
   （无游戏级 tz 配置）；组合页列语义走同一生成器派生（绑定带 hints 契约的组合表格区块自动
-  获得同款列），弹窗内表格保留语义单元格渲染但不加表头排序 UI
+  获得同款列），弹窗内表格保留语义单元格渲染但不加表头排序 UI；枚举文案与单位跟随当前界面
+  locale（部署面为 zh-CN/en-US 两套，其余回落 zh-CN），不再固定 zh-CN；声明集合外的枚举值
+  渲染显式未知标注（默认色 Tag 或警示文案，保留原值、非仅靠颜色区分），无法解析的时间渲染
+  显式无效标注而非漏出 `Invalid Date (UTC±xx)` 拼接（共享格式化函数同样原值透传）
+  （GUX-005/006/007）
 
 - `danger` + `chain`（rowActions / toolbar.actions）：**危险操作确认契约**（D2）——`danger`
   动作在用户显式确认前绝不执行。带 `targetSection` 时确认框列出目标弹窗的预填参数与动作链

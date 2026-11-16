@@ -136,9 +136,10 @@ describe('utils/format formatDateTime', () => {
     expect(formatDateTime(dateStr)).toMatch(/2024/);
   });
 
-  it('returns the Invalid Date marker instead of throwing for unparseable input', () => {
-    // new Date(<非法串>) 不抛异常，而是得到 Invalid Date；toLocaleString 输出 "Invalid Date"
-    const expected = new Date('not-a-date').toLocaleString('zh-CN', dateTimeOptions);
-    expect(formatDateTime('not-a-date')).toBe(expected);
+  it('passes unparseable input through instead of leaking Invalid Date (GUX-006)', () => {
+    // GUX-006：new Date(<非法串>) 得到 NaN 时间，原实现会漏出 "Invalid Date (UTC±xx)"
+    // 拼接；守卫改为原值透传，显式标注由字段语义层（resourceFieldSemantic）负责。
+    expect(formatDateTime('not-a-date')).toBe('not-a-date');
+    expect(formatDateTime('not-a-date', true)).toBe('not-a-date');
   });
 });
