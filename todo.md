@@ -15,9 +15,10 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-17，192.168.5.5 部署栈实测）：镜像 digest/构建 commit 对账入 README（平台栈=docker.yml run 43928190705 @ 4e2b12c68，demo 栈=同镜像重标签）；四张截图（console 首页、player 目录、player-manage 模板、行详情抽屉）+ 菜单链接清单落盘；scope demo-game/demo 经 games API 复证，空态（0 pages published）与模板边界如截图；凭据未入记录。边界如实：模板页渲染浏览器内存预览数据（977×n 等差），活数据链由 E2E（CI 栈）与 API 重放演练（部署栈，余额 6532→7180 重放不动）覆盖。
   - 完成证据：`docs/review/evidence/2026-11-17/gux-001/README.md`（同目录含 4 张截图 PNG 与 console-links.txt）
 
-- [ ] **GUX-002 · P1 · 设计 · 角色任务与导航**
+- [x] **GUX-002 · P1 · 设计 · 角色任务与导航**
   - 依赖：—。交付与验收：梳理运营、开发接入、平台管理的任务与现有权限映射；交付导航结构与入口，不删除既有能力。
-  - 状态／条件：待办（2026-11-17 结构化入账，来源同 GUX-001）。
+  - 状态／条件：LOCAL VERIFIED：三工作区（运营/开发接入/平台管理）重分组方案覆盖全部 10 个现存顶级组、0 路由删除、0 新权限；角色映射按 configs/roles.json 实测权限集对账（运营缺 audit:read/ops:read、客服缺 support:read 等缺口如实记录、不裁决，权限模型改动归用户拍板）；落地页规则与跨界入口（执行记录/SDK 分发同路由入口副本）已定；实现随 GUX-003+ 走 DoD。
+  - 完成证据：`docs/design/game-ops-navigation-design.md`（中文镜像 docs/zh/design/game-ops-navigation-design.md）
 
 - [ ] **GUX-003 · P1 · 实现 · 运营首页**
   - 依赖：GUX-001, GUX-002。交付与验收：按角色展示待办、异常、最近处理和常用入口；缺失数据展示真实空态，移走重复的产品建设说明。
