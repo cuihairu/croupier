@@ -14,6 +14,10 @@ cluster:
   heartbeatInterval: 5s
   leaseTtl: 15s
   ownerTtl: 3m
+  # interconnect 无证书面：本文件是单宿主 docker 内网的 HA 模板（两实例同
+  # bridge 网络，无跨机链路），按 guard 语义显式确认明文降级可接受。跨机
+  # 生产部署必须配 interconnectTls 证书面并移除本行。
+  allowPlaintextInterconnect: true
 
 database:
   driver: postgres
