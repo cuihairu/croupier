@@ -2,6 +2,7 @@ package ticket
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -19,6 +21,29 @@ type Service struct {
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
+}
+
+// requireTicketScope 单条工单行级作用域校验（对齐 task 的 requireTaskScope）：
+// 列表与创建已按请求 scope 过滤/归属（#21），但按 id 的单条读/写/评论/关联
+// 此前只认 id，可跨 game/env 越权。错误不回显目标行作用域。
+func requireTicketScope(ctx context.Context, ticket *model.Ticket) error {
+	scope := svc.GameScopeFromContext(ctx)
+	if ticket == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, ticket.GameID, ticket.Env)) {
+		return utils.NewPermissionDenied("无权访问该工单（当前游戏/环境与工单作用域不一致）", nil)
+	}
+	return nil
+}
+
+// ticketForScope 取单条工单并做行级作用域校验，按 id 的单条操作共用。
+func (s *Service) ticketForScope(ctx context.Context, id uint) (*model.Ticket, error) {
+	ticket, err := s.svcCtx.TicketModel.FindOne(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := requireTicketScope(ctx, ticket); err != nil {
+		return nil, err
+	}
+	return ticket, nil
 }
 
 // List returns a list of tickets
@@ -90,7 +115,7 @@ func (s *Service) Get(ctx context.Context, req *GetRequest) (*GetResponse, error
 		return nil, err
 	}
 
-	ticket, err := s.svcCtx.TicketModel.FindOne(ctx, id)
+	ticket, err := s.ticketForScope(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +166,7 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 		return nil, errorx.NewBadRequest("请提供需要更新的字段")
 	}
 
-	before, err := s.svcCtx.TicketModel.FindOne(ctx, id)
+	before, err := s.ticketForScope(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +196,18 @@ func (s *Service) Delete(ctx context.Context, req *DeleteRequest) error {
 	if err != nil {
 		return err
 	}
+	// 删除保持幂等契约（不存在=成功，handler 层钉住 200）；行存在但跨
+	// scope 才拒绝（AUD-COV-001 P1 行级越权补齐）。
+	ticket, err := s.svcCtx.TicketModel.FindOne(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if err := requireTicketScope(ctx, ticket); err != nil {
+		return err
+	}
 	return s.svcCtx.TicketModel.Delete(ctx, id)
 }
 
@@ -178,6 +215,10 @@ func (s *Service) Delete(ctx context.Context, req *DeleteRequest) error {
 func (s *Service) Transition(ctx context.Context, req *TransitionRequest) (*TransitionResponse, error) {
 	id, err := parseTicketID(req.ID)
 	if err != nil {
+		return nil, err
+	}
+
+	if _, err := s.ticketForScope(ctx, id); err != nil {
 		return nil, err
 	}
 
@@ -238,6 +279,10 @@ func (s *Service) GetComments(ctx context.Context, req *GetCommentsRequest) (*Ge
 		return nil, err
 	}
 
+	if _, err := s.ticketForScope(ctx, id); err != nil {
+		return nil, err
+	}
+
 	comments, err := s.svcCtx.TicketModel.ListComments(ctx, id)
 	if err != nil {
 		return nil, err
@@ -259,7 +304,7 @@ func (s *Service) CreateComment(ctx context.Context, req *CreateCommentRequest) 
 		return nil, errorx.NewBadRequest("评论内容不能为空")
 	}
 
-	if _, err := s.svcCtx.TicketModel.FindOne(ctx, id); err != nil {
+	if _, err := s.ticketForScope(ctx, id); err != nil {
 		return nil, err
 	}
 
@@ -331,6 +376,9 @@ func parseTicketStatusFilter(value string) dbenum.TicketStatus {
 
 // ListBugs returns the bugs linked to the ticket (#25).
 func (s *Service) ListBugs(ctx context.Context, ticketID uint) (*TicketBugsResponse, error) {
+	if _, err := s.ticketForScope(ctx, ticketID); err != nil {
+		return nil, err
+	}
 	items, err := s.svcCtx.BugModel.ListBugsByTicket(ctx, ticketID)
 	if err != nil {
 		return nil, err
@@ -343,6 +391,9 @@ func (s *Service) LinkBug(ctx context.Context, ticketID uint, req *TicketBugLink
 	if req == nil || req.BugID == 0 {
 		return errorx.NewBadRequest("bugId 不能为空")
 	}
+	if _, err := s.ticketForScope(ctx, ticketID); err != nil {
+		return err
+	}
 	createdBy, _ := utils.CurrentUsername(ctx)
 	if err := s.svcCtx.BugModel.LinkBugTicket(ctx, req.BugID, ticketID, createdBy); err != nil {
 		return bug.TranslateBugLinkError(err)
@@ -352,5 +403,8 @@ func (s *Service) LinkBug(ctx context.Context, ticketID uint, req *TicketBugLink
 
 // UnlinkBug removes the ticket↔bug association (#25).
 func (s *Service) UnlinkBug(ctx context.Context, ticketID, bugID uint) error {
+	if _, err := s.ticketForScope(ctx, ticketID); err != nil {
+		return err
+	}
 	return s.svcCtx.BugModel.UnlinkBugTicket(ctx, bugID, ticketID)
 }
