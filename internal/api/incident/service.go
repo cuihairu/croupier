@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
@@ -30,6 +31,18 @@ type Service struct {
 // NewService creates an incident service.
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
+}
+
+// requireIncidentScope 单条事故行级作用域校验（对齐 task 的 requireTaskScope）：
+// 当前请求带 game/env scope 时，行内归属必须一致，否则 403。错误不回显目标行
+// 的 game/env，避免越权者借响应枚举其他作用域的资源。外部 token 面
+// （external.go）无 header scope，走 token 自身过滤，不经过本守卫。
+func requireIncidentScope(ctx context.Context, row *model.Incident) error {
+	scope := svc.GameScopeFromContext(ctx)
+	if row == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, row.GameID, row.Env)) {
+		return utils.NewPermissionDenied("无权访问该事故（当前游戏/环境与事故作用域不一致）", nil)
+	}
+	return nil
 }
 
 // ---- 类别管理 ----
@@ -151,6 +164,15 @@ func (s *Service) DeleteCategory(ctx context.Context, id uint) error {
 // CreateIncident 登记事故：类别必选且须为启用行，子类按类别白名单校验；
 // incidentKey 非空时幂等（同键返回已存在行）。
 func (s *Service) CreateIncident(ctx context.Context, req *IncidentCreateRequest, createdBy string) (*IncidentDTO, bool, error) {
+	// 归属强制当前请求 scope：面板登记一律落在本 scope，body 里的
+	// game/env 不作为归属真值（外部 token 面无 header scope，不受影响，
+	// 其归属绑定由 external 层另行治理）。
+	if scope := svc.GameScopeFromContext(ctx); scope.GameID != "" {
+		req.GameID = scope.GameID
+	}
+	if scope := svc.GameScopeFromContext(ctx); scope.Env != "" {
+		req.Env = scope.Env
+	}
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		return nil, false, errorx.NewBadRequest("事故标题不能为空")
@@ -241,6 +263,9 @@ func (s *Service) GetIncident(ctx context.Context, id uint) (*IncidentDTO, error
 	if err != nil {
 		return nil, err
 	}
+	if err := requireIncidentScope(ctx, row); err != nil {
+		return nil, err
+	}
 	dto := s.toIncidentDTO(ctx, row)
 	return &dto, nil
 }
@@ -270,6 +295,24 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 	row, err := m.Get(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if err := requireIncidentScope(ctx, row); err != nil {
+		return nil, err
+	}
+	// 归属迁移只允许落进当前 scope：把事故改挂到别的 game/env 等价于跨
+	// scope 写入（迁移出本 scope 同样拒绝，防止把行移出可见域后失察）。
+	if req.GameID != nil || req.Env != nil {
+		targetGame, targetEnv := row.GameID, row.Env
+		if req.GameID != nil {
+			targetGame = strings.TrimSpace(*req.GameID)
+		}
+		if req.Env != nil {
+			targetEnv = strings.TrimSpace(*req.Env)
+		}
+		scope := svc.GameScopeFromContext(ctx)
+		if (scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, targetGame, targetEnv) {
+			return nil, utils.NewPermissionDenied("事故归属迁移只允许落在当前游戏/环境内", nil)
+		}
 	}
 	updates := map[string]interface{}{}
 	if req.Title != nil {
@@ -358,6 +401,9 @@ func (s *Service) TransitionIncident(ctx context.Context, id uint, req *Incident
 	m := model.NewIncidentModel(s.svcCtx.DB)
 	row, err := m.Get(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := requireIncidentScope(ctx, row); err != nil {
 		return nil, err
 	}
 	updates := map[string]interface{}{"status": req.Status}
