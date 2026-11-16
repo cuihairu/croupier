@@ -151,10 +151,14 @@ test.describe('OpenAPI CRUD', () => {
     await waitForPageReady(page);
     await waitForTable(page);
 
-    // 点击删除按钮
-    const deleteBtn = page.locator('button:has-text("删除"), a:has-text("删除")').first();
-    await expect(deleteBtn).toBeVisible();
-    await deleteBtn.click();
+    // GUX-009 动作折叠：操作入口超过 4 个时删除收进「更多」下拉，menu 触发
+    // modal 确认（同一套 deleteAction 文案）
+    const moreBtn = page.getByTestId('row-action-more').first();
+    await expect(moreBtn).toBeVisible();
+    await moreBtn.click();
+    const deleteItem = page.locator('.ant-dropdown-menu-item:has-text("删除")').first();
+    await expect(deleteItem).toBeVisible();
+    await deleteItem.click();
 
     // 确认删除
     const confirmBtn = page
@@ -382,10 +386,10 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
 
     // Console 表格显示 fixture 的两条真实 player 数据。
     await waitForTable(page);
-    const row1 = page.locator('tbody tr').filter({ hasText: 'p-001' });
+    const row1 = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-001' });
     await expect(row1).toHaveCount(1);
     await expect(row1).toContainText('Ada');
-    const row2 = page.locator('tbody tr').filter({ hasText: 'p-002' });
+    const row2 = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-002' });
     await expect(row2).toHaveCount(1);
     await expect(row2).toContainText('Ben');
 
@@ -419,7 +423,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     await login(page);
     await navigateToPlayersListLoaded(page);
 
-    const row2 = page.locator('tbody tr').filter({ hasText: 'p-002' });
+    const row2 = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-002' });
     await expect(row2).toHaveCount(1);
 
     const detailExecute = page.waitForResponse(
@@ -501,10 +505,10 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(JSON.stringify(createCalls[0].body)).toContain('Cara');
 
     // 创建后列表刷新，新 identity 与名称可见（非前端乐观插行）。
-    const newRow = page.locator('tbody tr').filter({ hasText: 'p-003' });
+    const newRow = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-003' });
     await expect(newRow).toHaveCount(1);
     await expect(newRow).toContainText('Cara');
-    const row1 = page.locator('tbody tr').filter({ hasText: 'p-001' });
+    const row1 = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-001' });
     await expect(row1).toHaveCount(1);
   });
 
@@ -523,7 +527,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     await login(page);
     await navigateToPlayersListLoaded(page);
 
-    const row1 = page.locator('tbody tr').filter({ hasText: 'p-001' });
+    const row1 = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-001' });
     await expect(row1).toHaveCount(1);
     await row1.getByRole('button', { name: '编辑' }).click();
 
@@ -562,7 +566,9 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(putBody.name).toBe('Ada Updated');
 
     // 刷新后页面显示 provider 的更新值。
-    const updatedRow = page.locator('tbody tr').filter({ hasText: 'p-001' });
+    const updatedRow = page
+      .locator('.ant-table-tbody tr.ant-table-row')
+      .filter({ hasText: 'p-001' });
     await expect(updatedRow).toHaveCount(1);
     await expect(updatedRow).toContainText('Ada Updated');
   });
@@ -579,7 +585,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     await login(page);
     await navigateToPlayersListLoaded(page);
 
-    const row2 = page.locator('tbody tr').filter({ hasText: 'p-002' });
+    const row2 = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-002' });
     await expect(row2).toHaveCount(1);
 
     // 删除必须先展示生成的确认信息。
@@ -606,8 +612,12 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(deleteCalls).toEqual([{ method: 'DELETE', path: '/players/p-002' }]);
 
     // 列表刷新后该记录消失，其他记录仍在。
-    await expect(page.locator('tbody tr').filter({ hasText: 'p-002' })).toHaveCount(0);
-    await expect(page.locator('tbody tr').filter({ hasText: 'p-001' })).toHaveCount(1);
+    await expect(
+      page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-002' }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-001' }),
+    ).toHaveCount(1);
   });
 
   test('@openapi-row-action row action 只接收受控上下文', async ({ page, request }) => {
@@ -623,7 +633,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     await navigateToPlayersListLoaded(page);
 
     // kick 是 row action：按钮位于行内而非工具栏。
-    const row1 = page.locator('tbody tr').filter({ hasText: 'p-001' });
+    const row1 = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: 'p-001' });
     await expect(row1).toHaveCount(1);
     const kickBtn = row1.getByRole('button', { name: /kick/i });
     await expect(kickBtn).toBeVisible();
