@@ -171,7 +171,9 @@ describe('ResourcePageRenderer', () => {
     await screen.findByText('p-1');
     fireEvent.click(screen.getByRole('button', { name: /查看/ }));
 
-    await screen.findByText('p-2');
+    // GUX-010 详情身份锚：抽屉顶部按 identityKey 复现行标识，描述项同值渲染
+    const p2Nodes = await screen.findAllByText('p-2');
+    expect(p2Nodes).toHaveLength(2);
   });
 });
 

@@ -180,7 +180,7 @@ export const mailCompensationPageSpec: PageSpec = {
         {
           key: 'retryFailed',
           title: { 'zh-CN': '重试失败', 'en-US': 'Retry Failed' },
-          type: 'primary',
+          // GUX-009 动作层次：行内动作一律 link 态，主按钮强调留给工具栏。
           confirm: true,
           confirmTitle: { 'zh-CN': '重试失败投递', 'en-US': 'Retry Failed Deliveries' },
           confirmDescription: {
@@ -591,7 +591,12 @@ const MailCompensationTemplate: React.FC = () => {
         defaultMessage: '业务模板 · 任务列表 / 目标快照 / 审批 / 失败重试',
       })}
     >
-      <CompensationWizard execute={execute} onCreate={() => setListKey((key) => key + 1)} />
+      {/* GUX-011：create 绑定函数传入回执区，executor 未绑定时展示去绑定入口 */}
+      <CompensationWizard
+        execute={execute}
+        createFunctionId="mail_task.create"
+        onCreate={() => setListKey((key) => key + 1)}
+      />
       <PageRenderer key={listKey} pageSpec={mailCompensationPageSpec} onExecute={execute} />
     </PageContainer>
   );

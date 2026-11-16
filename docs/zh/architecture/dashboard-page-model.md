@@ -508,6 +508,8 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 Renderer 只接受 PublishedPageSpec，并只通过 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。执行前服务端做两道结构化阻断（wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)）：契约 `executionState=unbound`（上传物料未绑定运行时执行器）返回 `409 executor_unbound`，前端渲染「未绑定执行器」空态并引导去绑定；契约漂移返回 `409 binding_stale`。发布页禁止 mock 数据兜底——执行失败必须显式呈现。
 
+资源页渲染器的运营体验行为（GUX-008~013，均为渲染层解释，无 wire 变更）：行内动作一律 link 态（主按钮强调保留给工具栏一次性动作）；操作列条目（查看+行动作+删除）超过 4 个时折叠进「更多」下拉，删除经下拉触发时沿用同一套 `deleteAction` 文案与 danger 确认弹窗（确认语义不降级）；数字/时间列由 dataType 机械派生右对齐；详情抽屉顶部按声明的 `listView.identityKey` 渲染行身份锚（契约驱动，不猜字段名）；写操作结果面按白名单（id/taskId/approvalId/count/total/amount/retried/sentCount/failedCount，字符串与有限数字才展示，布尔与未知键忽略）展示接口真实返回的可追溯标识，接口未返回的字段不展示、不发明部分成功状态。邮件/补偿固定分步模板（demo 模板层）：目标步骤即时汇总客户端可确定的目标（已选人数/区服），服务端才知道的量显式标注「以服务端为准」；提交前核对步骤展示结构化摘要与审批提示；审批路径回执展示审批单号；create 绑定遇 `executor_unbound` 时以「未绑定执行器」空态呈现而非普通失败。
+
 PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 renderer adapter，不迁移 FunctionContract、PageSpec、菜单、发布快照或审计。
 
 ## 表单策略

@@ -104,7 +104,8 @@ export const playerManagePageSpec: PageSpec = {
         {
           key: 'recharge',
           title: { 'zh-CN': '充值', 'en-US': 'Recharge' },
-          type: 'primary',
+          // GUX-009 动作层次：行内动作一律 link 态（主按钮强调保留给工具栏级
+          // 一次性动作），避免每行重复主按钮挤占数据列。
           form: {
             jsonSchema: {
               type: 'object',

@@ -7,18 +7,29 @@
  */
 
 import React from 'react';
-import { Alert, Progress, Result, Steps } from 'antd';
+import { Alert, Descriptions, Progress, Result, Steps } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 
 export type ResourceMutationFeedbackState = 'running' | 'success' | 'error';
 
+/** GUX-013 执行回执：接口真实返回的可追溯标识（渲染器白名单提取，不猜字段）。 */
+export interface ResourceMutationReceiptEntry {
+  label: string;
+  value: string;
+}
+
 export interface ResourceMutationFeedbackProps {
   state: ResourceMutationFeedbackState;
   onClose: () => void;
+  receipt?: ResourceMutationReceiptEntry[];
 }
 
-const ResourceMutationFeedback: React.FC<ResourceMutationFeedbackProps> = ({ state, onClose }) => {
+const ResourceMutationFeedback: React.FC<ResourceMutationFeedbackProps> = ({
+  state,
+  onClose,
+  receipt,
+}) => {
   const intl = useIntl();
   if (state === 'running') {
     return (
@@ -126,6 +137,22 @@ const ResourceMutationFeedback: React.FC<ResourceMutationFeedbackProps> = ({ sta
           />
         }
       />
+      {/* GUX-013 执行回执：只展示接口真实返回的可追溯标识，空数组不渲染 */}
+      {receipt && receipt.length > 0 && (
+        <Descriptions
+          size="small"
+          column={1}
+          bordered
+          data-testid="resource-mutation-receipt"
+          style={{ marginTop: 8 }}
+        >
+          {receipt.map((entry) => (
+            <Descriptions.Item key={entry.label} label={entry.label}>
+              {entry.value}
+            </Descriptions.Item>
+          ))}
+        </Descriptions>
+      )}
     </section>
   );
 };
