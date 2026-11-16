@@ -4,6 +4,63 @@
 
 最新结论见 [可靠性复审](docs/review/reliability-recheck-2026-10-30.md)。之前的完成声明与回流旧任务完整保存在 [本轮整理前快照](docs/review/todo-import-2026-10-30.md)；更早原文见 [10 月 29 日历史](docs/review/todo-history-2026-10-29.md)。旧 C2/E2/D2/D5 分别复用 UI-001/002/003，不重开一套父子任务；其已交付历史不删除，只退出当前执行清单。
 
+## 游戏运营后台体验改进（2026-11-16）
+
+设计和观察依据：[游戏运营后台体验审查](docs/design/game-operations-ux-review-2026-11-16.md)。以下为新体验交付；高风险、身份及真实接入继续复用既有专项，未验证项保持未勾。
+
+依赖顺序：GUX-01/02 先明确现状和角色；GUX-05～07 为共享语义基础；GUX-08～13 组成标杆流程；GUX-17 在相关交付完成后验收。GUX-03/04/14～16 可按依赖并行。
+
+- [ ] **GUX-01 · P1 · 核对部署版本与取证**
+  - 交付与验收：记录部署镜像/版本与源码提交，保存首页、目录、玩家模板及详情截图；确认测试游戏/环境、空数据和模板边界，不记录凭据。
+
+- [ ] **GUX-02 · P1 · 角色任务与导航**
+  - 交付与验收：梳理运营、开发接入、平台管理的任务与现有权限映射；交付导航结构与入口，不删除既有能力。
+
+- [ ] **GUX-03 · P1 · 运营首页**
+  - 交付与验收：按角色展示待办、异常、最近处理和常用入口；缺失数据展示真实空态，移走重复的产品建设说明。
+
+- [ ] **GUX-04 · P1 · 游戏环境与作用域**
+  - 交付与验收：统一当前游戏/环境展示，按契约支持区服/渠道/时区；切换作用域清理旧数据和在途结果。
+
+- [ ] **GUX-05 · P1 · 统一状态语义**
+  - 交付与验收：建立状态映射与文本/颜色/未知态规则；玩家列表、详情、确认和回执显示一致且不只依赖颜色。
+
+- [ ] **GUX-06 · P1 · 统一时间语义**
+  - 交付与验收：时间组件显示明确时区和一致格式，覆盖空值、无效值、跨时区；列表与详情同值同义。
+
+- [ ] **GUX-07 · P1 · 统一资产与身份展示**
+  - 交付与验收：提供玩家身份、币种金额和道具数量语义展示；缺单位或身份来源标明未知，复制和长文本可用。
+
+- [ ] **GUX-08 · P1 · 查询工具栏**
+  - 交付与验收：玩家 ID/昵称高频检索优先，高级筛选可展开；重置、回车、加载、空结果和作用域变化可验证。
+
+- [ ] **GUX-09 · P1 · 资源列表与动作层次**
+  - 交付与验收：整理列宽、时间与数字对齐，减少逐行重复强调；按能力、权限和对象状态决定动作，未提供的 CRUD 不显示。
+
+- [ ] **GUX-10 · P1 · 玩家详情**
+  - 交付与验收：以玩家身份组织详情和实际可用信息；与列表共享语义组件，覆盖加载、缺失和错误，来源按契约呈现。
+
+- [ ] **GUX-11 · P1 · 邮件补偿输入**
+  - 交付与验收：复用已有能力/契约构建补偿面板，明确目标、作用域、内容、数量和原因；无绑定时解释不可用。
+
+- [ ] **GUX-12 · P1 · 变更确认**
+  - 交付与验收：提交前汇总实际目标、作用域、内容和风险，复用已有高风险与审批契约；权限、取消和目标变更均可验证。
+
+- [ ] **GUX-13 · P1 · 执行回执**
+  - 交付与验收：使用真实接口返回展示提交/执行/失败/部分结果及可追溯标识；未知保持未知，不杜撰回滚或成功。
+
+- [ ] **GUX-14 · P1 · 运行控制台空态**
+  - 交付与验收：合并重复空卡，区分无发布页、无权限与加载失败；按角色提供可执行的下一步。
+
+- [ ] **GUX-15 · P2 · 说明与文案收敛**
+  - 交付与验收：将目录及页面工作台的重复引导移至按需帮助或首次引导；移除登录模板占位符及内部术语的误导展示。
+
+- [ ] **GUX-16 · P2 · 视觉与交互规范**
+  - 交付与验收：定义标题、间距、表格、表单、抽屉、语义色及全部交互状态；覆盖明暗主题、中文英文和键盘焦点。
+
+- [ ] **GUX-17 · P1 · 标杆流程端到端验收**
+  - 交付与验收：以玩家查询→详情→补偿→确认→回执运行可控 fixture，覆盖错误/部分成功、作用域切换、键盘及 1440px/笔记本截图；真实游戏验收沿 UI-001，fixture 不抵扣。
+
 ## 架构与可靠性
 
 - [x] **OPS-LOG-001 · P1 · 部署面 · 192.168.5.5 docker 宿主机日志轮转与磁盘守护（dashboard 登录 P0 复发预防）**
@@ -1251,11 +1308,15 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 > 2026-11-13 续审进度：第一轮 [风险路径报告](docs/review/deep-audit-2026-11-12.md) 已落盘；按用户要求转入 [代码逻辑续审](docs/review/code-logic-review-2026-11-13.md)，深入供给适配器、发版/回滚、事故更新、定时调度、ICMP 与插件/Runbook 生命周期。新增 8 个正常业务回归断言均暴露现有问题，原有相关测试通过；未修改业务实现。下列覆盖任务仍未全部完成，不因已有报告而整体勾选。
 
-- [ ] AUD-COV-001 · 复核 · Go API/业务服务/权限与游戏、环境作用域边界：按路由入口追踪身份、scope 中间件、数据查询/写入和错误响应；覆盖 internal/api、internal/handler、internal/platform、internal/policy。
+- [x] AUD-COV-001 · 复核 · Go API/业务服务/权限与游戏、环境作用域边界：按路由入口追踪身份、scope 中间件、数据查询/写入和错误响应；覆盖 internal/api、internal/handler、internal/platform、internal/policy。
+  - 状态／条件：完成（2026-11-16 codex exec read-only 静态审计 + 2026-11-17 逐条人工复核）。LOCAL VERIFIED
+  - 完成证据：报告 `docs/review/aud-cov-001-go-api-2026-11-16.md`（3 P0/8 P1/7 P2/6 P3 + 处置记录附注）；当场修 4 条 `9bc08d56a`/`5b0fee15f`/`ce667c63d`/`8dbf59c53`（各带新用例，`go test ./internal/api/... -count=1` 全绿）；遗留 21 条落 AUD-036..056 排期。
 - [ ] AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
 - [ ] AUD-COV-003 · 复核 · Agent 与消息传输/协议：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
 - [ ] AUD-COV-004 · 复核 · 六语言 SDK 与插件：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
-- [ ] AUD-COV-005 · 复核 · Web Console 与 API 客户端：沿页面→状态管理→请求→服务端授权检查作用域切换、陈旧数据、错误/加载状态、输入校验、XSS 和关键管理操作；覆盖 web/src。
+- [x] AUD-COV-005 · 复核 · Web Console 与 API 客户端：沿页面→状态管理→请求→服务端授权检查作用域切换、陈旧数据、错误/加载状态、输入校验、XSS 和关键管理操作；覆盖 web/src。
+  - 状态／条件：完成（2026-11-16 codex exec read-only 静态审计 + 逐条人工复核核伪）。LOCAL VERIFIED
+  - 完成证据：报告 `docs/review/aud-cov-005-web-console-2026-11-16.md`（P1×4/P2×6/P3×3 + 修复与复核附注）；当场修 4 条 `2f6d79d01`/`95072aaeb`/`c430996a2`/`abc6f25a1`；P2/P3 遗留落 AUD-029..035；核伪 2 条见报告附注。
 - [ ] AUD-COV-006 · 复核 · Mobile 客户端：检查登录/会话、作用域、token 存储、请求生命周期、旧数据清理、错误/离线表现与 Android/iOS 配置；覆盖 mobile/lib 和原生工程。
 - [ ] AUD-COV-007 · 复核 · 构建/发布/部署/运维与文档契约：检查 CI 触发路径、质量门禁、发布版本一致性、镜像/Compose 默认值、密钥暴露、备份恢复和用户文档与实现漂移；覆盖 .github、docker、configs、scripts、Makefile 与 docs。
 - [ ] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告：把 11 月 1–10 日历史审计结论按当前 HEAD 逐条标成仍存在/已修/无法复核；合并重复项、给出严重级别和证据；未覆盖区域明确标注，不能用扫描器无告警替代人工复核。
@@ -1375,6 +1436,126 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - [ ] **AUD-028 · P1 · 修复 · 定时任务按同一计划发生时间领取而不是当前分钟**
   - 依赖：—。交付与验收：两个实例已读取同一条到期记录，即使跨分钟继续处理，也只能派发一次；保留既有过期领取与未知结果语义。
   - 状态／条件：scheduler/manager.go:309 用 Slot(now) 生成唯一领取键；同一每日任务的两份到期快照在 10:30:59 和 10:31:00 处理时派发两次。普通回归用例已失败。
+
+### AUD-COV-005（Web Console，2026-11-16）P2/P3 遗留排期
+
+> 来源：`docs/review/aud-cov-005-web-console-2026-11-16.md`。P0×0；P1×4 中 3 条已当场修（2f6d79d01 SSE 畸形帧 / 95072aaeb effect 依赖 / c430996a2 面板竞态守卫），第 4 条（Schedules payload JSON）复核为「已有 try/catch 兜底、缺字段级校验」，按 P2 处置并已修（payloadRule 字段级校验）。下列为逐条复核确认属实的 P2/P3；已核伪两条见报告附注。
+
+- [ ] **AUD-029 · P2 · 修复 · 权限页删除动作失败仍弹成功提示**
+  - 依赖：—。交付与验收：`web/src/pages/Permissions/UsersV2/index.tsx:241`、`web/src/pages/Permissions/RolesV2/index.tsx:112` 的 `remove()` 给 `deleteAdmin`/`deleteRole` 补 try/catch，失败走错误提示且不弹「已删除」；参照 `Functions/DetailTabs.tsx` 既有模式；带失败分支回归用例。
+  - 状态／条件：2026-11-16 复核属实——`await deleteAdmin(rec.id)` 后无条件 `getMessage()?.success(...)`，异常被 Popconfirm Promise 吞掉。
+
+- [ ] **AUD-030 · P2 · 修复 · 原始异常消息直出（可能泄漏后端细节）**
+  - 依赖：—。交付与验收：`web/src/pages/Functions/DetailTabs.tsx:671`、`web/src/pages/Functions/Directory/useDirectoryPage.ts:213` 的 `err instanceof Error ? err.message : String(err)` 改走 `extractErrorMessage(err, 兜底文案)`；同型残留全仓扫一遍一并收。
+  - 状态／条件：2026-11-16 复核属实——两处均直出 `err.message`。
+
+- [ ] **AUD-031 · P2 · 修复 · Ops/Agents 页描述文案与已交付能力不一致**
+  - 依赖：—。交付与验收：`web/src/pages/Ops/Agents/index.tsx:36` 描述仍写「主机与会话数据面未交付，本页不提供入口」，但同页已渲染 `DevopsSessionsPanel`；更新文案如实反映会话能力与剩余边界（历史 asciicast 回放等）。
+  - 状态／条件：2026-11-16 复核属实。
+
+- [ ] **AUD-032 · P2 · 修复 · MenuManagement listPageDrafts pageSize=200 未封顶**
+  - 依赖：—。交付与验收：`web/src/pages/MenuManagement/index.tsx:57` 硬编码 `pageSize: 200` 直传后端；定合理上限或复用统一分页常量。
+  - 状态／条件：2026-11-16 复核属实（ExecutionLogs 半句不实——其用 `PAGE_SIZE=20` 常量，已核伪不收）。
+
+- [ ] **AUD-033 · P2 · 修复 · window.open 未统一走 safeUrl 模式**
+  - 依赖：—。交付与验收：`web/src/pages/Permissions/UsersV2/index.tsx:401` 相对路径拼接未走 `safeUrl`/`safeExternalHref` 校验；现风险低（encodeURIComponent+同源前缀），做模式统一并加注释。
+  - 状态／条件：2026-11-16 复核属实（模式统一项，非注入实锤）。
+
+- [ ] **AUD-034 · P3 · 修复 · DevopsSessionsPanel 中文硬编码文案未走 i18n**
+  - 依赖：—。交付与验收：面板内按钮/表单/确认弹窗/空态文案提取到 locale 文件并经 `intl.formatMessage`；注意与本面板测试断言文案联动更新。
+  - 状态／条件：2026-11-16 复核属实（全组件裸中文串）。
+
+- [ ] **AUD-035 · P3 · 修复 · DevopsSessionsPanel 关闭/刷新按钮无 loading 防重复点击**
+  - 依赖：—。交付与验收：关闭（含确认弹窗 onOk）与刷新按钮在请求期间置 loading/禁用；刷新可复用 `loading` 态，关闭按会话 ID 粒度防抖。
+  - 状态／条件：2026-11-16 复核属实。
+
+### AUD-COV-001（Go API，2026-11-16）遗留排期
+
+> 来源：`docs/review/aud-cov-001-go-api-2026-11-16.md`（3 P0 / 8 P1 / 7 P2 / 6 P3）。当场修 4 条：incident 行级 scope `9bc08d56a`、ticket 行级 scope `5b0fee15f`、cicd webhook fail-closed `ce667c63d`、backup 下载收敛 objstore `8dbf59c53`；默认 JWT secret 已有 AUD-008 不重复计数。下列为逐条复核确认属实的遗留项（含已修条目的残余半边）。
+
+- [ ] **AUD-036 · P0 · 修复 · 外部 incident token 绑定 game/env allowlist**
+  - 依赖：—。交付与验收：`external_token` 模型加 game/env 允许列（模型变更同 PR 编号迁移，三处同步：migrations.go 注册 + MinimumRequiredVersion + migrate_test 合成清单）；签发与校验按 token scope 强制过滤写入和查询；带越权拒绝用例。
+  - 状态／条件：2026-11-16 复核属实——`internal/api/incident/external.go:85-128` 创建透传 payload gameID/env，查询只按 categories。
+
+- [ ] **AUD-037 · P0 · 修复 · 公开配置端点按 game/env 过滤**
+  - 依赖：公开客户端契约方向（签名请求 vs 客户端 scope）需用户拍板后再动 SQL。交付与验收：`/api/v1/public/configs`（`internal/api/config/watch.go:204-228`）强制 game_id/env 过滤并限制返回字段；契约结论先落本条目。
+  - 状态／条件：2026-11-16 复核属实——匿名可枚举 namespace/key 读全部 game/env 配置值。
+
+- [ ] **AUD-038 · P1 · 修复 · Approve/Reject 增加审批权限与两人规则执行**
+  - 依赖：—。交付与验收：`internal/api/approval/service.go:216-231` 加显式审批权限检查；`two_person` policy 从描述性数据变为运行时强制两个不同授权主体；带低权限拒绝与同主体二次批准拒绝用例。
+  - 状态／条件：2026-11-16 复核属实——只校验登录/scope/自批/可选 OTP。
+
+- [ ] **AUD-039 · P1 · 修复 · Storage 管理面挂服务层 RBAC**
+  - 依赖：—。交付与验收：`internal/handler/routes_storage.go` signed-url/list/upload/delete/batch-delete/目录操作挂 `RequireAnyPermission`（先粗粒度，前缀 ABAC 后续拆）；带 403 用例。
+  - 状态／条件：2026-11-16 复核属实——仅 Authority，任何登录用户可全量读写删。
+
+- [ ] **AUD-040 · P1 · 修复 · TCP agent 注册加凭据校验**
+  - 依赖：部署策略确认（shared token vs 既有 mTLS）。交付与验收：`internal/server/tcp_listener.go:486-541` register 校验 token 或 mTLS client identity + game/env 授权；insecure 默认值收紧须兼容存量部署并守配置契约（lowerCamelCase）。
+  - 状态／条件：2026-11-16 复核属实——只验非空 agent_id/game_id/env。
+
+- [ ] **AUD-041 · P1 · 修复 · Public player ticket 身份来源重设计**
+  - 依赖：游戏方契约拍板（SDK 签名 vs 玩家会话 proof）。交付与验收：`internal/api/support/player.go:127-165` 身份由签名会话派生 game/env/player；列表防枚举。
+  - 状态／条件：2026-11-16 复核属实——匿名 create 采信 query/body，list 仅按提交 playerId 过滤可枚举他人工单。
+
+- [ ] **AUD-042 · P1 · 修复 · 管理域权限矩阵统一挂载**
+  - 依赖：AUD-039（storage 先行）。交付与验收：建立管理域→权限矩阵（provider delete/reload、backup、cicd、incident、config、tool、announcement、certificate、rate_limit、schema、message、faq、ticket、player、task、schedule 等），路由或服务层统一挂 least-privilege guard，与 RBAC 页面对齐并带 403 用例。
+  - 状态／条件：2026-11-16 复核属实——大量管理面仅 JWT；本条为矩阵化收口，与既有零散挂账合并。
+
+- [ ] **AUD-043 · P1 · 修复 · CICD webhook payload scope 绑定 integration**
+  - 依赖：ce667c63d（fail-closed 已修，本条为残余半边）。交付与验收：回写 payload 的 game/env 与 integration 配置一致才接受，不一致 4xx 拒绝；带跨 scope 回写拒绝用例。
+  - 状态／条件：2026-11-16 复核属实——token 校验已补，payload game/env 仍未绑定。
+
+- [ ] **AUD-044 · P2 · 修复 · query token 收敛到 SSE 路由**
+  - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:164-176` 与 `internal/handler/routes.go:56` 的 `?token=` fallback 仅对显式 SSE 路由启用且配一次性短时 token；其余端点只认 Authorization header。
+  - 状态／条件：2026-11-16 复核属实——fallback 挂全部 protected 路由，token 进日志/历史。
+
+- [ ] **AUD-045 · P2 · 修复 · 认证关键查询 fail-closed**
+  - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:253-310` token version/OTP/scope 模型故障时生产 fail-closed；测试/精简模式显式兼容开关。
+  - 状态／条件：2026-11-16 复核属实——故障窗口 fail-open。
+
+- [ ] **AUD-046 · P2 · 修复 · CICD TestConnection SSRF 防护与稳定错误码**
+  - 依赖：—。交付与验收：`internal/api/cicd/service.go:309-315` 限制 scheme、解析并拒绝私网/链路本地地址；客户端错误改稳定码，原文入日志。
+  - 状态／条件：2026-11-16 复核属实。
+
+- [ ] **AUD-047 · P2 · 修复 · 未知错误统一 opaque 500**
+  - 交付与验收：`internal/common/response/response.go:107-108` 未知错误改 opaque message + correlation id，原文仅入日志；带响应契约回归。
+  - 状态／条件：2026-11-16 复核属实——`err.Error()` 直出可泄漏 GORM/驱动细节。
+
+- [ ] **AUD-048 · P2 · 修复 · Warehouse 查询强制 current scope**
+  - 交付与验收：`internal/api/analytics/warehouse.go:141/247` 请求 game/env 只可收窄不可替换，空值不得展开为无过滤。
+  - 状态／条件：2026-11-16 复核属实——显式传其他 game/env 可跨域聚合。
+
+- [ ] **AUD-049 · P2 · 修复 · 敏感写路径补统一审计**
+  - 交付与验收：incident/ticket 变更、storage 删除/上传、cicd webhook 成功与 denied 路径接 AuditService.Log；统一 decorator 覆盖成功/失败/denied 三态。
+  - 状态／条件：2026-11-16 复核属实。
+
+- [ ] **AUD-050 · P2 · 修复 · Ticket/CICD 多步写包事务**
+  - 交付与验收：`internal/api/ticket/service.go:202-209`（状态备注+状态更新）与 `internal/api/cicd/service.go:283-287`（删 builds+删 integration）包 GORM transaction；带第二步失败回滚用例。
+  - 状态／条件：2026-11-16 复核属实——半提交可产生不一致中间态。
+
+- [ ] **AUD-051 · P3 · 修复 · Approval 挂账文档更新为 SQLStore 现状**
+  - 交付与验收：`docs/operations/access-control.md:66` 与 CLAUDE.md「Approvals currently use MemStore」表述更新为 production SQLStore + CAS 事实；zh 镜像（docs/zh）同步。
+  - 状态／条件：2026-11-16 复核属实——`internal/svc/service_context.go:379` 实际装配 SQLStore，重启丢失风险已不存在。
+
+- [ ] **AUD-052 · P3 · 修复 · 缩短 access JWT TTL 并引入 refresh 轮换**
+  - 依赖：AUD-008（密钥判定先行）。交付与验收：`internal/security/jwtutil/token.go:23` 拆 access/refresh + 重用检测轮换；存量登录灰度兼容。
+  - 状态／条件：2026-11-16 复核属实——TTL 硬编码 24h 无 refresh。
+
+- [ ] **AUD-053 · P3 · 修复 · Backup 创建幂等键**
+  - 交付与验收：`internal/api/backup/service.go:75-106` 按 name/type/时间窗或客户端 Idempotency-Key 去重 pending/succeeded；带并发去重用例。
+  - 状态／条件：2026-11-16 复核属实——双击/重试并发创建多份重备份。
+
+- [ ] **AUD-054 · P3 · 修复 · 删除旧式 PermissionMiddleware 死代码**
+  - 交付与验收：确认无挂载引用后删除 `internal/service/permission/middleware.go:117-127`、`internal/common/middleware/auth.go:104` 的旧式实现（字符串 context key + gin.H 直写）。
+  - 状态／条件：2026-11-16 复核属实（未挂载死代码，防未来误挂载）。
+
+- [ ] **AUD-055 · P3 · 修复 · Registry 公开语义对齐**
+  - 交付与验收：`internal/handler/routes_storage.go:45` 注释与服务层权限二选一对齐（protected 或真公开 + threat model 记录）。
+  - 状态／条件：2026-11-16 复核属实——路由注释称公开，服务层 RequireAnyPermission 致匿名 403。
+
+- [ ] **AUD-056 · P3 · 修复 · Monitoring 健康错误改稳定码**
+  - 交付与验收：`internal/api/monitoring/service.go:160-163` 状态响应改布尔/稳定码，详细错误仅日志。
+  - 状态／条件：2026-11-16 复核属实——底层错误直出响应。
 
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
 
