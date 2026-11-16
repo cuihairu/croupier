@@ -118,4 +118,28 @@ describe('DevopsTerminal', () => {
     dataHandler('rm -rf\r');
     expect(mockedInput).toHaveBeenCalledTimes(1);
   });
+
+  // 中继/网络注入的畸形帧不能炸掉终端：output 帧丢弃、end 帧仍收束会话。
+  it('survives malformed SSE frames without throwing', () => {
+    const stream = makeFakeStream();
+    mockedOpenStream.mockReturnValue(stream);
+
+    const onStatus = jest.fn();
+    render(<DevopsTerminal sessionId="s1" cols={120} rows={32} onStatus={onStatus} />);
+    const term = MockTerminal.mock.results[0].value;
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const outputListener = stream.listeners.get('output')![0];
+    expect(() => outputListener({ data: '{not json' } as MessageEvent)).not.toThrow();
+    expect(() => outputListener({ data: '' } as MessageEvent)).not.toThrow();
+    expect(term.write).not.toHaveBeenCalled();
+
+    const endListener = stream.listeners.get('end')![0];
+    expect(() => endListener({ data: '{broken' } as MessageEvent)).not.toThrow();
+    // end 帧畸形也必须收束：流关闭 + ended 状态（outcome 缺省）。
+    expect(stream.close).toHaveBeenCalled();
+    expect(onStatus).toHaveBeenCalledWith('ended', undefined);
+
+    consoleError.mockRestore();
+  });
 });

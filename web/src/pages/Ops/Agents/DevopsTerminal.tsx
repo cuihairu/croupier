@@ -86,7 +86,14 @@ export default function DevopsTerminal({ sessionId, cols, rows, onStatus }: Devo
     const stream = openDevopsSessionStream(sessionId);
     streamRef.current = stream;
     stream.addEventListener('output', (event) => {
-      const payload = JSON.parse(event.data || '{}') as DevopsSessionSSEPayload;
+      // 中继/网络注入的畸形帧不能炸掉整个终端（帧解析失败只丢该帧）。
+      let payload: DevopsSessionSSEPayload;
+      try {
+        payload = JSON.parse(event.data || '{}') as DevopsSessionSSEPayload;
+      } catch (err) {
+        console.error('[devops-terminal] malformed output frame dropped', err);
+        return;
+      }
       if (!payload?.data) return;
       try {
         term.write(decodeFrame(payload.data));
@@ -95,8 +102,14 @@ export default function DevopsTerminal({ sessionId, cols, rows, onStatus }: Devo
       }
     });
     stream.addEventListener('end', (event) => {
-      const payload = JSON.parse(event.data || '{}') as DevopsSessionSSEPayload;
-      const outcome = payload?.outcome || '';
+      let outcome = '';
+      try {
+        const payload = JSON.parse(event.data || '{}') as DevopsSessionSSEPayload;
+        outcome = payload?.outcome || '';
+      } catch (err) {
+        // end 帧畸形也必须收束会话（outcome 缺省），不能把会话卡在打开态。
+        console.error('[devops-terminal] malformed end frame', err);
+      }
       endedRef.current = true;
       setEnded(outcome || 'ended');
       term.write(`\r\n\x1b[33m[会话结束${outcome ? `：${outcome}` : ''}]\x1b[0m\r\n`);
