@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -58,21 +58,29 @@ export default function DevopsSessionsPanel() {
   const [terminalOutcome, setTerminalOutcome] = useState<string | undefined>(undefined);
   const [form] = Form.useForm<OpenFormValues>();
   const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
+  // 作用域切换时旧请求可能晚于新请求返回：只允许最新一次结果落状态。
+  const sessionsRequestId = useRef(0);
+  const agentRequestId = useRef(0);
 
   const load = useCallback(async () => {
+    const currentRequestId = ++sessionsRequestId.current;
     setLoading(true);
     try {
-      setSessions(await listDevopsSessions());
+      const sessions = await listDevopsSessions();
+      if (currentRequestId !== sessionsRequestId.current) return;
+      setSessions(sessions);
     } catch {
       /* 全局请求错误配置已呈现 */
     } finally {
-      setLoading(false);
+      if (currentRequestId === sessionsRequestId.current) setLoading(false);
     }
   }, []);
 
   const loadAgentOptions = useCallback(async () => {
+    const currentRequestId = ++agentRequestId.current;
     try {
       const { nodes } = await listOpsAgentsByType('devops');
+      if (currentRequestId !== agentRequestId.current) return;
       setAgentOptions(
         nodes.map((node) => {
           // OpsNode 无 healthy 字段：以 status 判在线（active/online 同口径，

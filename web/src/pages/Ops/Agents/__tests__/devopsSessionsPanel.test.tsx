@@ -6,8 +6,10 @@ import {
   closeDevopsSession,
   listDevopsSessions,
   openDevopsSession,
+  type DevopsSessionItem,
 } from '@/services/api/devopsSessions';
 import { listOpsAgentsByType } from '@/services/api/ops';
+import { getScope, setScope, type Scope } from '@/stores/scope';
 
 // antd Table/Modal/cssinjs 首渲染在本机高负载下可超 jest 默认 5s（CI 毫秒级）；
 // findBy*/waitFor 默认 1s 也不够（Modal/Select portal 经调度器延后渲染）。
@@ -158,5 +160,52 @@ describe('DevopsSessionsPanel', () => {
     fireEvent.click(confirm);
     await waitFor(() => expect(mockedClose).toHaveBeenCalledWith('sess-3'));
     await waitFor(() => expect(mockedList.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  // 切 scope 后旧请求先返回也不能覆盖新 scope 的数据（requestId 守卫）。
+  it('drops a stale session list response after a scope switch', async () => {
+    const initial = getScope();
+    const switchEnv = initial.env === 'demo-env' ? 'demo-env-b' : 'demo-env';
+    const row = (id: string, host: string, at: string): DevopsSessionItem => ({
+      sessionId: id,
+      agentId: 'agent-a',
+      operator: 'admin',
+      protocol: 'ssh',
+      host,
+      port: 22,
+      createdAt: at,
+    });
+    let resolveStale!: (value: DevopsSessionItem[]) => void;
+    let resolveFresh!: (value: DevopsSessionItem[]) => void;
+    mockedList
+      .mockImplementationOnce(
+        () =>
+          new Promise<DevopsSessionItem[]>((resolve) => {
+            resolveStale = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<DevopsSessionItem[]>((resolve) => {
+            resolveFresh = resolve;
+          }),
+      )
+      .mockResolvedValue([]);
+
+    renderPanel();
+    // 第一次拉取（挂载）已发出；切 scope 触发第二次。
+    await waitFor(() => expect(mockedList).toHaveBeenCalledTimes(1));
+    setScope({ ...initial, env: switchEnv }, { persist: false });
+    await waitFor(() => expect(mockedList).toHaveBeenCalledTimes(2));
+
+    // 新 scope 的结果先落地。
+    resolveFresh([row('sess-fresh', '10.0.0.99', '2026-11-16 00:00:00')]);
+    expect(await screen.findByText('sess-fresh')).toBeInTheDocument();
+    // 旧 scope 的请求随后返回：不得覆盖。
+    resolveStale([row('sess-stale', '10.0.0.1', '2026-11-16 01:00:00')]);
+    expect(await screen.findByText('sess-fresh')).toBeInTheDocument();
+    expect(screen.queryByText('sess-stale')).not.toBeInTheDocument();
+
+    setScope({ ...initial, env: initial.env }, { persist: false });
   });
 });
