@@ -6,6 +6,7 @@ set -euo pipefail
 fixture_paths=(
   "core/dependency_boundary_fixture.go"
   "internal/platform/functioninvoke/dependency_boundary_fixture.go"
+  "sdks/go/cmd/demo-game/dependency_boundary_fixture.go"
 )
 created_fixtures=()
 
@@ -46,5 +47,8 @@ expect_rejection "core->internal import" \
 expect_rejection "functioninvoke->internal/api import" \
   "internal/platform/functioninvoke/dependency_boundary_fixture.go" \
   $'package functioninvoke\n\nimport _ "github.com/cuihairu/croupier/internal/api/assignment"'
+expect_rejection "demo-game->internal import" \
+  "sdks/go/cmd/demo-game/dependency_boundary_fixture.go" \
+  $'package dependency_boundary_fixture\n\nimport _ "github.com/cuihairu/croupier/internal/svc"'
 
 echo "PASSED: dependency boundary guard rejects synthetic violations"

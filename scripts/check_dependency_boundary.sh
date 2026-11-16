@@ -51,7 +51,21 @@ if [[ -n "$fn_api" ]]; then
   fail=1
 fi
 
+# 4) sdks/go/cmd/demo-game 是模拟外部接入方（dogfood 公共 SDK）：生产代码
+#    只能 import sdks/go 公共面，不得 import internal/（同 core/agents 契约）。
+if [[ ! -d "sdks/go/cmd/demo-game" ]]; then
+  echo "FAIL: 扫描路径缺失: sdks/go/cmd/demo-game（守卫清单失效=静默 no-op，需同步脚本）"
+  fail=1
+fi
+demo_internal=$(grep -rnE '"[^"]*cuihairu/croupier/internal/' \
+  --include='*.go' --exclude='*_test.go' sdks/go/cmd/demo-game 2>/dev/null || true)
+if [[ -n "$demo_internal" ]]; then
+  echo "FAIL: sdks/go/cmd/demo-game 生产代码 import internal/（模拟接入方只准用公共 SDK）:"
+  echo "$demo_internal"
+  fail=1
+fi
+
 if [[ "$fail" -eq 0 ]]; then
-  echo "PASSED: dependency boundary guard passed（core/agents 不 import internal/；functioninvoke 不 import internal/api）"
+  echo "PASSED: dependency boundary guard passed（core/agents 不 import internal/；functioninvoke 不 import internal/api；demo-game 不 import internal/）"
 fi
 exit "$fail"

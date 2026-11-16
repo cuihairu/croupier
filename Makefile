@@ -13,7 +13,7 @@ FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 # 写完整导入路径（github.com/.../cmd/server.Version）是静默 no-op，二进制恒 dev。
 LDFLAGS := -X main.Version=$(FULL_VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT) -s -w
 
-.PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator run-gameops-demo
+.PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator run-gameops-demo demo-game run-demo-game
 .PHONY: agents agent-devops agent-capture agent-synthetics
 .PHONY: test test-changed test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
@@ -197,6 +197,23 @@ run-gameops-demo:
 	@echo "[demo] starting gameops-demo -> agent=$(AGENT) game=$(GAME_ID) env=$(ENV)"
 	@cd sdks/go && go run ./examples/gameops-demo -agent $(AGENT) -game-id $(GAME_ID) -env $(ENV)
 
+# Build the persistent demo-game binary (bin/demo-game).
+# Usage: make demo-game
+demo-game:
+	@echo "[demo] building demo-game -> bin/demo-game"
+	@cd sdks/go && CGO_ENABLED=0 go build -o ../../bin/demo-game ./cmd/demo-game
+
+# Run the persistent demo-game against a local Agent.
+# Usage: make run-demo-game [AGENT=127.0.0.1:19091] [GAME_ID=demo-game] [ENV=demo] [SEED=7] [DSN=]
+run-demo-game: AGENT ?= 127.0.0.1:19091
+run-demo-game: GAME_ID ?= demo-game
+run-demo-game: ENV ?= demo
+run-demo-game: SEED ?= 7
+run-demo-game: DSN ?=
+run-demo-game:
+	@echo "[demo] starting demo-game -> agent=$(AGENT) game=$(GAME_ID) env=$(ENV) seed=$(SEED) dsn=$(DSN)"
+	@cd sdks/go && go run ./cmd/demo-game -agent $(AGENT) -game-id $(GAME_ID) -env $(ENV) -seed $(SEED) -dsn "$(DSN)"
+
 
 # ========== Clean Targets ==========
 clean: clean-sdks clean-web
@@ -261,6 +278,8 @@ help:
 	@echo "  build-dashboard  - Build management dashboard"
 	@echo "  build-docs       - Build VitePress documentation"
 	@echo "  run-gameops-demo - Start gameops demo server (E2 demo-server base)"
+	@echo "  demo-game        - Build persistent demo-game binary (bin/demo-game)"
+	@echo "  run-demo-game    - Start persistent demo-game against a local Agent"
 	@echo "  dev-dashboard    - Start dashboard dev server"
 	@echo "  dev-docs         - Start docs dev server"
 	@echo ""
