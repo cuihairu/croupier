@@ -33,9 +33,11 @@ type WebhookPayload struct {
 
 // Webhook handles POST /cicd/webhooks/:id —— 外部系统构建状态回写。
 //
-// 鉴权：integration 配置了 Token 时要求请求头 X-CICD-Token 精确匹配
-// （constant-time 比较），未配置 Token 的接入为开放端点（边界见交付说明）。
-// 幂等：按 (integration_id, external_id) upsert，重复投递只更新状态。
+// 鉴权：要求请求头 X-CICD-Token 与 integration 配置的 Token 精确匹配
+// （constant-time 比较）。未配置 Token 的接入一律拒绝投递（fail-closed，
+// AUD-COV-001 P1：构建状态可伪造版本/artifact/校验和，无凭据的开放回写
+// 曾是审计确认的越权写入口）。幂等：按 (integration_id, external_id)
+// upsert，重复投递只更新状态。
 func (h *Handler) Webhook(c *gin.Context) {
 	id, ok := pathID(c)
 	if !ok {
@@ -65,10 +67,13 @@ func (s *Service) IngestWebhook(ctx context.Context, integrationID uint, gotToke
 	if err != nil {
 		return nil, err
 	}
-	if want := strings.TrimSpace(row.Token); want != "" {
-		if !constantTimeEqual(gotToken, want) {
-			return nil, errorx.NewUnauthorized("webhook token 不匹配")
-		}
+	// fail-closed：token 未配置 = 拒绝投递，不再退化为开放端点
+	want := strings.TrimSpace(row.Token)
+	if want == "" {
+		return nil, errorx.NewUnauthorized("integration 未配置 webhook token，拒绝回写")
+	}
+	if !constantTimeEqual(gotToken, want) {
+		return nil, errorx.NewUnauthorized("webhook token 不匹配")
 	}
 	status, verr := model.ValidateCicdWebhook(p.Pipeline, p.ExternalID, p.Status)
 	if verr != nil {

@@ -12,6 +12,7 @@ package cicd_test
 // 按房规登记而非造假用例。
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -42,10 +43,25 @@ func seedRowIntegration(t *testing.T, db *gorm.DB, kind, endpoint string, extra 
 	row := &model.CicdIntegration{
 		GameID: "demo", Env: "prod", Kind: kind, Name: "seeded-" + kind,
 		Endpoint: endpoint, Extra: extra, Enabled: true,
+		// fail-closed（AUD-COV-001 P1）后回写必须带凭据：种子行固定 token，
+		// 请求经 doWebhook 附带 X-CICD-Token。
+		Token: "hook-secret",
 	}
 	require.NoError(t, db.Create(row).Error)
 	require.NotZero(t, row.ID)
 	return row.ID
+}
+
+// doWebhook doCicd 的回写专用变体：附带与 seedRowIntegration 匹配的 token 头。
+func doWebhook(r http.Handler, target, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, target, bytes.NewBufferString(body))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("X-CICD-Token", "hook-secret")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
 }
 
 // newWebhookRouter 复刻 registerCicdWebhookRoute。
@@ -411,7 +427,7 @@ func TestCicdWebhook_PathBindAndStoreErrors(t *testing.T) {
 
 	// 正常投递：extra 原样进 raw，scope 从接入行回落
 	id := seedRowIntegration(t, db, "generic", "http://ci.internal", nil)
-	w = doCicd(r, http.MethodPost, "/cicd/webhooks/"+itoa(id),
+	w = doWebhook(r, "/cicd/webhooks/"+itoa(id),
 		`{"pipeline":"","externalId":"e-9","status":"passed","gameId":"demo","extra":{"k":"v"}}`)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"pipeline":"default"`, "空 pipeline 回落 default")
@@ -423,7 +439,7 @@ func TestCicdWebhook_PathBindAndStoreErrors(t *testing.T) {
 
 	// 构建表缺失 → 落库失败 500
 	require.NoError(t, db.Migrator().DropTable(&model.CicdBuild{}))
-	w = doCicd(r, http.MethodPost, "/cicd/webhooks/"+itoa(id),
+	w = doWebhook(r, "/cicd/webhooks/"+itoa(id),
 		`{"pipeline":"p","externalId":"e-10","status":"passed"}`)
 	assert.Equal(t, http.StatusInternalServerError, w.Code, w.Body.String())
 }
@@ -467,7 +483,7 @@ func TestCicdWebhook_GetByIDAfterUpsertBranchUnreachable(t *testing.T) {
 	id := seedRowIntegration(t, db, "generic", "http://ci.internal", nil)
 
 	// 正常形态：upsert 成功后必定读得回（该分支的可达形态已被此断言锁死）
-	w := doCicd(r, http.MethodPost, "/cicd/webhooks/"+itoa(id),
+	w := doWebhook(r, "/cicd/webhooks/"+itoa(id),
 		`{"pipeline":"p","externalId":"e-1","status":"passed"}`)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"externalId":"e-1"`)

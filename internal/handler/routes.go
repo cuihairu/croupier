@@ -45,7 +45,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerOpenAPIReadRoutes(v1, serverCtx)
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
-	registerCicdWebhookRoute(v1, serverCtx)    // 外部 CI 构建状态回写（公开端点，令牌校验在 handler）
+	registerCicdWebhookRoute(v1, serverCtx)    // 外部 CI 构建状态回写（公开端点，integration token 必配，fail-closed）
 	registerAlertInboundRoute(v1, serverCtx)   // 第三方告警推入（公开端点，HMAC 签名校验在 handler）
 	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
 	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {

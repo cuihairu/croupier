@@ -464,7 +464,7 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	req3.Header.Set("X-CICD-Token", "full-secret")
 	r3.ServeHTTP(w3, req3)
 	assert.Equal(t, http.StatusBadRequest, w3.Code)
-	// 无令牌接入 → 开放端点测试
+	// 无令牌接入 → fail-closed（AUD-COV-001 P1：未配置 token 一律拒绝投递）
 	created2, _ := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "generic", Name: "no-token-e2e",
 		Endpoint: "http://ci.internal",
@@ -476,7 +476,7 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	body4 := `{"externalId":"b-4","status":"passed","version":"1.0.0"}`
 	req4 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/"+strconv.FormatUint(uint64(created2.Integration.ID), 10), strings.NewReader(body4))
 	req4.Header.Set("Content-Type", "application/json")
-	// 未配置 token 的接入为开放端点
+	// 未配置 token 的接入拒绝回写（fail-closed）
 	r4.ServeHTTP(w4, req4)
-	assert.Equal(t, http.StatusOK, w4.Code)
+	assert.Equal(t, http.StatusUnauthorized, w4.Code)
 }
