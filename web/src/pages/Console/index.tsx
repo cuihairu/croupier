@@ -375,8 +375,9 @@ export default function ConsoleIndex() {
                 title={
                   <Space wrap size={[8, 8]}>
                     <AppstoreOutlined />
+                    {/* GUX-015：不再并排展示内部 key 代码串；无 title 的菜单按
+                        既有回退逻辑以 key 兜底（getCategoryTitle），只出现一次 */}
                     <span>{getCategoryTitle(category)}</span>
-                    <Typography.Text code>{category.key}</Typography.Text>
                   </Space>
                 }
               >

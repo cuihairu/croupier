@@ -1,8 +1,6 @@
 export default {
   'pages.layouts.userLayout.title':
     'Croupier is a function scheduling and audit platform for game operations',
-  'pages.login.accountLogin.tab': 'Account Login',
-  'pages.login.accountLogin.errorMessage': 'Incorrect username/password(admin/ant.design)',
   'pages.login.failure': 'Login failed, please try again!',
   'pages.login.mustChange.alert':
     'This account must change its password right after login (flagged by an administrator, or the password has expired). Sign in again with the new password once it is changed.',
@@ -38,7 +36,7 @@ export default {
     'This account has two-step verification enabled. Enter your verification code or a recovery code',
   'pages.login.success': 'Login successful!',
   'pages.login.mfaSetupRequired': 'Two-factor auth is required by policy. Bind TOTP first.',
-  'pages.login.username.placeholder': 'Username: admin or user',
+  'pages.login.username.placeholder': 'Username',
   'pages.login.username.required': 'Please input your username!',
   'pages.login.password.placeholder': 'Password',
   'pages.login.password.required': 'Please input your password!',

@@ -23,7 +23,6 @@ export default {
   'pages.functionsDirectory.batch.versionPlaceholder': 'Select a historical version',
   'pages.functionsDirectory.button.testInvoke': 'Test Invocation',
   'pages.functionsDirectory.button.viewResourceCandidates': 'View Resource/Page Candidates',
-  'pages.functionsDirectory.button.viewResources': 'View Resources',
   'pages.functionsDirectory.checklist.description':
     'Focus on whether the function is enabled, whether callable instances exist, whether resource and operation declarations are clear, and whether the schemas are sufficient for later PageSpec composition.',
   'pages.functionsDirectory.checklist.item.contract': 'Resource & operation contracts',
@@ -63,6 +62,7 @@ export default {
   'pages.functionsDirectory.floorSelect.empty': 'No version history',
   'pages.functionsDirectory.floorSelect.placeholder': 'Not set',
   'pages.functionsDirectory.floorSelect.saved': 'Version floor updated',
+  'pages.functionsDirectory.help.header': 'Usage guide & common misconceptions',
   'pages.functionsDirectory.intro.description':
     'The function directory owns descriptors, parameter forms, instance overrides, and invocation validation. It does not decide menus, page categories, tables, pagination, or multi-function composition. Once a page is published, its menu comes only from PublishedPageSpec.',
   'pages.functionsDirectory.intro.title':
@@ -96,8 +96,6 @@ export default {
   'pages.functionsDirectory.suggestedAction.title': 'Suggested Action',
   'pages.functionsDirectory.summary.description':
     'This is the capability supply layer. Function registration is not responsible for page display; page composition happens only in PageSpec/Page Studio.',
-  'pages.functionsDirectory.summary.hint':
-    'The function layer supplies capabilities, Page Studio assembles them, and the runtime console renders only published PageSpecs.',
   'pages.functionsDirectory.summary.item.disabled': 'Disabled {count}',
   'pages.functionsDirectory.summary.item.enabled': 'Enabled {count}',
   'pages.functionsDirectory.summary.item.resources': 'Resources {count}',

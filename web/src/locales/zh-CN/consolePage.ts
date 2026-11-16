@@ -1,7 +1,7 @@
 // Console 工作台（避开保留字 console）
 export default {
   'pages.console.home.description':
-    '运行控制台的导航由菜单管理（menu_items）驱动：菜单节点分组展示，挂载到菜单且已发布的页面才会出现在这里。',
+    '运行控制台的导航由菜单管理驱动：菜单节点分组展示，挂载到菜单且已发布的页面才会出现在这里。',
   'pages.console.home.empty.backHome': '返回控制台首页',
   'pages.console.home.empty.category': '该菜单下暂无页面',
   'pages.console.home.empty.contactAdmin': '如需启用页面，请联系管理员。',

@@ -69,10 +69,10 @@ const msgApi = () => ({
 });
 
 const fillLoginAndSubmit = async (username: string, password: string) => {
-  fireEvent.change(await screen.findByPlaceholderText('用户名: admin or user'), {
+  fireEvent.change(await screen.findByPlaceholderText('用户名'), {
     target: { value: username },
   });
-  fireEvent.change(screen.getByPlaceholderText('密码: admin'), {
+  fireEvent.change(screen.getByPlaceholderText('密码'), {
     target: { value: password },
   });
   fireEvent.click(screen.getByRole('button', { name: /登\s*录/ }));

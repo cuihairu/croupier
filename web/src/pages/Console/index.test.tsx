@@ -239,7 +239,9 @@ describe('Console/index 运行控制台首页', () => {
 
     // 分类标题：LocalizedText 精确命中 / title 缺失回退 key / 字符串 title / 无当前 locale 回退
     expect(screen.getByText('分类甲')).toBeInTheDocument();
-    expect(screen.getAllByText('catB').length).toBeGreaterThan(0);
+    // GUX-015：分类卡不再并排展示内部 key 代码串；catB（无 title）仅经
+    // getCategoryTitle 的 key 兜底出现一次
+    expect(screen.getAllByText('catB').length).toBe(1);
     expect(screen.getByText('字符串分类')).toBeInTheDocument();
     expect(screen.getByText('Ops')).toBeInTheDocument();
 

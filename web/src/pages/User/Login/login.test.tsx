@@ -171,13 +171,13 @@ describe('Login Page', () => {
 
     await rootContainer.findAllByText(BRAND.title);
 
-    const userNameInput = await rootContainer.findByPlaceholderText('用户名: admin or user');
+    const userNameInput = await rootContainer.findByPlaceholderText('用户名');
 
     act(() => {
       fireEvent.change(userNameInput, { target: { value: 'admin' } });
     });
 
-    const passwordInput = await rootContainer.findByPlaceholderText('密码: admin');
+    const passwordInput = await rootContainer.findByPlaceholderText('密码');
 
     act(() => {
       fireEvent.change(passwordInput, { target: { value: 'ant.design' } });
@@ -206,10 +206,10 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     ({ success: jest.fn(), error: jest.fn(), info: jest.fn() }) as unknown as MessageInstance;
 
   const fillAndSubmit = async (username: string, password: string, totp?: string) => {
-    fireEvent.change(await screen.findByPlaceholderText('用户名: admin or user'), {
+    fireEvent.change(await screen.findByPlaceholderText('用户名'), {
       target: { value: username },
     });
-    fireEvent.change(screen.getByPlaceholderText('密码: admin'), { target: { value: password } });
+    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: password } });
     if (totp !== undefined) {
       fireEvent.change(screen.getByPlaceholderText('动态验证码或备用恢复码'), {
         target: { value: totp },
@@ -532,7 +532,7 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     mockedProviders.mockRejectedValueOnce(new Error('net'));
 
     render(<Login />);
-    await screen.findByPlaceholderText('用户名: admin or user');
+    await screen.findByPlaceholderText('用户名');
     expect(screen.queryByText(/支持域账号：/)).toBeNull();
     expect(screen.queryByRole('button', { name: /SSO\s*登录/ })).toBeNull();
   });
@@ -566,7 +566,7 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     });
 
     const { container } = render(<Login />);
-    await screen.findByPlaceholderText('用户名: admin or user');
+    await screen.findByPlaceholderText('用户名');
     expect(container.querySelector('[data-lang]')).toBeTruthy();
   });
 });

@@ -1,7 +1,7 @@
 // Console 工作台（避开保留字 console）
 export default {
   'pages.console.home.description':
-    'The Runtime Console navigation is driven by Menu Management (menu_items): menu nodes group the view, and only pages mounted to a menu and published appear here.',
+    'The Runtime Console navigation is driven by Menu Management: menu nodes group the view, and only pages mounted to a menu and published appear here.',
   'pages.console.home.empty.backHome': 'Back to console home',
   'pages.console.home.empty.category': 'No pages in this menu yet',
   'pages.console.home.empty.contactAdmin': 'Contact an administrator to publish pages.',

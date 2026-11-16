@@ -80,8 +80,8 @@ describe('Login 账密表单门控（OPEN-ISSUES #51a）', () => {
     expect(screen.getByText('其他登录方式')).toBeInTheDocument();
     expect(screen.getByText('GitHub 登录')).toBeInTheDocument();
     // 账密输入隐藏（autoLogin 记住我复选框同域隐藏）
-    expect(screen.queryByPlaceholderText('用户名: admin or user')).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('密码: admin')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('用户名')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('密码')).not.toBeInTheDocument();
     expect(screen.queryByText('自动登录')).not.toBeInTheDocument();
     // 停用态不渲染 LDAP 级联提示
     expect(screen.queryByText(/支持域账号/)).not.toBeInTheDocument();
@@ -97,8 +97,8 @@ describe('Login 账密表单门控（OPEN-ISSUES #51a）', () => {
     });
     renderLogin();
 
-    expect(await screen.findByPlaceholderText('用户名: admin or user')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('密码: admin')).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText('用户名')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('密码')).toBeInTheDocument();
     expect(screen.queryByText('账号密码登录已停用，请使用其他登录方式')).not.toBeInTheDocument();
     // 无任何 SSO 入口（ldap 不走 actions）
     expect(screen.queryByText('其他登录方式')).not.toBeInTheDocument();
@@ -108,7 +108,7 @@ describe('Login 账密表单门控（OPEN-ISSUES #51a）', () => {
     mProviders.mockRejectedValue(new Error('network down'));
     renderLogin();
 
-    expect(await screen.findByPlaceholderText('用户名: admin or user')).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText('用户名')).toBeInTheDocument();
     expect(screen.queryByText('账号密码登录已停用，请使用其他登录方式')).not.toBeInTheDocument();
   });
 
@@ -122,7 +122,7 @@ describe('Login 账密表单门控（OPEN-ISSUES #51a）', () => {
     });
     renderLogin();
 
-    expect(await screen.findByPlaceholderText('用户名: admin or user')).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText('用户名')).toBeInTheDocument();
     expect(screen.queryByText('其他登录方式')).not.toBeInTheDocument();
     expect(screen.queryByText('GitHub 登录')).not.toBeInTheDocument();
   });

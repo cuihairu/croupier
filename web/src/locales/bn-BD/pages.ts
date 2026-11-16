@@ -1,13 +1,11 @@
 export default {
   'pages.layouts.userLayout.title':
     'পিঁপড়া ডিজাইন হচ্ছে সিহু জেলার সবচেয়ে প্রভাবশালী ওয়েব ডিজাইনের স্পেসিফিকেশন',
-  'pages.login.accountLogin.tab': 'অ্যাকাউন্টে লগইন',
-  'pages.login.accountLogin.errorMessage': 'ভুল ব্যবহারকারীর নাম/পাসওয়ার্ড(admin/ant.design)',
   'pages.login.failure': 'লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন!',
   'pages.login.success': 'সফল লগইন!',
-  'pages.login.username.placeholder': 'ব্যবহারকারীর নাম: admin or user',
+  'pages.login.username.placeholder': 'ব্যবহারকারীর নাম',
   'pages.login.username.required': 'আপনার ব্যবহারকারীর নাম ইনপুট করুন!',
-  'pages.login.password.placeholder': 'পাসওয়ার্ড: ant.design',
+  'pages.login.password.placeholder': 'পাসওয়ার্ড',
   'pages.login.password.required': 'আপনার পাসওয়ার্ড ইনপুট করুন!',
   'pages.login.phoneLogin.tab': 'ফোন লগইন',
   'pages.login.phoneLogin.errorMessage': 'যাচাইকরণ কোড ত্রুটি',

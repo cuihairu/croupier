@@ -23,7 +23,6 @@ export default {
   'pages.functionsDirectory.batch.versionPlaceholder': '选择历史版本',
   'pages.functionsDirectory.button.testInvoke': '测试调用',
   'pages.functionsDirectory.button.viewResourceCandidates': '查看资源/页面候选',
-  'pages.functionsDirectory.button.viewResources': '查看资源',
   'pages.functionsDirectory.checklist.description':
     '重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够 schema 支撑后续 PageSpec 编排。',
   'pages.functionsDirectory.checklist.item.contract': '资源与操作契约',
@@ -60,6 +59,7 @@ export default {
   'pages.functionsDirectory.floorSelect.empty': '暂无历史版本',
   'pages.functionsDirectory.floorSelect.placeholder': '未设置',
   'pages.functionsDirectory.floorSelect.saved': '版本门槛已更新',
+  'pages.functionsDirectory.help.header': '使用说明与常见误解',
   'pages.functionsDirectory.intro.description':
     '函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。',
   'pages.functionsDirectory.intro.title': '先确认函数能力，再进入 Page Studio 编排页面',
@@ -91,8 +91,6 @@ export default {
   'pages.functionsDirectory.suggestedAction.title': '当前建议动作',
   'pages.functionsDirectory.summary.description':
     '这里是能力供给层。函数注册不负责页面显示，页面编排只在 PageSpec/Page Studio 中完成。',
-  'pages.functionsDirectory.summary.hint':
-    '函数层负责供给，Page Studio 负责装配，运行控制台只展示已发布 PageSpec。',
   'pages.functionsDirectory.summary.item.disabled': '禁用 {count}',
   'pages.functionsDirectory.summary.item.enabled': '启用 {count}',
   'pages.functionsDirectory.summary.item.resources': '资源 {count}',

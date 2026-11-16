@@ -80,9 +80,9 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-17）。全部菜单无页面时合并为一张空态卡（区分「暂无已发布页面 / 页面尚未挂载 {count}」）；categoryKey 未命中改「菜单不存在或未发布」+返回首页（不再误标为无页面且暴露 key）；无权限/加载失败既有分支用例锁定；下一步按角色（canPageRead → 页面工作台/菜单管理按钮；运营角色 → 联系管理员，无越权入口）。逐菜单占位仅在部分菜单有页面时保留。
   - 完成证据：`docs/review/evidence/2026-11-17/gux-014.md`
 
-- [ ] **GUX-015 · P2 · 实现 · 说明与文案收敛**
+- [x] **GUX-015 · P2 · 实现 · 说明与文案收敛**
   - 依赖：GUX-001, GUX-002。交付与验收：将目录及页面工作台的重复引导移至按需帮助或首次引导；移除登录模板占位符及内部术语的误导展示。
-  - 状态／条件：待办（2026-11-17 结构化入账，来源同 GUX-001）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。函数目录首屏引导（hero 卡 + 双引导子卡 + 双常驻 Alert）收敛为一张默认折叠的「使用说明与常见误解」Collapse（按钮全保留，同目标「查看资源」去重），数据标签行与 SummaryOverview 保留；PageWorkflowGuide 整卡 Steps+Alert 折叠为默认收起条；登录占位符 8 locale 去模板名（含组件 defaultMessage 与 5 个测试 locator 同步）；死键清理 accountLogin.{tab,errorMessage} ×8 locale、app.welcome.link.* ×6 locale（GUX-003 遗留）；控制台分类卡 category.key 代码串移除、概览说明去（menu_items）括注。完成证据：docs/review/evidence/2026-11-17/gux-015.md（tsc 0；全量 jest 466 suites/5480 tests 全绿 load=3；go internal rc=0；guard PASSED）。
 
 - [ ] **GUX-016 · P2 · 设计 · 视觉与交互规范**
   - 依赖：GUX-001, GUX-002。交付与验收：定义标题、间距、表格、表单、抽屉、语义色及全部交互状态；覆盖明暗主题、中文英文和键盘焦点。
