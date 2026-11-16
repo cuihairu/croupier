@@ -58,6 +58,10 @@ services:
       context: ../sdks/go
       dockerfile: ../docker/Dockerfile.demo-game
     image: croupier-demo-game:local
+    # 镜像带 ENTRYPOINT [/app/demo-game]（compose 的 command 是完整命令行，
+    # 含二进制路径）；不清空 entrypoint 会出现「路径 + flags」双重前缀，
+    # flag.Parse 在首个非 flag 参数处停止、所有 flag 落默认。
+    entrypoint: []
     command:
       [
         "/app/demo-game",
@@ -82,11 +86,10 @@ services:
       demo-agent:
         condition: service_healthy
     healthcheck:
+      # exec 形式：runtime 镜像是 distroless，无 /bin/sh，CMD-SHELL 会判
+      # unhealthy（wget 由 busybox --install 提供）。
       test:
-        [
-          "CMD-SHELL",
-          "wget -qO- http://127.0.0.1:8090/healthz >/dev/null 2>&1 || exit 1",
-        ]
+        ["CMD", "wget", "-q", "-O-", "-T", "3", "http://127.0.0.1:8090/healthz"]
       interval: 10s
       timeout: 5s
       retries: 12
