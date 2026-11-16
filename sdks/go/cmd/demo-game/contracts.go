@@ -150,11 +150,19 @@ func validateDescriptor(desc croupier.FunctionDescriptor) error {
 	if strings.TrimSpace(desc.Capability) == "" {
 		return fmt.Errorf("demo-game descriptor %s is missing capability", desc.ID)
 	}
-	if strings.TrimSpace(desc.InputSchema) == "" || !json.Valid([]byte(desc.InputSchema)) {
-		return fmt.Errorf("demo-game descriptor %s has invalid input schema", desc.ID)
+	if err := validObjectSchema(desc.ID, "input", desc.InputSchema); err != nil {
+		return err
 	}
-	if strings.TrimSpace(desc.OutputSchema) == "" || !json.Valid([]byte(desc.OutputSchema)) {
-		return fmt.Errorf("demo-game descriptor %s has invalid output schema", desc.ID)
+	return validObjectSchema(desc.ID, "output", desc.OutputSchema)
+}
+
+func validObjectSchema(id, kind, schema string) error {
+	if strings.TrimSpace(schema) == "" || !json.Valid([]byte(schema)) {
+		return fmt.Errorf("demo-game descriptor %s has invalid %s schema", id, kind)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(schema), &decoded); err != nil {
+		return fmt.Errorf("demo-game descriptor %s has non-object %s schema", id, kind)
 	}
 	return nil
 }
