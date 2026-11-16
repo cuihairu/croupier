@@ -1,0 +1,854 @@
+{
+  "type": "resource",
+  "resourceKey": "players",
+  "title": {
+    "zh-CN": "玩家管理",
+    "en-US": "Player Management"
+  },
+  "description": {
+    "zh-CN": "玩家列表、详情、封禁、充值与邮件触达",
+    "en-US": "Player list, detail, ban, recharge and mail"
+  },
+  "category": {
+    "key": "players"
+  },
+  "order": 0,
+  "icon": "",
+  "resource": {
+    "listView": {
+      "identityKey": "id",
+      "columns": [
+        {
+          "key": "id",
+          "title": {
+            "zh-CN": "玩家 ID",
+            "en-US": "Player ID"
+          },
+          "dataType": "string",
+          "width": 120,
+          "fixed": "left",
+          "render": "copy",
+          "filterable": true
+        },
+        {
+          "key": "nickname",
+          "title": {
+            "zh-CN": "昵称",
+            "en-US": "Nickname"
+          },
+          "dataType": "string",
+          "filterable": true
+        },
+        {
+          "key": "level",
+          "title": {
+            "zh-CN": "等级",
+            "en-US": "Level"
+          },
+          "dataType": "number",
+          "width": 90,
+          "sortable": true
+        },
+        {
+          "key": "vip",
+          "title": {
+            "zh-CN": "VIP",
+            "en-US": "VIP"
+          },
+          "dataType": "number",
+          "width": 80
+        },
+        {
+          "key": "status",
+          "title": {
+            "zh-CN": "状态",
+            "en-US": "Status"
+          },
+          "dataType": "enum",
+          "width": 100,
+          "filterable": true,
+          "render": "tag",
+          "enum": [
+            {
+              "value": "active",
+              "label": {
+                "zh-CN": "正常",
+                "en-US": "Active"
+              },
+              "color": "green"
+            },
+            {
+              "value": "banned",
+              "label": {
+                "zh-CN": "已封禁",
+                "en-US": "Banned"
+              },
+              "color": "red"
+            }
+          ]
+        },
+        {
+          "key": "balanceGold",
+          "title": {
+            "zh-CN": "金币余额",
+            "en-US": "Gold Balance"
+          },
+          "dataType": "number",
+          "width": 110,
+          "unit": {
+            "zh-CN": "金",
+            "en-US": "gold"
+          }
+        },
+        {
+          "key": "lastLoginAt",
+          "title": {
+            "zh-CN": "最近登录",
+            "en-US": "Last Login"
+          },
+          "dataType": "datetime",
+          "width": 180
+        }
+      ],
+      "pagination": {
+        "enabled": true,
+        "defaultSize": 10,
+        "pageSizes": [
+          10,
+          20,
+          50
+        ]
+      },
+      "rowActions": [
+        {
+          "key": "recharge",
+          "title": {
+            "zh-CN": "充值",
+            "en-US": "Recharge"
+          },
+          "type": "primary",
+          "form": {
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "amount": {
+                  "type": "number",
+                  "title": "充值金额"
+                },
+                "channel": {
+                  "type": "string",
+                  "title": "支付渠道",
+                  "enum": [
+                    "official",
+                    "ios",
+                    "android"
+                  ],
+                  "enumNames": [
+                    "官方",
+                    "iOS",
+                    "Android"
+                  ]
+                }
+              },
+              "required": [
+                "amount"
+              ]
+            },
+            "layout": "vertical"
+          },
+          "bindingId": "action.recharge"
+        },
+        {
+          "key": "mail",
+          "title": {
+            "zh-CN": "邮件",
+            "en-US": "Mail"
+          },
+          "form": {
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "title": "邮件标题"
+                },
+                "content": {
+                  "type": "string",
+                  "title": "邮件内容"
+                }
+              },
+              "required": [
+                "title",
+                "content"
+              ]
+            },
+            "layout": "vertical"
+          },
+          "bindingId": "action.mail"
+        },
+        {
+          "key": "edit",
+          "title": {
+            "zh-CN": "编辑",
+            "en-US": "Edit"
+          },
+          "type": "link",
+          "bindingId": "update"
+        },
+        {
+          "key": "ban",
+          "title": {
+            "zh-CN": "封禁",
+            "en-US": "Ban"
+          },
+          "type": "danger",
+          "form": {
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "title": "封禁原因"
+                },
+                "duration": {
+                  "type": "number",
+                  "title": "封禁时长（小时）"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            },
+            "layout": "vertical"
+          },
+          "bindingId": "action.ban"
+        }
+      ],
+      "batchActions": [
+        {
+          "key": "batchUnban",
+          "title": {
+            "zh-CN": "批量解封",
+            "en-US": "Batch Unban"
+          },
+          "confirm": true,
+          "confirmTitle": {
+            "zh-CN": "批量解封",
+            "en-US": "Batch Unban"
+          },
+          "confirmDescription": {
+            "zh-CN": "确认解封选中的玩家？",
+            "en-US": "Unban the selected players?"
+          },
+          "bindingId": "action.batchUnban"
+        },
+        {
+          "key": "action.batchRecharge",
+          "title": {
+            "zh-CN": "批量充值",
+            "en-US": "Batch Recharge"
+          },
+          "type": "primary",
+          "confirm": true,
+          "confirmTitle": {
+            "zh-CN": "核对批量充值",
+            "en-US": "Confirm Batch Recharge"
+          },
+          "confirmDescription": {
+            "zh-CN": "确认按每人数量为选中玩家充值？",
+            "en-US": "Recharge each selected player by this amount?"
+          },
+          "form": {
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "amount": {
+                  "type": "integer",
+                  "title": "每人数量（金）",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "amount"
+              ]
+            },
+            "fields": [
+              {
+                "key": "amount",
+                "label": {
+                  "zh-CN": "每人数量",
+                  "en-US": "Per-target amount"
+                },
+                "role": "amount",
+                "unit": {
+                  "zh-CN": "金",
+                  "en-US": "gold"
+                },
+                "perTarget": true
+              }
+            ],
+            "layout": "vertical"
+          },
+          "bindingId": "action.batchRecharge"
+        },
+        {
+          "key": "batchBan",
+          "title": {
+            "zh-CN": "批量封禁",
+            "en-US": "Batch Ban"
+          },
+          "type": "danger",
+          "confirm": true,
+          "confirmTitle": {
+            "zh-CN": "批量封禁",
+            "en-US": "Batch Ban"
+          },
+          "confirmDescription": {
+            "zh-CN": "确认封禁选中的玩家？",
+            "en-US": "Ban the selected players?"
+          },
+          "bindingId": "action.batchBan"
+        }
+      ]
+    },
+    "detailView": {
+      "layout": "horizontal",
+      "fields": [
+        {
+          "key": "id",
+          "title": {
+            "zh-CN": "玩家 ID",
+            "en-US": "Player ID"
+          },
+          "dataType": "string"
+        },
+        {
+          "key": "nickname",
+          "title": {
+            "zh-CN": "昵称",
+            "en-US": "Nickname"
+          },
+          "dataType": "string"
+        },
+        {
+          "key": "level",
+          "title": {
+            "zh-CN": "等级",
+            "en-US": "Level"
+          },
+          "dataType": "number"
+        },
+        {
+          "key": "vip",
+          "title": {
+            "zh-CN": "VIP",
+            "en-US": "VIP"
+          },
+          "dataType": "number"
+        },
+        {
+          "key": "status",
+          "title": {
+            "zh-CN": "状态",
+            "en-US": "Status"
+          },
+          "dataType": "string"
+        },
+        {
+          "key": "balanceGold",
+          "title": {
+            "zh-CN": "金币余额（金）",
+            "en-US": "Gold Balance (Gold)"
+          },
+          "dataType": "number"
+        },
+        {
+          "key": "lastLoginAt",
+          "title": {
+            "zh-CN": "最近登录",
+            "en-US": "Last Login"
+          },
+          "dataType": "datetime"
+        },
+        {
+          "key": "createdAt",
+          "title": {
+            "zh-CN": "注册时间",
+            "en-US": "Created At"
+          },
+          "dataType": "datetime"
+        }
+      ]
+    },
+    "createForm": {
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "title": "昵称"
+          },
+          "level": {
+            "type": "integer",
+            "title": "等级"
+          },
+          "vip": {
+            "type": "integer",
+            "title": "VIP 等级"
+          }
+        },
+        "required": [
+          "nickname"
+        ]
+      },
+      "layout": "vertical"
+    },
+    "updateForm": {
+      "jsonSchema": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "title": "昵称"
+          },
+          "level": {
+            "type": "integer",
+            "title": "等级"
+          },
+          "vip": {
+            "type": "integer",
+            "title": "VIP 等级"
+          }
+        },
+        "required": [
+          "nickname"
+        ]
+      },
+      "layout": "vertical"
+    },
+    "deleteAction": {
+      "title": {
+        "zh-CN": "删除玩家",
+        "en-US": "Delete Player"
+      },
+      "description": {
+        "zh-CN": "删除后不可恢复，确认删除该玩家？",
+        "en-US": "This cannot be undone. Delete this player?"
+      },
+      "confirmText": {
+        "zh-CN": "确认删除",
+        "en-US": "Delete"
+      },
+      "cancelText": {
+        "zh-CN": "取消",
+        "en-US": "Cancel"
+      },
+      "bindingId": "delete",
+      "risk": "high"
+    }
+  },
+  "bindings": [
+    {
+      "id": "list",
+      "functionId": "player.list",
+      "usage": "query",
+      "selectors": {
+        "input": {
+          "assignments": []
+        },
+        "output": [
+          {
+            "stateKey": "items",
+            "source": "/items",
+            "shape": "collection"
+          },
+          {
+            "stateKey": "total",
+            "source": "/total",
+            "shape": "scalar"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync"
+      }
+    },
+    {
+      "id": "detail",
+      "functionId": "player.get",
+      "usage": "detail",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/id",
+              "source": {
+                "kind": "row",
+                "path": "/id"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "detail",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync"
+      }
+    },
+    {
+      "id": "create",
+      "functionId": "player.create",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/nickname",
+              "source": {
+                "kind": "form",
+                "path": "/nickname"
+              }
+            },
+            {
+              "target": "/level",
+              "source": {
+                "kind": "form",
+                "path": "/level"
+              }
+            },
+            {
+              "target": "/vip",
+              "source": {
+                "kind": "form",
+                "path": "/vip"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync"
+      }
+    },
+    {
+      "id": "update",
+      "functionId": "player.update",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/id",
+              "source": {
+                "kind": "row",
+                "path": "/id"
+              }
+            },
+            {
+              "target": "/nickname",
+              "source": {
+                "kind": "form",
+                "path": "/nickname"
+              }
+            },
+            {
+              "target": "/level",
+              "source": {
+                "kind": "form",
+                "path": "/level"
+              }
+            },
+            {
+              "target": "/vip",
+              "source": {
+                "kind": "form",
+                "path": "/vip"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync"
+      }
+    },
+    {
+      "id": "delete",
+      "functionId": "player.delete",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/id",
+              "source": {
+                "kind": "row",
+                "path": "/id"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync"
+      }
+    },
+    {
+      "id": "action.ban",
+      "functionId": "player.ban",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/playerId",
+              "source": {
+                "kind": "row",
+                "path": "/id"
+              }
+            },
+            {
+              "target": "/reason",
+              "source": {
+                "kind": "form",
+                "path": "/reason"
+              }
+            },
+            {
+              "target": "/duration",
+              "source": {
+                "kind": "form",
+                "path": "/duration"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync"
+      }
+    },
+    {
+      "id": "action.recharge",
+      "functionId": "player.recharge",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/playerId",
+              "source": {
+                "kind": "row",
+                "path": "/id"
+              }
+            },
+            {
+              "target": "/amount",
+              "source": {
+                "kind": "form",
+                "path": "/amount"
+              }
+            },
+            {
+              "target": "/channel",
+              "source": {
+                "kind": "form",
+                "path": "/channel"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync",
+        "requireConfirm": false
+      }
+    },
+    {
+      "id": "action.mail",
+      "functionId": "player.mail",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/playerId",
+              "source": {
+                "kind": "row",
+                "path": "/id"
+              }
+            },
+            {
+              "target": "/title",
+              "source": {
+                "kind": "form",
+                "path": "/title"
+              }
+            },
+            {
+              "target": "/content",
+              "source": {
+                "kind": "form",
+                "path": "/content"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync"
+      }
+    },
+    {
+      "id": "action.batchBan",
+      "functionId": "player.batchban",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/playerIds",
+              "source": {
+                "kind": "selection",
+                "path": "/id",
+                "transform": {
+                  "type": "pick"
+                }
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync",
+        "requireConfirm": true
+      }
+    },
+    {
+      "id": "action.batchUnban",
+      "functionId": "player.batchunban",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/playerIds",
+              "source": {
+                "kind": "selection",
+                "path": "/id",
+                "transform": {
+                  "type": "pick"
+                }
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync",
+        "requireConfirm": true
+      }
+    },
+    {
+      "id": "action.batchRecharge",
+      "functionId": "player.batchrecharge",
+      "usage": "action",
+      "selectors": {
+        "input": {
+          "assignments": [
+            {
+              "target": "/playerIds",
+              "source": {
+                "kind": "selection",
+                "path": "/id",
+                "transform": {
+                  "type": "pick"
+                }
+              }
+            },
+            {
+              "target": "/amount",
+              "source": {
+                "kind": "form",
+                "path": "/amount"
+              }
+            }
+          ]
+        },
+        "output": [
+          {
+            "stateKey": "result",
+            "source": "",
+            "shape": "object"
+          }
+        ]
+      },
+      "execution": {
+        "mode": "sync",
+        "requireConfirm": true
+      }
+    }
+  ]
+}

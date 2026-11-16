@@ -1,0 +1,54 @@
+# Demo-game E2E agent (scripts/e2e/demo-game.sh). Same shape as
+# configs/agent.demo.yaml but pointed at a local stack: the server control
+# port is 127.0.0.1:19090 (no HAProxy) and the SDK gateway listens on
+# localhost only so the E2E demo-game process can dial it.
+#
+# scope MUST match the demo-game process flags (-game-id/-env): the server
+# validates gameId+env on provider registration.
+name: croupier-demo-agent-e2e
+host: 127.0.0.1
+port: 19091
+
+server:
+  addr: "127.0.0.1:19090"
+  insecure: true
+  serverName: ""
+  insecureSkipVerify: false
+
+agent:
+  id: "demo-agent-e2e"
+  gameId: "demo-game"
+  env: "demo"
+  localAddr: "127.0.0.1:19091"
+  httpAddr: "127.0.0.1:19091"
+  labels:
+    role: "demo-game-e2e"
+
+upstream:
+  heartbeatInterval: 10
+  retryInterval: 2
+  maxRetries: 30
+  timeout: 10000
+
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  insecureSkipVerify: false
+
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
+
+ops:
+  enabled: false
+  allowRestart: false
+  allowExec: false
+  allowUpdate: false
+  metricsInterval: 30s
+  metricsEnabled: false
