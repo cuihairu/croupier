@@ -12,9 +12,11 @@ import { AppstoreOutlined, CheckCircleOutlined, FolderOutlined } from '@ant-desi
 import { getConsoleMenu, listPublishedPages } from '@/services/console';
 import type { ConsoleMenuItem, ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import ConsoleWorkbench from './Workbench';
 
 type ConsoleAccess = {
   canConsoleRead?: boolean;
+  canPageRead?: boolean;
 };
 
 // findMenuItem 在菜单树中递归查找指定 key 的节点（菜单可任意层级嵌套）。
@@ -28,6 +30,84 @@ const findMenuItem = (items: ConsoleMenuItem[], key: string): ConsoleMenuItem | 
   }
   return undefined;
 };
+
+/** 合并空态（GUX-014）：所有可见菜单都无页面时，用一张卡替代逐菜单的
+ * 重复「该菜单下暂无页面」占位，并区分「无已发布页面 / 页面未挂载到菜单」。
+ * 下一步按角色给出：canPageRead → 页面工作台/菜单管理入口；运营角色 →
+ * 联系管理员提示，不给越权跳转。 */
+function ConsoleEmptyState({
+  pages,
+  canManage,
+}: {
+  pages: PublishedPageSpec[];
+  canManage: boolean;
+}) {
+  const mounted = pages.length > 0;
+  return (
+    <Card data-testid="console-empty-state">
+      <Empty
+        description={
+          mounted ? (
+            <FormattedMessage
+              id="pages.console.home.empty.notMounted"
+              defaultMessage="页面尚未挂载到菜单"
+            />
+          ) : (
+            <FormattedMessage
+              id="pages.console.home.empty.noPages"
+              defaultMessage="暂无已发布页面"
+            />
+          )
+        }
+      >
+        <Space orientation="vertical" size={8}>
+          <Typography.Text type="secondary">
+            {mounted ? (
+              <FormattedMessage
+                id="pages.console.home.empty.notMountedHint"
+                defaultMessage="已发布 {count} 个页面，但还没有挂载到任何菜单；挂载后会显示在这里。"
+                values={{ count: pages.length }}
+              />
+            ) : (
+              <FormattedMessage
+                id="pages.console.home.empty.noPagesHint"
+                defaultMessage="菜单结构已就绪。页面在页面工作台发布并挂载到菜单后，会显示在这里。"
+              />
+            )}
+          </Typography.Text>
+          {canManage ? (
+            <Space wrap size={[8, 8]}>
+              {!mounted && (
+                <Button type="primary" onClick={() => history.push('/functions/pages')}>
+                  <FormattedMessage
+                    id="pages.console.home.empty.goPages"
+                    defaultMessage="去页面工作台"
+                  />
+                </Button>
+              )}
+              <Button
+                type={mounted ? 'primary' : 'default'}
+                onClick={() => history.push('/functions/menus')}
+              >
+                <FormattedMessage
+                  id="pages.console.home.empty.goMenus"
+                  defaultMessage="去菜单管理"
+                />
+              </Button>
+            </Space>
+          ) : (
+            <Typography.Text type="secondary">
+              <FormattedMessage
+                id="pages.console.home.empty.contactAdmin"
+                defaultMessage="如需启用页面，请联系管理员。"
+              />
+            </Typography.Text>
+          )}
+        </Space>
+      </Empty>
+    </Card>
+  );
+}
 
 export default function ConsoleIndex() {
   const access = useAccess() as ConsoleAccess;
@@ -99,6 +179,11 @@ export default function ConsoleIndex() {
     pages.forEach((page) => next.set(page.pageKey, page));
     return next;
   }, [pages]);
+  // GUX-014：可见菜单全部无页面时合并为一张空态卡（分类视图命中空菜单同样适用；
+  // categoryKey 未命中时 visibleCategories 为空，走下方「菜单不存在」分支）
+  const allVisibleEmpty =
+    visibleCategories.length > 0 &&
+    visibleCategories.every((category) => (category.children?.length || 0) === 0);
 
   const renderPageCard = (item: ConsoleMenuItem) => {
     const page = pagesByKey.get(item.key);
@@ -239,6 +324,10 @@ export default function ConsoleIndex() {
 
   return (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      {/* 运营工作台（GUX-003）：只在首页展示待办/异常/最近处理/常用入口；
+          分类页（categoryKey）保持纯页面导航 */}
+      {!categoryKey && <ConsoleWorkbench pages={pages} />}
+
       {/* 概览信息 */}
       <Card>
         <Space orientation="vertical" size={8}>
@@ -275,46 +364,69 @@ export default function ConsoleIndex() {
 
       {/* 分类列表 */}
       {menu?.items && menu.items.length > 0 ? (
-        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-          {visibleCategories.map((category) => (
-            <Card
-              key={category.key}
-              title={
-                <Space wrap size={[8, 8]}>
-                  <AppstoreOutlined />
-                  <span>{getCategoryTitle(category)}</span>
-                  <Typography.Text code>{category.key}</Typography.Text>
-                </Space>
-              }
-            >
-              {category.children && category.children.length > 0 ? (
-                <Space wrap size={[12, 12]}>
-                  {category.children.map(renderPageCard)}
-                </Space>
-              ) : (
-                <Typography.Text type="secondary">
-                  <FormattedMessage
-                    id="pages.console.home.empty.category"
-                    defaultMessage="该菜单下暂无页面"
-                  />
-                </Typography.Text>
-              )}
-            </Card>
-          ))}
-          {categoryKey && visibleCategories.length === 0 ? (
-            <Card>
-              <Empty
-                description={intl.formatMessage(
-                  {
-                    id: 'pages.console.home.empty.categoryKey',
-                    defaultMessage: '菜单 "{categoryKey}" 下暂无已发布页面',
-                  },
-                  { categoryKey },
+        allVisibleEmpty ? (
+          // GUX-014：全部可见菜单都无页面 → 一张合并空态卡（区分无发布页/未挂载）
+          <ConsoleEmptyState pages={pages} canManage={Boolean(access.canPageRead)} />
+        ) : (
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+            {visibleCategories.map((category) => (
+              <Card
+                key={category.key}
+                title={
+                  <Space wrap size={[8, 8]}>
+                    <AppstoreOutlined />
+                    {/* GUX-015：不再并排展示内部 key 代码串；无 title 的菜单按
+                        既有回退逻辑以 key 兜底（getCategoryTitle），只出现一次 */}
+                    <span>{getCategoryTitle(category)}</span>
+                  </Space>
+                }
+              >
+                {category.children && category.children.length > 0 ? (
+                  <Space wrap size={[12, 12]}>
+                    {category.children.map(renderPageCard)}
+                  </Space>
+                ) : (
+                  // 部分菜单有页面时保留逐菜单占位（此时占位是菜单存在性的信息，
+                  // 不构成整屏重复空卡）
+                  <Typography.Text type="secondary">
+                    <FormattedMessage
+                      id="pages.console.home.empty.category"
+                      defaultMessage="该菜单下暂无页面"
+                    />
+                  </Typography.Text>
                 )}
-              />
-            </Card>
-          ) : null}
-        </Space>
+              </Card>
+            ))}
+            {categoryKey && visibleCategories.length === 0 ? (
+              // GUX-014：链接指向的菜单不存在（区别于「菜单存在但无页面」的合并空态）
+              <Card data-testid="console-menu-missing">
+                <Empty
+                  description={
+                    <FormattedMessage
+                      id="pages.console.home.empty.menuMissing"
+                      defaultMessage="菜单不存在或未发布"
+                    />
+                  }
+                >
+                  <Space orientation="vertical" size={8}>
+                    <Typography.Text type="secondary">
+                      <FormattedMessage
+                        id="pages.console.home.empty.menuMissingHint"
+                        defaultMessage="链接指向的菜单可能已被删除、尚未创建，或没有已发布页面。"
+                      />
+                    </Typography.Text>
+                    <Button onClick={() => history.push('/console/home')}>
+                      <FormattedMessage
+                        id="pages.console.home.empty.backHome"
+                        defaultMessage="返回控制台首页"
+                      />
+                    </Button>
+                  </Space>
+                </Empty>
+              </Card>
+            ) : null}
+          </Space>
+        )
       ) : (
         <Card>
           <Empty
@@ -330,12 +442,21 @@ export default function ConsoleIndex() {
                   defaultMessage="请先在菜单管理中创建菜单并挂载已发布页面（页面工作台发布），然后在这里查看。"
                 />
               </Typography.Text>
-              <Button type="primary" onClick={() => history.push('/functions/menus')}>
-                <FormattedMessage
-                  id="pages.console.home.empty.goMenus"
-                  defaultMessage="去菜单管理"
-                />
-              </Button>
+              {access.canPageRead ? (
+                <Button type="primary" onClick={() => history.push('/functions/menus')}>
+                  <FormattedMessage
+                    id="pages.console.home.empty.goMenus"
+                    defaultMessage="去菜单管理"
+                  />
+                </Button>
+              ) : (
+                <Typography.Text type="secondary">
+                  <FormattedMessage
+                    id="pages.console.home.empty.contactAdmin"
+                    defaultMessage="如需启用页面，请联系管理员。"
+                  />
+                </Typography.Text>
+              )}
             </Space>
           </Empty>
         </Card>

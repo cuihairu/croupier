@@ -107,6 +107,5 @@ export default {
   'menu.Support.FAQ': '常见问题',
   'menu.Support.Feedback': '玩家反馈',
 
-  'menu.welcome': '欢迎',
   'menu.login': '登录',
 };

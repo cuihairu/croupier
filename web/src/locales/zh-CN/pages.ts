@@ -1,7 +1,5 @@
 export default {
   'pages.layouts.userLayout.title': 'Croupier 是面向游戏运营的函数调度与审计平台',
-  'pages.login.accountLogin.tab': '账户密码登录',
-  'pages.login.accountLogin.errorMessage': '错误的用户名和密码(admin/ant.design)',
   'pages.login.failure': '登录失败，请重试！',
   'pages.login.mustChange.alert':
     '该账号要求登录后立即修改密码（管理员标记或密码已过有效期），修改成功后需使用新密码重新登录。',
@@ -34,9 +32,9 @@ export default {
   'pages.login.mfa.required.info': '该账号已启用两步验证，请输入动态验证码或备用恢复码',
   'pages.login.success': '登录成功！',
   'pages.login.mfaSetupRequired': '管理员已开启强制二次验证，请先绑定 TOTP',
-  'pages.login.username.placeholder': '用户名: admin or user',
+  'pages.login.username.placeholder': '用户名',
   'pages.login.username.required': '用户名是必填项！',
-  'pages.login.password.placeholder': '密码: admin',
+  'pages.login.password.placeholder': '密码',
   'pages.login.password.required': '密码是必填项！',
   'pages.login.phoneLogin.tab': '手机号登录',
   'pages.login.phoneLogin.errorMessage': '验证码错误',
@@ -59,8 +57,6 @@ export default {
   'pages.login.submit': '登录',
   'pages.login.loginWith': '其他登录方式 :',
   'pages.login.registerAccount': '注册账户',
-  'pages.welcome.link': '欢迎使用',
-  'pages.welcome.alertMessage': '更快更强的重型组件，已经发布。',
   'pages.403.buttonText': '返回首页',
   'pages.403.subTitle': '抱歉，您没有权限访问此页面。请返回首页或切换到具备权限的入口。',
   'pages.403.title': '当前页面无访问权限',

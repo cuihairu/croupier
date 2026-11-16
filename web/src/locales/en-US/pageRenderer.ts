@@ -122,6 +122,8 @@ export default {
   'component.pageRenderer.reportPage.warning.semanticsTitle': 'Report semantics incomplete',
   'component.pageRenderer.resultView.booleanFalse': 'No',
   'component.pageRenderer.resultView.booleanTrue': 'Yes',
+  'component.pageRenderer.fieldSemantic.unknownEnumValue': 'Unknown ({value})',
+  'component.pageRenderer.fieldSemantic.invalidDateTime': 'Invalid datetime ({value})',
   'component.pageRenderer.resultView.emptyObject': 'Empty object',
   'component.pageRenderer.resultView.emptyTitleFallback': 'Result view not configured',
   'component.pageRenderer.resultView.fieldsMissingDescription':
@@ -197,4 +199,25 @@ export default {
     'Submitted for approval; execution waits for approval',
   'component.pageRenderer.compensationWizard.error': 'Submission failed',
   'component.pageRenderer.compensationWizard.retry': 'Resubmit',
+  // GUX-011/012/013 benchmark flow
+  'component.pageRenderer.compensationWizard.option.mail': 'Mail',
+  'component.pageRenderer.compensationWizard.option.compensation': 'Compensation',
+  'component.pageRenderer.compensationWizard.range.all': 'All players',
+  'component.pageRenderer.compensationWizard.range.server': 'By server',
+  'component.pageRenderer.compensationWizard.range.players': 'By player',
+  'component.pageRenderer.compensationWizard.targets.selectedCount': '{count} player(s) selected',
+  'component.pageRenderer.compensationWizard.targets.allHint':
+    'All players: the final target count is decided by the server',
+  'component.pageRenderer.compensationWizard.targets.serverHint':
+    'All players on server {server}: the final target count is decided by the server',
+  'component.pageRenderer.compensationWizard.summary.title': 'Pre-submit summary',
+  'component.pageRenderer.compensationWizard.summary.targets': 'Targets',
+  'component.pageRenderer.compensationWizard.summary.perAmount': 'Per target',
+  'component.pageRenderer.compensationWizard.summary.total': 'Total',
+  'component.pageRenderer.compensationWizard.summary.approvalNote':
+    'Compensation tasks enter approval after submission; execution waits for approval',
+  'component.pageRenderer.compensationWizard.summary.mailNote':
+    'Mail tasks start sending right after submission',
+  'component.pageRenderer.compensationWizard.receipt.taskId': 'Task ID',
+  'component.pageRenderer.compensationWizard.receipt.approvalId': 'Approval ID',
 };

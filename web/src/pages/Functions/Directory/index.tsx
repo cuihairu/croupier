@@ -5,18 +5,17 @@ import {
   Badge,
   Button,
   Card,
+  Collapse,
   Descriptions,
   Drawer,
   Popconfirm,
   Space,
   Tag,
   Typography,
-  Row,
-  Col,
 } from 'antd';
-import { ApartmentOutlined, PlayCircleOutlined, ProfileOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
-import { DASHBOARD_PAGE_TOKENS, StandardListSection, SummaryOverview } from '@/components';
+import { StandardListSection, SummaryOverview } from '@/components';
 import type { SummaryRow } from './types';
 import useDirectoryPage from './useDirectoryPage';
 import BatchFloorModal from './BatchFloorModal';
@@ -99,167 +98,45 @@ export default function DirectoryPage() {
       extra={headerActions}
     >
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-        <Card
-          styles={{
-            body: {
-              padding: DASHBOARD_PAGE_TOKENS.cardPadding,
-              background:
-                'linear-gradient(135deg, rgba(var(--brand-2-rgb), 0.1) 0%, rgba(82,196,26,0.05) 55%, rgba(250,173,20,0.04) 100%)',
-            },
-          }}
-        >
-          <Space orientation="vertical" size={18} style={{ width: '100%' }}>
-            <Space wrap size={[8, 8]}>
-              <Tag color="blue">
-                <FormattedMessage
-                  id="pages.functionsDirectory.tag.capabilityLayer"
-                  defaultMessage="能力供给层"
-                />
-              </Tag>
-              <Tag color="green">
-                {intl.formatMessage(
-                  {
-                    id: 'pages.functionsDirectory.tag.assemblableFunctions',
-                    defaultMessage: '可装配函数 {count}',
-                  },
-                  { count: summary.enabledCount },
-                )}
-              </Tag>
-              <Tag>
-                {intl.formatMessage(
-                  {
-                    id: 'pages.functionsDirectory.tag.declaredOperations',
-                    defaultMessage: '已声明操作 {count}',
-                  },
-                  { count: summary.operationCount },
-                )}
-              </Tag>
-              {summary.topResourceCount > 0 ? (
-                <Tag color="purple">
-                  {intl.formatMessage(
-                    {
-                      id: 'pages.functionsDirectory.tag.topResource',
-                      defaultMessage: '当前最大资源 {label} · {count}',
-                    },
-                    { label: summary.topResourceLabel, count: summary.topResourceCount },
-                  )}
-                </Tag>
-              ) : null}
-            </Space>
-            <Space orientation="vertical" size={6} style={{ width: '100%' }}>
-              <Typography.Title level={4} style={{ margin: 0 }}>
-                <FormattedMessage
-                  id="pages.functionsDirectory.intro.title"
-                  defaultMessage="先确认函数能力，再进入 Page Studio 编排页面"
-                />
-              </Typography.Title>
-              <Typography.Text type="secondary">
-                <FormattedMessage
-                  id="pages.functionsDirectory.intro.description"
-                  defaultMessage="函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。"
-                />
-              </Typography.Text>
-            </Space>
-            <Row gutter={[12, 12]}>
-              <Col xs={24} lg={10}>
-                <Card
-                  size="small"
-                  style={{ height: '100%', background: 'rgba(255,255,255,0.78)' }}
-                  styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
-                >
-                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                    <Space wrap size={[8, 8]}>
-                      <ProfileOutlined />
-                      <Typography.Text strong>
-                        <FormattedMessage
-                          id="pages.functionsDirectory.suggestedAction.title"
-                          defaultMessage="当前建议动作"
-                        />
-                      </Typography.Text>
-                    </Space>
-                    <Typography.Text type="secondary">
-                      <FormattedMessage
-                        id="pages.functionsDirectory.suggestedAction.description"
-                        defaultMessage="如果函数能力已经可用，下一步应到资源/页面候选中检查 PageSpec 生成质量，再进入 Page Studio 修改并发布。"
-                      />
-                    </Typography.Text>
-                    <Space wrap size={[8, 8]}>
-                      <Button
-                        type="primary"
-                        icon={<ApartmentOutlined />}
-                        onClick={() => history.push('/functions/resource-catalog')}
-                      >
-                        <FormattedMessage
-                          id="pages.functionsDirectory.button.viewResourceCandidates"
-                          defaultMessage="查看资源/页面候选"
-                        />
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          history.push(
-                            selectedFunction
-                              ? buildInvokePath(selectedFunction.id)
-                              : '/functions/invoke',
-                          )
-                        }
-                      >
-                        <FormattedMessage
-                          id="pages.functionsDirectory.suggestedAction.testInvoke"
-                          defaultMessage="测试函数调用"
-                        />
-                      </Button>
-                    </Space>
-                  </Space>
-                </Card>
-              </Col>
-              <Col xs={24} lg={14}>
-                <Card
-                  size="small"
-                  style={{ height: '100%', background: 'rgba(255,255,255,0.78)' }}
-                  styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
-                >
-                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                    <Typography.Text strong>
-                      <FormattedMessage
-                        id="pages.functionsDirectory.checklist.title"
-                        defaultMessage="这里适合确认什么"
-                      />
-                    </Typography.Text>
-                    <Typography.Text type="secondary">
-                      <FormattedMessage
-                        id="pages.functionsDirectory.checklist.description"
-                        defaultMessage="重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够 schema 支撑后续 PageSpec 编排。"
-                      />
-                    </Typography.Text>
-                    <Space wrap size={[8, 8]}>
-                      <Badge
-                        status="success"
-                        text={intl.formatMessage({
-                          id: 'pages.functionsDirectory.checklist.item.definition',
-                          defaultMessage: '函数定义与摘要',
-                        })}
-                      />
-                      <Badge
-                        status="processing"
-                        text={intl.formatMessage({
-                          id: 'pages.functionsDirectory.checklist.item.instances',
-                          defaultMessage: '实例与调用入口',
-                        })}
-                      />
-                      <Badge
-                        status="default"
-                        text={intl.formatMessage({
-                          id: 'pages.functionsDirectory.checklist.item.contract',
-                          defaultMessage: '资源与操作契约',
-                        })}
-                      />
-                    </Space>
-                  </Space>
-                </Card>
-              </Col>
-            </Row>
-          </Space>
-        </Card>
+        {/* GUX-015：数据标签保留（实时计数），引导性内容收敛进下方按需帮助。
+            原 hero 渐变卡 + 双引导卡 + 双常驻 Alert 的「重复引导」不再默认占用首屏。 */}
+        <Space wrap size={[8, 8]}>
+          <Tag color="blue">
+            <FormattedMessage
+              id="pages.functionsDirectory.tag.capabilityLayer"
+              defaultMessage="能力供给层"
+            />
+          </Tag>
+          <Tag color="green">
+            {intl.formatMessage(
+              {
+                id: 'pages.functionsDirectory.tag.assemblableFunctions',
+                defaultMessage: '可装配函数 {count}',
+              },
+              { count: summary.enabledCount },
+            )}
+          </Tag>
+          <Tag>
+            {intl.formatMessage(
+              {
+                id: 'pages.functionsDirectory.tag.declaredOperations',
+                defaultMessage: '已声明操作 {count}',
+              },
+              { count: summary.operationCount },
+            )}
+          </Tag>
+          {summary.topResourceCount > 0 ? (
+            <Tag color="purple">
+              {intl.formatMessage(
+                {
+                  id: 'pages.functionsDirectory.tag.topResource',
+                  defaultMessage: '当前最大资源 {label} · {count}',
+                },
+                { label: summary.topResourceLabel, count: summary.topResourceCount },
+              )}
+            </Tag>
+          ) : null}
+        </Space>
         <SummaryOverview
           title={intl.formatMessage({
             id: 'pages.functionsDirectory.summary.title',
@@ -312,57 +189,156 @@ export default function DirectoryPage() {
               ),
             },
           ]}
-          hint={intl.formatMessage({
-            id: 'pages.functionsDirectory.summary.hint',
-            defaultMessage:
-              '函数层负责供给，Page Studio 负责装配，运行控制台只展示已发布 PageSpec。',
-          })}
         />
 
-        <Alert
-          type="info"
-          showIcon
-          title={intl.formatMessage({
-            id: 'pages.functionsDirectory.alert.title',
-            defaultMessage: '函数目录只展示能力供给，不承载页面 UI',
-          })}
-          description={intl.formatMessage({
-            id: 'pages.functionsDirectory.alert.description',
-            defaultMessage:
-              '如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。',
-          })}
-          action={
-            <Button type="primary" onClick={() => history.push('/functions/resource-catalog')}>
-              <FormattedMessage
-                id="pages.functionsDirectory.button.viewResources"
-                defaultMessage="查看资源"
-              />
-            </Button>
-          }
-        />
-
-        {/* 互释文案：目录状态=全局总开关，开放范围=按环境白名单，两套独立语义。
-            消除「函数目录状态与开放范围状态为什么不同步」的误解 */}
-        <Alert
-          type="info"
-          showIcon
-          title={intl.formatMessage({
-            id: 'pages.functionsDirectory.alert.scopeRelation.title',
-            defaultMessage: '目录状态 ≠ 开放范围',
-          })}
-          description={intl.formatMessage({
-            id: 'pages.functionsDirectory.alert.scopeRelation.description',
-            defaultMessage:
-              '此处的「启用/禁用」是全局总开关：禁用后所有环境都不可调用该函数。各环境具体开放哪些函数由「函数开放范围」页按白名单单独配置——两者需同时满足（目录已启用 且 在该环境白名单内）才可调用，状态互不同步是设计语义。',
-          })}
-          action={
-            <Button type="primary" onClick={() => history.push('/functions/assignments')}>
-              <FormattedMessage
-                id="pages.functionsDirectory.alert.scopeRelation.action"
-                defaultMessage="前往函数开放范围"
-              />
-            </Button>
-          }
+        {/* GUX-015：按需帮助（默认折叠）——分层职责、建议动作、检查要点与两则
+            常见误解收纳于此。原常驻 Alert「查看资源」与建议动作主按钮同目标，
+            收敛后只保留建议动作里的入口（重复引导即审查原观察）。 */}
+        <Collapse
+          items={[
+            {
+              key: 'help',
+              label: (
+                <FormattedMessage
+                  id="pages.functionsDirectory.help.header"
+                  defaultMessage="使用说明与常见误解"
+                />
+              ),
+              children: (
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.functionsDirectory.intro.title"
+                        defaultMessage="先确认函数能力，再进入 Page Studio 编排页面"
+                      />
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      <FormattedMessage
+                        id="pages.functionsDirectory.intro.description"
+                        defaultMessage="函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。"
+                      />
+                    </Typography.Text>
+                  </Space>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.functionsDirectory.suggestedAction.title"
+                        defaultMessage="当前建议动作"
+                      />
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      <FormattedMessage
+                        id="pages.functionsDirectory.suggestedAction.description"
+                        defaultMessage="如果函数能力已经可用，下一步应到资源/页面候选中检查 PageSpec 生成质量，再进入 Page Studio 修改并发布。"
+                      />
+                    </Typography.Text>
+                    <Space wrap size={[8, 8]}>
+                      <Button
+                        type="primary"
+                        icon={<ApartmentOutlined />}
+                        onClick={() => history.push('/functions/resource-catalog')}
+                      >
+                        <FormattedMessage
+                          id="pages.functionsDirectory.button.viewResourceCandidates"
+                          defaultMessage="查看资源/页面候选"
+                        />
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          history.push(
+                            selectedFunction
+                              ? buildInvokePath(selectedFunction.id)
+                              : '/functions/invoke',
+                          )
+                        }
+                      >
+                        <FormattedMessage
+                          id="pages.functionsDirectory.suggestedAction.testInvoke"
+                          defaultMessage="测试函数调用"
+                        />
+                      </Button>
+                    </Space>
+                  </Space>
+                  <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.functionsDirectory.checklist.title"
+                        defaultMessage="这里适合确认什么"
+                      />
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      <FormattedMessage
+                        id="pages.functionsDirectory.checklist.description"
+                        defaultMessage="重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够 schema 支撑后续 PageSpec 编排。"
+                      />
+                    </Typography.Text>
+                    <Space wrap size={[8, 8]}>
+                      <Badge
+                        status="success"
+                        text={intl.formatMessage({
+                          id: 'pages.functionsDirectory.checklist.item.definition',
+                          defaultMessage: '函数定义与摘要',
+                        })}
+                      />
+                      <Badge
+                        status="processing"
+                        text={intl.formatMessage({
+                          id: 'pages.functionsDirectory.checklist.item.instances',
+                          defaultMessage: '实例与调用入口',
+                        })}
+                      />
+                      <Badge
+                        status="default"
+                        text={intl.formatMessage({
+                          id: 'pages.functionsDirectory.checklist.item.contract',
+                          defaultMessage: '资源与操作契约',
+                        })}
+                      />
+                    </Space>
+                  </Space>
+                  <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.functionsDirectory.alert.title"
+                        defaultMessage="函数目录只展示能力供给，不承载页面 UI"
+                      />
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      <FormattedMessage
+                        id="pages.functionsDirectory.alert.description"
+                        defaultMessage="如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。"
+                      />
+                    </Typography.Text>
+                  </Space>
+                  {/* 互释文案：目录状态=全局总开关，开放范围=按环境白名单，两套独立语义。
+                      消除「函数目录状态与开放范围状态为什么不同步」的误解 */}
+                  <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.functionsDirectory.alert.scopeRelation.title"
+                        defaultMessage="目录状态 ≠ 开放范围"
+                      />
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      <FormattedMessage
+                        id="pages.functionsDirectory.alert.scopeRelation.description"
+                        defaultMessage="此处的「启用/禁用」是全局总开关：禁用后所有环境都不可调用该函数。各环境具体开放哪些函数由「函数开放范围」页按白名单单独配置——两者需同时满足（目录已启用 且 在该环境白名单内）才可调用，状态互不同步是设计语义。"
+                      />
+                    </Typography.Text>
+                    <Space wrap size={[8, 8]}>
+                      <Button onClick={() => history.push('/functions/assignments')}>
+                        <FormattedMessage
+                          id="pages.functionsDirectory.alert.scopeRelation.action"
+                          defaultMessage="前往函数开放范围"
+                        />
+                      </Button>
+                    </Space>
+                  </Space>
+                </Space>
+              ),
+            },
+          ]}
         />
 
         <StandardListSection

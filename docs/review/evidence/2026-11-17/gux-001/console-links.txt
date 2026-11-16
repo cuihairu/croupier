@@ -1,0 +1,7 @@
+/console/player :: Player Workspace
+/console/mail :: Mail & Compensation
+/console/ban :: Ban Management
+/console/payment :: Order Verification
+/console/operation :: LiveOps Configuration
+/console/announcement :: Announcements
+/console/audit :: Operation History

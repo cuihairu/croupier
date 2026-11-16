@@ -388,12 +388,13 @@ describe('列规格转换', () => {
     // boolean：true→Tag 是 / false→Tag 否
     expect(screen.getByText('是')).toBeInTheDocument();
     expect(screen.getByText('否')).toBeInTheDocument();
-    // date：有值→formatDateTime，null→'-'
+    // date：有值→formatDateTime，null→'-'；GUX-010 统一空值：无语义命中的
+    // 空单元格同样归一 '-'（stub 不认 hideInTable，secret 列两行各贡献一个）
     expect(screen.getByText('2026/01/01 10:00:00')).toBeInTheDocument();
-    expect(screen.getByText('-')).toBeInTheDocument();
-    // enum + render=tag：命中→Tag 活跃；未命中→'ghost'
+    expect(screen.getAllByText('-')).toHaveLength(3);
+    // enum + render=tag：命中→Tag 活跃；未命中→GUX-005 显式未知标注（保留原值）
     expect(screen.getByText('活跃')).toBeInTheDocument();
-    expect(screen.getByText('ghost')).toBeInTheDocument();
+    expect(screen.getByText('未知（ghost）')).toBeInTheDocument();
     // copy：Text copyable
     expect(screen.getByText('p1')).toBeInTheDocument();
     expect(document.querySelector('.ant-typography-copy')).toBeInTheDocument();
@@ -601,6 +602,38 @@ describe('创建', () => {
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     await waitFor(() => expect(screen.getByText('创建失败')).toBeInTheDocument());
     expect(screen.getByText('资源操作未完成')).toBeInTheDocument();
+  });
+
+  // GUX-013 执行回执：白名单提取真实返回标识——未知键与布尔值（success/ok）
+  // 不进入回执，字符串/有限数字命中白名单才展示
+  it('成功回执按白名单提取字段', async () => {
+    formMockState.validate = true;
+    formMockState.values = { name: 'New' };
+    await openCreateModal({
+      executeImpl: async (id: string) => {
+        if (id === 'create')
+          return ok({
+            id: 'new-1',
+            taskId: 'task-9',
+            approvalId: 'ap-9',
+            sentCount: 12,
+            success: true,
+            unknownKey: 'x',
+          });
+        return defaultImpl(id);
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('创建成功')).toBeInTheDocument());
+    const receipt = screen.getByTestId('resource-mutation-receipt');
+    expect(receipt).toHaveTextContent('任务 ID');
+    expect(receipt).toHaveTextContent('task-9');
+    expect(receipt).toHaveTextContent('审批单号');
+    expect(receipt).toHaveTextContent('ap-9');
+    expect(receipt).toHaveTextContent('已送达');
+    expect(receipt).toHaveTextContent('12');
+    expect(receipt).toHaveTextContent('new-1');
+    expect(receipt).not.toHaveTextContent('unknownKey');
   });
 
   // 注：handleCreate 的 preview 拦截在 UI 上不可达——新建按钮 disabled={preview}，

@@ -83,7 +83,6 @@ import systemSiteSettings from './zh-CN/systemSiteSettings';
 import telemetry from './zh-CN/telemetry';
 import tickets from './zh-CN/tickets';
 import utils from './zh-CN/utils';
-import welcome from './zh-CN/welcome';
 
 export default {
   'navBar.lang': '语言',
@@ -91,8 +90,6 @@ export default {
   'layout.user.link.privacy': '隐私',
   'layout.user.link.terms': '条款',
   'app.preview.down.block': '下载此页面到本地项目',
-  'app.welcome.link.fetch-blocks': '获取全部区块',
-  'app.welcome.link.block-list': '基于 block 开发，快速构建标准页面',
   ...adminLogs,
   ...analyticsBehavior,
   ...analyticsInvocations,
@@ -177,5 +174,4 @@ export default {
   ...telemetry,
   ...tickets,
   ...utils,
-  ...welcome,
 };

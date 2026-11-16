@@ -1,12 +1,23 @@
 // Console 工作台（避开保留字 console）
 export default {
   'pages.console.home.description':
-    '运行控制台的导航由菜单管理（menu_items）驱动：菜单节点分组展示，挂载到菜单且已发布的页面才会出现在这里。',
+    '运行控制台的导航由菜单管理驱动：菜单节点分组展示，挂载到菜单且已发布的页面才会出现在这里。',
+  'pages.console.home.empty.backHome': '返回控制台首页',
   'pages.console.home.empty.category': '该菜单下暂无页面',
-  'pages.console.home.empty.categoryKey': '菜单 "{categoryKey}" 下暂无已发布页面',
+  'pages.console.home.empty.contactAdmin': '如需启用页面，请联系管理员。',
   'pages.console.home.empty.goMenus': '去菜单管理',
+  'pages.console.home.empty.goPages': '去页面工作台',
   'pages.console.home.empty.hint':
     '请先在菜单管理中创建菜单并挂载已发布页面（页面工作台发布），然后在这里查看。',
+  'pages.console.home.empty.menuMissing': '菜单不存在或未发布',
+  'pages.console.home.empty.menuMissingHint':
+    '链接指向的菜单可能已被删除、尚未创建，或没有已发布页面。',
+  'pages.console.home.empty.noPages': '暂无已发布页面',
+  'pages.console.home.empty.noPagesHint':
+    '菜单结构已就绪。页面在页面工作台发布并挂载到菜单后，会显示在这里。',
+  'pages.console.home.empty.notMounted': '页面尚未挂载到菜单',
+  'pages.console.home.empty.notMountedHint':
+    '已发布 {count} 个页面，但还没有挂载到任何菜单；挂载后会显示在这里。',
   'pages.console.home.empty.pages': '暂无菜单',
   'pages.console.home.error.load': '加载失败',
   'pages.console.home.error.loadConsoleFailed': '加载控制台失败',
@@ -36,4 +47,30 @@ export default {
   'pages.console.page.staleAlert.openInbox': '打开 Proposal Inbox',
   'pages.console.page.staleAlert.resolve': '前往处理（diff / 合并 / 重新发布）',
   'pages.console.page.staleAlert.syncSelectors': '一键同步 Selector',
+  // GUX-003 运营工作台
+  'pages.console.workbench.anomaly.alerts': '运维告警',
+  'pages.console.workbench.anomaly.alertsEmpty': '暂无告警',
+  'pages.console.workbench.anomaly.empty': '暂无异常',
+  'pages.console.workbench.anomaly.goAlerts': '去告警中心',
+  'pages.console.workbench.anomaly.stale': '契约失效页面 {count} 个',
+  'pages.console.workbench.anomaly.staleClear': '契约全部有效',
+  'pages.console.workbench.anomaly.title': '异常',
+  'pages.console.workbench.entries.title': '常用入口',
+  'pages.console.workbench.entry.activityConfig': '活动配置模板',
+  'pages.console.workbench.entry.approvals': '审批中心',
+  'pages.console.workbench.entry.banManagement': '封禁管理模板',
+  'pages.console.workbench.entry.mailCompensation': '邮件与补偿模板',
+  'pages.console.workbench.entry.menu': '菜单管理',
+  'pages.console.workbench.entry.orderReview': '订单审核模板',
+  'pages.console.workbench.entry.playerManage': '玩家管理模板',
+  'pages.console.workbench.recent.empty': '暂无执行记录',
+  'pages.console.workbench.recent.goLogs': '执行记录',
+  'pages.console.workbench.recent.title': '最近处理',
+  'pages.console.workbench.retry': '重试',
+  'pages.console.workbench.todo.approvals': '待审批',
+  'pages.console.workbench.todo.approvalsEmpty': '暂无待审批',
+  'pages.console.workbench.todo.empty': '暂无待办',
+  'pages.console.workbench.todo.goApprovals': '去审批中心',
+  'pages.console.workbench.todo.title': '待办',
+  'pages.console.workbench.todo.unread': '未读消息 {count} 条',
 };

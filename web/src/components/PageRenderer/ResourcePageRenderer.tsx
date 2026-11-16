@@ -17,17 +17,24 @@ import {
   App,
   Button,
   Descriptions,
+  Dropdown,
   Space,
   Modal,
   Alert,
   Drawer,
   Table,
-  Tag,
   Popconfirm,
   Skeleton,
   Typography,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import {
+  DownOutlined,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import {
@@ -46,6 +53,7 @@ import ExecutorUnboundAlert, {
 } from './ExecutorUnboundAlert';
 import ResourceMutationFeedback, {
   type ResourceMutationFeedbackState,
+  type ResourceMutationReceiptEntry,
 } from './ResourceMutationFeedback';
 import { extractApiErrorCode } from '@/utils/apiError';
 import {
@@ -65,9 +73,7 @@ import type {
 } from '@/types/dashboard';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 
-const { Text } = Typography;
 import { localizedText } from '@/utils/localizedText';
-import { formatDateTime } from '@/utils/format';
 
 type TableRequestParams = FormValues & {
   current?: number;
@@ -105,63 +111,138 @@ export interface ResourcePageRendererProps {
 
 /** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
 type IntlFormatter = {
+  locale?: string;
   formatMessage: (descriptor: { id: string; defaultMessage: string }) => string;
 };
 
+/**
+ * 界面 locale 归一：umi 只部署 zh-CN / en-US 两套文案，其余 locale 按默认
+ * zh 兜底（与 resourceFieldSemantic 语义层同规则，GUX-007/009/010）。
+ */
+function uiLocale(intl: IntlFormatter): 'zh-CN' | 'en-US' {
+  return intl.locale === 'en-US' ? 'en-US' : 'zh-CN';
+}
+
+/** GUX-013 回执字段白名单：只提取已知可追溯标识，未知键与布尔值一律忽略
+ *（不猜字段、不发明部分成功状态）；值只接受非空串与有限数字。 */
+const MUTATION_RECEIPT_KEYS: ReadonlyArray<{
+  key: string;
+  messageId: string;
+  defaultMessage: string;
+}> = [
+  { key: 'id', messageId: 'component.resourceRenderer.receipt.id', defaultMessage: 'ID' },
+  {
+    key: 'taskId',
+    messageId: 'component.resourceRenderer.receipt.taskId',
+    defaultMessage: '任务 ID',
+  },
+  {
+    key: 'approvalId',
+    messageId: 'component.resourceRenderer.receipt.approvalId',
+    defaultMessage: '审批单号',
+  },
+  {
+    key: 'count',
+    messageId: 'component.resourceRenderer.receipt.count',
+    defaultMessage: '数量',
+  },
+  {
+    key: 'total',
+    messageId: 'component.resourceRenderer.receipt.total',
+    defaultMessage: '总量',
+  },
+  {
+    key: 'amount',
+    messageId: 'component.resourceRenderer.receipt.amount',
+    defaultMessage: '数量',
+  },
+  {
+    key: 'retried',
+    messageId: 'component.resourceRenderer.receipt.retried',
+    defaultMessage: '重试数',
+  },
+  {
+    key: 'sentCount',
+    messageId: 'component.resourceRenderer.receipt.sentCount',
+    defaultMessage: '已送达',
+  },
+  {
+    key: 'failedCount',
+    messageId: 'component.resourceRenderer.receipt.failedCount',
+    defaultMessage: '失败数',
+  },
+];
+
+/** 从写操作结果 data 对象提取回执条目（白名单命中才展示）。 */
+function extractMutationReceipt(result: unknown, intl: IntlFormatter | null) {
+  if (!intl) return [];
+  const data = (result as { data?: unknown } | null | undefined)?.data;
+  const source =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null;
+  if (!source) return [];
+  const entries: ResourceMutationReceiptEntry[] = [];
+  for (const receiptKey of MUTATION_RECEIPT_KEYS) {
+    const value = source[receiptKey.key];
+    if (
+      (typeof value === 'string' && value !== '') ||
+      (typeof value === 'number' && Number.isFinite(value))
+    ) {
+      entries.push({
+        label: intl.formatMessage({
+          id: receiptKey.messageId,
+          defaultMessage: receiptKey.defaultMessage,
+        }),
+        value: String(value),
+      });
+    }
+  }
+  return entries;
+}
+
 function columnSpecToProColumn(col: ColumnSpec, intl: IntlFormatter): ProColumns<FormValues> {
-  // D5 单位后缀（x-field-unit）：列头与 number 单元格值追加
-  const unitText = col.unit ? localizedText(col.unit, 'zh-CN', '') : '';
+  // 界面 locale 归一（GUX-007/010）：列头、单位与枚举文案跟随当前语言。
+  const locale = uiLocale(intl);
+  // D5 单位后缀（x-field-unit）：列头追加
+  const unitText = col.unit ? localizedText(col.unit, locale, '') : '';
   const column: ProColumns<FormValues> = {
-    title: localizedText(col.title, 'zh-CN', col.key) + (unitText ? ` (${unitText})` : ''),
+    title: localizedText(col.title, locale, col.key) + (unitText ? ` (${unitText})` : ''),
     dataIndex: col.key,
     key: col.key,
     width: col.width,
     fixed: col.fixed,
     sorter: col.sortable,
+    // GUX-009 数字/时间对齐：由 dataType 机械派生（同 D3 可排序的派生口径，
+    // 不做业务语义猜测），数字与时间右对齐便于纵向扫读。
+    align:
+      col.dataType === 'number' || col.dataType === 'datetime' || col.dataType === 'date'
+        ? 'right'
+        : undefined,
     // pro-components 3.x 的查询表单以 `search === false` 排除字段（`hideInSearch`
     // 在该版本未接入），非 filterable 列不进原生查询、仅作表格列。
     search: col.filterable ? undefined : false,
     hideInTable: col.visible === false,
   };
 
-  // 根据数据类型设置渲染
+  // 查询表单形态仍由 valueType/valueEnum 驱动（enum 筛选下拉等），文案跟随
+  // locale；单元格渲染统一走共享语义层（GUX-010：列表与详情同口径——未知枚举
+  // 显式标注、无效时间显式标注、boolean 是/否、copy 可复制、number+unit 单位），
+  // 无匹配语义时回退字符串。
   switch (col.dataType) {
     case 'boolean':
       column.valueType = 'switch';
-      column.render = (_, record) => {
-        const value = record[col.key];
-        return value ? (
-          <Tag color="success">
-            {intl.formatMessage({
-              id: 'component.resourceRenderer.boolean.yes',
-              defaultMessage: '是',
-            })}
-          </Tag>
-        ) : (
-          <Tag color="default">
-            {intl.formatMessage({
-              id: 'component.resourceRenderer.boolean.no',
-              defaultMessage: '否',
-            })}
-          </Tag>
-        );
-      };
       break;
     case 'date':
     case 'datetime':
       column.valueType = 'date';
-      column.render = (_, record) => {
-        const value = record[col.key];
-        // D5：datetime 列带显式浏览器时区标签（不靠字段名猜测时区）
-        return value ? formatDateTime(String(value), true) : '-';
-      };
       break;
     case 'enum':
       column.valueType = 'select';
       column.valueEnum = col.enum?.reduce(
         (acc, opt) => {
           acc[opt.value] = {
-            text: localizedText(opt.label, 'zh-CN', opt.value),
+            text: localizedText(opt.label, locale, opt.value),
             status: opt.color === 'green' ? 'Success' : opt.color === 'red' ? 'Error' : 'Default',
           };
           return acc;
@@ -171,38 +252,14 @@ function columnSpecToProColumn(col: ColumnSpec, intl: IntlFormatter): ProColumns
       break;
     case 'number':
       column.valueType = 'digit';
-      if (unitText) {
-        column.render = (_, record) => {
-          const value = record[col.key];
-          if (value === undefined || value === null || value === '') return '-';
-          return `${String(value)} ${unitText}`;
-        };
-      }
       break;
     default:
       column.valueType = 'text';
   }
-
-  // 根据渲染类型设置渲染函数
-  if (col.render === 'tag' && col.enum) {
-    column.render = (_, record) => {
-      const value = record[col.key];
-      const opt = col.enum?.find((e) => e.value === value);
-      if (opt) {
-        return (
-          <Tag color={opt.color || 'default'}>
-            {localizedText(opt.label, 'zh-CN', String(value))}
-          </Tag>
-        );
-      }
-      return String(value ?? '-');
-    };
-  } else if (col.render === 'copy') {
-    column.render = (_, record) => {
-      const value = record[col.key];
-      return <Text copyable>{String(value ?? '-')}</Text>;
-    };
-  }
+  column.render = (_, record) => {
+    const value = record[col.key];
+    return renderFieldSemantic(col, value) ?? String(value ?? '-');
+  };
 
   return column;
 }
@@ -224,6 +281,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // ProTable 请求链无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
   const intlRef = useRef(intl);
   intlRef.current = intl;
+  // 界面 locale（GUX-009/010）：资源页列头/操作/确认/详情文案跟随当前语言
+  const locale = uiLocale(intl);
   const actionRef = useRef<ActionType>(null);
   const createFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const updateFormRef = useRef<SchemaFormRendererHandle | null>(null);
@@ -243,6 +302,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const [mutationFeedback, setMutationFeedback] = useState<ResourceMutationFeedbackState | null>(
     null,
   );
+  // GUX-013 执行回执：最近一次写操作的真实返回标识（白名单提取）
+  const [mutationReceipt, setMutationReceipt] = useState<ResourceMutationReceiptEntry[]>([]);
   const mutationRunRef = useRef(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -269,9 +330,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     const runId = mutationRunRef.current + 1;
     mutationRunRef.current = runId;
     setMutationFeedback('running');
+    setMutationReceipt([]);
     try {
       const result = await operation();
-      if (mutationRunRef.current === runId) setMutationFeedback('success');
+      if (mutationRunRef.current === runId) {
+        setMutationFeedback('success');
+        setMutationReceipt(extractMutationReceipt(result, intlRef.current));
+      }
       return result;
     } catch (err) {
       if (mutationRunRef.current === runId) setMutationFeedback('error');
@@ -609,10 +674,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       const needsTotal = selection && quantityField && total !== undefined;
       const needsActionConfirm = selection && (action.confirm || binding.execution.requireConfirm);
       if (needsTotal || needsActionConfirm) {
-        const unit = quantityField?.unit ? localizedText(quantityField.unit, 'zh-CN', '') : '';
+        const unit = quantityField?.unit ? localizedText(quantityField.unit, locale, '') : '';
         const actionText = localizedText(
           action.confirmDescription,
-          'zh-CN',
+          locale,
           intl.formatMessage({
             id: 'component.resourceRenderer.confirm.content',
             defaultMessage: '确定要执行此操作吗？',
@@ -656,7 +721,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             title: needsActionConfirm
               ? localizedText(
                   action.confirmTitle,
-                  'zh-CN',
+                  locale,
                   intl.formatMessage({
                     id: 'component.resourceRenderer.confirm.title',
                     defaultMessage: '确认操作',
@@ -820,7 +885,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         modal.confirm({
           title: localizedText(
             action.confirmTitle,
-            'zh-CN',
+            locale,
             intl.formatMessage({
               id: 'component.resourceRenderer.confirm.title',
               defaultMessage: '确认操作',
@@ -829,7 +894,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           content: confirmContentWithTargets(
             localizedText(
               action.confirmDescription,
-              'zh-CN',
+              locale,
               intl.formatMessage({
                 id: 'component.resourceRenderer.confirm.content',
                 defaultMessage: '确定要执行此操作吗？',
@@ -946,7 +1011,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         modal.confirm({
           title: localizedText(
             action.confirmTitle,
-            'zh-CN',
+            locale,
             intl.formatMessage({
               id: 'component.resourceRenderer.confirm.title',
               defaultMessage: '确认操作',
@@ -955,7 +1020,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           content: confirmContentWithTargets(
             localizedText(
               action.confirmDescription,
-              'zh-CN',
+              locale,
               intl.formatMessage({
                 id: 'component.resourceRenderer.confirm.content',
                 defaultMessage: '确定要执行此操作吗？',
@@ -1052,6 +1117,67 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   // 添加操作列（固定右侧：窄屏横向滚动时操作始终可见，与平台其他 ProTable 一致）
   if (spec.detailView || rowActions.length > 0 || deleteBinding) {
+    // GUX-009 动作层次：查看 + 行动作 + 删除超过 4 个入口时，行内只保留
+    // 查看 + 前两个行动作，其余收进「更多」下拉——每行重复的整排按钮挤占
+    // 数据列；折叠后删除从 Popconfirm 换为 menu 触发的 modal 确认（同一套
+    // deleteAction 文案，确认语义不降级）。
+    const actionEntryCount =
+      (spec.detailView ? 1 : 0) + rowActions.length + (deleteBinding && spec.deleteAction ? 1 : 0);
+    const collapseActions = actionEntryCount > 4;
+    const flatRowActions = collapseActions ? rowActions.slice(0, 2) : rowActions;
+    const menuRowActions = collapseActions ? rowActions.slice(2) : [];
+    const deleteInMenu = collapseActions && Boolean(deleteBinding && spec.deleteAction);
+    const deleteButtonLabel = intl.formatMessage({
+      id: 'component.resourceRenderer.delete.button',
+      defaultMessage: '删除',
+    });
+    const runRowAction = (action: ActionSpec, record: FormValues) => {
+      if (action.bindingId === updateBinding?.id && spec.updateForm) {
+        setCurrentRecord(record);
+        setEditModalVisible(true);
+      } else {
+        void handleRowAction(action, record);
+      }
+    };
+    const confirmDeleteInMenu = (record: FormValues) => {
+      if (!spec.deleteAction) return;
+      modal.confirm({
+        title: localizedText(
+          spec.deleteAction.title,
+          locale,
+          intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.deleteTitle',
+            defaultMessage: '确认删除',
+          }),
+        ),
+        content: localizedText(
+          spec.deleteAction.description,
+          locale,
+          intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.deleteDescription',
+            defaultMessage: '确认删除此记录？',
+          }),
+        ),
+        okText: localizedText(
+          spec.deleteAction.confirmText,
+          locale,
+          intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.okText',
+            defaultMessage: '确认',
+          }),
+        ),
+        okButtonProps: { danger: true },
+        cancelText: localizedText(
+          spec.deleteAction.cancelText,
+          locale,
+          intl.formatMessage({
+            id: 'component.resourceRenderer.confirm.cancelText',
+            defaultMessage: '取消',
+          }),
+        ),
+        onOk: () => void handleDelete(record),
+      });
+    };
     columns.push({
       title: intl.formatMessage({
         id: 'component.resourceRenderer.column.actions',
@@ -1073,30 +1199,23 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               <FormattedMessage id="component.resourceRenderer.action.view" defaultMessage="查看" />
             </Button>
           ) : null}
-          {rowActions.map((action) => (
+          {flatRowActions.map((action) => (
             <Button
               key={action.key}
               type={action.type === 'primary' ? 'primary' : 'link'}
               size="small"
               danger={action.type === 'danger'}
               icon={action.key === 'edit' ? <EditOutlined /> : undefined}
-              onClick={() => {
-                if (action.bindingId === updateBinding?.id && spec.updateForm) {
-                  setCurrentRecord(record);
-                  setEditModalVisible(true);
-                } else {
-                  void handleRowAction(action, record);
-                }
-              }}
+              onClick={() => runRowAction(action, record)}
             >
-              {localizedText(action.title, 'zh-CN', action.key)}
+              {localizedText(action.title, locale, action.key)}
             </Button>
           ))}
-          {deleteBinding && spec.deleteAction ? (
+          {deleteBinding && spec.deleteAction && !deleteInMenu ? (
             <Popconfirm
               title={localizedText(
                 spec.deleteAction.title,
-                'zh-CN',
+                locale,
                 intl.formatMessage({
                   id: 'component.resourceRenderer.confirm.deleteTitle',
                   defaultMessage: '确认删除',
@@ -1104,7 +1223,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               )}
               description={localizedText(
                 spec.deleteAction.description,
-                'zh-CN',
+                locale,
                 intl.formatMessage({
                   id: 'component.resourceRenderer.confirm.deleteDescription',
                   defaultMessage: '确认删除此记录？',
@@ -1112,7 +1231,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               )}
               okText={localizedText(
                 spec.deleteAction.confirmText,
-                'zh-CN',
+                locale,
                 intl.formatMessage({
                   id: 'component.resourceRenderer.confirm.okText',
                   defaultMessage: '确认',
@@ -1120,7 +1239,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               )}
               cancelText={localizedText(
                 spec.deleteAction.cancelText,
-                'zh-CN',
+                locale,
                 intl.formatMessage({
                   id: 'component.resourceRenderer.confirm.cancelText',
                   defaultMessage: '取消',
@@ -1135,6 +1254,39 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                 />
               </Button>
             </Popconfirm>
+          ) : null}
+          {collapseActions && (menuRowActions.length > 0 || deleteInMenu) ? (
+            <Dropdown
+              menu={{
+                items: [
+                  ...menuRowActions.map((action) => ({
+                    key: action.key,
+                    label: localizedText(action.title, locale, action.key),
+                    danger: action.type === 'danger',
+                  })),
+                  ...(deleteInMenu
+                    ? [{ key: '__delete__', label: deleteButtonLabel, danger: true }]
+                    : []),
+                ],
+                onClick: ({ key }) => {
+                  if (key === '__delete__') {
+                    confirmDeleteInMenu(record);
+                    return;
+                  }
+                  const action = menuRowActions.find((item) => item.key === key);
+                  if (action) runRowAction(action, record);
+                },
+              }}
+              trigger={['click']}
+            >
+              <Button type="link" size="small" data-testid="row-action-more">
+                <FormattedMessage
+                  id="component.resourceRenderer.action.more"
+                  defaultMessage="更多"
+                />
+                <DownOutlined style={{ marginLeft: 4, fontSize: 10 }} />
+              </Button>
+            </Dropdown>
           ) : null}
         </Space>
       ),
@@ -1159,7 +1311,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     return 0;
   });
   const targetListColumns = specColumns.slice(0, 3).map((column) => ({
-    title: localizedText(column.title, 'zh-CN', humanizeParamKey(column.key)),
+    title: localizedText(column.title, locale, humanizeParamKey(column.key)),
     dataIndex: column.key,
     width: 180,
     ellipsis: true,
@@ -1185,6 +1337,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         <ResourceMutationFeedback
           state={mutationFeedback}
           onClose={() => setMutationFeedback(null)}
+          receipt={mutationReceipt}
         />
       ) : null}
       {/* 列表视图 */}
@@ -1193,7 +1346,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           title ||
           localizedText(
             spec.listView?.columns[0]?.title,
-            'zh-CN',
+            locale,
             intl.formatMessage({
               id: 'component.resourceRenderer.list.fallbackTitle',
               defaultMessage: '资源列表',
@@ -1243,7 +1396,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               disabled={preview}
               onClick={() => void executeListAction(action, {})}
             >
-              {localizedText(action.title, 'zh-CN', action.key)}
+              {localizedText(action.title, locale, action.key)}
             </Button>
           )),
         ]}
@@ -1346,7 +1499,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                         void executeListAction(action, { selection: selectedRows });
                       }}
                     >
-                      {localizedText(action.title, 'zh-CN', action.key)}
+                      {localizedText(action.title, locale, action.key)}
                     </Button>
                   ))}
                 </Space>
@@ -1431,7 +1584,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         <ActionFormModal
           title={localizedText(
             actionFormState.action.title,
-            'zh-CN',
+            locale,
             intl.formatMessage({
               id: 'component.resourceRenderer.actionForm.title',
               defaultMessage: '执行操作',
@@ -1482,6 +1635,29 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           size={640}
         >
           <Skeleton active loading={detailLoading}>
+            {/* GUX-010 详情身份锚：按声明的 identityKey 展示行标识（契约驱动，
+                不按字段名猜测），复用该列的语义渲染（copy/tag 等）与 locale。 */}
+            {(() => {
+              const identityValue = (detailRecord || currentRecord)[rowIdentityKey];
+              if (identityValue === undefined || identityValue === null || identityValue === '') {
+                return null;
+              }
+              const identityCol = spec.listView?.columns.find((col) => col.key === rowIdentityKey);
+              return (
+                <div style={{ marginBottom: 12 }} data-testid="detail-identity">
+                  <Typography.Text type="secondary">
+                    <UserOutlined />
+                    {identityCol
+                      ? ` ${localizedText(identityCol.title, locale, rowIdentityKey)}：`
+                      : ' '}
+                  </Typography.Text>
+                  <Typography.Text strong>
+                    {renderFieldSemantic(identityCol ?? { key: rowIdentityKey }, identityValue) ??
+                      String(identityValue)}
+                  </Typography.Text>
+                </div>
+              );
+            })()}
             {detailError ? (
               detailErrorCode === EXECUTOR_UNBOUND_CODE ? (
                 <ExecutorUnboundAlert functionId={detailBinding?.functionId} />
@@ -1496,7 +1672,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                   .map((field) => (
                     <ProDescriptions.Item
                       key={field.key}
-                      label={localizedText(field.title, 'zh-CN', field.key)}
+                      label={localizedText(field.title, locale, field.key)}
                       span={field.span}
                     >
                       {renderFieldSemantic(

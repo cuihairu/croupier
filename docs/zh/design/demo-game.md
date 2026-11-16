@@ -98,8 +98,11 @@ Flags：`-agent`、`-game-id`（默认 `demo-game`）、`-env`（默认 `demo`�
 go run ./cmd/demo-game -agent 127.0.0.1:19091 -seed 7 -dsn /tmp/demo.db
 ```
 
-控制台切到 `demo-game` / `demo` scope（scope 烘焙在 `configs/games.json`；存量库若烘焙清单
-过期，在 dashboard 手建 scope 兜底），打开 player-manage 模板页即可对真实函数执行 binding。
+控制台切到 `demo-game` / `demo` scope（scope 烘焙在 `configs/games.json`）。存量库上烘焙清单不热
+生效——bootstrap 只在 games 表为空的首装跑；且 games REST API 无法产出带连字符的 gameId（从 name
+派生并把 `-` 归一成 `_`，已入账 GAME-013）。GAME-013 落地前，存量部署需一次性按 seed 语义 DB 直插
+（games 行 + game_envs 绑定），192.168.5.5 即此做法。随后打开 player-manage 模板页即可对真实函数
+执行 binding。
 
 ## 6. 部署（192.168.5.5 demo 机）
 
@@ -107,12 +110,14 @@ go run ./cmd/demo-game -agent 127.0.0.1:19091 -seed 7 -dsn /tmp/demo.db
 
 - `demo-postgres`（postgres:15-alpine，`demo_game` 库）；
 - `demo-agent`（croupier-agent 镜像 + `configs/agent.demo.yaml`，拨号 `croupier-haproxy:19090`）；
-- `demo-game`（`docker/Dockerfile.demo-game`，CGO off；健康口 `8090` 发布为 `18090`）；
+- `demo-game`（`docker/Dockerfile.demo-game`，CGO off；健康口 `8090` 发布为
+  `${DEMO_GAME_HTTP_PORT:-18090}`——192.168.5.5 上 18090 被其他项目占用，实际用 `18091`）；
 - demo-internal 网络把 db 与 game 和平台网络隔离。
 
 ```bash
 docker compose -f docker/docker-compose.demo-game.yml up -d
-docker restart croupier-demo-game   # 重放演练：余额必须纹丝不动
+docker restart docker-demo-game-1   # 重放演练：余额必须纹丝不动
+# （容器名随 compose 项目名变化；192.168.5.5 上是 docker-demo-game-1）
 ```
 
 ## 7. E2E
@@ -143,3 +148,6 @@ CI：`.github/workflows/ci-demo-game.yml` 对 `sdks/go/**`、`internal/**`、ser
 5. 分析事件发射是编译期桩（未设 `ANALYTICS_INGEST_SECRET` 即 no-op；HMAC 契约已验证）。
    探针/压测钩子为注释占位。
 6. 种子锚点默认固定 2026-11-01；改 `-anchor` 只改派生时间戳，不改 fixture ID。
+7. 存量库上 games.json 种子不热生效（bootstrap 跳过非空 games 表），dashboard 手建 scope 会把
+   gameId 归一成下划线（`demo-game` → `demo_game`），带连字符的 scope 目前只能 DB 直插（已入账
+   GAME-013）。

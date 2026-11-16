@@ -69,4 +69,32 @@ describe('ResourceMutationFeedback', () => {
     expect(screen.getByText('资源操作未完成')).toBeInTheDocument();
     expect(screen.getByText(/本次变更未写入/)).toBeInTheDocument();
   });
+
+  // GUX-013 执行回执：渲染器白名单提取的可追溯标识在结果面常驻展示；
+  // 空回执（无真实返回）不渲染回执区
+  it('receipt：成功面回执条目渲染 + 空回执不渲染', () => {
+    const { container, rerender } = render(
+      <App>
+        <ResourceMutationFeedback
+          state="success"
+          onClose={() => undefined}
+          receipt={[
+            { label: '任务 ID', value: 'task-demo-7' },
+            { label: '审批单号', value: 'approval-task-demo-7' },
+          ]}
+        />
+      </App>,
+    );
+    expect(screen.getByTestId('resource-mutation-receipt')).toBeInTheDocument();
+    expect(screen.getByText('任务 ID')).toBeInTheDocument();
+    expect(screen.getByText('task-demo-7')).toBeInTheDocument();
+    expect(screen.getByText('审批单号')).toBeInTheDocument();
+
+    rerender(
+      <App>
+        <ResourceMutationFeedback state="success" onClose={() => undefined} receipt={[]} />
+      </App>,
+    );
+    expect(container.querySelector('[data-testid="resource-mutation-receipt"]')).toBeNull();
+  });
 });

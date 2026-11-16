@@ -7,8 +7,10 @@
  * - summary 汇总（enabled 过滤、resource 缺省并入「未声明」参与 distinct
  *   计数、operation 真值计数、topResource 降序取首；空数据 → topResource
  *   缺省 `|| undeclaredLabel` / `|| 0` 兜底翼，紫 Tag 条件渲染翼）；
- * - intro/Alert/Footer 三处导航回调（resource-catalog 直跳、测试调用
- *   selectedFunction 有无两翼：buildInvokePath(id) vs /functions/invoke）；
+ * - GUX-015 按需帮助：引导默认折叠（intro 文案/按钮不可见，展开后才出现），
+ *   展开后保留导航回调（resource-catalog 直跳、前往函数开放范围、测试调用
+ *   selectedFunction 有无两翼：buildInvokePath(id) vs /functions/invoke；
+ *   原 Alert「查看资源」与建议动作主按钮同目标，去重后仅保留后者）；
  * - 空范围提示（!loading && 空表才显示；scope.gameId/env 缺省 '-' 兜底）；
  * - 批量门槛链（已选 N 项告警、设置门槛开弹窗、Popconfirm 清除 →
  *   applyBatchFloor('')、取消选择；BatchFloorModal props 接线：open/
@@ -213,18 +215,43 @@ describe('函数目录页概览汇总', () => {
   });
 });
 
-describe('函数目录页导航回调', () => {
-  it('intro「查看资源/页面候选」与 Alert「查看资源」→ resource-catalog', () => {
+describe('函数目录页导航回调（GUX-015：按需帮助，默认折叠）', () => {
+  /** 展开折叠的帮助面板（antd Collapse：点 header 后 children 才挂载） */
+  const expandHelp = async () => {
+    fireEvent.click(screen.getByText('使用说明与常见误解'));
+    await screen.findByText('先确认函数能力，再进入 Page Studio 编排页面');
+  };
+
+  it('帮助默认折叠：引导文案与按钮不可见，展开后出现', async () => {
     renderPage();
-    fireEvent.click(screen.getAllByRole('button', { name: /查看资源\/页面候选/ })[0]);
-    fireEvent.click(screen.getByRole('button', { name: '查看资源' }));
-    expect(mPush).toHaveBeenCalledWith('/functions/resource-catalog');
-    expect(mPush).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByText('先确认函数能力，再进入 Page Studio 编排页面'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /查看资源\/页面候选/ })).not.toBeInTheDocument();
+    await expandHelp();
+    expect(screen.getByText('先确认函数能力，再进入 Page Studio 编排页面')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /查看资源\/页面候选/ })).toBeInTheDocument();
   });
 
-  it('「测试函数调用」两翼：无选中 → /functions/invoke；有选中 → buildInvokePath(id)', () => {
+  it('「查看资源/页面候选」→ resource-catalog（原 Alert「查看资源」同目标已去重）', async () => {
+    renderPage();
+    await expandHelp();
+    fireEvent.click(screen.getAllByRole('button', { name: /查看资源\/页面候选/ })[0]);
+    expect(mPush).toHaveBeenCalledWith('/functions/resource-catalog');
+    expect(mPush).toHaveBeenCalledTimes(1);
+  });
+
+  it('「前往函数开放范围」→ /functions/assignments（原常驻 Alert 收纳进帮助）', async () => {
+    renderPage();
+    await expandHelp();
+    fireEvent.click(screen.getByRole('button', { name: '前往函数开放范围' }));
+    expect(mPush).toHaveBeenCalledWith('/functions/assignments');
+  });
+
+  it('「测试函数调用」两翼：无选中 → /functions/invoke；有选中 → buildInvokePath(id)', async () => {
     const h = setHook();
     renderPage();
+    await expandHelp();
     fireEvent.click(screen.getByRole('button', { name: '测试函数调用' }));
     expect(mPush).toHaveBeenCalledWith('/functions/invoke');
     expect(h.buildInvokePath).not.toHaveBeenCalled();
@@ -232,6 +259,7 @@ describe('函数目录页导航回调', () => {
     cleanup();
     const h2 = setHook({ selectedFunction: fullDetail });
     renderPage();
+    await expandHelp();
     fireEvent.click(screen.getByRole('button', { name: '测试函数调用' }));
     expect(h2.buildInvokePath).toHaveBeenCalledWith('fn.query');
     expect(mPush).toHaveBeenCalledWith('/invoke/fn.query');

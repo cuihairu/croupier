@@ -104,9 +104,13 @@ Local single-process stack (what `scripts/e2e/demo-game.sh` automates):
 go run ./cmd/demo-game -agent 127.0.0.1:19091 -seed 7 -dsn /tmp/demo.db
 ```
 
-The console switches scope to `demo-game` / `demo` (scope baked into `configs/games.json`; on an
-existing database create the scope in the dashboard if the baked list is stale), opens the
-player-manage template page, and executes bindings against live functions.
+The console switches scope to `demo-game` / `demo` (scope baked into `configs/games.json`). On an
+existing database the baked list does not hot-apply — bootstrap only runs when the games table is
+empty — and the games REST API cannot mint a hyphenated gameId (it derives the id from the name and
+collapses `-` to `_`; tracked as GAME-013). Until GAME-013 lands, an existing deployment needs a
+one-time DB insert matching the seed semantics (games row + game_envs binding), as done on
+192.168.5.5. Then it opens the player-manage template page and executes bindings against live
+functions.
 
 ## 6. Deployment (192.168.5.5 demo host)
 
@@ -114,12 +118,14 @@ player-manage template page, and executes bindings against live functions.
 
 - `demo-postgres` (postgres:15-alpine, `demo_game` database);
 - `demo-agent` (croupier-agent image + `configs/agent.demo.yaml`, dials `croupier-haproxy:19090`);
-- `demo-game` (`docker/Dockerfile.demo-game`, CGO off; health `8090` published as `18090`);
+- `demo-game` (`docker/Dockerfile.demo-game`, CGO off; health `8090` published as
+  `${DEMO_GAME_HTTP_PORT:-18090}` — 192.168.5.5 sets `18091` because another project holds 18090);
 - demo-internal network isolates db + game from the platform network.
 
 ```bash
 docker compose -f docker/docker-compose.demo-game.yml up -d
-docker restart croupier-demo-game   # replay-proof drill: balances must not move
+docker restart docker-demo-game-1   # replay-proof drill: balances must not move
+# (container name follows the compose project name; docker-demo-game-1 on 192.168.5.5)
 ```
 
 ## 7. E2E
@@ -152,3 +158,6 @@ server/agent cmd paths. The pagespec fixture is drift-locked to the TSX constant
    HMAC contract already verified). Probe/perf hooks are commented placeholders.
 6. Seed anchor is fixed at 2026-11-01 by default; changing `-anchor` changes derived timestamps
    but not fixture IDs.
+7. On an existing database the games.json seed does not hot-apply (bootstrap skips a non-empty
+   games table), and dashboard manual creation derives an underscored gameId (`demo-game` becomes
+   `demo_game`), so a hyphenated scope currently requires a direct DB insert (tracked as GAME-013).

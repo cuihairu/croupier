@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getScope, subscribeScope, type Scope } from '@/stores/scope';
+import { getScope, getScopeVersion, subscribeScope, type Scope } from '@/stores/scope';
 
 /**
  * 顶栏游戏/环境切换联动（#32/#35/#38 一族「选了没刷新」问题的统一入口）。
@@ -43,4 +43,23 @@ export function useScopeReload(reload: () => void | Promise<unknown>): {
   }, [scopeKey]);
 
   return { scope, scopeKey };
+}
+
+/**
+ * 作用域在途结果防护（GUX-004）：自定义 fetch 型 loader 用它丢弃「发起时
+ * 的 scope 与落地时的 scope 不同」的响应——切游戏/环境后旧 scope 请求晚到
+ * 不能覆盖新 scope 数据。ProTable 族（params 带 scopeKey）由 pro-table 内部
+ * debounce + abort 保证错序防护，不需要本守卫。
+ *
+ * 用法：请求发起前 `fresh.begin()`，响应落地 setState 前判
+ * `fresh.isStale()` 为 true 即丢弃（配合 mounted 守卫一起用）。
+ */
+export function useScopeFreshGuard(): { begin: () => void; isStale: () => boolean } {
+  const capturedRef = useRef(0);
+  return {
+    begin: () => {
+      capturedRef.current = getScopeVersion();
+    },
+    isStale: () => capturedRef.current !== getScopeVersion(),
+  };
 }

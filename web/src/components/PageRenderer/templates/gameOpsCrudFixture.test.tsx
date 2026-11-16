@@ -207,8 +207,11 @@ describe('C1 gameOps 玩家模板 CRUD fixture 端到端', () => {
     });
     await waitFor(() => expect(screen.getByText('fixture-new')).toBeInTheDocument());
 
-    // 4. 编辑：行操作抽屉表单提交 → 成功 → 表格刷新显示新值
-    fireEvent.click(screen.getAllByRole('button', { name: /编\s*辑/ })[0]);
+    // 4. 编辑：行操作抽屉表单提交 → 成功 → 表格刷新显示新值。
+    // GUX-009 动作层次：行内入口 >4 时编辑/封禁/删除折叠进「更多」下拉，
+    // 菜单经 portal 渲染到 document，先开下拉再点菜单项。
+    fireEvent.click(screen.getAllByTestId('row-action-more')[0]);
+    fireEvent.click(await screen.findByRole('menuitem', { name: /编\s*辑/ }));
     await waitFor(() => expect(screen.getByTestId('proform-shell')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
     formMockState.values = { nickname: 'fixture-edited', level: 8, vip: 3 };
@@ -220,10 +223,13 @@ describe('C1 gameOps 玩家模板 CRUD fixture 端到端', () => {
     });
     await waitFor(() => expect(screen.getByText('fixture-edited')).toBeInTheDocument());
 
-    // 5. 删除：显式确认文案 → 确认 → 成功 → 刷新后新行消失、原首行回显
+    // 5. 删除：下拉菜单项触发 modal 确认（同一套 deleteAction 文案，确认
+    // 语义不降级）→ 确认 → 成功 → 刷新后新行消失、原首行回显
     expect(resourceSpec?.deleteAction).toMatchObject({ bindingId: 'delete', risk: 'high' });
-    fireEvent.click(screen.getAllByRole('button', { name: /删\s*除/ })[0]);
-    await waitFor(() => expect(screen.getByText('删除玩家')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByTestId('row-action-more')[0]);
+    fireEvent.click(await screen.findByRole('menuitem', { name: /删\s*除/ }));
+    // antd6 confirm 弹层：标题同时落在容器与内层 span，getByText 会双命中
+    await waitFor(() => expect(screen.getAllByText('删除玩家').length).toBeGreaterThan(0));
     expect(screen.getByText('删除后不可恢复，确认删除该玩家？')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /确认删除/ }));
     await waitFor(() => expect(screen.getByText('删除成功')).toBeInTheDocument());

@@ -126,7 +126,6 @@
             "zh-CN": "充值",
             "en-US": "Recharge"
           },
-          "type": "primary",
           "form": {
             "jsonSchema": {
               "type": "object",

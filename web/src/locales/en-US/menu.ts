@@ -109,6 +109,5 @@ export default {
   'menu.Support.FAQ': 'FAQ',
   'menu.Support.Feedback': 'Player Feedback',
 
-  'menu.welcome': 'Welcome',
   'menu.login': 'Login',
 };

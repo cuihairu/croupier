@@ -84,7 +84,6 @@ import systemSiteSettings from './en-US/systemSiteSettings';
 import telemetry from './en-US/telemetry';
 import tickets from './en-US/tickets';
 import utils from './en-US/utils';
-import welcome from './en-US/welcome';
 
 export default {
   'navBar.lang': 'Languages',
@@ -92,8 +91,6 @@ export default {
   'layout.user.link.privacy': 'Privacy',
   'layout.user.link.terms': 'Terms',
   'app.preview.down.block': 'Download this page to your local project',
-  'app.welcome.link.fetch-blocks': 'Get all block',
-  'app.welcome.link.block-list': 'Quickly build standard, pages based on `block` development',
   ...adminLogs,
   ...analyticsBehavior,
   ...analyticsInvocations,
@@ -179,5 +176,4 @@ export default {
   ...telemetry,
   ...tickets,
   ...utils,
-  ...welcome,
 };

@@ -1,12 +1,23 @@
 // Console 工作台（避开保留字 console）
 export default {
   'pages.console.home.description':
-    'The Runtime Console navigation is driven by Menu Management (menu_items): menu nodes group the view, and only pages mounted to a menu and published appear here.',
+    'The Runtime Console navigation is driven by Menu Management: menu nodes group the view, and only pages mounted to a menu and published appear here.',
+  'pages.console.home.empty.backHome': 'Back to console home',
   'pages.console.home.empty.category': 'No pages in this menu yet',
-  'pages.console.home.empty.categoryKey': 'No published pages in menu "{categoryKey}"',
+  'pages.console.home.empty.contactAdmin': 'Contact an administrator to publish pages.',
   'pages.console.home.empty.goMenus': 'Go to Menu Management',
+  'pages.console.home.empty.goPages': 'Open page studio',
   'pages.console.home.empty.hint':
     'Create menus in Menu Management and mount published pages (publish them in the Page workspace) first, then view them here.',
+  'pages.console.home.empty.menuMissing': 'Menu not found or unpublished',
+  'pages.console.home.empty.menuMissingHint':
+    'The menu in this link may have been removed, not created yet, or has no published pages.',
+  'pages.console.home.empty.noPages': 'No published pages yet',
+  'pages.console.home.empty.noPagesHint':
+    'Menus are ready. Pages appear here once published in the page studio and mounted to a menu.',
+  'pages.console.home.empty.notMounted': 'Pages not mounted to any menu',
+  'pages.console.home.empty.notMountedHint':
+    '{count} pages are published but not mounted to any menu yet; they will appear here once mounted.',
   'pages.console.home.empty.pages': 'No menus yet',
   'pages.console.home.error.load': 'Load Failed',
   'pages.console.home.error.loadConsoleFailed': 'Failed to load the console',
@@ -38,4 +49,30 @@ export default {
   'pages.console.page.staleAlert.openInbox': 'Open Proposal Inbox',
   'pages.console.page.staleAlert.resolve': 'Resolve (diff / merge / republish)',
   'pages.console.page.staleAlert.syncSelectors': 'Sync Selectors',
+  // GUX-003 operator workbench
+  'pages.console.workbench.anomaly.alerts': 'Ops alerts',
+  'pages.console.workbench.anomaly.alertsEmpty': 'No alerts',
+  'pages.console.workbench.anomaly.empty': 'No anomalies',
+  'pages.console.workbench.anomaly.goAlerts': 'Go to Alert Center',
+  'pages.console.workbench.anomaly.stale': '{count} stale pages',
+  'pages.console.workbench.anomaly.staleClear': 'All contracts fresh',
+  'pages.console.workbench.anomaly.title': 'Anomalies',
+  'pages.console.workbench.entries.title': 'Quick Entries',
+  'pages.console.workbench.entry.activityConfig': 'Activity Config Template',
+  'pages.console.workbench.entry.approvals': 'Approval Center',
+  'pages.console.workbench.entry.banManagement': 'Ban Management Template',
+  'pages.console.workbench.entry.mailCompensation': 'Mail & Compensation Template',
+  'pages.console.workbench.entry.menu': 'Menu Management',
+  'pages.console.workbench.entry.orderReview': 'Order Review Template',
+  'pages.console.workbench.entry.playerManage': 'Player Management Template',
+  'pages.console.workbench.recent.empty': 'No execution records',
+  'pages.console.workbench.recent.goLogs': 'Execution Logs',
+  'pages.console.workbench.recent.title': 'Recent Activity',
+  'pages.console.workbench.retry': 'Retry',
+  'pages.console.workbench.todo.approvals': 'Pending Approvals',
+  'pages.console.workbench.todo.approvalsEmpty': 'No pending approvals',
+  'pages.console.workbench.todo.empty': 'Nothing to do',
+  'pages.console.workbench.todo.goApprovals': 'Go to Approval Center',
+  'pages.console.workbench.todo.title': 'To-Do',
+  'pages.console.workbench.todo.unread': '{count} unread messages',
 };

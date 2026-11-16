@@ -1,5 +1,6 @@
 import {
   getScope,
+  getScopeVersion,
   hydrateScope,
   isScopeReady,
   markScopeReady,
@@ -97,6 +98,22 @@ describe('stores/scope（模块加载时无 token → 立即就绪）', () => {
 
     window.removeEventListener('scope:change', eventSpy);
     unsub();
+  });
+
+  it('setScope 仅 gameId/env 实际变化时自增作用域代次（GUX-004）', () => {
+    const before = getScopeVersion();
+
+    setScope({ gameId: 'version-g', env: 'prod' });
+    expect(getScopeVersion()).toBe(before + 1);
+
+    const after = getScopeVersion();
+    // 同值重复 set：代次不变（markScopeReady 的广播也不会误伤在途请求）
+    setScope({ gameId: 'version-g', env: 'prod' });
+    expect(getScopeVersion()).toBe(after);
+
+    // 仅单个字段变化同样自增
+    setScope({ env: 'stage' });
+    expect(getScopeVersion()).toBe(after + 1);
   });
 
   it('订阅退订后不再收到广播', () => {

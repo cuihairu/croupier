@@ -114,6 +114,8 @@ export default {
   'component.pageRenderer.reportPage.warning.semanticsTitle': '报表语义未完成',
   'component.pageRenderer.resultView.booleanFalse': '否',
   'component.pageRenderer.resultView.booleanTrue': '是',
+  'component.pageRenderer.fieldSemantic.unknownEnumValue': '未知（{value}）',
+  'component.pageRenderer.fieldSemantic.invalidDateTime': '无效时间（{value}）',
   'component.pageRenderer.resultView.emptyObject': '空对象',
   'component.pageRenderer.resultView.emptyTitleFallback': '结果视图未配置',
   'component.pageRenderer.resultView.fieldsMissingDescription':
@@ -180,4 +182,23 @@ export default {
   'component.pageRenderer.compensationWizard.approval': '已提交审批，等待审批通过后执行',
   'component.pageRenderer.compensationWizard.error': '提交失败',
   'component.pageRenderer.compensationWizard.retry': '重新提交',
+  // GUX-011/012/013 标杆流程
+  'component.pageRenderer.compensationWizard.option.mail': '邮件',
+  'component.pageRenderer.compensationWizard.option.compensation': '补偿',
+  'component.pageRenderer.compensationWizard.range.all': '全服',
+  'component.pageRenderer.compensationWizard.range.server': '指定区服',
+  'component.pageRenderer.compensationWizard.range.players': '指定玩家',
+  'component.pageRenderer.compensationWizard.targets.selectedCount': '已选 {count} 名玩家',
+  'component.pageRenderer.compensationWizard.targets.allHint': '全服发放：实际目标人数以服务端为准',
+  'component.pageRenderer.compensationWizard.targets.serverHint':
+    '区服 {server} 全量玩家：实际目标人数以服务端为准',
+  'component.pageRenderer.compensationWizard.summary.title': '提交前核对',
+  'component.pageRenderer.compensationWizard.summary.targets': '目标',
+  'component.pageRenderer.compensationWizard.summary.perAmount': '每人数量',
+  'component.pageRenderer.compensationWizard.summary.total': '总量',
+  'component.pageRenderer.compensationWizard.summary.approvalNote':
+    '补偿任务提交后进入审批，审批通过后才会执行',
+  'component.pageRenderer.compensationWizard.summary.mailNote': '邮件任务提交后直接进入发送',
+  'component.pageRenderer.compensationWizard.receipt.taskId': '任务 ID',
+  'component.pageRenderer.compensationWizard.receipt.approvalId': '审批单号',
 };

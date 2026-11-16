@@ -8,58 +8,91 @@
 
 设计和观察依据：[游戏运营后台体验审查](docs/design/game-operations-ux-review-2026-11-16.md)。以下为新体验交付；高风险、身份及真实接入继续复用既有专项，未验证项保持未勾。
 
-依赖顺序：GUX-01/02 先明确现状和角色；GUX-05～07 为共享语义基础；GUX-08～13 组成标杆流程；GUX-17 在相关交付完成后验收。GUX-03/04/14～16 可按依赖并行。
+依赖顺序：GUX-001/02 先明确现状和角色；GUX-005～07 为共享语义基础；GUX-008～13 组成标杆流程；GUX-017 在相关交付完成后验收。GUX-003/04/14～16 可按依赖并行。
 
-- [ ] **GUX-01 · P1 · 核对部署版本与取证**
-  - 交付与验收：记录部署镜像/版本与源码提交，保存首页、目录、玩家模板及详情截图；确认测试游戏/环境、空数据和模板边界，不记录凭据。
+- [x] **GUX-001 · P1 · 巡检 · 核对部署版本与取证**
+  - 依赖：—。交付与验收：记录部署镜像/版本与源码提交，保存首页、目录、玩家模板及详情截图；确认测试游戏/环境、空数据和模板边界，不记录凭据。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17，192.168.5.5 部署栈实测）：镜像 digest/构建 commit 对账入 README（平台栈=docker.yml run 43928190705 @ 4e2b12c68，demo 栈=同镜像重标签）；四张截图（console 首页、player 目录、player-manage 模板、行详情抽屉）+ 菜单链接清单落盘；scope demo-game/demo 经 games API 复证，空态（0 pages published）与模板边界如截图；凭据未入记录。边界如实：模板页渲染浏览器内存预览数据（977×n 等差），活数据链由 E2E（CI 栈）与 API 重放演练（部署栈，余额 6532→7180 重放不动）覆盖。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-001/README.md`（同目录含 4 张截图 PNG 与 console-links.txt）
 
-- [ ] **GUX-02 · P1 · 角色任务与导航**
-  - 交付与验收：梳理运营、开发接入、平台管理的任务与现有权限映射；交付导航结构与入口，不删除既有能力。
+- [x] **GUX-002 · P1 · 设计 · 角色任务与导航**
+  - 依赖：—。交付与验收：梳理运营、开发接入、平台管理的任务与现有权限映射；交付导航结构与入口，不删除既有能力。
+  - 状态／条件：LOCAL VERIFIED：三工作区（运营/开发接入/平台管理）重分组方案覆盖全部 10 个现存顶级组、0 路由删除、0 新权限；角色映射按 configs/roles.json 实测权限集对账（运营缺 audit:read/ops:read、客服缺 support:read 等缺口如实记录、不裁决，权限模型改动归用户拍板）；落地页规则与跨界入口（执行记录/SDK 分发同路由入口副本）已定；实现随 GUX-003+ 走 DoD。
+  - 完成证据：`docs/design/game-ops-navigation-design.md`（中文镜像 docs/zh/design/game-ops-navigation-design.md）
 
-- [ ] **GUX-03 · P1 · 运营首页**
-  - 交付与验收：按角色展示待办、异常、最近处理和常用入口；缺失数据展示真实空态，移走重复的产品建设说明。
+- [x] **GUX-003 · P1 · 实现 · 运营首页**
+  - 依赖：GUX-001, GUX-002。交付与验收：按角色展示待办、异常、最近处理和常用入口；缺失数据展示真实空态，移走重复的产品建设说明。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。根路径 `/` 改 LandingRedirect 按 access 能力落地（运营→/console/home、开发→/functions/catalog、平台→/system、全不可见→/account）；Welcome 模板页与未路由 Admin 模板页下线、locale welcome 键 8 语言同步清理（app.welcome.* 死键留 GUX-015）；运行控制台根视图挂工作台四面板：待办（审批 pending×audit:read+未读消息）、异常（契约失效计数零请求+告警×ops:read）、最近处理（execution-logs mine=true 免审计权限）、常用入口按权限过滤；单面板失败独立重试不拖垮整页、权限外整体不渲染、空数据真实空态；审批面板随 scopeKey 重拉。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-003.md`
 
-- [ ] **GUX-04 · P1 · 游戏环境与作用域**
-  - 交付与验收：统一当前游戏/环境展示，按契约支持区服/渠道/时区；切换作用域清理旧数据和在途结果。
+- [x] **GUX-004 · P1 · 实现 · 游戏环境与作用域**
+  - 依赖：GUX-001, GUX-002。交付与验收：统一当前游戏/环境展示，按契约支持区服/渠道/时区；切换作用域清理旧数据和在途结果。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。作用域展示全局唯一（GameSelector header/mobile 共用 scope store，取证既有交付）；本项补契约字段展示（GameEnvMeta.description 进环境选项次级行）与在途结果防护（scope.ts 代次计数 + useScopeFreshGuard，工作台 usePanel 接入丢弃晚到旧 scope 响应；ProTable 族既有 debounce+abort 口径不变）。边界：区服/渠道/时区不在作用域契约（GameEnvItem={env,description,color,databaseName}）内，按契约如实不提供选择器；描述为后端单串原样展示非 LocalizedText。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-004.md`
 
-- [ ] **GUX-05 · P1 · 统一状态语义**
-  - 交付与验收：建立状态映射与文本/颜色/未知态规则；玩家列表、详情、确认和回执显示一致且不只依赖颜色。
+- [x] **GUX-005 · P1 · 实现 · 统一状态语义**
+  - 依赖：GUX-001, GUX-002。交付与验收：建立状态映射与文本/颜色/未知态规则；玩家列表、详情、确认和回执显示一致且不只依赖颜色。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。共享语义层（列表列/详情抽屉共用）：声明集合外枚举值渲染显式「未知（原值）」标注（tag 与非 tag 两种渲染都带完整字样，非仅靠颜色），枚举文案跟随界面 locale。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-005-006-007.md`
 
-- [ ] **GUX-06 · P1 · 统一时间语义**
-  - 交付与验收：时间组件显示明确时区和一致格式，覆盖空值、无效值、跨时区；列表与详情同值同义。
+- [x] **GUX-006 · P1 · 实现 · 统一时间语义**
+  - 依赖：GUX-001, GUX-002。交付与验收：时间组件显示明确时区和一致格式，覆盖空值、无效值、跨时区；列表与详情同值同义。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。无效 datetime 渲染显式「无效时间（原值）」标注（不再漏 `Invalid Date (UTC±xx)` 拼接，formatDateTime 加 NaN 守卫原值透传）；空值统一 `-`；D5 显式时区标签此前已交付保持不变；列表与详情同走共享语义层同值同义。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-005-006-007.md`
 
-- [ ] **GUX-07 · P1 · 统一资产与身份展示**
-  - 交付与验收：提供玩家身份、币种金额和道具数量语义展示；缺单位或身份来源标明未知，复制和长文本可用。
+- [x] **GUX-007 · P1 · 实现 · 统一资产与身份展示**
+  - 依赖：GUX-001, GUX-002。交付与验收：提供玩家身份、币种金额和道具数量语义展示；缺单位或身份来源标明未知，复制和长文本可用。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。number+unit 单位跟随界面 locale（不固定 zh-CN）；未声明 unit 不杜撰单位（走默认渲染）；copy 可复制渲染沿用；身份列语义（D5 identity→fixed+copy）此前已交付。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-005-006-007.md`
 
-- [ ] **GUX-08 · P1 · 查询工具栏**
-  - 交付与验收：玩家 ID/昵称高频检索优先，高级筛选可展开；重置、回车、加载、空结果和作用域变化可验证。
+- [x] **GUX-008 · P1 · 实现 · 查询工具栏**
+  - 依赖：GUX-005, GUX-006, GUX-007。交付与验收：玩家 ID/昵称高频检索优先，高级筛选可展开；重置、回车、加载、空结果和作用域变化可验证。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。核对既有实现：搜索表单 `{ labelWidth: 'auto', defaultCollapsed: true }`、`search: filterable ? undefined : false`（valueType/valueEnum 驱动搜索项）、玩家模板列序 id/nickname 高频在前；本批核对未重复实现，既有行为由渲染器全树用例覆盖。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-008-013.md`
 
-- [ ] **GUX-09 · P1 · 资源列表与动作层次**
-  - 交付与验收：整理列宽、时间与数字对齐，减少逐行重复强调；按能力、权限和对象状态决定动作，未提供的 CRUD 不显示。
+- [x] **GUX-009 · P1 · 实现 · 资源列表与动作层次**
+  - 依赖：GUX-005, GUX-006, GUX-007。交付与验收：整理列宽、时间与数字对齐，减少逐行重复强调；按能力、权限和对象状态决定动作，未提供的 CRUD 不显示。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。行内动作一律 link 态（recharge/retryFailed 移除 primary，工具栏级批量充值保留）；操作列 >4 条折叠「更多」下拉，下拉删除沿用 deleteAction 文案+danger 确认（语义不降级）；数字/时间列 dataType 派生右对齐；未配置绑定的动作不渲染（既有 hasBinding 过滤）；列表单元格渲染统一走 renderFieldSemantic 并跟随界面 locale。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-008-013.md`
 
-- [ ] **GUX-10 · P1 · 玩家详情**
-  - 交付与验收：以玩家身份组织详情和实际可用信息；与列表共享语义组件，覆盖加载、缺失和错误，来源按契约呈现。
+- [x] **GUX-010 · P1 · 实现 · 玩家详情**
+  - 依赖：GUX-005, GUX-006, GUX-007, GUX-009。交付与验收：以玩家身份组织详情和实际可用信息；与列表共享语义组件，覆盖加载、缺失和错误，来源按契约呈现。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。详情抽屉顶部按声明 `listView.identityKey` 渲染行身份锚（契约驱动不猜字段名），与列表/详情共享 renderFieldSemantic 语义组件（加载 Skeleton、缺失 '-'、错误显式可定位均为既有面，本批语义渲染统一覆盖列表单元格）。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-008-013.md`
 
-- [ ] **GUX-11 · P1 · 邮件补偿输入**
-  - 交付与验收：复用已有能力/契约构建补偿面板，明确目标、作用域、内容、数量和原因；无绑定时解释不可用。
+- [x] **GUX-011 · P1 · 实现 · 邮件补偿输入**
+  - 依赖：GUX-005, GUX-006, GUX-007。交付与验收：复用已有能力/契约构建补偿面板，明确目标、作用域、内容、数量和原因；无绑定时解释不可用。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。向导目标步骤即时汇总已选人数/区服，全服/区服显式「以服务端为准」不杜撰人数；radio 选项走 locale key；create 绑定 `executor_unbound` 以 ExecutorUnboundAlert（mail_task.create 定位入口）呈现而非普通失败。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-008-013.md`
 
-- [ ] **GUX-12 · P1 · 变更确认**
-  - 交付与验收：提交前汇总实际目标、作用域、内容和风险，复用已有高风险与审批契约；权限、取消和目标变更均可验证。
+- [x] **GUX-012 · P1 · 实现 · 变更确认**
+  - 依赖：GUX-005, GUX-006, GUX-007, GUX-011。交付与验收：提交前汇总实际目标、作用域、内容和风险，复用已有高风险与审批契约；权限、取消和目标变更均可验证。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。提交前核对步骤结构化摘要（类型/标题/范围/目标/每人数量/总量——总量仅指定玩家+补偿可算时展示）+ 审批/直发提示 + 必勾确认 checkbox；高风险与审批契约沿用既有 D2/审批链（渲染器侧 modal.confirm 未变更）。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-008-013.md`
 
-- [ ] **GUX-13 · P1 · 执行回执**
-  - 交付与验收：使用真实接口返回展示提交/执行/失败/部分结果及可追溯标识；未知保持未知，不杜撰回滚或成功。
+- [x] **GUX-013 · P1 · 实现 · 执行回执**
+  - 依赖：GUX-005, GUX-006, GUX-007, GUX-012。交付与验收：使用真实接口返回展示提交/执行/失败/部分结果及可追溯标识；未知保持未知，不杜撰回滚或成功。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。渲染器写操作结果面按白名单（id/taskId/approvalId/count/total/amount/retried/sentCount/failedCount；非空串与有限数字）展示真实返回标识，布尔与未知键忽略；向导审批态回执带审批单号+任务 ID，接口未返回的字段不展示，不发明部分成功状态。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-008-013.md`
 
-- [ ] **GUX-14 · P1 · 运行控制台空态**
-  - 交付与验收：合并重复空卡，区分无发布页、无权限与加载失败；按角色提供可执行的下一步。
+- [x] **GUX-014 · P1 · 实现 · 运行控制台空态**
+  - 依赖：GUX-001, GUX-002。交付与验收：合并重复空卡，区分无发布页、无权限与加载失败；按角色提供可执行的下一步。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。全部菜单无页面时合并为一张空态卡（区分「暂无已发布页面 / 页面尚未挂载 {count}」）；categoryKey 未命中改「菜单不存在或未发布」+返回首页（不再误标为无页面且暴露 key）；无权限/加载失败既有分支用例锁定；下一步按角色（canPageRead → 页面工作台/菜单管理按钮；运营角色 → 联系管理员，无越权入口）。逐菜单占位仅在部分菜单有页面时保留。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-014.md`
 
-- [ ] **GUX-15 · P2 · 说明与文案收敛**
-  - 交付与验收：将目录及页面工作台的重复引导移至按需帮助或首次引导；移除登录模板占位符及内部术语的误导展示。
+- [x] **GUX-015 · P2 · 实现 · 说明与文案收敛**
+  - 依赖：GUX-001, GUX-002。交付与验收：将目录及页面工作台的重复引导移至按需帮助或首次引导；移除登录模板占位符及内部术语的误导展示。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。函数目录首屏引导（hero 卡 + 双引导子卡 + 双常驻 Alert）收敛为一张默认折叠的「使用说明与常见误解」Collapse（按钮全保留，同目标「查看资源」去重），数据标签行与 SummaryOverview 保留；PageWorkflowGuide 整卡 Steps+Alert 折叠为默认收起条；登录占位符 8 locale 去模板名（含组件 defaultMessage 与 5 个测试 locator 同步）；死键清理 accountLogin.{tab,errorMessage} ×8 locale、app.welcome.link.* ×6 locale（GUX-003 遗留）；控制台分类卡 category.key 代码串移除、概览说明去（menu_items）括注。tsc 0；全量 jest 466 suites/5480 tests 全绿 load=3；go internal rc=0；guard PASSED。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-015.md`
 
-- [ ] **GUX-16 · P2 · 视觉与交互规范**
-  - 交付与验收：定义标题、间距、表格、表单、抽屉、语义色及全部交互状态；覆盖明暗主题、中文英文和键盘焦点。
+- [x] **GUX-016 · P2 · 设计 · 视觉与交互规范**
+  - 依赖：GUX-001, GUX-002。交付与验收：定义标题、间距、表格、表单、抽屉、语义色及全部交互状态；覆盖明暗主题、中文英文和键盘焦点。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。docs/design/game-ops-visual-spec.md + zh 镜像：§3 标题六级层级与内部 key 禁令、§4 DASHBOARD_PAGE_TOKENS 间距词汇表+圆角 8/12、§5 ProTable 基线（折叠搜索/link 动作/更多下拉/右对齐/GUX-014 状态模型）、§6 表单三容器契约测试口径、§7 640 详情抽屉+identity 锚、§8 语义色（契约枚举/未知（原值）非仅颜色/--brand-*）、§9 交互状态全集含键盘焦点 :focus-visible 硬性要求、§2+§10 明暗（preset×mode、暗色二次派生按渲染值验对比度、按套分别验）与中英文（intl 契约+键位对齐测试）、§11 review 检查单；引用路径全部实测存在，docs build 通过。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-016.md`（边界：检查单无自动化守卫、index.md 登记暂缓避外席在途）
 
-- [ ] **GUX-17 · P1 · 标杆流程端到端验收**
-  - 交付与验收：以玩家查询→详情→补偿→确认→回执运行可控 fixture，覆盖错误/部分成功、作用域切换、键盘及 1440px/笔记本截图；真实游戏验收沿 UI-001，fixture 不抵扣。
+- [ ] **GUX-017 · P1 · 验收 · 标杆流程端到端验收**
+  - 依赖：GUX-003, GUX-004, GUX-008, GUX-009, GUX-010, GUX-011, GUX-012, GUX-013。交付与验收：以玩家查询→详情→补偿→确认→回执运行可控 fixture，覆盖错误/部分成功、作用域切换、键盘及 1440px/笔记本截图；真实游戏验收沿 UI-001，fixture 不抵扣。
+  - 状态／条件：待办（2026-11-17 结构化入账，来源同 GUX-001）。
 
 ## 架构与可靠性
 
@@ -280,6 +313,10 @@
 - [ ] **GAME-012 · P1 · 实现 · 服务端批次对象账本与受控恢复**
   - 依赖：GAME-011, GAME-010。交付与验收：复用任务体系实施批准的快照/逐对象状态与预算约束；变更名单不可偷换批准范围，部分失败只重试可确认未执行对象；暂停恢复/阈值停止/最终核对可验，不以一次 onExecute 返回成功代替批次完成
   - 状态／条件：BLOCKED（2026-11-01 复核）：需批准的批次方案和游戏执行收据；缺方案批准/游戏执行收据。
+
+- [ ] **GAME-013 · P2 · 实现 · games 目录 API 支持显式 gameId 与存量库 seed 复核**
+  - 依赖：—。交付与验收：games REST Create/Update 允许显式 gameId（校验沿用 sanitizeGameID 语义，连字符可用），dashboard 手建 scope 能产出与 SDK 侧一致的标识；games.json bootstrap 现状为首装仅跑（games 表非空即跳过），补存量库对账（烘焙清单新增条目幂等补种或提供再同步入口）；验收=存量库不直连 DB 即可建出带连字符的 gameId scope，并经控制台切换与 X-Game-ID/X-Env 路由复证
+  - 状态／条件：BLOCKED（2026-11-17 发现）：现状 `deriveGameIDFromName` 把 `-` 归一成 `_` 且 Create DTO 无 gameId 字段；192.168.5.5 存量库的 demo-game/demo scope 只能 DB 直插建成（已按 seed 语义插入并经 games API 复证可见）；docs/design/demo-game.md 的「dashboard 手建兜底」说法已按实测改写
 
 - [x] **GAME-DEMO-001 · P1 · 实现 · 复杂游戏模拟 demo（gameops-rpg，巡检单 2026-10-20）**
   - 依赖：无（刻意不依赖 GAME-002~010 真实接入方）。交付与验收：`sdks/go/examples/gameops-rpg/` 模拟 RPG 世界（玩家等级/金币/钻石/背包、任务每日刷新、邮件附件领取=补偿流核心、订单幂等发货、封禁联动），SDK→Agent 注册 17 函数（`player.*` `mail.*` `task.*` `order.*` `economy.*` `report.generate`），tick 驱动玩法循环 + JSON 快照持久化；demo 编译、单测覆盖发货幂等/封禁拒领/余额 fail-closed/邮件过期、平台注册可见、经平台全链路（mail.send 附件→落库→领取→入背包→report.generate 审批通过执行）与异常链路（重复发货拒绝、封禁拒领）
@@ -1523,23 +1560,23 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：2026-11-16 复核属实。
 
 - [ ] **AUD-047 · P2 · 修复 · 未知错误统一 opaque 500**
-  - 交付与验收：`internal/common/response/response.go:107-108` 未知错误改 opaque message + correlation id，原文仅入日志；带响应契约回归。
+  - 依赖：—。交付与验收：`internal/common/response/response.go:107-108` 未知错误改 opaque message + correlation id，原文仅入日志；带响应契约回归。
   - 状态／条件：2026-11-16 复核属实——`err.Error()` 直出可泄漏 GORM/驱动细节。
 
 - [ ] **AUD-048 · P2 · 修复 · Warehouse 查询强制 current scope**
-  - 交付与验收：`internal/api/analytics/warehouse.go:141/247` 请求 game/env 只可收窄不可替换，空值不得展开为无过滤。
+  - 依赖：—。交付与验收：`internal/api/analytics/warehouse.go:141/247` 请求 game/env 只可收窄不可替换，空值不得展开为无过滤。
   - 状态／条件：2026-11-16 复核属实——显式传其他 game/env 可跨域聚合。
 
 - [ ] **AUD-049 · P2 · 修复 · 敏感写路径补统一审计**
-  - 交付与验收：incident/ticket 变更、storage 删除/上传、cicd webhook 成功与 denied 路径接 AuditService.Log；统一 decorator 覆盖成功/失败/denied 三态。
+  - 依赖：AUD-042（权限矩阵先行，denied 面随 guard 收敛）。交付与验收：incident/ticket 变更、storage 删除/上传、cicd webhook 成功与 denied 路径接 AuditService.Log；统一 decorator 覆盖成功/失败/denied 三态。
   - 状态／条件：2026-11-16 复核属实。
 
 - [ ] **AUD-050 · P2 · 修复 · Ticket/CICD 多步写包事务**
-  - 交付与验收：`internal/api/ticket/service.go:202-209`（状态备注+状态更新）与 `internal/api/cicd/service.go:283-287`（删 builds+删 integration）包 GORM transaction；带第二步失败回滚用例。
+  - 依赖：—。交付与验收：`internal/api/ticket/service.go:202-209`（状态备注+状态更新）与 `internal/api/cicd/service.go:283-287`（删 builds+删 integration）包 GORM transaction；带第二步失败回滚用例。
   - 状态／条件：2026-11-16 复核属实——半提交可产生不一致中间态。
 
 - [ ] **AUD-051 · P3 · 修复 · Approval 挂账文档更新为 SQLStore 现状**
-  - 交付与验收：`docs/operations/access-control.md:66` 与 CLAUDE.md「Approvals currently use MemStore」表述更新为 production SQLStore + CAS 事实；zh 镜像（docs/zh）同步。
+  - 依赖：—。交付与验收：`docs/operations/access-control.md:66` 与 CLAUDE.md「Approvals currently use MemStore」表述更新为 production SQLStore + CAS 事实；zh 镜像（docs/zh）同步。
   - 状态／条件：2026-11-16 复核属实——`internal/svc/service_context.go:379` 实际装配 SQLStore，重启丢失风险已不存在。
 
 - [ ] **AUD-052 · P3 · 修复 · 缩短 access JWT TTL 并引入 refresh 轮换**
@@ -1547,19 +1584,19 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：2026-11-16 复核属实——TTL 硬编码 24h 无 refresh。
 
 - [ ] **AUD-053 · P3 · 修复 · Backup 创建幂等键**
-  - 交付与验收：`internal/api/backup/service.go:75-106` 按 name/type/时间窗或客户端 Idempotency-Key 去重 pending/succeeded；带并发去重用例。
+  - 依赖：—。交付与验收：`internal/api/backup/service.go:75-106` 按 name/type/时间窗或客户端 Idempotency-Key 去重 pending/succeeded；带并发去重用例。
   - 状态／条件：2026-11-16 复核属实——双击/重试并发创建多份重备份。
 
 - [ ] **AUD-054 · P3 · 修复 · 删除旧式 PermissionMiddleware 死代码**
-  - 交付与验收：确认无挂载引用后删除 `internal/service/permission/middleware.go:117-127`、`internal/common/middleware/auth.go:104` 的旧式实现（字符串 context key + gin.H 直写）。
+  - 依赖：—。交付与验收：确认无挂载引用后删除 `internal/service/permission/middleware.go:117-127`、`internal/common/middleware/auth.go:104` 的旧式实现（字符串 context key + gin.H 直写）。
   - 状态／条件：2026-11-16 复核属实（未挂载死代码，防未来误挂载）。
 
 - [ ] **AUD-055 · P3 · 修复 · Registry 公开语义对齐**
-  - 交付与验收：`internal/handler/routes_storage.go:45` 注释与服务层权限二选一对齐（protected 或真公开 + threat model 记录）。
+  - 依赖：—。交付与验收：`internal/handler/routes_storage.go:45` 注释与服务层权限二选一对齐（protected 或真公开 + threat model 记录）。
   - 状态／条件：2026-11-16 复核属实——路由注释称公开，服务层 RequireAnyPermission 致匿名 403。
 
 - [ ] **AUD-056 · P3 · 修复 · Monitoring 健康错误改稳定码**
-  - 交付与验收：`internal/api/monitoring/service.go:160-163` 状态响应改布尔/稳定码，详细错误仅日志。
+  - 依赖：—。交付与验收：`internal/api/monitoring/service.go:160-163` 状态响应改布尔/稳定码，详细错误仅日志。
   - 状态／条件：2026-11-16 复核属实——底层错误直出响应。
 
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
