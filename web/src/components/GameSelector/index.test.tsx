@@ -161,6 +161,34 @@ describe('GameSelector：环境来源与兜底', () => {
     expect(dotOf('CUSTOM-ENV')).toBe('rgb(140, 140, 140)');
   });
 
+  it('envMeta description 渲染进选项（契约字段展示）；缺描述只渲染名称（GUX-004）', async () => {
+    mockedList.mockResolvedValue({
+      games: [
+        {
+          name: 'g1',
+          envMeta: [
+            { env: 'prod', description: '对外正式环境' },
+            { env: 'biz-env', color: '#123456' },
+          ],
+        },
+      ],
+    });
+    render(<GameSelector />);
+    await waitFor(() => expect(screen.getAllByRole('combobox').length).toBe(2));
+
+    openSelect(1);
+    const options = await waitFor(() => {
+      const nodes = Array.from(document.querySelectorAll('.ant-select-item-option'));
+      if (nodes.length === 0) throw new Error('env 选项未渲染');
+      return nodes as HTMLElement[];
+    });
+    const textOf = (label: string) =>
+      options.find((o) => o.textContent?.includes(label))?.textContent;
+    // 契约描述直出为选项次级文本；无描述的环境不追加说明
+    expect(textOf('PROD')).toBe('PROD对外正式环境');
+    expect(textOf('BIZ-ENV')).toBe('BIZ-ENV');
+  });
+
   it('envs 字符串数组来源：映射为环境选项', async () => {
     mockedList.mockResolvedValue({ games: [{ name: 'g1', envs: ['prod'] }] });
     render(<GameSelector />);

@@ -4,7 +4,7 @@
  * 变化只触发一次（同一 scope 重复 set 不重拉）。
  */
 import { act, renderHook } from '@testing-library/react';
-import { useScopeReload } from '../useScopeReload';
+import { useScopeReload, useScopeFreshGuard } from '../useScopeReload';
 import { setScope } from '@/stores/scope';
 
 describe('useScopeReload', () => {
@@ -46,5 +46,33 @@ describe('useScopeReload', () => {
     rerender({ fn: () => seen.push(2) });
     act(() => setScope({ gameId: 'game-c', env: 'dev' }));
     expect(seen).toEqual([2]);
+  });
+});
+
+/** useScopeFreshGuard（GUX-004）：fetch 型 loader 的在途结果防护原语。
+ * begin 捕获当前作用域代次；gameId/env 实际变化后旧请求判 stale。 */
+describe('useScopeFreshGuard', () => {
+  it('begin 捕获当前代次；scope 实际变化后 isStale 为 true，重新 begin 复位', () => {
+    const { result } = renderHook(() => useScopeFreshGuard());
+    act(() => setScope({ gameId: 'fresh-g1', env: 'dev' }));
+    result.current.begin();
+    expect(result.current.isStale()).toBe(false);
+
+    act(() => setScope({ gameId: 'fresh-g2', env: 'dev' }));
+    expect(result.current.isStale()).toBe(true);
+
+    result.current.begin();
+    expect(result.current.isStale()).toBe(false);
+  });
+
+  it('同值重复 set 不改代次：在途请求仍视为新鲜', () => {
+    const { result } = renderHook(() => useScopeFreshGuard());
+    act(() => setScope({ gameId: 'fresh-g3', env: 'dev' }));
+    result.current.begin();
+    act(() => setScope({ gameId: 'fresh-g3', env: 'dev' }));
+    expect(result.current.isStale()).toBe(false);
+    // 仅单个字段变化同样判 stale
+    act(() => setScope({ env: 'prod' }));
+    expect(result.current.isStale()).toBe(true);
   });
 });

@@ -25,9 +25,10 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-17）。根路径 `/` 改 LandingRedirect 按 access 能力落地（运营→/console/home、开发→/functions/catalog、平台→/system、全不可见→/account）；Welcome 模板页与未路由 Admin 模板页下线、locale welcome 键 8 语言同步清理（app.welcome.* 死键留 GUX-015）；运行控制台根视图挂工作台四面板：待办（审批 pending×audit:read+未读消息）、异常（契约失效计数零请求+告警×ops:read）、最近处理（execution-logs mine=true 免审计权限）、常用入口按权限过滤；单面板失败独立重试不拖垮整页、权限外整体不渲染、空数据真实空态；审批面板随 scopeKey 重拉。
   - 完成证据：`docs/review/evidence/2026-11-17/gux-003.md`
 
-- [ ] **GUX-004 · P1 · 实现 · 游戏环境与作用域**
+- [x] **GUX-004 · P1 · 实现 · 游戏环境与作用域**
   - 依赖：GUX-001, GUX-002。交付与验收：统一当前游戏/环境展示，按契约支持区服/渠道/时区；切换作用域清理旧数据和在途结果。
-  - 状态／条件：待办（2026-11-17 结构化入账，来源同 GUX-001）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。作用域展示全局唯一（GameSelector header/mobile 共用 scope store，取证既有交付）；本项补契约字段展示（GameEnvMeta.description 进环境选项次级行）与在途结果防护（scope.ts 代次计数 + useScopeFreshGuard，工作台 usePanel 接入丢弃晚到旧 scope 响应；ProTable 族既有 debounce+abort 口径不变）。边界：区服/渠道/时区不在作用域契约（GameEnvItem={env,description,color,databaseName}）内，按契约如实不提供选择器；描述为后端单串原样展示非 LocalizedText。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-004.md`
 
 - [x] **GUX-005 · P1 · 实现 · 统一状态语义**
   - 依赖：GUX-001, GUX-002。交付与验收：建立状态映射与文本/颜色/未知态规则；玩家列表、详情、确认和回执显示一致且不只依赖颜色。

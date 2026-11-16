@@ -272,7 +272,12 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     label: (
       <div className={styles.gameOption}>
         <span className={styles.colorDot} style={colorDot(env.color)} />
-        <span className={styles.gameAlias}>{env.label}</span>
+        {/* 描述来自契约（GameEnvMeta.description，缺省用内置文案）：GUX-004
+            让环境选项展示契约提供的语义说明，缺描述时只渲染色点+名称 */}
+        <span className={styles.gameTexts}>
+          <span className={styles.gameAlias}>{env.label}</span>
+          {env.description ? <span className={styles.envDesc}>{env.description}</span> : null}
+        </span>
       </div>
     ),
     searchValue: `${env.value} ${env.label}`.toLowerCase(),

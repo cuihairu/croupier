@@ -15,6 +15,13 @@ let scopeReady = false;
 let resolveScopeReady: () => void;
 const listeners = new Set<ScopeListener>();
 
+// 作用域代次（GUX-004）：gameId/env 实际变化时自增。自定义 loader 在发起
+// 请求前记录版本，响应落地时版本已变即丢弃（ProTable 族由 params 重发 +
+// 内部 abort 保证错序防护，本计数是 fetch 型面板/页面统一判据）。
+let scopeVersion = 0;
+
+export const getScopeVersion = (): number => scopeVersion;
+
 // Promise that resolves when GameSelector has validated the scope.
 // API services can await this to avoid firing requests with stale values.
 export const scopeReadyPromise = new Promise<void>((resolve) => {
@@ -61,10 +68,15 @@ const emitScopeChange = (scope: Scope) => {
 export const getScope = (): Scope => ({ ...currentScope });
 
 export const setScope = (next: Scope, opts?: { persist?: boolean; emit?: boolean }) => {
+  const prevGameId = currentScope.gameId;
+  const prevEnv = currentScope.env;
   currentScope = {
     ...currentScope,
     ...next,
   };
+  if (prevGameId !== currentScope.gameId || prevEnv !== currentScope.env) {
+    scopeVersion += 1;
+  }
   if (opts?.persist !== false) {
     persistToStorage(currentScope);
   }

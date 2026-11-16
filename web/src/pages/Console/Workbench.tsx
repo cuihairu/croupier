@@ -29,7 +29,7 @@ import { listApprovals, type ApprovalRow } from '@/services/api/approvals';
 import { unreadCount } from '@/services/api/messages';
 import { listAlerts, type Alert as OpsAlert } from '@/services/api/alerts';
 import { listExecutionLogs, type ExecutionLogItem } from '@/services/api/executionLogs';
-import { useScope } from '@/hooks/useScopeReload';
+import { useScope, useScopeFreshGuard } from '@/hooks/useScopeReload';
 import type { PublishedPageSpec } from '@/types/dashboard';
 import { formatDateTime } from '@/utils/format';
 
@@ -43,7 +43,8 @@ type ConsoleWorkbenchAccess = {
 type PanelState<T> = { loading: boolean; error: string; data: T | null };
 
 /** 面板数据加载：enabled=false 不发请求；scopeKey 变化重拉（scoped 数据跟随
- * 顶栏游戏/环境切换）；tick 供重试按钮复跑同一加载器。 */
+ * 顶栏游戏/环境切换）；tick 供重试按钮复跑同一加载器。响应落地前经
+ * useScopeFreshGuard 校验作用域代次——切 scope 后旧请求晚到不覆盖新数据。 */
 function usePanel<T>(
   enabled: boolean,
   load: () => Promise<T>,
@@ -53,17 +54,19 @@ function usePanel<T>(
   const [tick, setTick] = useState(0);
   const loadRef = useRef(load);
   loadRef.current = load;
+  const fresh = useScopeFreshGuard();
   useEffect(() => {
     if (!enabled) return;
     let mounted = true;
+    fresh.begin();
     setState({ loading: true, error: '', data: null });
     loadRef
       .current()
       .then((data) => {
-        if (mounted) setState({ loading: false, error: '', data });
+        if (mounted && !fresh.isStale()) setState({ loading: false, error: '', data });
       })
       .catch((err: unknown) => {
-        if (mounted)
+        if (mounted && !fresh.isStale())
           setState({
             loading: false,
             error: err instanceof Error ? err.message : String(err),
@@ -73,6 +76,7 @@ function usePanel<T>(
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, scopeKey, tick]);
   const reload = useCallback(() => setTick((value) => value + 1), []);
   return { ...state, reload };

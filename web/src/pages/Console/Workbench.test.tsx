@@ -9,10 +9,11 @@
  * - 常用入口：审批中心/菜单管理按权限过滤，模板入口常驻
  * - 单面板失败只影响自身（其余面板正常渲染）
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { history, useAccess } from '@umijs/max';
 import ConsoleWorkbench from './Workbench';
 import { listApprovals } from '@/services/api/approvals';
+import { setScope } from '@/stores/scope';
 import { unreadCount } from '@/services/api/messages';
 import { listAlerts } from '@/services/api/alerts';
 import { listExecutionLogs } from '@/services/api/executionLogs';
@@ -158,6 +159,60 @@ describe('ConsoleWorkbench 运营工作台', () => {
     renderWorkbench({ canConsoleRead: true, canAuditRead: true });
     await waitFor(() => expect(screen.getByText('暂无待审批')).toBeInTheDocument());
     expect(screen.queryByText('暂无待办')).not.toBeInTheDocument();
+  });
+
+  it('作用域切换：旧 scope 晚到响应被丢弃，不覆盖新 scope 面板（GUX-004）', async () => {
+    type ApprovalsResp = Awaited<ReturnType<typeof listApprovals>>;
+    let resolveFirst!: (value: ApprovalsResp) => void;
+    // 第一次请求挂起；切 scope 后的第二次请求立即落新数据
+    mockedListApprovals
+      .mockImplementationOnce(
+        () =>
+          new Promise<ApprovalsResp>((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          approvals: [
+            {
+              id: 'ap-new',
+              functionId: 'order.deliver',
+              actor: 'op2',
+              createdAt: '2026-11-17T11:00:00Z',
+              state: 'pending',
+              mode: 'otp',
+            },
+          ],
+          total: 1,
+        }),
+      );
+    renderWorkbench({ canConsoleRead: true, canAuditRead: true });
+    await waitFor(() => expect(mockedListApprovals).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      setScope({ gameId: 'game-b', env: 'prod' });
+    });
+    await waitFor(() => expect(mockedListApprovals).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText('order.deliver')).toBeInTheDocument());
+
+    // 旧请求此刻才落地：晚到不回写
+    resolveFirst({
+      approvals: [
+        {
+          id: 'ap-stale',
+          functionId: 'stale.function',
+          actor: 'op0',
+          createdAt: '2026-11-17T09:00:00Z',
+          state: 'pending',
+          mode: 'otp',
+        },
+      ],
+      total: 1,
+    });
+    await act(async () => {});
+    expect(screen.queryByText('stale.function')).not.toBeInTheDocument();
+    expect(screen.getByText('order.deliver')).toBeInTheDocument();
   });
 
   it('异常面板：契约失效计数来自 pages prop，告警按 ops:read 拉取', async () => {
