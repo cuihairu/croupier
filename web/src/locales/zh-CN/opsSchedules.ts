@@ -34,6 +34,7 @@ export default {
   'pages.opsSchedules.form.name': '名称',
   'pages.opsSchedules.form.namePlaceholder': '每日凌晨清理过期数据',
   'pages.opsSchedules.form.payload': '参数（JSON，可空）',
+  'pages.opsSchedules.form.payloadInvalid': '参数必须是合法的 JSON 文本',
   'pages.opsSchedules.form.submit': '确定',
   'pages.opsSchedules.recover.content': '连续失败计数将清零，并从下一个触发点重新开始。',
   'pages.opsSchedules.recover.title': '从死信恢复该调度？',

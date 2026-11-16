@@ -11,7 +11,7 @@
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
-import SchedulesPage from '../index';
+import SchedulesPage, { payloadRule } from '../index';
 import { useIntl } from '@umijs/max';
 import {
   listSchedules,
@@ -519,6 +519,31 @@ describe('Ops/Schedules 行操作与弹窗流程', () => {
     // SyntaxError 原文经 extractErrorMessage 直出 toast；文本随 Node 版本波动，只断言错误 toast 弹出
     await waitFor(() => expect(document.querySelector('.ant-message-notice-error')).toBeTruthy());
     expect(mockCreateSchedule).not.toHaveBeenCalled();
+  });
+
+  // payload 字段级校验：UI 路径在提交前拦在表单项下（ModalForm 桩绕过 antd
+  // 校验直调 onFinish，故对规则本体直测）；onFinish 的 toast 用例保留作解析兜底。
+  describe('payloadRule 字段级 JSON 校验', () => {
+    const intl = {
+      formatMessage: ({ defaultMessage }: { defaultMessage?: string }) => defaultMessage ?? '',
+    };
+    const rule = payloadRule(intl);
+    type ValidatorFn = (_rule: unknown, value: string | undefined) => Promise<void>;
+    const run = (value: string | undefined) =>
+      (rule.validator as unknown as ValidatorFn)({}, value);
+
+    it('空值与合法 JSON 通过（可空语义不变）', async () => {
+      await expect(run(undefined)).resolves.toBeUndefined();
+      await expect(run('')).resolves.toBeUndefined();
+      await expect(run('   ')).resolves.toBeUndefined();
+      await expect(run('{"days": 30}')).resolves.toBeUndefined();
+      await expect(run('[1,2]')).resolves.toBeUndefined();
+    });
+
+    it('非法 JSON 拒绝并给出表单项错误文案', async () => {
+      await expect(run('{bad')).rejects.toThrow('参数必须是合法的 JSON 文本');
+      await expect(run('{"k":')).rejects.toThrow('参数必须是合法的 JSON 文本');
+    });
   });
 
   it('创建调度：请求失败同样提示创建失败', async () => {

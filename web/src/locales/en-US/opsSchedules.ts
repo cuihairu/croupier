@@ -35,6 +35,7 @@ export default {
   'pages.opsSchedules.form.name': 'Name',
   'pages.opsSchedules.form.namePlaceholder': 'Clean up expired data every night',
   'pages.opsSchedules.form.payload': 'Payload (JSON, optional)',
+  'pages.opsSchedules.form.payloadInvalid': 'Payload must be valid JSON text',
   'pages.opsSchedules.form.submit': 'OK',
   'pages.opsSchedules.recover.content':
     'The consecutive failure counter will be reset, and the schedule will restart from the next trigger point.',

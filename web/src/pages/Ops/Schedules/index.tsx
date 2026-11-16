@@ -17,6 +17,7 @@ import {
   Tag,
 } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
+import type { Rule } from 'antd/es/form';
 import type { ColumnsType } from 'antd/es/table';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import {
@@ -34,11 +35,29 @@ import type { NodeCronJob } from '@/services/api/ops';
 import { useScopeReload } from '@/hooks/useScopeReload';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
+import { isValidJSON } from '@/utils/json';
 
 /** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
 type IntlFormatter = {
   formatMessage: (descriptor: { id: string; defaultMessage: string }) => string;
 };
+
+/** payload 字段级校验：可空；非空必须是合法 JSON 文本（提交前在表单项下标注，
+ * onFinish 的 try/catch 保留作解析兜底）。导出供测试直测。 */
+export function payloadRule(intl: IntlFormatter): Rule {
+  const validator = (_rule: unknown, value: string | undefined): Promise<void> =>
+    !value || value.trim() === '' || isValidJSON(value)
+      ? Promise.resolve()
+      : Promise.reject(
+          new Error(
+            intl.formatMessage({
+              id: 'pages.opsSchedules.form.payloadInvalid',
+              defaultMessage: '参数必须是合法的 JSON 文本',
+            }),
+          ),
+        );
+  return { validator };
+}
 
 /** 调度状态 → Tag 颜色/文案；未知状态回退展示原始值 */
 function getStatusTagMeta(status: string, intl: IntlFormatter): { color: string; label: string } {
@@ -743,6 +762,7 @@ export default function SchedulesPage() {
             id: 'pages.opsSchedules.form.payload',
             defaultMessage: '参数（JSON，可空）',
           })}
+          rules={[payloadRule(intl)]}
         >
           <Input.TextArea rows={3} placeholder='{"days": 30}' />
         </Form.Item>
