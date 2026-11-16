@@ -79,7 +79,9 @@ services:
         "0.0.0.0:8090",
       ]
     ports:
-      - "18090:8090"
+      # 宿主侧端口可覆盖：部署机 18090 被其他项目占用时设
+      # DEMO_GAME_HTTP_PORT（192.168.5.5 实际用 18091）。
+      - "${DEMO_GAME_HTTP_PORT:-18090}:8090"
     depends_on:
       demo-postgres:
         condition: service_healthy

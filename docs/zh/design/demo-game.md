@@ -110,12 +110,14 @@ go run ./cmd/demo-game -agent 127.0.0.1:19091 -seed 7 -dsn /tmp/demo.db
 
 - `demo-postgres`（postgres:15-alpine，`demo_game` 库）；
 - `demo-agent`（croupier-agent 镜像 + `configs/agent.demo.yaml`，拨号 `croupier-haproxy:19090`）；
-- `demo-game`（`docker/Dockerfile.demo-game`，CGO off；健康口 `8090` 发布为 `18090`）；
+- `demo-game`（`docker/Dockerfile.demo-game`，CGO off；健康口 `8090` 发布为
+  `${DEMO_GAME_HTTP_PORT:-18090}`——192.168.5.5 上 18090 被其他项目占用，实际用 `18091`）；
 - demo-internal 网络把 db 与 game 和平台网络隔离。
 
 ```bash
 docker compose -f docker/docker-compose.demo-game.yml up -d
-docker restart croupier-demo-game   # 重放演练：余额必须纹丝不动
+docker restart docker-demo-game-1   # 重放演练：余额必须纹丝不动
+# （容器名随 compose 项目名变化；192.168.5.5 上是 docker-demo-game-1）
 ```
 
 ## 7. E2E

@@ -118,12 +118,14 @@ functions.
 
 - `demo-postgres` (postgres:15-alpine, `demo_game` database);
 - `demo-agent` (croupier-agent image + `configs/agent.demo.yaml`, dials `croupier-haproxy:19090`);
-- `demo-game` (`docker/Dockerfile.demo-game`, CGO off; health `8090` published as `18090`);
+- `demo-game` (`docker/Dockerfile.demo-game`, CGO off; health `8090` published as
+  `${DEMO_GAME_HTTP_PORT:-18090}` — 192.168.5.5 sets `18091` because another project holds 18090);
 - demo-internal network isolates db + game from the platform network.
 
 ```bash
 docker compose -f docker/docker-compose.demo-game.yml up -d
-docker restart croupier-demo-game   # replay-proof drill: balances must not move
+docker restart docker-demo-game-1   # replay-proof drill: balances must not move
+# (container name follows the compose project name; docker-demo-game-1 on 192.168.5.5)
 ```
 
 ## 7. E2E
