@@ -2,11 +2,22 @@
 export default {
   'pages.console.home.description':
     '运行控制台的导航由菜单管理（menu_items）驱动：菜单节点分组展示，挂载到菜单且已发布的页面才会出现在这里。',
+  'pages.console.home.empty.backHome': '返回控制台首页',
   'pages.console.home.empty.category': '该菜单下暂无页面',
-  'pages.console.home.empty.categoryKey': '菜单 "{categoryKey}" 下暂无已发布页面',
+  'pages.console.home.empty.contactAdmin': '如需启用页面，请联系管理员。',
   'pages.console.home.empty.goMenus': '去菜单管理',
+  'pages.console.home.empty.goPages': '去页面工作台',
   'pages.console.home.empty.hint':
     '请先在菜单管理中创建菜单并挂载已发布页面（页面工作台发布），然后在这里查看。',
+  'pages.console.home.empty.menuMissing': '菜单不存在或未发布',
+  'pages.console.home.empty.menuMissingHint':
+    '链接指向的菜单可能已被删除、尚未创建，或没有已发布页面。',
+  'pages.console.home.empty.noPages': '暂无已发布页面',
+  'pages.console.home.empty.noPagesHint':
+    '菜单结构已就绪。页面在页面工作台发布并挂载到菜单后，会显示在这里。',
+  'pages.console.home.empty.notMounted': '页面尚未挂载到菜单',
+  'pages.console.home.empty.notMountedHint':
+    '已发布 {count} 个页面，但还没有挂载到任何菜单；挂载后会显示在这里。',
   'pages.console.home.empty.pages': '暂无菜单',
   'pages.console.home.error.load': '加载失败',
   'pages.console.home.error.loadConsoleFailed': '加载控制台失败',

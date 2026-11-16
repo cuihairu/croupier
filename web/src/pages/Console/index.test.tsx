@@ -8,6 +8,10 @@
  *   与 locale 缺失回退）
  * - 根视图 / categoryKey 过滤命中 / categoryKey 无匹配 Empty
  * - 契约失效 Tag（有/无 freshness、未发布页）、空分类占位、卡片点击跳转
+ * - GUX-014 合并空态：全部菜单无页面 → 一张合并卡（区分无发布页/未挂载），
+ *   逐菜单占位只在部分菜单有页面时保留；下一步按角色（canPageRead →
+ *   页面工作台/菜单管理按钮，运营角色 → 联系管理员）；链接菜单不存在 →
+ *   「菜单不存在或未发布」+ 返回首页
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { history, useAccess, useParams } from '@umijs/max';
@@ -325,7 +329,8 @@ describe('Console/index 运行控制台首页', () => {
     expect(screen.queryByText('运营')).not.toBeInTheDocument();
   });
 
-  it('空菜单空态：渲染「去菜单管理」引导按钮并跳转菜单管理页', async () => {
+  it('空菜单空态：有页面管理权限时渲染「去菜单管理」并跳转', async () => {
+    setAccess({ canConsoleRead: true, canPageRead: true });
     mockedGetConsoleMenu.mockResolvedValue(asMenu([]));
     mockedListPublishedPages.mockResolvedValue([]);
     setParams(undefined);
@@ -336,6 +341,18 @@ describe('Console/index 运行控制台首页', () => {
     const goButton = screen.getByRole('button', { name: '去菜单管理' });
     fireEvent.click(goButton);
     expect(mockedHistoryPush).toHaveBeenCalledWith('/functions/menus');
+  });
+
+  it('空菜单空态：无页面管理权限时不给管理入口，提示联系管理员（GUX-014）', async () => {
+    mockedGetConsoleMenu.mockResolvedValue(asMenu([]));
+    mockedListPublishedPages.mockResolvedValue([]);
+    setParams(undefined);
+
+    render(<ConsoleIndex />);
+
+    await waitFor(() => expect(screen.getByText('暂无菜单')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: '去菜单管理' })).not.toBeInTheDocument();
+    expect(screen.getByText('如需启用页面，请联系管理员。')).toBeInTheDocument();
   });
 
   it('categoryKey 命中时只渲染该分类并按分类标题拼 pageTitle', async () => {
@@ -351,7 +368,7 @@ describe('Console/index 运行控制台首页', () => {
     expect(screen.queryByText('Ops')).not.toBeInTheDocument();
   });
 
-  it('categoryKey 无匹配时 pageTitle 回退 key 并渲染未匹配 Empty', async () => {
+  it('categoryKey 无匹配时渲染「菜单不存在或未发布」并返回首页（GUX-014）', async () => {
     mockedGetConsoleMenu.mockResolvedValue(mainMenu());
     mockedListPublishedPages.mockResolvedValue(mainPages());
     setParams({ categoryKey: 'ghost' });
@@ -359,11 +376,37 @@ describe('Console/index 运行控制台首页', () => {
     render(<ConsoleIndex />);
 
     await waitFor(() => expect(screen.getByText('运行控制台 / ghost')).toBeInTheDocument());
-    expect(screen.getByText('菜单 "ghost" 下暂无已发布页面')).toBeInTheDocument();
+    expect(screen.getByText('菜单不存在或未发布')).toBeInTheDocument();
+    expect(
+      screen.getByText('链接指向的菜单可能已被删除、尚未创建，或没有已发布页面。'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('分类甲')).not.toBeInTheDocument();
+    // 分类视图的合并空态不出现（菜单存在且有页面，只是 key 未命中）
+    expect(screen.queryByTestId('console-empty-state')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '返回控制台首页' }));
+    expect(mockedHistoryPush).toHaveBeenCalledWith('/console/home');
+  });
+
+  it('categoryKey 命中但该菜单无页面：渲染合并空态而非逐菜单占位（GUX-014）', async () => {
+    mockedGetConsoleMenu.mockResolvedValue(mainMenu());
+    mockedListPublishedPages.mockResolvedValue(mainPages());
+    setParams({ categoryKey: 'catB' });
+
+    render(<ConsoleIndex />);
+
+    await waitFor(() => expect(screen.getByText('运行控制台 / catB')).toBeInTheDocument());
+    // 全局已有 2 个发布页但未挂载到 catB → notMounted 分支（带计数提示）
+    expect(screen.getByTestId('console-empty-state')).toBeInTheDocument();
+    expect(screen.getByText('页面尚未挂载到菜单')).toBeInTheDocument();
+    expect(
+      screen.getByText('已发布 2 个页面，但还没有挂载到任何菜单；挂载后会显示在这里。'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('该菜单下暂无页面')).not.toBeInTheDocument();
   });
 
   it('pages 返回非数组时回退空数组；menu.items 为空数组时渲染全量 Empty', async () => {
+    setAccess({ canConsoleRead: true, canPageRead: true });
     mockedGetConsoleMenu.mockResolvedValue(asMenu([]));
     mockedListPublishedPages.mockResolvedValue(undefined as unknown as PublishedPageSpec[]);
     setParams(undefined);
@@ -390,6 +433,62 @@ describe('Console/index 运行控制台首页', () => {
 
     await waitFor(() => expect(screen.getByText('暂无菜单')).toBeInTheDocument());
     expect(screen.queryByText(/个菜单/)).not.toBeInTheDocument();
+  });
+
+  it('全部菜单无页面且无已发布页：合并为一张空态卡，特权角色给双入口（GUX-014）', async () => {
+    setAccess({ canConsoleRead: true, canPageRead: true });
+    mockedGetConsoleMenu.mockResolvedValue(
+      asMenu([menuItem({ key: 'catB', path: '/console/catB', children: [] })]),
+    );
+    mockedListPublishedPages.mockResolvedValue([]);
+    setParams(undefined);
+
+    render(<ConsoleIndex />);
+
+    // 合并空态替代逐菜单占位（不再每个菜单一张空卡）
+    await waitFor(() => expect(screen.getByTestId('console-empty-state')).toBeInTheDocument());
+    expect(screen.getByText('暂无已发布页面')).toBeInTheDocument();
+    expect(screen.queryByText('该菜单下暂无页面')).not.toBeInTheDocument();
+
+    // 特权角色：去页面工作台 + 去菜单管理双入口
+    fireEvent.click(screen.getByRole('button', { name: '去页面工作台' }));
+    expect(mockedHistoryPush).toHaveBeenCalledWith('/functions/pages');
+    fireEvent.click(screen.getByRole('button', { name: '去菜单管理' }));
+    expect(mockedHistoryPush).toHaveBeenCalledWith('/functions/menus');
+  });
+
+  it('全部菜单无页面但已有发布页：合并空态标注未挂载计数，只给菜单管理入口（GUX-014）', async () => {
+    setAccess({ canConsoleRead: true, canPageRead: true });
+    mockedGetConsoleMenu.mockResolvedValue(
+      asMenu([menuItem({ key: 'catB', path: '/console/catB', children: [] })]),
+    );
+    mockedListPublishedPages.mockResolvedValue([publishedPage('p-1'), publishedPage('p-2')]);
+    setParams(undefined);
+
+    render(<ConsoleIndex />);
+
+    await waitFor(() => expect(screen.getByText('页面尚未挂载到菜单')).toBeInTheDocument());
+    expect(
+      screen.getByText('已发布 2 个页面，但还没有挂载到任何菜单；挂载后会显示在这里。'),
+    ).toBeInTheDocument();
+    // 已发布页存在 → 不引导去页面工作台发布，只引导挂载
+    expect(screen.queryByRole('button', { name: '去页面工作台' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '去菜单管理' })).toBeInTheDocument();
+  });
+
+  it('合并空态：无页面管理权限时不给管理入口，提示联系管理员（GUX-014）', async () => {
+    mockedGetConsoleMenu.mockResolvedValue(
+      asMenu([menuItem({ key: 'catB', path: '/console/catB', children: [] })]),
+    );
+    mockedListPublishedPages.mockResolvedValue([]);
+    setParams(undefined);
+
+    render(<ConsoleIndex />);
+
+    await waitFor(() => expect(screen.getByTestId('console-empty-state')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: '去菜单管理' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '去页面工作台' })).not.toBeInTheDocument();
+    expect(screen.getByText('如需启用页面，请联系管理员。')).toBeInTheDocument();
   });
 
   it('加载失败（Error 实例）渲染错误 Alert 与错误消息', async () => {
