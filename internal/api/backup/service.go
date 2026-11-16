@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -200,29 +198,26 @@ func (s *Service) Download(ctx context.Context, req *BackupDownloadRequest) (*Do
 		return payload, nil
 	}
 
-	path, err := s.resolveBackupPath(location)
-	if err != nil {
-		return nil, err
+	// AUD-COV-001 P1：其余形态一律按对象 key 经 objstore 读取。原实现按
+	// 记录 location 接受 file:// 与任意绝对/相对路径直读本地文件系统，可
+	// 被诱导读取服务器任意文件；objstore 驱动自带 base 目录内校验（file
+	// 驱动 validateAndCleanPath），与备份执行器写入/恢复语义同源。
+	if s.svcCtx.ObjectStore == nil {
+		return nil, errorx.NewInternalError("对象存储未就绪")
 	}
-
-	// 先 os.Stat 再 os.Open：原实现 Open 后对句柄 Stat，该 fstat 在 Linux
-	// userland 无法注入失败（fd 有效即成功），分支不可测。对调后两个分支
-	// 均真实可达（文件不存在 → Stat 失败；socket 等不可 open 的 inode →
-	// Open 失败），错误消息与语义对调用方等价。
-	info, err := os.Stat(path)
+	size, err := s.objectSize(ctx, location)
 	if err != nil {
-		return nil, errorx.NewInternalError("无法打开备份文件")
+		return nil, errorx.NewNotFound("备份对象不存在: " + backupID)
 	}
-
-	file, err := os.Open(path)
+	reader, err := s.svcCtx.ObjectStore.Get(ctx, location)
 	if err != nil {
 		return nil, errorx.NewInternalError("无法打开备份文件")
 	}
 
 	return &DownloadPayload{
 		Filename: utils.GuessBackupFilename(record),
-		Size:     info.Size(),
-		Reader:   file,
+		Size:     size,
+		Reader:   reader,
 	}, nil
 }
 
@@ -236,22 +231,32 @@ func (s *Service) tryRemoteDownload(location string) (*DownloadPayload, bool) {
 	}, true
 }
 
-func (s *Service) resolveBackupPath(location string) (string, error) {
-	if strings.HasPrefix(location, "file://") {
-		u, err := url.Parse(location)
+// objectSize 经 List 前缀查询精确匹配取对象大小（Store 接口无 Stat）。前缀取
+// key 的父目录而非完整 key：file 驱动的 List 以目录为根做 walk，完整 key 会
+// 命中「跳过根目录本身」拿不到条目；对象存储驱动按前缀列出同目录对象。根级
+// key（无 "/"）用空前缀列全量，按 marker 翻页兜底。
+func (s *Service) objectSize(ctx context.Context, key string) (int64, error) {
+	prefix := ""
+	if idx := strings.LastIndex(key, "/"); idx >= 0 {
+		prefix = key[:idx+1]
+	}
+	marker := ""
+	for page := 0; page < 20; page++ {
+		res, err := s.svcCtx.ObjectStore.List(ctx, prefix, marker, "", 1000)
 		if err != nil {
-			return "", errorx.NewBadRequest("解析下载路径失败")
+			return 0, err
 		}
-		return u.Path, nil
+		for _, obj := range res.Objects {
+			if obj.Key == key {
+				return obj.Size, nil
+			}
+		}
+		if !res.IsTruncated || res.NextMarker == "" {
+			break
+		}
+		marker = res.NextMarker
 	}
-	if filepath.IsAbs(location) {
-		return location, nil
-	}
-	abs, err := filepath.Abs(location)
-	if err != nil {
-		return "", errorx.NewBadRequest("解析备份路径失败")
-	}
-	return abs, nil
+	return 0, errors.New("object not found")
 }
 
 func buildBackupList(backups []model.Backup) []Backup {

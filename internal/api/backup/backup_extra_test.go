@@ -123,17 +123,3 @@ func TestTryRemoteDownload(t *testing.T) {
 	_, ok = service.tryRemoteDownload("backup.zip")
 	assert.False(t, ok)
 }
-
-func TestResolveBackupPath(t *testing.T) {
-	service := NewService(&svc.ServiceContext{})
-
-	// Absolute path
-	path, err := service.resolveBackupPath("/tmp/backup.zip")
-	require.NoError(t, err)
-	assert.Equal(t, "/tmp/backup.zip", path)
-
-	// File URI
-	path, err = service.resolveBackupPath("file:///tmp/backup.zip")
-	require.NoError(t, err)
-	assert.Equal(t, "/tmp/backup.zip", path)
-}

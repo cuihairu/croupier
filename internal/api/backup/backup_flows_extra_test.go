@@ -2,18 +2,21 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/objstore"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -387,17 +390,23 @@ func TestService_Download_SuccessFlow(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := context.Background()
 
-	dir := t.TempDir()
-	filePath := filepath.Join(dir, "backup.tar")
+	// AUD-COV-001 P1 后下载走 objstore：对象经 file 驱动写入 base 目录，
+	// 记录 location = 对象 key（与备份执行器写入语义一致）。
+	base := t.TempDir()
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: base})
+	require.NoError(t, err)
+	env.svcCtx.ObjectStore = store
+
 	content := "hello-backup"
-	require.NoError(t, os.WriteFile(filePath, []byte(content), 0o600))
+	key := "backups/nightly.tar"
+	require.NoError(t, store.Put(ctx, key, strings.NewReader(content), int64(len(content)), "application/octet-stream"))
 
 	row := createBackupRow(t, env, &model.Backup{
 		BackupID: "bkp-dl",
 		Name:     "nightly",
 		Type:     "full",
 		Status:   "completed",
-		Location: filePath,
+		Location: key,
 	})
 
 	payload, err := env.service.Download(ctx, &BackupDownloadRequest{ID: row.BackupID})
@@ -414,35 +423,54 @@ func TestService_Download_SuccessFlow(t *testing.T) {
 	}()
 }
 
-func TestService_Download_FileURI(t *testing.T) {
+// AUD-COV-001 P1：file:// 与绝对/越界路径不再直读本地文件系统（任意文件
+// 读取面已收敛到 objstore 语义），一律拒绝。
+func TestService_Download_RejectsLocalFilesystemPaths(t *testing.T) {
 	env := setupBackupFlowEnv(t)
+	ctx := context.Background()
+
+	base := t.TempDir()
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: base})
+	require.NoError(t, err)
+	env.svcCtx.ObjectStore = store
 
 	dir := t.TempDir()
-	filePath := filepath.Join(dir, "backup-file.tar")
+	filePath := filepath.Join(dir, "secret.tar")
 	require.NoError(t, os.WriteFile(filePath, []byte("data"), 0o600))
 
-	createBackupRow(t, env, &model.Backup{
-		BackupID: "bkp-uri",
-		Name:     "uri-backup",
-		Location: "file://" + filePath,
-	})
-
-	payload, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-uri"})
-	require.NoError(t, err)
-	defer func() {
-		_ = payload.Reader.(interface {
-			Close() error
-		}).Close()
-	}()
-	assert.Equal(t, int64(4), payload.Size)
+	for _, tc := range []struct {
+		name     string
+		location string
+	}{
+		{"absolute", filePath},
+		{"file-uri", "file://" + filePath},
+		{"traversal", "../../" + filepath.Base(dir) + "/" + filepath.Base(filePath)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			row := createBackupRow(t, env, &model.Backup{
+				BackupID: "bkp-rej-" + tc.name,
+				Name:     tc.name,
+				Location: tc.location,
+			})
+			_, err := env.service.Download(ctx, &BackupDownloadRequest{ID: row.BackupID})
+			require.Error(t, err, "location %q 不得直读本地路径", tc.location)
+		})
+	}
 }
+
+// 旧 file:// 直读用例已由 TestService_Download_RejectsLocalFilesystemPaths
+// 取代（AUD-COV-001 P1：file:// 不再映射本地路径）。
 
 func TestService_Download_RelativePath(t *testing.T) {
 	env := setupBackupFlowEnv(t)
+	ctx := context.Background()
 
-	dir := t.TempDir()
-	t.Chdir(dir)
-	require.NoError(t, os.WriteFile("relative.tar", []byte("rel"), 0o600))
+	// 相对 key 语义收敛到 objstore：相对 base 目录解析，不再相对进程 CWD。
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+	require.NoError(t, err)
+	env.svcCtx.ObjectStore = store
+
+	require.NoError(t, store.Put(ctx, "relative.tar", strings.NewReader("rel"), 3, "application/octet-stream"))
 
 	createBackupRow(t, env, &model.Backup{
 		BackupID: "bkp-rel",
@@ -450,7 +478,7 @@ func TestService_Download_RelativePath(t *testing.T) {
 		Location: "relative.tar",
 	})
 
-	payload, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-rel"})
+	payload, err := env.service.Download(ctx, &BackupDownloadRequest{ID: "bkp-rel"})
 	require.NoError(t, err)
 	defer func() {
 		_ = payload.Reader.(interface {
@@ -460,39 +488,60 @@ func TestService_Download_RelativePath(t *testing.T) {
 	assert.Equal(t, int64(3), payload.Size)
 }
 
-func TestService_Download_StatAndOpenFailures(t *testing.T) {
-	env := setupBackupFlowEnv(t)
+// listOkGetFailStub：List 报告对象存在但 Get 失败，覆盖「打开对象失败」分支
+// （旧实现的 unix socket open ENXIO 场景在 objstore 语义下不可达，以注入替代）。
+type listOkGetFailStub struct{}
 
-	t.Run("stat 失败：location 指向不存在文件", func(t *testing.T) {
+func (s *listOkGetFailStub) Put(ctx context.Context, key string, r objstore.ReadSeeker, size int64, contentType string) error {
+	return errors.New("not implemented")
+}
+func (s *listOkGetFailStub) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	return nil, errors.New("forced get failure")
+}
+func (s *listOkGetFailStub) SignedURL(ctx context.Context, key string, method string, expiry time.Duration) (string, error) {
+	return "", errors.New("not implemented")
+}
+func (s *listOkGetFailStub) Delete(ctx context.Context, key string) error {
+	return errors.New("not implemented")
+}
+func (s *listOkGetFailStub) List(ctx context.Context, prefix, marker, delimiter string, limit int) (objstore.ListResult, error) {
+	return objstore.ListResult{Objects: []objstore.ObjectInfo{{Key: "backups/stuck.tar", Size: 12}}}, nil
+}
+func (s *listOkGetFailStub) CreatePrefix(ctx context.Context, prefix string) error {
+	return errors.New("not implemented")
+}
+func (s *listOkGetFailStub) RenamePrefix(ctx context.Context, oldPrefix, newPrefix string) error {
+	return errors.New("not implemented")
+}
+
+func TestService_Download_ObjectLookupAndOpenFailures(t *testing.T) {
+	env := setupBackupFlowEnv(t)
+	ctx := context.Background()
+
+	t.Run("对象不存在：List 无精确匹配", func(t *testing.T) {
+		store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+		require.NoError(t, err)
+		env.svcCtx.ObjectStore = store
+
 		createBackupRow(t, env, &model.Backup{
 			BackupID: "bkp-missing",
 			Name:     "missing",
-			Location: filepath.Join(t.TempDir(), "no-such-backup.tar"),
+			Location: "backups/no-such-backup.tar",
 		})
-		_, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-missing"})
+		_, err = env.service.Download(ctx, &BackupDownloadRequest{ID: "bkp-missing"})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "无法打开备份文件")
+		assert.Contains(t, err.Error(), "备份对象不存在")
 	})
 
-	t.Run("open 失败：location 指向 unix socket 文件", func(t *testing.T) {
-		// unix socket inode 存在（os.Stat 成功）但 open(2) 返回 ENXIO，
-		// 覆盖 Stat 成功而 Open 失败的分支。
-		// socket 路径受内核 sun_path 108 字节限制，不能用 t.TempDir()——
-		// TMPDIR 指向长路径时 bind 报 invalid argument（先例排查：本地长 scratch 目录）。
-		sockDir, err := os.MkdirTemp("/tmp", "croupier-bkp-sock")
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
-		sockPath := filepath.Join(sockDir, "backup.sock")
-		ln, listenErr := net.Listen("unix", sockPath)
-		require.NoError(t, listenErr)
-		defer func() { _ = ln.Close() }()
+	t.Run("Get 失败：List 命中但打开失败", func(t *testing.T) {
+		env.svcCtx.ObjectStore = &listOkGetFailStub{}
 
 		createBackupRow(t, env, &model.Backup{
-			BackupID: "bkp-sock",
-			Name:     "sock",
-			Location: sockPath,
+			BackupID: "bkp-stuck",
+			Name:     "stuck",
+			Location: "backups/stuck.tar",
 		})
-		_, err = env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-sock"})
+		_, err := env.service.Download(ctx, &BackupDownloadRequest{ID: "bkp-stuck"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "无法打开备份文件")
 	})
@@ -542,18 +591,23 @@ func TestService_Download_NoLocation(t *testing.T) {
 
 func TestService_Download_FileMissing(t *testing.T) {
 	env := setupBackupFlowEnv(t)
+	ctx := context.Background()
+
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+	require.NoError(t, err)
+	env.svcCtx.ObjectStore = store
 
 	createBackupRow(t, env, &model.Backup{
 		BackupID: "bkp-gone",
 		Name:     "gone",
-		Location: filepath.Join(t.TempDir(), "does-not-exist.tar"),
+		Location: "backups/does-not-exist.tar",
 	})
 
-	_, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-gone"})
+	_, err = env.service.Download(ctx, &BackupDownloadRequest{ID: "bkp-gone"})
 	require.Error(t, err)
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr)
-	assert.Equal(t, http.StatusInternalServerError, codeErr.Code)
+	assert.Equal(t, http.StatusNotFound, codeErr.Code)
 }
 
 // ---------------------------------------------------------------------------
@@ -702,15 +756,20 @@ func TestHandler_Delete(t *testing.T) {
 
 func TestHandler_Download(t *testing.T) {
 	env := setupBackupFlowEnv(t)
+	ctx := context.Background()
 
-	dir := t.TempDir()
-	filePath := filepath.Join(dir, "download.tar")
-	require.NoError(t, os.WriteFile(filePath, []byte("payload-data"), 0o600))
+	// AUD-COV-001 P1 后：handler 下载走 objstore（记录 location = 对象 key）。
+	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
+	require.NoError(t, err)
+	env.svcCtx.ObjectStore = store
+
+	content := "payload-data"
+	require.NoError(t, store.Put(ctx, "backups/download.tar", strings.NewReader(content), int64(len(content)), "application/octet-stream"))
 
 	createBackupRow(t, env, &model.Backup{
 		BackupID: "bkp-hdl",
 		Name:     "download-me",
-		Location: filePath,
+		Location: "backups/download.tar",
 	})
 	createBackupRow(t, env, &model.Backup{
 		BackupID: "bkp-hremote",
@@ -754,14 +813,20 @@ func TestHandler_ServiceErrors(t *testing.T) {
 func TestService_Download_FileURIInvalid(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 
+	base := t.TempDir()
+	store, err := objstore.OpenFile(context.Background(), objstore.Config{BaseDir: base})
+	require.NoError(t, err)
+	env.svcCtx.ObjectStore = store
+
+	// file:// 不再映射本地路径：控制字符 URI 按「对象不存在」收敛（fail-closed）
 	createBackupRow(t, env, &model.Backup{
 		BackupID: "bkp-bad-uri",
 		Location: "file://\x7f/backup.tar",
 	})
 
-	_, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-bad-uri"})
+	_, err = env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-bad-uri"})
 	require.Error(t, err)
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr)
-	assert.Equal(t, http.StatusBadRequest, codeErr.Code)
+	assert.Equal(t, http.StatusNotFound, codeErr.Code)
 }

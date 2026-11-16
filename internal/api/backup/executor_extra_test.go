@@ -154,16 +154,6 @@ func TestService_Delete_DeleteByBackupIDError(t *testing.T) {
 	assert.Contains(t, err.Error(), "forced delete failure")
 }
 
-func TestResolveBackupPath_RelativeCwdDeleted(t *testing.T) {
-	wd := t.TempDir()
-	t.Chdir(wd)
-	require.NoError(t, os.RemoveAll(wd))
-
-	env := newExecTestEnv(t, "", "", nil)
-	_, err := env.service.resolveBackupPath("relative.tar")
-	require.Error(t, err, "cwd 被删后相对路径 Abs 应失败")
-}
-
 func TestFindActiveBackupInstallation_ListError(t *testing.T) {
 	env := newExecTestEnv(t, "", "", nil)
 	require.NoError(t, env.db.Migrator().DropTable("extension_installations"))
