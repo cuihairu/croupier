@@ -298,6 +298,10 @@
   - 依赖：GAME-011, GAME-010。交付与验收：复用任务体系实施批准的快照/逐对象状态与预算约束；变更名单不可偷换批准范围，部分失败只重试可确认未执行对象；暂停恢复/阈值停止/最终核对可验，不以一次 onExecute 返回成功代替批次完成
   - 状态／条件：BLOCKED（2026-11-01 复核）：需批准的批次方案和游戏执行收据；缺方案批准/游戏执行收据。
 
+- [ ] **GAME-013 · P2 · 实现 · games 目录 API 支持显式 gameId 与存量库 seed 复核**
+  - 依赖：—。交付与验收：games REST Create/Update 允许显式 gameId（校验沿用 sanitizeGameID 语义，连字符可用），dashboard 手建 scope 能产出与 SDK 侧一致的标识；games.json bootstrap 现状为首装仅跑（games 表非空即跳过），补存量库对账（烘焙清单新增条目幂等补种或提供再同步入口）；验收=存量库不直连 DB 即可建出带连字符的 gameId scope，并经控制台切换与 X-Game-ID/X-Env 路由复证
+  - 状态／条件：BLOCKED（2026-11-17 发现）：现状 `deriveGameIDFromName` 把 `-` 归一成 `_` 且 Create DTO 无 gameId 字段；192.168.5.5 存量库的 demo-game/demo scope 只能 DB 直插建成（已按 seed 语义插入并经 games API 复证可见）；docs/design/demo-game.md 的「dashboard 手建兜底」说法已按实测改写
+
 - [x] **GAME-DEMO-001 · P1 · 实现 · 复杂游戏模拟 demo（gameops-rpg，巡检单 2026-10-20）**
   - 依赖：无（刻意不依赖 GAME-002~010 真实接入方）。交付与验收：`sdks/go/examples/gameops-rpg/` 模拟 RPG 世界（玩家等级/金币/钻石/背包、任务每日刷新、邮件附件领取=补偿流核心、订单幂等发货、封禁联动），SDK→Agent 注册 17 函数（`player.*` `mail.*` `task.*` `order.*` `economy.*` `report.generate`），tick 驱动玩法循环 + JSON 快照持久化；demo 编译、单测覆盖发货幂等/封禁拒领/余额 fail-closed/邮件过期、平台注册可见、经平台全链路（mail.send 附件→落库→领取→入背包→report.generate 审批通过执行）与异常链路（重复发货拒绝、封禁拒领）
   - 状态／条件：LOCAL VERIFIED（2026-11-11，本机隔离栈 28080/29090/29091 + sqlite，避让 quickstart python demo 的 default/dev 契约槽）。编译/`go vet` 通过；单测 28 用例全绿（world 13 + store 3 + contracts 4 + executors 8）；平台注册 17 契约落库（health + functions API + sqlite function_contracts 复核）；补偿链：mail.send（附件 potion×5+gem×1）→ mail-9004 落库 → mail.claim → 背包 potion+5/gem+2；审批链：report.generate（risk=high）invoke 返回 approvalRequired → 第二账号 TOTP 批准 → `state:approved, continuation:true` → 执行 `report-rpg-1, runSeq:1, success:true`；异常链：重复 order.ship 续跑返回 `already_shipped` 且钻石只入账一次（+6）；封禁玩家 10007 mail.claim 返回 `player_banned` 且背包不变；快照重启恢复复验（shipped 状态持久）。已知边界：内存态模拟，不能替代 GAME-002~010 的真实接入方验收；审批需第二账号（self_approval_forbidden 两人规则），demo 侧管理员已在隔离栈注册 TOTP（仅本地测试凭据）
