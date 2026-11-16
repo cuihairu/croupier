@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+# 常驻 demo-game 镜像（模拟接入方 / simulated integrator）。
+#
+# 构建上下文是 sdks/go（独立 Go module）：demo-game 只 import 公共 SDK，
+# 不得 import internal/（scripts/check_dependency_boundary.sh 守卫）。
+# 无版本注入（demo 进程无 Version 变量）；compose 用 command 覆盖
+# -agent/-game-id/-env/-dsn/-seed。
+ARG GO_IMAGE=golang:1.27.4
+ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
+ARG GOPROXY_URL=https://goproxy.cn,direct
+FROM ${GO_IMAGE} AS build
+WORKDIR /src
+ARG GOPROXY_URL
+ENV GOPROXY=${GOPROXY_URL} \
+    GOFLAGS=-modcacherw
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod \
+    go build -o /out/demo-game ./cmd/demo-game
+# 种子/DSN 默认写本地 sqlite；sqlite 走 CGO off 的纯 Go 驱动（glebarez），
+# 运行期需要可写数据目录。
+RUN mkdir -p /out/data
+
+FROM ${RUNTIME_IMAGE}
+WORKDIR /app
+# busybox 提供 nc/wget 供 compose healthcheck 探测 /healthz。
+COPY --from=busybox:1.37-uclibc --chown=nonroot:nonroot /bin/busybox /usr/local/bin/busybox
+RUN ["/usr/local/bin/busybox", "--install", "/usr/local/bin"]
+COPY --from=build --chown=nonroot:nonroot /out/data /data
+COPY --from=build /out/demo-game /app/
+EXPOSE 8090
+ENTRYPOINT ["/app/demo-game"]

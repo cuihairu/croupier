@@ -49,6 +49,19 @@
       "envs": [
         { "env": "local-demo", "description": "Local demo environment", "color": "#722ed1" }
       ]
+    },
+    {
+      "gameId": "demo-game",
+      "aliasName": "Demo Game",
+      "description": "Persistent simulated integrator (sdks/go/cmd/demo-game) registering the full game-ops contract surface.",
+      "enabled": true,
+      "status": "running",
+      "color": "#13c2c2",
+      "gameType": "demo",
+      "genreCode": "GEN",
+      "envs": [
+        { "env": "demo", "description": "Demo game environment", "color": "#13c2c2" }
+      ]
     }
   ]
 }

@@ -1,0 +1,67 @@
+# Demo agent for the demo-game stack (docker/docker-compose.demo-game.yml).
+# Dials the platform server on the croupier network and exposes the local
+# SDK gateway (19091) that the demo-game process registers into.
+#
+# scope MUST match the demo-game process flags (-game-id/-env): the server
+# validates gameId+env on provider registration.
+name: croupier-demo-agent
+host: 0.0.0.0
+port: 19091
+
+server:
+  # Deployed platform stack: agent traffic enters through the HAProxy L4 LB
+  # (container_name croupier-haproxy in docker-compose.deploy.yml). Local
+  # dev stacks without haproxy: use "server:19090" instead.
+  addr: "croupier-haproxy:19090"
+  insecure: true
+  serverName: ""
+  insecureSkipVerify: false
+
+agent:
+  # ID is optional; empty = auto-generated at runtime.
+  id: ""
+  gameId: "demo-game"
+  env: "demo"
+  # Must be reachable by the server within the docker network.
+  localAddr: "0.0.0.0:19091"
+  httpAddr: "demo-agent:19091"
+  labels:
+    role: "demo-game"
+  # Provider handshake auth stays disabled for the demo stack, matching
+  # configs/agent.yaml defaults.
+  # providerAuth:
+  #   require: true
+  #   token: "change-me"
+
+upstream:
+  heartbeatInterval: 30
+  retryInterval: 5
+  maxRetries: 3
+  timeout: 10000
+
+# No local gateway TLS: the demo-game process dials the agent with
+# -insecure (SDK development default).
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  insecureSkipVerify: false
+
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
+
+# Ops module: demo agent reports process metrics so the dashboard node panel
+# has something honest to show; remote gates stay fail-closed.
+ops:
+  enabled: true
+  allowRestart: false
+  allowExec: false
+  allowUpdate: false
+  metricsInterval: 30s
+  metricsEnabled: true

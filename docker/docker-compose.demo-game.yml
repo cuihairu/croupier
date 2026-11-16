@@ -1,0 +1,111 @@
+# 常驻 demo game 栈（simulated integrator 验收面）。
+#
+# 独立 compose project（默认 project name = demo-game），只挂两条网络：
+#   - demo-game-internal：demo-postgres + demo-game（平台栈不可见）
+#   - croupier_croupier-network：external，让 demo-agent 出站连平台 server
+#
+# 前置：平台栈 `docker compose up -d` 已跑（croupier_croupier-network 存在）。
+# 启动： docker compose -f docker/docker-compose.demo-game.yml up -d --pull never
+# 停止： docker compose -f docker/docker-compose.demo-game.yml down
+#
+# 注意：--pull never。部署机手动 pull 会因过期 token 失败（部署走 gh workflow）。
+# 平台库绝不接入本栈：demo-postgres 建独立 demo_game 库，demo-game 的
+# -dsn 指向它（store 侧还会拒绝库名 croupier/croupier_meta 的 DSN）。
+services:
+  demo-postgres:
+    image: ${POSTGRES_IMAGE:-postgres:15-alpine}
+    environment:
+      POSTGRES_USER: demo_game
+      POSTGRES_PASSWORD: demo_game
+      POSTGRES_DB: demo_game
+    volumes:
+      - demo_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo_game -d demo_game"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - demo-game-internal
+
+  # demo agent：出站连平台 server（server→agent 控制面 19090），本机 19091
+  # 的 sidecar 网关供 demo-game SDK 拨号。scope 与 demo-game 进程一致，
+  # 否则注册会被 scope 校验拒掉。
+  # 注意：compose 不支持跨 project 的 depends_on，平台栈服务（server /
+  # croupier-haproxy）不在本文件内，故不设 depends_on；agent 自带重连退避。
+  demo-agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agent
+    image: croupier-demo-agent:local
+    volumes:
+      - ../configs/agent.demo.yaml:/app/configs/agent.demo.yaml:ro
+    command: ["agent", "--config", "/app/configs/agent.demo.yaml"]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/busybox", "nc", "-z", "127.0.0.1", "19091"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - croupier-network
+      - demo-game-internal
+
+  # demo game 进程：34 个契约函数经 demo-agent 注册进平台；业务数据落
+  # demo-postgres（demo_game 库），种子 N 固定保证结构可复算。
+  demo-game:
+    build:
+      context: ../sdks/go
+      dockerfile: ../docker/Dockerfile.demo-game
+    image: croupier-demo-game:local
+    command:
+      [
+        "/app/demo-game",
+        "-agent",
+        "demo-agent:19091",
+        "-game-id",
+        "demo-game",
+        "-env",
+        "demo",
+        "-dsn",
+        "postgres://demo_game:demo_game@demo-postgres:5432/demo_game?sslmode=disable",
+        "-seed",
+        "7",
+        "-http-addr",
+        "0.0.0.0:8090",
+      ]
+    ports:
+      - "18090:8090"
+    depends_on:
+      demo-postgres:
+        condition: service_healthy
+      demo-agent:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:8090/healthz >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    volumes:
+      - demo_game_data:/data
+    networks:
+      - demo-game-internal
+
+networks:
+  demo-game-internal:
+    driver: bridge
+  # 复用平台栈网络（project croupier × network croupier-network）。
+  croupier-network:
+    external: true
+    name: croupier_croupier-network
+
+volumes:
+  demo_pg_data:
+    driver: local
+  demo_game_data:
+    driver: local
