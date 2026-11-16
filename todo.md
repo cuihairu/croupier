@@ -82,11 +82,13 @@
 
 - [x] **GUX-015 · P2 · 实现 · 说明与文案收敛**
   - 依赖：GUX-001, GUX-002。交付与验收：将目录及页面工作台的重复引导移至按需帮助或首次引导；移除登录模板占位符及内部术语的误导展示。
-  - 状态／条件：LOCAL VERIFIED（2026-11-17）。函数目录首屏引导（hero 卡 + 双引导子卡 + 双常驻 Alert）收敛为一张默认折叠的「使用说明与常见误解」Collapse（按钮全保留，同目标「查看资源」去重），数据标签行与 SummaryOverview 保留；PageWorkflowGuide 整卡 Steps+Alert 折叠为默认收起条；登录占位符 8 locale 去模板名（含组件 defaultMessage 与 5 个测试 locator 同步）；死键清理 accountLogin.{tab,errorMessage} ×8 locale、app.welcome.link.* ×6 locale（GUX-003 遗留）；控制台分类卡 category.key 代码串移除、概览说明去（menu_items）括注。完成证据：docs/review/evidence/2026-11-17/gux-015.md（tsc 0；全量 jest 466 suites/5480 tests 全绿 load=3；go internal rc=0；guard PASSED）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。函数目录首屏引导（hero 卡 + 双引导子卡 + 双常驻 Alert）收敛为一张默认折叠的「使用说明与常见误解」Collapse（按钮全保留，同目标「查看资源」去重），数据标签行与 SummaryOverview 保留；PageWorkflowGuide 整卡 Steps+Alert 折叠为默认收起条；登录占位符 8 locale 去模板名（含组件 defaultMessage 与 5 个测试 locator 同步）；死键清理 accountLogin.{tab,errorMessage} ×8 locale、app.welcome.link.* ×6 locale（GUX-003 遗留）；控制台分类卡 category.key 代码串移除、概览说明去（menu_items）括注。tsc 0；全量 jest 466 suites/5480 tests 全绿 load=3；go internal rc=0；guard PASSED。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-015.md`
 
-- [ ] **GUX-016 · P2 · 设计 · 视觉与交互规范**
+- [x] **GUX-016 · P2 · 设计 · 视觉与交互规范**
   - 依赖：GUX-001, GUX-002。交付与验收：定义标题、间距、表格、表单、抽屉、语义色及全部交互状态；覆盖明暗主题、中文英文和键盘焦点。
-  - 状态／条件：待办（2026-11-17 结构化入账，来源同 GUX-001）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。docs/design/game-ops-visual-spec.md + zh 镜像：§3 标题六级层级与内部 key 禁令、§4 DASHBOARD_PAGE_TOKENS 间距词汇表+圆角 8/12、§5 ProTable 基线（折叠搜索/link 动作/更多下拉/右对齐/GUX-014 状态模型）、§6 表单三容器契约测试口径、§7 640 详情抽屉+identity 锚、§8 语义色（契约枚举/未知（原值）非仅颜色/--brand-*）、§9 交互状态全集含键盘焦点 :focus-visible 硬性要求、§2+§10 明暗（preset×mode、暗色二次派生按渲染值验对比度、按套分别验）与中英文（intl 契约+键位对齐测试）、§11 review 检查单；引用路径全部实测存在，docs build 通过。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-016.md`（边界：检查单无自动化守卫、index.md 登记暂缓避外席在途）
 
 - [ ] **GUX-017 · P1 · 验收 · 标杆流程端到端验收**
   - 依赖：GUX-003, GUX-004, GUX-008, GUX-009, GUX-010, GUX-011, GUX-012, GUX-013。交付与验收：以玩家查询→详情→补偿→确认→回执运行可控 fixture，覆盖错误/部分成功、作用域切换、键盘及 1440px/笔记本截图；真实游戏验收沿 UI-001，fixture 不抵扣。
