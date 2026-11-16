@@ -8,6 +8,8 @@ title: Game Operations Template Demo Data
 
 The five default game-operations templates (Player Workbench, Mail & Compensation, Ban Management, Order Review, and Activity Config) share one browser-memory dataset for template previews, interaction walkthroughs, and acceptance demos.
 
+> Persistent successor: this browser-memory dataset stays the template-preview fixture, but the callable server-side surface it previews now has a durable owner — [demo-game](./demo-game.md) (`sdks/go/cmd/demo-game`), a persistent simulated integrator with an exactly-once store. The in-repo `examples/gameops-demo` provider below remains for contract-level E2 drills; new persistence-sensitive acceptance should run against demo-game.
+
 - Isolated demo environment: `gameId=croupier-demo`, `environment=local-demo`.
 - Demo operator identity: `accountId=gm-demo`, with logical permissions `console.read`, `gameops.demo.read`, and `gameops.demo.write`.
 - This identity only describes the intended operator and permissions in demo pages. It **does not create a real login account, JWT, backend scope, or permission record**. Template routes still use the current console session and existing authorization.

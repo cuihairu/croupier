@@ -80,6 +80,7 @@ Single-database mode still validates scope. multiGame separates metadata from se
 | Storage                 | internal/db/router, internal/db/dbctx                                      |
 | Agents                  | agents, core, internal/app/agent, cmd/*-agent                              |
 | Analytics               | cmd/ingest, cmd/analytics-worker, internal/analytics                       |
+| Simulated integrator    | sdks/go/cmd/demo-game (design: ../design/demo-game)                        |
 
 ## Reading path
 

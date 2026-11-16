@@ -89,6 +89,7 @@ Server 保留契约、页面快照与发布历史。正式 Console 使用发布�
 | 数据库路由             | `internal/db/router/`、`internal/db/dbctx/`                          |
 | Agent 与公共能力       | `cmd/*-agent/`、`agents/`、`core/`、`internal/app/agent/`            |
 | 分析管道               | `cmd/ingest/`、`cmd/analytics-worker/`、`internal/analytics/`        |
+| 模拟接入方             | `sdks/go/cmd/demo-game/`（设计：`../../design/demo-game`）           |
 
 ## 阅读路径
 

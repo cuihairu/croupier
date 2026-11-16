@@ -8,6 +8,7 @@ title: Game Integration and Compatibility Acceptance
 
 - Status: the spec is pending review; `docs/sdks/sdk-parity-matrix.md` is the cross-language integration matrix, and `sdks/SDK_FEATURE_MATRIX.md` remains the master table of implementation status.
 - This page defines the criterion for "the game business is integrated": not registered metadata, not a passing compile, and not a README claim — the full chain of query and controlled write passes acceptance.
+- Controlled simulation: [demo-game](./demo-game.md) (`sdks/go/cmd/demo-game`) is a persistent simulated integrator for game-side acceptance drills of the game-operations surface. It walks the same SDK provider path and exactly-once write contract, but it is still a simulation: passing against demo-game does not offset GAME-001 and never substitutes for a real-integrator acceptance record.
 
 ## Applicable Paths
 

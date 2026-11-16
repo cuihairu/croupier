@@ -8,6 +8,8 @@ title: 游戏运营业务模板示例数据
 
 五个默认游戏运营模板（玩家工作台、邮件与补偿、封禁管理、订单核查、活动配置）共用一份浏览器内存示例数据，用于模板预览、交互联调和验收演示。
 
+> 持久化后继：本浏览器内存数据集仍是模板预览 fixture，但它预览的可调用服务端契约面如今有了持久化属主——[demo-game](./demo-game.md)（`sdks/go/cmd/demo-game`），带 exactly-once 存储的持久化模拟接入方。下文的仓内 `examples/gameops-demo` provider 仍用于契约级 E2 演练；涉持久化的验收应改对 demo-game 跑。
+
 - 独立示例环境：`gameId=croupier-demo`、`environment=local-demo`。
 - 示例操作身份：`accountId=gm-demo`，逻辑权限为 `console.read`、`gameops.demo.read`、`gameops.demo.write`。
 - 该身份只描述示例页面中的操作者与权限意图，**不会创建真实登录账号、JWT、后端 scope 或权限记录**；访问模板路由仍受当前控制台会话与既有鉴权约束。

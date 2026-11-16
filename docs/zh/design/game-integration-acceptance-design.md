@@ -8,6 +8,7 @@ title: 游戏接入与兼容性验收
 
 - 状态：规范待评审；`docs/sdks/sdk-parity-matrix.md` 是跨语言接入矩阵，`sdks/SDK_FEATURE_MATRIX.md` 仍是实现状态主表。
 - 本页定义“游戏业务已接入”的判定标准：不是注册元数据、不是编译通过、也不是 README 声明，而是查询与受控写完整链路验收通过。
+- 受控模拟环境：[demo-game](./demo-game.md)（`sdks/go/cmd/demo-game`）是持久化模拟接入方，用于游戏运营面的游戏侧验收演练。它走与真实游戏相同的 SDK provider 路径与 exactly-once 写契约，但仍是模拟：对 demo-game 验收通过不抵扣 GAME-001，也不能替代真实接入方的验收记录。
 
 ## 适用路径
 

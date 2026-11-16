@@ -213,6 +213,7 @@
     复核（2026-11-06）：仍 BLOCKED——依赖 GAME-002/GAME-010/ARCH-024 中 GAME-002、GAME-010 仍未完成（平台侧无持久执行凭据存储与收据查询模型，`internal/` 无 Credential/Receipt/operationId 持久去重实现，仅 `sdks/go/examples/gameops-demo` 内存/state-file 演示）。本次补充评估此前未覆盖的真实游戏候选 `game-civilization`（`/home/cui/workspaces/game-civilization`，真实 GM 玩家/封禁/邮件/充值 API，`gm/src/main/java/net/game/gm/module/server/controller/PlayerController.java` 等）：其有 Java 21 + Maven （`mvnw`/`/home/cui/tools/apache-maven-3.9.9`）且本地曾有 MariaDB+Redis+Nacos 可跑通 68 例基线，但默认依赖为内网 `192.168.5.157:8848`（Nacos）/`192.168.5.143:3306`（MySQL）/`.143:6379`（Redis），当前均 `No route to host` 不可达；本机 `doggo-mysql`（13306）与 `cs-nacos`（8848）为无关实例（Nacos `v1/ns/service/list` 返回 `{"doms":[],"count":0}`，无 civilization 服务注册），项目无 `target/*.jar` 编译产物。即便修正配置可启动，其 GM 执行链（RSocket 经 Nacos 到 ServerService）无平台所需操作凭据/收据查询语义，且 GAME-002/GAME-010 平台能力缺失，不能满足「契约→模板→编辑保存→接受提案→发布→binding 执行」独立真实环境全链验收；门禁基线绿仅记录机制侧（`go test ./internal/platform/functioninvoke/... ./internal/drivers/openapi/... ./internal/api/game/... -count=1` PASS、`pnpm --dir web run tsc` 0 错误），不构成全链验收。缺 GAME-002/GAME-010 完成 + 真实接入方权威函数/持久凭据/受控写环境。
 
     复核（2026-11-09）：仍 BLOCKED——依赖未变：GAME-002/GAME-010 未完成（internal/ 无 Credential/Receipt/operationId 持久去重实现面），GAME-001/007/009 仍缺接入方契约与用户拍板；本会话未获得新增真实游戏环境/受控写环境，无可用推进面。
+    注记（2026-11-17）：`sdks/go/cmd/demo-game`（docs/design/demo-game.md）已交付持久化模拟接入方（34 契约 + exactly-once 存储 + 发布/binding/重放 E2E），页面发布全链的**机制演练**可对它跑（scripts/e2e/demo-game.sh，2026-11-16 本地 23/23 绿）；但本项关闭仍须真实接入方环境，demo-game 验收不抵扣 GAME-001。
     复核（2026-11-10）：仍 BLOCKED——重新 grep `internal/model/`+`migrations.go` 无 Credential/Receipt 持久去重实现（唯一 OperationID 命中在 `openapi_source.go`，属 OpenAPI 导入域非游戏收据）；GAME-001/007/009 未获用户拍板，无新增真实环境。继续队列 LAY-001。
 - [x] **UI-002 · P1 · 故障验证 · 示例异常状态全链（旧 E2）**
   - 依赖：—。交付与验收：复用现有 Go gameops-demo 的 33 函数及内存状态，独立 Server/sidecar/demo 栈验证发布、审批、report.generate、失败/未知/取消/幂等重试；既有 fixture 只证机制，不证明进程重启后游戏侧持久去重
@@ -235,6 +236,7 @@
   - 依赖：GAME-001, GAME-008。交付与验收：复用现有玩家模板和发布链，列表/详情/操作以权威游戏回读及执行凭据验收，失败不显示成功。
   - 状态／条件：BLOCKED（2026-11-01 复核）：需目标游戏环境（权威玩家函数）；缺真实游戏环境。
   - 复核（2026-11-06）：仍 BLOCKED——需目标游戏环境（权威玩家函数）与受控写权限；本沙箱无真实游戏环境。本次补充评估此前未覆盖的真实游戏候选 `game-civilization`（`/home/cui/workspaces/game-civilization`，真实 GM 玩家/封禁/邮件/充值 API）：默认依赖内网 `192.168.5.157:8848`（Nacos）/`192.168.5.143:3306`（MySQL）/`.143:6379`（Redis），当前均 `No route to host` 不可达，本机无关实例（`doggo-mysql` 13306 / `cs-nacos` 8848，Nacos 服务列表 `{"doms":[],"count":0}` 无 civilization 注册），项目无 `target/*.jar` 编译产物；即便修正配置可启动，其 GM 执行链（RSocket 经 Nacos 到 ServerService）无平台所需操作凭据/收据查询语义，且平台侧 GAME-002/GAME-010 能力缺失（`internal/` 无 Credential/Receipt/operationId 持久去重实现，仅 `sdks/go/examples/gameops-demo` 内存/state-file 演示）。缺真实游戏环境/受控写权限。
+  - 注记（2026-11-17）：游戏半边现可对持久化模拟接入方 `sdks/go/cmd/demo-game` 验收（玩家查询/创建/充值 exactly-once 已有 E2E 证据，docs/design/demo-game.md）；本项**关闭**仍等 GAME-001 真实接入方 + GAME-008/010 平台半边，demo-game 验收不抵扣。
 
 - [ ] **GAME-003 · P1 · 实现 · 接入真实邮件与补偿**
   - 依赖：GAME-001, GAME-008, GAME-010, GAME-012, ARCH-024。交付与验收：复用模板/审批/任务，按对象凭据核对发放、部分失败重试和重复操作不重发。
@@ -243,14 +245,17 @@
 - [ ] **GAME-004 · P1 · 实现 · 接入真实封禁管理**
   - 依赖：GAME-001, GAME-008, GAME-010, ARCH-024。交付与验收：复用封禁模板，身份/期限/原因批准快照一致，封禁解封后权威回读可核对。
   - 状态／条件：BLOCKED（2026-11-01 复核）：需目标游戏环境及受控写权限；缺真实游戏环境/受控写权限。
+  - 注记（2026-11-17）：游戏半边可对 `sdks/go/cmd/demo-game` 验收（ban.create/unban/extend/batch 契约已注册，权威回读经 player.get）；**关闭**仍等 GAME-001 + GAME-008/010 + ARCH-024 平台半边，demo-game 验收不抵扣。
 
 - [ ] **GAME-005 · P1 · 实现 · 接入真实订单核查**
   - 依赖：GAME-001, GAME-008, GAME-010, ARCH-024。交付与验收：复用订单模板，订单/发货权威状态一致，补发有凭据且重试不重复发货。
   - 状态／条件：BLOCKED（2026-11-01 复核）：需测试订单与受控补发权限；缺真实测试订单/受控补发权限。
+  - 注记（2026-11-17）：游戏半边可对 `sdks/go/cmd/demo-game` 验收（order.recredit 的 `already_credited` 幂等标记与 operationId 指纹冲突拒绝已有 E2E/单测证据）；**关闭**仍等 GAME-001 + GAME-008/010 + ARCH-024，demo-game 验收不抵扣。
 
 - [ ] **GAME-006 · P1 · 实现 · 接入真实活动配置**
   - 依赖：GAME-001, GAME-008, GAME-010, ARCH-024。交付与验收：复用活动模板，发布/回读版本一致，失败保留旧版本并有审计。
   - 状态／条件：BLOCKED（2026-11-01 复核）：需测试配置和发布权限；缺真实活动配置/发布权限。
+  - 注记（2026-11-17）：游戏半边可对 `sdks/go/cmd/demo-game` 验收（activity 五操作 + `demo_activity_versions` UNIQUE(activity_id,version) 版本行保留=回滚审计）；**关闭**仍等 GAME-001 + GAME-008/010 + ARCH-024，demo-game 验收不抵扣。
 
 - [ ] **GAME-007 · P1 · 方案决策 · 评审游戏权威归属与统一目标引用**
   - 依赖：GAME-001。交付与验收：复用已有 game-authority-ownership 和 player-identity-target-model 设计，决定本地 Player/Balance 的演示/副本定位以及账号/角色/区服/渠道/合服映射来源；交付批准的映射与迁移边界，禁止另建平台游戏经济真值
