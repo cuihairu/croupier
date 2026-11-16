@@ -160,9 +160,9 @@ export default function DevopsTerminal({ sessionId, cols, rows, onStatus }: Devo
       term.dispose();
       termRef.current = null;
     };
-    // 会话绑定一次：sessionId/cols/rows 变化即重建（抽屉按会话 key 重挂）。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+    // sessionId/cols/rows 变化即重建（抽屉按会话 key 重挂）；onStatus 经
+    // onStatusRef 每渲染同步，不进依赖数组（避免回调引用变化重挂终端）。
+  }, [sessionId, cols, rows]);
 
   return (
     <div
