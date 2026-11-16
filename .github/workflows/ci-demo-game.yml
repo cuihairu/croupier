@@ -1,0 +1,56 @@
+name: CI - Demo Game E2E
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sdks/go/**"
+      - "cmd/server/**"
+      - "cmd/sidecar-agent/**"
+      - "internal/**"
+      - "configs/test-sqlite.yaml"
+      - "configs/games.json"
+      - "scripts/e2e/demo-game.sh"
+      - "scripts/e2e/fixtures/demo-game/**"
+      - "web/src/components/PageRenderer/templates/playerManage.tsx"
+      - ".github/workflows/ci-demo-game.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "sdks/go/**"
+      - "cmd/server/**"
+      - "cmd/sidecar-agent/**"
+      - "internal/**"
+      - "configs/test-sqlite.yaml"
+      - "configs/games.json"
+      - "scripts/e2e/demo-game.sh"
+      - "scripts/e2e/fixtures/demo-game/**"
+      - "web/src/components/PageRenderer/templates/playerManage.tsx"
+      - ".github/workflows/ci-demo-game.yml"
+jobs:
+  demo-game-e2e:
+    name: Demo Game E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: Normalize Go toolchain env
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          go version
+      - name: Run Demo Game E2E
+        run: bash scripts/e2e/demo-game.sh
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          workdir=$(ls -dt /tmp/croupier-demo-game-e2e.* 2>/dev/null | head -1 || true)
+          if [ -n "$workdir" ]; then
+            for f in "$workdir"/*.log; do
+              echo "::group::$f"; tail -100 "$f"; echo "::endgroup::"
+            done
+          fi
