@@ -52,8 +52,10 @@ func OpenRecorder(dir string) (*Recorder, error) {
 }
 
 // append 落一行 JSONL（audit 真值同款语义：追加成功即留痕）。
+// f 的读取与写入都收在互斥锁内：Close 与会话清理链的残余 goroutine 并发时
+// 不产生数据竞争（2026-11-17 CI race 门禁实证：EndStats 读 f 对 Close 置 nil）。
 func (r *Recorder) append(meta SessionMeta) error {
-	if r == nil || r.f == nil {
+	if r == nil {
 		return fmt.Errorf("session: recorder is closed")
 	}
 	line, err := json.Marshal(meta)
@@ -62,6 +64,9 @@ func (r *Recorder) append(meta SessionMeta) error {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.f == nil {
+		return fmt.Errorf("session: recorder is closed")
+	}
 	if _, err := r.f.Write(append(line, '\n')); err != nil {
 		return fmt.Errorf("session: append archive: %w", err)
 	}
@@ -74,9 +79,10 @@ func (r *Recorder) Start(meta SessionMeta) error {
 	return r.append(meta)
 }
 
-// End 记会话结束（幂等语义靠事件行本身，不做状态机）。
+// End 记会话结束（幂等语义靠事件行本身，不做状态机）。关档后的调用统一
+// 返回 recorder is closed（判断在 append 的锁内，见 append 注释）。
 func (r *Recorder) End(sessionID string, outcome string) error {
-	if r == nil || r.f == nil {
+	if r == nil {
 		return fmt.Errorf("session: recorder is closed")
 	}
 	return r.append(SessionMeta{
@@ -88,9 +94,9 @@ func (r *Recorder) End(sessionID string, outcome string) error {
 }
 
 // EndStats 记会话结束并携带回放存档收尾统计（Hub 断线清理用；stats.File
-// 只存文件名——目录由 SessionDir 契约定位）。
+// 只存文件名——目录由 SessionDir 契约定位）。与 Close 并发安全（同 append）。
 func (r *Recorder) EndStats(sessionID, outcome string, stats CastStats) error {
-	if r == nil || r.f == nil {
+	if r == nil {
 		return fmt.Errorf("session: recorder is closed")
 	}
 	file := ""
@@ -108,9 +114,14 @@ func (r *Recorder) EndStats(sessionID, outcome string, stats CastStats) error {
 	})
 }
 
-// Close 关闭存档文件（幂等）。
+// Close 关闭存档文件（幂等；与写入/结束记账并发安全——f 置 nil 在锁内）。
 func (r *Recorder) Close() error {
-	if r == nil || r.f == nil {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.f == nil {
 		return nil
 	}
 	err := r.f.Close()
