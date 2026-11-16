@@ -13,6 +13,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { history, useAccess, useParams } from '@umijs/max';
 import ConsoleIndex from './index';
 import { getConsoleMenu, listPublishedPages } from '@/services/console';
+import { listApprovals } from '@/services/api/approvals';
+import { unreadCount } from '@/services/api/messages';
+import { listAlerts } from '@/services/api/alerts';
+import { listExecutionLogs } from '@/services/api/executionLogs';
 import type {
   BindingFreshnessDiagnostic,
   ConsoleMenuSpec,
@@ -53,11 +57,31 @@ jest.mock('@/services/console', () => ({
   listPublishedPages: jest.fn(),
 }));
 
+// GUX-003：根视图挂载运营工作台，其面板请求在此收口（既有用例的 access
+// 只含 canConsoleRead，审批/告警面板隐藏，消息与执行记录面板返回空态）。
+// beforeEach 的 resetAllMocks 会清掉工厂级实现，空态返回值在 beforeEach 重设。
+jest.mock('@/services/api/approvals', () => ({
+  listApprovals: jest.fn(),
+}));
+jest.mock('@/services/api/messages', () => ({
+  unreadCount: jest.fn(),
+}));
+jest.mock('@/services/api/alerts', () => ({
+  listAlerts: jest.fn(),
+}));
+jest.mock('@/services/api/executionLogs', () => ({
+  listExecutionLogs: jest.fn(),
+}));
+
 const mockedUseParams = useParams as unknown as jest.Mock<Record<string, string> | undefined, []>;
 const mockedUseAccess = useAccess as unknown as jest.Mock<Record<string, boolean> | undefined, []>;
 const mockedHistoryPush = history.push as unknown as jest.Mock;
 const mockedGetConsoleMenu = jest.mocked(getConsoleMenu);
 const mockedListPublishedPages = jest.mocked(listPublishedPages);
+const mockedListApprovals = jest.mocked(listApprovals);
+const mockedUnreadCount = jest.mocked(unreadCount);
+const mockedListAlerts = jest.mocked(listAlerts);
+const mockedListExecutionLogs = jest.mocked(listExecutionLogs);
 
 function deferred<T>(): {
   promise: Promise<T>;
@@ -154,6 +178,11 @@ describe('Console/index 运行控制台首页', () => {
     setParams(undefined);
     mockedGetConsoleMenu.mockResolvedValue(asMenu([]));
     mockedListPublishedPages.mockResolvedValue([]);
+    // 工作台面板空态（resetAllMocks 清空实现后逐项重设）
+    mockedListApprovals.mockResolvedValue({ approvals: [], total: 0 });
+    mockedUnreadCount.mockResolvedValue({ count: 0 });
+    mockedListAlerts.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 5 });
+    mockedListExecutionLogs.mockResolvedValue({ items: [], total: 0, page: 1, size: 5 });
   });
 
   it('无权限（canConsoleRead=false）时渲染权限受限卡片', () => {
@@ -219,9 +248,9 @@ describe('Console/index 运行控制台首页', () => {
 
     // 根视图不渲染「分类未匹配」Empty
     expect(screen.queryByText(/下暂无已发布页面/)).not.toBeInTheDocument();
-    // 有分类数据时不渲染全量 Empty
+    // 有分类数据时不渲染全量 Empty（GUX-003 后根视图还挂运营工作台，其面板
+    // 空态如「暂无执行记录」是合法 .ant-empty，全局 no-Empty 断言不再成立）
     expect(screen.queryByText('暂无菜单')).not.toBeInTheDocument();
-    expect(container.querySelector('.ant-empty')).not.toBeInTheDocument();
   });
 
   it('子菜单组（pagesByKey 未命中且带 children）渲染菜单组卡并跳转其 categoryKey 页', async () => {

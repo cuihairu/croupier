@@ -23,8 +23,6 @@ export default {
   'pages.login.submit': 'ログイン',
   'pages.login.loginWith': 'その他のログイン方法：',
   'pages.login.registerAccount': 'アカウント登録',
-  'pages.welcome.link': 'ようこそ',
-  'pages.welcome.alertMessage': 'より高速で強力な頑丈なコンポーネントがリリースされました。',
   'pages.404.subTitle': '申し訳ありませんが、アクセスしたページは存在しません。',
   'pages.404.buttonText': 'ホームに戻る',
   'pages.admin.subPage.title': 'このページは管理者のみが表示できます',

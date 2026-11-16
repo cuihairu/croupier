@@ -59,8 +59,6 @@ export default {
   'pages.login.submit': '登录',
   'pages.login.loginWith': '其他登录方式 :',
   'pages.login.registerAccount': '注册账户',
-  'pages.welcome.link': '欢迎使用',
-  'pages.welcome.alertMessage': '更快更强的重型组件，已经发布。',
   'pages.403.buttonText': '返回首页',
   'pages.403.subTitle': '抱歉，您没有权限访问此页面。请返回首页或切换到具备权限的入口。',
   'pages.403.title': '当前页面无访问权限',

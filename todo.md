@@ -20,9 +20,10 @@
   - 状态／条件：LOCAL VERIFIED：三工作区（运营/开发接入/平台管理）重分组方案覆盖全部 10 个现存顶级组、0 路由删除、0 新权限；角色映射按 configs/roles.json 实测权限集对账（运营缺 audit:read/ops:read、客服缺 support:read 等缺口如实记录、不裁决，权限模型改动归用户拍板）；落地页规则与跨界入口（执行记录/SDK 分发同路由入口副本）已定；实现随 GUX-003+ 走 DoD。
   - 完成证据：`docs/design/game-ops-navigation-design.md`（中文镜像 docs/zh/design/game-ops-navigation-design.md）
 
-- [ ] **GUX-003 · P1 · 实现 · 运营首页**
+- [x] **GUX-003 · P1 · 实现 · 运营首页**
   - 依赖：GUX-001, GUX-002。交付与验收：按角色展示待办、异常、最近处理和常用入口；缺失数据展示真实空态，移走重复的产品建设说明。
-  - 状态／条件：待办（2026-11-17 结构化入账，来源同 GUX-001）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。根路径 `/` 改 LandingRedirect 按 access 能力落地（运营→/console/home、开发→/functions/catalog、平台→/system、全不可见→/account）；Welcome 模板页与未路由 Admin 模板页下线、locale welcome 键 8 语言同步清理（app.welcome.* 死键留 GUX-015）；运行控制台根视图挂工作台四面板：待办（审批 pending×audit:read+未读消息）、异常（契约失效计数零请求+告警×ops:read）、最近处理（execution-logs mine=true 免审计权限）、常用入口按权限过滤；单面板失败独立重试不拖垮整页、权限外整体不渲染、空数据真实空态；审批面板随 scopeKey 重拉。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-003.md`
 
 - [ ] **GUX-004 · P1 · 实现 · 游戏环境与作用域**
   - 依赖：GUX-001, GUX-002。交付与验收：统一当前游戏/环境展示，按契约支持区服/渠道/时区；切换作用域清理旧数据和在途结果。

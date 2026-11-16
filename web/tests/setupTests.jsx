@@ -69,26 +69,24 @@ if (typeof window !== 'undefined') {
 
 if (typeof window !== 'undefined') {
   // ref: https://github.com/ant-design/ant-design/issues/18774
+  // 用普通函数而非 jest.fn：jest.resetAllMocks() 会清掉 jest.fn 的实现，
+  // matchMedia 返回 undefined 会让 antd responsiveObserver 直接崩（Row/Col）。
+  // matches 恒 false 保持既有快照语义（全部断点未命中 → Steps 横向、无 gutter），
+  // antd6 优先走 addEventListener/removeEventListener（isFunction 守卫）。
   if (!window.matchMedia) {
     Object.defineProperty(global.window, 'matchMedia', {
       writable: true,
       configurable: true,
-      value: jest.fn(() => ({
+      value: (query) => ({
         matches: false,
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-      })),
-    });
-  }
-  if (!window.matchMedia) {
-    Object.defineProperty(global.window, 'matchMedia', {
-      writable: true,
-      configurable: true,
-      value: jest.fn((query) => ({
-        matches: query.includes('max-width'),
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-      })),
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
     });
   }
 }
@@ -99,7 +97,9 @@ if (typeof window !== 'undefined') {
     configurable: true,
     value: (...rest) => {
       const logStr = rest.join('');
-      if (logStr.includes('Warning: An update to %s inside a test was not wrapped in act(...)')) {
+      // React 19.2 起模板串换成已插值的组件名（An update to X inside a test
+      // was not wrapped in act），两种格式都要吞
+      if (logStr.includes('inside a test was not wrapped in act(...)')) {
         return;
       }
       if (logStr.includes('ReactDOMTestUtils.act')) {

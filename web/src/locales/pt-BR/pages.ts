@@ -23,8 +23,6 @@ export default {
   'pages.login.submit': 'Enviar',
   'pages.login.loginWith': 'Login com :',
   'pages.login.registerAccount': 'Registra Conta',
-  'pages.welcome.link': 'Bem-vindo',
-  'pages.welcome.alertMessage': 'Componentes pesados mais rápidos e mais fortes foram lançados.',
   'pages.404.subTitle': 'Desculpe, a página que você visitou não existe. ',
   'pages.404.buttonText': 'Voltar à página inicial',
   'pages.admin.subPage.title': 'Esta página só pode ser vista pelo Admin',

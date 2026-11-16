@@ -63,8 +63,6 @@ export default {
   'pages.login.submit': 'Login',
   'pages.login.loginWith': 'Login with :',
   'pages.login.registerAccount': 'Register Account',
-  'pages.welcome.link': 'Welcome',
-  'pages.welcome.alertMessage': 'Faster and stronger heavy-duty components have been released.',
   'pages.403.buttonText': 'Back Home',
   'pages.403.subTitle':
     'Sorry, you do not have permission to access this page. Please go back to the home page or switch to an authorized entry.',

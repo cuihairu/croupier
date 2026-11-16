@@ -12,6 +12,7 @@ import { AppstoreOutlined, CheckCircleOutlined, FolderOutlined } from '@ant-desi
 import { getConsoleMenu, listPublishedPages } from '@/services/console';
 import type { ConsoleMenuItem, ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import ConsoleWorkbench from './Workbench';
 
 type ConsoleAccess = {
   canConsoleRead?: boolean;
@@ -239,6 +240,10 @@ export default function ConsoleIndex() {
 
   return (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      {/* 运营工作台（GUX-003）：只在首页展示待办/异常/最近处理/常用入口；
+          分类页（categoryKey）保持纯页面导航 */}
+      {!categoryKey && <ConsoleWorkbench pages={pages} />}
+
       {/* 概览信息 */}
       <Card>
         <Space orientation="vertical" size={8}>

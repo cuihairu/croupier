@@ -23,9 +23,6 @@ export default {
   'pages.login.submit': 'Masuk',
   'pages.login.loginWith': 'Masuk dengan :',
   'pages.login.registerAccount': 'Daftar Akun',
-  'pages.welcome.link': 'Selamat datang',
-  'pages.welcome.alertMessage':
-    'Komponen heavy-duty yang lebih cepat dan lebih kuat telah dirilis.',
   'pages.404.subTitle': 'Maaf, halaman yang Anda kunjungi tidak ada. ',
   'pages.404.buttonText': 'Kembali ke halaman utama',
   'pages.admin.subPage.title': 'Halaman ini hanya dapat dilihat oleh admin',

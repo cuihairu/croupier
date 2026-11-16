@@ -83,7 +83,6 @@ import systemSiteSettings from './zh-CN/systemSiteSettings';
 import telemetry from './zh-CN/telemetry';
 import tickets from './zh-CN/tickets';
 import utils from './zh-CN/utils';
-import welcome from './zh-CN/welcome';
 
 export default {
   'navBar.lang': '语言',
@@ -177,5 +176,4 @@ export default {
   ...telemetry,
   ...tickets,
   ...utils,
-  ...welcome,
 };

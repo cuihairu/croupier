@@ -22,8 +22,6 @@ export default {
   'pages.login.submit': 'ارسال',
   'pages.login.loginWith': 'وارد شوید با :',
   'pages.login.registerAccount': 'ثبت نام',
-  'pages.welcome.link': 'خوش آمدید',
-  'pages.welcome.alertMessage': 'اجزای سنگین تر سریعتر و قوی تر آزاد شده اند.',
   'pages.404.subTitle': 'ببخشيد، صفحه اي که ديديد وجود نداره',
   'pages.404.buttonText': 'بازگشت به صفحه اصلی',
   'pages.admin.subPage.title': 'این صفحه فقط توسط مدیر قابل مشاهده است',

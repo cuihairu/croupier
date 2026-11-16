@@ -847,7 +847,7 @@ export default [
   },
   {
     path: '/',
-    component: './Welcome',
+    component: './LandingRedirect',
   },
   {
     path: '/403',
