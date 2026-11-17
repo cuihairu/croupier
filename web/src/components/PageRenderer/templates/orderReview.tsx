@@ -42,7 +42,8 @@ export const orderReviewPageSpec: PageSpec = {
           width: 140,
           fixed: 'left',
           render: 'copy',
-          filterable: true,
+          // order.list 契约只支持 nickname/channel/reconciliation 过滤（GUX-017 实测发现），
+          // 身份列不进查询栏，避免出现「可输入但后端忽略」的装饰性条件。
         },
         {
           key: 'playerId',
@@ -50,7 +51,6 @@ export const orderReviewPageSpec: PageSpec = {
           dataType: 'string',
           width: 110,
           render: 'copy',
-          filterable: true,
         },
         {
           key: 'nickname',
@@ -99,7 +99,6 @@ export const orderReviewPageSpec: PageSpec = {
           title: { 'zh-CN': '支付状态', 'en-US': 'Pay Status' },
           dataType: 'enum',
           width: 100,
-          filterable: true,
           render: 'tag',
           enum: [
             { value: 'paid', label: { 'zh-CN': '已支付', 'en-US': 'Paid' }, color: 'blue' },
@@ -121,7 +120,6 @@ export const orderReviewPageSpec: PageSpec = {
           title: { 'zh-CN': '游戏发货', 'en-US': 'Game Credit' },
           dataType: 'enum',
           width: 110,
-          filterable: true,
           render: 'tag',
           enum: [
             {
@@ -165,6 +163,33 @@ export const orderReviewPageSpec: PageSpec = {
           dataType: 'datetime',
           width: 180,
           sortable: true,
+        },
+      ],
+      // 查询栏可用条件须与 order.list 入参契约一致（nickname contains / channel /
+      // reconciliation 精确），同时作为列表绑定 selectors 校验的 form 来源清单。
+      filters: [
+        { key: 'nickname', title: { 'zh-CN': '昵称', 'en-US': 'Nickname' }, type: 'text' },
+        {
+          key: 'channel',
+          title: { 'zh-CN': '支付渠道', 'en-US': 'Channel' },
+          type: 'select',
+          options: [
+            { value: 'official', label: { 'zh-CN': '官方', 'en-US': 'Official' } },
+            { value: 'ios', label: { 'zh-CN': 'iOS', 'en-US': 'iOS' } },
+            { value: 'android', label: { 'zh-CN': 'Android', 'en-US': 'Android' } },
+            { value: 'wechat', label: { 'zh-CN': '微信支付', 'en-US': 'WeChat Pay' } },
+            { value: 'alipay', label: { 'zh-CN': '支付宝', 'en-US': 'Alipay' } },
+          ],
+        },
+        {
+          key: 'reconciliation',
+          title: { 'zh-CN': '对账结论', 'en-US': 'Reconciliation' },
+          type: 'select',
+          options: [
+            { value: 'match', label: { 'zh-CN': '一致', 'en-US': 'Match' } },
+            { value: 'missing_credit', label: { 'zh-CN': '缺发货', 'en-US': 'Missing Credit' } },
+            { value: 'missing_order', label: { 'zh-CN': '缺订单', 'en-US': 'Missing Order' } },
+          ],
         },
       ],
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20, 50] },
@@ -244,7 +269,17 @@ export const orderReviewPageSpec: PageSpec = {
       functionId: 'order.list',
       usage: 'query',
       selectors: {
-        input: { assignments: [] },
+        // 查询栏条件与分页入参透传给 order.list；空映射会让查询栏成为
+        // 装饰（GUX-017 实测发现：点击查询后列表恒为全量）。
+        input: {
+          assignments: [
+            { target: '/current', source: { kind: 'form', path: '/current' } },
+            { target: '/pageSize', source: { kind: 'form', path: '/pageSize' } },
+            { target: '/nickname', source: { kind: 'form', path: '/nickname' } },
+            { target: '/channel', source: { kind: 'form', path: '/channel' } },
+            { target: '/reconciliation', source: { kind: 'form', path: '/reconciliation' } },
+          ],
+        },
         output: [
           { stateKey: 'items', source: '/items', shape: 'collection' },
           { stateKey: 'total', source: '/total', shape: 'scalar' },

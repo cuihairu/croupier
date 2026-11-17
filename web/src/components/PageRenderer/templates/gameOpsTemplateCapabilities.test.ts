@@ -220,18 +220,32 @@ describe('业务模板默认呈现（D5）与详情面（D1）', () => {
 });
 
 describe('D5 模板默认呈现', () => {
-  it('身份列固定可复制且作为常用查询条件前置', () => {
+  it('身份列固定可复制；查询条件与函数契约一致（GUX-017 实测修订）', () => {
     for (const entry of gameOpsTemplates) {
       if (entry.pageSpec.type !== 'resource') continue;
       const list = entry.pageSpec.resource?.listView;
       expect(list).toBeDefined();
       const columns = list?.columns ?? [];
-      // 首个身份列：固定左列 + 可复制，且是可查询的前置条件。
-      expect(columns[0]).toMatchObject({ fixed: 'left', render: 'copy', filterable: true });
-      // 常用（可查询）条件按列序前置，无高级条件插到身份条件之前。
+      // 首个身份列：固定左列 + 可复制。
+      expect(columns[0]).toMatchObject({ fixed: 'left', render: 'copy' });
+      // 查询条件不再默认包含身份列：查询栏条件必须能被列表函数契约真实
+      // 过滤（listView.filters 声明 = listQuerySchema = selectors 校验来源），
+      // 身份列不可查询时不得保留装饰性 filterable（可输入但后端忽略）。
+      expect(columns[0].filterable).not.toBe(true);
       const filterableKeys = columns.filter((c) => c.filterable).map((c) => c.key);
-      expect(filterableKeys[0]).toBe(columns[0].key);
-      expect(filterableKeys.indexOf(columns[0].key)).toBe(0);
+      expect(filterableKeys.length).toBeGreaterThan(0);
+      const declared = (list?.filters ?? []).map((f) => f.key);
+      for (const key of filterableKeys) {
+        expect(declared).toContain(key);
+      }
+      // 列表绑定把查询条件与分页入参透传给列表函数，查询栏才真实生效。
+      const binding = entry.pageSpec.bindings?.find((b) => b.id === 'list');
+      const targets = binding?.selectors?.input?.assignments.map((a) => a.target) ?? [];
+      expect(targets).toContain('/current');
+      expect(targets).toContain('/pageSize');
+      for (const key of filterableKeys) {
+        expect(targets).toContain(`/${key}`);
+      }
     }
   });
 

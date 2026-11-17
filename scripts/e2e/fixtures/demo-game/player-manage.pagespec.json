@@ -27,8 +27,7 @@
           "dataType": "string",
           "width": 120,
           "fixed": "left",
-          "render": "copy",
-          "filterable": true
+          "render": "copy"
         },
         {
           "key": "nickname",
@@ -110,6 +109,40 @@
           "width": 180
         }
       ],
+      "filters": [
+        {
+          "key": "nickname",
+          "title": {
+            "zh-CN": "昵称",
+            "en-US": "Nickname"
+          },
+          "type": "text"
+        },
+        {
+          "key": "status",
+          "title": {
+            "zh-CN": "状态",
+            "en-US": "Status"
+          },
+          "type": "select",
+          "options": [
+            {
+              "value": "active",
+              "label": {
+                "zh-CN": "正常",
+                "en-US": "Active"
+              }
+            },
+            {
+              "value": "banned",
+              "label": {
+                "zh-CN": "已封禁",
+                "en-US": "Banned"
+              }
+            }
+          ]
+        }
+      ],
       "pagination": {
         "enabled": true,
         "defaultSize": 10,
@@ -142,10 +175,28 @@
                     "ios",
                     "android"
                   ],
-                  "enumNames": [
-                    "官方",
-                    "iOS",
-                    "Android"
+                  "x-enum-options": [
+                    {
+                      "value": "official",
+                      "label": {
+                        "zh-CN": "官方",
+                        "en-US": "Official"
+                      }
+                    },
+                    {
+                      "value": "ios",
+                      "label": {
+                        "zh-CN": "iOS",
+                        "en-US": "iOS"
+                      }
+                    },
+                    {
+                      "value": "android",
+                      "label": {
+                        "zh-CN": "Android",
+                        "en-US": "Android"
+                      }
+                    }
                   ]
                 }
               },
@@ -453,7 +504,36 @@
       "usage": "query",
       "selectors": {
         "input": {
-          "assignments": []
+          "assignments": [
+            {
+              "target": "/current",
+              "source": {
+                "kind": "form",
+                "path": "/current"
+              }
+            },
+            {
+              "target": "/pageSize",
+              "source": {
+                "kind": "form",
+                "path": "/pageSize"
+              }
+            },
+            {
+              "target": "/nickname",
+              "source": {
+                "kind": "form",
+                "path": "/nickname"
+              }
+            },
+            {
+              "target": "/status",
+              "source": {
+                "kind": "form",
+                "path": "/status"
+              }
+            }
+          ]
         },
         "output": [
           {

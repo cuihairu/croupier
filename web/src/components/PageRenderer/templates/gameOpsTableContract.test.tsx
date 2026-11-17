@@ -60,11 +60,12 @@ describe('D1 ProComponents 列表与详情复用契约', () => {
     expect(screen.queryByText('玩家11号')).not.toBeInTheDocument();
 
     // 列定义→原生查询表单：filterable 列进入查询，非 filterable 列不进入
-    // D5 模板默认呈现：玩家/角色身份列标为可查询前置条件，filterable 进原生查询
-    expect(screen.getByLabelText('玩家 ID')).toBeInTheDocument();
+    // GUX-017 实测修订：身份列不再进查询栏（player.list 契约不支持 ID 过滤），
+    // 查询条件只保留函数契约真实支持的 nickname/status。
+    expect(screen.queryByLabelText('玩家 ID')).not.toBeInTheDocument();
     expect(screen.getByLabelText('昵称')).toBeInTheDocument();
     expect(screen.getByLabelText('状态')).toBeInTheDocument();
-    // 非 filterable 列不进查询表单（level/vip/balanceGold 仅表格列）
+    // 非 filterable 列不进查询表单（id/level/vip/balanceGold 仅表格列）
     expect(screen.queryByLabelText('等级')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('金币余额（金）')).not.toBeInTheDocument();
 
@@ -91,12 +92,16 @@ describe('D1 ProComponents 列表与详情复用契约', () => {
     );
 
     await waitFor(() => expect(screen.getByText('2026102301')).toBeInTheDocument());
-    // 订单号/玩家 ID 身份列均为可查询前置条件
-    expect(screen.getByLabelText('订单号')).toBeInTheDocument();
+    // GUX-017 实测修订：订单号/玩家 ID 身份列与支付状态列不再进查询栏
+    // （order.list 契约只支持 nickname/channel/reconciliation 过滤）。
+    expect(screen.queryByLabelText('订单号')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('昵称')).toBeInTheDocument();
     expect(screen.getByLabelText('支付渠道')).toBeInTheDocument();
     expect(screen.getByLabelText('对账结论')).toBeInTheDocument();
-    // 非 filterable 列（币种）不进入查询表单
+    // 非 filterable 列（币种/支付状态/游戏发货）不进入查询表单
     expect(screen.queryByLabelText('币种')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('支付状态')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('游戏发货')).not.toBeInTheDocument();
 
     // 枚举列在表格内的原生筛选语义：ProTable 查询表单有对应字段控件
     expect(screen.getByLabelText('支付渠道')).toHaveAttribute('id', 'channel');

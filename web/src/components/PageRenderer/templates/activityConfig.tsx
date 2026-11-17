@@ -43,7 +43,8 @@ export const activityConfigPageSpec: PageSpec = {
           width: 120,
           fixed: 'left',
           render: 'copy',
-          filterable: true,
+          // activity.list 契约只支持 name/type/status 过滤（GUX-017 实测发现），
+          // 身份列不进查询栏，避免出现「可输入但后端忽略」的装饰性条件。
         },
         {
           key: 'name',
@@ -86,7 +87,6 @@ export const activityConfigPageSpec: PageSpec = {
           title: { 'zh-CN': '活动时区', 'en-US': 'Timezone' },
           dataType: 'enum',
           width: 170,
-          filterable: true,
           enum: [
             {
               value: 'Asia/Shanghai',
@@ -148,6 +148,35 @@ export const activityConfigPageSpec: PageSpec = {
           width: 100,
           sortable: true,
           unit: { 'zh-CN': '版', 'en-US': 'versions' },
+        },
+      ],
+      // 查询栏可用条件须与 activity.list 入参契约一致（name contains / type / status
+      // 精确），同时作为列表绑定 selectors 校验的 form 来源清单（listQuerySchema）。
+      filters: [
+        { key: 'name', title: { 'zh-CN': '活动名称', 'en-US': 'Name' }, type: 'text' },
+        {
+          key: 'type',
+          title: { 'zh-CN': '类型', 'en-US': 'Type' },
+          type: 'select',
+          options: [
+            { value: 'login_gift', label: { 'zh-CN': '登录礼', 'en-US': 'Login Gift' } },
+            { value: 'rank_reward', label: { 'zh-CN': '排行奖励', 'en-US': 'Rank Reward' } },
+            { value: 'shop_discount', label: { 'zh-CN': '商店折扣', 'en-US': 'Shop Discount' } },
+            { value: 'holiday_event', label: { 'zh-CN': '节日活动', 'en-US': 'Holiday Event' } },
+          ],
+        },
+        {
+          key: 'status',
+          title: { 'zh-CN': '状态', 'en-US': 'Status' },
+          type: 'select',
+          options: [
+            { value: 'draft', label: { 'zh-CN': '草稿', 'en-US': 'Draft' } },
+            { value: 'configured', label: { 'zh-CN': '已配置', 'en-US': 'Configured' } },
+            { value: 'published', label: { 'zh-CN': '已发布', 'en-US': 'Published' } },
+            { value: 'active', label: { 'zh-CN': '进行中', 'en-US': 'Active' } },
+            { value: 'ended', label: { 'zh-CN': '已结束', 'en-US': 'Ended' } },
+            { value: 'rolled_back', label: { 'zh-CN': '已回滚', 'en-US': 'Rolled Back' } },
+          ],
         },
       ],
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20] },
@@ -247,13 +276,29 @@ export const activityConfigPageSpec: PageSpec = {
             type: 'string',
             title: '活动类型',
             enum: ['login_gift', 'rank_reward', 'shop_discount', 'holiday_event'],
-            enumNames: ['登录礼', '排行奖励', '商店折扣', '节日活动'],
+            // 表单下拉标签走平台契约 x-enum-options（GUX-017 实测发现）
+            'x-enum-options': [
+              { value: 'login_gift', label: { 'zh-CN': '登录礼', 'en-US': 'Login Gift' } },
+              { value: 'rank_reward', label: { 'zh-CN': '排行奖励', 'en-US': 'Rank Reward' } },
+              { value: 'shop_discount', label: { 'zh-CN': '商店折扣', 'en-US': 'Shop Discount' } },
+              { value: 'holiday_event', label: { 'zh-CN': '节日活动', 'en-US': 'Holiday Event' } },
+            ],
           },
           timezone: {
             type: 'string',
             title: '活动时区',
             enum: ['Asia/Shanghai', 'UTC', 'America/Los_Angeles'],
-            enumNames: ['Asia/Shanghai', 'UTC', 'America/Los_Angeles'],
+            'x-enum-options': [
+              {
+                value: 'Asia/Shanghai',
+                label: { 'zh-CN': 'Asia/Shanghai', 'en-US': 'Asia/Shanghai' },
+              },
+              { value: 'UTC', label: { 'zh-CN': 'UTC', 'en-US': 'UTC' } },
+              {
+                value: 'America/Los_Angeles',
+                label: { 'zh-CN': 'America/Los_Angeles', 'en-US': 'America/Los_Angeles' },
+              },
+            ],
           },
           startAt: { type: 'string', title: '开始时间（YYYY-MM-DD HH:mm，活动时区）' },
           endAt: { type: 'string', title: '结束时间（YYYY-MM-DD HH:mm，活动时区）' },
@@ -269,7 +314,17 @@ export const activityConfigPageSpec: PageSpec = {
       functionId: 'activity.list',
       usage: 'query',
       selectors: {
-        input: { assignments: [] },
+        // 查询栏条件与分页入参透传给 activity.list；空映射会让查询栏成为
+        // 装饰（GUX-017 实测发现：点击查询后列表恒为全量）。
+        input: {
+          assignments: [
+            { target: '/current', source: { kind: 'form', path: '/current' } },
+            { target: '/pageSize', source: { kind: 'form', path: '/pageSize' } },
+            { target: '/name', source: { kind: 'form', path: '/name' } },
+            { target: '/type', source: { kind: 'form', path: '/type' } },
+            { target: '/status', source: { kind: 'form', path: '/status' } },
+          ],
+        },
         output: [
           { stateKey: 'items', source: '/items', shape: 'collection' },
           { stateKey: 'total', source: '/total', shape: 'scalar' },

@@ -48,7 +48,8 @@ export const banManagementPageSpec: PageSpec = {
           width: 140,
           fixed: 'left',
           render: 'copy',
-          filterable: true,
+          // ban.list 契约只支持 nickname/reason/status 过滤（GUX-017 实测发现），
+          // 身份/归属列不进查询栏，避免出现「可输入但后端忽略」的装饰性条件。
         },
         {
           key: 'playerId',
@@ -56,7 +57,6 @@ export const banManagementPageSpec: PageSpec = {
           dataType: 'string',
           width: 110,
           render: 'copy',
-          filterable: true,
         },
         {
           key: 'nickname',
@@ -69,7 +69,6 @@ export const banManagementPageSpec: PageSpec = {
           title: { 'zh-CN': '区服', 'en-US': 'Server' },
           dataType: 'enum',
           width: 110,
-          filterable: true,
           enum: [
             { value: 's1', label: { 'zh-CN': '电信一区', 'en-US': 'Telcom 1' } },
             { value: 's2', label: { 'zh-CN': '电信二区', 'en-US': 'Telcom 2' } },
@@ -141,6 +140,32 @@ export const banManagementPageSpec: PageSpec = {
           title: { 'zh-CN': '审批人', 'en-US': 'Approver' },
           dataType: 'string',
           width: 100,
+        },
+      ],
+      // 查询栏可用条件须与 ban.list 入参契约一致（nickname contains / reason / status 精确），
+      // 同时作为列表绑定 selectors 校验的 form 来源清单（listQuerySchema）。
+      filters: [
+        { key: 'nickname', title: { 'zh-CN': '昵称', 'en-US': 'Nickname' }, type: 'text' },
+        {
+          key: 'reason',
+          title: { 'zh-CN': '封禁原因', 'en-US': 'Reason' },
+          type: 'select',
+          options: [
+            { value: 'cheating', label: { 'zh-CN': '使用外挂', 'en-US': 'Cheating' } },
+            { value: 'fraud', label: { 'zh-CN': '欺诈', 'en-US': 'Fraud' } },
+            { value: 'abuse', label: { 'zh-CN': '辱骂他人', 'en-US': 'Abuse' } },
+            { value: 'risk', label: { 'zh-CN': '账号风险', 'en-US': 'Account Risk' } },
+          ],
+        },
+        {
+          key: 'status',
+          title: { 'zh-CN': '状态', 'en-US': 'Status' },
+          type: 'select',
+          options: [
+            { value: 'active', label: { 'zh-CN': '生效中', 'en-US': 'Active' } },
+            { value: 'expired', label: { 'zh-CN': '已到期', 'en-US': 'Expired' } },
+            { value: 'lifted', label: { 'zh-CN': '已解封', 'en-US': 'Lifted' } },
+          ],
         },
       ],
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20, 50] },
@@ -232,13 +257,23 @@ export const banManagementPageSpec: PageSpec = {
             type: 'string',
             title: '区服',
             enum: ['s1', 's2', 's3'],
-            enumNames: ['电信一区', '电信二区', '联通一区'],
+            // 表单下拉标签走平台契约 x-enum-options（GUX-017 实测发现）
+            'x-enum-options': [
+              { value: 's1', label: { 'zh-CN': '电信一区', 'en-US': 'Telcom 1' } },
+              { value: 's2', label: { 'zh-CN': '电信二区', 'en-US': 'Telcom 2' } },
+              { value: 's3', label: { 'zh-CN': '联通一区', 'en-US': 'Unicom 1' } },
+            ],
           },
           reason: {
             type: 'string',
             title: '封禁原因',
             enum: ['cheating', 'fraud', 'abuse', 'risk'],
-            enumNames: ['使用外挂', '欺诈', '辱骂他人', '账号风险'],
+            'x-enum-options': [
+              { value: 'cheating', label: { 'zh-CN': '使用外挂', 'en-US': 'Cheating' } },
+              { value: 'fraud', label: { 'zh-CN': '欺诈', 'en-US': 'Fraud' } },
+              { value: 'abuse', label: { 'zh-CN': '辱骂他人', 'en-US': 'Abuse' } },
+              { value: 'risk', label: { 'zh-CN': '账号风险', 'en-US': 'Account Risk' } },
+            ],
           },
           durationHours: { type: 'number', title: '封禁时长（小时）' },
         },
@@ -253,7 +288,17 @@ export const banManagementPageSpec: PageSpec = {
       functionId: 'ban.list',
       usage: 'query',
       selectors: {
-        input: { assignments: [] },
+        // 查询栏条件与分页入参透传给 ban.list；空映射会让查询栏成为
+        // 装饰（GUX-017 实测发现：点击查询后列表恒为全量）。
+        input: {
+          assignments: [
+            { target: '/current', source: { kind: 'form', path: '/current' } },
+            { target: '/pageSize', source: { kind: 'form', path: '/pageSize' } },
+            { target: '/nickname', source: { kind: 'form', path: '/nickname' } },
+            { target: '/reason', source: { kind: 'form', path: '/reason' } },
+            { target: '/status', source: { kind: 'form', path: '/status' } },
+          ],
+        },
         output: [
           { stateKey: 'items', source: '/items', shape: 'collection' },
           { stateKey: 'total', source: '/total', shape: 'scalar' },

@@ -45,7 +45,8 @@ export const mailCompensationPageSpec: PageSpec = {
           width: 150,
           fixed: 'left',
           render: 'copy',
-          filterable: true,
+          // mail_task.list 契约只支持 type/status 过滤（GUX-017 实测发现），
+          // ID 列不进查询栏，避免出现「可输入但后端忽略」的装饰性条件。
         },
         {
           key: 'type',
@@ -175,6 +176,37 @@ export const mailCompensationPageSpec: PageSpec = {
           width: 180,
         },
       ],
+      // 查询栏可用条件须与 mail_task.list 入参契约一致（type/status 精确），
+      // 同时作为列表绑定 selectors 校验的 form 来源清单（listQuerySchema）。
+      filters: [
+        {
+          key: 'type',
+          title: { 'zh-CN': '类型', 'en-US': 'Type' },
+          type: 'select',
+          options: [
+            { value: 'mail', label: { 'zh-CN': '邮件', 'en-US': 'Mail' } },
+            { value: 'compensation', label: { 'zh-CN': '补偿', 'en-US': 'Compensation' } },
+          ],
+        },
+        {
+          key: 'status',
+          title: { 'zh-CN': '状态', 'en-US': 'Status' },
+          type: 'select',
+          options: [
+            {
+              value: 'pending_approval',
+              label: { 'zh-CN': '待审批', 'en-US': 'Pending Approval' },
+            },
+            { value: 'sending', label: { 'zh-CN': '发送中', 'en-US': 'Sending' } },
+            { value: 'sent', label: { 'zh-CN': '已发送', 'en-US': 'Sent' } },
+            { value: 'partial_failed', label: { 'zh-CN': '部分失败', 'en-US': 'Partial Failed' } },
+            { value: 'executing', label: { 'zh-CN': '执行中', 'en-US': 'Executing' } },
+            { value: 'completed', label: { 'zh-CN': '已完成', 'en-US': 'Completed' } },
+            { value: 'failed', label: { 'zh-CN': '失败', 'en-US': 'Failed' } },
+            { value: 'cancelled', label: { 'zh-CN': '已撤回', 'en-US': 'Cancelled' } },
+          ],
+        },
+      ],
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20, 50] },
       rowActions: [
         {
@@ -279,7 +311,12 @@ export const mailCompensationPageSpec: PageSpec = {
             type: 'string',
             title: '任务类型',
             enum: ['mail', 'compensation'],
-            enumNames: ['邮件', '补偿'],
+            // 表单下拉标签走平台契约 x-enum-options（schemaHints）；
+            // 裸 enumNames 渲染器不消费，下拉会露原始值（GUX-017 实测发现）。
+            'x-enum-options': [
+              { value: 'mail', label: { 'zh-CN': '邮件', 'en-US': 'Mail' } },
+              { value: 'compensation', label: { 'zh-CN': '补偿', 'en-US': 'Compensation' } },
+            ],
           },
           title: { type: 'string', title: '邮件标题/补偿事由' },
           detail: { type: 'string', title: '邮件正文/补偿原因' },
@@ -287,9 +324,15 @@ export const mailCompensationPageSpec: PageSpec = {
             type: 'string',
             title: '发放范围',
             enum: ['all', 'server', 'players'],
-            enumNames: ['全服', '指定区服', '指定玩家'],
+            'x-enum-options': [
+              { value: 'all', label: { 'zh-CN': '全服', 'en-US': 'All' } },
+              { value: 'server', label: { 'zh-CN': '指定区服', 'en-US': 'Server' } },
+              { value: 'players', label: { 'zh-CN': '指定玩家', 'en-US': 'Players' } },
+            ],
           },
-          perAmount: { type: 'number', title: '补偿每人数量（金，邮件留空）' },
+          // 与 mail_task.create 契约一致（integer）；发布选择器校验要求
+          // form 字段类型与函数入参可赋值（GUX-017 实测发现）。
+          perAmount: { type: 'integer', title: '补偿每人数量（金，邮件留空）' },
         },
         required: ['type', 'title'],
       },
@@ -313,7 +356,16 @@ export const mailCompensationPageSpec: PageSpec = {
       functionId: 'mail_task.list',
       usage: 'query',
       selectors: {
-        input: { assignments: [] },
+        // 查询栏条件与分页入参透传给 mail_task.list；空映射会让查询栏成为
+        // 装饰（GUX-017 实测发现：点击查询后列表恒为全量）。
+        input: {
+          assignments: [
+            { target: '/current', source: { kind: 'form', path: '/current' } },
+            { target: '/pageSize', source: { kind: 'form', path: '/pageSize' } },
+            { target: '/type', source: { kind: 'form', path: '/type' } },
+            { target: '/status', source: { kind: 'form', path: '/status' } },
+          ],
+        },
         output: [
           { stateKey: 'items', source: '/items', shape: 'collection' },
           { stateKey: 'total', source: '/total', shape: 'scalar' },
@@ -335,12 +387,37 @@ export const mailCompensationPageSpec: PageSpec = {
       id: 'create',
       functionId: 'mail_task.create',
       usage: 'action',
+      // 发布校验要求每个 binding 都声明 selectors.input（GUX-017 实测发现）；
+      // form 侧字段以 resource.createForm 为准（targetPlayerIds 等契约字段
+      // 不进表单，留空由服务端兜底），映射与 playerManage.create 同款。
+      selectors: {
+        input: {
+          assignments: [
+            { target: '/type', source: { kind: 'form', path: '/type' } },
+            { target: '/title', source: { kind: 'form', path: '/title' } },
+            { target: '/detail', source: { kind: 'form', path: '/detail' } },
+            { target: '/receiverRange', source: { kind: 'form', path: '/receiverRange' } },
+            { target: '/perAmount', source: { kind: 'form', path: '/perAmount' } },
+          ],
+        },
+        output: [{ stateKey: 'result', source: '', shape: 'object' }],
+      },
       execution: { mode: 'sync' },
     },
     {
       id: 'update',
       functionId: 'mail_task.update',
       usage: 'action',
+      selectors: {
+        input: {
+          assignments: [
+            { target: '/id', source: { kind: 'row', path: '/id' } },
+            { target: '/title', source: { kind: 'form', path: '/title' } },
+            { target: '/detail', source: { kind: 'form', path: '/detail' } },
+          ],
+        },
+        output: [{ stateKey: 'result', source: '', shape: 'object' }],
+      },
       execution: { mode: 'sync' },
     },
     {

@@ -52,7 +52,8 @@ export const playerManagePageSpec: PageSpec = {
           width: 120,
           fixed: 'left',
           render: 'copy',
-          filterable: true,
+          // player.list 契约只支持 nickname/status 过滤（GUX-017 实测发现），
+          // ID 列不进查询栏，避免出现「可输入但后端忽略」的装饰性条件。
         },
         {
           key: 'nickname',
@@ -99,6 +100,20 @@ export const playerManagePageSpec: PageSpec = {
           width: 180,
         },
       ],
+      // 查询栏可用条件须与 player.list 入参契约一致（nickname contains / status 精确），
+      // 同时作为列表绑定 selectors 校验的 form 来源清单（listQuerySchema）。
+      filters: [
+        { key: 'nickname', title: { 'zh-CN': '昵称', 'en-US': 'Nickname' }, type: 'text' },
+        {
+          key: 'status',
+          title: { 'zh-CN': '状态', 'en-US': 'Status' },
+          type: 'select',
+          options: [
+            { value: 'active', label: { 'zh-CN': '正常', 'en-US': 'Active' } },
+            { value: 'banned', label: { 'zh-CN': '已封禁', 'en-US': 'Banned' } },
+          ],
+        },
+      ],
       pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 20, 50] },
       rowActions: [
         {
@@ -115,7 +130,12 @@ export const playerManagePageSpec: PageSpec = {
                   type: 'string',
                   title: '支付渠道',
                   enum: ['official', 'ios', 'android'],
-                  enumNames: ['官方', 'iOS', 'Android'],
+                  // 表单下拉标签走平台契约 x-enum-options（GUX-017 实测发现）
+                  'x-enum-options': [
+                    { value: 'official', label: { 'zh-CN': '官方', 'en-US': 'Official' } },
+                    { value: 'ios', label: { 'zh-CN': 'iOS', 'en-US': 'iOS' } },
+                    { value: 'android', label: { 'zh-CN': 'Android', 'en-US': 'Android' } },
+                  ],
                 },
               },
               required: ['amount'],
@@ -292,7 +312,16 @@ export const playerManagePageSpec: PageSpec = {
       functionId: 'player.list',
       usage: 'query',
       selectors: {
-        input: { assignments: [] },
+        // 查询栏条件与分页入参透传给 player.list；空映射会让查询栏成为
+        // 装饰（GUX-017 实测发现：点击查询后列表恒为全量）。
+        input: {
+          assignments: [
+            { target: '/current', source: { kind: 'form', path: '/current' } },
+            { target: '/pageSize', source: { kind: 'form', path: '/pageSize' } },
+            { target: '/nickname', source: { kind: 'form', path: '/nickname' } },
+            { target: '/status', source: { kind: 'form', path: '/status' } },
+          ],
+        },
         output: [
           { stateKey: 'items', source: '/items', shape: 'collection' },
           { stateKey: 'total', source: '/total', shape: 'scalar' },
