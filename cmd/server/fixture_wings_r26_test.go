@@ -1,9 +1,10 @@
 // 覆盖率巡检第二十六轮（wt-api）：cmd/server dashboard_fixture.go 装配翼——
 // 不做完整 boot 的确定性直测：纯 helper 矩阵（fixtureAddrWithPort /
-// defaultFixtureBootstrapDir / fixtureSDKDir）+ StartDashboardFixture 前置
-// 错误翼（五个 addr 解析失败、MkdirTemp 失败、空 BaseDir 的自有目录
-// 分支与 cleanupOnError 删除链）+ start* 方法的手工构造 fixture 错误翼
-// （addr 解析 / listen 被占 / MkdirAll 被占 / SDK cmd.Start 失败）+
+// fixtureListenAddr / defaultFixtureBootstrapDir / fixtureSDKDir）+
+// StartDashboardFixture 前置错误翼（control/agent-local addr 预分配解析
+// 失败、MkdirTemp 失败、空 BaseDir 的自有目录分支与 cleanupOnError 删除
+// 链）+ start* 方法的手工构造 fixture 错误翼（bind 失败 / listen 被占 /
+// MkdirAll 被占 / SDK cmd.Start 失败）+
 // ensureUIScope nil 模型翼 + WaitReady/ready/Close/CleanupScope 的空态与
 // 幂等翼 + fixture API 端点全方法臂（经真实 listener 真实 HTTP 请求，
 // 含 audit 三态 404/500 解码失败/200）。
@@ -28,6 +29,14 @@
 //   - startSDKLocked 的 json.Marshal 错误翼：FixtureSDKFunction 全字符串
 //     字段，Marshal 无失败路径；
 //   - WaitReady 的 60s 超时翼：硬编码 deadline，等待成本与价值不成比例。
+//   - bind-first 改造（2026-11-18，消 -count=N 预分配端口竞态）灭失的翼：
+//     http/provider/fixture-api 坏 addr 前置解析错误翼（fixtureListenAddr
+//     归一 + 内核 bind 权威判定，非法形态收敛 :0，helper 矩阵见
+//     TestFixtureListenAddr）；startServer 的 SplitHostPort/Sscanf 解析翼
+//     （bind 是首个动作）；serving=false 的 defer close 分支（listen 成功
+//     后的唯一失败翼均已登记不可达，纯防御）；CROUPIER_E2E_PUBLISH_REVIEW
+//     环境覆盖体（listen 前移后 boot 不再途经 cfg 构建，env 未设时成功
+//     boot 不进分支体）。
 package main
 
 import (
@@ -141,21 +150,21 @@ func TestFixtureSDKDir_Wings(t *testing.T) {
 	require.ErrorContains(t, err, "sdks/go module not found")
 }
 
-// StartDashboardFixture 的五个 addr 解析错误翼（234-247）——坏 addr 在
-// startServer 之前拦截，无需任何 boot；空 BaseDir 变体同时覆盖 MkdirTemp
-// 分支（225）、ownsBaseDir=true（229）与 cleanupOnError 的 RemoveAll 链
-// （255-258）；TMPDIR 指向文件覆盖 MkdirTemp 错误翼（226-228）。
+// StartDashboardFixture 的 addr 预分配解析错误翼——bind-first 改造后仅
+// control/agent-local 仍走 fixtureAddrWithPort 预分配（组件只收具体地址），
+// 坏 addr 在 startServer 之前拦截，无需任何 boot；http/provider/fixture-api
+// 的坏 addr 已由 fixtureListenAddr 归一（内核 bind 权威判定），不再前置
+// 报错。control 坏 addr + 空 BaseDir 变体同时覆盖 MkdirTemp 分支（225）、
+// ownsBaseDir=true（229）与 cleanupOnError 的 RemoveAll 链（255-258）；
+// TMPDIR 指向文件覆盖 MkdirTemp 错误翼（226-228）。
 func TestStartDashboardFixture_AddrWings(t *testing.T) {
 	cases := []struct {
 		name string
 		opts DashboardFixtureOptions
 	}{
-		{"http", DashboardFixtureOptions{BaseDir: t.TempDir(), HTTPAddr: "no-port"}},
 		{"control", DashboardFixtureOptions{BaseDir: t.TempDir(), ControlAddr: "no-port"}},
 		{"agent-local", DashboardFixtureOptions{BaseDir: t.TempDir(), AgentLocalAddr: "no-port"}},
-		{"provider", DashboardFixtureOptions{BaseDir: t.TempDir(), ProviderAddr: "no-port"}},
-		{"fixture-api", DashboardFixtureOptions{BaseDir: t.TempDir(), FixtureAddr: "no-port"}},
-		{"empty-basedir-mkdirtmp", DashboardFixtureOptions{HTTPAddr: "no-port"}},
+		{"empty-basedir-mkdirtmp", DashboardFixtureOptions{ControlAddr: "no-port"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -175,17 +184,19 @@ func TestStartDashboardFixture_AddrWings(t *testing.T) {
 	})
 }
 
-// startServer 的两处 addr 解析翼（293 SplitHostPort / 298 Sscanf）——
-// 手工构造 fixture 直调，错误在 NewServiceContext 之前返回，零 boot 成本。
-func TestStartServer_AddrParseWings(t *testing.T) {
+// startServer 的 bind-first 翼——bind 是函数首个动作（cfg/svc 均在其后），
+// 坏 addr 在零 boot 成本处报错；地址合法性由 net.Listen 权威判定
+// （SplitHostPort/Sscanf 解析翼已随 bind-first 移除）。
+func TestStartServer_BindFirstWings(t *testing.T) {
 	ctx := context.Background()
 
 	f := &DashboardFixture{BaseDir: t.TempDir(), HTTPAddr: "no-port"}
-	require.Error(t, f.startServer(ctx, DashboardFixtureOptions{BootstrapDir: t.TempDir()}))
+	require.ErrorContains(t,
+		f.startServer(ctx, DashboardFixtureOptions{BootstrapDir: t.TempDir()}), "missing port")
 
 	f2 := &DashboardFixture{BaseDir: t.TempDir(), HTTPAddr: "127.0.0.1:notaport"}
-	// Sscanf 报 "expected integer"，不回显输入，断言错误形态即可
-	require.ErrorContains(t, f2.startServer(ctx, DashboardFixtureOptions{BootstrapDir: t.TempDir()}), "expected integer")
+	require.ErrorContains(t,
+		f2.startServer(ctx, DashboardFixtureOptions{BootstrapDir: t.TempDir()}), "unknown port")
 }
 
 // startProvider / startAgent / startFixtureAPI 的监听与建目录错误翼——
@@ -406,14 +417,14 @@ func occupyTCP(t *testing.T) string {
 	return ln.Addr().String()
 }
 
-// StartDashboardFixture 的五步失败翼（262-283）：① 廉价——addr 过
-// fixtureAddrWithPort 但端口非数字 → startServer Sscanf 即败（在
-// NewServiceContext 之前返回），cleanupOnError 首次真实执行（rootCancel +
-// 自有 BaseDir RemoveAll）；②-⑤ 各自要求 startServer 真实全量启动后在
-// 目标步骤失败（provider 端口被占 / agent 目录被占 / SDK cmd.Start 失败 /
-// fixture API 端口被占）。
+// StartDashboardFixture 的五步失败翼（262-283）：① 廉价——非数字端口过
+// fixtureListenAddr 透传（SplitHostPort 只看冒号），startServer 的
+// bind-first listen 即败（在 NewServiceContext 之前返回），cleanupOnError
+// 首次真实执行（rootCancel + 自有 BaseDir RemoveAll）；②-⑤ 各自要求
+// startServer 真实全量启动后在目标步骤失败（provider 端口被占 / agent
+// 目录被占 / SDK cmd.Start 失败 / fixture API 端口被占）。
 func TestStartDashboardFixture_StepFailureWings(t *testing.T) {
-	t.Run("server-addr-sscanf", func(t *testing.T) {
+	t.Run("server-addr-bind-fail", func(t *testing.T) {
 		f, err := StartDashboardFixture(context.Background(), DashboardFixtureOptions{HTTPAddr: "127.0.0.1:notaport"})
 		require.ErrorContains(t, err, "start fixture server")
 		assert.Nil(t, f)
@@ -452,12 +463,11 @@ func TestStartDashboardFixture_StepFailureWings(t *testing.T) {
 		assert.Nil(t, f)
 	})
 
-	// startServer 的 listen 错误翼（362）：HTTPAddr 显式占住端口——
-	// fixtureAddrWithPort 放行、Sscanf 过、NewServiceContext/ensureUIScope/
-	// env 读取全走完后在 listen 处失败；同 boot 顺带覆盖
-	// CROUPIER_E2E_PUBLISH_REVIEW 环境覆盖翼（321）。
+	// startServer 的 bind-first listen 错误翼（362）：HTTPAddr 显式占住
+	// 端口——bind 是首个动作，在 cfg/NewServiceContext 之前即失败
+	// （CROUPIER_E2E_PUBLISH_REVIEW 环境覆盖体已随 bind 前移失去到达
+	// 路径，见文件头登记）。
 	t.Run("server-listen-occupied", func(t *testing.T) {
-		t.Setenv("CROUPIER_E2E_PUBLISH_REVIEW", "auto")
 		f, err := StartDashboardFixture(context.Background(), DashboardFixtureOptions{
 			BaseDir:  t.TempDir(),
 			HTTPAddr: occupyTCP(t),

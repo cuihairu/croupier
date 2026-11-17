@@ -24,6 +24,13 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 		HTTPAddr: "127.0.0.1:0",
 	})
 	require.NoError(t, err)
+	// require 失败中断时也必须释放监听端口：泄漏的 listener 会让下一轮
+	// -count 迭代的分配撞上仍在监听的旧实例（flaky probe 实证形态）。
+	t.Cleanup(func() {
+		closeCtx, closeCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer closeCancel()
+		_ = fixture.Close(closeCtx)
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -160,4 +167,23 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 	require.Empty(t, admin.LastEnv, "fixture admin environment must be restored")
 
 	require.NoError(t, fixture.Close(ctx))
+}
+
+// TestFixtureListenAddr 归一化 bind-first 监听地址：空 host / 0.0.0.0 收敛
+// 到 127.0.0.1，缺端口补 :0（内核分配），坏地址回退 :0。
+func TestFixtureListenAddr(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", "127.0.0.1:0"},
+		{"   ", "127.0.0.1:0"},
+		{"0.0.0.0:18999", "127.0.0.1:18999"},
+		{":18999", "127.0.0.1:18999"},
+		{"127.0.0.1:18999", "127.0.0.1:18999"},
+		{"no-port-here", "127.0.0.1:0"},
+	}
+	for _, tc := range cases {
+		require.Equal(t, tc.want, fixtureListenAddr(tc.in), "input %q", tc.in)
+	}
 }

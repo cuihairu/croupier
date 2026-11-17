@@ -234,7 +234,7 @@ func newFixtureAPIFixture(t *testing.T) *DashboardFixture {
 		},
 	}))
 
-	fixtureAddr, err := fixtureAddrWithPort("") // 先解析具体端口（startFixtureAPI 不做端口回写）
+	fixtureAddr, err := fixtureAddrWithPort("") // 手工构造 fixture 直调，需自带具体端口（bind 后回写同值）
 	require.NoError(t, err)
 	f := &DashboardFixture{
 		GameID:      "e2e-game",

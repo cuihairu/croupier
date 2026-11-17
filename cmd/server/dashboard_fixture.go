@@ -158,6 +158,23 @@ func fixtureFreePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
+// fixtureListenAddr 归一化 bind-first 监听地址：空 host / 0.0.0.0 收敛到
+// 127.0.0.1，缺端口补 :0（内核分配）。绑定后从 listener 回填具体地址。
+func fixtureListenAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "127.0.0.1:0"
+	}
+	if host == "" || host == "0.0.0.0" {
+		host = "127.0.0.1"
+	}
+	if port == "" {
+		port = "0"
+	}
+	return net.JoinHostPort(host, port)
+}
+
 func fixtureAddrWithPort(addr string) (string, error) {
 	addr = strings.TrimSpace(addr)
 	if addr == "" {
@@ -231,21 +248,21 @@ func StartDashboardFixture(ctx context.Context, opts DashboardFixtureOptions) (*
 		return nil, err
 	}
 
-	if f.HTTPAddr, err = fixtureAddrWithPort(opts.HTTPAddr); err != nil {
-		return nil, err
-	}
+	// Control/AgentLocal 由内部组件绑定（root.go startControlServer /
+	// agentcore），组件只收具体地址：沿用预分配（探测后释放再交给组件）。
 	if f.ControlAddr, err = fixtureAddrWithPort(opts.ControlAddr); err != nil {
 		return nil, err
 	}
 	if f.AgentLocalAddr, err = fixtureAddrWithPort(opts.AgentLocalAddr); err != nil {
 		return nil, err
 	}
-	if f.ProviderAddr, err = fixtureAddrWithPort(opts.ProviderAddr); err != nil {
-		return nil, err
-	}
-	if f.FixtureAddr, err = fixtureAddrWithPort(opts.FixtureAddr); err != nil {
-		return nil, err
-	}
+	// HTTP/Provider/Fixture 由本文件直接绑定：预分配（bind+close 再 rebind）
+	// 的窗口会被并发分配抢走——flaky probe（-count=3）实证 provider 预分配
+	// 端口在 rebind 前被抢（2026-11-17 nightly Flaky probe 失败）。这三个
+	// 改为 bind-first：绑定瞬间由内核分配端口，再从 listener 回填具体地址。
+	f.HTTPAddr = fixtureListenAddr(opts.HTTPAddr)
+	f.ProviderAddr = fixtureListenAddr(opts.ProviderAddr)
+	f.FixtureAddr = fixtureListenAddr(opts.FixtureAddr)
 
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	f.rootCtx = rootCtx
@@ -271,6 +288,13 @@ func StartDashboardFixture(ctx context.Context, opts DashboardFixtureOptions) (*
 		return nil, fmt.Errorf("start fixture agent: %w", err)
 	}
 
+	// Fixture API 先于 SDK 启动：startSDK 需要 f.FixtureAddr 的具体地址
+	// （report URL），而该地址由 startFixtureAPI 绑定后回填。
+	if err := f.startFixtureAPI(); err != nil {
+		cleanupOnError()
+		return nil, fmt.Errorf("start fixture api: %w", err)
+	}
+
 	f.sdkFns = opts.SDKFunctions
 	if f.sdkFns == nil {
 		f.sdkFns = DefaultFixtureSDKFunctions()
@@ -278,10 +302,6 @@ func StartDashboardFixture(ctx context.Context, opts DashboardFixtureOptions) (*
 	if err := f.startSDK(rootCtx, f.sdkFns); err != nil {
 		cleanupOnError()
 		return nil, fmt.Errorf("start fixture sdk: %w", err)
-	}
-	if err := f.startFixtureAPI(); err != nil {
-		cleanupOnError()
-		return nil, fmt.Errorf("start fixture api: %w", err)
 	}
 	_ = ctx // startup waits are driven by WaitReady
 	return f, nil
@@ -292,6 +312,21 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 	if bootstrapDir == "" {
 		bootstrapDir = defaultFixtureBootstrapDir()
 	}
+
+	// bind-first：立即绑定内核分配端口并回填具体地址，消除「预分配端口随后
+	// rebind」的窗口竞态（flaky probe 实证：-count=3 下预分配端口被并发抢占）。
+	httpLn, err := net.Listen("tcp", f.HTTPAddr)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", f.HTTPAddr, err)
+	}
+	f.HTTPAddr = httpLn.Addr().String()
+	// Serve 前的任一失败路径都释放监听，避免泄漏端口。
+	serving := false
+	defer func() {
+		if !serving {
+			_ = httpLn.Close()
+		}
+	}()
 
 	host, portStr, err := net.SplitHostPort(f.HTTPAddr)
 	if err != nil {
@@ -362,13 +397,10 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 	r.Use(svc.NewAuthMiddleware(svcCtx))
 	handler.RegisterHandlers(r, svcCtx)
 
-	ln, err := net.Listen("tcp", f.HTTPAddr)
-	if err != nil {
-		return fmt.Errorf("listen %s: %w", f.HTTPAddr, err)
-	}
 	f.httpSrv = &http.Server{Handler: wrapHTTPHandler(svcCtx, r)}
+	serving = true
 	go func() {
-		if err := f.httpSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
+		if err := f.httpSrv.Serve(httpLn); err != nil && err != http.ErrServerClosed {
 			slog.Default().Error("fixture http server stopped", "error", err)
 		}
 	}()
@@ -444,10 +476,13 @@ func (f *DashboardFixture) ensureUIScope(ctx context.Context) error {
 
 func (f *DashboardFixture) startProvider() error {
 	f.provider = newPlayersProvider()
+	// bind-first：绑定后回填具体地址（消费在 startAgent 的 providers.yaml，
+	// 晚于本函数，顺序安全）。
 	ln, err := net.Listen("tcp", f.ProviderAddr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", f.ProviderAddr, err)
 	}
+	f.ProviderAddr = ln.Addr().String()
 	go func() {
 		if err := http.Serve(ln, f.provider.handler()); err != nil && err != http.ErrServerClosed {
 			slog.Default().Error("fixture provider stopped", "error", err)
@@ -804,6 +839,14 @@ type fixtureHealthResponse struct {
 }
 
 func (f *DashboardFixture) startFixtureAPI() error {
+	// bind-first：绑定后回填具体地址（消费在 startSDKLocked 的 report URL 与
+	// /__fixture__/health 响应，均晚于本函数，顺序安全）。
+	ln, err := net.Listen("tcp", f.FixtureAddr)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", f.FixtureAddr, err)
+	}
+	f.FixtureAddr = ln.Addr().String()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/__fixture__/health", func(w http.ResponseWriter, r *http.Request) {
 		resp := fixtureHealthResponse{
@@ -910,10 +953,6 @@ func (f *DashboardFixture) startFixtureAPI() error {
 		writeFixtureJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	ln, err := net.Listen("tcp", f.FixtureAddr)
-	if err != nil {
-		return fmt.Errorf("listen %s: %w", f.FixtureAddr, err)
-	}
 	f.fixtureSrv = &http.Server{Handler: mux}
 	go func() {
 		if err := f.fixtureSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
