@@ -423,6 +423,10 @@ describe('deriveRuntimeSchema：字段呈现（applyFieldPresentation）', () =>
     expect(propsOf(schema, 'a').title).toBe('甲字段');
     expect(propsOf(schema, 'a').description).toBe('甲说明');
     expect(propsOf(schema, 'c').enumNames).toEqual(['甲', '乙']);
+    // rjsf v5 optionsList 只认 ui:options.enumNames：缺了它下拉露原始枚举值（GUX-017）
+    expect(uiOf(uiSchema as Record<string, unknown>, 'c')).toMatchObject({
+      'ui:options': { enumNames: ['甲', '乙'] },
+    });
     // key 不在 schema.properties 中的字段安全跳过
     expect(schema.properties).not.toHaveProperty('d');
     expect(uiOf(uiSchema as Record<string, unknown>, 'd')).toEqual({});
@@ -433,6 +437,39 @@ describe('deriveRuntimeSchema：字段呈现（applyFieldPresentation）', () =>
       { key: 'a', enumOptions: [] },
     ]);
     expect(propsOf(schema, 'a')).not.toHaveProperty('enumNames');
+  });
+
+  it('无 fields 的 spec：schema 级 x-enum-options / enumNames 兜底进 ui:options（GUX-017）', () => {
+    const { uiSchema } = deriveRuntimeSchema(
+      {
+        jsonSchema: schemaOf({
+          type: 'object',
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['mail', 'compensation'],
+              'x-enum-options': [
+                { value: 'mail', label: { 'zh-CN': '邮件', 'en-US': 'Mail' } },
+                { value: 'compensation', label: { 'zh-CN': '补偿', 'en-US': 'Compensation' } },
+              ],
+            },
+            range: { type: 'string', enum: ['all', 'players'], enumNames: ['全服', '指定玩家'] },
+            plain: { type: 'string', enum: ['a', 'b'] },
+          },
+        }),
+      } as FormPresentationSpec,
+      {},
+    );
+    // x-enum-options 是平台 hints 契约：标签本地化并与 enum 对齐
+    expect(uiOf(uiSchema as Record<string, unknown>, 'type')).toMatchObject({
+      'ui:options': { enumNames: ['邮件', '补偿'] },
+    });
+    // schema.enumNames 按下标兜底
+    expect(uiOf(uiSchema as Record<string, unknown>, 'range')).toMatchObject({
+      'ui:options': { enumNames: ['全服', '指定玩家'] },
+    });
+    // 无标签声明的枚举保持裸值（不伪造标签）
+    expect(uiOf(uiSchema as Record<string, unknown>, 'plain')).toEqual({});
   });
 
   it('jsonSchema 无 properties 时字段呈现安全兜底（fieldSchema 落空对象）', () => {

@@ -103,6 +103,29 @@ function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {
   );
 }
 
+/** schema 级 x-enum-options → 与 schema.enum 对齐的本地化标签数组（缺项回退原始值）。
+ *  rjsf optionsList 按 enum 下标取 enumNames，标签表必须与值域同序同长。 */
+function asEnumNamesFromSchemaHints(child: Record<string, unknown>): string[] | undefined {
+  const values = Array.isArray(child.enum) ? child.enum : [];
+  if (!values.length) return undefined;
+  const hints = Array.isArray(child['x-enum-options']) ? child['x-enum-options'] : [];
+  if (!hints.length) return undefined;
+  const labelByValue = new Map<string, string>();
+  for (const item of hints) {
+    if (!item || typeof item !== 'object') continue;
+    const entry = item as Record<string, unknown>;
+    if (typeof entry.value !== 'string') continue;
+    const label = localizedText(
+      entry.label as string | Record<string, string>,
+      'zh-CN',
+      entry.value,
+    );
+    if (label) labelByValue.set(entry.value, label);
+  }
+  if (!labelByValue.size) return undefined;
+  return values.map((value) => labelByValue.get(String(value)) ?? String(value));
+}
+
 function shouldUseTextarea(schema: JSONSchema): boolean {
   return schema.format === 'textarea' || Number(schema.maxLength || 0) > 120;
 }
@@ -281,6 +304,13 @@ function applyFieldPresentation(
     if (properties?.[field.key]) {
       properties[field.key] = {
         ...properties[field.key],
+        enumNames: getEnumNames(field),
+      };
+      // rjsf v5 的 optionsList 只从 ui:options.enumNames 取下拉标签；只写 schema 级
+      // enumNames 时下拉会露原始枚举值（GUX-017 实测发现）。schema 级保留给
+      // CompositeEditor 等自行消费 schema 的面板读取。
+      nextUi['ui:options'] = {
+        ...(nextUi['ui:options'] || {}),
         enumNames: getEnumNames(field),
       };
     }
@@ -502,6 +532,32 @@ export function deriveRuntimeSchema(
       if (child && typeof child === 'object' && !child.title) {
         child.title = humanizeFieldKey(key);
       }
+    }
+  }
+
+  // 枚举标签兜底（GUX-017 实测发现）：spec 未提供 fields 时（资源模板
+  // createForm 直接给 jsonSchema），rjsf v5 optionsList 只认 ui:options.enumNames，
+  // schema 级 enumNames / x-enum-options 不会被消费，下拉露原始枚举值。
+  // 标签来源 x-enum-options（平台 hints 契约）> schema.enumNames > 原始值。
+  if (props) {
+    for (const [key, child] of Object.entries(props)) {
+      if (!child || typeof child !== 'object' || !Array.isArray(child.enum)) continue;
+      const existing = (uiSchema[key] || {}) as UiSchema;
+      const existingOptions = existing['ui:options'] as Record<string, unknown> | undefined;
+      if (existingOptions && Array.isArray(existingOptions.enumNames)) continue;
+      const hinted = asEnumNamesFromSchemaHints(child as unknown as Record<string, unknown>);
+      const names =
+        hinted ??
+        (Array.isArray(child.enumNames)
+          ? child.enum.map((value, i) =>
+              typeof child.enumNames[i] === 'string'
+                ? (child.enumNames[i] as string)
+                : String(value),
+            )
+          : undefined);
+      if (!names) continue;
+      existing['ui:options'] = { ...(existingOptions || {}), enumNames: names };
+      uiSchema[key] = existing;
     }
   }
 
