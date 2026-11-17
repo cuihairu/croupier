@@ -6,6 +6,10 @@
 
 驱动输出见 `acceptance-results.txt`。A1–A12 覆盖发布页玩家查询→详情→补偿→确认→回执全链，B1–B4 覆盖模板向导（内置内存演示数据，横幅如实可见），C1–C4 覆盖 1280×800 笔记本视口。
 
+## 发布链闭环（spec 字段落库）
+
+验收页面不是编辑器/预览侧，而是走完整提案→保存→发布链落到已发布 spec 后由发布页渲染：proposals 创建 → accept → save（保存后 draftRevision 自增）→ publish（必须用**保存后**的新 draftRevision，用旧值返回 409 草稿版本冲突）→ GET publishedVersion 回读。验收时的已发布版本：`player-manage` publishedVersion 3、`mail-compensation` publishedVersion 5。A1–A12 全部在发布页执行真实 binding（list/detail/retry_failed/create）读取 demo-game 活数据，即 spec 字段已落库并生效。
+
 ## 流程覆盖
 
 | 阶段 | 步骤 | 要点 |
