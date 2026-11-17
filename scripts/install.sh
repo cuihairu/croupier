@@ -179,17 +179,18 @@ resolve_latest_tag() {
   fi
 }
 
-# CR-FIX-04：nightly 改为不可变 nightly-YYYYMMDD tag 后，--version nightly
-# 需解析为最新 nightly-* prerelease tag（按发布时间排序取首个）。
+# CR-FIX-04：nightly 为单一滚动 tag（每日构建强移到当日 HEAD，仅保留最新）。
+# --version nightly 解析该 release；历史 nightly-YYYYMMDD tag 亦兼容。
 resolve_latest_nightly_tag() {
   local tag
-  # 最新 nightly-YYYYMMDD prerelease tag：GitHub API 返回时间倒序，取首个匹配。
+  # 首个 nightly 匹配（GitHub API 时间倒序）；带引号锚定，防其他 tag 名
+  # 内含 nightly 前缀/子串误配。
   if have curl; then
     tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=20" 2>/dev/null \
-      | grep '"tag_name"' | grep -o 'nightly-[0-9]\{8\}' | head -1)" || true
+      | grep '"tag_name"' | grep -oE '"nightly(-[0-9]{8})?"' | head -1 | tr -d '"')" || true
   elif have wget; then
     tag="$(wget -qO- "https://api.github.com/repos/${REPO}/releases?per_page=20" 2>/dev/null \
-      | grep '"tag_name"' | grep -o 'nightly-[0-9]\{8\}' | head -1)" || true
+      | grep '"tag_name"' | grep -oE '"nightly(-[0-9]{8})?"' | head -1 | tr -d '"')" || true
   fi
   echo "$tag"
 }
@@ -449,7 +450,7 @@ else
     [ -n "$TAG" ] || die "无法解析最新稳定版 tag（网络问题或仓库无正式 release），可显式指定 --version nightly 或 --version vX.Y.Z"
     info "最新稳定版: $TAG"
   elif [ "$VERSION" = "nightly" ]; then
-    # CR-FIX-04：解析最新 nightly-YYYYMMDD tag。
+    # CR-FIX-04：解析滚动 nightly tag（或历史 nightly-YYYYMMDD）。
     TAG="$(resolve_latest_nightly_tag)"
     [ -n "$TAG" ] || die "无法解析最新 nightly tag（网络问题或无 nightly 发布），可显式指定 --version nightly-YYYYMMDD 或 vX.Y.Z"
     info "最新 nightly: $TAG"

@@ -64,12 +64,12 @@ function Get-LatestTag {
     }
 }
 
-# CR-FIX-04：nightly 改为不可变 nightly-YYYYMMDD tag 后，-Version nightly
-# 需解析为最新 nightly-* prerelease tag。
+# CR-FIX-04：nightly 为单一滚动 tag（每日构建强移到当日 HEAD，仅保留最新）。
+# -Version nightly 解析该 release；历史 nightly-YYYYMMDD tag 亦兼容。
 function Get-LatestNightlyTag {
     try {
         $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=20" -UseBasicParsing
-        $nightly = $rels | Where-Object { $_.tag_name -match '^nightly-\d{8}$' } | Select-Object -First 1
+        $nightly = $rels | Where-Object { $_.tag_name -match '^nightly(-\d{8})?$' } | Select-Object -First 1
         if ($nightly) { return $nightly.tag_name }
         Die "无法解析最新 nightly tag（无 nightly 发布）。可显式指定 -Version nightly-YYYYMMDD 或 vX.Y.Z"
     } catch {
