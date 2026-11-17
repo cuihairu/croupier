@@ -24,6 +24,7 @@ import {
   buildConsolePagePath,
   resolveConsolePageCanonicalPath,
   resolveLocalizedText,
+  resolveMenuItemTitle,
 } from '@/utils/consoleMenu';
 import { humanizeFieldKey } from '@/utils/humanize';
 import { getScope, subscribeScope } from '@/stores/scope';
@@ -129,8 +130,18 @@ export default function ConsolePage() {
   // 页面标题：按当前语言解析发布 PageSpec 的 LocalizedText；
   // 页面未就绪时用人性化 pageKey 兜底（raw key 作标题可读性差）
   const pageTitle = resolveLocalizedText(page?.title, intl.locale, humanizeFieldKey(pageKey));
-  // 面包屑分类标题：人性化菜单 key 兜底（菜单 labels 不随页面下发）
-  const breadcrumbCategoryTitle = humanizeFieldKey(breadcrumbCategoryKey);
+  // 面包屑分类标题：菜单树下发的 LocalizedText 优先，人性化菜单 key 仅作
+  // 菜单树未就绪 / key 未挂载时的兜底（面包屑露原始 key 属观感缺陷）
+  const breadcrumbCategoryTitle = resolveMenuItemTitle(
+    menu,
+    breadcrumbCategoryKey,
+    intl.locale,
+    humanizeFieldKey(breadcrumbCategoryKey),
+  );
+  // 页副标题：本地化 description；缺省不渲染（raw pageKey 不进展示面）
+  const pageSubtitle = page?.description
+    ? resolveLocalizedText(page.description, intl.locale, '') || undefined
+    : undefined;
 
   // 404 状态
   if (!loading && errorCode === 'not_found') {
@@ -271,7 +282,7 @@ export default function ConsolePage() {
   return (
     <PageContainer
       title={pageTitle}
-      subTitle={pageKey}
+      subTitle={pageSubtitle}
       breadcrumb={{
         items: [
           { title: intl.formatMessage({ id: 'menu.ControlConsole' }), href: '/console' },

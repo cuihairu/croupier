@@ -56,6 +56,30 @@ export function resolveConsolePageCanonicalPath(
   return visit(((menu?.items || []) as unknown as ConsoleMenuItem[]) || []);
 }
 
+/**
+ * 按 key 深搜菜单树，返回该项的本地化标题；未命中回退 fallback。
+ * 发布页面包屑用：URL 段是挂载菜单 key，分类标题以菜单管理下发的
+ * LocalizedText 为准（humanize 仅作菜单树未就绪 / key 未挂载时的兜底，
+ * 避免面包屑直接露出原始 key）。
+ */
+export function resolveMenuItemTitle(
+  menu: ConsoleMenuSpec | null | undefined,
+  key: string,
+  locale: string,
+  fallback: string,
+): string {
+  if (!key) return fallback;
+  const visit = (items: ConsoleMenuItem[]): string => {
+    for (const item of items) {
+      if (item.key === key) return resolveLocalizedText(item.title, locale, fallback);
+      const nested = visit((item.children || []) as ConsoleMenuItem[]);
+      if (nested) return nested;
+    }
+    return '';
+  };
+  return visit(((menu?.items || []) as unknown as ConsoleMenuItem[]) || []) || fallback;
+}
+
 /** ConsoleMenuSpec 子节点 → 侧边栏菜单项。
  * 子项可能是挂载页面（叶子）或子菜单（菜单树任意层级嵌套）——
  * menu_items 驱动后树深不限，递归展开。 */

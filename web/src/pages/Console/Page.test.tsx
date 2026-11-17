@@ -9,6 +9,8 @@
  *   页面数据不参与 canonical（spec.category 不再影响跳转）
  * - getPublishedPage 返回 null：不渲染 PageRenderer、面包屑回退
  * - 无 category：面包屑不渲染分类项
+ * - 面包屑分类标题取菜单树下发 LocalizedText（humanize 仅兜底）
+ * - 副标题渲染本地化 description；缺省不渲染 raw pageKey
  * - 契约失效警示：functionId 有/无两个条目、三个处置按钮（前往处理 /
  *   打开 Inbox / 一键同步 Selector 开关 modal）
  * - onExecute 透传 executePageBinding、其余回调直传
@@ -129,16 +131,21 @@ function setParams(value: Record<string, string> | undefined): void {
 }
 
 /** 菜单树 fixture：player 挂 resource--player（canonical /console/player/resource--player）；
- * 其余 pageKey 不在树中（未挂菜单 → canonical 空串不重定向） */
-function menuSpec() {
+ * 其余 pageKey 不在树中（未挂菜单 → canonical 空串不重定向）。
+ * 分类与子项带 LocalizedText：面包屑分类标题应取下发值而非 humanize key。 */
+function menuSpec(emptyTitle = false) {
   return {
     items: [
       {
         key: 'player',
         path: '/console/player',
-        title: {},
+        title: emptyTitle ? {} : { 'zh-CN': '玩家运营' },
         children: [
-          { key: 'resource--player', path: '/console/player/resource--player', title: {} },
+          {
+            key: 'resource--player',
+            path: '/console/player/resource--player',
+            title: emptyTitle ? {} : { 'zh-CN': '玩家管理' },
+          },
         ],
       },
     ],
@@ -418,6 +425,48 @@ describe('Console/Page 页面渲染器', () => {
     expect(mockedReplace).not.toHaveBeenCalled();
   });
 
+  it('副标题渲染本地化 description，raw pageKey 不进展示面', async () => {
+    setParams({ categoryKey: 'player', pageKey: 'resource--player' });
+    mockedGetPublishedPage.mockResolvedValue(
+      pageSpec({ description: { 'zh-CN': '管理玩家数据与资产' } }),
+    );
+
+    render(<ConsolePage />);
+
+    await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
+    expect(screen.getByText('管理玩家数据与资产')).toBeInTheDocument();
+    expect(screen.queryByText('resource--player')).not.toBeInTheDocument();
+  });
+
+  it('description 缺省：副标题不渲染，raw pageKey 不作为兜底出现', async () => {
+    setParams({ categoryKey: 'player', pageKey: 'resource--player' });
+
+    render(<ConsolePage />);
+
+    await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
+    expect(screen.queryByText('resource--player')).not.toBeInTheDocument();
+  });
+
+  it('面包屑分类标题取菜单树下发 LocalizedText，而非 humanize key', async () => {
+    setParams({ categoryKey: 'player', pageKey: 'resource--player' });
+
+    render(<ConsolePage />);
+
+    await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
+    expect(screen.getByText('玩家运营')).toBeInTheDocument();
+    expect(screen.queryByText('Player')).not.toBeInTheDocument();
+  });
+
+  it('菜单树分类 title 为空：面包屑回退 humanize key', async () => {
+    mockedGetConsoleMenu.mockResolvedValue(menuSpec(true));
+    setParams({ categoryKey: 'player', pageKey: 'resource--player' });
+
+    render(<ConsolePage />);
+
+    await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
+    expect(screen.getByText('Player')).toBeInTheDocument();
+  });
+
   it('scope 等值 emit 不刷新、变化触发整页 reload、卸载退订', async () => {
     const originalError = console.error;
     const errSpy = jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
@@ -490,8 +539,9 @@ describe('Console/Page 页面渲染器', () => {
 
     await waitFor(() => expect(mockedGetConsoleMenu).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
-    // 菜单缺失 → canonical 空串 → 不重定向
+    // 菜单缺失 → canonical 空串 → 不重定向；面包屑分类回退 humanize key
     expect(mockedReplace).not.toHaveBeenCalled();
+    expect(screen.getByText('Player')).toBeInTheDocument();
   });
 
   it('契约失效（bindingFreshness 非空）：onExecute 抛错阻断执行', async () => {

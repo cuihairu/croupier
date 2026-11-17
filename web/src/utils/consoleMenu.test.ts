@@ -6,6 +6,7 @@ import {
   requestConsoleMenuRefresh,
   resolveConsolePageCanonicalPath,
   resolveLocalizedText,
+  resolveMenuItemTitle,
   type RuntimeMenuItem,
 } from './consoleMenu';
 
@@ -116,6 +117,56 @@ describe('resolveConsolePageCanonicalPath', () => {
       ],
     } as unknown as ConsoleMenuSpec;
     expect(resolveConsolePageCanonicalPath(loose, 'p')).toBe('/console/player%20ops/p');
+  });
+});
+
+describe('resolveMenuItemTitle', () => {
+  const titleTree = (): ConsoleMenuSpec =>
+    ({
+      items: [
+        {
+          key: 'player',
+          path: '/console/player',
+          title: { 'zh-CN': '玩家运营', 'en-US': 'Player Ops' },
+          children: [
+            {
+              key: 'audit',
+              path: '/console/player/audit',
+              title: {},
+              children: [
+                { key: 'deep', path: '/console/player/audit/deep', title: { 'zh-CN': '深层' } },
+              ],
+            },
+          ],
+        },
+      ],
+    }) as unknown as ConsoleMenuSpec;
+
+  it('menu 缺失 / key 为空 → fallback', () => {
+    expect(resolveMenuItemTitle(undefined, 'player', 'zh-CN', 'fb')).toBe('fb');
+    expect(resolveMenuItemTitle(null, 'player', 'zh-CN', 'fb')).toBe('fb');
+    expect(resolveMenuItemTitle({ items: [] }, 'player', 'zh-CN', 'fb')).toBe('fb');
+    expect(resolveMenuItemTitle(titleTree(), '', 'zh-CN', 'fb')).toBe('fb');
+  });
+
+  it('顶层分类命中 → 本地化标题', () => {
+    expect(resolveMenuItemTitle(titleTree(), 'player', 'zh-CN', 'fb')).toBe('玩家运营');
+  });
+
+  it('嵌套子菜单命中 → 递归取下发标题', () => {
+    expect(resolveMenuItemTitle(titleTree(), 'deep', 'zh-CN', 'fb')).toBe('深层');
+  });
+
+  it('命中节点 title 为空 → fallback（humanize 兜底链）', () => {
+    expect(resolveMenuItemTitle(titleTree(), 'audit', 'zh-CN', 'fb')).toBe('fb');
+  });
+
+  it('key 未挂载 → fallback', () => {
+    expect(resolveMenuItemTitle(titleTree(), 'unmounted', 'zh-CN', 'fb')).toBe('fb');
+  });
+
+  it('locale 命中 en-US', () => {
+    expect(resolveMenuItemTitle(titleTree(), 'player', 'en-US', 'fb')).toBe('Player Ops');
   });
 });
 
