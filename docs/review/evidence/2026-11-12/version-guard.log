@@ -1,0 +1,12 @@
+[version-guard] ok: VERSION = 0.1.6
+[version-guard] ok: go sdks/go/version.go = 0.1.6
+[version-guard] ok: js sdks/js/package.json = 0.1.6
+[version-guard] ok: js sdks/js/src/version.ts = 0.1.6
+[version-guard] ok: python sdks/python/pyproject.toml = 0.1.6
+[version-guard] ok: java sdks/java/build.gradle = 0.1.6
+[version-guard] ok: java SdkInfo.VERSION = 0.1.6
+[version-guard] ok: csharp Croupier.Sdk.csproj = 0.1.6
+[version-guard] ok: cpp sdks/cpp/VERSION.cmake = 0.1.6
+[version-guard] ok: cpp croupier_client.cpp = 0.1.6
+[version-guard] ok: VERSION (0.1.6) >= latest tag v0.1.5
+[version-guard] all version declarations consistent.

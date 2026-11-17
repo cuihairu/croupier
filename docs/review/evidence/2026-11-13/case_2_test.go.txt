@@ -1,0 +1,19 @@
+package healthprobe
+import (
+ "context"
+ "net"
+ "testing"
+ "time"
+ "golang.org/x/net/icmp"
+ "golang.org/x/net/ipv6"
+ "github.com/stretchr/testify/require"
+)
+func TestReviewIPv6ValidEchoReplySucceeds(t *testing.T) {
+ conn:=&fakeICMPConn{reply:func(request []byte)([]byte,error){return echoReplyOf(t,icmpProtocolIPv6,request,nil,ipv6.ICMPTypeEchoReply),nil}}
+ checker:=NewICMPChecker("::1",time.Second,1)
+ checker.open=func(string,string)(net.PacketConn,error){return conn,nil}
+ err:=checker.Check(context.Background())
+ require.NoError(t,err,"a valid IPv6 echo reply with matching ID, sequence and payload must pass")
+}
+// Ensure the test checks the actual ICMP type interface used by the implementation.
+var _ icmp.Type = ipv6.ICMPTypeEchoReply

@@ -1,0 +1,38 @@
+package svc
+import (
+ "context"
+ "testing"
+ "github.com/cuihairu/croupier/internal/ops/provision"
+ "github.com/cuihairu/croupier/internal/platform/approvals"
+ "github.com/stretchr/testify/require"
+)
+func TestReviewProvisionAdapterCanUpdateExistingRun(t *testing.T) {
+ store:=newProvisionDBStore(newProvisionWiringModel(t))
+ run:=wiringRunFixture()
+ require.NoError(t,store.Create(context.Background(),run))
+ run.State=provision.StateApplying
+ require.NoError(t,store.Update(context.Background(),run),"updating an existing run must update its row rather than insert ID=0")
+ saved,err:=store.Get(context.Background(),run.ID);require.NoError(t,err)
+ require.Equal(t,provision.StateApplying,saved.State)
+}
+
+type reviewCASConflictStore struct {provision.RunStore}
+func(s *reviewCASConflictStore) CompareAndSwapState(ctx context.Context,id,from,to string)(bool,*provision.Run,error){
+ // Another caller wins after our Get and before our CAS.
+ _,_,err:=s.RunStore.CompareAndSwapState(ctx,id,from,to)
+ if err!=nil{return false,nil,err}
+ return s.RunStore.CompareAndSwapState(ctx,id,from,to)
+}
+func TestReviewProvisionCASConflictReturnsErrorWithoutPanic(t *testing.T) {
+ store:=newProvisionDBStore(newProvisionWiringModel(t));ctx:=context.Background()
+ run:=wiringRunFixture();run.ApprovalID="review-approved"
+ require.NoError(t,store.Create(ctx,run))
+ approvalsStore:=approvals.NewMemStore()
+ _,err:=approvalsStore.Create(&approvals.Approval{ID:run.ApprovalID,State:"pending",Actor:"creator"});require.NoError(t,err)
+ _,err=approvalsStore.Approve(run.ApprovalID,"reviewer");require.NoError(t,err)
+ orchestrator:=&provision.Orchestrator{Store:&reviewCASConflictStore{RunStore:store},Approval:newProvisionApprovalGate(approvalsStore)}
+ require.NotPanics(t,func(){
+  _,err:=orchestrator.ResumeAsync(ctx,run.ID)
+  require.ErrorIs(t,err,provision.ErrRunNotPending)
+ },"a normal competing resume must return conflict, not dereference the adapter's nil current row")
+}

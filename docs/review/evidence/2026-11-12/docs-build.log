@@ -1,0 +1,27 @@
+✓ Lockfile passes supply-chain policies (verified 2d ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 1.3s using pnpm v11.11.0
+$ vitepress build .
+
+  vitepress v1.6.4
+
+- building client + server bundles...
+
+The language 'haproxy' is not loaded, falling back to 'txt' for syntax highlighting.
+
+The language 'conf' is not loaded, falling back to 'txt' for syntax highlighting.
+
+The language 'haproxy' is not loaded, falling back to 'txt' for syntax highlighting.
+
+The language 'conf' is not loaded, falling back to 'txt' for syntax highlighting.
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[32m✓[0m building client + server bundles...
+- rendering pages...
+[32m✓[0m rendering pages...
+build complete in 35.21s.

@@ -1,0 +1,23 @@
+package storage
+import (
+ "context"
+ "io"
+ "net/http/httptest"
+ "strings"
+ "testing"
+ "github.com/gin-gonic/gin"
+ "github.com/stretchr/testify/require"
+)
+func TestDeepAuditObjectOverwriteWithoutPermission(t *testing.T) {
+ sc:=setupSvcCtxWithStore(t)
+ require.NoError(t,sc.ObjectStore.Put(context.Background(),"backups/private.sqlite",strings.NewReader("original"),8,"application/octet-stream"))
+ h:=NewHandler(NewService(sc));r:=gin.New()
+ r.Use(func(c *gin.Context){c.Set("username","audit_no_permissions");c.Set("adminID",uint(1));c.Next()})
+ r.POST("/api/v1/storage/objects",h.UploadObject)
+ req:=httptest.NewRequest("POST","/api/v1/storage/objects",strings.NewReader(`{"path":"backups/private.sqlite","content":"replacement"}`))
+ req.Header.Set("Content-Type","application/json")
+ w:=httptest.NewRecorder();r.ServeHTTP(w,req);require.Equal(t,200,w.Code,w.Body.String())
+ reader,err:=sc.ObjectStore.Get(context.Background(),"backups/private.sqlite");require.NoError(t,err);defer reader.Close()
+ content,err:=io.ReadAll(reader);require.NoError(t,err);require.Equal(t,"replacement",string(content))
+ t.Log("REPRODUCED: login identity with no permissions overwrites an object under backups/ via storage API")
+}

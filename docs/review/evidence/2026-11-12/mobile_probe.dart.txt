@@ -1,0 +1,40 @@
+import 'dart:async';
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:croupier_mobile/app/providers.dart';
+import 'package:croupier_mobile/core/api/api_client.dart';
+import 'package:croupier_mobile/core/storage/session_store.dart';
+import 'package:croupier_mobile/features/analytics/analytics_controller.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  test('audit: older analytics response overwrites newer game response', () async {
+    final store = InMemorySessionStore();
+    await store.save(const SessionData(token:'audit',serverUrl:'http://audit.invalid',gameId:'alpha',env:'dev'));
+    final pending = <(RequestOptions, RequestInterceptorHandler)>[];
+    final arrived = StreamController<void>();
+    final client = ApiClient.create(baseUrl:'http://audit.invalid',sessionStore:store);
+    client.dio.interceptors.add(InterceptorsWrapper(onRequest:(options,handler){
+      pending.add((options,handler));arrived.add(null);
+    }));
+    final signals = StreamIterator(arrived.stream);
+    final container = ProviderContainer(overrides:[
+      sessionStoreProvider.overrideWithValue(store),
+      apiClientFactoryProvider.overrideWithValue((_)=>client),
+    ]);
+    addTearDown(() async {container.dispose();client.dio.close(force:true);await signals.cancel();await arrived.close();});
+    final controller=container.read(analyticsControllerProvider.notifier);
+    final first=controller.refresh(); await signals.moveNext();
+    await store.save((await store.load())!.copyWith(gameId:'beta'));
+    final second=controller.refresh();await signals.moveNext();
+    pending[1].$2.resolve(Response(requestOptions:pending[1].$1,statusCode:200,data:<String,Object?>{'gameId':'beta','env':'dev','domains':<Object?>[]}));
+    await second;
+    expect(container.read(analyticsControllerProvider).summary!.gameId,'beta');
+    pending[0].$2.resolve(Response(requestOptions:pending[0].$1,statusCode:200,data:<String,Object?>{'gameId':'alpha','env':'dev','domains':<Object?>[]}));
+    await first;
+    expect((await store.load())!.gameId,'beta');
+    expect(container.read(analyticsControllerProvider).summary!.gameId,'alpha');
+    print('REPRODUCED: active game=beta but late alpha response becomes current analytics summary');
+  });
+}

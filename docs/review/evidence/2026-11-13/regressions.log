@@ -1,0 +1,115 @@
+=== RUN   TestReviewProvisionAdapterCanUpdateExistingRun
+
+2026/11/13 08:59:30 [31;1m/home/cui/workspaces/croupier/internal/model/provision_model.go:63 [35;1mconstraint failed: UNIQUE constraint failed: provision_runs.run_id (2067)
+[0m[33m[0.369ms] [34;1m[rows:0][0m INSERT INTO `provision_runs` (`run_id`,`provider`,`region`,`game_id`,`env`,`policy`,`count`,`spec_json`,`state`,`outputs_json`,`agent_ids_json`,`approval_id`,`destroy_approval_id`,`labels_json`,`cloud_init_extra`,`error_msg`,`requested_by`,`destroy_protected`,`created_at`,`updated_at`) VALUES ("run-1","hetzner","eu-central","demo","prod","ticket",2,"{""diskSizeGB"":40,""image"":""ubuntu-24.04"",""instanceType"":""cx21""}","applying","{""ip"":""10.0.0.1""}","[""a-1""]","","","{""tier"":""core""}","#extra","","ops-lead",false,"2026-11-13 08:59:30.563","2026-11-13 08:59:30.563") RETURNING `id`
+    code_review_overlay_test.go:14: 
+        	Error Trace:	/home/cui/workspaces/croupier/internal/svc/code_review_overlay_test.go:14
+        	Error:      	Received unexpected error:
+        	            	constraint failed: UNIQUE constraint failed: provision_runs.run_id (2067)
+        	Test:       	TestReviewProvisionAdapterCanUpdateExistingRun
+        	Messages:   	updating an existing run must update its row rather than insert ID=0
+--- FAIL: TestReviewProvisionAdapterCanUpdateExistingRun (0.01s)
+=== RUN   TestReviewProvisionCASConflictReturnsErrorWithoutPanic
+    code_review_overlay_test.go:34: 
+        	Error Trace:	/home/cui/workspaces/croupier/internal/svc/code_review_overlay_test.go:34
+        	Error:      	func (assert.PanicTestFunc)(0x236cd00) should not panic
+        	            		Panic value:	runtime error: invalid memory address or nil pointer dereference
+        	            		Panic stack:	goroutine 56 [running]:
+        	            	runtime/debug.Stack()
+        	            		/home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.4.linux-amd64/src/runtime/debug/stack.go:26 +0x5e
+        	            	github.com/stretchr/testify/assert.didPanic.func1()
+        	            		/home/cui/go/pkg/mod/github.com/stretchr/testify@v1.12.1/assert/assertions.go:1287 +0x67
+        	            	panic({0x41b8c98?, 0x456cbe0?})
+        	            		/home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.4.linux-amd64/src/runtime/panic.go:859 +0x125
+        	            	github.com/cuihairu/croupier/internal/ops/provision.(*Orchestrator).beginResume(0xe6eaf7d03f0, {0x4494d68, 0x45e0000}, {0x240345f, 0x5})
+        	            		/home/cui/workspaces/croupier/internal/ops/provision/orchestrator.go:391 +0x5c7
+        	            	github.com/cuihairu/croupier/internal/ops/provision.(*Orchestrator).ResumeAsync(0xe6eaf7d03f0, {0x4494d68?, 0x45e0000?}, {0x240345f?, 0xe6eafb04960?})
+        	            		/home/cui/workspaces/croupier/internal/ops/provision/orchestrator.go:352 +0x2b
+        	            	github.com/cuihairu/croupier/internal/svc.TestReviewProvisionCASConflictReturnsErrorWithoutPanic.func1()
+        	            		/home/cui/workspaces/croupier/internal/svc/code_review_overlay_test.go:35 +0x33
+        	            	github.com/stretchr/testify/assert.didPanic(0x4577190?)
+        	            		/home/cui/go/pkg/mod/github.com/stretchr/testify@v1.12.1/assert/assertions.go:1292 +0x70
+        	            	github.com/stretchr/testify/assert.NotPanics({0x4471358, 0xe6eafa56d88}, 0xe6eafa5b6b0, {0xe6eaf657f50, 0x1, 0x1})
+        	            		/home/cui/go/pkg/mod/github.com/stretchr/testify@v1.12.1/assert/assertions.go:1369 +0x7e
+        	            	github.com/stretchr/testify/require.NotPanics({0x447e8f0, 0xe6eafa56d88}, 0xe6eafa5b6b0, {0xe6eaf657f50, 0x1, 0x1})
+        	            		/home/cui/go/pkg/mod/github.com/stretchr/testify@v1.12.1/require/require.go:1683 +0xa5
+        	            	github.com/cuihairu/croupier/internal/svc.TestReviewProvisionCASConflictReturnsErrorWithoutPanic(0xe6eafa56d88)
+        	            		/home/cui/workspaces/croupier/internal/svc/code_review_overlay_test.go:34 +0x63a
+        	            	testing.tRunner(0xe6eafa56d88, 0x44a7cc8)
+        	            		/home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.4.linux-amd64/src/testing/testing.go:2195 +0xea
+        	            	created by testing.(*T).Run in goroutine 1
+        	            		/home/cui/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.4.linux-amd64/src/testing/testing.go:2260 +0x4d4
+        	Test:       	TestReviewProvisionCASConflictReturnsErrorWithoutPanic
+        	Messages:   	a normal competing resume must return conflict, not dereference the adapter's nil current row
+--- FAIL: TestReviewProvisionCASConflictReturnsErrorWithoutPanic (0.01s)
+FAIL
+FAIL	github.com/cuihairu/croupier/internal/svc	0.073s
+=== RUN   TestReviewIncidentDetailsUpdateRoundtrip
+    code_review_overlay_test.go:14: 
+        	Error Trace:	/home/cui/workspaces/croupier/internal/api/incident/code_review_overlay_test.go:14
+        	Error:      	Received unexpected error:
+        	            	sql: converting argument $1 type: unsupported type map[string]interface {}, a map
+        	Test:       	TestReviewIncidentDetailsUpdateRoundtrip
+        	Messages:   	ordinary JSON details update must serialize the map before binding SQL parameters
+--- FAIL: TestReviewIncidentDetailsUpdateRoundtrip (0.02s)
+FAIL
+FAIL	github.com/cuihairu/croupier/internal/api/incident	0.074s
+=== RUN   TestReviewIPv6ValidEchoReplySucceeds
+    code_review_overlay_test.go:16: 
+        	Error Trace:	/home/cui/workspaces/croupier/core/healthprobe/code_review_overlay_test.go:16
+        	Error:      	Received unexpected error:
+        	            	network: ICMP echo reply code 0
+        	Test:       	TestReviewIPv6ValidEchoReplySucceeds
+        	Messages:   	a valid IPv6 echo reply with matching ID, sequence and payload must pass
+--- FAIL: TestReviewIPv6ValidEchoReplySucceeds (0.00s)
+FAIL
+FAIL	github.com/cuihairu/croupier/core/healthprobe	0.020s
+=== RUN   TestReviewRollbackRejectsRunningDeployment
+    code_review_overlay_test.go:16: 
+        	Error Trace:	/home/cui/workspaces/croupier/internal/ops/deploy/code_review_overlay_test.go:16
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestReviewRollbackRejectsRunningDeployment
+        	Messages:   	rollback must reject or coordinate with active deployment, not report rolled_back without any operation
+--- FAIL: TestReviewRollbackRejectsRunningDeployment (0.00s)
+=== RUN   TestReviewCancelledBatchRetainsCompletedTarget
+    code_review_overlay_test.go:32: 
+        	Error Trace:	/home/cui/workspaces/croupier/internal/ops/deploy/code_review_overlay_test.go:32
+        	Error:      	Not equal: 
+        	            	expected: "healthy"
+        	            	actual  : "pending"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-healthy
+        	            	+pending
+        	Test:       	TestReviewCancelledBatchRetainsCompletedTarget
+        	Messages:   	completed target progress must be persisted before cancellable batch waiting
+--- FAIL: TestReviewCancelledBatchRetainsCompletedTarget (0.00s)
+FAIL
+FAIL	github.com/cuihairu/croupier/internal/ops/deploy	0.035s
+=== RUN   TestReviewPluginStartupDoesNotBlockAnotherCallerDeadline
+2026-11-13T08:59:31.725+0800 [DEBUG] plugin: starting plugin: path=/tmp/core-pluginhost-test865237536/echo args=["/tmp/core-pluginhost-test865237536/echo"]
+2026-11-13T08:59:31.726+0800 [DEBUG] plugin: plugin started: path=/tmp/core-pluginhost-test865237536/echo pid=657458
+2026-11-13T08:59:31.726+0800 [DEBUG] plugin: waiting for RPC address: plugin=/tmp/core-pluginhost-test865237536/echo
+2026-11-13T08:59:31.732+0800 [DEBUG] plugin: using plugin: version=1
+2026-11-13T08:59:31.732+0800 [DEBUG] plugin.echo: plugin address: network=unix address=/tmp/plugin3937384748 timestamp="2026-11-13T08:59:31.731+0800"
+2026-11-13T08:59:31.733+0800 [TRACE] plugin.stdio: waiting for stdio data
+    code_review_overlay_test.go:20: a caller with a 10ms deadline is still waiting behind another plugin startup after 100ms
+2026-11-13T08:59:31.835+0800 [DEBUG] plugin.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-11-13T08:59:31.837+0800 [INFO]  plugin: plugin process exited: plugin=/tmp/core-pluginhost-test865237536/echo id=657458
+2026-11-13T08:59:31.837+0800 [DEBUG] plugin: plugin exited
+--- FAIL: TestReviewPluginStartupDoesNotBlockAnotherCallerDeadline (0.11s)
+FAIL
+FAIL	github.com/cuihairu/croupier/core/pluginhost	1.337s
+=== RUN   TestReviewSameDueOccurrenceHasOneClaimAcrossMinuteBoundary
+    code_review_overlay_test.go:18: 
+        	Error Trace:	/home/cui/workspaces/croupier/internal/tasks/scheduler/code_review_overlay_test.go:18
+        	Error:      	"[player.cleanup player.cleanup]" should have 1 item(s), but has 2
+        	Test:       	TestReviewSameDueOccurrenceHasOneClaimAcrossMinuteBoundary
+        	Messages:   	two loaded copies of the same once-daily occurrence must share the same claim key even across a minute boundary
+--- FAIL: TestReviewSameDueOccurrenceHasOneClaimAcrossMinuteBoundary (0.00s)
+FAIL
+FAIL	github.com/cuihairu/croupier/internal/tasks/scheduler	0.050s
+FAIL

@@ -1,0 +1,2 @@
+Reader error: frame too large: 33554433 > 33554432
+REPRODUCED: oversize frame exits Python reader but connected/running remain True and pending call receives no failure

@@ -1,0 +1,19 @@
+package scheduler
+import (
+ "context"
+ "testing"
+ "time"
+ "github.com/stretchr/testify/require"
+)
+func TestReviewSameDueOccurrenceHasOneClaimAcrossMinuteBoundary(t *testing.T) {
+ ctx:=context.Background()
+ due:=time.Date(2026,11,13,10,30,0,0,time.UTC)
+ store:=newFakeStore();dispatcher:=&fakeDispatcher{}
+ one:=NewManager(store,dispatcher);two:=NewManager(store,dispatcher)
+ // Both managers loaded the same due occurrence before either updated its next trigger.
+ first:=dueSchedule(1,"30 10 * * *","",0,5,due)
+ second:=first
+ one.triggerSchedule(ctx,&first,due.Add(59*time.Second))
+ two.triggerSchedule(ctx,&second,due.Add(time.Minute))
+ require.Len(t,dispatcher.calls,1,"two loaded copies of the same once-daily occurrence must share the same claim key even across a minute boundary")
+}

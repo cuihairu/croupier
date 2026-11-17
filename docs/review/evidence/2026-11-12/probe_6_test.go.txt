@@ -1,0 +1,26 @@
+package tasks
+import (
+ "context"
+ "testing"
+ "time"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/stretchr/testify/require"
+)
+func TestDeepAuditDormantScopeReaper(t *testing.T) {
+ store,_,dbs:=setupMultiGame(t)
+ db:=dbs["alpha/prod"]
+ require.NoError(t,db.Create(scopeRun("audit-orphan","old-agent",StatusRunning)).Error)
+ require.NoError(t,db.Model(&model.TaskRun{}).Where("task_id = ?","audit-orphan").UpdateColumn("updated_at",time.Now().Add(-time.Hour)).Error)
+ // A fresh production Router.OpenScopes is empty after process restart.
+ resolver:=&fakeScopes{dbs:dbs}
+ store.SetScopeResolver(resolver)
+ n,err:=store.ReapStale(context.Background(),time.Minute,StatusTimedOut,"budget")
+ require.NoError(t,err);require.Zero(t,n)
+ var row model.TaskRun
+ require.NoError(t,db.Where("task_id = ?","audit-orphan").First(&row).Error)
+ require.Equal(t,StatusRunning,row.Status)
+ resolver.scopes=[]TaskScope{{GameID:"alpha",Env:"prod"}}
+ n,err=store.ReapStale(context.Background(),time.Minute,StatusTimedOut,"budget")
+ require.NoError(t,err);require.EqualValues(t,1,n)
+ t.Log("REPRODUCED: stale persisted task stays running until its scope enters current-process OpenScopes")
+}

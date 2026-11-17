@@ -1,0 +1,14 @@
+ok  	github.com/cuihairu/croupier/internal/svc	42.912s
+ok  	github.com/cuihairu/croupier/internal/config	0.031s
+ok  	github.com/cuihairu/croupier/internal/cache	10.787s
+ok  	github.com/cuihairu/croupier/internal/policy	0.095s
+ok  	github.com/cuihairu/croupier/internal/platform/functioninvoke	7.940s
+ok  	github.com/cuihairu/croupier/internal/platform/dispatch	1.590s
+ok  	github.com/cuihairu/croupier/internal/api/backup	2.742s
+ok  	github.com/cuihairu/croupier/internal/api/component	0.440s
+ok  	github.com/cuihairu/croupier/internal/powerops	0.626s
+ok  	github.com/cuihairu/croupier/internal/tasks	0.213s
+ok  	github.com/cuihairu/croupier/internal/tasks/scheduler	0.158s
+ok  	github.com/cuihairu/croupier/internal/db/router	0.717s
+ok  	github.com/cuihairu/croupier/internal/transport/tcp	12.805s
+ok  	github.com/cuihairu/croupier/core/transport/tcp	2.960s

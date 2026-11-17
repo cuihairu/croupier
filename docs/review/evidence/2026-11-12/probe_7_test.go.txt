@@ -1,0 +1,29 @@
+package tcp
+import (
+ "context"
+ "encoding/json"
+ "fmt"
+ "testing"
+ "time"
+ transportcore "github.com/cuihairu/croupier/core/transport"
+ sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+ "github.com/cuihairu/croupier/pkg/protocol"
+ "github.com/stretchr/testify/require"
+ "google.golang.org/protobuf/proto"
+)
+func TestDeepAuditHandlerErrorsLookSuccessful(t *testing.T) {
+ h:=transportcore.HandlerFunc(func(context.Context,uint32,uint32,[]byte)([]byte,error){return nil,fmt.Errorf("bad \"quoted\"\nmessage")})
+ srv,err:=NewServer(&Config{Address:"127.0.0.1:0",Insecure:true},h);require.NoError(t,err)
+ ctx,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
+ done:=make(chan struct{});go func(){defer close(done);_ = srv.Serve(ctx)}()
+ defer func(){_ = srv.Close();<-done}()
+ client,err:=NewClient(&Config{Address:srv.Addr(),Insecure:true});require.NoError(t,err);defer client.Close()
+ _,body,err:=client.Call(ctx,protocol.MsgInvokeRequest,nil);require.NoError(t,err)
+ resp:=&sdkv1.InvokeResponse{};require.NoError(t,proto.Unmarshal(body,resp))
+ require.False(t,json.Valid(resp.Payload))
+ t.Logf("REPRODUCED: Invoke handler error -> Call err=nil, malformed JSON payload=%q",resp.Payload)
+ _,body,err=client.Call(ctx,protocol.MsgStartTaskRequest,nil);require.NoError(t,err)
+ require.Empty(t,body)
+ require.NoError(t,proto.Unmarshal(body,&sdkv1.StartTaskResponse{}))
+ t.Log("REPRODUCED: failed StartTask handler -> successful Call, empty zero-value protobuf response")
+}

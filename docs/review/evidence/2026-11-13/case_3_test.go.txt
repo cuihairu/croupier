@@ -1,0 +1,33 @@
+package deploy
+import (
+ "context"
+ "testing"
+ "time"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/stretchr/testify/require"
+)
+func TestReviewRollbackRejectsRunningDeployment(t *testing.T) {
+ store:=newFakeStore();agent:=newFakeAgent();o:=New(store,agent)
+ d,err:=NewDeployment("pkg-1","review","game","dev","game-server","game",100,[]string{"a"},"operator")
+ require.NoError(t,err);d.State=model.DeploymentStateDeploying
+ require.NoError(t,store.Create(context.Background(),d))
+ // A second request arrives while the first request is still preparing the target.
+ _,err=o.Rollback(context.Background(),d,pkg())
+ require.Error(t,err,"rollback must reject or coordinate with active deployment, not report rolled_back without any operation")
+ require.Empty(t,agent.applied)
+}
+type reviewCancelAtHealthy struct{*fakeAgent;cancel context.CancelFunc}
+func(a *reviewCancelAtHealthy) Healthy(context.Context,string)(bool,string){a.cancel();return true,""}
+func TestReviewCancelledBatchRetainsCompletedTarget(t *testing.T) {
+ store:=newFakeStore();base:=newFakeAgent()
+ ctx,cancel:=context.WithCancel(context.Background());defer cancel()
+ agent:=&reviewCancelAtHealthy{fakeAgent:base,cancel:cancel}
+ o:=New(store,agent);o.BatchWait=time.Second
+ d,err:=NewDeployment("pkg-1","review","game","dev","game-server","game",100,[]string{"a"},"operator")
+ require.NoError(t,err);require.NoError(t,store.Create(context.Background(),d))
+ _,err=o.Start(ctx,d,pkg());require.ErrorIs(t,err,context.Canceled)
+ require.Len(t,base.applied,1,"the binary was already updated before cancellation")
+ saved,err:=store.FindByID(context.Background(),d.DeploymentID);require.NoError(t,err)
+ targets:=decodeTargets(saved.TargetsJSON)
+ require.Equal(t,model.DeploymentTargetHealthy,targets[0].State,"completed target progress must be persisted before cancellable batch waiting")
+}

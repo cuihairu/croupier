@@ -1,0 +1,43 @@
+package powerops
+import (
+ "context"
+ "testing"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/stretchr/testify/require"
+)
+type auditBarrierGate struct {
+ *fakeGate
+ arrived chan struct{}
+ release chan struct{}
+}
+func(g *auditBarrierGate) Approved(ctx context.Context,id string)(bool,error) {
+ g.arrived<-struct{}{}
+ <-g.release
+ return g.fakeGate.Approved(ctx,id)
+}
+func TestDeepAuditPowerDoubleResume(t *testing.T) {
+ h:=newHarness(t,[]string{"on"})
+ req:=&model.PowerRequest{RequestID:"audit-double-resume",State:StatePending,ApprovalID:"audit-approved",Action:string(ActionReboot)}
+ require.NoError(t,h.store.Create(req))
+ h.gate.approve(req.ApprovalID)
+ gate:=&auditBarrierGate{fakeGate:h.gate,arrived:make(chan struct{},2),release:make(chan struct{})}
+ h.orch.Approval=gate
+ results:=make(chan error,2)
+ for i:=0;i<2;i++ {go func(){_,err:=h.orch.BeginResume(context.Background(),req.RequestID);results<-err}()}
+ <-gate.arrived; <-gate.arrived
+ close(gate.release)
+ require.NoError(t,<-results);require.NoError(t,<-results)
+ t.Log("REPRODUCED: both concurrent resume calls pass pending/approval checks and persist executing")
+}
+func TestDeepAuditPowerCountsDisagree(t *testing.T) {
+ h:=newHarness(t,[]string{"off"})
+ req:=&model.PowerRequest{RequestID:"audit-counts",State:StateVerifying,Total:1}
+ require.NoError(t,h.store.Create(req))
+ targets:=[]*model.PowerRequestTarget{{RequestID:req.RequestID,NodeID:"n1",Provider:ProviderIPMI,Success:true,Verified:false}}
+ final:=terminalState(ActionReboot,targets)
+ require.Equal(t,StateFailed,final)
+ h.orch.finish(req,targets,final)
+ row,err:=h.store.Get(req.RequestID);require.NoError(t,err)
+ require.Equal(t,StateFailed,row.State);require.Equal(t,1,row.Succeeded);require.Equal(t,0,row.Failed)
+ t.Logf("REPRODUCED: state=%s succeeded=%d failed=%d for one unverified machine",row.State,row.Succeeded,row.Failed)
+}

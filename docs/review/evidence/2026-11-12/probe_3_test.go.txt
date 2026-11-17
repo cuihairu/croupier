@@ -1,0 +1,26 @@
+package svc
+import (
+ "context"
+ "testing"
+ "time"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/cuihairu/croupier/internal/security/jwtutil"
+ gsqlite "github.com/glebarez/sqlite"
+ "github.com/stretchr/testify/require"
+ "gorm.io/gorm"
+)
+func TestDeepAuditDeletedAccountStillAuthenticates(t *testing.T) {
+ db,err:=gorm.Open(gsqlite.Open("file:audit_deleted?mode=memory&cache=shared"),&gorm.Config{})
+ require.NoError(t,err); require.NoError(t,db.AutoMigrate(&model.Admin{}))
+ conn,err:=db.DB(); require.NoError(t,err); defer conn.Close()
+ a:=&model.Admin{Username:"audit_deleted",Status:1}
+ require.NoError(t,db.Create(a).Error)
+ secret:="audit-local-only-secret"
+ defer jwtutil.ResetGlobalSecretForTesting(secret)()
+ token,err:=jwtutil.Sign(secret,a.Username,nil,a.ID,0,time.Now()); require.NoError(t,err)
+ require.NoError(t,db.Delete(a).Error)
+ m:=NewAuthMiddlewareImpl(&ServiceContext{DB:db,AdminModel:model.NewAdminModel(db)})
+ name,_,id,err:=m.authenticate(context.Background(),token)
+ require.NoError(t,err); require.Equal(t,a.Username,name); require.Equal(t,a.ID,id)
+ t.Log("REPRODUCED: soft-deleted account accepted by fresh middleware (no cache involved)")
+}

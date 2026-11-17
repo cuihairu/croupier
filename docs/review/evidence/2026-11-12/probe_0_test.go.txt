@@ -1,0 +1,16 @@
+package jwtutil
+import (
+ "testing"
+ "github.com/cuihairu/croupier/internal/config"
+)
+func TestDeepAuditProductionSecret(t *testing.T) {
+ t.Setenv("CROUPIER_MODE", "")
+ t.Setenv("CROUPIER_ENV", "")
+ for _, mode := range []string{"prod", "production", "release"} {
+  cfg := config.Config{}
+  cfg.Server.Mode = mode
+  secret, err := ResolveSecret(cfg)
+  if err != nil || secret != DevSecret() { t.Fatalf("behavior changed for %s: err=%v", mode, err) }
+  t.Logf("REPRODUCED: server.mode=%s with no secret returns public development key", mode)
+ }
+}

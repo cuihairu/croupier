@@ -1,0 +1,20 @@
+{
+  "head": "083d23829bccac4d32cc17be3eb1fa7953c11a4d",
+  "files": {
+    "internal/svc/provision_wiring.go": "a0ffff2dd65c1693cc82f37ab4c3750c7e3fe01e9295cd2c8732863d51575039",
+    "internal/svc/provision_wiring_test.go": "61c1b7424a31b1653b770d6690b54f0d840750c090f8be8e3eb0b55905887c6b",
+    "internal/model/provision_model.go": "c5d13f9d8708e66224a57fdd9329a173b7c96a03638052e2e8ae2c10c6ed08f2",
+    "internal/ops/provision/orchestrator.go": "9028142fd77a9ba3f7227285f769c3af202c0a395cbd0921844fff6cab7a2e15",
+    "internal/ops/provision/orchestrator_test.go": "d8c99fc429cc9004e2d705012f255b337b0298360fc62ad4c0c5db573bb790bf",
+    "internal/api/incident/service.go": "915dd5406ce3cdfda7453f4a9d3ef8281c163e528f3ccee1ac0db74884aff0d7",
+    "internal/model/incident.go": "a754bdf9191b7f31c8a28122d2c454a54fa952f3081686a08565eabd1ffd6be9",
+    "core/healthprobe/icmp.go": "403b6f44c9e3190ddb4298102eda528aebd9348d36d56085b3c4618fdc983b1c",
+    "internal/ops/deploy/deploy.go": "a0733fff5614d51a1c7ea3d5576b200bf4540228e967da4636801340e3e49c3d",
+    "internal/api/ops/deployments.go": "4eab749dc9e3a4a2f33d88080f988b288dbbd95380fca9a25432bc4bf4ce8523",
+    "internal/ops/runbook/runbook.go": "a799b2b6c44235b6abe0ef165c461e77536a06bf8eb11f7c3cd9f6600c04c295",
+    "internal/api/ops/runbooks.go": "eacef919f29e61d741b2a5d2dd343829c93921f27e9772dca72de88c4120d5fa",
+    "cmd/server/root.go": "26c84459f192de313e06903a44b3b59d4364995f3bc69e6b12f22853f703b317",
+    "core/pluginhost/engine.go": "60cec5cb697fadf890a3ab1be96b75f30f7a325b127d7b4c84a84302fbed997a",
+    "internal/tasks/scheduler/manager.go": "35c90ade87b228697bd0c48e1a719b4aeb199e6f5542bfc183ee96bf380ff855"
+  }
+}

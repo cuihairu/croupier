@@ -1,0 +1,16 @@
+package incident
+import (
+ "context"
+ "testing"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/stretchr/testify/require"
+)
+func TestReviewIncidentDetailsUpdateRoundtrip(t *testing.T) {
+ service:=setupService(t);ctx:=context.Background()
+ category:=mustCategory(t,service,model.IncidentCatArt)
+ row,_,err:=service.CreateIncident(ctx,&IncidentCreateRequest{Title:"normal incident",CategoryID:category.ID,Details:map[string]interface{}{"summary":"old"}},"reviewer")
+ require.NoError(t,err)
+ updated,err:=service.UpdateIncident(ctx,row.ID,&IncidentUpdateRequest{Details:map[string]interface{}{"summary":"new"}})
+ require.NoError(t,err,"ordinary JSON details update must serialize the map before binding SQL parameters")
+ require.Equal(t,"new",updated.Details["summary"])
+}

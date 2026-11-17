@@ -1,0 +1,9 @@
+ok  	github.com/cuihairu/croupier/internal/api/incident	6.711s
+ok  	github.com/cuihairu/croupier/internal/ops/deploy	0.045s
+ok  	github.com/cuihairu/croupier/internal/ops/provision	0.097s
+ok  	github.com/cuihairu/croupier/internal/ops/runbook	4.684s
+ok  	github.com/cuihairu/croupier/core/healthprobe	3.915s
+ok  	github.com/cuihairu/croupier/core/metrics	24.113s
+ok  	github.com/cuihairu/croupier/core/pluginhost	2.203s
+ok  	github.com/cuihairu/croupier/agents/sidecar/funcplugin	5.393s
+ok  	github.com/cuihairu/croupier/internal/tasks/scheduler	0.111s

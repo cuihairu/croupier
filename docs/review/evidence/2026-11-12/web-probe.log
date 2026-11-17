@@ -1,0 +1,1 @@
+REPRODUCED: same SSE bytes, intact chunk -> [["update","hello"]], CRLF split across chunks -> [["message","hello"]]

@@ -1,0 +1,28 @@
+=== golden vectors: go ===
+ok  	github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol	0.018s
+--- go: PASS
+=== golden vectors: python ===
+..                                                                       [100%]
+2 passed in 0.16s
+--- python: PASS
+=== golden vectors: js ===
+Already up to date
+Done in 1.1s using pnpm v11.11.0
+PASS src/golden_vectors.test.ts
+  golden vectors wire frames
+    ✓ encodes and decodes register_request (16 ms)
+    ✓ encodes and decodes heartbeat_request (2 ms)
+    ✓ encodes and decodes task_event (3 ms)
+    ✓ uses known msgIds from the contract surface (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+Snapshots:   0 total
+Time:        2.732 s
+Ran all test suites matching /src\/golden_vectors.test.ts/i.
+--- js: PASS
+
+Contract file: proto/contracts/golden_vectors.json
+Passed: go python js
+Skipped:
+Failed:

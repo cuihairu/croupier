@@ -1,0 +1,34 @@
+package backupexec
+import (
+ "context"
+ "os"
+ "path/filepath"
+ "testing"
+ gsqlite "github.com/glebarez/sqlite"
+ "github.com/stretchr/testify/require"
+ "gorm.io/gorm"
+)
+func TestDeepAuditSQLiteWALLoss(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"live.db")
+ db,err:=gorm.Open(gsqlite.Open(path),&gorm.Config{})
+ require.NoError(t,err)
+ sqlDB,err:=db.DB(); require.NoError(t,err); defer sqlDB.Close()
+ require.NoError(t,db.Exec("CREATE TABLE audit_receipts (id INTEGER PRIMARY KEY)").Error)
+ var mode string
+ require.NoError(t,db.Raw("PRAGMA journal_mode=WAL").Scan(&mode).Error)
+ require.Equal(t,"wal",mode)
+ require.NoError(t,db.Exec("PRAGMA wal_autocheckpoint=0").Error)
+ require.NoError(t,db.Exec("INSERT INTO audit_receipts(id) VALUES(42)").Error)
+ var live int64
+ require.NoError(t,db.Table("audit_receipts").Count(&live).Error); require.EqualValues(t,1,live)
+ wal,err:=os.Stat(path+"-wal"); require.NoError(t,err); require.Positive(t,wal.Size())
+ e:=New("sqlite",path,nil,nil,"")
+ out,_,checksum,err:=e.dump(context.Background(),"audit-wal")
+ require.NoError(t,err); defer os.Remove(out); require.Len(t,checksum,64)
+ copyDB,err:=gorm.Open(gsqlite.Open(out),&gorm.Config{}); require.NoError(t,err)
+ copySQL,err:=copyDB.DB(); require.NoError(t,err); defer copySQL.Close()
+ var restored int64
+ require.NoError(t,copyDB.Table("audit_receipts").Count(&restored).Error)
+ require.Zero(t,restored)
+ t.Logf("REPRODUCED: live committed rows=%d, successful hashed backup rows=%d",live,restored)
+}

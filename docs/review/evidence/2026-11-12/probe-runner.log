@@ -1,0 +1,88 @@
+=== RUN   TestDeepAuditProductionSecret
+    deep_audit_overlay_test.go:14: REPRODUCED: server.mode=prod with no secret returns public development key
+    deep_audit_overlay_test.go:14: REPRODUCED: server.mode=production with no secret returns public development key
+    deep_audit_overlay_test.go:14: REPRODUCED: server.mode=release with no secret returns public development key
+--- PASS: TestDeepAuditProductionSecret (0.00s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/security/jwtutil	0.039s
+=== RUN   TestDeepAuditUnprivilegedBackupDownload
+2026/11/12 23:24:31 INFO Authenticated user username=audit_no_permissions roles=[]
+    deep_audit_overlay_test.go:46: REPRODUCED: account with zero roles: GET /api/v1/backups -> 200
+2026/11/12 23:24:31 INFO Authenticated user username=audit_no_permissions roles=[]
+    deep_audit_overlay_test.go:46: REPRODUCED: account with zero roles: GET /api/v1/backups/audit-sensitive/download -> 200
+2026/11/12 23:24:31 INFO Authenticated user username=audit_no_permissions roles=[]
+    deep_audit_overlay_test.go:46: REPRODUCED: account with zero roles: DELETE /api/v1/backups/audit-sensitive -> 200
+
+2026/11/12 23:24:31 [31;1m/home/cui/workspaces/croupier/internal/model/backup_model.go:54 [35;1mrecord not found
+[0m[33m[0.133ms] [34;1m[rows:0][0m SELECT * FROM `backups` WHERE backup_id = "audit-sensitive" AND `backups`.`deleted_at` IS NULL ORDER BY `backups`.`id` LIMIT 1
+--- PASS: TestDeepAuditUnprivilegedBackupDownload (0.38s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/api/backup	0.445s
+=== RUN   TestDeepAuditSQLiteWALLoss
+    deep_audit_overlay_test.go:33: REPRODUCED: live committed rows=1, successful hashed backup rows=0
+--- PASS: TestDeepAuditSQLiteWALLoss (0.01s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/platform/backupexec	0.058s
+=== RUN   TestDeepAuditDeletedAccountStillAuthenticates
+
+2026/11/12 23:24:32 [31;1m/home/cui/workspaces/croupier/internal/model/admin_model.go:222 [35;1mrecord not found
+[0m[33m[0.123ms] [34;1m[rows:0][0m SELECT `token_version` FROM `admins` WHERE id = 1 AND `admins`.`deleted_at` IS NULL ORDER BY `admins`.`id` LIMIT 1
+2026/11/12 23:24:32 WARN token version check skipped adminID=1 error="record not found"
+    deep_audit_overlay_test.go:25: REPRODUCED: soft-deleted account accepted by fresh middleware (no cache involved)
+--- PASS: TestDeepAuditDeletedAccountStillAuthenticates (0.01s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/svc	0.104s
+=== RUN   TestDeepAuditTemplateWriteWithoutPermission
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /api/v1/component-templates --> github.com/cuihairu/croupier/internal/api/component.(*Handler).List-fm (2 handlers)
+[GIN-debug] GET    /api/v1/component-templates/ --> github.com/cuihairu/croupier/internal/api/component.(*Handler).List-fm (2 handlers)
+[GIN-debug] GET    /api/v1/component-templates/:key --> github.com/cuihairu/croupier/internal/api/component.(*Handler).Get-fm (2 handlers)
+[GIN-debug] POST   /api/v1/component-templates --> github.com/cuihairu/croupier/internal/api/component.(*Handler).Create-fm (2 handlers)
+[GIN-debug] PUT    /api/v1/component-templates/:key --> github.com/cuihairu/croupier/internal/api/component.(*Handler).Update-fm (2 handlers)
+[GIN-debug] DELETE /api/v1/component-templates/:key --> github.com/cuihairu/croupier/internal/api/component.(*Handler).Delete-fm (2 handlers)
+[GIN-debug] POST   /api/v1/component-templates/regenerate --> github.com/cuihairu/croupier/internal/api/component.(*Handler).Regenerate-fm (2 handlers)
+[GIN-debug] POST   /api/v1/component-templates/seed-demo-constants --> github.com/cuihairu/croupier/internal/api/component.(*Handler).SeedDemoConstants-fm (2 handlers)
+    deep_audit_overlay_test.go:21: REPRODUCED: template create succeeds with identity only, no role/permission/owner checks
+--- PASS: TestDeepAuditTemplateWriteWithoutPermission (0.02s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/api/component	0.080s
+=== RUN   TestDeepAuditPowerDoubleResume
+    deep_audit_overlay_test.go:30: REPRODUCED: both concurrent resume calls pass pending/approval checks and persist executing
+--- PASS: TestDeepAuditPowerDoubleResume (0.02s)
+=== RUN   TestDeepAuditPowerCountsDisagree
+    deep_audit_overlay_test.go:42: REPRODUCED: state=failed succeeded=1 failed=0 for one unverified machine
+--- PASS: TestDeepAuditPowerCountsDisagree (0.01s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/powerops	0.077s
+=== RUN   TestDeepAuditDormantScopeReaper
+    deep_audit_overlay_test.go:25: REPRODUCED: stale persisted task stays running until its scope enters current-process OpenScopes
+--- PASS: TestDeepAuditDormantScopeReaper (0.07s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/tasks	0.111s
+=== RUN   TestDeepAuditHandlerErrorsLookSuccessful
+2026/11/12 23:24:32 ERROR rpc handler error msg_id=InvokeRequest error="bad \"quoted\"\nmessage"
+    deep_audit_overlay_test.go:24: REPRODUCED: Invoke handler error -> Call err=nil, malformed JSON payload="{\"error\":\"bad \"quoted\"\nmessage\"}"
+2026/11/12 23:24:32 ERROR rpc handler error msg_id=StartTaskRequest error="bad \"quoted\"\nmessage"
+    deep_audit_overlay_test.go:28: REPRODUCED: failed StartTask handler -> successful Call, empty zero-value protobuf response
+--- PASS: TestDeepAuditHandlerErrorsLookSuccessful (0.00s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/transport/tcp	0.072s
+=== RUN   TestDeepAuditObjectOverwriteWithoutPermission
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /api/v1/storage/objects   --> github.com/cuihairu/croupier/internal/api/storage.(*Handler).UploadObject-fm (2 handlers)
+    deep_audit_overlay_test.go:22: REPRODUCED: login identity with no permissions overwrites an object under backups/ via storage API
+--- PASS: TestDeepAuditObjectOverwriteWithoutPermission (0.00s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/api/storage	0.093s
+=== RUN   TestDeepAuditPowerConfigWithoutPermission
+2026/11/12 23:24:32 INFO Authenticated user username=audit_game_viewer roles=[]
+    deep_audit_overlay_test.go:32: REPRODUCED: zero-role account with valid game/dev scope changed global node power configuration through real Auth+GameDBMiddleware
+--- PASS: TestDeepAuditPowerConfigWithoutPermission (0.03s)
+PASS
+ok  	github.com/cuihairu/croupier/internal/api/ops	0.131s

@@ -1,0 +1,33 @@
+package ops
+import (
+ "context"
+ "net/http/httptest"
+ "strings"
+ "testing"
+ "time"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/cuihairu/croupier/internal/security/jwtutil"
+ "github.com/cuihairu/croupier/internal/svc"
+ "github.com/gin-gonic/gin"
+ "github.com/stretchr/testify/require"
+)
+func TestDeepAuditPowerConfigWithoutPermission(t *testing.T) {
+ h:=newPowerHarness(t,true,[]string{"on"})
+ require.NoError(t,h.db.AutoMigrate(&model.Admin{},&model.AdminRole{},&model.Role{},&model.Game{},&model.GameEnvBinding{},&model.AdminGameEnvScope{}))
+ a:=&model.Admin{Username:"audit_game_viewer",Status:1};require.NoError(t,h.db.Create(a).Error)
+ game:=&model.Game{Name:"audit-limited",GameID:"audit-limited",AliasName:"audit"};require.NoError(t,h.db.Create(game).Error)
+ require.NoError(t,h.db.Create(&model.GameEnvBinding{GameID:game.GameID,Env:"dev",DatabaseName:"game_audit_dev"}).Error)
+ require.NoError(t,h.db.Create(&model.AdminGameEnvScope{AdminID:a.ID,GameID:game.ID,Env:"dev"}).Error)
+ sc:=h.service.svcCtx;sc.AdminModel=model.NewAdminModel(h.db);sc.GameModel=model.NewGameModel(h.db)
+ secret:="local-audit-ops-test-key";defer jwtutil.ResetGlobalSecretForTesting(secret)()
+ token,err:=jwtutil.Sign(secret,a.Username,nil,a.ID,0,time.Now());require.NoError(t,err)
+ r:=gin.New();r.Use(svc.NewAuthMiddleware(sc));g:=r.Group("/api/v1/ops",svc.GameDBMiddleware(sc))
+ g.PUT("/nodes/:nodeId/power-config",h.handler.PowerConfigPut)
+ req:=httptest.NewRequest("PUT","/api/v1/ops/nodes/node-1/power-config",strings.NewReader(`{"provider":"ipmi","bmcAddr":"192.0.2.10"}`))
+ req.Header.Set("Content-Type","application/json");req.Header.Set("Authorization","Bearer "+token)
+ req.Header.Set("X-Game-ID",game.GameID);req.Header.Set("X-Env","dev")
+ w:=httptest.NewRecorder();r.ServeHTTP(w,req);require.Equal(t,200,w.Code,w.Body.String())
+ node,err:=sc.NodeModel.FindByNodeID(context.Background(),"node-1");require.NoError(t,err)
+ require.Contains(t,node.Meta["power"],"bmcAddr")
+ t.Log("REPRODUCED: zero-role account with valid game/dev scope changed global node power configuration through real Auth+GameDBMiddleware")
+}

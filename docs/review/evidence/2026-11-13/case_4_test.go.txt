@@ -1,0 +1,25 @@
+package pluginhost
+import (
+ "context"
+ "testing"
+ "time"
+)
+func TestReviewPluginStartupDoesNotBlockAnotherCallerDeadline(t *testing.T) {
+ controller:=newEchoController(t,Knobs{})
+ original:=controller.ct.Describe
+ entered:=make(chan struct{});release:=make(chan struct{})
+ controller.ct.Describe=func(ctx context.Context,impl testImpl)(string,string,error){close(entered);<-release;return original(ctx,impl)}
+ firstDone:=make(chan struct{})
+ go func(){defer close(firstDone);controller.Call(context.Background(),"echo",time.Second,func(context.Context,testImpl)error{return nil})}()
+ select {case <-entered:case <-time.After(10*time.Second):t.Fatal("test plugin did not reach Describe")}
+ secondDone:=make(chan struct{})
+ ctx,cancel:=context.WithTimeout(context.Background(),10*time.Millisecond);defer cancel()
+ go func(){defer close(secondDone);controller.Call(ctx,"echo",time.Second,func(ctx context.Context,_ testImpl)error{return ctx.Err()})}()
+ select {
+ case <-secondDone:
+ case <-time.After(100*time.Millisecond):t.Error("a caller with a 10ms deadline is still waiting behind another plugin startup after 100ms")
+ }
+ close(release)
+ <-firstDone; <-secondDone
+ controller.Stop()
+}

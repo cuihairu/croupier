@@ -1,0 +1,53 @@
+=== Dashboard PageSpec Guard ===
+
+Checking canonical model entry points...
+[0;32mOK: Go Dashboard spec exists[0m
+[0;32mOK: TypeScript Dashboard spec exists[0m
+[0;32mOK: PageRenderer exists[0m
+[0;32mOK: PageStudio exists[0m
+[0;32mOK: Console page runtime exists[0m
+[0;32mOK: Console menu builder exists[0m
+
+Checking current routing and renderer contract...
+[0;32mOK: PageStudio route uses canonical editor[0m
+[0;32mOK: Console dynamic page route is registered[0m
+[0;32mOK: Console runtime renders PageRenderer[0m
+[0;32mOK: Menu builder consumes ConsoleMenuSpec[0m
+[0;32mOK: Page API publishes page-spec:1[0m
+
+Checking removed legacy files stay removed...
+[0;32mOK: legacy split generator absent[0m
+[0;32mOK: legacy split-model types absent[0m
+[0;32mOK: legacy split-model service absent[0m
+[0;32mOK: legacy PageStudioV2 absent[0m
+[0;32mOK: legacy PageSchemaEditor absent[0m
+[0;32mOK: legacy Formily page renderer absent[0m
+[0;32mOK: legacy FunctionForm manager absent[0m
+[0;32mOK: legacy Formily component runtime absent[0m
+[0;32mOK: legacy request-time descriptor collector absent[0m
+
+Checking legacy Page protocol terms do not return...
+[0;32mOK: legacy split/page-schema identifiers absent[0m
+[0;32mOK: legacy page storage/mapping fields absent[0m
+[0;32mOK: legacy page runtime references absent[0m
+[0;32mOK: legacy descriptor collector imports absent[0m
+[0;32mOK: core Dashboard TypeScript code has no any[0m
+
+Checking form runtime boundary...
+[0;32mOK: legacy Formily/FunctionForm runtime absent[0m
+[0;32mOK: legacy backend FunctionForm APIs absent[0m
+[0;32mOK: SchemaFormRenderer uses @rjsf/antd adapter[0m
+[0;32mOK: SchemaFormRenderer uses ajv8 validator[0m
+
+Checking execution and approval boundary...
+[0;32mOK: approval is not a FunctionContract execution mode[0m
+
+Checking registration-side UI fields stay rejected...
+[0;32mOK: registration-side UI/display fields absent from SDK/OpenAPI registration sources[0m
+
+Checking dependencies...
+[0;32mOK: Formily runtime dependency absent[0m
+[0;32mOK: @ant-design/charts dependency present[0m
+
+=== Summary ===
+[0;32mPASSED: Dashboard PageSpec guard passed[0m

@@ -1,0 +1,13 @@
+# ./sdks/go/pkg/croupier/transport
+main module (github.com/cuihairu/croupier) does not contain package github.com/cuihairu/croupier/sdks/go/pkg/croupier/transport
+FAIL	./sdks/go/pkg/croupier/transport [setup failed]
+ok  	github.com/cuihairu/croupier/internal/svc	43.115s
+ok  	github.com/cuihairu/croupier/internal/api/backup	3.786s
+ok  	github.com/cuihairu/croupier/internal/api/component	0.937s
+ok  	github.com/cuihairu/croupier/internal/powerops	0.754s
+ok  	github.com/cuihairu/croupier/internal/tasks	0.465s
+ok  	github.com/cuihairu/croupier/internal/tasks/scheduler	0.256s
+ok  	github.com/cuihairu/croupier/internal/db/router	1.542s
+ok  	github.com/cuihairu/croupier/internal/transport/tcp	12.798s
+ok  	github.com/cuihairu/croupier/core/transport/tcp	2.984s
+FAIL

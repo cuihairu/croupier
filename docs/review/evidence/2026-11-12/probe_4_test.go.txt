@@ -1,0 +1,22 @@
+package component
+import (
+ "net/http/httptest"
+ "strings"
+ "testing"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/gin-gonic/gin"
+ "github.com/stretchr/testify/require"
+)
+func TestDeepAuditTemplateWriteWithoutPermission(t *testing.T) {
+ db:=setupV4DB(t)
+ h:=NewHandler(model.NewComponentTemplateModel(db),model.NewFunctionContractModel(db))
+ r:=gin.New()
+ // Model the identity provided by the production Authority middleware; no permissions/roles.
+ r.Use(func(c *gin.Context){c.Set("username","audit_viewer");c.Set("adminID",uint(123));c.Next()})
+ h.Register(r.Group("/api/v1/component-templates"))
+ req:=httptest.NewRequest("POST","/api/v1/component-templates",strings.NewReader(`{"key":"audit-global","name":{"en-US":"Audit"},"tree":[]}`))
+ req.Header.Set("Content-Type","application/json")
+ w:=httptest.NewRecorder();r.ServeHTTP(w,req)
+ require.Equal(t,200,w.Code,w.Body.String())
+ t.Log("REPRODUCED: template create succeeds with identity only, no role/permission/owner checks")
+}

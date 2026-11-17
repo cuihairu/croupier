@@ -1,0 +1,50 @@
+package backup
+import (
+ "context"
+ "net/http"
+ "net/http/httptest"
+ "os"
+ "path/filepath"
+ "testing"
+ "time"
+ "github.com/cuihairu/croupier/internal/model"
+ "github.com/cuihairu/croupier/internal/security/jwtutil"
+ "github.com/cuihairu/croupier/internal/svc"
+ "github.com/gin-gonic/gin"
+ "github.com/stretchr/testify/require"
+)
+func TestDeepAuditUnprivilegedBackupDownload(t *testing.T) {
+ env := setupBackupFlowEnv(t)
+ env.svcCtx.AdminModel = model.NewAdminModel(env.db)
+ a := &model.Admin{Username:"audit_no_permissions", Status:1}
+ require.NoError(t, env.db.Create(a).Error)
+ var roles int64
+ require.NoError(t, env.db.Model(&model.AdminRole{}).Where("admin_id = ?",a.ID).Count(&roles).Error)
+ require.Zero(t, roles)
+ secret := "local-audit-only-random-purpose-key"
+ defer jwtutil.ResetGlobalSecretForTesting(secret)()
+ token, err := jwtutil.Sign(secret,a.Username,nil,a.ID,0,time.Now())
+ require.NoError(t, err)
+ file := filepath.Join(t.TempDir(),"meta.sqlite")
+ require.NoError(t,os.WriteFile(file,[]byte("AUDIT_PRIVATE_DATABASE_CONTENT"),0600))
+ createBackupRow(t,env,&model.Backup{BackupID:"audit-sensitive",Name:"meta",Status:"succeeded",Location:file})
+ r:=gin.New()
+ r.Use(svc.NewAuthMiddleware(env.svcCtx))
+ r.GET("/api/v1/backups",env.handler.List)
+ r.GET("/api/v1/backups/:id/download",env.handler.Download)
+ r.DELETE("/api/v1/backups/:id",env.handler.Delete)
+ for _, probe := range []struct{method,path string}{
+  {http.MethodGet,"/api/v1/backups"},
+  {http.MethodGet,"/api/v1/backups/audit-sensitive/download"},
+  {http.MethodDelete,"/api/v1/backups/audit-sensitive"},
+ } {
+  req:=httptest.NewRequest(probe.method,probe.path,nil)
+  req.Header.Set("Authorization","Bearer "+token)
+  w:=httptest.NewRecorder(); r.ServeHTTP(w,req)
+  require.Equal(t,200,w.Code,w.Body.String())
+  if probe.path=="/api/v1/backups/audit-sensitive/download" { require.Contains(t,w.Body.String(),"AUDIT_PRIVATE_DATABASE_CONTENT") }
+  t.Logf("REPRODUCED: account with zero roles: %s %s -> %d",probe.method,probe.path,w.Code)
+ }
+ _,err=env.svcCtx.BackupModel.FindByBackupID(context.Background(),"audit-sensitive")
+ require.Error(t,err)
+}
