@@ -304,6 +304,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   );
   // GUX-013 执行回执：最近一次写操作的真实返回标识（白名单提取）
   const [mutationReceipt, setMutationReceipt] = useState<ResourceMutationReceiptEntry[]>([]);
+  // 业务错误文本（data.error）：失败面板常驻展示，不只靠 toast（GUX-017）
+  const [mutationErrorText, setMutationErrorText] = useState<string>('');
   const mutationRunRef = useRef(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -326,13 +328,25 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   // 写操作统一反馈：开始时重置为进行中，成功/失败后保留结果直到下一次操作
   // 或用户关闭。并发写操作只允许最后一次的运行态覆盖结果。
+  // 业务错误随 200 透传（统一错误契约的 data.error）时按失败抛出：
+  // 调用方的 catch 保持「不关弹窗 + 失败 toast」语义，不伪装成成功（GUX-017）。
   const runMutation = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
     const runId = mutationRunRef.current + 1;
     mutationRunRef.current = runId;
     setMutationFeedback('running');
     setMutationReceipt([]);
+    setMutationErrorText('');
     try {
       const result = await operation();
+      const data = (result as { data?: unknown } | null | undefined)?.data;
+      const bizError =
+        data && typeof data === 'object' && !Array.isArray(data)
+          ? (data as Record<string, unknown>).error
+          : undefined;
+      if (mutationRunRef.current === runId && typeof bizError === 'string' && bizError !== '') {
+        setMutationErrorText(bizError);
+        throw new Error(bizError);
+      }
       if (mutationRunRef.current === runId) {
         setMutationFeedback('success');
         setMutationReceipt(extractMutationReceipt(result, intlRef.current));
@@ -1338,6 +1352,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           state={mutationFeedback}
           onClose={() => setMutationFeedback(null)}
           receipt={mutationReceipt}
+          errorText={mutationFeedback === 'error' ? mutationErrorText : ''}
         />
       ) : null}
       {/* 列表视图 */}

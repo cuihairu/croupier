@@ -23,12 +23,15 @@ export interface ResourceMutationFeedbackProps {
   state: ResourceMutationFeedbackState;
   onClose: () => void;
   receipt?: ResourceMutationReceiptEntry[];
+  /** 业务错误文本（data.error）：失败态下常驻展示，不只靠会消失的 toast */
+  errorText?: string;
 }
 
 const ResourceMutationFeedback: React.FC<ResourceMutationFeedbackProps> = ({
   state,
   onClose,
   receipt,
+  errorText,
 }) => {
   const intl = useIntl();
   if (state === 'running') {
@@ -137,6 +140,10 @@ const ResourceMutationFeedback: React.FC<ResourceMutationFeedbackProps> = ({
           />
         }
       />
+      {/* 业务错误随 200 透传（data.error）时错误文本常驻展示，不只靠 toast（GUX-017） */}
+      {!succeeded && errorText ? (
+        <Alert type="warning" showIcon title={errorText} style={{ marginTop: 8 }} />
+      ) : null}
       {/* GUX-013 执行回执：只展示接口真实返回的可追溯标识，空数组不渲染 */}
       {receipt && receipt.length > 0 && (
         <Descriptions

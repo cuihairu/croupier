@@ -604,6 +604,23 @@ describe('创建', () => {
     expect(screen.getByText('资源操作未完成')).toBeInTheDocument();
   });
 
+  // GUX-017 验收发现：业务错误随 200 透传（统一错误契约的 data.error）时
+  // 必须按失败呈现，不渲染成功面板，也不出回执
+  it('业务错误 data.error：失败面板 + 无回执', async () => {
+    formMockState.validate = true;
+    formMockState.values = { name: 'New' };
+    await openCreateModal({
+      executeImpl: async (id: string) => {
+        if (id === 'create') return ok({ error: 'no_failed_targets' });
+        return defaultImpl(id);
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('资源操作未完成')).toBeInTheDocument());
+    expect(screen.queryByTestId('resource-mutation-receipt')).not.toBeInTheDocument();
+    expect(screen.getByText('no_failed_targets')).toBeInTheDocument();
+  });
+
   // GUX-013 执行回执：白名单提取真实返回标识——未知键与布尔值（success/ok）
   // 不进入回执，字符串/有限数字命中白名单才展示
   it('成功回执按白名单提取字段', async () => {
