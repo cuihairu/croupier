@@ -287,7 +287,9 @@ test.describe('真实 SDK Operation 链路', () => {
     await page.goto(mailItem!.path);
     await waitForPageReady(page);
     await expect(page.getByText('Send an in-game mail', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('operation--mail.send', { exact: true })).toBeVisible();
+    // 页面身份以 URL 断言（副标题不再渲染 raw pageKey，控制台壳层只展示
+    // 本地化 title/description）
+    await expect(page).toHaveURL(/\/console\/mail\/operation--mail\.send/);
     await expect(page.getByRole('textbox', { name: /player[ _-]?id/i })).toBeVisible();
     await expectFormVisible(page);
   });

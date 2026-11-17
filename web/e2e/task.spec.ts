@@ -40,9 +40,16 @@ test.describe('异步任务', () => {
         response.request().method() === 'POST',
     );
     await submitBtn.click();
-    expect((await executeResponse).status()).toBe(200);
+    const execute = await executeResponse;
+    expect(execute.status()).toBe(200);
     await expect(page.getByText('任务已提交', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText(/^task-/)).toBeVisible();
+    // taskId 只进 pageState（状态轮询/下游绑定消费），不上屏：契约在
+    // execute 响应载荷断言（副标题不再渲染 raw pageKey）
+    const executeBody = (await execute.json()) as {
+      result?: { kind?: string; taskId?: string };
+    };
+    expect(executeBody.result?.kind).toBe('task');
+    expect(executeBody.result?.taskId).toMatch(/^task-/);
   });
 
   test('任务进度展示', async ({ page }) => {
