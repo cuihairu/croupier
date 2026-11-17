@@ -344,6 +344,8 @@ interface PageFunctionBinding {
 
 The task lifecycle capabilities split into standalone usages (`task_status`/`task_events`/`task_result`/`task_cancel`/`task_retry`), mapped one-to-one by TaskSemantic's start/status/events/result/cancel functions. There are no `create`/`update`/`delete` usages — write operations unify as `action`, referenced by a ResourcePage's CreateForm/UpdateForm/DeleteAction nodes. Confirmation is expressed by `execution.requireConfirm`; there is no separate ConfirmationSpec.
 
+For the `query` usage (a resource page's list binding), the input assignments' form-source paths are validated against a derived **list query schema** = `listView.filters` keys ∪ `{current, pageSize}` (the latter two only when `pagination.enabled`); form paths outside this set fail structural validation at save/publish (GUX-017: this forces the query bar to be wired — a list binding without form assignments would otherwise render a query bar that never filters). The resource query bar itself renders exactly the declared `listView.filters` plus the pagination fields, so the validated form-source set and the visible query form stay in lockstep.
+
 Schema nodes and page actions may reference only a `bindingId`. At runtime the server resolves functionId, permission, risk, scope, and dispatch target from the active PublishedPageSpec; the browser has no say in these.
 
 ### Binding execute error codes (the execution-blocking contract)

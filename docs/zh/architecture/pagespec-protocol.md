@@ -458,6 +458,8 @@ interface PageFunctionBinding {
 
 task 生命周期能力拆分为独立 usage（`task_status`/`task_events`/`task_result`/`task_cancel`/`task_retry`），由 TaskSemantic 的 start/status/events/result/cancel 函数一一映射；不存在 `create`/`update`/`delete` usage——写操作统一为 `action`，由 ResourcePage 的 CreateForm/UpdateForm/DeleteAction 节点引用。确认行为由 `execution.requireConfirm` 表达，没有独立的 ConfirmationSpec。
 
+`query` usage（资源页列表绑定）的 input assignments 中 form 来源路径按派生的**列表查询 schema** 校验 = `listView.filters` 键集 ∪ `{current, pageSize}`（后两项仅在 `pagination.enabled` 时纳入）；越界 form 路径在保存/发布结构校验即失败（GUX-017：强制查询栏真实接线——列表绑定缺 form assignments 时查询栏只是装饰、永不过滤）。资源页查询栏本身只渲染声明的 `listView.filters` 加分页字段，校验集合与可见查询表单保持一致。
+
 Schema 节点和页面动作只能引用 `bindingId`。运行时由服务端根据 active PublishedPageSpec 找到 functionId、权限、风险、scope 和 dispatch target；浏览器无权选择这些信息。
 
 ### binding execute 错误码（执行阻断契约）

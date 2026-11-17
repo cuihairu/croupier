@@ -90,9 +90,10 @@
   - 状态／条件：LOCAL VERIFIED（2026-11-17）。docs/design/game-ops-visual-spec.md + zh 镜像：§3 标题六级层级与内部 key 禁令、§4 DASHBOARD_PAGE_TOKENS 间距词汇表+圆角 8/12、§5 ProTable 基线（折叠搜索/link 动作/更多下拉/右对齐/GUX-014 状态模型）、§6 表单三容器契约测试口径、§7 640 详情抽屉+identity 锚、§8 语义色（契约枚举/未知（原值）非仅颜色/--brand-*）、§9 交互状态全集含键盘焦点 :focus-visible 硬性要求、§2+§10 明暗（preset×mode、暗色二次派生按渲染值验对比度、按套分别验）与中英文（intl 契约+键位对齐测试）、§11 review 检查单；引用路径全部实测存在，docs build 通过。
   - 完成证据：`docs/review/evidence/2026-11-17/gux-016.md`（边界：检查单无自动化守卫、index.md 登记暂缓避外席在途）
 
-- [ ] **GUX-017 · P1 · 验收 · 标杆流程端到端验收**
+- [x] **GUX-017 · P1 · 验收 · 标杆流程端到端验收**
   - 依赖：GUX-003, GUX-004, GUX-008, GUX-009, GUX-010, GUX-011, GUX-012, GUX-013。交付与验收：以玩家查询→详情→补偿→确认→回执运行可控 fixture，覆盖错误/部分成功、作用域切换、键盘及 1440px/笔记本截图；真实游戏验收沿 UI-001，fixture 不抵扣。
-  - 状态／条件：待办（2026-11-17 结构化入账，来源同 GUX-001）。
+  - 状态／条件：LOCAL VERIFIED（2026-11-17）。本地三进程真栈（server 18790/agent 19093/demo-game 18093 + web dev 8000）发布页跑 Playwright 驱动 20/20 通过：A1–A12 玩家查询（过滤命中唯一行）→Tab/Enter 详情（身份锚 20007）→Esc 关抽屉→部分失败重试回执→带内 data.error 判败（常驻面板+无回执+弹窗不关）→fail-closed 建单→全服建单审批回执→作用域切换不串；B1–B4 模板向导（演示数据横幅/即时人数汇总/核对摘要/必勾确认/审批回执）；C1–C4 1280×800。验收发现并修复四处：①带内 data.error 按成功渲染（ResourcePageRenderer/ResourceMutationFeedback 改 throw 判败+常驻错误面板）②五个资源模板查询栏装饰化（assignments 空，补 filters+form assignments 与各 list 契约对齐，契约外列移出查询栏）③rjsf v5 不消费 schema 级枚举标签（模板改 x-enum-options，SchemaFormRenderer 两路径归一 ui:options.enumNames）④fixture 漂移重导出+drift-lock 绿。门禁：tsc 0 错、PageRenderer/console/templates/SchemaFormRenderer 相关套件全绿、dashboard_vnext_guard PASSED、docs build 通过。
+  - 完成证据：`docs/review/evidence/2026-11-17/gux-017/`（README + 20/20 结果 + 23 截图，无凭据）。边界（如实）：面包屑露 category key、页副标题露 pageKey（观感项未修）；demo.db 经验收写入；真实游戏验收沿 UI-001 不抵扣。文档三层同步：dashboard-page-model.md（失败判类+查询栏契约+x-enum-options 表单标签）、pagespec-protocol.md（list query schema 校验面）、composite-editor-v3.md（枚举标签契约），含 zh 镜像。
 
 ## 架构与可靠性
 

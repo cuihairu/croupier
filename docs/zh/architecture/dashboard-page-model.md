@@ -508,7 +508,7 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 Renderer 只接受 PublishedPageSpec，并只通过 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。执行前服务端做两道结构化阻断（wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)）：契约 `executionState=unbound`（上传物料未绑定运行时执行器）返回 `409 executor_unbound`，前端渲染「未绑定执行器」空态并引导去绑定；契约漂移返回 `409 binding_stale`。发布页禁止 mock 数据兜底——执行失败必须显式呈现。
 
-资源页渲染器的运营体验行为（GUX-008~013，均为渲染层解释，无 wire 变更）：行内动作一律 link 态（主按钮强调保留给工具栏一次性动作）；操作列条目（查看+行动作+删除）超过 4 个时折叠进「更多」下拉，删除经下拉触发时沿用同一套 `deleteAction` 文案与 danger 确认弹窗（确认语义不降级）；数字/时间列由 dataType 机械派生右对齐；详情抽屉顶部按声明的 `listView.identityKey` 渲染行身份锚（契约驱动，不猜字段名）；写操作结果面按白名单（id/taskId/approvalId/count/total/amount/retried/sentCount/failedCount，字符串与有限数字才展示，布尔与未知键忽略）展示接口真实返回的可追溯标识，接口未返回的字段不展示、不发明部分成功状态。邮件/补偿固定分步模板（demo 模板层）：目标步骤即时汇总客户端可确定的目标（已选人数/区服），服务端才知道的量显式标注「以服务端为准」；提交前核对步骤展示结构化摘要与审批提示；审批路径回执展示审批单号；create 绑定遇 `executor_unbound` 时以「未绑定执行器」空态呈现而非普通失败。
+资源页渲染器的运营体验行为（GUX-008~013，均为渲染层解释，无 wire 变更）：行内动作一律 link 态（主按钮强调保留给工具栏一次性动作）；操作列条目（查看+行动作+删除）超过 4 个时折叠进「更多」下拉，删除经下拉触发时沿用同一套 `deleteAction` 文案与 danger 确认弹窗（确认语义不降级）；数字/时间列由 dataType 机械派生右对齐；详情抽屉顶部按声明的 `listView.identityKey` 渲染行身份锚（契约驱动，不猜字段名）；写操作结果面按白名单（id/taskId/approvalId/count/total/amount/retried/sentCount/failedCount，字符串与有限数字才展示，布尔与未知键忽略）展示接口真实返回的可追溯标识，接口未返回的字段不展示、不发明部分成功状态。邮件/补偿固定分步模板（demo 模板层）：目标步骤即时汇总客户端可确定的目标（已选人数/区服），服务端才知道的量显式标注「以服务端为准」；提交前核对步骤展示结构化摘要与审批提示；审批路径回执展示审批单号；create 绑定遇 `executor_unbound` 时以「未绑定执行器」空态呈现而非普通失败。变更失败判类（GUX-017）：sync 执行返回 HTTP 200 但带带内 `data.error`（非空字符串）时按失败呈现而非成功——不渲染结果回执；toast 通用文案加常驻错误面板展示原始原因，变更弹窗保持打开以便修正。资源页查询栏只渲染声明的 `listView.filters` 加分页字段，其值必须经列表绑定的 form 来源 assignments 送达被绑定函数：绑定函数入参契约之外的过滤键（身份/不支持的枚举列）不进查询栏，列表绑定缺 form assignments 时查询栏只是装饰、永不生效（GUX-017 实测修订）。
 
 PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 renderer adapter，不迁移 FunctionContract、PageSpec、菜单、发布快照或审计。
 
@@ -517,6 +517,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
+
+枚举下拉标签走 hints 契约：rjsf v5 的 `optionsList` 只消费 `ui:options.enumNames`，忽略 schema 级 `enumNames`/`x-enum-options`，因此 SchemaFormRenderer 从 schema 级 `x-enum-options`（`{value, label: LocalizedText}`——平台 hints 契约）解析标签，回落 schema `enumNames`、再回落原始值，并在两条路径（`fields` 展示层、无 fields 的 createForm 兜底）统一写入 `ui:options.enumNames`（GUX-017）。作者声明本地化枚举标签用 `x-enum-options`；schema 级 `enumNames` 保留给直接消费 schema 的面板（如组合编辑器）。
 
 **D5 表单字段显式语义**：`FormFieldSpec.role`（`identity|status|reason|expiry|amount|quantity`）与 `FormFieldSpec.unit`（LocalizedText 单位后缀）承载游戏声明的字段语义，由输入 schema 的 `x-field-role`/`x-field-unit` hints 解析（非法 role 静默忽略）。危险确认框消费：身份条目置前加粗、到期条目红字、amount/quantity 值带声明单位——操作者确认前即读到谁/什么/多少/多久。`FormFieldSpec.perTarget`（由 `x-field-per-target` 解析，仅当恰为 `true` 声明）标记数量/金额按每个选中目标逐项计（D2 跨目标总量）：多选目标 >1 的批量危险确认框另示总量（`值 × 目标数`，单位与语义复用），未声明字段绝不乘总量——平台不猜测哪些字段按目标计。
 

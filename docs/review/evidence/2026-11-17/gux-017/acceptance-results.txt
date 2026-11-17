@@ -1,0 +1,20 @@
+PASS — A1 玩家列表（发布页渲染 demo-game 真数据）
+PASS — A2 键盘搜索过滤命中 20007（唯一行 + 已封禁标签）
+PASS — A3 详情抽屉身份锚 20007（Tab 7 次 + Enter）
+PASS — A4 Esc 关闭详情抽屉
+PASS — A5 任务列表（task-mail-1002 部分失败可见）
+PASS — A6 重试回执（重试数/已送达/失败数 白名单字段）
+PASS — A7 task-mail-1002 → 已发送（部分成功闭环）
+PASS — A8 业务错误面板常驻可见（no_failed_targets + 无回执）
+PASS — A9 fail-closed：弹窗不关 + 面板常驻错误原因
+PASS — A10 创建回执（ID + 审批单号 白名单）
+PASS — A11 default 作用域空态/错误面 (visible)
+PASS — A12 切回后数据恢复（作用域数据不串）
+PASS — B1 模板预览页（演示数据横幅如实可见）
+PASS — B2 步骤1 → 目标与数量
+PASS — B3 步骤2（即时已选人数汇总 + 每人数量）
+PASS — B4 确认提交 → 审批态回执（approvalId 展示）
+PASS — C1 笔记本视口玩家列表
+PASS — C2 笔记本视口详情抽屉（身份锚）
+PASS — C3 笔记本视口任务列表
+PASS — C4 笔记本视口向导

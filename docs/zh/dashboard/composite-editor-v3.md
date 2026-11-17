@@ -600,7 +600,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   带单位后缀）；声明 `x-field-per-target` 的字段在表格区块危险动作多选目标 >1 时另示总量条目
   （`值 × 目标数`，单位与语义复用）——仅显式声明的字段聚合，未声明字段绝不乘总量（不做语义
   猜测）。边界：单位仅展示（不做缩放或换算）；`identity` 之外的 role 不改变列布局；
-  时区标签为浏览器本地偏移（无游戏级 tz 配置）
+  时区标签为浏览器本地偏移（无游戏级 tz 配置）。表单下拉标签走同一 hints 契约：schema 表单
+  渲染器把 schema 级 `x-enum-options`（回落 schema `enumNames`、再回落原始值）归一进
+  `ui:options.enumNames` 供固定 rjsf runtime 消费——只在 schema 级写 `enumNames` 会让下拉
+  露原始枚举值（GUX-017）
 - **表格行选择（D2）**：由表格组件的「行选择」设置配置——启用多选后编译为发布 spec
   区块的 `table.selection`（`multiple` 加可选 `identityKey`，身份列从输出 schema 选）。
   生成器不为组合区块推导行选择（无资源语义上下文），未显式启用即保持既有单选 radio
