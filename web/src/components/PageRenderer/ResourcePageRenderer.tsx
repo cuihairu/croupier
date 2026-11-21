@@ -804,7 +804,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     if (!createFormRef.current?.validate()) return false;
     setFormSubmitting(true);
     try {
-      return await handleCreate(createFormRef.current.getValues());
+      // SUI-014：命令式提交统一走 getSubmitValues（与原生提交同一投影）
+      return await handleCreate(createFormRef.current.getSubmitValues());
     } finally {
       setFormSubmitting(false);
     }
@@ -814,7 +815,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
     if (!updateFormRef.current?.validate()) return false;
     setFormSubmitting(true);
     try {
-      return await handleEdit(updateFormRef.current.getValues());
+      return await handleEdit(updateFormRef.current.getSubmitValues());
     } finally {
       setFormSubmitting(false);
     }
@@ -1729,7 +1730,8 @@ const ActionFormModal: React.FC<{
       }}
       onFinish={async () => {
         if (formRef.current && !formRef.current.validate()) return false;
-        return onSubmit(formRef.current?.getValues() ?? {});
+        // SUI-014：行操作表单与原生提交共用同一投影取值
+        return onSubmit(formRef.current?.getSubmitValues() ?? {});
       }}
       submitter={{ submitButtonProps: { loading: submitting } }}
       drawerProps={{ destroyOnHidden: true, width: 560 }}

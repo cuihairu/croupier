@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -112,15 +113,23 @@ type croupierAgentService struct {
 	// done 在 Start 的后台 runner goroutine 全部收尾后关闭（runAgent 返回、
 	// 其 defer 拆除完毕、启动/失败日志落定）；Stop 以此等待后台 runner 静默。
 	done chan struct{}
+	// runErr 记录 runAgent 的返回错误（nil = 正常退出）。Start 的后台
+	// goroutine 在 close(done) 前写入，Stop 在收到 done 后读取——close 与
+	// 接收建立 happens-before，读取无竞争（AUD-004）。
+	runErr error
+	// stopTimeout 是 Stop 等待后台 runner 静默的上限，超时返回错误而非伪装
+	// 成功（AUD-004）。构造默认 15s，测试注入短值驱动超时分支。
+	stopTimeout time.Duration
 }
 
 func newAgentService(cfgFile string) *croupierAgentService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &croupierAgentService{
-		ctx:     ctx,
-		cancel:  cancel,
-		cfgFile: cfgFile,
-		done:    make(chan struct{}),
+		ctx:         ctx,
+		cancel:      cancel,
+		cfgFile:     cfgFile,
+		done:        make(chan struct{}),
+		stopTimeout: 15 * time.Second,
 	}
 }
 
@@ -140,6 +149,10 @@ func (s *croupierAgentService) Start(svc service.Service) error {
 		err := runFn()
 		if err != nil {
 			s.logger("error", fmt.Sprintf("Agent 启动失败: %v", err))
+			// 先记录 runErr 再关 done：Stop 在收到 done 后据此区分「runner 以
+			// 错误退出」与「正常退出」（AUD-004）。close(done) 建立 happens-
+			// before，使 Stop 对 runErr 的读取安全。
+			s.runErr = err
 			// 先关 done 再触发 Stop：svc.Stop 会等待 done，若不先行关闭，
 			// 本 goroutine 内发起的 Stop 会与自身互等（15s 兜底也救不了语义）。
 			close(s.done)
@@ -160,19 +173,33 @@ func (s *croupierAgentService) Start(svc service.Service) error {
 	return nil
 }
 
-// Stop 由服务管理器调用
+// Stop 由服务管理器调用。三种结果区分（AUD-004）：
+//   - 正常退出（runAgent 返回 nil）：日志「已停止」，返回 nil；
+//   - runner 以错误退出（runAgent 返回 err）：日志并返回该错误（服务管理器
+//     经 kardianos run() 看到非 nil，不再把失败伪装成干净停机）；
+//   - 超时（done 未在 stopTimeout 内关闭，runner 仍未退出）：日志并返回可
+//     识别的超时错误。
 func (s *croupierAgentService) Stop(svc service.Service) error {
 	s.logger("info", "Croupier Agent 服务停止中...")
 	s.cancel()
 	// 等后台 runner 静默（含 runAgent 的 defer 拆除与最终日志）后再返回：
 	// 否则 runner 残段会在 Stop 之后继续写 stdout / 拆 App（-race 全量实证，
-	// 与后续用例换装 os.Stdout 或读本地监听构成数据竞争）。15s 兜底防卡死；
+	// 与后续用例换装 os.Stdout 或读本地监听构成数据竞争）。超时兜底防卡死；
 	// 失败分支由 runner 自身发起 Stop，done 已先行关闭，不会互等。
+	timer := time.NewTimer(s.stopTimeout)
+	defer timer.Stop()
 	select {
 	case <-s.done:
-	case <-time.After(15 * time.Second):
+		if s.runErr != nil {
+			s.logger("error", fmt.Sprintf("Agent runner 以错误退出: %v", s.runErr))
+			return fmt.Errorf("agent runner 以错误退出: %w", s.runErr)
+		}
+		s.logger("info", "Croupier Agent 服务已停止")
+		return nil
+	case <-timer.C:
+		s.logger("error", fmt.Sprintf("停止超时：后台 runner 在 %s 内未退出", s.stopTimeout))
+		return errors.New("agent 停止超时：后台 runner 未退出")
 	}
-	return nil
 }
 
 func (s *croupierAgentService) logger(level, msg string) {

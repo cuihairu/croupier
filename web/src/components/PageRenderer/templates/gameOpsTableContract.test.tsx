@@ -23,7 +23,11 @@ jest.mock('@/components/PageRenderer', () => ({
 
 jest.mock('@/components/SchemaFormRenderer', () => {
   const Stub = React.forwardRef<unknown, Record<string, unknown>>((_props, ref) => {
-    React.useImperativeHandle(ref, () => ({ validate: () => true, getValues: () => ({}) }));
+    React.useImperativeHandle(ref, () => ({
+      validate: () => true,
+      getValues: () => ({}),
+      getSubmitValues: () => ({}),
+    }));
     return <div data-testid="schema-form-stub" />;
   });
   Stub.displayName = 'SchemaFormRendererStub';

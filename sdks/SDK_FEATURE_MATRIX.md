@@ -31,17 +31,17 @@
 
 ### L1 Core Provider
 
-| 能力                                                | Go       | Python   | Java                              | JS/TS | C++ | C#  |
-| --------------------------------------------------- | -------- | -------- | --------------------------------- | ----- | --- | --- |
-| 构造 / 注册 / 会话 / 服务循环 / 停止（L1 API 表面） | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
-| 多路复用（RequestID 配对）                          | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
-| 心跳（默认 60s，可配置）                            | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
-| 自动重连（指数退避 + jitter）                       | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
-| TLS（`insecure=false`，ca/cert/key）                | ✅       | ✅       | ✅ TlsSocketFactory + SAN/CN 校验 | ✅    | ✅  | ✅  |
-| 鉴权（`auth_token` → Bearer 握手 metadata）         | ⚠️ 仅 L3 | ⚠️ 仅 L3 | ⚠️ 仅 L3                          | ✅    | ✅  | ✅  |
-| 平台 drain 处理（`ProviderDrainRequest`）           | ✅       | ✅       | ✅                                | ✅    | ✅  | ✅  |
+| 能力                                                | Go  | Python | Java                              | JS/TS | C++ | C#  |
+| --------------------------------------------------- | --- | ------ | --------------------------------- | ----- | --- | --- |
+| 构造 / 注册 / 会话 / 服务循环 / 停止（L1 API 表面） | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
+| 多路复用（RequestID 配对）                          | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
+| 心跳（默认 60s，可配置）                            | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
+| 自动重连（指数退避 + jitter）                       | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
+| TLS（`insecure=false`，ca/cert/key）                | ✅  | ✅     | ✅ TlsSocketFactory + SAN/CN 校验 | ✅    | ✅  | ✅  |
+| 鉴权（`auth_token` → 握手 metadata `authToken` 键） | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
+| 平台 drain 处理（`ProviderDrainRequest`）           | ✅  | ✅     | ✅                                | ✅    | ✅  | ✅  |
 
-> 鉴权行：Go / Python / Java 的 `auth_token` 目前只接在 L3 Invoker（Server HTTP API）上，**未**注入 Provider 握手 metadata；JS / C++ / C# 已注入握手 metadata。
+> 鉴权行：六语言均在 ProviderConnect 握手 metadata 注入 `authToken` 键（CR-FIX-11 平台保留键：agent 校验后丢弃，绝不入会话元数据；未配置/空白 token 时不携带该键），各有回归覆盖——Go `tcp_manager_auth_test.go`、Python `tests/test_client.py`、Java `ProviderConnectMetadataTest`、JS `register_instance_metadata.test.ts`、C++ `tests/test_client_provider.cpp`、C# `CroupierClientLifecycleTests`。注入实现：Go `connectMetadata()`（`sdks/go/pkg/croupier/tcp_manager.go`）、Python `get_provider_connect_request`、Java `buildProviderConnectRequest`、C++ `croupier_client.cpp`、C# `CroupierClient.cs`。注意 L3 Invoker 的 Bearer（`Authorization: Bearer` 头）是独立的 Server HTTP API 鉴权面，与本行的握手 metadata 注入不是同一机制，勿混读。
 
 ### L2 Provider 扩展
 

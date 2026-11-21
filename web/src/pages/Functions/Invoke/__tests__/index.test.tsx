@@ -122,7 +122,7 @@ jest.mock('../ExecutionOptions', () => ({
 jest.mock('../RequestBodyEditor', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   type FormHandle = {
-    getValues?: () => Record<string, unknown> | undefined;
+    getSubmitValues?: () => Record<string, unknown> | undefined;
     validate?: () => boolean;
   };
   // 模块级可变句柄：formRef.current 在每次渲染后同步，测试通过 set 后触发一次
@@ -136,7 +136,7 @@ jest.mock('../RequestBodyEditor', () => {
     formValues: Record<string, unknown>;
     formRef: {
       current: {
-        getValues: () => Record<string, unknown> | undefined;
+        getSubmitValues: () => Record<string, unknown> | undefined;
         validate: () => boolean;
       } | null;
     };
@@ -149,7 +149,7 @@ jest.mock('../RequestBodyEditor', () => {
       props.formRef.current =
         props.formState.status === 'ready' && handle
           ? {
-              getValues: () => handle?.getValues?.() ?? props.formValues,
+              getSubmitValues: () => handle?.getSubmitValues?.() ?? props.formValues,
               validate: () => handle?.validate?.() ?? true,
             }
           : null;
@@ -352,7 +352,7 @@ const pollingMock = jest.requireMock('../approvalPolling') as unknown as {
 const requestBodyMock = jest.requireMock('../RequestBodyEditor') as unknown as {
   __setFormHandle: (
     handle: {
-      getValues?: () => Record<string, unknown> | undefined;
+      getSubmitValues?: () => Record<string, unknown> | undefined;
       validate?: () => boolean;
     } | null,
   ) => void;
@@ -881,7 +881,7 @@ describe('函数调用工作台：请求体编辑', () => {
     await waitFor(() => expect(spies.error).toHaveBeenCalledWith('请求体不是有效 JSON'));
   });
 
-  it('表单模式取值三分支：formRef 空→校验失败；getValues 空回退 formValues；getValues 有值优先', async () => {
+  it('表单模式取值三分支：formRef 空→校验失败；getSubmitValues 空回退投影 formValues；有值优先', async () => {
     mockedInvoke.mockResolvedValue({ result: { ok: 1 } });
     mountPage('?fid=fn.echo');
     await waitForFormReady();
@@ -890,17 +890,17 @@ describe('函数调用工作台：请求体编辑', () => {
     const waitForMode = (mode: string) =>
       waitFor(() => expect(screen.getByTestId('rbe-mode')).toHaveTextContent(mode));
 
-    // 1) formRef.current 为 null：payload 回退 formValues，validate 缺失按失败处理
+    // 1) formRef.current 为 null：payload 回退投影 formValues，validate 缺失按失败处理
     toggleMode(); // json → form
     await waitForMode('form');
     clickSend();
     await waitFor(() => expect(screen.getByTestId('ir-error')).toHaveTextContent('表单校验失败'));
     expect(mockedInvoke).not.toHaveBeenCalled();
 
-    // 2) getValues() 返回 undefined：回退 formValues（Schema 默认值）
+    // 2) getSubmitValues() 返回 undefined：回退投影 formValues（Schema 默认值）
     toggleMode(); // form → json
     await waitForMode('json');
-    requestBodyMock.__setFormHandle({ getValues: () => undefined });
+    requestBodyMock.__setFormHandle({ getSubmitValues: () => undefined });
     toggleMode(); // json → form
     await waitForMode('form');
     clickSend();
@@ -912,10 +912,13 @@ describe('函数调用工作台：请求体编辑', () => {
       { route: 'lb' },
     );
 
-    // 3) getValues() 有值：优先于 formValues
+    // 3) getSubmitValues() 有值：优先于 formValues
     toggleMode(); // form → json
     await waitForMode('json');
-    requestBodyMock.__setFormHandle({ getValues: () => ({ fromForm: 9 }), validate: () => true });
+    requestBodyMock.__setFormHandle({
+      getSubmitValues: () => ({ fromForm: 9 }),
+      validate: () => true,
+    });
     toggleMode(); // json → form
     await waitForMode('form');
     clickSend();
@@ -936,13 +939,13 @@ describe('函数调用工作台：请求体编辑', () => {
     expect(mockedInvoke).not.toHaveBeenCalled();
   });
 
-  it('getValues 抛非 Error 值：String(err) 分支渲染错误详情', async () => {
+  it('getSubmitValues 抛非 Error 值：String(err) 分支渲染错误详情', async () => {
     mountPage('?fid=fn.echo');
     await waitForFormReady();
     fireEvent.click(screen.getByRole('button', { name: 'rbe-toggle-mode' }));
     await waitFor(() => expect(screen.getByTestId('rbe-mode')).toHaveTextContent('form'));
     requestBodyMock.__setFormHandle({
-      getValues: () => {
+      getSubmitValues: () => {
         throw 'raw-failure';
       },
     });

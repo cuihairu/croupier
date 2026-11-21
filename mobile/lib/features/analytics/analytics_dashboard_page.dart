@@ -89,8 +89,7 @@ class _AnalyticsDashboardPageState
       );
     }
     return RefreshIndicator(
-      onRefresh: () =>
-          ref.read(analyticsControllerProvider.notifier).refresh(),
+      onRefresh: () => ref.read(analyticsControllerProvider.notifier).refresh(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -173,10 +172,7 @@ class _DomainCardTile extends StatelessWidget {
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 12),
-      ),
+      child: Text(label, style: TextStyle(color: color, fontSize: 12)),
     );
   }
 
@@ -203,8 +199,8 @@ List<MapEntry<String, String>> summarizeDomainData(Object? data) {
     final source = (data['metrics'] is Map)
         ? data['metrics'] as Map
         : (data['realtimeMetrics'] is Map)
-            ? data['realtimeMetrics'] as Map
-            : data;
+        ? data['realtimeMetrics'] as Map
+        : data;
     final lines = <MapEntry<String, String>>[];
     source.forEach((key, value) {
       if (lines.length >= 4) return;

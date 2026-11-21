@@ -65,12 +65,15 @@ func newExecTestEnv(t *testing.T, driver, dataSource string, store objstore.Stor
 	db, err := gorm.Open(gsqlite.Open("file:"+dbName+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
+	seedBackupSuperAdmin(t, db)
 
 	repos := extensiongorm.NewBundle(db)
 	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
 
 	svcCtx := &svc.ServiceContext{
 		DB:          db,
+		AdminModel:  model.NewAdminModel(db),
+		RoleModel:   model.NewRoleModel(db),
 		BackupModel: model.NewBackupModel(db),
 		Extensions:  &svc.ExtensionServices{Installation: installationSvc},
 		Config: config.Config{
@@ -109,7 +112,7 @@ func TestService_Create_AsyncRunSucceeds(t *testing.T) {
 	require.NoError(t, os.WriteFile(src, []byte("sqlite-payload"), 0o600))
 
 	env := newExecTestEnv(t, "sqlite", src, &execObjStoreStub{})
-	resp, err := env.service.Create(context.Background(), &BackupCreateRequest{Name: "async-ok"})
+	resp, err := env.service.Create(env.authCtx(t), &BackupCreateRequest{Name: "async-ok"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -119,7 +122,7 @@ func TestService_Create_AsyncRunSucceeds(t *testing.T) {
 func TestService_Create_AsyncRunFails(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing.db")
 	env := newExecTestEnv(t, "sqlite", missing, &execObjStoreStub{})
-	resp, err := env.service.Create(context.Background(), &BackupCreateRequest{Name: "async-fail"})
+	resp, err := env.service.Create(env.authCtx(t), &BackupCreateRequest{Name: "async-fail"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -149,7 +152,7 @@ func TestService_Delete_DeleteByBackupIDError(t *testing.T) {
 	createBackupRow(t, env, &model.Backup{BackupID: "bkp-del-fail", Name: "n", Type: "full"})
 
 	injectBackupCallback(t, env.db, "delete")
-	err := env.service.Delete(context.Background(), &BackupDeleteRequest{ID: "bkp-del-fail"})
+	err := env.service.Delete(env.authCtx(t), &BackupDeleteRequest{ID: "bkp-del-fail"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forced delete failure")
 }

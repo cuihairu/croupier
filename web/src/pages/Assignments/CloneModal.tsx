@@ -31,7 +31,7 @@ export default function CloneModal({ open, onClose, onSave }: Props) {
       onCancel={onClose}
       onOk={() => {
         if (!formRef.current?.validate()) return;
-        onSave(String(formRef.current.getValues().targetEnv || ''));
+        onSave(String(formRef.current.getSubmitValues().targetEnv || ''));
       }}
       width={520}
     >

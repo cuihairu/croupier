@@ -34,6 +34,10 @@ type backupFlowEnv struct {
 	router  *gin.Engine
 }
 
+// backupSuperAdminUsername 是备份测试用的超管账号（HasAdminRole 直通分支），
+// 在共享库中幂等创建一次，供服务层 RequireAnyPermission 授权检查通过。
+const backupSuperAdminUsername = "backup_superadmin"
+
 var backupFlowDB *gorm.DB
 
 func backupFlowSharedDB(t *testing.T) *gorm.DB {
@@ -55,16 +59,57 @@ func backupFlowSharedDB(t *testing.T) *gorm.DB {
 	return backupFlowDB
 }
 
+// seedBackupSuperAdmin 幂等创建名为 backupSuperAdminUsername 的超管账号并返回
+// 用户名。超管角色经 HasAdminRole 直通授权，无需具体权限行；用于让既有用例在
+// 新增的服务层授权门后继续通过。
+func seedBackupSuperAdmin(t *testing.T, db *gorm.DB) string {
+	t.Helper()
+	ctx := context.Background()
+	adminModel := model.NewAdminModel(db)
+	roleModel := model.NewRoleModel(db)
+
+	admin, err := adminModel.FindByUsername(ctx, backupSuperAdminUsername)
+	if err != nil {
+		admin = &model.Admin{Username: backupSuperAdminUsername, Status: 1}
+		require.NoError(t, adminModel.Create(ctx, admin, "password123"))
+	}
+
+	hasSuperAdmin := false
+	roles, err := adminModel.GetAdminRoles(ctx, admin.ID)
+	require.NoError(t, err)
+	for _, r := range roles {
+		if r.Name == "super_admin" {
+			hasSuperAdmin = true
+			break
+		}
+	}
+	if !hasSuperAdmin {
+		role := &model.Role{Name: "super_admin"}
+		require.NoError(t, roleModel.Create(ctx, role))
+		require.NoError(t, adminModel.AssignRole(ctx, admin.ID, role.ID))
+	}
+	return backupSuperAdminUsername
+}
+
+// authCtx 返回携带超管用户名的请求上下文，满足服务层 RequireAnyPermission。
+func (e *backupFlowEnv) authCtx(t *testing.T) context.Context {
+	t.Helper()
+	return context.WithValue(context.Background(), "username", backupSuperAdminUsername)
+}
+
 func setupBackupFlowEnv(t *testing.T) *backupFlowEnv {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	db := backupFlowSharedDB(t)
+	seedBackupSuperAdmin(t, db)
 
 	repos := extensiongorm.NewBundle(db)
 	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
 
 	svcCtx := &svc.ServiceContext{
 		DB:          db,
+		AdminModel:  model.NewAdminModel(db),
+		RoleModel:   model.NewRoleModel(db),
 		BackupModel: model.NewBackupModel(db),
 		Extensions:  &svc.ExtensionServices{Installation: installationSvc},
 	}
@@ -116,7 +161,7 @@ func createBackupRow(t *testing.T, env *backupFlowEnv, backup *model.Backup) *mo
 
 func TestService_List_FromDatabase(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	createBackupRow(t, env, &model.Backup{BackupID: "bkp-1", Name: "one", Type: "database", Status: "completed"})
 	createBackupRow(t, env, &model.Backup{BackupID: "bkp-2", Name: "two", Type: "database", Status: "completed"})
@@ -146,7 +191,7 @@ func TestService_List_FromDatabase(t *testing.T) {
 
 func TestService_List_FromExtensionInstallation(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	records := []Backup{
 		{Id: "ext-1", Name: "ext-one", Type: "full", Status: "completed"},
@@ -177,7 +222,7 @@ func TestService_List_FromExtensionInstallation(t *testing.T) {
 
 func TestService_List_ExtensionWithoutRecordsFallsBackToDB(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	installBackupAdvancedExtension(t, env, map[string]any{})
 	createBackupRow(t, env, &model.Backup{BackupID: "db-1", Name: "db-one", Type: "full"})
@@ -204,7 +249,7 @@ func TestService_List_ExtensionInvalidConfigJSON(t *testing.T) {
 	require.NoError(t, env.db.Exec("UPDATE extension_installations SET config_json = ? WHERE id = ?",
 		`{invalid-json`, item.ID).Error)
 
-	_, err := env.service.List(context.Background(), &BackupsListRequest{})
+	_, err := env.service.List(env.authCtx(t), &BackupsListRequest{})
 	require.Error(t, err)
 }
 
@@ -213,7 +258,7 @@ func TestService_List_ExtensionRecordsWrongType(t *testing.T) {
 
 	installBackupAdvancedExtension(t, env, map[string]any{"backups": "not-an-array"})
 
-	_, err := env.service.List(context.Background(), &BackupsListRequest{})
+	_, err := env.service.List(env.authCtx(t), &BackupsListRequest{})
 	require.Error(t, err)
 }
 
@@ -223,8 +268,14 @@ func TestService_List_DatabaseError(t *testing.T) {
 	require.NoError(t, model.AutoMigrate(db))
 	require.NoError(t, db.Migrator().DropTable("backups"))
 
-	service := NewService(&svc.ServiceContext{DB: db, BackupModel: model.NewBackupModel(db)})
-	_, err = service.List(context.Background(), &BackupsListRequest{})
+	seedBackupSuperAdmin(t, db)
+	service := NewService(&svc.ServiceContext{
+		DB:          db,
+		AdminModel:  model.NewAdminModel(db),
+		RoleModel:   model.NewRoleModel(db),
+		BackupModel: model.NewBackupModel(db),
+	})
+	_, err = service.List(context.WithValue(context.Background(), "username", backupSuperAdminUsername), &BackupsListRequest{})
 	require.Error(t, err)
 }
 
@@ -234,7 +285,7 @@ func TestService_List_DatabaseError(t *testing.T) {
 
 func TestService_Create_Success(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	resp, err := env.service.Create(ctx, &BackupCreateRequest{})
 	require.NoError(t, err)
@@ -256,7 +307,7 @@ func TestService_Create_Success(t *testing.T) {
 
 func TestService_Create_SyncsExtensionRecords(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	installBackupAdvancedExtension(t, env, map[string]any{})
 
@@ -296,8 +347,14 @@ func TestService_Create_DatabaseError(t *testing.T) {
 	require.NoError(t, model.AutoMigrate(db))
 	require.NoError(t, db.Migrator().DropTable("backups"))
 
-	service := NewService(&svc.ServiceContext{DB: db, BackupModel: model.NewBackupModel(db)})
-	_, err = service.Create(context.Background(), &BackupCreateRequest{Name: "x"})
+	seedBackupSuperAdmin(t, db)
+	service := NewService(&svc.ServiceContext{
+		DB:          db,
+		AdminModel:  model.NewAdminModel(db),
+		RoleModel:   model.NewRoleModel(db),
+		BackupModel: model.NewBackupModel(db),
+	})
+	_, err = service.Create(context.WithValue(context.Background(), "username", backupSuperAdminUsername), &BackupCreateRequest{Name: "x"})
 	require.Error(t, err)
 }
 
@@ -313,7 +370,7 @@ func TestUpsertBackupToExtension_EmptyID(t *testing.T) {
 
 func TestService_Delete_Success(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	row := createBackupRow(t, env, &model.Backup{BackupID: "bkp-del", Name: "del", Type: "full"})
 
@@ -325,7 +382,7 @@ func TestService_Delete_Success(t *testing.T) {
 
 func TestService_Delete_RemovesExtensionRecord(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	installBackupAdvancedExtension(t, env, map[string]any{"backups": []Backup{
 		{Id: "ext-keep", Type: "full"},
@@ -343,14 +400,14 @@ func TestService_Delete_RemovesExtensionRecord(t *testing.T) {
 
 func TestService_Delete_EmptyID(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	err := env.service.Delete(context.Background(), &BackupDeleteRequest{ID: "   "})
+	err := env.service.Delete(env.authCtx(t), &BackupDeleteRequest{ID: "   "})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "备份ID不能为空")
 }
 
 func TestService_Delete_NotFound(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	err := env.service.Delete(context.Background(), &BackupDeleteRequest{ID: "missing"})
+	err := env.service.Delete(env.authCtx(t), &BackupDeleteRequest{ID: "missing"})
 	require.Error(t, err)
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr)
@@ -363,8 +420,14 @@ func TestService_Delete_DatabaseError(t *testing.T) {
 	require.NoError(t, model.AutoMigrate(db))
 	require.NoError(t, db.Migrator().DropTable("backups"))
 
-	service := NewService(&svc.ServiceContext{DB: db, BackupModel: model.NewBackupModel(db)})
-	err = service.Delete(context.Background(), &BackupDeleteRequest{ID: "any"})
+	seedBackupSuperAdmin(t, db)
+	service := NewService(&svc.ServiceContext{
+		DB:          db,
+		AdminModel:  model.NewAdminModel(db),
+		RoleModel:   model.NewRoleModel(db),
+		BackupModel: model.NewBackupModel(db),
+	})
+	err = service.Delete(context.WithValue(context.Background(), "username", backupSuperAdminUsername), &BackupDeleteRequest{ID: "any"})
 	require.Error(t, err)
 }
 
@@ -388,7 +451,7 @@ func TestRemoveBackupFromExtension_NoRecords(t *testing.T) {
 
 func TestService_Download_SuccessFlow(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	// AUD-COV-001 P1 后下载走 objstore：对象经 file 驱动写入 base 目录，
 	// 记录 location = 对象 key（与备份执行器写入语义一致）。
@@ -427,7 +490,7 @@ func TestService_Download_SuccessFlow(t *testing.T) {
 // 读取面已收敛到 objstore 语义），一律拒绝。
 func TestService_Download_RejectsLocalFilesystemPaths(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	base := t.TempDir()
 	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: base})
@@ -463,7 +526,7 @@ func TestService_Download_RejectsLocalFilesystemPaths(t *testing.T) {
 
 func TestService_Download_RelativePath(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	// 相对 key 语义收敛到 objstore：相对 base 目录解析，不再相对进程 CWD。
 	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
@@ -516,7 +579,7 @@ func (s *listOkGetFailStub) RenamePrefix(ctx context.Context, oldPrefix, newPref
 
 func TestService_Download_ObjectLookupAndOpenFailures(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	t.Run("对象不存在：List 无精确匹配", func(t *testing.T) {
 		store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
@@ -555,7 +618,7 @@ func TestService_Download_RemoteRedirect(t *testing.T) {
 		Location: "https://storage.example.com/backups/bkp-remote.tar",
 	})
 
-	payload, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-remote"})
+	payload, err := env.service.Download(env.authCtx(t), &BackupDownloadRequest{ID: "bkp-remote"})
 	require.NoError(t, err)
 	assert.Equal(t, "https://storage.example.com/backups/bkp-remote.tar", payload.RedirectURL)
 	assert.Nil(t, payload.Reader)
@@ -563,14 +626,14 @@ func TestService_Download_RemoteRedirect(t *testing.T) {
 
 func TestService_Download_EmptyID(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	_, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: " "})
+	_, err := env.service.Download(env.authCtx(t), &BackupDownloadRequest{ID: " "})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "备份ID不能为空")
 }
 
 func TestService_Download_NotFound(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	_, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "nope"})
+	_, err := env.service.Download(env.authCtx(t), &BackupDownloadRequest{ID: "nope"})
 	require.Error(t, err)
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr)
@@ -582,7 +645,7 @@ func TestService_Download_NoLocation(t *testing.T) {
 
 	createBackupRow(t, env, &model.Backup{BackupID: "bkp-empty", Name: "pending-backup"})
 
-	_, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-empty"})
+	_, err := env.service.Download(env.authCtx(t), &BackupDownloadRequest{ID: "bkp-empty"})
 	require.Error(t, err)
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr)
@@ -591,7 +654,7 @@ func TestService_Download_NoLocation(t *testing.T) {
 
 func TestService_Download_FileMissing(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
 	require.NoError(t, err)
@@ -616,7 +679,7 @@ func TestService_Download_FileMissing(t *testing.T) {
 
 func TestFindActiveBackupInstallation(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	// No installations.
 	_, ok, err := env.service.findActiveBackupInstallation(ctx)
@@ -687,7 +750,7 @@ func TestRecordBackupEvent(t *testing.T) {
 
 func TestSaveBackupsToExtensionInstallation_PreservesSecretRefs(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	item := installBackupAdvancedExtension(t, env, map[string]any{"other": "value"})
 	require.NoError(t, env.db.Exec("UPDATE extension_installations SET secret_refs_json = ? WHERE id = ?",
@@ -708,10 +771,18 @@ func TestSaveBackupsToExtensionInstallation_PreservesSecretRefs(t *testing.T) {
 
 func doBackupRequest(t *testing.T, env *backupFlowEnv, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
+	return doBackupRequestAs(t, env, method, path, body, backupSuperAdminUsername)
+}
+
+// doBackupRequestAs 以指定用户名发起备份路由请求（模拟 AuthMiddleware 在
+// 请求上下文放置 username 的契约），驱动服务层授权门的允许/拒绝两端。
+func doBackupRequestAs(t *testing.T, env *backupFlowEnv, method, path, body, username string) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	req = req.WithContext(context.WithValue(req.Context(), "username", username))
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 	return rec
@@ -756,7 +827,7 @@ func TestHandler_Delete(t *testing.T) {
 
 func TestHandler_Download(t *testing.T) {
 	env := setupBackupFlowEnv(t)
-	ctx := context.Background()
+	ctx := env.authCtx(t)
 
 	// AUD-COV-001 P1 后：handler 下载走 objstore（记录 location = 对象 key）。
 	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
@@ -824,7 +895,7 @@ func TestService_Download_FileURIInvalid(t *testing.T) {
 		Location: "file://\x7f/backup.tar",
 	})
 
-	_, err = env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-bad-uri"})
+	_, err = env.service.Download(env.authCtx(t), &BackupDownloadRequest{ID: "bkp-bad-uri"})
 	require.Error(t, err)
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr)

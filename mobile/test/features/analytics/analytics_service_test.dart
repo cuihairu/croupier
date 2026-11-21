@@ -34,10 +34,7 @@ void main() {
             'metrics': {'dau': 42, 'mau': 7},
           },
         },
-        {
-          'domain': 'economy',
-          'status': 'pending_data_source',
-        },
+        {'domain': 'economy', 'status': 'pending_data_source'},
         {
           'domain': 'payments',
           'status': 'unavailable',
@@ -62,10 +59,7 @@ void main() {
 
   test('domains 非 List → StateError（不静默当空卡组）', () async {
     adapter.handler = (options, _) => jsonResponse(200, {'domains': 'oops'});
-    await expectLater(
-      service.summary(gameId: 'demo'),
-      throwsStateError,
-    );
+    await expectLater(service.summary(gameId: 'demo'), throwsStateError);
   });
 
   test('query POST body 携带 domain/filter/timeRange，返回 data', () async {
@@ -101,13 +95,15 @@ void main() {
   });
 
   test('分域请求注入 scope 头（analytics 是 scoped 端）', () async {
-    await store.save(const SessionData(
-      token: 'jwt',
-      user: {'username': 'admin'},
-      gameId: 'demo',
-      env: 'prod',
-      serverUrl: 'http://gm.test',
-    ));
+    await store.save(
+      const SessionData(
+        token: 'jwt',
+        user: {'username': 'admin'},
+        gameId: 'demo',
+        env: 'prod',
+        serverUrl: 'http://gm.test',
+      ),
+    );
     adapter.handler = (options, _) => jsonResponse(200, {
       'gameId': 'demo',
       'env': 'prod',

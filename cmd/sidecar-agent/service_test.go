@@ -103,8 +103,11 @@ func TestAgentServiceStart_RunAgentFailure(t *testing.T) {
 	require.NoError(t, svc.Start(fake))
 	waitStopped(t, fake.stopped)
 
-	// Stop 方法：取消 ctx 并记录日志
-	require.NoError(t, svc.Stop(fake))
+	// Stop 方法：取消 ctx 并记录日志。runner 已以错误退出，Stop 必须把该
+	// 错误如实报告给服务管理器（AUD-004），而非伪装成干净停机。
+	err := svc.Stop(fake)
+	require.ErrorIs(t, err, assert.AnError)
+	require.ErrorContains(t, err, "agent runner 以错误退出")
 }
 
 // Start 的 ctx 取消分支：runAgentFunc 替身走成功路径，取消 ctx 后

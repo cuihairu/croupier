@@ -36,16 +36,19 @@ func TestRegisterHandlersPrometheusExposition(t *testing.T) {
 	assert.True(t, found, "Prometheus exposition route %s should be registered", path)
 }
 
-// TestRegisterAuthRoutesSecretFallback covers the ResolveSecret failure
-// branch in registerAuthRoutes: outside development mode without a JWT
-// secret, the dev fallback secret is applied.
-func TestRegisterAuthRoutesSecretFallback(t *testing.T) {
+// TestRegisterAuthRoutesSecretPanic covers the ResolveSecret failure branch in
+// registerAuthRoutes: outside development mode without a JWT secret, the
+// router construction must fail closed (panic) instead of silently applying
+// the public dev fallback secret (AUD-008).
+func TestRegisterAuthRoutesSecretPanic(t *testing.T) {
 	t.Setenv("CROUPIER_ENV", "production")
 	t.Setenv("CROUPIER_MODE", "prod")
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	RegisterHandlers(r, &svc.ServiceContext{})
+	assert.Panics(t, func() {
+		RegisterHandlers(r, &svc.ServiceContext{})
+	}, "production mode without a JWT secret must panic, not fall back to DevSecret")
 }
 
 // newPlatformSettingStore opens an in-memory DB with the platform settings

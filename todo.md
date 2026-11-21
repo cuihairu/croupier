@@ -1732,25 +1732,37 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 1eb0085e3（2 文件，207 insertions / 30 deletions）；实现 `mobile/lib/features/analytics/analytics_controller.dart`（`_requestSeq` 过期丢弃 + `copyWith` `clearSummary`/`clearError` 显式置空），测试 `mobile/test/features/analytics/analytics_dashboard_page_test.dart`（AUD-003 组 3 用例 + `_ScopeStub`）。
   - 已知边界：请求取消采用序号丢弃而非实际中止网络请求——挂起的旧请求仍会到达服务端，仅其结果被丢弃；会话加载后的首个序号检查放在 `load()` 之后，若作用域恰在会话加载瞬间变化仍可能发一次旧作用域请求（结果被序号守卫丢弃，不写状态）；`ScopeController` 的网络持久化面由测试桩绕过，控制器对 scope 变化的反应是验证主体。
 
-- [ ] **AUD-004 · P2 · 修复 · Agent Stop 超时必须向服务管理器报告未完成**
+- [x] **AUD-004 · P2 · 修复 · Agent Stop 超时必须向服务管理器报告未完成**
   - 依赖：—。交付与验收：达到停止等待上限仍未收到 `done` 时返回可识别错误/超时，并记录 runner 未退出；区分正常退出、runner 错误退出和超时；覆盖 runner 卡住、正常完成及重复 Stop。
-  - 状态／条件：静态审核确认 `Stop` 等待 15 秒后无条件返回 nil（`cmd/sidecar-agent/service.go:163-175`），可能让服务管理器认定已停而后台 runner 仍继续运行；注释虽称兜底防卡死，但超时没有传播。
+  - 状态／条件：LOCAL VERIFIED（2026-11-21，commit f0dbadc44）：`croupierAgentService.Stop` 增加 `stopTimeout` 字段（构造默认 15s，测试注入短值）与 `runErr` 字段（Start 后台 goroutine 在 `close(done)` 前写入，Stop 收到 done 后读取，close/receive happens-before 保证无竞争）；三种结果区分——正常退出日志「已停止」返回 nil、runner 错误退出日志并 `fmt.Errorf("agent runner 以错误退出: %w", runErr)` 返回该错误、超时日志「后台 runner 在 %s 内未退出」并 `errors.New("agent 停止超时：后台 runner 未退出")`；kardianos systemd 的 `run()` 直接返回 `s.i.Stop(s)`，该错误经 `runServiceRun` 向上传播，服务管理器不再把卡死伪装成干净停机（`cmd/sidecar-agent/service.go`）。
+  - 验证：`go build ./...` 0 错；`go test ./cmd/sidecar-agent/ -count=1` 全绿（8.7s）；`go test ./internal/... -count=1` 172 包 0 FAIL；gofmt 干净；`bash scripts/dashboard_vnext_guard.sh` PASSED；变异自证：把 Stop 退回「select 后无条件 return nil」旧代码（含移除 errors import）→ `TestAgentServiceStop_Timeout` 与 `TestAgentServiceStart_RunAgentFailure` 如实红（超时伪装成功、runner 错误被吞），还原后全绿。
+  - 完成证据：commit f0dbadc44（3 文件，96 insertions / 10 deletions）；实现 `cmd/sidecar-agent/service.go`（`stopTimeout`/`runErr` 字段 + 三态 Stop），测试 `cmd/sidecar-agent/service_stop_test.go`（新：runner 卡住超时+重复 Stop、正常完成+重复 Stop）与 `cmd/sidecar-agent/service_test.go`（既有 `TestAgentServiceStart_RunAgentFailure` 契约更新：runner 错误退出时 Stop 返回该错误）。
+  - 已知边界：runner 卡住时 Stop 仅返回超时错误，进程不强杀后台 runner（`os.Exit` 等杀进程手段不在本项范围，kardianos 文档要求 Stop 内不调用 `os.Exit`）；超时默认 15s 为既有防卡死兜底值，本项未改动时长；`runErr` 仅记录 runAgent 返回的错误，Start 期间的 panic 等非返回路径不经过该字段。
 
-- [ ] **AUD-005 · P2 · 修复 · 同步六语言 Provider 鉴权能力矩阵与实现**
+- [x] **AUD-005 · P2 · 修复 · 同步六语言 Provider 鉴权能力矩阵与实现**
   - 依赖：—。交付与验收：复核六种官方 SDK 实际握手 metadata 注入与回归覆盖，更新单一事实矩阵及中英文引用页面；确保鉴权行不把已实现能力标成未实现，并补齐任何缺失语言实现。
-  - 状态／条件：静态审核确认矩阵仍称 Go/Python/Java 仅支持 L3 Bearer，且下方说明写明未注入 Provider 握手 metadata（`sdks/SDK_FEATURE_MATRIX.md:41-44`），但当前 Go/Python/Java 源码已分别在握手 metadata 注入 `authToken`（`sdks/go/pkg/croupier/tcp_manager.go:869-877`、`sdks/python/croupier/__init__.py:357-361`、`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:356-361`），形成直接文档漂移。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit 3717c7c56）：复核确认六语言均在 ProviderConnect 握手 metadata 注入 `authToken` 键（CR-FIX-11）——Go `connectMetadata()`（`sdks/go/pkg/croupier/tcp_manager.go:871-880`，ProviderConnect 两处调用 269/560）、Python `get_provider_connect_request`（`sdks/python/croupier/__init__.py:357-361`）、Java `buildProviderConnectRequest`（`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:356-361`）、JS `getRegisterRequest`、C++ `croupier_client.cpp:786`、C# `CroupierClient.cs:729-731`；矩阵鉴权行由「Go/Python/Java ⚠️ 仅 L3」回改为六语言全 ✅，并把行标签「Bearer 握手 metadata」更正为「握手 metadata `authToken` 键」（Bearer 属 L3 HTTP 鉴权面，非握手机制），注释同步；中英文引用面核对：`docs/architecture/sdk-wire-protocol.md`（+zh）已正确写明「六语言行为一致，连接帧携带 metadata["authToken"]」，`docs/sdks/sdk-parity-matrix.md`（+zh）无鉴权行，均无需改动；`docs/审计-文档一致性.md` D05（原判「文档超前于代码」）复核为误报——原源码证据漏看握手注入路径，45bba54b 的「仅 L3」标注予以回改。
+  - 验证：`bash scripts/check-sdk-matrix.sh` PASSED（All required L1 symbols present）；`cd docs && CI=true pnpm build` 完成（88.3s）；`bash scripts/dashboard_vnext_guard.sh` PASSED；`rg "仅 L3" sdks/ docs/` 仅剩 `docs/审计-文档一致性.md:38` 处置列的历史引用（引号内），无残留漂移；无代码变更（六语言实现与回归覆盖已齐），Go/Python/Java 注入点各自有回归测试（`tcp_manager_auth_test.go`/`test_client.py`/`ProviderConnectMetadataTest`）。
+  - 完成证据：commit 3717c7c56（2 文件，21 insertions / 21 deletions）；实现（文档）`sdks/SDK_FEATURE_MATRIX.md`（鉴权行 + 注释回改全 ✅ 并更正行标签），审计记录 `docs/审计-文档一致性.md`（D05 行：复核为误报、45bba54b 标注回改）。
+  - 已知边界：本项为文档漂移修复，未改任何 SDK 代码——六语言握手 `authToken` 注入与回归覆盖均已存在（CR-FIX-11），「补齐任何缺失语言实现」经复核无缺失项；行标签把「Bearer」从握手机制中剔除，L3 Invoker 的 `Authorization: Bearer` 是独立的 Server HTTP API 鉴权面（JS `buildInvocationMetadata`、C# `CroupierInvoker`），不在本行覆盖；`docs/审计-文档一致性.md` 的 zh 平行树 D05 行为另一条（pnpm 版本）记录，非本项，未改动。
 
-- [ ] **AUD-006 · P2 · 修复 · 锁定移动端依赖与 CI Dart SDK 的可复现兼容范围**
+- [x] **AUD-006 · P2 · 修复 · 锁定移动端依赖与 CI Dart SDK 的可复现兼容范围**
   - 依赖：—。交付与验收：在 Flutter 3.35.1 / 对应 Dart 工具链下生成并提交一致 lockfile；若依赖确需 Dart 3.11，显式升级 CI Flutter 并同步 `pubspec.yaml` SDK 下界；增加不会静默重写锁文件的 CI 检查。
-  - 状态／条件：当前工作区 lockfile（用户未提交修改）声明 Dart `>=3.11.0-0`，而 CI 固定 Flutter 3.35.1（Dart 3.9 系）且 `pubspec.yaml` 声明 `^3.9.0`。这造成工具链/锁文件不一致风险；需在提交该用户工作区改动前用固定 CI 工具链确认依赖解析，当前尚未执行 Flutter 验证，不能断言流水线已失败。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit 5c342be86 + 7855baf95 + fbd8c120e）：逐包核对 pub cache 全部 50 个托管依赖——无一需要 Dart 3.11（各自 SDK 约束上限 >=3.0.0），`sdks.dart: ">=3.11.0-0"` 完全来自本机 Flutter 3.47.9 框架包（flutter/flutter_test/sky_engine 各自声明 `sdk: ^3.11.0-0`，属 `source: sdk` 约束）；走「依赖无需 3.11 → 不升级 CI」分支：下载与 CI 完全一致的 Flutter 3.35.1（Dart 3.9.0）重解析并提交 lockfile——6 个 SDK 钉版传递依赖降为 3.9 兼容版（characters 1.4.0 / matcher 0.12.17 / material_color_utilities 0.11.1 / meta 1.16.0 / test_api 0.7.6 / vector_math 2.2.0），`sdks.dart` 归位 `">=3.9.0 <4.0.0"`（`sdks.flutter` 保持 `">=3.35.0"`），`pubspec.yaml` 下界与 CI Flutter 版本均不动；CI 两 job 的 `flutter pub get` 改 `--enforce-lockfile`——锁文件与 pubspec.yaml/当前 SDK 不一致时直接失败，不再静默重解析。
+  - 验证：Flutter 3.35.1 下 `flutter analyze` 0 issues；`flutter test --coverage` 238 passed（02:02）；`dart format --set-exit-if-changed` rc=0（4 个 analytics 文件先按 3.9 formatter 对齐）；`flutter build apk --debug` ✓ Built（gradle assembleDebug 718.7s）；`pub get` 二次执行零改写（幂等）；变异自证：放回陈旧 lockfile（>=3.11.0-0）→ `--enforce-lockfile` rc=65 如实失败（「To update pubspec.lock run flutter pub get without --enforce-lockfile」），还原已提交版本后 rc=0 且工作区零改写；`pnpm --dir web run tsc` 0 错、`bash scripts/dashboard_vnext_guard.sh` PASSED（无 web/Go 变更，未跑 go test）。
+  - 完成证据：commit 5c342be86（`mobile/pubspec.lock`，13/13 行：6 个 SDK 钉版包降级 + sdks.dart 归位 3.9）；commit 7855baf95（4 个 analytics 文件 39/45：Dart 3.9 formatter 对齐——AUD-003 文件此前按本机 3.13 formatter 产出致 CI format 门禁红）；commit fbd8c120e（`.github/workflows/ci-mobile.yml`：flutter/apk 两 job 的 pub get 加 `--enforce-lockfile`，6/2 行）。
+  - 已知边界：SDK 钉版传递依赖随工具链硬绑定——本机 Flutter 3.47.9 上 `flutter pub get` 会把 lockfile 改写回 3.13 形态（漂移根因，实证复现），本地改写不得提交（CI `--enforce-lockfile` 会挡下）；lockfile 以 CI 工具链 3.35.1/Dart 3.9 为唯一正典，未来升级 CI Flutter 须用新工具链重解析并同步提交；本机 Flutter 3.47.9 与 CI 3.35.1 的 formatter 风格有差异（3.13 formatter 产物会让 CI 的 3.9 format 门禁报红），本地编辑后须用 3.35.1 的 `dart format` 对齐；iOS 面不涉及。
 
 ### 续审确认项（AUD-007..028）
 
 > 11 月 12 日第一轮报告与 11 月 13 日代码逻辑续审均为待修发现；动态证据不等于修复完成。历史导入清单中同一问题以本编号跟踪，避免重复计数。
 
-- [ ] **AUD-007 · P1 · 修复 · 全局备份接口补齐操作授权**
+- [x] **AUD-007 · P1 · 修复 · 全局备份接口补齐操作授权**（commit dd7d0ad88）
   - 依赖：—。交付与验收：按现有平台权限规则覆盖列表、创建、下载、删除；低权限请求返回 403 且无副作用。
-  - 状态／条件：沿真实 AuthMiddleware 验证：零角色账号可列出、下载和删除临时备份。证据 internal/handler/routes_business.go:66-74、internal/api/backup/service.go:37/177；11-12 报告及 go-probes.log。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit dd7d0ad88）：`internal/api/backup/service.go` 的 List/Create/Delete/Download 四方法顶部各加 `utils.RequireAnyPermission(ctx, s.svcCtx, "无权…", "admin:all", "backup:read|create|delete")`（List+Download→`backup:read`，Create→`backup:create`，Delete→`backup:delete`）；超管/admin:all 直通分支保留，其余按角色权限集合判定，拒绝返回 `NewPermissionDenied`→403 `permission_denied`。守卫置于模型初始化检查之前：低权限请求在触碰数据面前即被拒，零副作用；misconfig（模型未初始化）仍 500。
+  - 验证：`go test ./internal/api/backup/` 全绿（新增 2 用例：`TestBackupService_ZeroRolePermissionDenied` 服务级零角色 4 操作全 403 + 无副作用对照超管可用；`TestHandler_BackupPermission_ZeroRoleDenied` handler/路由级 403 + `permission_denied` 落 HTTP 体 + 数据面不变）；变异自证：移除 List 守卫→`TestHandler_BackupPermission_ZeroRoleDenied` 如实红（200 返回泄露条目而非 403），还原后绿；`go test ./internal/...` 全绿；`go build ./...` 0 错；`bash scripts/dashboard_vnext_guard.sh` PASSED。
+  - 完成证据：commit dd7d0ad88（`internal/api/backup/service.go` 12/0 行四守卫；`internal/api/backup/backup_permission_test.go` 129 行新增回归；`backup_flows_extra_test.go`/`executor_extra_test.go` 测试超管账号 seed + 授权上下文适配）。
+  - 已知边界：`internal/handler/routes_task.go:108-111` 的 `/ops/backups`（游戏域控制台面）走 `internal/api/ops` 自有 BackupService（`internal/api/ops/backups.go`，List/Create/Delete/GetDownloadURL 均无 `RequireAnyPermission`），与本项 routes_business.go 面不同源，**未改**；该项仅按 todo 明确锚点（routes_business.go:66-75 + api/backup/service.go）修复，ops 备份面若需同规应另立审计项。
 
 - [ ] **AUD-008 · P1 · 修复 · 明确生产模式时拒绝公开 JWT 开发密钥回退**
   - 依赖：—。交付与验收：覆盖配置模式与环境变量组合，生产模式空密钥必须启动失败。
