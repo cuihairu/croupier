@@ -751,7 +751,7 @@
 #### 查询口径与运营闭环
 
 - [ ] **DATA-024 · P1 · 修复 · 行为分析覆盖完整查询窗口**
-  - 依赖：—。交付与验收：摘要、热图、采用明细、漏斗和路径按完整窗口做有界聚合。若采用抽样，在响应中明确规模和覆盖偏差。超过 100 条的样本必须覆盖跨分页的漏斗步骤。证据：`internal/api/analytics/behavior.go:31,168,235,323` 只读第一页且丢弃总量，`internal/model/vars.go:58` 将 3000/5000 压为 100。
+  - 依赖：—。交付与验收：摘要、热图、采用明细、漏斗和路径按完整窗口做有界聚合。若采用抽样，在响应中明确规模和覆盖偏差。超过 100 条的样本必须覆盖跨分页的漏斗步骤。证据：`internal/api/analytics/behavior.go:31,168,235,323` 只读第一页且丢弃总量，`internal/model/vars.go:58` 将 3000/5000 压为 100。续审确认关卡、剧集、地图也走同一个只取一页的 helper，见 `internal/api/analytics/retention.go:76,154,231`，验收需一并覆盖。
 
 - [ ] **DATA-025 · P1 · 实现 · 实时在线与会话采用各自权威来源**
   - 依赖：DATA-001, DATA-002。交付与验收：以心跳或会话生命周期计算在线与活跃会话，事件吞吐单独展示；验证一会话多事件、多个设备和长时间无心跳。证据：`internal/api/analytics/overview.go:137` 将窗口用户数作为在线人数、事件数作为活跃会话数。
@@ -831,6 +831,35 @@
 
 - [ ] **DATA-049 · P2 · 优化 · 调用统计的延迟计算具有确定口径和资源上限**
   - 依赖：—。交付与验收：公开 P95 算法、缺失样本和小样本处理，验收 1、2、20、21 条与大体量样本。长窗口计算须有服务端时间和内存预算，并在高负载下保持汇总语义。证据：`internal/api/analytics/invocations.go:200,229,246` 允许 30 天窗口，两份内存切片处理全量延迟并原地排序，低样本下现有取整可能偏低，既有百分位测试只有 20 条有效样本。
+
+#### Worker 失败恢复与付费查询续审（2026-11-21）
+
+- [ ] **DATA-050 · P1 · 修复 · 事件与支付批次独立推进刷新**
+  - 依赖：ARCH-011。交付与验收：周期和最终刷新都尝试处理两条流，分别报告失败。验收事件 Send 持续失败且支付可正常写入时，支付继续落仓并 ACK，事件保留 pending。证据：`internal/analytics/worker/worker_flush.go:121` 事件刷新失败后直接返回；ClickHouse 替身观测事件 Send 调用一次、支付一次也未调用。
+
+- [ ] **DATA-051 · P1 · 修复 · 为补发事件保留稳定去重键**
+  - 依赖：ARCH-011、DATA-017。交付与验收：为缺失上游 ID 的逻辑事件生成一次标识并贯穿持久重试，或在入口明确拒绝不符合契约的 ID。验收同一消息在 Send 后 ACK 失败、重启回收及重新入队时仍可按同一事件 ID 去重。证据：`internal/analytics/worker/worker_insert.go:23,27` 每次处理重新生成 UUID；相同 Redis 消息重复处理的探针得到两个不同 ID。
+
+- [ ] **DATA-052 · P1 · 修复 · 将重投和死信转移做成幂等状态变更**
+  - 依赖：DATA-019。交付与验收：目标流写入成功而源 ACK 失败时，再次处理不会复制重试记录或死信，目标未写入时源消息可继续回收。覆盖故障发生在两条 Redis 命令之间、超时结果未知及多个 worker 的情形。证据：`internal/analytics/worker/worker_checkpoint.go:71,107,120,148` 将两步分开执行。Redis 替身在 XADD 成功、XACK 连续失败时记录同一源消息两条死信。
+
+- [ ] **DATA-053 · P1 · 修复 · 让定时批量写入失败进入可恢复的重试流程**
+  - 依赖：ARCH-011、DATA-052。交付与验收：给批次刷新失败的记录保留可观察的状态与次数，区分短期仓库故障和持续失败的记录。覆盖不足一批、长期 Send 错误、仓库恢复和永久坏记录的隔离。证据：`internal/analytics/worker/worker_checkpoint.go:84,122` 仅处理同步错误时递增重试次数，`worker_flush.go:23,49` 的定时 Send 错误丢弃内存批次与确认引用。Redis 与 ClickHouse 替身复跑超过阈值后，源消息仍 pending、重试计数仍为 0。
+
+- [ ] **DATA-054 · P1 · 修复 · 原始事件与聚合使用同一个事件时间**
+  - 依赖：DATA-001。交付与验收：采集、写仓、活跃分桶统一解析 RFC3339、兼容 epoch 输入和业务时区。对无效时间采用明确处置，重放结果不随处理时间漂移。证据：`internal/analytics/worker/worker_insert.go:13` 与 `worker_helpers.go:90` 的原始行允许 epoch 字符串，`worker_agg.go:32` 的 HLL 只读 RFC3339。探针从同一旧事件得到正确历史原始行和当天活跃桶。
+
+- [ ] **DATA-055 · P1 · 修复 · 隔离不同 Redis 消费组的检查点**
+  - 依赖：DATA-023。交付与验收：若保留应用检查点，则将消费组纳入持久键，明确旧无分组键的迁移规则。共享同一 stream 的两个组独立消费与重启，验收各自消费位置均不受另一个组影响。证据：`internal/analytics/worker/worker_checkpoint.go:18,29,42` 检查点键只含 stream，恢复对各自的 group 调用 XGroupSetID。两个组的替身探针复现共用键被较旧进度覆盖。
+
+- [ ] **DATA-056 · P1 · 修复 · 按周和月的实际窗口去重付费人数**
+  - 依赖：DATA-004。交付与验收：天、ISO 周、月分别按请求作用域及身份粒度进行区间去重。跨日重复购买的同一玩家在周或月内只计算一次，收入与订单数仍保持原语义。证据：`internal/api/analytics/payments.go:181,316,356` 先查日去重数，再按周或月相加，无法识别跨日重复用户。SQLite 对账采用生产 SQL，同一人两天各支付一次时日去重相加得到 2，周内 DISTINCT 得到 1。完整 Go API 定向测试在限时内未完成。
+
+- [ ] **DATA-057 · P1 · 修复 · 付费指标在活跃分母不可用时显式降级**
+  - 依赖：DATA-001。交付与验收：区分活跃来源未配置、查询失败、无活跃与有可用样本。保留可核实的营收、付费人数与 ARPPU，缺少分母时对 ARPU、付费率显示不可用。证据：`internal/api/analytics/payments.go:45,61` 查询失败、未配置或计数为零时退回付费人数；仍有付费的窗口因此显示 100% 付费率和与 ARPPU 相等的 ARPU。当前已按源码核对，完整 Go API 定向测试在限时内未完成。
+
+- [ ] **DATA-058 · P1 · 修复 · 以同批关卡尝试统计完成率**
+  - 依赖：DATA-001、DATA-024。交付与验收：按稳定尝试标识关联开始与完成事件，给仅有完成数据的窗口定义不可用或明确的跨窗归属。验收重复上报、前一天开始当天完成、异步到达及零次尝试。证据：`internal/api/analytics/retention.go:100,112,128` 独立计数后使用 max(attempts, 1) 作分母。没有开始记录的窗口含两次完成时公式得到 200%，当前为源码确认。
 
 ## 前端审核复验
 
@@ -1647,7 +1676,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：完成（2026-11-16 codex exec read-only 静态审计 + 2026-11-17 逐条人工复核）。LOCAL VERIFIED
   - 完成证据：报告 `docs/review/aud-cov-001-go-api-2026-11-16.md`（3 P0/8 P1/7 P2/6 P3 + 处置记录附注）；当场修 4 条 `9bc08d56a`/`5b0fee15f`/`ce667c63d`/`8dbf59c53`（各带新用例，`go test ./internal/api/... -count=1` 全绿）；遗留 21 条落 AUD-036..056 排期。
 - [ ] AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
-  - 进度（2026-11-21）：本轮核对了 GameDB 首开/关闭、Redis 消费进度及任务留痕，见 DATA-019～023、AUD-057～058、AUD-077。续审追加调度状态、事件游标与迁移上下文、会话锁，见 AUD-086～091、AUD-098。缓存层另外确认管理员凭据字段被序列化，见 AUD-100。本轮补查分析发布、消费进度与读仓失败，见 DATA-043～049。迁移回滚、真实驱动故障和任务恢复全链仍待复核。
+  - 进度（2026-11-21）：本轮核对了 GameDB 首开/关闭、Redis 消费进度及任务留痕，见 DATA-019～023、AUD-057～058、AUD-077。续审追加调度状态、事件游标与迁移上下文、会话锁，见 AUD-086～091、AUD-098。缓存层另外确认管理员凭据字段被序列化，见 AUD-100。本轮补查分析发布、消费进度与读仓失败，见 DATA-043～049。 已补查 Worker 批量写入、确认、重试与跨组检查点，见 DATA-050～055。迁移回滚、真实驱动故障和任务恢复全链仍待复核。
 - [ ] AUD-COV-003 · 复核 · Agent 与消息传输/协议：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
   - 进度（2026-11-21）：本轮补查 Provider 与互联的关闭边界，见 AUD-070～075、AUD-081。续审复现 Agent 注册就绪、停止后重连与配置版本回退问题，见 AUD-092～094。历史复核补记下次协议升版前的协商缺口 AUD-101。控制面真实装配、重连与背压组合仍待复核。
 - [ ] AUD-COV-004 · 复核 · 六语言 SDK 与插件：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
@@ -1666,15 +1695,15 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 下表列出当前台账缺少完整复核证据的源码入口，以及需要补做的运行验证。分析与 SDK 已核对的部分见本轮新增条目。
 
-| 范围             | 仍需审核的源码与入口                                                                                                                                                                                                   | 仍需运行的验收                                                                                  |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 数据分析         | `internal/analytics/worker/worker_{insert,flush,ack,checkpoint}.go` 的失败组合。继续核对 `internal/api/analytics/{payments,retention,behavior}.go` 的时区、退款及跨窗口口径，以及 Web、Mobile 分析页的空态与失败映射。 | 入站 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
-| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 的多库打开失败与重试，以及 `internal/tasks/store.go` 的冷库任务恢复。                                                                  | 真实数据库升级、失败恢复和多进程重启演练。                                                      |
-| Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。          | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                      |
-| SDK 与插件       | `sdks/java/spring-boot-starter/` 的 Spring 上下文集成，`sdks/cpp/skynet/` 的桥接，`sdks/python/croupier/integrations/`、`sdks/plugins/{js,python}/` 的扩展装配，以及六语言 examples 和边界 wire 行为。                 | Go 与 Java 固定依赖环境，跨 SDK/TLS 组合和安装发布产物验证。                                    |
-| 移动端           | `mobile/lib/features/` 中会话与作用域以外的操作链、原生插件装配，以及 `mobile/android/`、`mobile/ios/` 的 release 入口。                                                                                               | Android 合并 manifest 与正式签名包，iOS 构建和实机冒烟。                                        |
-| 发布与恢复       | `.github/workflows/` 各平台实际发布，`docker/`、`configs/`、`scripts/` 的运行配置组合，`internal/platform/backupexec/` 的恢复衔接。                                                                                    | 发布演练、真实部署和隔离库恢复，留存结果与提交的对应关系。                                      |
-| 历史审核         | `docs/review/` 中 11 月 1–10 日仍未对照的条目。                                                                                                                                                                        | 按当前 HEAD 标记已修、仍存在及暂无法验证，关联现有待办。                                        |
+| 范围             | 仍需审核的源码与入口                                                                                                                                                                                                  | 仍需运行的验收                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 数据分析         | Worker 写入、确认和回收已复核一批故障，仍需真实 Redis/ClickHouse 多进程复验。继续核对 `internal/api/analytics/{payments,retention,behavior}.go` 其余时区、退款及跨窗口口径，以及 Web、Mobile 分析页的空态与失败映射。 | 入站 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
+| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 的多库打开失败与重试，以及 `internal/tasks/store.go` 的冷库任务恢复。                                                                 | 真实数据库升级、失败恢复和多进程重启演练。                                                      |
+| Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。         | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                      |
+| SDK 与插件       | `sdks/java/spring-boot-starter/` 的 Spring 上下文集成，`sdks/cpp/skynet/` 的桥接，`sdks/python/croupier/integrations/`、`sdks/plugins/{js,python}/` 的扩展装配，以及六语言 examples 和边界 wire 行为。                | Go 与 Java 固定依赖环境，跨 SDK/TLS 组合和安装发布产物验证。                                    |
+| 移动端           | `mobile/lib/features/` 中会话与作用域以外的操作链、原生插件装配，以及 `mobile/android/`、`mobile/ios/` 的 release 入口。                                                                                              | Android 合并 manifest 与正式签名包，iOS 构建和实机冒烟。                                        |
+| 发布与恢复       | `.github/workflows/` 各平台实际发布，`docker/`、`configs/`、`scripts/` 的运行配置组合，`internal/platform/backupexec/` 的恢复衔接。                                                                                   | 发布演练、真实部署和隔离库恢复，留存结果与提交的对应关系。                                      |
+| 历史审核         | `docs/review/` 中 11 月 1–10 日仍未对照的条目。                                                                                                                                                                       | 按当前 HEAD 标记已修、仍存在及暂无法验证，关联现有待办。                                        |
 
 - [x] **AUD-001 · P1 · 修复 · Provider 握手令牌启用时强制保护明文链路**
   - 依赖：—。交付与验收：当 `providerAuth.require=true` 且本地 listener 绑定非 loopback 地址时，拒绝 `tls.enabled=false` 的配置，或提供明确且不可忽略的启动阻断；保持 loopback 开发配置可用；加入启动配置组合验证与部署文档说明。
