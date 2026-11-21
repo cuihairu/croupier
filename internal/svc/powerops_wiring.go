@@ -254,6 +254,8 @@ func newPoweropsOrchestrator(ctx *ServiceContext) *powerops.Orchestrator {
 		Providers:      providers,
 		VerifyTimeout:  time.Duration(cfg.EffectiveVerifyTimeout()) * time.Millisecond,
 		VerifyInterval: time.Duration(cfg.EffectiveVerifyInterval()) * time.Millisecond,
+		ActionTimeout:  time.Duration(cfg.EffectiveActionTimeout()) * time.Millisecond,
+		RequestTimeout: time.Duration(cfg.EffectiveRequestTimeout()) * time.Millisecond,
 	}
 	return orch
 }

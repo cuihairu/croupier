@@ -16,6 +16,13 @@ type PoweropsConfig struct {
 	VerifyTimeoutMs int `json:"verifyTimeoutMs,omitempty" yaml:"verifyTimeoutMs,omitempty"`
 	// VerifyIntervalMs 轮询间隔（毫秒，默认 2000）。
 	VerifyIntervalMs int `json:"verifyIntervalMs,omitempty" yaml:"verifyIntervalMs,omitempty"`
+	// ActionTimeoutMs 单次 provider 动作调用（含状态查询）的独立上限（毫秒，
+	// 默认 30000）：到点即记该行失败并继续下一台，永不返回的 provider 不阻塞
+	// 请求收敛（PWR-002）。
+	ActionTimeoutMs int `json:"actionTimeoutMs,omitempty" yaml:"actionTimeoutMs,omitempty"`
+	// RequestTimeoutMs 整个请求执行（动作 + 状态确认）的上限（毫秒，默认 300000）：
+	// 超时后请求落为可观察终态，不再无限挂在 executing/verifying。
+	RequestTimeoutMs int `json:"requestTimeoutMs,omitempty" yaml:"requestTimeoutMs,omitempty"`
 }
 
 // PoweropsIPMIConfig is the ipmitool wrapper config. Password lives in the
@@ -56,4 +63,20 @@ func (c PoweropsConfig) EffectiveVerifyInterval() int {
 		return c.VerifyIntervalMs
 	}
 	return 2000
+}
+
+// EffectiveActionTimeout defaults to 30s.
+func (c PoweropsConfig) EffectiveActionTimeout() int {
+	if c.ActionTimeoutMs > 0 {
+		return c.ActionTimeoutMs
+	}
+	return 30000
+}
+
+// EffectiveRequestTimeout defaults to 5m.
+func (c PoweropsConfig) EffectiveRequestTimeout() int {
+	if c.RequestTimeoutMs > 0 {
+		return c.RequestTimeoutMs
+	}
+	return 300000
 }

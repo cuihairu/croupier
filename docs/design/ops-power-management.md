@@ -80,6 +80,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 - `done` / `partial` / `failed`: terminal states with per-machine outcomes; `partial` exists because batch power is the one place where "some machines came back" must be distinguishable from "all came back".
 - Rejection path: approval rejected ⇒ request `rejected`, nothing executes.
 - Execution runs on a `context.WithoutCancel`-derived background context (CR-FIX-22 discipline): a disconnected HTTP client must not leave the request stuck in `executing`.
+- Two-level time bounds (PWR-002) so a provider that never returns cannot hold a request open: every single provider call — mutating action and status poll alike — runs under `powerops.actionTimeout` (default 30s) and lands as an honest per-machine failure row at its deadline; the whole execution run (actions plus verification) runs under `powerops.requestTimeout` (default 5m) and beyond it the request converges to an observable terminal state with `errorMsg` naming the exceeded bound, never sitting in `executing`/`verifying` forever.
 
 Storage: new table `power_requests` (header) + `power_request_targets` (per-machine rows), added under the numbered-migration contract (`internal/svc/migrations.go` registration + `MinimumRequiredVersion` bump + synthetic-migration test sync, all in the same PR as the model). The machine inventory itself stays on `nodes.meta.power` — no inventory migration.
 

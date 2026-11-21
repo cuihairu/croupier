@@ -78,6 +78,12 @@ type Orchestrator struct {
 	Providers      map[string]Provider
 	VerifyTimeout  time.Duration // default 120s
 	VerifyInterval time.Duration // default 2s
+	// ActionTimeout bounds a single provider action/status call (default 30s);
+	// a hung provider cannot hold the request open (PWR-002).
+	ActionTimeout time.Duration
+	// RequestTimeout bounds the whole execution run (actions + verification,
+	// default 5m); beyond it the request lands in an observable terminal state.
+	RequestTimeout time.Duration
 	Now            func() time.Time
 }
 
@@ -100,6 +106,20 @@ func (o *Orchestrator) verifyInterval() time.Duration {
 		return o.VerifyInterval
 	}
 	return 2 * time.Second
+}
+
+func (o *Orchestrator) actionTimeout() time.Duration {
+	if o.ActionTimeout > 0 {
+		return o.ActionTimeout
+	}
+	return 30 * time.Second
+}
+
+func (o *Orchestrator) requestTimeout() time.Duration {
+	if o.RequestTimeout > 0 {
+		return o.RequestTimeout
+	}
+	return 5 * time.Minute
 }
 
 // NewRequestID mints a public request id (time-ordered, random suffix).
@@ -322,9 +342,15 @@ func verifiable(provider string) bool {
 }
 
 // executeRequest runs the actions, then verifies, then lands the terminal
-// state. Per-machine rows are refreshed after every mutation so a crash
-// leaves durable partial progress, not a fabricated one.
+// state. The whole run is bounded by RequestTimeout (PWR-002) so a hung
+// provider cannot keep the request in executing/verifying forever; each
+// provider call additionally carries its own ActionTimeout. Per-machine rows
+// are refreshed after every mutation so a crash leaves durable partial
+// progress, not a fabricated one.
 func (o *Orchestrator) executeRequest(ctx context.Context, req *model.PowerRequest) {
+	runCtx, cancelRun := context.WithTimeout(ctx, o.requestTimeout())
+	defer cancelRun()
+
 	machines, err := decodeTargets(req.TargetsJSON)
 	if err != nil || len(machines) == 0 {
 		o.failRequest(req, "decode targets: "+errString(err))
@@ -334,7 +360,7 @@ func (o *Orchestrator) executeRequest(ctx context.Context, req *model.PowerReque
 	now := o.now()
 	targets := make([]*model.PowerRequestTarget, 0, len(machines))
 	for _, m := range machines {
-		res := RunAction(ctx, o.Providers, m, action, now)
+		res := o.runActionBounded(runCtx, m, action, now)
 		t := &model.PowerRequestTarget{
 			RequestID: req.RequestID,
 			NodeID:    m.NodeID,
@@ -368,7 +394,36 @@ func (o *Orchestrator) executeRequest(ctx context.Context, req *model.PowerReque
 	if err := o.Store.Update(req); err != nil {
 		slog.Error("powerops: persist verifying state", "request", req.RequestID, "error", err)
 	}
-	o.verify(ctx, req, machines, targets, action)
+	o.verify(runCtx, req, machines, targets, action)
+}
+
+// runActionBounded runs one provider action with its own ActionTimeout
+// (PWR-002): the call runs in a goroutine and a deadline lands it as an
+// honest failure row, so a provider that never returns cannot hold the
+// request open. Providers are expected to honor ctx; one that ignores it is
+// abandoned at the deadline and the request keeps converging.
+func (o *Orchestrator) runActionBounded(ctx context.Context, m Machine, a Action, at time.Time) ActionResult {
+	bound := o.actionTimeout()
+	actCtx, cancel := context.WithTimeout(ctx, bound)
+	defer cancel()
+
+	type result struct {
+		res ActionResult
+	}
+	ch := make(chan result, 1)
+	go func() {
+		ch <- result{res: RunAction(actCtx, o.Providers, m, a, at)}
+	}()
+	select {
+	case r := <-ch:
+		return r.res
+	case <-actCtx.Done():
+		return ActionResult{
+			NodeID: m.NodeID,
+			At:     at,
+			Error:  "powerops: action timed out after " + bound.String(),
+		}
+	}
 }
 
 // verify polls each actionable machine until it reaches the expected state
@@ -387,7 +442,7 @@ func (o *Orchestrator) verify(ctx context.Context, req *model.PowerRequest, mach
 		byMachine[m.NodeID] = m
 	}
 
-	for o.now().Before(deadline) {
+	for o.now().Before(deadline) && ctx.Err() == nil {
 		pending := false
 		for _, t := range targets {
 			if !t.Success || t.Verified || !verifiable(t.Provider) {
@@ -398,7 +453,7 @@ func (o *Orchestrator) verify(ctx context.Context, req *model.PowerRequest, mach
 			if !ok || m == (Machine{}) {
 				continue
 			}
-			st, err := p.Status(ctx, m)
+			st, err := o.statusBounded(ctx, p, m)
 			if err == nil && st == want {
 				at := o.now()
 				t.Verified = true
@@ -417,7 +472,35 @@ func (o *Orchestrator) verify(ctx context.Context, req *model.PowerRequest, mach
 		}
 		sleepCtx(ctx, o.verifyInterval())
 	}
+	if ctx.Err() != nil {
+		req.ErrorMsg = truncate("powerops: request exceeded overall bound: "+ctx.Err().Error(), 512)
+	}
 	o.finish(req, targets, terminalState(action, targets))
+}
+
+// statusBounded bounds one Status call with the same per-call ActionTimeout
+// (PWR-002) so a hung status poll cannot stall the verification loop; the
+// loop keeps retrying until the overall bound or the verify deadline.
+func (o *Orchestrator) statusBounded(ctx context.Context, p Provider, m Machine) (string, error) {
+	bound := o.actionTimeout()
+	stCtx, cancel := context.WithTimeout(ctx, bound)
+	defer cancel()
+
+	type result struct {
+		state string
+		err   error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		s, e := p.Status(stCtx, m)
+		ch <- result{state: s, err: e}
+	}()
+	select {
+	case r := <-ch:
+		return r.state, r.err
+	case <-stCtx.Done():
+		return "", fmt.Errorf("powerops: status timed out after %s", bound)
+	}
 }
 
 // terminalState aggregates: succeeded = executed and confirmed (or provider

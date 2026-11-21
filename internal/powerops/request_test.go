@@ -72,7 +72,10 @@ type scriptedProvider struct {
 	// actionCalls records every mutating provider invocation (PWR-001:
 	// the double-claim regression asserts this count is strictly 1).
 	actionCalls []string
-	failOn      map[Action]error
+	// hangStatus makes Status never return — the PWR-002 "永不返回的
+	// Runner" regression shape for the verification loop.
+	hangStatus bool
+	failOn     map[Action]error
 	// failNode restricts failOn to one node (partial-failure scenarios);
 	// empty = fail every node.
 	failNode string
@@ -143,7 +146,32 @@ func (p *scriptedProvider) Reboot(ctx context.Context, m Machine) (string, error
 }
 
 func (p *scriptedProvider) Status(ctx context.Context, m Machine) (string, error) {
+	if p.hangStatus {
+		<-make(chan struct{}) // block forever (PWR-002 hung Runner)
+	}
 	return p.nextStatus(), nil
+}
+
+// hungProvider never returns from any provider call — the PWR-002 regression
+// shape proving a hung action cannot hold the request open.
+type hungProvider struct{ kind string }
+
+func (p *hungProvider) Kind() string { return p.kind }
+func (p *hungProvider) PowerOn(ctx context.Context, m Machine) (string, error) {
+	<-make(chan struct{})
+	return "", nil
+}
+func (p *hungProvider) PowerOff(ctx context.Context, m Machine, force bool) (string, error) {
+	<-make(chan struct{})
+	return "", nil
+}
+func (p *hungProvider) Reboot(ctx context.Context, m Machine) (string, error) {
+	<-make(chan struct{})
+	return "", nil
+}
+func (p *hungProvider) Status(ctx context.Context, m Machine) (string, error) {
+	<-make(chan struct{})
+	return "", nil
 }
 
 // ---- harness ----
@@ -403,6 +431,65 @@ func TestResumeRejectRaceSingleTransition(t *testing.T) {
 	final := awaitTerminal(t, h2.store, req2.RequestID)
 	assert.Equal(t, StateDone, final.State)
 	assert.Equal(t, 1, h2.provider.actionCallCount())
+}
+
+// PWR-002：永不返回的 provider 动作不得挂住请求——每次动作有独立
+// ActionTimeout，到点记该行失败；请求在上限内落为可观察终态。
+func TestHungActionTimesOutAndRequestConverges(t *testing.T) {
+	h := newHarness(t, nil)
+	h.orch.Providers = map[string]Provider{ProviderIPMI: &hungProvider{kind: ProviderIPMI}}
+	h.orch.ActionTimeout = 40 * time.Millisecond
+	h.orch.RequestTimeout = 500 * time.Millisecond
+
+	req := h.submit(t, ActionForceOff, "node-1")
+	h.gate.approve(req.ApprovalID)
+
+	start := time.Now()
+	_, err := h.orch.ResumeAsync(context.Background(), req.RequestID)
+	require.NoError(t, err)
+	final := awaitTerminal(t, h.store, req.RequestID)
+	elapsed := time.Since(start)
+
+	assert.Equal(t, StateFailed, final.State)
+	assert.Less(t, elapsed, 1*time.Second,
+		"a hung provider must not hold the request past the action bound")
+
+	targets, err := h.store.Targets(req.RequestID)
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	assert.False(t, targets[0].Success)
+	assert.Contains(t, targets[0].ErrorMsg, "timed out")
+}
+
+// PWR-002：状态确认卡在永不返回的 Runner 上时，整体 RequestTimeout 切断
+// 验证循环，请求落为可观察失败（动作本身成功但从未被确认）。
+func TestHungStatusCutByRequestBound(t *testing.T) {
+	h := newHarness(t, []string{"on"})
+	h.provider.hangStatus = true
+	h.orch.ActionTimeout = 30 * time.Millisecond
+	h.orch.RequestTimeout = 90 * time.Millisecond
+	h.orch.VerifyTimeout = 30 * time.Second // 远大于请求上限：必须由整体上限切断
+	h.orch.VerifyInterval = 20 * time.Millisecond
+
+	req := h.submit(t, ActionPowerOn, "node-1")
+	h.gate.approve(req.ApprovalID)
+
+	start := time.Now()
+	_, err := h.orch.ResumeAsync(context.Background(), req.RequestID)
+	require.NoError(t, err)
+	final := awaitTerminal(t, h.store, req.RequestID)
+	elapsed := time.Since(start)
+
+	assert.Equal(t, StateFailed, final.State)
+	assert.Contains(t, final.ErrorMsg, "overall bound")
+	assert.Less(t, elapsed, 2*time.Second,
+		"the verification loop must stop at the overall request bound")
+
+	targets, err := h.store.Targets(req.RequestID)
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	assert.True(t, targets[0].Success, "the action itself succeeded")
+	assert.False(t, targets[0].Verified, "a hung status poll can never confirm")
 }
 
 func TestPartialFailureAggregation(t *testing.T) {
