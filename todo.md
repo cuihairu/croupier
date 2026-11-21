@@ -1869,9 +1869,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit a63af12aa（`internal/svc/service_context_auth.go` `checkTokenVersion` +7/-1、`errors.Is` 识别 RecordNotFound；`token_revoke_test.go` +58 两用例；`svc_extra_test.go` +9 种真实 alice/bob）。docs 同步 d7924e394（`docs/security.md` + zh 镜像、`docs/operations/access-control.md` + zh 镜像：账号删除后旧 JWT 拒绝、真存储故障仍可用性优先放行）。
   - 已知边界：30 秒版本缓存（`tokenVersionCacheTTL`）是既有设计取舍，删除/禁用/改密后旧 JWT 最长 30s 内仍可过缓存命中路径（文档已标注「撤销最长延迟 30s 生效」）；本修复针对的是缓存未命中（无缓存路径）的永久放行缺口。仅拒绝 `ErrRecordNotFound`（账号不存在），`GetTokenVersion` 的其他错误（连接故障等）仍放行。
 
-- [ ] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**
+- [x] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**（commit d179e1a2b）
   - 依赖：—。交付与验收：100% 覆盖率通过，低于阈值和无有效覆盖数据拒绝。
-  - 状态／条件：ci-mobile.yml:58 的 shell 参数表达式位于单引号 heredoc，Python float 收到字面量；实际 workflow 片段在 100% lcov 下仍 ValueError。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit d179e1a2b）：根因在 `.github/workflows/ci-mobile.yml` Coverage gate 步骤——`threshold = float("${COVERAGE_THRESHOLD:-80}")` 位于 `<<'PYEOF'`（单引号）heredoc 内，shell 不展开 `${...}`，Python 收到字面量 `'${COVERAGE_THRESHOLD:-80}'`，`float()` 恒 ValueError——门禁步骤**从未成功执行过**（CI 实证：run 44931955223 覆盖率 88.7% > 80 仍 `ValueError: could not convert string to float: '${COVERAGE_THRESHOLD:-80}'`，5 连红）。修法：改 Python 侧 `os.environ.get("COVERAGE_THRESHOLD", "80")` 读环境变量（同时清掉恒未用的 `import re`，换 `import os`），并在注释注明单引号 heredoc 不展开的约束与覆盖方式。
+  - 验证：从工作流文件精确提取片段（剥 heredoc 框架）后按 5 场景模拟：100% lcov → PASS；50% → FAIL `below threshold 80.0%`；空 lcov（无有效数据）→ FAIL 0%；88.7% + `COVERAGE_THRESHOLD=90` → FAIL；50% + `COVERAGE_THRESHOLD=40` → PASS（env 覆盖双向生效）；`python3 -m py_compile` + `yaml.safe_load` 双过。旧行为的变异反证由 CI 日志直接给出（88.7% 仍 ValueError，run 44931955223）。workflow 合并后首次 mobile push 即可实证线上绿灯。
+  - 完成证据：commit d179e1a2b（`.github/workflows/ci-mobile.yml` threshold 行改为 `os.environ.get` + 注释 + import 清理）。
+  - 已知边界：`COVERAGE_THRESHOLD` 覆盖入口是进程 env（GitHub Actions 仓库级 env 或步骤 env 可注入），workflow 本身未新增 dispatch input；Python 段仍是独立脚本而非可单测模块，回归靠片段提取模拟（本条验证法）与线上 run。
 
 - [ ] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**
   - 依赖：—。交付与验收：同一事件字节无论网络如何分块，事件名和多行 data 必须一致。
