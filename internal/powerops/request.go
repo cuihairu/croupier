@@ -42,6 +42,13 @@ type RequestStore interface {
 	Update(r *model.PowerRequest) error
 	Get(requestID string) (*model.PowerRequest, error)
 	List(limit int) ([]*model.PowerRequest, error)
+	// Transit claims a state transition with a single conditional update
+	// (state: fromState → toState). True means this caller performed the
+	// transition; false means the row already moved elsewhere — the CAS
+	// loser must not proceed to side effects (PWR-001: concurrent resume
+	// must never double-execute a provider action). startedAt persists
+	// StartedAt when claiming executing; nil leaves it untouched.
+	Transit(requestID, fromState, toState string, startedAt *time.Time) (bool, error)
 	// ReplaceTargets rewrites the per-machine rows for a request (execution
 	// and verification both refresh them).
 	ReplaceTargets(requestID string, targets []*model.PowerRequestTarget) error
@@ -246,16 +253,34 @@ func (o *Orchestrator) BeginResume(ctx context.Context, requestID string) (*mode
 	now := o.now()
 	req.State = StateExecuting
 	req.StartedAt = &now
-	req.UpdatedAt = now
-	if err := o.Store.Update(req); err != nil {
+	claimed, err := o.Store.Transit(req.RequestID, StatePending, StateExecuting, &now)
+	if err != nil {
 		return nil, fmt.Errorf("powerops: persist executing state: %w", err)
 	}
+	if !claimed {
+		// CAS 输家：行已被并发 resume/reject 移走，稳定冲突（API 映射 409）。
+		return nil, claimConflict(o.Store, req.RequestID)
+	}
+	req.UpdatedAt = now
 	return req, nil
+}
+
+// claimConflict reports the losing side of a pending transition race: the
+// row is re-read so the message names the winning state, while the sentinel
+// keeps the stable conflict mapping (ErrRequestNotPending → 409).
+func claimConflict(store RequestStore, requestID string) error {
+	state := "unknown"
+	if current, err := store.Get(requestID); err == nil && current != nil {
+		state = current.State
+	}
+	return fmt.Errorf("%w: state=%s (claimed by a concurrent resume/reject)", ErrRequestNotPending, state)
 }
 
 // Reject marks a request rejected when its approval record is denied. The
 // request must still be pending; nothing has executed, so no provider call
-// is ever made on this path.
+// is ever made on this path. The pending → rejected move is also a CAS
+// claim: a concurrent approved resume that already flipped the row to
+// executing cannot be overwritten back to rejected.
 func (o *Orchestrator) Reject(ctx context.Context, requestID string) (*model.PowerRequest, error) {
 	req, err := o.Store.Get(trimSpace(requestID))
 	if err != nil || req == nil {
@@ -265,11 +290,15 @@ func (o *Orchestrator) Reject(ctx context.Context, requestID string) (*model.Pow
 		return nil, fmt.Errorf("%w: state=%s", ErrRequestNotPending, req.State)
 	}
 	now := o.now()
-	req.State = StateRejected
-	req.UpdatedAt = now
-	if err := o.Store.Update(req); err != nil {
+	claimed, err := o.Store.Transit(req.RequestID, StatePending, StateRejected, nil)
+	if err != nil {
 		return nil, fmt.Errorf("powerops: persist rejected state: %w", err)
 	}
+	if !claimed {
+		return nil, claimConflict(o.Store, req.RequestID)
+	}
+	req.State = StateRejected
+	req.UpdatedAt = now
 	return req, nil
 }
 

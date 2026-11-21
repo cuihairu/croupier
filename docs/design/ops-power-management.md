@@ -75,7 +75,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 ```
 
 - `pending`: request persisted (request table row with targets snapshot + action + reason + requester); approval record created and linked (`ApprovalID`). Provision precedent: persist first, then create approval, then link.
-- `approved → executing`: approval approved; execution starts. Per-machine attempts run through the provider; each machine row records attempt time, raw result, error.
+- `approved → executing`: approval approved; execution starts. The pending → executing flip is an atomic conditional update (CAS claim, PWR-001): among concurrent resume/reject callers exactly one performs the transition and starts the provider — losers get a stable 409 (`power_state_conflict`) and an action can never be double-executed. Per-machine attempts run through the provider; each machine row records attempt time, raw result, error.
 - `executing → verifying`: for actions with observable effects (power_on, reboot, power_off), poll confirmation — BMC `power status`, cloud provider status, or agent session reconnect — until a deadline (`powerops.verifyTimeout`, default 120s, per-attempt backoff).
 - `done` / `partial` / `failed`: terminal states with per-machine outcomes; `partial` exists because batch power is the one place where "some machines came back" must be distinguishable from "all came back".
 - Rejection path: approval rejected ⇒ request `rejected`, nothing executes.

@@ -3,6 +3,7 @@ package powerops
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/gorm"
@@ -37,6 +38,24 @@ func (s *GormStore) Get(requestID string) (*model.PowerRequest, error) {
 		return nil, fmt.Errorf("powerops: get request: %w", err)
 	}
 	return &row, nil
+}
+
+// Transit claims a state transition with one conditional UPDATE — the CAS
+// behind BeginResume/Reject (PWR-001). Concurrent callers race on
+// `state = fromState`; RowsAffected>0 wins, the loser gets false and must
+// not proceed to side effects. Gorm auto-touches updated_at on Updates.
+func (s *GormStore) Transit(requestID, fromState, toState string, startedAt *time.Time) (bool, error) {
+	updates := map[string]interface{}{"state": toState}
+	if startedAt != nil {
+		updates["started_at"] = startedAt
+	}
+	res := s.db.Model(&model.PowerRequest{}).
+		Where("request_id = ? AND state = ?", requestID, fromState).
+		Updates(updates)
+	if res.Error != nil {
+		return false, fmt.Errorf("powerops: transit %s→%s: %w", fromState, toState, res.Error)
+	}
+	return res.RowsAffected > 0, nil
 }
 
 func (s *GormStore) List(limit int) ([]*model.PowerRequest, error) {

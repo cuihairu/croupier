@@ -69,11 +69,28 @@ type scriptedProvider struct {
 	mu       sync.Mutex
 	statuses []string // returned in order, last repeats
 	calls    []string // status calls in order
-	failOn   map[Action]error
+	// actionCalls records every mutating provider invocation (PWR-001:
+	// the double-claim regression asserts this count is strictly 1).
+	actionCalls []string
+	failOn      map[Action]error
 	// failNode restricts failOn to one node (partial-failure scenarios);
 	// empty = fail every node.
 	failNode string
 	powerOff func(force bool) error
+}
+
+// record appends a mutating-action invocation (thread-safe).
+func (p *scriptedProvider) record(a string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.actionCalls = append(p.actionCalls, a)
+}
+
+// actionCallCount returns how many mutating provider calls were made.
+func (p *scriptedProvider) actionCallCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.actionCalls)
 }
 
 func (p *scriptedProvider) fails(m Machine, a Action) bool {
@@ -100,6 +117,7 @@ func (p *scriptedProvider) nextStatus() string {
 }
 
 func (p *scriptedProvider) PowerOn(ctx context.Context, m Machine) (string, error) {
+	p.record("power_on")
 	if p.fails(m, ActionPowerOn) {
 		return "", p.failOn[ActionPowerOn]
 	}
@@ -107,6 +125,7 @@ func (p *scriptedProvider) PowerOn(ctx context.Context, m Machine) (string, erro
 }
 
 func (p *scriptedProvider) PowerOff(ctx context.Context, m Machine, force bool) (string, error) {
+	p.record("power_off")
 	if p.powerOff != nil {
 		if err := p.powerOff(force); err != nil {
 			return "", err
@@ -116,6 +135,7 @@ func (p *scriptedProvider) PowerOff(ctx context.Context, m Machine, force bool) 
 }
 
 func (p *scriptedProvider) Reboot(ctx context.Context, m Machine) (string, error) {
+	p.record("reboot")
 	if p.failOn != nil && p.failOn[ActionReboot] != nil {
 		return "", p.failOn[ActionReboot]
 	}
@@ -309,6 +329,80 @@ func TestRejectPathExecutesNothing(t *testing.T) {
 	assert.ErrorIs(t, err, ErrRequestNotPending)
 	_, err = h.orch.ResumeAsync(context.Background(), req.RequestID)
 	assert.ErrorIs(t, err, ErrRequestNotPending)
+}
+
+// PWR-001：并发 resume 只有一个人能领取 pending→executing（CAS），副作用
+// 调用次数严格为 1；输家收到稳定冲突（ErrRequestNotPending → API 409）。
+// 修复前形态：BeginResume 的 Get→检查→无条件 Save 让两个并发领取都成功。
+func TestBeginResumeConcurrentClaimExecutesOnce(t *testing.T) {
+	for _, action := range []Action{ActionForceOff, ActionReboot} {
+		t.Run(string(action), func(t *testing.T) {
+			for round := 0; round < 5; round++ {
+				// 任意交错下结论一致；多轮防时序侥幸。
+				h := newHarness(t, []string{"off", "on"})
+				req := h.submit(t, action, "node-1")
+				h.gate.approve(req.ApprovalID)
+
+				const racers = 2
+				start := make(chan struct{})
+				errs := make(chan error, racers)
+				for r := 0; r < racers; r++ {
+					go func() {
+						<-start
+						// ResumeAsync 而非 BeginResume：领取成功即启动后台
+						// executeRequest，CAS 破坏时双领取=双副作用。
+						_, err := h.orch.ResumeAsync(context.Background(), req.RequestID)
+						errs <- err
+					}()
+				}
+				close(start)
+				winners := 0
+				for r := 0; r < racers; r++ {
+					if err := <-errs; err == nil {
+						winners++
+					} else {
+						assert.ErrorIs(t, err, ErrRequestNotPending)
+					}
+				}
+				require.Equal(t, 1, winners, "exactly one racer must claim the request")
+
+				final := awaitTerminal(t, h.store, req.RequestID)
+				assert.Equal(t, StateDone, final.State)
+				assert.Equal(t, 1, h.provider.actionCallCount(),
+					"provider side effect must run exactly once regardless of racing")
+
+				// 终态后再次 resume 仍然稳定冲突。
+				_, err := h.orch.BeginResume(context.Background(), req.RequestID)
+				assert.ErrorIs(t, err, ErrRequestNotPending)
+			}
+		})
+	}
+}
+
+// PWR-001：批准与 reject 竞争——两者都从 pending CAS 领取，先到者赢；
+// 落败方向收到稳定冲突，且 reject 绝不把已 executing 的请求翻回 rejected。
+func TestResumeRejectRaceSingleTransition(t *testing.T) {
+	// reject 先赢：pending→rejected 后 resume 冲突，零副作用。
+	h := newHarness(t, []string{"off", "on"})
+	req := h.submit(t, ActionPowerOff, "node-1")
+	h.gate.approve(req.ApprovalID)
+	_, err := h.orch.Reject(context.Background(), req.RequestID)
+	require.NoError(t, err)
+	_, err = h.orch.ResumeAsync(context.Background(), req.RequestID)
+	assert.ErrorIs(t, err, ErrRequestNotPending)
+	assert.Equal(t, 0, h.provider.actionCallCount())
+
+	// resume 先赢：executing 之后 reject 冲突，请求照常收敛且副作用恰好一次。
+	h2 := newHarness(t, []string{"off", "on"})
+	req2 := h2.submit(t, ActionPowerOff, "node-1")
+	h2.gate.approve(req2.ApprovalID)
+	_, err = h2.orch.ResumeAsync(context.Background(), req2.RequestID)
+	require.NoError(t, err)
+	_, err = h2.orch.Reject(context.Background(), req2.RequestID)
+	assert.ErrorIs(t, err, ErrRequestNotPending)
+	final := awaitTerminal(t, h2.store, req2.RequestID)
+	assert.Equal(t, StateDone, final.State)
+	assert.Equal(t, 1, h2.provider.actionCallCount())
 }
 
 func TestPartialFailureAggregation(t *testing.T) {
