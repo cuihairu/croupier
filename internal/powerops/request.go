@@ -164,11 +164,13 @@ type SubmitInput struct {
 	Env         string
 }
 
-// Submit persists a pending request and creates its approval record.
-// Validation happens before any persistence: unknown machines and
-// unsupported (machine, action) pairs are rejected up front so an approval
-// never gets created for a request that cannot execute.
-func (o *Orchestrator) Submit(ctx context.Context, resolver MachineResolver, in SubmitInput) (*model.PowerRequest, error) {
+// resolveSubmitMachines validates a submit payload and resolves node ids to
+// power machines through the resolver (never trusted raw — SubmitInput.NodeIDs
+// are just public ids). Unknown machines and unsupported (machine, action)
+// pairs are rejected up front so an approval never gets created for a request
+// that cannot execute. Status queries share this validation so a malformed
+// query is rejected before any provider call.
+func resolveSubmitMachines(resolver MachineResolver, in SubmitInput) ([]Machine, error) {
 	if in.Action == "" {
 		return nil, fmt.Errorf("%w: action is required", ErrInvalidSubmit)
 	}
@@ -194,6 +196,25 @@ func (o *Orchestrator) Submit(ctx context.Context, resolver MachineResolver, in 
 	}
 	if len(machines) == 0 {
 		return nil, fmt.Errorf("%w: at least one target machine is required", ErrInvalidSubmit)
+	}
+	return machines, nil
+}
+
+// Submit persists a pending request and creates its approval record.
+// Validation happens before any persistence: unknown machines and
+// unsupported (machine, action) pairs are rejected up front so an approval
+// never gets created for a request that cannot execute.
+//
+// status is not an approval-gated change (PWR-005, design §5) — callers must
+// route it to QueryStatus; this guard makes the separation structural rather
+// than a convention the caller has to remember.
+func (o *Orchestrator) Submit(ctx context.Context, resolver MachineResolver, in SubmitInput) (*model.PowerRequest, error) {
+	if in.Action == ActionStatus {
+		return nil, fmt.Errorf("%w: status is a read-only query (use QueryStatus, no approval)", ErrInvalidSubmit)
+	}
+	machines, err := resolveSubmitMachines(resolver, in)
+	if err != nil {
+		return nil, err
 	}
 
 	now := o.now()
@@ -230,6 +251,90 @@ func (o *Orchestrator) Submit(ctx context.Context, resolver MachineResolver, in 
 		return nil, fmt.Errorf("powerops: persist approval link: %w", err)
 	}
 	return req, nil
+}
+
+// QueryStatus runs power.status as a read-only snapshot (design §5, PWR-005):
+// a status query needs authentication and machine scope only — no approval
+// record, no pending/executing/verifying states. One bounded Status call per
+// machine (the PWR-002 per-call bound governs latency, never verifyTimeout),
+// then the request lands directly in its terminal state with the per-machine
+// rows and is returned synchronously. Nothing is left in flight: the row is
+// written once at the end, so a crash mid-query leaves no residue to recover
+// and — being a read — there is no side effect to replay.
+func (o *Orchestrator) QueryStatus(ctx context.Context, resolver MachineResolver, in SubmitInput) (*model.PowerRequest, []*model.PowerRequestTarget, error) {
+	if in.Action != ActionStatus {
+		return nil, nil, fmt.Errorf("%w: QueryStatus only accepts the status action", ErrInvalidSubmit)
+	}
+	machines, err := resolveSubmitMachines(resolver, in)
+	if err != nil {
+		return nil, nil, err
+	}
+	now := o.now()
+	requestID := NewRequestID(now)
+	targets := make([]*model.PowerRequestTarget, 0, len(machines))
+	for _, m := range machines {
+		t := &model.PowerRequestTarget{
+			RequestID: requestID,
+			NodeID:    m.NodeID,
+			Provider:  m.Provider,
+			Status:    TargetDone,
+			AttemptAt: &now,
+		}
+		p, ok := o.Providers[m.Provider]
+		if !ok {
+			t.ErrorMsg = "powerops: no provider registered for kind " + m.Provider
+			targets = append(targets, t)
+			continue
+		}
+		st, qerr := o.statusBounded(ctx, p, m)
+		switch {
+		case qerr != nil:
+			// Query failure (timeout, unreachable, inconclusive provider
+			// output): an honest failure row; the provider may still report
+			// "unknown" alongside the error, which is preserved.
+			t.ErrorMsg = truncate(qerr.Error(), 512)
+			t.State = st
+		case st == "" || st == "unknown":
+			// The provider answered but cannot tell — reported as unknown,
+			// never smoothed into on/off (design §9 honesty).
+			t.ErrorMsg = ErrUnknownMachineState.Error()
+			t.State = st
+		default:
+			t.Success = true
+			t.State = st
+		}
+		targets = append(targets, t)
+	}
+	targetsJSON, err := json.Marshal(machines)
+	if err != nil {
+		return nil, nil, fmt.Errorf("powerops: marshal targets: %w", err)
+	}
+	succeeded := confirmedCount(ActionStatus, targets)
+	req := &model.PowerRequest{
+		RequestID:   requestID,
+		Action:      string(ActionStatus),
+		Reason:      trimSpace(in.Reason),
+		RequestedBy: in.RequestedBy,
+		State:       terminalState(ActionStatus, targets),
+		TargetsJSON: string(targetsJSON),
+		Total:       len(machines),
+		Succeeded:   succeeded,
+		Failed:      len(machines) - succeeded,
+		GameID:      in.GameID,
+		Env:         in.Env,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		DoneAt:      &now,
+	}
+	if err := o.Store.Create(req); err != nil {
+		return nil, nil, fmt.Errorf("powerops: persist status query: %w", err)
+	}
+	if err := o.Store.ReplaceTargets(requestID, targets); err != nil {
+		// The header row is already terminal; losing the per-machine rows on
+		// a write failure is logged, not turned into a phantom error.
+		slog.Error("powerops: persist status targets", "request", requestID, "error", err)
+	}
+	return req, targets, nil
 }
 
 // ResumeAsync proceeds after approval: re-checks approved state (fail-closed,
@@ -406,6 +511,16 @@ func (o *Orchestrator) executeRequest(ctx context.Context, req *model.PowerReque
 		o.persistTargets(req.RequestID, targets)
 	}
 	o.persistTargets(req.RequestID, targets)
+
+	if action == ActionStatus {
+		// PWR-005: a status query is its own observation — nothing to verify
+		// and no approval gate, so it must not enter verifying nor wait out the
+		// verify timeout. New status requests never reach here (Submit routes
+		// them to QueryStatus); this guards a legacy request submitted before
+		// the separation and resumed afterwards.
+		o.finish(req, targets, terminalState(action, targets))
+		return
+	}
 
 	anySuccess := false
 	for _, t := range targets {
@@ -610,19 +725,36 @@ func (o *Orchestrator) statusBounded(ctx context.Context, p Provider, m Machine)
 	}
 }
 
-// terminalState aggregates: succeeded = executed and confirmed (or provider
-// cannot confirm at all); failed = the rest. all confirmed → done, none →
-// failed, mixed → partial.
-func terminalState(a Action, targets []*model.PowerRequestTarget) string {
+// confirmed reports whether a target row counts as a confirmed outcome for
+// header counters and terminal aggregation (PWR-004 unified definition,
+// extended by the status query path — PWR-005). A mutating action is
+// confirmed when the post-action state was observed (Verified) or the
+// provider cannot observe at all. A status query is its own observation: a
+// definitive on/off answer confirms the machine; an unknown answer or a
+// failed query does not (the honest answer "I cannot tell" is not a
+// confirmed power state).
+func confirmed(t *model.PowerRequestTarget, a Action) bool {
 	if a == ActionStatus {
-		return StateDone
+		return t.Success && t.State != "" && t.State != "unknown"
 	}
-	succeeded := 0
+	return t.Success && (t.Verified || !verifiable(t.Provider))
+}
+
+func confirmedCount(a Action, targets []*model.PowerRequestTarget) int {
+	n := 0
 	for _, t := range targets {
-		if t.Success && (t.Verified || !verifiable(t.Provider)) {
-			succeeded++
+		if confirmed(t, a) {
+			n++
 		}
 	}
+	return n
+}
+
+// terminalState aggregates: succeeded = confirmed targets; failed = the rest.
+// all confirmed → done, none → failed, mixed → partial. status queries share
+// this aggregation with their own confirmation definition (see confirmed).
+func terminalState(a Action, targets []*model.PowerRequestTarget) string {
+	succeeded := confirmedCount(a, targets)
 	switch {
 	case succeeded == len(targets) && succeeded > 0:
 		return StateDone
@@ -641,12 +773,7 @@ func (o *Orchestrator) finish(req *model.PowerRequest, targets []*model.PowerReq
 	// none was verified land as state=failed with failed=0. The "action sent"
 	// vs "state verified" distinction stays expressed per-target (Success and
 	// Verified fields).
-	confirmed := 0
-	for _, t := range targets {
-		if t.Success && (t.Verified || !verifiable(t.Provider)) {
-			confirmed++
-		}
-	}
+	confirmed := confirmedCount(Action(req.Action), targets)
 	now := o.now()
 	req.State = state
 	req.Succeeded = confirmed

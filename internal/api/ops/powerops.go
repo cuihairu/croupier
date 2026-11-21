@@ -26,6 +26,10 @@ import (
 // power_request_targets。拒绝走 POST /ops/power/:id/reject；查询 GET
 // /ops/power/:id（pending 请求惰性同步审批拒绝状态）。
 //
+// action=status 是例外（PWR-005，设计 §5）：只读查询，仅需身份与目标权限，
+// POST /ops/power 同步返回 200 + 终态请求 + 逐机结果，不建审批单、不进
+// executing/verifying（变更动作仍走上述审批链）。
+//
 // 机器清单挂现有 nodes.meta（power 子对象：provider/bmcAddr/bmcPort/mac/
 // cloudRef/agentId），PUT /ops/nodes/:nodeId/power-config 写入，不建新表。
 // ============================================================================
@@ -111,28 +115,46 @@ func mapPowerError(err error) error {
 // ============================================================================
 
 // OpsPowerSubmit 提交电源请求（不阻塞：持久化 pending + 创建审批记录即返回）。
-func (s *Service) OpsPowerSubmit(ctx context.Context, req *OpsPowerSubmitRequest, requestedBy string) (*model.PowerRequest, error) {
+//
+// action=status 走只读查询路径（PWR-005，设计 §5）：仅需身份与目标权限，不建
+// 审批单、不进 executing/verifying，一次状态查询后直接返回终态请求与逐机结果
+// （targets 非空即为查询快照）；变更动作仍走审批链，targets 为空。
+func (s *Service) OpsPowerSubmit(ctx context.Context, req *OpsPowerSubmitRequest, requestedBy string) (*model.PowerRequest, []*model.PowerRequestTarget, error) {
 	orch, err := s.powerOrchestrator()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	out, err := orch.Submit(ctx, s.powerResolver(), powerops.SubmitInput{
+	action := powerops.Action(strings.TrimSpace(req.Action))
+	input := powerops.SubmitInput{
 		NodeIDs:     req.NodeIDs,
-		Action:      powerops.Action(strings.TrimSpace(req.Action)),
+		Action:      action,
 		Reason:      req.Reason,
 		RequestedBy: requestedBy,
 		GameID:      req.GameID,
 		Env:         req.Env,
-	})
+	}
+	if action == powerops.ActionStatus {
+		out, targets, err := orch.QueryStatus(ctx, s.powerResolver(), input)
+		if err != nil {
+			return nil, nil, mapPowerError(err)
+		}
+		recordOpsAudit(ctx, s.svcCtx, audit.EventPowerRequest, out.RequestID, "done", map[string]interface{}{
+			"action":  out.Action,
+			"targets": out.Total,
+			"query":   true,
+		})
+		return out, targets, nil
+	}
+	out, err := orch.Submit(ctx, s.powerResolver(), input)
 	if err != nil {
-		return nil, mapPowerError(err)
+		return nil, nil, mapPowerError(err)
 	}
 	recordOpsAudit(ctx, s.svcCtx, audit.EventPowerRequest, out.RequestID, "pending", map[string]interface{}{
 		"action":     out.Action,
 		"targets":    out.Total,
 		"approvalId": out.ApprovalID,
 	})
-	return out, nil
+	return out, nil, nil
 }
 
 // OpsPowerResume 审批通过后续行（不阻塞：后台执行 + 验证闭环）。
@@ -264,16 +286,21 @@ func (s *Service) OpsPowerConfigPut(ctx context.Context, nodeID string, req *Ops
 // Handler
 // ============================================================================
 
-// PowerSubmit POST /ops/power。
+// PowerSubmit POST /ops/power。变更动作 202 accepted（pending + 审批单）；
+// status 是只读查询（PWR-005）——同步返回 200 与终态请求+逐机结果，无审批单。
 func (h *Handler) PowerSubmit(c *gin.Context) {
 	var req OpsPowerSubmitRequest
 	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
-	req2, err := h.service.OpsPowerSubmit(c.Request.Context(), &req, c.GetString("username"))
+	req2, targets, err := h.service.OpsPowerSubmit(c.Request.Context(), &req, c.GetString("username"))
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+	if powerops.Action(strings.TrimSpace(req.Action)) == powerops.ActionStatus {
+		response.Success(c, gin.H{"request": req2, "targets": targets})
 		return
 	}
 	response.Accepted(c, OpsPowerRequestResponse{Request: req2})

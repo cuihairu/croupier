@@ -79,6 +79,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 - `executing → verifying`：对有可观测效果的动作（power_on、reboot、power_off）轮询确认——BMC `power status`、云 provider 状态、或 agent 会话重连——直到截止（`powerops.verifyTimeout`，默认 120s，逐次退避）。
 - `done` / `partial` / `failed`：终态带逐机结果；`partial` 存在的理由：批量电源是唯一必须区分「部分机器回来了」与「全部回来了」的地方。头部计数（`succeeded`/`failed`）与终态聚合同一口径（PWR-004）：机器仅在「已确认」时计为成功——已验证，或该 provider 无法验证。「动作已发出」与「状态已验证」的区分保留在逐目标字段（`success` 与 `verified`）；动作全部发出但无一验证的请求落 `failed` 且 `failed=total`，绝不出现 `failed=0`。
 - 拒绝路径：审批拒绝 ⇒ 请求 `rejected`，什么都不执行。
+- status 查询不进本状态机（PWR-005，§5）：`power.status` 是读——每台机器一次有界状态调用，然后请求直接落终态并带逐机结果行；不建审批单、不进 pending/executing/verifying，HTTP 调用同步返回完成的快照。确定性的 on/off 答案计为已确认；未知答案或查询失败不计（诚实的"说不清"不是已确认电源状态），因此头部状态与计数与变更动作同一聚合定义——done/partial/failed。查询延迟由每次调用的 `actionTimeout`（PWR-002）决定，绝不随 `verifyTimeout` 增长。
 - 执行跑在 `context.WithoutCancel` 派生的后台 context（CR-FIX-22 纪律）：HTTP 客户端断开不得把请求卡在 `executing`。
 - 双层时间界（PWR-002）杜绝「永不返回的 provider 挂住请求」：每次 provider 调用——变更动作与状态轮询都算——都跑在 `powerops.actionTimeout`（默认 30s）之下，到点落为该机诚实失败行；整个执行（动作 + 验证）跑在 `powerops.requestTimeout`（默认 5m）之下，超时后请求收敛到可观察终态且 `errorMsg` 指名超出的界，绝不停在 `executing`/`verifying`。
 - 逐目标进度落库（PWR-003）：每台机器的行动作前落库为 `attempting`、结果记录后翻为 `done`，进程在批次中途崩溃时已完成目标仍留在表里。启动恢复（`RecoverInFlight`，随引擎装配调用）收敛残留在 `executing`/`verifying` 的请求：`done` 行原样保留，`attempting` 行按「结果未知」记失败，执行循环未到达的机器按「未尝试」记失败，`errorMsg` 均指名中断。恢复绝不重放动作：结果未知的破坏性操作呈现给操作员决定，绝不盲目重放。
@@ -88,7 +89,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 ## 7. 包与 API 面
 
 - `internal/powerops`：`Provider` 接口 `PowerOn / PowerOff / Reboot / Status`（context + machine + options → result），实现 `ipmi`（ipmitool CLI 包装；命令拼装用假二进制覆盖测试）、`wol`（UDP 魔术包）、`cloud`（配置声明命令模板）、`agent`（经 agent-ops 客户端带内优雅重启）。`RequestStore` + 状态机 + 验证循环也在本包，HTTP 层保持 DTO 映射薄壳（provision 分层先例）。
-- `internal/api/ops/powerops.go`：`POST /ops/power`（目标 + 动作 + 原因 → pending 请求 + 审批 id）、`POST /ops/power/:id/resume`（审批通过 → 执行，provision-resume 先例）、`GET /ops/power/:id`（状态 + 逐机结果）、`GET /ops/power`（列表）。挂在现有 `/ops` 组下带 feature 开关；provider 未配置 ⇒ 如实 `503 powerops_not_configured`，绝不静默空转。
+- `internal/api/ops/powerops.go`：`POST /ops/power`（目标 + 动作 + 原因 → pending 请求 + 审批 id）、`POST /ops/power/:id/resume`（审批通过 → 执行，provision-resume 先例）、`GET /ops/power/:id`（状态 + 逐机结果）、`GET /ops/power`（列表）。挂在现有 `/ops` 组下带 feature 开关；provider 未配置 ⇒ 如实 `503 powerops_not_configured`，绝不静默空转。`POST /ops/power` 对 `action=status` 是例外：该请求同步完成，`200` 返回完成的请求与逐机结果行——不产生审批 id（PWR-005）。
 - 机器登记：`PUT /ops/agents/:agentId/power-config` 写 `nodes.meta.power`（provider 类型、BMC 地址、MAC、云实例引用），agent 作用域校验与其他 per-agent 端点同口径。
 - 审计：`powerops.request` / `powerops.execute` / `powerops.verify` 事件经 `recordOpsAudit`，与 provision destroy 同款。
 

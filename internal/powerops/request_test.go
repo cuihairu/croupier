@@ -536,6 +536,14 @@ func TestCrashMidBatchRecoveryKeepsCompletedTargets(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
+	// node-2 的 attempting 行先于其挂起调用落库（执行纪律），崩溃形态就绪时
+	// node-2 的调用可能尚未记录——采样必须等计数稳定到崩溃窗口终值（node-1 +
+	// node-2 = 2；node-3 永不触发）。否则在采样与断言之间落下的调用会被误判
+	// 成"恢复重放"（预存 flake，base 0d5caef9b 上复现）。
+	settle := time.Now().Add(3 * time.Second)
+	for h.provider.actionCallCount() < 2 && time.Now().Before(settle) {
+		time.Sleep(5 * time.Millisecond)
+	}
 	callsBefore := h.provider.actionCallCount()
 
 	h.orch.RecoverInFlight() // 模拟重启后的启动恢复
@@ -746,4 +754,183 @@ func TestListLimitClamps(t *testing.T) {
 	rows, err := h.store.List(2)
 	require.NoError(t, err)
 	assert.Len(t, rows, 2)
+}
+
+// ---- PWR-005：status 查询从审批与变更执行状态机分离 ----
+
+// statusByNode scripts the per-node status answer for one provider kind
+// (PWR-005 query paths across ipmi/cloud/agent). Mutating methods are never
+// reached on the query path and stay unsupported.
+type statusByNode struct {
+	kind   string
+	states map[string]string // nodeID → state ("on"/"off"/"unknown")
+	errs   map[string]error  // nodeID → status error
+	calls  []string
+}
+
+func (p *statusByNode) Kind() string { return p.kind }
+func (p *statusByNode) PowerOn(context.Context, Machine) (string, error) {
+	return "", ErrUnsupportedAction
+}
+func (p *statusByNode) PowerOff(context.Context, Machine, bool) (string, error) {
+	return "", ErrUnsupportedAction
+}
+func (p *statusByNode) Reboot(context.Context, Machine) (string, error) {
+	return "", ErrUnsupportedAction
+}
+func (p *statusByNode) Status(_ context.Context, m Machine) (string, error) {
+	p.calls = append(p.calls, m.NodeID)
+	if err := p.errs[m.NodeID]; err != nil {
+		return p.states[m.NodeID], err
+	}
+	if st := p.states[m.NodeID]; st != "" {
+		return st, nil
+	}
+	return "on", nil
+}
+
+func (h *harness) queryStatus(t *testing.T, nodes ...string) (*model.PowerRequest, []*model.PowerRequestTarget) {
+	t.Helper()
+	req, targets, err := h.orch.QueryStatus(context.Background(), resolver(), SubmitInput{
+		NodeIDs: nodes, Action: ActionStatus, Reason: "health", RequestedBy: "op1",
+	})
+	require.NoError(t, err)
+	return req, targets
+}
+
+// PWR-005：status 查询不建审批单、不进 executing/verifying——一次状态查询后
+// 直接落终态并返回逐机结果（设计 §5：power.status 是查询，无需审批）。
+func TestStatusQuerySkipsApprovalAndLandsTerminal(t *testing.T) {
+	h := newHarness(t, []string{"on", "on"})
+	h.orch.VerifyTimeout = 30 * time.Second // 延迟不得来自 verifyTimeout（另测）
+
+	req, targets := h.queryStatus(t, "node-1", "node-2")
+
+	require.Empty(t, h.gate.created, "a status query must not create an approval")
+	assert.Empty(t, req.ApprovalID)
+
+	assert.Equal(t, StateDone, req.State)
+	assert.Equal(t, 2, req.Succeeded)
+	assert.Equal(t, 0, req.Failed)
+	require.NotNil(t, req.DoneAt)
+
+	require.Len(t, targets, 2)
+	for _, tgt := range targets {
+		assert.Equal(t, TargetDone, tgt.Status)
+		assert.True(t, tgt.Success)
+		assert.Equal(t, "on", tgt.State)
+		assert.False(t, tgt.Verified, "a query observes; it does not verify an action")
+	}
+	assert.Len(t, h.provider.calls, 2, "exactly one status call per machine, no polling")
+}
+
+// PWR-005：查询延迟由每次调用的 ActionTimeout 决定，绝不随 verifyTimeout
+// 增长——挂死的 provider 在 per-call 界上落为失败行，查询整体快速返回。
+func TestStatusQueryLatencyIndependentOfVerifyTimeout(t *testing.T) {
+	h := newHarness(t, []string{"on"})
+	h.provider.hangStatus = true
+	h.orch.ActionTimeout = 50 * time.Millisecond
+	h.orch.VerifyTimeout = 30 * time.Second // 远大于任何合理查询：绝不能等它
+	h.orch.VerifyInterval = 20 * time.Millisecond
+
+	start := time.Now()
+	req, targets := h.queryStatus(t, "node-1")
+	elapsed := time.Since(start)
+
+	assert.Equal(t, StateFailed, req.State)
+	require.Len(t, targets, 1)
+	assert.False(t, targets[0].Success)
+	assert.Contains(t, targets[0].ErrorMsg, "timed out")
+	assert.Less(t, elapsed, 5*time.Second,
+		"status query latency must not track verifyTimeout (the old verify loop waited it out)")
+}
+
+// PWR-005：IPMI/cloud/agent 三类查询失败与未知状态如实呈现——未知绝不伪装
+// 成 on/off，失败行携带 provider 错误，请求头按同一确认口径聚合。
+func TestStatusQueryPerProviderFailureAndUnknown(t *testing.T) {
+	store := newTestStore(t)
+	gate := &fakeGate{approvals: map[string]bool{}}
+	ipmi := &statusByNode{kind: ProviderIPMI, states: map[string]string{"node-1": "on"}}
+	cloud := &statusByNode{kind: ProviderCloud, errs: map[string]error{"node-2": errors.New("cloudctl: no such instance")}}
+	agent := &statusByNode{kind: ProviderAgent,
+		states: map[string]string{"node-3": "unknown"},
+		errs:   map[string]error{"node-3": ErrUnknownMachineState}}
+	orch := &Orchestrator{
+		Store:         store,
+		Approval:      gate,
+		Providers:     map[string]Provider{ProviderIPMI: ipmi, ProviderCloud: cloud, ProviderAgent: agent},
+		VerifyTimeout: 30 * time.Second,
+	}
+	res := mapResolver{m: map[string]Machine{
+		"node-1": {NodeID: "node-1", Provider: ProviderIPMI, BmcAddr: "10.0.0.7"},
+		"node-2": {NodeID: "node-2", Provider: ProviderCloud, CloudRef: "i-abc"},
+		"node-3": {NodeID: "node-3", Provider: ProviderAgent, AgentID: "ag-1"},
+	}}
+	req, targets, err := orch.QueryStatus(context.Background(), res, SubmitInput{
+		NodeIDs: []string{"node-1", "node-2", "node-3"}, Action: ActionStatus, RequestedBy: "op1",
+	})
+	require.NoError(t, err)
+
+	// 一个 confirmed（ipmi on）、两个未确认（cloud 查询失败、agent 未知）。
+	assert.Equal(t, StatePartial, req.State)
+	assert.Equal(t, 1, req.Succeeded)
+	assert.Equal(t, 2, req.Failed)
+
+	byNode := map[string]*model.PowerRequestTarget{}
+	for _, tgt := range targets {
+		byNode[tgt.NodeID] = tgt
+	}
+	assert.True(t, byNode["node-1"].Success)
+	assert.Equal(t, "on", byNode["node-1"].State)
+	assert.False(t, byNode["node-2"].Success)
+	assert.Contains(t, byNode["node-2"].ErrorMsg, "no such instance")
+	assert.False(t, byNode["node-3"].Success, "an unknown observation is not a success")
+	assert.Equal(t, "unknown", byNode["node-3"].State)
+	assert.Contains(t, byNode["node-3"].ErrorMsg, "power state unknown")
+}
+
+// PWR-005：provider 答 "unknown"（无错误）时仍是未确认——诚实上报未知，落
+// failed 而非伪装 done。
+func TestStatusQueryUnknownWithoutErrorIsNotConfirmed(t *testing.T) {
+	h := newHarness(t, []string{"unknown"})
+	req, targets := h.queryStatus(t, "node-1")
+
+	assert.Equal(t, StateFailed, req.State)
+	assert.Equal(t, 0, req.Succeeded)
+	assert.Equal(t, 1, req.Failed)
+	require.Len(t, targets, 1)
+	assert.False(t, targets[0].Success)
+	assert.Equal(t, "unknown", targets[0].State)
+	assert.Contains(t, targets[0].ErrorMsg, "power state unknown")
+}
+
+// PWR-005：confirmed 的定义——一个 Success=true 但 State=unknown 的目标行
+// （legacy executeRequest 经 RunAction 的产物）不计为已确认：终态不因"动作
+// 成功"而把未知观察谎报成 done。
+func TestStatusTerminalAggregationTreatsUnknownAsUnconfirmed(t *testing.T) {
+	rows := []*model.PowerRequestTarget{
+		{NodeID: "n1", Provider: ProviderIPMI, Success: true, State: "on"},
+		{NodeID: "n2", Provider: ProviderIPMI, Success: true, State: "unknown"},
+	}
+	assert.Equal(t, StatePartial, terminalState(ActionStatus, rows))
+	assert.Equal(t, 1, confirmedCount(ActionStatus, rows))
+}
+
+// PWR-005：Submit 拒绝 status（结构上强制走只读查询），QueryStatus 拒绝变更
+// 动作——分离是结构性约束，不是调用方约定。
+func TestSubmitRefusesStatusAction(t *testing.T) {
+	h := newHarness(t, []string{"on"})
+	_, err := h.orch.Submit(context.Background(), resolver(), SubmitInput{
+		NodeIDs: []string{"node-1"}, Action: ActionStatus,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read-only query")
+	rows, _ := h.store.List(10)
+	assert.Empty(t, rows, "no request row may be persisted for a refused status submit")
+
+	_, _, err = h.orch.QueryStatus(context.Background(), resolver(), SubmitInput{
+		NodeIDs: []string{"node-1"}, Action: ActionPowerOn,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "only accepts the status action")
 }

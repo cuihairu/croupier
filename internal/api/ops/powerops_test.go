@@ -29,9 +29,15 @@ import (
 //（与 svc 装配的 poweropsApprovalGate 同构），approve/reject 走 store 真实状态。
 // ---------------------------------------------------------------------------
 
-type powerTestGate struct{ store approvals.Store }
+type powerTestGate struct {
+	store approvals.Store
+	// created counts approval records the gate minted — the PWR-005 status
+	// query must leave it at zero (no approval record for a read).
+	created int
+}
 
 func (g *powerTestGate) CreateApproval(_ context.Context, action powerops.Action, requestID, requestedBy, reason string, targetCount int) (string, error) {
+	g.created++
 	a, err := g.store.Create(&approvals.Approval{
 		ID:         "apr-" + requestID,
 		FunctionID: action.FunctionID(),
@@ -257,6 +263,32 @@ func TestPowerSubmit_CreatesPendingWithApproval(t *testing.T) {
 	assert.Equal(t, "powerops", a.Mode)
 	assert.Equal(t, "ops.power.power_on", a.FunctionID)
 	assert.Equal(t, "pending", a.State)
+}
+
+// PWR-005：action=status 是只读查询——200 同步返回终态请求+逐机结果，不建
+// 审批单、不进 pending/executing/verifying（设计 §5：power.status 是查询）。
+func TestPowerStatusSubmit_Synchronous_NoApproval(t *testing.T) {
+	h := newPowerHarness(t, true, []string{"on"})
+	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/power",
+		`{"nodeIds":["node-1"],"action":"status","reason":"health check"}`)
+	ctx.Set("username", "alice")
+	h.handler.PowerSubmit(ctx)
+
+	require.Equal(t, http.StatusOK, rec.Code, "a status query completes synchronously")
+	body := rec.Body.String()
+	assert.Contains(t, body, `"state":"done"`)
+	assert.Contains(t, body, `"targets"`)
+	assert.Contains(t, body, `"state":"on"`)
+	assert.Contains(t, body, `"approvalId":""`, "no approval link on a status query")
+
+	requests, err := h.store.List(10)
+	require.NoError(t, err)
+	require.Len(t, requests, 1)
+	assert.Equal(t, "status", requests[0].Action)
+	assert.Equal(t, powerops.StateDone, requests[0].State)
+	assert.Empty(t, requests[0].ApprovalID)
+
+	require.Equal(t, 0, h.gate.created, "the approval gate must never be invoked")
 }
 
 func TestPowerSubmit_Validation_422(t *testing.T) {
