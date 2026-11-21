@@ -21,8 +21,9 @@ tag:
   配置 `auth.loginLockout.threshold`（默认 5）与 `auth.loginLockout.lockMinutes`（默认 15）。
   仅 local provider 计数——LDAP/OIDC 的失败锁定由身份源自己负责；锁定事件入审计链（`auth.login_locked`）。
 - token 撤销：`admins.token_version` 随 JWT claims 下发；登出、改密码（自助/重置）、禁用账号时递增，
-  旧 token 即时失效。已知边界：中间件有 30 秒版本缓存，撤销最长延迟 30s 生效；
-  存储故障时放行（可用性优先，记 warn 日志）。
+  旧 token 即时失效。账号删除（软/硬删）后旧 JWT 同样拒绝——`admins` 无行即
+  `ErrRecordNotFound`，中间件不再放行（AUD-010）。已知边界：中间件有 30 秒版本缓存，
+  撤销最长延迟 30s 生效；真存储故障（非账号不存在）时放行（可用性优先，记 warn 日志）。
 - TOTP MFA：本地账号可自助绑定（`POST /api/v1/auth/mfa/setup` → `confirm`，`disable` 需验证码+密码双确认）。
   启用后登录需携带 `totpCode`，缺失返回 `401 + error=mfa_required`。
   仅 local provider 生效——OIDC 登录的 MFA 属 IdP 职责；裸 LDAP 部署需要 MFA 时应改用本地账号承载。
