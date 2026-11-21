@@ -193,15 +193,49 @@ parameter keeps its position.
 The executor (`internal/drivers/openapi` `Provider.Call`) consumes the request
 contract to build the upstream HTTP request:
 
-- `path` parameters substitute their placeholders in the URL template;
-- `query` parameters append to the query string;
-- `header` parameters set headers;
-- `cookie` parameters set the `Cookie` header (executed by SUI-006; the
-  executor today sets `path`/`query`/`header` and carries `cookie` on the
-  contract without sending it);
+- `path` parameters substitute their placeholders in the URL template, encoded
+  per their `style` (`simple` / `label` / `matrix`);
+- `query` parameters append to the query string, encoded per their `style`
+  (`form` / `spaceDelimited` / `pipeDelimited` / `deepObject`) and `explode`;
+- `header` parameters set headers, encoded per `simple`;
+- `cookie` parameters set the `Cookie` header, encoded per `form` (primitive
+  values only);
 - the body is serialized per `body.mediaType`; for `application/json` the
   `body` value is marshaled verbatim (so a root array or scalar arrives as that
   exact JSON type), and it is **not** filtered by consumed parameters.
+
+### Parameter serialization (SUI-006)
+
+The executor serializes each parameter per the OpenAPI style/explode rules
+(parameter values are percent-encoded; separators stay literal per the OpenAPI
+appendix). The publicly declared, executable matrix:
+
+| Position | `style` | `explode` | Value shape | Wire form |
+|---|---|---|---|---|
+| `path` | `simple` | both | primitive | `/users/{id}` → `/users/5` |
+| `path` | `simple` | both | array | `/users/1,2,3` |
+| `path` | `simple` | `false` | object | `/users/id,1,tag,alice` |
+| `path` | `simple` | `true` | object | `/users/id=1,tag=alice` |
+| `path` | `label` | both | primitive / array / object | `/users/.5` (`.1,2` / `.1.2` / `.id=1.tag=alice`) |
+| `path` | `matrix` | both | primitive / array / object | `/users/;id=5` (`;id=1;id=2` / `;id=1,tag=alice`) |
+| `query` | `form` | `false` | array / object | `?list=1,2` (`?u=id,1,tag,alice`) |
+| `query` | `form` | `true` | array / object | `?list=1&list=2` (`?id=1&tag=alice`) |
+| `query` | `spaceDelimited` | `false` | array / object | `?s=1+2` (`?u=id+1+tag+alice`) |
+| `query` | `pipeDelimited` | `false` | array / object | `?p=1\|2` (`?u=id\|1\|tag\|alice`) |
+| `query` | `deepObject` | `true` | object | `?m[key]=1&m[k2]=2` |
+| `header` | `simple` | both | primitive / array / object | `X: 5` (`X: 1,2,3` / `X: id=1,tag=alice`) |
+| `cookie` | `form` | both | primitive | `Cookie: token=8` |
+
+Explode is applied per position: `path`/`header` default to `false`, `query`/
+`cookie` default to `true`. Non-executable combinations (a style not allowed for
+the position — `form` in `path`, `simple` in `query`, …; `deepObject` with
+`explode=false`; `deepObject` on a non-object value; an array/object value in
+`cookie`) are surfaced in both front-ends as a diagnostic
+`openapi_parameter_serialization_unsupported` (severity `error`, `field` = the
+parameter name), and the executor refuses the request with the same reason
+instead of silently mis-serializing. The `spaceDelimited` separator is sent as
+`+` (the form-encoded space) so the wire stays valid while decoding back to the
+space-joined list; `|` and `,` separators stay literal.
 
 The input JSON reaching `Call` is the projection output. The executor detects
 the mode from the contract (not by sniffing the input):
@@ -225,7 +259,10 @@ executor keeps the legacy behaviour.
   parameters become the body slot, `in: formData` parameters are lifted into
   the body object's properties. They do not participate in the kin/map parity
   test (kin rejects 2.0).
-- Deep-object, matrix, and label serializations for `query`/`path`, and cookie
-  parameters as a whole, are captured in the contract but not yet executed by
-  the executor (SUI-006); unsupported combinations produce a diagnostic rather
-  than a wrong request.
+- The executor refuses non-executable serialization combinations (see
+  [Parameter serialization](#parameter-serialization-sui-006)) with an error
+  carrying the same reason the extraction diagnostics record; it never sends a
+  mis-serialized request.
+- Parameter values nested deeper than one level (an array of objects, an object
+  with array values) are not serializable: the value is treated as a scalar and
+  non-scalar items surface as an error rather than a mangled wire form.

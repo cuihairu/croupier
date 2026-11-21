@@ -216,6 +216,11 @@ func requestContractDiagnostics(contract spec.OperationRequestContract) []spec.D
 			seen[p.Name] = true
 		}
 	}
+	// 序列化组合不可执行（SUI-006）：style 不属于该位置、deepObject 非对象或
+	// explode 不为 true、cookie 收到数组/对象等。执行器以同样原因拒绝请求。
+	for _, p := range contract.Parameters {
+		diags = append(diags, spec.ValidateSerialization(p)...)
+	}
 	if contract.Body == nil || len(contract.Parameters) == 0 {
 		return diags
 	}

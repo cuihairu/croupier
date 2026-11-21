@@ -158,13 +158,42 @@
 
 执行器（`internal/drivers/openapi` 的 `Provider.Call`）消费请求契约构建上游 HTTP 请求：
 
-- `path` 参数替换 URL 模板中的占位符；
-- `query` 参数追加到查询串；
-- `header` 参数设置请求头；
-- `cookie` 参数设置 `Cookie` 头（由 SUI-006 执行；执行器当前设置
-  `path`/`query`/`header`，`cookie` 只留在契约上不发送）；
+- `path` 参数替换 URL 模板中的占位符，按 `style`（`simple` / `label` / `matrix`）编码；
+- `query` 参数追加到查询串，按 `style`（`form` / `spaceDelimited` / `pipeDelimited` /
+  `deepObject`）与 `explode` 编码；
+- `header` 参数设置请求头，按 `simple` 编码；
+- `cookie` 参数设置 `Cookie` 头，按 `form` 编码（仅原始值）；
 - body 按 `body.mediaType` 序列化；`application/json` 时 `body` 值原样序列化
   （因此根数组/标量以该 JSON 类型送达），且**不**按已消费参数过滤。
+
+### 参数序列化（SUI-006）
+
+执行器按 OpenAPI style/explode 规则序列化每个参数（参数值百分号编码，分隔符按
+OpenAPI 附录保持字面）。公开声明、可执行的矩阵：
+
+| 位置 | `style` | `explode` | 值形状 | 线上形态 |
+|---|---|---|---|---|
+| `path` | `simple` | 均支持 | 原始值 | `/users/{id}` → `/users/5` |
+| `path` | `simple` | 均支持 | 数组 | `/users/1,2,3` |
+| `path` | `simple` | `false` | 对象 | `/users/id,1,tag,alice` |
+| `path` | `simple` | `true` | 对象 | `/users/id=1,tag=alice` |
+| `path` | `label` | 均支持 | 原始值/数组/对象 | `/users/.5`（`.1,2` / `.1.2` / `.id=1.tag=alice`） |
+| `path` | `matrix` | 均支持 | 原始值/数组/对象 | `/users/;id=5`（`;id=1;id=2` / `;id=1,tag=alice`） |
+| `query` | `form` | `false` | 数组/对象 | `?list=1,2`（`?u=id,1,tag,alice`） |
+| `query` | `form` | `true` | 数组/对象 | `?list=1&list=2`（`?id=1&tag=alice`） |
+| `query` | `spaceDelimited` | `false` | 数组/对象 | `?s=1+2`（`?u=id+1+tag+alice`） |
+| `query` | `pipeDelimited` | `false` | 数组/对象 | `?p=1\|2`（`?u=id\|1\|tag\|alice`） |
+| `query` | `deepObject` | `true` | 对象 | `?m[key]=1&m[k2]=2` |
+| `header` | `simple` | 均支持 | 原始值/数组/对象 | `X: 5`（`X: 1,2,3` / `X: id=1,tag=alice`） |
+| `cookie` | `form` | 均支持 | 原始值 | `Cookie: token=8` |
+
+`explode` 按位置取默认：`path`/`header` 默认 `false`，`query`/`cookie` 默认 `true`。
+不可执行的组合（style 不属于该位置——`path` 里的 `form`、`query` 里的 `simple` 等；
+`deepObject` 配 `explode=false`；`deepObject` 作用于非对象值；`cookie` 收到数组/对象值）
+在两个提取前端都以诊断 `openapi_parameter_serialization_unsupported` 记录（severity
+`error`，`field` = 参数名），执行器以同一原因拒绝请求，绝不静默错序列化。
+`spaceDelimited` 分隔符以 `+` 发送（表单编码的空格，线上合法，解码后即空格连接列表）；
+`|` 与 `,` 分隔符保持字面。
 
 到达 `Call` 的输入 JSON 即投影输出。执行器从契约识别模式（而不是嗅探输入）：
 
@@ -181,5 +210,7 @@
   它们由 `body.mediaType` 承载并记入支持矩阵（SUI-047）。
 - Swagger 2.0 文档只走 map 前端：`in: body` 参数成为 body 槽位，`in: formData` 参数
   被提升进 body object 属性。它们不参与 kin/map 对拍测试（kin 拒载 2.0）。
-- `query`/`path` 的 deep-object、matrix、label 序列化，以及 `cookie` 参数整体，
-  已记录进契约但执行器尚未执行（SUI-006）；无法执行的组合输出诊断而不是发错请求。
+- 执行器对不可执行的序列化组合（见「参数序列化（SUI-006）」）以错误拒绝，错误信息
+  与提取侧诊断同文；绝不发送错序列化的请求。
+- 参数值嵌套超过一层（对象数组、含数组值的对象）不可序列化：值按标量处理，非标量
+  项报错而不是送上变形的线上形态。
