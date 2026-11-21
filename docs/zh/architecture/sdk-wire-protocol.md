@@ -236,7 +236,7 @@ busy 文案 `retry on another instance` 是给调用方的建议，不是平台�
 
 - wire 层无平台级去重：`metadata["idempotencyKey"]` 只是透传约定；业务侧 exactly-once 副作用仍需游戏方回执/去重作为独立契约
 - `TaskEvent` 的排序是服务端存储序号，不是 wire 字段；单向帧本身不带 `seq`，事件消费方必须依赖 `StreamTaskAfterSeq` 重放而非帧内排序
-- 非Invoke 业务消息的 busy 响应是空 body 帧（无错误 payload）；调用方只能凭响应完整性区分，而非过载标志位——显式 `overloaded` / `retry_after_ms` wire 字段仍未定义
+- busy 与 handler 错误的响应按 RPC 类型编码（AUD-002）：Invoke 在 `InvokeResponse.payload` 承载 `{"error":...}`；带失败通道的 RPC（`Success`/`Message`/`Error`/`GetTaskResult.State`）返回带错误文本的类型化失败；wire 响应类型没有失败通道的 RPC（`ListProcesses`/`ListServices`/`ListCronJobs`/`GetSupervisorLog`/`GetSystemInfo`/`StartTask`/`Heartbeat`/`Register`）无法表达错误，回空 body——传输层记真实错误日志，调用方看到的是零值。错误文本一律经标准 JSON 编码器，引号/反斜杠/换行不会破坏文档。显式 `overloaded` / `retry_after_ms` wire 字段仍未定义
 - 钉住 busy-never-fails-over 规则的回归测试：`internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
 ## Provider 握手鉴权

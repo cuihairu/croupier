@@ -7,16 +7,12 @@ import (
 	"log/slog"
 	"net"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	transportcore "github.com/cuihairu/croupier/core/transport"
-	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 // ProtocolError marks a request as a protocol violation and forces the connection to close.
@@ -149,15 +145,9 @@ func (c *MuxConn) dispatchInbound(ctx context.Context, msgID uint32, reqID uint3
 	select {
 	case c.bizInbox <- task:
 	default:
-		var respBody []byte
-		if msgID == protocol.MsgInvokeRequest {
-			resp := &sdkv1.InvokeResponse{
-				Payload: []byte(`{"error":"inbound queue full, retry on another instance"}`),
-			}
-			if marshaled, err := proto.Marshal(resp); err == nil {
-				respBody = marshaled
-			}
-		}
+		// 统一编码（AUD-002）：busy 响应经 RPCFailureBody 生成——有失败通道的
+		// RPC 携带 `Success:false`，无通道类型返回 nil（诚实边界见 rpc_error.go）。
+		respBody := RPCFailureBody(msgID, "inbound queue full, retry on another instance")
 		if err := c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody); err != nil {
 			return err
 		}
@@ -231,9 +221,9 @@ func (c *MuxConn) Run(ctx context.Context) error {
 			// session alive: a peer running an unsupported wire version must
 			// not silently kill the whole connection (N-1 compatibility).
 			if protocol.IsRequest(msgID) {
-				respBody, _ := proto.Marshal(&sdkv1.InvokeResponse{
-					Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
-				})
+				// 统一编码（AUD-002）：版本拒绝文档经标准编码器生成，沿用
+				// InvokeResponse 载体（SDK 读取 payload 并报告范围）。
+				respBody := InvokeVersionRejectedBody(int(version), protocol.SupportedVersions())
 				if err := c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody); err != nil {
 					return err
 				}
@@ -374,24 +364,12 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 			return err
 		}
 		slog.Error("rpc handler error", "msg_id", protocol.MsgIDString(msgID), "error", err)
-		if msgID == protocol.MsgInvokeRequest {
-			resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"` + err.Error() + `"}`)}
-			respBody, _ = proto.Marshal(resp)
-		} else {
-			respBody = nil
-		}
+		// 统一编码（AUD-002）：错误文本经标准编码器，响应携带该 RPC 的
+		// 失败通道（无通道类型返回 nil，诚实边界见 rpc_error.go）。
+		respBody = RPCFailureBody(msgID, err.Error())
 	}
 
 	return c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody)
-}
-
-func supportedVersionsJSON() string {
-	versions := protocol.SupportedVersions()
-	values := make([]string, len(versions))
-	for i, version := range versions {
-		values[i] = strconv.Itoa(version)
-	}
-	return "[" + strings.Join(values, ",") + "]"
 }
 
 func (c *MuxConn) writeFrame(reqID uint32, msgID uint32, body []byte) error {

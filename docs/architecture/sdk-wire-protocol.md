@@ -250,8 +250,12 @@ Known boundaries (stated, not hidden):
   still require game-side receipts/deduplication as a separate contract
 - `TaskEvent` ordering is a server-side store sequence, not a wire field; the one-way frame carries no `seq`, so event consumers
   must rely on `StreamTaskAfterSeq` replay rather than in-frame ordering
-- Busy responses for non-Invoke business messages are empty-body frames (no error payload); the caller distinguishes them by
-  response completeness, not by an overload flag — explicit `overloaded` / `retry_after_ms` wire fields remain undefined
+- Busy and handler-error responses are encoded per-RPC (AUD-002): Invoke carries `{"error":...}` in `InvokeResponse.payload`;
+  RPCs with a failure channel (`Success`/`Message`/`Error`/`GetTaskResult.State`) get a typed failure with the message; RPCs whose
+  wire response type has no failure channel (`ListProcesses`/`ListServices`/`ListCronJobs`/`GetSupervisorLog`/`GetSystemInfo`/
+  `StartTask`/`Heartbeat`/`Register`) cannot express the error and return an empty body — the transport logs the real error and the
+  caller sees the zero value. The error text is always JSON-encoded with the standard encoder, so quotes/backslashes/newlines in
+  the error never break the document. Explicit `overloaded` / `retry_after_ms` wire fields remain undefined
 - Regression tests pinning the busy-never-fails-over rule: `internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
 ## Provider handshake auth

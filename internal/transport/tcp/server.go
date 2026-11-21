@@ -8,16 +8,13 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	transportcore "github.com/cuihairu/croupier/core/transport"
 	tcptr "github.com/cuihairu/croupier/core/transport/tcp"
-	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 // Server implements a plain TCP request-response transport server.
@@ -289,10 +286,9 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 			// 仅拒绝请求帧（与 core mux/sdks 客户端同规则）：对响应帧回写会
 			// 伪造对端从未发出的请求响应，对单向事件回写则可能形成响应循环。
 			if protocol.IsRequest(msgID) {
-				resp := &sdkv1.InvokeResponse{
-					Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
-				}
-				rejection, _ := proto.Marshal(resp)
+				// 统一编码（AUD-002）：版本拒绝文档经标准编码器生成，
+				// 沿用 InvokeResponse 载体（SDK 读取 payload 并报告范围）。
+				rejection := tcptr.InvokeVersionRejectedBody(int(version), protocol.SupportedVersions())
 				_ = writer.writeResponse(msgID, reqID, rejection)
 			}
 			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
@@ -340,20 +336,12 @@ func (s *Server) executionWorker(w *connWriter, queue <-chan inboundTask) {
 	for task := range queue {
 		respBody, handleErr := s.handler.Handle(task.ctx, task.msgID, task.reqID, task.body)
 		if handleErr != nil {
-			// Log the real error so it is diagnosable. Previously this was
-			// silently JSON-encoded and sent back; a JSON body is not valid
-			// proto, so the client failed with "proto: cannot parse invalid
-			// wire-format data", masking the actual error.
+			// Log the real error so it is diagnosable. The failure response is
+			// encoded centrally (AUD-002): error text goes through the standard
+			// JSON encoder and the response carries the failure channel of the
+			// RPC's own wire type, so a client never reads a zero-value success.
 			slog.Error("rpc handler error", "msg_id", protocol.MsgIDString(task.msgID), "error", handleErr)
-			if task.msgID == protocol.MsgInvokeRequest {
-				// InvokeRequest: return InvokeResponse with error payload (proto).
-				resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"` + handleErr.Error() + `"}`)}
-				respBody, _ = proto.Marshal(resp)
-			} else {
-				// Other RPCs: send an empty body (valid proto; unmarshals to the
-				// zero value of the expected response). The real error is logged.
-				respBody = nil
-			}
+			respBody = tcptr.RPCFailureBody(task.msgID, handleErr.Error())
 		}
 		_ = w.writeResponse(task.msgID, task.reqID, respBody)
 		if task.cancel != nil {
@@ -362,26 +350,11 @@ func (s *Server) executionWorker(w *connWriter, queue <-chan inboundTask) {
 	}
 }
 
-// busyResponseBody 是业务队列打满时的即时拒绝响应体。
+// busyResponseBody 是业务队列打满时的即时拒绝响应体。经集中编码（AUD-002）：
+// 有失败通道的 RPC 返回带 `Success:false` 的类型化响应，客户端可识别；无
+// 失败通道的类型返回 nil（空 body，诚实边界见 core/transport/tcp/rpc_error.go）。
 func busyResponseBody(msgID uint32) []byte {
-	if msgID != protocol.MsgInvokeRequest {
-		return nil
-	}
-	resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"inbound queue full, retry on another instance"}`)}
-	body, err := proto.Marshal(resp)
-	if err != nil {
-		return nil
-	}
-	return body
-}
-
-func supportedVersionsJSON() string {
-	versions := protocol.SupportedVersions()
-	values := make([]string, len(versions))
-	for i, version := range versions {
-		values[i] = strconv.Itoa(version)
-	}
-	return "[" + strings.Join(values, ",") + "]"
+	return tcptr.RPCFailureBody(msgID, "inbound queue full, retry on another instance")
 }
 
 // trackConn registers an accepted connection for Close-time shutdown.
